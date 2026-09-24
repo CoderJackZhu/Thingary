@@ -1,0 +1,29 @@
+{
+  "dataset": "0a0e28f8-0b00-4f4a-9d05-9c1da9650abe",
+  "materials": [],
+  "asset": [
+    {
+      "id": "e92954c3-a6a7-4463-a533-9bd1bcca7f5e",
+      "name": "U01 Native Name Only",
+      "price_cents": null,
+      "purchase_date": null,
+      "revision": 2,
+      "deleted_at": null,
+      "category_id": null,
+      "channel_id": null,
+      "lifecycle_state": "active"
+    }
+  ],
+  "photos": [
+    {
+      "asset_id": "e92954c3-a6a7-4463-a533-9bd1bcca7f5e",
+      "attachment_id": "8293e681-ee68-44ee-9615-5657ca48dde6",
+      "position": 0,
+      "name": "U01-fictional-camera.heic"
+    }
+  ],
+  "asset_and_photos_unchanged": true,
+  "integrity_check": "ok",
+  "foreign_key_check": [],
+  "missing_or_mismatched_files": 0
+}

@@ -1,0 +1,4 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 273-276
+~				247 text 已删除素材「U01-fictional-camera.heic」。已保存资产的图片不受影响。
+The focused UI element is 167 HTML content Description: 物志 · 开发预览, URL: tauri://localhost

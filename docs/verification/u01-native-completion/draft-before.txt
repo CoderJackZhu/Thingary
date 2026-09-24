@@ -1,0 +1,6 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 260
+~					257 text 素材已准备好，将随资料一起保存。
+~					258 button 取消
+~					259 button 保存资产
+The focused UI element is 219 container 新增资产

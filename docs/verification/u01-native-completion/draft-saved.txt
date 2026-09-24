@@ -1,0 +1,92 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 77-112
+~			75 container
+~				76 text 物志 POSSIO
++				77 container 主导航
++					78 button (disabled) 总览, Help: 总览将在后续阶段开放
++					79 text 我的物品
++					80 button 全部资产
++					81 button 使用中
++					82 button 已退役
++					83 button 已售出
++					84 text 记录与回顾
++					85 button (disabled) 心愿清单, Help: 心愿清单将在后续阶段开放
++					86 button (disabled) 时间轴, Help: 全局时间轴将在后续阶段开放
++					87 button (disabled) 统计, Help: 统计将在后续阶段开放
++				88 container 资料管理
++					89 button 素材库
++					90 button 最近删除
++					91 button 设置
++				92 text 本地档案 · 仅保存在这台 Mac
++			93 container
++				94 text 我的物品 ／ 物品详情
++				95 text field (settable) 搜索物品
++				96 text ⌘F
++				97 button 新增资产
++				98 text 资料已保存。
++				99 button ← 返回物品列表
++				100 image 键盘示意图（非实物照片）
++				101 container
++					102 text 未分类 ·  使用中
++				103 heading U01 Native Draft Recovery, Value: 2
++					104 text U01 Native Draft Recovery
++				105 text 一件物品，一段日常
++				106 button 编辑资料 ⌘E
++				107 button 新增维护
++				108 button 标记退役
++				109 button 标记售出
++				110 container 持有与成本
++					111 heading 持有与成本, Value: 3
++						112 text 持有与成本
++					113 text 日均持有成本
++					114 text 待补充
++					115 text 补全购入日期后计算持有天数
++					116 description list
++						117 text 购入金额
++						118 text 待补充
++						119 text 维护投入
++						120 text ¥0.00
++						121 text 总投入
++						122 text 待补充
++						123 text 持有时长
++						124 text 待补充
++					125 text 按自然日计算，包含购入当天；售出后截止到售出日。
++				126 container 购买资料
++					127 heading 购买资料, Value: 3
++						128 text 购买资料
++					129 description list
++						130 text 购入日期
++						131 text 待补充
++						132 text 购买渠道
++						133 text 未记录
++						134 text 品牌
++						135 text 待补充
++						136 text 型号
++						137 text 待补充
++						138 text 序列号
++						139 text 待补充
++				140 container 关于这件物品
++					141 heading 关于这件物品, Value: 3
++						142 text 关于这件物品
++					143 text 还没有备注。记下购买的缘由，或使用中的小细节。
++				144 container 物品时间轴
++					145 heading 物品时间轴, Value: 3
++						146 text 物品时间轴
++					147 text 最新记录在前
++					148 container
++						149 text 购入记录 购入日期待补充
++				150 container 维护档案
++					151 heading 维护档案, Value: 3
++						152 text 维护档案
++					153 text 0 条 · 已知费用 ¥0.00
++					154 text 还没有维护记录。
++				155 container 图片附件
++					156 heading 图片附件, Value: 3
++						157 text 图片附件
++					158 text 1 张
++					159 container 物品图片
++						160 button 预览 键盘示意图（非实物照片）
++				161 summary 档案信息, Value: off
++					162 text 档案信息
++				163 button 移入最近删除…
+The focused UI element is 2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
