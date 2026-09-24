@@ -1,6 +1,6 @@
 export type Asset = { id: string; name: string; price_cents: string | null; purchase_date: string | null; revision: number };
 export type Details = { brand: string; model: string; serial_number: string; notes: string };
-export type AssetRecord = { asset: Asset; details: Details; created_at: string | null; updated_at: string | null; deleted: boolean };
+export type AssetRecord = { asset: Asset; details: Details; created_at: string | null; updated_at: string | null; deleted: boolean; deleted_at: string | null };
 export type SaveAsset = { base: { request_id: string; generation: string; asset_id: string | null; expected_revision: number | null; name: string; price_cents: string | null; purchase_date: string | null }; details: Details };
 export type Query = { search: string; filter: string; sort: string; descending: boolean; offset: number };
 export type Page = { generation: string; items: AssetRecord[]; total: number; today: string };

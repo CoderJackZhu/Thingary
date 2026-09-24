@@ -1,5 +1,7 @@
 #![cfg(feature = "fault-injection")]
-use possio_lib::{backup::archive_hash, domain::Save, files::Attach, storage::Store};
+use possio_lib::{
+    backup::archive_hash, domain::Save, files::Attach, storage::Store, trash::TrashChange,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -50,6 +52,16 @@ fn crash_child() {
         "save" => {
             s.save(&case.save, "2026-09-24").unwrap();
         }
+        "trash-delete" | "trash-restore" => {
+            s.change_trash(&TrashChange {
+                request_id: case.attach.request_id.clone(),
+                generation: case.save.generation.clone(),
+                asset_id: case.attach.asset_id.clone(),
+                expected_revision: if case.action == "trash-delete" { 1 } else { 2 },
+                deleted: case.action == "trash-delete",
+            })
+            .unwrap();
+        }
         "image" => {
             s.attach(&case.attach, &case.bytes).unwrap();
         }
@@ -96,6 +108,14 @@ fn real_process_termination_preserves_complete_state() {
     for (action, points) in [
         ("save", vec!["save.before_commit", "save.after_commit"]),
         (
+            "trash-delete",
+            vec!["trash.before_commit", "trash.after_commit"],
+        ),
+        (
+            "trash-restore",
+            vec!["trash.before_commit", "trash.after_commit"],
+        ),
+        (
             "image",
             vec![
                 "image.after_stage",
@@ -141,6 +161,16 @@ fn real_process_termination_preserves_complete_state() {
             if action != "save" {
                 attach.asset_id = s.save(&save, "2026-09-24").unwrap().id;
             }
+            if action == "trash-restore" {
+                s.change_trash(&TrashChange {
+                    request_id: uuid::Uuid::new_v4().to_string(),
+                    generation: s.generation(),
+                    asset_id: attach.asset_id.clone(),
+                    expected_revision: 1,
+                    deleted: true,
+                })
+                .unwrap();
+            }
             if action == "restore" {
                 photo = Some(s.attach(&attach, bytes.get_ref()).unwrap());
                 s.backup(Some(&root.path().join("source.possio"))).unwrap();
@@ -168,6 +198,34 @@ fn real_process_termination_preserves_complete_state() {
                     let a = s.save(&save, "2026-09-24").unwrap();
                     assert_eq!(s.save(&save, "2026-09-24").unwrap(), a);
                     assert_eq!(s.count().unwrap(), 1);
+                }
+                "trash-delete" | "trash-restore" => {
+                    let deleted = action == "trash-delete";
+                    let revision = if deleted { 1 } else { 2 };
+                    let record = s.record(&attach.asset_id).unwrap().unwrap();
+                    assert_eq!(
+                        record.deleted,
+                        if point == "trash.after_commit" {
+                            deleted
+                        } else {
+                            !deleted
+                        }
+                    );
+                    let request = TrashChange {
+                        request_id: attach.request_id.clone(),
+                        generation: save.generation.clone(),
+                        asset_id: attach.asset_id.clone(),
+                        expected_revision: revision,
+                        deleted,
+                    };
+                    assert_eq!(
+                        s.change_trash(&request).unwrap().asset.revision,
+                        revision + 1
+                    );
+                    assert_eq!(
+                        s.change_trash(&request).unwrap().asset.revision,
+                        revision + 1
+                    );
                 }
                 "image" => {
                     let a = s.attach(&attach, &case.bytes).unwrap();
