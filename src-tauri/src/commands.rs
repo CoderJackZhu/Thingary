@@ -205,3 +205,18 @@ pub async fn taxonomy_request(
     .await
     .map_err(|_| Error::new("WORKER", "无法核对本次请求"))?
 }
+
+#[tauri::command]
+pub async fn change_lifecycle(
+    input: crate::lifecycle::Change,
+    worker: tauri::State<'_, Worker>,
+) -> Result<AssetRecord> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.change_lifecycle(&input, &chrono::Local::now().format("%Y-%m-%d").to_string())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到状态保存结果，请核对本次操作"))?
+}

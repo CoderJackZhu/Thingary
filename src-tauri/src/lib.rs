@@ -3,6 +3,7 @@ pub mod catalog;
 mod commands;
 pub mod domain;
 pub mod files;
+pub mod lifecycle;
 pub mod native_images;
 pub mod photos;
 mod recovery;
@@ -87,6 +88,7 @@ pub fn run() {
             commands::read_asset,
             commands::save_asset,
             commands::change_trash,
+            commands::change_lifecycle,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,

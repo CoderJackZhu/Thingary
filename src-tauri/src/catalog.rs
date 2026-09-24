@@ -34,6 +34,7 @@ use crate::{
 use rusqlite::{params, OptionalExtension};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssetRecord {
+    pub lifecycle: crate::lifecycle::Lifecycle,
     pub asset: Asset,
     pub details: Details,
     pub created_at: Option<String>,
@@ -85,6 +86,7 @@ impl Store {
                     r.get(0)
                 })?;
         Ok(Some(AssetRecord {
+            lifecycle: self.lifecycle(id)?,
             asset,
             details,
             created_at,
@@ -148,6 +150,9 @@ impl Store {
         };
         let filter = match q.filter.as_str() {
             "all" | "deleted" => "1",
+            "active" => "a.lifecycle_state='active'",
+            "retired" => "a.lifecycle_state='retired'",
+            "held" => "a.lifecycle_state IN ('active','retired')",
             "missing_price" => "a.price_cents IS NULL",
             "missing_date" => "a.purchase_date IS NULL",
             _ => return Err(Error::new("QUERY", "不支持的筛选")),
