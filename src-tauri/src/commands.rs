@@ -160,6 +160,91 @@ pub async fn pick_photo(
     .await
     .map_err(|_| Error::new("WORKER", "图片未能读取，请重新选择"))?
 }
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PrepareMaterial {
+    pub id: String,
+    pub generation: String,
+}
+#[tauri::command]
+pub async fn prepare_material(
+    input: PrepareMaterial,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::photos::Photo> {
+    // Only catalog ids and stored material ids reach storage; bytes come from
+    // the app bundle or the managed library, never from client paths.
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.prepare_material(&input.id, &input.generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "素材准备失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn list_materials(
+    worker: tauri::State<'_, Worker>,
+) -> Result<Vec<crate::materials::MaterialEntry>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.material_entries()))
+        .await
+        .map_err(|_| Error::new("WORKER", "素材读取失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn add_material(
+    app: tauri::AppHandle,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::materials::MaterialEntry> {
+    let (send, receive) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = send.send(crate::native_images::pick());
+    })
+    .map_err(|_| Error::new("PICKER", "无法打开图片选择器"))?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "图片选择器未返回结果"))?;
+        match path {
+            None => Err(Error::new("PICKER", "已取消，未上传素材。")),
+            Some(path) => w.call(move |s| s.add_material(&path, &generation)),
+        }
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "素材上传失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn remove_material(
+    id: String,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Vec<crate::materials::MaterialEntry>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.remove_material(&id, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "素材删除失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn material_preview(
+    id: String,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<tauri::ipc::Response> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.material_preview(&id, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "素材预览失败"))?
+    .map(tauri::ipc::Response::new)
+}
+
 #[tauri::command]
 pub async fn photo_preview(
     id: String,

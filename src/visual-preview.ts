@@ -12,6 +12,7 @@ import { lifecycleError } from './lifecycle';
 import type { LifecycleChange } from './lifecycle';
 import type { Maintenance, MaintenanceChange } from './maintenance';
 import { fixtureArt } from './visual-fixtures';
+import { MATERIALS, materialOf, materialPhotoName } from './materials';
 import { previewRecord } from './preview-costs';
 import demoAssets from './demo-assets.json';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
@@ -47,8 +48,20 @@ for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.tax
 if (!params.has('preserve-maintenance')) localStorage.removeItem('possio.maintenance-draft.v1');
 if (params.has('theme')) localStorage.setItem('possio.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
 const images = new Map<string, Promise<ArrayBuffer>>();
+// Staged material selections keep their artwork key so previews render the
+// same illustration the native app hosts; ids are per-selection and independent.
+const stagedMaterials = new Map<string, { art: string; name: string }>();
+let materialSequence = 0;
+// In-memory stand-in for the schema 9 user-material table; resets on reload.
+type PreviewMaterial = { id: string; name: string; builtin: boolean; art: string };
+let userMaterials: PreviewMaterial[] = [];
+const previewMaterials = (): PreviewMaterial[] => [
+  ...MATERIALS.map(m => ({ id: m.id, name: m.name, builtin: true, art: m.id })),
+  ...userMaterials,
+];
 function imageBytes(id: string): Promise<ArrayBuffer> {
-  if (!images.has(id)) images.set(id, new Promise((resolve,reject) => {
+  const key = stagedMaterials.get(id)?.art ?? id;
+  if (!images.has(key)) images.set(key, new Promise((resolve,reject) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas'); canvas.width=480; canvas.height=360;
@@ -56,9 +69,13 @@ function imageBytes(id: string): Promise<ArrayBuffer> {
       canvas.toBlob(blob => { if(blob) void blob.arrayBuffer().then(resolve); else reject(new Error('Fixture image failed')); },'image/png');
     };
     img.onerror = () => reject(new Error('Fixture illustration failed'));
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fixtureArt(id));
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fixtureArt(key));
   }));
-  return images.get(id)!;
+  return images.get(key)!;
+}
+function previewPhotoName(id: string): string {
+  const staged = stagedMaterials.get(id);
+  return staged ? staged.name : '虚构物品示意图';
 }
 mockIPC(async (command,payload) => {
   const args = payload as Record<string,unknown>;
@@ -101,7 +118,7 @@ mockIPC(async (command,payload) => {
     if(old?.sale && input.base.purchase_date && input.base.purchase_date>old.sale.fields.date) throw {code:'DATE_CONFLICT',message:'购入日期晚于有效售出记录。'};
     if(old && input.base.purchase_date && old.lifecycle?.events.some(e=>e.date<input.base.purchase_date!)) throw {code:'DATE_CONFLICT',message:'购入日期晚于已有状态记录，请先更正相关动作日期。'};
     const id=old?.asset.id ?? crypto.randomUUID();
-    const record:AssetRecord={sale:old?.sale??null,maintenances:old?.maintenances??[],costs:old?.costs??{...emptyCosts,total_investment_cents:input.base.price_cents},lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:'虚构物品示意图'})),cover_id:input.photos?.cover_id??null};
+    const record:AssetRecord={sale:old?.sale??null,maintenances:old?.maintenances??[],costs:old?.costs??{...emptyCosts,total_investment_cents:input.base.price_cents},lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:previewPhotoName(photoId)})),cover_id:input.photos?.cover_id??null};
     taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); return previewRecord(record);
   }
   // Exercise production delete/restore UI, without touching the native library.
@@ -173,6 +190,35 @@ mockIPC(async (command,payload) => {
   if (command === 'photo_preview') {
     if(params.has('missing-maintenance-photo') && String(args.id)==='maintenance-photo-fixture') throw {code:'PHOTO_MISSING',message:'模拟维护原图缺失。'};
     return imageBytes(String(args.id));
+  }
+  if (command === 'list_materials') return previewMaterials().map(({id,name,builtin}) => ({id,name,builtin}));
+  if (command === 'add_material') {
+    // The real upload opens a native picker; the preview adds a fixture art
+    // entry so the library flow stays demonstrable in the browser.
+    const art = MATERIALS[userMaterials.length % MATERIALS.length].id;
+    const entry = { id: `user-material-${++materialSequence}`, name: `自定义素材 ${userMaterials.length + 1}.png`, builtin: false, art };
+    userMaterials = [...userMaterials, entry];
+    return { id: entry.id, name: entry.name, builtin: false };
+  }
+  if (command === 'remove_material') {
+    if(String(args.id).startsWith('user-material-')) userMaterials = userMaterials.filter(m => m.id !== String(args.id));
+    return previewMaterials().map(({id,name,builtin}) => ({id,name,builtin}));
+  }
+  if (command === 'material_preview') {
+    const found = previewMaterials().find(m => m.id === String(args.id));
+    if(!found) throw {code:'MATERIAL',message:'未知素材。'};
+    return imageBytes(found.art);
+  }
+  if (command === 'prepare_material') {
+    // In-memory stand-in for native staging; it cannot prove native durability.
+    const input = args.input as {id: string; generation: string};
+    if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换，请重新打开档案。'};
+    const material = previewMaterials().find(m => m.id === input.id);
+    if(!material) throw {code:'MATERIAL',message:'未知素材，请重新选择。'};
+    if(params.has('material-error')) throw {message:'模拟素材准备失败，输入应保留'};
+    const id = `material-${material.id}-${++materialSequence}`;
+    stagedMaterials.set(id, { art: material.art, name: material.builtin ? materialPhotoName(materialOf(material.id)!) : material.name });
+    return {id, name: stagedMaterials.get(id)!.name};
   }
   if (command === 'pick_photo') throw {message:'图片选择请在原生 App 中验证，此页面仅使用虚构示意图。'};
   if (['set_appearance','set_editing','finish_close'].includes(command)) return null;

@@ -68,13 +68,13 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     )?;
     db.execute_batch("PRAGMA trusted_schema=OFF; PRAGMA foreign_keys=ON;")?;
     let v: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if v != 8 && !(allow_legacy && [1, 2, 3, 4, 5, 6, 7].contains(&v)) {
+    if v != 9 && !(allow_legacy && [1, 2, 3, 4, 5, 6, 7, 8].contains(&v)) {
         return Err(Error::new("SCHEMA_VERSION", "不支持此备份的数据库版本"));
     }
     let canonical = Connection::open_in_memory()?;
     canonical.execute_batch(SCHEMA)?;
     crate::storage::migrate_to(&canonical, v, &|_| Ok(()))?;
-    if v == 8 {
+    if v == 9 {
         check_db(&db)?;
     } else {
         let integrity: String = db.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
@@ -133,6 +133,39 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     }
     if v >= 8 {
         crate::maintenance::validate_dataset(&db)?;
+    }
+    if v >= 9 {
+        let mut stmt = db.prepare("SELECT id,name,hash,size,created_at FROM materials")?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, i64>(3)?,
+                    r.get::<_, String>(4)?,
+                ))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        for (id, name, hash, size, created_at) in rows {
+            if uuid::Uuid::parse_str(&id).is_err()
+                || name.trim().is_empty()
+                || name.chars().count() > 255
+                || size <= 0
+                || size > crate::files::MAX_IMAGE_BYTES as i64
+                || chrono::DateTime::parse_from_rfc3339(&created_at).is_err()
+            {
+                return Err(Error::new("DATA_CONSTRAINT", "备份含非法素材资料"));
+            }
+            validate_file_name(&hash)?;
+            let bytes = regular_bytes(
+                &dir.join("files").join(&hash),
+                crate::files::MAX_IMAGE_BYTES as u64,
+            )?;
+            if bytes.len() as i64 != size || digest(&bytes) != hash {
+                return Err(Error::new("ATTACHMENT", "素材文件缺失或校验失败"));
+            }
+        }
     }
     if v >= 7 {
         crate::sales::validate_dataset(&db)?;
@@ -196,9 +229,9 @@ impl Store {
         }
         self.hit("backup.after_snapshot")?;
         let mut entries = BTreeMap::new();
-        let mut stmt = self
-            .conn()?
-            .prepare("SELECT DISTINCT file FROM attachments ORDER BY file")?;
+        let mut stmt = self.conn()?.prepare(
+            "SELECT DISTINCT file FROM attachments UNION SELECT hash FROM materials ORDER BY file",
+        )?;
         let names = stmt
             .query_map([], |r| r.get::<_, String>(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -237,7 +270,7 @@ impl Store {
         }
         let manifest = Manifest {
             format: 1,
-            schema: 8,
+            schema: 9,
             created_at: chrono::Utc::now().to_rfc3339(),
             entries,
         };
@@ -330,7 +363,7 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
     let manifest: Manifest = serde_json::from_slice(
         &manifest_bytes.ok_or_else(|| Error::new("MANIFEST", "备份缺少清单"))?,
     )?;
-    if manifest.format != 1 || ![1, 2, 3, 4, 5, 6, 7, 8].contains(&manifest.schema) {
+    if manifest.format != 1 || ![1, 2, 3, 4, 5, 6, 7, 8, 9].contains(&manifest.schema) {
         return Err(Error::new("BACKUP_VERSION", "备份版本暂不支持"));
     }
     observed.remove("manifest.json");

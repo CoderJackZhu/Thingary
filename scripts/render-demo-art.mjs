@@ -7,10 +7,11 @@ import { fileURLToPath } from 'node:url';
 import { objectArt } from '../src/illustrations.ts';
 const require = createRequire(import.meta.url);
 const sharp = require(process.argv[2] || 'sharp');
-const assets = JSON.parse(await readFile(new URL('../src/demo-assets.json', import.meta.url), 'utf8'));
-const output = new URL('../docs/ui/demo-photos/', import.meta.url);
+// The material catalog drives rendering: one PNG per catalog id.
+const materials = JSON.parse(await readFile(new URL('../src-tauri/materials/materials.json', import.meta.url), 'utf8'));
+const output = new URL('../src-tauri/materials/', import.meta.url);
 await mkdir(output, { recursive: true });
-for (const asset of assets) {
-  await sharp(Buffer.from(objectArt(asset.key)), { density: 144 }).png().toFile(fileURLToPath(new URL(asset.key + '.png', output)));
+for (const material of materials) {
+  await sharp(Buffer.from(objectArt(material.id)), { density: 144 }).png().toFile(fileURLToPath(new URL(material.id + '.png', output)));
 }
-console.log(`Rendered ${assets.length} original Demo illustrations.`);
+console.log(`Rendered ${materials.length} original illustrations.`);

@@ -36,17 +36,10 @@ fn request(key: &str, step: &str) -> String {
     uuid::Uuid::from_bytes(bytes).to_string()
 }
 fn photo(key: &str) -> &'static [u8] {
-    match key {
-        "laptop" => include_bytes!("../../docs/ui/demo-photos/laptop.png"),
-        "camera" => include_bytes!("../../docs/ui/demo-photos/camera.png"),
-        "headphones" => include_bytes!("../../docs/ui/demo-photos/headphones.png"),
-        "phone" => include_bytes!("../../docs/ui/demo-photos/phone.png"),
-        "tablet" => include_bytes!("../../docs/ui/demo-photos/tablet.png"),
-        "keyboard" => include_bytes!("../../docs/ui/demo-photos/keyboard.png"),
-        "coffee" => include_bytes!("../../docs/ui/demo-photos/coffee.png"),
-        "box" => include_bytes!("../../docs/ui/demo-photos/box.png"),
-        _ => unreachable!("checked-in Demo key"),
-    }
+    // The Demo illustrations are exactly the built-in material artwork.
+    possio_lib::materials::builtin(key)
+        .expect("checked-in Demo key is a material id")
+        .bytes
 }
 fn option(
     s: &mut Store,

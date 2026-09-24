@@ -1,0 +1,10 @@
+[
+  { "id": "laptop", "name": "电脑" },
+  { "id": "camera", "name": "相机" },
+  { "id": "headphones", "name": "耳机" },
+  { "id": "phone", "name": "手机" },
+  { "id": "tablet", "name": "平板" },
+  { "id": "keyboard", "name": "键盘" },
+  { "id": "coffee", "name": "咖啡机" },
+  { "id": "box", "name": "通用物品" }
+]

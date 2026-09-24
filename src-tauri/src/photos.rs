@@ -27,7 +27,7 @@ struct Staged {
     size: u64,
 }
 impl Store {
-    fn check_generation(&self, generation: &str) -> Result<()> {
+    pub(crate) fn check_generation(&self, generation: &str) -> Result<()> {
         if generation != self.generation() {
             return Err(Error::new("STALE_DATASET", "资料已切换，请重新打开档案"));
         }
@@ -129,7 +129,7 @@ impl Store {
         }
         Ok(s)
     }
-    fn original(&self, hash: &str) -> Result<Vec<u8>> {
+    pub(crate) fn original(&self, hash: &str) -> Result<Vec<u8>> {
         validate_file_name(hash)?;
         let mut bytes = Vec::new();
         let file = fs::File::open(self.dataset().join("files").join(hash))
@@ -154,11 +154,9 @@ impl Store {
             }
         }
     }
-    pub fn photo_preview(&self, id: &str, generation: &str) -> Result<Vec<u8>> {
-        self.check_generation(generation)?;
-        let (hash, _) = self.photo_source(id)?;
+    pub(crate) fn preview_by_hash(&self, hash: &str) -> Result<Vec<u8>> {
         // Always verify the original: a cached preview must never conceal missing data.
-        let bytes = self.original(&hash)?;
+        let bytes = self.original(hash)?;
         let cache = self.dataset().join("cache");
         let path = cache.join(format!("{hash}.png"));
         if let Ok(meta) = fs::metadata(&path) {
@@ -173,6 +171,11 @@ impl Store {
         fs::create_dir_all(cache)?;
         atomic_write(&path, &png)?;
         Ok(png)
+    }
+    pub fn photo_preview(&self, id: &str, generation: &str) -> Result<Vec<u8>> {
+        self.check_generation(generation)?;
+        let (hash, _) = self.photo_source(id)?;
+        self.preview_by_hash(&hash)
     }
     pub(crate) fn commit_photos(
         &self,

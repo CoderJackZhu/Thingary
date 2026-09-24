@@ -2,18 +2,24 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, inputMoney, localDay, validate } from './asset';
 import { PhotoView } from './Photos';
+import { MaterialThumb } from './MaterialLibrary';
+import { materialActionLabel } from './materials';
+import type { MaterialEntry } from './materials';
 import { CategorySelect, ChannelSelect } from './TaxonomyFields';
 import type { TaxonomySnapshot } from './taxonomy';
 import type { Classification } from './asset';
 import type { Photo } from './asset';
 import type { AssetRecord, Fields, SaveAsset } from './asset';
 export const draftKey = 'possio.asset-draft.v1';
-export type Draft = { classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
+// Older drafts predate photoErrorKind; a missing kind means the file picker flow.
+export type Draft = { classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
 export type CloseIntent = 'form' | 'window' | 'quit';
 export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, onSaved }: { initial: Draft; taxonomy: TaxonomySnapshot | null; closeIntent: CloseIntent | null; onKeep: () => void; onClose: (intent: CloseIntent) => void; onSaved: (record: AssetRecord) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
+  const [library, setLibrary] = useState<MaterialEntry[] | null>(null);
+  const [libraryError, setLibraryError] = useState('');
   const [moreOpen, setMoreOpen] = useState(() => ['brand', 'model', 'serial_number', 'notes'].some(k => !!initial.fields[k as keyof Fields]) || !!initial.classification?.channel_id);
   const lock = useRef(false);
   const [notice, setNotice] = useState(initial.pending ? '上次提交结果待核对，请先检查，避免重复建档。' : '');
@@ -23,8 +29,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   const [confirm, setConfirm] = useState<CloseIntent | null>(null);
   const photos = draft.photos ?? [];
   const dirty = JSON.stringify(draft.classification) !== JSON.stringify(draft.originalClassification) || JSON.stringify(draft.fields) !== JSON.stringify(draft.original) || !!draft.photoError || JSON.stringify({photos, cover: draft.cover ?? null}) !== JSON.stringify(draft.originalMedia ?? {photos: [], cover: null});
-  useEffect(() => { dialog.current?.showModal(); document.getElementById('field-name')?.focus(); return () => dialog.current?.close(); }, []);
-  useEffect(() => { if (closeIntent) askClose(closeIntent); }, [closeIntent]);
+  useEffect(() => { dialog.current?.showModal(); document.getElementById('field-name')?.focus(); return () => dialog.current?.close(); }, []);  useEffect(() => { if (closeIntent) askClose(closeIntent); }, [closeIntent]);
   function remember(next: Draft) { localStorage.setItem(draftKey, JSON.stringify(next)); setDraft(next); }
   function change(key: keyof Fields, value: string) {
     const next = { ...draft, fields: { ...draft.fields, [key]: value } };
@@ -42,9 +47,27 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
     lock.current = true; setBusy(true);
     try {
       const photo = await invoke<Photo | null>('pick_photo', { generation: draft.generation, repair: null });
-      if (photo && media({ ...draft, photos: [...photos, photo], cover: photos.length === 0 ? photo.id : draft.cover, photoError: '' })) setNotice('图片已准备好，将随资料一起保存。');
-    } catch (e) { media({ ...draft, photoError: errorMessage(e) }); }
+      if (photo && media({ ...draft, photos: [...photos, photo], cover: photos.length === 0 ? photo.id : draft.cover, photoError: '', photoErrorKind: undefined })) setNotice('图片已准备好，将随资料一起保存。');
+    } catch (e) { media({ ...draft, photoError: errorMessage(e), photoErrorKind: 'file' }); }
     finally { lock.current = false; setBusy(false); }
+  }
+  // The flat thumbnail grid loads with the form; failures keep the upload
+  // entry usable and never block text-only saving.
+  useEffect(() => {
+    let live = true;
+    invoke<MaterialEntry[]>('list_materials').then(entries => { if (live) { setLibrary(entries); setLibraryError(''); } }).catch(e => { if (live) setLibraryError(errorMessage(e)); });
+    return () => { live = false; };
+  }, []);
+  async function addMaterial(entry: MaterialEntry) {
+    if (lock.current || busy || photos.length >= 20) return;
+    lock.current = true; setBusy(true);
+    try {
+      const photo = await invoke<Photo>('prepare_material', { input: { id: entry.id, generation: draft.generation } });
+      if (media({ ...draft, photos: [...photos, photo], cover: photos.length === 0 ? photo.id : draft.cover, photoError: '', photoErrorKind: undefined })) setNotice('素材已准备好，将随资料一起保存。');
+    } catch (e) {
+      // Keep inputs and existing photos; the visible grid is the retry path.
+      media({ ...draft, photoError: errorMessage(e), photoErrorKind: 'material' });
+    } finally { lock.current = false; setBusy(false); }
   }
   function askClose(intent: CloseIntent) {
     if (lock.current || draft.pending) { setNotice('请先核对这次保存结果，再关闭表单。'); onKeep(); return; }
@@ -111,10 +134,15 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       <p className="muted">只填写名称也可以。其余资料，想起时再补。</p>
       <div className="fields">{field('name', '名称（必填）')}{field('price', '购入金额（元）', '留空表示未知；0 表示确实免费。')}{field('date', '购入日期', '不确定时留空，不自动填写今天。')}<div className="wide"><CategorySelect id="field-category" entries={taxonomy?.categories ?? []} value={draft.classification?.category_id ?? null} onChange={id => classify('category_id',id)} disabled={busy || !!draft.pending || !taxonomy}/></div>
       </div>
-      <section className="photo-section" aria-labelledby="photo-title"><div className="photo-heading"><h3 id="photo-title">封面与图片</h3><button type="button" disabled={busy || !!draft.pending || photos.length >= 20} onClick={() => void pickPhoto()}>添加图片</button></div>
-        <p className="muted small">JPEG、PNG、HEIC、WebP · 最多 20 张，每张 20 MiB。</p>
+      <section className="photo-section" aria-labelledby="photo-title"><div className="photo-heading"><h3 id="photo-title">封面与图片</h3><div className="photo-entry-actions"><button type="button" disabled={busy || !!draft.pending || photos.length >= 20} onClick={() => void pickPhoto()}>导入自己的图片（可选）</button></div></div>
+        <p className="muted small">点击素材图片即可加入；内置素材为示意图，非实物照片。更多素材可在左侧“素材库”上传。最多 20 张，每张 20 MiB。</p>
+        {library ? <div className="material-grid flat" role="list" aria-label="素材图片">
+          {library.map(entry => <button type="button" className="material-tile" role="listitem" key={entry.id} disabled={busy || !!draft.pending || photos.length >= 20} aria-label={materialActionLabel(entry)} onClick={() => void addMaterial(entry)}>
+            <MaterialThumb id={entry.id} generation={draft.generation} alt={materialActionLabel(entry)}/>
+          </button>)}
+        </div> : <p className="muted small" role="status">{libraryError ? '素材暂不可用：' + libraryError : '正在读取素材…'}</p>}
         <div className="photo-strip">{photos.map(photo => <div className="photo-tile" key={photo.id}><PhotoView photo={photo} generation={draft.generation}/><span className="photo-name">{photo.name}</span><div className="photo-actions"><button type="button" disabled={busy || !!draft.pending} aria-pressed={draft.cover === photo.id} onClick={() => media({ ...draft, cover: draft.cover === photo.id ? null : photo.id })}>{draft.cover === photo.id ? '✓ 封面' : '设为封面'}</button><button type="button" disabled={busy || !!draft.pending} aria-label={'移除图片 ' + photo.name} onClick={() => media({ ...draft, photos: photos.filter(p => p.id !== photo.id), cover: draft.cover === photo.id ? null : draft.cover })}>移除</button></div></div>)}</div>
-        {draft.photoError && <div role="alert" className="confirm"><p>{draft.photoError}。请重试，或明确取消这次选图后再保存。</p><button type="button" disabled={busy} onClick={() => void pickPhoto()}>重新选择</button><button type="button" disabled={busy} onClick={() => media({ ...draft, photoError: '' })}>不使用这次未读取的图片</button></div>}
+        {draft.photoError && <div role="alert" className="confirm"><p>{draft.photoError}。请重试，或明确取消这次选图后再保存。</p>{draft.photoErrorKind !== 'material' && <button type="button" disabled={busy} onClick={() => void pickPhoto()}>重新选择</button>}<button type="button" disabled={busy} onClick={() => media({ ...draft, photoError: '', photoErrorKind: undefined })}>{draft.photoErrorKind === 'material' ? '不使用这次未添加的素材' : '不使用这次未读取的图片'}</button></div>}
       </section>
       <details className="more-fields" open={moreOpen} onToggle={e => setMoreOpen(e.currentTarget.open)}><summary>更多资料<span>品牌、型号、渠道、序列号与备注</span></summary><div className="fields">{field('brand', '品牌')}{field('model', '型号')}{field('serial_number', '序列号')}<ChannelSelect id="field-channel" entries={taxonomy?.channels ?? []} value={draft.classification?.channel_id ?? null} onChange={id => classify('channel_id',id)} disabled={busy || !!draft.pending || !taxonomy}/>{field('notes', '备注')}</div></details>
       {notice && <p className="notice" role="status" aria-live="polite">{notice}</p>}

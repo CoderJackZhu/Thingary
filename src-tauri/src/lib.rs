@@ -5,6 +5,7 @@ pub mod domain;
 pub mod files;
 pub mod lifecycle;
 pub mod maintenance;
+pub mod materials;
 pub mod native_images;
 pub mod photos;
 mod recovery;
@@ -98,7 +99,12 @@ pub fn run() {
             commands::finish_close,
             commands::set_appearance,
             commands::pick_photo,
-            commands::photo_preview
+            commands::photo_preview,
+            commands::prepare_material,
+            commands::list_materials,
+            commands::add_material,
+            commands::remove_material,
+            commands::material_preview
         ])
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {

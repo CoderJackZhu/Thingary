@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 8 || app != 1347375955 || integrity != "ok" {
+    if v != 9 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -280,7 +280,7 @@ impl Store {
 }
 
 pub(crate) fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 8, hook)
+    migrate_to(c, 9, hook)
 }
 pub(crate) fn migrate_to(
     c: &Connection,
@@ -288,7 +288,7 @@ pub(crate) fn migrate_to(
     hook: &dyn Fn(&str) -> Result<()>,
 ) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=8).contains(&v) || v > target {
+    if !(1..=9).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -403,6 +403,14 @@ CREATE TRIGGER asset_purchase_after_maintenance_update BEFORE UPDATE OF purchase
 PRAGMA user_version=8;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 8;
+    }
+    if v == 8 && target >= 9 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("CREATE TABLE materials(id TEXT PRIMARY KEY,name TEXT NOT NULL,hash TEXT NOT NULL,size INTEGER NOT NULL CHECK(size>0),created_at TEXT NOT NULL);
+PRAGMA user_version=9;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -477,7 +485,7 @@ mod taxonomy_migration_tests {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            8
+            9
         );
         assert_eq!(
             c.query_row("SELECT name FROM assets WHERE id='legacy'", [], |r| r
@@ -490,5 +498,13 @@ mod taxonomy_migration_tests {
             .query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='maintenance_audit'", [], |r| r.get(0))
             .unwrap();
         assert_eq!(audit_exists, 1);
+        let materials_exists: i64 = c
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='materials'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(materials_exists, 1);
     }
 }

@@ -6,7 +6,7 @@
 
 当前已完成 CP1 基本资产流程：新增 → 浏览/详情 → 更正 → 删除/恢复，并接入封面、图片附件和 HEIC。T06 分类与购买渠道及综合回归已通过；T07 退役／启用与 T08 售出／纠错已实现并验收；T09 维护档案已完成本轮实现、自动检查及隔离原生新增／同记录更正／重开证据，两轮 review 问题已修复，剩余原生边界待补验。当前按用户要求暂停 T10，已完成原始 Demo 视觉还原、状态导航去重与八件原始样例的原生移植；范围与证据见视觉验证记录。完整 P0 未完成。中文名「物志」、英文名「Possio」为工作名，发布前再核查名称可用性。
 
-当前插入任务：**U01 内置素材库选择**。文档与执行契约已准备，待用户交给 Z code 实现、再由 Codex review；尚未实现。T10 继续暂停。
+当前插入任务：**U01 内置素材库选择**。已由 Z code 按交接契约实现并本地提交，含 2026-09-25 用户中途调整：侧栏新增“素材库”页面（可上传/删除自定义素材，schema 9 持久化），新增/编辑表单“封面与图片”区平铺素材小图、点击即选。自动检查、浏览器及隔离原生证据见 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)；待 Codex review 及必要补验，尚未合并。T10 继续暂停。
 
 ## 项目文档
 
@@ -22,6 +22,7 @@
 - [技术设计与验证计划](docs/decisions/001-local-desktop.md)：本地桌面架构、数据与图片一致性、统一最近删除、备份恢复协议和七项风险验证计划；已作为任务拆分基线，底层实验与未验项见验证报告。
 - [实施任务与开工检查](docs/IMPLEMENTATION_PLAN.md)：V00–V05 首批验证、T01–T21 后续任务、依赖顺序、44 条验收归属和阶段出口；任务状态唯一入口。
 - [Z code 交接：U01 素材库](docs/handoffs/U01_MATERIAL_LIBRARY_ZCODE.md)：唯一执行入口，含范围、代码上下文、验收和可复制 Prompt；使用 GLM5.3 串行实现，完成后交回 Codex review。
+- [U01 素材库验证记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)：内置素材清单与受控准备命令、表单素材网格、持久化/失败恢复测试及浏览器、原生证据；待 Codex review。
 - [Hermes 交接：T09](docs/handoffs/T09_HERMES.md)：维护档案的执行位置、前审约束、验证要求及交回 Codex review 格式；实现已完成，保留为审阅契约。
 - [Hermes 首次交接：T06a](docs/handoffs/T06A_HERMES.md)：分类/渠道界面的独立执行契约、允许文件、输入输出和完工报告要求；真实数据接入由 Codex 后续完成。
 - [工程与流程验证报告](docs/VERIFICATION_REPORT.md)：实际环境、测试与进程中断证据、构建结果和未完成项。
@@ -59,11 +60,11 @@ V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程
 
 普通预览打包默认产物位于 `src-tauri/target/release/bundle/macos/Possio Preview.app`，不能将旧产物当成最新构建。本阶段使用下文 T06b 隔离验收包。不含远程更新或后台代理；只有本地提交，没有推送发布。只在当前 Apple Silicon Mac 验证，旧系统及 Intel 尚未实测。
 
-开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，与旧验证 App 的临时库分开。当前可自行填写名称、金额、日期、品牌、型号、分类、购买渠道、序列号和备注，列表/网格搜索及更正后保留记录；仍先使用虚构资料体验。设置和侧栏均可进入最近删除，支持资产恢复；支持 JPEG/PNG/HEIC/WebP 封面与附件、预览和缺图修复；完整备份及导出界面按后续任务接入，尚未达到 CP4 的日常自用标准。
+开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，与旧验证 App 的临时库分开。当前可自行填写名称、金额、日期、品牌、型号、分类、购买渠道、序列号和备注，列表/网格搜索及更正后保留记录；封面与图片默认从素材小图直选，侧栏“素材库”可管理内置示意图与自定义素材；仍先使用虚构资料体验。设置和侧栏均可进入最近删除，支持资产恢复；支持 JPEG/PNG/HEIC/WebP 封面与附件、预览和缺图修复；完整备份及导出界面按后续任务接入，尚未达到 CP4 的日常自用标准。
 
 ### 完整页面的虚构数据预览
 
-在当前分支运行 `npm run dev -- --port 1429`，打开 <http://127.0.0.1:1429/visual-preview.html>。可体验与 App 相同的列表/网格、摘要、详情、新增、更正、删除/恢复和分类/渠道、退役/重新启用及动作日期更正 UI；使用内存虚构数据，刷新即重置，不能用于保存真实档案。图片选择仍需原生 App。
+在当前分支运行 `npm run dev -- --port 1429`，打开 <http://127.0.0.1:1429/visual-preview.html>。可体验与 App 相同的列表/网格、摘要、详情、新增、更正、删除/恢复和分类/渠道、退役/重新启用及动作日期更正 UI；使用内存虚构数据，刷新即重置，不能用于保存真实档案。内置素材选择可在预览中以内存模拟体验，不能证明原生持久性；导入自己的图片仍需原生 App。
 
 附加 `?state=empty`、`?state=error`、`?state=save-error` 可检查空白、读取失败和保存失败；`?theme=dark` 可对照深色。这个开发入口不包含在 `npm run build` 的正式产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。原型原创 SVG 由预览与原生 App 共享；原生有照片时显示照片，没有照片封面时显示分类示意图，不写入附件。`?no-photos` 用于检查六种分类插图。布局按原始 A 还原，验收库的样例数量不同不能作为改变设计的理由。
 
@@ -74,7 +75,7 @@ T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Prev
 
 隔离验收 App 现已持久保存原始八件 Demo（电脑、相机、耳机、手机、平板、键盘、咖啡机、录音设备），每件使用自己的原创插图封面，可直接编辑体验。原有两件验收记录保留；搜索“原始 Demo”可只查看这八件。状态入口只在左侧，中间不再重复显示同一组标签。
 
-样例与浏览器共用 `src/demo-assets.json`；PNG 来自既有 `src/illustrations.ts` 的 SVG 转换，位于 `docs/ui/demo-photos/`，不是重新生成的图。维护、退役、售出使用已实现的业务接口，保障等未实现字段不导入。
+样例与浏览器共用 `src/demo-assets.json`；PNG 来自既有 `src/illustrations.ts` 的 SVG 转换，现随内置素材库位于 `src-tauri/materials/`（清单 `materials.json` 加同名 PNG），不是重新生成的图；Demo 导入与素材准备共用同一白名单。维护、退役、售出使用已实现的业务接口，保障等未实现字段不导入。
 
 开发复现：退出隔离 App 后，在本工作树执行 `npm run demo:import`。工具只允许现有 `local.possio.t06b.preview` 虚构库，拒绝其他路径及符号链接；重复执行不重复添加、不覆盖完成导入后的编辑。每件及其后续动作各自使用稳定请求 ID，可从中断步骤续行；未完成步骤若遇到版本变化会拒绝，不能把它用作一键重置。普通 App 启动不会导入 Demo。
 
