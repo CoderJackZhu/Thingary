@@ -34,6 +34,7 @@ use crate::{
 use rusqlite::{params, OptionalExtension};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssetRecord {
+    pub sale: Option<crate::sales::Sale>,
     pub lifecycle: crate::lifecycle::Lifecycle,
     pub asset: Asset,
     pub details: Details,
@@ -86,6 +87,7 @@ impl Store {
                     r.get(0)
                 })?;
         Ok(Some(AssetRecord {
+            sale: crate::sales::read(self.conn()?, id)?,
             lifecycle: self.lifecycle(id)?,
             asset,
             details,
@@ -152,6 +154,7 @@ impl Store {
             "all" | "deleted" => "1",
             "active" => "a.lifecycle_state='active'",
             "retired" => "a.lifecycle_state='retired'",
+            "sold" => "a.lifecycle_state='sold'",
             "held" => "a.lifecycle_state IN ('active','retired')",
             "missing_price" => "a.price_cents IS NULL",
             "missing_date" => "a.purchase_date IS NULL",

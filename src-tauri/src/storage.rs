@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 6 || app != 1347375955 || integrity != "ok" {
+    if v != 7 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -229,6 +229,7 @@ impl Store {
         };
         if let Some(expected) = input.expected_revision {
             crate::lifecycle::validate_purchase_date(&tx, &id, input.purchase_date.as_deref())?;
+            crate::sales::validate_purchase_date(&tx, &id, input.purchase_date.as_deref())?;
             let n=tx.execute("UPDATE assets SET name=?1,price_cents=?2,purchase_date=?3,revision=?4 WHERE id=?5 AND revision=?6 AND deleted_at IS NULL",params![input.name.trim(),price,input.purchase_date,revision,id,expected])?;
             if n != 1 {
                 return Err(Error::new(
@@ -278,7 +279,7 @@ impl Store {
 }
 
 pub(crate) fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 6, hook)
+    migrate_to(c, 7, hook)
 }
 pub(crate) fn migrate_to(
     c: &Connection,
@@ -286,7 +287,7 @@ pub(crate) fn migrate_to(
     hook: &dyn Fn(&str) -> Result<()>,
 ) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=6).contains(&v) || v > target {
+    if !(1..=7).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -374,6 +375,16 @@ PRAGMA user_version=5;")?;
         tx.execute_batch("ALTER TABLE assets ADD COLUMN lifecycle_state TEXT NOT NULL DEFAULT 'active' CHECK(lifecycle_state IN ('active','retired','sold'));
 CREATE TABLE lifecycle_events(id TEXT PRIMARY KEY,asset_id TEXT NOT NULL REFERENCES assets(id),sequence INTEGER NOT NULL CHECK(sequence>0),kind TEXT NOT NULL CHECK(kind IN ('retire','activate')),date TEXT NOT NULL,notes TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,UNIQUE(asset_id,sequence));
 PRAGMA user_version=6;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 6;
+    }
+    if v == 6 && target >= 7 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("CREATE TABLE sales(id TEXT PRIMARY KEY,asset_id TEXT NOT NULL REFERENCES assets(id),previous_state TEXT NOT NULL CHECK(previous_state IN ('active','retired')),date TEXT NOT NULL,price_cents INTEGER NOT NULL CHECK(price_cents BETWEEN 0 AND 99999999999),platform TEXT NOT NULL,buyer TEXT NOT NULL,notes TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,revoked_at TEXT);
+CREATE UNIQUE INDEX one_effective_sale ON sales(asset_id) WHERE revoked_at IS NULL;
+CREATE TABLE sale_audit(sequence INTEGER PRIMARY KEY AUTOINCREMENT,request_id TEXT NOT NULL UNIQUE,sale_id TEXT NOT NULL REFERENCES sales(id),action TEXT NOT NULL CHECK(action IN ('sell','correct','revoke')),snapshot TEXT NOT NULL,created_at TEXT NOT NULL);
+PRAGMA user_version=7;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
     }

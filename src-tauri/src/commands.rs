@@ -220,3 +220,16 @@ pub async fn change_lifecycle(
     .await
     .map_err(|_| Error::new("WORKER", "未收到状态保存结果，请核对本次操作"))?
 }
+
+#[tauri::command]
+pub async fn change_sale(
+    input: crate::sales::Change,
+    worker: tauri::State<'_, Worker>,
+) -> Result<AssetRecord> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.change_sale(&input, &chrono::Local::now().format("%Y-%m-%d").to_string()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到售出操作结果，请核对本次请求"))?
+}

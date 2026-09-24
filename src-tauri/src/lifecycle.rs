@@ -233,11 +233,14 @@ impl Store {
                 )?;
             }
             Action::CorrectDate { event_id, date } => {
-                // Sold date bounds belong to T08; never guess or alter a sale here.
-                if record.lifecycle.state == State::Sold {
+                if record
+                    .sale
+                    .as_ref()
+                    .is_some_and(|sale| date > &sale.fields.date)
+                {
                     return Err(Error::new(
-                        "STATE_CONFLICT",
-                        "请先核对售出记录及其日期，当前不能更正此状态历史。",
+                        "DATE_CONFLICT",
+                        "状态日期不能晚于有效售出日期，请先更正售出记录。",
                     ));
                 }
                 let index = events
@@ -302,7 +305,7 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
         let mut expected = "retire";
         let mut last_state = "active";
         let mut stmt=c.prepare("SELECT id,sequence,kind,date,notes,created_at,updated_at FROM lifecycle_events WHERE asset_id=?1 ORDER BY sequence")?;
-        let mut events = stmt.query([id])?;
+        let mut events = stmt.query([&id])?;
         let mut sequence = 1;
         while let Some(e) = events.next()? {
             let event_id: String = e.get(0)?;
@@ -335,6 +338,21 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
             };
             previous = Some(d);
             sequence += 1;
+        }
+        let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        if version >= 7 {
+            if let Some(sale) = crate::sales::read(c, &id)? {
+                let source = if sale.previous_state == State::Retired {
+                    "retired"
+                } else {
+                    "active"
+                };
+                if source != last_state || previous.as_ref().is_some_and(|d| d > &sale.fields.date)
+                {
+                    return Err(Error::new("SALE", "售出来源状态或日期与历史冲突"));
+                }
+                last_state = "sold";
+            }
         }
         if state != last_state {
             return Err(Error::new("LIFECYCLE", "备份当前状态与历史不一致"));

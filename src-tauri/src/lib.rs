@@ -7,6 +7,7 @@ pub mod lifecycle;
 pub mod native_images;
 pub mod photos;
 mod recovery;
+pub mod sales;
 pub mod storage;
 pub mod taxonomy;
 pub mod trash;
@@ -89,6 +90,7 @@ pub fn run() {
             commands::save_asset,
             commands::change_trash,
             commands::change_lifecycle,
+            commands::change_sale,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,
