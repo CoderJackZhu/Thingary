@@ -1,0 +1,59 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T06b 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 55-91
+~			53 container
+~				54 text 物 物志 POSSIO
++				55 container 主导航
++					56 text 我的档案
++					57 button 我的物品
++					58 button 最近删除
++					59 button 设置
++				60 text 仅保存在这台 Mac 外观
++				61 pop up button (collapsed) 外观, Value: 跟随系统, Secondary Actions: Expand
++			62 container
++				63 text 个人档案 / 物品详情
++				64 text field (settable) 搜索物品
++				65 text ⌘F
++				66 button ＋ 新增物品 ⌘N
++				67 text 资料已保存。
++				68 button ← 返回物品列表
++				69 text 虚 使用中
++				70 heading 虚构 T06b 旅行相机, Value: 2
++					71 text 虚构 T06b 旅行相机
++				72 text 一件物品，一段日常
++				73 button 编辑资料 ⌘E
++				74 container 物品资料
++					75 heading 物品资料, Value: 3
++						76 text 物品资料
++					77 text 把值得记住的细节留在这里
++					78 description list
++						79 text 品牌
++						80 text 待补充
++						81 text 型号
++						82 text 待补充
++						83 text 序列号
++						84 text 待补充
++				85 container 备注
++					86 heading 备注, Value: 3
++						87 text 备注
++					88 text 还没有备注。记下购买的缘由，或使用中的小细节。
++				89 container 图片
++					90 heading 图片, Value: 3
++						91 text 图片
++					92 text 0 张
++					93 text 还没有图片，可在“编辑资料”中添加。
++				94 heading 持有与购买, Value: 3
++					95 text 持有与购买
++				96 text 日均持有成本 ¥50.00 / 天 已与你相伴 24 天
++				97 description list
++					98 text 购入金额
++					99 text ¥1,200.00
++					100 text 购入日期
++					101 text 2026-09-01
++					102 text 分类
++					103 text 虚构摄影分类
++					104 text 购买渠道
++					105 text 虚构渠道
++				106 text 按自然日计算，包含购入当天。
++				107 summary 档案信息, Value: off
++					108 text 档案信息
++				109 button 移入最近删除…

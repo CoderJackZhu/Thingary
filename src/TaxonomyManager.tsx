@@ -528,6 +528,7 @@ export default function TaxonomyManager({
   onReload,
   validateName,
   onCommand,
+  onDirtyChange,
 }: TaxonomyManagerProps) {
   const [kind, setKind] = useState<TaxonomyKind>("category");
   const [draft, setDraft] = useState<DraftState>(blankDraft());
@@ -545,6 +546,15 @@ export default function TaxonomyManager({
   const [reloading, setReloading] = useState(false);
   const inFlight = useRef(false);
   const editingRows = useRef(new Set<string>());
+  const [editingCount, setEditingCount] = useState(0);
+  useEffect(() => { onDirtyChange?.(!!draft.name || editingCount > 0 || confirmDialog.open || submitting || !!blocked || !!unverified); }, [draft.name, editingCount, confirmDialog.open, submitting, blocked, unverified, onDirtyChange]);
+  useEffect(() => {
+    if (!snapshot || loading) return;
+    const ids = new Set([...snapshot.categories, ...snapshot.channels].map(e => e.id));
+    for (const id of editingRows.current) if (!ids.has(id)) editingRows.current.delete(id);
+    setEditingCount(editingRows.current.size);
+    if (confirmDialog.target && !ids.has(confirmDialog.target.id)) setConfirmDialog(INITIAL_CONFIRM);
+  }, [snapshot, loading, confirmDialog.target]);
   const entries = entryList(snapshot, kind);
   const unavailable = submitting || reloading || loading || snapshot === null || loadError !== null;
   const draftRef = useRef(draft);
@@ -570,7 +580,7 @@ export default function TaxonomyManager({
       );
       if (!leave) return;
     }
-    editingRows.current.clear();
+    editingRows.current.clear(); setEditingCount(0);
     setKind(next);
     requestAnimationFrame(() => document.getElementById("taxonomy-tab-" + next)?.focus());
     setDraft(blankDraft());
@@ -872,6 +882,7 @@ export default function TaxonomyManager({
             <div />
           )}
           <div className="taxonomy-actions">
+            {draft.name && <button type="button" disabled={unavailable || locked} onClick={() => { setDraft(blankDraft()); setDraftError(null); }}>取消草稿</button>}
             <button
               type="submit"
               className="primary"
@@ -903,10 +914,10 @@ export default function TaxonomyManager({
                   await submitRename(entry, next);
                 }}
                 onStartEdit={() => {
-                  editingRows.current.add(entry.id);
+                  editingRows.current.add(entry.id); setEditingCount(editingRows.current.size);
                 }}
                 onCancelEdit={() => {
-                  editingRows.current.delete(entry.id);
+                  editingRows.current.delete(entry.id); setEditingCount(editingRows.current.size);
                 }}
               />
             ))}
@@ -919,7 +930,10 @@ export default function TaxonomyManager({
       {confirmDialog.open && confirmDialog.target ? (
         <RemoveDialog
           snapshot={snapshot}
-          target={confirmDialog.target}
+          target={(() => {
+            const current = entryList(snapshot,confirmDialog.target.kind).find(e => e.id === confirmDialog.target!.id);
+            return current ? {...confirmDialog.target,name:current.name,referenceCount:current.references.activeAssets,deletedReferenceCount:current.references.deletedAssets} : confirmDialog.target;
+          })()}
           initialChoice={undefined}
           busy={confirmDialog.busy || submitting || reloading || loading}
           locked={locked}

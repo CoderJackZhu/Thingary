@@ -5,6 +5,8 @@ import { emit } from '@tauri-apps/api/event';
 import type { AssetRecord, Page, Query, SaveAsset } from './asset';
 import { localDay } from './asset';
 import type { TrashChange } from './Trash';
+import { applyPreviewCommand, previewSnapshot } from './taxonomy';
+import type { PreviewCatalog, TaxonomyCommand } from './taxonomy';
 import { fixtureArt } from './visual-fixtures';
 
 const seeds = [
@@ -20,15 +22,20 @@ let records: AssetRecord[] = seeds.map(([id,name,brand,model,price,date,notes],i
   asset: { id, name, price_cents: price, purchase_date: date, revision: 1 },
   details: { brand, model, serial_number: '', notes },
   created_at: new Date(Date.UTC(2026,8,10,8,0,i)).toISOString(), updated_at: null,
+  classification: {category_id: ['computer','camera','audio','phone',null,'home',null][i],channel_id:'online'},
   deleted: false, deleted_at: null, photos: [{id,name:'虚构物品示意图'}], cover_id: id,
 }));
+let taxonomyRevision = 0;
+const taxonomyReceipts = new Map<string,string>();
+let catalog: PreviewCatalog = {categories:[['computer','电脑'],['phone','手机'],['camera','摄影'],['audio','音频'],['home','家电'],['box','其他']].map(([id,name])=>({id,name,icon:id as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:[{id:'online',name:'京东',references:{activeAssets:0,deletedAssets:0}},{id:'store',name:'线下',references:{activeAssets:0,deletedAssets:0}}],assets:[]};
+function taxonomySnapshot() { catalog.assets=records.map(r=>({id:r.asset.id,categoryId:r.classification?.category_id??null,channelId:r.classification?.channel_id??null,deleted:r.deleted})); return {generation,revision:taxonomyRevision,...previewSnapshot(catalog)}; }
 const requests = new Map<string, AssetRecord>();
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
 if (params.get('state') === 'empty') records = [];
 // This preview owns its isolated origin and only removes its own reminder keys:
 // records reset on reload, so pending requests from the previous fixture are stale.
-for (const key of ['possio.asset-draft.v1','possio.trash-request.v1']) localStorage.removeItem(key);
+for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.taxonomy-request.v1']) localStorage.removeItem(key);
 if (params.has('theme')) localStorage.setItem('possio.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
 const images = new Map<string, Promise<ArrayBuffer>>();
 function imageBytes(id: string): Promise<ArrayBuffer> {
@@ -46,11 +53,24 @@ function imageBytes(id: string): Promise<ArrayBuffer> {
 }
 mockIPC(async (command,payload) => {
   const args = payload as Record<string,unknown>;
+  if (command === 'taxonomy_snapshot') return taxonomySnapshot();
+  if (command === 'taxonomy_request') return taxonomyReceipts.has(String(args.request));
+  if (command === 'change_taxonomy') {
+    const input = args.input as {request_id:string;generation:string;expected_revision:number;command:TaxonomyCommand};
+    const fingerprint=JSON.stringify(input), previous=taxonomyReceipts.get(input.request_id);
+    if(previous) { if(previous!==fingerprint) throw {code:'REQUEST_CONFLICT',message:'请求内容不一致。'}; return taxonomySnapshot(); }
+    if(input.generation!==generation || input.expected_revision!==taxonomyRevision) throw {code:'TAXONOMY_CONFLICT',message:'分类资料已变化，请重新加载。'};
+    taxonomySnapshot(); catalog=applyPreviewCommand(catalog,input.command,crypto.randomUUID());
+    for(const r of records) { const ref=catalog.assets.find(a=>a.id===r.asset.id)!; const next={category_id:ref.categoryId,channel_id:ref.channelId}; if(JSON.stringify(r.classification)!==JSON.stringify(next)) {r.classification=next;r.asset.revision++;} }
+    taxonomyRevision++;taxonomyReceipts.set(input.request_id,fingerprint);return taxonomySnapshot();
+  }
   if (command === 'list_assets') {
     if (params.get('state') === 'error') throw { message: '虚构加载失败，用于验证错误页面。' };
     const query = args.query as Query;
     let found=records.filter(r => r.deleted === (query.filter === 'deleted'));
-    found=found.filter(r => (!query.search || [r.asset.name,...Object.values(r.details)].join(' ').toLowerCase().includes(query.search.toLowerCase())) && (query.filter !== 'missing_price' || r.asset.price_cents === null) && (query.filter !== 'missing_date' || r.asset.purchase_date === null));
+    found=found.filter(r => (!query.search || [r.asset.name,...Object.values(r.details),catalog.categories.find(c=>c.id===r.classification?.category_id)?.name??''].join(' ').toLowerCase().includes(query.search.toLowerCase())) && (query.filter !== 'missing_price' || r.asset.price_cents === null) && (query.filter !== 'missing_date' || r.asset.purchase_date === null));
+    if(query.category?.mode==='uncategorized') found=found.filter(r=>!r.classification?.category_id);
+    if(query.category?.mode==='category') {const id=query.category.id;found=found.filter(r=>r.classification?.category_id===id);}
     const value=(r:AssetRecord):string|number|null => query.sort==='name'?r.asset.name:query.sort==='price'?(r.asset.price_cents===null?null:Number(r.asset.price_cents)):query.sort==='date'?r.asset.purchase_date:query.sort==='deleted'?r.deleted_at:r.created_at;
     found.sort((a,b)=>{const x=value(a),y=value(b); if(x===null)return y===null?0:1;if(y===null)return -1;return (typeof x==='number' && typeof y==='number'?x-y:String(x).localeCompare(String(y),'zh-CN'))*(query.descending?-1:1);});
     return { generation, items: structuredClone(found.slice(query.offset,query.offset+100)), total:found.length, today:localDay() } satisfies Page;
@@ -62,15 +82,15 @@ mockIPC(async (command,payload) => {
     const input=args.input as SaveAsset;
     const old=records.find(r=>r.asset.id===input.base.asset_id);
     const id=old?.asset.id ?? crypto.randomUUID();
-    const record:AssetRecord={asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:'虚构物品示意图'})),cover_id:input.photos?.cover_id??null};
-    records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); return structuredClone(record);
+    const record:AssetRecord={classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:'虚构物品示意图'})),cover_id:input.photos?.cover_id??null};
+    taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); return structuredClone(record);
   }
   // Exercise production delete/restore UI, without touching the native library.
   if (command === 'change_trash') {
     const input = args.input as TrashChange;
     const record = records.find(r => r.asset.id === input.asset_id);
     if (!record) throw {message:'虚构记录不存在。'};
-    record.deleted = input.deleted;
+    taxonomyRevision++; record.deleted = input.deleted;
     record.deleted_at = input.deleted ? new Date().toISOString() : null;
     record.asset.revision += 1;
     requests.set(input.request_id, structuredClone(record));

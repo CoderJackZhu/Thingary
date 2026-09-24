@@ -60,6 +60,7 @@ export type CommandResult =
   | { status: "error"; message: string; recovery: "retry" | "reload" };
 
 export interface TaxonomyManagerProps {
+  onDirtyChange?: (dirty: boolean) => void;
   snapshot: TaxonomySnapshot | null;
   loading: boolean;
   loadError: string | null;
@@ -186,4 +187,11 @@ export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCom
     }
   }
   return catalog;
+}
+
+/** Production name policy; Rust canonical_name enforces the same NFC/scalar rules. */
+export function validateTaxonomyName(entries: readonly TaxonomyEntry[], kind: TaxonomyKind, name: string, editingId?: string): string | null {
+  const normalized = normalizeName(name);
+  if (!normalized || [...normalized].length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(normalized)) return '名称须为 1–80 字，不能包含控制字符。';
+  return validatePreviewName(entries, kind, normalized, editingId);
 }

@@ -1,0 +1,8 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T06b 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 3-20, 65-198
++			65 container 分类资料尚未处理完
++				66 heading 分类资料尚未处理完, Value: 2
++					67 text 分类资料尚未处理完
++				68 text 请先保存或取消草稿；结果待确认的操作需要重新加载核对。
++				69 button 返回设置继续处理
+The focused UI element is 69 button 返回设置继续处理

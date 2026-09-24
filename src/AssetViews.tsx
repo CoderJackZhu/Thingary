@@ -1,3 +1,4 @@
+import type { TaxonomySnapshot } from './taxonomy';
 import type { AssetRecord, Page } from './asset';
 import { costs, money } from './asset';
 import { Cover, Gallery } from './Photos';
@@ -25,17 +26,17 @@ export function AssetOverview({ page, filtered }: { page: Page; filtered: boolea
   </div>;
 }
 
-export function AssetFacts({ record, today }: { record: AssetRecord; today: string }) {
+export function AssetFacts({ record, today, taxonomy }: { record: AssetRecord; today: string; taxonomy: TaxonomySnapshot | null }) {
   const c = costs(record.asset, today);
   return <><div className="holding-cost"><span>日均持有成本</span><strong>{money(c.daily)}{c.daily !== null && <small> / 天</small>}</strong><p>{c.days === null ? '补全购入日期后计算持有天数' : `已与你相伴 ${c.days} 天`}</p></div>
-    <dl className="facts"><dt>购入金额</dt><dd>{money(record.asset.price_cents)}</dd><dt>购入日期</dt><dd>{record.asset.purchase_date || '待补充'}</dd><dt>分类</dt><dd>未分类</dd></dl>
+    <dl className="facts"><dt>购入金额</dt><dd>{money(record.asset.price_cents)}</dd><dt>购入日期</dt><dd>{record.asset.purchase_date || '待补充'}</dd><dt>分类</dt><dd>{record.classification?.category_id ? taxonomy?.categories.find(c => c.id === record.classification?.category_id)?.name ?? '选项已不可用' : '未分类'}</dd><dt>购买渠道</dt><dd>{record.classification?.channel_id ? taxonomy?.channels.find(c => c.id === record.classification?.channel_id)?.name ?? '选项已不可用' : '未记录'}</dd></dl>
     {c.daily === null && <p className="muted small">补全金额和日期，即可查看日均持有成本。</p>}</>;
 }
 
-export function AssetDetail({ record, generation, today, onEdit, onDelete }: { record: AssetRecord; generation: string; today: string; onEdit: () => void; onDelete: () => void }) {
+export function AssetDetail({ record, generation, today, taxonomy, onEdit, onDelete }: { taxonomy: TaxonomySnapshot | null; record: AssetRecord; generation: string; today: string; onEdit: () => void; onDelete: () => void }) {
   return <><header className="asset-hero"><Cover record={record} generation={generation} large/><div className="hero-copy"><span className="pill">使用中</span><h2 id="detail-heading" tabIndex={-1}>{record.asset.name}</h2><p className="muted">{[record.details.brand, record.details.model].filter(Boolean).join(' · ') || '一件物品，一段日常'}</p><button onClick={onEdit}>编辑资料 <kbd>⌘E</kbd></button></div></header>
     <div className="detail-columns"><div><article className="detail-section"><div className="section-heading"><h3>物品资料</h3><span>把值得记住的细节留在这里</span></div><dl className="facts"><dt>品牌</dt><dd>{record.details.brand || '待补充'}</dd><dt>型号</dt><dd>{record.details.model || '待补充'}</dd><dt>序列号</dt><dd>{record.details.serial_number || '待补充'}</dd></dl></article><article className="detail-section"><h3>备注</h3><p className="notes">{record.details.notes || '还没有备注。记下购买的缘由，或使用中的小细节。'}</p></article><article className="detail-section"><div className="section-heading"><h3>图片</h3><span>{record.photos.length} 张</span></div><Gallery record={record} generation={generation} showHeading={false}/></article></div>
-      <aside className="ownership-card"><h3>持有与购买</h3><AssetFacts record={record} today={today}/><p className="muted small">按自然日计算，包含购入当天。</p></aside></div>
+      <aside className="ownership-card"><h3>持有与购买</h3><AssetFacts record={record} today={today} taxonomy={taxonomy}/><p className="muted small">按自然日计算，包含购入当天。</p></aside></div>
     <footer className="detail-footer"><details className="archive-meta"><summary>档案信息</summary><dl className="facts"><dt>建档时间</dt><dd>{record.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '旧记录未提供'}</dd><dt>修改时间</dt><dd>{record.updated_at ? new Date(record.updated_at).toLocaleString('zh-CN') : '旧记录未提供'}</dd><dt>档案编号</dt><dd><code>{record.asset.id}</code></dd><dt>保存版本</dt><dd>{record.asset.revision}</dd></dl></details><button className="danger" onClick={onDelete}>移入最近删除…</button></footer>
   </>;
 }

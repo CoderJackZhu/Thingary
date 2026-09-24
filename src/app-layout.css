@@ -44,3 +44,16 @@
 @media(max-width:1150px){.list-head,.list .asset-row{grid-template-columns:minmax(120px,1fr) 92px 58px;gap:10px}.list .purchase-date,.list-head .purchase-date{display:none}.collection-caption span{display:none}.detail-columns{gap:24px;grid-template-columns:minmax(0,1fr) 250px}}
 @media(max-width:1000px){.shell{grid-template-columns:164px minmax(0,1fr)}.sidebar{padding-left:10px;padding-right:10px}.shell>main{padding:0 22px 24px}.app-topbar{margin:0 -22px 26px;padding:12px 22px}.breadcrumb{font-size:11px}.breadcrumb>span{margin:0 5px}.topbar-actions{gap:8px}.topbar-actions .search{width:180px}.topbar-actions>.primary kbd{display:none}.browser-columns{grid-template-columns:minmax(0,1fr) 220px;gap:18px}.summary{padding-left:18px}.summary-cover .object-mark.large{height:145px}.summary-empty{display:block}.asset-overview>div{padding:0 16px}.asset-overview strong{font-size:23px}.asset-overview p{font-size:11px}.list .asset-row{grid-template-columns:minmax(90px,1fr) 86px;gap:8px}.list-head{grid-template-columns:minmax(90px,1fr) 86px;gap:8px}.list .asset-row>.pill,.list-head>span:last-child{display:none}.list .object-mark{width:36px;height:40px}.asset-name{gap:9px}.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.detail-columns{grid-template-columns:minmax(0,1fr) 230px;gap:22px}.asset-hero>.object-mark.large{width:190px;height:150px}.hero-copy h2{font-size:24px}.section-heading>span{display:none}.ownership-card{padding:18px}.view-controls{gap:5px}}
 @media(max-width:780px){.shell{grid-template-columns:145px minmax(0,1fr)}.topbar-actions .search{width:150px;min-width:120px}.breadcrumb{display:none}.app-topbar{justify-content:flex-end}.browser-columns{grid-template-columns:minmax(0,1fr)}.summary{border:1px solid var(--line);border-radius:9px;padding:18px}.summary-cover .object-mark.large{height:180px}.summary-empty{padding:20px}.asset-overview p{display:none}.asset-overview strong{font-size:19px}.asset-overview>div{padding:0 10px}.asset-overview{padding:16px 0}.grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}.list-head,.list .asset-row{grid-template-columns:minmax(130px,1fr) 100px}.detail-columns{grid-template-columns:1fr}.asset-hero{align-items:flex-start;gap:18px}.asset-hero>.object-mark.large{width:120px;height:120px}.hero-copy h2{font-size:21px}.header-note{display:none}.result-count{display:none}.more-fields>summary>span{display:block;margin-left:14px}}
+
+/* Integrated taxonomy uses the same page margins and compact controls. */
+.settings-section .taxonomy-shell{padding:0 0 28px;gap:20px}
+.settings-section .taxonomy-shell>header .taxonomy-eyebrow{display:none}
+.settings-section .taxonomy-shell h1{font-size:18px;letter-spacing:0}
+.settings-section .taxonomy-lede{font-size:12px}
+.browse>[data-component="category-filter"]{margin:0 0 16px;gap:7px}
+.browse .taxonomy-segmented{flex-wrap:wrap;gap:6px}
+.browse .taxonomy-segmented button{font-size:11px;padding:5px 9px}
+.browse .taxonomy-help{font-size:11px}
+.editor .taxonomy-field{min-width:0;gap:7px}
+.editor .taxonomy-field label{font-size:12px;font-weight:550}
+.editor .taxonomy-select{font-size:13px;padding:10px}

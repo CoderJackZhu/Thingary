@@ -8,6 +8,7 @@ import {
   applyPreviewCommand,
   previewSnapshot,
   validatePreviewName,
+  validateTaxonomyName,
 } from '../src/taxonomy.ts';
 
 const entries = [
@@ -105,4 +106,13 @@ test('name policy checks NFC on both sides, ASCII folding and reserved labels', 
   assert.ok(validatePreviewName([], 'channel', '未记录'));
   assert.equal(validatePreviewName([], 'channel', '电子'), null);
   assert.ok(validatePreviewName([], 'category', '  '));
+});
+
+test('production names count Unicode scalars after NFC and reject control characters', () => {
+  assert.equal(validateTaxonomyName([], 'category', '😀'.repeat(80)), null);
+  assert.ok(validateTaxonomyName([], 'category', '😀'.repeat(81)));
+  assert.equal(validateTaxonomyName([], 'category', '\uFEFFe\u0301\uFEFF'), null);
+  assert.ok(validateTaxonomyName([], 'category', 'A\u0085B'));
+  assert.ok(validateTaxonomyName([], 'category', 'A\nB'));
+  assert.equal(validateTaxonomyName([{...entries[0], name:'é'}], 'category', ' e\u0301 '), '已有同名项，请更换。');
 });
