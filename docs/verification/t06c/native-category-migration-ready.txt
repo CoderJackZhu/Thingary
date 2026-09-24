@@ -1,0 +1,51 @@
+Window: "物志 · T06b 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T06b 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container 确定要移除「虚构 T06c 摄影」吗？
+				4 text 移除 分类
+				5 heading 确定要移除「虚构 T06c 摄影」吗？, Value: 2
+					6 text 确定要移除「虚构 T06c 摄影」吗？
+				7 text 这些引用将迁移到你指定的目标；选「未分类」则改为未分类/未记录，不会删除任何物品。
+				8 container 当前引用统计
+					9 text 正常资产引用：1 最近删除引用：1 合计：2
+				10 选择迁移目标
+					11 container
+						12 radio button 未分类, Value: 0
+						13 text 未分类
+					14 container
+						15 radio button 电脑, Value: 0
+						16 text 电脑
+					17 container
+						18 radio button 手机, Value: 0
+						19 text 手机
+					20 container
+						21 radio button 摄影, Value: 1
+						22 text 摄影
+					23 container
+						24 radio button 音频, Value: 0
+						25 text 音频
+					26 container
+						27 radio button 家电, Value: 0
+						28 text 家电
+					29 container
+						30 radio button 其他, Value: 0
+						31 text 其他
+					32 container
+						33 radio button 虚构关闭校验, Value: 0
+						34 text 虚构关闭校验
+					35 container
+						36 radio button 虚构 T06c 错误恢复, Value: 0
+						37 text 虚构 T06c 错误恢复
+				38 container
+					39 button 取消
+					40 button 迁移并移除
+	41 close button
+	42 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	43 minimize button
+	44 text 物志 · T06b 虚构资料验收
+45 menu bar
+	46 Possio T06b Preview
+	47 文件
+	48 编辑
+	49 窗口

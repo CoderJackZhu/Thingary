@@ -1,0 +1,72 @@
+Window: "物志 · T06b 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T06b 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container
+				4 text 物 物志 POSSIO
+				5 container 主导航
+					6 text 我的档案
+					7 button 我的物品
+					8 button 最近删除
+					9 button 设置
+				10 text 仅保存在这台 Mac 外观
+				11 pop up button (collapsed) 外观, Value: 浅色, Secondary Actions: Expand
+			12 container
+				13 text 个人档案 / 物品详情
+				14 text field (settable) 搜索物品
+				15 text ⌘F
+				16 button ＋ 新增物品 ⌘N
+				17 text 物品已恢复到我的物品，原档案保持完整。
+				18 button ← 返回物品列表
+				19 image camera.heic
+				20 text 使用中
+				21 heading 虚构 T06b 旅行相机, Value: 2
+					22 text 虚构 T06b 旅行相机
+				23 text 一件物品，一段日常
+				24 button 编辑资料 ⌘E
+				25 container 物品资料
+					26 heading 物品资料, Value: 3
+						27 text 物品资料
+					28 text 把值得记住的细节留在这里
+					29 description list
+						30 text 品牌
+						31 text 待补充
+						32 text 型号
+						33 text 待补充
+						34 text 序列号
+						35 text 待补充
+				36 container 备注
+					37 heading 备注, Value: 3
+						38 text 备注
+					39 text T06c 虚构资料：更正、图片与恢复回归
+				40 container 图片
+					41 heading 图片, Value: 3
+						42 text 图片
+					43 text 1 张
+					44 container 物品图片
+						45 button 预览 camera.heic
+				46 heading 持有与购买, Value: 3
+					47 text 持有与购买
+				48 text 日均持有成本 ¥54.02 / 天 已与你相伴 25 天
+				49 description list
+					50 text 购入金额
+					51 text ¥1,350.50
+					52 text 购入日期
+					53 text 2026-09-01
+					54 text 分类
+					55 text 摄影
+					56 text 购买渠道
+					57 text 未记录
+				58 text 按自然日计算，包含购入当天。
+				59 summary 档案信息, Value: off
+					60 text 档案信息
+				61 button 移入最近删除…
+	62 close button
+	63 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	64 minimize button
+	65 text 物志 · T06b 虚构资料验收
+66 menu bar
+	67 Possio T06b Preview
+	68 文件
+	69 编辑
+	70 窗口
