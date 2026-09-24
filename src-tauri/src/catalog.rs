@@ -40,12 +40,16 @@ pub struct AssetRecord {
     pub updated_at: Option<String>,
     pub deleted: bool,
     pub deleted_at: Option<String>,
+    pub photos: Vec<crate::photos::Photo>,
+    pub cover_id: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SaveAsset {
     pub base: Save,
     pub details: Details,
+    #[serde(default)]
+    pub photos: Option<crate::photos::Selection>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -80,12 +84,19 @@ impl Store {
             details,
             created_at,
             updated_at,
+            photos: self.photos(id)?,
+            cover_id: self.cover(id)?,
             deleted: deleted_at.is_some(),
             deleted_at,
         }))
     }
     pub fn save_asset(&mut self, input: &SaveAsset, today: &str) -> Result<AssetRecord> {
-        let result = self.save_record(&input.base, today, Some(&input.details))?;
+        let result = self.save_record(
+            &input.base,
+            today,
+            Some(&input.details),
+            input.photos.as_ref(),
+        )?;
         self.record(&result.id)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))
     }

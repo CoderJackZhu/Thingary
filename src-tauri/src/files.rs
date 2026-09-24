@@ -29,12 +29,13 @@ pub fn validate_image(bytes: &[u8]) -> Result<()> {
     if bytes.len() > MAX_IMAGE_BYTES {
         return Err(Error::new("IMAGE_SIZE", "图片不能超过 20 MiB"));
     }
-    let format = image::guess_format(bytes).map_err(|_| {
-        Error::new(
-            "IMAGE_FORMAT",
-            "本验证版支持 JPEG、PNG、WebP；HEIC 尚待接入",
-        )
-    })?;
+    let format = match image::guess_format(bytes) {
+        Ok(format) => format,
+        Err(_) => {
+            crate::native_images::preview(bytes)?;
+            return Ok(());
+        }
+    };
     if !matches!(
         format,
         image::ImageFormat::Png | image::ImageFormat::Jpeg | image::ImageFormat::WebP

@@ -68,13 +68,13 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     )?;
     db.execute_batch("PRAGMA trusted_schema=OFF; PRAGMA foreign_keys=ON;")?;
     let v: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if v != 3 && !(allow_legacy && [1, 2].contains(&v)) {
+    if v != 4 && !(allow_legacy && [1, 2, 3].contains(&v)) {
         return Err(Error::new("SCHEMA_VERSION", "不支持此备份的数据库版本"));
     }
     let canonical = Connection::open_in_memory()?;
     canonical.execute_batch(SCHEMA)?;
     crate::storage::migrate_to(&canonical, v, &|_| Ok(()))?;
-    if v == 3 {
+    if v == 4 {
         check_db(&db)?;
     } else {
         let integrity: String = db.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
@@ -110,7 +110,7 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
             crate::domain::date(&d)?;
         }
     }
-    if v == 3 {
+    if v >= 3 {
         let mut stmt = db.prepare(
             "SELECT brand,model,serial_number,notes,created_at,updated_at FROM asset_profiles",
         )?;
@@ -129,6 +129,12 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
                         .map_err(|_| Error::new("DATA_CONSTRAINT", "建档或修改时间不合法"))?;
                 }
             }
+        }
+    }
+    if v >= 4 {
+        let invalid: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM asset_photos p JOIN attachments a ON a.id=p.attachment_id WHERE a.asset_id!=p.asset_id) OR EXISTS(SELECT 1 FROM asset_media m WHERE m.cover_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM asset_photos p WHERE p.asset_id=m.asset_id AND p.attachment_id=m.cover_id))", [], |r| r.get(0))?;
+        if invalid {
+            return Err(Error::new("REFERENCE", "图片或封面不属于该资产"));
         }
     }
     if v >= 2 {
@@ -219,7 +225,7 @@ impl Store {
         }
         let manifest = Manifest {
             format: 1,
-            schema: 3,
+            schema: 4,
             created_at: chrono::Utc::now().to_rfc3339(),
             entries,
         };
@@ -312,7 +318,7 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
     let manifest: Manifest = serde_json::from_slice(
         &manifest_bytes.ok_or_else(|| Error::new("MANIFEST", "备份缺少清单"))?,
     )?;
-    if manifest.format != 1 || ![1, 2, 3].contains(&manifest.schema) {
+    if manifest.format != 1 || ![1, 2, 3, 4].contains(&manifest.schema) {
         return Err(Error::new("BACKUP_VERSION", "备份版本暂不支持"));
     }
     observed.remove("manifest.json");

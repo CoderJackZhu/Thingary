@@ -2659,6 +2659,7 @@ dependencies = [
 name = "possio"
 version = "0.0.1"
 dependencies = [
+ "cc",
  "chrono",
  "fs2",
  "image",

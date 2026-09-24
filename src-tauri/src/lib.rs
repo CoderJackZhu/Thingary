@@ -3,6 +3,8 @@ pub mod catalog;
 mod commands;
 pub mod domain;
 pub mod files;
+pub mod native_images;
+pub mod photos;
 mod recovery;
 pub mod storage;
 pub mod trash;
@@ -84,7 +86,9 @@ pub fn run() {
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,
-            commands::set_appearance
+            commands::set_appearance,
+            commands::pick_photo,
+            commands::photo_preview
         ])
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             if let Some(window) = app.get_webview_window("main") {

@@ -131,3 +131,44 @@ pub async fn change_trash(
         .await
         .map_err(|_| Error::new("WORKER", "未收到操作结果，请核对本次请求"))?
 }
+
+#[tauri::command]
+pub async fn pick_photo(
+    app: tauri::AppHandle,
+    generation: String,
+    repair: Option<String>,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<crate::photos::Photo>> {
+    let (send, receive) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = send.send(crate::native_images::pick());
+    })
+    .map_err(|_| Error::new("PICKER", "无法打开图片选择器"))?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "图片选择器未返回结果"))?;
+        match path {
+            None => Ok(None),
+            Some(path) => w.call(move |s| {
+                s.stage_photo_path(&path, &generation, repair.as_deref())
+                    .map(Some)
+            }),
+        }
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "图片未能读取，请重新选择"))?
+}
+#[tauri::command]
+pub async fn photo_preview(
+    id: String,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<tauri::ipc::Response> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.photo_preview(&id, &generation)))
+        .await
+        .map_err(|_| Error::new("WORKER", "图片预览失败"))?
+        .map(tauri::ipc::Response::new)
+}

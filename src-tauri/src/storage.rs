@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 3 || app != 1347375955 || integrity != "ok" {
+    if v != 4 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -169,24 +169,32 @@ impl Store {
             .query_row("SELECT count(*) FROM assets", [], |r| r.get(0))?)
     }
     pub fn save(&mut self, input: &Save, today: &str) -> Result<Asset> {
-        self.save_record(input, today, None)
+        self.save_record(input, today, None, None)
     }
     pub(crate) fn save_record(
         &mut self,
         input: &Save,
         today: &str,
         details: Option<&crate::catalog::Details>,
+        photos: Option<&crate::photos::Selection>,
     ) -> Result<Asset> {
         if input.generation != self.active.generation {
             return Err(Error::new("STALE_DATASET", "资料已恢复，请重新打开档案"));
         }
         input.validate(today)?;
-        let fingerprint = digest(&match details {
-            Some(details) => {
-                details.validate()?;
-                serde_json::to_vec(&(input, details))?
+        let fingerprint = digest(&if let Some(photos) = photos {
+            if let Some(d) = details {
+                d.validate()?;
             }
-            None => serde_json::to_vec(input)?,
+            serde_json::to_vec(&(input, details, photos))?
+        } else {
+            match details {
+                Some(details) => {
+                    details.validate()?;
+                    serde_json::to_vec(&(input, details))?
+                }
+                None => serde_json::to_vec(input)?,
+            }
         });
         let tx = self.conn()?.unchecked_transaction()?;
         let previous: Option<(String, String)> = tx
@@ -228,6 +236,9 @@ impl Store {
             let now = chrono::Utc::now().to_rfc3339();
             tx.execute("INSERT INTO asset_profiles(asset_id,brand,model,serial_number,notes,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?6) ON CONFLICT(asset_id) DO UPDATE SET brand=excluded.brand,model=excluded.model,serial_number=excluded.serial_number,notes=excluded.notes,updated_at=excluded.updated_at",params![id,d.brand.trim(),d.model.trim(),d.serial_number.trim(),d.notes,now])?;
         }
+        if let Some(selection) = photos {
+            self.commit_photos(&tx, &id, selection)?;
+        }
         let result = Asset {
             id,
             name: input.name.trim().to_owned(),
@@ -251,7 +262,7 @@ impl Store {
 }
 
 pub(crate) fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 3, hook)
+    migrate_to(c, 4, hook)
 }
 pub(crate) fn migrate_to(
     c: &Connection,
@@ -259,7 +270,7 @@ pub(crate) fn migrate_to(
     hook: &dyn Fn(&str) -> Result<()>,
 ) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=3).contains(&v) || v > target {
+    if !(1..=4).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -276,6 +287,17 @@ PRAGMA user_version=2;")?;
         tx.execute_batch("CREATE TABLE asset_profiles(asset_id TEXT PRIMARY KEY REFERENCES assets(id),brand TEXT NOT NULL,model TEXT NOT NULL,serial_number TEXT NOT NULL,notes TEXT NOT NULL,created_at TEXT,updated_at TEXT);
 INSERT INTO asset_profiles SELECT id,'','','','',NULL,NULL FROM assets;
 PRAGMA user_version=3;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 3;
+    }
+    if v == 3 && target >= 4 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("CREATE TABLE asset_photos(asset_id TEXT NOT NULL REFERENCES assets(id),attachment_id TEXT PRIMARY KEY REFERENCES attachments(id),position INTEGER NOT NULL CHECK(position>=0),name TEXT NOT NULL);
+CREATE TABLE asset_media(asset_id TEXT PRIMARY KEY REFERENCES assets(id),cover_id TEXT REFERENCES attachments(id));
+INSERT INTO asset_photos SELECT asset_id,id,row_number() OVER(PARTITION BY asset_id ORDER BY id)-1,'图片' FROM attachments;
+INSERT INTO asset_media SELECT asset_id,min(id) FROM attachments GROUP BY asset_id;
+PRAGMA user_version=4;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
     }

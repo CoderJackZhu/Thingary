@@ -17,6 +17,7 @@ struct Case {
     save: Save,
     attach: Attach,
     bytes: Vec<u8>,
+    photo_save: Option<possio_lib::catalog::SaveAsset>,
 }
 fn request(s: &Store, name: &str) -> Save {
     Save {
@@ -61,6 +62,14 @@ fn crash_child() {
                 deleted: case.action == "trash-delete",
             })
             .unwrap();
+        }
+        "photo-save" => {
+            s.save_asset(case.photo_save.as_ref().unwrap(), "2026-09-24")
+                .unwrap();
+        }
+        "photo-stage" => {
+            s.stage_photo("样例", &case.bytes, &s.generation(), None)
+                .unwrap();
         }
         "image" => {
             s.attach(&case.attach, &case.bytes).unwrap();
@@ -107,6 +116,14 @@ fn kill_at(root: &Path, case: &Case) {
 fn real_process_termination_preserves_complete_state() {
     for (action, points) in [
         ("save", vec!["save.before_commit", "save.after_commit"]),
+        (
+            "photo-save",
+            vec!["save.before_commit", "save.after_commit"],
+        ),
+        (
+            "photo-stage",
+            vec!["photo.before_place", "photo.after_place"],
+        ),
         (
             "trash-delete",
             vec!["trash.before_commit", "trash.after_commit"],
@@ -158,7 +175,7 @@ fn real_process_termination_preserves_complete_state() {
                 expected_revision: 1,
             };
             let mut photo = None;
-            if action != "save" {
+            if !["save", "photo-save", "photo-stage"].contains(&action) {
                 attach.asset_id = s.save(&save, "2026-09-24").unwrap().id;
             }
             if action == "trash-restore" {
@@ -179,7 +196,23 @@ fn real_process_termination_preserves_complete_state() {
                 edit.expected_revision = Some(2);
                 s.save(&edit, "2026-09-24").unwrap();
             }
+            let photo_save = if action == "photo-save" {
+                let p = s
+                    .stage_photo("样例", bytes.get_ref(), &s.generation(), None)
+                    .unwrap();
+                Some(possio_lib::catalog::SaveAsset {
+                    base: save.clone(),
+                    details: Default::default(),
+                    photos: Some(possio_lib::photos::Selection {
+                        ids: vec![p.id.clone()],
+                        cover_id: Some(p.id),
+                    }),
+                })
+            } else {
+                None
+            };
             let case = Case {
+                photo_save,
                 action: action.into(),
                 point: point.into(),
                 save: save.clone(),
@@ -190,6 +223,29 @@ fn real_process_termination_preserves_complete_state() {
             kill_at(root.path(), &case);
             let mut s = Store::open(&root.path().join("data")).unwrap();
             match action {
+                "photo-stage" => {
+                    assert_eq!(s.count().unwrap(), 0);
+                    let p = s
+                        .stage_photo("重试", &case.bytes, &s.generation(), None)
+                        .unwrap();
+                    assert!(s.photo_preview(&p.id, &s.generation()).is_ok());
+                }
+                "photo-save" => {
+                    assert_eq!(
+                        s.count().unwrap(),
+                        if point == "save.after_commit" { 1 } else { 0 }
+                    );
+                    let req = case.photo_save.as_ref().unwrap();
+                    let a = s.save_asset(req, "2026-09-24").unwrap();
+                    assert_eq!(a.photos.len(), 1);
+                    assert_eq!(a.cover_id, req.photos.as_ref().unwrap().cover_id);
+                    assert_eq!(
+                        s.save_asset(req, "2026-09-24").unwrap().asset.id,
+                        a.asset.id
+                    );
+                    assert_eq!(s.image_bytes(&a.photos[0].id).unwrap(), case.bytes);
+                    assert_eq!(s.count().unwrap(), 1);
+                }
                 "save" => {
                     assert_eq!(
                         s.count().unwrap(),

@@ -9,6 +9,7 @@ name = "possio_lib"
 crate-type = ["lib"]
 
 [build-dependencies]
+cc = "=1.4.7"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]

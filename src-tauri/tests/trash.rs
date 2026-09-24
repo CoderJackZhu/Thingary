@@ -8,6 +8,7 @@ use possio_lib::{
 };
 fn save(s: &Store) -> SaveAsset {
     SaveAsset {
+        photos: None,
         base: Save {
             request_id: uuid::Uuid::new_v4().to_string(),
             generation: s.generation(),
