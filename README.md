@@ -4,13 +4,14 @@
 
 **定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 成本分析 + 本地数据。** 不做金融投资、日常记账或依赖服务器的家庭库存系统。
 
-当前已完成 CP1 基本资产流程：新增 → 浏览/详情 → 更正 → 删除/恢复，并接入封面、图片附件和 HEIC。T06 分类与购买渠道及综合回归已通过；T07 退役、重新启用与动作日期更正已实现并通过原生持久性验收，具备本地集成条件（尚未合并）；T08 售出与纠错已实现，原生售出／更正／重开通过，GUI 撤销及再次重开通过；完整 P0 未完成。中文名「物志」、英文名「Possio」为工作名，发布前再核查名称可用性。
+当前已完成 CP1 基本资产流程：新增 → 浏览/详情 → 更正 → 删除/恢复，并接入封面、图片附件和 HEIC。T06 分类与购买渠道及综合回归已通过；T07 退役／启用与 T08 售出／纠错已实现并验收；T09 维护档案已完成本轮实现、自动检查及隔离原生新增／同记录更正／重开证据，当前待 Codex review。完整 P0 未完成。中文名「物志」、英文名「Possio」为工作名，发布前再核查名称可用性。
 
 ## 项目文档
 
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、技术原则、P0/P1/P2 和验收标准。
 - [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」作为后续基线，B 保留为历史比较；涵盖资产浏览、快速新增和完整档案；[直接打开交互原型](docs/ui/prototype.html)。
 - [实际页面视觉验证](docs/verification/VISUAL_ALIGNMENT.md)：A 基线在真实组件中的实现、浏览器截图与验收边界。
+- [T09 维护档案](docs/verification/T09_MAINTENANCE_RESULT.md)：schema 8、维护新增／更正、费用与日期约束、自动检查及隔离原生证据；当前待 Codex review。
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
 - [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。
@@ -18,7 +19,7 @@
 - [P0 功能规格](docs/FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义、已收敛的业务边界及补充样例。
 - [技术设计与验证计划](docs/decisions/001-local-desktop.md)：本地桌面架构、数据与图片一致性、统一最近删除、备份恢复协议和七项风险验证计划；已作为任务拆分基线，底层实验与未验项见验证报告。
 - [实施任务与开工检查](docs/IMPLEMENTATION_PLAN.md)：V00–V05 首批验证、T01–T21 后续任务、依赖顺序、44 条验收归属和阶段出口；任务状态唯一入口。
-- [当前 Hermes 交接：T09](docs/handoffs/T09_HERMES.md)：维护档案的执行位置、前审约束、验证要求及交回 Codex review 格式；已准备，尚未启动。
+- [Hermes 交接：T09](docs/handoffs/T09_HERMES.md)：维护档案的执行位置、前审约束、验证要求及交回 Codex review 格式；实现已完成，保留为审阅契约。
 - [Hermes 首次交接：T06a](docs/handoffs/T06A_HERMES.md)：分类/渠道界面的独立执行契约、允许文件、输入输出和完工报告要求；真实数据接入由 Codex 后续完成。
 - [工程与流程验证报告](docs/VERIFICATION_REPORT.md)：实际环境、测试与进程中断证据、构建结果和未完成项。
 - [竞品调研](docs/COMPETITOR_RESEARCH.md)：优先研究持物 iThings、有数两个直接竞品，结合八个开源候选，比较业务重合、平台体验、公开热度与差异化假设。

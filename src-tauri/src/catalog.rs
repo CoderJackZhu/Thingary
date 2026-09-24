@@ -35,6 +35,8 @@ use rusqlite::{params, OptionalExtension};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssetRecord {
     pub sale: Option<crate::sales::Sale>,
+    pub maintenances: Vec<crate::maintenance::Maintenance>,
+    pub costs: crate::maintenance::CostSummary,
     pub lifecycle: crate::lifecycle::Lifecycle,
     pub asset: Asset,
     pub details: Details,
@@ -76,6 +78,9 @@ pub struct Page {
 }
 impl Store {
     pub fn record(&self, id: &str) -> Result<Option<AssetRecord>> {
+        self.record_at(id, &chrono::Local::now().format("%Y-%m-%d").to_string())
+    }
+    pub(crate) fn record_at(&self, id: &str, today: &str) -> Result<Option<AssetRecord>> {
         let Some(asset) = self.asset(id)? else {
             return Ok(None);
         };
@@ -86,8 +91,12 @@ impl Store {
                 .query_row("SELECT deleted_at FROM assets WHERE id=?1", [id], |r| {
                     r.get(0)
                 })?;
+        let sale = crate::sales::read(self.conn()?, id)?;
+        let costs = crate::maintenance::summary(self.conn()?, &asset, sale.as_ref(), today)?;
         Ok(Some(AssetRecord {
-            sale: crate::sales::read(self.conn()?, id)?,
+            sale,
+            maintenances: crate::maintenance::read(self.conn()?, id)?,
+            costs,
             lifecycle: self.lifecycle(id)?,
             asset,
             details,
@@ -117,7 +126,7 @@ impl Store {
             input.photos.as_ref(),
             input.classification.as_ref(),
         )?;
-        self.record(&result.id)?
+        self.record_at(&result.id, today)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))
     }
     pub fn saved_request(&self, request: &str, generation: &str) -> Result<Option<AssetRecord>> {
@@ -188,7 +197,7 @@ impl Store {
         let items = ids
             .into_iter()
             .map(|id| {
-                self.record(&id)?
+                self.record_at(&id, today)?
                     .ok_or_else(|| Error::new("NOT_FOUND", "档案不存在"))
             })
             .collect::<Result<Vec<_>>>()?;

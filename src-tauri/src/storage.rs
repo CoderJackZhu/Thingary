@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 7 || app != 1347375955 || integrity != "ok" {
+    if v != 8 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -230,6 +230,7 @@ impl Store {
         if let Some(expected) = input.expected_revision {
             crate::lifecycle::validate_purchase_date(&tx, &id, input.purchase_date.as_deref())?;
             crate::sales::validate_purchase_date(&tx, &id, input.purchase_date.as_deref())?;
+            crate::maintenance::validate_purchase_date(&tx, &id, input.purchase_date.as_deref())?;
             let n=tx.execute("UPDATE assets SET name=?1,price_cents=?2,purchase_date=?3,revision=?4 WHERE id=?5 AND revision=?6 AND deleted_at IS NULL",params![input.name.trim(),price,input.purchase_date,revision,id,expected])?;
             if n != 1 {
                 return Err(Error::new(
@@ -279,7 +280,7 @@ impl Store {
 }
 
 pub(crate) fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 7, hook)
+    migrate_to(c, 8, hook)
 }
 pub(crate) fn migrate_to(
     c: &Connection,
@@ -287,7 +288,7 @@ pub(crate) fn migrate_to(
     hook: &dyn Fn(&str) -> Result<()>,
 ) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=7).contains(&v) || v > target {
+    if !(1..=8).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -387,6 +388,21 @@ CREATE TABLE sale_audit(sequence INTEGER PRIMARY KEY AUTOINCREMENT,request_id TE
 PRAGMA user_version=7;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 7;
+    }
+    if v == 7 && target >= 8 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("CREATE TABLE maintenances(id TEXT PRIMARY KEY,asset_id TEXT NOT NULL REFERENCES assets(id),date TEXT,kind TEXT NOT NULL CHECK(kind IN ('repair','service','cleaning','replacement','upgrade','other')),title TEXT NOT NULL,description TEXT NOT NULL,cost_cents INTEGER CHECK(cost_cents BETWEEN 0 AND 99999999999),provider TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deleted_at TEXT);
+CREATE INDEX maintenances_asset ON maintenances(asset_id,date);
+CREATE TABLE maintenance_photos(maintenance_id TEXT NOT NULL REFERENCES maintenances(id),attachment_id TEXT PRIMARY KEY REFERENCES attachments(id),position INTEGER NOT NULL CHECK(position>=0),name TEXT NOT NULL);
+CREATE TABLE maintenance_audit(sequence INTEGER PRIMARY KEY AUTOINCREMENT,request_id TEXT NOT NULL UNIQUE,maintenance_id TEXT NOT NULL REFERENCES maintenances(id),action TEXT NOT NULL CHECK(action IN ('add','correct')),snapshot TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE TRIGGER maintenance_dates_insert BEFORE INSERT ON maintenances WHEN NEW.deleted_at IS NULL AND NEW.date IS NOT NULL BEGIN SELECT RAISE(ABORT,'maintenance before purchase') FROM assets WHERE id=NEW.asset_id AND purchase_date IS NOT NULL AND NEW.date<purchase_date; SELECT RAISE(ABORT,'maintenance after sale') FROM sales WHERE asset_id=NEW.asset_id AND revoked_at IS NULL AND NEW.date>date; END;
+CREATE TRIGGER maintenance_dates_update BEFORE UPDATE OF asset_id,date,deleted_at ON maintenances WHEN NEW.deleted_at IS NULL AND NEW.date IS NOT NULL BEGIN SELECT RAISE(ABORT,'maintenance before purchase') FROM assets WHERE id=NEW.asset_id AND purchase_date IS NOT NULL AND NEW.date<purchase_date; SELECT RAISE(ABORT,'maintenance after sale') FROM sales WHERE asset_id=NEW.asset_id AND revoked_at IS NULL AND NEW.date>date; END;
+CREATE TRIGGER asset_purchase_after_maintenance_insert BEFORE INSERT ON assets WHEN NEW.purchase_date IS NOT NULL BEGIN SELECT RAISE(ABORT,'purchase after maintenance') FROM maintenances WHERE asset_id=NEW.id AND deleted_at IS NULL AND date IS NOT NULL AND date<NEW.purchase_date LIMIT 1; END;
+CREATE TRIGGER asset_purchase_after_maintenance_update BEFORE UPDATE OF purchase_date ON assets WHEN NEW.purchase_date IS NOT NULL BEGIN SELECT RAISE(ABORT,'purchase after maintenance') FROM maintenances WHERE asset_id=NEW.id AND deleted_at IS NULL AND date IS NOT NULL AND date<NEW.purchase_date LIMIT 1; END;
+PRAGMA user_version=8;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -437,5 +453,42 @@ mod taxonomy_migration_tests {
             .unwrap(),
             first
         );
+    }
+
+    #[test]
+    fn version_seven_upgrade_is_atomic_and_idempotent() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(SCHEMA).unwrap();
+        migrate_to(&c, 7, &|_| Ok(())).unwrap();
+        c.execute("INSERT INTO assets(id,name,revision,lifecycle_state) VALUES('legacy','旧资料',1,'active')", []).unwrap();
+        assert!(migrate(&c, &|point| if point == "migration.before_commit" {
+            Err(Error::new("INJECTED", "中断"))
+        } else {
+            Ok(())
+        })
+        .is_err());
+        assert_eq!(
+            c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            7
+        );
+        assert!(c.prepare("SELECT id FROM maintenances").is_err());
+        migrate(&c, &|_| Ok(())).unwrap();
+        assert_eq!(
+            c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            8
+        );
+        assert_eq!(
+            c.query_row("SELECT name FROM assets WHERE id='legacy'", [], |r| r
+                .get::<_, String>(0))
+                .unwrap(),
+            "旧资料"
+        );
+        migrate(&c, &|_| Ok(())).unwrap();
+        let audit_exists: i64 = c
+            .query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='maintenance_audit'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(audit_exists, 1);
     }
 }

@@ -11,6 +11,7 @@ import type { SaleChange, Sale } from './sales';
 import { lifecycleError } from './lifecycle';
 import type { LifecycleChange } from './lifecycle';
 import { fixtureArt } from './visual-fixtures';
+const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 
 const seeds = [
   ['laptop', 'MacBook Pro 14″', 'Apple', 'M3 Pro · 深空黑', '1699900', '2024-03-18', '日常工作与创作的主力。'],
@@ -23,6 +24,7 @@ const seeds = [
 ] as const;
 let records: AssetRecord[] = seeds.map(([id,name,brand,model,price,date,notes],i) => ({
   lifecycle: {state: 'active', events: []},
+  maintenances: [], costs: {...emptyCosts,total_investment_cents:price},
   asset: { id, name, price_cents: price, purchase_date: date, revision: 1 },
   details: { brand, model, serial_number: '', notes },
   created_at: new Date(Date.UTC(2026,8,10,8,0,i)).toISOString(), updated_at: null,
@@ -90,7 +92,7 @@ mockIPC(async (command,payload) => {
     if(old?.sale && input.base.purchase_date && input.base.purchase_date>old.sale.fields.date) throw {code:'DATE_CONFLICT',message:'购入日期晚于有效售出记录。'};
     if(old && input.base.purchase_date && old.lifecycle?.events.some(e=>e.date<input.base.purchase_date!)) throw {code:'DATE_CONFLICT',message:'购入日期晚于已有状态记录，请先更正相关动作日期。'};
     const id=old?.asset.id ?? crypto.randomUUID();
-    const record:AssetRecord={sale:old?.sale??null,lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:'虚构物品示意图'})),cover_id:input.photos?.cover_id??null};
+    const record:AssetRecord={sale:old?.sale??null,maintenances:old?.maintenances??[],costs:old?.costs??{...emptyCosts,total_investment_cents:input.base.price_cents},lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:'虚构物品示意图'})),cover_id:input.photos?.cover_id??null};
     taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); return structuredClone(record);
   }
   // Exercise production delete/restore UI, without touching the native library.

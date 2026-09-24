@@ -4,6 +4,7 @@ mod commands;
 pub mod domain;
 pub mod files;
 pub mod lifecycle;
+pub mod maintenance;
 pub mod native_images;
 pub mod photos;
 mod recovery;
@@ -91,6 +92,7 @@ pub fn run() {
             commands::change_trash,
             commands::change_lifecycle,
             commands::change_sale,
+            commands::change_maintenance,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,

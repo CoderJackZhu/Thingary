@@ -26,6 +26,8 @@ export function saleError(d: SaleDraft, today: string): string {
   if(d.record.asset.purchase_date && f.date<d.record.asset.purchase_date) return '售出日期不能早于购入日期。';
   const last=d.record.lifecycle?.events.at(-1);
   if(last && f.date<last.date) return `售出日期不能早于前置状态记录（${last.date}）。`;
+  const latestMaintenance=(d.record.maintenances??[]).filter(m=>m.fields.date).map(m=>m.fields.date!).sort().at(-1);
+  if(latestMaintenance && f.date<latestMaintenance) return `售出日期不能早于维护记录（${latestMaintenance}）。`;
   return '';
 }
 export function saleAction(d: SaleDraft): SaleAction {
@@ -35,7 +37,9 @@ export function saleAction(d: SaleDraft): SaleAction {
 }
 export function settlement(record: AssetRecord, sale: SaleFields) {
   const days=record.asset.purchase_date ? Math.floor((Date.parse(sale.date+'T00:00:00Z')-Date.parse(record.asset.purchase_date+'T00:00:00Z'))/86400000)+1 : null;
-  const net=record.asset.price_cents===null ? null : BigInt(record.asset.price_cents)-BigInt(sale.price_cents);
+  const unknown=record.costs?.unknown_maintenance_count ?? 0;
+  const maintenance=BigInt(record.costs?.known_maintenance_cents ?? '0');
+  const net=record.asset.price_cents===null || unknown>0 ? null : BigInt(record.asset.price_cents)+maintenance-BigInt(sale.price_cents);
   const n=net===null ? null : net<0n ? -net : net;
   const daily=n!==null && days!==null && days>0 ? (((n+BigInt(Math.floor(days/2)))/BigInt(days))*(net!<0n?-1n:1n)).toString() : null;
   return {days,net:net?.toString()??null,daily};

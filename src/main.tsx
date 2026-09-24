@@ -9,6 +9,7 @@ import type { AssetRecord, Page, Query } from './asset';
 import { TrashPanel, TrashDialog, storedTrash } from './Trash';
 import type { TrashAction } from './Trash';
 import { SaleEditor } from './SaleEditor';
+import { MaintenanceEditor } from './MaintenanceEditor';
 import { storedSale, saleKey, saleFields } from './sales';
 import type { SaleDraft } from './sales';
 import { LifecycleEditor } from './LifecycleEditor';
@@ -42,6 +43,7 @@ function App() {
   const [trashRecovery, setTrashRecovery] = useState<TrashAction | null>(storedTrash);
   const [lifecycleDraft, setLifecycleDraft] = useState<LifecycleDraft | null>(null);
   const [saleDraft, setSaleDraft] = useState<SaleDraft | null>(null);
+  const [maintenanceDraft, setMaintenanceDraft] = useState<{ record: AssetRecord; id?: string } | null>(null);
   const [saleRecovery, setSaleRecovery] = useState<SaleDraft | null>(storedSale);
   const [lifecycleRecovery, setLifecycleRecovery] = useState<LifecycleDraft | null>(storedLifecycle);
   const [trashVersion, setTrashVersion] = useState(0);
@@ -70,7 +72,7 @@ function App() {
   const [taxonomyDirty, setTaxonomyDirty] = useState(false);
   const taxonomy = useTaxonomy(() => { void refresh(); if (selected) void select(selected.asset.id); setTrashVersion(v => v + 1); });
   const taxonomyGuard = taxonomyDirty || taxonomy.busy || taxonomy.blocked;
-  useEffect(() => { void invoke('set_editing', { editing: !!draft || !!trashAction || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || taxonomyGuard }).catch(e => setNotice(errorMessage(e))); }, [draft, trashAction, lifecycleDraft, lifecycleRecovery, saleDraft, saleRecovery, taxonomyGuard]);
+  useEffect(() => { void invoke('set_editing', { editing: !!draft || !!trashAction || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || taxonomyGuard }).catch(e => setNotice(errorMessage(e))); }, [draft, trashAction, lifecycleDraft, lifecycleRecovery, saleDraft, saleRecovery, maintenanceDraft, taxonomyGuard]);
   async function refresh(q = query) {
     const ticket = ++queryTicket.current; setLoading(true); setLoadError('');
     try { const result = await invoke<Page>('list_assets', { query: q }); if (ticket === queryTicket.current) { setPage(result); setToday(result.today); if (q.offset > 0 && !result.items.length) setQuery({ ...q, offset: Math.max(0, Math.ceil(result.total / 100) * 100 - 100) }); } }
@@ -90,7 +92,7 @@ function App() {
     void invoke('set_appearance', { appearance: theme }).catch(e => setNotice(errorMessage(e)));
   }, [theme]);
   menuAction.current = action => {
-    if (draft || trashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery) return;
+    if (draft || trashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft) return;
     if (action === 'new-asset') void openEditor(null);
     if (action === 'find-asset') { setSection('assets'); setDetailId(null); requestAnimationFrame(() => searchRef.current?.focus()); }
     if (action === 'edit-asset' && section === 'assets' && selected && !selected.deleted) void openEditor(selected);
@@ -217,6 +219,26 @@ function App() {
     setNotice('售出操作已保存，原档案和图片保持完整。'); void refresh(); setTrashVersion(v => v + 1);
     requestAnimationFrame(() => document.getElementById('detail-heading')?.focus());
   }
+  async function openMaintenance(record: AssetRecord, id?: string) {
+    if (!page || !eventsReady || draft || trashAction || lifecycleDraft || saleDraft || maintenanceDraft || taxonomyGuard) return;
+    opener.current = document.activeElement as HTMLElement;
+    try { await invoke('set_editing', { editing: true }); setCloseIntent(null); setMaintenanceDraft({ record, id }); }
+    catch (e) { setNotice(errorMessage(e)); }
+  }
+  async function closeMaintenance(intent: CloseIntent) {
+    setMaintenanceDraft(null); setCloseIntent(null);
+    await invoke('set_editing', { editing: taxonomyGuard });
+    if (intent !== 'form') await invoke('finish_close', { quit: intent === 'quit' });
+    else requestAnimationFrame(() => opener.current?.isConnected && opener.current.focus());
+  }
+  function maintenanceSaved(record: AssetRecord) {
+    setMaintenanceDraft(null); setCloseIntent(null);
+    ++detailTicket.current; setDetailLoading(false); setDetailError('');
+    setSelected(record); setDetailId(record.asset.id); setSection('assets');
+    void invoke('set_editing', { editing: taxonomyGuard }).catch(e => setNotice(errorMessage(e)));
+    setNotice('维护记录已保存，并已计入成本摘要。'); void refresh(); setTrashVersion(v => v + 1);
+    requestAnimationFrame(() => document.getElementById('detail-heading')?.focus());
+  }
   const active = selected && !selected.deleted ? selected : null;
   const filtered = !!query.search || query.filter !== 'all' || (query.category?.mode ?? 'all') !== 'all';
   function identity(record: AssetRecord) { return <><Cover record={record} generation={page?.generation || ''}/><span className="identity"><strong>{record.asset.name}</strong><small>{[taxonomy.snapshot?.categories.find(c => c.id === record.classification?.category_id)?.name, record.details.brand, record.details.model].filter(Boolean).join(' · ') || '未分类'}</small></span></>; }
@@ -241,7 +263,7 @@ function App() {
           <aside className="summary">{detailLoading ? <p role="status">正在读取档案…</p> : detailError ? <div role="alert"><p>{detailError}</p><button onClick={() => { setDetailError(''); setSelected(null); }}>关闭提示</button></div> : active ? <><div className="summary-cover"><Cover record={active} generation={page?.generation || ''} large/><span className="pill" data-state={active.lifecycle?.state ?? 'active'}>{stateLabel(active)}</span></div><h2>{active.asset.name}</h2><p className="muted">{[active.details.brand, active.details.model].filter(Boolean).join(' · ') || '资料可以慢慢补全'}</p><AssetFacts record={active} today={today} taxonomy={taxonomy.snapshot}/><button className="primary full-width" onClick={() => void select(active.asset.id, true)}>打开完整档案</button><button className="full-width" onClick={() => void openEditor(active)}>编辑资料 <kbd>⌘E</kbd></button></> : <div className="summary-empty"><span>←</span><p>选一件物品<br/>看看它的持有记录</p></div>}</aside>
         </div>}
       </section>
-      {section === 'assets' && detailId && <section className="detail"><button className="back" onClick={back}>← 返回物品列表</button>{detailLoading ? <p role="status">正在读取档案…</p> : detailError || !active ? <div className="empty" role="alert"><h2>{detailError || '找不到这件物品'}</h2>{selected?.deleted && <button onClick={() => setSection('trash')}>前往最近删除</button>}<button onClick={() => void select(detailId, true)}>重新读取</button></div> : <AssetDetail onSale={mode => void openSale(active, mode)} onLifecycle={action => void openLifecycle(active, action)} taxonomy={taxonomy.snapshot} record={active} generation={page?.generation || ''} today={today} onEdit={() => void openEditor(active)} onDelete={() => page && void openTrash(active, page.generation, true)}/> }</section>}
-    </main>{saleDraft && <SaleEditor initial={saleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeSale(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saleSaved}/>} {lifecycleDraft && <LifecycleEditor initial={lifecycleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeLifecycle(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={lifecycleSaved}/>} {closeIntent && !draft && !trashAction && !lifecycleDraft && !saleDraft && taxonomyGuard && <TaxonomyCloseNotice onKeep={() => { setCloseIntent(null); setSection('settings'); }}/>}{trashAction && <TrashDialog initial={trashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={trashDone}/>} {draft && <AssetEditor taxonomy={taxonomy.snapshot} initial={draft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeEditor(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saved}/>}</div>;
+      {section === 'assets' && detailId && <section className="detail"><button className="back" onClick={back}>← 返回物品列表</button>{detailLoading ? <p role="status">正在读取档案…</p> : detailError || !active ? <div className="empty" role="alert"><h2>{detailError || '找不到这件物品'}</h2>{selected?.deleted && <button onClick={() => setSection('trash')}>前往最近删除</button>}<button onClick={() => void select(detailId, true)}>重新读取</button></div> : <AssetDetail onMaintenance={id => void openMaintenance(active, id)} onSale={mode => void openSale(active, mode)} onLifecycle={action => void openLifecycle(active, action)} taxonomy={taxonomy.snapshot} record={active} generation={page?.generation || ''} today={today} onEdit={() => void openEditor(active)} onDelete={() => page && void openTrash(active, page.generation, true)}/> }</section>}
+    </main>{maintenanceDraft && <MaintenanceEditor record={maintenanceDraft.record} maintenanceId={maintenanceDraft.id} generation={page?.generation || ''} today={today} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeMaintenance(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={maintenanceSaved}/>} {saleDraft && <SaleEditor initial={saleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeSale(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saleSaved}/>} {lifecycleDraft && <LifecycleEditor initial={lifecycleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeLifecycle(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={lifecycleSaved}/>} {closeIntent && !draft && !trashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && taxonomyGuard && <TaxonomyCloseNotice onKeep={() => { setCloseIntent(null); setSection('settings'); }}/>}{trashAction && <TrashDialog initial={trashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={trashDone}/>} {draft && <AssetEditor taxonomy={taxonomy.snapshot} initial={draft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeEditor(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saved}/>}</div>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);

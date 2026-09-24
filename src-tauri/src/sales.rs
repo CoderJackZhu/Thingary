@@ -109,11 +109,11 @@ impl Store {
                 return Err(Error::new("REQUEST_CONFLICT", "此请求标识已用于不同内容"));
             }
             return self
-                .record(&input.asset_id)?
+                .record_at(&input.asset_id, today)?
                 .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"));
         }
         let record = self
-            .record(&input.asset_id)?
+            .record_at(&input.asset_id, today)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))?;
         if record.deleted || record.asset.revision != input.expected_revision {
             return Err(Error::new(
@@ -183,6 +183,7 @@ impl Store {
                     ));
                 }
             }
+            crate::maintenance::validate_sale_date(&tx, &input.asset_id, &sale.fields.date)?;
         }
         let prior = if sale.previous_state == State::Retired {
             "retired"
@@ -229,7 +230,7 @@ impl Store {
         self.hit("sale.before_commit")?;
         tx.commit()?;
         self.hit("sale.after_commit")?;
-        self.record(&input.asset_id)?
+        self.record_at(&input.asset_id, today)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))
     }
 }
