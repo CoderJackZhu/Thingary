@@ -1,0 +1,7 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T06b 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 112-113
+~					111 text 图片已准备好，将随资料一起保存。 放弃未保存的修改？
++					118 text 这次输入还没有写入资产档案。
++					119 button 继续编辑
++					120 button 放弃修改
+The focused UI element is 68 HTML content Description: 物志 · 开发预览, URL: tauri://localhost

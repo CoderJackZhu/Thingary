@@ -1,0 +1,13 @@
+{
+  "locked": {
+    "pending": true,
+    "disabled": true,
+    "writes": 1
+  },
+  "recovered": {
+    "heading": "T06c 未知回执资产",
+    "pending": null,
+    "writes": 1,
+    "overflow": false
+  }
+}

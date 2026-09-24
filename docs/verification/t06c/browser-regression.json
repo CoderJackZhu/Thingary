@@ -1,0 +1,30 @@
+{
+  "recovered": {
+    "icon": "摄影，选择图标 音频",
+    "draft": "T06c 保留的名称草稿",
+    "error": "按 Enter 保存，Esc 取消",
+    "pending": null,
+    "writes": 1
+  },
+  "removal": {
+    "selected": 0,
+    "disabled": true
+  },
+  "layout": {
+    "horizontalOverflow": false,
+    "heading": "Fujifilm X100V"
+  },
+  "photoLayout": {
+    "height": 488.3984375,
+    "expectedHeight": 488.4,
+    "thumbnailHeight": 105
+  },
+  "passed": [
+    "lost response and failed reconciliation stay locked",
+    "successful reconciliation retains draft, updates icon and clears error without replay",
+    "uncommitted failure keeps icon and retry clears error",
+    "migration requires explicit choice",
+    "renamed category filters same asset",
+    "photo preview uses viewport height while thumbnail stays compact"
+  ]
+}

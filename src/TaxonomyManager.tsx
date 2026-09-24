@@ -165,6 +165,7 @@ interface ListRowProps {
   isLast: boolean;
   kind: TaxonomyKind;
   busy: boolean;
+  reloadVersion: number;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSave: (name: string) => Promise<void>;
@@ -179,6 +180,7 @@ function ListRow({
   isLast,
   kind,
   busy,
+  reloadVersion,
   onStartEdit,
   onCancelEdit,
   onSave,
@@ -188,9 +190,11 @@ function ListRow({
 }: ListRowProps) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [draftName, setDraftName] = useState(entry.name);
-  const [draftIcon, setDraftIcon] = useState<CategoryIcon>(entry.icon ?? "box");
   const [rowError, setRowError] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
+
+  // A successful reconciliation clears stale errors without discarding a name draft.
+  useEffect(() => { setRowError(null); }, [reloadVersion]);
 
   useEffect(() => {
     if (mode === "edit") {
@@ -223,7 +227,7 @@ function ListRow({
     if (busy) return;
     try {
       await onChangeIcon(next);
-      setDraftIcon(next);
+      setRowError(null);
     } catch (error) {
       setRowError((error as Error).message || "图标未更新，请稍后重试。");
     }
@@ -280,7 +284,6 @@ function ListRow({
             disabled={busy}
             onClick={() => {
               setDraftName(entry.name);
-              setDraftIcon(entry.icon ?? "box");
               setRowError(null);
               onStartEdit();
               setMode("edit");
@@ -358,7 +361,7 @@ function ListRow({
         <div style={{ gridColumn: "1 / -1" }}>
           <small className="muted small">图标即时保存；名称需单独保存</small>
           <IconPicker
-            value={draftIcon}
+            value={entry.icon ?? "box"}
             name={entry.name}
             disabled={busy}
             onChange={(value) => {
@@ -544,6 +547,7 @@ export default function TaxonomyManager({
   } | null>(null);
 
   const [reloading, setReloading] = useState(false);
+  const [reloadVersion, setReloadVersion] = useState(0);
   const inFlight = useRef(false);
   const editingRows = useRef(new Set<string>());
   const [editingCount, setEditingCount] = useState(0);
@@ -656,6 +660,7 @@ export default function TaxonomyManager({
     try {
       // Resolve only on a successful read; failures must reject.
       await onReload();
+      setReloadVersion(version => version + 1);
       setBlocked(null);
       setUnverified(null);
       setNotice({ text: "已重新加载，请核对保留的草稿后再保存。", state: "info" });
@@ -905,6 +910,7 @@ export default function TaxonomyManager({
                 entry={entry}
                 kind={kind}
                 busy={unavailable || locked}
+                reloadVersion={reloadVersion}
                 isFirst={index === 0}
                 isLast={index === entries.length - 1}
                 onChangeIcon={(icon) => submitIcon(entry, icon)}

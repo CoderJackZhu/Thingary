@@ -358,3 +358,117 @@ fn backup_restore_preserves_taxonomy_and_rejects_old_generation() {
         0
     );
 }
+
+#[test]
+fn channel_migration_survives_edit_photos_trash_restore_and_reopen() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let snapshot = s.taxonomy_snapshot().unwrap();
+    let category = snapshot.categories[0].id.clone();
+    let source = snapshot.channels[0].id.clone();
+    let target = snapshot.channels[1].id.clone();
+    let bytes = include_bytes!("fixtures/camera.heic");
+    let photo = s
+        .stage_photo("虚构.heic", bytes, &s.generation(), None)
+        .unwrap();
+    let mut input = save(&s, Some(&category), Some(&source));
+    input.photos = Some(possio_lib::photos::Selection {
+        ids: vec![photo.id.clone()],
+        cover_id: Some(photo.id.clone()),
+    });
+    let original = s.save_asset(&input, "2026-09-24").unwrap();
+    let live = s
+        .save_asset(&save(&s, Some(&category), Some(&source)), "2026-09-24")
+        .unwrap();
+    s.change_taxonomy(&change(
+        &s,
+        Command::Rename {
+            kind: Kind::Channel,
+            id: source.clone(),
+            name: "虚构更名渠道".into(),
+        },
+    ))
+    .unwrap();
+    assert_eq!(
+        s.record(&original.asset.id)
+            .unwrap()
+            .unwrap()
+            .classification
+            .channel_id,
+        Some(source.clone())
+    );
+    input.base.request_id = uuid::Uuid::new_v4().to_string();
+    input.base.asset_id = Some(original.asset.id.clone());
+    input.base.expected_revision = Some(original.asset.revision);
+    input.base.price_cents = Some("135050".into());
+    input.details.notes = "虚构更正保留".into();
+    let edited = s.save_asset(&input, "2026-09-24").unwrap();
+    let deleted = s
+        .change_trash(&trash(&s, &edited.asset.id, edited.asset.revision, true))
+        .unwrap();
+    let refs = s
+        .taxonomy_snapshot()
+        .unwrap()
+        .channels
+        .into_iter()
+        .find(|e| e.id == source)
+        .unwrap()
+        .references;
+    assert_eq!((refs.active_assets, refs.deleted_assets), (1, 1));
+    let migration = change(
+        &s,
+        Command::Remove {
+            kind: Kind::Channel,
+            id: source.clone(),
+            target_id: Some(target.clone()),
+        },
+    );
+    s.change_taxonomy(&migration).unwrap();
+    drop(s);
+    let mut s = Store::open(root.path()).unwrap();
+    assert!(!s
+        .taxonomy_snapshot()
+        .unwrap()
+        .channels
+        .iter()
+        .any(|e| e.id == source));
+    let migrated = s.record(&deleted.asset.id).unwrap().unwrap();
+    assert!(migrated.deleted);
+    assert_eq!(migrated.asset.revision, deleted.asset.revision + 1);
+    assert_eq!(
+        s.record(&live.asset.id)
+            .unwrap()
+            .unwrap()
+            .classification
+            .channel_id,
+        Some(target.clone())
+    );
+    let restored = s
+        .change_trash(&trash(
+            &s,
+            &migrated.asset.id,
+            migrated.asset.revision,
+            false,
+        ))
+        .unwrap();
+    assert_eq!(restored.asset.id, original.asset.id);
+    assert_eq!(restored.created_at, original.created_at);
+    assert_eq!(restored.asset.price_cents, edited.asset.price_cents);
+    assert_eq!(restored.details, edited.details);
+    assert_eq!(
+        restored.classification,
+        Classification {
+            category_id: Some(category),
+            channel_id: Some(target)
+        }
+    );
+    assert_eq!(restored.photos, edited.photos);
+    assert_eq!(restored.cover_id, edited.cover_id);
+    assert_eq!(s.image_bytes(&photo.id).unwrap(), bytes);
+    // A delayed migration receipt cannot delete the restored asset or advance revisions again.
+    s.change_taxonomy(&migration).unwrap();
+    let final_record = s.record(&restored.asset.id).unwrap().unwrap();
+    assert!(!final_record.deleted);
+    assert_eq!(final_record.asset.revision, restored.asset.revision);
+    assert_eq!(s.count().unwrap(), 2);
+}
