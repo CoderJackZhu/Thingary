@@ -1,5 +1,6 @@
 mod commands;
 pub mod domain;
+pub mod files;
 pub mod storage;
 pub mod worker;
 use tauri::Manager;

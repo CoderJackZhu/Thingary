@@ -54,7 +54,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 1 || app != 1347375955 || integrity != "ok" {
+    if v != 2 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -97,6 +97,7 @@ impl Store {
             a
         };
         let db = connection(&root.join("datasets").join(&active.id).join("data.sqlite"))?;
+        migrate(&db, &|_| Ok(()))?;
         check_db(&db)?;
         Ok(Self {
             root: root.to_owned(),
@@ -150,9 +151,11 @@ impl Store {
     pub fn first_asset(&self) -> Result<Option<Asset>> {
         let id: Option<String> = self
             .conn()?
-            .query_row("SELECT id FROM assets ORDER BY id LIMIT 1", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT id FROM assets WHERE deleted_at IS NULL ORDER BY id LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
             .optional()?;
         id.map(|id| self.asset(&id))
             .transpose()
@@ -192,7 +195,7 @@ impl Store {
             None => 1,
         };
         if let Some(expected) = input.expected_revision {
-            let n=tx.execute("UPDATE assets SET name=?1,price_cents=?2,purchase_date=?3,revision=?4 WHERE id=?5 AND revision=?6",params![input.name.trim(),price,input.purchase_date,revision,id,expected])?;
+            let n=tx.execute("UPDATE assets SET name=?1,price_cents=?2,purchase_date=?3,revision=?4 WHERE id=?5 AND revision=?6 AND deleted_at IS NULL",params![input.name.trim(),price,input.purchase_date,revision,id,expected])?;
             if n != 1 {
                 return Err(Error::new(
                     "REVISION_CONFLICT",
@@ -201,7 +204,7 @@ impl Store {
             }
         } else {
             tx.execute(
-                "INSERT INTO assets VALUES(?1,?2,?3,?4,1)",
+                "INSERT INTO assets(id,name,price_cents,purchase_date,revision) VALUES(?1,?2,?3,?4,1)",
                 params![id, input.name.trim(), price, input.purchase_date],
             )?;
         }
@@ -225,4 +228,19 @@ impl Store {
         self.hit("save.after_commit")?;
         Ok(result)
     }
+}
+
+pub(crate) fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
+    let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    if v == 1 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("ALTER TABLE assets ADD COLUMN deleted_at TEXT;
+CREATE TABLE attachments(id TEXT PRIMARY KEY,asset_id TEXT NOT NULL REFERENCES assets(id),file TEXT NOT NULL,hash TEXT NOT NULL,size INTEGER NOT NULL CHECK(size>0));
+PRAGMA user_version=2;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+    } else if v != 2 {
+        return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
+    }
+    Ok(())
 }

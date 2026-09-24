@@ -23,5 +23,7 @@ sha2 = "0.10"
 fs2 = "0.4.3"
 tempfile = "3"
 
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+
 [features]
 fault-injection = []
