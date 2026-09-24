@@ -13,36 +13,25 @@ import type { LifecycleChange } from './lifecycle';
 import type { Maintenance, MaintenanceChange } from './maintenance';
 import { fixtureArt } from './visual-fixtures';
 import { previewRecord } from './preview-costs';
+import demoAssets from './demo-assets.json';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 
-const seeds = [
-  ['laptop', 'MacBook Pro 14″', 'Apple', 'M3 Pro · 深空黑', '1699900', '2024-03-18', '日常工作与创作的主力。'],
-  ['camera', 'Fujifilm X100V', 'Fujifilm', '银色', '979000', '2023-06-12', '出门时带上的那台相机。记录周末散步，也记录远一点的地方。'],
-  ['headphones', 'WH-1000XM5', 'Sony', '黑色', '219900', '2024-09-01', '专注时刻的安静陪伴。'],
-  ['phone', 'iPhone 12 mini', 'Apple', '128 GB · 绿色', '549900', '2021-02-11', '保存下来的小屏手机。'],
-  ['tablet', 'iPad Air 4', 'Apple', '64 GB · 天蓝色', '479900', '2021-06-01', '已交给下一位主人。'],
-  ['keyboard', '机械键盘 K2', 'Keychron', '朋友赠送', '0', '2025-12-25', '去年收到的礼物。'],
-  ['coffee', '家里的咖啡机', '', '', null, '2022-05-01', '等找到订单再补充金额。'],
-  ['box', '随身录音设备', '', '', '100000', null, '先留下名字和金额。'],
-] as const;
-let records: AssetRecord[] = seeds.map(([id,name,brand,model,price,date,notes],i) => ({
-  lifecycle: {state: 'active', events: []},
-  maintenances: [], costs: {...emptyCosts,total_investment_cents:price},
-  asset: { id, name, price_cents: price, purchase_date: date, revision: 1 },
-  details: { brand, model, serial_number: '', notes },
-  created_at: new Date(Date.UTC(2026,8,10,8,0,8-i)).toISOString(), updated_at: null,
-  classification: {category_id: ['computer','camera','audio','phone','phone','computer','home',null][i],channel_id:'online'},
-  deleted: false, deleted_at: null, photos: [{id,name:'虚构物品示意图'}], cover_id: id,
+const categoryNames = [...new Map(demoAssets.map(a => [a.icon, a.category])).entries()];
+const channelNames = [...new Set(demoAssets.flatMap(a => a.channel ? [a.channel] : []))];
+let records: AssetRecord[] = demoAssets.map((a, i) => ({
+  lifecycle: {state: a.sale ? 'sold' : a.retired_on ? 'retired' : 'active', events: a.retired_on ? [{id:'demo-retirement',sequence:1,kind:'retire',date:a.retired_on,notes:'留作备用机'}] : []},
+  sale: a.sale ? {id:'demo-sale',previous_state:'active',fields:a.sale} : null,
+  maintenances: a.maintenance ? [{id:'demo-maintenance-'+a.key,fields:{...a.maintenance,kind:a.maintenance.kind as Maintenance['fields']['kind']},photos:[],created_at:a.maintenance.date+'T08:00:00Z',updated_at:a.maintenance.date+'T08:00:00Z'}] : [],
+  costs: {...emptyCosts},
+  asset: { id:a.key, name:a.name, price_cents:a.price_cents, purchase_date:a.purchase_date, revision:1 },
+  details: {brand:a.brand,model:a.model,serial_number:'',notes:a.notes},
+  created_at: new Date(Date.UTC(2026,8,10,8,0,8-i)).toISOString(), updated_at:null,
+  classification: {category_id:a.icon,channel_id:a.channel ? 'demo-channel-'+channelNames.indexOf(a.channel) : null},
+  deleted:false,deleted_at:null,photos:[{id:a.key,name:'原始 Demo 虚构物品示意图'}],cover_id:a.key,
 }));
-// Match the original Demo's lifecycle states using valid, editable fixture records.
-records.find(r => r.asset.id === 'phone')!.lifecycle = { state: 'retired', events: [{ id: 'demo-retirement', sequence: 1, kind: 'retire', date: '2025-09-20', notes: '留作备用机' }] };
-const tablet = records.find(r => r.asset.id === 'tablet')!;
-tablet.lifecycle = { state: 'sold', events: [] };
-tablet.sale = { id: 'demo-sale', previous_state: 'active', fields: { date: '2025-04-12', price_cents: '180000', platform: '二手平台', buyer: '', notes: '已交给下一位主人。' } };
-records.find(r => r.asset.id === 'camera')!.maintenances = [{id:'demo-cleaning',fields:{date:'2025-11-08',kind:'cleaning',title:'传感器清洁',description:'虚构维护记录',cost_cents:'30000',provider:'线下相机店'},photos:[],created_at:'2025-11-08T08:00:00Z',updated_at:'2025-11-08T08:00:00Z'}];
 let taxonomyRevision = 0;
 const taxonomyReceipts = new Map<string,string>();
-let catalog: PreviewCatalog = {categories:[['computer','电脑与办公'],['phone','手机与平板'],['camera','摄影器材'],['audio','音频设备'],['home','生活家电'],['box','其他']].map(([id,name])=>({id,name,icon:id as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:[{id:'online',name:'京东',references:{activeAssets:0,deletedAssets:0}},{id:'store',name:'线下',references:{activeAssets:0,deletedAssets:0}}],assets:[]};
+let catalog: PreviewCatalog = {categories:[...categoryNames,['box','其他']].map(([id,name])=>({id,name,icon:id as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:channelNames.map((name,i)=>({id:'demo-channel-'+i,name,references:{activeAssets:0,deletedAssets:0}})),assets:[]};
 function taxonomySnapshot() { catalog.assets=records.map(r=>({id:r.asset.id,categoryId:r.classification?.category_id??null,channelId:r.classification?.channel_id??null,deleted:r.deleted})); return {generation,revision:taxonomyRevision,...previewSnapshot(catalog)}; }
 const requests = new Map<string, AssetRecord>();
 const lostMaintenanceReceipts = new Set<string>();

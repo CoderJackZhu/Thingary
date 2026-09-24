@@ -9,7 +9,9 @@
     "tauri": "tauri",
     "test": "cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --lib --tests",
     "check": "cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --features fault-injection --all-targets -- -D warnings",
-    "test:ui": "node --test tests/*.test.mjs"
+    "test:ui": "node --test tests/*.test.mjs",
+    "demo:import": "cargo run --manifest-path src-tauri/Cargo.toml --example import_demo -- --isolated-preview",
+    "test:demo": "cargo test --manifest-path src-tauri/Cargo.toml --example import_demo"
   },
   "dependencies": {
     "react": "19.3.0",
