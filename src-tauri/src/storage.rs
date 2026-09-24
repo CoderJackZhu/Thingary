@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 2 || app != 1347375955 || integrity != "ok" {
+    if v != 3 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -169,11 +169,25 @@ impl Store {
             .query_row("SELECT count(*) FROM assets", [], |r| r.get(0))?)
     }
     pub fn save(&mut self, input: &Save, today: &str) -> Result<Asset> {
+        self.save_record(input, today, None)
+    }
+    pub(crate) fn save_record(
+        &mut self,
+        input: &Save,
+        today: &str,
+        details: Option<&crate::catalog::Details>,
+    ) -> Result<Asset> {
         if input.generation != self.active.generation {
             return Err(Error::new("STALE_DATASET", "资料已恢复，请重新打开档案"));
         }
         input.validate(today)?;
-        let fingerprint = digest(&serde_json::to_vec(input)?);
+        let fingerprint = digest(&match details {
+            Some(details) => {
+                details.validate()?;
+                serde_json::to_vec(&(input, details))?
+            }
+            None => serde_json::to_vec(input)?,
+        });
         let tx = self.conn()?.unchecked_transaction()?;
         let previous: Option<(String, String)> = tx
             .query_row(
@@ -210,6 +224,10 @@ impl Store {
                 params![id, input.name.trim(), price, input.purchase_date],
             )?;
         }
+        if let Some(d) = details {
+            let now = chrono::Utc::now().to_rfc3339();
+            tx.execute("INSERT INTO asset_profiles(asset_id,brand,model,serial_number,notes,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?6) ON CONFLICT(asset_id) DO UPDATE SET brand=excluded.brand,model=excluded.model,serial_number=excluded.serial_number,notes=excluded.notes,updated_at=excluded.updated_at",params![id,d.brand.trim(),d.model.trim(),d.serial_number.trim(),d.notes,now])?;
+        }
         let result = Asset {
             id,
             name: input.name.trim().to_owned(),
@@ -233,16 +251,33 @@ impl Store {
 }
 
 pub(crate) fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if v == 1 {
+    migrate_to(c, 3, hook)
+}
+pub(crate) fn migrate_to(
+    c: &Connection,
+    target: i64,
+    hook: &dyn Fn(&str) -> Result<()>,
+) -> Result<()> {
+    let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    if !(1..=3).contains(&v) || v > target {
+        return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
+    }
+    if v == 1 && target >= 2 {
         let tx = c.unchecked_transaction()?;
         tx.execute_batch("ALTER TABLE assets ADD COLUMN deleted_at TEXT;
 CREATE TABLE attachments(id TEXT PRIMARY KEY,asset_id TEXT NOT NULL REFERENCES assets(id),file TEXT NOT NULL,hash TEXT NOT NULL,size INTEGER NOT NULL CHECK(size>0));
 PRAGMA user_version=2;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
-    } else if v != 2 {
-        return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
+        v = 2;
+    }
+    if v == 2 && target >= 3 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("CREATE TABLE asset_profiles(asset_id TEXT PRIMARY KEY REFERENCES assets(id),brand TEXT NOT NULL,model TEXT NOT NULL,serial_number TEXT NOT NULL,notes TEXT NOT NULL,created_at TEXT,updated_at TEXT);
+INSERT INTO asset_profiles SELECT id,'','','','',NULL,NULL FROM assets;
+PRAGMA user_version=3;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
