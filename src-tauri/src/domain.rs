@@ -113,7 +113,7 @@ pub struct Save {
 }
 impl Save {
     pub fn validate(&self, today: &str) -> Result<()> {
-        if self.name.trim().is_empty() || self.name.chars().count() > 200 {
+        if self.name.trim().is_empty() || self.name.trim().chars().count() > 200 {
             return Err(Error::new("NAME", "名称须为 1–200 字"));
         }
         uuid::Uuid::parse_str(&self.request_id)

@@ -29,3 +29,10 @@ zip = { version = "8.6.0", default-features = false }
 
 [features]
 fault-injection = []
+
+# Rust 1.96 + macOS 27 can emit unloadable stripped proc-macro dylibs.
+# Preserve build-time dependency debug info; the application still uses release optimization.
+# https://github.com/rust-lang/rust/issues/157750
+[profile.release.build-override]
+debug = true
+strip = false

@@ -17,12 +17,13 @@ pub(crate) struct Active {
     pub id: String,
     pub generation: String,
 }
+type FaultHook = Box<dyn Fn(&str) -> Result<()> + Send>;
 pub struct Store {
     pub(crate) root: PathBuf,
     pub(crate) active: Active,
     pub(crate) db: Option<Connection>,
     _lock: File,
-    pub(crate) hook: Box<dyn Fn(&str) -> Result<()> + Send>,
+    pub(crate) hook: FaultHook,
 }
 pub(crate) fn uid() -> String {
     uuid::Uuid::new_v4().to_string()
