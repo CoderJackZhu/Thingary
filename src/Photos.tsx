@@ -1,3 +1,5 @@
+import { categoryArt } from './illustrations';
+import type { TaxonomySnapshot } from './taxonomy';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
@@ -15,9 +17,9 @@ export function PhotoView({ photo, generation, version = 0, compact = false, onM
   }, [photo.id, generation, version, repairVersion]);
   return src ? <img className="photo-image" src={src} alt={photo.name}/> : <span className="photo-placeholder" role={error ? 'status' : undefined} title={error || '正在读取图片'}>{error ? (compact ? '图片缺失' : error) : '读取中…'}</span>;
 }
-export function Cover({ record, generation, large = false }: { record: AssetRecord; generation: string; large?: boolean }) {
+export function Cover({ record, generation, large = false, taxonomy }: { record: AssetRecord; generation: string; large?: boolean; taxonomy?: TaxonomySnapshot | null }) {
   const photo = record.photos.find(p => p.id === record.cover_id);
-  return <span className={'object-mark ' + (large ? 'large' : '')}>{photo ? <PhotoView photo={photo} generation={generation} compact/> : record.asset.name.slice(0, 1)}</span>;
+  return <span className={'object-mark ' + (large ? 'large' : '')}>{photo ? <PhotoView photo={photo} generation={generation} compact/> : <img className="category-art" src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(categoryArt(taxonomy?.categories.find(c => c.id === record.classification?.category_id)?.icon))} alt="分类示意图（非实物照片）"/>}</span>;
 }
 export function PhotoPreview({ photo, generation, onClose }: { photo: Photo; generation: string; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);

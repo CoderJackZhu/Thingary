@@ -105,11 +105,11 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       <small id={'help-' + key} className={errors[key] ? 'error' : ''}>{errors[key] || hint}</small>
     </label>;
   }
-  return <dialog ref={dialog} className="editor" aria-labelledby="editor-title" onCancel={e => { e.preventDefault(); askClose('form'); }}>
+  return <dialog ref={dialog} className="editor asset-editor" aria-labelledby="editor-title" onCancel={e => { e.preventDefault(); askClose('form'); }}>
     <form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-      <header><div><p className="eyebrow">物品档案</p><h2 id="editor-title">{draft.id ? '编辑资料' : '记录一件物品'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button></header>
+      <header><div><p className="eyebrow">物品档案</p><h2 id="editor-title">{draft.id ? '编辑资料' : '新增资产'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button></header>
       <p className="muted">只填写名称也可以。其余资料，想起时再补。</p>
-      <div className="fields">{field('name', '名称（必填）')}{field('price', '购入金额（元）', '留空表示未知；0 表示确实免费。')}{field('date', '购入日期', '不确定时留空，不自动填写今天。')}<CategorySelect id="field-category" entries={taxonomy?.categories ?? []} value={draft.classification?.category_id ?? null} onChange={id => classify('category_id',id)} disabled={busy || !!draft.pending || !taxonomy}/>
+      <div className="fields">{field('name', '名称（必填）')}{field('price', '购入金额（元）', '留空表示未知；0 表示确实免费。')}{field('date', '购入日期', '不确定时留空，不自动填写今天。')}<div className="wide"><CategorySelect id="field-category" entries={taxonomy?.categories ?? []} value={draft.classification?.category_id ?? null} onChange={id => classify('category_id',id)} disabled={busy || !!draft.pending || !taxonomy}/></div>
       </div>
       <section className="photo-section" aria-labelledby="photo-title"><div className="photo-heading"><h3 id="photo-title">封面与图片</h3><button type="button" disabled={busy || !!draft.pending || photos.length >= 20} onClick={() => void pickPhoto()}>添加图片</button></div>
         <p className="muted small">JPEG、PNG、HEIC、WebP · 最多 20 张，每张 20 MiB。</p>
@@ -121,7 +121,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       {latest && <div className="confirm"><strong>当前已保存：{latest.asset.name}</strong><p>购入金额：{latest.asset.price_cents === null ? '待补充' : (Number(latest.asset.price_cents) / 100).toFixed(2)} 元；日期：{latest.asset.purchase_date || '待补充'}</p><p>品牌：{latest.details.brand || '待补充'}；型号：{latest.details.model || '待补充'}；序列号：{latest.details.serial_number || '待补充'}</p><p className="notes">备注：{latest.details.notes || '无'}</p><p>分类：{taxonomy?.categories.find(e => e.id === latest.classification?.category_id)?.name || '未分类'}；渠道：{taxonomy?.channels.find(e => e.id === latest.classification?.channel_id)?.name || '未记录'}</p><p>图片：{latest.photos.length} 张；确认替换时，将以表单中的图片和封面为准。</p><button type="button" onClick={() => { remember({ ...draft, revision: latest.asset.revision }); setConflict(false); setLatest(null); setNotice('已确认以表单中的输入替换该版本，请点击保存资料。'); }}>确认用我的输入替换此版本</button></div>}
       {confirm ? <div className="confirm" role="alert"><strong>放弃未保存的修改？</strong><p>这次输入还没有写入资产档案。</p><div className="actions"><button type="button" onClick={() => { setConfirm(null); onKeep(); }}>继续编辑</button><button type="button" className="danger" onClick={() => onClose(confirm)}>放弃修改</button></div></div> : <footer className="actions">
         {conflict && <button type="button" onClick={() => void reloadLatest()}>核对最新版本</button>}
-        {draft.pending ? <button type="button" className="primary" disabled={busy} onClick={() => void resolvePending()}>检查提交结果</button> : <><button type="button" disabled={busy} onClick={() => askClose('form')}>取消</button><button type="submit" className="primary" disabled={busy || conflict || !!draft.photoError}>{busy ? '正在保存…' : '保存资料'}</button></>}
+        {draft.pending ? <button type="button" className="primary" disabled={busy} onClick={() => void resolvePending()}>检查提交结果</button> : <><button type="button" disabled={busy} onClick={() => askClose('form')}>取消</button><button type="submit" className="primary" disabled={busy || conflict || !!draft.photoError}>{busy ? '正在保存…' : '保存资产'}</button></>}
       </footer>}
     </form>
   </dialog>;

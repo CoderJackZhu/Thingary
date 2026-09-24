@@ -4,13 +4,13 @@
 
 **定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 成本分析 + 本地数据。** 不做金融投资、日常记账或依赖服务器的家庭库存系统。
 
-当前已完成 CP1 基本资产流程：新增 → 浏览/详情 → 更正 → 删除/恢复，并接入封面、图片附件和 HEIC。T06 分类与购买渠道及综合回归已通过；T07 退役／启用与 T08 售出／纠错已实现并验收；T09 维护档案已完成本轮实现、自动检查及隔离原生新增／同记录更正／重开证据，两轮 review 问题已修复，剩余原生边界待补验。完整 P0 未完成。中文名「物志」、英文名「Possio」为工作名，发布前再核查名称可用性。
+当前已完成 CP1 基本资产流程：新增 → 浏览/详情 → 更正 → 删除/恢复，并接入封面、图片附件和 HEIC。T06 分类与购买渠道及综合回归已通过；T07 退役／启用与 T08 售出／纠错已实现并验收；T09 维护档案已完成本轮实现、自动检查及隔离原生新增／同记录更正／重开证据，两轮 review 问题已修复，剩余原生边界待补验。当前按用户要求暂停 T10，先完成原始 Demo 视觉还原；范围与证据见视觉验证记录。完整 P0 未完成。中文名「物志」、英文名「Possio」为工作名，发布前再核查名称可用性。
 
 ## 项目文档
 
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、技术原则、P0/P1/P2 和验收标准。
 - [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」作为后续基线，B 保留为历史比较；涵盖资产浏览、快速新增和完整档案；[直接打开交互原型](docs/ui/prototype.html)。
-- [实际页面视觉验证](docs/verification/VISUAL_ALIGNMENT.md)：A 基线在真实组件中的实现、浏览器截图与验收边界。
+- [实际页面视觉验证](docs/verification/VISUAL_ALIGNMENT.md)：Demo 还原的当前结论、浏览器／原生截图及明确保留的业务差异；旧“对齐”记录标为历史。
 - [T09 维护档案](docs/verification/T09_MAINTENANCE_RESULT.md)：schema 8、维护新增／更正、费用与日期约束、自动检查及隔离原生证据；两轮 review 问题已修复，剩余原生边界待补验。
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
@@ -62,6 +62,6 @@ V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程
 
 在当前分支运行 `npm run dev -- --port 1429`，打开 <http://127.0.0.1:1429/visual-preview.html>。可体验与 App 相同的列表/网格、摘要、详情、新增、更正、删除/恢复和分类/渠道、退役/重新启用及动作日期更正 UI；使用内存虚构数据，刷新即重置，不能用于保存真实档案。图片选择仍需原生 App。
 
-附加 `?state=empty`、`?state=error`、`?state=save-error` 可检查空白、读取失败和保存失败；`?theme=dark` 可对照深色。这个开发入口不包含在 `npm run build` 的正式产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。原型的原创 SVG 已复用于完整页面预览；原生验收库仅含少量持久化虚构资料与格式测试图片，所以观感不如完整 Demo 丰富。布局和插图继续复用 A 基线，真实档案图片由用户选择；不自动把示意图当作实物照片。
+附加 `?state=empty`、`?state=error`、`?state=save-error` 可检查空白、读取失败和保存失败；`?theme=dark` 可对照深色。这个开发入口不包含在 `npm run build` 的正式产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。原型原创 SVG 由预览与原生 App 共享；原生有照片时显示照片，没有照片封面时显示分类示意图，不写入附件。`?no-photos` 用于检查六种分类插图。布局按原始 A 还原，验收库的样例数量不同不能作为改变设计的理由。
 
-T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`，标识 `local.possio.t06b.preview`，使用独立虚构资料库。该包已更新为 T09 review 修复代码（本地窗口标题仍为 T08，保留原包名），标识与虚构库保持不变。本次代码在 `codex/t06b-taxonomy-storage`，尚未合并主分支；浏览器预览刷新重置，原生验收包才会实际持久保存。
+T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`，标识 `local.possio.t06b.preview`，使用独立虚构资料库。该包已更新为本轮 Demo 视觉还原代码（本地窗口标题仍为 T08，保留原包名），标识与虚构库保持不变。本次代码在 `codex/t06b-taxonomy-storage`，尚未合并主分支；浏览器预览刷新重置，原生验收包才会实际持久保存。

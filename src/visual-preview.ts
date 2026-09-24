@@ -12,6 +12,7 @@ import { lifecycleError } from './lifecycle';
 import type { LifecycleChange } from './lifecycle';
 import type { Maintenance, MaintenanceChange } from './maintenance';
 import { fixtureArt } from './visual-fixtures';
+import { previewRecord } from './preview-costs';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 
 const seeds = [
@@ -19,6 +20,7 @@ const seeds = [
   ['camera', 'Fujifilm X100V', 'Fujifilm', '银色', '979000', '2023-06-12', '出门时带上的那台相机。记录周末散步，也记录远一点的地方。'],
   ['headphones', 'WH-1000XM5', 'Sony', '黑色', '219900', '2024-09-01', '专注时刻的安静陪伴。'],
   ['phone', 'iPhone 12 mini', 'Apple', '128 GB · 绿色', '549900', '2021-02-11', '保存下来的小屏手机。'],
+  ['tablet', 'iPad Air 4', 'Apple', '64 GB · 天蓝色', '479900', '2021-06-01', '已交给下一位主人。'],
   ['keyboard', '机械键盘 K2', 'Keychron', '朋友赠送', '0', '2025-12-25', '去年收到的礼物。'],
   ['coffee', '家里的咖啡机', '', '', null, '2022-05-01', '等找到订单再补充金额。'],
   ['box', '随身录音设备', '', '', '100000', null, '先留下名字和金额。'],
@@ -28,13 +30,19 @@ let records: AssetRecord[] = seeds.map(([id,name,brand,model,price,date,notes],i
   maintenances: [], costs: {...emptyCosts,total_investment_cents:price},
   asset: { id, name, price_cents: price, purchase_date: date, revision: 1 },
   details: { brand, model, serial_number: '', notes },
-  created_at: new Date(Date.UTC(2026,8,10,8,0,i)).toISOString(), updated_at: null,
-  classification: {category_id: ['computer','camera','audio','phone',null,'home',null][i],channel_id:'online'},
+  created_at: new Date(Date.UTC(2026,8,10,8,0,8-i)).toISOString(), updated_at: null,
+  classification: {category_id: ['computer','camera','audio','phone','phone','computer','home',null][i],channel_id:'online'},
   deleted: false, deleted_at: null, photos: [{id,name:'虚构物品示意图'}], cover_id: id,
 }));
+// Match the original Demo's lifecycle states using valid, editable fixture records.
+records.find(r => r.asset.id === 'phone')!.lifecycle = { state: 'retired', events: [{ id: 'demo-retirement', sequence: 1, kind: 'retire', date: '2025-09-20', notes: '留作备用机' }] };
+const tablet = records.find(r => r.asset.id === 'tablet')!;
+tablet.lifecycle = { state: 'sold', events: [] };
+tablet.sale = { id: 'demo-sale', previous_state: 'active', fields: { date: '2025-04-12', price_cents: '180000', platform: '二手平台', buyer: '', notes: '已交给下一位主人。' } };
+records.find(r => r.asset.id === 'camera')!.maintenances = [{id:'demo-cleaning',fields:{date:'2025-11-08',kind:'cleaning',title:'传感器清洁',description:'虚构维护记录',cost_cents:'30000',provider:'线下相机店'},photos:[],created_at:'2025-11-08T08:00:00Z',updated_at:'2025-11-08T08:00:00Z'}];
 let taxonomyRevision = 0;
 const taxonomyReceipts = new Map<string,string>();
-let catalog: PreviewCatalog = {categories:[['computer','电脑'],['phone','手机'],['camera','摄影'],['audio','音频'],['home','家电'],['box','其他']].map(([id,name])=>({id,name,icon:id as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:[{id:'online',name:'京东',references:{activeAssets:0,deletedAssets:0}},{id:'store',name:'线下',references:{activeAssets:0,deletedAssets:0}}],assets:[]};
+let catalog: PreviewCatalog = {categories:[['computer','电脑与办公'],['phone','手机与平板'],['camera','摄影器材'],['audio','音频设备'],['home','生活家电'],['box','其他']].map(([id,name])=>({id,name,icon:id as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:[{id:'online',name:'京东',references:{activeAssets:0,deletedAssets:0}},{id:'store',name:'线下',references:{activeAssets:0,deletedAssets:0}}],assets:[]};
 function taxonomySnapshot() { catalog.assets=records.map(r=>({id:r.asset.id,categoryId:r.classification?.category_id??null,channelId:r.classification?.channel_id??null,deleted:r.deleted})); return {generation,revision:taxonomyRevision,...previewSnapshot(catalog)}; }
 const requests = new Map<string, AssetRecord>();
 const lostMaintenanceReceipts = new Set<string>();
@@ -42,6 +50,7 @@ const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
 
 if (params.get('state') === 'empty') records = [];
+if (params.has('no-photos')) records = records.map(r => ({...r,photos:[],cover_id:null}));
 if (params.has('maintenance-photo') && records[0]) records[0].maintenances=[{id:'maintenance-fixture',fields:{date:'2026-09-20',kind:'repair',title:'更换快门',description:'虚构验收记录',cost_cents:'15000',provider:'虚构维修点'},created_at:new Date().toISOString(),updated_at:new Date().toISOString(),photos:[{id:'maintenance-photo-fixture',name:'维护前照片'}]}];
 // This preview owns its isolated origin and only removes its own reminder keys:
 // records reset on reload, so pending requests from the previous fixture are stale.
@@ -86,9 +95,9 @@ mockIPC(async (command,payload) => {
     if(query.category?.mode==='category') {const id=query.category.id;found=found.filter(r=>r.classification?.category_id===id);}
     const value=(r:AssetRecord):string|number|null => query.sort==='name'?r.asset.name:query.sort==='price'?(r.asset.price_cents===null?null:Number(r.asset.price_cents)):query.sort==='date'?r.asset.purchase_date:query.sort==='deleted'?r.deleted_at:r.created_at;
     found.sort((a,b)=>{const x=value(a),y=value(b); if(x===null)return y===null?0:1;if(y===null)return -1;return (typeof x==='number' && typeof y==='number'?x-y:String(x).localeCompare(String(y),'zh-CN'))*(query.descending?-1:1);});
-    return { generation, items: structuredClone(found.slice(query.offset,query.offset+100)), total:found.length, today:localDay() } satisfies Page;
+    return { generation, items: found.slice(query.offset,query.offset+100).map(r => previewRecord(r)), total:found.length, today:localDay() } satisfies Page;
   }
-  if (command === 'read_asset') return structuredClone(records.find(r=>r.asset.id===args.id) ?? null);
+  if (command === 'read_asset') { const record = records.find(r=>r.asset.id===args.id); return record ? previewRecord(record) : null; }
   if (command === 'saved_request') {
     const request=String(args.request);
     if(lostMaintenanceReceipts.delete(request)) throw {message:'模拟首次回执查询失败。'};
@@ -104,7 +113,7 @@ mockIPC(async (command,payload) => {
     if(old && input.base.purchase_date && old.lifecycle?.events.some(e=>e.date<input.base.purchase_date!)) throw {code:'DATE_CONFLICT',message:'购入日期晚于已有状态记录，请先更正相关动作日期。'};
     const id=old?.asset.id ?? crypto.randomUUID();
     const record:AssetRecord={sale:old?.sale??null,maintenances:old?.maintenances??[],costs:old?.costs??{...emptyCosts,total_investment_cents:input.base.price_cents},lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:'虚构物品示意图'})),cover_id:input.photos?.cover_id??null};
-    taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); return structuredClone(record);
+    taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); return previewRecord(record);
   }
   // Exercise production delete/restore UI, without touching the native library.
   if (command === 'change_trash') {
@@ -114,15 +123,15 @@ mockIPC(async (command,payload) => {
     taxonomyRevision++; record.deleted = input.deleted;
     record.deleted_at = input.deleted ? new Date().toISOString() : null;
     record.asset.revision += 1;
-    requests.set(input.request_id, structuredClone(record));
-    return structuredClone(record);
+    requests.set(input.request_id, previewRecord(record));
+    return previewRecord(record);
   }
   if (command === 'change_lifecycle') {
     const input=args.input as LifecycleChange;
     if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
     const record=records.find(r=>r.asset.id===input.asset_id);
     if(!record) throw {message:'找不到虚构记录。'};
-    if(requests.has(input.request_id)) return structuredClone(record);
+    if(requests.has(input.request_id)) return previewRecord(record);
     if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请重新读取。'};
     const error=lifecycleError(record,input.action,localDay());
     if(error) throw {code:'DATE_CONFLICT',message:error};
@@ -130,14 +139,14 @@ mockIPC(async (command,payload) => {
     const life=record.lifecycle??{state:'active',events:[]}; const action=input.action;
     if(action.type==='append') {life.events.push({id:crypto.randomUUID(),sequence:life.events.length+1,kind:action.kind,date:action.date,notes:action.notes});life.state=action.kind==='retire'?'retired':'active';}
     else life.events.find(e=>e.id===action.event_id)!.date=action.date;
-    record.lifecycle=life;record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,structuredClone(record));return structuredClone(record);
+    record.lifecycle=life;record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,previewRecord(record));return previewRecord(record);
   }
   if (command === 'change_sale') {
     const input=args.input as SaleChange;
     if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
     const record=records.find(r=>r.asset.id===input.asset_id);
     if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:'档案已删除或不可用。'};
-    if(requests.has(input.request_id)) return structuredClone(record);
+    if(requests.has(input.request_id)) return previewRecord(record);
     if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请读取最新状态。'};
     if(params.get('state')==='save-error') throw {message:'模拟售出保存失败，输入应保留。'};
     const action=input.action;
@@ -150,14 +159,14 @@ mockIPC(async (command,payload) => {
       if(action.type==='correct') record.sale.fields=structuredClone(action.fields);
       else {record.lifecycle={...(record.lifecycle??{events:[]}),state:record.sale.previous_state};record.sale=null;}
     }
-    record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,structuredClone(record));return structuredClone(record);
+    record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,previewRecord(record));return previewRecord(record);
   }
   if (command === 'change_maintenance') {
     const input=args.input as MaintenanceChange;
     if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
     const record=records.find(r=>r.asset.id===input.asset_id);
     if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:'档案已删除或不可用。'};
-    if(requests.has(input.request_id)) return structuredClone(record);
+    if(requests.has(input.request_id)) return previewRecord(record);
     if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请读取最新状态。'};
     const action=input.action;
     if(action.type==='add') {
@@ -168,9 +177,9 @@ mockIPC(async (command,payload) => {
       if(!maintenance) throw {code:'STATE_CONFLICT',message:'维护记录已变化。'};
       maintenance.fields=structuredClone(action.fields);maintenance.photos=action.photos.ids.map(id=>({id,name:'虚构维护附件'}));maintenance.updated_at=new Date().toISOString();
     }
-    record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,structuredClone(record));
+    record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,previewRecord(record));
     if(action.fields.title==='回执核对测试') {lostMaintenanceReceipts.add(input.request_id);throw {message:'模拟响应丢失。'};}
-    return structuredClone(record);
+    return previewRecord(record);
   }
   if (command === 'photo_preview') {
     if(params.has('missing-maintenance-photo') && String(args.id)==='maintenance-photo-fixture') throw {code:'PHOTO_MISSING',message:'模拟维护原图缺失。'};
