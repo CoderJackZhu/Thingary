@@ -1,0 +1,113 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 75-105
+~			73 container
+~				74 text 物志 POSSIO
++				75 container 主导航
++					76 button (disabled) 总览, Help: 总览将在后续阶段开放
++					77 text 我的物品
++					78 button 全部资产
++					79 button 使用中
++					80 button 已退役
++					81 button 已售出
++					82 text 记录与回顾
++					83 button (disabled) 心愿清单, Help: 心愿清单将在后续阶段开放
++					84 button (disabled) 时间轴, Help: 全局时间轴将在后续阶段开放
++					85 button (disabled) 统计, Help: 统计将在后续阶段开放
++				86 container 资料管理
++					87 button 素材库
++					88 button 最近删除
++					89 button 设置
++				90 text 本地档案 · 仅保存在这台 Mac
++			91 container
++				92 text 我的物品 ／ 物品详情
++				93 text field (settable) 搜索物品
++				94 text ⌘F
++				95 button 新增资产
++				96 text 维护记录已保存，并已计入成本摘要。
++				97 button ← 返回物品列表
++				98 image 原始 Demo 示意图（非实物照片）-tablet.png
++				99 container
++					100 text 手机与平板 ·  已售出
++				101 heading iPad Air 4, Value: 2
++					102 text iPad Air 4
++				103 text Apple · 64 GB · 天蓝色
++				104 button 编辑资料 ⌘E
++				105 button 新增维护
++				106 container 持有与成本
++					107 heading 持有与成本, Value: 3
++						108 text 持有与成本
++					109 text 售出后净日均成本
++					110 text ¥2.12 / 天
++					111 text 截至售出日持有 1412 天
++					112 description list
++						113 text 购入金额
++						114 text ¥4,799.00
++						115 text 维护投入
++						116 text ¥0.00
++						117 text 总投入
++						118 text ¥4,799.00
++						119 text 持有时长
++						120 text 1,412 天
++					121 text 净生命周期成本 ¥2,999.00
++					122 text 按自然日计算，包含购入当天；售出后截止到售出日。
++				123 container 购买资料
++					124 heading 购买资料, Value: 3
++						125 text 购买资料
++					126 description list
++						127 text 购入日期
++						128 text 2021-06-01
++						129 text 购买渠道
++						130 text 品牌官方店
++						131 text 品牌
++						132 text Apple
++						133 text 型号
++						134 text 64 GB · 天蓝色
++						135 text 序列号
++						136 text 待补充
++				137 container 关于这件物品
++					138 heading 关于这件物品, Value: 3
++						139 text 关于这件物品
++					140 text 已交给下一位主人。
+
+原始 Demo 虚构样例，可编辑体验；图片为示意图。
++				141 container 物品时间轴
++					142 heading 物品时间轴, Value: 3
++						143 text 物品时间轴
++					144 text 最新记录在前
++					145 container
++						146 text 购入记录 2021-06-01
++				147 container 售出记录
++					148 heading 售出记录, Value: 3
++						149 text 售出记录
++					150 text 持有天数已截止到售出日
++					151 description list
++						152 text 售出日期
++						153 text 2025-04-12
++						154 text 实际售价
++						155 text ¥1,800.00
++						156 text 出售平台
++						157 text 二手平台
++						158 text 买家
++						159 text 未记录
++						160 text 备注
++						161 text 原始 Demo 虚构售出记录
++					162 button 修改售出记录
++					163 button 撤销误记售出…
++					164 text 真实卖出后又买回，请使用“新增物品”建立另一份档案，保留这次处置记录。
++				165 container 维护档案
++					166 heading 维护档案, Value: 3
++						167 text 维护档案
++					168 text 1 条 · 已知费用 ¥0.00
++					169 container
++						170 text T09 native history boundary 2025-04-12  ·  ¥0.00
++						171 button 更正
++				172 container 图片附件
++					173 heading 图片附件, Value: 3
++						174 text 图片附件
++					175 text 1 张
++					176 container 物品图片
++						177 button 预览 原始 Demo 示意图（非实物照片）-tablet.png
++				178 summary 档案信息, Value: off
++					179 text 档案信息
++				180 button 移入最近删除…
+The focused UI element is 2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost

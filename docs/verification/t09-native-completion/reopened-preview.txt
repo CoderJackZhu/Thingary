@@ -1,0 +1,9 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 3-25, 73-153
++			73 container maintenance.heic
++				74 container
++					75 heading maintenance.heic, Value: 2
++						76 text maintenance.heic
++					77 button 关闭预览
++				78 image maintenance.heic
++				79 text 此处显示适合窗口的预览，原图保留在本机。

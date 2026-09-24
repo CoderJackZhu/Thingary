@@ -1,0 +1,9 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+~					130 text field (settable) 购入日期 不确定时留空，不自动填写今天。, Value: 2025-04-13, Placeholder: YYYY-MM-DD（可留空）
+~							169 text entry area (settable) 备注, Value: 已交给下一位主人。
+
+原始 Demo 虚构样例，可编辑体验；图片为示意图。
+~					173 text 购入日期晚于售出记录（2025-04-12），请先更正售出日期。 输入已保留。
+~					174 button 取消
++					175 button 保存资产
+The focused UI element is 120 container 编辑资料

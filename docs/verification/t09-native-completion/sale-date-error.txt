@@ -1,0 +1,4 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+~					96 text entry area (settable) 说明, Secondary Actions: Show Writing Tools
+~					102 text 费用完整 维护日期不能晚于售出日期
+The focused UI element is 90 text field (settable) 标题, Value: T09 native history boundary

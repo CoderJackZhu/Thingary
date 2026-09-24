@@ -10,6 +10,7 @@ char *possio_pick_image(void) {
         NSOpenPanel *panel = [NSOpenPanel openPanel];
         panel.title = @"选择物品图片";
         panel.prompt = @"选择图片";
+        panel.canChooseFiles = YES;
         panel.canChooseDirectories = NO;
         panel.allowsMultipleSelection = NO;
         panel.allowedContentTypes = @[UTTypeJPEG, UTTypePNG, UTTypeWebP, UTTypeHEIC, UTTypeHEIF];

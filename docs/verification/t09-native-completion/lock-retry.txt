@@ -1,0 +1,107 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 3-36
++			46 container
++				47 text 物志 POSSIO
++				48 container 主导航
++					49 button (disabled) 总览, Help: 总览将在后续阶段开放
++					50 text 我的物品
++					51 button 全部资产
++					52 button 使用中
++					53 button 已退役
++					54 button 已售出
++					55 text 记录与回顾
++					56 button (disabled) 心愿清单, Help: 心愿清单将在后续阶段开放
++					57 button (disabled) 时间轴, Help: 全局时间轴将在后续阶段开放
++					58 button (disabled) 统计, Help: 统计将在后续阶段开放
++				59 container 资料管理
++					60 button 素材库
++					61 button 最近删除
++					62 button 设置
++				63 text 本地档案 · 仅保存在这台 Mac
++			64 container
++				65 text 我的物品 ／ 物品详情
++				66 text field (settable) 搜索物品
++				67 text ⌘F
++				68 button 新增资产
++				69 text 维护记录已保存，并已计入成本摘要。
++				70 button ← 返回物品列表
++				71 image camera.heic
++				72 container
++					73 text 摄影 ·  已退役
++				74 heading 虚构 T06b 旅行相机, Value: 2
++					75 text 虚构 T06b 旅行相机
++				76 text 一件物品，一段日常
++				77 button 编辑资料 ⌘E
++				78 button 新增维护
++				79 button 重新启用
++				80 button 标记售出
++				81 container 持有与成本
++					82 heading 持有与成本, Value: 3
++						83 text 持有与成本
++					84 text 日均持有成本
++					85 text ¥60.02 / 天
++					86 text 已与你相伴 25 天
++					87 description list
++						88 text 购入金额
++						89 text ¥1,350.50
++						90 text 维护投入
++						91 text ¥150.00
++						92 text 总投入
++						93 text ¥1,500.50
++						94 text 持有时长
++						95 text 25 天
++					96 text 按自然日计算，包含购入当天；售出后截止到售出日。
++				97 container 购买资料
++					98 heading 购买资料, Value: 3
++						99 text 购买资料
++					100 description list
++						101 text 购入日期
++						102 text 2026-09-01
++						103 text 购买渠道
++						104 text 未记录
++						105 text 品牌
++						106 text 待补充
++						107 text 型号
++						108 text 待补充
++						109 text 序列号
++						110 text 待补充
++				111 container 关于这件物品
++					112 heading 关于这件物品, Value: 3
++						113 text 关于这件物品
++					114 text T06c 虚构资料：更正、图片与恢复回归
++				115 container 物品时间轴
++					116 heading 物品时间轴, Value: 3
++						117 text 物品时间轴
++					118 text 最新记录在前
++					119 container
++						120 text 退役
++						121 text 2026-09-12
++						122 text T08 虚构：退役后售出验收
++						123 button 更正退役日期 2026-09-12
++						124 text 重新启用
++						125 text 2026-09-10
++						126 text T07 虚构：同日重新启用
++						127 button 更正重新启用日期 2026-09-10
++						128 text 退役
++						129 text 2026-09-05
++						130 text T07 虚构：暂时收起，保留相机
++						131 button 更正退役日期 2026-09-05
++						132 text 购入记录
++						133 text 2026-09-01
++				134 container 维护档案
++					135 heading 维护档案, Value: 3
++						136 text 维护档案
++					137 text 1 条 · 已知费用 ¥150.00
++					138 container
++						139 text T09 虚构镜头清洁 2026-09-20  ·  ¥150.00 T09 review draft recovery
++						140 button 更正
++				141 container 图片附件
++					142 heading 图片附件, Value: 3
++						143 text 图片附件
++					144 text 1 张
++					145 container 物品图片
++						146 button 预览 camera.heic
++				147 summary 档案信息, Value: off
++					148 text 档案信息
++				149 button 移入最近删除…
+The focused UI element is 74 heading 虚构 T06b 旅行相机, Value: 2

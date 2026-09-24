@@ -2,7 +2,7 @@
 
 日期：2026-09-25
 
-状态：**两轮 review 所列问题已修复；定向复测通过，T09 剩余原生边界待补验**
+状态：**T09 已达到本阶段出口：review 修复与原生图片／错误恢复补验完成，具备 T09 集成条件；T10 仍暂停，CP2/P0 未完成**
 
 工作树：`Possio-t06b` / `codex/t06b-taxonomy-storage`
 
@@ -148,19 +148,28 @@ git diff --check
 - 写入失败回滚、回执丢失、重复请求与 stale generation/revision；
 - 前端草稿键、校验、金额转换和命令负载。
 
-### 本轮未做完整原生 GUI 手工验收
+### 2026-09-25 原生补验完成
 
-原生验收状态如下；未执行项不宣称手工通过：
+在 `822592b` 基础上完成补验。仅使用 `local.possio.t06b.preview` 的既有虚构库，未重置或导入资料，未操作普通开发库。通过 computer-use 操作真实 App；SQLite 仅用于旁证和可控写锁，不直接修改业务数据。
 
-- 空日期、空费用、`0` 免费：第 2.4 节已补原生实测；
-- 购入／售出日期冲突的 GUI 错误文案；
-- HEIC 维护图片的选择、源文件移动、缺图修复；
-- 未保存草稿保留退出／重启恢复：第 2.4 节已补原生实测；
-- 写锁失败后的 GUI 重试；
-- 从设置界面执行维护数据备份／恢复和坏备份拒绝；
-- VoiceOver、完整键盘路径及不同缩放，仍归 T20。
+本轮发现并修复原生选图问题：HEIC 能预览但“选择图片”按钮禁用。`native/images.m` 显式设置 `panel.canChooseFiles = YES`，保留单选、禁止目录和原格式白名单。重建隔离 App 后，在同一测试文件上选择成功。API 语义参照 [Apple canChooseFiles](https://developer.apple.com/documentation/appkit/nsopenpanel/canchoosefiles)；不推断具体 OS 内部原因。
 
-因此本报告结论是“已实现并具备交回审阅条件”，不是完整 P0 或 CP2 通过。
+| 检查 | 实际结果与证据 |
+| --- | --- |
+| 维护 HEIC 选择／保存 | 经用户确认，通过 NSOpenPanel 选择 `/tmp/possio-t09-native/maintenance.heic`，更正原相机维护，保存后出现维护预览入口。见 [保存状态](t09-native-completion/image-saved.txt) |
+| 移动源文件 | 源文件移为 `maintenance-moved.heic` 后仍可预览，证明使用托管副本。见 [预览状态](t09-native-completion/source-moved-preview.txt) |
+| 缺图及修复 | 可逆移走托管原图，预览明确提示原图缺失；重新选择同一 HEIC 后显示“原图已修复”。见 [缺图](t09-native-completion/missing-image.txt)、[修复](t09-native-completion/repaired.txt)、[截图](t09-native-completion/repaired.png) |
+| 修复后退出／重开 | 正常退出并重开 App，原维护图片仍可预览。维护 ID、附件 ID 和原图哈希保持；相机维护仍为 1 条、¥150。见 [重开](t09-native-completion/reopened-preview.txt)、[截图](t09-native-completion/reopened-preview.png) |
+| 写锁失败恢复 | 独立 SQLite 连接持有 `BEGIN IMMEDIATE`，不改行。原生保存提示“已确认未提交，输入已保留”；释放锁后重试成功，同维护 ID，无重复费用。见 [失败](t09-native-completion/lock-error.txt)、[重试](t09-native-completion/lock-retry.txt) |
+| 维护日期早于购买 | 相机购入 2026-09-01；维护填 2026-08-31，提示“维护日期不能早于购买日期”。改为 2026-09-20 后正常保存 |
+| 历史 Sold 补录／日期上界 | iPad 售出 2025-04-12；维护填 4/13 被拒，改为 4/12、费用 0 后保存。仍为 Sold，净成本 ¥2,999、日均 ¥2.12，未重复增加费用。见 [拒绝](t09-native-completion/sale-date-error.txt)、[成功](t09-native-completion/sold-history-saved.txt) |
+| 反向日期保护 | 售出改为 4/11，被明确提示不能早于维护 4/12；购入改为 4/13，被提示晚于售出，输入保留。恢复原输入后取消，未写入冲突日期。见 [售出](t09-native-completion/reverse-sale-error.txt)、[购入](t09-native-completion/reverse-purchase-error.txt)。购入与维护直接冲突的完整组合继续由后端双向日期测试覆盖 |
+
+只读 [数据库核对](t09-native-completion/data-check.json)：`integrity_check=ok`，`foreign_key_check=[]`，所有附件原文件存在且哈希正确。相机原维护 ID `22ea3882-83af-4f2d-ad20-138a572cbbba`、图片 ID `52c3fecd-0fd4-4d4a-bd15-58bdad1e2990`；日期现为 2026-09-20，金额仍为 15000 分。本次新增 iPad 虚构免费维护 `e0eff841-1117-4651-8ca1-f45f9c4b7b34`。源文件和可逆保留副本仍在 `/tmp/possio-t09-native/`，托管原图已修复，无悬挂写锁。
+
+最终代码检查实际通过：`npm run test:ui` 45 项、`npm test` 58 项（含维护图片／备份恢复／事务故障）、`npm run check`（fmt + Clippy）、`npm run build`、隔离 Tauri debug App 构建、`git diff --check`。原生包不带 fault-injection；自动故障注入和历史浏览器回执／草稿测试不冒充原生故障注入。
+
+未扩入本阶段的验收：设置页完整备份恢复与坏备份拒绝 UI 按实施计划归 T18（本报告旧清单将它混列为 T09 缺口，现纠正；T09 后端维护备份恢复已覆盖）；独立子记录删除归 T11；VoiceOver、完整键盘／缩放矩阵归 T20。U01 自身未验项仍以 U01 报告为准。本阶段完成不代表 CP2 或完整 P0 通过。
 
 ## 6. 审阅建议
 
@@ -171,6 +180,6 @@ Codex review 优先核对：
 3. maintenance add/correct 在事务、审计、request replay 与图片归属上的一致性；
 4. 购入／售出日期反向修改时是否覆盖所有维护冲突；
 5. 前端草稿、关闭保护、图片选择与 unknown receipt 的状态路径；
-6. 是否需要把上述未做的原生 GUI 边界列为审阅补验，而不是提前推进 T10。
+6. 原生补验已见第 5 节；T10 仍按用户要求暂停。
 
-结论：两轮 review 所列问题已修复并定向复测通过；产品费用完整性已补审。**T09 仍保留明确的原生图片/错误恢复补验缺口，暂不宣称完整集成条件或 CP2 通过**；未合并、未推送、未发布。
+结论：两轮 review 问题、原生选图修复及剩余 T09 原生边界补验均已完成，产品费用完整性已补审。**T09 已达到本阶段出口，具备本阶段集成条件；CP2 与完整 P0 尚未通过**。T10 仍暂停；未合并、未推送、未发布。

@@ -1,0 +1,49 @@
+Window: "物志 · T08 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T08 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container 更正维护记录
+				4 container
+					5 heading 更正维护记录, Value: 2
+						6 text 更正维护记录
+					7 text 更正保留原记录标识与审计轨迹；空费用表示未知，0 表示免费。
+					8 button 关闭维护表单
+					9 text 日期（可留空）
+					10 date time area 日期（可留空）, Value: 2026/9/20
+						11 container
+							12 stepper (settable, float) year, Value: 2026
+							13 text /
+							14 stepper (settable, float) month, Value: 9
+							15 text /
+							16 stepper (settable, float) day, Value: 20
+					17 text 类型
+					18 pop up button (collapsed) 类型, Value: 维修, Secondary Actions: Expand
+					19 text 标题
+					20 text field (settable) 标题, Value: T09 虚构镜头清洁
+					21 text 服务方
+					22 text field (settable) 服务方
+					23 text 费用（元）
+					24 text field (settable) 费用（元）, Value: 150.00, Placeholder: 留空表示未知；0 表示免费
+					25 text 说明
+					26 text entry area (settable) 说明, Value: T09 review draft recovery
+						27 text (settable) T09 review draft recovery
+					28 heading 维护图片 0, Value: 3
+						29 text 维护图片 0
+					30 button 添加图片
+					31 text 当前已知维护
+					32 text ¥150.00
+					33 text 费用完整 本地数据操作失败，原资料已保留 已确认未提交，输入已保留。
+					34 button 清空
+					35 button 取消
+					36 button 保存维护记录
+	37 close button
+	38 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	39 minimize button
+	40 text 物志 · T08 虚构资料验收
+41 menu bar
+	42 Possio T06b Preview
+	43 文件
+	44 编辑
+	45 窗口
+
+The focused UI element is 3 container 更正维护记录

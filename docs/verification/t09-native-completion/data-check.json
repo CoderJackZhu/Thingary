@@ -1,0 +1,33 @@
+{
+  "dataset": "0a0e28f8-0b00-4f4a-9d05-9c1da9650abe",
+  "integrity_check": "ok",
+  "foreign_key_check": [],
+  "maintenances": [
+    {
+      "id": "e0eff841-1117-4651-8ca1-f45f9c4b7b34",
+      "asset_id": "3494ca5d-416c-40ed-8dce-8ed62c268949",
+      "date": "2025-04-12",
+      "title": "T09 native history boundary",
+      "cost_cents": 0
+    },
+    {
+      "id": "22ea3882-83af-4f2d-ad20-138a572cbbba",
+      "asset_id": "d3c52bd5-eb9c-4b08-bd83-d1bf7dd4a27e",
+      "date": "2026-09-20",
+      "title": "T09 虚构镜头清洁",
+      "cost_cents": 15000
+    }
+  ],
+  "maintenance_photos": [
+    {
+      "maintenance_id": "22ea3882-83af-4f2d-ad20-138a572cbbba",
+      "id": "52c3fecd-0fd4-4d4a-bd15-58bdad1e2990",
+      "file": "f0331e89e36b6ec169ad7de968bf47319c3754614feba67eec3a501ab8a3216e",
+      "hash": "f0331e89e36b6ec169ad7de968bf47319c3754614feba67eec3a501ab8a3216e",
+      "name": "maintenance.heic",
+      "original_hash_matches": true
+    }
+  ],
+  "missing_or_mismatched_attachment_files": 0,
+  "source_original_path_absent": true
+}

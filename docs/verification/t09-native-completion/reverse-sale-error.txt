@@ -1,0 +1,6 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 138-139
+~					126 text field (settable) 售出日期（必填）, Value: 2025-04-11, Placeholder: YYYY-MM-DD
+~						137 text 购入金额 ¥4,799.00
++					144 text 售出日期不能早于维护记录（2025-04-12）。
+The focused UI element is 126 text field (settable) 售出日期（必填）, Value: 2025-04-11, Placeholder: YYYY-MM-DD
