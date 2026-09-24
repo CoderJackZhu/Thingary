@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Possio Verification",
+  "productName": "Possio Preview",
   "version": "0.0.1",
-  "identifier": "local.possio.verification",
+  "identifier": "local.possio.preview",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "物志 · 工程验证",
+        "title": "物志 · 开发预览",
         "width": 1080,
         "height": 760,
         "minWidth": 800,

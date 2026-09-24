@@ -1,9 +1,10 @@
 {
   "identifier": "main",
+  "description": "Main window receives local close-intent events.",
   "windows": [
     "main"
   ],
   "permissions": [
-    "core:default"
+    "core:event:default"
   ]
 }
