@@ -49,7 +49,7 @@ V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程
 - 数据与故障实验：`npm test`（使用独立临时目录；会终止自己创建的测试子进程）。
 - 本机 App 打包：`npm run tauri -- build --bundles app`。
 
-当前 App 产物位于 `src-tauri/target/release/bundle/macos/Possio Preview.app`。不含远程更新或后台代理；本轮只有本地提交，没有推送发布。只在当前 Apple Silicon Mac 验证，旧系统及 Intel 尚未实测。
+普通预览打包默认产物位于 `src-tauri/target/release/bundle/macos/Possio Preview.app`，不能将旧产物当成最新 T06b 构建。本阶段使用下文 T06b 隔离验收包。不含远程更新或后台代理；只有本地提交，没有推送发布。只在当前 Apple Silicon Mac 验证，旧系统及 Intel 尚未实测。
 
 开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，与旧验证 App 的临时库分开。当前可自行填写名称、金额、日期、品牌、型号、分类、购买渠道、序列号和备注，列表/网格搜索及更正后保留记录；仍先使用虚构资料体验。设置和侧栏均可进入最近删除，支持资产恢复；支持 JPEG/PNG/HEIC/WebP 封面与附件、预览和缺图修复；完整备份及导出界面按后续任务接入，尚未达到 CP4 的日常自用标准。
 
