@@ -103,6 +103,7 @@ pub fn run() {
             commands::prepare_material,
             commands::list_materials,
             commands::add_material,
+            commands::material_upload_result,
             commands::remove_material,
             commands::material_preview
         ])

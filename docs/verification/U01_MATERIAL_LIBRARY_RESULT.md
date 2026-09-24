@@ -2,6 +2,30 @@
 
 日期：2026-09-25。执行：Z code（GLM-5.3 主实现，单执行者串行；未启用子代理/Hermes/其他执行器，未统计 Token 费用）。
 
+## 0. Codex review 修复（2026-09-25，起点 10d79c9）
+
+用户授权修复 review 的三项 P2。以下是最新结果，后续原交付章节保留为历史；不将历史的“无已知缺陷”或旧测试数量作为修复证据。
+
+- 上传：前端在打开文件选择器前持久保存操作 UUID 和 generation；操作 UUID 同时作为素材行 ID。后端在打开选择器/读取原文件前查已保存行，重试返回同一素材。响应丢失先经串行 worker 调用 `material_upload_result`；核对也失败则保留原 ID、冻结新上传与删除，跨页面/重开可继续核对；确认未写入后才开放新上传。保留 schema 9，无新迁移；资料切换后不把旧请求发送至新资料。此机制用于上传结果核对，不是永久删除素材后的历史审计协议。
+- 缩略图：加载、成功、读取/解码失败分别显示；失败有“重试”，失败时不能盲选；重试按钮与选图按钮是同级元素，没有嵌套按钮。
+- 辅助功能：列表项角色移到外层，八个素材恢复原生 button 语义；新隔离包的无障碍树已确认八个 button。
+
+### 修复后的实际检查
+
+完整命令链 exit 0：`npm run test:ui` **45 项**、`npm test` **58 项**、`npm run test:demo` **2 项**、`npm run check`、`npm run build`、`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`；`git diff --check` 通过。新增两项 Rust 故障测试和四项前端恢复测试。
+
+Rust 实测：提交后故障 → 重开 → 删除测试源文件 → 原 ID 查询/重试仍仅一条素材且图片可读；提交前故障无素材行，可核对为空后重试；未知 ID/旧 generation 拒绝。既有 schema、备份和 Demo 回归通过。
+
+Ego Lite 实测：注入 `material_preview` 失败后显示八个失败状态、八个选图按钮禁用；恢复服务并点键盘“重试”后该图片恢复、按钮可用。注入上传已成功但响应丢失 + 首次核对不可用：上传按钮禁用、原操作 ID 存在 localStorage；离开再进入素材库后核对成功，卡片总数从八变九，上传调用次数保持一，待核对记录清除。均为内存故障复现，不冒充原生文件选择器实测。
+
+### 原生证据与边界
+
+前一轮 Codex review 已实际创建 `U01 Review Fictional Keyboard`，ID `bec3ab74-fb58-4837-a405-a6ec53f7bbee`：键盘素材保存 → 编辑追加平板 → 显式切封面 → 退出重开通过；revision 2、两张图、平板封面保持，`integrity_check=ok`。虚构库现十一件，保留该记录。
+
+本轮已重新构建、退出旧实例并启动新包，十一件资料正常加载；新增表单八个素材在原生无障碍树中均为 button。未新增原生资产、未删除任何记录。三项 review 问题的针对性修复与复测通过；原生自定义上传完整流程、草稿重启恢复及原 T09 缺口仍须补验，不因此宣布整个分支可集成，T10 继续暂停。
+
+---
+
 ## 1. 起点、范围与中途调整
 
 - 工作目录：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`，分支 `codex/t06b-taxonomy-storage`。

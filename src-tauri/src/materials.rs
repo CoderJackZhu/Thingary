@@ -95,7 +95,41 @@ impl Store {
     /// Persist a user-chosen image as a library material. The original bytes
     /// land in the content-addressed store before the catalog row commits.
     pub fn add_material(&self, path: &Path, generation: &str) -> Result<MaterialEntry> {
+        self.add_material_once(path, generation, &uid())
+    }
+    pub fn material_upload_result(
+        &self,
+        request: &str,
+        generation: &str,
+    ) -> Result<Option<MaterialEntry>> {
         self.check_generation(generation)?;
+        uuid::Uuid::parse_str(request).map_err(|_| Error::new("MATERIAL", "上传操作标识无效"))?;
+        Ok(self
+            .conn()?
+            .query_row(
+                "SELECT id,name FROM materials WHERE id=?1",
+                [request],
+                |r| {
+                    Ok(MaterialEntry {
+                        id: r.get(0)?,
+                        name: r.get(1)?,
+                        builtin: false,
+                    })
+                },
+            )
+            .optional()?)
+    }
+    /// The upload operation UUID is the row ID. Check it before reading the
+    /// source again: a lost response must not create a second material.
+    pub fn add_material_once(
+        &self,
+        path: &Path,
+        generation: &str,
+        request: &str,
+    ) -> Result<MaterialEntry> {
+        if let Some(entry) = self.material_upload_result(request, generation)? {
+            return Ok(entry);
+        }
         let meta = fs::metadata(path)?;
         if !meta.is_file() || meta.len() > MAX_IMAGE_BYTES as u64 {
             return Err(Error::new("IMAGE_SIZE", "请选择不超过 20 MiB 的图片文件"));
@@ -117,10 +151,11 @@ impl Store {
         }
         atomic_write(&dir.join("files").join(&hash), &bytes)?;
         let entry = MaterialEntry {
-            id: uid(),
+            id: request.into(),
             name: display_name(path),
             builtin: false,
         };
+        self.hit("material.before_commit")?;
         self.conn()?.execute(
             "INSERT INTO materials VALUES(?1,?2,?3,?4,?5)",
             params![
@@ -131,6 +166,7 @@ impl Store {
                 chrono::Utc::now().to_rfc3339()
             ],
         )?;
+        self.hit("material.after_commit")?;
         Ok(entry)
     }
     /// Built-in materials stay; removing a user material never touches saved

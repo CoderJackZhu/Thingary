@@ -137,9 +137,9 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       <section className="photo-section" aria-labelledby="photo-title"><div className="photo-heading"><h3 id="photo-title">封面与图片</h3><div className="photo-entry-actions"><button type="button" disabled={busy || !!draft.pending || photos.length >= 20} onClick={() => void pickPhoto()}>导入自己的图片（可选）</button></div></div>
         <p className="muted small">点击素材图片即可加入；内置素材为示意图，非实物照片。更多素材可在左侧“素材库”上传。最多 20 张，每张 20 MiB。</p>
         {library ? <div className="material-grid flat" role="list" aria-label="素材图片">
-          {library.map(entry => <button type="button" className="material-tile" role="listitem" key={entry.id} disabled={busy || !!draft.pending || photos.length >= 20} aria-label={materialActionLabel(entry)} onClick={() => void addMaterial(entry)}>
-            <MaterialThumb id={entry.id} generation={draft.generation} alt={materialActionLabel(entry)}/>
-          </button>)}
+          {library.map(entry => <div role="listitem" key={entry.id}>
+            <MaterialThumb id={entry.id} generation={draft.generation} alt={materialActionLabel(entry)} disabled={busy || !!draft.pending || photos.length >= 20} onSelect={() => void addMaterial(entry)}/>
+          </div>)}
         </div> : <p className="muted small" role="status">{libraryError ? '素材暂不可用：' + libraryError : '正在读取素材…'}</p>}
         <div className="photo-strip">{photos.map(photo => <div className="photo-tile" key={photo.id}><PhotoView photo={photo} generation={draft.generation}/><span className="photo-name">{photo.name}</span><div className="photo-actions"><button type="button" disabled={busy || !!draft.pending} aria-pressed={draft.cover === photo.id} onClick={() => media({ ...draft, cover: draft.cover === photo.id ? null : photo.id })}>{draft.cover === photo.id ? '✓ 封面' : '设为封面'}</button><button type="button" disabled={busy || !!draft.pending} aria-label={'移除图片 ' + photo.name} onClick={() => media({ ...draft, photos: photos.filter(p => p.id !== photo.id), cover: draft.cover === photo.id ? null : draft.cover })}>移除</button></div></div>)}</div>
         {draft.photoError && <div role="alert" className="confirm"><p>{draft.photoError}。请重试，或明确取消这次选图后再保存。</p>{draft.photoErrorKind !== 'material' && <button type="button" disabled={busy} onClick={() => void pickPhoto()}>重新选择</button>}<button type="button" disabled={busy} onClick={() => media({ ...draft, photoError: '', photoErrorKind: undefined })}>{draft.photoErrorKind === 'material' ? '不使用这次未添加的素材' : '不使用这次未读取的图片'}</button></div>}

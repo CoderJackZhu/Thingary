@@ -192,16 +192,22 @@ mockIPC(async (command,payload) => {
     return imageBytes(String(args.id));
   }
   if (command === 'list_materials') return previewMaterials().map(({id,name,builtin}) => ({id,name,builtin}));
+  if (command === 'material_upload_result') {
+    if(args.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    return userMaterials.find(m=>m.id===args.request) ?? null;
+  }
   if (command === 'add_material') {
+    if(args.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    const saved = userMaterials.find(m=>m.id===args.request); if(saved) return saved;
     // The real upload opens a native picker; the preview adds a fixture art
     // entry so the library flow stays demonstrable in the browser.
     const art = MATERIALS[userMaterials.length % MATERIALS.length].id;
-    const entry = { id: `user-material-${++materialSequence}`, name: `自定义素材 ${userMaterials.length + 1}.png`, builtin: false, art };
+    const entry = { id: String(args.request), name: `自定义素材 ${userMaterials.length + 1}.png`, builtin: false, art };
     userMaterials = [...userMaterials, entry];
     return { id: entry.id, name: entry.name, builtin: false };
   }
   if (command === 'remove_material') {
-    if(String(args.id).startsWith('user-material-')) userMaterials = userMaterials.filter(m => m.id !== String(args.id));
+    userMaterials = userMaterials.filter(m => m.id !== String(args.id));
     return previewMaterials().map(({id,name,builtin}) => ({id,name,builtin}));
   }
   if (command === 'material_preview') {

@@ -340,3 +340,82 @@ fn schema_nine_upgrade_preserves_assets_and_adds_materials() {
     fs::write(&upload, materials::builtin("box").unwrap().bytes).unwrap();
     assert!(s.add_material(&upload, &s.generation()).is_ok());
 }
+
+#[test]
+fn lost_upload_response_retries_same_id_after_reopen_without_source_file() {
+    let root = tempfile::tempdir().unwrap();
+    let upload = root.path().join("upload.png");
+    fs::write(&upload, materials::builtin("keyboard").unwrap().bytes).unwrap();
+    let request = uuid::Uuid::new_v4().to_string();
+    let mut s = Store::open(root.path()).unwrap();
+    let generation = s.generation();
+    s.set_hook(|point| {
+        if point == "material.after_commit" {
+            Err(possio_lib::domain::Error::new(
+                "LOST_RESPONSE",
+                "test lost response",
+            ))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(
+        s.add_material_once(&upload, &generation, &request)
+            .unwrap_err()
+            .code,
+        "LOST_RESPONSE"
+    );
+    drop(s);
+    fs::remove_file(&upload).unwrap();
+    let s = Store::open(root.path()).unwrap();
+    let receipt = s
+        .material_upload_result(&request, &generation)
+        .unwrap()
+        .unwrap();
+    assert_eq!(receipt.id, request);
+    let retry = s.add_material_once(&upload, &generation, &request).unwrap();
+    assert_eq!(receipt, retry);
+    assert_eq!(s.material_entries().unwrap().len(), 9);
+    assert!(s.material_preview(&request, &generation).is_ok());
+    assert_eq!(
+        s.material_upload_result(&request, "old-generation")
+            .unwrap_err()
+            .code,
+        "STALE_DATASET"
+    );
+}
+
+#[test]
+fn upload_failure_before_commit_can_be_confirmed_absent_then_retried() {
+    let root = tempfile::tempdir().unwrap();
+    let upload = root.path().join("upload.png");
+    fs::write(&upload, materials::builtin("camera").unwrap().bytes).unwrap();
+    let request = uuid::Uuid::new_v4().to_string();
+    let mut s = Store::open(root.path()).unwrap();
+    let generation = s.generation();
+    s.set_hook(|point| {
+        if point == "material.before_commit" {
+            Err(possio_lib::domain::Error::new(
+                "WRITE_FAILED",
+                "test write failure",
+            ))
+        } else {
+            Ok(())
+        }
+    });
+    assert!(s.add_material_once(&upload, &generation, &request).is_err());
+    assert!(s
+        .material_upload_result(&request, &generation)
+        .unwrap()
+        .is_none());
+    assert_eq!(s.material_entries().unwrap().len(), 8);
+    s.set_hook(|_| Ok(()));
+    assert_eq!(
+        s.add_material_once(&upload, &generation, &request)
+            .unwrap()
+            .id,
+        request
+    );
+    assert_eq!(s.material_entries().unwrap().len(), 9);
+    assert!(s.material_upload_result("../bad", &generation).is_err());
+}

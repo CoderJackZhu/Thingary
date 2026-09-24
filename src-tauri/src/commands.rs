@@ -195,8 +195,20 @@ pub async fn list_materials(
 pub async fn add_material(
     app: tauri::AppHandle,
     generation: String,
+    request: String,
     worker: tauri::State<'_, Worker>,
 ) -> Result<crate::materials::MaterialEntry> {
+    let w = worker.inner().clone();
+    let check_request = request.clone();
+    let check_generation = generation.clone();
+    if let Some(entry) = tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.material_upload_result(&check_request, &check_generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "请核对上传结果"))??
+    {
+        return Ok(entry);
+    }
     let (send, receive) = std::sync::mpsc::channel();
     app.run_on_main_thread(move || {
         let _ = send.send(crate::native_images::pick());
@@ -209,11 +221,25 @@ pub async fn add_material(
             .map_err(|_| Error::new("PICKER", "图片选择器未返回结果"))?;
         match path {
             None => Err(Error::new("PICKER", "已取消，未上传素材。")),
-            Some(path) => w.call(move |s| s.add_material(&path, &generation)),
+            Some(path) => w.call(move |s| s.add_material_once(&path, &generation, &request)),
         }
     })
     .await
     .map_err(|_| Error::new("WORKER", "素材上传失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn material_upload_result(
+    request: String,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<crate::materials::MaterialEntry>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.material_upload_result(&request, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "上传结果暂时无法核对"))?
 }
 
 #[tauri::command]
