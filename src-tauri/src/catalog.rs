@@ -39,6 +39,7 @@ pub struct AssetRecord {
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
     pub deleted: bool,
+    pub deleted_at: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -69,17 +70,18 @@ impl Store {
         };
         let (details, created_at, updated_at) = self.conn()?.query_row(
             "SELECT brand,model,serial_number,notes,created_at,updated_at FROM asset_profiles WHERE asset_id=?1",[id],|r| Ok((Details {brand:r.get(0)?,model:r.get(1)?,serial_number:r.get(2)?,notes:r.get(3)?},r.get(4)?,r.get(5)?))).optional()?.unwrap_or_default();
-        let deleted = self.conn()?.query_row(
-            "SELECT deleted_at IS NOT NULL FROM assets WHERE id=?1",
-            [id],
-            |r| r.get(0),
-        )?;
+        let deleted_at: Option<String> =
+            self.conn()?
+                .query_row("SELECT deleted_at FROM assets WHERE id=?1", [id], |r| {
+                    r.get(0)
+                })?;
         Ok(Some(AssetRecord {
             asset,
             details,
             created_at,
             updated_at,
-            deleted,
+            deleted: deleted_at.is_some(),
+            deleted_at,
         }))
     }
     pub fn save_asset(&mut self, input: &SaveAsset, today: &str) -> Result<AssetRecord> {
@@ -114,16 +116,22 @@ impl Store {
             "price" => "a.price_cents",
             "date" => "a.purchase_date",
             "created" => "p.created_at",
+            "deleted" => "a.deleted_at",
             _ => return Err(Error::new("QUERY", "不支持的排序")),
         };
         let filter = match q.filter.as_str() {
-            "all" => "1",
+            "all" | "deleted" => "1",
             "missing_price" => "a.price_cents IS NULL",
             "missing_date" => "a.purchase_date IS NULL",
             _ => return Err(Error::new("QUERY", "不支持的筛选")),
         };
+        let visibility = if q.filter == "deleted" {
+            "a.deleted_at IS NOT NULL"
+        } else {
+            "a.deleted_at IS NULL"
+        };
         let direction = if q.descending { "DESC" } else { "ASC" };
-        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id WHERE a.deleted_at IS NULL AND ({filter}) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'')), lower(?1)) > 0");
+        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id WHERE {visibility} AND ({filter}) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'')), lower(?1)) > 0");
         let total =
             self.conn()?
                 .query_row(&format!("SELECT count(*) {from}"), [q.search.trim()], |r| {

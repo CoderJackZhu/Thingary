@@ -5,6 +5,7 @@ pub mod domain;
 pub mod files;
 mod recovery;
 pub mod storage;
+pub mod trash;
 pub mod worker;
 use std::sync::atomic::Ordering;
 use tauri::{Emitter, Manager};
@@ -79,6 +80,7 @@ pub fn run() {
             commands::list_assets,
             commands::read_asset,
             commands::save_asset,
+            commands::change_trash,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,

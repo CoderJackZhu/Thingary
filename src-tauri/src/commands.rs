@@ -120,3 +120,14 @@ pub fn set_appearance(appearance: String, window: tauri::WebviewWindow) -> Resul
         .set_theme(theme)
         .map_err(|_| Error::new("THEME", "外观切换失败"))
 }
+
+#[tauri::command]
+pub async fn change_trash(
+    input: crate::trash::TrashChange,
+    worker: tauri::State<'_, Worker>,
+) -> Result<AssetRecord> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.change_trash(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "未收到操作结果，请核对本次请求"))?
+}
