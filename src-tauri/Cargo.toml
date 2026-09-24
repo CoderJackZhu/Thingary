@@ -25,5 +25,7 @@ tempfile = "3"
 
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 
+zip = { version = "8.6.0", default-features = false }
+
 [features]
 fault-injection = []

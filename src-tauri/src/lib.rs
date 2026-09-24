@@ -1,3 +1,4 @@
+pub mod backup;
 mod commands;
 pub mod domain;
 pub mod files;
