@@ -1,0 +1,1 @@
+PASS: schema 5 -> 6; all existing asset, profile, photo, cover and attachment fields preserved; default active; no invented lifecycle history.

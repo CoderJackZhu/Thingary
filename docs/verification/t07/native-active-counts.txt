@@ -1,0 +1,38 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T07 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 100, 122-123
++				120 container 当前结果概览
++					121 text 我的物品
++					122 text 2件
++					123 text 本页使用中 2 件 · 持有 2 件
++					124 text 本页购入金额
++					125 text ¥1,350.50
++					126 text 1 件金额已知 · 不含未知金额
++					127 text 本页待补充
++					128 text 1件
++					129 text 购入金额或日期尚未记录
+~				101 pop up button (collapsed) 筛选资料, Value: 全部物品, Secondary Actions: Expand
+~				102 text 2 件
+~				119 text 当前：全部分类 2  件物品
++				130 container 物品列表
++					131 text 物品 购入金额 状态
++					132 toggle button 查看 虚构 T06c 正常迁移样例, Value: off
++					133 toggle button 查看 虚构 T06b 旅行相机, Value: on
++				134 button (disabled) 上一页
++				135 text 第 1 页
++				136 button (disabled) 下一页
++				137 image camera.heic
++				138 text 使用中
++				139 heading 虚构 T06b 旅行相机, Value: 2
++					140 text 虚构 T06b 旅行相机
++				141 text 资料可以慢慢补全 日均持有成本 ¥54.02 / 天 已与你相伴 25 天
++				142 description list
++					143 text 购入金额
++					144 text ¥1,350.50
++					145 text 购入日期
++					146 text 2026-09-01
++					147 text 分类
++					148 text 摄影
++					149 text 购买渠道
++					150 text 未记录
++				151 button 打开完整档案
++				152 button 编辑资料 ⌘E

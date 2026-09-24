@@ -1,6 +1,8 @@
 import type { TaxonomySnapshot } from './taxonomy';
 import type { AssetRecord, Page } from './asset';
 import { costs, money } from './asset';
+import { stateLabel, kindLabel } from './lifecycle';
+import type { LifecycleAction } from './lifecycle';
 import { Cover, Gallery } from './Photos';
 
 export function Icon({ name }: { name: 'items' | 'trash' | 'settings' | 'search' | 'list' | 'grid' }) {
@@ -20,7 +22,7 @@ export function AssetOverview({ page, filtered }: { page: Page; filtered: boolea
   const total = known.reduce((sum, r) => sum + BigInt(r.asset.price_cents!), 0n);
   const incomplete = page.items.filter(r => r.asset.price_cents === null || !r.asset.purchase_date).length;
   return <div className="asset-overview" aria-label="当前结果概览">
-    <div><span>{filtered ? '匹配物品' : '我的物品'}</span><strong>{page.total}<small>件</small></strong><p>{filtered ? '已应用当前搜索与筛选' : '记录物品，也记录日常'}</p></div>
+    <div><span>{filtered ? '匹配物品' : '我的物品'}</span><strong>{page.total}<small>件</small></strong><p>{filtered ? '已应用当前搜索与筛选' : `本页使用中 ${page.items.filter(r => (r.lifecycle?.state ?? 'active') === 'active').length} 件 · 持有 ${page.items.filter(r => r.lifecycle?.state !== 'sold').length} 件`}</p></div>
     <div><span>本页购入金额</span><strong>{known.length ? money(total.toString()) : '待补充'}</strong><p>{known.length} 件金额已知 · 不含未知金额</p></div>
     <div><span>本页待补充</span><strong>{incomplete}<small>件</small></strong><p>购入金额或日期尚未记录</p></div>
   </div>;
@@ -33,10 +35,11 @@ export function AssetFacts({ record, today, taxonomy }: { record: AssetRecord; t
     {c.daily === null && <p className="muted small">补全金额和日期，即可查看日均持有成本。</p>}</>;
 }
 
-export function AssetDetail({ record, generation, today, taxonomy, onEdit, onDelete }: { taxonomy: TaxonomySnapshot | null; record: AssetRecord; generation: string; today: string; onEdit: () => void; onDelete: () => void }) {
-  return <><header className="asset-hero"><Cover record={record} generation={generation} large/><div className="hero-copy"><span className="pill">使用中</span><h2 id="detail-heading" tabIndex={-1}>{record.asset.name}</h2><p className="muted">{[record.details.brand, record.details.model].filter(Boolean).join(' · ') || '一件物品，一段日常'}</p><button onClick={onEdit}>编辑资料 <kbd>⌘E</kbd></button></div></header>
+export function AssetDetail({ record, generation, today, taxonomy, onEdit, onDelete, onLifecycle }: { taxonomy: TaxonomySnapshot | null; record: AssetRecord; generation: string; today: string; onEdit: () => void; onDelete: () => void; onLifecycle: (action: LifecycleAction) => void }) {
+  return <><header className="asset-hero"><Cover record={record} generation={generation} large/><div className="hero-copy"><span className="pill" data-state={record.lifecycle?.state ?? 'active'}>{stateLabel(record)}</span><h2 id="detail-heading" tabIndex={-1}>{record.asset.name}</h2><p className="muted">{[record.details.brand, record.details.model].filter(Boolean).join(' · ') || '一件物品，一段日常'}</p><button onClick={onEdit}>编辑资料 <kbd>⌘E</kbd></button>{record.lifecycle?.state !== 'sold' && <button onClick={() => onLifecycle({type:'append',kind:record.lifecycle?.state === 'retired' ? 'activate' : 'retire',date:today,notes:''})}>{record.lifecycle?.state === 'retired' ? '重新启用' : '标记退役'}</button>}</div></header>
     <div className="detail-columns"><div><article className="detail-section"><div className="section-heading"><h3>物品资料</h3><span>把值得记住的细节留在这里</span></div><dl className="facts"><dt>品牌</dt><dd>{record.details.brand || '待补充'}</dd><dt>型号</dt><dd>{record.details.model || '待补充'}</dd><dt>序列号</dt><dd>{record.details.serial_number || '待补充'}</dd></dl></article><article className="detail-section"><h3>备注</h3><p className="notes">{record.details.notes || '还没有备注。记下购买的缘由，或使用中的小细节。'}</p></article><article className="detail-section"><div className="section-heading"><h3>图片</h3><span>{record.photos.length} 张</span></div><Gallery record={record} generation={generation} showHeading={false}/></article></div>
       <aside className="ownership-card"><h3>持有与购买</h3><AssetFacts record={record} today={today} taxonomy={taxonomy}/><p className="muted small">按自然日计算，包含购入当天。</p></aside></div>
+    <article className="detail-section lifecycle-history"><div className="section-heading"><h3>状态记录</h3><span>同日按记录顺序排列</span></div>{record.lifecycle?.events.length ? <ol>{record.lifecycle.events.map(event => <li key={event.id}><div><strong>{kindLabel(event.kind)}</strong><span className="muted">{event.date}</span>{event.notes && <p className="notes">{event.notes}</p>}</div>{record.lifecycle?.state !== 'sold' && <button onClick={() => onLifecycle({type:'correct_date',event_id:event.id,date:event.date})} aria-label={`更正${kindLabel(event.kind)}日期 ${event.date}`}>更正日期</button>}</li>)}</ol> : <p className="muted">还没有状态变更记录。</p>}</article>
     <footer className="detail-footer"><details className="archive-meta"><summary>档案信息</summary><dl className="facts"><dt>建档时间</dt><dd>{record.created_at ? new Date(record.created_at).toLocaleString('zh-CN') : '旧记录未提供'}</dd><dt>修改时间</dt><dd>{record.updated_at ? new Date(record.updated_at).toLocaleString('zh-CN') : '旧记录未提供'}</dd><dt>档案编号</dt><dd><code>{record.asset.id}</code></dd><dt>保存版本</dt><dd>{record.asset.revision}</dd></dl></details><button className="danger" onClick={onDelete}>移入最近删除…</button></footer>
   </>;
 }

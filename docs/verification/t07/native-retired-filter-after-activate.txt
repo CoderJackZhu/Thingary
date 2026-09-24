@@ -1,0 +1,31 @@
+The following is a diff from the previous accessibility tree for Window: "物志 · T07 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+Removed element IDs: 97, 101, 106-119, 122-152
+~				92 text 个人档案 / 我的物品
+~				96 heading 我的物品, Value: 1
++					97 text 我的物品
+~				98 text 好好记录每一件，陪伴日常的物品。
+~				99 text 本地档案 刚才的物品不在当前结果页中。筛选和搜索已保留，可清除条件重新查找。
+~				100 button 清除条件
++				101 pop up button (collapsed) 筛选资料, Value: 已退役, Secondary Actions: Expand
+~				102 text 0 件
+~				103 pop up button (collapsed) 排序方式, Value: 建档时间, Secondary Actions: Expand
+~				104 button 切换为升序
+~				105 toggle button 列表视图, Value: on
++				106 toggle button 网格视图, Value: off
++				107 text 分类筛选
++				108 container 分类筛选
++					109 toggle button 全部分类, Value: on
++					110 toggle button 未分类, Value: off
++					111 toggle button 仅看分类 电脑, Value: off
++					112 toggle button 仅看分类 手机, Value: off
++					113 toggle button 仅看分类 摄影, Value: off
++					114 toggle button 仅看分类 音频, Value: off
++					115 toggle button 仅看分类 家电, Value: off
++					116 toggle button 仅看分类 其他, Value: off
++					117 toggle button 仅看分类 虚构关闭校验, Value: off
++					118 toggle button 仅看分类 虚构 T06c 错误恢复, Value: off
++				119 text 当前：全部分类 ▧
+~				120 heading 没有找到匹配的物品, Value: 2
+~					121 text 没有找到匹配的物品
++				122 text 试试其他关键词，或清除当前条件。
++				123 button 清除条件

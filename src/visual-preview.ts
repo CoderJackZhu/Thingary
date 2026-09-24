@@ -7,6 +7,8 @@ import { localDay } from './asset';
 import type { TrashChange } from './Trash';
 import { applyPreviewCommand, previewSnapshot } from './taxonomy';
 import type { PreviewCatalog, TaxonomyCommand } from './taxonomy';
+import { lifecycleError } from './lifecycle';
+import type { LifecycleChange } from './lifecycle';
 import { fixtureArt } from './visual-fixtures';
 
 const seeds = [
@@ -19,6 +21,7 @@ const seeds = [
   ['box', '随身录音设备', '', '', '100000', null, '先留下名字和金额。'],
 ] as const;
 let records: AssetRecord[] = seeds.map(([id,name,brand,model,price,date,notes],i) => ({
+  lifecycle: {state: 'active', events: []},
   asset: { id, name, price_cents: price, purchase_date: date, revision: 1 },
   details: { brand, model, serial_number: '', notes },
   created_at: new Date(Date.UTC(2026,8,10,8,0,i)).toISOString(), updated_at: null,
@@ -35,7 +38,7 @@ const params = new URLSearchParams(location.search);
 if (params.get('state') === 'empty') records = [];
 // This preview owns its isolated origin and only removes its own reminder keys:
 // records reset on reload, so pending requests from the previous fixture are stale.
-for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.taxonomy-request.v1']) localStorage.removeItem(key);
+for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.taxonomy-request.v1','possio.lifecycle-draft.v1']) localStorage.removeItem(key);
 if (params.has('theme')) localStorage.setItem('possio.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
 const images = new Map<string, Promise<ArrayBuffer>>();
 function imageBytes(id: string): Promise<ArrayBuffer> {
@@ -69,6 +72,8 @@ mockIPC(async (command,payload) => {
     const query = args.query as Query;
     let found=records.filter(r => r.deleted === (query.filter === 'deleted'));
     found=found.filter(r => (!query.search || [r.asset.name,...Object.values(r.details),catalog.categories.find(c=>c.id===r.classification?.category_id)?.name??''].join(' ').toLowerCase().includes(query.search.toLowerCase())) && (query.filter !== 'missing_price' || r.asset.price_cents === null) && (query.filter !== 'missing_date' || r.asset.purchase_date === null));
+    if(query.filter==='active'||query.filter==='retired') found=found.filter(r=>(r.lifecycle?.state??'active')===query.filter);
+    if(query.filter==='held') found=found.filter(r=>r.lifecycle?.state!=='sold');
     if(query.category?.mode==='uncategorized') found=found.filter(r=>!r.classification?.category_id);
     if(query.category?.mode==='category') {const id=query.category.id;found=found.filter(r=>r.classification?.category_id===id);}
     const value=(r:AssetRecord):string|number|null => query.sort==='name'?r.asset.name:query.sort==='price'?(r.asset.price_cents===null?null:Number(r.asset.price_cents)):query.sort==='date'?r.asset.purchase_date:query.sort==='deleted'?r.deleted_at:r.created_at;
@@ -81,8 +86,9 @@ mockIPC(async (command,payload) => {
     if(params.get('state')==='save-error') throw {message:'模拟保存失败，输入应保留。'};
     const input=args.input as SaveAsset;
     const old=records.find(r=>r.asset.id===input.base.asset_id);
+    if(old && input.base.purchase_date && old.lifecycle?.events.some(e=>e.date<input.base.purchase_date!)) throw {code:'DATE_CONFLICT',message:'购入日期晚于已有状态记录，请先更正相关动作日期。'};
     const id=old?.asset.id ?? crypto.randomUUID();
-    const record:AssetRecord={classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:'虚构物品示意图'})),cover_id:input.photos?.cover_id??null};
+    const record:AssetRecord={lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:'虚构物品示意图'})),cover_id:input.photos?.cover_id??null};
     taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); return structuredClone(record);
   }
   // Exercise production delete/restore UI, without touching the native library.
@@ -95,6 +101,21 @@ mockIPC(async (command,payload) => {
     record.asset.revision += 1;
     requests.set(input.request_id, structuredClone(record));
     return structuredClone(record);
+  }
+  if (command === 'change_lifecycle') {
+    const input=args.input as LifecycleChange;
+    if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    const record=records.find(r=>r.asset.id===input.asset_id);
+    if(!record) throw {message:'找不到虚构记录。'};
+    if(requests.has(input.request_id)) return structuredClone(record);
+    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请重新读取。'};
+    const error=lifecycleError(record,input.action,localDay());
+    if(error) throw {code:'DATE_CONFLICT',message:error};
+    if(params.get('state')==='save-error') throw {message:'模拟状态保存失败，输入应保留。'};
+    const life=record.lifecycle??{state:'active',events:[]}; const action=input.action;
+    if(action.type==='append') {life.events.push({id:crypto.randomUUID(),sequence:life.events.length+1,kind:action.kind,date:action.date,notes:action.notes});life.state=action.kind==='retire'?'retired':'active';}
+    else life.events.find(e=>e.id===action.event_id)!.date=action.date;
+    record.lifecycle=life;record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,structuredClone(record));return structuredClone(record);
   }
   if (command === 'photo_preview') return imageBytes(String(args.id));
   if (command === 'pick_photo') throw {message:'图片选择请在原生 App 中验证，此页面仅使用虚构示意图。'};

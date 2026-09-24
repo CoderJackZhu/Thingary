@@ -1,0 +1,28 @@
+Window: "物志 · T07 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T07 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container 标记退役
+				4 container
+					5 heading 标记退役, Value: 2
+						6 text 标记退役
+					7 button 关闭状态表单
+					8 text 虚构 T06b 旅行相机 退役仍计入持有，日均持有成本继续计算。重新启用不会重置购入日期或已有历史。 动作日期（必填）
+					9 text field (settable) 动作日期（必填）, Value: 2026-09-10, Placeholder: YYYY-MM-DD
+					10 text 备注（可选）
+					11 text entry area (settable) 备注（可选）, Value: T07 虚构：暂时收起，保留相机, Secondary Actions: Show Writing Tools
+						12 text (settable) T07 虚构：暂时收起，保留相机
+					13 text 放弃未保存的状态修改？
+					14 button 继续编辑
+					15 button 放弃修改
+	16 close button
+	17 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	18 minimize button
+	19 text 物志 · T07 虚构资料验收
+20 menu bar
+	21 Possio T06b Preview
+	22 文件
+	23 编辑
+	24 窗口
+
+The focused UI element is 11 text entry area (settable) 备注（可选）, Value: T07 虚构：暂时收起，保留相机, Secondary Actions: Show Writing Tools

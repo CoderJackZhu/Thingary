@@ -1,0 +1,68 @@
+Window: "物志 · T07 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T07 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container
+				4 text 物 物志 POSSIO
+				5 container 主导航
+					6 text 我的档案
+					7 button 我的物品
+					8 button 最近删除
+					9 button 设置
+				10 text 仅保存在这台 Mac 外观
+				11 pop up button (collapsed) 外观, Value: 浅色, Secondary Actions: Expand
+			12 container
+				13 text 个人档案 / 我的物品
+				14 text field (settable) 搜索物品
+				15 text ⌘F
+				16 button ＋ 新增物品 ⌘N
+				17 heading 我的物品, Value: 1
+					18 text 我的物品
+				19 text 好好记录每一件，陪伴日常的物品。
+				20 text 本地档案
+				21 container 当前结果概览
+					22 text 我的物品
+					23 text 2件
+					24 text 本页使用中 2 件 · 持有 2 件
+					25 text 本页购入金额
+					26 text ¥1,350.50
+					27 text 1 件金额已知 · 不含未知金额
+					28 text 本页待补充
+					29 text 1件
+					30 text 购入金额或日期尚未记录
+				31 pop up button (collapsed) 筛选资料, Value: 全部物品, Secondary Actions: Expand
+				32 text 2 件
+				33 pop up button (collapsed) 排序方式, Value: 建档时间, Secondary Actions: Expand
+				34 button 切换为升序
+				35 toggle button 列表视图, Value: on
+				36 toggle button 网格视图, Value: off
+				37 text 分类筛选
+				38 container 分类筛选
+					39 toggle button 全部分类, Value: on
+					40 toggle button 未分类, Value: off
+					41 toggle button 仅看分类 电脑, Value: off
+					42 toggle button 仅看分类 手机, Value: off
+					43 toggle button 仅看分类 摄影, Value: off
+					44 toggle button 仅看分类 音频, Value: off
+					45 toggle button 仅看分类 家电, Value: off
+					46 toggle button 仅看分类 其他, Value: off
+					47 toggle button 仅看分类 虚构关闭校验, Value: off
+					48 toggle button 仅看分类 虚构 T06c 错误恢复, Value: off
+				49 text 当前：全部分类 2  件物品
+				50 container 物品列表
+					51 text 物品 购入金额 状态
+					52 toggle button 查看 虚构 T06c 正常迁移样例, Value: off
+					53 toggle button 查看 虚构 T06b 旅行相机, Value: off
+				54 button (disabled) 上一页
+				55 text 第 1 页
+				56 button (disabled) 下一页
+				57 text ← 选一件物品 看看它的持有记录
+	58 close button
+	59 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	60 minimize button
+	61 text 物志 · T07 虚构资料验收
+62 menu bar
+	63 Possio T06b Preview
+	64 文件
+	65 编辑
+	66 窗口

@@ -57,3 +57,17 @@
 .editor .taxonomy-field{min-width:0;gap:7px}
 .editor .taxonomy-field label{font-size:12px;font-weight:550}
 .editor .taxonomy-select{font-size:13px;padding:10px}
+
+/* T07 uses the existing A layout and form tokens. */
+.hero-copy > button + button{margin-left:8px}
+.lifecycle-history{margin-top:20px}
+.lifecycle-history ol{list-style:none;padding:0;margin:0}
+.lifecycle-history li{display:flex;justify-content:space-between;gap:16px;align-items:start;padding:14px 0;border-bottom:1px solid var(--line)}
+.lifecycle-history li:last-child{border-bottom:0}
+.lifecycle-history li strong{margin-right:12px}
+.lifecycle-history .notes{margin:8px 0 0}
+.lifecycle-editor .field{margin:16px 0}
+.lifecycle-editor details{margin-top:16px}
+
+.pill[data-state="retired"]{background:var(--bg);color:var(--muted)}
+.pill[data-state="retired"]::before{background:currentColor}

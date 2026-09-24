@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { stateLabel } from './lifecycle';
 import { errorMessage, money } from './asset';
 import type { AssetRecord, Page } from './asset';
 import type { CloseIntent } from './AssetEditor';
@@ -32,7 +33,7 @@ export function TrashPanel({ version, onRestore }: { version: number; onRestore:
     {error ? <div className="empty" role="alert"><h2>最近删除读取失败</h2><p>{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : loading ? <p role="status">正在读取最近删除…</p> : !page?.items.length ? <div className="empty"><h2>最近删除是空的</h2><p>删除的物品会出现在这里。</p></div> : <>
       <p className="collection-caption">{page.total} 件物品 · 按删除时间从新到旧</p>
       <ul className="trash-list">{page.items.map(record => <li key={record.asset.id}>
-        <div><h2>{record.asset.name}</h2><p className="muted small">资产 · 原状态：使用中</p><p className="small">购入金额 {money(record.asset.price_cents)} · 购入日期 {record.asset.purchase_date || '待补充'}</p><p className="muted small">删除于 {record.deleted_at ? new Date(record.deleted_at).toLocaleString('zh-CN') : '时间待补充'}</p></div>
+        <div><h2>{record.asset.name}</h2><p className="muted small">资产 · 原状态：{stateLabel(record)}</p><p className="small">购入金额 {money(record.asset.price_cents)} · 购入日期 {record.asset.purchase_date || '待补充'}</p><p className="muted small">删除于 {record.deleted_at ? new Date(record.deleted_at).toLocaleString('zh-CN') : '时间待补充'}</p></div>
         <button onClick={() => onRestore(record, page.generation)} aria-label={'恢复 ' + record.asset.name}>恢复物品</button>
       </li>)}</ul><div className="pagination"><button disabled={!offset} onClick={() => setOffset(n => Math.max(0, n - 100))}>上一页</button><span>第 {Math.floor(offset / 100) + 1} 页</span><button disabled={offset + 100 >= page.total} onClick={() => setOffset(n => n + 100)}>下一页</button></div>
     </>}
