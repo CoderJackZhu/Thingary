@@ -70,6 +70,7 @@ impl Store {
             .open(root.join("lock"))?;
         fs2::FileExt::try_lock_exclusive(&lock)
             .map_err(|_| Error::new("LOCKED", "验证资料已由另一个进程打开"))?;
+        crate::recovery::recover_root(root)?;
         let active_path = root.join("active.json");
         let active = if active_path.exists() {
             let a: Active = serde_json::from_slice(&fs::read(&active_path)?)?;

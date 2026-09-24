@@ -2,6 +2,7 @@ pub mod backup;
 mod commands;
 pub mod domain;
 pub mod files;
+mod recovery;
 pub mod storage;
 pub mod worker;
 use tauri::Manager;
