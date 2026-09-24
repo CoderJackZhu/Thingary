@@ -10,6 +10,7 @@
 
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、技术原则、P0/P1/P2 和验收标准。
 - [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」作为后续基线，B 保留为历史比较；涵盖资产浏览、快速新增和完整档案；[直接打开交互原型](docs/ui/prototype.html)。
+- [实际页面视觉验证](docs/verification/VISUAL_ALIGNMENT.md)：A 基线在真实组件中的实现、浏览器截图与验收边界。
 - [P0 功能规格](docs/FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义、已收敛的业务边界及补充样例。
 - [技术设计与验证计划](docs/decisions/001-local-desktop.md)：本地桌面架构、数据与图片一致性、统一最近删除、备份恢复协议和七项风险验证计划；已作为任务拆分基线，底层实验与未验项见验证报告。
 - [实施任务与开工检查](docs/IMPLEMENTATION_PLAN.md)：V00–V05 首批验证、T01–T21 后续任务、依赖顺序、44 条验收归属和阶段出口；任务状态唯一入口。
@@ -50,3 +51,9 @@ V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程
 当前 App 产物位于 `src-tauri/target/release/bundle/macos/Possio Preview.app`。不含远程更新或后台代理；本轮只有本地提交，没有推送发布。只在当前 Apple Silicon Mac 验证，旧系统及 Intel 尚未实测。
 
 开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，与旧验证 App 的临时库分开。当前可自行填写名称、金额、日期、品牌、型号、序列号和备注，列表/网格搜索及更正后保留记录；仍先使用虚构资料体验。设置和侧栏均可进入最近删除，支持资产恢复；支持 JPEG/PNG/HEIC/WebP 封面与附件、预览和缺图修复；完整备份及导出界面按后续任务接入，尚未达到 CP4 的日常自用标准。
+
+### 完整页面的虚构数据预览
+
+在当前分支运行 `npm run dev -- --port 1428`，打开 <http://127.0.0.1:1428/visual-preview.html>。可体验与 App 相同的列表/网格、摘要、详情、新增、更正、删除/恢复 UI；使用内存虚构数据，刷新即重置，不能用于保存真实档案。图片选择仍需原生 App。
+
+附加 `?state=empty`、`?state=error`、`?state=save-error` 可检查空白、读取失败和保存失败；`?theme=dark` 可对照深色。这个开发入口不包含在 `npm run build` 的正式产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。
