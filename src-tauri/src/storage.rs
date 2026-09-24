@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 4 || app != 1347375955 || integrity != "ok" {
+    if v != 5 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -169,7 +169,7 @@ impl Store {
             .query_row("SELECT count(*) FROM assets", [], |r| r.get(0))?)
     }
     pub fn save(&mut self, input: &Save, today: &str) -> Result<Asset> {
-        self.save_record(input, today, None, None)
+        self.save_record(input, today, None, None, None)
     }
     pub(crate) fn save_record(
         &mut self,
@@ -177,12 +177,18 @@ impl Store {
         today: &str,
         details: Option<&crate::catalog::Details>,
         photos: Option<&crate::photos::Selection>,
+        classification: Option<&crate::taxonomy::Classification>,
     ) -> Result<Asset> {
         if input.generation != self.active.generation {
             return Err(Error::new("STALE_DATASET", "资料已恢复，请重新打开档案"));
         }
         input.validate(today)?;
-        let fingerprint = digest(&if let Some(photos) = photos {
+        let fingerprint = digest(&if let Some(classification) = classification {
+            if let Some(d) = details {
+                d.validate()?;
+            }
+            serde_json::to_vec(&(input, details, photos, classification))?
+        } else if let Some(photos) = photos {
             if let Some(d) = details {
                 d.validate()?;
             }
@@ -210,6 +216,9 @@ impl Store {
             }
             return Ok(serde_json::from_str(&result)?);
         }
+        if let Some(value) = classification {
+            crate::taxonomy::validate_classification(&tx, value)?;
+        }
         let price = crate::domain::cents(input.price_cents.as_deref())?;
         let id = input.asset_id.clone().unwrap_or_else(uid);
         let revision = match input.expected_revision {
@@ -230,6 +239,12 @@ impl Store {
             tx.execute(
                 "INSERT INTO assets(id,name,price_cents,purchase_date,revision) VALUES(?1,?2,?3,?4,1)",
                 params![id, input.name.trim(), price, input.purchase_date],
+            )?;
+        }
+        if let Some(value) = classification {
+            tx.execute(
+                "UPDATE assets SET category_id=?1,channel_id=?2 WHERE id=?3",
+                params![value.category_id, value.channel_id, id],
             )?;
         }
         if let Some(d) = details {
@@ -262,7 +277,7 @@ impl Store {
 }
 
 pub(crate) fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 4, hook)
+    migrate_to(c, 5, hook)
 }
 pub(crate) fn migrate_to(
     c: &Connection,
@@ -270,7 +285,7 @@ pub(crate) fn migrate_to(
     hook: &dyn Fn(&str) -> Result<()>,
 ) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=4).contains(&v) || v > target {
+    if !(1..=5).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -300,6 +315,106 @@ INSERT INTO asset_media SELECT asset_id,min(id) FROM attachments GROUP BY asset_
 PRAGMA user_version=4;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 4;
+    }
+    if v == 4 && target >= 5 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("CREATE TABLE categories(id TEXT PRIMARY KEY,name TEXT NOT NULL,name_key TEXT NOT NULL UNIQUE,icon TEXT NOT NULL CHECK(icon IN ('box','computer','phone','camera','audio','home')),position INTEGER NOT NULL CHECK(position>=0));
+CREATE TABLE channels(id TEXT PRIMARY KEY,name TEXT NOT NULL,name_key TEXT NOT NULL UNIQUE,position INTEGER NOT NULL CHECK(position>=0));
+ALTER TABLE assets ADD COLUMN category_id TEXT REFERENCES categories(id);
+ALTER TABLE assets ADD COLUMN channel_id TEXT REFERENCES channels(id);
+CREATE INDEX assets_category ON assets(category_id);
+CREATE INDEX assets_channel ON assets(channel_id);
+CREATE TABLE taxonomy_state(id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL CHECK(revision>=0));
+INSERT INTO taxonomy_state VALUES(1,0);
+CREATE TABLE taxonomy_requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL);
+CREATE TRIGGER asset_taxonomy_insert AFTER INSERT ON assets BEGIN UPDATE taxonomy_state SET revision=revision+1 WHERE id=1; END;
+CREATE TRIGGER asset_taxonomy_update AFTER UPDATE OF category_id,channel_id,deleted_at ON assets WHEN OLD.category_id IS NOT NEW.category_id OR OLD.channel_id IS NOT NEW.channel_id OR OLD.deleted_at IS NOT NEW.deleted_at BEGIN UPDATE taxonomy_state SET revision=revision+1 WHERE id=1; END;
+PRAGMA user_version=5;")?;
+        for (position, (name, icon)) in [
+            ("电脑", "computer"),
+            ("手机", "phone"),
+            ("摄影", "camera"),
+            ("音频", "audio"),
+            ("家电", "home"),
+            ("其他", "box"),
+        ]
+        .iter()
+        .enumerate()
+        {
+            tx.execute(
+                "INSERT INTO categories VALUES(?1,?2,?2,?3,?4)",
+                params![uid(), name, icon, position as i64],
+            )?;
+        }
+        for (position, name) in [
+            "Apple Store",
+            "京东",
+            "淘宝",
+            "Amazon",
+            "线下",
+            "二手",
+            "其他",
+        ]
+        .iter()
+        .enumerate()
+        {
+            tx.execute(
+                "INSERT INTO channels VALUES(?1,?2,?3,?4)",
+                params![uid(), name, name.to_ascii_lowercase(), position as i64],
+            )?;
+        }
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod taxonomy_migration_tests {
+    use super::*;
+    #[test]
+    fn version_four_upgrade_rolls_back_and_preserves_assets() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(SCHEMA).unwrap();
+        migrate_to(&c, 4, &|_| Ok(())).unwrap();
+        c.execute(
+            "INSERT INTO assets VALUES('legacy','旧资料',NULL,NULL,1,'2026-09-24')",
+            [],
+        )
+        .unwrap();
+        assert!(migrate(&c, &|_| Err(Error::new("INJECTED", "中断"))).is_err());
+        assert_eq!(
+            c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            4
+        );
+        assert!(c.prepare("SELECT category_id FROM assets").is_err());
+        migrate(&c, &|_| Ok(())).unwrap();
+        let r: (String, i64, Option<String>, Option<String>) = c
+            .query_row(
+                "SELECT name,revision,category_id,channel_id FROM assets",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(r, ("旧资料".into(), 1, None, None));
+        let first: String = c
+            .query_row(
+                "SELECT id FROM categories ORDER BY position LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        migrate(&c, &|_| Ok(())).unwrap();
+        assert_eq!(
+            c.query_row(
+                "SELECT id FROM categories ORDER BY position LIMIT 1",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            first
+        );
+    }
 }

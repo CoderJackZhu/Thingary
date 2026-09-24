@@ -8,6 +8,7 @@ use possio_lib::{
 };
 fn save(s: &Store) -> SaveAsset {
     SaveAsset {
+        classification: None,
         photos: None,
         base: Save {
             request_id: uuid::Uuid::new_v4().to_string(),
@@ -26,6 +27,7 @@ fn save(s: &Store) -> SaveAsset {
 }
 fn query(deleted: bool) -> Query {
     Query {
+        category: Default::default(),
         search: String::new(),
         filter: if deleted { "deleted" } else { "all" }.into(),
         sort: "deleted".into(),

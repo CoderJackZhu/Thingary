@@ -21,6 +21,7 @@ rusqlite = { version = "0.40.2", features = ["bundled", "backup"] }
 chrono = "0.4.45"
 uuid = { version = "1", features = ["v4"] }
 sha2 = "0.10"
+unicode-normalization = "=0.1.25"
 fs2 = "0.4.3"
 tempfile = "3"
 

@@ -172,3 +172,36 @@ pub async fn photo_preview(
         .map_err(|_| Error::new("WORKER", "图片预览失败"))?
         .map(tauri::ipc::Response::new)
 }
+
+#[tauri::command]
+pub async fn taxonomy_snapshot(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::taxonomy::Snapshot> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.taxonomy_snapshot()))
+        .await
+        .map_err(|_| Error::new("WORKER", "分类与渠道读取失败"))?
+}
+#[tauri::command]
+pub async fn change_taxonomy(
+    input: crate::taxonomy::Change,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::taxonomy::Snapshot> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.change_taxonomy(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "未收到结果，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn taxonomy_request(
+    request: String,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<bool> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.taxonomy_request(&request, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "无法核对本次请求"))?
+}

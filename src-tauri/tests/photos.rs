@@ -11,6 +11,7 @@ const PNG: &[u8] = include_bytes!("fixtures/camera.png");
 const HEIC: &[u8] = include_bytes!("fixtures/camera.heic");
 fn input(s: &Store, ids: Vec<String>) -> SaveAsset {
     SaveAsset {
+        classification: None,
         base: Save {
             request_id: uuid::Uuid::new_v4().to_string(),
             generation: s.generation(),
@@ -242,7 +243,7 @@ fn schema_three_migrates_existing_attachments() {
         .unwrap();
     drop(s);
     let db = rusqlite::Connection::open(dataset(root.path()).join("data.sqlite")).unwrap();
-    db.execute_batch("DROP TABLE asset_media; DROP TABLE asset_photos; PRAGMA user_version=3;")
+    db.execute_batch("DROP TRIGGER asset_taxonomy_insert; DROP TRIGGER asset_taxonomy_update; DROP INDEX assets_category; DROP INDEX assets_channel; ALTER TABLE assets DROP COLUMN category_id; ALTER TABLE assets DROP COLUMN channel_id; DROP TABLE categories; DROP TABLE channels; DROP TABLE taxonomy_state; DROP TABLE taxonomy_requests; DROP TABLE asset_media; DROP TABLE asset_photos; PRAGMA user_version=3;")
         .unwrap();
     drop(db);
     let s = Store::open(root.path()).unwrap();

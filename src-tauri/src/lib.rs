@@ -7,6 +7,7 @@ pub mod native_images;
 pub mod photos;
 mod recovery;
 pub mod storage;
+pub mod taxonomy;
 pub mod trash;
 pub mod worker;
 use std::sync::atomic::Ordering;
@@ -78,6 +79,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::snapshot,
+            commands::taxonomy_snapshot,
+            commands::change_taxonomy,
+            commands::taxonomy_request,
             commands::save_sample,
             commands::list_assets,
             commands::read_asset,

@@ -42,6 +42,7 @@ pub struct AssetRecord {
     pub deleted_at: Option<String>,
     pub photos: Vec<crate::photos::Photo>,
     pub cover_id: Option<String>,
+    pub classification: crate::taxonomy::Classification,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -50,6 +51,8 @@ pub struct SaveAsset {
     pub details: Details,
     #[serde(default)]
     pub photos: Option<crate::photos::Selection>,
+    #[serde(default)]
+    pub classification: Option<crate::taxonomy::Classification>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -59,6 +62,8 @@ pub struct Query {
     pub sort: String,
     pub descending: bool,
     pub offset: u32,
+    #[serde(default)]
+    pub category: crate::taxonomy::CategoryFilter,
 }
 #[derive(Serialize)]
 pub struct Page {
@@ -86,6 +91,16 @@ impl Store {
             updated_at,
             photos: self.photos(id)?,
             cover_id: self.cover(id)?,
+            classification: self.conn()?.query_row(
+                "SELECT category_id,channel_id FROM assets WHERE id=?1",
+                [id],
+                |r| {
+                    Ok(crate::taxonomy::Classification {
+                        category_id: r.get(0)?,
+                        channel_id: r.get(1)?,
+                    })
+                },
+            )?,
             deleted: deleted_at.is_some(),
             deleted_at,
         }))
@@ -96,6 +111,7 @@ impl Store {
             today,
             Some(&input.details),
             input.photos.as_ref(),
+            input.classification.as_ref(),
         )?;
         self.record(&result.id)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))
@@ -141,19 +157,25 @@ impl Store {
         } else {
             "a.deleted_at IS NULL"
         };
+        let (category_mode, category_id) = match &q.category {
+            crate::taxonomy::CategoryFilter::All => (0, None),
+            crate::taxonomy::CategoryFilter::Uncategorized => (1, None),
+            crate::taxonomy::CategoryFilter::Category { id } => (2, Some(id.as_str())),
+        };
         let direction = if q.descending { "DESC" } else { "ASC" };
-        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id WHERE {visibility} AND ({filter}) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'')), lower(?1)) > 0");
-        let total =
-            self.conn()?
-                .query_row(&format!("SELECT count(*) {from}"), [q.search.trim()], |r| {
-                    r.get(0)
-                })?;
-        let sql=format!("SELECT a.id {from} ORDER BY ({order}) IS NULL ASC, {order} {direction}, a.id ASC LIMIT 100 OFFSET ?2");
+        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id LEFT JOIN categories c ON c.id=a.category_id WHERE {visibility} AND ({filter}) AND (?2=0 OR (?2=1 AND a.category_id IS NULL) OR (?2=2 AND a.category_id=?3)) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'') || ' ' || coalesce(c.name,'')), lower(?1)) > 0");
+        let total = self.conn()?.query_row(
+            &format!("SELECT count(*) {from}"),
+            params![q.search.trim(), category_mode, category_id],
+            |r| r.get(0),
+        )?;
+        let sql=format!("SELECT a.id {from} ORDER BY ({order}) IS NULL ASC, {order} {direction}, a.id ASC LIMIT 100 OFFSET ?4");
         let mut stmt = self.conn()?.prepare(&sql)?;
         let ids = stmt
-            .query_map(params![q.search.trim(), q.offset], |r| {
-                r.get::<_, String>(0)
-            })?
+            .query_map(
+                params![q.search.trim(), category_mode, category_id, q.offset],
+                |r| r.get::<_, String>(0),
+            )?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let items = ids
             .into_iter()

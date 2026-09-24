@@ -6,6 +6,7 @@ use possio_lib::{
 };
 fn input(s: &Store, name: &str, price: Option<&str>) -> SaveAsset {
     SaveAsset {
+        classification: None,
         photos: None,
         base: Save {
             request_id: uuid::Uuid::new_v4().to_string(),
@@ -26,6 +27,7 @@ fn input(s: &Store, name: &str, price: Option<&str>) -> SaveAsset {
 }
 fn query() -> Query {
     Query {
+        category: Default::default(),
         search: String::new(),
         filter: "all".into(),
         sort: "price".into(),
