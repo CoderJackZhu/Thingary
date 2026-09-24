@@ -10,6 +10,7 @@ import type { PreviewCatalog, TaxonomyCommand } from './taxonomy';
 import type { SaleChange, Sale } from './sales';
 import { lifecycleError } from './lifecycle';
 import type { LifecycleChange } from './lifecycle';
+import type { Maintenance, MaintenanceChange } from './maintenance';
 import { fixtureArt } from './visual-fixtures';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 
@@ -36,12 +37,16 @@ const taxonomyReceipts = new Map<string,string>();
 let catalog: PreviewCatalog = {categories:[['computer','电脑'],['phone','手机'],['camera','摄影'],['audio','音频'],['home','家电'],['box','其他']].map(([id,name])=>({id,name,icon:id as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:[{id:'online',name:'京东',references:{activeAssets:0,deletedAssets:0}},{id:'store',name:'线下',references:{activeAssets:0,deletedAssets:0}}],assets:[]};
 function taxonomySnapshot() { catalog.assets=records.map(r=>({id:r.asset.id,categoryId:r.classification?.category_id??null,channelId:r.classification?.channel_id??null,deleted:r.deleted})); return {generation,revision:taxonomyRevision,...previewSnapshot(catalog)}; }
 const requests = new Map<string, AssetRecord>();
+const lostMaintenanceReceipts = new Set<string>();
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
+
 if (params.get('state') === 'empty') records = [];
+if (params.has('maintenance-photo') && records[0]) records[0].maintenances=[{id:'maintenance-fixture',fields:{date:'2026-09-20',kind:'repair',title:'更换快门',description:'虚构验收记录',cost_cents:'15000',provider:'虚构维修点'},created_at:new Date().toISOString(),updated_at:new Date().toISOString(),photos:[{id:'maintenance-photo-fixture',name:'维护前照片'}]}];
 // This preview owns its isolated origin and only removes its own reminder keys:
 // records reset on reload, so pending requests from the previous fixture are stale.
 for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.taxonomy-request.v1','possio.lifecycle-draft.v1','possio.sale-draft.v1']) localStorage.removeItem(key);
+if (!params.has('preserve-maintenance')) localStorage.removeItem('possio.maintenance-draft.v1');
 if (params.has('theme')) localStorage.setItem('possio.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
 const images = new Map<string, Promise<ArrayBuffer>>();
 function imageBytes(id: string): Promise<ArrayBuffer> {
@@ -84,7 +89,13 @@ mockIPC(async (command,payload) => {
     return { generation, items: structuredClone(found.slice(query.offset,query.offset+100)), total:found.length, today:localDay() } satisfies Page;
   }
   if (command === 'read_asset') return structuredClone(records.find(r=>r.asset.id===args.id) ?? null);
-  if (command === 'saved_request' || command === 'trash_request') return structuredClone(requests.get(String(args.request)) ?? null);
+  if (command === 'saved_request') {
+    const request=String(args.request);
+    if(lostMaintenanceReceipts.delete(request)) throw {message:'模拟首次回执查询失败。'};
+    if(params.has('pending-receipt') && request==='request-stable') return structuredClone(records[0] ?? null);
+    return structuredClone(requests.get(request) ?? null);
+  }
+  if (command === 'trash_request') return structuredClone(requests.get(String(args.request)) ?? null);
   if (command === 'save_asset') {
     if(params.get('state')==='save-error') throw {message:'模拟保存失败，输入应保留。'};
     const input=args.input as SaveAsset;
@@ -141,7 +152,30 @@ mockIPC(async (command,payload) => {
     }
     record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,structuredClone(record));return structuredClone(record);
   }
-  if (command === 'photo_preview') return imageBytes(String(args.id));
+  if (command === 'change_maintenance') {
+    const input=args.input as MaintenanceChange;
+    if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    const record=records.find(r=>r.asset.id===input.asset_id);
+    if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:'档案已删除或不可用。'};
+    if(requests.has(input.request_id)) return structuredClone(record);
+    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请读取最新状态。'};
+    const action=input.action;
+    if(action.type==='add') {
+      const maintenance:Maintenance={id:crypto.randomUUID(),fields:structuredClone(action.fields),photos:action.photos.ids.map(id=>({id,name:'虚构维护附件'})),created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+      record.maintenances=[...(record.maintenances??[]),maintenance];
+    } else {
+      const maintenance=record.maintenances?.find(item=>item.id===action.maintenance_id);
+      if(!maintenance) throw {code:'STATE_CONFLICT',message:'维护记录已变化。'};
+      maintenance.fields=structuredClone(action.fields);maintenance.photos=action.photos.ids.map(id=>({id,name:'虚构维护附件'}));maintenance.updated_at=new Date().toISOString();
+    }
+    record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,structuredClone(record));
+    if(action.fields.title==='回执核对测试') {lostMaintenanceReceipts.add(input.request_id);throw {message:'模拟响应丢失。'};}
+    return structuredClone(record);
+  }
+  if (command === 'photo_preview') {
+    if(params.has('missing-maintenance-photo') && String(args.id)==='maintenance-photo-fixture') throw {code:'PHOTO_MISSING',message:'模拟维护原图缺失。'};
+    return imageBytes(String(args.id));
+  }
   if (command === 'pick_photo') throw {message:'图片选择请在原生 App 中验证，此页面仅使用虚构示意图。'};
   if (['set_appearance','set_editing','finish_close'].includes(command)) return null;
   throw {message:'此操作需在原生 App 验证：'+command};

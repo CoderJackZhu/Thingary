@@ -44,6 +44,13 @@ export function settlement(record: AssetRecord, sale: SaleFields) {
   const daily=n!==null && days!==null && days>0 ? (((n+BigInt(Math.floor(days/2)))/BigInt(days))*(net!<0n?-1n:1n)).toString() : null;
   return {days,net:net?.toString()??null,daily};
 }
+export function incompleteCostReason(record: AssetRecord): string {
+  const missing = [];
+  if (record.asset.price_cents === null) missing.push('购入金额未知');
+  const count = record.costs?.unknown_maintenance_count ?? 0;
+  if (count > 0) missing.push(`${count} 条维护费用未知`);
+  return missing.length ? missing.join('，') + '，成本不完整。' : '';
+}
 export function storedSale(): SaleDraft | null {
   try {const d=JSON.parse(localStorage.getItem(saleKey)||'null'); if(typeof d?.record?.asset?.id==='string'&&typeof d.generation==='string'&&['sell','correct','revoke'].includes(d.mode)&&['date','price','platform','buyer','notes'].every(k=>typeof d.fields?.[k]==='string'&&typeof d.original?.[k]==='string')&&(!d.pending||typeof d.pending.request_id==='string'))return d;} catch { /* Invalid drafts do not block library reads. */ }
   return null;

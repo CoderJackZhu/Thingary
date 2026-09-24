@@ -10,6 +10,8 @@ import { TrashPanel, TrashDialog, storedTrash } from './Trash';
 import type { TrashAction } from './Trash';
 import { SaleEditor } from './SaleEditor';
 import { MaintenanceEditor } from './MaintenanceEditor';
+import { maintenanceDraft as maintenanceFields, maintenanceKey, recoverMaintenance, refreshCostsForNewDay, storedMaintenance } from './maintenance';
+import type { MaintenanceState, MaintenanceSession } from './maintenance';
 import { storedSale, saleKey, saleFields } from './sales';
 import type { SaleDraft } from './sales';
 import { LifecycleEditor } from './LifecycleEditor';
@@ -43,7 +45,8 @@ function App() {
   const [trashRecovery, setTrashRecovery] = useState<TrashAction | null>(storedTrash);
   const [lifecycleDraft, setLifecycleDraft] = useState<LifecycleDraft | null>(null);
   const [saleDraft, setSaleDraft] = useState<SaleDraft | null>(null);
-  const [maintenanceDraft, setMaintenanceDraft] = useState<{ record: AssetRecord; id?: string } | null>(null);
+  const [maintenanceDraft, setMaintenanceDraft] = useState<MaintenanceSession | null>(null);
+  const [maintenanceRecovery, setMaintenanceRecovery] = useState<MaintenanceState | null>(storedMaintenance);
   const [saleRecovery, setSaleRecovery] = useState<SaleDraft | null>(storedSale);
   const [lifecycleRecovery, setLifecycleRecovery] = useState<LifecycleDraft | null>(storedLifecycle);
   const [trashVersion, setTrashVersion] = useState(0);
@@ -61,6 +64,8 @@ function App() {
   const [recovered, setRecovered] = useState<Draft | null>(storedDraft);
   const [closeIntent, setCloseIntent] = useState<CloseIntent | null>(null);
   const [today, setToday] = useState(localDay);
+  const loadedDay = useRef(today);
+  const maintenanceOpening = useRef(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('possio.theme') || 'system');
   const [eventsReady, setEventsReady] = useState(false);
   const menuAction = useRef<(action: string) => void>(() => {});
@@ -72,7 +77,7 @@ function App() {
   const [taxonomyDirty, setTaxonomyDirty] = useState(false);
   const taxonomy = useTaxonomy(() => { void refresh(); if (selected) void select(selected.asset.id); setTrashVersion(v => v + 1); });
   const taxonomyGuard = taxonomyDirty || taxonomy.busy || taxonomy.blocked;
-  useEffect(() => { void invoke('set_editing', { editing: !!draft || !!trashAction || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || taxonomyGuard }).catch(e => setNotice(errorMessage(e))); }, [draft, trashAction, lifecycleDraft, lifecycleRecovery, saleDraft, saleRecovery, maintenanceDraft, taxonomyGuard]);
+  useEffect(() => { void invoke('set_editing', { editing: !!draft || !!trashAction || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || taxonomyGuard }).catch(e => setNotice(errorMessage(e))); }, [draft, trashAction, lifecycleDraft, lifecycleRecovery, saleDraft, saleRecovery, maintenanceDraft, maintenanceRecovery, taxonomyGuard]);
   async function refresh(q = query) {
     const ticket = ++queryTicket.current; setLoading(true); setLoadError('');
     try { const result = await invoke<Page>('list_assets', { query: q }); if (ticket === queryTicket.current) { setPage(result); setToday(result.today); if (q.offset > 0 && !result.items.length) setQuery({ ...q, offset: Math.max(0, Math.ceil(result.total / 100) * 100 - 100) }); } }
@@ -88,11 +93,16 @@ function App() {
     return () => { void subscription.then(off => off()); void actions.then(off => off()); clearInterval(timer); };
   }, []);
   useEffect(() => {
+    if (loadedDay.current === today) return;
+    const previousDay = loadedDay.current; loadedDay.current = today;
+    void refreshCostsForNewDay(previousDay, today, () => refresh(), detailId, selected?.asset.id ?? null, id => select(id));
+  }, [today]);
+  useEffect(() => {
     document.documentElement.dataset.theme = theme; localStorage.setItem('possio.theme', theme);
     void invoke('set_appearance', { appearance: theme }).catch(e => setNotice(errorMessage(e)));
   }, [theme]);
   menuAction.current = action => {
-    if (draft || trashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft) return;
+    if (draft || trashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery) return;
     if (action === 'new-asset') void openEditor(null);
     if (action === 'find-asset') { setSection('assets'); setDetailId(null); requestAnimationFrame(() => searchRef.current?.focus()); }
     if (action === 'edit-asset' && section === 'assets' && selected && !selected.deleted) void openEditor(selected);
@@ -106,7 +116,7 @@ function App() {
     finally { if (ticket === detailTicket.current) setDetailLoading(false); }
   }
   async function openEditor(record: AssetRecord | null, resume = false) {
-    if (!page || !eventsReady || draft || trashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery) return;
+    if (!page || !eventsReady || draft || trashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery) return;
     if (taxonomyGuard || taxonomy.loading || taxonomy.loadError || !taxonomy.snapshot || taxonomy.snapshot.generation !== page.generation) { setSection('settings'); setNotice('请先保存或取消分类草稿，并完成分类资料读取。'); return; }
     if (trashRecovery) { setNotice('请先核对上次删除或恢复的结果。'); return; }
     if (record?.deleted) { setSection('trash'); return; }
@@ -138,7 +148,7 @@ function App() {
     requestAnimationFrame(() => { (document.getElementById('asset-' + selected?.asset.id) || searchRef.current)?.focus({ preventScroll: true }); if (mainRef.current) mainRef.current.scrollTop = listScroll.current; });
   }
   async function openTrash(record: AssetRecord, generation: string, deleted: boolean, resume?: TrashAction) {
-    if (!eventsReady || draft || trashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery) return;
+    if (!eventsReady || draft || trashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery) return;
     if (taxonomyGuard) { setSection('settings'); setNotice('请先保存或取消分类草稿，并核对待确认操作。'); return; }
     if (recovered) { setNotice('请先处理未保存的编辑草稿，再删除或恢复。'); return; }
     if (trashRecovery && !resume) { setNotice('请先核对上次删除或恢复的结果。'); return; }
@@ -169,7 +179,7 @@ function App() {
     void refresh(); void taxonomy.reload().catch(() => {});
   }
   async function openLifecycle(record: AssetRecord, action: LifecycleAction, resume?: LifecycleDraft) {
-    if (!page || !eventsReady || draft || trashAction || lifecycleDraft || saleDraft || saleRecovery) return;
+    if (!page || !eventsReady || draft || trashAction || lifecycleDraft || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery) return;
     if (recovered || trashRecovery || (lifecycleRecovery && !resume) || taxonomyGuard) { setNotice('请先处理已有草稿或待确认操作，再变更状态。'); return; }
     opener.current = document.activeElement as HTMLElement;
     try {
@@ -194,7 +204,7 @@ function App() {
     requestAnimationFrame(() => document.getElementById('detail-heading')?.focus());
   }
   async function openSale(record: AssetRecord, mode: SaleDraft['mode'], resume?: SaleDraft) {
-    if (!page || !eventsReady || draft || trashAction || lifecycleDraft || saleDraft) return;
+    if (!page || !eventsReady || draft || trashAction || lifecycleDraft || saleDraft || maintenanceDraft || maintenanceRecovery) return;
     if (recovered || trashRecovery || lifecycleRecovery || (saleRecovery && !resume) || taxonomyGuard) { setNotice('请先处理已有草稿或待确认操作，再处理售出。'); return; }
     opener.current = document.activeElement as HTMLElement;
     try {
@@ -219,20 +229,34 @@ function App() {
     setNotice('售出操作已保存，原档案和图片保持完整。'); void refresh(); setTrashVersion(v => v + 1);
     requestAnimationFrame(() => document.getElementById('detail-heading')?.focus());
   }
-  async function openMaintenance(record: AssetRecord, id?: string) {
-    if (!page || !eventsReady || draft || trashAction || lifecycleDraft || saleDraft || maintenanceDraft || taxonomyGuard) return;
+  async function openMaintenance(record: AssetRecord, id?: string, resume?: MaintenanceState) {
+    if (maintenanceOpening.current || !page || !eventsReady || draft || trashAction || lifecycleDraft || saleDraft || maintenanceDraft || taxonomyGuard) return;
+    if (recovered || trashRecovery || lifecycleRecovery || saleRecovery || (maintenanceRecovery && !resume)) { setNotice('请先处理已有草稿或待确认操作，再记录维护。'); return; }
+    maintenanceOpening.current = true;
     opener.current = document.activeElement as HTMLElement;
-    try { await invoke('set_editing', { editing: true }); setCloseIntent(null); setMaintenanceDraft({ record, id }); }
+    try {
+      const fields = maintenanceFields(record, id);
+      const photos = id ? record.maintenances.find(item => item.id === id)?.photos ?? [] : [];
+      const saved = resume ?? { record, generation: page.generation, maintenance_id: id, fields, original: { ...fields, photo_ids: [...fields.photo_ids] }, photos, pending: null };
+      const current = await invoke<{ generation: string }>('taxonomy_snapshot');
+      const result = await recoverMaintenance(saved, current.generation, id => invoke<AssetRecord | null>('read_asset', { id }), (request, generation) => invoke<AssetRecord | null>('saved_request', { request, generation }));
+      if (result.kind === 'saved') { localStorage.removeItem(maintenanceKey); maintenanceSaved(result.record); return; }
+      localStorage.setItem(maintenanceKey, JSON.stringify(result.state));
+      await invoke('set_editing', { editing: true });
+      setCloseIntent(null); setMaintenanceDraft(result);
+    }
     catch (e) { setNotice(errorMessage(e)); }
+    finally { maintenanceOpening.current = false; }
   }
-  async function closeMaintenance(intent: CloseIntent) {
-    setMaintenanceDraft(null); setCloseIntent(null);
+  async function closeMaintenance(intent: CloseIntent, keepDraft = false) {
+    if (!keepDraft) localStorage.removeItem(maintenanceKey);
+    setMaintenanceDraft(null); setMaintenanceRecovery(keepDraft ? storedMaintenance() : null); setCloseIntent(null);
     await invoke('set_editing', { editing: taxonomyGuard });
     if (intent !== 'form') await invoke('finish_close', { quit: intent === 'quit' });
     else requestAnimationFrame(() => opener.current?.isConnected && opener.current.focus());
   }
   function maintenanceSaved(record: AssetRecord) {
-    setMaintenanceDraft(null); setCloseIntent(null);
+    setMaintenanceDraft(null); setMaintenanceRecovery(null); setCloseIntent(null);
     ++detailTicket.current; setDetailLoading(false); setDetailError('');
     setSelected(record); setDetailId(record.asset.id); setSection('assets');
     void invoke('set_editing', { editing: taxonomyGuard }).catch(e => setNotice(errorMessage(e)));
@@ -246,6 +270,7 @@ function App() {
     <main ref={mainRef}><div className="app-topbar"><span className="breadcrumb">个人档案 <span>/</span> {section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : detailId ? '物品详情' : '我的物品'}</span><div className="topbar-actions"><label className="search"><Icon name="search"/><input ref={searchRef} aria-label="搜索物品" placeholder="搜索物品" value={query.search} maxLength={200} onChange={e => { setSection('assets'); setDetailId(null); adjust({ search: e.target.value }); }}/><kbd>⌘F</kbd></label><button ref={newRef} className="primary" disabled={!page || !eventsReady || !!trashRecovery} onClick={() => void openEditor(null)}>＋ 新增物品 <kbd>⌘N</kbd></button></div></div>
       {!detailId || section !== 'assets' ? <header className="page-header"><div><h1>{section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : '我的物品'}</h1><p className="page-description">{section === 'trash' ? '暂时收起的物品，随时可以找回。' : section === 'settings' ? '让这本档案用起来更顺手。' : '好好记录每一件，陪伴日常的物品。'}</p></div><span className="header-note">本地档案</span></header> : null}
       {saleRecovery && !saleDraft && <div className="notice">有一份售出草稿或待确认操作。<button onClick={() => void openSale(saleRecovery.record, saleRecovery.mode, saleRecovery)}>恢复售出草稿</button></div>}
+      {maintenanceRecovery && !maintenanceDraft && <div className="notice">有一份维护草稿或待确认操作。<button onClick={() => void openMaintenance(maintenanceRecovery.record, maintenanceRecovery.maintenance_id, maintenanceRecovery)}>恢复维护草稿</button></div>}
       {lifecycleRecovery && !lifecycleDraft && <div className="notice">有一份状态草稿或待确认操作。<button onClick={() => void openLifecycle(lifecycleRecovery.record, lifecycleRecovery.action, lifecycleRecovery)}>恢复状态草稿</button></div>}
       {recovered && !draft && <div className="notice">有一份未保存或待确认的草稿。<button onClick={() => void openEditor(null, true)}>恢复草稿</button></div>}
       {trashRecovery && !trashAction && <div className="notice">有一次删除或恢复的结果待确认。<button onClick={() => void openTrash(trashRecovery.record, trashRecovery.input.generation, trashRecovery.input.deleted, trashRecovery)}>核对上次操作</button></div>}
@@ -264,6 +289,6 @@ function App() {
         </div>}
       </section>
       {section === 'assets' && detailId && <section className="detail"><button className="back" onClick={back}>← 返回物品列表</button>{detailLoading ? <p role="status">正在读取档案…</p> : detailError || !active ? <div className="empty" role="alert"><h2>{detailError || '找不到这件物品'}</h2>{selected?.deleted && <button onClick={() => setSection('trash')}>前往最近删除</button>}<button onClick={() => void select(detailId, true)}>重新读取</button></div> : <AssetDetail onMaintenance={id => void openMaintenance(active, id)} onSale={mode => void openSale(active, mode)} onLifecycle={action => void openLifecycle(active, action)} taxonomy={taxonomy.snapshot} record={active} generation={page?.generation || ''} today={today} onEdit={() => void openEditor(active)} onDelete={() => page && void openTrash(active, page.generation, true)}/> }</section>}
-    </main>{maintenanceDraft && <MaintenanceEditor record={maintenanceDraft.record} maintenanceId={maintenanceDraft.id} generation={page?.generation || ''} today={today} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeMaintenance(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={maintenanceSaved}/>} {saleDraft && <SaleEditor initial={saleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeSale(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saleSaved}/>} {lifecycleDraft && <LifecycleEditor initial={lifecycleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeLifecycle(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={lifecycleSaved}/>} {closeIntent && !draft && !trashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && taxonomyGuard && <TaxonomyCloseNotice onKeep={() => { setCloseIntent(null); setSection('settings'); }}/>}{trashAction && <TrashDialog initial={trashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={trashDone}/>} {draft && <AssetEditor taxonomy={taxonomy.snapshot} initial={draft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeEditor(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saved}/>}</div>;
+    </main>{maintenanceDraft && <MaintenanceEditor initial={maintenanceDraft} today={today} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={(intent, keepDraft) => { void closeMaintenance(intent, keepDraft).catch(e => setNotice(errorMessage(e))); }} onSaved={maintenanceSaved}/>} {saleDraft && <SaleEditor initial={saleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeSale(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saleSaved}/>} {lifecycleDraft && <LifecycleEditor initial={lifecycleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeLifecycle(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={lifecycleSaved}/>} {closeIntent && !draft && !trashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && taxonomyGuard && <TaxonomyCloseNotice onKeep={() => { setCloseIntent(null); setSection('settings'); }}/>}{trashAction && <TrashDialog initial={trashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={trashDone}/>} {draft && <AssetEditor taxonomy={taxonomy.snapshot} initial={draft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeEditor(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saved}/>}</div>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);

@@ -1,26 +1,117 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { errorMessage, type AssetRecord, type Photo } from "./asset";
-import { PhotoView } from "./Photos";
-import { blankMaintenance, draftKey, maintenanceChange, maintenanceDraft, maintenanceKinds, money, validateMaintenance, type MaintenanceDraft } from "./maintenance";
+import { useEffect, useRef, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { errorMessage, type AssetRecord, type Photo } from './asset';
+import { PhotoView } from './Photos';
+import { blankMaintenance, maintenanceChange, maintenanceKey, maintenanceKinds, money, recoverMaintenance, validateMaintenance, type MaintenanceDraft, type MaintenanceState, type MaintenanceSession, type MaintenanceRecoveryResult } from './maintenance';
 import type { CloseIntent } from './AssetEditor';
 
-export function MaintenanceEditor({record,generation,today,maintenanceId,closeIntent,onKeep,onSaved,onClose}:{record:AssetRecord;generation:string;today:string;maintenanceId?:string;closeIntent:CloseIntent|null;onKeep:()=>void;onSaved:(r:AssetRecord)=>void;onClose:(intent:CloseIntent)=>void}){
-  const key=draftKey(record.asset.id,maintenanceId); const initial=useMemo(()=>maintenanceDraft(record,maintenanceId),[record.asset.id,maintenanceId]);
-  const [draft,setDraft]=useState<MaintenanceDraft>(()=>{try{return {...initial,...JSON.parse(sessionStorage.getItem(key)||"null")}}catch{return initial}});
-  const [photos,setPhotos]=useState<Photo[]>(()=>{const map=new Map(record.photos.map(p=>[p.id,p])); record.maintenances.flatMap(m=>m.photos).forEach(p=>map.set(p.id,p)); return draft.photo_ids.map(id=>map.get(id)).filter(Boolean) as Photo[]});
-  const [error,setError]=useState(""); const [saving,setSaving]=useState(false); const dirty=JSON.stringify(draft)!==JSON.stringify(initial); const draftRef=useRef(draft); draftRef.current=draft;
-  useEffect(()=>{sessionStorage.setItem(key,JSON.stringify(draft));},[key,draft]);
-  useEffect(()=>()=>{ if(!dirty) sessionStorage.removeItem(key) },[dirty,key]);
-  useEffect(()=>{if(closeIntent){if(!dirty||confirm('维护草稿已保留。确认关闭窗口？'))onClose(closeIntent);else onKeep()}},[closeIntent]);
-  const set=<K extends keyof MaintenanceDraft>(name:K,value:MaintenanceDraft[K])=>setDraft(d=>({...d,[name]:value}));
-  async function pickPhoto(){try{const photo=await invoke<Photo|null>("pick_photo",{generation,repair:null});if(photo){setPhotos(p=>[...p,photo]);set("photo_ids",[...draftRef.current.photo_ids,photo.id])}}catch(e){setError(errorMessage(e))}}
-  async function save(){const issue=validateMaintenance(draft,record,today);if(issue){setError(issue);return} setSaving(true);setError("");try{const result=await invoke<AssetRecord>("change_maintenance",{input:maintenanceChange(record,generation,draft,maintenanceId)});sessionStorage.removeItem(key);onSaved(result)}catch(e){setError(errorMessage(e))}finally{setSaving(false)}}
-  function close(){if(dirty&&!confirm("维护草稿仍保留在本机，确认关闭？"))return;onClose('form')}
-  return <div className="modal-backdrop"><section className="editor maintenance-editor" aria-modal="true" role="dialog"><header><div><p className="eyebrow">维护档案</p><h2>{maintenanceId?"更正维护记录":"新增维护记录"}</h2><p className="muted">更正保留原记录标识与审计轨迹；空费用表示未知，0 表示免费。</p></div><button className="secondary" onClick={close}>关闭</button></header>
-    <div className="editor-grid"><label>日期（可留空）<input type="date" max={record.sale?.fields.date??today} min={record.asset.purchase_date??undefined} value={draft.date??""} onChange={e=>set("date",e.target.value||null)}/></label><label>类型<select value={draft.kind} onChange={e=>set("kind",e.target.value as MaintenanceDraft["kind"])}>{maintenanceKinds.map(([v,n])=><option key={v} value={v}>{n}</option>)}</select></label><label>标题<input maxLength={200} value={draft.title} onChange={e=>set("title",e.target.value)}/></label><label>服务方<input maxLength={200} value={draft.provider} onChange={e=>set("provider",e.target.value)}/></label><label>费用（元）<input inputMode="decimal" placeholder="留空表示未知；0 表示免费" value={draft.cost} onChange={e=>set("cost",e.target.value)}/></label><label className="wide">说明<textarea maxLength={10000} value={draft.description} onChange={e=>set("description",e.target.value)}/></label></div>
-    <section className="photo-section"><h3>维护图片 <small>{photos.length}</small></h3><div className="photo-strip">{photos.map(photo=><span className="photo-tile" key={photo.id}><PhotoView photo={photo} generation={generation}/><span className="photo-name">{photo.name}</span><button className="secondary" onClick={()=>{setPhotos(p=>p.filter(x=>x.id!==photo.id));set("photo_ids",draft.photo_ids.filter(id=>id!==photo.id))}}>移除</button></span>)}</div><button className="secondary" type="button" onClick={()=>void pickPhoto()}>添加图片</button></section>
-    <aside className="settlement"><span>当前已知维护</span><strong>{money(record.costs.known_maintenance_cents)}</strong><span>{record.costs.unknown_maintenance_count?`${record.costs.unknown_maintenance_count} 条费用待补录`:"费用完整"}</span></aside>
-    {error&&<p className="error" role="alert">{error}</p>}<footer><button className="secondary" onClick={()=>{setDraft(blankMaintenance());setPhotos([])}}>清空</button><button disabled={saving} onClick={save}>{saving?"保存中…":"保存维护记录"}</button></footer>
-  </section></div>
+export function MaintenanceEditor({ initial, today, closeIntent, onKeep, onSaved, onClose }: { initial: MaintenanceSession; today: string; closeIntent: CloseIntent | null; onKeep: () => void; onSaved: (record: AssetRecord) => void; onClose: (intent: CloseIntent, keepDraft?: boolean) => void }) {
+  const dialog = useRef<HTMLDialogElement>(null), lock = useRef(false);
+  const [state, setState] = useState(initial.state), [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState(initial.issue?.message ?? '');
+  const [issue, setIssue] = useState(initial.issue), [confirmClose, setConfirmClose] = useState<CloseIntent | null>(null);
+  const blocked = issue?.kind === 'blocked', conflict = issue?.kind === 'conflict';
+  const frozen = busy || !!state.pending || blocked || conflict;
+  const dirty = JSON.stringify(state.fields) !== JSON.stringify(state.original) || JSON.stringify(state.fields.photo_ids) !== JSON.stringify(state.original.photo_ids);
+
+  useEffect(() => { dialog.current?.showModal(); document.getElementById('maintenance-title')?.focus(); return () => dialog.current?.close(); }, []);
+  useEffect(() => { if (closeIntent) askClose(closeIntent); }, [closeIntent]);
+
+  function remember(next: MaintenanceState) {
+    localStorage.setItem(maintenanceKey, JSON.stringify(next));
+    setState(next);
+  }
+  function edit<K extends keyof MaintenanceDraft>(name: K, value: MaintenanceDraft[K]) {
+    const next = { ...state, fields: { ...state.fields, [name]: value } };
+    try { remember(next); } catch { setNotice('草稿持久保存失败，请保持窗口打开并保存。'); }
+  }
+  function askClose(intent: CloseIntent) {
+    if (blocked && !lock.current) { onClose(intent, true); return; }
+    if (lock.current || state.pending) { setNotice('请先核对维护保存结果，再关闭表单。'); onKeep(); return; }
+    if (dirty) setConfirmClose(intent); else onClose(intent);
+  }
+  function success(record: AssetRecord) { localStorage.removeItem(maintenanceKey); onSaved(record); }
+  async function pickPhoto() {
+    if (lock.current || state.pending || blocked || conflict) return;
+    lock.current = true; setBusy(true);
+    try {
+      const photo = await invoke<Photo | null>('pick_photo', { generation: state.generation, repair: null });
+      if (photo) remember({ ...state, photos: [...state.photos, photo], fields: { ...state.fields, photo_ids: [...state.fields.photo_ids, photo.id] } });
+    } catch (e) { setNotice(errorMessage(e)); }
+    finally { lock.current = false; setBusy(false); }
+  }
+  function applyRecovery(result: MaintenanceRecoveryResult) {
+    if (result.kind === 'saved') { success(result.record); return; }
+    remember(result.state); setIssue(result.issue);
+    setNotice(result.issue?.message ?? '已核对当前资料和原请求。输入已保留，可以继续编辑。');
+  }
+  async function recover(saved = state) {
+    const current = await invoke<{ generation: string }>('taxonomy_snapshot');
+    return recoverMaintenance(saved, current.generation, id => invoke<AssetRecord | null>('read_asset', { id }), (request, generation) => invoke<AssetRecord | null>('saved_request', { request, generation }));
+  }
+  async function check() {
+    if (lock.current) return;
+    lock.current = true; setBusy(true);
+    try { applyRecovery(await recover()); }
+    catch (e) { setNotice(errorMessage(e) + ' 原请求与输入已保留，请稍后核对。'); }
+    finally { lock.current = false; setBusy(false); }
+  }
+  async function save() {
+    if (lock.current || state.pending || blocked || conflict) return;
+    const issue = validateMaintenance(state.fields, state.record, today);
+    if (issue) { setNotice(issue); document.getElementById('maintenance-title')?.focus(); return; }
+    const input = maintenanceChange(state.record, state.generation, state.fields, state.maintenance_id);
+    lock.current = true; setBusy(true); setNotice('');
+    try { remember({ ...state, pending: input }); }
+    catch { lock.current = false; setBusy(false); setNotice('无法持久保存本次请求，尚未提交，请检查可用空间后重试。'); return; }
+    try { success(await invoke<AssetRecord>('change_maintenance', { input })); }
+    catch (e) {
+      try {
+        const result = await recover({ ...state, pending: input });
+        applyRecovery(result);
+        if (result.kind === 'edit' && !result.issue) setNotice(errorMessage(e) + ' 已确认未提交，输入已保留。');
+      } catch { setNotice('暂时无法确认结果。原请求和输入已保留，请核对维护保存结果。'); }
+    } finally { lock.current = false; setBusy(false); }
+  }
+  function acceptLatest() {
+    if (lock.current || state.pending || issue?.kind !== 'conflict' || !issue.latest) return;
+    try {
+      remember({ ...state, record: issue.latest }); setIssue(null);
+      setNotice('已确认在最新版本上保留你的输入，请核对后保存。');
+    } catch (e) { setNotice(errorMessage(e)); }
+  }
+  function removePhoto(id: string) {
+    remember({ ...state, photos: state.photos.filter(photo => photo.id !== id), fields: { ...state.fields, photo_ids: state.fields.photo_ids.filter(photoId => photoId !== id) } });
+  }
+  function clear() {
+    const fields = blankMaintenance();
+    remember({ ...state, fields, photos: [] });
+  }
+
+  return <dialog ref={dialog} className="editor maintenance-editor" aria-labelledby="maintenance-heading" onCancel={event => { event.preventDefault(); askClose('form'); }}><form noValidate onSubmit={event => { event.preventDefault(); void save(); }}>
+    <header><div><p className="eyebrow">维护档案</p><h2 id="maintenance-heading">{state.maintenance_id ? '更正维护记录' : '新增维护记录'}</h2><p className="muted">更正保留原记录标识与审计轨迹；空费用表示未知，0 表示免费。</p></div><button type="button" aria-label="关闭维护表单" disabled={busy || (!!state.pending && !blocked)} onClick={() => askClose('form')}>×</button></header>
+    <div className="fields maintenance-fields"><label className="field">日期（可留空）<input type="date" max={state.record.sale?.fields.date ?? today} min={state.record.asset.purchase_date ?? undefined} value={state.fields.date ?? ''} disabled={frozen} onChange={event => edit('date', event.target.value || null)}/></label><label className="field">类型<select value={state.fields.kind} disabled={frozen} onChange={event => edit('kind', event.target.value as MaintenanceDraft['kind'])}>{maintenanceKinds.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label><label className="field">标题<input id="maintenance-title" maxLength={200} value={state.fields.title} disabled={frozen} onChange={event => edit('title', event.target.value)}/></label><label className="field">服务方<input maxLength={200} value={state.fields.provider} disabled={frozen} onChange={event => edit('provider', event.target.value)}/></label><label className="field">费用（元）<input inputMode="decimal" placeholder="留空表示未知；0 表示免费" value={state.fields.cost} disabled={frozen} onChange={event => edit('cost', event.target.value)}/></label><label className="field wide">说明<textarea maxLength={10000} value={state.fields.description} disabled={frozen} onChange={event => edit('description', event.target.value)}/></label></div>
+    <section className="photo-section"><h3>维护图片 <small>{state.photos.length}</small></h3><div className="photo-strip">{state.photos.map(photo => <span className="photo-tile" key={photo.id}>{blocked ? <span>原资料库图片 · {photo.name}</span> : <PhotoView photo={photo} generation={state.generation}/>}<span className="photo-name">{photo.name}</span><button type="button" disabled={frozen} onClick={() => removePhoto(photo.id)}>移除</button></span>)}</div><button type="button" disabled={frozen} onClick={() => void pickPhoto()}>添加图片</button></section>
+    <aside className="settlement"><span>当前已知维护</span><strong>{money(state.record.costs.known_maintenance_cents)}</strong><span>{state.record.costs.unknown_maintenance_count ? `${state.record.costs.unknown_maintenance_count} 条费用待补录` : '费用完整'}</span></aside>
+    {notice && <p className="notice" role="status">{notice}</p>}
+    {conflict && issue?.latest && <div className="confirm">
+      <strong>当前已保存版本 {issue.latest.asset.revision} · {issue.latest.asset.name}</strong>
+      <p>购入日期：{issue.latest.asset.purchase_date ?? '待补充'}；购入金额：{money(issue.latest.asset.price_cents)}</p>
+      <p>当前维护：{state.maintenance_id ? (() => { const item = issue.latest!.maintenances.find(item => item.id === state.maintenance_id)!; return `${item.fields.title} · ${item.fields.date ?? '日期未知'} · ${money(item.fields.cost_cents)}`; })() : `${issue.latest.maintenances.length} 条`}</p>
+      <p>上方保留你的原输入，尚未覆盖当前记录。</p>
+      <button type="button" disabled={busy} onClick={acceptLatest}>确认保留我的输入并使用最新版本</button>
+    </div>}
+    {confirmClose ? <div className="confirm" role="alert">
+      <strong>维护修改尚未保存</strong><p>可以保留草稿后关闭，下次启动再恢复；放弃会删除草稿。</p>
+      <div className="actions"><button type="button" onClick={() => { setConfirmClose(null); onKeep(); }}>继续编辑</button><button type="button" onClick={() => onClose(confirmClose, true)}>保留草稿并关闭</button><button type="button" onClick={() => onClose(confirmClose)}>放弃修改</button></div>
+    </div> : <footer className="actions">{blocked ? <>
+      <button type="button" disabled={busy} onClick={() => onClose('form', true)}>保留草稿并关闭</button>
+      <button type="button" disabled={busy} onClick={() => void check()}>重新核对资料库</button>
+    </> : <>
+      <button type="button" disabled={frozen} onClick={clear}>清空</button>
+      <button type="button" disabled={busy || !!state.pending} onClick={() => askClose('form')}>取消</button>
+      {state.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对维护保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void check()}>重新读取当前记录</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存维护记录'}</button>}
+    </>}</footer>}
+
+  </form></dialog>;
 }
