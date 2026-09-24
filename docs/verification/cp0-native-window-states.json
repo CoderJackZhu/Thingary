@@ -1,0 +1,98 @@
+[
+  {
+    "label": "00-resumed",
+    "time": "2026-09-24T12:17:24.453Z",
+    "text": "Window: \"物志 · 工程验证\", App: Possio Verification.\n0 standard window 物志 · 工程验证, Secondary Actions: Raise\n\t1 scroll area\n\t\t2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost\n\t\t\t3 container\n\t\t\t\t4 text 物志 本地工程验证 验证工作台\n\t\t\t5 container\n\t\t\t\t6 text POSSIO · 静序\n\t\t\t\t7 heading 让每一件物品，有迹可循。, Value: 1\n\t\t\t\t\t8 text 让每一件物品，有迹可循。\n\t\t\t\t9 text 验证版\n\t\t\t\t10 heading 一件虚构物品, Value: 2\n\t\t\t\t\t11 text 一件虚构物品\n\t\t\t\t12 text 这里仅验证保存与恢复。临时资料可被系统清理，请勿用于正式记录。\n\t\t\t\t13 description list\n\t\t\t\t\t14 text 名称\n\t\t\t\t\t15 text 虚构相机 · 初始记录\n\t\t\t\t\t16 text 购入金额\n\t\t\t\t\t17 text ¥1,000.00\n\t\t\t\t\t18 text 购入日期\n\t\t\t\t\t19 text 2026-09-15\n\t\t\t\t\t20 text 保存版本\n\t\t\t\t\t21 text 1\n\t\t\t\t22 button 补录虚构记录\n\t\t\t\t23 text 保存完成。退出并重新打开后可检查同一份记录。\n\t24 close button\n\t25 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window\n\t26 minimize button\n\t27 text 物志 · 工程验证\n28 menu bar\n\t29 Possio Verification\n\t30 File\n\t31 Edit\n\t32 View\n\t33 Window\n\t34 Help\n"
+  },
+  {
+    "label": "01-updated",
+    "time": "2026-09-24T12:17:32.755Z",
+    "text": "Window: \"物志 · 工程验证\", App: Possio Verification.\n0 standard window 物志 · 工程验证, Secondary Actions: Raise\n\t1 scroll area\n\t\t2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost\n\t\t\t3 container\n\t\t\t\t4 text 物志 本地工程验证 验证工作台\n\t\t\t5 container\n\t\t\t\t6 text POSSIO · 静序\n\t\t\t\t7 heading 让每一件物品，有迹可循。, Value: 1\n\t\t\t\t\t8 text 让每一件物品，有迹可循。\n\t\t\t\t9 text 验证版\n\t\t\t\t10 heading 一件虚构物品, Value: 2\n\t\t\t\t\t11 text 一件虚构物品\n\t\t\t\t12 text 这里仅验证保存与恢复。临时资料可被系统清理，请勿用于正式记录。\n\t\t\t\t13 description list\n\t\t\t\t\t14 text 名称\n\t\t\t\t\t15 text 虚构相机 · 补录记录\n\t\t\t\t\t16 text 购入金额\n\t\t\t\t\t17 text ¥1,000.00\n\t\t\t\t\t18 text 购入日期\n\t\t\t\t\t19 text 2026-09-15\n\t\t\t\t\t20 text 保存版本\n\t\t\t\t\t21 text 2\n\t\t\t\t22 button 补录虚构记录\n\t\t\t\t23 text 保存完成。退出并重新打开后可检查同一份记录。\n\t24 close button\n\t25 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window\n\t26 minimize button\n\t27 text 物志 · 工程验证\n28 menu bar\n\t29 Possio Verification\n\t30 File\n\t31 Edit\n\t32 View\n\t33 Window\n\t34 Help\n\nThe focused UI element is 2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost"
+  },
+  {
+    "label": "02-after-command-q",
+    "time": "2026-09-24T12:17:32.792Z",
+    "apps": [
+      {
+        "displayName": "Possio Verification",
+        "id": "local.possio.verification",
+        "isRunning": true,
+        "lastUsedDate": 811900800,
+        "useCount": 1
+      },
+      {
+        "displayName": "Possio Verification",
+        "id": "local.possio.verification",
+        "isRunning": false,
+        "lastUsedDate": 811900800,
+        "useCount": 1
+      }
+    ]
+  },
+  {
+    "label": "02-command-q-settled",
+    "time": "2026-09-24T12:17:52.178Z",
+    "apps": [
+      {
+        "displayName": "Possio Verification",
+        "id": "local.possio.verification",
+        "isRunning": false,
+        "lastUsedDate": 811900800,
+        "useCount": 1
+      },
+      {
+        "displayName": "Possio Verification",
+        "id": "local.possio.verification",
+        "isRunning": false,
+        "lastUsedDate": 811900800,
+        "useCount": 1
+      }
+    ]
+  },
+  {
+    "label": "03-relaunched",
+    "time": "2026-09-24T12:17:54.483Z",
+    "text": "Window: \"物志 · 工程验证\", App: Possio Verification.\n0 standard window 物志 · 工程验证, Secondary Actions: Raise\n\t1 scroll area\n\t\t2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost\n\t\t\t3 container\n\t\t\t\t4 text 物志 本地工程验证 验证工作台\n\t\t\t5 container\n\t\t\t\t6 text POSSIO · 静序\n\t\t\t\t7 heading 让每一件物品，有迹可循。, Value: 1\n\t\t\t\t\t8 text 让每一件物品，有迹可循。\n\t\t\t\t9 text 验证版\n\t\t\t\t10 heading 一件虚构物品, Value: 2\n\t\t\t\t\t11 text 一件虚构物品\n\t\t\t\t12 text 这里仅验证保存与恢复。临时资料可被系统清理，请勿用于正式记录。\n\t\t\t\t13 description list\n\t\t\t\t\t14 text 名称\n\t\t\t\t\t15 text 虚构相机 · 补录记录\n\t\t\t\t\t16 text 购入金额\n\t\t\t\t\t17 text ¥1,000.00\n\t\t\t\t\t18 text 购入日期\n\t\t\t\t\t19 text 2026-09-15\n\t\t\t\t\t20 text 保存版本\n\t\t\t\t\t21 text 2\n\t\t\t\t22 button 补录虚构记录\n\t\t\t\t23 text 只使用内置虚构资料。\n\t24 close button\n\t25 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window\n\t26 minimize button\n\t27 text 物志 · 工程验证\n28 menu bar\n\t29 Possio Verification\n\t30 File\n\t31 Edit\n\t32 View\n\t33 Window\n\t34 Help\n\nThe focused UI element is 2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost"
+  },
+  {
+    "label": "04-after-close",
+    "time": "2026-09-24T12:18:02.586Z",
+    "text": "Window: \"物志 · 工程验证\", App: Possio Verification.\n0 standard window 物志 · 工程验证, Secondary Actions: Raise\n\t1 scroll area\n\t\t2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost\n\t\t\t3 container\n\t\t\t\t4 text 物志 本地工程验证 验证工作台\n\t\t\t5 container\n\t\t\t\t6 text POSSIO · 静序\n\t\t\t\t7 heading 让每一件物品，有迹可循。, Value: 1\n\t\t\t\t\t8 text 让每一件物品，有迹可循。\n\t\t\t\t9 text 验证版\n\t\t\t\t10 heading 一件虚构物品, Value: 2\n\t\t\t\t\t11 text 一件虚构物品\n\t\t\t\t12 text 这里仅验证保存与恢复。临时资料可被系统清理，请勿用于正式记录。\n\t\t\t\t13 description list\n\t\t\t\t\t14 text 名称\n\t\t\t\t\t15 text 虚构相机 · 补录记录\n\t\t\t\t\t16 text 购入金额\n\t\t\t\t\t17 text ¥1,000.00\n\t\t\t\t\t18 text 购入日期\n\t\t\t\t\t19 text 2026-09-15\n\t\t\t\t\t20 text 保存版本\n\t\t\t\t\t21 text 2\n\t\t\t\t22 button 补录虚构记录\n\t\t\t\t23 text 只使用内置虚构资料。\n\t24 close button\n\t25 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window\n\t26 minimize button\n\t27 text 物志 · 工程验证\n28 menu bar\n\t29 Possio Verification\n\t30 File\n\t31 Edit\n\t32 View\n\t33 Window\n\t34 Help\n\nThe focused UI element is 2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost"
+  },
+  {
+    "label": "05-keyboard-focus",
+    "time": "2026-09-24T12:18:17.381Z",
+    "text": "Window: \"物志 · 工程验证\", App: Possio Verification.\n0 standard window 物志 · 工程验证, Secondary Actions: Raise\n\t1 scroll area\n\t\t2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost\n\t\t\t3 container\n\t\t\t\t4 text 物志 本地工程验证 验证工作台\n\t\t\t5 container\n\t\t\t\t6 text POSSIO · 静序\n\t\t\t\t7 heading 让每一件物品，有迹可循。, Value: 1\n\t\t\t\t\t8 text 让每一件物品，有迹可循。\n\t\t\t\t9 text 验证版\n\t\t\t\t10 heading 一件虚构物品, Value: 2\n\t\t\t\t\t11 text 一件虚构物品\n\t\t\t\t12 text 这里仅验证保存与恢复。临时资料可被系统清理，请勿用于正式记录。\n\t\t\t\t13 description list\n\t\t\t\t\t14 text 名称\n\t\t\t\t\t15 text 虚构相机 · 补录记录\n\t\t\t\t\t16 text 购入金额\n\t\t\t\t\t17 text ¥1,000.00\n\t\t\t\t\t18 text 购入日期\n\t\t\t\t\t19 text 2026-09-15\n\t\t\t\t\t20 text 保存版本\n\t\t\t\t\t21 text 2\n\t\t\t\t22 button 补录虚构记录\n\t\t\t\t23 text 只使用内置虚构资料。\n\t24 close button\n\t25 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window\n\t26 minimize button\n\t27 text 物志 · 工程验证\n28 menu bar\n\t29 Possio Verification\n\t30 File\n\t31 Edit\n\t32 View\n\t33 Window\n\t34 Help\n\nThe focused UI element is 22 button 补录虚构记录"
+  },
+  {
+    "label": "06-keyboard-saved",
+    "time": "2026-09-24T12:18:26.348Z",
+    "text": "Window: \"物志 · 工程验证\", App: Possio Verification.\n0 standard window 物志 · 工程验证, Secondary Actions: Raise\n\t1 scroll area\n\t\t2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost\n\t\t\t3 container\n\t\t\t\t4 text 物志 本地工程验证 验证工作台\n\t\t\t5 container\n\t\t\t\t6 text POSSIO · 静序\n\t\t\t\t7 heading 让每一件物品，有迹可循。, Value: 1\n\t\t\t\t\t8 text 让每一件物品，有迹可循。\n\t\t\t\t9 text 验证版\n\t\t\t\t10 heading 一件虚构物品, Value: 2\n\t\t\t\t\t11 text 一件虚构物品\n\t\t\t\t12 text 这里仅验证保存与恢复。临时资料可被系统清理，请勿用于正式记录。\n\t\t\t\t13 description list\n\t\t\t\t\t14 text 名称\n\t\t\t\t\t15 text 虚构相机 · 补录记录\n\t\t\t\t\t16 text 购入金额\n\t\t\t\t\t17 text ¥1,000.00\n\t\t\t\t\t18 text 购入日期\n\t\t\t\t\t19 text 2026-09-15\n\t\t\t\t\t20 text 保存版本\n\t\t\t\t\t21 text 3\n\t\t\t\t22 button 补录虚构记录\n\t\t\t\t23 text 保存完成。退出并重新打开后可检查同一份记录。\n\t24 close button\n\t25 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window\n\t26 minimize button\n\t27 text 物志 · 工程验证\n28 menu bar\n\t29 Possio Verification\n\t30 File\n\t31 Edit\n\t32 View\n\t33 Window\n\t34 Help\n\nThe focused UI element is 2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost"
+  },
+  {
+    "label": "07-command-w-hidden",
+    "time": "2026-09-24T12:18:41.177Z",
+    "observation": "get_app_state returned noWindowsAvailable after Command-W",
+    "apps": [
+      {
+        "displayName": "Possio Verification",
+        "id": "local.possio.verification",
+        "isRunning": true,
+        "lastUsedDate": 811900800,
+        "useCount": 3
+      },
+      {
+        "displayName": "Possio Verification",
+        "id": "local.possio.verification",
+        "isRunning": false,
+        "lastUsedDate": 811900800,
+        "useCount": 1
+      }
+    ]
+  },
+  {
+    "label": "08-finder-reopened",
+    "time": "2026-09-24T12:20:34.446Z",
+    "text": "Window: \"物志 · 工程验证\", App: Possio Verification.\n0 standard window 物志 · 工程验证, Secondary Actions: Raise\n\t1 scroll area\n\t\t2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost\n\t\t\t3 container\n\t\t\t\t4 text 物志 本地工程验证 验证工作台\n\t\t\t5 container\n\t\t\t\t6 text POSSIO · 静序\n\t\t\t\t7 heading 让每一件物品，有迹可循。, Value: 1\n\t\t\t\t\t8 text 让每一件物品，有迹可循。\n\t\t\t\t9 text 验证版\n\t\t\t\t10 heading 一件虚构物品, Value: 2\n\t\t\t\t\t11 text 一件虚构物品\n\t\t\t\t12 text 这里仅验证保存与恢复。临时资料可被系统清理，请勿用于正式记录。\n\t\t\t\t13 description list\n\t\t\t\t\t14 text 名称\n\t\t\t\t\t15 text 虚构相机 · 补录记录\n\t\t\t\t\t16 text 购入金额\n\t\t\t\t\t17 text ¥1,000.00\n\t\t\t\t\t18 text 购入日期\n\t\t\t\t\t19 text 2026-09-15\n\t\t\t\t\t20 text 保存版本\n\t\t\t\t\t21 text 3\n\t\t\t\t22 button 补录虚构记录\n\t\t\t\t23 text 保存完成。退出并重新打开后可检查同一份记录。\n\t24 close button\n\t25 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window\n\t26 minimize button\n\t27 text 物志 · 工程验证\n28 menu bar\n\t29 Possio Verification\n\t30 File\n\t31 Edit\n\t32 View\n\t33 Window\n\t34 Help\n\nThe focused UI element is 2 HTML content Description: 物志 · 工程验证, URL: tauri://localhost"
+  }
+]
