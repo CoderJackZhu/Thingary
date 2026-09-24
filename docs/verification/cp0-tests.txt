@@ -1,0 +1,65 @@
+
+> possio@0.0.1 test
+> cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --lib --tests
+
+   Compiling possio v0.0.1 (/Users/jackzhu/Code/Own/Possio/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.72s
+     Running unittests src/lib.rs (src-tauri/target/debug/deps/possio_lib-c71b8736cbf45db1)
+
+running 3 tests
+test domain::tests::cost_examples_and_negative_rounding ... ok
+test domain::tests::unknown_free_and_invalid_money ... ok
+test domain::tests::inclusive_leap_and_order ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (src-tauri/target/debug/deps/possio-cfd6cd3fe8aba041)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/backup.rs (src-tauri/target/debug/deps/backup-d9f90ac63845202d)
+
+running 3 tests
+test cancelled_and_failed_backup_never_publish ... ok
+test backup_pauses_queued_writes ... ok
+test archive_has_snapshot_and_originals ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/files.rs (src-tauri/target/debug/deps/files-b7baeac946341e43)
+
+running 3 tests
+test formats_and_corruption ... ok
+test source_move_shared_and_deleted_references ... ok
+test interrupted_image_retries_keep_original ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/process_crash.rs (src-tauri/target/debug/deps/process_crash-f8a1834963ec22aa)
+
+running 2 tests
+test crash_child ... ok
+test real_process_termination_preserves_complete_state ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.57s
+
+     Running tests/recovery.rs (src-tauri/target/debug/deps/recovery-89c6e209c653fde4)
+
+running 4 tests
+test bad_archives_leave_current_data ... ok
+test legacy_migration_failure_preserves_original_and_archive ... ok
+test complete_restore_and_stale_requests ... ok
+test interrupted_switch_selects_a_complete_dataset ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.51s
+
+     Running tests/storage.rs (src-tauri/target/debug/deps/storage-861a134803937b29)
+
+running 3 tests
+test missing_pointer_never_recreates_existing_data ... ok
+test persistence_idempotency_conflicts_and_lock ... ok
+test atomic_save_and_lost_receipt ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
