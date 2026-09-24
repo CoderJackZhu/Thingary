@@ -1,0 +1,49 @@
+{
+  "schema": 6,
+  "assets": [
+    {
+      "id": "d3c52bd5-eb9c-4b08-bd83-d1bf7dd4a27e",
+      "name": "虚构 T06b 旅行相机",
+      "price_cents": 135050,
+      "purchase_date": "2026-09-01",
+      "revision": 9,
+      "deleted_at": null,
+      "category_id": "e337ed2d-71ee-4179-a401-a1037ea60fe9",
+      "channel_id": null,
+      "lifecycle_state": "active"
+    },
+    {
+      "id": "d1d484cf-24a6-4cab-90a0-ba3929379264",
+      "name": "虚构 T06c 正常迁移样例",
+      "price_cents": null,
+      "purchase_date": null,
+      "revision": 3,
+      "deleted_at": null,
+      "category_id": "e337ed2d-71ee-4179-a401-a1037ea60fe9",
+      "channel_id": null,
+      "lifecycle_state": "active"
+    }
+  ],
+  "events": [
+    {
+      "id": "fe148a8b-00d7-48db-9a74-77924e6cd322",
+      "asset_id": "d3c52bd5-eb9c-4b08-bd83-d1bf7dd4a27e",
+      "sequence": 1,
+      "kind": "retire",
+      "date": "2026-09-05",
+      "notes": "T07 虚构：暂时收起，保留相机",
+      "created_at": "2026-09-24T16:35:53.521215+00:00",
+      "updated_at": "2026-09-24T16:42:07.225973+00:00"
+    },
+    {
+      "id": "e7009d80-5364-4852-82a4-18865fdefec4",
+      "asset_id": "d3c52bd5-eb9c-4b08-bd83-d1bf7dd4a27e",
+      "sequence": 2,
+      "kind": "activate",
+      "date": "2026-09-10",
+      "notes": "T07 虚构：同日重新启用",
+      "created_at": "2026-09-24T16:41:37.556179+00:00",
+      "updated_at": "2026-09-24T16:41:37.556179+00:00"
+    }
+  ]
+}

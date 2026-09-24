@@ -71,3 +71,5 @@
 
 .pill[data-state="retired"]{background:var(--bg);color:var(--muted)}
 .pill[data-state="retired"]::before{background:currentColor}
+
+.sale-editor .field{margin:12px 0}.sale-preview{padding:12px;background:var(--side);border-radius:8px;font-size:12px}.sale-preview p{margin:6px 0}.sale-record{margin-top:20px}.sale-record .actions{justify-content:flex-start}.pill[data-state="sold"]{color:var(--accent);background:var(--soft)}.pill[data-state="sold"]::before{background:currentColor}

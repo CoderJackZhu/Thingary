@@ -1,0 +1,88 @@
+Window: "物志 · T08 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T08 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container
+				4 text 物 物志 POSSIO
+				5 container 主导航
+					6 text 我的档案
+					7 button 我的物品
+					8 button 最近删除
+					9 button 设置
+				10 text 仅保存在这台 Mac 外观
+				11 pop up button (collapsed) 外观, Value: 深色, Secondary Actions: Expand
+			12 container
+				13 text 个人档案 / 物品详情
+				14 text field (settable) 搜索物品
+				15 text ⌘F
+				16 button ＋ 新增物品 ⌘N
+				17 text 售出操作已保存，原档案和图片保持完整。
+				18 button ← 返回物品列表
+				19 image camera.heic
+				20 text 已退役
+				21 heading 虚构 T06b 旅行相机, Value: 2
+					22 text 虚构 T06b 旅行相机
+				23 text 一件物品，一段日常
+				24 button 编辑资料 ⌘E
+				25 button 重新启用
+				26 button 标记售出
+				27 container 物品资料
+					28 heading 物品资料, Value: 3
+						29 text 物品资料
+					30 text 把值得记住的细节留在这里
+					31 description list
+						32 text 品牌
+						33 text 待补充
+						34 text 型号
+						35 text 待补充
+						36 text 序列号
+						37 text 待补充
+				38 container 备注
+					39 heading 备注, Value: 3
+						40 text 备注
+					41 text T06c 虚构资料：更正、图片与恢复回归
+				42 container 图片
+					43 heading 图片, Value: 3
+						44 text 图片
+					45 text 1 张
+					46 container 物品图片
+						47 button 预览 camera.heic
+				48 heading 持有与购买, Value: 3
+					49 text 持有与购买
+				50 text 日均持有成本 ¥54.02 / 天 已与你相伴 25 天
+				51 description list
+					52 text 购入金额
+					53 text ¥1,350.50
+					54 text 购入日期
+					55 text 2026-09-01
+					56 text 分类
+					57 text 摄影
+					58 text 购买渠道
+					59 text 未记录
+				60 text 按自然日计算，包含购入当天；售出后截止到售出日。
+				61 container 状态记录
+					62 heading 状态记录, Value: 3
+						63 text 状态记录
+					64 text 同日按记录顺序排列
+					65 container
+						66 text 退役 2026-09-05
+						67 text T07 虚构：暂时收起，保留相机
+						68 button 更正退役日期 2026-09-05
+						69 text 重新启用 2026-09-10
+						70 text T07 虚构：同日重新启用
+						71 button 更正重新启用日期 2026-09-10
+						72 text 退役 2026-09-12
+						73 text T08 虚构：退役后售出验收
+						74 button 更正退役日期 2026-09-12
+				75 summary 档案信息, Value: off
+					76 text 档案信息
+				77 button 移入最近删除…
+	78 close button
+	79 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	80 minimize button
+	81 text 物志 · T08 虚构资料验收
+82 menu bar
+	83 Possio T06b Preview
+	84 文件
+	85 编辑
+	86 窗口

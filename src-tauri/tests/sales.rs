@@ -88,7 +88,7 @@ fn sell_correct_revoke_preserve_identity_and_source_states() {
             &s,
             &a,
             Action::Sell {
-                fields: fields("2026-09-10", "30000"),
+                fields: fields("2026-09-10", "0030000"),
             },
         );
         let b = s.change_sale(&sell, TODAY).unwrap();

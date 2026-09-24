@@ -17,13 +17,14 @@ export function lifecycleError(record: AssetRecord, action: LifecycleAction, tod
   if (record.asset.purchase_date && day < record.asset.purchase_date) return '动作日期不能早于购入日期。';
   if (record.deleted) return '物品已移入最近删除，请先恢复物品。';
   const life = record.lifecycle ?? { state: 'active', events: [] };
-  if (life.state === 'sold') return '已售出物品须先处理售出记录；真实购回需要另建档案。';
+  if (life.state === 'sold' && action.type === 'append') return '已售出物品须先处理售出记录；真实购回需要另建档案。';
   if (action.type === 'append') {
     if (action.kind !== (life.state === 'active' ? 'retire' : 'activate')) return '当前状态已变化，请重新读取后选择适用动作。';
     if ([...action.notes].length > 10000 || action.notes.includes('\0')) return '备注最多 10000 字，且不能含空字符。';
     const last = life.events.at(-1);
     if (last && day < last.date) return `动作日期不能早于前一次${kindLabel(last.kind)}（${last.date}）。`;
   } else {
+    if (record.sale && day > record.sale.fields.date) return '状态日期不能晚于有效售出日期，请先更正售出记录。';
     const index = life.events.findIndex(e => e.id === action.event_id);
     if (index < 0) return '找不到这条状态记录，请重新读取。';
     const before = life.events[index - 1], after = life.events[index + 1];

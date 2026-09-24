@@ -122,7 +122,7 @@ impl Store {
             ));
         }
         let now = chrono::Utc::now().to_rfc3339();
-        let (sale, action) = match &input.action {
+        let (mut sale, action) = match &input.action {
             Action::Sell { fields } => {
                 if record.lifecycle.state == State::Sold || record.sale.is_some() {
                     return Err(Error::new(
@@ -163,6 +163,7 @@ impl Store {
         };
         if action != "revoke" {
             sale.fields.validate()?;
+            sale.fields.price_cents = cents(Some(&sale.fields.price_cents))?.unwrap().to_string();
             if date(&sale.fields.date)? > date(today)? {
                 return Err(Error::new("FUTURE", "售出日期不能晚于今天"));
             }
