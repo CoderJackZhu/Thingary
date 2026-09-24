@@ -1,1 +1,3 @@
-fn main() { possio_lib::run() }
+fn main() {
+    possio_lib::run()
+}
