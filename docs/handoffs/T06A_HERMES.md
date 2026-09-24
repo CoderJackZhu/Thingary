@@ -2,6 +2,10 @@
 
 日期：2026-09-24。任务状态唯一来源：[实施计划](../IMPLEMENTATION_PLAN.md)。本文件是执行契约；交付结果由执行者另填，不把准备完成当作实现完成。
 
+## 本次返修说明
+
+2026-09-24 用户已要求按审查建议执行下一步。Codex 在独立分支 `codex/t06a-review-fixes` 承接返修，原 Hermes 目录保留。上述模型选择与原工作目录约束仅针对最初的 Hermes 执行，不阻止本次用户授权的返修。实际位置、结果与未验项见 [返修报告](../verification/T06A_HANDOFF_RESULT.md)。
+
 ## 1. 目标与执行位置
 
 交付可复用的分类/购买渠道管理界面、选择字段和分类筛选组件，沿用 A「静序」。用独立内存预览证明交互，随后由 Codex 接入 SQLite、Tauri 和现有资产页面。这是首次协作试运行，不是重做 App 或完成整个 T06。
@@ -75,6 +79,7 @@ export interface TaxonomyManagerProps {
   snapshot: TaxonomySnapshot | null;
   loading: boolean;
   loadError: string | null;
+  // 成功读回才 resolve，失败必须 reject；重载时保留旧 snapshot。
   onReload: () => Promise<void>;
   validateName: (kind: TaxonomyKind, name: string, editingId?: string) => string | null;
   onCommand: (command: TaxonomyCommand) => Promise<CommandResult>;

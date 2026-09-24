@@ -1,0 +1,539 @@
+/* T06a 分类/购买渠道界面样式。全部使用 taxonomy- 前缀；
+ * 颜色与圆角复用 src/style.css 已建立的 --bg/--card/--text/--muted/--line/--accent。
+ * 设计原则：管理/字段两个语境都用 A「静序」的紧凑桌面密度；
+ * 深浅色自动跟随 :root[data-theme]，不写死颜色。 */
+
+.taxonomy-shell {
+  display: grid;
+  gap: 24px;
+  padding: 28px 28px 60px;
+  min-width: 0;
+}
+
+.taxonomy-shell header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.taxonomy-shell h1 {
+  font-size: 25px;
+  letter-spacing: -0.5px;
+  margin: 0;
+  font-weight: 650;
+}
+
+.taxonomy-shell .taxonomy-eyebrow {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.taxonomy-shell .taxonomy-lede {
+  color: var(--muted);
+  margin: 0;
+  max-width: 60ch;
+  line-height: 1.6;
+}
+
+.taxonomy-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0;
+}
+
+.taxonomy-tab {
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  border-radius: 7px 7px 0 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.taxonomy-tab[aria-selected="true"] {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--text);
+  font-weight: 600;
+  position: relative;
+  top: 1px;
+}
+
+.taxonomy-panel {
+  display: grid;
+  gap: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+}
+
+.taxonomy-panel .taxonomy-status {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.taxonomy-panel .taxonomy-status[data-state="error"] {
+  color: var(--error);
+}
+
+.taxonomy-fields {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(220px, 2fr) auto;
+  gap: 10px 12px;
+  align-items: end;
+}
+
+.taxonomy-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.taxonomy-field > label {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text);
+}
+
+.taxonomy-field .taxonomy-help {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  min-height: 14px;
+}
+
+.taxonomy-field .taxonomy-help[data-state="error"] {
+  color: var(--error);
+}
+
+.taxonomy-field input,
+.taxonomy-field select {
+  width: 100%;
+}
+
+.taxonomy-icon-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.taxonomy-icon-pick {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.taxonomy-icon-pick[aria-pressed="true"] {
+  background: var(--soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.taxonomy-icon-glyph {
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+  color: currentColor;
+}
+
+.taxonomy-icon-glyph svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.taxonomy-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.taxonomy-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.taxonomy-list li {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) auto auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.taxonomy-list li > strong {
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.taxonomy-list .taxonomy-meta {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.taxonomy-list .taxonomy-meta .taxonomy-pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.taxonomy-edit-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.taxonomy-move {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.taxonomy-move button {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.taxonomy-move button + button {
+  border-left: 1px solid var(--line);
+}
+
+.taxonomy-empty {
+  text-align: center;
+  padding: 28px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.taxonomy-notice {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--soft);
+  color: var(--text);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.taxonomy-notice[data-state="error"] {
+  border-color: var(--error);
+  background: var(--card);
+  color: var(--error);
+}
+
+.taxonomy-notice strong {
+  font-size: 12px;
+}
+
+.taxonomy-locked {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--mark);
+  color: var(--text);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.taxonomy-locked strong {
+  font-weight: 600;
+}
+
+/* 确认删除对话框（不使用现有 .editor，因为旧 dialog 会带 .photo-section） */
+.taxonomy-confirm {
+  width: min(520px, calc(100vw - 40px));
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--card);
+  color: var(--text);
+  padding: 24px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+}
+
+.taxonomy-confirm::backdrop {
+  background: rgba(21, 27, 43, 0.4);
+  backdrop-filter: blur(2px);
+}
+
+.taxonomy-confirm h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.taxonomy-confirm .taxonomy-eyebrow {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+
+.taxonomy-confirm .taxonomy-stats {
+  background: var(--soft);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  margin: 12px 0;
+}
+
+.taxonomy-confirm .taxonomy-stats span strong {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.taxonomy-confirm .taxonomy-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+
+.taxonomy-confirm .taxonomy-choices label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  background: var(--bg);
+}
+
+.taxonomy-confirm .taxonomy-choices label[data-selected="true"] {
+  border-color: var(--accent);
+  background: var(--soft);
+  color: var(--accent);
+}
+
+.taxonomy-confirm footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.taxonomy-confirm .danger {
+  color: var(--error);
+}
+
+/* 三个字段组件：长得像原生表单控件，避免覆盖现有 select 样式过多 */
+.taxonomy-select {
+  width: 100%;
+}
+
+.taxonomy-select[data-state="stale"] {
+  border-color: var(--error);
+}
+
+.taxonomy-select-hint {
+  font-size: 11px;
+  color: var(--error);
+  margin-top: 6px;
+}
+
+.taxonomy-segmented {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 2px;
+  display: inline-flex;
+  background: var(--bg);
+  flex-wrap: wrap;
+  max-width: 100%;
+  gap: 2px;
+}
+
+.taxonomy-segmented button {
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.taxonomy-segmented button[aria-pressed="true"] {
+  background: var(--soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.taxonomy-field-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(160px, 200px) 1fr;
+  align-items: start;
+  margin: 6px 0;
+}
+
+.taxonomy-field-row .taxonomy-helper {
+  font-size: 12px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.taxonomy-field-row .taxonomy-helper small {
+  font-size: 11px;
+}
+
+.taxonomy-field-row .taxonomy-input {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* 演示态预览页：复用 shell + 内容宽度 */
+.taxonomy-preview {
+  display: grid;
+  gap: 18px;
+  padding: 28px;
+  min-width: 0;
+  max-width: 1180px;
+}
+
+.taxonomy-preview .taxonomy-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.taxonomy-preview .taxonomy-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.taxonomy-preview .taxonomy-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* A full-width settings surface avoids squeezing five-column rows into a
+   component-gallery column. Keep the harness outside product components. */
+.taxonomy-preview { margin: 0 auto; overflow: visible; }
+.taxonomy-preview .taxonomy-shell { padding: 8px 0; }
+.taxonomy-edit-row { grid-column: 1 / -1; grid-template-columns: minmax(120px, 1fr) minmax(100px, 1fr) auto auto auto; }
+.taxonomy-list li { grid-template-columns: minmax(120px, 1fr) minmax(100px, auto) auto auto; }
+.taxonomy-list [data-role="icon-inline"] { display: none; }
+.taxonomy-list li > * { min-width: 0; }
+.taxonomy-preview table { width: 100%; border-collapse: collapse; text-align: left; }
+.taxonomy-preview td, .taxonomy-preview th { padding: 9px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.taxonomy-preview .taxonomy-field-row { grid-template-columns: 200px minmax(0, 1fr); }
+.taxonomy-icon-row { align-items: center; }
+.taxonomy-confirm input[type="radio"], .taxonomy-control-row input[type="checkbox"] { width: auto; }
+
+.taxonomy-preview .taxonomy-banner {
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.taxonomy-preview .taxonomy-banner strong {
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.taxonomy-preview .taxonomy-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+}
+
+.taxonomy-preview .taxonomy-control-row > label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .taxonomy-shell {
+    padding: 22px 18px 60px;
+  }
+
+  .taxonomy-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .taxonomy-field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .taxonomy-list li {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .taxonomy-edit-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
