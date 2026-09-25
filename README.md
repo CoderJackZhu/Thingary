@@ -16,6 +16,8 @@
 
 主目录复现隔离构建：`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`。本机 `.local/t06b.conf.json` 已沿用原隔离标识，配置与构建产物不入版本库。
 
+当前任务：**T10 保障档案交接准备已完成，尚未实现**。用户自行将 [T10 Z code 契约与 Prompt](docs/handoffs/T10_WARRANTY_ZCODE.md) 交给 GLM-5.3 串行执行；在本主目录创建 `codex/t10-warranties` 分支，完成后交回 Codex review，不自动合并或推进 T11。
+
 ## 项目文档
 
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、技术原则、P0/P1/P2 和验收标准。
