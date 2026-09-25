@@ -47,8 +47,8 @@ Possio（物志）面向个人实物资产的长期记录与回顾。当前进�
 
 用户已明确授权：补齐 U01 后本地合并回 `/Users/jackzhu/Code/Own/Possio`，在主目录复核，再进入 T10；远程选择“先只做本地合并”。T09/U01 原生补验已完成，最新结果优先于历史交接中的未验项。旧开发工作树保留，不删除；后续工作以主项目为入口，按阶段使用 `codex/` 分支。不得自行配置远程或推送。
 
-当前 main 已从 `3b46442` 快进到 `7e6c6e5`，包含 T06–T09、视觉还原及 U01。主目录现为最新代码；原 `Possio-t06b` 作为保留工作树，不再是后续开发的默认入口。主目录原有未跟踪 `.gitignore` 属于用户文件，保持不变且不代为提交。
+当前 main 已包含 T06–T11、视觉还原及 U01；T11 本地集成点为 `57b1207`。主目录现为最新代码；原 `Possio-t06b` 作为保留工作树，不再是后续开发的默认入口。主目录原有未跟踪 `.gitignore` 属于用户文件，保持不变且不代为提交。
 
-## 当前任务：T11 统一最近删除接续实现与验收
+## 当前集成状态：T11 统一最近删除
 
-2026-09-25 T10 已 review 修复并按用户授权本地集成，结论和剩余原生证据边界见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。T11 的唯一执行契约为 [统一最近删除交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)。Z code 已在主目录 `codex/t11-unified-trash` 分支串行完成部分代码，额度耗尽后用户授权 Codex 接续实现、修复与验收；进展见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。不自动合并、推送、发布或推进 T12；原有未跟踪 `.gitignore` 属于用户文件，保持原样。
+2026-09-25 T10 与 T11 已 review 修复并本地集成 `main`。T11 的契约和实际结果分别见 [统一最近删除交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)、[T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)；原生小窗口及错误注入仍缺，CP2/P0 未宣布完成。用户本轮授权 T11 审查后的本地合并和推送，但仓库尚未配置 Git remote，未推送；不凭空指定远程，也不自动推进 T12。原有未跟踪 `.gitignore` 属于用户文件，保持原样。
