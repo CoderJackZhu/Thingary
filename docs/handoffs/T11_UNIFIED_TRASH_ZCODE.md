@@ -1,0 +1,91 @@
+# T11 统一最近删除：Z code 执行契约
+
+日期：2026-09-25。本文是 T11 的唯一执行入口；产品设计与功能规格仍是业务权威。用户本轮要求准备材料和 Prompt，本轮不实施 T11。
+
+## 1. 起点与授权
+
+- 工作目录：`/Users/jackzhu/Code/Own/Possio`。准备前 main 为 `f3101e88709041a314d880187eb148d34bb24f8a`，包含 T10 本地集成。实际开发从**包含本文的最新 main HEAD** 开始，Z code 开工时记录完整 SHA。
+- 先核对 cwd、branch、HEAD、git status；从最新 main 在同一主目录创建 `codex/t11-unified-trash`。若分支已存在先检查内容；不覆盖、不 reset、不使用旧 `outputs/Possio-t06b` 工作树。
+- 已知未跟踪 `.gitignore` 是用户文件，SHA256 `b93631bb68425b2904975118807e90b07d9647b7734cfb2c1842ff09253f21b9`。不暂存、不修改。其他未预期改动先确认来源。
+- 用户粘贴第 7 节 Prompt 后，授权 T11 实现、测试、文档及任务分支本地提交，交回 Codex review。不得自行合并 main、推送、发布、配置远程或启动 T12。GLM-5.3 单执行者串行，不自动启用 Hermes、子代理、MoA、Flash 并发或后台循环。
+- 当前 schema 10 的 `assets`、`maintenances`、`warranties` 都已有 `deleted_at`。优先在现有结构实现，**不机械增加 schema 11**；确有新表、索引或回执结构需求时说明原因，做原子迁移、旧库/旧备份兼容与失败回滚测试。
+- T10 已完成本地集成，原生 800×600 截图与原生响应丢失故障注入仍缺证据。T11 交回时不得因本阶段完成就自动把它们改写为通过；CP2 须在 T11 review 后另作判断。
+
+## 2. 最少阅读顺序
+
+先读 `AGENTS.md`、`README.md`，再完整读本文。其后局部阅读：
+
+1. [实施计划](../IMPLEMENTATION_PLAN.md) 开头状态表、§4 T11 行、§5 CP2、§6 AC 归属和 §7 模型建议。
+2. [产品设计](../PRODUCT_DESIGN.md) D08/D12、F07；[功能规格](../FUNCTIONAL_SPEC.md) AC13/27–29/41–44、S05、E02/E09。心愿 AC19 留 T12/T13，不提前实现。
+3. [ADR-001](../decisions/001-local-desktop.md) 最近删除命令、父子关联、请求回执、图片和备份；[T09 记录](../verification/T09_MAINTENANCE_RESULT.md)、[T10 记录](../verification/T10_WARRANTY_RESULT.md) 的最新 review/原生章节。
+4. [视觉记录](../verification/VISUAL_ALIGNMENT.md) 的 A「静序」最终基线。代码先用图工具发现，再局部阅读；不一次加载全仓或重读历史聊天。
+
+产品与规格若有无法兼容的冲突，给 Codex 具体差异和建议；常规实现选择直接推进。
+
+## 3. 交付的行为
+
+- 资产、维护、保障分别可确认后软删除。资产详情已有入口；维护/保障卡片增加单条删除。取消不写库，成功后详情、有效事件、统计即时刷新。删除不等于退役或售出。
+- 设置和侧栏沿用**同一个**最近删除页面，支持全部/资产/维护/保障筛选、按删除时间稳定倒序、分页、加载/空白/错误/重试。列出类型、名称、所属资产、适用原状态、删除时间及恢复按钮。父已删除的独立删除子项仍可在统一列表中找到。
+- 恢复保留相同 ID、资产原生命周期、正文、附件与关系。父恢复只让此前有效子项重新可见；此前**独立删除**的维护/保障继续留在最近删除。父仍删除时子项恢复明确提示“先恢复所属资产”并提供定位入口，不静默恢复父。
+- 父资产删除只写父软删除事实，不为每个子项造独立删除项。删除期间有效子项退出普通详情、成本、保障摘要/筛选及有效事件；父恢复后按子项自己的 `deleted_at` 投影。子项删除/恢复后重新计算费用完整性、总投入、售出净成本/日均及保障状态；未知金额与零金额严格区分。
+- 删除/恢复不删除文件、不复制附件 ID、不破坏相同字节共享文件；缺图修复仍可用。首版不做永久清空、自动到期清理或批量删除。
+- 保持左侧状态导航、页面分区、Demo 插图和 A「静序」样式。不做心愿、全局时间轴、总览、通知、完整备份 UI 或 T12+ 功能。
+
+## 4. 事务和错误恢复
+
+复用现有串行 worker、generation、revision、request ID、内容指纹与 `saved_request`。子项软删除标记、必要的父 revision、回执和有效投影同一事务成功或回滚。同 request ID 同 payload 重试幂等，异 payload 冲突；提交成功但回执丢失时核对原请求，不创建新动作；旧 generation/revision 不能覆盖最新数据。保留现有资产 `change_trash` 行为。
+
+父已删除时拒绝独立恢复子项；不能把“当前状态碰巧等于目标状态”误当成原请求成功。维护恢复需受已知购入/售出日期约束，保障恢复仍受起止顺序约束；若在删除期间其他合法更正造成冲突，保留删除项、明确提示，不暗改日期。备份/恢复保留三类删除标记和附件，旧 schema 1–10 备份兼容。
+
+前端请求发出前持久保存原 request ID 和完整 payload；未知结果冻结后续动作，重开核对同请求。成功、确认未提交、无法核对分别提示。成功或失败后从后端重读列表与当前详情。确认框用原生 `<dialog>`、正确焦点/ESC/关闭保护，复用现有视觉与表单协议。
+
+## 5. 代码入口与验收
+
+起点：`src-tauri/src/trash.rs` 和 `src/Trash.tsx` 目前仅覆盖资产；`src/main.tsx` 负责导航、重读、关闭保护；`src-tauri/src/{maintenance,warranty,catalog,storage,backup,photos,commands}.rs` 负责子项、查询、存储、图片、IPC；`src/AssetViews.tsx` 及 `src/{maintenance,warranty}.ts` 负责详情和前端状态。T10 修复的保障附件独立归属不可回退。按需新建聚焦模块与测试，不预设文件数。
+
+| 必验场景 | 可观察结果 |
+|---|---|
+| E09 / AC13 / AC42 | 购入 ¥1,000、维护 A ¥200、B ¥100：删 A 后总投入 ¥1,100；删/恢复父仍 ¥1,100；单独恢复 A 后 ¥1,300；取消无变化，事件/附件不重复 |
+| E02 / AC12 | 未知费用使成本不完整，独立删除后恢复可计算；恢复记录后重新不完整；0 与未知不同 |
+| AC27–29 | Active/Retired/Sold 各有维护、保障、图片；父删/恢复同 ID、原状态及有效关系；Sold 不变 Active，失败留最近删除可重试 |
+| AC41/43/44 | 子项独立删/恢复同 ID；父仍删除时拒绝并定位父；父删不造子项；重放、异 payload、revision/generation 冲突、未知回执均无重复 |
+| 保障与图片 | 当前有效保障删除/恢复后摘要与筛选正确；0/30/31、未来/未知不变；同哈希独立附件和缺图修复可用 |
+| 备份/迁移 | 三类混合删除及附件随备份恢复；旧备份兼容；若加 schema，迁移成功和故障回滚均测试 |
+| 原生 GUI | 删除/恢复维护、保障及父子正逆序；取消、写失败重试、退出重开；统一筛选和父定位；浅深色 1080×760、800×600 无横溢 |
+
+原生只用主目录构建的 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`，其 bundle ID 是 `local.possio.t06b.preview`（窗口标题沿用 T08 不表示包旧）。操作前正常退出并制作 SQLite 一致性保护快照，动态读取 active.json；保留既有虚构库，不重置、不重新导入 Demo、不碰普通 `local.possio.preview` 库。浏览器预览仅内存，不能证明原生持久性。实际资料、数据库/备份和凭据不入库；GUI 上传/删除遵守工具即时确认规则，工具不可用时列缺口，不直接写库冒充 UI。
+
+代码提交后在最终 HEAD 上依次运行：`npm run test:ui`、`npm test`、`npm run test:demo`、`npm run check`、`npm run build`、`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`、`git diff --check`。逐项记退出码和通过数；修复后复测，不能拿提交前日志代替最终证据。报告提交仅改文档时注明代码父提交并复核链接/diff。
+
+## 6. 交回与停止点
+
+新增 `docs/verification/T11_UNIFIED_TRASH_RESULT.md`，记录起点/最终完整 SHA、实际模型、schema 选择、修改文件、E09/AC 逐项结果、最终代码提交后命令、原生与浏览器证据/缺口、旧数据/备份兼容及进程/隔离库状态。README 和实施计划更新为“实现已交回，待 Codex review”，不自行宣布 CP2/P0。只暂存 T11 文件，在任务分支本地提交后停止；不合并 main、不推送。若改变父子恢复规则、需跨任务重构协议或同一根因两轮未解决，携复现、日志和差异交回。
+
+交回格式：
+
+```text
+请 review Possio T11 统一最近删除。
+工作目录：/Users/jackzhu/Code/Own/Possio
+分支：codex/t11-unified-trash
+起点 HEAD：<完整 SHA>
+最终 HEAD：<完整 SHA>
+报告：/Users/jackzhu/Code/Own/Possio/docs/verification/T11_UNIFIED_TRASH_RESULT.md
+实际模型：<实际模型与执行方式>
+最终代码提交后的检查：<命令、退出码、测试数量>
+原生已验／未验：<分开列，浏览器内存不当原生>
+已知问题、进程及隔离库状态：<如实说明>
+```
+
+## 7. 可直接输入 Z code 的 Prompt
+
+```text
+请实现 Possio T11「统一最近删除」，完成后停止并交回 Codex review。
+
+直接在 /Users/jackzhu/Code/Own/Possio 工作。先核对 cwd、分支、HEAD 和 git status；从包含 T11 交接文档的最新 main 创建 codex/t11-unified-trash，在同一主目录开发。不要使用 outputs 旧工作树，不 reset、不覆盖现有改动；未跟踪 .gitignore 是用户文件，保持原样且不提交。
+
+先读 AGENTS.md、README.md，再完整读 docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md；严格按其最少阅读顺序、业务规则、事务/回执约束和 E09、AC13/27–29/41–44 矩阵执行。当前 schema 10 已预留三类 deleted_at，不机械增加迁移。补维护/保障单条软删除/恢复与统一最近删除四类筛选；父恢复不复活此前独立删除的子项，父删不造子删除项，父仍删除时子恢复需引导先恢复父。金额未知与零、Sold 状态、保障状态、图片与请求幂等/未知回执都要保持正确。
+
+使用 GLM-5.3 单执行者串行，不启动子代理、Hermes、MoA、Flash 并发或后台循环，不改全局配置。用户授权 T11 任务分支实现、必要测试、文档与本地提交；不合并 main、不推送、不发布、不提前做 T12。只用既有隔离虚构 App/资料库，先做一致性保护快照，不重置、不导入 Demo、不写普通库。常规工作直接推进；GUI 工具要求即时确认时照做。
+
+最终代码提交后运行交接文档列出的完整检查，记录命令/退出码、原生实际已验/未验和剩余风险；浏览器内存不能代替原生持久性。更新 docs/verification/T11_UNIFIED_TRASH_RESULT.md、README 与实施计划为待 Codex review；按交回格式给出完整 SHA，不自行宣布 CP2 完成。
+```
