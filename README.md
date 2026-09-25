@@ -18,7 +18,7 @@
 
 上一阶段：**T10 review 修复及原生核心补验完成，已按用户授权本地合并 main**。修复保留草稿后无法退出、保障附件 ID 跨实体混用两项问题；代码提交 `2b74e1f` 后前端 57 项、Rust 69 项、Demo 2 项及检查／构建通过。原生多份保障新增／同 ID 更正、日期校验、HEIC 草稿恢复／缺图修复／重启与写锁恢复已补验，见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。原生 800×600 截图及响应丢失 GUI 注入仍未覆盖；CP2/P0 尚未完成。
 
-下一阶段 **T11 统一最近删除**：用户已要求准备 Z code 材料与 Prompt，执行入口为 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)。当前仅完成交接准备，T11 未实现；Z code 从包含交接文档的最新 main 创建 `codex/t11-unified-trash`，串行完成后交回 Codex review。T10 剩余两项原生证据在交接中保留，不因准备 T11 就宣称 CP2 通过。
+当前阶段 **T11 统一最近删除**：Z code 在 `codex/t11-unified-trash` 分支完成首轮实现，额度耗尽后由 Codex 接续修复与验收。资产、维护和保障的统一软删除／恢复及四类筛选已实现，代码提交 `dd75c32` 后自动检查通过；隔离原生父子恢复等 GUI 补验仍在进行，尚未合并 main。执行边界见 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。T10 剩余两项原生证据不因 T11 自动记为通过。
 
 ## 项目文档
 
@@ -28,6 +28,7 @@
 - [T09 维护档案](docs/verification/T09_MAINTENANCE_RESULT.md)：schema 8、维护新增／更正、费用与日期约束、自动检查及隔离原生证据；两轮 review 问题及原生选图问题已修复，图片／日期／写锁恢复补验完成，已达到 T09 阶段出口。
 - [T10 保障档案](docs/verification/T10_WARRANTY_RESULT.md)：schema 10、多份保障独立新增／同 ID 更正、查询时派生状态（含 0/30/31 天边界与未知日期不推断）、资产保障筛选交集、备份恢复覆盖与浏览器证据；review 修复与原生核心补验完成，剩余证据边界见第 10 节。
 - [Z code 交接：T11 统一最近删除](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)：父子独立软删除/恢复、费用和附件关系、统一筛选、错误恢复及原生验收的唯一执行契约，含可直接复制的 Prompt。
+- [T11 统一最近删除验证记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)：Z code 首轮与 Codex 接续修复、自动检查、隔离原生证据及未验边界。
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
 - [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。

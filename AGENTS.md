@@ -49,6 +49,6 @@ Possio（物志）面向个人实物资产的长期记录与回顾。当前进�
 
 当前 main 已从 `3b46442` 快进到 `7e6c6e5`，包含 T06–T09、视觉还原及 U01。主目录现为最新代码；原 `Possio-t06b` 作为保留工作树，不再是后续开发的默认入口。主目录原有未跟踪 `.gitignore` 属于用户文件，保持不变且不代为提交。
 
-## 当前任务：T11 Z code 交接准备
+## 当前任务：T11 统一最近删除接续实现与验收
 
-2026-09-25 T10 已 review 修复并按用户授权本地集成，结论和剩余原生证据边界见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。用户现要求为下一阶段准备 Z code 材料与 Prompt；唯一执行契约为 [T11 统一最近删除交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)。本轮只准备交接，不启动 Z code 或 T11 实施。用户自行粘贴 Prompt 后，GLM-5.3 在主目录新建任务分支串行实现，Codex 后审；不自动合并、推送、发布或推进 T12。主目录为后续入口，用户 `.gitignore` 保持原样。
+2026-09-25 T10 已 review 修复并按用户授权本地集成，结论和剩余原生证据边界见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。T11 的唯一执行契约为 [统一最近删除交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)。Z code 已在主目录 `codex/t11-unified-trash` 分支串行完成部分代码，额度耗尽后用户授权 Codex 接续实现、修复与验收；进展见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。不自动合并、推送、发布或推进 T12；原有未跟踪 `.gitignore` 属于用户文件，保持原样。
