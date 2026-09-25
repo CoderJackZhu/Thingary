@@ -16,7 +16,7 @@
 
 主目录复现隔离构建：`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`。本机 `.local/t06b.conf.json` 已沿用原隔离标识，配置与构建产物不入版本库。
 
-当前任务：**T10 保障档案交接准备已完成，尚未实现**。用户自行将 [T10 Z code 契约与 Prompt](docs/handoffs/T10_WARRANTY_ZCODE.md) 交给 GLM-5.3 串行执行；在本主目录创建 `codex/t10-warranties` 分支，完成后交回 Codex review，不自动合并或推进 T11。
+当前任务：**T10 保障档案实现已交回，待 Codex review／必要补验**。Z code（GLM-5.3）已在 `codex/t10-warranties` 分支按 [T10 Z code 契约](docs/handoffs/T10_WARRANTY_ZCODE.md) 完成实现与本地提交：schema 9→10、多份保障新增／同 ID 更正、查询时派生状态与资产保障筛选、跨日刷新沿用既有路径、图片与草稿／失败恢复复用维护协议；结果与原生缺口见 [T10 记录](docs/verification/T10_WARRANTY_RESULT.md)。未合并 main、未推送；不自动推进 T11。
 
 ## 项目文档
 
@@ -24,6 +24,7 @@
 - [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」作为后续基线，B 保留为历史比较；涵盖资产浏览、快速新增和完整档案；[直接打开交互原型](docs/ui/prototype.html)。
 - [实际页面视觉验证](docs/verification/VISUAL_ALIGNMENT.md)：Demo 还原的当前结论、浏览器／原生截图及明确保留的业务差异；旧“对齐”记录标为历史。
 - [T09 维护档案](docs/verification/T09_MAINTENANCE_RESULT.md)：schema 8、维护新增／更正、费用与日期约束、自动检查及隔离原生证据；两轮 review 问题及原生选图问题已修复，图片／日期／写锁恢复补验完成，已达到 T09 阶段出口。
+- [T10 保障档案](docs/verification/T10_WARRANTY_RESULT.md)：schema 10、多份保障独立新增／同 ID 更正、查询时派生状态（含 0/30/31 天边界与未知日期不推断）、资产保障筛选交集、备份恢复覆盖与浏览器证据；实现已交回，待 Codex review 及原生 GUI 补验。
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
 - [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。
