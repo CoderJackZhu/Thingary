@@ -1,0 +1,97 @@
+Window: "物志 · T08 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T08 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container
+				4 text 物志 POSSIO
+				5 container 主导航
+					6 button (disabled) 总览, Help: 总览将在后续阶段开放
+					7 text 我的物品
+					8 button 全部资产
+					9 button 使用中
+					10 button 已退役
+					11 button 已售出
+					12 text 记录与回顾
+					13 button (disabled) 心愿清单, Help: 心愿清单将在后续阶段开放
+					14 button (disabled) 时间轴, Help: 全局时间轴将在后续阶段开放
+					15 button (disabled) 统计, Help: 统计将在后续阶段开放
+				16 container 资料管理
+					17 button 素材库
+					18 button 最近删除
+					19 button 设置
+				20 text 本地档案 · 仅保存在这台 Mac
+			21 container
+				22 text 我的物品 ／ 全部资产
+				23 text field (settable) 搜索物品
+				24 text ⌘F
+				25 button 新增资产
+				26 heading 全部资产, Value: 1
+					27 text 全部资产
+				28 text 物品的来历、成本与每次变化，都在这里。
+				29 text 维护记录已恢复，重新计入详情与摘要。
+				30 container 当前结果概览
+					31 text 本页当前持有
+					32 text 12件物品
+					33 text 使用中 10 · 已退役 2
+					34 text 本页持有物购入金额
+					35 text ¥37,837.50
+					36 text 4 件金额未知，未计入 · 不含已售出
+					37 text 本页已售出
+					38 text 2件物品
+					39 text 档案与来历仍然保留
+				40 text 14 件物品
+				41 toggle button 列表视图, Value: on
+				42 toggle button 网格视图, Value: off
+				43 summary 筛选与排序, Value: off
+					44 text 筛选与排序
+				45 container 物品列表
+					46 text 物品
+					47 button 按购入金额排序
+					48 text 状态
+					49 toggle button 查看 T11 Fictional Parent, Value: on
+					50 toggle button 查看 U01 Native Name Only, Value: off
+					51 toggle button 查看 U01 Native Draft Recovery, Value: off
+					52 toggle button 查看 U01 Review Fictional Keyboard, Value: off
+					53 toggle button 查看 MacBook Pro 14″, Value: off
+					54 toggle button 查看 Fujifilm X100V, Value: off
+					55 toggle button 查看 WH-1000XM5, Value: off
+					56 toggle button 查看 iPhone 12 mini, Value: off
+					57 toggle button 查看 iPad Air 4, Value: off
+					58 toggle button 查看 机械键盘 K2, Value: off
+					59 toggle button 查看 家里的咖啡机, Value: off
+					60 toggle button 查看 随身录音设备, Value: off
+					61 toggle button 查看 虚构 T06c 正常迁移样例, Value: off
+					62 toggle button 查看 虚构 T06b 旅行相机, Value: off
+				63 text 14  件物品 双击或按回车，打开完整档案
+				64 container 资产摘要
+					65 text 物品摘要
+					66 button 收起资产摘要
+					67 image 分类示意图（非实物照片）
+					68 heading T11 Fictional Parent, Value: 2
+						69 text T11 Fictional Parent
+					70 container
+						71 text 资料可以慢慢补全 ·  使用中
+					72 text 日均持有成本
+					73 text ¥52.00 / 天
+					74 text 购入与已记录维护费用 ÷ 持有天数
+					75 description list
+						76 text 购入金额
+						77 text ¥1,000.00
+						78 text 购入日期
+						79 text 2026-09-01
+						80 text 持有时长
+						81 text 25 天
+						82 text 维护投入
+						83 text ¥300.00
+					84 text 保障：当前无有效保障（1 份日期待补全）
+					85 button 打开完整档案
+					86 button 编辑资料 ⌘E
+	87 close button
+	88 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	89 minimize button
+	90 text 物志 · T08 虚构资料验收
+91 menu bar
+	92 Possio T06b Preview
+	93 文件
+	94 编辑
+	95 窗口

@@ -42,3 +42,11 @@ T10 留存的原生 800×600 截图与响应丢失 GUI 注入不因 T11 完成�
 ## CP2 原生缺口补验（2026-09-25）
 
 本节更新上文历史缺口。通过仅用于本机验收的 Tauri 窗口配置将隔离 App 设为 **800×600 逻辑像素**；Sky 截图为 1600×1200 Retina 像素。原生[最近删除空态](cp2/native-800-trash-light.jpeg)和[深色列表](cp2/native-800-list-dark.jpeg)保持 A「静序」布局，筛选与操作可见，未发现横向溢出。原生详情与保障表单见 [T10 补验](T10_WARRANTY_RESULT.md#11-cp2-原生缺口补验2026-09-25)。这里没有以浏览器内存预览替代原生小窗口验收。
+
+用户确认对隔离库「T11 Fictional Service B」进行写锁、软删除及恢复验收。先以真实 SQLite `BEGIN IMMEDIATE` 持有写锁，并由第二个独立写事务确认得到 `database is locked`；随后在正常原生 App 点击软删除，界面显示[“本次操作未提交”](cp2/native-t11-lock-failed.jpeg)（[AX 文本](cp2/native-t11-lock-failed.txt)）。只读库核对该维护 `deleted_at` 仍为空、请求总数仍为 55。释放锁，在同一确认框重试后，[维护投入由 ¥300 降至 ¥200、总投入由 ¥1,300 降至 ¥1,200](cp2/native-t11-lock-retried.jpeg)（[AX 文本](cp2/native-t11-lock-retried.txt)），请求总数变为 56，原维护 ID 保留。
+
+再用**临时 QA 构建**验证恢复时的响应丢失：真实 `change_record_trash` 已提交后，只丢弃前端收到的回包，并让首次 `saved_record_trash_request` 回包也丢失。原生确认框保留原请求、禁用取消且仅允许[核对结果](cp2/native-t11-response-pending.jpeg)（[AX 文本](cp2/native-t11-response-pending.txt)）；⌘Q 被拦住。仅终止该隔离 QA App 进程模拟崩溃，重启后出现“核对上次操作”，点击后仍以原请求核对到已提交回执，[恢复成功](cp2/native-t11-response-recovered.jpeg)（[AX 文本](cp2/native-t11-response-recovered.txt)），最近删除为空，维护投入回到 ¥300、总投入回到 ¥1,300（[费用图](cp2/native-t11-cost-restored.jpeg)／[AX 文本](cp2/native-t11-cost-restored.txt)）。
+
+临时注入源码已撤除，并以正常配置重建隔离 App、退出重开；[正常包截图](cp2/native-t11-final-normal.jpeg)仍见 ¥300 维护投入，且无待核对入口。最终只读 [SQLite 旁证](cp2/native-final-persistence.json)：schema 10、`integrity_check=ok`、外键检查 0 异常；14 件资产、6 条维护、3 份保障、15 个附件。B 原 ID `96194390-59ee-4e22-bf2c-a1322db6553b` 保留且 `deleted_at` 为空，恢复请求 `c19ae38d-0ef7-4f81-9fd6-bb9c04dea863` 仅一条回执。T10 保障回包丢失的更正请求也仅一条审计。此原生注入覆盖维护记录恢复，不代表对所有实体逐个执行相同 GUI 故障；其他事务和重复请求边界沿用 Rust 测试证据。
+
+本轮所列 T10/T11 小窗口与错误恢复缺口已补齐；结合前述 E09、费用、附件、备份及状态回归，**CP2 已达到本阶段出口**。完整 P0、T12–T21 与 T20 完整 Mac 体验仍未完成；本结论不扩展到这些范围。

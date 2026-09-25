@@ -1,0 +1,30 @@
+{
+  "schema": 10,
+  "integrity_check": "ok",
+  "foreign_key_violations": 0,
+  "counts": {
+    "assets": 14,
+    "maintenances": 6,
+    "warranties": 3,
+    "attachments": 15,
+    "requests": 57
+  },
+  "parent": {
+    "id": "c0132e42-c477-46ab-9767-e597b500421a",
+    "revision": 15
+  },
+  "service_b": {
+    "id": "96194390-59ee-4e22-bf2c-a1322db6553b",
+    "asset_id": "c0132e42-c477-46ab-9767-e597b500421a",
+    "cost_cents": 10000,
+    "deleted_at": null
+  },
+  "restoration_request": {
+    "id": "c19ae38d-0ef7-4f81-9fd6-bb9c04dea863",
+    "receipts": 1
+  },
+  "warranty_correction": {
+    "id": "119235b1-3a98-4cc3-8d10-a00b53e3b963",
+    "audit_rows": 1
+  }
+}

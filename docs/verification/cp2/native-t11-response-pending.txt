@@ -1,0 +1,21 @@
+Window: "物志 · T08 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T08 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container 恢复这条维护记录？
+				4 heading 恢复这条维护记录？, Value: 2
+					5 text 恢复这条维护记录？
+				6 text T11 Fictional Service B
+				7 text 恢复后这条维护记录会重新计入「T11 Fictional Parent」的详情、费用与保障摘要，保持原来的编号和内容。
+				8 text 暂时无法确认结果。请核对本次操作，原请求已保留。
+				9 button (disabled) 取消
+				10 button 核对操作结果
+	11 close button
+	12 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	13 minimize button
+	14 text 物志 · T08 虚构资料验收
+15 menu bar
+	16 Possio T06b Preview
+	17 文件
+	18 编辑
+	19 窗口
