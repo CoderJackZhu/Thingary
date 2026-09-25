@@ -11,11 +11,14 @@ import type { SaleChange, Sale } from './sales';
 import { lifecycleError } from './lifecycle';
 import type { LifecycleChange } from './lifecycle';
 import type { Maintenance, MaintenanceChange } from './maintenance';
+import type { Warranty, WarrantyChange } from './warranty';
+import { deriveStatus, summarizeWarranties } from './warranty';
 import { fixtureArt } from './visual-fixtures';
 import { MATERIALS, materialOf, materialPhotoName } from './materials';
 import { previewRecord } from './preview-costs';
 import demoAssets from './demo-assets.json';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
+const emptyWarrantySummary = {status:'none',total:0,active_count:0,expiring_count:0,upcoming_count:0,expired_count:0,pending_count:0} as const;
 
 const categoryNames = [...new Map(demoAssets.map(a => [a.icon, a.category])).entries()];
 const channelNames = [...new Set(demoAssets.flatMap(a => a.channel ? [a.channel] : []))];
@@ -23,6 +26,8 @@ let records: AssetRecord[] = demoAssets.map((a, i) => ({
   lifecycle: {state: a.sale ? 'sold' : a.retired_on ? 'retired' : 'active', events: a.retired_on ? [{id:'demo-retirement',sequence:1,kind:'retire',date:a.retired_on,notes:'留作备用机'}] : []},
   sale: a.sale ? {id:'demo-sale',previous_state:'active',fields:a.sale} : null,
   maintenances: a.maintenance ? [{id:'demo-maintenance-'+a.key,fields:{...a.maintenance,kind:a.maintenance.kind as Maintenance['fields']['kind']},photos:[],created_at:a.maintenance.date+'T08:00:00Z',updated_at:a.maintenance.date+'T08:00:00Z'}] : [],
+  warranties: [],
+  warranty_summary: {...emptyWarrantySummary},
   costs: {...emptyCosts},
   asset: { id:a.key, name:a.name, price_cents:a.price_cents, purchase_date:a.purchase_date, revision:1 },
   details: {brand:a.brand,model:a.model,serial_number:'',notes:a.notes},
@@ -41,11 +46,33 @@ const params = new URLSearchParams(location.search);
 
 if (params.get('state') === 'empty') records = [];
 if (params.has('no-photos')) records = records.map(r => ({...r,photos:[],cover_id:null}));
+// Browser-only warranty fixtures anchored to the real current day, so E04/E05
+// style states stay demoable on any date; nothing here reaches the native library.
+if (!params.has('no-warranty') && params.get('state') !== 'empty') {
+  const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+  const fixtureWarranty = (id: string, kind: Warranty['fields']['kind'], provider: string, start: string | null, end: string | null): Warranty =>
+    ({id, fields: {kind, provider, start_date: start, end_date: end, notes: '虚构保障样例'}, status: 'pending', remaining_days: null, photos: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString()});
+  const attach = (key: string, items: Warranty[]) => {
+    const record = records.find(r => r.asset.id === key);
+    if (record) record.warranties = items;
+  };
+  attach('laptop', [
+    fixtureWarranty('warranty-laptop-long', 'manufacturer', 'Apple', day(-300), day(300)),
+    fixtureWarranty('warranty-laptop-care', 'applecare', 'AppleCare+', day(-40), day(10)),
+  ]);
+  attach('camera', [fixtureWarranty('warranty-camera-ending', 'store', '线下相机店', day(-30), day(0))]);
+  attach('phone', [
+    fixtureWarranty('warranty-phone-future', 'extended', '京东延保', day(14), day(380)),
+    fixtureWarranty('warranty-phone-expired', 'manufacturer', 'Apple', day(-500), day(-100)),
+    fixtureWarranty('warranty-phone-unknown', 'other', '未记录', null, null),
+  ]);
+}
 if (params.has('maintenance-photo') && records[0]) records[0].maintenances=[{id:'maintenance-fixture',fields:{date:'2026-09-20',kind:'repair',title:'更换快门',description:'虚构验收记录',cost_cents:'15000',provider:'虚构维修点'},created_at:new Date().toISOString(),updated_at:new Date().toISOString(),photos:[{id:'maintenance-photo-fixture',name:'维护前照片'}]}];
 // This preview owns its isolated origin and only removes its own reminder keys:
 // records reset on reload, so pending requests from the previous fixture are stale.
 for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.taxonomy-request.v1','possio.lifecycle-draft.v1','possio.sale-draft.v1']) localStorage.removeItem(key);
 if (!params.has('preserve-maintenance')) localStorage.removeItem('possio.maintenance-draft.v1');
+if (!params.has('preserve-warranty')) localStorage.removeItem('possio.warranty-draft.v1');
 if (params.has('theme')) localStorage.setItem('possio.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
 const images = new Map<string, Promise<ArrayBuffer>>();
 // Staged material selections keep their artwork key so previews render the
@@ -99,6 +126,16 @@ mockIPC(async (command,payload) => {
     if(query.filter==='held') found=found.filter(r=>r.lifecycle?.state!=='sold');
     if(query.category?.mode==='uncategorized') found=found.filter(r=>!r.classification?.category_id);
     if(query.category?.mode==='category') {const id=query.category.id;found=found.filter(r=>r.classification?.category_id===id);}
+    // Same rule set as the Rust filter: effective = both dates known and
+    // start<=today<=end; expiring adds the inclusive 0–30 day window.
+    if(query.warranty && query.warranty!=='all') {
+      const today=localDay();
+      const summaryOf=(r:AssetRecord)=>summarizeWarranties(r.warranties??[],today);
+      if(query.warranty==='covered') found=found.filter(r=>['covered','expiring_soon'].includes(summaryOf(r).status));
+      if(query.warranty==='expiring') found=found.filter(r=>summaryOf(r).expiring_count>0);
+      if(query.warranty==='lapsed') found=found.filter(r=>summaryOf(r).status==='not_covered');
+      if(query.warranty==='none') found=found.filter(r=>summaryOf(r).status==='none');
+    }
     const value=(r:AssetRecord):string|number|null => query.sort==='name'?r.asset.name:query.sort==='price'?(r.asset.price_cents===null?null:Number(r.asset.price_cents)):query.sort==='date'?r.asset.purchase_date:query.sort==='deleted'?r.deleted_at:r.created_at;
     found.sort((a,b)=>{const x=value(a),y=value(b); if(x===null)return y===null?0:1;if(y===null)return -1;return (typeof x==='number' && typeof y==='number'?x-y:String(x).localeCompare(String(y),'zh-CN'))*(query.descending?-1:1);});
     return { generation, items: found.slice(query.offset,query.offset+100).map(r => previewRecord(r)), total:found.length, today:localDay() } satisfies Page;
@@ -118,7 +155,7 @@ mockIPC(async (command,payload) => {
     if(old?.sale && input.base.purchase_date && input.base.purchase_date>old.sale.fields.date) throw {code:'DATE_CONFLICT',message:'购入日期晚于有效售出记录。'};
     if(old && input.base.purchase_date && old.lifecycle?.events.some(e=>e.date<input.base.purchase_date!)) throw {code:'DATE_CONFLICT',message:'购入日期晚于已有状态记录，请先更正相关动作日期。'};
     const id=old?.asset.id ?? crypto.randomUUID();
-    const record:AssetRecord={sale:old?.sale??null,maintenances:old?.maintenances??[],costs:old?.costs??{...emptyCosts,total_investment_cents:input.base.price_cents},lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:previewPhotoName(photoId)})),cover_id:input.photos?.cover_id??null};
+    const record:AssetRecord={sale:old?.sale??null,maintenances:old?.maintenances??[],warranties:old?.warranties??[],warranty_summary:old?.warranty_summary??{...emptyWarrantySummary},costs:old?.costs??{...emptyCosts,total_investment_cents:input.base.price_cents},lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:previewPhotoName(photoId)})),cover_id:input.photos?.cover_id??null};
     taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); return previewRecord(record);
   }
   // Exercise production delete/restore UI, without touching the native library.
@@ -185,6 +222,28 @@ mockIPC(async (command,payload) => {
     }
     record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,previewRecord(record));
     if(action.fields.title==='回执核对测试') {lostMaintenanceReceipts.add(input.request_id);throw {message:'模拟响应丢失。'};}
+    return previewRecord(record);
+  }
+  if (command === 'change_warranty') {
+    const input=args.input as WarrantyChange;
+    if(input.generation!==generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    const record=records.find(r=>r.asset.id===input.asset_id);
+    if(!record || record.deleted) throw {code:'REVISION_CONFLICT',message:'档案已删除或不可用。'};
+    if(requests.has(input.request_id)) return previewRecord(record);
+    if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请读取最新状态。'};
+    if(params.get('state')==='save-error') throw {message:'模拟保障保存失败，输入应保留。'};
+    const action=input.action;
+    const now=new Date().toISOString();
+    if(action.type==='add') {
+      const warranty:Warranty={id:crypto.randomUUID(),fields:structuredClone(action.fields),status:'pending',remaining_days:null,photos:action.photos.ids.map(id=>({id,name:'虚构保障附件'})),created_at:now,updated_at:now};
+      record.warranties=[...(record.warranties??[]),warranty];
+    } else {
+      const warranty=record.warranties?.find(item=>item.id===action.warranty_id);
+      if(!warranty) throw {code:'STATE_CONFLICT',message:'保障记录已变化。'};
+      warranty.fields=structuredClone(action.fields);warranty.photos=action.photos.ids.map(id=>({id,name:'虚构保障附件'}));warranty.updated_at=now;
+    }
+    record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,previewRecord(record));
+    if(action.fields.notes==='回执核对测试') {lostMaintenanceReceipts.add(input.request_id);throw {message:'模拟响应丢失。'};}
     return previewRecord(record);
   }
   if (command === 'photo_preview') {

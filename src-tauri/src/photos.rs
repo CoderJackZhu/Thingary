@@ -288,6 +288,63 @@ impl Store {
         }
         Ok(())
     }
+    pub(crate) fn commit_warranty_photos(
+        &self,
+        tx: &Transaction<'_>,
+        asset_id: &str,
+        warranty_id: &str,
+        selection: &Selection,
+    ) -> Result<()> {
+        if selection.cover_id.is_some()
+            || selection.ids.len() > 20
+            || selection.ids.iter().collect::<HashSet<_>>().len() != selection.ids.len()
+        {
+            return Err(Error::new(
+                "IMAGE_SELECTION",
+                "保障记录最多 20 张图片，不能重复选择且不单独设置封面",
+            ));
+        }
+        let mut prepared = Vec::new();
+        for id in &selection.ids {
+            let known: Option<(String, String, i64, String)> = tx
+                .query_row(
+                    "SELECT a.asset_id,a.hash,a.size,coalesce(wp.name,mp.name,ap.name,'图片') FROM attachments a LEFT JOIN warranty_photos wp ON wp.attachment_id=a.id LEFT JOIN maintenance_photos mp ON mp.attachment_id=a.id LEFT JOIN asset_photos ap ON ap.attachment_id=a.id WHERE a.id=?1",
+                    [id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                )
+                .optional()?;
+            let (hash, size, name, new) = if let Some((owner, hash, size, name)) = known {
+                if owner != asset_id {
+                    return Err(Error::new("IMAGE_OWNER", "图片不属于这件物品"));
+                }
+                (hash, size, name, false)
+            } else {
+                let staged = self.staged(id)?;
+                (staged.hash, staged.size as i64, staged.name, true)
+            };
+            if self.original(&hash)?.len() as i64 != size {
+                return Err(Error::new("IMAGE_CORRUPT", "图片大小校验失败"));
+            }
+            prepared.push((id, hash, size, name, new));
+        }
+        tx.execute(
+            "DELETE FROM warranty_photos WHERE warranty_id=?1",
+            [warranty_id],
+        )?;
+        for (position, (id, hash, size, name, new)) in prepared.iter().enumerate() {
+            if *new {
+                tx.execute(
+                    "INSERT INTO attachments(id,asset_id,file,hash,size) VALUES(?1,?2,?3,?3,?4)",
+                    params![id, asset_id, hash, size],
+                )?;
+            }
+            tx.execute(
+                "INSERT INTO warranty_photos VALUES(?1,?2,?3,?4)",
+                params![warranty_id, id, position as i64, name],
+            )?;
+        }
+        Ok(())
+    }
     pub fn photos(&self, id: &str) -> Result<Vec<Photo>> {
         let mut stmt=self.conn()?.prepare("SELECT attachment_id,name FROM asset_photos WHERE asset_id=?1 ORDER BY position,attachment_id")?;
         let rows = stmt

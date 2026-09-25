@@ -33,6 +33,7 @@ fn query() -> Query {
         sort: "price".into(),
         descending: false,
         offset: 0,
+        warranty: "all".into(),
     }
 }
 #[test]

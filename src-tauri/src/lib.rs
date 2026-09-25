@@ -13,6 +13,7 @@ pub mod sales;
 pub mod storage;
 pub mod taxonomy;
 pub mod trash;
+pub mod warranty;
 pub mod worker;
 use std::sync::atomic::Ordering;
 use tauri::{Emitter, Manager};
@@ -94,6 +95,7 @@ pub fn run() {
             commands::change_lifecycle,
             commands::change_sale,
             commands::change_maintenance,
+            commands::change_warranty,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,

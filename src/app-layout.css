@@ -28,3 +28,8 @@ button{border-radius:6px;font-weight:400}.primary{font-weight:600}.shell{grid-te
 @media(max-width:780px){.browse-main .browser-columns{overflow:auto;display:block}.browse-main .collection,.browse-main .summary{overflow:visible}}
 
 .collection-count{font-size:11px;color:var(--muted)}
+
+/* T10 warranty records reuse the maintenance card and editor surfaces. */
+.warranty-history ol{list-style:none;padding:0}.warranty-history li{display:flex;align-items:start;gap:12px;border-bottom:1px solid var(--line);padding:12px 0}.warranty-history li>div{min-width:0;flex:1}.warranty-history li strong{display:block;font-size:12px;font-weight:500}.warranty-history li span{font-size:10px}.warranty-history li button{font-size:11px}
+.warranty-editor{width:min(680px,calc(100vw - 40px))}.warranty-editor .warranty-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.warranty-editor .warranty-fields .wide{grid-column:1/-1}.warranty-editor .settlement{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:11px;color:var(--muted)}.warranty-editor .settlement strong{font-size:14px;color:var(--text)}.warranty-editor .photo-tile{cursor:default}
+@media(max-width:620px){.warranty-editor .warranty-fields{grid-template-columns:1fr}.warranty-editor .warranty-fields .wide{grid-column:auto}}

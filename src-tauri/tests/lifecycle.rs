@@ -53,6 +53,7 @@ fn query(filter: &str) -> Query {
         sort: "created".into(),
         descending: false,
         offset: 0,
+        warranty: "all".into(),
     }
 }
 #[test]

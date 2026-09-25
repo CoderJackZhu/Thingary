@@ -9,7 +9,7 @@ use std::{
     time::Duration,
 };
 
-pub(crate) const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
+pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 9 || app != 1347375955 || integrity != "ok" {
+    if v != 10 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -279,16 +279,12 @@ impl Store {
     }
 }
 
-pub(crate) fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 9, hook)
+pub fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
+    migrate_to(c, 10, hook)
 }
-pub(crate) fn migrate_to(
-    c: &Connection,
-    target: i64,
-    hook: &dyn Fn(&str) -> Result<()>,
-) -> Result<()> {
+pub fn migrate_to(c: &Connection, target: i64, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=9).contains(&v) || v > target {
+    if !(1..=10).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -411,6 +407,21 @@ PRAGMA user_version=8;")?;
 PRAGMA user_version=9;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 9;
+    }
+    if v == 9 && target >= 10 {
+        let tx = c.unchecked_transaction()?;
+        // deleted_at exists so T11 can add independent warranty deletion without
+        // another migration; T10 itself never writes it.
+        tx.execute_batch("CREATE TABLE warranties(id TEXT PRIMARY KEY,asset_id TEXT NOT NULL REFERENCES assets(id),kind TEXT NOT NULL CHECK(kind IN ('manufacturer','extended','applecare','store','other')),provider TEXT NOT NULL,start_date TEXT,end_date TEXT,notes TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deleted_at TEXT);
+CREATE INDEX warranties_asset ON warranties(asset_id);
+CREATE TABLE warranty_photos(warranty_id TEXT NOT NULL REFERENCES warranties(id),attachment_id TEXT PRIMARY KEY REFERENCES attachments(id),position INTEGER NOT NULL CHECK(position>=0),name TEXT NOT NULL);
+CREATE TABLE warranty_audit(sequence INTEGER PRIMARY KEY AUTOINCREMENT,request_id TEXT NOT NULL UNIQUE,warranty_id TEXT NOT NULL REFERENCES warranties(id),action TEXT NOT NULL CHECK(action IN ('add','correct')),snapshot TEXT NOT NULL,created_at TEXT NOT NULL);
+CREATE TRIGGER warranty_dates_insert BEFORE INSERT ON warranties WHEN NEW.deleted_at IS NULL BEGIN SELECT RAISE(ABORT,'warranty end before start') WHERE NEW.start_date IS NOT NULL AND NEW.end_date IS NOT NULL AND NEW.end_date<NEW.start_date; END;
+CREATE TRIGGER warranty_dates_update BEFORE UPDATE OF start_date,end_date,deleted_at ON warranties WHEN NEW.deleted_at IS NULL BEGIN SELECT RAISE(ABORT,'warranty end before start') WHERE NEW.start_date IS NOT NULL AND NEW.end_date IS NOT NULL AND NEW.end_date<NEW.start_date; END;
+PRAGMA user_version=10;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -485,7 +496,7 @@ mod taxonomy_migration_tests {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            9
+            10
         );
         assert_eq!(
             c.query_row("SELECT name FROM assets WHERE id='legacy'", [], |r| r
@@ -506,5 +517,13 @@ mod taxonomy_migration_tests {
             )
             .unwrap();
         assert_eq!(materials_exists, 1);
+        let warranties_exists: i64 = c
+            .query_row(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='warranties'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(warranties_exists, 1);
     }
 }

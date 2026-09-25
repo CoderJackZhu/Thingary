@@ -246,6 +246,7 @@ mod tests {
                 descending: true,
                 offset: 0,
                 category: Default::default(),
+                warranty: "all".into(),
             },
             TODAY,
         )

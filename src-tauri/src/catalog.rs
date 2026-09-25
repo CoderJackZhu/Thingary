@@ -36,6 +36,8 @@ use rusqlite::{params, OptionalExtension};
 pub struct AssetRecord {
     pub sale: Option<crate::sales::Sale>,
     pub maintenances: Vec<crate::maintenance::Maintenance>,
+    pub warranties: Vec<crate::warranty::Warranty>,
+    pub warranty_summary: crate::warranty::WarrantySummary,
     pub costs: crate::maintenance::CostSummary,
     pub lifecycle: crate::lifecycle::Lifecycle,
     pub asset: Asset,
@@ -68,6 +70,8 @@ pub struct Query {
     pub offset: u32,
     #[serde(default)]
     pub category: crate::taxonomy::CategoryFilter,
+    #[serde(default)]
+    pub warranty: String,
 }
 #[derive(Serialize)]
 pub struct Page {
@@ -80,7 +84,9 @@ impl Store {
     pub fn record(&self, id: &str) -> Result<Option<AssetRecord>> {
         self.record_at(id, &chrono::Local::now().format("%Y-%m-%d").to_string())
     }
-    pub(crate) fn record_at(&self, id: &str, today: &str) -> Result<Option<AssetRecord>> {
+    // `today` is an explicit observation day: production reads pass the local
+    // calendar day, tests pass fixed days for boundary verification.
+    pub fn record_at(&self, id: &str, today: &str) -> Result<Option<AssetRecord>> {
         let Some(asset) = self.asset(id)? else {
             return Ok(None);
         };
@@ -93,9 +99,13 @@ impl Store {
                 })?;
         let sale = crate::sales::read(self.conn()?, id)?;
         let costs = crate::maintenance::summary(self.conn()?, &asset, sale.as_ref(), today)?;
+        let warranties = crate::warranty::read(self.conn()?, id, today)?;
+        let warranty_summary = crate::warranty::summarize(&warranties);
         Ok(Some(AssetRecord {
             sale,
             maintenances: crate::maintenance::read(self.conn()?, id)?,
+            warranties,
+            warranty_summary,
             costs,
             lifecycle: self.lifecycle(id)?,
             asset,
@@ -169,6 +179,24 @@ impl Store {
             "missing_date" => "a.purchase_date IS NULL",
             _ => return Err(Error::new("QUERY", "不支持的筛选")),
         };
+        // The SQL conditions mirror warranty::derive_status exactly: effective
+        // means start<=today<=end with both dates known, expiring adds the
+        // inclusive 0–30 day window. Cross-checked by tests/warranty.rs.
+        // Parameter layout: ?1 search, ?2/?3 category, ?4 today, ?5 offset.
+        let effective = "w.asset_id=a.id AND w.deleted_at IS NULL AND w.start_date IS NOT NULL AND w.end_date IS NOT NULL AND w.start_date<=?4 AND w.end_date>=?4";
+        let uses_today = matches!(q.warranty.as_str(), "covered" | "expiring" | "lapsed");
+        let warranty = match q.warranty.as_str() {
+            "" | "all" => "1".to_string(),
+            "covered" => format!("EXISTS(SELECT 1 FROM warranties w WHERE {effective})"),
+            "expiring" => format!(
+                "EXISTS(SELECT 1 FROM warranties w WHERE {effective} AND w.end_date<=date(?4,'+30 days'))"
+            ),
+            "lapsed" => format!(
+                "EXISTS(SELECT 1 FROM warranties w WHERE w.asset_id=a.id AND w.deleted_at IS NULL) AND NOT EXISTS(SELECT 1 FROM warranties w WHERE {effective})"
+            ),
+            "none" => "NOT EXISTS(SELECT 1 FROM warranties w WHERE w.asset_id=a.id AND w.deleted_at IS NULL)".to_string(),
+            _ => return Err(Error::new("QUERY", "不支持的保障筛选")),
+        };
         let visibility = if q.filter == "deleted" {
             "a.deleted_at IS NOT NULL"
         } else {
@@ -180,17 +208,25 @@ impl Store {
             crate::taxonomy::CategoryFilter::Category { id } => (2, Some(id.as_str())),
         };
         let direction = if q.descending { "DESC" } else { "ASC" };
-        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id LEFT JOIN categories c ON c.id=a.category_id WHERE {visibility} AND ({filter}) AND (?2=0 OR (?2=1 AND a.category_id IS NULL) OR (?2=2 AND a.category_id=?3)) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'') || ' ' || coalesce(c.name,'')), lower(?1)) > 0");
-        let total = self.conn()?.query_row(
-            &format!("SELECT count(*) {from}"),
-            params![q.search.trim(), category_mode, category_id],
-            |r| r.get(0),
-        )?;
-        let sql=format!("SELECT a.id {from} ORDER BY ({order}) IS NULL ASC, {order} {direction}, a.id ASC LIMIT 100 OFFSET ?4");
+        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id LEFT JOIN categories c ON c.id=a.category_id WHERE {visibility} AND ({filter}) AND ({warranty}) AND (?2=0 OR (?2=1 AND a.category_id IS NULL) OR (?2=2 AND a.category_id=?3)) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'') || ' ' || coalesce(c.name,'')), lower(?1)) > 0");
+        let total = if uses_today {
+            self.conn()?.query_row(
+                &format!("SELECT count(*) {from}"),
+                params![q.search.trim(), category_mode, category_id, today],
+                |r| r.get(0),
+            )?
+        } else {
+            self.conn()?.query_row(
+                &format!("SELECT count(*) {from}"),
+                params![q.search.trim(), category_mode, category_id],
+                |r| r.get(0),
+            )?
+        };
+        let sql=format!("SELECT a.id {from} ORDER BY ({order}) IS NULL ASC, {order} {direction}, a.id ASC LIMIT 100 OFFSET ?5");
         let mut stmt = self.conn()?.prepare(&sql)?;
         let ids = stmt
             .query_map(
-                params![q.search.trim(), category_mode, category_id, q.offset],
+                params![q.search.trim(), category_mode, category_id, today, q.offset],
                 |r| r.get::<_, String>(0),
             )?
             .collect::<std::result::Result<Vec<_>, _>>()?;

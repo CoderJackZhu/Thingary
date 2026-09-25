@@ -359,3 +359,18 @@ pub async fn change_maintenance(
     .await
     .map_err(|_| Error::new("WORKER", "未收到维护保存结果，请核对本次请求"))?
 }
+
+#[tauri::command]
+pub async fn change_warranty(
+    input: crate::warranty::Change,
+    worker: tauri::State<'_, Worker>,
+) -> Result<AssetRecord> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.change_warranty(&input, &chrono::Local::now().format("%Y-%m-%d").to_string())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到保障保存结果，请核对本次请求"))?
+}

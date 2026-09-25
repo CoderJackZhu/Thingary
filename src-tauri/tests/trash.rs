@@ -33,6 +33,7 @@ fn query(deleted: bool) -> Query {
         sort: "deleted".into(),
         descending: true,
         offset: 0,
+        warranty: "all".into(),
     }
 }
 fn change(s: &Store, id: &str, revision: i64, deleted: bool) -> TrashChange {
