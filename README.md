@@ -18,7 +18,7 @@
 
 上一阶段：**T10 review 修复及原生核心补验完成，已按用户授权本地合并 main**。修复保留草稿后无法退出、保障附件 ID 跨实体混用两项问题；代码提交 `2b74e1f` 后前端 57 项、Rust 69 项、Demo 2 项及检查／构建通过。原生多份保障新增／同 ID 更正、日期校验、HEIC 草稿恢复／缺图修复／重启与写锁恢复已补验，见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。原生 800×600 截图及响应丢失 GUI 注入仍未覆盖；CP2/P0 尚未完成。
 
-当前阶段 **T11 统一最近删除**：Z code 在 `codex/t11-unified-trash` 分支完成首轮实现，额度耗尽后由 Codex 接续修复与验收。资产、维护和保障的统一软删除／恢复及四类筛选已实现，代码提交 `dd75c32` 后自动检查通过；隔离原生父子恢复等 GUI 补验仍在进行，尚未合并 main。执行边界见 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。T10 剩余两项原生证据不因 T11 自动记为通过。
+当前阶段 **T11 统一最近删除**：Z code 在 `codex/t11-unified-trash` 分支完成首轮实现，额度耗尽后由 Codex 接续修复与验收。资产、维护和保障的统一软删除／恢复及四类筛选已实现，代码提交 `dd75c32` 后自动检查通过；隔离原生父子独立恢复、保障删/恢复及重启持久性已通过。原生 800×600 和写锁／响应丢失 GUI 注入尚缺，未合并 main。执行边界见 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。T10 剩余两项原生证据不因 T11 自动记为通过。
 
 ## 项目文档
 
@@ -83,7 +83,7 @@ V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程
 
 附加 `?state=empty`、`?state=error`、`?state=save-error` 可检查空白、读取失败和保存失败；`?theme=dark` 可对照深色。这个开发入口不包含在 `npm run build` 的正式产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。原型原创 SVG 由预览与原生 App 共享；原生有照片时显示照片，没有照片封面时显示分类示意图，不写入附件。`?no-photos` 用于检查六种分类插图。布局按原始 A 还原，验收库的样例数量不同不能作为改变设计的理由。
 
-T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`，标识 `local.possio.t06b.preview`，使用独立虚构资料库。该包已更新为 T10 review 修复代码（本地窗口标题仍为 T08，保留原包名），标识与虚构库保持不变。后续以主目录本地 `main` 为集成入口；浏览器预览刷新重置，原生验收包才会实际持久保存。
+T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`，标识 `local.possio.t06b.preview`，使用独立虚构资料库。该包当前由 T11 分支代码构建（本地窗口标题仍为 T08，保留原包名），标识与虚构库保持不变。后续以主目录本地 `main` 为集成入口；浏览器预览刷新重置，原生验收包才会实际持久保存。
 
 
 ### 原生 Demo 样例
