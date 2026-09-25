@@ -61,3 +61,10 @@ test('grid/list and all four sorts are represented by the authoritative query co
   assert.equal(new Set(sorts).size, 4);
   for (const sort of sorts) assert.ok(['created', 'priority', 'price', 'target'].includes(sort));
 });
+
+test('wishlist dates render the local day, not the UTC prefix', async () => {
+  process.env.TZ = 'Asia/Shanghai';
+  const { localDay } = await import('../src/asset.ts');
+  assert.equal(localDay(new Date('2020-01-01T20:09:16.652389+00:00')), '2020-01-02');
+  assert.match(readFileSync(new URL('../src/WishlistPanel.tsx', import.meta.url), 'utf8'), /加入：\{localDay\(new Date\(item\.created_at\)\)\}.*放弃：' \+ localDay\(new Date\(item\.abandoned_at\)\)/);
+});

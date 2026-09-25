@@ -16,7 +16,7 @@ export function inputMoney(value: string): string | null {
   const [whole, fraction = ''] = value.trim().split('.');
   return (BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'))).toString();
 }
-export function localDay() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; }
+export function localDay(now = new Date()) { return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`; }
 export function validate(fields: Fields, today: string): Partial<Record<keyof Fields, string>> {
   const errors: Partial<Record<keyof Fields, string>> = {};
   if (!fields.name.trim() || [...fields.name.trim()].length > 200) errors.name = '请填写名称，最多 200 字。';
