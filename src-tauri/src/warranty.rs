@@ -354,9 +354,12 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
                 .map_err(|_| Error::new("WARRANTY", "保障删除时间无效"))?;
         }
     }
-    let invalid: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM warranty_photos w JOIN warranties t ON t.id=w.warranty_id JOIN attachments a ON a.id=w.attachment_id WHERE a.asset_id!=t.asset_id)", [], |r| r.get(0))?;
+    let invalid: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM warranty_photos w JOIN warranties t ON t.id=w.warranty_id JOIN attachments a ON a.id=w.attachment_id WHERE a.asset_id!=t.asset_id OR EXISTS(SELECT 1 FROM asset_photos p WHERE p.attachment_id=a.id) OR EXISTS(SELECT 1 FROM maintenance_photos m WHERE m.attachment_id=a.id))", [], |r| r.get(0))?;
     if invalid {
-        return Err(Error::new("REFERENCE", "保障图片不属于对应资产"));
+        return Err(Error::new(
+            "REFERENCE",
+            "保障图片归属错误或与其他记录共用附件标识",
+        ));
     }
     Ok(())
 }

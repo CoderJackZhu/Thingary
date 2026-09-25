@@ -881,3 +881,199 @@ fn legacy_schema_nine_backup_restores_and_migrates() {
         .unwrap();
     assert_eq!(s.query_assets(&query("covered"), TODAY).unwrap().total, 1);
 }
+
+#[test]
+fn attachment_ids_are_exclusive_but_identical_bytes_can_be_shared() {
+    use possio_lib::maintenance;
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let a = create(&mut s, "虚构附件归属", None);
+    let stage = |s: &Store| {
+        s.stage_photo(
+            "camera.png",
+            include_bytes!("fixtures/camera.png"),
+            &s.generation(),
+            None,
+        )
+        .unwrap()
+    };
+    let selection = |id: &str| Selection {
+        ids: vec![id.into()],
+        cover_id: None,
+    };
+    let asset_save = |s: &Store, a: &AssetRecord, photo: &str| SaveAsset {
+        base: Save {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: Some(a.asset.id.clone()),
+            expected_revision: Some(a.asset.revision),
+            name: a.asset.name.clone(),
+            price_cents: Some("100000".into()),
+            purchase_date: Some("2026-09-01".into()),
+        },
+        details: Details::default(),
+        classification: None,
+        photos: Some(selection(photo)),
+    };
+    let maintenance_change = |s: &Store, a: &AssetRecord, photo: &str| maintenance::Change {
+        request_id: id(),
+        generation: s.generation(),
+        asset_id: a.asset.id.clone(),
+        expected_revision: a.asset.revision,
+        action: maintenance::Action::Add {
+            fields: maintenance::Fields {
+                date: None,
+                kind: "cleaning".into(),
+                title: "虚构清洁".into(),
+                description: String::new(),
+                cost_cents: Some("0".into()),
+                provider: String::new(),
+            },
+            photos: selection(photo),
+        },
+    };
+    let asset_photo = stage(&s);
+    let a = s
+        .save_asset(&asset_save(&s, &a, &asset_photo.id), TODAY)
+        .unwrap();
+    let maintenance_photo = stage(&s);
+    let a = s
+        .change_maintenance(&maintenance_change(&s, &a, &maintenance_photo.id), TODAY)
+        .unwrap();
+    for photo in [&asset_photo.id, &maintenance_photo.id] {
+        let input = change(
+            &s,
+            &a,
+            Action::Add {
+                fields: fields(None, None),
+                photos: selection(photo),
+            },
+        );
+        assert_eq!(
+            s.change_warranty(&input, TODAY).unwrap_err().code,
+            "IMAGE_OWNER"
+        );
+        assert!(s
+            .saved_request(&input.request_id, &s.generation())
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            s.record_at(&a.asset.id, TODAY)
+                .unwrap()
+                .unwrap()
+                .asset
+                .revision,
+            a.asset.revision
+        );
+    }
+    let warranty_photo = stage(&s);
+    assert_ne!(warranty_photo.id, asset_photo.id);
+    let a = s
+        .change_warranty(
+            &change(
+                &s,
+                &a,
+                Action::Add {
+                    fields: fields(None, None),
+                    photos: selection(&warranty_photo.id),
+                },
+            ),
+            TODAY,
+        )
+        .unwrap();
+    // Same warranty can retain its own ID during correction.
+    let a = s
+        .change_warranty(
+            &change(
+                &s,
+                &a,
+                Action::Correct {
+                    warranty_id: a.warranties[0].id.clone(),
+                    fields: fields(Some("2026-09-01"), Some("2027-09-01")),
+                    photos: selection(&warranty_photo.id),
+                },
+            ),
+            TODAY,
+        )
+        .unwrap();
+    assert_eq!(
+        s.change_warranty(
+            &change(
+                &s,
+                &a,
+                Action::Add {
+                    fields: fields(None, None),
+                    photos: selection(&warranty_photo.id)
+                }
+            ),
+            TODAY
+        )
+        .unwrap_err()
+        .code,
+        "IMAGE_OWNER"
+    );
+    assert_eq!(
+        s.save_asset(&asset_save(&s, &a, &warranty_photo.id), TODAY)
+            .unwrap_err()
+            .code,
+        "IMAGE_OWNER"
+    );
+    assert_eq!(
+        s.change_maintenance(&maintenance_change(&s, &a, &warranty_photo.id), TODAY)
+            .unwrap_err()
+            .code,
+        "IMAGE_OWNER"
+    );
+    let another = stage(&s);
+    let a = s
+        .change_warranty(
+            &change(
+                &s,
+                &a,
+                Action::Add {
+                    fields: fields(None, None),
+                    photos: selection(&another.id),
+                },
+            ),
+            TODAY,
+        )
+        .unwrap();
+    let db = rusqlite::Connection::open(dataset(root.path()).join("data.sqlite")).unwrap();
+    assert_eq!(
+        db.query_row("SELECT count(DISTINCT hash) FROM attachments", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM attachments", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        4
+    );
+    let archive = root.path().join("exclusive.possio");
+    s.backup(Some(&archive)).unwrap();
+    s.restore(&archive, &archive_hash(&archive).unwrap(), &s.generation())
+        .unwrap();
+    assert_eq!(
+        s.record_at(&a.asset.id, TODAY)
+            .unwrap()
+            .unwrap()
+            .warranties
+            .len(),
+        2
+    );
+    // Restore validation must also reject a malformed cross-entity reference.
+    let db = rusqlite::Connection::open(dataset(root.path()).join("data.sqlite")).unwrap();
+    db.execute(
+        "INSERT INTO asset_photos VALUES(?1,?2,1,'invalid shared reference')",
+        rusqlite::params![a.asset.id, warranty_photo.id],
+    )
+    .unwrap();
+    assert_eq!(
+        s.backup(Some(&root.path().join("invalid.possio")))
+            .unwrap_err()
+            .code,
+        "REFERENCE"
+    );
+}

@@ -26,6 +26,20 @@ struct Staged {
     hash: String,
     size: u64,
 }
+fn reject_warranty_reference(tx: &Transaction<'_>, id: &str) -> Result<()> {
+    let owned: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM warranty_photos WHERE attachment_id=?1)",
+        [id],
+        |r| r.get(0),
+    )?;
+    if owned {
+        return Err(Error::new(
+            "IMAGE_OWNER",
+            "图片属于保障记录，请重新选择图片",
+        ));
+    }
+    Ok(())
+}
 impl Store {
     pub(crate) fn check_generation(&self, generation: &str) -> Result<()> {
         if generation != self.generation() {
@@ -200,6 +214,7 @@ impl Store {
         }
         let mut prepared = Vec::new();
         for id in &selection.ids {
+            reject_warranty_reference(tx, id)?;
             let known: Option<(String,String,i64,String)> = tx.query_row("SELECT a.asset_id,a.hash,a.size,coalesce(p.name,'图片') FROM attachments a LEFT JOIN asset_photos p ON p.attachment_id=a.id WHERE a.id=?1", [id], |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).optional()?;
             let (hash, size, name, new) = if let Some((owner, hash, size, name)) = known {
                 if owner != asset_id {
@@ -249,6 +264,7 @@ impl Store {
         }
         let mut prepared = Vec::new();
         for id in &selection.ids {
+            reject_warranty_reference(tx, id)?;
             let known: Option<(String, String, i64, String)> = tx
                 .query_row(
                     "SELECT a.asset_id,a.hash,a.size,coalesce(mp.name,ap.name,'图片') FROM attachments a LEFT JOIN maintenance_photos mp ON mp.attachment_id=a.id LEFT JOIN asset_photos ap ON ap.attachment_id=a.id WHERE a.id=?1",
@@ -306,6 +322,21 @@ impl Store {
         }
         let mut prepared = Vec::new();
         for id in &selection.ids {
+            // Persisted IDs may only be retained by their current warranty.
+            // A fresh selection gets a fresh ID even when its bytes are shared.
+            let foreign_relation: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM attachments a WHERE a.id=?1 AND (
+                   NOT EXISTS(SELECT 1 FROM warranty_photos w WHERE w.attachment_id=a.id AND w.warranty_id=?2)
+                   OR EXISTS(SELECT 1 FROM asset_photos p WHERE p.attachment_id=a.id)
+                   OR EXISTS(SELECT 1 FROM maintenance_photos m WHERE m.attachment_id=a.id)))",
+                params![id, warranty_id], |r| r.get(0),
+            )?;
+            if foreign_relation {
+                return Err(Error::new(
+                    "IMAGE_OWNER",
+                    "图片不属于这份保障，请重新选择图片",
+                ));
+            }
             let known: Option<(String, String, i64, String)> = tx
                 .query_row(
                     "SELECT a.asset_id,a.hash,a.size,coalesce(wp.name,mp.name,ap.name,'图片') FROM attachments a LEFT JOIN warranty_photos wp ON wp.attachment_id=a.id LEFT JOIN maintenance_photos mp ON mp.attachment_id=a.id LEFT JOIN asset_photos ap ON ap.attachment_id=a.id WHERE a.id=?1",

@@ -13,6 +13,7 @@ import { MaintenanceEditor } from './MaintenanceEditor';
 import { maintenanceDraft as maintenanceFields, maintenanceKey, recoverMaintenance, refreshCostsForNewDay, storedMaintenance } from './maintenance';
 import type { MaintenanceState, MaintenanceSession } from './maintenance';
 import { WarrantyEditor } from './WarrantyEditor';
+import { StoredDraftClose } from './StoredDraftClose';
 import { storedWarranty, warrantyDraft as warrantyFields, warrantyKey, recoverWarranty } from './warranty';
 import type { WarrantyState, WarrantySession } from './warranty';
 import { storedSale, saleKey, saleFields } from './sales';
@@ -311,12 +312,13 @@ function App() {
     requestAnimationFrame(() => document.getElementById('detail-heading')?.focus());
   }
   const active = selected && !selected.deleted ? selected : null;
+  const storedDraftClosing = closeIntent && !draft && !trashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && !warrantyDraft && !taxonomyGuard && (maintenanceRecovery || warrantyRecovery);
   const filtered = !!query.search || query.filter !== 'all' || (query.category?.mode ?? 'all') !== 'all' || (query.warranty ?? 'all') !== 'all';
   const statusItems = [ ['all', '全部资产', 'items'], ['active', '使用中', 'circle'], ['retired', '已退役', 'archive'], ['sold', '已售出', 'arrow'] ] as const;
   const collectionTitle = statusItems.find(([key]) => key === query.filter)?.[1] ?? '全部资产';
   function browseStatus(filter: string) { setSection('assets'); setDetailId(null); adjust({ filter }); }
   function identity(record: AssetRecord) { return <><Cover record={record} generation={page?.generation || ''} taxonomy={taxonomy.snapshot}/><span className="identity"><strong>{record.asset.name}</strong><small>{taxonomy.snapshot?.categories.find(c => c.id === record.classification?.category_id)?.name || '未分类'}</small></span></>; }
-  return <div className="shell"><aside className="sidebar"><div className="brand"><span className="brand-mark"><Icon name="overview"/></span><div><strong>物志</strong><small>POSSIO</small></div></div>
+  return <div className="shell">{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)}/>}<aside className="sidebar"><div className="brand"><span className="brand-mark"><Icon name="overview"/></span><div><strong>物志</strong><small>POSSIO</small></div></div>
       <nav aria-label="主导航"><button disabled title="总览将在后续阶段开放"><Icon name="overview"/><span>总览</span></button><p className="nav-caption">我的物品</p>
         {statusItems.map(([filter, label, icon]) => <button key={filter} className={section === 'assets' && query.filter === filter ? 'nav-active' : ''} aria-current={section === 'assets' && query.filter === filter ? 'page' : undefined} onClick={() => browseStatus(filter)}><Icon name={icon}/><span>{label}</span></button>)}
         <p className="nav-caption">记录与回顾</p><button disabled title="心愿清单将在后续阶段开放"><Icon name="heart"/><span>心愿清单</span></button><button disabled title="全局时间轴将在后续阶段开放"><Icon name="clock"/><span>时间轴</span></button><button disabled title="统计将在后续阶段开放"><Icon name="chart"/><span>统计</span></button>
