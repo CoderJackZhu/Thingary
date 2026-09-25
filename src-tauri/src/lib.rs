@@ -104,6 +104,8 @@ pub fn run() {
             commands::read_wishlist,
             commands::change_wishlist,
             commands::saved_wishlist_request,
+            commands::convert_wishlist,
+            commands::stage_wishlist_cover,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,

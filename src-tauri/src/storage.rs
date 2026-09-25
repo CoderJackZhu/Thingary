@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 11 || app != 1347375955 || integrity != "ok" {
+    if v != 12 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -216,8 +216,32 @@ impl Store {
             }
             return Ok(serde_json::from_str(&result)?);
         }
+        let result = self.write_asset(&tx, input, details, photos, classification)?;
+        tx.execute(
+            "INSERT INTO requests VALUES(?1,?2,?3)",
+            params![
+                input.request_id,
+                fingerprint,
+                serde_json::to_string(&result)?
+            ],
+        )?;
+        self.hit("save.before_commit")?;
+        tx.commit()?;
+        self.hit("save.after_commit")?;
+        Ok(result)
+    }
+    /// Inserts or updates one asset inside the caller's transaction. Callers own
+    /// request receipts and commit, so wishlist conversion shares this exact path.
+    pub(crate) fn write_asset(
+        &self,
+        tx: &rusqlite::Transaction<'_>,
+        input: &Save,
+        details: Option<&crate::catalog::Details>,
+        photos: Option<&crate::photos::Selection>,
+        classification: Option<&crate::taxonomy::Classification>,
+    ) -> Result<Asset> {
         if let Some(value) = classification {
-            crate::taxonomy::validate_classification(&tx, value)?;
+            crate::taxonomy::validate_classification(tx, value)?;
         }
         let price = crate::domain::cents(input.price_cents.as_deref())?;
         let id = input.asset_id.clone().unwrap_or_else(uid);
@@ -228,9 +252,9 @@ impl Store {
             None => 1,
         };
         if let Some(expected) = input.expected_revision {
-            crate::lifecycle::validate_purchase_date(&tx, &id, input.purchase_date.as_deref())?;
-            crate::sales::validate_purchase_date(&tx, &id, input.purchase_date.as_deref())?;
-            crate::maintenance::validate_purchase_date(&tx, &id, input.purchase_date.as_deref())?;
+            crate::lifecycle::validate_purchase_date(tx, &id, input.purchase_date.as_deref())?;
+            crate::sales::validate_purchase_date(tx, &id, input.purchase_date.as_deref())?;
+            crate::maintenance::validate_purchase_date(tx, &id, input.purchase_date.as_deref())?;
             let n=tx.execute("UPDATE assets SET name=?1,price_cents=?2,purchase_date=?3,revision=?4 WHERE id=?5 AND revision=?6 AND deleted_at IS NULL",params![input.name.trim(),price,input.purchase_date,revision,id,expected])?;
             if n != 1 {
                 return Err(Error::new(
@@ -255,7 +279,7 @@ impl Store {
             tx.execute("INSERT INTO asset_profiles(asset_id,brand,model,serial_number,notes,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?6) ON CONFLICT(asset_id) DO UPDATE SET brand=excluded.brand,model=excluded.model,serial_number=excluded.serial_number,notes=excluded.notes,updated_at=excluded.updated_at",params![id,d.brand.trim(),d.model.trim(),d.serial_number.trim(),d.notes,now])?;
         }
         if let Some(selection) = photos {
-            self.commit_photos(&tx, &id, selection)?;
+            self.commit_photos(tx, &id, selection)?;
         }
         let result = Asset {
             id,
@@ -264,27 +288,16 @@ impl Store {
             purchase_date: input.purchase_date.clone(),
             revision,
         };
-        tx.execute(
-            "INSERT INTO requests VALUES(?1,?2,?3)",
-            params![
-                input.request_id,
-                fingerprint,
-                serde_json::to_string(&result)?
-            ],
-        )?;
-        self.hit("save.before_commit")?;
-        tx.commit()?;
-        self.hit("save.after_commit")?;
         Ok(result)
     }
 }
 
 pub fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 11, hook)
+    migrate_to(c, 12, hook)
 }
 pub fn migrate_to(c: &Connection, target: i64, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=11).contains(&v) || v > target {
+    if !(1..=12).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -435,6 +448,25 @@ CREATE TABLE wishlist_audit(sequence INTEGER PRIMARY KEY AUTOINCREMENT,request_i
 PRAGMA user_version=11;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 11;
+    }
+    if v == 11 && target >= 12 {
+        let tx = c.unchecked_transaction()?;
+        // One wish converts to exactly one asset; the link is immutable and
+        // Achieved exists only together with it. The audit table is rebuilt
+        // because SQLite cannot widen its action CHECK in place.
+        tx.execute_batch("ALTER TABLE wishlist_items ADD COLUMN converted_asset_id TEXT REFERENCES assets(id);
+ALTER TABLE wishlist_items ADD COLUMN achieved_at TEXT;
+CREATE UNIQUE INDEX wishlist_one_conversion ON wishlist_items(converted_asset_id) WHERE converted_asset_id IS NOT NULL;
+CREATE TRIGGER wishlist_achievement_insert BEFORE INSERT ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.converted_asset_id IS NOT NULL AND NEW.achieved_at IS NOT NULL) BEGIN SELECT RAISE(ABORT,'wishlist achievement link'); END;
+CREATE TRIGGER wishlist_achievement_update BEFORE UPDATE ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.converted_asset_id IS NOT NULL AND NEW.achieved_at IS NOT NULL) OR (OLD.converted_asset_id IS NOT NULL AND (NEW.converted_asset_id IS NOT OLD.converted_asset_id OR NEW.achieved_at IS NOT OLD.achieved_at)) BEGIN SELECT RAISE(ABORT,'wishlist achievement link'); END;
+CREATE TABLE wishlist_audit_v12(sequence INTEGER PRIMARY KEY AUTOINCREMENT,request_id TEXT NOT NULL UNIQUE,wishlist_id TEXT NOT NULL REFERENCES wishlist_items(id),action TEXT NOT NULL CHECK(action IN ('add','abandon','convert')),snapshot TEXT NOT NULL,created_at TEXT NOT NULL);
+INSERT INTO wishlist_audit_v12 SELECT sequence,request_id,wishlist_id,action,snapshot,created_at FROM wishlist_audit;
+DROP TABLE wishlist_audit;
+ALTER TABLE wishlist_audit_v12 RENAME TO wishlist_audit;
+PRAGMA user_version=12;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -509,7 +541,7 @@ mod taxonomy_migration_tests {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            11
+            12
         );
         assert_eq!(
             c.query_row("SELECT name FROM assets WHERE id='legacy'", [], |r| r

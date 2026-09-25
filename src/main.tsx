@@ -5,7 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { AssetEditor, draftKey } from './AssetEditor';
 import type { Draft, CloseIntent } from './AssetEditor';
 import { emptyFields, errorMessage, fieldsOf, localDay, money } from './asset';
-import type { AssetRecord, Page, Query } from './asset';
+import type { AssetRecord, Page, Photo, Query } from './asset';
 import { TrashPanel, TrashDialog, storedTrash, RecordTrashDialog, storedRecordTrash, recordKindLabel } from './Trash';
 import type { TrashAction, RecordTrashAction, RecordKind, TrashEntry } from './Trash';
 import { SaleEditor } from './SaleEditor';
@@ -29,6 +29,7 @@ import TaxonomyManager from './TaxonomyManager';
 import { CategoryFilter } from './TaxonomyFields';
 import { validateTaxonomyName } from './taxonomy';
 import { WishlistPanel } from './WishlistPanel';
+import type { WishlistItem } from './wishlist';
 import { storedWishlistChange, storedWishlistDraft, wishlistAbandonKey } from './wishlist';
 import './taxonomy.css';
 import './style.css';
@@ -48,6 +49,7 @@ function TaxonomyCloseNotice({ onKeep }: { onKeep: () => void }) {
 }
 function App() {
   const [section, setSection] = useState<'assets' | 'wishlist' | 'materials' | 'trash' | 'settings'>('assets');
+  const [wishFocus, setWishFocus] = useState<string | null>(null);
   const [wishlistEditing, setWishlistEditing] = useState(() => !!storedWishlistDraft(localStorage) || !!storedWishlistChange(localStorage, wishlistAbandonKey));
   const [trashAction, setTrashAction] = useState<TrashAction | null>(null);
   const [trashRecovery, setTrashRecovery] = useState<TrashAction | null>(storedTrash);
@@ -134,7 +136,7 @@ function App() {
     catch (e) { if (ticket === detailTicket.current) { setSelected(null); setDetailError(errorMessage(e)); } }
     finally { if (ticket === detailTicket.current) setDetailLoading(false); }
   }
-  async function openEditor(record: AssetRecord | null, resume = false) {
+  async function openEditor(record: AssetRecord | null, resume = false, wish?: WishlistItem) {
     if (wishlistEditing || !page || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
     if (taxonomyGuard || taxonomy.loading || taxonomy.loadError || !taxonomy.snapshot || taxonomy.snapshot.generation !== page.generation) { setSection('settings'); setNotice('请先保存或取消分类草稿，并完成分类资料读取。'); return; }
     if (trashRecovery || recordTrashRecovery) { setNotice('请先核对上次删除或恢复的结果。'); return; }
@@ -144,9 +146,18 @@ function App() {
     if (!detailId) listScroll.current = collectionRef.current?.scrollTop ?? 0;
     try {
       await invoke('set_editing', { editing: true });
-      const fields = record ? fieldsOf(record) : { ...emptyFields };
-      const next = resume && recovered ? recovered : { fields, original: { ...fields }, classification: { ...(record?.classification ?? { category_id: null, channel_id: null }) }, originalClassification: { ...(record?.classification ?? { category_id: null, channel_id: null }) }, photos: record?.photos ?? [], cover: record?.cover_id ?? null, originalMedia: { photos: record?.photos ?? [], cover: record?.cover_id ?? null }, photoError: '', generation: page.generation, id: record?.asset.id ?? null, revision: record?.asset.revision ?? null, pending: null };
-      setSection('assets'); setCloseIntent(null); setDraft(next);
+      const fields = record ? fieldsOf(record) : { ...emptyFields, name: wish?.fields.name ?? '' };
+      const classification = record?.classification ?? { category_id: wish?.fields.category_id ?? null, channel_id: null };
+      let photos = record?.photos ?? [], coverNotice = '';
+      if (wish?.cover) {
+        try { photos = [await invoke<Photo>('stage_wishlist_cover', { wishlistId: wish.id, generation: page.generation })]; }
+        catch (e) { coverNotice = '心愿封面暂无法带入（' + errorMessage(e) + '），可不带封面继续，之后再补图。'; }
+      }
+      const cover = record?.cover_id ?? photos[0]?.id ?? null;
+      const conversion = wish ? { wishlist_id: wish.id, expected_revision: wish.revision, wish_name: wish.fields.name, estimated_price_cents: wish.fields.estimated_price_cents, cover_notice: coverNotice } : undefined;
+      const next = resume && recovered ? recovered : { conversion, fields, original: { ...fields }, classification: { ...classification }, originalClassification: { ...classification }, photos, cover, originalMedia: { photos, cover }, photoError: '', generation: page.generation, id: record?.asset.id ?? null, revision: record?.asset.revision ?? null, pending: null };
+      if (!next.conversion) setSection('assets');
+      setCloseIntent(null); setDraft(next);
     } catch (e) { setNotice(errorMessage(e)); }
   }
   async function closeEditor(intent: CloseIntent) {
@@ -156,7 +167,7 @@ function App() {
     else requestAnimationFrame(() => (opener.current?.isConnected ? opener.current : newRef.current)?.focus());
   }
   function saved(record: AssetRecord) {
-    setDraft(null); setRecovered(null); setCloseIntent(null); setSelected(record); setDetailId(record.asset.id);
+    setDraft(null); setRecovered(null); setCloseIntent(null); setSelected(record); setDetailId(record.asset.id); setSection('assets');
     void invoke('set_editing', { editing: taxonomyGuard }).catch(e => setNotice(errorMessage(e)));
     setNotice('资料已保存。'); void refresh(); void taxonomy.reload().catch(() => {});
     requestAnimationFrame(() => document.getElementById('detail-heading')?.focus());
@@ -358,7 +369,7 @@ function App() {
   return <div className="shell">{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)} pendingOnly={!!(trashRecovery || recordTrashRecovery) && !(lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery)}/>}<aside className="sidebar"><div className="brand"><span className="brand-mark"><Icon name="overview"/></span><div><strong>物志</strong><small>POSSIO</small></div></div>
       <nav aria-label="主导航"><button disabled title="总览将在后续阶段开放"><Icon name="overview"/><span>总览</span></button><p className="nav-caption">我的物品</p>
         {statusItems.map(([filter, label, icon]) => <button key={filter} className={section === 'assets' && query.filter === filter ? 'nav-active' : ''} aria-current={section === 'assets' && query.filter === filter ? 'page' : undefined} disabled={wishlistEditing} onClick={() => browseStatus(filter)}><Icon name={icon}/><span>{label}</span></button>)}
-        <p className="nav-caption">记录与回顾</p><button className={section === 'wishlist' ? 'nav-active' : ''} aria-current={section === 'wishlist' ? 'page' : undefined} onClick={() => { setSection('wishlist'); setDetailId(null); }}><Icon name="heart"/><span>心愿清单</span></button><button disabled title="全局时间轴将在后续阶段开放"><Icon name="clock"/><span>时间轴</span></button><button disabled title="统计将在后续阶段开放"><Icon name="chart"/><span>统计</span></button>
+        <p className="nav-caption">记录与回顾</p><button className={section === 'wishlist' ? 'nav-active' : ''} aria-current={section === 'wishlist' ? 'page' : undefined} onClick={() => { setWishFocus(null); setSection('wishlist'); setDetailId(null); }}><Icon name="heart"/><span>心愿清单</span></button><button disabled title="全局时间轴将在后续阶段开放"><Icon name="clock"/><span>时间轴</span></button><button disabled title="统计将在后续阶段开放"><Icon name="chart"/><span>统计</span></button>
       </nav><div className="sidebar-bottom"><nav aria-label="资料管理"><button className={section === 'materials' ? 'nav-active' : ''} aria-current={section === 'materials' ? 'page' : undefined} disabled={wishlistEditing || !!(trashRecovery || recordTrashRecovery)} onClick={() => setSection('materials')}><Icon name="image"/><span>素材库</span></button><button className={section === 'trash' ? 'nav-active' : ''} disabled={wishlistEditing} onClick={() => setSection('trash')}><Icon name="trash"/><span>最近删除</span></button><button className={section === 'settings' ? 'nav-active' : ''} disabled={wishlistEditing || !!(trashRecovery || recordTrashRecovery)} onClick={() => { setSection('settings'); void taxonomy.reload().catch(() => {}); }}><Icon name="settings"/><span>设置</span></button></nav><p className="local-status"><span className="local-dot"/>本地档案 · 仅保存在这台 Mac</p></div></aside>
     <main ref={mainRef} className={section === 'assets' && !detailId ? 'browse-main' : undefined}><div className="app-topbar"><span className="breadcrumb"><Icon name={section === 'wishlist' ? 'heart' : 'items'}/>{section === 'wishlist' ? '心愿清单' : '我的物品'} <span>／</span> {section === 'wishlist' ? '购买前记录' : section === 'materials' ? '素材库' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : detailId ? '物品详情' : collectionTitle}</span>{section !== 'wishlist' && <div className="topbar-actions"><label className="search"><Icon name="search"/><input ref={searchRef} aria-label="搜索物品" placeholder="搜索物品" value={query.search} maxLength={200} disabled={wishlistEditing} onChange={e => { setSection('assets'); setDetailId(null); adjust({ search: e.target.value }); }}/><kbd>⌘F</kbd></label><button ref={newRef} className="primary" disabled={wishlistEditing || !page || !eventsReady || !!trashRecovery || !!recordTrashRecovery} onClick={() => void openEditor(null)}><Icon name="plus"/>新增资产</button></div>}</div>
       {!detailId || section !== 'assets' ? <header className="page-header"><div><h1>{section === 'wishlist' ? '心愿清单' : section === 'materials' ? '素材库' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : collectionTitle}</h1><p className="page-description">{section === 'wishlist' ? '把想要的物品先记下来，购买决定与资产档案彼此独立。' : section === 'materials' ? '新增资产时可以直接选用的图片。' : section === 'trash' ? '暂时收起的物品，随时可以找回。' : section === 'settings' ? '让这本档案用起来更顺手。' : '物品的来历、成本与每次变化，都在这里。'}</p></div><span className="header-note"><strong>{section === 'wishlist' ? '购买前记录' : '我的资产档案'}</strong>截至 {today.replaceAll('-', ' / ')}</span></header> : null}
@@ -378,6 +389,10 @@ function App() {
         onKeepClose={() => setCloseIntent(null)}
         onFinishClose={intent => { setCloseIntent(null); void invoke('finish_close', { quit: intent === 'quit' }); }}
         onEditingChange={setWishlistEditing}
+        focus={wishFocus}
+        onConvert={item => void openEditor(null, false, item)}
+        onOpenAsset={id => { setSection('assets'); void select(id, true); }}
+        onOpenTrash={() => setSection('trash')}
       />}
       {section === 'trash' && <TrashPanel version={trashVersion} onRestoreAsset={(id, generation) => void (async () => {
         try {
@@ -403,7 +418,7 @@ function App() {
         </div><aside className="summary" aria-label="资产摘要">{detailLoading ? <p role="status">正在读取档案…</p> : detailError ? <div role="alert"><p>{detailError}</p><button onClick={() => { setDetailError(''); setSelected(null); }}>关闭提示</button></div> : active ? <><div className="panel-top"><span>物品摘要</span><button aria-label="收起资产摘要" onClick={() => setSelected(null)}>×</button></div><div className="summary-cover"><Cover record={active} generation={page?.generation || ''} taxonomy={taxonomy.snapshot} large/></div><h2>{active.asset.name}</h2><p className="muted">{[active.details.brand, active.details.model].filter(Boolean).join(' · ') || '资料可以慢慢补全'} · <span className="pill" data-state={active.lifecycle?.state ?? 'active'}>{stateLabel(active)}</span></p><AssetFacts record={active} today={today} taxonomy={taxonomy.snapshot} compact/><button className="full-width" onClick={() => void select(active.asset.id, true)}>打开完整档案</button><button className="full-width" onClick={() => void openEditor(active)}>编辑资料 <kbd>⌘E</kbd></button></> : <div className="summary-empty"><span>←</span><p>选一件物品<br/>看看它的持有记录</p></div>}</aside>
         </div>
       </section>
-      {section === 'assets' && detailId && <section className="detail"><button className="back" disabled={wishlistEditing} onClick={back}>← 返回物品列表</button>{detailLoading ? <p role="status">正在读取档案…</p> : detailError || !active ? <div className="empty" role="alert"><h2>{detailError || '找不到这件物品'}</h2>{selected?.deleted && <button disabled={wishlistEditing} onClick={() => setSection('trash')}>前往最近删除</button>}<button disabled={wishlistEditing} onClick={() => void select(detailId, true)}>重新读取</button></div> : <AssetDetail onMaintenance={id => void openMaintenance(active, id)} onWarranty={id => void openWarranty(active, id)} onSale={mode => void openSale(active, mode)} onLifecycle={action => void openLifecycle(active, action)} onTrashMaintenance={id => { const item = active.maintenances.find(m => m.id === id); if (page) void openRecordTrash('maintenance', id, active.asset.id, item?.fields.title || '维护记录', active.asset.name, page.generation, active.asset.revision, true); }} onTrashWarranty={id => { const item = (active.warranties ?? []).find(w => w.id === id); const label = item ? (item.fields.provider ? `${{ manufacturer: '厂家保修', extended: '延保', applecare: 'AppleCare', store: '商店保修', other: '其他保障' }[item.fields.kind] ?? '保障'} · ${item.fields.provider}` : '保障') : '保障记录'; if (page) void openRecordTrash('warranty', id, active.asset.id, label, active.asset.name, page.generation, active.asset.revision, true); }} taxonomy={taxonomy.snapshot} record={active} generation={page?.generation || ''} today={today} onEdit={() => void openEditor(active)} onDelete={() => page && void openTrash(active, page.generation, true)}/> }</section>}
+      {section === 'assets' && detailId && <section className="detail"><button className="back" disabled={wishlistEditing} onClick={back}>← 返回物品列表</button>{detailLoading ? <p role="status">正在读取档案…</p> : detailError || !active ? <div className="empty" role="alert"><h2>{detailError || '找不到这件物品'}</h2>{selected?.deleted && <button disabled={wishlistEditing} onClick={() => setSection('trash')}>前往最近删除</button>}<button disabled={wishlistEditing} onClick={() => void select(detailId, true)}>重新读取</button></div> : <AssetDetail onOpenWish={() => { setWishFocus(active.origin_wishlist?.name ?? null); setSection('wishlist'); setDetailId(null); }} onMaintenance={id => void openMaintenance(active, id)} onWarranty={id => void openWarranty(active, id)} onSale={mode => void openSale(active, mode)} onLifecycle={action => void openLifecycle(active, action)} onTrashMaintenance={id => { const item = active.maintenances.find(m => m.id === id); if (page) void openRecordTrash('maintenance', id, active.asset.id, item?.fields.title || '维护记录', active.asset.name, page.generation, active.asset.revision, true); }} onTrashWarranty={id => { const item = (active.warranties ?? []).find(w => w.id === id); const label = item ? (item.fields.provider ? `${{ manufacturer: '厂家保修', extended: '延保', applecare: 'AppleCare', store: '商店保修', other: '其他保障' }[item.fields.kind] ?? '保障'} · ${item.fields.provider}` : '保障') : '保障记录'; if (page) void openRecordTrash('warranty', id, active.asset.id, label, active.asset.name, page.generation, active.asset.revision, true); }} taxonomy={taxonomy.snapshot} record={active} generation={page?.generation || ''} today={today} onEdit={() => void openEditor(active)} onDelete={() => page && void openTrash(active, page.generation, true)}/> }</section>}
     </main>{maintenanceDraft && <MaintenanceEditor initial={maintenanceDraft} today={today} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={(intent, keepDraft) => { void closeMaintenance(intent, keepDraft).catch(e => setNotice(errorMessage(e))); }} onSaved={maintenanceSaved}/>} {warrantyDraft && <WarrantyEditor initial={warrantyDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={(intent, keepDraft) => { void closeWarranty(intent, keepDraft).catch(e => setNotice(errorMessage(e))); }} onSaved={warrantySaved}/>} {saleDraft && <SaleEditor initial={saleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeSale(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saleSaved}/>} {lifecycleDraft && <LifecycleEditor initial={lifecycleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeLifecycle(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={lifecycleSaved}/>} {closeIntent && !draft && !trashAction && !recordTrashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && !warrantyDraft && taxonomyGuard && <TaxonomyCloseNotice onKeep={() => { setCloseIntent(null); setSection('settings'); }}/>}{trashAction && <TrashDialog initial={trashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={trashDone}/>}{recordTrashAction && <RecordTrashDialog initial={recordTrashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeRecordTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={recordTrashDone}/>} {draft && <AssetEditor taxonomy={taxonomy.snapshot} initial={draft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeEditor(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saved}/>}</div>;
 }
 createRoot(document.getElementById('root')!).render(<App/>);

@@ -68,3 +68,15 @@ test('wishlist dates render the local day, not the UTC prefix', async () => {
   assert.equal(localDay(new Date('2020-01-01T20:09:16.652389+00:00')), '2020-01-02');
   assert.match(readFileSync(new URL('../src/WishlistPanel.tsx', import.meta.url), 'utf8'), /加入：\{localDay\(new Date\(item\.created_at\)\)\}.*放弃：' \+ localDay\(new Date\(item\.abandoned_at\)\)/);
 });
+
+test('conversion form never copies the estimate into the actual price and reuses receipt recovery', () => {
+  const main = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
+  const editor = readFileSync(new URL('../src/AssetEditor.tsx', import.meta.url), 'utf8');
+  const panel = readFileSync(new URL('../src/WishlistPanel.tsx', import.meta.url), 'utf8');
+  assert.match(main, /\{ \.\.\.emptyFields, name: wish\?\.fields\.name \?\? '' \}/);
+  assert.doesNotMatch(main, /price: [^,}]*estimated_price/);
+  assert.match(editor, /conversion \? await invoke<AssetRecord>\('convert_wishlist'/);
+  assert.match(editor, /invoke<AssetRecord \| null>\('saved_request', \{ request: input\.base\.request_id/);
+  assert.match(panel, /item\.status === 'ongoing' && <div className="wishlist-actions">.*已购入…/);
+  assert.match(panel, /item\.converted_asset\.deleted \?.*前往最近删除.*查看资产/);
+});

@@ -64,7 +64,34 @@ pub struct WishlistItem {
     pub created_at: String,
     pub updated_at: String,
     pub abandoned_at: Option<String>,
+    pub achieved_at: Option<String>,
+    pub converted_asset: Option<LinkedAsset>,
     pub cover: Option<Photo>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct LinkedAsset {
+    pub id: String,
+    pub name: String,
+    pub deleted: bool,
+}
+
+/// The wish an asset was converted from, shown on the asset detail.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct Origin {
+    pub id: String,
+    pub name: String,
+    pub estimated_price_cents: Option<String>,
+    pub created_at: String,
+    pub achieved_at: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Convert {
+    pub wishlist_id: String,
+    pub expected_revision: i64,
+    pub asset: crate::catalog::SaveAsset,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -110,7 +137,7 @@ struct Receipt {
 fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
     let row = c
         .query_row(
-            "SELECT id,name,category_id,estimated_price_cents,priority,target_date,external_link,notes,status,revision,created_at,updated_at,abandoned_at FROM wishlist_items WHERE id=?1",
+            "SELECT id,name,category_id,estimated_price_cents,priority,target_date,external_link,notes,status,revision,created_at,updated_at,abandoned_at,achieved_at FROM wishlist_items WHERE id=?1",
             [id],
             |r| {
                 Ok(WishlistItem {
@@ -129,12 +156,21 @@ fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
                     created_at: r.get(10)?,
                     updated_at: r.get(11)?,
                     abandoned_at: r.get(12)?,
+                    achieved_at: r.get(13)?,
+                    converted_asset: None,
                     cover: None,
                 })
             },
         )
         .optional()?;
     row.map(|mut item| {
+        item.converted_asset = c
+            .query_row(
+                "SELECT a.id,a.name,a.deleted_at IS NOT NULL FROM wishlist_items w JOIN assets a ON a.id=w.converted_asset_id WHERE w.id=?1",
+                [&item.id],
+                |r| Ok(LinkedAsset { id: r.get(0)?, name: r.get(1)?, deleted: r.get(2)? }),
+            )
+            .optional()?;
         item.cover = c
             .query_row(
                 "SELECT a.id,a.name FROM wishlist_media m JOIN wishlist_attachments a ON a.id=m.cover_id WHERE m.wishlist_id=?1",
@@ -282,6 +318,131 @@ impl Store {
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到这条心愿"))
     }
 
+    /// Creates the asset, marks the wish Achieved and records both receipts in
+    /// one transaction. The receipt is the asset JSON, so `saved_request`
+    /// resolves a lost reply exactly like an ordinary asset save.
+    pub fn convert_wishlist(
+        &mut self,
+        input: &Convert,
+        today: &str,
+    ) -> Result<crate::catalog::AssetRecord> {
+        let base = &input.asset.base;
+        self.check_generation(&base.generation)?;
+        if base.asset_id.is_some() || base.expected_revision.is_some() {
+            return Err(Error::new("REVISION", "转换只能新建资产"));
+        }
+        uuid::Uuid::parse_str(&input.wishlist_id).map_err(|_| Error::new("ID", "心愿标识无效"))?;
+        base.validate(today)?;
+        input.asset.details.validate()?;
+        let fingerprint = digest(&serde_json::to_vec(&("wishlist_convert", input))?);
+        let tx = self.conn()?.unchecked_transaction()?;
+        if let Some((prior, result)) = tx
+            .query_row(
+                "SELECT fingerprint,result FROM requests WHERE id=?1",
+                [&base.request_id],
+                |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+            )
+            .optional()?
+        {
+            if prior != fingerprint {
+                return Err(Error::new("REQUEST_CONFLICT", "此请求标识已用于不同内容"));
+            }
+            drop(tx);
+            let asset: crate::domain::Asset = serde_json::from_str(&result)?;
+            return self
+                .record_at(&asset.id, today)?
+                .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"));
+        }
+        let current: Option<(String, i64, Option<String>)> = tx
+            .query_row(
+                "SELECT status,revision,converted_asset_id FROM wishlist_items WHERE id=?1",
+                [&input.wishlist_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .optional()?;
+        let Some((status, revision, converted)) = current else {
+            return Err(Error::new("NOT_FOUND", "找不到这条心愿"));
+        };
+        if converted.is_some() {
+            return Err(Error::new(
+                "WISHLIST_ACHIEVED",
+                "这条心愿已转为资产，不能再次转换",
+            ));
+        }
+        if status != "ongoing" {
+            return Err(Error::new("WISHLIST_STATUS", "这条心愿已不在进行中"));
+        }
+        if revision != input.expected_revision {
+            return Err(Error::new("REVISION_CONFLICT", "心愿已变化，请重新读取"));
+        }
+        let asset = self.write_asset(
+            &tx,
+            base,
+            Some(&input.asset.details),
+            input.asset.photos.as_ref(),
+            input.asset.classification.as_ref(),
+        )?;
+        let now = chrono::Utc::now().to_rfc3339();
+        let changed = tx.execute(
+            "UPDATE wishlist_items SET status='achieved',converted_asset_id=?1,achieved_at=?2,revision=revision+1,updated_at=?2 WHERE id=?3 AND revision=?4 AND status='ongoing'",
+            params![asset.id, now, input.wishlist_id, revision],
+        )?;
+        if changed != 1 {
+            return Err(Error::new("REVISION_CONFLICT", "心愿已变化，请重新读取"));
+        }
+        let wish = read(&tx, &input.wishlist_id)?
+            .ok_or_else(|| Error::new("NOT_FOUND", "找不到这条心愿"))?;
+        tx.execute(
+            "INSERT INTO wishlist_audit(request_id,wishlist_id,action,snapshot,created_at) VALUES(?1,?2,'convert',?3,?4)",
+            params![base.request_id, input.wishlist_id, serde_json::to_string(&wish)?, now],
+        )?;
+        tx.execute(
+            "INSERT INTO requests VALUES(?1,?2,?3)",
+            params![base.request_id, fingerprint, serde_json::to_string(&asset)?],
+        )?;
+        self.hit("convert.before_commit")?;
+        tx.commit()?;
+        self.hit("convert.after_commit")?;
+        self.record_at(&asset.id, today)?
+            .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))
+    }
+
+    /// Stages the wish cover as a fresh draft photo for the conversion form, so
+    /// the asset gets its own attachment through the normal photo commit.
+    pub fn stage_wishlist_cover(&self, wishlist_id: &str, generation: &str) -> Result<Photo> {
+        self.check_generation(generation)?;
+        let (name, hash): (String, String) = self
+            .conn()?
+            .query_row(
+                "SELECT a.name,a.hash FROM wishlist_media m JOIN wishlist_attachments a ON a.id=m.cover_id WHERE m.wishlist_id=?1",
+                [wishlist_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?
+            .ok_or_else(|| Error::new("NOT_FOUND", "这条心愿没有封面"))?;
+        let bytes = self.original(&hash)?;
+        self.stage_photo(&name, &bytes, generation, None)
+    }
+
+    pub(crate) fn wishlist_origin(&self, asset_id: &str) -> Result<Option<Origin>> {
+        Ok(self
+            .conn()?
+            .query_row(
+                "SELECT id,name,estimated_price_cents,created_at,achieved_at FROM wishlist_items WHERE converted_asset_id=?1",
+                [asset_id],
+                |r| {
+                    Ok(Origin {
+                        id: r.get(0)?,
+                        name: r.get(1)?,
+                        estimated_price_cents: r.get::<_, Option<i64>>(2)?.map(|n| n.to_string()),
+                        created_at: r.get(3)?,
+                        achieved_at: r.get(4)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
     pub fn query_wishlist(&self, q: &Query) -> Result<Page> {
         if q.search.chars().count() > 200 {
             return Err(Error::new("SEARCH", "搜索内容最多 200 字"));
@@ -331,7 +492,7 @@ impl Store {
     }
 }
 
-pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
+pub(crate) fn validate_dataset(c: &Connection, version: i64) -> Result<()> {
     let mut stmt = c.prepare("SELECT id,name,category_id,estimated_price_cents,priority,target_date,external_link,notes,status,revision,created_at,updated_at,abandoned_at FROM wishlist_items")?;
     let rows = stmt.query_map([], |r| {
         Ok((
@@ -373,6 +534,38 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
             "REFERENCE",
             "心愿封面归属错误或与资产附件共用标识",
         ));
+    }
+    let achieved: bool = c.query_row(
+        "SELECT EXISTS(SELECT 1 FROM wishlist_items WHERE status='achieved')",
+        [],
+        |r| r.get(0),
+    )?;
+    if version < 12 {
+        // Schema 11 had no conversion link, so an Achieved row cannot be traced.
+        return if achieved {
+            Err(Error::new("WISHLIST", "旧备份含无法追溯的已实现心愿"))
+        } else {
+            Ok(())
+        };
+    }
+    let mut stmt = c.prepare("SELECT status,converted_asset_id,achieved_at FROM wishlist_items")?;
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, Option<String>>(1)?,
+            r.get::<_, Option<String>>(2)?,
+        ))
+    })?;
+    for row in rows {
+        let (status, asset, achieved_at) = row?;
+        match (status.as_str(), asset, achieved_at) {
+            ("achieved", Some(_), Some(at)) => {
+                chrono::DateTime::parse_from_rfc3339(&at)
+                    .map_err(|_| Error::new("WISHLIST", "心愿实现时间无效"))?;
+            }
+            ("ongoing" | "abandoned", None, None) => {}
+            _ => return Err(Error::new("WISHLIST", "心愿实现状态与关联资产不一致")),
+        }
     }
     Ok(())
 }

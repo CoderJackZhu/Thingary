@@ -4,7 +4,7 @@
 
 **定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 成本分析 + 本地数据。** 不做金融投资、日常记账或依赖服务器的家庭库存系统。
 
-当前已完成 CP1 基本资产流程：新增 → 浏览/详情 → 更正 → 删除/恢复，并接入封面、图片附件和 HEIC。T06–T11 已本地集成并达到 CP2 阶段出口。T12 心愿清单已实现、完成 review 修复与原生收尾验收，并本地集成 main；包含新增、放弃历史、状态筛选、Grid/List、四种排序与分页、分类引用、预计金额与独立封面，未实现 T13 的购入转换。证据与未验边界见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md)。完整 P0 未完成。中文名「物志」、英文名「Possio」为工作名，发布前再核查名称可用性。
+当前已完成 CP1 基本资产流程：新增 → 浏览/详情 → 更正 → 删除/恢复，并接入封面、图片附件和 HEIC。T06–T11 已本地集成并达到 CP2 阶段出口。T12 心愿清单已实现、完成 review 修复与原生收尾验收，并本地集成 main；T13 心愿转资产（schema 12，唯一转换、实付与预计分离、双向追溯）已实现并通过自动与隔离原生验收，见 [T13 记录](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)；包含新增、放弃历史、状态筛选、Grid/List、四种排序与分页、分类引用、预计金额与独立封面，证据与未验边界见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md)。完整 P0 未完成。中文名「物志」、英文名「Possio」为工作名，发布前再核查名称可用性。
 
 已完成插入任务：**U01 内置素材库选择**。已由 Z code 按交接契约实现并本地提交，含 2026-09-25 用户中途调整：侧栏新增“素材库”页面（可上传/删除自定义素材，schema 9 持久化），新增/编辑表单“封面与图片”区平铺素材小图、点击即选。自动检查、浏览器及隔离原生证据见 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)；三项 Codex review P2 已修复，剩余原生上传／草稿／删除保留引用验收已补齐，达到 U01 阶段出口，并已按用户授权本地合并到主项目。
 
@@ -20,7 +20,9 @@
 
 最近完成 **T11 统一最近删除与 CP2 补验**：Z code 首轮实现后由 Codex 接续 review、修复与验收，最终代码修复提交 `57b1207` 已快进合并到本地 `main`。资产、维护和保障的统一软删除／恢复、四类筛选、原生父子独立恢复、保障删/恢复及重启持久性已通过；原生 800×600、真实写锁失败后重试，以及恢复操作提交后回包丢失／崩溃重启按原请求核对也已补齐。临时注入源码已撤除，正常隔离包重建并复核。**CP2 达到阶段出口，完整 P0 尚未完成**；执行边界见 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。尚未配置远程或推送。
 
-**T12 心愿记录** 的 [Hermes 执行契约](docs/handoffs/T12_HERMES.md) 已由任务分支落实，Codex review 的五项修复、原生放弃／筛选／翻页／缺图修复／重启收尾验收见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md#原生-gui-收尾验收2026-09-26claude)。T12 已本地快进合并 `main`；下一阶段为 T13 心愿转资产。当前仓库没有远程，成果只有本地提交。
+**T12 心愿记录** 的 [Hermes 执行契约](docs/handoffs/T12_HERMES.md) 已由任务分支落实，Codex review 的五项修复、原生放弃／筛选／翻页／缺图修复／重启收尾验收见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md#原生-gui-收尾验收2026-09-26claude)。T12 已本地快进合并 `main`。
+
+**T13 心愿转资产** 在 `codex/t13-wishlist-conversion` 实现并验收，结果与剩余边界见 [T13 记录](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)；下一阶段为 T14 有效时间轴。当前仓库没有远程，成果只有本地提交。
 
 ## 项目文档
 
@@ -32,6 +34,7 @@
 - [Z code 交接：T11 统一最近删除](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)：父子独立软删除/恢复、费用和附件关系、统一筛选、错误恢复及原生验收的唯一执行契约，含可直接复制的 Prompt。
 - [T11 统一最近删除验证记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)：Z code 首轮与 Codex 接续修复、自动检查、隔离原生证据及未验边界。
 - [Hermes 交接：T12 心愿记录](docs/handoffs/T12_HERMES.md)：新增／放弃、筛选排序、分类引用、预计金额与封面、迁移和隔离原生验收的执行契约及可复制 Prompt；实现已交回审阅。
+- [T13 心愿转资产](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)：schema 12、唯一转换事务、回执核对、软删除关系、自动与隔离原生证据
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
 - [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。

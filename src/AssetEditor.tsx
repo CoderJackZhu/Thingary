@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage, inputMoney, localDay, validate } from './asset';
+import { errorMessage, inputMoney, localDay, money, validate } from './asset';
 import { PhotoView } from './Photos';
 import { MaterialThumb } from './MaterialLibrary';
 import { materialActionLabel } from './materials';
@@ -12,7 +12,9 @@ import type { Photo } from './asset';
 import type { AssetRecord, Fields, SaveAsset } from './asset';
 export const draftKey = 'possio.asset-draft.v1';
 // Older drafts predate photoErrorKind; a missing kind means the file picker flow.
-export type Draft = { classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
+// A conversion draft creates the asset through convert_wishlist; the estimate is shown, never copied into the price.
+export type Conversion = { wishlist_id: string; expected_revision: number; wish_name: string; estimated_price_cents: string | null; cover_notice?: string };
+export type Draft = { conversion?: Conversion; classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
 export type CloseIntent = 'form' | 'window' | 'quit';
 export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, onSaved }: { initial: Draft; taxonomy: TaxonomySnapshot | null; closeIntent: CloseIntent | null; onKeep: () => void; onClose: (intent: CloseIntent) => void; onSaved: (record: AssetRecord) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -22,7 +24,8 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   const [libraryError, setLibraryError] = useState('');
   const [moreOpen, setMoreOpen] = useState(() => ['brand', 'model', 'serial_number', 'notes'].some(k => !!initial.fields[k as keyof Fields]) || !!initial.classification?.channel_id);
   const lock = useRef(false);
-  const [notice, setNotice] = useState(initial.pending ? '上次提交结果待核对，请先检查，避免重复建档。' : '');
+  const [notice, setNotice] = useState(initial.pending ? '上次提交结果待核对，请先检查，避免重复建档。' : initial.conversion?.cover_notice ?? '');
+  const conversion = draft.conversion;
   const [conflict, setConflict] = useState(false);
   const [latest, setLatest] = useState<AssetRecord | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
@@ -102,14 +105,14 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
     const input: SaveAsset = { classification: draft.classification, base: { request_id: crypto.randomUUID(), generation: draft.generation, asset_id: draft.id, expected_revision: draft.revision, name, price_cents: inputMoney(price), purchase_date: date || null }, details, photos: { ids: photos.map(p => p.id), cover_id: draft.cover ?? null } };
     try { remember({ ...draft, pending: input }); }
     catch { lock.current = false; setBusy(false); setNotice('无法暂存本次请求，尚未提交。请检查可用空间后重试。'); return; }
-    try { success(await invoke<AssetRecord>('save_asset', { input })); }
+    try { success(conversion ? await invoke<AssetRecord>('convert_wishlist', { input: { wishlist_id: conversion.wishlist_id, expected_revision: conversion.expected_revision, asset: input } }) : await invoke<AssetRecord>('save_asset', { input })); }
     catch (e) {
       try {
         const result = await invoke<AssetRecord | null>('saved_request', { request: input.base.request_id, generation: input.base.generation });
         if (result) { success(result); return; }
         remember({ ...draft, pending: null });
-        setConflict(typeof e === 'object' && e !== null && 'code' in e && e.code === 'REVISION_CONFLICT');
-        setNotice(errorMessage(e) + ' 输入已保留。');
+        setConflict(!conversion && typeof e === 'object' && e !== null && 'code' in e && e.code === 'REVISION_CONFLICT');
+        setNotice(errorMessage(e) + (conversion ? ' 心愿未被转换，输入已保留；如心愿已变化，请取消后回到心愿清单重新读取。' : ' 输入已保留。'));
       } catch { setNotice('暂时无法确认保存结果。输入与原请求已保留，请点击“检查提交结果”。'); }
     } finally { lock.current = false; setBusy(false); }
   }
@@ -130,8 +133,8 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   }
   return <dialog ref={dialog} className="editor asset-editor" aria-labelledby="editor-title" onCancel={e => { e.preventDefault(); askClose('form'); }}>
     <form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-      <header><div><p className="eyebrow">物品档案</p><h2 id="editor-title">{draft.id ? '编辑资料' : '新增资产'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button></header>
-      <p className="muted">只填写名称也可以。其余资料，想起时再补。</p>
+      <header><div><p className="eyebrow">{conversion ? '心愿转为资产' : '物品档案'}</p><h2 id="editor-title">{conversion ? '确认购入' : draft.id ? '编辑资料' : '新增资产'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button></header>
+      {conversion ? <p className="muted">由心愿「{conversion.wish_name}」转入。{conversion.estimated_price_cents === null ? '心愿未填预计价格。' : `预计 ${money(conversion.estimated_price_cents)} 仅作参考，不会当作实付金额。`}请填写实际购入金额和日期；留空表示未知，相关成本指标将无法计算。确认前心愿保持进行中。</p> : <p className="muted">只填写名称也可以。其余资料，想起时再补。</p>}
       <div className="fields">{field('name', '名称（必填）')}{field('price', '购入金额（元）', '留空表示未知；0 表示确实免费。')}{field('date', '购入日期', '不确定时留空，不自动填写今天。')}<div className="wide"><CategorySelect id="field-category" entries={taxonomy?.categories ?? []} value={draft.classification?.category_id ?? null} onChange={id => classify('category_id',id)} disabled={busy || !!draft.pending || !taxonomy}/></div>
       </div>
       <section className="photo-section" aria-labelledby="photo-title"><div className="photo-heading"><h3 id="photo-title">封面与图片</h3><div className="photo-entry-actions"><button type="button" disabled={busy || !!draft.pending || photos.length >= 20} onClick={() => void pickPhoto()}>导入自己的图片（可选）</button></div></div>
@@ -149,7 +152,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       {latest && <div className="confirm"><strong>当前已保存：{latest.asset.name}</strong><p>购入金额：{latest.asset.price_cents === null ? '待补充' : (Number(latest.asset.price_cents) / 100).toFixed(2)} 元；日期：{latest.asset.purchase_date || '待补充'}</p><p>品牌：{latest.details.brand || '待补充'}；型号：{latest.details.model || '待补充'}；序列号：{latest.details.serial_number || '待补充'}</p><p className="notes">备注：{latest.details.notes || '无'}</p><p>分类：{taxonomy?.categories.find(e => e.id === latest.classification?.category_id)?.name || '未分类'}；渠道：{taxonomy?.channels.find(e => e.id === latest.classification?.channel_id)?.name || '未记录'}</p><p>图片：{latest.photos.length} 张；确认替换时，将以表单中的图片和封面为准。</p><button type="button" onClick={() => { remember({ ...draft, revision: latest.asset.revision }); setConflict(false); setLatest(null); setNotice('已确认以表单中的输入替换该版本，请点击保存资料。'); }}>确认用我的输入替换此版本</button></div>}
       {confirm ? <div className="confirm" role="alert"><strong>放弃未保存的修改？</strong><p>这次输入还没有写入资产档案。</p><div className="actions"><button type="button" onClick={() => { setConfirm(null); onKeep(); }}>继续编辑</button><button type="button" className="danger" onClick={() => onClose(confirm)}>放弃修改</button></div></div> : <footer className="actions">
         {conflict && <button type="button" onClick={() => void reloadLatest()}>核对最新版本</button>}
-        {draft.pending ? <button type="button" className="primary" disabled={busy} onClick={() => void resolvePending()}>检查提交结果</button> : <><button type="button" disabled={busy} onClick={() => askClose('form')}>取消</button><button type="submit" className="primary" disabled={busy || conflict || !!draft.photoError}>{busy ? '正在保存…' : '保存资产'}</button></>}
+        {draft.pending ? <button type="button" className="primary" disabled={busy} onClick={() => void resolvePending()}>检查提交结果</button> : <><button type="button" disabled={busy} onClick={() => askClose('form')}>取消</button><button type="submit" className="primary" disabled={busy || conflict || !!draft.photoError}>{busy ? '正在保存…' : conversion ? '确认购入并建档' : '保存资产'}</button></>}
       </footer>}
     </form>
   </dialog>;

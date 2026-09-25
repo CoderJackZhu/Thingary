@@ -462,3 +462,32 @@ pub async fn saved_wishlist_request(
         .await
         .map_err(|_| Error::new("WORKER", "无法核对心愿保存结果，请重试"))?
 }
+
+#[tauri::command]
+pub async fn convert_wishlist(
+    input: crate::wishlist::Convert,
+    worker: tauri::State<'_, Worker>,
+) -> Result<AssetRecord> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.convert_wishlist(&input, &chrono::Local::now().format("%Y-%m-%d").to_string())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到转换结果，请检查该次提交"))?
+}
+
+#[tauri::command]
+pub async fn stage_wishlist_cover(
+    wishlist_id: String,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::photos::Photo> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.stage_wishlist_cover(&wishlist_id, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "心愿封面准备失败，请重试"))?
+}

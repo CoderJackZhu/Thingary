@@ -49,6 +49,8 @@ pub struct AssetRecord {
     pub photos: Vec<crate::photos::Photo>,
     pub cover_id: Option<String>,
     pub classification: crate::taxonomy::Classification,
+    #[serde(default)]
+    pub origin_wishlist: Option<crate::wishlist::Origin>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -124,6 +126,7 @@ impl Store {
                     })
                 },
             )?,
+            origin_wishlist: self.wishlist_origin(id)?,
             deleted: deleted_at.is_some(),
             deleted_at,
         }))
