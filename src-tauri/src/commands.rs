@@ -491,3 +491,16 @@ pub async fn stage_wishlist_cover(
     .await
     .map_err(|_| Error::new("WORKER", "心愿封面准备失败，请重试"))?
 }
+
+#[tauri::command]
+pub async fn list_timeline(
+    query: crate::timeline::Query,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::timeline::Timeline> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.timeline(&query, &chrono::Local::now().format("%Y-%m-%d").to_string()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "时间轴读取失败，请重试"))?
+}

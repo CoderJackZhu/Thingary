@@ -12,6 +12,7 @@ mod recovery;
 pub mod sales;
 pub mod storage;
 pub mod taxonomy;
+pub mod timeline;
 pub mod trash;
 pub mod warranty;
 pub mod wishlist;
@@ -106,6 +107,7 @@ pub fn run() {
             commands::saved_wishlist_request,
             commands::convert_wishlist,
             commands::stage_wishlist_cover,
+            commands::list_timeline,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,
