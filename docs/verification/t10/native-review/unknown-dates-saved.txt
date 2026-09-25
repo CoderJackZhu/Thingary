@@ -1,0 +1,116 @@
+Window: "物志 · T08 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T08 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container
+				4 text 物志 POSSIO
+				5 container 主导航
+					6 button (disabled) 总览, Help: 总览将在后续阶段开放
+					7 text 我的物品
+					8 button 全部资产
+					9 button 使用中
+					10 button 已退役
+					11 button 已售出
+					12 text 记录与回顾
+					13 button (disabled) 心愿清单, Help: 心愿清单将在后续阶段开放
+					14 button (disabled) 时间轴, Help: 全局时间轴将在后续阶段开放
+					15 button (disabled) 统计, Help: 统计将在后续阶段开放
+				16 container 资料管理
+					17 button 素材库
+					18 button 最近删除
+					19 button 设置
+				20 text 本地档案 · 仅保存在这台 Mac
+			21 container
+				22 text 我的物品 ／ 物品详情
+				23 text field (settable) 搜索物品
+				24 text ⌘F
+				25 button 新增资产
+				26 text 保障记录已保存，持有状态与成本保持不变。
+				27 button ← 返回物品列表
+				28 image 原始 Demo 示意图（非实物照片）-laptop.png
+				29 container
+					30 text 电脑与办公 ·  使用中
+				31 heading MacBook Pro 14″, Value: 2
+					32 text MacBook Pro 14″
+				33 text Apple · M3 Pro · 深空黑
+				34 button 编辑资料 ⌘E
+				35 button 新增维护
+				36 button 添加保障
+				37 button 标记退役
+				38 button 标记售出
+				39 container 持有与成本
+					40 heading 持有与成本, Value: 3
+						41 text 持有与成本
+					42 text 日均持有成本
+					43 text ¥18.44 / 天
+					44 text 已与你相伴 922 天
+					45 description list
+						46 text 购入金额
+						47 text ¥16,999.00
+						48 text 维护投入
+						49 text ¥0.00
+						50 text 总投入
+						51 text ¥16,999.00
+						52 text 持有时长
+						53 text 922 天
+					54 text 保障：当前无有效保障（1 份日期待补全）
+					55 text 按自然日计算，包含购入当天；售出后截止到售出日。
+				56 container 购买资料
+					57 heading 购买资料, Value: 3
+						58 text 购买资料
+					59 description list
+						60 text 购入日期
+						61 text 2024-03-18
+						62 text 购买渠道
+						63 text Apple Store
+						64 text 品牌
+						65 text Apple
+						66 text 型号
+						67 text M3 Pro · 深空黑
+						68 text 序列号
+						69 text 待补充
+				70 container 关于这件物品
+					71 heading 关于这件物品, Value: 3
+						72 text 关于这件物品
+					73 text 日常工作与创作的主力。
+
+原始 Demo 虚构样例，可编辑体验；图片为示意图。
+				74 container 物品时间轴
+					75 heading 物品时间轴, Value: 3
+						76 text 物品时间轴
+					77 text 最新记录在前
+					78 container
+						79 text 购入记录 2024-03-18
+				80 container 保障档案
+					81 heading 保障档案, Value: 3
+						82 text 保障档案
+					83 text 当前无有效保障（1 份日期待补全）
+					84 container
+						85 text 厂家保修 · T10 fictional native warranty 起日期未知 – 止日期未知 · 日期待补全
+						86 button 预览保障图片 warranty.heic
+						87 button 更正
+				88 container 维护档案
+					89 heading 维护档案, Value: 3
+						90 text 维护档案
+					91 text 0 条 · 已知费用 ¥0.00
+					92 text 还没有维护记录。
+				93 container 图片附件
+					94 heading 图片附件, Value: 3
+						95 text 图片附件
+					96 text 1 张
+					97 container 物品图片
+						98 button 预览 原始 Demo 示意图（非实物照片）-laptop.png
+				99 summary 档案信息, Value: off
+					100 text 档案信息
+				101 button 移入最近删除…
+	102 close button
+	103 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	104 minimize button
+	105 text 物志 · T08 虚构资料验收
+106 menu bar
+	107 Possio T06b Preview
+	108 文件
+	109 编辑
+	110 窗口
+
+The focused UI element is 31 heading MacBook Pro 14″, Value: 2

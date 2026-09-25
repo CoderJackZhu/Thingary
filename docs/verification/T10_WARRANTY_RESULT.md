@@ -2,7 +2,7 @@
 
 日期：2026-09-25。执行：Z code（GLM-5.3 单执行者串行；未启用子代理、Hermes、MoA 或其他执行器；未统计 Token 费用）。
 
-状态：**实现已交回，待 Codex review／必要补验**（不自行宣布可集成或 CP2 完成）
+当前状态：**Codex review 修复与原生核心补验完成，按用户授权本地合并 main**。最新结论以第 10 节为准；第 1–9 节保留 Z code 交回时的历史记录。CP2/P0 未完成。
 
 ## 1. 起点、分支与提交
 
@@ -121,3 +121,48 @@
 原生未验：多份保障 GUI 新增/更正/重开；空日期/逆序/未来/当日到期目视；带图草稿恢复；NSOpenPanel 选图/源文件移动/缺图修复；写锁失败 GUI 恢复；维护/售出/素材原生回归；原生浅深色截图
 已知问题、进程与资料库状态：无已知缺陷；隔离 App 未运行、vite dev server 仍在 1429；隔离库 schema 10 未重置未改业务数据；未合并未推送
 ```
+
+
+## 10. Codex review 修复与本地集成（2026-09-25）
+
+用户在 review 后明确授权“修复并合并”，仅本地 main，不推送、不发布、不启动 T11。此前第 6 节为 Z code 交回时的验收状态；本节记录后续补验，优先于历史“未验／无已知缺陷”表述。
+
+代码修复提交：`2b74e1f05097dcfd3ed97d5687dba5fde79f5e04`。
+
+- **保留草稿后的退出**：维护／保障草稿在表单关闭后仍受原生关闭保护，但原先没有组件消费 close-intent。新增独立模态，支持继续使用、保留草稿并退出／关闭窗口；不删除持久草稿，不把 pending 请求误报为成功。打开中的表单仍走原有三选保护。
+- **保障附件独立归属**：保障只允许保留当前保障自己的附件 ID；拒绝资产封面、维护、其他保障及无有效归属的既存 ID。资产／维护入口也拒绝借用保障 ID；备份校验拒绝跨实体混用。相同字节仍可共享哈希文件，但重新选图使用独立 ID，无 schema 变更。
+- **新增 Rust 回归**：封面／维护→保障、保障→封面／维护、保障→其他保障均拒绝；失败不递增 revision、不写回执；同保障更正保留图片；四个独立附件共享一个哈希并完成备份恢复；损坏的跨实体引用被备份校验拒绝。
+
+补验使用主目录构建和既有 `local.possio.t06b.preview` 虚构库；补验前 SQLite 一致性保护快照位于 `/tmp/possio-t10-fix-protection/before.sqlite`。原 13 件资产、4 条维护、3 条售出历史（其中 2 条有效）、14 附件、0 保障；不重置、不导入 Demo，不使用直接写库伪造 UI 结果。
+
+### 提交后的检查
+
+全部在修复提交 `2b74e1f` 上顺序执行，exit 0：`npm run test:ui`（57）、`npm test`（Rust 69）、`npm run test:demo`（2）、`npm run check`、`npm run build`、`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`、`git diff --check`。后续仅更新本文、状态文档和验收证据，无代码变化。此次不把未单独重跑的 Clippy 记为新结果。
+
+### 原生补验及证据
+
+以下均操作主目录构建的隔离 App，非浏览器内存结果。截图与 AX 文本同名配套保存在 `t10/native-review/`。
+
+| 实际操作 | 结果／证据 |
+|---|---|
+| 表单关闭后保留草稿，⌘Q | 独立退出模态可操作，保留草稿后正常退出；[退出保护](t10/native-review/retained-draft-quit.txt) |
+| NSOpenPanel 选择获用户确认的虚构 HEIC，保留草稿退出，移动源文件后重启 | 标题与已导入图片恢复；[带图恢复](t10/native-review/photo-draft-restored.txt) |
+| 空起止日期保存 | 待补全，不推断为已覆盖；[空日期](t10/native-review/unknown-dates-saved.txt) |
+| 逆序日期更正 | 拒绝保存，保留输入；[逆序](t10/native-review/reversed-dates.txt) |
+| 持有 SQLite 写锁后尝试更正，释放锁重试 | 明确已确认未提交，表单与图保留；重试同一保障 ID 更正成功，未重复新增；[错误恢复](t10/native-review/write-lock-recovered.txt) |
+| 2026-09-25 起止同日 | 当天有效，剩余 0 天；[同日](t10/native-review/same-day-saved.txt) |
+| 第二份未来保障新增 | 与第一份独立显示，尚未生效；[多份未来](t10/native-review/multiple-future.txt) |
+| 临时移开托管原图，以 NSOpenPanel 重新选择同一虚构文件 | 显示缺失并修复成功，哈希一致；[缺图](t10/native-review/missing-original.txt)、[修复](t10/native-review/original-repaired.txt) |
+| 正常退出再启动 | 两份保障、日期、图片及成本保留；[重启](t10/native-review/reopened.txt)、[重启预览](t10/native-review/reopened-photo.txt) |
+| 旧维护／售出／素材定向回归 | 维护 HEIC 可预览；iPad 售价 ¥1,800、净成本 ¥2,999、日均 ¥2.12 正常；8 件内置素材保留；[维护图片](t10/native-review/existing-maintenance-photo.txt)、[售出](t10/native-review/existing-sold.txt)、[素材](t10/native-review/existing-materials.txt) |
+| 1080×760 原生浅／深色 | A 静序页面结构与单一状态导航保留；[浅色](t10/native-review/detail-light.png)、[深色](t10/native-review/detail-dark.png) |
+
+浏览器单独验证 pending 草稿关闭：刷新后原 request ID 保持，保留草稿退出仅调用 `finish_close`，不重提请求；[fixture 证据](t10/native-review/browser-pending-close.json)。测试草稿已清理，Ego TaskSpace 已结束。此项不冒充原生响应丢失注入验收。
+
+最终只读 [持久性核对](t10/native-review/persistence.json)：schema 10、integrity ok、外键检查无异常；13 资产、4 维护、3 售出历史、15 附件、2 保障、3 保障审计。旧维护／图片关系／售出／售出审计／附件／素材行与保护快照逐行比对保留，所有托管原图哈希正确。新增两份保障和一次更正均来自 GUI。写锁已释放，缺失原图已修复，隔离 App 正常退出，1429 原有服务保留。
+
+### 集成结论与剩余边界
+
+两项 review 缺陷已修复，核心持久性与失败恢复补验通过，具备此次本地集成条件；按用户授权将 `codex/t10-warranties` 快进合并到主目录 `main`，保留开发分支与旧工作树，不推送、不发布、不启动 T11。
+
+尚未取得原生 800×600 截图（窗口坐标调整工具返回 noWindowsAvailable），不以现有浏览器小窗口截图代替。原生响应丢失后的 pending 故障注入尚未执行；本轮原生实际错误恢复覆盖的是写锁失败，pending 协议由自动测试与浏览器 fixture 提供证据。此前迁移和 E04/E05 固定用例结果继续有效，本轮未逐一重做每个原生筛选组合。以上保留为后续回归边界，不宣称全部 GUI 矩阵或 CP2/P0 完成。

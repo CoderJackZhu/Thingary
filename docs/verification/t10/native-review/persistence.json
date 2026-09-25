@@ -1,0 +1,48 @@
+{
+  "schema": 10,
+  "integrity": "ok",
+  "foreign_key_errors": [],
+  "counts": {
+    "assets": 13,
+    "sales": 3,
+    "attachments": 15,
+    "warranties": 2,
+    "warranty_audit": 3,
+    "maintenances": 4
+  },
+  "baseline_preserved": {
+    "maintenances": true,
+    "maintenance_photos": true,
+    "sales": true,
+    "sale_audit": true,
+    "attachments": true,
+    "materials": true
+  },
+  "warranties": [
+    [
+      "2d14aed3-5356-4897-905c-53d2acd6b271",
+      "3c09a898-1a9f-4bf5-937f-511f691c03ca",
+      "manufacturer",
+      "T10 fictional native warranty",
+      "2026-09-25",
+      "2026-09-25",
+      "",
+      "2026-09-25T05:44:12.225686+00:00",
+      "2026-09-25T05:45:21.287482+00:00",
+      null
+    ],
+    [
+      "fbeff953-6c12-43ff-a6f5-57d511f02743",
+      "3c09a898-1a9f-4bf5-937f-511f691c03ca",
+      "manufacturer",
+      "T10 fictional future warranty",
+      "2027-09-25",
+      "2028-09-25",
+      "",
+      "2026-09-25T05:46:47.895390+00:00",
+      "2026-09-25T05:46:47.895390+00:00",
+      null
+    ]
+  ],
+  "originals_valid": true
+}

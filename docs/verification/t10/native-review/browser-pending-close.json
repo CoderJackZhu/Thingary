@@ -1,0 +1,11 @@
+{
+  "calls": [
+    {
+      "cmd": "finish_close",
+      "args": {
+        "quit": true
+      }
+    }
+  ],
+  "pending": "review-stable-request"
+}

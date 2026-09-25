@@ -1,0 +1,129 @@
+Window: "物志 · T08 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T08 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container
+				4 text 物志 POSSIO
+				5 container 主导航
+					6 button (disabled) 总览, Help: 总览将在后续阶段开放
+					7 text 我的物品
+					8 button 全部资产
+					9 button 使用中
+					10 button 已退役
+					11 button 已售出
+					12 text 记录与回顾
+					13 button (disabled) 心愿清单, Help: 心愿清单将在后续阶段开放
+					14 button (disabled) 时间轴, Help: 全局时间轴将在后续阶段开放
+					15 button (disabled) 统计, Help: 统计将在后续阶段开放
+				16 container 资料管理
+					17 button 素材库
+					18 button 最近删除
+					19 button 设置
+				20 text 本地档案 · 仅保存在这台 Mac
+			21 container
+				22 text 我的物品 ／ 物品详情
+				23 text field (settable) 搜索物品, Value: iPad
+				24 text ⌘F
+				25 button 新增资产
+				26 text 保障记录已保存，持有状态与成本保持不变。
+				27 button ← 返回物品列表
+				28 image 原始 Demo 示意图（非实物照片）-tablet.png
+				29 container
+					30 text 手机与平板 ·  已售出
+				31 heading iPad Air 4, Value: 2
+					32 text iPad Air 4
+				33 text Apple · 64 GB · 天蓝色
+				34 button 编辑资料 ⌘E
+				35 button 新增维护
+				36 button 添加保障
+				37 container 持有与成本
+					38 heading 持有与成本, Value: 3
+						39 text 持有与成本
+					40 text 售出后净日均成本
+					41 text ¥2.12 / 天
+					42 text 截至售出日持有 1412 天
+					43 description list
+						44 text 购入金额
+						45 text ¥4,799.00
+						46 text 维护投入
+						47 text ¥0.00
+						48 text 总投入
+						49 text ¥4,799.00
+						50 text 持有时长
+						51 text 1,412 天
+					52 text 净生命周期成本 ¥2,999.00
+					53 text 按自然日计算，包含购入当天；售出后截止到售出日。
+				54 container 购买资料
+					55 heading 购买资料, Value: 3
+						56 text 购买资料
+					57 description list
+						58 text 购入日期
+						59 text 2021-06-01
+						60 text 购买渠道
+						61 text 品牌官方店
+						62 text 品牌
+						63 text Apple
+						64 text 型号
+						65 text 64 GB · 天蓝色
+						66 text 序列号
+						67 text 待补充
+				68 container 关于这件物品
+					69 heading 关于这件物品, Value: 3
+						70 text 关于这件物品
+					71 text 已交给下一位主人。
+
+原始 Demo 虚构样例，可编辑体验；图片为示意图。
+				72 container 物品时间轴
+					73 heading 物品时间轴, Value: 3
+						74 text 物品时间轴
+					75 text 最新记录在前
+					76 container
+						77 text 购入记录 2021-06-01
+				78 container 售出记录
+					79 heading 售出记录, Value: 3
+						80 text 售出记录
+					81 text 持有天数已截止到售出日
+					82 description list
+						83 text 售出日期
+						84 text 2025-04-12
+						85 text 实际售价
+						86 text ¥1,800.00
+						87 text 出售平台
+						88 text 二手平台
+						89 text 买家
+						90 text 未记录
+						91 text 备注
+						92 text 原始 Demo 虚构售出记录
+					93 button 修改售出记录
+					94 button 撤销误记售出…
+					95 text 真实卖出后又买回，请使用“新增物品”建立另一份档案，保留这次处置记录。
+				96 container 保障档案
+					97 heading 保障档案, Value: 3
+						98 text 保障档案
+					99 text 还没有保障记录
+					100 text 还没有保障记录。厂家保修、延保或 AppleCare 都可以分别添加。
+				101 container 维护档案
+					102 heading 维护档案, Value: 3
+						103 text 维护档案
+					104 text 1 条 · 已知费用 ¥0.00
+					105 container
+						106 text T09 native history boundary 2025-04-12  ·  ¥0.00
+						107 button 更正
+				108 container 图片附件
+					109 heading 图片附件, Value: 3
+						110 text 图片附件
+					111 text 1 张
+					112 container 物品图片
+						113 button 预览 原始 Demo 示意图（非实物照片）-tablet.png
+				114 summary 档案信息, Value: off
+					115 text 档案信息
+				116 button 移入最近删除…
+	117 close button
+	118 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	119 minimize button
+	120 text 物志 · T08 虚构资料验收
+121 menu bar
+	122 Possio T06b Preview
+	123 文件
+	124 编辑
+	125 窗口

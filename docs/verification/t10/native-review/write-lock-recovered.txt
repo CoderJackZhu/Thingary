@@ -1,0 +1,55 @@
+Window: "物志 · T08 虚构资料验收", App: Possio T06b Preview.
+0 standard window 物志 · T08 虚构资料验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志 · 开发预览, URL: tauri://localhost
+			3 container 更正保障记录
+				4 container
+					5 heading 更正保障记录, Value: 2
+						6 text 更正保障记录
+					7 text 更正保留原记录标识；保障可以未来开始或到期，未知日期保持留空。
+					8 button 关闭保障表单
+					9 text 类型
+					10 pop up button (collapsed) 类型, Value: 厂家保修, Secondary Actions: Expand
+					11 text 提供方（可留空）
+					12 text field (settable) 提供方（可留空）, Value: T10 fictional native warranty
+					13 text 开始日期（可留空）
+					14 date time area 开始日期（可留空）, Value: 2026/9/25
+						15 container
+							16 stepper (settable, float) year, Value: 2026
+							17 text /
+							18 stepper (settable, float) month, Value: 9
+							19 text /
+							20 stepper (settable, float) day, Value: 25
+					21 text 结束日期（可留空）
+					22 date time area 结束日期（可留空）, Value: 2026/9/25
+						23 container
+							24 stepper (settable, float) year, Value: 2026
+							25 text /
+							26 stepper (settable, float) month, Value: 9
+							27 text /
+							28 stepper (settable, float) day, Value: 25
+					29 text 备注
+					30 text entry area (settable) 备注
+					31 heading 保障图片 1, Value: 3
+						32 text 保障图片 1
+					33 image warranty.heic
+					34 text warranty.heic
+					35 button 移除
+					36 button 添加图片
+					37 text 当前保障
+					38 text 当前无有效保障（1 份日期待补全）
+					39 text 保障独立于持有状态，不计入成本。 本地数据操作失败，原资料已保留 已确认未提交，输入已保留。
+					40 button 清空
+					41 button 取消
+					42 button 保存保障记录
+	43 close button
+	44 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	45 minimize button
+	46 text 物志 · T08 虚构资料验收
+47 menu bar
+	48 Possio T06b Preview
+	49 文件
+	50 编辑
+	51 窗口
+
+The focused UI element is 3 container 更正保障记录
