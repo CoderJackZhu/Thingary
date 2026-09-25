@@ -427,3 +427,210 @@ fn ac36_trend_buckets_are_inclusive_continuous_and_never_reduced_by_sales() {
         .buckets
         .is_empty());
 }
+
+fn dated(
+    s: &mut Store,
+    name: &str,
+    price: Option<&str>,
+    date: Option<&str>,
+    today: &str,
+) -> AssetRecord {
+    s.save_asset(
+        &SaveAsset {
+            base: Save {
+                request_id: id(),
+                generation: s.generation(),
+                asset_id: None,
+                expected_revision: None,
+                name: name.into(),
+                price_cents: price.map(str::to_owned),
+                purchase_date: date.map(str::to_owned),
+            },
+            details: Details::default(),
+            photos: None,
+            classification: None,
+        },
+        today,
+    )
+    .unwrap()
+}
+
+#[test]
+fn e06_e07_holding_groups_use_natural_anniversaries_with_month_end() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    dated(
+        &mut s,
+        "leap",
+        Some("100"),
+        Some("2024-02-29"),
+        "2025-02-28",
+    );
+    let h = s.holding("held", "2025-02-28").unwrap();
+    assert_eq!(
+        h.groups.iter().find(|g| g.key == "1to2y").unwrap().count,
+        1,
+        "E06: 2024-02-29 reaches one year on 2025-02-28"
+    );
+    assert_eq!(
+        h.longest.unwrap().held_days,
+        366,
+        "inclusive days computed separately, not 12×30"
+    );
+    let h = s.holding("held", "2025-02-27").unwrap();
+    assert_eq!(
+        h.groups.iter().find(|g| g.key == "6to12m").unwrap().count,
+        1,
+        "one day earlier stays below a year"
+    );
+
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    dated(
+        &mut s,
+        "month-end",
+        Some("100"),
+        Some("2025-08-31"),
+        "2026-02-28",
+    );
+    assert_eq!(
+        s.holding("held", "2026-02-28").unwrap().groups[1].count,
+        1,
+        "E07: 08-31 + 6 months = 02-28"
+    );
+    assert_eq!(
+        s.holding("held", "2026-02-27").unwrap().groups[0].count,
+        1,
+        "left-closed: still under 6 months the day before"
+    );
+}
+
+#[test]
+fn holding_statistics_and_exact_daily_rankings_from_an_independent_sample() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let today = "2026-09-10";
+    // Held: A ¥10.00 over 3 days = 333.33…¢/day; B ¥3.33 over 1 day = 333¢/day.
+    // Both round to ¥3.33, but A must rank above B on the exact ratio.
+    let a = dated(&mut s, "A", Some("1000"), Some("2026-09-08"), today);
+    let b = dated(&mut s, "B", Some("333"), Some("2026-09-10"), today);
+    // C: held 2 years+ (2024-09-01 → 2026-09-10 = 740 days), ¥7,400 → ¥10/day.
+    dated(&mut s, "C", Some("740000"), Some("2024-09-01"), today);
+    // D: sold with profit — ¥1,000, sold ¥1,500 after 10 days → net −¥500, −¥50/day.
+    let d = dated(&mut s, "D", Some("100000"), Some("2026-08-01"), today);
+    s.change_sale(
+        &sales::Change {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: d.asset.id.clone(),
+            expected_revision: d.asset.revision,
+            action: sales::Action::Sell {
+                fields: sales::Fields {
+                    date: "2026-08-10".into(),
+                    price_cents: "150000".into(),
+                    platform: String::new(),
+                    buyer: String::new(),
+                    notes: String::new(),
+                },
+            },
+        },
+        today,
+    )
+    .unwrap();
+    // E: sold at a loss — ¥2,000 over 20 days, sold ¥1,000 → ¥50/day.
+    let e = dated(&mut s, "E", Some("200000"), Some("2026-07-01"), today);
+    s.change_sale(
+        &sales::Change {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: e.asset.id.clone(),
+            expected_revision: e.asset.revision,
+            action: sales::Action::Sell {
+                fields: sales::Fields {
+                    date: "2026-07-20".into(),
+                    price_cents: "100000".into(),
+                    platform: String::new(),
+                    buyer: String::new(),
+                    notes: String::new(),
+                },
+            },
+        },
+        today,
+    )
+    .unwrap();
+    dated(&mut s, "no-price", None, Some("2026-01-01"), today);
+    dated(&mut s, "no-date", Some("100"), None, today);
+
+    let h = s.holding("held", today).unwrap();
+    let held: Vec<_> = h
+        .held_ranking
+        .iter()
+        .map(|r| {
+            (
+                r.name.as_str(),
+                r.held_days,
+                r.cost_cents.as_str(),
+                r.daily_cents.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        held,
+        [
+            ("C", 740, "740000", "1000"),
+            ("A", 3, "1000", "333"),
+            ("B", 1, "333", "333")
+        ]
+    );
+    assert_eq!(
+        (h.held_ranking[1].id.as_str(), h.held_ranking[2].id.as_str()),
+        (a.asset.id.as_str(), b.asset.id.as_str())
+    );
+    let sold: Vec<_> = h
+        .sold_ranking
+        .iter()
+        .map(|r| {
+            (
+                r.name.as_str(),
+                r.held_days,
+                r.cost_cents.as_str(),
+                r.daily_cents.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        sold,
+        [("E", 20, "100000", "5000"), ("D", 10, "-50000", "-5000")],
+        "gross and net kept in separate lists"
+    );
+    let mut excluded: Vec<_> = h
+        .excluded
+        .iter()
+        .map(|x| (x.name.as_str(), x.reason.as_str()))
+        .collect();
+    excluded.sort();
+    assert_eq!(
+        excluded,
+        [("no-date", "购入日期未知"), ("no-price", "购入金额未知")]
+    );
+
+    // Held scope: A 3, B 1, C 740, no-price 253 (2026-01-01 → 09-10) days; no-date flagged.
+    assert_eq!((h.dated_count, h.unknown_date_count), (4, 1));
+    let counts: Vec<_> = h.groups.iter().map(|g| g.count).collect();
+    assert_eq!(
+        counts,
+        [2, 1, 0, 1, 0],
+        "A,B <6m; no-price 8 months; C 2 years"
+    );
+    assert_eq!(h.average_days, Some((3 + 1 + 740 + 253) as f64 / 4.0));
+    assert_eq!(h.median_days, Some((3 + 253) as f64 / 2.0));
+    assert_eq!(
+        h.longest.as_ref().map(|l| (l.name.as_str(), l.held_days)),
+        Some(("C", 740))
+    );
+    // History adds sold assets ending at their sale date: D 10, E 20 → odd count median.
+    let all = s.holding("history", today).unwrap();
+    assert_eq!(all.dated_count, 6);
+    assert_eq!(all.median_days, Some((10 + 20) as f64 / 2.0));
+    assert!(s.holding("bogus", today).is_err());
+}

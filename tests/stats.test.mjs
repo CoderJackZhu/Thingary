@@ -22,3 +22,14 @@ test('axis ticks always reach the maximum value', () => {
     assert.ok(t.at(-1) >= max && t.length <= 6, `${max} -> ${t}`);
   }
 });
+
+test('rankings keep backend exact order and separate gross from net', () => {
+  const src = readFileSync(new URL('../src/Stats.tsx', import.meta.url), 'utf8');
+  assert.match(src, /invoke<Holding>\('holding', \{ scope \}\)/);
+  assert.match(src, /const list = descending \? rows : rows\.slice\(\)\.reverse\(\);/);
+  assert.doesNotMatch(src, /\.sort\(/, 'no client-side re-sort on rounded values');
+  assert.match(src, /当前持有 · 毛日均/);
+  assert.match(src, /已售出 · 净日均/);
+  assert.match(src, /件资料不完整，未参与排行/);
+  assert.match(src, /件购入日期未知，未计入分组与平均/);
+});

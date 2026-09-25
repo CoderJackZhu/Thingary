@@ -111,6 +111,7 @@ pub fn run() {
             commands::list_timeline,
             commands::overview,
             commands::purchase_trend,
+            commands::holding,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,

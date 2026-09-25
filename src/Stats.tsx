@@ -33,7 +33,7 @@ function Chart({ buckets, value, kind, label }: { buckets: Bucket[]; value: (b: 
   </svg>;
 }
 
-export function StatsPage() {
+export function StatsPage({ onOpenAsset }: { onOpenAsset: (id: string) => void }) {
   const [granularity, setGranularity] = useState<Granularity>('month');
   const [trend, setTrend] = useState<Trend | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   useEffect(() => {
@@ -54,5 +54,45 @@ export function StatsPage() {
         </>}
       </>}
     </article>
+    <HoldingCards onOpenAsset={onOpenAsset}/>
   </section>;
+}
+
+type Ranked = { id: string; name: string; state: string; held_days: number; cost_cents: string; daily_cents: string };
+type Holding = { scope: 'held' | 'history'; groups: { key: string; label: string; count: number }[]; dated_count: number; unknown_date_count: number; average_days: number | null; median_days: number | null; longest: Ranked | null; held_ranking: Ranked[]; sold_ranking: Ranked[]; excluded: { id: string; name: string; reason: string }[] };
+const days = (d: number | null) => d === null ? '—' : `${Number.isInteger(d) ? d : d.toFixed(1)} 天`;
+
+function Ranking({ title, note, rows, costLabel, descending, onOpen }: { title: string; note: string; rows: Ranked[]; costLabel: string; descending: boolean; onOpen: (id: string) => void }) {
+  const list = descending ? rows : rows.slice().reverse();
+  return <><h4 className="chart-title">{title} <span className="muted">{note}</span></h4>
+    {!list.length ? <p className="muted small">没有可完整计算的物品。</p> : <table className="distribution-table"><thead><tr><th>#</th><th>物品</th><th>{costLabel}</th><th>持有天数</th><th>日均</th></tr></thead><tbody>{list.map((r, i) => <tr key={r.id}><td>{i + 1}</td><td><button className="link-cell" onClick={() => onOpen(r.id)}>{r.name}</button></td><td>{money(r.cost_cents)}</td><td>{r.held_days}</td><td>{money(r.daily_cents)}</td></tr>)}</tbody></table>}</>;
+}
+
+export function HoldingCards({ onOpenAsset }: { onOpenAsset: (id: string) => void }) {
+  const [scope, setScope] = useState<'held' | 'history'>('held'), [descending, setDescending] = useState(true);
+  const [data, setData] = useState<Holding | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let live = true; setError('');
+    invoke<Holding>('holding', { scope }).then(d => { if (live) setData(d); }).catch(e => { if (live) setError(errorMessage(e)); });
+    return () => { live = false; };
+  }, [scope, retry]);
+  if (error) return <article className="detail-section overview-card" role="alert"><p>持有分析读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>;
+  if (!data) return <p role="status" className="muted">正在读取持有分析…</p>;
+  const most = Math.max(1, ...data.groups.map(g => g.count));
+  return <>
+    <article className="detail-section overview-card">
+      <div className="section-heading"><h3>持有周期</h3><span>{scope === 'held' ? '当前持有：截至今天' : '历史全部：已售出截至售出日'}；按购入日起的自然月／年纪念日分组，左闭右开</span></div>
+      <div className="overview-controls"><div className="segmented" role="group" aria-label="持有范围">{([['held', '当前持有'], ['history', '历史全部']] as const).map(([k, l]) => <button key={k} aria-pressed={scope === k} onClick={() => setScope(k)}>{l}</button>)}</div></div>
+      <div className="holding-stats"><div><span>平均</span><strong>{days(data.average_days)}</strong></div><div><span>中位数</span><strong>{days(data.median_days)}</strong></div><div><span>最长</span><strong>{data.longest ? <button className="link-cell" onClick={() => onOpenAsset(data.longest!.id)}>{data.longest.name} · {data.longest.held_days} 天</button> : '—'}</strong></div></div>
+      <ul className="holding-groups">{data.groups.map(g => <li key={g.key}><span>{g.label}</span><span className="holding-bar"><span style={{ width: `${g.count / most * 100}%` }}/></span><span>{g.count} 件</span></li>)}</ul>
+      <p className="muted small">共 {data.dated_count} 件参与计算{data.unknown_date_count > 0 && `；${data.unknown_date_count} 件购入日期未知，未计入分组与平均`}。</p>
+    </article>
+    <article className="detail-section overview-card">
+      <div className="section-heading"><h3>日均成本排行</h3><span>按未舍入的精确值排序，显示值四舍五入到分</span></div>
+      <div className="overview-controls"><div className="segmented" role="group" aria-label="排序方向">{([[true, '从高到低'], [false, '从低到高']] as const).map(([k, l]) => <button key={l} aria-pressed={descending === k} onClick={() => setDescending(k)}>{l}</button>)}</div></div>
+      <Ranking title="当前持有 · 毛日均" note="总投入（购入＋维护）÷ 持有天数" rows={data.held_ranking} costLabel="总投入" descending={descending} onOpen={onOpenAsset}/>
+      <Ranking title="已售出 · 净日均" note="（总投入 − 售出回收）÷ 截至售出日天数，可为负" rows={data.sold_ranking} costLabel="净成本" descending={descending} onOpen={onOpenAsset}/>
+      {data.excluded.length > 0 && <details className="trend-table"><summary>{data.excluded.length} 件资料不完整，未参与排行</summary><ul className="excluded-list">{data.excluded.map(x => <li key={x.id}><button className="link-cell" onClick={() => onOpenAsset(x.id)}>{x.name}</button><span className="muted">{x.reason}</span></li>)}</ul></details>}
+    </article>
+  </>;
 }

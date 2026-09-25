@@ -535,3 +535,16 @@ pub async fn purchase_trend(
     .await
     .map_err(|_| Error::new("WORKER", "趋势读取失败，请重试"))?
 }
+
+#[tauri::command]
+pub async fn holding(
+    scope: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::insights::Holding> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.holding(&scope, &chrono::Local::now().format("%Y-%m-%d").to_string()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "持有分析读取失败，请重试"))?
+}

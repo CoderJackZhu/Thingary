@@ -236,3 +236,212 @@ impl Store {
         })
     }
 }
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct HoldingGroup {
+    pub key: String,
+    pub label: String,
+    pub count: i64,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct RankedAsset {
+    pub id: String,
+    pub name: String,
+    pub state: String,
+    pub held_days: i64,
+    /// 总投入 for held assets, 净生命周期成本 for sold ones.
+    pub cost_cents: String,
+    /// Display value only; ordering uses the exact cost ÷ days ratio.
+    pub daily_cents: String,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct Excluded {
+    pub id: String,
+    pub name: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct Holding {
+    pub generation: String,
+    pub today: String,
+    pub scope: String,
+    pub groups: Vec<HoldingGroup>,
+    pub dated_count: i64,
+    pub unknown_date_count: i64,
+    pub average_days: Option<f64>,
+    pub median_days: Option<f64>,
+    pub longest: Option<RankedAsset>,
+    /// Current holdings by gross daily cost (总投入 ÷ 持有天数), highest first.
+    pub held_ranking: Vec<RankedAsset>,
+    /// Sold assets by net daily cost (净生命周期成本 ÷ 截至售出日天数), highest first.
+    pub sold_ranking: Vec<RankedAsset>,
+    pub excluded: Vec<Excluded>,
+}
+
+/// Whole natural months from `start` to `end`; an anniversary that does not
+/// exist in a month falls on that month's last day (S04, E06/E07).
+fn full_months(start: chrono::NaiveDate, end: chrono::NaiveDate) -> u32 {
+    let mut months = 0;
+    while start
+        .checked_add_months(chrono::Months::new(months + 1))
+        .is_some_and(|d| d <= end)
+    {
+        months += 1;
+    }
+    months
+}
+
+const GROUPS: [(&str, &str, u32); 5] = [
+    ("lt6m", "少于 6 个月", 6),
+    ("6to12m", "6–12 个月", 12),
+    ("1to2y", "1–2 年", 24),
+    ("2to3y", "2–3 年", 36),
+    ("gte3y", "3 年以上", u32::MAX),
+];
+
+impl Store {
+    pub fn holding(&self, scope: &str, today: &str) -> Result<Holding> {
+        let states: &[&str] = match scope {
+            "held" => &["active", "retired"],
+            "history" => &["active", "retired", "sold"],
+            _ => return Err(Error::new("QUERY", "不支持的统计范围")),
+        };
+        let today_date = crate::domain::date(today)?;
+        let c = self.conn()?;
+        let mut stmt = c.prepare(
+            "SELECT id,lifecycle_state FROM assets WHERE deleted_at IS NULL ORDER BY id",
+        )?;
+        let ids = stmt
+            .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut counts = [0i64; 5];
+        let mut days_list: Vec<(i64, RankedAsset)> = Vec::new();
+        let (mut unknown_dates, mut held_rank, mut sold_rank, mut excluded) =
+            (0, Vec::new(), Vec::new(), Vec::new());
+        for (id, state) in ids {
+            let asset = self
+                .asset(&id)?
+                .ok_or_else(|| Error::new("NOT_FOUND", "档案不存在"))?;
+            let sale = crate::sales::read(c, &id)?;
+            let costs = crate::maintenance::summary(c, &asset, sale.as_ref(), today)?;
+            // Ranking: complete cost and a known date are both required.
+            let cost = if sale.is_some() {
+                &costs.net_cost_cents
+            } else {
+                &costs.total_investment_cents
+            };
+            match (cost, costs.held_days, costs.daily_cents.as_ref()) {
+                (Some(cost), Some(days), Some(daily)) => {
+                    let row = RankedAsset {
+                        id: id.clone(),
+                        name: asset.name.clone(),
+                        state: state.clone(),
+                        held_days: days,
+                        cost_cents: cost.clone(),
+                        daily_cents: daily.clone(),
+                    };
+                    if sale.is_some() {
+                        sold_rank.push(row)
+                    } else {
+                        held_rank.push(row)
+                    }
+                }
+                _ => {
+                    let reason = match (
+                        asset.price_cents.is_none(),
+                        costs.unknown_maintenance_count > 0,
+                        asset.purchase_date.is_none(),
+                    ) {
+                        (true, _, _) => "购入金额未知",
+                        (_, true, _) => "有维护费用未知",
+                        _ => "购入日期未知",
+                    };
+                    excluded.push(Excluded {
+                        id: id.clone(),
+                        name: asset.name.clone(),
+                        reason: reason.into(),
+                    });
+                }
+            }
+            if !states.contains(&state.as_str()) {
+                continue;
+            }
+            let Some(purchase) = asset.purchase_date.as_deref() else {
+                unknown_dates += 1;
+                continue;
+            };
+            let end = match &sale {
+                Some(s) => crate::domain::date(&s.fields.date)?,
+                None => today_date,
+            };
+            let months = full_months(crate::domain::date(purchase)?, end);
+            let group = GROUPS
+                .iter()
+                .position(|(_, _, limit)| months < *limit)
+                .unwrap_or(4);
+            counts[group] += 1;
+            let days = costs
+                .held_days
+                .ok_or_else(|| Error::new("DATE", "持有天数无法计算"))?;
+            days_list.push((
+                days,
+                RankedAsset {
+                    id,
+                    name: asset.name,
+                    state,
+                    held_days: days,
+                    cost_cents: String::new(),
+                    daily_cents: String::new(),
+                },
+            ));
+        }
+        // Exact ratio ordering: a/b > c/d ⇔ a·d > c·b (days are always ≥ 1).
+        let by_ratio = |x: &RankedAsset, y: &RankedAsset| {
+            let (a, b) = (
+                x.cost_cents.parse::<i128>().unwrap_or(0),
+                i128::from(x.held_days),
+            );
+            let (p, q) = (
+                y.cost_cents.parse::<i128>().unwrap_or(0),
+                i128::from(y.held_days),
+            );
+            (p * b).cmp(&(a * q)).then_with(|| x.id.cmp(&y.id))
+        };
+        held_rank.sort_by(by_ratio);
+        sold_rank.sort_by(by_ratio);
+        days_list.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.id.cmp(&b.1.id)));
+        let n = days_list.len();
+        let mut sorted: Vec<i64> = days_list.iter().map(|d| d.0).collect();
+        sorted.sort_unstable();
+        let median = match n {
+            0 => None,
+            _ if n % 2 == 1 => Some(sorted[n / 2] as f64),
+            _ => Some((sorted[n / 2 - 1] + sorted[n / 2]) as f64 / 2.0),
+        };
+        Ok(Holding {
+            generation: self.generation(),
+            today: today.into(),
+            scope: scope.into(),
+            groups: GROUPS
+                .iter()
+                .zip(counts)
+                .map(|((key, label, _), count)| HoldingGroup {
+                    key: (*key).into(),
+                    label: (*label).into(),
+                    count,
+                })
+                .collect(),
+            dated_count: n as i64,
+            unknown_date_count: unknown_dates,
+            average_days: (n > 0).then(|| sorted.iter().sum::<i64>() as f64 / n as f64),
+            median_days: median,
+            longest: days_list.into_iter().next().map(|d| d.1),
+            held_ranking: held_rank,
+            sold_ranking: sold_rank,
+            excluded,
+        })
+    }
+}
