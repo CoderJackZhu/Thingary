@@ -68,13 +68,13 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     )?;
     db.execute_batch("PRAGMA trusted_schema=OFF; PRAGMA foreign_keys=ON;")?;
     let v: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if v != 10 && !(allow_legacy && [1, 2, 3, 4, 5, 6, 7, 8, 9].contains(&v)) {
+    if v != 11 && !(allow_legacy && [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].contains(&v)) {
         return Err(Error::new("SCHEMA_VERSION", "不支持此备份的数据库版本"));
     }
     let canonical = Connection::open_in_memory()?;
     canonical.execute_batch(SCHEMA)?;
     crate::storage::migrate_to(&canonical, v, &|_| Ok(()))?;
-    if v == 10 {
+    if v == 11 {
         check_db(&db)?;
     } else {
         let integrity: String = db.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
@@ -137,6 +137,9 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     if v >= 10 {
         crate::warranty::validate_dataset(&db)?;
     }
+    if v >= 11 {
+        crate::wishlist::validate_dataset(&db)?;
+    }
     if v >= 9 {
         let mut stmt = db.prepare("SELECT id,name,hash,size,created_at FROM materials")?;
         let rows = stmt
@@ -186,7 +189,12 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
         }
     }
     if v >= 2 {
-        let mut stmt = db.prepare("SELECT file,hash,size FROM attachments")?;
+        let files_sql = if v >= 11 {
+            "SELECT file,hash,size FROM attachments UNION ALL SELECT file,hash,size FROM wishlist_attachments"
+        } else {
+            "SELECT file,hash,size FROM attachments"
+        };
+        let mut stmt = db.prepare(files_sql)?;
         let rows = stmt.query_map([], |r| {
             Ok((
                 r.get::<_, String>(0)?,
@@ -233,7 +241,7 @@ impl Store {
         self.hit("backup.after_snapshot")?;
         let mut entries = BTreeMap::new();
         let mut stmt = self.conn()?.prepare(
-            "SELECT DISTINCT file FROM attachments UNION SELECT hash FROM materials ORDER BY file",
+            "SELECT DISTINCT file FROM attachments UNION SELECT hash FROM materials UNION SELECT file FROM wishlist_attachments ORDER BY file",
         )?;
         let names = stmt
             .query_map([], |r| r.get::<_, String>(0))?
@@ -273,7 +281,7 @@ impl Store {
         }
         let manifest = Manifest {
             format: 1,
-            schema: 10,
+            schema: 11,
             created_at: chrono::Utc::now().to_rfc3339(),
             entries,
         };
@@ -366,7 +374,7 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
     let manifest: Manifest = serde_json::from_slice(
         &manifest_bytes.ok_or_else(|| Error::new("MANIFEST", "备份缺少清单"))?,
     )?;
-    if manifest.format != 1 || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].contains(&manifest.schema) {
+    if manifest.format != 1 || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].contains(&manifest.schema) {
         return Err(Error::new("BACKUP_VERSION", "备份版本暂不支持"));
     }
     observed.remove("manifest.json");

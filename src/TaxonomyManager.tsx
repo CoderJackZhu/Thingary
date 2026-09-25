@@ -74,6 +74,8 @@ interface RemoveTarget {
   name: string;
   referenceCount: number;
   deletedReferenceCount: number;
+  ongoingWishlistCount: number;
+  abandonedWishlistCount: number;
 }
 
 interface ConfirmDialog {
@@ -96,7 +98,10 @@ const INITIAL_CONFIRM: ConfirmDialog = {
 };
 
 function totalReferences(entry: TaxonomyEntry): number {
-  return entry.references.activeAssets + entry.references.deletedAssets;
+  return entry.references.activeAssets
+    + entry.references.deletedAssets
+    + (entry.references.ongoingWishlist ?? 0)
+    + (entry.references.abandonedWishlist ?? 0);
 }
 
 function blankDraft(): DraftState {
@@ -462,7 +467,9 @@ function RemoveDialog({
       <div className="taxonomy-stats" aria-label="当前引用统计">
         <span><strong>正常资产引用：</strong>{target.referenceCount}</span>
         <span><strong>最近删除引用：</strong>{target.deletedReferenceCount}</span>
-        <span><strong>合计：</strong>{target.referenceCount + target.deletedReferenceCount}</span>
+        {target.kind === "category" ? <span><strong>进行中心愿：</strong>{target.ongoingWishlistCount}</span> : null}
+        {target.kind === "category" ? <span><strong>已放弃心愿：</strong>{target.abandonedWishlistCount}</span> : null}
+        <span><strong>合计：</strong>{target.referenceCount + target.deletedReferenceCount + target.ongoingWishlistCount + target.abandonedWishlistCount}</span>
       </div>
       <div className="taxonomy-choices" role="radiogroup" aria-label="选择迁移目标">
         <label data-selected={choice === null}>
@@ -734,6 +741,8 @@ export default function TaxonomyManager({
         name: entry.name,
         referenceCount: entry.references.activeAssets,
         deletedReferenceCount: entry.references.deletedAssets,
+        ongoingWishlistCount: entry.references.ongoingWishlist ?? 0,
+        abandonedWishlistCount: entry.references.abandonedWishlist ?? 0,
       },
     });
   }
@@ -938,7 +947,7 @@ export default function TaxonomyManager({
           snapshot={snapshot}
           target={(() => {
             const current = entryList(snapshot,confirmDialog.target.kind).find(e => e.id === confirmDialog.target!.id);
-            return current ? {...confirmDialog.target,name:current.name,referenceCount:current.references.activeAssets,deletedReferenceCount:current.references.deletedAssets} : confirmDialog.target;
+            return current ? {...confirmDialog.target,name:current.name,referenceCount:current.references.activeAssets,deletedReferenceCount:current.references.deletedAssets,ongoingWishlistCount:current.references.ongoingWishlist ?? 0,abandonedWishlistCount:current.references.abandonedWishlist ?? 0} : confirmDialog.target;
           })()}
           initialChoice={undefined}
           busy={confirmDialog.busy || submitting || reloading || loading}

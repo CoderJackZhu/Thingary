@@ -117,6 +117,8 @@ pub enum CategoryFilter {
 pub struct References {
     pub active_assets: i64,
     pub deleted_assets: i64,
+    pub ongoing_wishlist: i64,
+    pub abandoned_wishlist: i64,
 }
 #[derive(Debug, Serialize)]
 pub struct Entry {
@@ -196,7 +198,12 @@ fn entries(c: &Connection, kind: Kind) -> Result<Vec<Entry>> {
     } else {
         "NULL"
     };
-    let sql = format!("SELECT t.id,t.name,{icon},(SELECT count(*) FROM assets a WHERE a.{}=t.id AND a.deleted_at IS NULL),(SELECT count(*) FROM assets a WHERE a.{}=t.id AND a.deleted_at IS NOT NULL) FROM {} t ORDER BY position,id",kind.field(),kind.field(),kind.table());
+    let wishlist_references = if matches!(kind, Kind::Category) {
+        ", (SELECT count(*) FROM wishlist_items w WHERE w.category_id=t.id AND w.status='ongoing'), (SELECT count(*) FROM wishlist_items w WHERE w.category_id=t.id AND w.status='abandoned')"
+    } else {
+        ", 0, 0"
+    };
+    let sql = format!("SELECT t.id,t.name,{icon},(SELECT count(*) FROM assets a WHERE a.{}=t.id AND a.deleted_at IS NULL),(SELECT count(*) FROM assets a WHERE a.{}=t.id AND a.deleted_at IS NOT NULL){wishlist_references} FROM {} t ORDER BY position,id",kind.field(),kind.field(),kind.table());
     let mut stmt = c.prepare(&sql)?;
     let result = stmt
         .query_map([], |r| {
@@ -207,6 +214,8 @@ fn entries(c: &Connection, kind: Kind) -> Result<Vec<Entry>> {
                 references: References {
                     active_assets: r.get(3)?,
                     deleted_assets: r.get(4)?,
+                    ongoing_wishlist: r.get(5)?,
+                    abandoned_wishlist: r.get(6)?,
                 },
             })
         })?
@@ -362,6 +371,14 @@ impl Store {
                     ),
                     params![target_id, id],
                 )?;
+                if matches!(kind, Kind::Category) {
+                    // Wishlist has no channel field. Category migration covers
+                    // both ongoing and historical rows in this same receipt transaction.
+                    tx.execute(
+                        "UPDATE wishlist_items SET category_id=?1,revision=revision+1,updated_at=?2 WHERE category_id=?3",
+                        params![target_id, chrono::Utc::now().to_rfc3339(), id],
+                    )?;
+                }
                 self.hit("taxonomy.after_migrate")?;
                 tx.execute(&format!("DELETE FROM {} WHERE id=?1", kind.table()), [id])?;
             }

@@ -14,6 +14,7 @@ pub mod storage;
 pub mod taxonomy;
 pub mod trash;
 pub mod warranty;
+pub mod wishlist;
 pub mod worker;
 use std::sync::atomic::Ordering;
 use tauri::{Emitter, Manager};
@@ -99,6 +100,10 @@ pub fn run() {
             commands::change_sale,
             commands::change_maintenance,
             commands::change_warranty,
+            commands::list_wishlist,
+            commands::read_wishlist,
+            commands::change_wishlist,
+            commands::saved_wishlist_request,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,

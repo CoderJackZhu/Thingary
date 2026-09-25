@@ -40,6 +40,8 @@ export interface TaxonomyEntry {
   references: {
     activeAssets: number;
     deletedAssets: number;
+    ongoingWishlist?: number;
+    abandonedWishlist?: number;
   };
 }
 

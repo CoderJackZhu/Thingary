@@ -418,3 +418,47 @@ pub async fn change_warranty(
     .await
     .map_err(|_| Error::new("WORKER", "未收到保障保存结果，请核对本次请求"))?
 }
+
+#[tauri::command]
+pub async fn list_wishlist(
+    query: crate::wishlist::Query,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wishlist::Page> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.query_wishlist(&query)))
+        .await
+        .map_err(|_| Error::new("WORKER", "心愿清单读取失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn read_wishlist(
+    id: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<crate::wishlist::WishlistItem>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.wishlist_item(&id)))
+        .await
+        .map_err(|_| Error::new("WORKER", "心愿读取失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn change_wishlist(
+    input: crate::wishlist::Change,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wishlist::WishlistItem> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.change_wishlist(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "未收到心愿保存结果，请核对本次请求"))?
+}
+
+#[tauri::command]
+pub async fn saved_wishlist_request(
+    input: crate::wishlist::Change,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<crate::wishlist::WishlistItem>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.saved_wishlist_request(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "无法核对心愿保存结果，请重试"))?
+}

@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 10 || app != 1347375955 || integrity != "ok" {
+    if v != 11 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -280,11 +280,11 @@ impl Store {
 }
 
 pub fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 10, hook)
+    migrate_to(c, 11, hook)
 }
 pub fn migrate_to(c: &Connection, target: i64, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=10).contains(&v) || v > target {
+    if !(1..=11).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -422,6 +422,19 @@ CREATE TRIGGER warranty_dates_update BEFORE UPDATE OF start_date,end_date,delete
 PRAGMA user_version=10;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 10;
+    }
+    if v == 10 && target >= 11 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("CREATE TABLE wishlist_items(id TEXT PRIMARY KEY,name TEXT NOT NULL,category_id TEXT REFERENCES categories(id),estimated_price_cents INTEGER CHECK(estimated_price_cents BETWEEN 0 AND 99999999999),priority TEXT CHECK(priority IN ('high','medium','low')),target_date TEXT,external_link TEXT NOT NULL,notes TEXT NOT NULL,status TEXT NOT NULL CHECK(status IN ('ongoing','achieved','abandoned')),revision INTEGER NOT NULL CHECK(revision>0),created_at TEXT NOT NULL,updated_at TEXT NOT NULL,abandoned_at TEXT);
+CREATE INDEX wishlist_status_created ON wishlist_items(status,created_at,id);
+CREATE INDEX wishlist_category ON wishlist_items(category_id);
+CREATE TABLE wishlist_attachments(id TEXT PRIMARY KEY,wishlist_id TEXT NOT NULL REFERENCES wishlist_items(id),file TEXT NOT NULL,hash TEXT NOT NULL,size INTEGER NOT NULL CHECK(size>0),name TEXT NOT NULL);
+CREATE TABLE wishlist_media(wishlist_id TEXT PRIMARY KEY REFERENCES wishlist_items(id),cover_id TEXT REFERENCES wishlist_attachments(id));
+CREATE TABLE wishlist_audit(sequence INTEGER PRIMARY KEY AUTOINCREMENT,request_id TEXT NOT NULL UNIQUE,wishlist_id TEXT NOT NULL REFERENCES wishlist_items(id),action TEXT NOT NULL CHECK(action IN ('add','abandon')),snapshot TEXT NOT NULL,created_at TEXT NOT NULL);
+PRAGMA user_version=11;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -496,7 +509,7 @@ mod taxonomy_migration_tests {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            10
+            11
         );
         assert_eq!(
             c.query_row("SELECT name FROM assets WHERE id='legacy'", [], |r| r

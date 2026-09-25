@@ -40,6 +40,20 @@ fn reject_warranty_reference(tx: &Transaction<'_>, id: &str) -> Result<()> {
     }
     Ok(())
 }
+fn reject_wishlist_reference(tx: &Transaction<'_>, id: &str) -> Result<()> {
+    let owned: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM wishlist_attachments WHERE id=?1)",
+        [id],
+        |r| r.get(0),
+    )?;
+    if owned {
+        return Err(Error::new(
+            "IMAGE_OWNER",
+            "图片属于心愿封面，请重新选择图片",
+        ));
+    }
+    Ok(())
+}
 impl Store {
     pub(crate) fn check_generation(&self, generation: &str) -> Result<()> {
         if generation != self.generation() {
@@ -159,7 +173,7 @@ impl Store {
         Ok(bytes)
     }
     fn photo_source(&self, id: &str) -> Result<(String, String)> {
-        let known = self.conn()?.query_row("SELECT a.hash,coalesce(p.name,'图片') FROM attachments a LEFT JOIN asset_photos p ON p.attachment_id=a.id WHERE a.id=?1", [id], |r| Ok((r.get(0)?,r.get(1)?))).optional()?;
+        let known = self.conn()?.query_row("SELECT hash,name FROM (SELECT a.hash,coalesce(p.name,'图片') AS name FROM attachments a LEFT JOIN asset_photos p ON p.attachment_id=a.id WHERE a.id=?1 UNION ALL SELECT hash,name FROM wishlist_attachments WHERE id=?1) LIMIT 1", [id], |r| Ok((r.get(0)?,r.get(1)?))).optional()?;
         match known {
             Some(row) => Ok(row),
             None => {
@@ -215,6 +229,7 @@ impl Store {
         let mut prepared = Vec::new();
         for id in &selection.ids {
             reject_warranty_reference(tx, id)?;
+            reject_wishlist_reference(tx, id)?;
             let known: Option<(String,String,i64,String)> = tx.query_row("SELECT a.asset_id,a.hash,a.size,coalesce(p.name,'图片') FROM attachments a LEFT JOIN asset_photos p ON p.attachment_id=a.id WHERE a.id=?1", [id], |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?))).optional()?;
             let (hash, size, name, new) = if let Some((owner, hash, size, name)) = known {
                 if owner != asset_id {
@@ -265,6 +280,7 @@ impl Store {
         let mut prepared = Vec::new();
         for id in &selection.ids {
             reject_warranty_reference(tx, id)?;
+            reject_wishlist_reference(tx, id)?;
             let known: Option<(String, String, i64, String)> = tx
                 .query_row(
                     "SELECT a.asset_id,a.hash,a.size,coalesce(mp.name,ap.name,'图片') FROM attachments a LEFT JOIN maintenance_photos mp ON mp.attachment_id=a.id LEFT JOIN asset_photos ap ON ap.attachment_id=a.id WHERE a.id=?1",
@@ -322,6 +338,7 @@ impl Store {
         }
         let mut prepared = Vec::new();
         for id in &selection.ids {
+            reject_wishlist_reference(tx, id)?;
             // Persisted IDs may only be retained by their current warranty.
             // A fresh selection gets a fresh ID even when its bytes are shared.
             let foreign_relation: bool = tx.query_row(
@@ -372,6 +389,71 @@ impl Store {
             tx.execute(
                 "INSERT INTO warranty_photos VALUES(?1,?2,?3,?4)",
                 params![warranty_id, id, position as i64, name],
+            )?;
+        }
+        Ok(())
+    }
+    pub(crate) fn commit_wishlist_cover(
+        &self,
+        tx: &Transaction<'_>,
+        wishlist_id: &str,
+        selection: &Selection,
+    ) -> Result<()> {
+        if selection.ids.len() > 1
+            || selection.cover_id.as_ref() != selection.ids.first()
+            || selection.ids.iter().collect::<HashSet<_>>().len() != selection.ids.len()
+        {
+            return Err(Error::new(
+                "IMAGE_SELECTION",
+                "心愿只允许一张明确选择的封面",
+            ));
+        }
+        let mut prepared = None;
+        if let Some(id) = selection.ids.first() {
+            let foreign: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM attachments WHERE id=?1) OR EXISTS(SELECT 1 FROM wishlist_attachments WHERE id=?1 AND wishlist_id!=?2)",
+                params![id, wishlist_id],
+                |r| r.get(0),
+            )?;
+            if foreign {
+                return Err(Error::new("IMAGE_OWNER", "封面不属于这条心愿，请重新选择"));
+            }
+            let known: Option<(String, i64, String)> = tx
+                .query_row(
+                    "SELECT hash,size,name FROM wishlist_attachments WHERE id=?1 AND wishlist_id=?2",
+                    params![id, wishlist_id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .optional()?;
+            let (hash, size, name, new) = if let Some((hash, size, name)) = known {
+                (hash, size, name, false)
+            } else {
+                let staged = self.staged(id)?;
+                (staged.hash, staged.size as i64, staged.name, true)
+            };
+            if self.original(&hash)?.len() as i64 != size {
+                return Err(Error::new("IMAGE_CORRUPT", "封面图片大小校验失败"));
+            }
+            prepared = Some((id.clone(), hash, size, name, new));
+        }
+        tx.execute(
+            "DELETE FROM wishlist_media WHERE wishlist_id=?1",
+            [wishlist_id],
+        )?;
+        tx.execute(
+            "DELETE FROM wishlist_attachments WHERE wishlist_id=?1",
+            [wishlist_id],
+        )?;
+        if let Some((id, hash, size, name, new)) = prepared {
+            if new {
+                tx.execute(
+                    "INSERT INTO wishlist_attachments(id,wishlist_id,file,hash,size,name) VALUES(?1,?2,?3,?3,?4,?5)",
+                    params![id, wishlist_id, hash, size, name],
+                )?;
+            }
+            tx.execute(
+                "INSERT INTO wishlist_media(wishlist_id,cover_id) VALUES(?1,?2)",
+                params![wishlist_id, id],
             )?;
         }
         Ok(())
