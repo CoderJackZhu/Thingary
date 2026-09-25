@@ -198,7 +198,8 @@ fn entries(c: &Connection, kind: Kind) -> Result<Vec<Entry>> {
     } else {
         "NULL"
     };
-    let wishlist_references = if matches!(kind, Kind::Category) {
+    let schema: i64 = c.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    let wishlist_references = if schema >= 11 && matches!(kind, Kind::Category) {
         ", (SELECT count(*) FROM wishlist_items w WHERE w.category_id=t.id AND w.status='ongoing'), (SELECT count(*) FROM wishlist_items w WHERE w.category_id=t.id AND w.status='abandoned')"
     } else {
         ", 0, 0"
