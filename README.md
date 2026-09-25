@@ -24,7 +24,9 @@
 
 **T13 心愿转资产** 在 `codex/t13-wishlist-conversion` 实现并验收，结果与剩余边界见 [T13 记录](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)。
 
-**T14 有效时间轴**：全局页与资产详情共用一个只读投影，只含有效事实、未知日期单列、心愿实现与购入合为一条，见 [T14 记录](docs/verification/T14_TIMELINE_RESULT.md)；下一阶段为 T15 总览与分类分布。当前仓库没有远程，成果只有本地提交。
+**T14 有效时间轴**：全局页与资产详情共用一个只读投影，只含有效事实、未知日期单列、心愿实现与购入合为一条，见 [T14 记录](docs/verification/T14_TIMELINE_RESULT.md)。
+
+**T15 总览与分类分布**：当前持有与历史口径分开、未知数据单列、分类数量／金额占比与最近事件，见 [T15 记录](docs/verification/T15_OVERVIEW_RESULT.md)；下一阶段为 T16 购买趋势。当前仓库没有远程，成果只有本地提交。
 
 ## 项目文档
 
@@ -38,6 +40,7 @@
 - [Hermes 交接：T12 心愿记录](docs/handoffs/T12_HERMES.md)：新增／放弃、筛选排序、分类引用、预计金额与封面、迁移和隔离原生验收的执行契约及可复制 Prompt；实现已交回审阅。
 - [T13 心愿转资产](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)：schema 12、唯一转换事务、回执核对、软删除关系、自动与隔离原生证据
 - [T14 有效时间轴](docs/verification/T14_TIMELINE_RESULT.md)：事件投影口径、筛选、同源详情、更正/删除/恢复/重启不重复的自动与原生证据
+- [T15 总览与分类分布](docs/verification/T15_OVERVIEW_RESULT.md)：统计口径、独立样例、分类配色校验及原生 SQL 核对
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
 - [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。

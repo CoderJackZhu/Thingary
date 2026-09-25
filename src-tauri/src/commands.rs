@@ -504,3 +504,16 @@ pub async fn list_timeline(
     .await
     .map_err(|_| Error::new("WORKER", "时间轴读取失败，请重试"))?
 }
+
+#[tauri::command]
+pub async fn overview(
+    scope: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::insights::Overview> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.overview(&scope, &chrono::Local::now().format("%Y-%m-%d").to_string()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "总览读取失败，请重试"))?
+}

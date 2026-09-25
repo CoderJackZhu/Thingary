@@ -3,6 +3,7 @@ pub mod catalog;
 mod commands;
 pub mod domain;
 pub mod files;
+pub mod insights;
 pub mod lifecycle;
 pub mod maintenance;
 pub mod materials;
@@ -108,6 +109,7 @@ pub fn run() {
             commands::convert_wishlist,
             commands::stage_wishlist_cover,
             commands::list_timeline,
+            commands::overview,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,
