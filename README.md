@@ -16,9 +16,9 @@
 
 主目录复现隔离构建：`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`。本机 `.local/t06b.conf.json` 已沿用原隔离标识，配置与构建产物不入版本库。
 
-上一阶段：**T10 review 修复及原生核心补验完成，已按用户授权本地合并 main**。修复保留草稿后无法退出、保障附件 ID 跨实体混用两项问题；代码提交 `2b74e1f` 后前端 57 项、Rust 69 项、Demo 2 项及检查／构建通过。原生多份保障新增／同 ID 更正、日期校验、HEIC 草稿恢复／缺图修复／重启与写锁恢复已补验，见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。原生 800×600 截图及响应丢失 GUI 注入仍未覆盖；CP2/P0 尚未完成。
+上一阶段：**T10 review 修复及原生补验完成，已按用户授权本地合并 main**。修复保留草稿后无法退出、保障附件 ID 跨实体混用两项问题；代码提交 `2b74e1f` 后前端 57 项、Rust 69 项、Demo 2 项及检查／构建通过。原生多份保障新增／同 ID 更正、日期校验、HEIC 草稿恢复／缺图修复／重启与写锁恢复已补验，见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。后续又补齐原生 800×600 与提交后响应丢失／崩溃重启核对，见 [第 11 节](docs/verification/T10_WARRANTY_RESULT.md#11-cp2-原生缺口补验2026-09-25)；CP2/P0 状态仍以实施计划为准。
 
-最近完成 **T11 统一最近删除**：Z code 首轮实现后由 Codex 接续 review、修复与验收，最终代码修复提交 `57b1207` 已快进合并到本地 `main`。资产、维护和保障的统一软删除／恢复、四类筛选、原生父子独立恢复、保障删/恢复及重启持久性已通过。原生 800×600 和写锁／响应丢失 GUI 注入仍缺，CP2/P0 尚未判定完成。执行边界见 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。尚未配置远程或推送；T10 剩余两项原生证据不因 T11 自动记为通过。
+最近完成 **T11 统一最近删除**：Z code 首轮实现后由 Codex 接续 review、修复与验收，最终代码修复提交 `57b1207` 已快进合并到本地 `main`。资产、维护和保障的统一软删除／恢复、四类筛选、原生父子独立恢复、保障删/恢复及重启持久性已通过。原生 800×600 已补图；写锁／响应丢失 GUI 注入仍在补验，CP2/P0 尚未判定完成。执行边界见 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。尚未配置远程或推送。
 
 ## 项目文档
 

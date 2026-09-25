@@ -166,3 +166,11 @@
 两项 review 缺陷已修复，核心持久性与失败恢复补验通过，具备此次本地集成条件；按用户授权将 `codex/t10-warranties` 快进合并到主目录 `main`，保留开发分支与旧工作树，不推送、不发布、不启动 T11。
 
 尚未取得原生 800×600 截图（窗口坐标调整工具返回 noWindowsAvailable），不以现有浏览器小窗口截图代替。原生响应丢失后的 pending 故障注入尚未执行；本轮原生实际错误恢复覆盖的是写锁失败，pending 协议由自动测试与浏览器 fixture 提供证据。此前迁移和 E04/E05 固定用例结果继续有效，本轮未逐一重做每个原生筛选组合。以上保留为后续回归边界，不宣称全部 GUI 矩阵或 CP2/P0 完成。
+
+## 11. CP2 原生缺口补验（2026-09-25）
+
+本节更新上文历史缺口，不改变第 10 节当时的结论。将隔离 App 的窗口配置在构建时设为 **800×600 逻辑像素**，Sky 截图实得 1600×1200 Retina 像素；直接验收原生[列表](cp2/native-800-list.jpeg)、[资产详情](cp2/native-800-detail-light.jpeg)、[保障表单](cp2/native-800-warranty-form-light.jpeg)及[深色列表](cp2/native-800-list-dark.jpeg)。内容与操作入口在窗口宽度内，保障表单在竖向滚动；未发现横向溢出。此处没有用浏览器截图替代原生。
+
+针对响应丢失，在临时 QA 构建中让真实 `change_warranty` 完成提交后仅丢弃前端收到的回包，并让首次 `saved_request` 回包也丢失。原生表单保留提供方「T11 Fictional Warranty · response recovery」，输入冻结、仅允许[核对保存结果](cp2/native-warranty-response-pending.jpeg)；⌘Q 被待核对保护拦住。随后只终止此隔离 QA App 进程以模拟崩溃，重新启动后出现“恢复保障草稿”，点击即用原 request ID 查询回执，显示[同一份已更正保障](cp2/native-warranty-response-recovered.jpeg)。只读 SQLite 核对：保障 ID `8d80e696-868a-4e64-a3a4-56a6573909c8` 未变，请求 ID `119235b1-3a98-4cc3-8d10-a00b53e3b963` 只对应一条 `warranty_audit` 更正（sequence 5）；保障仍不进入资产成本，详情总投入 ¥1,300。临时注入仅用于这次原生测试，正常构建前撤除，不属于产品代码。
+
+原生 800×600 与保障响应丢失这两项现有证据；第 10 节所述其他矩阵边界照旧，T11 统一最近删除的补验另见其结果文档。
