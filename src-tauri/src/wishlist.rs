@@ -293,7 +293,7 @@ impl Store {
         let direction = if q.descending { "DESC" } else { "ASC" };
         let order = match q.sort.as_str() {
             "created" => format!("w.created_at {direction}"),
-            "priority" => "CASE w.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 ELSE 3 END ASC".into(),
+            "priority" => format!("w.priority IS NULL ASC,CASE w.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 END {direction}"),
             "price" => format!("w.estimated_price_cents IS NULL ASC,w.estimated_price_cents {direction}"),
             "target" => format!("w.target_date IS NULL ASC,w.target_date {direction}"),
             _ => return Err(Error::new("QUERY", "不支持的心愿排序")),

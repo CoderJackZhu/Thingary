@@ -4,9 +4,9 @@
 
 **定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 成本分析 + 本地数据。** 不做金融投资、日常记账或依赖服务器的家庭库存系统。
 
-当前已完成 CP1 基本资产流程：新增 → 浏览/详情 → 更正 → 删除/恢复，并接入封面、图片附件和 HEIC。T06–T11 已本地集成并达到 CP2 阶段出口。T12 心愿清单现已在任务分支实现并交回，等待 Codex review；包含新增、放弃历史、状态筛选、Grid/List、四种排序、分类引用、预计金额与独立封面，未实现 T13 的购入转换。范围与自动证据见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md)。完整 P0 未完成。中文名「物志」、英文名「Possio」为工作名，发布前再核查名称可用性。
+当前已完成 CP1 基本资产流程：新增 → 浏览/详情 → 更正 → 删除/恢复，并接入封面、图片附件和 HEIC。T06–T11 已本地集成并达到 CP2 阶段出口。T12 心愿清单已在任务分支实现并完成 Codex review 修复，待本地集成；包含新增、放弃历史、状态筛选、Grid/List、四种排序与分页、分类引用、预计金额与独立封面，未实现 T13 的购入转换。证据与未验边界见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md)。完整 P0 未完成。中文名「物志」、英文名「Possio」为工作名，发布前再核查名称可用性。
 
-已完成插入任务：**U01 内置素材库选择**。已由 Z code 按交接契约实现并本地提交，含 2026-09-25 用户中途调整：侧栏新增“素材库”页面（可上传/删除自定义素材，schema 9 持久化），新增/编辑表单“封面与图片”区平铺素材小图、点击即选。自动检查、浏览器及隔离原生证据见 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)；三项 Codex review P2 已修复，剩余原生上传／草稿／删除保留引用验收已补齐，达到 U01 阶段出口。已按用户授权本地合并到主项目，集成复核已通过，下一阶段可进入 T10。
+已完成插入任务：**U01 内置素材库选择**。已由 Z code 按交接契约实现并本地提交，含 2026-09-25 用户中途调整：侧栏新增“素材库”页面（可上传/删除自定义素材，schema 9 持久化），新增/编辑表单“封面与图片”区平铺素材小图、点击即选。自动检查、浏览器及隔离原生证据见 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)；三项 Codex review P2 已修复，剩余原生上传／草稿／删除保留引用验收已补齐，达到 U01 阶段出口，并已按用户授权本地合并到主项目。
 
 ## 当前工作位置与本地集成
 
@@ -20,7 +20,7 @@
 
 最近完成 **T11 统一最近删除与 CP2 补验**：Z code 首轮实现后由 Codex 接续 review、修复与验收，最终代码修复提交 `57b1207` 已快进合并到本地 `main`。资产、维护和保障的统一软删除／恢复、四类筛选、原生父子独立恢复、保障删/恢复及重启持久性已通过；原生 800×600、真实写锁失败后重试，以及恢复操作提交后回包丢失／崩溃重启按原请求核对也已补齐。临时注入源码已撤除，正常隔离包重建并复核。**CP2 达到阶段出口，完整 P0 尚未完成**；执行边界见 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。尚未配置远程或推送。
 
-下一阶段 **T12 心愿记录** 已准备 [Hermes 执行契约与可复制 Prompt](docs/handoffs/T12_HERMES.md)，尚未实施。Hermes 从本地主目录最新 `main` 创建任务分支完成 T12，再交回 Codex review；T13 心愿转资产暂不启动。当前仓库没有远程，既有成果和本次交接均只有本地提交。
+**T12 心愿记录** 的 [Hermes 执行契约](docs/handoffs/T12_HERMES.md) 已由任务分支落实，Codex review 的五项修复与原生定向补验见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md#codex-review-修复与补验2026-09-26)。T12 尚未合并 `main`；T13 心愿转资产暂不启动。当前仓库没有远程，成果只有本地提交。
 
 ## 项目文档
 
@@ -31,7 +31,7 @@
 - [T10 保障档案](docs/verification/T10_WARRANTY_RESULT.md)：schema 10、多份保障独立新增／同 ID 更正、查询时派生状态（含 0/30/31 天边界与未知日期不推断）、资产保障筛选交集、备份恢复覆盖与浏览器证据；review 修复与原生核心补验完成，剩余证据边界见第 10 节。
 - [Z code 交接：T11 统一最近删除](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)：父子独立软删除/恢复、费用和附件关系、统一筛选、错误恢复及原生验收的唯一执行契约，含可直接复制的 Prompt。
 - [T11 统一最近删除验证记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)：Z code 首轮与 Codex 接续修复、自动检查、隔离原生证据及未验边界。
-- [Hermes 交接：T12 心愿记录](docs/handoffs/T12_HERMES.md)：新增／放弃、筛选排序、分类引用、预计金额与封面、迁移和隔离原生验收的执行契约及可复制 Prompt；实现尚未开始。
+- [Hermes 交接：T12 心愿记录](docs/handoffs/T12_HERMES.md)：新增／放弃、筛选排序、分类引用、预计金额与封面、迁移和隔离原生验收的执行契约及可复制 Prompt；实现已交回审阅。
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
 - [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。
@@ -86,7 +86,7 @@ V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程
 
 附加 `?state=empty`、`?state=error`、`?state=save-error` 可检查空白、读取失败和保存失败；`?theme=dark` 可对照深色。这个开发入口不包含在 `npm run build` 的正式产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。原型原创 SVG 由预览与原生 App 共享；原生有照片时显示照片，没有照片封面时显示分类示意图，不写入附件。`?no-photos` 用于检查六种分类插图。布局按原始 A 还原，验收库的样例数量不同不能作为改变设计的理由。
 
-T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`，标识 `local.possio.t06b.preview`，使用独立虚构资料库。该包当前由 T11 分支代码构建（本地窗口标题仍为 T08，保留原包名），标识与虚构库保持不变。后续以主目录本地 `main` 为集成入口；浏览器预览刷新重置，原生验收包才会实际持久保存。
+T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`，标识 `local.possio.t06b.preview`，使用独立虚构资料库。该包当前由 T12 任务分支代码构建（本地窗口标题仍为 T08，保留原包名），标识与虚构库保持不变。集成后仍以主目录本地 `main` 为入口；浏览器预览刷新重置，原生验收包才会实际持久保存。
 
 
 ### 原生 Demo 样例

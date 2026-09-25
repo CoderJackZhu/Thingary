@@ -199,6 +199,25 @@ fn null_zero_future_sorts_search_and_stale_protocol() {
             .collect::<Vec<_>>(),
         ["alpha priced", "alpha future"]
     );
+    for (descending, expected) in [
+        (false, ["beta zero", "alpha priced", "alpha future"]),
+        (true, ["alpha future", "alpha priced", "beta zero"]),
+    ] {
+        let names = store
+            .query_wishlist(&Query {
+                search: String::new(),
+                filter: "ongoing".into(),
+                sort: "priority".into(),
+                descending,
+                offset: 0,
+            })
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|item| item.fields.name)
+            .collect::<Vec<_>>();
+        assert_eq!(names, expected);
+    }
     assert_eq!(query("created").total, 2);
     let request = uuid::Uuid::new_v4().to_string();
     add(&mut store, &request, fields("same", None), vec![]);
@@ -234,6 +253,37 @@ fn null_zero_future_sorts_search_and_stale_protocol() {
         store.change_wishlist(&stale).unwrap_err().code,
         "STALE_DATASET"
     );
+}
+
+#[test]
+fn wishlist_pagination_reaches_items_after_the_first_hundred() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(dir.path()).unwrap();
+    for index in 0..101 {
+        add(
+            &mut store,
+            &uuid::Uuid::new_v4().to_string(),
+            fields(&format!("虚构分页心愿 {index:03}"), None),
+            vec![],
+        );
+    }
+    let page = |offset| {
+        store
+            .query_wishlist(&Query {
+                search: String::new(),
+                filter: "ongoing".into(),
+                sort: "created".into(),
+                descending: true,
+                offset,
+            })
+            .unwrap()
+    };
+    let first = page(0);
+    let second = page(100);
+    assert_eq!((first.total, first.items.len()), (101, 100));
+    assert_eq!((second.total, second.items.len()), (101, 1));
+    assert!(!first.items.iter().any(|item| item.id == second.items[0].id));
+    assert_eq!(page(200).items.len(), 0);
 }
 
 #[test]

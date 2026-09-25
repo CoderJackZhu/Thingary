@@ -1,6 +1,6 @@
 # T12 心愿记录实现与验证
 
-日期：2026-09-25。起点 SHA：`1b443780d108554d12d89ce61992cfddfd2ccfae`；工作目录 `/Users/jackzhu/Code/Own/Possio`，分支 `codex/t12-wishlist`。本轮由单一 Codex 执行器串行实现；实际模型为 `gpt-5.6-sol`、`model_reasoning_effort=medium`、`workspace-write`，没有子代理、MoA、后台循环或全局配置变更。实现提交为 `c21c3af590696340453bec6ad1a4580cd5e4f4c2`，修复提交为 `37a36661dde4ef170ffdbc9279c551fde600b14f`；等待 Codex 独立 review。
+日期：2026-09-25。起点 SHA：`1b443780d108554d12d89ce61992cfddfd2ccfae`；工作目录 `/Users/jackzhu/Code/Own/Possio`，分支 `codex/t12-wishlist`。初版由单一 Hermes 执行器串行实现；实际模型为 `gpt-5.6-sol`、`model_reasoning_effort=medium`、`workspace-write`，没有子代理、MoA、后台循环或全局配置变更。实现提交为 `c21c3af590696340453bec6ad1a4580cd5e4f4c2`，首轮修复提交为 `37a36661dde4ef170ffdbc9279c551fde600b14f`；2026-09-26 Codex 独立 review 的修复与补验见文末。
 
 ## 实现范围
 
@@ -44,9 +44,25 @@
 
 迁移前已制作一致性保护快照 `/Users/jackzhu/Library/Application Support/local.possio.t06b.preview/library/backups/t12-protection-before-20260925-175113.sqlite`：schema 10、`integrity_check=ok`，14 assets / 13 categories / 10 channels / 6 maintenances / 3 warranties。启动隔离 App 后，原库为 schema 11、`integrity_check=ok`；上述 assets/categories/channels 数量保持，新增心愿表存在且 `wishlist_items=0`、`wishlist_audit=0`。未重导 Demo、未重置隔离库、未触碰普通 `local.possio.preview` 库。未配置远程、未推送、未合并、未发布，未提交用户 `.gitignore`。
 
-## 待 review 风险
+## 首轮交回时的 review 风险
 
 - schema 11、分类引用同事务、共享 `requests` 表中的心愿回执反序列化边界，以及独立心愿附件在备份／恢复／修复中的所有权校验，应以 Astra High 重点复审。
 - 原生关闭期间若正处于放弃请求的未知回执窗口，应重点确认可见恢复提示和原请求核对体验；自动测试已覆盖存储语义，未宣称 GUI 通过。
 - 原生窗口未出现，故自动测试与真实 schema 迁移不能代替可见 GUI 交互及重启持久性验收。
-- T12 仅交回 review，CP3、P0、AC17–19 均未宣布完成。
+- 首轮交回时 T12 尚未完成 review；CP3、P0、AC17–19 均未宣布完成。
+
+## Codex review 修复与补验（2026-09-26）
+
+独立 review 指出五项问题，已在 `codex/t12-wishlist` 修复：空白新增表单点击「取消」仍留下可恢复草稿；已保存封面缺少进入缺图修复的预览入口；查询最多返回 100 条但页面没有翻页；优先级排序按钮不能切换反向；1080×760 原生窗口内列表／网格文字因通用按钮宽度而换行。
+
+- 关闭表单时统一清除明确放弃的草稿，保留草稿仍可恢复。原生隔离 App 打开空白表单后取消、退出重启并回到心愿清单，未再出现「恢复草稿」入口。
+- 已保存心愿封面改为可聚焦的预览按钮，复用现有 `PhotoPreview` 的缺图提示和「重新选择原图修复」流程。隔离原生库新增「T12 虚构封面回归心愿」，选内置相机素材保存后，列表封面能打开原生模态预览；退出、重建 App 并再次启动后，心愿与封面入口仍在。此次没有故意移走托管原图，因此缺图后的原生文件选择与同图修复未重新点击；原有 Rust 缺图／同 hash 修复测试仍覆盖存储语义。
+- 页面按后端每页 100 条提供上一页／下一页和页码；结果集缩小导致当前页越界时回到最后有效页，旧请求的迟到响应不会覆盖新查询。Rust 新增 101 条跨页测试。
+- SQL 优先级排序尊重升降序，未设置优先级始终末尾；Rust 定向测试断言双向顺序。切换排序字段时使用该字段的常用初始方向。
+- 心愿工具栏局部修正分段按钮宽度和标签不换行，未修改资产页样式。重建后的隔离原生 App 在 1080×760 下目视确认「列表」「网格」横向完整显示、工具栏未溢出。
+
+上述原生操作只使用 `local.possio.t06b.preview` 虚构资料库；原始资产、分类、渠道未重置或重导。新增的虚构心愿留在隔离库供后续复核。T12 的放弃、筛选、分页大数据量及缺图修复完整 GUI 链路仍未作为原生通过项；浏览器或 Rust 证据不替代这些操作。未进入 T13，未配置远程、推送或发布。
+
+修复后已执行 `npm run test:ui`（68/68）、`npm test`（85/85，18 个测试二进制），心愿定向测试为 8/8。首次 `npm test` 在受限沙箱运行时，既有维护 HEIC 用例的 ImageIO 解码返回 `IMAGE_CORRUPT`；同一用例及完整 `npm test` 在普通 macOS 环境复跑通过。沙箱内 `sips` 读取该 HEIC 的尺寸成功，但转换 PNG 同样报错；此差异保留为环境边界，不隐去初次失败。
+
+其余检查在最终代码状态通过：`npm run test:demo`（2/2）、`npm run check`（fmt 与 Clippy `-D warnings`）、`npm run build`、`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app` 和 `git diff --check`。本机日志位于 `/tmp/possio-t12-fix-*.log`；没有把隔离库或图片加入 Git。
