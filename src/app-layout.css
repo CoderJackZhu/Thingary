@@ -23,6 +23,16 @@ button{border-radius:6px;font-weight:400}.primary{font-weight:600}.shell{grid-te
 @media(max-width:780px){.shell{grid-template-columns:130px minmax(0,1fr)}.sidebar{padding-inline:6px}.sidebar nav button{font-size:11px;padding:8px}.browser-columns{grid-template-columns:minmax(0,1fr)}.summary{border-left:0;border-top:1px solid var(--line);padding:20px}.summary-empty{padding:20px}.summary-cover .object-mark.large{height:160px}.summary .full-width{width:100%}.app-topbar .breadcrumb{display:none}.topbar-actions{width:100%;justify-content:space-between}.page-header h1{font-size:23px}.asset-overview strong{font-size:18px}.asset-overview p{display:block}.asset-hero{grid-template-columns:125px minmax(0,1fr)}.hero-copy h2{font-size:20px}.section-heading{flex-wrap:wrap}.grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}}
 @media(max-width:620px){.maintenance-editor .maintenance-fields{grid-template-columns:1fr}.maintenance-editor .maintenance-fields .wide{grid-column:auto}.asset-overview{grid-template-columns:1fr 1.4fr}.asset-overview>div:last-child{display:none}.asset-hero{grid-template-columns:1fr}.asset-hero>.object-mark.large{height:180px}.more-fields>summary>span{display:block;margin-left:14px}}
 
+/* The unified trash is a full page, while the shared segmented control is
+   otherwise sized for two icon-only view buttons. */
+.trash-panel{margin:0 28px 28px;min-width:0}
+.trash-panel>.muted{font-size:12px;line-height:1.7}
+.trash-panel .trash-filter{display:inline-flex;max-width:100%;flex-wrap:wrap;gap:5px;border:0;padding:0;background:transparent}
+.trash-panel .trash-filter button{width:auto;height:auto;padding:7px 13px;border:1px solid var(--line);border-radius:6px;white-space:nowrap;font-size:11px;color:var(--muted)}
+.trash-panel .trash-filter button[aria-pressed=true]{background:var(--selected);border-color:var(--selected);color:var(--accent);font-weight:600}
+.trash-panel .trash-list{margin:12px 0 22px}
+@media(max-width:1190px){.trash-panel{margin-inline:22px}}
+
 /* Match the Demo's fixed header and independently scrolling collection/summary. */
 .shell>main.browse-main{display:flex;flex-direction:column;overflow:hidden}.browse-main>.page-header,.browse-main>.app-topbar,.asset-overview{flex-shrink:0}.browse-main>.browse{display:flex;flex-direction:column;flex:1;min-height:0}.browse-main .browser-columns{flex:1;min-height:0}.browse-main .collection,.browse-main .summary{overflow:auto;min-height:0}.collection-toolbar{position:sticky;top:0;background:var(--bg);z-index:1}.object-mark{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.object-mark .photo-image{min-height:0;max-height:100%;height:100%;width:100%}.asset-row.selected:hover{background:var(--selected)}.summary .full-width + .full-width{margin-top:8px}.summary .holding-cost p{line-height:1.6}.sidebar nav button:disabled{opacity:.45}
 @media(max-width:780px){.browse-main .browser-columns{overflow:auto;display:block}.browse-main .collection,.browse-main .summary{overflow:visible}}

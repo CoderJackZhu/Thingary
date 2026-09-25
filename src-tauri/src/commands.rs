@@ -133,6 +133,50 @@ pub async fn change_trash(
 }
 
 #[tauri::command]
+pub async fn list_trash(
+    query: crate::trash::TrashQuery,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::trash::TrashPage> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.list_trash(&query)))
+        .await
+        .map_err(|_| Error::new("WORKER", "最近删除读取失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn change_record_trash(
+    input: crate::trash::RecordChange,
+    worker: tauri::State<'_, Worker>,
+) -> Result<AssetRecord> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.change_record_trash(&input, &chrono::Local::now().format("%Y-%m-%d").to_string())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到操作结果，请核对本次请求"))?
+}
+
+#[tauri::command]
+pub async fn saved_record_trash_request(
+    input: crate::trash::RecordChange,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<AssetRecord>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.saved_record_trash_request(
+                &input,
+                &chrono::Local::now().format("%Y-%m-%d").to_string(),
+            )
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "无法核对删除或恢复结果，请重试"))?
+}
+
+#[tauri::command]
 pub async fn pick_photo(
     app: tauri::AppHandle,
     generation: String,

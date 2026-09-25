@@ -4,7 +4,7 @@ import { mockIPC } from '@tauri-apps/api/mocks';
 import { emit } from '@tauri-apps/api/event';
 import type { AssetRecord, Page, Query, SaveAsset } from './asset';
 import { localDay } from './asset';
-import type { TrashChange } from './Trash';
+import type { TrashChange, RecordTrashChange, TrashEntry } from './Trash';
 import { applyPreviewCommand, previewSnapshot } from './taxonomy';
 import type { PreviewCatalog, TaxonomyCommand } from './taxonomy';
 import type { SaleChange, Sale } from './sales';
@@ -40,7 +40,12 @@ const taxonomyReceipts = new Map<string,string>();
 let catalog: PreviewCatalog = {categories:[...categoryNames,['box','其他']].map(([id,name])=>({id,name,icon:id as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:channelNames.map((name,i)=>({id:'demo-channel-'+i,name,references:{activeAssets:0,deletedAssets:0}})),assets:[]};
 function taxonomySnapshot() { catalog.assets=records.map(r=>({id:r.asset.id,categoryId:r.classification?.category_id??null,channelId:r.classification?.channel_id??null,deleted:r.deleted})); return {generation,revision:taxonomyRevision,...previewSnapshot(catalog)}; }
 const requests = new Map<string, AssetRecord>();
+const recordTrashReceipts = new Map<string, string>();
 const lostMaintenanceReceipts = new Set<string>();
+// In-memory stand-ins for independently deleted records (schema 10 deleted_at).
+// They leave the visible arrays but keep their content until restored.
+const deletedMaintenances: { id: string; assetId: string; deleted_at: string; snapshot: Maintenance }[] = [];
+const deletedWarranties: { id: string; assetId: string; deleted_at: string; snapshot: Warranty }[] = [];
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
 
@@ -70,7 +75,7 @@ if (!params.has('no-warranty') && params.get('state') !== 'empty') {
 if (params.has('maintenance-photo') && records[0]) records[0].maintenances=[{id:'maintenance-fixture',fields:{date:'2026-09-20',kind:'repair',title:'更换快门',description:'虚构验收记录',cost_cents:'15000',provider:'虚构维修点'},created_at:new Date().toISOString(),updated_at:new Date().toISOString(),photos:[{id:'maintenance-photo-fixture',name:'维护前照片'}]}];
 // This preview owns its isolated origin and only removes its own reminder keys:
 // records reset on reload, so pending requests from the previous fixture are stale.
-for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.taxonomy-request.v1','possio.lifecycle-draft.v1','possio.sale-draft.v1']) localStorage.removeItem(key);
+for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.record-trash-request.v1','possio.taxonomy-request.v1','possio.lifecycle-draft.v1','possio.sale-draft.v1']) localStorage.removeItem(key);
 if (!params.has('preserve-maintenance')) localStorage.removeItem('possio.maintenance-draft.v1');
 if (!params.has('preserve-warranty')) localStorage.removeItem('possio.warranty-draft.v1');
 if (params.has('theme')) localStorage.setItem('possio.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
@@ -147,6 +152,16 @@ mockIPC(async (command,payload) => {
     if(params.has('pending-receipt') && request==='request-stable') return structuredClone(records[0] ?? null);
     return structuredClone(requests.get(request) ?? null);
   }
+  if (command === 'saved_record_trash_request') {
+    const input = args.input as RecordTrashChange;
+    if (input.generation !== generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    const prior = recordTrashReceipts.get(input.request_id);
+    if (!prior && requests.has(input.request_id)) throw {code:'REQUEST_CONFLICT',message:'请求标识已用于其他操作。'};
+    if (prior && prior !== JSON.stringify(input)) throw {code:'REQUEST_CONFLICT',message:'请求内容不一致。'};
+    if (!prior) return null;
+    const record = records.find(r => r.asset.id === input.asset_id);
+    return record ? previewRecord(record) : null;
+  }
   if (command === 'trash_request') return structuredClone(requests.get(String(args.request)) ?? null);
   if (command === 'save_asset') {
     if(params.get('state')==='save-error') throw {message:'模拟保存失败，输入应保留。'};
@@ -167,6 +182,61 @@ mockIPC(async (command,payload) => {
     record.deleted_at = input.deleted ? new Date().toISOString() : null;
     record.asset.revision += 1;
     requests.set(input.request_id, previewRecord(record));
+    return previewRecord(record);
+  }
+  // Unified trash listing: independently deleted records plus deleted assets.
+  if (command === 'list_trash') {
+    const query = args.query as { filter: string; offset: number };
+    const items: TrashEntry[] = [];
+    for (const r of records) if (r.deleted) items.push({ kind:'asset', id:r.asset.id, title:r.asset.name, subtype:null, date:null, end_date:null, cost_cents:null, provider:null, deleted_at:r.deleted_at!, asset_id:null, asset_name:null, asset_deleted:true, asset_revision:r.asset.revision, asset_state:r.lifecycle?.state ?? 'active' });
+    const parentFacts = (assetId: string) => { const parent = records.find(r => r.asset.id === assetId); return parent ? { parent, state: parent.lifecycle?.state ?? 'active' } : null; };
+    for (const entry of deletedMaintenances) { const facts = parentFacts(entry.assetId); if (!facts) continue; items.push({ kind:'maintenance', id:entry.id, title:entry.snapshot.fields.title, subtype:entry.snapshot.fields.kind, date:entry.snapshot.fields.date, end_date:null, cost_cents:entry.snapshot.fields.cost_cents, provider:null, deleted_at:entry.deleted_at, asset_id:facts.parent.asset.id, asset_name:facts.parent.asset.name, asset_deleted:facts.parent.deleted, asset_revision:facts.parent.asset.revision, asset_state:facts.state }); }
+    for (const entry of deletedWarranties) { const facts = parentFacts(entry.assetId); if (!facts) continue; items.push({ kind:'warranty', id:entry.id, title:entry.snapshot.fields.provider, subtype:entry.snapshot.fields.kind, date:entry.snapshot.fields.start_date, end_date:entry.snapshot.fields.end_date, cost_cents:null, provider:entry.snapshot.fields.provider, deleted_at:entry.deleted_at, asset_id:facts.parent.asset.id, asset_name:facts.parent.asset.name, asset_deleted:facts.parent.deleted, asset_revision:facts.parent.asset.revision, asset_state:facts.state }); }
+    const found = query.filter === 'all' ? items : items.filter(i => i.kind === query.filter);
+    found.sort((a,b) => b.deleted_at.localeCompare(a.deleted_at) || a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id));
+    return { generation, items: found.slice(query.offset, query.offset + 100), total: found.length };
+  }
+  if (command === 'change_record_trash') {
+    const input = args.input as RecordTrashChange;
+    if (input.generation !== generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    const prior = recordTrashReceipts.get(input.request_id);
+    if (prior && prior !== JSON.stringify(input)) throw {code:'REQUEST_CONFLICT',message:'请求内容不一致。'};
+    if (!prior && requests.has(input.request_id)) throw {code:'REQUEST_CONFLICT',message:'请求标识已用于其他操作。'};
+    const record = records.find(r => r.asset.id === input.asset_id);
+    if (!record) throw {code:'NOT_FOUND',message:'找不到所属物品。'};
+    if (prior) return previewRecord(record);
+    if (record.deleted) throw {code:'PARENT_DELETED',message:'所属物品还在最近删除中。请先恢复所属物品，再处理这条记录。'};
+    if (record.asset.revision !== input.expected_revision) throw {code:'REVISION_CONFLICT',message:'所属物品已更改，请重新读取后再决定。'};
+    if (input.kind === 'maintenance') {
+      if (input.deleted) {
+        const item = record.maintenances.find(m => m.id === input.record_id);
+        if (!item) throw {code:'REVISION_CONFLICT',message:'维护记录状态已变化，请重新读取后再决定。'};
+        record.maintenances = record.maintenances.filter(m => m.id !== input.record_id);
+        deletedMaintenances.push({ id: item.id, assetId: record.asset.id, deleted_at: new Date().toISOString(), snapshot: structuredClone(item) });
+      } else {
+        const index = deletedMaintenances.findIndex(e => e.id === input.record_id && e.assetId === record.asset.id);
+        if (index === -1) throw {code:'REVISION_CONFLICT',message:'维护记录状态已变化，请重新读取后再决定。'};
+        const [entry] = deletedMaintenances.splice(index, 1);
+        record.maintenances = [...record.maintenances, structuredClone(entry.snapshot)];
+      }
+    } else {
+      if (input.deleted) {
+        const item = (record.warranties ?? []).find(w => w.id === input.record_id);
+        if (!item) throw {code:'REVISION_CONFLICT',message:'保障记录状态已变化，请重新读取后再决定。'};
+        record.warranties = (record.warranties ?? []).filter(w => w.id !== input.record_id);
+        deletedWarranties.push({ id: item.id, assetId: record.asset.id, deleted_at: new Date().toISOString(), snapshot: structuredClone(item) });
+      } else {
+        const index = deletedWarranties.findIndex(e => e.id === input.record_id && e.assetId === record.asset.id);
+        if (index === -1) throw {code:'REVISION_CONFLICT',message:'保障记录状态已变化，请重新读取后再决定。'};
+        const [entry] = deletedWarranties.splice(index, 1);
+        record.warranties = [...(record.warranties ?? []), structuredClone(entry.snapshot)];
+      }
+    }
+    record.asset.revision++; record.updated_at = new Date().toISOString();
+    requests.set(input.request_id, previewRecord(record));
+    recordTrashReceipts.set(input.request_id, JSON.stringify(input));
+    // Simulates a lost response after commit so the pending/核对 flow is demoable.
+    if (params.has('record-trash-lost')) throw {message:'模拟记录删除响应丢失。'};
     return previewRecord(record);
   }
   if (command === 'change_lifecycle') {
