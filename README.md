@@ -20,6 +20,8 @@
 
 最近完成 **T11 统一最近删除与 CP2 补验**：Z code 首轮实现后由 Codex 接续 review、修复与验收，最终代码修复提交 `57b1207` 已快进合并到本地 `main`。资产、维护和保障的统一软删除／恢复、四类筛选、原生父子独立恢复、保障删/恢复及重启持久性已通过；原生 800×600、真实写锁失败后重试，以及恢复操作提交后回包丢失／崩溃重启按原请求核对也已补齐。临时注入源码已撤除，正常隔离包重建并复核。**CP2 达到阶段出口，完整 P0 尚未完成**；执行边界见 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。尚未配置远程或推送。
 
+下一阶段 **T12 心愿记录** 已准备 [Hermes 执行契约与可复制 Prompt](docs/handoffs/T12_HERMES.md)，尚未实施。Hermes 从本地主目录最新 `main` 创建任务分支完成 T12，再交回 Codex review；T13 心愿转资产暂不启动。当前仓库没有远程，既有成果和本次交接均只有本地提交。
+
 ## 项目文档
 
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、技术原则、P0/P1/P2 和验收标准。
@@ -29,6 +31,7 @@
 - [T10 保障档案](docs/verification/T10_WARRANTY_RESULT.md)：schema 10、多份保障独立新增／同 ID 更正、查询时派生状态（含 0/30/31 天边界与未知日期不推断）、资产保障筛选交集、备份恢复覆盖与浏览器证据；review 修复与原生核心补验完成，剩余证据边界见第 10 节。
 - [Z code 交接：T11 统一最近删除](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)：父子独立软删除/恢复、费用和附件关系、统一筛选、错误恢复及原生验收的唯一执行契约，含可直接复制的 Prompt。
 - [T11 统一最近删除验证记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)：Z code 首轮与 Codex 接续修复、自动检查、隔离原生证据及未验边界。
+- [Hermes 交接：T12 心愿记录](docs/handoffs/T12_HERMES.md)：新增／放弃、筛选排序、分类引用、预计金额与封面、迁移和隔离原生验收的执行契约及可复制 Prompt；实现尚未开始。
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
 - [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。
