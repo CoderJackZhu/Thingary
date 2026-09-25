@@ -278,3 +278,152 @@ fn category_color_slot_is_stable_across_scopes() {
     assert_eq!(slot("history", Some(&cats[1].id)), Some(Some(0)));
     assert_eq!(slot("held", None), Some(None));
 }
+
+#[test]
+fn ac36_trend_buckets_are_inclusive_continuous_and_never_reduced_by_sales() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let today = "2026-01-15";
+    let add = |s: &mut Store, name: &str, price: Option<&str>, date: Option<&str>| {
+        s.save_asset(
+            &SaveAsset {
+                base: Save {
+                    request_id: id(),
+                    generation: s.generation(),
+                    asset_id: None,
+                    expected_revision: None,
+                    name: name.into(),
+                    price_cents: price.map(str::to_owned),
+                    purchase_date: date.map(str::to_owned),
+                },
+                details: Details::default(),
+                photos: None,
+                classification: None,
+            },
+            today,
+        )
+        .unwrap()
+    };
+    add(&mut s, "leap", Some("1000"), Some("2024-02-29"));
+    add(&mut s, "q3-end", Some("2000"), Some("2025-09-30"));
+    add(&mut s, "q4-start", None, Some("2025-10-01"));
+    let sold = add(&mut s, "year-end", Some("4000"), Some("2025-12-31"));
+    s.change_sale(
+        &sales::Change {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: sold.asset.id.clone(),
+            expected_revision: sold.asset.revision,
+            action: sales::Action::Sell {
+                fields: sales::Fields {
+                    date: "2026-01-02".into(),
+                    price_cents: "9999".into(),
+                    platform: String::new(),
+                    buyer: String::new(),
+                    notes: String::new(),
+                },
+            },
+        },
+        today,
+    )
+    .unwrap();
+    add(&mut s, "new-year", Some("8000"), Some("2026-01-01"));
+    add(&mut s, "undated", Some("500"), None);
+    let gone = add(&mut s, "deleted", Some("70000"), Some("2025-12-31"));
+    s.change_trash(&TrashChange {
+        request_id: id(),
+        generation: s.generation(),
+        asset_id: gone.asset.id.clone(),
+        expected_revision: gone.asset.revision,
+        deleted: true,
+    })
+    .unwrap();
+
+    let year = s.purchase_trend("year", today).unwrap();
+    let rows: Vec<_> = year
+        .buckets
+        .iter()
+        .map(|b| {
+            (
+                b.key.as_str(),
+                b.start.as_str(),
+                b.end.as_str(),
+                b.count,
+                b.known_cents.as_str(),
+                b.cumulative_cents.as_str(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            ("2024", "2024-01-01", "2024-12-31", 1, "1000", "1000"),
+            ("2025", "2025-01-01", "2025-12-31", 3, "6000", "7000"),
+            ("2026", "2026-01-01", "2026-12-31", 1, "8000", "15000")
+        ]
+    );
+    assert_eq!(
+        (
+            year.unknown_price_count,
+            year.unknown_date_count,
+            year.unknown_date_known_cents.as_str(),
+            year.known_cents.as_str()
+        ),
+        (1, 1, "500", "15000")
+    );
+
+    let quarter = s.purchase_trend("quarter", today).unwrap();
+    assert_eq!(
+        quarter.buckets.len(),
+        9,
+        "2024-Q1 … 2026-Q1 with empty quarters kept"
+    );
+    let q = |k: &str| quarter.buckets.iter().find(|b| b.key == k).unwrap().clone();
+    assert_eq!(
+        (q("2024-Q1").end.as_str(), q("2024-Q1").count),
+        ("2024-03-31", 1)
+    );
+    assert_eq!(
+        (
+            q("2025-Q3").count,
+            q("2025-Q4").count,
+            q("2025-Q4").unknown_price_count
+        ),
+        (1, 2, 1)
+    );
+    assert_eq!(
+        (q("2025-Q2").count, q("2025-Q2").cumulative_cents.as_str()),
+        (0, "1000")
+    );
+
+    let month = s.purchase_trend("month", today).unwrap();
+    let m = |k: &str| month.buckets.iter().find(|b| b.key == k).unwrap().clone();
+    assert_eq!(
+        (m("2024-02").end.as_str(), m("2024-02").count),
+        ("2024-02-29", 1),
+        "leap day stays in February"
+    );
+    assert_eq!(
+        (
+            m("2025-09").end.as_str(),
+            m("2025-09").count,
+            m("2025-10").count
+        ),
+        ("2025-09-30", 1, 1)
+    );
+    assert_eq!(month.buckets.first().unwrap().key, "2024-02");
+    assert_eq!(month.buckets.last().unwrap().key, "2026-01");
+    assert!(month
+        .buckets
+        .windows(2)
+        .all(|w| w[0].cumulative_cents.parse::<i64>().unwrap()
+            <= w[1].cumulative_cents.parse::<i64>().unwrap()));
+    assert!(s.purchase_trend("week", today).is_err());
+    let empty = tempfile::tempdir().unwrap();
+    assert!(Store::open(empty.path())
+        .unwrap()
+        .purchase_trend("month", today)
+        .unwrap()
+        .buckets
+        .is_empty());
+}

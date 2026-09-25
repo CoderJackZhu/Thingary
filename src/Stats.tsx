@@ -1,0 +1,58 @@
+import { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { errorMessage, money } from './asset';
+
+type Bucket = { key: string; start: string; end: string; count: number; known_cents: string; unknown_price_count: number; cumulative_cents: string };
+type Trend = { generation: string; today: string; granularity: Granularity; buckets: Bucket[]; known_cents: string; unknown_price_count: number; unknown_date_count: number; unknown_date_known_cents: string };
+type Granularity = 'month' | 'quarter' | 'year';
+
+const W = 640, H = 180, L = 56, B = 22, T = 10;
+function ticks(max: number) {
+  if (max <= 0) return [0];
+  const step = 10 ** Math.floor(Math.log10(max)), unit = [1, 2, 5, 10].map(n => n * step).find(n => max / n <= 4) ?? step * 10;
+  // The top gridline must sit at or above the largest value so no mark overflows.
+  return Array.from({ length: Math.ceil(max / unit) + 1 }, (_, i) => i * unit);
+}
+const yuan = (cents: number) => cents >= 1_000_000 ? `¥${(cents / 1_000_000).toFixed(cents % 1_000_000 ? 1 : 0)}万` : `¥${Math.round(cents / 100)}`;
+
+/** One series, one axis: the chart title names it, the table below is the exact view. */
+function Chart({ buckets, value, kind, label }: { buckets: Bucket[]; value: (b: Bucket) => number; kind: 'bar' | 'line'; label: string }) {
+  const max = Math.max(...buckets.map(value), 0), grid = ticks(max), top = grid.at(-1) || 1;
+  const step = (W - L) / buckets.length, y = (v: number) => T + (H - T - B) * (1 - v / top);
+  const every = Math.ceil(buckets.length / 8);
+  const points = buckets.map((b, i) => `${L + step * (i + 0.5)},${y(value(b))}`).join(' ');
+  return <svg className="trend-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
+    {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className="grid"/><text x={L - 6} y={y(v) + 3} textAnchor="end">{yuan(v)}</text></g>)}
+    {buckets.map((b, i) => i % every === 0 && <text key={b.key} x={L + step * (i + 0.5)} y={H - 6} textAnchor="middle">{b.key}</text>)}
+    {kind === 'line' && <polyline points={points} className="trend-line"/>}
+    {buckets.map((b, i) => { const x = L + step * i, v = value(b);
+      return <g key={b.key} className="trend-hit"><rect x={x} y={T} width={step} height={H - T - B} className="hit"/>
+        {kind === 'bar' ? v > 0 && <rect x={x + Math.max(step * 0.2, 1)} y={y(v)} width={Math.max(step * 0.6, 1)} height={Math.max(H - B - y(v), 1)} rx={Math.min(3, step * 0.2)} className="trend-bar"/> : <circle cx={x + step / 2} cy={y(v)} r={buckets.length > 40 ? 0 : 3} className="trend-dot"/>}
+        <title>{b.key}（{b.start} 至 {b.end}）：{kind === 'bar' ? `购入 ${money(b.known_cents)}，${b.count} 件${b.unknown_price_count ? `，${b.unknown_price_count} 件金额未知` : ''}` : `累计 ${money(b.cumulative_cents)}`}</title></g>; })}
+    <line x1={L} x2={W} y1={H - B} y2={H - B} className="axis"/>
+  </svg>;
+}
+
+export function StatsPage() {
+  const [granularity, setGranularity] = useState<Granularity>('month');
+  const [trend, setTrend] = useState<Trend | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let live = true; setError('');
+    invoke<Trend>('purchase_trend', { granularity }).then(t => { if (live) setTrend(t); }).catch(e => { if (live) setError(errorMessage(e)); });
+    return () => { live = false; };
+  }, [granularity, retry]);
+  return <section className="stats-section" aria-label="统计">
+    <article className="detail-section overview-card">
+      <div className="section-heading"><h3>购买趋势</h3><span>历史全部：含已售出，不含已删除；按购入日期归入期间，期间首尾两天都包含</span></div>
+      <div className="overview-controls"><div className="segmented" role="group" aria-label="期间粒度">{([['month', '按月'], ['quarter', '按季'], ['year', '按年']] as const).map(([k, l]) => <button key={k} aria-pressed={granularity === k} onClick={() => setGranularity(k)}>{l}</button>)}</div></div>
+      {error ? <div role="alert"><p>趋势读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : !trend ? <p role="status" className="muted">正在读取趋势…</p> : <>
+        <p className="trend-summary">已知购入合计 <strong>{money(trend.known_cents)}</strong>{trend.unknown_price_count > 0 && ` · ${trend.unknown_price_count} 件有日期但金额未知，未计入`}{trend.unknown_date_count > 0 && ` · ${trend.unknown_date_count} 件购入日期未知，不归入任何期间（其中已知金额 ${money(trend.unknown_date_known_cents)}）`}</p>
+        {!trend.buckets.length ? <p className="muted">还没有带购入日期的物品。</p> : <>
+          <h4 className="chart-title">各期间购入金额</h4><Chart buckets={trend.buckets} value={b => Number(b.known_cents)} kind="bar" label="各期间购入金额柱状图"/>
+          <h4 className="chart-title">累计购入金额 <span className="muted">出售不回减，不是当前估值</span></h4><Chart buckets={trend.buckets} value={b => Number(b.cumulative_cents)} kind="line" label="累计购入金额折线图"/>
+          <details className="trend-table"><summary>查看表格</summary><table className="distribution-table"><thead><tr><th>期间</th><th>起止</th><th>件数</th><th>购入金额</th><th>累计</th></tr></thead><tbody>{trend.buckets.slice().reverse().map(b => <tr key={b.key}><td>{b.key}</td><td>{b.start} 至 {b.end}</td><td>{b.count}</td><td>{money(b.known_cents)}{b.unknown_price_count > 0 && <small> · {b.unknown_price_count} 件未知</small>}</td><td>{money(b.cumulative_cents)}</td></tr>)}</tbody></table></details>
+        </>}
+      </>}
+    </article>
+  </section>;
+}

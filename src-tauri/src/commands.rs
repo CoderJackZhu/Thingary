@@ -517,3 +517,21 @@ pub async fn overview(
     .await
     .map_err(|_| Error::new("WORKER", "总览读取失败，请重试"))?
 }
+
+#[tauri::command]
+pub async fn purchase_trend(
+    granularity: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::insights::Trend> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.purchase_trend(
+                &granularity,
+                &chrono::Local::now().format("%Y-%m-%d").to_string(),
+            )
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "趋势读取失败，请重试"))?
+}

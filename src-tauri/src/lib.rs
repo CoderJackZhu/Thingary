@@ -110,6 +110,7 @@ pub fn run() {
             commands::stage_wishlist_cover,
             commands::list_timeline,
             commands::overview,
+            commands::purchase_trend,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,

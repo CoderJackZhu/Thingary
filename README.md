@@ -26,7 +26,9 @@
 
 **T14 有效时间轴**：全局页与资产详情共用一个只读投影，只含有效事实、未知日期单列、心愿实现与购入合为一条，见 [T14 记录](docs/verification/T14_TIMELINE_RESULT.md)。
 
-**T15 总览与分类分布**：当前持有与历史口径分开、未知数据单列、分类数量／金额占比与最近事件，见 [T15 记录](docs/verification/T15_OVERVIEW_RESULT.md)；下一阶段为 T16 购买趋势。当前仓库没有远程，成果只有本地提交。
+**T15 总览与分类分布**：当前持有与历史口径分开、未知数据单列、分类数量／金额占比与最近事件，见 [T15 记录](docs/verification/T15_OVERVIEW_RESULT.md)。
+
+**T16 购买趋势**：统计页按月／季／年的连续期间购入金额与累计（出售不回减、未知日期不归期），见 [T16 记录](docs/verification/T16_TRENDS_RESULT.md)；下一阶段为 T17 持有周期与成本排行。当前仓库没有远程，成果只有本地提交。
 
 ## 项目文档
 
@@ -41,6 +43,7 @@
 - [T13 心愿转资产](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)：schema 12、唯一转换事务、回执核对、软删除关系、自动与隔离原生证据
 - [T14 有效时间轴](docs/verification/T14_TIMELINE_RESULT.md)：事件投影口径、筛选、同源详情、更正/删除/恢复/重启不重复的自动与原生证据
 - [T15 总览与分类分布](docs/verification/T15_OVERVIEW_RESULT.md)：统计口径、独立样例、分类配色校验及原生 SQL 核对
+- [T16 购买趋势](docs/verification/T16_TRENDS_RESULT.md)：期间边界、闰日与月底、未知值与累计口径的自动及原生证据
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
 - [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。
