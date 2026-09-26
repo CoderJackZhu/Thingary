@@ -1,3 +1,4 @@
+import {persistSubmission} from './editor-session';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, type AssetRecord, type Photo } from './asset';
@@ -13,26 +14,25 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose 
   const dialog = useRef<HTMLDialogElement>(null), lock = useRef(false);
   const [state, setState] = useState(initial.state), [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(initial.issue?.message ?? '');
-  const [issue, setIssue] = useState(initial.issue), [confirmClose, setConfirmClose] = useState<CloseIntent | null>(null);
+  const [issue, setIssue] = useState(initial.issue);
   const blocked = issue?.kind === 'blocked', conflict = issue?.kind === 'conflict';
   const frozen = busy || !!state.pending || blocked || conflict;
-  const dirty = JSON.stringify(state.fields) !== JSON.stringify(state.original) || JSON.stringify(state.fields.photo_ids) !== JSON.stringify(state.original.photo_ids);
 
   useEffect(() => { dialog.current?.showModal(); document.getElementById('warranty-provider')?.focus(); return () => dialog.current?.close(); }, []);
   useEffect(() => { if (closeIntent) askClose(closeIntent); }, [closeIntent]);
 
   function remember(next: WarrantyState) {
-    localStorage.setItem(warrantyKey, JSON.stringify(next));
+    persistSubmission(warrantyKey, next);
     setState(next);
   }
   function edit<K extends keyof WarrantyDraft>(name: K, value: WarrantyDraft[K]) {
     const next = { ...state, fields: { ...state.fields, [name]: value } };
-    try { remember(next); } catch { setNotice('草稿持久保存失败，请保持窗口打开并保存。'); }
+    try { remember(next); } catch { setNotice('暂时无法记录保存请求，请重试。'); }
   }
   function askClose(intent: CloseIntent) {
     if (blocked && !lock.current) { onClose(intent, true); return; }
     if (lock.current || state.pending) { setNotice('请先核对保障保存结果，再关闭表单。'); onKeep(); return; }
-    if (dirty) setConfirmClose(intent); else onClose(intent);
+    onClose(intent);
   }
   function success(record: AssetRecord) { localStorage.removeItem(warrantyKey); onSaved(record); }
   async function pickPhoto() {
@@ -94,7 +94,14 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose 
 
   async function enableReminder(){if(lock.current)return;lock.current=true;setBusy(true);try{await allowReminders();edit('reminder',{date:state.fields.end,notes:''});setNotice('')}catch(e){setNotice(errorMessage(e))}finally{lock.current=false;setBusy(false)}}
   return <dialog ref={dialog} className="editor warranty-editor" aria-labelledby="warranty-heading" onCancel={event => { event.preventDefault(); askClose('form'); }}><form noValidate onSubmit={event => { event.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">保障档案</p><h2 id="warranty-heading">{state.warranty_id ? '更正保障记录' : '添加保障记录'}</h2><p className="muted">更正保留原记录标识；保障可以未来开始或到期，未知日期保持留空。</p></div><button type="button" aria-label="关闭保障表单" disabled={busy || (!!state.pending && !blocked)} onClick={() => askClose('form')}>×</button></header>
+    <header><div><p className="eyebrow">保障档案</p><h2 id="warranty-heading">{state.warranty_id ? '更正保障记录' : '添加保障记录'}</h2><p className="muted">更正保留原记录标识；保障可以未来开始或到期，未知日期保持留空。</p></div><button type="button" aria-label="关闭保障表单" disabled={busy || (!!state.pending && !blocked)} onClick={() => askClose('form')}>×</button><div className="editor-header-actions">{blocked ? <>
+      <button type="button" disabled={busy} onClick={() => onClose('form', !!state.pending)}>关闭</button>
+      <button type="button" disabled={busy} onClick={() => void check()}>重新核对资料库</button>
+    </> : <>
+      <button type="button" disabled={frozen} onClick={clear}>清空</button>
+      <button type="button" disabled={busy || !!state.pending} onClick={() => askClose('form')}>取消</button>
+      {state.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对保障保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void check()}>重新读取当前记录</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存保障记录'}</button>}
+    </>}</div></header>
     <div className="fields warranty-fields"><label className="field">类型<select value={state.fields.kind} disabled={frozen} onChange={event => edit('kind', event.target.value as WarrantyDraft['kind'])}>{warrantyKinds.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label><label className="field">提供方（可留空）<input id="warranty-provider" maxLength={200} value={state.fields.provider} disabled={frozen} onChange={event => edit('provider', event.target.value)}/></label><div className="field"><label htmlFor="warranty-start">开始日期（可留空）</label><DateInput id="warranty-start" value={state.fields.start} disabled={frozen} allowClear onChange={value => edit('start', value)}/></div><div className="field"><label htmlFor="warranty-end">结束日期（可留空）</label><DateInput id="warranty-end" value={state.fields.end} disabled={frozen} allowClear onChange={value => edit('end', value)}/></div><label className="field wide">备注<textarea maxLength={10000} value={state.fields.notes} disabled={frozen} onChange={event => edit('notes', event.target.value)}/></label></div>
     <section className="form-block"><FormRow label="启用保障到期提醒" hint="所选日期上午 9:00 通知"><Switch label="启用保障到期提醒" value={!!state.fields.reminder} disabled={frozen} onChange={v=>{if(!v)edit('reminder',null);else void enableReminder()}}/></FormRow>{state.fields.reminder&&<><FormRow label="提醒日期"><DateInput id="warranty-reminder" value={state.fields.reminder.date} max={state.fields.end||undefined} disabled={frozen} onChange={date=>edit('reminder',{...state.fields.reminder!,date})}/></FormRow><FormRow label="提醒备注"><input aria-label="提醒备注" value={state.fields.reminder.notes} disabled={frozen} onChange={e=>edit('reminder',{...state.fields.reminder!,notes:e.target.value})}/></FormRow></>}</section>
     <section className="photo-section"><h3>保障图片 <small>{state.photos.length}</small></h3><div className="photo-strip">{state.photos.map(photo => <span className="photo-tile" key={photo.id}>{blocked ? <span>原资料库图片 · {photo.name}</span> : <PhotoView photo={photo} generation={state.generation}/>}<span className="photo-name">{photo.name}</span><button type="button" disabled={frozen} onClick={() => removePhoto(photo.id)}>移除</button></span>)}</div><button type="button" disabled={frozen} onClick={() => void pickPhoto()}>添加图片</button></section>
@@ -106,17 +113,7 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose 
       <p>上方保留你的原输入，尚未覆盖当前记录。</p>
       <button type="button" disabled={busy} onClick={acceptLatest}>确认保留我的输入并使用最新版本</button>
     </div>}
-    {confirmClose ? <div className="confirm" role="alert">
-      <strong>保障修改尚未保存</strong><p>可以保留草稿后关闭，下次启动再恢复；放弃会删除草稿。</p>
-      <div className="actions"><button type="button" onClick={() => { setConfirmClose(null); onKeep(); }}>继续编辑</button><button type="button" onClick={() => onClose(confirmClose, true)}>保留草稿并关闭</button><button type="button" onClick={() => onClose(confirmClose)}>放弃修改</button></div>
-    </div> : <footer className="actions">{blocked ? <>
-      <button type="button" disabled={busy} onClick={() => onClose('form', true)}>保留草稿并关闭</button>
-      <button type="button" disabled={busy} onClick={() => void check()}>重新核对资料库</button>
-    </> : <>
-      <button type="button" disabled={frozen} onClick={clear}>清空</button>
-      <button type="button" disabled={busy || !!state.pending} onClick={() => askClose('form')}>取消</button>
-      {state.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对保障保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void check()}>重新读取当前记录</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存保障记录'}</button>}
-    </>}</footer>}
+
 
   </form></dialog>;
 }

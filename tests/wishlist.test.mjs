@@ -55,7 +55,7 @@ test('wishlist UI replays full receipts, exposes abandon retry, and uses categor
   assert.match(app, /if \(wishlistEditing \|\| !page/);
   assert.match(app, /disabled=\{wishlistEditing \|\| !!\(trashRecovery \|\| recordTrashRecovery\)\}/);
   assert.match(app, /useState\(\(\) => !!storedWishlistDraft\(localStorage\) \|\| !!storedWishlistChange\(localStorage, wishlistAbandonKey\)\)/);
-  assert.match(app, /有一份心愿草稿或待确认操作，请先处理/);
+  assert.match(app, /有一次心愿保存结果待确认，请先处理/);
 });
 
 test('grid/list and all four sorts are represented by the authoritative query contract', () => {
@@ -68,7 +68,7 @@ test('wishlist dates render the local day, not the UTC prefix', async () => {
   process.env.TZ = 'Asia/Shanghai';
   const { localDay } = await import('../src/asset.ts');
   assert.equal(localDay(new Date('2020-01-01T20:09:16.652389+00:00')), '2020-01-02');
-  assert.match(readFileSync(new URL('../src/WishlistPanel.tsx', import.meta.url), 'utf8'), /加入：\{item\.preferences\?\.added_date\?\?localDay\(new Date\(item\.created_at\)\)\}.*放弃：' \+ localDay\(new Date\(item\.abandoned_at\)\)/);
+  assert.match(readFileSync(new URL('../src/WishlistPanel.tsx', import.meta.url), 'utf8'), /item\.preferences\?\.added_date\?\?localDay\(new Date\(item\.created_at\)\)/);
 });
 
 test('conversion form never copies the estimate into the actual price and reuses receipt recovery', () => {
@@ -79,6 +79,8 @@ test('conversion form never copies the estimate into the actual price and reuses
   assert.doesNotMatch(main, /price: [^,}]*estimated_price/);
   assert.match(editor, /conversion \? await invoke<AssetRecord>\('convert_wishlist'/);
   assert.match(editor, /invoke<AssetRecord \| null>\('saved_request', \{ request: input\.base\.request_id/);
-  assert.match(panel, /item\.status !== 'abandoned' && <div className="wishlist-actions">.*已购入…/);
-  assert.match(panel, /item\.converted_asset\.deleted \?.*前往最近删除.*查看资产/);
+  const detail = readFileSync(new URL('../src/WishDetail.tsx', import.meta.url), 'utf8');
+  assert.match(detail, /!item.converted_asset/);
+  assert.match(detail, /前往最近删除/);
+  assert.match(detail, /查看资产/);
 });

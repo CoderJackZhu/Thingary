@@ -3,7 +3,9 @@
 版本：v0.49 · 日期：2026-09-27 · 状态：T01–T21 已本地集成 main；Claude 判定 CP3、CP4 达到出口，P0 闭环完成（AC40 未实测项为已接受风险）。T22 自用正式版经 Claude review（identifier 更正为 `local.possio.main`）后本地合并，`/Applications/物志.app` 可开始录入真实资料；见 [T22 记录](verification/T22_SELF_USE_RELEASE_RESULT.md)。用户已指定并确认安装 P1 的首次样例和日期输入两项，现已完成并安装；正式库未用于开发验收。未配置远程或推送。
 
 
-当前插入任务 U02：用户授权资产／心愿分块表单与素材升级，确认独立标签＋自动业务状态、按日＋按次、攒钱达到 100% 自动实现且自动来源随进度回退。实现及隔离原生验收完成，退出后的系统提醒和取消已实测；用户确认保存退出后，1.1.0 已安装。见 [U02 清单](handoffs/U02_ASSET_WISHLIST_UPGRADE.md)、[U02 验证](verification/U02_ASSET_WISHLIST_RESULT.md)。正式资料库不用于测试。
+当前插入任务 U03：按用户反馈完成桌面信息密度、直接关闭、心愿整行详情与拖动管理；见 [U03 验证](verification/U03_DESKTOP_INTERACTION_RESULT.md)。普通未提交草稿不再保留，未知提交结果继续核对。
+
+历史插入任务 U02：用户授权资产／心愿分块表单与素材升级，确认独立标签＋自动业务状态、按日＋按次、攒钱达到 100% 自动实现且自动来源随进度回退。实现及隔离原生验收完成，退出后的系统提醒和取消已实测；用户确认保存退出后，1.1.0 已安装。见 [U02 清单](handoffs/U02_ASSET_WISHLIST_UPGRADE.md)、[U02 验证](verification/U02_ASSET_WISHLIST_RESULT.md)。正式资料库不用于测试。
 用户先回复“确认开始”授权 V 批次，随后要求“进行下一个阶段”，授权推进 T01–T05。实际证据见 [验证报告](VERIFICATION_REPORT.md)。下方为任务范围与验收要求，当前完成情况以本段和任务状态表为准。
 
 | 任务 | 当前状态 |

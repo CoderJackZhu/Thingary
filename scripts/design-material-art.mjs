@@ -3,10 +3,11 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { objectArt } from '../src/illustrations.ts';
 const path=new URL('../src-tauri/materials/materials.json',import.meta.url);
 const catalog=JSON.parse(await readFile(path,'utf8')).filter(m=>!m.id.startsWith('object3d-'));
-const originals={phone:'phone',laptop:'laptop',tablet:'tablet',headphones:'headphones',camera:'camera',keyboard:'keyboard',box:'box',ultrabook:'laptop'};
+const originals={phone:'phone',laptop:'laptop',tablet:'tablet',headphones:'headphones',camera:'camera',keyboard:'keyboard',ultrabook:'laptop'};
 const palettes={数码:['#a5b6c6','#546979','#263d50'],家电:['#e0ddd3','#a49d8c','#5e655f'],家居:['#c5cbbb','#859482','#515e55'],办公:['#c3cdd1','#879ca4','#415866'],交通:['#acc4c9','#638b96','#334d60'],运动:['#d9b39c','#b27b62','#6d594f'],厨具:['#b6c4c5','#738d92','#3c5157'],通用:['#c8bba7','#a09381','#6d716e']};
 function frame(body,colors){return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><defs><linearGradient id="body" x2=".8" y2="1"><stop stop-color="${colors[0]}"/><stop offset="1" stop-color="${colors[1]}"/></linearGradient><linearGradient id="glass" x2="1" y2="1"><stop stop-color="#223d55"/><stop offset=".55" stop-color="#557b91"/><stop offset="1" stop-color="#a6c1c8"/></linearGradient><linearGradient id="metal" x2="1" y2="1"><stop stop-color="#edf0ed"/><stop offset=".5" stop-color="#aab9bb"/><stop offset="1" stop-color="#728990"/></linearGradient></defs><ellipse cx="40" cy="69" rx="24" ry="3" fill="#263d50" opacity=".1"/><g transform="translate(8 7)" stroke="${colors[2]}" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round">${body}</g></svg>`;}
 const extras={
+ box:'<path d="M10 25 32 34 54 25v25L32 60 10 50Z" fill="#b99363"/><path d="M32 34v26l22-10V25Z" fill="#96754e"/><path d="M10 25 32 15l22 10-22 9Z" fill="#80664c"/><path d="M10 25 2 15 24 5l8 10ZM32 15 40 5l22 10-8 10Z" fill="#dac39e"/><path d="m10 25 22 9-8 11L2 35ZM32 34l22-9 8 10-22 10Z" fill="#e7d1ac"/><path d="m17 47 8 3v5l-8-3Z" fill="#f0e3c9" stroke="none"/>',
  desktop:'<rect x="10" y="19" width="27" height="20" rx="1" fill="url(#glass)" stroke="none"/><path d="M11 38c9-18 16-4 25-17v17" fill="#a6c0cd" stroke="none"/><circle cx="52" cy="44" r="2" fill="#bedbc8"/>',
  watch:'<path d="M24 18l2-11h12l2 11M24 46l2 11h12l2-11" fill="#738c91"/><rect x="23" y="22" width="18" height="20" rx="5" fill="url(#glass)"/><path d="M32 25v8l6 4" fill="none" stroke="#e7f0e9" stroke-width="2"/>',
  mouse:'<path d="M22 28V23a10 10 0 0 1 7-10" fill="none" stroke="#f2f4ed" stroke-width="2.5"/><rect x="30" y="18" width="4" height="8" rx="2" fill="#42525e"/>',
@@ -55,7 +56,7 @@ for (const m of catalog) {
  const key=m.id.slice(5);const colors=palettes[m.category]??palettes.数码;
  if(originals[key]){m.art=objectArt(originals[key]);continue;}
  let body=m.shape.replace(/<(rect|circle|ellipse)(\s)/g,'<$1 fill="url(#body)"$2').replace(/<path d="([^"]*)"\/>/g,(_,d)=>`<path d="${d}" fill="${/z/i.test(d)?'url(#body)':'none'}"/>`);
- m.art=frame(body+(extras[key]??''),colors);
+ m.art=frame((key==='box'?'':body)+(extras[key]??''),colors);
 }
 const dimensional=[
  ['plant','小盆栽','家居','绿植 多肉 植物', '<ellipse cx="32" cy="51" rx="16" ry="6" fill="#b9a795" stroke="none"/><path d="M16 49l5 14c6 4 16 4 22 0l5-14" fill="url(#body)"/><ellipse cx="32" cy="49" rx="16" ry="6" fill="#80766a"/><path d="M31 46C8 41 12 20 31 36C17 8 36 4 36 31C48 9 62 24 38 42C58 31 59 50 34 48Z" fill="#7c9f8c" stroke="#668975"/><path d="M32 48l2-22" fill="none" stroke="#bad0b2" stroke-width="2"/>'],

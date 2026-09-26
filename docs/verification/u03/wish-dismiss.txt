@@ -1,0 +1,62 @@
+Window: "物志 · 桌面交互验收", App: Possio U03 Acceptance.
+0 standard window 物志 · 桌面交互验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志, URL: tauri://localhost
+			3 container
+				4 text 物志 POSSIO
+				5 container 主导航
+					6 button 总览
+					7 text 我的物品
+					8 button 全部资产
+					9 button 使用中
+					10 button 已退役
+					11 button 已售出
+					12 text 记录与回顾
+					13 button 心愿清单
+					14 button 时间轴
+					15 button 统计
+				16 container 资料管理
+					17 button 素材库
+					18 button 最近删除
+					19 button 设置
+				20 container 切换外观
+					21 toggle button 浅色模式, Value: on
+					22 toggle button 深色模式, Value: off
+				23 container 本地档案 · 仅保存在这台 Mac
+					24 text 本地档案 · 仅本机
+			25 container
+				26 text 心愿清单 ／ 购买前记录
+				27 heading 心愿清单, Value: 1
+					28 text 心愿清单
+				29 text 把想要的物品先记下来，购买决定与资产档案彼此独立。
+				30 container 心愿清单
+					31 text 未实现心愿总额
+					32 text ¥100.00
+					33 text 1 条价格未知
+					34 button ＋ 新增心愿
+					35 container
+						36 text ⌕
+						37 text field (settable) 搜索心愿
+					38 container
+						39 text 状态
+						40 pop up button (collapsed) 筛选心愿状态, Value: 未实现, Secondary Actions: Expand
+					41 container
+						42 text 排序
+						43 pop up button (collapsed) 心愿排序, Value: 最近加入, Secondary Actions: Expand
+					44 button 切换为升序
+					45 toggle button 列表, Value: on
+					46 toggle button 网格, Value: off
+					47 button 查看心愿：虚构系统提醒验证
+					48 button 查看心愿：虚构旅行镜头
+					49 text 2  条心愿
+	50 close button
+	51 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	52 minimize button
+	53 text 物志 · 桌面交互验收
+54 menu bar
+	55 Possio U03 Acceptance
+	56 文件
+	57 编辑
+	58 窗口
+
+The focused UI element is 2 HTML content Description: 物志, URL: tauri://localhost

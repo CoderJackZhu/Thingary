@@ -1,0 +1,114 @@
+Window: "物志 · 桌面交互验收", App: Possio U03 Acceptance.
+0 standard window 物志 · 桌面交互验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志, URL: tauri://localhost
+			3 container
+				4 text 物志 POSSIO
+				5 container 主导航
+					6 button 总览
+					7 text 我的物品
+					8 button 全部资产
+					9 button 使用中
+					10 button 已退役
+					11 button 已售出
+					12 text 记录与回顾
+					13 button 心愿清单
+					14 button 时间轴
+					15 button 统计
+				16 container 资料管理
+					17 button 素材库
+					18 button 最近删除
+					19 button 设置
+				20 container 切换外观
+					21 toggle button 浅色模式, Value: on
+					22 toggle button 深色模式, Value: off
+				23 container 本地档案 · 仅保存在这台 Mac
+					24 text 本地档案 · 仅本机
+			25 container
+				26 text 我的物品 ／ 物品详情
+				27 text field (settable) 搜索物品
+				28 text ⌘F
+				29 button 新增资产
+				30 text 资料已保存。
+				31 button ← 返回物品列表
+				32 image 手机示意图（非实物照片）
+				33 container
+					34 text 未分类 ·  使用中
+				35 heading U03 Fictional Phone, Value: 2
+					36 text U03 Fictional Phone
+				37 text 一件物品，一段日常
+				38 button 编辑资料 ⌘E
+				39 button 新增维护
+				40 button 添加保障
+				41 button 标记退役
+				42 button 标记售出
+				43 container 持有与成本
+					44 heading 持有与成本, Value: 3
+						45 text 持有与成本
+					46 text 日均持有成本
+					47 text 待补充
+					48 text 已与你相伴 1 天
+					49 description list
+						50 text 购入金额
+						51 text 待补充
+						52 text 维护投入
+						53 text ¥0.00
+						54 text 总投入
+						55 text 待补充
+						56 text 持有时长
+						57 text 1 天
+					58 text 按自然日计算，包含购入当天；售出后截止到售出日。
+				59 container 购买资料
+					60 heading 购买资料, Value: 3
+						61 text 购买资料
+					62 description list
+						63 text 购入日期
+						64 text 2026-09-27
+						65 text 购买渠道
+						66 text 京东
+						67 text 品牌
+						68 text 待补充
+						69 text 型号
+						70 text 待补充
+						71 text 序列号
+						72 text 待补充
+				73 container 关于这件物品
+					74 heading 关于这件物品, Value: 3
+						75 text 关于这件物品
+					76 text 还没有备注。记下购买的缘由，或使用中的小细节。
+				77 container 物品时间轴
+					78 heading 物品时间轴, Value: 3
+						79 text 物品时间轴
+					80 text 最新记录在前
+					81 container
+						82 text 购入 2026-09-27 金额待补充
+				83 container 保障档案
+					84 heading 保障档案, Value: 3
+						85 text 保障档案
+					86 text 还没有保障记录
+					87 text 还没有保障记录。厂家保修、延保或 AppleCare 都可以分别添加。
+				88 container 维护档案
+					89 heading 维护档案, Value: 3
+						90 text 维护档案
+					91 text 0 条 · 已知费用 ¥0.00
+					92 text 还没有维护记录。
+				93 container 图片附件
+					94 heading 图片附件, Value: 3
+						95 text 图片附件
+					96 text 1 张
+					97 container 物品图片
+						98 button 预览 手机示意图（非实物照片）
+				99 summary 档案信息, Value: off
+					100 text 档案信息
+				101 button 移入最近删除…
+	102 close button
+	103 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	104 minimize button
+	105 text 物志 · 桌面交互验收
+106 menu bar
+	107 Possio U03 Acceptance
+	108 文件
+	109 编辑
+	110 窗口
+
+The focused UI element is 2 HTML content Description: 物志, URL: tauri://localhost

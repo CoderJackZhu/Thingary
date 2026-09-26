@@ -1,3 +1,4 @@
+import {DragHandle} from './FormControls';
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -175,6 +176,7 @@ interface ListRowProps {
   onCancelEdit: () => void;
   onSave: (name: string) => Promise<void>;
   onChangeIcon: (icon: CategoryIcon) => Promise<void>;
+  onDrop: (targetId:string)=>void;
   onMove: (direction: "up" | "down") => Promise<void>;
   onRemove: () => void;
 }
@@ -190,6 +192,7 @@ function ListRow({
   onCancelEdit,
   onSave,
   onChangeIcon,
+  onDrop,
   onMove,
   onRemove,
 }: ListRowProps) {
@@ -239,75 +242,7 @@ function ListRow({
   }
 
   if (mode === "view") {
-    return (
-      <li>
-        <strong>
-          {entry.name}
-          {iconDescriptor ? (
-            <span
-              className="taxonomy-icon-glyph"
-              aria-label={`图标：${iconDescriptor.label}`}
-              style={{ marginLeft: 6 }}
-            >
-              {ICON_GLYPHS[iconDescriptor.value]}
-            </span>
-          ) : null}
-        </strong>
-        <span className="taxonomy-meta" aria-label="当前引用">
-          <span className="taxonomy-pill" aria-label="正常引用">{entry.references.activeAssets} 件</span>
-          <span className="taxonomy-pill" aria-label="最近删除引用">{entry.references.deletedAssets} 件已删除</span>
-        </span>
-        <span className="taxonomy-meta" data-role="references">
-          {total === 0 ? "尚无引用" : `合计 ${total} 件`}
-        </span>
-        {kind === "category" ? (
-          <span className="taxonomy-meta" data-role="icon-inline">
-            <span className="taxonomy-pill">图标 {iconDescriptor?.label ?? "通用"}</span>
-          </span>
-        ) : null}
-        <span className="taxonomy-actions" role="group" aria-label={`${entry.name} 的操作`}>
-          {kind === "category" && <div className="taxonomy-move" aria-label="排序">
-            <button
-              type="button"
-              disabled={busy || isFirst}
-              onClick={() => void onMove("up")}
-              aria-label={`${entry.name} 上移`}
-            >
-              ↑
-            </button>
-            <button
-              type="button"
-              disabled={busy || isLast}
-              onClick={() => void onMove("down")}
-              aria-label={`${entry.name} 下移`}
-            >
-              ↓
-            </button>
-          </div>}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setDraftName(entry.name);
-              setRowError(null);
-              onStartEdit();
-              setMode("edit");
-            }}
-          >
-            改名
-          </button>
-          <button
-            type="button"
-            className="danger"
-            disabled={busy}
-            onClick={(event) => { event.currentTarget.focus(); onRemove(); }}
-            aria-label={`移除 ${entry.name}`}
-          >
-            移除
-          </button>
-        </span>
-      </li>
-    );
+    return <li data-sort-id={entry.id}><DragHandle label={entry.name} disabled={busy} onDrop={onDrop} onStep={d=>{if(!(d<0?isFirst:isLast))void onMove(d<0?'up':'down')}}/><strong>{iconDescriptor&&<span className="taxonomy-icon-glyph" aria-label={'图标：'+iconDescriptor.label}>{ICON_GLYPHS[iconDescriptor.value]}</span>}{entry.name}</strong><span className="taxonomy-meta">{entry.references.activeAssets} 件物品</span><details className="row-menu"><summary aria-label={entry.name+'的更多操作'}>•••</summary><div><button type="button" disabled={busy} onClick={()=>{setDraftName(entry.name);setRowError(null);onStartEdit();setMode('edit')}}>编辑名称与图标</button><button type="button" className="danger" disabled={busy} onClick={event=>{event.currentTarget.closest('details')?.removeAttribute('open');onRemove()}}>移除…</button></div></details></li>;
   }
 
   return (
@@ -558,7 +493,7 @@ export default function TaxonomyManager({
   const inFlight = useRef(false);
   const editingRows = useRef(new Set<string>());
   const [editingCount, setEditingCount] = useState(0);
-  useEffect(() => { onDirtyChange?.(!!draft.name || editingCount > 0 || confirmDialog.open || submitting || !!blocked || !!unverified); }, [draft.name, editingCount, confirmDialog.open, submitting, blocked, unverified, onDirtyChange]);
+  useEffect(() => { onDirtyChange?.(confirmDialog.open || submitting || !!blocked || !!unverified); }, [draft.name, editingCount, confirmDialog.open, submitting, blocked, unverified, onDirtyChange]);
   useEffect(() => {
     if (!snapshot || loading) return;
     const ids = new Set([...snapshot.categories, ...snapshot.channels].map(e => e.id));
@@ -574,7 +509,7 @@ export default function TaxonomyManager({
     draftRef.current = draft;
   }, [draft]);
 
-  // 切换页签：未提交草稿需明确确认
+  // 切换页签直接丢弃未提交输入；已发出的请求须先核对。
   function changeKind(next: TaxonomyKind) {
     if (next === kind) return;
     const hasDraft = normalizeName(draft.name) !== "" || editingRows.current.size > 0;
@@ -584,12 +519,6 @@ export default function TaxonomyManager({
         state: "error",
       });
       return;
-    }
-    if (hasDraft) {
-      const leave = window.confirm(
-        "当前还有未保存的草稿，切换页签会丢失。是否继续？",
-      );
-      if (!leave) return;
     }
     editingRows.current.clear(); setEditingCount(0);
     setKind(next);
@@ -670,7 +599,7 @@ export default function TaxonomyManager({
       setReloadVersion(version => version + 1);
       setBlocked(null);
       setUnverified(null);
-      setNotice({ text: "已重新加载，请核对保留的草稿后再保存。", state: "info" });
+      setNotice({ text: "已重新加载，请核对当前输入后再保存。", state: "info" });
     } catch (error) {
       setNotice({ text: error instanceof Error ? error.message : "重新加载失败。", state: "error" });
     } finally {
@@ -717,13 +646,15 @@ export default function TaxonomyManager({
     if (result.status !== "success") throw new Error(result.message);
   }
 
-  async function move(entry: TaxonomyEntry, direction: "up" | "down") {
-    if (kind !== "category") {
-      setNotice({ text: "购买渠道暂不显示排序按钮。", state: "error" });
-      return;
-    }
-    const command: TaxonomyCommand = { type: "move-category", id: entry.id, direction };
-    await runCommand(command);
+  async function reorder(entry:TaxonomyEntry,targetId:string) {
+    const ids=entries.map(e=>e.id),from=ids.indexOf(entry.id),to=ids.indexOf(targetId);
+    if(from<0||to<0||from===to)return;
+    ids.splice(from,1);ids.splice(to,0,entry.id);
+    await runCommand({type:'reorder',kind,ids});
+  }
+  async function move(entry:TaxonomyEntry,direction:'up'|'down') {
+    const index=entries.findIndex(e=>e.id===entry.id),target=entries[index+(direction==='up'?-1:1)];
+    if(target)await reorder(entry,target.id);
   }
 
   function requestRemove(entry: TaxonomyEntry) {
@@ -866,6 +797,7 @@ export default function TaxonomyManager({
               aria-describedby={draftError ? "taxonomy-new-help" : "taxonomy-new-helper"}
               disabled={unavailable || locked}
             />
+            <button type="submit" className="primary taxonomy-create-button" disabled={unavailable||locked||!normalizeName(draft.name)}>{submitting?'正在保存…':kind==='category'?'新建分类':'新建购买渠道'}</button>
             <span
               id={draftError ? "taxonomy-new-help" : "taxonomy-new-helper"}
               className="taxonomy-help"
@@ -895,16 +827,7 @@ export default function TaxonomyManager({
           ) : (
             <div />
           )}
-          <div className="taxonomy-actions">
-            {draft.name && <button type="button" disabled={unavailable || locked} onClick={() => { setDraft(blankDraft()); setDraftError(null); }}>取消草稿</button>}
-            <button
-              type="submit"
-              className="primary"
-              disabled={unavailable || locked || !normalizeName(draft.name)}
-            >
-              {submitting ? "正在保存…" : `新建${kind === "category" ? "分类" : "购买渠道"}`}
-            </button>
-          </div>
+
         </form>
 
         {loading && !snapshot ? <p role="status">正在加载…</p> : !snapshot ? <p>暂时无法读取，请重新加载。</p> : entries.length === 0 ? (
@@ -924,6 +847,7 @@ export default function TaxonomyManager({
                 isLast={index === entries.length - 1}
                 onChangeIcon={(icon) => submitIcon(entry, icon)}
                 onMove={(direction) => move(entry, direction)}
+                onDrop={target=>void reorder(entry,target)}
                 onRemove={() => requestRemove(entry)}
                 onSave={async (next) => {
                   await submitRename(entry, next);
@@ -968,6 +892,7 @@ export default function TaxonomyManager({
 
 function extractKind(command: TaxonomyCommand): TaxonomyKind | null {
   switch (command.type) {
+    case "reorder":
     case "create":
     case "rename":
     case "remove":
@@ -998,7 +923,8 @@ function commandLabel(command: TaxonomyCommand): string {
     case "set-icon":
       return "更新分类图标";
     case "move-category":
-      return "调整分类顺序";
+    case "reorder":
+      return "调整顺序";
     case "remove":
       return "移除并迁移引用";
     default:

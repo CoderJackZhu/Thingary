@@ -474,3 +474,54 @@ fn channel_migration_survives_edit_photos_trash_restore_and_reopen() {
     assert_eq!(final_record.asset.revision, restored.asset.revision);
     assert_eq!(s.count().unwrap(), 2);
 }
+
+#[test]
+fn drag_reorder_preserves_ids_rejects_stale_sets_and_replays_receipt() {
+    let root = tempfile::tempdir().unwrap();
+    let mut store = Store::open(root.path()).unwrap();
+    let before = store.taxonomy_snapshot().unwrap();
+    let mut ids: Vec<_> = before.channels.iter().map(|e| e.id.clone()).collect();
+    ids.swap(0, 2);
+    let request = change(
+        &store,
+        Command::Reorder {
+            kind: Kind::Channel,
+            ids: ids.clone(),
+        },
+    );
+    let after = store.change_taxonomy(&request).unwrap();
+    assert_eq!(
+        after
+            .channels
+            .iter()
+            .map(|e| e.id.clone())
+            .collect::<Vec<_>>(),
+        ids
+    );
+    let replay = store.change_taxonomy(&request).unwrap();
+    assert_eq!(replay.revision, after.revision);
+    let bad = change(
+        &store,
+        Command::Reorder {
+            kind: Kind::Channel,
+            ids: vec![ids[0].clone(); ids.len()],
+        },
+    );
+    assert_eq!(
+        store.change_taxonomy(&bad).unwrap_err().code,
+        "TAXONOMY_STALE"
+    );
+    assert_eq!(store.taxonomy_snapshot().unwrap().revision, after.revision);
+    drop(store);
+    let reopened = Store::open(root.path()).unwrap();
+    assert_eq!(
+        reopened
+            .taxonomy_snapshot()
+            .unwrap()
+            .channels
+            .iter()
+            .map(|e| e.id.clone())
+            .collect::<Vec<_>>(),
+        ids
+    );
+}

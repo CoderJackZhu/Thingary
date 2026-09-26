@@ -77,6 +77,10 @@ pub enum Command {
         id: String,
         icon: Icon,
     },
+    Reorder {
+        kind: Kind,
+        ids: Vec<String>,
+    },
     MoveCategory {
         id: String,
         direction: Direction,
@@ -329,6 +333,22 @@ impl Store {
                     "UPDATE categories SET icon=?1 WHERE id=?2",
                     params![icon.key(), id],
                 )?;
+            }
+            Command::Reorder { kind, ids } => {
+                let list = entries(&tx, *kind)?;
+                let requested: std::collections::HashSet<_> = ids.iter().collect();
+                if ids.len() != list.len()
+                    || requested.len() != list.len()
+                    || list.iter().any(|e| !requested.contains(&e.id))
+                {
+                    return Err(Error::new("TAXONOMY_STALE", "排序列表已变化，请重新加载"));
+                }
+                for (position, id) in ids.iter().enumerate() {
+                    tx.execute(
+                        &format!("UPDATE {} SET position=?1 WHERE id=?2", kind.table()),
+                        params![position as i64, id],
+                    )?;
+                }
             }
             Command::MoveCategory { id, direction } => {
                 let list = entries(&tx, Kind::Category)?;

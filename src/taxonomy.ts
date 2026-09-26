@@ -54,6 +54,7 @@ export type TaxonomyCommand =
   | { type: "create"; kind: TaxonomyKind; name: string; icon?: CategoryIcon }
   | { type: "rename"; kind: TaxonomyKind; id: string; name: string }
   | { type: "set-icon"; id: string; icon: CategoryIcon }
+  | { type: "reorder"; kind: TaxonomyKind; ids: string[] }
   | { type: "move-category"; id: string; direction: "up" | "down" }
   | { type: "remove"; kind: TaxonomyKind; id: string; targetId: string | null };
 
@@ -169,6 +170,10 @@ export function applyPreviewCommand(source: PreviewCatalog, command: TaxonomyCom
     if (!newId || entries.some(e => e.id === newId)) throw new Error("新建标识无效。");
     entries.push({ id: newId, name: normalizeName(command.name), ...(kind === "category" ? { icon: command.icon ?? "box" } : {}), references: { activeAssets: 0, deletedAssets: 0 } });
     return catalog;
+  }
+  if (command.type === 'reorder') {
+    if(command.ids.length!==entries.length||new Set(command.ids).size!==entries.length||command.ids.some(id=>!entries.some(e=>e.id===id)))throw new Error('排序列表已变化，请重新加载。');
+    catalog[key]=command.ids.map(id=>entries.find(e=>e.id===id)!);return catalog;
   }
   const index = entries.findIndex(e => e.id === command.id);
   if (index < 0) throw new Error("目标已不可用，请重新加载。");

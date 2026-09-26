@@ -1,3 +1,4 @@
+import {persistSubmission} from './editor-session';
 import {ChoiceField,FormRow} from './FormControls';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -12,19 +13,18 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
   const dialog = useRef<HTMLDialogElement>(null), lock = useRef(false);
   const [draft, setDraft] = useState(initial), [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(initial.pending ? '上次售出保存结果待确认，请先核对。' : '');
-  const [conflict, setConflict] = useState(false), [confirm, setConfirm] = useState<CloseIntent | null>(null);
-  const dirty = JSON.stringify(draft.fields) !== JSON.stringify(draft.original);
+  const [conflict, setConflict] = useState(false);
   const title = draft.mode === 'revoke' ? '撤销误记售出' : draft.mode === 'correct' ? '修改售出记录' : '标记售出';
   useEffect(() => { dialog.current?.showModal(); document.getElementById('sale-date')?.focus(); return () => dialog.current?.close(); }, []);
   useEffect(() => { if (closeIntent) askClose(closeIntent); }, [closeIntent]);
-  function remember(next: SaleDraft) { localStorage.setItem(saleKey, JSON.stringify(next)); setDraft(next); }
+  function remember(next: SaleDraft) { persistSubmission(saleKey, next); setDraft(next); }
   function edit(key: keyof SaleForm, value: string) {
     const next = {...draft, fields:{...draft.fields,[key]:value}}; setDraft(next);
-    try { localStorage.setItem(saleKey,JSON.stringify(next)); } catch {setNotice('草稿暂存失败，请保持窗口打开并保存。');}
+    try { persistSubmission(saleKey, next); } catch {setNotice('暂时无法更新编辑状态，请重试。');}
   }
   function askClose(intent: CloseIntent) {
     if (lock.current || draft.pending) { setNotice('请先核对售出保存结果，再关闭表单。'); onKeep(); return; }
-    if (dirty) setConfirm(intent); else onClose(intent);
+    onClose(intent);
   }
   function success(record: AssetRecord) { localStorage.removeItem(saleKey); onSaved(record); }
   async function check() {
@@ -68,7 +68,7 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
   const action = !validation && draft.mode !== 'revoke' ? saleAction(draft) : null;
   const preview = action && 'fields' in action ? settlement(draft.record, action.fields) : null;
   return <dialog ref={dialog} className="editor sale-editor" aria-labelledby="sale-title" onCancel={e => { e.preventDefault(); askClose('form'); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><h2 id="sale-title">{title}</h2><button type="button" aria-label="关闭售出表单" onClick={() => askClose('form')}>×</button></header>
+    <header><h2 id="sale-title">{title}</h2><button type="button" aria-label="关闭售出表单" onClick={() => askClose('form')}>×</button><div className="editor-header-actions"><button type="button" disabled={busy || !!draft.pending} onClick={() => askClose('form')}>取消</button>{draft.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对售出保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void reload()}>读取最新状态</button> : <button className="primary" disabled={busy}>{busy ? '正在保存…' : draft.mode === 'revoke' ? '确认撤销误记售出' : '保存售出记录'}</button>}</div></header>
     <p>{draft.record.asset.name}</p>
     {draft.mode === 'revoke' ? <p>确认这是误记的售出？撤销后恢复为<strong>{draft.record.sale?.previous_state === 'retired' ? '已退役' : '使用中'}</strong>，保留原档案和图片，持有天数重新计算到今天。真实卖出后又买回，请新增另一件物品。</p> : <>
       <p className="muted">售出后持有天数截止到售出日。实际售价必填，可为 0；购入资料未知时仍可记录售出。</p>
@@ -81,6 +81,6 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
     </>}
     {draft.record.sale && <details><summary>当前有效售出记录</summary><p>{draft.record.sale.fields.date} · {money(draft.record.sale.fields.price_cents)} · 售出前{draft.record.sale.previous_state === 'retired' ? '已退役' : '使用中'}</p></details>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    {confirm ? <div className="confirm" role="alert"><strong>放弃未保存的售出修改？</strong><div className="actions"><button type="button" onClick={() => { setConfirm(null); onKeep(); }}>继续编辑</button><button type="button" onClick={() => onClose(confirm)}>放弃修改</button></div></div> : <footer className="actions"><button type="button" disabled={busy || !!draft.pending} onClick={() => askClose('form')}>取消</button>{draft.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对售出保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void reload()}>读取最新状态</button> : <button className="primary" disabled={busy}>{busy ? '正在保存…' : draft.mode === 'revoke' ? '确认撤销误记售出' : '保存售出记录'}</button>}</footer>}
+
   </form></dialog>;
 }

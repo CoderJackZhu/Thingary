@@ -23,7 +23,9 @@ export function filterMaterials(entries: MaterialEntry[], source: MaterialSource
     const matchesSource = source === 'recent' ? recent.includes(entry.id) : source === 'custom' ? !entry.builtin : entry.builtin && !info?.hidden && info?.style === source;
     return matchesSource && (category === '全部' || info?.category === category) && (!query || `${entry.name} ${info?.keywords ?? ''}`.toLocaleLowerCase().includes(query));
   });
-  return source === 'recent' ? filtered.sort((a, b) => recent.indexOf(a.id) - recent.indexOf(b.id)) : filtered;
+  const frequent=['icon-phone','icon-laptop','icon-tablet','icon-desktop','icon-watch','icon-headphones','icon-camera','icon-keyboard','icon-mouse'];
+  const rank=(id:string)=>{const i=frequent.indexOf(id);return i<0?(id==='coffee'?1000:100):i};
+  return source === 'recent' ? filtered.sort((a,b)=>recent.indexOf(a.id)-recent.indexOf(b.id)) : filtered.sort((a,b)=>rank(a.id)-rank(b.id));
 }
 export function readRecentMaterials(storage: Pick<Storage, 'getItem'>, generation: string): string[] {
   try { const value: unknown = JSON.parse(storage.getItem('possio.recent-materials.' + generation) || '[]'); return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(0, 24) : []; } catch { return []; }

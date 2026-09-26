@@ -1,0 +1,61 @@
+Window: "物志 · 桌面交互验收", App: Possio U03 Acceptance.
+0 standard window 物志 · 桌面交互验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志, URL: tauri://localhost
+			3 container 新增资产
+				4 container
+					5 heading 新增资产, Value: 2
+						6 text 新增资产
+					7 button 关闭表单
+					8 button 取消
+					9 button 保存资产
+					10 text 只填写名称也可以。其余资料，想起时再补。
+					11 button 选择物品图标
+					12 text 物品名称
+					13 text field (settable) 物品名称, Placeholder: 请输入物品名称
+					14 text 资产分类
+					15 button 资产分类
+					16 text 自定义状态
+					17 button 自定义状态
+					18 text 购买价格（元） 购买价格
+					19 text field (settable) 购买价格, Placeholder: 请输入物品价格
+					20 text 购买日期 购买日期
+					21 text field (settable) 购买日期, Value: 2026-09-27, Placeholder: YYYY-MM-DD
+					22 button (collapsed) 打开日期选择器, Secondary Actions: Expand
+					23 text 购买渠道
+					24 button 购买渠道
+					25 text 成本计算模式
+					26 container 成本计算模式
+						27 toggle button 按日计算, Value: on
+						28 toggle button 按次计算, Value: off
+					29 text 目标设定
+					30 container 目标设定
+						31 toggle button 不设定, Value: on
+						32 toggle button 按价格, Value: off
+						33 toggle button 按日期, Value: off
+					34 text 备注
+					35 text entry area (settable) 备注
+					36 button 添加图片
+					37 text 保障时间
+					38 switch (settable, boolean) 设置保障时间, Value: off
+					39 text 资产已退役
+					40 switch (settable, boolean) 资产已退役, Value: off
+					41 text 资产已售出
+					42 switch (settable, boolean) 资产已售出, Value: off
+					43 text 置顶资产
+					44 switch (settable, boolean) 置顶资产, Value: off
+					45 text 资产不计入统计
+					46 switch (settable, boolean) 资产不计入统计, Value: off
+					47 summary 更多资料品牌、型号与序列号, Value: off
+						48 text 更多资料品牌、型号与序列号
+	49 close button
+	50 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	51 minimize button
+	52 text 物志 · 桌面交互验收
+53 menu bar
+	54 Possio U03 Acceptance
+	55 文件
+	56 编辑
+	57 窗口
+
+The focused UI element is 3 container 新增资产

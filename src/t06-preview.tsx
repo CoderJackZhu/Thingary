@@ -617,6 +617,8 @@ function formatCommand(cmd: TaxonomyCommand): string {
       return `${cmd.kind === "category" ? "分类" : "渠道"}改名：${cmd.id} -> ${cmd.name}`;
     case "set-icon":
       return `更新分类图标：${cmd.id} -> ${cmd.icon}`;
+    case "reorder":
+      return `调整顺序：${cmd.ids.join(", ")}`;
     case "move-category":
       return `分类排序：${cmd.id} -> ${cmd.direction}`;
     case "remove":

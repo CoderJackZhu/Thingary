@@ -1,3 +1,5 @@
+import {clearUnsubmittedEditors} from './editor-session';
+import {persistSubmission} from './editor-session';
 import {NotificationNotice} from './NotificationNotice';
 import { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -39,7 +41,9 @@ import { storedWishlistChange, storedWishlistDraft, wishlistAbandonKey } from '.
 import './taxonomy.css';
 import './style.css';
 import './app-layout.css';
+import './desktop-polish.css';
 const defaultQuery: Query = { search: '', filter: 'all', category: { mode: 'all' }, sort: 'created', descending: true, offset: 0, warranty: 'all' };
+clearUnsubmittedEditors(localStorage);
 function storedDraft(): Draft | null {
   try {
     const d = JSON.parse(localStorage.getItem(draftKey) || 'null');
@@ -50,7 +54,7 @@ function storedDraft(): Draft | null {
 function TaxonomyCloseNotice({ onKeep }: { onKeep: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
-  return <dialog ref={dialog} className="editor" aria-labelledby="taxonomy-close-heading" onCancel={e => { e.preventDefault(); onKeep(); }}><h2 id="taxonomy-close-heading">分类资料尚未处理完</h2><p>请先保存或取消草稿；结果待确认的操作需要重新加载核对。</p><button autoFocus onClick={onKeep}>返回设置继续处理</button></dialog>;
+  return <dialog ref={dialog} className="editor" aria-labelledby="taxonomy-close-heading" onCancel={e => { e.preventDefault(); onKeep(); }}><h2 id="taxonomy-close-heading">分类资料尚未处理完</h2><p>当前操作尚未完成，请返回设置核对保存结果。</p><button autoFocus onClick={onKeep}>返回设置继续处理</button></dialog>;
 }
 function App() {
   const [demoStatus, setDemoStatus] = useState<{ active: boolean; available: boolean } | null>(null);
@@ -113,7 +117,7 @@ function App() {
     if (!demoStatus || demoStatus.active || !demoStatus.available || !page || !eventsReady || taxonomy.loading || !taxonomy.snapshot || firstRealAsset.current || !localStorage.getItem('possio.first-real-asset.v1')) return;
     firstRealAsset.current = true;
     if (recovered && recovered.generation !== page.generation) {
-      setNotice('上次草稿不属于当前资料库，请先核对草稿后再录入。');
+      setNotice('上次保存请求不属于当前资料库，请先核对结果后再录入。');
       return;
     }
     void openEditor(null, !!recovered);
@@ -183,10 +187,10 @@ function App() {
   }
   async function openEditor(record: AssetRecord | null, resume = false, wish?: WishlistItem) {
     if ((wishlistEditing && !wish) || !demoStatus || !page || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
-    if (taxonomyGuard || taxonomy.loading || taxonomy.loadError || !taxonomy.snapshot || taxonomy.snapshot.generation !== page.generation) { setSection('settings'); setNotice('请先保存或取消分类草稿，并完成分类资料读取。'); return; }
+    if (taxonomyGuard || taxonomy.loading || taxonomy.loadError || !taxonomy.snapshot || taxonomy.snapshot.generation !== page.generation) { setSection('settings'); setNotice('请先核对分类操作结果，并完成分类资料读取。'); return; }
     if (trashRecovery || recordTrashRecovery) { setNotice('请先核对上次删除或恢复的结果。'); return; }
     if (record?.deleted) { setSection('trash'); return; }
-    if (recovered && !resume) { setNotice('还有一份未保存的草稿，请先恢复处理。'); return; }
+    if (recovered && !resume) { setNotice('还有一次保存结果待确认，请先核对。'); return; }
     if (!record && !wish && demoStatus.active) { await changeDemoMode(false, true); return; }
     opener.current = document.activeElement as HTMLElement;
     if (!detailId) listScroll.current = collectionRef.current?.scrollTop ?? 0;
@@ -237,8 +241,8 @@ function App() {
   }
   async function openTrash(record: AssetRecord, generation: string, deleted: boolean, resume?: TrashAction) {
     if (wishlistEditing || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
-    if (taxonomyGuard) { setSection('settings'); setNotice('请先保存或取消分类草稿，并核对待确认操作。'); return; }
-    if (recovered) { setNotice('请先处理未保存的编辑草稿，再删除或恢复。'); return; }
+    if (taxonomyGuard) { setSection('settings'); setNotice('请先核对分类操作结果。'); return; }
+    if (recovered) { setNotice('请先核对上次保存结果，再删除或恢复。'); return; }
     if (trashRecovery && !resume) { setNotice('请先核对上次删除或恢复的结果。'); return; }
     if (recordTrashRecovery) { setNotice('请先核对上次维护或保障删除的结果。'); return; }
     opener.current = document.activeElement as HTMLElement;
@@ -269,8 +273,8 @@ function App() {
   }
   async function openRecordTrash(kind: RecordKind, recordId: string, assetId: string, title: string, assetName: string, generation: string, revision: number, deleted: boolean, resume?: RecordTrashAction) {
     if (wishlistEditing || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
-    if (taxonomyGuard) { setSection('settings'); setNotice('请先保存或取消分类草稿，并核对待确认操作。'); return; }
-    if (recovered || trashRecovery || (recordTrashRecovery && !resume)) { setNotice('请先处理已有草稿或待确认操作，再删除或恢复记录。'); return; }
+    if (taxonomyGuard) { setSection('settings'); setNotice('请先核对分类操作结果。'); return; }
+    if (recovered || trashRecovery || (recordTrashRecovery && !resume)) { setNotice('请先处理待确认操作，再删除或恢复记录。'); return; }
     opener.current = document.activeElement as HTMLElement;
     try {
       await invoke('set_editing', { editing: true }); setCloseIntent(null);
@@ -298,12 +302,12 @@ function App() {
   }
   async function openLifecycle(record: AssetRecord, action: LifecycleAction, resume?: LifecycleDraft) {
     if (wishlistEditing || !page || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
-    if (recovered || trashRecovery || recordTrashRecovery || (lifecycleRecovery && !resume) || taxonomyGuard) { setNotice('请先处理已有草稿或待确认操作，再变更状态。'); return; }
+    if (recovered || trashRecovery || recordTrashRecovery || (lifecycleRecovery && !resume) || taxonomyGuard) { setNotice('请先处理待确认操作，再变更状态。'); return; }
     opener.current = document.activeElement as HTMLElement;
     try {
       await invoke('set_editing', { editing: true });
       const next = resume ?? { record, generation: page.generation, action, original: { ...action }, pending: null };
-      localStorage.setItem(lifecycleKey, JSON.stringify(next));
+      persistSubmission(lifecycleKey, next);
       setCloseIntent(null); setLifecycleDraft(next);
     } catch (e) { setNotice(errorMessage(e)); }
   }
@@ -323,13 +327,13 @@ function App() {
   }
   async function openSale(record: AssetRecord, mode: SaleDraft['mode'], resume?: SaleDraft) {
     if (wishlistEditing || !page || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || saleDraft || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
-    if (recovered || trashRecovery || recordTrashRecovery || lifecycleRecovery || (saleRecovery && !resume) || taxonomyGuard) { setNotice('请先处理已有草稿或待确认操作，再处理售出。'); return; }
+    if (recovered || trashRecovery || recordTrashRecovery || lifecycleRecovery || (saleRecovery && !resume) || taxonomyGuard) { setNotice('请先处理待确认操作，再处理售出。'); return; }
     opener.current = document.activeElement as HTMLElement;
     try {
       await invoke('set_editing', { editing: true });
       const fields = saleFields(record, today);
       const next = resume ?? { record, generation: page.generation, mode, fields, original: { ...fields }, pending: null };
-      localStorage.setItem(saleKey, JSON.stringify(next));
+      persistSubmission(saleKey, next);
       setCloseIntent(null); setSaleDraft(next);
     } catch (e) { setNotice(errorMessage(e)); }
   }
@@ -349,7 +353,7 @@ function App() {
   }
   async function openMaintenance(record: AssetRecord, id?: string, resume?: MaintenanceState) {
     if (wishlistEditing || maintenanceOpening.current || !page || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || saleDraft || maintenanceDraft || warrantyDraft || warrantyRecovery || taxonomyGuard) return;
-    if (recovered || trashRecovery || recordTrashRecovery || lifecycleRecovery || saleRecovery || (maintenanceRecovery && !resume) || warrantyDraft || warrantyRecovery) { setNotice('请先处理已有草稿或待确认操作，再记录维护。'); return; }
+    if (recovered || trashRecovery || recordTrashRecovery || lifecycleRecovery || saleRecovery || (maintenanceRecovery && !resume) || warrantyDraft || warrantyRecovery) { setNotice('请先处理待确认操作，再记录维护。'); return; }
     maintenanceOpening.current = true;
     opener.current = document.activeElement as HTMLElement;
     try {
@@ -359,7 +363,7 @@ function App() {
       const current = await invoke<{ generation: string }>('taxonomy_snapshot');
       const result = await recoverMaintenance(saved, current.generation, id => invoke<AssetRecord | null>('read_asset', { id }), (request, generation) => invoke<AssetRecord | null>('saved_request', { request, generation }));
       if (result.kind === 'saved') { localStorage.removeItem(maintenanceKey); maintenanceSaved(result.record); return; }
-      localStorage.setItem(maintenanceKey, JSON.stringify(result.state));
+      persistSubmission(maintenanceKey, result.state);
       await invoke('set_editing', { editing: true });
       setCloseIntent(null); setMaintenanceDraft(result);
     }
@@ -384,7 +388,7 @@ function App() {
   const warrantyOpening = useRef(false);
   async function openWarranty(record: AssetRecord, id?: string, resume?: WarrantyState) {
     if (wishlistEditing || warrantyOpening.current || !page || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || saleDraft || maintenanceDraft || maintenanceRecovery || warrantyDraft || taxonomyGuard) return;
-    if (recovered || trashRecovery || recordTrashRecovery || lifecycleRecovery || saleRecovery || maintenanceDraft || maintenanceRecovery || (warrantyRecovery && !resume)) { setNotice('请先处理已有草稿或待确认操作，再添加保障。'); return; }
+    if (recovered || trashRecovery || recordTrashRecovery || lifecycleRecovery || saleRecovery || maintenanceDraft || maintenanceRecovery || (warrantyRecovery && !resume)) { setNotice('请先处理待确认操作，再添加保障。'); return; }
     warrantyOpening.current = true;
     opener.current = document.activeElement as HTMLElement;
     try {
@@ -394,7 +398,7 @@ function App() {
       const current = await invoke<{ generation: string }>('taxonomy_snapshot');
       const result = await recoverWarranty(saved, current.generation, id => invoke<AssetRecord | null>('read_asset', { id }), (request, generation) => invoke<AssetRecord | null>('saved_request', { request, generation }));
       if (result.kind === 'saved') { localStorage.removeItem(warrantyKey); warrantySaved(result.record); return; }
-      localStorage.setItem(warrantyKey, JSON.stringify(result.state));
+      persistSubmission(warrantyKey, result.state);
       await invoke('set_editing', { editing: true });
       setCloseIntent(null); setWarrantyDraft(result);
     }
@@ -431,15 +435,15 @@ function App() {
     <main ref={mainRef} className={section === 'assets' && !detailId ? 'browse-main' : undefined}><div className="app-topbar"><span className="breadcrumb"><Icon name={section === 'overview' ? 'overview' : section === 'stats' ? 'chart' : section === 'wishlist' ? 'heart' : section === 'timeline' ? 'clock' : 'items'}/>{section === 'overview' ? '物志' : section === 'stats' ? '记录与回顾' : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '记录与回顾' : '我的物品'} <span>／</span> {section === 'overview' ? '总览' : section === 'stats' ? '统计' : section === 'wishlist' ? '购买前记录' : section === 'timeline' ? '时间轴' : section === 'materials' ? '素材库' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : detailId ? '物品详情' : collectionTitle}</span>{section !== 'wishlist' && <div className="topbar-actions"><label className="search"><Icon name="search"/><input ref={searchRef} aria-label="搜索物品" placeholder="搜索物品" value={query.search} maxLength={200} disabled={wishlistEditing} onChange={e => { setSection('assets'); setDetailId(null); adjust({ search: e.target.value }); }}/><kbd>⌘F</kbd></label><button ref={newRef} className="primary" disabled={wishlistEditing || !page || !eventsReady || !!trashRecovery || !!recordTrashRecovery} onClick={() => void openEditor(null)}><Icon name="plus"/>新增资产</button></div>}</div>
       {demoStatus?.available && <div className="demo-banner" role="status"><strong>{demoStatus.active ? '样例体验' : '我的资料'}</strong><span>{demoStatus.active ? '当前是独立的虚构资料库。八件 Demo 可编辑体验，所有变化都只留在样例库。' : '正在查看你的正式资料库。保存第一件真实资产后，样例会自动退出。'}</span><button type="button" disabled={!!draft || !!wishlistEditing || taxonomyGuard || !!recovered || !!trashRecovery || !!recordTrashRecovery} onClick={() => void changeDemoMode(!demoStatus.active)}>{demoStatus.active ? '查看我的资料' : '返回样例'}</button></div>}
       {!detailId || section !== 'assets' ? <header className="page-header"><div><h1>{section === 'overview' ? '总览' : section === 'stats' ? '统计' : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '时间轴' : section === 'materials' ? '素材库' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : collectionTitle}</h1><p className="page-description">{section === 'overview' ? '持有多少、花了多少，以及最近发生了什么。' : section === 'stats' ? '按购入日期回看花在物品上的钱。' : section === 'wishlist' ? '把想要的物品先记下来，购买决定与资产档案彼此独立。' : section === 'timeline' ? '这些年，物品与心愿都经历了什么。' : section === 'materials' ? '新增资产时可以直接选用的图片。' : section === 'trash' ? '暂时收起的物品，随时可以找回。' : section === 'settings' ? '让这本档案用起来更顺手。' : '物品的来历、成本与每次变化，都在这里。'}</p></div><span className="header-note"><strong>{section === 'wishlist' ? '购买前记录' : '我的资产档案'}</strong>截至 {today.replaceAll('-', ' / ')}</span></header> : null}
-      {wishlistEditing && section !== 'wishlist' && <div className="notice">有一份心愿草稿或待确认操作，请先处理。<button onClick={() => { setSection('wishlist'); setDetailId(null); }}>前往心愿清单</button></div>}
-      {saleRecovery && !saleDraft && <div className="notice">有一份售出草稿或待确认操作。<button disabled={wishlistEditing} onClick={() => void openSale(saleRecovery.record, saleRecovery.mode, saleRecovery)}>恢复售出草稿</button></div>}
-      {maintenanceRecovery && !maintenanceDraft && <div className="notice">有一份维护草稿或待确认操作。<button disabled={wishlistEditing} onClick={() => void openMaintenance(maintenanceRecovery.record, maintenanceRecovery.maintenance_id, maintenanceRecovery)}>恢复维护草稿</button></div>}
-      {warrantyRecovery && !warrantyDraft && <div className="notice">有一份保障草稿或待确认操作。<button disabled={wishlistEditing} onClick={() => void openWarranty(warrantyRecovery.record, warrantyRecovery.warranty_id, warrantyRecovery)}>恢复保障草稿</button></div>}
-      {lifecycleRecovery && !lifecycleDraft && <div className="notice">有一份状态草稿或待确认操作。<button disabled={wishlistEditing} onClick={() => void openLifecycle(lifecycleRecovery.record, lifecycleRecovery.action, lifecycleRecovery)}>恢复状态草稿</button></div>}
-      {recovered && !draft && <div className="notice">有一份未保存或待确认的草稿。<button disabled={wishlistEditing} onClick={() => void openEditor(null, true)}>恢复草稿</button></div>}
+      {wishlistEditing && section !== 'wishlist' && <div className="notice">有一次心愿保存结果待确认，请先处理。<button onClick={() => { setSection('wishlist'); setDetailId(null); }}>前往心愿清单</button></div>}
+      {saleRecovery && !saleDraft && <div className="notice">有一次售出操作结果待确认。<button disabled={wishlistEditing} onClick={() => void openSale(saleRecovery.record, saleRecovery.mode, saleRecovery)}>核对售出结果</button></div>}
+      {maintenanceRecovery && !maintenanceDraft && <div className="notice">有一次维护操作结果待确认。<button disabled={wishlistEditing} onClick={() => void openMaintenance(maintenanceRecovery.record, maintenanceRecovery.maintenance_id, maintenanceRecovery)}>核对维护结果</button></div>}
+      {warrantyRecovery && !warrantyDraft && <div className="notice">有一次保障操作结果待确认。<button disabled={wishlistEditing} onClick={() => void openWarranty(warrantyRecovery.record, warrantyRecovery.warranty_id, warrantyRecovery)}>核对保障结果</button></div>}
+      {lifecycleRecovery && !lifecycleDraft && <div className="notice">有一次状态操作结果待确认。<button disabled={wishlistEditing} onClick={() => void openLifecycle(lifecycleRecovery.record, lifecycleRecovery.action, lifecycleRecovery)}>核对状态结果</button></div>}
+      {recovered && !draft && <div className="notice">有一次保存结果待确认。<button disabled={wishlistEditing} onClick={() => void openEditor(null, true)}>核对保存结果</button></div>}
       {trashRecovery && !trashAction && <div className="notice">有一次删除或恢复的结果待确认。<button disabled={wishlistEditing} onClick={() => void openTrash(trashRecovery.record, trashRecovery.input.generation, trashRecovery.input.deleted, trashRecovery)}>核对上次操作</button></div>}
       {recordTrashRecovery && !recordTrashAction && <div className="notice">有一次维护或保障删除/恢复的结果待确认。<button disabled={wishlistEditing} onClick={() => void openRecordTrash(recordTrashRecovery.input.kind, recordTrashRecovery.input.record_id, recordTrashRecovery.input.asset_id, recordTrashRecovery.meta.title, recordTrashRecovery.meta.assetName, recordTrashRecovery.input.generation, recordTrashRecovery.input.expected_revision, recordTrashRecovery.input.deleted, recordTrashRecovery)}>核对上次操作</button></div>}
-      <section hidden={section !== 'settings'} className="settings-section"><section className="card appearance-settings"><h2>外观</h2><label className="theme">主题<select aria-label="外观" value={theme} onChange={e => setTheme(e.target.value)}><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label></section><TaxonomyManager snapshot={taxonomy.snapshot} loading={taxonomy.loading} loadError={taxonomy.loadError} onReload={taxonomy.reload} onCommand={taxonomy.command} onDirtyChange={setTaxonomyDirty} validateName={(kind, name, id) => validateTaxonomyName(taxonomy.snapshot?.[kind === 'category' ? 'categories' : 'channels'] ?? [], kind, name, id)}/><DataManagement generation={page?.generation ?? null} demo={!!demoStatus?.active} blocked={wishlistEditing || taxonomyGuard || !!draft || !!(trashRecovery || recordTrashRecovery)} onTrash={() => setSection('trash')}/></section>
+      {section === 'settings' && <section className="settings-section"><TaxonomyManager snapshot={taxonomy.snapshot} loading={taxonomy.loading} loadError={taxonomy.loadError} onReload={taxonomy.reload} onCommand={taxonomy.command} onDirtyChange={setTaxonomyDirty} validateName={(kind, name, id) => validateTaxonomyName(taxonomy.snapshot?.[kind === 'category' ? 'categories' : 'channels'] ?? [], kind, name, id)}/><DataManagement generation={page?.generation ?? null} demo={!!demoStatus?.active} blocked={wishlistEditing || taxonomyGuard || !!draft || !!(trashRecovery || recordTrashRecovery)} onTrash={() => setSection('trash')}/></section>}
       {section === 'materials' && <MaterialLibrary generation={page?.generation || ''} onNotice={setNotice}/>}
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
       {section === 'overview' && <OverviewPage onOpenAsset={id => { setSection('assets'); void select(id, true); }} onOpenWish={(name, status) => { setWishFocus({ search: name, filter: status as WishlistQuery['filter'] }); setSection('wishlist'); }} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>}

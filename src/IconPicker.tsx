@@ -37,23 +37,23 @@ export function IconPicker({ generation, photos, cover, onClose, onUse }: { gene
     lock.current = true; setBusy(true); setError('');
     try {
       const photo = await invoke<Photo>('import_photo_bytes', { generation, name: file.name || '粘贴的图片.png', bytes: Array.from(new Uint8Array(await file.arrayBuffer())) });
-      setChoice({ kind: 'photo', photo }); setSource('custom'); setCategory('全部'); setSearch('');
+      await onUse({kind:'photo',photo}); onClose();
     } catch (e) { setError(errorMessage(e)); }
     finally { lock.current = false; setBusy(false); }
   }
   async function chooseFile() {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
-    try { const photo = await invoke<Photo | null>('pick_photo', { generation, repair: null }); if (photo) setChoice({ kind: 'photo', photo }); }
+    try { const photo = await invoke<Photo | null>('pick_photo', { generation, repair: null }); if (photo) {await onUse({kind:'photo',photo});onClose();} }
     catch (e) { setError(errorMessage(e)); }
     finally { lock.current = false; setBusy(false); }
   }
-  async function apply() {
+  async function apply(next:IconChoice) {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
     try {
-      await onUse(choice);
-      if (choice.kind === 'material') { try { rememberMaterial(localStorage, generation, choice.entry.id); } catch { /* A recent choice is optional; saving the asset is independent. */ } }
+      await onUse(next);
+      if (next.kind === 'material') { try { rememberMaterial(localStorage, generation, next.entry.id); } catch { /* A recent choice is optional; saving the asset is independent. */ } }
       onClose();
     } catch (e) { setError(errorMessage(e)); }
     finally { lock.current = false; setBusy(false); }
@@ -74,15 +74,15 @@ export function IconPicker({ generation, photos, cover, onClose, onUse }: { gene
       {source === 'custom' && <div className="picker-upload"><button type="button" disabled={busy} onClick={() => void chooseFile()}><Icon name="plus"/>从 Mac 选择图片</button><p>也可拖入或粘贴一张图片 · JPEG、PNG、HEIC、WebP · 20 MiB</p></div>}
       {loadError && <p role="alert" className="picker-error">{loadError} <button type="button" disabled={busy} onClick={() => setReload(n => n + 1)}>重新读取素材</button></p>}
       {loading ? <p role="status" className="picker-empty">正在读取素材…</p> : <div className="picker-grid">
-        {source === 'icon' && category === '全部' && !search && <button type="button" className="picker-tile" aria-label="选择默认箱子图标" aria-pressed={choice.kind === 'default'} disabled={busy} onClick={() => setChoice({kind:'default'})}><DefaultAssetIcon/><span>默认图标</span><i aria-hidden="true">✓</i></button>}
+        {source === 'icon' && category === '全部' && !search && <button type="button" className="picker-tile" aria-label="选择默认箱子图标" aria-pressed={choice.kind === 'default'} disabled={busy} onClick={() => void apply({kind:'default'})}><DefaultAssetIcon/><span>默认图标</span><i aria-hidden="true">✓</i></button>}
         {visible.filter(e => e.id !== 'icon-box' || category !== '全部' || !!search).map(entry => <div className="picker-cell" key={entry.id} data-selected={(entry.id === 'icon-box' ? choice.kind === 'default' : choice.kind === 'material' && choice.entry.id === entry.id)}>
-          {entry.builtin ? <button type="button" className="picker-tile" aria-label={'选择图标：' + entry.name} aria-pressed={(entry.id === 'icon-box' ? choice.kind === 'default' : choice.kind === 'material' && choice.entry.id === entry.id)} disabled={busy} onClick={() => setChoice(entry.id === 'icon-box' ? {kind:'default'} : {kind:'material',entry})}><img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt(entry.id))} alt=""/><span>{entry.name}</span><i aria-hidden="true">✓</i></button> : <><MaterialThumb id={entry.id} generation={generation} alt={'选择图片：' + entry.name} disabled={busy} onSelect={() => setChoice({kind:'material',entry})}/><span>{entry.name}</span></>}
+          {entry.builtin ? <button type="button" className="picker-tile" aria-label={'选择图标：' + entry.name} aria-pressed={(entry.id === 'icon-box' ? choice.kind === 'default' : choice.kind === 'material' && choice.entry.id === entry.id)} disabled={busy} onClick={() => void apply(entry.id === 'icon-box' ? {kind:'default'} : {kind:'material',entry})}><img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt(entry.id))} alt=""/><span>{entry.name}</span><i aria-hidden="true">✓</i></button> : <><MaterialThumb id={entry.id} generation={generation} alt={'选择图片：' + entry.name} disabled={busy} onSelect={() => void apply({kind:'material',entry})}/><span>{entry.name}</span></>}
         </div>)}
-        {[...(imported && source === 'custom' ? [imported] : []), ...ownPhotos].map(photo => <button type="button" key={photo.id} className="picker-tile" aria-label={'选择档案图片：' + photo.name} aria-pressed={choice.kind === 'photo' && choice.photo.id === photo.id} disabled={busy} onClick={() => setChoice({kind:'photo',photo})}><PhotoView photo={photo} generation={generation}/><span>{photo.name}</span><i aria-hidden="true">✓</i></button>)}
+        {[...(imported && source === 'custom' ? [imported] : []), ...ownPhotos].map(photo => <button type="button" key={photo.id} className="picker-tile" aria-label={'选择档案图片：' + photo.name} aria-pressed={choice.kind === 'photo' && choice.photo.id === photo.id} disabled={busy} onClick={() => void apply({kind:'photo',photo})}><PhotoView photo={photo} generation={generation}/><span>{photo.name}</span><i aria-hidden="true">✓</i></button>)}
       </div>}
       {!loading && !loadError && !visible.length && !ownPhotos.length && !(imported && source === 'custom') && <p className="picker-empty">{search ? '没有匹配的图标，换个关键词试试。' : source === 'recent' ? '使用过的素材会出现在这里。' : source === 'custom' ? '你上传到素材库的图片和当前档案图片会出现在这里。' : '这个分类暂时没有素材。'}</p>}
     </div>
     {error && <p role="alert" className="picker-error">{error}。当前选择和表单输入已保留，可重试。</p>}
-    <footer className="picker-footer"><div className="picker-selection"><span className="picker-selection-image">{preview()}</span><span><small>当前选择</small><strong title={label}>{label}</strong></span></div><div className="actions"><button type="button" disabled={busy} onClick={onClose}>取消</button><button type="button" className="primary" disabled={busy} onClick={() => void apply()}>{busy ? '正在准备…' : '使用此图标'}</button></div></footer>
+    <footer className="picker-footer"><span className="muted small">{busy?'正在使用图标…':'点击即可使用'}</span><button type="button" disabled={busy} onClick={onClose}>返回</button></footer>
   </section>;
 }
