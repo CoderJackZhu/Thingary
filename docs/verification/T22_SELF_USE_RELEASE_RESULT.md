@@ -67,7 +67,7 @@ Tauri CLI 对用户指定的 `local.possio.app` 输出“以 `.app` 结尾不推
 
 复核属实：默认配置未改、正式配置独立；`dist` 与主程序无测试入口；正式库原为空库；临时身份的[读回脚本](t22/verify_readback.py)复跑 exit 0（25 张表一致）。移除 `possio.qa.*` 排除只影响测试构建的恢复提示计数，正式版不产生该类键，接受。
 
-**更正 1：identifier。** 交接指定的 `local.possio.app` 以 `.app` 结尾（Tauri 已告警）。复核发现 macOS 把资料文件夹 `~/Library/Application Support/local.possio.app` 识别为应用程序包（`mdls kMDItemKind = 应用程序`，`com.apple.application-bundle`），用户在访达里会看到一个“App”而不是资料文件夹。趁正式库仍为空，改为 **`local.possio.main`**：`npm run release` 无告警，Info.plist `CFBundleIdentifier=local.possio.main`，重新 `ditto` 安装到 `/Applications/物志.app`（构建与安装主程序 SHA256 前缀均为 `eb0ec49e0d83281f`）；首次启动显示「0 件物品／从第一件物品开始」后 ⌘Q 退出、无残留进程；新资料文件夹 `kMDItemKind = 文件夹`，`integrity_check=ok`、资产 0。旧的空 `local.possio.app` 文件夹（0 件资产）已移到废纸篓。前文 §2–3 中的 `local.possio.app` 为更正前记录。
+**更正 1：identifier。** 交接指定的 `local.possio.app` 以 `.app` 结尾（Tauri 已告警）。复核发现 macOS 把资料文件夹 `~/Library/Application Support/local.possio.app` 识别为应用程序包（`mdls kMDItemKind = 应用程序`，`com.apple.application-bundle`），用户在访达里会看到一个“App”而不是资料文件夹。趁正式库仍为空，改为 **`local.possio.main`**：`npm run release` 无告警，Info.plist `CFBundleIdentifier=local.possio.main`，重新 `ditto` 安装到 `/Applications/物志.app`（review 更正提交 `3d97f3b` 的最终 release 构建已重新安装，构建与安装主程序 SHA256 前缀均为 `e0cd88db8e6fa490`）；首次启动显示「0 件物品／从第一件物品开始」后 ⌘Q 退出、无残留进程；新资料文件夹 `kMDItemKind = 文件夹`，`integrity_check=ok`、资产 0。旧的空 `local.possio.app` 文件夹（0 件资产）已移到废纸篓。前文 §2–3 中的 `local.possio.app` 为更正前记录。
 
 **更正 2：使用说明措辞。** 「新增物品」改为界面实际的「全部资产 › 新增资产（或 ⌘N）」；「从完整备份恢复」改为界面实际的「从备份恢复 › 选择备份…」；资料路径改为 `local.possio.main`。
 
