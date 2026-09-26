@@ -8,6 +8,8 @@ extern "C" {
         length: *mut usize,
     ) -> i32;
     fn possio_pick_image() -> *mut c_char;
+    fn possio_pick_backup_save(suggested: *const c_char) -> *mut c_char;
+    fn possio_pick_backup_open() -> *mut c_char;
     fn possio_free(bytes: *mut c_void);
 }
 pub fn preview(bytes: &[u8]) -> Result<Vec<u8>> {
@@ -35,9 +37,7 @@ pub fn preview(bytes: &[u8]) -> Result<Vec<u8>> {
     unsafe { possio_free(output.cast()) };
     Ok(result)
 }
-/// Caller must dispatch to the AppKit main thread.
-pub(crate) fn pick() -> Option<std::path::PathBuf> {
-    let value = unsafe { possio_pick_image() };
+fn take_path(value: *mut c_char) -> Option<std::path::PathBuf> {
     if value.is_null() {
         return None;
     }
@@ -47,4 +47,18 @@ pub(crate) fn pick() -> Option<std::path::PathBuf> {
     }));
     unsafe { possio_free(value.cast()) };
     Some(path)
+}
+
+/// Caller must dispatch to the AppKit main thread.
+pub(crate) fn pick() -> Option<std::path::PathBuf> {
+    take_path(unsafe { possio_pick_image() })
+}
+/// Caller must dispatch to the AppKit main thread.
+pub(crate) fn pick_backup_save(suggested: &str) -> Option<std::path::PathBuf> {
+    let name = std::ffi::CString::new(suggested).ok()?;
+    take_path(unsafe { possio_pick_backup_save(name.as_ptr()) })
+}
+/// Caller must dispatch to the AppKit main thread.
+pub(crate) fn pick_backup_open() -> Option<std::path::PathBuf> {
+    take_path(unsafe { possio_pick_backup_open() })
 }

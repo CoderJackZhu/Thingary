@@ -548,3 +548,108 @@ pub async fn holding(
     .await
     .map_err(|_| Error::new("WORKER", "持有分析读取失败，请重试"))?
 }
+
+fn on_main<T: Send + 'static>(
+    app: &tauri::AppHandle,
+    f: impl FnOnce() -> T + Send + 'static,
+) -> Result<std::sync::mpsc::Receiver<T>> {
+    let (send, receive) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        let _ = send.send(f());
+    })
+    .map_err(|_| Error::new("PICKER", "无法打开文件面板"))?;
+    Ok(receive)
+}
+
+#[derive(serde::Serialize)]
+pub struct BackupDone {
+    pub name: String,
+    pub folder: String,
+}
+
+/// Cancelling the save panel returns `None` and starts no task (AC34).
+#[tauri::command]
+pub async fn create_backup(
+    app: tauri::AppHandle,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<BackupDone>> {
+    // The panel appends ".possio" itself; a suggested extension would be doubled.
+    let suggested = format!("物志备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
+    let receive = on_main(&app, move || {
+        crate::native_images::pick_backup_save(&suggested)
+    })?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        let folder = path
+            .parent()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default();
+        let target = path.clone();
+        // The storage worker is serial: edits queued meanwhile wait for the snapshot.
+        let name = w
+            .call(move |s| s.backup(Some(&target)))?
+            .unwrap_or_default();
+        Ok(Some(BackupDone { name, folder }))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到备份结果，请到目标位置核对"))?
+}
+
+#[derive(serde::Serialize)]
+pub struct Inspected {
+    pub path: String,
+    pub name: String,
+    pub summary: crate::backup::Summary,
+}
+
+#[tauri::command]
+pub async fn inspect_backup(
+    app: tauri::AppHandle,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<Inspected>> {
+    let receive = on_main(&app, crate::native_images::pick_backup_open)?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        let target = path.clone();
+        let summary = w.call(move |s| s.inspect_backup(&target))?;
+        Ok(Some(Inspected {
+            name: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into(),
+            path: path.to_string_lossy().into(),
+            summary,
+        }))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "备份检查未完成，请重试"))?
+}
+
+/// Restores only the bytes whose hash the user confirmed; returns the new generation.
+#[tauri::command]
+pub async fn restore_backup(
+    path: String,
+    hash: String,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.restore(std::path::Path::new(&path), &hash, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到恢复结果，请重新启动后核对"))?
+}

@@ -402,3 +402,69 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
     sync_dir(dir)?;
     Ok(manifest)
 }
+
+/// What a chosen backup contains, shown before the user confirms replacement.
+/// The hash binds the later restore to exactly these checked bytes.
+#[derive(Debug, Clone, Serialize)]
+pub struct Summary {
+    pub hash: String,
+    pub created_at: String,
+    pub schema: u32,
+    pub assets: i64,
+    pub deleted_assets: i64,
+    pub wishes: i64,
+    pub maintenances: i64,
+    pub warranties: i64,
+    pub files: usize,
+}
+
+impl Store {
+    /// Fully unpacks and validates into a scratch folder; the current library is untouched.
+    pub fn inspect_backup(&self, archive: &Path) -> Result<Summary> {
+        let frozen = tempfile::NamedTempFile::new_in(&self.root)?;
+        std::io::copy(
+            &mut File::open(archive)?.take(MAX_ARCHIVE + 1024 * 1024 + 1),
+            &mut frozen.as_file(),
+        )?;
+        let hash = archive_hash(frozen.path())?;
+        let stage = tempfile::tempdir_in(&self.root)?;
+        let manifest = unpack(frozen.path(), stage.path())?;
+        let db = Connection::open_with_flags(
+            stage.path().join("data.sqlite"),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?;
+        let count = |sql: &str| -> Result<i64> { Ok(db.query_row(sql, [], |r| r.get(0))?) };
+        let v = manifest.schema;
+        Ok(Summary {
+            hash,
+            created_at: manifest.created_at.clone(),
+            schema: v,
+            assets: count("SELECT count(*) FROM assets")?,
+            deleted_assets: if v >= 2 {
+                count("SELECT count(*) FROM assets WHERE deleted_at IS NOT NULL")?
+            } else {
+                0
+            },
+            wishes: if v >= 11 {
+                count("SELECT count(*) FROM wishlist_items")?
+            } else {
+                0
+            },
+            maintenances: if v >= 8 {
+                count("SELECT count(*) FROM maintenances")?
+            } else {
+                0
+            },
+            warranties: if v >= 10 {
+                count("SELECT count(*) FROM warranties")?
+            } else {
+                0
+            },
+            files: manifest
+                .entries
+                .keys()
+                .filter(|k| k.starts_with("files/"))
+                .count(),
+        })
+    }
+}

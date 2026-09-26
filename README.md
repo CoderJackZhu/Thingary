@@ -30,7 +30,9 @@
 
 **T16 购买趋势**：统计页按月／季／年的连续期间购入金额与累计（出售不回减、未知日期不归期），见 [T16 记录](docs/verification/T16_TRENDS_RESULT.md)。
 
-**T17 持有分析**：持有周期按自然月纪念日分组、平均／中位／最长，当前持有毛日均与售出净日均分开并按精确值排行，见 [T17 记录](docs/verification/T17_HOLDING_RESULT.md)；T12–T17 全部完成后进行 CP3 检查，再进入 T18 完整备份恢复。当前仓库没有远程，成果只有本地提交。
+**T17 持有分析**：持有周期按自然月纪念日分组、平均／中位／最长，当前持有毛日均与售出净日均分开并按精确值排行，见 [T17 记录](docs/verification/T17_HOLDING_RESULT.md)。
+
+**T18 完整备份恢复**：设置 › 资料管理提供完整备份、先检查后确认的恢复（含保护副本与旧请求作废）、CSV 入口说明与最近删除；空库恢复后全部关系一致，见 [T18 记录](docs/verification/T18_BACKUP_RESTORE_RESULT.md)（含 CP3 检查摘要）；下一阶段为 T19 CSV 资产导出。当前仓库没有远程，成果只有本地提交。
 
 ## 项目文档
 
@@ -47,6 +49,7 @@
 - [T15 总览与分类分布](docs/verification/T15_OVERVIEW_RESULT.md)：统计口径、独立样例、分类配色校验及原生 SQL 核对
 - [T16 购买趋势](docs/verification/T16_TRENDS_RESULT.md)：期间边界、闰日与月底、未知值与累计口径的自动及原生证据
 - [T17 持有分析](docs/verification/T17_HOLDING_RESULT.md)：纪念日分组、精确比值排行、毛／净日均分列及原生核对
+- [T18 完整备份恢复](docs/verification/T18_BACKUP_RESTORE_RESULT.md)：CP3 检查摘要、备份／检查／恢复集成、空库完整关系恢复及原生证据
 - [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
 - [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
 - [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。

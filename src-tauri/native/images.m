@@ -59,3 +59,32 @@ int possio_preview(const unsigned char *bytes, size_t count, unsigned char **out
         return 0;
     }
 }
+
+// Backup panels. Called only on the AppKit main thread; returns NULL when cancelled.
+char *possio_pick_backup_save(const char *suggested) {
+    @autoreleasepool {
+        NSSavePanel *panel = [NSSavePanel savePanel];
+        panel.title = @"保存完整备份";
+        panel.prompt = @"保存备份";
+        panel.nameFieldStringValue = [NSString stringWithUTF8String:suggested];
+        UTType *type = [UTType typeWithFilenameExtension:@"possio"];
+        if (type) panel.allowedContentTypes = @[type];
+        panel.canCreateDirectories = YES;
+        if ([panel runModal] != NSModalResponseOK) return NULL;
+        return strdup(panel.URL.fileSystemRepresentation);
+    }
+}
+char *possio_pick_backup_open(void) {
+    @autoreleasepool {
+        NSOpenPanel *panel = [NSOpenPanel openPanel];
+        panel.title = @"选择要恢复的备份";
+        panel.prompt = @"检查备份";
+        panel.canChooseFiles = YES;
+        panel.canChooseDirectories = NO;
+        panel.allowsMultipleSelection = NO;
+        UTType *type = [UTType typeWithFilenameExtension:@"possio"];
+        if (type) panel.allowedContentTypes = @[type];
+        if ([panel runModal] != NSModalResponseOK) return NULL;
+        return strdup(panel.URL.fileSystemRepresentation);
+    }
+}
