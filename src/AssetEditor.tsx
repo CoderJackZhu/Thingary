@@ -4,7 +4,9 @@ import { errorMessage, inputMoney, localDay, money, validate } from './asset';
 import { PhotoView } from './Photos';
 import { DefaultAssetIcon, IconPicker, type IconChoice } from './IconPicker';
 import { replaceDraftCover } from './asset-media';
-import { CategorySelect, ChannelSelect } from './TaxonomyFields';
+import { FormRow, ChoiceField, AddImageButton } from './FormControls';
+import { AssetOptionsFields } from './AssetOptionsFields';
+import { defaultPreferences, type AssetOptions } from './preferences';
 import { DateInput } from './DateInput';
 import type { TaxonomySnapshot } from './taxonomy';
 import type { Classification } from './asset';
@@ -14,7 +16,7 @@ export const draftKey = 'possio.asset-draft.v1';
 // Older drafts predate photoErrorKind; a missing kind means the file picker flow.
 // A conversion draft creates the asset through convert_wishlist; the estimate is shown, never copied into the price.
 export type Conversion = { wishlist_id: string; expected_revision: number; wish_name: string; estimated_price_cents: string | null; cover_notice?: string };
-export type Draft = { transientCover?: string; conversion?: Conversion; classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
+export type Draft = { options?:AssetOptions; originalOptions?:AssetOptions; transientCover?: string; conversion?: Conversion; classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
 export type CloseIntent = 'form' | 'window' | 'quit';
 export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, onSaved }: { initial: Draft; taxonomy: TaxonomySnapshot | null; closeIntent: CloseIntent | null; onKeep: () => void; onClose: (intent: CloseIntent) => void; onSaved: (record: AssetRecord) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -35,7 +37,9 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
   const [confirm, setConfirm] = useState<CloseIntent | null>(null);
   const photos = draft.photos ?? [];
-  const dirty = JSON.stringify(draft.classification) !== JSON.stringify(draft.originalClassification) || JSON.stringify(draft.fields) !== JSON.stringify(draft.original) || !!draft.photoError || JSON.stringify({photos, cover: draft.cover ?? null}) !== JSON.stringify(draft.originalMedia ?? {photos: [], cover: null});
+  const options = draft.options ?? {preferences:defaultPreferences()};
+  const disabled = busy || !!draft.pending;
+  const dirty = JSON.stringify(draft.options)!==JSON.stringify(draft.originalOptions) || JSON.stringify(draft.classification) !== JSON.stringify(draft.originalClassification) || JSON.stringify(draft.fields) !== JSON.stringify(draft.original) || !!draft.photoError || JSON.stringify({photos, cover: draft.cover ?? null}) !== JSON.stringify(draft.originalMedia ?? {photos: [], cover: null});
   useEffect(() => { dialog.current?.showModal(); document.getElementById('field-name')?.focus(); return () => dialog.current?.close(); }, []);  useEffect(() => { if (closeIntent) askClose(closeIntent); }, [closeIntent]);
   function remember(next: Draft) { localStorage.setItem(draftKey, JSON.stringify(next)); setDraft(next); }
   function change(key: keyof Fields, value: string) {
@@ -90,9 +94,6 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   async function save() {
     if (lock.current || draft.pending || draft.photoError) return;
     if (!taxonomy) { setNotice('分类与渠道尚未读取，请稍后重试。'); return; }
-    for (const [id, entries] of [[draft.classification?.category_id, taxonomy.categories], [draft.classification?.channel_id, taxonomy.channels]] as const) {
-      if (id && !entries.some(e => e.id === id)) { setNotice('分类或购买渠道已不可用，请重新选择。'); setMoreOpen(true); return; }
-    }
     const checked = validate(draft.fields, localDay()); setErrors(checked);
     const first = Object.keys(checked)[0];
     if (first) {
@@ -102,7 +103,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
     }
     lock.current = true; setBusy(true); setNotice('正在保存…'); setConflict(false);
     const { name, price, date, ...details } = draft.fields;
-    const input: SaveAsset = { classification: draft.classification, base: { request_id: crypto.randomUUID(), generation: draft.generation, asset_id: draft.id, expected_revision: draft.revision, name, price_cents: inputMoney(price), purchase_date: date || null }, details, photos: { ids: photos.map(p => p.id), cover_id: draft.cover ?? null } };
+    const input: SaveAsset = { options, classification: draft.classification, base: { request_id: crypto.randomUUID(), generation: draft.generation, asset_id: draft.id, expected_revision: draft.revision, name, price_cents: inputMoney(price), purchase_date: date || null }, details, photos: { ids: photos.map(p => p.id), cover_id: draft.cover ?? null } };
     try { remember({ ...draft, pending: input }); }
     catch { lock.current = false; setBusy(false); setNotice('无法暂存本次请求，尚未提交。请检查可用空间后重试。'); return; }
     try { success(conversion ? await invoke<AssetRecord>('convert_wishlist', { input: { wishlist_id: conversion.wishlist_id, expected_revision: conversion.expected_revision, asset: input } }) : await invoke<AssetRecord>('save_asset', { input })); }
@@ -131,7 +132,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       <small id="help-date" className={errors.date ? 'error' : ''}>{errors.date || hint}</small>
     </div>;
     return <label className={'field ' + (key === 'name' || key === 'notes' ? 'wide' : '')} htmlFor={'field-' + key} key={key}>
-      <span>{label}</span>{key === 'notes' ? <textarea id={'field-' + key} rows={4} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key}/> : <input id={'field-' + key} autoFocus={key === 'name'} type={type} placeholder={key === 'name' ? '请输入物品名称' : undefined} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key} autoComplete="off"/>}
+      <span>{label}</span>{key === 'notes' ? <textarea id={'field-' + key} rows={4} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key}/> : <input id={'field-' + key} autoFocus={key === 'name'} type={type} placeholder={key === 'name' ? '请输入物品名称' : key==='price'?'请输入物品价格':undefined} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key} autoComplete="off"/>}
       <small id={'help-' + key} className={errors[key] ? 'error' : ''}>{errors[key] || hint}</small>
     </label>;
   }
@@ -142,13 +143,14 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       <header><div><p className="eyebrow">{conversion ? '心愿转为资产' : '物品档案'}</p><h2 id="editor-title">{conversion ? '确认购入' : draft.id ? '编辑资料' : '新增资产'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button></header>
       {conversion ? <p className="muted">由心愿「{conversion.wish_name}」转入。{conversion.estimated_price_cents === null ? '心愿未填预计价格。' : `预计 ${money(conversion.estimated_price_cents)} 仅作参考，不会当作实付金额。`}请填写实际购入金额和日期；留空表示未知，相关成本指标将无法计算。确认前心愿保持进行中。</p> : <p className="muted">只填写名称也可以。其余资料，想起时再补。</p>}
       <div className="asset-identity-editor"><button type="button" className="asset-avatar-button" aria-label="选择物品图标" title="选择物品图标" disabled={busy || !!draft.pending} onClick={openPicker}>{coverPhoto ? <PhotoView photo={coverPhoto} generation={draft.generation}/> : <DefaultAssetIcon/>}<span className="avatar-edit">更换图标</span></button>{field('name', '物品名称')}</div>
-      <div className="fields">{field('price', '购入金额（元）', '留空表示未知；0 表示确实免费。')}{field('date', '购入日期', '新增时预填今天；可选择其他日期，不确定时可清空。')}<div className="wide"><CategorySelect id="field-category" entries={taxonomy?.categories ?? []} value={draft.classification?.category_id ?? null} onChange={id => classify('category_id',id)} disabled={busy || !!draft.pending || !taxonomy}/></div>
-      </div>
-      <details className="asset-attachments"><summary>图片附件<span>{attachments.length ? `${attachments.length} 张` : '实物照片、发票等，按需添加'}</span></summary><div className="photo-heading"><span className="muted small">图标与附件合计最多 20 张，每张 20 MiB。</span><button type="button" disabled={busy || !!draft.pending || photos.length >= 20} onClick={() => void pickPhoto()}>添加图片</button></div>
-        <div className="photo-strip">{attachments.map(photo => <div className="photo-tile" key={photo.id}><PhotoView photo={photo} generation={draft.generation}/><span className="photo-name">{photo.name}</span><div className="photo-actions"><button type="button" disabled={busy || !!draft.pending} onClick={() => media({ ...draft, cover: photo.id })}>用作物品图标</button><button type="button" disabled={busy || !!draft.pending} aria-label={'移除图片 ' + photo.name} onClick={() => media({ ...draft, photos: photos.filter(p => p.id !== photo.id) })}>移除</button></div></div>)}</div>
-      </details>
+      <section className="form-block"><FormRow label="资产分类"><ChoiceField kind="category" label="资产分类" generation={draft.generation} value={draft.classification?.category_id??null} onChange={id=>classify('category_id',id)} disabled={disabled}/></FormRow><FormRow label="自定义状态"><ChoiceField kind="label" label="自定义状态" generation={draft.generation} value={options.preferences.label_id} onChange={label_id=>remember({...draft,options:{...options,preferences:{...options.preferences,label_id}}})} disabled={disabled}/></FormRow></section>
+      <section className="form-block"><FormRow label="购买价格（元）">{field('price','购买价格','留空为未知；0 为免费。')}</FormRow><FormRow label="购买日期">{field('date','购买日期')}</FormRow><FormRow label="购买渠道"><ChoiceField kind="channel" label="购买渠道" generation={draft.generation} value={draft.classification?.channel_id??null} onChange={id=>classify('channel_id',id)} disabled={disabled}/></FormRow></section>
+      <AssetOptionsFields onBusy={value=>{lock.current=value;setBusy(value)}} options={options} generation={draft.generation} disabled={disabled} existing={!!draft.id} purchaseDate={draft.fields.date} onChange={options=>remember({...draft,options})}>
+      <section className="form-block form-notes">{field('notes','备注')}<div className="photo-strip">{attachments.map(photo=><div className="photo-tile" key={photo.id}><PhotoView photo={photo} generation={draft.generation}/><button type="button" disabled={disabled} aria-label={'移除图片'+photo.name} onClick={()=>media({...draft,photos:photos.filter(p=>p.id!==photo.id)})}>移除</button></div>)}<AddImageButton disabled={disabled||photos.length>=20} onClick={()=>void pickPhoto()}/></div></section>
+      </AssetOptionsFields>
+
         {draft.photoError && <div role="alert" className="confirm"><p>{draft.photoError}。请重试，或明确取消这次选图后再保存。</p><button type="button" disabled={busy} onClick={() => draft.photoErrorKind === 'material' ? openPicker() : void pickPhoto()}>重新选择</button><button type="button" disabled={busy} onClick={() => media({ ...draft, photoError: '', photoErrorKind: undefined })}>{draft.photoErrorKind === 'material' ? '不使用这次未添加的素材' : '不使用这次未读取的图片'}</button></div>}
-      <details className="more-fields" open={moreOpen} onToggle={e => setMoreOpen(e.currentTarget.open)}><summary>更多资料<span>品牌、型号、渠道、序列号与备注</span></summary><div className="fields">{field('brand', '品牌')}{field('model', '型号')}{field('serial_number', '序列号')}<ChannelSelect id="field-channel" entries={taxonomy?.channels ?? []} value={draft.classification?.channel_id ?? null} onChange={id => classify('channel_id',id)} disabled={busy || !!draft.pending || !taxonomy}/>{field('notes', '备注')}</div></details>
+      <details className="more-fields" open={moreOpen} onToggle={e => setMoreOpen(e.currentTarget.open)}><summary>更多资料<span>品牌、型号与序列号</span></summary><div className="fields">{field('brand', '品牌')}{field('model', '型号')}{field('serial_number', '序列号')}</div></details>
       {notice && <p className="notice" role="status" aria-live="polite">{notice}</p>}
       {latest && <div className="confirm"><strong>当前已保存：{latest.asset.name}</strong><p>购入金额：{latest.asset.price_cents === null ? '待补充' : (Number(latest.asset.price_cents) / 100).toFixed(2)} 元；日期：{latest.asset.purchase_date || '待补充'}</p><p>品牌：{latest.details.brand || '待补充'}；型号：{latest.details.model || '待补充'}；序列号：{latest.details.serial_number || '待补充'}</p><p className="notes">备注：{latest.details.notes || '无'}</p><p>分类：{taxonomy?.categories.find(e => e.id === latest.classification?.category_id)?.name || '未分类'}；渠道：{taxonomy?.channels.find(e => e.id === latest.classification?.channel_id)?.name || '未记录'}</p><p>图片：{latest.photos.length} 张；确认替换时，将以表单中的图片和封面为准。</p><button type="button" onClick={() => { remember({ ...draft, revision: latest.asset.revision }); setConflict(false); setLatest(null); setNotice('已确认以表单中的输入替换该版本，请点击保存资料。'); }}>确认用我的输入替换此版本</button></div>}
       {confirm ? <div className="confirm" role="alert"><strong>放弃未保存的修改？</strong><p>这次输入还没有写入资产档案。</p><div className="actions"><button type="button" onClick={() => { setConfirm(null); onKeep(); }}>继续编辑</button><button type="button" className="danger" onClick={() => onClose(confirm)}>放弃修改</button></div></div> : <footer className="actions">

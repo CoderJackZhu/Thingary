@@ -42,6 +42,10 @@ CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；�
 
 **T21 完整 P0 验收（已 review、补验并本地合并）**：AC01–AC44 逐项证据、独立 release 离线闭环、同库备份/CSV、空库恢复及用户检查单见 [T21 验收报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。review 后补验 AC05/06/09，现通过 43、部分 1（AC40，含 VoiceOver 等待用户项）；浅色次要文字对比度已修至 AA；用户授权由 Claude 判定，**CP3、CP4 达到出口，P0 闭环完成**（AC40 未实测项为已接受风险，见报告 §9）。T22 自用正式版按[交接](docs/handoffs/T22_SELF_USE_RELEASE_GPT.md)在 `codex/t22-self-use-release` 实施；[T22 记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)已 review（§7 更正 identifier）并本地合并。
 
+## U02 资产与心愿升级（2026-09-27）
+
+本轮按用户确认升级分块录入、独立状态标签、按次成本、四项统计排除、攒钱心愿与本地提醒；完整彩色图标、少量独立 3D 素材及月亮／时间轴同步调整。业务库升级为 schema 13，旧资料默认行为保留。实现、自动验证和隔离原生验收完成，1.1.0 已构建，等待用户保存并退出后替换正式 App；见 [执行清单](docs/handoffs/U02_ASSET_WISHLIST_UPGRADE.md) 与 [验证记录](docs/verification/U02_ASSET_WISHLIST_RESULT.md)。
+
 ## 项目文档
 
 - [物志使用说明](docs/USER_GUIDE.md)：安装、资料位置、完整备份与恢复及当前限制。

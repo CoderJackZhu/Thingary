@@ -46,10 +46,12 @@ test('wishlist recovery freezes other flows and abandon recovery keeps the exact
 test('wishlist UI replays full receipts, exposes abandon retry, and uses category art fallback', () => {
   const panel = readFileSync(new URL('../src/WishlistPanel.tsx', import.meta.url), 'utf8');
   const app = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
-  assert.match(panel, /saved_wishlist_request', \{ input: draft\.pending \}/);
+  const editor=readFileSync(new URL('../src/WishEditor.tsx',import.meta.url),'utf8');
+  assert.match(editor,/saved_wishlist_request/);
+  assert.match(editor,/saved_wish_feature/);
   assert.match(panel, /saved_wishlist_request', \{ input: abandonRecovery \}/);
   assert.match(panel, /再次核对/);
-  assert.match(panel, /categoryArt\(taxonomy\?\.categories\.find\(c => c\.id === item\.fields\.category_id\)\?\.icon\)/);
+  assert.match(panel, /DefaultAssetIcon/);
   assert.match(app, /if \(wishlistEditing \|\| !page/);
   assert.match(app, /disabled=\{wishlistEditing \|\| !!\(trashRecovery \|\| recordTrashRecovery\)\}/);
   assert.match(app, /useState\(\(\) => !!storedWishlistDraft\(localStorage\) \|\| !!storedWishlistChange\(localStorage, wishlistAbandonKey\)\)/);
@@ -66,7 +68,7 @@ test('wishlist dates render the local day, not the UTC prefix', async () => {
   process.env.TZ = 'Asia/Shanghai';
   const { localDay } = await import('../src/asset.ts');
   assert.equal(localDay(new Date('2020-01-01T20:09:16.652389+00:00')), '2020-01-02');
-  assert.match(readFileSync(new URL('../src/WishlistPanel.tsx', import.meta.url), 'utf8'), /加入：\{localDay\(new Date\(item\.created_at\)\)\}.*放弃：' \+ localDay\(new Date\(item\.abandoned_at\)\)/);
+  assert.match(readFileSync(new URL('../src/WishlistPanel.tsx', import.meta.url), 'utf8'), /加入：\{item\.preferences\?\.added_date\?\?localDay\(new Date\(item\.created_at\)\)\}.*放弃：' \+ localDay\(new Date\(item\.abandoned_at\)\)/);
 });
 
 test('conversion form never copies the estimate into the actual price and reuses receipt recovery', () => {
@@ -77,6 +79,6 @@ test('conversion form never copies the estimate into the actual price and reuses
   assert.doesNotMatch(main, /price: [^,}]*estimated_price/);
   assert.match(editor, /conversion \? await invoke<AssetRecord>\('convert_wishlist'/);
   assert.match(editor, /invoke<AssetRecord \| null>\('saved_request', \{ request: input\.base\.request_id/);
-  assert.match(panel, /item\.status === 'ongoing' && <div className="wishlist-actions">.*已购入…/);
+  assert.match(panel, /item\.status !== 'abandoned' && <div className="wishlist-actions">.*已购入…/);
   assert.match(panel, /item\.converted_asset\.deleted \?.*前往最近删除.*查看资产/);
 });

@@ -16,6 +16,7 @@ fn id() -> String {
 fn create(s: &mut Store) -> AssetRecord {
     s.save_asset(
         &SaveAsset {
+            options: None,
             base: Save {
                 request_id: id(),
                 generation: s.generation(),
@@ -219,6 +220,7 @@ fn dates_are_checked_in_both_directions_and_sold_history_is_allowed() {
         )
         .unwrap();
     let mut save = SaveAsset {
+        options: None,
         base: Save {
             request_id: id(),
             generation: s.generation(),

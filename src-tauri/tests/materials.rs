@@ -22,6 +22,7 @@ fn save(
 ) -> Result<AssetRecord> {
     s.save_asset(
         &SaveAsset {
+            options: None,
             base: Save {
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
@@ -331,7 +332,7 @@ fn schema_nine_upgrade_preserves_assets_and_adds_materials() {
     }
     // Rewind to schema 8 the way an older library would look.
     let db = rusqlite::Connection::open(dataset(root.path()).join("data.sqlite")).unwrap();
-    db.execute_batch("DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; DROP TABLE materials; PRAGMA user_version=8;")
+    db.execute_batch("DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; DROP TABLE materials; PRAGMA user_version=8;")
         .unwrap();
     drop(db);
     let s = Store::open(root.path()).unwrap();
@@ -341,7 +342,7 @@ fn schema_nine_upgrade_preserves_assets_and_adds_materials() {
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap()
     };
-    assert_eq!(version, 12, "a schema 8 library upgrades through 9 to 12");
+    assert_eq!(version, 13, "a schema 8 library upgrades through 9 to 13");
     assert_eq!(s.count().unwrap(), 1);
     assert_eq!(
         s.material_entries().unwrap().len(),

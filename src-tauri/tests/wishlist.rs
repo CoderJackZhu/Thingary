@@ -327,6 +327,7 @@ fn receipt_lookup_requires_exact_wishlist_payload_and_audit() {
     store
         .save_asset(
             &SaveAsset {
+                options: None,
                 base: Save {
                     request_id: unrelated_request.clone(),
                     generation: store.generation(),

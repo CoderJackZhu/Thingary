@@ -1,6 +1,6 @@
 import catalog from '../src-tauri/materials/materials.json' with { type: 'json' };
 import { objectArt } from './illustrations.ts';
-export type Material = { id: string; name: string; style: string; category: string; keywords: string; shape?: string };
+export type Material = { id: string; name: string; style: string; category: string; keywords: string; shape?: string; art?: string; hidden?: boolean };
 export type MaterialEntry = { id: string; name: string; builtin: boolean };
 export const MATERIALS: Material[] = catalog;
 export const materialCategories = ['全部', '通用', '数码', '家电', '家居', '办公', '交通', '运动', '厨具'] as const;
@@ -8,6 +8,7 @@ export type MaterialSource = 'icon' | 'dimensional' | 'recent' | 'custom';
 export function materialOf(id: string | null): Material | null { return id ? MATERIALS.find(m => m.id === id) ?? null : null; }
 export function materialArt(id: string): string {
   const m = materialOf(id);
+  if (m?.art) return m.art;
   if (!m?.shape) return objectArt(m?.id ?? 'box');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" rx="18" fill="#eef3f7"/><g transform="translate(8 8)" fill="none" stroke="#48627d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${m.shape}</g></svg>`;
 }
@@ -19,7 +20,7 @@ export function filterMaterials(entries: MaterialEntry[], source: MaterialSource
   const query = search.trim().toLocaleLowerCase();
   const filtered = entries.filter(entry => {
     const info = materialOf(entry.id);
-    const matchesSource = source === 'recent' ? recent.includes(entry.id) : source === 'custom' ? !entry.builtin : entry.builtin && info?.style === source;
+    const matchesSource = source === 'recent' ? recent.includes(entry.id) : source === 'custom' ? !entry.builtin : entry.builtin && !info?.hidden && info?.style === source;
     return matchesSource && (category === '全部' || info?.category === category) && (!query || `${entry.name} ${info?.keywords ?? ''}`.toLocaleLowerCase().includes(query));
   });
   return source === 'recent' ? filtered.sort((a, b) => recent.indexOf(a.id) - recent.indexOf(b.id)) : filtered;

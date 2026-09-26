@@ -4,6 +4,7 @@ import './date-input.css';
 
 type Props = {
   id?: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
@@ -32,7 +33,7 @@ function monthDate(year: number, month: number, day: number): string {
 }
 
 /** Text entry and an explicit calendar share one YYYY-MM-DD value. */
-export function DateInput({ id, value, onChange, disabled = false, min = '1900-01-01', max, allowClear = false, invalid, describedBy }: Props) {
+export function DateInput({ id, label, value, onChange, disabled = false, min = '1900-01-01', max, allowClear = false, invalid, describedBy }: Props) {
   const [open, setOpen] = useState(false);
   const [month, setMonth] = useState(() => selectedMonth(value));
   const root = useRef<HTMLDivElement>(null);
@@ -56,8 +57,8 @@ export function DateInput({ id, value, onChange, disabled = false, min = '1900-0
   const years = Array.from({ length: 211 }, (_, index) => 1900 + index);
   return <div className="date-input" ref={root} onKeyDown={event => { if (event.key === 'Escape' && open) { event.stopPropagation(); setOpen(false); } }}>
     <div className="date-input-row">
-      <input id={id} type="text" inputMode="numeric" placeholder="YYYY-MM-DD" maxLength={10} autoComplete="off" value={value} disabled={disabled} aria-invalid={invalid} aria-describedby={describedBy} onChange={event => onChange(event.target.value)}/>
-      <button type="button" className="date-picker-toggle" aria-label="打开日期选择器" aria-expanded={open} disabled={disabled} onClick={() => { setMonth(selectedMonth(value)); setOpen(current => !current); }}>选日期</button>
+      <input id={id} aria-label={label} type="text" inputMode="numeric" placeholder="YYYY-MM-DD" maxLength={10} autoComplete="off" value={value} disabled={disabled} aria-invalid={invalid} aria-describedby={describedBy} onChange={event => onChange(event.target.value)}/>
+      <button type="button" className="date-picker-toggle" aria-label={label ? `选择${label}` : "打开日期选择器"} aria-expanded={open} disabled={disabled} onClick={() => { setMonth(selectedMonth(value)); setOpen(current => !current); }}>选日期</button>
     </div>
     {open && !disabled && <div className="date-calendar" role="dialog" aria-label="选择日期">
       <div className="date-calendar-heading"><button type="button" aria-label="上个月" disabled={previousEnd < min} onClick={() => setMonth(new Date(year, monthIndex - 1, 1))}>‹</button><select aria-label="年份" value={year} onChange={event => setMonth(new Date(Number(event.target.value), monthIndex, 1))}>{years.map(item => <option key={item} value={item}>{item} 年</option>)}</select><select aria-label="月份" value={monthIndex} onChange={event => setMonth(new Date(year, Number(event.target.value), 1))}>{Array.from({ length: 12 }, (_, index) => <option key={index} value={index}>{index + 1} 月</option>)}</select><button type="button" aria-label="下个月" disabled={!!max && nextStart > max} onClick={() => setMonth(new Date(year, monthIndex + 1, 1))}>›</button></div>

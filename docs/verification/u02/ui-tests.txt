@@ -1,0 +1,548 @@
+
+> possio@0.0.1 test:ui
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: money preserves unknown and zero, without float conversion
+ok 1 - money preserves unknown and zero, without float conversion
+  ---
+  duration_ms: 0.880666
+  type: 'test'
+  ...
+# Subtest: name-only and invalid calendar inputs
+ok 2 - name-only and invalid calendar inputs
+  ---
+  duration_ms: 4.704875
+  type: 'test'
+  ...
+# Subtest: inclusive natural days and unknown costs
+ok 3 - inclusive natural days and unknown costs
+  ---
+  duration_ms: 0.181666
+  type: 'test'
+  ...
+# Subtest: text and muted text meet 4.5:1 on every surface in light and dark
+ok 4 - text and muted text meet 4.5:1 on every surface in light and dark
+  ---
+  duration_ms: 17.109709
+  type: 'test'
+  ...
+# Subtest: restore is inspect-then-confirm and bound to the checked hash
+ok 5 - restore is inspect-then-confirm and bound to the checked hash
+  ---
+  duration_ms: 0.470208
+  type: 'test'
+  ...
+# Subtest: after a restore only old-generation work is cleared, appearance stays
+ok 6 - after a restore only old-generation work is cleared, appearance stays
+  ---
+  duration_ms: 0.262625
+  type: 'test'
+  ...
+# Subtest: three data operations are named and not interchangeable
+ok 7 - three data operations are named and not interchangeable
+  ---
+  duration_ms: 6.448417
+  type: 'test'
+  ...
+# Subtest: the restore warning counts drafts and pending requests, not other local keys
+ok 8 - the restore warning counts drafts and pending requests, not other local keys
+  ---
+  duration_ms: 3.321417
+  type: 'test'
+  ...
+# Subtest: CSV export is enabled, explains its scope and cannot be mistaken for a backup
+ok 9 - CSV export is enabled, explains its scope and cannot be mistaken for a backup
+  ---
+  duration_ms: 0.567917
+  type: 'test'
+  ...
+# Subtest: requested objects all have distinct named vector artwork
+ok 10 - requested objects all have distinct named vector artwork
+  ---
+  duration_ms: 1.926083
+  type: 'test'
+  ...
+# Subtest: source, category and alias search intersect without changing asset data
+ok 11 - source, category and alias search intersect without changing asset data
+  ---
+  duration_ms: 1.823042
+  type: 'test'
+  ...
+# Subtest: recent choices are bounded, deduplicated and isolated by dataset generation
+ok 12 - recent choices are bounded, deduplicated and isolated by dataset generation
+  ---
+  duration_ms: 0.742542
+  type: 'test'
+  ...
+# Subtest: replacing a draft icon retains saved photos and attachments, removes only its transient predecessor
+ok 13 - replacing a draft icon retains saved photos and attachments, removes only its transient predecessor
+  ---
+  duration_ms: 0.303416
+  type: 'test'
+  ...
+# Subtest: photo limit permits replacement at capacity and rejects additional images without removing saved ones
+ok 14 - photo limit permits replacement at capacity and rejects additional images without removing saved ones
+  ---
+  duration_ms: 4.898542
+  type: 'test'
+  ...
+# Subtest: date correction preserves same-day order and checks both neighbors
+ok 15 - date correction preserves same-day order and checks both neighbors
+  ---
+  duration_ms: 6.160792
+  type: 'test'
+  ...
+# Subtest: state source, deletion and unknown dates stay explicit
+ok 16 - state source, deletion and unknown dates stay explicit
+  ---
+  duration_ms: 0.314
+  type: 'test'
+  ...
+# Subtest: each P0 shortcut is a native menu item that reaches the page
+ok 17 - each P0 shortcut is a native menu item that reaches the page
+  ---
+  duration_ms: 2.567167
+  type: 'test'
+  ...
+# Subtest: maintenance draft preserves unknown versus free and builds corrective payload
+ok 18 - maintenance draft preserves unknown versus free and builds corrective payload
+  ---
+  duration_ms: 2.534041
+  type: 'test'
+  ...
+# Subtest: maintenance recovery preserves generation, input and original request across restart
+ok 19 - maintenance recovery preserves generation, input and original request across restart
+  ---
+  duration_ms: 1.07325
+  type: 'test'
+  ...
+# Subtest: maintenance and sale dates validate in both directions
+ok 20 - maintenance and sale dates validate in both directions
+  ---
+  duration_ms: 0.539708
+  type: 'test'
+  ...
+# Subtest: settlement includes maintenance and hides precision for unknown costs
+ok 21 - settlement includes maintenance and hides precision for unknown costs
+  ---
+  duration_ms: 0.6115
+  type: 'test'
+  ...
+# Subtest: day refresh skips unchanged days and refreshes selected summary or full detail once
+ok 22 - day refresh skips unchanged days and refreshes selected summary or full detail once
+  ---
+  duration_ms: 0.408375
+  type: 'test'
+  ...
+# Subtest: recovery blocks another dataset without querying or rewriting the original request
+ok 23 - recovery blocks another dataset without querying or rewriting the original request
+  ---
+  duration_ms: 0.605209
+  type: 'test'
+  ...
+# Subtest: committed recovery checks original receipt before stale revision and never replays
+ok 24 - committed recovery checks original receipt before stale revision and never replays
+  ---
+  duration_ms: 0.298541
+  type: 'test'
+  ...
+# Subtest: unresolved receipt stays pending, while switched dataset has a safe blocked exit
+ok 25 - unresolved receipt stays pending, while switched dataset has a safe blocked exit
+  ---
+  duration_ms: 2.304708
+  type: 'test'
+  ...
+# Subtest: missing receipt clears pending only, newer revision needs explicit confirmation
+ok 26 - missing receipt clears pending only, newer revision needs explicit confirmation
+  ---
+  duration_ms: 0.83775
+  type: 'test'
+  ...
+# Subtest: recovery rejects missing, deleted, mismatched assets and missing maintenance identity
+ok 27 - recovery rejects missing, deleted, mismatched assets and missing maintenance identity
+  ---
+  duration_ms: 0.741584
+  type: 'test'
+  ...
+# Subtest: unchanged recovery refreshes current data while preserving draft fields and photos
+ok 28 - unchanged recovery refreshes current data while preserving draft fields and photos
+  ---
+  duration_ms: 0.237333
+  type: 'test'
+  ...
+# Subtest: receipt mismatches and damaged pending payload cannot silently clear a draft
+ok 29 - receipt mismatches and damaged pending payload cannot silently clear a draft
+  ---
+  duration_ms: 0.095334
+  type: 'test'
+  ...
+# Subtest: cost completeness explains purchase, maintenance, both, and known zero separately
+ok 30 - cost completeness explains purchase, maintenance, both, and known zero separately
+  ---
+  duration_ms: 0.137959
+  type: 'test'
+  ...
+# Subtest: lost upload response resolves original operation without a second upload
+ok 31 - lost upload response resolves original operation without a second upload
+  ---
+  duration_ms: 10.284333
+  type: 'test'
+  ...
+# Subtest: failed lookup leaves persisted original operation available after reload
+ok 32 - failed lookup leaves persisted original operation available after reload
+  ---
+  duration_ms: 1.012375
+  type: 'test'
+  ...
+# Subtest: confirmed absence is distinct from unknown upload result
+ok 33 - confirmed absence is distinct from unknown upload result
+  ---
+  duration_ms: 0.176375
+  type: 'test'
+  ...
+# Subtest: unreadable recovery record must not silently start another upload
+ok 34 - unreadable recovery record must not silently start another upload
+  ---
+  duration_ms: 0.451042
+  type: 'test'
+  ...
+# Subtest: material catalog equals the shipped manifest and embedded artwork
+ok 35 - material catalog equals the shipped manifest and embedded artwork
+  ---
+  duration_ms: 4.535791
+  type: 'test'
+  ...
+# Subtest: eight original illustrations keep stable ids and D13 names
+ok 36 - eight original illustrations keep stable ids and D13 names
+  ---
+  duration_ms: 0.479208
+  type: 'test'
+  ...
+# Subtest: unknown material ids resolve to nothing and fall back to the generic art
+ok 37 - unknown material ids resolve to nothing and fall back to the generic art
+  ---
+  duration_ms: 1.134833
+  type: 'test'
+  ...
+# Subtest: material photo names state they are illustrations, not photos
+ok 38 - material photo names state they are illustrations, not photos
+  ---
+  duration_ms: 0.367208
+  type: 'test'
+  ...
+# Subtest: tile action labels keep the illustration note for built-ins only
+ok 39 - tile action labels keep the illustration note for built-ins only
+  ---
+  duration_ms: 0.345208
+  type: 'test'
+  ...
+# Subtest: overview keeps held and history apart and never hides unknowns
+ok 40 - overview keeps held and history apart and never hides unknowns
+  ---
+  duration_ms: 2.575375
+  type: 'test'
+  ...
+# Subtest: category colors use the validated palette in fixed category order
+ok 41 - category colors use the validated palette in fixed category order
+  ---
+  duration_ms: 0.842125
+  type: 'test'
+  ...
+# Subtest: savings ring agrees with cent precision at the completion boundary
+ok 42 - savings ring agrees with cent precision at the completion boundary
+  ---
+  duration_ms: 0.887417
+  type: 'test'
+  ...
+# Subtest: preview costs use current date and maintenance without mutating the stored fixture
+ok 43 - preview costs use current date and maintenance without mutating the stored fixture
+  ---
+  duration_ms: 1.193667
+  type: 'test'
+  ...
+# Subtest: preview unknown maintenance hides precision while known zero remains valid
+ok 44 - preview unknown maintenance hides precision while known zero remains valid
+  ---
+  duration_ms: 0.291416
+  type: 'test'
+  ...
+# Subtest: preview sale fixes the endpoint and preserves negative net costs
+ok 45 - preview sale fixes the endpoint and preserves negative net costs
+  ---
+  duration_ms: 0.151625
+  type: 'test'
+  ...
+# Subtest: sale requires actual zero or positive price, valid ordered date and source state
+ok 46 - sale requires actual zero or positive price, valid ordered date and source state
+  ---
+  duration_ms: 2.654542
+  type: 'test'
+  ...
+# Subtest: net daily cost fixes endpoint and rounds negative ratios away from zero
+ok 47 - net daily cost fixes endpoint and rounds negative ratios away from zero
+  ---
+  duration_ms: 2.111833
+  type: 'test'
+  ...
+# Subtest: correction targets the same sale and revoke does not invent settlement input
+ok 48 - correction targets the same sale and revoke does not invent settlement input
+  ---
+  duration_ms: 0.5165
+  type: 'test'
+  ...
+# Subtest: purchase trend states its scope and keeps undated purchases out of periods
+ok 49 - purchase trend states its scope and keeps undated purchases out of periods
+  ---
+  duration_ms: 1.992584
+  type: 'test'
+  ...
+# Subtest: axis ticks always reach the maximum value
+ok 50 - axis ticks always reach the maximum value
+  ---
+  duration_ms: 2.927417
+  type: 'test'
+  ...
+# Subtest: rankings keep backend exact order and separate gross from net
+ok 51 - rankings keep backend exact order and separate gross from net
+  ---
+  duration_ms: 5.820834
+  type: 'test'
+  ...
+# Subtest: normalizeName trims whitespace and applies NFC
+ok 52 - normalizeName trims whitespace and applies NFC
+  ---
+  duration_ms: 1.598667
+  type: 'test'
+  ...
+# Subtest: isDuplicateName is case-insensitive across ASCII and trims
+ok 53 - isDuplicateName is case-insensitive across ASCII and trims
+  ---
+  duration_ms: 0.351958
+  type: 'test'
+  ...
+# Subtest: isDuplicateName allows same name across different entities
+ok 54 - isDuplicateName allows same name across different entities
+  ---
+  duration_ms: 0.059292
+  type: 'test'
+  ...
+# Subtest: isDuplicateName compares only same-list entries
+ok 55 - isDuplicateName compares only same-list entries
+  ---
+  duration_ms: 0.0445
+  type: 'test'
+  ...
+# Subtest: CATEGORY_ICONS describe all six contract icons with Chinese labels
+ok 56 - CATEGORY_ICONS describe all six contract icons with Chinese labels
+  ---
+  duration_ms: 0.731416
+  type: 'test'
+  ...
+# Subtest: findCategoryIcon returns Chinese label even for unknown values
+ok 57 - findCategoryIcon returns Chinese label even for unknown values
+  ---
+  duration_ms: 0.128333
+  type: 'test'
+  ...
+# Subtest: migration moves both live and deleted references and keeps every asset
+ok 58 - migration moves both live and deleted references and keeps every asset
+  ---
+  duration_ms: 0.506167
+  type: 'test'
+  ...
+# Subtest: channel migration to null preserves category and deletion state
+ok 59 - channel migration to null preserves category and deletion state
+  ---
+  duration_ms: 0.228
+  type: 'test'
+  ...
+# Subtest: invalid migration target cannot partially remove or rewrite references
+ok 60 - invalid migration target cannot partially remove or rewrite references
+  ---
+  duration_ms: 0.97125
+  type: 'test'
+  ...
+# Subtest: rename and reorder retain IDs and references
+ok 61 - rename and reorder retain IDs and references
+  ---
+  duration_ms: 1.061833
+  type: 'test'
+  ...
+# Subtest: name policy checks NFC on both sides, ASCII folding and reserved labels
+ok 62 - name policy checks NFC on both sides, ASCII folding and reserved labels
+  ---
+  duration_ms: 0.338334
+  type: 'test'
+  ...
+# Subtest: production names count Unicode scalars after NFC and reject control characters
+ok 63 - production names count Unicode scalars after NFC and reject control characters
+  ---
+  duration_ms: 0.25225
+  type: 'test'
+  ...
+# Subtest: asset detail and global page read the same backend timeline projection
+ok 64 - asset detail and global page read the same backend timeline projection
+  ---
+  duration_ms: 6.84375
+  type: 'test'
+  ...
+# Subtest: asset entries keep their original lifecycle state
+ok 65 - asset entries keep their original lifecycle state
+  ---
+  duration_ms: 1.606459
+  type: 'test'
+  ...
+# Subtest: maintenance entries show date and cost with unknown distinct from zero
+ok 66 - maintenance entries show date and cost with unknown distinct from zero
+  ---
+  duration_ms: 48.049584
+  type: 'test'
+  ...
+# Subtest: warranty entries compose kind and provider and flag a deleted parent
+ok 67 - warranty entries compose kind and provider and flag a deleted parent
+  ---
+  duration_ms: 0.435
+  type: 'test'
+  ...
+# Subtest: record trash reminder survives restart and rejects corrupt values
+ok 68 - record trash reminder survives restart and rejects corrupt values
+  ---
+  duration_ms: 0.58875
+  type: 'test'
+  ...
+# Subtest: unified filters expose exactly the four agreed views
+ok 69 - unified filters expose exactly the four agreed views
+  ---
+  duration_ms: 0.617083
+  type: 'test'
+  ...
+# Subtest: E04 fixed-day boundaries match the Rust rules with no timezone drift
+ok 70 - E04 fixed-day boundaries match the Rust rules with no timezone drift
+  ---
+  duration_ms: 3.129791
+  type: 'test'
+  ...
+# Subtest: E05 mixed summaries keep every fact separate and never claim coverage
+ok 71 - E05 mixed summaries keep every fact separate and never claim coverage
+  ---
+  duration_ms: 0.835917
+  type: 'test'
+  ...
+# Subtest: validation allows future dates and rejects only reversed pairs and bad input
+ok 72 - validation allows future dates and rejects only reversed pairs and bad input
+  ---
+  duration_ms: 1.536708
+  type: 'test'
+  ...
+# Subtest: draft and payload round-trip preserves unknown dates and correct identity
+ok 73 - draft and payload round-trip preserves unknown dates and correct identity
+  ---
+  duration_ms: 0.429459
+  type: 'test'
+  ...
+# Subtest: draft persistence keeps generation, photos and pending request across restart
+ok 74 - draft persistence keeps generation, photos and pending request across restart
+  ---
+  duration_ms: 0.360625
+  type: 'test'
+  ...
+# Subtest: recovery blocks another dataset without querying or rewriting the original request
+ok 75 - recovery blocks another dataset without querying or rewriting the original request
+  ---
+  duration_ms: 0.256917
+  type: 'test'
+  ...
+# Subtest: committed recovery checks the original receipt before reading the asset
+ok 76 - committed recovery checks the original receipt before reading the asset
+  ---
+  duration_ms: 0.699791
+  type: 'test'
+  ...
+# Subtest: unresolved receipt stays pending; switched dataset exits blocked
+ok 77 - unresolved receipt stays pending; switched dataset exits blocked
+  ---
+  duration_ms: 0.146958
+  type: 'test'
+  ...
+# Subtest: missing receipt clears pending only; a newer revision needs explicit confirmation
+ok 78 - missing receipt clears pending only; a newer revision needs explicit confirmation
+  ---
+  duration_ms: 0.245208
+  type: 'test'
+  ...
+# Subtest: recovery rejects missing, deleted or mismatched assets and lost warranty identity
+ok 79 - recovery rejects missing, deleted or mismatched assets and lost warranty identity
+  ---
+  duration_ms: 0.368
+  type: 'test'
+  ...
+# Subtest: damaged pending payload cannot silently clear a draft
+ok 80 - damaged pending payload cannot silently clear a draft
+  ---
+  duration_ms: 0.305
+  type: 'test'
+  ...
+# Subtest: status labels exist for every derived state
+ok 81 - status labels exist for every derived state
+  ---
+  duration_ms: 0.161583
+  type: 'test'
+  ...
+# Subtest: wishlist distinguishes unknown and zero and accepts future target dates
+ok 82 - wishlist distinguishes unknown and zero and accepts future target dates
+  ---
+  duration_ms: 3.666
+  type: 'test'
+  ...
+# Subtest: wishlist payload has category but never a purchase channel
+ok 83 - wishlist payload has category but never a purchase channel
+  ---
+  duration_ms: 7.52575
+  type: 'test'
+  ...
+# Subtest: stored draft preserves exact pending request and rejects malformed data
+ok 84 - stored draft preserves exact pending request and rejects malformed data
+  ---
+  duration_ms: 1.181417
+  type: 'test'
+  ...
+# Subtest: wishlist recovery freezes other flows and abandon recovery keeps the exact input
+ok 85 - wishlist recovery freezes other flows and abandon recovery keeps the exact input
+  ---
+  duration_ms: 0.112917
+  type: 'test'
+  ...
+# Subtest: wishlist UI replays full receipts, exposes abandon retry, and uses category art fallback
+ok 86 - wishlist UI replays full receipts, exposes abandon retry, and uses category art fallback
+  ---
+  duration_ms: 1.750792
+  type: 'test'
+  ...
+# Subtest: grid/list and all four sorts are represented by the authoritative query contract
+ok 87 - grid/list and all four sorts are represented by the authoritative query contract
+  ---
+  duration_ms: 0.283959
+  type: 'test'
+  ...
+# Subtest: wishlist dates render the local day, not the UTC prefix
+ok 88 - wishlist dates render the local day, not the UTC prefix
+  ---
+  duration_ms: 0.783666
+  type: 'test'
+  ...
+# Subtest: conversion form never copies the estimate into the actual price and reuses receipt recovery
+ok 89 - conversion form never copies the estimate into the actual price and reuses receipt recovery
+  ---
+  duration_ms: 0.949375
+  type: 'test'
+  ...
+1..89
+# tests 89
+# suites 0
+# pass 89
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 605.337916

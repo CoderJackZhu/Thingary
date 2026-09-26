@@ -16,6 +16,7 @@ fn change(s: &Store, command: Command) -> Change {
 }
 fn save(s: &Store, category: Option<&str>, channel: Option<&str>) -> SaveAsset {
     SaveAsset {
+        options: None,
         base: Save {
             request_id: uuid::Uuid::new_v4().to_string(),
             generation: s.generation(),

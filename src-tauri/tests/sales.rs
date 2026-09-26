@@ -14,6 +14,7 @@ const TODAY: &str = "2026-09-25";
 fn create(s: &mut Store, price: Option<&str>) -> AssetRecord {
     s.save_asset(
         &SaveAsset {
+            options: None,
             base: Save {
                 request_id: id(),
                 generation: s.generation(),
@@ -361,6 +362,7 @@ fn atomic_failure_receipts_photos_trash_backup_and_reopen() {
     a = s
         .save_asset(
             &SaveAsset {
+                options: None,
                 base: Save {
                     request_id: id(),
                     generation: s.generation(),

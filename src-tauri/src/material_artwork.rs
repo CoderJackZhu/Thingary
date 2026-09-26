@@ -59,6 +59,10 @@ fn artwork(id: &str) -> Option<&'static [u8]> {
         "icon-car" => include_bytes!("../materials/icon-car.png"),
         "icon-ball" => include_bytes!("../materials/icon-ball.png"),
         "icon-dumbbell" => include_bytes!("../materials/icon-dumbbell.png"),
+        "object3d-plant" => include_bytes!("../materials/object3d-plant.png"),
+        "object3d-suitcase" => include_bytes!("../materials/object3d-suitcase.png"),
+        "object3d-tent" => include_bytes!("../materials/object3d-tent.png"),
+        "object3d-books" => include_bytes!("../materials/object3d-books.png"),
         _ => return None,
     })
 }

@@ -8,6 +8,7 @@ use possio_lib::{
 };
 fn save(s: &Store) -> SaveAsset {
     SaveAsset {
+        options: None,
         classification: None,
         photos: None,
         base: Save {

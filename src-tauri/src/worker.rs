@@ -121,7 +121,14 @@ impl Worker {
         let (tx, rx) = mpsc::sync_channel(1);
         self.sender
             .send(Box::new(move |state| {
-                let _ = tx.send(f(state));
+                let result = f(state);
+                let active = if state.demo_mode {
+                    state.demo.as_ref().unwrap_or(&state.real)
+                } else {
+                    &state.real
+                };
+                crate::reminders::reconcile(active, false);
+                let _ = tx.send(result);
             }))
             .map_err(|_| Error::new("WORKER", "存储服务已停止"))?;
         rx.recv()
@@ -201,6 +208,7 @@ mod tests {
                 move |s| {
                     s.save_asset(
                         &SaveAsset {
+                            options: None,
                             base: Save {
                                 request_id: uuid::Uuid::new_v4().to_string(),
                                 generation,
@@ -235,6 +243,7 @@ mod tests {
             .call(move |s| {
                 s.save_asset(
                     &SaveAsset {
+                        options: None,
                         base: Save {
                             request_id: uuid::Uuid::new_v4().to_string(),
                             generation,

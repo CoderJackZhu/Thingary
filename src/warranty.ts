@@ -8,10 +8,10 @@ export type WarrantyKind = typeof warrantyKinds[number][0];
 export interface WarrantyFields { kind: WarrantyKind; provider: string; start_date: string | null; end_date: string | null; notes: string }
 export type WarrantyStatus = "pending" | "upcoming" | "active" | "expiring" | "expired";
 export type WarrantySummaryStatus = "none" | "covered" | "expiring_soon" | "not_covered";
-export interface Warranty { id: string; fields: WarrantyFields; status: WarrantyStatus; remaining_days: number | null; photos: Photo[]; created_at: string; updated_at: string }
+export interface Warranty { reminder?:{date:string;notes:string}|null; id: string; fields: WarrantyFields; status: WarrantyStatus; remaining_days: number | null; photos: Photo[]; created_at: string; updated_at: string }
 export interface WarrantySummary { status: WarrantySummaryStatus; total: number; active_count: number; expiring_count: number; upcoming_count: number; expired_count: number; pending_count: number }
-export interface WarrantyDraft { kind: WarrantyKind; provider: string; start: string; end: string; notes: string; photo_ids: string[] }
-export interface WarrantyChange { request_id: string; generation: string; asset_id: string; expected_revision: number; action: { type: "add"; fields: WarrantyFields; photos: Selection } | { type: "correct"; warranty_id: string; fields: WarrantyFields; photos: Selection } }
+export interface WarrantyDraft { reminder?:{date:string;notes:string}|null; kind: WarrantyKind; provider: string; start: string; end: string; notes: string; photo_ids: string[] }
+export interface WarrantyChange {reminder?:{value:{date:string;notes:string}|null}; request_id: string; generation: string; asset_id: string; expected_revision: number; action: { type: "add"; fields: WarrantyFields; photos: Selection } | { type: "correct"; warranty_id: string; fields: WarrantyFields; photos: Selection } }
 export interface WarrantyState { record: AssetRecord; generation: string; warranty_id?: string; fields: WarrantyDraft; original: WarrantyDraft; photos: Photo[]; pending: WarrantyChange | null }
 
 export const blankWarranty = (): WarrantyDraft => ({ kind: "manufacturer", provider: "", start: "", end: "", notes: "", photo_ids: [] });
@@ -92,7 +92,7 @@ export async function recoverWarranty(
 
 export function warrantyDraft(record: AssetRecord, warrantyId?: string): WarrantyDraft {
   const w = (record.warranties ?? []).find(x => x.id === warrantyId);
-  return w ? { kind: w.fields.kind, provider: w.fields.provider, start: w.fields.start_date ?? "", end: w.fields.end_date ?? "", notes: w.fields.notes, photo_ids: w.photos.map(p => p.id) } : blankWarranty();
+  return w ? { reminder:w.reminder??null, kind: w.fields.kind, provider: w.fields.provider, start: w.fields.start_date ?? "", end: w.fields.end_date ?? "", notes: w.fields.notes, photo_ids: w.photos.map(p => p.id) } : blankWarranty();
 }
 const validDay = (value: string) => {
   const parsed = new Date(value + "T00:00:00Z");
@@ -110,5 +110,5 @@ export function validateWarranty(d: WarrantyDraft): string | null {
 export function warrantyChange(record: AssetRecord, generation: string, d: WarrantyDraft, warrantyId?: string, requestId: string = crypto.randomUUID()): WarrantyChange {
   const fields: WarrantyFields = { kind: d.kind, provider: d.provider.trim(), start_date: d.start || null, end_date: d.end || null, notes: d.notes };
   const photos = { ids: d.photo_ids, cover_id: null };
-  return { request_id: requestId, generation, asset_id: record.asset.id, expected_revision: record.asset.revision, action: warrantyId ? { type: "correct", warranty_id: warrantyId, fields, photos } : { type: "add", fields, photos } };
+  return { reminder:{value:d.reminder??null}, request_id: requestId, generation, asset_id: record.asset.id, expected_revision: record.asset.revision, action: warrantyId ? { type: "correct", warranty_id: warrantyId, fields, photos } : { type: "add", fields, photos } };
 }

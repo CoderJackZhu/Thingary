@@ -738,3 +738,84 @@ pub async fn export_csv(
     .await
     .map_err(|_| Error::new("WORKER", "未收到导出结果，请到目标位置核对"))?
 }
+
+#[tauri::command]
+pub async fn choice_list(
+    kind: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::choices::Snapshot> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.choices(&kind)))
+        .await
+        .map_err(|_| Error::new("WORKER", "选项读取失败"))?
+}
+#[tauri::command]
+pub async fn choice_change(
+    input: crate::choices::Change,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::choices::Snapshot> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.change_choices(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "选项保存结果未返回，请重试本次请求"))?
+}
+#[tauri::command]
+pub async fn save_wish_plan(
+    input: crate::wish_plan::Save,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wishlist::WishlistItem> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.save_wish_plan(&input, &chrono::Local::now().format("%Y-%m-%d").to_string())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请重试本次请求"))?
+}
+#[tauri::command]
+pub async fn save_wish_savings(
+    input: crate::wish_plan::Saving,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wishlist::WishlistItem> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.save_wish_savings(&input, &chrono::Local::now().format("%Y-%m-%d").to_string())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "攒钱结果未返回，请重试本次请求"))?
+}
+
+#[tauri::command]
+pub async fn notification_permission() -> Result<()> {
+    tauri::async_runtime::spawn_blocking(crate::reminders::request_permission)
+        .await
+        .map_err(|_| Error::new("REMINDER", "通知权限服务不可用"))?
+}
+#[tauri::command]
+pub async fn notification_status(worker: tauri::State<'_, Worker>) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(|s| {
+            crate::reminders::reconcile(s, true);
+            Ok(crate::reminders::status())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("REMINDER", "通知服务不可用"))?
+}
+#[tauri::command]
+pub async fn saved_wish_feature(
+    request: String,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<crate::wishlist::WishlistItem>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.saved_wish_feature(&request, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "暂时无法核对心愿保存结果"))?
+}

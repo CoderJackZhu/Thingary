@@ -380,6 +380,21 @@ impl Store {
                         params![target_id, chrono::Utc::now().to_rfc3339(), id],
                     )?;
                 }
+                if matches!(kind, Kind::Channel) {
+                    tx.execute("UPDATE wishlist_items SET revision=revision+1 WHERE id IN (SELECT wishlist_id FROM wishlist_preferences WHERE json_extract(payload,'$.channel_id')=?1)",[id])?;
+                    tx.execute("UPDATE wishlist_preferences SET payload=json_set(payload,'$.channel_id',?1) WHERE json_extract(payload,'$.channel_id')=?2",params![target_id,id])?;
+                }
+                tx.execute(
+                    "DELETE FROM disabled_choices WHERE kind=?1 AND id=?2",
+                    params![
+                        if matches!(kind, Kind::Channel) {
+                            "channel"
+                        } else {
+                            "category"
+                        },
+                        id
+                    ],
+                )?;
                 self.hit("taxonomy.after_migrate")?;
                 tx.execute(&format!("DELETE FROM {} WHERE id=?1", kind.table()), [id])?;
             }

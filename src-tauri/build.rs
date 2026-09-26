@@ -1,12 +1,19 @@
 fn main() {
     println!("cargo:rerun-if-changed=native/images.m");
-    cc::Build::new()
+    println!("cargo:rerun-if-changed=native/notifications.m");
+    let mut native = cc::Build::new();
+    if std::env::var_os("CARGO_FEATURE_FAULT_INJECTION").is_some() {
+        native.define("POSSIO_NOTIFICATION_ACCEPTANCE", None);
+    }
+    native
         .file("native/images.m")
+        .file("native/notifications.m")
         .flag("-fobjc-arc")
         .flag("-mmacosx-version-min=14.0")
         .compile("possio_images");
     for framework in [
         "AppKit",
+        "UserNotifications",
         "ImageIO",
         "UniformTypeIdentifiers",
         "CoreGraphics",

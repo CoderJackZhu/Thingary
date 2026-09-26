@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 12 || app != 1347375955 || integrity != "ok" {
+    if v != 13 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -179,11 +179,27 @@ impl Store {
         photos: Option<&crate::photos::Selection>,
         classification: Option<&crate::taxonomy::Classification>,
     ) -> Result<Asset> {
+        self.save_record_with_options(input, today, details, photos, classification, None)
+    }
+    pub(crate) fn save_record_with_options(
+        &mut self,
+        input: &Save,
+        today: &str,
+        details: Option<&crate::catalog::Details>,
+        photos: Option<&crate::photos::Selection>,
+        classification: Option<&crate::taxonomy::Classification>,
+        options: Option<&crate::preferences::AssetOptions>,
+    ) -> Result<Asset> {
         if input.generation != self.active.generation {
             return Err(Error::new("STALE_DATASET", "资料已恢复，请重新打开档案"));
         }
         input.validate(today)?;
-        let fingerprint = digest(&if let Some(classification) = classification {
+        if let Some(d) = details {
+            d.validate()?;
+        }
+        let fingerprint = digest(&if let Some(options) = options {
+            serde_json::to_vec(&(input, details, photos, classification, options))?
+        } else if let Some(classification) = classification {
             if let Some(d) = details {
                 d.validate()?;
             }
@@ -217,6 +233,9 @@ impl Store {
             return Ok(serde_json::from_str(&result)?);
         }
         let result = self.write_asset(&tx, input, details, photos, classification)?;
+        if let Some(options) = options {
+            self.write_asset_options(&tx, &result.id, input, options, today)?;
+        }
         tx.execute(
             "INSERT INTO requests VALUES(?1,?2,?3)",
             params![
@@ -293,11 +312,11 @@ impl Store {
 }
 
 pub fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 12, hook)
+    migrate_to(c, 13, hook)
 }
 pub fn migrate_to(c: &Connection, target: i64, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=12).contains(&v) || v > target {
+    if !(1..=13).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -467,6 +486,45 @@ ALTER TABLE wishlist_audit_v12 RENAME TO wishlist_audit;
 PRAGMA user_version=12;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 12;
+    }
+    if v == 12 && target >= 13 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("u02.sql"))?;
+        for (position, name) in [
+            "闲鱼",
+            "转转",
+            "线下",
+            "朋友转让",
+            "回收商",
+            "二手平台",
+            "其他",
+        ]
+        .iter()
+        .enumerate()
+        {
+            tx.execute("INSERT INTO named_choices(id,kind,name,name_key,position) VALUES(?1,'sale_channel',?2,?2,?3)",params![uid(),name,position as i64])?;
+        }
+        for (position, name) in ["淘宝", "京东", "拼多多", "抖音"].iter().enumerate() {
+            tx.execute(
+                "INSERT OR IGNORE INTO channels(id,name,name_key,position) VALUES(?1,?2,?2,?3)",
+                params![uid(), name, 10000 + position as i64],
+            )?;
+        }
+        tx.execute("INSERT INTO named_choices(id,kind,name,name_key,position) VALUES(?1,'label','活跃中','活跃中',0)",[uid()])?;
+        let mut q=tx.prepare("SELECT id FROM channels ORDER BY CASE name WHEN '淘宝' THEN 0 WHEN '京东' THEN 1 WHEN '拼多多' THEN 2 WHEN '抖音' THEN 3 ELSE 4 END,position,id")?;
+        let ids = q
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        drop(q);
+        for (position, id) in ids.iter().enumerate() {
+            tx.execute(
+                "UPDATE channels SET position=?1 WHERE id=?2",
+                params![position as i64, id],
+            )?;
+        }
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -541,7 +599,7 @@ mod taxonomy_migration_tests {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            12
+            13
         );
         assert_eq!(
             c.query_row("SELECT name FROM assets WHERE id='legacy'", [], |r| r

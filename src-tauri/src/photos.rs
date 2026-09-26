@@ -399,42 +399,35 @@ impl Store {
         wishlist_id: &str,
         selection: &Selection,
     ) -> Result<()> {
-        if selection.ids.len() > 1
-            || selection.cover_id.as_ref() != selection.ids.first()
+        if selection.ids.len() > 20
+            || selection
+                .cover_id
+                .as_ref()
+                .is_some_and(|id| !selection.ids.contains(id))
             || selection.ids.iter().collect::<HashSet<_>>().len() != selection.ids.len()
         {
             return Err(Error::new(
                 "IMAGE_SELECTION",
-                "心愿只允许一张明确选择的封面",
+                "心愿最多 20 张图片，封面须属于已选图片",
             ));
         }
-        let mut prepared = None;
-        if let Some(id) = selection.ids.first() {
-            let foreign: bool = tx.query_row(
-                "SELECT EXISTS(SELECT 1 FROM attachments WHERE id=?1) OR EXISTS(SELECT 1 FROM wishlist_attachments WHERE id=?1 AND wishlist_id!=?2)",
-                params![id, wishlist_id],
-                |r| r.get(0),
-            )?;
+        let mut prepared = vec![];
+        for id in &selection.ids {
+            let foreign:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM attachments WHERE id=?1) OR EXISTS(SELECT 1 FROM wishlist_attachments WHERE id=?1 AND wishlist_id!=?2)",params![id,wishlist_id],|r|r.get(0))?;
             if foreign {
-                return Err(Error::new("IMAGE_OWNER", "封面不属于这条心愿，请重新选择"));
+                return Err(Error::new("IMAGE_OWNER", "图片不属于这条心愿，请重新选择"));
             }
-            let known: Option<(String, i64, String)> = tx
-                .query_row(
-                    "SELECT hash,size,name FROM wishlist_attachments WHERE id=?1 AND wishlist_id=?2",
-                    params![id, wishlist_id],
-                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-                )
-                .optional()?;
-            let (hash, size, name, new) = if let Some((hash, size, name)) = known {
-                (hash, size, name, false)
+            let known:Option<(String,i64,String)>=tx.query_row("SELECT hash,size,name FROM wishlist_attachments WHERE id=?1 AND wishlist_id=?2",params![id,wishlist_id],|r|Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
+            let (hash, size, name) = if let Some(v) = known {
+                v
             } else {
-                let staged = self.staged(id)?;
-                (staged.hash, staged.size as i64, staged.name, true)
+                let v = self.staged(id)?;
+                (v.hash, v.size as i64, v.name)
             };
             if self.original(&hash)?.len() as i64 != size {
-                return Err(Error::new("IMAGE_CORRUPT", "封面图片大小校验失败"));
+                return Err(Error::new("IMAGE_CORRUPT", "图片大小校验失败"));
             }
-            prepared = Some((id.clone(), hash, size, name, new));
+            prepared.push((id, hash, size, name));
         }
         tx.execute(
             "DELETE FROM wishlist_media WHERE wishlist_id=?1",
@@ -444,18 +437,13 @@ impl Store {
             "DELETE FROM wishlist_attachments WHERE wishlist_id=?1",
             [wishlist_id],
         )?;
-        if let Some((id, hash, size, name, new)) = prepared {
-            if new {
-                tx.execute(
-                    "INSERT INTO wishlist_attachments(id,wishlist_id,file,hash,size,name) VALUES(?1,?2,?3,?3,?4,?5)",
-                    params![id, wishlist_id, hash, size, name],
-                )?;
-            }
-            tx.execute(
-                "INSERT INTO wishlist_media(wishlist_id,cover_id) VALUES(?1,?2)",
-                params![wishlist_id, id],
-            )?;
+        for (position, (id, hash, size, name)) in prepared.iter().enumerate() {
+            tx.execute("INSERT INTO wishlist_attachments(id,wishlist_id,file,hash,size,name,position) VALUES(?1,?2,?3,?3,?4,?5,?6)",params![id,wishlist_id,hash,size,name,position as i64])?;
         }
+        tx.execute(
+            "INSERT INTO wishlist_media(wishlist_id,cover_id) VALUES(?1,?2)",
+            params![wishlist_id, selection.cover_id],
+        )?;
         Ok(())
     }
     pub fn photos(&self, id: &str) -> Result<Vec<Photo>> {

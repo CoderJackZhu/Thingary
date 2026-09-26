@@ -23,6 +23,7 @@ fn asset(
 ) -> AssetRecord {
     s.save_asset(
         &SaveAsset {
+            options: None,
             base: Save {
                 request_id: id(),
                 generation: s.generation(),
@@ -287,6 +288,7 @@ fn ac36_trend_buckets_are_inclusive_continuous_and_never_reduced_by_sales() {
     let add = |s: &mut Store, name: &str, price: Option<&str>, date: Option<&str>| {
         s.save_asset(
             &SaveAsset {
+                options: None,
                 base: Save {
                     request_id: id(),
                     generation: s.generation(),
@@ -437,6 +439,7 @@ fn dated(
 ) -> AssetRecord {
     s.save_asset(
         &SaveAsset {
+            options: None,
             base: Save {
                 request_id: id(),
                 generation: s.generation(),

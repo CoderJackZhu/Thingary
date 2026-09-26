@@ -1,3 +1,4 @@
+import {ChoiceField,FormRow} from './FormControls';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, localDay, money } from './asset';
@@ -73,7 +74,7 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
       <p className="muted">售出后持有天数截止到售出日。实际售价必填，可为 0；购入资料未知时仍可记录售出。</p>
       <div className="field"><label htmlFor="sale-date">售出日期（必填）</label><DateInput id="sale-date" value={draft.fields.date} disabled={busy || !!draft.pending} min={draft.record.asset.purchase_date ?? undefined} max={localDay()} onChange={value => edit('date', value)}/></div>
       <label className="field">实际售价（元，必填）<input id="sale-price" inputMode="decimal" value={draft.fields.price} disabled={busy || !!draft.pending} onChange={e => edit('price',e.target.value)}/></label>
-      <label className="field">出售平台（可选）<input value={draft.fields.platform} disabled={busy || !!draft.pending} onChange={e => edit('platform',e.target.value)}/></label>
+      <FormRow label="售出渠道"><ChoiceField kind="sale_channel" label="售出渠道" generation={draft.generation} value={draft.fields.platform||null} disabled={busy||!!draft.pending} byName onChange={v=>edit('platform',v||'')}/></FormRow>
       <label className="field">买家（可选）<input value={draft.fields.buyer} disabled={busy || !!draft.pending} onChange={e => edit('buyer',e.target.value)}/></label>
       <label className="field">备注（可选）<textarea rows={2} value={draft.fields.notes} disabled={busy || !!draft.pending} onChange={e => edit('notes',e.target.value)}/></label>
       <div className="sale-preview" aria-label="售出结算预览"><span>购入金额 {money(draft.record.asset.price_cents)}</span>{preview && <><p>净生命周期成本 {money(preview.net)} · 净日均 {money(preview.daily)}{preview.daily !== null ? ' / 天' : ''}</p><p>{preview.days === null ? '购入日期未知，持有天数待补充。' : `截至售出日持有 ${preview.days} 天`}</p>{preview.net === null && <p>{incompleteCostReason(draft.record)}</p>}</>}</div>

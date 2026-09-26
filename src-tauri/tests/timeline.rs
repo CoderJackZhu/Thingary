@@ -30,6 +30,7 @@ fn save(
 ) -> AssetRecord {
     s.save_asset(
         &SaveAsset {
+            options: None,
             base: Save {
                 request_id: id(),
                 generation: s.generation(),
@@ -82,6 +83,7 @@ fn warranty_fields(end: &str) -> warranty::Fields {
 fn warrant(s: &mut Store, a: &AssetRecord, action: warranty::Action) -> AssetRecord {
     s.change_warranty(
         &warranty::Change {
+            reminder: None,
             request_id: id(),
             generation: s.generation(),
             asset_id: a.asset.id.clone(),
@@ -397,6 +399,7 @@ fn ac18_wish_realization_is_one_purchase_not_two() {
                 wishlist_id: wish.id.clone(),
                 expected_revision: wish.revision,
                 asset: SaveAsset {
+                    options: None,
                     base: Save {
                         request_id: id(),
                         generation: s.generation(),

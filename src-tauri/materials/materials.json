@@ -2,58 +2,66 @@
   {
     "id": "laptop",
     "name": "电脑",
-    "style": "dimensional",
+    "style": "icon",
     "category": "数码",
-    "keywords": "笔记本 laptop MacBook"
+    "keywords": "笔记本 laptop MacBook",
+    "hidden": true
   },
   {
     "id": "camera",
     "name": "相机",
-    "style": "dimensional",
+    "style": "icon",
     "category": "数码",
-    "keywords": ""
+    "keywords": "",
+    "hidden": true
   },
   {
     "id": "headphones",
     "name": "耳机",
-    "style": "dimensional",
+    "style": "icon",
     "category": "数码",
-    "keywords": ""
+    "keywords": "",
+    "hidden": true
   },
   {
     "id": "phone",
     "name": "手机",
-    "style": "dimensional",
+    "style": "icon",
     "category": "数码",
-    "keywords": ""
+    "keywords": "",
+    "hidden": true
   },
   {
     "id": "tablet",
     "name": "平板",
-    "style": "dimensional",
+    "style": "icon",
     "category": "数码",
-    "keywords": ""
+    "keywords": "",
+    "hidden": true
   },
   {
     "id": "keyboard",
     "name": "键盘",
-    "style": "dimensional",
+    "style": "icon",
     "category": "数码",
-    "keywords": ""
+    "keywords": "",
+    "hidden": true
   },
   {
     "id": "coffee",
     "name": "咖啡机",
-    "style": "dimensional",
+    "style": "icon",
     "category": "家电",
-    "keywords": ""
+    "keywords": "",
+    "hidden": false
   },
   {
     "id": "box",
     "name": "通用物品",
-    "style": "dimensional",
+    "style": "icon",
     "category": "通用",
-    "keywords": ""
+    "keywords": "",
+    "hidden": true
   },
   {
     "id": "icon-box",
@@ -61,7 +69,8 @@
     "style": "icon",
     "category": "通用",
     "keywords": "箱子 默认 通用",
-    "shape": "<path d=\"M12 21 32 11l20 10v24L32 55 12 45Z M12 21l20 10 20-10M32 31v24M22 16l20 10v9\"/>"
+    "shape": "<path d=\"M12 21 32 11l20 10v24L32 55 12 45Z M12 21l20 10 20-10M32 31v24M22 16l20 10v9\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 180\" role=\"img\" aria-label=\"分类示意图（非实物照片）\"><rect x=\"72\" y=\"45\" width=\"96\" height=\"92\" rx=\"9\" fill=\"#a6afaf\"/><path d=\"m74 53 46 25 46-25M120 78v55\" fill=\"none\" stroke=\"#e4e7e4\" stroke-width=\"3\"/></svg>"
   },
   {
     "id": "icon-phone",
@@ -69,7 +78,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "电话 iPhone smartphone",
-    "shape": "<rect x=\"21\" y=\"8\" width=\"22\" height=\"48\" rx=\"5\"/><path d=\"M28 13h8M29 50h6\"/>"
+    "shape": "<rect x=\"21\" y=\"8\" width=\"22\" height=\"48\" rx=\"5\"/><path d=\"M28 13h8M29 50h6\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 180\" role=\"img\" aria-label=\"分类示意图（非实物照片）\"><rect x=\"81\" y=\"20\" width=\"78\" height=\"140\" rx=\"14\" fill=\"#818f92\"/><rect x=\"86\" y=\"25\" width=\"68\" height=\"130\" rx=\"10\" fill=\"#324952\"/><path d=\"M86 133c27-10 30-79 68-91v102a11 11 0 0 1-11 11H97a11 11 0 0 1-11-11\" fill=\"#829c9e\"/><rect x=\"106\" y=\"29\" width=\"28\" height=\"6\" rx=\"3\" fill=\"#202c32\"/></svg>"
   },
   {
     "id": "icon-laptop",
@@ -77,7 +87,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "电脑 laptop MacBook",
-    "shape": "<rect x=\"13\" y=\"13\" width=\"38\" height=\"29\" rx=\"3\"/><path d=\"M13 42 7 51h50l-6-9M25 47h14\"/>"
+    "shape": "<rect x=\"13\" y=\"13\" width=\"38\" height=\"29\" rx=\"3\"/><path d=\"M13 42 7 51h50l-6-9M25 47h14\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 180\" role=\"img\" aria-label=\"分类示意图（非实物照片）\"><rect x=\"49\" y=\"32\" width=\"142\" height=\"92\" rx=\"6\" fill=\"#54616e\"/><rect x=\"54\" y=\"37\" width=\"132\" height=\"81\" rx=\"2\" fill=\"#24344e\"/><path d=\"M54 118V80c23-35 42-29 64-2s43 7 68-30v70\" fill=\"#728daf\"/><path d=\"M54 118c41-37 68-12 132-50v50\" fill=\"#a7c0cc\"/><path d=\"m49 124-24 12v5c42 8 148 8 190 0v-5l-24-12\" fill=\"#b7bec5\"/><path d=\"M26 137h188M101 129h38\" stroke=\"#777f89\" stroke-width=\"2\"/></svg>"
   },
   {
     "id": "icon-tablet",
@@ -85,7 +96,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "iPad tablet",
-    "shape": "<rect x=\"14\" y=\"8\" width=\"36\" height=\"48\" rx=\"5\"/><path d=\"M28 50h8M30 13h4\"/>"
+    "shape": "<rect x=\"14\" y=\"8\" width=\"36\" height=\"48\" rx=\"5\"/><path d=\"M28 50h8M30 13h4\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 180\" role=\"img\" aria-label=\"分类示意图（非实物照片）\"><rect x=\"60\" y=\"16\" width=\"120\" height=\"148\" rx=\"10\" fill=\"#56616e\"/><rect x=\"65\" y=\"21\" width=\"110\" height=\"138\" rx=\"7\" fill=\"#747b8e\"/><path d=\"M65 145c26-29 37-21 47-75s39-38 63-40v122l-7 7H72Z\" fill=\"#b2a8b8\"/><circle cx=\"120\" cy=\"26\" r=\"2\" fill=\"#384250\"/></svg>"
   },
   {
     "id": "icon-desktop",
@@ -93,7 +105,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "电脑 PC",
-    "shape": "<rect x=\"7\" y=\"16\" width=\"33\" height=\"26\" rx=\"2\"/><path d=\"M23 42v9M15 51h16\"/><rect x=\"46\" y=\"12\" width=\"12\" height=\"40\" rx=\"2\"/><path d=\"M49 18h6M49 23h6M51 45h2\"/>"
+    "shape": "<rect x=\"7\" y=\"16\" width=\"33\" height=\"26\" rx=\"2\"/><path d=\"M23 42v9M15 51h16\"/><rect x=\"46\" y=\"12\" width=\"12\" height=\"40\" rx=\"2\"/><path d=\"M49 18h6M49 23h6M51 45h2\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"7\" y=\"16\" width=\"33\" height=\"26\" rx=\"2\"/><path d=\"M23 42v9M15 51h16\" fill=\"none\"/><rect fill=\"url(#body)\" x=\"46\" y=\"12\" width=\"12\" height=\"40\" rx=\"2\"/><path d=\"M49 18h6M49 23h6M51 45h2\" fill=\"none\"/><rect x=\"10\" y=\"19\" width=\"27\" height=\"20\" rx=\"1\" fill=\"url(#glass)\" stroke=\"none\"/><path d=\"M11 38c9-18 16-4 25-17v17\" fill=\"#a6c0cd\" stroke=\"none\"/><circle cx=\"52\" cy=\"44\" r=\"2\" fill=\"#bedbc8\"/></g></svg>"
   },
   {
     "id": "icon-watch",
@@ -101,7 +114,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "智能手表 watch",
-    "shape": "<rect x=\"19\" y=\"18\" width=\"26\" height=\"28\" rx=\"7\"/><path d=\"m24 18 2-11h12l2 11M24 46l2 11h12l2-11M32 25v8l6 4M45 28h4v6h-4\"/>"
+    "shape": "<rect x=\"19\" y=\"18\" width=\"26\" height=\"28\" rx=\"7\"/><path d=\"m24 18 2-11h12l2 11M24 46l2 11h12l2-11M32 25v8l6 4M45 28h4v6h-4\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"19\" y=\"18\" width=\"26\" height=\"28\" rx=\"7\"/><path d=\"m24 18 2-11h12l2 11M24 46l2 11h12l2-11M32 25v8l6 4M45 28h4v6h-4\" fill=\"none\"/><path d=\"M24 18l2-11h12l2 11M24 46l2 11h12l2-11\" fill=\"#738c91\"/><rect x=\"23\" y=\"22\" width=\"18\" height=\"20\" rx=\"5\" fill=\"url(#glass)\"/><path d=\"M32 25v8l6 4\" fill=\"none\" stroke=\"#e7f0e9\" stroke-width=\"2\"/></g></svg>"
   },
   {
     "id": "icon-headphones",
@@ -109,7 +123,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "耳麦 headset 音频",
-    "shape": "<path d=\"M13 36v-8a19 19 0 0 1 38 0v8M13 30h8v20h-8a4 4 0 0 1-4-4V34a4 4 0 0 1 4-4ZM51 30h-8v20h8a4 4 0 0 0 4-4V34a4 4 0 0 0-4-4Z\"/>"
+    "shape": "<path d=\"M13 36v-8a19 19 0 0 1 38 0v8M13 30h8v20h-8a4 4 0 0 1-4-4V34a4 4 0 0 1 4-4ZM51 30h-8v20h8a4 4 0 0 0 4-4V34a4 4 0 0 0-4-4Z\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 180\" role=\"img\" aria-label=\"分类示意图（非实物照片）\"><path d=\"M70 106V80a50 50 0 0 1 100 0v26\" fill=\"none\" stroke=\"#42494f\" stroke-width=\"12\"/><path d=\"M77 65a45 45 0 0 1 86 0\" fill=\"none\" stroke=\"#8c949b\" stroke-width=\"4\"/><rect x=\"58\" y=\"84\" width=\"35\" height=\"57\" rx=\"16\" fill=\"#555f67\" transform=\"rotate(-8 76 112)\"/><rect x=\"147\" y=\"84\" width=\"35\" height=\"57\" rx=\"16\" fill=\"#555f67\" transform=\"rotate(8 164 112)\"/><path d=\"M69 94v35M170 94v35\" stroke=\"#8a979e\" stroke-width=\"3\"/></svg>"
   },
   {
     "id": "icon-camera",
@@ -117,7 +132,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "摄影 单反 camera",
-    "shape": "<path d=\"m21 20 4-7h14l4 7h10a4 4 0 0 1 4 4v23a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4Z\"/><circle cx=\"32\" cy=\"35\" r=\"11\"/><circle cx=\"32\" cy=\"35\" r=\"6\"/><path d=\"M47 26h3\"/>"
+    "shape": "<path d=\"m21 20 4-7h14l4 7h10a4 4 0 0 1 4 4v23a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4Z\"/><circle cx=\"32\" cy=\"35\" r=\"11\"/><circle cx=\"32\" cy=\"35\" r=\"6\"/><path d=\"M47 26h3\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 180\" role=\"img\" aria-label=\"分类示意图（非实物照片）\"><path d=\"m52 57 10-16h42l10 16h66a12 12 0 0 1 12 12v67H43V68a11 11 0 0 1 9-11\" fill=\"#515759\"/><rect x=\"43\" y=\"76\" width=\"149\" height=\"57\" rx=\"5\" fill=\"#333a3b\"/><rect x=\"55\" y=\"45\" width=\"35\" height=\"10\" rx=\"3\" fill=\"#272e30\"/><circle cx=\"127\" cy=\"95\" r=\"43\" fill=\"#292f31\" stroke=\"#8d9798\" stroke-width=\"3\"/><circle cx=\"127\" cy=\"95\" r=\"32\" fill=\"#52676f\" stroke=\"#171f26\" stroke-width=\"8\"/><circle cx=\"127\" cy=\"95\" r=\"16\" fill=\"#243945\"/><path d=\"M111 83a19 19 0 0 1 24-3\" stroke=\"#91a8b0\" stroke-width=\"4\" fill=\"none\"/><rect x=\"51\" y=\"66\" width=\"18\" height=\"6\" rx=\"2\" fill=\"#c6c4ac\"/></svg>"
   },
   {
     "id": "icon-keyboard",
@@ -125,7 +141,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "机械键盘 keyboard",
-    "shape": "<rect x=\"6\" y=\"19\" width=\"52\" height=\"29\" rx=\"4\"/><path d=\"M13 27h2m6 0h2m6 0h2m6 0h2m6 0h2m6 0h1M13 34h2m6 0h2m6 0h2m6 0h2m6 0h8M15 41h3m6 0h19m6 0h3\"/>"
+    "shape": "<rect x=\"6\" y=\"19\" width=\"52\" height=\"29\" rx=\"4\"/><path d=\"M13 27h2m6 0h2m6 0h2m6 0h2m6 0h2m6 0h1M13 34h2m6 0h2m6 0h2m6 0h2m6 0h8M15 41h3m6 0h19m6 0h3\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 180\" role=\"img\" aria-label=\"分类示意图（非实物照片）\"><path d=\"m41 61 160 4 7 64-173-4z\" fill=\"#d2d4d1\" stroke=\"#a3aba9\" stroke-width=\"2\"/><rect x=\"45\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"57.6\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"70.2\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"82.8\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"95.4\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"108\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"120.6\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"133.2\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"145.8\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"158.39999999999998\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"171\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"183.6\" y=\"69\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"45\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"57.6\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"70.2\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"82.8\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"95.4\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"108\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"120.6\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"133.2\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"145.8\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"158.39999999999998\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"171\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"183.6\" y=\"81\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"45\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"57.6\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"70.2\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"82.8\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"95.4\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"108\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"120.6\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"133.2\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"145.8\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"158.39999999999998\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"171\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"183.6\" y=\"93\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"45\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"57.6\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"70.2\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"82.8\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"95.4\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"108\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"120.6\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"133.2\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"145.8\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"158.39999999999998\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"171\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"183.6\" y=\"105\" width=\"10\" height=\"9\" rx=\"1.5\" fill=\"#f6f5ed\"/><rect x=\"81\" y=\"114\" width=\"70\" height=\"7\" rx=\"1\" fill=\"#f6f5ed\"/></svg>"
   },
   {
     "id": "icon-mouse",
@@ -133,7 +150,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "mouse",
-    "shape": "<rect x=\"19\" y=\"10\" width=\"26\" height=\"45\" rx=\"13\"/><path d=\"M32 10v19M19 30h26M32 17v5\"/>"
+    "shape": "<rect x=\"19\" y=\"10\" width=\"26\" height=\"45\" rx=\"13\"/><path d=\"M32 10v19M19 30h26M32 17v5\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"19\" y=\"10\" width=\"26\" height=\"45\" rx=\"13\"/><path d=\"M32 10v19M19 30h26M32 17v5\" fill=\"none\"/><path d=\"M22 28V23a10 10 0 0 1 7-10\" fill=\"none\" stroke=\"#f2f4ed\" stroke-width=\"2.5\"/><rect x=\"30\" y=\"18\" width=\"4\" height=\"8\" rx=\"2\" fill=\"#42525e\"/></g></svg>"
   },
   {
     "id": "icon-microphone",
@@ -141,7 +159,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "录音 话筒 mic",
-    "shape": "<rect x=\"24\" y=\"8\" width=\"16\" height=\"29\" rx=\"8\"/><path d=\"M17 28v3a15 15 0 0 0 30 0v-3M32 46v9M22 55h20M25 17h6M25 23h6\"/>"
+    "shape": "<rect x=\"24\" y=\"8\" width=\"16\" height=\"29\" rx=\"8\"/><path d=\"M17 28v3a15 15 0 0 0 30 0v-3M32 46v9M22 55h20M25 17h6M25 23h6\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"24\" y=\"8\" width=\"16\" height=\"29\" rx=\"8\"/><path d=\"M17 28v3a15 15 0 0 0 30 0v-3M32 46v9M22 55h20M25 17h6M25 23h6\" fill=\"none\"/><path d=\"M27 13h10M27 18h10M27 23h10M27 28h10\" stroke=\"#384c5a\" stroke-width=\"1.8\"/><path d=\"M27 11v22\" stroke=\"#dbe4df\"/></g></svg>"
   },
   {
     "id": "icon-console",
@@ -149,7 +168,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "主机 PlayStation Xbox Switch",
-    "shape": "<path d=\"M23 10h20l-3 44H20Z M30 10l-3 44M37 17v20\"/><path d=\"M10 39h5v15h-5Z M46 41h9v13h-9Z M49 45h3\"/>"
+    "shape": "<path d=\"M23 10h20l-3 44H20Z M30 10l-3 44M37 17v20\"/><path d=\"M10 39h5v15h-5Z M46 41h9v13h-9Z M49 45h3\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M23 10h20l-3 44H20Z M30 10l-3 44M37 17v20\" fill=\"url(#body)\"/><path d=\"M10 39h5v15h-5Z M46 41h9v13h-9Z M49 45h3\" fill=\"url(#body)\"/><path d=\"M30 10l-3 44h8l3-44\" fill=\"#263b4f\" stroke=\"none\"/><path d=\"M39 14l-2 35\" stroke=\"#a3c6da\" stroke-width=\"2\"/></g></svg>"
   },
   {
     "id": "icon-gamepad",
@@ -157,7 +177,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "游戏 controller",
-    "shape": "<path d=\"M21 20h22c8 0 10 6 12 15l2 10c1 9-7 11-12 4l-5-6H24l-5 6c-5 7-13 5-12-4l2-10c2-9 4-15 12-15Z M18 26v12M12 32h12M43 28h1M49 34h1\"/>"
+    "shape": "<path d=\"M21 20h22c8 0 10 6 12 15l2 10c1 9-7 11-12 4l-5-6H24l-5 6c-5 7-13 5-12-4l2-10c2-9 4-15 12-15Z M18 26v12M12 32h12M43 28h1M49 34h1\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M21 20h22c8 0 10 6 12 15l2 10c1 9-7 11-12 4l-5-6H24l-5 6c-5 7-13 5-12-4l2-10c2-9 4-15 12-15Z M18 26v12M12 32h12M43 28h1M49 34h1\" fill=\"url(#body)\"/><path d=\"M18 26v12M12 32h12\" stroke=\"#344550\" stroke-width=\"4\"/><circle cx=\"43\" cy=\"28\" r=\"2.4\" fill=\"#759b91\"/><circle cx=\"49\" cy=\"34\" r=\"2.4\" fill=\"#b8928d\"/><circle cx=\"25\" cy=\"38\" r=\"3\" fill=\"#485d6c\"/><circle cx=\"38\" cy=\"38\" r=\"3\" fill=\"#485d6c\"/></g></svg>"
   },
   {
     "id": "icon-radio",
@@ -165,7 +186,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "音频 广播",
-    "shape": "<rect x=\"9\" y=\"23\" width=\"46\" height=\"30\" rx=\"4\"/><path d=\"M14 23 43 8M38 31h10M38 38h10\"/><circle cx=\"24\" cy=\"38\" r=\"9\"/><circle cx=\"43\" cy=\"46\" r=\"2\"/>"
+    "shape": "<rect x=\"9\" y=\"23\" width=\"46\" height=\"30\" rx=\"4\"/><path d=\"M14 23 43 8M38 31h10M38 38h10\"/><circle cx=\"24\" cy=\"38\" r=\"9\"/><circle cx=\"43\" cy=\"46\" r=\"2\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"9\" y=\"23\" width=\"46\" height=\"30\" rx=\"4\"/><path d=\"M14 23 43 8M38 31h10M38 38h10\" fill=\"none\"/><circle fill=\"url(#body)\" cx=\"24\" cy=\"38\" r=\"9\"/><circle fill=\"url(#body)\" cx=\"43\" cy=\"46\" r=\"2\"/><circle cx=\"24\" cy=\"38\" r=\"7\" fill=\"#546b70\"/><path d=\"M18 34h12M18 38h12M18 42h12\" stroke=\"#aebcba\"/><rect x=\"37\" y=\"29\" width=\"13\" height=\"10\" rx=\"1\" fill=\"#e3ddbb\"/></g></svg>"
   },
   {
     "id": "icon-webcam",
@@ -173,7 +195,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "网络 摄像 监控",
-    "shape": "<rect x=\"12\" y=\"12\" width=\"40\" height=\"27\" rx=\"10\"/><circle cx=\"32\" cy=\"25\" r=\"8\"/><path d=\"M32 39v9M21 53l3-5h16l3 5ZM46 25h1\"/>"
+    "shape": "<rect x=\"12\" y=\"12\" width=\"40\" height=\"27\" rx=\"10\"/><circle cx=\"32\" cy=\"25\" r=\"8\"/><path d=\"M32 39v9M21 53l3-5h16l3 5ZM46 25h1\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"12\" y=\"12\" width=\"40\" height=\"27\" rx=\"10\"/><circle fill=\"url(#body)\" cx=\"32\" cy=\"25\" r=\"8\"/><path d=\"M32 39v9M21 53l3-5h16l3 5ZM46 25h1\" fill=\"url(#body)\"/><circle cx=\"32\" cy=\"25\" r=\"7\" fill=\"url(#glass)\"/><circle cx=\"30\" cy=\"23\" r=\"2\" fill=\"#d4e5e9\" stroke=\"none\"/><circle cx=\"46\" cy=\"25\" r=\"1.5\" fill=\"#a6d0b8\" stroke=\"none\"/></g></svg>"
   },
   {
     "id": "icon-camcorder",
@@ -181,7 +204,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "摄影 录像 DV",
-    "shape": "<rect x=\"7\" y=\"22\" width=\"34\" height=\"26\" rx=\"4\"/><path d=\"m41 30 15-8v26l-15-8M16 22v-8h18v8M13 41h8\"/>"
+    "shape": "<rect x=\"7\" y=\"22\" width=\"34\" height=\"26\" rx=\"4\"/><path d=\"m41 30 15-8v26l-15-8M16 22v-8h18v8M13 41h8\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"7\" y=\"22\" width=\"34\" height=\"26\" rx=\"4\"/><path d=\"m41 30 15-8v26l-15-8M16 22v-8h18v8M13 41h8\" fill=\"none\"/><path d=\"M41 30l15-8v26l-15-8\" fill=\"#344a57\"/><rect x=\"11\" y=\"27\" width=\"24\" height=\"14\" rx=\"2\" fill=\"url(#glass)\"/><path d=\"M9 24h29\" stroke=\"#d5dcd9\"/></g></svg>"
   },
   {
     "id": "icon-battery",
@@ -189,7 +213,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "电量 battery",
-    "shape": "<rect x=\"19\" y=\"13\" width=\"26\" height=\"43\" rx=\"4\"/><path d=\"M27 13V8h10v5M26 25h12M32 19v12M26 45h12\"/>"
+    "shape": "<rect x=\"19\" y=\"13\" width=\"26\" height=\"43\" rx=\"4\"/><path d=\"M27 13V8h10v5M26 25h12M32 19v12M26 45h12\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"19\" y=\"13\" width=\"26\" height=\"43\" rx=\"4\"/><path d=\"M27 13V8h10v5M26 25h12M32 19v12M26 45h12\" fill=\"none\"/><rect x=\"22\" y=\"32\" width=\"20\" height=\"21\" rx=\"2\" fill=\"#759b89\" stroke=\"none\"/><path d=\"M26 25h12M32 19v12\" stroke=\"#e6efe8\" stroke-width=\"2.5\"/></g></svg>"
   },
   {
     "id": "icon-cpu",
@@ -197,7 +222,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "处理器 芯片",
-    "shape": "<rect x=\"17\" y=\"17\" width=\"30\" height=\"30\" rx=\"3\"/><rect x=\"24\" y=\"24\" width=\"16\" height=\"16\" rx=\"1\"/><path d=\"M23 8v9M32 8v9M41 8v9M23 47v9M32 47v9M41 47v9M8 23h9M8 32h9M8 41h9M47 23h9M47 32h9M47 41h9\"/>"
+    "shape": "<rect x=\"17\" y=\"17\" width=\"30\" height=\"30\" rx=\"3\"/><rect x=\"24\" y=\"24\" width=\"16\" height=\"16\" rx=\"1\"/><path d=\"M23 8v9M32 8v9M41 8v9M23 47v9M32 47v9M41 47v9M8 23h9M8 32h9M8 41h9M47 23h9M47 32h9M47 41h9\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"17\" y=\"17\" width=\"30\" height=\"30\" rx=\"3\"/><rect fill=\"url(#body)\" x=\"24\" y=\"24\" width=\"16\" height=\"16\" rx=\"1\"/><path d=\"M23 8v9M32 8v9M41 8v9M23 47v9M32 47v9M41 47v9M8 23h9M8 32h9M8 41h9M47 23h9M47 32h9M47 41h9\" fill=\"none\"/><rect x=\"23\" y=\"23\" width=\"18\" height=\"18\" rx=\"1\" fill=\"url(#metal)\"/><path d=\"M28 27h8M28 31h5\" stroke=\"#667e88\"/></g></svg>"
   },
   {
     "id": "icon-floppy",
@@ -205,7 +231,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "存储 磁盘",
-    "shape": "<path d=\"M12 9h34l7 7v39H12ZM20 9v17h23V9M21 55V36h23v19M36 14v7\"/>"
+    "shape": "<path d=\"M12 9h34l7 7v39H12ZM20 9v17h23V9M21 55V36h23v19M36 14v7\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M12 9h34l7 7v39H12ZM20 9v17h23V9M21 55V36h23v19M36 14v7\" fill=\"url(#body)\"/><path d=\"M20 9v17h23V9\" fill=\"url(#metal)\"/><path d=\"M21 55V36h23v19\" fill=\"#efe9dc\"/><path d=\"M25 41h15M25 45h15M25 49h10\" stroke=\"#b3b5ab\"/></g></svg>"
   },
   {
     "id": "icon-gpu",
@@ -213,7 +240,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "GPU 图形卡",
-    "shape": "<rect x=\"10\" y=\"20\" width=\"45\" height=\"26\" rx=\"2\"/><circle cx=\"25\" cy=\"33\" r=\"8\"/><circle cx=\"44\" cy=\"33\" r=\"6\"/><path d=\"M6 15v38M6 22h4M17 46v6h26v-6M24 25v16M17 33h16\"/>"
+    "shape": "<rect x=\"10\" y=\"20\" width=\"45\" height=\"26\" rx=\"2\"/><circle cx=\"25\" cy=\"33\" r=\"8\"/><circle cx=\"44\" cy=\"33\" r=\"6\"/><path d=\"M6 15v38M6 22h4M17 46v6h26v-6M24 25v16M17 33h16\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"10\" y=\"20\" width=\"45\" height=\"26\" rx=\"2\"/><circle fill=\"url(#body)\" cx=\"25\" cy=\"33\" r=\"8\"/><circle fill=\"url(#body)\" cx=\"44\" cy=\"33\" r=\"6\"/><path d=\"M6 15v38M6 22h4M17 46v6h26v-6M24 25v16M17 33h16\" fill=\"none\"/><circle cx=\"25\" cy=\"33\" r=\"7\" fill=\"#334650\"/><circle cx=\"44\" cy=\"33\" r=\"5\" fill=\"#334650\"/><path d=\"M24 27l3 12M19 34l12-2M42 29l4 8M40 34l8-2\" stroke=\"#a8bbc0\" stroke-width=\"2\"/><path d=\"M17 46v6h26v-6\" fill=\"#ccba83\"/></g></svg>"
   },
   {
     "id": "icon-hdd",
@@ -221,7 +249,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "硬盘 HDD 存储",
-    "shape": "<rect x=\"14\" y=\"8\" width=\"36\" height=\"48\" rx=\"3\"/><circle cx=\"31\" cy=\"29\" r=\"12\"/><circle cx=\"31\" cy=\"29\" r=\"3\"/><path d=\"m44 47-13-18M20 51h8M43 14h1\"/>"
+    "shape": "<rect x=\"14\" y=\"8\" width=\"36\" height=\"48\" rx=\"3\"/><circle cx=\"31\" cy=\"29\" r=\"12\"/><circle cx=\"31\" cy=\"29\" r=\"3\"/><path d=\"m44 47-13-18M20 51h8M43 14h1\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"14\" y=\"8\" width=\"36\" height=\"48\" rx=\"3\"/><circle fill=\"url(#body)\" cx=\"31\" cy=\"29\" r=\"12\"/><circle fill=\"url(#body)\" cx=\"31\" cy=\"29\" r=\"3\"/><path d=\"m44 47-13-18M20 51h8M43 14h1\" fill=\"none\"/><circle cx=\"31\" cy=\"29\" r=\"12\" fill=\"url(#metal)\"/><circle cx=\"31\" cy=\"29\" r=\"3\" fill=\"#566f79\"/><path d=\"M44 47L31 29\" stroke=\"#d8e1df\" stroke-width=\"4\"/></g></svg>"
   },
   {
     "id": "icon-ram",
@@ -229,7 +258,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "RAM 内存",
-    "shape": "<path d=\"M7 20h50v25H7ZM12 45v7h16v-7m7 0v7h17v-7\"/><rect x=\"13\" y=\"26\" width=\"8\" height=\"12\"/><rect x=\"28\" y=\"26\" width=\"8\" height=\"12\"/><rect x=\"43\" y=\"26\" width=\"8\" height=\"12\"/>"
+    "shape": "<path d=\"M7 20h50v25H7ZM12 45v7h16v-7m7 0v7h17v-7\"/><rect x=\"13\" y=\"26\" width=\"8\" height=\"12\"/><rect x=\"28\" y=\"26\" width=\"8\" height=\"12\"/><rect x=\"43\" y=\"26\" width=\"8\" height=\"12\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M7 20h50v25H7ZM12 45v7h16v-7m7 0v7h17v-7\" fill=\"url(#body)\"/><rect fill=\"url(#body)\" x=\"13\" y=\"26\" width=\"8\" height=\"12\"/><rect fill=\"url(#body)\" x=\"28\" y=\"26\" width=\"8\" height=\"12\"/><rect fill=\"url(#body)\" x=\"43\" y=\"26\" width=\"8\" height=\"12\"/><path d=\"M7 20h50v25H7Z\" fill=\"#789c89\"/><path d=\"M12 45v7h16v-7m7 0v7h17v-7\" fill=\"#d8c28a\"/><path d=\"M13 26h8v12h-8ZM28 26h8v12h-8ZM43 26h8v12h-8Z\" fill=\"#33454b\"/></g></svg>"
   },
   {
     "id": "icon-monitor",
@@ -237,7 +267,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "屏幕 monitor",
-    "shape": "<rect x=\"7\" y=\"12\" width=\"50\" height=\"33\" rx=\"3\"/><path d=\"M7 38h50M32 45v9M22 54h20\"/>"
+    "shape": "<rect x=\"7\" y=\"12\" width=\"50\" height=\"33\" rx=\"3\"/><path d=\"M7 38h50M32 45v9M22 54h20\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"7\" y=\"12\" width=\"50\" height=\"33\" rx=\"3\"/><path d=\"M7 38h50M32 45v9M22 54h20\" fill=\"none\"/><rect x=\"10\" y=\"15\" width=\"44\" height=\"23\" rx=\"1\" fill=\"url(#glass)\" stroke=\"none\"/><path d=\"M10 38c15-24 21 3 44-20v20Z\" fill=\"#92b2c5\" stroke=\"none\"/><path d=\"M28 43h8\" stroke=\"#b9c9c8\"/></g></svg>"
   },
   {
     "id": "icon-motherboard",
@@ -245,7 +276,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "电脑 配件",
-    "shape": "<rect x=\"12\" y=\"7\" width=\"40\" height=\"50\" rx=\"2\"/><rect x=\"20\" y=\"16\" width=\"16\" height=\"16\"/><path d=\"M43 14v24M47 14v24M20 40h16M20 46h23M20 51h23M12 14H8v14h4\"/><circle cx=\"44\" cy=\"48\" r=\"4\"/>"
+    "shape": "<rect x=\"12\" y=\"7\" width=\"40\" height=\"50\" rx=\"2\"/><rect x=\"20\" y=\"16\" width=\"16\" height=\"16\"/><path d=\"M43 14v24M47 14v24M20 40h16M20 46h23M20 51h23M12 14H8v14h4\"/><circle cx=\"44\" cy=\"48\" r=\"4\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"12\" y=\"7\" width=\"40\" height=\"50\" rx=\"2\"/><rect fill=\"url(#body)\" x=\"20\" y=\"16\" width=\"16\" height=\"16\"/><path d=\"M43 14v24M47 14v24M20 40h16M20 46h23M20 51h23M12 14H8v14h4\" fill=\"none\"/><circle fill=\"url(#body)\" cx=\"44\" cy=\"48\" r=\"4\"/><rect x=\"13\" y=\"8\" width=\"38\" height=\"48\" rx=\"2\" fill=\"#738c7d\"/><rect x=\"20\" y=\"16\" width=\"16\" height=\"16\" fill=\"url(#metal)\"/><path d=\"M43 14v24M47 14v24M20 40h16M20 46h23M20 51h23\" stroke=\"#cfbf8c\" stroke-width=\"3\"/><circle cx=\"44\" cy=\"48\" r=\"4\" fill=\"#bdc5c0\"/></g></svg>"
   },
   {
     "id": "icon-ssd",
@@ -253,7 +285,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "SSD 存储",
-    "shape": "<rect x=\"10\" y=\"20\" width=\"44\" height=\"25\" rx=\"3\"/><path d=\"M54 27h5v12h-5M16 45v5h31v-5\"/><rect x=\"17\" y=\"26\" width=\"10\" height=\"12\"/><rect x=\"33\" y=\"26\" width=\"10\" height=\"12\"/>"
+    "shape": "<rect x=\"10\" y=\"20\" width=\"44\" height=\"25\" rx=\"3\"/><path d=\"M54 27h5v12h-5M16 45v5h31v-5\"/><rect x=\"17\" y=\"26\" width=\"10\" height=\"12\"/><rect x=\"33\" y=\"26\" width=\"10\" height=\"12\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"10\" y=\"20\" width=\"44\" height=\"25\" rx=\"3\"/><path d=\"M54 27h5v12h-5M16 45v5h31v-5\" fill=\"none\"/><rect fill=\"url(#body)\" x=\"17\" y=\"26\" width=\"10\" height=\"12\"/><rect fill=\"url(#body)\" x=\"33\" y=\"26\" width=\"10\" height=\"12\"/><rect x=\"11\" y=\"21\" width=\"42\" height=\"23\" rx=\"2\" fill=\"#688d88\"/><rect x=\"17\" y=\"26\" width=\"10\" height=\"12\" fill=\"#364a51\"/><rect x=\"33\" y=\"26\" width=\"10\" height=\"12\" fill=\"#364a51\"/><path d=\"M54 27h5v12h-5\" fill=\"#d1ba7d\"/></g></svg>"
   },
   {
     "id": "icon-case",
@@ -261,7 +294,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "电脑 主机",
-    "shape": "<rect x=\"17\" y=\"8\" width=\"30\" height=\"47\" rx=\"3\"/><path d=\"M22 15h20M22 21h20M22 55v3M42 55v3M39 28h2\"/><circle cx=\"32\" cy=\"41\" r=\"8\"/><path d=\"M32 36v10M27 41h10\"/>"
+    "shape": "<rect x=\"17\" y=\"8\" width=\"30\" height=\"47\" rx=\"3\"/><path d=\"M22 15h20M22 21h20M22 55v3M42 55v3M39 28h2\"/><circle cx=\"32\" cy=\"41\" r=\"8\"/><path d=\"M32 36v10M27 41h10\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"17\" y=\"8\" width=\"30\" height=\"47\" rx=\"3\"/><path d=\"M22 15h20M22 21h20M22 55v3M42 55v3M39 28h2\" fill=\"none\"/><circle fill=\"url(#body)\" cx=\"32\" cy=\"41\" r=\"8\"/><path d=\"M32 36v10M27 41h10\" fill=\"none\"/><rect x=\"20\" y=\"12\" width=\"24\" height=\"39\" rx=\"1\" fill=\"#415765\"/><circle cx=\"32\" cy=\"41\" r=\"8\" fill=\"#738e9c\"/><circle cx=\"32\" cy=\"41\" r=\"4\" fill=\"#263d50\"/><path d=\"M23 16h18M23 21h18\" stroke=\"#b6c3c4\"/><circle cx=\"39\" cy=\"28\" r=\"1.5\" fill=\"#a4cecb\"/></g></svg>"
   },
   {
     "id": "icon-power",
@@ -269,7 +303,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "电脑 配件 供电",
-    "shape": "<rect x=\"9\" y=\"17\" width=\"36\" height=\"34\" rx=\"3\"/><circle cx=\"27\" cy=\"34\" r=\"11\"/><path d=\"M27 27v14M20 34h14M45 28h6v-9h7M54 14v10M58 14v10\"/>"
+    "shape": "<rect x=\"9\" y=\"17\" width=\"36\" height=\"34\" rx=\"3\"/><circle cx=\"27\" cy=\"34\" r=\"11\"/><path d=\"M27 27v14M20 34h14M45 28h6v-9h7M54 14v10M58 14v10\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"9\" y=\"17\" width=\"36\" height=\"34\" rx=\"3\"/><circle fill=\"url(#body)\" cx=\"27\" cy=\"34\" r=\"11\"/><path d=\"M27 27v14M20 34h14M45 28h6v-9h7M54 14v10M58 14v10\" fill=\"none\"/><circle cx=\"27\" cy=\"34\" r=\"10\" fill=\"#415866\"/><circle cx=\"27\" cy=\"34\" r=\"4\" fill=\"#aab9bc\"/><path d=\"M27 26v16M19 34h16M21 28l12 12M21 40l12-12\" stroke=\"#b5c4c7\"/></g></svg>"
   },
   {
     "id": "icon-actioncam",
@@ -277,7 +312,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "GoPro 运动摄像",
-    "shape": "<rect x=\"9\" y=\"17\" width=\"46\" height=\"31\" rx=\"5\"/><circle cx=\"41\" cy=\"30\" r=\"9\"/><rect x=\"15\" y=\"25\" width=\"12\" height=\"15\" rx=\"2\"/><path d=\"M26 48v7h12v-7M14 17v-4h12v4\"/>"
+    "shape": "<rect x=\"9\" y=\"17\" width=\"46\" height=\"31\" rx=\"5\"/><circle cx=\"41\" cy=\"30\" r=\"9\"/><rect x=\"15\" y=\"25\" width=\"12\" height=\"15\" rx=\"2\"/><path d=\"M26 48v7h12v-7M14 17v-4h12v4\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"9\" y=\"17\" width=\"46\" height=\"31\" rx=\"5\"/><circle fill=\"url(#body)\" cx=\"41\" cy=\"30\" r=\"9\"/><rect fill=\"url(#body)\" x=\"15\" y=\"25\" width=\"12\" height=\"15\" rx=\"2\"/><path d=\"M26 48v7h12v-7M14 17v-4h12v4\" fill=\"none\"/><circle cx=\"41\" cy=\"30\" r=\"8\" fill=\"url(#glass)\"/><circle cx=\"39\" cy=\"27\" r=\"2\" fill=\"#cbdde1\" stroke=\"none\"/><rect x=\"15\" y=\"25\" width=\"12\" height=\"15\" rx=\"2\" fill=\"#344c5a\"/></g></svg>"
   },
   {
     "id": "icon-drone",
@@ -285,7 +321,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "飞行 航拍",
-    "shape": "<path d=\"M25 26h14v13H25ZM25 26 15 16M39 26l10-10M25 39 15 49M39 39l10 10M29 39v8h6v-8\"/><ellipse cx=\"13\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse cx=\"51\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse cx=\"13\" cy=\"49\" rx=\"10\" ry=\"5\"/><ellipse cx=\"51\" cy=\"49\" rx=\"10\" ry=\"5\"/>"
+    "shape": "<path d=\"M25 26h14v13H25ZM25 26 15 16M39 26l10-10M25 39 15 49M39 39l10 10M29 39v8h6v-8\"/><ellipse cx=\"13\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse cx=\"51\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse cx=\"13\" cy=\"49\" rx=\"10\" ry=\"5\"/><ellipse cx=\"51\" cy=\"49\" rx=\"10\" ry=\"5\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M25 26h14v13H25ZM25 26 15 16M39 26l10-10M25 39 15 49M39 39l10 10M29 39v8h6v-8\" fill=\"url(#body)\"/><ellipse fill=\"url(#body)\" cx=\"13\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse fill=\"url(#body)\" cx=\"51\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse fill=\"url(#body)\" cx=\"13\" cy=\"49\" rx=\"10\" ry=\"5\"/><ellipse fill=\"url(#body)\" cx=\"51\" cy=\"49\" rx=\"10\" ry=\"5\"/><path d=\"M25 26h14v13H25Z\" fill=\"#899dab\"/><circle cx=\"32\" cy=\"44\" r=\"3\" fill=\"url(#glass)\"/><path d=\"M4 15h18M42 15h18M4 49h18M42 49h18\" stroke=\"#465f70\" stroke-width=\"3\"/></g></svg>"
   },
   {
     "id": "icon-ultrabook",
@@ -293,7 +330,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "电脑 MacBook Air laptop",
-    "shape": "<path d=\"M12 14h40v27H12ZM5 48h54l-8 4H13ZM18 20h28M12 41l-7 7M52 41l7 7\"/>"
+    "shape": "<path d=\"M12 14h40v27H12ZM5 48h54l-8 4H13ZM18 20h28M12 41l-7 7M52 41l7 7\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 180\" role=\"img\" aria-label=\"分类示意图（非实物照片）\"><rect x=\"49\" y=\"32\" width=\"142\" height=\"92\" rx=\"6\" fill=\"#54616e\"/><rect x=\"54\" y=\"37\" width=\"132\" height=\"81\" rx=\"2\" fill=\"#24344e\"/><path d=\"M54 118V80c23-35 42-29 64-2s43 7 68-30v70\" fill=\"#728daf\"/><path d=\"M54 118c41-37 68-12 132-50v50\" fill=\"#a7c0cc\"/><path d=\"m49 124-24 12v5c42 8 148 8 190 0v-5l-24-12\" fill=\"#b7bec5\"/><path d=\"M26 137h188M101 129h38\" stroke=\"#777f89\" stroke-width=\"2\"/></svg>"
   },
   {
     "id": "icon-gimbal",
@@ -301,7 +339,8 @@
     "style": "icon",
     "category": "数码",
     "keywords": "大疆 DJI Pocket 录像",
-    "shape": "<rect x=\"25\" y=\"29\" width=\"14\" height=\"28\" rx=\"4\"/><rect x=\"24\" y=\"8\" width=\"20\" height=\"15\" rx=\"4\"/><circle cx=\"34\" cy=\"15\" r=\"4\"/><path d=\"M24 15h-6v14h14M29 36h6M31 47h2\"/>"
+    "shape": "<rect x=\"25\" y=\"29\" width=\"14\" height=\"28\" rx=\"4\"/><rect x=\"24\" y=\"8\" width=\"20\" height=\"15\" rx=\"4\"/><circle cx=\"34\" cy=\"15\" r=\"4\"/><path d=\"M24 15h-6v14h14M29 36h6M31 47h2\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"25\" y=\"29\" width=\"14\" height=\"28\" rx=\"4\"/><rect fill=\"url(#body)\" x=\"24\" y=\"8\" width=\"20\" height=\"15\" rx=\"4\"/><circle fill=\"url(#body)\" cx=\"34\" cy=\"15\" r=\"4\"/><path d=\"M24 15h-6v14h14M29 36h6M31 47h2\" fill=\"none\"/><rect x=\"27\" y=\"31\" width=\"10\" height=\"23\" rx=\"3\" fill=\"#596f7b\"/><circle cx=\"34\" cy=\"15\" r=\"5\" fill=\"url(#glass)\"/><rect x=\"29\" y=\"35\" width=\"6\" height=\"9\" rx=\"1\" fill=\"#9fb5bd\"/></g></svg>"
   },
   {
     "id": "icon-tv",
@@ -309,7 +348,8 @@
     "style": "icon",
     "category": "家电",
     "keywords": "电视机 TV",
-    "shape": "<rect x=\"7\" y=\"13\" width=\"50\" height=\"33\" rx=\"3\"/><path d=\"m20 46-5 8M44 46l5 8M14 39h36\"/>"
+    "shape": "<rect x=\"7\" y=\"13\" width=\"50\" height=\"33\" rx=\"3\"/><path d=\"m20 46-5 8M44 46l5 8M14 39h36\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#e0ddd3\"/><stop offset=\"1\" stop-color=\"#a49d8c\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#5e655f\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"7\" y=\"13\" width=\"50\" height=\"33\" rx=\"3\"/><path d=\"m20 46-5 8M44 46l5 8M14 39h36\" fill=\"none\"/><rect x=\"10\" y=\"16\" width=\"44\" height=\"27\" rx=\"1\" fill=\"url(#glass)\" stroke=\"none\"/><path d=\"M10 42c12-29 22 1 44-18v19H10Z\" fill=\"#91b4bb\" stroke=\"none\"/></g></svg>"
   },
   {
     "id": "icon-fridge",
@@ -317,7 +357,8 @@
     "style": "icon",
     "category": "家电",
     "keywords": "冷藏 refrigerator",
-    "shape": "<rect x=\"17\" y=\"6\" width=\"30\" height=\"51\" rx=\"4\"/><path d=\"M17 25h30M23 14v6M23 32v12M22 57v2M42 57v2\"/>"
+    "shape": "<rect x=\"17\" y=\"6\" width=\"30\" height=\"51\" rx=\"4\"/><path d=\"M17 25h30M23 14v6M23 32v12M22 57v2M42 57v2\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#e0ddd3\"/><stop offset=\"1\" stop-color=\"#a49d8c\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#5e655f\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"17\" y=\"6\" width=\"30\" height=\"51\" rx=\"4\"/><path d=\"M17 25h30M23 14v6M23 32v12M22 57v2M42 57v2\" fill=\"none\"/><path d=\"M20 9h24v14H20Z\" fill=\"#e5e4dc\" stroke=\"none\"/><path d=\"M23 14v6M23 32v12\" stroke=\"#686e68\" stroke-width=\"2.5\"/><path d=\"M44 28v25\" stroke=\"#f0f0e8\" stroke-width=\"2\"/></g></svg>"
   },
   {
     "id": "icon-rice",
@@ -325,7 +366,8 @@
     "style": "icon",
     "category": "厨具",
     "keywords": "煮饭 厨房 家电",
-    "shape": "<path d=\"M15 25a17 17 0 0 1 34 0M10 25h44v22a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8ZM24 10h16M6 32h4M54 32h4\"/><rect x=\"24\" y=\"36\" width=\"16\" height=\"10\" rx=\"2\"/>"
+    "shape": "<path d=\"M15 25a17 17 0 0 1 34 0M10 25h44v22a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8ZM24 10h16M6 32h4M54 32h4\"/><rect x=\"24\" y=\"36\" width=\"16\" height=\"10\" rx=\"2\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#b6c4c5\"/><stop offset=\"1\" stop-color=\"#738d92\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#3c5157\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M15 25a17 17 0 0 1 34 0M10 25h44v22a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8ZM24 10h16M6 32h4M54 32h4\" fill=\"url(#body)\"/><rect fill=\"url(#body)\" x=\"24\" y=\"36\" width=\"16\" height=\"10\" rx=\"2\"/><path d=\"M15 25a17 17 0 0 1 34 0Z\" fill=\"#c3c4b7\"/><path d=\"M24 10h16\" stroke=\"#757f75\" stroke-width=\"4\"/><rect x=\"24\" y=\"36\" width=\"16\" height=\"10\" rx=\"2\" fill=\"#526c63\"/><circle cx=\"32\" cy=\"41\" r=\"2\" fill=\"#cbd8bd\" stroke=\"none\"/></g></svg>"
   },
   {
     "id": "icon-microwave",
@@ -333,7 +375,8 @@
     "style": "icon",
     "category": "厨具",
     "keywords": "厨房 家电",
-    "shape": "<rect x=\"6\" y=\"16\" width=\"52\" height=\"33\" rx=\"3\"/><rect x=\"12\" y=\"22\" width=\"31\" height=\"21\" rx=\"2\"/><circle cx=\"51\" cy=\"28\" r=\"3\"/><path d=\"M49 37h4M49 42h4M14 49v4M50 49v4\"/>"
+    "shape": "<rect x=\"6\" y=\"16\" width=\"52\" height=\"33\" rx=\"3\"/><rect x=\"12\" y=\"22\" width=\"31\" height=\"21\" rx=\"2\"/><circle cx=\"51\" cy=\"28\" r=\"3\"/><path d=\"M49 37h4M49 42h4M14 49v4M50 49v4\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#b6c4c5\"/><stop offset=\"1\" stop-color=\"#738d92\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#3c5157\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"6\" y=\"16\" width=\"52\" height=\"33\" rx=\"3\"/><rect fill=\"url(#body)\" x=\"12\" y=\"22\" width=\"31\" height=\"21\" rx=\"2\"/><circle fill=\"url(#body)\" cx=\"51\" cy=\"28\" r=\"3\"/><path d=\"M49 37h4M49 42h4M14 49v4M50 49v4\" fill=\"none\"/><rect x=\"12\" y=\"22\" width=\"31\" height=\"21\" rx=\"2\" fill=\"url(#glass)\"/><path d=\"M17 39l19-13\" stroke=\"#93adb8\" stroke-width=\"2\"/><circle cx=\"51\" cy=\"28\" r=\"3\" fill=\"#e6e7df\"/></g></svg>"
   },
   {
     "id": "icon-hood",
@@ -341,7 +384,8 @@
     "style": "icon",
     "category": "厨具",
     "keywords": "抽油烟机 厨房 家电",
-    "shape": "<path d=\"M24 7h16v20l17 13v9H7v-9l17-13ZM7 40h50M17 45h1M23 45h1M29 45h1M32 52v7\"/>"
+    "shape": "<path d=\"M24 7h16v20l17 13v9H7v-9l17-13ZM7 40h50M17 45h1M23 45h1M29 45h1M32 52v7\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#b6c4c5\"/><stop offset=\"1\" stop-color=\"#738d92\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#3c5157\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M24 7h16v20l17 13v9H7v-9l17-13ZM7 40h50M17 45h1M23 45h1M29 45h1M32 52v7\" fill=\"url(#body)\"/><path d=\"M24 7h16v20l17 13H7l17-13Z\" fill=\"url(#metal)\"/><path d=\"M7 40h50v9H7Z\" fill=\"#5e716e\"/><path d=\"M17 45h1M23 45h1M29 45h1\" stroke=\"#e1e5cb\" stroke-width=\"2\"/></g></svg>"
   },
   {
     "id": "icon-aircon",
@@ -349,7 +393,8 @@
     "style": "icon",
     "category": "家电",
     "keywords": "冷气 air conditioner",
-    "shape": "<rect x=\"6\" y=\"13\" width=\"52\" height=\"24\" rx=\"5\"/><path d=\"M12 29h40M46 20h6M19 43v9M32 43v14M45 43v9\"/>"
+    "shape": "<rect x=\"6\" y=\"13\" width=\"52\" height=\"24\" rx=\"5\"/><path d=\"M12 29h40M46 20h6M19 43v9M32 43v14M45 43v9\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#e0ddd3\"/><stop offset=\"1\" stop-color=\"#a49d8c\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#5e655f\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"6\" y=\"13\" width=\"52\" height=\"24\" rx=\"5\"/><path d=\"M12 29h40M46 20h6M19 43v9M32 43v14M45 43v9\" fill=\"none\"/><path d=\"M12 29h40v5H12Z\" fill=\"#8d9e9a\" stroke=\"none\"/><path d=\"M46 20h6\" stroke=\"#83947b\" stroke-width=\"2\"/><path d=\"M19 43v9M32 43v14M45 43v9\" stroke=\"#8fbdc7\" stroke-width=\"2\"/></g></svg>"
   },
   {
     "id": "icon-dishwasher",
@@ -357,7 +402,8 @@
     "style": "icon",
     "category": "厨具",
     "keywords": "厨房 家电",
-    "shape": "<rect x=\"12\" y=\"8\" width=\"40\" height=\"49\" rx=\"3\"/><path d=\"M12 21h40M20 15h1M26 15h1M36 15h9M19 29h26M20 48h24\"/><path d=\"M23 33v10M31 33v10M39 33v10\"/>"
+    "shape": "<rect x=\"12\" y=\"8\" width=\"40\" height=\"49\" rx=\"3\"/><path d=\"M12 21h40M20 15h1M26 15h1M36 15h9M19 29h26M20 48h24\"/><path d=\"M23 33v10M31 33v10M39 33v10\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#b6c4c5\"/><stop offset=\"1\" stop-color=\"#738d92\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#3c5157\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"12\" y=\"8\" width=\"40\" height=\"49\" rx=\"3\"/><path d=\"M12 21h40M20 15h1M26 15h1M36 15h9M19 29h26M20 48h24\" fill=\"none\"/><path d=\"M23 33v10M31 33v10M39 33v10\" fill=\"none\"/><path d=\"M13 21h38v35H13Z\" fill=\"url(#metal)\"/><path d=\"M20 29h24\" stroke=\"#566e74\" stroke-width=\"3\"/><path d=\"M20 15h1M26 15h1M36 15h9\" stroke=\"#546e69\" stroke-width=\"2\"/></g></svg>"
   },
   {
     "id": "icon-fan",
@@ -365,7 +411,8 @@
     "style": "icon",
     "category": "家电",
     "keywords": "风扇 夏天",
-    "shape": "<circle cx=\"32\" cy=\"25\" r=\"19\"/><circle cx=\"32\" cy=\"25\" r=\"4\"/><path d=\"M32 21c-12-14 13-16 4 1M36 25c17-3 9 18-3 4M29 28c-4 16-18 0-2-4M32 44v10M20 57h24M26 54h12\"/>"
+    "shape": "<circle cx=\"32\" cy=\"25\" r=\"19\"/><circle cx=\"32\" cy=\"25\" r=\"4\"/><path d=\"M32 21c-12-14 13-16 4 1M36 25c17-3 9 18-3 4M29 28c-4 16-18 0-2-4M32 44v10M20 57h24M26 54h12\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#e0ddd3\"/><stop offset=\"1\" stop-color=\"#a49d8c\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#5e655f\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><circle fill=\"url(#body)\" cx=\"32\" cy=\"25\" r=\"19\"/><circle fill=\"url(#body)\" cx=\"32\" cy=\"25\" r=\"4\"/><path d=\"M32 21c-12-14 13-16 4 1M36 25c17-3 9 18-3 4M29 28c-4 16-18 0-2-4M32 44v10M20 57h24M26 54h12\" fill=\"none\"/><circle cx=\"32\" cy=\"25\" r=\"17\" fill=\"#d4ded8\"/><path d=\"M32 21c-12-14 13-16 4 1M36 25c17-3 9 18-3 4M29 28c-4 16-18 0-2-4\" fill=\"#6f9595\" stroke=\"none\"/><circle cx=\"32\" cy=\"25\" r=\"4\" fill=\"#b8ccbf\"/><circle cx=\"32\" cy=\"25\" r=\"19\" fill=\"none\" stroke=\"#708887\" stroke-width=\"2\"/></g></svg>"
   },
   {
     "id": "icon-waterheater",
@@ -373,7 +420,8 @@
     "style": "icon",
     "category": "家电",
     "keywords": "热水 卫浴",
-    "shape": "<rect x=\"8\" y=\"13\" width=\"48\" height=\"30\" rx=\"13\"/><path d=\"M19 43v11M25 43v8M39 43v8M45 43v11M17 54h4M43 54h4\"/><circle cx=\"41\" cy=\"27\" r=\"6\"/>"
+    "shape": "<rect x=\"8\" y=\"13\" width=\"48\" height=\"30\" rx=\"13\"/><path d=\"M19 43v11M25 43v8M39 43v8M45 43v11M17 54h4M43 54h4\"/><circle cx=\"41\" cy=\"27\" r=\"6\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#e0ddd3\"/><stop offset=\"1\" stop-color=\"#a49d8c\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#5e655f\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"8\" y=\"13\" width=\"48\" height=\"30\" rx=\"13\"/><path d=\"M19 43v11M25 43v8M39 43v8M45 43v11M17 54h4M43 54h4\" fill=\"none\"/><circle fill=\"url(#body)\" cx=\"41\" cy=\"27\" r=\"6\"/><path d=\"M17 18h29\" stroke=\"#f8f6e9\" stroke-width=\"2\"/><circle cx=\"41\" cy=\"27\" r=\"6\" fill=\"#edf0e6\"/><path d=\"M41 27l2-3\" stroke=\"#7895a0\" stroke-width=\"2\"/><path d=\"M19 43v11M45 43v11\" stroke=\"#a3b2b2\" stroke-width=\"3\"/></g></svg>"
   },
   {
     "id": "icon-oven",
@@ -381,7 +429,8 @@
     "style": "icon",
     "category": "厨具",
     "keywords": "厨房 烘焙 家电",
-    "shape": "<rect x=\"9\" y=\"9\" width=\"46\" height=\"47\" rx=\"3\"/><path d=\"M9 22h46M17 16h1M25 16h1M40 16h7\"/><rect x=\"16\" y=\"29\" width=\"32\" height=\"21\" rx=\"2\"/><path d=\"M22 33h20\"/>"
+    "shape": "<rect x=\"9\" y=\"9\" width=\"46\" height=\"47\" rx=\"3\"/><path d=\"M9 22h46M17 16h1M25 16h1M40 16h7\"/><rect x=\"16\" y=\"29\" width=\"32\" height=\"21\" rx=\"2\"/><path d=\"M22 33h20\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#b6c4c5\"/><stop offset=\"1\" stop-color=\"#738d92\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#3c5157\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"9\" y=\"9\" width=\"46\" height=\"47\" rx=\"3\"/><path d=\"M9 22h46M17 16h1M25 16h1M40 16h7\" fill=\"none\"/><rect fill=\"url(#body)\" x=\"16\" y=\"29\" width=\"32\" height=\"21\" rx=\"2\"/><path d=\"M22 33h20\" fill=\"none\"/><rect x=\"16\" y=\"29\" width=\"32\" height=\"21\" rx=\"2\" fill=\"url(#glass)\"/><path d=\"M22 33h20\" stroke=\"#c4d2cf\" stroke-width=\"2.5\"/><path d=\"M17 16h1M25 16h1\" stroke=\"#586f73\" stroke-width=\"3\"/></g></svg>"
   },
   {
     "id": "icon-pan",
@@ -389,7 +438,8 @@
     "style": "icon",
     "category": "厨具",
     "keywords": "锅 厨房 煎锅",
-    "shape": "<circle cx=\"27\" cy=\"36\" r=\"18\"/><circle cx=\"27\" cy=\"36\" r=\"12\"/><path d=\"m40 23 13-14 5 5-14 13\"/>"
+    "shape": "<circle cx=\"27\" cy=\"36\" r=\"18\"/><circle cx=\"27\" cy=\"36\" r=\"12\"/><path d=\"m40 23 13-14 5 5-14 13\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#b6c4c5\"/><stop offset=\"1\" stop-color=\"#738d92\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#3c5157\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><circle fill=\"url(#body)\" cx=\"27\" cy=\"36\" r=\"18\"/><circle fill=\"url(#body)\" cx=\"27\" cy=\"36\" r=\"12\"/><path d=\"m40 23 13-14 5 5-14 13\" fill=\"none\"/><circle cx=\"27\" cy=\"36\" r=\"18\" fill=\"url(#metal)\"/><circle cx=\"27\" cy=\"36\" r=\"14\" fill=\"#47595c\"/><path d=\"M19 26a13 13 0 0 1 15 0\" stroke=\"#8a9fa3\" fill=\"none\"/><path d=\"M43 22l12-11\" stroke=\"#485b61\" stroke-width=\"6\"/></g></svg>"
   },
   {
     "id": "icon-stove",
@@ -397,7 +447,8 @@
     "style": "icon",
     "category": "厨具",
     "keywords": "燃气灶 厨房",
-    "shape": "<rect x=\"6\" y=\"17\" width=\"52\" height=\"34\" rx=\"4\"/><circle cx=\"21\" cy=\"32\" r=\"9\"/><circle cx=\"44\" cy=\"32\" r=\"9\"/><path d=\"M21 19v6M21 39v6M8 32h6M28 32h6M44 19v6M44 39v6M37 32h-6M51 32h6M25 46h1M38 46h1\"/>"
+    "shape": "<rect x=\"6\" y=\"17\" width=\"52\" height=\"34\" rx=\"4\"/><circle cx=\"21\" cy=\"32\" r=\"9\"/><circle cx=\"44\" cy=\"32\" r=\"9\"/><path d=\"M21 19v6M21 39v6M8 32h6M28 32h6M44 19v6M44 39v6M37 32h-6M51 32h6M25 46h1M38 46h1\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#b6c4c5\"/><stop offset=\"1\" stop-color=\"#738d92\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#3c5157\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"6\" y=\"17\" width=\"52\" height=\"34\" rx=\"4\"/><circle fill=\"url(#body)\" cx=\"21\" cy=\"32\" r=\"9\"/><circle fill=\"url(#body)\" cx=\"44\" cy=\"32\" r=\"9\"/><path d=\"M21 19v6M21 39v6M8 32h6M28 32h6M44 19v6M44 39v6M37 32h-6M51 32h6M25 46h1M38 46h1\" fill=\"none\"/><circle cx=\"21\" cy=\"32\" r=\"9\" fill=\"#3d5057\"/><circle cx=\"44\" cy=\"32\" r=\"9\" fill=\"#3d5057\"/><circle cx=\"21\" cy=\"32\" r=\"4\" fill=\"#98a8a7\"/><circle cx=\"44\" cy=\"32\" r=\"4\" fill=\"#98a8a7\"/><path d=\"M21 19v6M21 39v6M8 32h6M28 32h6M44 19v6M44 39v6M37 32h-6M51 32h6\" stroke=\"#50666c\" stroke-width=\"3\"/></g></svg>"
   },
   {
     "id": "icon-sofa",
@@ -405,7 +456,8 @@
     "style": "icon",
     "category": "家居",
     "keywords": "家具 客厅",
-    "shape": "<path d=\"M13 29V20a7 7 0 0 1 7-7h24a7 7 0 0 1 7 7v9M8 28h7v12h34V28h7v22H8ZM14 50v6M50 50v6M32 13v27\"/>"
+    "shape": "<path d=\"M13 29V20a7 7 0 0 1 7-7h24a7 7 0 0 1 7 7v9M8 28h7v12h34V28h7v22H8ZM14 50v6M50 50v6M32 13v27\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#c5cbbb\"/><stop offset=\"1\" stop-color=\"#859482\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#515e55\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M13 29V20a7 7 0 0 1 7-7h24a7 7 0 0 1 7 7v9M8 28h7v12h34V28h7v22H8ZM14 50v6M50 50v6M32 13v27\" fill=\"url(#body)\"/><path d=\"M13 29V20a7 7 0 0 1 7-7h24a7 7 0 0 1 7 7v9\" fill=\"#899e94\"/><path d=\"M8 28h7v12h34V28h7v22H8Z\" fill=\"url(#body)\"/><path d=\"M17 36h30M32 16v20\" stroke=\"#667c70\"/></g></svg>"
   },
   {
     "id": "icon-lamp",
@@ -413,7 +465,8 @@
     "style": "icon",
     "category": "家居",
     "keywords": "灯 照明 办公",
-    "shape": "<path d=\"M22 9h20l10 23H12ZM32 32v22M20 55h24M40 32v9\"/>"
+    "shape": "<path d=\"M22 9h20l10 23H12ZM32 32v22M20 55h24M40 32v9\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#c5cbbb\"/><stop offset=\"1\" stop-color=\"#859482\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#515e55\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M22 9h20l10 23H12ZM32 32v22M20 55h24M40 32v9\" fill=\"url(#body)\"/><path d=\"M22 9h20l10 23H12Z\" fill=\"#e5d5ad\"/><path d=\"M20 55h24\" stroke=\"#647772\" stroke-width=\"4\"/><path d=\"M25 11l-8 18\" stroke=\"#f8ead0\" stroke-width=\"2\"/></g></svg>"
   },
   {
     "id": "icon-printer",
@@ -421,7 +474,8 @@
     "style": "icon",
     "category": "办公",
     "keywords": "打印 复印",
-    "shape": "<path d=\"M18 23V8h28v15M18 46H9V24h46v22h-9M18 36h28v21H18ZM24 42h16M24 49h16M46 29h2\"/>"
+    "shape": "<path d=\"M18 23V8h28v15M18 46H9V24h46v22h-9M18 36h28v21H18ZM24 42h16M24 49h16M46 29h2\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#c3cdd1\"/><stop offset=\"1\" stop-color=\"#879ca4\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#415866\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M18 23V8h28v15M18 46H9V24h46v22h-9M18 36h28v21H18ZM24 42h16M24 49h16M46 29h2\" fill=\"url(#body)\"/><path d=\"M18 23V8h28v15\" fill=\"#f1eee4\"/><path d=\"M18 46H9V24h46v22h-9\" fill=\"url(#body)\"/><path d=\"M18 36h28v21H18Z\" fill=\"#f1eee4\"/><path d=\"M24 42h16M24 49h16\" stroke=\"#b4c1bf\"/><circle cx=\"47\" cy=\"29\" r=\"1.5\" fill=\"#6f9f8c\"/></g></svg>"
   },
   {
     "id": "icon-bike",
@@ -429,7 +483,8 @@
     "style": "icon",
     "category": "交通",
     "keywords": "单车 骑行 运动",
-    "shape": "<circle cx=\"15\" cy=\"43\" r=\"11\"/><circle cx=\"50\" cy=\"43\" r=\"11\"/><path d=\"m15 43 13-21 11 21H15M28 22h16l6 21M39 43l8-29h7M23 17h10\"/>"
+    "shape": "<circle cx=\"15\" cy=\"43\" r=\"11\"/><circle cx=\"50\" cy=\"43\" r=\"11\"/><path d=\"m15 43 13-21 11 21H15M28 22h16l6 21M39 43l8-29h7M23 17h10\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#acc4c9\"/><stop offset=\"1\" stop-color=\"#638b96\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#334d60\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><circle fill=\"url(#body)\" cx=\"15\" cy=\"43\" r=\"11\"/><circle fill=\"url(#body)\" cx=\"50\" cy=\"43\" r=\"11\"/><path d=\"m15 43 13-21 11 21H15M28 22h16l6 21M39 43l8-29h7M23 17h10\" fill=\"none\"/><circle cx=\"15\" cy=\"43\" r=\"10\" fill=\"#e8eee9\"/><circle cx=\"50\" cy=\"43\" r=\"10\" fill=\"#e8eee9\"/><path d=\"m15 43 13-21 11 21H15M28 22h16l6 21M39 43l8-29\" fill=\"none\" stroke=\"#658f9a\" stroke-width=\"3\"/><path d=\"M23 17h10M47 14h7\" stroke=\"#40515b\" stroke-width=\"3\"/></g></svg>"
   },
   {
     "id": "icon-car",
@@ -437,7 +492,8 @@
     "style": "icon",
     "category": "交通",
     "keywords": "车 出行",
-    "shape": "<path d=\"m12 30 6-15h28l6 15M8 30h48v20H8ZM8 40h48M15 50v6M49 50v6M14 35h7M43 35h7\"/>"
+    "shape": "<path d=\"m12 30 6-15h28l6 15M8 30h48v20H8ZM8 40h48M15 50v6M49 50v6M14 35h7M43 35h7\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#acc4c9\"/><stop offset=\"1\" stop-color=\"#638b96\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#334d60\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"m12 30 6-15h28l6 15M8 30h48v20H8ZM8 40h48M15 50v6M49 50v6M14 35h7M43 35h7\" fill=\"url(#body)\"/><path d=\"M18 28l5-10h18l5 10Z\" fill=\"url(#glass)\"/><path d=\"M8 40h48v10H8Z\" fill=\"#73949d\"/><path d=\"M14 35h7M43 35h7\" stroke=\"#eef1de\" stroke-width=\"3\"/></g></svg>"
   },
   {
     "id": "icon-ball",
@@ -445,7 +501,8 @@
     "style": "icon",
     "category": "运动",
     "keywords": "球 体育",
-    "shape": "<circle cx=\"32\" cy=\"32\" r=\"24\"/><path d=\"M8 32h48M32 8v48M15 15c22 9 12 23 34 34M49 15c-22 9-12 23-34 34\"/>"
+    "shape": "<circle cx=\"32\" cy=\"32\" r=\"24\"/><path d=\"M8 32h48M32 8v48M15 15c22 9 12 23 34 34M49 15c-22 9-12 23-34 34\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#d9b39c\"/><stop offset=\"1\" stop-color=\"#b27b62\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#6d594f\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><circle fill=\"url(#body)\" cx=\"32\" cy=\"32\" r=\"24\"/><path d=\"M8 32h48M32 8v48M15 15c22 9 12 23 34 34M49 15c-22 9-12 23-34 34\" fill=\"none\"/><circle cx=\"32\" cy=\"32\" r=\"24\" fill=\"url(#body)\"/><path d=\"M8 32h48M32 8v48M15 15c22 9 12 23 34 34M49 15c-22 9-12 23-34 34\" stroke=\"#85664f\" fill=\"none\"/><path d=\"M18 19a19 19 0 0 1 17-6\" stroke=\"#f0d3b4\" stroke-width=\"2\" fill=\"none\"/></g></svg>"
   },
   {
     "id": "icon-dumbbell",
@@ -453,6 +510,39 @@
     "style": "icon",
     "category": "运动",
     "keywords": "健身 力量",
-    "shape": "<path d=\"M24 27h16v10H24ZM15 17h9v30h-9ZM40 17h9v30h-9ZM8 24h7v16H8ZM49 24h7v16h-7Z\"/>"
+    "shape": "<path d=\"M24 27h16v10H24ZM15 17h9v30h-9ZM40 17h9v30h-9ZM8 24h7v16H8ZM49 24h7v16h-7Z\"/>",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#d9b39c\"/><stop offset=\"1\" stop-color=\"#b27b62\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#6d594f\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M24 27h16v10H24ZM15 17h9v30h-9ZM40 17h9v30h-9ZM8 24h7v16H8ZM49 24h7v16h-7Z\" fill=\"url(#body)\"/><path d=\"M24 27h16v10H24Z\" fill=\"url(#metal)\"/><path d=\"M15 17h9v30h-9ZM40 17h9v30h-9ZM8 24h7v16H8ZM49 24h7v16h-7Z\" fill=\"#657783\"/><path d=\"M18 20v24M43 20v24\" stroke=\"#a5b8bd\" stroke-width=\"2\"/></g></svg>"
+  },
+  {
+    "id": "object3d-plant",
+    "name": "小盆栽",
+    "style": "dimensional",
+    "category": "家居",
+    "keywords": "绿植 多肉 植物",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#c5cbbb\"/><stop offset=\"1\" stop-color=\"#859482\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#515e55\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><ellipse cx=\"32\" cy=\"51\" rx=\"16\" ry=\"6\" fill=\"#b9a795\" stroke=\"none\"/><path d=\"M16 49l5 14c6 4 16 4 22 0l5-14\" fill=\"url(#body)\"/><ellipse cx=\"32\" cy=\"49\" rx=\"16\" ry=\"6\" fill=\"#80766a\"/><path d=\"M31 46C8 41 12 20 31 36C17 8 36 4 36 31C48 9 62 24 38 42C58 31 59 50 34 48Z\" fill=\"#7c9f8c\" stroke=\"#668975\"/><path d=\"M32 48l2-22\" fill=\"none\" stroke=\"#bad0b2\" stroke-width=\"2\"/></g></svg>"
+  },
+  {
+    "id": "object3d-suitcase",
+    "name": "旅行箱",
+    "style": "dimensional",
+    "category": "交通",
+    "keywords": "行李 旅行 拉杆箱",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#acc4c9\"/><stop offset=\"1\" stop-color=\"#638b96\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#334d60\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M23 14V5h17v9\" fill=\"none\" stroke=\"#6c8390\" stroke-width=\"3\"/><path d=\"M15 20l8-6h29v43l-8 7H15Z\" fill=\"#516f83\"/><rect x=\"12\" y=\"20\" width=\"32\" height=\"42\" rx=\"6\" fill=\"url(#body)\"/><path d=\"M19 28v24M26 28v24M34 28v24\" stroke=\"#d7e0df\" stroke-width=\"2\"/><circle cx=\"19\" cy=\"64\" r=\"3\" fill=\"#455a68\"/><circle cx=\"39\" cy=\"64\" r=\"3\" fill=\"#455a68\"/></g></svg>"
+  },
+  {
+    "id": "object3d-tent",
+    "name": "露营帐篷",
+    "style": "dimensional",
+    "category": "运动",
+    "keywords": "户外 露营 帐篷",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#d9b39c\"/><stop offset=\"1\" stop-color=\"#b27b62\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#6d594f\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M7 55l25-43 26 40-26 10Z\" fill=\"#799a92\"/><path d=\"M7 55l25-43v50Z\" fill=\"#b6c9b5\"/><path d=\"M17 56l15-30v36Z\" fill=\"#455e5c\"/><path d=\"M32 12l26 40-26 10\" fill=\"none\" stroke=\"#e0dfc2\" stroke-width=\"1.5\"/><path d=\"M32 12l-4-7M7 55l-3 6M58 52l4 8\" stroke=\"#7a8984\" stroke-width=\"1.5\"/></g></svg>"
+  },
+  {
+    "id": "object3d-books",
+    "name": "阅读书籍",
+    "style": "dimensional",
+    "category": "办公",
+    "keywords": "书本 阅读 图书",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#c3cdd1\"/><stop offset=\"1\" stop-color=\"#879ca4\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#415866\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M10 45l27-11 23 10-27 12Z\" fill=\"#a8b7bd\"/><path d=\"M10 45v8l23 11v-8Z\" fill=\"#607f8e\"/><path d=\"M33 56l27-12v8L33 64Z\" fill=\"#eee9d9\"/><path d=\"M8 30l28-12 22 10-28 12Z\" fill=\"#b8c4a8\"/><path d=\"M8 30v10l22 10V40Z\" fill=\"#7f957c\"/><path d=\"M30 40l28-12v10L30 50Z\" fill=\"#f0ecdd\"/><path d=\"M17 24l24-10 16 7-24 10Z\" fill=\"#c8ac9b\"/><path d=\"M17 24v6l16 7v-6Z\" fill=\"#ac8877\"/><path d=\"M33 31l24-10v6L33 37Z\" fill=\"#f5ead9\"/></g></svg>"
   }
 ]

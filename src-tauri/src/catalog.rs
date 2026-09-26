@@ -34,6 +34,9 @@ use crate::{
 use rusqlite::{params, OptionalExtension};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssetRecord {
+    pub preferences: crate::preferences::AssetPreferences,
+    pub per_use_cents: Option<String>,
+    pub label_name: Option<String>,
     pub sale: Option<crate::sales::Sale>,
     pub maintenances: Vec<crate::maintenance::Maintenance>,
     pub warranties: Vec<crate::warranty::Warranty>,
@@ -55,6 +58,8 @@ pub struct AssetRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SaveAsset {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub options: Option<crate::preferences::AssetOptions>,
     pub base: Save,
     pub details: Details,
     #[serde(default)]
@@ -108,7 +113,10 @@ impl Store {
         let costs = crate::maintenance::summary(self.conn()?, &asset, sale.as_ref(), today)?;
         let warranties = crate::warranty::read(self.conn()?, id, today)?;
         let warranty_summary = crate::warranty::summarize(&warranties);
-        Ok(Some(AssetRecord {
+        let mut record = AssetRecord {
+            preferences: crate::preferences::read(self.conn()?, id)?,
+            per_use_cents: None,
+            label_name: None,
             sale,
             maintenances: crate::maintenance::read(self.conn()?, id)?,
             warranties,
@@ -134,15 +142,26 @@ impl Store {
             origin_wishlist: self.wishlist_origin(id)?,
             deleted: deleted_at.is_some(),
             deleted_at,
-        }))
+        };
+        if let Some(id) = &record.preferences.label_id {
+            record.label_name = self
+                .conn()?
+                .query_row("SELECT name FROM named_choices WHERE id=?1", [id], |r| {
+                    r.get(0)
+                })
+                .optional()?;
+        }
+        record.per_use_cents = crate::preferences::per_use_cost(&record);
+        Ok(Some(record))
     }
     pub fn save_asset(&mut self, input: &SaveAsset, today: &str) -> Result<AssetRecord> {
-        let result = self.save_record(
+        let result = self.save_record_with_options(
             &input.base,
             today,
             Some(&input.details),
             input.photos.as_ref(),
             input.classification.as_ref(),
+            input.options.as_ref(),
         )?;
         self.record_at(&result.id, today)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))
@@ -230,7 +249,7 @@ impl Store {
                 |r| r.get(0),
             )?
         };
-        let sql=format!("SELECT a.id {from} ORDER BY ({order}) IS NULL ASC, {order} {direction}, a.id ASC LIMIT 100 OFFSET ?5");
+        let sql=format!("SELECT a.id {from} ORDER BY coalesce((SELECT json_extract(payload,'$.pinned') FROM asset_preferences WHERE asset_id=a.id),0) DESC,({order}) IS NULL ASC, {order} {direction}, a.id ASC LIMIT 100 OFFSET ?5");
         let mut stmt = self.conn()?.prepare(&sql)?;
         let ids = stmt
             .query_map(

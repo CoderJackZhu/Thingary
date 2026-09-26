@@ -94,6 +94,7 @@ fn import_one(s: &mut Store, a: &Demo, today: &str) -> Result<AssetRecord> {
         )?;
         s.save_asset(
             &SaveAsset {
+                options: None,
                 base: Save {
                     request_id: create_request,
                     generation: generation.clone(),

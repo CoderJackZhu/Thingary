@@ -73,6 +73,7 @@ mod tests {
         let unrelated = s
             .save_asset(
                 &SaveAsset {
+                    options: None,
                     base: Save {
                         request_id: uuid::Uuid::new_v4().to_string(),
                         generation: s.generation(),
@@ -115,6 +116,7 @@ mod tests {
         let edited = s
             .save_asset(
                 &SaveAsset {
+                    options: None,
                     base: Save {
                         request_id: uuid::Uuid::new_v4().to_string(),
                         generation: s.generation(),

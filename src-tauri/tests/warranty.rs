@@ -17,6 +17,7 @@ fn id() -> String {
 fn create(s: &mut Store, name: &str, category: Option<&str>) -> AssetRecord {
     s.save_asset(
         &SaveAsset {
+            options: None,
             base: Save {
                 request_id: id(),
                 generation: s.generation(),
@@ -48,6 +49,7 @@ fn fields(start: Option<&str>, end: Option<&str>) -> Fields {
 }
 fn change(s: &Store, a: &AssetRecord, action: Action) -> Change {
     Change {
+        reminder: None,
         request_id: id(),
         generation: s.generation(),
         asset_id: a.asset.id.clone(),
@@ -754,7 +756,7 @@ fn schema_ten_upgrade_preserves_data_and_rolls_back_atomically() {
     );
     let db = rusqlite::Connection::open(dataset.join("data.sqlite")).unwrap();
     db.execute_batch(
-        "DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
+        "DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
     )
     .unwrap();
     drop(db);
@@ -765,7 +767,7 @@ fn schema_ten_upgrade_preserves_data_and_rolls_back_atomically() {
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap()
     };
-    assert_eq!(version, 12);
+    assert_eq!(version, 13);
     let record = s
         .query_assets(&query("all"), TODAY)
         .unwrap()
@@ -832,7 +834,7 @@ fn legacy_schema_nine_backup_restores_and_migrates() {
         drop(s);
         let db = rusqlite::Connection::open(dataset(root.path()).join("data.sqlite")).unwrap();
         db.execute_batch(
-            "DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
+            "DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
         )
         .unwrap();
         drop(db);
@@ -902,6 +904,7 @@ fn attachment_ids_are_exclusive_but_identical_bytes_can_be_shared() {
         cover_id: None,
     };
     let asset_save = |s: &Store, a: &AssetRecord, photo: &str| SaveAsset {
+        options: None,
         base: Save {
             request_id: id(),
             generation: s.generation(),
@@ -1076,4 +1079,49 @@ fn attachment_ids_are_exclusive_but_identical_bytes_can_be_shared() {
             .code,
         "REFERENCE"
     );
+}
+
+#[test]
+fn reminder_correction_cancellation_and_invalid_date_are_atomic() {
+    use possio_lib::{preferences::Reminder, warranty::ReminderSetting};
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let a = create(&mut s, "虚构提醒物品", None);
+    let mut request = change(
+        &s,
+        &a,
+        Action::Add {
+            fields: fields(Some("2026-09-01"), Some("2027-09-01")),
+            photos: empty(),
+        },
+    );
+    request.reminder = Some(ReminderSetting {
+        value: Some(Reminder {
+            date: "2027-08-25".into(),
+            notes: "第一版".into(),
+        }),
+    });
+    let a = s.change_warranty(&request, TODAY).unwrap();
+    assert_eq!(s.reminder_plans().unwrap()[0].date, "2027-08-25");
+    let mut request = change(
+        &s,
+        &a,
+        Action::Correct {
+            warranty_id: a.warranties[0].id.clone(),
+            fields: fields(Some("2026-09-01"), Some("2027-09-01")),
+            photos: empty(),
+        },
+    );
+    request.reminder = Some(ReminderSetting {
+        value: Some(Reminder {
+            date: "2027-10-01".into(),
+            notes: "错误".into(),
+        }),
+    });
+    assert!(s.change_warranty(&request, TODAY).is_err());
+    assert_eq!(s.reminder_plans().unwrap()[0].body, "第一版");
+    request.reminder = Some(ReminderSetting { value: None });
+    let a = s.change_warranty(&request, TODAY).unwrap();
+    assert!(s.reminder_plans().unwrap().is_empty());
+    assert!(a.warranties[0].reminder.is_none());
 }

@@ -67,6 +67,10 @@ pub struct WishlistItem {
     pub achieved_at: Option<String>,
     pub converted_asset: Option<LinkedAsset>,
     pub cover: Option<Photo>,
+    #[serde(default)]
+    pub photos: Vec<Photo>,
+    #[serde(default)]
+    pub preferences: crate::wish_plan::Preferences,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -134,7 +138,7 @@ struct Receipt {
     wishlist_id: String,
 }
 
-fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
+pub(crate) fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
     let row = c
         .query_row(
             "SELECT id,name,category_id,estimated_price_cents,priority,target_date,external_link,notes,status,revision,created_at,updated_at,abandoned_at,achieved_at FROM wishlist_items WHERE id=?1",
@@ -159,6 +163,8 @@ fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
                     achieved_at: r.get(13)?,
                     converted_asset: None,
                     cover: None,
+                    photos: vec![],
+                    preferences: Default::default(),
                 })
             },
         )
@@ -178,6 +184,8 @@ fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
                 |r| Ok(Photo { id: r.get(0)?, name: r.get(1)? }),
             )
             .optional()?;
+        item.preferences = crate::wish_plan::read(c, &item.id)?;
+        item.photos = c.prepare("SELECT id,name FROM wishlist_attachments WHERE wishlist_id=?1 ORDER BY position,id")?.query_map([&item.id],|r|Ok(Photo{id:r.get(0)?,name:r.get(1)?}))?.collect::<std::result::Result<Vec<_>,_>>()?;
         Ok(item)
     })
     .transpose()
@@ -369,7 +377,7 @@ impl Store {
                 "这条心愿已转为资产，不能再次转换",
             ));
         }
-        if status != "ongoing" {
+        if !["ongoing", "achieved"].contains(&status.as_str()) {
             return Err(Error::new("WISHLIST_STATUS", "这条心愿已不在进行中"));
         }
         if revision != input.expected_revision {
@@ -382,14 +390,18 @@ impl Store {
             input.asset.photos.as_ref(),
             input.asset.classification.as_ref(),
         )?;
+        if let Some(options) = &input.asset.options {
+            self.write_asset_options(&tx, &asset.id, base, options, today)?;
+        }
         let now = chrono::Utc::now().to_rfc3339();
         let changed = tx.execute(
-            "UPDATE wishlist_items SET status='achieved',converted_asset_id=?1,achieved_at=?2,revision=revision+1,updated_at=?2 WHERE id=?3 AND revision=?4 AND status='ongoing'",
+            "UPDATE wishlist_items SET status='achieved',converted_asset_id=?1,achieved_at=coalesce(achieved_at,?2),revision=revision+1,updated_at=?2 WHERE id=?3 AND revision=?4 AND status IN ('ongoing','achieved')",
             params![asset.id, now, input.wishlist_id, revision],
         )?;
         if changed != 1 {
             return Err(Error::new("REVISION_CONFLICT", "心愿已变化，请重新读取"));
         }
+        tx.execute("UPDATE wishlist_preferences SET payload=json_set(payload,'$.achievement_source','conversion') WHERE wishlist_id=?1",[&input.wishlist_id])?;
         let wish = read(&tx, &input.wishlist_id)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到这条心愿"))?;
         tx.execute(
@@ -453,7 +465,7 @@ impl Store {
         };
         let direction = if q.descending { "DESC" } else { "ASC" };
         let order = match q.sort.as_str() {
-            "created" => format!("w.created_at {direction}"),
+            "created" => format!("coalesce((SELECT json_extract(payload,'$.added_date') FROM wishlist_preferences WHERE wishlist_id=w.id),substr(w.created_at,1,10)) {direction}"),
             "priority" => format!("w.priority IS NULL ASC,CASE w.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 END {direction}"),
             "price" => format!("w.estimated_price_cents IS NULL ASC,w.estimated_price_cents {direction}"),
             "target" => format!("w.target_date IS NULL ASC,w.target_date {direction}"),
@@ -466,7 +478,7 @@ impl Store {
             |r| r.get(0),
         )?;
         let mut stmt = self.conn()?.prepare(&format!(
-            "SELECT w.id {from} ORDER BY {order},w.created_at DESC,w.id ASC LIMIT 100 OFFSET ?3"
+            "SELECT w.id {from} ORDER BY coalesce((SELECT json_extract(payload,'$.pinned') FROM wishlist_preferences WHERE wishlist_id=w.id),0) DESC,{order},w.created_at DESC,w.id ASC LIMIT 100 OFFSET ?3"
         ))?;
         let ids = stmt
             .query_map(params![filter, q.search.trim(), q.offset], |r| {
@@ -559,7 +571,7 @@ pub(crate) fn validate_dataset(c: &Connection, version: i64) -> Result<()> {
     for row in rows {
         let (status, asset, achieved_at) = row?;
         match (status.as_str(), asset, achieved_at) {
-            ("achieved", Some(_), Some(at)) => {
+            ("achieved", asset, Some(at)) if asset.is_some() || version >= 13 => {
                 chrono::DateTime::parse_from_rfc3339(&at)
                     .map_err(|_| Error::new("WISHLIST", "心愿实现时间无效"))?;
             }

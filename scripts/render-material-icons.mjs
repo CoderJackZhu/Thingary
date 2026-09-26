@@ -4,7 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { MATERIALS, materialArt } from '../src/materials.ts';
 const sharp = createRequire(import.meta.url)(process.argv[2] || 'sharp');
-for (const m of MATERIALS.filter(m => m.style === 'icon')) {
+for (const m of MATERIALS.filter(m => m.id.startsWith('icon-') || m.id.startsWith('object3d-'))) {
   await sharp(Buffer.from(materialArt(m.id))).resize(320,320).png().toFile(fileURLToPath(new URL(`../src-tauri/materials/${m.id}.png`, import.meta.url)));
 }
 const arms = MATERIALS.map(m => `        ${JSON.stringify(m.id)} => include_bytes!("../materials/${m.id}.png"),`).join('\n');

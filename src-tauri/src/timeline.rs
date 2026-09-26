@@ -64,11 +64,13 @@ UNION ALL
 SELECT 'warranty_end:'||x.id,'warranty_end',x.end_date,a.id,NULL,a.name,x.kind||'|'||x.provider,NULL,0,''
   FROM warranties x JOIN assets a ON a.id=x.asset_id WHERE x.deleted_at IS NULL AND a.deleted_at IS NULL AND x.end_date IS NOT NULL AND x.end_date<=?1
 UNION ALL
-SELECT 'wish_added:'||w.id,'wish_added',date(w.created_at,'localtime'),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.created_at
+SELECT 'wish_added:'||w.id,'wish_added',coalesce((SELECT json_extract(payload,'$.added_date') FROM wishlist_preferences WHERE wishlist_id=w.id),date(w.created_at,'localtime')),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.created_at
   FROM wishlist_items w
 UNION ALL
 SELECT 'wish_abandoned:'||w.id,'wish_abandoned',date(w.abandoned_at,'localtime'),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.abandoned_at
-  FROM wishlist_items w WHERE w.status='abandoned'";
+  FROM wishlist_items w WHERE w.status='abandoned'
+UNION ALL
+SELECT 'wish_achieved:'||w.id,'wish_achieved',date(w.achieved_at,'localtime'),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.achieved_at FROM wishlist_items w WHERE w.status='achieved' AND w.converted_asset_id IS NULL";
 
 fn kinds(filter: &str) -> Result<&'static [&'static str]> {
     Ok(match filter {
@@ -82,12 +84,13 @@ fn kinds(filter: &str) -> Result<&'static [&'static str]> {
             "warranty_end",
             "wish_added",
             "wish_abandoned",
+            "wish_achieved",
         ],
         "purchase" => &["purchase"],
         "maintenance" => &["maintenance"],
         "warranty" => &["warranty_start", "warranty_end"],
         "lifecycle" => &["retire", "activate", "sale"],
-        "wishlist" => &["wish_added", "wish_abandoned", "purchase"],
+        "wishlist" => &["wish_added", "wish_abandoned", "wish_achieved", "purchase"],
         _ => return Err(Error::new("QUERY", "不支持的时间轴筛选")),
     })
 }
@@ -117,6 +120,13 @@ impl Store {
         let (mut dated, mut undated) = (Vec::new(), Vec::new());
         for row in rows {
             let event = row?;
+            if q.asset_id.is_none() {
+                if let Some(id) = &event.asset_id {
+                    if crate::preferences::read(self.conn()?, id)?.exclude.timeline {
+                        continue;
+                    }
+                }
+            }
             // The wishlist view keeps only purchases that realized a wish.
             let keep = wanted.contains(&event.kind.as_str())
                 && (q.filter != "wishlist"

@@ -31,6 +31,7 @@ fn asset(s: &mut Store, name: &str, price: &str, photos: Option<Selection>) -> A
     let category = s.taxonomy_snapshot().unwrap().categories[2].id.clone();
     s.save_asset(
         &SaveAsset {
+            options: None,
             base: Save {
                 request_id: id(),
                 generation: s.generation(),
@@ -227,6 +228,7 @@ fn ac31_every_p0_relation_restores_into_an_empty_library() {
     let kept = a
         .change_warranty(
             &warranty::Change {
+                reminder: None,
                 request_id: id(),
                 generation: a.generation(),
                 asset_id: kept.asset.id.clone(),
@@ -302,6 +304,7 @@ fn ac31_every_p0_relation_restores_into_an_empty_library() {
             wishlist_id: achieved.id.clone(),
             expected_revision: achieved.revision,
             asset: SaveAsset {
+                options: None,
                 base: Save {
                     request_id: id(),
                     generation: a.generation(),
@@ -358,7 +361,7 @@ fn ac31_every_p0_relation_restores_into_an_empty_library() {
             summary.maintenances,
             summary.warranties
         ),
-        (12, 4, 1, 3, 2, 1)
+        (13, 4, 1, 3, 2, 1)
     );
     assert_eq!(summary.hash, archive_hash(&archive).unwrap());
     assert!(

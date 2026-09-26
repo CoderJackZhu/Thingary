@@ -1,5 +1,6 @@
 pub mod backup;
 pub mod catalog;
+pub mod choices;
 mod commands;
 pub mod csv_export;
 pub mod demo;
@@ -11,13 +12,16 @@ pub mod maintenance;
 pub mod materials;
 pub mod native_images;
 pub mod photos;
+pub mod preferences;
 mod recovery;
+pub mod reminders;
 pub mod sales;
 pub mod storage;
 pub mod taxonomy;
 pub mod timeline;
 pub mod trash;
 pub mod warranty;
+pub mod wish_plan;
 pub mod wishlist;
 pub mod worker;
 use std::sync::atomic::Ordering;
@@ -25,6 +29,7 @@ use tauri::{Emitter, Manager};
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            reminders::enable();
             app.manage(worker::Worker::start(
                 app.path().app_data_dir()?.join("library"),
             )?);
@@ -90,6 +95,13 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::notification_permission,
+            commands::notification_status,
+            commands::choice_list,
+            commands::choice_change,
+            commands::saved_wish_feature,
+            commands::save_wish_plan,
+            commands::save_wish_savings,
             commands::snapshot,
             commands::taxonomy_snapshot,
             commands::change_taxonomy,

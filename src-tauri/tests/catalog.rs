@@ -6,6 +6,7 @@ use possio_lib::{
 };
 fn input(s: &Store, name: &str, price: Option<&str>) -> SaveAsset {
     SaveAsset {
+        options: None,
         classification: None,
         photos: None,
         base: Save {

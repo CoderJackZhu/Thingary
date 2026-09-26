@@ -63,6 +63,8 @@ pub enum Status {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Warranty {
+    #[serde(default)]
+    pub reminder: Option<crate::preferences::Reminder>,
     pub id: String,
     pub fields: Fields,
     pub status: Status,
@@ -136,6 +138,8 @@ pub enum Action {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Change {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reminder: Option<ReminderSetting>,
     pub request_id: String,
     pub generation: String,
     pub asset_id: String,
@@ -143,6 +147,24 @@ pub struct Change {
     pub action: Action,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReminderSetting {
+    pub value: Option<crate::preferences::Reminder>,
+}
+fn reminder(c: &Connection, id: &str) -> Result<Option<crate::preferences::Reminder>> {
+    Ok(c.query_row(
+        "SELECT date,notes FROM reminders WHERE kind='warranty' AND source_id=?1",
+        [id],
+        |r| {
+            Ok(crate::preferences::Reminder {
+                date: r.get(0)?,
+                notes: r.get(1)?,
+            })
+        },
+    )
+    .optional()?)
+}
 pub(crate) fn read(c: &Connection, id: &str, today: &str) -> Result<Vec<Warranty>> {
     let mut stmt = c.prepare("SELECT id,kind,provider,start_date,end_date,notes,created_at,updated_at FROM warranties WHERE asset_id=?1 AND deleted_at IS NULL ORDER BY end_date IS NULL,end_date,start_date IS NULL,start_date,created_at DESC,id")?;
     let rows = stmt
@@ -169,6 +191,7 @@ pub(crate) fn read(c: &Connection, id: &str, today: &str) -> Result<Vec<Warranty
                 today,
             )?;
             Ok(Warranty {
+                reminder: reminder(c, &warranty_id)?,
                 photos: warranty_photos(c, &warranty_id)?,
                 id: warranty_id,
                 fields,
@@ -292,7 +315,33 @@ impl Store {
             fields.end_date.as_deref(),
             today,
         )?;
+        if let Some(setting) = &input.reminder {
+            tx.execute(
+                "DELETE FROM reminders WHERE kind='warranty' AND source_id=?1",
+                [&warranty_id],
+            )?;
+            if let Some(r) = &setting.value {
+                r.validate()?;
+                if fields.end_date.as_ref().is_none_or(|end| &r.date > end) {
+                    return Err(Error::new("REMINDER", "提醒须不晚于已知的保障结束日期"));
+                }
+                tx.execute(
+                    "INSERT INTO reminders VALUES(?1,'warranty',?2,?3,?4,?5)",
+                    params![
+                        format!("warranty-{warranty_id}"),
+                        input.asset_id,
+                        warranty_id,
+                        r.date,
+                        r.notes
+                    ],
+                )?;
+            }
+        } else {
+            // A legacy correction cannot leave a reminder after the corrected end date.
+            tx.execute("DELETE FROM reminders WHERE kind='warranty' AND source_id=?1 AND (?2 IS NULL OR date>?2)",params![warranty_id,fields.end_date])?;
+        }
         let snapshot = Warranty {
+            reminder: reminder(&tx, &warranty_id)?,
             id: warranty_id.clone(),
             fields,
             status: snapshot_status,
@@ -408,6 +457,7 @@ mod tests {
             statuses
                 .iter()
                 .map(|&status| Warranty {
+                    reminder: None,
                     id: uid(),
                     fields: Fields {
                         kind: "manufacturer".into(),

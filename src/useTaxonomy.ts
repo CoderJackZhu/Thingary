@@ -37,7 +37,7 @@ export function useTaxonomy(onChange: () => void) {
     } catch (e) { setLoadError(errorMessage(e)); throw new Error(errorMessage(e)); }
     finally { lock.current = false; setLoading(false); }
   }
-  useEffect(() => { void reload().catch(() => {}); }, []);
+  useEffect(() => { void reload().catch(() => {}); const changed=()=>void reload().catch(()=>{}); window.addEventListener("possio-choices-changed",changed);return()=>window.removeEventListener("possio-choices-changed",changed); }, []);
   async function command(command: TaxonomyCommand): Promise<CommandResult> {
     if (lock.current || !current.current || pending.current) return {status:'error',message:'请先重新加载并核对上次操作。',recovery:'reload'};
     lock.current = true; setBusy(true);

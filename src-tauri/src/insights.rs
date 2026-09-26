@@ -52,13 +52,13 @@ impl Store {
         };
         let c = self.conn()?;
         let (held, active, retired, sold): (i64, i64, i64, i64) = c.query_row(
-            "SELECT coalesce(sum(lifecycle_state IN ('active','retired')),0),coalesce(sum(lifecycle_state='active'),0),coalesce(sum(lifecycle_state='retired'),0),coalesce(sum(lifecycle_state='sold'),0) FROM assets WHERE deleted_at IS NULL",
+            "SELECT coalesce(sum(lifecycle_state IN ('active','retired')),0),coalesce(sum(lifecycle_state='active'),0),coalesce(sum(lifecycle_state='retired'),0),coalesce(sum(lifecycle_state='sold'),0) FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.total')=1)",
             [],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )?;
         let money = |filter: &str| -> Result<(i64, i64)> {
             Ok(c.query_row(
-                &format!("SELECT coalesce(sum(price_cents),0),coalesce(sum(price_cents IS NULL),0) FROM assets WHERE deleted_at IS NULL AND lifecycle_state IN {filter}"),
+                &format!("SELECT coalesce(sum(price_cents),0),coalesce(sum(price_cents IS NULL),0) FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.total')=1) AND lifecycle_state IN {filter}"),
                 [],
                 |r| Ok((r.get(0)?, r.get(1)?)),
             )?)
@@ -67,7 +67,7 @@ impl Store {
         let (history_cents, history_unknown) = money("('active','retired','sold')")?;
         // 持有天数 = max(1, today − purchase + 1); held assets end at today.
         let (average, unknown_date): (Option<f64>, i64) = c.query_row(
-            "SELECT avg(max(1,julianday(?1)-julianday(purchase_date)+1)),coalesce(sum(purchase_date IS NULL),0) FROM assets WHERE deleted_at IS NULL AND lifecycle_state IN ('active','retired')",
+            "SELECT avg(max(1,julianday(?1)-julianday(purchase_date)+1)),coalesce(sum(purchase_date IS NULL),0) FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.total')=1) AND lifecycle_state IN ('active','retired')",
             [today],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
@@ -77,7 +77,7 @@ impl Store {
             |r| r.get(0),
         )?;
         let mut stmt = c.prepare(&format!(
-            "SELECT c.id,coalesce(c.name,'未分类'),CASE WHEN c.id IS NOT NULL THEN (SELECT count(*) FROM categories o WHERE o.position<c.position AND EXISTS(SELECT 1 FROM assets x WHERE x.category_id=o.id AND x.deleted_at IS NULL)) END,count(*),coalesce(sum(a.price_cents),0),coalesce(sum(a.price_cents IS NULL),0) FROM assets a LEFT JOIN categories c ON c.id=a.category_id WHERE a.deleted_at IS NULL AND a.lifecycle_state IN {states} GROUP BY c.id ORDER BY c.position IS NULL,c.position"
+            "SELECT c.id,coalesce(c.name,'未分类'),CASE WHEN c.id IS NOT NULL THEN (SELECT count(*) FROM categories o WHERE o.position<c.position AND EXISTS(SELECT 1 FROM assets x WHERE x.category_id=o.id AND x.deleted_at IS NULL)) END,count(*),coalesce(sum(a.price_cents),0),coalesce(sum(a.price_cents IS NULL),0) FROM assets a LEFT JOIN categories c ON c.id=a.category_id WHERE a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.total')=1) AND a.lifecycle_state IN {states} GROUP BY c.id ORDER BY c.position IS NULL,c.position"
         ))?;
         let categories = stmt
             .query_map(params![], |r| {
@@ -174,7 +174,7 @@ impl Store {
         let today_date = crate::domain::date(today)?;
         let c = self.conn()?;
         let mut stmt = c.prepare(
-            "SELECT purchase_date,price_cents FROM assets WHERE deleted_at IS NULL AND purchase_date IS NOT NULL ORDER BY purchase_date",
+            "SELECT purchase_date,price_cents FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.statistics')=1) AND purchase_date IS NOT NULL ORDER BY purchase_date",
         )?;
         let rows = stmt
             .query_map([], |r| {
@@ -182,7 +182,7 @@ impl Store {
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let (unknown_dates, unknown_date_cents): (i64, i64) = c.query_row(
-            "SELECT count(*),coalesce(sum(price_cents),0) FROM assets WHERE deleted_at IS NULL AND purchase_date IS NULL",
+            "SELECT count(*),coalesce(sum(price_cents),0) FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.statistics')=1) AND purchase_date IS NULL",
             [],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
@@ -312,7 +312,7 @@ impl Store {
         let today_date = crate::domain::date(today)?;
         let c = self.conn()?;
         let mut stmt = c.prepare(
-            "SELECT id,lifecycle_state FROM assets WHERE deleted_at IS NULL ORDER BY id",
+            "SELECT id,lifecycle_state FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.statistics')=1) ORDER BY id",
         )?;
         let ids = stmt
             .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
@@ -333,37 +333,40 @@ impl Store {
             } else {
                 &costs.total_investment_cents
             };
-            match (cost, costs.held_days, costs.daily_cents.as_ref()) {
-                (Some(cost), Some(days), Some(daily)) => {
-                    let row = RankedAsset {
-                        id: id.clone(),
-                        name: asset.name.clone(),
-                        state: state.clone(),
-                        held_days: days,
-                        cost_cents: cost.clone(),
-                        daily_cents: daily.clone(),
-                    };
-                    if sale.is_some() {
-                        sold_rank.push(row)
-                    } else {
-                        held_rank.push(row)
+            let preferences = crate::preferences::read(c, &id)?;
+            if !preferences.exclude.daily && preferences.cost_mode == "daily" {
+                match (cost, costs.held_days, costs.daily_cents.as_ref()) {
+                    (Some(cost), Some(days), Some(daily)) => {
+                        let row = RankedAsset {
+                            id: id.clone(),
+                            name: asset.name.clone(),
+                            state: state.clone(),
+                            held_days: days,
+                            cost_cents: cost.clone(),
+                            daily_cents: daily.clone(),
+                        };
+                        if sale.is_some() {
+                            sold_rank.push(row)
+                        } else {
+                            held_rank.push(row)
+                        }
                     }
-                }
-                _ => {
-                    let reason = match (
-                        asset.price_cents.is_none(),
-                        costs.unknown_maintenance_count > 0,
-                        asset.purchase_date.is_none(),
-                    ) {
-                        (true, _, _) => "购入金额未知",
-                        (_, true, _) => "有维护费用未知",
-                        _ => "购入日期未知",
-                    };
-                    excluded.push(Excluded {
-                        id: id.clone(),
-                        name: asset.name.clone(),
-                        reason: reason.into(),
-                    });
+                    _ => {
+                        let reason = match (
+                            asset.price_cents.is_none(),
+                            costs.unknown_maintenance_count > 0,
+                            asset.purchase_date.is_none(),
+                        ) {
+                            (true, _, _) => "购入金额未知",
+                            (_, true, _) => "有维护费用未知",
+                            _ => "购入日期未知",
+                        };
+                        excluded.push(Excluded {
+                            id: id.clone(),
+                            name: asset.name.clone(),
+                            reason: reason.into(),
+                        });
+                    }
                 }
             }
             if !states.contains(&state.as_str()) {

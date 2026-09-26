@@ -11,6 +11,7 @@ fn id() -> String {
 }
 fn create(s: &mut Store) -> possio_lib::catalog::AssetRecord {
     let q = SaveAsset {
+        options: None,
         base: Save {
             request_id: id(),
             generation: s.generation(),
@@ -142,6 +143,7 @@ fn chronological_transitions_corrections_and_purchase_conflicts() {
         Some(25)
     );
     let edit = SaveAsset {
+        options: None,
         base: Save {
             request_id: id(),
             generation: s.generation(),

@@ -4,11 +4,11 @@ import type { Photo } from './asset.ts';
 export type WishlistPriority = 'high' | 'medium' | 'low' | null;
 export type WishlistStatus = 'ongoing' | 'achieved' | 'abandoned';
 export type WishlistFields = { name: string; category_id: string | null; estimated_price: string; priority: WishlistPriority; target_date: string; external_link: string; notes: string };
-export type WishlistItem = { id: string; fields: Omit<WishlistFields, 'estimated_price'> & { estimated_price_cents: string | null }; status: WishlistStatus; revision: number; created_at: string; updated_at: string; abandoned_at: string | null; achieved_at: string | null; converted_asset: { id: string; name: string; deleted: boolean } | null; cover: Photo | null };
+export type WishlistItem = { preferences?: import("./preferences").WishPreferences; photos?:Photo[]; id: string; fields: Omit<WishlistFields, 'estimated_price'> & { estimated_price_cents: string | null }; status: WishlistStatus; revision: number; created_at: string; updated_at: string; abandoned_at: string | null; achieved_at: string | null; converted_asset: { id: string; name: string; deleted: boolean } | null; cover: Photo | null };
 export type WishlistQuery = { search: string; filter: WishlistStatus; sort: 'created' | 'priority' | 'price' | 'target'; descending: boolean; offset: number };
 export type WishlistPage = { generation: string; items: WishlistItem[]; total: number; ongoing_known_cents: string; ongoing_unknown_count: number };
 export type WishlistChange = { request_id: string; generation: string; expected_revision: number | null; action: { type: 'add'; fields: { name: string; category_id: string | null; estimated_price_cents: string | null; priority: WishlistPriority; target_date: string | null; external_link: string; notes: string }; cover: { ids: string[]; cover_id: string | null } } | { type: 'abandon'; wishlist_id: string } };
-export type WishlistDraft = { generation: string; fields: WishlistFields; cover: Photo | null; photoError: string; pending: WishlistChange | null };
+export type WishlistDraft = { transientCover?:string; item?:WishlistItem; preferences?:import("./preferences").WishPreferences; photos?:Photo[]; statusIntent?:'preserve'|'manual'|'ongoing'; achievedDate?:string; planPending?:WishPlanSave|null; generation: string; fields: WishlistFields; cover: Photo | null; photoError: string; pending: WishlistChange | null };
 
 export const wishlistDraftKey = 'possio.wishlist-draft.v1';
 export const wishlistAbandonKey = 'possio.wishlist-abandon.v1';
@@ -64,3 +64,5 @@ export function storedWishlistDraft(storage: Pick<Storage, 'getItem'>): Wishlist
     return value;
   } catch { return null; }
 }
+
+export type WishPlanSave={request_id:string;generation:string;id:string|null;expected_revision:number|null;fields:WishlistChange['action'] extends never ? never : {name:string;category_id:string|null;estimated_price_cents:string|null;priority:WishlistPriority;target_date:string|null;external_link:string;notes:string};preferences:import('./preferences').WishPreferences;photos:{ids:string[];cover_id:string|null};status_intent:'preserve'|'manual'|'ongoing';achieved_date:string|null};

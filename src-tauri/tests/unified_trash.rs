@@ -17,6 +17,7 @@ fn id() -> String {
 fn create(s: &mut Store, name: &str) -> AssetRecord {
     s.save_asset(
         &SaveAsset {
+            options: None,
             base: Save {
                 request_id: id(),
                 generation: s.generation(),
@@ -66,6 +67,7 @@ fn add_maintenance(s: &mut Store, a: &AssetRecord, cost: Option<&str>) -> AssetR
 fn add_warranty(s: &mut Store, a: &AssetRecord) -> AssetRecord {
     s.change_warranty(
         &warranty::Change {
+            reminder: None,
             request_id: id(),
             generation: s.generation(),
             asset_id: a.asset.id.clone(),
@@ -378,6 +380,7 @@ fn maintenance_restore_resists_conflicting_corrections_during_deletion() {
     let corrected = s
         .save_asset(
             &SaveAsset {
+                options: None,
                 base: Save {
                     request_id: id(),
                     generation: s.generation(),
@@ -424,6 +427,7 @@ fn maintenance_restore_resists_conflicting_corrections_during_deletion() {
     let repaired = s
         .save_asset(
             &SaveAsset {
+                options: None,
                 base: Save {
                     request_id: id(),
                     generation: s.generation(),
@@ -536,6 +540,7 @@ fn mixed_deletes_keep_files_and_survive_backup_restore() {
     let a = s
         .save_asset(
             &SaveAsset {
+                options: None,
                 base: Save {
                     request_id: id(),
                     generation: s.generation(),

@@ -10,7 +10,7 @@ type TimelinePage = { generation: string; today: string; dated: TimelineEvent[];
 export const timelineFilters: [TimelineFilter, string][] = [['all', '全部'], ['purchase', '购买'], ['maintenance', '维护'], ['warranty', '保障'], ['lifecycle', '退役／售出'], ['wishlist', '心愿']];
 
 export function eventLabel(e: TimelineEvent) {
-  return ({ purchase: e.wishlist_id ? '购入 · 实现心愿' : '购入', retire: '退役', activate: '重新启用', sale: '售出', maintenance: '维护', warranty_start: '保障生效', warranty_end: '保障到期', wish_added: '加入心愿', wish_abandoned: '放弃心愿' } as Record<string, string>)[e.kind] ?? e.kind;
+  return ({ purchase: e.wishlist_id ? '购入 · 实现心愿' : '购入', retire: '退役', activate: '重新启用', sale: '售出', maintenance: '维护', warranty_start: '保障生效', warranty_end: '保障到期', wish_achieved:'实现心愿', wish_added: '加入心愿', wish_abandoned: '放弃心愿' } as Record<string, string>)[e.kind] ?? e.kind;
 }
 
 export function eventDetail(e: TimelineEvent) {

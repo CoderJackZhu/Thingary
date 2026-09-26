@@ -201,6 +201,7 @@ fn real_process_termination_preserves_complete_state() {
                     .stage_photo("样例", bytes.get_ref(), &s.generation(), None)
                     .unwrap();
                 Some(possio_lib::catalog::SaveAsset {
+                    options: None,
                     classification: None,
                     base: save.clone(),
                     details: Default::default(),

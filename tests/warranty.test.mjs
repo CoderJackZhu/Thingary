@@ -62,7 +62,7 @@ test('draft and payload round-trip preserves unknown dates and correct identity'
   const w=[warranty('w-1','2026-03-10','2026-10-20')];
   const r=record(w);
   const draft=warrantyDraft(r,'w-1');
-  assert.deepEqual(draft,{kind:'manufacturer',provider:'Apple',start:'2026-03-10',end:'2026-10-20',notes:'',photo_ids:[]});
+  assert.deepEqual(draft,{reminder:null,kind:'manufacturer',provider:'Apple',start:'2026-03-10',end:'2026-10-20',notes:'',photo_ids:[]});
   const payload=warrantyChange(r,'generation-1',{...draft,start:'',end:''},'w-1','request-1');
   assert.equal(payload.action.type,'correct');
   assert.equal(payload.action.fields.start_date,null);

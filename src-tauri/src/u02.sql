@@ -1,0 +1,13 @@
+CREATE TABLE named_choices(id TEXT PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN ('label','sale_channel')),name TEXT NOT NULL,name_key TEXT NOT NULL,position INTEGER NOT NULL CHECK(position>=0),enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),UNIQUE(kind,name_key));
+CREATE TABLE disabled_choices(kind TEXT NOT NULL CHECK(kind IN ('category','channel')),id TEXT NOT NULL,PRIMARY KEY(kind,id));
+CREATE TABLE asset_preferences(asset_id TEXT PRIMARY KEY REFERENCES assets(id),payload TEXT NOT NULL);
+CREATE TABLE wishlist_preferences(wishlist_id TEXT PRIMARY KEY REFERENCES wishlist_items(id),payload TEXT NOT NULL);
+CREATE TABLE feature_requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
+CREATE TABLE feature_audit(request_id TEXT NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('asset','wishlist','savings')),entity_id TEXT NOT NULL,snapshot TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(request_id,kind));
+CREATE TABLE reminders(id TEXT PRIMARY KEY,kind TEXT NOT NULL CHECK(kind IN ('warranty','wishlist')),entity_id TEXT NOT NULL,source_id TEXT,date TEXT NOT NULL,notes TEXT NOT NULL);
+DROP TRIGGER wishlist_achievement_insert;
+DROP TRIGGER wishlist_achievement_update;
+CREATE TRIGGER wishlist_achievement_insert BEFORE INSERT ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.achieved_at IS NOT NULL) OR (NEW.converted_asset_id IS NOT NULL AND NEW.status!='achieved') BEGIN SELECT RAISE(ABORT,'wishlist achievement state'); END;
+CREATE TRIGGER wishlist_achievement_update BEFORE UPDATE ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.achieved_at IS NOT NULL) OR (NEW.converted_asset_id IS NOT NULL AND NEW.status!='achieved') OR (OLD.converted_asset_id IS NOT NULL AND (NEW.converted_asset_id IS NOT OLD.converted_asset_id OR NEW.achieved_at IS NOT OLD.achieved_at)) BEGIN SELECT RAISE(ABORT,'wishlist achievement state'); END;
+ALTER TABLE wishlist_attachments ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+PRAGMA user_version=13;

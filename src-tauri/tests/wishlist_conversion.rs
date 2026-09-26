@@ -67,6 +67,7 @@ fn convert_input(
         wishlist_id: wish.id.clone(),
         expected_revision: wish.revision,
         asset: SaveAsset {
+            options: None,
             base: Save {
                 request_id: uuid(),
                 generation: store.generation(),
