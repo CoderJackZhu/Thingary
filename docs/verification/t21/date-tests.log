@@ -1,0 +1,160 @@
+TAP version 13
+# Subtest: maintenance draft preserves unknown versus free and builds corrective payload
+ok 1 - maintenance draft preserves unknown versus free and builds corrective payload
+  ---
+  duration_ms: 15.486709
+  type: 'test'
+  ...
+# Subtest: maintenance recovery preserves generation, input and original request across restart
+ok 2 - maintenance recovery preserves generation, input and original request across restart
+  ---
+  duration_ms: 1.392458
+  type: 'test'
+  ...
+# Subtest: maintenance and sale dates validate in both directions
+ok 3 - maintenance and sale dates validate in both directions
+  ---
+  duration_ms: 1.423208
+  type: 'test'
+  ...
+# Subtest: settlement includes maintenance and hides precision for unknown costs
+ok 4 - settlement includes maintenance and hides precision for unknown costs
+  ---
+  duration_ms: 1.2465
+  type: 'test'
+  ...
+# Subtest: day refresh skips unchanged days and refreshes selected summary or full detail once
+ok 5 - day refresh skips unchanged days and refreshes selected summary or full detail once
+  ---
+  duration_ms: 0.4945
+  type: 'test'
+  ...
+# Subtest: recovery blocks another dataset without querying or rewriting the original request
+ok 6 - recovery blocks another dataset without querying or rewriting the original request
+  ---
+  duration_ms: 0.642291
+  type: 'test'
+  ...
+# Subtest: committed recovery checks original receipt before stale revision and never replays
+ok 7 - committed recovery checks original receipt before stale revision and never replays
+  ---
+  duration_ms: 0.348458
+  type: 'test'
+  ...
+# Subtest: unresolved receipt stays pending, while switched dataset has a safe blocked exit
+ok 8 - unresolved receipt stays pending, while switched dataset has a safe blocked exit
+  ---
+  duration_ms: 1.648958
+  type: 'test'
+  ...
+# Subtest: missing receipt clears pending only, newer revision needs explicit confirmation
+ok 9 - missing receipt clears pending only, newer revision needs explicit confirmation
+  ---
+  duration_ms: 0.840875
+  type: 'test'
+  ...
+# Subtest: recovery rejects missing, deleted, mismatched assets and missing maintenance identity
+ok 10 - recovery rejects missing, deleted, mismatched assets and missing maintenance identity
+  ---
+  duration_ms: 1.473375
+  type: 'test'
+  ...
+# Subtest: unchanged recovery refreshes current data while preserving draft fields and photos
+ok 11 - unchanged recovery refreshes current data while preserving draft fields and photos
+  ---
+  duration_ms: 0.31475
+  type: 'test'
+  ...
+# Subtest: receipt mismatches and damaged pending payload cannot silently clear a draft
+ok 12 - receipt mismatches and damaged pending payload cannot silently clear a draft
+  ---
+  duration_ms: 0.29425
+  type: 'test'
+  ...
+# Subtest: cost completeness explains purchase, maintenance, both, and known zero separately
+ok 13 - cost completeness explains purchase, maintenance, both, and known zero separately
+  ---
+  duration_ms: 0.202625
+  type: 'test'
+  ...
+# Subtest: E04 fixed-day boundaries match the Rust rules with no timezone drift
+ok 14 - E04 fixed-day boundaries match the Rust rules with no timezone drift
+  ---
+  duration_ms: 3.564958
+  type: 'test'
+  ...
+# Subtest: E05 mixed summaries keep every fact separate and never claim coverage
+ok 15 - E05 mixed summaries keep every fact separate and never claim coverage
+  ---
+  duration_ms: 0.662583
+  type: 'test'
+  ...
+# Subtest: validation allows future dates and rejects only reversed pairs and bad input
+ok 16 - validation allows future dates and rejects only reversed pairs and bad input
+  ---
+  duration_ms: 10.472125
+  type: 'test'
+  ...
+# Subtest: draft and payload round-trip preserves unknown dates and correct identity
+ok 17 - draft and payload round-trip preserves unknown dates and correct identity
+  ---
+  duration_ms: 0.522375
+  type: 'test'
+  ...
+# Subtest: draft persistence keeps generation, photos and pending request across restart
+ok 18 - draft persistence keeps generation, photos and pending request across restart
+  ---
+  duration_ms: 1.668541
+  type: 'test'
+  ...
+# Subtest: recovery blocks another dataset without querying or rewriting the original request
+ok 19 - recovery blocks another dataset without querying or rewriting the original request
+  ---
+  duration_ms: 1.599708
+  type: 'test'
+  ...
+# Subtest: committed recovery checks the original receipt before reading the asset
+ok 20 - committed recovery checks the original receipt before reading the asset
+  ---
+  duration_ms: 1.90625
+  type: 'test'
+  ...
+# Subtest: unresolved receipt stays pending; switched dataset exits blocked
+ok 21 - unresolved receipt stays pending; switched dataset exits blocked
+  ---
+  duration_ms: 0.341208
+  type: 'test'
+  ...
+# Subtest: missing receipt clears pending only; a newer revision needs explicit confirmation
+ok 22 - missing receipt clears pending only; a newer revision needs explicit confirmation
+  ---
+  duration_ms: 0.6305
+  type: 'test'
+  ...
+# Subtest: recovery rejects missing, deleted or mismatched assets and lost warranty identity
+ok 23 - recovery rejects missing, deleted or mismatched assets and lost warranty identity
+  ---
+  duration_ms: 0.627375
+  type: 'test'
+  ...
+# Subtest: damaged pending payload cannot silently clear a draft
+ok 24 - damaged pending payload cannot silently clear a draft
+  ---
+  duration_ms: 0.348833
+  type: 'test'
+  ...
+# Subtest: status labels exist for every derived state
+ok 25 - status labels exist for every derived state
+  ---
+  duration_ms: 0.315708
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 272.906667

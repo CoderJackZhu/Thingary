@@ -1,0 +1,218 @@
+AXWindow 物志 · T21 P0 验收
+    AXWebArea 物志 · 开发预览
+       AXStaticText 物志
+      AXStaticText POSSIO
+      AXGroup 主导航
+       AXButton 总览
+        AXStaticText 我的物品
+       AXButton 全部资产
+       AXButton 使用中
+       AXButton 已退役
+       AXButton 已售出
+        AXStaticText 记录与回顾
+       AXButton 心愿清单
+       AXButton 时间轴
+       AXButton 统计
+      AXGroup 资料管理
+       AXButton 素材库
+       AXButton 最近删除
+       AXButton 设置
+       AXStaticText 本地档案 · 仅保存在这台 Mac
+      AXStaticText 记录与回顾
+      AXStaticText ／
+      AXStaticText 统计
+       AXTextField 搜索物品
+        AXStaticText ⌘F
+      AXButton 新增资产
+       AXHeading 统计 val=1
+        AXStaticText 统计
+        AXStaticText 按购入日期回看花在物品上的钱。
+      AXGroup 统计
+       AXGroup 购买趋势
+        AXHeading 购买趋势 val=3
+         AXStaticText 购买趋势
+        AXStaticText 历史全部：含已售出，不含已删除；按购入日期归入期间，期间首尾两天都包含
+        AXGroup 期间粒度
+         AXCheckBox 按月 val=1
+         AXCheckBox 按季 val=0
+         AXCheckBox 按年 val=0
+         AXStaticText 已知购入合计 ¥42,926.50 · 1 件有日期但金额未知，未计入 · 6 件购入日期未知，不归入任何期间（其中已知金额 ¥1,088.00）
+        AXHeading 各期间购入金额 val=4
+         AXStaticText 各期间购入金额
+        AXImage 各期间购入金额柱状图
+        AXHeading 累计购入金额 出售不回减，不是当前估值 val=4
+         AXStaticText 累计购入金额 出售不回减，不是当前估值
+        AXImage 累计购入金额折线图
+         AXDisclosureTriangle 查看表格 val=0
+          AXStaticText 查看表格
+       AXGroup 持有周期
+        AXHeading 持有周期 val=3
+         AXStaticText 持有周期
+        AXStaticText 当前持有：截至今天；按购入日起的自然月／年纪念日分组，左闭右开
+        AXGroup 持有范围
+         AXCheckBox 当前持有 val=1
+         AXCheckBox 历史全部 val=0
+        AXStaticText 平均
+        AXStaticText 688.7 天
+        AXStaticText 中位数
+        AXStaticText 516 天
+        AXStaticText 最长
+        AXButton iPhone 12 mini · 2054 天
+          AXStaticText 少于 6 个月
+          AXStaticText 4 件
+          AXStaticText 6–12 个月
+          AXStaticText 1 件
+          AXStaticText 1–2 年
+          AXStaticText 0 件
+          AXStaticText 2–3 年
+          AXStaticText 2 件
+          AXStaticText 3 年以上
+          AXStaticText 3 件
+         AXStaticText 共 10 件参与计算；5 件购入日期未知，未计入分组与平均。
+       AXGroup 日均成本排行
+        AXHeading 日均成本排行 val=3
+         AXStaticText 日均成本排行
+        AXStaticText 按未舍入的精确值排序，显示值四舍五入到分
+        AXGroup 排序方向
+         AXCheckBox 从高到低 val=1
+         AXCheckBox 从低到高 val=0
+        AXHeading 当前持有 · 毛日均 总投入（购入＋维护）÷ 持有天数 val=4
+         AXStaticText 当前持有 · 毛日均 总投入（购入＋维护）÷ 持有天数
+           AXStaticText #
+           AXStaticText 物品
+           AXStaticText 总投入
+           AXStaticText 持有天数
+           AXStaticText 日均
+           AXStaticText 1
+           AXButton T13 虚构相机心愿
+           AXStaticText ¥1,200.00
+           AXStaticText 7
+           AXStaticText ¥171.43
+           AXStaticText 2
+           AXButton 虚构 T06b 旅行相机
+           AXStaticText ¥1,500.50
+           AXStaticText 26
+           AXStaticText ¥57.71
+           AXStaticText 3
+           AXButton T11 Fictional Parent
+           AXStaticText ¥1,300.00
+           AXStaticText 26
+           AXStaticText ¥50.00
+           AXStaticText 4
+           AXButton MacBook Pro 14″
+           AXStaticText ¥16,999.00
+           AXStaticText 923
+           AXStaticText ¥18.42
+           AXStaticText 5
+           AXButton T12 翻页样例 100
+           AXStaticText ¥90.00
+           AXStaticText 6
+           AXStaticText ¥15.00
+           AXStaticText 6
+           AXButton Fujifilm X100V
+           AXStaticText ¥10,090.00
+           AXStaticText 1203
+           AXStaticText ¥8.39
+           AXStaticText 7
+           AXButton iPhone 12 mini
+           AXStaticText ¥6,018.00
+           AXStaticText 2054
+           AXStaticText ¥2.93
+           AXStaticText 8
+           AXButton WH-1000XM5
+           AXStaticText ¥2,199.00
+           AXStaticText 756
+           AXStaticText ¥2.91
+           AXStaticText 9
+           AXButton 机械键盘 K2
+           AXStaticText ¥0.00
+           AXStaticText 276
+           AXStaticText ¥0.00
+           AXStaticText #
+           AXStaticText 1
+           AXStaticText 2
+           AXStaticText 3
+           AXStaticText 4
+           AXStaticText 5
+           AXStaticText 6
+           AXStaticText 7
+           AXStaticText 8
+           AXStaticText 9
+           AXStaticText 物品
+           AXButton T13 虚构相机心愿
+           AXButton 虚构 T06b 旅行相机
+           AXButton T11 Fictional Parent
+           AXButton MacBook Pro 14″
+           AXButton T12 翻页样例 100
+           AXButton Fujifilm X100V
+           AXButton iPhone 12 mini
+           AXButton WH-1000XM5
+           AXButton 机械键盘 K2
+           AXStaticText 总投入
+           AXStaticText ¥1,200.00
+           AXStaticText ¥1,500.50
+           AXStaticText ¥1,300.00
+           AXStaticText ¥16,999.00
+           AXStaticText ¥90.00
+           AXStaticText ¥10,090.00
+           AXStaticText ¥6,018.00
+           AXStaticText ¥2,199.00
+           AXStaticText ¥0.00
+           AXStaticText 持有天数
+           AXStaticText 7
+           AXStaticText 26
+           AXStaticText 26
+           AXStaticText 923
+           AXStaticText 6
+           AXStaticText 1203
+           AXStaticText 2054
+           AXStaticText 756
+           AXStaticText 276
+           AXStaticText 日均
+           AXStaticText ¥171.43
+           AXStaticText ¥57.71
+           AXStaticText ¥50.00
+           AXStaticText ¥18.42
+           AXStaticText ¥15.00
+           AXStaticText ¥8.39
+           AXStaticText ¥2.93
+           AXStaticText ¥2.91
+           AXStaticText ¥0.00
+           AXStaticText #
+           AXStaticText 物品
+           AXStaticText 总投入
+           AXStaticText 持有天数
+           AXStaticText 日均
+        AXHeading 已售出 · 净日均 （总投入 − 售出回收）÷ 截至售出日天数，可为负 val=4
+         AXStaticText 已售出 · 净日均 （总投入 − 售出回收）÷ 截至售出日天数，可为负
+           AXStaticText #
+           AXStaticText 物品
+           AXStaticText 净成本
+           AXStaticText 持有天数
+           AXStaticText 日均
+           AXStaticText 1
+           AXButton iPad Air 4
+           AXStaticText ¥2,999.00
+           AXStaticText 1412
+           AXStaticText ¥2.12
+           AXStaticText #
+           AXStaticText 1
+           AXStaticText 物品
+           AXButton iPad Air 4
+           AXStaticText 净成本
+           AXStaticText ¥2,999.00
+           AXStaticText 持有天数
+           AXStaticText 1412
+           AXStaticText 日均
+           AXStaticText ¥2.12
+           AXStaticText #
+           AXStaticText 物品
+           AXStaticText 净成本
+           AXStaticText 持有天数
+           AXStaticText 日均
+         AXDisclosureTriangle 7 件资料不完整，未参与排行 val=0
+          AXStaticText 7 件资料不完整，未参与排行
+ AXButton
+ AXButton
+ AXButton
+ AXStaticText 物志 · T21 P0 验收

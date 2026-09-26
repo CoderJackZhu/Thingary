@@ -1,0 +1,67 @@
+{
+  "dataset": {
+    "id": "e1f4ba39-3838-48d9-be88-7b3037dd577f",
+    "generation": "7e8e53e0-a159-4057-84d4-989506488a71"
+  },
+  "integrity": "ok",
+  "foreign_key_errors": [],
+  "held": 16,
+  "held_price_cents": 4021550,
+  "held_unknown_price": 4,
+  "historical_price_cents": 4501450,
+  "held_days_mean": 626.1818181818181,
+  "held_days_median": 276,
+  "held_unknown_date": 5,
+  "repurchase": [
+    {
+      "id": "3494ca5d-416c-40ed-8dce-8ed62c268949",
+      "name": "iPad Air 4",
+      "price_cents": 479900,
+      "purchase_date": "2021-06-01",
+      "revision": 3,
+      "deleted_at": null,
+      "category_id": "8bc192e4-bc26-491f-becd-1867009092e3",
+      "channel_id": "08274ec9-df8e-4069-9fd4-88596dd59642",
+      "lifecycle_state": "sold",
+      "sale_date": "2025-04-12",
+      "sale_price": 180000
+    },
+    {
+      "id": "1e7dfc48-0ea1-410a-adc3-3b3b5059584f",
+      "name": "iPad Air 4",
+      "price_cents": 100000,
+      "purchase_date": "2026-09-26",
+      "revision": 1,
+      "deleted_at": null,
+      "category_id": null,
+      "channel_id": null,
+      "lifecycle_state": "active",
+      "sale_date": null,
+      "sale_price": null
+    }
+  ],
+  "assets": 19,
+  "wishlist_items": 103,
+  "maintenances": 6,
+  "warranties": 3,
+  "attachments": 17,
+  "backup_manifest_entries": 10,
+  "original_files": 9,
+  "backup_bytes": 548885,
+  "backup_integrity": "ok",
+  "before_buyback": {
+    "held": 15,
+    "held_price_cents": 3921550,
+    "days_mean": 688.7,
+    "days_median": 516.0,
+    "days_max": 2054
+  },
+  "buyback_costs": {
+    "old_investment": 479900,
+    "old_recovery": 180000,
+    "old_net": 299900,
+    "old_days": 1412,
+    "new_investment": 100000,
+    "new_days": 1
+  }
+}

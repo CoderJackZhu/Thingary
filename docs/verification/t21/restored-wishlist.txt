@@ -1,0 +1,94 @@
+AXWindow 物志 · T21 空库恢复验收
+    AXWebArea 物志 · 开发预览
+       AXStaticText 物志
+      AXStaticText POSSIO
+      AXGroup 主导航
+       AXButton 总览
+        AXStaticText 我的物品
+       AXButton 全部资产
+       AXButton 使用中
+       AXButton 已退役
+       AXButton 已售出
+        AXStaticText 记录与回顾
+       AXButton 心愿清单
+       AXButton 时间轴
+       AXButton 统计
+      AXGroup 资料管理
+       AXButton 素材库
+       AXButton 最近删除
+       AXButton 设置
+       AXStaticText 本地档案 · 仅保存在这台 Mac
+      AXStaticText 心愿清单
+      AXStaticText ／
+      AXStaticText 购买前记录
+       AXHeading 心愿清单 val=1
+        AXStaticText 心愿清单
+        AXStaticText 把想要的物品先记下来，购买决定与资产档案彼此独立。
+      AXGroup 心愿清单
+       AXStaticText 进行中预计总额
+        AXStaticText ¥4,753.00
+       AXStaticText 1 条价格未知
+       AXButton ＋ 新增心愿
+        AXStaticText ⌕
+        AXTextField 搜索心愿
+        AXStaticText 状态
+        AXPopUpButton 筛选心愿状态
+        AXStaticText 排序
+        AXPopUpButton 心愿排序
+       AXButton 切换为升序
+       AXCheckBox 列表 val=1
+       AXCheckBox 网格 val=0
+       AXGroup T13 虚构相机心愿
+        AXButton 预览心愿封面：相机示意图（非实物照片）
+        AXHeading T13 虚构相机心愿 val=2
+         AXStaticText T13 虚构相机心愿
+        AXStaticText 未设优先级
+         AXStaticText 摄影 · ¥1,500.00
+         AXStaticText 目标日期：未设置 · 加入：2026-09-26 · 实现：2026-09-26
+        AXStaticText 已转为资产「
+        AXStaticText T13 虚构相机心愿
+        AXStaticText 」
+        AXButton 查看资产
+       AXGroup T12 翻页样例 100
+        AXImage 分类示意图（非实物照片）
+        AXHeading T12 翻页样例 100 val=2
+         AXStaticText T12 翻页样例 100
+        AXStaticText 未设优先级
+         AXStaticText 未分类 · ¥100.00
+         AXStaticText 目标日期：未设置 · 加入：2026-09-26 · 实现：2026-09-26
+         AXStaticText 虚构翻页验收数据
+        AXStaticText 已转为资产「
+        AXStaticText T12 翻页样例 100
+        AXStaticText 」
+        AXButton 查看资产
+       AXGroup T12 翻页样例 099
+        AXImage 分类示意图（非实物照片）
+        AXHeading T12 翻页样例 099 val=2
+         AXStaticText T12 翻页样例 099
+        AXStaticText 未设优先级
+         AXStaticText 未分类 · ¥99.00
+         AXStaticText 目标日期：未设置 · 加入：2026-09-26 · 实现：2026-09-26
+         AXStaticText 虚构翻页验收数据
+        AXStaticText 已转为资产「
+        AXStaticText T12 翻页样例 099
+        AXStaticText 」
+        AXButton 查看资产
+       AXGroup T12 翻页样例 098
+        AXImage 分类示意图（非实物照片）
+        AXHeading T12 翻页样例 098 val=2
+         AXStaticText T12 翻页样例 098
+        AXStaticText 未设优先级
+         AXStaticText 未分类 · ¥98.00
+         AXStaticText 目标日期：未设置 · 加入：2026-09-26 · 实现：2026-09-26
+         AXStaticText 虚构翻页验收数据
+        AXStaticText 关联资产「
+        AXStaticText T12 翻页样例 098
+        AXStaticText 」在最近删除中，恢复后仍指向这条心愿，不能再次转换。
+        AXButton 前往最近删除
+       AXStaticText 4
+       AXStaticText  条心愿
+       AXStaticText 未设置的价格与日期始终排在已知值之后
+ AXButton
+ AXButton
+ AXButton
+ AXStaticText 物志 · T21 空库恢复验收
