@@ -47,7 +47,7 @@ export function DataManagement({ generation, blocked, onTrash }: { generation: s
     } catch (e) { setCandidate(null); setTask({ kind: 'error', text: '恢复未完成，当前资料保持原样：' + errorMessage(e) }); }
   }
   // Only real drafts and pending requests are worth warning about; every non-theme key is still cleared.
-  const pending = localWorkKeys().filter(k => !k.startsWith('possio.qa.') && /draft|request|abandon|upload/.test(k)).length;
+  const pending = localWorkKeys().filter(k => /draft|request|abandon|upload/.test(k)).length;
   return <section className="card data-management" aria-labelledby="data-heading">
     <h2 id="data-heading">资料管理</h2>
     <p className="muted">三种操作互不替代：完整备份用于换机或回到某一时刻；导出资产表只是可读表格；最近删除用于找回误删。</p>

@@ -22,7 +22,7 @@ test('three data operations are named and not interchangeable', () => {
 });
 
 test('the restore warning counts drafts and pending requests, not other local keys', () => {
-  assert.match(src, /filter\(k => !k\.startsWith\('possio\.qa\.'\) && \/draft\|request\|abandon\|upload\/\.test\(k\)\)/);
+  assert.match(src, /filter\(k => \/draft\|request\|abandon\|upload\/\.test\(k\)\)/);
 });
 
 test('CSV export is enabled, explains its scope and cannot be mistaken for a backup', () => {

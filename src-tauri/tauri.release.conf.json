@@ -1,0 +1,17 @@
+{
+  "productName": "物志",
+  "version": "1.0.0",
+  "identifier": "local.possio.app",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "物志",
+        "width": 1080,
+        "height": 760,
+        "minWidth": 800,
+        "minHeight": 600
+      }
+    ]
+  }
+}
