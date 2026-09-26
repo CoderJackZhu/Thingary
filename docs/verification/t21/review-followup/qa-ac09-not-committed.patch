@@ -1,0 +1,29 @@
+diff --git a/src-tauri/src/commands.rs b/src-tauri/src/commands.rs
+index 5ea012d..1c3440a 100644
+--- a/src-tauri/src/commands.rs
++++ b/src-tauri/src/commands.rs
+@@ -45,6 +45,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
+ pub struct EditGuard(pub AtomicBool);
+ #[tauri::command]
+ pub async fn list_assets(query: Query, worker: tauri::State<'_, Worker>) -> Result<Page> {
++    if query.search == "QA-LISTFAIL" { return Err(Error::new("QA", "模拟读取失败：本地资料暂时无法读取")); } // QA-ONLY
+     let w = worker.inner().clone();
+     tauri::async_runtime::spawn_blocking(move || {
+         w.call(move |s| {
+@@ -60,7 +61,15 @@ pub async fn read_asset(
+     worker: tauri::State<'_, Worker>,
+ ) -> Result<Option<AssetRecord>> {
+     let w = worker.inner().clone();
+-    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.record(&id)))
++    tauri::async_runtime::spawn_blocking(move || {
++        // QA-ONLY (T21 AC09, never commit)
++        let r = w.call(move |s| s.record(&id))?;
++        if let Some(rec) = &r {
++            if rec.asset.name.starts_with("QA-MISSING") { return Ok(None); }
++            if rec.asset.name.starts_with("QA-READFAIL") { return Err(Error::new("QA", "模拟读取失败：本地资料暂时无法读取")); }
++        }
++        Ok(r)
++    })
+         .await
+         .map_err(|_| Error::new("WORKER", "读取失败，请重试"))?
+ }
