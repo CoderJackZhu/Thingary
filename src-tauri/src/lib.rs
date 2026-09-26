@@ -38,6 +38,8 @@ pub fn run() {
                 &[
                     &Item::about(app, Some("关于物志"), None)?,
                     &Item::separator(app)?,
+                    &MenuItem::with_id(app, "open-settings", "设置…", true, Some("CmdOrCtrl+,"))?,
+                    &Item::separator(app)?,
                     &Item::hide(app, Some("隐藏物志"))?,
                     &Item::hide_others(app, Some("隐藏其他"))?,
                     &Item::show_all(app, Some("显示全部"))?,
@@ -138,7 +140,10 @@ pub fn run() {
         }))
         .on_menu_event(|app, event| {
             let action = event.id().as_ref();
-            if matches!(action, "new-asset" | "find-asset" | "edit-asset") {
+            if matches!(
+                action,
+                "new-asset" | "find-asset" | "edit-asset" | "open-settings"
+            ) {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.show();
                     let _ = w.set_focus();

@@ -124,6 +124,7 @@ function App() {
     if (action === 'new-asset') void openEditor(null);
     if (action === 'find-asset') { setSection('assets'); setDetailId(null); requestAnimationFrame(() => searchRef.current?.focus()); }
     if (action === 'edit-asset' && section === 'assets' && selected && !selected.deleted) void openEditor(selected);
+    if (action === 'open-settings' && !trashRecovery && !recordTrashRecovery) { setSection('settings'); setDetailId(null); void taxonomy.reload().catch(() => {}); }
   };
   function adjust(part: Partial<Query>) {
     if (part.search !== undefined || part.filter !== undefined || part.category !== undefined) {
