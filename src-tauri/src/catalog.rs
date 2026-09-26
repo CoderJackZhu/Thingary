@@ -83,6 +83,11 @@ pub struct Page {
     pub today: String,
 }
 impl Store {
+    pub fn has_any_asset(&self) -> Result<bool> {
+        Ok(self
+            .conn()?
+            .query_row("SELECT EXISTS(SELECT 1 FROM assets)", [], |r| r.get(0))?)
+    }
     pub fn record(&self, id: &str) -> Result<Option<AssetRecord>> {
         self.record_at(id, &chrono::Local::now().format("%Y-%m-%d").to_string())
     }

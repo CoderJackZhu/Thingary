@@ -73,7 +73,7 @@ test('conversion form never copies the estimate into the actual price and reuses
   const main = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
   const editor = readFileSync(new URL('../src/AssetEditor.tsx', import.meta.url), 'utf8');
   const panel = readFileSync(new URL('../src/WishlistPanel.tsx', import.meta.url), 'utf8');
-  assert.match(main, /\{ \.\.\.emptyFields, name: wish\?\.fields\.name \?\? '' \}/);
+  assert.match(main, /\{ \.\.\.emptyFields, name: wish\?\.fields\.name \?\? '', date: localDay\(\) \}/);
   assert.doesNotMatch(main, /price: [^,}]*estimated_price/);
   assert.match(editor, /conversion \? await invoke<AssetRecord>\('convert_wishlist'/);
   assert.match(editor, /invoke<AssetRecord \| null>\('saved_request', \{ request: input\.base\.request_id/);

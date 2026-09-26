@@ -6,6 +6,8 @@
 
 CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；验收边界见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。T22 自用正式版已 review 并本地合并：`/Applications/物志.app` 可以开始录入真实资料。正式版使用独立身份 `local.possio.main`，开发预览仍使用 `local.possio.preview`；使用前请阅读 [物志使用说明](docs/USER_GUIDE.md)。中文名「物志」、英文名「Possio」用于本次自用构建；公开发布前仍需核查名称可用性。
 
+2026-09-27 当前分支 `codex/first-run-demo` 已实现首次独立样例库与鼠标日历／新增日期预填，自动和隔离原生检查见 [P1 记录](docs/verification/P1_FIRST_RUN_DEMO_DATE_RESULT.md)。正式构建已生成但尚未安装；当前 `/Applications/物志.app` 仍是 T22 版本。
+
 已完成插入任务：**U01 内置素材库选择**。已由 Z code 按交接契约实现并本地提交，含 2026-09-25 用户中途调整：侧栏新增“素材库”页面（可上传/删除自定义素材，schema 9 持久化），新增/编辑表单“封面与图片”区平铺素材小图、点击即选。自动检查、浏览器及隔离原生证据见 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)；三项 Codex review P2 已修复，剩余原生上传／草稿／删除保留引用验收已补齐，达到 U01 阶段出口，并已按用户授权本地合并到主项目。
 
 ## 历史工作位置与本地集成
@@ -122,6 +124,6 @@ T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Prev
 
 样例与浏览器共用 `src/demo-assets.json`；PNG 来自既有 `src/illustrations.ts` 的 SVG 转换，现随内置素材库位于 `src-tauri/materials/`（清单 `materials.json` 加同名 PNG），不是重新生成的图；Demo 导入与素材准备共用同一白名单。维护、退役、售出使用已实现的业务接口，保障等未实现字段不导入。
 
-开发复现：退出隔离 App 后，在本工作树执行 `npm run demo:import`。工具只允许现有 `local.possio.t06b.preview` 虚构库，拒绝其他路径及符号链接；重复执行不重复添加、不覆盖完成导入后的编辑。每件及其后续动作各自使用稳定请求 ID，可从中断步骤续行；未完成步骤若遇到版本变化会拒绝，不能把它用作一键重置。普通 App 启动不会导入 Demo。
+开发复现：退出隔离 App 后，在本工作树执行 `npm run demo:import`。工具只允许现有 `local.possio.t06b.preview` 虚构库，拒绝其他路径及符号链接；重复执行不重复添加、不覆盖完成导入后的编辑。每件及其后续动作各自使用稳定请求 ID，可从中断步骤续行；未完成步骤若遇到版本变化会拒绝，不能把它用作一键重置。正式资料库首次添加资产前，App 另建独立的八件样例库供体验；首次成功保存真实资产后自动隐藏样例。
 
 `npm run test:demo` 验证导入、图片、重开、重复执行保留编辑和目标路径限制。PNG 转换的可选开发命令是 `node scripts/render-demo-art.mjs <已有 sharp 模块的绝对入口>`；导入使用已提交的 PNG，无需安装图片转换依赖。

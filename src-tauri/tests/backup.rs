@@ -93,6 +93,7 @@ fn cancelled_and_failed_backup_never_publish() {
 fn backup_pauses_queued_writes() {
     let root = tempfile::tempdir().unwrap();
     let w = Worker::start(root.path().join("data")).unwrap();
+    w.switch_demo(false).unwrap();
     w.call(|s| Ok(seed(s))).unwrap();
     let (entered_tx, entered_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();

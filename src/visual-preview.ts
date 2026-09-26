@@ -111,6 +111,8 @@ function previewPhotoName(id: string): string {
 }
 mockIPC(async (command,payload) => {
   const args = payload as Record<string,unknown>;
+  if (command === 'demo_status') return {active:false,available:false};
+  if (command === 'switch_demo') return {active:false,available:false};
   if (command === 'taxonomy_snapshot') return taxonomySnapshot();
   if (command === 'taxonomy_request') return taxonomyReceipts.has(String(args.request));
   if (command === 'change_taxonomy') {

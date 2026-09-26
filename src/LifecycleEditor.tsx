@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, localDay } from './asset';
 import type { AssetRecord } from './asset';
 import type { CloseIntent } from './AssetEditor';
+import { DateInput } from './DateInput';
 import { lifecycleError, lifecycleKey, kindLabel, stateLabel } from './lifecycle';
 import type { LifecycleDraft, LifecycleChange } from './lifecycle';
 
@@ -66,7 +67,7 @@ export function LifecycleEditor({ initial, closeIntent, onKeep, onClose, onSaved
   return <dialog ref={dialog} className="editor lifecycle-editor" aria-labelledby="lifecycle-title" onCancel={e => { e.preventDefault(); askClose('form'); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
     <header><h2 id="lifecycle-title">{title}</h2><button type="button" aria-label="关闭状态表单" onClick={() => askClose('form')}>×</button></header>
     <p>{draft.record.asset.name}</p><p className="muted">{draft.action.type === 'correct_date' ? '只更正这条动作的日期，保留原有状态顺序和备注。' : '退役仍计入持有，日均持有成本继续计算。重新启用不会重置购入日期或已有历史。'}</p>
-    <label className="field" htmlFor="lifecycle-date">动作日期（必填）<input id="lifecycle-date" placeholder="YYYY-MM-DD" value={draft.action.date} disabled={busy || !!draft.pending} onChange={e => edit(e.target.value)} autoComplete="off"/></label>
+    <div className="field"><label htmlFor="lifecycle-date">动作日期（必填）</label><DateInput id="lifecycle-date" value={draft.action.date} disabled={busy || !!draft.pending} min={draft.record.asset.purchase_date ?? undefined} max={localDay()} onChange={value => edit(value)}/></div>
     {draft.action.type === 'append' && <label className="field" htmlFor="lifecycle-notes">备注（可选）<textarea id="lifecycle-notes" rows={3} value={draft.action.notes} disabled={busy || !!draft.pending} onChange={e => edit(draft.action.date,e.target.value)}/></label>}
     {!!draft.record.lifecycle?.events.length && <details><summary>已有状态记录与日期</summary><ol>{draft.record.lifecycle.events.map(e => <li key={e.id}>{e.date} · {kindLabel(e.kind)}{draft.action.type === 'correct_date' && draft.action.event_id === e.id ? '（正在更正）' : ''}</li>)}</ol></details>}
     {notice && <p className="notice" role="status">{notice}</p>}

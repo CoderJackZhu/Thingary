@@ -2,6 +2,7 @@ pub mod backup;
 pub mod catalog;
 mod commands;
 pub mod csv_export;
+pub mod demo;
 pub mod domain;
 pub mod files;
 pub mod insights;
@@ -94,6 +95,8 @@ pub fn run() {
             commands::change_taxonomy,
             commands::taxonomy_request,
             commands::save_sample,
+            commands::demo_status,
+            commands::switch_demo,
             commands::list_assets,
             commands::read_asset,
             commands::save_asset,

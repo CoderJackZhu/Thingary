@@ -13,7 +13,7 @@ export function localWorkKeys() {
   return keys;
 }
 
-export function DataManagement({ generation, blocked, onTrash }: { generation: string | null; blocked: boolean; onTrash: () => void }) {
+export function DataManagement({ generation, blocked, demo, onTrash }: { generation: string | null; blocked: boolean; demo: boolean; onTrash: () => void }) {
   const [task, setTask] = useState<Task>({ kind: 'idle' }), [candidate, setCandidate] = useState<Inspected | null>(null);
   const busy = task.kind === 'running';
   async function backup() {
@@ -50,11 +50,11 @@ export function DataManagement({ generation, blocked, onTrash }: { generation: s
   const pending = localWorkKeys().filter(k => /draft|request|abandon|upload/.test(k)).length;
   return <section className="card data-management" aria-labelledby="data-heading">
     <h2 id="data-heading">资料管理</h2>
-    <p className="muted">三种操作互不替代：完整备份用于换机或回到某一时刻；导出资产表只是可读表格；最近删除用于找回误删。</p>
+    <p className="muted">{demo ? '样例库是独立的虚构资料。切换到“我的资料”后可使用备份、恢复和导出；样例中的最近删除仍可体验。' : '三种操作互不替代：完整备份用于换机或回到某一时刻；导出资产表只是可读表格；最近删除用于找回误删。'}</p>
     <div className="data-actions">
-      <div><h3>完整备份</h3><p className="muted small">包含全部物品、维护、保障、心愿及转换关系、分类渠道、素材、最近删除和托管原图；写入后立即重新校验。</p><button disabled={busy || blocked} onClick={() => void backup()}>备份到…</button></div>
-      <div><h3>从备份恢复</h3><p className="muted small">先完整检查所选备份，确认后才替换；替换前自动保存当前资料的保护副本。</p><button disabled={busy || blocked || !generation} onClick={() => void inspect()}>选择备份…</button></div>
-      <div><h3>导出资产表（CSV）</h3><p className="muted small">全部未删除物品（含已售出）的可读表格：UTF-8、未知值留空、¥0 写 0.00；以 = + - @ 开头的文字前加 ' 防止被表格当作公式。不含图片、维护、保障和心愿，不能用于恢复。</p><button disabled={busy || blocked} onClick={() => void exportCsv()}>导出 CSV…</button></div>
+      <div><h3>完整备份</h3><p className="muted small">包含全部物品、维护、保障、心愿及转换关系、分类渠道、素材、最近删除和托管原图；写入后立即重新校验。</p><button disabled={busy || blocked || demo} onClick={() => void backup()}>备份到…</button></div>
+      <div><h3>从备份恢复</h3><p className="muted small">先完整检查所选备份，确认后才替换；替换前自动保存当前资料的保护副本。</p><button disabled={busy || blocked || demo || !generation} onClick={() => void inspect()}>选择备份…</button></div>
+      <div><h3>导出资产表（CSV）</h3><p className="muted small">全部未删除物品（含已售出）的可读表格：UTF-8、未知值留空、¥0 写 0.00；以 = + - @ 开头的文字前加 ' 防止被表格当作公式。不含图片、维护、保障和心愿，不能用于恢复。</p><button disabled={busy || blocked || demo} onClick={() => void exportCsv()}>导出 CSV…</button></div>
       <div><h3>最近删除</h3><p className="muted small">误删的物品、维护和保障可以找回，不会自动永久清空。</p><button disabled={busy || blocked} onClick={onTrash}>打开最近删除</button></div>
     </div>
     {blocked && <p className="notice">请先处理正在编辑或待核对的内容，再进行备份或恢复。</p>}

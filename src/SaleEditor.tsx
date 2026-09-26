@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, localDay, money } from './asset';
 import type { AssetRecord } from './asset';
 import type { CloseIntent } from './AssetEditor';
+import { DateInput } from './DateInput';
 import { saleError, saleAction, saleKey, settlement, incompleteCostReason } from './sales';
 import type { SaleDraft, SaleChange, SaleForm } from './sales';
 
@@ -70,7 +71,7 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
     <p>{draft.record.asset.name}</p>
     {draft.mode === 'revoke' ? <p>确认这是误记的售出？撤销后恢复为<strong>{draft.record.sale?.previous_state === 'retired' ? '已退役' : '使用中'}</strong>，保留原档案和图片，持有天数重新计算到今天。真实卖出后又买回，请新增另一件物品。</p> : <>
       <p className="muted">售出后持有天数截止到售出日。实际售价必填，可为 0；购入资料未知时仍可记录售出。</p>
-      <label className="field">售出日期（必填）<input id="sale-date" placeholder="YYYY-MM-DD" value={draft.fields.date} disabled={busy || !!draft.pending} onChange={e => edit('date',e.target.value)} autoComplete="off"/></label>
+      <div className="field"><label htmlFor="sale-date">售出日期（必填）</label><DateInput id="sale-date" value={draft.fields.date} disabled={busy || !!draft.pending} min={draft.record.asset.purchase_date ?? undefined} max={localDay()} onChange={value => edit('date', value)}/></div>
       <label className="field">实际售价（元，必填）<input id="sale-price" inputMode="decimal" value={draft.fields.price} disabled={busy || !!draft.pending} onChange={e => edit('price',e.target.value)}/></label>
       <label className="field">出售平台（可选）<input value={draft.fields.platform} disabled={busy || !!draft.pending} onChange={e => edit('platform',e.target.value)}/></label>
       <label className="field">买家（可选）<input value={draft.fields.buyer} disabled={busy || !!draft.pending} onChange={e => edit('buyer',e.target.value)}/></label>

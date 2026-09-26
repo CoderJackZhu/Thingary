@@ -44,6 +44,27 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[derive(Default)]
 pub struct EditGuard(pub AtomicBool);
 #[tauri::command]
+pub async fn demo_status(worker: tauri::State<'_, Worker>) -> Result<crate::worker::DemoStatus> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.demo_status())
+        .await
+        .map_err(|_| Error::new("WORKER", "无法读取样例状态"))?
+}
+#[tauri::command]
+pub async fn switch_demo(
+    demo: bool,
+    worker: tauri::State<'_, Worker>,
+    guard: tauri::State<'_, EditGuard>,
+) -> Result<crate::worker::DemoStatus> {
+    if guard.0.load(Ordering::SeqCst) {
+        return Err(Error::new("EDITING", "请先完成或取消当前编辑"));
+    }
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.switch_demo(demo))
+        .await
+        .map_err(|_| Error::new("WORKER", "无法切换样例状态"))?
+}
+#[tauri::command]
 pub async fn list_assets(query: Query, worker: tauri::State<'_, Worker>) -> Result<Page> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -573,6 +594,7 @@ pub async fn create_backup(
     app: tauri::AppHandle,
     worker: tauri::State<'_, Worker>,
 ) -> Result<Option<BackupDone>> {
+    worker.require_personal()?;
     // The panel appends ".possio" itself; a suggested extension would be doubled.
     let suggested = format!("物志备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
     let receive = on_main(&app, move || {
@@ -593,7 +615,7 @@ pub async fn create_backup(
         let target = path.clone();
         // The storage worker is serial: edits queued meanwhile wait for the snapshot.
         let name = w
-            .call(move |s| s.backup(Some(&target)))?
+            .call_personal(move |s| s.backup(Some(&target)))?
             .unwrap_or_default();
         Ok(Some(BackupDone { name, folder }))
     })
@@ -613,6 +635,7 @@ pub async fn inspect_backup(
     app: tauri::AppHandle,
     worker: tauri::State<'_, Worker>,
 ) -> Result<Option<Inspected>> {
+    worker.require_personal()?;
     let receive = on_main(&app, crate::native_images::pick_backup_open)?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -623,7 +646,7 @@ pub async fn inspect_backup(
             return Ok(None);
         };
         let target = path.clone();
-        let summary = w.call(move |s| s.inspect_backup(&target))?;
+        let summary = w.call_personal(move |s| s.inspect_backup(&target))?;
         Ok(Some(Inspected {
             name: path
                 .file_name()
@@ -648,7 +671,7 @@ pub async fn restore_backup(
 ) -> Result<String> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        w.call(move |s| s.restore(std::path::Path::new(&path), &hash, &generation))
+        w.call_personal(move |s| s.restore(std::path::Path::new(&path), &hash, &generation))
     })
     .await
     .map_err(|_| Error::new("WORKER", "未收到恢复结果，请重新启动后核对"))?
@@ -667,6 +690,7 @@ pub async fn export_csv(
     app: tauri::AppHandle,
     worker: tauri::State<'_, Worker>,
 ) -> Result<Option<CsvDone>> {
+    worker.require_personal()?;
     let suggested = format!("物志资产表-{}", chrono::Local::now().format("%Y%m%d"));
     let receive = on_main(&app, move || {
         crate::native_images::pick_save("导出资产表", "导出", &suggested, "csv")
@@ -680,7 +704,7 @@ pub async fn export_csv(
             return Ok(None);
         };
         let target = path.clone();
-        let rows = w.call(move |s| s.export_csv(&target))?;
+        let rows = w.call_personal(move |s| s.export_csv(&target))?;
         Ok(Some(CsvDone {
             name: path
                 .file_name()

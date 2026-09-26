@@ -6,6 +6,7 @@ import { MaterialThumb } from './MaterialLibrary';
 import { materialActionLabel } from './materials';
 import type { MaterialEntry } from './materials';
 import { CategorySelect, ChannelSelect } from './TaxonomyFields';
+import { DateInput } from './DateInput';
 import type { TaxonomySnapshot } from './taxonomy';
 import type { Classification } from './asset';
 import type { Photo } from './asset';
@@ -126,8 +127,12 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
     } catch (e) { setNotice(errorMessage(e)); }
   }
   function field(key: keyof Fields, label: string, hint?: string, type = 'text') {
+    if (key === 'date') return <div className="field" key={key}>
+      <label htmlFor="field-date">{label}</label><DateInput id="field-date" value={draft.fields.date} onChange={value => change('date', value)} disabled={busy || !!draft.pending} max={localDay()} allowClear invalid={!!errors.date} describedBy="help-date"/>
+      <small id="help-date" className={errors.date ? 'error' : ''}>{errors.date || hint}</small>
+    </div>;
     return <label className={'field ' + (key === 'name' || key === 'notes' ? 'wide' : '')} htmlFor={'field-' + key} key={key}>
-      <span>{label}</span>{key === 'notes' ? <textarea id={'field-' + key} rows={4} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key}/> : <input id={'field-' + key} autoFocus={key === 'name'} type={type} placeholder={key === 'date' ? 'YYYY-MM-DD（可留空）' : undefined} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key} autoComplete="off"/>}
+      <span>{label}</span>{key === 'notes' ? <textarea id={'field-' + key} rows={4} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key}/> : <input id={'field-' + key} autoFocus={key === 'name'} type={type} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key} autoComplete="off"/>}
       <small id={'help-' + key} className={errors[key] ? 'error' : ''}>{errors[key] || hint}</small>
     </label>;
   }
@@ -135,7 +140,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
     <form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
       <header><div><p className="eyebrow">{conversion ? '心愿转为资产' : '物品档案'}</p><h2 id="editor-title">{conversion ? '确认购入' : draft.id ? '编辑资料' : '新增资产'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button></header>
       {conversion ? <p className="muted">由心愿「{conversion.wish_name}」转入。{conversion.estimated_price_cents === null ? '心愿未填预计价格。' : `预计 ${money(conversion.estimated_price_cents)} 仅作参考，不会当作实付金额。`}请填写实际购入金额和日期；留空表示未知，相关成本指标将无法计算。确认前心愿保持进行中。</p> : <p className="muted">只填写名称也可以。其余资料，想起时再补。</p>}
-      <div className="fields">{field('name', '名称（必填）')}{field('price', '购入金额（元）', '留空表示未知；0 表示确实免费。')}{field('date', '购入日期', '不确定时留空，不自动填写今天。')}<div className="wide"><CategorySelect id="field-category" entries={taxonomy?.categories ?? []} value={draft.classification?.category_id ?? null} onChange={id => classify('category_id',id)} disabled={busy || !!draft.pending || !taxonomy}/></div>
+      <div className="fields">{field('name', '名称（必填）')}{field('price', '购入金额（元）', '留空表示未知；0 表示确实免费。')}{field('date', '购入日期', '新增时预填今天；可选择其他日期，不确定时可清空。')}<div className="wide"><CategorySelect id="field-category" entries={taxonomy?.categories ?? []} value={draft.classification?.category_id ?? null} onChange={id => classify('category_id',id)} disabled={busy || !!draft.pending || !taxonomy}/></div>
       </div>
       <section className="photo-section" aria-labelledby="photo-title"><div className="photo-heading"><h3 id="photo-title">封面与图片</h3><div className="photo-entry-actions"><button type="button" disabled={busy || !!draft.pending || photos.length >= 20} onClick={() => void pickPhoto()}>导入自己的图片（可选）</button></div></div>
         <p className="muted small">点击素材图片即可加入；内置素材为示意图，非实物照片。更多素材可在左侧“素材库”上传。最多 20 张，每张 20 MiB。</p>

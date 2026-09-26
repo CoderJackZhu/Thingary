@@ -1,6 +1,6 @@
 # Possio：实施任务与开工检查
 
-版本：v0.46 · 日期：2026-09-27 · 状态：T01–T21 已本地集成 main；Claude 判定 CP3、CP4 达到出口，P0 闭环完成（AC40 未实测项为已接受风险）。T22 自用正式版经 Claude review（identifier 更正为 `local.possio.main`）后本地合并，`/Applications/物志.app` 可开始录入真实资料；见 [T22 记录](verification/T22_SELF_USE_RELEASE_RESULT.md)。后续 P1 范围待用户选择。未配置远程或推送。
+版本：v0.47 · 日期：2026-09-27 · 状态：T01–T21 已本地集成 main；Claude 判定 CP3、CP4 达到出口，P0 闭环完成（AC40 未实测项为已接受风险）。T22 自用正式版经 Claude review（identifier 更正为 `local.possio.main`）后本地合并，`/Applications/物志.app` 可开始录入真实资料；见 [T22 记录](verification/T22_SELF_USE_RELEASE_RESULT.md)。用户已指定 P1 的首次样例和日期输入两项，当前分支已实现并验证，待审阅与安装。未配置远程或推送。
 
 用户先回复“确认开始”授权 V 批次，随后要求“进行下一个阶段”，授权推进 T01–T05。实际证据见 [验证报告](VERIFICATION_REPORT.md)。下方为任务范围与验收要求，当前完成情况以本段和任务状态表为准。
 
@@ -41,6 +41,7 @@
 | T21 | 达到出口：已 review 并补验 AC05/06/09 后本地合并；44 条逐项核对：通过 43、部分 1。独立 release 的离线闭环、备份/CSV、空库恢复及图片抽检完成，浅色次要文字对比度修至 AA、Dock 点击重开实测；AC40 的 VoiceOver／系统外观切换／显示缩放待用户，见 [T21 报告](verification/T21_P0_ACCEPTANCE_RESULT.md) §8–9；检查结果见 §2.5／§6 |
 | CP4 | 2026-09-26 用户表示不熟悉剩余检查，授权“你检查完没问题就可以了”，由 Claude 判定：**达到出口，P0 可长期自用闭环完成**。43/44 通过；AC40 未实测项（VoiceOver、系统外观实时切换、显示缩放、Dock 固定后重启）为已接受风险，发现问题按 T20 修复。未测 macOS 14／Intel 不写成受支持 |
 | T22 | 达到出口并本地合并：review 把 identifier 由 `local.possio.app`（资料文件夹被 macOS 识别为 App）更正为 `local.possio.main`；正式身份与开发预览隔离、release 构建和安装、空库首启、临时身份功能复测及使用说明见 [T22 记录](verification/T22_SELF_USE_RELEASE_RESULT.md) §7 |
+| P1 首次样例与日期输入 | 当前 `codex/first-run-demo` 分支实现并完成自动、隔离原生与正式构建检查；八件样例和真实库隔离、首件保存后隐藏，日期预填今天并支持鼠标／键盘。待审阅与安装，`/Applications/物志.app` 尚未替换；见 [P1 记录](verification/P1_FIRST_RUN_DEMO_DATE_RESULT.md) |
 
 2026-09-24 用户要求继续先前建议的视觉对齐：Codex 在 T06a 返修提交之上，对浏览、详情、新增/编辑做过部分视觉适配（当时“已对齐”结论过宽，2026-09-25 纠正），使用同一 App 的内存样例入口走查；未改数据库或提前实现生命周期、维护与总览。T20 保留完整辅助功能和 Mac 体验验收，但不作为延后还原已选界面的理由。
 
