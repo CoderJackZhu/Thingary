@@ -284,4 +284,3 @@ test tests::command_rejects_other_libraries_and_redirected_isolated_library ... 
 test tests::eight_original_samples_persist_and_repeat_import_preserves_edits_and_other_assets ... ok
 
 test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
-

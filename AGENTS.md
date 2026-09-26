@@ -60,3 +60,7 @@ T12–T21 已本地集成 main；用户授权由 Claude 判定，CP3、CP4 达�
 ## 当前状态：T22 完成（2026-09-27）
 
 自用正式版 `/Applications/物志.app`（identifier `local.possio.main`，资料在 `~/Library/Application Support/local.possio.main/`）已 review 并本地合并，用户可开始录入真实资料。**正式库是用户真实资料：开发、测试和验收一律不得打开或写入它**，只用开发预览及各隔离身份。下一步 P1 范围待用户选择。
+
+## 当前状态：U02 资产与心愿升级完成（2026-09-27）
+
+用户授权的分块表单、独立标签、按日／按次成本、四项排除、攒钱自动实现与回退、素材及时间轴升级已实现。schema 13，Rust 117 项、前端 89 项及隔离原生核心验收通过；macOS 提醒已验证完全退出后的投递和取消。用户保存退出后，1.1.0 已安装到 `/Applications/物志.app`，正式资料库未用于测试。规则见 PRODUCT_DESIGN D16；事实与未验边界以 [U02 记录](docs/verification/U02_ASSET_WISHLIST_RESULT.md) 为准。按量／按使用时长仍留后续。

@@ -18,7 +18,7 @@ dist/assets/index-aGzuqZMs.css   69.68 kB │ gzip:  13.29 kB
 dist/assets/index-BwNKikQP.js   540.07 kB │ gzip: 140.60 kB
 
 ✓ built in 143ms
-[plugin builtin:vite-reporter] 
+[plugin builtin:vite-reporter]
 (!) Some chunks are larger than 500 kB after minification. Consider:
 - Using dynamic import() to code-split the application
 - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
@@ -37,4 +37,3 @@ Signing /Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/物
         Warn skipping app notarization, no APPLE_ID & APPLE_PASSWORD & APPLE_TEAM_ID or APPLE_API_KEY & APPLE_API_ISSUER & APPLE_API_KEY_PATH environment variables found
     Finished 1 bundle at:
         /Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/物志.app
-

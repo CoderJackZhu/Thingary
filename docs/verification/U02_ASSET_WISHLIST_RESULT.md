@@ -75,4 +75,6 @@ schema 13 新增偏好、命名选项及启停、提醒、功能回执与审计�
 
 `npm run release` 成功；完整 App 通过 `codesign --verify --deep --strict`。正式二进制不含短时测试开关 `POSSIO_REMINDER_TEST_SECONDS`。二进制 SHA256：`458850288629409039610b320da039045de9a223fb1283477ef2e2d76c49d561`。
 
-当前状态：构建和隔离验收完成，尚未替换正在运行的正式 App。已请用户保存并退出；安装仅替换应用包，不打开正式资料库。
+用户确认保存并退出后，已安装到 `/Applications/物志.app`。安装前确认正式进程已退出；安装后的版本为 1.1.0、身份 `local.possio.main`，签名检查通过，二进制 SHA256 与上述构建一致。未启动正式 App、未读取或写入正式资料库。
+
+旧包副本：`/private/tmp/物志-before-u02-20260927-043755.app`；安装交换时保留的原包位于 `/private/tmp/物志-u02-install-swap-20260927-043755.app`。隔离验收 App 已退出。源码实现提交 `a2b53b3`，仅本地保存，不推送。

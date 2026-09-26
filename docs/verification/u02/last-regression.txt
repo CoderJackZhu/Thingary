@@ -46,4 +46,3 @@ test cover_is_independent_and_schema_ten_migrates ... ok
 test custom_material_removal_backup_restore_and_reopen_keep_cover ... ok
 
 test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
-
