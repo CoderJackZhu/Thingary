@@ -127,6 +127,7 @@ pub fn run() {
             commands::finish_close,
             commands::set_appearance,
             commands::pick_photo,
+            commands::import_photo_bytes,
             commands::photo_preview,
             commands::prepare_material,
             commands::list_materials,

@@ -1,4 +1,4 @@
-import { categoryArt } from './illustrations';
+import { materialArt } from './materials';
 import type { TaxonomySnapshot } from './taxonomy';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -19,7 +19,7 @@ export function PhotoView({ photo, generation, version = 0, compact = false, onM
 }
 export function Cover({ record, generation, large = false, taxonomy }: { record: AssetRecord; generation: string; large?: boolean; taxonomy?: TaxonomySnapshot | null }) {
   const photo = record.photos.find(p => p.id === record.cover_id);
-  return <span className={'object-mark ' + (large ? 'large' : '')}>{photo ? <PhotoView photo={photo} generation={generation} compact/> : <img className="category-art" src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(categoryArt(taxonomy?.categories.find(c => c.id === record.classification?.category_id)?.icon))} alt="分类示意图（非实物照片）"/>}</span>;
+  return <span className={'object-mark ' + (large ? 'large' : '')}>{photo ? <PhotoView photo={photo} generation={generation} compact/> : <img className="category-art" src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt('icon-box'))} alt="默认箱子图标"/>}</span>;
 }
 export function PhotoPreview({ photo, generation, onClose }: { photo: Photo; generation: string; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);

@@ -44,7 +44,7 @@ fn save(
 #[test]
 fn catalog_matches_the_eight_embedded_illustrations_and_rejects_unknown_ids() {
     let catalog = materials::catalog().unwrap();
-    let ids: Vec<&str> = catalog.iter().map(|m| m.id.as_str()).collect();
+    let ids: Vec<&str> = catalog.iter().take(8).map(|m| m.id.as_str()).collect();
     assert_eq!(
         ids,
         [
@@ -59,7 +59,11 @@ fn catalog_matches_the_eight_embedded_illustrations_and_rejects_unknown_ids() {
         ]
     );
     assert_eq!(
-        catalog.iter().map(|m| m.name.as_str()).collect::<Vec<_>>(),
+        catalog
+            .iter()
+            .take(8)
+            .map(|m| m.name.as_str())
+            .collect::<Vec<_>>(),
         [
             "电脑",
             "相机",
@@ -255,7 +259,10 @@ fn material_photos_survive_reopen_and_backup_restore() {
 fn user_materials_upload_remove_and_rejections() {
     let root = tempfile::tempdir().unwrap();
     let mut s = Store::open(root.path()).unwrap();
-    assert_eq!(s.material_entries().unwrap().len(), 8); // Built-ins only.
+    assert_eq!(
+        s.material_entries().unwrap().len(),
+        materials::catalog().unwrap().len()
+    ); // Built-ins only.
     let upload = root.path().join("我的键盘素材.png");
     fs::write(&upload, materials::builtin("keyboard").unwrap().bytes).unwrap();
     assert_eq!(
@@ -267,7 +274,7 @@ fn user_materials_upload_remove_and_rejections() {
     let entry = s.add_material(&upload, &s.generation()).unwrap();
     assert!(!entry.builtin);
     let entries = s.material_entries().unwrap();
-    assert_eq!(entries.len(), 9);
+    assert_eq!(entries.len(), materials::catalog().unwrap().len() + 1);
     assert_eq!(entries.last().unwrap(), &entry);
     assert!(s.material_preview(&entry.id, &s.generation()).is_ok());
     // Uploaded bytes land in the content store; a second upload reuses them.
@@ -301,7 +308,7 @@ fn user_materials_upload_remove_and_rejections() {
         "MATERIAL"
     );
     let after = s.remove_material(&entry.id, &s.generation()).unwrap();
-    assert_eq!(after.len(), 8);
+    assert_eq!(after.len(), materials::catalog().unwrap().len());
     // Removing the library entry leaves saved assets and hosted bytes intact.
     assert!(s
         .photo_preview(&record.photos[0].id, &s.generation())
@@ -336,7 +343,10 @@ fn schema_nine_upgrade_preserves_assets_and_adds_materials() {
     };
     assert_eq!(version, 12, "a schema 8 library upgrades through 9 to 12");
     assert_eq!(s.count().unwrap(), 1);
-    assert_eq!(s.material_entries().unwrap().len(), 8);
+    assert_eq!(
+        s.material_entries().unwrap().len(),
+        materials::catalog().unwrap().len()
+    );
     let upload = root.path().join("迁移后素材.png");
     fs::write(&upload, materials::builtin("box").unwrap().bytes).unwrap();
     assert!(s.add_material(&upload, &s.generation()).is_ok());
@@ -376,7 +386,10 @@ fn lost_upload_response_retries_same_id_after_reopen_without_source_file() {
     assert_eq!(receipt.id, request);
     let retry = s.add_material_once(&upload, &generation, &request).unwrap();
     assert_eq!(receipt, retry);
-    assert_eq!(s.material_entries().unwrap().len(), 9);
+    assert_eq!(
+        s.material_entries().unwrap().len(),
+        materials::catalog().unwrap().len() + 1
+    );
     assert!(s.material_preview(&request, &generation).is_ok());
     assert_eq!(
         s.material_upload_result(&request, "old-generation")
@@ -409,7 +422,10 @@ fn upload_failure_before_commit_can_be_confirmed_absent_then_retried() {
         .material_upload_result(&request, &generation)
         .unwrap()
         .is_none());
-    assert_eq!(s.material_entries().unwrap().len(), 8);
+    assert_eq!(
+        s.material_entries().unwrap().len(),
+        materials::catalog().unwrap().len()
+    );
     s.set_hook(|_| Ok(()));
     assert_eq!(
         s.add_material_once(&upload, &generation, &request)
@@ -417,6 +433,9 @@ fn upload_failure_before_commit_can_be_confirmed_absent_then_retried() {
             .id,
         request
     );
-    assert_eq!(s.material_entries().unwrap().len(), 9);
+    assert_eq!(
+        s.material_entries().unwrap().len(),
+        materials::catalog().unwrap().len() + 1
+    );
     assert!(s.material_upload_result("../bad", &generation).is_err());
 }

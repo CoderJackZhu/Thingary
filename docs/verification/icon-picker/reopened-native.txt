@@ -1,0 +1,91 @@
+Window: "物志 · 图标隔离验收", App: Possio Icon Acceptance.
+0 standard window 物志 · 图标隔离验收, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: 物志, URL: tauri://localhost
+			3 container
+				4 text 物志 POSSIO
+				5 container 主导航
+					6 button 总览
+					7 text 我的物品
+					8 button 全部资产
+					9 button 使用中
+					10 button 已退役
+					11 button 已售出
+					12 text 记录与回顾
+					13 button 心愿清单
+					14 button 时间轴
+					15 button 统计
+				16 container 资料管理
+					17 button 素材库
+					18 button 最近删除
+					19 button 设置
+				20 container 切换外观
+					21 toggle button 浅色模式, Value: on
+					22 toggle button 深色模式, Value: off
+				23 container 本地档案 · 仅保存在这台 Mac
+					24 text 本地档案 · 仅本机
+			25 container
+				26 text 我的物品 ／ 全部资产
+				27 text field (settable) 搜索物品
+				28 text ⌘F
+				29 button 新增资产
+				30 heading 全部资产, Value: 1
+					31 text 全部资产
+				32 text 物品的来历、成本与每次变化，都在这里。
+				33 text 我的资产档案
+				34 text 截至  2026 / 09 / 27
+				35 container 当前结果概览
+					36 text 本页当前持有
+					37 text 1件物品
+					38 text 使用中 1 · 已退役 0
+					39 text 本页持有物购入金额
+					40 text 待补充
+					41 text 1 件金额未知，未计入 · 不含已售出
+					42 text 本页已售出
+					43 text 0件物品
+					44 text 档案与来历仍然保留
+				45 text 1 件物品
+				46 toggle button 列表视图, Value: on
+				47 toggle button 网格视图, Value: off
+				48 summary 筛选与排序, Value: off
+					49 text 筛选与排序
+				50 container 物品列表
+					51 text 物品 购入日期
+					52 button 按购入金额排序
+					53 text 状态
+					54 toggle button 查看 图标验收虚构设备, Value: on
+				55 text 1  件物品 双击或按回车，打开完整档案
+				56 container 资产摘要
+					57 text 物品摘要
+					58 button 收起资产摘要
+					59 image 笔记本电脑示意图（非实物照片）
+					60 heading 图标验收虚构设备, Value: 2
+						61 text 图标验收虚构设备
+					62 container
+						63 text 资料可以慢慢补全 ·  使用中
+					64 text 日均持有成本
+					65 text 待补充
+					66 text 购入与已记录维护费用 ÷ 持有天数
+					67 description list
+						68 text 购入金额
+						69 text 待补充
+						70 text 购入日期
+						71 text 2026-09-27
+						72 text 持有时长
+						73 text 1 天
+						74 text 维护投入
+						75 text ¥0.00
+					76 container
+						77 button 打开完整档案
+						78 button 编辑资料 ⌘E
+	79 close button
+	80 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	81 minimize button
+	82 text 物志 · 图标隔离验收
+83 menu bar
+	84 Possio Icon Acceptance
+	85 文件
+	86 编辑
+	87 窗口
+
+The focused UI element is 2 HTML content Description: 物志, URL: tauri://localhost

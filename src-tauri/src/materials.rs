@@ -31,19 +31,7 @@ pub fn catalog() -> Result<Vec<Material>> {
         .map_err(|_| Error::new("MATERIAL", "素材清单不可用"))
 }
 // Unknown, blank or traversal-like ids match no arm and are rejected.
-fn artwork(id: &str) -> Option<&'static [u8]> {
-    Some(match id {
-        "laptop" => include_bytes!("../materials/laptop.png"),
-        "camera" => include_bytes!("../materials/camera.png"),
-        "headphones" => include_bytes!("../materials/headphones.png"),
-        "phone" => include_bytes!("../materials/phone.png"),
-        "tablet" => include_bytes!("../materials/tablet.png"),
-        "keyboard" => include_bytes!("../materials/keyboard.png"),
-        "coffee" => include_bytes!("../materials/coffee.png"),
-        "box" => include_bytes!("../materials/box.png"),
-        _ => return None,
-    })
-}
+include!("material_artwork.rs");
 pub fn builtin(id: &str) -> Option<MaterialAsset> {
     let material = catalog().ok()?.into_iter().find(|m| m.id == id)?;
     Some(MaterialAsset {

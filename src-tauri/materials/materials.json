@@ -1,10 +1,458 @@
 [
-  { "id": "laptop", "name": "电脑" },
-  { "id": "camera", "name": "相机" },
-  { "id": "headphones", "name": "耳机" },
-  { "id": "phone", "name": "手机" },
-  { "id": "tablet", "name": "平板" },
-  { "id": "keyboard", "name": "键盘" },
-  { "id": "coffee", "name": "咖啡机" },
-  { "id": "box", "name": "通用物品" }
+  {
+    "id": "laptop",
+    "name": "电脑",
+    "style": "dimensional",
+    "category": "数码",
+    "keywords": "笔记本 laptop MacBook"
+  },
+  {
+    "id": "camera",
+    "name": "相机",
+    "style": "dimensional",
+    "category": "数码",
+    "keywords": ""
+  },
+  {
+    "id": "headphones",
+    "name": "耳机",
+    "style": "dimensional",
+    "category": "数码",
+    "keywords": ""
+  },
+  {
+    "id": "phone",
+    "name": "手机",
+    "style": "dimensional",
+    "category": "数码",
+    "keywords": ""
+  },
+  {
+    "id": "tablet",
+    "name": "平板",
+    "style": "dimensional",
+    "category": "数码",
+    "keywords": ""
+  },
+  {
+    "id": "keyboard",
+    "name": "键盘",
+    "style": "dimensional",
+    "category": "数码",
+    "keywords": ""
+  },
+  {
+    "id": "coffee",
+    "name": "咖啡机",
+    "style": "dimensional",
+    "category": "家电",
+    "keywords": ""
+  },
+  {
+    "id": "box",
+    "name": "通用物品",
+    "style": "dimensional",
+    "category": "通用",
+    "keywords": ""
+  },
+  {
+    "id": "icon-box",
+    "name": "默认图标",
+    "style": "icon",
+    "category": "通用",
+    "keywords": "箱子 默认 通用",
+    "shape": "<path d=\"M12 21 32 11l20 10v24L32 55 12 45Z M12 21l20 10 20-10M32 31v24M22 16l20 10v9\"/>"
+  },
+  {
+    "id": "icon-phone",
+    "name": "手机",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "电话 iPhone smartphone",
+    "shape": "<rect x=\"21\" y=\"8\" width=\"22\" height=\"48\" rx=\"5\"/><path d=\"M28 13h8M29 50h6\"/>"
+  },
+  {
+    "id": "icon-laptop",
+    "name": "笔记本电脑",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "电脑 laptop MacBook",
+    "shape": "<rect x=\"13\" y=\"13\" width=\"38\" height=\"29\" rx=\"3\"/><path d=\"M13 42 7 51h50l-6-9M25 47h14\"/>"
+  },
+  {
+    "id": "icon-tablet",
+    "name": "平板",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "iPad tablet",
+    "shape": "<rect x=\"14\" y=\"8\" width=\"36\" height=\"48\" rx=\"5\"/><path d=\"M28 50h8M30 13h4\"/>"
+  },
+  {
+    "id": "icon-desktop",
+    "name": "台式电脑",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "电脑 PC",
+    "shape": "<rect x=\"7\" y=\"16\" width=\"33\" height=\"26\" rx=\"2\"/><path d=\"M23 42v9M15 51h16\"/><rect x=\"46\" y=\"12\" width=\"12\" height=\"40\" rx=\"2\"/><path d=\"M49 18h6M49 23h6M51 45h2\"/>"
+  },
+  {
+    "id": "icon-watch",
+    "name": "手表",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "智能手表 watch",
+    "shape": "<rect x=\"19\" y=\"18\" width=\"26\" height=\"28\" rx=\"7\"/><path d=\"m24 18 2-11h12l2 11M24 46l2 11h12l2-11M32 25v8l6 4M45 28h4v6h-4\"/>"
+  },
+  {
+    "id": "icon-headphones",
+    "name": "耳机",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "耳麦 headset 音频",
+    "shape": "<path d=\"M13 36v-8a19 19 0 0 1 38 0v8M13 30h8v20h-8a4 4 0 0 1-4-4V34a4 4 0 0 1 4-4ZM51 30h-8v20h8a4 4 0 0 0 4-4V34a4 4 0 0 0-4-4Z\"/>"
+  },
+  {
+    "id": "icon-camera",
+    "name": "相机",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "摄影 单反 camera",
+    "shape": "<path d=\"m21 20 4-7h14l4 7h10a4 4 0 0 1 4 4v23a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4Z\"/><circle cx=\"32\" cy=\"35\" r=\"11\"/><circle cx=\"32\" cy=\"35\" r=\"6\"/><path d=\"M47 26h3\"/>"
+  },
+  {
+    "id": "icon-keyboard",
+    "name": "键盘",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "机械键盘 keyboard",
+    "shape": "<rect x=\"6\" y=\"19\" width=\"52\" height=\"29\" rx=\"4\"/><path d=\"M13 27h2m6 0h2m6 0h2m6 0h2m6 0h2m6 0h1M13 34h2m6 0h2m6 0h2m6 0h2m6 0h8M15 41h3m6 0h19m6 0h3\"/>"
+  },
+  {
+    "id": "icon-mouse",
+    "name": "鼠标",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "mouse",
+    "shape": "<rect x=\"19\" y=\"10\" width=\"26\" height=\"45\" rx=\"13\"/><path d=\"M32 10v19M19 30h26M32 17v5\"/>"
+  },
+  {
+    "id": "icon-microphone",
+    "name": "麦克风",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "录音 话筒 mic",
+    "shape": "<rect x=\"24\" y=\"8\" width=\"16\" height=\"29\" rx=\"8\"/><path d=\"M17 28v3a15 15 0 0 0 30 0v-3M32 46v9M22 55h20M25 17h6M25 23h6\"/>"
+  },
+  {
+    "id": "icon-console",
+    "name": "游戏机",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "主机 PlayStation Xbox Switch",
+    "shape": "<path d=\"M23 10h20l-3 44H20Z M30 10l-3 44M37 17v20\"/><path d=\"M10 39h5v15h-5Z M46 41h9v13h-9Z M49 45h3\"/>"
+  },
+  {
+    "id": "icon-gamepad",
+    "name": "游戏手柄",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "游戏 controller",
+    "shape": "<path d=\"M21 20h22c8 0 10 6 12 15l2 10c1 9-7 11-12 4l-5-6H24l-5 6c-5 7-13 5-12-4l2-10c2-9 4-15 12-15Z M18 26v12M12 32h12M43 28h1M49 34h1\"/>"
+  },
+  {
+    "id": "icon-radio",
+    "name": "收音机",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "音频 广播",
+    "shape": "<rect x=\"9\" y=\"23\" width=\"46\" height=\"30\" rx=\"4\"/><path d=\"M14 23 43 8M38 31h10M38 38h10\"/><circle cx=\"24\" cy=\"38\" r=\"9\"/><circle cx=\"43\" cy=\"46\" r=\"2\"/>"
+  },
+  {
+    "id": "icon-webcam",
+    "name": "摄像头",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "网络 摄像 监控",
+    "shape": "<rect x=\"12\" y=\"12\" width=\"40\" height=\"27\" rx=\"10\"/><circle cx=\"32\" cy=\"25\" r=\"8\"/><path d=\"M32 39v9M21 53l3-5h16l3 5ZM46 25h1\"/>"
+  },
+  {
+    "id": "icon-camcorder",
+    "name": "摄像机",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "摄影 录像 DV",
+    "shape": "<rect x=\"7\" y=\"22\" width=\"34\" height=\"26\" rx=\"4\"/><path d=\"m41 30 15-8v26l-15-8M16 22v-8h18v8M13 41h8\"/>"
+  },
+  {
+    "id": "icon-battery",
+    "name": "电池",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "电量 battery",
+    "shape": "<rect x=\"19\" y=\"13\" width=\"26\" height=\"43\" rx=\"4\"/><path d=\"M27 13V8h10v5M26 25h12M32 19v12M26 45h12\"/>"
+  },
+  {
+    "id": "icon-cpu",
+    "name": "CPU",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "处理器 芯片",
+    "shape": "<rect x=\"17\" y=\"17\" width=\"30\" height=\"30\" rx=\"3\"/><rect x=\"24\" y=\"24\" width=\"16\" height=\"16\" rx=\"1\"/><path d=\"M23 8v9M32 8v9M41 8v9M23 47v9M32 47v9M41 47v9M8 23h9M8 32h9M8 41h9M47 23h9M47 32h9M47 41h9\"/>"
+  },
+  {
+    "id": "icon-floppy",
+    "name": "软盘",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "存储 磁盘",
+    "shape": "<path d=\"M12 9h34l7 7v39H12ZM20 9v17h23V9M21 55V36h23v19M36 14v7\"/>"
+  },
+  {
+    "id": "icon-gpu",
+    "name": "显卡",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "GPU 图形卡",
+    "shape": "<rect x=\"10\" y=\"20\" width=\"45\" height=\"26\" rx=\"2\"/><circle cx=\"25\" cy=\"33\" r=\"8\"/><circle cx=\"44\" cy=\"33\" r=\"6\"/><path d=\"M6 15v38M6 22h4M17 46v6h26v-6M24 25v16M17 33h16\"/>"
+  },
+  {
+    "id": "icon-hdd",
+    "name": "机械硬盘",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "硬盘 HDD 存储",
+    "shape": "<rect x=\"14\" y=\"8\" width=\"36\" height=\"48\" rx=\"3\"/><circle cx=\"31\" cy=\"29\" r=\"12\"/><circle cx=\"31\" cy=\"29\" r=\"3\"/><path d=\"m44 47-13-18M20 51h8M43 14h1\"/>"
+  },
+  {
+    "id": "icon-ram",
+    "name": "内存条",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "RAM 内存",
+    "shape": "<path d=\"M7 20h50v25H7ZM12 45v7h16v-7m7 0v7h17v-7\"/><rect x=\"13\" y=\"26\" width=\"8\" height=\"12\"/><rect x=\"28\" y=\"26\" width=\"8\" height=\"12\"/><rect x=\"43\" y=\"26\" width=\"8\" height=\"12\"/>"
+  },
+  {
+    "id": "icon-monitor",
+    "name": "显示器",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "屏幕 monitor",
+    "shape": "<rect x=\"7\" y=\"12\" width=\"50\" height=\"33\" rx=\"3\"/><path d=\"M7 38h50M32 45v9M22 54h20\"/>"
+  },
+  {
+    "id": "icon-motherboard",
+    "name": "主板",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "电脑 配件",
+    "shape": "<rect x=\"12\" y=\"7\" width=\"40\" height=\"50\" rx=\"2\"/><rect x=\"20\" y=\"16\" width=\"16\" height=\"16\"/><path d=\"M43 14v24M47 14v24M20 40h16M20 46h23M20 51h23M12 14H8v14h4\"/><circle cx=\"44\" cy=\"48\" r=\"4\"/>"
+  },
+  {
+    "id": "icon-ssd",
+    "name": "固态硬盘",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "SSD 存储",
+    "shape": "<rect x=\"10\" y=\"20\" width=\"44\" height=\"25\" rx=\"3\"/><path d=\"M54 27h5v12h-5M16 45v5h31v-5\"/><rect x=\"17\" y=\"26\" width=\"10\" height=\"12\"/><rect x=\"33\" y=\"26\" width=\"10\" height=\"12\"/>"
+  },
+  {
+    "id": "icon-case",
+    "name": "机箱",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "电脑 主机",
+    "shape": "<rect x=\"17\" y=\"8\" width=\"30\" height=\"47\" rx=\"3\"/><path d=\"M22 15h20M22 21h20M22 55v3M42 55v3M39 28h2\"/><circle cx=\"32\" cy=\"41\" r=\"8\"/><path d=\"M32 36v10M27 41h10\"/>"
+  },
+  {
+    "id": "icon-power",
+    "name": "电源",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "电脑 配件 供电",
+    "shape": "<rect x=\"9\" y=\"17\" width=\"36\" height=\"34\" rx=\"3\"/><circle cx=\"27\" cy=\"34\" r=\"11\"/><path d=\"M27 27v14M20 34h14M45 28h6v-9h7M54 14v10M58 14v10\"/>"
+  },
+  {
+    "id": "icon-actioncam",
+    "name": "便携运动相机",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "GoPro 运动摄像",
+    "shape": "<rect x=\"9\" y=\"17\" width=\"46\" height=\"31\" rx=\"5\"/><circle cx=\"41\" cy=\"30\" r=\"9\"/><rect x=\"15\" y=\"25\" width=\"12\" height=\"15\" rx=\"2\"/><path d=\"M26 48v7h12v-7M14 17v-4h12v4\"/>"
+  },
+  {
+    "id": "icon-drone",
+    "name": "无人机",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "飞行 航拍",
+    "shape": "<path d=\"M25 26h14v13H25ZM25 26 15 16M39 26l10-10M25 39 15 49M39 39l10 10M29 39v8h6v-8\"/><ellipse cx=\"13\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse cx=\"51\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse cx=\"13\" cy=\"49\" rx=\"10\" ry=\"5\"/><ellipse cx=\"51\" cy=\"49\" rx=\"10\" ry=\"5\"/>"
+  },
+  {
+    "id": "icon-ultrabook",
+    "name": "轻薄笔记本",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "电脑 MacBook Air laptop",
+    "shape": "<path d=\"M12 14h40v27H12ZM5 48h54l-8 4H13ZM18 20h28M12 41l-7 7M52 41l7 7\"/>"
+  },
+  {
+    "id": "icon-gimbal",
+    "name": "口袋云台相机",
+    "style": "icon",
+    "category": "数码",
+    "keywords": "大疆 DJI Pocket 录像",
+    "shape": "<rect x=\"25\" y=\"29\" width=\"14\" height=\"28\" rx=\"4\"/><rect x=\"24\" y=\"8\" width=\"20\" height=\"15\" rx=\"4\"/><circle cx=\"34\" cy=\"15\" r=\"4\"/><path d=\"M24 15h-6v14h14M29 36h6M31 47h2\"/>"
+  },
+  {
+    "id": "icon-tv",
+    "name": "电视",
+    "style": "icon",
+    "category": "家电",
+    "keywords": "电视机 TV",
+    "shape": "<rect x=\"7\" y=\"13\" width=\"50\" height=\"33\" rx=\"3\"/><path d=\"m20 46-5 8M44 46l5 8M14 39h36\"/>"
+  },
+  {
+    "id": "icon-fridge",
+    "name": "冰箱",
+    "style": "icon",
+    "category": "家电",
+    "keywords": "冷藏 refrigerator",
+    "shape": "<rect x=\"17\" y=\"6\" width=\"30\" height=\"51\" rx=\"4\"/><path d=\"M17 25h30M23 14v6M23 32v12M22 57v2M42 57v2\"/>"
+  },
+  {
+    "id": "icon-rice",
+    "name": "电饭煲",
+    "style": "icon",
+    "category": "厨具",
+    "keywords": "煮饭 厨房 家电",
+    "shape": "<path d=\"M15 25a17 17 0 0 1 34 0M10 25h44v22a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8ZM24 10h16M6 32h4M54 32h4\"/><rect x=\"24\" y=\"36\" width=\"16\" height=\"10\" rx=\"2\"/>"
+  },
+  {
+    "id": "icon-microwave",
+    "name": "微波炉",
+    "style": "icon",
+    "category": "厨具",
+    "keywords": "厨房 家电",
+    "shape": "<rect x=\"6\" y=\"16\" width=\"52\" height=\"33\" rx=\"3\"/><rect x=\"12\" y=\"22\" width=\"31\" height=\"21\" rx=\"2\"/><circle cx=\"51\" cy=\"28\" r=\"3\"/><path d=\"M49 37h4M49 42h4M14 49v4M50 49v4\"/>"
+  },
+  {
+    "id": "icon-hood",
+    "name": "油烟机",
+    "style": "icon",
+    "category": "厨具",
+    "keywords": "抽油烟机 厨房 家电",
+    "shape": "<path d=\"M24 7h16v20l17 13v9H7v-9l17-13ZM7 40h50M17 45h1M23 45h1M29 45h1M32 52v7\"/>"
+  },
+  {
+    "id": "icon-aircon",
+    "name": "空调",
+    "style": "icon",
+    "category": "家电",
+    "keywords": "冷气 air conditioner",
+    "shape": "<rect x=\"6\" y=\"13\" width=\"52\" height=\"24\" rx=\"5\"/><path d=\"M12 29h40M46 20h6M19 43v9M32 43v14M45 43v9\"/>"
+  },
+  {
+    "id": "icon-dishwasher",
+    "name": "洗碗机",
+    "style": "icon",
+    "category": "厨具",
+    "keywords": "厨房 家电",
+    "shape": "<rect x=\"12\" y=\"8\" width=\"40\" height=\"49\" rx=\"3\"/><path d=\"M12 21h40M20 15h1M26 15h1M36 15h9M19 29h26M20 48h24\"/><path d=\"M23 33v10M31 33v10M39 33v10\"/>"
+  },
+  {
+    "id": "icon-fan",
+    "name": "电风扇",
+    "style": "icon",
+    "category": "家电",
+    "keywords": "风扇 夏天",
+    "shape": "<circle cx=\"32\" cy=\"25\" r=\"19\"/><circle cx=\"32\" cy=\"25\" r=\"4\"/><path d=\"M32 21c-12-14 13-16 4 1M36 25c17-3 9 18-3 4M29 28c-4 16-18 0-2-4M32 44v10M20 57h24M26 54h12\"/>"
+  },
+  {
+    "id": "icon-waterheater",
+    "name": "电热水器",
+    "style": "icon",
+    "category": "家电",
+    "keywords": "热水 卫浴",
+    "shape": "<rect x=\"8\" y=\"13\" width=\"48\" height=\"30\" rx=\"13\"/><path d=\"M19 43v11M25 43v8M39 43v8M45 43v11M17 54h4M43 54h4\"/><circle cx=\"41\" cy=\"27\" r=\"6\"/>"
+  },
+  {
+    "id": "icon-oven",
+    "name": "烤箱",
+    "style": "icon",
+    "category": "厨具",
+    "keywords": "厨房 烘焙 家电",
+    "shape": "<rect x=\"9\" y=\"9\" width=\"46\" height=\"47\" rx=\"3\"/><path d=\"M9 22h46M17 16h1M25 16h1M40 16h7\"/><rect x=\"16\" y=\"29\" width=\"32\" height=\"21\" rx=\"2\"/><path d=\"M22 33h20\"/>"
+  },
+  {
+    "id": "icon-pan",
+    "name": "平底锅",
+    "style": "icon",
+    "category": "厨具",
+    "keywords": "锅 厨房 煎锅",
+    "shape": "<circle cx=\"27\" cy=\"36\" r=\"18\"/><circle cx=\"27\" cy=\"36\" r=\"12\"/><path d=\"m40 23 13-14 5 5-14 13\"/>"
+  },
+  {
+    "id": "icon-stove",
+    "name": "煤气灶",
+    "style": "icon",
+    "category": "厨具",
+    "keywords": "燃气灶 厨房",
+    "shape": "<rect x=\"6\" y=\"17\" width=\"52\" height=\"34\" rx=\"4\"/><circle cx=\"21\" cy=\"32\" r=\"9\"/><circle cx=\"44\" cy=\"32\" r=\"9\"/><path d=\"M21 19v6M21 39v6M8 32h6M28 32h6M44 19v6M44 39v6M37 32h-6M51 32h6M25 46h1M38 46h1\"/>"
+  },
+  {
+    "id": "icon-sofa",
+    "name": "沙发",
+    "style": "icon",
+    "category": "家居",
+    "keywords": "家具 客厅",
+    "shape": "<path d=\"M13 29V20a7 7 0 0 1 7-7h24a7 7 0 0 1 7 7v9M8 28h7v12h34V28h7v22H8ZM14 50v6M50 50v6M32 13v27\"/>"
+  },
+  {
+    "id": "icon-lamp",
+    "name": "台灯",
+    "style": "icon",
+    "category": "家居",
+    "keywords": "灯 照明 办公",
+    "shape": "<path d=\"M22 9h20l10 23H12ZM32 32v22M20 55h24M40 32v9\"/>"
+  },
+  {
+    "id": "icon-printer",
+    "name": "打印机",
+    "style": "icon",
+    "category": "办公",
+    "keywords": "打印 复印",
+    "shape": "<path d=\"M18 23V8h28v15M18 46H9V24h46v22h-9M18 36h28v21H18ZM24 42h16M24 49h16M46 29h2\"/>"
+  },
+  {
+    "id": "icon-bike",
+    "name": "自行车",
+    "style": "icon",
+    "category": "交通",
+    "keywords": "单车 骑行 运动",
+    "shape": "<circle cx=\"15\" cy=\"43\" r=\"11\"/><circle cx=\"50\" cy=\"43\" r=\"11\"/><path d=\"m15 43 13-21 11 21H15M28 22h16l6 21M39 43l8-29h7M23 17h10\"/>"
+  },
+  {
+    "id": "icon-car",
+    "name": "汽车",
+    "style": "icon",
+    "category": "交通",
+    "keywords": "车 出行",
+    "shape": "<path d=\"m12 30 6-15h28l6 15M8 30h48v20H8ZM8 40h48M15 50v6M49 50v6M14 35h7M43 35h7\"/>"
+  },
+  {
+    "id": "icon-ball",
+    "name": "篮球",
+    "style": "icon",
+    "category": "运动",
+    "keywords": "球 体育",
+    "shape": "<circle cx=\"32\" cy=\"32\" r=\"24\"/><path d=\"M8 32h48M32 8v48M15 15c22 9 12 23 34 34M49 15c-22 9-12 23-34 34\"/>"
+  },
+  {
+    "id": "icon-dumbbell",
+    "name": "哑铃",
+    "style": "icon",
+    "category": "运动",
+    "keywords": "健身 力量",
+    "shape": "<path d=\"M24 27h16v10H24ZM15 17h9v30h-9ZM40 17h9v30h-9ZM8 24h7v16H8ZM49 24h7v16h-7Z\"/>"
+  }
 ]

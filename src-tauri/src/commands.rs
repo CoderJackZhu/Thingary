@@ -225,6 +225,23 @@ pub async fn pick_photo(
     .await
     .map_err(|_| Error::new("WORKER", "图片未能读取，请重新选择"))?
 }
+#[tauri::command]
+pub async fn import_photo_bytes(
+    name: String,
+    bytes: Vec<u8>,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::photos::Photo> {
+    if bytes.len() > crate::files::MAX_IMAGE_BYTES {
+        return Err(Error::new("IMAGE_SIZE", "请选择不超过 20 MiB 的图片"));
+    }
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.stage_photo(&name, &bytes, &generation, None))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "图片未能读取，请重新选择"))?
+}
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PrepareMaterial {

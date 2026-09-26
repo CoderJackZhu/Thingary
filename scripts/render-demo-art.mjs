@@ -11,7 +11,7 @@ const sharp = require(process.argv[2] || 'sharp');
 const materials = JSON.parse(await readFile(new URL('../src-tauri/materials/materials.json', import.meta.url), 'utf8'));
 const output = new URL('../src-tauri/materials/', import.meta.url);
 await mkdir(output, { recursive: true });
-for (const material of materials) {
+for (const material of materials.filter(m => m.style !== 'icon')) {
   await sharp(Buffer.from(objectArt(material.id)), { density: 144 }).png().toFile(fileURLToPath(new URL(material.id + '.png', output)));
 }
 console.log(`Rendered ${materials.length} original illustrations.`);

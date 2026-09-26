@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, inputMoney, localDay, money, validate } from './asset';
 import { PhotoView } from './Photos';
-import { MaterialThumb } from './MaterialLibrary';
-import { materialActionLabel } from './materials';
-import type { MaterialEntry } from './materials';
+import { DefaultAssetIcon, IconPicker, type IconChoice } from './IconPicker';
+import { replaceDraftCover } from './asset-media';
 import { CategorySelect, ChannelSelect } from './TaxonomyFields';
 import { DateInput } from './DateInput';
 import type { TaxonomySnapshot } from './taxonomy';
@@ -15,14 +14,18 @@ export const draftKey = 'possio.asset-draft.v1';
 // Older drafts predate photoErrorKind; a missing kind means the file picker flow.
 // A conversion draft creates the asset through convert_wishlist; the estimate is shown, never copied into the price.
 export type Conversion = { wishlist_id: string; expected_revision: number; wish_name: string; estimated_price_cents: string | null; cover_notice?: string };
-export type Draft = { conversion?: Conversion; classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
+export type Draft = { transientCover?: string; conversion?: Conversion; classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
 export type CloseIntent = 'form' | 'window' | 'quit';
 export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, onSaved }: { initial: Draft; taxonomy: TaxonomySnapshot | null; closeIntent: CloseIntent | null; onKeep: () => void; onClose: (intent: CloseIntent) => void; onSaved: (record: AssetRecord) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
-  const [library, setLibrary] = useState<MaterialEntry[] | null>(null);
-  const [libraryError, setLibraryError] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerWasOpen = useRef(false);
+  useLayoutEffect(() => {
+    if (!pickerOpen && pickerWasOpen.current) dialog.current?.querySelector<HTMLButtonElement>('.asset-avatar-button')?.focus();
+    pickerWasOpen.current = pickerOpen;
+  }, [pickerOpen]);
   const [moreOpen, setMoreOpen] = useState(() => ['brand', 'model', 'serial_number', 'notes'].some(k => !!initial.fields[k as keyof Fields]) || !!initial.classification?.channel_id);
   const lock = useRef(false);
   const [notice, setNotice] = useState(initial.pending ? '上次提交结果待核对，请先检查，避免重复建档。' : initial.conversion?.cover_notice ?? '');
@@ -51,29 +54,25 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
     lock.current = true; setBusy(true);
     try {
       const photo = await invoke<Photo | null>('pick_photo', { generation: draft.generation, repair: null });
-      if (photo && media({ ...draft, photos: [...photos, photo], cover: photos.length === 0 ? photo.id : draft.cover, photoError: '', photoErrorKind: undefined })) setNotice('图片已准备好，将随资料一起保存。');
+      if (photo && media({ ...draft, photos: [...photos, photo], cover: draft.cover, photoError: '', photoErrorKind: undefined })) setNotice('图片已准备好，将随资料一起保存。');
     } catch (e) { media({ ...draft, photoError: errorMessage(e), photoErrorKind: 'file' }); }
     finally { lock.current = false; setBusy(false); }
   }
-  // The flat thumbnail grid loads with the form; failures keep the upload
-  // entry usable and never block text-only saving.
-  useEffect(() => {
-    let live = true;
-    invoke<MaterialEntry[]>('list_materials').then(entries => { if (live) { setLibrary(entries); setLibraryError(''); } }).catch(e => { if (live) setLibraryError(errorMessage(e)); });
-    return () => { live = false; };
-  }, []);
-  async function addMaterial(entry: MaterialEntry) {
-    if (lock.current || busy || photos.length >= 20) return;
+  function openPicker() { setPickerOpen(true); }
+  function closePicker() {
+    setPickerOpen(false);
+  }
+  async function applyIcon(choice: IconChoice) {
+    if (lock.current || draft.pending) throw new Error('请先完成当前操作。');
     lock.current = true; setBusy(true);
     try {
-      const photo = await invoke<Photo>('prepare_material', { input: { id: entry.id, generation: draft.generation } });
-      if (media({ ...draft, photos: [...photos, photo], cover: photos.length === 0 ? photo.id : draft.cover, photoError: '', photoErrorKind: undefined })) setNotice('素材已准备好，将随资料一起保存。');
-    } catch (e) {
-      // Keep inputs and existing photos; the visible grid is the retry path.
-      media({ ...draft, photoError: errorMessage(e), photoErrorKind: 'material' });
+      const photo = choice.kind === 'default' ? null : choice.kind === 'photo' ? choice.photo : await invoke<Photo>('prepare_material', { input: { id: choice.entry.id, generation: draft.generation } });
+      const next = replaceDraftCover(photos, draft.transientCover, photo, !!photo && !photos.some(p => p.id === photo.id));
+      if (media({ ...draft, ...next, ...(draft.photoErrorKind === 'material' ? { photoError: '', photoErrorKind: undefined } : {}) })) setNotice('物品图标已选择，保存资产后生效。');
     } finally { lock.current = false; setBusy(false); }
   }
   function askClose(intent: CloseIntent) {
+    if (pickerOpen) { setNotice('请先完成或取消图标选择，再关闭表单。'); onKeep(); return; }
     if (lock.current || draft.pending) { setNotice('请先核对这次保存结果，再关闭表单。'); onKeep(); return; }
     if (dirty) setConfirm(intent); else onClose(intent);
   }
@@ -132,26 +131,23 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       <small id="help-date" className={errors.date ? 'error' : ''}>{errors.date || hint}</small>
     </div>;
     return <label className={'field ' + (key === 'name' || key === 'notes' ? 'wide' : '')} htmlFor={'field-' + key} key={key}>
-      <span>{label}</span>{key === 'notes' ? <textarea id={'field-' + key} rows={4} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key}/> : <input id={'field-' + key} autoFocus={key === 'name'} type={type} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key} autoComplete="off"/>}
+      <span>{label}</span>{key === 'notes' ? <textarea id={'field-' + key} rows={4} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key}/> : <input id={'field-' + key} autoFocus={key === 'name'} type={type} placeholder={key === 'name' ? '请输入物品名称' : undefined} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key} autoComplete="off"/>}
       <small id={'help-' + key} className={errors[key] ? 'error' : ''}>{errors[key] || hint}</small>
     </label>;
   }
-  return <dialog ref={dialog} className="editor asset-editor" aria-labelledby="editor-title" onCancel={e => { e.preventDefault(); askClose('form'); }}>
-    <form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
+  const coverPhoto = photos.find(p => p.id === draft.cover);
+  const attachments = photos.filter(p => p.id !== draft.cover);
+  return <dialog ref={dialog} className={pickerOpen ? "icon-picker-host" : "editor asset-editor"} aria-labelledby={pickerOpen ? "icon-picker-title" : "editor-title"} onCancel={e => { e.preventDefault(); askClose('form'); }}>
+    <form hidden={pickerOpen} noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
       <header><div><p className="eyebrow">{conversion ? '心愿转为资产' : '物品档案'}</p><h2 id="editor-title">{conversion ? '确认购入' : draft.id ? '编辑资料' : '新增资产'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button></header>
       {conversion ? <p className="muted">由心愿「{conversion.wish_name}」转入。{conversion.estimated_price_cents === null ? '心愿未填预计价格。' : `预计 ${money(conversion.estimated_price_cents)} 仅作参考，不会当作实付金额。`}请填写实际购入金额和日期；留空表示未知，相关成本指标将无法计算。确认前心愿保持进行中。</p> : <p className="muted">只填写名称也可以。其余资料，想起时再补。</p>}
-      <div className="fields">{field('name', '名称（必填）')}{field('price', '购入金额（元）', '留空表示未知；0 表示确实免费。')}{field('date', '购入日期', '新增时预填今天；可选择其他日期，不确定时可清空。')}<div className="wide"><CategorySelect id="field-category" entries={taxonomy?.categories ?? []} value={draft.classification?.category_id ?? null} onChange={id => classify('category_id',id)} disabled={busy || !!draft.pending || !taxonomy}/></div>
+      <div className="asset-identity-editor"><button type="button" className="asset-avatar-button" aria-label="选择物品图标" title="选择物品图标" disabled={busy || !!draft.pending} onClick={openPicker}>{coverPhoto ? <PhotoView photo={coverPhoto} generation={draft.generation}/> : <DefaultAssetIcon/>}<span className="avatar-edit">更换图标</span></button>{field('name', '物品名称')}</div>
+      <div className="fields">{field('price', '购入金额（元）', '留空表示未知；0 表示确实免费。')}{field('date', '购入日期', '新增时预填今天；可选择其他日期，不确定时可清空。')}<div className="wide"><CategorySelect id="field-category" entries={taxonomy?.categories ?? []} value={draft.classification?.category_id ?? null} onChange={id => classify('category_id',id)} disabled={busy || !!draft.pending || !taxonomy}/></div>
       </div>
-      <section className="photo-section" aria-labelledby="photo-title"><div className="photo-heading"><h3 id="photo-title">封面与图片</h3><div className="photo-entry-actions"><button type="button" disabled={busy || !!draft.pending || photos.length >= 20} onClick={() => void pickPhoto()}>导入自己的图片（可选）</button></div></div>
-        <p className="muted small">点击素材图片即可加入；内置素材为示意图，非实物照片。更多素材可在左侧“素材库”上传。最多 20 张，每张 20 MiB。</p>
-        {library ? <div className="material-grid flat" role="list" aria-label="素材图片">
-          {library.map(entry => <div role="listitem" key={entry.id}>
-            <MaterialThumb id={entry.id} generation={draft.generation} alt={materialActionLabel(entry)} disabled={busy || !!draft.pending || photos.length >= 20} onSelect={() => void addMaterial(entry)}/>
-          </div>)}
-        </div> : <p className="muted small" role="status">{libraryError ? '素材暂不可用：' + libraryError : '正在读取素材…'}</p>}
-        <div className="photo-strip">{photos.map(photo => <div className="photo-tile" key={photo.id}><PhotoView photo={photo} generation={draft.generation}/><span className="photo-name">{photo.name}</span><div className="photo-actions"><button type="button" disabled={busy || !!draft.pending} aria-pressed={draft.cover === photo.id} onClick={() => media({ ...draft, cover: draft.cover === photo.id ? null : photo.id })}>{draft.cover === photo.id ? '✓ 封面' : '设为封面'}</button><button type="button" disabled={busy || !!draft.pending} aria-label={'移除图片 ' + photo.name} onClick={() => media({ ...draft, photos: photos.filter(p => p.id !== photo.id), cover: draft.cover === photo.id ? null : draft.cover })}>移除</button></div></div>)}</div>
-        {draft.photoError && <div role="alert" className="confirm"><p>{draft.photoError}。请重试，或明确取消这次选图后再保存。</p>{draft.photoErrorKind !== 'material' && <button type="button" disabled={busy} onClick={() => void pickPhoto()}>重新选择</button>}<button type="button" disabled={busy} onClick={() => media({ ...draft, photoError: '', photoErrorKind: undefined })}>{draft.photoErrorKind === 'material' ? '不使用这次未添加的素材' : '不使用这次未读取的图片'}</button></div>}
-      </section>
+      <details className="asset-attachments"><summary>图片附件<span>{attachments.length ? `${attachments.length} 张` : '实物照片、发票等，按需添加'}</span></summary><div className="photo-heading"><span className="muted small">图标与附件合计最多 20 张，每张 20 MiB。</span><button type="button" disabled={busy || !!draft.pending || photos.length >= 20} onClick={() => void pickPhoto()}>添加图片</button></div>
+        <div className="photo-strip">{attachments.map(photo => <div className="photo-tile" key={photo.id}><PhotoView photo={photo} generation={draft.generation}/><span className="photo-name">{photo.name}</span><div className="photo-actions"><button type="button" disabled={busy || !!draft.pending} onClick={() => media({ ...draft, cover: photo.id })}>用作物品图标</button><button type="button" disabled={busy || !!draft.pending} aria-label={'移除图片 ' + photo.name} onClick={() => media({ ...draft, photos: photos.filter(p => p.id !== photo.id) })}>移除</button></div></div>)}</div>
+      </details>
+        {draft.photoError && <div role="alert" className="confirm"><p>{draft.photoError}。请重试，或明确取消这次选图后再保存。</p><button type="button" disabled={busy} onClick={() => draft.photoErrorKind === 'material' ? openPicker() : void pickPhoto()}>重新选择</button><button type="button" disabled={busy} onClick={() => media({ ...draft, photoError: '', photoErrorKind: undefined })}>{draft.photoErrorKind === 'material' ? '不使用这次未添加的素材' : '不使用这次未读取的图片'}</button></div>}
       <details className="more-fields" open={moreOpen} onToggle={e => setMoreOpen(e.currentTarget.open)}><summary>更多资料<span>品牌、型号、渠道、序列号与备注</span></summary><div className="fields">{field('brand', '品牌')}{field('model', '型号')}{field('serial_number', '序列号')}<ChannelSelect id="field-channel" entries={taxonomy?.channels ?? []} value={draft.classification?.channel_id ?? null} onChange={id => classify('channel_id',id)} disabled={busy || !!draft.pending || !taxonomy}/>{field('notes', '备注')}</div></details>
       {notice && <p className="notice" role="status" aria-live="polite">{notice}</p>}
       {latest && <div className="confirm"><strong>当前已保存：{latest.asset.name}</strong><p>购入金额：{latest.asset.price_cents === null ? '待补充' : (Number(latest.asset.price_cents) / 100).toFixed(2)} 元；日期：{latest.asset.purchase_date || '待补充'}</p><p>品牌：{latest.details.brand || '待补充'}；型号：{latest.details.model || '待补充'}；序列号：{latest.details.serial_number || '待补充'}</p><p className="notes">备注：{latest.details.notes || '无'}</p><p>分类：{taxonomy?.categories.find(e => e.id === latest.classification?.category_id)?.name || '未分类'}；渠道：{taxonomy?.channels.find(e => e.id === latest.classification?.channel_id)?.name || '未记录'}</p><p>图片：{latest.photos.length} 张；确认替换时，将以表单中的图片和封面为准。</p><button type="button" onClick={() => { remember({ ...draft, revision: latest.asset.revision }); setConflict(false); setLatest(null); setNotice('已确认以表单中的输入替换该版本，请点击保存资料。'); }}>确认用我的输入替换此版本</button></div>}
@@ -160,5 +156,5 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
         {draft.pending ? <button type="button" className="primary" disabled={busy} onClick={() => void resolvePending()}>检查提交结果</button> : <><button type="button" disabled={busy} onClick={() => askClose('form')}>取消</button><button type="submit" className="primary" disabled={busy || conflict || !!draft.photoError}>{busy ? '正在保存…' : conversion ? '确认购入并建档' : '保存资产'}</button></>}
       </footer>}
     </form>
-  </dialog>;
+  {pickerOpen && <IconPicker generation={draft.generation} photos={photos} cover={draft.cover ?? null} onClose={closePicker} onUse={applyIcon}/>}</dialog>;
 }

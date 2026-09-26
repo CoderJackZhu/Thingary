@@ -1,25 +1,32 @@
-// Built-in material library (D13) plus user-uploaded materials (schema 9).
-// The built-in catalog is kept in sync with src-tauri/materials/materials.json
-// and the embedded PNGs by tests on both sides; extending the library only
-// adds entries and artwork, never form logic.
+import catalog from '../src-tauri/materials/materials.json' with { type: 'json' };
 import { objectArt } from './illustrations.ts';
-export type Material = { id: string; name: string };
+export type Material = { id: string; name: string; style: string; category: string; keywords: string; shape?: string };
 export type MaterialEntry = { id: string; name: string; builtin: boolean };
-export const MATERIALS: Material[] = [
-  { id: 'laptop', name: '电脑' },
-  { id: 'camera', name: '相机' },
-  { id: 'headphones', name: '耳机' },
-  { id: 'phone', name: '手机' },
-  { id: 'tablet', name: '平板' },
-  { id: 'keyboard', name: '键盘' },
-  { id: 'coffee', name: '咖啡机' },
-  { id: 'box', name: '通用物品' }
-];
+export const MATERIALS: Material[] = catalog;
+export const materialCategories = ['全部', '通用', '数码', '家电', '家居', '办公', '交通', '运动', '厨具'] as const;
+export type MaterialSource = 'icon' | 'dimensional' | 'recent' | 'custom';
 export function materialOf(id: string | null): Material | null { return id ? MATERIALS.find(m => m.id === id) ?? null : null; }
-export function materialArt(id: string): string { return objectArt(materialOf(id) ? id : 'box'); }
-export function materialPhotoName(material: Material): string { return `${material.name}示意图（非实物照片）`; }
-// The action label for picking a library tile; built-ins stay marked as
-// illustrations so the choice never claims to be a real photo.
+export function materialArt(id: string): string {
+  const m = materialOf(id);
+  if (!m?.shape) return objectArt(m?.id ?? 'box');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80"><rect width="80" height="80" rx="18" fill="#eef3f7"/><g transform="translate(8 8)" fill="none" stroke="#48627d" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${m.shape}</g></svg>`;
+}
+export function materialPhotoName(material: { name: string }): string { return `${material.name}示意图（非实物照片）`; }
 export function materialActionLabel(entry: MaterialEntry): string {
   return entry.builtin ? `添加素材：${entry.name}（示意图，非实物照片）` : `添加素材：${entry.name}`;
+}
+export function filterMaterials(entries: MaterialEntry[], source: MaterialSource, category: string, search: string, recent: string[]) {
+  const query = search.trim().toLocaleLowerCase();
+  const filtered = entries.filter(entry => {
+    const info = materialOf(entry.id);
+    const matchesSource = source === 'recent' ? recent.includes(entry.id) : source === 'custom' ? !entry.builtin : entry.builtin && info?.style === source;
+    return matchesSource && (category === '全部' || info?.category === category) && (!query || `${entry.name} ${info?.keywords ?? ''}`.toLocaleLowerCase().includes(query));
+  });
+  return source === 'recent' ? filtered.sort((a, b) => recent.indexOf(a.id) - recent.indexOf(b.id)) : filtered;
+}
+export function readRecentMaterials(storage: Pick<Storage, 'getItem'>, generation: string): string[] {
+  try { const value: unknown = JSON.parse(storage.getItem('possio.recent-materials.' + generation) || '[]'); return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(0, 24) : []; } catch { return []; }
+}
+export function rememberMaterial(storage: Pick<Storage, 'getItem' | 'setItem'>, generation: string, id: string) {
+  storage.setItem('possio.recent-materials.' + generation, JSON.stringify([id, ...readRecentMaterials(storage, generation).filter(x => x !== id)].slice(0, 24)));
 }

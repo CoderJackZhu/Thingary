@@ -14,7 +14,7 @@ import type { Maintenance, MaintenanceChange } from './maintenance';
 import type { Warranty, WarrantyChange } from './warranty';
 import { deriveStatus, summarizeWarranties } from './warranty';
 import { fixtureArt } from './visual-fixtures';
-import { MATERIALS, materialOf, materialPhotoName } from './materials';
+import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materials';
 import { previewRecord } from './preview-costs';
 import demoAssets from './demo-assets.json';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
@@ -96,12 +96,12 @@ function imageBytes(id: string): Promise<ArrayBuffer> {
   if (!images.has(key)) images.set(key, new Promise((resolve,reject) => {
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement('canvas'); canvas.width=480; canvas.height=360;
-      canvas.getContext('2d')!.drawImage(img,0,0,480,360);
+      const canvas = document.createElement('canvas'); canvas.width=materialOf(key)?.style === 'icon' ? 320 : 480; canvas.height=materialOf(key)?.style === 'icon' ? 320 : 360;
+      canvas.getContext('2d')!.drawImage(img,0,0,canvas.width,canvas.height);
       canvas.toBlob(blob => { if(blob) void blob.arrayBuffer().then(resolve); else reject(new Error('Fixture image failed')); },'image/png');
     };
     img.onerror = () => reject(new Error('Fixture illustration failed'));
-    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(fixtureArt(key));
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialOf(key) ? materialArt(key) : fixtureArt(key));
   }));
   return images.get(key)!;
 }
@@ -356,6 +356,13 @@ mockIPC(async (command,payload) => {
     const id = `material-${material.id}-${++materialSequence}`;
     stagedMaterials.set(id, { art: material.art, name: material.builtin ? materialPhotoName(materialOf(material.id)!) : material.name });
     return {id, name: stagedMaterials.get(id)!.name};
+  }
+  if (command === 'import_photo_bytes') {
+    if (args.generation !== generation) throw {code:'STALE_DATASET',message:'资料已切换。'};
+    const id = `uploaded-${++materialSequence}`;
+    stagedMaterials.set(id,{art:id,name:String(args.name)});
+    images.set(id,Promise.resolve(new Uint8Array(args.bytes as number[]).buffer));
+    return {id,name:String(args.name)};
   }
   if (command === 'pick_photo') throw {message:'图片选择请在原生 App 中验证，此页面仅使用虚构示意图。'};
   if (['set_appearance','set_editing','finish_close'].includes(command)) return null;

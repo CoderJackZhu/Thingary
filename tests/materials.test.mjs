@@ -12,8 +12,8 @@ test('material catalog equals the shipped manifest and embedded artwork', () => 
 });
 
 test('eight original illustrations keep stable ids and D13 names', () => {
-  assert.deepEqual(MATERIALS.map(m => m.id), ['laptop', 'camera', 'headphones', 'phone', 'tablet', 'keyboard', 'coffee', 'box']);
-  assert.deepEqual(MATERIALS.map(m => m.name), ['电脑', '相机', '耳机', '手机', '平板', '键盘', '咖啡机', '通用物品']);
+  assert.deepEqual(MATERIALS.slice(0, 8).map(m => m.id), ['laptop', 'camera', 'headphones', 'phone', 'tablet', 'keyboard', 'coffee', 'box']);
+  assert.deepEqual(MATERIALS.slice(0, 8).map(m => m.name), ['电脑', '相机', '耳机', '手机', '平板', '键盘', '咖啡机', '通用物品']);
   // The generic illustration must not claim a recorder look; ids are not category ids.
   assert.equal(materialOf('box').name, '通用物品');
   assert.notEqual(materialOf('phone').id, materialOf('tablet').id);
@@ -25,7 +25,7 @@ test('unknown material ids resolve to nothing and fall back to the generic art',
   assert.equal(materialOf('录音设备'), null);
   assert.equal(materialOf(null), null);
   assert.equal(materialArt('../materials/laptop'), objectArt('box'));
-  assert.equal(new Set(MATERIALS.map(m => materialArt(m.id))).size, 8);
+  assert.equal(new Set(MATERIALS.map(m => materialArt(m.id))).size, MATERIALS.length);
 });
 
 test('material photo names state they are illustrations, not photos', () => {
