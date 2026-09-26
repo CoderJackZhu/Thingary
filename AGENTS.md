@@ -52,3 +52,7 @@ Possio（物志）面向个人实物资产的长期记录与回顾。当前进�
 ## 当前集成状态：T11 统一最近删除
 
 2026-09-25 T10 与 T11 已 review 修复并本地集成 `main`。T11 的契约和实际结果分别见 [统一最近删除交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)、[T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)；原生小窗口及错误注入仍缺，CP2/P0 未宣布完成。用户本轮授权 T11 审查后的本地合并和推送，但仓库尚未配置 Git remote，未推送；不凭空指定远程，也不自动推进 T12。原有未跟踪 `.gitignore` 属于用户文件，保持原样。
+
+## 当前状态：P0 完成，T22 自用正式版（2026-09-26）
+
+T12–T21 已本地集成 main；用户授权由 Claude 判定，CP3、CP4 达到出口，P0 闭环完成（AC40 的 VoiceOver 等未实测项为已接受风险，见 T21 报告 §9）。下一任务 T22 自用正式版交由 GPT，唯一入口 [T22 交接](docs/handoffs/T22_SELF_USE_RELEASE_GPT.md)；完成后交回 Claude review。仍无远程、不推送；`.gitignore` 为用户文件。
