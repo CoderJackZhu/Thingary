@@ -1,7 +1,7 @@
 {
   "productName": "物志",
   "version": "1.0.0",
-  "identifier": "local.possio.app",
+  "identifier": "local.possio.main",
   "app": {
     "windows": [
       {

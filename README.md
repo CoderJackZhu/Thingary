@@ -4,7 +4,7 @@
 
 **定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 成本分析 + 本地数据。** 不做金融投资、日常记账或依赖服务器的家庭库存系统。
 
-CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；验收边界见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。T22 自用正式版已在任务分支交回，待 Claude review，尚未合并 main。正式版使用独立身份 `local.possio.app`，开发预览仍使用 `local.possio.preview`；使用前请阅读 [物志使用说明](docs/USER_GUIDE.md)。中文名「物志」、英文名「Possio」用于本次自用构建；公开发布前仍需核查名称可用性。
+CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；验收边界见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。T22 自用正式版已 review 并本地合并：`/Applications/物志.app` 可以开始录入真实资料。正式版使用独立身份 `local.possio.main`，开发预览仍使用 `local.possio.preview`；使用前请阅读 [物志使用说明](docs/USER_GUIDE.md)。中文名「物志」、英文名「Possio」用于本次自用构建；公开发布前仍需核查名称可用性。
 
 已完成插入任务：**U01 内置素材库选择**。已由 Z code 按交接契约实现并本地提交，含 2026-09-25 用户中途调整：侧栏新增“素材库”页面（可上传/删除自定义素材，schema 9 持久化），新增/编辑表单“封面与图片”区平铺素材小图、点击即选。自动检查、浏览器及隔离原生证据见 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)；三项 Codex review P2 已修复，剩余原生上传／草稿／删除保留引用验收已补齐，达到 U01 阶段出口，并已按用户授权本地合并到主项目。
 
@@ -38,12 +38,12 @@ CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；�
 
 **T20 Mac 操作体验**：原生菜单与 ⌘N/⌘F/⌘E/⌘, 实测、焦点与弹窗、外观重启保持、800×600 浅深色对照与长文本，修复三处窄窗版式；VoiceOver 与系统外观实时切换待用户实测，见 [T20 记录](docs/verification/T20_MAC_EXPERIENCE_RESULT.md)；下一阶段 T21 完整 P0 验收交由 GPT 执行，契约与 Prompt 见 [T21 交接](docs/handoffs/T21_P0_ACCEPTANCE_GPT.md)。当前仓库没有远程，成果只有本地提交。
 
-**T21 完整 P0 验收（已 review、补验并本地合并）**：AC01–AC44 逐项证据、独立 release 离线闭环、同库备份/CSV、空库恢复及用户检查单见 [T21 验收报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。review 后补验 AC05/06/09，现通过 43、部分 1（AC40，含 VoiceOver 等待用户项）；浅色次要文字对比度已修至 AA；用户授权由 Claude 判定，**CP3、CP4 达到出口，P0 闭环完成**（AC40 未实测项为已接受风险，见报告 §9）。T22 自用正式版按[交接](docs/handoffs/T22_SELF_USE_RELEASE_GPT.md)在 `codex/t22-self-use-release` 实施；[T22 记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)待 Claude review，未合并 main。
+**T21 完整 P0 验收（已 review、补验并本地合并）**：AC01–AC44 逐项证据、独立 release 离线闭环、同库备份/CSV、空库恢复及用户检查单见 [T21 验收报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。review 后补验 AC05/06/09，现通过 43、部分 1（AC40，含 VoiceOver 等待用户项）；浅色次要文字对比度已修至 AA；用户授权由 Claude 判定，**CP3、CP4 达到出口，P0 闭环完成**（AC40 未实测项为已接受风险，见报告 §9）。T22 自用正式版按[交接](docs/handoffs/T22_SELF_USE_RELEASE_GPT.md)在 `codex/t22-self-use-release` 实施；[T22 记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)已 review（§7 更正 identifier）并本地合并。
 
 ## 项目文档
 
 - [物志使用说明](docs/USER_GUIDE.md)：安装、资料位置、完整备份与恢复及当前限制。
-- [T22 自用正式版记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)：独立正式身份、安装与复测证据；待 Claude review。
+- [T22 自用正式版记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)：独立正式身份、安装与复测证据，含 review 更正。
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、技术原则、P0/P1/P2 和验收标准。
 - [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」作为后续基线，B 保留为历史比较；涵盖资产浏览、快速新增和完整档案；[直接打开交互原型](docs/ui/prototype.html)。
 - [实际页面视觉验证](docs/verification/VISUAL_ALIGNMENT.md)：Demo 还原的当前结论、浏览器／原生截图及明确保留的业务差异；旧“对齐”记录标为历史。
@@ -105,7 +105,7 @@ V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程
 
 普通预览打包默认产物位于 `src-tauri/target/release/bundle/macos/Possio Preview.app`，不能将旧产物当成最新构建。T22 正式包单独由 `npm run release` 构建；下文 T06b 隔离包是历史验收记录。不含远程更新或后台代理；只有本地提交，没有推送发布。只在当前 Apple Silicon Mac 验证，旧系统及 Intel 尚未实测。
 
-开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，与正式版 `local.possio.app` 及其他验收库分开。开发预览继续只用于虚构资料；完整备份和 CSV 已实现，正式版的使用方法见[物志使用说明](docs/USER_GUIDE.md)。
+开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，与正式版 `local.possio.main` 及其他验收库分开。开发预览继续只用于虚构资料；完整备份和 CSV 已实现，正式版的使用方法见[物志使用说明](docs/USER_GUIDE.md)。
 
 ### 完整页面的虚构数据预览
 

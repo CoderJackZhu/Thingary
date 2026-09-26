@@ -56,3 +56,7 @@ Possio（物志）面向个人实物资产的长期记录与回顾。当前进�
 ## 当前状态：P0 完成，T22 自用正式版（2026-09-26）
 
 T12–T21 已本地集成 main；用户授权由 Claude 判定，CP3、CP4 达到出口，P0 闭环完成（AC40 的 VoiceOver 等未实测项为已接受风险，见 T21 报告 §9）。下一任务 T22 自用正式版交由 GPT，唯一入口 [T22 交接](docs/handoffs/T22_SELF_USE_RELEASE_GPT.md)；完成后交回 Claude review。仍无远程、不推送；`.gitignore` 为用户文件。
+
+## 当前状态：T22 完成（2026-09-27）
+
+自用正式版 `/Applications/物志.app`（identifier `local.possio.main`，资料在 `~/Library/Application Support/local.possio.main/`）已 review 并本地合并，用户可开始录入真实资料。**正式库是用户真实资料：开发、测试和验收一律不得打开或写入它**，只用开发预览及各隔离身份。下一步 P1 范围待用户选择。
