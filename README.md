@@ -38,7 +38,7 @@
 
 **T20 Mac 操作体验**：原生菜单与 ⌘N/⌘F/⌘E/⌘, 实测、焦点与弹窗、外观重启保持、800×600 浅深色对照与长文本，修复三处窄窗版式；VoiceOver 与系统外观实时切换待用户实测，见 [T20 记录](docs/verification/T20_MAC_EXPERIENCE_RESULT.md)；下一阶段 T21 完整 P0 验收交由 GPT 执行，契约与 Prompt 见 [T21 交接](docs/handoffs/T21_P0_ACCEPTANCE_GPT.md)。当前仓库没有远程，成果只有本地提交。
 
-**T21 完整 P0 验收（已 review、补验并本地合并）**：AC01–AC44 逐项证据、独立 release 离线闭环、同库备份/CSV、空库恢复及用户检查单见 [T21 验收报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。review 后补验 AC05/06/09，现通过 43、部分 1（AC40，含 VoiceOver 等待用户项）；未宣布 CP4/P0 通过。最终 HEAD 检查结果见报告第 6 节的提交后日志。
+**T21 完整 P0 验收（已 review、补验并本地合并）**：AC01–AC44 逐项证据、独立 release 离线闭环、同库备份/CSV、空库恢复及用户检查单见 [T21 验收报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。review 后补验 AC05/06/09，现通过 43、部分 1（AC40，含 VoiceOver 等待用户项）；浅色次要文字对比度已修至 AA，CP4 判定材料见报告 §8；未宣布 CP4/P0 通过。最终 HEAD 检查结果见报告第 6 节的提交后日志。
 
 ## 项目文档
 

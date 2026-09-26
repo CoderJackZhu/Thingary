@@ -1,5 +1,5 @@
 /* A 静序: layout and dimensions from docs/ui/prototype.html, with real data controls. */
-:root{--side:#f4f5f7;--soft:#f7f8fa;--muted:#6c7480;--line:#e8ebef;--selected:#edf2fc;--positive:#377157;--image:#eef1f4;--display:'Avenir Next','PingFang SC',sans-serif;font-family:'PingFang SC','Hiragino Sans GB',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+:root{--side:#f4f5f7;--soft:#f7f8fa;--muted:#676f7b;--line:#e8ebef;--selected:#edf2fc;--positive:#377157;--image:#eef1f4;--display:'Avenir Next','PingFang SC',sans-serif;font-family:'PingFang SC','Hiragino Sans GB',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
 :root[data-theme=dark]{--bg:#22252b;--side:#1e2126;--card:#22252b;--soft:#292d34;--text:#ecedf1;--muted:#a4abb8;--line:#363b45;--accent:#9bb7ff;--selected:#303e5a;--positive:#94cbb0;--image:#31353e}
 @media(prefers-color-scheme:dark){:root[data-theme=system]{--bg:#22252b;--side:#1e2126;--card:#22252b;--soft:#292d34;--text:#ecedf1;--muted:#a4abb8;--line:#363b45;--accent:#9bb7ff;--selected:#303e5a;--positive:#94cbb0;--image:#31353e}}
 .ui-icon{width:16px;height:16px;flex-shrink:0;display:block}
