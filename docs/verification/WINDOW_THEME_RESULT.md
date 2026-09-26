@@ -17,4 +17,6 @@
 - 使用独立身份 `local.possio.small.acceptance` 构建并启动 800×600 原生窗口：侧栏状态保持单行，主题按钮可见；右侧摘要正文滚动后两个操作仍可见；打开完整档案并滚动到底后可见附件、档案信息及最近删除入口。
 - 截图：[1280 深色摘要](window-theme/1280-dark-summary.jpeg)、[1280 浅色摘要](window-theme/1280-light-summary.jpeg)、[800 深色摘要](window-theme/800-dark-summary.jpeg)、[800 详情底部](window-theme/800-detail-bottom.jpeg)。截图均来自隔离身份和虚构数据。
 
-正式资料库未用于测试。正式版安装状态另行记录；此记录不代表已替换 `/Applications/物志.app`。
+## 安装
+
+用户确认保存并退出正在运行的「物志」后，确认正式版进程已退出，将旧 App 移到 `/private/tmp/物志-before-window-theme-20260927.app`，再将暂存并核对过的新包安装到 `/Applications/物志.app`。安装包主程序 SHA256 与正式构建一致，identifier 仍为 `local.possio.main`。本轮未启动正式版，也未打开或写入正式资料库；安装后的真实资料界面需由用户自行打开确认。
