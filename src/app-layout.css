@@ -44,6 +44,19 @@ button{border-radius:6px;font-weight:400}.primary{font-weight:600}.shell{grid-te
 .shell>main.browse-main{display:flex;flex-direction:column;overflow:hidden}.browse-main>.page-header,.browse-main>.app-topbar,.asset-overview{flex-shrink:0}.browse-main>.browse{display:flex;flex-direction:column;flex:1;min-height:0}.browse-main .browser-columns{flex:1;min-height:0}.browse-main .collection,.browse-main .summary{overflow:auto;min-height:0}.collection-toolbar{position:sticky;top:0;background:var(--bg);z-index:1}.object-mark{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.object-mark .photo-image{min-height:0;max-height:100%;height:100%;width:100%}.asset-row.selected:hover{background:var(--selected)}.summary .full-width + .full-width{margin-top:8px}.summary .holding-cost p{line-height:1.6}.sidebar nav button:disabled{opacity:.45}
 @media(max-width:780px){.browse-main .browser-columns{overflow:auto;display:block}.browse-main .collection,.browse-main .summary{overflow:visible}}
 
+/* Keep the full-record action visible while the summary facts scroll. */
+.browse-main .summary{display:flex;flex-direction:column;overflow:hidden}
+.summary-body{flex:1;min-height:0;overflow-y:auto;scrollbar-gutter:stable}
+.summary-actions{flex-shrink:0;border-top:1px solid var(--line);padding-top:9px}
+.summary .summary-actions .full-width{margin:0}
+.summary .summary-actions .full-width + .full-width{margin-top:8px}
+.theme-toggle{display:flex;align-items:center;gap:10px;width:100%;margin-top:5px;padding:8px 11px;border:0;background:transparent;color:var(--muted);font-size:12px;line-height:1.6;text-align:left}
+.theme-toggle:hover{background:var(--soft);color:var(--text)}
+.local-status{white-space:nowrap}
+@media(max-width:980px){.local-status{white-space:nowrap}}
+@media(max-width:780px){.browse-main .summary{display:block;overflow:visible}.summary-body{overflow:visible}.theme-toggle{font-size:11px;padding:8px}}
+@media(max-height:700px){.sidebar{padding-top:18px;padding-bottom:10px}.brand{margin-bottom:15px}.sidebar nav button,.theme-toggle{padding-top:5px;padding-bottom:5px}.nav-caption{margin-top:8px}.sidebar-bottom{padding-top:12px}.local-status{margin-top:6px}}
+
 .collection-count{font-size:11px;color:var(--muted)}
 
 /* T10 warranty records reuse the maintenance card and editor surfaces. */

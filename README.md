@@ -46,6 +46,7 @@ CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；�
 
 - [物志使用说明](docs/USER_GUIDE.md)：安装、资料位置、完整备份与恢复及当前限制。
 - [T22 自用正式版记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)：独立正式身份、安装与复测证据，含 review 更正。
+- [窗口与外观修复记录](docs/verification/WINDOW_THEME_RESULT.md)：初始窗口、可滚动摘要与固定操作、侧栏主题切换及原生大小窗口证据。
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、技术原则、P0/P1/P2 和验收标准。
 - [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」作为后续基线，B 保留为历史比较；涵盖资产浏览、快速新增和完整档案；[直接打开交互原型](docs/ui/prototype.html)。
 - [实际页面视觉验证](docs/verification/VISUAL_ALIGNMENT.md)：Demo 还原的当前结论、浏览器／原生截图及明确保留的业务差异；旧“对齐”记录标为历史。
