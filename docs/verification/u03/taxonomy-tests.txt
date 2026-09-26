@@ -29,4 +29,3 @@ test backup_restore_preserves_taxonomy_and_rejects_old_generation ... ok
 test channel_migration_survives_edit_photos_trash_restore_and_reopen ... ok
 
 test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.07s
-

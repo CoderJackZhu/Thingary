@@ -46,3 +46,5 @@
 正式包及安装后的完整 App 均通过 `codesign --verify --deep --strict`；版本 1.1.1，二进制 SHA256 一致：`ad2d5f89ce5c4f49accd178f4ba88cc0fd4ab5d974c4165b6173dac84bfdd381`。使用本地临时签名，未公证。
 
 小窗口证据：[滚动前](u03/asset-form-small.jpg)、[滚动后顶部操作](u03/asset-form-small-scrolled.jpg)、[直接关闭](u03/asset-dismiss-small.txt)、[心愿同屏](u03/wish-detail-small.jpg)、[攒钱更新](u03/savings-update.txt)。
+
+源码实现提交 `8994685`；仅本地提交并集成 main，没有远程推送。隔离验收 App 已退出。
