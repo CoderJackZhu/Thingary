@@ -36,7 +36,7 @@
 
 **T19 CSV 资产导出**：设置 › 资料管理导出全部未删除物品的可读表格（UTF-8 BOM、未知留空、¥0 写 0.00、公式防护），与备份共用原生保存面板；原生导出已由独立脚本与只读 SQL 逐行核对，见 [T19 记录](docs/verification/T19_CSV_EXPORT_RESULT.md)。
 
-**T20 Mac 操作体验**：原生菜单与 ⌘N/⌘F/⌘E/⌘, 实测、焦点与弹窗、外观重启保持、800×600 浅深色对照与长文本，修复三处窄窗版式；VoiceOver 与系统外观实时切换待用户实测，见 [T20 记录](docs/verification/T20_MAC_EXPERIENCE_RESULT.md)；下一阶段 T21 完整 P0 验收。当前仓库没有远程，成果只有本地提交。
+**T20 Mac 操作体验**：原生菜单与 ⌘N/⌘F/⌘E/⌘, 实测、焦点与弹窗、外观重启保持、800×600 浅深色对照与长文本，修复三处窄窗版式；VoiceOver 与系统外观实时切换待用户实测，见 [T20 记录](docs/verification/T20_MAC_EXPERIENCE_RESULT.md)；下一阶段 T21 完整 P0 验收交由 GPT 执行，契约与 Prompt 见 [T21 交接](docs/handoffs/T21_P0_ACCEPTANCE_GPT.md)。当前仓库没有远程，成果只有本地提交。
 
 ## 项目文档
 
