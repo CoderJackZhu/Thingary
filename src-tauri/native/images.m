@@ -60,14 +60,15 @@ int possio_preview(const unsigned char *bytes, size_t count, unsigned char **out
     }
 }
 
-// Backup panels. Called only on the AppKit main thread; returns NULL when cancelled.
-char *possio_pick_backup_save(const char *suggested) {
+// Save panels. Called only on the AppKit main thread; returns NULL when cancelled.
+// The panel appends the extension itself, so `suggested` carries none.
+char *possio_pick_save(const char *title, const char *prompt, const char *suggested, const char *extension) {
     @autoreleasepool {
         NSSavePanel *panel = [NSSavePanel savePanel];
-        panel.title = @"保存完整备份";
-        panel.prompt = @"保存备份";
+        panel.title = [NSString stringWithUTF8String:title];
+        panel.prompt = [NSString stringWithUTF8String:prompt];
         panel.nameFieldStringValue = [NSString stringWithUTF8String:suggested];
-        UTType *type = [UTType typeWithFilenameExtension:@"possio"];
+        UTType *type = [UTType typeWithFilenameExtension:[NSString stringWithUTF8String:extension]];
         if (type) panel.allowedContentTypes = @[type];
         panel.canCreateDirectories = YES;
         if ([panel runModal] != NSModalResponseOK) return NULL;

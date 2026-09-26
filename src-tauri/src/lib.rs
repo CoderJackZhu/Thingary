@@ -1,6 +1,7 @@
 pub mod backup;
 pub mod catalog;
 mod commands;
+pub mod csv_export;
 pub mod domain;
 pub mod files;
 pub mod insights;
@@ -115,6 +116,7 @@ pub fn run() {
             commands::create_backup,
             commands::inspect_backup,
             commands::restore_backup,
+            commands::export_csv,
             commands::saved_request,
             commands::set_editing,
             commands::finish_close,

@@ -23,6 +23,13 @@ export function DataManagement({ generation, blocked, onTrash }: { generation: s
       setTask(done ? { kind: 'done', text: `已保存并校验「${done.name}」，位于 ${done.folder}。` } : { kind: 'idle' });
     } catch (e) { setTask({ kind: 'error', text: '备份未完成，当前资料未改变：' + errorMessage(e) }); }
   }
+  async function exportCsv() {
+    setCandidate(null); setTask({ kind: 'running', label: '正在导出资产表…' });
+    try {
+      const done = await invoke<{ name: string; folder: string; rows: number } | null>('export_csv');
+      setTask(done ? { kind: 'done', text: `已导出「${done.name}」共 ${done.rows} 件物品，位于 ${done.folder}。` } : { kind: 'idle' });
+    } catch (e) { setTask({ kind: 'error', text: '导出未完成：' + errorMessage(e) }); }
+  }
   async function inspect() {
     setCandidate(null); setTask({ kind: 'running', label: '正在检查备份，当前资料不会改变…' });
     try {
@@ -47,7 +54,7 @@ export function DataManagement({ generation, blocked, onTrash }: { generation: s
     <div className="data-actions">
       <div><h3>完整备份</h3><p className="muted small">包含全部物品、维护、保障、心愿及转换关系、分类渠道、素材、最近删除和托管原图；写入后立即重新校验。</p><button disabled={busy || blocked} onClick={() => void backup()}>备份到…</button></div>
       <div><h3>从备份恢复</h3><p className="muted small">先完整检查所选备份，确认后才替换；替换前自动保存当前资料的保护副本。</p><button disabled={busy || blocked || !generation} onClick={() => void inspect()}>选择备份…</button></div>
-      <div><h3>导出资产表（CSV）</h3><p className="muted small">可读的资产清单，不能用于恢复。下一阶段提供。</p><button disabled>导出 CSV…</button></div>
+      <div><h3>导出资产表（CSV）</h3><p className="muted small">全部未删除物品（含已售出）的可读表格：UTF-8、未知值留空、¥0 写 0.00；以 = + - @ 开头的文字前加 ' 防止被表格当作公式。不含图片、维护、保障和心愿，不能用于恢复。</p><button disabled={busy || blocked} onClick={() => void exportCsv()}>导出 CSV…</button></div>
       <div><h3>最近删除</h3><p className="muted small">误删的物品、维护和保障可以找回，不会自动永久清空。</p><button disabled={busy || blocked} onClick={onTrash}>打开最近删除</button></div>
     </div>
     {blocked && <p className="notice">请先处理正在编辑或待核对的内容，再进行备份或恢复。</p>}

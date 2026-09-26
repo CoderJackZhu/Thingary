@@ -576,7 +576,7 @@ pub async fn create_backup(
     // The panel appends ".possio" itself; a suggested extension would be doubled.
     let suggested = format!("物志备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
     let receive = on_main(&app, move || {
-        crate::native_images::pick_backup_save(&suggested)
+        crate::native_images::pick_save("保存完整备份", "保存备份", &suggested, "possio")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -652,4 +652,48 @@ pub async fn restore_backup(
     })
     .await
     .map_err(|_| Error::new("WORKER", "未收到恢复结果，请重新启动后核对"))?
+}
+
+#[derive(serde::Serialize)]
+pub struct CsvDone {
+    pub name: String,
+    pub folder: String,
+    pub rows: i64,
+}
+
+/// Cancelling the save panel returns `None` and writes nothing.
+#[tauri::command]
+pub async fn export_csv(
+    app: tauri::AppHandle,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<CsvDone>> {
+    let suggested = format!("物志资产表-{}", chrono::Local::now().format("%Y%m%d"));
+    let receive = on_main(&app, move || {
+        crate::native_images::pick_save("导出资产表", "导出", &suggested, "csv")
+    })?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        let target = path.clone();
+        let rows = w.call(move |s| s.export_csv(&target))?;
+        Ok(Some(CsvDone {
+            name: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into(),
+            folder: path
+                .parent()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default(),
+            rows,
+        }))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到导出结果，请到目标位置核对"))?
 }

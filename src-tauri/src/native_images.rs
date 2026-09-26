@@ -8,7 +8,12 @@ extern "C" {
         length: *mut usize,
     ) -> i32;
     fn possio_pick_image() -> *mut c_char;
-    fn possio_pick_backup_save(suggested: *const c_char) -> *mut c_char;
+    fn possio_pick_save(
+        title: *const c_char,
+        prompt: *const c_char,
+        suggested: *const c_char,
+        extension: *const c_char,
+    ) -> *mut c_char;
     fn possio_pick_backup_open() -> *mut c_char;
     fn possio_free(bytes: *mut c_void);
 }
@@ -54,9 +59,15 @@ pub(crate) fn pick() -> Option<std::path::PathBuf> {
     take_path(unsafe { possio_pick_image() })
 }
 /// Caller must dispatch to the AppKit main thread.
-pub(crate) fn pick_backup_save(suggested: &str) -> Option<std::path::PathBuf> {
-    let name = std::ffi::CString::new(suggested).ok()?;
-    take_path(unsafe { possio_pick_backup_save(name.as_ptr()) })
+pub(crate) fn pick_save(
+    title: &str,
+    prompt: &str,
+    suggested: &str,
+    extension: &str,
+) -> Option<std::path::PathBuf> {
+    let c = |v: &str| std::ffi::CString::new(v).ok();
+    let (t, p, n, e) = (c(title)?, c(prompt)?, c(suggested)?, c(extension)?);
+    take_path(unsafe { possio_pick_save(t.as_ptr(), p.as_ptr(), n.as_ptr(), e.as_ptr()) })
 }
 /// Caller must dispatch to the AppKit main thread.
 pub(crate) fn pick_backup_open() -> Option<std::path::PathBuf> {
