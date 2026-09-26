@@ -1,6 +1,6 @@
 # P1：首次样例体验与日期输入
 
-日期：2026-09-27。工作分支：`codex/first-run-demo`。此记录对应待安装构建，不代表 `/Applications/物志.app` 已替换。
+日期：2026-09-27。工作分支：`codex/first-run-demo`。正式构建已获用户确认并安装到 `/Applications/物志.app`。
 
 ## 变更
 
@@ -18,10 +18,12 @@
 | `npm run check` | Rust 格式与 Clippy 通过 |
 | 隔离原生 App `local.possio.demo.acceptance` | 初始八件样例和总览统计可见；新增进入真实空库、取消返回样例；保存首件后样例隐藏，重启仍为真实库。新增日期为 `2026-09-27`，鼠标切换月份并选中 `2026-08-10`、键盘输入 `2024-06-15`、清空并保存后详情显示“待补充” |
 | 隔离资料只读核对 | `library` 2 件测试资产、`demo-library` 8 件样例；两个 SQLite `integrity_check` 都为 `ok` |
-| `npm run release` | 待安装 `物志.app` 构建成功，bundle identifier 为 `local.possio.main`；未启动该构建或接触正式资料库 |
+| `npm run release` | `物志.app` 构建成功，bundle identifier 为 `local.possio.main`；安装后应用可执行文件 SHA-256 与构建产物一致：`6cfdab4e5b21004f1e01019df18d346c1bad28979b03673f2a267b0504eb5f66` |
 
 同尺寸原生界面对照：[默认今天](p1-demo-date/date-default.png) · [展开鼠标日历](p1-demo-date/date-calendar.png)，均为 2160 × 1520 像素的隔离验收窗口。日历留在表单内，无横向滚动；日期按钮可在辅助功能树中逐日访问。
 
 ## 边界
 
-正式用户资料库 `~/Library/Application Support/local.possio.main/` 未打开或写入；已安装的 `/Applications/物志.app` 未替换。发布安装前仍需审阅本分支并取得用户同意。常规实现与文档建议 Sol 中档；正式库隔离和安装前审查建议 Astra High。
+用户确认安装前，正式版 App 正在运行；用户表示已保存并退出后，再次确认它已停止。旧 App 移至 `/private/tmp/物志-T22-before-P1-20260927.app`，新 App 从同目录暂存位置切换到 `/Applications/物志.app`。旧版可执行文件 SHA-256 为 `e0cd88db8e6fa49008a6f39e978b0ce7146166a7916b8cc8899fd5a9214e271c`。回退副本位于临时目录，不作为长期备份。
+
+正式用户资料库 `~/Library/Application Support/local.possio.main/` 未打开或写入；安装后未启动正式 App 做开发验收。用户首次打开新版后的实际使用反馈尚待观察。常规实现与文档建议 Sol 中档；涉及正式库隔离的后续审查建议 Astra High。

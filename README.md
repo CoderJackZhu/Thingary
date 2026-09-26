@@ -6,7 +6,7 @@
 
 CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；验收边界见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。T22 自用正式版已 review 并本地合并：`/Applications/物志.app` 可以开始录入真实资料。正式版使用独立身份 `local.possio.main`，开发预览仍使用 `local.possio.preview`；使用前请阅读 [物志使用说明](docs/USER_GUIDE.md)。中文名「物志」、英文名「Possio」用于本次自用构建；公开发布前仍需核查名称可用性。
 
-2026-09-27 当前分支 `codex/first-run-demo` 已实现首次独立样例库与鼠标日历／新增日期预填，自动和隔离原生检查见 [P1 记录](docs/verification/P1_FIRST_RUN_DEMO_DATE_RESULT.md)。正式构建已生成但尚未安装；当前 `/Applications/物志.app` 仍是 T22 版本。
+2026-09-27 已实现首次独立样例库与鼠标日历／新增日期预填，自动和隔离原生检查见 [P1 记录](docs/verification/P1_FIRST_RUN_DEMO_DATE_RESULT.md)。用户确认后，新版已安装到 `/Applications/物志.app`；正式资料库未用于开发验收。
 
 已完成插入任务：**U01 内置素材库选择**。已由 Z code 按交接契约实现并本地提交，含 2026-09-25 用户中途调整：侧栏新增“素材库”页面（可上传/删除自定义素材，schema 9 持久化），新增/编辑表单“封面与图片”区平铺素材小图、点击即选。自动检查、浏览器及隔离原生证据见 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)；三项 Codex review P2 已修复，剩余原生上传／草稿／删除保留引用验收已补齐，达到 U01 阶段出口，并已按用户授权本地合并到主项目。
 
