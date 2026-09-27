@@ -2,6 +2,8 @@
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
 // proves nothing about native storage or calculation.
 import type { Account, AccountSave, Draft, Entry, Point, Share, Snapshot, SnapshotSave, Summary } from './wealth';
+import type { Expense, ExpenseSave, ExpenseView, Line } from './expenses';
+import demoAssets from './demo-assets.json';
 
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
@@ -62,7 +64,45 @@ function summary(): Summary {
   return { generation, points, structure_date: last?.s.date ?? null, structure: shares('asset'), liabilities: shares('liability') };
 }
 
+// Standalone expenses for the preview; item purchases come from the demo assets.
+const day = (ago: number) => { const d = new Date(now.getFullYear(), now.getMonth() - ago, 12); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-12`; };
+let expenses: Expense[] = params.get('expenses') === 'empty' ? [] : [
+  { id: 'x-trip', fields: { title: '虚构京都旅行', date: day(3), amount_cents: '1280000', category: 'travel', notes: '', refund_cents: '60000', refund_date: day(2), asset_id: null }, revision: 1, asset_name: null, asset_deleted: false },
+  { id: 'x-course', fields: { title: '虚构摄影课程', date: day(1), amount_cents: '360000', category: 'education', notes: '', refund_cents: null, refund_date: null, asset_id: null }, revision: 1, asset_name: null, asset_deleted: false },
+  { id: 'x-linked', fields: { title: '先记下的键盘', date: '2025-12-25', amount_cents: '69900', category: 'other', notes: '', refund_cents: null, refund_date: null, asset_id: 'keyboard' }, revision: 1, asset_name: '机械键盘 K2', asset_deleted: false },
+];
+function expenseView(year: number | null): ExpenseView {
+  const items: Line[] = params.get('expenses') === 'empty' ? [] : demoAssets.flatMap(a => [
+    { source: 'purchase' as const, id: a.key, asset_id: a.key, title: a.name, category: a.category, date: a.purchase_date, amount_cents: a.price_cents },
+    ...(a.maintenance ? [{ source: 'maintenance' as const, id: 'm-' + a.key, asset_id: a.key, title: `${a.name} · ${a.maintenance.title}`, category: a.category, date: a.maintenance.date, amount_cents: a.maintenance.cost_cents }] : []),
+    ...(a.sale ? [{ source: 'sale' as const, id: 's-' + a.key, asset_id: a.key, title: a.name, category: a.category, date: a.sale.date, amount_cents: a.sale.price_cents }] : []),
+  ]);
+  const all: Line[] = [...items, ...expenses.flatMap(e => [
+    { source: e.fields.asset_id ? 'linked' as const : 'expense' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.date, amount_cents: e.fields.amount_cents },
+    ...(e.fields.refund_date ? [{ source: 'refund' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.refund_date, amount_cents: e.fields.refund_cents }] : []),
+  ])];
+  const inYear = (l: Line) => l.date !== null && (year === null || l.date.startsWith(`${year}-`));
+  const lines = all.filter(inYear).sort((a, b) => b.date!.localeCompare(a.date!)), undated = all.filter(l => l.date === null);
+  const sum = (ls: Line[]) => ls.reduce((t, l) => t + BigInt(l.amount_cents ?? '0'), 0n);
+  const spentLines = lines.filter(l => ['purchase', 'maintenance', 'expense'].includes(l.source) && l.amount_cents !== null);
+  const spent = sum(spentLines), refunds = sum(lines.filter(l => l.source === 'refund'));
+  return { generation, year, years: [...new Set(all.flatMap(l => l.date ? [Number(l.date.slice(0, 4))] : []))].sort((a, b) => b - a), lines, undated,
+    months: year === null ? [] : Array.from({ length: 12 }, (_, i) => { const m = `${year}-${String(i + 1).padStart(2, '0')}`; return { month: m, spent_cents: String(sum(spentLines.filter(l => l.date!.startsWith(m)))), refund_cents: String(sum(lines.filter(l => l.source === 'refund' && l.date!.startsWith(m)))) }; }),
+    spent_cents: String(spent), refund_cents: String(refunds), net_cents: String(spent - refunds), sale_cents: String(sum(lines.filter(l => l.source === 'sale'))),
+    undated_cents: String(sum(undated)), unknown_amount_count: lines.filter(l => l.amount_cents === null).length };
+}
+
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  if (command === 'expense_view') { if (params.get('expenses') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: expenseView((args.year as number | null) ?? null) }; }
+  if (command === 'expense') return { value: expenses.find(e => e.id === args.id) ?? null };
+  if (command === 'expense_save') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as ExpenseSave, id = input.id ?? crypto.randomUUID(), old = expenses.find(e => e.id === id);
+    const next: Expense = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, asset_name: input.fields.asset_id ? demoAssets.find(a => a.key === input.fields.asset_id)?.name ?? '虚构物品' : null, asset_deleted: false };
+    expenses = old ? expenses.map(e => e.id === id ? next : e) : [...expenses, next];
+    receipts.set(input.request_id, id);
+    return { value: next };
+  }
   if (!command.startsWith('wealth_')) return null;
   if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: '虚构读取失败，用于验证错误状态。' };
   if (command === 'wealth_summary') return { value: summary() };

@@ -1,7 +1,7 @@
 .wealth-section{display:grid;gap:16px;box-sizing:border-box}
 .wealth-section>.overview-card+.overview-card,.wealth-section .detail-section{margin:0}
 .wealth-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.wealth-toolbar .segmented{flex:none}.wealth-toolbar .segmented button{white-space:nowrap;padding:6px 12px}
+.wealth-toolbar .segmented{flex:none}.wealth-toolbar .segmented button{width:auto;min-width:48px;height:auto;padding:6px 10px;white-space:nowrap}
 .wealth-actions{display:flex;gap:8px}
 .wealth-actions button{display:inline-flex;align-items:center;gap:6px}
 .wealth-accounts tr.closed td{color:var(--muted)}
@@ -27,3 +27,9 @@
 .check-in-submit{display:flex!important;gap:8px;grid-auto-flow:column}
 @media(max-width:900px){.check-in-header{grid-template-columns:1fr}.check-in-footer{grid-template-columns:1fr 1fr}.check-in-submit{grid-column:1/-1}}
 .wealth-section .distribution-table{width:100%}
+.expense-lines td.amount{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.expense-lines tr.closed td{color:var(--muted)}
+.expense-link{display:inline-flex;align-items:center;gap:10px;font-size:12px}
+.expense-link-search{display:grid;gap:6px;justify-items:end}
+.expense-link-results{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.expense-link-results button{font-size:11px;padding:4px 9px}

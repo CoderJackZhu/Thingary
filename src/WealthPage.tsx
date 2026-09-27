@@ -9,6 +9,22 @@ import type { Account, AccountFields, AccountSave, Draft, EntryState, Pending, P
 import './wealth.css';
 
 type Tab = 'overview' | 'accounts' | 'history';
+
+/** Shared by wealth and expense pages: one stored receipt, checked by request id. */
+export function usePendingReceipt(reload: () => void) {
+  const [pending, setPending] = useState<Pending | null>(storedPending), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
+  async function verify() {
+    if (!pending) return;
+    setBusy(true);
+    try {
+      const outcome = await resolvePending(pending);
+      setPending(null); reload();
+      setNotice(outcome === 'saved' ? `已确认「${pending.label}」保存成功。` : outcome === 'stale' ? '资料库已切换，上次请求不属于当前资料，已放弃。' : `「${pending.label}」没有保存，请重新录入。`);
+    } catch (e) { setPending(storedPending()); setNotice(errorMessage(e) + ' 原请求已保留，请稍后再核对。'); }
+    finally { setBusy(false); }
+  }
+  return { pending, setPending, notice, setNotice, busy, verify };
+}
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
 export function WealthPage({ today }: { today: string }) {
@@ -17,7 +33,6 @@ export function WealthPage({ today }: { today: string }) {
   const [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [checkIn, setCheckIn] = useState<string | null>(null);
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
-  const [pending, setPending] = useState<Pending | null>(storedPending), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
   useEffect(() => {
     let live = true; setError('');
     Promise.all([invoke<Summary>('wealth_summary'), invoke<Account[]>('wealth_accounts')])
@@ -26,22 +41,12 @@ export function WealthPage({ today }: { today: string }) {
     return () => { live = false; };
   }, [retry]);
   const reload = () => setRetry(n => n + 1);
-  async function verify(resend: boolean) {
-    if (!pending) return;
-    setBusy(true);
-    try {
-      if (resend) { await submit(pending); setNotice('已重新提交并保存。'); setPending(null); reload(); return; }
-      const outcome = await resolvePending(pending);
-      setPending(null); reload();
-      setNotice(outcome === 'saved' ? `已确认「${pending.label}」保存成功。` : outcome === 'stale' ? '资料库已切换，上次请求不属于当前资料，已放弃。' : `「${pending.label}」没有保存，请重新录入。`);
-    } catch (e) { setPending(storedPending()); setNotice(e instanceof Unresolved ? e.message : errorMessage(e) + ' 原请求已保留，请稍后再核对。'); }
-    finally { setBusy(false); }
-  }
+  const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
   if (checkIn) return <CheckIn date={checkIn} today={today} onClose={saved => { setCheckIn(null); setPending(storedPending()); if (saved) { setTab('history'); reload(); } }}/>;
   const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
   const open = accounts?.filter(a => !a.fields.closed_on) ?? [];
   return <section className="stats-section wealth-section" aria-label="财富">
-    {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify(false)}>核对结果</button></div>}
+    {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <div className="wealth-toolbar">
       <div className="segmented" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['history', '盘点记录']] as const).map(([k, l]) => <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}</div>

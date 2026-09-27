@@ -61,7 +61,7 @@
 
 运行 `npm run dev -- --port 1429`，打开 <http://127.0.0.1:1429/visual-preview.html>。可体验与 App 相同的列表／网格、详情、新增、更正、删除／恢复、分类／渠道及生命周期 UI；使用内存虚构数据，刷新即重置，不能证明原生持久性。
 
-附加 `?state=empty`、`?state=error`、`?state=save-error` 检查空白、读取失败和保存失败；财富页另有 `?wealth=empty`、`?wealth=first`、`?wealth=error`；`?theme=dark` 对照深色；`?no-photos` 检查六种分类插图。这个入口不包含在 `npm run build` 的产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。
+附加 `?state=empty`、`?state=error`、`?state=save-error` 检查空白、读取失败和保存失败；财富页另有 `?wealth=empty`、`?wealth=first`、`?wealth=error`，重要支出页有 `?expenses=empty`、`?expenses=error`；`?theme=dark` 对照深色；`?no-photos` 检查六种分类插图。这个入口不包含在 `npm run build` 的产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。
 
 ### 样例数据
 

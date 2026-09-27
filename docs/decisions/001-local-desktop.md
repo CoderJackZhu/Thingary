@@ -443,3 +443,11 @@ CREATE INDEX expenses_asset ON expenses(asset_id);
 - 备份：schema ≥ 16 时调用 `expenses::validate_dataset`；Summary 增加 `expenses`。
 - `tests/expenses.rs` 6 项覆盖 X-AC06（改价联动、排除开关、日期待补、金额未知）、X-AC12、X-D08 关联与解除、售出不抵扣、输入校验、故障注入回滚、重复与冲突请求、备份往返及 schema 15 备份迁移。旧迁移夹具同步删除 `expenses` 表，版本断言升至 16，新版拒绝测试改用 schema 17。全部 Rust 测试与 clippy 通过。
 - 未包含：界面（E02）、最近删除与时间轴（E03）。
+
+### 18.7 E02 实现记录（2026-09-28）
+
+- 侧栏“财富”分组新增“重要支出”（`receipt` 图标沿用 20×20、1.25 描边规格）；同尺寸对照（1280×820，浅/深色，改前为 1.2.0 的 `main`）见 [e02/sidebar-compare.png](../verification/e02/sidebar-compare.png)。
+- `src/ExpensesPage.tsx`：年份切换（全部与各年，当前年默认）、KPI（支出、退款、净支出、售出回收）、日期待补与金额未知提示、各月柱状图、明细表（不计入的已关联、退款、售出行以弱色显示；物品行进入物品详情，支出与退款行打开编辑框）。编辑框含退款开关与“关联到物品”搜索（复用 `list_assets`），校验不通过时焦点移到对应字段。
+- 回执核对从财富页抽出为共享 `usePendingReceipt`，两页共用 `possio.wealth-pending.v1`；`expense_save` 结果核对直接用 `wealth_request_result`。
+- 修复：通用 `.segmented button` 的 26px 固定宽度让财富页分段和年份按钮挤在一起，财富工具栏改为自适应宽度。
+- 预览：`src/wealth-preview.ts` 用 Demo 物品生成购入/维护/售出行，另含三笔独立支出（含退款与已关联）；`?expenses=empty|error`。已验证新建、退款缺金额拦截、关联物品、合计变化、空白与错误状态；未做原生验收（E03）。

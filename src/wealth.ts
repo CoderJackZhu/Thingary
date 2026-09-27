@@ -27,7 +27,7 @@ export function rateText(hundredths: number) { return `${hundredths < 0 ? '−' 
 // Only a submitted request whose reply was lost is kept; unsubmitted input is not.
 export const pendingKey = 'possio.wealth-pending.v1';
 export type TrashChange = { request_id: string; generation: string; kind: 'snapshot' | 'account'; id: string; expected_revision: number; deleted: boolean };
-export type Pending = { command: 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash'; input: AccountSave | SnapshotSave | TrashChange; label: string };
+export type Pending = { command: 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save'; input: AccountSave | SnapshotSave | TrashChange | { request_id: string; generation: string }; label: string };
 export function storedPending(): Pending | null {
   try { const p = JSON.parse(localStorage.getItem(pendingKey) || 'null'); if (p && typeof p.command === 'string' && typeof p.input?.request_id === 'string') return p; } catch { /* unreadable receipt is ignored */ }
   return null;
