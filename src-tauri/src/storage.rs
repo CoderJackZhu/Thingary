@@ -55,7 +55,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 13 || app != 1347375955 || integrity != "ok" {
+    if v != 14 || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -101,6 +101,7 @@ impl Store {
         let db = connection(&root.join("datasets").join(&active.id).join("data.sqlite"))?;
         migrate(&db, &|_| Ok(()))?;
         check_db(&db)?;
+        crate::wishlist::backfill_achieved_assets(&db)?;
         Ok(Self {
             root: root.to_owned(),
             active,
@@ -312,11 +313,11 @@ impl Store {
 }
 
 pub fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 13, hook)
+    migrate_to(c, 14, hook)
 }
 pub fn migrate_to(c: &Connection, target: i64, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=13).contains(&v) || v > target {
+    if !(1..=14).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -525,6 +526,15 @@ PRAGMA user_version=12;")?;
         }
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 13;
+    }
+    if v == 13 && target >= 14 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("DROP TRIGGER wishlist_achievement_update;
+CREATE TRIGGER wishlist_achievement_update BEFORE UPDATE ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.achieved_at IS NOT NULL) OR (NEW.converted_asset_id IS NOT NULL AND NEW.status!='achieved') BEGIN SELECT RAISE(ABORT,'wishlist achievement state'); END;
+PRAGMA user_version=14;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -599,7 +609,7 @@ mod taxonomy_migration_tests {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            13
+            14
         );
         assert_eq!(
             c.query_row("SELECT name FROM assets WHERE id='legacy'", [], |r| r

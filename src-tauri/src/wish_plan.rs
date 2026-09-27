@@ -109,10 +109,29 @@ fn transition(
     }
     if let Some(item) = old {
         if item.converted_asset.is_some() {
-            if intent == "ongoing" {
-                return Err(Error::new("WISH_STATUS", "已转为资产的心愿不能回退"));
+            if intent == "ongoing"
+                && item.preferences.achievement_source.as_deref() != Some("savings")
+            {
+                return Err(Error::new("WISH_STATUS", "已进入资产档案的心愿不能回退"));
             }
-            p.achievement_source = Some("conversion".into());
+            if item.preferences.achievement_source.as_deref() == Some("savings") {
+                let target = cents(f.estimated_price_cents.as_deref())?;
+                let saved = cents(Some(&p.saved_cents))?.unwrap_or(0);
+                if intent == "ongoing"
+                    || (intent != "manual" && target.is_none_or(|value| saved < value))
+                {
+                    p.achievement_source = None;
+                    return Ok(("ongoing".into(), None));
+                }
+            }
+            p.achievement_source = if intent == "manual" {
+                Some("manual".into())
+            } else {
+                item.preferences
+                    .achievement_source
+                    .clone()
+                    .or(Some("conversion".into()))
+            };
             return Ok(("achieved".into(), item.achieved_at.clone()));
         }
         if item.status == "abandoned" {
@@ -226,6 +245,11 @@ impl Store {
         )?;
         let now = chrono::Utc::now().to_rfc3339();
         let f = &input.fields;
+        if status == "ongoing" {
+            if let Some(previous) = &old {
+                crate::wishlist::unlink_auto_achieved_asset(&tx, previous)?;
+            }
+        }
         if old.is_some() {
             tx.execute("UPDATE wishlist_items SET name=?2,category_id=?3,estimated_price_cents=?4,priority=?5,target_date=?6,external_link=?7,notes=?8,status=?9,achieved_at=?10,revision=revision+1,updated_at=?11 WHERE id=?1",params![id,f.name.trim(),f.category_id,cents(f.estimated_price_cents.as_deref())?,f.priority,f.target_date,f.external_link.trim(),f.notes,status,at,now])?;
         } else {
@@ -233,6 +257,9 @@ impl Store {
         }
         self.commit_wishlist_cover(&tx, &id, &input.photos)?;
         tx.execute("INSERT INTO wishlist_preferences VALUES(?1,?2) ON CONFLICT(wishlist_id) DO UPDATE SET payload=excluded.payload",params![id,serde_json::to_string(&p)?])?;
+        if status == "achieved" {
+            crate::wishlist::link_achieved_asset(&tx, &id)?;
+        }
         tx.execute(
             "DELETE FROM reminders WHERE kind='wishlist' AND entity_id=?1",
             [&id],
@@ -304,8 +331,14 @@ impl Store {
         p.validate()?;
         let (status, at) = transition(Some(&old), &mut p, &old.fields, "preserve", None, today)?;
         let now = chrono::Utc::now().to_rfc3339();
+        if status == "ongoing" {
+            crate::wishlist::unlink_auto_achieved_asset(&tx, &old)?;
+        }
         tx.execute("UPDATE wishlist_items SET status=?2,achieved_at=?3,revision=revision+1,updated_at=?4 WHERE id=?1",params![input.id,status,at,now])?;
         tx.execute("INSERT INTO wishlist_preferences VALUES(?1,?2) ON CONFLICT(wishlist_id) DO UPDATE SET payload=excluded.payload",params![input.id,serde_json::to_string(&p)?])?;
+        if status == "achieved" {
+            crate::wishlist::link_achieved_asset(&tx, &input.id)?;
+        }
         let result = crate::wishlist::read(&tx, &input.id)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到心愿"))?;
         tx.execute(

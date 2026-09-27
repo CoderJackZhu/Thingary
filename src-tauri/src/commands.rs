@@ -557,6 +557,24 @@ pub async fn overview(
 }
 
 #[tauri::command]
+pub async fn stats_snapshot(
+    period: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::insights::StatsSnapshot> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.stats_snapshot(
+                &period,
+                &chrono::Local::now().format("%Y-%m-%d").to_string(),
+            )
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "统计读取失败，请重试"))?
+}
+
+#[tauri::command]
 pub async fn purchase_trend(
     granularity: String,
     worker: tauri::State<'_, Worker>,

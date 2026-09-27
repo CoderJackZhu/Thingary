@@ -5,6 +5,32 @@ import { errorMessage, money } from './asset';
 type Bucket = { key: string; start: string; end: string; count: number; known_cents: string; unknown_price_count: number; cumulative_cents: string };
 type Trend = { generation: string; today: string; granularity: Granularity; buckets: Bucket[]; known_cents: string; unknown_price_count: number; unknown_date_count: number; unknown_date_known_cents: string };
 type Granularity = 'month' | 'quarter' | 'year';
+type StatsPeriod = 'all' | 'week' | 'month' | 'quarter' | 'year';
+type StatsCategory = {id:string|null;name:string;count:number;known_cents:string;unknown_price_count:number};
+type StatsSnapshot = {period:StatsPeriod;start:string|null;end:string;total:number;active:number;retired:number;sold:number;known_cents:string;unknown_price_count:number;sale_proceeds_cents:string;sold_purchase_cents:string;sold_unknown_price_count:number;categories:StatsCategory[]};
+const share=(part:number,total:number)=>total>0?`${(part/total*100).toFixed(1)}%`:'—';
+const series=(i:number)=>`var(--series-${i%7+1})`;
+
+function StatsDashboard(){
+ const [period,setPeriod]=useState<StatsPeriod>('all'),[data,setData]=useState<StatsSnapshot|null>(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
+ useEffect(()=>{let live=true;setError('');invoke<StatsSnapshot>('stats_snapshot',{period}).then(result=>{if(live)setData(result)}).catch(e=>{if(live)setError(errorMessage(e))});return()=>{live=false}},[period,retry]);
+ const rows=data?.categories??[],total=data?.total??0;
+ const stops=rows.reduce<{parts:string[];at:number}>((acc,row,i)=>{const next=acc.at+(total?row.count/total*100:0);acc.parts.push(`${series(i)} ${acc.at}% ${next}%`);acc.at=next;return acc},{parts:[],at:0});
+ const purchased=Number(data?.sold_purchase_cents??0),returned=Number(data?.sale_proceeds_cents??0);
+ return <div className="stats-dashboard">
+  <div className="segmented stats-period" role="group" aria-label="统计时间范围">{([['all','全部'],['week','周'],['month','月'],['quarter','季'],['year','年']] as const).map(([key,label])=><button type="button" key={key} aria-pressed={period===key} onClick={()=>setPeriod(key)}>{label}</button>)}</div>
+  {error?<article className="detail-section" role="alert"><p>统计读取失败：{error}</p><button onClick={()=>setRetry(n=>n+1)}>重新读取</button></article>:!data?<p role="status" className="muted">正在读取统计…</p>:<>
+   <p className="muted small">{data.start?`${data.start} 至 ${data.end} 购入的物品，按当前状态统计`:'所有未删除物品，按当前状态统计'}；已设置“不计入统计”的物品不参与。</p>
+   <div className="stats-kpis">{([['总资产',data.total],['活跃中',data.active],['已退役',data.retired],['已售出',data.sold]] as const).map(([label,value])=><article key={label}><span>{label}</span><strong>{value}<small> 件</small></strong><em>{share(value,data.total)}</em></article>)}</div>
+   <div className="stats-pair">
+    <article className="detail-section overview-card"><div className="section-heading"><h3>分类占比</h3><span>按物品数量</span></div>{!rows.length?<p className="muted">这个时间范围里没有物品。</p>:<ul className="stats-category-bars">{rows.map((row,i)=><li key={row.id??'none'}><span><i style={{background:series(i)}}/>{row.name}</span><div className="stats-bar"><span style={{width:share(row.count,total),background:series(i)}}/></div><strong>{share(row.count,total)}</strong><small>{row.count} 件</small></li>)}</ul>}</article>
+    <article className="detail-section overview-card"><div className="section-heading"><h3>分类持仓</h3><span>按当前档案数量</span></div><div className="stats-donut-layout"><div className="stats-donut" role="img" aria-label={'分类持仓：'+rows.map(r=>`${r.name}${r.count}件`).join('，')} style={{background:stops.parts.length?`conic-gradient(${stops.parts.join(',')})`:undefined}}><span><strong>{total}</strong><small>件物品</small></span></div><ul>{rows.map((row,i)=><li key={row.id??'none'}><i style={{background:series(i)}}/>{row.name}<strong>{row.count}</strong></li>)}</ul></div></article>
+   </div>
+   <div className="stats-pair"><article className="detail-section overview-card"><div className="section-heading"><h3>状态总览</h3><span>占全部物品</span></div><div className="stats-status-track" role="img" aria-label={`活跃中 ${share(data.active,total)}，已退役 ${share(data.retired,total)}，已售出 ${share(data.sold,total)}`}><span style={{width:share(data.active,total)}}/><span style={{width:share(data.retired,total)}}/><span style={{width:share(data.sold,total)}}/></div><div className="stats-status-legend"><span>活跃中 <strong>{data.active} 件 · {share(data.active,total)}</strong></span><span>已退役 <strong>{data.retired} 件 · {share(data.retired,total)}</strong></span><span>已售出 <strong>{data.sold} 件 · {share(data.sold,total)}</strong></span></div></article>
+    <article className="detail-section overview-card"><div className="section-heading"><h3>回收分析</h3><span>已售出物品</span></div><div className="stats-recovery"><div><span>售出回收</span><strong>{money(data.sale_proceeds_cents)}</strong></div><div><span>已知购入成本</span><strong>{money(data.sold_purchase_cents)}</strong></div><div><span>购入成本回收率</span><strong>{purchased>0?share(returned,purchased):'—'}</strong></div></div><p className="muted small">仅比较购入价与售出价，不含维护费用。{data.sold_unknown_price_count>0?`${data.sold_unknown_price_count} 件售出物品的购入价未知，未纳入回收率。`:''}</p></article></div>
+  </>}
+ </div>
+}
 
 const W = 640, H = 180, L = 56, B = 22, T = 10;
 function ticks(max: number) {
@@ -42,6 +68,7 @@ export function StatsPage({ onOpenAsset }: { onOpenAsset: (id: string) => void }
     return () => { live = false; };
   }, [granularity, retry]);
   return <section className="stats-section" aria-label="统计">
+    <StatsDashboard/>
     <article className="detail-section overview-card">
       <div className="section-heading"><h3>购买趋势</h3><span>历史全部：含已售出，不含已删除；按购入日期归入期间，期间首尾两天都包含</span></div>
       <div className="overview-controls"><div className="segmented" role="group" aria-label="期间粒度">{([['month', '按月'], ['quarter', '按季'], ['year', '按年']] as const).map(([k, l]) => <button key={k} aria-pressed={granularity === k} onClick={() => setGranularity(k)}>{l}</button>)}</div></div>

@@ -71,6 +71,7 @@ impl Store {
         self.hit("restore.after_extract")?;
         let db = connection(&stage.path().join("data.sqlite"))?;
         migrate(&db, &*self.hook)?;
+        crate::wishlist::backfill_achieved_assets(&db)?;
         db.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)")?;
         db.close().map_err(|(_, e)| e)?;
         validate_dataset(stage.path(), false)?;

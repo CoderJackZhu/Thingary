@@ -210,6 +210,31 @@ fn ac35_held_and_history_scopes_count_unknowns_and_exclude_deleted() {
     assert_eq!(h.categories.iter().map(|c| c.count).sum::<i64>(), 5);
     assert!(s.overview("bogus", TODAY).is_err());
 
+    let all = s.stats_snapshot("all", TODAY).unwrap();
+    assert_eq!((all.total, all.active, all.retired, all.sold), (5, 3, 1, 1));
+    assert_eq!(
+        (all.known_cents.as_str(), all.unknown_price_count),
+        ("350000", 1)
+    );
+    assert_eq!(
+        (
+            all.sale_proceeds_cents.as_str(),
+            all.sold_purchase_cents.as_str()
+        ),
+        ("150000", "200000")
+    );
+    assert_eq!(
+        all.categories.iter().map(|c| c.count).sum::<i64>(),
+        all.total
+    );
+    let month = s.stats_snapshot("month", TODAY).unwrap();
+    assert_eq!((month.total, month.known_cents.as_str()), (3, "300000"));
+    assert_eq!(month.start.as_deref(), Some("2026-09-01"));
+    let week = s.stats_snapshot("week", TODAY).unwrap();
+    assert_eq!((week.total, week.known_cents.as_str()), (1, "0"));
+    assert_eq!(week.start.as_deref(), Some("2026-09-07"));
+    assert!(s.stats_snapshot("bogus", TODAY).is_err());
+
     // Empty library: no division, no invented averages.
     let empty = tempfile::tempdir().unwrap();
     let e = Store::open(empty.path())
@@ -497,12 +522,12 @@ fn e06_e07_holding_groups_use_natural_anniversaries_with_month_end() {
         "2026-02-28",
     );
     assert_eq!(
-        s.holding("held", "2026-02-28").unwrap().groups[1].count,
+        s.holding("held", "2026-02-28").unwrap().groups[2].count,
         1,
         "E07: 08-31 + 6 months = 02-28"
     );
     assert_eq!(
-        s.holding("held", "2026-02-27").unwrap().groups[0].count,
+        s.holding("held", "2026-02-27").unwrap().groups[1].count,
         1,
         "left-closed: still under 6 months the day before"
     );
@@ -622,8 +647,8 @@ fn holding_statistics_and_exact_daily_rankings_from_an_independent_sample() {
     let counts: Vec<_> = h.groups.iter().map(|g| g.count).collect();
     assert_eq!(
         counts,
-        [2, 1, 0, 1, 0],
-        "A,B <6m; no-price 8 months; C 2 years"
+        [2, 0, 1, 0, 1, 0],
+        "A,B <3m; no-price 8 months; C 2 years"
     );
     assert_eq!(h.average_days, Some((3 + 1 + 740 + 253) as f64 / 4.0));
     assert_eq!(h.median_days, Some((3 + 253) as f64 / 2.0));

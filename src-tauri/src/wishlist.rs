@@ -3,7 +3,7 @@ use crate::{
     photos::{Photo, Selection},
     storage::{digest, uid, Store},
 };
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -189,6 +189,110 @@ pub(crate) fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
         Ok(item)
     })
     .transpose()
+}
+
+/// A fulfilled wish owns one asset. The estimate remains on the wish; the asset's
+/// actual purchase price is unknown until the user records it separately.
+pub(crate) fn link_achieved_asset(tx: &Transaction<'_>, wish_id: &str) -> Result<Option<String>> {
+    let wish = read(tx, wish_id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这条心愿"))?;
+    if wish.status != "achieved" || wish.converted_asset.is_some() {
+        return Ok(None);
+    }
+    let asset_id = uid();
+    let achieved_day = wish
+        .achieved_at
+        .as_deref()
+        .and_then(|value| value.get(..10))
+        .filter(|value| date(value).is_ok());
+    tx.execute(
+        "INSERT INTO assets(id,name,price_cents,purchase_date,revision,category_id,channel_id) VALUES(?1,?2,NULL,?3,1,?4,?5)",
+        params![asset_id, wish.fields.name.trim(), achieved_day, wish.fields.category_id, wish.preferences.channel_id],
+    )?;
+    let note = match wish.preferences.achievement_source.as_deref() {
+        Some("manual") => "手动实现心愿",
+        Some("savings") => "攒钱实现心愿",
+        _ => "实现心愿",
+    };
+    let now = chrono::Utc::now().to_rfc3339();
+    tx.execute(
+        "INSERT INTO asset_profiles(asset_id,brand,model,serial_number,notes,created_at,updated_at) VALUES(?1,'','','',?2,?3,?3)",
+        params![asset_id, note, now],
+    )?;
+    let mut stmt = tx.prepare("SELECT id,file,hash,size,name,position FROM wishlist_attachments WHERE wishlist_id=?1 ORDER BY position,id")?;
+    let photos = stmt
+        .query_map([wish_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, i64>(5)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    drop(stmt);
+    let mut cover_id = None;
+    for (old_id, file, hash, size, name, position) in photos {
+        let photo_id = uid();
+        tx.execute(
+            "INSERT INTO attachments(id,asset_id,file,hash,size) VALUES(?1,?2,?3,?4,?5)",
+            params![photo_id, asset_id, file, hash, size],
+        )?;
+        tx.execute(
+            "INSERT INTO asset_photos(asset_id,attachment_id,position,name) VALUES(?1,?2,?3,?4)",
+            params![asset_id, photo_id, position, name],
+        )?;
+        if wish.cover.as_ref().is_some_and(|cover| cover.id == old_id) {
+            cover_id = Some(photo_id);
+        }
+    }
+    tx.execute(
+        "INSERT INTO asset_media(asset_id,cover_id) VALUES(?1,?2)",
+        params![asset_id, cover_id],
+    )?;
+    let changed = tx.execute(
+        "UPDATE wishlist_items SET converted_asset_id=?1 WHERE id=?2 AND status='achieved' AND converted_asset_id IS NULL",
+        params![asset_id, wish_id],
+    )?;
+    if changed != 1 {
+        return Err(Error::new("REVISION_CONFLICT", "心愿已变化，请重新读取"));
+    }
+    Ok(Some(asset_id))
+}
+
+/// A corrected savings target returns the wish to the ongoing list. Keep the
+/// former asset recoverable in Recently Deleted, including any later edits.
+pub(crate) fn unlink_auto_achieved_asset(tx: &Transaction<'_>, wish: &WishlistItem) -> Result<()> {
+    if wish.preferences.achievement_source.as_deref() != Some("savings") {
+        return Ok(());
+    }
+    if let Some(asset) = &wish.converted_asset {
+        let now = chrono::Utc::now().to_rfc3339();
+        tx.execute(
+            "UPDATE wishlist_items SET converted_asset_id=NULL WHERE id=?1",
+            [&wish.id],
+        )?;
+        tx.execute("UPDATE assets SET deleted_at=?2,revision=revision+1 WHERE id=?1 AND deleted_at IS NULL", params![asset.id, now])?;
+    }
+    Ok(())
+}
+
+pub(crate) fn backfill_achieved_assets(c: &Connection) -> Result<usize> {
+    let mut stmt = c.prepare("SELECT id FROM wishlist_items WHERE status='achieved' AND converted_asset_id IS NULL ORDER BY created_at,id")?;
+    let ids = stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    drop(stmt);
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let tx = c.unchecked_transaction()?;
+    for id in &ids {
+        link_achieved_asset(&tx, id)?;
+    }
+    tx.commit()?;
+    Ok(ids.len())
 }
 
 impl Store {

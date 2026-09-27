@@ -43,7 +43,7 @@ fn saving(s: &Store, w: &possio_lib::wishlist::WishlistItem, mode: &str, cents: 
     }
 }
 #[test]
-fn savings_reaches_and_reverts_without_creating_assets() {
+fn savings_reaches_and_reverts_with_recoverable_asset() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let mut input = wish(&s);
@@ -53,16 +53,21 @@ fn savings_reaches_and_reverts_without_creating_assets() {
     let w = s.save_wish_savings(&a, TODAY).unwrap();
     assert_eq!(w.status, "achieved");
     assert_eq!(w.preferences.achievement_source.as_deref(), Some("savings"));
-    assert_eq!(s.count().unwrap(), 0);
+    let first_asset = w.converted_asset.as_ref().unwrap().id.clone();
+    assert!(s.asset(&first_asset).unwrap().is_some());
+    assert_eq!(s.count().unwrap(), 1);
     assert_eq!(s.save_wish_savings(&a, TODAY).unwrap().revision, w.revision);
     let correction = saving(&s, &w, "total", "9999");
     let w = s.save_wish_savings(&correction, TODAY).unwrap();
     assert_eq!(w.status, "ongoing");
     assert!(w.achieved_at.is_none());
+    assert!(w.converted_asset.is_none());
+    assert!(s.first_asset().unwrap().is_none());
     let w = s
         .save_wish_savings(&saving(&s, &w, "add", "1"), TODAY)
         .unwrap();
     assert_eq!(w.status, "achieved");
+    assert_ne!(w.converted_asset.as_ref().unwrap().id, first_asset);
     input.id = Some(w.id);
     input.expected_revision = Some(w.revision);
     input.preferences = w.preferences;
@@ -83,6 +88,97 @@ fn savings_reaches_and_reverts_without_creating_assets() {
     drop(s);
     let s = Store::open(dir.path()).unwrap();
     assert_eq!(s.wishlist_item(&id).unwrap().unwrap().status, "achieved");
+}
+#[test]
+fn manual_achievement_keeps_wish_and_creates_categorized_asset_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let category = s.taxonomy_snapshot().unwrap().categories[0].id.clone();
+    let image = s.prepare_material("icon-phone", &s.generation()).unwrap();
+    let mut input = wish(&s);
+    input.fields.name = "虚构手机心愿".into();
+    input.fields.category_id = Some(category.clone());
+    input.preferences.mode = "countdown".into();
+    input.photos = Selection {
+        ids: vec![image.id.clone()],
+        cover_id: Some(image.id),
+    };
+    input.status_intent = "manual".into();
+    let wish = s.save_wish_plan(&input, TODAY).unwrap();
+    let linked = wish.converted_asset.as_ref().unwrap();
+    assert_eq!(wish.status, "achieved");
+    assert_eq!(s.count().unwrap(), 1);
+    let asset = s.record(&linked.id).unwrap().unwrap();
+    assert_eq!(asset.asset.name, wish.fields.name);
+    assert!(
+        asset.asset.price_cents.is_none(),
+        "wish estimate is not actual purchase price"
+    );
+    assert_eq!(
+        asset.classification.category_id.as_deref(),
+        Some(category.as_str())
+    );
+    assert_eq!(asset.details.notes, "手动实现心愿");
+    assert_eq!(asset.photos.len(), 1);
+    assert_eq!(asset.origin_wishlist.unwrap().id, wish.id);
+    let replay = s.save_wish_plan(&input, TODAY).unwrap();
+    assert_eq!(replay.converted_asset.unwrap().id, linked.id);
+    assert_eq!(s.count().unwrap(), 1);
+}
+#[test]
+fn legacy_achieved_wish_is_backfilled_once_on_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let mut input = wish(&s);
+    input.status_intent = "manual".into();
+    let wish = s.save_wish_plan(&input, TODAY).unwrap();
+    let old_asset = wish.converted_asset.as_ref().unwrap().id.clone();
+    drop(s);
+    let active: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(dir.path().join("active.json")).unwrap()).unwrap();
+    let db_path = dir
+        .path()
+        .join("datasets")
+        .join(active["id"].as_str().unwrap())
+        .join("data.sqlite");
+    let db = rusqlite::Connection::open(db_path).unwrap();
+    db.execute_batch("PRAGMA foreign_keys=ON; DROP TRIGGER wishlist_achievement_update;")
+        .unwrap();
+    db.execute(
+        "UPDATE wishlist_items SET converted_asset_id=NULL WHERE id=?1",
+        [&wish.id],
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE assets SET deleted_at='2026-09-27T00:00:00Z' WHERE id=?1",
+        [&old_asset],
+    )
+    .unwrap();
+    db.execute_batch("CREATE TRIGGER wishlist_achievement_update BEFORE UPDATE ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.achieved_at IS NOT NULL) OR (NEW.converted_asset_id IS NOT NULL AND NEW.status!='achieved') OR (OLD.converted_asset_id IS NOT NULL AND (NEW.converted_asset_id IS NOT OLD.converted_asset_id OR NEW.achieved_at IS NOT OLD.achieved_at)) BEGIN SELECT RAISE(ABORT,'wishlist achievement state'); END; PRAGMA user_version=13;").unwrap();
+    drop(db);
+    let s = Store::open(dir.path()).unwrap();
+    let linked = s
+        .wishlist_item(&wish.id)
+        .unwrap()
+        .unwrap()
+        .converted_asset
+        .unwrap()
+        .id;
+    assert_ne!(linked, old_asset);
+    assert_eq!(s.first_asset().unwrap().unwrap().id, linked);
+    assert_eq!(s.count().unwrap(), 2);
+    drop(s);
+    let s = Store::open(dir.path()).unwrap();
+    assert_eq!(
+        s.wishlist_item(&wish.id)
+            .unwrap()
+            .unwrap()
+            .converted_asset
+            .unwrap()
+            .id,
+        linked
+    );
+    assert_eq!(s.count().unwrap(), 2);
 }
 #[test]
 fn savings_caps_the_last_addition_and_rejects_more_after_completion() {
@@ -119,6 +215,8 @@ fn savings_caps_the_last_addition_and_rejects_more_after_completion() {
         .save_wish_savings(&saving(&s, &achieved, "total", "9999"), TODAY)
         .unwrap();
     assert_eq!(corrected.status, "ongoing");
+    assert!(corrected.converted_asset.is_none());
+    assert!(s.first_asset().unwrap().is_none());
 }
 #[test]
 fn wish_photos_edit_replay_and_backup_preserve_independent_copies() {
@@ -452,7 +550,7 @@ fn reminders_follow_edits_achievement_and_restore() {
     assert_eq!(s.reminder_plans().unwrap()[0].date, "2027-02-01");
 }
 #[test]
-fn automatically_achieved_wish_converts_once_and_keeps_achievement_date() {
+fn explicit_purchase_conversion_still_converts_once() {
     use possio_lib::{
         catalog::{Details, SaveAsset},
         domain::Save as AssetSave,
@@ -461,7 +559,7 @@ fn automatically_achieved_wish_converts_once_and_keeps_achievement_date() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let mut input = wish(&s);
-    input.preferences.saved_cents = "10000".into();
+    input.preferences.saved_cents = "9999".into();
     let w = s.save_wish_plan(&input, TODAY).unwrap();
     let conversion = Convert {
         wishlist_id: w.id.clone(),
@@ -486,7 +584,7 @@ fn automatically_achieved_wish_converts_once_and_keeps_achievement_date() {
     s.convert_wishlist(&conversion, TODAY).unwrap();
     assert_eq!(s.count().unwrap(), 1);
     let actual = s.wishlist_item(&w.id).unwrap().unwrap();
-    assert_eq!(actual.achieved_at, w.achieved_at);
+    assert!(actual.achieved_at.is_some());
     assert!(actual.converted_asset.is_some());
     let w = s
         .save_wish_savings(&saving(&s, &actual, "total", "0"), TODAY)

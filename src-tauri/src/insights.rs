@@ -122,6 +122,128 @@ impl Store {
     }
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct SnapshotCategory {
+    pub id: Option<String>,
+    pub name: String,
+    pub count: i64,
+    pub known_cents: String,
+    pub unknown_price_count: i64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct StatsSnapshot {
+    pub period: String,
+    pub start: Option<String>,
+    pub end: String,
+    pub total: i64,
+    pub active: i64,
+    pub retired: i64,
+    pub sold: i64,
+    pub known_cents: String,
+    pub unknown_price_count: i64,
+    pub sale_proceeds_cents: String,
+    pub sold_purchase_cents: String,
+    pub sold_unknown_price_count: i64,
+    pub categories: Vec<SnapshotCategory>,
+}
+
+impl Store {
+    /// Periods select assets by purchase date. The all-time view also includes
+    /// assets without a purchase date; narrower views cannot place those.
+    pub fn stats_snapshot(&self, period: &str, today: &str) -> Result<StatsSnapshot> {
+        use chrono::Datelike;
+        let day = crate::domain::date(today)?;
+        let start = match period {
+            "all" => None,
+            "week" => day.checked_sub_days(chrono::Days::new(
+                day.weekday().num_days_from_monday() as u64
+            )),
+            "month" => chrono::NaiveDate::from_ymd_opt(day.year(), day.month(), 1),
+            "quarter" => {
+                chrono::NaiveDate::from_ymd_opt(day.year(), (day.month() - 1) / 3 * 3 + 1, 1)
+            }
+            "year" => chrono::NaiveDate::from_ymd_opt(day.year(), 1, 1),
+            _ => return Err(Error::new("QUERY", "不支持的统计期间")),
+        };
+        let c = self.conn()?;
+        let mut stmt = c.prepare("SELECT a.lifecycle_state,a.price_cents,c.id,coalesce(c.name,'未分类'),s.price_cents FROM assets a LEFT JOIN categories c ON c.id=a.category_id LEFT JOIN sales s ON s.asset_id=a.id AND s.revoked_at IS NULL WHERE a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1) AND (?1 IS NULL OR a.purchase_date BETWEEN ?1 AND ?2) ORDER BY c.position IS NULL,c.position,a.id")?;
+        let mut rows = stmt.query(params![start.map(|d| d.to_string()), today])?;
+        let mut result = StatsSnapshot {
+            period: period.into(),
+            start: start.map(|d| d.to_string()),
+            end: today.into(),
+            total: 0,
+            active: 0,
+            retired: 0,
+            sold: 0,
+            known_cents: "0".into(),
+            unknown_price_count: 0,
+            sale_proceeds_cents: "0".into(),
+            sold_purchase_cents: "0".into(),
+            sold_unknown_price_count: 0,
+            categories: Vec::new(),
+        };
+        let (mut known, mut proceeds, mut sold_purchase) = (0i64, 0i64, 0i64);
+        while let Some(row) = rows.next()? {
+            let state: String = row.get(0)?;
+            let price: Option<i64> = row.get(1)?;
+            let category_id: Option<String> = row.get(2)?;
+            let category_name: String = row.get(3)?;
+            let sale_price: Option<i64> = row.get(4)?;
+            result.total += 1;
+            match state.as_str() {
+                "active" => result.active += 1,
+                "retired" => result.retired += 1,
+                "sold" => result.sold += 1,
+                _ => {}
+            }
+            if let Some(value) = price {
+                known += value
+            } else {
+                result.unknown_price_count += 1
+            }
+            if state == "sold" {
+                if let Some(value) = sale_price {
+                    proceeds += value
+                }
+                if let Some(value) = price {
+                    sold_purchase += value
+                } else {
+                    result.sold_unknown_price_count += 1
+                }
+            }
+            let idx = result
+                .categories
+                .iter()
+                .position(|item| item.id == category_id);
+            let category = if let Some(idx) = idx {
+                &mut result.categories[idx]
+            } else {
+                result.categories.push(SnapshotCategory {
+                    id: category_id,
+                    name: category_name,
+                    count: 0,
+                    known_cents: "0".into(),
+                    unknown_price_count: 0,
+                });
+                result.categories.last_mut().unwrap()
+            };
+            category.count += 1;
+            if let Some(value) = price {
+                category.known_cents =
+                    (category.known_cents.parse::<i64>().unwrap_or(0) + value).to_string()
+            } else {
+                category.unknown_price_count += 1
+            }
+        }
+        result.known_cents = known.to_string();
+        result.sale_proceeds_cents = proceeds.to_string();
+        result.sold_purchase_cents = sold_purchase.to_string();
+        Ok(result)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct Bucket {
     /// `2026-09`, `2026-Q3` or `2026`; both ends of the period are inclusive days.
@@ -294,8 +416,9 @@ fn full_months(start: chrono::NaiveDate, end: chrono::NaiveDate) -> u32 {
     months
 }
 
-const GROUPS: [(&str, &str, u32); 5] = [
-    ("lt6m", "少于 6 个月", 6),
+const GROUPS: [(&str, &str, u32); 6] = [
+    ("lt3m", "0–3 个月", 3),
+    ("3to6m", "3–6 个月", 6),
     ("6to12m", "6–12 个月", 12),
     ("1to2y", "1–2 年", 24),
     ("2to3y", "2–3 年", 36),
@@ -317,7 +440,7 @@ impl Store {
         let ids = stmt
             .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        let mut counts = [0i64; 5];
+        let mut counts = [0i64; 6];
         let mut days_list: Vec<(i64, RankedAsset)> = Vec::new();
         let (mut unknown_dates, mut held_rank, mut sold_rank, mut excluded) =
             (0, Vec::new(), Vec::new(), Vec::new());

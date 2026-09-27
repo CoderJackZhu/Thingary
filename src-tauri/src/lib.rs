@@ -129,6 +129,7 @@ pub fn run() {
             commands::stage_wishlist_cover,
             commands::list_timeline,
             commands::overview,
+            commands::stats_snapshot,
             commands::purchase_trend,
             commands::holding,
             commands::create_backup,

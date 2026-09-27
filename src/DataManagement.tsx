@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
+import {Icon} from './AssetViews';
 
 type Summary = { hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; files: number };
 type Inspected = { path: string; name: string; summary: Summary };
@@ -49,14 +50,15 @@ export function DataManagement({ generation, blocked, demo, onTrash }: { generat
   // Only real drafts and pending requests are worth warning about; every non-theme key is still cleared.
   const pending = localWorkKeys().filter(k => /draft|request|abandon|upload/.test(k)).length;
   return <section className="card data-management" aria-labelledby="data-heading">
-    <h2 id="data-heading">资料管理</h2>
-    <p className="muted">{demo ? '样例库是独立的虚构资料。切换到“我的资料”后可使用备份、恢复和导出；样例中的最近删除仍可体验。' : '三种操作互不替代：完整备份用于换机或回到某一时刻；导出资产表只是可读表格；最近删除用于找回误删。'}</p>
+    <div className="data-heading"><div><p className="eyebrow">本地资料</p><h2 id="data-heading">资料管理</h2></div><span>仅保存在这台 Mac</span></div>
+    <p className="data-intro">{demo ? '当前是独立样例库。切换到“我的资料”后可备份、恢复与导出。' : '给资料留一份完整备份，也可导出表格或找回误删记录。'}</p>
     <div className="data-actions">
-      <div><h3>完整备份</h3><p className="muted small">包含全部物品、维护、保障、心愿及转换关系、分类渠道、素材、最近删除和托管原图；写入后立即重新校验。</p><button disabled={busy || blocked || demo} onClick={() => void backup()}>备份到…</button></div>
-      <div><h3>从备份恢复</h3><p className="muted small">先完整检查所选备份，确认后才替换；替换前自动保存当前资料的保护副本。</p><button disabled={busy || blocked || demo || !generation} onClick={() => void inspect()}>选择备份…</button></div>
-      <div><h3>导出资产表（CSV）</h3><p className="muted small">全部未删除物品（含已售出）的可读表格：UTF-8、未知值留空、¥0 写 0.00；以 = + - @ 开头的文字前加 ' 防止被表格当作公式。不含图片、维护、保障和心愿，不能用于恢复。</p><button disabled={busy || blocked || demo} onClick={() => void exportCsv()}>导出 CSV…</button></div>
-      <div><h3>最近删除</h3><p className="muted small">误删的物品、维护和保障可以找回，不会自动永久清空。</p><button disabled={busy || blocked} onClick={onTrash}>打开最近删除</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="archive"/></span><div className="data-action-copy"><h3>完整备份</h3><p>保存物品、心愿和图片等全部资料。</p></div><button disabled={busy || blocked || demo} onClick={() => void backup()}>备份…</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="back"/></span><div className="data-action-copy"><h3>从备份恢复</h3><p>先检查文件，再确认是否替换当前资料。</p></div><button disabled={busy || blocked || demo || !generation} onClick={() => void inspect()}>选择…</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出资产表（CSV）</h3><p>生成可阅读的表格，未知值留空。</p></div><button disabled={busy || blocked || demo} onClick={() => void exportCsv()}>导出…</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="trash"/></span><div className="data-action-copy"><h3>最近删除</h3><p>找回误删的物品、维护与保障。</p></div><button disabled={busy || blocked} onClick={onTrash}>打开</button></div>
     </div>
+    <details className="data-explainer"><summary>备份、导出和最近删除有什么区别？</summary><p>完整备份包含物品、维护、保障、心愿、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p><p>CSV 只包含未删除物品的可读数据，不含图片、维护、保障或心愿，不能用于恢复；以 = + - @ 开头的文字会加上保护字符。最近删除仅用于找回误删记录。</p></details>
     {blocked && <p className="notice">请先处理正在编辑或待核对的内容，再进行备份或恢复。</p>}
     {task.kind === 'running' && <p role="status" className="notice">{task.label}</p>}
     {task.kind === 'done' && <p role="status" className="notice">{task.text}</p>}
