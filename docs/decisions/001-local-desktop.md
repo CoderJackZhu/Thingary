@@ -266,3 +266,100 @@ src/**/tests/            前端组件与用户交互验证
 - schema 10 白名单、数据集校验和备份恢复覆盖三张保障表、触发器及原图（保障图片复用托管附件并校验同资产归属）；schema 1–9 恢复后迁移到 10。父资产删除／恢复沿用既有隐藏语义，保障与附件随父资产恢复可读。
 - 前端复用维护表单协议：原生 dialog、焦点/ESC、localStorage 草稿（`possio.warranty-draft.v1`）、pending 完整 payload、同请求回执核对、generation/revision 冲突与关闭保护。跨日刷新沿用 `refreshCostsForNewDay` 同一路径（列表、当前详情、保障摘要随重读更新）。
 - T10 不做保障独立删除、通知、PDF、CSV、AI、同步或全局时间轴；统一最近删除归 T11，完整备份界面归 T18。实际证据与未验项见 [T10 记录](../verification/T10_WARRANTY_RESULT.md)。
+
+## 17. A · 财富盘点技术设计（2026-09-28，W01 已实现）
+
+依据[产品设计第 17 节](../PRODUCT_DESIGN.md#17-统一资产扩展需求草案2026-09-28)与已确认的 X-D01–X-D04。只覆盖 A 首版：账户/负债、集中盘点、净资产趋势、删除恢复与完整备份。可读导出、盘点提醒、时间轴事件、总览卡片、外币、修订日志不在本版。实现沿用本 ADR 第 2–7 节协议，不另造第二套回执、删除或备份机制。
+
+### 17.1 schema 15
+
+一次迁移（`src-tauri/src/x01.sql`，与 `u02.sql` 同方式），单事务，失败整笔回滚。旧库升级后新表为空，不推算历史余额。
+
+```sql
+CREATE TABLE fin_accounts(
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, institution TEXT NOT NULL,
+  side TEXT NOT NULL CHECK(side IN ('asset','liability')),
+  kind TEXT NOT NULL CHECK(kind IN ('cash','investment','mixed','fund','bond','housing_fund','other_asset','credit_card','loan','other_liability')),
+  counted INTEGER NOT NULL CHECK(counted IN (0,1)),
+  opened_on TEXT NOT NULL, closed_on TEXT, notes TEXT NOT NULL,
+  position INTEGER NOT NULL CHECK(position>=0), revision INTEGER NOT NULL CHECK(revision>0),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
+  CHECK((side='asset') = (kind IN ('cash','investment','mixed','fund','bond','housing_fund','other_asset'))),
+  CHECK(closed_on IS NULL OR closed_on > opened_on));
+CREATE TABLE fin_snapshots(
+  id TEXT PRIMARY KEY, date TEXT NOT NULL, notes TEXT NOT NULL,
+  revision INTEGER NOT NULL CHECK(revision>0),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT);
+CREATE UNIQUE INDEX fin_snapshots_live_date ON fin_snapshots(date) WHERE deleted_at IS NULL;
+CREATE TABLE fin_snapshot_entries(
+  snapshot_id TEXT NOT NULL REFERENCES fin_snapshots(id),
+  account_id TEXT NOT NULL REFERENCES fin_accounts(id),
+  state TEXT NOT NULL CHECK(state IN ('entered','unchanged','missing')),
+  amount_cents INTEGER CHECK(amount_cents BETWEEN 0 AND 99999999999),
+  side TEXT NOT NULL, kind TEXT NOT NULL, counted INTEGER NOT NULL CHECK(counted IN (0,1)),
+  PRIMARY KEY(snapshot_id, account_id),
+  CHECK((state='missing') = (amount_cents IS NULL)));
+```
+
+- 金额一律非负整数分，由 `side` 决定加减；负债为“尚欠金额”。IPC 用十进制分字符串，复用 `domain::cents` 与 `MAX_CENTS`。
+- `side` 在账户建立后不可改（首次盘点前也不改，误建请删除重建）；`kind`、`counted`、名称可改。条目复制保存当时的 `side/kind/counted`，此后账户修改不重写旧盘点（X-D01）。名称取当前值，改名不改变数字。
+- 盘点只有一个 `date`（X-D03），同一日期至多一份有效盘点（部分唯一索引）。完整与否**不落库**，查询时派生，避免后补账户后状态失真。
+- `unchanged` 与 `entered` 都带金额；`unchanged` 取该账户在本盘点日期之前**最近一个已知金额**（跳过 `missing`），前端可不传金额，传了必须相等。之前从无已知金额时不能选 `unchanged`。该校验只在保存时进行；日后更正更早的盘点不连带改写后续 `unchanged` 条目，它们保存的金额本身就是当日确认的事实。
+
+### 17.2 纳入范围、完整性与可比性
+
+- 账户在日期 D 应盘点：未删除，`opened_on <= D`，且 `closed_on IS NULL OR D < closed_on`。保存盘点时必须恰好覆盖该集合，每个账户一行（可为 `missing`）；不在范围的账户拒绝，缺行拒绝。
+- 盘点完整 = 当前应盘点集合每个账户都有非 `missing` 条目。事后新建一个 `opened_on` 较早的账户，旧盘点自动变为不完整并列出缺漏账户，不补零（17.4 第 4 条）；再编辑那份盘点即可补录。
+- 两份盘点可比 = 两份都完整，且两份共有的账户里没有 `counted` 在两期之间变化。新开、销户属于真实变化，不影响可比。
+- 停用：`closed_on` 之前最后一份有效盘点中该账户金额必须为 0，或该账户从无条目；否则拒绝并提示“先在盘点中记录余额为 0”。之后不再出现在新盘点。重新启用即清空 `closed_on`。
+- 删除账户：仅限无任何条目（含已删除盘点中的条目）的误建账户，走软删除和最近删除；有历史的只能停用。
+- 更正账户的启用/停用日期时，有效盘点中已记录的日期必须仍在范围内；已删除盘点不参与此检查，所以 W03 恢复盘点时须重新校验日期唯一、账户范围与应盘点集合。
+
+### 17.3 计算（Rust `wealth.rs`，前端不复算）
+
+- 金融资产 = `side='asset' AND counted=1` 的已知金额和；负债同理；净资产 = 资产 − 负债，可负。求和用 `checked_add`。
+- 不完整盘点：只返回已知小计和缺漏数，净资产标为不完整；曲线上以区别样式标出，比较与变化率跳过它。
+- 变化 = 本次 − 上一份**可比**盘点；变化率仅在上期净资产 > 0 时给出，按整数分做精确除法、两位舍入（样例 X-AC02 = 3.03%）。只有一个点时不给趋势。跨月显示实际起止日期，不称“本月增长”。
+- 结构：最近一份完整盘点里计入的资产按 `kind` 汇总，分母为金融资产；资产合计为 0 不给比例。负债另列。
+
+### 17.4 命令
+
+均走串行 worker，写命令带 `request_id`、`generation`，编辑带 `expected_revision`；回执复用 `feature_requests(id,fingerprint,result)`，同 key 同指纹返回原结果，不同指纹 `REQUEST_CONFLICT`。不新建审计表（X-D01 不做修订日志）。
+
+| 命令 | 作用 |
+|---|---|
+| `wealth_accounts` | 账户列表（含停用），附最近一次条目金额与所属盘点日期 |
+| `wealth_account_save` | 新建/更正/停用/重新启用账户，校验 17.2 停用规则 |
+| `wealth_snapshot_draft(date)` | 返回 D 日应盘点账户、各自前一份有效金额与日期；已有同日盘点则返回其 ID 以转为更正 |
+| `wealth_snapshot_save` | 整份盘点一次提交；日期不晚于本机今天；校验覆盖集合、`unchanged` 值、唯一日期 |
+| `wealth_summary` | 曲线点（日期、资产、负债、净资产、完整、缺漏数、与上一可比期变化/变化率）与最近完整期结构 |
+| `wealth_request_result(request_id)` | 回执未知时核对原请求结果，不生成新请求 |
+| `trash_change` 扩展 | 盘点、账户的软删除/恢复；恢复同 ID，同日已有有效盘点则拒绝并说明 |
+
+更正历史盘点前的“影响预览”由前端用已有 `wealth_summary` 数据对比新旧净资产及前后两次变化，不另设命令。
+
+### 17.5 备份、恢复与版本
+
+- 新表同在 `data.sqlite`，自动进入完整备份；数据集校验新增：条目的 `side/kind` 与 CHECK 一致、同日有效盘点唯一、外键完整。
+- 现有代码在 `storage.rs`、`backup.rs` 共 7 处写死 14。先合并为一个 `SCHEMA_VERSION` 常量再升到 15，避免遗漏。
+- 旧备份（schema 1–14）恢复后迁移到 15，新表为空。已安装的 1.1.6 对 schema 15 的库和备份都会拒绝（`migrate_to` 与 `unpack` 的 `1..=14` 检查），满足“新版备份交旧版明确拒绝”；实现后用 1.1.6 同源构建在隔离身份实测一次。
+- 恢复切换 generation 后旧盘点窗口的提交以 `STALE_DATASET` 拒绝，沿用现有逻辑。
+
+### 17.6 界面
+
+- 入口：侧栏在“记录与回顾”之后新增一组“财富”，一个入口；页内三个分段：概览（最近完整盘点、净资产曲线、结构、缺漏提示）、账户、盘点记录。**侧栏属于已确认基线，入口位置须用户同意并附同尺寸对照后才实现。**
+- 盘点编辑为整页表格：账户逐行，列为前次金额/日期、本次金额、差额、状态；回车到下一行，“确认未变”为每行按钮与快捷键，错误就地显示。表单关闭即丢弃，不存草稿；提交中及结果未知时锁定并按回执核对（沿用 U03 规则）。
+- 曲线复用 `Stats.tsx` 的手写 SVG 趋势图，不引入图表库；配色、图标沿用 tokens 与现有 SVG。
+- 浏览器预览 `visual-preview.html` 增加财富虚构数据，覆盖正常、空白（无账户/仅一次盘点）、不完整、读取失败四种状态。
+
+### 17.7 验证
+
+- Rust：X-AC01–05、07、10 作为单元/集成测试；迁移 14→15 在 `migration.before_commit` 注入失败后回滚且可重试；schema 14 备份恢复后迁移；伪造 schema 16 清单被拒；重复/冲突请求；停用与删除规则；同日恢复冲突。
+- 原生：只在开发预览或隔离身份的虚构库，按既有 AX 方法走盘点录入、更正、删除恢复、备份恢复。**不打开正式库。**
+
+### 17.8 W01 实现记录（2026-09-28）
+
+- 落地 `src-tauri/src/x01.sql`（schema 15）、`src-tauri/src/wealth.rs` 及 7 个命令（`wealth_accounts`、`wealth_account_save`、`wealth_snapshot`、`wealth_snapshot_draft`、`wealth_snapshot_save`、`wealth_request_result`、`wealth_summary`）。`storage.rs`/`backup.rs` 的版本号收拢为 `SCHEMA_VERSION`，备份校验在 schema ≥ 15 时调用 `wealth::validate_dataset`。
+- 变化率以万分之一的整数返回（`change_rate_hundredths`，303 即 3.03%），四舍五入远离零；结构占比同口径。金额字段均为十进制分字符串，净资产可为负。
+- `tests/wealth.rs` 11 项覆盖 X-AC01–05、X-AC10、X-D01/X-D04、停用与日期范围、补建账户致旧盘点不完整、14→15 注入失败回滚与重试、新备份往返、schema 14 旧备份恢复为空财富、schema 16 备份拒绝。旧迁移测试的降级夹具同步删除三张新表。`npm test` 全部通过，`npm run check` 无警告。
+- 未包含：软删除/最近删除（W03）、界面（W02）、1.1.6 实机拒绝新备份的原生核验（W03）。
