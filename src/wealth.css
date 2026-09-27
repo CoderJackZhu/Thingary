@@ -1,0 +1,29 @@
+.wealth-section{display:grid;gap:16px;box-sizing:border-box}
+.wealth-section>.overview-card+.overview-card,.wealth-section .detail-section{margin:0}
+.wealth-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.wealth-toolbar .segmented{flex:none}.wealth-toolbar .segmented button{white-space:nowrap;padding:6px 12px}
+.wealth-actions{display:flex;gap:8px}
+.wealth-actions button{display:inline-flex;align-items:center;gap:6px}
+.wealth-accounts tr.closed td{color:var(--muted)}
+.trend-chart .partial-mark{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+.wealth-section .stats-category-bars li{grid-template-columns:minmax(72px,1fr) minmax(60px,1.4fr) 48px minmax(84px,auto)}
+.wealth-section .stats-category-bars li>small{text-align:right;font-variant-numeric:tabular-nums}
+.check-in-header{display:grid;grid-template-columns:auto 1fr auto;align-items:end;gap:20px}
+.check-in-header .back{margin:0;align-self:start;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.check-in-header h2{font-size:20px;margin:0 0 6px}
+.check-in-header p{margin:0;font-size:12px}
+.check-in-date{display:grid;gap:6px;font-size:12px}
+.check-in-table td{vertical-align:middle}
+.check-in-table td small{display:block;margin-top:3px;font-size:10px}
+.check-in-table input{width:140px;font-variant-numeric:tabular-nums;text-align:right}
+.check-in-table tr[data-state=missing] td:first-child strong{color:var(--muted)}
+.check-in-state{display:flex;gap:6px}
+.check-in-state button{font-size:11px;padding:4px 9px}
+.check-in-state button[aria-pressed=true]{background:var(--soft);color:var(--accent);border-color:var(--accent)}
+.check-in-footer{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:center;gap:16px;padding:14px 18px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.check-in-footer>div{display:grid;gap:4px}
+.check-in-footer span{font-size:11px;color:var(--muted)}
+.check-in-footer strong{font-size:17px;font-variant-numeric:tabular-nums}
+.check-in-submit{display:flex!important;gap:8px;grid-auto-flow:column}
+@media(max-width:900px){.check-in-header{grid-template-columns:1fr}.check-in-footer{grid-template-columns:1fr 1fr}.check-in-submit{grid-column:1/-1}}
+.wealth-section .distribution-table{width:100%}

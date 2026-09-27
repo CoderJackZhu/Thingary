@@ -363,3 +363,12 @@ CREATE TABLE fin_snapshot_entries(
 - 变化率以万分之一的整数返回（`change_rate_hundredths`，303 即 3.03%），四舍五入远离零；结构占比同口径。金额字段均为十进制分字符串，净资产可为负。
 - `tests/wealth.rs` 11 项覆盖 X-AC01–05、X-AC10、X-D01/X-D04、停用与日期范围、补建账户致旧盘点不完整、14→15 注入失败回滚与重试、新备份往返、schema 14 旧备份恢复为空财富、schema 16 备份拒绝。旧迁移测试的降级夹具同步删除三张新表。`npm test` 全部通过，`npm run check` 无警告。
 - 未包含：软删除/最近删除（W03）、界面（W02）、1.1.6 实机拒绝新备份的原生核验（W03）。
+
+### 17.9 W02 实现记录（2026-09-28）
+
+- 侧栏在“记录与回顾”后新增“财富”分组与“账户与盘点”入口（用户已同意）；新增 `wallet` 图标沿用既有 20×20、1.25 描边规格。同尺寸对照（1280×820，浅/深色，改前 `main` 与改后）见 [w02/sidebar-compare.png](../verification/w02/sidebar-compare.png)，其余导航与分区未变。
+- `src/WealthPage.tsx`：概览（最近完整盘点的净资产/资产/负债/变化、净资产曲线、资产结构与负债）、账户、盘点记录三个分段；账户编辑为原生 dialog；盘点为整页表格，回车到下一行、“未变”“未知”逐行按钮、底部实时小计、“其余标为未知”。页面布局复用 `stats-section`、`stats-kpis`、`stats-category-bars`、`distribution-table` 与 `trend-chart`。
+- 曲线只连接完整盘点，坐标按数据范围取整而不固定从 0 起；不完整盘点只画虚线标记日期，不画已知部分小计。历史表中不完整盘点的净资产显示“—”，资产/负债标“已知”。
+- 保存沿用“只保留已提交请求”的规则：提交前把请求写入 `possio.wealth-pending.v1`，回包丢失时用 `wealth_request_result` 核对；已提交则以同一请求重发取回原结果，未提交则清除并保留表单输入，无法确认时保留请求并在财富页提示核对。表单关闭即丢弃，不存草稿。
+- `wealth_snapshot_draft`/`wealth_summary` 增加 `generation` 字段。浏览器预览 `src/wealth-preview.ts` 为内存假数据，`?wealth=empty|first|error` 覆盖空白、首次盘点与读取失败，`?state=save-error` 覆盖保存失败。
+- 已验证：浏览器预览中录入、回车跳行、未变/未知、未处理行拦截、保存后回到记录、账户编辑、深色模式；`npm run build`、`npm run test:ui`（90 项）、`npm run check` 通过。未验证：原生 App 中的实际读写与回执核对（W03 隔离身份验收）；样例模式下财富记录会写入样例库，沿用样例横幅说明，不另做处理。

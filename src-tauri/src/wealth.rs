@@ -146,6 +146,7 @@ pub struct DraftRow {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Draft {
+    pub generation: String,
     pub date: String,
     pub existing: Option<Snapshot>,
     pub rows: Vec<DraftRow>,
@@ -178,6 +179,7 @@ pub struct Share {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Summary {
+    pub generation: String,
     pub points: Vec<Point>,
     /// Asset structure of the latest complete check-in, counted accounts only.
     pub structure_date: Option<String>,
@@ -453,6 +455,7 @@ impl Store {
             });
         }
         Ok(Draft {
+            generation: self.generation(),
             date: day.into(),
             existing,
             rows,
@@ -713,6 +716,7 @@ impl Store {
             }
         }
         Ok(Summary {
+            generation: self.generation(),
             points,
             structure_date,
             structure,

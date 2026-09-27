@@ -17,6 +17,7 @@ import { fixtureArt } from './visual-fixtures';
 import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materials';
 import { previewRecord } from './preview-costs';
 import demoAssets from './demo-assets.json';
+import { wealthPreview } from './wealth-preview';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 const emptyWarrantySummary = {status:'none',total:0,active_count:0,expiring_count:0,upcoming_count:0,expired_count:0,pending_count:0} as const;
 
@@ -111,6 +112,7 @@ function previewPhotoName(id: string): string {
 }
 mockIPC(async (command,payload) => {
   const args = payload as Record<string,unknown>;
+  const wealth = wealthPreview(command,args); if (wealth) return wealth.value;
   if (command === 'demo_status') return {active:false,available:false};
   if (command === 'switch_demo') return {active:false,available:false};
   if (command === 'taxonomy_snapshot') return taxonomySnapshot();

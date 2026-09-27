@@ -526,7 +526,7 @@ fn backups_carry_check_ins_old_ones_migrate_and_newer_ones_are_refused() {
     .unwrap();
     let file = dir.path().join("完整备份.possio");
     a.backup(Some(&file)).unwrap();
-    let before = serde_json::to_string(&a.wealth_summary().unwrap()).unwrap();
+    let before = serde_json::to_string(&a.wealth_summary().unwrap().points).unwrap();
     drop(a);
 
     let mut c = Store::open(&dir.path().join("c")).unwrap();
@@ -534,7 +534,7 @@ fn backups_carry_check_ins_old_ones_migrate_and_newer_ones_are_refused() {
     assert_eq!(summary.schema, 15);
     c.restore(&file, &summary.hash, &c.generation()).unwrap();
     assert_eq!(
-        serde_json::to_string(&c.wealth_summary().unwrap()).unwrap(),
+        serde_json::to_string(&c.wealth_summary().unwrap().points).unwrap(),
         before
     );
     assert_eq!(c.wealth_accounts().unwrap().len(), 4);
