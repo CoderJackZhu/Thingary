@@ -12,11 +12,13 @@ use std::{
 pub struct DemoStatus {
     pub active: bool,
     pub available: bool,
+    pub started: bool,
 }
 struct Libraries {
     real: Store,
     demo: Option<Store>,
     demo_mode: bool,
+    started: bool,
     /// Library, dataset and write count last used to plan reminders.
     reminder_key: Option<(bool, String, u64)>,
 }
@@ -24,15 +26,12 @@ impl Libraries {
     /// Re-plans reminders only after something was written or the active
     /// library changed; reads such as previews skip the query entirely.
     fn sync_reminders(&mut self) {
-        let active = if self.demo_mode {
-            self.demo.as_ref().unwrap_or(&self.real)
-        } else {
-            &self.real
-        };
+        // Viewing or editing fictional records must never replace real reminders.
+        let active = &self.real;
         let Ok(conn) = active.conn() else {
             return;
         };
-        let key = (self.demo_mode, active.generation(), conn.total_changes());
+        let key = (false, active.generation(), conn.total_changes());
         if self.reminder_key.as_ref() == Some(&key) {
             return;
         }
@@ -41,6 +40,27 @@ impl Libraries {
             crate::reminders::schedule(snapshot);
         }
     }
+    fn record_started(&mut self) -> Result<()> {
+        if !self.started {
+            self.started = has_personal_records(&self.real)?;
+        }
+        if self.started && !self.real.root.join("personal-started").exists() {
+            crate::storage::atomic_write(&self.real.root.join("personal-started"), b"1")?;
+        }
+        Ok(())
+    }
+}
+
+fn has_personal_records(store: &Store) -> Result<bool> {
+    // Include deleted rows. Appearance settings and taxonomy are not business records.
+    Ok(store.conn()?.query_row(
+        "SELECT EXISTS(SELECT 1 FROM assets) OR EXISTS(SELECT 1 FROM wishlist_items)
+         OR EXISTS(SELECT 1 FROM fin_accounts) OR EXISTS(SELECT 1 FROM fin_snapshots)
+         OR EXISTS(SELECT 1 FROM expenses) OR EXISTS(SELECT 1 FROM recurring_plans)
+         OR EXISTS(SELECT 1 FROM plan_payments)",
+        [],
+        |r| r.get(0),
+    )?)
 }
 type Job = Box<dyn FnOnce(&mut Libraries) + Send>;
 #[derive(Clone)]
@@ -56,7 +76,9 @@ impl Worker {
             .spawn(move || {
                 match (|| -> Result<Libraries> {
                     let real = Store::open(&root)?;
-                    let demo = if !real.has_any_asset()? {
+                    let started =
+                        root.join("personal-started").exists() || has_personal_records(&real)?;
+                    let demo = if !started {
                         let attempt = (|| {
                             let mut store = Store::open(&root.with_file_name("demo-library"))?;
                             crate::demo::import(
@@ -80,10 +102,14 @@ impl Worker {
                         real,
                         demo,
                         demo_mode,
+                        started,
                         reminder_key: None,
                     })
                 })() {
                     Ok(mut libraries) => {
+                        if let Err(error) = libraries.record_started() {
+                            eprintln!("首次使用状态暂未保存：{error}");
+                        }
                         let _ = ready_tx.send(Ok(()));
                         while let Ok(job) = rx.recv() {
                             // A panicking job drops its reply channel, so only that
@@ -155,6 +181,11 @@ impl Worker {
         self.sender
             .send(Box::new(move |state| {
                 let result = f(state);
+                // A command can commit successfully and still lose its response.
+                // Detect facts even when the command reports an error.
+                if let Err(error) = state.record_started() {
+                    eprintln!("首次使用状态暂未保存：{error}");
+                }
                 // Answer first; reminder bookkeeping must not delay the caller.
                 let _ = tx.send(result);
                 state.sync_reminders();
@@ -167,18 +198,16 @@ impl Worker {
         self.with_state(|state| {
             Ok(DemoStatus {
                 active: state.demo_mode,
-                available: !state.real.has_any_asset()?,
+                available: true,
+                started: state.started || has_personal_records(&state.real)?,
             })
         })
     }
+    pub fn reminder_snapshot(&self) -> Result<crate::reminders::Snapshot> {
+        self.with_state(|state| crate::reminders::snapshot(&state.real))
+    }
     pub fn switch_demo(&self, demo: bool) -> Result<DemoStatus> {
         self.with_state(move |state| {
-            if demo && state.real.has_any_asset()? {
-                return Err(Error::new(
-                    "DEMO_COMPLETE",
-                    "已经开始记录真实资产，样例展示已结束",
-                ));
-            }
             if demo && state.demo.is_none() {
                 let mut store = Store::open(&state.real.root.with_file_name("demo-library"))?;
                 crate::demo::import(
@@ -190,7 +219,8 @@ impl Worker {
             state.demo_mode = demo;
             Ok(DemoStatus {
                 active: state.demo_mode,
-                available: !state.real.has_any_asset()?,
+                available: true,
+                started: state.started || has_personal_records(&state.real)?,
             })
         })
     }
@@ -290,14 +320,100 @@ mod tests {
                 )
             })
             .unwrap();
-        assert!(!worker.demo_status().unwrap().available);
-        assert!(worker.switch_demo(true).is_err());
+        assert!(worker.demo_status().unwrap().started);
+        assert!(worker.switch_demo(true).unwrap().active);
+        worker.switch_demo(false).unwrap();
         let real_page = worker
             .call(move |s| s.query_assets(&query, "2026-09-27"))
             .unwrap();
         assert_eq!(real_page.total, 1);
         assert_eq!(real_page.items[0].asset.name, "真实库测试物品");
         assert_ne!(real_page.generation, demo_page.generation);
+    }
+
+    fn example_account(s: &mut Store) -> crate::wealth::Account {
+        s.wealth_account_save(
+            &crate::wealth::AccountSave {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: crate::wealth::AccountFields {
+                    name: "虚构储蓄卡".into(),
+                    institution: "虚构银行".into(),
+                    side: "asset".into(),
+                    kind: "cash".into(),
+                    counted: true,
+                    opened_on: "2026-01-01".into(),
+                    closed_on: None,
+                    notes: String::new(),
+                },
+            },
+            "2026-09-28",
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn existing_nonphysical_records_and_deleted_records_skip_automatic_demo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("library");
+        {
+            let mut s = Store::open(&root).unwrap();
+            let a = example_account(&mut s);
+            s.wealth_trash(&crate::wealth::TrashChange {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                kind: "account".into(),
+                id: a.id,
+                expected_revision: 1,
+                deleted: true,
+            })
+            .unwrap();
+        }
+        let worker = Worker::start(root.clone()).unwrap();
+        let status = worker.demo_status().unwrap();
+        assert!(status.started);
+        assert!(!status.active);
+        assert!(root.join("personal-started").exists());
+    }
+
+    #[test]
+    fn first_account_latches_even_after_error_response_and_empty_dataset() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("library");
+        // Unavailable sample is deliberately tolerated; no native image service needed here.
+        std::fs::write(tmp.path().join("demo-library"), b"unavailable").unwrap();
+        let worker = Worker::start(root.clone()).unwrap();
+        assert!(!worker.demo_status().unwrap().started);
+        let failed: Result<()> = worker.call(|_| Err(Error::new("TEST", "未保存")));
+        assert!(failed.is_err());
+        assert!(!worker.demo_status().unwrap().started);
+        let lost: Result<()> = worker.call(|s| {
+            example_account(s);
+            Err(Error::new("TEST", "已提交但回包丢失"))
+        });
+        assert!(lost.is_err());
+        assert!(worker.demo_status().unwrap().started);
+        worker
+            .call(|s| {
+                s.conn()?.execute("DELETE FROM fin_accounts", [])?;
+                Ok(())
+            })
+            .unwrap();
+        assert!(worker.demo_status().unwrap().started);
+        assert!(root.join("personal-started").exists());
+        // A new worker over an empty dataset with the persisted onboarding marker.
+        let other = tmp.path().join("empty-library");
+        std::fs::create_dir(&other).unwrap();
+        std::fs::copy(
+            root.join("personal-started"),
+            other.join("personal-started"),
+        )
+        .unwrap();
+        let restarted = Worker::start(other).unwrap();
+        assert!(!restarted.demo_status().unwrap().active);
+        assert!(restarted.demo_status().unwrap().started);
     }
 
     #[test]

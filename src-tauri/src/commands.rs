@@ -807,7 +807,10 @@ pub async fn save_wish_savings(
 }
 
 #[tauri::command]
-pub async fn notification_permission() -> Result<()> {
+pub async fn notification_permission(worker: tauri::State<'_, Worker>) -> Result<()> {
+    if worker.demo_status()?.active {
+        return Ok(());
+    }
     tauri::async_runtime::spawn_blocking(crate::reminders::request_permission)
         .await
         .map_err(|_| Error::new("REMINDER", "通知权限服务不可用"))?
@@ -837,7 +840,7 @@ pub fn open_notification_settings() -> Result<()> {
 pub async fn notification_status(worker: tauri::State<'_, Worker>) -> Result<String> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let snapshot = w.call(|s| crate::reminders::snapshot(s))?;
+        let snapshot = w.reminder_snapshot()?;
         crate::reminders::refresh(snapshot);
         Ok(crate::reminders::status())
     })
