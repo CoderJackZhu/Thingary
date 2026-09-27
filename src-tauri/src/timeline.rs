@@ -74,6 +74,8 @@ SELECT 'wish_achieved:'||w.id,'wish_achieved',date(w.achieved_at,'localtime'),NU
 UNION ALL
 SELECT 'expense:'||e.id,'expense',e.date,NULL,NULL,e.title,e.category,e.amount_cents,0,'' FROM expenses e WHERE e.deleted_at IS NULL AND e.asset_id IS NULL
 UNION ALL
+SELECT 'payment:'||p.id,'payment',p.paid_date,NULL,NULL,r.name,r.category,p.amount_cents,0,'' FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id WHERE p.deleted_at IS NULL AND r.deleted_at IS NULL AND p.state='paid'
+UNION ALL
 SELECT 'refund:'||e.id,'refund',e.refund_date,e.asset_id,NULL,e.title,e.category,e.refund_cents,0,'' FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL";
 
 fn kinds(filter: &str) -> Result<&'static [&'static str]> {
@@ -91,10 +93,11 @@ fn kinds(filter: &str) -> Result<&'static [&'static str]> {
             "wish_achieved",
             "expense",
             "refund",
+            "payment",
         ],
         "purchase" => &["purchase"],
         // A linked expense is the item's purchase, so it only shows there (X-D08).
-        "expense" => &["expense", "refund"],
+        "expense" => &["expense", "refund", "payment"],
         "maintenance" => &["maintenance"],
         "warranty" => &["warranty_start", "warranty_end"],
         "lifecycle" => &["retire", "activate", "sale"],

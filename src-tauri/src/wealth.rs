@@ -730,7 +730,7 @@ impl Store {
 pub struct TrashChange {
     pub request_id: String,
     pub generation: String,
-    /// `snapshot`, `account` or `expense`.
+    /// `snapshot`, `account`, `expense`, `plan` or `payment`.
     pub kind: String,
     pub id: String,
     pub expected_revision: i64,
@@ -755,6 +755,8 @@ impl Store {
             "snapshot" => "fin_snapshots",
             "account" => "fin_accounts",
             "expense" => "expenses",
+            "plan" => "recurring_plans",
+            "payment" => "plan_payments",
             _ => return Err(Error::new("TRASH_KIND", "不支持的类型")),
         };
         let current: Option<(i64, Option<String>)> = tx
@@ -808,6 +810,26 @@ impl Store {
                 return Err(Error::new(
                     "SNAPSHOT_ACCOUNT",
                     &format!("「{name}」的启用/停用日期已不包含 {day}，请先调整账户日期"),
+                ));
+            }
+        }
+        if input.kind == "payment" && !input.deleted {
+            // A payment comes back only under a live plan and into a free period.
+            let (plan_live, taken): (bool, bool) = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM recurring_plans r WHERE r.id=p.plan_id AND r.deleted_at IS NULL),EXISTS(SELECT 1 FROM plan_payments o WHERE o.plan_id=p.plan_id AND o.due_date=p.due_date AND o.deleted_at IS NULL AND o.id!=p.id) FROM plan_payments p WHERE p.id=?1",
+                [&input.id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?;
+            if !plan_live {
+                return Err(Error::new(
+                    "PARENT_DELETED",
+                    "所属计划仍在最近删除中，请先恢复计划",
+                ));
+            }
+            if taken {
+                return Err(Error::new(
+                    "PAYMENT_EXISTS",
+                    "这一期已有新的记录，不能恢复；可打开那条记录更正",
                 ));
             }
         }

@@ -380,3 +380,97 @@ fn backups_carry_plans_and_schema_sixteen_backups_migrate() {
     b.restore(&old, &summary.hash, &b.generation()).unwrap();
     assert!(b.recurring_overview("2026-09-28").unwrap().plans.is_empty());
 }
+
+#[test]
+fn plans_and_payments_delete_restore_and_reach_the_timeline() {
+    use possio_lib::{timeline::Query, trash::TrashQuery, wealth::TrashChange};
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    const T: &str = "2026-09-28";
+    let p = create(
+        &mut s,
+        fields("虚构会员", "5000", 1, "2026-08-01"),
+        "2026-08-01",
+    );
+    let aug = s
+        .recurring_payment_save(
+            &pay(&s, &p, "2026-08-01", Some("5000"), Some("2026-08-01")),
+            T,
+        )
+        .unwrap();
+    let events = |s: &Store| -> Vec<String> {
+        s.timeline(
+            &Query {
+                filter: "expense".into(),
+                asset_id: None,
+            },
+            T,
+        )
+        .unwrap()
+        .dated
+        .into_iter()
+        .map(|e| e.kind)
+        .collect()
+    };
+    assert_eq!(events(&s), vec!["payment"]);
+    let trash = |s: &Store, kind: &str, id: &str, rev: i64, deleted: bool| TrashChange {
+        request_id: rid(),
+        generation: s.generation(),
+        kind: kind.into(),
+        id: id.into(),
+        expected_revision: rev,
+        deleted,
+    };
+    let rows = |s: &Store| -> Vec<(String, bool)> {
+        s.list_trash(&TrashQuery {
+            filter: "wealth".into(),
+            offset: 0,
+        })
+        .unwrap()
+        .items
+        .into_iter()
+        .map(|e| (e.kind, e.asset_deleted))
+        .collect()
+    };
+
+    // Deleting a payment frees its period; a new record then blocks restoring it.
+    s.wealth_trash(&trash(&s, "payment", &aug.id, 1, true))
+        .unwrap();
+    assert_eq!(dues(&s, T).len(), 2);
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "0");
+    assert!(events(&s).is_empty());
+    let redo = s
+        .recurring_payment_save(
+            &pay(&s, &p, "2026-08-01", Some("4800"), Some("2026-08-02")),
+            T,
+        )
+        .unwrap();
+    assert_eq!(
+        code(s.wealth_trash(&trash(&s, "payment", &aug.id, 2, false))),
+        "PAYMENT_EXISTS"
+    );
+    s.wealth_trash(&trash(&s, "payment", &redo.id, 1, true))
+        .unwrap();
+    s.wealth_trash(&trash(&s, "payment", &aug.id, 2, false))
+        .unwrap();
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "5000");
+
+    // Deleting the plan hides it and its payments without rewriting them.
+    s.wealth_trash(&trash(&s, "plan", &p.id, 1, true)).unwrap();
+    let o = s.recurring_overview(T).unwrap();
+    assert!(o.plans.is_empty() && o.payments.is_empty() && o.due.is_empty());
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "0");
+    assert_eq!(
+        rows(&s),
+        vec![("plan".into(), false), ("payment".into(), true)],
+        "newest deletion first: the plan, then the redo payment under it"
+    );
+    assert_eq!(
+        code(s.wealth_trash(&trash(&s, "payment", &redo.id, 2, false))),
+        "PARENT_DELETED"
+    );
+    s.wealth_trash(&trash(&s, "plan", &p.id, 2, false)).unwrap();
+    let o = s.recurring_overview(T).unwrap();
+    assert_eq!((o.plans.len(), o.payments.len()), (1, 1));
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "5000");
+}

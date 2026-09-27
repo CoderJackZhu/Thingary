@@ -78,3 +78,11 @@ test('expense rows show their date and category label', () => {
   const row = entryDisplay(entry({ kind: 'expense', title: '虚构旅行', subtype: 'travel', date: '2026-08-01', asset_id: null }));
   assert.deepEqual([row.typeLabel, row.title, row.facts[0], row.parentBlocked], ['支出', '虚构旅行', '2026-08-01 · 旅行', false]);
 });
+
+test('recurring rows name their plan, period and a deleted parent', () => {
+  const plan = entryDisplay(entry({ kind: 'plan', title: '虚构房租', subtype: 'rent', asset_id: null }));
+  assert.deepEqual([plan.typeLabel, plan.title, plan.facts[0]], ['周期计划', '虚构房租', '房租 · 恢复后付款记录一并显示']);
+  const paid = entryDisplay(entry({ kind: 'payment', title: '虚构房租', subtype: 'paid', date: '2026-09-01', cost_cents: '300000', asset_id: null, asset_deleted: true }));
+  assert.equal(paid.title, '虚构房租 · 2026-09-01 期');
+  assert.deepEqual(paid.facts, ['已付 ¥3,000.00', '所属计划也在最近删除中，请先恢复计划']);
+});
