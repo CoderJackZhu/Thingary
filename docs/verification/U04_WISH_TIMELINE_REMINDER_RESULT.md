@@ -19,4 +19,4 @@
 
 ## 构建与安装边界
 
-正式包版本 `1.1.2`、identifier `local.possio.main`，schema 仍为 13；[最终打包](u04/release-build.txt)和 `codesign --verify --deep --strict` 通过，二进制 SHA256 为 `440098d0223c38992b48066440cc66de70820c77facec7941d06a4833bf50625`。本轮检查时 `/Applications/物志.app` 仍在运行，因此未替换正在使用的应用，待用户退出后安装。没有远程推送。
+正式包版本 `1.1.2`、identifier `local.possio.main`，schema 仍为 13；[最终打包](u04/release-build.txt)和 `codesign --verify --deep --strict` 通过，二进制 SHA256 为 `440098d0223c38992b48066440cc66de70820c77facec7941d06a4833bf50625`。用户确认退出后，2026-09-27 将其安装到 `/Applications/物志.app`；安装后的版本、identifier、签名和二进制 SHA256 均与构建包一致。旧版保存在 `/private/tmp/物志-before-u04-20260927-135344-36749.app`。安装未启动正式应用，也未打开正式资料库。没有远程推送。
