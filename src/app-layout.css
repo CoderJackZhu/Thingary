@@ -53,7 +53,7 @@ button{border-radius:6px;font-weight:400}.primary{font-weight:600}.shell{grid-te
 .local-status{white-space:nowrap}
 @media(max-width:980px){.local-status{white-space:nowrap}}
 @media(max-width:780px){.browse-main .summary{display:block;overflow:visible}.summary-body{overflow:visible}}
-@media(max-height:700px){.sidebar{padding-top:18px;padding-bottom:10px}.brand{margin-bottom:15px}.sidebar nav button{padding-top:5px;padding-bottom:5px}.nav-caption{margin-top:8px}.sidebar-bottom{padding-top:12px}.local-status{margin-top:6px}}
+@media(max-height:900px){.sidebar{padding-top:18px;padding-bottom:10px}.brand{margin-bottom:15px}.sidebar nav button{padding-top:5px;padding-bottom:5px}.nav-caption{margin-top:8px}.sidebar-bottom{padding-top:12px}.local-status{margin-top:6px}}
 
 .collection-count{font-size:11px;color:var(--muted)}
 
