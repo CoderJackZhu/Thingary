@@ -311,3 +311,31 @@ fn previews_skip_rehashing_but_still_catch_changed_or_missing_originals() {
         "IMAGE_MISSING"
     );
 }
+#[test]
+fn a_damaged_cached_preview_is_rebuilt_from_the_intact_original() {
+    let root = tempfile::tempdir().unwrap();
+    let s = Store::open(root.path()).unwrap();
+    let p = s
+        .stage_photo("camera.png", PNG, &s.generation(), None)
+        .unwrap();
+    let good = s.photo_preview(&p.id, &s.generation()).unwrap();
+    let cache = fs::read_dir(dataset(root.path()).join("cache"))
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| p.extension().is_some_and(|e| e == "png"))
+        .unwrap();
+    // Keep the PNG signature and header chunk, destroy everything after it.
+    let mut damaged = fs::read(&cache).unwrap();
+    for byte in &mut damaged[33..] {
+        *byte = !*byte;
+    }
+    fs::write(&cache, &damaged).unwrap();
+    let rebuilt = s.photo_preview(&p.id, &s.generation()).unwrap();
+    assert_eq!(rebuilt, good);
+    assert!(image::load_from_memory(&rebuilt).is_ok());
+    assert_eq!(fs::read(&cache).unwrap(), good);
+    // A preview cached before checksums existed is rebuilt the same way.
+    fs::remove_file(cache.with_extension("png.sha256")).unwrap();
+    fs::write(&cache, &damaged).unwrap();
+    assert_eq!(s.photo_preview(&p.id, &s.generation()).unwrap(), good);
+}
