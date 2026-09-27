@@ -58,14 +58,14 @@ export function LifecycleEditor({ initial, closeIntent, onKeep, onClose, onSaved
     if (lock.current) return; lock.current = true; setBusy(true);
     try {
       const record = await invoke<AssetRecord | null>('read_asset', { id: draft.record.asset.id });
-      if (!record || record.deleted) { setNotice('档案已删除或不可用，请取消后重新读取。'); return; }
+      if (!record || record.deleted) { setNotice('档案已删除或不可用，请关闭后重新读取。'); return; }
       remember({ ...draft, record }); setConflict(false);
       setNotice(`已读取最新状态：${stateLabel(record)}。你的日期输入仍保留，请核对下方历史后再保存。`);
     } catch (e) { setNotice(errorMessage(e)); }
     finally { lock.current = false; setBusy(false); }
   }
   return <dialog ref={dialog} className="editor lifecycle-editor" aria-labelledby="lifecycle-title" onCancel={e => { e.preventDefault(); askClose('form'); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><h2 id="lifecycle-title">{title}</h2><button type="button" aria-label="关闭状态表单" onClick={() => askClose('form')}>×</button><div className="editor-header-actions"><button type="button" disabled={busy || !!draft.pending} onClick={() => askClose('form')}>取消</button>{draft.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对状态保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void reload()}>读取最新状态</button> : <button className="primary" disabled={busy}>{busy ? '正在保存…' : '保存状态'}</button>}</div></header>
+    <header><h2 id="lifecycle-title">{title}</h2><button type="button" aria-label="关闭状态表单" onClick={() => askClose('form')}>×</button><div className="editor-header-actions">{draft.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对状态保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void reload()}>读取最新状态</button> : <button className="primary" disabled={busy}>{busy ? '正在保存…' : '保存状态'}</button>}</div></header>
     <p>{draft.record.asset.name}</p><p className="muted">{draft.action.type === 'correct_date' ? '只更正这条动作的日期，保留原有状态顺序和备注。' : '退役仍计入持有，日均持有成本继续计算。重新启用不会重置购入日期或已有历史。'}</p>
     <div className="field"><label htmlFor="lifecycle-date">动作日期（必填）</label><DateInput id="lifecycle-date" value={draft.action.date} disabled={busy || !!draft.pending} min={draft.record.asset.purchase_date ?? undefined} max={localDay()} onChange={value => edit(value)}/></div>
     {draft.action.type === 'append' && <label className="field" htmlFor="lifecycle-notes">备注（可选）<textarea id="lifecycle-notes" rows={3} value={draft.action.notes} disabled={busy || !!draft.pending} onChange={e => edit(draft.action.date,e.target.value)}/></label>}

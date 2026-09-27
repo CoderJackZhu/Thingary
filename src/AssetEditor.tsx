@@ -137,7 +137,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   }
   const coverPhoto = photos.find(p => p.id === draft.cover);
   const attachments = photos.filter(p => p.id !== draft.cover);
-  return <dialog ref={dialog} className={pickerOpen ? "icon-picker-host" : "editor asset-editor"} aria-labelledby={pickerOpen ? "icon-picker-title" : "editor-title"} onCancel={e => { e.preventDefault(); askClose('form'); }}>
+  return <dialog ref={dialog} className={pickerOpen ? "icon-picker-host" : `editor asset-editor${draft.id ? ' asset-editor-existing' : ''}`} aria-labelledby={pickerOpen ? "icon-picker-title" : "editor-title"} onCancel={e => { e.preventDefault(); askClose('form'); }}>
     <form hidden={pickerOpen} noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
       <header><div><p className="eyebrow">{conversion ? '心愿转为资产' : '物品档案'}</p><h2 id="editor-title">{conversion ? '确认购入' : draft.id ? '编辑资料' : '新增资产'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button><div className="editor-header-actions">
         {conflict && <button type="button" onClick={() => void reloadLatest()}>核对最新版本</button>}

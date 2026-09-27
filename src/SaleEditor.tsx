@@ -58,7 +58,7 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
     if (lock.current) return; lock.current = true; setBusy(true);
     try {
       const record = await invoke<AssetRecord | null>('read_asset', { id: draft.record.asset.id });
-      if (!record || record.deleted) { setNotice('档案已删除或不可用，请取消后重新读取。'); return; }
+      if (!record || record.deleted) { setNotice('档案已删除或不可用，请关闭后重新读取。'); return; }
       remember({ ...draft, record }); setConflict(false);
       setNotice(`已读取最新状态：${record.lifecycle?.state === 'sold' ? '已售出' : record.lifecycle?.state === 'retired' ? '已退役' : '使用中'}。你的输入仍保留，请核对最新售出资料后再保存。`);
     } catch (e) { setNotice(errorMessage(e)); }
@@ -68,7 +68,7 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
   const action = !validation && draft.mode !== 'revoke' ? saleAction(draft) : null;
   const preview = action && 'fields' in action ? settlement(draft.record, action.fields) : null;
   return <dialog ref={dialog} className="editor sale-editor" aria-labelledby="sale-title" onCancel={e => { e.preventDefault(); askClose('form'); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><h2 id="sale-title">{title}</h2><button type="button" aria-label="关闭售出表单" onClick={() => askClose('form')}>×</button><div className="editor-header-actions"><button type="button" disabled={busy || !!draft.pending} onClick={() => askClose('form')}>取消</button>{draft.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对售出保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void reload()}>读取最新状态</button> : <button className="primary" disabled={busy}>{busy ? '正在保存…' : draft.mode === 'revoke' ? '确认撤销误记售出' : '保存售出记录'}</button>}</div></header>
+    <header><h2 id="sale-title">{title}</h2><button type="button" aria-label="关闭售出表单" onClick={() => askClose('form')}>×</button><div className="editor-header-actions">{draft.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对售出保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void reload()}>读取最新状态</button> : <button className="primary" disabled={busy}>{busy ? '正在保存…' : draft.mode === 'revoke' ? '确认撤销误记售出' : '保存售出记录'}</button>}</div></header>
     <p>{draft.record.asset.name}</p>
     {draft.mode === 'revoke' ? <p>确认这是误记的售出？撤销后恢复为<strong>{draft.record.sale?.previous_state === 'retired' ? '已退役' : '使用中'}</strong>，保留原档案和图片，持有天数重新计算到今天。真实卖出后又买回，请新增另一件物品。</p> : <>
       <p className="muted">售出后持有天数截止到售出日。实际售价必填，可为 0；购入资料未知时仍可记录售出。</p>
