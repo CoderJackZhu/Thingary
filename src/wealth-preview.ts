@@ -3,6 +3,7 @@
 // proves nothing about native storage or calculation.
 import type { Account, AccountSave, Draft, Entry, Point, Share, Snapshot, SnapshotSave, Summary } from './wealth';
 import type { Expense, ExpenseSave, ExpenseView, Line } from './expenses';
+import type { Due, Overview, Payment, PaymentSave, Plan, PlanSave } from './recurring';
 import demoAssets from './demo-assets.json';
 
 const generation = 'visual-fixture-only';
@@ -92,7 +93,73 @@ function expenseView(year: number | null): ExpenseView {
     undated_cents: String(sum(undated)), unknown_amount_count: lines.filter(l => l.amount_cents === null).length };
 }
 
+// Recurring plans for the preview, anchored to the real current date.
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const todayIso = iso(now);
+/** k-th scheduled date counted from the anchor, clamped to month end (preview mirror of Rust). */
+function nth(first: string, interval: number, k: number) {
+  const [y, m, d] = first.split('-').map(Number), total = m - 1 + interval * k, yy = y + Math.floor(total / 12), mm = total % 12;
+  return iso(new Date(yy, mm, Math.min(d, new Date(yy, mm + 1, 0).getDate())));
+}
+function schedule(p: Plan, from: string, to: string) {
+  const out: string[] = [];
+  for (let k = 0; ; k++) { const d = nth(p.fields.first_due, p.fields.interval_months, k); if (d > to || (p.fields.end_date && d > p.fields.end_date)) break; if (d >= from) out.push(d); }
+  return out;
+}
+const plan = (id: string, name: string, category: string, amount: string, interval: number, first: string, extra: Partial<Plan['fields']> = {}): Plan =>
+  ({ id, fields: { name, category, amount_cents: amount, interval_months: interval, first_due: first, end_date: null, paused: false, notes: '', ...extra }, revision: 1, active_from: first, next_due: null });
+const firstOf = (ago: number, day: number) => iso(new Date(now.getFullYear(), now.getMonth() - ago, day));
+let plans: Plan[] = params.get('recurring') === 'empty' ? [] : [
+  plan('r-rent', '虚构房租', 'rent', '300000', 1, firstOf(2, 1)),
+  plan('r-video', '虚构视频会员', 'subscription', '2500', 1, firstOf(1, Math.min(now.getDate() + 3, 28))),
+  plan('r-domain', '虚构域名', 'subscription', '12000', 12, firstOf(-5, 1)),
+  plan('r-gym', '虚构健身房', 'membership', '19900', 1, firstOf(6, 10), { paused: true }),
+];
+let payments: Payment[] = params.get('recurring') === 'empty' ? [] : [
+  { id: 'p-1', plan_id: 'r-rent', plan_name: '虚构房租', due_date: firstOf(2, 1), state: 'paid', paid_date: firstOf(2, 1), amount_cents: '300000', notes: '', revision: 1, off_schedule: false },
+  { id: 'p-2', plan_id: 'r-rent', plan_name: '虚构房租', due_date: firstOf(1, 1), state: 'paid', paid_date: firstOf(1, 2), amount_cents: '300000', notes: '', revision: 1, off_schedule: false },
+];
+function recurringOverview(): Overview {
+  const soon = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7)), year = iso(new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()));
+  const tomorrow = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+  const free = (p: Plan, d: string) => !payments.some(x => x.plan_id === p.id && x.due_date === d);
+  const due: Due[] = [], upcoming: Due[] = []; let annual = 0n, next12 = 0n;
+  const out = plans.map(p => {
+    const item = (d: string): Due => ({ plan_id: p.id, plan_name: p.fields.name, category: p.fields.category, due_date: d, amount_cents: p.fields.amount_cents });
+    const next = schedule(p, tomorrow, year).find(d => free(p, d)) ?? null;
+    if (!p.fields.paused) {
+      due.push(...schedule(p, p.active_from, todayIso).filter(d => free(p, d)).map(item));
+      upcoming.push(...schedule(p, tomorrow, soon).filter(d => free(p, d)).map(item));
+      next12 += BigInt(p.fields.amount_cents) * BigInt(schedule(p, tomorrow, year).filter(d => free(p, d)).length);
+      if (!p.fields.end_date || p.fields.end_date >= todayIso) annual += BigInt(p.fields.amount_cents) * 12n / BigInt(p.fields.interval_months);
+    }
+    return { ...p, next_due: next };
+  });
+  return { generation, today: todayIso, due: due.sort((a, b) => a.due_date.localeCompare(b.due_date)), upcoming: upcoming.sort((a, b) => a.due_date.localeCompare(b.due_date)),
+    annual_cents: String(annual), monthly_cents: String((annual + 6n) / 12n), next12_cents: String(next12), plans: out,
+    payments: [...payments].sort((a, b) => b.due_date.localeCompare(a.due_date)).map(x => ({ ...x, off_schedule: !schedule(plans.find(p => p.id === x.plan_id)!, x.due_date, x.due_date).length })) };
+}
+
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  if (command === 'recurring_overview') { if (params.get('recurring') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: recurringOverview() }; }
+  if (command === 'recurring_plan_save') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as PlanSave, id = input.id ?? crypto.randomUUID(), old = plans.find(p => p.id === id);
+    const next: Plan = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, active_from: old ? (old.fields.paused && !input.fields.paused ? todayIso : old.active_from) : input.fields.first_due, next_due: null };
+    plans = old ? plans.map(p => p.id === id ? next : p) : [...plans, next];
+    receipts.set(input.request_id, id);
+    return { value: next };
+  }
+  if (command === 'recurring_payment_save') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as PaymentSave, p = plans.find(x => x.id === input.plan_id)!;
+    if (!input.id && payments.some(x => x.plan_id === input.plan_id && x.due_date === input.due_date)) throw { code: 'PAYMENT_EXISTS', message: '这一期已经记录过，请打开原记录更正' };
+    const id = input.id ?? crypto.randomUUID(), old = payments.find(x => x.id === id);
+    const next: Payment = { id, plan_id: p.id, plan_name: p.fields.name, due_date: input.due_date, state: input.state, paid_date: input.paid_date, amount_cents: input.amount_cents, notes: input.notes, revision: (old?.revision ?? 0) + 1, off_schedule: false };
+    payments = old ? payments.map(x => x.id === id ? next : x) : [...payments, next];
+    receipts.set(input.request_id, id);
+    return { value: next };
+  }
   if (command === 'expense_view') { if (params.get('expenses') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: expenseView((args.year as number | null) ?? null) }; }
   if (command === 'expense') return { value: expenses.find(e => e.id === args.id) ?? null };
   if (command === 'expense_save') {

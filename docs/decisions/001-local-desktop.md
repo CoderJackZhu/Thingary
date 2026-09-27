@@ -520,3 +520,10 @@ CREATE UNIQUE INDEX plan_payments_period ON plan_payments(plan_id,due_date) WHER
 - 重要支出投影新增 `payment` 来源（计划与付款未删除的已付记录，按实付日期）；前端 `expenses.ts` 同步来源标签与周期分类。
 - 备份：schema ≥ 17 时调用 `recurring::validate_dataset`；Summary 增加 `plans`、`payments`。
 - `tests/recurring.rs` 5 项与单元测试 1 项覆盖 X-AC08、X-AC09、X-AC10、月末锚定、跳过、更正不可换期、输入校验、提前付款、暂停与恢复、改价/改锚点不回写（计划外付款标记）、结束日期、备份往返及 schema 16 备份迁移。旧迁移夹具删除两张新表，版本断言升至 17，新版拒绝测试改用 schema 18。全部 Rust 测试、clippy 与 92 项界面测试通过。
+
+### 19.6 R02 实现记录（2026-09-28）
+
+- 侧栏“财富”分组新增“周期费用”（`repeat` 图标沿用既有规格）；同尺寸对照（1280×820，浅/深色，改前为 1.3.0 的 `main`）见 [r02/sidebar-compare.png](../verification/r02/sidebar-compare.png)。
+- 发现并修复侧栏溢出：财富分组增至三项后侧栏内容约 851px，默认 1080×760 窗口需滚动才能看到外观切换与“本地档案”（1.3.0 的两项已约 802px，已溢出；此前对照图取 820 高度未发现）。既有紧凑间距断点由 `max-height:700px` 提高到 900px，默认窗口内完整显示；[760 高度改前/改后](../verification/r02/sidebar-760.png)。此项改动了已确认侧栏在 700–900px 高度下的间距，单独提交，待用户确认。
+- `src/RecurringPage.tsx`：待确认/即将到期表（“确认已付”打开付款框，可改日期金额；“本期不付”两步确认）、年化负担/月均/未来 12 个月/待确认计数、计划表（暂停与结束弱化）、付款记录（计划外标记，点期次更正）。计划编辑框含周期分段、首次付款日提示、结束日期、暂停（仅编辑时）。重要支出中的“周期付款”行不可点击。
+- 预览：`src/wealth-preview.ts` 增加随当前日期生成的四个计划与两条付款，`?recurring=empty|error`。已在预览验证：计数与金额、确认已付（改金额）、本期不付、付款记录、计划编辑框；未做原生验收（R03）。

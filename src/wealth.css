@@ -33,3 +33,5 @@
 .expense-link-search{display:grid;gap:6px;justify-items:end}
 .expense-link-results{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
 .expense-link-results button{font-size:11px;padding:4px 9px}
+.recurring-due tr[data-overdue=true] td:first-child{font-weight:600}
+.recurring-due td.amount,.wealth-section td.amount{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
