@@ -58,6 +58,8 @@ CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；�
 
 分类与购买渠道的拖动预览现保持原行尺寸，退役／售出弹窗去掉了重复的“取消”，已有资产编辑页的更多资料也重新排版。1.1.5 已安装；见 [U07 记录](docs/verification/U07_DESKTOP_POLISH_RESULT.md)。
 
+资产编辑页的备注区域现可直接阅读更多行，添加图片移至右下；编辑表单只保留叉和保存。新增资产按钮显示现有的 ⌘N 快捷键。1.1.6 已安装；见 [U08 记录](docs/verification/U08_ASSET_EDITOR_USABILITY_RESULT.md)。
+
 ## U02 资产与心愿升级（2026-09-27）
 
 本轮按用户确认升级分块录入、独立状态标签、按次成本、四项统计排除、攒钱心愿与本地提醒；完整彩色图标、少量独立 3D 素材及月亮／时间轴同步调整。业务库升级为 schema 13，旧资料默认行为保留。实现、自动验证和隔离原生验收完成；用户保存退出后，1.1.0 已安装到 `/Applications/物志.app`；见 [执行清单](docs/handoffs/U02_ASSET_WISHLIST_UPGRADE.md) 与 [验证记录](docs/verification/U02_ASSET_WISHLIST_RESULT.md)。

@@ -14,6 +14,13 @@
 .asset-editor .editor-body>.more-fields .fields{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:12px 0 0}
 .asset-editor-existing .editor-body>.form-notes{grid-column:1/span 2;grid-row:span 2;align-self:stretch}
 .asset-editor-existing .editor-body>.form-notes~.form-block{grid-column:3}
+.asset-editor .editor-body>.form-notes{display:flex;flex-direction:column;min-width:0}
+.asset-editor .editor-body>.form-notes>.field{display:flex;flex-direction:column;flex:1;min-height:0}
+.asset-editor .editor-body>.form-notes textarea{box-sizing:border-box;height:150px;min-height:150px;flex:1;line-height:1.55}
+.asset-editor .editor-body>.form-notes .photo-strip{width:100%;min-height:56px;align-items:center;box-sizing:border-box}
+.asset-editor .editor-body>.form-notes .add-image-button{margin-left:auto;flex:none}
+.topbar-actions>.primary{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.topbar-actions>.primary kbd{margin-left:5px;padding:2px 5px;border:1px solid currentColor;border-radius:4px;color:inherit;opacity:.78;line-height:1.2}
 @media(max-width:1100px){.asset-editor-existing .editor-body>.form-notes{grid-column:1/-1;grid-row:auto}.asset-editor-existing .editor-body>.form-notes~.form-block{grid-column:auto}.asset-editor .editor-body>.more-fields .fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.asset-editor .editor-body>.more-fields .fields{grid-template-columns:1fr}}
 .exclusion-grid{gap:8px;padding:8px 12px 12px;grid-template-columns:1fr}.exclusion-grid label{padding:5px 0;gap:10px;cursor:pointer}.exclusion-grid input{appearance:none;width:20px;height:20px;min-width:20px;border:1.5px solid var(--muted);border-radius:6px;background:var(--bg);display:grid;place-content:center;margin:0}.exclusion-grid input:checked{background:var(--accent);border-color:var(--accent)}.exclusion-grid input:checked:after{content:'';width:8px;height:4px;border-left:2px solid var(--bg);border-bottom:2px solid var(--bg);transform:rotate(-45deg) translateY(-1px)}
