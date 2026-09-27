@@ -1,0 +1,142 @@
+# 变更记录
+
+按时间倒序记录各阶段完成情况。当前状态见 [README](README.md)，任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准，逐项证据在 `docs/verification/`。本文件由原 README 与 AGENTS.md 中逐次追加的状态段落整理而来，原文保留。
+
+## 2026-09-27 · 代码审阅修复
+
+- 完整备份改为流式打包／解包，取消 100 MiB、1023 个文件的上限（现为 32 GiB、10 万个文件）；资料较大时，恢复前的保护备份也不再失败。
+- 存储线程单个任务 panic 不再导致整个资料库不可用；系统通知的安排移出串行存储线程，只在写入后重新规划。
+- 图片预览对原图的完整哈希每次会话只做一次（文件变化时重做），列表封面不再每次读取并哈希全部原图。缓存预览另存 SHA-256，损坏或缺少校验值时自动从原图重建。
+- 提醒计划带有按写入顺序递增的版本号，统一经由一个后台线程提交，较旧的计划不会覆盖已取消或已修改的提醒。
+- 文档整理：README 改为入口页，历史移至本文件，已完成交接归档至 `docs/archive/`，修复 T21 记录中的失效链接。
+
+## 1.1.x 自用正式版迭代（2026-09-27）
+
+资产编辑页的备注区域现可直接阅读更多行，添加图片移至右下；编辑表单只保留叉和保存。新增资产按钮显示现有的 ⌘N 快捷键。1.1.6 已安装；见 [U08 记录](docs/verification/U08_ASSET_EDITOR_USABILITY_RESULT.md)。
+
+分类与购买渠道的拖动预览现保持原行尺寸，退役／售出弹窗去掉了重复的“取消”，已有资产编辑页的更多资料也重新排版。1.1.5 已安装；见 [U07 记录](docs/verification/U07_DESKTOP_POLISH_RESULT.md)。
+
+设置页的两栏外框与标题已统一对齐，1.1.4 已安装并完成隔离版浅／深色复核，见 [U06 记录](docs/verification/U06_SETTINGS_ALIGNMENT_RESULT.md)。
+
+### U05 心愿同步资产、设置与统计修正
+
+已实现心愿现在同步生成关联资产并继续留在心愿清单，攒钱回退会把自动生成的资产保留在最近删除。设置双栏、分类／渠道排序、三档主题和统计页的状态、分类、持有与回收展示已更新。正式版 1.1.3 已安装；隔离验证、数据口径和安装边界见 [U05 记录](docs/verification/U05_WISH_ASSET_SETTINGS_STATS_RESULT.md)。
+
+### U04 心愿与记录体验修正
+
+攒够目标后心愿保留在清单并显示 100%，「全部／进行中／已实现」可筛选；时间轴改为整列连续线，维护／保障表单统一说明与图片，提醒许可不再锁住表单。1.1.2 已完成隔离验收并安装到 `/Applications/物志.app`；见 [U04 记录](docs/verification/U04_WISH_TIMELINE_REMINDER_RESULT.md)。
+
+### U03 桌面交互修正
+
+普通表单直接关闭、不保存草稿；顶部保存、多栏录入、紧凑心愿详情、拖动分类渠道、默认箱子与连续时间轴已完成。1.1.1 已安装；验证与安装状态见 [U03 记录](docs/verification/U03_DESKTOP_INTERACTION_RESULT.md)。
+
+### U02 资产与心愿升级
+
+本轮按用户确认升级分块录入、独立状态标签、按次成本、四项统计排除、攒钱心愿与本地提醒；完整彩色图标、少量独立 3D 素材及月亮／时间轴同步调整。业务库升级为 schema 13，旧资料默认行为保留。实现、自动验证和隔离原生验收完成；用户保存退出后，1.1.0 已安装到 `/Applications/物志.app`；见 [执行清单](docs/archive/handoffs/U02_ASSET_WISHLIST_UPGRADE.md) 与 [验证记录](docs/verification/U02_ASSET_WISHLIST_RESULT.md)。
+
+### P1 首次样例与日期输入
+
+2026-09-27 已实现首次独立样例库与鼠标日历／新增日期预填，自动和隔离原生检查见 [P1 记录](docs/verification/P1_FIRST_RUN_DEMO_DATE_RESULT.md)。用户确认后，新版已安装到 `/Applications/物志.app`；正式资料库未用于开发验收。
+
+## P0 完成与 T22 自用正式版
+
+CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；验收边界见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。T22 自用正式版已 review 并本地合并：`/Applications/物志.app` 可以开始录入真实资料。正式版使用独立身份 `local.possio.main`，开发预览仍使用 `local.possio.preview`；使用前请阅读 [物志使用说明](docs/USER_GUIDE.md)。中文名「物志」、英文名「Possio」用于本次自用构建；公开发布前仍需核查名称可用性。
+
+**T21 完整 P0 验收（已 review、补验并本地合并）**：AC01–AC44 逐项证据、独立 release 离线闭环、同库备份/CSV、空库恢复及用户检查单见 [T21 验收报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。review 后补验 AC05/06/09，现通过 43、部分 1（AC40，含 VoiceOver 等待用户项）；浅色次要文字对比度已修至 AA；用户授权由 Claude 判定，**CP3、CP4 达到出口，P0 闭环完成**（AC40 未实测项为已接受风险，见报告 §9）。T22 自用正式版按[交接](docs/archive/handoffs/T22_SELF_USE_RELEASE_GPT.md)在 `codex/t22-self-use-release` 实施；[T22 记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)已 review（§7 更正 identifier）并本地合并。
+
+## T06–T20 开发阶段
+
+**T20 Mac 操作体验**：原生菜单与 ⌘N/⌘F/⌘E/⌘, 实测、焦点与弹窗、外观重启保持、800×600 浅深色对照与长文本，修复三处窄窗版式；VoiceOver 与系统外观实时切换待用户实测，见 [T20 记录](docs/verification/T20_MAC_EXPERIENCE_RESULT.md)；下一阶段 T21 完整 P0 验收交由 GPT 执行，契约与 Prompt 见 [T21 交接](docs/archive/handoffs/T21_P0_ACCEPTANCE_GPT.md)。当前仓库没有远程，成果只有本地提交。
+
+**T19 CSV 资产导出**：设置 › 资料管理导出全部未删除物品的可读表格（UTF-8 BOM、未知留空、¥0 写 0.00、公式防护），与备份共用原生保存面板；原生导出已由独立脚本与只读 SQL 逐行核对，见 [T19 记录](docs/verification/T19_CSV_EXPORT_RESULT.md)。
+
+**T18 完整备份恢复**：设置 › 资料管理提供完整备份、先检查后确认的恢复（含保护副本与旧请求作废）、CSV 入口说明与最近删除；空库恢复后全部关系一致，见 [T18 记录](docs/verification/T18_BACKUP_RESTORE_RESULT.md)（含 CP3 检查摘要）。
+
+**T17 持有分析**：持有周期按自然月纪念日分组、平均／中位／最长，当前持有毛日均与售出净日均分开并按精确值排行，见 [T17 记录](docs/verification/T17_HOLDING_RESULT.md)。
+
+**T16 购买趋势**：统计页按月／季／年的连续期间购入金额与累计（出售不回减、未知日期不归期），见 [T16 记录](docs/verification/T16_TRENDS_RESULT.md)。
+
+**T15 总览与分类分布**：当前持有与历史口径分开、未知数据单列、分类数量／金额占比与最近事件，见 [T15 记录](docs/verification/T15_OVERVIEW_RESULT.md)。
+
+**T14 有效时间轴**：全局页与资产详情共用一个只读投影，只含有效事实、未知日期单列、心愿实现与购入合为一条，见 [T14 记录](docs/verification/T14_TIMELINE_RESULT.md)。
+
+**T13 心愿转资产** 在 `codex/t13-wishlist-conversion` 实现并验收，结果与剩余边界见 [T13 记录](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)。
+
+**T12 心愿记录** 的 [Hermes 执行契约](docs/archive/handoffs/T12_HERMES.md) 已由任务分支落实，Codex review 的五项修复、原生放弃／筛选／翻页／缺图修复／重启收尾验收见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md#原生-gui-收尾验收2026-09-26claude)。T12 已本地快进合并 `main`。
+
+最近完成 **T11 统一最近删除与 CP2 补验**：Z code 首轮实现后由 Codex 接续 review、修复与验收，最终代码修复提交 `57b1207` 已快进合并到本地 `main`。资产、维护和保障的统一软删除／恢复、四类筛选、原生父子独立恢复、保障删/恢复及重启持久性已通过；原生 800×600、真实写锁失败后重试，以及恢复操作提交后回包丢失／崩溃重启按原请求核对也已补齐。临时注入源码已撤除，正常隔离包重建并复核。**CP2 达到阶段出口，完整 P0 尚未完成**；执行边界见 [T11 交接](docs/archive/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。尚未配置远程或推送。
+
+上一阶段：**T10 review 修复及原生补验完成，已按用户授权本地合并 main**。修复保留草稿后无法退出、保障附件 ID 跨实体混用两项问题；代码提交 `2b74e1f` 后前端 57 项、Rust 69 项、Demo 2 项及检查／构建通过。原生多份保障新增／同 ID 更正、日期校验、HEIC 草稿恢复／缺图修复／重启与写锁恢复已补验，见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。后续又补齐原生 800×600 与提交后响应丢失／崩溃重启核对，见 [第 11 节](docs/verification/T10_WARRANTY_RESULT.md#11-cp2-原生缺口补验2026-09-25)；CP2/P0 状态仍以实施计划为准。
+
+已完成插入任务：**U01 内置素材库选择**。已由 Z code 按交接契约实现并本地提交，含 2026-09-25 用户中途调整：侧栏新增“素材库”页面（可上传/删除自定义素材，schema 9 持久化），历史表单采用平铺小图。2026-09-27 用户确认改为名称左侧默认图标、分来源与分类的选择器，当前交互见 [图标选择器记录](docs/verification/ICON_PICKER_RESULT.md)。自动检查、浏览器及隔离原生证据见 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)；三项 Codex review P2 已修复，剩余原生上传／草稿／删除保留引用验收已补齐，达到 U01 阶段出口，并已按用户授权本地合并到主项目。
+
+### 本地集成（2026-09-25）
+
+2026-09-25 已将 `codex/t06b-taxonomy-storage` 的 `7e6c6e5` 快进合并到 `main`（原 main 为 `3b46442`）。**后续主入口为 `/Users/jackzhu/Code/Own/Possio`**，原 `outputs/Possio-t06b` 工作树保留，不再作为默认开发目录。用户选择只做本地合并：未配置远程、未推送或发布。
+
+合并后在主目录重新执行并通过：前端 45 项、Rust 58 项、Demo 2 项、fmt/Clippy、前端构建，以及隔离原生 App 构建。通过完整 App 路径启动并核对进程确实来自主目录，既有 13 件虚构资产正常加载，见 [启动状态](docs/verification/u01-native-completion/main-launch.txt)／[截图](docs/verification/u01-native-completion/main-launch.png)。本次只更新代码位置，仍使用 `local.possio.t06b.preview` 的原隔离资料库；未搬移或导入用户数据。用户原有未跟踪 `.gitignore` 原样保留。T09/U01 已完成阶段出口，其后 T10 的最新状态见下文，完整 P0 仍未完成。
+
+主目录复现隔离构建：`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`。本机 `.local/t06b.conf.json` 已沿用原隔离标识，配置与构建产物不入版本库。
+
+### T06b 隔离验收包与原生 Demo
+
+T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`，标识 `local.possio.t06b.preview`，使用独立虚构资料库。该包当前由 T12 任务分支代码构建（本地窗口标题仍为 T08，保留原包名），标识与虚构库保持不变。集成后仍以主目录本地 `main` 为入口；浏览器预览刷新重置，原生验收包才会实际持久保存。
+
+隔离验收 App 现已持久保存原始八件 Demo（电脑、相机、耳机、手机、平板、键盘、咖啡机、录音设备），每件使用自己的原创插图封面，可直接编辑体验。原有两件验收记录保留；搜索“原始 Demo”可只查看这八件。状态入口只在左侧，中间不再重复显示同一组标签。
+
+## 开工准备（V00–V05、T01–T05）
+
+V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程已实现并实测，详细状态统一见实施计划。已建立本地版本管理和 [AGENTS.md](AGENTS.md)；产品决策集中维护在 [产品设计第 15.2 节](docs/PRODUCT_DESIGN.md#152-产品决策表)，不另建重复决策文档。
+
+| 步骤 | 产物与完成标准 | 状态 |
+|---|---|---|
+| 0. 项目规则与版本管理 | 简版 Agent 规则、本地文档基线 | 已完成 |
+| 1. 首版范围与业务规则 | D01–D12 已确认，正文与验收样例已同步 | 已完成 |
+| 2. 核心流程 | 产品设计第 16 节的八条流程与 Spec 对齐，覆盖输入、失败与恢复 | 文档已细化；首段资产交互已有实测 |
+| 3. UI 风格与原型 | A「静序」已由用户选定，原型覆盖列表/摘要、新增、完整详情及深浅色 | 方向已确认；细部及视觉验收待补 |
+| 4. 可执行 Spec | P0 功能规格 v0.2：关键边界已确认，八条流程、44 条验收及边界样例 | 业务规格已收敛；部分 AC 有证据，完整验收待后续 |
+| 5. 技术设计与风险验证计划 | ADR-001 已覆盖架构、数据/附件、恢复与测试边界，并列出 R01–R07 | 底层实验、HEIC 与基础原生交互已验；完整 Mac 体验仍待验 |
+| 6. 任务拆分与分工 | V00–V05、T01–T21 已按依赖拆分；44 条 AC 已分配，Codex 串行主线 | 计划已完成；T01–T07 已达到各自已实现范围出口，T08 已达到已实现范围出口；T09 已达到本阶段出口；已本地合并 main |
+| 7. 开工检查 | 文档一致性检查已完成；技术未知分配至验证任务，首次实际实施范围明确 | CP1 基本流程出口已达到；完整 P0 仍待后续阶段 |
+
+当前采用已有技能辅助准备，不安装第二套 Spec 框架，不启用自动后台开发。UI 偏好已确认是“精致的 Mac 工具：安静、清楚、操作顺手”；已明确选定 A，功能规格中的关键取舍已确认，原生检查工具已恢复，现已完成 CP1 的基本资产流程。静态原型只演示交互，刷新会重置样例，尚不具备真实资产保存能力。文档准备完成不代表技术风险已验证或 P0 已实现。
+
+## 协作状态历史（原 AGENTS.md）
+
+以下为 AGENTS.md 中曾逐次追加的阶段性协作说明，已由 AGENTS.md「当前状态」取代。
+
+用户要求按顺序完成开工准备，再进入应用实现。准备阶段先推进需求、交互、规格和架构；取得相应实施授权后再进入代码与工程验证。不要把“开始准备”解释成“开始实现”。
+
+用户随后授权进入开发：T01–T05 已达到 CP1 出口；T06 分类与渠道及综合回归已通过；T07 退役／启用与 T08 售出／纠错已实现并验收。T09 维护档案现已完成本轮实现、自动检查及隔离原生新增／同记录更正／重开证据，两轮 review 所列问题已修复，原生选图问题已修复，剩余图片／日期／写锁恢复补验完成，已达到 T09 阶段出口；结果见 [T09 记录](docs/verification/T09_MAINTENANCE_RESULT.md)。已授权的常规检查和必要修复直接推进；完整 P0 和发布尚未交付。
+
+此前用户要求暂停 T10，先按原始 A Demo 完成视觉还原。随后明确反馈状态入口重复，现仅保留左侧状态导航，中间用于结果数量、分类／排序及视图切换；这是对原型的已授权调整。后续实现不得自行改动已确认的状态导航与页面分区；新增界面应复用既有 SVG、tokens 和组件，提交同尺寸对照证据。当前结论见视觉验证记录，T09 已登记的原生补验现已完成；用户随后授权先完成本地集成复核，再进入 T10。
+
+历史 U01 插入任务（现已验收并合并）：用户当时要求先准备内置素材库功能的文档与 Prompt，再由用户自行发给 Z code（GLM5.3 主实现、Flash 可辅助机械核对），完成后交回 Codex review。唯一执行契约为 [U01 交接](docs/archive/handoffs/U01_MATERIAL_LIBRARY_ZCODE.md)。不自动启动执行器、多 Agent 或 T10；不把当前 Demo 数据导入误写为已实现素材选择器。2026-09-25 实施中途用户调整：侧栏新增“素材库”页面（含上传/删除自定义素材，schema 9），表单封面区改为平铺小图直选；以 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md) 和产品设计 D13/UI 设计 U01 更新后的章节为准。
+
+- T09 已由 Hermes 在当前工作树串行实现并完成本轮验证，具体执行契约见 [T09 Hermes 交接](docs/archive/handoffs/T09_HERMES.md)，结果见 [T09 记录](docs/verification/T09_MAINTENANCE_RESULT.md)；两轮 review 所列问题已修复，原生补验已完成，具备 T09 集成条件。本次未启动 MoA、子代理、zcode/Codex 代写或后台循环，不提前推进 T10。
+
+### 当前集成安排（2026-09-25）
+
+用户已明确授权：补齐 U01 后本地合并回 `/Users/jackzhu/Code/Own/Possio`，在主目录复核，再进入 T10；远程选择“先只做本地合并”。T09/U01 原生补验已完成，最新结果优先于历史交接中的未验项。旧开发工作树保留，不删除；后续工作以主项目为入口，按阶段使用 `codex/` 分支。不得自行配置远程或推送。
+
+当前 main 已包含 T06–T11、视觉还原及 U01；T11 本地集成点为 `57b1207`。主目录现为最新代码；原 `Possio-t06b` 作为保留工作树，不再是后续开发的默认入口。主目录原有未跟踪 `.gitignore` 属于用户文件，保持不变且不代为提交。
+
+### T11 统一最近删除
+
+2026-09-25 T10 与 T11 已 review 修复并本地集成 `main`。T11 的契约和实际结果分别见 [统一最近删除交接](docs/archive/handoffs/T11_UNIFIED_TRASH_ZCODE.md)、[T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)；原生小窗口及错误注入仍缺，CP2/P0 未宣布完成。用户本轮授权 T11 审查后的本地合并和推送，但仓库尚未配置 Git remote，未推送；不凭空指定远程，也不自动推进 T12。原有未跟踪 `.gitignore` 属于用户文件，保持原样。
+
+### P0 完成，T22 自用正式版（2026-09-26）
+
+T12–T21 已本地集成 main；用户授权由 Claude 判定，CP3、CP4 达到出口，P0 闭环完成（AC40 的 VoiceOver 等未实测项为已接受风险，见 T21 报告 §9）。下一任务 T22 自用正式版交由 GPT，唯一入口 [T22 交接](docs/archive/handoffs/T22_SELF_USE_RELEASE_GPT.md)；完成后交回 Claude review。仍无远程、不推送；`.gitignore` 为用户文件。
+
+### T22 完成（2026-09-27）
+
+自用正式版 `/Applications/物志.app`（identifier `local.possio.main`，资料在 `~/Library/Application Support/local.possio.main/`）已 review 并本地合并，用户可开始录入真实资料。**正式库是用户真实资料：开发、测试和验收一律不得打开或写入它**，只用开发预览及各隔离身份。下一步 P1 范围待用户选择。
+
+### U02 资产与心愿升级完成（2026-09-27）
+
+用户授权的分块表单、独立标签、按日／按次成本、四项排除、攒钱自动实现与回退、素材及时间轴升级已实现。schema 13，Rust 117 项、前端 89 项及隔离原生核心验收通过；macOS 提醒已验证完全退出后的投递和取消。用户保存退出后，1.1.0 已安装到 `/Applications/物志.app`，正式资料库未用于测试。规则见 PRODUCT_DESIGN D16；事实与未验边界以 [U02 记录](docs/verification/U02_ASSET_WISHLIST_RESULT.md) 为准。按量／按使用时长仍留后续。
+
+### U03 桌面交互修正（2026-09-27）
+
+按用户反馈完成直接关闭、不保存普通草稿、顶部操作、多栏表单、紧凑心愿详情、拖动分类渠道和素材顺序修正。1.1.1 已安装；验证见 [U03 记录](docs/verification/U03_DESKTOP_INTERACTION_RESULT.md)。已提交但结果未知的回执仍保留；不得再为普通退出加入草稿确认。正式库仍禁止用于开发验收。

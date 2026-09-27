@@ -22,7 +22,7 @@ impl std::fmt::Display for Error {
 impl std::error::Error for Error {}
 impl From<std::io::Error> for Error {
     fn from(_: std::io::Error) -> Self {
-        Self::new("IO", "无法读写验证资料，请检查空间和权限")
+        Self::new("IO", "无法读写本地资料，请检查磁盘空间和权限")
     }
 }
 impl From<rusqlite::Error> for Error {

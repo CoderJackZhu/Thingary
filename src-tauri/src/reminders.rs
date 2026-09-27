@@ -6,8 +6,8 @@ use serde::Serialize;
 use std::{
     ffi::{c_char, c_void, CStr, CString},
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
-        Mutex,
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
+        mpsc, Mutex, OnceLock,
     },
 };
 static ENABLED: AtomicBool = AtomicBool::new(false);
@@ -45,7 +45,15 @@ impl Store {
 pub fn enable() {
     ENABLED.store(true, Ordering::Relaxed);
 }
+/// Unit tests record plans instead of reaching the notification center.
+#[cfg(test)]
+static NATIVE_CALLS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 fn native(json: &str, ask: bool) -> Result<()> {
+    #[cfg(test)]
+    if !ask {
+        NATIVE_CALLS.lock().unwrap().push(json.to_owned());
+        return Ok(());
+    }
     let json = CString::new(json).map_err(|_| Error::new("REMINDER", "提醒内容无效"))?;
     let ptr = unsafe { possio_notifications(json.as_ptr(), i32::from(ask)) };
     if ptr.is_null() {
@@ -67,42 +75,139 @@ pub fn request_permission() -> Result<()> {
     AUTH_PENDING.fetch_sub(1, Ordering::AcqRel);
     result
 }
-pub fn reconcile(store: &Store, force: bool) {
+/// A reminder plan read on the storage worker. Sequence numbers are taken in
+/// the same job as the read, and the worker runs jobs one at a time, so a
+/// higher number always reflects a later state of the library.
+pub struct Snapshot {
+    seq: u64,
+    json: String,
+}
+static SEQ: AtomicU64 = AtomicU64::new(0);
+impl Snapshot {
+    fn new(json: String) -> Self {
+        Self {
+            seq: SEQ.fetch_add(1, Ordering::SeqCst) + 1,
+            json,
+        }
+    }
+}
+/// Call only inside a storage worker job; see [`Snapshot`].
+pub fn snapshot(store: &Store) -> Result<Snapshot> {
+    Ok(Snapshot::new(serde_json::to_string(
+        &store.reminder_plans()?,
+    )?))
+}
+struct Request {
+    snapshot: Snapshot,
+    force: bool,
+    done: Option<mpsc::SyncSender<()>>,
+}
+/// Every plan reaches the notification center through this one thread. The
+/// center can take seconds to answer, so it never runs on the storage worker,
+/// and a snapshot older than one already seen is never applied.
+fn enqueue(request: Request) -> bool {
+    static QUEUE: OnceLock<Mutex<mpsc::Sender<Request>>> = OnceLock::new();
+    let queue = QUEUE.get_or_init(|| {
+        let (tx, rx) = mpsc::channel::<Request>();
+        let spawned = std::thread::Builder::new()
+            .name("possio-reminders".into())
+            .spawn(move || {
+                let mut latest: Option<Snapshot> = None;
+                while let Ok(first) = rx.recv() {
+                    let mut force = false;
+                    let mut waiting = Vec::new();
+                    for request in std::iter::once(first).chain(rx.try_iter()) {
+                        if latest.as_ref().is_none_or(|l| request.snapshot.seq > l.seq) {
+                            latest = Some(request.snapshot);
+                        }
+                        force |= request.force;
+                        waiting.extend(request.done);
+                    }
+                    // A permission prompt is open; schedule once it is answered.
+                    while AUTH_PENDING.load(Ordering::Acquire) != 0 {
+                        std::thread::sleep(std::time::Duration::from_millis(200));
+                    }
+                    if let Some(plan) = &latest {
+                        apply(&plan.json, force);
+                    }
+                    for done in waiting {
+                        let _ = done.send(());
+                    }
+                }
+            });
+        if spawned.is_err() {
+            if let Ok(mut last) = LAST.lock() {
+                last.1 = "提醒服务未能启动，请重启物志".into();
+            }
+        }
+        Mutex::new(tx)
+    });
+    queue.lock().is_ok_and(|tx| tx.send(request).is_ok())
+}
+/// Queues a plan after a write; returns immediately.
+pub fn schedule(snapshot: Snapshot) {
+    if ENABLED.load(Ordering::Relaxed) {
+        enqueue(Request {
+            snapshot,
+            force: false,
+            done: None,
+        });
+    }
+}
+/// Re-applies the newest known plan (never an older `snapshot`) even when it
+/// is unchanged, and waits until the notification center has answered.
+pub fn refresh(snapshot: Snapshot) {
     if !ENABLED.load(Ordering::Relaxed) {
         return;
     }
-    if AUTH_PENDING.load(Ordering::Acquire) != 0 {
+    let (done, finished) = mpsc::sync_channel(1);
+    if enqueue(Request {
+        snapshot,
+        force: true,
+        done: Some(done),
+    }) {
+        let _ = finished.recv();
+    }
+}
+/// Synchronises macOS pending notifications with `json`. Unchanged plans are
+/// skipped unless `force`. Runs only on the reminder thread.
+fn apply(json: &str, force: bool) {
+    let Ok(mut last) = LAST.lock() else {
+        return;
+    };
+    if !force && last.0 == json {
         return;
     }
-    let result = (|| -> Result<()> {
-        let plans = store.reminder_plans()?;
-        let json = serde_json::to_string(&plans)?;
-        let mut last = LAST
-            .lock()
-            .map_err(|_| Error::new("REMINDER", "提醒状态不可用"))?;
-        if !force && last.0 == json {
-            return Ok(());
-        }
-        match native(&json, false) {
-            Ok(()) => {
-                *last = (json, String::new());
-                Ok(())
-            }
-            Err(e) => {
-                last.0 = json;
-                last.1 = e.message.clone();
-                Err(e)
-            }
-        }
-    })();
-    if let Err(e) = result {
-        if let Ok(mut last) = LAST.lock() {
-            last.1 = e.message;
-        }
-    }
+    last.0 = json.to_owned();
+    last.1 = match native(json, false) {
+        Ok(()) => String::new(),
+        Err(e) => e.message,
+    };
 }
 pub fn status() -> String {
     LAST.lock()
         .map(|l| l.1.clone())
         .unwrap_or_else(|_| "提醒状态不可用".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A status check reads its plan, then a write cancels the reminder and is
+    /// applied, and only then does the status check reach the queue. The stale
+    /// plan must not reschedule the cancelled reminder.
+    #[test]
+    fn a_late_status_check_never_reapplies_a_stale_plan() {
+        enable();
+        let stale_json = r#"[{"id":"possio-cancelled","date":"2099-01-01","title":"t","body":""}]"#;
+        let stale = Snapshot::new(stale_json.into());
+        let newer = Snapshot::new("[]".into());
+        schedule(newer);
+        refresh(stale);
+        let calls = NATIVE_CALLS.lock().unwrap();
+        assert!(!calls.is_empty());
+        assert!(!calls.iter().any(|c| c == stale_json));
+        assert_eq!(LAST.lock().unwrap().0, "[]");
+    }
 }

@@ -7,6 +7,10 @@ use crate::{
 use rusqlite::{params, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs, io::Read, path::Path};
+fn stamp(meta: &fs::Metadata) -> crate::storage::FileStamp {
+    use std::os::unix::fs::MetadataExt;
+    (meta.len(), meta.modified().ok(), meta.ino())
+}
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Photo {
     pub id: String,
@@ -122,7 +126,7 @@ impl Store {
         // Identical hash replacement also repairs missing/corrupt originals, without changing references.
         atomic_write(&dir.join("files").join(&hash), bytes)?;
         self.hit("photo.after_place")?;
-        atomic_write(&dir.join("cache").join(format!("{hash}.png")), &preview)?;
+        self.write_preview(&hash, &preview)?;
         if repair.is_none() {
             atomic_write(
                 &dir.join("staging")
@@ -182,22 +186,67 @@ impl Store {
             }
         }
     }
-    pub(crate) fn preview_by_hash(&self, hash: &str) -> Result<Vec<u8>> {
-        // Always verify the original: a cached preview must never conceal missing data.
-        let bytes = self.original(hash)?;
+    /// True when `path` was hashed this session and still has the same
+    /// length, modification time and inode.
+    fn already_verified(&self, path: &Path, meta: &fs::Metadata) -> bool {
+        self.verified
+            .lock()
+            .is_ok_and(|v| v.get(path) == Some(&stamp(meta)))
+    }
+    fn mark_verified(&self, path: &Path, meta: &fs::Metadata) {
+        if let Ok(mut v) = self.verified.lock() {
+            v.insert(path.to_owned(), stamp(meta));
+        }
+    }
+    /// Confirms the original is present and intact. Its full SHA-256 is
+    /// computed once per session and again whenever the file's stamp changes,
+    /// so list views no longer hash every original on each render.
+    pub(crate) fn verify_original(&self, hash: &str) -> Result<()> {
+        validate_file_name(hash)?;
+        let path = self.dataset().join("files").join(hash);
+        let meta = fs::metadata(&path)
+            .map_err(|_| Error::new("IMAGE_MISSING", "原图缺失，请重新选择原文件修复"))?;
+        if !self.already_verified(&path, &meta) {
+            self.original(hash)?;
+            self.mark_verified(&path, &meta);
+        }
+        Ok(())
+    }
+    /// Writes a preview and, after it, the SHA-256 that later reads check it
+    /// against. A crash between the two leaves a mismatch, which rebuilds.
+    pub(crate) fn write_preview(&self, hash: &str, png: &[u8]) -> Result<()> {
+        let cache = self.dataset().join("cache");
+        fs::create_dir_all(&cache)?;
+        atomic_write(&cache.join(format!("{hash}.png")), png)?;
+        atomic_write(
+            &cache.join(format!("{hash}.png.sha256")),
+            digest(png).as_bytes(),
+        )
+    }
+    /// A cached preview whose bytes still match its recorded SHA-256. Anything
+    /// else (missing, damaged, or cached before checksums existed) is `None`
+    /// and gets rebuilt from the original.
+    fn cached_preview(&self, hash: &str) -> Option<Vec<u8>> {
         let cache = self.dataset().join("cache");
         let path = cache.join(format!("{hash}.png"));
-        if let Ok(meta) = fs::metadata(&path) {
-            if meta.len() <= 4 * 1024 * 1024 {
-                let cached = fs::read(&path)?;
-                if crate::files::validate_image(&cached).is_ok() {
-                    return Ok(cached);
-                }
-            }
+        let meta = fs::metadata(&path).ok()?;
+        if meta.len() > 4 * 1024 * 1024 {
+            return None;
         }
-        let png = crate::native_images::preview(&bytes)?;
-        fs::create_dir_all(cache)?;
-        atomic_write(&path, &png)?;
+        // Previews are small, so hashing on every read costs well under a
+        // millisecond and needs no session memo.
+        let bytes = fs::read(&path).ok()?;
+        let expected = fs::read(cache.join(format!("{hash}.png.sha256"))).ok()?;
+        (expected == digest(&bytes).as_bytes()).then_some(bytes)
+    }
+    pub(crate) fn preview_by_hash(&self, hash: &str) -> Result<Vec<u8>> {
+        // Always check the original: a cached preview must never conceal missing data.
+        self.verify_original(hash)?;
+        if let Some(cached) = self.cached_preview(hash) {
+            return Ok(cached);
+        }
+        let png = crate::native_images::preview(&self.original(hash)?)?;
+        self.write_preview(hash, &png)?;
         Ok(png)
     }
     pub fn photo_preview(&self, id: &str, generation: &str) -> Result<Vec<u8>> {

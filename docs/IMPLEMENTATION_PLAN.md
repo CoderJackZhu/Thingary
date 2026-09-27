@@ -1,13 +1,13 @@
 # Possio：实施任务与开工检查
 
-版本：v0.49 · 日期：2026-09-27 · 状态：T01–T21 已本地集成 main；Claude 判定 CP3、CP4 达到出口，P0 闭环完成（AC40 未实测项为已接受风险）。T22 自用正式版经 Claude review（identifier 更正为 `local.possio.main`）后本地合并，`/Applications/物志.app` 可开始录入真实资料；见 [T22 记录](verification/T22_SELF_USE_RELEASE_RESULT.md)。用户已指定并确认安装 P1 的首次样例和日期输入两项，现已完成并安装；正式库未用于开发验收。未配置远程或推送。
+版本：v0.50 · 日期：2026-09-27 · 状态：T01–T22 完成，P0 闭环（AC40 未实测项为已接受风险，见 [T21 报告](verification/T21_P0_ACCEPTANCE_RESULT.md) §9）；自用正式版 1.1.6 已安装，后续为按用户反馈的 U 系列插入任务。逐次变更见 [CHANGELOG](../CHANGELOG.md)。仓库已有 GitHub 远程，推送只在用户要求时进行。
 
 
-当前插入任务 U03：按用户反馈完成桌面信息密度、直接关闭、心愿整行详情与拖动管理；见 [U03 验证](verification/U03_DESKTOP_INTERACTION_RESULT.md)。普通未提交草稿不再保留，未知提交结果继续核对。
+插入任务 U03（已完成）：按用户反馈完成桌面信息密度、直接关闭、心愿整行详情与拖动管理；见 [U03 验证](verification/U03_DESKTOP_INTERACTION_RESULT.md)。普通未提交草稿不再保留，未知提交结果继续核对。
 
-当前插入任务 U04：攒满心愿留在「全部／已实现」并自动收起详情；时间轴整列连线；维护／保障说明和图片合并；提醒许可等待期间表单可操作。1.1.2 已完成隔离验证并安装；见 [U04 验证](verification/U04_WISH_TIMELINE_REMINDER_RESULT.md)。模型建议：Sol 中档实现；金额、状态和原生提醒路径由 Astra High 审查。
+插入任务 U04（已完成）：攒满心愿留在「全部／已实现」并自动收起详情；时间轴整列连线；维护／保障说明和图片合并；提醒许可等待期间表单可操作。1.1.2 已完成隔离验证并安装；见 [U04 验证](verification/U04_WISH_TIMELINE_REMINDER_RESULT.md)。模型建议：Sol 中档实现；金额、状态和原生提醒路径由 Astra High 审查。
 
-历史插入任务 U02：用户授权资产／心愿分块表单与素材升级，确认独立标签＋自动业务状态、按日＋按次、攒钱达到 100% 自动实现且自动来源随进度回退。实现及隔离原生验收完成，退出后的系统提醒和取消已实测；用户确认保存退出后，1.1.0 已安装。见 [U02 清单](handoffs/U02_ASSET_WISHLIST_UPGRADE.md)、[U02 验证](verification/U02_ASSET_WISHLIST_RESULT.md)。正式资料库不用于测试。
+插入任务 U02（已完成）：用户授权资产／心愿分块表单与素材升级，确认独立标签＋自动业务状态、按日＋按次、攒钱达到 100% 自动实现且自动来源随进度回退。实现及隔离原生验收完成，退出后的系统提醒和取消已实测；用户确认保存退出后，1.1.0 已安装。见 [U02 清单](archive/handoffs/U02_ASSET_WISHLIST_UPGRADE.md)、[U02 验证](verification/U02_ASSET_WISHLIST_RESULT.md)。正式资料库不用于测试。
 用户先回复“确认开始”授权 V 批次，随后要求“进行下一个阶段”，授权推进 T01–T05。实际证据见 [验证报告](VERIFICATION_REPORT.md)。下方为任务范围与验收要求，当前完成情况以本段和任务状态表为准。
 
 | 任务 | 当前状态 |
@@ -272,13 +272,13 @@ Hermes 官方支持为子代理配置不同模型；子代理主要依赖传入�
 
 ### 7.4 U01 的 Z code 交接
 
-2026-09-25 用户提供 Z code 中可用的 GLM5.3 / GLM5.3Flash，要求先准备文档和 Prompt、由其实现、最后交回 Codex review。本轮使用 [U01 契约](handoffs/U01_MATERIAL_LIBRARY_ZCODE.md)；GLM5.3 作为单一主执行者，Flash 仅适合机械检查、文档整理等明确工作，可由用户手动切换，默认不开子代理和并发。实际模型 ID 以用户 Z code 界面为准，本轮没有调用或验证其模型服务，不修改全局配置。
+2026-09-25 用户提供 Z code 中可用的 GLM5.3 / GLM5.3Flash，要求先准备文档和 Prompt、由其实现、最后交回 Codex review。本轮使用 [U01 契约](archive/handoffs/U01_MATERIAL_LIBRARY_ZCODE.md)；GLM5.3 作为单一主执行者，Flash 仅适合机械检查、文档整理等明确工作，可由用户手动切换，默认不开子代理和并发。实际模型 ID 以用户 Z code 界面为准，本轮没有调用或验证其模型服务，不修改全局配置。
 
 不要求记录 Token 数或费用；软件金额、费用完整性及数据一致性仍必须正确。实现遇到图片提交/恢复协议变化或同一根因两轮修复失败，带具体 diff 和失败证据交回 Codex，不无限重试。旧 T09 Hermes 文档只作历史，不继承其禁止插图工作等已过时范围约束。
 
 ### 7.5 T06 历史分工
 
-用户于 2026-09-24 要求受限 Hermes 交接，历史契约见 [T06a](handoffs/T06A_HERMES.md)：Hermes 负责分类/渠道受控组件与内存预览，Codex 负责审查、T06b 存储事务接入和 T06c 综合原生验收。T06a 的报告不能替代后续实际验收。历史首次使用的 MiniMax 会话不固定以后所有任务的模型；当前选择按第 4 节和上文规则判断。
+用户于 2026-09-24 要求受限 Hermes 交接，历史契约见 [T06a](archive/handoffs/T06A_HERMES.md)：Hermes 负责分类/渠道受控组件与内存预览，Codex 负责审查、T06b 存储事务接入和 T06c 综合原生验收。T06a 的报告不能替代后续实际验收。历史首次使用的 MiniMax 会话不固定以后所有任务的模型；当前选择按第 4 节和上文规则判断。
 
 ## 8. 开工检查结果
 

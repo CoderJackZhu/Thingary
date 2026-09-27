@@ -3,6 +3,7 @@ use crate::{
     storage::Store,
 };
 use std::{
+    panic::{self, AssertUnwindSafe},
     path::PathBuf,
     sync::mpsc::{self, SyncSender},
     thread,
@@ -16,6 +17,30 @@ struct Libraries {
     real: Store,
     demo: Option<Store>,
     demo_mode: bool,
+    /// Library, dataset and write count last used to plan reminders.
+    reminder_key: Option<(bool, String, u64)>,
+}
+impl Libraries {
+    /// Re-plans reminders only after something was written or the active
+    /// library changed; reads such as previews skip the query entirely.
+    fn sync_reminders(&mut self) {
+        let active = if self.demo_mode {
+            self.demo.as_ref().unwrap_or(&self.real)
+        } else {
+            &self.real
+        };
+        let Ok(conn) = active.conn() else {
+            return;
+        };
+        let key = (self.demo_mode, active.generation(), conn.total_changes());
+        if self.reminder_key.as_ref() == Some(&key) {
+            return;
+        }
+        if let Ok(snapshot) = crate::reminders::snapshot(active) {
+            self.reminder_key = Some(key);
+            crate::reminders::schedule(snapshot);
+        }
+    }
 }
 type Job = Box<dyn FnOnce(&mut Libraries) + Send>;
 #[derive(Clone)]
@@ -55,12 +80,20 @@ impl Worker {
                         real,
                         demo,
                         demo_mode,
+                        reminder_key: None,
                     })
                 })() {
                     Ok(mut libraries) => {
                         let _ = ready_tx.send(Ok(()));
                         while let Ok(job) = rx.recv() {
-                            job(&mut libraries);
+                            // A panicking job drops its reply channel, so only that
+                            // caller sees an error; the library stays available.
+                            // Open transactions roll back while unwinding.
+                            if panic::catch_unwind(AssertUnwindSafe(|| job(&mut libraries)))
+                                .is_err()
+                            {
+                                eprintln!("存储任务异常中止，已保持资料库可用");
+                            }
                         }
                     }
                     Err(e) => {
@@ -122,13 +155,9 @@ impl Worker {
         self.sender
             .send(Box::new(move |state| {
                 let result = f(state);
-                let active = if state.demo_mode {
-                    state.demo.as_ref().unwrap_or(&state.real)
-                } else {
-                    &state.real
-                };
-                crate::reminders::reconcile(active, false);
+                // Answer first; reminder bookkeeping must not delay the caller.
                 let _ = tx.send(result);
+                state.sync_reminders();
             }))
             .map_err(|_| Error::new("WORKER", "存储服务已停止"))?;
         rx.recv()
@@ -269,6 +298,17 @@ mod tests {
         assert_eq!(real_page.total, 1);
         assert_eq!(real_page.items[0].asset.name, "真实库测试物品");
         assert_ne!(real_page.generation, demo_page.generation);
+    }
+
+    #[test]
+    fn a_panicking_job_fails_alone_and_the_worker_keeps_serving() {
+        let tmp = tempfile::tempdir().unwrap();
+        let worker = Worker::start(tmp.path().join("library")).unwrap();
+        worker.switch_demo(false).unwrap();
+        let failed = worker.call(|_| -> Result<()> { panic!("injected job failure") });
+        assert_eq!(failed.unwrap_err().code, "WORKER");
+        assert!(!worker.call(|s| s.has_any_asset()).unwrap());
+        assert!(!worker.demo_status().unwrap().active);
     }
 
     #[test]

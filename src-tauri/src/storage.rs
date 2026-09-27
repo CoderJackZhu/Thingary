@@ -18,12 +18,17 @@ pub(crate) struct Active {
     pub generation: String,
 }
 type FaultHook = Box<dyn Fn(&str) -> Result<()> + Send>;
+/// Length, modification time and inode of a file whose content was hashed.
+pub(crate) type FileStamp = (u64, Option<std::time::SystemTime>, u64);
 pub struct Store {
     pub(crate) root: PathBuf,
     pub(crate) active: Active,
     pub(crate) db: Option<Connection>,
     _lock: File,
     pub(crate) hook: FaultHook,
+    /// Originals already hashed this session, keyed by path. A file that is
+    /// replaced, truncated or rewritten gets a new stamp and is hashed again.
+    pub(crate) verified: std::sync::Mutex<std::collections::HashMap<PathBuf, FileStamp>>,
 }
 pub(crate) fn uid() -> String {
     uuid::Uuid::new_v4().to_string()
@@ -108,6 +113,7 @@ impl Store {
             db: Some(db),
             _lock: lock,
             hook: Box::new(|_| Ok(())),
+            verified: Default::default(),
         })
     }
     pub fn generation(&self) -> String {

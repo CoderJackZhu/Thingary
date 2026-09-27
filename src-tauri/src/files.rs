@@ -5,9 +5,8 @@ use crate::{
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::{self, File},
+    fs,
     io::{Cursor, Write},
-    path::Path,
 };
 pub const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -171,10 +170,5 @@ pub(crate) fn validate_file_name(name: &str) -> Result<()> {
     {
         return Err(Error::new("PATH", "附件路径无效"));
     }
-    Ok(())
-}
-pub(crate) fn copy_synced(src: &Path, dst: &Path) -> Result<()> {
-    fs::copy(src, dst)?;
-    File::open(dst)?.sync_all()?;
     Ok(())
 }

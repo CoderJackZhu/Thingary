@@ -135,7 +135,7 @@ Claude review T21 后按用户选择 B 在本分支补验。隔离 debug 包 `lo
 
 ## 6. 最终 HEAD 检查与交回
 
-本报告先随证据本地提交，随后在**最终提交的 HEAD** 依序运行以下完整检查。为避免把记录检查结果的新提交冒称已测 HEAD，提交后机器日志保存于 `/tmp/possio-t21/final-checks/`（不入库）；[summary.json](/tmp/possio-t21/final-checks/summary.json)记录完整 SHA、每项命令、退出码、数量、起止时间，[summary.md](/tmp/possio-t21/final-checks/summary.md)为可读索引；review 时复制为仓库内 [final-checks-4a1d682.md](t21/final-checks-4a1d682.md)（其中链接指向 /tmp 原日志）。review 补验提交后的检查见 §2.5。最终交回消息亦列实际结果。本提交不预写尚未发生的成功结果。
+本报告先随证据本地提交，随后在**最终提交的 HEAD** 依序运行以下完整检查。为避免把记录检查结果的新提交冒称已测 HEAD，提交后机器日志保存于 `/tmp/possio-t21/final-checks/`（不入库）；`summary.json`记录完整 SHA、每项命令、退出码、数量、起止时间，`summary.md`为可读索引；review 时复制为仓库内 [final-checks-4a1d682.md](t21/final-checks-4a1d682.md)（日志保留在 /tmp，未入库）。review 补验提交后的检查见 §2.5。最终交回消息亦列实际结果。本提交不预写尚未发生的成功结果。
 
 1. `npm run test:ui`
 2. `npm test`

@@ -85,7 +85,7 @@
 
 #### U01 · 内置素材选择补充验收
 
-D13 的执行契约见 [Z code 交接](handoffs/U01_MATERIAL_LIBRARY_ZCODE.md)；2026-09-27 用户确认后的当前交互基线见 [UI 设计 U01](UI_DESIGN.md)，结果见 [图标选择器记录](verification/ICON_PICKER_RESULT.md)。以下不重编号原有 44 条 AC。
+D13 的执行契约见 [Z code 交接](archive/handoffs/U01_MATERIAL_LIBRARY_ZCODE.md)；2026-09-27 用户确认后的当前交互基线见 [UI 设计 U01](UI_DESIGN.md)，结果见 [图标选择器记录](verification/ICON_PICKER_RESULT.md)。以下不重编号原有 44 条 AC。
 
 | 编号 | 动作 | 预期结果 |
 |---|---|---|
