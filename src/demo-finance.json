@@ -1,0 +1,204 @@
+{
+  "accounts": [
+    {
+      "key": "cash",
+      "name": "虚构储蓄卡",
+      "institution": "虚构银行",
+      "side": "asset",
+      "kind": "cash",
+      "counted": true
+    },
+    {
+      "key": "broker",
+      "name": "虚构证券账户",
+      "institution": "虚构券商",
+      "side": "asset",
+      "kind": "mixed",
+      "counted": true
+    },
+    {
+      "key": "fund",
+      "name": "虚构公积金",
+      "institution": "公积金中心",
+      "side": "asset",
+      "kind": "housing_fund",
+      "counted": true
+    },
+    {
+      "key": "card",
+      "name": "虚构信用卡",
+      "institution": "虚构银行",
+      "side": "liability",
+      "kind": "credit_card",
+      "counted": true
+    },
+    {
+      "key": "loan",
+      "name": "虚构房贷",
+      "institution": "虚构银行",
+      "side": "liability",
+      "kind": "loan",
+      "counted": false
+    }
+  ],
+  "snapshots": [
+    {
+      "months_ago": 5,
+      "amounts_yuan": [
+        82000,
+        180000,
+        46000,
+        6200,
+        820000
+      ]
+    },
+    {
+      "months_ago": 4,
+      "amounts_yuan": [
+        88500,
+        176500,
+        47800,
+        4100,
+        816000
+      ]
+    },
+    {
+      "months_ago": 3,
+      "amounts_yuan": [
+        90000,
+        184000,
+        49600,
+        6500,
+        812000
+      ]
+    },
+    {
+      "months_ago": 2,
+      "amounts_yuan": [
+        93000,
+        191000,
+        51400,
+        7800,
+        808000
+      ]
+    },
+    {
+      "months_ago": 1,
+      "amounts_yuan": [
+        97200,
+        null,
+        53200,
+        3900,
+        804000
+      ]
+    },
+    {
+      "months_ago": 0,
+      "amounts_yuan": [
+        100000,
+        200000,
+        55000,
+        5000,
+        800000
+      ]
+    }
+  ],
+  "expenses": [
+    {
+      "key": "trip",
+      "title": "虚构周末旅行",
+      "days_ago": 45,
+      "amount_cents": "1280000",
+      "category": "travel",
+      "refund_cents": "60000",
+      "refund_days_ago": 30,
+      "asset_key": null,
+      "deleted": false
+    },
+    {
+      "key": "course",
+      "title": "虚构摄影课程",
+      "days_ago": 14,
+      "amount_cents": "360000",
+      "category": "education",
+      "refund_cents": null,
+      "refund_days_ago": null,
+      "asset_key": null,
+      "deleted": false
+    },
+    {
+      "key": "linked",
+      "title": "电脑购买记录（已关联物品）",
+      "days_ago": 60,
+      "amount_cents": "1699900",
+      "category": "other",
+      "refund_cents": null,
+      "refund_days_ago": null,
+      "asset_key": "laptop",
+      "deleted": false
+    },
+    {
+      "key": "trash",
+      "title": "误记的虚构旅行（可恢复）",
+      "days_ago": 10,
+      "amount_cents": "80000",
+      "category": "travel",
+      "refund_cents": null,
+      "refund_days_ago": null,
+      "asset_key": null,
+      "deleted": true
+    }
+  ],
+  "plans": [
+    {
+      "key": "rent",
+      "name": "虚构房租",
+      "category": "rent",
+      "amount_cents": "300000",
+      "interval_months": 1,
+      "months_ago": 2,
+      "day_offset": -2,
+      "paused": false,
+      "paid_periods": [
+        0,
+        1
+      ]
+    },
+    {
+      "key": "service",
+      "name": "虚构创作服务",
+      "category": "subscription",
+      "amount_cents": "12000",
+      "interval_months": 1,
+      "months_ago": 2,
+      "day_offset": 3,
+      "paused": false,
+      "paid_periods": [
+        0,
+        1
+      ]
+    },
+    {
+      "key": "domain",
+      "name": "虚构域名续费",
+      "category": "subscription",
+      "amount_cents": "12000",
+      "interval_months": 12,
+      "months_ago": 0,
+      "day_offset": 6,
+      "paused": false,
+      "paid_periods": []
+    },
+    {
+      "key": "gym",
+      "name": "虚构健身会员（已暂停）",
+      "category": "membership",
+      "amount_cents": "20000",
+      "interval_months": 1,
+      "months_ago": 0,
+      "day_offset": -5,
+      "paused": true,
+      "paid_periods": []
+    }
+  ]
+}

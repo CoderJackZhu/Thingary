@@ -79,14 +79,10 @@ impl Worker {
                     let started =
                         root.join("personal-started").exists() || has_personal_records(&real)?;
                     let demo = if !started {
-                        let attempt = (|| {
-                            let mut store = Store::open(&root.with_file_name("demo-library"))?;
-                            crate::demo::import(
-                                &mut store,
-                                &chrono::Local::now().format("%Y-%m-%d").to_string(),
-                            )?;
-                            Ok::<Store, Error>(store)
-                        })();
+                        let attempt = crate::demo::open(
+                            &root,
+                            &chrono::Local::now().format("%Y-%m-%d").to_string(),
+                        );
                         match attempt {
                             Ok(store) => Some(store),
                             Err(error) => {
@@ -206,15 +202,36 @@ impl Worker {
     pub fn reminder_snapshot(&self) -> Result<crate::reminders::Snapshot> {
         self.with_state(|state| crate::reminders::snapshot(&state.real))
     }
+    pub fn reset_demo(&self, request_id: String) -> Result<DemoStatus> {
+        self.with_state(move |state| {
+            if let Some(next) = crate::demo::reset(
+                &state.real,
+                &chrono::Local::now().format("%Y-%m-%d").to_string(),
+                &request_id,
+            )? {
+                state.demo = Some(next);
+            } else {
+                state.demo.take();
+                state.demo = Some(crate::demo::open(
+                    &state.real.root,
+                    &chrono::Local::now().format("%Y-%m-%d").to_string(),
+                )?);
+            }
+            state.demo_mode = true;
+            Ok(DemoStatus {
+                active: true,
+                available: true,
+                started: state.started,
+            })
+        })
+    }
     pub fn switch_demo(&self, demo: bool) -> Result<DemoStatus> {
         self.with_state(move |state| {
             if demo && state.demo.is_none() {
-                let mut store = Store::open(&state.real.root.with_file_name("demo-library"))?;
-                crate::demo::import(
-                    &mut store,
+                state.demo = Some(crate::demo::open(
+                    &state.real.root,
                     &chrono::Local::now().format("%Y-%m-%d").to_string(),
-                )?;
-                state.demo = Some(store);
+                )?);
             }
             state.demo_mode = demo;
             Ok(DemoStatus {
@@ -254,7 +271,7 @@ mod tests {
                 move |s| s.query_assets(&q, "2026-09-27")
             })
             .unwrap();
-        assert_eq!(demo_page.total, 8);
+        assert_eq!(demo_page.total, 9);
         let original = &demo_page.items[0];
         let edited = worker
             .call({

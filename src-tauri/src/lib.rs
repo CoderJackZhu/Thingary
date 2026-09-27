@@ -4,6 +4,7 @@ pub mod choices;
 mod commands;
 pub mod csv_export;
 pub mod demo;
+mod demo_finance;
 pub mod domain;
 pub mod expenses;
 pub mod files;

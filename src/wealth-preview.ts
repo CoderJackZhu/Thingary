@@ -5,27 +5,22 @@ import type { Account, AccountSave, Draft, Entry, Point, Share, Snapshot, Snapsh
 import type { Expense, ExpenseSave, ExpenseView, Line } from './expenses';
 import type { Due, Overview, Payment, PaymentSave, Plan, PlanSave } from './recurring';
 import demoAssets from './demo-assets.json';
+import demoFinance from './demo-finance.json';
 
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
 const now = new Date();
-const monthsAgo = (n: number) => { const d = new Date(now.getFullYear(), now.getMonth() - n + 1, 0); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-const account = (id: string, name: string, institution: string, side: 'asset' | 'liability', kind: string, position: number, counted = true): Account =>
-  ({ id, fields: { name, institution, side, kind, counted, opened_on: '2025-01-01', closed_on: null, notes: '' }, position, revision: 1, latest: null });
-let accounts: Account[] = [
-  account('w-cash', '虚构储蓄卡', '虚构银行', 'asset', 'cash', 0),
-  account('w-broker', '虚构证券账户', '虚构券商', 'asset', 'mixed', 1),
-  account('w-fund', '虚构公积金', '公积金中心', 'asset', 'housing_fund', 2),
-  account('w-card', '虚构信用卡', '虚构银行', 'liability', 'credit_card', 3),
-  account('w-loan', '虚构房贷', '虚构银行', 'liability', 'loan', 4, false),
-];
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const shifted = (months: number, offset = 0) => {
+  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+  const target = new Date(base.getFullYear(), base.getMonth() - months, 1);
+  return iso(new Date(target.getFullYear(), target.getMonth(), Math.min(base.getDate(), new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate())));
+};
+let accounts: Account[] = demoFinance.accounts.map((a, position) => ({ id: 'w-' + a.key,
+  fields: { name: a.name, institution: a.institution, side: a.side as 'asset' | 'liability', kind: a.kind, counted: a.counted, opened_on: shifted(6), closed_on: null, notes: '虚构样例' }, position, revision: 1, latest: null }));
 type Stored = { id: string; date: string; notes: string; revision: number; entries: Entry[] };
 const entry = (a: Account, yuan: number | null): Entry => ({ account_id: a.id, state: yuan === null ? 'missing' : 'entered', amount_cents: yuan === null ? null : String(yuan * 100), side: a.fields.side, kind: a.fields.kind, counted: a.fields.counted });
-const [cash, broker, fund, card, loan] = accounts;
-let snapshots: Stored[] = [
-  [5, 82_000, 180_000, 46_000, 6_200, 820_000], [4, 88_500, 176_500, 47_800, 4_100, 816_000],
-  [2, 93_000, 191_000, 51_400, 7_800, 808_000], [1, 97_200, null, 53_200, 3_900, 804_000],
-].map(([ago, ...v], i) => ({ id: `w-snap-${i}`, date: monthsAgo(ago as number), notes: '', revision: 1, entries: [entry(cash, v[0]), entry(broker, v[1]), entry(fund, v[2]), entry(card, v[3]), entry(loan, v[4])] }));
+let snapshots: Stored[] = demoFinance.snapshots.map((s, i) => ({ id: `w-snap-${i}`, date: shifted(s.months_ago), notes: '虚构盘点', revision: 1, entries: accounts.map((a, n) => entry(a, s.amounts_yuan[n])) }));
 if (params.get('wealth') === 'empty' || params.get('state') === 'empty') { accounts = []; snapshots = []; }
 if (params.get('wealth') === 'first') snapshots = [];
 const receipts = new Map<string, string>();
@@ -66,26 +61,26 @@ function summary(): Summary {
 }
 
 // Standalone expenses for the preview; item purchases come from the demo assets.
-const day = (ago: number) => { const d = new Date(now.getFullYear(), now.getMonth() - ago, 12); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-12`; };
-let expenses: Expense[] = params.get('expenses') === 'empty' ? [] : [
-  { id: 'x-trip', fields: { title: '虚构京都旅行', date: day(3), amount_cents: '1280000', category: 'travel', notes: '', refund_cents: '60000', refund_date: day(2), asset_id: null }, revision: 1, asset_name: null, asset_deleted: false },
-  { id: 'x-course', fields: { title: '虚构摄影课程', date: day(1), amount_cents: '360000', category: 'education', notes: '', refund_cents: null, refund_date: null, asset_id: null }, revision: 1, asset_name: null, asset_deleted: false },
-  { id: 'x-linked', fields: { title: '先记下的键盘', date: '2025-12-25', amount_cents: '69900', category: 'other', notes: '', refund_cents: null, refund_date: null, asset_id: 'keyboard' }, revision: 1, asset_name: '机械键盘 K2', asset_deleted: false },
-];
+let expenses: Expense[] = params.get('expenses') === 'empty' ? [] : demoFinance.expenses.filter(e => !e.deleted).map(e => ({
+  id: 'x-' + e.key, fields: { title: e.title, date: shifted(0, -e.days_ago), amount_cents: e.amount_cents, category: e.category,
+    notes: '虚构样例', refund_cents: e.refund_cents, refund_date: e.refund_days_ago === null ? null : shifted(0, -e.refund_days_ago), asset_id: e.asset_key },
+  revision: 1, asset_name: demoAssets.find(a => a.key === e.asset_key)?.name ?? null, asset_deleted: false,
+}));
 function expenseView(year: number | null): ExpenseView {
   const items: Line[] = params.get('expenses') === 'empty' ? [] : demoAssets.flatMap(a => [
     { source: 'purchase' as const, id: a.key, asset_id: a.key, title: a.name, category: a.category, date: a.purchase_date, amount_cents: a.price_cents },
     ...(a.maintenance ? [{ source: 'maintenance' as const, id: 'm-' + a.key, asset_id: a.key, title: `${a.name} · ${a.maintenance.title}`, category: a.category, date: a.maintenance.date, amount_cents: a.maintenance.cost_cents }] : []),
     ...(a.sale ? [{ source: 'sale' as const, id: 's-' + a.key, asset_id: a.key, title: a.name, category: a.category, date: a.sale.date, amount_cents: a.sale.price_cents }] : []),
   ]);
-  const all: Line[] = [...items, ...expenses.flatMap(e => [
+  const paidLines: Line[] = payments.filter(p => p.state === 'paid').map(p => ({ source: 'payment', id: p.id, asset_id: null, title: p.plan_name, category: plans.find(x => x.id === p.plan_id)?.fields.category ?? null, date: p.paid_date, amount_cents: p.amount_cents }));
+  const all: Line[] = [...items, ...paidLines, ...expenses.flatMap(e => [
     { source: e.fields.asset_id ? 'linked' as const : 'expense' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.date, amount_cents: e.fields.amount_cents },
     ...(e.fields.refund_date ? [{ source: 'refund' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.refund_date, amount_cents: e.fields.refund_cents }] : []),
   ])];
   const inYear = (l: Line) => l.date !== null && (year === null || l.date.startsWith(`${year}-`));
   const lines = all.filter(inYear).sort((a, b) => b.date!.localeCompare(a.date!)), undated = all.filter(l => l.date === null);
   const sum = (ls: Line[]) => ls.reduce((t, l) => t + BigInt(l.amount_cents ?? '0'), 0n);
-  const spentLines = lines.filter(l => ['purchase', 'maintenance', 'expense'].includes(l.source) && l.amount_cents !== null);
+  const spentLines = lines.filter(l => ['purchase', 'maintenance', 'expense', 'payment'].includes(l.source) && l.amount_cents !== null);
   const spent = sum(spentLines), refunds = sum(lines.filter(l => l.source === 'refund'));
   return { generation, year, years: [...new Set(all.flatMap(l => l.date ? [Number(l.date.slice(0, 4))] : []))].sort((a, b) => b - a), lines, undated,
     months: year === null ? [] : Array.from({ length: 12 }, (_, i) => { const m = `${year}-${String(i + 1).padStart(2, '0')}`; return { month: m, spent_cents: String(sum(spentLines.filter(l => l.date!.startsWith(m)))), refund_cents: String(sum(lines.filter(l => l.source === 'refund' && l.date!.startsWith(m)))) }; }),
@@ -93,8 +88,7 @@ function expenseView(year: number | null): ExpenseView {
     undated_cents: String(sum(undated)), unknown_amount_count: lines.filter(l => l.amount_cents === null).length };
 }
 
-// Recurring plans for the preview, anchored to the real current date.
-const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// Recurring plans share the native fixture definitions.
 const todayIso = iso(now);
 /** k-th scheduled date counted from the anchor, clamped to month end (preview mirror of Rust). */
 function nth(first: string, interval: number, k: number) {
@@ -108,17 +102,12 @@ function schedule(p: Plan, from: string, to: string) {
 }
 const plan = (id: string, name: string, category: string, amount: string, interval: number, first: string, extra: Partial<Plan['fields']> = {}): Plan =>
   ({ id, fields: { name, category, amount_cents: amount, interval_months: interval, first_due: first, end_date: null, paused: false, notes: '', ...extra }, revision: 1, active_from: first, next_due: null });
-const firstOf = (ago: number, day: number) => iso(new Date(now.getFullYear(), now.getMonth() - ago, day));
-let plans: Plan[] = params.get('recurring') === 'empty' ? [] : [
-  plan('r-rent', '虚构房租', 'rent', '300000', 1, firstOf(2, 1)),
-  plan('r-video', '虚构视频会员', 'subscription', '2500', 1, firstOf(1, Math.min(now.getDate() + 3, 28))),
-  plan('r-domain', '虚构域名', 'subscription', '12000', 12, firstOf(-5, 1)),
-  plan('r-gym', '虚构健身房', 'membership', '19900', 1, firstOf(6, 10), { paused: true }),
-];
-let payments: Payment[] = params.get('recurring') === 'empty' ? [] : [
-  { id: 'p-1', plan_id: 'r-rent', plan_name: '虚构房租', due_date: firstOf(2, 1), state: 'paid', paid_date: firstOf(2, 1), amount_cents: '300000', notes: '', revision: 1, off_schedule: false },
-  { id: 'p-2', plan_id: 'r-rent', plan_name: '虚构房租', due_date: firstOf(1, 1), state: 'paid', paid_date: firstOf(1, 2), amount_cents: '300000', notes: '', revision: 1, off_schedule: false },
-];
+let plans: Plan[] = params.get('recurring') === 'empty' ? [] : demoFinance.plans.map(p =>
+  plan('r-' + p.key, p.name, p.category, p.amount_cents, p.interval_months, shifted(p.months_ago, p.day_offset), { paused: p.paused }));
+let payments: Payment[] = params.get('recurring') === 'empty' ? [] : demoFinance.plans.flatMap(p => p.paid_periods.map(k => {
+  const due = nth(shifted(p.months_ago, p.day_offset), p.interval_months, k);
+  return { id: `p-${p.key}-${k}`, plan_id: 'r-' + p.key, plan_name: p.name, due_date: due, state: 'paid', paid_date: due, amount_cents: p.amount_cents, notes: '虚构付款', revision: 1, off_schedule: false };
+}));
 function recurringOverview(): Overview {
   const soon = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7)), year = iso(new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()));
   const tomorrow = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
