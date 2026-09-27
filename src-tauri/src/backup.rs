@@ -1,18 +1,25 @@
 use crate::{
     domain::{Error, Result},
-    files::{copy_synced, validate_file_name},
-    storage::{check_db, digest, sync_dir, Store, SCHEMA},
+    files::validate_file_name,
+    storage::{check_db, sync_dir, Store, SCHEMA},
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs::{self, File},
-    io::{Cursor, Read, Write},
+    io::{Read, Write},
     path::Path,
     time::Duration,
 };
-const MAX_ARCHIVE: u64 = 100 * 1024 * 1024;
+/// Total payload a backup may carry. Archives are streamed, so this bounds
+/// disk use when restoring an untrusted file, not memory.
+pub(crate) const MAX_ARCHIVE: u64 = 32 * 1024 * 1024 * 1024;
+/// Payload plus zip headers and the manifest.
+const MAX_ARCHIVE_FILE: u64 = MAX_ARCHIVE + 256 * 1024 * 1024;
+const MAX_ENTRIES: usize = 100_000;
+const MAX_MANIFEST: u64 = 64 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Entry {
@@ -32,17 +39,40 @@ impl From<zip::result::ZipError> for Error {
         Self::new("ARCHIVE", "备份无法读取或写入")
     }
 }
-fn regular_bytes(path: &Path, max: u64) -> Result<Vec<u8>> {
+/// Streams one regular (non-link) file through SHA-256 without buffering it.
+pub(crate) fn file_digest(path: &Path, max: u64) -> Result<(u64, String)> {
     let meta = fs::symlink_metadata(path)?;
     if !meta.is_file() || meta.len() > max {
         return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
     }
-    let mut bytes = Vec::new();
-    File::open(path)?.take(max + 1).read_to_end(&mut bytes)?;
-    if bytes.len() as u64 > max {
+    let mut hasher = Sha256::new();
+    let size = std::io::copy(&mut File::open(path)?.take(max + 1), &mut hasher)?;
+    if size > max {
         return Err(Error::new("BACKUP_LIMIT", "备份超出限制"));
     }
-    Ok(bytes)
+    Ok((size, format!("{:x}", hasher.finalize())))
+}
+/// Hashes everything written through it, so each entry is read exactly once.
+struct Tee<W: Write> {
+    inner: W,
+    hasher: Sha256,
+}
+impl<W: Write> Write for Tee<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.hasher.update(&buf[..n]);
+        Ok(n)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+fn entry_limit(name: &str) -> u64 {
+    match name {
+        "manifest.json" => MAX_MANIFEST,
+        "data.sqlite" => MAX_ARCHIVE,
+        _ => crate::files::MAX_IMAGE_BYTES as u64,
+    }
 }
 pub(crate) fn safe_entry(name: &str) -> Result<()> {
     if name == "data.sqlite" || name == "manifest.json" {
@@ -167,11 +197,11 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
                 return Err(Error::new("DATA_CONSTRAINT", "备份含非法素材资料"));
             }
             validate_file_name(&hash)?;
-            let bytes = regular_bytes(
+            let (got_size, got_hash) = file_digest(
                 &dir.join("files").join(&hash),
                 crate::files::MAX_IMAGE_BYTES as u64,
             )?;
-            if bytes.len() as i64 != size || digest(&bytes) != hash {
+            if got_size as i64 != size || got_hash != hash {
                 return Err(Error::new("ATTACHMENT", "素材文件缺失或校验失败"));
             }
         }
@@ -208,11 +238,11 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
         for row in rows {
             let (file, hash, size) = row?;
             validate_file_name(&file)?;
-            let bytes = regular_bytes(
+            let (got_size, got_hash) = file_digest(
                 &dir.join("files").join(&file),
                 crate::files::MAX_IMAGE_BYTES as u64,
             )?;
-            if hash != file || bytes.len() as i64 != size || digest(&bytes) != hash {
+            if hash != file || got_size as i64 != size || got_hash != hash {
                 return Err(Error::new("ATTACHMENT", "备份附件缺失或校验失败"));
             }
         }
@@ -231,7 +261,6 @@ impl Store {
             .parent()
             .ok_or_else(|| Error::new("PATH", "备份位置无效"))?;
         let stage = tempfile::tempdir_in(&self.root)?;
-        fs::create_dir(stage.path().join("files"))?;
         self.hit("backup.before_snapshot")?;
         {
             let mut target = Connection::open(stage.path().join("data.sqlite"))?;
@@ -242,69 +271,99 @@ impl Store {
             )?;
         }
         self.hit("backup.after_snapshot")?;
-        let mut entries = BTreeMap::new();
         let mut stmt = self.conn()?.prepare(
             "SELECT DISTINCT file FROM attachments UNION SELECT hash FROM materials UNION SELECT file FROM wishlist_attachments ORDER BY file",
         )?;
         let names = stmt
             .query_map([], |r| r.get::<_, String>(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        for name in names {
-            validate_file_name(&name)?;
-            copy_synced(
-                &self.dataset().join("files").join(&name),
-                &stage.path().join("files").join(&name),
-            )?;
-            let b = regular_bytes(
-                &stage.path().join("files").join(&name),
-                crate::files::MAX_IMAGE_BYTES as u64,
-            )?;
-            entries.insert(
-                format!("files/{name}"),
-                Entry {
-                    size: b.len() as u64,
-                    hash: digest(&b),
-                },
-            );
-        }
-        let b = regular_bytes(&stage.path().join("data.sqlite"), MAX_ARCHIVE)?;
-        entries.insert(
-            "data.sqlite".into(),
-            Entry {
-                size: b.len() as u64,
-                hash: digest(&b),
-            },
-        );
-        validate_dataset(stage.path(), false)?;
-        if entries.values().map(|e| e.size).sum::<u64>() > MAX_ARCHIVE || entries.len() > 1023 {
+        drop(stmt);
+        if names.len() + 1 > MAX_ENTRIES {
             return Err(Error::new(
                 "BACKUP_LIMIT",
-                "验证备份限 100 MiB 和 1023 个文件",
+                "图片数量超过备份上限（10 万个文件）",
             ));
         }
-        let manifest = Manifest {
-            format: 1,
-            schema: 14,
-            created_at: chrono::Utc::now().to_rfc3339(),
-            entries,
-        };
+        // Originals are content-addressed and never rewritten with other bytes,
+        // so they stream straight from the library; each hash is checked against
+        // its name while writing, and the finished archive is re-validated below.
         let mut archive = tempfile::NamedTempFile::new_in(parent)?;
+        let mut entries = BTreeMap::new();
+        let mut total = 0u64;
         {
-            let mut zip = zip::ZipWriter::new(archive.as_file_mut());
+            let mut zip = zip::ZipWriter::new(archive.as_file_mut()).set_auto_large_file();
             let options = zip::write::SimpleFileOptions::default()
                 .compression_method(zip::CompressionMethod::Stored);
+            let mut add = |zip: &mut zip::ZipWriter<&mut File>, entry: String, source: &Path| {
+                let limit = entry_limit(&entry);
+                let meta = fs::symlink_metadata(source)?;
+                if !meta.is_file() || meta.len() > limit {
+                    return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
+                }
+                zip.start_file(
+                    entry.as_str(),
+                    options.large_file(meta.len() >= u64::from(u32::MAX)),
+                )?;
+                let mut tee = Tee {
+                    inner: &mut *zip,
+                    hasher: Sha256::new(),
+                };
+                let size = std::io::copy(&mut File::open(source)?.take(limit + 1), &mut tee)?;
+                let hash = format!("{:x}", tee.hasher.finalize());
+                if size > limit {
+                    return Err(Error::new("BACKUP_LIMIT", "备份文件大小超出限制"));
+                }
+                total += size;
+                if total > MAX_ARCHIVE {
+                    return Err(Error::new("BACKUP_LIMIT", "资料超过 32 GiB 备份上限"));
+                }
+                entries.insert(
+                    entry,
+                    Entry {
+                        size,
+                        hash: hash.clone(),
+                    },
+                );
+                Ok(hash)
+            };
+            for name in &names {
+                validate_file_name(name)?;
+                let source = self.dataset().join("files").join(name);
+                if !source.exists() {
+                    return Err(Error::new(
+                        "IMAGE_MISSING",
+                        "有图片原图缺失，无法完成完整备份",
+                    ));
+                }
+                if add(&mut zip, format!("files/{name}"), &source)? != *name {
+                    return Err(Error::new(
+                        "IMAGE_CORRUPT",
+                        "有图片原图校验失败，无法完成完整备份",
+                    ));
+                }
+            }
+            add(
+                &mut zip,
+                "data.sqlite".into(),
+                &stage.path().join("data.sqlite"),
+            )?;
+            let manifest = Manifest {
+                format: 1,
+                schema: 14,
+                created_at: chrono::Utc::now().to_rfc3339(),
+                entries: std::mem::take(&mut entries),
+            };
+            // Readers locate entries by name, so the manifest may come last.
             zip.start_file("manifest.json", options)?;
             zip.write_all(&serde_json::to_vec(&manifest)?)?;
-            for name in manifest.entries.keys() {
-                zip.start_file(name, options)?;
-                std::io::copy(&mut File::open(stage.path().join(name))?, &mut zip)?;
-            }
             zip.finish()?;
         }
         archive.as_file().sync_all()?;
+        drop(stage);
         // Validate the actual archive, not only the pre-archive snapshot.
         let verify = tempfile::tempdir_in(&self.root)?;
         unpack(archive.path(), verify.path())?;
+        drop(verify);
         self.hit("backup.before_publish")?;
         archive
             .persist_noclobber(destination)
@@ -320,12 +379,29 @@ impl Store {
     }
 }
 pub fn archive_hash(path: &Path) -> Result<String> {
-    Ok(digest(&regular_bytes(path, MAX_ARCHIVE + 1024 * 1024)?))
+    Ok(file_digest(path, MAX_ARCHIVE_FILE)?.1)
+}
+/// Copies an archive into `root` so later checks and restore read bytes that
+/// cannot change underneath them.
+pub(crate) fn freeze(archive: &Path, root: &Path) -> Result<tempfile::NamedTempFile> {
+    let frozen = tempfile::NamedTempFile::new_in(root)?;
+    let copied = std::io::copy(
+        &mut File::open(archive)?.take(MAX_ARCHIVE_FILE + 1),
+        &mut frozen.as_file(),
+    )?;
+    if copied > MAX_ARCHIVE_FILE {
+        return Err(Error::new("BACKUP_LIMIT", "备份超出限制"));
+    }
+    frozen.as_file().sync_all()?;
+    Ok(frozen)
 }
 pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
-    let bytes = regular_bytes(path, MAX_ARCHIVE + 1024 * 1024)?;
-    let mut archive = zip::ZipArchive::new(Cursor::new(bytes))?;
-    if archive.len() > 1024 {
+    let meta = fs::symlink_metadata(path)?;
+    if !meta.is_file() || meta.len() > MAX_ARCHIVE_FILE {
+        return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
+    }
+    let mut archive = zip::ZipArchive::new(File::open(path)?)?;
+    if archive.len() > MAX_ENTRIES + 1 {
         return Err(Error::new("BACKUP_LIMIT", "备份条目过多"));
     }
     let mut observed = BTreeMap::new();
@@ -342,37 +418,35 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
         {
             return Err(Error::new("ARCHIVE_PATH", "备份含链接、目录或重复条目"));
         }
+        let size = f.size();
         total = total
-            .checked_add(f.size())
+            .checked_add(size)
             .ok_or_else(|| Error::new("BACKUP_LIMIT", "备份超出限制"))?;
-        if total > MAX_ARCHIVE + 1024 * 1024
-            || f.size() > MAX_ARCHIVE
-            || name == "manifest.json" && f.size() > 1024 * 1024
-        {
+        if total > MAX_ARCHIVE + MAX_MANIFEST || size > entry_limit(&name) {
             return Err(Error::new("BACKUP_LIMIT", "备份超出解压限制"));
         }
-        let size = f.size();
-        let mut b = Vec::new();
-        f.by_ref().take(size + 1).read_to_end(&mut b)?;
-        if b.len() as u64 != size {
-            return Err(Error::new("ARCHIVE_SIZE", "备份条目大小不符"));
-        }
-        observed.insert(
-            name.clone(),
-            Entry {
-                size,
-                hash: digest(&b),
-            },
-        );
-        if name == "manifest.json" {
+        let (got, hash) = if name == "manifest.json" {
+            let mut b = Vec::new();
+            f.by_ref().take(size + 1).read_to_end(&mut b)?;
+            let hash = format!("{:x}", Sha256::digest(&b));
+            let got = b.len() as u64;
             manifest_bytes = Some(b);
+            (got, hash)
         } else {
             let dest = dir.join(&name);
             fs::create_dir_all(dest.parent().unwrap())?;
-            let mut file = File::create(dest)?;
-            file.write_all(&b)?;
-            file.sync_all()?;
+            let mut tee = Tee {
+                inner: File::create(&dest)?,
+                hasher: Sha256::new(),
+            };
+            let got = std::io::copy(&mut f.by_ref().take(size + 1), &mut tee)?;
+            tee.inner.sync_all()?;
+            (got, format!("{:x}", tee.hasher.finalize()))
+        };
+        if got != size {
+            return Err(Error::new("ARCHIVE_SIZE", "备份条目大小不符"));
         }
+        observed.insert(name, Entry { size, hash });
     }
     let manifest: Manifest = serde_json::from_slice(
         &manifest_bytes.ok_or_else(|| Error::new("MANIFEST", "备份缺少清单"))?,
@@ -392,6 +466,9 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
         if entry.size != got.size || entry.hash != got.hash {
             return Err(Error::new("CHECKSUM", "备份校验失败"));
         }
+    }
+    if dir.join("files").exists() {
+        sync_dir(&dir.join("files"))?;
     }
     validate_dataset(dir, true)?;
     let db = Connection::open_with_flags(
@@ -424,11 +501,7 @@ pub struct Summary {
 impl Store {
     /// Fully unpacks and validates into a scratch folder; the current library is untouched.
     pub fn inspect_backup(&self, archive: &Path) -> Result<Summary> {
-        let frozen = tempfile::NamedTempFile::new_in(&self.root)?;
-        std::io::copy(
-            &mut File::open(archive)?.take(MAX_ARCHIVE + 1024 * 1024 + 1),
-            &mut frozen.as_file(),
-        )?;
+        let frozen = freeze(archive, &self.root)?;
         let hash = archive_hash(frozen.path())?;
         let stage = tempfile::tempdir_in(&self.root)?;
         let manifest = unpack(frozen.path(), stage.path())?;

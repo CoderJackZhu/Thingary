@@ -1,5 +1,5 @@
 use crate::{
-    backup::{archive_hash, unpack, validate_dataset},
+    backup::{archive_hash, freeze, unpack, validate_dataset},
     domain::{Error, Result},
     storage::{atomic_write, connection, migrate, sync_dir, uid, Active, Store},
 };
@@ -53,16 +53,7 @@ impl Store {
             return Err(Error::new("STALE_DATASET", "资料已变化，请重新检查"));
         }
         // Freeze the bytes checked by the caller, so path replacement during restore cannot change input.
-        let frozen = tempfile::NamedTempFile::new_in(&self.root)?;
-        let mut source = std::fs::File::open(archive)?;
-        use std::io::Read;
-        let copied = std::io::copy(
-            &mut source.by_ref().take(101 * 1024 * 1024 + 1),
-            &mut frozen.as_file(),
-        )?;
-        if copied > 101 * 1024 * 1024 {
-            return Err(Error::new("BACKUP_LIMIT", "备份超出限制"));
-        }
+        let frozen = freeze(archive, &self.root)?;
         if archive_hash(frozen.path())? != expected_hash {
             return Err(Error::new("BACKUP_CHANGED", "备份已经变化，请重新检查"));
         }

@@ -38,3 +38,17 @@ fault-injection = []
 [profile.release.build-override]
 debug = true
 strip = false
+
+# Image decoding and hashing are unusably slow unoptimized; this keeps dev
+# previews responsive and large-backup tests in seconds, not minutes.
+[profile.dev.package]
+image = { opt-level = 3 }
+png = { opt-level = 3 }
+fdeflate = { opt-level = 3 }
+miniz_oxide = { opt-level = 3 }
+crc32fast = { opt-level = 3 }
+adler2 = { opt-level = 3 }
+zune-jpeg = { opt-level = 3 }
+image-webp = { opt-level = 3 }
+sha2 = { opt-level = 3 }
+zip = { opt-level = 3 }
