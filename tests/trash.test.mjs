@@ -61,6 +61,15 @@ test('record trash reminder survives restart and rejects corrupt values', () => 
   }
 });
 
-test('unified filters expose exactly the four agreed views', () => {
-  assert.deepEqual(trashFilters.map(([key]) => key), ['all', 'asset', 'maintenance', 'warranty']);
+test('unified filters expose the agreed views plus wealth (W03)', () => {
+  assert.deepEqual(trashFilters.map(([key]) => key), ['all', 'asset', 'maintenance', 'warranty', 'wealth']);
+});
+
+test('wealth rows describe themselves without an owning asset', () => {
+  const snapshot = entryDisplay(entry({ kind: 'snapshot', title: '2026-09-30', date: '2026-09-30', asset_id: null }));
+  assert.equal(snapshot.typeLabel, '盘点');
+  assert.equal(snapshot.title, '2026-09-30 盘点');
+  assert.equal(snapshot.parentBlocked, false);
+  const account = entryDisplay(entry({ kind: 'account', title: '误建账户', asset_id: null }));
+  assert.equal(account.title, '误建账户');
 });

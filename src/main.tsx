@@ -461,7 +461,7 @@ function App() {
           void openTrash(record, generation, false);
         } catch (e) { setNotice(errorMessage(e)); }
       })()} onRestoreRecord={(entry: TrashEntry, generation) => {
-        if (entry.kind === 'asset' || !entry.asset_id) return;
+        if ((entry.kind !== 'maintenance' && entry.kind !== 'warranty') || !entry.asset_id) return;
         const title = entry.title || (entry.kind === 'maintenance' ? '维护记录' : '保障记录');
         void openRecordTrash(entry.kind, entry.id, entry.asset_id, title, entry.asset_name ?? '', generation, entry.asset_revision, false);
       }}/>}

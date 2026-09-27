@@ -153,7 +153,7 @@ function AccountDialog({ account, generation, today, onClose }: { account: Accou
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="wealth-account-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">财富 · 账户</p><h2 id="wealth-account-heading">{account ? '编辑账户' : '新增账户'}</h2><p className="muted">只记名称与类型，不需要卡号、密码或登录信息。</p></div><button type="button" aria-label="关闭账户表单" disabled={busy} onClick={() => onClose(false)}>×</button><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存账户'}</button>}</div></header>
+    <header><div><p className="eyebrow">财富 · 账户</p><h2 id="wealth-account-heading">{account ? '编辑账户' : '新增账户'}</h2><p className="muted">只记名称与类型，不需要卡号、密码或登录信息。{account?.latest ? '已有盘点记录的账户不能删除，可填写停用日期。' : ''}</p></div><button type="button" aria-label="关闭账户表单" disabled={busy} onClick={() => onClose(false)}>×</button><div className="editor-header-actions">{account && !account.latest && !stuck && <DeleteButton label="删除误建账户" disabled={busy} kind="account" id={account.id} revision={account.revision} generation={generation} name={`账户 ${account.fields.name}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存账户'}</button>}</div></header>
     <section className="form-block">
       <FormRow label="名称"><input id="wealth-account-name" aria-label="账户名称" maxLength={80} value={fields.name} disabled={busy || stuck} onChange={e => set('name', e.target.value)} placeholder="例如 招行储蓄卡"/></FormRow>
       <FormRow label="平台" hint="只用于分组"><input aria-label="平台" maxLength={80} value={fields.institution} disabled={busy || stuck} onChange={e => set('institution', e.target.value)} placeholder="可留空"/></FormRow>
@@ -168,6 +168,19 @@ function AccountDialog({ account, generation, today, onClose }: { account: Accou
   </form></dialog>;
 }
 
+/** Two-step soft delete into 最近删除; the second click confirms. */
+function DeleteButton({ label, disabled, kind, id, revision, generation, name, onDone, onError }: { label: string; disabled: boolean; kind: 'snapshot' | 'account'; id: string; revision: number; generation: string; name: string; onDone: () => void; onError: (message: string, stuck: boolean) => void }) {
+  const [armed, setArmed] = useState(false), [busy, setBusy] = useState(false);
+  async function remove() {
+    setBusy(true);
+    try { await submit({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision, deleted: true }, label: '删除' + name }); onDone(); }
+    catch (e) { onError(e instanceof Error ? e.message : errorMessage(e), e instanceof Unresolved); setArmed(false); }
+    finally { setBusy(false); }
+  }
+  return armed ? <button type="button" className="danger" disabled={disabled || busy} onClick={() => void remove()}>{busy ? '正在删除…' : '确认移入最近删除'}</button>
+    : <button type="button" disabled={disabled} onClick={() => setArmed(true)}>{label}</button>;
+}
+
 type Row = { state: EntryState | null; cents: string };
 function CheckIn({ date: initial, today, onClose }: { date: string; today: string; onClose: (saved: boolean) => void }) {
   const [date, setDate] = useState(initial);
@@ -175,16 +188,22 @@ function CheckIn({ date: initial, today, onClose }: { date: string; today: strin
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   const table = useRef<HTMLTableElement>(null);
+  const fromSaved = useRef(false);
   useEffect(() => {
     let live = true; setError(''); setDraft(null);
     invoke<Draft>('wealth_snapshot_draft', { date }).then(d => {
       if (!live) return;
       setDraft(d);
-      // Values typed for another date carry over; a saved check-in starts from what it recorded.
-      setRows(old => Object.fromEntries(d.rows.map(r => {
-        const saved = d.existing?.entries.find(e => e.account_id === r.account.id);
-        return [r.account.id, saved ? { state: saved.state, cents: saved.amount_cents ?? '' } : old[r.account.id] ?? { state: null, cents: '' }];
-      })));
+      // Only values typed for a new check-in follow a date change. Amounts loaded
+      // from a saved check-in never carry to another date unreviewed (17.4 #2).
+      setRows(old => {
+        const carry = fromSaved.current ? {} : old;
+        fromSaved.current = !!d.existing;
+        return Object.fromEntries(d.rows.map(r => {
+          const saved = d.existing?.entries.find(e => e.account_id === r.account.id);
+          return [r.account.id, saved ? { state: saved.state, cents: saved.amount_cents ?? '' } : carry[r.account.id] ?? { state: null, cents: '' }];
+        }));
+      });
     }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [date]);
@@ -213,7 +232,7 @@ function CheckIn({ date: initial, today, onClose }: { date: string; today: strin
       <div><h2 id="check-in-heading">{existing ? '更正盘点' : '盘点'}</h2><p className="muted">对照各平台逐行填写。回车跳到下一行；「未变」沿用上次金额，「未知」不当作 0。关闭即放弃未保存的输入。</p></div>
       <div className="field check-in-date"><label htmlFor="check-in-date">盘点日期</label><DateInput id="check-in-date" value={date} max={today} disabled={frozen} onChange={v => v && setDate(v)}/></div>
     </header>
-    {existing && <p className="notice">这一天已有盘点，保存会更正原记录，并影响它与前后两次盘点的比较。</p>}
+    {existing && draft && <div className="notice">这一天已有盘点，保存会更正原记录，并影响它与前后两次盘点的比较。<DeleteButton label="删除这次盘点" disabled={frozen} kind="snapshot" id={existing.id} revision={existing.revision} generation={draft.generation} name={`${date} 盘点`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/></div>}
     {error ? <div role="alert"><p>盘点读取失败：{error}</p></div> : !draft ? <p role="status" className="muted">正在准备盘点…</p> : !open.length ? <p className="muted">这一天没有需要盘点的账户（账户启用日期都晚于此日或已停用）。</p> : <>
       <table ref={table} className="distribution-table check-in-table"><thead><tr><th>账户</th><th>上次金额</th><th>本次金额</th><th>差额</th><th>状态</th></tr></thead><tbody>{open.map(({ account: a, previous }) => {
         const row = rows[a.id] ?? { state: null, cents: '' };

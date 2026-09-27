@@ -304,7 +304,7 @@ impl Store {
     /// Unified view over every independently deleted row (assets, maintenances,
     /// warranties). Children hidden only by a deleted parent never appear here.
     pub fn list_trash(&self, q: &TrashQuery) -> Result<TrashPage> {
-        if !["all", "asset", "maintenance", "warranty"].contains(&q.filter.as_str()) {
+        if !["all", "asset", "maintenance", "warranty", "wealth"].contains(&q.filter.as_str()) {
             return Err(Error::new("QUERY", "不支持的筛选"));
         }
         let c = self.conn()?;
@@ -380,6 +380,32 @@ impl Store {
                     })
                 },
             )?);
+        }
+        if q.filter == "all" || q.filter == "wealth" {
+            // Wealth rows reuse the shared shape: `date` is the check-in date,
+            // `subtype` the account kind and `asset_revision` the row revision.
+            let wealth = |kind: &'static str| {
+                move |r: &rusqlite::Row<'_>| {
+                    Ok(Entry {
+                        kind: kind.into(),
+                        id: r.get(0)?,
+                        title: r.get(1)?,
+                        subtype: r.get(2)?,
+                        date: r.get(3)?,
+                        end_date: None,
+                        cost_cents: None,
+                        provider: None,
+                        deleted_at: r.get(4)?,
+                        asset_id: None,
+                        asset_name: None,
+                        asset_deleted: false,
+                        asset_revision: r.get(5)?,
+                        asset_state: None,
+                    })
+                }
+            };
+            entries.extend(query_entries(c, "SELECT id,date,NULL,date,deleted_at,revision FROM fin_snapshots WHERE deleted_at IS NOT NULL", wealth("snapshot"))?);
+            entries.extend(query_entries(c, "SELECT id,name,kind,NULL,deleted_at,revision FROM fin_accounts WHERE deleted_at IS NOT NULL", wealth("account"))?);
         }
         // RFC3339 UTC stamps sort lexicographically; ties break by kind then id.
         entries.sort_by(|a, b| {

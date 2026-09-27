@@ -601,6 +601,7 @@ impl Store {
             snapshot(&tx, &id, &live)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"))?;
         self.hit("wealth_snapshot.before_commit")?;
         tx.commit()?;
+        self.hit("wealth_snapshot.after_commit")?;
         Ok(result)
     }
 
@@ -722,6 +723,105 @@ impl Store {
             structure,
             liabilities,
         })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrashChange {
+    pub request_id: String,
+    pub generation: String,
+    /// `snapshot` or `account`.
+    pub kind: String,
+    pub id: String,
+    pub expected_revision: i64,
+    pub deleted: bool,
+}
+
+impl Store {
+    /// Soft delete or restore of one check-in or one mistaken account. Only an
+    /// account that never appeared in any check-in may be deleted; others are
+    /// closed instead. Restoring a check-in re-checks what may have changed
+    /// while it was deleted: its date and the accounts' open periods.
+    pub fn wealth_trash(&mut self, input: &TrashChange) -> Result<()> {
+        self.check_generation(&input.generation)?;
+        uuid::Uuid::parse_str(&input.request_id)
+            .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
+        let fingerprint = digest(&serde_json::to_vec(&("wealth_trash", input))?);
+        let tx = self.conn()?.unchecked_transaction()?;
+        if receipt(&tx, &input.request_id, &fingerprint)?.is_some() {
+            return Ok(());
+        }
+        let table = match input.kind.as_str() {
+            "snapshot" => "fin_snapshots",
+            "account" => "fin_accounts",
+            _ => return Err(Error::new("TRASH_KIND", "不支持的类型")),
+        };
+        let current: Option<(i64, Option<String>)> = tx
+            .query_row(
+                &format!("SELECT revision,deleted_at FROM {table} WHERE id=?1"),
+                [&input.id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?;
+        let (revision, deleted_at) =
+            current.ok_or_else(|| Error::new("NOT_FOUND", "找不到这条记录"))?;
+        if revision != input.expected_revision || deleted_at.is_some() == input.deleted {
+            return Err(Error::new("REVISION_CONFLICT", "记录已变化，请重新读取"));
+        }
+        if input.kind == "account" && input.deleted {
+            let used: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM fin_snapshot_entries WHERE account_id=?1)",
+                [&input.id],
+                |r| r.get(0),
+            )?;
+            if used {
+                return Err(Error::new(
+                    "ACCOUNT_HAS_HISTORY",
+                    "这个账户已出现在盘点中，请改为停用",
+                ));
+            }
+        }
+        if input.kind == "snapshot" && !input.deleted {
+            let day: String = tx.query_row(
+                "SELECT date FROM fin_snapshots WHERE id=?1",
+                [&input.id],
+                |r| r.get(0),
+            )?;
+            let taken: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM fin_snapshots WHERE date=?1 AND deleted_at IS NULL)",
+                [&day],
+                |r| r.get(0),
+            )?;
+            if taken {
+                return Err(Error::new(
+                    "SNAPSHOT_DATE_TAKEN",
+                    &format!("{day} 已有另一份盘点，不能恢复；可打开那份盘点更正"),
+                ));
+            }
+            let outside: Option<String> = tx.query_row(
+                "SELECT a.name FROM fin_snapshot_entries e JOIN fin_accounts a ON a.id=e.account_id WHERE e.snapshot_id=?1 AND (a.deleted_at IS NOT NULL OR ?2<a.opened_on OR (a.closed_on IS NOT NULL AND ?2>=a.closed_on)) LIMIT 1",
+                params![input.id, day],
+                |r| r.get(0),
+            ).optional()?;
+            if let Some(name) = outside {
+                return Err(Error::new(
+                    "SNAPSHOT_ACCOUNT",
+                    &format!("「{name}」的启用/停用日期已不包含 {day}，请先调整账户日期"),
+                ));
+            }
+        }
+        let stamp = input.deleted.then(|| chrono::Utc::now().to_rfc3339());
+        tx.execute(
+            &format!("UPDATE {table} SET deleted_at=?2,revision=revision+1 WHERE id=?1"),
+            params![input.id, stamp],
+        )?;
+        tx.execute(
+            "INSERT INTO feature_requests VALUES(?1,?2,?3)",
+            params![input.request_id, fingerprint, input.id],
+        )?;
+        self.hit("wealth_trash.before_commit")?;
+        tx.commit()?;
+        Ok(())
     }
 }
 

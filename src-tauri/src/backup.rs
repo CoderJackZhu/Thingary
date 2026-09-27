@@ -498,6 +498,8 @@ pub struct Summary {
     pub wishes: i64,
     pub maintenances: i64,
     pub warranties: i64,
+    pub accounts: i64,
+    pub snapshots: i64,
     pub files: usize,
 }
 
@@ -536,6 +538,16 @@ impl Store {
             },
             warranties: if v >= 10 {
                 count("SELECT count(*) FROM warranties")?
+            } else {
+                0
+            },
+            accounts: if v >= 15 {
+                count("SELECT count(*) FROM fin_accounts")?
+            } else {
+                0
+            },
+            snapshots: if v >= 15 {
+                count("SELECT count(*) FROM fin_snapshots")?
             } else {
                 0
             },

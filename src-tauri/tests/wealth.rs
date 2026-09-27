@@ -531,7 +531,10 @@ fn backups_carry_check_ins_old_ones_migrate_and_newer_ones_are_refused() {
 
     let mut c = Store::open(&dir.path().join("c")).unwrap();
     let summary = c.inspect_backup(&file).unwrap();
-    assert_eq!(summary.schema, 15);
+    assert_eq!(
+        (summary.schema, summary.accounts, summary.snapshots),
+        (15, 4, 1)
+    );
     c.restore(&file, &summary.hash, &c.generation()).unwrap();
     assert_eq!(
         serde_json::to_string(&c.wealth_summary().unwrap().points).unwrap(),
@@ -560,4 +563,124 @@ fn backups_carry_check_ins_old_ones_migrate_and_newer_ones_are_refused() {
         code(c.inspect_backup(&archive(dir.path(), 16, &v16))),
         "BACKUP_VERSION"
     );
+}
+
+fn trash(
+    s: &Store,
+    kind: &str,
+    id: &str,
+    revision: i64,
+    deleted: bool,
+) -> possio_lib::wealth::TrashChange {
+    possio_lib::wealth::TrashChange {
+        request_id: rid(),
+        generation: s.generation(),
+        kind: kind.into(),
+        id: id.into(),
+        expected_revision: revision,
+        deleted,
+    }
+}
+fn trash_kinds(s: &Store) -> Vec<(String, String)> {
+    s.list_trash(&possio_lib::trash::TrashQuery {
+        filter: "wealth".into(),
+        offset: 0,
+    })
+    .unwrap()
+    .items
+    .into_iter()
+    .map(|e| (e.kind, e.title))
+    .collect()
+}
+
+#[test]
+fn x_ac14_check_ins_and_unused_accounts_delete_and_restore_safely() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let b = book(&mut s);
+    let snap = s
+        .wealth_snapshot_save(&check_in(&s, "2026-09-30", full(&b, 1, 1, 1, 1)), TODAY)
+        .unwrap();
+    let del = trash(&s, "snapshot", &snap.id, snap.revision, true);
+    s.wealth_trash(&del).unwrap();
+    s.wealth_trash(&del).unwrap(); // retried request is a no-op
+    assert!(s.wealth_summary().unwrap().points.is_empty());
+    assert_eq!(
+        trash_kinds(&s),
+        vec![("snapshot".into(), "2026-09-30".into())]
+    );
+    assert!(b.cash.latest.is_none() && s.wealth_accounts().unwrap()[0].latest.is_none());
+
+    // The date was reused while deleted, so restoring must not create a second one.
+    let other = s
+        .wealth_snapshot_save(&check_in(&s, "2026-09-30", full(&b, 2, 2, 2, 2)), TODAY)
+        .unwrap();
+    assert_eq!(
+        code(s.wealth_trash(&trash(&s, "snapshot", &snap.id, 2, false))),
+        "SNAPSHOT_DATE_TAKEN"
+    );
+    s.wealth_trash(&trash(&s, "snapshot", &other.id, 1, true))
+        .unwrap();
+
+    // An account period that no longer covers the date also blocks restore.
+    edit(&mut s, &b.fund, |f| f.opened_on = "2026-10-01".into()).unwrap();
+    assert_eq!(
+        code(s.wealth_trash(&trash(&s, "snapshot", &snap.id, 2, false))),
+        "SNAPSHOT_ACCOUNT"
+    );
+    let fund = s
+        .wealth_accounts()
+        .unwrap()
+        .into_iter()
+        .find(|a| a.id == b.fund.id)
+        .unwrap();
+    edit(&mut s, &fund, |f| f.opened_on = "2026-01-01".into()).unwrap();
+    s.wealth_trash(&trash(&s, "snapshot", &snap.id, 2, false))
+        .unwrap();
+    let points = s.wealth_summary().unwrap().points;
+    assert_eq!(
+        (points.len(), points[0].snapshot_id.as_str()),
+        (1, snap.id.as_str())
+    );
+    assert_eq!(
+        code(s.wealth_trash(&trash(&s, "snapshot", &snap.id, 2, false))),
+        "REVISION_CONFLICT"
+    );
+
+    assert_eq!(
+        code(s.wealth_trash(&trash(&s, "account", &b.cash.id, 1, true))),
+        "ACCOUNT_HAS_HISTORY"
+    );
+    let spare = open(&mut s, "误建账户", "cash", "2026-01-01");
+    s.wealth_trash(&trash(&s, "account", &spare.id, 1, true))
+        .unwrap();
+    assert_eq!(s.wealth_accounts().unwrap().len(), 4);
+    assert!(s
+        .wealth_snapshot(&snap.id)
+        .unwrap()
+        .unwrap()
+        .missing
+        .is_empty());
+    s.wealth_trash(&trash(&s, "account", &spare.id, 2, false))
+        .unwrap();
+    assert_eq!(s.wealth_accounts().unwrap().len(), 5);
+    assert_eq!(
+        s.wealth_snapshot(&snap.id).unwrap().unwrap().missing,
+        vec![spare.id.clone()],
+        "a restored account opened before the date shows as missing, never as zero"
+    );
+
+    // Deleted check-ins survive a backup round trip and stay restorable.
+    s.wealth_trash(&trash(&s, "snapshot", &snap.id, 3, true))
+        .unwrap();
+    let file = dir.path().join("备份.possio");
+    s.backup(Some(&file)).unwrap();
+    drop(s);
+    let mut c = Store::open(&dir.path().join("c")).unwrap();
+    let summary = c.inspect_backup(&file).unwrap();
+    c.restore(&file, &summary.hash, &c.generation()).unwrap();
+    assert_eq!(trash_kinds(&c).len(), 2, "both deleted check-ins");
+    c.wealth_trash(&trash(&c, "snapshot", &snap.id, 4, false))
+        .unwrap();
+    assert_eq!(c.wealth_summary().unwrap().points.len(), 1);
 }

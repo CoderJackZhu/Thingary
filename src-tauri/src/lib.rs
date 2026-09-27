@@ -104,6 +104,7 @@ pub fn run() {
             commands::wealth_snapshot_save,
             commands::wealth_request_result,
             commands::wealth_summary,
+            commands::wealth_trash,
             commands::open_notification_settings,
             commands::notification_status,
             commands::choice_list,

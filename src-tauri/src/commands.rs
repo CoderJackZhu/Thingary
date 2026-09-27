@@ -933,3 +933,13 @@ pub async fn wealth_summary(worker: tauri::State<'_, Worker>) -> Result<crate::w
         .await
         .map_err(|_| Error::new("WORKER", "暂时无法读取财富概览"))?
 }
+#[tauri::command]
+pub async fn wealth_trash(
+    input: crate::wealth::TrashChange,
+    worker: tauri::State<'_, Worker>,
+) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.wealth_trash(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "操作结果未返回，请核对本次请求"))?
+}

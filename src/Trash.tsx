@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
+import { submit as submitWealth, storedPending } from './wealth';
 import type { AssetRecord } from './asset';
 import type { CloseIntent } from './AssetEditor';
 import { entryDisplay, recordKindLabel, recordPendingKey, stateText, storedRecordTrash, trashFilters } from './unified-trash';
@@ -25,6 +26,15 @@ export function TrashPanel({ version, onRestoreAsset, onRestoreRecord }: { versi
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [retry, setRetry] = useState(0);
+  const [wealthNotice, setWealthNotice] = useState(''), [wealthBusy, setWealthBusy] = useState(false);
+  async function restoreWealth(entry: TrashEntry, generation: string) {
+    if (entry.kind !== 'snapshot' && entry.kind !== 'account') return;
+    if (storedPending()) { setWealthNotice('财富页有一次保存结果待核对，请先到“账户与盘点”处理。'); return; }
+    setWealthBusy(true); setWealthNotice('');
+    try { await submitWealth({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind: entry.kind, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, label: '恢复' + entryDisplay(entry).title }); setWealthNotice(`已恢复「${entryDisplay(entry).title}」。`); setRetry(n => n + 1); }
+    catch (e) { setWealthNotice(e instanceof Error ? e.message : errorMessage(e)); }
+    finally { setWealthBusy(false); }
+  }
   useEffect(() => {
     let current = true; setLoading(true); setError('');
     void invoke<TrashPage>('list_trash', { query: { filter, offset } })
@@ -35,7 +45,8 @@ export function TrashPanel({ version, onRestoreAsset, onRestoreRecord }: { versi
   }, [filter, offset, version, retry]);
   const total = page?.total ?? 0;
   return <section className="trash-panel" aria-label="最近删除">
-    <p className="muted">误删的物品、维护和保障记录都会在这里，可以随时找回。资料与图片会保留，不会自动永久清空。</p>
+    <p className="muted">误删的物品、维护、保障记录以及盘点和账户都会在这里，可以随时找回。资料与图片会保留，不会自动永久清空。</p>
+    {wealthNotice && <p className="notice" role="status">{wealthNotice}</p>}
     <div className="segmented trash-filter" role="group" aria-label="按类型筛选最近删除">
       {trashFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => { setFilter(key); setOffset(0); }}>{label}</button>)}
     </div>
@@ -46,13 +57,15 @@ export function TrashPanel({ version, onRestoreAsset, onRestoreRecord }: { versi
         return <li key={entry.kind + entry.id}>
           <div>
             <h2>{display.title}</h2>
-            <p className="muted small">{display.typeLabel}{entry.kind !== 'asset' && entry.asset_name ? ` · 所属：${entry.asset_name}` : ''}{entry.kind !== 'asset' ? ` · 状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}` : ''}</p>
+            <p className="muted small">{display.typeLabel}{entry.kind !== 'asset' && entry.asset_name ? ` · 所属：${entry.asset_name}` : ''}{entry.asset_id ? ` · 状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}` : ''}</p>
             {display.facts.map(fact => <p className="small" key={fact}>{fact}</p>)}
             {display.parentBlocked && <p className="small" role="note">所属物品仍在最近删除中，请先恢复所属资产。</p>}
             <p className="muted small">删除于 {entry.deleted_at ? new Date(entry.deleted_at).toLocaleString('zh-CN') : '时间待补充'}</p>
           </div>
           {display.parentBlocked
             ? <button onClick={() => entry.asset_id && onRestoreAsset(entry.asset_id, page.generation)} aria-label={'恢复所属物品 ' + (entry.asset_name ?? '')}>先恢复所属物品</button>
+            : entry.kind === 'snapshot' || entry.kind === 'account'
+              ? <button disabled={wealthBusy} onClick={() => void restoreWealth(entry, page.generation)} aria-label={'恢复 ' + display.title}>恢复{display.typeLabel}</button>
             : entry.kind === 'asset'
               ? <button onClick={() => onRestoreAsset(entry.id, page.generation)} aria-label={'恢复 ' + entry.title}>恢复物品</button>
               : <button onClick={() => onRestoreRecord(entry, page.generation)} aria-label={'恢复 ' + display.title}>恢复记录</button>}

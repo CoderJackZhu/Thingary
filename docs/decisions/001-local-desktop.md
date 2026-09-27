@@ -372,3 +372,9 @@ CREATE TABLE fin_snapshot_entries(
 - 保存沿用“只保留已提交请求”的规则：提交前把请求写入 `possio.wealth-pending.v1`，回包丢失时用 `wealth_request_result` 核对；已提交则以同一请求重发取回原结果，未提交则清除并保留表单输入，无法确认时保留请求并在财富页提示核对。表单关闭即丢弃，不存草稿。
 - `wealth_snapshot_draft`/`wealth_summary` 增加 `generation` 字段。浏览器预览 `src/wealth-preview.ts` 为内存假数据，`?wealth=empty|first|error` 覆盖空白、首次盘点与读取失败，`?state=save-error` 覆盖保存失败。
 - 已验证：浏览器预览中录入、回车跳行、未变/未知、未处理行拦截、保存后回到记录、账户编辑、深色模式；`npm run build`、`npm run test:ui`（90 项）、`npm run check` 通过。未验证：原生 App 中的实际读写与回执核对（W03 隔离身份验收）；样例模式下财富记录会写入样例库，沿用样例横幅说明，不另做处理。
+
+### 17.10 W03 实现记录（2026-09-28）
+
+- 新增 `wealth_trash` 命令及最近删除“财富”筛选；删除/恢复规则按 17.2 实现，恢复盘点时重新校验同日唯一与账户期间。`list_trash` 的财富行复用既有 Entry 结构（`date` 为盘点日，`asset_revision` 为行 revision）。
+- 备份 Summary 增加 `accounts`、`snapshots`。盘点表切换日期不再带入已保存盘点的金额。`wealth_snapshot_save` 增加 `after_commit` 故障注入点。
+- 隔离原生验收、schema 14 构建拒绝新版备份、回包丢失核对等结果见 [W03 验证](../verification/W03_WEALTH_RESULT.md)。
