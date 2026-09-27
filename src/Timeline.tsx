@@ -1,16 +1,17 @@
+import { expenseCategories } from './expenses';
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { warrantyKinds } from './warranty';
 
-export type TimelineFilter = 'all' | 'purchase' | 'maintenance' | 'warranty' | 'lifecycle' | 'wishlist';
+export type TimelineFilter = 'all' | 'purchase' | 'maintenance' | 'warranty' | 'lifecycle' | 'wishlist' | 'expense';
 export type TimelineEvent = { id: string; kind: string; date: string | null; asset_id: string | null; wishlist_id: string | null; title: string; note: string; amount_cents: string | null };
 type TimelinePage = { generation: string; today: string; dated: TimelineEvent[]; undated: TimelineEvent[] };
 
-export const timelineFilters: [TimelineFilter, string][] = [['all', '全部'], ['purchase', '购买'], ['maintenance', '维护'], ['warranty', '保障'], ['lifecycle', '退役／售出'], ['wishlist', '心愿']];
+export const timelineFilters: [TimelineFilter, string][] = [['all', '全部'], ['purchase', '购买'], ['maintenance', '维护'], ['warranty', '保障'], ['lifecycle', '退役／售出'], ['wishlist', '心愿'], ['expense', '支出']];
 
 export function eventLabel(e: TimelineEvent) {
-  return ({ purchase: e.wishlist_id ? '购入 · 实现心愿' : '购入', retire: '退役', activate: '重新启用', sale: '售出', maintenance: '维护', warranty_start: '保障生效', warranty_end: '保障到期', wish_achieved:'实现心愿', wish_added: '加入心愿', wish_abandoned: '放弃心愿' } as Record<string, string>)[e.kind] ?? e.kind;
+  return ({ purchase: e.wishlist_id ? '购入 · 实现心愿' : '购入', retire: '退役', activate: '重新启用', sale: '售出', maintenance: '维护', warranty_start: '保障生效', warranty_end: '保障到期', wish_achieved:'实现心愿', expense: '支出', refund: '退款', wish_added: '加入心愿', wish_abandoned: '放弃心愿' } as Record<string, string>)[e.kind] ?? e.kind;
 }
 
 export function eventDetail(e: TimelineEvent) {
@@ -21,8 +22,11 @@ export function eventDetail(e: TimelineEvent) {
   const amount = e.kind === 'purchase' ? (e.amount_cents === null ? '金额待补充' : '实付 ' + money(e.amount_cents))
     : e.kind === 'sale' ? '售价 ' + money(e.amount_cents)
     : e.kind === 'maintenance' ? (e.amount_cents === null ? '费用未知' : '费用 ' + money(e.amount_cents))
+    : e.kind === 'expense' ? '金额 ' + money(e.amount_cents)
+    : e.kind === 'refund' ? '退回 ' + money(e.amount_cents)
     : e.kind.startsWith('wish_') ? (e.amount_cents === null ? '预计价格未知' : '预计 ' + money(e.amount_cents)) : '';
-  const note = e.kind === 'purchase' && e.wishlist_id ? `来自心愿「${e.note}」` : e.kind.startsWith('wish_') ? '' : e.note;
+  // Expense notes carry the fixed category key; show its label.
+  const note = e.kind === 'purchase' && e.wishlist_id ? `来自心愿「${e.note}」` : e.kind.startsWith('wish_') ? '' : e.kind === 'expense' || e.kind === 'refund' ? expenseCategories.find(([k]) => k === e.note)?.[1] ?? '' : e.note;
   return [note, amount].filter(Boolean).join(' · ');
 }
 

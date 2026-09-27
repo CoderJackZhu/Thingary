@@ -28,7 +28,7 @@ export function TrashPanel({ version, onRestoreAsset, onRestoreRecord }: { versi
   const [retry, setRetry] = useState(0);
   const [wealthNotice, setWealthNotice] = useState(''), [wealthBusy, setWealthBusy] = useState(false);
   async function restoreWealth(entry: TrashEntry, generation: string) {
-    if (entry.kind !== 'snapshot' && entry.kind !== 'account') return;
+    if (entry.kind !== 'snapshot' && entry.kind !== 'account' && entry.kind !== 'expense') return;
     if (storedPending()) { setWealthNotice('财富页有一次保存结果待核对，请先到“账户与盘点”处理。'); return; }
     setWealthBusy(true); setWealthNotice('');
     try { await submitWealth({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind: entry.kind, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, label: '恢复' + entryDisplay(entry).title }); setWealthNotice(`已恢复「${entryDisplay(entry).title}」。`); setRetry(n => n + 1); }
@@ -45,7 +45,7 @@ export function TrashPanel({ version, onRestoreAsset, onRestoreRecord }: { versi
   }, [filter, offset, version, retry]);
   const total = page?.total ?? 0;
   return <section className="trash-panel" aria-label="最近删除">
-    <p className="muted">误删的物品、维护、保障记录以及盘点和账户都会在这里，可以随时找回。资料与图片会保留，不会自动永久清空。</p>
+    <p className="muted">误删的物品、维护、保障记录以及盘点、账户和支出都会在这里，可以随时找回。资料与图片会保留，不会自动永久清空。</p>
     {wealthNotice && <p className="notice" role="status">{wealthNotice}</p>}
     <div className="segmented trash-filter" role="group" aria-label="按类型筛选最近删除">
       {trashFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => { setFilter(key); setOffset(0); }}>{label}</button>)}
@@ -64,7 +64,7 @@ export function TrashPanel({ version, onRestoreAsset, onRestoreRecord }: { versi
           </div>
           {display.parentBlocked
             ? <button onClick={() => entry.asset_id && onRestoreAsset(entry.asset_id, page.generation)} aria-label={'恢复所属物品 ' + (entry.asset_name ?? '')}>先恢复所属物品</button>
-            : entry.kind === 'snapshot' || entry.kind === 'account'
+            : entry.kind === 'snapshot' || entry.kind === 'account' || entry.kind === 'expense'
               ? <button disabled={wealthBusy} onClick={() => void restoreWealth(entry, page.generation)} aria-label={'恢复 ' + display.title}>恢复{display.typeLabel}</button>
             : entry.kind === 'asset'
               ? <button onClick={() => onRestoreAsset(entry.id, page.generation)} aria-label={'恢复 ' + entry.title}>恢复物品</button>

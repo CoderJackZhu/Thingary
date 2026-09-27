@@ -451,3 +451,8 @@ CREATE INDEX expenses_asset ON expenses(asset_id);
 - 回执核对从财富页抽出为共享 `usePendingReceipt`，两页共用 `possio.wealth-pending.v1`；`expense_save` 结果核对直接用 `wealth_request_result`。
 - 修复：通用 `.segmented button` 的 26px 固定宽度让财富页分段和年份按钮挤在一起，财富工具栏改为自适应宽度。
 - 预览：`src/wealth-preview.ts` 用 Demo 物品生成购入/维护/售出行，另含三笔独立支出（含退款与已关联）；`?expenses=empty|error`。已验证新建、退款缺金额拦截、关联物品、合计变化、空白与错误状态；未做原生验收（E03）。
+
+### 18.8 E03 实现记录（2026-09-28）
+
+- `wealth_trash` 增加 `expense`；`list_trash` 财富筛选含支出行；时间轴增加 `expense`/`refund` 分支与 `expense` 筛选；备份 Summary 的 `expenses` 显示在恢复确认中。
+- 原生验收（含 schema 15 → 16 真实升级）见 [E03 验证](../verification/E03_EXPENSES_RESULT.md)。B 首版闭环完成。

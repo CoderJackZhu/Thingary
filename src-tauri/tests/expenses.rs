@@ -374,3 +374,97 @@ fn backups_carry_expenses_and_schema_fifteen_backups_migrate() {
     b.restore(&old, &summary.hash, &b.generation()).unwrap();
     assert_eq!(b.expense_view(None).unwrap().spent_cents, "0");
 }
+
+#[test]
+fn expenses_delete_restore_and_show_on_the_timeline() {
+    use possio_lib::{timeline::Query, trash::TrashQuery, wealth::TrashChange};
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let mut f = fields("虚构旅行", "2026-08-01", "300000");
+    f.refund_cents = Some("10000".into());
+    f.refund_date = Some("2026-08-20".into());
+    let trip = s.expense_save(&new(&s, f), TODAY).unwrap();
+    let cam = asset(
+        &mut s,
+        "虚构相机",
+        Some("500000"),
+        Some("2026-07-01"),
+        false,
+    );
+    let mut g = fields("先记下的相机", "2026-07-01", "500000");
+    g.asset_id = Some(cam.asset.id.clone());
+    g.refund_cents = Some("5000".into());
+    g.refund_date = Some("2026-07-05".into());
+    s.expense_save(&new(&s, g), TODAY).unwrap();
+
+    let kinds = |s: &Store, filter: &str, asset: Option<String>| -> Vec<(String, Option<String>)> {
+        s.timeline(
+            &Query {
+                filter: filter.into(),
+                asset_id: asset,
+            },
+            TODAY,
+        )
+        .unwrap()
+        .dated
+        .into_iter()
+        .map(|e| (e.kind, e.asset_id))
+        .collect()
+    };
+    let all = kinds(&s, "expense", None);
+    assert_eq!(
+        all,
+        vec![
+            ("refund".into(), None),
+            ("expense".into(), None),
+            ("refund".into(), Some(cam.asset.id.clone())),
+        ],
+        "the linked expense is not its own event; its refund belongs to the item"
+    );
+    assert!(kinds(&s, "all", None).iter().any(|(k, _)| k == "purchase"));
+    assert_eq!(
+        kinds(&s, "all", Some(cam.asset.id.clone())).len(),
+        2,
+        "purchase + refund"
+    );
+
+    let del = TrashChange {
+        request_id: rid(),
+        generation: s.generation(),
+        kind: "expense".into(),
+        id: trip.id.clone(),
+        expected_revision: trip.revision,
+        deleted: true,
+    };
+    s.wealth_trash(&del).unwrap();
+    s.wealth_trash(&del).unwrap();
+    assert!(s.expense(&trip.id).unwrap().is_none());
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "500000");
+    assert_eq!(kinds(&s, "expense", None).len(), 1);
+    let listed = s
+        .list_trash(&TrashQuery {
+            filter: "wealth".into(),
+            offset: 0,
+        })
+        .unwrap()
+        .items;
+    assert_eq!(
+        listed
+            .iter()
+            .map(|e| (e.kind.as_str(), e.title.as_str(), e.date.as_deref()))
+            .collect::<Vec<_>>(),
+        vec![("expense", "虚构旅行", Some("2026-08-01"))]
+    );
+    s.wealth_trash(&TrashChange {
+        request_id: rid(),
+        generation: s.generation(),
+        kind: "expense".into(),
+        id: trip.id.clone(),
+        expected_revision: trip.revision + 1,
+        deleted: false,
+    })
+    .unwrap();
+    let back = s.expense(&trip.id).unwrap().unwrap();
+    assert_eq!((back.id, back.revision), (trip.id, 3));
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "800000");
+}

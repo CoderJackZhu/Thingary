@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import {Icon} from './AssetViews';
 
-type Summary = { hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; accounts: number; snapshots: number; files: number };
+type Summary = { hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; accounts: number; snapshots: number; expenses: number; files: number };
 type Inspected = { path: string; name: string; summary: Summary };
 type Task = { kind: 'idle' } | { kind: 'running'; label: string } | { kind: 'done'; text: string } | { kind: 'error'; text: string };
 
@@ -56,7 +56,7 @@ export function DataManagement({ generation, blocked, demo, onTrash }: { generat
       <div className="data-action"><span className="data-action-icon"><Icon name="archive"/></span><div className="data-action-copy"><h3>完整备份</h3><p>保存物品、心愿和图片等全部资料。</p></div><button disabled={busy || blocked || demo} onClick={() => void backup()}>备份…</button></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="back"/></span><div className="data-action-copy"><h3>从备份恢复</h3><p>先检查文件，再确认是否替换当前资料。</p></div><button disabled={busy || blocked || demo || !generation} onClick={() => void inspect()}>选择…</button></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出资产表（CSV）</h3><p>生成可阅读的表格，未知值留空。</p></div><button disabled={busy || blocked || demo} onClick={() => void exportCsv()}>导出…</button></div>
-      <div className="data-action"><span className="data-action-icon"><Icon name="trash"/></span><div className="data-action-copy"><h3>最近删除</h3><p>找回误删的物品、维护、保障、盘点与账户。</p></div><button disabled={busy || blocked} onClick={onTrash}>打开</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="trash"/></span><div className="data-action-copy"><h3>最近删除</h3><p>找回误删的物品、维护、保障、盘点、账户与支出。</p></div><button disabled={busy || blocked} onClick={onTrash}>打开</button></div>
     </div>
     <details className="data-explainer"><summary>备份、导出和最近删除有什么区别？</summary><p>完整备份包含物品、维护、保障、心愿、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p><p>CSV 只包含未删除物品的可读数据，不含图片、维护、保障或心愿，不能用于恢复；以 = + - @ 开头的文字会加上保护字符。最近删除仅用于找回误删记录。</p></details>
     {blocked && <p className="notice">请先处理正在编辑或待核对的内容，再进行备份或恢复。</p>}
@@ -66,7 +66,7 @@ export function DataManagement({ generation, blocked, demo, onTrash }: { generat
     {candidate && <div className="confirm" role="alert">
       <strong>用「{candidate.name}」替换当前全部资料？</strong>
       <p>备份时间 {new Date(candidate.summary.created_at).toLocaleString('zh-CN')} · 格式版本 {candidate.summary.schema}</p>
-      <p>物品 {candidate.summary.assets} 件（其中最近删除 {candidate.summary.deleted_assets}）· 心愿 {candidate.summary.wishes} 条 · 维护 {candidate.summary.maintenances} 条 · 保障 {candidate.summary.warranties} 份 · 账户 {candidate.summary.accounts} 个 · 盘点 {candidate.summary.snapshots} 次 · 原图 {candidate.summary.files} 个</p>
+      <p>物品 {candidate.summary.assets} 件（其中最近删除 {candidate.summary.deleted_assets}）· 心愿 {candidate.summary.wishes} 条 · 维护 {candidate.summary.maintenances} 条 · 保障 {candidate.summary.warranties} 份 · 账户 {candidate.summary.accounts} 个 · 盘点 {candidate.summary.snapshots} 次 · 支出 {candidate.summary.expenses} 笔 · 原图 {candidate.summary.files} 个</p>
       <p className="muted">检查已通过。当前资料会先保存保护副本，失败时保持原样。{pending > 0 && `本机还有 ${pending} 份属于当前资料的草稿或待核对操作，恢复后将作废。`}</p>
       <div className="actions"><button disabled={busy} onClick={() => setCandidate(null)}>取消</button><button className="danger" disabled={busy} onClick={() => void restore()}>确认替换当前资料</button></div>
     </div>}

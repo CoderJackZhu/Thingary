@@ -730,7 +730,7 @@ impl Store {
 pub struct TrashChange {
     pub request_id: String,
     pub generation: String,
-    /// `snapshot` or `account`.
+    /// `snapshot`, `account` or `expense`.
     pub kind: String,
     pub id: String,
     pub expected_revision: i64,
@@ -754,6 +754,7 @@ impl Store {
         let table = match input.kind.as_str() {
             "snapshot" => "fin_snapshots",
             "account" => "fin_accounts",
+            "expense" => "expenses",
             _ => return Err(Error::new("TRASH_KIND", "不支持的类型")),
         };
         let current: Option<(i64, Option<String>)> = tx

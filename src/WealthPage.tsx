@@ -174,7 +174,7 @@ function AccountDialog({ account, generation, today, onClose }: { account: Accou
 }
 
 /** Two-step soft delete into 最近删除; the second click confirms. */
-function DeleteButton({ label, disabled, kind, id, revision, generation, name, onDone, onError }: { label: string; disabled: boolean; kind: 'snapshot' | 'account'; id: string; revision: number; generation: string; name: string; onDone: () => void; onError: (message: string, stuck: boolean) => void }) {
+export function DeleteButton({ label, disabled, kind, id, revision, generation, name, onDone, onError }: { label: string; disabled: boolean; kind: 'snapshot' | 'account' | 'expense'; id: string; revision: number; generation: string; name: string; onDone: () => void; onError: (message: string, stuck: boolean) => void }) {
   const [armed, setArmed] = useState(false), [busy, setBusy] = useState(false);
   async function remove() {
     setBusy(true);

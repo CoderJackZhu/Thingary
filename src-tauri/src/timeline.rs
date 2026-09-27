@@ -70,7 +70,11 @@ UNION ALL
 SELECT 'wish_abandoned:'||w.id,'wish_abandoned',date(w.abandoned_at,'localtime'),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.abandoned_at
   FROM wishlist_items w WHERE w.status='abandoned'
 UNION ALL
-SELECT 'wish_achieved:'||w.id,'wish_achieved',date(w.achieved_at,'localtime'),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.achieved_at FROM wishlist_items w WHERE w.status='achieved' AND w.converted_asset_id IS NULL";
+SELECT 'wish_achieved:'||w.id,'wish_achieved',date(w.achieved_at,'localtime'),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.achieved_at FROM wishlist_items w WHERE w.status='achieved' AND w.converted_asset_id IS NULL
+UNION ALL
+SELECT 'expense:'||e.id,'expense',e.date,NULL,NULL,e.title,e.category,e.amount_cents,0,'' FROM expenses e WHERE e.deleted_at IS NULL AND e.asset_id IS NULL
+UNION ALL
+SELECT 'refund:'||e.id,'refund',e.refund_date,e.asset_id,NULL,e.title,e.category,e.refund_cents,0,'' FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL";
 
 fn kinds(filter: &str) -> Result<&'static [&'static str]> {
     Ok(match filter {
@@ -85,8 +89,12 @@ fn kinds(filter: &str) -> Result<&'static [&'static str]> {
             "wish_added",
             "wish_abandoned",
             "wish_achieved",
+            "expense",
+            "refund",
         ],
         "purchase" => &["purchase"],
+        // A linked expense is the item's purchase, so it only shows there (X-D08).
+        "expense" => &["expense", "refund"],
         "maintenance" => &["maintenance"],
         "warranty" => &["warranty_start", "warranty_end"],
         "lifecycle" => &["retire", "activate", "sale"],

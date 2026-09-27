@@ -406,6 +406,7 @@ impl Store {
             };
             entries.extend(query_entries(c, "SELECT id,date,NULL,date,deleted_at,revision FROM fin_snapshots WHERE deleted_at IS NOT NULL", wealth("snapshot"))?);
             entries.extend(query_entries(c, "SELECT id,name,kind,NULL,deleted_at,revision FROM fin_accounts WHERE deleted_at IS NOT NULL", wealth("account"))?);
+            entries.extend(query_entries(c, "SELECT id,title,category,date,deleted_at,revision FROM expenses WHERE deleted_at IS NOT NULL", wealth("expense"))?);
         }
         // RFC3339 UTC stamps sort lexicographically; ties break by kind then id.
         entries.sort_by(|a, b| {

@@ -6,7 +6,7 @@ import { DateInput } from './DateInput';
 import { CentInput, FormRow, Switch } from './FormControls';
 import { Icon } from './AssetViews';
 import { storedPending, submit, Unresolved } from './wealth';
-import { usePendingReceipt } from './WealthPage';
+import { DeleteButton, usePendingReceipt } from './WealthPage';
 import { categoryText, countsAsSpending, expenseCategories, sourceLabel } from './expenses';
 import type { Expense, ExpenseFields, ExpenseSave, ExpenseView, Line } from './expenses';
 import './wealth.css';
@@ -113,7 +113,7 @@ function ExpenseDialog({ expense, generation, today, onClose }: { expense: Expen
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="expense-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">财富 · 重要支出</p><h2 id="expense-heading">{expense ? '编辑支出' : '记一笔支出'}</h2><p className="muted">记录没有对应物品的大额花费。买了物品请直接新增资产，购入会自动计入。</p></div><button type="button" aria-label="关闭支出表单" disabled={busy} onClick={() => onClose(false)}>×</button><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存支出'}</button>}</div></header>
+    <header><div><p className="eyebrow">财富 · 重要支出</p><h2 id="expense-heading">{expense ? '编辑支出' : '记一笔支出'}</h2><p className="muted">记录没有对应物品的大额花费。买了物品请直接新增资产，购入会自动计入。</p></div><button type="button" aria-label="关闭支出表单" disabled={busy} onClick={() => onClose(false)}>×</button><div className="editor-header-actions">{expense && !stuck && <DeleteButton label="删除" disabled={busy} kind="expense" id={expense.id} revision={expense.revision} generation={generation} name={`支出 ${expense.fields.title}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存支出'}</button>}</div></header>
     <section className="form-block">
       <FormRow label="名称"><input id="expense-title" aria-label="支出名称" maxLength={80} value={f.title} disabled={frozen} onChange={e => set('title', e.target.value)} placeholder="例如 日本旅行"/></FormRow>
       <FormRow label="日期"><DateInput id="expense-date" value={f.date} max={today} disabled={frozen} onChange={v => set('date', v)}/></FormRow>

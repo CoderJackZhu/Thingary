@@ -73,3 +73,8 @@ test('wealth rows describe themselves without an owning asset', () => {
   const account = entryDisplay(entry({ kind: 'account', title: '误建账户', asset_id: null }));
   assert.equal(account.title, '误建账户');
 });
+
+test('expense rows show their date and category label', () => {
+  const row = entryDisplay(entry({ kind: 'expense', title: '虚构旅行', subtype: 'travel', date: '2026-08-01', asset_id: null }));
+  assert.deepEqual([row.typeLabel, row.title, row.facts[0], row.parentBlocked], ['支出', '虚构旅行', '2026-08-01 · 旅行', false]);
+});

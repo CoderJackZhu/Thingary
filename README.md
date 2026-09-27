@@ -39,6 +39,7 @@
 | 数据与 Mac 体验 | [T18 备份恢复](docs/verification/T18_BACKUP_RESTORE_RESULT.md) · [T19 CSV 导出](docs/verification/T19_CSV_EXPORT_RESULT.md) · [T20 Mac 操作体验](docs/verification/T20_MAC_EXPERIENCE_RESULT.md) · [窗口与外观](docs/verification/WINDOW_THEME_RESULT.md) · [视觉还原](docs/verification/VISUAL_ALIGNMENT.md) |
 | 迭代 | [U01 素材库](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md) · [图标选择器](docs/verification/ICON_PICKER_RESULT.md) · [P1 首次样例与日期](docs/verification/P1_FIRST_RUN_DEMO_DATE_RESULT.md) · [U02](docs/verification/U02_ASSET_WISHLIST_RESULT.md) · [U03](docs/verification/U03_DESKTOP_INTERACTION_RESULT.md) · [U04](docs/verification/U04_WISH_TIMELINE_REMINDER_RESULT.md) · [U05](docs/verification/U05_WISH_ASSET_SETTINGS_STATS_RESULT.md) · [U06](docs/verification/U06_SETTINGS_ALIGNMENT_RESULT.md) · [U07](docs/verification/U07_DESKTOP_POLISH_RESULT.md) · [U08](docs/verification/U08_ASSET_EDITOR_USABILITY_RESULT.md) |
 | 财富盘点 | [W03 删除恢复、备份与原生验收](docs/verification/W03_WEALTH_RESULT.md)；设计见 ADR-001 第 17 节 |
+| 重要支出 | [E03 删除恢复、时间轴与原生验收](docs/verification/E03_EXPENSES_RESULT.md)；设计见 ADR-001 第 18 节 |
 
 已完成任务的交接契约归档在 [docs/archive](docs/archive/README.md)。协作规则见 [AGENTS.md](AGENTS.md)。
 
