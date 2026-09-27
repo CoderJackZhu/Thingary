@@ -9,6 +9,8 @@ use std::{
     time::Duration,
 };
 
+/// Current database schema; old libraries and backups migrate up to it.
+pub const SCHEMA_VERSION: i64 = 15;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -60,7 +62,7 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     let app: i64 = c.query_row("PRAGMA application_id", [], |r| r.get(0))?;
     let integrity: String = c.query_row("PRAGMA integrity_check", [], |r| r.get(0))?;
-    if v != 14 || app != 1347375955 || integrity != "ok" {
+    if v != SCHEMA_VERSION || app != 1347375955 || integrity != "ok" {
         return Err(Error::new("DATABASE_FORMAT", "数据库不兼容或损坏"));
     }
     Ok(())
@@ -319,11 +321,11 @@ impl Store {
 }
 
 pub fn migrate(c: &Connection, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
-    migrate_to(c, 14, hook)
+    migrate_to(c, SCHEMA_VERSION, hook)
 }
 pub fn migrate_to(c: &Connection, target: i64, hook: &dyn Fn(&str) -> Result<()>) -> Result<()> {
     let mut v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if !(1..=14).contains(&v) || v > target {
+    if !(1..=SCHEMA_VERSION).contains(&v) || v > target {
         return Err(Error::new("SCHEMA_VERSION", "数据库版本不受支持"));
     }
     if v == 1 && target >= 2 {
@@ -541,6 +543,13 @@ CREATE TRIGGER wishlist_achievement_update BEFORE UPDATE ON wishlist_items WHEN 
 PRAGMA user_version=14;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 14;
+    }
+    if v == 14 && target >= 15 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("x01.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -615,7 +624,7 @@ mod taxonomy_migration_tests {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            14
+            SCHEMA_VERSION
         );
         assert_eq!(
             c.query_row("SELECT name FROM assets WHERE id='legacy'", [], |r| r

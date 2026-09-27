@@ -857,3 +857,79 @@ pub async fn saved_wish_feature(
     .await
     .map_err(|_| Error::new("WORKER", "暂时无法核对心愿保存结果"))?
 }
+fn today() -> String {
+    chrono::Local::now().format("%Y-%m-%d").to_string()
+}
+#[tauri::command]
+pub async fn wealth_accounts(
+    worker: tauri::State<'_, Worker>,
+) -> Result<Vec<crate::wealth::Account>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.wealth_accounts()))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取账户"))?
+}
+#[tauri::command]
+pub async fn wealth_account_save(
+    input: crate::wealth::AccountSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wealth::Account> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.wealth_account_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn wealth_snapshot(
+    id: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<crate::wealth::Snapshot>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.wealth_snapshot(&id)))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取盘点"))?
+}
+#[tauri::command]
+pub async fn wealth_snapshot_draft(
+    date: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wealth::Draft> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.wealth_snapshot_draft(&date)))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法准备盘点"))?
+}
+#[tauri::command]
+pub async fn wealth_snapshot_save(
+    input: crate::wealth::SnapshotSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wealth::Snapshot> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.wealth_snapshot_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn wealth_request_result(
+    request: String,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<String>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.wealth_request_result(&request, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "暂时无法核对保存结果"))?
+}
+#[tauri::command]
+pub async fn wealth_summary(worker: tauri::State<'_, Worker>) -> Result<crate::wealth::Summary> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.wealth_summary()))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取财富概览"))?
+}

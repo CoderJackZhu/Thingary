@@ -21,6 +21,7 @@ pub mod taxonomy;
 pub mod timeline;
 pub mod trash;
 pub mod warranty;
+pub mod wealth;
 pub mod wish_plan;
 pub mod wishlist;
 pub mod worker;
@@ -96,6 +97,13 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::notification_permission,
+            commands::wealth_accounts,
+            commands::wealth_account_save,
+            commands::wealth_snapshot,
+            commands::wealth_snapshot_draft,
+            commands::wealth_snapshot_save,
+            commands::wealth_request_result,
+            commands::wealth_summary,
             commands::open_notification_settings,
             commands::notification_status,
             commands::choice_list,
