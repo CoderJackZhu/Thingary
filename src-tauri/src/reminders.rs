@@ -7,7 +7,7 @@ use std::{
     ffi::{c_char, c_void, CStr, CString},
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
-        Mutex,
+        mpsc, Mutex, OnceLock,
     },
 };
 static ENABLED: AtomicBool = AtomicBool::new(false);
@@ -67,39 +67,61 @@ pub fn request_permission() -> Result<()> {
     AUTH_PENDING.fetch_sub(1, Ordering::AcqRel);
     result
 }
-pub fn reconcile(store: &Store, force: bool) {
+pub fn plans_json(store: &Store) -> Result<String> {
+    Ok(serde_json::to_string(&store.reminder_plans()?)?)
+}
+/// Hands the latest plan to a dedicated thread. The notification center can
+/// take seconds to answer, so it must never run on the serial storage worker.
+pub fn schedule(json: String) {
     if !ENABLED.load(Ordering::Relaxed) {
         return;
     }
-    if AUTH_PENDING.load(Ordering::Acquire) != 0 {
+    static QUEUE: OnceLock<Mutex<mpsc::Sender<String>>> = OnceLock::new();
+    let queue = QUEUE.get_or_init(|| {
+        let (tx, rx) = mpsc::channel::<String>();
+        let spawned = std::thread::Builder::new()
+            .name("possio-reminders".into())
+            .spawn(move || {
+                while let Ok(mut json) = rx.recv() {
+                    // Only the newest plan matters.
+                    while let Ok(newer) = rx.try_recv() {
+                        json = newer;
+                    }
+                    // A permission prompt is open; schedule once it is answered.
+                    while AUTH_PENDING.load(Ordering::Acquire) != 0 {
+                        std::thread::sleep(std::time::Duration::from_millis(200));
+                    }
+                    apply(&json, false);
+                }
+            });
+        if spawned.is_err() {
+            if let Ok(mut last) = LAST.lock() {
+                last.1 = "提醒服务未能启动，请重启物志".into();
+            }
+        }
+        Mutex::new(tx)
+    });
+    if let Ok(tx) = queue.lock() {
+        let _ = tx.send(json);
+    }
+}
+/// Synchronises macOS pending notifications with `json`. Unchanged plans are
+/// skipped unless `force`. Callers must not hold the storage worker.
+pub fn apply(json: &str, force: bool) {
+    if !ENABLED.load(Ordering::Relaxed) || AUTH_PENDING.load(Ordering::Acquire) != 0 {
         return;
     }
-    let result = (|| -> Result<()> {
-        let plans = store.reminder_plans()?;
-        let json = serde_json::to_string(&plans)?;
-        let mut last = LAST
-            .lock()
-            .map_err(|_| Error::new("REMINDER", "提醒状态不可用"))?;
-        if !force && last.0 == json {
-            return Ok(());
-        }
-        match native(&json, false) {
-            Ok(()) => {
-                *last = (json, String::new());
-                Ok(())
-            }
-            Err(e) => {
-                last.0 = json;
-                last.1 = e.message.clone();
-                Err(e)
-            }
-        }
-    })();
-    if let Err(e) = result {
-        if let Ok(mut last) = LAST.lock() {
-            last.1 = e.message;
-        }
+    let Ok(mut last) = LAST.lock() else {
+        return;
+    };
+    if !force && last.0 == json {
+        return;
     }
+    last.0 = json.to_owned();
+    last.1 = match native(json, false) {
+        Ok(()) => String::new(),
+        Err(e) => e.message,
+    };
 }
 pub fn status() -> String {
     LAST.lock()

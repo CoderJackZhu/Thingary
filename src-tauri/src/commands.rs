@@ -837,10 +837,9 @@ pub fn open_notification_settings() -> Result<()> {
 pub async fn notification_status(worker: tauri::State<'_, Worker>) -> Result<String> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        w.call(|s| {
-            crate::reminders::reconcile(s, true);
-            Ok(crate::reminders::status())
-        })
+        let json = w.call(|s| crate::reminders::plans_json(s))?;
+        crate::reminders::apply(&json, true);
+        Ok(crate::reminders::status())
     })
     .await
     .map_err(|_| Error::new("REMINDER", "通知服务不可用"))?
