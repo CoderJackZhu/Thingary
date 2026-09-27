@@ -54,7 +54,7 @@ CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；�
 
 已实现心愿现在同步生成关联资产并继续留在心愿清单，攒钱回退会把自动生成的资产保留在最近删除。设置双栏、分类／渠道排序、三档主题和统计页的状态、分类、持有与回收展示已更新。正式版 1.1.3 已安装；隔离验证、数据口径和安装边界见 [U05 记录](docs/verification/U05_WISH_ASSET_SETTINGS_STATS_RESULT.md)。
 
-设置页的两栏外框与标题已统一对齐，1.1.4 安装包已完成隔离版浅／深色复核；正式应用退出后再替换安装，见 [U06 记录](docs/verification/U06_SETTINGS_ALIGNMENT_RESULT.md)。
+设置页的两栏外框与标题已统一对齐，1.1.4 已安装并完成隔离版浅／深色复核，见 [U06 记录](docs/verification/U06_SETTINGS_ALIGNMENT_RESULT.md)。
 
 ## U02 资产与心愿升级（2026-09-27）
 

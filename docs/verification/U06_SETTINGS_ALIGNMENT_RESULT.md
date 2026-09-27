@@ -8,6 +8,6 @@
 
 - `npm run build` 通过；`git diff --check` 通过。
 - 独立原生身份 `local.possio.u06.alignment`，在默认 1360 × 900 窗口核对[深色](u06-native/settings-dark.png)和[浅色](u06-native/settings-light.png)设置页：两栏上沿、标题位置一致，内容未被裁切。
-- 正式身份 `local.possio.main` 的真实资料库未用于开发或验收。正式应用仍在运行，1.1.4 安装包准备完成后等待应用退出再安装。
+- 正式身份 `local.possio.main` 的真实资料库未用于开发或验收。用户保存并退出正式应用后，将 1.1.4 安装到 `/Applications/物志.app`；安装后核对 bundle identifier、版本、签名、主程序哈希与构建产物一致，且应用未被自动启动。旧 1.1.3 包留在 `/private/tmp/possio-u06-install/物志-1.1.3-original.app`。
 
 模型建议：此项为低风险样式调整，使用 Sol 中档即可；无需改动金额、迁移或恢复逻辑。
