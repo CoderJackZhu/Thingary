@@ -378,3 +378,60 @@ CREATE TABLE fin_snapshot_entries(
 - 新增 `wealth_trash` 命令及最近删除“财富”筛选；删除/恢复规则按 17.2 实现，恢复盘点时重新校验同日唯一与账户期间。`list_trash` 的财富行复用既有 Entry 结构（`date` 为盘点日，`asset_revision` 为行 revision）。
 - 备份 Summary 增加 `accounts`、`snapshots`。盘点表切换日期不再带入已保存盘点的金额。`wealth_snapshot_save` 增加 `after_commit` 故障注入点。
 - 隔离原生验收、schema 14 构建拒绝新版备份、回包丢失核对等结果见 [W03 验证](../verification/W03_WEALTH_RESULT.md)。
+
+## 18. B · 重要支出技术设计（2026-09-28，待实现）
+
+依据产品设计 17.6 与已确认的 X-D05–X-D08。沿用本 ADR 的回执、软删除、只读投影与备份协议；A 的 17.4 回执表和 17.5 版本常量直接复用。
+
+### 18.1 schema 16
+
+```sql
+CREATE TABLE expenses(
+  id TEXT PRIMARY KEY, title TEXT NOT NULL, date TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL CHECK(amount_cents BETWEEN 1 AND 99999999999),
+  category TEXT NOT NULL CHECK(category IN ('travel','education','health','home','digital','gift','other')),
+  notes TEXT NOT NULL,
+  refund_cents INTEGER CHECK(refund_cents BETWEEN 1 AND 99999999999), refund_date TEXT,
+  asset_id TEXT REFERENCES assets(id),
+  revision INTEGER NOT NULL CHECK(revision>0),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
+  CHECK((refund_cents IS NULL)=(refund_date IS NULL)),
+  CHECK(refund_cents IS NULL OR (refund_cents<=amount_cents AND refund_date>=date)));
+CREATE INDEX expenses_asset ON expenses(asset_id);
+```
+
+- 独立支出日期与金额必填（金额 > 0），日期不晚于本机今天；退款日期不晚于今天。已知物品购入、维护金额不复制到本表（X-D05），只在投影中读取源记录。
+- `asset_id` 非空即已关联（X-D08）：该笔不再计入支出合计，但它的退款仍按退款日期计入“退款”，物品购入价按原价理解。关联对象被软删除时仍保留关联并提示，不自动恢复单独计入；用户可解除关联。
+
+### 18.2 投影与汇总（Rust `expenses.rs`，只读）
+
+支出行来自四个有效来源，与时间轴同样不落库：
+
+| 来源 | 条件 | 日期 / 金额 |
+|---|---|---|
+| 物品购入 | 未删除，未设“不计入统计页”，购入价已知 | 购入日期（未知入“日期待补”）/ 购入价 |
+| 维护费用 | 维护与所属物品未删除，物品未排除，费用已知 | 维护日期（未知入“日期待补”）/ 费用 |
+| 独立支出 | 未删除且未关联 | 日期 / 金额 |
+| 退款 | 独立支出未删除且有退款（关联与否都计） | 退款日期 / 退款额 |
+
+- 另列“售出回收”：有效售出且物品未删除、未排除，按售出日期；与退款分开显示，都不从支出中抵扣，不称为收益。
+- `expense_view(year?)`：返回该年（或全部）的支出行、按月合计、支出合计、退款合计、售出回收合计、“日期待补”已知金额与条数、金额未知条数（购入价或维护费用为空）。净支出 = 支出 − 退款，只在同一期间内计算。
+- 按 X-AC06，改物品购入价后投影随之变化；快照余额不受影响。
+
+### 18.3 命令、删除与时间轴
+
+- `expense_save`（新建/更正，含退款与关联）、`expense_view`、`expense_request_result` 复用 `feature_requests` 回执；`expense_trash` 走最近删除，新增“支出”行并进入“财富”筛选。
+- 时间轴增加 `expense`（独立未关联支出）与 `refund` 两个分支；关联的支出不单独成事件，避免与购入重复（17.6）。
+- 备份：新表进入 `data.sqlite`；`validate_dataset` 检查字段与关联物品存在；Summary 增加 `expenses`；schema 1–15 旧备份迁移后本表为空，1.2.0 拒绝 schema 16 备份（沿用 17.5 常量机制）。
+
+### 18.4 界面
+
+- 入口：侧栏“财富”分组在“账户与盘点”下新增“重要支出”（须用户确认并附同尺寸对照）。
+- 页面：年份切换（全部／各年）；KPI 为支出合计、退款、净支出、售出回收；按月柱状图复用 `trend-chart`；明细表按日期倒序，来源标注“物品购入／维护／支出／退款”，物品行点击进入物品详情，独立支出点击打开编辑框。
+- 支出编辑框：名称、日期、金额、分类、备注、“记录退款”开关（金额与日期）、“关联到物品”（从未删除物品中搜索选择，可解除）。关闭即丢弃；提交沿用 `possio.wealth-pending.v1` 同一回执核对。
+
+### 18.5 任务与验证
+
+- E01：schema 16、`expenses.rs` 保存/投影/回执、备份校验与测试（X-AC06、X-AC12，关联去重，排除开关，日期待补，退款边界，迁移与新旧备份）。
+- E02：页面、编辑框、侧栏入口与同尺寸对照、浏览器预览假数据。
+- E03：最近删除、时间轴分支、恢复确认计数、隔离身份原生验收与打包。

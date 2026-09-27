@@ -2,6 +2,10 @@
 
 按时间倒序记录各阶段完成情况。当前状态见 [README](README.md)，任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准，逐项证据在 `docs/verification/`。本文件由原 README 与 AGENTS.md 中逐次追加的状态段落整理而来，原文保留。
 
+## 2026-09-28 · B 重要支出设计
+
+用户确认 X-D05–X-D08：物品购入与维护全部自动计入（沿用“不计入统计页”排除）、每笔独立支出可记一次退款、固定分类、支出可关联到物品以免重复统计。技术设计见 ADR-001 第 18 节，尚未实现。
+
 ## 2026-09-28 · 1.2.0 自用正式版
 
 - 合入 W01–W03 财富盘点，版本号升至 1.2.0，`npm run release` 构建并安装到 `/Applications/物志.app`（用户在终端完成替换）；核对版本 1.2.0、identifier `local.possio.main`、签名有效、程序与构建产物一致。1.1.6 副本保存在 `.local/install/`。
