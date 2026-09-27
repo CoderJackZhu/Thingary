@@ -56,7 +56,7 @@ CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；�
 
 设置页的两栏外框与标题已统一对齐，1.1.4 已安装并完成隔离版浅／深色复核，见 [U06 记录](docs/verification/U06_SETTINGS_ALIGNMENT_RESULT.md)。
 
-分类与购买渠道的拖动预览现保持原行尺寸，退役／售出弹窗去掉了重复的“取消”，已有资产编辑页的更多资料也重新排版；见 [U07 记录](docs/verification/U07_DESKTOP_POLISH_RESULT.md)。
+分类与购买渠道的拖动预览现保持原行尺寸，退役／售出弹窗去掉了重复的“取消”，已有资产编辑页的更多资料也重新排版。1.1.5 已安装；见 [U07 记录](docs/verification/U07_DESKTOP_POLISH_RESULT.md)。
 
 ## U02 资产与心愿升级（2026-09-27）
 

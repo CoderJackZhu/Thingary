@@ -8,6 +8,6 @@
 
 验证：`npm run build` 和 `git diff --check` 通过。隔离原生身份 `local.possio.u07.drag` 在设置页把“电脑”拖到“手机”之后，界面提示已保存，列表顺序相应改变。最终隔离身份 `local.possio.u07.layout` 中，退役与售出弹窗均只显示关闭与保存；输入虚构备注或价格后点叉，再打开时输入为空，详情仍显示“使用中”。编辑页在默认 1360 × 900 窗口显示完整，无右下大块空白。正式身份 `local.possio.main` 的资料库未用于测试。
 
-1.1.5 正式安装包已完成构建，bundle identifier、版本和签名核对通过。正式应用仍在运行，待用户保存并退出后再安装；安装前不读取正式资料库。
+用户确认保存并退出后，1.1.5 已安装到 `/Applications/物志.app`。安装前备份了 1.1.4，路径为 `/private/tmp/possio-u07-install/物志-1.1.4-original.app`。安装后核对了 bundle identifier `local.possio.main`、版本、签名及与构建产物一致的程序哈希；正式应用保持关闭，未打开或读取正式资料库。
 
 模型建议：本轮为低风险界面交互修正，Sol 中档足够；未改变金额、迁移或恢复逻辑。
