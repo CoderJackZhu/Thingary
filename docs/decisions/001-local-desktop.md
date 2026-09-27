@@ -456,3 +456,58 @@ CREATE INDEX expenses_asset ON expenses(asset_id);
 
 - `wealth_trash` 增加 `expense`；`list_trash` 财富筛选含支出行；时间轴增加 `expense`/`refund` 分支与 `expense` 筛选；备份 Summary 的 `expenses` 显示在恢复确认中。
 - 原生验收（含 schema 15 → 16 真实升级）见 [E03 验证](../verification/E03_EXPENSES_RESULT.md)。B 首版闭环完成。
+
+## 19. C1 · 周期费用技术设计（2026-09-28，待实现）
+
+依据产品设计 17.7 与 X-D09–X-D12。沿用回执、软删除、只读投影与备份协议。
+
+### 19.1 schema 17
+
+```sql
+CREATE TABLE recurring_plans(
+  id TEXT PRIMARY KEY, name TEXT NOT NULL,
+  category TEXT NOT NULL CHECK(category IN ('rent','subscription','utilities','insurance','membership','other')),
+  amount_cents INTEGER NOT NULL CHECK(amount_cents BETWEEN 1 AND 99999999999),
+  interval_months INTEGER NOT NULL CHECK(interval_months IN (1,3,6,12)),
+  first_due TEXT NOT NULL, end_date TEXT, paused INTEGER NOT NULL CHECK(paused IN (0,1)),
+  notes TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
+  CHECK(end_date IS NULL OR end_date>=first_due));
+CREATE TABLE plan_payments(
+  id TEXT PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES recurring_plans(id),
+  due_date TEXT NOT NULL, state TEXT NOT NULL CHECK(state IN ('paid','skipped')),
+  paid_date TEXT, amount_cents INTEGER CHECK(amount_cents BETWEEN 1 AND 99999999999),
+  notes TEXT NOT NULL, revision INTEGER NOT NULL CHECK(revision>0),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
+  CHECK((state='paid')=(paid_date IS NOT NULL AND amount_cents IS NOT NULL)));
+CREATE UNIQUE INDEX plan_payments_period ON plan_payments(plan_id,due_date) WHERE deleted_at IS NULL;
+```
+
+- 周期仅月/季/半年/年（每 1/3/6/12 个月）；按量、按时长、不规则扣费不在首版。
+- 到期表由 `first_due` 按月历推算，锚定原日：1-31 → 2 月末 → 3-31，不逐月漂移（17.7）。`end_date` 之后不再到期；暂停中的计划不产生“待确认”，恢复后从下一次到期继续（暂停期间的到期不补）。
+- 每期至多一条有效记录（部分唯一索引）：`paid` 保存实付日期与金额，可与计划金额不同；`skipped` 表示本期不付（免单、服务中断），不计入任何金额。重复确认同一期返回已有记录（X-AC10）。
+- 计划只描述以后（X-D12）：改金额/周期/首付日只影响尚未有记录的期；已记录的期不回写。改动使已有记录落在新到期表之外时仍保留并显示为“计划外付款”，不删除。
+
+### 19.2 计算（Rust `recurring.rs`，只读）
+
+| 数字 | 口径 |
+|---|---|
+| 待确认 | 未暂停、未删除计划中，到期日 ≤ 今天且无有效记录的期 |
+| 即将到期 | 到期日在今天之后 7 天内（含第 7 天）且无记录（X-D11） |
+| 当前年化负担 | 未暂停、未结束（无 `end_date` 或 `end_date` ≥ 今天）计划的 `amount × 12 / interval` 之和；月均 = 年化 ÷ 12，最后四舍五入到分（X-AC08：37,560 / 3,130） |
+| 未来 12 个月预计 | 今天之后 12 个月内实际到期表之和，受 `end_date` 与暂停影响，与年化分开显示 |
+| 已付 | 有效 `paid` 记录之和，按实付日期归期 |
+
+### 19.3 与重要支出、时间轴、删除、备份
+
+- 重要支出投影新增来源 `payment`：计划与付款均未删除的 `paid` 记录，按实付日期，分类取计划分类（X-D10）。
+- 时间轴新增 `payment` 事件，归入“支出”筛选。
+- 最近删除：计划（`plan`）与付款（`payment`）走 `wealth_trash`。删除计划时其付款随父对象隐藏，不逐条改写删除标记；恢复计划即恢复可见（同第 5 节父子语义）。
+- 备份：`validate_dataset` 校验字段、到期日格式与付款归属；Summary 增加 `plans`、`payments`。
+
+### 19.4 界面与任务
+
+- 入口：侧栏“财富”分组新增“周期费用”（须用户确认并附同尺寸对照）。页面顶部为待确认与 7 天内将到期列表（每行“确认已付”可改金额与日期、“本期不付”），其下为年化负担、月均、未来 12 个月预计，再下为计划列表与付款历史。
+- R01：schema 17、`recurring.rs` 到期表/保存/确认/汇总、重要支出 `payment` 来源、测试（X-AC08/09/10、月末锚定、暂停与结束、改计划不回写）。
+- R02：页面、计划与付款编辑框、侧栏同尺寸对照、预览假数据。
+- R03：最近删除、时间轴、恢复确认计数、隔离原生验收与 1.4.0 打包。

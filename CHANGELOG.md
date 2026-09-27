@@ -2,6 +2,10 @@
 
 按时间倒序记录各阶段完成情况。当前状态见 [README](README.md)，任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准，逐项证据在 `docs/verification/`。本文件由原 README 与 AGENTS.md 中逐次追加的状态段落整理而来，原文保留。
 
+## 2026-09-28 · C1 周期费用设计
+
+用户确认 X-D09–X-D12：C 先做周期费用再做虚拟资产；确认的付款自动计入重要支出；首版只做页面内到期提示；改计划只影响未确认的期数。技术设计见 ADR-001 第 19 节，尚未实现。
+
 ## 2026-09-28 · 1.3.0 自用正式版
 
 - 合入 E01–E03 重要支出，版本号升至 1.3.0，`npm run release` 构建，用户在终端替换 `/Applications/物志.app`；核对版本 1.3.0、identifier `local.possio.main`、签名有效、程序与构建产物一致。1.2.0 副本保存在 `.local/install/`。
