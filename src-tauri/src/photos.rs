@@ -182,20 +182,49 @@ impl Store {
             }
         }
     }
+    /// Confirms the original is present and intact. Its full SHA-256 is
+    /// computed once per session and again whenever the file's stamp changes,
+    /// so list views no longer hash every original on each render.
+    pub(crate) fn verify_original(&self, hash: &str) -> Result<()> {
+        validate_file_name(hash)?;
+        let path = self.dataset().join("files").join(hash);
+        let meta = fs::metadata(&path)
+            .map_err(|_| Error::new("IMAGE_MISSING", "原图缺失，请重新选择原文件修复"))?;
+        use std::os::unix::fs::MetadataExt;
+        let stamp = (meta.len(), meta.modified().ok(), meta.ino());
+        let known = self
+            .verified
+            .lock()
+            .map(|v| v.get(&path) == Some(&stamp))
+            .unwrap_or(false);
+        if !known {
+            self.original(hash)?;
+            if let Ok(mut v) = self.verified.lock() {
+                v.insert(path, stamp);
+            }
+        }
+        Ok(())
+    }
     pub(crate) fn preview_by_hash(&self, hash: &str) -> Result<Vec<u8>> {
-        // Always verify the original: a cached preview must never conceal missing data.
-        let bytes = self.original(hash)?;
+        // Always check the original: a cached preview must never conceal missing data.
+        self.verify_original(hash)?;
         let cache = self.dataset().join("cache");
         let path = cache.join(format!("{hash}.png"));
         if let Ok(meta) = fs::metadata(&path) {
             if meta.len() <= 4 * 1024 * 1024 {
                 let cached = fs::read(&path)?;
-                if crate::files::validate_image(&cached).is_ok() {
+                // Previews are written atomically by us; a header check suffices.
+                let header = image::ImageReader::with_format(
+                    std::io::Cursor::new(&cached),
+                    image::ImageFormat::Png,
+                )
+                .into_dimensions();
+                if header.is_ok_and(|(w, h)| w > 0 && h > 0) {
                     return Ok(cached);
                 }
             }
         }
-        let png = crate::native_images::preview(&bytes)?;
+        let png = crate::native_images::preview(&self.original(hash)?)?;
         fs::create_dir_all(cache)?;
         atomic_write(&path, &png)?;
         Ok(png)

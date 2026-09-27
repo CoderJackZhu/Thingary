@@ -284,3 +284,30 @@ fn preview_honors_orientation_and_dimension_limits() {
         "IMAGE_DIMENSIONS"
     );
 }
+#[test]
+fn previews_skip_rehashing_but_still_catch_changed_or_missing_originals() {
+    let root = tempfile::tempdir().unwrap();
+    let s = Store::open(root.path()).unwrap();
+    let p = s
+        .stage_photo("camera.png", PNG, &s.generation(), None)
+        .unwrap();
+    let first = s.photo_preview(&p.id, &s.generation()).unwrap();
+    assert_eq!(s.photo_preview(&p.id, &s.generation()).unwrap(), first);
+    let file = fs::read_dir(dataset(root.path()).join("files"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    // A rewritten original gets a new stamp and is hashed again.
+    fs::write(&file, &PNG[..PNG.len() - 1]).unwrap();
+    assert_eq!(
+        s.photo_preview(&p.id, &s.generation()).unwrap_err().code,
+        "IMAGE_CORRUPT"
+    );
+    fs::remove_file(&file).unwrap();
+    assert_eq!(
+        s.photo_preview(&p.id, &s.generation()).unwrap_err().code,
+        "IMAGE_MISSING"
+    );
+}
