@@ -36,9 +36,9 @@ impl Libraries {
         if self.reminder_key.as_ref() == Some(&key) {
             return;
         }
-        if let Ok(json) = crate::reminders::plans_json(active) {
+        if let Ok(snapshot) = crate::reminders::snapshot(active) {
             self.reminder_key = Some(key);
-            crate::reminders::schedule(json);
+            crate::reminders::schedule(snapshot);
         }
     }
 }

@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::{
     ffi::{c_char, c_void, CStr, CString},
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
         mpsc, Mutex, OnceLock,
     },
 };
@@ -45,7 +45,15 @@ impl Store {
 pub fn enable() {
     ENABLED.store(true, Ordering::Relaxed);
 }
+/// Unit tests record plans instead of reaching the notification center.
+#[cfg(test)]
+static NATIVE_CALLS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 fn native(json: &str, ask: bool) -> Result<()> {
+    #[cfg(test)]
+    if !ask {
+        NATIVE_CALLS.lock().unwrap().push(json.to_owned());
+        return Ok(());
+    }
     let json = CString::new(json).map_err(|_| Error::new("REMINDER", "提醒内容无效"))?;
     let ptr = unsafe { possio_notifications(json.as_ptr(), i32::from(ask)) };
     if ptr.is_null() {
@@ -67,31 +75,64 @@ pub fn request_permission() -> Result<()> {
     AUTH_PENDING.fetch_sub(1, Ordering::AcqRel);
     result
 }
-pub fn plans_json(store: &Store) -> Result<String> {
-    Ok(serde_json::to_string(&store.reminder_plans()?)?)
+/// A reminder plan read on the storage worker. Sequence numbers are taken in
+/// the same job as the read, and the worker runs jobs one at a time, so a
+/// higher number always reflects a later state of the library.
+pub struct Snapshot {
+    seq: u64,
+    json: String,
 }
-/// Hands the latest plan to a dedicated thread. The notification center can
-/// take seconds to answer, so it must never run on the serial storage worker.
-pub fn schedule(json: String) {
-    if !ENABLED.load(Ordering::Relaxed) {
-        return;
+static SEQ: AtomicU64 = AtomicU64::new(0);
+impl Snapshot {
+    fn new(json: String) -> Self {
+        Self {
+            seq: SEQ.fetch_add(1, Ordering::SeqCst) + 1,
+            json,
+        }
     }
-    static QUEUE: OnceLock<Mutex<mpsc::Sender<String>>> = OnceLock::new();
+}
+/// Call only inside a storage worker job; see [`Snapshot`].
+pub fn snapshot(store: &Store) -> Result<Snapshot> {
+    Ok(Snapshot::new(serde_json::to_string(
+        &store.reminder_plans()?,
+    )?))
+}
+struct Request {
+    snapshot: Snapshot,
+    force: bool,
+    done: Option<mpsc::SyncSender<()>>,
+}
+/// Every plan reaches the notification center through this one thread. The
+/// center can take seconds to answer, so it never runs on the storage worker,
+/// and a snapshot older than one already seen is never applied.
+fn enqueue(request: Request) -> bool {
+    static QUEUE: OnceLock<Mutex<mpsc::Sender<Request>>> = OnceLock::new();
     let queue = QUEUE.get_or_init(|| {
-        let (tx, rx) = mpsc::channel::<String>();
+        let (tx, rx) = mpsc::channel::<Request>();
         let spawned = std::thread::Builder::new()
             .name("possio-reminders".into())
             .spawn(move || {
-                while let Ok(mut json) = rx.recv() {
-                    // Only the newest plan matters.
-                    while let Ok(newer) = rx.try_recv() {
-                        json = newer;
+                let mut latest: Option<Snapshot> = None;
+                while let Ok(first) = rx.recv() {
+                    let mut force = false;
+                    let mut waiting = Vec::new();
+                    for request in std::iter::once(first).chain(rx.try_iter()) {
+                        if latest.as_ref().is_none_or(|l| request.snapshot.seq > l.seq) {
+                            latest = Some(request.snapshot);
+                        }
+                        force |= request.force;
+                        waiting.extend(request.done);
                     }
                     // A permission prompt is open; schedule once it is answered.
                     while AUTH_PENDING.load(Ordering::Acquire) != 0 {
                         std::thread::sleep(std::time::Duration::from_millis(200));
                     }
-                    apply(&json, false);
+                    if let Some(plan) = &latest {
+                        apply(&plan.json, force);
+                    }
+                    for done in waiting {
+                        let _ = done.send(());
+                    }
                 }
             });
         if spawned.is_err() {
@@ -101,16 +142,36 @@ pub fn schedule(json: String) {
         }
         Mutex::new(tx)
     });
-    if let Ok(tx) = queue.lock() {
-        let _ = tx.send(json);
+    queue.lock().is_ok_and(|tx| tx.send(request).is_ok())
+}
+/// Queues a plan after a write; returns immediately.
+pub fn schedule(snapshot: Snapshot) {
+    if ENABLED.load(Ordering::Relaxed) {
+        enqueue(Request {
+            snapshot,
+            force: false,
+            done: None,
+        });
+    }
+}
+/// Re-applies the newest known plan (never an older `snapshot`) even when it
+/// is unchanged, and waits until the notification center has answered.
+pub fn refresh(snapshot: Snapshot) {
+    if !ENABLED.load(Ordering::Relaxed) {
+        return;
+    }
+    let (done, finished) = mpsc::sync_channel(1);
+    if enqueue(Request {
+        snapshot,
+        force: true,
+        done: Some(done),
+    }) {
+        let _ = finished.recv();
     }
 }
 /// Synchronises macOS pending notifications with `json`. Unchanged plans are
-/// skipped unless `force`. Callers must not hold the storage worker.
-pub fn apply(json: &str, force: bool) {
-    if !ENABLED.load(Ordering::Relaxed) || AUTH_PENDING.load(Ordering::Acquire) != 0 {
-        return;
-    }
+/// skipped unless `force`. Runs only on the reminder thread.
+fn apply(json: &str, force: bool) {
     let Ok(mut last) = LAST.lock() else {
         return;
     };
@@ -127,4 +188,26 @@ pub fn status() -> String {
     LAST.lock()
         .map(|l| l.1.clone())
         .unwrap_or_else(|_| "提醒状态不可用".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A status check reads its plan, then a write cancels the reminder and is
+    /// applied, and only then does the status check reach the queue. The stale
+    /// plan must not reschedule the cancelled reminder.
+    #[test]
+    fn a_late_status_check_never_reapplies_a_stale_plan() {
+        enable();
+        let stale_json = r#"[{"id":"possio-cancelled","date":"2099-01-01","title":"t","body":""}]"#;
+        let stale = Snapshot::new(stale_json.into());
+        let newer = Snapshot::new("[]".into());
+        schedule(newer);
+        refresh(stale);
+        let calls = NATIVE_CALLS.lock().unwrap();
+        assert!(!calls.is_empty());
+        assert!(!calls.iter().any(|c| c == stale_json));
+        assert_eq!(LAST.lock().unwrap().0, "[]");
+    }
 }
