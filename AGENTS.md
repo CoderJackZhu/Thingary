@@ -4,7 +4,7 @@
 
 Possio（物志）面向个人实物资产的长期记录与回顾。文档入口见 [README](README.md)，任务状态以 [实施计划](docs/IMPLEMENTATION_PLAN.md) 为准，逐次变更与历史协作说明见 [CHANGELOG](CHANGELOG.md)。
 
-当前状态（2026-09-27）：P0 闭环完成；自用正式版 1.1.6 安装在 `/Applications/物志.app`（identifier `local.possio.main`），用户已在录入真实资料，之后按用户反馈进行 U 系列迭代。下一步范围由用户选择，不自行推进新阶段。仓库已有 GitHub 远程 `origin`，推送只在用户要求时进行。
+当前状态（2026-09-28）：P0 闭环完成；统一资产扩展的 A · 财富盘点（W01–W03）已合入 main，自用正式版 1.2.0 安装在 `/Applications/物志.app`（identifier `local.possio.main`，1.1.6 副本留在 `.local/install/`），之后按用户反馈迭代或选择扩展下一批（产品设计 17.12）。下一步范围由用户选择，不自行推进新阶段。仓库已有 GitHub 远程 `origin`，推送只在用户要求时进行。
 
 长期约束：
 
