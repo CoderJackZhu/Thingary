@@ -2,12 +2,12 @@
 
 一个面向 macOS 的 Local-first 实物资产管理应用，记录重要物品从心愿、购买、使用、维护到退役或售出的完整生命周期。
 
-**当前实物版定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 成本分析 + 本地数据。** 当前不含金融账户或日常记账，不依赖服务器。统一产品的后续需求见产品设计第 17 节；其中 A · 财富盘点随 1.2.0、B · 重要支出随 1.3.0 发布。
+**当前实物版定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 成本分析 + 本地数据。** 当前不含金融账户或日常记账，不依赖服务器。统一产品的后续需求见产品设计第 17 节；其中 A · 财富盘点随 1.2.0、B · 重要支出随 1.3.0、C1 · 周期费用随 1.4.0 发布。
 
 ## 当前状态
 
 - P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
-- 自用正式版 1.3.0（含财富盘点与重要支出）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- 自用正式版 1.4.0（含财富盘点、重要支出与周期费用）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
 - 之后按用户反馈进行 U 系列迭代；逐次变更见 [CHANGELOG](CHANGELOG.md)，任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准。
 - 中文名「物志」、英文名「Possio」用于自用构建；公开发布前仍需核查名称可用性。
 
