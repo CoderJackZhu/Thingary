@@ -943,3 +943,33 @@ pub async fn wealth_trash(
         .await
         .map_err(|_| Error::new("WORKER", "操作结果未返回，请核对本次请求"))?
 }
+#[tauri::command]
+pub async fn expense(
+    id: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<crate::expenses::Expense>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.expense(&id)))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取支出"))?
+}
+#[tauri::command]
+pub async fn expense_save(
+    input: crate::expenses::Save,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::expenses::Expense> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.expense_save(&input, &today())))
+        .await
+        .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn expense_view(
+    year: Option<i32>,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::expenses::View> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.expense_view(year)))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取重要支出"))?
+}

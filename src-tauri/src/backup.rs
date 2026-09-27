@@ -176,6 +176,9 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     if v >= 15 {
         crate::wealth::validate_dataset(&db)?;
     }
+    if v >= 16 {
+        crate::expenses::validate_dataset(&db)?;
+    }
     if v >= 9 {
         let mut stmt = db.prepare("SELECT id,name,hash,size,created_at FROM materials")?;
         let rows = stmt
@@ -500,6 +503,7 @@ pub struct Summary {
     pub warranties: i64,
     pub accounts: i64,
     pub snapshots: i64,
+    pub expenses: i64,
     pub files: usize,
 }
 
@@ -548,6 +552,11 @@ impl Store {
             },
             snapshots: if v >= 15 {
                 count("SELECT count(*) FROM fin_snapshots")?
+            } else {
+                0
+            },
+            expenses: if v >= 16 {
+                count("SELECT count(*) FROM expenses")?
             } else {
                 0
             },

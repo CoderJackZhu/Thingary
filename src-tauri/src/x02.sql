@@ -1,0 +1,3 @@
+CREATE TABLE expenses(id TEXT PRIMARY KEY,title TEXT NOT NULL,date TEXT NOT NULL,amount_cents INTEGER NOT NULL CHECK(amount_cents BETWEEN 1 AND 99999999999),category TEXT NOT NULL CHECK(category IN ('travel','education','health','home','digital','gift','other')),notes TEXT NOT NULL,refund_cents INTEGER CHECK(refund_cents BETWEEN 1 AND 99999999999),refund_date TEXT,asset_id TEXT REFERENCES assets(id),revision INTEGER NOT NULL CHECK(revision>0),created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deleted_at TEXT,CHECK((refund_cents IS NULL)=(refund_date IS NULL)),CHECK(refund_cents IS NULL OR (refund_cents<=amount_cents AND refund_date>=date)));
+CREATE INDEX expenses_asset ON expenses(asset_id);
+PRAGMA user_version=16;

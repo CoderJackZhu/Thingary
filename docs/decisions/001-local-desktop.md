@@ -379,7 +379,7 @@ CREATE TABLE fin_snapshot_entries(
 - 备份 Summary 增加 `accounts`、`snapshots`。盘点表切换日期不再带入已保存盘点的金额。`wealth_snapshot_save` 增加 `after_commit` 故障注入点。
 - 隔离原生验收、schema 14 构建拒绝新版备份、回包丢失核对等结果见 [W03 验证](../verification/W03_WEALTH_RESULT.md)。
 
-## 18. B · 重要支出技术设计（2026-09-28，待实现）
+## 18. B · 重要支出技术设计（2026-09-28，E01 已实现）
 
 依据产品设计 17.6 与已确认的 X-D05–X-D08。沿用本 ADR 的回执、软删除、只读投影与备份协议；A 的 17.4 回执表和 17.5 版本常量直接复用。
 
@@ -435,3 +435,11 @@ CREATE INDEX expenses_asset ON expenses(asset_id);
 - E01：schema 16、`expenses.rs` 保存/投影/回执、备份校验与测试（X-AC06、X-AC12，关联去重，排除开关，日期待补，退款边界，迁移与新旧备份）。
 - E02：页面、编辑框、侧栏入口与同尺寸对照、浏览器预览假数据。
 - E03：最近删除、时间轴分支、恢复确认计数、隔离身份原生验收与打包。
+
+### 18.6 E01 实现记录（2026-09-28）
+
+- 落地 `src-tauri/src/x02.sql`（schema 16，`SCHEMA_VERSION` 升至 16）与 `src-tauri/src/expenses.rs`；命令 `expense`、`expense_save`、`expense_view`。回执沿用 `feature_requests`，前端可直接复用 `wealth_request_result` 核对，不另设命令。
+- `expense_view(year)` 的投影与汇总按 18.2 实现：关联支出以 `linked` 行出现但不计入；退款按退款日期计入（含已关联支出）；售出单列；日期未知行进入 `undated` 并单独小计；有日期但金额未知的购入/维护只计条数。
+- 备份：schema ≥ 16 时调用 `expenses::validate_dataset`；Summary 增加 `expenses`。
+- `tests/expenses.rs` 6 项覆盖 X-AC06（改价联动、排除开关、日期待补、金额未知）、X-AC12、X-D08 关联与解除、售出不抵扣、输入校验、故障注入回滚、重复与冲突请求、备份往返及 schema 15 备份迁移。旧迁移夹具同步删除 `expenses` 表，版本断言升至 16，新版拒绝测试改用 schema 17。全部 Rust 测试与 clippy 通过。
+- 未包含：界面（E02）、最近删除与时间轴（E03）。

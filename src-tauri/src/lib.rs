@@ -5,6 +5,7 @@ mod commands;
 pub mod csv_export;
 pub mod demo;
 pub mod domain;
+pub mod expenses;
 pub mod files;
 pub mod insights;
 pub mod lifecycle;
@@ -105,6 +106,9 @@ pub fn run() {
             commands::wealth_request_result,
             commands::wealth_summary,
             commands::wealth_trash,
+            commands::expense,
+            commands::expense_save,
+            commands::expense_view,
             commands::open_notification_settings,
             commands::notification_status,
             commands::choice_list,
