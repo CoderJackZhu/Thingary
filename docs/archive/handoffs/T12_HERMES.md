@@ -13,9 +13,9 @@
 
 先读根目录 `AGENTS.md`、`README.md` 和本文。其余按需局部读，不加载全部规格或历史聊天：
 
-1. [实施计划](../IMPLEMENTATION_PLAN.md)：开头状态表、§4 T12/T13 行、§5 CP3、§6 AC16/37、§7 协作与模型规则。
-2. [产品设计](../PRODUCT_DESIGN.md)：§7 Wishlist、D02、F04 的新建与放弃；[功能规格](../FUNCTIONAL_SPEC.md)：§2 心愿输入、F04 AC16、AC37 与错误恢复通则。F04 转换/AC17–19 只看边界，不实现。
-3. [ADR-001](../decisions/001-local-desktop.md)：§2–4 的本地写入、稳定 ID、revision/generation、request ID、类别/附件外键与备份约束；[T11 结果](../verification/T11_UNIFIED_TRASH_RESULT.md) 的最终结论和隔离库状态；[视觉基线](../verification/VISUAL_ALIGNMENT.md) 的最终 A「静序」结论。
+1. [实施计划](../../IMPLEMENTATION_PLAN.md)：开头状态表、§4 T12/T13 行、§5 CP3、§6 AC16/37、§7 协作与模型规则。
+2. [产品设计](../../PRODUCT_DESIGN.md)：§7 Wishlist、D02、F04 的新建与放弃；[功能规格](../../FUNCTIONAL_SPEC.md)：§2 心愿输入、F04 AC16、AC37 与错误恢复通则。F04 转换/AC17–19 只看边界，不实现。
+3. [ADR-001](../../decisions/001-local-desktop.md)：§2–4 的本地写入、稳定 ID、revision/generation、request ID、类别/附件外键与备份约束；[T11 结果](../../verification/T11_UNIFIED_TRASH_RESULT.md) 的最终结论和隔离库状态；[视觉基线](../../verification/VISUAL_ALIGNMENT.md) 的最终 A「静序」结论。
 4. 代码发现优先 codebase-memory-mcp，索引不新时刷新当前仓库索引；不足再局部搜索。已知入口：`src-tauri/src/storage.rs` 的迁移、`taxonomy.rs` 的分类迁移、`backup.rs` 的保护/恢复、`commands.rs` 的 IPC、`src/main.tsx` 的导航、`src/TaxonomyFields.tsx` 的分类组件，以及现有表单与素材选择。实际代码以开工时 HEAD 为准。
 
 ## 3. T12 行为与非目标

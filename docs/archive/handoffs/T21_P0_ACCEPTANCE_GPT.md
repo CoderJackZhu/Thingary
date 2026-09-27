@@ -8,16 +8,16 @@
 - 先核对 cwd、branch、HEAD、git status；从最新 main 在主目录创建 `codex/t21-p0-acceptance`。分支已存在先检查内容；不覆盖、不 reset、不使用旧 `outputs/Possio-t06b` 工作树。
 - 未跟踪 `.gitignore` 是用户文件，SHA256 `b93631bb68425b2904975118807e90b07d9647b7734cfb2c1842ff09253f21b9`，不暂存、不修改。仓库没有远程：不配置、不推送、不发布。
 - 用户粘贴第 7 节 Prompt 后，授权：逐项验收、编写验证报告与交付说明、为验收所需的**小型**缺陷修复（带测试）、任务分支本地提交。不得合并 main，不宣布 CP4／P0 通过——最终判定由 review 与用户作出。
-- 计划要求：Sol 整理并执行验收；Astra High 独立核验缺口与最终出口（[实施计划 §4 T21 行、§7](../IMPLEMENTATION_PLAN.md#7-模型成本codex--hermes-与协作入口)）。单执行者串行，不启动子代理、MoA 或后台循环，不改全局配置。报告写明实际模型与档位。
+- 计划要求：Sol 整理并执行验收；Astra High 独立核验缺口与最终出口（[实施计划 §4 T21 行、§7](../../IMPLEMENTATION_PLAN.md#7-模型成本codex--hermes-与协作入口)）。单执行者串行，不启动子代理、MoA 或后台循环，不改全局配置。报告写明实际模型与档位。
 
 ## 2. 最少阅读顺序
 
 先读 `AGENTS.md`、`README.md`，再完整读本文。其后局部阅读：
 
-1. [实施计划](../IMPLEMENTATION_PLAN.md)：开头状态表、§4 T21 行、§5 CP4、§6 AC 归属表（「必要补验时点」列即 T21 待补项）。
-2. [功能规格](../FUNCTIONAL_SPEC.md) AC01–AC44 全表、E01–E09、§8 验证计划；[产品设计](../PRODUCT_DESIGN.md) §15。
+1. [实施计划](../../IMPLEMENTATION_PLAN.md)：开头状态表、§4 T21 行、§5 CP4、§6 AC 归属表（「必要补验时点」列即 T21 待补项）。
+2. [功能规格](../../FUNCTIONAL_SPEC.md) AC01–AC44 全表、E01–E09、§8 验证计划；[产品设计](../../PRODUCT_DESIGN.md) §15。
 3. 各阶段记录的「剩余边界／未验证」章节：`docs/verification/T0*_RESULT.md`…`T20_MAC_EXPERIENCE_RESULT.md`、`VERIFICATION_REPORT.md`、`VISUAL_ALIGNMENT.md`、`U01_MATERIAL_LIBRARY_RESULT.md`。只引用结论与链接，不重抄全文。
-4. [ADR-001](../decisions/001-local-desktop.md) R01–R07。代码用 codebase-memory 图工具发现（未索引先索引），局部阅读。
+4. [ADR-001](../../decisions/001-local-desktop.md) R01–R07。代码用 codebase-memory 图工具发现（未索引先索引），局部阅读。
 
 ## 3. 交付物
 

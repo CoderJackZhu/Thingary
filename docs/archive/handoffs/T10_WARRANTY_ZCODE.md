@@ -14,11 +14,11 @@
 
 先读 AGENTS.md、README.md 当前工作位置，以及实施计划开头状态表、第 4 节 T10 行、第 7 节。然后局部阅读：
 
-1. [产品设计](../PRODUCT_DESIGN.md)：5.1 Warranty、16 节 F03；涉及状态独立性再读 4.2。
-2. [功能规格](../FUNCTIONAL_SPEC.md)：字段约束表的保障行、F03 的 AC14/15、S03、固定观察日的 E04/E05，以及验收分层。父子删除规则仅为兼容约束，不提前做 T11。
-3. [技术设计](../decisions/001-local-desktop.md)：3–7 节的接口、自然日、父子关联、图片、迁移/备份/恢复；第 15 节作为维护模块复用参照。
-4. [UI 设计](../UI_DESIGN.md) 的 A「静序」详情分区及视觉还原约束；[视觉记录](../verification/VISUAL_ALIGNMENT.md) 的最终原生截图。原始原型可按需对照，不把未来演示能力当现有代码。
-5. [T09 记录](../verification/T09_MAINTENANCE_RESULT.md) 的 review 修复与原生补验、[U01 记录](../verification/U01_MATERIAL_LIBRARY_RESULT.md) 开头最新补验，重点是不要复发的问题。历史未验项不覆盖最新结论。
+1. [产品设计](../../PRODUCT_DESIGN.md)：5.1 Warranty、16 节 F03；涉及状态独立性再读 4.2。
+2. [功能规格](../../FUNCTIONAL_SPEC.md)：字段约束表的保障行、F03 的 AC14/15、S03、固定观察日的 E04/E05，以及验收分层。父子删除规则仅为兼容约束，不提前做 T11。
+3. [技术设计](../../decisions/001-local-desktop.md)：3–7 节的接口、自然日、父子关联、图片、迁移/备份/恢复；第 15 节作为维护模块复用参照。
+4. [UI 设计](../../UI_DESIGN.md) 的 A「静序」详情分区及视觉还原约束；[视觉记录](../../verification/VISUAL_ALIGNMENT.md) 的最终原生截图。原始原型可按需对照，不把未来演示能力当现有代码。
+5. [T09 记录](../../verification/T09_MAINTENANCE_RESULT.md) 的 review 修复与原生补验、[U01 记录](../../verification/U01_MATERIAL_LIBRARY_RESULT.md) 开头最新补验，重点是不要复发的问题。历史未验项不覆盖最新结论。
 
 不一次加载全部文档、不重读历史聊天。按环境规则发现代码，工具不可用用局部源码；不能绕过权限拒绝，不能发送整仓库到未经授权的服务。
 

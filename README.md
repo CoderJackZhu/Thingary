@@ -4,149 +4,66 @@
 
 **定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 成本分析 + 本地数据。** 不做金融投资、日常记账或依赖服务器的家庭库存系统。
 
-CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；验收边界见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。T22 自用正式版已 review 并本地合并：`/Applications/物志.app` 可以开始录入真实资料。正式版使用独立身份 `local.possio.main`，开发预览仍使用 `local.possio.preview`；使用前请阅读 [物志使用说明](docs/USER_GUIDE.md)。中文名「物志」、英文名「Possio」用于本次自用构建；公开发布前仍需核查名称可用性。
+## 当前状态
 
-2026-09-27 已实现首次独立样例库与鼠标日历／新增日期预填，自动和隔离原生检查见 [P1 记录](docs/verification/P1_FIRST_RUN_DEMO_DATE_RESULT.md)。用户确认后，新版已安装到 `/Applications/物志.app`；正式资料库未用于开发验收。
+- P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
+- 自用正式版 1.1.6 安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- 之后按用户反馈进行 U 系列迭代；逐次变更见 [CHANGELOG](CHANGELOG.md)，任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准。
+- 中文名「物志」、英文名「Possio」用于自用构建；公开发布前仍需核查名称可用性。
 
-已完成插入任务：**U01 内置素材库选择**。已由 Z code 按交接契约实现并本地提交，含 2026-09-25 用户中途调整：侧栏新增“素材库”页面（可上传/删除自定义素材，schema 9 持久化），历史表单采用平铺小图。2026-09-27 用户确认改为名称左侧默认图标、分来源与分类的选择器，当前交互见 [图标选择器记录](docs/verification/ICON_PICKER_RESULT.md)。自动检查、浏览器及隔离原生证据见 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)；三项 Codex review P2 已修复，剩余原生上传／草稿／删除保留引用验收已补齐，达到 U01 阶段出口，并已按用户授权本地合并到主项目。
+使用前请阅读 [物志使用说明](docs/USER_GUIDE.md)。
 
-## 历史工作位置与本地集成
+## 文档
 
-2026-09-25 已将 `codex/t06b-taxonomy-storage` 的 `7e6c6e5` 快进合并到 `main`（原 main 为 `3b46442`）。**后续主入口为 `/Users/jackzhu/Code/Own/Possio`**，原 `outputs/Possio-t06b` 工作树保留，不再作为默认开发目录。用户选择只做本地合并：未配置远程、未推送或发布。
-
-合并后在主目录重新执行并通过：前端 45 项、Rust 58 项、Demo 2 项、fmt/Clippy、前端构建，以及隔离原生 App 构建。通过完整 App 路径启动并核对进程确实来自主目录，既有 13 件虚构资产正常加载，见 [启动状态](docs/verification/u01-native-completion/main-launch.txt)／[截图](docs/verification/u01-native-completion/main-launch.png)。本次只更新代码位置，仍使用 `local.possio.t06b.preview` 的原隔离资料库；未搬移或导入用户数据。用户原有未跟踪 `.gitignore` 原样保留。T09/U01 已完成阶段出口，其后 T10 的最新状态见下文，完整 P0 仍未完成。
-
-主目录复现隔离构建：`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`。本机 `.local/t06b.conf.json` 已沿用原隔离标识，配置与构建产物不入版本库。
-
-上一阶段：**T10 review 修复及原生补验完成，已按用户授权本地合并 main**。修复保留草稿后无法退出、保障附件 ID 跨实体混用两项问题；代码提交 `2b74e1f` 后前端 57 项、Rust 69 项、Demo 2 项及检查／构建通过。原生多份保障新增／同 ID 更正、日期校验、HEIC 草稿恢复／缺图修复／重启与写锁恢复已补验，见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。后续又补齐原生 800×600 与提交后响应丢失／崩溃重启核对，见 [第 11 节](docs/verification/T10_WARRANTY_RESULT.md#11-cp2-原生缺口补验2026-09-25)；CP2/P0 状态仍以实施计划为准。
-
-最近完成 **T11 统一最近删除与 CP2 补验**：Z code 首轮实现后由 Codex 接续 review、修复与验收，最终代码修复提交 `57b1207` 已快进合并到本地 `main`。资产、维护和保障的统一软删除／恢复、四类筛选、原生父子独立恢复、保障删/恢复及重启持久性已通过；原生 800×600、真实写锁失败后重试，以及恢复操作提交后回包丢失／崩溃重启按原请求核对也已补齐。临时注入源码已撤除，正常隔离包重建并复核。**CP2 达到阶段出口，完整 P0 尚未完成**；执行边界见 [T11 交接](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。尚未配置远程或推送。
-
-**T12 心愿记录** 的 [Hermes 执行契约](docs/handoffs/T12_HERMES.md) 已由任务分支落实，Codex review 的五项修复、原生放弃／筛选／翻页／缺图修复／重启收尾验收见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md#原生-gui-收尾验收2026-09-26claude)。T12 已本地快进合并 `main`。
-
-**T13 心愿转资产** 在 `codex/t13-wishlist-conversion` 实现并验收，结果与剩余边界见 [T13 记录](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)。
-
-**T14 有效时间轴**：全局页与资产详情共用一个只读投影，只含有效事实、未知日期单列、心愿实现与购入合为一条，见 [T14 记录](docs/verification/T14_TIMELINE_RESULT.md)。
-
-**T15 总览与分类分布**：当前持有与历史口径分开、未知数据单列、分类数量／金额占比与最近事件，见 [T15 记录](docs/verification/T15_OVERVIEW_RESULT.md)。
-
-**T16 购买趋势**：统计页按月／季／年的连续期间购入金额与累计（出售不回减、未知日期不归期），见 [T16 记录](docs/verification/T16_TRENDS_RESULT.md)。
-
-**T17 持有分析**：持有周期按自然月纪念日分组、平均／中位／最长，当前持有毛日均与售出净日均分开并按精确值排行，见 [T17 记录](docs/verification/T17_HOLDING_RESULT.md)。
-
-**T18 完整备份恢复**：设置 › 资料管理提供完整备份、先检查后确认的恢复（含保护副本与旧请求作废）、CSV 入口说明与最近删除；空库恢复后全部关系一致，见 [T18 记录](docs/verification/T18_BACKUP_RESTORE_RESULT.md)（含 CP3 检查摘要）。
-
-**T19 CSV 资产导出**：设置 › 资料管理导出全部未删除物品的可读表格（UTF-8 BOM、未知留空、¥0 写 0.00、公式防护），与备份共用原生保存面板；原生导出已由独立脚本与只读 SQL 逐行核对，见 [T19 记录](docs/verification/T19_CSV_EXPORT_RESULT.md)。
-
-**T20 Mac 操作体验**：原生菜单与 ⌘N/⌘F/⌘E/⌘, 实测、焦点与弹窗、外观重启保持、800×600 浅深色对照与长文本，修复三处窄窗版式；VoiceOver 与系统外观实时切换待用户实测，见 [T20 记录](docs/verification/T20_MAC_EXPERIENCE_RESULT.md)；下一阶段 T21 完整 P0 验收交由 GPT 执行，契约与 Prompt 见 [T21 交接](docs/handoffs/T21_P0_ACCEPTANCE_GPT.md)。当前仓库没有远程，成果只有本地提交。
-
-**T21 完整 P0 验收（已 review、补验并本地合并）**：AC01–AC44 逐项证据、独立 release 离线闭环、同库备份/CSV、空库恢复及用户检查单见 [T21 验收报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。review 后补验 AC05/06/09，现通过 43、部分 1（AC40，含 VoiceOver 等待用户项）；浅色次要文字对比度已修至 AA；用户授权由 Claude 判定，**CP3、CP4 达到出口，P0 闭环完成**（AC40 未实测项为已接受风险，见报告 §9）。T22 自用正式版按[交接](docs/handoffs/T22_SELF_USE_RELEASE_GPT.md)在 `codex/t22-self-use-release` 实施；[T22 记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)已 review（§7 更正 identifier）并本地合并。
-
-## U03 桌面交互修正（2026-09-27）
-
-普通表单直接关闭、不保存草稿；顶部保存、多栏录入、紧凑心愿详情、拖动分类渠道、默认箱子与连续时间轴已完成。1.1.1 已安装；验证与安装状态见 [U03 记录](docs/verification/U03_DESKTOP_INTERACTION_RESULT.md)。
-
-## U04 心愿与记录体验修正（2026-09-27）
-
-攒够目标后心愿保留在清单并显示 100%，「全部／进行中／已实现」可筛选；时间轴改为整列连续线，维护／保障表单统一说明与图片，提醒许可不再锁住表单。1.1.2 已完成隔离验收并安装到 `/Applications/物志.app`；见 [U04 记录](docs/verification/U04_WISH_TIMELINE_REMINDER_RESULT.md)。
-
-## U05 心愿同步资产、设置与统计修正（2026-09-27）
-
-已实现心愿现在同步生成关联资产并继续留在心愿清单，攒钱回退会把自动生成的资产保留在最近删除。设置双栏、分类／渠道排序、三档主题和统计页的状态、分类、持有与回收展示已更新。正式版 1.1.3 已安装；隔离验证、数据口径和安装边界见 [U05 记录](docs/verification/U05_WISH_ASSET_SETTINGS_STATS_RESULT.md)。
-
-设置页的两栏外框与标题已统一对齐，1.1.4 已安装并完成隔离版浅／深色复核，见 [U06 记录](docs/verification/U06_SETTINGS_ALIGNMENT_RESULT.md)。
-
-分类与购买渠道的拖动预览现保持原行尺寸，退役／售出弹窗去掉了重复的“取消”，已有资产编辑页的更多资料也重新排版。1.1.5 已安装；见 [U07 记录](docs/verification/U07_DESKTOP_POLISH_RESULT.md)。
-
-资产编辑页的备注区域现可直接阅读更多行，添加图片移至右下；编辑表单只保留叉和保存。新增资产按钮显示现有的 ⌘N 快捷键。1.1.6 已安装；见 [U08 记录](docs/verification/U08_ASSET_EDITOR_USABILITY_RESULT.md)。
-
-## U02 资产与心愿升级（2026-09-27）
-
-本轮按用户确认升级分块录入、独立状态标签、按次成本、四项统计排除、攒钱心愿与本地提醒；完整彩色图标、少量独立 3D 素材及月亮／时间轴同步调整。业务库升级为 schema 13，旧资料默认行为保留。实现、自动验证和隔离原生验收完成；用户保存退出后，1.1.0 已安装到 `/Applications/物志.app`；见 [执行清单](docs/handoffs/U02_ASSET_WISHLIST_UPGRADE.md) 与 [验证记录](docs/verification/U02_ASSET_WISHLIST_RESULT.md)。
-
-## 项目文档
+**使用与产品**
 
 - [物志使用说明](docs/USER_GUIDE.md)：安装、资料位置、完整备份与恢复及当前限制。
-- [T22 自用正式版记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)：独立正式身份、安装与复测证据，含 review 更正。
-- [窗口与外观修复记录](docs/verification/WINDOW_THEME_RESULT.md)：初始窗口、可滚动摘要与固定操作、侧栏主题切换及原生大小窗口证据。
-- [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、技术原则、P0/P1/P2 和验收标准。
-- [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」作为后续基线，B 保留为历史比较；涵盖资产浏览、快速新增和完整档案；[直接打开交互原型](docs/ui/prototype.html)。
-- [实际页面视觉验证](docs/verification/VISUAL_ALIGNMENT.md)：Demo 还原的当前结论、浏览器／原生截图及明确保留的业务差异；旧“对齐”记录标为历史。
-- [T09 维护档案](docs/verification/T09_MAINTENANCE_RESULT.md)：schema 8、维护新增／更正、费用与日期约束、自动检查及隔离原生证据；两轮 review 问题及原生选图问题已修复，图片／日期／写锁恢复补验完成，已达到 T09 阶段出口。
-- [T10 保障档案](docs/verification/T10_WARRANTY_RESULT.md)：schema 10、多份保障独立新增／同 ID 更正、查询时派生状态（含 0/30/31 天边界与未知日期不推断）、资产保障筛选交集、备份恢复覆盖与浏览器证据；review 修复与原生核心补验完成，剩余证据边界见第 10 节。
-- [Z code 交接：T11 统一最近删除](docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md)：父子独立软删除/恢复、费用和附件关系、统一筛选、错误恢复及原生验收的唯一执行契约，含可直接复制的 Prompt。
-- [T11 统一最近删除验证记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)：Z code 首轮与 Codex 接续修复、自动检查、隔离原生证据及未验边界。
-- [Hermes 交接：T12 心愿记录](docs/handoffs/T12_HERMES.md)：新增／放弃、筛选排序、分类引用、预计金额与封面、迁移和隔离原生验收的执行契约及可复制 Prompt；实现已交回审阅。
-- [T13 心愿转资产](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)：schema 12、唯一转换事务、回执核对、软删除关系、自动与隔离原生证据
-- [T14 有效时间轴](docs/verification/T14_TIMELINE_RESULT.md)：事件投影口径、筛选、同源详情、更正/删除/恢复/重启不重复的自动与原生证据
-- [T15 总览与分类分布](docs/verification/T15_OVERVIEW_RESULT.md)：统计口径、独立样例、分类配色校验及原生 SQL 核对
-- [T16 购买趋势](docs/verification/T16_TRENDS_RESULT.md)：期间边界、闰日与月底、未知值与累计口径的自动及原生证据
-- [T17 持有分析](docs/verification/T17_HOLDING_RESULT.md)：纪念日分组、精确比值排行、毛／净日均分列及原生核对
-- [T18 完整备份恢复](docs/verification/T18_BACKUP_RESTORE_RESULT.md)：CP3 检查摘要、备份／检查／恢复集成、空库完整关系恢复及原生证据
-- [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md)：schema 7、结算、更正、事务与原生验收；原生撤销与重开通过。
-- [T07 退役与重新启用](docs/verification/T07_LIFECYCLE_RESULT.md)：schema 6、日期顺序、失败恢复及原生重开证据。
-- [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md)：必要修复、原生与自动验证证据、集成结论及后续边界。
-- [分类与渠道接入验证](docs/verification/T06B_STORAGE_RESULT.md)：schema 5、引用事务、真实窗口保存与重启证据，以及下一轮回归边界。
-- [P0 功能规格](docs/FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义、已收敛的业务边界及补充样例。
-- [技术设计与验证计划](docs/decisions/001-local-desktop.md)：本地桌面架构、数据与图片一致性、统一最近删除、备份恢复协议和七项风险验证计划；已作为任务拆分基线，底层实验与未验项见验证报告。
-- [实施任务与开工检查](docs/IMPLEMENTATION_PLAN.md)：V00–V05 首批验证、T01–T21 后续任务、依赖顺序、44 条验收归属和阶段出口；任务状态唯一入口。
-- [Z code 交接：U01 素材库](docs/handoffs/U01_MATERIAL_LIBRARY_ZCODE.md)：唯一执行入口，含范围、代码上下文、验收和可复制 Prompt；使用 GLM5.3 串行实现，完成后交回 Codex review。
-- [U01 素材库验证记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md)：内置素材清单与受控准备命令、表单素材网格、持久化/失败恢复测试及浏览器、原生证据；待 Codex review。
-- [Hermes 交接：T09](docs/handoffs/T09_HERMES.md)：维护档案的执行位置、前审约束、验证要求及交回 Codex review 格式；实现已完成，保留为审阅契约。
-- [Hermes 首次交接：T06a](docs/handoffs/T06A_HERMES.md)：分类/渠道界面的独立执行契约、允许文件、输入输出和完工报告要求；真实数据接入由 Codex 后续完成。
-- [工程与流程验证报告](docs/VERIFICATION_REPORT.md)：实际环境、测试与进程中断证据、构建结果和未完成项。
-- [竞品调研](docs/COMPETITOR_RESEARCH.md)：优先研究持物 iThings、有数两个直接竞品，结合八个开源候选，比较业务重合、平台体验、公开热度与差异化假设。
+- [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、P0/P1/P2 与验收标准；第 15.2 节为产品决策表。
+- [P0 功能规格](docs/FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义。
+- [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」为基线；[交互原型](docs/ui/prototype.html)。
+- [竞品调研](docs/COMPETITOR_RESEARCH.md)：直接竞品与开源候选比较、差异化假设。
 
-先读产品设计了解要做什么，再读竞品调研了解已有方案与选择理由。产品需求以产品设计为准；竞品事实以调研文档注明的来源和核验日期为准。技术方案与验证计划独立维护在 ADR-001，任务、分工与开工检查集中在实施计划，不混入产品需求和竞品事实。
+**技术与计划**
 
+- [技术设计 ADR-001](docs/decisions/001-local-desktop.md)：本地桌面架构、数据与图片一致性、最近删除、备份恢复协议与风险验证计划。
+- [实施计划](docs/IMPLEMENTATION_PLAN.md)：任务拆分、依赖、验收归属、阶段出口；任务状态唯一入口。
+- [工程与流程验证报告](docs/VERIFICATION_REPORT.md)：底层实验、进程中断证据与构建结果。
 
-## 开工准备进度
+**验证记录**（`docs/verification/`，每项含自动检查、隔离原生证据与未验边界）
 
-V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程已实现并实测，详细状态统一见实施计划。已建立本地版本管理和 [AGENTS.md](AGENTS.md)；产品决策集中维护在 [产品设计第 15.2 节](docs/PRODUCT_DESIGN.md#152-产品决策表)，不另建重复决策文档。
+| 阶段 | 记录 |
+|---|---|
+| P0 验收与发布 | [T21 完整 P0 验收](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) · [T22 自用正式版](docs/verification/T22_SELF_USE_RELEASE_RESULT.md) |
+| 资产档案 | [T06b 分类与渠道](docs/verification/T06B_STORAGE_RESULT.md) · [T06c 综合回归](docs/verification/T06C_REGRESSION_RESULT.md) · [T07 退役／启用](docs/verification/T07_LIFECYCLE_RESULT.md) · [T08 售出与纠错](docs/verification/T08_SALES_RESULT.md) · [T09 维护](docs/verification/T09_MAINTENANCE_RESULT.md) · [T10 保障](docs/verification/T10_WARRANTY_RESULT.md) · [T11 统一最近删除](docs/verification/T11_UNIFIED_TRASH_RESULT.md) |
+| 心愿与回顾 | [T12 心愿](docs/verification/T12_WISHLIST_RESULT.md) · [T13 心愿转资产](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md) · [T14 时间轴](docs/verification/T14_TIMELINE_RESULT.md) · [T15 总览](docs/verification/T15_OVERVIEW_RESULT.md) · [T16 趋势](docs/verification/T16_TRENDS_RESULT.md) · [T17 持有分析](docs/verification/T17_HOLDING_RESULT.md) |
+| 数据与 Mac 体验 | [T18 备份恢复](docs/verification/T18_BACKUP_RESTORE_RESULT.md) · [T19 CSV 导出](docs/verification/T19_CSV_EXPORT_RESULT.md) · [T20 Mac 操作体验](docs/verification/T20_MAC_EXPERIENCE_RESULT.md) · [窗口与外观](docs/verification/WINDOW_THEME_RESULT.md) · [视觉还原](docs/verification/VISUAL_ALIGNMENT.md) |
+| 迭代 | [U01 素材库](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md) · [图标选择器](docs/verification/ICON_PICKER_RESULT.md) · [P1 首次样例与日期](docs/verification/P1_FIRST_RUN_DEMO_DATE_RESULT.md) · [U02](docs/verification/U02_ASSET_WISHLIST_RESULT.md) · [U03](docs/verification/U03_DESKTOP_INTERACTION_RESULT.md) · [U04](docs/verification/U04_WISH_TIMELINE_REMINDER_RESULT.md) · [U05](docs/verification/U05_WISH_ASSET_SETTINGS_STATS_RESULT.md) · [U06](docs/verification/U06_SETTINGS_ALIGNMENT_RESULT.md) · [U07](docs/verification/U07_DESKTOP_POLISH_RESULT.md) · [U08](docs/verification/U08_ASSET_EDITOR_USABILITY_RESULT.md) |
 
-| 步骤 | 产物与完成标准 | 状态 |
-|---|---|---|
-| 0. 项目规则与版本管理 | 简版 Agent 规则、本地文档基线 | 已完成 |
-| 1. 首版范围与业务规则 | D01–D12 已确认，正文与验收样例已同步 | 已完成 |
-| 2. 核心流程 | 产品设计第 16 节的八条流程与 Spec 对齐，覆盖输入、失败与恢复 | 文档已细化；首段资产交互已有实测 |
-| 3. UI 风格与原型 | A「静序」已由用户选定，原型覆盖列表/摘要、新增、完整详情及深浅色 | 方向已确认；细部及视觉验收待补 |
-| 4. 可执行 Spec | P0 功能规格 v0.2：关键边界已确认，八条流程、44 条验收及边界样例 | 业务规格已收敛；部分 AC 有证据，完整验收待后续 |
-| 5. 技术设计与风险验证计划 | ADR-001 已覆盖架构、数据/附件、恢复与测试边界，并列出 R01–R07 | 底层实验、HEIC 与基础原生交互已验；完整 Mac 体验仍待验 |
-| 6. 任务拆分与分工 | V00–V05、T01–T21 已按依赖拆分；44 条 AC 已分配，Codex 串行主线 | 计划已完成；T01–T07 已达到各自已实现范围出口，T08 已达到已实现范围出口；T09 已达到本阶段出口；已本地合并 main |
-| 7. 开工检查 | 文档一致性检查已完成；技术未知分配至验证任务，首次实际实施范围明确 | CP1 基本流程出口已达到；完整 P0 仍待后续阶段 |
+已完成任务的交接契约归档在 [docs/archive](docs/archive/README.md)。协作规则见 [AGENTS.md](AGENTS.md)。
 
-当前采用已有技能辅助准备，不安装第二套 Spec 框架，不启用自动后台开发。UI 偏好已确认是“精致的 Mac 工具：安静、清楚、操作顺手”；已明确选定 A，功能规格中的关键取舍已确认，原生检查工具已恢复，现已完成 CP1 的基本资产流程。静态原型只演示交互，刷新会重置样例，尚不具备真实资产保存能力。文档准备完成不代表技术风险已验证或 P0 已实现。
+产品需求以产品设计为准，竞品事实以调研文档注明的来源和核验日期为准；技术方案独立维护在 ADR-001，任务与分工集中在实施计划，互不重复抄录。
 
-## 本机验证工程
+## 开发
 
 - 安装锁定依赖：`npm ci`。
 - 开发窗口：`npm run tauri -- dev`。
 - 前端类型检查与构建：`npm run build`。
 - 格式与 Rust 检查：`npm run check`。
-- 表单与金额/日期纯逻辑检查：`npm run test:ui`（不是原生 UI 自动化）。
-- 数据与故障实验：`npm test`（使用独立临时目录；会终止自己创建的测试子进程）。
-- 本机 App 打包：`npm run tauri -- build --bundles app`。
-- T22 自用正式版打包：`npm run release`（仅覆盖正式身份；安装与验收见 T22 记录）。
+- 表单与金额／日期纯逻辑检查：`npm run test:ui`（不是原生 UI 自动化）。
+- 数据与故障实验：`npm test`（使用独立临时目录；会终止自己创建的测试子进程）。Rust 部分链接 macOS 原生框架，只能在 Mac 上构建。
+- 本机 App 打包：`npm run tauri -- build --bundles app`，产物位于 `src-tauri/target/release/bundle/macos/Possio Preview.app`；不要把旧产物当成最新构建。
+- 自用正式版打包：`npm run release`（仅覆盖正式身份；安装与验收见 T22 记录）。
 
-普通预览打包默认产物位于 `src-tauri/target/release/bundle/macos/Possio Preview.app`，不能将旧产物当成最新构建。T22 正式包单独由 `npm run release` 构建；下文 T06b 隔离包是历史验收记录。不含远程更新或后台代理；只有本地提交，没有推送发布。只在当前 Apple Silicon Mac 验证，旧系统及 Intel 尚未实测。
+开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，只用于虚构资料，与正式版及各隔离验收库分开。不含远程更新或后台代理。只在 Apple Silicon Mac 验证，macOS 14 与 Intel 尚未实测。
 
-开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，与正式版 `local.possio.main` 及其他验收库分开。开发预览继续只用于虚构资料；完整备份和 CSV 已实现，正式版的使用方法见[物志使用说明](docs/USER_GUIDE.md)。
+### 浏览器中的虚构数据预览
 
-### 完整页面的虚构数据预览
+运行 `npm run dev -- --port 1429`，打开 <http://127.0.0.1:1429/visual-preview.html>。可体验与 App 相同的列表／网格、详情、新增、更正、删除／恢复、分类／渠道及生命周期 UI；使用内存虚构数据，刷新即重置，不能证明原生持久性。
 
-在当前分支运行 `npm run dev -- --port 1429`，打开 <http://127.0.0.1:1429/visual-preview.html>。可体验与 App 相同的列表/网格、摘要、详情、新增、更正、删除/恢复和分类/渠道、退役/重新启用及动作日期更正 UI；使用内存虚构数据，刷新即重置，不能用于保存真实档案。内置素材选择可在预览中以内存模拟体验，不能证明原生持久性；导入自己的图片仍需原生 App。
+附加 `?state=empty`、`?state=error`、`?state=save-error` 检查空白、读取失败和保存失败；`?theme=dark` 对照深色；`?no-photos` 检查六种分类插图。这个入口不包含在 `npm run build` 的产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。
 
-附加 `?state=empty`、`?state=error`、`?state=save-error` 可检查空白、读取失败和保存失败；`?theme=dark` 可对照深色。这个开发入口不包含在 `npm run build` 的正式产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。原型原创 SVG 由预览与原生 App 共享；原生有照片时显示照片，没有照片封面时显示分类示意图，不写入附件。`?no-photos` 用于检查六种分类插图。布局按原始 A 还原，验收库的样例数量不同不能作为改变设计的理由。
+### 样例数据
 
-T06b 隔离验收包位于 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`，标识 `local.possio.t06b.preview`，使用独立虚构资料库。该包当前由 T12 任务分支代码构建（本地窗口标题仍为 T08，保留原包名），标识与虚构库保持不变。集成后仍以主目录本地 `main` 为入口；浏览器预览刷新重置，原生验收包才会实际持久保存。
+正式资料库首次添加资产前，App 另建独立的八件样例库供体验；首次成功保存真实资产后自动隐藏样例。样例与浏览器预览共用 `src/demo-assets.json`，封面 PNG 随内置素材库位于 `src-tauri/materials/`（清单 `materials.json`）。
 
-
-### 原生 Demo 样例
-
-隔离验收 App 现已持久保存原始八件 Demo（电脑、相机、耳机、手机、平板、键盘、咖啡机、录音设备），每件使用自己的原创插图封面，可直接编辑体验。原有两件验收记录保留；搜索“原始 Demo”可只查看这八件。状态入口只在左侧，中间不再重复显示同一组标签。
-
-样例与浏览器共用 `src/demo-assets.json`；PNG 来自既有 `src/illustrations.ts` 的 SVG 转换，现随内置素材库位于 `src-tauri/materials/`（清单 `materials.json` 加同名 PNG），不是重新生成的图；Demo 导入与素材准备共用同一白名单。维护、退役、售出使用已实现的业务接口，保障等未实现字段不导入。
-
-开发复现：退出隔离 App 后，在本工作树执行 `npm run demo:import`。工具只允许现有 `local.possio.t06b.preview` 虚构库，拒绝其他路径及符号链接；重复执行不重复添加、不覆盖完成导入后的编辑。每件及其后续动作各自使用稳定请求 ID，可从中断步骤续行；未完成步骤若遇到版本变化会拒绝，不能把它用作一键重置。正式资料库首次添加资产前，App 另建独立的八件样例库供体验；首次成功保存真实资产后自动隐藏样例。
-
-`npm run test:demo` 验证导入、图片、重开、重复执行保留编辑和目标路径限制。PNG 转换的可选开发命令是 `node scripts/render-demo-art.mjs <已有 sharp 模块的绝对入口>`；导入使用已提交的 PNG，无需安装图片转换依赖。
+`npm run demo:import` 只向隔离的 `local.possio.t06b.preview` 虚构库导入同一组样例（拒绝其他路径及符号链接，可重复执行、不覆盖编辑）；`npm run test:demo` 验证导入、图片、重开和目标路径限制。PNG 转换的可选开发命令是 `node scripts/render-demo-art.mjs <已有 sharp 模块的绝对入口>`。

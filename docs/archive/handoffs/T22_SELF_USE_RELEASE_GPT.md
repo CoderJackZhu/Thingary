@@ -1,8 +1,8 @@
 # T22 自用正式版：GPT 执行契约
 
-> review 更正（2026-09-27）：下文原定 identifier `local.possio.app` 以 `.app` 结尾，macOS 会把同名资料文件夹识别为「应用程序」包；review 时改为 **`local.possio.main`**，见 [T22 记录 §7](../verification/T22_SELF_USE_RELEASE_RESULT.md)。
+> review 更正（2026-09-27）：下文原定 identifier `local.possio.app` 以 `.app` 结尾，macOS 会把同名资料文件夹识别为「应用程序」包；review 时改为 **`local.possio.main`**，见 [T22 记录 §7](../../verification/T22_SELF_USE_RELEASE_RESULT.md)。
 
-日期：2026-09-26。本文是 T22 的唯一执行入口。P0 已由 CP4 判定完成（见 [T21 报告 §9](../verification/T21_P0_ACCEPTANCE_RESULT.md#9-判定2026-09-26)）；T22 只把现有功能做成可以放真实资料的自用正式版，**不新增产品功能**。本轮只准备材料与 Prompt，不实施 T22。
+日期：2026-09-26。本文是 T22 的唯一执行入口。P0 已由 CP4 判定完成（见 [T21 报告 §9](../../verification/T21_P0_ACCEPTANCE_RESULT.md#9-判定2026-09-26)）；T22 只把现有功能做成可以放真实资料的自用正式版，**不新增产品功能**。本轮只准备材料与 Prompt，不实施 T22。
 
 ## 1. 起点与授权
 
@@ -13,7 +13,7 @@
 
 ## 2. 最少阅读
 
-`AGENTS.md`、`README.md`、本文；[实施计划](../IMPLEMENTATION_PLAN.md)开头状态表与 T22 行；[T21 报告](../verification/T21_P0_ACCEPTANCE_RESULT.md) §1、§7–9（release 构建、数据位置、已知限制）；`src-tauri/tauri.conf.json`、`index.html`、`package.json`、`.local/t21-release.conf.json`（本机 release 覆盖配置样例，不入库）。
+`AGENTS.md`、`README.md`、本文；[实施计划](../../IMPLEMENTATION_PLAN.md)开头状态表与 T22 行；[T21 报告](../../verification/T21_P0_ACCEPTANCE_RESULT.md) §1、§7–9（release 构建、数据位置、已知限制）；`src-tauri/tauri.conf.json`、`index.html`、`package.json`、`.local/t21-release.conf.json`（本机 release 覆盖配置样例，不入库）。
 
 ## 3. 要交付的行为
 

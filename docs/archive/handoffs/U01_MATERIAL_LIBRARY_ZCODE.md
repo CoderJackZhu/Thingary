@@ -1,6 +1,6 @@
 # U01：Z code 内置素材库实施交接
 
-日期：2026-09-25。状态：文档准备完成，应用未实现，执行器未启动。用户明确要求先给文档和 Prompt，由 Z code 执行，再交回 Codex review。任务状态只在 [实施计划](../IMPLEMENTATION_PLAN.md) 维护。
+日期：2026-09-25。状态：文档准备完成，应用未实现，执行器未启动。用户明确要求先给文档和 Prompt，由 Z code 执行，再交回 Codex review。任务状态只在 [实施计划](../../IMPLEMENTATION_PLAN.md) 维护。
 
 ## 1. 唯一工作位置与起点
 

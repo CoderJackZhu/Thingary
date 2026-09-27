@@ -15,10 +15,10 @@
 
 先读 `AGENTS.md`、`README.md`，再完整读本文。其后局部阅读：
 
-1. [实施计划](../IMPLEMENTATION_PLAN.md) 开头状态表、§4 T11 行、§5 CP2、§6 AC 归属和 §7 模型建议。
-2. [产品设计](../PRODUCT_DESIGN.md) D08/D12、F07；[功能规格](../FUNCTIONAL_SPEC.md) AC13/27–29/41–44、S05、E02/E09。心愿 AC19 留 T12/T13，不提前实现。
-3. [ADR-001](../decisions/001-local-desktop.md) 最近删除命令、父子关联、请求回执、图片和备份；[T09 记录](../verification/T09_MAINTENANCE_RESULT.md)、[T10 记录](../verification/T10_WARRANTY_RESULT.md) 的最新 review/原生章节。
-4. [视觉记录](../verification/VISUAL_ALIGNMENT.md) 的 A「静序」最终基线。代码先用图工具发现，再局部阅读；不一次加载全仓或重读历史聊天。
+1. [实施计划](../../IMPLEMENTATION_PLAN.md) 开头状态表、§4 T11 行、§5 CP2、§6 AC 归属和 §7 模型建议。
+2. [产品设计](../../PRODUCT_DESIGN.md) D08/D12、F07；[功能规格](../../FUNCTIONAL_SPEC.md) AC13/27–29/41–44、S05、E02/E09。心愿 AC19 留 T12/T13，不提前实现。
+3. [ADR-001](../../decisions/001-local-desktop.md) 最近删除命令、父子关联、请求回执、图片和备份；[T09 记录](../../verification/T09_MAINTENANCE_RESULT.md)、[T10 记录](../../verification/T10_WARRANTY_RESULT.md) 的最新 review/原生章节。
+4. [视觉记录](../../verification/VISUAL_ALIGNMENT.md) 的 A「静序」最终基线。代码先用图工具发现，再局部阅读；不一次加载全仓或重读历史聊天。
 
 产品与规格若有无法兼容的冲突，给 Codex 具体差异和建议；常规实现选择直接推进。
 
