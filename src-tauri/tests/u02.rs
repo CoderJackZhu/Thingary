@@ -154,7 +154,7 @@ fn legacy_achieved_wish_is_backfilled_once_on_reopen() {
         [&old_asset],
     )
     .unwrap();
-    db.execute_batch("DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; CREATE TRIGGER wishlist_achievement_update BEFORE UPDATE ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.achieved_at IS NOT NULL) OR (NEW.converted_asset_id IS NOT NULL AND NEW.status!='achieved') OR (OLD.converted_asset_id IS NOT NULL AND (NEW.converted_asset_id IS NOT OLD.converted_asset_id OR NEW.achieved_at IS NOT OLD.achieved_at)) BEGIN SELECT RAISE(ABORT,'wishlist achievement state'); END; PRAGMA user_version=13;").unwrap();
+    db.execute_batch("DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; CREATE TRIGGER wishlist_achievement_update BEFORE UPDATE ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.achieved_at IS NOT NULL) OR (NEW.converted_asset_id IS NOT NULL AND NEW.status!='achieved') OR (OLD.converted_asset_id IS NOT NULL AND (NEW.converted_asset_id IS NOT OLD.converted_asset_id OR NEW.achieved_at IS NOT OLD.achieved_at)) BEGIN SELECT RAISE(ABORT,'wishlist achievement state'); END; PRAGMA user_version=13;").unwrap();
     drop(db);
     let s = Store::open(dir.path()).unwrap();
     let linked = s

@@ -973,3 +973,36 @@ pub async fn expense_view(
         .await
         .map_err(|_| Error::new("WORKER", "暂时无法读取重要支出"))?
 }
+#[tauri::command]
+pub async fn recurring_overview(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::recurring::Overview> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.recurring_overview(&today())))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取周期费用"))?
+}
+#[tauri::command]
+pub async fn recurring_plan_save(
+    input: crate::recurring::PlanSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::recurring::Plan> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.recurring_plan_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn recurring_payment_save(
+    input: crate::recurring::PaymentSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::recurring::Payment> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.recurring_payment_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}

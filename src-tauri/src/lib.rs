@@ -15,6 +15,7 @@ pub mod native_images;
 pub mod photos;
 pub mod preferences;
 mod recovery;
+pub mod recurring;
 pub mod reminders;
 pub mod sales;
 pub mod storage;
@@ -109,6 +110,9 @@ pub fn run() {
             commands::expense,
             commands::expense_save,
             commands::expense_view,
+            commands::recurring_overview,
+            commands::recurring_plan_save,
+            commands::recurring_payment_save,
             commands::open_notification_settings,
             commands::notification_status,
             commands::choice_list,

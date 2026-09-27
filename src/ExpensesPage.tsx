@@ -42,7 +42,7 @@ export function ExpensesPage({ today, onOpenAsset }: { today: string; onOpenAsse
       : !view ? <p role="status" className="muted">正在读取重要支出…</p>
       : <>
         <div className="stats-kpis wealth-kpis">
-          <article><span>{period}支出</span><strong>{money(view.spent_cents)}</strong><em>物品购入、维护与独立支出</em></article>
+          <article><span>{period}支出</span><strong>{money(view.spent_cents)}</strong><em>物品购入、维护、周期付款与独立支出</em></article>
           <article><span>退款</span><strong>{money(view.refund_cents)}</strong><em>按退款日期计入</em></article>
           <article><span>净支出</span><strong>{money(view.net_cents)}</strong><em>支出 − 退款</em></article>
           <article><span>售出回收</span><strong>{money(view.sale_cents)}</strong><em>单独列出，不抵扣支出</em></article>

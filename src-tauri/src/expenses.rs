@@ -51,6 +51,7 @@ pub struct Expense {
 
 /// One row of the expense view. `source` is purchase, maintenance, expense,
 /// linked (a standalone expense now explained by an item; never summed),
+/// payment (a confirmed recurring payment),
 /// refund or sale.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Line {
@@ -179,6 +180,10 @@ SELECT CASE WHEN e.asset_id IS NULL THEN 'expense' ELSE 'linked' END,e.id,e.asse
 UNION ALL
 SELECT 'refund',e.id,e.asset_id,e.title,e.category,e.refund_date,e.refund_cents
   FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL
+UNION ALL
+SELECT 'payment',p.id,NULL,r.name,r.category,p.paid_date,p.amount_cents
+  FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id
+  WHERE p.deleted_at IS NULL AND r.deleted_at IS NULL AND p.state='paid'
 UNION ALL
 SELECT 'sale',s.id,a.id,a.name,c.name,s.date,s.price_cents
   FROM sales s JOIN assets a ON a.id=s.asset_id LEFT JOIN categories c ON c.id=a.category_id
@@ -309,7 +314,7 @@ impl Store {
             }
             match (l.source.as_str(), amount) {
                 ("purchase" | "maintenance", None) => unknown += 1,
-                ("purchase" | "maintenance" | "expense", Some(v)) => {
+                ("purchase" | "maintenance" | "expense" | "payment", Some(v)) => {
                     add(&mut spent, v)?;
                     if let Some(m) = months.get_mut(&day[..7]) {
                         add(&mut m.0, v)?;

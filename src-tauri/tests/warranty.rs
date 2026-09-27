@@ -756,7 +756,7 @@ fn schema_ten_upgrade_preserves_data_and_rolls_back_atomically() {
     );
     let db = rusqlite::Connection::open(dataset.join("data.sqlite")).unwrap();
     db.execute_batch(
-        "DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
+        "DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
     )
     .unwrap();
     drop(db);
@@ -767,7 +767,7 @@ fn schema_ten_upgrade_preserves_data_and_rolls_back_atomically() {
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap()
     };
-    assert_eq!(version, 16);
+    assert_eq!(version, 17);
     let record = s
         .query_assets(&query("all"), TODAY)
         .unwrap()
@@ -834,7 +834,7 @@ fn legacy_schema_nine_backup_restores_and_migrates() {
         drop(s);
         let db = rusqlite::Connection::open(dataset(root.path()).join("data.sqlite")).unwrap();
         db.execute_batch(
-            "DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
+            "DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
         )
         .unwrap();
         drop(db);
