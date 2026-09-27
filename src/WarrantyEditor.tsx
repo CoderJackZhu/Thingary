@@ -3,10 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, type AssetRecord, type Photo } from './asset';
 import { PhotoView } from './Photos';
-import {FormRow,Switch} from './FormControls';
-import {allowReminders} from './NotificationNotice';
+import {FormRow,Switch,AddImageButton} from './FormControls';
+import {allowReminders,ReminderPermissionHelp} from './NotificationNotice';
 import { DateInput } from './DateInput';
-import { blankWarranty, recoverWarranty, statusLabel, warrantyChange, warrantyKinds, warrantyKey, warrantySummaryText, type WarrantyDraft, type WarrantyState, type WarrantySession, type WarrantyRecoveryResult } from './warranty';
+import { recoverWarranty, statusLabel, warrantyChange, warrantyKinds, warrantyKey, warrantySummaryText, type WarrantyDraft, type WarrantyState, type WarrantySession, type WarrantyRecoveryResult } from './warranty';
 import { validateWarranty } from './warranty';
 import type { CloseIntent } from './AssetEditor';
 
@@ -14,6 +14,7 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose 
   const dialog = useRef<HTMLDialogElement>(null), lock = useRef(false);
   const [state, setState] = useState(initial.state), [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(initial.issue?.message ?? '');
+  const [permissionPending,setPermissionPending]=useState(false),[permissionError,setPermissionError]=useState('');
   const [issue, setIssue] = useState(initial.issue);
   const blocked = issue?.kind === 'blocked', conflict = issue?.kind === 'conflict';
   const frozen = busy || !!state.pending || blocked || conflict;
@@ -87,24 +88,18 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose 
   function removePhoto(id: string) {
     remember({ ...state, photos: state.photos.filter(photo => photo.id !== id), fields: { ...state.fields, photo_ids: state.fields.photo_ids.filter(photoId => photoId !== id) } });
   }
-  function clear() {
-    const fields = blankWarranty();
-    remember({ ...state, fields, photos: [] });
-  }
 
-  async function enableReminder(){if(lock.current)return;lock.current=true;setBusy(true);try{await allowReminders();edit('reminder',{date:state.fields.end,notes:''});setNotice('')}catch(e){setNotice(errorMessage(e))}finally{lock.current=false;setBusy(false)}}
+  async function enableReminder(){edit('reminder',{date:state.fields.end,notes:''});setPermissionError('');setPermissionPending(true);try{await allowReminders()}catch(e){setPermissionError(errorMessage(e))}finally{setPermissionPending(false)}}
   return <dialog ref={dialog} className="editor warranty-editor" aria-labelledby="warranty-heading" onCancel={event => { event.preventDefault(); askClose('form'); }}><form noValidate onSubmit={event => { event.preventDefault(); void save(); }}>
     <header><div><p className="eyebrow">保障档案</p><h2 id="warranty-heading">{state.warranty_id ? '更正保障记录' : '添加保障记录'}</h2><p className="muted">更正保留原记录标识；保障可以未来开始或到期，未知日期保持留空。</p></div><button type="button" aria-label="关闭保障表单" disabled={busy || (!!state.pending && !blocked)} onClick={() => askClose('form')}>×</button><div className="editor-header-actions">{blocked ? <>
       <button type="button" disabled={busy} onClick={() => onClose('form', !!state.pending)}>关闭</button>
       <button type="button" disabled={busy} onClick={() => void check()}>重新核对资料库</button>
     </> : <>
-      <button type="button" disabled={frozen} onClick={clear}>清空</button>
-      <button type="button" disabled={busy || !!state.pending} onClick={() => askClose('form')}>取消</button>
       {state.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对保障保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void check()}>重新读取当前记录</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存保障记录'}</button>}
     </>}</div></header>
-    <div className="fields warranty-fields"><label className="field">类型<select value={state.fields.kind} disabled={frozen} onChange={event => edit('kind', event.target.value as WarrantyDraft['kind'])}>{warrantyKinds.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label><label className="field">提供方（可留空）<input id="warranty-provider" maxLength={200} value={state.fields.provider} disabled={frozen} onChange={event => edit('provider', event.target.value)}/></label><div className="field"><label htmlFor="warranty-start">开始日期（可留空）</label><DateInput id="warranty-start" value={state.fields.start} disabled={frozen} allowClear onChange={value => edit('start', value)}/></div><div className="field"><label htmlFor="warranty-end">结束日期（可留空）</label><DateInput id="warranty-end" value={state.fields.end} disabled={frozen} allowClear onChange={value => edit('end', value)}/></div><label className="field wide">备注<textarea maxLength={10000} value={state.fields.notes} disabled={frozen} onChange={event => edit('notes', event.target.value)}/></label></div>
-    <section className="form-block"><FormRow label="启用保障到期提醒" hint="所选日期上午 9:00 通知"><Switch label="启用保障到期提醒" value={!!state.fields.reminder} disabled={frozen} onChange={v=>{if(!v)edit('reminder',null);else void enableReminder()}}/></FormRow>{state.fields.reminder&&<><FormRow label="提醒日期"><DateInput id="warranty-reminder" value={state.fields.reminder.date} max={state.fields.end||undefined} disabled={frozen} onChange={date=>edit('reminder',{...state.fields.reminder!,date})}/></FormRow><FormRow label="提醒备注"><input aria-label="提醒备注" value={state.fields.reminder.notes} disabled={frozen} onChange={e=>edit('reminder',{...state.fields.reminder!,notes:e.target.value})}/></FormRow></>}</section>
-    <section className="photo-section"><h3>保障图片 <small>{state.photos.length}</small></h3><div className="photo-strip">{state.photos.map(photo => <span className="photo-tile" key={photo.id}>{blocked ? <span>原资料库图片 · {photo.name}</span> : <PhotoView photo={photo} generation={state.generation}/>}<span className="photo-name">{photo.name}</span><button type="button" disabled={frozen} onClick={() => removePhoto(photo.id)}>移除</button></span>)}</div><button type="button" disabled={frozen} onClick={() => void pickPhoto()}>添加图片</button></section>
+    <div className="fields warranty-fields"><label className="field">类型<select value={state.fields.kind} disabled={frozen} onChange={event => edit('kind', event.target.value as WarrantyDraft['kind'])}>{warrantyKinds.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label><label className="field">提供方（可留空）<input id="warranty-provider" maxLength={200} value={state.fields.provider} disabled={frozen} onChange={event => edit('provider', event.target.value)}/></label><div className="field"><label htmlFor="warranty-start">开始日期（可留空）</label><DateInput id="warranty-start" value={state.fields.start} disabled={frozen} allowClear onChange={value => edit('start', value)}/></div><div className="field"><label htmlFor="warranty-end">结束日期（可留空）</label><DateInput id="warranty-end" value={state.fields.end} disabled={frozen} allowClear onChange={value => edit('end', value)}/></div></div>
+    <ReminderPermissionHelp pending={!!state.fields.reminder&&permissionPending} error={!!state.fields.reminder?permissionError:''}/><section className="form-block"><FormRow label="启用保障到期提醒" hint="所选日期上午 9:00 通知"><Switch label="启用保障到期提醒" value={!!state.fields.reminder} disabled={frozen} onChange={v=>{if(!v)edit('reminder',null);else void enableReminder()}}/></FormRow>{state.fields.reminder&&<><FormRow label="提醒日期"><DateInput id="warranty-reminder" value={state.fields.reminder.date} max={state.fields.end||undefined} disabled={frozen} onChange={date=>edit('reminder',{...state.fields.reminder!,date})}/></FormRow><FormRow label="提醒备注"><input aria-label="提醒备注" value={state.fields.reminder.notes} disabled={frozen} onChange={e=>edit('reminder',{...state.fields.reminder!,notes:e.target.value})}/></FormRow></>}</section>
+    <section className="form-block form-notes editor-media-notes"><label htmlFor="warranty-notes">备注</label><textarea id="warranty-notes" placeholder="请输入保障备注" maxLength={10000} value={state.fields.notes} disabled={frozen} onChange={event => edit('notes', event.target.value)}/><div className="photo-strip">{state.photos.map(photo => <span className="photo-tile" key={photo.id}>{blocked ? <span>原资料库图片 · {photo.name}</span> : <PhotoView photo={photo} generation={state.generation}/>}<span className="photo-name">{photo.name}</span><button type="button" disabled={frozen} onClick={() => removePhoto(photo.id)}>移除</button></span>)}<AddImageButton disabled={frozen} onClick={()=>void pickPhoto()}/></div></section>
     <aside className="settlement"><span>当前保障</span><strong>{warrantySummaryText(state.record.warranty_summary ?? { status: 'none', total: 0, active_count: 0, expiring_count: 0, upcoming_count: 0, expired_count: 0, pending_count: 0 })}</strong><span>保障独立于持有状态，不计入成本。</span></aside>
     {notice && <p className="notice" role="status">{notice}</p>}
     {conflict && issue?.latest && <div className="confirm">

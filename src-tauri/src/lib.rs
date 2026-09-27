@@ -96,6 +96,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::notification_permission,
+            commands::open_notification_settings,
             commands::notification_status,
             commands::choice_list,
             commands::choice_change,

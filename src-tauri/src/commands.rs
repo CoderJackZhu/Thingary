@@ -794,6 +794,27 @@ pub async fn notification_permission() -> Result<()> {
         .await
         .map_err(|_| Error::new("REMINDER", "通知权限服务不可用"))?
 }
+
+#[tauri::command]
+pub fn open_notification_settings() -> Result<()> {
+    let status = std::process::Command::new("open")
+        .arg("x-apple.systempreferences:com.apple.preference.notifications")
+        .status()
+        .map_err(|_| {
+            Error::new(
+                "REMINDER",
+                "无法打开系统设置；请手动打开“系统设置 › 通知 › 物志”",
+            )
+        })?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error::new(
+            "REMINDER",
+            "无法打开系统设置；请手动打开“系统设置 › 通知 › 物志”",
+        ))
+    }
+}
 #[tauri::command]
 pub async fn notification_status(worker: tauri::State<'_, Worker>) -> Result<String> {
     let w = worker.inner().clone();

@@ -6,11 +6,12 @@ use serde::Serialize;
 use std::{
     ffi::{c_char, c_void, CStr, CString},
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Mutex,
     },
 };
 static ENABLED: AtomicBool = AtomicBool::new(false);
+static AUTH_PENDING: AtomicUsize = AtomicUsize::new(0);
 static LAST: Mutex<(String, String)> = Mutex::new((String::new(), String::new()));
 extern "C" {
     fn possio_notifications(json: *const c_char, ask: i32) -> *mut c_char;
@@ -61,10 +62,16 @@ fn native(json: &str, ask: bool) -> Result<()> {
     }
 }
 pub fn request_permission() -> Result<()> {
-    native("[]", true)
+    AUTH_PENDING.fetch_add(1, Ordering::AcqRel);
+    let result = native("[]", true);
+    AUTH_PENDING.fetch_sub(1, Ordering::AcqRel);
+    result
 }
 pub fn reconcile(store: &Store, force: bool) {
     if !ENABLED.load(Ordering::Relaxed) {
+        return;
+    }
+    if AUTH_PENDING.load(Ordering::Acquire) != 0 {
         return;
     }
     let result = (|| -> Result<()> {

@@ -460,7 +460,7 @@ impl Store {
             return Err(Error::new("SEARCH", "搜索内容最多 200 字"));
         }
         let filter = match q.filter.as_str() {
-            "ongoing" | "achieved" | "abandoned" => q.filter.as_str(),
+            "all" | "ongoing" | "achieved" | "abandoned" => q.filter.as_str(),
             _ => return Err(Error::new("QUERY", "不支持的心愿筛选")),
         };
         let direction = if q.descending { "DESC" } else { "ASC" };
@@ -471,7 +471,7 @@ impl Store {
             "target" => format!("w.target_date IS NULL ASC,w.target_date {direction}"),
             _ => return Err(Error::new("QUERY", "不支持的心愿排序")),
         };
-        let from = "FROM wishlist_items w LEFT JOIN categories c ON c.id=w.category_id WHERE w.status=?1 AND instr(lower(w.name || ' ' || w.external_link || ' ' || w.notes || ' ' || coalesce(c.name,'')),lower(?2))>0";
+        let from = "FROM wishlist_items w LEFT JOIN categories c ON c.id=w.category_id WHERE (w.status=?1 OR (?1='all' AND w.status IN ('ongoing','achieved'))) AND instr(lower(w.name || ' ' || w.external_link || ' ' || w.notes || ' ' || coalesce(c.name,'')),lower(?2))>0";
         let total = self.conn()?.query_row(
             &format!("SELECT count(*) {from}"),
             params![filter, q.search.trim()],

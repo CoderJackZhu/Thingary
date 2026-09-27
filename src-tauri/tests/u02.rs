@@ -85,6 +85,42 @@ fn savings_reaches_and_reverts_without_creating_assets() {
     assert_eq!(s.wishlist_item(&id).unwrap().unwrap().status, "achieved");
 }
 #[test]
+fn savings_caps_the_last_addition_and_rejects_more_after_completion() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let initial = wish(&s);
+    let w = s.save_wish_plan(&initial, TODAY).unwrap();
+    let w = s
+        .save_wish_savings(&saving(&s, &w, "add", "7500"), TODAY)
+        .unwrap();
+    let final_add = saving(&s, &w, "add", "10000");
+    let achieved = s.save_wish_savings(&final_add, TODAY).unwrap();
+    assert_eq!(achieved.status, "achieved");
+    assert_eq!(achieved.preferences.saved_cents, "10000");
+    let all = s
+        .query_wishlist(&possio_lib::wishlist::Query {
+            search: String::new(),
+            filter: "all".into(),
+            sort: "created".into(),
+            descending: true,
+            offset: 0,
+        })
+        .unwrap();
+    assert_eq!(all.total, 1);
+    assert_eq!(all.items[0].id, achieved.id);
+    assert_eq!(
+        s.save_wish_savings(&final_add, TODAY).unwrap().revision,
+        achieved.revision
+    );
+    assert!(s
+        .save_wish_savings(&saving(&s, &achieved, "add", "1"), TODAY)
+        .is_err());
+    let corrected = s
+        .save_wish_savings(&saving(&s, &achieved, "total", "9999"), TODAY)
+        .unwrap();
+    assert_eq!(corrected.status, "ongoing");
+}
+#[test]
 fn wish_photos_edit_replay_and_backup_preserve_independent_copies() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();

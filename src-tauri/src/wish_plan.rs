@@ -283,12 +283,22 @@ impl Store {
         let mut p = old.preferences.clone();
         let amount = cents(Some(&input.cents))?.unwrap_or(0);
         let prior = cents(Some(&p.saved_cents))?.unwrap_or(0);
+        let target = cents(old.fields.estimated_price_cents.as_deref())?;
+        if input.mode == "add"
+            && (old.status == "achieved" || target.is_some_and(|limit| prior >= limit))
+        {
+            return Err(Error::new(
+                "SAVING_COMPLETE",
+                "这条心愿已攒够；如需更正，请修改累计金额",
+            ));
+        }
         p.saved_cents = match input.mode.as_str() {
             "add" => prior
                 .checked_add(amount)
                 .ok_or_else(|| Error::new("AMOUNT", "累计金额过大"))?
+                .min(target.unwrap_or(i64::MAX))
                 .to_string(),
-            "total" => amount.to_string(),
+            "total" => amount.min(target.unwrap_or(i64::MAX)).to_string(),
             _ => return Err(Error::new("SAVING_MODE", "请选择新增金额或更正累计")),
         };
         p.validate()?;
