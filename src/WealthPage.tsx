@@ -190,7 +190,7 @@ export function DeleteButton({ label, disabled, kind, id, revision, generation, 
     catch (e) { onError(e instanceof Error ? e.message : errorMessage(e), e instanceof Unresolved); setArmed(false); }
     finally { setBusy(false); }
   }
-  return armed ? <button type="button" className="danger" disabled={disabled || busy} onClick={() => void remove()}>{busy ? '正在删除…' : '确认移入最近删除'}</button>
+  return armed ? <button type="button" className="primary danger" disabled={disabled || busy} onClick={() => void remove()}>{busy ? '正在删除…' : '确认移入最近删除'}</button>
     : <button type="button" disabled={disabled} onClick={() => setArmed(true)}>{label}</button>;
 }
 

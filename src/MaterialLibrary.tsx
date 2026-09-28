@@ -108,7 +108,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange }: { genera
           <span className="material-card-name" title={entry.name}>{entry.name}</span>
           <span className="material-card-kind">{entry.builtin ? '内置示意图' : '自定义'}</span>
           {!entry.builtin && (confirming === entry.id
-            ? <div className="material-card-actions"><span>删除后不可恢复，已保存资产不受影响。</span><button type="button" className="danger" disabled={busy || !!pending || !recoveryReady} onClick={() => void remove(entry.id, entry.name)}>确认删除</button><button type="button" disabled={busy || !!pending || !recoveryReady} onClick={() => setConfirming(null)}>保留</button></div>
+            ? <div className="material-card-actions"><span>删除后不可恢复，已保存资产不受影响。</span><button type="button" className="primary danger" disabled={busy || !!pending || !recoveryReady} onClick={() => void remove(entry.id, entry.name)}>确认删除</button><button type="button" disabled={busy || !!pending || !recoveryReady} onClick={() => setConfirming(null)}>保留</button></div>
             : <div className="material-card-actions"><button type="button" disabled={busy || !!pending || !recoveryReady} onClick={() => setConfirming(entry.id)}>删除</button></div>)}
         </div>)}
       </div> : <p className="muted" role="status">正在读取素材…</p>}

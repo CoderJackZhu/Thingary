@@ -69,7 +69,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       <p>备份时间 {new Date(candidate.summary.created_at).toLocaleString('zh-CN')} · 格式版本 {candidate.summary.schema}</p>
       <p>物品 {candidate.summary.assets} 件（其中最近删除 {candidate.summary.deleted_assets}）· 心愿 {candidate.summary.wishes} 条 · 维护 {candidate.summary.maintenances} 条 · 保障 {candidate.summary.warranties} 份 · 账户 {candidate.summary.accounts} 个 · 盘点 {candidate.summary.snapshots} 次 · 支出 {candidate.summary.expenses} 笔 · 周期计划 {candidate.summary.plans} 项 · 周期付款 {candidate.summary.payments} 条 · 原图 {candidate.summary.files} 个</p>
       <p className="muted">检查已通过。当前资料会先保存保护副本，失败时保持原样。{pending > 0 && `本机还有 ${pending} 份属于当前资料的草稿或待核对操作，恢复后将作废。`}</p>
-      <div className="actions"><button disabled={busy} onClick={() => setCandidate(null)}>取消</button><button className="danger" disabled={busy} onClick={() => void restore()}>确认替换当前资料</button></div>
+      <div className="actions"><button disabled={busy} onClick={() => setCandidate(null)}>取消</button><button className="primary danger" disabled={busy} onClick={() => void restore()}>确认替换当前资料</button></div>
     </div>}
   </section>;
 }
