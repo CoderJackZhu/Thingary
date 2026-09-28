@@ -254,8 +254,9 @@ pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
         ("tripod", "虚构轻便三脚架", "countdown", "0", "ongoing"),
         ("lens", "虚构旅行镜头", "savings", "150000", "ongoing"),
         ("display", "虚构便携显示器", "countdown", "0", "manual"),
+        ("stand", "虚构显示器支架", "countdown", "0", "ongoing"),
     ] {
-        s.save_wish_plan(
+        let wish = s.save_wish_plan(
             &crate::wish_plan::Save {
                 request_id: request(key, "unified-wish-v1"),
                 generation: generation.clone(),
@@ -289,6 +290,17 @@ pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
             },
             today,
         )?;
+        // One deleted wish shows how Recently Deleted holds wishes (D17).
+        if key == "stand" {
+            s.wealth_trash(&crate::wealth::TrashChange {
+                request_id: request(key, "unified-wish-trash-v1"),
+                generation: generation.clone(),
+                kind: "wish".into(),
+                id: wish.id,
+                expected_revision: wish.revision,
+                deleted: true,
+            })?;
+        }
     }
     crate::storage::atomic_write(&done, b"1")?;
     Ok(())
@@ -410,8 +422,15 @@ mod unified_tests {
                 .query_row("SELECT count(*) FROM wishlist_items", [], |r| r
                     .get::<_, i64>(0))
                 .unwrap(),
-            3
+            4
         );
+        let trashed = s
+            .list_trash(&crate::trash::TrashQuery {
+                filter: "wish".into(),
+                offset: 0,
+            })
+            .unwrap();
+        assert_eq!(trashed.items[0].title, "虚构显示器支架");
         assert_eq!(
             s.conn()
                 .unwrap()
