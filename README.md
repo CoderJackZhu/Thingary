@@ -8,6 +8,7 @@
 
 - P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
 - 自用正式版 1.4.0（含财富盘点、重要支出与周期费用）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- U09 全功能统一样例已在 `codex/unified-demo` 完成开发和本轮验收，待审阅，尚未合入或安装；验收见 [U09 记录](docs/verification/U09_UNIFIED_DEMO_RESULT.md)。
 - 之后按用户反馈进行 U 系列迭代；逐次变更见 [CHANGELOG](CHANGELOG.md)，任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准。
 - 中文名「物志」、英文名「Possio」用于自用构建；公开发布前仍需核查名称可用性。
 
@@ -67,6 +68,8 @@
 
 ### 样例数据
 
-正式资料库首次添加资产前，App 另建独立的八件样例库供体验；首次成功保存真实资产后自动隐藏样例。样例与浏览器预览共用 `src/demo-assets.json`，封面 PNG 随内置素材库位于 `src-tauri/materials/`（清单 `materials.json`）。
+U09 开发版首次使用展示独立完整样例，涵盖原始八件物品及心愿生成资产、保障、账户与六期盘点、支出/退款、周期计划/付款。样例内增删改仅影响样例；先明确切到“我的资料”，首次成功记录后长期记住该状态。设置可查看或确认重置样例；删空真实记录不自动恢复样例。已安装 1.4.0 暂仍为旧规则。
+
+实物与金融样例源分别为 `src/demo-assets.json`、`src/demo-finance.json`；浏览器预览复用基础事实但为内存模拟，不能代替原生持久性验收。封面 PNG 随内置素材库位于 `src-tauri/materials/`（清单 `materials.json`）。
 
 `npm run demo:import` 只向隔离的 `local.possio.t06b.preview` 虚构库导入同一组样例（拒绝其他路径及符号链接，可重复执行、不覆盖编辑）；`npm run test:demo` 验证导入、图片、重开和目标路径限制。PNG 转换的可选开发命令是 `node scripts/render-demo-art.mjs <已有 sharp 模块的绝对入口>`。

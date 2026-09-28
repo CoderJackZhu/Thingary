@@ -202,12 +202,12 @@ pub fn import(s: &mut Store, today: &str) -> Result<Vec<AssetRecord>> {
 
 /// App-only full sample; the explicit legacy importer above still imports eight originals.
 pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
-    import(s, today)?;
-    crate::demo_finance::import(s, today)?;
     let done = s.root.join("unified-demo-details-v1.complete");
     if done.exists() {
         return Ok(());
     }
+    import(s, today)?;
+    crate::demo_finance::import(s, today)?;
     let anchor = std::fs::read_to_string(s.root.join("unified-demo-v1.date"))?;
     let now = crate::domain::date(&anchor)?;
     let day = |offset: i64| {
@@ -307,10 +307,9 @@ fn selected_root(real_root: &std::path::Path) -> Result<std::path::PathBuf> {
     let name = if pointer.exists() {
         let p: Pointer = serde_json::from_slice(&std::fs::read(pointer)?)?;
         if p.directory != "demo-library"
-            && !p
-                .directory
+            && p.directory
                 .strip_prefix("demo-")
-                .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok())
+                .is_none_or(|id| uuid::Uuid::parse_str(id).is_err())
         {
             return Err(Error::new("DEMO_PATH", "样例目录无效，请重置样例"));
         }
@@ -443,6 +442,47 @@ mod unified_tests {
             TODAY
         );
     }
+    #[test]
+    fn legacy_deleted_asset_is_not_recreated_or_counted_as_standalone_expense() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut store = Store::open(tmp.path()).unwrap();
+        import(&mut store, TODAY).unwrap();
+        let laptop = store
+            .saved_request(&request("laptop", "create"), &store.generation())
+            .unwrap()
+            .unwrap();
+        store
+            .conn()
+            .unwrap()
+            .execute(
+                "UPDATE assets SET deleted_at='2026-09-28T00:00:00Z' WHERE id=?1",
+                [&laptop.asset.id],
+            )
+            .unwrap();
+        prepare(&mut store, TODAY).unwrap();
+        assert!(store.record(&laptop.asset.id).unwrap().unwrap().deleted);
+        assert_eq!(store.expense_view(None).unwrap().spent_cents, "4574600");
+        prepare(&mut store, "2027-01-01").unwrap();
+        assert!(store.record(&laptop.asset.id).unwrap().unwrap().deleted);
+    }
+
+    #[test]
+    fn calendar_edges_keep_sample_dates_valid_and_totals_stable() {
+        for today in ["2027-01-31", "2028-02-29", "2028-12-31"] {
+            let tmp = tempfile::tempdir().unwrap();
+            let mut store = Store::open(tmp.path()).unwrap();
+            prepare(&mut store, today).unwrap();
+            let summary = store.wealth_summary().unwrap();
+            assert_eq!(summary.points.len(), 6);
+            assert_eq!(summary.points.last().unwrap().date, today);
+            assert_eq!(
+                store.recurring_overview(today).unwrap().annual_cents,
+                "3756000"
+            );
+            assert_eq!(store.expense_view(None).unwrap().spent_cents, "6274500");
+        }
+    }
+
     #[test]
     fn reset_failure_retains_sample_then_success_reopens_and_retries_once() {
         let tmp = tempfile::tempdir().unwrap();

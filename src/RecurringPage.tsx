@@ -12,12 +12,13 @@ import './wealth.css';
 
 type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; plan_amount: string; record: Payment | null };
 
-export function RecurringPage({ today }: { today: string }) {
+export function RecurringPage({ today, onEditingChange }: { today: string; onEditingChange: (value: boolean) => void }) {
   const [data, setData] = useState<Overview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
   const reload = () => setRetry(n => n + 1);
   const { pending, setPending, notice, setNotice, busy, verify } = usePendingReceipt(reload);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!paying); return () => onEditingChange(false); }, [editing, pending, busy, paying, onEditingChange]);
   useEffect(() => {
     let live = true; setError('');
     invoke<Overview>('recurring_overview').then(o => { if (live) setData(o); }).catch(e => { if (live) setError(errorMessage(e)); });

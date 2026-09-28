@@ -167,6 +167,11 @@ fn import_expenses(s: &mut Store, data: Vec<Expense>, now: NaiveDate, today: &st
             })
             .transpose()?
             .flatten();
+        // Upgrading an edited legacy sample must not turn a removed asset's
+        // descriptive purchase link into a new standalone charge.
+        if e.asset_key.is_some() && asset_id.is_none() {
+            continue;
+        }
         let record = s.expense_save(
             &crate::expenses::Save {
                 request_id: rid(&format!("expense-{}", e.key)),

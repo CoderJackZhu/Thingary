@@ -22,7 +22,7 @@ export function MaterialThumb({ id, alt, generation, onSelect, disabled = false 
     {error && <span className="material-thumb-error" role="alert"><span title={error}>图片读取失败</span><button type="button" disabled={disabled} aria-label={'重新读取：' + alt} onClick={() => setAttempt(n => n + 1)}>重试</button></span>}</>;
 }
 
-export function MaterialLibrary({ generation, onNotice }: { generation: string; onNotice: (message: string) => void }) {
+export function MaterialLibrary({ generation, onNotice, onBusyChange }: { generation: string; onNotice: (message: string) => void; onBusyChange: (busy: boolean) => void }) {
   const [entries, setEntries] = useState<MaterialEntry[] | null>(null);
   const [source, setSource] = useState<MaterialSource>('icon');
   const [category, setCategory] = useState('全部');
@@ -39,6 +39,7 @@ export function MaterialLibrary({ generation, onNotice }: { generation: string; 
   }
   useEffect(readRecovery, []);
   const [confirming, setConfirming] = useState<string | null>(null);
+  useEffect(() => { onBusyChange(busy || !!pending || !!confirming || !!recoveryError); return () => onBusyChange(false); }, [busy, pending, confirming, recoveryError, onBusyChange]);
   const reload = useCallback(() => {
     setError('');
     invoke<MaterialEntry[]>('list_materials').then(list => setEntries(list)).catch(e => { setEntries(null); setError(errorMessage(e)); });

@@ -4,7 +4,7 @@
 
 Possio（物志）面向个人实物资产的长期记录与回顾。文档入口见 [README](README.md)，任务状态以 [实施计划](docs/IMPLEMENTATION_PLAN.md) 为准，逐次变更与历史协作说明见 [CHANGELOG](CHANGELOG.md)。
 
-当前状态（2026-09-28）：P0 闭环完成；统一资产扩展的 A · 财富盘点（W01–W03）、B · 重要支出（E01–E03）与 C1 · 周期费用（R01–R03）已合入 main，自用正式版 1.4.0 安装在 `/Applications/物志.app`（identifier `local.possio.main`，1.1.6、1.2.0、1.3.0 副本留在 `.local/install/`），之后按用户反馈迭代或进入 C2 虚拟资产（产品设计 17.12）。下一步范围由用户选择，不自行推进新阶段。仓库已有 GitHub 远程 `origin`，推送只在用户要求时进行。
+当前状态（2026-09-28）：P0 闭环完成；统一资产扩展的 A · 财富盘点（W01–W03）、B · 重要支出（E01–E03）与 C1 · 周期费用（R01–R03）已合入 main，自用正式版 1.4.0 安装在 `/Applications/物志.app`（identifier `local.possio.main`，1.1.6、1.2.0、1.3.0 副本留在 `.local/install/`），之后按用户反馈迭代或进入 C2 虚拟资产（产品设计 17.12）。U09 全功能统一样例在 `codex/unified-demo` 完成开发及本轮验收，待审阅，插入 C2 前；状态与验收以实施计划 U09 表为准，未获准合入、推送或安装。下一步范围由用户选择，不自行推进新阶段。仓库已有 GitHub 远程 `origin`，推送只在用户要求时进行。
 
 长期约束：
 

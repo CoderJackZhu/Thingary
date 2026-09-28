@@ -11,13 +11,14 @@ import { categoryText, countsAsSpending, expenseCategories, sourceLabel } from '
 import type { Expense, ExpenseFields, ExpenseSave, ExpenseView, Line } from './expenses';
 import './wealth.css';
 
-export function ExpensesPage({ today, onOpenAsset }: { today: string; onOpenAsset: (id: string) => void }) {
+export function ExpensesPage({ today, onOpenAsset, onEditingChange }: { onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void }) {
   const thisYear = Number(today.slice(0, 4));
   const [year, setYear] = useState<number | null>(thisYear);
   const [view, setView] = useState<ExpenseView | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<Expense | 'new' | null>(null);
   const reload = () => setRetry(n => n + 1);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy); return () => onEditingChange(false); }, [editing, pending, busy, onEditingChange]);
   useEffect(() => {
     let live = true; setError('');
     invoke<ExpenseView>('expense_view', { year }).then(v => { if (live) setView(v); }).catch(e => { if (live) setError(errorMessage(e)); });

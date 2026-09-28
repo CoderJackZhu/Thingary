@@ -113,8 +113,8 @@ function previewPhotoName(id: string): string {
 mockIPC(async (command,payload) => {
   const args = payload as Record<string,unknown>;
   const wealth = wealthPreview(command,args); if (wealth) return wealth.value;
-  if (command === 'demo_status') return {active:false,available:false};
-  if (command === 'switch_demo') return {active:false,available:false};
+  if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:true};
+  if (command === 'switch_demo' || command === 'reset_demo') throw {message:'浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。'};
   if (command === 'taxonomy_snapshot') return taxonomySnapshot();
   if (command === 'taxonomy_request') return taxonomyReceipts.has(String(args.request));
   if (command === 'change_taxonomy') {
@@ -367,7 +367,7 @@ mockIPC(async (command,payload) => {
     return {id,name:String(args.name)};
   }
   if (command === 'pick_photo') throw {message:'图片选择请在原生 App 中验证，此页面仅使用虚构示意图。'};
-  if (['set_appearance','set_editing','finish_close'].includes(command)) return null;
+  if (['set_appearance','set_editing','set_library_busy','finish_close'].includes(command)) return null;
   throw {message:'此操作需在原生 App 验证：'+command};
 },{shouldMockEvents:true});
 window.addEventListener('keydown',event=>{
@@ -375,4 +375,5 @@ window.addEventListener('keydown',event=>{
   const action:Record<string,string>={n:'new-asset',f:'find-asset',e:'edit-asset'};
   if(action[event.key.toLowerCase()]){event.preventDefault();void emit('asset-action',action[event.key.toLowerCase()]);}
 });
+if (params.get('section')) sessionStorage.setItem('possio.library-section.v1', params.get('section')!);
 void import('./main');

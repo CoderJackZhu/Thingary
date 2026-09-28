@@ -202,6 +202,29 @@ impl Worker {
     pub fn reminder_snapshot(&self) -> Result<crate::reminders::Snapshot> {
         self.with_state(|state| crate::reminders::snapshot(&state.real))
     }
+    /// Restore the owner of a durable unknown-result receipt before the UI mounts.
+    pub fn resume_library(&self, generation: String) -> Result<()> {
+        self.with_state(move |state| {
+            if state.real.generation() == generation {
+                state.demo_mode = false;
+                return Ok(());
+            }
+            if state.demo.is_none() {
+                state.demo = Some(crate::demo::open(
+                    &state.real.root,
+                    &chrono::Local::now().format("%Y-%m-%d").to_string(),
+                )?);
+            }
+            if state
+                .demo
+                .as_ref()
+                .is_some_and(|s| s.generation() == generation)
+            {
+                state.demo_mode = true;
+            }
+            Ok(())
+        })
+    }
     pub fn reset_demo(&self, request_id: String) -> Result<DemoStatus> {
         self.with_state(move |state| {
             if let Some(next) = crate::demo::reset(
@@ -369,6 +392,47 @@ mod tests {
             "2026-09-28",
         )
         .unwrap()
+    }
+
+    #[test]
+    fn pending_receipt_resumes_its_library_after_restart() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("library");
+        let worker = Worker::start(root.clone()).unwrap();
+        let demo_generation = worker.call(|s| Ok(s.generation())).unwrap();
+        worker.switch_demo(false).unwrap();
+        worker
+            .call(|s| {
+                example_account(s);
+                Ok(())
+            })
+            .unwrap();
+        let real_generation = worker.call(|s| Ok(s.generation())).unwrap();
+        drop(worker);
+        let restarted = (0..100)
+            .find_map(|_| match Worker::start(root.clone()) {
+                Ok(worker) => Some(worker),
+                Err(error) if error.code == "LOCKED" => {
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                    None
+                }
+                Err(error) => panic!("unexpected restart failure: {error}"),
+            })
+            .expect("old worker released library lock");
+        assert!(!restarted.demo_status().unwrap().active);
+        restarted.resume_library(demo_generation.clone()).unwrap();
+        assert!(restarted.demo_status().unwrap().active);
+        assert_eq!(
+            restarted.call(|s| Ok(s.generation())).unwrap(),
+            demo_generation
+        );
+        assert!(restarted.reminder_snapshot().is_ok());
+        restarted.resume_library(real_generation.clone()).unwrap();
+        assert!(!restarted.demo_status().unwrap().active);
+        assert_eq!(
+            restarted.call(|s| Ok(s.generation())).unwrap(),
+            real_generation
+        );
     }
 
     #[test]

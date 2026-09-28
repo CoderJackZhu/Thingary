@@ -86,3 +86,5 @@ button{border-radius:6px;font-weight:400}.primary{font-weight:600}.shell{grid-te
 @media(max-width:850px){.editor.asset-editor>form>footer,.editor.wishlist-editor>form>footer,.editor.wish-detail>footer{bottom:-20px;margin-inline:-24px;margin-bottom:-20px;padding-inline:24px}}
 
 .choice-dialog[open]{display:flex;flex-direction:column;overflow:hidden;padding:20px 22px 0}.choice-dialog header{flex:none}.choice-body{overflow:auto;min-height:0;flex:1;margin-top:12px;scrollbar-gutter:stable}.choice-dialog footer{flex:none;margin:12px -22px 0;padding:14px 22px}.choice-body>.muted{margin-top:0}.choice-create{padding-right:5px}
+
+.settings-data-column{display:grid;gap:20px;min-width:0;align-content:start}.demo-settings .confirm{margin-top:16px}

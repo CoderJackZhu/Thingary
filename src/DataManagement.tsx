@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import {Icon} from './AssetViews';
@@ -14,9 +14,10 @@ export function localWorkKeys() {
   return keys;
 }
 
-export function DataManagement({ generation, blocked, demo, onTrash }: { generation: string | null; blocked: boolean; demo: boolean; onTrash: () => void }) {
+export function DataManagement({ generation, blocked, demo, onTrash, onBusyChange }: { generation: string | null; blocked: boolean; demo: boolean; onTrash: () => void; onBusyChange: (busy: boolean) => void }) {
   const [task, setTask] = useState<Task>({ kind: 'idle' }), [candidate, setCandidate] = useState<Inspected | null>(null);
   const busy = task.kind === 'running';
+  useEffect(() => { onBusyChange(busy || !!candidate); return () => onBusyChange(false); }, [busy, candidate, onBusyChange]);
   async function backup() {
     setCandidate(null); setTask({ kind: 'running', label: '正在生成并校验完整备份…' });
     try {

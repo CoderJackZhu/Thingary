@@ -27,7 +27,7 @@ export function usePendingReceipt(reload: () => void) {
 }
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
-export function WealthPage({ today }: { today: string }) {
+export function WealthPage({ today, onEditingChange }: { today: string; onEditingChange: (value: boolean) => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [summary, setSummary] = useState<Summary | null>(null), [accounts, setAccounts] = useState<Account[] | null>(null);
   const [error, setError] = useState(''), [retry, setRetry] = useState(0);
@@ -42,6 +42,7 @@ export function WealthPage({ today }: { today: string }) {
   }, [retry]);
   const reload = () => setRetry(n => n + 1);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!checkIn); return () => onEditingChange(false); }, [editing, pending, busy, checkIn, onEditingChange]);
   if (checkIn) return <CheckIn date={checkIn} today={today} onClose={saved => { setCheckIn(null); setPending(storedPending()); if (saved) { setTab('history'); reload(); } }}/>;
   const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
   const open = accounts?.filter(a => !a.fields.closed_on) ?? [];

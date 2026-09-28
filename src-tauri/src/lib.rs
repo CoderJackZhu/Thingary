@@ -38,6 +38,7 @@ pub fn run() {
                 app.path().app_data_dir()?.join("library"),
             )?);
             app.manage(commands::EditGuard::default());
+            app.manage(commands::LibraryGuard::default());
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem as Item, Submenu};
             let quit =
                 MenuItem::with_id(app, "quit-possio", "退出物志", true, Some("CmdOrCtrl+Q"))?;
@@ -128,6 +129,7 @@ pub fn run() {
             commands::save_sample,
             commands::demo_status,
             commands::switch_demo,
+            commands::reset_demo,
             commands::list_assets,
             commands::read_asset,
             commands::save_asset,
@@ -156,6 +158,7 @@ pub fn run() {
             commands::export_csv,
             commands::saved_request,
             commands::set_editing,
+            commands::set_library_busy,
             commands::finish_close,
             commands::set_appearance,
             commands::pick_photo,

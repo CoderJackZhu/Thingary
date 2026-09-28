@@ -43,20 +43,50 @@ use crate::catalog::{AssetRecord, Page, Query, SaveAsset};
 use std::sync::atomic::{AtomicBool, Ordering};
 #[derive(Default)]
 pub struct EditGuard(pub AtomicBool);
+#[derive(Default)]
+pub struct LibraryGuard(pub AtomicBool);
 #[tauri::command]
-pub async fn demo_status(worker: tauri::State<'_, Worker>) -> Result<crate::worker::DemoStatus> {
+pub fn set_library_busy(busy: bool, guard: tauri::State<'_, LibraryGuard>) {
+    guard.0.store(busy, Ordering::SeqCst);
+}
+#[tauri::command]
+pub async fn demo_status(
+    worker: tauri::State<'_, Worker>,
+    pending_generation: Option<String>,
+) -> Result<crate::worker::DemoStatus> {
     let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || w.demo_status())
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Some(generation) = pending_generation {
+            w.resume_library(generation)?;
+        }
+        w.demo_status()
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "无法读取样例状态"))?
+}
+#[tauri::command]
+pub async fn reset_demo(
+    request_id: String,
+    worker: tauri::State<'_, Worker>,
+    guard: tauri::State<'_, EditGuard>,
+    library_guard: tauri::State<'_, LibraryGuard>,
+) -> Result<crate::worker::DemoStatus> {
+    if guard.0.load(Ordering::SeqCst) || library_guard.0.load(Ordering::SeqCst) {
+        return Err(Error::new("EDITING", "请先完成或取消当前编辑"));
+    }
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.reset_demo(request_id))
         .await
-        .map_err(|_| Error::new("WORKER", "无法读取样例状态"))?
+        .map_err(|_| Error::new("WORKER", "重置结果未返回，请核对本次操作"))?
 }
 #[tauri::command]
 pub async fn switch_demo(
     demo: bool,
     worker: tauri::State<'_, Worker>,
     guard: tauri::State<'_, EditGuard>,
+    library_guard: tauri::State<'_, LibraryGuard>,
 ) -> Result<crate::worker::DemoStatus> {
-    if guard.0.load(Ordering::SeqCst) {
+    if guard.0.load(Ordering::SeqCst) || library_guard.0.load(Ordering::SeqCst) {
         return Err(Error::new("EDITING", "请先完成或取消当前编辑"));
     }
     let w = worker.inner().clone();
