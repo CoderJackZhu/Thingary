@@ -1,0 +1,95 @@
+APP hidden=false active=true
+AXWindow | 物志 · 大件图标验收
+    AXWebArea | 物志
+       AXStaticText | 物志
+      AXStaticText | POSSIO
+       AXButton | 总览
+        AXStaticText | 我的物品
+       AXButton | 全部资产
+       AXButton | 使用中
+       AXButton | 已退役
+       AXButton | 已售出
+        AXStaticText | 记录与回顾
+       AXButton | 心愿清单
+       AXButton | 时间轴
+       AXButton | 统计
+        AXStaticText | 财富
+       AXButton | 账户与盘点
+       AXButton | 重要支出
+       AXButton | 周期费用
+       AXButton | 素材库
+       AXButton | 最近删除
+       AXButton | 设置
+       AXCheckBox | 浅色模式
+       AXCheckBox | 深色模式
+       AXCheckBox | 跟随系统
+       AXStaticText | 本地档案 · 仅本机
+      AXStaticText | 我的物品
+      AXStaticText | ／
+      AXStaticText | 物品详情
+       AXTextField | 搜索物品
+        AXStaticText | ⌘F
+      AXButton | 新增资产 ⌘N
+       AXStaticText | 资料已保存。
+      AXButton | ← 返回物品列表
+       AXImage | 唱片机示意图（非实物照片）
+        AXStaticText | 未分类 ·
+        AXStaticText | 使用中
+       AXHeading | 虚构立体图标唱片机
+        AXStaticText | 虚构立体图标唱片机
+        AXStaticText | 一件物品，一段日常
+       AXButton | 编辑资料 ⌘E
+       AXButton | 新增维护
+       AXButton | 添加保障
+       AXButton | 退役
+       AXButton | 售出
+       AXHeading | 持有与成本
+        AXStaticText | 持有与成本
+       AXStaticText | 日均持有成本
+        AXStaticText | 待补充
+        AXStaticText | 已与你相伴 1 天
+         AXStaticText | 购入金额
+         AXStaticText | 待补充
+         AXStaticText | 维护投入
+         AXStaticText | ¥0.00
+         AXStaticText | 总投入
+         AXStaticText | 待补充
+         AXStaticText | 持有时长
+         AXStaticText | 1 天
+        AXStaticText | 按自然日计算，包含购入当天；售出后截止到售出日。
+       AXHeading | 购买资料
+        AXStaticText | 购买资料
+         AXStaticText | 购入日期
+         AXStaticText | 2026-09-28
+         AXStaticText | 购买渠道
+         AXStaticText | 未记录
+         AXStaticText | 品牌
+         AXStaticText | 待补充
+         AXStaticText | 型号
+         AXStaticText | 待补充
+         AXStaticText | 序列号
+         AXStaticText | 待补充
+       AXHeading | 关于这件物品
+        AXStaticText | 关于这件物品
+        AXStaticText | 还没有备注。记下购买的缘由，或使用中的小细节。
+       AXHeading | 物品时间轴
+        AXStaticText | 物品时间轴
+       AXStaticText | 最新记录在前
+          AXStaticText | 购入
+         AXStaticText | 2026-09-28
+          AXStaticText | 金额待补充
+       AXHeading | 保障档案
+        AXStaticText | 保障档案
+       AXStaticText | 还没有保障记录
+        AXStaticText | 还没有保障记录。厂家保修、延保或 AppleCare 都可以分别添加。
+       AXHeading | 维护档案
+        AXStaticText | 维护档案
+       AXStaticText | 0 条 · 已知费用 ¥0.00
+        AXStaticText | 还没有维护记录。
+       AXHeading | 图片附件
+        AXStaticText | 图片附件
+       AXStaticText | 1 张
+        AXButton | 预览 唱片机示意图（非实物照片）
+        AXDisclosureTriangle | 档案信息
+         AXStaticText | 档案信息
+ AXStaticText | 物志 · 大件图标验收

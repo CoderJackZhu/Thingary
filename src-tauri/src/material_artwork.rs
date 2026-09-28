@@ -85,6 +85,18 @@ fn artwork(id: &str) -> Option<&'static [u8]> {
         "object3d-suitcase" => include_bytes!("../materials/object3d-suitcase.png"),
         "object3d-tent" => include_bytes!("../materials/object3d-tent.png"),
         "object3d-books" => include_bytes!("../materials/object3d-books.png"),
+        "object3d-laptop" => include_bytes!("../materials/object3d-laptop.png"),
+        "object3d-camera" => include_bytes!("../materials/object3d-camera.png"),
+        "object3d-projector" => include_bytes!("../materials/object3d-projector.png"),
+        "object3d-speaker" => include_bytes!("../materials/object3d-speaker.png"),
+        "object3d-turntable" => include_bytes!("../materials/object3d-turntable.png"),
+        "object3d-console" => include_bytes!("../materials/object3d-console.png"),
+        "object3d-washer" => include_bytes!("../materials/object3d-washer.png"),
+        "object3d-fridge" => include_bytes!("../materials/object3d-fridge.png"),
+        "object3d-sofa" => include_bytes!("../materials/object3d-sofa.png"),
+        "object3d-desk" => include_bytes!("../materials/object3d-desk.png"),
+        "object3d-wardrobe" => include_bytes!("../materials/object3d-wardrobe.png"),
+        "object3d-piano" => include_bytes!("../materials/object3d-piano.png"),
         _ => return None,
     })
 }

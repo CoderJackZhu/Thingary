@@ -11,7 +11,9 @@ test('requested objects all have distinct named vector artwork',()=>{
 test('source, category and alias search intersect without changing asset data',()=>{
  assert.deepEqual(filterMaterials(entries,'icon','数码','HDD',[]).map(m=>m.name),['机械硬盘']);
  assert.equal(filterMaterials(entries,'icon','家电','HDD',[]).length,0);
- assert.equal(filterMaterials(entries,'dimensional','全部','',[]).length,4);
+ assert.equal(filterMaterials(entries,'dimensional','全部','',[]).length,16);
+ assert.deepEqual(filterMaterials(entries,'dimensional','家电','滚筒',[]).map(m=>m.id),['object3d-washer']);
+ assert.deepEqual(filterMaterials(entries,'icon','家电','滚筒',[]).map(m=>m.id),['icon-washer']);
  assert.equal(filterMaterials([...entries,{id:'custom',name:'我的照片',builtin:false}],'custom','全部','',[]).length,1);
 });
 test('recent choices are bounded, deduplicated and isolated by dataset generation',()=>{

@@ -84,3 +84,15 @@
 - 正式产物：`src-tauri/target/release/bundle/macos/物志.app`；Info.plist 为 `local.possio.main` / `1.6.2`，`codesign --verify --deep --strict` 通过，沿用本地 ad-hoc 签名，未公证。
 - 主程序 SHA-256：`a4145446646699f3384f9cc38a6dccfc0c1c60c47e8c8ecacbaf3525a5b32f08`。副本 `.local/install/物志-1.6.2.app` 哈希一致；旧 `.local/install/物志-1.6.1.app` 已保留。
 - 安装状态：用户确认“已退出，完成安装和收尾工作”后，复核正式进程已退出，已将 1.6.2 安装至 `/Applications/物志.app`。替换前验证 1.6.1 备份与旧主程序一致；新包先复制到同卷临时目录并校验，再替换应用。安装后版本 `1.6.2`、identity `local.possio.main`、严格签名、主程序 SHA-256 与整个包的逐文件哈希均与已验收安装包一致；临时安装目录已清理。没有启动正式应用或读取正式资料库，schema 不变。隔离验收 App 已退出，先前浏览器空间与开发服务已关闭。实现提交为 `9fb381c`，本轮仅更新安装记录，未推送。
+
+
+## 2026-09-28 · 立体图标扩充
+
+用户追加“立体图标也扩充一些”，继续围绕适合长期记录的贵重大件。新增笔记本电脑、相机、投影仪、落地音箱、唱片机、游戏主机、洗衣机、双门冰箱、双人沙发、实木书桌、实木衣柜、立式钢琴 12 个主题，立体图标由 4 个增至 16 个，素材总数 96。
+
+- 保留原 4 个立体图标、72 个普通图标与 8 个早期示意图，所有旧清单对象及 PNG 字节均与 HEAD 对照一致；无 schema、交互布局、分类或数据语义变更。
+- 继续在 `scripts/design-material-art.mjs` 的立体主题数组中维护原创几何形状，复用现有配色/轮廓/渐变/阴影；侧面较暗、顶面较亮，采用三分之四视角。清单 SVG、320×320 透明 PNG 和 Rust 嵌入资源同步，16 张立体 PNG 与现场重新渲染结果逐字节一致。生成脚本重复运行结果相同。
+- 同尺寸对照：[浅色](dimensional-expansion/contact-light.png)、[深色](dimensional-expansion/contact-dark.png)，每个图标 100×100；首行为原有 4 个主题，后面 12 个为新增。已检查轮廓、裁切、识别度和浅深色背景。
+- `npm run tauri -- build --debug --config .local/icon-expansion.conf.json --bundles app` 通过，包含 TypeScript/Vite 构建；`npm run test:ui` 100/100；素材存储 8/8；`npm run check` 通过。原有测试将立体数量固定为 4，已更新为 16，并检查“滚筒”在立体/普通来源下分别命中 `object3d-washer` / `icon-washer`。
+- 隔离原生身份 `local.possio.icon.expansion.acceptance`：首轮窗口失去前台后 AX 保护停止输入；用户要求继续后完成本轮验收。立体来源显示全部 16 个主题，搜索“黑胶”仅显示唱片机；选择后保存“虚构立体图标唱片机”，完整档案显示唱片机封面，退出重开后该资产及立体缩略图仍显示。截图：[原生选择器](dimensional-expansion/native-picker.png)、[重开列表](dimensional-expansion/native-reopened.png)；控件记录：[保存](dimensional-expansion/native-saved.txt)、[重开](dimensional-expansion/native-reopened.txt)。首次退出后立即打开出现 LaunchServices -609，待退出完成再启动成功；未修改应用代码。验收后隔离应用已退出。
+- 正式安装仍为 1.6.2；本轮未构建或安装正式包、未推送，正式应用与资料库未打开。无关 `.claude/` 和 `docs/ui/batch-mock.js` 保留。
