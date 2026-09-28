@@ -1,0 +1,28 @@
+# 标签与日均成本排序 · 隔离原生验收
+
+日期：2026-09-29。授权：用户同意「自定义状态」改为单选「标签」（列表显示、按标签筛选、不再预置「活跃中」、统计改称「使用中」），并增加「日均成本」排序、按次物品排到最后。执行：Claude。**正式 App 与 `local.possio.main` 未打开、未读取、未写入。**
+
+## 环境
+
+隔离身份 `local.possio.tag.acceptance`（配置被忽略），首次启动进入样例库；改前构建来自 `3d261c6`，改后构建来自当前工作区；窗口 1280×820 浅色。样例库由改前构建建立，因此保留旧版预置的「活跃中」，用于核对「已有资料库保留」。验收后隔离资料已删除。
+
+## 结果
+
+| 检查 | 改前 | 改后 |
+|---|---|---|
+| 编辑表单字段 | 自定义状态 | 标签 |
+| 统计页状态 | 活跃中（数量卡与状态条） | 使用中 |
+| 选项管理 › 标签 | — | 已有「活跃中」保留；新建「工作用」后出现在列表 |
+| 给 MacBook 设标签并保存 | — | 列表该行显示「电脑与办公 · 工作用」 |
+| 筛选与排序 | 资料、保障、排序（建档时间／名称／购入金额／购入日期） | 新增「标签」筛选与「日均成本」排序 |
+| 按日均成本降序 | — | MacBook、Fujifilm、iPhone 12 mini、WH-1000XM5、iPad Air 4、机械键盘 K2，其后为金额未知的虚构便携显示器、随身录音设备、家里的咖啡机；显示「按次计算的物品，以及金额、日期或维护费用不全的物品排在最后。」 |
+| 标签筛选「工作用」 | — | 只剩 MacBook（1 件） |
+
+## 截图（1280×820）
+
+改前：[筛选与排序](../ui/tags-sort/before-filters.jpg)、[编辑表单](../ui/tags-sort/before-editor.jpg)、[统计](../ui/tags-sort/before-stats.jpg)。改后：[筛选与排序](../ui/tags-sort/after-filters.jpg)、[编辑表单](../ui/tags-sort/after-editor.jpg)、[统计](../ui/tags-sort/after-stats.jpg)、[标签管理](../ui/tags-sort/after-settings-tags.jpg)、[日均成本排序](../ui/tags-sort/after-sort-daily.jpg)、[按标签筛选](../ui/tags-sort/after-filter-tag.jpg)。
+
+## 自动化
+
+- `catalog::daily_cost_sort_puts_per_use_and_unknowns_last_and_tags_filter`：新库无标签；日均成本升降序（含已售出净日均）、按次与价格未知排最后；按标签与「无标签」筛选；非法标签值被拒绝。
+- `batch` 标签测试改为先新建标签；全部 Rust 测试 188 项、clippy、fmt 与界面测试 125 项通过。
