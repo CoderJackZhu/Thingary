@@ -165,6 +165,22 @@ README 声明以 Swift / SwiftUI / SwiftData / CloudKit 构建，记录名称、
 
 **判断与借鉴：** 可观察资产筛选与信息组织，但权限、团队借还、预约和多工作区不是当前个人持物需求。功能多不代表适合直接改造为单机 App；不要因名称包含 asset 就把它列为业务上最接近的竞品。
 
+### 4.11 删除与恢复（2026-09-28 专题核验）
+
+用于判断是否保留“最近删除”。核验层级：持物、有数只读官网指南与 App Store 说明/版本记录；开源项目浅克隆默认分支后检索代码与文档，未运行应用。
+
+| 项目 | 删除方式 | 来源 |
+|---|---|---|
+| 持物 | 快速开始、备份、FAQ 与版本记录均未提及删除、回收站或恢复；**待实测，不能记为不支持** | [指南](https://www.ithingsapp.com/guide/getting-started)、[FAQ](https://www.ithingsapp.com/guide/faq)、[商店页](https://apps.apple.com/cn/app/id6747913105) |
+| 有数 | 商店说明未提及；版本记录只写修复问题；待实测 | [商店页](https://apps.apple.com/cn/app/id6739918572) |
+| WorthBase | 资产删除为永久删除，确认文案提示相关数据一并清除；账户另有“存档”保留余额历史，删除账户同样不可撤销 | `app/assets.tsx`、`app/accounts.tsx`、`docs/database-schema.md` |
+| ItemMemo | 物品详情确认后直接从本地数据移除，并删掉其提醒；无回收站 | `pages/items/detail.vue`、`services/appService` |
+| HomeBox | 物品以 `archived` 归档代替硬删除，默认查询隐藏 | 开发文档 Soft Deletes 节 |
+| HomeInventory | 箱子支持归档与恢复并记活动 | `routes/boxes.js` |
+| micasa | 通用软删除并可恢复；子记录的父记录已删除时提示先恢复父记录；有引用时禁止删除 | `cmd/micasa`、guide 的 vendors/appliances 页 |
+
+**判断：** 公开资料中，两个直接竞品都未说明有最近删除；开源项目多为“永久删除＋确认”或“归档代替删除”，只有 micasa 提供与 Possio 接近的软删除、父子恢复顺序。最近删除不是品类标配，但也没有证据表明它是多余负担；是否保留应按 Possio 自身的长期档案与误删代价判断。
+
 ## 5. 最终差异化定位
 
 > 物志 Possio 是一个面向 Mac、无需服务器的本地个人实物档案应用，用完整的心愿、购买、使用、维护、退役与售出记录，帮助用户回顾自己拥有过什么以及持有成本。
