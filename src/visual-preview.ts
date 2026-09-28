@@ -110,8 +110,60 @@ function previewPhotoName(id: string): string {
   const staged = stagedMaterials.get(id);
   return staged ? staged.name : '虚构物品示意图';
 }
-mockIPC(async (command,payload) => {
+// D19 batch commands over the same in-memory records; receipts keep prior values for undo.
+const batchReceipts = new Map<string, { action: string; items: { id: string; after: number; before: AssetRecord }[] }>();
+function batchRow(r: AssetRecord) {
+  const p = r.preferences;
+  return { id: r.asset.id, name: r.asset.name, revision: r.asset.revision, state: r.lifecycle?.state ?? 'active', price_cents: r.asset.price_cents, purchase_date: r.asset.purchase_date, last_event_date: r.lifecycle?.events.at(-1)?.date ?? null, category_id: r.classification?.category_id ?? null, channel_id: r.classification?.channel_id ?? null, label_id: p?.label_id ?? null, exclude: p?.exclude ?? { total: false, daily: false, statistics: false, timeline: false } };
+}
+async function handle(command: string, payload: unknown): Promise<unknown> {
   const args = payload as Record<string,unknown>;
+  if (command === 'choice_list') {
+    const kind = String(args.kind);
+    const items = kind === 'category' ? catalog.categories.map(c => ({ id: c.id, name: c.name, enabled: true })) : kind === 'channel' ? catalog.channels.map(c => ({ id: c.id, name: c.name, enabled: true })) : [{ id: 'label-active', name: '活跃中', enabled: true }];
+    return { revision: 0, items };
+  }
+  if (command === 'asset_ids') { const page = await handle('list_assets', { query: { ...(args.query as Query), offset: 0 }, all: true }) as Page; return page.items.map(r => r.asset.id); }
+  if (command === 'batch_rows') return (args.ids as string[]).map(id => records.find(r => r.asset.id === id && !r.deleted)).filter((r): r is AssetRecord => !!r).map(batchRow);
+  if (command === 'batch_change') {
+    const input = args.input as { request_id: string; action: string; items: { asset_id: string; expected_revision: number; category_id?: string | null; channel_id?: string | null; label_id?: string | null; exclude?: NonNullable<AssetRecord['preferences']>['exclude']; date?: string }[] };
+    const prior = batchReceipts.get(input.request_id); if (prior) return { changed: prior.items.length, skipped: 0 };
+    const today = localDay(), done: { id: string; after: number; before: AssetRecord }[] = [];
+    for (const item of input.items) {
+      const r = records.find(x => x.asset.id === item.asset_id && !x.deleted);
+      if (!r || r.asset.revision !== item.expected_revision) throw { code: 'REVISION_CONFLICT', message: `「${r?.asset.name ?? '物品'}」已变化，请重新读取后再保存` };
+      if (input.action === 'retire' || input.action === 'activate') {
+        const life = r.lifecycle ?? { state: 'active', events: [] }, want = input.action === 'retire' ? 'active' : 'retired';
+        const earliest = [r.asset.purchase_date, life.events.at(-1)?.date].filter(Boolean).sort().at(-1);
+        if (life.state !== want || !item.date || item.date > today || (earliest && item.date < earliest)) throw { code: 'DATE_CONFLICT', message: `「${r.asset.name}」：状态或日期不符合规则` };
+      }
+    }
+    for (const item of input.items) {
+      const r = records.find(x => x.asset.id === item.asset_id)!;
+      const before = structuredClone(r);
+      if (input.action === 'classify') r.classification = { category_id: item.category_id !== undefined ? item.category_id : r.classification?.category_id ?? null, channel_id: item.channel_id !== undefined ? item.channel_id : r.classification?.channel_id ?? null };
+      if (input.action === 'label' && r.preferences) r.preferences = { ...r.preferences, label_id: item.label_id ?? null };
+      if (input.action === 'exclude' && r.preferences && item.exclude) r.preferences = { ...r.preferences, exclude: item.exclude };
+      if (input.action === 'retire' || input.action === 'activate') { const life = r.lifecycle ?? { state: 'active', events: [] }; life.events.push({ id: crypto.randomUUID(), sequence: life.events.length + 1, kind: input.action === 'retire' ? 'retire' : 'activate', date: item.date!, notes: '' }); life.state = input.action === 'retire' ? 'retired' : 'active'; r.lifecycle = life; }
+      if (input.action === 'delete') { r.deleted = true; r.deleted_at = new Date().toISOString(); }
+      r.asset.revision++; taxonomyRevision++;
+      done.push({ id: r.asset.id, after: r.asset.revision, before });
+    }
+    batchReceipts.set(input.request_id, { action: input.action, items: done });
+    return { changed: done.length, skipped: 0 };
+  }
+  if (command === 'batch_undo') {
+    const input = args.input as { batch_request_id: string };
+    const batch = batchReceipts.get(input.batch_request_id); if (!batch) throw { code: 'NOT_FOUND', message: '找不到这次批量操作' };
+    let changed = 0, skipped = 0;
+    for (const item of batch.items) {
+      const i = records.findIndex(x => x.asset.id === item.id);
+      if (i < 0 || records[i].asset.revision !== item.after) { skipped++; continue; }
+      records[i] = { ...item.before, asset: { ...item.before.asset, revision: item.after + 1 } }; changed++;
+    }
+    taxonomyRevision++;
+    return { changed, skipped };
+  }
   const wealth = wealthPreview(command,args); if (wealth) return wealth.value;
   if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:true};
   if (command === 'switch_demo' || command === 'reset_demo') throw {message:'浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。'};
@@ -147,7 +199,7 @@ mockIPC(async (command,payload) => {
     }
     const value=(r:AssetRecord):string|number|null => query.sort==='name'?r.asset.name:query.sort==='price'?(r.asset.price_cents===null?null:Number(r.asset.price_cents)):query.sort==='date'?r.asset.purchase_date:query.sort==='deleted'?r.deleted_at:r.created_at;
     found.sort((a,b)=>{const x=value(a),y=value(b); if(x===null)return y===null?0:1;if(y===null)return -1;return (typeof x==='number' && typeof y==='number'?x-y:String(x).localeCompare(String(y),'zh-CN'))*(query.descending?-1:1);});
-    return { generation, items: found.slice(query.offset,query.offset+100).map(r => previewRecord(r)), total:found.length, today:localDay() } satisfies Page;
+    return { generation, items: found.slice(query.offset,args.all ? undefined : query.offset+100).map(r => previewRecord(r)), total:found.length, today:localDay() } satisfies Page;
   }
   if (command === 'read_asset') { const record = records.find(r=>r.asset.id===args.id); return record ? previewRecord(record) : null; }
   if (command === 'saved_request') {
@@ -379,10 +431,11 @@ mockIPC(async (command,payload) => {
   if (command === 'pick_photo') throw {message:'图片选择请在原生 App 中验证，此页面仅使用虚构示意图。'};
   if (['set_appearance','set_editing','set_library_busy','finish_close'].includes(command)) return null;
   throw {message:'此操作需在原生 App 验证：'+command};
-},{shouldMockEvents:true});
+}
+mockIPC(handle,{shouldMockEvents:true});
 window.addEventListener('keydown',event=>{
   if(!(event.metaKey||event.ctrlKey))return;
-  const action:Record<string,string>={n:'new-asset',f:'find-asset',e:'edit-asset'};
+  const action:Record<string,string>={n:'new-asset',f:'find-asset',e:'edit-asset',a:'select-all',z:'undo'};
   if(action[event.key.toLowerCase()]){event.preventDefault();void emit('asset-action',action[event.key.toLowerCase()]);}
 });
 if (params.get('section')) sessionStorage.setItem('possio.library-section.v1', params.get('section')!);

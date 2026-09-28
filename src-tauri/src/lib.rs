@@ -81,7 +81,8 @@ pub fn run() {
                     &Item::cut(app, Some("剪切"))?,
                     &Item::copy(app, Some("复制"))?,
                     &Item::paste(app, Some("粘贴"))?,
-                    &Item::select_all(app, Some("全选"))?,
+                    // Like 撤销: the page selects text in a field, else every matching item.
+                    &MenuItem::with_id(app, "select-all", "全选", true, Some("CmdOrCtrl+A"))?,
                     &Item::separator(app)?,
                     &MenuItem::with_id(app, "find-asset", "搜索物品", true, Some("CmdOrCtrl+F"))?,
                     &MenuItem::with_id(app, "edit-asset", "编辑资料", true, Some("CmdOrCtrl+E"))?,
@@ -189,7 +190,7 @@ pub fn run() {
             let action = event.id().as_ref();
             if matches!(
                 action,
-                "new-asset" | "find-asset" | "edit-asset" | "open-settings" | "undo"
+                "new-asset" | "find-asset" | "edit-asset" | "open-settings" | "undo" | "select-all"
             ) {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.show();

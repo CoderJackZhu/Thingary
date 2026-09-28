@@ -19,6 +19,6 @@ test('⌘Z keeps text undo in fields and undoes an offered deletion elsewhere', 
 test('⌘Z is a native menu item that reaches the page', () => {
   const menu = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
   assert.match(menu, /MenuItem::with_id\(app, "undo", "撤销", true, Some\("CmdOrCtrl\+Z"\)\)/);
-  assert.match(menu, /\| "undo"\n/);
+  assert.match(menu, /\| "undo"/);
   assert.match(readFileSync(new URL('../src/undo.tsx', import.meta.url), 'utf8'), /payload !== 'undo'/);
 });

@@ -5,10 +5,11 @@ import { undoTarget } from './undo-shortcut';
 
 // D17 rule 6: right after a deletion, one click puts it back. Recently Deleted
 // stays the durable path; this bar only covers a click made by mistake.
-type Offer = { label: string; run: () => Promise<void> };
+type Offer = { label: string; run: () => Promise<void | string> };
 const offerEvent = 'possio-undo', restoredEvent = 'possio-restored';
 
-export function offerUndo(label: string, run: () => Promise<void>) {
+/** `run` may return its own result line, e.g. how many items were skipped. */
+export function offerUndo(label: string, run: () => Promise<void | string>) {
   window.dispatchEvent(new CustomEvent<Offer>(offerEvent, { detail: { label, run } }));
 }
 
@@ -45,7 +46,7 @@ export function UndoBar() {
   async function undo() {
     if (!offer || busy) return;
     setBusy(true); window.clearTimeout(timer.current);
-    try { await offer.run(); setMessage('已撤销删除。'); window.dispatchEvent(new Event(restoredEvent)); }
+    try { setMessage((await offer.run()) || '已撤销删除。'); window.dispatchEvent(new Event(restoredEvent)); }
     catch (e) { setMessage(errorMessage(e) + ' 可以到“最近删除”恢复。'); }
     finally { setBusy(false); hideLater(4000); }
   }
