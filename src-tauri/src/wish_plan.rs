@@ -258,6 +258,9 @@ impl Store {
         self.commit_wishlist_cover(&tx, &id, &input.photos)?;
         tx.execute("INSERT INTO wishlist_preferences VALUES(?1,?2) ON CONFLICT(wishlist_id) DO UPDATE SET payload=excluded.payload",params![id,serde_json::to_string(&p)?])?;
         if status == "achieved" {
+            if old.as_ref().is_none_or(|w| w.status != "achieved") {
+                self.refuse_new_asset()?;
+            }
             crate::wishlist::link_achieved_asset(&tx, &id)?;
         }
         tx.execute(
@@ -337,6 +340,9 @@ impl Store {
         tx.execute("UPDATE wishlist_items SET status=?2,achieved_at=?3,revision=revision+1,updated_at=?4 WHERE id=?1",params![input.id,status,at,now])?;
         tx.execute("INSERT INTO wishlist_preferences VALUES(?1,?2) ON CONFLICT(wishlist_id) DO UPDATE SET payload=excluded.payload",params![input.id,serde_json::to_string(&p)?])?;
         if status == "achieved" {
+            if old.status != "achieved" {
+                self.refuse_new_asset()?;
+            }
             crate::wishlist::link_achieved_asset(&tx, &input.id)?;
         }
         let result = crate::wishlist::read(&tx, &input.id)?

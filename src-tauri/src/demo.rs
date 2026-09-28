@@ -326,6 +326,7 @@ fn selected_root(real_root: &std::path::Path) -> Result<std::path::PathBuf> {
 pub(crate) fn open(real_root: &std::path::Path, today: &str) -> Result<Store> {
     let mut s = Store::open(&selected_root(real_root)?)?;
     prepare(&mut s, today)?;
+    s.sample = true;
     Ok(s)
 }
 pub(crate) fn reset(real: &Store, today: &str, request_id: &str) -> Result<Option<Store>> {
@@ -364,6 +365,7 @@ pub(crate) fn reset(real: &Store, today: &str, request_id: &str) -> Result<Optio
         return Err(error);
     }
     let _ = candidate.keep();
+    next.sample = true;
     Ok(Some(next))
 }
 
@@ -514,6 +516,82 @@ mod unified_tests {
         assert!(reset(&real, TODAY, &request).unwrap().is_none());
         assert!(!real.has_any_asset().unwrap());
         assert!(real.wealth_accounts().unwrap().is_empty());
+    }
+    #[test]
+    fn sample_refuses_new_assets_including_wish_achievement() {
+        let tmp = tempfile::tempdir().unwrap();
+        let real = tmp.path().join("library");
+        let mut s = open(&real, TODAY).unwrap();
+        let assets = |s: &Store| -> i64 {
+            s.conn()
+                .unwrap()
+                .query_row("SELECT count(*) FROM assets", [], |r| r.get(0))
+                .unwrap()
+        };
+        let before = assets(&s);
+        let refused = |r: Result<()>| assert_eq!(r.unwrap_err().code, "SAMPLE_NO_NEW_ASSET");
+        let save = |id: Option<String>, rev: Option<i64>, name: &str, g: String| SaveAsset {
+            options: None,
+            base: Save {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: g,
+                asset_id: id,
+                expected_revision: rev,
+                name: name.into(),
+                price_cents: None,
+                purchase_date: None,
+            },
+            details: Details::default(),
+            photos: None,
+            classification: None,
+        };
+        refused(
+            s.save_asset(&save(None, None, "随手新增", s.generation()), TODAY)
+                .map(|_| ()),
+        );
+        // Editing an existing sample asset still works.
+        let laptop = s
+            .saved_request(&request("laptop", "create"), &s.generation())
+            .unwrap()
+            .unwrap();
+        let rev = s.record(&laptop.asset.id).unwrap().unwrap().asset.revision;
+        s.save_asset(
+            &save(
+                Some(laptop.asset.id),
+                Some(rev),
+                "改名的样例",
+                s.generation(),
+            ),
+            TODAY,
+        )
+        .unwrap();
+        // Savings reaching the price would achieve the wish and create an asset.
+        let lens: String = s
+            .conn()
+            .unwrap()
+            .query_row(
+                "SELECT id FROM wishlist_items WHERE name='虚构旅行镜头'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let wish = s.wishlist_item(&lens).unwrap().unwrap();
+        refused(
+            s.save_wish_savings(
+                &crate::wish_plan::Saving {
+                    request_id: uuid::Uuid::new_v4().to_string(),
+                    generation: s.generation(),
+                    id: lens.clone(),
+                    expected_revision: wish.revision,
+                    mode: "total".into(),
+                    cents: "300000".into(),
+                },
+                TODAY,
+            )
+            .map(|_| ()),
+        );
+        assert_eq!(s.wishlist_item(&lens).unwrap().unwrap().status, "ongoing");
+        assert_eq!(assets(&s), before);
     }
     #[test]
     fn sample_pointer_cannot_target_personal_library_or_symlink() {

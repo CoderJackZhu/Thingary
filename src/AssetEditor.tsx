@@ -19,7 +19,7 @@ export const draftKey = 'possio.asset-draft.v1';
 export type Conversion = { wishlist_id: string; expected_revision: number; wish_name: string; estimated_price_cents: string | null; cover_notice?: string };
 export type Draft = { options?:AssetOptions; originalOptions?:AssetOptions; transientCover?: string; conversion?: Conversion; classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
 export type CloseIntent = 'form' | 'window' | 'quit';
-export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, onSaved }: { initial: Draft; taxonomy: TaxonomySnapshot | null; closeIntent: CloseIntent | null; onKeep: () => void; onClose: (intent: CloseIntent) => void; onSaved: (record: AssetRecord) => void }) {
+export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, onSaved, onDelete }: { initial: Draft; taxonomy: TaxonomySnapshot | null; closeIntent: CloseIntent | null; onKeep: () => void; onClose: (intent: CloseIntent) => void; onSaved: (record: AssetRecord) => void; onDelete?: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -140,6 +140,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   return <dialog ref={dialog} className={pickerOpen ? "icon-picker-host" : `editor asset-editor${draft.id ? ' asset-editor-existing' : ''}`} aria-labelledby={pickerOpen ? "icon-picker-title" : "editor-title"} onCancel={e => { e.preventDefault(); askClose('form'); }}>
     <form hidden={pickerOpen} noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
       <header><div><p className="eyebrow">{conversion ? '心愿转为资产' : '物品档案'}</p><h2 id="editor-title">{conversion ? '确认购入' : draft.id ? '编辑资料' : '新增资产'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button><div className="editor-header-actions">
+        {draft.id && !conversion && onDelete && <button type="button" className="danger" disabled={busy || !!draft.pending || pickerOpen} onClick={onDelete}>删除物品</button>}
         {conflict && <button type="button" onClick={() => void reloadLatest()}>核对最新版本</button>}
         {draft.pending ? <button type="button" className="primary" disabled={busy} onClick={() => void resolvePending()}>检查提交结果</button> : <button type="submit" className="primary" disabled={busy || conflict || !!draft.photoError}>{busy ? '正在保存…' : conversion ? '确认购入并建档' : '保存资产'}</button>}
       </div></header><div className="editor-body">

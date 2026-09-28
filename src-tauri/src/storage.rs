@@ -31,6 +31,9 @@ pub struct Store {
     /// Originals already hashed this session, keyed by path. A file that is
     /// replaced, truncated or rewritten gets a new stamp and is hashed again.
     pub(crate) verified: std::sync::Mutex<std::collections::HashMap<PathBuf, FileStamp>>,
+    /// The sample library takes edits but no new assets (2026-09-28 user decision);
+    /// set only after the sample itself has been prepared.
+    pub(crate) sample: bool,
 }
 pub(crate) fn uid() -> String {
     uuid::Uuid::new_v4().to_string()
@@ -116,7 +119,17 @@ impl Store {
             _lock: lock,
             hook: Box::new(|_| Ok(())),
             verified: Default::default(),
+            sample: false,
         })
+    }
+    pub(crate) fn refuse_new_asset(&self) -> Result<()> {
+        if self.sample {
+            return Err(Error::new(
+                "SAMPLE_NO_NEW_ASSET",
+                "样例不接受新增资产，实现心愿也会新增一件资产。请回到我的资料后记录。",
+            ));
+        }
+        Ok(())
     }
     pub fn generation(&self) -> String {
         self.active.generation.clone()
@@ -291,6 +304,7 @@ impl Store {
                 ));
             }
         } else {
+            self.refuse_new_asset()?;
             tx.execute(
                 "INSERT INTO assets(id,name,price_cents,purchase_date,revision) VALUES(?1,?2,?3,?4,1)",
                 params![id, input.name.trim(), price, input.purchase_date],
