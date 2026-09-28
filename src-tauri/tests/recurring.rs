@@ -349,7 +349,7 @@ fn backups_carry_plans_and_schema_sixteen_backups_migrate() {
     let summary = b.inspect_backup(&file).unwrap();
     assert_eq!(
         (summary.schema, summary.plans, summary.payments),
-        (17, 1, 1)
+        (18, 1, 1)
     );
     b.restore(&file, &summary.hash, &b.generation()).unwrap();
     assert_eq!(

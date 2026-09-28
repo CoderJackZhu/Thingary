@@ -230,7 +230,9 @@ impl Store {
                 crate::wishlist::read(&tx, id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到心愿"))
             })
             .transpose()?;
-        if old.as_ref().map(|w| w.revision) != input.expected_revision {
+        if old.as_ref().map(|w| w.revision) != input.expected_revision
+            || old.as_ref().is_some_and(|w| w.deleted)
+        {
             return Err(Error::new("REVISION_CONFLICT", "心愿已变化，请重新读取"));
         }
         let id = input.id.clone().unwrap_or_else(uid);
@@ -304,7 +306,7 @@ impl Store {
         }
         let old = crate::wishlist::read(&tx, &input.id)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到心愿"))?;
-        if old.revision != input.expected_revision {
+        if old.revision != input.expected_revision || old.deleted {
             return Err(Error::new("REVISION_CONFLICT", "心愿已变化，请重新读取"));
         }
         if old.preferences.mode != "savings" {

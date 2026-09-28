@@ -767,7 +767,7 @@ fn schema_ten_upgrade_preserves_data_and_rolls_back_atomically() {
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap()
     };
-    assert_eq!(version, 17);
+    assert_eq!(version, 18);
     let record = s
         .query_assets(&query("all"), TODAY)
         .unwrap()

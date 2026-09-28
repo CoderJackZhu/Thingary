@@ -50,6 +50,13 @@ pub struct Entry {
     pub asset_deleted: bool,
     pub asset_revision: i64,
     pub asset_state: Option<String>,
+    /// What this one deletion took along, shown so a restore holds no surprise (D17).
+    pub contents: Vec<Content>,
+}
+#[derive(Clone, Debug, Serialize)]
+pub struct Content {
+    pub kind: &'static str,
+    pub count: i64,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -304,7 +311,9 @@ impl Store {
     /// Unified view over every independently deleted row (assets, maintenances,
     /// warranties). Children hidden only by a deleted parent never appear here.
     pub fn list_trash(&self, q: &TrashQuery) -> Result<TrashPage> {
-        if !["all", "asset", "maintenance", "warranty", "wealth"].contains(&q.filter.as_str()) {
+        if !["all", "asset", "maintenance", "warranty", "wish", "wealth"]
+            .contains(&q.filter.as_str())
+        {
             return Err(Error::new("QUERY", "不支持的筛选"));
         }
         let c = self.conn()?;
@@ -329,6 +338,7 @@ impl Store {
                         asset_deleted: true,
                         asset_revision: r.get(3)?,
                         asset_state: Some(r.get(4)?),
+                        contents: vec![],
                     })
                 },
             )?);
@@ -353,6 +363,7 @@ impl Store {
                         asset_deleted: r.get::<_, Option<String>>(8)?.is_some(),
                         asset_revision: r.get(9)?,
                         asset_state: Some(r.get(10)?),
+                        contents: vec![],
                     })
                 },
             )?);
@@ -377,6 +388,7 @@ impl Store {
                         asset_deleted: r.get::<_, Option<String>>(8)?.is_some(),
                         asset_revision: r.get(9)?,
                         asset_state: Some(r.get(10)?),
+                        contents: vec![],
                     })
                 },
             )?);
@@ -401,6 +413,7 @@ impl Store {
                         asset_deleted: false,
                         asset_revision: r.get(5)?,
                         asset_state: None,
+                        contents: vec![],
                     })
                 }
             };
@@ -417,6 +430,35 @@ impl Store {
                 Ok(e)
             })?;
             entries.append(&mut paid);
+        }
+        if q.filter == "all" || q.filter == "wish" {
+            // `date` is the realization day; `asset_*` describe the realized item.
+            entries.extend(query_entries(
+                c,
+                "SELECT w.id,w.name,w.status,substr(w.achieved_at,1,10),w.deleted_at,w.revision,a.id,a.name,a.deleted_at IS NOT NULL FROM wishlist_items w LEFT JOIN assets a ON a.id=w.converted_asset_id WHERE w.deleted_at IS NOT NULL",
+                |r| {
+                    Ok(Entry {
+                        kind: "wish".into(),
+                        id: r.get(0)?,
+                        title: r.get(1)?,
+                        subtype: r.get(2)?,
+                        date: r.get(3)?,
+                        end_date: None,
+                        cost_cents: None,
+                        provider: None,
+                        deleted_at: r.get(4)?,
+                        asset_id: r.get(6)?,
+                        asset_name: r.get(7)?,
+                        asset_deleted: r.get::<_, Option<bool>>(8)?.unwrap_or(false),
+                        asset_revision: r.get(5)?,
+                        asset_state: None,
+                        contents: vec![],
+                    })
+                },
+            )?);
+        }
+        for entry in &mut entries {
+            entry.contents = contents(c, &entry.kind, &entry.id)?;
         }
         // RFC3339 UTC stamps sort lexicographically; ties break by kind then id.
         entries.sort_by(|a, b| {
@@ -437,6 +479,59 @@ impl Store {
             total,
         })
     }
+}
+
+/// Rows hidden only because their parent is deleted: they return with it.
+fn contents(c: &Connection, kind: &str, id: &str) -> Result<Vec<Content>> {
+    let queries: &[(&'static str, &str)] = match kind {
+        "asset" => &[
+            (
+                "maintenance",
+                "SELECT count(*) FROM maintenances WHERE asset_id=?1 AND deleted_at IS NULL",
+            ),
+            (
+                "warranty",
+                "SELECT count(*) FROM warranties WHERE asset_id=?1 AND deleted_at IS NULL",
+            ),
+            (
+                "expense",
+                "SELECT count(*) FROM expenses WHERE asset_id=?1 AND deleted_at IS NULL",
+            ),
+            (
+                "photo",
+                "SELECT count(*) FROM asset_photos WHERE asset_id=?1",
+            ),
+        ],
+        "maintenance" => &[(
+            "photo",
+            "SELECT count(*) FROM maintenance_photos WHERE maintenance_id=?1",
+        )],
+        "warranty" => &[(
+            "photo",
+            "SELECT count(*) FROM warranty_photos WHERE warranty_id=?1",
+        )],
+        "plan" => &[(
+            "payment",
+            "SELECT count(*) FROM plan_payments WHERE plan_id=?1 AND deleted_at IS NULL",
+        )],
+        "snapshot" => &[(
+            "entry",
+            "SELECT count(*) FROM fin_snapshot_entries WHERE snapshot_id=?1",
+        )],
+        "wish" => &[(
+            "photo",
+            "SELECT count(*) FROM wishlist_attachments WHERE wishlist_id=?1",
+        )],
+        _ => &[],
+    };
+    let mut out = Vec::new();
+    for (kind, sql) in queries {
+        let count: i64 = c.query_row(sql, [id], |r| r.get(0))?;
+        if count > 0 {
+            out.push(Content { kind, count });
+        }
+    }
+    Ok(out)
 }
 
 fn query_entries(

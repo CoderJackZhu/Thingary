@@ -730,7 +730,7 @@ impl Store {
 pub struct TrashChange {
     pub request_id: String,
     pub generation: String,
-    /// `snapshot`, `account`, `expense`, `plan` or `payment`.
+    /// `snapshot`, `account`, `expense`, `plan`, `payment` or `wish`.
     pub kind: String,
     pub id: String,
     pub expected_revision: i64,
@@ -757,6 +757,7 @@ impl Store {
             "expense" => "expenses",
             "plan" => "recurring_plans",
             "payment" => "plan_payments",
+            "wish" => "wishlist_items",
             _ => return Err(Error::new("TRASH_KIND", "不支持的类型")),
         };
         let current: Option<(i64, Option<String>)> = tx

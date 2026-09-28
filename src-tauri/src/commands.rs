@@ -977,6 +977,16 @@ pub async fn wealth_trash(
         .map_err(|_| Error::new("WORKER", "操作结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn purge_trash(
+    input: crate::purge::Purge,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::purge::Purged> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.purge_trash(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "操作结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
 pub async fn expense(
     id: String,
     worker: tauri::State<'_, Worker>,

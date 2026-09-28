@@ -71,6 +71,9 @@ pub struct WishlistItem {
     pub photos: Vec<Photo>,
     #[serde(default)]
     pub preferences: crate::wish_plan::Preferences,
+    /// In Recently Deleted: hidden everywhere and closed to changes (D17).
+    #[serde(default)]
+    pub deleted: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -141,7 +144,7 @@ struct Receipt {
 pub(crate) fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
     let row = c
         .query_row(
-            "SELECT id,name,category_id,estimated_price_cents,priority,target_date,external_link,notes,status,revision,created_at,updated_at,abandoned_at,achieved_at FROM wishlist_items WHERE id=?1",
+            "SELECT id,name,category_id,estimated_price_cents,priority,target_date,external_link,notes,status,revision,created_at,updated_at,abandoned_at,achieved_at,deleted_at IS NOT NULL FROM wishlist_items WHERE id=?1",
             [id],
             |r| {
                 Ok(WishlistItem {
@@ -165,6 +168,7 @@ pub(crate) fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
                     cover: None,
                     photos: vec![],
                     preferences: Default::default(),
+                    deleted: r.get(14)?,
                 })
             },
         )
@@ -195,7 +199,7 @@ pub(crate) fn read(c: &Connection, id: &str) -> Result<Option<WishlistItem>> {
 /// actual purchase price is unknown until the user records it separately.
 pub(crate) fn link_achieved_asset(tx: &Transaction<'_>, wish_id: &str) -> Result<Option<String>> {
     let wish = read(tx, wish_id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这条心愿"))?;
-    if wish.status != "achieved" || wish.converted_asset.is_some() {
+    if wish.status != "achieved" || wish.converted_asset.is_some() || wish.deleted {
         return Ok(None);
     }
     let asset_id = uid();
@@ -279,7 +283,7 @@ pub(crate) fn unlink_auto_achieved_asset(tx: &Transaction<'_>, wish: &WishlistIt
 }
 
 pub(crate) fn backfill_achieved_assets(c: &Connection) -> Result<usize> {
-    let mut stmt = c.prepare("SELECT id FROM wishlist_items WHERE status='achieved' AND converted_asset_id IS NULL ORDER BY created_at,id")?;
+    let mut stmt = c.prepare("SELECT id FROM wishlist_items WHERE status='achieved' AND converted_asset_id IS NULL AND deleted_at IS NULL ORDER BY created_at,id")?;
     let ids = stmt
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -387,7 +391,7 @@ impl Store {
                     .ok_or_else(|| Error::new("REVISION", "版本标识无效"))?;
                 let status: Option<(String, i64)> = tx
                     .query_row(
-                        "SELECT status,revision FROM wishlist_items WHERE id=?1",
+                        "SELECT status,revision FROM wishlist_items WHERE id=?1 AND deleted_at IS NULL",
                         [wishlist_id],
                         |r| Ok((r.get(0)?, r.get(1)?)),
                     )
@@ -467,7 +471,7 @@ impl Store {
         }
         let current: Option<(String, i64, Option<String>)> = tx
             .query_row(
-                "SELECT status,revision,converted_asset_id FROM wishlist_items WHERE id=?1",
+                "SELECT status,revision,converted_asset_id FROM wishlist_items WHERE id=?1 AND deleted_at IS NULL",
                 [&input.wishlist_id],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
@@ -544,7 +548,7 @@ impl Store {
         Ok(self
             .conn()?
             .query_row(
-                "SELECT id,name,estimated_price_cents,created_at,achieved_at FROM wishlist_items WHERE converted_asset_id=?1",
+                "SELECT id,name,estimated_price_cents,created_at,achieved_at FROM wishlist_items WHERE converted_asset_id=?1 AND deleted_at IS NULL",
                 [asset_id],
                 |r| {
                     Ok(Origin {
@@ -575,7 +579,7 @@ impl Store {
             "target" => format!("w.target_date IS NULL ASC,w.target_date {direction}"),
             _ => return Err(Error::new("QUERY", "不支持的心愿排序")),
         };
-        let from = "FROM wishlist_items w LEFT JOIN categories c ON c.id=w.category_id WHERE (w.status=?1 OR (?1='all' AND w.status IN ('ongoing','achieved'))) AND instr(lower(w.name || ' ' || w.external_link || ' ' || w.notes || ' ' || coalesce(c.name,'')),lower(?2))>0";
+        let from = "FROM wishlist_items w LEFT JOIN categories c ON c.id=w.category_id WHERE w.deleted_at IS NULL AND (w.status=?1 OR (?1='all' AND w.status IN ('ongoing','achieved'))) AND instr(lower(w.name || ' ' || w.external_link || ' ' || w.notes || ' ' || coalesce(c.name,'')),lower(?2))>0";
         let total = self.conn()?.query_row(
             &format!("SELECT count(*) {from}"),
             params![filter, q.search.trim()],
@@ -594,7 +598,7 @@ impl Store {
             .map(|id| read(self.conn()?, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "心愿不存在")))
             .collect::<Result<Vec<_>>>()?;
         let (known, unknown): (i64, i64) = self.conn()?.query_row(
-            "SELECT coalesce(sum(estimated_price_cents),0),coalesce(sum(estimated_price_cents IS NULL),0) FROM wishlist_items WHERE status='ongoing'",
+            "SELECT coalesce(sum(estimated_price_cents),0),coalesce(sum(estimated_price_cents IS NULL),0) FROM wishlist_items WHERE status='ongoing' AND deleted_at IS NULL",
             [],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;

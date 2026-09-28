@@ -15,6 +15,7 @@ pub mod materials;
 pub mod native_images;
 pub mod photos;
 pub mod preferences;
+pub mod purge;
 mod recovery;
 pub mod recurring;
 pub mod reminders;
@@ -109,6 +110,7 @@ pub fn run() {
             commands::wealth_request_result,
             commands::wealth_summary,
             commands::wealth_trash,
+            commands::purge_trash,
             commands::expense,
             commands::expense_save,
             commands::expense_view,

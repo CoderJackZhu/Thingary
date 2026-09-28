@@ -72,7 +72,7 @@ impl Store {
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
         let ongoing: i64 = c.query_row(
-            "SELECT count(*) FROM wishlist_items WHERE status='ongoing'",
+            "SELECT count(*) FROM wishlist_items WHERE status='ongoing' AND deleted_at IS NULL",
             [],
             |r| r.get(0),
         )?;

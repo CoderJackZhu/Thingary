@@ -64,6 +64,11 @@ pub enum Action {
         event_id: String,
         date: String,
     },
+    /// Removes a mistakenly recorded latest event as if it never happened
+    /// (D18); a real change of mind is a new Append instead.
+    Revoke {
+        event_id: String,
+    },
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -175,19 +180,24 @@ impl Store {
                 "物品已更改或移入最近删除，请重新读取后决定",
             ));
         }
-        let requested_date = match &input.action {
-            Action::Append { date, .. } | Action::CorrectDate { date, .. } => date,
-        };
-        if date(requested_date)? > date(today)? {
-            return Err(Error::new("FUTURE", "动作日期不能晚于今天"));
+        if let Action::Append {
+            date: requested, ..
         }
-        if record
-            .asset
-            .purchase_date
-            .as_ref()
-            .is_some_and(|p| requested_date < p)
+        | Action::CorrectDate {
+            date: requested, ..
+        } = &input.action
         {
-            return Err(Error::new("DATE_CONFLICT", "动作日期不能早于购入日期"));
+            if date(requested)? > date(today)? {
+                return Err(Error::new("FUTURE", "动作日期不能晚于今天"));
+            }
+            if record
+                .asset
+                .purchase_date
+                .as_ref()
+                .is_some_and(|p| requested < p)
+            {
+                return Err(Error::new("DATE_CONFLICT", "动作日期不能早于购入日期"));
+            }
         }
         let events = &record.lifecycle.events;
         let now = chrono::Utc::now().to_rfc3339();
@@ -266,6 +276,29 @@ impl Store {
                 tx.execute(
                     "UPDATE lifecycle_events SET date=?1,updated_at=?2 WHERE id=?3",
                     params![date, now, event_id],
+                )?;
+            }
+            Action::Revoke { event_id } => {
+                if record.sale.is_some() {
+                    return Err(Error::new(
+                        "STATE_CONFLICT",
+                        "这件物品已售出。请先撤销误记售出，再撤销更早的状态记录。",
+                    ));
+                }
+                if events.last().map(|e| &e.id) != Some(event_id) {
+                    return Err(Error::new(
+                        "NOT_LATEST",
+                        "只能撤销最近一条状态记录，请先撤销之后的记录。",
+                    ));
+                }
+                let state = events
+                    .len()
+                    .checked_sub(2)
+                    .map_or("active", |i| events[i].kind.state());
+                tx.execute("DELETE FROM lifecycle_events WHERE id=?1", [event_id])?;
+                tx.execute(
+                    "UPDATE assets SET lifecycle_state=?1 WHERE id=?2",
+                    params![state, input.asset_id],
                 )?;
             }
         }

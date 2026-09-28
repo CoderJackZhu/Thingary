@@ -176,10 +176,10 @@ SELECT 'maintenance',m.id,a.id,a.name||CASE WHEN trim(m.title)='' THEN '' ELSE '
   WHERE m.deleted_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)
 UNION ALL
 SELECT CASE WHEN e.asset_id IS NULL THEN 'expense' ELSE 'linked' END,e.id,e.asset_id,e.title,e.category,e.date,e.amount_cents
-  FROM expenses e WHERE e.deleted_at IS NULL
+  FROM expenses e WHERE e.deleted_at IS NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))
 UNION ALL
 SELECT 'refund',e.id,e.asset_id,e.title,e.category,e.refund_date,e.refund_cents
-  FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL
+  FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))
 UNION ALL
 SELECT 'payment',p.id,NULL,r.name,r.category,p.paid_date,p.amount_cents
   FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id
