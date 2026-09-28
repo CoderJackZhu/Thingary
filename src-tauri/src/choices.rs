@@ -10,6 +10,7 @@ pub struct Entry {
     pub id: String,
     pub name: String,
     pub enabled: bool,
+    pub references: i64,
 }
 #[derive(Serialize, Deserialize)]
 pub struct Snapshot {
@@ -19,9 +20,25 @@ pub struct Snapshot {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
-    Create { name: String },
-    Enable { id: String, enabled: bool },
-    Reorder { ids: Vec<String> },
+    Create {
+        name: String,
+    },
+    Enable {
+        id: String,
+        enabled: bool,
+    },
+    Reorder {
+        ids: Vec<String>,
+    },
+    Rename {
+        id: String,
+        name: String,
+    },
+    Remove {
+        id: String,
+        replacement: Option<String>,
+        expected_references: i64,
+    },
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -44,16 +61,24 @@ impl Store {
     pub fn choices(&self, kind: &str) -> Result<Snapshot> {
         let c = self.conn()?;
         let sql=match table(kind)?{Some(t)=>format!("SELECT id,name,NOT EXISTS(SELECT 1 FROM disabled_choices d WHERE d.kind=?1 AND d.id=t.id) FROM {t} t ORDER BY position,id"),None=>"SELECT id,name,enabled FROM named_choices WHERE kind=?1 ORDER BY position,id".into()};
-        let items = c
+        let mut items = c
             .prepare(&sql)?
             .query_map([kind], |r| {
                 Ok(Entry {
                     id: r.get(0)?,
                     name: r.get(1)?,
                     enabled: r.get(2)?,
+                    references: 0,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
+        for item in &mut items {
+            item.references = match kind {
+                "label" => c.query_row("SELECT count(*) FROM asset_preferences WHERE json_extract(payload,'$.label_id')=?1", [&item.id], |r| r.get(0))?,
+                "sale_channel" => c.query_row("SELECT count(*) FROM sales WHERE platform=?1 AND revoked_at IS NULL", [&item.name], |r| r.get(0))?,
+                _ => 0,
+            };
+        }
         Ok(Snapshot {
             revision: c.query_row("SELECT revision FROM taxonomy_state WHERE id=1", [], |r| {
                 r.get(0)
@@ -122,6 +147,83 @@ impl Store {
                     }
                 }
             }
+            Action::Rename { id, name } => {
+                if t.is_some() {
+                    return Err(Error::new("CHOICE", "分类与购买渠道请使用对应的管理入口"));
+                }
+                let old = current
+                    .items
+                    .iter()
+                    .find(|e| &e.id == id)
+                    .ok_or_else(|| Error::new("CHOICE", "选项已不存在"))?;
+                let name = crate::taxonomy::canonical_name(crate::taxonomy::Kind::Channel, name)?;
+                if ["全部", "未设置", "未选择"].contains(&name.as_str())
+                    || (input.kind == "label"
+                        && ["保障中", "已退役", "已售出"].contains(&name.as_str()))
+                {
+                    return Err(Error::new("CHOICE_NAME", "此名称由系统保留"));
+                }
+                if current
+                    .items
+                    .iter()
+                    .any(|e| e.id != *id && e.name.eq_ignore_ascii_case(&name))
+                {
+                    return Err(Error::new("CHOICE_NAME", "已存在同名选项"));
+                }
+                if input.kind == "sale_channel" && old.name != name {
+                    self.rewrite_choice_sales(&tx, &old.name, &name)?;
+                }
+                tx.execute(
+                    "UPDATE named_choices SET name=?1,name_key=?2 WHERE id=?3 AND kind=?4",
+                    params![name, name.to_ascii_lowercase(), id, input.kind],
+                )?;
+            }
+            Action::Remove {
+                id,
+                replacement,
+                expected_references,
+            } => {
+                if t.is_some() {
+                    return Err(Error::new("CHOICE", "分类与购买渠道请使用对应的管理入口"));
+                }
+                let old = current
+                    .items
+                    .iter()
+                    .find(|e| &e.id == id)
+                    .ok_or_else(|| Error::new("CHOICE", "选项已不存在"))?;
+                if old.references != *expected_references {
+                    return Err(Error::new(
+                        "CHOICE_REFERENCES",
+                        "关联数量已变化，请重新查看后删除",
+                    ));
+                }
+                let target = replacement
+                    .as_ref()
+                    .map(|target| {
+                        current
+                            .items
+                            .iter()
+                            .find(|e| &e.id == target && e.id != *id && e.enabled)
+                            .ok_or_else(|| Error::new("CHOICE", "替换选项已不可用，请重新选择"))
+                    })
+                    .transpose()?;
+                if input.kind == "label" {
+                    let now = chrono::Utc::now().to_rfc3339();
+                    tx.execute("UPDATE assets SET revision=revision+1 WHERE id IN (SELECT asset_id FROM asset_preferences WHERE json_extract(payload,'$.label_id')=?1)", [id])?;
+                    tx.execute("UPDATE asset_profiles SET updated_at=?2 WHERE asset_id IN (SELECT asset_id FROM asset_preferences WHERE json_extract(payload,'$.label_id')=?1)", params![id,now])?;
+                    tx.execute("UPDATE asset_preferences SET payload=json_set(payload,'$.label_id',?2) WHERE json_extract(payload,'$.label_id')=?1",params![id,replacement])?;
+                } else {
+                    self.rewrite_choice_sales(
+                        &tx,
+                        &old.name,
+                        target.map(|e| e.name.as_str()).unwrap_or(""),
+                    )?;
+                }
+                tx.execute(
+                    "DELETE FROM named_choices WHERE id=?1 AND kind=?2",
+                    params![id, input.kind],
+                )?;
+            }
             Action::Enable { id, enabled } => {
                 if !current.items.iter().any(|e| &e.id == id) {
                     return Err(Error::new("CHOICE", "选项已不存在"));
@@ -177,7 +279,51 @@ impl Store {
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",
             params![input.request_id, fp, input.kind],
         )?;
+        self.hit("choice.before_commit")?;
         tx.commit()?;
+        self.hit("choice.after_commit")?;
         self.choices(&input.kind)
+    }
+    // A channel is stored as text in sales. Append corrections instead of rewriting
+    // immutable audit snapshots; this also keeps backup validation and stale editors safe.
+    fn rewrite_choice_sales(
+        &self,
+        tx: &rusqlite::Transaction<'_>,
+        old: &str,
+        new: &str,
+    ) -> Result<()> {
+        let ids = tx
+            .prepare("SELECT asset_id FROM sales WHERE platform=?1 AND revoked_at IS NULL")?
+            .query_map([old], |r| r.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let now = chrono::Utc::now().to_rfc3339();
+        for id in ids {
+            let mut sale = crate::sales::read(tx, &id)?
+                .ok_or_else(|| Error::new("CHOICE", "售出记录已变化"))?;
+            sale.fields.platform = new.to_owned();
+            let request = uid();
+            tx.execute(
+                "UPDATE sales SET platform=?1,updated_at=?2 WHERE id=?3",
+                params![new, now, sale.id],
+            )?;
+            tx.execute("UPDATE assets SET revision=revision+1 WHERE id=?1", [&id])?;
+            tx.execute(
+                "UPDATE asset_profiles SET updated_at=?1 WHERE asset_id=?2",
+                params![now, id],
+            )?;
+            let asset = self
+                .asset(&id)?
+                .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))?;
+            tx.execute(
+                "INSERT INTO requests VALUES(?1,?2,?3)",
+                params![
+                    request,
+                    digest(request.as_bytes()),
+                    serde_json::to_string(&asset)?
+                ],
+            )?;
+            tx.execute("INSERT INTO sale_audit(request_id,sale_id,action,snapshot,created_at) VALUES(?1,?2,'correct',?3,?4)",params![request,sale.id,serde_json::to_string(&sale)?,now])?;
+        }
+        Ok(())
     }
 }

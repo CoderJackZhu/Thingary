@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import { materialArt } from './materials';
 import type { TaxonomySnapshot } from './taxonomy';
 import { useEffect, useRef, useState } from 'react';
@@ -31,7 +32,7 @@ export function PhotoPreview({ photo, generation, onClose }: { photo: Photo; gen
     catch (e) { setNotice(errorMessage(e)); }
     finally { setBusy(false); }
   }
-  return <dialog ref={ref} className="photo-preview" aria-labelledby="preview-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><header><h2 id="preview-title">{photo.name}</h2><button disabled={busy} onClick={onClose} autoFocus>关闭预览</button></header><PhotoView photo={photo} generation={generation} version={version} onMissing={setMissing}/><p className="muted small">{missing ? '档案资料仍保留。请选择同一张原文件修复图片。' : '此处显示适合窗口的预览，原图保留在本机。'}</p>{missing && <button disabled={busy} onClick={() => void repair()}>重新选择原图修复</button>}{notice && <p role="status">{notice}</p>}</dialog>;
+  return <dialog ref={ref} className="photo-preview" aria-labelledby="preview-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><header><h2 id="preview-title">{photo.name}</h2><CloseButton aria-label="关闭预览" disabled={busy} onClick={onClose} autoFocus/></header><PhotoView photo={photo} generation={generation} version={version} onMissing={setMissing}/><p className="muted small">{missing ? '档案资料仍保留。请选择同一张原文件修复图片。' : '此处显示适合窗口的预览，原图保留在本机。'}</p>{missing && <button disabled={busy} onClick={() => void repair()}>重新选择原图修复</button>}{notice && <p role="status">{notice}</p>}</dialog>;
 }
 export function Gallery({ record, generation, showHeading = true }: { record: AssetRecord; generation: string; showHeading?: boolean }) {
   const [preview, setPreview] = useState<Photo | null>(null), [version, setVersion] = useState(0);

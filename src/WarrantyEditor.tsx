@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import {persistSubmission} from './editor-session';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -91,7 +92,7 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose,
 
   async function enableReminder(){edit('reminder',{date:state.fields.end,notes:''});setPermissionError('');setPermissionPending(true);try{await allowReminders()}catch(e){setPermissionError(errorMessage(e))}finally{setPermissionPending(false)}}
   return <dialog ref={dialog} className="editor warranty-editor" aria-labelledby="warranty-heading" onCancel={event => { event.preventDefault(); askClose('form'); }}><form noValidate onSubmit={event => { event.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">保障档案</p><h2 id="warranty-heading">{state.warranty_id ? '更正保障记录' : '添加保障记录'}</h2><p className="muted">更正保留原记录标识；保障可以未来开始或到期，未知日期保持留空。</p></div><button type="button" aria-label="关闭保障表单" disabled={busy || (!!state.pending && !blocked)} onClick={() => askClose('form')}>×</button><div className="editor-header-actions">{blocked ? <>
+    <header><div><p className="eyebrow">保障档案</p><h2 id="warranty-heading">{state.warranty_id ? '更正保障记录' : '添加保障记录'}</h2><p className="muted">更正保留原记录标识；保障可以未来开始或到期，未知日期保持留空。</p></div><CloseButton type="button" aria-label="关闭保障表单" disabled={busy || (!!state.pending && !blocked)} onClick={() => askClose('form')}/><div className="editor-header-actions">{blocked ? <>
       <button type="button" disabled={busy} onClick={() => onClose('form', !!state.pending)}>关闭</button>
       <button type="button" disabled={busy} onClick={() => void check()}>重新核对资料库</button>
     </> : <>

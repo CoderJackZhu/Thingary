@@ -5,7 +5,7 @@ import { emit } from '@tauri-apps/api/event';
 import type { AssetRecord, Page, Query, SaveAsset } from './asset';
 import { localDay } from './asset';
 import type { TrashChange, RecordTrashChange, TrashEntry } from './Trash';
-import { applyPreviewCommand, previewSnapshot } from './taxonomy';
+import { applyPreviewCommand, previewSnapshot, normalizeName } from './taxonomy';
 import type { PreviewCatalog, TaxonomyCommand } from './taxonomy';
 import type { SaleChange, Sale } from './sales';
 import { lifecycleError, revokeError } from './lifecycle';
@@ -47,6 +47,16 @@ let taxonomyRevision = 0;
 const taxonomyReceipts = new Map<string,string>();
 let catalog: PreviewCatalog = {categories:[...categoryNames,['apparel','服饰配饰'],['outdoor','出行运动'],['box','其他']].map(([id,name])=>({id,name,icon:(['apparel','outdoor'].includes(id)?'box':id) as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:channelNames.map((name,i)=>({id:'demo-channel-'+i,name,references:{activeAssets:0,deletedAssets:0}})),assets:[]};
 function taxonomySnapshot() { catalog.assets=records.map(r=>({id:r.asset.id,categoryId:r.classification?.category_id??null,channelId:r.classification?.channel_id??null,deleted:r.deleted})); return {generation,revision:taxonomyRevision,...previewSnapshot(catalog)}; }
+const namedChoices:Record<string,{id:string;name:string;enabled:boolean}[]>={
+ label:[{id:'label-active',name:'工作用',enabled:true}],
+ sale_channel:['闲鱼','转转','线下','朋友转让','回收商','二手平台','其他'].map((name,i)=>({id:'sale-channel-'+i,name,enabled:true})),
+};
+const disabledChoices=new Map<string,boolean>();
+const choiceReceipts=new Map<string,string>();
+function choiceSnapshot(kind:string){
+ const list=kind==='category'?catalog.categories:kind==='channel'?catalog.channels:namedChoices[kind]??[];
+ return {revision:taxonomyRevision,items:list.map(e=>({...e,enabled:'enabled' in e?e.enabled:!disabledChoices.get(kind+':'+e.id),references:records.filter(r=>kind==='label'?r.preferences?.label_id===e.id:kind==='sale_channel'?r.sale?.fields.platform===e.name:false).length}))};
+}
 const requests = new Map<string, AssetRecord>();
 const recordTrashReceipts = new Map<string, string>();
 const lostMaintenanceReceipts = new Set<string>();
@@ -172,10 +182,32 @@ function timelinePreview(args: Record<string, unknown>) {
 }
 async function handle(command: string, payload: unknown): Promise<unknown> {
   const args = payload as Record<string,unknown>;
-  if (command === 'choice_list') {
-    const kind = String(args.kind);
-    const items = kind === 'category' ? catalog.categories.map(c => ({ id: c.id, name: c.name, enabled: true })) : kind === 'channel' ? catalog.channels.map(c => ({ id: c.id, name: c.name, enabled: true })) : [{ id: 'label-active', name: '工作用', enabled: true }];
-    return { revision: 0, items };
+  if(command==='wealth_request_result' && choiceReceipts.has(String(args.request)))return 'choices';
+  if(command==='choice_list')return choiceSnapshot(String(args.kind));
+  if(command==='choice_change'){
+    const input=args.input as {request_id:string;generation:string;expected_revision:number;kind:string;action:{type:string;id:string;name:string;enabled:boolean;ids:string[];replacement:string|null;expected_references:number}};
+    if(input.generation!==generation)throw {code:'STALE_DATASET',message:'资料库已变化'};
+    const fingerprint=JSON.stringify(input),prior=choiceReceipts.get(input.request_id);
+    if(prior){if(prior!==fingerprint)throw {code:'REQUEST_CONFLICT',message:'请求已变化'};return choiceSnapshot(input.kind)}
+    if(input.expected_revision!==taxonomyRevision)throw {code:'TAXONOMY_STALE',message:'选项已变化，请重新读取'};
+    const {action:a,kind}=input,snapshot=choiceSnapshot(kind),old=snapshot.items.find(e=>e.id===a.id);
+    if(a.type!=='create'&&a.type!=='reorder'&&!old)throw {code:'CHOICE',message:'选项已不存在'};
+    const list=namedChoices[kind];
+    if(a.type==='create'||a.type==='rename'){
+      const name=normalizeName(a.name);
+      if(!name||[...name].length>80||/[\u0000-\u001f\u007f-\u009f]/u.test(name)||snapshot.items.some(e=>e.id!==a.id&&e.name.replace(/[A-Z]/g,c=>c.toLowerCase())===name.replace(/[A-Z]/g,c=>c.toLowerCase()))||['全部','未设置','未选择',...(kind==='label'?['保障中','已退役','已售出']:[])].includes(name))throw {code:'CHOICE_NAME',message:'名称为空、过长、重复或为系统保留名称'};
+      if(!list)throw {message:'请使用分类与购买渠道管理'};
+      if(a.type==='create')list.push({id:crypto.randomUUID(),name,enabled:true});
+      else {if(kind==='sale_channel')for(const r of records){if(r.sale?.fields.platform===old!.name){r.sale.fields.platform=name;r.asset.revision++}}list.find(e=>e.id===a.id)!.name=name;}
+    }else if(a.type==='remove'){
+      if(old!.references!==a.expected_references)throw {code:'CHOICE_REFERENCES',message:'关联数量已变化，请重新查看后删除'};
+      const target=list?.find(e=>e.id===a.replacement&&e.id!==a.id&&e.enabled);
+      if(!list||(a.replacement&&!target))throw {code:'CHOICE',message:'替换选项不可用'};
+      for(const r of records){if(kind==='label'&&r.preferences?.label_id===a.id){r.preferences.label_id=a.replacement;r.asset.revision++}if(kind==='sale_channel'&&r.sale?.fields.platform===old!.name){r.sale.fields.platform=target?.name??'';r.asset.revision++}}
+      namedChoices[kind]=list.filter(e=>e.id!==a.id);
+    }else if(a.type==='enable'){if(list)list.find(e=>e.id===a.id)!.enabled=a.enabled;else disabledChoices.set(kind+':'+a.id,!a.enabled)}
+    else if(a.type==='reorder'&&list)namedChoices[kind]=a.ids.map(id=>list.find(e=>e.id===id)!);
+    taxonomyRevision++;choiceReceipts.set(input.request_id,fingerprint);return choiceSnapshot(kind);
   }
   if (command === 'asset_ids') { const page = await handle('list_assets', { query: { ...(args.query as Query), offset: 0 }, all: true }) as Page; return page.items.map(r => r.asset.id); }
   if (command === 'batch_rows') return (args.ids as string[]).map(id => records.find(r => r.asset.id === id && !r.deleted)).filter((r): r is AssetRecord => !!r).map(batchRow);

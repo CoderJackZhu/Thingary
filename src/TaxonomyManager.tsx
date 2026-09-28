@@ -28,7 +28,7 @@ const KIND_TABS: { value: TaxonomyKind; label: string; helper: string }[] = [
   { value: "category", label: "分类", helper: "决定列表与摘要里的分组归属" },
   { value: "channel", label: "购买渠道", helper: "记录每件物品的购入场所" },
 ];
-// Sale channels and status labels use the simpler choice lists (rename-free, enable/disable).
+// Sale channels and labels share choice management in settings and form pickers.
 type ExtraTab = "sale_channel" | "label";
 const ALL_TABS: { value: TaxonomyKind | ExtraTab; label: string }[] = [...KIND_TABS, { value: "sale_channel", label: "售出渠道" }, { value: "label", label: "标签" }];
 
@@ -755,7 +755,7 @@ export default function TaxonomyManager({
 
       {extra ? (
         <section id={`taxonomy-tabpanel-${extra}`} role="tabpanel" aria-labelledby={`taxonomy-tab-${extra}`} className="taxonomy-panel">
-          <ChoiceManager key={extra} kind={extra} label={extra === "label" ? "标签" : "售出渠道"} generation={generation ?? ""} />
+          <ChoiceManager key={`${extra}:${generation}`} kind={extra} label={extra === "label" ? "标签" : "售出渠道"} generation={generation ?? ""} />
         </section>
       ) : (
       <section
@@ -829,22 +829,12 @@ export default function TaxonomyManager({
             </span>
           </div>
           {kind === "category" ? (
-            <div className="taxonomy-field">
-              <span className="taxonomy-eyebrow" id="taxonomy-icon-label">
-                图标
-              </span>
-              <IconPicker
-                name="新建分类"
-                value={draft.icon}
-                disabled={unavailable || locked}
-                onChange={(value) =>
-                  setDraft((prev) => ({ ...prev, icon: value }))
-                }
-              />
-              <span className="taxonomy-help">
-                {findCategoryIcon(draft.icon).label}
-              </span>
-            </div>
+            <details className="taxonomy-field taxonomy-icon-disclosure">
+              <summary>分类图标 <span className="taxonomy-icon-glyph" aria-hidden="true">{ICON_GLYPHS[draft.icon]}</span><span>{findCategoryIcon(draft.icon).label}</span></summary>
+              <IconPicker name="新建分类" value={draft.icon} disabled={unavailable || locked}
+                onChange={(value) => setDraft((prev) => ({ ...prev, icon: value }))}/>
+              <span className="taxonomy-help">用于分类列表中的小标识，不影响物品封面。</span>
+            </details>
           ) : (
             <div />
           )}

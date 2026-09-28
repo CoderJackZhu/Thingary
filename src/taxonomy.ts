@@ -21,7 +21,7 @@ export interface CategoryIconDescriptor {
 }
 
 export const CATEGORY_ICONS: readonly CategoryIconDescriptor[] = [
-  { value: "box", label: "通用" },
+  { value: "box", label: "箱子" },
   { value: "computer", label: "电脑" },
   { value: "phone", label: "手机" },
   { value: "camera", label: "摄影" },

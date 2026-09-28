@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import {persistSubmission} from './editor-session';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -139,7 +140,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   const attachments = photos.filter(p => p.id !== draft.cover);
   return <dialog ref={dialog} className={pickerOpen ? "icon-picker-host" : `editor asset-editor${draft.id ? ' asset-editor-existing' : ''}`} aria-labelledby={pickerOpen ? "icon-picker-title" : "editor-title"} onCancel={e => { e.preventDefault(); askClose('form'); }}>
     <form hidden={pickerOpen} noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-      <header><div><p className="eyebrow">{conversion ? '心愿转为资产' : '物品档案'}</p><h2 id="editor-title">{conversion ? '确认购入' : draft.id ? '编辑资料' : '新增资产'}</h2></div><button type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}>×</button><div className="editor-header-actions">
+      <header><div><p className="eyebrow">{conversion ? '心愿转为资产' : '物品档案'}</p><h2 id="editor-title">{conversion ? '确认购入' : draft.id ? '编辑资料' : '新增资产'}</h2></div><CloseButton type="button" className="icon-button" aria-label="关闭表单" onClick={() => askClose('form')}/><div className="editor-header-actions">
         {draft.id && !conversion && onDelete && <button type="button" className="danger" disabled={busy || !!draft.pending || pickerOpen} onClick={onDelete}>删除物品</button>}
         {conflict && <button type="button" onClick={() => void reloadLatest()}>核对最新版本</button>}
         {draft.pending ? <button type="button" className="primary" disabled={busy} onClick={() => void resolvePending()}>检查提交结果</button> : <button type="submit" className="primary" disabled={busy || conflict || !!draft.photoError}>{busy ? '正在保存…' : conversion ? '确认购入并建档' : '保存资产'}</button>}

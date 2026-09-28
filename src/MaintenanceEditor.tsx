@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import {persistSubmission} from './editor-session';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -87,7 +88,7 @@ export function MaintenanceEditor({ initial, today, closeIntent, onKeep, onSaved
   }
 
   return <dialog ref={dialog} className="editor maintenance-editor" aria-labelledby="maintenance-heading" onCancel={event => { event.preventDefault(); askClose('form'); }}><form noValidate onSubmit={event => { event.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">维护档案</p><h2 id="maintenance-heading">{state.maintenance_id ? '更正维护记录' : '新增维护记录'}</h2><p className="muted">更正保留原记录标识与审计轨迹；空费用表示未知，0 表示免费。</p></div><button type="button" aria-label="关闭维护表单" disabled={busy || (!!state.pending && !blocked)} onClick={() => askClose('form')}>×</button><div className="editor-header-actions">{blocked ? <>
+    <header><div><p className="eyebrow">维护档案</p><h2 id="maintenance-heading">{state.maintenance_id ? '更正维护记录' : '新增维护记录'}</h2><p className="muted">更正保留原记录标识与审计轨迹；空费用表示未知，0 表示免费。</p></div><CloseButton type="button" aria-label="关闭维护表单" disabled={busy || (!!state.pending && !blocked)} onClick={() => askClose('form')}/><div className="editor-header-actions">{blocked ? <>
       <button type="button" disabled={busy} onClick={() => onClose('form', !!state.pending)}>关闭</button>
       <button type="button" disabled={busy} onClick={() => void check()}>重新核对资料库</button>
     </> : <>
