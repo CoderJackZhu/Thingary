@@ -977,6 +977,51 @@ pub async fn wealth_trash(
         .map_err(|_| Error::new("WORKER", "操作结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn asset_ids(query: Query, worker: tauri::State<'_, Worker>) -> Result<Vec<String>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.query_asset_ids(&query, &chrono::Local::now().format("%Y-%m-%d").to_string())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "读取失败，请重试"))?
+}
+#[tauri::command]
+pub async fn batch_rows(
+    ids: Vec<String>,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Vec<crate::batch::Row>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.batch_rows(&ids)))
+        .await
+        .map_err(|_| Error::new("WORKER", "读取失败，请重试"))?
+}
+#[tauri::command]
+pub async fn batch_change(
+    input: crate::batch::Change,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::batch::Outcome> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.batch_change(&input, &chrono::Local::now().format("%Y-%m-%d").to_string())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "批量保存结果未返回，请重新读取后核对"))?
+}
+#[tauri::command]
+pub async fn batch_undo(
+    input: crate::batch::Undo,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::batch::Outcome> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.batch_undo(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "撤销结果未返回，请重新读取后核对"))?
+}
+#[tauri::command]
 pub async fn purge_trash(
     input: crate::purge::Purge,
     worker: tauri::State<'_, Worker>,

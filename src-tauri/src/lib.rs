@@ -1,4 +1,5 @@
 pub mod backup;
+pub mod batch;
 pub mod catalog;
 pub mod choices;
 mod commands;
@@ -112,6 +113,10 @@ pub fn run() {
             commands::wealth_summary,
             commands::wealth_trash,
             commands::purge_trash,
+            commands::asset_ids,
+            commands::batch_rows,
+            commands::batch_change,
+            commands::batch_undo,
             commands::expense,
             commands::expense_save,
             commands::expense_view,

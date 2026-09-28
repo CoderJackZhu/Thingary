@@ -203,43 +203,16 @@ impl Store {
         let now = chrono::Utc::now().to_rfc3339();
         match &input.action {
             Action::Append { kind, date, notes } => {
-                if !matches!(
-                    (&record.lifecycle.state, kind),
-                    (State::Active, Kind::Retire) | (State::Retired, Kind::Activate)
-                ) {
-                    return Err(Error::new("STATE_CONFLICT","当前状态不能执行此动作：使用中可退役，退役可重新启用；已售出须先处理售出记录，真实购回需另建档案。"));
-                }
-                if notes.chars().count() > 10000 || notes.contains('\0') {
-                    return Err(Error::new("NOTES", "备注最多 10000 字，且不能含空字符"));
-                }
-                if let Some(last) = events.last() {
-                    if date < &last.date {
-                        return Err(Error::new(
-                            "DATE_CONFLICT",
-                            &format!(
-                                "动作日期不能早于前一次{}（{}）",
-                                last.kind.label(),
-                                last.date
-                            ),
-                        ));
-                    }
-                }
-                let sequence = events.last().map_or(1, |e| e.sequence + 1);
-                tx.execute(
-                    "INSERT INTO lifecycle_events VALUES(?1,?2,?3,?4,?5,?6,?7,?7)",
-                    params![
-                        uid(),
-                        input.asset_id,
-                        sequence,
-                        kind.key(),
-                        date,
-                        notes,
-                        now
-                    ],
-                )?;
-                tx.execute(
-                    "UPDATE assets SET lifecycle_state=?1 WHERE id=?2",
-                    params![kind.state(), input.asset_id],
+                append_event(
+                    &tx,
+                    &input.asset_id,
+                    record.asset.purchase_date.as_deref(),
+                    &record.lifecycle,
+                    kind,
+                    date,
+                    notes,
+                    today,
+                    &now,
                 )?;
             }
             Action::CorrectDate { event_id, date } => {
@@ -326,6 +299,60 @@ impl Store {
         self.record(&input.asset_id)?
             .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))
     }
+}
+
+/// Appends one retire/reactivate event with the single-item rules; batch
+/// retire uses the same path so both check dates and state identically (D19).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn append_event(
+    c: &Connection,
+    asset_id: &str,
+    purchase: Option<&str>,
+    life: &Lifecycle,
+    kind: &Kind,
+    day: &str,
+    notes: &str,
+    today: &str,
+    now: &str,
+) -> Result<String> {
+    if date(day)? > date(today)? {
+        return Err(Error::new("FUTURE", "动作日期不能晚于今天"));
+    }
+    if purchase.is_some_and(|p| day < p) {
+        return Err(Error::new("DATE_CONFLICT", "动作日期不能早于购入日期"));
+    }
+    if !matches!(
+        (&life.state, kind),
+        (State::Active, Kind::Retire) | (State::Retired, Kind::Activate)
+    ) {
+        return Err(Error::new("STATE_CONFLICT","当前状态不能执行此动作：使用中可退役，退役可重新启用；已售出须先处理售出记录，真实购回需另建档案。"));
+    }
+    if notes.chars().count() > 10000 || notes.contains('\0') {
+        return Err(Error::new("NOTES", "备注最多 10000 字，且不能含空字符"));
+    }
+    if let Some(last) = life.events.last() {
+        if day < last.date.as_str() {
+            return Err(Error::new(
+                "DATE_CONFLICT",
+                &format!(
+                    "动作日期不能早于前一次{}（{}）",
+                    last.kind.label(),
+                    last.date
+                ),
+            ));
+        }
+    }
+    let id = uid();
+    let sequence = life.events.last().map_or(1, |e| e.sequence + 1);
+    c.execute(
+        "INSERT INTO lifecycle_events VALUES(?1,?2,?3,?4,?5,?6,?7,?7)",
+        params![id, asset_id, sequence, kind.key(), day, notes, now],
+    )?;
+    c.execute(
+        "UPDATE assets SET lifecycle_state=?1 WHERE id=?2",
+        params![kind.state(), asset_id],
+    )?;
+    Ok(id)
 }
 
 pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {

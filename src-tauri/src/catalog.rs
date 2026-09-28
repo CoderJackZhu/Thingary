@@ -184,7 +184,7 @@ impl Store {
             .transpose()
             .map(Option::flatten)
     }
-    pub fn query_assets(&self, q: &Query, today: &str) -> Result<Page> {
+    fn matching_ids(&self, q: &Query, today: &str, all: bool) -> Result<(i64, Vec<String>)> {
         if q.search.chars().count() > 200 {
             return Err(Error::new("SEARCH", "搜索内容最多 200 字"));
         }
@@ -249,14 +249,32 @@ impl Store {
                 |r| r.get(0),
             )?
         };
-        let sql=format!("SELECT a.id {from} ORDER BY coalesce((SELECT json_extract(payload,'$.pinned') FROM asset_preferences WHERE asset_id=a.id),0) DESC,({order}) IS NULL ASC, {order} {direction}, a.id ASC LIMIT 100 OFFSET ?5");
+        // `all` lists every match for ⌘A across pages (D19); otherwise one page.
+        let limit: i64 = if all { -1 } else { 100 };
+        let sql=format!("SELECT a.id {from} ORDER BY coalesce((SELECT json_extract(payload,'$.pinned') FROM asset_preferences WHERE asset_id=a.id),0) DESC,({order}) IS NULL ASC, {order} {direction}, a.id ASC LIMIT ?6 OFFSET ?5");
         let mut stmt = self.conn()?.prepare(&sql)?;
+        let offset = if all { 0 } else { q.offset };
         let ids = stmt
             .query_map(
-                params![q.search.trim(), category_mode, category_id, today, q.offset],
+                params![
+                    q.search.trim(),
+                    category_mode,
+                    category_id,
+                    today,
+                    offset,
+                    limit
+                ],
                 |r| r.get::<_, String>(0),
             )?
             .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok((total, ids))
+    }
+    /// Every asset id matching the list query, in list order (⌘A, D19).
+    pub fn query_asset_ids(&self, q: &Query, today: &str) -> Result<Vec<String>> {
+        Ok(self.matching_ids(q, today, true)?.1)
+    }
+    pub fn query_assets(&self, q: &Query, today: &str) -> Result<Page> {
+        let (total, ids) = self.matching_ids(q, today, false)?;
         let items = ids
             .into_iter()
             .map(|id| {
