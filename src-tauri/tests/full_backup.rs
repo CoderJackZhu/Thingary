@@ -89,7 +89,7 @@ fn wish(s: &mut Store, name: &str, cover: bool) -> wishlist::WishlistItem {
 /// Everything a user can see, minus the dataset generation that restore must change.
 fn snapshot(s: &Store) -> Value {
     let mut v = json!({
-        "assets": s.query_assets(&possio_lib::catalog::Query { search: String::new(), filter: "all".into(), sort: "created".into(), descending: true, offset: 0, category: Default::default(), warranty: "all".into() }, TODAY).unwrap().items,
+        "assets": s.query_assets(&possio_lib::catalog::Query { search: String::new(), filter: "all".into(), sort: "created".into(), descending: true, offset: 0, category: Default::default(), warranty: "all".into(), label: None }, TODAY).unwrap().items,
         "trash": s.list_trash(&TrashQuery { filter: "all".into(), offset: 0 }).unwrap().items,
         "timeline": [s.timeline(&timeline::Query { filter: "all".into(), asset_id: None }, TODAY).unwrap().dated, s.timeline(&timeline::Query { filter: "all".into(), asset_id: None }, TODAY).unwrap().undated],
         "taxonomy": s.taxonomy_snapshot().unwrap().categories,
@@ -102,7 +102,7 @@ fn snapshot(s: &Store) -> Value {
                 filter: filter.into(),
                 sort: "created".into(),
                 descending: true,
-                offset: 0
+                offset: 0,
             })
             .unwrap()
             .items

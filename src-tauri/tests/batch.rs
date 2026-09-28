@@ -164,7 +164,10 @@ fn retire_labels_exclusions_and_delete_undo_cleanly() {
         possio_lib::lifecycle::State::Active
     );
 
-    let label = s.choices("label").unwrap().items[0].id.clone();
+    // New libraries have no tags; create one to assign.
+    let snap = s.choices("label").unwrap();
+    let create: possio_lib::choices::Change = serde_json::from_value(serde_json::json!({"request_id": uuid::Uuid::new_v4().to_string(), "generation": s.generation(), "expected_revision": snap.revision, "kind": "label", "action": {"type": "create", "name": "工作用"}})).unwrap();
+    let label = s.change_choices(&create).unwrap().items[0].id.clone();
     let tagged = change(
         &s,
         "label",
@@ -235,6 +238,7 @@ fn select_all_reaches_every_match_beyond_one_page() {
         offset: 0,
         category: CategoryFilter::All,
         warranty: String::new(),
+        label: None,
     };
     assert_eq!(s.query_assets(&q, TODAY).unwrap().items.len(), 100);
     let ids = s.query_asset_ids(&q, TODAY).unwrap();

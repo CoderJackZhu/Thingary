@@ -534,7 +534,7 @@ PRAGMA user_version=12;")?;
                 params![uid(), name, 10000 + position as i64],
             )?;
         }
-        tx.execute("INSERT INTO named_choices(id,kind,name,name_key,position) VALUES(?1,'label','活跃中','活跃中',0)",[uid()])?;
+        // New libraries start without tags; 活跃中 duplicated the automatic 使用中 state.
         let mut q=tx.prepare("SELECT id FROM channels ORDER BY CASE name WHEN '淘宝' THEN 0 WHEN '京东' THEN 1 WHEN '拼多多' THEN 2 WHEN '抖音' THEN 3 ELSE 4 END,position,id")?;
         let ids = q
             .query_map([], |r| r.get::<_, String>(0))?

@@ -79,6 +79,9 @@ pub struct Query {
     pub category: crate::taxonomy::CategoryFilter,
     #[serde(default)]
     pub warranty: String,
+    /// None: any; "none": no tag; otherwise a tag id.
+    #[serde(default)]
+    pub label: Option<String>,
 }
 #[derive(Serialize)]
 pub struct Page {
@@ -194,6 +197,10 @@ impl Store {
             "date" => "a.purchase_date",
             "created" => "p.created_at",
             "deleted" => "a.deleted_at",
+            // Same basis as the statistics ranking: (purchase + maintenance − sale) ÷
+            // held days up to the sale or today (?4). Per-use items and anything
+            // with an unknown price, date or maintenance cost sort last (NULL).
+            "daily" => "(CASE WHEN coalesce((SELECT json_extract(payload,'$.cost_mode') FROM asset_preferences WHERE asset_id=a.id),'daily')='per_use' OR a.price_cents IS NULL OR a.purchase_date IS NULL OR EXISTS(SELECT 1 FROM maintenances m WHERE m.asset_id=a.id AND m.deleted_at IS NULL AND m.cost_cents IS NULL) THEN NULL ELSE (a.price_cents + (SELECT coalesce(sum(m.cost_cents),0) FROM maintenances m WHERE m.asset_id=a.id AND m.deleted_at IS NULL) - coalesce((SELECT s.price_cents FROM sales s WHERE s.asset_id=a.id AND s.revoked_at IS NULL),0)) * 1.0 / (julianday(coalesce((SELECT s.date FROM sales s WHERE s.asset_id=a.id AND s.revoked_at IS NULL),?4)) - julianday(a.purchase_date) + 1) END)",
             _ => return Err(Error::new("QUERY", "不支持的排序")),
         };
         let filter = match q.filter.as_str() {
@@ -224,6 +231,13 @@ impl Store {
             "none" => "NOT EXISTS(SELECT 1 FROM warranties w WHERE w.asset_id=a.id AND w.deleted_at IS NULL)".to_string(),
             _ => return Err(Error::new("QUERY", "不支持的保障筛选")),
         };
+        // Tag ids come from uid(); anything else is refused before it can reach the SQL text.
+        let label = match q.label.as_deref() {
+            None | Some("") => "1".to_string(),
+            Some("none") => "(SELECT json_extract(payload,'$.label_id') FROM asset_preferences WHERE asset_id=a.id) IS NULL".to_string(),
+            Some(id) if id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') => format!("(SELECT json_extract(payload,'$.label_id') FROM asset_preferences WHERE asset_id=a.id)='{id}'"),
+            _ => return Err(Error::new("QUERY", "不支持的标签筛选")),
+        };
         let visibility = if q.filter == "deleted" {
             "a.deleted_at IS NOT NULL"
         } else {
@@ -235,7 +249,7 @@ impl Store {
             crate::taxonomy::CategoryFilter::Category { id } => (2, Some(id.as_str())),
         };
         let direction = if q.descending { "DESC" } else { "ASC" };
-        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id LEFT JOIN categories c ON c.id=a.category_id WHERE {visibility} AND ({filter}) AND ({warranty}) AND (?2=0 OR (?2=1 AND a.category_id IS NULL) OR (?2=2 AND a.category_id=?3)) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'') || ' ' || coalesce(c.name,'')), lower(?1)) > 0");
+        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id LEFT JOIN categories c ON c.id=a.category_id WHERE {visibility} AND ({filter}) AND ({warranty}) AND ({label}) AND (?2=0 OR (?2=1 AND a.category_id IS NULL) OR (?2=2 AND a.category_id=?3)) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'') || ' ' || coalesce(c.name,'')), lower(?1)) > 0");
         let total = if uses_today {
             self.conn()?.query_row(
                 &format!("SELECT count(*) {from}"),

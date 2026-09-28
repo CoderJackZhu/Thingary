@@ -35,6 +35,7 @@ fn query() -> Query {
         descending: false,
         offset: 0,
         warranty: "all".into(),
+        label: None,
     }
 }
 #[test]
@@ -144,4 +145,80 @@ fn failed_and_unknown_results_do_not_duplicate_or_partially_edit() {
             "REQUEST_CONFLICT"
         );
     }
+}
+#[test]
+fn daily_cost_sort_puts_per_use_and_unknowns_last_and_tags_filter() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let today = "2026-09-24";
+    let snap = s.choices("label").unwrap();
+    assert!(snap.items.is_empty(), "new libraries start without tags");
+    let change: possio_lib::choices::Change = serde_json::from_value(serde_json::json!({"request_id": uuid::Uuid::new_v4().to_string(), "generation": s.generation(), "expected_revision": snap.revision, "kind": "label", "action": {"type": "create", "name": "工作用"}})).unwrap();
+    let tag = s.change_choices(&change).unwrap().items[0].id.clone();
+    // 10 days held on 2026-09-24: 1000 → 100/day, 3000 → 300/day; sold: (5000−4000) over 5 days → 200/day.
+    for (name, price, date, prefs, sale) in [
+        (
+            "日均一百",
+            Some("1000"),
+            Some("2026-09-15"),
+            serde_json::json!({"cost_mode": "daily", "label_id": tag}),
+            None,
+        ),
+        (
+            "日均三百",
+            Some("3000"),
+            Some("2026-09-15"),
+            serde_json::json!({"cost_mode": "daily"}),
+            None,
+        ),
+        (
+            "售出两百",
+            Some("5000"),
+            Some("2026-09-01"),
+            serde_json::json!({"cost_mode": "daily"}),
+            Some(
+                serde_json::json!({"date": "2026-09-05", "price_cents": "4000", "platform": "", "buyer": "", "notes": ""}),
+            ),
+        ),
+        (
+            "按次",
+            Some("100"),
+            Some("2026-09-15"),
+            serde_json::json!({"cost_mode": "per_use", "use_count": 1}),
+            None,
+        ),
+        (
+            "价格未知",
+            None,
+            Some("2026-09-15"),
+            serde_json::json!({"cost_mode": "daily"}),
+            None,
+        ),
+    ] {
+        let mut i = input(&s, name, price);
+        i.base.purchase_date = date.map(Into::into);
+        i.options = Some(serde_json::from_value(serde_json::json!({"preferences": prefs, "warranty": null, "retired_date": null, "sale": sale})).unwrap());
+        s.save_asset(&i, today).unwrap();
+    }
+    let names = |q: &Query, s: &Store| {
+        s.query_assets(q, today)
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|r| r.asset.name)
+            .collect::<Vec<_>>()
+    };
+    let mut q = query();
+    q.sort = "daily".into();
+    assert_eq!(names(&q, &s)[..3], ["日均一百", "售出两百", "日均三百"]);
+    q.descending = true;
+    let desc = names(&q, &s);
+    assert_eq!(desc[..3], ["日均三百", "售出两百", "日均一百"]);
+    assert!(desc[3..].contains(&"按次".to_string()) && desc[3..].contains(&"价格未知".to_string()));
+    q.label = Some(tag.clone());
+    assert_eq!(names(&q, &s), ["日均一百"]);
+    q.label = Some("none".into());
+    assert_eq!(names(&q, &s).len(), 4);
+    q.label = Some("x' OR 1=1 --".into());
+    assert!(s.query_assets(&q, today).is_err());
 }

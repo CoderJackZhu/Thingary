@@ -174,7 +174,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   const args = payload as Record<string,unknown>;
   if (command === 'choice_list') {
     const kind = String(args.kind);
-    const items = kind === 'category' ? catalog.categories.map(c => ({ id: c.id, name: c.name, enabled: true })) : kind === 'channel' ? catalog.channels.map(c => ({ id: c.id, name: c.name, enabled: true })) : [{ id: 'label-active', name: '活跃中', enabled: true }];
+    const items = kind === 'category' ? catalog.categories.map(c => ({ id: c.id, name: c.name, enabled: true })) : kind === 'channel' ? catalog.channels.map(c => ({ id: c.id, name: c.name, enabled: true })) : [{ id: 'label-active', name: '工作用', enabled: true }];
     return { revision: 0, items };
   }
   if (command === 'asset_ids') { const page = await handle('list_assets', { query: { ...(args.query as Query), offset: 0 }, all: true }) as Page; return page.items.map(r => r.asset.id); }

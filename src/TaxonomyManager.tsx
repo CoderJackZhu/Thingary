@@ -30,7 +30,7 @@ const KIND_TABS: { value: TaxonomyKind; label: string; helper: string }[] = [
 ];
 // Sale channels and status labels use the simpler choice lists (rename-free, enable/disable).
 type ExtraTab = "sale_channel" | "label";
-const ALL_TABS: { value: TaxonomyKind | ExtraTab; label: string }[] = [...KIND_TABS, { value: "sale_channel", label: "售出渠道" }, { value: "label", label: "状态标签" }];
+const ALL_TABS: { value: TaxonomyKind | ExtraTab; label: string }[] = [...KIND_TABS, { value: "sale_channel", label: "售出渠道" }, { value: "label", label: "标签" }];
 
 const ICON_GLYPHS: Record<CategoryIcon, ReactNode> = {
   box: (
@@ -724,7 +724,7 @@ export default function TaxonomyManager({
         <p className="taxonomy-eyebrow">设置</p>
         <h1 id="taxonomy-heading">选项管理</h1>
         <p className="taxonomy-lede">
-          整理分类、购买与售出渠道，以及自定义状态标签。
+          整理分类、购买与售出渠道，以及给物品分组用的标签。
         </p>
       </header>
 
@@ -755,7 +755,7 @@ export default function TaxonomyManager({
 
       {extra ? (
         <section id={`taxonomy-tabpanel-${extra}`} role="tabpanel" aria-labelledby={`taxonomy-tab-${extra}`} className="taxonomy-panel">
-          <ChoiceManager key={extra} kind={extra} label={extra === "label" ? "状态标签" : "售出渠道"} generation={generation ?? ""} />
+          <ChoiceManager key={extra} kind={extra} label={extra === "label" ? "标签" : "售出渠道"} generation={generation ?? ""} />
         </section>
       ) : (
       <section

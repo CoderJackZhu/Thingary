@@ -12,7 +12,7 @@ export type BatchInput = { request_id: string; generation: string; action: Exclu
 type Choice = { id: string; name: string; enabled: boolean };
 const stateText = { active: '使用中', retired: '已退役', sold: '已售出' } as const;
 const exclusionLabels = [['total', '总价'], ['daily', '日均'], ['statistics', '统计'], ['timeline', '时间轴']] as const;
-export const batchVerb: Record<BatchKind, string> = { classify: '设置分类与渠道', label: '设置状态标签', retire: '退役', activate: '重新启用', exclude: '设置统计口径', delete: '删除', warranty: '添加保障', sell: '售出' };
+export const batchVerb: Record<BatchKind, string> = { classify: '设置分类与渠道', label: '设置标签', retire: '退役', activate: '重新启用', exclude: '设置统计口径', delete: '删除', warranty: '添加保障', sell: '售出' };
 
 function useRows(ids: string[], version: number) {
   const [rows, setRows] = useState<BatchRow[] | null>(null), [error, setError] = useState('');
@@ -36,7 +36,7 @@ export function BatchPanel({ ids, version, onClear, onOpen }: { ids: string[]; v
       <dl className="facts"><dt>购入合计</dt><dd>{money(s.total)}</dd><dt>金额未知</dt><dd>{s.unknown} 件</dd></dl>
       <div className="batch-actions">
         <button onClick={() => onOpen('classify')}>设置分类与渠道…</button>
-        <button onClick={() => onOpen('label')}>设置状态标签…</button>
+        <button onClick={() => onOpen('label')}>设置标签…</button>
         {s.states.active > 0 && <button onClick={() => onOpen('retire')}>退役…</button>}
         {s.states.active === 0 && s.states.retired > 0 && <button onClick={() => onOpen('activate')}>重新启用…</button>}
         <button onClick={() => onOpen('warranty')}>添加保障…</button>
@@ -114,7 +114,7 @@ export function BatchDialog({ kind, ids, generation, today, onClose, onDone }: {
   const options = (list: Choice[] | undefined, empty: string) => [<option key={KEEP} value={KEEP}>保持不变</option>, <option key="none" value="">{empty}</option>, ...(list ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)];
   const nameOf = (list: Choice[] | undefined, id: string | null, empty: string) => id ? list?.find(c => c.id === id)?.name ?? '已停用的项' : empty;
   const changed = (r: BatchRow) => !!change(r);
-  const title = kind === 'delete' ? `删除 ${ids.length} 件物品？` : `${{ classify: '批量分类', label: '批量状态标签', exclude: '批量统计口径', retire: '批量退役', activate: '批量重新启用', warranty: '批量添加保障', sell: '批量售出' }[kind]} · 为 ${ids.length} 件物品分别设置`;
+  const title = kind === 'delete' ? `删除 ${ids.length} 件物品？` : `${{ classify: '批量分类', label: '批量设置标签', exclude: '批量统计口径', retire: '批量退役', activate: '批量重新启用', warranty: '批量添加保障', sell: '批量售出' }[kind]} · 为 ${ids.length} 件物品分别设置`;
   const note = { classify: '每行默认保持不变；在“全部设为”选择可一次填满整列，再单独改个别行。', label: '每行默认保持不变；在“全部设为”选择可一次填满整列。', exclude: '勾选表示不计入对应口径；表头可整列勾选或取消。', retire: '日期默认今天，不早于购入与上一条状态记录；不适用的行不参与保存。', activate: '日期默认今天，不早于上一条状态记录；不适用的行不参与保存。', warranty: '每件各添加一份保障：默认从购入日期起一年，购入日期未知时从今天起；表头可统一类型与年限。', sell: '售价逐件填写（必填，可为 0）；日期与渠道可在“全部设为”统一。已售出的行不参与保存。', delete: '删除用于录错或重复的记录。这些物品及它们的维护、保障、关联支出会从各处隐藏，可从“最近删除”逐件恢复。已经不用、送人或丢失了？请改用“退役”；卖掉了请用“售出”。' }[kind];
   return <dialog ref={dialog} className="editor batch-editor" aria-labelledby="batch-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}>
     <header><div><p className="eyebrow">物品 · 批量操作</p><h2 id="batch-title">{title}</h2><p className="muted">{note}</p></div>

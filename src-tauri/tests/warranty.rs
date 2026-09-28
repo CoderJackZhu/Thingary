@@ -89,6 +89,7 @@ fn query(warranty: &str) -> Query {
         offset: 0,
         category: Default::default(),
         warranty: warranty.into(),
+        label: None,
     }
 }
 fn names(page: &possio_lib::catalog::Page) -> Vec<&str> {

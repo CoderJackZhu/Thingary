@@ -272,7 +272,7 @@ fn unknown_target_never_auto_achieves_and_atomic_errors_leave_no_wish() {
             filter: "ongoing".into(),
             sort: "created".into(),
             descending: true,
-            offset: 0
+            offset: 0,
         })
         .unwrap()
         .total,
@@ -372,7 +372,8 @@ fn asset_options_history_exclusions_pin_and_backup_are_atomic() {
                 descending: true,
                 offset: 0,
                 category: Default::default(),
-                warranty: "all".into()
+                warranty: "all".into(),
+                label: None,
             },
             TODAY
         )

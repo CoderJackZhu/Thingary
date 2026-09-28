@@ -46,6 +46,7 @@ fn query(category: CategoryFilter) -> Query {
         offset: 0,
         category,
         warranty: "all".into(),
+        label: None,
     }
 }
 fn trash(s: &Store, id: &str, revision: i64, deleted: bool) -> TrashChange {

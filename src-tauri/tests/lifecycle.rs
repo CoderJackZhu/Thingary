@@ -55,6 +55,7 @@ fn query(filter: &str) -> Query {
         descending: false,
         offset: 0,
         warranty: "all".into(),
+        label: None,
     }
 }
 #[test]

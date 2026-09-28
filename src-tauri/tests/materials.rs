@@ -213,6 +213,7 @@ fn material_photos_survive_reopen_and_backup_restore() {
                     offset: 0,
                     category: Default::default(),
                     warranty: "all".into(),
+                    label: None,
                 },
                 TODAY,
             )

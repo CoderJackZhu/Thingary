@@ -35,6 +35,7 @@ fn query(deleted: bool) -> Query {
         descending: true,
         offset: 0,
         warranty: "all".into(),
+        label: None,
     }
 }
 fn change(s: &Store, id: &str, revision: i64, deleted: bool) -> TrashChange {

@@ -56,6 +56,7 @@ fn ac16_create_cancel_and_abandon_do_not_touch_assets() {
                 offset: 0,
                 category: Default::default(),
                 warranty: "all".into(),
+                label: None,
             },
             "2026-09-25",
         )
@@ -101,7 +102,8 @@ fn ac16_create_cancel_and_abandon_do_not_touch_assets() {
                     descending: true,
                     offset: 0,
                     category: Default::default(),
-                    warranty: "all".into()
+                    warranty: "all".into(),
+                    label: None,
                 },
                 "2026-09-25"
             )
