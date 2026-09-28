@@ -26,7 +26,9 @@ import type { SourceTarget } from './source';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 const emptyWarrantySummary = {status:'none',total:0,active_count:0,expiring_count:0,upcoming_count:0,expired_count:0,pending_count:0} as const;
 
-const categoryNames = [...new Map(demoAssets.map(a => [a.icon, a.category])).entries()];
+// One entry per category name (the sample merges camera and audio items); id is the first item's icon.
+const categoryNames = [...new Map(demoAssets.map(a => [a.category, a.icon])).entries()].map(([name, icon]) => [icon, name]);
+const categoryId = (name: string) => categoryNames.find(([, n]) => n === name)![0];
 const channelNames = [...new Set(demoAssets.flatMap(a => a.channel ? [a.channel] : []))];
 let records: AssetRecord[] = demoAssets.map((a, i) => ({
   lifecycle: {state: a.sale ? 'sold' : a.retired_on ? 'retired' : 'active', events: a.retired_on ? [{id:'demo-retirement',sequence:1,kind:'retire',date:a.retired_on,notes:'留作备用机'}] : []},
@@ -38,12 +40,12 @@ let records: AssetRecord[] = demoAssets.map((a, i) => ({
   asset: { id:a.key, name:a.name, price_cents:a.price_cents, purchase_date:a.purchase_date, revision:1 },
   details: {brand:a.brand,model:a.model,serial_number:'',notes:a.notes},
   created_at: new Date(Date.UTC(2026,8,10,8,0,8-i)).toISOString(), updated_at:null,
-  classification: {category_id:a.icon,channel_id:a.channel ? 'demo-channel-'+channelNames.indexOf(a.channel) : null},
+  classification: {category_id:categoryId(a.category),channel_id:a.channel ? 'demo-channel-'+channelNames.indexOf(a.channel) : null},
   deleted:false,deleted_at:null,photos:[{id:a.key,name:'原始 Demo 虚构物品示意图'}],cover_id:a.key,
 }));
 let taxonomyRevision = 0;
 const taxonomyReceipts = new Map<string,string>();
-let catalog: PreviewCatalog = {categories:[...categoryNames,['box','其他']].map(([id,name])=>({id,name,icon:id as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:channelNames.map((name,i)=>({id:'demo-channel-'+i,name,references:{activeAssets:0,deletedAssets:0}})),assets:[]};
+let catalog: PreviewCatalog = {categories:[...categoryNames,['apparel','服饰配饰'],['outdoor','出行运动'],['box','其他']].map(([id,name])=>({id,name,icon:(['apparel','outdoor'].includes(id)?'box':id) as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:channelNames.map((name,i)=>({id:'demo-channel-'+i,name,references:{activeAssets:0,deletedAssets:0}})),assets:[]};
 function taxonomySnapshot() { catalog.assets=records.map(r=>({id:r.asset.id,categoryId:r.classification?.category_id??null,channelId:r.classification?.channel_id??null,deleted:r.deleted})); return {generation,revision:taxonomyRevision,...previewSnapshot(catalog)}; }
 const requests = new Map<string, AssetRecord>();
 const recordTrashReceipts = new Map<string, string>();

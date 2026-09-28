@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 19;
+pub const SCHEMA_VERSION: i64 = 20;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -594,13 +594,206 @@ PRAGMA user_version=14;")?;
         tx.execute_batch(include_str!("x05.sql"))?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 19;
     }
+    if v == 19 && target >= 20 {
+        // Unify built-in and sample category names into one broader set.
+        let tx = c.unchecked_transaction()?;
+        unify_categories(&tx)?;
+        tx.execute_batch("PRAGMA user_version=20;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+    }
+    Ok(())
+}
+
+/// Canonical categories, in order, with the exact default names merged into each.
+/// Renamed or user-created categories are left alone.
+pub const CATEGORY_SET: [(&str, &str, &[&str]); 7] = [
+    ("电脑与办公", "computer", &["电脑"]),
+    ("手机与平板", "phone", &["手机"]),
+    (
+        "影音摄影",
+        "camera",
+        &["摄影", "音频", "摄影器材", "音频设备"],
+    ),
+    ("家电家居", "home", &["家电", "生活家电"]),
+    ("服饰配饰", "box", &[]),
+    ("出行运动", "box", &[]),
+    ("其他", "box", &[]),
+];
+fn unify_categories(tx: &Connection) -> Result<()> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut canonical = Vec::new();
+    for (name, icon, merged) in CATEGORY_SET {
+        // (id, position, already has target name) for every row this canonical entry absorbs.
+        let mut rows: Vec<(String, i64, bool)> = Vec::new();
+        for n in std::iter::once(&name).chain(merged.iter()) {
+            if let Some((id, position)) = tx
+                .query_row(
+                    "SELECT id,position FROM categories WHERE name=?1",
+                    [n],
+                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
+                )
+                .optional()?
+            {
+                rows.push((id, position, *n == name));
+            }
+        }
+        // Prefer the row already carrying the target name, else the earliest position.
+        let keep = match rows
+            .iter()
+            .min_by_key(|(_, position, named)| (!named, *position))
+        {
+            Some((keep, _, _)) => {
+                let keep = keep.clone();
+                let ids: Vec<String> = rows.into_iter().map(|(id, _, _)| id).collect();
+                for id in ids.iter().filter(|id| **id != keep) {
+                    tx.execute(
+                        "UPDATE assets SET category_id=?1,revision=revision+1 WHERE category_id=?2",
+                        params![keep, id],
+                    )?;
+                    tx.execute("UPDATE wishlist_items SET category_id=?1,revision=revision+1,updated_at=?2 WHERE category_id=?3", params![keep, now, id])?;
+                    tx.execute(
+                        "DELETE FROM disabled_choices WHERE kind='category' AND id=?1",
+                        [id],
+                    )?;
+                    tx.execute("DELETE FROM categories WHERE id=?1", [id])?;
+                }
+                tx.execute(
+                    "UPDATE categories SET name=?1,name_key=?2 WHERE id=?3",
+                    params![name, name.to_ascii_lowercase(), keep],
+                )?;
+                keep
+            }
+            None => {
+                let id = uid();
+                tx.execute(
+                    "INSERT INTO categories VALUES(?1,?2,?3,?4,(SELECT coalesce(max(position),-1)+1 FROM categories))",
+                    params![id, name, name.to_ascii_lowercase(), icon],
+                )?;
+                id
+            }
+        };
+        canonical.push(keep);
+    }
+    // Canonical set first, then any user categories in their existing order.
+    let rest: Vec<String> = {
+        let mut stmt = tx.prepare("SELECT id FROM categories ORDER BY position,id")?;
+        let all = stmt
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        all.into_iter()
+            .filter(|id| !canonical.contains(id))
+            .collect()
+    };
+    for (position, id) in canonical.iter().chain(rest.iter()).enumerate() {
+        tx.execute(
+            "UPDATE categories SET position=?1 WHERE id=?2",
+            params![position as i64, id],
+        )?;
+    }
+    tx.execute(
+        "UPDATE taxonomy_state SET revision=revision+1 WHERE id=1",
+        [],
+    )?;
     Ok(())
 }
 
 #[cfg(test)]
 mod taxonomy_migration_tests {
     use super::*;
+    #[test]
+    fn version_twenty_merges_default_categories_only() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(SCHEMA).unwrap();
+        migrate_to(&c, 19, &|_| Ok(())).unwrap();
+        let id = |name: &str| -> String {
+            c.query_row("SELECT id FROM categories WHERE name=?1", [name], |r| {
+                r.get(0)
+            })
+            .unwrap()
+        };
+        // Built-in short names exist; add the sample's long names, a renamed default and a user category.
+        for (i, name) in ["电脑与办公", "音频设备", "乐器"].iter().enumerate() {
+            c.execute(
+                "INSERT INTO categories VALUES(?1,?2,?2,'box',?3)",
+                params![format!("x{i}"), name, 10 + i as i64],
+            )
+            .unwrap();
+        }
+        c.execute(
+            "UPDATE categories SET name='我的家电',name_key='我的家电' WHERE name='家电'",
+            [],
+        )
+        .unwrap();
+        let (pc, long_pc, audio, music) = (id("电脑"), id("电脑与办公"), id("音频"), id("乐器"));
+        for (asset, category) in [("a", &pc), ("b", &long_pc), ("c", &audio), ("d", &music)] {
+            c.execute("INSERT INTO assets(id,name,price_cents,purchase_date,revision,category_id) VALUES(?1,?1,NULL,NULL,1,?2)", params![asset, category]).unwrap();
+        }
+        c.execute("INSERT INTO wishlist_items(id,name,category_id,estimated_price_cents,priority,target_date,external_link,notes,status,revision,created_at,updated_at,abandoned_at) VALUES('w','w',?1,NULL,NULL,NULL,'','','ongoing',1,'t','t',NULL)", [&pc]).unwrap();
+        c.execute(
+            "INSERT INTO disabled_choices VALUES('category',?1)",
+            [&audio],
+        )
+        .unwrap();
+        migrate(&c, &|_| Ok(())).unwrap();
+
+        let names: Vec<String> = c
+            .prepare("SELECT name FROM categories ORDER BY position")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "电脑与办公",
+                "手机与平板",
+                "影音摄影",
+                "家电家居",
+                "服饰配饰",
+                "出行运动",
+                "其他",
+                "我的家电",
+                "乐器"
+            ]
+        );
+        // The row already named 电脑与办公 wins; 电脑's asset and wish move onto it with a new revision.
+        let owner = |asset: &str| -> (String, i64) {
+            c.query_row(
+                "SELECT category_id,revision FROM assets WHERE id=?1",
+                [asset],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap()
+        };
+        assert_eq!(owner("a"), (long_pc.clone(), 2));
+        assert_eq!(owner("b"), (long_pc.clone(), 1));
+        assert_eq!(owner("d"), (music, 1));
+        let wish: String = c
+            .query_row(
+                "SELECT category_id FROM wishlist_items WHERE id='w'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(wish, long_pc);
+        // 摄影 (earlier position) absorbs 音频 and 音频设备; the disabled flag of a removed row is dropped.
+        assert_eq!(owner("c").0, id("影音摄影"));
+        assert_eq!(
+            c.query_row("SELECT count(*) FROM disabled_choices", [], |r| r
+                .get::<_, i64>(0))
+                .unwrap(),
+            0
+        );
+        assert_eq!(
+            c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            20
+        );
+    }
     #[test]
     fn version_four_upgrade_rolls_back_and_preserves_assets() {
         let c = Connection::open_in_memory().unwrap();

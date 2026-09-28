@@ -277,7 +277,7 @@ fn one_time_prices_reach_expenses_timeline_and_backups() {
     drop(a);
     let mut b = Store::open(&dir.path().join("b")).unwrap();
     let summary = b.inspect_backup(&file).unwrap();
-    assert_eq!((summary.schema, summary.virtual_assets), (19, 2));
+    assert_eq!((summary.schema, summary.virtual_assets), (20, 2));
     b.restore(&file, &summary.hash, &b.generation()).unwrap();
     assert_eq!(b.virtual_overview(T).unwrap().items.len(), 2);
 }

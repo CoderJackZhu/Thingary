@@ -212,7 +212,7 @@ fn stale_snapshots_targets_names_and_receipts() {
         .unwrap()
         .id
         .clone();
-    assert_eq!(s.change_taxonomy(&create).unwrap().categories.len(), 7);
+    assert_eq!(s.change_taxonomy(&create).unwrap().categories.len(), 8);
     let mut collision = create.clone();
     collision.command = Command::Create {
         kind: Kind::Category,
@@ -348,7 +348,10 @@ fn backup_restore_preserves_taxonomy_and_rejects_old_generation() {
         s.record(&a.asset.id).unwrap().unwrap().classification,
         a.classification
     );
-    assert_eq!(s.taxonomy_snapshot().unwrap().categories[2].name, "摄影");
+    assert_eq!(
+        s.taxonomy_snapshot().unwrap().categories[2].name,
+        "影音摄影"
+    );
     assert_eq!(
         s.change_taxonomy(&pending).unwrap_err().code,
         "STALE_DATASET"

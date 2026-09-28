@@ -342,7 +342,7 @@ fn schema_nine_upgrade_preserves_assets_and_adds_materials() {
             .query_row("PRAGMA user_version", [], |r| r.get(0))
             .unwrap()
     };
-    assert_eq!(version, 19, "a schema 8 library upgrades through 9 to 19");
+    assert_eq!(version, 20, "a schema 8 library upgrades through 9 to 20");
     assert_eq!(s.count().unwrap(), 1);
     assert_eq!(
         s.material_entries().unwrap().len(),
