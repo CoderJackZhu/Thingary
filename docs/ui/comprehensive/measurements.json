@@ -1,0 +1,99 @@
+[
+  {
+    "name": "before-light",
+    "h": 820,
+    "overflow": false,
+    "reviewOverflow": false,
+    "w": 1280
+  },
+  {
+    "name": "before-dark",
+    "h": 820,
+    "overflow": false,
+    "reviewOverflow": false,
+    "w": 1280
+  },
+  {
+    "name": "after-light",
+    "h": 820,
+    "overflow": false,
+    "reviewOverflow": false,
+    "w": 1280
+  },
+  {
+    "name": "after-dark",
+    "h": 820,
+    "overflow": false,
+    "reviewOverflow": false,
+    "w": 1280
+  },
+  {
+    "name": "missing-light",
+    "h": 820,
+    "overflow": false,
+    "reviewOverflow": false,
+    "w": 1280
+  },
+  {
+    "name": "empty-light",
+    "h": 820,
+    "overflow": false,
+    "reviewOverflow": false,
+    "w": 1280
+  },
+  {
+    "name": "error-light",
+    "h": 820,
+    "overflow": false,
+    "reviewOverflow": false,
+    "w": 1280
+  },
+  {
+    "name": "1080-light",
+    "columns": "422px 422px",
+    "h": 760,
+    "overflow": false,
+    "reviewOverflow": false,
+    "sidebar": {
+      "client": 760,
+      "scroll": 762
+    },
+    "w": 1080
+  },
+  {
+    "name": "1080-dark",
+    "columns": "422px 422px",
+    "h": 760,
+    "overflow": false,
+    "reviewOverflow": false,
+    "sidebar": {
+      "client": 760,
+      "scroll": 762
+    },
+    "w": 1080
+  },
+  {
+    "name": "800-light",
+    "columns": "596px",
+    "h": 600,
+    "overflow": false,
+    "reviewOverflow": false,
+    "sidebar": {
+      "client": 600,
+      "scroll": 753
+    },
+    "w": 800
+  },
+  {
+    "name": "800-dark",
+    "columns": "596px",
+    "h": 600,
+    "overflow": false,
+    "reviewOverflow": false,
+    "sidebar": {
+      "client": 600,
+      "scroll": 753
+    },
+    "w": 800
+  }
+]

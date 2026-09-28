@@ -1,0 +1,18 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>物志 · D 综合回顾对照稿</title><style>.notification-notice{display:none!important}</style></head><body><div id="visual-preview-label" style="position:fixed;bottom:8px;left:8px;z-index:3;font:10px -apple-system,sans-serif;color:#667080;pointer-events:none">Q01 设计稿 · 虚构样例 · 无真实写入</div><div id="root"></div><script type="module">
+import '/src/visual-preview.ts';
+import {prepare,show} from './mock.js';
+const waitFor=(test)=>new Promise((resolve,reject)=>{let n=0;const tick=()=>{if(test())resolve();else if(n++>100)reject(Error('Preview loading timed out'));else setTimeout(tick,100);};tick();});
+try {
+ await waitFor(()=>document.querySelector('.sidebar nav button'));
+ await prepare();
+ document.querySelector('.sidebar nav button').click();
+ await waitFor(()=>document.querySelector('.overview-switch'));
+ const physical=[...document.querySelectorAll('.overview-switch button')].find(b=>b.textContent==='实物概览');
+ physical.click();
+ await waitFor(()=>document.querySelector('.overview-section'));
+ document.querySelector('.overview-switch').style.display='none';
+ const state=new URLSearchParams(location.search).get('mock')||'normal';
+ if(state!=='before')await show(state);
+ document.documentElement.dataset.designReady='true';
+} catch(e){ const p=document.createElement('p');p.setAttribute('role','alert');p.textContent=e.message;document.body.append(p); }
+</script></body></html>
