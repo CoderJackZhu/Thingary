@@ -1,5 +1,9 @@
 # 变更记录
 
+## 2026-09-28 · 打开物品档案后焦点移到标题（未发布）
+
+- 从列表、时间轴或综合页打开完整档案时，读取完成后焦点移到物品标题，键盘和读屏用户不再停在网页区域。见 [Q04 记录](docs/verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md#未验与观察)。
+
 ## 2026-09-28 · 1.9.1 自用正式版 · 修复较窄窗口侧栏横向滚动条
 
 - 用户授权推送与安装：版本升至 1.9.1，`npm run release` 构建并安装至 `/Applications/物志.app`；核对版本 1.9.1、identifier `local.possio.main`、严格签名验证通过，程序 SHA-256 与构建产物一致（`afcb989abbe3844e076e0ee0658e47166f7fe4d13fcbb5a4b4b41d0cfed1eb89`）。1.9.0 副本保存在 `.local/install/物志-1.9.0.app`。安装时正式 App 未在运行，安装后未打开。

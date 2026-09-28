@@ -127,7 +127,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const menuAction = useRef<(action: string) => void>(() => {});
   const searchRef = useRef<HTMLInputElement>(null);
   const newRef = useRef<HTMLButtonElement>(null);
-  const queryTicket = useRef(0), detailTicket = useRef(0);
+  const queryTicket = useRef(0), detailTicket = useRef(0), focusDetail = useRef(false);
   const opener = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement>(null), collectionRef = useRef<HTMLDivElement>(null), listScroll = useRef(0);
   const [taxonomyDirty, setTaxonomyDirty] = useState(false);
@@ -165,6 +165,12 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     finally { if (ticket === queryTicket.current) setLoading(false); }
   }
   useEffect(() => { void refresh(query); }, [query]);
+  // Opening the full record moves focus to its heading once it has loaded, like closing an editor does.
+  useEffect(() => {
+    if (!focusDetail.current || detailLoading || !detailId) return;
+    focusDetail.current = false;
+    document.getElementById('detail-heading')?.focus();
+  }, [detailLoading, detailId, selected]);
   // The target page shows its own failure message; the App only clears the focus.
   const onSourceDone = () => setSourceFocus(null);
   function beginReturn() {
@@ -259,7 +265,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   async function select(id: string, full = false) {
     if (wishlistEditing) return;
     const ticket = ++detailTicket.current; setDetailLoading(true); setDetailError('');
-    if (full) { if (!detailId) listScroll.current = collectionRef.current?.scrollTop ?? 0; setDetailId(id); requestAnimationFrame(() => { if (mainRef.current) mainRef.current.scrollTop = 0; }); }
+    if (full) { focusDetail.current = true; if (!detailId) listScroll.current = collectionRef.current?.scrollTop ?? 0; setDetailId(id); requestAnimationFrame(() => { if (mainRef.current) mainRef.current.scrollTop = 0; }); }
     try { const r = await invoke<AssetRecord | null>('read_asset', { id }); if (ticket === detailTicket.current) { setSelected(r); if (!r) setDetailError('找不到这件物品。'); else if (r.deleted) setDetailError('这件物品已移入最近删除。'); } }
     catch (e) { if (ticket === detailTicket.current) { setSelected(null); setDetailError(errorMessage(e)); } }
     finally { if (ticket === detailTicket.current) setDetailLoading(false); }
