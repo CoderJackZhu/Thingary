@@ -7,7 +7,8 @@
 ## 当前状态
 
 - P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
-- 自用正式版 1.7.0（含财富盘点、重要支出、周期费用、统一样例、删除恢复统一规则与物品批量操作）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- 自用正式版 1.7.1（含财富盘点、重要支出、周期费用、统一样例、删除恢复统一规则与物品批量操作）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- 1.7.1 按反馈微调：删除确认按钮为实心红色、选择图标与「全选」、圆形勾选标记、侧栏「保障中」。
 - 1.7.0 新增物品批量操作（D19）：多选、批量面板、逐件批量表与整批撤销，已通过隔离原生验收并安装；见 [U11 记录](docs/verification/U11_BATCH_RESULT.md)。
 - 1.6.3 新增 12 个立体图标，立体素材共 16 个，已通过隔离原生验收并安装；见[验收记录](docs/verification/ICON_PICKER_RESULT.md#2026-09-28--立体图标扩充)。
 - 1.6.2 图标扩充（新增 22 个大件主题）已通过隔离验收并安装；见[图标验收记录](docs/verification/ICON_PICKER_RESULT.md#2026-09-28--原生补验与-162-收尾)。
