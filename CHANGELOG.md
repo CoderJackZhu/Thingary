@@ -2,6 +2,10 @@
 
 按时间倒序记录各阶段完成情况。当前状态见 [README](README.md)，任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准，逐项证据在 `docs/verification/`。本文件由原 README 与 AGENTS.md 中逐次追加的状态段落整理而来，原文保留。
 
+## 2026-09-28 · ⌘Z 撤销删除（未发版）
+
+- 撤销条显示期间按 ⌘Z 撤销删除；编辑菜单“撤销”改为转给页面的原生菜单项，输入框内仍是文字撤销，打开表单时不撤销删除。隔离原生验证删除撤销与搜索框文字撤销/重做均正常；UI 逻辑 100 项与检查通过，见 [U10 记录](docs/verification/U10_DELETION_RESULT.md) §5。
+
 ## 2026-09-28 · 1.6.0 自用正式版 · U10 删除与恢复统一规则
 
 - 用户授权后将 `claude/d17-d18-deletion` 快进合入 `main`，版本升至 1.6.0，`npm run release` 构建并安装至 `/Applications/物志.app`；核对版本 1.6.0、identifier `local.possio.main`、严格签名验证通过，程序 SHA-256 与构建产物一致（`d379af89725fa76518aaf133c2fef94bdf389f23fde88ca9b9a73b7991bc184f`）。1.5.1 副本保存在 `.local/install/`。正式应用未启动，正式资料库未打开；首次打开时正式库升级到 schema 18，1.6.0 的备份不能在 1.5.x 中恢复。

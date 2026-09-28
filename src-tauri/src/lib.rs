@@ -73,7 +73,8 @@ pub fn run() {
                 "编辑",
                 true,
                 &[
-                    &Item::undo(app, Some("撤销"))?,
+                    // The page decides: text undo in a field, else the deletion undo bar.
+                    &MenuItem::with_id(app, "undo", "撤销", true, Some("CmdOrCtrl+Z"))?,
                     &Item::redo(app, Some("重做"))?,
                     &Item::separator(app)?,
                     &Item::cut(app, Some("剪切"))?,
@@ -183,7 +184,7 @@ pub fn run() {
             let action = event.id().as_ref();
             if matches!(
                 action,
-                "new-asset" | "find-asset" | "edit-asset" | "open-settings"
+                "new-asset" | "find-asset" | "edit-asset" | "open-settings" | "undo"
             ) {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.show();
