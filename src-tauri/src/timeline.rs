@@ -78,6 +78,8 @@ SELECT 'expense:'||e.id,'expense',e.date,NULL,NULL,e.title,e.category,e.amount_c
 UNION ALL
 SELECT 'payment:'||p.id,'payment',p.paid_date,NULL,NULL,r.name,r.category,p.amount_cents,0,'' FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id WHERE p.deleted_at IS NULL AND r.deleted_at IS NULL AND p.state='paid'
 UNION ALL
+SELECT 'virtual:'||v.id,'virtual',v.purchase_date,NULL,NULL,v.name,v.kind,CASE WHEN v.plan_id IS NULL THEN v.price_cents END,0,'' FROM virtual_assets v WHERE v.deleted_at IS NULL AND v.purchase_date IS NOT NULL
+UNION ALL
 SELECT 'refund:'||e.id,'refund',e.refund_date,e.asset_id,NULL,e.title,e.category,e.refund_cents,0,'' FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))";
 
 fn kinds(filter: &str) -> Result<&'static [&'static str]> {
@@ -96,10 +98,11 @@ fn kinds(filter: &str) -> Result<&'static [&'static str]> {
             "expense",
             "refund",
             "payment",
+            "virtual",
         ],
         "purchase" => &["purchase"],
         // A linked expense is the item's purchase, so it only shows there (X-D08).
-        "expense" => &["expense", "refund", "payment"],
+        "expense" => &["expense", "refund", "payment", "virtual"],
         "maintenance" => &["maintenance"],
         "warranty" => &["warranty_start", "warranty_end"],
         "lifecycle" => &["retire", "activate", "sale"],

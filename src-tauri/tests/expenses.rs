@@ -345,7 +345,7 @@ fn backups_carry_expenses_and_schema_fifteen_backups_migrate() {
     drop(a);
     let mut b = Store::open(&dir.path().join("b")).unwrap();
     let summary = b.inspect_backup(&file).unwrap();
-    assert_eq!((summary.schema, summary.expenses), (18, 1));
+    assert_eq!((summary.schema, summary.expenses), (19, 1));
     b.restore(&file, &summary.hash, &b.generation()).unwrap();
     assert_eq!(b.expense_view(None).unwrap().spent_cents, "880000");
 

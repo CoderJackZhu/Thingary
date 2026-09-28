@@ -42,11 +42,24 @@ struct Plan {
     paid_periods: Vec<u32>,
 }
 #[derive(Deserialize)]
+struct Virtual {
+    key: String,
+    name: String,
+    kind: String,
+    provider: String,
+    purchase_days_ago: Option<u64>,
+    price_cents: Option<String>,
+    expires_in_days: Option<u64>,
+    plan_key: Option<String>,
+    stopped_days_ago: Option<u64>,
+}
+#[derive(Deserialize)]
 struct Fixtures {
     accounts: Vec<Account>,
     snapshots: Vec<Snapshot>,
     expenses: Vec<Expense>,
     plans: Vec<Plan>,
+    virtuals: Vec<Virtual>,
 }
 fn day(d: NaiveDate) -> String {
     d.format("%Y-%m-%d").to_string()
@@ -251,5 +264,66 @@ fn import_plans(s: &mut Store, data: Vec<Plan>, now: NaiveDate, today: &str) -> 
             )?;
         }
     }
+    Ok(())
+}
+
+/// Virtual assets (C2) carry their own marker so sample libraries made before
+/// C2 gain them on upgrade. Dates count from the first attempt's day.
+pub(crate) fn import_virtual(s: &mut Store, today: &str) -> Result<()> {
+    let complete = s.root.join("unified-demo-virtual-v1.complete");
+    if complete.exists() {
+        return Ok(());
+    }
+    let anchor = s.root.join("unified-demo-virtual-v1.date");
+    let date = if anchor.exists() {
+        std::fs::read_to_string(&anchor)?
+    } else {
+        crate::storage::atomic_write(&anchor, today.as_bytes())?;
+        today.to_owned()
+    };
+    let now = crate::domain::date(&date)?;
+    let data: Fixtures = serde_json::from_str(include_str!("../../src/demo-finance.json"))?;
+    let plans = s.recurring_overview(&date)?.plans;
+    for v in data.virtuals {
+        // Link only while the sample plan is still there under its name.
+        let plan_id = v.plan_key.and_then(|k| {
+            let name = &data.plans.iter().find(|p| p.key == k)?.name;
+            Some(plans.iter().find(|p| &p.fields.name == name)?.id.clone())
+        });
+        let request_id = rid(&format!("virtual-{}", v.key));
+        if s.conn()?.query_row(
+            "SELECT EXISTS(SELECT 1 FROM feature_requests WHERE id=?1)",
+            [&request_id],
+            |r| r.get::<_, bool>(0),
+        )? {
+            continue;
+        }
+        s.virtual_save(
+            &crate::virtual_assets::Save {
+                request_id,
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: crate::virtual_assets::Fields {
+                    name: v.name,
+                    kind: v.kind,
+                    provider: v.provider,
+                    purchase_date: v.purchase_days_ago.map(|d| before(now, d)),
+                    price_cents: plan_id.is_none().then_some(v.price_cents).flatten(),
+                    expires: v.expires_in_days.map(|d| {
+                        day(now
+                            .checked_add_days(Days::new(d))
+                            .expect("bounded sample date"))
+                    }),
+                    plan_id,
+                    url: String::new(),
+                    notes: "虚构样例；有效期与费用按规则推算。".into(),
+                    stopped_on: v.stopped_days_ago.map(|d| before(now, d)),
+                },
+            },
+            &date,
+        )?;
+    }
+    crate::storage::atomic_write(&complete, b"1")?;
     Ok(())
 }

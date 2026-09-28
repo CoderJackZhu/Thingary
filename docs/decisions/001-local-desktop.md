@@ -558,3 +558,57 @@ CREATE UNIQUE INDEX plan_payments_period ON plan_payments(plan_id,due_date) WHER
 - 启动挂载界面前读取持久化回执的 generation，必要时选择原样例或个人 Store，再由原模块核对；不先清除另一库的回执。重置请求使用固定 request_id，可核对已经发布但响应丢失的同一次重置。
 - 重置后保留旧样例目录作为故障保留，不自动清理；候选生成失败则由临时目录清理。旧八件样例升级时，已删除物品保持删除，也不新增脱离该物品的重复支出。
 - 验收记录集中在 `docs/verification/U09_UNIFIED_DEMO_RESULT.md`，真实库禁止打开。自动测试覆盖跨模块首次使用、样例隔离、重置与同源数字；隔离原生补验切换、重开、编辑/重置和界面证据。
+
+## 21. C2 · 虚拟资产技术设计（2026-09-28）
+
+依据产品设计 17.8 与 X-D13–X-D16。沿用回执、软删除（`wealth_trash`）、只读投影与备份协议。
+
+### 21.1 schema 19
+
+```sql
+CREATE TABLE virtual_assets(
+  id TEXT PRIMARY KEY, name TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK(kind IN ('license','domain','subscription')),
+  provider TEXT NOT NULL, purchase_date TEXT,
+  price_cents INTEGER CHECK(price_cents BETWEEN 0 AND 99999999999),
+  expires TEXT, plan_id TEXT REFERENCES recurring_plans(id),
+  url TEXT NOT NULL, notes TEXT NOT NULL, stopped_on TEXT,
+  revision INTEGER NOT NULL CHECK(revision>0),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
+  CHECK(plan_id IS NULL OR (kind!='license' AND price_cents IS NULL AND expires IS NULL)));
+CREATE UNIQUE INDEX virtual_assets_plan ON virtual_assets(plan_id) WHERE plan_id IS NOT NULL AND deleted_at IS NULL;
+```
+
+- 关联计划（X-D15）时不存价格和有效期，二者只由计划推算；一份计划最多关联一件未删除的虚拟资产。买断软件不能关联。
+- 停用是一个日期字段 `stopped_on`，在编辑表单中开关，清空即撤回（X-D14），不引入状态表。
+
+### 21.2 推算（Rust `virtual_assets.rs`，只读）
+
+| 数字 | 口径 |
+|---|---|
+| 有效至 | 关联且计划未删除：最近一次 `paid` 期的到期日 + 一个周期 − 1 天（按 `checked_add_months`，月末锚定同 19.1）；无已付期为空。未关联：`expires` |
+| 状态 | 停用 > 有效至为空（买断且未关联 = 永久有效，否则有效期待补充）> 已到期（有效至 < 今天）> 即将到期 > 有效。即将到期：手填有效期为 ≤ 今天 + 30；关联计划为 ≤ 今天 + 7（同 X-D11，否则月付订阅永远显示即将到期） |
+| 已花费 | 关联：该计划全部已付记录之和；未关联：`price_cents`（为空即未知） |
+
+概览返回列表及“使用中”（未停用）、30 天内到期、已到期计数与已花费合计；未知价格单独计数，不当作 0。
+
+### 21.3 与重要支出、时间轴、删除、备份
+
+- 重要支出投影新增来源 `virtual`：未删除、未关联计划且有价格的虚拟资产，按购买日期（未知日期进入“日期未知”小计），分类 `digital`。关联计划的费用已由 `payment` 来源计入，不再重复。
+- 时间轴新增 `virtual` 事件（购买日期已知时），归入“支出”筛选。
+- 最近删除：`wealth_trash` 增加 `virtual`；恢复时若其计划已被另一件虚拟资产关联则拒绝。永久删除计划时先解除所有虚拟资产对它的关联。
+- 备份：schema ≥ 19 时校验字段、日期与关联；Summary 增加 `virtual_assets`。
+
+### 21.4 界面与任务
+
+- 入口：侧栏“财富”分组、周期费用下方“虚拟资产”（X-D16，附同尺寸对照）。页面顶部四个数字，下方按状态筛选的列表；编辑框按类型显示字段：关联计划时隐藏价格与有效期并说明来源。
+- G01：schema 19、`virtual_assets.rs`、命令、投影、删除/永久删除、备份与测试。
+- G02：页面、编辑框、侧栏对照、样例与预览数据、最近删除/时间轴/重要支出标签。
+- G03：隔离原生验收（含 schema 18 → 19 真实升级）与打包。
+
+### 21.5 G01 实现记录（2026-09-28）
+
+- 落地 `src-tauri/src/x05.sql`（schema 19）与 `src-tauri/src/virtual_assets.rs`；命令 `virtual_overview`、`virtual_save`，回执沿用 `feature_requests`。重要支出 `virtual` 来源、时间轴 `virtual` 事件、`wealth_trash`/最近删除/永久删除（永久删除计划先解除关联）、备份校验与 Summary `virtual_assets`、首次使用判断均已接入。
+- 实现中发现：月付订阅按 30 天窗口会永远显示“即将到期”，关联计划的项改用 7 天窗口（见 21.2）。
+- 样例：`src/demo-finance.json` 新增 4 件（买断、域名将到期、关联“虚构创作服务”的订阅、已停用字体授权）；独立标记 `unified-demo-virtual-v1.complete`，C2 之前建立的样例库升级后也会补入；样例计划已删除时不关联。
+- `tests/virtual_assets.rs` 3 项覆盖状态推算、停用、30/7 天边界、月末锚定有效至、关联约束、恢复冲突、永久删除计划解除关联、重要支出/时间轴/备份往返；样例测试同步新数字。旧版本迁移夹具删除新表，版本断言升至 19。全部 Rust 测试、fmt 与 clippy 通过；`worker::tests::pending_receipt_resumes_its_library_after_restart` 在全量并行时偶发失败，`main` 上同样出现，与本次无关。

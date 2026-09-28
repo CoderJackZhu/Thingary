@@ -26,7 +26,7 @@ pub struct Purged {
     pub kept: usize,
 }
 
-const KINDS: [(&str, &str); 9] = [
+const KINDS: [(&str, &str); 10] = [
     ("wish", "wishlist_items"),
     ("payment", "plan_payments"),
     ("maintenance", "maintenances"),
@@ -34,6 +34,7 @@ const KINDS: [(&str, &str); 9] = [
     ("expense", "expenses"),
     ("snapshot", "fin_snapshots"),
     ("account", "fin_accounts"),
+    ("virtual", "virtual_assets"),
     ("plan", "recurring_plans"),
     ("asset", "assets"),
 ];
@@ -208,6 +209,8 @@ fn purge_one(
             tx,
             id,
             &[
+                // A purged plan leaves its virtual asset unlinked (ADR-001 §21.3).
+                "UPDATE virtual_assets SET plan_id=NULL WHERE plan_id=?1",
                 "DELETE FROM plan_payments WHERE plan_id=?1",
                 "DELETE FROM recurring_plans WHERE id=?1",
             ],
@@ -215,6 +218,7 @@ fn purge_one(
         "account" => run(tx, id, &["DELETE FROM fin_accounts WHERE id=?1"])?,
         "expense" => run(tx, id, &["DELETE FROM expenses WHERE id=?1"])?,
         "payment" => run(tx, id, &["DELETE FROM plan_payments WHERE id=?1"])?,
+        "virtual" => run(tx, id, &["DELETE FROM virtual_assets WHERE id=?1"])?,
         _ => return Err(Error::new("TRASH_KIND", "不支持的类型")),
     }
     // Saved replies may carry the removed content; a purge leaves no copy.

@@ -1,0 +1,3 @@
+CREATE TABLE virtual_assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,kind TEXT NOT NULL CHECK(kind IN ('license','domain','subscription')),provider TEXT NOT NULL,purchase_date TEXT,price_cents INTEGER CHECK(price_cents BETWEEN 0 AND 99999999999),expires TEXT,plan_id TEXT REFERENCES recurring_plans(id),url TEXT NOT NULL,notes TEXT NOT NULL,stopped_on TEXT,revision INTEGER NOT NULL CHECK(revision>0),created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deleted_at TEXT,CHECK(plan_id IS NULL OR (kind!='license' AND price_cents IS NULL AND expires IS NULL)));
+CREATE UNIQUE INDEX virtual_assets_plan ON virtual_assets(plan_id) WHERE plan_id IS NOT NULL AND deleted_at IS NULL;
+PRAGMA user_version=19;

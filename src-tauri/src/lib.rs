@@ -25,6 +25,7 @@ pub mod storage;
 pub mod taxonomy;
 pub mod timeline;
 pub mod trash;
+pub mod virtual_assets;
 pub mod warranty;
 pub mod wealth;
 pub mod wish_plan;
@@ -124,6 +125,8 @@ pub fn run() {
             commands::recurring_overview,
             commands::recurring_plan_save,
             commands::recurring_payment_save,
+            commands::virtual_overview,
+            commands::virtual_save,
             commands::open_notification_settings,
             commands::notification_status,
             commands::choice_list,

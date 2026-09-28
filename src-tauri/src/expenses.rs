@@ -51,7 +51,8 @@ pub struct Expense {
 
 /// One row of the expense view. `source` is purchase, maintenance, expense,
 /// linked (a standalone expense now explained by an item; never summed),
-/// payment (a confirmed recurring payment),
+/// payment (a confirmed recurring payment), virtual (a virtual asset's
+/// one-time price when it has no linked plan),
 /// refund or sale.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct Line {
@@ -185,6 +186,9 @@ SELECT 'payment',p.id,NULL,r.name,r.category,p.paid_date,p.amount_cents
   FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id
   WHERE p.deleted_at IS NULL AND r.deleted_at IS NULL AND p.state='paid'
 UNION ALL
+SELECT 'virtual',v.id,NULL,v.name,'digital',v.purchase_date,v.price_cents
+  FROM virtual_assets v WHERE v.deleted_at IS NULL AND v.plan_id IS NULL AND v.price_cents IS NOT NULL
+UNION ALL
 SELECT 'sale',s.id,a.id,a.name,c.name,s.date,s.price_cents
   FROM sales s JOIN assets a ON a.id=s.asset_id LEFT JOIN categories c ON c.id=a.category_id
   WHERE s.revoked_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)";
@@ -314,7 +318,7 @@ impl Store {
             }
             match (l.source.as_str(), amount) {
                 ("purchase" | "maintenance", None) => unknown += 1,
-                ("purchase" | "maintenance" | "expense" | "payment", Some(v)) => {
+                ("purchase" | "maintenance" | "expense" | "payment" | "virtual", Some(v)) => {
                     add(&mut spent, v)?;
                     if let Some(m) = months.get_mut(&day[..7]) {
                         add(&mut m.0, v)?;

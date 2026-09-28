@@ -110,7 +110,7 @@ pub struct Overview {
 
 /// The k-th scheduled date, always counted from the anchor so a month-end
 /// anchor never drifts (Jan 31 → Feb 28 → Mar 31).
-fn nth(first: NaiveDate, interval: u32, k: u32) -> Option<NaiveDate> {
+pub(crate) fn nth(first: NaiveDate, interval: u32, k: u32) -> Option<NaiveDate> {
     first.checked_add_months(Months::new(interval.checked_mul(k)?))
 }
 
@@ -240,7 +240,7 @@ fn payments(c: &Connection, id: Option<&str>) -> Result<Vec<Payment>> {
     Ok(rows)
 }
 
-fn receipt(c: &Connection, id: &str, fingerprint: &str) -> Result<Option<String>> {
+pub(crate) fn receipt(c: &Connection, id: &str, fingerprint: &str) -> Result<Option<String>> {
     let prior: Option<(String, String)> = c
         .query_row(
             "SELECT fingerprint,result FROM feature_requests WHERE id=?1",

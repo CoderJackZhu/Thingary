@@ -421,6 +421,7 @@ impl Store {
             entries.extend(query_entries(c, "SELECT id,name,kind,NULL,deleted_at,revision FROM fin_accounts WHERE deleted_at IS NOT NULL", wealth("account"))?);
             entries.extend(query_entries(c, "SELECT id,title,category,date,deleted_at,revision FROM expenses WHERE deleted_at IS NOT NULL", wealth("expense"))?);
             entries.extend(query_entries(c, "SELECT id,name,category,NULL,deleted_at,revision FROM recurring_plans WHERE deleted_at IS NOT NULL", wealth("plan"))?);
+            entries.extend(query_entries(c, "SELECT id,name,kind,purchase_date,deleted_at,revision FROM virtual_assets WHERE deleted_at IS NOT NULL", wealth("virtual"))?);
             // Only independently deleted payments are rows; a payment hidden by its
             // deleted plan is not (section 5). `asset_deleted` marks that plan.
             let mut paid = query_entries(c, "SELECT p.id,r.name,p.state,p.due_date,p.deleted_at,p.revision,p.amount_cents,r.deleted_at IS NOT NULL FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id WHERE p.deleted_at IS NOT NULL", |r| {

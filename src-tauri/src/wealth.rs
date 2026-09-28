@@ -730,7 +730,7 @@ impl Store {
 pub struct TrashChange {
     pub request_id: String,
     pub generation: String,
-    /// `snapshot`, `account`, `expense`, `plan`, `payment` or `wish`.
+    /// `snapshot`, `account`, `expense`, `plan`, `payment`, `wish` or `virtual`.
     pub kind: String,
     pub id: String,
     pub expected_revision: i64,
@@ -758,6 +758,7 @@ impl Store {
             "plan" => "recurring_plans",
             "payment" => "plan_payments",
             "wish" => "wishlist_items",
+            "virtual" => "virtual_assets",
             _ => return Err(Error::new("TRASH_KIND", "不支持的类型")),
         };
         let current: Option<(i64, Option<String>)> = tx
@@ -831,6 +832,22 @@ impl Store {
                 return Err(Error::new(
                     "PAYMENT_EXISTS",
                     "这一期已有新的记录，不能恢复；可打开那条记录更正",
+                ));
+            }
+        }
+        if input.kind == "virtual" && !input.deleted {
+            // Its plan may have been linked to another item meanwhile.
+            let taken: Option<String> = tx
+                .query_row(
+                    "SELECT o.name FROM virtual_assets v JOIN virtual_assets o ON o.plan_id=v.plan_id AND o.id!=v.id AND o.deleted_at IS NULL WHERE v.id=?1",
+                    [&input.id],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(name) = taken {
+                return Err(Error::new(
+                    "VIRTUAL_PLAN_TAKEN",
+                    &format!("它关联的计划已改由「{name}」使用，不能恢复；可先解除那边的关联"),
                 ));
             }
         }

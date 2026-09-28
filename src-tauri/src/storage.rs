@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 18;
+pub const SCHEMA_VERSION: i64 = 19;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -584,6 +584,14 @@ PRAGMA user_version=14;")?;
         // Wishes join Recently Deleted (D17).
         let tx = c.unchecked_transaction()?;
         tx.execute_batch(include_str!("x04.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 18;
+    }
+    if v == 18 && target >= 19 {
+        // Virtual assets (ADR-001 §21).
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("x05.sql"))?;
         hook("migration.before_commit")?;
         tx.commit()?;
     }

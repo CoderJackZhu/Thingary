@@ -361,7 +361,7 @@ fn ac31_every_p0_relation_restores_into_an_empty_library() {
             summary.maintenances,
             summary.warranties
         ),
-        (18, 4, 1, 3, 2, 1)
+        (19, 4, 1, 3, 2, 1)
     );
     assert_eq!(summary.hash, archive_hash(&archive).unwrap());
     assert!(

@@ -1094,3 +1094,22 @@ pub async fn recurring_payment_save(
     .await
     .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
+#[tauri::command]
+pub async fn virtual_overview(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::virtual_assets::Overview> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.virtual_overview(&today())))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取虚拟资产"))?
+}
+#[tauri::command]
+pub async fn virtual_save(
+    input: crate::virtual_assets::Save,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::virtual_assets::VirtualAsset> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.virtual_save(&input, &today())))
+        .await
+        .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}

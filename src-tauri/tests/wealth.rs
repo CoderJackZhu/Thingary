@@ -494,7 +494,7 @@ fn schema_fourteen_upgrade_is_atomic_and_retryable() {
         .unwrap();
     assert_eq!(tables, 0);
     migrate(&c, &|_| Ok(())).unwrap();
-    assert_eq!(version(&c), 18);
+    assert_eq!(version(&c), 19);
 }
 
 fn archive(dir: &std::path::Path, schema: u32, db: &std::path::Path) -> std::path::PathBuf {
@@ -533,7 +533,7 @@ fn backups_carry_check_ins_old_ones_migrate_and_newer_ones_are_refused() {
     let summary = c.inspect_backup(&file).unwrap();
     assert_eq!(
         (summary.schema, summary.accounts, summary.snapshots),
-        (18, 4, 1)
+        (19, 4, 1)
     );
     c.restore(&file, &summary.hash, &c.generation()).unwrap();
     assert_eq!(
@@ -557,10 +557,10 @@ fn backups_carry_check_ins_old_ones_migrate_and_newer_ones_are_refused() {
     let db = rusqlite::Connection::open(&v16).unwrap();
     db.execute_batch(SCHEMA).unwrap();
     migrate(&db, &|_| Ok(())).unwrap();
-    db.execute_batch("PRAGMA user_version=19;").unwrap();
+    db.execute_batch("PRAGMA user_version=20;").unwrap();
     drop(db);
     assert_eq!(
-        code(c.inspect_backup(&archive(dir.path(), 19, &v16))),
+        code(c.inspect_backup(&archive(dir.path(), 20, &v16))),
         "BACKUP_VERSION"
     );
 }

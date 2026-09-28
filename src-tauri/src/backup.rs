@@ -182,6 +182,9 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     if v >= 17 {
         crate::recurring::validate_dataset(&db)?;
     }
+    if v >= 19 {
+        crate::virtual_assets::validate_dataset(&db)?;
+    }
     if v >= 9 {
         let mut stmt = db.prepare("SELECT id,name,hash,size,created_at FROM materials")?;
         let rows = stmt
@@ -509,6 +512,7 @@ pub struct Summary {
     pub expenses: i64,
     pub plans: i64,
     pub payments: i64,
+    pub virtual_assets: i64,
     pub files: usize,
 }
 
@@ -572,6 +576,11 @@ impl Store {
             },
             payments: if v >= 17 {
                 count("SELECT count(*) FROM plan_payments")?
+            } else {
+                0
+            },
+            virtual_assets: if v >= 19 {
+                count("SELECT count(*) FROM virtual_assets")?
             } else {
                 0
             },

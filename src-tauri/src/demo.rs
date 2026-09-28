@@ -204,7 +204,7 @@ pub fn import(s: &mut Store, today: &str) -> Result<Vec<AssetRecord>> {
 pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
     let done = s.root.join("unified-demo-details-v1.complete");
     if done.exists() {
-        return Ok(());
+        return crate::demo_finance::import_virtual(s, today);
     }
     import(s, today)?;
     crate::demo_finance::import(s, today)?;
@@ -303,7 +303,7 @@ pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
         }
     }
     crate::storage::atomic_write(&done, b"1")?;
-    Ok(())
+    crate::demo_finance::import_virtual(s, today)
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -398,6 +398,10 @@ mod unified_tests {
         assert_eq!(latest.change_cents.as_deref(), Some("2240000"));
         let recurring = s.recurring_overview(TODAY).unwrap();
         assert_eq!(recurring.plans.len(), 4);
+        let virtuals = s.virtual_overview(TODAY).unwrap();
+        let states: Vec<_> = virtuals.items.iter().map(|v| v.status.as_str()).collect();
+        assert_eq!(states, ["expiring", "expiring", "perpetual", "stopped"]);
+        assert_eq!(virtuals.spent_cents, "267300");
         assert_eq!(recurring.payments.len(), 4);
         assert_eq!(recurring.annual_cents, "3756000");
         assert_eq!(recurring.monthly_cents, "313000");
@@ -413,8 +417,8 @@ mod unified_tests {
             4
         );
         assert_eq!(expenses.refund_cents, "60000");
-        // Original dated purchases 39286 + maintenance 819 + 16400 standalone + 6240 payments.
-        assert_eq!(expenses.spent_cents, "6274500");
+        // Original dated purchases 39286 + maintenance 819 + 16400 standalone + 6240 payments + 2433 virtual.
+        assert_eq!(expenses.spent_cents, "6517800");
         assert_eq!(expenses.undated_cents, "100000");
         assert_eq!(
             s.conn()
@@ -482,7 +486,8 @@ mod unified_tests {
             .unwrap();
         prepare(&mut store, TODAY).unwrap();
         assert!(store.record(&laptop.asset.id).unwrap().unwrap().deleted);
-        assert_eq!(store.expense_view(None).unwrap().spent_cents, "4574600");
+        // The legacy library also gains the virtual sample: 4574600 + 243300.
+        assert_eq!(store.expense_view(None).unwrap().spent_cents, "4817900");
         prepare(&mut store, "2027-01-01").unwrap();
         assert!(store.record(&laptop.asset.id).unwrap().unwrap().deleted);
     }
@@ -500,7 +505,7 @@ mod unified_tests {
                 store.recurring_overview(today).unwrap().annual_cents,
                 "3756000"
             );
-            assert_eq!(store.expense_view(None).unwrap().spent_cents, "6274500");
+            assert_eq!(store.expense_view(None).unwrap().spent_cents, "6517800");
         }
     }
 

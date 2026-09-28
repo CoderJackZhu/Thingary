@@ -200,5 +200,51 @@
       "paused": true,
       "paid_periods": []
     }
+  ],
+  "virtuals": [
+    {
+      "key": "editor",
+      "name": "虚构剪辑软件",
+      "kind": "license",
+      "provider": "虚构软件商",
+      "purchase_days_ago": 400,
+      "price_cents": "199800",
+      "expires_in_days": null,
+      "plan_key": null,
+      "stopped_days_ago": null
+    },
+    {
+      "key": "domain",
+      "name": "example-notes.cn",
+      "kind": "domain",
+      "provider": "虚构注册商",
+      "purchase_days_ago": 345,
+      "price_cents": "5500",
+      "expires_in_days": 20,
+      "plan_key": null,
+      "stopped_days_ago": null
+    },
+    {
+      "key": "service",
+      "name": "虚构创作服务",
+      "kind": "subscription",
+      "provider": "虚构创作平台",
+      "purchase_days_ago": null,
+      "price_cents": null,
+      "expires_in_days": null,
+      "plan_key": "service",
+      "stopped_days_ago": null
+    },
+    {
+      "key": "font",
+      "name": "虚构字体授权",
+      "kind": "license",
+      "provider": "虚构字库",
+      "purchase_days_ago": 700,
+      "price_cents": "38000",
+      "expires_in_days": null,
+      "plan_key": null,
+      "stopped_days_ago": 30
+    }
   ]
 }

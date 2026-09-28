@@ -57,7 +57,7 @@ fn has_personal_records(store: &Store) -> Result<bool> {
         "SELECT EXISTS(SELECT 1 FROM assets) OR EXISTS(SELECT 1 FROM wishlist_items)
          OR EXISTS(SELECT 1 FROM fin_accounts) OR EXISTS(SELECT 1 FROM fin_snapshots)
          OR EXISTS(SELECT 1 FROM expenses) OR EXISTS(SELECT 1 FROM recurring_plans)
-         OR EXISTS(SELECT 1 FROM plan_payments)",
+         OR EXISTS(SELECT 1 FROM plan_payments) OR EXISTS(SELECT 1 FROM virtual_assets)",
         [],
         |r| r.get(0),
     )?)
