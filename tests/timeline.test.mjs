@@ -11,5 +11,8 @@ test('asset detail and global page read the same backend timeline projection', (
   assert.doesNotMatch(views, /购入记录/, 'no second hand-built purchase row in the detail');
   assert.match(timeline, /invoke<TimelinePage>\('list_timeline', \{ query: \{ filter, asset_id: assetId \?\? null \} \}\)/);
   assert.match(timeline, /日期待补充/);
-  assert.match(read('../src/main.tsx'), /section === 'timeline' && <TimelinePage/);
+  // Q03: the global page is the single source-navigation timeline; the legacy
+  // dual entry is gone.
+  assert.match(read('../src/main.tsx'), /section === 'timeline' && <SourceTimelinePage/);
+  assert.doesNotMatch(read('../src/main.tsx'), /\bTimelinePage\b/);
 });

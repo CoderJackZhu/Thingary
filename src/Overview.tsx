@@ -1,11 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { eventDetail, eventLabel } from './Timeline';
-import type { TimelineEvent } from './Timeline';
+import type { TimelineEvent, ScrollRestore } from './Timeline';
+import type { SourceTarget } from './source';
+import { useRestored } from './undo';
+import { ReviewView } from './ReviewView';
+import { overviewView } from './review';
+import type { ReviewPage } from './review';
 
 type CategoryShare = { id: string | null; name: string; slot: number | null; count: number; known_cents: string; unknown_price_count: number };
-type OverviewData = { generation: string; today: string; held_count: number; active_count: number; retired_count: number; sold_count: number; held_known_cents: string; held_unknown_price_count: number; history_known_cents: string; history_unknown_price_count: number; average_holding_days: number | null; held_unknown_date_count: number; ongoing_wishes: number; scope: 'held' | 'history'; categories: CategoryShare[]; recent: TimelineEvent[] };
+export type OverviewData = { generation: string; today: string; held_count: number; active_count: number; retired_count: number; sold_count: number; held_known_cents: string; held_unknown_price_count: number; history_known_cents: string; history_unknown_price_count: number; average_holding_days: number | null; held_unknown_date_count: number; ongoing_wishes: number; scope: 'held' | 'history'; categories: CategoryShare[]; recent: TimelineEvent[] };
 
 // Color follows the category (backend slot in category order, same in both
 // scopes); later categories and 未分类 share the neutral, named by the list.
@@ -24,14 +30,17 @@ function Donut({ rows, value, total, label }: { rows: CategoryShare[]; value: (c
   </svg>;
 }
 
-export function OverviewPage({ onOpenAsset, onOpenWish, onBrowse }: { onOpenAsset: (id: string) => void; onOpenWish: (name: string, status: string) => void; onBrowse: () => void }) {
-  const [scope, setScope] = useState<'held' | 'history'>('held'), [metric, setMetric] = useState<'count' | 'amount'>('count');
+function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScroll }: { today: string; version: unknown; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore }) {
+  const [scope, setScope] = useState<'held' | 'history'>('held'), [metric, setMetric] = useState<'count' | 'amount'>('amount');
   const [data, setData] = useState<OverviewData | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  useRestored(() => setRetry(n => n + 1));
   useEffect(() => {
     let live = true; setError('');
     invoke<OverviewData>('overview', { scope }).then(d => { if (live) setData(d); }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
-  }, [scope, retry]);
+  }, [scope, retry, today, version]);
+  // Restore the saved scroll only after the physical view has real content.
+  useEffect(() => { if (data) restoreScroll?.done(); }, [data, restoreScroll]);
   if (error) return <div className="empty error" role="alert"><h2>总览读取失败</h2><p>{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div>;
   if (!data) return <p role="status" className="loading">正在读取总览…</p>;
   const rows = data.categories, count = rows.reduce((n, c) => n + c.count, 0), amount = rows.reduce((n, c) => n + Number(c.known_cents), 0), unknown = rows.reduce((n, c) => n + c.unknown_price_count, 0);
@@ -39,8 +48,8 @@ export function OverviewPage({ onOpenAsset, onOpenWish, onBrowse }: { onOpenAsse
   const total = metric === 'count' ? count : amount;
   return <section className="overview-section" aria-label="总览">
     <div className="asset-overview overview-kpis">
-      <div><span>当前持有</span><strong>{data.held_count}<small>件物品</small></strong><p>使用中 {data.active_count} · 已退役 {data.retired_count} · 不含已售出 {data.sold_count}</p></div>
-      <div><span>当前持有物购入金额</span><strong>{money(data.held_known_cents)}</strong><p>{data.held_unknown_price_count ? `${data.held_unknown_price_count} 件金额未知，未计入` : '金额均已记录'} · 历史购入 {money(data.history_known_cents)}（含已售出）</p></div>
+      <div><span>当前持有物购入金额</span><strong className="review-held">{money(data.held_known_cents)}<small>{data.held_count} 件</small></strong><p>使用中 {data.active_count} · 已退役 {data.retired_count} · {data.held_unknown_price_count ? `${data.held_unknown_price_count} 件金额未知，未计入` : '金额均已记录'}</p></div>
+      <div><span>历史购入金额</span><strong>{money(data.history_known_cents)}</strong><p>含已售出 {data.sold_count} 件 · {data.history_unknown_price_count ? `${data.history_unknown_price_count} 件金额未知，未计入` : '金额均已记录'}</p></div>
       <div><span>平均持有时间</span><strong>{data.average_holding_days === null ? '—' : data.average_holding_days}<small>{data.average_holding_days === null ? '' : '天'}</small></strong><p>{data.held_unknown_date_count ? `${data.held_unknown_date_count} 件购入日期未知，未计入` : '按购入日至今天，含当天'}</p></div>
       <div><span>进行中心愿</span><strong>{data.ongoing_wishes}<small>条</small></strong><p>预计金额不计入资产</p></div>
     </div>
@@ -57,8 +66,15 @@ export function OverviewPage({ onOpenAsset, onOpenWish, onBrowse }: { onOpenAsse
       </article>
       <article className="detail-section overview-card">
         <div className="section-heading"><h3>最近事件</h3><span>来自时间轴</span></div>
-        {!data.recent.length ? <p className="muted">还没有带日期的事件。</p> : <ol className="recent-events">{data.recent.map(e => <li key={e.id}><button onClick={() => e.asset_id ? onOpenAsset(e.asset_id) : onOpenWish(e.title, e.note)}><strong>{eventLabel(e)} · {e.title}</strong><span className="muted">{e.date}{eventDetail(e) && ' · ' + eventDetail(e)}</span></button></li>)}</ol>}
+        {!data.recent.length ? <p className="muted">还没有带日期的事件。</p> : <ol className="recent-events">{data.recent.map(e => <li key={e.id}><button onClick={() => e.target && onOpenSource(e.target)}><strong>{eventLabel(e)} · {e.title}</strong><span className="muted">{e.date}{eventDetail(e) && ' · ' + eventDetail(e)}</span></button></li>)}</ol>}
       </article>
     </div>
   </section>;
+}
+
+export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, restoreScroll }: { generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore }) {
+  const [view, setView] = useState(() => { try { return overviewView(localStorage.getItem('possio.overview-view.v1')); } catch { return 'combined'; } });
+  const changeView = (value: 'combined' | 'physical') => { setView(value); try { localStorage.setItem('possio.overview-view.v1', value); } catch { /* The current choice remains usable without persistence. */ } };
+  const shared = { generation, today, version, onOpenSource, onBrowse, restoreScroll };
+  return <><div className="overview-switch"><div className="segmented" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合回顾</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>实物概览</button></div></div>{view === 'combined' ? <ReviewView {...shared} year={year} onYear={onYear} onNavigate={onNavigate}/> : <PhysicalOverview {...shared}/>}</>;
 }

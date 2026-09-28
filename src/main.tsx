@@ -37,8 +37,12 @@ import TaxonomyManager from './TaxonomyManager';
 import { CategoryFilter } from './TaxonomyFields';
 import { validateTaxonomyName } from './taxonomy';
 import { WishlistPanel } from './WishlistPanel';
-import { TimelinePage } from './Timeline';
+import { SourceTimelinePage } from './Timeline';
+import type { ScrollRestore } from './Timeline';
+import { defaultTimeline, sourcePage, validReturn } from './source';
+import type { ReturnContext, SourceFocus, SourceTarget, TimelineSelection } from './source';
 import { OverviewPage } from './Overview';
+import type { ReviewPage } from './review';
 import { StatsPage } from './Stats';
 import { WealthPage } from './WealthPage';
 import { ExpensesPage } from './ExpensesPage';
@@ -107,6 +111,15 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [recovered, setRecovered] = useState<Draft | null>(storedDraft);
   const [closeIntent, setCloseIntent] = useState<CloseIntent | null>(null);
   const [today, setToday] = useState(localDay);
+  const [reviewYear, setReviewYear] = useState<number | null>(() => Number(localDay().slice(0, 4)));
+  // Q03 source navigation: one focus at a time, its return context, and the
+  // timeline selection that survives a source roundtrip.
+  const [sourceFocus, setSourceFocus] = useState<SourceFocus | null>(null);
+  const sourceToken = useRef(0);
+  const [returnContext, setReturnContext] = useState<ReturnContext | null>(null);
+  const [pendingReturn, setPendingReturn] = useState<ReturnContext | null>(null);
+  const [timelineSelection, setTimelineSelection] = useState<TimelineSelection>(defaultTimeline);
+  const [expensesYear, setExpensesYear] = useState<number | null | undefined>(undefined);
   const loadedDay = useRef(today);
   const maintenanceOpening = useRef(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('possio.theme') || 'system');
@@ -152,6 +165,58 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     finally { if (ticket === queryTicket.current) setLoading(false); }
   }
   useEffect(() => { void refresh(query); }, [query]);
+  // The target page shows its own failure message; the App only clears the focus.
+  const onSourceDone = () => setSourceFocus(null);
+  function beginReturn() {
+    if (!page) return;
+    setReturnContext({ section, generation: page.generation, scroll: mainRef.current?.scrollTop ?? 0, reviewYear, timeline: timelineSelection });
+  }
+  /** Open a record from a stable target: validate first, then let the target
+   * page locate it by ID. A failed source refreshes and explains; it never
+   * lands on a same-named record or a fabricated new one. */
+  function openSource(target: SourceTarget) {
+    if (!page) return;
+    beginReturn();
+    // Synchronous like the other kinds: read_asset's own ticket drops a late
+    // answer, and its not-found/deleted states explain an invalid source.
+    if (target.kind === 'asset') { setDetailId(null); setSection('assets'); void select(target.id, true); return; }
+    // A stale name search from an earlier asset→wish link must not filter the list behind the source.
+    if (target.kind === 'wish') setWishFocus(null);
+    setSourceFocus({ target, generation: page.generation, token: ++sourceToken.current });
+    setDetailId(null);
+    setSection(sourcePage(target));
+  }
+  /** Module links from the review keep its year and view; returning restores them. */
+  function navigateFromReview(target: ReviewPage) {
+    beginReturn();
+    if (target === 'assets') adjust({ filter: 'all', search: '' });
+    if (target === 'timeline') setTimelineSelection(s => ({ ...s, year: reviewYear }));
+    if (target === 'expenses') setExpensesYear(reviewYear);
+    setSection(target); setDetailId(null);
+  }
+  // An unconsumed focus is dropped when its page is left, so a later visit
+  // never re-opens an editor the user already navigated away from.
+  useEffect(() => {
+    if (!sourceFocus || section === sourcePage(sourceFocus.target)) return;
+    setSourceFocus(null);
+  }, [section, sourceFocus]);
+  // Returning to the originating section restores its year/filter state; the
+  // scroll follows once that page has rendered real data (restoreScroll).
+  useEffect(() => {
+    if (!page || !returnContext || section !== returnContext.section) return;
+    const context = validReturn(returnContext, page.generation);
+    setReturnContext(null);
+    if (!context) return;
+    if (context.section === 'overview') setReviewYear(context.reviewYear);
+    if (context.section === 'timeline') setTimelineSelection(context.timeline);
+    setPendingReturn(context);
+  }, [section, returnContext, page]);
+  // The carried year is consumed by the expenses page's mount; clear it so a
+  // later unrelated visit falls back to the default current year.
+  useEffect(() => { if (section === 'expenses') setExpensesYear(undefined); }, [section]);
+  const scrollRestore = (forSection: Section): ScrollRestore => pendingReturn && pendingReturn.section === forSection && section === forSection
+    ? { top: pendingReturn.scroll, done: () => { if (mainRef.current) mainRef.current.scrollTop = pendingReturn.scroll; setPendingReturn(null); } }
+    : null;
   useEffect(() => {
     if (demoStatus.active || !page || !eventsReady || taxonomy.snapshot?.generation !== page.generation || !sessionStorage.getItem(newAssetKey)) return;
     sessionStorage.removeItem(newAssetKey); setNotice('样例中不能新增资产，已回到我的资料。');
@@ -508,13 +573,13 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       {recordTrashRecovery && !recordTrashAction && <div className="notice">有一次维护或保障删除/恢复的结果待确认。<button disabled={wishlistEditing} onClick={() => void openRecordTrash(recordTrashRecovery.input.kind, recordTrashRecovery.input.record_id, recordTrashRecovery.input.asset_id, recordTrashRecovery.meta.title, recordTrashRecovery.meta.assetName, recordTrashRecovery.input.generation, recordTrashRecovery.input.expected_revision, recordTrashRecovery.input.deleted, recordTrashRecovery)}>核对上次操作</button></div>}
       {section === 'settings' && <section className="settings-section"><TaxonomyManager snapshot={taxonomy.snapshot} loading={taxonomy.loading} loadError={taxonomy.loadError} onReload={taxonomy.reload} onCommand={taxonomy.command} onDirtyChange={setTaxonomyDirty} validateName={(kind, name, id) => validateTaxonomyName(taxonomy.snapshot?.[kind === 'category' ? 'categories' : 'channels'] ?? [], kind, name, id)}/><div className="settings-data-column">{demoStatus.available && <DemoSettings status={demoStatus} blocked={modeBusy || modeBlocked} onSwitch={() => void changeDemoMode(!demoStatus.active)} onReset={() => void changeDemoMode(true, true)}/>}<DataManagement onBusyChange={setDataBusy} generation={page?.generation ?? null} demo={!!demoStatus?.active} blocked={wishlistEditing || taxonomyGuard || !!draft || !!(trashRecovery || recordTrashRecovery)} onTrash={() => setSection('trash')}/></div></section>}
       {section === 'materials' && <MaterialLibrary onBusyChange={setDataBusy} generation={page?.generation || ''} onNotice={setNotice}/>}
-      {section === 'wealth' && <WealthPage today={today} onEditingChange={setFeatureEditing}/>}
-      {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing}/>}
-      {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing}/>}
-      {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
+      {section === 'wealth' && <WealthPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone}/>}
+      {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone}/>}
+      {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone}/>}
+      {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} initialYear={expensesYear} onOpenAsset={id => { setSection('assets'); void select(id, true); }} source={sourceFocus} onSourceDone={onSourceDone}/>}
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
-      {section === 'overview' && <OverviewPage onOpenAsset={id => { setSection('assets'); void select(id, true); }} onOpenWish={(name, status) => { setWishFocus({ search: name, filter: status as WishlistQuery['filter'] }); setSection('wishlist'); }} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>}
-      {section === 'timeline' && <TimelinePage onOpenAsset={id => { setSection('assets'); void select(id, true); }} onOpenWish={(name, status) => { setWishFocus({ search: name, filter: status as WishlistQuery['filter'] }); setSection('wishlist'); }}/>}
+      {section === 'overview' && !modeBusy && page && <OverviewPage key={page.generation} generation={page.generation} today={today} version={page} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} restoreScroll={scrollRestore('overview')} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>}
+      {section === 'timeline' && <SourceTimelinePage selection={timelineSelection} onSelection={setTimelineSelection} version={page ?? undefined} onOpenSource={openSource} restoreScroll={scrollRestore('timeline')}/>}
       {section === 'wishlist' && <WishlistPanel
         taxonomy={taxonomy.snapshot}
         closeIntent={closeIntent}
@@ -525,6 +590,8 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         onConvert={item => void openEditor(null, false, item)}
         onOpenAsset={id => { setSection('assets'); void select(id, true); }}
         onOpenTrash={() => setSection('trash')}
+        source={sourceFocus}
+        onSourceDone={onSourceDone}
       />}
       {section === 'trash' && <TrashPanel version={trashVersion} onRestoreAsset={(id, generation) => void (async () => {
         try {

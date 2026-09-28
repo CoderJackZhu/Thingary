@@ -1113,3 +1113,42 @@ pub async fn virtual_save(
         .await
         .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
+
+#[tauri::command]
+pub async fn review_overview(
+    year: Option<i32>,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::review::Overview> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.review_overview(year, &today())))
+        .await
+        .map_err(|_| Error::new("WORKER", "综合回顾读取失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn timeline_view(
+    query: crate::timeline::Query,
+    domain: String,
+    year: Option<i32>,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::timeline::Timeline> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.timeline_view(&query, &domain, year, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "时间轴读取失败"))?
+}
+#[tauri::command]
+pub async fn validate_source(
+    target: crate::source::Target,
+    generation: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.validate_source(&target, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "来源读取失败"))?
+}

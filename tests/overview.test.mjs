@@ -9,7 +9,9 @@ test('overview keeps held and history apart and never hides unknowns', () => {
   assert.match(page, /invoke<OverviewData>\('overview', \{ scope \}\)/);
   assert.match(page, /件金额未知，未计入/);
   assert.match(page, /件购入日期未知，未计入/);
-  assert.match(page, /历史购入 \{money\(data\.history_known_cents\)\}（含已售出）/);
+  assert.match(page, /历史购入金额/);
+  assert.match(page, /money\(data\.history_known_cents\)/);
+  assert.match(page, /含已售出 \{data\.sold_count\}/);
   assert.match(page, /不计入金额占比/);
 });
 

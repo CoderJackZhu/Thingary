@@ -1,3 +1,5 @@
+import { useSource } from './useSource';
+import type { SourceProps } from './source';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
@@ -12,7 +14,7 @@ import type { VirtualAsset, VirtualFields, VirtualFilter, VirtualKind, VirtualOv
 import './wealth.css';
 import { useRestored } from './undo';
 
-export function VirtualPage({ today, onEditingChange }: { today: string; onEditingChange: (value: boolean) => void }) {
+export function VirtualPage({ today, onEditingChange, source, onSourceDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void }) {
   const [data, setData] = useState<VirtualOverview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<VirtualAsset | 'new' | null>(null);
   const [filter, setFilter] = useState<VirtualFilter>('all');
@@ -25,9 +27,23 @@ export function VirtualPage({ today, onEditingChange }: { today: string; onEditi
     invoke<VirtualOverview>('virtual_overview').then(o => { if (live) setData(o); }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [retry]);
+  const sourceError = useSource({source,onSourceDone}, data?.generation, async (target, alive) => {
+    if (target.kind !== 'virtual') return false;
+    if (pending || busy) throw new Error('请先核对上次保存结果，再打开来源档案。');
+    // Re-read so a same-generation correction is what opens, not a stale row.
+    const fresh = await invoke<VirtualOverview>('virtual_overview');
+    if (!alive()) return false;
+    if (fresh.generation !== data?.generation) return false;
+    setData(fresh);
+    const item = fresh.items.find(v => v.id === target.id);
+    if (!item) return false;
+    setEditing(item); return true;
+  });
+  useEffect(() => { if (sourceError) reload(); }, [sourceError]);
   const closed = (saved: boolean) => { setEditing(null); setPending(storedPending()); if (saved) reload(); };
   const shown = data?.items.filter(v => matchesFilter(v, filter)) ?? [];
   return <section className="stats-section wealth-section" aria-label="虚拟资产">
+    {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <div className="wealth-toolbar"><span className="muted small">状态按有效期自动推算；订阅关联周期计划后，有效期和费用都来自已确认的付款。</span>

@@ -17,7 +17,12 @@ import { fixtureArt } from './visual-fixtures';
 import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materials';
 import { previewRecord } from './preview-costs';
 import demoAssets from './demo-assets.json';
-import { wealthPreview } from './wealth-preview';
+import { wealthPreview, financialTimelineEvents, previewWishPage, previewReadWish, validatePreviewSource } from './wealth-preview';
+import type { PreviewEvent } from './wealth-preview';
+import type { OverviewData } from './Overview';
+import type { Review, Read } from './review';
+import type { ExpenseView } from './expenses';
+import type { SourceTarget } from './source';
 const emptyCosts = {known_maintenance_cents:'0',unknown_maintenance_count:0,total_investment_cents:null,sale_proceeds_cents:null,net_cost_cents:null,held_days:null,daily_cents:null};
 const emptyWarrantySummary = {status:'none',total:0,active_count:0,expiring_count:0,upcoming_count:0,expired_count:0,pending_count:0} as const;
 
@@ -116,6 +121,53 @@ function batchRow(r: AssetRecord) {
   const p = r.preferences;
   return { id: r.asset.id, name: r.asset.name, revision: r.asset.revision, state: r.lifecycle?.state ?? 'active', price_cents: r.asset.price_cents, purchase_date: r.asset.purchase_date, last_event_date: r.lifecycle?.events.at(-1)?.date ?? null, category_id: r.classification?.category_id ?? null, channel_id: r.classification?.channel_id ?? null, label_id: p?.label_id ?? null, exclude: p?.exclude ?? { total: false, daily: false, statistics: false, timeline: false }, maintenance_cents: String(r.maintenances.reduce((sum, m) => sum + Number(m.fields.cost_cents ?? 0), 0)) };
 }
+// Browser-only physical adapter; native review tests verify authoritative totals.
+function physicalPreview(scope: string): OverviewData {
+  const live = records.filter(r => !r.deleted && !r.preferences?.exclude.total), held = live.filter(r => r.lifecycle?.state !== 'sold');
+  const rows = scope === 'history' ? live : held, total = (items: AssetRecord[]) => items.reduce((n, r) => n + BigInt(r.asset.price_cents ?? '0'), 0n).toString();
+  const unknown = (items: AssetRecord[]) => items.filter(r => r.asset.price_cents === null).length;
+  const days = held.filter(r => r.asset.purchase_date).map(r => Math.max(1, Math.round((Date.parse(localDay()) - Date.parse(r.asset.purchase_date!)) / 86400000) + 1));
+  const ids = [...new Set(rows.map(r => r.classification?.category_id ?? null))];
+  return { generation, today: localDay(), scope: scope === 'history' ? 'history' : 'held', held_count: held.length, active_count: held.filter(r => r.lifecycle?.state !== 'retired').length, retired_count: held.filter(r => r.lifecycle?.state === 'retired').length, sold_count: live.length - held.length,
+    held_known_cents: total(held), held_unknown_price_count: unknown(held), history_known_cents: total(live), history_unknown_price_count: unknown(live), average_holding_days: days.length ? Math.round(days.reduce((a, b) => a + b, 0) / days.length) : null, held_unknown_date_count: held.length - days.length, ongoing_wishes: 0,
+    categories: ids.map((id, slot) => { const items = rows.filter(r => (r.classification?.category_id ?? null) === id); return { id, slot: slot < 7 ? slot : null, name: catalog.categories.find(c => c.id === id)?.name ?? '未分类', count: items.length, known_cents: total(items), unknown_price_count: unknown(items) }; }),
+    recent: live.filter(r => r.asset.purchase_date).map(r => ({ id: 'purchase:' + r.asset.id, kind: 'purchase', date: r.asset.purchase_date, asset_id: r.asset.id, wishlist_id: null, title: r.asset.name, note: '', amount_cents: r.asset.price_cents, target: { kind: 'asset' as const, id: r.asset.id }, domain: 'physical' })).sort((a,b) => b.date!.localeCompare(a.date!)).slice(0,5) };
+}
+// Q03 preview timeline: physical events from the demo records plus the
+// financial/wish projection from wealth-preview, filtered like timeline_view.
+const timelineKindSets: Record<string, readonly string[]> = {
+  all: ['purchase', 'retire', 'activate', 'sale', 'maintenance', 'warranty_start', 'warranty_end', 'wish_added', 'wish_abandoned', 'wish_achieved', 'expense', 'refund', 'payment', 'virtual', 'snapshot'],
+  snapshot: ['snapshot'], purchase: ['purchase'], expense: ['expense', 'refund', 'payment', 'virtual'],
+  maintenance: ['maintenance'], warranty: ['warranty_start', 'warranty_end'], lifecycle: ['retire', 'activate', 'sale'],
+  wishlist: ['wish_added', 'wish_abandoned', 'wish_achieved', 'purchase'],
+};
+function physicalTimelineEvents(): PreviewEvent[] {
+  const today = localDay();
+  return records.filter(r => !r.deleted).flatMap(r => [
+    ...(r.asset.purchase_date ? [{ id: 'purchase:' + r.asset.id, kind: 'purchase', date: r.asset.purchase_date, asset_id: r.asset.id, wishlist_id: null, title: r.asset.name, note: '', amount_cents: r.asset.price_cents, target: { kind: 'asset', id: r.asset.id }, domain: 'physical' } as PreviewEvent] : []),
+    ...(r.maintenances ?? []).map(m => ({ id: 'maintenance:' + m.id, kind: 'maintenance', date: m.fields.date, asset_id: r.asset.id, wishlist_id: null, title: r.asset.name, note: m.fields.title, amount_cents: m.fields.cost_cents, target: { kind: 'asset', id: r.asset.id }, domain: 'physical' }) as PreviewEvent),
+    ...(r.warranties ?? []).flatMap(w => [
+      ...(w.fields.start_date && w.fields.start_date <= today ? [{ id: 'warranty_start:' + w.id, kind: 'warranty_start', date: w.fields.start_date, asset_id: r.asset.id, wishlist_id: null, title: r.asset.name, note: [w.fields.kind, w.fields.provider].join('|'), amount_cents: null, target: { kind: 'asset', id: r.asset.id }, domain: 'physical' } as PreviewEvent] : []),
+      ...(w.fields.end_date && w.fields.end_date <= today ? [{ id: 'warranty_end:' + w.id, kind: 'warranty_end', date: w.fields.end_date, asset_id: r.asset.id, wishlist_id: null, title: r.asset.name, note: [w.fields.kind, w.fields.provider].join('|'), amount_cents: null, target: { kind: 'asset', id: r.asset.id }, domain: 'physical' } as PreviewEvent] : []),
+    ]),
+    ...(r.lifecycle?.events ?? []).map(e => ({ id: 'lifecycle:' + e.id, kind: e.kind, date: e.date, asset_id: r.asset.id, wishlist_id: null, title: r.asset.name, note: e.notes ?? '', amount_cents: null, target: { kind: 'asset', id: r.asset.id }, domain: 'physical' }) as PreviewEvent),
+    ...(r.sale ? [{ id: 'sale:' + r.sale.id, kind: 'sale', date: r.sale.fields.date, asset_id: r.asset.id, wishlist_id: null, title: r.asset.name, note: r.sale.fields.platform ?? '', amount_cents: r.sale.fields.price_cents, target: { kind: 'asset', id: r.asset.id }, domain: 'physical' } as PreviewEvent] : []),
+  ]);
+}
+function timelinePreview(args: Record<string, unknown>) {
+  const filter = String((args.query as { filter?: string })?.filter ?? 'all');
+  const domain = String(args.domain ?? 'all');
+  const year = (args.year as number | null) ?? null;
+  const wanted = timelineKindSets[filter];
+  if (!wanted || !['all', 'physical', 'wish', 'wealth', 'expense'].includes(domain)) throw { message: '时间轴筛选无效' };
+  const keep = (e: PreviewEvent) => wanted.includes(e.kind) && (filter !== 'wishlist' || e.kind !== 'purchase' || !!e.wishlist_id);
+  const domainFiltered = [...physicalTimelineEvents(), ...financialTimelineEvents()].filter(e => (domain === 'all' || e.domain === domain) && keep(e));
+  const byDate = (a: PreviewEvent, b: PreviewEvent) => b.date!.localeCompare(a.date!) || b.id.localeCompare(a.id);
+  const dated = domainFiltered.filter(e => e.date).sort(byDate);
+  // Year options follow the domain selection, never the active year.
+  const years = [...new Set(dated.map(e => Number(e.date!.slice(0, 4))))].sort((a, b) => b - a);
+  return { generation, today: localDay(), years, dated: year === null ? dated : dated.filter(e => e.date!.startsWith(`${year}-`)), undated: domainFiltered.filter(e => !e.date) };
+}
 async function handle(command: string, payload: unknown): Promise<unknown> {
   const args = payload as Record<string,unknown>;
   if (command === 'choice_list') {
@@ -166,6 +218,32 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     }
     taxonomyRevision++;
     return { changed, skipped };
+  }
+  if (command === 'overview') return physicalPreview(String(args.scope));
+  if (command === 'timeline_view') return timelinePreview(args);
+  if (command === 'validate_source') {
+    // ?source=missing demonstrates the failed-source path: notice plus refresh,
+    // never a same-named substitute record.
+    if (params.get('source') === 'missing') throw { code: 'NOT_FOUND', message: '这条来源记录已删除或失效，请返回后重新读取。' };
+    const target = args.target as SourceTarget;
+    if (target.kind === 'asset') {
+      if (!records.some(r => r.asset.id === target.id && !r.deleted)) throw { code: 'NOT_FOUND', message: '这条来源记录已删除或失效，请返回后重新读取。' };
+      return null;
+    }
+    validatePreviewSource(target);
+    return null;
+  }
+  if (command === 'list_wishlist') return previewWishPage(args.query as never);
+  if (command === 'read_wishlist') return previewReadWish(String(args.id));
+  if (command === 'review_overview') {
+    if (params.get('review') === 'error') throw { message: '虚构综合读取失败，用于重试验证。' };
+    const read = <T,>(command: string, args: Record<string, unknown> = {}): Read<T> => { try { const value = wealthPreview(command, args); if (!value) throw Error('Unsupported preview source'); return { status: 'ready', value: value.value as T }; } catch (error) { return { status: 'error', value: { code: 'PREVIEW', message: String((error as { message?: string }).message ?? error) } }; } };
+    const expenses = read<ExpenseView>('expense_view', args);
+    // Recent rides the same unified projection as the timeline, snapshots and
+    // stable targets included, exactly like the native review command.
+    const recent: Read<PreviewEvent[]> = expenses.status === 'error' ? expenses : { status: 'ready', value: (timelinePreview({ query: { filter: 'all' }, domain: 'all', year: args.year }).dated as PreviewEvent[]).slice(0, 8) };
+    const result: Review = { generation, today: localDay(), year: args.year as number | null, physical: { status: 'ready', value: physicalPreview('held') }, wealth: read('wealth_summary'), expenses, recurring: read('recurring_overview'), virtual_assets: read('virtual_overview'), recent };
+    return result;
   }
   const wealth = wealthPreview(command,args); if (wealth) return wealth.value;
   if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:true};

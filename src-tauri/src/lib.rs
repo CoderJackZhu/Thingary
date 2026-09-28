@@ -20,7 +20,9 @@ pub mod purge;
 mod recovery;
 pub mod recurring;
 pub mod reminders;
+pub mod review;
 pub mod sales;
+pub mod source;
 pub mod storage;
 pub mod taxonomy;
 pub mod timeline;
@@ -160,7 +162,10 @@ pub fn run() {
             commands::convert_wishlist,
             commands::stage_wishlist_cover,
             commands::list_timeline,
+            commands::timeline_view,
+            commands::validate_source,
             commands::overview,
+            commands::review_overview,
             commands::stats_snapshot,
             commands::purchase_trend,
             commands::holding,

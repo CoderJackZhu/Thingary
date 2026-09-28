@@ -1,0 +1,18 @@
+.overview-switch{display:flex;margin:0 22px 16px;gap:12px;align-items:center;flex-wrap:wrap}
+.overview-switch .segmented button{width:auto;height:auto;padding:7px 16px}
+.review-section{padding:0 22px 28px;color:var(--text);font-size:12px}
+.review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.review-card{padding:16px 18px;border:1px solid var(--line);background:var(--card);border-radius:9px;min-width:0}
+.review-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.review-top h3{font-size:12px;margin:0;font-weight:550}.review-top>.muted{font-size:11px}
+.review-value{font-family:'Avenir Next',sans-serif;font-size:28px;line-height:1.35;font-weight:550;letter-spacing:-.6px;margin:8px 0 4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.review-value small{font:12px -apple-system,sans-serif;letter-spacing:0;color:var(--muted);margin-left:8px}
+.review-held{display:flex!important;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}.review-count{font-size:18px;font-weight:400;color:var(--muted);white-space:nowrap;letter-spacing:0}
+.review-sub{font-size:11px;color:var(--muted);margin:4px 0;line-height:1.7;overflow-wrap:anywhere}
+.review-footer{display:flex;justify-content:flex-end;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap}
+button.review-action{border:0;background:transparent;color:var(--accent);padding:3px 0;font-size:11px;white-space:normal;text-align:left;min-height:24px}
+.review-chart,.review-lower{margin-top:14px}.review-chart .trend-chart{width:100%;max-height:220px}
+.review-list{list-style:none;padding:0;margin:8px 0 0}.review-list li{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid var(--line)}.review-list li>div:first-child{min-width:0}.review-list strong{font-size:12px;font-weight:550;overflow-wrap:anywhere}.review-links{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0}
+.review-empty{padding:24px 0;color:var(--muted);line-height:1.8}.review-notice{padding:12px 14px;margin-bottom:12px;background:var(--card);border:1px solid var(--line);border-radius:8px;line-height:1.8}.review-error{color:var(--error);margin:8px 0}.review-section select{font-size:11px;padding:3px 5px;max-width:110px}
+.review-section button:focus-visible,.overview-switch button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:900px){.review-grid{grid-template-columns:1fr}.review-value{font-size:25px}.review-list li{flex-wrap:wrap}.review-links{align-items:flex-start}}

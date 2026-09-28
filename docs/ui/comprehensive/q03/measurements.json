@@ -1,0 +1,30 @@
+{
+  "viewportChecks": [
+    {
+      "size": "1280x820",
+      "docScrollWidth": 1280,
+      "mainScrollEqualsClient": "900=900"
+    },
+    {
+      "size": "1080x760",
+      "docScrollWidth": 1080,
+      "mainScrollEqualsClient": "900=900"
+    },
+    {
+      "size": "800x600",
+      "docScrollWidth": 800,
+      "mainScrollEqualsClient": "640=640"
+    }
+  ],
+  "recentTitlesAt1280": [
+    "保障到期 · Fujifilm X100V",
+    "财富盘点",
+    "加入心愿 · 虚构心愿 · 实木书桌",
+    "支出 · 虚构摄影课程",
+    "加入心愿 · 虚构心愿 · 相机镜头",
+    "周期付款 · 虚构创作服务",
+    "保障生效 · Fujifilm X100V",
+    "退款 · 虚构周末旅行"
+  ],
+  "note": "800x600 为单列布局，纵向滚动；与 Q02 measurements 同口径。近期记录为后端统一投影（含盘点与稳定 target）。"
+}

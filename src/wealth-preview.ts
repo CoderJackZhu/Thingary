@@ -5,6 +5,8 @@ import type { Account, AccountSave, Draft, Entry, Point, Share, Snapshot, Snapsh
 import type { Expense, ExpenseSave, ExpenseView, Line } from './expenses';
 import type { Due, Overview, Payment, PaymentSave, Plan, PlanSave } from './recurring';
 import type { VirtualAsset, VirtualFields, VirtualKind, VirtualOverview, VirtualSave, VirtualStatus } from './virtual';
+import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
+import type { SourceTarget, TimelineSelection } from './source';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
 
@@ -62,13 +64,13 @@ function summary(): Summary {
 }
 
 // Standalone expenses for the preview; item purchases come from the demo assets.
-let expenses: Expense[] = params.get('expenses') === 'empty' ? [] : demoFinance.expenses.filter(e => !e.deleted).map(e => ({
+let expenses: Expense[] = (params.get('expenses') === 'empty' || params.get('state') === 'empty') ? [] : demoFinance.expenses.filter(e => !e.deleted).map(e => ({
   id: 'x-' + e.key, fields: { title: e.title, date: shifted(0, -e.days_ago), amount_cents: e.amount_cents, category: e.category,
     notes: '虚构样例', refund_cents: e.refund_cents, refund_date: e.refund_days_ago === null ? null : shifted(0, -e.refund_days_ago), asset_id: e.asset_key },
   revision: 1, asset_name: demoAssets.find(a => a.key === e.asset_key)?.name ?? null, asset_deleted: false,
 }));
 function expenseView(year: number | null): ExpenseView {
-  const items: Line[] = params.get('expenses') === 'empty' ? [] : demoAssets.flatMap(a => [
+  const items: Line[] = (params.get('expenses') === 'empty' || params.get('state') === 'empty') ? [] : demoAssets.flatMap(a => [
     { source: 'purchase' as const, id: a.key, asset_id: a.key, title: a.name, category: a.category, date: a.purchase_date, amount_cents: a.price_cents },
     ...(a.maintenance ? [{ source: 'maintenance' as const, id: 'm-' + a.key, asset_id: a.key, title: `${a.name} · ${a.maintenance.title}`, category: a.category, date: a.maintenance.date, amount_cents: a.maintenance.cost_cents }] : []),
     ...(a.sale ? [{ source: 'sale' as const, id: 's-' + a.key, asset_id: a.key, title: a.name, category: a.category, date: a.sale.date, amount_cents: a.sale.price_cents }] : []),
@@ -104,9 +106,9 @@ function schedule(p: Plan, from: string, to: string) {
 }
 const plan = (id: string, name: string, category: string, amount: string, interval: number, first: string, extra: Partial<Plan['fields']> = {}): Plan =>
   ({ id, fields: { name, category, amount_cents: amount, interval_months: interval, first_due: first, end_date: null, paused: false, notes: '', ...extra }, revision: 1, active_from: first, next_due: null });
-let plans: Plan[] = params.get('recurring') === 'empty' ? [] : demoFinance.plans.map(p =>
+let plans: Plan[] = (params.get('recurring') === 'empty' || params.get('state') === 'empty') ? [] : demoFinance.plans.map(p =>
   plan('r-' + p.key, p.name, p.category, p.amount_cents, p.interval_months, shifted(p.months_ago, p.day_offset), { paused: p.paused }));
-let payments: Payment[] = params.get('recurring') === 'empty' ? [] : demoFinance.plans.flatMap(p => p.paid_periods.map(k => {
+let payments: Payment[] = (params.get('recurring') === 'empty' || params.get('state') === 'empty') ? [] : demoFinance.plans.flatMap(p => p.paid_periods.map(k => {
   const due = nth(shifted(p.months_ago, p.day_offset), p.interval_months, k);
   return { id: `p-${p.key}-${k}`, plan_id: 'r-' + p.key, plan_name: p.name, due_date: due, state: 'paid', paid_date: due, amount_cents: p.amount_cents, notes: '虚构付款', revision: 1, off_schedule: false };
 }));
@@ -133,7 +135,7 @@ function recurringOverview(): Overview {
 
 // Virtual assets share the native fixture definitions; derivation mirrors virtual_assets.rs.
 const dayOffset = (days: number) => iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days));
-let virtuals: { id: string; fields: VirtualFields; revision: number }[] = params.get('virtual') === 'empty' ? [] : demoFinance.virtuals.map(v => ({ id: 'v-' + v.key, revision: 1, fields: {
+let virtuals: { id: string; fields: VirtualFields; revision: number }[] = (params.get('virtual') === 'empty' || params.get('state') === 'empty') ? [] : demoFinance.virtuals.map(v => ({ id: 'v-' + v.key, revision: 1, fields: {
   name: v.name, kind: v.kind as VirtualKind, provider: v.provider, purchase_date: v.purchase_days_ago === null ? null : dayOffset(-v.purchase_days_ago),
   price_cents: v.plan_key ? null : v.price_cents, expires: v.expires_in_days === null ? null : dayOffset(v.expires_in_days), plan_id: v.plan_key ? 'r-' + v.plan_key : null,
   url: '', notes: '虚构样例', stopped_on: v.stopped_days_ago === null ? null : dayOffset(-v.stopped_days_ago) } }));
@@ -153,8 +155,7 @@ function virtualOverview(): VirtualOverview {
 }
 
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
-  if (command === 'recurring_overview') { if (params.get('recurring') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: recurringOverview() }; }
-  if (command === 'recurring_plan_save') {
+  if (command === 'recurring_overview') { if (params.get('recurring') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: recurringOverview() }; }  if (command === 'recurring_plan_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as PlanSave, id = input.id ?? crypto.randomUUID(), old = plans.find(p => p.id === id);
     const next: Plan = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, active_from: old ? (old.fields.paused && !input.fields.paused ? todayIso : old.active_from) : input.fields.first_due, next_due: null };
@@ -195,7 +196,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   if (!command.startsWith('wealth_')) return null;
   if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: '虚构读取失败，用于验证错误状态。' };
-  if (command === 'wealth_summary') return { value: summary() };
+  if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: '虚构盘点读取失败。' }; const result = summary(); if (params.get('wealth') === 'missing' && result.points.length) { const last = result.points.at(-1)!; last.complete = false; last.missing = 1; } return { value: result }; }
   if (command === 'wealth_accounts') return { value: accounts.map(withLatest) };
   if (command === 'wealth_request_result') return { value: receipts.get(String(args.request)) ?? null };
   if (command === 'wealth_snapshot_draft') {
@@ -230,3 +231,63 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   throw { message: '此操作需在原生 App 验证：' + command };
 }
+
+// ---- Q03 preview additions -------------------------------------------------
+// Fictional wishes with stable IDs: two share a name so same-name source
+// resolution stays demonstrable in the browser preview.
+type PreviewWish = WishlistItem;
+const wishFixture = (id: string, name: string, yuan: string, created: string): PreviewWish => ({
+  id, fields: { name, category_id: null, estimated_price_cents: yuan, priority: null, target_date: '', external_link: '', notes: '虚构心愿样例' },
+  status: 'ongoing', revision: 1, created_at: created, updated_at: created, abandoned_at: null, achieved_at: null,
+  converted_asset: null, cover: null, photos: [],
+});
+let wishes: PreviewWish[] = params.get('state') === 'empty' ? [] : [
+  wishFixture('wish-lens', '虚构心愿 · 相机镜头', '880000', '2026-08-05T09:00:00.000Z'),
+  wishFixture('wish-lens-2', '虚构心愿 · 相机镜头', '120000', '2026-09-12T09:00:00.000Z'),
+  wishFixture('wish-desk', '虚构心愿 · 实木书桌', '450000', '2026-09-20T09:00:00.000Z'),
+];
+
+export function previewWishPage(query: WishlistQuery): WishlistPage {
+  const found = wishes.filter(w => (!query.search || w.fields.name.toLowerCase().includes(query.search.toLowerCase()))
+    && (query.filter === 'all' || w.status === query.filter));
+  const value = (w: PreviewWish): string | number | null => query.sort === 'priority' ? w.fields.priority ?? null : query.sort === 'price' ? w.fields.estimated_price_cents === null ? null : Number(w.fields.estimated_price_cents) : query.sort === 'target' ? w.fields.target_date ?? null : w.created_at;
+  found.sort((a, b) => { const x = value(a), y = value(b); if (x === null) return y === null ? 0 : 1; if (y === null) return -1; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y))) * (query.descending ? -1 : 1); });
+  const ongoing = wishes.filter(w => w.status === 'ongoing');
+  return { generation, items: found.slice(query.offset, query.offset + 100).map(w => structuredClone(w)), total: found.length,
+    ongoing_known_cents: String(ongoing.reduce((t, w) => t + BigInt(w.fields.estimated_price_cents ?? '0'), 0n)),
+    ongoing_unknown_count: ongoing.filter(w => w.fields.estimated_price_cents === null).length };
+}
+export function previewReadWish(id: string): WishlistItem | null {
+  const found = wishes.find(w => w.id === id);
+  return found ? structuredClone(found) : null;
+}
+
+export type PreviewEvent = { id: string; kind: string; date: string | null; asset_id: string | null; wishlist_id: string | null; title: string; note: string; amount_cents: string | null; target: SourceTarget; domain: string; missing?: number };
+/** Financial + wish events for the preview timeline; physical events come from
+ * visual-preview's demo records. Mirrors the Rust projection loosely. */
+export function financialTimelineEvents(): PreviewEvent[] {
+  const events: PreviewEvent[] = summary().points.map(p => ({
+    id: 'snapshot:' + p.snapshot_id, kind: 'snapshot', date: p.date, asset_id: null, wishlist_id: null,
+    title: '财富盘点', note: '', amount_cents: p.complete ? p.net_cents : null,
+    target: { kind: 'snapshot', id: p.snapshot_id }, domain: 'wealth', missing: p.missing,
+  }));
+  for (const e of expenses) {
+    if (!e.fields.asset_id) events.push({ id: 'expense:' + e.id, kind: 'expense', date: e.fields.date, asset_id: null, wishlist_id: null, title: e.fields.title, note: e.fields.category, amount_cents: e.fields.amount_cents, target: { kind: 'expense', id: e.id }, domain: 'expense' });
+    if (e.fields.refund_date) events.push({ id: 'refund:' + e.id, kind: 'refund', date: e.fields.refund_date, asset_id: e.fields.asset_id, wishlist_id: null, title: e.fields.title, note: e.fields.category, amount_cents: e.fields.refund_cents, target: { kind: 'expense', id: e.id }, domain: 'expense' });
+  }
+  for (const p of payments) if (p.state === 'paid') events.push({ id: 'payment:' + p.id, kind: 'payment', date: p.paid_date, asset_id: null, wishlist_id: null, title: p.plan_name, note: plans.find(x => x.id === p.plan_id)?.fields.category ?? '', amount_cents: p.amount_cents, target: { kind: 'payment', id: p.id, plan_id: p.plan_id }, domain: 'expense' });
+  for (const v of virtuals) if (v.fields.purchase_date) events.push({ id: 'virtual:' + v.id, kind: 'virtual', date: v.fields.purchase_date, asset_id: null, wishlist_id: null, title: v.fields.name, note: v.fields.kind, amount_cents: v.fields.plan_id ? null : v.fields.price_cents, target: { kind: 'virtual', id: v.id }, domain: 'expense' });
+  for (const w of wishes) events.push({ id: 'wish_added:' + w.id, kind: 'wish_added', date: w.created_at.slice(0, 10), asset_id: null, wishlist_id: w.id, title: w.fields.name, note: w.status, amount_cents: w.fields.estimated_price_cents, target: { kind: 'wish', id: w.id }, domain: 'wish' });
+  return events;
+}
+export function validatePreviewSource(target: SourceTarget): void {
+  const fail = () => { throw { code: 'NOT_FOUND', message: '这条来源记录已删除或失效，请返回后重新读取。' }; };
+  if (target.kind === 'snapshot') { if (!snapshots.some(s => s.id === target.id)) fail(); return; }
+  if (target.kind === 'expense') { const e = expenses.find(x => x.id === target.id); if (!e || e.asset_deleted) fail(); return; }
+  if (target.kind === 'payment') { if (!payments.some(p => p.id === target.id && p.plan_id === target.plan_id && p.state === 'paid')) fail(); return; }
+  if (target.kind === 'plan') { if (!plans.some(p => p.id === target.id)) fail(); return; }
+  if (target.kind === 'virtual') { if (!virtuals.some(v => v.id === target.id)) fail(); return; }
+  if (target.kind === 'wish') { if (!wishes.some(w => w.id === target.id)) fail(); return; }
+  fail();
+}
+export type { TimelineSelection };

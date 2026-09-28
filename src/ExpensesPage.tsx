@@ -1,3 +1,5 @@
+import { useSource } from './useSource';
+import type { SourceProps } from './source';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
@@ -12,9 +14,9 @@ import type { Expense, ExpenseFields, ExpenseSave, ExpenseView, Line } from './e
 import './wealth.css';
 import { useRestored } from './undo';
 
-export function ExpensesPage({ today, onOpenAsset, onEditingChange }: { onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void }) {
+export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSourceDone, initialYear }: SourceProps & { initialYear?: number | null; onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void }) {
   const thisYear = Number(today.slice(0, 4));
-  const [year, setYear] = useState<number | null>(thisYear);
+  const [year, setYear] = useState<number | null>(initialYear === undefined ? thisYear : initialYear);
   const [view, setView] = useState<ExpenseView | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<Expense | 'new' | null>(null);
   const reload = () => setRetry(n => n + 1);
@@ -32,9 +34,21 @@ export function ExpensesPage({ today, onOpenAsset, onEditingChange }: { onEditin
       catch (e) { setError(errorMessage(e)); }
     } else if (line.asset_id) onOpenAsset(line.asset_id);
   }
+  const sourceError = useSource({source,onSourceDone}, view?.generation, async (target, alive) => {
+    if (target.kind !== 'expense') return false;
+    if (pending || busy) throw new Error('请先核对上次保存结果，再打开来源支出。');
+    const item = await invoke<Expense | null>('expense',{id:target.id});
+    if (!alive()) return false;
+    if (!item || item.asset_deleted) return false;
+    // The list behind the editor shows the expense's own year, not the caller's.
+    setYear(item.fields.date ? Number(item.fields.date.slice(0, 4)) : null);
+    setEditing(item); return true;
+  });
+  useEffect(() => { if (sourceError) reload(); }, [sourceError]);
   const years = [...new Set([thisYear, ...(view?.years ?? [])])].sort((a, b) => b - a);
   const period = year === null ? '全部' : `${year} 年`;
   return <section className="stats-section wealth-section" aria-label="重要支出">
+    {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <div className="wealth-toolbar">

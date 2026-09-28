@@ -1,3 +1,5 @@
+import { useSource } from './useSource';
+import type { SourceProps } from './source';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
@@ -13,7 +15,7 @@ import { useRestored } from './undo';
 
 type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; plan_amount: string; record: Payment | null };
 
-export function RecurringPage({ today, onEditingChange }: { today: string; onEditingChange: (value: boolean) => void }) {
+export function RecurringPage({ today, onEditingChange, source, onSourceDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void }) {
   const [data, setData] = useState<Overview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
@@ -26,6 +28,22 @@ export function RecurringPage({ today, onEditingChange }: { today: string; onEdi
     invoke<Overview>('recurring_overview').then(o => { if (live) setData(o); }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [retry]);
+  const sourceError = useSource({source,onSourceDone}, data?.generation, async (target, alive) => {
+    if (pending || busy) throw new Error('请先核对上次保存结果，再打开来源记录。');
+    // The rendered overview may predate a same-generation correction; re-read it.
+    const fresh = await invoke<Overview>('recurring_overview');
+    if (!alive()) return false;
+    if (fresh.generation !== data?.generation) return false;
+    setData(fresh);
+    if (target.kind === 'plan') { const plan = fresh.plans.find(p => p.id === target.id); if (!plan) return false; setEditing(plan); return true; }
+    if (target.kind !== 'payment') return false;
+    // A payment target lands on its exact recorded period, never a nearby one.
+    const payment = fresh.payments.find(p => p.id === target.id && p.plan_id === target.plan_id && p.state === 'paid');
+    const plan = fresh.plans.find(p => p.id === target.plan_id);
+    if (!payment || !plan) return false;
+    setPaying({plan_id:plan.id,plan_name:plan.fields.name,due_date:payment.due_date,plan_amount:plan.fields.amount_cents,record:payment}); return true;
+  });
+  useEffect(() => { if (sourceError) reload(); }, [sourceError]);
   const closed = (saved: boolean) => { setEditing(null); setPaying(null); setPending(storedPending()); if (saved) reload(); };
   const target = (d: Due): PaymentTarget => ({ plan_id: d.plan_id, plan_name: d.plan_name, due_date: d.due_date, plan_amount: d.amount_cents, record: null });
   async function skip(d: Due) {
@@ -35,6 +53,7 @@ export function RecurringPage({ today, onEditingChange }: { today: string; onEdi
     catch (e) { setPending(storedPending()); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
   }
   return <section className="stats-section wealth-section" aria-label="周期费用">
+    {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <div className="wealth-toolbar"><span className="muted small">计划只代表以后；到期不会自动记成已付，需逐期确认。</span>

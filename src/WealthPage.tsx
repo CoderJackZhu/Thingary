@@ -1,3 +1,5 @@
+import { useSource } from './useSource';
+import type { SourceProps } from './source';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
@@ -28,10 +30,11 @@ export function usePendingReceipt(reload: () => void) {
 }
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
-export function WealthPage({ today, onEditingChange }: { today: string; onEditingChange: (value: boolean) => void }) {
+export function WealthPage({ today, onEditingChange, source, onSourceDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [summary, setSummary] = useState<Summary | null>(null), [accounts, setAccounts] = useState<Account[] | null>(null);
   const [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  const [sourceSnapshot, setSourceSnapshot] = useState<string | undefined>();
   const [checkIn, setCheckIn] = useState<string | null>(null);
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
   useEffect(() => {
@@ -45,10 +48,25 @@ export function WealthPage({ today, onEditingChange }: { today: string; onEditin
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
   useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!checkIn); return () => onEditingChange(false); }, [editing, pending, busy, checkIn, onEditingChange]);
-  if (checkIn) return <CheckIn date={checkIn} today={today} onClose={saved => { setCheckIn(null); setPending(storedPending()); if (saved) { setTab('history'); reload(); } }}/>;
+  const sourceError = useSource({source,onSourceDone}, summary?.generation, async (target, alive) => {
+    if (target.kind !== 'snapshot') return false;
+    if (pending || busy) throw new Error('请先核对上次保存结果，再打开来源盘点。');
+    // A same-generation correction must be visible: read points again instead
+    // of trusting the previously rendered summary.
+    const fresh = await invoke<Summary>('wealth_summary');
+    if (!alive()) return false;
+    if (fresh.generation !== summary?.generation) return false;
+    setSummary(fresh);
+    const point = fresh.points.find(p => p.snapshot_id === target.id);
+    if (!point) return false;
+    setSourceSnapshot(target.id); setCheckIn(point.date); return true;
+  });
+  useEffect(() => { if (sourceError) reload(); }, [sourceError]);
+  if (checkIn) return <CheckIn expectedId={sourceSnapshot} date={checkIn} today={today} onClose={saved => { setCheckIn(null); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setTab('history'); reload(); } }}/>;
   const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
   const open = accounts?.filter(a => !a.fields.closed_on) ?? [];
   return <section className="stats-section wealth-section" aria-label="财富">
+    {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <div className="wealth-toolbar">
@@ -109,7 +127,7 @@ const axis = (cents: number) => { const v = Math.abs(cents); const t = v >= 1_00
  * zero, which would flatten real changes). An incomplete check-in has no
  * trustworthy total, so it is a dashed marker on its date, never a value.
  */
-function NetChart({ points }: { points: Point[] }) {
+export function NetChart({ points }: { points: Point[] }) {
   const full = points.filter(p => p.complete), values = full.map(p => Number(p.net_cents));
   const min = Math.min(...values), max = Math.max(...values), pad = (max - min) * 0.15 || Math.max(Math.abs(max) * 0.05, 10_000);
   const span = max - min + 2 * pad, step = 10 ** Math.floor(Math.log10(span)), unit = [1, 2, 5, 10].map(n => n * step).find(n => span / n <= 4) ?? step * 10;
@@ -195,8 +213,11 @@ export function DeleteButton({ label, disabled, kind, id, revision, generation, 
 }
 
 type Row = { state: EntryState | null; cents: string };
-function CheckIn({ date: initial, today, onClose }: { date: string; today: string; onClose: (saved: boolean) => void }) {
+function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: string; date: string; today: string; onClose: (saved: boolean) => void }) {
   const [date, setDate] = useState(initial);
+  // The source's stable-ID guard holds only while its own date is being viewed:
+  // once the user deliberately switches dates, this is a normal check-in again.
+  const [pin, setPin] = useState(expectedId);
   const [draft, setDraft] = useState<Draft | null>(null), [error, setError] = useState('');
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
@@ -206,6 +227,9 @@ function CheckIn({ date: initial, today, onClose }: { date: string; today: strin
     let live = true; setError(''); setDraft(null);
     invoke<Draft>('wealth_snapshot_draft', { date }).then(d => {
       if (!live) return;
+      // A deleted source snapshot must not reopen as the same-day replacement
+      // or as a brand-new check-in; the user returns and re-reads instead.
+      if (pin && d.existing?.id !== pin) { setError('这条盘点已删除或变化，请返回后重新读取。'); return; }
       setDraft(d);
       // Only values typed for a new check-in follow a date change. Amounts loaded
       // from a saved check-in never carry to another date unreviewed (17.4 #2).
@@ -219,7 +243,7 @@ function CheckIn({ date: initial, today, onClose }: { date: string; today: strin
       });
     }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
-  }, [date]);
+  }, [date, pin]);
   const set = (id: string, row: Row) => setRows(r => ({ ...r, [id]: row }));
   const open = draft?.rows ?? [], existing = draft?.existing ?? null;
   const unfilled = open.filter(r => !rows[r.account.id]?.state);
@@ -243,7 +267,7 @@ function CheckIn({ date: initial, today, onClose }: { date: string; today: strin
     <header className="check-in-header">
       <button className="back" disabled={busy} onClick={() => onClose(false)}><Icon name="back"/> 返回财富</button>
       <div><h2 id="check-in-heading">{existing ? '更正盘点' : '盘点'}</h2><p className="muted">对照各平台逐行填写。回车跳到下一行；「未变」沿用上次金额，「未知」不当作 0。关闭即放弃未保存的输入。</p></div>
-      <div className="field check-in-date"><label htmlFor="check-in-date">盘点日期</label><DateInput id="check-in-date" value={date} max={today} disabled={frozen} onChange={v => v && setDate(v)}/></div>
+      <div className="field check-in-date"><label htmlFor="check-in-date">盘点日期</label><DateInput id="check-in-date" value={date} max={today} disabled={frozen} onChange={v => { if (!v) return; setPin(undefined); setDate(v); }}/></div>
     </header>
     {existing && draft && <div className="notice">这一天已有盘点，保存会更正原记录，并影响它与前后两次盘点的比较。<DeleteButton label="删除这次盘点" disabled={frozen} kind="snapshot" id={existing.id} revision={existing.revision} generation={draft.generation} name={`${date} 盘点`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/></div>}
     {error ? <div role="alert"><p>盘点读取失败：{error}</p></div> : !draft ? <p role="status" className="muted">正在准备盘点…</p> : !open.length ? <p className="muted">这一天没有需要盘点的账户（账户启用日期都晚于此日或已停用）。</p> : <>
