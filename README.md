@@ -9,7 +9,7 @@
 - P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
 - 自用正式版 1.5.1（含财富盘点、重要支出、周期费用与统一样例）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
 - U09 全功能统一样例已完成验收，合入 `main` 并随 1.5.0 安装，1.5.1 补充样例不接受新增资产与编辑表单删除入口（U09d）；验收见 [U09 记录](docs/verification/U09_UNIFIED_DEMO_RESULT.md)。
-- U10 删除与恢复统一规则（D17/D18）已在开发分支 `claude/d17-d18-deletion` 实现并通过自动与浏览器预览验证，原生未实测、未发版，见 [U10 记录](docs/verification/U10_DELETION_RESULT.md)。
+- U10 删除与恢复统一规则（D17/D18）已在开发分支 `claude/d17-d18-deletion` 实现，自动、浏览器预览与隔离原生验收通过，未发版，见 [U10 记录](docs/verification/U10_DELETION_RESULT.md)。
 - 之后按用户反馈进行 U 系列迭代；逐次变更见 [CHANGELOG](CHANGELOG.md)，任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准。
 - 中文名「物志」、英文名「Possio」用于自用构建；公开发布前仍需核查名称可用性。
 
