@@ -8,7 +8,7 @@ import { DateInput } from './DateInput';
 import { maintenanceChange, maintenanceKey, maintenanceKinds, money, recoverMaintenance, validateMaintenance, type MaintenanceDraft, type MaintenanceState, type MaintenanceSession, type MaintenanceRecoveryResult } from './maintenance';
 import type { CloseIntent } from './AssetEditor';
 
-export function MaintenanceEditor({ initial, today, closeIntent, onKeep, onSaved, onClose }: { initial: MaintenanceSession; today: string; closeIntent: CloseIntent | null; onKeep: () => void; onSaved: (record: AssetRecord) => void; onClose: (intent: CloseIntent, keepDraft?: boolean) => void }) {
+export function MaintenanceEditor({ initial, today, closeIntent, onKeep, onSaved, onClose, onDelete }: { initial: MaintenanceSession; today: string; closeIntent: CloseIntent | null; onKeep: () => void; onSaved: (record: AssetRecord) => void; onClose: (intent: CloseIntent, keepDraft?: boolean) => void; onDelete?: (id: string) => void }) {
   const dialog = useRef<HTMLDialogElement>(null), lock = useRef(false);
   const [state, setState] = useState(initial.state), [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(initial.issue?.message ?? '');
@@ -91,6 +91,7 @@ export function MaintenanceEditor({ initial, today, closeIntent, onKeep, onSaved
       <button type="button" disabled={busy} onClick={() => onClose('form', !!state.pending)}>关闭</button>
       <button type="button" disabled={busy} onClick={() => void check()}>重新核对资料库</button>
     </> : <>
+      {state.maintenance_id && onDelete && !state.pending && !conflict && <button type="button" className="danger" disabled={busy} onClick={() => onDelete(state.maintenance_id!)}>删除记录</button>}
       {state.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对维护保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void check()}>重新读取当前记录</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存维护记录'}</button>}
     </>}</div></header>
     <div className="fields maintenance-fields"><div className="field"><label htmlFor="maintenance-date">日期（可留空）</label><DateInput id="maintenance-date" max={state.record.sale?.fields.date ?? today} min={state.record.asset.purchase_date ?? undefined} value={state.fields.date ?? ''} disabled={frozen} allowClear onChange={value => edit('date', value || null)}/></div><label className="field">类型<select value={state.fields.kind} disabled={frozen} onChange={event => edit('kind', event.target.value as MaintenanceDraft['kind'])}>{maintenanceKinds.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label><label className="field">标题<input id="maintenance-title" maxLength={200} value={state.fields.title} disabled={frozen} onChange={event => edit('title', event.target.value)}/></label><label className="field">服务方<input maxLength={200} value={state.fields.provider} disabled={frozen} onChange={event => edit('provider', event.target.value)}/></label><label className="field">费用（元）<input inputMode="decimal" placeholder="留空表示未知；0 表示免费" value={state.fields.cost} disabled={frozen} onChange={event => edit('cost', event.target.value)}/></label></div>

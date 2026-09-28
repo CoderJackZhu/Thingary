@@ -9,6 +9,7 @@ import { DeleteButton, usePendingReceipt } from './WealthPage';
 import { intervals, intervalText, planStatus, recurringCategories, recurringCategoryText } from './recurring';
 import type { Due, Overview, Payment, PaymentSave, Plan, PlanFields, PlanSave } from './recurring';
 import './wealth.css';
+import { useRestored } from './undo';
 
 type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; plan_amount: string; record: Payment | null };
 
@@ -17,6 +18,7 @@ export function RecurringPage({ today, onEditingChange }: { today: string; onEdi
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
   const reload = () => setRetry(n => n + 1);
+  useRestored(reload);
   const { pending, setPending, notice, setNotice, busy, verify } = usePendingReceipt(reload);
   useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!paying); return () => onEditingChange(false); }, [editing, pending, busy, paying, onEditingChange]);
   useEffect(() => {

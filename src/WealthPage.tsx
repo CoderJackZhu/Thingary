@@ -5,7 +5,8 @@ import { DateInput } from './DateInput';
 import { CentInput, FormRow, Segments, Switch } from './FormControls';
 import { Icon } from './AssetViews';
 import { assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, rateText, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
-import type { Account, AccountFields, AccountSave, Draft, EntryState, Pending, Point, Snapshot, SnapshotSave, Summary } from './wealth';
+import type { Account, AccountFields, AccountSave, Draft, EntryState, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
+import { offerUndo, useRestored } from './undo';
 import './wealth.css';
 
 type Tab = 'overview' | 'accounts' | 'history';
@@ -41,6 +42,7 @@ export function WealthPage({ today, onEditingChange }: { today: string; onEditin
     return () => { live = false; };
   }, [retry]);
   const reload = () => setRetry(n => n + 1);
+  useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
   useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!checkIn); return () => onEditingChange(false); }, [editing, pending, busy, checkIn, onEditingChange]);
   if (checkIn) return <CheckIn date={checkIn} today={today} onClose={saved => { setCheckIn(null); setPending(storedPending()); if (saved) { setTab('history'); reload(); } }}/>;
@@ -175,11 +177,16 @@ function AccountDialog({ account, generation, today, onClose }: { account: Accou
 }
 
 /** Two-step soft delete into 最近删除; the second click confirms. */
-export function DeleteButton({ label, disabled, kind, id, revision, generation, name, onDone, onError }: { label: string; disabled: boolean; kind: 'snapshot' | 'account' | 'expense' | 'plan' | 'payment'; id: string; revision: number; generation: string; name: string; onDone: () => void; onError: (message: string, stuck: boolean) => void }) {
+export function DeleteButton({ label, disabled, kind, id, revision, generation, name, onDone, onError }: { label: string; disabled: boolean; kind: TrashKind; id: string; revision: number; generation: string; name: string; onDone: () => void; onError: (message: string, stuck: boolean) => void }) {
   const [armed, setArmed] = useState(false), [busy, setBusy] = useState(false);
   async function remove() {
     setBusy(true);
-    try { await submit({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision, deleted: true }, label: '删除' + name }); onDone(); }
+    try {
+      await submit({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision, deleted: true }, label: '删除' + name });
+      onDone();
+      // A delete bumps the revision once; the undo restores exactly that state.
+      offerUndo(`已删除「${name}」，已移入最近删除。`, () => submit<void>({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision + 1, deleted: false }, label: '恢复' + name }));
+    }
     catch (e) { onError(e instanceof Error ? e.message : errorMessage(e), e instanceof Unresolved); setArmed(false); }
     finally { setBusy(false); }
   }

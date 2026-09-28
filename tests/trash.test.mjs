@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { entryDisplay, storedRecordTrash, recordKindLabel, trashFilters, stateText } from '../src/unified-trash.ts';
+import { contentsText, entryDisplay, restoresViaWealth, storedRecordTrash, recordKindLabel, trashFilters, stateText } from '../src/unified-trash.ts';
 
 const entry = over => ({ kind: 'asset', id: 'e1', title: '虚构相机', subtype: null, date: null, end_date: null, cost_cents: null, provider: null, deleted_at: '2026-09-10T08:00:00+00:00', asset_id: null, asset_name: null, asset_deleted: true, asset_revision: 5, asset_state: 'sold', ...over });
 
@@ -61,8 +61,24 @@ test('record trash reminder survives restart and rejects corrupt values', () => 
   }
 });
 
-test('unified filters expose the agreed views plus wealth (W03)', () => {
-  assert.deepEqual(trashFilters.map(([key]) => key), ['all', 'asset', 'maintenance', 'warranty', 'wealth']);
+test('unified filters expose the agreed views plus wishes (D17) and wealth (W03)', () => {
+  assert.deepEqual(trashFilters.map(([key]) => key), ['all', 'asset', 'maintenance', 'warranty', 'wish', 'wealth']);
+});
+
+test('D17: a row says what its deletion took along', () => {
+  assert.equal(contentsText([]), '');
+  assert.equal(contentsText([{ kind: 'maintenance', count: 3 }, { kind: 'photo', count: 5 }]), '含 3 条维护、5 张图片');
+  assert.equal(contentsText([{ kind: 'expense', count: 1 }, { kind: 'payment', count: 2 }]), '含 1 笔关联支出、2 条付款记录');
+});
+
+test('D17: wish rows name the realized item and restore like wealth rows', () => {
+  const wish = entryDisplay(entry({ kind: 'wish', title: '虚构台灯', subtype: 'achieved', date: '2026-09-20', asset_name: '虚构台灯', asset_deleted: false }));
+  assert.deepEqual([wish.typeLabel, wish.title, wish.parentBlocked], ['心愿', '虚构台灯', false]);
+  assert.deepEqual(wish.facts, ['已实现 · 2026-09-20', '实现的物品「虚构台灯」仍在我的物品中']);
+  assert.deepEqual(entryDisplay(entry({ kind: 'wish', title: '想要的书', subtype: 'ongoing', asset_name: null })).facts, ['未实现']);
+  assert.equal(restoresViaWealth('wish'), true);
+  assert.equal(restoresViaWealth('asset'), false);
+  assert.equal(restoresViaWealth('maintenance'), false);
 });
 
 test('wealth rows describe themselves without an owning asset', () => {

@@ -4,8 +4,9 @@ export type LifecycleKind = 'retire' | 'activate';
 export type LifecycleEvent = { id: string; sequence: number; kind: LifecycleKind; date: string; notes: string };
 export type Lifecycle = { state: LifecycleState; events: LifecycleEvent[] };
 export type LifecycleAction = { type: 'append'; kind: LifecycleKind; date: string; notes: string } | { type: 'correct_date'; event_id: string; date: string };
-export type LifecycleChange = { request_id: string; generation: string; asset_id: string; expected_revision: number; action: LifecycleAction };
-export type LifecycleDraft = { record: AssetRecord; generation: string; action: LifecycleAction; original: LifecycleAction; pending: LifecycleChange | null };
+export type LifecycleChange = { request_id: string; generation: string; asset_id: string; expected_revision: number; action: LifecycleAction | { type: 'revoke'; event_id: string } };
+/** `revoke` turns a date correction into removing that mistaken event (D18). */
+export type LifecycleDraft = { record: AssetRecord; generation: string; action: LifecycleAction; original: LifecycleAction; pending: LifecycleChange | null; revoke?: boolean };
 export const lifecycleKey = 'possio.lifecycle-draft.v1';
 export function stateLabel(record: AssetRecord) { return { active: '使用中', retired: '已退役', sold: '已售出' }[record.lifecycle?.state ?? 'active']; }
 export function kindLabel(kind: LifecycleKind) { return kind === 'retire' ? '退役' : '重新启用'; }
@@ -32,6 +33,16 @@ export function lifecycleError(record: AssetRecord, action: LifecycleAction, tod
     if (after && day > after.date) return `日期不能晚于相邻${kindLabel(after.kind)}（${after.date}）；同日保留原动作顺序。`;
   }
   return '';
+}
+/** Only the latest event, and never under an effective sale, can be revoked. */
+export function revokeError(record: AssetRecord, eventId: string): string {
+  if (record.sale) return '这件物品已售出。请先撤销误记售出，再撤销更早的状态记录。';
+  if (record.lifecycle?.events.at(-1)?.id !== eventId) return '只能撤销最近一条状态记录，请先撤销之后的记录。';
+  return '';
+}
+/** State the asset returns to once its latest event is revoked. */
+export function stateBeforeLatest(record: AssetRecord) {
+  return record.lifecycle?.events.at(-2)?.kind === 'retire' ? '已退役' : '使用中';
 }
 export function storedLifecycle(): LifecycleDraft | null {
   try {

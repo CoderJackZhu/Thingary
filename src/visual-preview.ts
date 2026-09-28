@@ -8,7 +8,7 @@ import type { TrashChange, RecordTrashChange, TrashEntry } from './Trash';
 import { applyPreviewCommand, previewSnapshot } from './taxonomy';
 import type { PreviewCatalog, TaxonomyCommand } from './taxonomy';
 import type { SaleChange, Sale } from './sales';
-import { lifecycleError } from './lifecycle';
+import { lifecycleError, revokeError } from './lifecycle';
 import type { LifecycleChange } from './lifecycle';
 import type { Maintenance, MaintenanceChange } from './maintenance';
 import type { Warranty, WarrantyChange } from './warranty';
@@ -192,13 +192,22 @@ mockIPC(async (command,payload) => {
   if (command === 'list_trash') {
     const query = args.query as { filter: string; offset: number };
     const items: TrashEntry[] = [];
-    for (const r of records) if (r.deleted) items.push({ kind:'asset', id:r.asset.id, title:r.asset.name, subtype:null, date:null, end_date:null, cost_cents:null, provider:null, deleted_at:r.deleted_at!, asset_id:null, asset_name:null, asset_deleted:true, asset_revision:r.asset.revision, asset_state:r.lifecycle?.state ?? 'active' });
+    for (const r of records) if (r.deleted) items.push({ kind:'asset', id:r.asset.id, title:r.asset.name, subtype:null, date:null, end_date:null, cost_cents:null, provider:null, deleted_at:r.deleted_at!, asset_id:null, asset_name:null, asset_deleted:true, asset_revision:r.asset.revision, asset_state:r.lifecycle?.state ?? 'active', contents:([['maintenance',r.maintenances.length],['warranty',(r.warranties??[]).length],['photo',r.photos.length]] as const).filter(([,n])=>n>0).map(([kind,count])=>({kind,count})) });
     const parentFacts = (assetId: string) => { const parent = records.find(r => r.asset.id === assetId); return parent ? { parent, state: parent.lifecycle?.state ?? 'active' } : null; };
-    for (const entry of deletedMaintenances) { const facts = parentFacts(entry.assetId); if (!facts) continue; items.push({ kind:'maintenance', id:entry.id, title:entry.snapshot.fields.title, subtype:entry.snapshot.fields.kind, date:entry.snapshot.fields.date, end_date:null, cost_cents:entry.snapshot.fields.cost_cents, provider:null, deleted_at:entry.deleted_at, asset_id:facts.parent.asset.id, asset_name:facts.parent.asset.name, asset_deleted:facts.parent.deleted, asset_revision:facts.parent.asset.revision, asset_state:facts.state }); }
-    for (const entry of deletedWarranties) { const facts = parentFacts(entry.assetId); if (!facts) continue; items.push({ kind:'warranty', id:entry.id, title:entry.snapshot.fields.provider, subtype:entry.snapshot.fields.kind, date:entry.snapshot.fields.start_date, end_date:entry.snapshot.fields.end_date, cost_cents:null, provider:entry.snapshot.fields.provider, deleted_at:entry.deleted_at, asset_id:facts.parent.asset.id, asset_name:facts.parent.asset.name, asset_deleted:facts.parent.deleted, asset_revision:facts.parent.asset.revision, asset_state:facts.state }); }
+    for (const entry of deletedMaintenances) { const facts = parentFacts(entry.assetId); if (!facts) continue; items.push({ kind:'maintenance', id:entry.id, title:entry.snapshot.fields.title, subtype:entry.snapshot.fields.kind, date:entry.snapshot.fields.date, end_date:null, cost_cents:entry.snapshot.fields.cost_cents, provider:null, deleted_at:entry.deleted_at, asset_id:facts.parent.asset.id, asset_name:facts.parent.asset.name, asset_deleted:facts.parent.deleted, asset_revision:facts.parent.asset.revision, asset_state:facts.state, contents:[] }); }
+    for (const entry of deletedWarranties) { const facts = parentFacts(entry.assetId); if (!facts) continue; items.push({ kind:'warranty', id:entry.id, title:entry.snapshot.fields.provider, subtype:entry.snapshot.fields.kind, date:entry.snapshot.fields.start_date, end_date:entry.snapshot.fields.end_date, cost_cents:null, provider:entry.snapshot.fields.provider, deleted_at:entry.deleted_at, asset_id:facts.parent.asset.id, asset_name:facts.parent.asset.name, asset_deleted:facts.parent.deleted, asset_revision:facts.parent.asset.revision, asset_state:facts.state, contents:[] }); }
     const found = query.filter === 'all' ? items : items.filter(i => i.kind === query.filter);
     found.sort((a,b) => b.deleted_at.localeCompare(a.deleted_at) || a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id));
     return { generation, items: found.slice(query.offset, query.offset + 100), total: found.length };
+  }
+  if (command === 'purge_trash') {
+    const input = args.input as { kind: string | null; id: string };
+    const gone = (kind: string, id: string) => input.kind === null || (input.kind === kind && input.id === id);
+    const before = records.length + deletedMaintenances.length + deletedWarranties.length;
+    records = records.filter(r => !(r.deleted && gone('asset', r.asset.id)));
+    for (const list of [deletedMaintenances, deletedWarranties] as { id: string }[][]) for (let i = list.length - 1; i >= 0; i--) if (gone(list === deletedMaintenances ? 'maintenance' : 'warranty', list[i].id)) list.splice(i, 1);
+    taxonomyRevision++;
+    return { removed: before - records.length - deletedMaintenances.length - deletedWarranties.length, kept: 0 };
   }
   if (command === 'change_record_trash') {
     const input = args.input as RecordTrashChange;
@@ -250,11 +259,12 @@ mockIPC(async (command,payload) => {
     if(!record) throw {message:'找不到虚构记录。'};
     if(requests.has(input.request_id)) return previewRecord(record);
     if(record.asset.revision!==input.expected_revision) throw {code:'REVISION_CONFLICT',message:'资料已更改，请重新读取。'};
-    const error=lifecycleError(record,input.action,localDay());
+    const error=input.action.type==='revoke'?revokeError(record,input.action.event_id):lifecycleError(record,input.action,localDay());
     if(error) throw {code:'DATE_CONFLICT',message:error};
     if(params.get('state')==='save-error') throw {message:'模拟状态保存失败，输入应保留。'};
     const life=record.lifecycle??{state:'active',events:[]}; const action=input.action;
-    if(action.type==='append') {life.events.push({id:crypto.randomUUID(),sequence:life.events.length+1,kind:action.kind,date:action.date,notes:action.notes});life.state=action.kind==='retire'?'retired':'active';}
+    if(action.type==='revoke') {life.events.pop();life.state=life.events.at(-1)?.kind==='retire'?'retired':'active';}
+    else if(action.type==='append') {life.events.push({id:crypto.randomUUID(),sequence:life.events.length+1,kind:action.kind,date:action.date,notes:action.notes});life.state=action.kind==='retire'?'retired':'active';}
     else life.events.find(e=>e.id===action.event_id)!.date=action.date;
     record.lifecycle=life;record.asset.revision++;record.updated_at=new Date().toISOString();requests.set(input.request_id,previewRecord(record));return previewRecord(record);
   }

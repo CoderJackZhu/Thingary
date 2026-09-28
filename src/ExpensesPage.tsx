@@ -10,6 +10,7 @@ import { DeleteButton, usePendingReceipt } from './WealthPage';
 import { categoryText, countsAsSpending, expenseCategories, sourceLabel } from './expenses';
 import type { Expense, ExpenseFields, ExpenseSave, ExpenseView, Line } from './expenses';
 import './wealth.css';
+import { useRestored } from './undo';
 
 export function ExpensesPage({ today, onOpenAsset, onEditingChange }: { onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void }) {
   const thisYear = Number(today.slice(0, 4));
@@ -17,6 +18,7 @@ export function ExpensesPage({ today, onOpenAsset, onEditingChange }: { onEditin
   const [view, setView] = useState<ExpenseView | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<Expense | 'new' | null>(null);
   const reload = () => setRetry(n => n + 1);
+  useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
   useEffect(() => { onEditingChange(!!editing || !!pending || busy); return () => onEditingChange(false); }, [editing, pending, busy, onEditingChange]);
   useEffect(() => {

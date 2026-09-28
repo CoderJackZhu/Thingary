@@ -10,7 +10,7 @@ import { recoverWarranty, statusLabel, warrantyChange, warrantyKinds, warrantyKe
 import { validateWarranty } from './warranty';
 import type { CloseIntent } from './AssetEditor';
 
-export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose }: { initial: WarrantySession; closeIntent: CloseIntent | null; onKeep: () => void; onSaved: (record: AssetRecord) => void; onClose: (intent: CloseIntent, keepDraft?: boolean) => void }) {
+export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose, onDelete }: { initial: WarrantySession; closeIntent: CloseIntent | null; onKeep: () => void; onSaved: (record: AssetRecord) => void; onClose: (intent: CloseIntent, keepDraft?: boolean) => void; onDelete?: (id: string) => void }) {
   const dialog = useRef<HTMLDialogElement>(null), lock = useRef(false);
   const [state, setState] = useState(initial.state), [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(initial.issue?.message ?? '');
@@ -95,6 +95,7 @@ export function WarrantyEditor({ initial, closeIntent, onKeep, onSaved, onClose 
       <button type="button" disabled={busy} onClick={() => onClose('form', !!state.pending)}>关闭</button>
       <button type="button" disabled={busy} onClick={() => void check()}>重新核对资料库</button>
     </> : <>
+      {state.warranty_id && onDelete && !state.pending && !conflict && <button type="button" className="danger" disabled={busy} onClick={() => onDelete(state.warranty_id!)}>删除记录</button>}
       {state.pending ? <button type="button" disabled={busy} onClick={() => void check()}>核对保障保存结果</button> : conflict ? <button type="button" disabled={busy} onClick={() => void check()}>重新读取当前记录</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存保障记录'}</button>}
     </>}</div></header>
     <div className="fields warranty-fields"><label className="field">类型<select value={state.fields.kind} disabled={frozen} onChange={event => edit('kind', event.target.value as WarrantyDraft['kind'])}>{warrantyKinds.map(([value, name]) => <option key={value} value={value}>{name}</option>)}</select></label><label className="field">提供方（可留空）<input id="warranty-provider" maxLength={200} value={state.fields.provider} disabled={frozen} onChange={event => edit('provider', event.target.value)}/></label><div className="field"><label htmlFor="warranty-start">开始日期（可留空）</label><DateInput id="warranty-start" value={state.fields.start} disabled={frozen} allowClear onChange={value => edit('start', value)}/></div><div className="field"><label htmlFor="warranty-end">结束日期（可留空）</label><DateInput id="warranty-end" value={state.fields.end} disabled={frozen} allowClear onChange={value => edit('end', value)}/></div></div>
