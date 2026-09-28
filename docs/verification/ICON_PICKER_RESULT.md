@@ -52,3 +52,35 @@
 `npm run release` 已成功。用户确认保存并退出后，已安装到 `/Applications/物志.app`，身份保持 `local.possio.main`。安装前后及正式构建的二进制 SHA256 一致：`054b0c3f99f6bd327814fb278efce63b8b02253b1c5d7fefe09bab090f0d0aae`。
 
 旧包保留在 `/private/tmp/物志-before-icon-picker-20260927.app`。仅替换 App 包，未启动正式版、未打开或写入正式资料库。浏览器验收空间已关闭；隔离原生窗口只使用虚构资料。
+
+
+## 2026-09-28 · 贵重大件图标扩充
+
+用户要求“现有的图标库扩充一些图标，主要围绕着比较贵重的、值得记录的大件东西扩充，保持现有风格”。本次直接复用当前完整物品插图的 category palettes、80×80 SVG 框架、1.2 轮廓、渐变和落地阴影；不按本报告最初的线条图描述重画旧图。
+
+新增 22 个主题：洗衣机、烘干机、扫地机器人、空气净化器；投影仪、音箱、相机镜头、网络存储（NAS）、VR 头显；床、衣柜、餐桌、升降桌、人体工学椅、钢琴、吉他、按摩椅；跑步机、划船机、动感单车；电动自行车、摩托车。全部归入原有分类，支持名称和中英文别名搜索。共 84 个素材（72 个 `icon-` 图标、原有 8 张示意图、4 个立体主题），隐藏旧别名的规则不变。
+
+生成入口仍为 `scripts/design-material-art.mjs` → `scripts/render-material-icons.mjs <sharp 包绝对路径>`。新增 SVG 直接组合填色物体，旧图继续按原 shape 生成；PNG 为 320×320，清单、浏览器插图和 Rust 嵌入资源保持一致。旧图、旧 ID 和原有 PNG 文件均无差异，不涉及 schema 或业务逻辑。
+
+### 验证与对照
+
+- `npm run build` 通过（保留 Vite 单包超过 500 kB 的提示）；`npm run test:ui` 100/100；`npm run check` 通过。
+- `cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --test materials` 8/8，使用临时虚构库；遍历目录清单与内嵌图片的已有测试覆盖新资源。
+- Ego Lite 同一 TaskSpace，本地独立 1437 端口虚构预览：家居分类新增项目及图片加载正常；NAS 搜索命中网络存储；无匹配关键词呈现空结果；深色表单搜索“滚筒”命中洗衣机，点击直接返回，名称未改，封面加载成功，保存后图片附件显示“洗衣机示意图（非实物照片）”。[保存后的浏览器控件证据](icon-expansion/browser-save.txt)。
+- 同尺寸 100×100 新旧图标对照：[浅色](icon-expansion/contact-light.png)、[深色](icon-expansion/contact-dark.png)。第一行是原有六个主题，其余为 22 个新增主题，已检查识别度、边界与配色。
+- Ego Lite `Page.captureScreenshot` 两次超时，未取得实际页面截图；上述对照为 SVG 渲染的图标板，不冒充 App 截图。浏览器控件和图像加载检查通过。现有虚构预览另显示提醒不可用、保存后的 `list_timeline` 未模拟提示，与本次素材扩充无关，未修改这些流程。
+- 首轮未执行原生 GUI 保存/重开与全流程回归；后续补验与打包结果见下节。首轮未启动正式 App、未打开正式资料库，未提交、推送或安装。
+
+模型建议 Sol 中档；实际使用当前会话单主线，无子代理，未切换模型或配置，费用未采集。
+
+
+## 2026-09-28 · 原生补验与 1.6.2 收尾
+
+用户要求“继续完成后续工作以及收尾”。从 `main` 的 `64fdcef05d93bb1834430c38c0b761b54170d5c8` 继续；保留无关未跟踪 `.claude/` 与 `docs/ui/batch-mock.js`，不推送远程。默认开发 identity 不变，正式 override 版本升至 1.6.2，schema 仍为 18。
+
+- 隔离构建：`.local/icon-expansion.conf.json`，identifier `local.possio.icon.expansion.acceptance`，窗口 1280×840。仅该身份填写虚构资料，AX 操作检查前台和窗口存在，不向其他应用输入。
+- 原生验收：家电分类显示全部新增家电，搜索“滚筒”找到洗衣机；应用后保存“虚构大件图标验收洗衣机”，完整档案出现一张洗衣机封面；退出重开后同一名称与洗衣机缩略图仍可见。截图：[选择器](icon-expansion/native-picker.png)、[重开](icon-expansion/native-reopened.png)；控件证据：[保存](icon-expansion/native-saved.txt)、[重开](icon-expansion/native-reopened.txt)。本轮原生补验弥补首轮浏览器截图失败与持久性证据缺口；未重复全产品 GUI 回归。
+- 发布检查：Rust 全套 164/164、UI 100/100、样例 2/2；既有 `npm run check` 通过，最终 `npm run release` 再次完成 TypeScript/Vite 与 release App 构建。首次沙盒全套回归在维护照片测试报 `IMAGE_CORRUPT`，相同测试在允许 macOS ImageIO 的环境全套重跑通过，未改业务代码。
+- 正式产物：`src-tauri/target/release/bundle/macos/物志.app`；Info.plist 为 `local.possio.main` / `1.6.2`，`codesign --verify --deep --strict` 通过，沿用本地 ad-hoc 签名，未公证。
+- 主程序 SHA-256：`a4145446646699f3384f9cc38a6dccfc0c1c60c47e8c8ecacbaf3525a5b32f08`。副本 `.local/install/物志-1.6.2.app` 哈希一致；旧 `.local/install/物志-1.6.1.app` 已保留。
+- 安装状态：正式 1.6.1 应用仍在运行，已请用户保存并退出，尚未替换 `/Applications/物志.app`；没有主动启动、退出或读取正式应用及资料库。隔离验收 App 已退出，先前浏览器空间与开发服务已关闭。

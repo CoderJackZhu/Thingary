@@ -1,0 +1,81 @@
+APP hidden=false active=false
+AXWindow | 物志 · 大件图标验收
+    AXWebArea | 物志
+       AXStaticText | 物志
+      AXStaticText | POSSIO
+       AXButton | 总览
+        AXStaticText | 我的物品
+       AXButton | 全部资产
+       AXButton | 使用中
+       AXButton | 已退役
+       AXButton | 已售出
+        AXStaticText | 记录与回顾
+       AXButton | 心愿清单
+       AXButton | 时间轴
+       AXButton | 统计
+        AXStaticText | 财富
+       AXButton | 账户与盘点
+       AXButton | 重要支出
+       AXButton | 周期费用
+       AXButton | 素材库
+       AXButton | 最近删除
+       AXButton | 设置
+       AXCheckBox | 浅色模式
+       AXCheckBox | 深色模式
+       AXCheckBox | 跟随系统
+       AXStaticText | 本地档案 · 仅本机
+      AXStaticText | 我的物品
+      AXStaticText | ／
+      AXStaticText | 全部资产
+       AXTextField | 搜索物品
+        AXStaticText | ⌘F
+      AXButton | 新增资产 ⌘N
+       AXHeading | 全部资产
+        AXStaticText | 全部资产
+        AXStaticText | 物品的来历、成本与每次变化，都在这里。
+        AXStaticText | 我的资产档案
+       AXStaticText | 截至
+       AXStaticText | 2026 / 09 / 28
+       AXStaticText | 本页当前持有
+        AXStaticText | 1件物品
+        AXStaticText | 使用中 1 · 已退役 0
+       AXStaticText | 本页持有物购入金额
+        AXStaticText | 待补充
+        AXStaticText | 1 件金额未知，未计入 · 不含已售出
+       AXStaticText | 本页已售出
+        AXStaticText | 0件物品
+        AXStaticText | 档案与来历仍然保留
+      AXStaticText | 1 件物品
+      AXCheckBox | 列表视图
+      AXCheckBox | 网格视图
+       AXDisclosureTriangle | 筛选与排序
+        AXStaticText | 筛选与排序
+       AXStaticText | 物品
+       AXStaticText | 购入日期
+       AXButton | 按购入金额排序
+       AXStaticText | 状态
+       AXCheckBox | 查看 虚构大件图标验收洗衣机
+      AXStaticText | 1
+      AXStaticText |  件物品
+      AXStaticText | 双击或按回车，打开完整档案
+       AXStaticText | 物品摘要
+       AXButton | 收起资产摘要
+       AXImage | 洗衣机示意图（非实物照片）
+       AXHeading | 虚构大件图标验收洗衣机
+        AXStaticText | 虚构大件图标验收洗衣机
+        AXStaticText | 资料可以慢慢补全 ·
+        AXStaticText | 使用中
+       AXStaticText | 日均持有成本
+        AXStaticText | 待补充
+        AXStaticText | 购入与已记录维护费用 ÷ 持有天数
+         AXStaticText | 购入金额
+         AXStaticText | 待补充
+         AXStaticText | 购入日期
+         AXStaticText | 2026-09-28
+         AXStaticText | 持有时长
+         AXStaticText | 1 天
+         AXStaticText | 维护投入
+         AXStaticText | ¥0.00
+        AXButton | 打开完整档案
+        AXButton | 编辑资料 ⌘E
+ AXStaticText | 物志 · 大件图标验收
