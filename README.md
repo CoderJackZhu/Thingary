@@ -7,7 +7,7 @@
 ## 当前状态
 
 - P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
-- 自用正式版 1.11.0（含统一分类、详情页新排布、资产详情目标进度、综合回顾、财富盘点、重要支出、周期费用、虚拟资产、统一样例、删除恢复统一规则与物品批量操作）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- 自用正式版 1.11.1（含统一分类、详情页新排布、资产详情目标进度、综合回顾、财富盘点、重要支出、周期费用、虚拟资产、统一样例、删除恢复统一规则与物品批量操作）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
 - 1.9.0 新增 D · 综合体验：总览分「综合回顾／实物概览」两个视图，时间轴按领域与年份筛选并含盘点事件，各事件可「查看来源」直接打开原记录；见 [Q04 原生验收](docs/verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)。
 - 1.8.0 新增虚拟资产（C2）：买断软件、域名与订阅服务的档案、有效期与花费，可关联周期计划；见 [G03 记录](docs/verification/G03_VIRTUAL_RESULT.md)。
 - 下一阶段 D · 综合体验已整理[页面方案与统计口径](docs/PRODUCT_DESIGN.md#1713-d--综合体验方案2026-09-28待评审)，[浅深色界面对照稿](docs/ui/comprehensive/index.html)与技术契约已完成，Q02 已实现双视图、四类摘要、趋势与待关注，并通过阶段测试，见 [Q02 记录](docs/verification/Q02_COMPREHENSIVE_RESULT.md)及[实际界面](docs/ui/comprehensive/q02/index.html)。Q03 时间轴与来源跳转（盘点事件、领域/年份/类型筛选、稳定 target 来源定位与返回恢复）已由 zcode 按交接完成并通过阶段测试与浏览器证据，见 [Q03 记录](docs/verification/Q03_SOURCE_NAVIGATION_RESULT.md)及[实际界面](docs/ui/comprehensive/q03/index.html)；未提交、未安装正式版，Q04 原生验收未开始。
