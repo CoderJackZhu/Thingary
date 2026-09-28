@@ -19,3 +19,5 @@ export function goalProgress(p:AssetPreferences,cost:string|null,held:number|nul
  if(held===null||!purchase)return null;
  return {hundredths:pct(held,need),remaining:Math.max(0,need-held),unit:'天',reached_date:plusDays(purchase,Math.max(need,1)-1),projected_cents:null};
 }
+// A retired asset's goal stops at its latest retirement; reactivation resumes the normal count.
+export function retiredOn(life?: { state: string; events: { kind: string; date: string }[] }) { return life?.state === 'retired' ? life.events.filter(e => e.kind === 'retire').at(-1)?.date ?? null : null; }

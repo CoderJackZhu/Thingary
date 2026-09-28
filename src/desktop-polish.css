@@ -85,3 +85,4 @@
 @media(min-width:1120px){.asset-hero{grid-template-columns:112px minmax(0,1fr) minmax(260px,340px)}.hero-cost{grid-column:auto}}
 .detail-section .facts.facts-grid{grid-template-columns:64px minmax(0,1fr) 64px minmax(0,1fr)}.detail-section .facts-grid dd:nth-of-type(odd){margin-right:24px}.detail-section .facts-grid+.small{font-size:10px;margin:0}
 .detail-empty{display:flex;align-items:center;gap:12px;padding:0 0 10px;border-bottom:1px solid var(--line)}.detail-section.detail-empty h3{margin:0}.detail-empty>span{flex:1;font-size:11px}.detail-empty button{font-size:11px;padding:4px 10px}
+.goal-frozen .stats-bar span{background:var(--muted)}

@@ -1,7 +1,7 @@
 import type { TaxonomySnapshot } from './taxonomy';
 import { useState } from 'react';
 import type { AssetRecord, Page, Photo } from './asset';
-import { localDay, money } from './asset';
+import { costs, localDay, money } from './asset';
 import { maintenanceKinds } from './maintenance';
 import { statusLabel, warrantyKinds, warrantySummaryText } from './warranty';
 import type { Warranty } from './warranty';
@@ -10,7 +10,7 @@ import { stateLabel, kindLabel } from './lifecycle';
 import type { LifecycleAction } from './lifecycle';
 import { Cover, Gallery, PhotoPreview, PhotoView } from './Photos';
 import { Timeline } from './Timeline';
-import { goalProgress } from './preferences';
+import { goalProgress, retiredOn } from './preferences';
 
 function MaintenancePhotos({ photos, generation }: { photos: Photo[]; generation: string }) {
   const [preview, setPreview] = useState<Photo | null>(null);
@@ -77,18 +77,21 @@ function EmptySection({ title, action, onAdd }: { title: string; action: string;
 function GoalCard({ record }: { record: AssetRecord }) {
   const p = record.preferences, c = record.costs;
   if (!p || p.goal.mode === 'none') return null;
-  const perUse = p.cost_mode === 'per_use', cost = record.sale ? c.net_cost_cents : c.total_investment_cents;
-  const g = c.unknown_maintenance_count > 0 ? null : goalProgress(p, cost, c.held_days, record.asset.purchase_date);
-  const unitCost = perUse ? record.per_use_cents ?? null : c.daily_cents, per = perUse ? '次' : '天';
+  const perUse = p.cost_mode === 'per_use', cost = record.sale ? c.net_cost_cents : c.total_investment_cents, per = perUse ? '次' : '天';
+  const frozen = retiredOn(record.lifecycle), held = frozen ? costs(record.asset, frozen).days : c.held_days;
+  const g = c.unknown_maintenance_count > 0 ? null : goalProgress(p, cost, held, record.asset.purchase_date);
+  // Frozen goals report the daily cost as of the retirement day, not today's still-falling figure.
+  const unitCost = perUse ? record.per_use_cents ?? null : frozen && cost !== null && held ? ((BigInt(cost) + BigInt(held >> 1)) / BigInt(held)).toString() : c.daily_cents;
   const head = p.goal.mode === 'cost' ? <><span>目标{perUse ? '单次' : '日均'}成本</span><strong>{money(p.goal.cents)}<small> / {per}</small></strong></> : <><span>目标日期</span><strong>{p.goal.date}</strong></>;
   const done = g?.hundredths === 10000;
-  return <div className="goal-card"><div className="goal-head"><div>{head}</div><div><span>总进度</span><strong>{g ? `${(g.hundredths / 100).toFixed(2)}%` : '待补充'}</strong></div></div>
-    {g && <><div className="stats-bar" role="progressbar" aria-label="目标进度" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(g.hundredths / 100)}><span style={{ width: `${g.hundredths / 100}%` }}/></div>
-    <p className="goal-line"><span>当前 {money(unitCost)}{unitCost !== null && ` / ${per}`}</span><span>{p.goal.mode === 'cost' ? `目标 ${money(p.goal.cents)}` : g.projected_cents === null ? '' : `到期预计 ${money(g.projected_cents)} / 天`}</span></p>
+  return <div className={frozen ? 'goal-card goal-frozen' : 'goal-card'}><div className="goal-head"><div>{head}</div><div><span>{frozen ? '退役时进度' : '总进度'}</span><strong>{g ? `${(g.hundredths / 100).toFixed(2)}%` : '待补充'}</strong></div></div>
+    {g && <><div className="stats-bar" role="progressbar" aria-label={frozen ? '目标进度（已因退役停止）' : '目标进度'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(g.hundredths / 100)}><span style={{ width: `${g.hundredths / 100}%` }}/></div>
+    <p className="goal-line"><span>{frozen ? '退役时' : '当前'} {money(unitCost)}{unitCost !== null && ` / ${per}`}</span><span>{p.goal.mode === 'cost' ? `目标 ${money(p.goal.cents)}` : g.projected_cents === null ? '' : `到期预计 ${money(g.projected_cents)} / 天`}</span></p>
     {record.sale ? <p className="goal-line"><span>{done ? '售出前已达成' : '售出时未达成'}</span><span>按售出日结算</span></p>
+      : frozen ? <p className="goal-line"><span>{done ? '退役前已达成' : '已退役，目标停止'}</span><span>停在 {frozen}</span></p>
       : done ? <p className="goal-line"><span>{g.reached_date && g.reached_date <= localDay() ? (p.goal.mode === 'date' ? '已到目标日' : `已于 ${g.reached_date} 达成`) : '已达成'}</span></p>
       : <p className="goal-line"><span>{p.goal.mode === 'date' ? '距目标日' : g.reached_date ? `预计达成 ${g.reached_date}` : `还需使用 ${g.remaining.toLocaleString('zh-CN')} 次`}</span>{g.unit === '天' && <span>还剩 {g.remaining.toLocaleString('zh-CN')} 天</span>}</p>}</>}
-    <p className="muted small">{g ? (p.goal.mode === 'cost' && !record.sale && !done ? '按当前总投入推算，之后新增维护会推迟达成。' : '目标只记录计划，不改变物品状态。') : c.unknown_maintenance_count > 0 ? '有维护费用待补录，进度暂不计算。' : '补全购入金额与日期后计算进度。'}</p></div>;
+    <p className="muted small">{frozen ? '退役后目标不再推进；重新启用后继续计算。' : g ? (p.goal.mode === 'cost' && !record.sale && !done ? '按当前总投入推算，之后新增维护会推迟达成。' : '目标只记录计划，不改变物品状态。') : c.unknown_maintenance_count > 0 ? '有维护费用待补录，进度暂不计算。' : '补全购入金额与日期后计算进度。'}</p></div>;
 }
 
 export function AssetDetail({ record, generation, today, taxonomy, onEdit, onLifecycle, onSale, onMaintenance, onWarranty, onOpenWish }: { onOpenWish?: (id: string) => void; taxonomy: TaxonomySnapshot | null; record: AssetRecord; generation: string; today: string; onEdit: () => void; onLifecycle: (action: LifecycleAction) => void; onSale: (mode: SaleDraft['mode']) => void; onMaintenance: (id?: string) => void; onWarranty: (id?: string) => void; }) {

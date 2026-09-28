@@ -20,3 +20,10 @@ test('asset goal progress',()=>{
  assert.deepEqual(goalProgress(p({goal:{mode:'date',date:'2026-01-10'}}),'1000',5,'2026-01-01'),{hundredths:5000,remaining:5,unit:'天',reached_date:'2026-01-10',projected_cents:'100'});
  assert.equal(goalProgress(p({goal:{mode:'date',date:'2025-01-10'}}),'1000',5,'2026-01-01'),null);
 });
+import {retiredOn} from '../src/preferences.ts';
+test('goal freezes at the latest retirement only while retired',()=>{
+ const ev=(kind,date)=>({kind,date});
+ assert.equal(retiredOn({state:'retired',events:[ev('retire','2026-01-01'),ev('activate','2026-02-01'),ev('retire','2026-03-01')]}),'2026-03-01');
+ assert.equal(retiredOn({state:'active',events:[ev('retire','2026-01-01'),ev('activate','2026-02-01')]}),null);
+ assert.equal(retiredOn(undefined),null);
+});
