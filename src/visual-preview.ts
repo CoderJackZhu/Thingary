@@ -114,7 +114,7 @@ function previewPhotoName(id: string): string {
 const batchReceipts = new Map<string, { action: string; items: { id: string; after: number; before: AssetRecord }[] }>();
 function batchRow(r: AssetRecord) {
   const p = r.preferences;
-  return { id: r.asset.id, name: r.asset.name, revision: r.asset.revision, state: r.lifecycle?.state ?? 'active', price_cents: r.asset.price_cents, purchase_date: r.asset.purchase_date, last_event_date: r.lifecycle?.events.at(-1)?.date ?? null, category_id: r.classification?.category_id ?? null, channel_id: r.classification?.channel_id ?? null, label_id: p?.label_id ?? null, exclude: p?.exclude ?? { total: false, daily: false, statistics: false, timeline: false } };
+  return { id: r.asset.id, name: r.asset.name, revision: r.asset.revision, state: r.lifecycle?.state ?? 'active', price_cents: r.asset.price_cents, purchase_date: r.asset.purchase_date, last_event_date: r.lifecycle?.events.at(-1)?.date ?? null, category_id: r.classification?.category_id ?? null, channel_id: r.classification?.channel_id ?? null, label_id: p?.label_id ?? null, exclude: p?.exclude ?? { total: false, daily: false, statistics: false, timeline: false }, maintenance_cents: String(r.maintenances.reduce((sum, m) => sum + Number(m.fields.cost_cents ?? 0), 0)) };
 }
 async function handle(command: string, payload: unknown): Promise<unknown> {
   const args = payload as Record<string,unknown>;
@@ -146,6 +146,9 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
       if (input.action === 'exclude' && r.preferences && item.exclude) r.preferences = { ...r.preferences, exclude: item.exclude };
       if (input.action === 'retire' || input.action === 'activate') { const life = r.lifecycle ?? { state: 'active', events: [] }; life.events.push({ id: crypto.randomUUID(), sequence: life.events.length + 1, kind: input.action === 'retire' ? 'retire' : 'activate', date: item.date!, notes: '' }); life.state = input.action === 'retire' ? 'retired' : 'active'; r.lifecycle = life; }
       if (input.action === 'delete') { r.deleted = true; r.deleted_at = new Date().toISOString(); }
+      const extra = item as unknown as { warranty?: { kind: string; provider: string; start_date: string | null; end_date: string | null; notes: string }; sale?: { date: string; price_cents: string; platform: string; buyer: string; notes: string } };
+      if (input.action === 'warranty' && extra.warranty) { r.warranties = [...(r.warranties ?? []), { id: crypto.randomUUID(), fields: extra.warranty, status: 'active', remaining_days: null, photos: [], created_at: new Date().toISOString(), updated_at: new Date().toISOString(), reminder: null } as unknown as NonNullable<AssetRecord['warranties']>[number]]; r.warranty_summary = summarizeWarranties(r.warranties, today); }
+      if (input.action === 'sell' && extra.sale) { r.sale = { id: crypto.randomUUID(), previous_state: r.lifecycle?.state ?? 'active', fields: extra.sale } as unknown as AssetRecord['sale']; r.lifecycle = { state: 'sold', events: r.lifecycle?.events ?? [] }; }
       r.asset.revision++; taxonomyRevision++;
       done.push({ id: r.asset.id, after: r.asset.revision, before });
     }

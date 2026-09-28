@@ -42,6 +42,8 @@ fn item(s: &Store, id: &str) -> Item {
         label_id: None,
         exclude: None,
         date: None,
+        warranty: None,
+        sale: None,
     }
 }
 fn change(s: &Store, action: &str, items: Vec<Item>) -> Change {
@@ -240,4 +242,88 @@ fn select_all_reaches_every_match_beyond_one_page() {
     let rows = s.batch_rows(&ids[..3]).unwrap();
     assert_eq!(rows.len(), 3);
     assert_eq!(rows[0].price_cents.as_deref(), Some("100000"));
+}
+
+#[test]
+fn batch_warranty_and_sale_undo_and_keep_backups_valid() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let (a, b) = (asset(&mut s, "虚构甲"), asset(&mut s, "虚构乙"));
+    let warranty = |start: &str| possio_lib::warranty::Fields {
+        kind: "manufacturer".into(),
+        provider: String::new(),
+        start_date: Some(start.into()),
+        end_date: Some("2027-09-01".into()),
+        notes: String::new(),
+    };
+    let covered = change(
+        &s,
+        "warranty",
+        vec![
+            Item {
+                warranty: Some(warranty("2026-09-01")),
+                ..item(&s, &a.asset.id)
+            },
+            Item {
+                warranty: Some(warranty("2026-09-01")),
+                ..item(&s, &b.asset.id)
+            },
+        ],
+    );
+    s.batch_change(&covered, TODAY).unwrap();
+    assert_eq!(s.record(&a.asset.id).unwrap().unwrap().warranties.len(), 1);
+
+    let sale = |price: &str| possio_lib::sales::Fields {
+        date: "2026-09-20".into(),
+        price_cents: price.into(),
+        platform: "虚构回收商".into(),
+        buyer: String::new(),
+        notes: String::new(),
+    };
+    let sold = change(
+        &s,
+        "sell",
+        vec![
+            Item {
+                sale: Some(sale("30000")),
+                ..item(&s, &a.asset.id)
+            },
+            Item {
+                sale: Some(sale("0")),
+                ..item(&s, &b.asset.id)
+            },
+        ],
+    );
+    s.batch_change(&sold, TODAY).unwrap();
+    let rec = s.record(&a.asset.id).unwrap().unwrap();
+    assert_eq!(rec.lifecycle.state, possio_lib::lifecycle::State::Sold);
+    assert_eq!(rec.sale.unwrap().fields.price_cents, "30000");
+
+    // A library holding batch sales and warranties passes backup validation.
+    let file = dir.path().join("批量.possio");
+    s.backup(Some(&file)).unwrap();
+    assert_eq!(s.inspect_backup(&file).unwrap().assets, 2);
+
+    assert_eq!(undo(&mut s, &sold).changed, 2);
+    let rec = s.record(&b.asset.id).unwrap().unwrap();
+    assert!(rec.sale.is_none());
+    assert_eq!(rec.lifecycle.state, possio_lib::lifecycle::State::Active);
+    // Undoing the older warranty batch now skips: the sale undo moved revisions on.
+    assert_eq!(undo(&mut s, &covered).skipped, 2);
+
+    let late = change(
+        &s,
+        "sell",
+        vec![Item {
+            sale: Some(possio_lib::sales::Fields {
+                date: "2026-08-01".into(),
+                ..sale("1")
+            }),
+            ..item(&s, &a.asset.id)
+        }],
+    );
+    assert_eq!(
+        s.batch_change(&late, TODAY).unwrap_err().code,
+        "DATE_CONFLICT"
+    );
 }

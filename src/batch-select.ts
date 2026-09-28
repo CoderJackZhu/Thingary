@@ -1,5 +1,5 @@
 // D19 selection rules and batch-table facts, kept pure for tests.
-export type BatchRow = { id: string; name: string; revision: number; state: 'active' | 'retired' | 'sold'; price_cents: string | null; purchase_date: string | null; last_event_date: string | null; category_id: string | null; channel_id: string | null; label_id: string | null; exclude: { total: boolean; daily: boolean; statistics: boolean; timeline: boolean } };
+export type BatchRow = { id: string; name: string; revision: number; state: 'active' | 'retired' | 'sold'; price_cents: string | null; purchase_date: string | null; last_event_date: string | null; category_id: string | null; channel_id: string | null; label_id: string | null; exclude: { total: boolean; daily: boolean; statistics: boolean; timeline: boolean }; maintenance_cents: string };
 export type Modifiers = { meta: boolean; shift: boolean; toggle: boolean };
 
 /**
@@ -46,4 +46,33 @@ export function dateError(row: BatchRow, day: string, today: string): string {
   const earliest = earliestAction(row);
   if (earliest && day < earliest) return `不能早于 ${earliest}`;
   return '';
+}
+
+/** Same calendar day N years later; 29 Feb falls back to 28 Feb. */
+export function addYears(day: string, years: number): string {
+  const [y, m, d] = day.split('-').map(Number);
+  const last = new Date(Date.UTC(y + years, m, 0)).getUTCDate();
+  return `${String(y + years).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(Math.min(d, last)).padStart(2, '0')}`;
+}
+
+/** D19: a batch warranty starts at purchase (today when unknown) and runs one year. */
+export function warrantyDefault(row: BatchRow, today: string, years = 1) {
+  const start = row.purchase_date ?? today;
+  return { start, end: addYears(start, years) };
+}
+
+const dayNumber = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86400000;
+/** Status line and elapsed share for the preview column; mirrors the inclusive end day. */
+export function warrantyPreview(start: string, end: string, today: string): { text: string; percent: number | null } {
+  if (end < start) return { text: '结束日期早于开始日期', percent: null };
+  if (today < start) return { text: `尚未开始 · ${start} 起`, percent: 0 };
+  if (today > end) return { text: '已过期', percent: 100 };
+  const total = dayNumber(end) - dayNumber(start) + 1, left = dayNumber(end) - dayNumber(today);
+  return { text: `保障中 · 还剩 ${left} 天`, percent: Math.round(((total - left - 1) / total) * 100) };
+}
+
+/** Net cost after a sale, or null when the purchase price is unknown. */
+export function saleNet(row: BatchRow, priceCents: string | null): string | null {
+  if (row.price_cents === null || priceCents === null) return null;
+  return (BigInt(row.price_cents) + BigInt(row.maintenance_cents) - BigInt(priceCents)).toString();
 }

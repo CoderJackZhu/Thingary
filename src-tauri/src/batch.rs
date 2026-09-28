@@ -44,6 +44,10 @@ pub struct Item {
     pub exclude: Option<Exclusions>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub date: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warranty: Option<crate::warranty::Fields>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sale: Option<crate::sales::Fields>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -51,7 +55,7 @@ pub struct Item {
 pub struct Change {
     pub request_id: String,
     pub generation: String,
-    /// `classify`, `label`, `exclude`, `retire`, `activate` or `delete`.
+    /// `classify`, `label`, `exclude`, `retire`, `activate`, `delete`, `warranty` or `sell`.
     pub action: String,
     pub items: Vec<Item>,
 }
@@ -84,6 +88,8 @@ pub struct Row {
     pub channel_id: Option<String>,
     pub label_id: Option<String>,
     pub exclude: Exclusions,
+    /// Known maintenance total, for the sale table's net-cost preview.
+    pub maintenance_cents: String,
 }
 
 /// What undo needs to restore one item.
@@ -96,6 +102,11 @@ struct Before {
     preferences: Option<AssetPreferences>,
     event_id: Option<String>,
     state: Option<String>,
+    /// Added warranty or sale, and the per-item request behind its audit row.
+    #[serde(default)]
+    record_id: Option<String>,
+    #[serde(default)]
+    record_request: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -107,7 +118,7 @@ struct Receipt {
 fn row(c: &Connection, id: &str) -> Result<Option<Row>> {
     let found = c
         .query_row(
-            "SELECT a.id,a.name,a.revision,a.lifecycle_state,a.price_cents,a.purchase_date,(SELECT max(date) FROM lifecycle_events e WHERE e.asset_id=a.id),a.category_id,a.channel_id FROM assets a WHERE a.id=?1 AND a.deleted_at IS NULL",
+            "SELECT a.id,a.name,a.revision,a.lifecycle_state,a.price_cents,a.purchase_date,(SELECT max(date) FROM lifecycle_events e WHERE e.asset_id=a.id),a.category_id,a.channel_id,(SELECT coalesce(sum(cost_cents),0) FROM maintenances m WHERE m.asset_id=a.id AND m.deleted_at IS NULL) FROM assets a WHERE a.id=?1 AND a.deleted_at IS NULL",
             [id],
             |r| {
                 Ok(Row {
@@ -122,6 +133,7 @@ fn row(c: &Connection, id: &str) -> Result<Option<Row>> {
                     channel_id: r.get(8)?,
                     label_id: None,
                     exclude: Exclusions::default(),
+                    maintenance_cents: r.get::<_, i64>(9)?.to_string(),
                 })
             },
         )
@@ -224,6 +236,8 @@ impl Store {
                 preferences: None,
                 event_id: None,
                 state: Some(current.state.clone()),
+                record_id: None,
+                record_request: None,
             };
             match input.action.as_str() {
                 "classify" => {
@@ -295,12 +309,88 @@ impl Store {
                         params![item.asset_id, now],
                     )?;
                 }
+                "warranty" => {
+                    let f = item
+                        .warranty
+                        .as_ref()
+                        .ok_or_else(|| Error::new("BATCH_FIELD", "缺少保障资料"))?;
+                    f.validate().map_err(|e| named(&current, e))?;
+                    let id = crate::storage::uid();
+                    tx.execute("INSERT INTO warranties(id,asset_id,kind,provider,start_date,end_date,notes,created_at,updated_at,deleted_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?8,NULL)", params![id, item.asset_id, f.kind, f.provider.trim(), f.start_date, f.end_date, f.notes, now])?;
+                    let request = crate::storage::uid();
+                    tx.execute("INSERT INTO warranty_audit(request_id,warranty_id,action,snapshot,created_at) VALUES(?1,?2,'add',?3,?4)", params![request, id, serde_json::to_string(f)?, now])?;
+                    b.record_id = Some(id);
+                    b.record_request = Some(request);
+                }
+                "sell" => {
+                    let mut f = item
+                        .sale
+                        .clone()
+                        .ok_or_else(|| Error::new("BATCH_FIELD", "缺少售出资料"))?;
+                    let life = self.lifecycle(&item.asset_id)?;
+                    let check = || -> Result<()> {
+                        if current.state == "sold" {
+                            return Err(Error::new(
+                                "STATE_CONFLICT",
+                                "物品已售出，请修改原售出记录",
+                            ));
+                        }
+                        f.validate()?;
+                        if crate::domain::date(&f.date)? > crate::domain::date(today)? {
+                            return Err(Error::new("FUTURE", "售出日期不能晚于今天"));
+                        }
+                        if current.purchase_date.as_ref().is_some_and(|p| p > &f.date) {
+                            return Err(Error::new("DATE_CONFLICT", "售出日期不能早于购入日期"));
+                        }
+                        if let Some(last) = life.events.last() {
+                            if last.date > f.date {
+                                return Err(Error::new(
+                                    "DATE_CONFLICT",
+                                    &format!("售出日期不能早于前置状态记录（{}）", last.date),
+                                ));
+                            }
+                        }
+                        crate::maintenance::validate_sale_date(&tx, &item.asset_id, &f.date)
+                    };
+                    check().map_err(|e| named(&current, e))?;
+                    f.price_cents = crate::domain::cents(Some(&f.price_cents))?
+                        .unwrap_or(0)
+                        .to_string();
+                    let sale = crate::sales::Sale {
+                        id: crate::storage::uid(),
+                        previous_state: life.state.clone(),
+                        fields: f.clone(),
+                    };
+                    tx.execute("INSERT INTO sales(id,asset_id,previous_state,date,price_cents,platform,buyer,notes,created_at,updated_at,revoked_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?9,NULL)", params![sale.id, item.asset_id, current.state, f.date, f.price_cents.parse::<i64>().unwrap_or(0), f.platform, f.buyer, f.notes, now])?;
+                    let request = crate::storage::uid();
+                    tx.execute("INSERT INTO sale_audit(request_id,sale_id,action,snapshot,created_at) VALUES(?1,?2,'sell',?3,?4)", params![request, sale.id, serde_json::to_string(&sale)?, now])?;
+                    tx.execute(
+                        "UPDATE assets SET lifecycle_state='sold' WHERE id=?1",
+                        [&item.asset_id],
+                    )?;
+                    b.record_id = Some(sale.id);
+                    b.record_request = Some(request);
+                }
                 _ => return Err(Error::new("BATCH_ACTION", "不支持的批量操作")),
             }
             tx.execute(
                 "UPDATE assets SET revision=revision+1 WHERE id=?1",
                 [&item.asset_id],
             )?;
+            if let (Some(request), "sell") = (&b.record_request, input.action.as_str()) {
+                // Backups trace every sale to a saved reply holding the asset.
+                let asset = self
+                    .asset(&item.asset_id)?
+                    .ok_or_else(|| Error::new("NOT_FOUND", "找不到这件物品"))?;
+                tx.execute(
+                    "INSERT INTO requests VALUES(?1,?2,?3)",
+                    params![
+                        request,
+                        digest(request.as_bytes()),
+                        serde_json::to_string(&asset)?
+                    ],
+                )?;
+            }
             if input.action != "delete" {
                 tx.execute(
                     "UPDATE asset_profiles SET updated_at=?2 WHERE asset_id=?1",
@@ -404,6 +494,38 @@ impl Store {
                         "UPDATE assets SET deleted_at=NULL WHERE id=?1",
                         [&b.asset_id],
                     )? == 1
+                }
+                "warranty" => {
+                    let live: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM warranties WHERE id=?1 AND deleted_at IS NULL)", [&b.record_id], |r| r.get(0))?;
+                    if live {
+                        tx.execute(
+                            "DELETE FROM warranty_audit WHERE warranty_id=?1",
+                            [&b.record_id],
+                        )?;
+                        tx.execute(
+                            "DELETE FROM reminders WHERE kind='warranty' AND source_id=?1",
+                            [&b.record_id],
+                        )?;
+                        tx.execute("DELETE FROM warranties WHERE id=?1", [&b.record_id])?;
+                    }
+                    live
+                }
+                "sell" => {
+                    let live: bool = tx.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM sales WHERE id=?1 AND revoked_at IS NULL)",
+                        [&b.record_id],
+                        |r| r.get(0),
+                    )?;
+                    if live {
+                        tx.execute("DELETE FROM requests WHERE id IN (SELECT request_id FROM sale_audit WHERE sale_id=?1)", [&b.record_id])?;
+                        tx.execute("DELETE FROM sale_audit WHERE sale_id=?1", [&b.record_id])?;
+                        tx.execute("DELETE FROM sales WHERE id=?1", [&b.record_id])?;
+                        tx.execute(
+                            "UPDATE assets SET lifecycle_state=?2 WHERE id=?1",
+                            params![b.asset_id, b.state],
+                        )?;
+                    }
+                    live
                 }
                 _ => false,
             };
