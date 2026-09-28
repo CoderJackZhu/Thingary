@@ -199,6 +199,17 @@ impl Worker {
             })
         })
     }
+    pub fn modules(&self) -> Result<crate::modules::Modules> {
+        self.with_state(|state| Ok(crate::modules::read(&state.real.root)))
+    }
+    /// Saving forgets the last reminder plan so the switch takes effect at once.
+    pub fn set_modules(&self, modules: crate::modules::Modules) -> Result<crate::modules::Modules> {
+        self.with_state(move |state| {
+            crate::modules::write(&state.real.root, &modules)?;
+            state.reminder_key = None;
+            Ok(modules)
+        })
+    }
     pub fn reminder_snapshot(&self) -> Result<crate::reminders::Snapshot> {
         self.with_state(|state| crate::reminders::snapshot(&state.real))
     }

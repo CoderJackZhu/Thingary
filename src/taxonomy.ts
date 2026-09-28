@@ -63,6 +63,7 @@ export type CommandResult =
   | { status: "error"; message: string; recovery: "retry" | "reload" };
 
 export interface TaxonomyManagerProps {
+  generation?: string;
   onDirtyChange?: (dirty: boolean) => void;
   snapshot: TaxonomySnapshot | null;
   loading: boolean;

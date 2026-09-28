@@ -867,6 +867,23 @@ pub fn open_notification_settings() -> Result<()> {
     }
 }
 #[tauri::command]
+pub async fn modules_get(worker: tauri::State<'_, Worker>) -> Result<crate::modules::Modules> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.modules())
+        .await
+        .map_err(|_| Error::new("WORKER", "功能模块读取失败"))?
+}
+#[tauri::command]
+pub async fn modules_set(
+    modules: crate::modules::Modules,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::modules::Modules> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.set_modules(modules))
+        .await
+        .map_err(|_| Error::new("WORKER", "功能模块保存失败"))?
+}
+#[tauri::command]
 pub async fn notification_status(worker: tauri::State<'_, Worker>) -> Result<String> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {

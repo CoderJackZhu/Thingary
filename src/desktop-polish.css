@@ -86,3 +86,4 @@
 .detail-section .facts.facts-grid{grid-template-columns:64px minmax(0,1fr) 64px minmax(0,1fr)}.detail-section .facts-grid dd:nth-of-type(odd){margin-right:24px}.detail-section .facts-grid+.small{font-size:10px;margin:0}
 .detail-empty{display:flex;align-items:center;gap:12px;padding:0 0 10px;border-bottom:1px solid var(--line)}.detail-section.detail-empty h3{margin:0}.detail-empty>span{flex:1;font-size:11px}.detail-empty button{font-size:11px;padding:4px 10px}
 .goal-frozen .stats-bar span{background:var(--muted)}
+.module-list{list-style:none;margin:0;padding:0}.module-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}.module-list li:last-child{border-bottom:0}.module-list strong{display:block;font-size:12px;font-weight:550}.module-list span{display:block;font-size:10px;margin-top:2px}

@@ -1,3 +1,4 @@
+import { allModules, financeOff, type Modules } from './modules';
 import { useEffect } from 'react';
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -72,9 +73,11 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   </section>;
 }
 
-export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, restoreScroll }: { generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore }) {
+export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, restoreScroll, modules = allModules }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore }) {
   const [view, setView] = useState(() => { try { return overviewView(localStorage.getItem('possio.overview-view.v1')); } catch { return 'combined'; } });
   const changeView = (value: 'combined' | 'physical') => { setView(value); try { localStorage.setItem('possio.overview-view.v1', value); } catch { /* The current choice remains usable without persistence. */ } };
   const shared = { generation, today, version, onOpenSource, onBrowse, restoreScroll };
-  return <><div className="overview-switch"><div className="segmented" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合回顾</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>实物概览</button></div></div>{view === 'combined' ? <ReviewView {...shared} year={year} onYear={onYear} onNavigate={onNavigate}/> : <PhysicalOverview {...shared}/>}</>;
+  // With every finance module off the combined review would only repeat the physical one.
+  if (financeOff(modules)) return <PhysicalOverview {...shared}/>;
+  return <><div className="overview-switch"><div className="segmented" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合回顾</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>实物概览</button></div></div>{view === 'combined' ? <ReviewView {...shared} modules={modules} year={year} onYear={onYear} onNavigate={onNavigate}/> : <PhysicalOverview {...shared}/>}</>;
 }

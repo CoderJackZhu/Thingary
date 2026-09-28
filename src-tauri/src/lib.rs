@@ -13,6 +13,7 @@ pub mod insights;
 pub mod lifecycle;
 pub mod maintenance;
 pub mod materials;
+pub mod modules;
 pub mod native_images;
 pub mod photos;
 pub mod preferences;
@@ -108,6 +109,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::notification_permission,
+            commands::modules_get,
+            commands::modules_set,
             commands::wealth_accounts,
             commands::wealth_account_save,
             commands::wealth_snapshot,

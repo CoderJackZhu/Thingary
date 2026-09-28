@@ -1,4 +1,4 @@
-import {DragHandle} from './FormControls';
+import {ChoiceManager, DragHandle} from './FormControls';
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -28,6 +28,9 @@ const KIND_TABS: { value: TaxonomyKind; label: string; helper: string }[] = [
   { value: "category", label: "分类", helper: "决定列表与摘要里的分组归属" },
   { value: "channel", label: "购买渠道", helper: "记录每件物品的购入场所" },
 ];
+// Sale channels and status labels use the simpler choice lists (rename-free, enable/disable).
+type ExtraTab = "sale_channel" | "label";
+const ALL_TABS: { value: TaxonomyKind | ExtraTab; label: string }[] = [...KIND_TABS, { value: "sale_channel", label: "售出渠道" }, { value: "label", label: "状态标签" }];
 
 const ICON_GLYPHS: Record<CategoryIcon, ReactNode> = {
   box: (
@@ -474,8 +477,10 @@ export default function TaxonomyManager({
   validateName,
   onCommand,
   onDirtyChange,
+  generation,
 }: TaxonomyManagerProps) {
   const [kind, setKind] = useState<TaxonomyKind>("category");
+  const [extra, setExtra] = useState<ExtraTab | null>(null);
   const [draft, setDraft] = useState<DraftState>(blankDraft());
   const [draftError, setDraftError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -525,6 +530,17 @@ export default function TaxonomyManager({
     requestAnimationFrame(() => document.getElementById("taxonomy-tab-" + next)?.focus());
     setDraft(blankDraft());
     setDraftError(null);
+  }
+
+  function selectTab(next: TaxonomyKind | ExtraTab) {
+    if (next === (extra ?? kind)) return;
+    if (inFlight.current) { setNotice({ text: "请等待当前提交完成，再切换页签。", state: "error" }); return; }
+    if (next === "sale_channel" || next === "label") {
+      editingRows.current.clear(); setEditingCount(0); setDraft(blankDraft()); setDraftError(null);
+      setExtra(next);
+    } else if (next === kind) setExtra(null);
+    else { setExtra(null); changeKind(next); }
+    requestAnimationFrame(() => document.getElementById("taxonomy-tab-" + next)?.focus());
   }
 
   function noticeForResult(command: TaxonomyCommand, result: CommandResult): NoticeState {
@@ -706,37 +722,42 @@ export default function TaxonomyManager({
     <section className="taxonomy-shell" aria-labelledby="taxonomy-heading">
       <header>
         <p className="taxonomy-eyebrow">设置</p>
-        <h1 id="taxonomy-heading">分类与购买渠道</h1>
+        <h1 id="taxonomy-heading">选项管理</h1>
         <p className="taxonomy-lede">
-          整理物品的分类，记录每件物品从哪里购入。
+          整理分类、购买与售出渠道，以及自定义状态标签。
         </p>
       </header>
 
-      <div className="taxonomy-tabs" role="tablist" aria-label="分类与渠道">
-        {KIND_TABS.map((tab) => (
+      <div className="taxonomy-tabs" role="tablist" aria-label="选项">
+        {ALL_TABS.map((tab, index) => (
           <button
             key={tab.value}
             type="button"
             role="tab"
             id={`taxonomy-tab-${tab.value}`}
-            aria-selected={kind === tab.value}
+            aria-selected={(extra ?? kind) === tab.value}
             aria-controls={`taxonomy-tabpanel-${tab.value}`}
-            tabIndex={kind === tab.value ? 0 : -1}
+            tabIndex={(extra ?? kind) === tab.value ? 0 : -1}
             onKeyDown={(event) => {
               if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
                 event.preventDefault();
-                const next = event.key === "Home" ? "category" : event.key === "End" ? "channel" : kind === "category" ? "channel" : "category";
-                changeKind(next);
+                const n = ALL_TABS.length, to = event.key === "Home" ? 0 : event.key === "End" ? n - 1 : (index + (event.key === "ArrowRight" ? 1 : n - 1)) % n;
+                selectTab(ALL_TABS[to].value);
               }
             }}
             className="taxonomy-tab"
-            onClick={() => changeKind(tab.value)}
+            onClick={() => selectTab(tab.value)}
           >
             {tab.label}
           </button>
         ))}
       </div>
 
+      {extra ? (
+        <section id={`taxonomy-tabpanel-${extra}`} role="tabpanel" aria-labelledby={`taxonomy-tab-${extra}`} className="taxonomy-panel">
+          <ChoiceManager key={extra} kind={extra} label={extra === "label" ? "状态标签" : "售出渠道"} generation={generation ?? ""} />
+        </section>
+      ) : (
       <section
         id={`taxonomy-tabpanel-${kind}`}
         role="tabpanel"
@@ -863,6 +884,7 @@ export default function TaxonomyManager({
           </ul>
         )}
       </section>
+      )}
 
       {pendingTabDraft ? null : null}
 

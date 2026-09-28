@@ -550,6 +550,36 @@ fn reminders_follow_edits_achievement_and_restore() {
     assert_eq!(s.reminder_plans().unwrap()[0].date, "2027-02-01");
 }
 #[test]
+fn switching_the_wishlist_off_pauses_only_its_reminders() {
+    use possio_lib::modules::{read, write, Modules};
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("library");
+    let mut s = Store::open(&root).unwrap();
+    let mut input = wish(&s);
+    input.preferences.mode = "countdown".into();
+    input.preferences.reminder = true;
+    input.fields.target_date = Some("2027-01-01".into());
+    s.save_wish_plan(&input, TODAY).unwrap();
+    assert_eq!(s.reminder_plans().unwrap().len(), 1);
+    let off = Modules {
+        wishlist: false,
+        ..Modules::default()
+    };
+    write(&root, &off).unwrap();
+    assert!(s.reminder_plans().unwrap().is_empty());
+    // Other switches do not touch wishlist reminders; the wish itself is kept.
+    write(
+        &root,
+        &Modules {
+            stats: false,
+            ..Modules::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(s.reminder_plans().unwrap().len(), 1);
+    assert!(read(&root).wishlist);
+}
+#[test]
 fn explicit_purchase_conversion_still_converts_once() {
     use possio_lib::{
         catalog::{Details, SaveAsset},

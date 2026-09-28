@@ -1,3 +1,4 @@
+import { allModules, hiddenKinds, type Modules } from './modules';
 import type { SourceTarget, TimelineSelection } from './source';
 import { signedMoney } from './wealth';
 import { recurringCategories } from './recurring';
@@ -40,7 +41,7 @@ export function eventDetail(e: TimelineEvent) {
 function month(date: string) { return `${date.slice(0, 4)} 年 ${Number(date.slice(5, 7))} 月`; }
 
 /** One projection for the global page and the asset detail; nothing here computes facts. */
-export function Timeline({ assetId, version, filter = 'all', onOpenAsset, onOpenWish, onCorrect, selection, onOpenSource, onLoaded, onReady }: { selection?: TimelineSelection; onOpenSource?: (target: SourceTarget) => void; onLoaded?: (years: number[]) => void; onReady?: () => void; assetId?: string; version?: unknown; filter?: TimelineFilter; onOpenAsset?: (id: string) => void; onOpenWish?: (name: string, status: string) => void; onCorrect?: (event: TimelineEvent) => void }) {
+export function Timeline({ assetId, version, filter = 'all', onOpenAsset, onOpenWish, onCorrect, selection, onOpenSource, onLoaded, onReady, hidden }: { hidden?: ReadonlySet<string>; selection?: TimelineSelection; onOpenSource?: (target: SourceTarget) => void; onLoaded?: (years: number[]) => void; onReady?: () => void; assetId?: string; version?: unknown; filter?: TimelineFilter; onOpenAsset?: (id: string) => void; onOpenWish?: (name: string, status: string) => void; onCorrect?: (event: TimelineEvent) => void }) {
   const [page, setPage] = useState<TimelinePage | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const loaded = useRef(onLoaded); loaded.current = onLoaded;
   const ready = useRef(onReady); ready.current = onReady;
@@ -55,28 +56,31 @@ export function Timeline({ assetId, version, filter = 'all', onOpenAsset, onOpen
   useEffect(() => { if (page) ready.current?.(); }, [page]);
   if (error) return <div role="alert" className="timeline-empty"><p>时间轴读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div>;
   if (!page) return <p role="status" className="muted">正在读取时间轴…</p>;
-  if (!page.dated.length && !page.undated.length) return <p className="muted timeline-empty">{selection ? '当前领域、年份与事件类型的组合下没有事件；可放宽筛选再试。' : filter === 'all' ? '还没有可显示的事件。' : '没有这一类事件。'}</p>;
+  const shown = (list: TimelineEvent[]) => hidden?.size ? list.filter(e => !hidden.has(e.kind)) : list, dated = shown(page.dated), undated = shown(page.undated);
+  if (!dated.length && !undated.length) return <p className="muted timeline-empty">{selection ? '当前领域、年份与事件类型的组合下没有事件；可放宽筛选再试。' : filter === 'all' ? '还没有可显示的事件。' : '没有这一类事件。'}</p>;
   const item = (e: TimelineEvent) => {
     const open = !assetId && (e.target && onOpenSource ? () => onOpenSource(e.target!) : e.asset_id && onOpenAsset ? () => onOpenAsset(e.asset_id!) : e.wishlist_id && onOpenWish ? () => onOpenWish(e.title, e.note) : null);
     const correctable = onCorrect && (e.kind === 'retire' || e.kind === 'activate');
     return <li key={e.id} data-kind={e.kind}><div><strong>{eventLabel(e)}{!assetId && e.kind !== 'snapshot' && <> · {e.title}</>}</strong><span className="muted">{e.date ?? '日期待补充'}</span>{eventDetail(e) && <p className="notes">{eventDetail(e)}</p>}</div>{open && <button onClick={open} aria-label={`打开${e.kind === 'snapshot' ? `${e.date} 盘点` : e.title}`}>{e.target && onOpenSource ? '查看来源' : e.asset_id ? '查看物品' : '查看心愿'}</button>}{correctable && <button onClick={() => onCorrect!(e)} aria-label={`更正${eventLabel(e)}日期 ${e.date}`}>更正日期</button>}</li>;
   };
   const groups: [string, TimelineEvent[]][] = [];
-  for (const e of page.dated) { const key = assetId ? '' : month(e.date!); if (groups.at(-1)?.[0] !== key) groups.push([key, []]); groups.at(-1)![1].push(e); }
+  for (const e of dated) { const key = assetId ? '' : month(e.date!); if (groups.at(-1)?.[0] !== key) groups.push([key, []]); groups.at(-1)![1].push(e); }
   return <div className="timeline">
     {groups.map(([key, list]) => <section key={key || 'events'} className="lifecycle-history">{key && <h3 className="timeline-month">{key}</h3>}<ol>{list.map(item)}</ol></section>)}
-    {page.undated.length > 0 && <section className="lifecycle-history timeline-undated"><h3 className="timeline-month">日期待补充</h3><p className="muted small">这些事实没有已知日期，不放入任何月份；补填日期后会自动归位。</p><ol>{page.undated.map(item)}</ol></section>}
+    {undated.length > 0 && <section className="lifecycle-history timeline-undated"><h3 className="timeline-month">日期待补充</h3><p className="muted small">这些事实没有已知日期，不放入任何月份；补填日期后会自动归位。</p><ol>{undated.map(item)}</ol></section>}
   </div>;
 }
 
 export type ScrollRestore = { top: number; done: () => void } | null;
-export function SourceTimelinePage({ selection, onSelection, onOpenSource, version, restoreScroll }: { selection: TimelineSelection; onSelection: (value: TimelineSelection) => void; onOpenSource: (target: SourceTarget) => void; version?: unknown; restoreScroll?: ScrollRestore }) {
+export function SourceTimelinePage({ selection, onSelection, onOpenSource, version, restoreScroll, modules = allModules }: { modules?: Modules; selection: TimelineSelection; onSelection: (value: TimelineSelection) => void; onOpenSource: (target: SourceTarget) => void; version?: unknown; restoreScroll?: ScrollRestore }) {
   const [years, setYears] = useState<number[]>([]);
-  const domains = [['all','全部领域'],['physical','实物'],['wish','心愿'],['wealth','财富盘点'],['expense','支出']] as const;
+  const hidden = hiddenKinds(modules), spend = modules.expenses || modules.recurring || modules.virtual;
+  const domains = ([['all','全部领域'],['physical','实物'],['wish','心愿'],['wealth','财富盘点'],['expense','支出']] as const).filter(([k]) => (k !== 'wish' || modules.wishlist) && (k !== 'wealth' || modules.wealth) && (k !== 'expense' || spend));
+  const filters = timelineFilters.filter(([k]) => (k !== 'wishlist' || modules.wishlist) && (k !== 'snapshot' || modules.wealth) && (k !== 'expense' || spend));
   return <section className="timeline-section" aria-label="全局时间轴">
     <div className="overview-controls"><div className="segmented" role="group" aria-label="时间轴领域">{domains.map(([key,label]) => <button key={key} aria-pressed={selection.domain === key} onClick={() => onSelection({...selection,domain:key})}>{label}</button>)}</div><label>年份 <select aria-label="时间轴年份" value={selection.year ?? 'all'} onChange={e => onSelection({...selection,year:e.target.value==='all'?null:Number(e.target.value)})}><option value="all">全部年份</option>{[...new Set([...years,...(selection.year===null?[]:[selection.year])])].sort((a,b)=>b-a).map(y=><option key={y} value={y}>{y} 年</option>)}</select></label></div>
-    <div className="segmented timeline-filters" role="group" aria-label="事件类型">{timelineFilters.map(([key,label]) => <button key={key} aria-pressed={selection.filter===key} onClick={() => onSelection({...selection,filter:key})}>{label}</button>)}</div>
+    <div className="segmented timeline-filters" role="group" aria-label="事件类型">{filters.map(([key,label]) => <button key={key} aria-pressed={selection.filter===key} onClick={() => onSelection({...selection,filter:key})}>{label}</button>)}</div>
     <p className="muted small">按真实业务日期排列；领域、年份与事件类型共同筛选。日期待补的记录单列，不归入所选年份。</p>
-    <Timeline selection={selection} version={version} onOpenSource={onOpenSource} onLoaded={setYears} onReady={() => restoreScroll?.done()}/>
+    <Timeline hidden={hidden} selection={selection} version={version} onOpenSource={onOpenSource} onLoaded={setYears} onReady={() => restoreScroll?.done()}/>
   </section>;
 }
