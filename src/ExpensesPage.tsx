@@ -62,7 +62,7 @@ export function ExpensesPage({ today, onOpenAsset, onEditingChange }: { onEditin
 function LineTable({ lines, undated, onOpen }: { lines: Line[]; undated: Line[]; onOpen: (l: Line) => void }) {
   const row = (l: Line) => <tr key={l.source + l.id} className={countsAsSpending(l) ? undefined : 'closed'}>
     <td>{l.date ?? <span className="muted">日期待补</span>}</td>
-    <td>{l.source === 'payment' ? l.title : <button className="link-cell" onClick={() => onOpen(l)}>{l.title}</button>}</td>
+    <td>{l.source === 'payment' || l.source === 'virtual' ? l.title : <button className="link-cell" onClick={() => onOpen(l)}>{l.title}</button>}</td>
     <td>{sourceLabel[l.source]}</td><td>{categoryText(l)}</td>
     <td className="amount">{l.amount_cents === null ? <span className="muted">金额未知</span> : l.source === 'refund' || l.source === 'sale' ? '−' + money(l.amount_cents) : money(l.amount_cents)}</td>
   </tr>;

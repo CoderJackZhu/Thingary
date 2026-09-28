@@ -4,6 +4,7 @@
 import type { Account, AccountSave, Draft, Entry, Point, Share, Snapshot, SnapshotSave, Summary } from './wealth';
 import type { Expense, ExpenseSave, ExpenseView, Line } from './expenses';
 import type { Due, Overview, Payment, PaymentSave, Plan, PlanSave } from './recurring';
+import type { VirtualAsset, VirtualFields, VirtualKind, VirtualOverview, VirtualSave, VirtualStatus } from './virtual';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
 
@@ -73,14 +74,15 @@ function expenseView(year: number | null): ExpenseView {
     ...(a.sale ? [{ source: 'sale' as const, id: 's-' + a.key, asset_id: a.key, title: a.name, category: a.category, date: a.sale.date, amount_cents: a.sale.price_cents }] : []),
   ]);
   const paidLines: Line[] = payments.filter(p => p.state === 'paid').map(p => ({ source: 'payment', id: p.id, asset_id: null, title: p.plan_name, category: plans.find(x => x.id === p.plan_id)?.fields.category ?? null, date: p.paid_date, amount_cents: p.amount_cents }));
-  const all: Line[] = [...items, ...paidLines, ...expenses.flatMap(e => [
+  const virtualLines: Line[] = virtuals.filter(v => !v.fields.plan_id && v.fields.price_cents !== null).map(v => ({ source: 'virtual', id: v.id, asset_id: null, title: v.fields.name, category: 'digital', date: v.fields.purchase_date, amount_cents: v.fields.price_cents }));
+  const all: Line[] = [...items, ...paidLines, ...virtualLines, ...expenses.flatMap(e => [
     { source: e.fields.asset_id ? 'linked' as const : 'expense' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.date, amount_cents: e.fields.amount_cents },
     ...(e.fields.refund_date ? [{ source: 'refund' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.refund_date, amount_cents: e.fields.refund_cents }] : []),
   ])];
   const inYear = (l: Line) => l.date !== null && (year === null || l.date.startsWith(`${year}-`));
   const lines = all.filter(inYear).sort((a, b) => b.date!.localeCompare(a.date!)), undated = all.filter(l => l.date === null);
   const sum = (ls: Line[]) => ls.reduce((t, l) => t + BigInt(l.amount_cents ?? '0'), 0n);
-  const spentLines = lines.filter(l => ['purchase', 'maintenance', 'expense', 'payment'].includes(l.source) && l.amount_cents !== null);
+  const spentLines = lines.filter(l => ['purchase', 'maintenance', 'expense', 'payment', 'virtual'].includes(l.source) && l.amount_cents !== null);
   const spent = sum(spentLines), refunds = sum(lines.filter(l => l.source === 'refund'));
   return { generation, year, years: [...new Set(all.flatMap(l => l.date ? [Number(l.date.slice(0, 4))] : []))].sort((a, b) => b - a), lines, undated,
     months: year === null ? [] : Array.from({ length: 12 }, (_, i) => { const m = `${year}-${String(i + 1).padStart(2, '0')}`; return { month: m, spent_cents: String(sum(spentLines.filter(l => l.date!.startsWith(m)))), refund_cents: String(sum(lines.filter(l => l.source === 'refund' && l.date!.startsWith(m)))) }; }),
@@ -129,6 +131,27 @@ function recurringOverview(): Overview {
     payments: [...payments].sort((a, b) => b.due_date.localeCompare(a.due_date)).map(x => ({ ...x, off_schedule: !schedule(plans.find(p => p.id === x.plan_id)!, x.due_date, x.due_date).length })) };
 }
 
+// Virtual assets share the native fixture definitions; derivation mirrors virtual_assets.rs.
+const dayOffset = (days: number) => iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days));
+let virtuals: { id: string; fields: VirtualFields; revision: number }[] = params.get('virtual') === 'empty' ? [] : demoFinance.virtuals.map(v => ({ id: 'v-' + v.key, revision: 1, fields: {
+  name: v.name, kind: v.kind as VirtualKind, provider: v.provider, purchase_date: v.purchase_days_ago === null ? null : dayOffset(-v.purchase_days_ago),
+  price_cents: v.plan_key ? null : v.price_cents, expires: v.expires_in_days === null ? null : dayOffset(v.expires_in_days), plan_id: v.plan_key ? 'r-' + v.plan_key : null,
+  url: '', notes: '虚构样例', stopped_on: v.stopped_days_ago === null ? null : dayOffset(-v.stopped_days_ago) } }));
+function virtualOverview(): VirtualOverview {
+  const items: VirtualAsset[] = virtuals.map(v => {
+    const p = plans.find(x => x.id === v.fields.plan_id), paid = payments.filter(x => x.plan_id === p?.id && x.state === 'paid');
+    const last = paid.map(x => x.due_date).sort().at(-1);
+    const until = p ? (last ? (() => { const [y, m, d] = nth(last, p.fields.interval_months, 1).split('-').map(Number); return iso(new Date(y, m - 1, d - 1)); })() : null) : v.fields.expires;
+    const spent = p ? String(paid.reduce((t, x) => t + BigInt(x.amount_cents ?? '0'), 0n)) : v.fields.price_cents;
+    const soon = dayOffset(p ? 7 : 30);
+    const status: VirtualStatus = v.fields.stopped_on ? 'stopped' : until === null ? (v.fields.kind === 'license' && !p ? 'perpetual' : 'unknown') : until < todayIso ? 'expired' : until <= soon ? 'expiring' : 'active';
+    return { ...v, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent };
+  }).sort((a, b) => a.fields.name.localeCompare(b.fields.name));
+  return { generation, today: todayIso, items, in_use: items.filter(v => v.status !== 'stopped').length, expiring: items.filter(v => v.status === 'expiring').length, expired: items.filter(v => v.status === 'expired').length,
+    spent_cents: String(items.reduce((t, v) => t + BigInt(v.spent_cents ?? '0'), 0n)), unknown_price: items.filter(v => v.spent_cents === null).length,
+    plans: plans.map(p => ({ id: p.id, name: p.fields.name, interval_months: p.fields.interval_months, linked_to: virtuals.find(v => v.fields.plan_id === p.id)?.fields.name ?? null })) };
+}
+
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command === 'recurring_overview') { if (params.get('recurring') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: recurringOverview() }; }
   if (command === 'recurring_plan_save') {
@@ -148,6 +171,17 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     payments = old ? payments.map(x => x.id === id ? next : x) : [...payments, next];
     receipts.set(input.request_id, id);
     return { value: next };
+  }
+  if (command === 'virtual_overview') { if (params.get('virtual') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: virtualOverview() }; }
+  if (command === 'virtual_save') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as VirtualSave, id = input.id ?? crypto.randomUUID(), old = virtuals.find(v => v.id === id);
+    const taken = input.fields.plan_id && virtuals.find(v => v.fields.plan_id === input.fields.plan_id && v.id !== id);
+    if (taken) throw { code: 'VIRTUAL_PLAN_TAKEN', message: `这项计划已关联「${taken.fields.name}」` };
+    const next = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1 };
+    virtuals = old ? virtuals.map(v => v.id === id ? next : v) : [...virtuals, next];
+    receipts.set(input.request_id, id);
+    return { value: virtualOverview().items.find(v => v.id === id) };
   }
   if (command === 'expense_view') { if (params.get('expenses') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: expenseView((args.year as number | null) ?? null) }; }
   if (command === 'expense') return { value: expenses.find(e => e.id === args.id) ?? null };
