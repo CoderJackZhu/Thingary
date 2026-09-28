@@ -95,4 +95,5 @@
 - 同尺寸对照：[浅色](dimensional-expansion/contact-light.png)、[深色](dimensional-expansion/contact-dark.png)，每个图标 100×100；首行为原有 4 个主题，后面 12 个为新增。已检查轮廓、裁切、识别度和浅深色背景。
 - `npm run tauri -- build --debug --config .local/icon-expansion.conf.json --bundles app` 通过，包含 TypeScript/Vite 构建；`npm run test:ui` 100/100；素材存储 8/8；`npm run check` 通过。原有测试将立体数量固定为 4，已更新为 16，并检查“滚筒”在立体/普通来源下分别命中 `object3d-washer` / `icon-washer`。
 - 隔离原生身份 `local.possio.icon.expansion.acceptance`：首轮窗口失去前台后 AX 保护停止输入；用户要求继续后完成本轮验收。立体来源显示全部 16 个主题，搜索“黑胶”仅显示唱片机；选择后保存“虚构立体图标唱片机”，完整档案显示唱片机封面，退出重开后该资产及立体缩略图仍显示。截图：[原生选择器](dimensional-expansion/native-picker.png)、[重开列表](dimensional-expansion/native-reopened.png)；控件记录：[保存](dimensional-expansion/native-saved.txt)、[重开](dimensional-expansion/native-reopened.txt)。首次退出后立即打开出现 LaunchServices -609，待退出完成再启动成功；未修改应用代码。验收后隔离应用已退出。
-- 正式安装仍为 1.6.2；本轮未构建或安装正式包、未推送，正式应用与资料库未打开。无关 `.claude/` 和 `docs/ui/batch-mock.js` 保留。
+- 实现提交 `f862986`。用户随后要求“安装推送”，正式 override 升至 1.6.3，`npm run release` 通过（包含 TypeScript/Vite 及 Rust release 构建）；未修改 schema 或开发身份。安装前复核正式进程已退出，旧 1.6.2 包与 `.local/install/物志-1.6.2.app` 逐文件哈希一致。
+- 已安装 `/Applications/物志.app`：`local.possio.main` / `1.6.3`，严格签名验证通过，整包逐文件哈希与构建产物一致。主程序 SHA-256：`9d278cfc6228d45878164a6ac8add8e4034dd997b042c679e082a551650c3a0a`。沿用本地 ad-hoc 签名、未公证；临时安装目录已清理，正式应用和资料库未打开。无关 `.claude/` 和 `docs/ui/batch-mock.js` 保留。
