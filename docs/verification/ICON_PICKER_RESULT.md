@@ -83,4 +83,4 @@
 - 发布检查：Rust 全套 164/164、UI 100/100、样例 2/2；既有 `npm run check` 通过，最终 `npm run release` 再次完成 TypeScript/Vite 与 release App 构建。首次沙盒全套回归在维护照片测试报 `IMAGE_CORRUPT`，相同测试在允许 macOS ImageIO 的环境全套重跑通过，未改业务代码。
 - 正式产物：`src-tauri/target/release/bundle/macos/物志.app`；Info.plist 为 `local.possio.main` / `1.6.2`，`codesign --verify --deep --strict` 通过，沿用本地 ad-hoc 签名，未公证。
 - 主程序 SHA-256：`a4145446646699f3384f9cc38a6dccfc0c1c60c47e8c8ecacbaf3525a5b32f08`。副本 `.local/install/物志-1.6.2.app` 哈希一致；旧 `.local/install/物志-1.6.1.app` 已保留。
-- 安装状态：正式 1.6.1 应用仍在运行，已请用户保存并退出，尚未替换 `/Applications/物志.app`；没有主动启动、退出或读取正式应用及资料库。隔离验收 App 已退出，先前浏览器空间与开发服务已关闭。
+- 安装状态：用户确认“已退出，完成安装和收尾工作”后，复核正式进程已退出，已将 1.6.2 安装至 `/Applications/物志.app`。替换前验证 1.6.1 备份与旧主程序一致；新包先复制到同卷临时目录并校验，再替换应用。安装后版本 `1.6.2`、identity `local.possio.main`、严格签名、主程序 SHA-256 与整个包的逐文件哈希均与已验收安装包一致；临时安装目录已清理。没有启动正式应用或读取正式资料库，schema 不变。隔离验收 App 已退出，先前浏览器空间与开发服务已关闭。实现提交为 `9fb381c`，本轮仅更新安装记录，未推送。

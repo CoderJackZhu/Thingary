@@ -7,8 +7,8 @@
 ## 当前状态
 
 - P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
-- 自用正式版 1.6.1（含财富盘点、重要支出、周期费用、统一样例与删除恢复统一规则）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
-- 1.6.2 图标扩充（新增 22 个大件主题）已构建并通过隔离验收，待退出当前正式应用后安装；见[图标验收记录](docs/verification/ICON_PICKER_RESULT.md#2026-09-28--原生补验与-162-收尾)。
+- 自用正式版 1.6.2（含财富盘点、重要支出、周期费用、统一样例与删除恢复统一规则）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- 1.6.2 图标扩充（新增 22 个大件主题）已通过隔离验收并安装；见[图标验收记录](docs/verification/ICON_PICKER_RESULT.md#2026-09-28--原生补验与-162-收尾)。
 - U09 全功能统一样例已完成验收，合入 `main` 并随 1.5.0 安装，1.5.1 补充样例不接受新增资产与编辑表单删除入口（U09d）；验收见 [U09 记录](docs/verification/U09_UNIFIED_DEMO_RESULT.md)。
 - U10 删除与恢复统一规则（D17/D18）已完成验收，合入 `main` 并随 1.6.0 安装，1.6.1 增加 ⌘Z 撤销删除，见 [U10 记录](docs/verification/U10_DELETION_RESULT.md)。
 - 之后按用户反馈进行 U 系列迭代；逐次变更见 [CHANGELOG](CHANGELOG.md)，任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准。
