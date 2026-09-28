@@ -1,0 +1,29 @@
+# 侧栏图标与面包屑 · 隔离原生验收
+
+日期：2026-09-29。授权：用户查看三种方案演示后选定「使用中」改为圆圈加实心点，并同意面包屑改法；侧栏分组与组名不变。执行：Claude。**正式 App 与 `local.possio.main` 未打开、未读取、未写入。**
+
+## 改动
+
+- 「使用中」图标由圆圈加勾改为圆圈加实心点，与列表状态圆点一致，不再与「保障中」的盾牌加勾相似。
+- 素材库、最近删除、设置的面包屑由「我的物品 / …」加箱子图标，改为「物志 / …」加各自侧栏图标（与总览同级）。侧栏底部不加组名。
+
+## 环境与结果
+
+隔离身份 `local.possio.nav.acceptance`（配置被忽略），改前构建来自 `4492233`，改后构建来自当前工作区，窗口 1280×820，浅色与深色各一轮；首次启动进入样例库。验收后隔离库已删除。
+
+| 页面 | 改前面包屑（AX 文本） | 改后面包屑 |
+|---|---|---|
+| 素材库 | 我的物品 ／ 素材库 | 物志 ／ 素材库 |
+| 最近删除 | 我的物品 ／ 最近删除 | 物志 ／ 最近删除 |
+| 设置 | 我的物品 ／ 设置 | 物志 ／ 设置 |
+
+浅深两轮结果一致；物品相关页面（如「使用中」）仍为「我的物品 ／ 使用中」。
+
+## 同尺寸对照（1280×820）
+
+| 场景 | 改前 | 改后 |
+|---|---|---|
+| 使用中（浅色） | [before](../ui/sidebar-nav/before-light-active.jpg) | [after](../ui/sidebar-nav/after-light-active.jpg) |
+| 使用中（深色） | [before](../ui/sidebar-nav/before-dark-active.jpg) | [after](../ui/sidebar-nav/after-dark-active.jpg) |
+| 最近删除（浅色） | [before](../ui/sidebar-nav/before-light-trash.jpg) | [after](../ui/sidebar-nav/after-light-trash.jpg) |
+| 设置（深色） | [before](../ui/sidebar-nav/before-dark-settings.jpg) | [after](../ui/sidebar-nav/after-dark-settings.jpg) |
