@@ -2,13 +2,14 @@
 
 一个面向 macOS 的 Local-first 实物资产管理应用，记录重要物品从心愿、购买、使用、维护到退役或售出的完整生命周期。
 
-**当前实物版定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 成本分析 + 本地数据。** 支持低频财富盘点，不做日常记账，不依赖服务器。统一产品的后续需求见产品设计第 17 节；其中 A · 财富盘点随 1.2.0、B · 重要支出随 1.3.0、C1 · 周期费用随 1.4.0 发布。
+**当前定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 低频财富回顾 + 本地数据。** 不做日常记账，不依赖服务器。统一产品需求见产品设计第 17 节；其中 A · 财富盘点随 1.2.0、B · 重要支出随 1.3.0、C1 · 周期费用随 1.4.0、C2 · 虚拟资产随 1.8.0 发布。
 
 ## 当前状态
 
 - P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
 - 自用正式版 1.8.0（含财富盘点、重要支出、周期费用、虚拟资产、统一样例、删除恢复统一规则与物品批量操作）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
 - 1.8.0 新增虚拟资产（C2）：买断软件、域名与订阅服务的档案、有效期与花费，可关联周期计划；见 [G03 记录](docs/verification/G03_VIRTUAL_RESULT.md)。
+- 下一阶段 D · 综合体验已整理[页面方案与统计口径](docs/PRODUCT_DESIGN.md#1713-d--综合体验方案2026-09-28待评审)，[浅深色界面对照稿](docs/ui/comprehensive/index.html)与技术契约已完成，Q02 已实现双视图、四类摘要、趋势与待关注，并通过阶段测试，见 [Q02 记录](docs/verification/Q02_COMPREHENSIVE_RESULT.md)及[实际界面](docs/ui/comprehensive/q02/index.html)。Q03 时间轴与来源跳转（盘点事件、领域/年份/类型筛选、稳定 target 来源定位与返回恢复）已由 zcode 按交接完成并通过阶段测试与浏览器证据，见 [Q03 记录](docs/verification/Q03_SOURCE_NAVIGATION_RESULT.md)及[实际界面](docs/ui/comprehensive/q03/index.html)；未提交、未安装正式版，Q04 原生验收未开始。
 - 1.7.1 按反馈微调：删除确认按钮为实心红色、选择图标与「全选」、圆形勾选标记、侧栏「保障中」。
 - 1.7.0 新增物品批量操作（D19）：多选、批量面板、逐件批量表与整批撤销，已通过隔离原生验收并安装；见 [U11 记录](docs/verification/U11_BATCH_RESULT.md)。
 - 1.6.3 新增 12 个立体图标，立体素材共 16 个，已通过隔离原生验收并安装；见[验收记录](docs/verification/ICON_PICKER_RESULT.md#2026-09-28--立体图标扩充)。
@@ -25,7 +26,7 @@
 **使用与产品**
 
 - [物志使用说明](docs/USER_GUIDE.md)：安装、资料位置、完整备份与恢复及当前限制。
-- [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、P0/P1/P2 与验收标准；第 15.2 节为产品决策表；[第 17 节](docs/PRODUCT_DESIGN.md#17-统一资产扩展需求草案2026-09-28)为账户快照、重要/周期支出、虚拟资产及综合回顾的待评审扩展需求。
+- [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、P0/P1/P2 与验收标准；第 15.2 节为实物决策表；[第 17 节](docs/PRODUCT_DESIGN.md#17-统一资产扩展需求草案2026-09-28)集中维护统一资产扩展，17.12 为 A–C2 已确认规则，17.13 为 D 综合体验待评审方案。
 - [P0 功能规格](docs/FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义。
 - [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」为基线；[交互原型](docs/ui/prototype.html)。
 - [竞品调研](docs/COMPETITOR_RESEARCH.md)：直接竞品与开源候选比较、差异化假设。
@@ -48,6 +49,7 @@
 | 财富盘点 | [W03 删除恢复、备份与原生验收](docs/verification/W03_WEALTH_RESULT.md)；设计见 ADR-001 第 17 节 |
 | 重要支出 | [E03 删除恢复、时间轴与原生验收](docs/verification/E03_EXPENSES_RESULT.md)；设计见 ADR-001 第 18 节 |
 | 周期费用 | [R03 删除恢复、时间轴与原生验收](docs/verification/R03_RECURRING_RESULT.md)；设计见 ADR-001 第 19 节 |
+| 综合体验 D | [Q02 综合回顾](docs/verification/Q02_COMPREHENSIVE_RESULT.md) · [Q03 时间轴与来源跳转](docs/verification/Q03_SOURCE_NAVIGATION_RESULT.md) · [Q04 原生验收](docs/verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)（[浏览器证据](docs/ui/comprehensive/q03/index.html)）；Q04 原生全量验收未开始 |
 
 已完成任务的交接契约归档在 [docs/archive](docs/archive/README.md)。协作规则见 [AGENTS.md](AGENTS.md)。
 

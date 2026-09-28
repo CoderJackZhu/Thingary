@@ -612,3 +612,63 @@ CREATE UNIQUE INDEX virtual_assets_plan ON virtual_assets(plan_id) WHERE plan_id
 - 实现中发现：月付订阅按 30 天窗口会永远显示“即将到期”，关联计划的项改用 7 天窗口（见 21.2）。
 - 样例：`src/demo-finance.json` 新增 4 件（买断、域名将到期、关联“虚构创作服务”的订阅、已停用字体授权）；独立标记 `unified-demo-virtual-v1.complete`，C2 之前建立的样例库升级后也会补入；样例计划已删除时不关联。
 - `tests/virtual_assets.rs` 3 项覆盖状态推算、停用、30/7 天边界、月末锚定有效至、关联约束、恢复冲突、永久删除计划解除关联、重要支出/时间轴/备份往返；样例测试同步新数字。旧版本迁移夹具删除新表，版本断言升至 19。全部 Rust 测试、fmt 与 clippy 通过；`worker::tests::pending_receipt_resumes_its_library_after_restart` 在全量并行时偶发失败，`main` 上同样出现，与本次无关。
+
+## 22. D · 综合回顾技术契约（Q01–Q03，2026-09-28）
+
+范围依据产品设计 17.13；Q01 获准制作同尺寸对照并核对技术路径。Q02 已实现综合读取和双视图，见 22.5；Q03 已实现来源定位与返回，见 22.6。
+
+### 22.1 已核对的复用点与缺口
+
+| 来源 | 当前代码 | D 的使用与缺口 |
+|---|---|---|
+| 实物总览 | `src/Overview.tsx`、`src-tauri/src/insights.rs` 的 `overview(scope, today)` | 复用 held 指标；统计排除由后端 `exclude.total` 决定。现有页面只能打开物品/心愿，不负责综合来源路由 |
+| 财富 | `src/wealth.ts` 的 Summary/Point；`wealth.rs::wealth_summary` | points 有 complete、compared_to、scope_changed、change_cents 与 change_rate_hundredths，可直接挑最近完整点；不能把末点的已知小计当净资产 |
+| 支出 | `src/expenses.ts` 的 ExpenseView；`expenses.rs::expense_view` | 直接使用 spent/refund/net/sale/undated/unknown；years 和 year 可驱动视图。不要重加付款或虚拟资产总花费 |
+| 周期费用 | `src/recurring.ts`；`recurring.rs::recurring_overview` | due/upcoming、计划与付款、月均/年化可复用；关联关系由虚拟资产的 plan_id 提供 |
+| 虚拟资产 | `src/virtual.ts`、`virtual_assets.rs::virtual_overview` | 状态和计数来自同一后端推算；EXPIRING_DAYS=30、LINKED_EXPIRING_DAYS=7；VirtualPage 已正确说明两种窗口，无需另改口径 |
+| 时间轴 | `src/Timeline.tsx` | 只有物品/心愿跳转；没有盘点类型、年份查询或通用 source target；付款/虚拟资产虽已显示事件，未提供来源定位 |
+| 页面状态 | `src/main.tsx` | section 状态与各模块各自管理编辑；需要以 ID 传入目标并保存返回位置，不能按名称搜索作为精确定位 |
+| 读取一致性 | `commands.rs`、`worker.rs::Worker::call`、`storage.rs::generation` | 各命令分别排入存储 worker；generation 是资料集身份，不是每笔写入递增的全局版本。并行调用后仅比较 generation 无法排除中间写入 |
+
+以上来自本地只读代码核对；代码图索引在此前被自动审批拒绝，未重试上传。浏览器 `visual-preview.ts` 尚未支持 `overview`；Q01 用 `docs/ui/comprehensive/mock.js` 补只读适配，未修改生产入口。浏览器模拟返回与原生后端结果仍须 Q04 分别验证。
+
+### 22.2 综合读取契约（Q02 已实现）
+
+已增加一个只读 `review_overview(year?)` 命令，在**一次 Worker::call** 内固定当前 Store 与 today，复用五个现有领域汇总和近期事件投影。相比前端并行调用，可避免应用内其他写任务插入不同模块之间；不复制金额计算，不建“综合余额”表，无需 schema 迁移。
+
+- 返回 envelope：资料集 generation、today、year、分模块成功值或结构化错误、近期事件。generation 用于识别资料集，不宣传为业务快照版本。
+- 已核对全部复用查询借用同一连接，外层只读事务固定 SQLite 快照；跨连接并发更正的定向测试通过，未复制 SQL 或引入新金额算法。
+- 各模块读取错误只影响所属卡片及其派生内容；全局库错误则显示整页重试。不能把旧值留作新请求的成功结果，也不能把失败变成零。重试可以重新获取整个 envelope；成功模块继续可读，明确更新状态。
+- UI 为每轮请求附本地序号，并捕获当前资料库身份；改变年份、切库、恢复备份或离开视图时使旧序号失效。仅最新序号且身份匹配时应用响应。切库先清空全部摘要与来源目标，避免短暂显示前一资料库金额。
+- 所有成功业务更正、删除恢复、付款确认与备份恢复都使综合查询失效；回到总览重新读取。today 在回到视图/窗口再次激活时更新，避免跨日后仍显示昨日到期状态。
+- 视图偏好只保存枚举（实物/综合）；按 X-D17 无有效偏好时默认综合，有有效偏好时恢复上次选择；年份、来源目标和滚动位置是页面导航状态，不保存业务草稿。金额继续使用十进制分字符串。
+
+### 22.3 来源定位与返回契约（Q03 提案）
+
+2026-09-28 曾以后端与前端接口初稿开始，随后用户要求交给 zcode 按交接接续；同日按本契约完成实现（见 22.6 与 [Q03 记录](../verification/Q03_SOURCE_NAVIGATION_RESULT.md)），交接文件保留为历史材料。
+
+为综合入口和时间轴定义显式 target 联合类型：asset(id)、wish(id)、snapshot(id)、expense(id)、payment(id, plan_id)、virtual(id)、plan(id)。领域选择、年份和事件类型作为独立筛选字段，不从中文标签或名称反推对象。
+
+现有事件 id 保留稳定性；可以在投影返回值增加 target 字段，不通过解析展示标题判断来源。盘点事件以 snapshot ID 为来源，每份有效盘点只投影一次，日期用盘点日期，更正不新增事件。空 ID 或已删除来源返回可理解提示并刷新，不误定位同名记录。
+
+App 维护 returnContext（页面、视图、筛选、滚动位置、资料库身份）；跳转后由目标模块加载 ID 并定位对应记录。返回只恢复同一资料库的上下文；跨库丢弃。付款从周期页面定位到历史实付记录，虚拟资产打开对应档案，盘点打开指定历史盘点。资产/维护事件沿用已有物品详情，心愿也应改为稳定 ID 定位。
+
+### 22.4 必要实现验证
+
+Q02 定向覆盖一次读取内写入不插入、部分失败、同 generation 下业务更正、快速年份切换晚响应、样例/个人库切换及跨日更新；Q03 覆盖跨年退款、同一付款被虚拟资产引用时不重复、盘点更正/删除恢复唯一事件、失效 ID 与返回状态。通过自动测试后再按产品 D-AC01–10 完成隔离原生验证；Q01 只提供设计和阅读证据，不替代这些结果。
+
+### 22.5 Q02 实现核对（2026-09-28）
+
+用户已授权 Q02。`review.rs::review_overview` 在一次 Worker 调用中，以同一 `Store::conn()` 的只读事务顺序复用五领域查询和现有时间轴；返回 `Read<T>` tagged union（ready/error），无需 schema 变更。跨连接写入测试证明同次各摘要保持一个 SQLite 读快照，同 generation 下后续请求仍反映更正。前端请求序号、generation、资料库切换卸载、请求年份校验与现有整页切库/恢复机制一起防止旧结果误用；generation 仍不是写入版本。窗口激活、跨日、页面重进、物品刷新和撤销恢复重读。
+
+`OverviewPage` 持久化 `possio.overview-view.v1`，无效值按综合处理；`ReviewView` 复用财富 NetChart，金额不自行汇总。待关注按显式 plan_id 分组并沿用后端状态。精确 target、跨页年份与返回滚动上下文按 22.3 于 Q03 实现。统一样例、部分失败和竞态证据及限制见 [Q02 记录](../verification/Q02_COMPREHENSIVE_RESULT.md)。
+
+### 22.6 Q03 实现核对（2026-09-28）
+
+用户要求把 Q03 拆分材料与启动 Prompt 交给 zcode；zcode 在未提交工作区上按交接完成 Q03a–Q03f，未重做 Q02。要点：
+
+- `source.rs::Target`/`validate_source` 与 `timeline_view`（领域×年份×类型、事件携带 target/domain、盘点按有效盘点唯一投影、年份选项跟随领域不随当前选择消失）为只读扩展，无 schema 变更（仍 19）。`review_overview.recent` 与全局时间轴共用同一含盘点投影，ReviewView 前端盘点合并同批移除。
+- 前端 `openSourceRequest`/`useSource` 以 alive 契约消费 target：页面数据就绪（generation）才消费；resolver 按 ID 重读（同 generation 更正可见），未决回执优先；请求被取代、离页或切库时不发布状态；同一 ID 以新 token 再次打开；离开目标页未消费的 focus 被丢弃。App 维护 returnContext（仅同 generation 恢复）并在数据渲染后恢复滚动。
+- 盘点来源以 expectedId 打开历史盘点：删除后同日新建/替换不误当原记录；用户主动改日期即解除保护回到普通盘点。付款来源定位到该期实付记录；心愿经 `read_wishlist` 按 ID 定位。
+- 时间轴仅保留 `SourceTimelinePage` 一个入口（旧 `TimelinePage` 删除）；物品详情继续用 `timeline` 原查询。
+- 验证与边界见 [Q03 记录](../verification/Q03_SOURCE_NAVIGATION_RESULT.md)；原生 App 验收归 Q04。
