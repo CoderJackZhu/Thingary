@@ -179,3 +179,21 @@
 .wishlist-editor .editor-body{grid-template-columns:minmax(0,1fr);gap:12px;padding:18px 20px 22px}
 .wishlist-editor .editor-body>*,.wishlist-editor .editor-body>.form-notes{grid-column:1/-1;grid-row:auto}
 .wishlist-editor .editor-body>.form-notes{order:1}
+/* U15e 周期费用：计划／付款记录分段 */
+.recurring-tabs{justify-self:start;display:inline-flex;gap:2px;padding:2px;border:0;border-radius:6px;background:var(--soft)}
+.recurring-tabs button{height:26px;padding:0 12px;border:0;border-radius:5px;background:transparent;color:var(--muted);font-size:13px}
+.recurring-tabs button[aria-pressed=true]{background:var(--card);color:var(--text);font-weight:500;box-shadow:0 1px 2px #0000001f}
+/* U15e 时间轴：筛选一行，按月一张卡，每条一行（日期 · 事件 · 打开） */
+.timeline-controls{align-items:center;gap:10px}.timeline-controls label{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.timeline-section{max-width:960px}
+.timeline-section .timeline-month{position:sticky;top:0;z-index:1;margin:18px 0 8px;padding:6px 0;background:var(--bg);color:var(--text);font:600 15px var(--display)}
+.timeline-section .lifecycle-history ol{margin:0;padding:0 16px;border:1px solid var(--line);border-radius:10px;background:var(--card);box-shadow:var(--card-shadow)}
+.timeline-section .timeline .lifecycle-history li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-height:46px;padding:8px 0;border-left:0;border-bottom:1px solid var(--line)}
+.timeline-section .timeline .lifecycle-history li:last-child{border-bottom:0}
+.timeline-section .timeline .lifecycle-history li:before,.timeline-section .timeline .lifecycle-history li:after{display:none}
+.timeline-section .lifecycle-history li>div{display:grid;grid-template-columns:92px minmax(0,1fr);column-gap:12px;align-items:baseline;min-width:0}
+.timeline-section .lifecycle-history li>div>span{grid-row:1;grid-column:1;font-size:13px;font-variant-numeric:tabular-nums}
+.timeline-section .lifecycle-history li>div>strong{grid-column:2;margin:0;font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.timeline-section .lifecycle-history li>div>.notes{grid-column:2;margin:0;font-size:11px;color:var(--muted)}
+.timeline-section .lifecycle-history li>button{font-size:11px;padding:4px 8px}
+.timeline-section .timeline:before,.timeline-section .timeline>.lifecycle-history:before{display:none}.timeline-section .timeline,.timeline-section .timeline>.lifecycle-history{padding-left:0;margin-left:0}

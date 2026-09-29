@@ -1,3 +1,4 @@
+import { Info } from './FormControls';
 import { allModules, hiddenKinds, type Modules } from './modules';
 import type { SourceTarget, TimelineSelection } from './source';
 import { signedMoney } from './wealth';
@@ -94,9 +95,7 @@ export function SourceTimelinePage({ selection, onSelection, onOpenSource, versi
   // 时间轴's main action is the same 新增记录 menu as the combined overview.
   usePageBar('timeline', { menu: newMenu, newRecord: newMenu ? { label: '新增记录', run: () => onOpenNewMenu?.() } : undefined, search: { key: 'timeline', placeholder: '搜索记录' } });
   return <section className="timeline-section" aria-label="全局时间轴">
-    <div className="overview-controls"><div className="segmented" role="group" aria-label="时间轴领域">{domains.map(([key,label]) => <button key={key} aria-pressed={selection.domain === key} onClick={() => onSelection({...selection,domain:key})}>{label}</button>)}</div><label>年份 <select aria-label="时间轴年份" value={selection.year ?? 'all'} onChange={e => onSelection({...selection,year:e.target.value==='all'?null:Number(e.target.value)})}><option value="all">全部年份</option>{[...new Set([...years,...(selection.year===null?[]:[selection.year])])].sort((a,b)=>b-a).map(y=><option key={y} value={y}>{y} 年</option>)}</select></label></div>
-    <div className="segmented timeline-filters" role="group" aria-label="事件类型">{filters.map(([key,label]) => <button key={key} aria-pressed={selection.filter===key} onClick={() => onSelection({...selection,filter:key})}>{label}</button>)}</div>
-    <p className="muted small">按真实业务日期排列；领域、年份与事件类型共同筛选。日期待补的记录单列，不归入所选年份。</p>
+    <div className="overview-controls timeline-controls"><div className="segmented" role="group" aria-label="时间轴领域">{domains.map(([key,label]) => <button key={key} aria-pressed={selection.domain === key} onClick={() => onSelection({...selection,domain:key})}>{label}</button>)}</div><label>年份 <select aria-label="时间轴年份" value={selection.year ?? 'all'} onChange={e => onSelection({...selection,year:e.target.value==='all'?null:Number(e.target.value)})}><option value="all">全部年份</option>{[...new Set([...years,...(selection.year===null?[]:[selection.year])])].sort((a,b)=>b-a).map(y=><option key={y} value={y}>{y} 年</option>)}</select></label><label>事件 <select aria-label="事件类型" value={selection.filter} onChange={e => onSelection({...selection,filter:e.target.value as typeof selection.filter})}>{filters.map(([key,label]) => <option key={key} value={key}>{label}</option>)}</select></label><Info text="按真实业务日期排列；领域、年份与事件类型共同筛选。日期待补的记录单列，不归入所选年份。"/></div>
     <Timeline hidden={hidden} selection={selection} version={version} search={search} onSearchClear={() => onSearch('')} onOpenSource={onOpenSource} onLoaded={setYears} onReady={() => restoreScroll?.done()}/>
   </section>;
 }
