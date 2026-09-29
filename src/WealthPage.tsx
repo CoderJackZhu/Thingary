@@ -225,10 +225,10 @@ function AccountDialog({ account, generation, today, onClose }: { account: Accou
 }
 
 /** Two-step soft delete into 最近删除; the second click confirms. */
-export function DeleteButton({ label, disabled, kind, id, revision, generation, name, onDone, onError }: { label: string; disabled: boolean; kind: TrashKind; id: string; revision: number; generation: string; name: string; onDone: () => void; onError: (message: string, stuck: boolean) => void }) {
+export function DeleteButton({ label, disabled, kind, id, revision, generation, name, onDone, onError, onBusyChange }: { onBusyChange?: (busy: boolean) => void; label: string; disabled: boolean; kind: TrashKind; id: string; revision: number; generation: string; name: string; onDone: () => void; onError: (message: string, stuck: boolean) => void }) {
   const [armed, setArmed] = useState(false), [busy, setBusy] = useState(false);
   async function remove() {
-    setBusy(true);
+    setBusy(true); onBusyChange?.(true);
     try {
       await submit({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision, deleted: true }, label: '删除' + name });
       onDone();
@@ -236,7 +236,7 @@ export function DeleteButton({ label, disabled, kind, id, revision, generation, 
       offerUndo(`已删除「${name}」，已移入最近删除。`, () => submit<void>({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind, id, expected_revision: revision + 1, deleted: false }, label: '恢复' + name }));
     }
     catch (e) { onError(e instanceof Error ? e.message : errorMessage(e), e instanceof Unresolved); setArmed(false); }
-    finally { setBusy(false); }
+    finally { setBusy(false); onBusyChange?.(false); }
   }
   return armed ? <button type="button" className="primary danger" disabled={disabled || busy} onClick={() => void remove()}>{busy ? '正在删除…' : '确认移入最近删除'}</button>
     : <button type="button" disabled={disabled} onClick={() => setArmed(true)}>{label}</button>;
