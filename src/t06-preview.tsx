@@ -27,6 +27,7 @@ import type {
 
 import "./style.css";
 import "./taxonomy.css";
+import "./theme.css";
 
 // 1. 虚构数据：与产品设计第 4 节样例并不重叠，仅用于本次独立内存预览。
 const FIXTURE_CATEGORIES: TaxonomyEntry[] = [

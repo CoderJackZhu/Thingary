@@ -1,7 +1,7 @@
 /* T06a 分类/购买渠道界面样式。全部使用 taxonomy- 前缀；
  * 颜色与圆角复用 src/style.css 已建立的 --bg/--card/--text/--muted/--line/--accent。
  * 设计原则：管理/字段两个语境都用 A「静序」的紧凑桌面密度；
- * 深浅色自动跟随 :root[data-theme]，不写死颜色。 */
+ * 深浅色与主题由 theme.css 的变量决定，不写死颜色。 */
 
 .taxonomy-shell {
   display: grid;

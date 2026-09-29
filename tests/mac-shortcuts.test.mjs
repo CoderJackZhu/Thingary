@@ -6,9 +6,10 @@ const menu = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), '
 const app = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 
 test('each P0 shortcut is a native menu item that reaches the page', () => {
-  for (const [id, key] of [['new-asset', 'N'], ['find-asset', 'F'], ['edit-asset', 'E'], ['open-settings', ',']]) {
+  const forwarded = menu.slice(menu.indexOf('.on_menu_event'), menu.indexOf(') {', menu.indexOf('.on_menu_event')));
+  for (const [id, key] of [['new-asset', 'N'], ['find-asset', 'F'], ['edit-asset', 'E'], ['open-settings', ','], ['toggle-appearance', 'Shift+D']]) {
     assert.ok(menu.includes(`"${id}"`) && menu.includes(`Some("CmdOrCtrl+${key}")`), id);
     assert.ok(app.includes(`action === '${id}'`), id);
+    assert.ok(forwarded.includes(`"${id}"`), id + ' is forwarded to the page');
   }
-  assert.match(menu, /"new-asset" \| "find-asset" \| "edit-asset" \| "open-settings"/);
 });

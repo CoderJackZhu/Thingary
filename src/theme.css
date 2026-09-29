@@ -1,0 +1,58 @@
+/* 家底主题变量（U15a，产品设计 D22）。颜色与字体只在这里定义。
+ * 主题 data-style：native 清新原生（默认）/ paper 纸本档案 / bento 柔和卡片；
+ * 模式 data-mode：light / dark，由应用把「跟随系统」解析后写入。
+ * 其他样式文件只引用变量，不再各自定义深浅色。 */
+:root{
+  color-scheme:light;
+  --display:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif;
+  --num:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;
+  --bg:#ffffff;--side:#f4f4f6;--card:#ffffff;--soft:#f2f2f5;--mark:#eeeef1;--image:#f3f3f6;
+  --text:#1d1d1f;--muted:#66666b;--line:#e3e3e8;--line-soft:#efeff2;
+  --accent:#0060df;--button-bg:#0060df;--button-text:#fff;--selected:#e8effd;
+  --positive:#18794a;--pos-bg:#e7f6ee;--warn:#a05400;--warn-bg:#fff3e0;--error:#c9302c;--danger-bg:#fdecea;
+  --card-shadow:none;
+  --series-1:#2a78d6;--series-2:#eb6834;--series-3:#1baf7a;--series-4:#eda100;--series-5:#e87ba4;--series-6:#008300;--series-7:#4a3aa7;--series-rest:#9aa3b0;
+  --border:var(--line);--surface:var(--bg);--surface-2:var(--soft);--accent-soft:var(--selected)}
+:root[data-mode=dark]{
+  color-scheme:dark;
+  --bg:#1e1e20;--side:#262628;--card:#242427;--soft:#2e2e32;--mark:#343438;--image:#2c2c30;
+  --text:#f2f2f4;--muted:#a1a1a8;--line:#38383c;--line-soft:#2c2c30;
+  --accent:#4ea1ff;--button-bg:#0071e3;--button-text:#fff;--selected:#1d3456;
+  --positive:#32c979;--pos-bg:#32c9791f;--warn:#ffb340;--warn-bg:#ffb3401f;--error:#ff7a73;--danger-bg:#ff69611f;
+  --series-1:#3987e5;--series-2:#d95926;--series-3:#199e70;--series-4:#c98500;--series-5:#d55181;--series-6:#008300;--series-7:#9085e9;--series-rest:#6b7482}
+
+/* C 纸本档案：暖纸、衬线标题与数字 */
+:root[data-style=paper]{
+  color-scheme:light;
+  --display:"Songti SC","STSong","Noto Serif SC",Georgia,serif;
+  --num:"Iowan Old Style","New York",Georgia,"Songti SC",serif;
+  --bg:#f7f3ea;--side:#efe8da;--card:#fbf8f1;--soft:#ede6d6;--mark:#ebe3d2;--image:#ebe3d2;
+  --text:#2a2621;--muted:#6b6154;--line:#dcd2be;--line-soft:#e8e1d1;
+  --accent:#9a4320;--button-bg:#9a4320;--button-text:#fbf8f1;--selected:#efe4d2;
+  --positive:#3f6e42;--pos-bg:#e3ebd9;--warn:#935510;--warn-bg:#f3e2c7;--error:#b23a2a;--danger-bg:#f5dcd4;
+  --series-1:#9a4320;--series-2:#c79a55;--series-3:#6f8157;--series-4:#7d6a9a;--series-5:#b8863a;--series-6:#4f7a6e;--series-7:#a35d6a;--series-rest:#a39a8a}
+:root[data-style=paper][data-mode=dark]{
+  color-scheme:dark;
+  --bg:#1f1c18;--side:#191714;--card:#26221d;--soft:#2c2823;--mark:#2f2a24;--image:#2c2823;
+  --text:#ebe3d3;--muted:#a89d8b;--line:#3a352d;--line-soft:#2d2924;
+  --accent:#e39a70;--button-bg:#e39a70;--button-text:#1f1c18;--selected:#3a2a20;
+  --positive:#93b58f;--pos-bg:#93b58f1f;--warn:#e0a45c;--warn-bg:#e0a45c1f;--error:#e57a6a;--danger-bg:#e57a6a1f;
+  --series-1:#c0643a;--series-2:#c9a066;--series-3:#8a9a74;--series-4:#9c8ab8;--series-5:#c9a040;--series-6:#6fa393;--series-7:#c07a88;--series-rest:#7d7466}
+
+/* D 柔和卡片：浅灰底、白卡片、轻阴影 */
+:root[data-style=bento]{
+  color-scheme:light;
+  --bg:#f2f2f7;--side:#f2f2f7;--card:#ffffff;--soft:#ededf2;--mark:#ebebf0;--image:#f4f3fb;
+  --text:#1c1c1e;--muted:#636366;--line:#e2e2e8;--line-soft:#eeeef3;
+  --accent:#5553d8;--button-bg:#5553d8;--button-text:#fff;--selected:#ecebfd;
+  --positive:#1b7532;--pos-bg:#e5f7ea;--warn:#984c00;--warn-bg:#fff2de;--error:#c80013;--danger-bg:#ffe9e8;
+  --card-shadow:0 1px 2px #0000000a,0 4px 14px #0000000a;
+  --series-1:#5e5ce6;--series-2:#ff9f0a;--series-3:#30c48d;--series-4:#bf5af2;--series-5:#ff375f;--series-6:#32ade6;--series-7:#a2845e;--series-rest:#aeaeb2}
+:root[data-style=bento][data-mode=dark]{
+  color-scheme:dark;
+  --bg:#000000;--side:#0c0c0d;--card:#1c1c1e;--soft:#2c2c2e;--mark:#2c2c2e;--image:#2c2c2e;
+  --text:#f5f5f7;--muted:#a1a1a8;--line:#2c2c2e;--line-soft:#232325;
+  --accent:#8e8cff;--button-bg:#8e8cff;--button-text:#000;--selected:#27264a;
+  --positive:#30d158;--pos-bg:#30d1581f;--warn:#ff9f0a;--warn-bg:#ff9f0a1f;--error:#ff6961;--danger-bg:#ff453a1f;
+  --card-shadow:none;
+  --series-1:#8e8cff;--series-2:#ff9f0a;--series-3:#30d158;--series-4:#bf5af2;--series-5:#ff375f;--series-6:#64d2ff;--series-7:#ac8e68;--series-rest:#636366}

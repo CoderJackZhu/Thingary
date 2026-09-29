@@ -119,6 +119,18 @@ pub fn run() {
                     &MenuItem::with_id(app, "edit-asset", "编辑资料", true, Some("CmdOrCtrl+E"))?,
                 ],
             )?;
+            let view_menu = Submenu::with_items(
+                app,
+                "显示",
+                true,
+                &[&MenuItem::with_id(
+                    app,
+                    "toggle-appearance",
+                    "切换浅色／深色",
+                    true,
+                    Some("CmdOrCtrl+Shift+D"),
+                )?],
+            )?;
             let window_menu = Submenu::with_items(
                 app,
                 "窗口",
@@ -130,7 +142,7 @@ pub fn run() {
             )?;
             app.set_menu(Menu::with_items(
                 app,
-                &[&app_menu, &file_menu, &edit_menu, &window_menu],
+                &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
             )?)?;
             Ok(())
         })
@@ -238,7 +250,13 @@ pub fn run() {
             let action = event.id().as_ref();
             if matches!(
                 action,
-                "new-asset" | "find-asset" | "edit-asset" | "open-settings" | "undo" | "select-all"
+                "new-asset"
+                    | "find-asset"
+                    | "edit-asset"
+                    | "open-settings"
+                    | "undo"
+                    | "select-all"
+                    | "toggle-appearance"
             ) {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.show();

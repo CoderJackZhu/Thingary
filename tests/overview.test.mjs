@@ -16,7 +16,7 @@ test('overview keeps held and history apart and never hides unknowns', () => {
 });
 
 test('category colors use the validated palette in fixed category order', () => {
-  const css = read('../src/style.css');
+  const css = read('../src/theme.css');
   // Validated with dataviz validate_palette.js on #ffffff (light) and #252931 (dark card).
   assert.match(css, /--series-1:#2a78d6;--series-2:#eb6834;--series-3:#1baf7a;--series-4:#eda100;--series-5:#e87ba4;--series-6:#008300;--series-7:#4a3aa7/);
   assert.match(read('../src/Overview.tsx'), /c\.slot === null \? 'var\(--series-rest\)' : `var\(--series-\$\{c\.slot \+ 1\}\)`/);
