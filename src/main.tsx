@@ -62,6 +62,7 @@ import { ModuleSettings } from './ModuleSettings';
 import './style.css';
 import './app-layout.css';
 import './desktop-polish.css';
+import './ui.css';
 import './theme.css';
 import { SettingsView } from './SettingsView';
 import { AppearanceSettings } from './AppearanceSettings';

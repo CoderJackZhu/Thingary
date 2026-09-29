@@ -1,0 +1,128 @@
+/* U16a 共用组件层（规范第 4 节）。只读 theme.css 的令牌，不写死颜色与形态；
+ * 页面逐步改用 ui-* 类，被取代的旧样式在 U16f 删除。 */
+
+/* 4.1 卡片 */
+.ui-card{background:var(--surface);border:var(--surface-border);border-top:var(--surface-rule,var(--surface-border));border-radius:var(--surface-radius);box-shadow:var(--surface-shadow);min-width:0}
+:root:not([data-style=paper]) .ui-card{border-top:var(--surface-border)}
+.ui-card>.ui-section-head{padding:14px var(--surface-pad-x) 4px}
+.ui-card>.ui-pad{padding:14px var(--surface-pad-x)}
+.ui-card>.ui-card-foot{padding:10px var(--surface-pad-x) 14px;border-top:1px solid var(--line-soft);color:var(--muted)}
+
+/* 4.2 区块标题 */
+.ui-section-head{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+.ui-section-head h2,.ui-section-head h3{margin:0;font:600 15px/1.4 var(--head);letter-spacing:var(--h-track)}
+.ui-section-head>.ui-aside{margin-left:auto;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.ui-section-head>a,.ui-section-head>.ui-link{margin-left:auto}
+.ui-link{border:0;background:none;padding:0;color:var(--accent);font-size:13px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.ui-link:hover{text-decoration:underline}
+
+/* 4.3 指标行 */
+.ui-metrics{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:var(--metric-gap);margin:0 0 16px}
+.ui-metrics>div{padding:14px 18px;min-width:0}
+.ui-metrics:not(.ui-tiles)>div+div{border-left:1px solid var(--line)}
+:root[data-style=paper] .ui-metrics>div:first-child{padding-left:0}
+.ui-metrics .ui-label{display:block;font-size:11px;color:var(--muted)}
+.ui-metrics .ui-value{display:block;margin-top:2px;font:var(--key-w) 20px/1.3 var(--num);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ui-metrics .ui-value small{font:400 13px var(--num);color:var(--muted);margin-left:3px}
+.ui-metrics .ui-note{display:block;margin-top:2px;font-size:11px;color:var(--muted)}
+/* D：拆成独立小卡；B/C：同一张卡竖线分隔 */
+:root[data-style=bento] .ui-metrics{background:none;box-shadow:none;border:0}
+:root[data-style=bento] .ui-metrics>div{background:var(--card);border-radius:14px;box-shadow:var(--surface-shadow)}
+@media(max-width:1050px){.ui-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ui-metrics:not(.ui-tiles)>div:nth-child(odd){border-left:0}.ui-metrics:not(.ui-tiles)>div:nth-child(n+3){border-top:1px solid var(--line)}}
+
+/* 4.4 主数字卡 */
+.ui-hero{padding:18px var(--surface-pad-x) 14px;display:flex;flex-direction:column;min-width:0}
+.ui-hero.tint-1{background:var(--hero-tint-1),var(--surface)}
+.ui-hero.tint-2{background:var(--hero-tint-2),var(--surface)}
+:root:not([data-style=bento]) .ui-hero.tint-1,:root:not([data-style=bento]) .ui-hero.tint-2{background:var(--surface)}
+.ui-hero .ui-label{color:var(--muted);display:flex;align-items:center;gap:6px}
+.ui-hero .ui-big{font:var(--key-w) var(--key-size)/1.2 var(--num);font-variant-numeric:tabular-nums;letter-spacing:-.4px;margin:4px 0 2px;overflow-wrap:anywhere}
+.ui-hero .ui-big small{font:400 15px var(--num);color:var(--muted);margin-left:4px;letter-spacing:0}
+.ui-hero .ui-sub{font-size:11px;color:var(--muted);margin:0}
+.ui-hero .ui-sub.pos{color:var(--positive)}.ui-hero .ui-sub.neg{color:var(--error)}
+.ui-hero .ui-hero-foot{margin-top:auto;padding-top:10px;display:flex;justify-content:flex-end}
+.ui-split{display:grid;grid-template-columns:1fr 1fr}.ui-split>div+div{border-left:1px solid var(--line);padding-left:20px}
+
+/* 4.5 小折线 */
+.ui-spark{position:relative;margin-top:12px;border-radius:6px;outline:none}
+.ui-spark:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ui-spark svg{display:block;width:100%;height:78px;overflow:visible}
+.ui-spark .line{fill:none;stroke:var(--chart);stroke-width:2;vector-effect:non-scaling-stroke}
+.ui-spark .area{fill:var(--chart);opacity:.09}
+.ui-spark-dot{position:absolute;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--chart);pointer-events:none}.ui-spark-dot.last{width:7px;height:7px;margin:-3.5px 0 0 -3.5px}.ui-spark-dot.on{width:10px;height:10px;margin:-5px 0 0 -5px;box-shadow:0 0 0 2px var(--card)}
+.ui-spark .partial{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3;opacity:.6;vector-effect:non-scaling-stroke}
+.ui-spark .guide{stroke:var(--muted);stroke-width:1;opacity:.6;vector-effect:non-scaling-stroke}
+.ui-spark-labels{position:relative;height:16px;font-size:11px;color:var(--muted);margin-top:2px}.ui-spark-labels>span{position:absolute;transform:translateX(-50%);white-space:nowrap}.ui-spark-labels>span:first-child{transform:none}.ui-spark-labels>span:last-child{transform:translateX(-100%)}
+.ui-tip{position:absolute;transform:translate(-50%,calc(-100% - 10px));background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #00000024;padding:6px 10px;font-size:11px;line-height:1.5;white-space:nowrap;pointer-events:none;z-index:6;color:var(--text)}
+.ui-tip b{display:block;font:var(--key-w) 13px var(--num);font-variant-numeric:tabular-nums}
+.ui-tip .pos{color:var(--positive)}.ui-tip .neg{color:var(--error)}
+
+/* 4.6 分类色条 */
+.ui-share-bar{display:flex;gap:2px;height:8px;border-radius:99px;overflow:hidden;background:var(--soft);margin:14px 0 10px}
+.ui-share-bar>span{display:block;height:100%}
+.ui-legend{display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;font-size:13px}
+.ui-legend>div{display:flex;align-items:center;gap:6px;min-width:0}
+.ui-legend i{width:8px;height:8px;border-radius:2px;flex:none}
+.ui-legend span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ui-legend b{margin-left:auto;font:500 13px var(--num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ui-legend b.muted{font-weight:400;color:var(--muted)}
+
+/* 4.7 行列表 */
+.ui-rows{padding:2px var(--surface-pad-x) 6px;margin:0;list-style:none}
+.ui-row{display:flex;align-items:center;gap:12px;min-height:48px;border-bottom:1px solid var(--line-soft)}
+.ui-row:last-child{border-bottom:0}
+.ui-row .ui-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted)}
+.ui-row .ui-dot.warn{background:var(--warn)}
+.ui-row .ui-main{flex:1;min-width:0}
+.ui-row .ui-main>div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ui-row .ui-main small{display:block;color:var(--muted);font-size:11px}
+.ui-row .ui-amount{font:13px var(--num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ui-avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:600;flex:none}
+
+/* 4.8 表格 */
+.ui-table{width:100%;border-collapse:collapse}
+.ui-table th{height:32px;padding:0 10px;font-size:11px;font-weight:400;color:var(--muted);text-align:left;background:none;border-bottom:1px solid var(--line)}
+:root[data-style=paper] .ui-table th{border-bottom-color:var(--text)}
+.ui-table td{height:48px;padding:0 10px;border-bottom:1px solid var(--line-soft)}
+.ui-table tr:last-child td{border-bottom:0}
+.ui-table .num,.ui-table .r{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums}
+.ui-card>.ui-table th:first-child,.ui-card>.ui-table td:first-child{padding-left:var(--surface-pad-x)}
+.ui-card>.ui-table th:last-child,.ui-card>.ui-table td:last-child{padding-right:var(--surface-pad-x)}
+
+/* 4.9 检视器 */
+.ui-inspector{width:300px;border-left:1px solid var(--line);padding:18px;display:flex;flex-direction:column;gap:14px;background:var(--canvas);min-height:0;overflow:auto}
+:root[data-style=bento] .ui-inspector{margin:14px 14px 14px 0;border:0;border-radius:16px;background:var(--card);box-shadow:var(--surface-shadow)}
+.ui-inspector h3{margin:0;font:600 15px var(--head)}
+.ui-inspector .ui-foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+
+/* 4.10 筛选条、胶囊、分段 */
+.ui-filterbar{display:flex;align-items:center;gap:8px;margin:0 0 14px}
+.ui-filterbar>.ui-end{margin-left:auto;display:flex;align-items:center;gap:8px}
+.ui-chip{height:26px;display:inline-flex;align-items:center;gap:4px;padding:0 10px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:13px;white-space:nowrap;cursor:pointer}
+.ui-chip[aria-pressed=true]{background:var(--text);border-color:var(--text);color:var(--canvas);font-weight:500}
+.ui-seg{display:inline-flex;gap:2px;padding:2px;border-radius:var(--ctl-radius);background:var(--soft)}
+.ui-seg>button{height:24px;padding:0 10px;border:0;border-radius:calc(var(--ctl-radius) - 1px);background:transparent;color:var(--muted);font-size:13px;white-space:nowrap;cursor:pointer}
+.ui-seg>button[aria-pressed=true]{background:var(--card);color:var(--text);font-weight:500;box-shadow:0 1px 2px #0000001f}
+
+/* 4.12 按钮（补充；主按钮沿用 .primary） */
+.ui-btn{height:30px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border-radius:var(--ctl-radius);border:1px solid var(--line);background:var(--card);color:var(--text);font:500 13px var(--sans,inherit);white-space:nowrap;cursor:pointer}
+.ui-btn.sm{height:26px;padding:0 10px;font-size:11px}
+.ui-btn.danger{color:var(--error)}
+
+/* 4.13 状态与标签 */
+.ui-state{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.ui-state::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.ui-state.use{color:var(--positive)}.ui-state.ret{color:var(--muted)}.ui-state.sold{color:var(--accent)}.ui-state.warn{color:var(--warn)}
+.ui-tag{display:inline-block;padding:0 8px;border-radius:99px;background:var(--soft);color:var(--muted);font-size:11px;line-height:18px;white-space:nowrap}
+.ui-tag.warn{background:var(--warn-bg);color:var(--warn)}.ui-tag.pos{background:var(--pos-bg);color:var(--positive)}
+
+/* 4.15 空白、骨架、失败 */
+.ui-empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:28px 16px;text-align:center;color:var(--muted)}
+.ui-empty strong{color:var(--text);font-weight:500}
+.ui-skel i{display:block;height:10px;border-radius:5px;background:var(--soft);margin:8px 0}
+.ui-error{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--ctl-radius);background:var(--danger-bg);color:var(--error)}
+.ui-error>button{margin-left:auto}
+
+/* 4.14 ⓘ 即时说明：悬停或聚焦立即显示，不依赖 title 的延迟 */
+.info-tip{position:relative}
+.info-tip:hover::after,.info-tip:focus-visible::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);z-index:20;width:max-content;max-width:260px;white-space:normal;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);box-shadow:0 8px 24px #00000024;color:var(--text);font:400 11px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;text-align:left;cursor:default}
