@@ -794,56 +794,14 @@ export default function TaxonomyManager({
           </p>
         ) : null}
 
-        <form
-          className="taxonomy-fields"
-          aria-label={`新建${kind === "category" ? "分类" : "购买渠道"}`}
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (locked || unavailable) return;
-            void submitCreate();
-          }}
-        >
-          <div className="taxonomy-field">
-            <label htmlFor="taxonomy-new-name">名称</label>
-            <input
-              id="taxonomy-new-name"
-              type="text"
-              value={draft.name}
-              onChange={(event) => {
-                setDraft((prev) => ({ ...prev, name: event.target.value }));
-                setDraftError(null);
-              }}
-              placeholder={kind === "category" ? "例如：家电" : "例如：京东"}
-              aria-invalid={!!draftError}
-              aria-describedby={draftError ? "taxonomy-new-help" : "taxonomy-new-helper"}
-              disabled={unavailable || locked}
-            />
-            <button type="submit" className="primary taxonomy-create-button" disabled={unavailable||locked||!normalizeName(draft.name)}>{submitting?'正在保存…':kind==='category'?'新建分类':'新建购买渠道'}</button>
-            <span
-              id={draftError ? "taxonomy-new-help" : "taxonomy-new-helper"}
-              className="taxonomy-help"
-              data-state={draftError ? "error" : undefined}
-              role={draftError ? "alert" : undefined}
-            >
-              {draftError ?? "名称可随时更正"}
-            </span>
-          </div>
-          {kind === "category" ? (
-            <details className="taxonomy-field taxonomy-icon-disclosure">
-              <summary>分类图标 <span className="taxonomy-icon-glyph" aria-hidden="true">{ICON_GLYPHS[draft.icon]}</span><span>{findCategoryIcon(draft.icon).label}</span></summary>
-              <IconPicker name="新建分类" value={draft.icon} disabled={unavailable || locked}
-                onChange={(value) => setDraft((prev) => ({ ...prev, icon: value }))}/>
-              <span className="taxonomy-help">用于分类列表中的小标识，不影响物品封面。</span>
-            </details>
-          ) : (
-            <div />
-          )}
-
-        </form>
-
+        <p className="taxonomy-help taxonomy-intro">
+          {kind === "category"
+            ? "每件物品归入一个分类，用来筛选和统计。拖动左侧手柄或点上下箭头调整顺序，选择分类时按此顺序列出。"
+            : "记录物品从哪里买来。拖动左侧手柄或点上下箭头调整顺序，选择渠道时按此顺序列出。"}
+        </p>
         {loading && !snapshot ? <p role="status">正在加载…</p> : !snapshot ? <p>暂时无法读取，请重新加载。</p> : entries.length === 0 ? (
           <div className="taxonomy-empty">
-            还没有{kind === "category" ? "分类" : "购买渠道"}。在上方添加第一项。
+            还没有{kind === "category" ? "分类" : "购买渠道"}。在下方添加第一项。
           </div>
         ) : (
           <ul className="taxonomy-list" aria-label={`${kind === "category" ? "分类" : "购买渠道"} 列表`}>
@@ -873,6 +831,50 @@ export default function TaxonomyManager({
             ))}
           </ul>
         )}
+        <form
+          className="taxonomy-fields taxonomy-create"
+          aria-label={`新建${kind === "category" ? "分类" : "购买渠道"}`}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (locked || unavailable) return;
+            void submitCreate();
+          }}
+        >
+          <h2 className="taxonomy-create-title">新建{kind === "category" ? "分类" : "购买渠道"}</h2>
+          <div className="taxonomy-field">
+            <label htmlFor="taxonomy-new-name">{kind === "category" ? "分类名称" : "渠道名称"}</label>
+            <input
+              id="taxonomy-new-name"
+              type="text"
+              value={draft.name}
+              onChange={(event) => {
+                setDraft((prev) => ({ ...prev, name: event.target.value }));
+                setDraftError(null);
+              }}
+              placeholder={kind === "category" ? "例如：家电" : "例如：京东"}
+              aria-invalid={!!draftError}
+              aria-describedby={draftError ? "taxonomy-new-help" : "taxonomy-new-helper"}
+              disabled={unavailable || locked}
+            />
+            <span
+              id={draftError ? "taxonomy-new-help" : "taxonomy-new-helper"}
+              className="taxonomy-help"
+              data-state={draftError ? "error" : undefined}
+              role={draftError ? "alert" : undefined}
+            >
+              {draftError ?? (kind === "category" ? "新分类会加到上方列表末尾，名称和图标以后都能改。" : "新渠道会加到上方列表末尾，名称以后能改。")}
+            </span>
+          </div>
+          {kind === "category" ? (
+            <details className="taxonomy-field taxonomy-icon-disclosure">
+              <summary>选择图标（可选） <span className="taxonomy-icon-glyph" aria-hidden="true">{ICON_GLYPHS[draft.icon]}</span><span>{findCategoryIcon(draft.icon).label}</span></summary>
+              <IconPicker name="新建分类" value={draft.icon} disabled={unavailable || locked}
+                onChange={(value) => setDraft((prev) => ({ ...prev, icon: value }))}/>
+              <span className="taxonomy-help">用于分类列表中的小标识，不影响物品封面。</span>
+            </details>
+          ) : null}
+          <button type="submit" className="primary taxonomy-create-button" disabled={unavailable||locked||!normalizeName(draft.name)}>{submitting?'正在保存…':kind==='category'?'新建分类':'新建购买渠道'}</button>
+        </form>
       </section>
       )}
 
