@@ -745,7 +745,7 @@ Q02 定向覆盖一次读取内写入不插入、部分失败、同 generation �
 - `lib.rs` 在 `app.manage(Worker::start(..))` 后启动一个普通线程 `possio-auto-backup`：`loop { sleep(30s); tick(); }`。不引入新依赖、不做常驻服务；进程退出线程随之结束，不在 `ExitRequested` 中等待。
 - `Worker::auto_backup_tick(policy) -> Result<TickOutcome>`，在 worker 线程执行（与其他存储任务串行，保证快照期间无写入）。`policy` 包含空闲阈值（正式 120 s）、失败退避（正式 30 min）与今日日期，测试直接传入，**测试不 sleep**。判断顺序：
   1. 读 `auto-backup.json`；`enabled == false` → 跳过。
-  2. 无标记文件 → 跳过。
+  2. 无标记文件 → 跳过；例外：自动备份目录中没有任何自动备份且 `has_personal_records(&real)` 为真时，视为待备份（1.14.1，升级后首次备份）。
   3. `last_change` 距今不足空闲阈值 → 跳过（本次启动后尚无改动时 `last_change` 为 None，视为已空闲，因此上次运行留下的标记会在启动约 30 s 后补做）。
   4. 上次失败距今不足退避时间，且此后没有新改动 → 跳过（失败时间只存内存）。
   5. `has_personal_records(&real)` 为 false → 删除标记，跳过。
