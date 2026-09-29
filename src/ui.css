@@ -257,3 +257,10 @@
 .ui-content .ui-table{margin-top:10px}
 @media(min-width:1101px){.browser-columns{grid-template-columns:minmax(0,1fr) 300px}}
 @media(max-width:1100px){.page-header{flex-wrap:wrap}.page-header-actions{max-width:100%}.page-header-actions .wealth-toolbar{flex-wrap:wrap}.ui-table{font-size:11px}.ui-table th,.ui-table td{padding-inline:6px}.ui-table .amount{white-space:nowrap}}
+
+/* Statistics retain every existing analysis block in the shared two-column grid. */
+.stats-section[aria-label="统计"]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.stats-section[aria-label="统计"] .stats-dashboard,.stats-section[aria-label="统计"] .stats-pair{display:contents}
+.stats-section[aria-label="统计"] .ui-metrics{grid-column:1/-1}
+.stats-section[aria-label="统计"]>.ui-card{min-width:0;overflow:auto}
+@media(max-width:1000px){.stats-section[aria-label="统计"]{grid-template-columns:minmax(0,1fr)}}

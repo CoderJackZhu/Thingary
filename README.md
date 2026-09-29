@@ -30,7 +30,7 @@
 - [物志使用说明](docs/USER_GUIDE.md)：安装、资料位置、完整备份与恢复及当前限制。
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、P0/P1/P2 与验收标准；第 15.2 节为实物决策表；[第 17 节](docs/PRODUCT_DESIGN.md#17-统一资产扩展需求草案2026-09-28)集中维护统一资产扩展，17.12 为 A–C2 已确认规则，17.13 为 D 综合体验方案（已交付）。
 - [P0 功能规格](docs/FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义。
-- **现行界面规范**：[U16 设计规范](docs/ui/U16_DESIGN_SPEC.md)（令牌、格式、组件、逐页规范、三主题检查表）与设计稿 v3 [`docs/ui/u16/mockup-v3.html`](docs/ui/u16/mockup-v3.html)；计划与验收见 [U16 设计对齐计划](docs/ui/U16_DESIGN_PARITY_PLAN.md)。
+- **现行界面规范**：[U16 设计规范](docs/ui/U16_DESIGN_SPEC.md)（令牌、格式、组件、逐页规范、三主题检查表）与设计稿 v3 [`docs/ui/u16/mockup-v3.html`](docs/ui/u16/mockup-v3.html)；计划见 [U16 设计对齐计划](docs/ui/U16_DESIGN_PARITY_PLAN.md)，本次接续结果、50 组对照与未关闭出口见 [U16 验证记录](docs/verification/U16_PARITY_RESULT.md)。
 - [UI 方向与原型（历史）](docs/UI_DESIGN.md)：早期选定 A「静序」为基线；[交互原型](docs/ui/prototype.html)。已由 U16 规范取代，仅供追溯。
 - [竞品调研](docs/COMPETITOR_RESEARCH.md)：直接竞品与开源候选比较、差异化假设。
 
