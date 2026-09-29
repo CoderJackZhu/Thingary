@@ -1,3 +1,4 @@
+import { yuan } from './asset.ts';
 import { recurringCategories } from './recurring.ts';
 import { expenseCategories } from './expenses.ts';
 import { maintenanceKinds } from './maintenance.ts';
@@ -22,7 +23,7 @@ export type TrashEntry = { kind: 'asset' | RecordKind | 'snapshot' | 'account' |
 export type TrashPage = { generation: string; items: TrashEntry[]; total: number };
 export const stateText: Record<string, string> = { active: '使用中', retired: '已退役', sold: '已售出' };
 export const trashFilters = [['all', '全部'], ['asset', '资产'], ['maintenance', '维护'], ['warranty', '保障'], ['wish', '心愿'], ['wealth', '财富']] as const;
-const costText = (cents: string | null) => cents === null ? '待补录' : `¥${(Number(cents) / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const costText = (cents: string | null) => cents === null ? '待补录' : yuan(cents);
 
 // Pure display facts for one unified-trash row, shared by the panel and tests.
 const contentUnits: Record<TrashContent['kind'], string> = { maintenance: '条维护', warranty: '份保障', expense: '笔关联支出', photo: '张图片', payment: '条付款记录', entry: '个账户余额' };

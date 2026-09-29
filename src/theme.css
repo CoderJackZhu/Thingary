@@ -56,3 +56,25 @@
   --positive:#30d158;--pos-bg:#30d1581f;--warn:#ff9f0a;--warn-bg:#ff9f0a1f;--error:#ff6961;--danger-bg:#ff453a1f;
   --card-shadow:none;
   --series-1:#8e8cff;--series-2:#ff9f0a;--series-3:#30d158;--series-4:#bf5af2;--series-5:#ff375f;--series-6:#64d2ff;--series-7:#ac8e68;--series-rest:#636366}
+
+/* U16a 形态令牌（规范 2.1）：卡片、指标行、主卡、数字、侧栏。深色沿用同主题形态。 */
+:root{
+  --canvas:var(--bg);--surface:var(--card);--surface-border:1px solid var(--line);--surface-rule:none;--surface-radius:10px;--surface-shadow:none;--surface-pad-x:18px;
+  --metric-gap:0px;--metric-tile:0;--hero-tint-1:none;--hero-tint-2:none;
+  --key-w:500;--key-size:28px;--head:var(--display);--page-title:20px;--h-track:0;--ctl-radius:6px;
+  --nav-active-bg:#e1e1e6;--nav-active-fg:var(--text);--nav-active-ic:var(--accent);--nav-active-shadow:none;--nav-active-bar:none;--nav-active-w:500;--nav-ic-tile:0;--side-divider:1px solid var(--line);
+  --brand-bg:#1d1d1f;--brand-fg:#fff;--chart:var(--accent)}
+:root[data-mode=dark]{--nav-active-bg:#3a3a3f;--brand-bg:#f2f2f4;--brand-fg:#1e1e20}
+:root[data-style=paper]{
+  --surface:transparent;--surface-border:none;--surface-rule:1.5px solid var(--text);--surface-radius:0;--surface-pad-x:0px;
+  --key-w:400;--page-title:28px;--h-track:1px;--ctl-radius:3px;
+  --nav-active-bg:color-mix(in srgb,var(--selected) 40%,transparent);--nav-active-fg:var(--text);--nav-active-ic:var(--accent);--nav-active-bar:inset 3px 0 0 var(--accent);--nav-active-w:600;
+  --brand-bg:#9a4320;--brand-fg:#fbf8f1}
+:root[data-style=paper][data-mode=dark]{--brand-bg:#c0643a;--brand-fg:#1f1c18}
+:root[data-style=bento]{
+  --surface-border:none;--surface-radius:16px;--surface-shadow:var(--card-shadow);
+  --metric-gap:12px;--metric-tile:1;--hero-tint-1:linear-gradient(160deg,#ececfe,var(--card) 55%);--hero-tint-2:linear-gradient(160deg,#fff1e2,var(--card) 55%);
+  --key-w:650;--key-size:34px;--ctl-radius:9px;
+  --nav-active-bg:var(--card);--nav-active-fg:var(--text);--nav-active-ic:#fff;--nav-active-shadow:0 1px 3px #00000014;--nav-ic-tile:1;--side-divider:none;
+  --brand-bg:linear-gradient(135deg,#5e5ce6,#bf5af2);--brand-fg:#fff}
+:root[data-style=bento][data-mode=dark]{--hero-tint-1:linear-gradient(160deg,#25244a,var(--card) 55%);--hero-tint-2:linear-gradient(160deg,#3a2a16,var(--card) 55%);--nav-active-shadow:none}

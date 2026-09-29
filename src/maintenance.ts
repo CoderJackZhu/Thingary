@@ -1,4 +1,4 @@
-import { errorMessage, inputMoney, type AssetRecord, type Photo, type Selection } from "./asset.ts";
+import { errorMessage, inputMoney, yuan, type AssetRecord, type Photo, type Selection } from "./asset.ts";
 
 export const maintenanceKinds = [
   ["repair", "维修"], ["service", "保养"], ["cleaning", "清洁"],
@@ -81,4 +81,4 @@ export function maintenanceChange(record:AssetRecord,generation:string,d:Mainten
   const photos={ids:d.photo_ids,cover_id:null};
   return {request_id:requestId,generation,asset_id:record.asset.id,expected_revision:record.asset.revision,action:maintenanceId?{type:"correct",maintenance_id:maintenanceId,fields,photos}:{type:"add",fields,photos}};
 }
-export function money(cents:string|null){ if(cents===null)return "待补录"; return `¥${(Number(cents)/100).toLocaleString("zh-CN",{minimumFractionDigits:2,maximumFractionDigits:2})}` }
+export function money(cents:string|null){ return cents===null?"待补录":yuan(cents) }

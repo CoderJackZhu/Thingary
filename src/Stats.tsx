@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Info } from './FormControls';
-import { errorMessage, money } from './asset';
+import { errorMessage, money, unitMoney } from './asset';
 
 type Bucket = { key: string; start: string; end: string; count: number; known_cents: string; unknown_price_count: number; cumulative_cents: string };
 type Trend = { generation: string; today: string; granularity: Granularity; buckets: Bucket[]; known_cents: string; unknown_price_count: number; unknown_date_count: number; unknown_date_known_cents: string };
@@ -92,7 +92,7 @@ const days = (d: number | null) => d === null ? '—' : `${Number.isInteger(d) ?
 function Ranking({ title, note, rows, costLabel, descending, onOpen }: { title: string; note: string; rows: Ranked[]; costLabel: string; descending: boolean; onOpen: (id: string) => void }) {
   const list = descending ? rows : rows.slice().reverse();
   return <><h4 className="chart-title">{title} <span className="muted">{note}</span></h4>
-    {!list.length ? <p className="muted small">没有可完整计算的物品。</p> : <table className="distribution-table"><thead><tr><th>#</th><th>物品</th><th>{costLabel}</th><th>持有天数</th><th>日均</th></tr></thead><tbody>{list.map((r, i) => <tr key={r.id}><td>{i + 1}</td><td><button className="link-cell" onClick={() => onOpen(r.id)}>{r.name}</button></td><td>{money(r.cost_cents)}</td><td>{r.held_days}</td><td>{money(r.daily_cents)}</td></tr>)}</tbody></table>}</>;
+    {!list.length ? <p className="muted small">没有可完整计算的物品。</p> : <table className="distribution-table"><thead><tr><th>#</th><th>物品</th><th>{costLabel}</th><th>持有天数</th><th>日均</th></tr></thead><tbody>{list.map((r, i) => <tr key={r.id}><td>{i + 1}</td><td><button className="link-cell" onClick={() => onOpen(r.id)}>{r.name}</button></td><td>{money(r.cost_cents)}</td><td>{r.held_days}</td><td>{unitMoney(r.daily_cents)}</td></tr>)}</tbody></table>}</>;
 }
 
 export function HoldingCards({ onOpenAsset }: { onOpenAsset: (id: string) => void }) {

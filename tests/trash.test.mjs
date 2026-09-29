@@ -17,12 +17,12 @@ test('maintenance entries show date and cost with unknown distinct from zero', (
   const known = entryDisplay(entry({ kind: 'maintenance', title: '更换快门', subtype: 'repair', date: '2026-09-03', cost_cents: '20000', asset_deleted: false }));
   assert.equal(known.typeLabel, '维护');
   assert.equal(known.title, '更换快门');
-  assert.deepEqual(known.facts, ['2026-09-03 · 费用 ¥200.00']);
+  assert.deepEqual(known.facts, ['2026-09-03 · 费用 ¥200']);
   assert.equal(known.parentBlocked, false);
   const unknown = entryDisplay(entry({ kind: 'maintenance', title: '检修', subtype: 'service', date: null, cost_cents: null }));
   assert.deepEqual(unknown.facts, ['日期未知 · 费用 待补录']);
   const free = entryDisplay(entry({ kind: 'maintenance', title: '免费清洁', subtype: 'cleaning', date: '2026-09-04', cost_cents: '0' }));
-  assert.deepEqual(free.facts, ['2026-09-04 · 费用 ¥0.00']);
+  assert.deepEqual(free.facts, ['2026-09-04 · 费用 ¥0']);
   const untitled = entryDisplay(entry({ kind: 'maintenance', title: '', subtype: 'upgrade', date: null, cost_cents: null }));
   assert.equal(untitled.title, '升级');
 });
@@ -100,5 +100,5 @@ test('recurring rows name their plan, period and a deleted parent', () => {
   assert.deepEqual([plan.typeLabel, plan.title, plan.facts[0]], ['周期计划', '虚构房租', '房租 · 恢复后付款记录一并显示']);
   const paid = entryDisplay(entry({ kind: 'payment', title: '虚构房租', subtype: 'paid', date: '2026-09-01', cost_cents: '300000', asset_id: null, asset_deleted: true }));
   assert.equal(paid.title, '虚构房租 · 2026-09-01 期');
-  assert.deepEqual(paid.facts, ['已付 ¥3,000.00', '所属计划也在最近删除中，请先恢复计划']);
+  assert.deepEqual(paid.facts, ['已付 ¥3,000', '所属计划也在最近删除中，请先恢复计划']);
 });

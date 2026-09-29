@@ -1,7 +1,7 @@
 import type { TaxonomySnapshot } from './taxonomy';
 import { useState } from 'react';
 import type { AssetRecord, Page, Photo } from './asset';
-import { costs, localDay, money } from './asset';
+import { costs, localDay, money, unitMoney } from './asset';
 import { maintenanceKinds } from './maintenance';
 import { statusLabel, warrantyKinds, warrantySummaryText } from './warranty';
 import type { Warranty } from './warranty';
@@ -54,14 +54,14 @@ export function AssetOverview({ page, filtered }: { page: Page; filtered: boolea
 // 单位成本：按天为日均，按次为每次；列表「日均」列与检视器共用。
 export function unitCostText(record: AssetRecord) {
   const perUse = record.preferences?.cost_mode === 'per_use', unit = perUse ? record.per_use_cents ?? null : record.costs.daily_cents;
-  return unit === null ? '—' : money(unit) + (perUse ? ' / 次' : '');
+  return unit === null ? '—' : unitMoney(unit) + (perUse ? ' / 次' : '');
 }
 
 export function AssetFacts({ record }: { record: AssetRecord }) {
   const c = record.costs;
   const perUse=record.preferences?.cost_mode==='per_use',unitCost=perUse?record.per_use_cents??null:c.daily_cents;
   const unitLabel=perUse?'单次使用成本':record.sale ? '售出后净日均' : '日均持有成本';
-  return <><div className="inspector-metrics"><div title={perUse?`已记录 ${record.preferences?.use_count??0} 次使用`:record.sale ? '净生命周期成本 ÷ 持有天数' : '购入与已记录维护费用 ÷ 持有天数'}><span>{unitLabel}</span><strong>{money(unitCost)}{unitCost !== null && <small>/{perUse?'次':'天'}</small>}</strong></div><div><span>{perUse?'已使用':'已持有'}</span><strong>{perUse?`${record.preferences?.use_count??0}`:c.held_days === null ? '—' : c.held_days.toLocaleString('zh-CN')}<small>{perUse?'次':'天'}</small></strong></div></div>
+  return <><div className="inspector-metrics"><div title={perUse?`已记录 ${record.preferences?.use_count??0} 次使用`:record.sale ? '净生命周期成本 ÷ 持有天数' : '购入与已记录维护费用 ÷ 持有天数'}><span>{unitLabel}</span><strong>{unitMoney(unitCost)}{unitCost !== null && <small>/{perUse?'次':'天'}</small>}</strong></div><div><span>{perUse?'已使用':'已持有'}</span><strong>{perUse?`${record.preferences?.use_count??0}`:c.held_days === null ? '—' : c.held_days.toLocaleString('zh-CN')}<small>{perUse?'次':'天'}</small></strong></div></div>
     <dl className="facts"><dt>购入</dt><dd>{money(record.asset.price_cents)} · {record.asset.purchase_date || '日期待补充'}</dd><dt>维护</dt><dd>{money(c.known_maintenance_cents)}</dd>{(record.warranty_summary?.total ?? 0) > 0 && <><dt>保障</dt><dd className={record.warranty_summary?.expiring_count ? 'warn' : undefined}>{warrantySummaryText(record.warranty_summary)}</dd></>}{record.sale && <><dt>净成本</dt><dd>{money(c.net_cost_cents)}</dd></>}</dl>
     {c.unknown_maintenance_count > 0 && <p className="muted small">有 {c.unknown_maintenance_count} 条维护费用待补录，精确总成本与日均成本暂不显示。</p>}</>;
 }
@@ -71,7 +71,7 @@ const heldText = (days: number | null) => days === null ? '待补充' : `${days.
 // Detail hero card: unit cost beside held days (use count for per-use), then the goal.
 function CostHeadline({ record }: { record: AssetRecord }) {
   const c = record.costs, perUse = record.preferences?.cost_mode === 'per_use', unitCost = perUse ? record.per_use_cents ?? null : c.daily_cents;
-  return <section className="hero-cost" aria-label="持有与成本"><div className="holding-cost holding-split"><div><span>{perUse?'单次使用成本':record.sale ? '售出后净日均成本' : '日均持有成本'}</span><strong>{money(unitCost)}{unitCost !== null && <small> / {perUse?'次':'天'}</small>}</strong></div><div><span>{perUse ? '使用次数' : record.sale ? '截至售出日持有' : '持有天数'}</span><strong>{perUse ? (record.preferences?.use_count ?? 0).toLocaleString('zh-CN') : c.held_days === null ? '待补充' : c.held_days.toLocaleString('zh-CN')}{(perUse || c.held_days !== null) && <small> {perUse ? '次' : '天'}</small>}</strong></div></div><GoalCard record={record}/></section>;
+  return <section className="hero-cost" aria-label="持有与成本"><div className="holding-cost holding-split"><div><span>{perUse?'单次使用成本':record.sale ? '售出后净日均成本' : '日均持有成本'}</span><strong>{unitMoney(unitCost)}{unitCost !== null && <small> / {perUse?'次':'天'}</small>}</strong></div><div><span>{perUse ? '使用次数' : record.sale ? '截至售出日持有' : '持有天数'}</span><strong>{perUse ? (record.preferences?.use_count ?? 0).toLocaleString('zh-CN') : c.held_days === null ? '待补充' : c.held_days.toLocaleString('zh-CN')}{(perUse || c.held_days !== null) && <small> {perUse ? '次' : '天'}</small>}</strong></div></div><GoalCard record={record}/></section>;
 }
 
 function EmptySection({ title, action, onAdd }: { title: string; action: string; onAdd: () => void }) {
@@ -86,11 +86,11 @@ function GoalCard({ record }: { record: AssetRecord }) {
   const g = c.unknown_maintenance_count > 0 ? null : goalProgress(p, cost, held, record.asset.purchase_date);
   // Frozen goals report the daily cost as of the retirement day, not today's still-falling figure.
   const unitCost = perUse ? record.per_use_cents ?? null : frozen && cost !== null && held ? ((BigInt(cost) + BigInt(held >> 1)) / BigInt(held)).toString() : c.daily_cents;
-  const head = p.goal.mode === 'cost' ? <><span>目标{perUse ? '单次' : '日均'}成本</span><strong>{money(p.goal.cents)}<small> / {per}</small></strong></> : <><span>目标日期</span><strong>{p.goal.date}</strong></>;
+  const head = p.goal.mode === 'cost' ? <><span>目标{perUse ? '单次' : '日均'}成本</span><strong>{unitMoney(p.goal.cents)}<small> / {per}</small></strong></> : <><span>目标日期</span><strong>{p.goal.date}</strong></>;
   const done = g?.hundredths === 10000;
   return <div className={frozen ? 'goal-card goal-frozen' : 'goal-card'}><div className="goal-head"><div>{head}</div><div><span>{frozen ? '退役时进度' : '总进度'}</span><strong>{g ? `${(g.hundredths / 100).toFixed(2)}%` : '待补充'}</strong></div></div>
     {g && <><div className="stats-bar" role="progressbar" aria-label={frozen ? '目标进度（已因退役停止）' : '目标进度'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(g.hundredths / 100)}><span style={{ width: `${g.hundredths / 100}%` }}/></div>
-    <p className="goal-line"><span>{frozen ? '退役时' : '当前'} {money(unitCost)}{unitCost !== null && ` / ${per}`}</span><span>{p.goal.mode === 'cost' ? `目标 ${money(p.goal.cents)}` : g.projected_cents === null ? '' : `到期预计 ${money(g.projected_cents)} / 天`}</span></p>
+    <p className="goal-line"><span>{frozen ? '退役时' : '当前'} {unitMoney(unitCost)}{unitCost !== null && ` / ${per}`}</span><span>{p.goal.mode === 'cost' ? `目标 ${unitMoney(p.goal.cents)}` : g.projected_cents === null ? '' : `到期预计 ${unitMoney(g.projected_cents)} / 天`}</span></p>
     {record.sale ? <p className="goal-line"><span>{done ? '售出前已达成' : '售出时未达成'}</span><span>按售出日结算</span></p>
       : frozen ? <p className="goal-line"><span>{done ? '退役前已达成' : '已退役，目标停止'}</span><span>停在 {frozen}</span></p>
       : done ? <p className="goal-line"><span>{g.reached_date && g.reached_date <= localDay() ? (p.goal.mode === 'date' ? '已到目标日' : `已于 ${g.reached_date} 达成`) : '已达成'}</span></p>

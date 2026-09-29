@@ -3,7 +3,7 @@ import {persistSubmission} from './editor-session';
 import {ChoiceField,FormRow} from './FormControls';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage, localDay, money } from './asset';
+import { errorMessage, localDay, money, unitMoney } from './asset';
 import type { AssetRecord } from './asset';
 import type { CloseIntent } from './AssetEditor';
 import { DateInput } from './DateInput';
@@ -78,7 +78,7 @@ export function SaleEditor({ initial, closeIntent, onKeep, onClose, onSaved }: {
       <FormRow label="售出渠道"><ChoiceField kind="sale_channel" label="售出渠道" generation={draft.generation} value={draft.fields.platform||null} disabled={busy||!!draft.pending} byName onChange={v=>edit('platform',v||'')}/></FormRow>
       <label className="field">买家（可选）<input value={draft.fields.buyer} disabled={busy || !!draft.pending} onChange={e => edit('buyer',e.target.value)}/></label>
       <label className="field">备注（可选）<textarea rows={2} value={draft.fields.notes} disabled={busy || !!draft.pending} onChange={e => edit('notes',e.target.value)}/></label>
-      <div className="sale-preview" aria-label="售出结算预览"><span>购入金额 {money(draft.record.asset.price_cents)}</span>{preview && <><p>净生命周期成本 {money(preview.net)} · 净日均 {money(preview.daily)}{preview.daily !== null ? ' / 天' : ''}</p><p>{preview.days === null ? '购入日期未知，持有天数待补充。' : `截至售出日持有 ${preview.days} 天`}</p>{preview.net === null && <p>{incompleteCostReason(draft.record)}</p>}</>}</div>
+      <div className="sale-preview" aria-label="售出结算预览"><span>购入金额 {money(draft.record.asset.price_cents)}</span>{preview && <><p>净生命周期成本 {money(preview.net)} · 净日均 {unitMoney(preview.daily)}{preview.daily !== null ? ' / 天' : ''}</p><p>{preview.days === null ? '购入日期未知，持有天数待补充。' : `截至售出日持有 ${preview.days} 天`}</p>{preview.net === null && <p>{incompleteCostReason(draft.record)}</p>}</>}</div>
     </>}
     {draft.record.sale && <details><summary>当前有效售出记录</summary><p>{draft.record.sale.fields.date} · {money(draft.record.sale.fields.price_cents)} · 售出前{draft.record.sale.previous_state === 'retired' ? '已退役' : '使用中'}</p></details>}
     {notice && <p className="notice" role="status">{notice}</p>}

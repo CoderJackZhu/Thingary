@@ -10,7 +10,10 @@ export type Query = { category?: import("./taxonomy").CategoryFilterValue; searc
 export type Page = { generation: string; items: AssetRecord[]; total: number; today: string };
 export type Fields = Details & { name: string; price: string; date: string };
 export const emptyFields: Fields = { name: '', price: '', date: '', brand: '', model: '', serial_number: '', notes: '' };
-export function money(cents: string | null) { return cents === null ? '待补充' : `¥${(Number(cents) / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+// U16-D2：整数元不显示角分；单位成本（日均、每次）用 unitMoney，始终两位。只改显示。
+export function yuan(cents: string, always = false) { const n = Number(cents); return `¥${(n / 100).toLocaleString('zh-CN', { minimumFractionDigits: always || n % 100 !== 0 ? 2 : 0, maximumFractionDigits: 2 })}`; }
+export function money(cents: string | null) { return cents === null ? '待补充' : yuan(cents); }
+export function unitMoney(cents: string | null) { return cents === null ? '待补充' : yuan(cents, true); }
 export function inputMoney(value: string): string | null {
   if (!value.trim()) return null;
   if (!/^\d{1,9}(\.\d{1,2})?$/.test(value.trim())) throw new Error('请输入非负金额，最多两位小数，最高 999,999,999.99 元。');
