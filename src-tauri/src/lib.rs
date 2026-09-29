@@ -64,14 +64,20 @@ pub fn run() {
                     &quit,
                 ],
             )?;
+            // ⌘N/⌘F are dispatched by the current page; the page renames them (U12).
+            let new_item =
+                MenuItem::with_id(app, "new-asset", "新增物品", true, Some("CmdOrCtrl+N"))?;
+            let find_item =
+                MenuItem::with_id(app, "find-asset", "搜索物品", true, Some("CmdOrCtrl+F"))?;
+            app.manage(commands::PageMenu {
+                new: new_item.clone(),
+                find: find_item.clone(),
+            });
             let file_menu = Submenu::with_items(
                 app,
                 "文件",
                 true,
-                &[
-                    &MenuItem::with_id(app, "new-asset", "新增物品", true, Some("CmdOrCtrl+N"))?,
-                    &Item::close_window(app, Some("关闭窗口"))?,
-                ],
+                &[&new_item, &Item::close_window(app, Some("关闭窗口"))?],
             )?;
             let edit_menu = Submenu::with_items(
                 app,
@@ -88,7 +94,7 @@ pub fn run() {
                     // Like 撤销: the page selects text in a field, else every matching item.
                     &MenuItem::with_id(app, "select-all", "全选", true, Some("CmdOrCtrl+A"))?,
                     &Item::separator(app)?,
-                    &MenuItem::with_id(app, "find-asset", "搜索物品", true, Some("CmdOrCtrl+F"))?,
+                    &find_item,
                     &MenuItem::with_id(app, "edit-asset", "编辑资料", true, Some("CmdOrCtrl+E"))?,
                 ],
             )?;
@@ -181,6 +187,7 @@ pub fn run() {
             commands::set_library_busy,
             commands::finish_close,
             commands::set_appearance,
+            commands::set_page_menu,
             commands::pick_photo,
             commands::import_photo_bytes,
             commands::photo_preview,

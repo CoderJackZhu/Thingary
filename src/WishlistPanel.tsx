@@ -68,7 +68,7 @@ export function WishlistPanel({ taxonomy, closeIntent, onKeepClose, onFinishClos
   function openEditor(resume = false) { if (!page || !taxonomy || editor || abandon || abandonRecovery || (recovered && !resume)) return; const next = resume && recovered ? recovered : { generation: page.generation, fields: { ...emptyWishlistFields }, cover: null, photoError: '', pending: null }; persistSubmission(wishlistDraftKey, next); setEditor(next); }
   const canNew = !page || !taxonomy || !!editor || !!abandon || !!recovered || !!abandonRecovery;
   usePageBar('wishlist', {
-    primary: { label: '新增心愿', plus: true, kbd: true, disabled: canNew, run: () => openEditor(false) },
+    primary: { label: '新增心愿', plus: true, disabled: canNew, run: () => openEditor(false) },
     newRecord: { label: '新增心愿', disabled: canNew, run: () => openEditor(false) },
     search: { key: 'wishlist', placeholder: '搜索心愿' },
   });

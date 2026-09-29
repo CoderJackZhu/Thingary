@@ -549,7 +549,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     return {id,name:String(args.name)};
   }
   if (command === 'pick_photo') throw {message:'图片选择请在原生 App 中验证，此页面仅使用虚构示意图。'};
-  if (['set_appearance','set_editing','set_library_busy','finish_close'].includes(command)) return null;
+  if (['set_appearance','set_editing','set_library_busy','finish_close','set_page_menu'].includes(command)) return null;
   throw {message:'此操作需在原生 App 验证：'+command};
 }
 mockIPC(handle,{shouldMockEvents:true});

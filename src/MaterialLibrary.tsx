@@ -42,7 +42,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
   useEffect(() => { onBusyChange(busy || !!pending || !!confirming || !!recoveryError); return () => onBusyChange(false); }, [busy, pending, confirming, recoveryError, onBusyChange]);
   // The topbar carries 添加图片 and 搜索素材; this page keeps filter state only.
   usePageBar('materials', {
-    primary: { label: '添加图片', kbd: true, disabled: busy || !!pending || !generation || !recoveryReady, run: () => void upload() },
+    primary: { label: '添加图片', plus: true, disabled: busy || !!pending || !generation || !recoveryReady, run: () => void upload() },
     newRecord: { label: '添加图片', disabled: busy || !!pending || !generation || !recoveryReady, run: () => void upload() },
     search: { key: 'materials', placeholder: '搜索素材' },
   });

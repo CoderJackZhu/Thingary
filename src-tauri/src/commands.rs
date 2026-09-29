@@ -159,6 +159,31 @@ pub fn finish_close(
     Ok(())
 }
 
+/// The native ⌘N/⌘F items, renamed to what the current page will do.
+pub struct PageMenu {
+    pub new: tauri::menu::MenuItem<tauri::Wry>,
+    pub find: tauri::menu::MenuItem<tauri::Wry>,
+}
+
+/// `None` means the page takes no such shortcut: show a neutral text, disable the item.
+#[tauri::command]
+pub fn set_page_menu(
+    new_label: Option<String>,
+    find_label: Option<String>,
+    menu: tauri::State<'_, PageMenu>,
+) -> Result<()> {
+    for (item, label, neutral) in [
+        (&menu.new, new_label, "新增"),
+        (&menu.find, find_label, "搜索"),
+    ] {
+        item.set_text(label.as_deref().unwrap_or(neutral))
+            .map_err(|_| Error::new("MENU", "菜单更新失败"))?;
+        item.set_enabled(label.is_some())
+            .map_err(|_| Error::new("MENU", "菜单更新失败"))?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn set_appearance(appearance: String, window: tauri::WebviewWindow) -> Result<()> {
     let theme = match appearance.as_str() {

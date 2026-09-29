@@ -5,7 +5,7 @@ export const searchSections = ['assets', 'wealth', 'expenses', 'recurring', 'vir
 export type SearchSection = (typeof searchSections)[number];
 export const emptySearches: Record<SearchSection, string> = { assets: '', wealth: '', expenses: '', recurring: '', virtual: '', wishlist: '', timeline: '', materials: '', trash: '' };
 
-export type BarAction = { label: string; plus?: boolean; kbd?: boolean; disabled?: boolean; run: () => void };
+export type BarAction = { label: string; plus?: boolean; disabled?: boolean; run: () => void };
 export type BarMenuItem = { key: string; label: string; run: () => void };
 export type BarMenu = { label: string; items: BarMenuItem[] };
 /** `key` names the session search word this box edits; the App owns the value. */

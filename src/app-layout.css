@@ -95,6 +95,8 @@ button{border-radius:6px;font-weight:400}.primary{font-weight:600}.shell{grid-te
 
 /* U12: the 新增记录 trigger sits inside .topbar-menu, so it restates the topbar primary button box. */
 .topbar-actions .topbar-menu-trigger{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px;padding:7px 13px;line-height:1.6}
+/* Search boxes and buttons share one 35px row height. */
+.topbar-actions .search,.topbar-actions .search-collapsed{box-sizing:border-box;height:35px}
 
 /* U12: below 900px the search collapses to a named button; expanding it lays
    out a full-width search row inside the topbar without covering actions.

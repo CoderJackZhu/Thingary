@@ -61,3 +61,11 @@ test('search boxes are accessible, clearable and IME-safe', () => {
   assert.match(topbar, /!e\.nativeEvent\.isComposing/, 'Escape during IME composition is left alone');
   assert.match(topbar, /type="button" className="search-clear"/, 'the clear button never submits a form');
 });
+
+test('native ⌘N/⌘F menu items follow the current page', () => {
+  const app = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
+  assert.match(app, /const menuNew = topbarBar\.menu \? `\$\{topbarBar\.menu\.label\}…` : topbarBar\.newRecord\?\.label \?\? null;/);
+  assert.match(app, /invoke\('set_page_menu', \{ newLabel: menuNew, findLabel: menuFind \}\)/);
+  const lib = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
+  assert.ok(lib.includes('commands::set_page_menu'), 'command registered');
+});

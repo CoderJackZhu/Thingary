@@ -73,7 +73,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const newAccount = { label: '新增账户', plus: true, disabled: !!pending || !accounts, run: () => setEditing('new') };
   usePageBar('wealth', checkIn ? {} : open.length
     ? { primary: { label: '开始盘点', disabled: !!pending || !open.length, run: () => setCheckIn(today) }, secondary: newAccount, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } }
-    : { primary: { ...newAccount, kbd: true }, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } });
+    : { primary: newAccount, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } });
   // The menu hand-off opens the same editor the page's own buttons use.
   const consumedAutoNew = useRef(false);
   useEffect(() => {
