@@ -95,6 +95,15 @@ pub async fn switch_demo(
         .map_err(|_| Error::new("WORKER", "无法切换样例状态"))?
 }
 #[tauri::command]
+pub async fn asset_counts(worker: tauri::State<'_, Worker>) -> Result<crate::catalog::AssetCounts> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.asset_counts(&chrono::Local::now().format("%Y-%m-%d").to_string()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "读取失败，请重试"))?
+}
+#[tauri::command]
 pub async fn list_assets(query: Query, worker: tauri::State<'_, Worker>) -> Result<Page> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {

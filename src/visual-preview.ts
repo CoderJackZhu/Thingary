@@ -244,6 +244,8 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     else if(a.type==='reorder'&&list)namedChoices[kind]=a.ids.map(id=>list.find(e=>e.id===id)!);
     taxonomyRevision++;choiceReceipts.set(input.request_id,fingerprint);return choiceSnapshot(kind);
   }
+  // U16-D5: same filters as the sidebar entries, so counts equal the list totals.
+  if (command === 'asset_counts') { const total = async (filter: string, warranty: string) => (await handle('list_assets', { query: { search: '', filter, sort: 'created', descending: true, offset: 0, warranty } }) as Page).total; return { generation: (await handle('list_assets', { query: { search: '', filter: 'all', sort: 'created', descending: true, offset: 0 } }) as Page).generation, all: await total('all', 'all'), active: await total('active', 'all'), covered: await total('held', 'covered'), retired: await total('retired', 'all'), sold: await total('sold', 'all') }; }
   if (command === 'asset_ids') { const page = await handle('list_assets', { query: { ...(args.query as Query), offset: 0 }, all: true }) as Page; return page.items.map(r => r.asset.id); }
   if (command === 'batch_rows') return (args.ids as string[]).map(id => records.find(r => r.asset.id === id && !r.deleted)).filter((r): r is AssetRecord => !!r).map(batchRow);
   if (command === 'batch_change') {

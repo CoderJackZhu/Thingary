@@ -160,6 +160,7 @@ pub fn run() {
             commands::wealth_trash,
             commands::purge_trash,
             commands::asset_ids,
+            commands::asset_counts,
             commands::batch_rows,
             commands::batch_change,
             commands::batch_undo,

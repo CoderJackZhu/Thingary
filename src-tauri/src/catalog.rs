@@ -83,6 +83,15 @@ pub struct Query {
     #[serde(default)]
     pub label: Option<String>,
 }
+#[derive(Serialize, Debug, PartialEq)]
+pub struct AssetCounts {
+    pub generation: String,
+    pub all: i64,
+    pub active: i64,
+    pub covered: i64,
+    pub retired: i64,
+    pub sold: i64,
+}
 #[derive(Serialize)]
 pub struct Page {
     pub generation: String,
@@ -289,6 +298,31 @@ impl Store {
     /// Every asset id matching the list query, in list order (⌘A, D19).
     pub fn query_asset_ids(&self, q: &Query, today: &str) -> Result<Vec<String>> {
         Ok(self.matching_ids(q, today, true)?.1)
+    }
+    /// Sidebar counts (U16-D5): each number is the list total for exactly the
+    /// filter its sidebar entry applies, so a count never disagrees with the list.
+    pub fn asset_counts(&self, today: &str) -> Result<AssetCounts> {
+        let total = |filter: &str, warranty: &str| -> Result<i64> {
+            let q = Query {
+                search: String::new(),
+                filter: filter.into(),
+                sort: "created".into(),
+                descending: true,
+                offset: 0,
+                category: Default::default(),
+                warranty: warranty.into(),
+                label: None,
+            };
+            Ok(self.matching_ids(&q, today, false)?.0)
+        };
+        Ok(AssetCounts {
+            generation: self.generation(),
+            all: total("all", "all")?,
+            active: total("active", "all")?,
+            covered: total("held", "covered")?,
+            retired: total("retired", "all")?,
+            sold: total("sold", "all")?,
+        })
     }
     pub fn query_assets(&self, q: &Query, today: &str) -> Result<Page> {
         let (total, ids) = self.matching_ids(q, today, false)?;
