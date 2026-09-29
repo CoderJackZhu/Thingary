@@ -126,3 +126,36 @@
 /* 4.14 ⓘ 即时说明：悬停或聚焦立即显示，不依赖 title 的延迟 */
 .info-tip{position:relative}
 .info-tip:hover::after,.info-tip:focus-visible::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);z-index:20;width:max-content;max-width:260px;white-space:normal;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);box-shadow:0 8px 24px #00000024;color:var(--text);font:400 11px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;text-align:left;cursor:default}
+
+/* 5.1 侧栏（U16b）：品牌方块、计数、三主题选中态与图标形态 */
+.sidebar{border-right:var(--side-divider)}
+.brand-mark{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--brand-bg);color:var(--brand-fg);font:600 15px var(--head);border:0}
+.brand strong{font:600 15px var(--head);letter-spacing:1px}
+.sidebar nav button{height:30px;padding:0 10px;gap:9px;font-size:13px;border-radius:var(--ctl-radius)}
+.sidebar nav button .ui-icon{opacity:.75}
+.sidebar nav button.nav-active{background:var(--nav-active-bg);color:var(--nav-active-fg);font-weight:var(--nav-active-w);box-shadow:var(--nav-active-bar),var(--nav-active-shadow)}
+.sidebar nav button.nav-active .ui-icon{opacity:1;color:var(--nav-active-ic)}
+:root[data-style=paper] .sidebar nav button.nav-active{border-radius:0}
+.nav-count{margin-left:auto;font-size:11px;color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
+.nav-count.warn{color:var(--warn);font-weight:600}
+.nav-caption{font-family:var(--head);letter-spacing:var(--h-track)}
+/* D：白色线性图标放在彩色圆角方块里 */
+:root[data-style=bento] .sidebar nav .ui-icon{width:22px;height:22px;padding:4px;border-radius:6px;color:#fff;opacity:1;stroke-width:1.9;background:#8e8e93}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=overview]{background:#5e5ce6}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=items]{background:#0a84ff}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=circle]{background:#34c759}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=shield]{background:#30b0c7}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=arrow]{background:#af52de}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=heart]{background:#ff2d55}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=wallet]{background:#ff9500}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=receipt]{background:#ff6b3d}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=repeat]{background:#32ade6}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=cloud]{background:#5856d6}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=clock]{background:#64c466}
+:root[data-style=bento] .sidebar nav .ui-icon[data-icon=chart]{background:#ff9f0a}
+:root[data-style=bento] .sidebar nav .mode-toggle .ui-icon{width:16px;height:16px;padding:0;background:none;color:var(--muted)}
+:root[data-style=bento] .sidebar nav button.nav-active .ui-icon{color:#fff}
+
+/* 5.3 页头（U16b）：页标题随主题（C 为 28 宋体） */
+.page-header h1{font:600 var(--page-title)/1.25 var(--head);letter-spacing:var(--h-track)}
+.shell>main{background:var(--canvas)}

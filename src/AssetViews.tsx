@@ -35,7 +35,7 @@ const iconPaths = {items:'M3 6.5 10 3l7 3.5v8L10 18l-7-3.5z M3 6.5l7 3.5 7-3.5M1
 export function Icon({ name }: { name: keyof typeof iconPaths | 'system' }) {
   if (name === 'sun') return <svg className="ui-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" aria-hidden="true"><circle cx="10" cy="10" r="3.55" fill="currentColor" stroke="none"/><path d="M10 1.8v2.1M10 16.1v2.1M1.8 10h2.1M16.1 10h2.1M4.2 4.2l1.5 1.5M14.3 14.3l1.5 1.5M15.8 4.2l-1.5 1.5M5.7 14.3l-1.5 1.5"/></svg>;
   if (name === 'system') return <svg className="ui-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.3a7.7 7.7 0 0 0 0 15.4Z" fill="#fff"/><path d="M10 2.3a7.7 7.7 0 0 1 0 15.4Z" fill="#202329"/><circle cx="10" cy="10" r="7.7" fill="none" stroke="currentColor" strokeWidth="1.1"/></svg>;
-  return <svg className="ui-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={iconPaths[name]} fill={name === 'moon' ? 'currentColor' : 'none'} strokeWidth={name === 'moon' ? 0.6 : undefined}/>{name === 'circle' && <circle cx="10" cy="10" r="2.6" fill="currentColor" stroke="none"/>}</svg>;
+  return <svg className="ui-icon" data-icon={name} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={iconPaths[name]} fill={name === 'moon' ? 'currentColor' : 'none'} strokeWidth={name === 'moon' ? 0.6 : undefined}/>{name === 'circle' && <circle cx="10" cy="10" r="2.6" fill="currentColor" stroke="none"/>}</svg>;
 }
 
 // U15c：列表页页头里的一行数字，取代三张汇总卡。超过一页时只统计本页。
