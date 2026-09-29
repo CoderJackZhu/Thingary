@@ -1,0 +1,164 @@
+[
+  {
+    "style": "native",
+    "mode": "light",
+    "card": {
+      "radius": "10px",
+      "top": "1px",
+      "bg": "none"
+    },
+    "num": {
+      "font": "-apple-system, \"system-ui\", \"SF Pro Text\", \"PingFang SC\", sans-serif",
+      "weight": "500",
+      "size": "28px"
+    },
+    "head": {
+      "font": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", sans-serif",
+      "size": "20px"
+    },
+    "metric": {
+      "borderLeft": "1px",
+      "radius": "0px"
+    },
+    "nav": {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+      "bg": "rgb(225, 225, 230)"
+    },
+    "overflow": false
+  },
+  {
+    "style": "native",
+    "mode": "dark",
+    "card": {
+      "radius": "10px",
+      "top": "1px",
+      "bg": "none"
+    },
+    "num": {
+      "font": "-apple-system, \"system-ui\", \"SF Pro Text\", \"PingFang SC\", sans-serif",
+      "weight": "500",
+      "size": "28px"
+    },
+    "head": {
+      "font": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", sans-serif",
+      "size": "20px"
+    },
+    "metric": {
+      "borderLeft": "1px",
+      "radius": "0px"
+    },
+    "nav": {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+      "bg": "rgb(58, 58, 63)"
+    },
+    "overflow": false
+  },
+  {
+    "style": "paper",
+    "mode": "light",
+    "card": {
+      "radius": "0px",
+      "top": "1.5px",
+      "bg": "none"
+    },
+    "num": {
+      "font": "\"Iowan Old Style\", \"New York\", Georgia, \"Songti SC\", serif",
+      "weight": "400",
+      "size": "28px"
+    },
+    "head": {
+      "font": "\"Songti SC\", STSong, \"Noto Serif SC\", Georgia, serif",
+      "size": "28px"
+    },
+    "metric": {
+      "borderLeft": "1px",
+      "radius": "0px"
+    },
+    "nav": {
+      "shadow": "rgb(154, 67, 32) 3px 0px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+      "bg": "color(srgb 0.937255 0.894118 0.823529 / 0.4)"
+    },
+    "overflow": false
+  },
+  {
+    "style": "paper",
+    "mode": "dark",
+    "card": {
+      "radius": "0px",
+      "top": "1.5px",
+      "bg": "none"
+    },
+    "num": {
+      "font": "\"Iowan Old Style\", \"New York\", Georgia, \"Songti SC\", serif",
+      "weight": "400",
+      "size": "28px"
+    },
+    "head": {
+      "font": "\"Songti SC\", STSong, \"Noto Serif SC\", Georgia, serif",
+      "size": "28px"
+    },
+    "metric": {
+      "borderLeft": "1px",
+      "radius": "0px"
+    },
+    "nav": {
+      "shadow": "rgb(227, 154, 112) 3px 0px 0px 0px inset, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+      "bg": "color(srgb 0.227451 0.164706 0.12549 / 0.4)"
+    },
+    "overflow": false
+  },
+  {
+    "style": "bento",
+    "mode": "light",
+    "card": {
+      "radius": "16px",
+      "top": "0px",
+      "bg": "linear-gradient(160deg, rgb(236, 236, 254), rgb(255, 255, 255) 55%), none"
+    },
+    "num": {
+      "font": "-apple-system, \"system-ui\", \"SF Pro Text\", \"PingFang SC\", sans-serif",
+      "weight": "650",
+      "size": "34px"
+    },
+    "head": {
+      "font": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", sans-serif",
+      "size": "20px"
+    },
+    "metric": {
+      "borderLeft": "0px",
+      "radius": "14px"
+    },
+    "nav": {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.08) 0px 1px 3px 0px",
+      "bg": "rgb(255, 255, 255)"
+    },
+    "overflow": false
+  },
+  {
+    "style": "bento",
+    "mode": "dark",
+    "card": {
+      "radius": "16px",
+      "top": "0px",
+      "bg": "linear-gradient(160deg, rgb(37, 36, 74), rgb(28, 28, 30) 55%), none"
+    },
+    "num": {
+      "font": "-apple-system, \"system-ui\", \"SF Pro Text\", \"PingFang SC\", sans-serif",
+      "weight": "650",
+      "size": "34px"
+    },
+    "head": {
+      "font": "-apple-system, \"system-ui\", \"SF Pro Display\", \"PingFang SC\", sans-serif",
+      "size": "20px"
+    },
+    "metric": {
+      "borderLeft": "0px",
+      "radius": "14px"
+    },
+    "nav": {
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+      "bg": "rgb(28, 28, 30)"
+    },
+    "overflow": false
+  }
+]

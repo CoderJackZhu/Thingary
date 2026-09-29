@@ -30,12 +30,12 @@ export function Sparkline({ points }: { points: Point[] }) {
     let best = 0; full.forEach((p, i) => { if (Math.abs(x(p.date) - vx) < Math.abs(x(full[best].date) - vx)) best = i; });
     setCur(best);
   };
-  return <div className="ui-spark" tabIndex={0} role="img" aria-label={`金融净资产趋势，共 ${full.length} 次完整盘点`}
+  return <><div className="ui-spark" tabIndex={0} role="img" aria-label={`金融净资产趋势，共 ${full.length} 次完整盘点`}
     onFocus={() => setCur(full.length - 1)} onBlur={() => setCur(null)}
     onKeyDown={e => {
       if (e.key === 'ArrowRight') { e.preventDefault(); setCur(c => Math.min(full.length - 1, (c ?? -1) + 1)); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); setCur(c => Math.max(0, (c ?? full.length) - 1)); }
-      else if (e.key === 'Escape') setCur(null);
+      else if (e.key === 'Escape') { e.preventDefault(); setCur(null); }
     }}>
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" onMouseMove={e => move(e.clientX, e.currentTarget.getBoundingClientRect())} onMouseLeave={() => setCur(null)}>
       <path className="area" d={area}/><path className="line" d={line}/>
@@ -45,6 +45,6 @@ export function Sparkline({ points }: { points: Point[] }) {
     {full.map((p, i) => <i key={p.snapshot_id} className={'ui-spark-dot' + (i === cur ? ' on' : i === full.length - 1 ? ' last' : '')} style={{ left: `${x(p.date) / W * 100}%`, top: `${y(p.net_cents) / H * 78}px` }}/>)}
     <div className="ui-spark-labels" aria-hidden="true">{months.map(p => <span key={p.date} style={{ left: `${x(p.date) / W * 100}%` }}>{Number(p.date.slice(5, 7))}月{p.complete ? '' : '未盘'}</span>)}</div>
     {shown && <div className="ui-tip" style={{ left: `clamp(70px, ${x(shown.date) / W * 100}%, calc(100% - 70px))`, top: `${y(shown.net_cents) / H * 78}px` }}>{shown.date}<b>{signedMoney(shown.net_cents)}</b><span className={shown.change_cents?.startsWith('-') ? 'neg' : shown.change_cents && shown.change_cents !== '0' ? 'pos' : undefined}>{changeLine(shown)}</span></div>}
-    <span className="visually-hidden" aria-live="polite">{shown ? `${shown.date}，净资产 ${signedMoney(shown.net_cents)}，${changeLine(shown)}` : ''}</span>
-  </div>;
+    </div><span className="visually-hidden" aria-live="polite" aria-atomic="true">{shown ? `${shown.date}，净资产 ${signedMoney(shown.net_cents)}，${changeLine(shown)}` : ''}</span>
+  </>;
 }

@@ -162,6 +162,8 @@ const axis = (cents: number) => { const v = Math.abs(cents); const t = v >= 1_00
  */
 export function NetChart({ points }: { points: Point[] }) {
   const [current,setCurrent]=useState<number|null>(null);
+  const svgRef=useRef<SVGSVGElement>(null), [plotWidth,setPlotWidth]=useState(0);
+  useEffect(()=>{const svg=svgRef.current;if(!svg)return;const observer=new ResizeObserver(()=>setPlotWidth(svg.getBoundingClientRect().width));observer.observe(svg);return()=>observer.disconnect()},[]);
   const full = points.filter(p => p.complete), values = full.map(p => Number(p.net_cents));
   const min = Math.min(...values), max = Math.max(...values), pad = (max - min) * 0.15 || Math.max(Math.abs(max) * 0.05, 10_000);
   const span = max - min + 2 * pad, step = 10 ** Math.floor(Math.log10(span)), unit = [1, 2, 5, 10].map(n => n * step).find(n => span / n <= 4) ?? step * 10;
@@ -171,14 +173,16 @@ export function NetChart({ points }: { points: Point[] }) {
   const x = (d: string) => L + 12 + (W - L - 36) * (Date.parse(d) - t0) / wide, y = (v: number) => T + (H - T - B) * (1 - (v - bottom) / (top - bottom));
   const every = Math.ceil(points.length / 6);
   const shown = current===null?null:full[current];
-  return <div className="net-chart" tabIndex={0} role="img" aria-label={`金融净资产趋势，共 ${full.length} 次完整盘点`} onFocus={()=>setCurrent(full.length-1)} onBlur={()=>setCurrent(null)} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setCurrent(null)}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setCurrent(n=>Math.max(0,Math.min(full.length-1,(n??full.length-1)+(e.key==='ArrowLeft'?-1:1))))}}}><svg className="trend-chart" onMouseMove={e=>{const svg=e.currentTarget,matrix=svg.getScreenCTM();if(!matrix)return;const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;const vx=point.matrixTransform(matrix.inverse()).x;let best=0;full.forEach((p,i)=>{if(Math.abs(x(p.date)-vx)<Math.abs(x(full[best].date)-vx))best=i});setCurrent(best)}} onMouseLeave={()=>setCurrent(null)} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={'净资产变化：' + points.map(p => p.complete ? `${p.date} ${signedMoney(p.net_cents)}` : `${p.date} 盘点不完整`).join('，')}>
+  // The SVG uses xMidYMid meet; account for its horizontal letterbox.
+  const plotScale=Math.min(plotWidth/W,170/H), plotLeft=(plotWidth-W*plotScale)/2, plotTop=(170-H*plotScale)/2;
+  return <><div className="net-chart" tabIndex={0} role="img" aria-label={`金融净资产趋势，共 ${full.length} 次完整盘点`} onFocus={()=>setCurrent(full.length-1)} onBlur={()=>setCurrent(null)} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setCurrent(null)}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setCurrent(n=>Math.max(0,Math.min(full.length-1,(n??full.length-1)+(e.key==='ArrowLeft'?-1:1))))}}}><svg ref={svgRef} className="trend-chart" onMouseMove={e=>{const svg=e.currentTarget,matrix=svg.getScreenCTM();if(!matrix)return;const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;const vx=point.matrixTransform(matrix.inverse()).x;let best=0;full.forEach((p,i)=>{if(Math.abs(x(p.date)-vx)<Math.abs(x(full[best].date)-vx))best=i});setCurrent(best)}} onMouseLeave={()=>setCurrent(null)} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={'净资产变化：' + points.map(p => p.complete ? `${p.date} ${signedMoney(p.net_cents)}` : `${p.date} 盘点不完整`).join('，')}>
     {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className={v === 0 ? 'axis' : 'grid'}/><text x={L - 6} y={y(v) + 3} textAnchor="end">{axis(v)}</text></g>)}
     {points.map((p, i) => i % every === 0 && <text key={p.date} x={x(p.date)} y={H - 6} textAnchor="middle">{p.date.slice(0, 7)}</text>)}
     {points.filter(p => !p.complete).map(p => <line key={p.snapshot_id} x1={x(p.date)} x2={x(p.date)} y1={T} y2={H - B} className="partial-mark"><title>{p.date}：缺 {p.missing} 个账户，总额未知，不画在曲线上</title></line>)}
     {full.length > 1 && <polyline points={full.map(p => `${x(p.date)},${y(Number(p.net_cents))}`).join(' ')} className="trend-line"/>}
     {shown&&<line x1={x(shown.date)} x2={x(shown.date)} y1={T} y2={H-B} className="partial-mark"/>}
     {full.map((p,i) => <circle key={p.snapshot_id} cx={x(p.date)} cy={y(Number(p.net_cents))} r={i===current?5:3} className="trend-dot"/>)}
-  </svg>{shown&&<div className="ui-tip" style={{left:`clamp(100px, ${x(shown.date)/W*100}%, calc(100% - 100px))`,top:`${y(Number(shown.net_cents))/H*100}%`}}>{shown.date}<b>{signedMoney(shown.net_cents)}</b><span>{changeLine(shown)}</span></div>}<span className="visually-hidden" aria-live="polite">{shown?`${shown.date}，${signedMoney(shown.net_cents)}，${changeLine(shown)}`:''}</span></div>;
+  </svg>{shown&&<div className="ui-tip" style={{left:`clamp(100px, ${plotLeft+x(shown.date)*plotScale}px, calc(100% - 100px))`,top:`${plotTop+y(Number(shown.net_cents))*plotScale}px`}}>{shown.date}<b>{signedMoney(shown.net_cents)}</b><span>{changeLine(shown)}</span></div>}</div><span className="visually-hidden" aria-live="polite" aria-atomic="true">{shown?`${shown.date}，${signedMoney(shown.net_cents)}，${changeLine(shown)}`:''}</span></>;
 }
 
 function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {

@@ -27,7 +27,7 @@
 .ui-metrics .ui-note{display:block;margin-top:2px;font-size:11px;color:var(--muted)}
 /* D：拆成独立小卡；B/C：同一张卡竖线分隔 */
 :root[data-style=bento] .ui-metrics{background:none;box-shadow:none;border:0}
-:root[data-style=bento] .ui-metrics>:is(div,article){background:var(--card);border-radius:14px;box-shadow:var(--surface-shadow)}
+:root[data-style=bento] .ui-metrics>:is(div,article){border:0;background:var(--card);border-radius:14px;box-shadow:var(--surface-shadow)}
 @media(max-width:1050px){.ui-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ui-metrics:not(.ui-tiles)>:is(div,article):nth-child(odd){border-left:0}.ui-metrics:not(.ui-tiles)>:is(div,article):nth-child(n+3){border-top:1px solid var(--line)}}
 
 /* 4.4 主数字卡 */

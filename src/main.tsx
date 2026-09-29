@@ -211,9 +211,17 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       const index=buttons.indexOf(e.target as HTMLButtonElement);
       buttons[e.key==='Home'?0:e.key==='End'?buttons.length-1:index<0?(e.key==='ArrowUp'?buttons.length-1:0):(index+(e.key==='ArrowUp'?-1:1)+buttons.length)%buttons.length].focus();
     };
+    const enterMenu = (e: Event) => {
+      const menu=e.target;
+      if (!(menu instanceof HTMLDetailsElement) || !menu.matches('.popover-menu[open]')) return;
+      // Arrow-key opening may already have focused the last item.
+      if (!menu.querySelector('[role="menu"]')?.contains(document.activeElement))
+        menu.querySelector<HTMLButtonElement>('[role="menu"] button:not(:disabled)')?.focus();
+    };
+    document.addEventListener('toggle', enterMenu, true);
     document.addEventListener('keydown', menuKeys);
     document.addEventListener('pointerdown', close); document.addEventListener('keydown', close);
-    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); document.removeEventListener('keydown', menuKeys); };
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); document.removeEventListener('keydown', menuKeys); document.removeEventListener('toggle', enterMenu, true); };
   }, []);
   const [expensesYear, setExpensesYear] = useState<number | null | undefined>(undefined);
   const loadedDay = useRef(today);
