@@ -1,6 +1,8 @@
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
+import { usePageBar } from './topbar';
+import { refocusHeading } from './topbar-model';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
@@ -16,7 +18,7 @@ import { useRestored } from './undo';
 
 type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; plan_amount: string; record: Payment | null };
 
-export function RecurringPage({ today, onEditingChange, source, onSourceDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void }) {
+export function RecurringPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [data, setData] = useState<Overview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
@@ -45,7 +47,16 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone }: 
     setPaying({plan_id:plan.id,plan_name:plan.fields.name,due_date:payment.due_date,plan_amount:plan.fields.amount_cents,record:payment}); return true;
   });
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
-  const closed = (saved: boolean) => { setEditing(null); setPaying(null); setPending(storedPending()); if (saved) reload(); };
+  const closed = (saved: boolean) => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPaying(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); };
+  const openNew = { label: '新增计划', plus: true, disabled: !!pending || !data, run: () => setEditing('new') };
+  usePageBar('recurring', { primary: openNew, newRecord: openNew, search: { key: 'recurring', placeholder: '搜索计划' } });
+  const consumedAutoNew = useRef(false);
+  useEffect(() => {
+    if (!autoNew || consumedAutoNew.current) return;
+    consumedAutoNew.current = true;
+    onAutoNewDone?.();
+    setEditing('new');
+  }, [autoNew]);
   const target = (d: Due): PaymentTarget => ({ plan_id: d.plan_id, plan_name: d.plan_name, due_date: d.due_date, plan_amount: d.amount_cents, record: null });
   async function skip(d: Due) {
     if (!data) return;
@@ -53,12 +64,15 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone }: 
     try { await submit({ command: 'recurring_payment_save', input, label: `${d.plan_name} ${d.due_date} 本期不付` }); setNotice(`已标记「${d.plan_name}」${d.due_date} 本期不付。`); reload(); }
     catch (e) { setPending(storedPending()); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
   }
+  // Search narrows the plan list only; due rows and the payment history stay
+  // complete because they are projections of the whole ledger, not the list.
+  const keyword = search.trim().toLowerCase();
+  const shownPlans = data?.plans.filter(p => !keyword || [p.fields.name, recurringCategoryText(p.fields.category), p.fields.notes].some(t => t.toLowerCase().includes(keyword))) ?? [];
   return <section className="stats-section wealth-section" aria-label="周期费用">
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="wealth-toolbar"><span className="muted small">计划只代表以后；到期不会自动记成已付，需逐期确认。</span>
-      <div className="wealth-actions"><button className="primary" disabled={!!pending || !data} onClick={() => setEditing('new')}><Icon name="plus"/><span>新增计划</span></button></div></div>
+    <div className="wealth-toolbar"><span className="muted small">计划只代表以后；到期不会自动记成已付，需逐期确认。</span></div>
     {error ? <article className="detail-section" role="alert"><p>周期费用读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !data ? <p role="status" className="muted">正在读取周期费用…</p>
       : !data.plans.length ? <div className="empty"><span className="empty-mark">¥</span><h2>还没有周期费用</h2><p>把房租、订阅、保险这类定期付的钱记成计划，就能看到每年的固定负担和下次什么时候付。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>新增计划</button></div>
@@ -76,12 +90,12 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone }: 
               <td><div className="check-in-state"><button disabled={!!pending} onClick={() => setPaying(target(d))}>确认已付</button><SkipButton disabled={!!pending} onSkip={() => void skip(d)}/></div></td>
             </tr>)}
           </tbody></table></article>}
-        <article className="detail-section overview-card"><div className="section-heading"><h3>计划</h3><span>点名称编辑；改金额或周期只影响尚未记录的期</span></div>
-          <table className="distribution-table"><thead><tr><th>名称</th><th>分类</th><th>周期</th><th>每期金额</th><th>下次</th><th>状态</th></tr></thead><tbody>
-            {data.plans.map(p => <tr key={p.id} className={p.fields.paused || (p.fields.end_date && p.fields.end_date < today) ? 'closed' : undefined}>
+        <article className="detail-section overview-card"><div className="section-heading"><h3>计划</h3><span>{keyword ? `找到 ${shownPlans.length} 条 · ` : ''}点名称编辑；改金额或周期只影响尚未记录的期</span></div>
+          {!shownPlans.length ? <p className="muted">当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></p> : <table className="distribution-table"><thead><tr><th>名称</th><th>分类</th><th>周期</th><th>每期金额</th><th>下次</th><th>状态</th></tr></thead><tbody>
+            {shownPlans.map(p => <tr key={p.id} className={p.fields.paused || (p.fields.end_date && p.fields.end_date < today) ? 'closed' : undefined}>
               <td><button className="link-cell" onClick={() => setEditing(p)}>{p.fields.name}</button></td><td>{recurringCategoryText(p.fields.category)}</td><td>{intervalText(p.fields.interval_months)}</td>
               <td className="amount">{money(p.fields.amount_cents)}</td><td>{p.fields.paused ? '—' : p.next_due ?? '—'}</td><td>{planStatus(p, today)}</td></tr>)}
-          </tbody></table></article>
+          </tbody></table>}</article>
         {data.payments.length > 0 && <article className="detail-section overview-card"><div className="section-heading"><h3>付款记录</h3><span>点期次更正；实付金额可与计划不同</span></div>
           <table className="distribution-table"><thead><tr><th>期次</th><th>计划</th><th>状态</th><th>实付日期</th><th>实付金额</th></tr></thead><tbody>
             {data.payments.map(p => <tr key={p.id} className={p.state === 'skipped' ? 'closed' : undefined}>

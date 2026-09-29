@@ -1,6 +1,8 @@
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
+import { usePageBar } from './topbar';
+import { refocusHeading } from './topbar-model';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
@@ -15,7 +17,7 @@ import type { VirtualAsset, VirtualFields, VirtualFilter, VirtualKind, VirtualOv
 import './wealth.css';
 import { useRestored } from './undo';
 
-export function VirtualPage({ today, onEditingChange, source, onSourceDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void }) {
+export function VirtualPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [data, setData] = useState<VirtualOverview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<VirtualAsset | 'new' | null>(null);
   const [filter, setFilter] = useState<VirtualFilter>('all');
@@ -41,14 +43,25 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone }: So
     setEditing(item); return true;
   });
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
-  const closed = (saved: boolean) => { setEditing(null); setPending(storedPending()); if (saved) reload(); };
-  const shown = data?.items.filter(v => matchesFilter(v, filter)) ?? [];
+  const closed = (saved: boolean) => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); };
+  const openNew = { label: '新增虚拟资产', plus: true, disabled: !!pending || !data, run: () => setEditing('new') };
+  usePageBar('virtual', { primary: openNew, newRecord: openNew, search: { key: 'virtual', placeholder: '搜索虚拟资产' } });
+  const consumedAutoNew = useRef(false);
+  useEffect(() => {
+    if (!autoNew || consumedAutoNew.current) return;
+    consumedAutoNew.current = true;
+    onAutoNewDone?.();
+    setEditing('new');
+  }, [autoNew]);
+  // The keyword intersects the status filter; the KPI counts stay whole-library.
+  const keyword = search.trim().toLowerCase();
+  const shown = (data?.items.filter(v => matchesFilter(v, filter)) ?? [])
+    .filter(v => !keyword || [v.fields.name, virtualKindText(v.fields.kind), v.fields.provider, v.fields.notes].some(t => t.toLowerCase().includes(keyword)));
   return <section className="stats-section wealth-section" aria-label="虚拟资产">
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="wealth-toolbar"><span className="muted small">状态按有效期自动推算；订阅关联周期计划后，有效期和费用都来自已确认的付款。</span>
-      <div className="wealth-actions"><button className="primary" disabled={!!pending || !data} onClick={() => setEditing('new')}><Icon name="plus"/><span>新增虚拟资产</span></button></div></div>
+    <div className="wealth-toolbar"><span className="muted small">状态按有效期自动推算；订阅关联周期计划后，有效期和费用都来自已确认的付款。</span></div>
     {error ? <article className="detail-section" role="alert"><p>虚拟资产读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !data ? <p role="status" className="muted">正在读取虚拟资产…</p>
       : !data.items.length ? <div className="empty"><span className="empty-mark">◇</span><h2>还没有虚拟资产</h2><p>把买断的软件、注册的域名和订阅的服务记下来，就能看到它们什么时候到期、一共花了多少。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>新增虚拟资产</button></div>
@@ -62,8 +75,8 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone }: So
         <div className="virtual-filter" role="group" aria-label="按状态筛选虚拟资产">
           {virtualFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}
         </div>
-        <article className="detail-section overview-card"><div className="section-heading"><h3>{virtualFilters.find(([k]) => k === filter)?.[1]}</h3><span>点名称编辑；停用和到期都保留档案</span></div>
-          {!shown.length ? <p className="muted">这一类目前没有虚拟资产。</p> : <table className="distribution-table virtual-table"><thead><tr><th>名称</th><th>类型</th><th>有效至</th><th>状态</th><th>已花费</th></tr></thead><tbody>
+        <article className="detail-section overview-card"><div className="section-heading"><h3>{virtualFilters.find(([k]) => k === filter)?.[1]}</h3><span>{keyword ? `找到 ${shown.length} 条 · ` : ''}点名称编辑；停用和到期都保留档案</span></div>
+          {!shown.length ? <p className="muted">{keyword ? <>当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></> : '这一类目前没有虚拟资产。'}</p> : <table className="distribution-table virtual-table"><thead><tr><th>名称</th><th>类型</th><th>有效至</th><th>状态</th><th>已花费</th></tr></thead><tbody>
             {shown.map(v => <tr key={v.id} className={v.status === 'stopped' ? 'closed' : undefined}>
               <td><button className="link-cell" onClick={() => setEditing(v)}>{v.fields.name}</button>{(v.fields.provider || v.plan_name) && <small className="muted">{[v.fields.provider, v.plan_name && `关联「${v.plan_name}」`].filter(Boolean).join(' · ')}</small>}</td>
               <td>{virtualKindText(v.fields.kind)}</td><td>{validityText(v)}</td>

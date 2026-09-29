@@ -296,8 +296,9 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   if (command === 'list_assets') {
     if (params.get('state') === 'error') throw { message: '虚构加载失败，用于验证错误页面。' };
     const query = args.query as Query;
+    const labelName = (id: string | null | undefined) => namedChoices.label.find(l => l.id === id)?.name ?? '';
     let found=records.filter(r => r.deleted === (query.filter === 'deleted'));
-    found=found.filter(r => (!query.search || [r.asset.name,...Object.values(r.details),catalog.categories.find(c=>c.id===r.classification?.category_id)?.name??''].join(' ').toLowerCase().includes(query.search.toLowerCase())) && (query.filter !== 'missing_price' || r.asset.price_cents === null) && (query.filter !== 'missing_date' || r.asset.purchase_date === null));
+    found=found.filter(r => (!query.search || [r.asset.name,...Object.values(r.details),catalog.categories.find(c=>c.id===r.classification?.category_id)?.name??'',labelName(r.preferences?.label_id)].join(' ').toLowerCase().includes(query.search.toLowerCase())) && (query.filter !== 'missing_price' || r.asset.price_cents === null) && (query.filter !== 'missing_date' || r.asset.purchase_date === null));
     if(query.filter==='active'||query.filter==='retired'||query.filter==='sold') found=found.filter(r=>(r.lifecycle?.state??'active')===query.filter);
     if(query.filter==='held') found=found.filter(r=>r.lifecycle?.state!=='sold');
     if(query.category?.mode==='uncategorized') found=found.filter(r=>!r.classification?.category_id);
@@ -357,7 +358,8 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   }
   // Unified trash listing: independently deleted records plus deleted assets.
   if (command === 'list_trash') {
-    const query = args.query as { filter: string; offset: number };
+    const query = args.query as { filter: string; offset: number; search?: string };
+    const kindLabel = (kind: string) => ({ asset: '资产', maintenance: '维护', warranty: '保障' } as Record<string, string>)[kind] ?? kind;
     const items: TrashEntry[] = [];
     for (const r of records) if (r.deleted) items.push({ kind:'asset', id:r.asset.id, title:r.asset.name, subtype:null, date:null, end_date:null, cost_cents:null, provider:null, deleted_at:r.deleted_at!, asset_id:null, asset_name:null, asset_deleted:true, asset_revision:r.asset.revision, asset_state:r.lifecycle?.state ?? 'active', contents:([['maintenance',r.maintenances.length],['warranty',(r.warranties??[]).length],['photo',r.photos.length]] as const).filter(([,n])=>n>0).map(([kind,count])=>({kind,count})) });
     const parentFacts = (assetId: string) => { const parent = records.find(r => r.asset.id === assetId); return parent ? { parent, state: parent.lifecycle?.state ?? 'active' } : null; };
@@ -365,7 +367,10 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     for (const entry of deletedWarranties) { const facts = parentFacts(entry.assetId); if (!facts) continue; items.push({ kind:'warranty', id:entry.id, title:entry.snapshot.fields.provider, subtype:entry.snapshot.fields.kind, date:entry.snapshot.fields.start_date, end_date:entry.snapshot.fields.end_date, cost_cents:null, provider:entry.snapshot.fields.provider, deleted_at:entry.deleted_at, asset_id:facts.parent.asset.id, asset_name:facts.parent.asset.name, asset_deleted:facts.parent.deleted, asset_revision:facts.parent.asset.revision, asset_state:facts.state, contents:[] }); }
     const found = query.filter === 'all' ? items : items.filter(i => i.kind === query.filter);
     found.sort((a,b) => b.deleted_at.localeCompare(a.deleted_at) || a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id));
-    return { generation, items: found.slice(query.offset, query.offset + 100), total: found.length };
+    // Same backend contract: filter the full result, then paginate the count.
+    const needle = (query.search ?? '').trim().toLowerCase();
+    const matched = needle ? found.filter(i => [i.title, kindLabel(i.kind), i.asset_name ?? ''].some(t => t.toLowerCase().includes(needle))) : found;
+    return { generation, items: matched.slice(query.offset, query.offset + 100), total: matched.length };
   }
   if (command === 'purge_trash') {
     const input = args.input as { kind: string | null; id: string };

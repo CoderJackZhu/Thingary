@@ -1,6 +1,8 @@
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
+import { usePageBar } from './topbar';
+import { refocusHeading } from './topbar-model';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
@@ -15,7 +17,7 @@ import type { Expense, ExpenseFields, ExpenseSave, ExpenseView, Line } from './e
 import './wealth.css';
 import { useRestored } from './undo';
 
-export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSourceDone, initialYear }: SourceProps & { initialYear?: number | null; onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void }) {
+export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSourceDone, initialYear, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { initialYear?: number | null; onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const thisYear = Number(today.slice(0, 4));
   const [year, setYear] = useState<number | null>(initialYear === undefined ? thisYear : initialYear);
   const [view, setView] = useState<ExpenseView | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
@@ -48,13 +50,29 @@ export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSo
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
   const years = [...new Set([thisYear, ...(view?.years ?? [])])].sort((a, b) => b - a);
   const period = year === null ? '全部' : `${year} 年`;
+  // The keyword filters the result list only; every KPI keeps the period's own
+  // figures (search never turns into a subtotal; 3.5.2).
+  const keyword = search.trim().toLowerCase();
+  const lineMatches = (l: Line) => !keyword || [l.title, categoryText(l), l.notes ?? '', sourceLabel[l.source]].some(t => t.toLowerCase().includes(keyword));
+  const shownLines = view?.lines.filter(lineMatches) ?? [];
+  const shownUndated = view?.undated.filter(lineMatches) ?? [];
+  const foundCount = shownLines.length + shownUndated.length;
+  const openNew = { label: '记一笔支出', plus: true, disabled: !!pending || !view, run: () => setEditing('new') };
+  usePageBar('expenses', { primary: openNew, newRecord: openNew, search: { key: 'expenses', placeholder: '搜索支出' } });
+  // The menu hand-off opens the same editor as this page's own buttons.
+  const consumedAutoNew = useRef(false);
+  useEffect(() => {
+    if (!autoNew || consumedAutoNew.current) return;
+    consumedAutoNew.current = true;
+    onAutoNewDone?.();
+    setEditing('new');
+  }, [autoNew]);
   return <section className="stats-section wealth-section" aria-label="重要支出">
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <div className="wealth-toolbar">
       <div className="segmented" role="group" aria-label="支出期间"><button aria-pressed={year === null} onClick={() => setYear(null)}>全部</button>{years.map(y => <button key={y} aria-pressed={year === y} onClick={() => setYear(y)}>{y}</button>)}</div>
-      <div className="wealth-actions"><button className="primary" disabled={!!pending || !view} onClick={() => setEditing('new')}><Icon name="plus"/><span>记一笔支出</span></button></div>
     </div>
     {error ? <article className="detail-section" role="alert"><p>重要支出读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !view ? <p role="status" className="muted">正在读取重要支出…</p>
@@ -68,21 +86,22 @@ export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSo
         {(view.undated.length > 0 || view.unknown_amount_count > 0) && <p className="muted small">{view.undated.length > 0 && `日期待补 ${view.undated.length} 条（已知 ${money(view.undated_cents)}），不归入任何期间。`}{view.unknown_amount_count > 0 && `${view.unknown_amount_count} 条购入或维护金额未知，未计入。`}</p>}
         {view.months.length > 0 && <article className="detail-section overview-card"><div className="section-heading"><h3>各月支出</h3><span>{year} 年 · 不含日期待补</span></div><MonthBars months={view.months}/></article>}
         {!view.lines.length && !view.undated.length ? <div className="empty"><span className="empty-mark">¥</span><h2>{year === null ? '还没有重要支出' : `${year} 年没有记录`}</h2><p>物品的购入和维护会自动出现在这里；旅行、培训等没有对应物品的大额花费，可以单独记一笔。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>记一笔支出</button></div>
-          : <LineTable lines={view.lines} undated={view.undated} onOpen={line => void open(line)}/>}
+          : keyword && !foundCount ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
+          : <LineTable lines={shownLines} undated={shownUndated} found={keyword ? foundCount : null} onOpen={line => void open(line)}/>}
       </>}
-    {editing && view && <ExpenseDialog expense={editing === 'new' ? null : editing} generation={view.generation} today={today} onClose={saved => { setEditing(null); setPending(storedPending()); if (saved) reload(); }}/>}
+    {editing && view && <ExpenseDialog expense={editing === 'new' ? null : editing} generation={view.generation} today={today} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;
 }
 
-function LineTable({ lines, undated, onOpen }: { lines: Line[]; undated: Line[]; onOpen: (l: Line) => void }) {
+function LineTable({ lines, undated, found, onOpen }: { lines: Line[]; undated: Line[]; found: number | null; onOpen: (l: Line) => void }) {
   const row = (l: Line) => <tr key={l.source + l.id} className={countsAsSpending(l) ? undefined : 'closed'}>
     <td>{l.date ?? <span className="muted">日期待补</span>}</td>
     <td>{l.source === 'payment' || l.source === 'virtual' ? l.title : <button className="link-cell" onClick={() => onOpen(l)}>{l.title}</button>}</td>
     <td>{sourceLabel[l.source]}</td><td>{categoryText(l)}</td>
     <td className="amount">{l.amount_cents === null ? <span className="muted">金额未知</span> : l.source === 'refund' || l.source === 'sale' ? '−' + money(l.amount_cents) : money(l.amount_cents)}</td>
   </tr>;
-  return <table className="distribution-table expense-lines"><thead><tr><th>日期</th><th>名称</th><th>来源</th><th>分类</th><th>金额</th></tr></thead>
-    <tbody>{lines.map(row)}{undated.map(row)}</tbody></table>;
+  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="distribution-table expense-lines"><thead><tr><th>日期</th><th>名称</th><th>来源</th><th>分类</th><th>金额</th></tr></thead>
+    <tbody>{lines.map(row)}{undated.map(row)}</tbody></table></>;
 }
 
 function MonthBars({ months }: { months: ExpenseView['months'] }) {
@@ -131,7 +150,7 @@ function ExpenseDialog({ expense, generation, today, onClose }: { expense: Expen
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="expense-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">财富 · 重要支出</p><h2 id="expense-heading">{expense ? '编辑支出' : '记一笔支出'}</h2><p className="muted">记录没有对应物品的大额花费。买了物品请直接新增资产，购入会自动计入。</p></div><CloseButton type="button" aria-label="关闭支出表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{expense && !stuck && <DeleteButton label="删除" disabled={busy} kind="expense" id={expense.id} revision={expense.revision} generation={generation} name={`支出 ${expense.fields.title}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存支出'}</button>}</div></header>
+    <header><div><p className="eyebrow">财富 · 重要支出</p><h2 id="expense-heading">{expense ? '编辑支出' : '记一笔支出'}</h2><p className="muted">记录没有对应物品的大额花费。买了物品请直接新增物品，购入会自动计入。</p></div><CloseButton type="button" aria-label="关闭支出表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{expense && !stuck && <DeleteButton label="删除" disabled={busy} kind="expense" id={expense.id} revision={expense.revision} generation={generation} name={`支出 ${expense.fields.title}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存支出'}</button>}</div></header>
     <section className="form-block">
       <FormRow label="名称"><input id="expense-title" aria-label="支出名称" maxLength={80} value={f.title} disabled={frozen} onChange={e => set('title', e.target.value)} placeholder="例如 日本旅行"/></FormRow>
       <FormRow label="日期"><DateInput id="expense-date" value={f.date} max={today} disabled={frozen} onChange={v => set('date', v)}/></FormRow>

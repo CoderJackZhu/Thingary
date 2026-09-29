@@ -432,6 +432,7 @@ mod unified_tests {
             .list_trash(&crate::trash::TrashQuery {
                 filter: "wish".into(),
                 offset: 0,
+                search: String::new(),
             })
             .unwrap();
         assert_eq!(trashed.items[0].title, "虚构显示器支架");

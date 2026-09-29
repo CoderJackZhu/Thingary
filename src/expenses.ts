@@ -2,7 +2,7 @@ import { recurringCategories } from './recurring.ts';
 export type ExpenseFields = { title: string; date: string; amount_cents: string; category: string; notes: string; refund_cents: string | null; refund_date: string | null; asset_id: string | null };
 export type Expense = { id: string; fields: ExpenseFields; revision: number; asset_name: string | null; asset_deleted: boolean };
 export type ExpenseSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: ExpenseFields };
-export type Line = { source: 'purchase' | 'maintenance' | 'expense' | 'linked' | 'refund' | 'sale' | 'payment' | 'virtual'; id: string; asset_id: string | null; title: string; category: string | null; date: string | null; amount_cents: string | null };
+export type Line = { source: 'purchase' | 'maintenance' | 'expense' | 'linked' | 'refund' | 'sale' | 'payment' | 'virtual'; id: string; asset_id: string | null; title: string; category: string | null; date: string | null; amount_cents: string | null; notes?: string | null };
 export type ExpenseView = { generation: string; year: number | null; years: number[]; lines: Line[]; undated: Line[]; months: { month: string; spent_cents: string; refund_cents: string }[]; spent_cents: string; refund_cents: string; net_cents: string; sale_cents: string; undated_cents: string; unknown_amount_count: number };
 
 export const expenseCategories = [['travel', '旅行'], ['education', '教育培训'], ['health', '医疗健康'], ['home', '家居服务'], ['digital', '数字服务'], ['gift', '礼物人情'], ['other', '其他']] as const;

@@ -63,6 +63,9 @@ pub struct Line {
     pub category: Option<String>,
     pub date: Option<String>,
     pub amount_cents: Option<String>,
+    /// The standalone expense's notes (expense/linked/refund rows); search
+    /// matches it per U12, other sources carry none.
+    pub notes: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -167,29 +170,30 @@ fn read(c: &Connection, id: &str) -> Result<Option<Expense>> {
 
 // Every branch reads only effective rows, mirroring the timeline projection.
 // Items excluded from the statistics page stay out of expenses too (X-D05).
+// The trailing notes column carries the standalone expense's notes for search.
 const LINES: &str = "
-SELECT 'purchase',a.id,a.id,a.name,c.name,a.purchase_date,a.price_cents
+SELECT 'purchase',a.id,a.id,a.name,c.name,a.purchase_date,a.price_cents,NULL
   FROM assets a LEFT JOIN categories c ON c.id=a.category_id
   WHERE a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)
 UNION ALL
-SELECT 'maintenance',m.id,a.id,a.name||CASE WHEN trim(m.title)='' THEN '' ELSE ' · '||m.title END,c.name,m.date,m.cost_cents
+SELECT 'maintenance',m.id,a.id,a.name||CASE WHEN trim(m.title)='' THEN '' ELSE ' · '||m.title END,c.name,m.date,m.cost_cents,NULL
   FROM maintenances m JOIN assets a ON a.id=m.asset_id LEFT JOIN categories c ON c.id=a.category_id
   WHERE m.deleted_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)
 UNION ALL
-SELECT CASE WHEN e.asset_id IS NULL THEN 'expense' ELSE 'linked' END,e.id,e.asset_id,e.title,e.category,e.date,e.amount_cents
+SELECT CASE WHEN e.asset_id IS NULL THEN 'expense' ELSE 'linked' END,e.id,e.asset_id,e.title,e.category,e.date,e.amount_cents,e.notes
   FROM expenses e WHERE e.deleted_at IS NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))
 UNION ALL
-SELECT 'refund',e.id,e.asset_id,e.title,e.category,e.refund_date,e.refund_cents
+SELECT 'refund',e.id,e.asset_id,e.title,e.category,e.refund_date,e.refund_cents,e.notes
   FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))
 UNION ALL
-SELECT 'payment',p.id,NULL,r.name,r.category,p.paid_date,p.amount_cents
+SELECT 'payment',p.id,NULL,r.name,r.category,p.paid_date,p.amount_cents,NULL
   FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id
   WHERE p.deleted_at IS NULL AND r.deleted_at IS NULL AND p.state='paid'
 UNION ALL
-SELECT 'virtual',v.id,NULL,v.name,'digital',v.purchase_date,v.price_cents
+SELECT 'virtual',v.id,NULL,v.name,'digital',v.purchase_date,v.price_cents,NULL
   FROM virtual_assets v WHERE v.deleted_at IS NULL AND v.plan_id IS NULL AND v.price_cents IS NOT NULL
 UNION ALL
-SELECT 'sale',s.id,a.id,a.name,c.name,s.date,s.price_cents
+SELECT 'sale',s.id,a.id,a.name,c.name,s.date,s.price_cents,NULL
   FROM sales s JOIN assets a ON a.id=s.asset_id LEFT JOIN categories c ON c.id=a.category_id
   WHERE s.revoked_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)";
 
@@ -280,6 +284,7 @@ impl Store {
                     category: r.get(4)?,
                     date: r.get(5)?,
                     amount_cents: r.get::<_, Option<i64>>(6)?.map(|v| v.to_string()),
+                    notes: r.get(7)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;

@@ -200,6 +200,7 @@ fn a_deleted_wish_disappears_everywhere_and_returns_whole() {
         .list_trash(&TrashQuery {
             filter: "wish".into(),
             offset: 0,
+            search: String::new(),
         })
         .unwrap()
         .items
@@ -360,6 +361,7 @@ fn permanent_deletion_removes_rows_and_unshared_files() {
         .list_trash(&TrashQuery {
             filter: "asset".into(),
             offset: 0,
+            search: String::new(),
         })
         .unwrap()
         .items
@@ -386,7 +388,8 @@ fn permanent_deletion_removes_rows_and_unshared_files() {
     assert_eq!(
         s.list_trash(&TrashQuery {
             filter: "all".into(),
-            offset: 0
+            offset: 0,
+            search: String::new(),
         })
         .unwrap()
         .total,

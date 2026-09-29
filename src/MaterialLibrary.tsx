@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import { pendingUpload, uploadAndResolve, uploadKey, type PendingUpload } from './material-upload';
 import { filterMaterials, materialCategories, type MaterialEntry, type MaterialSource } from './materials';
+import { usePageBar } from './topbar';
 
 // Shared thumbnail: renders the managed preview from the material library.
 export function MaterialThumb({ id, alt, generation, onSelect, disabled = false }: { id: string; alt: string; generation: string; onSelect?: () => void; disabled?: boolean }) {
@@ -22,11 +23,10 @@ export function MaterialThumb({ id, alt, generation, onSelect, disabled = false 
     {error && <span className="material-thumb-error" role="alert"><span title={error}>图片读取失败</span><button type="button" disabled={disabled} aria-label={'重新读取：' + alt} onClick={() => setAttempt(n => n + 1)}>重试</button></span>}</>;
 }
 
-export function MaterialLibrary({ generation, onNotice, onBusyChange }: { generation: string; onNotice: (message: string) => void; onBusyChange: (busy: boolean) => void }) {
+export function MaterialLibrary({ generation, onNotice, onBusyChange, search, onSearch }: { generation: string; onNotice: (message: string) => void; onBusyChange: (busy: boolean) => void; search: string; onSearch: (value: string) => void }) {
   const [entries, setEntries] = useState<MaterialEntry[] | null>(null);
   const [source, setSource] = useState<MaterialSource>('icon');
   const [category, setCategory] = useState('全部');
-  const [search, setSearch] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -40,6 +40,13 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange }: { genera
   useEffect(readRecovery, []);
   const [confirming, setConfirming] = useState<string | null>(null);
   useEffect(() => { onBusyChange(busy || !!pending || !!confirming || !!recoveryError); return () => onBusyChange(false); }, [busy, pending, confirming, recoveryError, onBusyChange]);
+  // The topbar carries 添加图片 and 搜索素材; this page keeps filter state only.
+  usePageBar('materials', {
+    primary: { label: '添加图片', kbd: true, disabled: busy || !!pending || !generation || !recoveryReady, run: () => void upload() },
+    newRecord: { label: '添加图片', disabled: busy || !!pending || !generation || !recoveryReady, run: () => void upload() },
+    search: { key: 'materials', placeholder: '搜索素材' },
+  });
+  const shownEntries = entries ? filterMaterials(entries, source, category, search, []) : null;
   const reload = useCallback(() => {
     setError('');
     invoke<MaterialEntry[]>('list_materials').then(list => setEntries(list)).catch(e => { setEntries(null); setError(errorMessage(e)); });
@@ -48,7 +55,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange }: { genera
   function completed(entry: MaterialEntry | null) {
     localStorage.removeItem(uploadKey);
     setPending(null);
-    if (entry) { setSource('custom'); setCategory('全部'); setSearch(''); }
+    if (entry) { setSource('custom'); setCategory('全部'); onSearch(''); }
     onNotice(entry ? `已上传素材「${entry.name}」。` : '核对完成：没有保存素材，可重新上传。');
     reload();
   }
@@ -94,16 +101,16 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange }: { genera
       <h2 id="materials-heading">素材库</h2>
       <p className="muted">新增或编辑资产时，点击物品名称旁的图标即可选择。内置素材为示意图，非实物照片；也可以上传自己的图片作为素材。</p>
       <div className="material-library-actions">
-        <button type="button" className="primary" disabled={busy || !!pending || !generation || !recoveryReady} onClick={() => void upload()}>{busy ? '正在处理…' : '上传素材'}</button>
         <span className="muted small">JPEG、PNG、HEIC、WebP · 每张 20 MiB。上传后随档案保存在本机。</span>
       </div>
       <div className="picker-sources" role="group" aria-label="素材类型">{([['icon','图标'],['dimensional','立体图标'],['custom','我的图片']] as const).map(([id,label]) => <button type="button" key={id} aria-pressed={source === id} onClick={() => { setSource(id); setCategory('全部'); }}>{label}</button>)}</div>
-      <div className="picker-filters"><label className="picker-search"><input aria-label="搜索素材" placeholder="搜索名称或关键词" value={search} onChange={e => setSearch(e.target.value)}/></label>{source !== 'custom' && <div className="picker-categories" role="group" aria-label="素材分类">{materialCategories.map(name => <button key={name} type="button" aria-pressed={category === name} onClick={() => setCategory(name)}>{name}</button>)}</div>}</div>
-      {entries && !filterMaterials(entries, source, category, search, []).length && <p className="picker-empty">没有匹配的素材。</p>}
+      <div className="picker-filters">{source !== 'custom' && <div className="picker-categories" role="group" aria-label="素材分类">{materialCategories.map(name => <button key={name} type="button" aria-pressed={category === name} onClick={() => setCategory(name)}>{name}</button>)}</div>}</div>
+      {entries && shownEntries && shownEntries.length > 0 && <p className="muted small" role="status">{search.trim() ? `找到 ${shownEntries.length} 条素材` : `${shownEntries.length} 个素材`}</p>}
+      {entries && shownEntries && !shownEntries.length && <p className="picker-empty">当前条件下没有找到记录。{search.trim() && <button type="button" onClick={() => onSearch('')}>清除搜索</button>}</p>}
       {recoveryError && <div role="alert">{recoveryError}<button type="button" onClick={readRecovery}>重新读取核对记录</button></div>}
       {pending && <div className="confirm" role="status"><p>有一笔素材上传结果待核对。</p><button type="button" disabled={busy || !generation} onClick={() => void resolveUpload()}>{pending.generation === generation ? '核对上传结果' : '关闭旧资料上传提示'}</button></div>}
       {error ? <div role="alert" className="confirm"><p>{error}</p><button type="button" onClick={reload}>重新读取</button></div> : entries ? <div className="material-library-grid">
-        {filterMaterials(entries, source, category, search, []).map(entry => <div className="material-card" key={entry.id}>
+        {(shownEntries ?? []).map(entry => <div className="material-card" key={entry.id}>
           <MaterialThumb id={entry.id} generation={generation} alt={entry.builtin ? `${entry.name}示意图（非实物照片）` : entry.name}/>
           <span className="material-card-name" title={entry.name}>{entry.name}</span>
           <span className="material-card-kind">{entry.builtin ? '内置示意图' : '自定义'}</span>

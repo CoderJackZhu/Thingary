@@ -262,6 +262,7 @@ fn one_time_prices_reach_expenses_timeline_and_backups() {
         .list_trash(&TrashQuery {
             filter: "wealth".into(),
             offset: 0,
+            search: String::new(),
         })
         .unwrap();
     assert!(listed

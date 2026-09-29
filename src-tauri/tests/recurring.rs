@@ -425,6 +425,7 @@ fn plans_and_payments_delete_restore_and_reach_the_timeline() {
         s.list_trash(&TrashQuery {
             filter: "wealth".into(),
             offset: 0,
+            search: String::new(),
         })
         .unwrap()
         .items

@@ -9,6 +9,8 @@ import type { SourceTarget } from './source';
 import { useRestored } from './undo';
 import { ReviewView } from './ReviewView';
 import { overviewView } from './review';
+import { usePageBar } from './topbar';
+import type { BarMenu } from './topbar';
 import type { ReviewPage } from './review';
 
 type CategoryShare = { id: string | null; name: string; slot: number | null; count: number; known_cents: string; unknown_price_count: number };
@@ -73,10 +75,15 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   </section>;
 }
 
-export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, restoreScroll, modules = allModules }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore }) {
+export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, restoreScroll, modules = allModules, newMenu, onOpenNewMenu }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void }) {
   const [view, setView] = useState(() => { try { return overviewView(localStorage.getItem('possio.overview-view.v1')); } catch { return 'combined'; } });
   const changeView = (value: 'combined' | 'physical') => { setView(value); try { localStorage.setItem('possio.overview-view.v1', value); } catch { /* The current choice remains usable without persistence. */ } };
   const shared = { generation, today, version, onOpenSource, onBrowse, restoreScroll };
+  // 综合回顾's main action is the 新增记录 menu; the physical view falls back
+  // to the App default (新增物品) by publishing null.
+  usePageBar('overview', !financeOff(modules) && view === 'combined' && newMenu
+    ? { menu: newMenu, newRecord: { label: '新增记录', run: () => onOpenNewMenu?.() } }
+    : null);
   // With every finance module off the combined review would only repeat the physical one.
   if (financeOff(modules)) return <PhysicalOverview {...shared}/>;
   return <><div className="overview-switch"><div className="segmented" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合回顾</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>实物概览</button></div></div>{view === 'combined' ? <ReviewView {...shared} modules={modules} year={year} onYear={onYear} onNavigate={onNavigate}/> : <PhysicalOverview {...shared}/>}</>;

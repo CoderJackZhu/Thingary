@@ -1,6 +1,8 @@
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
+import { usePageBar } from './topbar';
+import { refocusHeading } from './topbar-model';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
@@ -31,8 +33,11 @@ export function usePendingReceipt(reload: () => void) {
 }
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
-export function WealthPage({ today, onEditingChange, source, onSourceDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void }) {
+export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
+  // Typing a search on 概览/盘点记录 moves to the account list it filters (3.5.1).
+  const lastSearch = useRef(search);
+  useEffect(() => { if (search !== lastSearch.current && search.trim()) setTab('accounts'); lastSearch.current = search; }, [search]);
   const [summary, setSummary] = useState<Summary | null>(null), [accounts, setAccounts] = useState<Account[] | null>(null);
   const [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [sourceSnapshot, setSourceSnapshot] = useState<string | undefined>();
@@ -63,23 +68,47 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone }: Sou
     setSourceSnapshot(target.id); setCheckIn(point.date); return true;
   });
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
-  if (checkIn) return <CheckIn expectedId={sourceSnapshot} date={checkIn} today={today} onClose={saved => { setCheckIn(null); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setTab('history'); reload(); } }}/>;
-  const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
+  // Hooks must run on every render: the check-in view is an early return below.
   const open = accounts?.filter(a => !a.fields.closed_on) ?? [];
+  const newAccount = { label: '新增账户', plus: true, disabled: !!pending || !accounts, run: () => setEditing('new') };
+  usePageBar('wealth', checkIn ? {} : open.length
+    ? { primary: { label: '开始盘点', disabled: !!pending || !open.length, run: () => setCheckIn(today) }, secondary: newAccount, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } }
+    : { primary: { ...newAccount, kbd: true }, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } });
+  // The menu hand-off opens the same editor the page's own buttons use.
+  const consumedAutoNew = useRef(false);
+  useEffect(() => {
+    if (!autoNew || consumedAutoNew.current) return;
+    consumedAutoNew.current = true;
+    onAutoNewDone?.();
+    setEditing('new');
+  }, [autoNew]);
+  if (checkIn) return <CheckIn expectedId={sourceSnapshot} date={checkIn} today={today} onClose={saved => { setCheckIn(null); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setTab('history'); reload(); } refocusHeading(); }}/>;
+  const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
+  const closeAccount = (saved: boolean) => {
+    (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close();
+    setEditing(null); setPending(storedPending());
+    if (saved) reload();
+    refocusHeading();
+  };
+  // Search filters the account list only: the check-in set is every effective
+  // account and never depends on the keyword (3.5.1/3.5.2).
+  const keyword = search.trim().toLowerCase();
+  const shownAccounts = accounts?.filter(a => !keyword || [a.fields.name, kindLabel(a.fields.kind), a.fields.institution, a.fields.notes].some(t => t.toLowerCase().includes(keyword))) ?? [];
   return <section className="stats-section wealth-section" aria-label="财富">
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <div className="wealth-toolbar">
       <div className="segmented" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['history', '盘点记录']] as const).map(([k, l]) => <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}</div>
-      <div className="wealth-actions"><button disabled={!!pending || !accounts} onClick={() => setEditing('new')}><Icon name="plus"/><span>新增账户</span></button><button className="primary" disabled={!!pending || !open.length} onClick={() => setCheckIn(today)}><span>开始盘点</span></button></div>
     </div>
     {error ? <article className="detail-section" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
       : tab === 'overview' ? <Overview summary={summary} accounts={accounts} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today}/>
-      : tab === 'accounts' ? <Accounts accounts={accounts} onEdit={setEditing} onNew={() => setEditing('new')}/>
+      : tab === 'accounts' ? (keyword && !shownAccounts.length
+        ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
+        : <Accounts accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
       : <History points={points} onOpen={setCheckIn} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
-    {editing && summary && <AccountDialog account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onClose={saved => { setEditing(null); setPending(storedPending()); if (saved) reload(); }}/>}
+    {editing && summary && <AccountDialog account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onClose={closeAccount}/>}
   </section>;
 }
 
@@ -146,15 +175,15 @@ export function NetChart({ points }: { points: Point[] }) {
   </svg>;
 }
 
-function Accounts({ accounts, onEdit, onNew }: { accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void }) {
+function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {
   if (!accounts.length) return <div className="empty"><h2>还没有账户</h2><p>先添加一个需要定期核对的账户或负债。</p><button className="primary" onClick={onNew}>新增账户</button></div>;
-  return <table className="distribution-table wealth-accounts"><thead><tr><th>账户</th><th>类型</th><th>计入净资产</th><th>最近金额</th><th>状态</th></tr></thead><tbody>{accounts.map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
+  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="distribution-table wealth-accounts"><thead><tr><th>账户</th><th>类型</th><th>计入净资产</th><th>最近金额</th><th>状态</th></tr></thead><tbody>{accounts.map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
     <td><button className="link-cell" onClick={() => onEdit(a)}>{a.fields.name}</button>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}</td>
     <td>{a.fields.side === 'liability' ? '负债 · ' : ''}{kindLabel(a.fields.kind)}</td>
     <td>{a.fields.counted ? '计入' : '不计入'}</td>
     <td>{a.latest ? <>{money(a.latest.amount_cents)}<small className="muted"> · {a.latest.date}</small></> : <span className="muted">尚未盘点</span>}</td>
     <td>{a.fields.closed_on ? `${a.fields.closed_on} 停用` : `${a.fields.opened_on} 起`}</td>
-  </tr>)}</tbody></table>;
+  </tr>)}</tbody></table></>;
 }
 
 function History({ points, onOpen, onNew, canStart }: { points: Point[]; onOpen: (date: string) => void; onNew: () => void; canStart: boolean }) {

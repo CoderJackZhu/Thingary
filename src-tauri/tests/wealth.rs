@@ -585,6 +585,7 @@ fn trash_kinds(s: &Store) -> Vec<(String, String)> {
     s.list_trash(&possio_lib::trash::TrashQuery {
         filter: "wealth".into(),
         offset: 0,
+        search: String::new(),
     })
     .unwrap()
     .items

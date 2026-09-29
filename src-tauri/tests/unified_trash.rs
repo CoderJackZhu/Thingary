@@ -117,6 +117,7 @@ fn trash(s: &Store, filter: &str) -> possio_lib::trash::TrashPage {
     s.list_trash(&TrashQuery {
         filter: filter.into(),
         offset: 0,
+        search: String::new(),
     })
     .unwrap()
 }
@@ -640,6 +641,7 @@ fn mixed_deletes_keep_files_and_survive_backup_restore() {
         .list_trash(&TrashQuery {
             filter: "all".into(),
             offset: 0,
+            search: String::new(),
         })
         .unwrap();
     assert_eq!(list.total, 3);
@@ -723,6 +725,7 @@ fn unified_list_filters_orders_and_pages_stably() {
         .list_trash(&TrashQuery {
             filter: "all".into(),
             offset: 1,
+            search: String::new(),
         })
         .unwrap();
     assert_eq!(page.total, 3);
@@ -732,6 +735,7 @@ fn unified_list_filters_orders_and_pages_stably() {
         .list_trash(&TrashQuery {
             filter: "all".into(),
             offset: 3,
+            search: String::new(),
         })
         .unwrap();
     assert_eq!(beyond.items.len(), 0);
@@ -739,6 +743,7 @@ fn unified_list_filters_orders_and_pages_stably() {
         .list_trash(&TrashQuery {
             filter: "everything".into(),
             offset: 0,
+            search: String::new(),
         })
         .is_err());
 }

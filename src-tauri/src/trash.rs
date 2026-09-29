@@ -63,6 +63,8 @@ pub struct Content {
 pub struct TrashQuery {
     pub filter: String,
     pub offset: u32,
+    #[serde(default)]
+    pub search: String,
 }
 #[derive(Serialize)]
 pub struct TrashPage {
@@ -310,11 +312,16 @@ impl Store {
 
     /// Unified view over every independently deleted row (assets, maintenances,
     /// warranties). Children hidden only by a deleted parent never appear here.
+    /// A search word filters the full result before pagination: `total` counts
+    /// every match, never just the current page.
     pub fn list_trash(&self, q: &TrashQuery) -> Result<TrashPage> {
         if !["all", "asset", "maintenance", "warranty", "wish", "wealth"]
             .contains(&q.filter.as_str())
         {
             return Err(Error::new("QUERY", "不支持的筛选"));
+        }
+        if q.search.chars().count() > 200 {
+            return Err(Error::new("SEARCH", "搜索内容最多 200 字"));
         }
         let c = self.conn()?;
         let mut entries: Vec<Entry> = Vec::new();
@@ -468,6 +475,20 @@ impl Store {
                 .then_with(|| a.kind.cmp(&b.kind))
                 .then_with(|| a.id.cmp(&b.id))
         });
+        // Literal substring match over the shown title, the row's type label
+        // and the parent name (same fields the panel displays; U12).
+        let needle = q.search.trim().to_lowercase();
+        if !needle.is_empty() {
+            entries.retain(|e| {
+                [
+                    e.title.to_lowercase(),
+                    kind_label(&e.kind),
+                    e.asset_name.as_deref().unwrap_or("").to_lowercase(),
+                ]
+                .into_iter()
+                .any(|t| t.contains(&needle))
+            });
+        }
         let total = entries.len() as i64;
         let items = entries
             .into_iter()
@@ -545,4 +566,23 @@ fn query_entries(
         .query_map([], build)?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     Ok(rows)
+}
+
+/// The row type label shown in the panel (entryDisplay's typeLabel); search
+/// matches this text so users can find rows by what the page calls them.
+fn kind_label(kind: &str) -> String {
+    match kind {
+        "asset" => "资产",
+        "maintenance" => "维护",
+        "warranty" => "保障",
+        "wish" => "心愿",
+        "snapshot" => "盘点",
+        "account" => "账户",
+        "expense" => "支出",
+        "plan" => "周期计划",
+        "payment" => "周期付款",
+        "virtual" => "虚拟资产",
+        other => other,
+    }
+    .to_string()
 }

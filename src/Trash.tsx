@@ -4,6 +4,7 @@ import { errorMessage } from './asset';
 import { submit as submitWealth, storedPending } from './wealth';
 import type { AssetRecord } from './asset';
 import type { CloseIntent } from './AssetEditor';
+import { usePageBar } from './topbar';
 import { contentsText, entryDisplay, recordKindLabel, recordPendingKey, restoresViaWealth, stateText, storedRecordTrash, trashFilters } from './unified-trash';
 import type { RecordTrashAction, RecordTrashChange, TrashEntry, TrashPage } from './unified-trash';
 export type { RecordKind, RecordTrashAction, RecordTrashChange, TrashEntry, TrashPage } from './unified-trash';
@@ -19,7 +20,7 @@ export function storedTrash(): TrashAction | null {
   return null;
 }
 
-export function TrashPanel({ version, onRestoreAsset, onRestoreRecord }: { version: number; onRestoreAsset: (id: string, generation: string) => void; onRestoreRecord: (entry: TrashEntry, generation: string) => void }) {
+export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestoreRecord }: { version: number; search: string; onSearch: (value: string) => void; onRestoreAsset: (id: string, generation: string) => void; onRestoreRecord: (entry: TrashEntry, generation: string) => void }) {
   const [page, setPage] = useState<TrashPage | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [offset, setOffset] = useState(0);
@@ -45,14 +46,18 @@ export function TrashPanel({ version, onRestoreAsset, onRestoreRecord }: { versi
     catch (e) { setWealthNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setWealthBusy(false); }
   }
+  // A new keyword restarts the list from its first page.
+  useEffect(() => { setOffset(0); }, [search]);
+  // 最近删除 takes a search box but never a new-record entry (3.5.1).
+  usePageBar('trash', { search: { key: 'trash', placeholder: '搜索已删除记录' } });
   useEffect(() => {
     let current = true; setLoading(true); setError('');
-    void invoke<TrashPage>('list_trash', { query: { filter, offset } })
+    void invoke<TrashPage>('list_trash', { query: { filter, offset, search } })
       .then(result => { if (!current) return; if (offset > 0 && !result.items.length) setOffset(Math.max(0, Math.ceil(result.total / 100) * 100 - 100)); else setPage(result); })
       .catch(e => { if (current) setError(errorMessage(e)); })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
-  }, [filter, offset, version, retry]);
+  }, [filter, offset, version, retry, search]);
   const total = page?.total ?? 0;
   return <section className="trash-panel" aria-label="最近删除">
     <div className="trash-header"><p className="muted">误删的物品、维护、保障记录、心愿以及盘点、账户、支出和周期费用都会在这里，可以随时找回。资料与图片会保留，不会自动清空；只有永久删除才会真正移除。</p>
@@ -61,8 +66,8 @@ export function TrashPanel({ version, onRestoreAsset, onRestoreRecord }: { versi
     <div className="segmented trash-filter" role="group" aria-label="按类型筛选最近删除">
       {trashFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => { setFilter(key); setOffset(0); }}>{label}</button>)}
     </div>
-    {error ? <div className="empty" role="alert"><h2>最近删除读取失败</h2><p>{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : loading ? <p role="status">正在读取最近删除…</p> : !page?.items.length ? <div className="empty"><h2>最近删除是空的</h2><p>{filter === 'all' ? '删除的物品和记录会出现在这里。' : '这一类目前没有删除项。'}</p></div> : <>
-      <p className="collection-caption">{total} 项 · 按删除时间从新到旧</p>
+    {error ? <div className="empty" role="alert"><h2>最近删除读取失败</h2><p>{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : loading ? <p role="status">正在读取最近删除…</p> : !page?.items.length ? (search.trim() ? <div className="empty"><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button>{filter !== 'all' && <button onClick={() => { onSearch(''); setFilter('all'); setOffset(0); }}>重置筛选</button>}</div> : <div className="empty"><h2>最近删除是空的</h2><p>{filter === 'all' ? '删除的物品和记录会出现在这里。' : '这一类目前没有删除项。'}</p></div>) : <>
+      <p className="collection-caption">{search.trim() ? `找到 ${total} 条` : `${total} 项`} · 按删除时间从新到旧</p>
       <ul className="trash-list">{page.items.map(entry => {
         const display = entryDisplay(entry);
         return <li key={entry.kind + entry.id}>

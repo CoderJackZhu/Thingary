@@ -249,7 +249,10 @@ impl Store {
             crate::taxonomy::CategoryFilter::Category { id } => (2, Some(id.as_str())),
         };
         let direction = if q.descending { "DESC" } else { "ASC" };
-        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id LEFT JOIN categories c ON c.id=a.category_id WHERE {visibility} AND ({filter}) AND ({warranty}) AND ({label}) AND (?2=0 OR (?2=1 AND a.category_id IS NULL) OR (?2=2 AND a.category_id=?3)) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'') || ' ' || coalesce(c.name,'')), lower(?1)) > 0");
+        // The search haystack carries every searchable text field, including the
+        // tag's display name (U12 added 标签): the label lives in preferences,
+        // its name in named_choices.
+        let from=format!("FROM assets a LEFT JOIN asset_profiles p ON a.id=p.asset_id LEFT JOIN categories c ON c.id=a.category_id LEFT JOIN named_choices lbl ON lbl.kind='label' AND lbl.id=(SELECT json_extract(payload,'$.label_id') FROM asset_preferences WHERE asset_id=a.id) WHERE {visibility} AND ({filter}) AND ({warranty}) AND ({label}) AND (?2=0 OR (?2=1 AND a.category_id IS NULL) OR (?2=2 AND a.category_id=?3)) AND instr(lower(a.name || ' ' || coalesce(p.brand,'') || ' ' || coalesce(p.model,'') || ' ' || coalesce(p.serial_number,'') || ' ' || coalesce(p.notes,'') || ' ' || coalesce(c.name,'') || ' ' || coalesce(lbl.name,'')), lower(?1)) > 0");
         let total = if uses_today {
             self.conn()?.query_row(
                 &format!("SELECT count(*) {from}"),

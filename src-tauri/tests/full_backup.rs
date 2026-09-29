@@ -90,7 +90,7 @@ fn wish(s: &mut Store, name: &str, cover: bool) -> wishlist::WishlistItem {
 fn snapshot(s: &Store) -> Value {
     let mut v = json!({
         "assets": s.query_assets(&possio_lib::catalog::Query { search: String::new(), filter: "all".into(), sort: "created".into(), descending: true, offset: 0, category: Default::default(), warranty: "all".into(), label: None }, TODAY).unwrap().items,
-        "trash": s.list_trash(&TrashQuery { filter: "all".into(), offset: 0 }).unwrap().items,
+        "trash": s.list_trash(&TrashQuery { filter: "all".into(), offset: 0, search: String::new() }).unwrap().items,
         "timeline": [s.timeline(&timeline::Query { filter: "all".into(), asset_id: None }, TODAY).unwrap().dated, s.timeline(&timeline::Query { filter: "all".into(), asset_id: None }, TODAY).unwrap().undated],
         "taxonomy": s.taxonomy_snapshot().unwrap().categories,
         "materials": s.material_entries().unwrap(),
@@ -402,6 +402,7 @@ fn ac31_every_p0_relation_restores_into_an_empty_library() {
         .list_trash(&TrashQuery {
             filter: "all".into(),
             offset: 0,
+            search: String::new(),
         })
         .unwrap()
         .items
