@@ -173,7 +173,8 @@ function timelinePreview(args: Record<string, unknown>) {
   const wanted = timelineKindSets[filter];
   if (!wanted || !['all', 'physical', 'wish', 'wealth', 'expense'].includes(domain)) throw { message: '时间轴筛选无效' };
   const keep = (e: PreviewEvent) => wanted.includes(e.kind) && (filter !== 'wishlist' || e.kind !== 'purchase' || !!e.wishlist_id);
-  const domainFiltered = [...physicalTimelineEvents(), ...financialTimelineEvents()].filter(e => (domain === 'all' || e.domain === domain) && keep(e));
+  const assetId = (args.query as { asset_id?: string })?.asset_id;
+  const domainFiltered = [...physicalTimelineEvents(), ...financialTimelineEvents()].filter(e => (!assetId || e.asset_id === assetId) && (domain === 'all' || e.domain === domain) && keep(e));
   const byDate = (a: PreviewEvent, b: PreviewEvent) => b.date!.localeCompare(a.date!) || b.id.localeCompare(a.id);
   const dated = domainFiltered.filter(e => e.date).sort(byDate);
   // Year options follow the domain selection, never the active year.
@@ -291,7 +292,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     return { changed, skipped };
   }
   if (command === 'overview') return physicalPreview(String(args.scope));
-  if (command === 'timeline_view') return timelinePreview(args);
+  if (command === 'timeline_view' || command === 'list_timeline') return timelinePreview(args);
   if (command === 'validate_source') {
     // ?source=missing demonstrates the failed-source path: notice plus refresh,
     // never a same-named substitute record.
