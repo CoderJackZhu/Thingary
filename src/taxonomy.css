@@ -17,14 +17,14 @@
 }
 
 .taxonomy-shell h1 {
-  font-size: 25px;
+  font-size:20px;
   letter-spacing: -0.5px;
   margin: 0;
-  font-weight: 650;
+  font-weight:600;
 }
 
 .taxonomy-shell .taxonomy-eyebrow {
-  font-size: 11px;
+  font-size:11px;
   letter-spacing: 1px;
   color: var(--muted);
   margin: 0;
@@ -50,7 +50,7 @@
   background: transparent;
   border-radius: 7px 7px 0 0;
   padding: 10px 14px;
-  font-size: 13px;
+  font-size:13px;
   color: var(--muted);
   cursor: pointer;
 }
@@ -75,7 +75,7 @@
 
 .taxonomy-panel .taxonomy-status {
   color: var(--muted);
-  font-size: 12px;
+  font-size:13px;
   margin: 0;
   display: flex;
   gap: 12px;
@@ -102,13 +102,13 @@
 }
 
 .taxonomy-field > label {
-  font-size: 12px;
-  font-weight: 550;
+  font-size:13px;
+  font-weight:500;
   color: var(--text);
 }
 
 .taxonomy-field .taxonomy-help {
-  font-size: 11px;
+  font-size:11px;
   color: var(--muted);
   line-height: 1.5;
   min-height: 14px;
@@ -137,7 +137,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size:13px;
   color: var(--text);
   cursor: pointer;
 }
@@ -195,13 +195,13 @@
 }
 
 .taxonomy-list li > strong {
-  font-size: 13px;
+  font-size:13px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .taxonomy-list .taxonomy-meta {
-  font-size: 11px;
+  font-size:11px;
   color: var(--muted);
   display: flex;
   gap: 8px;
@@ -235,7 +235,7 @@
   background: transparent;
   border-radius: 0;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size:13px;
   color: var(--text);
 }
 
@@ -249,7 +249,7 @@
   border: 1px dashed var(--line);
   border-radius: 10px;
   color: var(--muted);
-  font-size: 12px;
+  font-size:13px;
 }
 
 .taxonomy-notice {
@@ -258,7 +258,7 @@
   padding: 10px 14px;
   background: var(--soft);
   color: var(--text);
-  font-size: 12px;
+  font-size:13px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -271,7 +271,7 @@
 }
 
 .taxonomy-notice strong {
-  font-size: 12px;
+  font-size:13px;
 }
 
 .taxonomy-locked {
@@ -280,7 +280,7 @@
   padding: 10px 14px;
   background: var(--mark);
   color: var(--text);
-  font-size: 12px;
+  font-size:13px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -310,12 +310,12 @@
 
 .taxonomy-confirm h2 {
   margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 650;
+  font-size:15px;
+  font-weight:600;
 }
 
 .taxonomy-confirm .taxonomy-eyebrow {
-  font-size: 11px;
+  font-size:11px;
   letter-spacing: 1px;
   color: var(--muted);
   margin: 0 0 6px;
@@ -328,7 +328,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px 14px;
-  font-size: 12px;
+  font-size:13px;
   margin: 12px 0;
 }
 
@@ -351,7 +351,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size:13px;
   cursor: pointer;
   background: var(--bg);
 }
@@ -383,7 +383,7 @@
 }
 
 .taxonomy-select-hint {
-  font-size: 11px;
+  font-size:11px;
   color: var(--error);
   margin-top: 6px;
 }
@@ -403,7 +403,7 @@
   border: none;
   background: transparent;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size:13px;
   border-radius: 6px;
   color: var(--muted);
 }
@@ -423,7 +423,7 @@
 }
 
 .taxonomy-field-row .taxonomy-helper {
-  font-size: 12px;
+  font-size:13px;
   color: var(--muted);
   display: flex;
   flex-direction: column;
@@ -431,7 +431,7 @@
 }
 
 .taxonomy-field-row .taxonomy-helper small {
-  font-size: 11px;
+  font-size:11px;
 }
 
 .taxonomy-field-row .taxonomy-input {
@@ -492,7 +492,7 @@
   padding: 10px 14px;
   background: var(--soft);
   border: 1px solid var(--line);
-  font-size: 12px;
+  font-size:13px;
   color: var(--text);
 }
 
@@ -510,7 +510,7 @@
 }
 
 .taxonomy-preview .taxonomy-control-row > label {
-  font-size: 12px;
+  font-size:13px;
   color: var(--muted);
 }
 

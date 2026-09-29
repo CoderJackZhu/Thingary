@@ -25,7 +25,7 @@
 :root[data-style=paper]{
   color-scheme:light;
   --display:"Songti SC","STSong","Noto Serif SC",Georgia,serif;
-  --num:"Iowan Old Style","New York",Georgia,"Songti SC",serif;
+  --num:"Iowan Old Style","New York",Georgia,"Songti SC",serif;--h-track:1px;
   --bg:#f7f3ea;--side:#efe8da;--card:#fbf8f1;--soft:#ede6d6;--mark:#ebe3d2;--image:#ebe3d2;
   --text:#2a2621;--muted:#6b6154;--line:#dcd2be;--line-soft:#e8e1d1;
   --accent:#9a4320;--button-bg:#9a4320;--button-text:#fbf8f1;--selected:#efe4d2;
