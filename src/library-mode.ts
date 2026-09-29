@@ -1,13 +1,13 @@
 export type DemoStatus = { active: boolean; available: boolean; started: boolean };
 export const resetKey = 'possio.demo-reset-request.v1';
 export const sectionKey = 'possio.library-section.v1';
-/** Set when “新增资产” is used in the sample: the sample takes no new assets, so the app returns to the personal library and opens the form there. */
+/** Set when “新增物品” is used in the sample: the sample takes no new assets, so the app returns to the personal library and opens the form there. */
 export const newAssetKey = 'possio.new-asset-after-switch.v1';
 export const sections = ['overview', 'stats', 'wealth', 'expenses', 'recurring', 'virtual', 'assets', 'wishlist', 'timeline', 'materials', 'trash', 'settings'] as const;
 export type Section = typeof sections[number];
 export function initialSection(storage: Pick<Storage, 'getItem' | 'removeItem'>): Section {
   const saved = storage.getItem(sectionKey); storage.removeItem(sectionKey);
-  return sections.find(s => s === saved) ?? 'assets';
+  return sections.find(s => s === saved) ?? 'overview';
 }
 /** Only durable submitted receipts participate; theme/view settings are not requests. */
 export function pendingGenerations(storage: Pick<Storage, 'length' | 'key' | 'getItem'>): string[] {

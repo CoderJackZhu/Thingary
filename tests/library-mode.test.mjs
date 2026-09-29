@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {initialSection,pendingGenerations,sectionKey,resetKey} from '../src/library-mode.ts';
 const storage=(entries)=>{const m=new Map(entries);return {get length(){return m.size},key:i=>[...m.keys()][i],getItem:k=>m.get(k)??null,removeItem:k=>m.delete(k)}};
 test('switch destination is consumed once and rejects unknown sections',()=>{
- const s=storage([[sectionKey,'recurring']]);assert.equal(initialSection(s),'recurring');assert.equal(initialSection(s),'assets');
- assert.equal(initialSection(storage([[sectionKey,'untrusted']])),'assets');
+ const s=storage([[sectionKey,'recurring']]);assert.equal(initialSection(s),'recurring');assert.equal(initialSection(s),'overview');
+ assert.equal(initialSection(storage([[sectionKey,'untrusted']])),'overview');
 });
 test('receipts recover their originating library across business modules without treating preferences as writes',()=>{
  const s=storage([
