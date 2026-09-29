@@ -1,15 +1,8 @@
 .overview-switch{display:flex;margin:0 22px 16px;gap:12px;align-items:center;flex-wrap:wrap}
 .overview-switch .segmented button{width:auto;height:auto;padding:7px 16px}
 .review-section{padding:0 22px 28px;color:var(--text);font-size:13px}
-.review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.review-card{padding:16px 18px;border:1px solid var(--line);background:var(--card);border-radius:10px;min-width:0}
-.review-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.review-top h3{font-size:13px;margin:0;font-weight:500}.review-top>.muted{font-size:11px}
-.review-value{font-family:'Avenir Next',sans-serif;font-size:28px;line-height:1.35;font-weight:500;letter-spacing:-.6px;margin:8px 0 4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.review-value small{font:13px -apple-system,sans-serif;letter-spacing:0;color:var(--muted);margin-left:8px}
 /* 持有金额与件数并排，各自的说明在自己下方：综合回顾卡各占一半；实物概览指标格较窄，两列按内容排开，说明可换行。 */
 .held-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 24px}.held-split>*>:first-child,.held-split p span{white-space:nowrap}
-.overview-kpis .held-split{grid-template-columns:auto auto;justify-content:start;column-gap:20px}
 .review-sub{font-size:11px;color:var(--muted);margin:4px 0;line-height:1.7;overflow-wrap:anywhere}
 .review-footer{display:flex;justify-content:flex-end;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap}
 button.review-action{border:0;background:transparent;color:var(--accent);padding:3px 0;font-size:11px;white-space:normal;text-align:left;min-height:24px}
@@ -17,25 +10,10 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 .review-list{list-style:none;padding:0;margin:8px 0 0}.review-list li{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid var(--line)}.review-list li>div:first-child{min-width:0}.review-list strong{font-size:13px;font-weight:500;overflow-wrap:anywhere}.review-links{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0}
 .review-empty{padding:24px 0;color:var(--muted);line-height:1.8}.review-notice{padding:12px 14px;margin-bottom:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;line-height:1.8}.review-error{color:var(--error);margin:8px 0}.review-section select{font-size:11px;padding:3px 5px;max-width:110px}
 .review-section button:focus-visible,.overview-switch button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-@media(max-width:900px){.review-grid{grid-template-columns:1fr}.review-value{font-size:20px}.review-list li{flex-wrap:wrap}.review-links{align-items:flex-start}}
+@media(max-width:900px){.review-list li{flex-wrap:wrap}.review-links{align-items:flex-start}}
 
-/* U15e: two primary facts share one surface; auxiliary spending stays below. */
-.review-headline{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--line);border-radius:10px;background:var(--card);box-shadow:var(--card-shadow)}
-.review-primary{padding:18px 20px;min-width:0}.review-primary+ .review-primary{border-left:1px solid var(--line)}
-.review-primary:only-child{grid-column:1/-1}.review-primary .review-footer{margin-top:8px}
-.review-secondary{display:flex;flex-wrap:wrap;gap:0;margin-top:12px;border-block:1px solid var(--line)}
-.review-secondary article{flex:1 1 260px;min-width:0;padding:12px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
-.review-secondary article+article{border-left:1px solid var(--line)}.review-secondary h3{font-size:11px;color:var(--muted)}
-.review-secondary-value{font:500 20px/1.4 var(--display);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.review-secondary-value small{font:400 11px var(--display);color:var(--muted)}
-.review-secondary .review-sub{margin:0}.review-secondary .review-action{margin-top:auto}
-.review-primary .held-split{grid-template-columns:minmax(0,1fr) auto;gap:12px}.review-primary .held-split>*>:first-child{white-space:normal}
-@media(max-width:900px){.review-primary{padding:14px}.review-primary .held-split{grid-template-columns:1fr}.review-primary .held-split .review-value{margin-top:4px}.review-secondary article{padding:12px 14px;flex-basis:200px}}
 /* U15e 收尾：变化行着色；辅助指标与其他页指标行同样式（一张卡、竖线分隔） */
 .review-change.pos{color:var(--positive)}.review-change.neg{color:var(--error)}
-.review-secondary{border:1px solid var(--line);border-radius:10px;background:var(--card);box-shadow:var(--card-shadow);overflow:hidden}
-.review-secondary .review-top{display:flex;align-items:center;gap:8px;width:100%}
-.review-secondary .review-top select{margin-left:auto;font-size:11px;padding:2px 6px}
-.review-secondary h3{margin:0;font-weight:400}
 /* U16c 综合回顾（规范 6.1）：两张主卡 → 辅助指标 → 待关注＋近期记录 */
 .review-section.u16{display:grid;gap:16px}
 .review-heroes{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}

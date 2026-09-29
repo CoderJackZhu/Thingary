@@ -68,27 +68,26 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
     {wealthNotice && <p className="notice" role="status">{wealthNotice}</p>}
     {error ? <div className="empty" role="alert"><h2>最近删除读取失败</h2><p>{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : loading ? <p role="status">正在读取最近删除…</p> : !page?.items.length ? (search.trim() ? <div className="empty"><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button>{filter !== 'all' && <button onClick={() => { onSearch(''); setFilter('all'); setOffset(0); }}>重置筛选</button>}</div> : <div className="empty"><h2>最近删除是空的</h2><p>{filter === 'all' ? '删除的物品和记录会出现在这里。' : '这一类目前没有删除项。'}</p></div>) : <>
       <p className="collection-caption">{search.trim() ? `找到 ${total} 条` : `${total} 项`} · 按删除时间从新到旧</p>
-      <ul className="trash-list">{page.items.map(entry => {
+      <div className="ui-card trash-table-wrap"><table className="ui-table trash-table"><thead><tr><th>名称与说明</th><th>类型</th><th>删除日期</th><th>操作</th></tr></thead><tbody>{page.items.map(entry => {
         const display = entryDisplay(entry);
-        return <li key={entry.kind + entry.id}>
-          <div>
+        return <tr key={entry.kind + entry.id}>
+          <td><span className="ui-avatar" aria-hidden="true">{display.title.slice(0,1)}</span><div>
             <h2>{display.title}</h2>
             <p className="muted small">{display.typeLabel}{entry.kind !== 'asset' && entry.asset_name ? ` · 所属：${entry.asset_name}` : ''}{entry.asset_id ? ` · 状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}` : ''}</p>
             {display.facts.map(fact => <p className="small" key={fact}>{fact}</p>)}
             {contentsText(entry.contents) && <p className="small">{contentsText(entry.contents)}，恢复时一起回来</p>}
             {display.parentBlocked && <p className="small" role="note">所属物品仍在最近删除中，请先恢复所属资产。</p>}
-            <p className="muted small">删除于 {entry.deleted_at ? new Date(entry.deleted_at).toLocaleString('zh-CN') : '时间待补充'}</p>
-          </div>
-          <div className="trash-actions">{display.parentBlocked
+            </div></td><td><span className="ui-tag">{display.typeLabel}</span></td><td className="trash-date">{entry.deleted_at ? entry.deleted_at.slice(0,10) : '时间待补充'}</td>
+          <td><div className="trash-actions">{display.parentBlocked
             ? <button onClick={() => entry.asset_id && onRestoreAsset(entry.asset_id, page.generation)} aria-label={'恢复所属物品 ' + (entry.asset_name ?? '')}>先恢复所属物品</button>
             : restoresViaWealth(entry.kind)
               ? <button disabled={wealthBusy} onClick={() => void restoreWealth(entry, page.generation)} aria-label={'恢复 ' + display.title}>恢复{display.typeLabel}</button>
             : entry.kind === 'asset'
               ? <button onClick={() => onRestoreAsset(entry.id, page.generation)} aria-label={'恢复 ' + entry.title}>恢复物品</button>
               : <button onClick={() => onRestoreRecord(entry, page.generation)} aria-label={'恢复 ' + display.title}>恢复记录</button>}
-            {armed === entry.kind + entry.id ? <button className="primary danger" disabled={wealthBusy} onClick={() => void purge(entry, page.generation)}>确认永久删除</button> : <button className="danger" disabled={wealthBusy} onClick={() => setArmed(entry.kind + entry.id)} aria-label={'永久删除 ' + display.title}>永久删除…</button>}</div>
-        </li>; })}
-      </ul><div className="pagination"><button disabled={!offset} onClick={() => setOffset(n => Math.max(0, n - 100))}>上一页</button><span>第 {Math.floor(offset / 100) + 1} 页</span><button disabled={offset + 100 >= total} onClick={() => setOffset(n => n + 100)}>下一页</button></div>
+            {armed === entry.kind + entry.id ? <button className="primary danger" disabled={wealthBusy} onClick={() => void purge(entry, page.generation)}>确认永久删除</button> : <button className="danger" disabled={wealthBusy} onClick={() => setArmed(entry.kind + entry.id)} aria-label={'永久删除 ' + display.title}>永久删除…</button>}</div></td>
+        </tr>; })}
+      </tbody></table></div><div className="pagination"><button disabled={!offset} onClick={() => setOffset(n => Math.max(0, n - 100))}>上一页</button><span>第 {Math.floor(offset / 100) + 1} 页</span><button disabled={offset + 100 >= total} onClick={() => setOffset(n => n + 100)}>下一页</button></div>
     </>}
   </section>;
 }

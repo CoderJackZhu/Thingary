@@ -1,7 +1,7 @@
-import { createPortal } from 'react-dom';
+import { HeaderSlot } from './HeaderSlot';
 import { allModules, financeOff, type Modules } from './modules';
 import { useEffect } from 'react';
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { Info } from './FormControls';
@@ -75,13 +75,6 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
       </article>
     </div>
   </section>;
-}
-
-// U16c：视图切换放在页头右侧（规范 6.1），状态仍归本页。
-function HeaderSlot({ children }: { children: ReactNode }) {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useEffect(() => { setHost(document.getElementById('page-header-actions')); }, []);
-  return host ? createPortal(children, host) : null;
 }
 
 export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, restoreScroll, modules = allModules, newMenu, onOpenNewMenu }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void }) {

@@ -73,32 +73,32 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    {error ? <article className="detail-section" role="alert"><p>周期费用读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
+    {error ? <article className="ui-card ui-content" role="alert"><p>周期费用读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !data ? <p role="status" className="muted">正在读取周期费用…</p>
       : !data.plans.length ? <div className="empty"><span className="empty-mark">¥</span><h2>还没有周期费用</h2><p>把房租、订阅、保险这类定期付的钱记成计划，就能看到每年的固定负担和下次什么时候付。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>新增计划</button></div>
       : <>
-        <div className="stats-kpis wealth-kpis">
+        <div className="ui-metrics ui-card">
           <article><span>待确认</span><strong>{data.due.length}<small> 期</small></strong><em>{data.upcoming.length ? `另有 ${data.upcoming.length} 期 7 天内到期` : '7 天内没有到期'}</em></article>
           <article><span>当前年化负担</span><strong>{money(data.annual_cents)}</strong><em>进行中的计划，不是已付</em></article>
           <article><span>月均</span><strong>{money(data.monthly_cents)}</strong><em>年化 ÷ 12</em></article>
           <article><span>未来 12 个月预计</span><strong>{money(data.next12_cents)}</strong><em>按实际到期日，含结束与暂停</em></article>
         </div>
-        {(data.due.length > 0 || data.upcoming.length > 0) && <article className="detail-section overview-card"><div className="section-heading"><h3>到期</h3><span>确认已付后才计入重要支出<Info text="计划只代表以后；到期不会自动记成已付，需逐期确认。"/></span></div>
-          <table className="distribution-table recurring-due"><thead><tr><th>到期日</th><th>计划</th><th>分类</th><th>计划金额</th><th/></tr></thead><tbody>
-            {[...data.due.map(d => [d, true] as const), ...data.upcoming.map(d => [d, false] as const)].map(([d, overdue]) => <tr key={d.plan_id + d.due_date} data-overdue={overdue}>
+        {(data.due.length > 0 || data.upcoming.length > 0) && <article className="ui-card ui-content"><div className="ui-section-head"><h3>到期</h3><span>确认已付后才计入重要支出<Info text="计划只代表以后；到期不会自动记成已付，需逐期确认。"/></span></div>
+          <table className="ui-table recurring-due"><thead><tr><th>到期日</th><th>计划</th><th>分类</th><th>计划金额</th><th/></tr></thead><tbody>
+            {[...data.due.map(d => [d, true] as const), ...data.upcoming.map(d => [d, false] as const)].map(([d, overdue], index) => <tr key={d.plan_id + d.due_date} data-overdue={overdue}>
               <td>{d.due_date}{overdue ? <small className="muted"> 待确认</small> : <small className="muted"> 即将到期</small>}</td><td>{d.plan_name}</td><td>{recurringCategoryText(d.category)}</td><td className="amount">{money(d.amount_cents)}</td>
-              <td><div className="check-in-state"><button disabled={!!pending} onClick={() => setPaying(target(d))}>确认已付</button><SkipButton disabled={!!pending} onSkip={() => void skip(d)}/></div></td>
+              <td><div className="check-in-state"><button className={overdue&&index===0?"primary":undefined} disabled={!!pending} onClick={() => setPaying(target(d))}>确认已付</button><SkipButton disabled={!!pending} onSkip={() => void skip(d)}/></div></td>
             </tr>)}
           </tbody></table></article>}
         <div className="segmented recurring-tabs" role="group" aria-label="计划与付款记录"><button aria-pressed={tab === 'plans'} onClick={() => setTab('plans')}>计划 {data.plans.length}</button><button aria-pressed={tab === 'payments'} onClick={() => setTab('payments')}>付款记录 {data.payments.length}</button></div>
-        {tab === 'plans' && <article className="detail-section overview-card"><div className="section-heading"><h3>计划</h3><span>{keyword ? `找到 ${shownPlans.length} 条 · ` : ''}点名称编辑；改金额或周期只影响尚未记录的期</span></div>
-          {!shownPlans.length ? <p className="muted">当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></p> : <table className="distribution-table"><thead><tr><th>名称</th><th>分类</th><th>周期</th><th>每期金额</th><th>下次</th><th>状态</th></tr></thead><tbody>
+        {tab === 'plans' && <article className="ui-card ui-content"><div className="ui-section-head"><h3>计划</h3><span>{keyword ? `找到 ${shownPlans.length} 条 · ` : ''}点名称编辑；改金额或周期只影响尚未记录的期</span></div>
+          {!shownPlans.length ? <p className="muted">当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></p> : <table className="ui-table"><thead><tr><th>名称</th><th>分类</th><th>周期</th><th>每期金额</th><th>下次</th><th>状态</th></tr></thead><tbody>
             {shownPlans.map(p => <tr key={p.id} className={p.fields.paused || (p.fields.end_date && p.fields.end_date < today) ? 'closed' : undefined}>
               <td><button className="link-cell" onClick={() => setEditing(p)}>{p.fields.name}</button></td><td>{recurringCategoryText(p.fields.category)}</td><td>{intervalText(p.fields.interval_months)}</td>
               <td className="amount">{money(p.fields.amount_cents)}</td><td>{p.fields.paused ? '—' : p.next_due ?? '—'}</td><td>{planStatus(p, today)}</td></tr>)}
           </tbody></table>}</article>}
-        {tab === 'payments' && (!data.payments.length ? <p className="muted">还没有付款记录。到期后点「确认已付」或「本期不付」就会记在这里。</p> : <article className="detail-section overview-card"><div className="section-heading"><h3>付款记录</h3><span>点期次更正；实付金额可与计划不同</span></div>
-          <table className="distribution-table"><thead><tr><th>期次</th><th>计划</th><th>状态</th><th>实付日期</th><th>实付金额</th></tr></thead><tbody>
+        {tab === 'payments' && (!data.payments.length ? <p className="muted">还没有付款记录。到期后点「确认已付」或「本期不付」就会记在这里。</p> : <article className="ui-card ui-content"><div className="ui-section-head"><h3>付款记录</h3><span>点期次更正；实付金额可与计划不同</span></div>
+          <table className="ui-table"><thead><tr><th>期次</th><th>计划</th><th>状态</th><th>实付日期</th><th>实付金额</th></tr></thead><tbody>
             {data.payments.map(p => <tr key={p.id} className={p.state === 'skipped' ? 'closed' : undefined}>
               <td><button className="link-cell" onClick={() => { const plan = data.plans.find(x => x.id === p.plan_id); setPaying({ plan_id: p.plan_id, plan_name: p.plan_name, due_date: p.due_date, plan_amount: plan?.fields.amount_cents ?? '', record: p }); }}>{p.due_date}</button>{p.off_schedule && <small className="muted"> 计划外</small>}</td>
               <td>{p.plan_name}</td><td>{p.state === 'paid' ? '已付' : '本期不付'}</td><td>{p.paid_date ?? '—'}</td><td className="amount">{p.amount_cents === null ? '—' : money(p.amount_cents)}</td></tr>)}

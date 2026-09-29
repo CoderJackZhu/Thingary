@@ -1,11 +1,11 @@
 .settings-section.settings-categories{display:grid;grid-template-columns:132px minmax(0,1fr);gap:24px;align-items:start}
 .settings-categories-nav{display:grid;gap:4px;position:sticky;top:16px}
-.settings-categories-nav button{border:0;background:transparent;color:var(--muted);font-size:13px;text-align:left;padding:10px 12px;border-radius:6px}
-.settings-categories-nav button[aria-current=page]{background:var(--selected);color:var(--accent);font-weight:500}
+.settings-categories-nav button{border:0;background:transparent;color:var(--muted);font-size:13px;text-align:left;padding:10px 12px;border-radius:var(--ctl-radius);display:flex;align-items:center;gap:8px}
+.settings-categories-nav button[aria-current=page]{background:var(--nav-active-bg);color:var(--nav-active-fg);font-weight:var(--nav-active-w);box-shadow:var(--nav-active-bar),var(--nav-active-shadow)}
 .settings-categories-nav button:hover:not(:disabled){background:var(--soft)}
 .settings-categories-nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .settings-content{min-width:0}.settings-content>[hidden]{display:none}
-.settings-categories .taxonomy-shell,.settings-categories .data-management,.settings-categories .module-settings,.settings-categories .demo-settings{margin:0;box-shadow:none;background:transparent;border:0;padding:0}
+.settings-categories .taxonomy-shell,.settings-categories .data-management,.settings-categories .module-settings,.settings-categories .demo-settings{margin:0}
 .settings-categories .taxonomy-shell{gap:12px}.settings-categories .taxonomy-panel{padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
 .settings-categories .data-management .data-action{background:var(--card)}
 .settings-categories .theme-cards{margin-top:16px}

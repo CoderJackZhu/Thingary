@@ -20,11 +20,12 @@ import { useRestored } from './undo';
 export function VirtualPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [data, setData] = useState<VirtualOverview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<VirtualAsset | 'new' | null>(null);
+  const [selectedId,setSelectedId]=useState<string|null>(null), [stopping,setStopping]=useState(false);
   const [filter, setFilter] = useState<VirtualFilter>('all');
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!pending || busy); return () => onEditingChange(false); }, [editing, pending, busy, onEditingChange]);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || stopping); return () => onEditingChange(false); }, [editing, pending, busy, stopping, onEditingChange]);
   useEffect(() => {
     let live = true; setError('');
     invoke<VirtualOverview>('virtual_overview').then(o => { if (live) setData(o); }).catch(e => { if (live) setError(errorMessage(e)); });
@@ -44,7 +45,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   });
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
   const closed = (saved: boolean) => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); };
-  const openNew = { label: '新增虚拟资产', plus: true, disabled: !!pending || !data, run: () => setEditing('new') };
+  const openNew = { label: '新增虚拟资产', plus: true, disabled: !!pending || busy || stopping || !data, run: () => setEditing('new') };
   usePageBar('virtual', { primary: openNew, newRecord: openNew, search: { key: 'virtual', placeholder: '搜索虚拟资产' } });
   const consumedAutoNew = useRef(false);
   useEffect(() => {
@@ -57,15 +58,23 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   const keyword = search.trim().toLowerCase();
   const shown = (data?.items.filter(v => matchesFilter(v, filter)) ?? [])
     .filter(v => !keyword || [v.fields.name, virtualKindText(v.fields.kind), v.fields.provider, v.fields.notes].some(t => t.toLowerCase().includes(keyword)));
+  const selected = shown.find(v=>v.id===selectedId);
+  async function stop(item: VirtualAsset) {
+    if (!data || stopping || pending || busy) return;
+    setStopping(true);
+    try { await submit({command:'virtual_save',input:{request_id:crypto.randomUUID(),generation:data.generation,id:item.id,expected_revision:item.revision,fields:{...item.fields,stopped_on:today}} as VirtualSave,label:'停用 '+item.fields.name}); reload(); }
+    catch(e){setError(errorMessage(e));setPending(storedPending());}
+    finally{setStopping(false);}
+  }
   return <section className="stats-section wealth-section" aria-label="虚拟资产">
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
-        {error ? <article className="detail-section" role="alert"><p>虚拟资产读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
+        {error ? <article className="ui-card ui-content" role="alert"><p>虚拟资产读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !data ? <p role="status" className="muted">正在读取虚拟资产…</p>
       : !data.items.length ? <div className="empty"><span className="empty-mark">◇</span><h2>还没有虚拟资产</h2><p>把买断的软件、注册的域名和订阅的服务记下来，就能看到它们什么时候到期、一共花了多少。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>新增虚拟资产</button></div>
       : <>
-        <div className="stats-kpis wealth-kpis">
+        <div className="ui-metrics ui-card">
           <article><span>使用中</span><strong>{data.in_use}<small> 件</small></strong><em>共 {data.items.length} 件，不含已停用</em></article>
           <article><span>即将到期</span><strong>{data.expiring}<small> 件</small></strong><em>手填有效期 30 天内；关联计划 7 天内</em></article>
           <article><span>已到期</span><strong>{data.expired}<small> 件</small></strong><em>未停用且有效期已过</em></article>
@@ -74,14 +83,14 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
         <div className="virtual-filter" role="group" aria-label="按状态筛选虚拟资产">
           {virtualFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}<Info text="状态按有效期自动推算；订阅关联周期计划后，有效期和费用都来自已确认的付款。"/>
         </div>
-        <article className="detail-section overview-card"><div className="section-heading"><h3>{virtualFilters.find(([k]) => k === filter)?.[1]}</h3><span>{keyword ? `找到 ${shown.length} 条 · ` : ''}点名称编辑；停用和到期都保留档案</span></div>
-          {!shown.length ? <p className="muted">{keyword ? <>当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></> : '这一类目前没有虚拟资产。'}</p> : <table className="distribution-table virtual-table"><thead><tr><th>名称</th><th>类型</th><th>有效至</th><th>状态</th><th>已花费</th></tr></thead><tbody>
-            {shown.map(v => <tr key={v.id} className={v.status === 'stopped' ? 'closed' : undefined}>
-              <td><button className="link-cell" onClick={() => setEditing(v)}>{v.fields.name}</button>{(v.fields.provider || v.plan_name) && <small className="muted">{[v.fields.provider, v.plan_name && `关联「${v.plan_name}」`].filter(Boolean).join(' · ')}</small>}</td>
+        <div className={selected?"virtual-browser has-inspector":"virtual-browser"}><article className="ui-card ui-content"><div className="ui-section-head"><h3>{virtualFilters.find(([k]) => k === filter)?.[1]}</h3><span>{keyword ? `找到 ${shown.length} 条 · ` : ''}点名称编辑；停用和到期都保留档案</span></div>
+          {!shown.length ? <p className="muted">{keyword ? <>当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></> : '这一类目前没有虚拟资产。'}</p> : <table className="ui-table virtual-table"><thead><tr><th>名称</th><th>类型</th><th>有效至</th><th>状态</th><th>已花费</th></tr></thead><tbody>
+            {shown.map(v => <tr key={v.id} tabIndex={0} aria-selected={selectedId===v.id} onClick={()=>setSelectedId(v.id)} onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==='Enter'||e.key===' ')){e.preventDefault();setSelectedId(v.id)}}} className={v.status === 'stopped' ? 'closed' : undefined}>
+              <td><button className="link-cell" disabled={!!pending||busy||stopping} onClick={() => setEditing(v)}>{v.fields.name}</button>{(v.fields.provider || v.plan_name) && <small className="muted">{[v.fields.provider, v.plan_name && `关联「${v.plan_name}」`].filter(Boolean).join(' · ')}</small>}</td>
               <td>{virtualKindText(v.fields.kind)}</td><td>{validityText(v)}</td>
               <td><span className="virtual-state" data-state={v.status}>{statusText[v.status]}{v.status === 'stopped' && v.fields.stopped_on ? ` · ${v.fields.stopped_on}` : ''}</span></td>
               <td className="amount">{v.spent_cents === null ? <span className="muted">未知</span> : money(v.spent_cents)}</td></tr>)}
-          </tbody></table>}</article>
+          </tbody></table>}</article>{selected&&<aside className="ui-inspector" aria-label="虚拟资产摘要"><span className="ui-avatar" style={{background:'var(--accent)'}}>{selected.fields.name.slice(0,1)}</span><h3>{selected.fields.name}</h3><p className="muted">{virtualKindText(selected.fields.kind)} · {selected.fields.provider||'提供方待补充'}</p><div className="inspector-metrics"><div><span>有效至</span><strong>{validityText(selected)}</strong></div><div><span>已花费</span><strong>{money(selected.spent_cents)}</strong></div></div><dl className="facts"><dt>关联计划</dt><dd>{selected.plan_name||'未关联'}{selected.fields.plan_id&&data.plans.find(p=>p.id===selected.fields.plan_id)&&` · ${intervalText(data.plans.find(p=>p.id===selected.fields.plan_id)!.interval_months)}`}</dd><dt>开始日期</dt><dd>{selected.fields.purchase_date||'待补充'}</dd><dt>状态</dt><dd>{statusText[selected.status]}</dd></dl><div className="ui-foot"><button disabled={!!pending||busy||stopping} onClick={()=>setEditing(selected)}>编辑</button>{selected.status!=='stopped'&&<button className="ui-link" disabled={!!pending||busy||stopping} onClick={()=>void stop(selected)}>{stopping?'正在停用…':'停用'}</button>}<button className="ui-link" onClick={()=>setSelectedId(null)}>收起</button></div></aside>}</div>
       </>}
     {editing && data && <VirtualDialog item={editing === 'new' ? null : editing} data={data} today={today} onClose={closed}/>}
   </section>;

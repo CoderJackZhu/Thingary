@@ -84,7 +84,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
   }
   // Only real drafts and pending requests are worth warning about; every non-theme key is still cleared.
   const pending = localWorkKeys().filter(k => /draft|request|abandon|upload/.test(k)).length;
-  return <section className="card data-management" aria-labelledby="data-heading">
+  return <section className="ui-card ui-content data-management" aria-labelledby="data-heading">
     <div className="data-heading"><div><p className="eyebrow">本地资料</p><h2 id="data-heading">资料管理</h2></div><span>仅保存在这台 Mac</span></div>
     <p className="data-intro">{demo ? '当前是独立样例库。切换到“我的资料”后可备份、恢复与导出。' : '给资料留一份完整备份，也可导出表格或找回误删记录。'}</p>
     <div className="data-actions">

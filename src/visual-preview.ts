@@ -68,6 +68,7 @@ const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
 
 if (params.get('state') === 'empty') records = [];
+if (params.has('trash-fixture') && records[0]) records.push({...structuredClone(records[0]),asset:{...records[0].asset,id:'deleted-fixture',name:'虚构旧电脑'},deleted:true,deleted_at:'2026-09-28T08:00:00Z'});
 if (params.has('no-photos')) records = records.map(r => ({...r,photos:[],cover_id:null}));
 // Browser-only warranty fixtures anchored to the real current day, so E04/E05
 // style states stay demoable on any date; nothing here reaches the native library.
@@ -290,6 +291,24 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     }
     taxonomyRevision++;
     return { changed, skipped };
+  }
+  // Screenshot fixtures only: authoritative statistical calculations stay in Rust.
+  if (command === 'stats_snapshot') {
+    const rows=records.filter(r=>!r.deleted&&!r.preferences?.exclude.statistics), sum=(rs:AssetRecord[])=>rs.reduce((n,r)=>n+BigInt(r.asset.price_cents??0),0n).toString();
+    const sold=rows.filter(r=>r.lifecycle?.state==='sold');
+    return {period:args.period,start:null,end:localDay(),total:rows.length,active:rows.filter(r=>r.lifecycle?.state==='active').length,retired:rows.filter(r=>r.lifecycle?.state==='retired').length,sold:sold.length,known_cents:sum(rows),unknown_price_count:rows.filter(r=>r.asset.price_cents===null).length,sale_proceeds_cents:sold.reduce((n,r)=>n+BigInt(r.sale?.fields.price_cents??0),0n).toString(),sold_purchase_cents:sum(sold),sold_unknown_price_count:sold.filter(r=>r.asset.price_cents===null).length,categories:catalog.categories.flatMap(c=>{const items=rows.filter(r=>r.classification?.category_id===c.id);return items.length?[{id:c.id,name:c.name,count:items.length,known_cents:sum(items),unknown_price_count:items.filter(r=>r.asset.price_cents===null).length}]:[]})};
+  }
+  if (command === 'purchase_trend') {
+    const rows=records.filter(r=>!r.deleted), dated=rows.filter(r=>r.asset.purchase_date), groups=new Map<string,AssetRecord[]>();
+    for(const r of dated){const d=r.asset.purchase_date!,key=args.granularity==='year'?d.slice(0,4):args.granularity==='quarter'?d.slice(0,4)+'-Q'+Math.ceil(Number(d.slice(5,7))/3):d.slice(0,7);groups.set(key,[...(groups.get(key)??[]),r])}
+    let cumulative=0n;
+    const buckets=[...groups].sort(([a],[b])=>a.localeCompare(b)).map(([key,items])=>{const known=items.reduce((n,r)=>n+BigInt(r.asset.price_cents??0),0n);cumulative+=known;return {key,start:items.map(r=>r.asset.purchase_date!).sort()[0],end:items.map(r=>r.asset.purchase_date!).sort().at(-1),count:items.length,known_cents:String(known),unknown_price_count:items.filter(r=>r.asset.price_cents===null).length,cumulative_cents:String(cumulative)}});
+    return {generation,today:localDay(),granularity:args.granularity,buckets,known_cents:String(cumulative),unknown_price_count:dated.filter(r=>r.asset.price_cents===null).length,unknown_date_count:rows.length-dated.length,unknown_date_known_cents:rows.filter(r=>!r.asset.purchase_date).reduce((n,r)=>n+BigInt(r.asset.price_cents??0),0n).toString()};
+  }
+  if (command === 'holding') {
+    const rows=records.filter(r=>!r.deleted).map(r=>previewRecord(r)), scoped=rows.filter(r=>args.scope==='history'||r.lifecycle?.state!=='sold'),days=scoped.flatMap(r=>r.costs.held_days===null?[]:[r.costs.held_days]).sort((a,b)=>a-b);
+    const rank=(rs:AssetRecord[])=>rs.flatMap(r=>r.costs.daily_cents!==null&&r.costs.held_days!==null?[{id:r.asset.id,name:r.asset.name,state:r.lifecycle?.state,held_days:r.costs.held_days,cost_cents:r.costs.net_cost_cents??r.costs.total_investment_cents,daily_cents:r.costs.daily_cents}]:[]).sort((a,b)=>Number(b.daily_cents)-Number(a.daily_cents));
+    return {scope:args.scope,groups:[{key:'all',label:'已有持有记录',count:days.length}],dated_count:days.length,unknown_date_count:scoped.length-days.length,average_days:days.length?days.reduce((a,b)=>a+b,0)/days.length:null,median_days:days.length?days[Math.floor(days.length/2)]:null,longest:rank(scoped).sort((a,b)=>b.held_days-a.held_days)[0]??null,held_ranking:rank(rows.filter(r=>r.lifecycle?.state!=='sold')),sold_ranking:rank(rows.filter(r=>r.lifecycle?.state==='sold')),excluded:rows.filter(r=>r.costs.daily_cents===null).map(r=>({id:r.asset.id,name:r.asset.name,reason:'资料待补充'}))};
   }
   if (command === 'overview') return physicalPreview(String(args.scope));
   if (command === 'timeline_view' || command === 'list_timeline') return timelinePreview(args);
@@ -601,4 +620,5 @@ window.addEventListener('keydown',event=>{
   if(action[event.key.toLowerCase()]){event.preventDefault();void emit('asset-action',action[event.key.toLowerCase()]);}
 });
 if (params.get('section')) sessionStorage.setItem('possio.library-section.v1', params.get('section')!);
-void import('./main');
+if (params.get('state') === 'components') void import('./ComponentPreview');
+else void import('./main');

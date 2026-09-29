@@ -9,7 +9,7 @@ const swatch: Record<Style, { bg: string; side: string; ink: string; accent: str
   bento: { bg: '#f2f2f7', side: '#f2f2f7', ink: '#1c1c1e', accent: '#5e5ce6', card: { background: '#fff', boxShadow: '0 2px 6px #0000001a' } },
 };
 export function AppearanceSettings({ style, mode, onStyle, onMode }: { style: Style; mode: Mode; onStyle: (s: Style) => void; onMode: (m: Mode) => void }) {
-  return <section className="card module-settings appearance-settings" aria-labelledby="appearance-heading">
+  return <section className="ui-card ui-content module-settings appearance-settings" aria-labelledby="appearance-heading">
     <div className="data-heading"><div><p className="eyebrow">界面</p><h2 id="appearance-heading">外观</h2></div></div>
     <div className="theme-cards" role="radiogroup" aria-label="主题">{styles.map(s => { const c = swatch[s.value]; return <button key={s.value} type="button" role="radio" aria-checked={style === s.value} className="theme-card" onClick={() => onStyle(s.value)}>
       <span className="theme-preview" aria-hidden="true" style={{ background: c.bg }}>

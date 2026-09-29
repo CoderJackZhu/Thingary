@@ -1,3 +1,4 @@
+import { HeaderSlot } from './HeaderSlot';
 import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Info } from './FormControls';
@@ -19,15 +20,15 @@ function StatsDashboard(){
  const stops=rows.reduce<{parts:string[];at:number}>((acc,row,i)=>{const next=acc.at+(total?row.count/total*100:0);acc.parts.push(`${series(i)} ${acc.at}% ${next}%`);acc.at=next;return acc},{parts:[],at:0});
  const purchased=Number(data?.sold_purchase_cents??0),returned=Number(data?.sale_proceeds_cents??0);
  return <div className="stats-dashboard">
-  <div className="stats-filter-row"><div className="segmented stats-period" role="group" aria-label="统计时间范围">{([['all','全部'],['week','周'],['month','月'],['quarter','季'],['year','年']] as const).map(([key,label])=><button type="button" key={key} aria-pressed={period===key} onClick={()=>setPeriod(key)}>{label}</button>)}</div><Info text={(data?.start?`${data.start} 至 ${data.end} 购入的物品，按当前状态统计`:"所有未删除物品，按当前状态统计")+"；已设置不计入统计的物品不参与。"}/></div>
-  {error?<article className="detail-section" role="alert"><p>统计读取失败：{error}</p><button onClick={()=>setRetry(n=>n+1)}>重新读取</button></article>:!data?<p role="status" className="muted">正在读取统计…</p>:<>
-   <div className="stats-kpis">{([['总资产',data.total],['使用中',data.active],['已退役',data.retired],['已售出',data.sold]] as const).map(([label,value])=><article key={label}><span>{label}</span><strong>{value}<small> 件</small></strong><em>{share(value,data.total)}</em></article>)}</div>
+  <HeaderSlot><div className="stats-filter-row"><div className="segmented stats-period" role="group" aria-label="统计时间范围">{([['all','全部'],['week','周'],['month','月'],['quarter','季'],['year','年']] as const).map(([key,label])=><button type="button" key={key} aria-pressed={period===key} onClick={()=>setPeriod(key)}>{label}</button>)}</div><Info text={(data?.start?`${data.start} 至 ${data.end} 购入的物品，按当前状态统计`:"所有未删除物品，按当前状态统计")+"；已设置不计入统计的物品不参与。"}/></div></HeaderSlot>
+  {error?<article className="ui-card ui-content" role="alert"><p>统计读取失败：{error}</p><button onClick={()=>setRetry(n=>n+1)}>重新读取</button></article>:!data?<p role="status" className="muted">正在读取统计…</p>:<>
+   <div className="ui-metrics ui-card">{([['总资产',data.total],['使用中',data.active],['已退役',data.retired],['已售出',data.sold]] as const).map(([label,value])=><article key={label}><span>{label}</span><strong>{value}<small> 件</small></strong><em>{share(value,data.total)}</em></article>)}</div>
    <div className="stats-pair">
-    <article className="detail-section overview-card"><div className="section-heading"><h3>分类占比</h3><span>按物品数量</span></div>{!rows.length?<p className="muted">这个时间范围里没有物品。</p>:<ul className="stats-category-bars">{rows.map((row,i)=><li key={row.id??'none'}><span><i style={{background:series(i)}}/>{row.name}</span><div className="stats-bar"><span style={{width:share(row.count,total),background:series(i)}}/></div><strong>{share(row.count,total)}</strong><small>{row.count} 件</small></li>)}</ul>}</article>
-    <article className="detail-section overview-card"><div className="section-heading"><h3>分类持仓</h3><span>按当前档案数量</span></div><div className="stats-donut-layout"><div className="stats-donut" role="img" aria-label={'分类持仓：'+rows.map(r=>`${r.name}${r.count}件`).join('，')} style={{background:stops.parts.length?`conic-gradient(${stops.parts.join(',')})`:undefined}}><span><strong>{total}</strong><small>件物品</small></span></div><ul>{rows.map((row,i)=><li key={row.id??'none'}><i style={{background:series(i)}}/>{row.name}<strong>{row.count}</strong></li>)}</ul></div></article>
+    <article className="ui-card ui-content"><div className="ui-section-head"><h3>分类占比</h3><span>按物品数量</span></div>{!rows.length?<p className="muted">这个时间范围里没有物品。</p>:<ul className="stats-category-bars">{rows.map((row,i)=><li key={row.id??'none'}><span><i style={{background:series(i)}}/>{row.name}</span><div className="stats-bar"><span style={{width:share(row.count,total),background:series(i)}}/></div><strong>{share(row.count,total)}</strong><small>{row.count} 件</small></li>)}</ul>}</article>
+    <article className="ui-card ui-content"><div className="ui-section-head"><h3>分类持仓</h3><span>按当前档案数量</span></div><div className="stats-donut-layout"><div className="stats-donut" role="img" aria-label={'分类持仓：'+rows.map(r=>`${r.name}${r.count}件`).join('，')} style={{background:stops.parts.length?`conic-gradient(${stops.parts.join(',')})`:undefined}}><span><strong>{total}</strong><small>件物品</small></span></div><ul>{rows.map((row,i)=><li key={row.id??'none'}><i style={{background:series(i)}}/>{row.name}<strong>{row.count}</strong></li>)}</ul></div></article>
    </div>
-   <div className="stats-pair"><article className="detail-section overview-card"><div className="section-heading"><h3>状态总览</h3><span>占全部物品</span></div><div className="stats-status-track" role="img" aria-label={`使用中 ${share(data.active,total)}，已退役 ${share(data.retired,total)}，已售出 ${share(data.sold,total)}`}><span style={{width:share(data.active,total)}}/><span style={{width:share(data.retired,total)}}/><span style={{width:share(data.sold,total)}}/></div><div className="stats-status-legend"><span>使用中 <strong>{data.active} 件 · {share(data.active,total)}</strong></span><span>已退役 <strong>{data.retired} 件 · {share(data.retired,total)}</strong></span><span>已售出 <strong>{data.sold} 件 · {share(data.sold,total)}</strong></span></div></article>
-    <article className="detail-section overview-card"><div className="section-heading"><h3>回收分析</h3><span>已售出物品</span></div><div className="stats-recovery"><div><span>售出回收</span><strong>{money(data.sale_proceeds_cents)}</strong></div><div><span>已知购入成本</span><strong>{money(data.sold_purchase_cents)}</strong></div><div><span>购入成本回收率</span><strong>{purchased>0?share(returned,purchased):'—'}</strong></div></div><p className="muted small">仅比较购入价与售出价，不含维护费用。{data.sold_unknown_price_count>0?`${data.sold_unknown_price_count} 件售出物品的购入价未知，未纳入回收率。`:''}</p></article></div>
+   <div className="stats-pair"><article className="ui-card ui-content"><div className="ui-section-head"><h3>状态总览</h3><span>占全部物品</span></div><div className="stats-status-track" role="img" aria-label={`使用中 ${share(data.active,total)}，已退役 ${share(data.retired,total)}，已售出 ${share(data.sold,total)}`}><span style={{width:share(data.active,total)}}/><span style={{width:share(data.retired,total)}}/><span style={{width:share(data.sold,total)}}/></div><div className="stats-status-legend"><span>使用中 <strong>{data.active} 件 · {share(data.active,total)}</strong></span><span>已退役 <strong>{data.retired} 件 · {share(data.retired,total)}</strong></span><span>已售出 <strong>{data.sold} 件 · {share(data.sold,total)}</strong></span></div></article>
+    <article className="ui-card ui-content"><div className="ui-section-head"><h3>回收分析</h3><span>已售出物品</span></div><div className="stats-recovery"><div><span>售出回收</span><strong>{money(data.sale_proceeds_cents)}</strong></div><div><span>已知购入成本</span><strong>{money(data.sold_purchase_cents)}</strong></div><div><span>购入成本回收率</span><strong>{purchased>0?share(returned,purchased):'—'}</strong></div></div><p className="muted small">仅比较购入价与售出价，不含维护费用。{data.sold_unknown_price_count>0?`${data.sold_unknown_price_count} 件售出物品的购入价未知，未纳入回收率。`:''}</p></article></div>
   </>}
  </div>
 }
@@ -69,15 +70,15 @@ export function StatsPage({ onOpenAsset }: { onOpenAsset: (id: string) => void }
   }, [granularity, retry]);
   return <section className="stats-section" aria-label="统计">
     <StatsDashboard/>
-    <article className="detail-section overview-card">
-      <div className="section-heading"><h3>购买趋势</h3><Info text="历史全部：含已售出，不含已删除；按购入日期归入期间，期间首尾两天都包含。"/></div>
+    <article className="ui-card ui-content">
+      <div className="ui-section-head"><h3>购买趋势</h3><Info text="历史全部：含已售出，不含已删除；按购入日期归入期间，期间首尾两天都包含。"/></div>
       <div className="overview-controls"><div className="segmented" role="group" aria-label="期间粒度">{([['month', '按月'], ['quarter', '按季'], ['year', '按年']] as const).map(([k, l]) => <button key={k} aria-pressed={granularity === k} onClick={() => setGranularity(k)}>{l}</button>)}</div></div>
       {error ? <div role="alert"><p>趋势读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : !trend ? <p role="status" className="muted">正在读取趋势…</p> : <>
         <p className="trend-summary">已知购入合计 <strong>{money(trend.known_cents)}</strong>{trend.unknown_price_count > 0 && ` · ${trend.unknown_price_count} 件有日期但金额未知，未计入`}{trend.unknown_date_count > 0 && ` · ${trend.unknown_date_count} 件购入日期未知，不归入任何期间（其中已知金额 ${money(trend.unknown_date_known_cents)}）`}</p>
         {!trend.buckets.length ? <p className="muted">还没有带购入日期的物品。</p> : <>
           <h4 className="chart-title">各期间购入金额</h4><Chart buckets={trend.buckets} value={b => Number(b.known_cents)} kind="bar" label="各期间购入金额柱状图"/>
           <h4 className="chart-title">累计购入金额 <span className="muted">出售不回减，不是当前估值</span></h4><Chart buckets={trend.buckets} value={b => Number(b.cumulative_cents)} kind="line" label="累计购入金额折线图"/>
-          <details className="trend-table"><summary>查看表格</summary><table className="distribution-table"><thead><tr><th>期间</th><th>起止</th><th>件数</th><th>购入金额</th><th>累计</th></tr></thead><tbody>{trend.buckets.slice().reverse().map(b => <tr key={b.key}><td>{b.key}</td><td>{b.start} 至 {b.end}</td><td>{b.count}</td><td>{money(b.known_cents)}{b.unknown_price_count > 0 && <small> · {b.unknown_price_count} 件未知</small>}</td><td>{money(b.cumulative_cents)}</td></tr>)}</tbody></table></details>
+          <details className="trend-table"><summary>查看表格</summary><table className="ui-table"><thead><tr><th>期间</th><th>起止</th><th>件数</th><th>购入金额</th><th>累计</th></tr></thead><tbody>{trend.buckets.slice().reverse().map(b => <tr key={b.key}><td>{b.key}</td><td>{b.start} 至 {b.end}</td><td>{b.count}</td><td>{money(b.known_cents)}{b.unknown_price_count > 0 && <small> · {b.unknown_price_count} 件未知</small>}</td><td>{money(b.cumulative_cents)}</td></tr>)}</tbody></table></details>
         </>}
       </>}
     </article>
@@ -92,7 +93,7 @@ const days = (d: number | null) => d === null ? '—' : `${Number.isInteger(d) ?
 function Ranking({ title, note, rows, costLabel, descending, onOpen }: { title: string; note: string; rows: Ranked[]; costLabel: string; descending: boolean; onOpen: (id: string) => void }) {
   const list = descending ? rows : rows.slice().reverse();
   return <><h4 className="chart-title">{title} <span className="muted">{note}</span></h4>
-    {!list.length ? <p className="muted small">没有可完整计算的物品。</p> : <table className="distribution-table"><thead><tr><th>#</th><th>物品</th><th>{costLabel}</th><th>持有天数</th><th>日均</th></tr></thead><tbody>{list.map((r, i) => <tr key={r.id}><td>{i + 1}</td><td><button className="link-cell" onClick={() => onOpen(r.id)}>{r.name}</button></td><td>{money(r.cost_cents)}</td><td>{r.held_days}</td><td>{unitMoney(r.daily_cents)}</td></tr>)}</tbody></table>}</>;
+    {!list.length ? <p className="muted small">没有可完整计算的物品。</p> : <table className="ui-table"><thead><tr><th>#</th><th>物品</th><th>{costLabel}</th><th>持有天数</th><th>日均</th></tr></thead><tbody>{list.map((r, i) => <tr key={r.id}><td>{i + 1}</td><td><button className="link-cell" onClick={() => onOpen(r.id)}>{r.name}</button></td><td>{money(r.cost_cents)}</td><td>{r.held_days}</td><td>{unitMoney(r.daily_cents)}</td></tr>)}</tbody></table>}</>;
 }
 
 export function HoldingCards({ onOpenAsset }: { onOpenAsset: (id: string) => void }) {
@@ -103,19 +104,19 @@ export function HoldingCards({ onOpenAsset }: { onOpenAsset: (id: string) => voi
     invoke<Holding>('holding', { scope }).then(d => { if (live) setData(d); }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [scope, retry]);
-  if (error) return <article className="detail-section overview-card" role="alert"><p>持有分析读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>;
+  if (error) return <article className="ui-card ui-content" role="alert"><p>持有分析读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>;
   if (!data) return <p role="status" className="muted">正在读取持有分析…</p>;
   const most = Math.max(1, ...data.groups.map(g => g.count));
   return <>
-    <article className="detail-section overview-card">
-      <div className="section-heading"><h3>持有周期</h3><Info text={(scope === 'held' ? '当前持有：截至今天' : '历史全部：已售出截至售出日')+'；按购入日起的自然月／年纪念日分组，左闭右开。'}/></div>
+    <article className="ui-card ui-content">
+      <div className="ui-section-head"><h3>持有周期</h3><Info text={(scope === 'held' ? '当前持有：截至今天' : '历史全部：已售出截至售出日')+'；按购入日起的自然月／年纪念日分组，左闭右开。'}/></div>
       <div className="overview-controls"><div className="segmented" role="group" aria-label="持有范围">{([['held', '当前持有'], ['history', '历史全部']] as const).map(([k, l]) => <button key={k} aria-pressed={scope === k} onClick={() => setScope(k)}>{l}</button>)}</div></div>
       <div className="holding-stats"><div><span>平均</span><strong>{days(data.average_days)}</strong></div><div><span>中位数</span><strong>{days(data.median_days)}</strong></div><div><span>最长</span><strong>{data.longest ? <button className="link-cell" onClick={() => onOpenAsset(data.longest!.id)}>{data.longest.name} · {data.longest.held_days} 天</button> : '—'}</strong></div></div>
       <ul className="holding-groups">{data.groups.map(g => <li key={g.key}><span>{g.label}</span><span className="holding-bar"><span style={{ width: `${g.count / most * 100}%` }}/></span><span>{g.count} 件</span></li>)}</ul>
       <p className="muted small">共 {data.dated_count} 件参与计算{data.unknown_date_count > 0 && `；${data.unknown_date_count} 件购入日期未知，未计入分组与平均`}。</p>
     </article>
-    <article className="detail-section overview-card">
-      <div className="section-heading"><h3>日均成本排行</h3><Info text="按未舍入的精确值排序，显示值四舍五入到分。"/></div>
+    <article className="ui-card ui-content">
+      <div className="ui-section-head"><h3>日均成本排行</h3><Info text="按未舍入的精确值排序，显示值四舍五入到分。"/></div>
       <div className="overview-controls"><div className="segmented" role="group" aria-label="排序方向">{([[true, '从高到低'], [false, '从低到高']] as const).map(([k, l]) => <button key={l} aria-pressed={descending === k} onClick={() => setDescending(k)}>{l}</button>)}</div></div>
       <Ranking title="当前持有 · 毛日均" note="总投入（购入＋维护）÷ 持有天数" rows={data.held_ranking} costLabel="总投入" descending={descending} onOpen={onOpenAsset}/>
       <Ranking title="已售出 · 净日均" note="（总投入 − 售出回收）÷ 截至售出日天数，可为负" rows={data.sold_ranking} costLabel="净成本" descending={descending} onOpen={onOpenAsset}/>

@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+import { Icon } from './AssetViews';
 import { Info } from './FormControls';
 import { allModules, hiddenKinds, type Modules } from './modules';
 import type { SourceTarget, TimelineSelection } from './source';
@@ -75,14 +77,19 @@ export function Timeline({ assetId, version, filter = 'all', onOpenAsset, onOpen
   const item = (e: TimelineEvent) => {
     const open = !assetId && (e.target && onOpenSource ? () => onOpenSource(e.target!) : e.asset_id && onOpenAsset ? () => onOpenAsset(e.asset_id!) : e.wishlist_id && onOpenWish ? () => onOpenWish(e.title, e.note) : null);
     const correctable = onCorrect && (e.kind === 'retire' || e.kind === 'activate');
+    if (!assetId) {
+      const icon = e.kind.startsWith('wish_') ? 'heart' : e.kind.startsWith('warranty_') ? 'shield' : ({purchase:'items',maintenance:'settings',retire:'archive',activate:'circle',sale:'arrow',expense:'receipt',refund:'receipt',payment:'repeat',snapshot:'wallet',virtual:'cloud'} as Record<string,ComponentProps<typeof Icon>['name']>)[e.kind] ?? 'clock';
+      const body = <><span className="timeline-day">{e.date ? Number(e.date.slice(8)) : '—'}<small>日</small></span><span className="timeline-kind"><Icon name={icon}/></span><span className="timeline-copy"><strong>{eventLabel(e)}{e.kind!=='snapshot'&&` · ${e.title}`}</strong><small>{eventDetail(e)}</small></span>{e.amount_cents!==null&&<span className="timeline-amount">{money(e.amount_cents)}</span>}{open&&<span aria-hidden="true">›</span>}</>;
+      return <li key={e.id} data-kind={e.kind} className="timeline-entry">{open?<button type="button" className="timeline-row" onClick={open} aria-label={`打开${e.kind==='snapshot'?`${e.date} 盘点`:e.title}`}>{body}</button>:<div className="timeline-row">{body}</div>}</li>;
+    }
     return <li key={e.id} data-kind={e.kind}><div><strong>{eventLabel(e)}{!assetId && e.kind !== 'snapshot' && <> · {e.title}</>}</strong><span className="muted">{e.date ?? '日期待补充'}</span>{eventDetail(e) && <p className="notes">{eventDetail(e)}</p>}</div>{open && <button onClick={open} aria-label={`打开${e.kind === 'snapshot' ? `${e.date} 盘点` : e.title}`}>{e.target && onOpenSource ? '查看来源' : e.asset_id ? '查看物品' : '查看心愿'}</button>}{correctable && <button onClick={() => onCorrect!(e)} aria-label={`更正${eventLabel(e)}日期 ${e.date}`}>更正日期</button>}</li>;
   };
   const groups: [string, TimelineEvent[]][] = [];
   for (const e of dated) { const key = assetId ? '' : month(e.date!); if (groups.at(-1)?.[0] !== key) groups.push([key, []]); groups.at(-1)![1].push(e); }
   return <div className="timeline">
     {keyword && <p className="muted small" role="status">找到 {found} 条记录</p>}
-    {groups.map(([key, list]) => <section key={key || 'events'} className="lifecycle-history">{key && <h3 className="timeline-month">{key}</h3>}<ol>{list.map(item)}</ol></section>)}
-    {undated.length > 0 && <section className="lifecycle-history timeline-undated"><h3 className="timeline-month">日期待补充</h3><p className="muted small">这些事实没有已知日期，不放入任何月份；补填日期后会自动归位。</p><ol>{undated.map(item)}</ol></section>}
+    {groups.map(([key, list]) => <section key={key || 'events'} className={assetId?"lifecycle-history":"ui-card timeline-month-card"}>{key && <h3 className="timeline-month">{key}</h3>}<ol>{list.map(item)}</ol></section>)}
+    {undated.length > 0 && <section className={assetId?"lifecycle-history timeline-undated":"ui-card timeline-month-card timeline-undated"}><h3 className="timeline-month">日期待补充</h3><p className="muted small">这些事实没有已知日期，不放入任何月份；补填日期后会自动归位。</p><ol>{undated.map(item)}</ol></section>}
   </div>;
 }
 

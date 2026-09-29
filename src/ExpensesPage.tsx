@@ -1,3 +1,4 @@
+import { HeaderSlot } from './HeaderSlot';
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
@@ -71,21 +72,21 @@ export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSo
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="wealth-toolbar">
+    <HeaderSlot><div className="wealth-toolbar">
       <div className="segmented" role="group" aria-label="支出期间"><button aria-pressed={year === null} onClick={() => setYear(null)}>全部</button>{years.map(y => <button key={y} aria-pressed={year === y} onClick={() => setYear(y)}>{y}</button>)}</div>
       <Info text="支出包括物品购入、维护、周期付款和独立支出；退款按退款日期扣减，售出回收单列。搜索只筛选记录，不改变期间汇总。"/>
-    </div>
-    {error ? <article className="detail-section" role="alert"><p>重要支出读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
+    </div></HeaderSlot>
+    {error ? <article className="ui-card ui-content" role="alert"><p>重要支出读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !view ? <p role="status" className="muted">正在读取重要支出…</p>
       : <>
-        <div className="stats-kpis wealth-kpis">
+        <div className="ui-metrics ui-card">
           <article><span>{period}支出</span><strong>{money(view.spent_cents)}</strong></article>
           <article><span>退款</span><strong>{money(view.refund_cents)}</strong></article>
           <article><span>净支出</span><strong>{money(view.net_cents)}</strong></article>
           <article><span>售出回收</span><strong>{money(view.sale_cents)}</strong></article>
         </div>
         {(view.undated.length > 0 || view.unknown_amount_count > 0) && <p className="muted small">{view.undated.length > 0 && `日期待补 ${view.undated.length} 条（已知 ${money(view.undated_cents)}），不归入任何期间。`}{view.unknown_amount_count > 0 && `${view.unknown_amount_count} 条购入或维护金额未知，未计入。`}</p>}
-        {view.months.length > 0 && <article className="detail-section overview-card"><div className="section-heading"><h3>各月支出</h3><span>{year} 年 · 不含日期待补</span></div><MonthBars months={view.months}/></article>}
+        {view.months.length > 0 && <article className="ui-card ui-content"><div className="ui-section-head"><h3>各月支出</h3><span>{year} 年 · 不含日期待补</span></div><MonthBars months={view.months}/></article>}
         {!view.lines.length && !view.undated.length ? <div className="empty"><span className="empty-mark">¥</span><h2>{year === null ? '还没有重要支出' : `${year} 年没有记录`}</h2><p>物品的购入和维护会自动出现在这里；旅行、培训等没有对应物品的大额花费，可以单独记一笔。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>记一笔支出</button></div>
           : keyword && !foundCount ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
           : <LineTable lines={shownLines} undated={shownUndated} found={keyword ? foundCount : null} onOpen={line => void open(line)}/>}
@@ -98,10 +99,10 @@ function LineTable({ lines, undated, found, onOpen }: { lines: Line[]; undated: 
   const row = (l: Line) => <tr key={l.source + l.id} className={countsAsSpending(l) ? undefined : 'closed'}>
     <td>{l.date ?? <span className="muted">日期待补</span>}</td>
     <td>{l.source === 'payment' || l.source === 'virtual' ? l.title : <button className="link-cell" onClick={() => onOpen(l)}>{l.title}</button>}</td>
-    <td>{sourceLabel[l.source]}</td><td>{categoryText(l)}</td>
+    <td><span className="ui-tag">{sourceLabel[l.source]}</span></td><td>{categoryText(l)}</td>
     <td className="amount">{l.amount_cents === null ? <span className="muted">金额未知</span> : l.source === 'refund' || l.source === 'sale' ? '−' + money(l.amount_cents) : money(l.amount_cents)}</td>
   </tr>;
-  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="distribution-table expense-lines"><thead><tr><th>日期</th><th>名称</th><th>来源</th><th>分类</th><th>金额</th></tr></thead>
+  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table expense-lines"><thead><tr><th>日期</th><th>名称</th><th>来源</th><th>分类</th><th>金额</th></tr></thead>
     <tbody>{lines.map(row)}{undated.map(row)}</tbody></table></>;
 }
 
@@ -113,7 +114,7 @@ function MonthBars({ months }: { months: ExpenseView['months'] }) {
   return <svg className="trend-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={'各月支出：' + months.map(m => `${m.month.slice(5)}月 ${money(m.spent_cents)}`).join('，')}>
     {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className="grid"/><text x={L - 6} y={y(v) + 3} textAnchor="end">{label(v)}</text></g>)}
     {months.map((m, i) => { const v = Number(m.spent_cents), x = L + w * i; return <g key={m.month} className="trend-hit"><rect x={x} y={T} width={w} height={H - T - B} className="hit"/>
-      {v > 0 && <rect x={x + w * 0.2} y={y(v)} width={w * 0.6} height={Math.max(H - B - y(v), 1)} rx={3} className="trend-bar"/>}
+      <rect x={x + w * 0.2} y={v?y(v):H-B-3} width={w * 0.6} height={v?Math.max(H - B - y(v), 1):3} rx={3} className={v?"trend-bar":"empty-bar"}/>{v>0&&<text x={x+w/2} y={y(v)-4} textAnchor="middle">{Math.round(v/100).toLocaleString("zh-CN")}</text>}
       <text x={x + w / 2} y={H - 6} textAnchor="middle">{Number(m.month.slice(5))}月</text>
       <title>{m.month}：支出 {money(m.spent_cents)}{m.refund_cents !== '0' ? `，退款 ${money(m.refund_cents)}` : ''}</title></g>; })}
     <line x1={L} x2={W} y1={H - B} y2={H - B} className="axis"/>

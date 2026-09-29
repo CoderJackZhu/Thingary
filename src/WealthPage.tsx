@@ -1,3 +1,5 @@
+import { HeaderSlot } from './HeaderSlot';
+import { changeLine } from './Sparkline';
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
@@ -98,10 +100,10 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="wealth-toolbar">
+    <HeaderSlot><div className="wealth-toolbar">
       <div className="segmented" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['history', '盘点记录']] as const).map(([k, l]) => <button key={k} aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>)}</div>
-    </div>
-    {error ? <article className="detail-section" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
+    </div></HeaderSlot>
+    {error ? <article className="ui-card ui-content" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
       : tab === 'overview' ? <Overview summary={summary} accounts={accounts} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today}/>
       : tab === 'accounts' ? (keyword && !shownAccounts.length
@@ -118,21 +120,22 @@ function Overview({ summary, accounts, latest, lastComplete, onNewAccount, onChe
   const shown = lastComplete ?? latest;
   return <>
     {!latest.complete && <div className="notice">{latest.date} 的盘点还有 {latest.missing} 个账户没有金额，未计入完整净资产和变化比较。<button onClick={() => onCheckIn(latest.date)}>补录</button></div>}
-    <div className="stats-kpis wealth-kpis">
+    <div className="ui-metrics ui-card">
       <article><span>金融净资产</span><strong>{lastComplete ? signedMoney(lastComplete.net_cents) : '—'}</strong><em>{lastComplete ? `截至 ${lastComplete.date} 盘点` : '尚无完整盘点'}</em></article>
       <article><span>金融资产</span><strong>{money(shown.assets_cents)}</strong><em>{shown.complete ? '计入范围内' : '仅已知部分'}</em></article>
       <article><span>负债</span><strong>{money(shown.liabilities_cents)}</strong><em>尚欠金额</em></article>
       <article><span>与上次比较</span><strong>{lastComplete?.change_cents ? changeText(lastComplete.change_cents) : '—'}</strong><em>{!lastComplete?.compared_to ? '至少两次完整盘点后显示' : lastComplete.scope_changed ? '有账户改变了计入设置，不直接比较' : `对比 ${lastComplete.compared_to}${lastComplete.change_rate_hundredths !== null ? ' · ' + rateText(lastComplete.change_rate_hundredths) : ''}`}</em></article>
     </div>
-    <article className="detail-section overview-card">
-      <div className="section-heading"><h3>净资产变化</h3><Info text="只连接完整盘点；虚线为不完整盘点。变化含存取、消费与估值，不等于投资收益。"/></div>
+    <article className="ui-card ui-content">
+      <div className="ui-section-head"><h3>净资产变化</h3><Info text="只连接完整盘点；虚线为不完整盘点。变化含存取、消费与估值，不等于投资收益。"/></div>
       {summary.points.filter(p => p.complete).length < 2 ? <p className="muted">完整盘点少于两次，暂不显示趋势。</p> : <NetChart points={summary.points}/>}
       <details className="trend-table"><summary>查看表格</summary><PointTable points={summary.points}/></details>
     </article>
     <div className="stats-pair">
-      <article className="detail-section overview-card"><div className="section-heading"><h3>资产结构</h3><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入范围` : '尚无完整盘点'}</span></div><ShareBars rows={summary.structure} empty="没有计入的资产。"/></article>
-      <article className="detail-section overview-card"><div className="section-heading"><h3>负债</h3><Info text="按类型统计尚欠金额，不含标为不计入的负债。"/></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
+      <article className="ui-card ui-content"><div className="ui-section-head"><h3>资产结构</h3><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入范围` : '尚无完整盘点'}</span></div><ShareBars rows={summary.structure} empty="没有计入的资产。"/></article>
+      <article className="ui-card ui-content"><div className="ui-section-head"><h3>负债</h3><Info text="按类型统计尚欠金额，不含标为不计入的负债。"/></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
     </div>
+    <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div><ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?(a.fields.side==='liability'&&a.latest.amount_cents!=='0'?'−':'')+money(a.latest.amount_cents):'尚未盘点'}</span></li>)}</ul></article>
   </>;
 }
 
@@ -142,7 +145,7 @@ function ShareBars({ rows, empty }: { rows: Summary['structure']; empty: string 
 }
 
 function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (date: string) => void }) {
-  return <table className="distribution-table"><thead><tr><th>盘点日期</th><th>金融净资产</th><th>资产</th><th>负债</th><th>状态</th><th>与上次比较</th></tr></thead><tbody>{points.slice().reverse().map(p => <tr key={p.snapshot_id}>
+  return <table className="ui-table"><thead><tr><th>盘点日期</th><th>金融净资产</th><th>资产</th><th>负债</th><th>状态</th><th>与上次比较</th></tr></thead><tbody>{points.slice().reverse().map(p => <tr key={p.snapshot_id}>
     <td>{onOpen ? <button className="link-cell" onClick={() => onOpen(p.date)}>{p.date}</button> : p.date}</td>
     <td>{p.complete ? signedMoney(p.net_cents) : <span className="muted" title="有账户金额未知，净资产无法确定">—</span>}</td><td>{money(p.assets_cents)}{!p.complete && <small className="muted"> 已知</small>}</td><td>{money(p.liabilities_cents)}{!p.complete && <small className="muted"> 已知</small>}</td>
     <td>{p.complete ? '完整' : `缺 ${p.missing} 个账户`}</td>
@@ -158,6 +161,7 @@ const axis = (cents: number) => { const v = Math.abs(cents); const t = v >= 1_00
  * trustworthy total, so it is a dashed marker on its date, never a value.
  */
 export function NetChart({ points }: { points: Point[] }) {
+  const [current,setCurrent]=useState<number|null>(null);
   const full = points.filter(p => p.complete), values = full.map(p => Number(p.net_cents));
   const min = Math.min(...values), max = Math.max(...values), pad = (max - min) * 0.15 || Math.max(Math.abs(max) * 0.05, 10_000);
   const span = max - min + 2 * pad, step = 10 ** Math.floor(Math.log10(span)), unit = [1, 2, 5, 10].map(n => n * step).find(n => span / n <= 4) ?? step * 10;
@@ -166,18 +170,20 @@ export function NetChart({ points }: { points: Point[] }) {
   const t0 = Date.parse(points[0].date), t1 = Date.parse(points.at(-1)!.date), wide = t1 - t0 || 1;
   const x = (d: string) => L + 12 + (W - L - 36) * (Date.parse(d) - t0) / wide, y = (v: number) => T + (H - T - B) * (1 - (v - bottom) / (top - bottom));
   const every = Math.ceil(points.length / 6);
-  return <svg className="trend-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={'净资产变化：' + points.map(p => p.complete ? `${p.date} ${signedMoney(p.net_cents)}` : `${p.date} 盘点不完整`).join('，')}>
+  const shown = current===null?null:full[current];
+  return <div className="net-chart" tabIndex={0} role="img" aria-label={`金融净资产趋势，共 ${full.length} 次完整盘点`} onFocus={()=>setCurrent(full.length-1)} onBlur={()=>setCurrent(null)} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setCurrent(null)}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setCurrent(n=>Math.max(0,Math.min(full.length-1,(n??full.length-1)+(e.key==='ArrowLeft'?-1:1))))}}}><svg className="trend-chart" onMouseMove={e=>{const svg=e.currentTarget,matrix=svg.getScreenCTM();if(!matrix)return;const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;const vx=point.matrixTransform(matrix.inverse()).x;let best=0;full.forEach((p,i)=>{if(Math.abs(x(p.date)-vx)<Math.abs(x(full[best].date)-vx))best=i});setCurrent(best)}} onMouseLeave={()=>setCurrent(null)} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={'净资产变化：' + points.map(p => p.complete ? `${p.date} ${signedMoney(p.net_cents)}` : `${p.date} 盘点不完整`).join('，')}>
     {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className={v === 0 ? 'axis' : 'grid'}/><text x={L - 6} y={y(v) + 3} textAnchor="end">{axis(v)}</text></g>)}
     {points.map((p, i) => i % every === 0 && <text key={p.date} x={x(p.date)} y={H - 6} textAnchor="middle">{p.date.slice(0, 7)}</text>)}
     {points.filter(p => !p.complete).map(p => <line key={p.snapshot_id} x1={x(p.date)} x2={x(p.date)} y1={T} y2={H - B} className="partial-mark"><title>{p.date}：缺 {p.missing} 个账户，总额未知，不画在曲线上</title></line>)}
     {full.length > 1 && <polyline points={full.map(p => `${x(p.date)},${y(Number(p.net_cents))}`).join(' ')} className="trend-line"/>}
-    {full.map(p => <circle key={p.snapshot_id} cx={x(p.date)} cy={y(Number(p.net_cents))} r={4} className="trend-dot"><title>{p.date}：{signedMoney(p.net_cents)}</title></circle>)}
-  </svg>;
+    {shown&&<line x1={x(shown.date)} x2={x(shown.date)} y1={T} y2={H-B} className="partial-mark"/>}
+    {full.map((p,i) => <circle key={p.snapshot_id} cx={x(p.date)} cy={y(Number(p.net_cents))} r={i===current?5:3} className="trend-dot"/>)}
+  </svg>{shown&&<div className="ui-tip" style={{left:`clamp(100px, ${x(shown.date)/W*100}%, calc(100% - 100px))`,top:`${y(Number(shown.net_cents))/H*100}%`}}>{shown.date}<b>{signedMoney(shown.net_cents)}</b><span>{changeLine(shown)}</span></div>}<span className="visually-hidden" aria-live="polite">{shown?`${shown.date}，${signedMoney(shown.net_cents)}，${changeLine(shown)}`:''}</span></div>;
 }
 
 function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {
   if (!accounts.length) return <div className="empty"><h2>还没有账户</h2><p>先添加一个需要定期核对的账户或负债。</p><button className="primary" onClick={onNew}>新增账户</button></div>;
-  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="distribution-table wealth-accounts"><thead><tr><th>账户</th><th>类型</th><th>计入净资产</th><th>最近金额</th><th>状态</th></tr></thead><tbody>{accounts.map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
+  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table wealth-accounts"><thead><tr><th>账户</th><th>类型</th><th>计入净资产</th><th>最近金额</th><th>状态</th></tr></thead><tbody>{accounts.map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
     <td><button className="link-cell" onClick={() => onEdit(a)}>{a.fields.name}</button>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}</td>
     <td>{a.fields.side === 'liability' ? '负债 · ' : ''}{kindLabel(a.fields.kind)}</td>
     <td>{a.fields.counted ? '计入' : '不计入'}</td>
@@ -301,7 +307,7 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
     </header>
     {existing && draft && <div className="notice">这一天已有盘点，保存会更正原记录，并影响它与前后两次盘点的比较。<DeleteButton label="删除这次盘点" disabled={frozen} kind="snapshot" id={existing.id} revision={existing.revision} generation={draft.generation} name={`${date} 盘点`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/></div>}
     {error ? <div role="alert"><p>盘点读取失败：{error}</p></div> : !draft ? <p role="status" className="muted">正在准备盘点…</p> : !open.length ? <p className="muted">这一天没有需要盘点的账户（账户启用日期都晚于此日或已停用）。</p> : <>
-      <table ref={table} className="distribution-table check-in-table"><thead><tr><th>账户</th><th>上次金额</th><th>本次金额</th><th>差额</th><th>状态</th></tr></thead><tbody>{open.map(({ account: a, previous }) => {
+      <table ref={table} className="ui-table check-in-table"><thead><tr><th>账户</th><th>上次金额</th><th>本次金额</th><th>差额</th><th>状态</th></tr></thead><tbody>{open.map(({ account: a, previous }) => {
         const row = rows[a.id] ?? { state: null, cents: '' };
         const diff = row.state && row.state !== 'missing' && row.cents !== '' && previous ? (BigInt(row.cents) - BigInt(previous.amount_cents)).toString() : null;
         return <tr key={a.id} data-state={row.state ?? 'empty'}>
