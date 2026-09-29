@@ -1,9 +1,10 @@
 import { createPortal } from 'react-dom';
 import { allModules, financeOff, type Modules } from './modules';
 import { useEffect } from 'react';
-import { useState, type ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
+import { Info } from './FormControls';
 import { eventDetail, eventLabel } from './Timeline';
 import type { TimelineEvent, ScrollRestore } from './Timeline';
 import type { SourceTarget } from './source';
@@ -51,26 +52,26 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   const value = (c: CategoryShare) => metric === 'count' ? c.count : Number(c.known_cents);
   const total = metric === 'count' ? count : amount;
   return <section className="overview-section" aria-label="总览">
-    <div className="asset-overview overview-kpis">
-      <div><span>当前持有物购入金额</span><div className="held-split"><div><strong>{money(data.held_known_cents)}</strong><p>{data.held_unknown_price_count ? `${data.held_unknown_price_count} 件金额未知，未计入` : '金额均已记录'}</p></div><div><strong>{data.held_count}<small>件</small></strong><p><span>使用中 {data.active_count} ·</span> <span>已退役 {data.retired_count}</span></p></div></div></div>
-      <div><span>历史购入金额</span><strong>{money(data.history_known_cents)}</strong><p>含已售出 {data.sold_count} 件 · {data.history_unknown_price_count ? `${data.history_unknown_price_count} 件金额未知，未计入` : '金额均已记录'}</p></div>
-      <div><span>平均持有时间</span><strong>{data.average_holding_days === null ? '—' : data.average_holding_days}<small>{data.average_holding_days === null ? '' : '天'}</small></strong><p>{data.held_unknown_date_count ? `${data.held_unknown_date_count} 件购入日期未知，未计入` : '按购入日至今天，含当天'}</p></div>
-      <div><span>进行中心愿</span><strong>{data.ongoing_wishes}<small>条</small></strong><p>预计金额不计入资产</p></div>
+    <div className="ui-card ui-metrics" style={{ '--n': 4 } as CSSProperties}>
+      <div><span className="ui-label">当前持有物购入金额</span><span className="ui-value">{money(data.held_known_cents)}<small>· {data.held_count} 件</small></span><span className="ui-note">使用中 {data.active_count} · 已退役 {data.retired_count}{data.held_unknown_price_count ? ` · ${data.held_unknown_price_count} 件金额未知，未计入` : ''}</span></div>
+      <div><span className="ui-label">历史购入金额</span><span className="ui-value">{money(data.history_known_cents)}</span><span className="ui-note">含已售出 {data.sold_count} 件{data.history_unknown_price_count ? ` · ${data.history_unknown_price_count} 件金额未知，未计入` : ''}</span></div>
+      <div><span className="ui-label">平均持有<Info text="按购入日至今天，含当天；购入日期未知的物品不计入。"/></span><span className="ui-value">{data.average_holding_days === null ? '—' : <>{data.average_holding_days.toLocaleString('zh-CN')}<small>天</small></>}</span>{data.held_unknown_date_count > 0 && <span className="ui-note">{data.held_unknown_date_count} 件购入日期未知，未计入</span>}</div>
+      <div><span className="ui-label">进行中心愿<Info text="心愿的预计金额不计入资产。"/></span><span className="ui-value">{data.ongoing_wishes}<small>条</small></span></div>
     </div>
     <div className="overview-grid">
-      <article className="detail-section overview-card">
-        <div className="section-heading"><h3>分类分布</h3><span>{scope === 'held' ? '当前持有：使用中＋已退役' : '历史全部：含已售出，不含已删除'}</span></div>
-        <div className="overview-controls"><div className="segmented" role="group" aria-label="统计范围">{([['held', '当前持有'], ['history', '历史全部']] as const).map(([k, l]) => <button key={k} aria-pressed={scope === k} onClick={() => setScope(k)}>{l}</button>)}</div><div className="segmented" role="group" aria-label="占比口径">{([['count', '按数量'], ['amount', '按购入金额']] as const).map(([k, l]) => <button key={k} aria-pressed={metric === k} onClick={() => setMetric(k)}>{l}</button>)}</div></div>
-        {!rows.length ? <p className="muted">这个范围里还没有物品。</p> : <div className="distribution">
+      <article className="ui-card">
+        <div className="ui-section-head"><h3>分类分布</h3><span className="ui-aside">{scope === 'held' ? '当前持有：使用中＋已退役' : '历史全部：含已售出，不含已删除'}</span></div>
+        <div className="overview-controls ui-pad"><div className="ui-seg" role="group" aria-label="统计范围">{([['held', '当前持有'], ['history', '历史全部']] as const).map(([k, l]) => <button key={k} aria-pressed={scope === k} onClick={() => setScope(k)}>{l}</button>)}</div><div className="ui-seg" role="group" aria-label="占比口径">{([['count', '按数量'], ['amount', '按购入金额']] as const).map(([k, l]) => <button key={k} aria-pressed={metric === k} onClick={() => setMetric(k)}>{l}</button>)}</div></div>
+        {!rows.length ? <p className="ui-empty">这个范围里还没有物品。</p> : <div className="distribution">
           <div className="donut-wrap"><Donut rows={rows} value={value} total={total} label={`分类分布，${metric === 'count' ? '按数量' : '按购入金额'}`}/><div className="donut-center"><strong>{metric === 'count' ? count : money(String(amount))}</strong><span>{metric === 'count' ? '件' : '已知金额'}</span></div></div>
-          <table className="distribution-table"><thead><tr><th>分类</th><th>数量</th><th>购入金额</th><th>{metric === 'count' ? '数量占比' : '金额占比'}</th></tr></thead><tbody>{rows.map(c => <tr key={c.id ?? 'none'}><td><span className="swatch" style={{ background: color(c) }}/>{c.name}</td><td>{c.count}</td><td>{money(c.known_cents)}{c.unknown_price_count > 0 && <small> · {c.unknown_price_count} 件未知</small>}</td><td>{percent(value(c), total)}</td></tr>)}</tbody></table>
+          <table className="ui-table distribution-table"><thead><tr><th>分类</th><th>数量</th><th>购入金额</th><th>{metric === 'count' ? '数量占比' : '金额占比'}</th></tr></thead><tbody>{rows.map(c => <tr key={c.id ?? 'none'}><td><span className="swatch" style={{ background: color(c) }}/>{c.name}</td><td>{c.count}</td><td>{money(c.known_cents)}{c.unknown_price_count > 0 && <small> · {c.unknown_price_count} 件未知</small>}</td><td>{percent(value(c), total)}</td></tr>)}</tbody></table>
         </div>}
-        {metric === 'amount' && unknown > 0 && <p className="muted small">{unknown} 件金额未知，不计入金额占比。</p>}
-        <button className="overview-link" onClick={onBrowse}>在资产列表中核对</button>
+        {metric === 'amount' && unknown > 0 && <p className="muted small ui-pad">{unknown} 件金额未知，不计入金额占比。</p>}
+        <div className="ui-card-foot"><button className="ui-link" onClick={onBrowse}>在资产列表中核对 →</button></div>
       </article>
-      <article className="detail-section overview-card">
-        <div className="section-heading"><h3>最近事件</h3><span>来自时间轴</span></div>
-        {!data.recent.length ? <p className="muted">还没有带日期的事件。</p> : <ol className="recent-events">{data.recent.map(e => <li key={e.id}><button onClick={() => e.target && onOpenSource(e.target)}><strong>{eventLabel(e)} · {e.title}</strong><span className="muted">{e.date}{eventDetail(e) && ' · ' + eventDetail(e)}</span></button></li>)}</ol>}
+      <article className="ui-card">
+        <div className="ui-section-head"><h3>最近事件</h3><span className="ui-aside">来自时间轴</span></div>
+        {!data.recent.length ? <p className="ui-empty">还没有带日期的事件。</p> : <ul className="ui-rows">{data.recent.map(e => <li key={e.id} className={'ui-row' + (e.target ? ' clickable' : '')} onClick={() => e.target && onOpenSource(e.target)}><div className="ui-main"><div>{eventLabel(e)} · {e.title}</div><small>{e.date}{eventDetail(e) && ' · ' + eventDetail(e)}</small></div>{e.target && <span className="ui-link" aria-hidden="true">›</span>}</li>)}</ul>}
       </article>
     </div>
   </section>;
