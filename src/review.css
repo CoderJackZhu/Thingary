@@ -18,3 +18,21 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 .review-empty{padding:24px 0;color:var(--muted);line-height:1.8}.review-notice{padding:12px 14px;margin-bottom:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;line-height:1.8}.review-error{color:var(--error);margin:8px 0}.review-section select{font-size:11px;padding:3px 5px;max-width:110px}
 .review-section button:focus-visible,.overview-switch button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 @media(max-width:900px){.review-grid{grid-template-columns:1fr}.review-value{font-size:20px}.review-list li{flex-wrap:wrap}.review-links{align-items:flex-start}}
+
+/* U15e: two primary facts share one surface; auxiliary spending stays below. */
+.review-headline{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid var(--line);border-radius:10px;background:var(--card);box-shadow:var(--card-shadow)}
+.review-primary{padding:18px 20px;min-width:0}.review-primary+ .review-primary{border-left:1px solid var(--line)}
+.review-primary:only-child{grid-column:1/-1}.review-primary .review-footer{margin-top:8px}
+.review-secondary{display:flex;flex-wrap:wrap;gap:0;margin-top:12px;border-block:1px solid var(--line)}
+.review-secondary article{flex:1 1 260px;min-width:0;padding:12px 20px;display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.review-secondary article+article{border-left:1px solid var(--line)}.review-secondary h3{font-size:11px;color:var(--muted)}
+.review-secondary-value{font:500 20px/1.4 var(--display);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.review-secondary-value small{font:400 11px var(--display);color:var(--muted)}
+.review-secondary .review-sub{margin:0}.review-secondary .review-action{margin-top:auto}
+.review-primary .held-split{grid-template-columns:minmax(0,1fr) auto;gap:12px}.review-primary .held-split>*>:first-child{white-space:normal}
+@media(max-width:900px){.review-primary{padding:14px}.review-primary .held-split{grid-template-columns:1fr}.review-primary .held-split .review-value{margin-top:4px}.review-secondary article{padding:12px 14px;flex-basis:200px}}
+/* U15e 收尾：变化行着色；辅助指标与其他页指标行同样式（一张卡、竖线分隔） */
+.review-change.pos{color:var(--positive)}.review-change.neg{color:var(--error)}
+.review-secondary{border:1px solid var(--line);border-radius:10px;background:var(--card);box-shadow:var(--card-shadow);overflow:hidden}
+.review-secondary .review-top{display:flex;align-items:center;gap:8px;width:100%}
+.review-secondary .review-top select{margin-left:auto;font-size:11px;padding:2px 6px}
+.review-secondary h3{margin:0;font-weight:400}

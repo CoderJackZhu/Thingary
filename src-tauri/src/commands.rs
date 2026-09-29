@@ -686,7 +686,7 @@ pub async fn create_backup(
 ) -> Result<Option<BackupDone>> {
     worker.require_personal()?;
     // The panel appends ".possio" itself; a suggested extension would be doubled.
-    let suggested = format!("物志备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
+    let suggested = format!("家底备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
     let receive = on_main(&app, move || {
         crate::native_images::pick_save("保存完整备份", "保存备份", &suggested, "possio")
     })?;
@@ -876,7 +876,7 @@ pub struct CsvDone {
 #[tauri::command]
 pub async fn save_csv_template(app: tauri::AppHandle) -> Result<Option<String>> {
     let receive = on_main(&app, || {
-        crate::native_images::pick_save("下载导入模板", "保存", "物志导入模板", "csv")
+        crate::native_images::pick_save("下载导入模板", "保存", "家底导入模板", "csv")
     })?;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
@@ -965,7 +965,7 @@ pub async fn export_csv(
     worker: tauri::State<'_, Worker>,
 ) -> Result<Option<CsvDone>> {
     worker.require_personal()?;
-    let suggested = format!("物志资产表-{}", chrono::Local::now().format("%Y%m%d"));
+    let suggested = format!("家底资产表-{}", chrono::Local::now().format("%Y%m%d"));
     let receive = on_main(&app, move || {
         crate::native_images::pick_save("导出资产表", "导出", &suggested, "csv")
     })?;
@@ -1063,7 +1063,7 @@ pub fn open_notification_settings() -> Result<()> {
         .map_err(|_| {
             Error::new(
                 "REMINDER",
-                "无法打开系统设置；请手动打开“系统设置 › 通知 › 物志”",
+                "无法打开系统设置；请手动打开“系统设置 › 通知 › 家底”",
             )
         })?;
     if status.success() {
@@ -1071,7 +1071,7 @@ pub fn open_notification_settings() -> Result<()> {
     } else {
         Err(Error::new(
             "REMINDER",
-            "无法打开系统设置；请手动打开“系统设置 › 通知 › 物志”",
+            "无法打开系统设置；请手动打开“系统设置 › 通知 › 家底”",
         ))
     }
 }

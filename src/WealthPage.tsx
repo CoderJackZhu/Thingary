@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
-import { CentInput, FormRow, Segments, Switch } from './FormControls';
+import { CentInput, FormRow, Info, Segments, Switch } from './FormControls';
 import { Icon } from './AssetViews';
 import { assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, rateText, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
 import type { Account, AccountFields, AccountSave, Draft, EntryState, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
@@ -125,13 +125,13 @@ function Overview({ summary, accounts, latest, lastComplete, onNewAccount, onChe
       <article><span>与上次比较</span><strong>{lastComplete?.change_cents ? changeText(lastComplete.change_cents) : '—'}</strong><em>{!lastComplete?.compared_to ? '至少两次完整盘点后显示' : lastComplete.scope_changed ? '有账户改变了计入设置，不直接比较' : `对比 ${lastComplete.compared_to}${lastComplete.change_rate_hundredths !== null ? ' · ' + rateText(lastComplete.change_rate_hundredths) : ''}`}</em></article>
     </div>
     <article className="detail-section overview-card">
-      <div className="section-heading"><h3>净资产变化</h3><span>只连接完整盘点；虚线为不完整盘点。变化含存取、消费与估值，不等于投资收益</span></div>
+      <div className="section-heading"><h3>净资产变化</h3><Info text="只连接完整盘点；虚线为不完整盘点。变化含存取、消费与估值，不等于投资收益。"/></div>
       {summary.points.filter(p => p.complete).length < 2 ? <p className="muted">完整盘点少于两次，暂不显示趋势。</p> : <NetChart points={summary.points}/>}
       <details className="trend-table"><summary>查看表格</summary><PointTable points={summary.points}/></details>
     </article>
     <div className="stats-pair">
       <article className="detail-section overview-card"><div className="section-heading"><h3>资产结构</h3><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入范围` : '尚无完整盘点'}</span></div><ShareBars rows={summary.structure} empty="没有计入的资产。"/></article>
-      <article className="detail-section overview-card"><div className="section-heading"><h3>负债</h3><span>按类型 · 尚欠金额 · 不含标为不计入的负债</span></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
+      <article className="detail-section overview-card"><div className="section-heading"><h3>负债</h3><Info text="按类型统计尚欠金额，不含标为不计入的负债。"/></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
     </div>
   </>;
 }

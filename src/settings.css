@@ -1,0 +1,14 @@
+.settings-section.settings-categories{display:grid;grid-template-columns:132px minmax(0,1fr);gap:24px;align-items:start}
+.settings-categories-nav{display:grid;gap:4px;position:sticky;top:16px}
+.settings-categories-nav button{border:0;background:transparent;color:var(--muted);font-size:13px;text-align:left;padding:10px 12px;border-radius:6px}
+.settings-categories-nav button[aria-current=page]{background:var(--selected);color:var(--accent);font-weight:500}
+.settings-categories-nav button:hover:not(:disabled){background:var(--soft)}
+.settings-categories-nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.settings-content{min-width:0}.settings-content>[hidden]{display:none}
+.settings-categories .taxonomy-shell,.settings-categories .data-management,.settings-categories .module-settings,.settings-categories .demo-settings{margin:0;box-shadow:none;background:transparent;border:0;padding:0}
+.settings-categories .taxonomy-shell{gap:12px}.settings-categories .taxonomy-panel{padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.settings-categories .data-management .data-action{background:var(--card)}
+.settings-categories .theme-cards{margin-top:16px}
+@media(max-width:1050px){.settings-section.settings-categories{grid-template-columns:1fr;gap:20px}.settings-categories-nav{display:flex;flex-wrap:wrap;position:static;border-bottom:1px solid var(--line);padding-bottom:8px}.settings-categories-nav button{padding:8px 10px}}
+.stats-filter-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.settings-categories .data-heading .eyebrow{display:none}

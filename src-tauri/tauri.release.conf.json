@@ -1,12 +1,12 @@
 {
-  "productName": "物志",
+  "productName": "家底",
   "version": "1.15.0",
   "identifier": "local.possio.main",
   "app": {
     "windows": [
       {
         "label": "main",
-        "title": "物志",
+        "title": "家底",
         "width": 1360,
         "height": 900,
         "minWidth": 800,

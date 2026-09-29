@@ -8,7 +8,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import type { Page } from './asset';
 import { DateInput } from './DateInput';
-import { CentInput, FormRow, Switch } from './FormControls';
+import { CentInput, FormRow, Info, Switch } from './FormControls';
 import { Icon } from './AssetViews';
 import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
@@ -73,15 +73,16 @@ export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSo
     {notice && <p className="notice" role="status">{notice}</p>}
     <div className="wealth-toolbar">
       <div className="segmented" role="group" aria-label="支出期间"><button aria-pressed={year === null} onClick={() => setYear(null)}>全部</button>{years.map(y => <button key={y} aria-pressed={year === y} onClick={() => setYear(y)}>{y}</button>)}</div>
+      <Info text="支出包括物品购入、维护、周期付款和独立支出；退款按退款日期扣减，售出回收单列。搜索只筛选记录，不改变期间汇总。"/>
     </div>
     {error ? <article className="detail-section" role="alert"><p>重要支出读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !view ? <p role="status" className="muted">正在读取重要支出…</p>
       : <>
         <div className="stats-kpis wealth-kpis">
-          <article><span>{period}支出</span><strong>{money(view.spent_cents)}</strong><em>物品购入、维护、周期付款与独立支出</em></article>
-          <article><span>退款</span><strong>{money(view.refund_cents)}</strong><em>按退款日期计入</em></article>
-          <article><span>净支出</span><strong>{money(view.net_cents)}</strong><em>支出 − 退款</em></article>
-          <article><span>售出回收</span><strong>{money(view.sale_cents)}</strong><em>单独列出，不抵扣支出</em></article>
+          <article><span>{period}支出</span><strong>{money(view.spent_cents)}</strong></article>
+          <article><span>退款</span><strong>{money(view.refund_cents)}</strong></article>
+          <article><span>净支出</span><strong>{money(view.net_cents)}</strong></article>
+          <article><span>售出回收</span><strong>{money(view.sale_cents)}</strong></article>
         </div>
         {(view.undated.length > 0 || view.unknown_amount_count > 0) && <p className="muted small">{view.undated.length > 0 && `日期待补 ${view.undated.length} 条（已知 ${money(view.undated_cents)}），不归入任何期间。`}{view.unknown_amount_count > 0 && `${view.unknown_amount_count} 条购入或维护金额未知，未计入。`}</p>}
         {view.months.length > 0 && <article className="detail-section overview-card"><div className="section-heading"><h3>各月支出</h3><span>{year} 年 · 不含日期待补</span></div><MonthBars months={view.months}/></article>}
