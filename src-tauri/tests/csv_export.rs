@@ -184,7 +184,7 @@ fn ac30_r06_csv_is_complete_safe_and_round_trips_text() {
         5,
         "4 undeleted assets incl. sold and retired; deleted excluded"
     );
-    assert!(rows.iter().all(|r| r.len() == 13));
+    assert!(rows.iter().all(|r| r.len() == 14));
     let by_id = |id: &str| rows.iter().find(|r| r[0] == id).unwrap().clone();
 
     let ra = by_id(&a.asset.id);
@@ -219,7 +219,7 @@ fn ac30_r06_csv_is_complete_safe_and_round_trips_text() {
         )
     );
     assert_eq!(
-        ra[12], "第一行\n第二行\r\n第三行",
+        ra[13], "第一行\n第二行\r\n第三行",
         "line breaks survive inside one quoted field"
     );
     let rb = by_id(&b.asset.id);
@@ -228,7 +228,7 @@ fn ac30_r06_csv_is_complete_safe_and_round_trips_text() {
             rb[1].as_str(),
             rb[3].as_str(),
             rb[4].as_str(),
-            rb[12].as_str()
+            rb[13].as_str()
         ),
         ("'+86 电话", "制表品牌", "'-负号型号", " 前后空格 "),
         "brand is trimmed on save"
@@ -250,9 +250,10 @@ fn ac30_r06_csv_is_complete_safe_and_round_trips_text() {
             rc[9].as_str(),
             rc[10].as_str(),
             rc[11].as_str(),
-            rc[12].as_str()
+            rc[12].as_str(),
+            rc[13].as_str()
         ),
-        ("1000.00", "已售出", "2026-09-10", "300.05", "'@提醒")
+        ("1000.00", "已售出", "", "2026-09-10", "300.05", "'@提醒")
     );
     let rd = by_id(&d.asset.id);
     assert_eq!(
@@ -261,9 +262,10 @@ fn ac30_r06_csv_is_complete_safe_and_round_trips_text() {
             rd[9].as_str(),
             rd[10].as_str(),
             rd[11].as_str(),
-            rd[12].as_str()
+            rd[12].as_str(),
+            rd[13].as_str()
         ),
-        ("123.45", "已退役", "", "", "'\t表格注释")
+        ("123.45", "已退役", "2026-09-05", "", "", "'\t表格注释")
     );
     assert!(!text.contains("已删除不导出"));
     // Overwrite after the panel's own confirmation is atomic and complete.

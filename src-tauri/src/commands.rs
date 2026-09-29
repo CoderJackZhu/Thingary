@@ -872,6 +872,92 @@ pub struct CsvDone {
     pub rows: i64,
 }
 
+/// Saves the header-only import template; cancelling writes nothing.
+#[tauri::command]
+pub async fn save_csv_template(app: tauri::AppHandle) -> Result<Option<String>> {
+    let receive = on_main(&app, || {
+        crate::native_images::pick_save("下载导入模板", "保存", "物志导入模板", "csv")
+    })?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        crate::csv_import::write_template(&path)?;
+        Ok(Some(path.display().to_string()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "模板未保存，请重试"))?
+}
+
+#[derive(serde::Serialize)]
+pub struct CsvInspected {
+    pub path: String,
+    pub name: String,
+    pub preview: crate::csv_import::Preview,
+}
+
+fn read_import(path: &std::path::Path) -> Result<Vec<u8>> {
+    let size = std::fs::metadata(path)
+        .map_err(|_| Error::new("CSV_READ", "无法读取所选文件"))?
+        .len();
+    if size > crate::csv_import::MAX_BYTES as u64 {
+        return Err(Error::new("CSV_SIZE", "文件超过 5 MB，请拆分后分批导入"));
+    }
+    std::fs::read(path).map_err(|_| Error::new("CSV_READ", "无法读取所选文件"))
+}
+
+/// Opens a CSV and previews it; nothing is written.
+#[tauri::command]
+pub async fn inspect_csv_import(
+    app: tauri::AppHandle,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<CsvInspected>> {
+    worker.require_personal()?;
+    let receive = on_main(&app, crate::native_images::pick_csv_open)?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        let bytes = read_import(&path)?;
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        let preview = w.call_personal(move |s| s.preview_csv_import(&bytes, &today))?;
+        Ok(Some(CsvInspected {
+            name: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into(),
+            path: path.to_string_lossy().into(),
+            preview,
+        }))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "表格检查未完成，请重试"))?
+}
+
+#[tauri::command]
+pub async fn commit_csv_import(
+    worker: tauri::State<'_, Worker>,
+    path: String,
+    input: crate::csv_import::Commit,
+) -> Result<crate::csv_import::Done> {
+    let bytes = read_import(std::path::Path::new(&path))?;
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call_personal(move |s| s.import_csv(&bytes, &input, &today))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到导入结果，请到物品列表核对"))?
+}
+
 /// Cancelling the save panel returns `None` and writes nothing.
 #[tauri::command]
 pub async fn export_csv(

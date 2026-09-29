@@ -7,7 +7,7 @@ use crate::{
 };
 use std::path::Path;
 
-pub const HEADER: [&str; 13] = [
+pub const HEADER: [&str; 14] = [
     "档案编号",
     "名称",
     "分类",
@@ -18,6 +18,7 @@ pub const HEADER: [&str; 13] = [
     "购入日期",
     "渠道",
     "状态",
+    "退役日期",
     "售出日期",
     "售价（元）",
     "备注",
@@ -50,7 +51,8 @@ fn field(value: &str) -> String {
 impl Store {
     pub fn asset_csv(&self) -> Result<String> {
         let mut stmt = self.conn()?.prepare(
-            "SELECT a.id,a.name,c.name,p.brand,p.model,a.price_cents,a.purchase_date,ch.name,a.lifecycle_state,s.date,s.price_cents,p.notes
+            "SELECT a.id,a.name,c.name,p.brand,p.model,a.price_cents,a.purchase_date,ch.name,a.lifecycle_state,s.date,s.price_cents,p.notes,
+                    CASE WHEN a.lifecycle_state='retired' THEN (SELECT e.date FROM lifecycle_events e WHERE e.asset_id=a.id ORDER BY e.sequence DESC LIMIT 1) END
              FROM assets a LEFT JOIN asset_profiles p ON p.asset_id=a.id LEFT JOIN categories c ON c.id=a.category_id
              LEFT JOIN channels ch ON ch.id=a.channel_id LEFT JOIN sales s ON s.asset_id=a.id AND s.revoked_at IS NULL
              WHERE a.deleted_at IS NULL ORDER BY p.created_at IS NULL,p.created_at,a.id",
@@ -76,6 +78,7 @@ impl Store {
                 t(6)?,
                 text(&t(7)?),
                 state.into(),
+                t(12)?,
                 t(9)?,
                 yuan(r.get(10)?),
                 text(&t(11)?),

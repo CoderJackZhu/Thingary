@@ -89,6 +89,19 @@ char *possio_pick_backup_open(void) {
         return strdup(panel.URL.fileSystemRepresentation);
     }
 }
+char *possio_pick_csv_open(void) {
+    @autoreleasepool {
+        NSOpenPanel *panel = [NSOpenPanel openPanel];
+        panel.title = @"选择要导入的资产表";
+        panel.prompt = @"检查表格";
+        panel.canChooseFiles = YES;
+        panel.canChooseDirectories = NO;
+        panel.allowsMultipleSelection = NO;
+        panel.allowedContentTypes = @[UTTypeCommaSeparatedText];
+        if ([panel runModal] != NSModalResponseOK) return NULL;
+        return strdup(panel.URL.fileSystemRepresentation);
+    }
+}
 // Folder panel for the extra automatic backup location (D20 rule 7).
 char *possio_pick_folder(void) {
     @autoreleasepool {
