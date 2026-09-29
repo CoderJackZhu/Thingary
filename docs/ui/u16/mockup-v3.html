@@ -1,0 +1,1004 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="native" data-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>家底 · 界面规范 v3</title>
+<style>
+/* =====================================================================
+   家底 · 界面规范 v2
+   规则：字号只用 5 级（11/13/15/20/28）；字重只用 400/500/600；
+   间距取 4 的倍数；圆角 6 控件 / 10 卡片 / 胶囊；每页只有一层容器。
+   三套主题只改下面的变量，不改结构。
+   ===================================================================== */
+:root{
+  --fs-cap:11px;--fs-body:13px;--fs-sec:15px;--fs-page:20px;--fs-key:28px;
+  --r-ctl:6px;--r-card:10px;--r-pill:99px;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;
+  --num:var(--sans);--head:var(--sans);--key-w:500;
+  --c1:#4f86f7;--c2:#e8794a;--c3:#3fae84;--c4:#a77be0;--c5:#e0b23f;--c6:#9aa0a6;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#7d8087;font-family:var(--sans)}
+button{font:inherit;color:inherit}
+.shell{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:0 16px 32px}
+.toolbar{position:sticky;top:0;z-index:50;width:100%;max-width:1320px;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:center;padding:12px 0 8px;background:#7d8087}
+.toolbar .grp{display:flex;flex-wrap:wrap;gap:3px;background:#0003;padding:3px;border-radius:9px}
+.toolbar button{border:0;background:transparent;color:#fff;font:500 12px var(--sans);padding:5px 10px;border-radius:7px;cursor:pointer}
+.toolbar button[aria-pressed=true]{background:#fff;color:#111}
+.toolbar .lbl{color:#fff;font-size:11px;opacity:.75}
+.note{max-width:1280px;width:100%;color:#fff;font-size:12px;line-height:1.7;margin:0 0 10px;opacity:.92;min-height:20px}
+.stage{width:1280px;height:820px;flex-shrink:0}
+
+/* ---------------- 框架 ---------------- */
+.app{width:1280px;height:820px;display:grid;grid-template-columns:216px 1fr;background:var(--bg);color:var(--text);font-size:var(--fs-body);line-height:1.5;overflow:hidden;border-radius:12px;box-shadow:0 30px 80px #0005;position:relative}
+.side{background:var(--side-bg,var(--side));border-right:1px solid var(--side-line);padding:14px 10px 12px;display:flex;flex-direction:column;gap:1px;overflow:hidden}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 12px}
+.brand i{width:28px;height:28px;border-radius:7px;background:var(--brand-bg);color:var(--brand-fg);display:grid;place-items:center;font:600 var(--fs-sec) var(--head);font-style:normal}
+.brand b{font:600 var(--fs-sec) var(--head);letter-spacing:1px;display:block;line-height:1.2}
+.brand small{display:block;font-size:var(--fs-cap);color:var(--muted);letter-spacing:1.5px;line-height:1.2}
+.cap{font-size:var(--fs-cap);color:var(--muted);padding:12px 10px 3px}
+.nav{display:flex;align-items:center;gap:9px;height:30px;padding:0 10px;border-radius:var(--r-ctl);color:var(--text);cursor:pointer;user-select:none}
+.nav:hover{background:var(--hover)}
+.nav svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;opacity:.7;flex:none}
+.nav.on{background:var(--nav-on);color:var(--nav-on-fg);font-weight:500}
+.nav.on svg{opacity:1;color:var(--nav-on-ic,currentColor)}
+.nav .n{margin-left:auto;font-size:var(--fs-cap);color:var(--muted);font-weight:400}
+.nav .n.warn{color:var(--warn);font-weight:600}
+.side .bottom{margin-top:auto;display:flex;flex-direction:column;gap:1px}
+.setrow{display:flex;align-items:center;gap:2px}.setrow .nav{flex:1}
+.iconbtn{width:30px;height:30px;border-radius:var(--r-ctl);border:0;background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer;flex:none}
+.iconbtn:hover{background:var(--hover);color:var(--text)}
+.iconbtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6}
+.mode .moon{display:none}[data-mode=dark] .mode .sun{display:none}[data-mode=dark] .mode .moon{display:block}
+.status{display:flex;align-items:center;gap:6px;font-size:var(--fs-cap);color:var(--muted);padding:8px 10px 0}
+.status i{width:6px;height:6px;border-radius:50%;background:var(--pos)}
+
+.main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--main-bg,var(--bg))}
+.top{height:52px;display:flex;align-items:center;gap:10px;padding:0 20px 0 24px;border-bottom:1px solid var(--top-line);flex-shrink:0}
+.crumb{color:var(--muted)}.crumb b{color:var(--text);font-weight:500}
+.search{margin-left:auto;width:220px;height:30px;border-radius:var(--r-ctl);background:var(--field);border:1px solid var(--field-line);display:flex;align-items:center;gap:6px;padding:0 10px;color:var(--muted)}
+.search svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6}
+.btn{height:30px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border-radius:var(--r-ctl);border:1px solid var(--btn-line);background:var(--btn);color:var(--text);font:500 var(--fs-body) var(--sans);white-space:nowrap;cursor:pointer}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:var(--primary-fg)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--link)}
+.btn.danger{color:var(--danger)}
+.btn.sm{height:26px;padding:0 10px;font-size:var(--fs-cap)}
+.kbd{font-size:var(--fs-cap);opacity:.65;font-weight:400}
+.screen{display:none;flex:1;min-height:0;flex-direction:column}
+.screen.on{display:flex}
+.page{flex:1;overflow:auto;padding:22px 28px 28px}
+.page::-webkit-scrollbar{width:0}
+
+/* 页头：一行。标题 + 行内数据 + 右侧次要操作 */
+.ph{display:flex;align-items:center;gap:12px;margin:0 0 18px;min-height:30px}
+.ph h1{font:600 var(--fs-page)/1.2 var(--head);margin:0;letter-spacing:var(--h-track,0)}
+.ph .meta{color:var(--muted)}
+.ph .act{margin-left:auto;display:flex;gap:8px;align-items:center}
+.muted{color:var(--muted)}.num{font-family:var(--num);font-variant-numeric:tabular-nums}
+.pos{color:var(--pos)}.warn{color:var(--warn)}.neg{color:var(--danger)}.link{color:var(--link);cursor:pointer}
+.info{display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;border:1px solid currentColor;color:var(--muted);font-size:9px;font-style:normal;margin-left:4px;vertical-align:1px;opacity:.8}
+
+/* 容器：只有一层 */
+.card{background:var(--card);border:1px solid var(--card-line);border-radius:var(--r-card);box-shadow:var(--card-shadow,none)}
+.sec{margin-bottom:20px}
+.sh{display:flex;align-items:baseline;gap:10px;margin:0 0 10px}
+.sh h2{font:600 var(--fs-sec) var(--head);margin:0}
+.sh .r{margin-left:auto;font-size:var(--fs-cap);color:var(--muted)}
+.card>.sh{padding:14px 18px 0;margin-bottom:4px}
+.pad{padding:14px 18px}
+
+/* 指标行：一张卡、竖线分隔、最多 4 格；说明收进 ⓘ */
+.metrics{display:grid;grid-template-columns:repeat(var(--n,4),1fr);margin-bottom:20px}
+.metrics>div{padding:14px 18px;min-width:0}
+.metrics>div+div{border-left:1px solid var(--line)}
+.metrics .l{font-size:var(--fs-cap);color:var(--muted)}
+.metrics .v{font:var(--key-w) var(--fs-page)/1.3 var(--num);font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap}
+.metrics .v small{font-size:var(--fs-body);color:var(--muted);font-weight:400;margin-left:3px}
+.metrics .s{font-size:var(--fs-cap);color:var(--muted);margin-top:2px}
+
+/* 行与表 */
+.rows{padding:2px 18px 6px}
+.row{display:flex;align-items:center;gap:12px;min-height:48px;border-bottom:1px solid var(--line-soft)}
+.row:last-child{border-bottom:0}
+.row .t{flex:1;min-width:0}
+.row .t>div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t small{display:block;color:var(--muted);font-size:var(--fs-cap)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted)}
+.tag{font-size:var(--fs-cap);padding:1px 8px;border-radius:var(--r-pill);background:var(--soft);color:var(--muted);white-space:nowrap;line-height:18px}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}.tag.pos{background:var(--pos-bg);color:var(--pos)}.tag.info{background:var(--info-bg);color:var(--link)}
+.st{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.st:before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.st.use{color:var(--pos)}.st.ret{color:var(--muted)}.st.sold{color:var(--link)}.st.warn{color:var(--warn)}
+table.tb{width:100%;border-collapse:collapse}
+.tb th{font-size:var(--fs-cap);color:var(--muted);font-weight:400;text-align:left;height:32px;padding:0 10px;border-bottom:1px solid var(--line)}
+.tb td{height:48px;padding:0 10px;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+.tb tr:last-child td{border-bottom:0}
+.tb .r{text-align:right}
+.tb tr.sel td{background:var(--sel)}
+.tb tr.sel td:first-child{border-radius:var(--r-ctl) 0 0 var(--r-ctl)}.tb tr.sel td:last-child{border-radius:0 var(--r-ctl) var(--r-ctl) 0}
+.card .tb th:first-child,.card .tb td:first-child{padding-left:18px}.card .tb th:last-child,.card .tb td:last-child{padding-right:18px}
+.item{display:flex;align-items:center;gap:12px;min-width:0}
+.item b{font-weight:500;display:block}
+.item small{display:block;color:var(--muted);font-size:var(--fs-cap)}
+.art{width:36px;height:36px;border-radius:8px;background:var(--art-bg);display:grid;place-items:center;flex:none;overflow:hidden}
+.art svg{width:76%;height:76%}
+.av{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:var(--fs-cap);font-weight:600;flex:none}
+
+/* 筛选条：一行 */
+.fbar{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.seg{display:inline-flex;background:var(--soft);border-radius:var(--r-ctl);padding:2px;gap:2px}
+.seg span{height:24px;display:flex;align-items:center;padding:0 10px;border-radius:5px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.seg span.on{background:var(--seg-on);color:var(--text);box-shadow:0 1px 2px #0000001f;font-weight:500}
+.chip{height:26px;display:inline-flex;align-items:center;gap:4px;padding:0 10px;border-radius:var(--r-pill);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.chip.on{background:var(--chip-on);border-color:transparent;color:var(--chip-on-fg);font-weight:500}
+.fbar .sp{margin-left:auto;display:flex;gap:8px;align-items:center}
+.drop{height:26px;display:inline-flex;align-items:center;gap:6px;padding:0 8px 0 10px;border-radius:var(--r-ctl);border:1px solid var(--line);color:var(--text);background:var(--btn);white-space:nowrap}
+.drop:after{content:"⌄";color:var(--muted);font-size:var(--fs-cap);margin-top:-4px}
+
+/* 列表 + 检视器 */
+.split{display:grid;grid-template-columns:minmax(0,1fr) 300px;flex:1;min-height:0}
+.split>.page{padding-right:24px}
+.insp{border-left:1px solid var(--line);background:var(--insp-bg,var(--bg));padding:18px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.insp .cover{height:128px;border-radius:var(--r-card);background:var(--art-bg);display:grid;place-items:center}
+.insp .cover svg{width:88px;height:88px}
+.insp h3{font:600 var(--fs-sec) var(--head);margin:0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:7px 12px;margin:0}
+.kv dt{color:var(--muted)}.kv dd{margin:0;text-align:right}
+.m2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mt .l{font-size:var(--fs-cap);color:var(--muted)}
+.mt .v{font:var(--key-w) var(--fs-page) var(--num);font-variant-numeric:tabular-nums}
+.mt .v small{font-size:var(--fs-body);color:var(--muted);font-weight:400;margin-left:2px}
+.insp .foot{margin-top:auto;display:flex;flex-direction:column;gap:8px}
+.insp .foot .btn{justify-content:center}
+.hr{height:1px;background:var(--line)}
+
+/* 总览 */
+.hero2{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px}
+.hero{padding:18px 20px}
+.hero .l{color:var(--muted)}
+.hero .big{font:var(--key-w) var(--fs-key)/1.2 var(--num);font-variant-numeric:tabular-nums;margin:4px 0 2px;letter-spacing:-.4px}
+.hero .sub{color:var(--muted);font-size:var(--fs-cap);display:flex;gap:12px;flex-wrap:wrap}
+.hsplit{display:grid;grid-template-columns:1fr 1fr}.hsplit>div+div{border-left:1px solid var(--line);padding-left:20px}
+.spark{margin-top:12px;height:78px;width:100%;display:block}
+.spark .l{fill:none;stroke:var(--chart);stroke-width:2}
+.spark .a{fill:var(--chart);opacity:.09}
+.spark circle{fill:var(--chart)}
+.spark .g{stroke:var(--muted);stroke-dasharray:3 3;opacity:.6}
+.spark text{font-size:var(--fs-cap);fill:var(--muted);font-family:var(--sans)}
+.catbar{display:flex;height:8px;border-radius:99px;overflow:hidden;margin:14px 0 10px;background:var(--soft);gap:2px}
+.catbar span{display:block;height:100%}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:5px 16px}
+.legend div{display:flex;align-items:center;gap:6px;min-width:0}
+.legend i{width:8px;height:8px;border-radius:2px;flex:none}
+.legend b{margin-left:auto;font-weight:500}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g2 .card{min-width:0}
+
+/* 图表 */
+.bars{display:flex;align-items:flex-end;gap:10px;height:150px;padding:10px 18px 0}
+.bars>div{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+.bars i{display:block;width:100%;max-width:34px;background:var(--chart);border-radius:4px 4px 0 0;opacity:.9}
+.bars i.dim{background:var(--soft-strong)}
+.bars span{font-size:var(--fs-cap);color:var(--muted)}
+.bars em{font-style:normal;font-size:var(--fs-cap);color:var(--text)}
+.hbar{display:grid;grid-template-columns:96px 1fr 76px;align-items:center;gap:12px;height:34px}
+.hbar .tr{height:8px;border-radius:99px;background:var(--soft);overflow:hidden}
+.hbar .tr i{display:block;height:100%;border-radius:99px}
+.hbar .r{text-align:right}
+
+/* 详情 */
+.dh{display:grid;grid-template-columns:88px 1fr auto;gap:18px;align-items:center;margin-bottom:22px}
+.dh .art{width:88px;height:88px;border-radius:14px}
+.dh h1{font:600 var(--fs-page) var(--head);margin:2px 0 4px}
+.dh .ln{display:flex;gap:10px;align-items:center;color:var(--muted);flex-wrap:wrap}
+.dh .acts{display:flex;gap:8px;margin-top:10px}
+.dh .metrics{margin:0;--n:2}
+.dh .metrics>div{min-width:130px}
+.dgrid{display:grid;grid-template-columns:1.4fr 1fr;gap:20px}
+.facts{display:grid;grid-template-columns:1fr 1fr;column-gap:24px;padding:2px 18px 8px}
+.facts div{display:flex;justify-content:space-between;gap:12px;height:38px;align-items:center;border-bottom:1px solid var(--line-soft)}
+.facts div:nth-last-child(-n+2){border-bottom:0}
+.facts span:first-child{color:var(--muted)}
+.wr{display:grid;grid-template-columns:minmax(0,1fr) 140px 64px;align-items:center;gap:14px;min-height:52px;padding:0 18px;border-bottom:1px solid var(--line-soft)}
+.wr:last-child{border-bottom:0}
+.wr small{display:block;color:var(--muted);font-size:var(--fs-cap)}
+.bar{height:6px;border-radius:99px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--pos);border-radius:99px}
+.bar.w i{background:var(--warn)}.bar.a i{background:var(--chart)}
+.wr .left{font-size:var(--fs-cap);text-align:right}
+.tl{list-style:none;margin:0;padding:6px 18px 12px 22px}
+.tl li{position:relative;padding:0 0 14px 16px;border-left:1px solid var(--line)}
+.tl li:last-child{border-color:transparent;padding-bottom:0}
+.tl li:before{content:"";position:absolute;left:-4px;top:6px;width:7px;height:7px;border-radius:50%;background:var(--card-solid);border:1.5px solid var(--muted)}
+.tl li.hl:before{border-color:var(--warn);background:var(--warn)}
+.tl small{display:block;color:var(--muted);font-size:var(--fs-cap)}
+.menu{position:absolute;background:var(--pop);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:0 10px 30px #00000029;padding:4px;width:156px;z-index:5}
+.menu div{height:28px;display:flex;align-items:center;padding:0 10px;border-radius:5px}
+.menu div.h{background:var(--primary);color:var(--primary-fg)}
+.menu hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+.menu .danger{color:var(--danger)}
+
+/* 表单弹层：单列分组 */
+.dim{position:absolute;inset:0;background:var(--scrim);display:none;place-items:center;z-index:10}
+.dim.on{display:grid}
+.sheet{width:600px;height:740px;background:var(--sheet-bg);border-radius:14px;box-shadow:0 30px 80px #0000004d;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line)}
+.sheet header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--sheet-head)}
+.sheet header b{font:600 var(--fs-sec) var(--head)}
+.sheet header .btn.primary{margin-left:auto}
+.sheet .body{padding:16px 18px 20px;display:flex;flex-direction:column;gap:14px;overflow:auto}
+.sheet .body::-webkit-scrollbar{width:0}
+.namerow{display:flex;gap:12px;align-items:center}
+.namerow .art{width:52px;height:52px;border-radius:12px;border:1px dashed var(--soft-strong)}
+.namerow input{flex:1;height:40px;border-radius:8px;border:1.5px solid var(--primary);background:var(--field-solid);color:var(--text);padding:0 12px;font:var(--fs-sec) var(--sans);outline:3px solid var(--focus);outline-offset:0}
+.hint{font-size:var(--fs-cap);color:var(--muted);margin:-8px 0 0 64px}
+.grp .gc{font-size:var(--fs-cap);color:var(--muted);padding:0 4px 5px}
+.grp .gb{background:var(--group);border:1px solid var(--card-line);border-radius:var(--r-card);overflow:hidden}
+.fr{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 14px;border-bottom:1px solid var(--line-soft)}
+.fr:last-child{border-bottom:0}
+.fr .k{flex:1}
+.fr .v{color:var(--muted)}.fr .v.set{color:var(--text)}
+.chev{color:var(--muted);font-size:var(--fs-cap)}
+.sw{width:34px;height:20px;border-radius:99px;background:var(--soft-strong);padding:2px;flex:none}
+.sw i{display:block;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0000004d}
+.sw.on{background:var(--pos)}.sw.on i{transform:translateX(14px)}
+.fr.sub{background:var(--soft);padding-left:28px}
+
+/* 时间轴 */
+.month{position:sticky;top:-22px;background:var(--main-bg,var(--bg));padding:10px 0 6px;display:flex;align-items:baseline;gap:10px;z-index:1}
+.month h2{font:600 var(--fs-sec) var(--head);margin:0}
+.ev{display:grid;grid-template-columns:44px 20px minmax(0,1fr) auto 20px;align-items:center;gap:10px;min-height:46px;border-bottom:1px solid var(--line-soft);padding:0 12px}
+.ev:last-child{border-bottom:0}
+.ev .d{color:var(--muted);text-align:right}
+.ev .d b{color:var(--text);font-weight:500;font-size:var(--fs-sec)}
+.ev .t small{display:block;color:var(--muted);font-size:var(--fs-cap)}
+.ev .ic{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;color:#fff}
+.ev .ic svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+
+/* 心愿卡片 */
+.wgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.wcard{padding:14px;display:flex;flex-direction:column;gap:10px}
+.wcard .art{width:100%;height:92px;border-radius:8px}
+.wcard .art svg{width:64px;height:64px}
+.wcard .top2{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.wcard.sel{outline:2px solid var(--primary);outline-offset:-1px}
+.quick{display:flex;gap:6px}.quick span{flex:1;height:28px;border-radius:var(--r-ctl);border:1px solid var(--line);display:grid;place-items:center}
+
+/* 盘点录入 */
+.stk td{height:52px}
+.stk input{width:128px;height:30px;border-radius:var(--r-ctl);border:1px solid var(--field-line-strong);background:var(--field-solid);color:var(--text);padding:0 10px;text-align:right;font:var(--fs-body) var(--num);font-variant-numeric:tabular-nums}
+.stk input.f{border-color:var(--primary);outline:3px solid var(--focus)}
+.stk .q{display:flex;gap:4px}
+.stk .q span{height:24px;padding:0 8px;border-radius:var(--r-ctl);border:1px solid var(--line);display:grid;place-items:center;font-size:var(--fs-cap);color:var(--muted)}
+.stk .q span.on{background:var(--chip-on);color:var(--chip-on-fg);border-color:transparent}
+.sticky{position:sticky;bottom:0;display:flex;align-items:center;gap:28px;padding:12px 18px;margin-top:14px;background:var(--card-solid)}
+.sticky .v{font:var(--key-w) var(--fs-page) var(--num);font-variant-numeric:tabular-nums}
+
+/* 设置 */
+.set{display:grid;grid-template-columns:200px 1fr;flex:1;min-height:0}
+.setnav{border-right:1px solid var(--line);padding:18px 10px;display:flex;flex-direction:column;gap:1px}
+.setnav .nav{height:32px}
+.themes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:14px 18px 18px}
+.th{border-radius:var(--r-card);border:1px solid var(--line);padding:8px;cursor:pointer}
+.th.on{outline:2px solid var(--primary);outline-offset:-1px;border-color:transparent}
+.th .pv{height:92px;border-radius:6px;display:grid;grid-template-columns:30% 1fr;overflow:hidden;border:1px solid #0000000f}
+.th .pv .s{padding:8px 6px;display:flex;flex-direction:column;gap:5px}
+.th .pv .s i,.th .pv .m i{display:block;height:5px;border-radius:3px}
+.th .pv .m{padding:8px;display:flex;flex-direction:column;gap:6px}
+.th .pv .m .c{height:32px;border-radius:5px}
+.th .nm{display:flex;justify-content:space-between;align-items:baseline;padding:8px 2px 0}
+.th .nm b{font-weight:500}
+
+/* 规范页 */
+.spec h3{font:600 var(--fs-sec) var(--head);margin:0 0 10px}
+.tscale>div{display:grid;grid-template-columns:110px 1fr 220px;align-items:baseline;gap:16px;padding:8px 0;border-bottom:1px solid var(--line-soft)}
+.tscale>div:last-child{border-bottom:0}
+.sw6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.sw6 div{border-radius:8px;border:1px solid var(--line);overflow:hidden}
+.sw6 i{display:block;height:40px}
+.sw6 span{display:block;padding:6px 8px;font-size:var(--fs-cap);color:var(--muted)}
+.comp{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:28px 16px;text-align:center}
+.empty svg{width:36px;height:36px;stroke:var(--muted);fill:none;stroke-width:1.4}
+.err{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:var(--r-ctl);background:var(--danger-bg);color:var(--danger)}
+.err .btn{margin-left:auto}
+.skel i{display:block;height:10px;border-radius:5px;background:var(--soft);margin:8px 0}
+
+/* =================== 主题 B · 清新原生（默认） =================== */
+[data-theme=native] .app{
+  --bg:#ffffff;--side:#f4f4f6;--side-bg:linear-gradient(#f6f6f8,#efeff2);--side-line:#e3e3e7;--card:#fff;--card-solid:#fff;--card-line:#e6e6ea;--soft:#f2f2f5;--soft-strong:#d8d8dd;
+  --text:#1d1d1f;--muted:#86868b;--line:#e6e6ea;--line-soft:#f0f0f3;--hover:#0000000a;--nav-on:#e1e1e6;--nav-on-fg:#1d1d1f;--nav-on-ic:#0a6cff;
+  --sel:#eaf2ff;--link:#0a6cff;--primary:#0a6cff;--primary-fg:#fff;--pos:#2a9d63;--pos-bg:#e7f6ee;--warn:#c46f00;--warn-bg:#fff3e0;--danger:#d93a31;--danger-bg:#fdecea;--info-bg:#eaf2ff;
+  --chart:#0a6cff;--art-bg:#f3f3f6;--field:#f2f2f5;--field-line:transparent;--field-solid:#fff;--field-line-strong:#d8d8dd;--btn:#fff;--btn-line:#dcdce1;--brand-bg:#1d1d1f;--brand-fg:#fff;
+  --scrim:#00000033;--sheet-bg:#f5f5f7;--sheet-head:#fff;--group:#fff;--top-line:#ececef;--seg-on:#fff;--chip-on:#1d1d1f;--chip-on-fg:#fff;--pop:#fff;--focus:#0a6cff26}
+[data-theme=native][data-mode=dark] .app{
+  --bg:#1e1e20;--side:#262628;--side-bg:linear-gradient(#29292c,#232326);--side-line:#323235;--card:#242427;--card-solid:#242427;--card-line:#333337;--soft:#2e2e32;--soft-strong:#4a4a4f;
+  --text:#f2f2f4;--muted:#97979e;--line:#353539;--line-soft:#2c2c30;--hover:#ffffff0d;--nav-on:#3a3a3f;--nav-on-fg:#f2f2f4;--nav-on-ic:#4ea1ff;
+  --sel:#1d3456;--link:#4ea1ff;--primary:#0a84ff;--pos:#32c979;--pos-bg:#32c9791f;--warn:#ffb340;--warn-bg:#ffb3401f;--danger:#ff6961;--danger-bg:#ff69611f;--info-bg:#4ea1ff1f;
+  --chart:#4ea1ff;--art-bg:#2c2c30;--field:#2c2c30;--field-solid:#2a2a2e;--field-line-strong:#48484d;--btn:#2c2c30;--btn-line:#3c3c41;--brand-bg:#f2f2f4;--brand-fg:#1e1e20;
+  --scrim:#00000080;--sheet-bg:#1e1e20;--sheet-head:#252528;--group:#27272a;--top-line:#2c2c30;--seg-on:#46464b;--chip-on:#f2f2f4;--chip-on-fg:#1e1e20;--pop:#2c2c30;--focus:#0a84ff40}
+
+/* =================== 主题 C · 纸本档案 =================== */
+[data-theme=paper] .app{
+  --bg:#f7f3ea;--side:#efe8da;--side-line:#dfd6c3;--card:transparent;--card-solid:#f7f3ea;--card-line:transparent;--soft:#ebe4d4;--soft-strong:#d5cab4;
+  --text:#2a2621;--muted:#8a7f70;--line:#dcd2be;--line-soft:#e8e1d1;--hover:#0000000a;--nav-on:#e3d8c4;--nav-on-fg:#2a2621;--nav-on-ic:#9a4320;
+  --sel:#ede3cf;--link:#9a4320;--primary:#2a2621;--primary-fg:#f7f3ea;--pos:#4d7a4f;--pos-bg:#e3ebd9;--warn:#ad6519;--warn-bg:#f3e2c7;--danger:#b23a2a;--danger-bg:#f5dcd4;--info-bg:#efdccd;
+  --chart:#9a4320;--art-bg:#ebe3d2;--field:#fbf8f1;--field-line:#dcd2be;--field-solid:#fbf8f1;--field-line-strong:#cfc4ad;--btn:transparent;--btn-line:#cfc4ad;--brand-bg:#9a4320;--brand-fg:#f7f3ea;
+  --scrim:#2a262155;--sheet-bg:#f7f3ea;--sheet-head:#f7f3ea;--group:#fbf8f1;--top-line:#e3dac8;--seg-on:#fbf8f1;--chip-on:#2a2621;--chip-on-fg:#f7f3ea;--pop:#fbf8f1;--focus:#9a432026;
+  --c1:#9a4320;--c2:#c79a55;--c3:#6f8157;--c4:#7d6a9a;--c5:#b8863a;--c6:#a39a8a;
+  --num:"Iowan Old Style","New York",Georgia,"Songti SC",serif;--head:"Songti SC","STSong","Noto Serif SC",Georgia,serif;--key-w:400;--h-track:1px;--r-card:3px;--r-ctl:4px}
+[data-theme=paper][data-mode=dark] .app{
+  --bg:#1f1c18;--side:#191714;--side-line:#34302a;--card-solid:#1f1c18;--soft:#2c2823;--soft-strong:#4a443b;
+  --text:#ebe3d3;--muted:#9c9282;--line:#3a352d;--line-soft:#2d2924;--hover:#ffffff0a;--nav-on:#342a22;--nav-on-fg:#ebe3d3;--nav-on-ic:#e39a70;
+  --sel:#2f261e;--link:#e39a70;--primary:#ebe3d3;--primary-fg:#1f1c18;--pos:#93b58f;--pos-bg:#93b58f1f;--warn:#e0a45c;--warn-bg:#e0a45c1f;--danger:#e57a6a;--danger-bg:#e57a6a1f;--info-bg:#e39a701f;
+  --chart:#e39a70;--art-bg:#2c2823;--field:#26221d;--field-line:#3a352d;--field-solid:#26221d;--field-line-strong:#4a443b;--btn-line:#4a443b;--brand-bg:#c0643a;--brand-fg:#1f1c18;
+  --scrim:#00000080;--sheet-bg:#1f1c18;--sheet-head:#1f1c18;--group:#26221d;--top-line:#2d2924;--seg-on:#3a342c;--chip-on:#ebe3d3;--chip-on-fg:#1f1c18;--pop:#26221d;--focus:#e39a7033;
+  --c1:#c0643a;--c2:#c9a066;--c3:#8a9a74;--c4:#9c8ab8;--c5:#c9a040}
+/* 纸本：卡片改为顶部粗线，内容贴边 */
+[data-theme=paper] .card{border:0;border-top:1.5px solid var(--text);border-radius:0;background:transparent}
+[data-theme=paper] .card>.sh,[data-theme=paper] .rows,[data-theme=paper] .facts,[data-theme=paper] .wr,[data-theme=paper] .hero,[data-theme=paper] .pad{padding-left:0;padding-right:0}
+[data-theme=paper] .card .tb th:first-child,[data-theme=paper] .card .tb td:first-child{padding-left:0}[data-theme=paper] .card .tb th:last-child,[data-theme=paper] .card .tb td:last-child{padding-right:0}
+[data-theme=paper] .metrics>div:first-child{padding-left:0}
+[data-theme=paper] .hsplit>div+div{padding-left:20px}
+[data-theme=paper] .sh h2{letter-spacing:1px}
+[data-theme=paper] .ph h1{font-size:var(--fs-key);font-weight:600}
+[data-theme=paper] .grp .gb{border:1px solid var(--line)}
+[data-theme=paper] .sheet{border-radius:4px}
+[data-theme=paper] .art{border-radius:3px}
+[data-theme=paper] .bars i{border-radius:0}
+[data-theme=paper] .sticky{background:var(--bg)}
+[data-theme=paper] .wcard{padding-left:0;padding-right:0}
+[data-theme=paper] .insp .cover{border-radius:3px}
+
+/* =================== 主题 D · 柔和卡片 =================== */
+[data-theme=bento] .app{
+  --bg:#f2f2f7;--side:#f2f2f7;--side-line:transparent;--main-bg:#f2f2f7;--card:#fff;--card-solid:#fff;--card-line:transparent;--card-shadow:0 1px 2px #0000000a,0 4px 14px #0000000a;--soft:#f0f0f5;--soft-strong:#d9d9e0;
+  --text:#1c1c1e;--muted:#8e8e93;--line:#e8e8ed;--line-soft:#f1f1f5;--hover:#0000000a;--nav-on:#fff;--nav-on-fg:#1c1c1e;
+  --sel:#efeefe;--link:#5e5ce6;--primary:#1c1c1e;--primary-fg:#fff;--pos:#28b84f;--pos-bg:#e5f7ea;--warn:#f08a00;--warn-bg:#fff2de;--danger:#ff3b30;--danger-bg:#ffe9e8;--info-bg:#efeefe;
+  --chart:#5e5ce6;--art-bg:#f4f3fb;--field:#fff;--field-line:#e8e8ed;--field-solid:#fff;--field-line-strong:#dcdce3;--btn:#fff;--btn-line:#e3e3ea;--brand-bg:linear-gradient(135deg,#5e5ce6,#bf5af2);--brand-fg:#fff;
+  --scrim:#00000033;--sheet-bg:#f2f2f7;--sheet-head:#f2f2f7;--group:#fff;--top-line:transparent;--seg-on:#fff;--chip-on:#1c1c1e;--chip-on-fg:#fff;--pop:#fff;--focus:#5e5ce626;--insp-bg:transparent;
+  --key-w:650;--r-card:16px;--r-ctl:9px;--c1:#5e5ce6;--c2:#ff9f0a;--c3:#30c48d;--c4:#bf5af2;--c5:#ffcc00;--c6:#aeaeb2}
+[data-theme=bento][data-mode=dark] .app{
+  --bg:#000;--side:#000;--main-bg:#000;--card:#1c1c1e;--card-solid:#1c1c1e;--card-shadow:none;--soft:#2c2c2e;--soft-strong:#48484a;
+  --text:#f5f5f7;--muted:#8e8e93;--line:#2c2c2e;--line-soft:#262628;--hover:#ffffff0d;--nav-on:#1c1c1e;--nav-on-fg:#f5f5f7;
+  --sel:#27264a;--link:#8e8cff;--primary:#f5f5f7;--primary-fg:#000;--pos:#30d158;--pos-bg:#30d1581f;--warn:#ff9f0a;--warn-bg:#ff9f0a1f;--danger:#ff453a;--danger-bg:#ff453a1f;--info-bg:#8e8cff1f;
+  --chart:#8e8cff;--art-bg:#2c2c2e;--field:#1c1c1e;--field-line:#2c2c2e;--field-solid:#1c1c1e;--field-line-strong:#3a3a3c;--btn:#1c1c1e;--btn-line:#2c2c2e;
+  --scrim:#00000099;--sheet-bg:#000;--sheet-head:#000;--group:#1c1c1e;--seg-on:#3a3a3c;--chip-on:#f5f5f7;--chip-on-fg:#000;--pop:#2c2c2e;--focus:#8e8cff40}
+[data-theme=bento] .nav svg{width:22px;height:22px;padding:4px;border-radius:6px;color:#fff;opacity:1;stroke-width:1.9;background:var(--ic,#8e8e93)}
+[data-theme=bento] .nav.on svg{color:#fff}
+[data-theme=bento] .nav.on{box-shadow:0 1px 3px #00000014}
+[data-theme=bento] .hero .big{font-size:34px;letter-spacing:-1px}
+[data-theme=bento] .hero.t1{background:linear-gradient(160deg,#ececfe,#fff 55%)}
+[data-theme=bento] .hero.t2{background:linear-gradient(160deg,#fff1e2,#fff 55%)}
+[data-theme=bento][data-mode=dark] .hero.t1{background:linear-gradient(160deg,#25244a,#1c1c1e 55%)}
+[data-theme=bento][data-mode=dark] .hero.t2{background:linear-gradient(160deg,#3a2a16,#1c1c1e 55%)}
+[data-theme=bento] .metrics{background:transparent;box-shadow:none;gap:12px}
+[data-theme=bento] .metrics>div{background:var(--card);border-radius:14px;box-shadow:var(--card-shadow)}
+[data-theme=bento] .metrics>div+div{border-left:0}
+[data-theme=bento] .insp{margin:14px 14px 14px 0;border:0;border-radius:16px;background:var(--card);box-shadow:var(--card-shadow)}
+[data-theme=bento] .setnav{border-right:0}
+[data-theme=bento] .split>.page>.tb{background:var(--card);border-radius:16px;box-shadow:var(--card-shadow)}
+[data-theme=bento] .split>.page>.tb th:first-child,[data-theme=bento] .split>.page>.tb td:first-child{padding-left:16px}
+[data-theme=bento] .sticky{box-shadow:0 -2px 14px #0000000f}
+
+/* v3：小折线悬停浮层（规范 4.5） */
+.spark-wrap{position:relative;outline:none;border-radius:6px}.spark-wrap:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.spark .guide{stroke:var(--muted);stroke-width:1;opacity:0}.spark .pt{transition:r .1s}
+.spark-wrap .tip{position:absolute;transform:translate(-50%,-100%);margin-top:-8px;background:var(--pop);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #00000024;padding:6px 10px;font-size:var(--fs-cap);white-space:nowrap;pointer-events:none;z-index:3;line-height:1.5}
+.spark-wrap .tip b{display:block;font:var(--key-w) var(--fs-body) var(--num)}
+.note-foot{margin:0;padding:10px 18px 14px;border-top:1px solid var(--line-soft);color:var(--muted)}
+[data-theme=paper] .note-foot{padding-left:0;padding-right:0}
+/* v3：纸本档案侧栏选中为左侧竖线，时间轴类型为空心圆点 */
+[data-theme=paper] .side .nav.on{background:transparent;box-shadow:inset 3px 0 0 var(--link);border-radius:0;font-weight:600;color:var(--text)}
+[data-theme=paper] .ev .ic{background:transparent!important;border:1.5px solid var(--link);width:10px;height:10px;border-radius:50%;margin:0 5px}
+[data-theme=paper] .ev .ic svg{display:none}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="toolbar">
+    <span class="lbl">主题</span>
+    <div class="grp" id="themes"><button data-v="native">B 清新原生 · 默认</button><button data-v="paper">C 纸本档案</button><button data-v="bento">D 柔和卡片</button></div>
+    <div class="grp" id="modes"><button data-v="light">浅色</button><button data-v="dark">深色</button></div>
+    <span class="lbl">页面</span>
+    <div class="grp" id="screens">
+      <button data-v="spec">规范</button>
+      <button data-v="overview">总览</button><button data-v="items">全部物品</button><button data-v="detail">物品详情</button><button data-v="form">新增物品</button><button data-v="wish">心愿</button>
+      <button data-v="accounts">账户</button><button data-v="stock">盘点</button><button data-v="expenses">重要支出</button><button data-v="recurring">周期费用</button><button data-v="virtual">虚拟资产</button>
+      <button data-v="timeline">时间轴</button><button data-v="stats">统计</button><button data-v="trash">最近删除</button><button data-v="settings">设置</button>
+    </div>
+  </div>
+  <p class="note" id="note"></p>
+  <div class="stage" id="stage">
+  <div class="app">
+    <aside class="side">
+      <div class="brand"><i>底</i><div><b>家底</b><small>POSSIO</small></div></div>
+      <div class="nav" data-go="overview" style="--ic:#5e5ce6"><svg viewBox="0 0 20 20"><path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z"/></svg>总览</div>
+      <div class="cap">物品</div>
+      <div class="nav" data-go="items" style="--ic:#0a84ff"><svg viewBox="0 0 20 20"><path d="M3 6.5 10 3l7 3.5v8L10 18l-7-3.5z M3 6.5l7 3.5 7-3.5M10 10v8M6.5 4.7l7 3.5"/></svg>全部物品<span class="n">8</span></div>
+      <div class="nav" style="--ic:#34c759"><svg viewBox="0 0 20 20"><path d="M16 10a6 6 0 1 1-12 0 6 6 0 1 1 12 0"/></svg>使用中<span class="n">6</span></div>
+      <div class="nav" style="--ic:#30b0c7"><svg viewBox="0 0 20 20"><path d="M10 2.5 16 5v5c0 3.6-2.6 6.4-6 7.5-3.4-1.1-6-3.9-6-7.5V5zM7.3 10l1.9 1.9 3.6-3.8"/></svg>保障中<span class="n">2</span></div>
+      <div class="nav" style="--ic:#8e8e93"><svg viewBox="0 0 20 20"><path d="M3 4h14v4H3zM4 8v9h12V8M8 11h4"/></svg>已退役<span class="n">1</span></div>
+      <div class="nav" style="--ic:#af52de"><svg viewBox="0 0 20 20"><path d="M3 10h13M12 6l4 4-4 4"/></svg>已售出<span class="n">1</span></div>
+      <div class="nav" data-go="wish" style="--ic:#ff2d55"><svg viewBox="0 0 20 20"><path d="M10 17 3.5 10.5C-1 5.5 5 0 10 6c5-6 11-.5 6.5 4.5Z"/></svg>心愿清单<span class="n">3</span></div>
+      <div class="cap">财富</div>
+      <div class="nav" data-go="accounts" style="--ic:#ff9500"><svg viewBox="0 0 20 20"><path d="M3 6h14v11H3zM3 6l10-3v3M17 10h-4a1.5 1.5 0 0 0 0 3h4"/></svg>账户与盘点</div>
+      <div class="nav" data-go="expenses" style="--ic:#ff6b3d"><svg viewBox="0 0 20 20"><path d="M5 2.5h10v15l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3zM8 7h4M8 10h4M8 13h2"/></svg>重要支出</div>
+      <div class="nav" data-go="recurring" style="--ic:#32ade6"><svg viewBox="0 0 20 20"><path d="M4 9a6 6 0 0 1 10.4-4.1L16 6.5M16 3v3.5h-3.5M16 11a6 6 0 0 1-10.4 4.1L4 13.5M4 17v-3.5h3.5"/></svg>周期费用<span class="n warn">1</span></div>
+      <div class="nav" data-go="virtual" style="--ic:#5856d6"><svg viewBox="0 0 20 20"><path d="M6 15.5h8.2a3.3 3.3 0 0 0 .5-6.6A4.8 4.8 0 0 0 5.4 8.4 3.6 3.6 0 0 0 6 15.5Z"/></svg>虚拟资产</div>
+      <div class="cap">回顾</div>
+      <div class="nav" data-go="timeline" style="--ic:#64c466"><svg viewBox="0 0 20 20"><path d="M17 10a7 7 0 1 1-14 0 7 7 0 1 1 14 0M10 6v4l3 2"/></svg>时间轴</div>
+      <div class="nav" data-go="stats" style="--ic:#ff9f0a"><svg viewBox="0 0 20 20"><path d="M4 15v-4M10 15V4M16 15V8"/></svg>统计</div>
+      <div class="bottom">
+        <div class="nav" style="--ic:#8e8e93"><svg viewBox="0 0 20 20"><path d="M3 3h14v14H3zM3 14l5-5 4 4 2-2 3 3M13 6h.1"/></svg>素材库</div>
+        <div class="nav" data-go="trash" style="--ic:#8e8e93"><svg viewBox="0 0 20 20"><path d="M3 5h14M7 5V3h6v2M5 5l1 12h8l1-12M8 8v6M12 8v6"/></svg>最近删除</div>
+        <div class="setrow">
+          <div class="nav" data-go="settings" style="--ic:#8e8e93"><svg viewBox="0 0 20 20"><path d="M3 5h14M3 15h14M6 3v4M14 13v4M3 10h14M11 8v4"/></svg>设置</div>
+          <button class="iconbtn mode" id="mode" title="切换浅色／深色（⌘⇧D）"><svg class="sun" viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/></svg><svg class="moon" viewBox="0 0 16 16"><path d="M13 9.8A5.5 5.5 0 0 1 6.2 3a5.5 5.5 0 1 0 6.8 6.8z"/></svg></button>
+        </div>
+        <div class="status"><i></i>本地档案 · 今天 09:12 已备份</div>
+      </div>
+    </aside>
+
+    <section class="main">
+
+<!-- ================= 规范 ================= -->
+<div class="screen" data-s="spec">
+  <div class="top"><span class="crumb"><b>界面规范</b>（设计稿说明页，不是应用页面）</span></div>
+  <div class="page spec">
+    <div class="ph"><h1>家底 · 界面规范</h1><span class="meta">v3 · 开发依据见 docs/ui/U16_DESIGN_SPEC.md；三套主题按容器、字体与数字、颜色、侧栏四个维度区分</span></div>
+    <div class="g2" style="grid-template-columns:1.2fr 1fr;margin-bottom:20px">
+      <div class="card pad">
+        <h3>字号：只用 5 级</h3>
+        <div class="tscale">
+          <div><span class="muted num">28 · 500</span><span class="num" style="font:var(--key-w) var(--fs-key) var(--num)">¥350,000</span><span class="muted">总览主数字，每页最多 2 个</span></div>
+          <div><span class="muted num">20 · 600</span><span style="font:600 var(--fs-page) var(--head)">全部物品</span><span class="muted">页面标题 · 指标数值</span></div>
+          <div><span class="muted num">15 · 600</span><span style="font:600 var(--fs-sec) var(--head)">购买与投入</span><span class="muted">区块标题 · 弹层标题</span></div>
+          <div><span class="muted num">13 · 400</span><span>MacBook Pro 14″ · 2024-03-18</span><span class="muted">正文、表格、按钮、侧栏</span></div>
+          <div><span class="muted num">11 · 400</span><span class="muted" style="font-size:var(--fs-cap)">电脑与办公 · 剩 10 天</span><span class="muted">注释、表头、标签</span></div>
+        </div>
+      </div>
+      <div class="card pad">
+        <h3>布局常量</h3>
+        <dl class="kv" style="grid-template-columns:1fr auto">
+          <dt>间距</dt><dd class="num">4 的倍数：4 / 8 / 12 / 16 / 20 / 24</dd>
+          <dt>页边距</dt><dd class="num">上 22 · 左右 28</dd>
+          <dt>侧栏 / 顶栏 / 检视器</dt><dd class="num">216 / 52 / 300</dd>
+          <dt>行高</dt><dd class="num">列表 48 · 表单 40 · 侧栏 30</dd>
+          <dt>圆角</dt><dd class="num">控件 6 · 卡片 10 · 胶囊</dd>
+          <dt>字重</dt><dd class="num">400 / 500 / 600</dd>
+          <dt>数字</dt><dd>等宽数字，金额右对齐</dd>
+          <dt>弹层宽</dt><dd class="num">表单 600 · 确认 420</dd>
+        </dl>
+      </div>
+    </div>
+    <div class="card pad" style="margin-bottom:20px">
+      <h3>颜色：一个强调色 + 三个状态色 + 分类色</h3>
+      <div class="sw6">
+        <div><i style="background:var(--primary)"></i><span>强调 · 主按钮、选中、链接</span></div>
+        <div><i style="background:var(--pos)"></i><span>正常 · 使用中、增加</span></div>
+        <div><i style="background:var(--warn)"></i><span>提醒 · 即将到期、待确认</span></div>
+        <div><i style="background:var(--danger)"></i><span>危险 · 删除、失败</span></div>
+        <div><i style="background:linear-gradient(90deg,var(--c1) 0 20%,var(--c2) 20% 40%,var(--c3) 40% 60%,var(--c4) 60% 80%,var(--c5) 80%)"></i><span>分类色 · 只用于图表</span></div>
+        <div><i style="background:var(--soft)"></i><span>底色 · 分段、标签、空条</span></div>
+      </div>
+    </div>
+    <div class="g2" style="margin-bottom:20px">
+      <div class="card pad">
+        <h3>组件</h3>
+        <div class="comp" style="margin-bottom:12px"><span class="btn primary">＋ 新增物品</span><span class="btn">编辑资料</span><span class="btn ghost">查看全部 →</span><span class="btn danger">删除</span><span class="iconbtn" style="border:1px solid var(--btn-line)">⋯</span></div>
+        <div class="comp" style="margin-bottom:12px"><span class="seg"><span class="on">全部</span><span>进行中</span><span>已实现</span></span><span class="chip on">全部</span><span class="chip">影音摄影</span><span class="drop">2026 年</span></div>
+        <div class="comp"><span class="st use">使用中</span><span class="st ret">已退役</span><span class="st sold">已售出</span><span class="tag warn">10 天</span><span class="tag pos">已付</span><span class="tag">已暂停</span><span class="sw on"><i></i></span><span class="sw"><i></i></span></div>
+      </div>
+      <div class="card pad">
+        <h3>空白 · 读取中 · 失败</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="empty" style="border:1px dashed var(--line);border-radius:var(--r-card)"><svg viewBox="0 0 24 24"><path d="M4 8 12 4l8 4v9l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v9"/></svg><b style="font-weight:500">还没有物品</b><span class="muted" style="font-size:var(--fs-cap)">记下第一件值得记住的东西</span><span class="btn primary sm">＋ 新增物品</span></div>
+          <div><div class="skel"><i style="width:60%"></i><i></i><i style="width:80%"></i><i style="width:45%"></i></div><div class="err" style="margin-top:14px">读取失败<span class="btn sm">重试</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card pad">
+      <h3>页面模板：所有页面归入 5 种</h3>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:14px">
+        <div><b style="font-weight:500">① 概览</b><div class="muted" style="font-size:var(--fs-cap)">总览 · 账户与盘点 · 重要支出 · 统计<br>页头 → 指标行 → 主图表 → 两列清单</div></div>
+        <div><b style="font-weight:500">② 列表 + 检视器</b><div class="muted" style="font-size:var(--fs-cap)">物品 · 心愿 · 周期费用 · 虚拟资产 · 最近删除<br>页头带数字 → 一行筛选 → 表格/网格 → 右侧 300 检视器</div></div>
+        <div><b style="font-weight:500">③ 档案详情</b><div class="muted" style="font-size:var(--fs-cap)">物品 · 心愿 · 账户<br>身份头 + 2 个指标 + 3 个操作 → 左资料右经历</div></div>
+        <div><b style="font-weight:500">④ 弹层表单</b><div class="muted" style="font-size:var(--fs-cap)">所有新增与编辑<br>单列分组，开关展开字段；盘点录入例外，用整页表格</div></div>
+        <div><b style="font-weight:500">⑤ 设置</b><div class="muted" style="font-size:var(--fs-cap)">左侧分类 + 右侧分组行<br>与 macOS 系统设置一致</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 总览 ================= -->
+<div class="screen" data-s="overview">
+  <div class="top"><span class="crumb"><b>总览</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索物品、账户、记录</div><span class="btn primary">＋ 新增 <span class="kbd">⌘N</span></span></div>
+  <div class="page">
+    <div class="ph"><h1>家底</h1><span class="meta">2026 年 9 月 29 日</span><div class="act"><div class="seg"><span class="on">综合</span><span>只看物品</span></div></div></div>
+    <div class="hero2">
+      <div class="card hero t1">
+        <div class="l">金融净资产<i class="info">i</i></div>
+        <div class="big">¥350,000</div>
+        <div class="sub"><span class="pos num">较 7 月 29 日 +¥22,400（+6.84%）</span><span class="num">资产 ¥355,000 · 负债 ¥5,000</span></div>
+        <div class="spark-wrap" tabindex="0" aria-label="金融净资产趋势，共 5 次完整盘点"><svg class="spark" viewBox="0 0 600 78" preserveAspectRatio="none">
+          <path class="a" d="M8 60 L126 54 L244 46 L362 37 L592 12 L592 66 L8 66Z"/>
+          <path class="l" d="M8 60 L126 54 L244 46 L362 37 L592 12"/>
+          <line class="g" x1="477" y1="6" x2="477" y2="64"/>
+          <circle class="pt" data-d="2026-04-28" data-v="¥302,000" data-c="第一份完整盘点" cx="8" cy="60" r="3"/><circle class="pt" data-d="2026-05-29" data-v="¥309,000" data-c="较上次 +¥7,000（+2.32%）" cx="126" cy="54" r="3"/><circle class="pt" data-d="2026-06-28" data-v="¥318,000" data-c="较上次 +¥9,000（+2.91%）" cx="244" cy="46" r="3"/><circle class="pt" data-d="2026-07-29" data-v="¥327,600" data-c="较上次 +¥9,600（+3.02%）" cx="362" cy="37" r="3"/><circle class="pt" data-d="2026-09-29" data-v="¥350,000" data-c="较上次 +¥22,400（+6.84%）" cx="592" cy="12" r="3.5"/><line class="guide" x1="0" x2="0" y1="4" y2="66"/>
+          <text x="2" y="77">4月</text><text x="118" y="77">5月</text><text x="236" y="77">6月</text><text x="354" y="77">7月</text><text x="452" y="77">8月未盘</text><text x="576" y="77">9月</text>
+        </svg><div class="tip" role="status" aria-live="polite" hidden></div></div>
+      </div>
+      <div class="card hero t2">
+        <div class="l">持有物品</div>
+        <div class="hsplit">
+          <div><div class="big">¥35,487</div><div class="sub">购入金额 · 1 件未知</div></div>
+          <div><div class="big">7<span class="muted" style="font-size:var(--fs-sec);font-weight:400;margin-left:4px">件</span></div><div class="sub">使用中 6 · 已退役 1</div></div>
+        </div>
+        <div class="catbar"><span style="width:47.9%;background:var(--c1)"></span><span style="width:36.6%;background:var(--c2)"></span><span style="width:15.5%;background:var(--c3)"></span></div>
+        <div class="legend">
+          <div><i style="background:var(--c1)"></i>电脑与办公<b class="num">¥16,999</b></div>
+          <div><i style="background:var(--c2)"></i>影音摄影<b class="num">¥12,989</b></div>
+          <div><i style="background:var(--c3)"></i>手机与平板<b class="num">¥5,499</b></div>
+          <div><i style="background:var(--soft-strong)"></i>家电家居<b class="muted" style="font-weight:400">金额未知</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="card metrics" style="--n:4">
+      <div><div class="l">今年重要支出</div><div class="v num">¥22,040</div></div>
+      <div><div class="l">固定负担</div><div class="v num">¥3,130<small>/月</small></div></div>
+      <div><div class="l">平均持有</div><div class="v num">1,140<small>天</small></div></div>
+      <div><div class="l">心愿进行中</div><div class="v num">3<small>条</small></div></div>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div class="sh"><h2>待关注</h2><span class="r">4 项</span></div>
+        <div class="rows">
+          <div class="row"><span class="dot" style="background:var(--warn)"></span><div class="t"><div>虚构房租 · 付款待确认</div><small>周期费用 · 9 月 27 日到期</small></div><span class="btn sm">确认已付</span></div>
+          <div class="row"><span class="dot"></span><div class="t"><div>虚构域名续费</div><small>即将到期付款 · 10 月 5 日</small></div><span class="tag">6 天</span></div>
+          <div class="row"><span class="dot"></span><div class="t"><div>虚构创作服务</div><small>付款 10 月 2 日 · 权益 10 月 1 日</small></div><span class="tag">3 天</span></div>
+          <div class="row"><span class="dot"></span><div class="t"><div>example-notes.cn</div><small>域名 · 10 月 19 日到期</small></div><span class="tag">20 天</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="sh"><h2>近期记录</h2><span class="r link">时间轴 →</span></div>
+        <div class="rows">
+          <div class="row"><div class="t"><div>财富盘点</div><small>9 月 29 日</small></div><span class="num">¥350,000</span></div>
+          <div class="row"><div class="t"><div>保障到期 · Fujifilm X100V</div><small>9 月 29 日 · 商店保修</small></div><span class="muted">物品</span></div>
+          <div class="row"><div class="t"><div>加入心愿 · 实木书桌</div><small>9 月 20 日</small></div><span class="num">¥4,500</span></div>
+          <div class="row"><div class="t"><div>虚构摄影课程</div><small>9 月 15 日 · 教育培训</small></div><span class="num">¥3,600</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 全部物品（新增表单的底图） ================= -->
+<div class="screen" data-s="items">
+  <div class="top"><span class="crumb">物品 / <b>全部物品</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索物品</div><span class="btn primary">＋ 新增物品 <span class="kbd">⌘N</span></span></div>
+  <div class="split">
+    <div class="page">
+      <div class="ph"><h1>全部物品</h1><span class="meta num">持有 7 件 · ¥35,487 · 已售出 1 件</span><div class="act"><span class="btn">选择</span></div></div>
+      <div class="fbar"><span class="chip on">全部</span><span class="chip">电脑与办公</span><span class="chip">影音摄影</span><span class="chip">手机与平板</span><span class="chip">家电家居</span>
+        <div class="sp"><span class="drop">购入金额 ↓</span><div class="seg"><span class="on">列表</span><span>网格</span></div></div></div>
+      <table class="tb">
+        <thead><tr><th>物品</th><th>购入日期</th><th class="r">购入金额</th><th class="r">日均</th><th>状态</th></tr></thead>
+        <tbody>
+        <tr class="sel"><td><div class="item"><span class="art" data-art="laptop"></span><div><b>MacBook Pro 14″</b><small>电脑与办公</small></div></div></td><td class="num muted">2024-03-18</td><td class="r num">¥16,999</td><td class="r num muted">¥18.36</td><td><span class="st use">使用中</span></td></tr>
+        <tr><td><div class="item"><span class="art" data-art="camera"></span><div><b>Fujifilm X100V</b><small>影音摄影</small></div></div></td><td class="num muted">2023-06-12</td><td class="r num">¥9,790</td><td class="r num muted">¥8.15</td><td><span class="st use">使用中</span></td></tr>
+        <tr><td><div class="item"><span class="art" data-art="phone"></span><div><b>iPhone 12 mini</b><small>手机与平板</small></div></div></td><td class="num muted">2021-02-11</td><td class="r num">¥5,499</td><td class="r num muted">¥3.26</td><td><span class="st ret">已退役</span></td></tr>
+        <tr><td><div class="item"><span class="art" data-art="tablet"></span><div><b>iPad Air 4</b><small>手机与平板</small></div></div></td><td class="num muted">2021-06-01</td><td class="r num">¥4,799</td><td class="r num muted">—</td><td><span class="st sold">已售出</span></td></tr>
+        <tr><td><div class="item"><span class="art" data-art="head"></span><div><b>WH-1000XM5</b><small>影音摄影</small></div></div></td><td class="num muted">2024-09-01</td><td class="r num">¥2,199</td><td class="r num muted">¥2.90</td><td><span class="st use">使用中</span></td></tr>
+        <tr><td><div class="item"><span class="art" data-art="rec"></span><div><b>随身录音设备</b><small>影音摄影</small></div></div></td><td class="num muted">2025-04-02</td><td class="r num">¥1,000</td><td class="r num muted">¥1.83</td><td><span class="st use">使用中</span></td></tr>
+        <tr><td><div class="item"><span class="art" data-art="kbd"></span><div><b>机械键盘 K2</b><small>电脑与办公</small></div></div></td><td class="num muted">2025-12-25</td><td class="r num">¥0</td><td class="r num muted">¥0</td><td><span class="st use">使用中</span></td></tr>
+        <tr><td><div class="item"><span class="art" data-art="coffee"></span><div><b>家里的咖啡机</b><small>家电家居</small></div></div></td><td class="num muted">2022-05-01</td><td class="r muted">待补充</td><td class="r num muted">—</td><td><span class="st use">使用中</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <aside class="insp">
+      <div class="cover" data-art="laptop"></div>
+      <div><h3>MacBook Pro 14″</h3><div class="muted">Apple · M3 Pro · 深空黑</div></div>
+      <div class="m2"><div class="mt"><div class="l">日均持有成本</div><div class="v">¥18.36<small>/天</small></div></div><div class="mt"><div class="l">已持有</div><div class="v">926<small>天</small></div></div></div>
+      <div class="hr"></div>
+      <dl class="kv"><dt>购入</dt><dd class="num">¥16,999 · 2024-03-18</dd><dt>维护</dt><dd class="num">¥0</dd><dt>保障</dt><dd class="warn">AppleCare+ 剩 10 天</dd></dl>
+      <div class="foot"><span class="btn">打开档案 <span class="kbd">⌘E</span></span></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ================= 物品详情 ================= -->
+<div class="screen" data-s="detail">
+  <div class="top"><span class="crumb">全部物品 / <b>MacBook Pro 14″</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索物品</div><span class="btn primary">＋ 新增物品 <span class="kbd">⌘N</span></span></div>
+  <div class="page" style="position:relative">
+    <div class="dh">
+      <span class="art" data-art="laptop"></span>
+      <div>
+        <div class="ln"><span>电脑与办公</span><span class="st use">使用中</span><span class="st sold">保障中</span></div>
+        <h1>MacBook Pro 14″</h1>
+        <div class="ln">Apple · M3 Pro · 深空黑</div>
+        <div class="acts"><span class="btn">编辑 <span class="kbd">⌘E</span></span><span class="btn">＋ 记一笔 ⌄</span><span class="btn" style="background:var(--soft)">⋯</span></div>
+      </div>
+      <div class="card metrics"><div><div class="l">日均持有成本</div><div class="v num">¥18.36<small>/天</small></div></div><div><div class="l">已持有</div><div class="v num">926<small>天</small></div></div></div>
+    </div>
+    <div class="menu" style="left:262px;top:148px"><div>退役…</div><div class="h">售出…</div><div>不计入统计</div><hr><div class="danger">删除物品</div></div>
+    <div class="dgrid">
+      <div>
+        <div class="card sec"><div class="sh"><h2>购买与投入</h2><span class="r">按自然日计<i class="info">i</i></span></div>
+          <div class="facts"><div><span>购入金额</span><span class="num">¥16,999</span></div><div><span>购入渠道</span><span>Apple Store</span></div><div><span>购入日期</span><span class="num">2024-03-18</span></div><div><span>维护投入</span><span class="num">¥0</span></div><div><span>总投入</span><span class="num">¥16,999</span></div><div><span>序列号</span><span class="muted">待补充</span></div></div><p class="note-foot">日常工作与创作的主力。2024 年春天换机，配了 AppleCare+。</p></div>
+        <div class="card sec"><div class="sh"><h2>保障</h2><span class="r link">＋ 添加</span></div>
+          <div class="wr"><div>厂家保修 · Apple<small class="num">2025-12-03 至 2027-07-28</small></div><div class="bar"><i style="width:30%"></i></div><span class="left num">剩 667 天</span></div>
+          <div class="wr"><div>AppleCare+<small class="num">2026-08-20 至 2026-10-09</small></div><div class="bar w"><i style="width:80%"></i></div><span class="left num warn">剩 10 天</span></div></div>
+        <div class="card pad" style="display:flex;align-items:center;gap:10px"><b style="font:600 var(--fs-sec) var(--head)">维护</b><span class="muted">还没有记录</span><span class="link" style="margin-left:auto">＋ 新增维护</span></div>
+      </div>
+      <div class="card"><div class="sh"><h2>这件物品的经历</h2><span class="r">最新在前</span></div>
+        <ul class="tl"><li class="hl">AppleCare+ 即将到期<small>2026-10-09 · 剩 10 天</small></li><li>AppleCare+ 生效<small>2026-08-20</small></li><li>厂家保修生效<small>2025-12-03</small></li><li>购入<small>2024-03-18 · Apple Store · ¥16,999</small></li></ul>
+        <div class="sh" style="padding-top:6px"><h2 style="font-size:var(--fs-body)">图片</h2><span class="r">1 张</span></div>
+        <div style="padding:4px 18px 16px"><span class="art" data-art="laptop" style="width:64px;height:64px"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 心愿 ================= -->
+<div class="screen" data-s="wish">
+  <div class="top"><span class="crumb">物品 / <b>心愿清单</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索心愿</div><span class="btn primary">＋ 新增心愿 <span class="kbd">⌘N</span></span></div>
+  <div class="split">
+    <div class="page">
+      <div class="ph"><h1>心愿清单</h1><span class="meta num">进行中 3 · 预计 ¥14,500</span></div>
+      <div class="fbar"><div class="seg"><span class="on">进行中</span><span>已实现</span><span>已放弃</span><span>全部</span></div><div class="sp"><span class="drop">最近加入</span><div class="seg"><span>列表</span><span class="on">网格</span></div></div></div>
+      <div class="wgrid">
+        <div class="card wcard sel"><span class="art" data-art="desk"></span><div class="top2"><b style="font-weight:500">实木书桌</b><span class="num">¥4,500</span></div><div class="bar a"><i style="width:40%"></i></div><div class="top2 muted" style="font-size:var(--fs-cap)"><span class="num">已攒 ¥1,800 · 40%</span><span>目标 12 月 1 日</span></div></div>
+        <div class="card wcard"><span class="art" data-art="lens"></span><div class="top2"><b style="font-weight:500">35mm 定焦镜头</b><span class="num">¥1,200</span></div><div class="bar a"><i style="width:75%"></i></div><div class="top2 muted" style="font-size:var(--fs-cap)"><span class="num">已攒 ¥900 · 75%</span><span>无目标日期</span></div></div>
+        <div class="card wcard"><span class="art" data-art="lens"></span><div class="top2"><b style="font-weight:500">长焦镜头</b><span class="num">¥8,800</span></div><div class="bar a"><i style="width:5%"></i></div><div class="top2 muted" style="font-size:var(--fs-cap)"><span class="num">已攒 ¥400 · 5%</span><span>目标 2027 年 6 月</span></div></div>
+      </div>
+    </div>
+    <aside class="insp">
+      <div class="cover" data-art="desk"></div>
+      <div><h3>实木书桌</h3><div class="muted">加入于 2026-09-20 · 家具</div></div>
+      <div class="m2"><div class="mt"><div class="l">已攒</div><div class="v">¥1,800</div></div><div class="mt"><div class="l">还差</div><div class="v">¥2,700</div></div></div>
+      <div class="bar a"><i style="width:40%"></i></div>
+      <div><div class="muted" style="font-size:var(--fs-cap);margin-bottom:6px">存一笔</div><div class="quick"><span>¥100</span><span>¥500</span><span>¥1,000</span><span>其他</span></div></div>
+      <dl class="kv"><dt>目标日期</dt><dd class="num">2026-12-01 · 还有 63 天</dd></dl>
+      <div class="foot"><span class="btn primary">已买到，转为物品</span><span class="btn ghost" style="color:var(--muted)">放弃这个心愿</span></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ================= 账户与盘点 ================= -->
+<div class="screen" data-s="accounts">
+  <div class="top"><span class="crumb">财富 / <b>账户与盘点</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索账户</div><span class="btn">＋ 新增账户</span><span class="btn primary">开始盘点</span></div>
+  <div class="page">
+    <div class="ph"><h1>账户与盘点</h1><span class="meta">上次盘点 2026-09-29</span><div class="act"><div class="seg"><span class="on">概览</span><span>账户</span><span>盘点记录</span></div></div></div>
+    <div class="card metrics">
+      <div><div class="l">金融净资产</div><div class="v num">¥350,000</div></div>
+      <div><div class="l">金融资产</div><div class="v num">¥355,000</div></div>
+      <div><div class="l">负债<i class="info">i</i></div><div class="v num">¥5,000</div><div class="s">房贷已标记不计入</div></div>
+      <div><div class="l">较上次（7 月 29 日）</div><div class="v num pos">+¥22,400</div><div class="s pos">+6.84%</div></div>
+    </div>
+    <div class="card sec"><div class="sh"><h2>净资产变化</h2><span class="r">虚线为未完成盘点 · 只连完整盘点<i class="info">i</i></span></div>
+      <svg class="spark" viewBox="0 0 1000 150" preserveAspectRatio="none" style="height:150px;padding:0 18px 10px">
+        <line x1="0" y1="30" x2="1000" y2="30" stroke="var(--line-soft)"/><line x1="0" y1="75" x2="1000" y2="75" stroke="var(--line-soft)"/><line x1="0" y1="120" x2="1000" y2="120" stroke="var(--line-soft)"/>
+        <path class="a" d="M20 118 L210 106 L400 92 L590 76 L980 30 L980 132 L20 132Z"/><path class="l" d="M20 118 L210 106 L400 92 L590 76 L980 30"/>
+        <line class="g" x1="785" y1="20" x2="785" y2="130"/>
+        <circle cx="20" cy="118" r="4"/><circle cx="210" cy="106" r="4"/><circle cx="400" cy="92" r="4"/><circle cx="590" cy="76" r="4"/><circle cx="980" cy="30" r="5"/>
+        <text x="10" y="147">4月</text><text x="200" y="147">5月</text><text x="390" y="147">6月</text><text x="580" y="147">7月</text><text x="770" y="147">8月</text><text x="960" y="147">9月</text>
+      </svg></div>
+    <div class="g2">
+      <div class="card"><div class="sh"><h2>资产结构</h2><span class="r">计入范围</span></div>
+        <div class="pad" style="padding-top:4px">
+          <div class="hbar"><span>混合投资</span><div class="tr"><i style="width:56.3%;background:var(--c1)"></i></div><span class="r num">¥200,000</span></div>
+          <div class="hbar"><span>现金与存款</span><div class="tr"><i style="width:28.2%;background:var(--c2)"></i></div><span class="r num">¥100,000</span></div>
+          <div class="hbar"><span>公积金</span><div class="tr"><i style="width:15.5%;background:var(--c3)"></i></div><span class="r num">¥55,000</span></div>
+        </div></div>
+      <div class="card"><div class="sh"><h2>账户</h2><span class="r">5 个 · 1 个不计入</span></div>
+        <div class="rows">
+          <div class="row"><span class="av" style="background:var(--c1)">证</span><div class="t"><div>虚构证券账户</div><small>混合投资</small></div><span class="num">¥200,000</span></div>
+          <div class="row"><span class="av" style="background:var(--c2)">储</span><div class="t"><div>虚构储蓄卡</div><small>现金与存款</small></div><span class="num">¥100,000</span></div>
+          <div class="row"><span class="av" style="background:var(--c3)">公</span><div class="t"><div>虚构公积金</div><small>公积金</small></div><span class="num">¥55,000</span></div>
+          <div class="row"><span class="av" style="background:var(--danger)">信</span><div class="t"><div>虚构信用卡</div><small>负债 · 尚欠</small></div><span class="num neg">−¥5,000</span></div>
+        </div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 盘点录入（整页表格） ================= -->
+<div class="screen" data-s="stock">
+  <div class="top"><span class="crumb">账户与盘点 / <b>新建盘点</b></span><span class="btn ghost" style="margin-left:auto;color:var(--muted)">放弃</span><span class="btn primary">保存盘点</span></div>
+  <div class="page">
+    <div class="ph"><h1>新建盘点</h1><span class="meta">逐行填本次余额，回车跳到下一行</span><div class="act"><span class="muted">盘点日期</span><span class="drop num">2026-10-29</span></div></div>
+    <div class="card">
+      <table class="tb stk">
+        <thead><tr><th>账户</th><th class="r">上次（09-29）</th><th class="r">本次</th><th class="r">变化</th><th>快捷</th></tr></thead>
+        <tbody>
+          <tr><td><div class="item"><span class="av" style="background:var(--c1)">证</span><div><b>虚构证券账户</b><small>混合投资</small></div></div></td><td class="r num muted">¥200,000</td><td class="r"><input value="206,500"></td><td class="r num pos">+¥6,500</td><td><div class="q"><span>未变</span><span>未知</span></div></td></tr>
+          <tr><td><div class="item"><span class="av" style="background:var(--c2)">储</span><div><b>虚构储蓄卡</b><small>现金与存款</small></div></div></td><td class="r num muted">¥100,000</td><td class="r"><input class="f" value="103,200"></td><td class="r num pos">+¥3,200</td><td><div class="q"><span>未变</span><span>未知</span></div></td></tr>
+          <tr><td><div class="item"><span class="av" style="background:var(--c3)">公</span><div><b>虚构公积金</b><small>公积金</small></div></div></td><td class="r num muted">¥55,000</td><td class="r"><input value="55,000"></td><td class="r num muted">—</td><td><div class="q"><span class="on">未变</span><span>未知</span></div></td></tr>
+          <tr><td><div class="item"><span class="av" style="background:var(--danger)">信</span><div><b>虚构信用卡</b><small>负债</small></div></div></td><td class="r num muted">¥5,000</td><td class="r"><input value="" placeholder="输入金额"></td><td class="r muted">待填</td><td><div class="q"><span>未变</span><span>未知</span></div></td></tr>
+          <tr><td><div class="item"><span class="av" style="background:var(--soft-strong)">房</span><div><b>虚构房贷</b><small>负债 · 不计入</small></div></div></td><td class="r num muted">¥800,000</td><td class="r"><input value="" placeholder="—"></td><td class="r muted">—</td><td><div class="q"><span>未变</span><span class="on">未知</span></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card sticky">
+      <div><div class="muted" style="font-size:var(--fs-cap)">金融资产</div><div class="v">¥364,700</div></div>
+      <div><div class="muted" style="font-size:var(--fs-cap)">负债</div><div class="v muted">待填</div></div>
+      <div><div class="muted" style="font-size:var(--fs-cap)">净资产</div><div class="v">—</div></div>
+      <span class="muted" style="margin-left:auto">还有 1 个账户未填，可先保存为不完整盘点</span>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 重要支出 ================= -->
+<div class="screen" data-s="expenses">
+  <div class="top"><span class="crumb">财富 / <b>重要支出</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索支出</div><span class="btn primary">＋ 记一笔 <span class="kbd">⌘N</span></span></div>
+  <div class="page">
+    <div class="ph"><h1>重要支出</h1><div class="act"><div class="seg"><span class="on">2026</span><span>2025</span><span>2024</span><span>全部</span></div></div></div>
+    <div class="card metrics">
+      <div><div class="l">净支出<i class="info">i</i></div><div class="v num">¥22,040</div></div>
+      <div><div class="l">总支出</div><div class="v num">¥22,640</div></div>
+      <div><div class="l">退款</div><div class="v num">¥600</div></div>
+      <div><div class="l">售出回收</div><div class="v num">¥0</div></div>
+    </div>
+    <div class="card sec"><div class="sh"><h2>每月支出</h2><span class="r">日期待补 1 笔 ¥1,000 未计入</span></div>
+      <div class="bars">
+        <div><i class="dim" style="height:2px"></i><span>1月</span></div><div><i class="dim" style="height:2px"></i><span>2月</span></div><div><i class="dim" style="height:2px"></i><span>3月</span></div><div><i class="dim" style="height:2px"></i><span>4月</span></div><div><i class="dim" style="height:2px"></i><span>5月</span></div><div><i class="dim" style="height:2px"></i><span>6月</span></div>
+        <div><em class="num">2,540</em><i style="height:18px"></i><span>7月</span></div><div><em class="num">16,380</em><i style="height:100px"></i><span>8月</span></div><div><em class="num">3,720</em><i style="height:26px"></i><span>9月</span></div>
+        <div><i class="dim" style="height:2px"></i><span>10月</span></div><div><i class="dim" style="height:2px"></i><span>11月</span></div><div><i class="dim" style="height:2px"></i><span>12月</span></div>
+      </div><div style="height:12px"></div></div>
+    <div class="card"><div class="sh"><h2>明细</h2><span class="r">9 笔</span></div>
+      <table class="tb"><thead><tr><th>日期</th><th>名称</th><th>来源</th><th>分类</th><th class="r">金额</th></tr></thead><tbody>
+        <tr><td class="num muted">2026-09-15</td><td>虚构摄影课程</td><td><span class="tag">支出</span></td><td class="muted">教育培训</td><td class="r num">¥3,600</td></tr>
+        <tr><td class="num muted">2026-09-02</td><td>虚构创作服务</td><td><span class="tag info">周期付款</span></td><td class="muted">数字服务</td><td class="r num">¥120</td></tr>
+        <tr><td class="num muted">2026-08-30</td><td>虚构周末旅行 · 退款</td><td><span class="tag pos">退款</span></td><td class="muted">旅行</td><td class="r num pos">−¥600</td></tr>
+      </tbody></table></div>
+  </div>
+</div>
+
+<!-- ================= 周期费用 ================= -->
+<div class="screen" data-s="recurring">
+  <div class="top"><span class="crumb">财富 / <b>周期费用</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索计划</div><span class="btn primary">＋ 新增计划 <span class="kbd">⌘N</span></span></div>
+  <div class="page">
+    <div class="ph"><h1>周期费用</h1><span class="meta num">4 个计划 · 1 个暂停</span></div>
+    <div class="card metrics">
+      <div><div class="l">待确认</div><div class="v num warn">1<small>期</small></div><div class="s">另有 2 期 7 天内到期</div></div>
+      <div><div class="l">月均负担</div><div class="v num">¥3,130</div></div>
+      <div><div class="l">年化</div><div class="v num">¥37,560</div></div>
+      <div><div class="l">未来 12 个月预计<i class="info">i</i></div><div class="v num">¥37,560</div></div>
+    </div>
+    <div class="card sec"><div class="sh"><h2>到期</h2><span class="r">确认已付后才计入重要支出</span></div>
+      <div class="rows">
+        <div class="row"><span class="dot" style="background:var(--warn)"></span><div class="t"><div>虚构房租</div><small>房租 · 9 月 27 日 · 已过 2 天</small></div><span class="num">¥3,000</span><span class="btn sm primary">确认已付</span><span class="btn sm">本期不付</span></div>
+        <div class="row"><span class="dot"></span><div class="t"><div>虚构创作服务</div><small>订阅 · 10 月 2 日</small></div><span class="num">¥120</span><span class="btn sm">确认已付</span><span class="btn sm">本期不付</span></div>
+        <div class="row"><span class="dot"></span><div class="t"><div>虚构域名续费</div><small>订阅 · 10 月 5 日</small></div><span class="num">¥120</span><span class="btn sm">确认已付</span><span class="btn sm">本期不付</span></div>
+      </div></div>
+    <div class="fbar"><div class="seg"><span class="on">计划</span><span>付款记录</span></div></div>
+    <div class="card"><table class="tb"><thead><tr><th>名称</th><th>分类</th><th>周期</th><th class="r">每期</th><th>下次</th><th>状态</th></tr></thead><tbody>
+      <tr><td>虚构房租</td><td class="muted">房租</td><td>每月</td><td class="r num">¥3,000</td><td class="num muted">2026-10-27</td><td><span class="st use">进行中</span></td></tr>
+      <tr><td>虚构创作服务</td><td class="muted">订阅</td><td>每月</td><td class="r num">¥120</td><td class="num muted">2026-10-02</td><td><span class="st use">进行中</span></td></tr>
+      <tr><td>虚构域名续费</td><td class="muted">订阅</td><td>每年</td><td class="r num">¥120</td><td class="num muted">2026-10-05</td><td><span class="st use">进行中</span></td></tr>
+      <tr><td class="muted">虚构健身会员</td><td class="muted">会员服务</td><td class="muted">每月</td><td class="r num muted">¥200</td><td class="muted">—</td><td><span class="st ret">已暂停</span></td></tr>
+    </tbody></table></div>
+  </div>
+</div>
+
+<!-- ================= 虚拟资产 ================= -->
+<div class="screen" data-s="virtual">
+  <div class="top"><span class="crumb">财富 / <b>虚拟资产</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索虚拟资产</div><span class="btn primary">＋ 新增 <span class="kbd">⌘N</span></span></div>
+  <div class="split">
+    <div class="page">
+      <div class="ph"><h1>虚拟资产</h1><span class="meta num">有效 3 · 已花费 ¥2,673</span></div>
+      <div class="fbar"><div class="seg"><span class="on">全部</span><span>有效</span><span>即将到期 2</span><span>已到期</span><span>已停用</span></div><div class="sp"><span class="drop">类型：全部</span></div></div>
+      <table class="tb"><thead><tr><th>名称</th><th>类型</th><th>有效至</th><th class="r">已花费</th></tr></thead><tbody>
+        <tr class="sel"><td><div class="item"><span class="av" style="background:var(--c4)">创</span><div><b>虚构创作服务</b><small>关联周期计划</small></div></div></td><td class="muted">订阅服务</td><td><span class="st warn">2026-10-01</span></td><td class="r num">¥240</td></tr>
+        <tr><td><div class="item"><span class="av" style="background:var(--c1)">剪</span><div><b>虚构剪辑软件</b><small>虚构软件商</small></div></div></td><td class="muted">买断软件</td><td class="muted">永久</td><td class="r num">¥1,998</td></tr>
+        <tr><td><div class="item"><span class="av" style="background:var(--c3)">域</span><div><b>example-notes.cn</b><small>虚构注册商</small></div></div></td><td class="muted">域名</td><td><span class="st warn">2026-10-19</span></td><td class="r num">¥55</td></tr>
+        <tr><td><div class="item"><span class="av" style="background:var(--soft-strong)">字</span><div><b class="muted">虚构字体授权</b><small>2026-08-30 停用</small></div></div></td><td class="muted">买断软件</td><td class="muted">已停用</td><td class="r num muted">¥380</td></tr>
+      </tbody></table>
+    </div>
+    <aside class="insp">
+      <div style="display:flex;gap:12px;align-items:center"><span class="av" style="background:var(--c4);width:44px;height:44px;font-size:var(--fs-sec);border-radius:12px">创</span><div><h3>虚构创作服务</h3><div class="muted">订阅服务 · 虚构创作平台</div></div></div>
+      <div class="m2"><div class="mt"><div class="l">有效至</div><div class="v warn" style="font-size:var(--fs-sec)">10 月 1 日</div></div><div class="mt"><div class="l">已花费</div><div class="v">¥240</div></div></div>
+      <div class="hr"></div>
+      <dl class="kv"><dt>关联计划</dt><dd class="link">虚构创作服务 · 每月 ¥120</dd><dt>状态</dt><dd class="warn">即将到期</dd><dt>开始使用</dt><dd class="num">2026-08-02</dd></dl>
+      <div class="foot"><span class="btn">编辑</span><span class="btn ghost" style="color:var(--muted)">停用</span></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ================= 时间轴 ================= -->
+<div class="screen" data-s="timeline">
+  <div class="top"><span class="crumb">回顾 / <b>时间轴</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索记录</div></div>
+  <div class="page">
+    <div class="ph"><h1>时间轴</h1><div class="act"><div class="seg"><span class="on">全部</span><span>物品</span><span>心愿</span><span>盘点</span><span>支出</span></div><span class="drop">事件：全部</span><span class="drop">2026 年</span></div></div>
+    <div class="month"><h2>9 月</h2><span class="muted">6 条</span></div>
+    <div class="card" style="margin-bottom:8px">
+      <div class="ev"><span class="d"><b class="num">29</b> 日</span><span class="ic" style="background:#30b0c7"><svg viewBox="0 0 12 12"><path d="M6 1.5 2.5 3v2.8c0 2 1.5 3.4 3.5 4.2 2-.8 3.5-2.2 3.5-4.2V3z"/></svg></span><div class="t">保障到期 · Fujifilm X100V<small>商店保修 · 线下相机店</small></div><span></span><span class="chev">›</span></div>
+      <div class="ev"><span class="d"><b class="num">29</b> 日</span><span class="ic" style="background:#ff9500"><svg viewBox="0 0 12 12"><rect x="1.5" y="3" width="9" height="6.5" rx="1"/></svg></span><div class="t">财富盘点<small>完整盘点 · 5 个账户</small></div><span class="num">¥350,000</span><span class="chev">›</span></div>
+      <div class="ev"><span class="d"><b class="num">20</b> 日</span><span class="ic" style="background:#ff2d55"><svg viewBox="0 0 12 12"><path d="M6 10S2 7.7 2 4.8A2 2 0 0 1 6 4a2 2 0 0 1 4 .8C10 7.7 6 10 6 10z"/></svg></span><div class="t">加入心愿 · 实木书桌<small>预计价格</small></div><span class="num">¥4,500</span><span class="chev">›</span></div>
+      <div class="ev"><span class="d"><b class="num">15</b> 日</span><span class="ic" style="background:#ff6b3d"><svg viewBox="0 0 12 12"><path d="M3 1.5h6v9l-1.5-1-1.5 1-1.5-1-1.5 1z"/></svg></span><div class="t">支出 · 虚构摄影课程<small>教育培训</small></div><span class="num">¥3,600</span><span class="chev">›</span></div>
+      <div class="ev"><span class="d"><b class="num">12</b> 日</span><span class="ic" style="background:#ff2d55"><svg viewBox="0 0 12 12"><path d="M6 10S2 7.7 2 4.8A2 2 0 0 1 6 4a2 2 0 0 1 4 .8C10 7.7 6 10 6 10z"/></svg></span><div class="t">加入心愿 · 35mm 定焦镜头<small>预计价格</small></div><span class="num">¥1,200</span><span class="chev">›</span></div>
+      <div class="ev"><span class="d"><b class="num">2</b> 日</span><span class="ic" style="background:#32ade6"><svg viewBox="0 0 12 12"><path d="M10 6a4 4 0 1 1-1.2-2.8M10 2v2H8"/></svg></span><div class="t">周期付款 · 虚构创作服务<small>订阅 · 已确认</small></div><span class="num">¥120</span><span class="chev">›</span></div>
+    </div>
+    <div class="month"><h2>8 月</h2><span class="muted">4 条</span></div>
+    <div class="card">
+      <div class="ev"><span class="d"><b class="num">30</b> 日</span><span class="ic" style="background:#30b0c7"><svg viewBox="0 0 12 12"><path d="M6 1.5 2.5 3v2.8c0 2 1.5 3.4 3.5 4.2 2-.8 3.5-2.2 3.5-4.2V3z"/></svg></span><div class="t">保障生效 · Fujifilm X100V<small>商店保修</small></div><span></span><span class="chev">›</span></div>
+      <div class="ev"><span class="d"><b class="num">30</b> 日</span><span class="ic" style="background:#ff6b3d"><svg viewBox="0 0 12 12"><path d="M3 1.5h6v9l-1.5-1-1.5 1-1.5-1-1.5 1z"/></svg></span><div class="t">退款 · 虚构周末旅行<small>旅行</small></div><span class="num pos">−¥600</span><span class="chev">›</span></div>
+      <div class="ev"><span class="d"><b class="num">20</b> 日</span><span class="ic" style="background:#0a84ff"><svg viewBox="0 0 12 12"><path d="M2 3.5 6 1.5l4 2v5L6 10.5l-4-2z"/></svg></span><div class="t">保障生效 · MacBook Pro 14″<small>AppleCare+</small></div><span></span><span class="chev">›</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 统计 ================= -->
+<div class="screen" data-s="stats">
+  <div class="top"><span class="crumb">回顾 / <b>统计</b></span></div>
+  <div class="page">
+    <div class="ph"><h1>统计</h1><div class="act"><div class="seg"><span class="on">全部</span><span>今年</span><span>本季</span><span>本月</span></div></div></div>
+    <div class="card metrics">
+      <div><div class="l">历史购入</div><div class="v num">¥40,286</div><div class="s">8 件 · 含已售出</div></div>
+      <div><div class="l">当前持有</div><div class="v num">¥35,487</div><div class="s">7 件</div></div>
+      <div><div class="l">平均持有</div><div class="v num">1,140<small>天</small></div></div>
+      <div><div class="l">售出回收<i class="info">i</i></div><div class="v num">¥1,800</div><div class="s">1 件已售出</div></div>
+    </div>
+    <div class="g2" style="margin-bottom:16px">
+      <div class="card"><div class="sh"><h2>每年购入</h2><span class="r">按购入日期</span></div>
+        <div class="bars" style="height:160px">
+          <div><em class="num">10,298</em><i style="height:60px"></i><span>2021</span></div><div><em class="muted">未知</em><i class="dim" style="height:3px"></i><span>2022</span></div><div><em class="num">9,790</em><i style="height:57px"></i><span>2023</span></div><div><em class="num">19,198</em><i style="height:106px"></i><span>2024</span></div><div><em class="num">1,000</em><i style="height:7px"></i><span>2025</span></div><div><em class="num">0</em><i class="dim" style="height:3px"></i><span>2026</span></div>
+        </div><div style="height:12px"></div></div>
+      <div class="card"><div class="sh"><h2>持有时长</h2><span class="r">当前 7 件</span></div>
+        <div class="pad" style="padding-top:4px">
+          <div class="hbar"><span>不到 1 年</span><div class="tr"><i style="width:14%;background:var(--chart)"></i></div><span class="r num">1 件</span></div>
+          <div class="hbar"><span>1–2 年</span><div class="tr"><i style="width:14%;background:var(--chart)"></i></div><span class="r num">1 件</span></div>
+          <div class="hbar"><span>2–3 年</span><div class="tr"><i style="width:28%;background:var(--chart)"></i></div><span class="r num">2 件</span></div>
+          <div class="hbar"><span>3 年以上</span><div class="tr"><i style="width:43%;background:var(--chart)"></i></div><span class="r num">3 件</span></div>
+        </div></div>
+    </div>
+    <div class="card"><div class="sh"><h2>日均成本</h2><span class="r">从高到低 · 使用中</span></div>
+      <table class="tb"><thead><tr><th>物品</th><th class="r">总投入</th><th class="r">已持有</th><th class="r">日均</th></tr></thead><tbody>
+        <tr><td>MacBook Pro 14″</td><td class="r num">¥16,999</td><td class="r num">926 天</td><td class="r num">¥18.36</td></tr>
+        <tr><td>Fujifilm X100V</td><td class="r num">¥9,790</td><td class="r num">1,201 天</td><td class="r num">¥8.15</td></tr>
+        <tr><td>WH-1000XM5</td><td class="r num">¥2,199</td><td class="r num">758 天</td><td class="r num">¥2.90</td></tr>
+      </tbody></table></div>
+  </div>
+</div>
+
+<!-- ================= 最近删除 ================= -->
+<div class="screen" data-s="trash">
+  <div class="top"><span class="crumb"><b>最近删除</b></span><div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>搜索已删除</div></div>
+  <div class="page">
+    <div class="ph"><h1>最近删除</h1><span class="meta">3 项 · 不会自动清空<i class="info">i</i></span></div>
+    <div class="fbar"><div class="seg"><span class="on">全部</span><span>物品</span><span>维护</span><span>保障</span><span>心愿</span><span>财富</span></div></div>
+    <div class="card"><table class="tb"><thead><tr><th>名称</th><th>类型</th><th>删除于</th><th></th></tr></thead><tbody>
+      <tr><td><div class="item"><span class="art" data-art="head"></span><div><b>旧的蓝牙耳机</b><small>影音摄影 · ¥399</small></div></div></td><td><span class="tag">物品</span></td><td class="num muted">2026-09-26</td><td class="r"><span class="btn sm">恢复</span> <span class="btn sm danger">永久删除…</span></td></tr>
+      <tr><td><div class="item"><span class="art" data-art="camera"></span><div><b>清洁传感器</b><small>维护 · Fujifilm X100V</small></div></div></td><td><span class="tag">维护</span></td><td class="num muted">2026-09-20</td><td class="r"><span class="btn sm">恢复</span> <span class="btn sm danger">永久删除…</span></td></tr>
+      <tr><td><div class="item"><span class="av" style="background:var(--c2)">储</span><div><b>2026-06-30 盘点</b><small>账户与盘点</small></div></div></td><td><span class="tag">财富</span></td><td class="num muted">2026-09-02</td><td class="r"><span class="btn sm">恢复</span> <span class="btn sm danger">永久删除…</span></td></tr>
+    </tbody></table></div>
+  </div>
+</div>
+
+<!-- ================= 设置 ================= -->
+<div class="screen" data-s="settings">
+  <div class="top"><span class="crumb"><b>设置</b></span></div>
+  <div class="set">
+    <nav class="setnav">
+      <div class="nav on" style="--ic:#5e5ce6"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></svg>外观</div>
+      <div class="nav" style="--ic:#0a84ff"><svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h6"/></svg>选项管理</div>
+      <div class="nav" style="--ic:#34c759"><svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1.2"/><rect x="9" y="2" width="5" height="5" rx="1.2"/><rect x="2" y="9" width="5" height="5" rx="1.2"/><path d="M11.5 9v5M9 11.5h5"/></svg>功能模块</div>
+      <div class="nav" style="--ic:#ff9500"><svg viewBox="0 0 16 16"><path d="M3 4.5C3 3.4 5.2 2.5 8 2.5s5 .9 5 2v7c0 1.1-2.2 2-5 2s-5-.9-5-2z"/><path d="M3 4.5c0 1.1 2.2 2 5 2s5-.9 5-2M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/></svg>资料与备份</div>
+      <div class="nav" style="--ic:#8e8e93"><svg viewBox="0 0 16 16"><path d="M8 2.5 3 5v6l5 2.5 5-2.5V5z"/><path d="M6 8l1.5 1.5L10.5 6.5"/></svg>样例</div>
+    </nav>
+    <div class="page">
+      <div class="ph"><h1>外观</h1></div>
+      <div class="grp" style="margin-bottom:18px"><div class="gc">主题</div><div class="gb">
+        <div class="themes">
+          <div class="th" data-t="native"><div class="pv" style="background:#fff"><div class="s" style="background:#f2f2f4"><i style="background:#1d1d1f;width:50%"></i><i style="background:#d8d8dd"></i><i style="background:#d8d8dd;width:70%"></i></div><div class="m"><i style="background:#1d1d1f;width:40%"></i><div class="c" style="border:1px solid #e6e6ea"></div><i style="background:#0a6cff;width:30%"></i></div></div><div class="nm"><b>清新原生</b><span class="muted" style="font-size:var(--fs-cap)">默认</span></div></div>
+          <div class="th" data-t="paper"><div class="pv" style="background:#f7f3ea"><div class="s" style="background:#efe8da"><i style="background:#9a4320;width:50%"></i><i style="background:#d5cab4"></i><i style="background:#d5cab4;width:70%"></i></div><div class="m"><i style="background:#2a2621;width:40%"></i><div class="c" style="border-top:2px solid #2a2621"></div><i style="background:#9a4320;width:30%"></i></div></div><div class="nm"><b>纸本档案</b><span class="muted" style="font-size:var(--fs-cap)">衬线 · 暖色</span></div></div>
+          <div class="th" data-t="bento"><div class="pv" style="background:#f2f2f7"><div class="s"><i style="background:#5e5ce6;width:50%"></i><i style="background:#ff9500;width:80%"></i><i style="background:#34c759;width:70%"></i></div><div class="m"><i style="background:#1c1c1e;width:40%"></i><div class="c" style="background:#fff;border-radius:8px;box-shadow:0 2px 6px #0001"></div><i style="background:#5e5ce6;width:30%"></i></div></div><div class="nm"><b>柔和卡片</b><span class="muted" style="font-size:var(--fs-cap)">圆角 · 彩色</span></div></div>
+        </div>
+      </div></div>
+      <div class="grp" style="margin-bottom:18px"><div class="gc">浅色与深色</div><div class="gb">
+        <div class="fr"><span class="k">外观模式</span><div class="seg" id="set-mode"><span data-m="light">浅色</span><span data-m="dark">深色</span><span data-m="system">跟随系统</span></div></div>
+        <div class="fr" style="min-height:44px"><span class="k muted" style="font-size:var(--fs-cap)">侧栏「设置」旁的 ☀／☾ 可一键切换浅色与深色，快捷键 ⌘⇧D</span></div>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+    </section>
+
+    <!-- ================= 新增物品：单列分组弹层 ================= -->
+    <div class="dim" id="dim">
+      <div class="sheet">
+        <header><span class="iconbtn" style="background:var(--soft);width:26px;height:26px;border-radius:50%">✕</span><b>新增物品</b><span class="btn primary">保存</span></header>
+        <div class="body">
+          <div class="namerow"><span class="art" data-art="box"></span><input placeholder="物品名称，比如「Sony A7C」"></div>
+          <div class="hint">只填名称也能保存，其余资料想起时再补。</div>
+          <div class="grp"><div class="gc">基本信息</div><div class="gb">
+            <div class="fr"><span class="k">分类</span><span class="v">选择</span><span class="chev">⌄</span></div>
+            <div class="fr"><span class="k">购买价格</span><span class="v">¥ 0.00</span></div>
+            <div class="fr"><span class="k">购买日期</span><span class="v set num">2026-09-29</span><span class="chev">⌄</span></div>
+            <div class="fr"><span class="k">购买渠道</span><span class="v">未选择</span><span class="chev">⌄</span></div>
+            <div class="fr"><span class="k">标签</span><span class="v">未设置</span><span class="chev">⌄</span></div>
+          </div></div>
+          <div class="grp"><div class="gc">成本与保障</div><div class="gb">
+            <div class="fr"><span class="k">成本计算</span><div class="seg"><span class="on">按天</span><span>按次</span></div></div>
+            <div class="fr"><span class="k">目标</span><span class="v">不设定</span><span class="chev">⌄</span></div>
+            <div class="fr"><span class="k">保障</span><span class="sw on"><i></i></span></div>
+            <div class="fr sub"><span class="k">开始</span><span class="v set num">2026-09-29</span></div>
+            <div class="fr sub"><span class="k">结束</span><span class="v set num">2027-09-28</span><span class="muted" style="font-size:var(--fs-cap)">1 年</span></div>
+          </div></div>
+          <div class="grp"><div class="gc">状态 · 打开后展开对应字段</div><div class="gb">
+            <div class="fr"><span class="k">已退役</span><span class="sw"><i></i></span></div>
+            <div class="fr"><span class="k">已售出</span><span class="sw"><i></i></span></div>
+            <div class="fr"><span class="k">置顶</span><span class="sw"><i></i></span></div>
+            <div class="fr"><span class="k">不计入统计</span><span class="sw"><i></i></span></div>
+          </div></div>
+          <div class="grp"><div class="gb">
+            <div class="fr"><span class="k">备注与图片</span><span class="chev">›</span></div>
+            <div class="fr"><span class="k">更多资料</span><span class="v">品牌、型号、序列号</span><span class="chev">›</span></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<template id="art-laptop"><svg viewBox="0 0 64 64"><rect x="12" y="14" width="40" height="27" rx="3" fill="#cfd6e4"/><rect x="15" y="17" width="34" height="21" rx="1.5" fill="#5f7bb5"/><path d="M15 38 L27 26 L35 31 L49 20 V38Z" fill="#b8c7ea"/><path d="M6 43h52l-3 5H9z" fill="#aeb7c7"/></svg></template>
+<template id="art-camera"><svg viewBox="0 0 64 64"><rect x="8" y="20" width="48" height="30" rx="5" fill="#3c4048"/><rect x="8" y="20" width="48" height="8" rx="3" fill="#b9bdc4"/><circle cx="34" cy="37" r="11" fill="#22252b"/><circle cx="34" cy="37" r="6" fill="#4a6fa8"/><rect x="42" y="14" width="9" height="6" rx="1" fill="#b9bdc4"/></svg></template>
+<template id="art-phone"><svg viewBox="0 0 64 64"><rect x="21" y="8" width="22" height="48" rx="5" fill="#8fa6a0"/><rect x="23.5" y="11" width="17" height="42" rx="3" fill="#cfe0dc"/></svg></template>
+<template id="art-tablet"><svg viewBox="0 0 64 64"><rect x="15" y="8" width="34" height="48" rx="4" fill="#9a8bb3"/><rect x="18" y="11" width="28" height="42" rx="2" fill="#d9cfe8"/><path d="M18 40c8-10 18-4 28-14v27H18z" fill="#b7a4d6"/></svg></template>
+<template id="art-head"><svg viewBox="0 0 64 64"><path d="M14 38V32a18 18 0 0 1 36 0v6" fill="none" stroke="#6b7079" stroke-width="4"/><rect x="10" y="34" width="10" height="18" rx="4" fill="#4a4f58"/><rect x="44" y="34" width="10" height="18" rx="4" fill="#4a4f58"/></svg></template>
+<template id="art-rec"><svg viewBox="0 0 64 64"><path d="M22 14h20l6 34H16z" fill="#c9ccd2"/><path d="M32 14 32 48" stroke="#a5a9b1" stroke-width="2"/><rect x="18" y="46" width="28" height="6" rx="2" fill="#a5a9b1"/></svg></template>
+<template id="art-kbd"><svg viewBox="0 0 64 64"><rect x="6" y="22" width="52" height="22" rx="4" fill="#d9d6cf"/><g fill="#f4f2ee"><rect x="10" y="26" width="6" height="5" rx="1"/><rect x="18" y="26" width="6" height="5" rx="1"/><rect x="26" y="26" width="6" height="5" rx="1"/><rect x="34" y="26" width="6" height="5" rx="1"/><rect x="42" y="26" width="6" height="5" rx="1"/><rect x="50" y="26" width="4" height="5" rx="1"/><rect x="14" y="34" width="36" height="5" rx="1"/></g></svg></template>
+<template id="art-coffee"><svg viewBox="0 0 64 64"><rect x="16" y="10" width="32" height="44" rx="4" fill="#c7a984"/><rect x="21" y="16" width="22" height="10" rx="2" fill="#f1e6d4"/><rect x="24" y="36" width="14" height="12" rx="2" fill="#f7f2ea"/><path d="M38 40h3a2 2 0 0 1 0 5h-3" fill="none" stroke="#f7f2ea" stroke-width="2"/></svg></template>
+<template id="art-box"><svg viewBox="0 0 64 64"><path d="M12 22 32 12l20 10v22L32 54 12 44z" fill="#d6a867"/><path d="M12 22l20 10 20-10M32 32v22" fill="none" stroke="#b5864a" stroke-width="2"/></svg></template>
+<template id="art-desk"><svg viewBox="0 0 64 64"><rect x="8" y="22" width="48" height="6" rx="1.5" fill="#b98a5a"/><rect x="12" y="28" width="4" height="24" fill="#9c7248"/><rect x="48" y="28" width="4" height="24" fill="#9c7248"/><rect x="34" y="28" width="14" height="12" fill="#c99b6b"/><rect x="38" y="33" width="6" height="1.6" fill="#9c7248"/></svg></template>
+<template id="art-lens"><svg viewBox="0 0 64 64"><rect x="18" y="14" width="28" height="38" rx="4" fill="#3c4048"/><rect x="18" y="22" width="28" height="5" fill="#5a5f69"/><rect x="18" y="34" width="28" height="3" fill="#5a5f69"/><ellipse cx="32" cy="14" rx="14" ry="4" fill="#4a6fa8"/></svg></template>
+
+<script>
+const root=document.documentElement,note=document.getElementById('note'),dim=document.getElementById('dim');
+const notes={
+ spec:'规范页：字号、间距、颜色、组件、空白/读取/失败状态，以及所有页面归属的 5 种模板。切换主题可看到同一套规范在 C、D 下的样子。',
+ overview:'总览（模板①）：两块主数字（金融净资产、持有物品）并排，辅助指标压成一行，下面是待关注与近期记录。待关注可以直接操作（确认已付）。',
+ items:'全部物品（模板②）：页头一行带数字；分类筛选、排序、视图挤在同一行；新增「日均」列；右侧检视器只放最关键的 3 个事实。',
+ detail:'物品详情（模板③）：身份头 + 2 个指标 + 3 个操作（编辑 / 记一笔 / ⋯）；保障改成带进度条的紧凑行；右侧是这件物品的经历。',
+ form:'新增物品（模板④）：单列分组，开关打开后在原地展开字段，高度只随内容变化。',
+ wish:'心愿（模板②网格）：卡片直接显示攒钱进度；检视器里一键存一笔、转为物品。',
+ accounts:'账户与盘点（模板①）：指标行 + 净资产曲线 + 资产结构 + 账户清单，一屏看完。',
+ stock:'盘点录入（模板④的例外）：账户多时用整页表格比弹层快；底部固定显示合计，未填的账户可先存为不完整盘点。',
+ expenses:'重要支出（模板①）：年份分段切换；每月柱状图 + 明细表，来源用小标签区分。',
+ recurring:'周期费用：到期事项放最上面、可直接确认；计划和付款记录改成分段切换，不再三张表上下堆叠。',
+ virtual:'虚拟资产（模板②）：按状态分段筛选，检视器显示关联计划与下次付款。',
+ timeline:'时间轴：按月分组、月份吸顶；每条一行（日期 · 类型色块 · 标题 · 金额），密度比现在高一倍；筛选合并成一行。',
+ stats:'统计（模板①）：指标行 + 每年购入 + 持有时长 + 日均成本排行。',
+ trash:'最近删除（模板②）：一行一项，恢复与永久删除并排，类型用标签区分。',
+ settings:'设置（模板⑤）：左侧分类，右侧分组行；「外观」里选主题和浅色/深色/跟随系统。原来的一整页长滚动拆成 5 个分类。'};
+const navOf={detail:'items',form:'items',stock:'accounts'};
+function highlight(){const cur=navOf[root.dataset.screen]||root.dataset.screen;document.querySelectorAll('.side .nav').forEach(n=>n.classList.toggle('on',n.dataset.go===cur))}
+function press(id,v){document.querySelectorAll('#'+id+' button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===v))}
+function setScreen(v){root.dataset.screen=v;const s=v==='form'?'items':v;document.querySelectorAll('.screen').forEach(e=>e.classList.toggle('on',e.dataset.s===s));dim.classList.toggle('on',v==='form');press('screens',v);note.textContent=notes[v]||'';highlight();save('screen',v)}
+function setTheme(v){root.dataset.theme=v;press('themes',v);document.querySelectorAll('.th').forEach(t=>t.classList.toggle('on',t.dataset.t===v));save('theme',v)}
+function setMode(v){root.dataset.mode=v;press('modes',v);document.querySelectorAll('#set-mode span').forEach(s=>s.classList.toggle('on',s.dataset.m===v));save('mode',v)}
+function save(k,v){try{localStorage.setItem('jd2-'+k,v)}catch(e){}}
+function load(k,d){try{return localStorage.getItem('jd2-'+k)||d}catch(e){return d}}
+document.querySelectorAll('#themes button').forEach(b=>b.onclick=()=>setTheme(b.dataset.v));
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.v));
+document.querySelectorAll('#screens button').forEach(b=>b.onclick=()=>setScreen(b.dataset.v));
+document.querySelectorAll('.side [data-go]').forEach(n=>n.onclick=()=>setScreen(n.dataset.go));
+document.querySelectorAll('.th').forEach(t=>t.onclick=()=>setTheme(t.dataset.t));
+document.querySelectorAll('#set-mode span').forEach(s=>s.onclick=()=>setMode(s.dataset.m==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):s.dataset.m));
+document.getElementById('mode').onclick=()=>setMode(root.dataset.mode==='dark'?'light':'dark');
+document.querySelectorAll('[data-art]').forEach(el=>{const t=document.getElementById('art-'+el.dataset.art);if(t)el.innerHTML=t.innerHTML});
+
+document.querySelectorAll('.spark-wrap').forEach(w=>{const svg=w.querySelector('svg'),tip=w.querySelector('.tip'),pts=[...w.querySelectorAll('.pt')],g=w.querySelector('.guide');let cur=-1;
+ function show(i){cur=i;pts.forEach((p,k)=>p.setAttribute('r',k===i?5:(k===pts.length-1?3.5:3)));const p=pts[i],b=svg.getBoundingClientRect(),vb=svg.viewBox.baseVal,x=+p.getAttribute('cx'),y=+p.getAttribute('cy');g.setAttribute('x1',x);g.setAttribute('x2',x);g.style.opacity=.6;tip.hidden=false;tip.innerHTML=p.dataset.d+'<b>'+p.dataset.v+'</b>'+p.dataset.c;const px=Math.min(Math.max(x/vb.width*b.width,70),b.width-70);tip.style.left=px+'px';tip.style.top=(y/vb.height*b.height)+'px'}
+ function hide(){cur=-1;tip.hidden=true;g.style.opacity=0;pts.forEach((p,k)=>p.setAttribute('r',k===pts.length-1?3.5:3))}
+ svg.addEventListener('mousemove',e=>{const b=svg.getBoundingClientRect(),vb=svg.viewBox.baseVal,x=(e.clientX-b.left)/b.width*vb.width;let best=0;pts.forEach((p,k)=>{if(Math.abs(p.getAttribute('cx')-x)<Math.abs(pts[best].getAttribute('cx')-x))best=k});show(best)});
+ svg.addEventListener('mouseleave',hide);w.addEventListener('blur',hide);
+ w.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();show(Math.min(pts.length-1,cur+1))}else if(e.key==='ArrowLeft'){e.preventDefault();show(Math.max(0,cur<0?pts.length-1:cur-1))}else if(e.key==='Escape')hide()});
+ w.addEventListener('focus',()=>show(pts.length-1));});
+setTheme(load('theme','native'));setMode(load('mode','light'));setScreen(load('screen','overview'));
+function fit(){document.getElementById('stage').style.zoom=Math.min(1,(innerWidth-32)/1280)}
+addEventListener('resize',fit);fit();
+</script>
+</body>
+</html>

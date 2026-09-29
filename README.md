@@ -9,7 +9,7 @@
 - 1.14.0 新增默认自动备份（U13，[产品设计 D20](docs/PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)）：有改动约 2 分钟后在后台备份到资料目录旁，每天一份、保留 7 份，可选额外位置；zcode 实现、Claude 复核，见 [U13 记录](docs/verification/U13_AUTO_BACKUP_RESULT.md)。
 - 1.13.0 实现 U12 顶栏与页面搜索统一（zcode 按交接完成 U12a–d，Claude 复核修复并补齐证据），已提交推送并安装：页面矩阵顶栏、新增记录菜单、⌘N/⌘F 当前页分派、各页真实搜索（先搜索后分页、汇总金额不受影响、切库清空）；证据见 [U12 记录](docs/verification/U12_TOPBAR_SEARCH_RESULT.md)与[对照索引](docs/ui/topbar-search/index.html)，进度见实施计划 U12。
 - P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
-- 自用正式版 2.0.0（改名「家底」，界面整理 U15：三套主题 × 浅色／深色、5 级字号与一行页头、筛选一行与日均列、单列表单、设置五类、侧栏三组；功能与资料语义沿用 1.15.0；与设计稿的观感对齐尚未完成，差距与计划见 [U16 设计对齐计划](docs/ui/U16_DESIGN_PARITY_PLAN.md)）安装在 `/Applications/家底.app`，身份仍为 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`，1.15.0「物志.app」回退副本在 `.local/install/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- 自用正式版 2.0.0（改名「家底」，界面整理 U15：三套主题 × 浅色／深色、5 级字号与一行页头、筛选一行与日均列、单列表单、设置五类、侧栏三组；功能与资料语义沿用 1.15.0；与设计稿的观感对齐尚未完成，差距与计划见 [U16 设计对齐计划](docs/ui/U16_DESIGN_PARITY_PLAN.md)，开发依据为 [U16 设计规范](docs/ui/U16_DESIGN_SPEC.md)）安装在 `/Applications/家底.app`，身份仍为 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`，1.15.0「物志.app」回退副本在 `.local/install/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
 - 1.9.0 新增 D · 综合体验：总览分「综合回顾／实物概览」两个视图，时间轴按领域与年份筛选并含盘点事件，各事件可「查看来源」直接打开原记录；见 [Q04 原生验收](docs/verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)。
 - 1.8.0 新增虚拟资产（C2）：买断软件、域名与订阅服务的档案、有效期与花费，可关联周期计划；见 [G03 记录](docs/verification/G03_VIRTUAL_RESULT.md)。
 - 1.7.1 按反馈微调：删除确认按钮为实心红色、选择图标与「全选」、圆形勾选标记、侧栏「保障中」。
@@ -30,7 +30,8 @@
 - [物志使用说明](docs/USER_GUIDE.md)：安装、资料位置、完整备份与恢复及当前限制。
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、P0/P1/P2 与验收标准；第 15.2 节为实物决策表；[第 17 节](docs/PRODUCT_DESIGN.md#17-统一资产扩展需求草案2026-09-28)集中维护统一资产扩展，17.12 为 A–C2 已确认规则，17.13 为 D 综合体验方案（已交付）。
 - [P0 功能规格](docs/FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义。
-- [UI 方向与原型](docs/UI_DESIGN.md)：已选 A「静序」为基线；[交互原型](docs/ui/prototype.html)。
+- **现行界面规范**：[U16 设计规范](docs/ui/U16_DESIGN_SPEC.md)（令牌、格式、组件、逐页规范、三主题检查表）与设计稿 v3 [`docs/ui/u16/mockup-v3.html`](docs/ui/u16/mockup-v3.html)；计划与验收见 [U16 设计对齐计划](docs/ui/U16_DESIGN_PARITY_PLAN.md)。
+- [UI 方向与原型（历史）](docs/UI_DESIGN.md)：早期选定 A「静序」为基线；[交互原型](docs/ui/prototype.html)。已由 U16 规范取代，仅供追溯。
 - [竞品调研](docs/COMPETITOR_RESEARCH.md)：直接竞品与开源候选比较、差异化假设。
 
 **技术与计划**
