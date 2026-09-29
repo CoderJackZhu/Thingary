@@ -713,3 +713,82 @@ Q02 定向覆盖一次读取内写入不插入、部分失败、同 generation �
 - 顶栏顺序：面包屑、弹性空白、搜索、次按钮、主按钮；只有创建动作带加号，「开始盘点」不带；菜单按钮带下拉箭头与文字。物品详情隐藏列表搜索、保留新增物品；无搜索/新增页面保留顶栏高度与面包屑，不画占位控件。
 - 窄窗口：≤980px 隐藏 ⌘ 提示；≤780px（现有断点，面包屑已隐藏）搜索缩为具名放大镜按钮，点击或 ⌘F 展开为顶栏内搜索行，不覆盖主操作、不横向溢出；有关键词时保持展开，空词失焦可收起。
 - 测试：Rust 侧 catalog 标签搜索与 trash 搜索计数/分页/交集用例；前端新增页面矩阵、菜单模块过滤、注册解绑、切库清空、搜索汇总隔离、乱序请求用例；`mac-shortcuts.test.mjs` 断言随分派改造同步更新。浏览器与隔离原生证据归 U12d。
+
+## 24. U13 · 默认自动备份技术契约（2026-09-29）
+
+业务规则见[产品设计 D20](../PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)。本节规定接线方式；实现时如发现与实际代码不符，按实际代码修正本节并在 U13 验证记录说明，不静默改变业务规则。
+
+### 24.1 位置与文件
+
+以 `Store.root`（`app_data_dir()/library`，正式身份即 `~/Library/Application Support/local.possio.main/library`）为基准：
+
+| 路径 | 用途 |
+|---|---|
+| `<root>/auto-backups/物志自动备份-YYYY-MM-DD.possio` | 自动备份；日期为本地自然日（`chrono::Local`） |
+| `<root>/auto-backup.json` | 本机设置与状态：`enabled`（缺省 true）、`extra_dir`、`last_success_at`、`last_error {at, message}`、`extra_last_at`、`extra_last_error {at, message}`；用 `storage::atomic_write` 写 |
+| `<root>/auto-backup-pending` | 有未备份改动的标记文件（内容无关）；跨进程保留，保证强退后补做 |
+
+这些文件在 `datasets/` 之外，不进入完整备份，恢复与切换数据集不会删除它们；属于本机设置，恢复备份不改变开关和额外位置。文件名只匹配正则 `^物志自动备份-\d{4}-\d{2}-\d{2}\.possio$` 的才视为自动备份（列表、清理、恢复都据此判断）。额外位置用同一文件名。
+
+### 24.2 改动检测（worker 线程内）
+
+`worker.rs` 的 `Libraries` 增加 `backup_key: Option<(String, u64)>` 与 `last_change: Option<Instant>`，以及 `track_backup_changes()`，在 `with_state` 每个任务回复后、与 `sync_reminders()` 同处调用：
+
+- `key = (self.real.generation(), self.real.conn()?.total_changes())`，**只看 `real`**，样例库写入不影响。
+- 首次观察只记录 key；之后 key 变化即 `last_change = Some(Instant::now())`，且标记文件不存在时写入。恢复会换 generation，也算改动。
+- 读失败只 `eprintln!`，不影响调用者。
+
+`total_changes()` 也会统计外观等偏好写入；多一次备份无害，不为此区分。
+
+### 24.3 定时与执行
+
+- `lib.rs` 在 `app.manage(Worker::start(..))` 后启动一个普通线程 `possio-auto-backup`：`loop { sleep(30s); tick(); }`。不引入新依赖、不做常驻服务；进程退出线程随之结束，不在 `ExitRequested` 中等待。
+- `Worker::auto_backup_tick(policy) -> Result<TickOutcome>`，在 worker 线程执行（与其他存储任务串行，保证快照期间无写入）。`policy` 包含空闲阈值（正式 120 s）、失败退避（正式 30 min）与今日日期，测试直接传入，**测试不 sleep**。判断顺序：
+  1. 读 `auto-backup.json`；`enabled == false` → 跳过。
+  2. 无标记文件 → 跳过。
+  3. `last_change` 距今不足空闲阈值 → 跳过（本次启动后尚无改动时 `last_change` 为 None，视为已空闲，因此上次运行留下的标记会在启动约 30 s 后补做）。
+  4. 上次失败距今不足退避时间，且此后没有新改动 → 跳过（失败时间只存内存）。
+  5. `has_personal_records(&real)` 为 false → 删除标记，跳过。
+  6. 执行 24.4；成功删除标记、写 `last_success_at`、清 `last_error`、清理多余份数；失败写 `last_error`、保留标记与旧备份。
+- 手动备份、恢复等仍走原命令；因同在 worker 串行，不会与自动备份并发。
+
+### 24.4 写入与清理
+
+新增 `src-tauri/src/auto_backup.rs`（`lib.rs` 注册模块），核心函数与 `Store` 解耦以便测试：
+
+- `run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf>`：建目录；删除目录内以 `.` 开头的残留临时文件；目标 `final = dir/物志自动备份-{date}.possio`；`partial = dir/.物志自动备份-{date}.partial`（存在先删）；调用现有 `store.backup(Some(&partial))`（沿用快照、逐文件校验、成品复验与故障注入点）；成功后 `fs::rename(partial, final)` 覆盖当天旧份并 `sync_dir(dir)`。失败时删除 partial，旧的 `final` 保持不变。
+- `prune(dir: &Path, keep: usize) -> Result<()>`：只列出匹配正则的文件，按文件名降序保留前 7 个，其余删除；其他文件一律不碰。
+- `list(dir) -> Vec<Item {name, date, size}>`：供设置页显示，按日期降序。
+- `copy_extra(source: &Path, extra_dir: &Path) -> Result<()>`：复制到 `extra_dir/.{name}.partial` 再 rename 为同名，然后对 extra_dir `prune(7)`。**在定时线程、worker 之外执行**（只读已发布的成品文件，不阻塞界面）；失败写 `extra_last_error`，成功写 `extra_last_at`。
+
+已知上限（`ponytail:` 注释写在 `run`）：全部备份在 worker 线程完成，资料很大时这段时间其他请求排队；每份为完整副本，占用约为资料 × 7。需要时再拆出“快照在 worker、打包在外”或照片去重池。
+
+### 24.5 命令与原生
+
+新增 Tauri 命令（在 `lib.rs` 的 `generate_handler!` 注册）：
+
+| 命令 | 行为 |
+|---|---|
+| `auto_backup_status` | 返回 `{enabled, folder, last_success_at, last_error, items:[{name,date,size}], total_size, extra_dir, extra_last_at, extra_last_error}`；样例模式也可读（显示的是我的资料的备份） |
+| `auto_backup_set_enabled(enabled)` | 写设置，返回新状态 |
+| `auto_backup_choose_extra` | 主线程打开**文件夹选择面板**（`native/images.m` 仿 `possio_pick_backup_open` 新增 `possio_pick_folder`：`canChooseDirectories=YES`、`canChooseFiles=NO`、`canCreateDirectories=YES`，`native_images.rs` 加包装）；取消返回 None 不改设置；选定后写 `extra_dir` 并立即对最新一份执行一次 `copy_extra` |
+| `auto_backup_clear_extra` | 清除 `extra_dir`，不删除该位置已有文件 |
+| `auto_backup_open_folder` | `std::process::Command::new("/usr/bin/open").arg(folder)`；目录不存在时先创建 |
+| `inspect_auto_backup(name)` | 校验 `name` 匹配正则（拒绝路径分隔符与 `..`），路径拼接于自动备份目录后调用现有 `inspect_backup`，返回与 `inspect_backup` 相同的 `Inspected`；需 `require_personal` |
+
+恢复直接复用 `restore_backup(path, hash, generation)`，不新增恢复路径。
+
+### 24.6 界面
+
+`src/DataManagement.tsx` 资料管理卡片内新增“自动备份”分区（可拆 `src/AutoBackup.tsx`），复用现有 `data-action` 行、`ModuleSettings` 的开关样式、`notice`/`confirm` 与 tokens，不新增视觉体系：
+
+- 标题行：“自动备份” + 开关；说明“有改动时自动保存在这台 Mac，保留最近 7 份”。
+- 状态行：`上次自动备份：2026-09-29 14:32 · 7 份 · 共 68 MB` / “尚未自动备份” / 错误（`notice error`，含时间与原因）。按钮“打开备份文件夹”。
+- 列表：每份日期、大小、“恢复”按钮 → `inspect_auto_backup` → 复用现有 candidate 确认块与 `restore()`；样例或 `blocked` 时禁用恢复，与现有按钮一致。
+- “额外备份位置”：默认折叠为一行“未设置 · 选择…”；已设置显示路径、上次复制时间或错误、“更改…”“取消”。
+- 说明折叠区补一句自动备份与手动备份、CSV 的区别。
+- 浏览器预览：`src/visual-preview.ts` 的命令模拟加上述命令，`?autobackup=never|ok|error|extra-error` 四种状态。
+
+### 24.7 测试
+
+新增 `src-tauri/tests/auto_backup.rs`（沿用现有临时目录与 fault-injection 写法），至少覆盖：写入后出现标记、样例写入不出现；空闲未到跳过、到了生成且标记清除；同日两次只一份且为新内容（检查 manifest `created_at` 或记录数）；跨日生成新文件；空库跳过并清除标记；`prune` 保留 7 份且不删不匹配的文件；`backup.before_publish` 注入失败时旧份不变、partial 被清、标记保留、错误写入状态；退避期内跳过、有新改动后重试；`inspect_auto_backup` 拒绝 `../x`、带 `/` 与不匹配名称；`copy_extra` 目标不存在时报错不影响主备份；设置文件损坏或缺失按默认开启处理。前端在 `npm run test:ui` 现有逻辑测试中加状态文案/大小格式化用例。

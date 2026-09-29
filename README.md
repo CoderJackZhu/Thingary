@@ -6,6 +6,7 @@
 
 ## 当前状态
 
+- 进行中：U13 默认自动备份（[产品设计 D20](docs/PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)），方案已确认，交 zcode 按 [交接文件](docs/U13_ZCODE_HANDOFF.md) 实现，Claude 复核；进度见实施计划 U13。
 - 1.13.0 实现 U12 顶栏与页面搜索统一（zcode 按交接完成 U12a–d，Claude 复核修复并补齐证据），已提交推送并安装：页面矩阵顶栏、新增记录菜单、⌘N/⌘F 当前页分派、各页真实搜索（先搜索后分页、汇总金额不受影响、切库清空）；证据见 [U12 记录](docs/verification/U12_TOPBAR_SEARCH_RESULT.md)与[对照索引](docs/ui/topbar-search/index.html)，进度见实施计划 U12。
 - P0 闭环已完成（CP1–CP4 达到出口；AC40 的 VoiceOver 等未实测项为已接受风险，见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md) §9）。
 - 自用正式版 1.13.3（含启动进入总览、空库默认样例、顶栏与页面搜索统一、原生菜单随页、功能模块开关、标签与日均成本排序、含统一分类、详情页新排布、资产详情目标进度、综合回顾、财富盘点、重要支出、周期费用、虚拟资产、统一样例、删除恢复统一规则与物品批量操作）安装在 `/Applications/物志.app`，身份 `local.possio.main`，资料位于 `~/Library/Application Support/local.possio.main/`。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
