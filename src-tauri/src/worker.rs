@@ -361,7 +361,13 @@ impl Worker {
                 return Ok(TickOutcome::Disabled);
             }
             let marker = crate::auto_backup::marker_path(&root);
-            if !marker.exists() {
+            // A library that already holds records but has no automatic
+            // backup yet (an upgrade, or all archives deleted by hand) gets
+            // its first one without waiting for a change.
+            let first_backup = !marker.exists()
+                && crate::auto_backup::list(&crate::auto_backup::backup_dir(&root)).is_empty()
+                && has_personal_records(&state.real)?;
+            if !marker.exists() && !first_backup {
                 return Ok(TickOutcome::NoMarker);
             }
             // No change this session counts as already idle, so a marker left

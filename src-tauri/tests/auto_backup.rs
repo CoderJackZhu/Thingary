@@ -197,6 +197,46 @@ fn a_marker_from_a_force_quit_is_made_up_after_restart() {
 }
 
 #[test]
+fn an_existing_library_without_any_auto_backup_gets_one_without_a_change() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("library");
+    {
+        let worker = Worker::start(root.clone()).unwrap();
+        save_real_asset(&worker, "虚构相机");
+    }
+    // Simulate an upgrade from a version without automatic backup.
+    std::fs::remove_file(auto_backup::marker_path(&root)).unwrap();
+    let upgraded = (0..100)
+        .find_map(|_| match Worker::start(root.clone()) {
+            Ok(worker) => Some(worker),
+            Err(error) if error.code == "LOCKED" => {
+                std::thread::sleep(Duration::from_millis(20));
+                None
+            }
+            Err(error) => panic!("unexpected restart failure: {error}"),
+        })
+        .expect("old worker released library lock");
+    assert_eq!(
+        upgraded.auto_backup_tick(&immediate("2026-09-29")).unwrap(),
+        TickOutcome::BackedUp(auto_backup::backup_dir(&root).join(dated_name("2026-09-29")))
+    );
+    // Once one exists, nothing more happens until a real change.
+    assert_eq!(
+        upgraded.auto_backup_tick(&immediate("2026-09-30")).unwrap(),
+        TickOutcome::NoMarker
+    );
+    assert_eq!(auto_backup::list(&auto_backup::backup_dir(&root)).len(), 1);
+    // An empty library with no archives still writes nothing.
+    let empty_root = tmp.path().join("empty");
+    let empty = Worker::start(empty_root.clone()).unwrap();
+    assert_eq!(
+        empty.auto_backup_tick(&immediate("2026-09-29")).unwrap(),
+        TickOutcome::NoMarker
+    );
+    assert!(!auto_backup::backup_dir(&empty_root).exists());
+}
+
+#[test]
 fn prune_keeps_seven_named_archives_and_nothing_else() {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("auto-backups");
