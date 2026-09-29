@@ -1,15 +1,17 @@
 # Possio：实施任务与开工检查
 
-## U13 · 默认自动备份（2026-09-29，待 zcode 实现）
+## U13 · 默认自动备份（2026-09-29，zcode 实现、Claude 复核，随 1.14.0 发布）
 
 用户确认方案（“按照这个方案可以实现”），并指定写清文档后交给 zcode 执行、Claude 复核。产品规则唯一来源：[产品设计 D20](PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)；技术契约：[ADR-001 第 24 节](decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)；执行入口：[U13_ZCODE_HANDOFF](U13_ZCODE_HANDOFF.md)。
 
 | 阶段 | 范围 | 出口 | 状态 |
 |---|---|---|---|
-| U13a 后端 | `auto_backup.rs`、worker 改动检测与 tick、定时线程、六个命令、文件夹面板 | ADR 24.7 所列 Rust 测试通过；`cargo test` 全量与 `npm run check` 通过 | 待开始 |
-| U13b 设置界面 | 资料管理内“自动备份”分区、列表恢复、额外位置；浏览器预览四种状态 | `npm run build`、`npm run test:ui` 通过；1280×820 与 800×600 浅深色改前/改后同尺寸截图 | 待开始 |
-| U13c 隔离原生验收 | 隔离身份按 D20 U13 验收 ①–⑪ 逐项实测，含强退补做、重装后仍在、额外位置不可用 | `docs/verification/U13_AUTO_BACKUP_RESULT.md` 逐项证据与未验项；README、USER_GUIDE、CHANGELOG（未发布）更新 | 待开始 |
-| U13d Claude 复核 | 审阅差异、复跑检查与关键原生路径，修复遗漏 | 复核结论写入本节 | 待开始 |
+| U13a 后端 | `auto_backup.rs`、worker 改动检测与 tick、定时线程、六个命令、文件夹面板 | ADR 24.7 所列 Rust 测试通过；`cargo test` 全量与 `npm run check` 通过 | 完成（zcode）：`auto_backup.rs`、worker 改动检测与 tick、定时线程、六个命令、文件夹面板；新增 14 项测试 |
+| U13b 设置界面 | 资料管理内“自动备份”分区、列表恢复、额外位置；浏览器预览四种状态 | `npm run build`、`npm run test:ui` 通过；1280×820 与 800×600 浅深色改前/改后同尺寸截图 | 完成（zcode）：`AutoBackup.tsx`、预览四种状态、浏览器截图 20 张 |
+| U13c 隔离原生验收 | 隔离身份按 D20 U13 验收 ①–⑪ 逐项实测，含强退补做、重装后仍在、额外位置不可用 | `docs/verification/U13_AUTO_BACKUP_RESULT.md` 逐项证据与未验项；README、USER_GUIDE、CHANGELOG（未发布）更新 | 完成（Claude）：①–⑪ 全部原生实测通过，见 [U13 记录](verification/U13_AUTO_BACKUP_RESULT.md) |
+| U13d Claude 复核 | 审阅差异、复跑检查与关键原生路径，修复遗漏 | 复核结论写入本节 | 完成，见下 |
+
+**复核（2026-09-29，Claude）**：zcode 完成后端、界面与浏览器截图，原生验收停在额外位置。复核修复：zcode 原生截图为整屏截取，含用户聊天、ChatGPT 会话与「文稿」文件名，已删除并改为仅窗口截图重拍；失败原因去掉内部代码前缀；额外位置复制改用 `fs::copy` 保留 600 权限，位置缺失给出明确提示；设置页每 30 秒刷新状态。最终 build、前端 149、check、Rust 212、diff 全过；用户要求「剩下全部都由你来做。做完之后提交安装」，已提交并安装 1.14.0（未推送）。
 
 ## 持有件数字号与空库默认样例（2026-09-29）
 

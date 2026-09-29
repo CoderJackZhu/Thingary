@@ -1,6 +1,6 @@
 # U13 · zcode 默认自动备份交接
 
-更新：2026-09-29。本文件只维护接手基线、代码入口、风险与启动 Prompt；业务规则以[产品设计 D20](PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)为准，技术接线以 [ADR-001 第 24 节](decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)为准，阶段状态只在[实施计划 U13](IMPLEMENTATION_PLAN.md#u13--默认自动备份2026-09-29待-zcode-实现)更新。
+更新：2026-09-29。本文件只维护接手基线、代码入口、风险与启动 Prompt；业务规则以[产品设计 D20](PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)为准，技术接线以 [ADR-001 第 24 节](decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)为准，**历史交接文件**：zcode 已完成 U13a/b，Claude 完成原生验收与复核并随 1.14.0 发布，结果见 [U13 记录](verification/U13_AUTO_BACKUP_RESULT.md)。阶段状态只在[实施计划 U13](IMPLEMENTATION_PLAN.md#u13--默认自动备份2026-09-29zcode-实现claude-复核随-1140-发布)更新。
 
 ## 1. 基线与授权
 

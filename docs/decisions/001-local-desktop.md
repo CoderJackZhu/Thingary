@@ -759,7 +759,7 @@ Q02 定向覆盖一次读取内写入不插入、部分失败、同 generation �
 - `run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf>`：建目录；删除目录内以 `.` 开头的残留临时文件；目标 `final = dir/物志自动备份-{date}.possio`；`partial = dir/.物志自动备份-{date}.partial`（存在先删）；调用现有 `store.backup(Some(&partial))`（沿用快照、逐文件校验、成品复验与故障注入点）；成功后 `fs::rename(partial, final)` 覆盖当天旧份并 `sync_dir(dir)`。失败时删除 partial，旧的 `final` 保持不变。
 - `prune(dir: &Path, keep: usize) -> Result<()>`：只列出匹配正则的文件，按文件名降序保留前 7 个，其余删除；其他文件一律不碰。
 - `list(dir) -> Vec<Item {name, date, size}>`：供设置页显示，按日期降序。
-- `copy_extra(source: &Path, extra_dir: &Path) -> Result<()>`：复制到 `extra_dir/.{name}.partial` 再 rename 为同名，然后对 extra_dir `prune(7)`。**在定时线程、worker 之外执行**（只读已发布的成品文件，不阻塞界面）；失败写 `extra_last_error`，成功写 `extra_last_at`。
+- `copy_extra(source: &Path, extra_dir: &Path) -> Result<()>`：目录不存在报 `EXTRA_MISSING`（“找不到额外备份位置…”，不重建目录）；用 `fs::copy`（保留 600 权限）复制到 `extra_dir/.{name}.partial` 再 rename 为同名，然后对 extra_dir `prune(7)`。**在定时线程、worker 之外执行**（只读已发布的成品文件，不阻塞界面）；失败写 `extra_last_error`，成功写 `extra_last_at`。
 
 已知上限（`ponytail:` 注释写在 `run`）：全部备份在 worker 线程完成，资料很大时这段时间其他请求排队；每份为完整副本，占用约为资料 × 7。需要时再拆出“快照在 worker、打包在外”或照片去重池。
 
@@ -787,6 +787,7 @@ Q02 定向覆盖一次读取内写入不插入、部分失败、同 generation �
 - 列表：每份日期、大小、“恢复”按钮 → `inspect_auto_backup` → 复用现有 candidate 确认块与 `restore()`；样例或 `blocked` 时禁用恢复，与现有按钮一致。
 - “额外备份位置”：默认折叠为一行“未设置 · 选择…”；已设置显示路径、上次复制时间或错误、“更改…”“取消”。
 - 说明折叠区补一句自动备份与手动备份、CSV 的区别。
+- 状态在分区挂载时读取，之后每 30 秒重读，后台完成的备份或失败无需重进页面即可显示；失败原因只存 `Error.message`，不显示内部代码。
 - 浏览器预览：`src/visual-preview.ts` 的命令模拟加上述命令，`?autobackup=never|ok|error|extra-error` 四种状态。
 
 ### 24.7 测试
