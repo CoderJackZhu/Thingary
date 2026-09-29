@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
-import { CentInput, FormRow, Segments, Switch } from './FormControls';
+import { CentInput, FormRow, Segments, Switch, Info } from './FormControls';
 import { Icon } from './AssetViews';
 import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
@@ -61,8 +61,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="wealth-toolbar"><span className="muted small">状态按有效期自动推算；订阅关联周期计划后，有效期和费用都来自已确认的付款。</span></div>
-    {error ? <article className="detail-section" role="alert"><p>虚拟资产读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
+        {error ? <article className="detail-section" role="alert"><p>虚拟资产读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !data ? <p role="status" className="muted">正在读取虚拟资产…</p>
       : !data.items.length ? <div className="empty"><span className="empty-mark">◇</span><h2>还没有虚拟资产</h2><p>把买断的软件、注册的域名和订阅的服务记下来，就能看到它们什么时候到期、一共花了多少。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>新增虚拟资产</button></div>
       : <>
@@ -73,7 +72,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
           <article><span>已花费</span><strong>{money(data.spent_cents)}</strong><em>{data.unknown_price ? `${data.unknown_price} 件价格未知，未计入` : '一次性价格＋已确认的周期付款'}</em></article>
         </div>
         <div className="virtual-filter" role="group" aria-label="按状态筛选虚拟资产">
-          {virtualFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}
+          {virtualFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}<Info text="状态按有效期自动推算；订阅关联周期计划后，有效期和费用都来自已确认的付款。"/>
         </div>
         <article className="detail-section overview-card"><div className="section-heading"><h3>{virtualFilters.find(([k]) => k === filter)?.[1]}</h3><span>{keyword ? `找到 ${shown.length} 条 · ` : ''}点名称编辑；停用和到期都保留档案</span></div>
           {!shown.length ? <p className="muted">{keyword ? <>当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></> : '这一类目前没有虚拟资产。'}</p> : <table className="distribution-table virtual-table"><thead><tr><th>名称</th><th>类型</th><th>有效至</th><th>状态</th><th>已花费</th></tr></thead><tbody>

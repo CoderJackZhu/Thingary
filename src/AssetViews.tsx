@@ -40,26 +40,32 @@ export function Icon({ name }: { name: keyof typeof iconPaths | 'system' }) {
   return <svg className="ui-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={iconPaths[name]} fill={name === 'moon' ? 'currentColor' : 'none'} strokeWidth={name === 'moon' ? 0.6 : undefined}/>{name === 'circle' && <circle cx="10" cy="10" r="2.6" fill="currentColor" stroke="none"/>}</svg>;
 }
 
+// U15c：列表页页头里的一行数字，取代三张汇总卡。超过一页时只统计本页。
 export function AssetOverview({ page, filtered }: { page: Page; filtered: boolean }) {
   const counted=page.items.filter(r=>!r.preferences?.exclude.total);
   const held = counted.filter(r => r.lifecycle?.state !== 'sold');
   const known = held.filter(r => r.asset.price_cents !== null);
   const total = known.reduce((sum, r) => sum + BigInt(r.asset.price_cents!), 0n);
-  const unknown = held.length - known.length;
-  return <div className="asset-overview" aria-label="当前结果概览">
-    <div><span>{filtered ? '筛选结果 · 本页持有' : '本页当前持有'}</span><strong>{held.length}<small>件物品</small></strong><p>使用中 {held.filter(r => (r.lifecycle?.state ?? 'active') === 'active').length} · 已退役 {held.filter(r => r.lifecycle?.state === 'retired').length}</p></div>
-    <div><span>本页持有物购入金额</span><strong>{known.length ? money(total.toString()) : held.length ? '待补充' : money('0')}</strong><p>{unknown ? `${unknown} 件金额未知，未计入 · ` : ''}不含已售出</p></div>
-    <div><span>本页已售出</span><strong>{counted.length - held.length}<small>件物品</small></strong><p>档案与来历仍然保留</p></div>
-  </div>;
+  const unknown = held.length - known.length, sold = counted.length - held.length;
+  const scope = (filtered ? '筛选结果 · ' : '') + (page.total > page.items.length ? '本页' : '');
+  return <span className="page-meta asset-overview-line" aria-label="当前结果概览" title={unknown ? `${unknown} 件金额未知，未计入；不含已售出` : '不含已售出'}>
+    {scope}持有 {held.length} 件 · {known.length ? money(total.toString()) : held.length ? '金额待补充' : money('0')}{unknown ? `（${unknown} 件未知）` : ''}{sold ? ` · 已售出 ${sold} 件` : ''}
+  </span>;
+}
+
+// 单位成本：按天为日均，按次为每次；列表「日均」列与检视器共用。
+export function unitCostText(record: AssetRecord) {
+  const perUse = record.preferences?.cost_mode === 'per_use', unit = perUse ? record.per_use_cents ?? null : record.costs.daily_cents;
+  return unit === null ? '—' : money(unit) + (perUse ? ' / 次' : '');
 }
 
 export function AssetFacts({ record }: { record: AssetRecord }) {
   const c = record.costs;
   const perUse=record.preferences?.cost_mode==='per_use',unitCost=perUse?record.per_use_cents??null:c.daily_cents;
-  return <><div className="holding-cost"><span>{perUse?'单次使用成本':record.sale ? '售出后净日均成本' : '日均持有成本'}</span><strong>{money(unitCost)}{unitCost !== null && <small> / {perUse?'次':'天'}</small>}</strong><p>{perUse?`已记录 ${record.preferences?.use_count??0} 次使用`:record.sale ? '净生命周期成本 ÷ 持有天数' : '购入与已记录维护费用 ÷ 持有天数'}</p></div>
-    <dl className="facts"><dt>购入金额</dt><dd>{money(record.asset.price_cents)}</dd><dt>购入日期</dt><dd>{record.asset.purchase_date || '待补充'}</dd><dt>持有时长</dt><dd>{heldText(c.held_days)}</dd><dt>维护投入</dt><dd>{money(c.known_maintenance_cents)}</dd></dl>
-    {record.sale && <p className="sale-net">净生命周期成本 {money(c.net_cost_cents)}</p>}{c.unknown_maintenance_count > 0 && <p className="muted small">有 {c.unknown_maintenance_count} 条维护费用待补录，精确总成本与日均成本暂不显示。</p>}
-    {(record.warranty_summary?.total ?? 0) > 0 && <p className="muted small">保障：{warrantySummaryText(record.warranty_summary)}</p>}</>;
+  const unitLabel=perUse?'单次使用成本':record.sale ? '售出后净日均' : '日均持有成本';
+  return <><div className="inspector-metrics"><div title={perUse?`已记录 ${record.preferences?.use_count??0} 次使用`:record.sale ? '净生命周期成本 ÷ 持有天数' : '购入与已记录维护费用 ÷ 持有天数'}><span>{unitLabel}</span><strong>{money(unitCost)}{unitCost !== null && <small>/{perUse?'次':'天'}</small>}</strong></div><div><span>{perUse?'已使用':'已持有'}</span><strong>{perUse?`${record.preferences?.use_count??0}`:c.held_days === null ? '—' : c.held_days.toLocaleString('zh-CN')}<small>{perUse?'次':'天'}</small></strong></div></div>
+    <dl className="facts"><dt>购入</dt><dd>{money(record.asset.price_cents)} · {record.asset.purchase_date || '日期待补充'}</dd><dt>维护</dt><dd>{money(c.known_maintenance_cents)}</dd>{(record.warranty_summary?.total ?? 0) > 0 && <><dt>保障</dt><dd className={record.warranty_summary?.expiring_count ? 'warn' : undefined}>{warrantySummaryText(record.warranty_summary)}</dd></>}{record.sale && <><dt>净成本</dt><dd>{money(c.net_cost_cents)}</dd></>}</dl>
+    {c.unknown_maintenance_count > 0 && <p className="muted small">有 {c.unknown_maintenance_count} 条维护费用待补录，精确总成本与日均成本暂不显示。</p>}</>;
 }
 
 const heldText = (days: number | null) => days === null ? '待补充' : `${days.toLocaleString('zh-CN')} 天`;

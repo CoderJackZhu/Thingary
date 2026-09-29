@@ -121,3 +121,26 @@
 .photo-preview{padding:20px}.photo-preview>header{position:sticky;top:-20px;padding:0 0 8px;background:var(--card);z-index:2}
 .taxonomy-intro{display:block;margin:0 0 4px;color:var(--muted);font-size:13px;line-height:1.6}.taxonomy-create{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}.taxonomy-create-title{margin:0;font-size:15px}.taxonomy-create>.taxonomy-field:first-child{grid-template-columns:minmax(180px,1fr)!important}.taxonomy-create>.taxonomy-create-button{grid-column:auto;grid-row:auto;justify-self:start;padding-inline:18px}
 .data-action-buttons{display:grid;gap:6px}.csv-notes{margin:8px 0;font-size:11px}.csv-notes summary{cursor:pointer;color:var(--muted)}.csv-notes ul{margin:6px 0 0;padding-left:18px;max-height:160px;overflow:auto;color:var(--muted);line-height:1.6}.csv-duplicates{display:flex;align-items:center;gap:6px;font-size:13px;margin:8px 0}
+/* U15c 指标行：一张卡、竖线分隔、数值 20；说明文字降为注释（账户、支出、周期费用、虚拟资产、统计共用） */
+.stats-kpis{gap:0;border:1px solid var(--line);border-radius:10px;background:var(--card);box-shadow:var(--card-shadow);overflow:hidden}
+.stats-kpis article{gap:2px;padding:14px 18px;border:0;border-radius:0;background:transparent;min-width:0}
+.stats-kpis article+article{border-left:1px solid var(--line)}
+.stats-kpis article>span{font-size:11px}
+.stats-kpis strong{font:500 20px/1.3 var(--display);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stats-kpis em{color:var(--muted);font-size:11px;line-height:1.5}
+@media(max-width:1050px){.stats-kpis article:nth-child(odd){border-left:0}.stats-kpis article:nth-child(n+3){border-top:1px solid var(--line)}}
+/* 心愿：总额并入一行，不再单独成卡 */
+.wishlist-overview{border:0;background:transparent;padding:0 0 4px;margin-bottom:8px;box-shadow:none}
+.wishlist-overview div{flex-direction:row;flex-wrap:nowrap;align-items:baseline;gap:10px}
+.wishlist-overview small{flex-basis:auto;font-size:13px}
+.wishlist-overview strong{font:500 15px var(--display)}
+/* 状态分段：与全部物品的分类胶囊一致 */
+.virtual-filter button{height:26px;padding:0 10px;border-radius:99px;font-size:13px}
+.virtual-filter button[aria-pressed=true]{background:var(--text);border-color:var(--text);color:var(--bg);font-weight:500}
+.info-tip{display:inline-grid;place-items:center;width:15px;height:15px;margin-left:6px;border:1px solid currentColor;border-radius:50%;color:var(--muted);font:500 10px/1 var(--sans,system-ui);font-style:normal;cursor:help;vertical-align:1px}
+.info-tip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.virtual-filter{align-items:center}
+.trash-header{align-items:center;gap:8px}.trash-header .trash-filter{margin:0}.trash-spacer{flex:1}
+.trash-filter{display:inline-flex;gap:6px;border:0;padding:0;background:transparent}
+.trash-filter button{height:26px;padding:0 10px;border:1px solid var(--line);border-radius:99px;background:transparent;color:var(--muted);font-size:13px}
+.trash-panel .trash-filter button[aria-pressed=true],.trash-filter button[aria-pressed=true]{background:var(--text);border-color:var(--text);color:var(--bg);font-weight:500}

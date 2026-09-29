@@ -118,3 +118,37 @@ button{border-radius:6px;font-weight:400}.primary{font-weight:600}.shell{grid-te
 
 /* U15b 标题跟随主题字体（纸本档案为宋体） */
 h1,h2,h3{font-family:var(--display)}
+/* U15c 全部物品：页头一行数字、筛选一行、日均列、检视器三要素 */
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.asset-overview-line{font-variant-numeric:tabular-nums}
+.collection-toolbar{display:flex;align-items:center;gap:12px;padding:6px 24px 12px;flex-wrap:nowrap}
+.collection-toolbar>[data-component=category-filter]{min-width:0;flex:1;overflow-x:auto;scrollbar-width:none}
+.collection-toolbar>[data-component=category-filter]::-webkit-scrollbar{display:none}
+.collection-toolbar .taxonomy-segmented{flex-wrap:nowrap;gap:6px;border:0;padding:0;background:transparent}
+.collection-toolbar .taxonomy-segmented button{height:26px;padding:0 10px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:13px;white-space:nowrap}
+.collection-toolbar .taxonomy-segmented button[aria-pressed=true],.collection-toolbar .taxonomy-segmented button[aria-checked=true]{background:var(--text);border-color:var(--text);color:var(--bg);font-weight:500}
+.view-controls{flex:none;gap:6px}
+.collection-options{position:relative;padding:0;font-size:13px;color:var(--text)}
+.collection-options>summary{list-style:none;height:28px;display:flex;align-items:center;padding:0 10px;border:1px solid var(--line);border-radius:6px;color:var(--text);white-space:nowrap}
+.collection-options>summary::-webkit-details-marker{display:none}
+.collection-options[open]{padding:0}
+.collection-options .filter-controls{position:absolute;right:0;top:34px;z-index:6;flex-direction:column;align-items:stretch;gap:10px;margin:0;padding:14px;min-width:240px;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px #00000024}
+.collection-options .filter-controls label{justify-content:space-between;color:var(--muted)}
+.collection-options .filter-controls select{font-size:13px;min-width:130px}
+.sort-control select{height:28px;padding:0 8px;font-size:13px}
+.sort-direction{height:28px;width:28px;padding:0}
+.sort-note{margin:-4px 24px 10px}
+.list-head,.list .asset-row{grid-template-columns:minmax(130px,1fr) 104px 104px 88px 76px}
+.list .daily-cost,.list-head .daily-cost{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.grid .daily-cost{display:none}
+@media(max-width:1190px){.list .daily-cost,.list-head .daily-cost{display:none}}
+.inspector-metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:14px 0;margin:16px 0 14px}
+.inspector-metrics span{display:block;font-size:11px;color:var(--muted)}
+.inspector-metrics strong{display:block;font:500 20px/1.3 var(--display);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.inspector-metrics small{font-size:13px;font-weight:400;color:var(--muted);margin-left:2px}
+.summary .facts dd.warn{color:var(--warn)}
+.collection-toolbar .taxonomy-eyebrow,.collection-toolbar .taxonomy-help{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.collection-toolbar>[data-component=category-filter]{display:block;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent)}
+.list .asset-row{min-height:56px;padding-block:8px}.list .object-mark{width:36px;height:36px}
+.list .asset-row>.amount,.list-head>.sort-price{text-align:right;justify-content:flex-end}
+.collection-options .filter-controls label{white-space:nowrap;gap:12px}.collection-options .filter-controls select{width:160px;min-width:0}

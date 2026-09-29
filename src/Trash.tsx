@@ -5,6 +5,7 @@ import { submit as submitWealth, storedPending } from './wealth';
 import type { AssetRecord } from './asset';
 import type { CloseIntent } from './AssetEditor';
 import { usePageBar } from './topbar';
+import { Info } from './FormControls';
 import { contentsText, entryDisplay, recordKindLabel, recordPendingKey, restoresViaWealth, stateText, storedRecordTrash, trashFilters } from './unified-trash';
 import type { RecordTrashAction, RecordTrashChange, TrashEntry, TrashPage } from './unified-trash';
 export type { RecordKind, RecordTrashAction, RecordTrashChange, TrashEntry, TrashPage } from './unified-trash';
@@ -60,12 +61,11 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
   }, [filter, offset, version, retry, search]);
   const total = page?.total ?? 0;
   return <section className="trash-panel" aria-label="最近删除">
-    <div className="trash-header"><p className="muted">误删的物品、维护、保障记录、心愿以及盘点、账户、支出和周期费用都会在这里，可以随时找回。资料与图片会保留，不会自动清空；只有永久删除才会真正移除。</p>
+    <div className="trash-header"><div className="segmented trash-filter" role="group" aria-label="按类型筛选最近删除">
+      {trashFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => { setFilter(key); setOffset(0); }}>{label}</button>)}
+    </div><Info text="误删的物品、维护、保障记录、心愿以及盘点、账户、支出和周期费用都会在这里，可以随时找回。资料与图片会保留，不会自动清空；只有永久删除才会真正移除。"/><span className="trash-spacer"/>
       {!!page?.total && filter === 'all' && (armed === 'all' ? <button className="primary danger" disabled={wealthBusy} onClick={() => void purge(null, page.generation)}>确认永久删除全部 {page.total} 项</button> : <button disabled={wealthBusy} onClick={() => setArmed('all')}>清空最近删除…</button>)}</div>
     {wealthNotice && <p className="notice" role="status">{wealthNotice}</p>}
-    <div className="segmented trash-filter" role="group" aria-label="按类型筛选最近删除">
-      {trashFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => { setFilter(key); setOffset(0); }}>{label}</button>)}
-    </div>
     {error ? <div className="empty" role="alert"><h2>最近删除读取失败</h2><p>{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : loading ? <p role="status">正在读取最近删除…</p> : !page?.items.length ? (search.trim() ? <div className="empty"><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button>{filter !== 'all' && <button onClick={() => { onSearch(''); setFilter('all'); setOffset(0); }}>重置筛选</button>}</div> : <div className="empty"><h2>最近删除是空的</h2><p>{filter === 'all' ? '删除的物品和记录会出现在这里。' : '这一类目前没有删除项。'}</p></div>) : <>
       <p className="collection-caption">{search.trim() ? `找到 ${total} 条` : `${total} 项`} · 按删除时间从新到旧</p>
       <ul className="trash-list">{page.items.map(entry => {
