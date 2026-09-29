@@ -1,5 +1,10 @@
 # 变更记录
 
+## 2026-09-29 · 清理旧构建与中间产物
+
+- 用户要求「清理之前的，后续没有用的东西，以及相应的中间产物」：删除 `.local/install/` 中 1.11.1–1.13.1 五个旧回退副本（保留 1.13.2）、`.local/` 各阶段隔离构建配置、9 个旧隔离验收身份（c2、cat、goal、nav、opt、retire、tag、settings 验收与改前）在 Application Support／WebKit／Caches 下的虚构资料、`/tmp` 与系统临时目录中的 Possio 日志、脚本、截图（含 zcode 夹带私人内容的截图）和测试目录，以及 `src-tauri/target`、`dist` 构建中间产物，合计约 12 GiB；下次构建会重新编译。
+- 保留：正式资料 `local.possio.main`、开发预览 `local.possio.preview`、1.13.2 回退副本、`.local/archive`、`node_modules`、源码与已提交的验证材料。远程残留分支 `origin/claude/eager-archimedes-1leel4` 未处理。
+
 ## 2026-09-29 · 1.13.3 自用正式版 · 启动默认进入总览
 
 - 用户确认「最近删除」清空后即进入样例，并要求「提交推送安装」：release 升为 1.13.3，安装到 `/Applications/物志.app`，1.13.2 副本保留在 `.local/install/`；安装过程不打开正式库。
