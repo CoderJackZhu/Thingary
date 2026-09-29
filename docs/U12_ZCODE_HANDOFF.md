@@ -17,8 +17,8 @@
 
 1. [README](../README.md)、[AGENTS](../AGENTS.md)：项目约束和运行入口。
 2. [产品设计 3.3–3.5](PRODUCT_DESIGN.md#33-搜索与快捷键)：页面矩阵、完整搜索字段、状态、快捷键、U12-AC01–10；D14 查样例规则，第 17 节查金额和来源规则。
-3. [实施计划 U12](IMPLEMENTATION_PLAN.md#u12--页面顶栏与搜索统一2026-09-29zcode-实现claude-复核待审阅)：唯一阶段进度表。
-4. [UI 设计 U12](UI_DESIGN.md#u12--顶栏与页面搜索2026-09-29已实现待审阅)：布局与同尺寸证据。
+3. [实施计划 U12](IMPLEMENTATION_PLAN.md#u12--页面顶栏与搜索统一2026-09-29zcode-实现claude-复核随-1130-发布)：唯一阶段进度表。
+4. [UI 设计 U12](UI_DESIGN.md#u12--顶栏与页面搜索2026-09-29随-1130-发布)：布局与同尺寸证据。
 5. [ADR-001](decisions/001-local-desktop.md)：既有查询、generation、回执及第 22 节来源/返回契约。U12a 在同一 ADR 补充本次技术接线方案，不另建平行规格。
 6. [Q03 验证](verification/Q03_SOURCE_NAVIGATION_RESULT.md)、[Q04 原生验证](verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)、[最近设置验证](verification/SETTINGS_POLISH_RESULT.md)：只参考方法和风险，旧结果不代替 U12 验收。
 
