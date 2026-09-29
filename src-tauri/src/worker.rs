@@ -4,15 +4,44 @@ use crate::{
 };
 use std::{
     panic::{self, AssertUnwindSafe},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::mpsc::{self, SyncSender},
     thread,
+    time::{Duration, Instant},
 };
 #[derive(serde::Serialize)]
 pub struct DemoStatus {
     pub active: bool,
     pub available: bool,
     pub started: bool,
+}
+/// Thresholds the timer passes to each tick; tests inject their own so
+/// nothing in the suite ever sleeps to observe a schedule.
+#[derive(Debug, Clone)]
+pub struct Policy {
+    pub idle: Duration,
+    pub backoff: Duration,
+    pub today: String,
+}
+impl Policy {
+    pub fn production() -> Self {
+        Self {
+            idle: Duration::from_secs(120),
+            backoff: Duration::from_secs(30 * 60),
+            today: chrono::Local::now().format("%Y-%m-%d").to_string(),
+        }
+    }
+}
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum TickOutcome {
+    Disabled,
+    NoMarker,
+    NotIdle,
+    Backoff,
+    EmptyLibrary,
+    /// The archive was published; the caller may copy it to the extra
+    /// location off the worker thread.
+    BackedUp(PathBuf),
 }
 struct Libraries {
     real: Store,
@@ -21,6 +50,14 @@ struct Libraries {
     started: bool,
     /// Library, dataset and write count last used to plan reminders.
     reminder_key: Option<(bool, String, u64)>,
+    /// Real library only: generation plus write count last seen by the
+    /// automatic-backup tracker.
+    backup_key: Option<(String, u64)>,
+    /// When the real library last changed; `None` until the first change.
+    last_change: Option<Instant>,
+    /// When an automatic backup last failed; in memory only, so a restart
+    /// always gets one immediate retry.
+    backup_failed_at: Option<Instant>,
 }
 impl Libraries {
     /// Re-plans reminders only after something was written or the active
@@ -38,6 +75,31 @@ impl Libraries {
         if let Ok(snapshot) = crate::reminders::snapshot(active) {
             self.reminder_key = Some(key);
             crate::reminders::schedule(snapshot);
+        }
+    }
+    /// Marks the real library as changed for the automatic backup. Sample
+    /// writes never reach here because the key only watches `real`.
+    fn track_backup_changes(&mut self) {
+        let Ok(conn) = self.real.conn() else {
+            eprintln!("自动备份未能读取资料库");
+            return;
+        };
+        let key = (self.real.generation(), conn.total_changes());
+        if self.backup_key.as_ref() == Some(&key) {
+            return;
+        }
+        // The first observation only records the baseline.
+        if self.backup_key.is_none() {
+            self.backup_key = Some(key);
+            return;
+        }
+        self.backup_key = Some(key);
+        self.last_change = Some(Instant::now());
+        let marker = crate::auto_backup::marker_path(&self.real.root);
+        if !marker.exists() {
+            if let Err(error) = std::fs::write(&marker, b"1") {
+                eprintln!("自动备份标记未写入：{error}");
+            }
         }
     }
     fn record_started(&mut self) -> Result<()> {
@@ -103,12 +165,18 @@ impl Worker {
                         demo_mode,
                         started,
                         reminder_key: None,
+                        backup_key: None,
+                        last_change: None,
+                        backup_failed_at: None,
                     })
                 })() {
                     Ok(mut libraries) => {
                         if let Err(error) = libraries.record_started() {
                             eprintln!("首次使用状态暂未保存：{error}");
                         }
+                        // Baseline the change key before any job runs, so the
+                        // first write of this session is counted as a change.
+                        libraries.track_backup_changes();
                         let _ = ready_tx.send(Ok(()));
                         while let Ok(job) = rx.recv() {
                             // A panicking job drops its reply channel, so only that
@@ -185,7 +253,10 @@ impl Worker {
                 if let Err(error) = state.record_started() {
                     eprintln!("首次使用状态暂未保存：{error}");
                 }
-                // Answer first; reminder bookkeeping must not delay the caller.
+                // The pending marker must exist before the reply leaves: a
+                // force-quit right after the call can never lose the fact
+                // that the change is unbacked. Reminder planning can lag.
+                state.track_backup_changes();
                 let _ = tx.send(result);
                 state.sync_reminders();
             }))
@@ -277,6 +348,148 @@ impl Worker {
                 started: state.started || has_personal_records(&state.real)?,
             })
         })
+    }
+    /// One automatic-backup attempt. Runs on the worker thread like every
+    /// storage task, so the snapshot sees no concurrent writes; the extra
+    /// copy is left to the caller via `TickOutcome::BackedUp`.
+    pub fn auto_backup_tick(&self, policy: &Policy) -> Result<TickOutcome> {
+        let policy = policy.clone();
+        self.with_state(move |state| {
+            let root = state.real.root.clone();
+            let mut settings = crate::auto_backup::Settings::load(&root);
+            if !settings.enabled {
+                return Ok(TickOutcome::Disabled);
+            }
+            let marker = crate::auto_backup::marker_path(&root);
+            if !marker.exists() {
+                return Ok(TickOutcome::NoMarker);
+            }
+            // No change this session counts as already idle, so a marker left
+            // by a force-quit is made up on the first tick after launch.
+            if state
+                .last_change
+                .is_some_and(|at| at.elapsed() < policy.idle)
+            {
+                return Ok(TickOutcome::NotIdle);
+            }
+            let new_change_since_failure = state
+                .last_change
+                .is_some_and(|at| state.backup_failed_at.is_some_and(|f| at > f));
+            if state
+                .backup_failed_at
+                .is_some_and(|at| at.elapsed() < policy.backoff && !new_change_since_failure)
+            {
+                return Ok(TickOutcome::Backoff);
+            }
+            if !has_personal_records(&state.real)? {
+                let _ = std::fs::remove_file(&marker);
+                return Ok(TickOutcome::EmptyLibrary);
+            }
+            let dir = crate::auto_backup::backup_dir(&root);
+            match crate::auto_backup::run(&state.real, &dir, &policy.today) {
+                Ok(published) => {
+                    let _ = std::fs::remove_file(&marker);
+                    state.backup_failed_at = None;
+                    settings.last_success_at = Some(crate::auto_backup::now_local());
+                    settings.last_error = None;
+                    if let Err(error) = settings.save(&root) {
+                        eprintln!("自动备份状态未保存：{error}");
+                    }
+                    if let Err(error) = crate::auto_backup::prune(&dir) {
+                        eprintln!("自动备份清理未完成：{error}");
+                    }
+                    Ok(TickOutcome::BackedUp(published))
+                }
+                Err(error) => {
+                    state.backup_failed_at = Some(Instant::now());
+                    settings.last_error = Some(crate::auto_backup::Failure {
+                        at: crate::auto_backup::now_local(),
+                        message: error.message.clone(),
+                    });
+                    if let Err(save_error) = settings.save(&root) {
+                        eprintln!("自动备份失败状态未保存：{save_error}");
+                    }
+                    Err(error)
+                }
+            }
+        })
+    }
+    /// Copies a published archive to the configured extra location. The heavy
+    /// copy runs on the calling thread (timer or command), never the worker.
+    pub fn auto_backup_extra_now(&self, source: &Path) {
+        let extra = match self
+            .with_state(|state| Ok(crate::auto_backup::Settings::load(&state.real.root).extra_dir))
+        {
+            Ok(extra) => extra,
+            Err(_) => return,
+        };
+        let Some(extra) = extra else {
+            return;
+        };
+        let outcome = crate::auto_backup::copy_extra(source, Path::new(&extra));
+        let failure = outcome.err().map(|error| crate::auto_backup::Failure {
+            at: crate::auto_backup::now_local(),
+            message: error.message.clone(),
+        });
+        let _ = self.with_state(|state| {
+            let mut settings = crate::auto_backup::Settings::load(&state.real.root);
+            match failure {
+                None => {
+                    settings.extra_last_at = Some(crate::auto_backup::now_local());
+                    settings.extra_last_error = None;
+                }
+                Some(failure) => settings.extra_last_error = Some(failure),
+            }
+            settings.save(&state.real.root)
+        });
+    }
+    pub fn auto_backup_status(&self) -> Result<crate::auto_backup::Status> {
+        self.with_state(|state| Ok(crate::auto_backup::status(&state.real.root)))
+    }
+    pub fn auto_backup_set_enabled(&self, enabled: bool) -> Result<crate::auto_backup::Status> {
+        self.with_state(move |state| {
+            let root = state.real.root.clone();
+            let mut settings = crate::auto_backup::Settings::load(&root);
+            settings.enabled = enabled;
+            settings.save(&root)?;
+            Ok(crate::auto_backup::status(&root))
+        })
+    }
+    pub fn auto_backup_set_extra(&self, extra: PathBuf) -> Result<crate::auto_backup::Status> {
+        self.with_state(move |state| {
+            let root = state.real.root.clone();
+            let mut settings = crate::auto_backup::Settings::load(&root);
+            settings.extra_dir = Some(extra.display().to_string());
+            settings.extra_last_at = None;
+            settings.extra_last_error = None;
+            settings.save(&root)?;
+            Ok(crate::auto_backup::status(&root))
+        })
+    }
+    pub fn auto_backup_clear_extra(&self) -> Result<crate::auto_backup::Status> {
+        self.with_state(|state| {
+            let root = state.real.root.clone();
+            let mut settings = crate::auto_backup::Settings::load(&root);
+            // The chosen folder keeps its files; only the association ends.
+            settings.extra_dir = None;
+            settings.extra_last_at = None;
+            settings.extra_last_error = None;
+            settings.save(&root)?;
+            Ok(crate::auto_backup::status(&root))
+        })
+    }
+    /// The automatic backup folder, created if missing, for the settings page.
+    pub fn auto_backup_folder(&self) -> Result<PathBuf> {
+        self.with_state(|state| {
+            let dir = crate::auto_backup::backup_dir(&state.real.root);
+            std::fs::create_dir_all(&dir)?;
+            Ok(dir)
+        })
+    }
+    /// Validates an automatic backup file name against the real library root.
+    pub fn auto_backup_resolve(&self, name: &str) -> Result<PathBuf> {
+        let name = name.to_owned();
+        self.with_state(move |state| crate::auto_backup::resolve(&state.real.root, &name))
     }
 }
 

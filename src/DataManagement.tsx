@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import {Icon} from './AssetViews';
+import { AutoBackup } from './AutoBackup';
 
 type Summary = { hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; accounts: number; snapshots: number; expenses: number; plans: number; payments: number; virtual_assets: number; files: number };
 type Inspected = { path: string; name: string; summary: Summary };
@@ -39,6 +40,12 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       setCandidate(found); setTask({ kind: 'idle' });
     } catch (e) { setTask({ kind: 'error', text: '这个备份不能用于恢复，当前资料未改变：' + errorMessage(e) }); }
   }
+  async function inspectAuto(name: string) {
+    setCandidate(null); setTask({ kind: 'running', label: '正在检查自动备份，当前资料不会改变…' });
+    try {
+      setCandidate(await invoke<Inspected>('inspect_auto_backup', { name })); setTask({ kind: 'idle' });
+    } catch (e) { setTask({ kind: 'error', text: '这个备份不能用于恢复，当前资料未改变：' + errorMessage(e) }); }
+  }
   async function restore() {
     if (!candidate || !generation) return;
     setTask({ kind: 'running', label: '正在恢复：先保护当前资料，再整体切换…' });
@@ -59,7 +66,8 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出资产表（CSV）</h3><p>生成可阅读的表格，未知值留空。</p></div><button disabled={busy || blocked || demo} onClick={() => void exportCsv()}>导出…</button></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="trash"/></span><div className="data-action-copy"><h3>最近删除</h3><p>找回误删的物品、维护、保障、盘点、账户、支出与周期费用。</p></div><button disabled={busy || blocked} onClick={onTrash}>打开</button></div>
     </div>
-    <details className="data-explainer"><summary>备份、导出和最近删除有什么区别？</summary><p>完整备份包含物品、维护、保障、心愿、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p><p>CSV 只包含未删除物品的可读数据，不含图片、维护、保障或心愿，不能用于恢复；以 = + - @ 开头的文字会加上保护字符。最近删除仅用于找回误删记录。</p></details>
+    <AutoBackup generation={generation} demo={demo} blocked={blocked} busy={busy} candidateOpen={!!candidate} onInspect={name => void inspectAuto(name)}/>
+    <details className="data-explainer"><summary>备份、导出和最近删除有什么区别？</summary><p>完整备份包含物品、维护、保障、心愿、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p><p>自动备份在资料有改动后自动生成，保留最近 7 份，放在本机资料目录旁；与手动备份格式相同，都可用于恢复。CSV 只包含未删除物品的可读数据，不含图片、维护、保障或心愿，不能用于恢复；以 = + - @ 开头的文字会加上保护字符。最近删除仅用于找回误删记录。</p></details>
     {blocked && <p className="notice">请先处理正在编辑或待核对的内容，再进行备份或恢复。</p>}
     {task.kind === 'running' && <p role="status" className="notice">{task.label}</p>}
     {task.kind === 'done' && <p role="status" className="notice">{task.text}</p>}

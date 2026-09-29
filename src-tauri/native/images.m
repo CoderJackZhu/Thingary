@@ -89,3 +89,17 @@ char *possio_pick_backup_open(void) {
         return strdup(panel.URL.fileSystemRepresentation);
     }
 }
+// Folder panel for the extra automatic backup location (D20 rule 7).
+char *possio_pick_folder(void) {
+    @autoreleasepool {
+        NSOpenPanel *panel = [NSOpenPanel openPanel];
+        panel.title = @"选择额外备份位置";
+        panel.prompt = @"选择";
+        panel.canChooseFiles = NO;
+        panel.canChooseDirectories = YES;
+        panel.canCreateDirectories = YES;
+        panel.allowsMultipleSelection = NO;
+        if ([panel runModal] != NSModalResponseOK) return NULL;
+        return strdup(panel.URL.fileSystemRepresentation);
+    }
+}

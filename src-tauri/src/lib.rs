@@ -1,3 +1,4 @@
+pub mod auto_backup;
 pub mod backup;
 pub mod batch;
 pub mod catalog;
@@ -43,6 +44,25 @@ pub fn run() {
             app.manage(worker::Worker::start(
                 app.path().app_data_dir()?.join("library"),
             )?);
+            // Periodic automatic backups (D20): a plain thread that ends with
+            // the process. Quitting never waits for or triggers a backup, and
+            // an interrupted one is made up on a later launch.
+            {
+                let worker = app.state::<worker::Worker>().inner().clone();
+                std::thread::Builder::new()
+                    .name("possio-auto-backup".into())
+                    .spawn(move || loop {
+                        std::thread::sleep(std::time::Duration::from_secs(30));
+                        let policy = worker::Policy::production();
+                        match worker.auto_backup_tick(&policy) {
+                            Ok(worker::TickOutcome::BackedUp(published)) => {
+                                worker.auto_backup_extra_now(&published);
+                            }
+                            Ok(_) => {}
+                            Err(error) => eprintln!("自动备份未完成：{error}"),
+                        }
+                    })?;
+            }
             app.manage(commands::EditGuard::default());
             app.manage(commands::LibraryGuard::default());
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem as Item, Submenu};
@@ -181,6 +201,12 @@ pub fn run() {
             commands::create_backup,
             commands::inspect_backup,
             commands::restore_backup,
+            commands::auto_backup_status,
+            commands::auto_backup_set_enabled,
+            commands::auto_backup_choose_extra,
+            commands::auto_backup_clear_extra,
+            commands::auto_backup_open_folder,
+            commands::inspect_auto_backup,
             commands::export_csv,
             commands::saved_request,
             commands::set_editing,

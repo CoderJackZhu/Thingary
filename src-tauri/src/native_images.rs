@@ -15,6 +15,7 @@ extern "C" {
         extension: *const c_char,
     ) -> *mut c_char;
     fn possio_pick_backup_open() -> *mut c_char;
+    fn possio_pick_folder() -> *mut c_char;
     fn possio_free(bytes: *mut c_void);
 }
 pub fn preview(bytes: &[u8]) -> Result<Vec<u8>> {
@@ -72,4 +73,8 @@ pub(crate) fn pick_save(
 /// Caller must dispatch to the AppKit main thread.
 pub(crate) fn pick_backup_open() -> Option<std::path::PathBuf> {
     take_path(unsafe { possio_pick_backup_open() })
+}
+/// Caller must dispatch to the AppKit main thread.
+pub(crate) fn pick_folder() -> Option<std::path::PathBuf> {
+    take_path(unsafe { possio_pick_folder() })
 }

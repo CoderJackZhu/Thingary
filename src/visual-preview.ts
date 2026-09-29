@@ -180,6 +180,40 @@ function timelinePreview(args: Record<string, unknown>) {
   const years = [...new Set(dated.map(e => Number(e.date!.slice(0, 4))))].sort((a, b) => b - a);
   return { generation, today: localDay(), years, dated: year === null ? dated : dated.filter(e => e.date!.startsWith(`${year}-`)), undated: domainFiltered.filter(e => !e.date) };
 }
+// U13 automatic backup fixtures: one in-memory status per ?autobackup= state,
+// switched and cleared in place so the settings block stays interactive.
+type PreviewAutoBackup = { enabled: boolean; folder: string; last_success_at: string | null; last_error: { at: string; message: string } | null; items: { name: string; date: string; size: number }[]; total_size: number; extra_dir: string | null; extra_last_at: string | null; extra_last_error: { at: string; message: string } | null };
+const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+const when = (offset: number) => new Date(Date.now() - offset * 60000).toISOString();
+function autoBackupFixture(): PreviewAutoBackup {
+  const mode = params.get('autobackup') ?? 'never';
+  const items = mode === 'never' ? [] : Array.from({ length: mode === 'error' ? 3 : 7 }, (_, i) => { const date = day(-i - (mode === 'error' ? 1 : 0)); return { name: `物志自动备份-${date}.possio`, date, size: 6_000_000 + i * 812_345 }; });
+  return {
+    enabled: true,
+    folder: '/Users/虚构用户/Library/Application Support/local.possio.preview/library/auto-backups',
+    last_success_at: mode === 'never' ? null : when(mode === 'error' ? 26 * 60 : 42),
+    last_error: mode === 'error' ? { at: when(18), message: '模拟自动备份失败：目标磁盘空间不足' } : null,
+    items,
+    total_size: items.reduce((sum, item) => sum + item.size, 0),
+    extra_dir: mode === 'ok' || mode === 'extra-error' ? '/Users/虚构用户/额外备份/物志' : null,
+    extra_last_at: mode === 'ok' ? when(42) : null,
+    extra_last_error: mode === 'extra-error' ? { at: when(11), message: '额外备份位置不可用：外接盘未连接' } : null,
+  };
+}
+let previewAutoBackup = autoBackupFixture();
+function autoBackupPreview(command: string, args: Record<string, unknown>): unknown {
+  if (command === 'auto_backup_status') return previewAutoBackup;
+  if (command === 'auto_backup_set_enabled') { previewAutoBackup = { ...previewAutoBackup, enabled: !!args.enabled }; return previewAutoBackup; }
+  if (command === 'auto_backup_clear_extra') { previewAutoBackup = { ...previewAutoBackup, extra_dir: null, extra_last_at: null, extra_last_error: null }; return previewAutoBackup; }
+  if (command === 'auto_backup_open_folder') return null;
+  if (command === 'auto_backup_choose_extra') throw { message: '额外备份位置选择请在原生 App 中验证，此页面仅展示界面状态。' };
+  if (command === 'inspect_auto_backup') {
+    const name = String(args.name ?? '');
+    if (!/^物志自动备份-\d{4}-\d{2}-\d{2}\.possio$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
+    return { path: `${previewAutoBackup.folder}/${name}`, name, summary: { hash: 'preview-fixture', created_at: when(120), schema: 20, assets: 9, deleted_assets: 0, wishes: 2, maintenances: 3, warranties: 4, accounts: 2, snapshots: 6, expenses: 5, plans: 2, payments: 12, virtual_assets: 3, files: 11 } };
+  }
+  throw { message: '此操作需在原生 App 验证：' + command };
+}
 async function handle(command: string, payload: unknown): Promise<unknown> {
   const args = payload as Record<string,unknown>;
   if(command==='wealth_request_result' && choiceReceipts.has(String(args.request)))return 'choices';
@@ -282,6 +316,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   const wealth = wealthPreview(command,args); if (wealth) return wealth.value;
   if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:true};
   if (command === 'switch_demo' || command === 'reset_demo') throw {message:'浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。'};
+  if (command.startsWith('auto_backup_') || command === 'inspect_auto_backup') return autoBackupPreview(command, args);
   if (command === 'taxonomy_snapshot') return taxonomySnapshot();
   if (command === 'taxonomy_request') return taxonomyReceipts.has(String(args.request));
   if (command === 'change_taxonomy') {

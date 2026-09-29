@@ -767,6 +767,104 @@ pub async fn restore_backup(
     .map_err(|_| Error::new("WORKER", "未收到恢复结果，请重新启动后核对"))?
 }
 
+/// Automatic backup state for the settings page; readable in sample mode too.
+#[tauri::command]
+pub async fn auto_backup_status(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::auto_backup::Status> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.auto_backup_status())
+        .await
+        .map_err(|_| Error::new("WORKER", "自动备份状态读取失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn auto_backup_set_enabled(
+    enabled: bool,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::auto_backup::Status> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.auto_backup_set_enabled(enabled))
+        .await
+        .map_err(|_| Error::new("WORKER", "自动备份设置未保存，请重试"))?
+}
+
+/// Opens a folder panel; cancelling keeps the current extra location.
+#[tauri::command]
+pub async fn auto_backup_choose_extra(
+    app: tauri::AppHandle,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<crate::auto_backup::Status>> {
+    let receive = on_main(&app, crate::native_images::pick_folder)?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件夹面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        w.auto_backup_set_extra(path.clone())?;
+        // Copy the newest archive right away, outside the worker thread.
+        let status = w.auto_backup_status()?;
+        if let Some(newest) = status.items.first() {
+            let source = std::path::Path::new(&status.folder).join(&newest.name);
+            w.auto_backup_extra_now(&source);
+        }
+        Ok(Some(w.auto_backup_status()?))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "额外备份位置未更新，请重试"))?
+}
+
+#[tauri::command]
+pub async fn auto_backup_clear_extra(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::auto_backup::Status> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.auto_backup_clear_extra())
+        .await
+        .map_err(|_| Error::new("WORKER", "额外备份位置未取消，请重试"))?
+}
+
+#[tauri::command]
+pub async fn auto_backup_open_folder(worker: tauri::State<'_, Worker>) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let folder = w.auto_backup_folder()?;
+        std::process::Command::new("/usr/bin/open")
+            .arg(&folder)
+            .spawn()
+            .map_err(|_| Error::new("OPEN", "未能打开备份文件夹"))?;
+        Ok(())
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未能打开备份文件夹"))?
+}
+
+/// Inspects one dated automatic backup by name; the restore itself reuses
+/// `restore_backup` with the confirmed hash.
+#[tauri::command]
+pub async fn inspect_auto_backup(
+    name: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Inspected> {
+    worker.require_personal()?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let target = w.auto_backup_resolve(&name)?;
+        let path = target.display().to_string();
+        let summary = w.call_personal(move |s| s.inspect_backup(&target))?;
+        Ok(Inspected {
+            name,
+            path,
+            summary,
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "备份检查未完成，请重试"))?
+}
+
 #[derive(serde::Serialize)]
 pub struct CsvDone {
     pub name: String,
