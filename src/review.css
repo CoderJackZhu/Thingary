@@ -36,3 +36,15 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 .review-secondary .review-top{display:flex;align-items:center;gap:8px;width:100%}
 .review-secondary .review-top select{margin-left:auto;font-size:11px;padding:2px 6px}
 .review-secondary h3{margin:0;font-weight:400}
+/* U16c 综合回顾（规范 6.1）：两张主卡 → 辅助指标 → 待关注＋近期记录 */
+.review-section.u16{display:grid;gap:16px}
+.review-heroes{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
+.review-heroes.single{grid-template-columns:minmax(0,1fr)}
+.review-section.u16 .review-metrics{margin:0}
+.review-lists{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.review-lists .ui-empty{padding:18px var(--surface-pad-x);margin:0}
+.review-lists .review-links{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.review-lists .ui-row.clickable{cursor:pointer}
+.review-lists .ui-section-head select{font-size:11px;padding:2px 6px;height:24px}
+.page-header-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+@media(max-width:980px){.review-heroes,.review-lists{grid-template-columns:minmax(0,1fr)}}

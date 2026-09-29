@@ -1,10 +1,10 @@
 import { allModules, hiddenKinds, type Modules } from './modules';
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { changeText, rateText, signedMoney } from './wealth';
-import { NetChart } from './WealthPage';
+import { Sparkline } from './Sparkline';
 import { eventDetail, eventLabel } from './Timeline';
 import type { ScrollRestore } from './Timeline';
 import type { SourceTarget } from './source';
@@ -49,27 +49,71 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   const years = [...new Set([currentYear, ...(year === null ? [] : [year]), ...(e?.years ?? []), ...(w?.points.map(p => Number(p.date.slice(0, 4))) ?? [])])].sort((a, b) => b - a);
   const link = (page: ReviewPage) => <button className="review-action" onClick={() => onNavigate(page)}>查看{labels[page]} →</button>;
   const failure = (source: Read<unknown>) => source.status === 'error' && <div className="review-error" role="alert"><p>{source.value.message}</p><button onClick={reload}>重新读取</button></div>;
-  const card = (title: string, date: ReactNode, source: Read<unknown>, content: ReactNode, page: ReviewPage) => <article className="review-primary"><div className="review-top"><h3>{title}</h3><span className="muted">{date}</span></div>{failure(source)}{source.status === 'ready' && content}<div className="review-footer">{link(page)}</div></article>;
   // One backend projection already blends snapshot facts with every other
   // event; merging wealth points here again would duplicate 盘点 rows.
   const hidden = hiddenKinds(modules);
   const recent = (ready(data.recent) ?? []).filter(ev => !hidden.has(ev.kind)).map(ev => ({ id: 'event:' + ev.id, date: ev.date!, title: ev.kind === 'snapshot' ? eventLabel(ev) : eventLabel(ev) + ' · ' + ev.title, detail: eventDetail(ev), target: ev.target ?? null }));
-  return <section className="review-section" aria-label="综合回顾" aria-busy={updating}>
+  const daysSince = latest ? Math.max(0, Math.round((Date.parse(data.today) - Date.parse(latest.date)) / 86400000)) : 0;
+  const tone = (cents: string | null) => cents?.startsWith('-') ? ' neg' : cents && cents !== '0' ? ' pos' : '';
+  // 分类色条：金额未知的类别不占宽度；图例最多 4 行，其余合并（规范 4.6）。
+  const cats = (p?.categories ?? []).filter(c => c.count > 0);
+  const known = cats.reduce((sum, c) => sum + Number(c.known_cents), 0);
+  const color = (slot: number | null) => slot === null ? 'var(--series-rest)' : `var(--series-${slot + 1})`;
+  const legend = cats.length > 4 ? [...cats.slice(0, 3), { id: 'rest', name: `其他 ${cats.length - 3} 类`, slot: null, count: 0, known_cents: String(cats.slice(3).reduce((s, c) => s + Number(c.known_cents), 0)), unknown_price_count: cats.slice(3).reduce((s, c) => s + c.unknown_price_count, 0) }] : cats;
+  const metrics = [
+    modules.expenses && e && { label: `${year ?? '全部期间'}${year === null ? '' : ' 年'}重要支出`, value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? `${e.unknown_amount_count} 笔金额未知` : '', page: 'expenses' as ReviewPage },
+    modules.recurring && r && { label: '固定负担', value: <>{money(r.monthly_cents)}<small>/月</small></>, note: '', page: 'recurring' as ReviewPage },
+    p && { label: '平均持有', value: p.average_holding_days === null ? '—' : <>{p.average_holding_days.toLocaleString('zh-CN')}<small>天</small></>, note: '', page: 'assets' as ReviewPage },
+    modules.wishlist && p && { label: '心愿进行中', value: <>{p.ongoing_wishes}<small>条</small></>, note: '', page: null },
+  ].filter(Boolean) as { label: string; value: ReactNode; note: string; page: ReviewPage | null }[];
+  return <section className="review-section u16" aria-label="综合回顾" aria-busy={updating}>
     {updating && <p className="review-sub" role="status">正在更新，暂时显示上次读取的结果…</p>}
     {modules.wealth && lastPoint && !lastPoint.complete && <div className="review-notice">{lastPoint.date} 盘点尚缺 {lastPoint.missing} 个账户 · {latest ? `当前显示 ${latest.date} 的完整盘点` : '尚无完整盘点'} {link('wealth')}</div>}
-    <div className="review-headline">
-      {modules.wealth && card('金融净资产', latest ? <Info text={`最近一次完整盘点 ${latest.date}，距今 ${Math.max(0, Math.round((Date.parse(data.today) - Date.parse(latest.date)) / 86400000))} 天。只统计计入范围的账户，不含实物。`}/> : <span className="muted">尚无完整盘点</span>, data.wealth, <><div className="review-value">{latest ? signedMoney(latest.net_cents) : '—'}</div>{!latest && <p className="review-sub">添加账户并完成盘点后，这里会显示金融净资产。</p>}{latest && <p className={'review-sub review-change' + (latest.change_cents && latest.change_cents.startsWith('-') ? ' neg' : latest.change_cents && latest.change_cents !== '0' ? ' pos' : '')}>{latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>}{latest && <p className="review-sub">金融资产 {money(latest.assets_cents)} · 负债 {money(latest.liabilities_cents)}</p>}</>, 'wealth')}
-      {card('持有物品', <Info text={`截至 ${data.today} 的持有物购入金额，包含使用中与已退役物品；不是当前估值，不与金融净资产相加。`}/>, data.physical, p && <><div className="held-split"><div><div className="review-value">{money(p.held_known_cents)}</div><p className="review-sub">{p.held_unknown_price_count ? `${p.held_unknown_price_count} 件金额未知，未计入` : p.held_count ? '购入金额均已记录' : '还没有记录物品'}</p></div><div><div className="review-value">{p.held_count}<small>件</small></div><p className="review-sub">使用中 {p.active_count} · 已退役 {p.retired_count}</p></div></div></>, 'assets')}
+    <div className={'review-heroes' + (modules.wealth ? '' : ' single')}>
+      {modules.wealth && <article className="ui-card ui-hero tint-1">
+        <div className="ui-label">金融净资产{latest && <Info text={`最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。只统计计入范围的账户，不含实物。`}/>}</div>
+        {failure(data.wealth)}
+        {w && <>
+          <div className="ui-big">{latest ? signedMoney(latest.net_cents) : '—'}</div>
+          {latest ? <>
+            <p className={'ui-sub' + tone(latest.change_cents)}>{latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
+            <p className="ui-sub">资产 {money(latest.assets_cents)} · 负债 {money(latest.liabilities_cents)}</p>
+            <Sparkline points={w.points}/>
+          </> : <p className="ui-sub">{w.points.length ? '现有盘点均不完整，补全后显示净资产。' : '添加账户并完成盘点后，这里会显示金融净资产。'}</p>}
+        </>}
+        <div className="ui-hero-foot">{link('wealth')}</div>
+      </article>}
+      <article className="ui-card ui-hero tint-2">
+        <div className="ui-label">持有物品<Info text={`截至 ${data.today} 的持有物购入金额，包含使用中与已退役物品；不是当前估值，不与金融净资产相加。`}/></div>
+        {failure(data.physical)}
+        {p && <>
+          <div className="ui-split">
+            <div><div className="ui-big">{money(p.held_known_cents)}</div><p className="ui-sub">{p.held_unknown_price_count ? `购入金额 · ${p.held_unknown_price_count} 件未知` : p.held_count ? '购入金额' : '还没有记录物品'}</p></div>
+            <div><div className="ui-big">{p.held_count}<small>件</small></div><p className="ui-sub">使用中 {p.active_count} · 已退役 {p.retired_count}</p></div>
+          </div>
+          {cats.length > 0 && <>
+            <div className="ui-share-bar" role="img" aria-label="持有物按分类的购入金额占比">{known > 0 && cats.filter(c => Number(c.known_cents) > 0).map(c => <span key={c.id ?? 'none'} style={{ width: `${Number(c.known_cents) / known * 100}%`, background: color(c.slot) }}/>)}</div>
+            <div className="ui-legend">{legend.map(c => <div key={c.id ?? 'none'}><i style={{ background: Number(c.known_cents) > 0 ? color(c.slot) : 'var(--soft-strong, var(--line))' }}/><span>{c.name}</span>{Number(c.known_cents) > 0 ? <b>{money(c.known_cents)}</b> : <b className="muted">金额未知</b>}</div>)}</div>
+          </>}
+        </>}
+        <div className="ui-hero-foot">{link('assets')}</div>
+      </article>
     </div>
-    {(modules.expenses || modules.recurring) && <div className="review-secondary" aria-label="辅助指标">
-      {modules.expenses && <article><div className="review-top"><h3>已记录重要支出</h3><select aria-label="支出年份" value={year ?? 'all'} onChange={ev => onYear(ev.target.value === 'all' ? null : Number(ev.target.value))}><option value="all">全部期间</option>{years.map(y => <option key={y} value={y}>{y} 年</option>)}</select><Info text="净支出＝支出－退款，售出回收单列。期间仅影响支出和近期记录，不改变金融净资产与持有物品。"/></div>{failure(data.expenses)}{e && <><strong className="review-secondary-value">{signedMoney(e.net_cents)}</strong><span className="review-sub">支出 {money(e.spent_cents)} − 退款 {money(e.refund_cents)}</span><span className="review-sub">售出回收 {money(e.sale_cents)} · 日期待补 {money(e.undated_cents)}{e.unknown_amount_count > 0 && ` · ${e.unknown_amount_count} 笔金额未知`}</span></>}{link('expenses')}</article>}
-      {modules.recurring && <article><div className="review-top"><h3>固定负担</h3><Info text={`截至 ${data.today} 的有效计划折算月均与年化金额；计划不等于实际支付。`}/></div>{failure(data.recurring)}{r && <><strong className="review-secondary-value">{money(r.monthly_cents)}<small> / 月均</small></strong><span className="review-sub">当前年化 {money(r.annual_cents)}</span></>}{link('recurring')}</article>}
+    {metrics.length > 0 && <div className="ui-card ui-metrics review-metrics" style={{ '--n': metrics.length } as CSSProperties} aria-label="辅助指标">
+      {metrics.map(m => <div key={m.label}><span className="ui-label">{m.label}</span><span className="ui-value">{m.value}</span>{m.note && <span className="ui-note">{m.note}</span>}</div>)}
     </div>}
-
-    {modules.wealth && <article className="review-card review-chart"><div className="review-top"><h3>金融净资产趋势</h3><Info text="按真实盘点日期展示，变化包含存取、消费与估值，不代表投资收益。不完整盘点不作为零值绘制。"/></div>{failure(data.wealth)}{w && (latest ? <NetChart points={w.points}/> : <p className="review-empty">{w.points.length ? '现有盘点均不完整，补全后可查看金额点位。' : '完成首次盘点后，在这里留下第一个点位。'}</p>)}{w?.points.some(p => !p.complete) && <p className="review-sub">{w.points.filter(p => !p.complete).map(p => `${p.date} 缺 ${p.missing} 项`).join('；')} · 不作为零值绘制</p>}</article>}
-    <div className="review-grid review-lower">
-      <article className="review-card"><div className="review-top"><h3>待关注</h3><span className="muted">{groups.length} 组事项 · 不自动付款</span></div>{[data.wealth, data.recurring, data.virtual_assets].some(s => s.status === 'error') && <div className="review-error" role="alert">部分来源读取失败，事项可能不完整。<button onClick={reload}>重新读取</button></div>}{!groups.length ? <p className="review-empty">{[data.wealth, data.recurring, data.virtual_assets].every(s => s.status === 'ready') ? '暂时没有需要关注的事项。' : '可用来源中暂无事项。'}</p> : <ul className="review-list">{groups.slice(0, 5).map(g => <li key={g.id}><div><strong>{g.title}</strong>{g.details.map(d => <p key={d} className="review-sub">{d}</p>)}</div><div className="review-links">{g.entries.map((entry, i) => <span key={i}><button className="review-action" onClick={() => onOpenSource(entry.target)}>{entry.action} →</button></span>)}</div></li>)}</ul>}{groups.length > 5 && <p className="review-sub">还有 {groups.length - 5} 组，请在对应模块查看。</p>}</article>
-      <article className="review-card"><div className="review-top"><h3>近期记录</h3><span className="muted">{year ?? '全部'}{year !== null && ' 年'}</span></div>{failure(data.recent)}{!recent.length ? <p className="review-empty">{data.recent.status === 'ready' ? '所选期间暂无记录。' : '可用来源中暂无记录。'}</p> : <ul className="review-list">{recent.map(ev => <li key={ev.id}><div><strong>{ev.title}</strong><p className="review-sub">{ev.date} · {ev.detail}</p></div>{ev.target && <div className="review-links"><span><button className="review-action" onClick={() => onOpenSource(ev.target!)}>查看来源 →</button></span></div>}</li>)}</ul>}{link('timeline')}</article>
+    <div className="review-lists">
+      <article className="ui-card">
+        <div className="ui-section-head"><h3>待关注</h3><span className="ui-aside">{groups.length ? `${groups.length} 项` : ''}<Info text="只列出需要你确认或即将到期的事项；不会自动付款。"/></span></div>
+        {[data.wealth, data.recurring, data.virtual_assets].some(src => src.status === 'error') && <div className="ui-error" role="alert">部分来源读取失败，事项可能不完整。<button onClick={reload}>重试</button></div>}
+        {!groups.length ? <p className="ui-empty">{[data.wealth, data.recurring, data.virtual_assets].every(src => src.status === 'ready') ? '暂时没有需要关注的事项。' : '可用来源中暂无事项。'}</p> : <ul className="ui-rows">{groups.slice(0, 5).map(g => <li key={g.id} className="ui-row"><span className={'ui-dot' + (g.priority <= 1 ? ' warn' : '')}/><div className="ui-main"><div>{g.title}</div>{g.details.map(d => <small key={d}>{d}</small>)}</div><span className="review-links">{g.entries.map((entry, i) => <button key={i} className="ui-link" onClick={() => onOpenSource(entry.target)}>{entry.action} →</button>)}</span></li>)}</ul>}
+        {groups.length > 5 && <p className="ui-card-foot">还有 {groups.length - 5} 项，请在对应模块查看。</p>}
+      </article>
+      <article className="ui-card">
+        <div className="ui-section-head"><h3>近期记录</h3><span className="ui-aside"><select aria-label="期间" value={year ?? 'all'} onChange={ev => onYear(ev.target.value === 'all' ? null : Number(ev.target.value))}><option value="all">全部期间</option>{years.map(y => <option key={y} value={y}>{y} 年</option>)}</select><button className="ui-link" onClick={() => onNavigate('timeline')}>时间轴 →</button></span></div>
+        {failure(data.recent)}
+        {!recent.length ? <p className="ui-empty">{data.recent.status === 'ready' ? '所选期间暂无记录。' : '可用来源中暂无记录。'}</p> : <ul className="ui-rows">{recent.slice(0, 5).map(ev => <li key={ev.id} className={'ui-row' + (ev.target ? ' clickable' : '')} onClick={ev.target ? () => onOpenSource(ev.target!) : undefined}><div className="ui-main"><div>{ev.title}</div><small>{ev.date}{ev.detail ? ` · ${ev.detail}` : ''}</small></div>{ev.target && <button className="ui-link" aria-label={`查看来源：${ev.title}`} onClick={e2 => { e2.stopPropagation(); onOpenSource(ev.target!); }}>›</button>}</li>)}</ul>}
+      </article>
     </div>
   </section>;
 }

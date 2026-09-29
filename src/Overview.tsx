@@ -1,6 +1,7 @@
+import { createPortal } from 'react-dom';
 import { allModules, financeOff, type Modules } from './modules';
 import { useEffect } from 'react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { eventDetail, eventLabel } from './Timeline';
@@ -75,6 +76,13 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   </section>;
 }
 
+// U16c：视图切换放在页头右侧（规范 6.1），状态仍归本页。
+function HeaderSlot({ children }: { children: ReactNode }) {
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  useEffect(() => { setHost(document.getElementById('page-header-actions')); }, []);
+  return host ? createPortal(children, host) : null;
+}
+
 export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, restoreScroll, modules = allModules, newMenu, onOpenNewMenu }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void }) {
   const [view, setView] = useState(() => { try { return overviewView(localStorage.getItem('possio.overview-view.v1')); } catch { return 'combined'; } });
   const changeView = (value: 'combined' | 'physical') => { setView(value); try { localStorage.setItem('possio.overview-view.v1', value); } catch { /* The current choice remains usable without persistence. */ } };
@@ -86,5 +94,5 @@ export function OverviewPage({ generation, today, version, year, onYear, onNavig
     : null);
   // With every finance module off the combined review would only repeat the physical one.
   if (financeOff(modules)) return <PhysicalOverview {...shared}/>;
-  return <><div className="overview-switch"><div className="segmented" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合回顾</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>实物概览</button></div></div>{view === 'combined' ? <ReviewView {...shared} modules={modules} year={year} onYear={onYear} onNavigate={onNavigate}/> : <PhysicalOverview {...shared}/>}</>;
+  return <><HeaderSlot><div className="ui-seg" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>只看物品</button></div></HeaderSlot>{view === 'combined' ? <ReviewView {...shared} modules={modules} year={year} onYear={onYear} onNavigate={onNavigate}/> : <PhysicalOverview {...shared}/>}</>;
 }
