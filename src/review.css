@@ -7,7 +7,9 @@
 .review-top h3{font-size:12px;margin:0;font-weight:550}.review-top>.muted{font-size:11px}
 .review-value{font-family:'Avenir Next',sans-serif;font-size:28px;line-height:1.35;font-weight:550;letter-spacing:-.6px;margin:8px 0 4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .review-value small{font:12px -apple-system,sans-serif;letter-spacing:0;color:var(--muted);margin-left:8px}
-.review-held{display:flex!important;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}.review-count{font-size:18px;font-weight:400;color:var(--muted);white-space:nowrap;letter-spacing:0}
+/* 持有金额与件数并排，各自的说明在自己下方：综合回顾卡各占一半；实物概览指标格较窄，两列按内容排开，说明可换行。 */
+.held-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 24px}.held-split>*>:first-child,.held-split p span{white-space:nowrap}
+.overview-kpis .held-split{grid-template-columns:auto auto;justify-content:start;column-gap:20px}
 .review-sub{font-size:11px;color:var(--muted);margin:4px 0;line-height:1.7;overflow-wrap:anywhere}
 .review-footer{display:flex;justify-content:flex-end;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap}
 button.review-action{border:0;background:transparent;color:var(--accent);padding:3px 0;font-size:11px;white-space:normal;text-align:left;min-height:24px}

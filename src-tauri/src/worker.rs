@@ -76,9 +76,12 @@ impl Worker {
             .spawn(move || {
                 match (|| -> Result<Libraries> {
                     let real = Store::open(&root)?;
-                    let started =
-                        root.join("personal-started").exists() || has_personal_records(&real)?;
-                    let demo = if !started {
+                    let has_records = has_personal_records(&real)?;
+                    let started = root.join("personal-started").exists() || has_records;
+                    // The sample is the default for every empty personal
+                    // library; deleted rows still count as records, but a
+                    // latched onboarding marker alone must not hide it.
+                    let demo = if !has_records {
                         let attempt = crate::demo::open(
                             &root,
                             &chrono::Local::now().format("%Y-%m-%d").to_string(),
@@ -432,7 +435,20 @@ mod tests {
             })
             .expect("old worker released library lock");
         assert!(!restarted.demo_status().unwrap().active);
-        restarted.resume_library(demo_generation.clone()).unwrap();
+        // The dying worker thread may still hold the sample lock when the
+        // library lock is already free; retry the resume briefly.
+        (0..100)
+            .find_map(
+                |_| match restarted.resume_library(demo_generation.clone()) {
+                    Ok(()) => Some(()),
+                    Err(error) if error.code == "LOCKED" => {
+                        std::thread::sleep(std::time::Duration::from_millis(20));
+                        None
+                    }
+                    Err(error) => panic!("unexpected resume failure: {error}"),
+                },
+            )
+            .expect("sample library lock released");
         assert!(restarted.demo_status().unwrap().active);
         assert_eq!(
             restarted.call(|s| Ok(s.generation())).unwrap(),
@@ -507,6 +523,33 @@ mod tests {
         let restarted = Worker::start(other).unwrap();
         assert!(!restarted.demo_status().unwrap().active);
         assert!(restarted.demo_status().unwrap().started);
+    }
+
+    #[test]
+    fn empty_personal_library_reopens_the_sample_despite_latched_onboarding() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("library");
+        let worker = Worker::start(root.clone()).unwrap();
+        assert!(worker.demo_status().unwrap().active);
+        worker.switch_demo(false).unwrap();
+        // A marker latched before the library was emptied must not keep an
+        // empty library out of the sample on a later launch.
+        std::fs::write(root.join("personal-started"), b"1").unwrap();
+        drop(worker);
+        // The old worker thread releases the library and sample locks
+        // asynchronously; keep retrying until a restart can open the sample.
+        let restarted = (0..100)
+            .find_map(|_| match Worker::start(root.clone()) {
+                Ok(worker) if worker.demo_status().unwrap().active => Some(worker),
+                Ok(_) | Err(_) => {
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                    None
+                }
+            })
+            .expect("old worker released library lock and reopened the sample");
+        let status = restarted.demo_status().unwrap();
+        assert!(status.active);
+        assert!(status.started);
     }
 
     #[test]

@@ -51,7 +51,7 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   const total = metric === 'count' ? count : amount;
   return <section className="overview-section" aria-label="总览">
     <div className="asset-overview overview-kpis">
-      <div><span>当前持有物购入金额</span><strong className="review-held">{money(data.held_known_cents)}<small>{data.held_count} 件</small></strong><p>使用中 {data.active_count} · 已退役 {data.retired_count} · {data.held_unknown_price_count ? `${data.held_unknown_price_count} 件金额未知，未计入` : '金额均已记录'}</p></div>
+      <div><span>当前持有物购入金额</span><div className="held-split"><div><strong>{money(data.held_known_cents)}</strong><p>{data.held_unknown_price_count ? `${data.held_unknown_price_count} 件金额未知，未计入` : '金额均已记录'}</p></div><div><strong>{data.held_count}<small>件</small></strong><p><span>使用中 {data.active_count} ·</span> <span>已退役 {data.retired_count}</span></p></div></div></div>
       <div><span>历史购入金额</span><strong>{money(data.history_known_cents)}</strong><p>含已售出 {data.sold_count} 件 · {data.history_unknown_price_count ? `${data.history_unknown_price_count} 件金额未知，未计入` : '金额均已记录'}</p></div>
       <div><span>平均持有时间</span><strong>{data.average_holding_days === null ? '—' : data.average_holding_days}<small>{data.average_holding_days === null ? '' : '天'}</small></strong><p>{data.held_unknown_date_count ? `${data.held_unknown_date_count} 件购入日期未知，未计入` : '按购入日至今天，含当天'}</p></div>
       <div><span>进行中心愿</span><strong>{data.ongoing_wishes}<small>条</small></strong><p>预计金额不计入资产</p></div>
