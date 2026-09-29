@@ -672,3 +672,44 @@ Q02 定向覆盖一次读取内写入不插入、部分失败、同 generation �
 - 盘点来源以 expectedId 打开历史盘点：删除后同日新建/替换不误当原记录；用户主动改日期即解除保护回到普通盘点。付款来源定位到该期实付记录；心愿经 `read_wishlist` 按 ID 定位。
 - 时间轴仅保留 `SourceTimelinePage` 一个入口（旧 `TimelinePage` 删除）；物品详情继续用 `timeline` 原查询。
 - 验证与边界见 [Q03 记录](../verification/Q03_SOURCE_NAVIGATION_RESULT.md)；原生 App 验收归 Q04。
+
+## 23. U12 · 顶栏与页面搜索技术契约（2026-09-29，U12a 核对）
+
+业务规则以[产品设计 3.5](../PRODUCT_DESIGN.md#35-u12--页面顶栏与搜索统一2026-09-29已确认已实现待审阅)为准。本节记录对 main（HEAD `1e41c19`）的实际核对结果与实现接线，不另立规格。
+
+### 23.1 动作归属与快捷键现状
+
+- 顶栏 `app-topbar` 目前固定「搜索物品＋新增资产」（心愿页整体隐藏），按钮文案「新增资产」待统一为「新增物品」；⌘N/⌘F/⌘E/⌘,/⌘Z/⌘A 由 `lib.rs` 静态菜单经 `asset-action` 事件进入 `main.tsx::menuAction`，与 ⌘A 的独立 listener 并存，一次按键只产生一条事件，无双触发。
+- **穿透缺口（U12b 修复）**：`menuAction` 与 `openEditor` 均未检查 `featureEditing`（财富/支出/周期/虚拟页内编辑器、盘点 CheckIn 打开时置位）。这些模态打开时 ⌘N 会再开物品编辑器，出现两个叠加 modal。修复采用与 ⌘A 相同的 `document.querySelector('dialog[open]')` 全局守卫，并让 ⌘N/⌘F 按当前页分派。
+- **作用域缺口（U12b 修复）**：⌘F 现在任何页面都切回资产列表聚焦物品搜索；⌘N 任何页面都开物品编辑器。改为经页面动作注册表分派：当前页注册了 `newRecord` 才响应 ⌘N，注册了搜索才响应 ⌘F；无注册的页面（设置、最近删除等）不动作、不切页。原生菜单项保持静态（文字已是「新增物品」），前端负责作用域，与 ⌘A/⌘Z 的既有模式一致。
+
+### 23.2 页面动作注册
+
+- 新增 `src/topbar.ts`：`PageBar`（primary/secondary/menu/newRecord/search）＋ Context 注册。页面经 `usePageBar(section, bar)` 挂载时注册、卸载解绑（cleanup 即解绑，带 section 身份）；注册对象显示字段（label/disabled/placeholder/菜单项）变化才重新发布，`run` 闭包经 ref 每次取最新。App 对自己渲染的 section（物品列表/详情、统计、实物概览、设置、最近删除）提供缺省 bar，页面注册可覆盖（心愿、财富、支出、周期、虚拟、素材、时间轴、综合回顾）；注销后回落缺省。
+- 顶栏按钮、页面空态按钮与 ⌘N 调用同一 handler（如财富页 `setEditing('new')`），不复制保存逻辑、不模拟 DOM click。时间轴/综合页「新增记录 ▾」菜单项固定顺序（物品、心愿、账户、支出、计划、虚拟），按 `modules` 过滤；选择经 App 级 `beginNewRecord(module)` 切页并消费一次 `autoNew`，取消停留于目标模块。菜单键盘：方向键移动、Enter 确认、Esc 关闭并返回触发按钮、Tab 关闭；具备可访问名称。
+- 禁用条件维持「模块自身数据决定 readiness」：财富新增只在 `pending || 账户未加载` 时禁用，不依赖物品页 `page`；账户页主次按钮依 `open.length`（全部有效账户）切换，搜索零命中不改变主次；全局保护（`modeBlocked`、未决回执、样例切换）继续经现有守卫生效。
+- 各页搜索词提升为 App state（`pageSearches`），切页保留、重启清空；generation 变化（切库/恢复/重置）与模块关闭时清空对应词。物品搜索沿用既有 `query.search`。不写 localStorage/sessionStorage。
+
+### 23.3 查询形态与搜索实现（U12c）
+
+| 查询 | 形态 | 搜索实现 |
+|---|---|---|
+| `list_assets` | SQL 过滤＋`count(*)`＋LIMIT 100/OFFSET（先搜索后分页）| 已有名称/品牌/型号/序列号/备注/分类；**补标签名称**：JOIN `named_choices(kind='label')` 于 `asset_preferences.$.label_id`，纳入 instr 拼接串 |
+| `list_wishlist` | 同上分页 | 已覆盖名称/链接/备注/分类（心愿无品牌型号字段，既有覆盖即产品「保留既有搜索覆盖」），不改 |
+| `wealth_accounts` | 完整集合（含停用），无分页 | 前端过滤：名称、类型显示名、平台、备注 |
+| `expense_view` | 完整行集合＋汇总字段，无分页 | 前端过滤行；`Line` **补 `notes`**（独立支出/关联/退款行返回支出备注），分类以显示名匹配；KPI 汇总字段不受影响 |
+| `recurring_overview` | 完整集合 | 前端过滤计划列表（到期表与付款记录为待办/历史投影，不随搜索隐藏）；按名称、分类显示名、备注 |
+| `virtual_overview` | 完整集合 | 前端过滤 items（与状态筛选取交集）；KPI 计数不变 |
+| `timeline_view` | 完整事件集合 | 前端过滤：事件标题、类型显示名、来源对象名称、已展示说明（eventDetail）；与领域/年份/类型取交集 |
+| `list_materials` | 完整集合 | 已有 `filterMaterials`（名称/别名/分类），迁入顶栏 |
+| `list_trash` | 后端收集全部→排序→skip/take 100 | `TrashQuery` **补 `search`**，在排序后分页前按显示名称、类型显示名、父对象名称过滤，`total` 为过滤后计数（后端过滤，前端拿不到全量） |
+
+- 完整集合的页面在前端过滤是允许的（接口确实返回全量）；分页页面（物品、心愿、最近删除）只在后端过滤，杜绝“当前页过滤”。搜索词与既有筛选（状态/年份/领域/类型/保障/分类/标签）取交集，排序不变；改变关键词或筛选重置 offset（`adjust` 既有行为）。关键词不改变年份/分类等选项集合。
+- **汇总隔离**：物品页 `AssetOverview` 本身标注「本页/筛选结果·本页」，是列表口径小计，保持；总览、统计与各财富页 KPI 来自独立后端命令（overview/review_overview/stats_snapshot/wealth_summary/expense_view 汇总/recurring_overview/virtual_overview），搜索词不进入任何汇总查询参数，前端过滤只作用于列表组件。支出页「日期待补 N 条」等提示按过滤后列表计数，KPI 数字不动。无结果显示「当前条件下没有找到记录」＋清除搜索；有附加筛选时提供重置筛选；加载失败/空库维持原有错误与引导态。
+- 异步身份：物品/心愿列表沿用 queryTicket 模式，晚响应按 ticket 丢弃（错误同样）；前端过滤为同步计算无竞态。切库后旧响应经 generation/ticket 校验天然丢弃。来源跳转按稳定 ID 打开不受搜索影响；搜索词提升到 App 后返回时仍在，returnContext 继续只管滚动/年份/时间轴筛选。`openSource` 不清除物品搜索词（心愿的 wishFocus 清除保留）。
+
+### 23.4 界面与验证
+
+- 顶栏顺序：面包屑、弹性空白、搜索、次按钮、主按钮；只有创建动作带加号，「开始盘点」不带；菜单按钮带下拉箭头与文字。物品详情隐藏列表搜索、保留新增物品；无搜索/新增页面保留顶栏高度与面包屑，不画占位控件。
+- 窄窗口：≤980px 隐藏 ⌘ 提示；≤780px（现有断点，面包屑已隐藏）搜索缩为具名放大镜按钮，点击或 ⌘F 展开为顶栏内搜索行，不覆盖主操作、不横向溢出；有关键词时保持展开，空词失焦可收起。
+- 测试：Rust 侧 catalog 标签搜索与 trash 搜索计数/分页/交集用例；前端新增页面矩阵、菜单模块过滤、注册解绑、切库清空、搜索汇总隔离、乱序请求用例；`mac-shortcuts.test.mjs` 断言随分派改造同步更新。浏览器与隔离原生证据归 U12d。
