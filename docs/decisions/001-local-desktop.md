@@ -793,3 +793,122 @@ Q02 定向覆盖一次读取内写入不插入、部分失败、同 generation �
 ### 24.7 测试
 
 新增 `src-tauri/tests/auto_backup.rs`（沿用现有临时目录与 fault-injection 写法），至少覆盖：写入后出现标记、样例写入不出现；空闲未到跳过、到了生成且标记清除；同日两次只一份且为新内容（检查 manifest `created_at` 或记录数）；跨日生成新文件；空库跳过并清除标记；`prune` 保留 7 份且不删不匹配的文件；`backup.before_publish` 注入失败时旧份不变、partial 被清、标记保留、错误写入状态；退避期内跳过、有新改动后重试；`inspect_auto_backup` 拒绝 `../x`、带 `/` 与不匹配名称；`copy_extra` 目标不存在时报错不影响主备份；设置文件损坏或缺失按默认开启处理。前端在 `npm run test:ui` 现有逻辑测试中加状态文案/大小格式化用例。
+
+<a id="u17-technical"></a>
+
+## 25. U17 · 标签投入分析技术设计（2026-09-30，zcode 已实现并自测，待独立 Review）
+
+业务规则及 AC 由[产品设计 D23](../PRODUCT_DESIGN.md#u17-product)唯一维护；布局见[U17 界面设计](../ui/U17_TAG_INVESTMENT_DESIGN.md)。本节为实现契约；25.5 字段名已按 U17a 冻结并由 `src-tauri/src/tag_investment.rs` 落地，25.6.1 记录实际接线核对结果，验证证据见[U17 验证报告](../verification/U17_TAG_INVESTMENT_RESULT.md)。实现在未提交工作区，未发布。
+
+### 25.1 复用依据与选择
+
+静态核对：`maintenance::summary`（`src-tauri/src/maintenance.rs`）已有有效维护的已知金额、未知条数及成本完整性判断；完整总成本与净成本在资料不全时返回空。`Store::stats_snapshot`（`src-tauri/src/insights.rs`）已有 `exclude.statistics` 纳入规则与未撤销售出读取；`BatchPanel`/`batchSummary` 只提供选中物品购入小计。标签存储/过滤和分页接线已有记录见第 23.3 节，实际字段与最新版导航须 U17a 再核对。
+
+采用按需只读投影，不保存“标签总投入”，不从批量面板或当前列表页求和，不从支出投影/时间轴再次取钱。计划无新业务表、无 schema 迁移、无新依赖；是否可以完全复用现有查询辅助函数与同一读取快照，留 U17a 以实际代码确认。单件成本保持原有空值语义，新增视图显式区分已知部分和完整成本，不改旧字段含义。
+
+### 25.2 拟议读取契约
+
+拟新增命令 `tag_investment_view`（名字待 U17a 核对注册冲突）：参数 `label_id`（稳定 ID，拒绝空或不存在）、`scope`（`all` 或 `held`）。不接受搜索、当前页、日期、分类或来源状态导航，避免不小心缩小汇总范围。通过现有 Worker 在当前资料库读取，不允许调用方传数据库路径。
+
+返回完整纳入集合及汇总，不只第一页：
+
+| 字段组 | 内容 |
+|---|---|
+| 身份 | label ID/name/停用状态、scope、当前库 generation 与请求所依据的数据版本（沿用现有机制；准确传递位置 U17a 冻结） |
+| 计数 | 范围内匹配总件数、纳入件数、排除件数、各生命周期件数 |
+| 金额 | 已知购入/维护/累计/回收/净投入，全部为十进制分字符串；明确完整性标记，不将未知成本填 0 |
+| 缺失 | 购入未知件数、维护未知条数、成本不完整物品件数、是否有已知购入/维护金额分量（用于区分未知与真零） |
+| items | stable asset ID、名称、分类、状态、图标引用、搜索所需已有字段；购入 nullable、已知维护与未知条数、已知投入、完整投入 nullable、有效回收、完整性标记与排序结果 |
+
+响应内金额和明细必须来自同一有效数据快照。使用现有连接/事务模式实现；不分多个独立 IPC 读完再在前端拼汇总。先按标签/生命周期/排除确定集合，再分别按物品聚合有效维护、读取唯一有效销售；防止一对多 JOIN 将购入或售价乘以维护行数。发现售出状态与有效销售不一致返回结构化错误。
+
+Rust 执行所有金额聚合、完整性判断和确定排序，采用检查溢出的整数运算（含 SQL SUM 溢出错误转换）；前端不使用浮点累加金额。占比以行投入与整体投入的精确整数比计算，格式化使用整数或 BigInt 乘除并遵循 D23 舍入，不将大额分字符串直接转 Number。纯显示比例条可以使用已安全缩放的比例，不反向影响金额。
+
+前端仅对完整 items 搜索与分段渲染；汇总与分母始终取响应整体。数百件规模优先完整响应，无逐物品 IPC；U17a 核对既有成本函数逐件查询是否产生不必要开销，优先批量 SQL 聚合。若性能实测要求后端分页，必须先修订此契约，保留全量汇总与稳定排序，不默默改成页内小计。
+
+### 25.3 失效、导航与资料保护
+
+- 请求身份包含 generation、label ID、scope、资料修改版本及递增 ticket；成功与失败都须校验。换范围或刷新时旧值不得配新标题，组件卸载后忽略响应。
+- 物品更正、维护、售出/撤销、标签改名/停用/归属、统计排除、删除恢复使数据失效；返回分析重新读取。切库/恢复备份/重置样例退出子视图并清空上下文。
+- 分析上下文在会话内保存；沿用稳定 ID 来源跳转，不靠名字或 DOM 索引。顶栏按子视图注册，无新建动作；原生菜单及 Esc/⌘A 的旧物品监听必须按作用域守卫。
+- 聚合读取不写业务资料、统计缓存、事件、自动备份脏标记或新增权限。现有备份含源资料，恢复后重算即可，无派生文件需要备份。
+- 样例用同一组虚构事实驱动原生与浏览器预览；仅在新建样例或用户确认重置时加入，既有样例和真实库不自动补标签/金额。U17a 核对具体初始化入口；产品 D23 数值用于测试夹具，现有样例完整性需回归。
+
+### 25.4 工程验证
+
+按实施计划 U17b–d 验证，重点是多维护 JOIN 去重、全量查询、空值/零/负净值、金额溢出、同名不同 ID、停用与迁移关系、乱序成功/失败及导航上下文。真实 Rust/SQLite 聚合断言与前端状态验证分别记录；浏览器模拟结果不代替原生持久化和库隔离证据。不为本轮文档设计运行应用或访问正式库。
+
+### 25.5 zcode 实现用返回值与不变量（U17a 已冻结字段名）
+
+以下是 2026-09-30 U17a 冻结的语义契约，字段名与既有类型风格（snake_case、金额分字符串、`generation`）一致。未实现前不视为已有 IPC 类型；不将此契约复制成第二份独立接口文档。实现入口：`src-tauri/src/tag_investment.rs`（聚合）与命令 `tag_investment_view`（参数 `{ label_id, scope }`，scope 为 `all` 或 `held`）。
+
+```text
+TagInvestmentView
+  generation: 当前响应所属资料库标识
+  today: 观察日期（与现有读取一致，取本地日）
+  label: { id, name, inactive }        // name 来自 named_choices；inactive = enabled=0
+  scope: all | held
+  counts: { matched, included, excluded, active, retired, sold }
+  totals:
+    known_purchase_cents, known_maintenance_cents,
+    known_investment_cents, sale_proceeds_cents, known_net_cents: 分字符串
+    complete_investment_cents, complete_net_cents: 分字符串 | null
+    has_known_purchase, has_known_maintenance_record, has_known_investment: boolean
+    missing_purchase_count, missing_maintenance_count, incomplete_asset_count: 整数
+  items: 全部纳入物品，已排序
+    id, name, category_name, lifecycle_state: 字符串
+    brand, model, serial_number, notes: 搜索所需已有字段（沿用列表匹配习惯）
+    purchase_cents: 分字符串 | null
+    known_maintenance_cents: 分字符串
+    known_maintenance_record_count, missing_maintenance_count: 整数
+    known_investment_cents: 分字符串
+    complete_investment_cents: 分字符串 | null
+    has_known_investment: boolean
+    sale_proceeds_cents: 分字符串（未售出为确定的零）
+    incomplete: boolean（购入未知或存在未知维护记录）
+```
+
+- `matched = included + excluded`；`included = items.length = active + retired + sold`；排除物品的缺失金额不影响纳入集合完整性。`held` 中 `sold = 0` 且回收为零。
+- 以 checked sum 累加 items 的已知购入/维护/有效售出得到 totals；`known_net = known_investment − sale_proceeds`。完整成本只有购入已知且无未知维护时非空；完全不完整也可以有内部已知小计零，是否显示必须结合标志，不能只看数值。
+- `has_known_investment = purchase_cents != null 或 known_maintenance_record_count > 0`；没有维护时不能仅因已知维护小计为零而设 true。汇总为任意纳入行存在已知分量。纯空集合的内部 sum 可为零，UI 先匹配空态。
+- `incomplete_asset_count` 是物品去重计数，不等于两个缺失计数相加。数据一致性错误、数据库失败、算术溢出返回失败，不返回半份成功结果。错误码沿用现有风格并保留可区分性：空/非法 `label_id` 与非法 scope 用 `QUERY`；`named_choices` 中不存在的标签用 `LABEL`（“标签已不可用”）；已售出但读不到有效销售（或有效销售但状态非已售出）用 `SALE`；金额溢出用 `OVERFLOW`。
+- 数值层与展示层分别测试：例如购入未知且无维护时内部已知小计可为“0”、完整值 null，但 UI 必须是“待补录”；售价可展示而净投入不能显示成负售价。
+- 百分比格式：完整且 T > 0 才计算。t > 0 且 `1000 × t < T` 显示 `<0.1%`；其他按 `1000 × t / T` 四舍五入为十分之一百分点。运算用足够宽且检查溢出的整数或 BigInt；比例条宽度仅是显示投影。测试 1/3、零、微小正占比和超过 JavaScript 安全整数的分字符串。
+- 默认完整响应；前端每段显示 100 件、按钮“加载更多”。先搜索全部 items 再取前 n 件；搜索/范围变化 n 重置 100，从详情返回恢复 n（总数减少时取合法上限）。没有后端分页参数，不复用 `query_assets` 的单页结果聚合。
+- U17a 说明：items 不携带图标引用——U17 线框表格只有文本列（物品/状态、金额、占比），图标属于物品列表与详情的封面/分类展示；此偏差不减少完整性信息。
+
+### 25.6 请求时序与导航接线核对
+
+本轮通过图工具读到 `Store::query_assets` 依 `matching_ids` 返回一页；`Worker::call` 在现有样例/我的资料之间选择 Store；`main.tsx::openSource` 已通过 `beginReturn` 捕获返回上下文；`src/topbar.tsx::usePageBar` 按 section 注册并用 ref 保持最新回调。它们是复用入口，不证明现有上下文已支持 U17 的二级返回。
+
+U17a 必须记录下列接线的真实函数与字段，不能用搜索不到就新建平行机制：
+
+| 接线 | 必须说明的结果 |
+|---|---|
+| 标签筛选与选项列表 | 真实标签 ID 字段、停用过滤行为、无标签哨兵值；分析入口与新增表单可选范围分别处理 |
+| 主页面及返回上下文 | 列表 → 分析 → 详情 → 分析 → 列表的两层返回；不得用详情的一次 `beginReturn` 覆盖原列表上下文 |
+| 命令与库身份 | Worker 当前库选择、响应 generation、现有修改版本来源；版本可在客户端请求 token 携带，不为它新建数据库计数表 |
+| 顶栏/原生菜单 | 分析搜索注册、无新增、详情原有动作恢复；不能因 section 仍为 assets 而落回资产列表的默认新增 |
+| 修改刷新 | 所有涉及标签/价格/维护/售出/排除/恢复的原回调如何使分析失效，不新增旁路保存 |
+| 样例与预览 | 原生样例建立/重置、预览命令模拟与共享虚构事实位置；旧样例不因打开分析而自动改写 |
+
+最低竞态检查：发出 A 范围请求 → 切 B 并返回 B → A 晚成功/晚失败均不覆盖 B；读 A 后切资料库 → 即便标签名和 ID 相同也不可显示 A；返回详情时已改价 → 旧版本响应不得覆盖刷新结果。读取期间发生更改需再次刷新，原票据作废。作用域退出后清理注册与监听，不留下 ⌘A 批量操作监听。
+
+#### 25.6.1 U17a 核对结果（2026-09-30，实际函数与字段）
+
+| 接线 | 实际结果 |
+|---|---|
+| 标签筛选与选项列表 | 标签定义在 `named_choices`（`kind='label'`，列 `id/name/name_key/position/enabled`），停用即 `enabled=0`（`src-tauri/src/choices.rs` `Store::choices`/`change_choices`）；物品归属在 `asset_preferences.payload` 的 `$.label_id`，列表过滤见 `catalog.rs` `Query.label`（`None/""`=全部、`"none"`=无标签、其余为按 ID 的白名单校验）。选项列表命令 `choice_list(kind='label')`，前端 `main.tsx` 的 `tags` 状态监听 `possio-choices-changed` 刷新；筛选下拉保留停用标签（`t.enabled || t.id === query.label`）。分析入口仅对选中具体标签 ID（非空、非 `none`）显示；新增表单的可选范围由 `preferences::write_asset_options` 校验（`LABEL` 错误），与分析入口无关。删除标签要求 `expected_references` 一致并按 `replacement` 迁移 `label_id`；改名保留 ID。 |
+| 主页面及返回上下文 | 分析是 `section='assets'` 内的子视图状态（`main.tsx` 新增 `analysis` 状态），不新增侧栏项；`source.ts` 的 `ReturnContext`/`beginReturn` 保持用于跨模块来源跳转，不承担两层返回——两层返回由 `analysis`（保存标签、范围、搜索、显示条数、滚动与来源列表滚动）+ 既有 `detailId` 组合完成：列表→分析保存 `collectionRef` 滚动；分析→详情保存分析视图状态；详情返回时若 `analysis` 存在则回分析并重查，再按面包屑「物品」回列表并恢复列表滚动。 |
+| 命令与库身份 | 新命令 `tag_investment_view`（`commands.rs`，`spawn_blocking` + `worker.call`，与 `list_assets` 同型）；`Worker::call`（`worker.rs`）按 `demo_mode` 选当前库，不允许调用方传路径。响应 `generation` 来自 `Store::generation()`；同库内的数据版本用客户端递增 ticket + 修改后 `refresh()` 触发的 `page` 更新使分析重查，不新建数据库计数表。 |
+| 顶栏/原生菜单 | `topbarFor` 在分析激活时返回 `search: { key:'assets', placeholder:'搜索标签内物品' }` 且无 `newRecord`/`menu`；`set_page_menu` 因此禁用 ⌘N、菜单显示中性「新增」，⌘F 聚焦顶栏搜索。分析搜索词存于 `analysis.search`（不写 `query.search`，列表词不受污染）；⌘A 的 `selectAllRef` 在分析激活时直接返回，搜索输入里由既有 `undoTarget==='text'` 分支选中文本。Esc 层级：弹出层/模态（既有全局关闭）→ 详情回分析 → 分析回列表（扩展现有 `returnToList`）。 |
+| 修改刷新 | 所有保存回调（`saved`、`maintenanceSaved`、`warrantySaved`、`saleSaved`、`lifecycleSaved`、`trashDone`、`recordTrashDone`、`batchDone`）已调用 `refresh()`；分析读取以 `[labelId, scope, page]` 为依赖键，`page` 对象更新即重查并保持视图状态，不新增旁路保存。标签改名/停用/删除由 `possio-choices-changed` 事件刷新 `tags`；分析响应按稳定 ID 读取，删除/改标签导致物品移出集合时按新响应展示并提示。 |
+| 样例与预览 | 原生样例：`demo-assets.json` 增加 `label` 字段，`demo.rs::import_one` 在建档时经 `save_asset.options.preferences` 写入 `label_id`，标签经 `change_choices`（Create，kind=label，确定性 request）创建；`prepare()` 以 `unified-demo-details-v1.complete` 标记整体跳过老样例，因此既有样例库不被改写，新建/确认重置的样例才携带标签事实。浏览器预览：`visual-preview.ts` 的 `namedChoices.label` 增加同名虚构标签并给对应记录设置 `preferences.label_id`，`tag_investment_view` 在预览内存实现，与原生共享 `demo-assets.json` 事实。`npm run demo:import` 的隔离预览库沿用同一 `import()` 路径获得同一组事实。 |
+
+### 25.7 虚构夹具与可复现测试组织
+
+- D23 基准为独立夹具，每个 AC 的变更从干净基准开始（除 AC06 明确“更正后撤销”的连续动作），不得让 AC03 的未知金额污染 AC05。测试先断言初始状态再执行动作。
+- 至少准备：基准四件、空标签、全排除、全零、全未知、购入未知但维护明确零、已售出购入未知、混合缺失、超 100 件、同额稳定排序、大额与小占比。用正常写入接口建资料；只有常规接口无法表达的坏状态/溢出夹具才在隔离测试库故障注入。
+- 现有数据约束若禁止同名标签，不改约束；记录该分支不适用，并用不同标签 ID 的归属更改验证不按名字猜测。停用不删除的行为必须验证。
+- 101 件以上夹具需设计最后一件可被搜索唯一命中且有已知金额，断言汇总含它、搜索可找到它、占比仍以全量为分母；多维护至少两笔不同费用，断言购入与回收没有倍增。
+- 统一样例正常态与失败/空白等测试夹具分开：样例只增加有用的虚构摄影归组，缺失、溢出、故障等不强塞进用户正常样例。预览复用事实仍需独立期望值，不能让 UI 与测试调用同一汇总函数就宣称正确。

@@ -45,6 +45,8 @@ import type { ReturnContext, SourceFocus, SourceTarget, TimelineSelection } from
 import { OverviewPage } from './Overview';
 import type { ReviewPage } from './review';
 import { PageBarContext, BarMenuButton, TopbarSearchBox, useCompactTopbar, emptySearches, buildNewMenu } from './topbar';
+import { TagInvestment, type AnalysisViewState } from './TagInvestment';
+import { TAG_PAGE_SIZE, analysisAfterScopeChange, labelFilterOptions, type TagScope } from './tag-investment';
 import type { PageBar, BarAction, BarMenu, SearchSection } from './topbar';
 import { StatsPage } from './Stats';
 import { WealthPage } from './WealthPage';
@@ -122,6 +124,8 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailError, setDetailError] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
+  // U17 标签投入分析：物品区域子视图；会话内保存，切库/离开物品区即失效。
+  const [analysis, setAnalysis] = useState<AnalysisViewState | null>(null);
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [notice, setNotice] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -181,13 +185,15 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       setMenuOpen(false);
       setAutoNew(null);
       setSearchExpanded(false);
-      if (query.search) adjust({ search: '' });
+      // 切库/恢复/重置使分析上下文失效：退回物品列表并清空标签范围。
+      setAnalysis(null);
+      if (query.search || query.label) adjust({ search: '', label: null });
     }
     lastGeneration.current = generation;
   }, [page?.generation]);
   // A hand-off is consumed by the page it names; navigating elsewhere drops it.
   useEffect(() => { if (autoNew && section !== autoNew) setAutoNew(null); }, [section, autoNew]);
-  useEffect(() => { setMenuOpen(false); }, [section]);
+  useEffect(() => { setMenuOpen(false); if (section !== 'assets') setAnalysis(null); }, [section]);
   useEffect(() => { setSearchExpanded(false); }, [section]);
   // U16-D5 侧栏计数：只读查询，资料、列表或回收站变化与切页时重读；失败时不显示计数。
   useEffect(() => {
@@ -334,6 +340,25 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const scrollRestore = (forSection: Section): ScrollRestore => pendingReturn && pendingReturn.section === forSection && section === forSection
     ? { top: pendingReturn.scroll, done: () => { if (mainRef.current) mainRef.current.scrollTop = pendingReturn.scroll; setPendingReturn(null); } }
     : null;
+  // 浏览器预览截图入口：自动进入标签投入分析（原生无此流程）。
+  useEffect(() => {
+    const tag = sessionStorage.getItem('possio.enter-tag.v1');
+    if (!tag || !page || !eventsReady) return;
+    sessionStorage.removeItem('possio.enter-tag.v1');
+    const search = sessionStorage.getItem('possio.enter-tag-search.v1') ?? '';
+    sessionStorage.removeItem('possio.enter-tag-search.v1');
+    const scope = sessionStorage.getItem('possio.enter-tag-scope.v1') === 'held' ? 'held' : 'all';
+    sessionStorage.removeItem('possio.enter-tag-scope.v1');
+    setQuery(q => ({ ...q, label: tag, offset: 0 }));
+    setDetailId(null); setSelected(null);
+    setAnalysis({ labelId: tag, labelName: tags.find(t => t.id === tag)?.name ?? '', scope, search, shown: TAG_PAGE_SIZE, listScroll: 0, viewScroll: 0, focusAsset: null });
+  }, [page, eventsReady]);
+  useEffect(() => {
+    const tag = sessionStorage.getItem('possio.preset-label.v1');
+    if (!tag || !page || !eventsReady) return;
+    sessionStorage.removeItem('possio.preset-label.v1');
+    setQuery(q => ({ ...q, label: tag, offset: 0 }));
+  }, [page, eventsReady]);
   useEffect(() => {
     if (demoStatus.active || !page || !eventsReady || taxonomy.snapshot?.generation !== page.generation || !sessionStorage.getItem(newAssetKey)) return;
     sessionStorage.removeItem(newAssetKey); setNotice('样例中不能新增物品，已回到我的资料。');
@@ -372,9 +397,13 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     const provided = pageBars[sec]?.();
     if (provided) return provided;
     const newAsset: BarAction = { label: '新增物品', plus: true, disabled: newAssetDisabled, run: () => void openEditor(null) };
-    if (sec === 'assets') return detailId
-      ? { primary: newAsset, newRecord: newAsset }
-      : { primary: newAsset, newRecord: newAsset, search: { key: 'assets', placeholder: '搜索物品' } };
+    if (sec === 'assets') {
+      // 分析子视图：只有搜索，无新增（⌘N 菜单随之禁用）。
+      if (analysis && !detailId) return { search: { key: 'assets', placeholder: '搜索标签内物品' } };
+      return detailId
+        ? { primary: newAsset, newRecord: newAsset }
+        : { primary: newAsset, newRecord: newAsset, search: { key: 'assets', placeholder: '搜索物品' } };
+    }
     if (sec === 'overview' || sec === 'stats') return { primary: newAsset, newRecord: newAsset };
     return {};
   }
@@ -392,6 +421,8 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     setAutoNew(target);
   }
   function applySearch(key: SearchSection, value: string) {
+    // 分析子视图的搜索只过滤明细，不写列表查询（汇总与分母不变）。
+    if (key === 'assets' && analysis && !detailId) { analysisSearch(value); return; }
     setSearches(s => (s[key] === value ? s : { ...s, [key]: value }));
     // The asset list keeps its query as the single source of truth.
     if (key === 'assets') adjust({ search: value });
@@ -430,6 +461,39 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       ++detailTicket.current; setSelected(null); setDetailError(''); setDetailLoading(false);
     }
     setQuery(q => ({ ...q, ...part, offset: 0 }));
+  }
+  // U17 标签投入分析：入口、两层返回与视图状态（D23 交互约定）。
+  function enterAnalysis() {
+    if (!query.label || query.label === 'none' || wishlistEditing || !page) return;
+    const name = tags.find(t => t.id === query.label)?.name ?? '';
+    clearSelection();
+    ++detailTicket.current; setSelected(null); setDetailError(''); setDetailLoading(false);
+    setDetailId(null);
+    setAnalysis({ labelId: query.label, labelName: name, scope: 'all', search: '', shown: TAG_PAGE_SIZE, listScroll: collectionRef.current?.scrollTop ?? 0, viewScroll: 0, focusAsset: null });
+  }
+  function exitToAssetList() {
+    const scroll = analysis?.listScroll ?? 0;
+    setAnalysis(null); setDetailId(null);
+    requestAnimationFrame(() => {
+      if (collectionRef.current) collectionRef.current.scrollTop = scroll;
+      (document.querySelector<HTMLButtonElement>('.analysis-entry') ?? document.getElementById('page-heading'))?.focus({ preventScroll: true });
+    });
+  }
+  function analysisScope(scope: TagScope) {
+    // R4：切范围保留关键词；明细分段重置回首段、滚动回顶；详情返回不经此路径。
+    setAnalysis(a => (a ? analysisAfterScopeChange(a, scope) : a));
+    requestAnimationFrame(() => { if (mainRef.current) mainRef.current.scrollTop = 0; });
+  }
+  function analysisSearch(value: string) {
+    setAnalysis(a => (a ? { ...a, search: value, shown: TAG_PAGE_SIZE } : a));
+    requestAnimationFrame(() => { if (mainRef.current) mainRef.current.scrollTop = 0; });
+  }
+  function analysisMore() {
+    setAnalysis(a => (a ? { ...a, shown: a.shown + TAG_PAGE_SIZE } : a));
+  }
+  function openFromAnalysis(id: string) {
+    setAnalysis(a => (a ? { ...a, focusAsset: id, viewScroll: mainRef.current?.scrollTop ?? 0 } : a));
+    void select(id, true);
   }
   async function select(id: string, full = false) {
     if (wishlistEditing) return;
@@ -481,17 +545,24 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   function back() {
     if (wishlistEditing) return;
     setSection('assets'); setDetailId(null);
+    if (analysis) {
+      // 详情 → 分析：重查已提交事实；滚动与焦点由分析消费 focusAsset 恢复。
+      void refresh();
+      requestAnimationFrame(() => { if (mainRef.current) mainRef.current.scrollTop = analysis.viewScroll; });
+      return;
+    }
     if (selected && !page?.items.some(r => r.asset.id === selected.asset.id)) setNotice('刚才的物品不在当前结果页中。筛选和搜索已保留，可清除条件重新查找。');
     requestAnimationFrame(() => { (document.getElementById('asset-' + selected?.asset.id) || searchInputRef.current)?.focus({ preventScroll: true }); if (collectionRef.current) collectionRef.current.scrollTop = listScroll.current; });
   }
   useEffect(() => {
     const returnToList = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || section !== 'assets' || !detailId || wishlistEditing || menuOpen || document.querySelector('dialog[open], details[data-popover][open]')) return;
-      event.preventDefault(); back();
+      if (event.key !== 'Escape' || event.defaultPrevented || section !== 'assets' || wishlistEditing || menuOpen || document.querySelector('dialog[open], details[data-popover][open]')) return;
+      if (detailId) { event.preventDefault(); back(); return; }
+      if (analysis) { event.preventDefault(); exitToAssetList(); }
     };
     window.addEventListener('keydown', returnToList);
     return () => window.removeEventListener('keydown', returnToList);
-  }, [section, detailId, wishlistEditing, menuOpen, selected, page]);
+  }, [section, detailId, analysis, wishlistEditing, menuOpen, selected, page]);
   async function openTrash(record: AssetRecord, generation: string, deleted: boolean, resume?: TrashAction) {
     if (wishlistEditing || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
     if (taxonomyGuard) { setSection('settings'); setNotice('请先核对分类操作结果。'); return; }
@@ -540,7 +611,8 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     });
   }
   selectAllRef.current = () => {
-    if (section !== 'assets' || detailId || !page) return;
+    // 分析子视图没有批量选择；搜索输入里由文本分支先行选中。
+    if (section !== 'assets' || detailId || analysis || !page) return;
     void invoke<string[]>('asset_ids', { query }).then(ids => { setMulti(ids); setAnchor(null); if (ids.length === 1) void select(ids[0]); }).catch(e => setNotice(errorMessage(e)));
   };
   useEffect(() => {
@@ -728,13 +800,18 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     requestAnimationFrame(() => document.getElementById('detail-heading')?.focus());
   }
   const active = selected && !selected.deleted ? selected : null;
+  const analysisLabelName = analysis ? tags.find(t => t.id === analysis.labelId)?.name ?? analysis.labelName : '';
+  // 分析与详情的两层面包屑：物品回来源列表，中间层回分析，当前层不可点。
+  const analysisCrumb = analysis && !detailId
+    ? <><button type="button" className="ui-link" onClick={exitToAssetList}>物品</button><span> › </span><span>标签投入</span><span> › </span><b>{analysisLabelName}</b></>
+    : <><button type="button" className="ui-link" onClick={exitToAssetList}>物品</button><span> › </span><button type="button" className="ui-link" onClick={back}>{analysisLabelName}投入</button><span> › </span><b>{selected?.asset.name ?? '物品详情'}</b></>;
   const topbarBar = topbarFor(section);
   const topbarSearch = topbarBar.search ?? null;
   // The native ⌘N/⌘F items read what this page will actually do; none disables them.
   const menuNew = topbarBar.menu ? `${topbarBar.menu.label}…` : topbarBar.newRecord?.label ?? null;
   const menuFind = topbarBar.search?.placeholder ?? null;
   useEffect(() => { void invoke('set_page_menu', { newLabel: menuNew, findLabel: menuFind }).catch(() => {}); }, [menuNew, menuFind]);
-  const topbarSearchValue = topbarSearch ? (topbarSearch.key === 'assets' ? query.search : searches[topbarSearch.key]) : '';
+  const topbarSearchValue = topbarSearch ? (topbarSearch.key === 'assets' ? (analysis && !detailId ? analysis?.search ?? '' : query.search) : searches[topbarSearch.key]) : '';
   const topbarSearchOpen = !!topbarSearch && (!compactTopbar || searchExpanded || !!topbarSearchValue);
   const storedDraftClosing = closeIntent && !wishlistEditing && !draft && !trashAction && !recordTrashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && !warrantyDraft && !taxonomyGuard && (trashRecovery || recordTrashRecovery || lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery);
   const narrowed = query.filter !== 'all' || (query.category?.mode ?? 'all') !== 'all' || (query.warranty ?? 'all') !== 'all' || !!query.label;
@@ -743,7 +820,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const statusItems = [ ['all', '全部资产', 'items', 'all'], ['active', '使用中', 'circle', 'all'], ['held', '保障中', 'shield', 'covered'], ['retired', '已退役', 'archive', 'all'], ['sold', '已售出', 'arrow', 'all'] ] as const;
   const statusKey = (query.warranty ?? 'all') + query.filter;
   const collectionTitle = statusItems.find(([f, , , w]) => w + f === statusKey)?.[1] ?? '全部资产';
-  function browseStatus(filter: string, warranty: string) { if (wishlistEditing) return; setSection('assets'); setDetailId(null); adjust({ filter, warranty }); }
+  function browseStatus(filter: string, warranty: string) { if (wishlistEditing) return; setSection('assets'); setDetailId(null); setAnalysis(null); adjust({ filter, warranty }); }
   function identity(record: AssetRecord) { return <><Cover record={record} generation={page?.generation || ''} taxonomy={taxonomy.snapshot}/><span className="identity"><strong>{record.asset.name}</strong><small>{taxonomy.snapshot?.categories.find(c => c.id === record.classification?.category_id)?.name || '未分类'}{record.label_name && ` · ${record.label_name}`}</small></span></>; }
   return <PageBarContext.Provider value={pageBarRegistrar}><div className="shell">{!demoStatus.active && <NotificationNotice/>}{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)} pendingOnly={!!(trashRecovery || recordTrashRecovery) && !(lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery)}/>}<aside className="sidebar"><div className="brand"><span className="brand-mark" aria-hidden="true">底</span><div><strong>家底</strong><small>POSSIO</small></div></div>
       <nav aria-label="主导航"><button className={section === 'overview' ? 'nav-active' : ''} aria-current={section === 'overview' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('overview'); setDetailId(null); }}><Icon name="overview"/><span>总览</span></button><p className="nav-caption">物品</p>
@@ -752,11 +829,11 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         {(modules.wealth || modules.expenses || modules.recurring || modules.virtual) && <p className="nav-caption">财富</p>}{modules.wealth && <button className={section === 'wealth' ? 'nav-active' : ''} aria-current={section === 'wealth' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('wealth'); setDetailId(null); }}><Icon name="wallet"/><span>账户与盘点</span></button>}{modules.expenses && <button className={section === 'expenses' ? 'nav-active' : ''} aria-current={section === 'expenses' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('expenses'); setDetailId(null); }}><Icon name="receipt"/><span>重要支出</span></button>}{modules.recurring && <button className={section === 'recurring' ? 'nav-active' : ''} aria-current={section === 'recurring' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('recurring'); setDetailId(null); }}><Icon name="repeat"/><span>周期费用</span>{sideDue > 0 && <small className="nav-count warn" aria-label={`${sideDue} 期待确认`}>{sideDue}</small>}</button>}{modules.virtual && <button className={section === 'virtual' ? 'nav-active' : ''} aria-current={section === 'virtual' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('virtual'); setDetailId(null); }}><Icon name="cloud"/><span>虚拟资产</span></button>}
         {(modules.timeline || modules.stats) && <p className="nav-caption">回顾</p>}{modules.timeline && <button className={section === 'timeline' ? 'nav-active' : ''} aria-current={section === 'timeline' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('timeline'); setDetailId(null); }}><Icon name="clock"/><span>时间轴</span></button>}{modules.stats && <button className={section === 'stats' ? 'nav-active' : ''} aria-current={section === 'stats' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('stats'); setDetailId(null); }}><Icon name="chart"/><span>统计</span></button>}
       </nav><div className="sidebar-bottom"><nav aria-label="资料管理"><button className={section === 'materials' ? 'nav-active' : ''} aria-current={section === 'materials' ? 'page' : undefined} disabled={wishlistEditing || !!(trashRecovery || recordTrashRecovery)} onClick={() => setSection('materials')}><Icon name="image"/><span>素材库</span></button><button className={section === 'trash' ? 'nav-active' : ''} disabled={wishlistEditing} onClick={() => setSection('trash')}><Icon name="trash"/><span>最近删除</span></button><div className="settings-row"><button className={section === 'settings' ? 'nav-active' : ''} disabled={wishlistEditing || !!(trashRecovery || recordTrashRecovery)} onClick={() => { setSection('settings'); void taxonomy.reload().catch(() => {}); }}><Icon name="settings"/><span>设置</span></button><button type="button" className="mode-toggle" aria-label={toggledMode(theme) === 'dark' ? '切换到深色' : '切换到浅色'} title={(toggledMode(theme) === 'dark' ? '切换到深色' : '切换到浅色') + '（⌘⇧D）'} onClick={() => setTheme(toggledMode(theme))}><Icon name={toggledMode(theme) === 'dark' ? 'sun' : 'moon'}/></button></div></nav><p className="local-status" title="本地档案 · 仅保存在这台 Mac"><span className="local-dot"/>本地档案 · 仅本机</p></div></aside>
-    <main ref={mainRef} className={section === 'assets' && !detailId ? 'browse-main' : undefined}><div className="app-topbar"><span className="breadcrumb"><Icon name={section === 'overview' ? 'overview' : section === 'stats' ? 'chart' : section === 'wealth' ? 'wallet' : section === 'expenses' ? 'receipt' : section === 'recurring' ? 'repeat' : section === 'virtual' ? 'cloud' : section === 'wishlist' ? 'heart' : section === 'timeline' ? 'clock' : section === 'materials' ? 'image' : section === 'trash' ? 'trash' : section === 'settings' ? 'settings' : 'items'}/>{section === 'overview' || section === 'materials' || section === 'trash' || section === 'settings' ? '家底' : section === 'stats' ? '回顾' : section === 'wealth' || section === 'expenses' || section === 'recurring' || section === 'virtual' ? '财富' : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '回顾' : detailId ? <button type="button" className="ui-link" disabled={wishlistEditing} onClick={back}>{collectionTitle}</button> : '我的物品'} <span>／</span> {section === 'overview' ? '总览' : section === 'stats' ? '统计' : section === 'wealth' ? '账户与盘点' : section === 'expenses' ? '重要支出' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'wishlist' ? '购买前记录' : section === 'timeline' ? '时间轴' : section === 'materials' ? '素材库' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : detailId ? '物品详情' : collectionTitle}</span>{<div className="topbar-actions">{topbarSearch && <TopbarSearchBox search={topbarSearch} value={topbarSearchValue} inputRef={searchInputRef} expanded={topbarSearchOpen} disabled={wishlistEditing} onExpand={() => { setSearchExpanded(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }} onChange={v => applySearch(topbarSearch.key, v)}/>}{topbarBar.secondary && <button type="button" className="topbar-secondary" disabled={topbarBar.secondary.disabled} onClick={topbarBar.secondary.run}>{topbarBar.secondary.plus && <Icon name="plus"/>}<span>{topbarBar.secondary.label}</span>{topbarBar.secondary.label === menuNew && <kbd>⌘N</kbd>}</button>}{topbarBar.menu && <BarMenuButton menu={topbarBar.menu} kbd open={menuOpen} onOpen={setMenuOpen} buttonRef={menuButtonRef}/>}{topbarBar.primary && !topbarBar.menu && <button ref={newRef} className="primary" disabled={topbarBar.primary.disabled} onClick={topbarBar.primary.run}>{topbarBar.primary.plus && <Icon name="plus"/>}<span>{topbarBar.primary.label}</span>{topbarBar.primary.label === menuNew && <kbd>⌘N</kbd>}</button>}</div>}</div>
+    <main ref={mainRef} className={section === 'assets' && !detailId ? 'browse-main' : undefined}><div className="app-topbar"><span className="breadcrumb"><Icon name={section === 'overview' ? 'overview' : section === 'stats' ? 'chart' : section === 'wealth' ? 'wallet' : section === 'expenses' ? 'receipt' : section === 'recurring' ? 'repeat' : section === 'virtual' ? 'cloud' : section === 'wishlist' ? 'heart' : section === 'timeline' ? 'clock' : section === 'materials' ? 'image' : section === 'trash' ? 'trash' : section === 'settings' ? 'settings' : 'items'}/>{section === 'assets' && analysis ? analysisCrumb : <>{section === 'overview' || section === 'materials' || section === 'trash' || section === 'settings' ? '家底' : section === 'stats' ? '回顾' : section === 'wealth' || section === 'expenses' || section === 'recurring' || section === 'virtual' ? '财富' : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '回顾' : detailId ? <button type="button" className="ui-link" disabled={wishlistEditing} onClick={back}>{collectionTitle}</button> : '我的物品'} <span>／</span> {section === 'overview' ? '总览' : section === 'stats' ? '统计' : section === 'wealth' ? '账户与盘点' : section === 'expenses' ? '重要支出' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'wishlist' ? '购买前记录' : section === 'timeline' ? '时间轴' : section === 'materials' ? '素材库' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : detailId ? '物品详情' : collectionTitle}</>}</span>{<div className="topbar-actions">{topbarSearch && <TopbarSearchBox search={topbarSearch} value={topbarSearchValue} inputRef={searchInputRef} expanded={topbarSearchOpen} disabled={wishlistEditing} onExpand={() => { setSearchExpanded(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }} onChange={v => applySearch(topbarSearch.key, v)}/>}{topbarBar.secondary && <button type="button" className="topbar-secondary" disabled={topbarBar.secondary.disabled} onClick={topbarBar.secondary.run}>{topbarBar.secondary.plus && <Icon name="plus"/>}<span>{topbarBar.secondary.label}</span>{topbarBar.secondary.label === menuNew && <kbd>⌘N</kbd>}</button>}{topbarBar.menu && <BarMenuButton menu={topbarBar.menu} kbd open={menuOpen} onOpen={setMenuOpen} buttonRef={menuButtonRef}/>}{topbarBar.primary && !topbarBar.menu && <button ref={newRef} className="primary" disabled={topbarBar.primary.disabled} onClick={topbarBar.primary.run}>{topbarBar.primary.plus && <Icon name="plus"/>}<span>{topbarBar.primary.label}</span>{topbarBar.primary.label === menuNew && <kbd>⌘N</kbd>}</button>}</div>}</div>
       {(demoStatus.active || !demoStatus.started) && demoStatus.available && <div className="demo-banner" role="status"><strong>{demoStatus.active ? '样例体验' : '我的资料'}</strong><span>{demoStatus.active ? '正在使用独立虚构资料。编辑、删除和付款只留在样例中，不发送系统通知；样例不接受新增物品（含实现心愿），新增物品会回到我的资料。' : '从任意模块开始记录；保存第一条资料后，下次直接进入这里。'}</span><button type="button" disabled={modeBusy || modeBlocked || !!localStorage.getItem(resetKey)} onClick={() => void changeDemoMode(!demoStatus.active)}>{demoStatus.active ? demoStatus.started ? '返回我的资料' : '开始记录我的资料' : '查看样例'}</button></div>}
       {modeBusy && <p className="notice" role="status">正在准备资料，请稍候…</p>}
 
-      {!detailId || section !== 'assets' ? <header className="page-header"><div><h1 id="page-heading" tabIndex={-1}>{section === 'overview' ? '家底' : section === 'stats' ? '统计' : section === 'wealth' ? '账户与盘点' : section === 'expenses' ? '重要支出' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '时间轴' : section === 'materials' ? '素材库' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : collectionTitle}</h1></div>{section === 'assets' && !loading && !loadError && overviewPage && overviewPage.total > 0 && <AssetOverview page={overviewPage} filtered={narrowed}/>}{section === 'overview' && <span className="page-meta">{Number(today.slice(0, 4))} 年 {Number(today.slice(5, 7))} 月 {Number(today.slice(8))} 日</span>}<span id="page-header-meta" className="page-meta"/><div id="page-header-actions" className="page-header-actions"/></header> : null}
+      {!detailId || section !== 'assets' ? <header className="page-header"><div><h1 id="page-heading" tabIndex={-1}>{section === 'overview' ? '家底' : section === 'stats' ? '统计' : section === 'wealth' ? '账户与盘点' : section === 'expenses' ? '重要支出' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '时间轴' : section === 'materials' ? '素材库' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : section === 'assets' && analysis ? (tags.find(t => t.id === analysis.labelId)?.name ?? analysis.labelName) : collectionTitle}</h1></div>{section === 'assets' && !analysis && !loading && !loadError && overviewPage && overviewPage.total > 0 && <AssetOverview page={overviewPage} filtered={narrowed}/>}{section === 'overview' && <span className="page-meta">{Number(today.slice(0, 4))} 年 {Number(today.slice(5, 7))} 月 {Number(today.slice(8))} 日</span>}<span id="page-header-meta" className="page-meta"/><div id="page-header-actions" className="page-header-actions"/></header> : null}
       {wishlistEditing && section !== 'wishlist' && <div className="notice">有一次心愿保存结果待确认，请先处理。<button onClick={() => { setSection('wishlist'); setDetailId(null); }}>前往心愿清单</button></div>}
       {saleRecovery && !saleDraft && <div className="notice">有一次售出操作结果待确认。<button disabled={wishlistEditing} onClick={() => void openSale(saleRecovery.record, saleRecovery.mode, saleRecovery)}>核对售出结果</button></div>}
       {maintenanceRecovery && !maintenanceDraft && <div className="notice">有一次维护操作结果待确认。<button disabled={wishlistEditing} onClick={() => void openMaintenance(maintenanceRecovery.record, maintenanceRecovery.maintenance_id, maintenanceRecovery)}>核对维护结果</button></div>}
@@ -808,10 +885,11 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         const title = entry.title || (entry.kind === 'maintenance' ? '维护记录' : '保障记录');
         void openRecordTrash(entry.kind, entry.id, entry.asset_id, title, entry.asset_name ?? '', generation, entry.asset_revision, false);
       }}/>}
+      {section === 'assets' && analysis && !detailId && <TagInvestment state={analysis} version={page} onScope={analysisScope} onSearch={analysisSearch} onMore={analysisMore} onOpenAsset={openFromAnalysis} onBackToList={exitToAssetList} onFocused={() => setAnalysis(a => (a ? { ...a, focusAsset: null } : a))}/>}
       {notice && <div className="status-line" role="status">{notice}{section === 'assets' && notice.includes('最近删除') && <button onClick={() => setSection('trash')}>前往最近删除</button>}{section === 'assets' && !detailId && filtered && <button onClick={() => adjust({ search: '', filter: 'all', category: { mode: 'all' }, warranty: 'all' })}>清除条件</button>}</div>}
-      <section hidden={section !== 'assets' || !!detailId} className="browse">
+      <section hidden={section !== 'assets' || !!detailId || !!analysis} className="browse">
         <div className="browser-columns"><div className="collection" ref={collectionRef}>
-          <div className="collection-toolbar"><CategoryFilter id="asset-category-filter" entries={taxonomy.snapshot?.categories ?? []} value={query.category ?? { mode: 'all' }} onChange={category => adjust({ category })} disabled={taxonomy.loading || !taxonomy.snapshot}/><div className="view-controls"><Info text="双击或按回车打开完整档案；选中物品后也可按 ⌘E 打开。"/>{selecting && <span className="collection-count">{`已选 ${multi.length} 件`}</span>}{selecting && !!page?.total && <button className="batch-select-all" onClick={() => multi.length === page.total ? setMulti([]) : selectAllRef.current?.()}>{multi.length === page.total ? '取消全选' : '全选'}</button>}<details className="collection-options" data-popover><summary>筛选{filtered ? ' · 已应用' : ''}</summary><div className="filter-controls"><label>资料<select aria-label="筛选资料" value={query.filter} onChange={e => adjust({ filter: e.target.value })}><option value="all">全部物品</option><option value="held">当前持有</option><option value="active">使用中</option><option value="retired">已退役</option><option value="sold">已售出</option><option value="missing_price">金额待补充</option><option value="missing_date">日期待补充</option></select></label><label>保障<select aria-label="筛选保障" value={query.warranty ?? 'all'} onChange={e => adjust({ warranty: e.target.value })}><option value="all">全部</option><option value="covered">有有效保障</option><option value="expiring">即将到期</option><option value="lapsed">有记录，当前无有效保障</option><option value="none">无保障记录</option></select></label><label>标签<select aria-label="筛选标签" value={query.label ?? ''} onChange={e => adjust({ label: e.target.value || null })}><option value="">全部</option><option value="none">无标签</option>{tags.filter(t => t.enabled || t.id === query.label).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>{filtered && <button onClick={() => adjust({ search: '', filter: 'all', category: { mode: 'all' }, warranty: 'all', label: null })}>清除条件</button>}</div></details><label className="sort-control"><span className="visually-hidden">排序</span><select aria-label="排序方式" value={query.sort} onChange={e => adjust({ sort: e.target.value })}><option value="created">建档时间</option><option value="name">名称</option><option value="price">购入金额</option><option value="date">购入日期</option><option value="daily">日均成本</option></select></label><button className="sort-direction" aria-label={query.descending ? '切换为升序' : '切换为降序'} title={query.descending ? '降序' : '升序'} onClick={() => adjust({ descending: !query.descending })}>{query.descending ? '↓' : '↑'}</button><div className="segmented"><button aria-label={selecting ? '完成选择' : '选择多件'} title={selecting ? '完成选择' : '选择多件'} aria-pressed={selecting} onClick={() => { if (selecting) clearSelection(); else { setSelecting(true); setMulti(active ? [active.asset.id] : []); } }}><Icon name="select"/></button></div><div className="segmented"><button aria-label="列表视图" title="列表视图" aria-pressed={view === 'list'} onClick={() => setView('list')}><Icon name="list"/></button><button aria-label="网格视图" title="网格视图" aria-pressed={view === 'grid'} onClick={() => setView('grid')}><Icon name="grid"/></button></div></div></div>
+          <div className="collection-toolbar"><CategoryFilter id="asset-category-filter" entries={taxonomy.snapshot?.categories ?? []} value={query.category ?? { mode: 'all' }} onChange={category => adjust({ category })} disabled={taxonomy.loading || !taxonomy.snapshot}/><div className="view-controls"><Info text="双击或按回车打开完整档案；选中物品后也可按 ⌘E 打开。"/>{selecting && <span className="collection-count">{`已选 ${multi.length} 件`}</span>}{selecting && !!page?.total && <button className="batch-select-all" onClick={() => multi.length === page.total ? setMulti([]) : selectAllRef.current?.()}>{multi.length === page.total ? '取消全选' : '全选'}</button>}<details className="collection-options" data-popover><summary>筛选{filtered ? ' · 已应用' : ''}</summary><div className="filter-controls"><label>资料<select aria-label="筛选资料" value={query.filter} onChange={e => adjust({ filter: e.target.value })}><option value="all">全部物品</option><option value="held">当前持有</option><option value="active">使用中</option><option value="retired">已退役</option><option value="sold">已售出</option><option value="missing_price">金额待补充</option><option value="missing_date">日期待补充</option></select></label><label>保障<select aria-label="筛选保障" value={query.warranty ?? 'all'} onChange={e => adjust({ warranty: e.target.value })}><option value="all">全部</option><option value="covered">有有效保障</option><option value="expiring">即将到期</option><option value="lapsed">有记录，当前无有效保障</option><option value="none">无保障记录</option></select></label><label>标签<select aria-label="筛选标签" value={query.label ?? ''} onChange={e => adjust({ label: e.target.value || null })}><option value="">全部</option><option value="none">无标签</option>{labelFilterOptions(tags).map(t => <option key={t.id} value={t.id}>{t.text}</option>)}</select></label>{query.label && query.label !== 'none' && <button type="button" className="ui-btn sm analysis-entry" onClick={enterAnalysis}>查看投入分析</button>}{filtered && <button onClick={() => adjust({ search: '', filter: 'all', category: { mode: 'all' }, warranty: 'all', label: null })}>清除条件</button>}</div></details><label className="sort-control"><span className="visually-hidden">排序</span><select aria-label="排序方式" value={query.sort} onChange={e => adjust({ sort: e.target.value })}><option value="created">建档时间</option><option value="name">名称</option><option value="price">购入金额</option><option value="date">购入日期</option><option value="daily">日均成本</option></select></label><button className="sort-direction" aria-label={query.descending ? '切换为升序' : '切换为降序'} title={query.descending ? '降序' : '升序'} onClick={() => adjust({ descending: !query.descending })}>{query.descending ? '↓' : '↑'}</button><div className="segmented"><button aria-label={selecting ? '完成选择' : '选择多件'} title={selecting ? '完成选择' : '选择多件'} aria-pressed={selecting} onClick={() => { if (selecting) clearSelection(); else { setSelecting(true); setMulti(active ? [active.asset.id] : []); } }}><Icon name="select"/></button></div><div className="segmented"><button aria-label="列表视图" title="列表视图" aria-pressed={view === 'list'} onClick={() => setView('list')}><Icon name="list"/></button><button aria-label="网格视图" title="网格视图" aria-pressed={view === 'grid'} onClick={() => setView('grid')}><Icon name="grid"/></button></div></div></div>
           {query.sort === 'daily' && <p className="muted small sort-note">按次计算的物品，以及金额、日期或维护费用不全的物品排在最后。</p>}
         {loadError ? <div className="empty error" role="alert"><h2>资料加载失败</h2><p>{loadError}</p><button onClick={() => void refresh()}>重新读取</button></div> : loading ? <p className="loading" role="status">正在读取本地资料…</p> : page && !page.items.length ? <div className="empty"><span className="empty-mark">▧</span><h2>{filtered ? '当前条件下没有找到记录' : '从第一件物品开始'}</h2><p>{filtered ? '试试其他关键词，或清除当前条件。' : '先记下名字，价格、日期和故事都可以慢慢补。'}</p><button className="primary" onClick={() => filtered ? adjust({ search: '', filter: 'all', category: { mode: 'all' }, warranty: 'all', label: null }) : void openEditor(null)}>{filtered ? '清除条件' : '记录第一件物品'}</button></div> : <><div className={'items ' + view} aria-label="物品列表">
           {view === 'list' && <div className="list-head"><span>物品</span><span className="purchase-date">购入日期</span><button className="sort-price" onClick={() => adjust({ sort: 'price', descending: query.sort === 'price' ? !query.descending : true })} aria-label="按购入金额排序">购入金额 <Icon name="sort"/></button><span className="daily-cost">日均</span><span>状态</span></div>}

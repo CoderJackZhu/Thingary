@@ -4,6 +4,17 @@
 
 **当前定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 低频财富回顾 + 本地数据。** 不做日常记账，不依赖服务器。统一产品需求见产品设计第 17 节；其中 A · 财富盘点随 1.2.0、B · 重要支出随 1.3.0、C1 · 周期费用随 1.4.0、C2 · 虚拟资产随 1.8.0、D · 综合体验随 1.9.0 发布。
 
+## U17 标签投入分析（2.2.0 发布准备）
+
+从现有标签查看相关实物的购入、维护、累计投入、售出回收及每件投入占比（产品设计 D23）。2026-09-30 zcode 完成开发与修订，第二轮独立 Review（U17r）通过（含非阻断备注）；用户已授权提交、推送、安装。2.2.0 正在打包，安装结果以发布记录为准。
+
+- [产品规则与验收](docs/PRODUCT_DESIGN.md#u17-product)：范围、金额/缺失口径、虚构样例及 U17-AC。
+- [界面设计](docs/ui/U17_TAG_INVESTMENT_DESIGN.md)与[视觉证据索引](docs/ui/tag-investment/index.html)：入口、布局、状态与三主题对照。
+- [技术契约](docs/decisions/001-local-desktop.md#u17-technical)：只读聚合、接口冻结（25.5）与实际接线（25.6.1）。
+- [实施计划 U17](docs/IMPLEMENTATION_PLAN.md#u17)：唯一任务状态、依赖、检查与交接边界。
+- [独立 Review](docs/verification/U17_REVIEW_RESULT.md)：首轮发现、第二轮关闭记录、独立检查与证据边界。
+- [zcode 验证报告](docs/verification/U17_TAG_INVESTMENT_RESULT.md)：命令结果、AC 证据矩阵、原生证据与残余缺口；[交接说明](docs/U17_ZCODE_HANDOFF.md)。
+
 ## 当前状态
 
 - 1.14.0 新增默认自动备份（U13，[产品设计 D20](docs/PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)）：有改动约 2 分钟后在后台备份到资料目录旁，每天一份、保留 7 份，可选额外位置；zcode 实现、Claude 复核，见 [U13 记录](docs/verification/U13_AUTO_BACKUP_RESULT.md)。

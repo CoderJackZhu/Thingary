@@ -27,6 +27,7 @@ pub mod review;
 pub mod sales;
 pub mod source;
 pub mod storage;
+pub mod tag_investment;
 pub mod taxonomy;
 pub mod timeline;
 pub mod trash;
@@ -188,6 +189,7 @@ pub fn run() {
             commands::switch_demo,
             commands::reset_demo,
             commands::list_assets,
+            commands::tag_investment_view,
             commands::read_asset,
             commands::save_asset,
             commands::change_trash,

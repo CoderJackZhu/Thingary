@@ -30,7 +30,9 @@ const emptyWarrantySummary = {status:'none',total:0,active_count:0,expiring_coun
 const categoryNames = [...new Map(demoAssets.map(a => [a.category, a.icon])).entries()].map(([name, icon]) => [icon, name]);
 const categoryId = (name: string) => categoryNames.find(([, n]) => n === name)![0];
 const channelNames = [...new Set(demoAssets.flatMap(a => a.channel ? [a.channel] : []))];
+const previewPrefs = (label: string | undefined) => label ? {label_id:'label-photo',cost_mode:'daily',use_count:0,goal:{mode:'none'},pinned:false,exclude:{total:false,daily:false,statistics:false,timeline:false}} as AssetRecord['preferences'] : undefined;
 let records: AssetRecord[] = demoAssets.map((a, i) => ({
+  preferences: previewPrefs((a as {label?: string}).label),
   lifecycle: {state: a.sale ? 'sold' : a.retired_on ? 'retired' : 'active', events: a.retired_on ? [{id:'demo-retirement',sequence:1,kind:'retire',date:a.retired_on,notes:'留作备用机'}] : []},
   sale: a.sale ? {id:'demo-sale',previous_state:'active',fields:a.sale} : null,
   maintenances: a.maintenance ? [{id:'demo-maintenance-'+a.key,fields:{...a.maintenance,kind:a.maintenance.kind as Maintenance['fields']['kind']},photos:[],created_at:a.maintenance.date+'T08:00:00Z',updated_at:a.maintenance.date+'T08:00:00Z'}] : [],
@@ -48,7 +50,7 @@ const taxonomyReceipts = new Map<string,string>();
 let catalog: PreviewCatalog = {categories:[...categoryNames,['apparel','服饰配饰'],['outdoor','出行运动'],['box','其他']].map(([id,name])=>({id,name,icon:(['apparel','outdoor'].includes(id)?'box':id) as 'computer',references:{activeAssets:0,deletedAssets:0}})),channels:channelNames.map((name,i)=>({id:'demo-channel-'+i,name,references:{activeAssets:0,deletedAssets:0}})),assets:[]};
 function taxonomySnapshot() { catalog.assets=records.map(r=>({id:r.asset.id,categoryId:r.classification?.category_id??null,channelId:r.classification?.channel_id??null,deleted:r.deleted})); return {generation,revision:taxonomyRevision,...previewSnapshot(catalog)}; }
 const namedChoices:Record<string,{id:string;name:string;enabled:boolean}[]>={
- label:[{id:'label-active',name:'工作用',enabled:true}],
+ label:[{id:'label-active',name:'工作用',enabled:true},{id:'label-photo',name:'摄影',enabled:true},{id:'label-empty',name:'空标签',enabled:true}],
  sale_channel:['闲鱼','转转','线下','朋友转让','回收商','二手平台','其他'].map((name,i)=>({id:'sale-channel-'+i,name,enabled:true})),
 };
 const disabledChoices=new Map<string,boolean>();
@@ -91,6 +93,56 @@ if (!params.has('no-warranty') && params.get('state') !== 'empty') {
     fixtureWarranty('warranty-phone-unknown', 'other', '未记录', null, null),
   ]);
 }
+// U17 预览夹具：按 ?tag-fixture= 替换「摄影」标签的虚构记录（D23 基准、
+// 组合状态、150 件），刷新即重置；仅浏览器渲染证据用，不代表原生持久性。
+const tagFixtureRecord = (id: string, name: string, price: string | null, state: 'active' | 'retired' | 'sold', maintenance: { cost: string | null }[] = [], sale?: string): AssetRecord => ({
+  preferences: previewPrefs('摄影'),
+  lifecycle: { state, events: state === 'retired' ? [{ id: 'tag-fixture-retire', sequence: 1, kind: 'retire', date: '2026-03-05', notes: '' }] : [] },
+  sale: state === 'sold' ? { id: 'tag-fixture-sale', previous_state: 'active', fields: { date: '2026-04-10', price_cents: sale ?? '0', platform: '', buyer: '', notes: '虚构' } } : null,
+  maintenances: maintenance.map((m, i) => ({ id: `tag-fixture-m${i}`, fields: { date: '2026-06-01', kind: 'repair' as const, title: '虚构维护', description: '', cost_cents: m.cost, provider: '' }, photos: [], created_at: '2026-06-01T08:00:00Z', updated_at: '2026-06-01T08:00:00Z' })),
+  warranties: [],
+  warranty_summary: { ...emptyWarrantySummary },
+  costs: { ...emptyCosts },
+  asset: { id, name, price_cents: price, purchase_date: '2026-01-10', revision: 1 },
+  details: { brand: '虚构品牌', model: '样例型号', serial_number: '', notes: '虚构夹具' },
+  created_at: '2026-01-10T08:00:00Z', updated_at: null,
+  classification: { category_id: 'camera', channel_id: null },
+  deleted: false, deleted_at: null, photos: [], cover_id: null,
+});
+if (params.has('tag-fixture')) {
+  const mode = params.get('tag-fixture')!;
+  records = records.filter(r => r.preferences?.label_id !== 'label-photo');
+  if (mode === 'baseline') {
+    records.push(
+      tagFixtureRecord('tag-body', '机身', '1200000', 'active', [{ cost: '100000' }]),
+      tagFixtureRecord('tag-lens', '镜头', '1500000', 'active'),
+      tagFixtureRecord('tag-part', '配件', '300000', 'retired'),
+      tagFixtureRecord('tag-old', '旧机身', '500000', 'sold', [], '500000'),
+    );
+  } else if (mode === 'unknown') {
+    // 全部未知：购入未知 + 费用未知的维护记录（R1 复现态：无任何已知分量）。
+    records.push(tagFixtureRecord('tag-u1', '胶片扫描仪', null, 'active', [{ cost: null }]), tagFixtureRecord('tag-u2', '快门线', null, 'active', [{ cost: null }]));
+  } else if (mode === 'zero') {
+    records.push(tagFixtureRecord('tag-z1', '赠品相机包', '0', 'active'), tagFixtureRecord('tag-z2', '赠品镜头布', '0', 'active'));
+  } else if (mode === 'mixed') {
+    records.push(tagFixtureRecord('tag-m0', '赠品相机包', '0', 'active'), tagFixtureRecord('tag-ml', '镜头', '1500000', 'active'));
+  } else if (mode === 'heldempty') {
+    records.push(tagFixtureRecord('tag-h1', '旧机身', '500000', 'sold', [], '500000'), tagFixtureRecord('tag-h2', '旧镜头', '300000', 'sold', [], '300000'));
+  } else if (mode === 'many') {
+    for (let i = 1; i <= 130; i++) records.push(tagFixtureRecord(`tag-n${String(i).padStart(3, '0')}`, `常规${String(i).padStart(3, '0')}`, String(i * 10000), 'active'));
+    for (let i = 131; i <= 150; i++) records.push(tagFixtureRecord(`tag-n${String(i).padStart(3, '0')}`, `已售${String(i).padStart(3, '0')}`, String(i * 10000), 'sold', [], String(i * 8000)));
+  }
+}
+// U17 预览夹具：缺失、全排除状态只改内存虚构事实，刷新即重置。
+if (params.get('tag-view') === 'missing') {
+  const boxRecord = records.find(r => r.asset.id === 'box');
+  if (boxRecord) boxRecord.asset = { ...boxRecord.asset, price_cents: null };
+  const camera = records.find(r => r.asset.id === 'camera');
+  if (camera) camera.maintenances = [...camera.maintenances, { id: 'demo-maintenance-unknown', fields: { date: '2026-08-01', kind: 'repair' as const, title: '传感器清洁（费用待补）', description: '', cost_cents: null, provider: '' }, photos: [], created_at: '2026-08-01T08:00:00Z', updated_at: '2026-08-01T08:00:00Z' }];
+}
+if (params.get('tag-view') === 'excluded') {
+  records = records.map(r => r.preferences?.label_id === 'label-photo' && r.preferences ? { ...r, preferences: { ...r.preferences, exclude: { ...r.preferences.exclude, statistics: true } } } : r);
+}
 if (params.has('maintenance-photo') && records[0]) records[0].maintenances=[{id:'maintenance-fixture',fields:{date:'2026-09-20',kind:'repair',title:'更换快门',description:'虚构验收记录',cost_cents:'15000',provider:'虚构维修点'},created_at:new Date().toISOString(),updated_at:new Date().toISOString(),photos:[{id:'maintenance-photo-fixture',name:'维护前照片'}]}];
 // This preview owns its isolated origin and only removes its own reminder keys:
 // records reset on reload, so pending requests from the previous fixture are stale.
@@ -98,6 +150,9 @@ for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.rec
 if (!params.has('preserve-maintenance')) localStorage.removeItem('possio.maintenance-draft.v1');
 if (!params.has('preserve-warranty')) localStorage.removeItem('possio.warranty-draft.v1');
 if (params.has('theme')) localStorage.setItem('possio.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
+if (params.has('style')) localStorage.setItem('possio.style', params.get('style') === 'paper' ? 'paper' : params.get('style') === 'bento' ? 'bento' : 'native');
+if (params.get('preset-label')) sessionStorage.setItem('possio.preset-label.v1', params.get('preset-label')!);
+if (params.has('enter-tag') || params.has('preset-label')) document.getElementById('visual-preview-label')?.remove();
 const images = new Map<string, Promise<ArrayBuffer>>();
 // Staged material selections keep their artwork key so previews render the
 // same illustration the native app hosts; ids are per-selection and independent.
@@ -350,6 +405,51 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     taxonomySnapshot(); catalog=applyPreviewCommand(catalog,input.command,crypto.randomUUID());
     for(const r of records) { const ref=catalog.assets.find(a=>a.id===r.asset.id)!; const next={category_id:ref.categoryId,channel_id:ref.channelId}; if(JSON.stringify(r.classification)!==JSON.stringify(next)) {r.classification=next;r.asset.revision++;} }
     taxonomyRevision++;taxonomyReceipts.set(input.request_id,fingerprint);return taxonomySnapshot();
+  }
+  if (command === 'tag_investment_view') {
+    if (params.get('tag-view') === 'error') throw { code: 'DATABASE', message: '虚构标签投入读取失败，用于重试验证。' };
+    const { label_id, scope } = args.query as { label_id: string; scope: 'all' | 'held' };
+    if (!label_id || !/^[a-zA-Z0-9-]+$/.test(label_id)) throw { code: 'QUERY', message: '不支持的标签筛选' };
+    const label = namedChoices.label.find(l => l.id === label_id);
+    if (!label) throw { code: 'LABEL', message: '标签已不可用，请返回物品列表重新选择' };
+    const states = scope === 'held' ? ['active', 'retired'] : ['active', 'retired', 'sold'];
+    const matched = records.filter(r => !r.deleted && states.includes(r.lifecycle?.state ?? 'active') && r.preferences?.label_id === label_id);
+    const items = matched.filter(r => !r.preferences?.exclude.statistics).map(r => {
+      const known = (r.maintenances ?? []).filter(m => m.fields.cost_cents !== null);
+      const unknownCount = (r.maintenances ?? []).length - known.length;
+      const knownMaintenance = known.reduce((sum, m) => sum + Number(m.fields.cost_cents ?? 0), 0);
+      const purchase = r.asset.price_cents === null ? null : Number(r.asset.price_cents);
+      return {
+        id: r.asset.id, name: r.asset.name, category_name: catalog.categories.find(c => c.id === r.classification?.category_id)?.name ?? '未分类',
+        lifecycle_state: r.lifecycle?.state ?? 'active', brand: r.details.brand, model: r.details.model, serial_number: r.details.serial_number, notes: r.details.notes,
+        purchase_cents: r.asset.price_cents, known_maintenance_cents: String(knownMaintenance), known_maintenance_record_count: known.length, missing_maintenance_count: unknownCount,
+        known_investment_cents: String((purchase ?? 0) + knownMaintenance),
+        complete_investment_cents: purchase !== null && unknownCount === 0 ? String((purchase ?? 0) + knownMaintenance) : null,
+        has_known_investment: purchase !== null || known.length > 0,
+        sale_proceeds_cents: r.sale?.fields.price_cents ?? '0', incomplete: purchase === null || unknownCount > 0,
+      };
+    });
+    items.sort((a, b) => Number(b.incomplete) - Number(a.incomplete) || Number(b.known_investment_cents) - Number(a.known_investment_cents) || a.id.localeCompare(b.id));
+    const counts = {
+      matched: matched.length, included: items.length, excluded: matched.length - items.length,
+      active: items.filter(i => i.lifecycle_state === 'active').length, retired: items.filter(i => i.lifecycle_state === 'retired').length, sold: items.filter(i => i.lifecycle_state === 'sold').length,
+    };
+    const checked = (values: number[]) => { let total = 0; for (const v of values) { total += v; if (!Number.isSafeInteger(total)) throw { code: 'OVERFLOW', message: '金额超出范围' }; } return total; };
+    const knownPurchase = checked(items.map(i => Number(i.purchase_cents ?? 0)));
+    const knownMaintenance = checked(items.map(i => Number(i.known_maintenance_cents)));
+    const proceeds = checked(items.map(i => Number(i.sale_proceeds_cents)));
+    const knownInvestment = knownPurchase + knownMaintenance;
+    const complete = items.every(i => i.purchase_cents !== null && i.missing_maintenance_count === 0);
+    return { generation, today: localDay(), label: { id: label.id, name: label.name, inactive: !label.enabled }, scope, counts,
+      totals: {
+        known_purchase_cents: String(knownPurchase), known_maintenance_cents: String(knownMaintenance), known_investment_cents: String(knownInvestment),
+        sale_proceeds_cents: String(proceeds), known_net_cents: String(knownInvestment - proceeds),
+        complete_investment_cents: complete ? String(knownInvestment) : null, complete_net_cents: complete ? String(knownInvestment - proceeds) : null,
+        has_known_purchase: items.some(i => i.purchase_cents !== null), has_known_maintenance_record: items.some(i => i.known_maintenance_record_count > 0),
+        has_known_investment: items.some(i => i.has_known_investment),
+        missing_purchase_count: items.filter(i => i.purchase_cents === null).length, missing_maintenance_count: items.reduce((n, i) => n + i.missing_maintenance_count, 0),
+        incomplete_asset_count: items.filter(i => i.incomplete).length,
+      }, items };
   }
   if (command === 'list_assets') {
     if (params.get('state') === 'error') throw { message: '虚构加载失败，用于验证错误页面。' };
@@ -620,5 +720,11 @@ window.addEventListener('keydown',event=>{
   if(action[event.key.toLowerCase()]){event.preventDefault();void emit('asset-action',action[event.key.toLowerCase()]);}
 });
 if (params.get('section')) sessionStorage.setItem('possio.library-section.v1', params.get('section')!);
+// 截图入口：自动进入指定标签的分析子视图（仅浏览器预览；?enter-tag=<labelId>&analysis-search=<词>）。
+if (params.get('enter-tag')) {
+  sessionStorage.setItem('possio.enter-tag.v1', params.get('enter-tag')!);
+  sessionStorage.setItem('possio.enter-tag-search.v1', params.get('analysis-search') ?? '');
+  sessionStorage.setItem('possio.enter-tag-scope.v1', params.get('analysis-scope') === 'held' ? 'held' : 'all');
+}
 if (params.get('state') === 'components') void import('./ComponentPreview');
 else void import('./main');

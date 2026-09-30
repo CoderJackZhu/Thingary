@@ -114,6 +114,25 @@ pub async fn list_assets(query: Query, worker: tauri::State<'_, Worker>) -> Resu
     .await
     .map_err(|_| Error::new("WORKER", "读取失败，请重试"))?
 }
+/// U17 标签投入分析：当前库只读聚合，跟随样例/我的资料切换。
+#[tauri::command]
+pub async fn tag_investment_view(
+    query: crate::tag_investment::TagInvestmentQuery,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::tag_investment::TagInvestmentView> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.tag_investment_view(
+                &query.label_id,
+                &query.scope,
+                &chrono::Local::now().format("%Y-%m-%d").to_string(),
+            )
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "读取失败，请重试"))?
+}
 #[tauri::command]
 pub async fn read_asset(
     id: String,

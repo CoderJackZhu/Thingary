@@ -264,3 +264,23 @@
 .stats-section[aria-label="统计"] .ui-metrics{grid-column:1/-1}
 .stats-section[aria-label="统计"]>.ui-card{min-width:0;overflow:auto}
 @media(max-width:1000px){.stats-section[aria-label="统计"]{grid-template-columns:minmax(0,1fr)}}
+
+/* U17 标签投入分析：指标行复用 ui-metrics；占比条、未知提示与窄窗折行 */
+.tag-notice{display:flex;align-items:center;gap:8px;margin:-6px 0 14px;padding:8px 14px;border-radius:var(--ctl-radius);background:var(--warn-bg);color:var(--warn);font-size:13px}
+.tag-table .tag-item-link{display:inline-flex;align-items:center;gap:10px;border:0;background:none;padding:0;font:inherit;color:var(--text);cursor:pointer;text-align:left;max-width:100%}
+.tag-table .tag-item-link strong{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag-table .tag-item-link:hover strong{color:var(--accent)}
+.tag-table .tag-item-link:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.tag-item-sub{display:none;margin-left:14px;font-size:11px;color:var(--muted);white-space:nowrap}
+.tag-pct{display:inline-flex;align-items:center;justify-content:flex-end;gap:8px;min-width:104px}
+.tag-bar{width:56px;height:6px;border-radius:3px;background:var(--soft);overflow:hidden;flex:none}
+.tag-bar i{display:block;height:100%;background:var(--chart);border-radius:3px}
+.tag-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+@media(max-width:1000px){
+  .tag-table .col-buy,.tag-table .col-maint{display:none}
+  .tag-item-sub{display:inline-block}
+}
+
+.page-header-actions .segmented button{white-space:nowrap}
+.segmented.tag-scope{flex-wrap:nowrap;flex-shrink:0;gap:2px;border:1px solid var(--line);border-radius:6px;padding:2px}
+.segmented.tag-scope button{width:auto;height:auto;min-width:0;padding:5px 10px;white-space:nowrap;color:var(--text)}

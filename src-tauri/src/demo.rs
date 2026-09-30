@@ -1,6 +1,7 @@
 //! Original fictional records for an isolated demonstration library.
 use crate::{
     catalog::{AssetRecord, Details, SaveAsset},
+    choices,
     domain::{Error, Result, Save},
     lifecycle, maintenance,
     photos::Selection,
@@ -22,6 +23,7 @@ struct Demo {
     category: String,
     icon: taxonomy::Icon,
     channel: Option<String>,
+    label: Option<String>,
     notes: String,
     retired_on: Option<String>,
     sale: Option<sales::Fields>,
@@ -74,6 +76,27 @@ fn option(
         .map(|e| e.id)
         .ok_or_else(|| Error::new("DEMO", "示例分类未能创建"))
 }
+/// U17 标签事实：标签经确定性请求创建，档案建档时一并写入归属，
+/// 既有样例库（marker 已存在）不会重跑 import，编辑得以保留。
+fn label_id(s: &mut Store, key: &str, name: &str) -> Result<String> {
+    let snapshot = s.choices("label")?;
+    if let Some(entry) = snapshot.items.iter().find(|e| e.name == name) {
+        return Ok(entry.id.clone());
+    }
+    let change: choices::Change = serde_json::from_value(serde_json::json!({
+        "request_id": request(key, "label"),
+        "generation": s.generation(),
+        "expected_revision": snapshot.revision,
+        "kind": "label",
+        "action": {"type": "create", "name": name},
+    }))?;
+    let next = s.change_choices(&change)?;
+    next.items
+        .into_iter()
+        .find(|e| e.name == name)
+        .map(|e| e.id)
+        .ok_or_else(|| Error::new("DEMO", "示例标签未能创建"))
+}
 fn import_one(s: &mut Store, a: &Demo, today: &str) -> Result<AssetRecord> {
     let generation = s.generation();
     let create_request = request(&a.key, "create");
@@ -86,6 +109,11 @@ fn import_one(s: &mut Store, a: &Demo, today: &str) -> Result<AssetRecord> {
             .as_ref()
             .map(|name| option(s, taxonomy::Kind::Channel, name, None))
             .transpose()?;
+        let label_id = a
+            .label
+            .as_ref()
+            .map(|name| label_id(s, &a.key, name))
+            .transpose()?;
         let cover = s.stage_photo(
             &format!("原始 Demo 示意图（非实物照片）-{}.png", a.key),
             photo(&a.key),
@@ -94,7 +122,13 @@ fn import_one(s: &mut Store, a: &Demo, today: &str) -> Result<AssetRecord> {
         )?;
         s.save_asset(
             &SaveAsset {
-                options: None,
+                options: label_id.map(|id| crate::preferences::AssetOptions {
+                    preferences: crate::preferences::AssetPreferences {
+                        label_id: Some(id),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }),
                 base: Save {
                     request_id: create_request,
                     generation: generation.clone(),
