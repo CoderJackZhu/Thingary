@@ -366,8 +366,9 @@ export function CategoryFilter({
     observer.observe(wrap);
     return () => observer.disconnect();
   }, []);
-  // 条目集或选中项变化（换库、选择隐藏分类、主题字体变化后的宽度差）重测。
-  useEffect(() => { measureRef.current(); }, [entriesKey, selectedEntry?.id]);
+  // 条目集、选中项或错误态变化（换库、选择隐藏分类、字体宽度差、错误触发钮出现/消失
+  // 时 reserveMore 预算随之改变）重测。
+  useEffect(() => { measureRef.current(); }, [entriesKey, selectedEntry?.id, !!error]);
   // 换库：条目集变化即关闭菜单、丢弃搜索，选项随新库渲染。
   useEffect(() => { setMenuOpen(false); }, [entriesKey]);
   // 浏览器预览截图入口：?category-menu=open 在分类就绪后直接开菜单（原生无此流程）；
