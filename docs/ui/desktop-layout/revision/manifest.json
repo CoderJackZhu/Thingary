@@ -4,7 +4,7 @@
   "head": "19f3360",
   "files": {
     "src/category-layout.ts": "26fd6e4bdd68a176c3a1979224db8960768458c2c8e9e1c744eb2eb709eae8f6",
-    "src/TaxonomyFields.tsx": "ee88f2551fa71e21f813789e2182c8d192619aa050f74a67257f6b97f5c9a774",
+    "src/TaxonomyFields.tsx": "25dda0a4466b8ef85adea066bcb000f65557d50ea8cc584a6f78190e39c5b789",
     "src/wealth.css": "1b97149af6960f6322c84380af6d74569c4628e5008ef627dc602ebc128b0fe9",
     "src/app-layout.css": "0b8c8ffc553d6ed6fe41ec121a5b90b3be5668b9dbf9d599ce16015a177ff1b3",
     "src/taxonomy.css": "0db494f229b151a228846ecc510d00fb792e026c088c93e7bdd82fe21584630f",
@@ -179,5 +179,6 @@
     "before": 72,
     "after": 79
   },
-  "codeFingerprint": "3daab3b7137ece8af494d9ab300f0e92c961143e2fcd1ab8da4114c9664617af"
+  "codeFingerprint": "08e23f9bda8c89e4941ad02e36e0ab5209b4b58f791f00e486ddaab15eceaa15",
+  "fingerprintMethod": "sha256 of sorted lines \"<sha256>  <path>\\n\" over files (regenerated in nits round)"
 }
