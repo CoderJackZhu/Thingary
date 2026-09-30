@@ -1,0 +1,16 @@
+[
+  {
+    "text": "计划 4",
+    "width": 26,
+    "scrollWidth": 50,
+    "cssWidth": "26px",
+    "whiteSpace": "nowrap"
+  },
+  {
+    "text": "付款记录 4",
+    "width": 26,
+    "scrollWidth": 76,
+    "cssWidth": "26px",
+    "whiteSpace": "nowrap"
+  }
+]

@@ -4,6 +4,16 @@
 
 **当前定位：高完成度的 Mac 桌面体验 + 个人持物档案 + 低频财富回顾 + 本地数据。** 不做日常记账，不依赖服务器。统一产品需求见产品设计第 17 节；其中 A · 财富盘点随 1.2.0、B · 重要支出随 1.3.0、C1 · 周期费用随 1.4.0、C2 · 虚拟资产随 1.8.0、D · 综合体验随 1.9.0 发布。
 
+## U18 桌面布局与导航整理（修订轮完成，再次交回独立复审，未提交/未发布）
+
+zcode 已回交工作区实现；第一轮[独立 Review](docs/verification/U18_REVIEW_RESULT.md)要求修订 R1–R7（分类页崩溃、周期按钮挤压、21 张无效截图等）。**修订轮已完成**：R1/R3 分类渲染与预算边界修复＋真实组件交互测试 6/6，R2 周期按钮特异性修复（DOM 实测不重叠），R4–R6 时间轴门控/子页鼠标返回/错误重试接线（验证 8/8），R7 受影响 after 39 张重拍逐张审看、before 全矩阵 72 张以 HEAD 原版补齐、SHA-256 指纹绑定；工程检查复跑全绿。原生 UI 行为仍为未验项；当前可用功能仍以已发布版本为准。
+
+- [产品规则与验收](docs/PRODUCT_DESIGN.md#u18-product)：六项范围、非目标与 U18-AC01–12。
+- [界面设计](docs/ui/U18_DESKTOP_LAYOUT_DESIGN.md)：布局、分类菜单、返回与焦点、主题、状态和同尺寸证据要求。
+- [实施计划 U18](docs/IMPLEMENTATION_PLAN.md#u18)：各阶段修订状态、原生行为缺口与 Review 边界。
+- [zcode 验证报告](docs/verification/U18_DESKTOP_LAYOUT_RESULT.md)：首轮记录保留，修订轮证据见其 §10（R1–R7 逐项）；[视觉索引](docs/ui/desktop-layout/index.html)：before/after 全矩阵 155 张对照；[指纹清单](docs/ui/desktop-layout/revision/manifest.json)。
+- [zcode 开发交接与启动 Prompt](docs/U18_ZCODE_HANDOFF.md)：接手基线、执行要求、证据格式与交回独立 Review。
+
 ## U17 标签投入分析（已随 2.2.0 发布）
 
 从现有标签查看相关实物的购入、维护、累计投入、售出回收及每件投入占比（产品设计 D23）。2026-09-30 zcode 完成开发与修订，第二轮独立 Review（U17r）通过（含非阻断备注）；用户已授权提交、推送、安装。2.2.0 已提交、推送并安装；[发布记录](docs/verification/U17_REVIEW_RESULT.md#6-220-发布与安装2026-09-30)包含构建身份、回退包与完整校验清单。

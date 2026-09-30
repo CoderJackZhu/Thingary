@@ -7,13 +7,17 @@ const categories = [
   ['appearance', '外观', 'sun'], ['options', '选项管理', 'list'], ['modules', '功能模块', 'grid'],
   ['data', '资料与备份', 'archive'], ['demo', '样例', 'items'],
 ] as const;
-type Category = typeof categories[number][0];
+export type SettingsCategory = typeof categories[number][0];
 
-/** Keep panels mounted: switching categories must not discard a pending receipt. */
-export function SettingsView({ panels, optionsPending, demoPending, busy }: {
-  panels: Record<Category, ReactNode>; optionsPending: boolean; demoPending: boolean; busy: boolean;
+/** Keep panels mounted: switching categories must not discard a pending receipt.
+ * U18：分组状态可受控（App 持有），从「素材库／最近删除」返回时恢复原分组。 */
+export function SettingsView({ panels, optionsPending, demoPending, busy, group, onGroup }: {
+  panels: Record<SettingsCategory, ReactNode>; optionsPending: boolean; demoPending: boolean; busy: boolean;
+  group?: SettingsCategory; onGroup?: (group: SettingsCategory) => void;
 }) {
-  const [selected, setSelected] = useState<Category>(demoPending ? 'demo' : optionsPending ? 'options' : 'appearance');
+  const [inner, setInner] = useState<SettingsCategory>(demoPending ? 'demo' : optionsPending ? 'options' : 'appearance');
+  const selected = group ?? inner;
+  const setSelected = (next: SettingsCategory) => { setInner(next); onGroup?.(next); };
   useEffect(() => { if (optionsPending) setSelected('options'); else if (demoPending) setSelected('demo'); }, [optionsPending, demoPending]);
   return <section className="settings-section settings-categories">
     <nav className="settings-categories-nav" aria-label="设置分类">{categories.map(([key, label, icon]) =>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>U18 · 桌面布局修复与导航整理 · 视觉证据索引</title>
+<style>
+  body{font:13px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;color:#1d1d1f;background:#f5f5f7;margin:0;padding:28px}
+  main{max-width:1180px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px} h2{font-size:15px;margin:28px 0 8px;border-top:1px solid #d2d2d7;padding-top:16px}
+  .meta{color:#6e6e73;font-size:12px;margin:0 0 12px}
+  table{border-collapse:collapse;width:100%;background:#fff;border-radius:8px;overflow:hidden;font-size:12px}
+  th,td{border-bottom:1px solid #e5e5ea;padding:6px 10px;text-align:left;vertical-align:top}
+  th{background:#f2f2f7;font-weight:500;color:#6e6e73}
+  td a{color:#0a6cff;text-decoration:none} td a:hover{text-decoration:underline}
+  .tag{display:inline-block;padding:0 7px;border-radius:99px;background:#eef3ff;color:#0a6cff;font-size:11px;line-height:18px;margin-right:4px}
+  .tag.before{background:#fdf1e7;color:#9a4320}
+  .tag.fix{background:#eefaf0;color:#1d7a3a}
+  .note{font-size:12px;color:#6e6e73}
+</style>
+</head>
+<body><main>
+<h1>U18 · 桌面布局修复与导航整理 — 视觉证据索引</h1>
+<p class="meta">状态：修订轮完成（Review R1–R7 已修复并补证据），<b>再次交回独立复审</b>（未提交、未发布）。基线 main <code>91b7bd9</code>，工作区实现未提交。
+所有截图为浏览器虚构预览（<code>visual-preview.html</code> 内存夹具，刷新重置）在同窗口尺寸下的渲染证据；
+原生隔离验证见 <a href="../../verification/U18_DESKTOP_LAYOUT_RESULT.md">验证报告</a>（原生 UI 行为仍为未验项）；修订轮证据见 <a href="../../verification/U18_DESKTOP_LAYOUT_RESULT.md#10-修订轮review-r1r7">报告 §10</a> 与 <a href="revision/manifest.json">revision/manifest.json</a>（源码与截图指纹）。
+调查表与 AC 矩阵见同一报告 §2/§4。</p>
+
+<h2>现状（before · HEAD 原版状态 · 2026-09-30 修订轮全矩阵重拍）</h2>
+<p class="meta">修订轮以「临时文件交换＋HEAD 原版」方式补齐 <b>18 组合 × 4 页面 = 72 张</b> before 对照（每格拍前 DOM 探测，像素检查全过；原版缺陷如实呈现：分类栏渐隐截断、周期 tabs 26px、旧导航/统计命名）。下表为 B 浅直链，其余组合文件名同规则：</p>
+<table>
+<tr><th>页面/状态</th><th>尺寸</th><th>复现内容</th></tr>
+<tr><td><a href="before/wish-detail-1280x820-B-light.png">wish-detail-1280x820</a></td><td>1280×820</td><td>筛选「全部」在末位；检视器内「已攒/还差」挤在窄列，<code>¥2,000</code> 断成「¥2,00／0」，+1/+5/+10/+100/+1% 每钮一行竖排</td></tr>
+<tr><td><a href="before/recurring-payments-1280x820-B-light.png">recurring-payments-1280x820</a></td><td>1280×820</td><td>到期表与按钮未挤碎（宽窗），付款记录被 13 期到期推出首屏</td></tr>
+<tr><td><a href="before/category-overflow-1280x820-B-light.png">category-overflow-1280x820</a></td><td>1280×820</td><td>分类栏 5 项后渐隐截断（24px mask＋隐藏横向滚动），鼠标不可达</td></tr>
+<tr><td><a href="before/sidebar-stats-1280x820-B-light.png">sidebar-stats-1280x820</a></td><td>1280×820</td><td>侧栏「回顾」组含时间轴＋统计；底部为素材库/最近删除/设置＋二态切换钮</td></tr>
+<tr><td><a href="before/wish-detail-1080x760-B-light.png">wish-detail-1080x760</a></td><td>1080×760</td><td>同上（检视器已滚入视野）</td></tr>
+<tr><td><a href="before/recurring-payments-1080x760-B-light.png">recurring-payments-1080x760</a></td><td>1080×760</td><td>同上</td></tr>
+<tr><td><a href="before/category-overflow-1080x760-B-light.png">category-overflow-1080x760</a></td><td>1080×760</td><td>同上</td></tr>
+<tr><td><a href="before/sidebar-stats-1080x760-B-light.png">sidebar-stats-1080x760</a></td><td>1080×760</td><td>同上</td></tr>
+<tr><td><a href="before/wish-detail-800x600-B-light.png">wish-detail-800x600</a></td><td>800×600</td><td>窄窗检视器（滚至详情）</td></tr>
+<tr><td><a href="before/recurring-payments-800x600-B-light.png">recurring-payments-800x600</a></td><td>800×600</td><td>到期日/分类/金额逐字断行、「确认已付」按钮三行折行、tabs 26px 逐字竖排（同图下半即付款记录表）</td></tr>
+<tr><td><a href="before/category-overflow-800x600-B-light.png">category-overflow-800x600</a></td><td>800×600</td><td>分类栏仅剩半个「全部分类」可点，其余完全不可见</td></tr>
+<tr><td><a href="before/sidebar-stats-800x600-B-light.png">sidebar-stats-800x600</a></td><td>800×600</td><td>同上</td></tr>
+</table>
+<p class="note">其余主题/模式的 before 与 B-浅共享同一布局缺陷（缺陷在共用 CSS，与主题无关），不重复拍摄；各主题 after 已逐组合覆盖。</p>
+
+<h2>实现后（after · 修订轮最终代码重拍，39 张受影响组合逐张人工审看）— 18 组合 × 4 页面</h2>
+<p class="meta">每格四链接：心愿详情 · 周期付款 · 分类溢出 · 侧栏/物品统计。心愿详情在 800×600/1080×760 已滚动到检视器。</p>
+<table>
+<tr><th>尺寸</th><th>主题</th><th>模式</th><th>心愿详情</th><th>周期付款</th><th>分类溢出</th><th>侧栏/物品统计</th></tr>
+<script>
+// 由构建脚本内联的清单驱动，见文件尾 data 列表。
+const SIZES=["1280x820","1080x760","800x600"];
+const THEMES=[["B","native"],["C","paper"],["D","bento"]];
+const MODES=["light","dark"];
+document.write(SIZES.flatMap(s=>THEMES.map(([t])=>MODES.map(m=>{
+  const f=(p)=>`after/${p}-${s}-${t}-${m}.png`;
+  return `<tr><td>${s}</td><td>${t}</td><td>${m==="light"?"浅":"深"}</td>`+
+    ["wish-detail","recurring-payments","category-overflow","sidebar-stats"].map(p=>`<td><a href="${f(p)}">${f(p).split("/")[1]}</a></td>`).join("")+"</tr>";
+}).join(""))).join(""));
+</script>
+</table>
+
+<h2>特殊状态补充</h2>
+<table>
+<tr><th>状态</th><th>截图</th><th>说明</th></tr>
+<tr><td><span class="tag">设计</span>分类菜单展开</td><td><a href="after/category-menu-open-1280x820-B-light.png">B 浅</a> · <a href="after/category-menu-open-1280x820-B-dark.png">B 深</a></td><td>搜索框＋「全部分类 ✓／未分类」固定项＋全部 40 个分类纵向滚动；portal 定位不被列表裁切</td></tr>
+<tr><td><span class="tag">设计</span>极窄选择器</td><td><a href="after/category-compact-400x600-B-light.png">400×600 B 浅</a></td><td>整栏收敛为「分类：全部分类 ▾」单个选择按钮</td></tr>
+<tr><td><span class="tag">设计</span>大金额心愿</td><td><a href="after/wish-detail-bigamount-1280x820-B-light.png">1280×820 B 浅</a></td><td>¥12,345,678.90 完整一行不断字</td></tr>
+<tr><td><span class="tag fix">设置</span>外观分组（含素材库入口）</td><td><a href="after/settings-appearance-1280x820-B-light.png">1280×820 B 浅</a></td><td>三主题卡＋明暗三态（与侧栏同源）＋「素材库」入口行</td></tr>
+<tr><td><span class="tag fix">设置</span>素材库子页面包屑</td><td><a href="after/settings-materials-crumb-1280x820-B-light.png">1280×820 B 浅</a></td><td>面包屑「设置／素材库」，侧栏保持设置高亮</td></tr>
+</table>
+
+<h2>证据边界</h2>
+<p class="note">· 浏览器截图只证明内存预览的布局与交互呈现；鼠标点选、键盘、窗口缩放与返回路径的动态验证由 ego-browser 交互冒烟（报告 §5）与隔离原生验收（报告 §6）共同覆盖。<br/>
+· 「设计」标签为 U18 方案要求的实现状态截图（无独立设计稿页面，设计依据为 U18 设计文档文字线框）。<br/>
+· 原生三主题截图未逐格拍摄：原生验收聚焦行为（鼠标尾项、键盘、三态、重开、U17 返回），主题渲染由上表 18 组合浏览器证据覆盖。</p>
+</main></body>
+</html>

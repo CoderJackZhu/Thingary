@@ -1,5 +1,33 @@
 # Possio：实施任务与开工检查
 
+<a id="u18"></a>
+
+## U18 · 桌面布局修复与导航整理（2026-09-30，修订轮完成，再次交回独立复审；未提交/未发布）
+
+**独立 Review（2026-09-30）：Request changes（R1–R7）。** [U18 Review](verification/U18_REVIEW_RESULT.md)指出分类渲染循环空白、周期按钮仍 26px、分类预算边界、时间轴门控、子页返回、错误重试及 21 张空白截图。**修订轮（同日）已按 R1→R2→R3→R4–R6→R7 完成**：真实组件交互测试 6/6、R5/R6 验证 8/8（`desktop-layout/revision/`）、受影响 after 39 张重拍并逐张人工审看、before 全矩阵 72 张以 HEAD 原版补齐、源码与截图 SHA-256 指纹绑定（[作者报告 §10](verification/U18_DESKTOP_LAYOUT_RESULT.md#10-修订轮review-r1r7)）；复跑 test:ui 173（含分类布局 12 项）、cargo 226、check、build、git diff --check 全过。下表「待修订」行已更新为修订结果；原生 UI 行为仍为未验项。
+
+用户确认六项调整方向，随后指定交给 zcode 的 GLM 5.3 Flash，并要求准备材料和启动 Prompt。用户发送[U18 zcode 交接](U18_ZCODE_HANDOFF.md)第 7 节 Prompt 后，zcode 按其授权完成 U18a–e；实现与自测在工作区（接手基线 main `91b7bd90d1b3218772314ec1d37cb37d838ad6bd` 未提交，**HEAD 不包含 U18 实现**）。规则/AC 唯一见[产品 D24](PRODUCT_DESIGN.md#u18-product)，交互/取证要求见[U18 界面设计](ui/U18_DESKTOP_LAYOUT_DESIGN.md)，命令结果、根因调查、AC 证据矩阵与原生受阻说明见[验证报告](verification/U18_DESKTOP_LAYOUT_RESULT.md)，视觉索引见 `docs/ui/desktop-layout/index.html`（三尺寸 × 三主题 × 明暗 × 4 页面同尺寸截图）。工程检查全绿（test:ui 173、cargo 226、check、build、git diff --check）；隔离原生完成身份/资料/句柄/启动验证，**原生 UI 行为验收因执行环境 AX 树退化＋无屏幕录制授权而受阻未执行**，已在验证报告 §6.2 如实记录，包与夹具就绪可复跑。
+
+| 阶段 | 依赖与工作 | 出口及 AC 归属 | 状态 |
+|---|---|---|---|
+| U18a 复现与影响核对 | 图工具定位＋Vite 虚构夹具复现三问题，核实 U17 入口 | 三问题全部复现并定位实际根因（心愿：桌面详情双列网格泄漏进 300px 检视器；周期：`.segmented button` 26px 定宽命中 tabs＋窄窗表格逐字断行；分类：隐藏横向滚动＋渐隐 mask），before 截图与调查表入报告 | 完成 |
+| U18b 详情修复 | 心愿状态顺序、检视器单列、周期 tabs/表格 nowrap | AC01–03；共用指标/记录组件未动（资产摘要、虚拟检视器） | 完成（R2 已修：`.wealth-section` 特异性覆盖，DOM 实测 tabs 61/96px 不重叠，三尺寸六组合重拍审看） |
+| U18c 分类溢出 | `planCategoryLayout` 纯函数＋更多分类菜单（搜索/固定项/勾选/键盘）＋极窄选择器＋窄窗整行 | AC04–05、AC11 分类部分；U17 两层返回保持 | 完成（R1 无限更新修复＋compact 映射、R3 边界；纯函数 12 项＋真实组件交互 6 项；错误/重试接线 R6；18 组合重拍审看） |
+| U18d 导航与主题 | 物品统计入物品组末尾、回顾组取消、时间轴移底部、设置子入口与来源感知返回、底部三态 | AC07–09 浏览器证据＋三态/同步冒烟；统计 aria-label 与 CSS 选择器同步 | 完成（R4 恢复 `modules.timeline` 门控＋模块名称「物品统计」；R5 鼠标返回按钮＋来源详情/稳定焦点恢复，验证 8/8；原生主题未验保留） |
+| U18e 综合验证与交付 | 18 组合 × 4 页面截图、特殊态、工程检查、隔离原生 | AC01–12 逐项有证据或缺口说明（见报告矩阵 §10.9）；原生行为项受阻未执行 | 修订轮完成：39 张受影响 after 重拍逐张审看、before 全矩阵 72 张 HEAD 原版补齐、指纹绑定；AC11/12 与原生行为维持部分/未验 |
+| U18r 独立 Review | 用户带回 zcode 结果后，由原 Codex 对话检查实际差异、证据和关键回归 | 报告发现与缺口，区分实现、自测、独立验证；不自动集成发布 | 第一轮 Request changes；修订轮已交回，待独立复审 |
+
+### U18 检查与停止边界
+
+- zcode 本轮按交接授权在当前目录直接接续，未切分支/worktree、未 stash/reset/clean；既有未提交 U18 文档与未跟踪 `.claude/` 全部保留；未修改根 `.gitignore`；未提交、推送、发布、安装或清理旧产物。
+- 业务语义不变；实际修改面为前端布局/筛选呈现/导航接线＋既有偏好状态源复用，无 Rust 数据契约改动（cargo 226 回归全绿），无新依赖、无 schema 迁移。
+- 运行 `npm run build`、`npm run test:ui`（含新增 7 项）、`npm run check`、`git diff --check`、`npm test` 均通过（见验证报告 §3）。
+- 原生行为验收受阻的缺口由独立 Review 环境决定是否补跑：release/debug 隔离包（`local.possio.u18.acceptance`）与夹具 `src-tauri/examples/u18_fixture.rs` 已就绪，复跑步骤见验证报告 §6.2。
+- USER_GUIDE 本轮未更新：原生操作验收未完成，按交接约定不把未验功能写成可用操作。
+- U18e 停在可审阅交付；发布版本号、合并、推送与安装另按当次授权处理。
+
+---
+
 <a id="u17"></a>
 
 ## U17 · 标签投入分析（2026-09-30，已复审并随 2.2.0 发布）

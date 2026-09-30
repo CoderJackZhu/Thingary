@@ -21,7 +21,13 @@ type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; pla
 export function RecurringPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [data, setData] = useState<Overview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
-  const [tab, setTab] = useState<'plans' | 'payments'>('plans');
+  // 浏览器预览截图入口：?recurring-tab=payments 直达付款记录（原生无此流程）。
+  const [tab, setTab] = useState<'plans' | 'payments'>(() => {
+    const preset = sessionStorage.getItem('possio.recurring-tab.v1');
+    if (preset !== 'payments') return 'plans';
+    sessionStorage.removeItem('possio.recurring-tab.v1');
+    return 'payments';
+  });
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
@@ -98,7 +104,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
               <td className="amount">{money(p.fields.amount_cents)}</td><td>{p.fields.paused ? '—' : p.next_due ?? '—'}</td><td>{planStatus(p, today)}</td></tr>)}
           </tbody></table>}</article>}
         {tab === 'payments' && (!data.payments.length ? <p className="muted">还没有付款记录。到期后点「确认已付」或「本期不付」就会记在这里。</p> : <article className="ui-card ui-content"><div className="ui-section-head"><h3>付款记录</h3><span>点期次更正；实付金额可与计划不同</span></div>
-          <table className="ui-table"><thead><tr><th>期次</th><th>计划</th><th>状态</th><th>实付日期</th><th>实付金额</th></tr></thead><tbody>
+          <table className="ui-table recurring-payments"><thead><tr><th>期次</th><th>计划</th><th>状态</th><th>实付日期</th><th>实付金额</th></tr></thead><tbody>
             {data.payments.map(p => <tr key={p.id} className={p.state === 'skipped' ? 'closed' : undefined}>
               <td><button className="link-cell" onClick={() => { const plan = data.plans.find(x => x.id === p.plan_id); setPaying({ plan_id: p.plan_id, plan_name: p.plan_name, due_date: p.due_date, plan_amount: plan?.fields.amount_cents ?? '', record: p }); }}>{p.due_date}</button>{p.off_schedule && <small className="muted"> 计划外</small>}</td>
               <td>{p.plan_name}</td><td>{p.state === 'paid' ? '已付' : '本期不付'}</td><td>{p.paid_date ?? '—'}</td><td className="amount">{p.amount_cents === null ? '—' : money(p.amount_cents)}</td></tr>)}

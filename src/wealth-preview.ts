@@ -236,7 +236,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
 // Fictional wishes with stable IDs: two share a name so same-name source
 // resolution stays demonstrable in the browser preview.
 type PreviewWish = WishlistItem;
-const wishFixture = (id: string, name: string, yuan: string, created: string): PreviewWish => ({
+const wishFixture = (id: string, name: string, yuan: string | null, created: string): PreviewWish => ({
   id, fields: { name, category_id: null, estimated_price_cents: yuan, priority: null, target_date: '', external_link: '', notes: '虚构心愿样例' },
   status: 'ongoing', revision: 1, created_at: created, updated_at: created, abandoned_at: null, achieved_at: null,
   converted_asset: null, cover: null, photos: [],
@@ -246,6 +246,40 @@ let wishes: PreviewWish[] = params.get('state') === 'empty' ? [] : [
   wishFixture('wish-lens-2', '虚构心愿 · 相机镜头', '120000', '2026-09-12T09:00:00.000Z'),
   wishFixture('wish-desk', '虚构心愿 · 实木书桌', '450000', '2026-09-20T09:00:00.000Z'),
 ];
+
+// U18 布局夹具：心愿按设计 §6.1 覆盖金额/状态组合（价格 2,850、已攒 850、
+// 还差 2,000；大金额、未知/零、长名称、已实现/已放弃）；周期按 0/1/30 条
+// 付款与长名称/备注构造。仅浏览器预览，刷新即重置。
+const layoutWish = (id: string, name: string, price: string | null, prefs: Partial<PreviewWish['preferences']> & { mode: 'countdown' | 'savings' }, status: PreviewWish['status'] = 'ongoing', created = '2026-09-01T09:00:00.000Z'): PreviewWish => ({
+  ...wishFixture(id, name, price, created), status,
+  preferences: { added_date: '2026-09-01', channel_id: null, saved_cents: '0', achievement_source: null, pinned: false, reminder: false, ...prefs },
+});
+if (params.get('wish-fixture') === 'layout') {
+  wishes = [
+    layoutWish('wish-2850', '虚构长名称心愿 · 等待很久的木框全画幅镜头与整套滤镜系统', '285000', { mode: 'savings', saved_cents: '85000' }),
+    layoutWish('wish-big', '大金额心愿 · 工作室整套设备', '1234567890', { mode: 'savings', saved_cents: '0' }),
+    layoutWish('wish-unknown', '价格未知心愿 · 待定型号耳机', null, { mode: 'countdown' }),
+    layoutWish('wish-zero', '零价格心愿 · 朋友转让的旧书架', '0', { mode: 'savings', saved_cents: '0' }),
+    layoutWish('wish-no-date', '无目标日期心愿 · 年度旅行相机包', '99000', { mode: 'countdown' }),
+    layoutWish('wish-done', '已实现心愿 · 键盘', '29900', { mode: 'savings', saved_cents: '29900', achievement_source: 'savings' }, 'achieved'),
+    layoutWish('wish-given-up', '已放弃心愿 · 跑步机', '399900', { mode: 'countdown' }, 'abandoned'),
+  ];
+}
+if (params.get('recurring-fixture') === '30') {
+  const longPlan = plan('r-u18-long', '虚构超长名称周期计划 · 全屋智能安防监控与云存储订阅服务（含设备租赁与上门维护）', 'insurance', '16800', 1, shifted(40), { notes: '虚构长备注：含摄像机三台、门磁两枚的租赁费，每期账单在 3 日后出账，可延期一周缴纳。' });
+  const singlePlan = plan('r-u18-one', '单期付款计划 · 域名续费', 'subscription', '8800', 12, shifted(13));
+  const emptyPlan = plan('r-u18-none', '还没有付款的计划 · 视频会员', 'subscription', '2500', 1, shifted(0, 1));
+  plans = [...plans, longPlan, singlePlan, emptyPlan];
+  payments = [
+    ...payments,
+    ...Array.from({ length: 30 }, (_, i) => {
+      const d = nth(longPlan.fields.first_due, 1, i);
+      const skipped = i % 7 === 3;
+      return { id: `p-u18-long-${i}`, plan_id: longPlan.id, plan_name: longPlan.fields.name, due_date: d, state: skipped ? ('skipped' as const) : ('paid' as const), paid_date: skipped ? null : d, amount_cents: skipped ? null : longPlan.fields.amount_cents, notes: skipped ? '本期不付：外出停用一个月' : '虚构付款备注，用于检查长文本折行。', revision: 1, off_schedule: false };
+    }),
+    { id: 'p-u18-one-0', plan_id: singlePlan.id, plan_name: singlePlan.fields.name, due_date: nth(singlePlan.fields.first_due, 12, 0), state: 'paid', paid_date: nth(singlePlan.fields.first_due, 12, 0), amount_cents: singlePlan.fields.amount_cents, notes: '', revision: 1, off_schedule: false },
+  ];
+}
 
 export function previewWishPage(query: WishlistQuery): WishlistPage {
   const found = wishes.filter(w => (!query.search || w.fields.name.toLowerCase().includes(query.search.toLowerCase()))

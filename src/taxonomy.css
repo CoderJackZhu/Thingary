@@ -537,3 +537,31 @@
     align-items: stretch;
   }
 }
+
+/* U18 鼠标优先的分类栏：完整胶囊按实测宽度排列；溢出收进「更多分类」菜单；
+ * 极窄收敛为单个选择按钮。无横向滚动、无左右翻页箭头。 */
+.cat-filter{min-width:0}
+.cat-chip-row{display:flex;align-items:center;gap:6px;min-width:0}
+.cat-chip{height:26px;padding:0 10px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:13px;white-space:nowrap;cursor:pointer}
+.cat-chip:hover:not(:disabled){background:var(--soft);color:var(--text)}
+.cat-chip[aria-pressed=true]{background:var(--text);border-color:var(--text);color:var(--bg);font-weight:500}
+.cat-chip[aria-pressed=true]:hover:not(:disabled){background:var(--text);color:var(--bg)}
+.cat-more{flex:none}
+.cat-caret{font-size:10px;margin-left:2px}
+/* 极窄：整栏一个选择按钮，超长名称在按钮内换行且完整可读 */
+.cat-compact{height:auto;min-height:26px;max-width:100%;padding:4px 12px;white-space:normal;text-align:left}
+.cat-compact .cat-compact-label{overflow-wrap:anywhere}
+.cat-compact .cat-caret{flex:none;margin-left:6px}
+/* 隐藏测量层：与可见层同字体、不响应指针、不参与布局 */
+.cat-measure{position:absolute;left:-9999px;top:0;display:inline-flex;gap:6px;visibility:hidden;pointer-events:none}
+.cat-measure .cat-chip{display:inline-block}
+/* 菜单：portal 到 body（不被列表/检视器 overflow 裁切），纵向滚动，必要时向上展开 */
+.cat-menu-panel{position:fixed;z-index:60;display:flex;flex-direction:column;gap:2px;width:260px;max-width:calc(100vw - 16px);max-height:min(60vh,480px);overflow:auto;padding:6px;background:var(--bg);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 36px #0002;scrollbar-gutter:stable}
+.cat-menu-search{flex:none;position:sticky;top:0;z-index:1;margin:-2px -2px 4px;padding:7px 9px;font-size:13px;background:var(--bg)}
+.cat-menu-item{display:flex;align-items:flex-start;gap:8px;padding:7px 9px;border:0;border-radius:6px;background:none;text-align:left;font-size:13px;line-height:1.5;color:var(--text);cursor:pointer}
+.cat-menu-item:hover:not(:disabled){background:var(--soft)}
+.cat-menu-item[aria-selected=true]{font-weight:600}
+.cat-menu-check{width:14px;flex:none;font-size:11px;color:var(--accent);text-align:center;line-height:inherit}
+.cat-menu-name{min-width:0;overflow-wrap:anywhere}
+.cat-menu-empty{margin:4px 2px;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:10px}
+.cat-menu-empty button{font-size:11px;padding:4px 9px}

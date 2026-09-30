@@ -1,0 +1,87 @@
+{
+  "checks": [
+    {
+      "name": "R6 错误态入口可达且禁用不吞恢复",
+      "pass": true,
+      "detail": {
+        "trigger": true,
+        "disabled": false,
+        "chips": [
+          "全部分类",
+          "未分类",
+          "更多分类 ▾"
+        ]
+      }
+    },
+    {
+      "name": "R6 菜单内错误原因+重试（非「没有匹配的分类」）",
+      "pass": true,
+      "detail": {
+        "alert": "虚构分类读取失败，用于验证错误与重试。重试",
+        "retryBtn": true,
+        "noMatchText": false
+      }
+    },
+    {
+      "name": "R6 重试可点击且不崩溃",
+      "pass": true,
+      "detail": {
+        "panelStill": true,
+        "errs": []
+      }
+    },
+    {
+      "name": "R6 无错误时分类正常渲染",
+      "pass": true,
+      "detail": {
+        "chips": 12
+      }
+    },
+    {
+      "name": "R5a 素材库子页有面包屑与鼠标返回按钮",
+      "pass": true,
+      "detail": {
+        "crumb": "设置／素材库",
+        "backBtn": [
+          "返回设置"
+        ]
+      }
+    },
+    {
+      "name": "R5a 鼠标返回设置并恢复入口焦点",
+      "pass": true,
+      "detail": {
+        "section": "?style=native&theme=light&section=settings",
+        "heading": "设置",
+        "appearanceVisible": true,
+        "focusedId": "settings-open-materials"
+      }
+    },
+    {
+      "name": "R5b 面包屑回设置分组并恢复入口焦点",
+      "pass": true,
+      "detail": {
+        "heading": "设置",
+        "focusedId": "settings-open-materials"
+      }
+    },
+    {
+      "name": "R5c 物品删除引导进最近删除后鼠标返回物品",
+      "pass": true,
+      "detail": {
+        "onTrash": {
+          "crumb": "设置／最近删除",
+          "back": [
+            "返回物品"
+          ]
+        },
+        "back": {
+          "heading": "全部资产",
+          "crumb": "我的物品／全部资产"
+        }
+      }
+    }
+  ],
+  "errors": [],
+  "allPass": true
+}

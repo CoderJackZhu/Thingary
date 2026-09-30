@@ -204,14 +204,20 @@
 .wish-inspector .wish-detail-identity{display:flex;flex-direction:column;width:100%;align-items:stretch}
 .wish-inspector .wish-detail-identity>img,.wish-inspector .wish-detail-identity>svg{width:100%;height:128px;object-fit:contain;background:var(--soft);border-radius:var(--surface-radius)}
 .wish-inspector h2{font:600 15px var(--head);margin:8px 0}
-.wish-inspector .wish-detail-body{padding:0;overflow:visible}
+/* U18：检视器只有一条纵向阅读路径——桌面详情的双列网格不进入 300px 检视器，
+ * 金额单元不逐字断行，快捷按钮整钮换行。 */
+.wish-inspector .wish-detail-body{padding:0;overflow:visible;grid-template-columns:1fr;gap:0}
 .wish-inspector .form-row{display:flex;justify-content:space-between;gap:10px;min-height:30px;padding:6px 0;font-size:11px}
 .wish-inspector .form-row-control{min-width:0;text-align:right}
 .wish-inspector .form-block{background:none;border-radius:0;box-shadow:none;padding:10px 0;margin:0;border-top:1px solid var(--line-soft)}
-.wish-inspector .saving-summary strong{font:var(--key-w) 20px var(--num)}
+.wish-inspector .saving-summary strong{font:var(--key-w) 20px var(--num);white-space:nowrap}
 .wish-inspector .quick-savings{display:flex;flex-wrap:wrap;gap:4px}
+.wish-inspector .quick-savings button{flex:1 0 auto;white-space:nowrap}
 .wish-inspector .wish-funding{padding:0}
 .wish-inspector .savings-controls{display:grid;gap:8px}
+.wish-inspector .inspector-metrics{grid-template-columns:1fr;gap:8px}
+.wish-inspector .inspector-metrics strong{overflow-wrap:normal;white-space:nowrap}
+.wish-inspector .wishlist-link{margin:10px 0 0}
 @media(max-width:1100px){.wishlist-section.has-inspector{grid-template-columns:minmax(0,1fr)}.wishlist-section>.wish-inspector{grid-column:1;grid-row:auto;position:static;width:100%;max-height:none;border-top:1px solid var(--line)}}
 
 /* U16e: global timeline; the asset history retains its compact vertical line. */
@@ -259,11 +265,20 @@
 @media(max-width:1100px){.page-header{flex-wrap:wrap}.page-header-actions{max-width:100%}.page-header-actions .wealth-toolbar{flex-wrap:wrap}.ui-table{font-size:11px}.ui-table th,.ui-table td{padding-inline:6px}.ui-table .amount{white-space:nowrap}}
 
 /* Statistics retain every existing analysis block in the shared two-column grid. */
-.stats-section[aria-label="统计"]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.stats-section[aria-label="统计"] .stats-dashboard,.stats-section[aria-label="统计"] .stats-pair{display:contents}
-.stats-section[aria-label="统计"] .ui-metrics{grid-column:1/-1}
-.stats-section[aria-label="统计"]>.ui-card{min-width:0;overflow:auto}
-@media(max-width:1000px){.stats-section[aria-label="统计"]{grid-template-columns:minmax(0,1fr)}}
+.stats-section[aria-label="物品统计"]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.stats-section[aria-label="物品统计"] .stats-dashboard,.stats-section[aria-label="物品统计"] .stats-pair{display:contents}
+.stats-section[aria-label="物品统计"] .ui-metrics{grid-column:1/-1}
+.stats-section[aria-label="物品统计"]>.ui-card{min-width:0;overflow:auto}
+@media(max-width:1000px){.stats-section[aria-label="物品统计"]{grid-template-columns:minmax(0,1fr)}}
+
+/* U18d：侧栏底部三态明暗——浅色／深色／跟随系统三个等宽图标按钮，同一时刻
+ * 仅一个偏好选中；与 B/C/D 主题风格（设置里选择）分开保存。 */
+.appearance-tri{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:6px 0 2px;padding:0 2px}
+.appearance-tri .tri-mode{flex:none;width:auto;min-width:0;height:28px;padding:0;display:grid;place-items:center;justify-content:center;color:var(--muted);border:1px solid transparent;border-radius:var(--ctl-radius);background:transparent}
+.appearance-tri .tri-mode:hover:not(:disabled){color:var(--text);background:var(--soft)}
+.appearance-tri .tri-mode[aria-pressed=true]{background:var(--nav-active-bg,var(--selected));color:var(--nav-active-fg,var(--accent));border-color:var(--line)}
+:root[data-style=bento] .sidebar nav .tri-mode .ui-icon{width:16px;height:16px;padding:0;border-radius:0;background:none;color:inherit}
+:root[data-style=bento] .sidebar nav .tri-mode[aria-pressed=true] .ui-icon{color:var(--nav-active-ic,#5e5ce6)}
 
 /* U17 标签投入分析：指标行复用 ui-metrics；占比条、未知提示与窄窗折行 */
 .tag-notice{display:flex;align-items:center;gap:8px;margin:-6px 0 14px;padding:8px 14px;border-radius:var(--ctl-radius);background:var(--warn-bg);color:var(--warn);font-size:13px}

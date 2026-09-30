@@ -121,8 +121,9 @@ h1,h2,h3{font-family:var(--display)}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .asset-overview-line{font-variant-numeric:tabular-nums}
 .collection-toolbar{display:flex;align-items:center;gap:12px;padding:6px 24px 12px;flex-wrap:nowrap}
-.collection-toolbar>[data-component=category-filter]{min-width:0;flex:1;overflow-x:auto;scrollbar-width:none}
-.collection-toolbar>[data-component=category-filter]::-webkit-scrollbar{display:none}
+.collection-toolbar>[data-component=category-filter]{min-width:0;flex:1}
+/* U18：窄窗下分类栏独占一行（右侧控件移到第二行右对齐）——完整胶囊或单个可读的选择按钮。 */
+@media(max-width:1190px){.collection-toolbar{flex-wrap:wrap}.collection-toolbar>[data-component=category-filter]{flex-basis:100%}.collection-toolbar .view-controls{margin-left:auto}}
 .collection-toolbar .taxonomy-segmented{flex-wrap:nowrap;gap:6px;border:0;padding:0;background:transparent}
 .collection-toolbar .taxonomy-segmented button{height:26px;padding:0 10px;border-radius:99px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:13px;white-space:nowrap}
 .collection-toolbar .taxonomy-segmented button[aria-pressed=true],.collection-toolbar .taxonomy-segmented button[aria-checked=true]{background:var(--text);border-color:var(--text);color:var(--bg);font-weight:500}
@@ -147,7 +148,6 @@ h1,h2,h3{font-family:var(--display)}
 .inspector-metrics small{font-size:13px;font-weight:400;color:var(--muted);margin-left:2px}
 .summary .facts dd.warn{color:var(--warn)}
 .collection-toolbar .taxonomy-eyebrow,.collection-toolbar .taxonomy-help{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.collection-toolbar>[data-component=category-filter]{display:block;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 24px),transparent)}
 .list .asset-row{min-height:56px;padding-block:8px}.list .object-mark{width:36px;height:36px}
 .list .asset-row>.amount,.list-head>.sort-price{text-align:right;justify-content:flex-end}
 .collection-options .filter-controls label{white-space:nowrap;gap:12px}.collection-options .filter-controls select{width:160px;min-width:0}

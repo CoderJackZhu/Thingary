@@ -70,6 +70,22 @@ const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
 
 if (params.get('state') === 'empty') records = [];
+// U18 分类夹具：30 个虚构分类（长中文/英文名、无物品分类），并把两件样例
+// 挂到首/尾分类，验证溢出、菜单与极窄选择器。仅浏览器预览，刷新即重置。
+if (params.get('category-fixture') === '30') {
+  const names = [
+    '便携手账与纸胶带', '长途骑行装备', 'Kitchen & Dining', '露营照明与电源', 'Mid-Century Furniture',
+    '手冲咖啡器具', '桌面收纳', '黑胶唱片', '绘画颜料', 'Model Kits',
+    '瑜伽与拉伸', '冬季滑雪', '水上运动', 'Kites & Drones', '望远镜与观鸟',
+    '多肉植物', '烘焙模具', '茶具与茶叶', '香薰蜡烛', 'Board Games',
+    '拼图', '乐高', '遥控车', '钓鱼用具', '烧烤炉具',
+    '工具与五金', '乐器配件', '缝纫机', '胶片相机', '一个特别特别特别长的分类名称用来验证菜单内换行行为',
+  ];
+  const extra = names.map((name, i) => ({ id: `u18-cat-${i}`, name, icon: 'box' as const, references: { activeAssets: 0, deletedAssets: 0 } }));
+  catalog.categories = [...catalog.categories, ...extra];
+  if (records[0]) records[0] = { ...records[0], classification: { category_id: 'u18-cat-0', channel_id: records[0].classification?.channel_id ?? null } };
+  if (records[1]) records[1] = { ...records[1], classification: { category_id: 'u18-cat-29', channel_id: records[1].classification?.channel_id ?? null } };
+}
 if (params.has('trash-fixture') && records[0]) records.push({...structuredClone(records[0]),asset:{...records[0].asset,id:'deleted-fixture',name:'虚构旧电脑'},deleted:true,deleted_at:'2026-09-28T08:00:00Z'});
 if (params.has('no-photos')) records = records.map(r => ({...r,photos:[],cover_id:null}));
 // Browser-only warranty fixtures anchored to the real current day, so E04/E05
@@ -153,6 +169,11 @@ if (params.has('theme')) localStorage.setItem('possio.theme',params.get('theme')
 if (params.has('style')) localStorage.setItem('possio.style', params.get('style') === 'paper' ? 'paper' : params.get('style') === 'bento' ? 'bento' : 'native');
 if (params.get('preset-label')) sessionStorage.setItem('possio.preset-label.v1', params.get('preset-label')!);
 if (params.has('enter-tag') || params.has('preset-label')) document.getElementById('visual-preview-label')?.remove();
+// U18 截图入口：?open-wish=<心愿ID> 走真实来源跳转打开详情；?recurring-tab=payments 直达付款记录视图。
+if (params.get('open-wish')) sessionStorage.setItem('possio.open-wish.v1', params.get('open-wish')!);
+if (params.get('recurring-tab')) sessionStorage.setItem('possio.recurring-tab.v1', params.get('recurring-tab')!);
+if (params.get('scroll-to')) sessionStorage.setItem('possio.scroll-to.v1', params.get('scroll-to')!);
+if (params.get('category-menu')) sessionStorage.setItem('possio.category-menu.v1', params.get('category-menu')!);
 const images = new Map<string, Promise<ArrayBuffer>>();
 // Staged material selections keep their artwork key so previews render the
 // same illustration the native app hosts; ids are per-selection and independent.
@@ -395,7 +416,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:true};
   if (command === 'switch_demo' || command === 'reset_demo') throw {message:'浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。'};
   if (command.startsWith('auto_backup_') || command === 'inspect_auto_backup') return autoBackupPreview(command, args);
-  if (command === 'taxonomy_snapshot') return taxonomySnapshot();
+  if (command === 'taxonomy_snapshot') { if (params.has('taxonomy-error')) throw { message: '虚构分类读取失败，用于验证错误与重试。' }; return taxonomySnapshot(); }
   if (command === 'taxonomy_request') return taxonomyReceipts.has(String(args.request));
   if (command === 'change_taxonomy') {
     const input = args.input as {request_id:string;generation:string;expected_revision:number;command:TaxonomyCommand};

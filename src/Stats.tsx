@@ -68,7 +68,7 @@ export function StatsPage({ onOpenAsset }: { onOpenAsset: (id: string) => void }
     invoke<Trend>('purchase_trend', { granularity }).then(t => { if (live) setTrend(t); }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [granularity, retry]);
-  return <section className="stats-section" aria-label="统计">
+  return <section className="stats-section" aria-label="物品统计">
     <StatsDashboard/>
     <article className="ui-card ui-content">
       <div className="ui-section-head"><h3>购买趋势</h3><Info text="历史全部：含已售出，不含已删除；按购入日期归入期间，期间首尾两天都包含。"/></div>

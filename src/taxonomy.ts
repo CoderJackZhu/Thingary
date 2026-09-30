@@ -105,6 +105,9 @@ export interface CategoryFilterProps {
   onChange: (value: CategoryFilterValue) => void;
   disabled?: boolean;
   id: string;
+  /** U18：分类读取失败时菜单内显式给出原因与重试，不呈现为「没有分类」。 */
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 // 演示态使用的纯函数，适配器可替换
