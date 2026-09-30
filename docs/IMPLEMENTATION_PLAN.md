@@ -2,9 +2,11 @@
 
 <a id="u18"></a>
 
-## U18 · 桌面布局修复与导航整理（2026-09-30，修订轮完成，再次交回独立复审；未提交/未发布）
+## U18 · 桌面布局修复与导航整理（2026-10-01，第二修订轮完成，交回独立复审；未提交/未发布）
 
 **独立 Review（2026-09-30）：Request changes（R1–R7）。** [U18 Review](verification/U18_REVIEW_RESULT.md)指出分类渲染循环空白、周期按钮仍 26px、分类预算边界、时间轴门控、子页返回、错误重试及 21 张空白截图。**修订轮（同日）已按 R1→R2→R3→R4–R6→R7 完成**：真实组件交互测试 6/6、R5/R6 验证 8/8（`desktop-layout/revision/`）、受影响 after 39 张重拍并逐张人工审看、before 全矩阵 72 张以 HEAD 原版补齐、源码与截图 SHA-256 指纹绑定（[作者报告 §10](verification/U18_DESKTOP_LAYOUT_RESULT.md#10-修订轮review-r1r7)）；复跑 test:ui 173（含分类布局 12 项）、cargo 226、check、build、git diff --check 全过。下表「待修订」行已更新为修订结果；原生 UI 行为仍为未验项。
+
+**第二修订轮（2026-10-01，复审二 Approve with nits：[U18_REVIEW_ROUND2_RESULT](verification/U18_REVIEW_ROUND2_RESULT.md)）。** 只处理 P2-1 与 P3-1~P3-4（[交接](U18_ZCODE_REVISION2_HANDOFF.md)）：P2-1 分类菜单键盘焦点修复并按交接 §3 以**真实按键**（Tab/Enter/方向键/Esc/键入，无 fill）验证 8/8（`desktop-layout/revision/revision2-keyboard-test.mjs` → `revision2-interaction.json`）；P3-1 manifest 重生成（实际存在 151 张＝before 72＋after 79，完整 64 位 SHA-256，代码指纹 `3daab3b7…`）；P3-2 index.html before 全矩阵与陈旧表述更正；P3-3 窄窗残留登记（C/D 侧栏折行既有、800×600 设置/三态需滚动可达、400 compact 裁切仅形态证明）；P3-4 test:ui 数字更正为 179 并实现 reserveMore 可选项＋边界单测（分类布局 13 项）。复跑 test:ui 179、cargo 226、check、build、git diff --check 全过；新增键盘打开菜单证据截图并登记 manifest。AC11 更正为「浏览器键盘路径通过，原生未验」。作者报告见[§11](verification/U18_DESKTOP_LAYOUT_RESULT.md#11-第二修订轮p2-1-与-p3-1p3-4)。
 
 用户确认六项调整方向，随后指定交给 zcode 的 GLM 5.3 Flash，并要求准备材料和启动 Prompt。用户发送[U18 zcode 交接](U18_ZCODE_HANDOFF.md)第 7 节 Prompt 后，zcode 按其授权完成 U18a–e；实现与自测在工作区（接手基线 main `91b7bd90d1b3218772314ec1d37cb37d838ad6bd` 未提交，**HEAD 不包含 U18 实现**）。规则/AC 唯一见[产品 D24](PRODUCT_DESIGN.md#u18-product)，交互/取证要求见[U18 界面设计](ui/U18_DESKTOP_LAYOUT_DESIGN.md)，命令结果、根因调查、AC 证据矩阵与原生受阻说明见[验证报告](verification/U18_DESKTOP_LAYOUT_RESULT.md)，视觉索引见 `docs/ui/desktop-layout/index.html`（三尺寸 × 三主题 × 明暗 × 4 页面同尺寸截图）。工程检查全绿（test:ui 173、cargo 226、check、build、git diff --check）；隔离原生完成身份/资料/句柄/启动验证，**原生 UI 行为验收因执行环境 AX 树退化＋无屏幕录制授权而受阻未执行**，已在验证报告 §6.2 如实记录，包与夹具就绪可复跑。
 

@@ -105,3 +105,19 @@ test('相同宽度反复计算稳定，不产生排布循环', () => {
   const first = plan(width, { all, none, more }, entries, null, gap);
   for (let i = 0; i < 5; i++) assert.deepEqual(plan(width, { all, none, more }, entries, null, gap), first);
 });
+
+test('reserveMore 为错误触发钮预留宽度（第二轮复审 P3-4）', () => {
+  // 容器 237 恰好容下 全部分类＋未分类＋唯一分类 a：无 reserveMore 时全部直出。
+  const width = all + gap + none + gap + 90;
+  const plain = plan(width, { all, none, more }, [{ id: 'a', width: 90 }], null, gap);
+  assert.equal(plain.showMore, false);
+  assert.deepEqual(plain.visibleIds, ['a']);
+  // 错误态触发钮必然出现：为其预留宽度后 a 放不下，收入菜单。
+  const reserved = plan(width, { all, none, more }, [{ id: 'a', width: 90 }], null, gap, true);
+  assert.equal(reserved.compact, false);
+  assert.equal(reserved.showMore, true);
+  assert.deepEqual(reserved.visibleIds, []);
+  // 极窄且错误：仍收敛为选择按钮（选择按钮本身即触发钮）。
+  const narrow = plan(120, { all, none, more }, [{ id: 'a', width: 90 }], null, gap, true);
+  assert.equal(narrow.compact, true);
+});

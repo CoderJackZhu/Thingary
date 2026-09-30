@@ -179,7 +179,25 @@ function CategoryMenuPortal({
   const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
-  useEffect(() => { searchRef.current?.focus(); }, []);
+  // P2-1：首帧定位必须在绘制前同步完成（useLayoutEffect），否则面板以
+  // visibility:hidden 挂载，随后的 focus() 对隐藏元素静默失败，键盘路径全断。
+  useLayoutEffect(() => {
+    const panel = panelRef.current, rect = anchor.getBoundingClientRect();
+    if (!panel) return;
+    const height = panel.offsetHeight, spaceBelow = window.innerHeight - rect.bottom;
+    setPos({
+      left: Math.max(8, Math.min(rect.right, window.innerWidth - 8) - Math.min(panel.offsetWidth, 280)),
+      top: spaceBelow < height + 12 ? Math.max(8, rect.top - height - 6) : rect.bottom + 6,
+    });
+  }, [anchor]);
+  // 面板可见后把焦点送进菜单一次：常态落搜索框；错误态无搜索可聚焦时落
+  // 「重试」，再退回面板本身。仅在 隐藏→可见 的转变时执行，重定位不抢焦点。
+  useEffect(() => {
+    if (pos === null) return;
+    const retry = panelRef.current?.querySelector<HTMLButtonElement>("[data-cat-retry]");
+    (retry ?? searchRef.current ?? panelRef.current)?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pos === null]);
   // Esc 关闭并还原触发钮焦点（与全局弹出层规则一致：先关菜单，不穿透页面）；
   // 点面板与触发钮之外关闭。
   useEffect(() => {
@@ -192,16 +210,8 @@ function CategoryMenuPortal({
     document.addEventListener("pointerdown", pointer, true);
     return () => { document.removeEventListener("keydown", key, true); document.removeEventListener("pointerdown", pointer, true); };
   }, [anchor, onClose]);
-  // 定位一次并按菜单实际高度决定向上/向下；窗口滚动或缩放时直接关闭，避免错位。
+  // 窗口滚动或缩放时直接关闭，避免菜单悬在错位处；菜单自身滚动不关闭。
   useEffect(() => {
-    const panel = panelRef.current, rect = anchor.getBoundingClientRect();
-    if (!panel) return;
-    const height = panel.offsetHeight, spaceBelow = window.innerHeight - rect.bottom;
-    setPos({
-      left: Math.max(8, Math.min(rect.right, window.innerWidth - 8) - Math.min(panel.offsetWidth, 280)),
-      top: spaceBelow < height + 12 ? Math.max(8, rect.top - height - 6) : rect.bottom + 6,
-    });
-    // 窗口滚动/缩放时关闭，避免菜单悬在错位处；菜单自身滚动不关闭。
     const close = (event: Event) => {
       if (panelRef.current && event.target instanceof Node && panelRef.current.contains(event.target)) return;
       onClose();
@@ -217,14 +227,24 @@ function CategoryMenuPortal({
     { key: "none", label: UNCATEGORIZED_LABEL, target: { mode: "uncategorized" }, selected: value.mode === "uncategorized", aria: UNCATEGORIZED_LABEL },
     ...matched.map((entry) => ({ key: entry.id, label: entry.name, target: { mode: "category" as const, id: entry.id }, selected: value.mode === "category" && value.id === entry.id, aria: `仅看分类 ${entry.name}` })),
   ];
-  // 方向键在选项间移动；Esc 由全局弹出层规则处理（关闭并还原触发钮焦点）。
+  // 键盘路径（第二轮复审 P2-1）：序列＝搜索框→各选项，↓/↑ 沿序列循环移动
+  // （搜索框 ↓ 进第一个选项，第一个选项 ↑ 回搜索框）；搜索框内 Enter 选中
+  // 第一个匹配的具体分类；选项上 Enter 走按钮原生点击选中并关闭。
   const onKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" && document.activeElement === searchRef.current && keyword) {
+      const first = matched[0];
+      if (first) { event.preventDefault(); pick({ mode: "category", id: first.id }); }
+      return;
+    }
     if (!["ArrowDown", "ArrowUp"].includes(event.key)) return;
     event.preventDefault();
     const buttons = [...(panelRef.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
-    if (!buttons.length) return;
-    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
-    buttons[event.key === "ArrowDown" ? (index + 1 + buttons.length) % buttons.length : (index - 1 + buttons.length) % buttons.length]?.focus();
+    const sequence: (HTMLElement | null)[] = [searchRef.current, ...buttons];
+    const index = sequence.indexOf(document.activeElement as HTMLElement);
+    const next = event.key === "ArrowDown"
+      ? sequence[(index + 1 + sequence.length) % sequence.length]
+      : sequence[(index - 1 + sequence.length) % sequence.length];
+    next?.focus();
   };
   const pick = (target: CategoryFilterValue) => {
     if (disabled || isSameTarget(value, target)) { onClose(); return; }
@@ -236,6 +256,7 @@ function CategoryMenuPortal({
       className="cat-menu-panel"
       role="listbox"
       aria-label="分类菜单"
+      tabIndex={-1}
       style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" }}
       onKeyDown={onKeyDown}
     >
@@ -248,7 +269,7 @@ function CategoryMenuPortal({
         onChange={(event) => setSearch(event.target.value)}
       />
       {error ? (
-        <div className="cat-menu-empty" role="alert">{error}<button type="button" onClick={() => onRetry?.()}>重试</button></div>
+        <div className="cat-menu-empty" role="alert">{error}<button type="button" data-cat-retry onClick={() => onRetry?.()}>重试</button></div>
       ) : (
         <>
           {options.map((option) => (
@@ -319,6 +340,9 @@ export function CategoryFilter({
       { all: byKey.get("__all__") ?? 0, none: byKey.get("__none__") ?? 0, more: byKey.get("__more__") ?? 0 },
       entries.map((entry) => ({ id: entry.id, width: byKey.get(entry.id) ?? 0 })),
       selectedEntry?.id ?? null,
+      6,
+      // P3-4：错误态即使未溢出也渲染触发钮，其宽度须计入预算。
+      !!error,
     );
     // compact（showMore:false）也必须写入状态——映射成 null 会把整栏渲染成全部胶囊。
     const next: CategoryLayoutPlan | null = plan.showMore || plan.compact ? plan : null;

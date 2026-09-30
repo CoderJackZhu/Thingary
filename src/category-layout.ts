@@ -16,6 +16,9 @@ export function planCategoryLayout(
   entries: readonly { id: string; width: number }[],
   selectedId: string | null,
   gap = 6,
+  /** 错误态等场景会在未溢出时也渲染「更多分类」触发钮：跳过全容早退，
+   * 把触发钮宽度计入预算（第二轮复审 P3-4）。 */
+  reserveMore = false,
 ): CategoryLayoutPlan {
   const prefix = (budget: number, skip: string | null) => {
     const ids: string[] = [];
@@ -29,13 +32,14 @@ export function planCategoryLayout(
   };
   // 优先：全部胶囊＋两个固定项能完整容纳时直接展示，不出「更多分类」。
   const total = fixed.all + gap + fixed.none + entries.reduce((sum, entry) => sum + entry.width + gap, 0);
-  if (total <= width) return { compact: false, visibleIds: entries.map(entry => entry.id), showMore: false, selectedPinned: false };
+  if (!reserveMore && total <= width) return { compact: false, visibleIds: entries.map(entry => entry.id), showMore: false, selectedPinned: false };
   // 连「全部分类＋未分类＋更多分类」都放不下：整栏收敛为单个选择按钮。
-  if (fixed.all + gap + fixed.none + gap + fixed.more > width) return { compact: true, visibleIds: [], showMore: false, selectedPinned: false };
-  const budget = width - fixed.all - gap - fixed.none - gap - fixed.more;
+  const fixedRow = fixed.all + gap + fixed.none + gap + fixed.more;
+  if (fixedRow > width) return { compact: true, visibleIds: [], showMore: false, selectedPinned: false };
+  const budget = width - fixedRow;
   const direct = prefix(budget, null);
   const selected = selectedId ? entries.find(entry => entry.id === selectedId) ?? null : null;
-  if (!selected || direct.includes(selected.id)) return { compact: false, visibleIds: direct, showMore: true, selectedPinned: false };
+  if (!selected || direct.includes(selected.id)) return { compact: false, visibleIds: direct, showMore: direct.length < entries.length, selectedPinned: false };
   // 选中项放不进前缀：为它预留一个外显位后重排其余项；
   // 预留后仍容不下选中项时按设计收敛为选择按钮（长选中名不得推出容器）。
   const pinnedBudget = budget - (selected.width + gap);
