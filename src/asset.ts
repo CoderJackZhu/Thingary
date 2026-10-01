@@ -42,3 +42,8 @@ export function costs(asset: Asset, today: string) {
   return { days, daily };
 }
 export function errorMessage(e: unknown) { return typeof e === 'object' && e !== null && 'message' in e ? String(e.message) : '操作未完成，请重试。'; }
+/** 攒钱保存失败的提示：样例里这笔会让心愿达到目标而自动实现，但样例不能新增物品，单独说明原因与出路。 */
+export function savingsErrorNotice(e: unknown) {
+  const code = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code?: unknown }).code) : '';
+  return code === 'SAMPLE_NO_NEW_ASSET' ? '这笔金额会让心愿达到目标并自动实现，但样例里不能新增物品，所以没有保存。想体验实现心愿，请先点顶部「开始记录我的资料」。' : errorMessage(e);
+}

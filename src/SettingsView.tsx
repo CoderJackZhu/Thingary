@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import './settings.css';
 
 const categories = [
-  ['appearance', '外观', 'sun'], ['options', '选项管理', 'list'], ['modules', '功能模块', 'grid'],
+  ['appearance', '外观', 'sun'], ['materials', '素材库', 'image'], ['options', '选项管理', 'list'], ['modules', '功能模块', 'grid'],
   ['data', '资料与备份', 'archive'], ['demo', '样例', 'items'],
 ] as const;
 export type SettingsCategory = typeof categories[number][0];

@@ -51,3 +51,13 @@
 3. `npm run tauri -- build --config .local/u18.conf.json --bundles app` 构建验收包（`.local/u18.conf.json` 是本机未入库的配置，只覆盖 `productName`「Possio U18 Acceptance」、`identifier`「local.possio.u18.acceptance」和窗口标题、尺寸）。
 4. `cargo run --manifest-path src-tauri/Cargo.toml --example u18_fixture -- "$HOME/Library/Application Support/local.possio.u18.acceptance/library" personal` 写入夹具（目录已有资料时不会重复写）。
 5. `open` 验收包，`/tmp/ax activate <pid>`，用 `find`、`press`、`setsize`、`click`、`scroll`、`key` 驱动；每批输入前先用 `windows` 与 `focused` 确认目标窗口在前台，用户在使用键鼠时不要注入输入。
+
+## 6. 2.3.2 之后三项改动的原生核对
+
+用全新身份 `local.possio.u19.fresh`（无任何资料，首次进入样例）的隔离包核对，`lsof` 对正式库句柄数 0：
+
+| 项 | 观察 | 结论 |
+|---|---|---|
+| 默认主题 | 首次进入即柔和卡片：彩色侧栏图标、圆角卡片；设置›外观里「默认」标在柔和卡片上 | 通过 |
+| 素材库分组 | 设置左栏为「外观｜素材库｜选项管理｜功能模块｜资料与备份｜样例」；外观页不再有素材库入口；素材库分组内嵌图标库，顶栏出现「搜索素材」与「添加图片」，原生文件菜单项变为「添加图片」 | 通过 |
+| 样例心愿最后一笔 | 「虚构旅行镜头」从 50% 用 +10% 点到 90%（还差 ¥300），再点一次：存钱区下方立即出现「这笔金额会让心愿达到目标并自动实现，但样例里不能新增物品，所以没有保存……」，已攒金额保持 ¥2,700 不变，提示在可见位置 | 通过 |

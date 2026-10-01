@@ -4,6 +4,7 @@ import { errorMessage } from './asset';
 import { pendingUpload, uploadAndResolve, uploadKey, type PendingUpload } from './material-upload';
 import { filterMaterials, materialCategories, type MaterialEntry, type MaterialSource } from './materials';
 import { usePageBar } from './topbar';
+import type { Section } from './library-mode';
 
 // Shared thumbnail: renders the managed preview from the material library.
 export function MaterialThumb({ id, alt, generation, onSelect, disabled = false }: { id: string; alt: string; generation: string; onSelect?: () => void; disabled?: boolean }) {
@@ -23,7 +24,7 @@ export function MaterialThumb({ id, alt, generation, onSelect, disabled = false 
     {error && <span className="material-thumb-error" role="alert"><span title={error}>图片读取失败</span><button type="button" disabled={disabled} aria-label={'重新读取：' + alt} onClick={() => setAttempt(n => n + 1)}>重试</button></span>}</>;
 }
 
-export function MaterialLibrary({ generation, onNotice, onBusyChange, search, onSearch }: { generation: string; onNotice: (message: string) => void; onBusyChange: (busy: boolean) => void; search: string; onSearch: (value: string) => void }) {
+export function MaterialLibrary({ generation, onNotice, onBusyChange, search, onSearch, owner = 'materials' }: { generation: string; onNotice: (message: string) => void; onBusyChange: (busy: boolean) => void; search: string; onSearch: (value: string) => void; /** 顶栏操作挂在哪个页面：独立页面是 materials，嵌在设置分组里时是 settings。 */ owner?: Section }) {
   const [entries, setEntries] = useState<MaterialEntry[] | null>(null);
   const [source, setSource] = useState<MaterialSource>('icon');
   const [category, setCategory] = useState('全部');
@@ -41,7 +42,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
   const [confirming, setConfirming] = useState<string | null>(null);
   useEffect(() => { onBusyChange(busy || !!pending || !!confirming || !!recoveryError); return () => onBusyChange(false); }, [busy, pending, confirming, recoveryError, onBusyChange]);
   // The topbar carries 添加图片 and 搜索素材; this page keeps filter state only.
-  usePageBar('materials', {
+  usePageBar(owner, {
     primary: { label: '添加图片', plus: true, disabled: busy || !!pending || !generation || !recoveryReady, run: () => void upload() },
     newRecord: { label: '添加图片', disabled: busy || !!pending || !generation || !recoveryReady, run: () => void upload() },
     search: { key: 'materials', placeholder: '搜索素材' },
