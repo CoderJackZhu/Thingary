@@ -38,7 +38,7 @@ fn save_real_asset(worker: &Worker, name: &str) {
         .unwrap();
 }
 fn dated_name(date: &str) -> String {
-    format!("物志自动备份-{date}.possio")
+    format!("物谱自动备份-{date}.possio")
 }
 
 #[test]
@@ -130,10 +130,10 @@ fn same_day_runs_replace_the_single_dated_archive() {
     // database content changed, so equality proves the rerun never published.
     assert_ne!(first, second);
     // A stale dot-prefixed leftover from a force-quit is cleared on rerun.
-    std::fs::write(dir.join(".物志自动备份-2026-09-29.partial"), b"stale").unwrap();
+    std::fs::write(dir.join(".物谱自动备份-2026-09-29.partial"), b"stale").unwrap();
     save_real_asset(&worker, "虚构三脚架");
     worker.auto_backup_tick(&immediate("2026-09-29")).unwrap();
-    assert!(!dir.join(".物志自动备份-2026-09-29.partial").exists());
+    assert!(!dir.join(".物谱自动备份-2026-09-29.partial").exists());
 }
 
 #[test]
@@ -248,9 +248,9 @@ fn prune_keeps_seven_named_archives_and_nothing_else() {
         )
         .unwrap();
     }
-    std::fs::write(dir.join("物志备份-2026-09-01.possio"), b"manual").unwrap();
+    std::fs::write(dir.join("物谱备份-2026-09-01.possio"), b"manual").unwrap();
     std::fs::write(dir.join("重要资料.txt"), b"mine").unwrap();
-    std::fs::write(dir.join(".物志自动备份-2026-09-09.partial"), b"tmp").unwrap();
+    std::fs::write(dir.join(".物谱自动备份-2026-09-09.partial"), b"tmp").unwrap();
     auto_backup::prune(&dir).unwrap();
     let mut names: Vec<String> = std::fs::read_dir(&dir)
         .unwrap()
@@ -260,8 +260,8 @@ fn prune_keeps_seven_named_archives_and_nothing_else() {
     assert_eq!(
         names,
         vec![
-            ".物志自动备份-2026-09-09.partial".to_string(),
-            "物志备份-2026-09-01.possio".to_string(),
+            ".物谱自动备份-2026-09-09.partial".to_string(),
+            "物谱备份-2026-09-01.possio".to_string(),
             dated_name("2026-09-03"),
             dated_name("2026-09-04"),
             dated_name("2026-09-05"),
@@ -283,11 +283,11 @@ fn resolve_rejects_anything_that_is_not_one_dated_name() {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("library");
     for bad in [
-        "../物志自动备份-2026-09-29.possio",
-        "sub/物志自动备份-2026-09-29.possio",
-        "物志自动备份-2026-09-29.zip",
-        "物志备份-2026-09-29.possio",
-        "物志自动备份-2026-9-29.possio",
+        "../物谱自动备份-2026-09-29.possio",
+        "sub/物谱自动备份-2026-09-29.possio",
+        "物谱自动备份-2026-09-29.zip",
+        "物谱备份-2026-09-29.possio",
+        "物谱自动备份-2026-9-29.possio",
         ".",
         "..",
         "",

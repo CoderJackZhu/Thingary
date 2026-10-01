@@ -265,7 +265,7 @@ const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOSt
 const when = (offset: number) => new Date(Date.now() - offset * 60000).toISOString();
 function autoBackupFixture(): PreviewAutoBackup {
   const mode = params.get('autobackup') ?? 'never';
-  const items = mode === 'never' ? [] : Array.from({ length: mode === 'error' ? 3 : 7 }, (_, i) => { const date = day(-i - (mode === 'error' ? 1 : 0)); return { name: `物志自动备份-${date}.possio`, date, size: 6_000_000 + i * 812_345 }; });
+  const items = mode === 'never' ? [] : Array.from({ length: mode === 'error' ? 3 : 7 }, (_, i) => { const date = day(-i - (mode === 'error' ? 1 : 0)); return { name: `物谱自动备份-${date}.possio`, date, size: 6_000_000 + i * 812_345 }; });
   return {
     enabled: true,
     folder: '/Users/虚构用户/Library/Application Support/local.possio.preview/library/auto-backups',
@@ -287,7 +287,7 @@ function autoBackupPreview(command: string, args: Record<string, unknown>): unkn
   if (command === 'auto_backup_choose_extra') throw { message: '额外备份位置选择请在原生 App 中验证，此页面仅展示界面状态。' };
   if (command === 'inspect_auto_backup') {
     const name = String(args.name ?? '');
-    if (!/^物志自动备份-\d{4}-\d{2}-\d{2}\.possio$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
+    if (!/^物谱自动备份-\d{4}-\d{2}-\d{2}\.possio$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
     return { path: `${previewAutoBackup.folder}/${name}`, name, summary: { hash: 'preview-fixture', created_at: when(120), schema: 20, assets: 9, deleted_assets: 0, wishes: 2, maintenances: 3, warranties: 4, accounts: 2, snapshots: 6, expenses: 5, plans: 2, payments: 12, virtual_assets: 3, files: 11 } };
   }
   throw { message: '此操作需在原生 App 验证：' + command };

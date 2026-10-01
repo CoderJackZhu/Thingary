@@ -724,11 +724,11 @@ Q02 定向覆盖一次读取内写入不插入、部分失败、同 generation �
 
 | 路径 | 用途 |
 |---|---|
-| `<root>/auto-backups/物志自动备份-YYYY-MM-DD.possio` | 自动备份；日期为本地自然日（`chrono::Local`） |
+| `<root>/auto-backups/物谱自动备份-YYYY-MM-DD.possio` | 自动备份；日期为本地自然日（`chrono::Local`） |
 | `<root>/auto-backup.json` | 本机设置与状态：`enabled`（缺省 true）、`extra_dir`、`last_success_at`、`last_error {at, message}`、`extra_last_at`、`extra_last_error {at, message}`；用 `storage::atomic_write` 写 |
 | `<root>/auto-backup-pending` | 有未备份改动的标记文件（内容无关）；跨进程保留，保证强退后补做 |
 
-这些文件在 `datasets/` 之外，不进入完整备份，恢复与切换数据集不会删除它们；属于本机设置，恢复备份不改变开关和额外位置。文件名只匹配正则 `^物志自动备份-\d{4}-\d{2}-\d{2}\.possio$` 的才视为自动备份（列表、清理、恢复都据此判断）。额外位置用同一文件名。
+这些文件在 `datasets/` 之外，不进入完整备份，恢复与切换数据集不会删除它们；属于本机设置，恢复备份不改变开关和额外位置。文件名只匹配正则 `^物谱自动备份-\d{4}-\d{2}-\d{2}\.possio$` 的才视为自动备份（列表、清理、恢复都据此判断）。额外位置用同一文件名。
 
 ### 24.2 改动检测（worker 线程内）
 
@@ -756,7 +756,7 @@ Q02 定向覆盖一次读取内写入不插入、部分失败、同 generation �
 
 新增 `src-tauri/src/auto_backup.rs`（`lib.rs` 注册模块），核心函数与 `Store` 解耦以便测试：
 
-- `run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf>`：建目录；删除目录内以 `.` 开头的残留临时文件；目标 `final = dir/物志自动备份-{date}.possio`；`partial = dir/.物志自动备份-{date}.partial`（存在先删）；调用现有 `store.backup(Some(&partial))`（沿用快照、逐文件校验、成品复验与故障注入点）；成功后 `fs::rename(partial, final)` 覆盖当天旧份并 `sync_dir(dir)`。失败时删除 partial，旧的 `final` 保持不变。
+- `run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf>`：建目录；删除目录内以 `.` 开头的残留临时文件；目标 `final = dir/物谱自动备份-{date}.possio`；`partial = dir/.物谱自动备份-{date}.partial`（存在先删）；调用现有 `store.backup(Some(&partial))`（沿用快照、逐文件校验、成品复验与故障注入点）；成功后 `fs::rename(partial, final)` 覆盖当天旧份并 `sync_dir(dir)`。失败时删除 partial，旧的 `final` 保持不变。
 - `prune(dir: &Path, keep: usize) -> Result<()>`：只列出匹配正则的文件，按文件名降序保留前 7 个，其余删除；其他文件一律不碰。
 - `list(dir) -> Vec<Item {name, date, size}>`：供设置页显示，按日期降序。
 - `copy_extra(source: &Path, extra_dir: &Path) -> Result<()>`：目录不存在报 `EXTRA_MISSING`（“找不到额外备份位置…”，不重建目录）；用 `fs::copy`（保留 600 权限）复制到 `extra_dir/.{name}.partial` 再 rename 为同名，然后对 extra_dir `prune(7)`。**在定时线程、worker 之外执行**（只读已发布的成品文件，不阻塞界面）；失败写 `extra_last_error`，成功写 `extra_last_at`。

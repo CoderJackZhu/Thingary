@@ -7,7 +7,7 @@ use std::{fs, path::Path, path::PathBuf};
 
 /// Automatic backups keep this many dated archives per location (D20 rule 4).
 pub const KEEP: usize = 7;
-/// `^物志自动备份-\d{4}-\d{2}-\d{2}\.possio$`; only these are listed, pruned
+/// `^物谱自动备份-\d{4}-\d{2}-\d{2}\.possio$`; only these are listed, pruned
 /// or restorable, so cleanup can never remove a user's own files.
 pub fn is_auto_backup_name(name: &str) -> bool {
     date_of(name).is_some()
@@ -15,7 +15,7 @@ pub fn is_auto_backup_name(name: &str) -> bool {
 /// The local calendar day encoded in an archive name, if the name is ours.
 pub fn date_of(name: &str) -> Option<&str> {
     let date = name
-        .strip_prefix("物志自动备份-")?
+        .strip_prefix("物谱自动备份-")?
         .strip_suffix(".possio")?;
     let b = date.as_bytes();
     let expected = |i: usize| matches!(i, 4 | 7);
@@ -104,8 +104,8 @@ pub fn run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf> {
             fs::remove_file(entry.path())?;
         }
     }
-    let final_path = dir.join(format!("物志自动备份-{date}.possio"));
-    let partial = dir.join(format!(".物志自动备份-{date}.partial"));
+    let final_path = dir.join(format!("物谱自动备份-{date}.possio"));
+    let partial = dir.join(format!(".物谱自动备份-{date}.partial"));
     if partial.exists() {
         fs::remove_file(&partial)?;
     }

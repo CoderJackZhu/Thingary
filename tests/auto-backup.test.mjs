@@ -21,12 +21,12 @@ const status = over => ({
 test('the status line states when, how many and how much, or that none exist yet', () => {
   assert.equal(autoBackupSummary(status({})), '尚未自动备份');
   const at = new Date(2026, 8, 29, 14, 32).toISOString();
-  const line = autoBackupSummary(status({ last_success_at: at, items: [{ name: '物志自动备份-2026-09-29.possio', date: '2026-09-29', size: 1 }, { name: '物志自动备份-2026-09-28.possio', date: '2026-09-28', size: 2 }], total_size: 68 * 1024 * 1024 }));
+  const line = autoBackupSummary(status({ last_success_at: at, items: [{ name: '物谱自动备份-2026-09-29.possio', date: '2026-09-29', size: 1 }, { name: '物谱自动备份-2026-09-28.possio', date: '2026-09-28', size: 2 }], total_size: 68 * 1024 * 1024 }));
   assert.ok(line.includes('上次自动备份：'), line);
   assert.ok(line.includes('2 份'), line);
   assert.ok(line.includes('68 MB'), line);
   // Items exist but no recorded success time still shows a usable line.
-  assert.ok(autoBackupSummary(status({ items: [{ name: '物志自动备份-2026-09-29.possio', date: '2026-09-29', size: 5 }], total_size: 5 })).includes('1 份'));
+  assert.ok(autoBackupSummary(status({ items: [{ name: '物谱自动备份-2026-09-29.possio', date: '2026-09-29', size: 5 }], total_size: 5 })).includes('1 份'));
 });
 
 test('the extra line distinguishes never copied, copied and failed', () => {
