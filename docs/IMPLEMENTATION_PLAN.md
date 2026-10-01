@@ -27,7 +27,7 @@
 - 原生行为验收受阻的缺口由独立 Review 环境决定是否补跑：release/debug 隔离包（`local.possio.u18.acceptance`）与夹具 `src-tauri/examples/u18_fixture.rs` 已就绪，复跑步骤见验证报告 §6.2。
 - USER_GUIDE 本轮未更新：原生操作验收未完成，按交接约定不把未验功能写成可用操作。
 - U18e 停在可审阅交付；发布版本号、合并、推送与安装另按当次授权处理。
-- **状态更新（2026-10-01）：** 以上为 zcode 交回时的边界记录。其后已合并 main（`e33cea1`）并随 2.3.0 安装；隔离原生验收补做了 AC09（三态与重开）、AC11（键盘）、AC12（切库与重开），见[验证报告 §11.10](verification/U18_DESKTOP_LAYOUT_RESULT.md#1110-原生-ui-隔离验收2026-10-01合入-d2670ce-之后)。AC01–AC08 的原生行为、AC11 滚轮、AC04/05 鼠标仍未验，清单见[发布前盘点](RELEASE_AUDIT.md)；USER_GUIDE 已按当前导航更新。
+- **状态更新（2026-10-01）：** 以上为 zcode 交回时的边界记录。其后已合并 main（`e33cea1`）并随 2.3.0 安装；隔离原生验收补做了 AC09（三态与重开）、AC11（键盘）、AC12（切库与重开），见[验证报告 §11.10](verification/U18_DESKTOP_LAYOUT_RESULT.md#1110-原生-ui-隔离验收2026-10-01合入-d2670ce-之后)。2026-10-01 又补做了 AC01–03、07、08、10 的原生行为、AC04/05/11 的真实鼠标与滚轮、模块开关端到端，均通过，见[原生验收补做](verification/NATIVE_ACCEPTANCE_20261001_RESULT.md)；仍未验的有 AC09 系统外观实时切换等，清单见[发布前盘点](RELEASE_AUDIT.md)；USER_GUIDE 已按当前导航更新。
 
 ---
 

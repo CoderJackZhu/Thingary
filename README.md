@@ -8,7 +8,7 @@
 
 - 自用正式版 **2.3.0**（含 U18 桌面布局修复与导航整理，已合并 main）当前安装在 `/Applications/家底.app`（旧名）；**2.3.1（名称恢复为「物志」，见 D25）已构建、尚未安装**，安装后为 `/Applications/物志.app`。身份 `local.possio.main` 不变，回退副本保存在本机 `.local/install/`（不入库）。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
 - P0 闭环、A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验及 U 系列迭代均已交付。任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准，逐次变更见 [CHANGELOG](CHANGELOG.md)。
-- 原生验收仍有缺口（需真实指针、系统外观切换、辅助功能授权等）与发布前盘点结论见[发布前盘点](docs/RELEASE_AUDIT.md)。
+- 原生验收已补做大部分（见[原生验收补做](docs/verification/NATIVE_ACCEPTANCE_20261001_RESULT.md)）；系统外观实时切换、VoiceOver 等需要本人操作的项目与发布前盘点结论见[发布前盘点](docs/RELEASE_AUDIT.md)。
 - 名称：中文名「物志」已实现于 2.3.1（产品设计 D25），**但商标检索发现软件类已有他人注册，待你决定继续使用或换名**；英文名建议 Thingary；许可证已定为 GPL-3.0（见 `LICENSE`）。详见[竞品调研第 14 节](docs/COMPETITOR_RESEARCH.md#14-名称核查2026-10-01国区-app-store-与美区检索)与[发布前盘点](docs/RELEASE_AUDIT.md)。
 - 仅在 Apple Silicon Mac 验证；macOS 14 与 Intel 尚未实测。
 
