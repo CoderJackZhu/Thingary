@@ -53,7 +53,7 @@ zcode 已回交工作区实现；第一轮[独立 Review](docs/verification/U18_
 - [P0 功能规格](docs/FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义。
 - **现行界面规范**：[U16 设计规范](docs/ui/U16_DESIGN_SPEC.md)（令牌、格式、组件、逐页规范、三主题检查表）与设计稿 v3 [`docs/ui/u16/mockup-v3.html`](docs/ui/u16/mockup-v3.html)；计划见 [U16 设计对齐计划](docs/ui/U16_DESIGN_PARITY_PLAN.md)，接续结果、50 组对照、验收收口与发布记录见 [U16 验证记录](docs/verification/U16_PARITY_RESULT.md)。
 - [UI 方向与原型（历史）](docs/UI_DESIGN.md)：早期选定 A「静序」为基线；[交互原型](docs/ui/prototype.html)。已由 U16 规范取代，仅供追溯。
-- [竞品调研](docs/COMPETITOR_RESEARCH.md)：直接竞品与开源候选比较、差异化假设；第 9–23 节为 2026-10-01 补充的同类应用快照与功能对照、开源全景、平台受众（含安卓、Windows、Linux）、付费与分发、名称核查、移植工作量评估。
+- [竞品调研](docs/COMPETITOR_RESEARCH.md)：直接竞品与开源候选比较、差异化假设；第 9–28 节为 2026-10-01 补充的同类应用快照与功能对照、开源逐项核验（平台、成熟度、与家底对比）、平台受众（含安卓、Windows、Linux）、付费与分发、名称核查、移植工作量评估。
 
 **技术与计划**
 
