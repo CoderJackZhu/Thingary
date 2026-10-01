@@ -6,7 +6,7 @@ export function DemoSettings({ status, blocked, onSwitch, onReset }: { status: D
   const [confirm, setConfirm] = useState(false);
   const pending = !!localStorage.getItem(resetKey);
   return <section className="ui-card ui-content demo-settings" aria-labelledby="demo-heading">
-    <div className="data-heading"><div><p className="eyebrow">熟悉家底</p><h2 id="demo-heading">样例体验</h2></div><span>{status.active ? '正在查看样例' : '独立虚构资料'}</span></div>
+    <div className="data-heading"><div><p className="eyebrow">熟悉物志</p><h2 id="demo-heading">样例体验</h2></div><span>{status.active ? '正在查看样例' : '独立虚构资料'}</span></div>
     <p className="data-intro">用一套完整样例体验物品、心愿、账户盘点和周期费用。可以放心编辑和删除，所有变化只留在样例中；样例不接受新增物品（实现心愿也会新增物品），点“新增物品”会回到自己的资料。</p>
     <div className="data-actions"><div className="data-action"><span className="data-action-icon"><Icon name="overview"/></span><div className="data-action-copy"><h3>{status.active ? '我的资料' : '查看样例'}</h3><p>{status.active ? '回到自己的记录，保留这次样例体验。' : '保留上次样例中的修改，随时回来看看。'}</p></div><button disabled={blocked || pending} onClick={onSwitch}>{status.active ? '返回我的资料' : '查看样例'}</button></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="back"/></span><div className="data-action-copy"><h3>重置样例</h3><p>重新生成完整样例；自己的资料不受影响。</p></div><button disabled={blocked} onClick={() => pending ? onReset() : setConfirm(true)}>{pending ? '核对重置结果' : '重置…'}</button></div></div>
