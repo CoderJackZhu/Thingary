@@ -303,7 +303,7 @@ pub fn run() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("Cannot start Possio preview")
+        .expect("Cannot start Thingary preview")
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { ref api, .. } = event {
                 if app.state::<commands::EditGuard>().0.load(Ordering::SeqCst) {

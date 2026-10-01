@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Possio Preview",
+  "productName": "Thingary Preview",
   "version": "0.0.1",
   "identifier": "local.possio.preview",
   "build": {

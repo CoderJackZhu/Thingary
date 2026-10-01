@@ -1,5 +1,11 @@
 # 变更记录
 
+## 2026-10-01 · 2.3.4 英文名全面替换（已构建，未安装）
+
+- 把面向人的文档中的英文名由 Possio 统一为 Thingary（竞品调研、产品设计、功能规格、实施计划、ADR 标题与说明）；开发预览包名改为 `Thingary Preview`，README 路径同步。竞品「Possio: Net Worth Tracker」的引用与名称演变的历史记录保留。
+- 保留的内部标识（改了会读不到既有资料或破坏文件格式）：crate `possio`、`local.possio.*` 与资料目录、备份扩展名 `.possio`、`localStorage` 键 `possio.*`、`POSSIO_*` 环境变量、原生通知类名；GitHub 仓库名 `Possio` 由你决定是否改名。
+- 版本 2.3.3 → 2.3.4（含 2.3.3 之后的侧栏品牌 THINGARY 与关于面板）。构建、前端 183、Rust 226、clippy 通过。**未安装**：应用正在运行，没有擅自关闭。
+
 ## 2026-10-01 · 英文名 Thingary 投入使用与 logo 草稿（已提交，未发布）
 
 - 复核英文名后保留 Thingary（产品设计 D28）：侧栏品牌小字 `POSSIO` → `THINGARY`；「关于物谱」面板显示「物谱 Thingary」、中英文副标题与许可证（macOS 关于面板不使用 `comments`，副标题放进 `credits`）；`package.json`、`Cargo.toml` 与 README 标题同步。Possio 仍是工程内部名与标识。已知风险：与 Things 词根相近，美国与国际商标未核验。

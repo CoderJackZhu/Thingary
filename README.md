@@ -57,7 +57,7 @@
 - 格式与 Rust 检查：`npm run check`。
 - 表单与金额／日期纯逻辑检查：`npm run test:ui`（不是原生 UI 自动化）。
 - 数据与故障实验：`npm test`（使用独立临时目录；会终止自己创建的测试子进程）。Rust 部分链接 macOS 原生框架，只能在 Mac 上构建。
-- 本机 App 打包：`npm run tauri -- build --bundles app`，产物位于 `src-tauri/target/release/bundle/macos/Possio Preview.app`；不要把旧产物当成最新构建。
+- 本机 App 打包：`npm run tauri -- build --bundles app`，产物位于 `src-tauri/target/release/bundle/macos/Thingary Preview.app`；不要把旧产物当成最新构建。
 - 自用正式版打包：`npm run release`（仅覆盖正式身份；安装与验收见 T22 记录）。
 
 开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，只用于虚构资料，与正式版及各隔离验收库分开。不含远程更新或后台代理。只在 Apple Silicon Mac 验证，macOS 14 与 Intel 尚未实测。
