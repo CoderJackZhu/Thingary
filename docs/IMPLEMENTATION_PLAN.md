@@ -2,7 +2,7 @@
 
 <a id="u18"></a>
 
-## U18 · 桌面布局修复与导航整理（2026-10-01，第二修订轮完成，交回独立复审；未提交/未发布）
+## U18 · 桌面布局修复与导航整理（2026-10-01，复审通过并合入 main，随 2.3.0 安装）
 
 **独立 Review（2026-09-30）：Request changes（R1–R7）。** [U18 Review](verification/U18_REVIEW_RESULT.md)指出分类渲染循环空白、周期按钮仍 26px、分类预算边界、时间轴门控、子页返回、错误重试及 21 张空白截图。**修订轮（同日）已按 R1→R2→R3→R4–R6→R7 完成**：真实组件交互测试 6/6、R5/R6 验证 8/8（`desktop-layout/revision/`）、受影响 after 39 张重拍并逐张人工审看、before 全矩阵 72 张以 HEAD 原版补齐、源码与截图 SHA-256 指纹绑定（[作者报告 §10](verification/U18_DESKTOP_LAYOUT_RESULT.md#10-修订轮review-r1r7)）；复跑 test:ui 173（含分类布局 12 项）、cargo 226、check、build、git diff --check 全过。下表「待修订」行已更新为修订结果；原生 UI 行为仍为未验项。
 
