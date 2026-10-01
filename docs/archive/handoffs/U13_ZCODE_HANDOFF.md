@@ -1,10 +1,10 @@
 # U13 · zcode 默认自动备份交接
 
-更新：2026-09-29。本文件只维护接手基线、代码入口、风险与启动 Prompt；业务规则以[产品设计 D20](PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)为准，技术接线以 [ADR-001 第 24 节](decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)为准，**历史交接文件**：zcode 已完成 U13a/b，Claude 完成原生验收与复核并随 1.14.0 发布，结果见 [U13 记录](verification/U13_AUTO_BACKUP_RESULT.md)。阶段状态只在[实施计划 U13](IMPLEMENTATION_PLAN.md#u13--默认自动备份2026-09-29zcode-实现claude-复核随-1140-发布)更新。
+更新：2026-09-29。本文件只维护接手基线、代码入口、风险与启动 Prompt；业务规则以[产品设计 D20](../../PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)为准，技术接线以 [ADR-001 第 24 节](../../decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)为准，**历史交接文件**：zcode 已完成 U13a/b，Claude 完成原生验收与复核并随 1.14.0 发布，结果见 [U13 记录](../../verification/U13_AUTO_BACKUP_RESULT.md)。阶段状态只在[实施计划 U13](../../IMPLEMENTATION_PLAN.md#u13--默认自动备份2026-09-29zcode-实现claude-复核随-1140-发布)更新。
 
 ## 1. 基线与授权
 
-- 工作目录：`/Users/jackzhu/Code/Own/Possio`，分支 `main`。交接文档随提交进入 main；开工先记录实际 HEAD。
+- 工作目录：`<repo>`，分支 `main`。交接文档随提交进入 main；开工先记录实际 HEAD。
 - 已存在未跟踪 `.claude/`：不修改、不清理、不提交；根 `.gitignore` 由用户维护，不改。不 reset/clean，不覆盖他人差异。
 - 用户已确认方案并指定交给 zcode：按 U13a→U13b→U13c 顺序实现、测试、写文档和隔离原生验收，每步达到出口即继续，不需要逐步请示。影响业务语义的新取舍（D20 没写到的）停下来报告。
 - **不提交、不合并、不推送、不升版、不安装/发布、不改全局配置，不委派其他 agent。** 停在审阅交付，由 Claude 复核（U13d）。
@@ -14,11 +14,11 @@
 
 ## 2. 阅读顺序
 
-1. [README](../README.md)、[AGENTS](../AGENTS.md)：约束与命令。
-2. [产品设计 D20](PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)：8 条规则与验收 ①–⑪。另读 12.2、D14（样例不参与备份）。
-3. [ADR-001 第 24 节](decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)：路径、改动检测、tick 顺序、函数、命令、界面、测试清单。**照此实现，不另起设计。**
-4. [T18 备份恢复记录](verification/T18_BACKUP_RESTORE_RESULT.md)：现有备份/恢复协议与原生验收方法（只参考方法）。
-5. [原生验收方法](verification/U12_TOPBAR_SEARCH_RESULT.md) 中隔离身份的构建与驱动方式。
+1. [README](../../../README.md)、[AGENTS](../../../AGENTS.md)：约束与命令。
+2. [产品设计 D20](../../PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)：8 条规则与验收 ①–⑪。另读 12.2、D14（样例不参与备份）。
+3. [ADR-001 第 24 节](../../decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)：路径、改动检测、tick 顺序、函数、命令、界面、测试清单。**照此实现，不另起设计。**
+4. [T18 备份恢复记录](../../verification/T18_BACKUP_RESTORE_RESULT.md)：现有备份/恢复协议与原生验收方法（只参考方法）。
+5. [原生验收方法](../../verification/U12_TOPBAR_SEARCH_RESULT.md) 中隔离身份的构建与驱动方式。
 
 ## 3. 已核对的代码入口
 
@@ -64,7 +64,7 @@ git diff --check
 ## 6. 可直接复制的启动 Prompt
 
 ```text
-请在 /Users/jackzhu/Code/Own/Possio 接手 U13「默认自动备份」。先完整阅读 docs/U13_ZCODE_HANDOFF.md，再按其第 2 节顺序读取 README、AGENTS、PRODUCT_DESIGN 的 D20、ADR-001 第 24 节。
+请在 <repo> 接手 U13「默认自动备份」。先完整阅读 docs/U13_ZCODE_HANDOFF.md，再按其第 2 节顺序读取 README、AGENTS、PRODUCT_DESIGN 的 D20、ADR-001 第 24 节。
 
 用户已确认方案，授权你按 U13a（后端）→ U13b（设置界面）→ U13c（隔离原生验收与文档）顺序完成，每步达到实施计划 U13 表中的出口后继续，不需要逐步等待批准。业务规则以 PRODUCT_DESIGN D20 为准，技术接线严格按 ADR-001 第 24 节（文件路径、改动检测放在 worker 的 with_state 之后且只看 real、tick 判断顺序、auto_backup.rs 的 run/prune/list/copy_extra、六个命令、文件夹面板、界面分区、测试清单）；与实际代码不符时按实际代码修正 ADR 并说明，不要另起设计，D20 没写到的业务取舍停下来报告。
 

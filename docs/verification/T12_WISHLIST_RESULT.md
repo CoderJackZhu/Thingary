@@ -1,6 +1,6 @@
 # T12 心愿记录实现与验证
 
-日期：2026-09-25。起点 SHA：`1b443780d108554d12d89ce61992cfddfd2ccfae`；工作目录 `/Users/jackzhu/Code/Own/Possio`，分支 `codex/t12-wishlist`。初版由单一 Hermes 执行器串行实现；实际模型为 `gpt-5.6-sol`、`model_reasoning_effort=medium`、`workspace-write`，没有子代理、MoA、后台循环或全局配置变更。实现提交为 `c21c3af590696340453bec6ad1a4580cd5e4f4c2`，首轮修复提交为 `37a36661dde4ef170ffdbc9279c551fde600b14f`；2026-09-26 Codex 独立 review 的修复与补验见文末。
+日期：2026-09-25。起点 SHA：`1b443780d108554d12d89ce61992cfddfd2ccfae`；工作目录 `<repo>`，分支 `codex/t12-wishlist`。初版由单一 Hermes 执行器串行实现；实际模型为 `gpt-5.6-sol`、`model_reasoning_effort=medium`、`workspace-write`，没有子代理、MoA、后台循环或全局配置变更。实现提交为 `c21c3af590696340453bec6ad1a4580cd5e4f4c2`，首轮修复提交为 `37a36661dde4ef170ffdbc9279c551fde600b14f`；2026-09-26 Codex 独立 review 的修复与补验见文末。
 
 ## 实现范围
 
@@ -36,13 +36,13 @@
 - `npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`：exit 0；隔离 debug App 成功打包为 `src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`。
 - `git diff --check`：exit 0。
 
-以上为最终代码提交后的完整检查；汇总脚本 exit 0。日志保存在本机 `/Users/jackzhu/.hermes/cache/scratch/possio-t12-final-checks/`。
+以上为最终代码提交后的完整检查；汇总脚本 exit 0。日志保存在本机 `~/.hermes/cache/scratch/possio-t12-final-checks/`。
 
 ## 原生、浏览器与隔离边界
 
 本轮启动过打包 App 与 `tauri dev`，并以既有隔离库完成真实 schema 10→11 启动迁移；没有把浏览器内存预览当作原生持久化证据。两次启动中进程存活，但 macOS `System Events` 和 CUA 均报告 0 个窗口，无法执行可见 GUI 操作。因此原生新增／放弃／筛选／排序／封面／重启、浅深色 1080×760 和 800×600 如实记为未验，留给 reviewer 在可见窗口环境实测。
 
-迁移前已制作一致性保护快照 `/Users/jackzhu/Library/Application Support/local.possio.t06b.preview/library/backups/t12-protection-before-20260925-175113.sqlite`：schema 10、`integrity_check=ok`，14 assets / 13 categories / 10 channels / 6 maintenances / 3 warranties。启动隔离 App 后，原库为 schema 11、`integrity_check=ok`；上述 assets/categories/channels 数量保持，新增心愿表存在且 `wishlist_items=0`、`wishlist_audit=0`。未重导 Demo、未重置隔离库、未触碰普通 `local.possio.preview` 库。未配置远程、未推送、未合并、未发布，未提交用户 `.gitignore`。
+迁移前已制作一致性保护快照 `~/Library/Application Support/local.possio.t06b.preview/library/backups/t12-protection-before-20260925-175113.sqlite`：schema 10、`integrity_check=ok`，14 assets / 13 categories / 10 channels / 6 maintenances / 3 warranties。启动隔离 App 后，原库为 schema 11、`integrity_check=ok`；上述 assets/categories/channels 数量保持，新增心愿表存在且 `wishlist_items=0`、`wishlist_audit=0`。未重导 Demo、未重置隔离库、未触碰普通 `local.possio.preview` 库。未配置远程、未推送、未合并、未发布，未提交用户 `.gitignore`。
 
 ## 首轮交回时的 review 风险
 

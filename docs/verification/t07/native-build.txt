@@ -18,9 +18,9 @@ dist/assets/index-CoioYIL-.css   32.87 kB │ gzip:  6.67 kB
 dist/assets/index-BAU5nrRh.js   299.04 kB │ gzip: 90.83 kB
 
 ✓ built in 96ms
-   Compiling possio v0.0.1 (/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
+   Compiling possio v0.0.1 (~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.23s
-       Built application at: /Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/possio
-    Bundling Possio T06b Preview.app (/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/bundle/macos/Possio T06b Preview.app)
+       Built application at: ~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/possio
+    Bundling Possio T06b Preview.app (~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/bundle/macos/Possio T06b Preview.app)
     Finished 1 bundle at:
-        /Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/bundle/macos/Possio T06b Preview.app
+        ~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/bundle/macos/Possio T06b Preview.app

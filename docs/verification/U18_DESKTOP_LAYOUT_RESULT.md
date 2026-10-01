@@ -2,11 +2,11 @@
 
 > 后续独立结论（2026-09-30）：[第一轮 Review](U18_REVIEW_RESULT.md)为 **Request changes**，R1–R7 已由作者修订（作者报告 §10），第二轮复审 P2-1/P3-1~P3-4 已再修订（作者报告 §11；本报告保留为第一轮记录）。下文 §1–§9 为作者首轮回交，其通过声明以 §10 更正为准；原生 UI 行为仍为未验项。
 
-状态：**第二修订轮完成（复审二 P2-1 与 P3-1~P3-4 已处理，见 §11；原生 UI 行为仍为未验项），交回独立复审；未提交、未合并、未推送、未升版、未发布、未安装正式版**。业务规则唯一依据[产品设计 D24](../PRODUCT_DESIGN.md#u18-product)（U18-AC01–12），界面见[U18 设计](../ui/U18_DESKTOP_LAYOUT_DESIGN.md)，接手要求见[U18 zcode 交接](../U18_ZCODE_HANDOFF.md)。
+状态：**第二修订轮完成（复审二 P2-1 与 P3-1~P3-4 已处理，见 §11；原生 UI 行为仍为未验项），交回独立复审；未提交、未合并、未推送、未升版、未发布、未安装正式版**。业务规则唯一依据[产品设计 D24](../PRODUCT_DESIGN.md#u18-product)（U18-AC01–12），界面见[U18 设计](../ui/U18_DESKTOP_LAYOUT_DESIGN.md)，接手要求见[U18 zcode 交接](../archive/handoffs/U18_ZCODE_HANDOFF.md)。
 
 ## 1. 接手与变更边界
 
-- 目录 `/Users/jackzhu/Code/Own/Possio`，分支 `main`，接手 HEAD `91b7bd90d1b3218772314ec1d37cb37d838ad6bd`（开工复核与交接一致；**交付时 HEAD 不变，工作区实现未提交，HEAD 不包含 U18 实现**）。
+- 目录 `<repo>`，分支 `main`，接手 HEAD `91b7bd90d1b3218772314ec1d37cb37d838ad6bd`（开工复核与交接一致；**交付时 HEAD 不变，工作区实现未提交，HEAD 不包含 U18 实现**）。
 - 接手时已有未提交 U18 材料（接手基线，非本次新增；保留、未改语义）：`README.md`、`CHANGELOG.md`、`docs/PRODUCT_DESIGN.md`、`docs/IMPLEMENTATION_PLAN.md`、`docs/ui/U16_DESIGN_SPEC.md`（modified）＋ `docs/U18_ZCODE_HANDOFF.md`、`docs/ui/U18_DESKTOP_LAYOUT_DESIGN.md`（untracked）＋ 未跟踪 `.claude/`（launch.json、settings.local.json，未读取、未改动）。
 - zcode 本次新增/修改（随实现逐项补充）：
   - 预览夹具与截图入口（仅浏览器虚构预览，刷新重置；原生无此流程）：`src/wealth-preview.ts`（`?wish-fixture=layout`、`?recurring-fixture=30`）、`src/visual-preview.ts`（`?category-fixture=30`、`?open-wish=`、`?recurring-tab=`、`?scroll-to=` 参数转 sessionStorage）、`src/main.tsx`（open-wish／scroll-to 消费 effect）、`src/RecurringPage.tsx`（recurring-tab 初始 tab）。
@@ -143,7 +143,7 @@
 ```text
 U18 zcode 开发回交（待独立 Review，未提交/未发布）
 目录 / 分支 / 接手 HEAD / 当前 HEAD：
-  /Users/jackzhu/Code/Own/Possio · main · 91b7bd90d1b3218772314ec1d37cb37d838ad6bd · 同接手 HEAD（工作区实现未提交，HEAD 不包含实现）
+  <repo> · main · 91b7bd90d1b3218772314ec1d37cb37d838ad6bd · 同接手 HEAD（工作区实现未提交，HEAD 不包含实现）
 接手已有差异 / 本次实现文件：
   接手：README、CHANGELOG、PRODUCT_DESIGN、IMPLEMENTATION_PLAN、U16_DESIGN_SPEC（修改）＋ U18_ZCODE_HANDOFF、U18_DESKTOP_LAYOUT_DESIGN（新）＋ .claude/（未动）。
   本次实现（代码）：src/{main,RecurringPage,WishlistPanel,TaxonomyFields,SettingsView,AppearanceSettings,Stats,category-layout(新),taxonomy,ui,wealth,app-layout,taxonomy.css,visual-preview,wealth-preview}、tests/category-layout.test.mjs（新）；
@@ -245,7 +245,7 @@ U18c/d/e 状态更正：U18c＝分类溢出完成（R1/R3 修复＋交互测试�
 
 ## 11. 第二修订轮（复审二 P2-1 与 P3-1~P3-4，2026-10-01）
 
-前置：[第二轮独立复审](U18_REVIEW_ROUND2_RESULT.md)（Approve with nits，针对提交 `19f3360`）与[第二修订轮交接](../U18_ZCODE_REVISION2_HANDOFF.md)。本轮只处理 P2-1 与 P3-1~P3-4；§1–§10 历史保留，冲突处以本节为准。本轮改动已提交为 `4830238`（`19f3360` 之上）。
+前置：[第二轮独立复审](U18_REVIEW_ROUND2_RESULT.md)（Approve with nits，针对提交 `19f3360`）与[第二修订轮交接](../archive/handoffs/U18_ZCODE_REVISION2_HANDOFF.md)。本轮只处理 P2-1 与 P3-1~P3-4；§1–§10 历史保留，冲突处以本节为准。本轮改动已提交为 `4830238`（`19f3360` 之上）。
 
 ### 11.1 P2-1 · 分类菜单键盘焦点（已修复并真实按键验证）
 

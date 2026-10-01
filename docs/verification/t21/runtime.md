@@ -12,7 +12,7 @@
 
 ```sh
 sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip "*:*"))(deny network-inbound (local ip "*:*"))' \
-  '/Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/Possio T21 Release.app/Contents/MacOS/possio'
+  '<repo>/src-tauri/target/release/bundle/macos/Possio T21 Release.app/Contents/MacOS/possio'
 ```
 
 PID 46320。直接从二进制启动时未被 bundle 搜索发现，按已核对 PID 建立 NSRunningApplication/AXUIElement，激活并等待窗口绘制后完成：

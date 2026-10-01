@@ -6,9 +6,9 @@
 
 **独立 Review（2026-09-30）：Request changes（R1–R7）。** [U18 Review](verification/U18_REVIEW_RESULT.md)指出分类渲染循环空白、周期按钮仍 26px、分类预算边界、时间轴门控、子页返回、错误重试及 21 张空白截图。**修订轮（同日）已按 R1→R2→R3→R4–R6→R7 完成**：真实组件交互测试 6/6、R5/R6 验证 8/8（`desktop-layout/revision/`）、受影响 after 39 张重拍并逐张人工审看、before 全矩阵 72 张以 HEAD 原版补齐、源码与截图 SHA-256 指纹绑定（[作者报告 §10](verification/U18_DESKTOP_LAYOUT_RESULT.md#10-修订轮review-r1r7)）；复跑 test:ui 173（含分类布局 12 项）、cargo 226、check、build、git diff --check 全过。下表「待修订」行已更新为修订结果；原生 UI 行为仍为未验项。
 
-**第二修订轮（2026-10-01，复审二 Approve with nits：[U18_REVIEW_ROUND2_RESULT](verification/U18_REVIEW_ROUND2_RESULT.md)）。** 只处理 P2-1 与 P3-1~P3-4（[交接](U18_ZCODE_REVISION2_HANDOFF.md)）：P2-1 分类菜单键盘焦点修复并按交接 §3 以**真实按键**（Tab/Enter/方向键/Esc/键入，无 fill）验证 8/8（`desktop-layout/revision/revision2-keyboard-test.mjs` → `revision2-interaction.json`）；P3-1 manifest 重生成（实际存在 151 张＝before 72＋after 79，完整 64 位 SHA-256，代码指纹 `3daab3b7…`）；P3-2 index.html before 全矩阵与陈旧表述更正；P3-3 窄窗残留登记（C/D 侧栏折行既有、800×600 设置/三态需滚动可达、400 compact 裁切仅形态证明）；P3-4 test:ui 数字更正为 179 并实现 reserveMore 可选项＋边界单测（分类布局 13 项）。复跑 test:ui 179、cargo 226、check、build、git diff --check 全过；新增键盘打开菜单证据截图并登记 manifest。AC11 更正为「浏览器键盘路径通过，原生未验」。作者报告见[§11](verification/U18_DESKTOP_LAYOUT_RESULT.md#11-第二修订轮p2-1-与-p3-1p3-4)。
+**第二修订轮（2026-10-01，复审二 Approve with nits：[U18_REVIEW_ROUND2_RESULT](verification/U18_REVIEW_ROUND2_RESULT.md)）。** 只处理 P2-1 与 P3-1~P3-4（[交接](archive/handoffs/U18_ZCODE_REVISION2_HANDOFF.md)）：P2-1 分类菜单键盘焦点修复并按交接 §3 以**真实按键**（Tab/Enter/方向键/Esc/键入，无 fill）验证 8/8（`desktop-layout/revision/revision2-keyboard-test.mjs` → `revision2-interaction.json`）；P3-1 manifest 重生成（实际存在 151 张＝before 72＋after 79，完整 64 位 SHA-256，代码指纹 `3daab3b7…`）；P3-2 index.html before 全矩阵与陈旧表述更正；P3-3 窄窗残留登记（C/D 侧栏折行既有、800×600 设置/三态需滚动可达、400 compact 裁切仅形态证明）；P3-4 test:ui 数字更正为 179 并实现 reserveMore 可选项＋边界单测（分类布局 13 项）。复跑 test:ui 179、cargo 226、check、build、git diff --check 全过；新增键盘打开菜单证据截图并登记 manifest。AC11 更正为「浏览器键盘路径通过，原生未验」。作者报告见[§11](verification/U18_DESKTOP_LAYOUT_RESULT.md#11-第二修订轮p2-1-与-p3-1p3-4)。
 
-用户确认六项调整方向，随后指定交给 zcode 的 GLM 5.3 Flash，并要求准备材料和启动 Prompt。用户发送[U18 zcode 交接](U18_ZCODE_HANDOFF.md)第 7 节 Prompt 后，zcode 按其授权完成 U18a–e；实现与自测在工作区（接手基线 main `91b7bd90d1b3218772314ec1d37cb37d838ad6bd` 未提交，**HEAD 不包含 U18 实现**）。规则/AC 唯一见[产品 D24](PRODUCT_DESIGN.md#u18-product)，交互/取证要求见[U18 界面设计](ui/U18_DESKTOP_LAYOUT_DESIGN.md)，命令结果、根因调查、AC 证据矩阵与原生受阻说明见[验证报告](verification/U18_DESKTOP_LAYOUT_RESULT.md)，视觉索引见 `docs/ui/desktop-layout/index.html`（三尺寸 × 三主题 × 明暗 × 4 页面同尺寸截图）。工程检查全绿（test:ui 173、cargo 226、check、build、git diff --check）；隔离原生完成身份/资料/句柄/启动验证，**原生 UI 行为验收因执行环境 AX 树退化＋无屏幕录制授权而受阻未执行**，已在验证报告 §6.2 如实记录，包与夹具就绪可复跑。
+用户确认六项调整方向，随后指定交给 zcode 的 GLM 5.3 Flash，并要求准备材料和启动 Prompt。用户发送[U18 zcode 交接](archive/handoffs/U18_ZCODE_HANDOFF.md)第 7 节 Prompt 后，zcode 按其授权完成 U18a–e；实现与自测在工作区（接手基线 main `91b7bd90d1b3218772314ec1d37cb37d838ad6bd` 未提交，**HEAD 不包含 U18 实现**）。规则/AC 唯一见[产品 D24](PRODUCT_DESIGN.md#u18-product)，交互/取证要求见[U18 界面设计](ui/U18_DESKTOP_LAYOUT_DESIGN.md)，命令结果、根因调查、AC 证据矩阵与原生受阻说明见[验证报告](verification/U18_DESKTOP_LAYOUT_RESULT.md)，视觉索引见 `docs/ui/desktop-layout/index.html`（三尺寸 × 三主题 × 明暗 × 4 页面同尺寸截图）。工程检查全绿（test:ui 173、cargo 226、check、build、git diff --check）；隔离原生完成身份/资料/句柄/启动验证，**原生 UI 行为验收因执行环境 AX 树退化＋无屏幕录制授权而受阻未执行**，已在验证报告 §6.2 如实记录，包与夹具就绪可复跑。
 
 | 阶段 | 依赖与工作 | 出口及 AC 归属 | 状态 |
 |---|---|---|---|
@@ -17,7 +17,7 @@
 | U18c 分类溢出 | `planCategoryLayout` 纯函数＋更多分类菜单（搜索/固定项/勾选/键盘）＋极窄选择器＋窄窗整行 | AC04–05、AC11 分类部分；U17 两层返回保持 | 完成（R1 无限更新修复＋compact 映射、R3 边界；纯函数 12 项＋真实组件交互 6 项；错误/重试接线 R6；18 组合重拍审看） |
 | U18d 导航与主题 | 物品统计入物品组末尾、回顾组取消、时间轴移底部、设置子入口与来源感知返回、底部三态 | AC07–09 浏览器证据＋三态/同步冒烟；统计 aria-label 与 CSS 选择器同步 | 完成（R4 恢复 `modules.timeline` 门控＋模块名称「物品统计」；R5 鼠标返回按钮＋来源详情/稳定焦点恢复，验证 8/8；原生主题未验保留） |
 | U18e 综合验证与交付 | 18 组合 × 4 页面截图、特殊态、工程检查、隔离原生 | AC01–12 逐项有证据或缺口说明（见报告矩阵 §10.9）；原生行为项受阻未执行 | 修订轮完成：39 张受影响 after 重拍逐张审看、before 全矩阵 72 张 HEAD 原版补齐、指纹绑定；AC11/12 与原生行为维持部分/未验 |
-| U18r 独立 Review | 用户带回 zcode 结果后，由原 Codex 对话检查实际差异、证据和关键回归 | 报告发现与缺口，区分实现、自测、独立验证；不自动集成发布 | 第一轮 Request changes；修订轮已交回，待独立复审 |
+| U18r 独立 Review | 用户带回 zcode 结果后，由原 Codex 对话检查实际差异、证据和关键回归 | 报告发现与缺口，区分实现、自测、独立验证；不自动集成发布 | 第一轮 Request changes；第二、三轮复审 Approve with nits 并已全部收口；已合并 main，随 2.3.0 安装 |
 
 ### U18 检查与停止边界
 
@@ -27,6 +27,7 @@
 - 原生行为验收受阻的缺口由独立 Review 环境决定是否补跑：release/debug 隔离包（`local.possio.u18.acceptance`）与夹具 `src-tauri/examples/u18_fixture.rs` 已就绪，复跑步骤见验证报告 §6.2。
 - USER_GUIDE 本轮未更新：原生操作验收未完成，按交接约定不把未验功能写成可用操作。
 - U18e 停在可审阅交付；发布版本号、合并、推送与安装另按当次授权处理。
+- **状态更新（2026-10-01）：** 以上为 zcode 交回时的边界记录。其后已合并 main（`e33cea1`）并随 2.3.0 安装；隔离原生验收补做了 AC09（三态与重开）、AC11（键盘）、AC12（切库与重开），见[验证报告 §11.10](verification/U18_DESKTOP_LAYOUT_RESULT.md#1110-原生-ui-隔离验收2026-10-01合入-d2670ce-之后)。AC01–AC08 的原生行为、AC11 滚轮、AC04/05 鼠标仍未验，清单见[发布前盘点](RELEASE_AUDIT.md)；USER_GUIDE 已按当前导航更新。
 
 ---
 
@@ -34,7 +35,7 @@
 
 ## U17 · 标签投入分析（2026-09-30，已复审并随 2.2.0 发布）
 
-用户已确认功能方向，并要求“先把相关的设计、计划、文档全部写清楚”。设计文档随后经用户交给 zcode 按交接完成开发与自测（U17a–d）；首轮独立 Review 给出 R1–R4 修订要求，zcode 修订轮已逐项修复并补齐证据（验证报告 §7b），原对话第二轮复审已通过（含非阻断备注），R1–R4 关闭；已按用户授权提交、推送、安装 2.2.0。完整接手说明与可复制 Prompt 见[U17 zcode 交接](U17_ZCODE_HANDOFF.md)。业务及 U17-AC01–11 唯一见[产品设计 D23](PRODUCT_DESIGN.md#u17-product)，界面见[U17 设计](ui/U17_TAG_INVESTMENT_DESIGN.md)，技术见[ADR-001 第 25 节](decisions/001-local-desktop.md#u17-technical)。**用户现已明确授权“提交推送安装收尾”；仅发布本次 U17，不推进新阶段。**
+用户已确认功能方向，并要求“先把相关的设计、计划、文档全部写清楚”。设计文档随后经用户交给 zcode 按交接完成开发与自测（U17a–d）；首轮独立 Review 给出 R1–R4 修订要求，zcode 修订轮已逐项修复并补齐证据（验证报告 §7b），原对话第二轮复审已通过（含非阻断备注），R1–R4 关闭；已按用户授权提交、推送、安装 2.2.0。完整接手说明与可复制 Prompt 见[U17 zcode 交接](archive/handoffs/U17_ZCODE_HANDOFF.md)。业务及 U17-AC01–11 唯一见[产品设计 D23](PRODUCT_DESIGN.md#u17-product)，界面见[U17 设计](ui/U17_TAG_INVESTMENT_DESIGN.md)，技术见[ADR-001 第 25 节](decisions/001-local-desktop.md#u17-technical)。**用户现已明确授权“提交推送安装收尾”；仅发布本次 U17，不推进新阶段。**
 
 | 阶段 | 依赖及任务 | 出口与验收归属 | 状态 |
 |---|---|---|---|
@@ -98,7 +99,7 @@
 
 ## U13 · 默认自动备份（2026-09-29，zcode 实现、Claude 复核，随 1.14.0 发布）
 
-用户确认方案（“按照这个方案可以实现”），并指定写清文档后交给 zcode 执行、Claude 复核。产品规则唯一来源：[产品设计 D20](PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)；技术契约：[ADR-001 第 24 节](decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)；执行入口：[U13_ZCODE_HANDOFF](U13_ZCODE_HANDOFF.md)。
+用户确认方案（“按照这个方案可以实现”），并指定写清文档后交给 zcode 执行、Claude 复核。产品规则唯一来源：[产品设计 D20](PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)；技术契约：[ADR-001 第 24 节](decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)；执行入口：[U13_ZCODE_HANDOFF](archive/handoffs/U13_ZCODE_HANDOFF.md)。
 
 | 阶段 | 范围 | 出口 | 状态 |
 |---|---|---|---|
@@ -115,7 +116,7 @@
 
 ## U12 · 页面顶栏与搜索统一（2026-09-29，zcode 实现、Claude 复核，随 1.13.0 发布）
 
-用户已确认方案；Codex 整理文档、阶段与 zcode Prompt，zcode 按 a→d 实现并验收（额度用尽前完成代码与主要证据），Claude 随后复核并修复遗漏（见表后「复核」）。产品规则唯一来源：[产品设计 3.5](PRODUCT_DESIGN.md#35-u12--页面顶栏与搜索统一2026-09-29已确认随-1130-发布)；视觉约束见 [UI 设计 U12](UI_DESIGN.md#u12--顶栏与页面搜索2026-09-29随-1130-发布)；执行入口见 [U12_ZCODE_HANDOFF](U12_ZCODE_HANDOFF.md)。
+用户已确认方案；Codex 整理文档、阶段与 zcode Prompt，zcode 按 a→d 实现并验收（额度用尽前完成代码与主要证据），Claude 随后复核并修复遗漏（见表后「复核」）。产品规则唯一来源：[产品设计 3.5](PRODUCT_DESIGN.md#35-u12--页面顶栏与搜索统一2026-09-29已确认随-1130-发布)；视觉约束见 [UI 设计 U12](UI_DESIGN.md#u12--顶栏与页面搜索2026-09-29随-1130-发布)；执行入口见 [U12_ZCODE_HANDOFF](archive/handoffs/U12_ZCODE_HANDOFF.md)。
 
 | 阶段 | 范围与依赖 | 阶段出口 | 状态 |
 |---|---|---|---|
@@ -134,7 +135,7 @@ zcode 接手后可在本任务范围内按 a→d 连续推进，每步达到出�
 
 ## D · 综合体验（2026-09-28，已完成并随 1.9.0 发布）
 
-授权来源：用户对“先整理 D 的页面方案和统计口径”回复“那就按照建议来”。随后用户回复“感觉还可以，那就进行下一步”，授权 Q01 界面对照与技术核对；业务与验收定义统一见[产品设计第 17.13 节](PRODUCT_DESIGN.md#1713-d--综合体验方案2026-09-28已随-190-发布)。以下 Q 编号用于 D 的候选实施步骤，避免与既有产品 D 决策编号混淆；Q01 仅制作设计稿；用户随后回复“那就开始下一步”，授权 Q02 实现。Q02 已完成本阶段出口；Q03 随用户“进行下一步”开始，中途用户要求拆分材料交给 zcode（见[交接入口](Q03_ZCODE_HANDOFF.md)），zcode 已按交接完成 Q03a–Q03f，Claude 审阅后修正来源跳转问题；用户回复“进入 Q04”，Q04 隔离原生验收已完成并停在审阅。
+授权来源：用户对“先整理 D 的页面方案和统计口径”回复“那就按照建议来”。随后用户回复“感觉还可以，那就进行下一步”，授权 Q01 界面对照与技术核对；业务与验收定义统一见[产品设计第 17.13 节](PRODUCT_DESIGN.md#1713-d--综合体验方案2026-09-28已随-190-发布)。以下 Q 编号用于 D 的候选实施步骤，避免与既有产品 D 决策编号混淆；Q01 仅制作设计稿；用户随后回复“那就开始下一步”，授权 Q02 实现。Q02 已完成本阶段出口；Q03 随用户“进行下一步”开始，中途用户要求拆分材料交给 zcode（见[交接入口](archive/handoffs/Q03_ZCODE_HANDOFF.md)），zcode 已按交接完成 Q03a–Q03f，Claude 审阅后修正来源跳转问题；用户回复“进入 Q04”，Q04 隔离原生验收已完成并停在审阅。
 
 | 步骤 | 具体产物与出口 | 验收归属 | 状态 |
 |---|---|---|---|
@@ -148,7 +149,7 @@ Q02 已修改应用代码，未改 schema、正式资料或模型配置；未启
 
 ### Q03 顺序任务与交接出口（2026-09-28）
 
-交接入口：[Q03_ZCODE_HANDOFF](Q03_ZCODE_HANDOFF.md)，包含当前代码、材料、已知风险与完整启动 Prompt。用户要求准备材料交给 zcode；Codex 不再继续功能接线。以下是 Q03 的细分，不额外扩展阶段范围。不自动委派。
+交接入口：[Q03_ZCODE_HANDOFF](archive/handoffs/Q03_ZCODE_HANDOFF.md)，包含当前代码、材料、已知风险与完整启动 Prompt。用户要求准备材料交给 zcode；Codex 不再继续功能接线。以下是 Q03 的细分，不额外扩展阶段范围。不自动委派。
 
 | 子任务 | 依赖与范围 | 出口 | 交接状态 |
 |---|---|---|---|

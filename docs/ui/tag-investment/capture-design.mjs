@@ -16,7 +16,7 @@ const browser = await agent.browsers.get("iab");
 let tab = (await browser.tabs.list())[0] ?? (await browser.tabs.new());
 tab = await browser.tabs.get(tab.id);
 const fs = await import("node:fs/promises");
-const base = "/Users/jackzhu/Code/Own/Possio/docs/ui/tag-investment/design";
+const base = new URL("./design", import.meta.url).pathname;
 const base_url = "http://127.0.0.1:1429/docs/ui/tag-investment/mockup.html";
 await fs.mkdir(base, { recursive: true });
 async function capture(file, url, size) {

@@ -1,4 +1,4 @@
-   Compiling possio v0.0.1 (/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
+   Compiling possio v0.0.1 (~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 2.17s
      Running tests/taxonomy.rs (src-tauri/target/debug/deps/taxonomy-44dda0003490efc3)
 

@@ -92,7 +92,7 @@ if (sDel.notice.includes('前往最近删除')) {
 }
 results.allPass = results.checks.every(c => c.pass);
 results.errors = await page.evaluate(() => window.__errs ?? []);
-writeFileSync('/Users/jackzhu/Code/Own/Possio/docs/ui/desktop-layout/revision/r5r6-verification.json', JSON.stringify(results, null, 2));
+writeFileSync(new URL('./r5r6-verification.json', import.meta.url).pathname, JSON.stringify(results, null, 2));
 console.log('ALL-PASS:', results.allPass);
 await task.finish({ keep: [] });
 process.exit(results.allPass ? 0 : 1);

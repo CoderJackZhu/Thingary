@@ -1,12 +1,12 @@
 # Q03 · zcode 开发交接（历史记录）
 
-> 2026-09-28 后续：zcode 已按本交接完成 Q03a–Q03f，结果见 [Q03 记录](verification/Q03_SOURCE_NAVIGATION_RESULT.md)。下文保留交接时的状态，不代表当前进度。
+> 2026-09-28 后续：zcode 已按本交接完成 Q03a–Q03f，结果见 [Q03 记录](../../verification/Q03_SOURCE_NAVIGATION_RESULT.md)。下文保留交接时的状态，不代表当前进度。
 
 更新：2026-09-28。用户在 Q03 开发中改为要求“把任务拆分了，然后准备好相关材料……Prompt……复制给 zcode 来开发”。因此 Codex 停止继续接功能，只做编译衔接、检查与交接整理。**Q03 未完成，不能把这份交接当验收报告。**
 
 ## 1. 从哪里开始
 
-- 仓库：`/Users/jackzhu/Code/Own/Possio`。
+- 仓库：`<repo>`。
 - 当前分支：`main`；起点 HEAD：`cd4e11125be950840c9ea6457114278cfa331693`（1.8.0）。最新工作在未提交工作区，不在 HEAD 中。
 - 未提交内容同时包含 Q00/Q01 设计、已验证的 Q02 和刚开始的 Q03。**不要重置、清理、切换到远程版本，或把所有差异当作本次新增。** 不要用 `git checkout --` 丢弃 Q02。
 - `.claude/launch.json` 是既有未跟踪文件，`.gitignore` 由用户维护，均不修改、不纳入提交。
@@ -29,12 +29,12 @@ git diff --stat
 
 按顺序阅读；本文件只维护交接状态、风险与 Prompt，不复制产品规则或任务状态表。
 
-1. [README](../README.md)、[AGENTS](../AGENTS.md)。
-2. [实施计划](IMPLEMENTATION_PLAN.md)：顶部 Q03a–Q03f 是本次顺序与出口，逐步更新这里。
-3. [产品设计](PRODUCT_DESIGN.md)第 17.13 节：X-D17、来源跳转、日期/金额口径、D-AC01–10。
-4. [ADR-001](decisions/001-local-desktop.md)第 22 节：共享读取、target、返回状态与刷新；第 17–21 节按需查领域规则。
-5. [Q02 结果](verification/Q02_COMPREHENSIVE_RESULT.md)、[实际界面与原方案对照](ui/comprehensive/q02/index.html)、[UI 设计](UI_DESIGN.md)。
-6. [Q01 结果](verification/Q01_COMPREHENSIVE_DESIGN_RESULT.md)：历史设计证据及其模拟边界，勿当作功能验收。
+1. [README](../../../README.md)、[AGENTS](../../../AGENTS.md)。
+2. [实施计划](../../IMPLEMENTATION_PLAN.md)：顶部 Q03a–Q03f 是本次顺序与出口，逐步更新这里。
+3. [产品设计](../../PRODUCT_DESIGN.md)第 17.13 节：X-D17、来源跳转、日期/金额口径、D-AC01–10。
+4. [ADR-001](../../decisions/001-local-desktop.md)第 22 节：共享读取、target、返回状态与刷新；第 17–21 节按需查领域规则。
+5. [Q02 结果](../../verification/Q02_COMPREHENSIVE_RESULT.md)、[实际界面与原方案对照](../../ui/comprehensive/q02/index.html)、[UI 设计](../../UI_DESIGN.md)。
+6. [Q01 结果](../../verification/Q01_COMPREHENSIVE_DESIGN_RESULT.md)：历史设计证据及其模拟边界，勿当作功能验收。
 
 本地可操作预览：`http://127.0.0.1:1429/visual-preview.html`；原有服务不是本轮创建，不随意终止。界面工作按 AGENTS 优先 Ego Lite；截图曾连续超时，确实不可用时再按技能使用应用内浏览器。代码图索引曾被自动审批拒绝，理由是可能向服务导出私有源码；不要重试绕过。工具仍不可用时基于本地代码阅读继续。无需为本任务联网发送源码。
 
@@ -89,7 +89,7 @@ git diff --check
 ## 6. 可直接复制的启动 Prompt
 
 ```text
-请在 /Users/jackzhu/Code/Own/Possio 接手 Q03 开发。先完整阅读 docs/Q03_ZCODE_HANDOFF.md，并按其中顺序阅读 README、AGENTS、实施计划、产品设计 17.13、ADR-001 第 22 节和 Q02 结果。
+请在 <repo> 接手 Q03 开发。先完整阅读 docs/Q03_ZCODE_HANDOFF.md，并按其中顺序阅读 README、AGENTS、实施计划、产品设计 17.13、ADR-001 第 22 节和 Q02 结果。
 
 这次授权你完成实施计划 Q03a–Q03f：稳定来源与盘点事件、导航/返回上下文、各来源页面接入、综合页与时间轴整合、虚构样例验证及最终回归。按依赖顺序推进，每步先通过对应出口再继续；不是只给方案或等待逐步批准。先核对工作区和已有半成品，先补齐交接文件第 4 节的风险，再继续接线。
 

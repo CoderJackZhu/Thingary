@@ -4,7 +4,7 @@
 
 ## 1. 起点、模型与停止点
 
-- 工作目录是 `/Users/jackzhu/Code/Own/Possio`，当前本地 `main` 在准备本文前为 `df7f398c9728279c67d7694d276a24b3b2dd983e`，CP2 已达到出口。Hermes 从**包含本文的最新 main HEAD** 创建 `codex/t12-wishlist`，先记录 cwd、分支、完整 HEAD、`git status`；不要从旧 `outputs/Possio-t06b` 工作树开始。
+- 工作目录是 `<repo>`，当前本地 `main` 在准备本文前为 `df7f398c9728279c67d7694d276a24b3b2dd983e`，CP2 已达到出口。Hermes 从**包含本文的最新 main HEAD** 创建 `codex/t12-wishlist`，先记录 cwd、分支、完整 HEAD、`git status`；不要从旧 `outputs/Possio-t06b` 工作树开始。
 - 当前没有 Git remote，因此没有推送。未跟踪的 `.gitignore` 是用户文件，保持原样，不修改或暂存。不 reset、clean、覆盖既有改动；若起点状态变化，先查清来源。
 - 建议 Hermes 用 GPT-6 Sol 中档作为单执行者串行完成实现、测试与报告。记录实际模型；不自动开 MoA、子代理或后台循环，不改全局路由。迁移、分类引用和回执协议有不确定性时带具体证据交回 Codex 以 Astra High 审阅，不凭模型档位替代验收。
 - 用户已把 **T12 这一阶段**交给 Hermes。可完成 T12 必要代码、测试、文档和任务分支本地提交；交回后由 Codex review。Hermes 不自行合并 `main`、配置远程、推送、发布或启动 T13。
@@ -56,11 +56,11 @@
 
 ```text
 请 review Possio T12 心愿记录。
-工作目录：/Users/jackzhu/Code/Own/Possio
+工作目录：<repo>
 分支：codex/t12-wishlist
 起点 HEAD：<完整 SHA>
 最终 HEAD：<完整 SHA>
-报告：/Users/jackzhu/Code/Own/Possio/docs/verification/T12_WISHLIST_RESULT.md
+报告：<repo>/docs/verification/T12_WISHLIST_RESULT.md
 实际模型：<模型、档位和执行方式>
 最终代码提交后的检查：<命令、退出码、测试数量>
 原生已验／未验：<分开列；浏览器不当作原生>
@@ -72,7 +72,7 @@
 ```text
 请实现 Possio T12「心愿记录」，完成后停止并交回 Codex review。
 
-直接在 /Users/jackzhu/Code/Own/Possio 工作。先核对 cwd、分支、完整 HEAD、git status；从包含 T12 交接文档的最新 main 创建 codex/t12-wishlist，在同一主目录开发。不要用旧 outputs 工作树，不 reset/clean/覆盖改动；未跟踪 .gitignore 是用户文件，保持原样、不提交。当前没有远程地址，不配置或推送。
+直接在 <repo> 工作。先核对 cwd、分支、完整 HEAD、git status；从包含 T12 交接文档的最新 main 创建 codex/t12-wishlist，在同一主目录开发。不要用旧 outputs 工作树，不 reset/clean/覆盖改动；未跟踪 .gitignore 是用户文件，保持原样、不提交。当前没有远程地址，不配置或推送。
 
 先读 AGENTS.md、README.md，再完整读 docs/handoffs/T12_HERMES.md；按其中最小阅读顺序局部读取产品设计、功能规格、ADR、实施计划及当前验证结论。T12 仅做心愿新增/放弃/筛选、Grid/List、P0 排序、分类引用、预计金额与封面；预计价绝不混入资产成本。分类迁移要覆盖进行中与已放弃心愿。心愿没有购买渠道字段；实际渠道及「已购入」转换都留给 T13。保持 A「静序」和 Demo 插图/素材库视觉基线。
 

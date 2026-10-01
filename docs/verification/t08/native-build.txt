@@ -20,7 +20,7 @@ dist/assets/index-D7-K2Glq.js   311.02 kB │ gzip: 92.99 kB
 ✓ built in 96ms
    Compiling objc2-exception-helper v0.1.1
    Compiling libsqlite3-sys v0.38.2
-   Compiling possio v0.0.1 (/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
+   Compiling possio v0.0.1 (~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
    Compiling objc2 v0.6.4
    Compiling objc2-core-foundation v0.3.2
    Compiling block2 v0.6.2
@@ -38,8 +38,8 @@ dist/assets/index-D7-K2Glq.js   311.02 kB │ gzip: 92.99 kB
    Compiling tauri v2.11.6
    Compiling tauri-plugin-single-instance v2.4.5
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.85s
-       Built application at: /Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/possio
-    Bundling Possio T06b Preview.app (/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/bundle/macos/Possio T06b Preview.app)
+       Built application at: ~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/possio
+    Bundling Possio T06b Preview.app (~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/bundle/macos/Possio T06b Preview.app)
     Finished 1 bundle at:
-        /Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/bundle/macos/Possio T06b Preview.app
+        ~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target/debug/bundle/macos/Possio T06b Preview.app
 

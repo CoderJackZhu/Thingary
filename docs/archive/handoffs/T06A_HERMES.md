@@ -12,9 +12,9 @@
 
 仅在以下独立 worktree 工作：
 
-`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a`
+`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a`
 
-分支：`hermes/t06a-taxonomy-ui`。开始时记录 `pwd`、`git branch --show-current`、`git rev-parse HEAD` 和 `git status --short`。若路径/分支不符，停止写入并报告；保留已有用户改动。主仓库是 `/Users/jackzhu/Code/Own/Possio`，不得在那里实现、合并或切换分支。
+分支：`hermes/t06a-taxonomy-ui`。开始时记录 `pwd`、`git branch --show-current`、`git rev-parse HEAD` 和 `git status --short`。若路径/分支不符，停止写入并报告；保留已有用户改动。主仓库是 `<repo>`，不得在那里实现、合并或切换分支。
 
 本次由用户在 Hermes 中发起执行。建议该会话选择已有 MiniMax 主模型；若实际仍为 GPT/Codex，先报告实际路由，等待用户在会话中切换。不要更改全局配置、启动 MoA、并发子 Agent 或后台循环。不要假定工具内的委派模型就是当前会话主模型。
 

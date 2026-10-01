@@ -1,10 +1,10 @@
 # U17 · zcode 标签投入分析开发交接
 
-更新：2026-09-30。本文件是给 zcode 的唯一交接入口，只维护接手基线、执行方式、代码导航、回交与 Prompt；业务事实仍在产品设计、技术在 ADR、页面在 UI 设计、任务状态在实施计划。**2026-09-30 更新：zcode 已按第 7 节 Prompt 完成 U17a–d 开发与自测，停在待独立 Review；回交摘要与证据见[U17 验证报告](verification/U17_TAG_INVESTMENT_RESULT.md)，实现在未提交工作区。**
+更新：2026-09-30。本文件是给 zcode 的唯一交接入口，只维护接手基线、执行方式、代码导航、回交与 Prompt；业务事实仍在产品设计、技术在 ADR、页面在 UI 设计、任务状态在实施计划。**2026-09-30 更新：zcode 已按第 7 节 Prompt 完成 U17a–d 开发与自测，停在待独立 Review；回交摘要与证据见[U17 验证报告](../../verification/U17_TAG_INVESTMENT_RESULT.md)，实现在未提交工作区。**
 
 ## 1. 接手基线与权限
 
-- 目录：`/Users/jackzhu/Code/Own/Possio`。文档准备时实测分支 `main`，HEAD `6cc4189ecbed56a6b0301abd2cb9a86bc307c6b4`；这是当时快照，开工重新核对，不回退到它。
+- 目录：`<repo>`。文档准备时实测分支 `main`，HEAD `6cc4189ecbed56a6b0301abd2cb9a86bc307c6b4`；这是当时快照，开工重新核对，不回退到它。
 - **U17 设计尚未提交**，普通从 HEAD 新建 worktree 看不到这些内容。默认在当前目录接续，不自动创建/切换分支、worktree 或 stash。若用户之后另给隔离 checkout，先确认全套 U17 文档已带入再动手。
 - 既有 U17 差异：README、CHANGELOG、PRODUCT_DESIGN、IMPLEMENTATION_PLAN、FUNCTIONAL_SPEC、USER_GUIDE、ADR-001、U16_DESIGN_SPEC，及新增 U17_TAG_INVESTMENT_DESIGN、本交接文件。都是本次设计资产，保留。既有未跟踪 `.claude/` 不修改、不清理、不提交；根 `.gitignore` 由用户维护。
 - 用户把第 7 节 Prompt 发给 zcode 后，按 U17a → U17b → U17c → U17d 实施并自测；达到阶段出口即继续，不需逐阶段重复请求许可。**本文件本身不触发开发、不授权其他会话自行接续。**
@@ -25,12 +25,12 @@ HEAD 或状态变化先读差异，保留他人工作，不 reset/clean。未识
 
 ## 2. 阅读顺序与单一权威
 
-1. [README](../README.md)、[AGENTS](../AGENTS.md)：当前入口、正式库保护和仓库命令。
-2. [产品设计 D23](PRODUCT_DESIGN.md#u17-product)及[U17 验收](PRODUCT_DESIGN.md#u17-acceptance)：阅读 D23 标题起全文（含开发细化），关联第 6 节成本、D16 标签/排除、3.5 搜索、D17 删除。
-3. [U17 实施计划](IMPLEMENTATION_PLAN.md#u17)：唯一进度表，zcode 更新 U17a–d；U17r 留给后续 Reviewer。
-4. [U17 界面设计](ui/U17_TAG_INVESTMENT_DESIGN.md)全部章节，及 [U16 规范](ui/U16_DESIGN_SPEC.md)的组件/主题/格式；[U16 设计稿](ui/u16/mockup-v3.html)只作现有视觉参照，不把旧稿没有 U17 当成无须设计。
-5. [ADR-001 第 25 节](decisions/001-local-desktop.md#u17-technical)及 23.2/23.3：读取、字段、排序、身份、返回与测试契约。字段名可以按实际风格收敛，语义不能删减。
-6. [U16 验证](verification/U16_PARITY_RESULT.md)、[U12 验证](verification/U12_TOPBAR_SEARCH_RESULT.md)、[Q04 原生验证](verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)：只参考隔离方法、导航风险和证据形式，旧通过记录不算 U17 通过。
+1. [README](../../../README.md)、[AGENTS](../../../AGENTS.md)：当前入口、正式库保护和仓库命令。
+2. [产品设计 D23](../../PRODUCT_DESIGN.md#u17-product)及[U17 验收](../../PRODUCT_DESIGN.md#u17-acceptance)：阅读 D23 标题起全文（含开发细化），关联第 6 节成本、D16 标签/排除、3.5 搜索、D17 删除。
+3. [U17 实施计划](../../IMPLEMENTATION_PLAN.md#u17)：唯一进度表，zcode 更新 U17a–d；U17r 留给后续 Reviewer。
+4. [U17 界面设计](../../ui/U17_TAG_INVESTMENT_DESIGN.md)全部章节，及 [U16 规范](../../ui/U16_DESIGN_SPEC.md)的组件/主题/格式；[U16 设计稿](../../ui/u16/mockup-v3.html)只作现有视觉参照，不把旧稿没有 U17 当成无须设计。
+5. [ADR-001 第 25 节](../../decisions/001-local-desktop.md#u17-technical)及 23.2/23.3：读取、字段、排序、身份、返回与测试契约。字段名可以按实际风格收敛，语义不能删减。
+6. [U16 验证](../../verification/U16_PARITY_RESULT.md)、[U12 验证](../../verification/U12_TOPBAR_SEARCH_RESULT.md)、[Q04 原生验证](../../verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)：只参考隔离方法、导航风险和证据形式，旧通过记录不算 U17 通过。
 
 使用代码图优先定位。图未索引先索引，图不足再定向读文件；配置、文案及文档可直接搜索。具体库/API 用法按 AGENTS 查 Context7。浏览器优先 Ego Lite 并先读其 SKILL；不可用时说明后选可用工具。不要安装新工具或换框架来完成本功能。
 
@@ -112,7 +112,7 @@ AC 通过 / 部分 / 未执行及原因：
 ## 7. 可直接复制给 zcode 的启动 Prompt
 
 ```text
-请在 /Users/jackzhu/Code/Own/Possio 完成 U17「标签投入分析」开发。
+请在 <repo> 完成 U17「标签投入分析」开发。
 
 先完整阅读 docs/U17_ZCODE_HANDOFF.md，并按其中第 2 节顺序读取 README、AGENTS、PRODUCT_DESIGN 的 D23（含开发细化与 U17-AC01–11）、IMPLEMENTATION_PLAN 的 U17、UI 的 U17_TAG_INVESTMENT_DESIGN/U16_DESIGN_SPEC、ADR-001 第 25 节。需求、UI、技术与进度各以对应原文为准，不另起一套规格。
 

@@ -4,7 +4,7 @@
 
 ## 1. 起点、执行者与改动
 
-- 工作目录 `/Users/jackzhu/Code/Own/Possio`；从最新本地 `main` 的完整 SHA `126b3c397e9274e5f8e262a47da0564cf987f373` 创建 `codex/t22-self-use-release`。起点 `git status` 仅 `?? .gitignore`，其 SHA256 为 `b93631bb68425b2904975118807e90b07d9647b7734cfb2c1842ff09253f21b9`；未修改、暂存或提交。最终完整 SHA 以交回消息中的 `git rev-parse HEAD` 为准（提交文件不能包含其自身的 SHA）。
+- 工作目录 `<repo>`；从最新本地 `main` 的完整 SHA `126b3c397e9274e5f8e262a47da0564cf987f373` 创建 `codex/t22-self-use-release`。起点 `git status` 仅 `?? .gitignore`，其 SHA256 为 `b93631bb68425b2904975118807e90b07d9647b7734cfb2c1842ff09253f21b9`；未修改、暂存或提交。最终完整 SHA 以交回消息中的 `git rev-parse HEAD` 为准（提交文件不能包含其自身的 SHA）。
 - 实际执行者：本会话 Codex，系统仅标识 GPT-6 系列；没有可核实的 Sol/Astra 子型号或推理档位，不冒称已完成 Astra 独立审查。单执行者串行，无子代理、后台循环或全局配置更改。数据身份与发布配置留给 Claude review。
 - 改动：`src-tauri/tauri.release.conf.json`、`package.json`、`index.html`、`src/DataManagement.tsx` 及对应已有测试、`docs/USER_GUIDE.md`、本报告及 `t22/` 的读回脚本和两张截图、README、实施计划。未修改默认 `src-tauri/tauri.conf.json`、业务规则、schema 或恢复协议。
 

@@ -6,7 +6,7 @@
 
 ## 1. 起点、分支与提交
 
-- 工作目录：`/Users/jackzhu/Code/Own/Possio`（主目录，未使用 `outputs/` 旧工作树）
+- 工作目录：`<repo>`（主目录，未使用 `outputs/` 旧工作树）
 - 分支：`codex/t10-warranties`（自含 T10 交接文档的 main 创建）
 - 起点 HEAD：`d5630643eadb5ef0ad0a36a3660e41f7622538a9`（开工时 `git status` 仅未跟踪 `.gitignore` 用户文件，保持原样未提交，SHA256 `b93631bb…53f21b9` 与契约一致）
 - 代码提交：`2dee0c92e4180cbc4d80593d2b73ecde2ebfe709`（feat: add T10 warranty records with schema 10 migration，25 文件 +2043/−48）
@@ -109,12 +109,12 @@
 
 ```text
 请 review Possio T10 保障档案。
-工作目录：/Users/jackzhu/Code/Own/Possio
+工作目录：<repo>
 分支：codex/t10-warranties
 起点 HEAD：d5630643eadb5ef0ad0a36a3660e41f7622538a9
 最终 HEAD：<本报告提交后以 git rev-parse HEAD 为准>
 代码提交：2dee0c92e4180cbc4d80593d2b73ecde2ebfe709
-报告：/Users/jackzhu/Code/Own/Possio/docs/verification/T10_WARRANTY_RESULT.md
+报告：<repo>/docs/verification/T10_WARRANTY_RESULT.md
 实际模型：GLM-5.3（Z code 单执行者串行；未启用子代理/Flash/其他执行器）
 提交后检查：test:ui 57 通过 / test 68 通过 / test:demo 2 通过 / check / build / tauri 隔离构建 / git diff --check 全部 exit 0（在代码提交 2dee0c9 上）
 原生已验：升级前一致性快照；真实启动 9→10 迁移（数据全保留、完整性 ok、无发明保障行）

@@ -16,7 +16,7 @@
    Compiling tauri-runtime-wry v2.11.4
    Compiling tauri v2.11.6
    Compiling tauri-plugin-single-instance v2.4.5
-   Compiling possio v0.0.1 (/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
+   Compiling possio v0.0.1 (~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 25.22s
      Running unittests src/lib.rs (src-tauri/target/debug/deps/possio_lib-45eb05c0dcbf0b50)
 

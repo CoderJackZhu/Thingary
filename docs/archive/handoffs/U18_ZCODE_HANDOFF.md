@@ -4,7 +4,7 @@
 
 ## 1. 基线与权限
 
-- 目录 `/Users/jackzhu/Code/Own/Possio`；准备时分支 `main`，HEAD `91b7bd90d1b3218772314ec1d37cb37d838ad6bd`。重新核对实际状态，不回退到快照。
+- 目录 `<repo>`；准备时分支 `main`，HEAD `91b7bd90d1b3218772314ec1d37cb37d838ad6bd`。重新核对实际状态，不回退到快照。
 - 既有未提交 U18 材料：`README.md`、`CHANGELOG.md`、`docs/PRODUCT_DESIGN.md`、`docs/IMPLEMENTATION_PLAN.md`、`docs/ui/U16_DESIGN_SPEC.md`，新增 `docs/ui/U18_DESKTOP_LAYOUT_DESIGN.md` 与本文件。它们是接手基线，不是执行者新增代码。
 - 未跟踪 `.claude/` 属既有文件，不修改、清理或提交。根 `.gitignore` 由用户维护。
 - 文档未提交，默认直接在当前目录接续；不要从 HEAD 另建 worktree 导致漏掉设计，不自动切分支、stash、reset 或 clean。出现并发改动先读差异，保留其他人的工作，只暂停冲突文件。
@@ -26,12 +26,12 @@ git diff --stat
 
 ## 2. 阅读顺序与职责
 
-1. [README](../README.md)、[AGENTS](../AGENTS.md)：仓库约束和命令。旧版本状态以当前实施计划及发布记录核对。
-2. [产品 D24](PRODUCT_DESIGN.md#u18-product)：六项范围、非目标、U18-AC01–12；不把其他阶段旧授权套入本任务。
-3. [U18 界面设计](ui/U18_DESKTOP_LAYOUT_DESIGN.md)：全文，尤其分类排布/菜单、设置返回上下文、三态偏好、尺寸/主题证据。
-4. [实施计划 U18](IMPLEMENTATION_PLAN.md#u18)：按 a–e 顺序更新；r 留给独立审阅。
-5. [U16 规范](ui/U16_DESIGN_SPEC.md)：沿用 tokens/格式/组件，新旧冲突以 D24/U18 为准；[U17 界面设计](ui/U17_TAG_INVESTMENT_DESIGN.md)：保护分析入口与两层返回。
-6. [U16 验证记录](verification/U16_PARITY_RESULT.md)、[U17 验证记录](verification/U17_TAG_INVESTMENT_RESULT.md)、[U12 顶栏记录](verification/U12_TOPBAR_SEARCH_RESULT.md)：只参考隔离构建、窗口/主题、菜单/搜索接线及证据形式；旧通过记录不能作为本次通过。
+1. [README](../../../README.md)、[AGENTS](../../../AGENTS.md)：仓库约束和命令。旧版本状态以当前实施计划及发布记录核对。
+2. [产品 D24](../../PRODUCT_DESIGN.md#u18-product)：六项范围、非目标、U18-AC01–12；不把其他阶段旧授权套入本任务。
+3. [U18 界面设计](../../ui/U18_DESKTOP_LAYOUT_DESIGN.md)：全文，尤其分类排布/菜单、设置返回上下文、三态偏好、尺寸/主题证据。
+4. [实施计划 U18](../../IMPLEMENTATION_PLAN.md#u18)：按 a–e 顺序更新；r 留给独立审阅。
+5. [U16 规范](../../ui/U16_DESIGN_SPEC.md)：沿用 tokens/格式/组件，新旧冲突以 D24/U18 为准；[U17 界面设计](../../ui/U17_TAG_INVESTMENT_DESIGN.md)：保护分析入口与两层返回。
+6. [U16 验证记录](../../verification/U16_PARITY_RESULT.md)、[U17 验证记录](../../verification/U17_TAG_INVESTMENT_RESULT.md)、[U12 顶栏记录](../../verification/U12_TOPBAR_SEARCH_RESULT.md)：只参考隔离构建、窗口/主题、菜单/搜索接线及证据形式；旧通过记录不能作为本次通过。
 
 本任务没有新数据契约，不另写平行 ADR 或规格。代码发现优先 MCP 图工具，未索引先索引；图不足再定向读文件，工具不可用记录原因后降级。配置、CSS 字面值、文案、Markdown 可直接搜索。具体库/API 用法按 AGENTS 查询 Context7，不可用再查官方文档。浏览器优先 Ego Lite，先读 `~/.codex/skills/ego-browser/SKILL.md` 并遵循 TaskSpace/观察/收尾流程；不可用时说明再换现有工具，不为完成本任务安装新工具。
 
@@ -114,7 +114,7 @@ AC 通过 / 部分 / 未执行及原因：
 ## 7. 可复制启动 Prompt
 
 ```text
-请在 /Users/jackzhu/Code/Own/Possio 完成 U18「桌面布局修复与导航整理」。本任务交给 zcode，使用我指定的 GLM 5.3 Flash；不修改模型路由或全局配置。
+请在 <repo> 完成 U18「桌面布局修复与导航整理」。本任务交给 zcode，使用我指定的 GLM 5.3 Flash；不修改模型路由或全局配置。
 
 先完整阅读 docs/U18_ZCODE_HANDOFF.md，再按其中阅读顺序读取 README、AGENTS、产品设计 D24、U18 界面设计与实施计划。业务规则、界面细节和进度分别以原文为准，不另建方案。
 

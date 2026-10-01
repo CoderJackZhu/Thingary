@@ -50,7 +50,7 @@ App 标识仍 `local.possio.t06b.preview`，窗口标题“物志 · T08 虚构�
 
 ## 跨窗口交接
 
-- 工作目录：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`，分支 `codex/t06b-taxonomy-storage`。先核对 cwd/branch/HEAD/status；不要从落后的 main 重建工作树。
+- 工作目录：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`，分支 `codex/t06b-taxonomy-storage`。先核对 cwd/branch/HEAD/status；不要从落后的 main 重建工作树。
 - 原生包：`src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`。构建使用 `npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`；包名/标识不变，标题为 T08。
 - 虚构库：`~/Library/Application Support/local.possio.t06b.preview/library`；当前 dataset `0a0e28f8-0b00-4f4a-9d05-9c1da9650abe`、schema 7。相机 Retired，第二件 Sold，无待核对提交或持有测试写锁。
 - 开发浏览器仍为端口 1429 的 `visual-preview.html`，刷新重置；本轮 Ego TaskSpace 已关闭。

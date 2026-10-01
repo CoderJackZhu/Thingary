@@ -4,10 +4,10 @@
 
 ## 1. 唯一执行位置与授权
 
-- 工作目录：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`
+- 工作目录：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`
 - 分支：`codex/t06b-taxonomy-storage`。
 - 已验代码基线：`7b19c5fb020392588e6dd0960c0eeb33cebc312a`（T08）。本文件随后以文档提交加入；启动 prompt 提供实际交接 HEAD。实现前检查 `pwd`、`git branch --show-current`、`git rev-parse HEAD`、`git status --short`，并用 `git merge-base --is-ancestor 7b19c5fb020392588e6dd0960c0eeb33cebc312a HEAD` 检查包含基线。
-- 沿用此工作树串行执行；Codex 此时不修改实现。不要在 `/Users/jackzhu/Code/Own/Possio` 实现，不从 main 重建工作树、不切换或重置当前分支。位置/基线不符，先停止写入并报告；存在不属于本次的改动须保留、辨明归属，不清理或覆盖。
+- 沿用此工作树串行执行；Codex 此时不修改实现。不要在 `<repo>` 实现，不从 main 重建工作树、不切换或重置当前分支。位置/基线不符，先停止写入并报告；存在不属于本次的改动须保留、辨明归属，不清理或覆盖。
 - 已授权 T09 检查、实现、必要修复、测试、文档更新及当前分支本地提交。无需为常规实现再问“是否开始”；具体 GUI 删除等按运行环境即时确认规则处理，T06/T08 的历史确认不可复用。
 - 仅 T09，不自行实施 T10–T21，不合并 main、不推送、不发布；不新装依赖/全局工具、不修改 Hermes 全局配置。确有不可避免的新增依赖，先说明必要性和可审阅方案。
 

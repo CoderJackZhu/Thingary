@@ -43,7 +43,7 @@ Ego Lite 实测：注入 `material_preview` 失败后显示八个失败状态、
 
 ## 1. 起点、范围与中途调整
 
-- 工作目录：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`，分支 `codex/t06b-taxonomy-storage`。
+- 工作目录：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`，分支 `codex/t06b-taxonomy-storage`。
 - 起点 HEAD：`8da3d2ab5288895afecd201468c96c9e4c8d67eb`（纯文档交接提交；代码基线 `9e60799` 为其祖先）。实现提交：`318abb0cd2b238086f1c76efc61365e936229211`；本报告提交后的最终 HEAD 以交回信息为准。
 - 按交接契约完成首轮实现（八种内置素材 + `prepare_material` + 表单展开式网格）后，**用户中途调整**（对话原话要点）：① 侧栏“资料管理”在“最近删除”“设置”之上新增**素材库**页面，可上传自己的素材，也包含内置素材；② 新增资产“封面与图片”简化为**平铺小图列表直选，小图不含任何文字**。本报告描述的是调整后的最终形态；权威章节（产品设计 D13、UI 设计 U01、功能规格 U01 补充验收、ADR-001 第 6 节）已按“最新用户决定优先”同步更新。
 - 关键实现决定：

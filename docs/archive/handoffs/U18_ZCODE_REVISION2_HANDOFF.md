@@ -1,6 +1,6 @@
 # U18 · zcode 第二修订轮交接
 
-2026-09-30 · 交接材料已准备，开发未启动。执行者 zcode；本文是任务指派与修复方案，不授权修改运行环境、发版或安装。前置：[第二轮独立复审](verification/U18_REVIEW_ROUND2_RESULT.md)（Approve with nits）、[第一轮复审](verification/U18_REVIEW_RESULT.md)、[作者报告 §10](verification/U18_DESKTOP_LAYOUT_RESULT.md)、[首次交接](U18_ZCODE_HANDOFF.md)。
+2026-09-30 · 交接材料已准备，开发未启动。执行者 zcode；本文是任务指派与修复方案，不授权修改运行环境、发版或安装。前置：[第二轮独立复审](../../verification/U18_REVIEW_ROUND2_RESULT.md)（Approve with nits）、[第一轮复审](../../verification/U18_REVIEW_RESULT.md)、[作者报告 §10](../../verification/U18_DESKTOP_LAYOUT_RESULT.md)、[首次交接](U18_ZCODE_HANDOFF.md)。
 
 ## 1. 基线与权限
 
@@ -58,7 +58,7 @@ git diff --check
 
 重拍规则：P2-1 不改变视觉，无需重拍矩阵；但必须新增一张「键盘打开后菜单可见且搜索框聚焦」的 1280×820 B 浅证据，并在 manifest 中登记。若任何改动影响视觉，受影响组合须重拍并逐张人工审看（检查非空白）。原生 UI 仍为未验项：如环境具备则补 AC11 键盘/滚轮，否则继续标未验，不得写成通过。
 
-文档同步：在 [U18_DESKTOP_LAYOUT_RESULT.md](verification/U18_DESKTOP_LAYOUT_RESULT.md) 追加「§11 第二修订轮」逐项记录（不改 §1–§10 历史，冲突处以 §11 为准）；更新实施计划 U18 状态、CHANGELOG、README 的相关数字；AC11 行改为「浏览器键盘路径通过，原生未验」等如实表述。完成后交回独立复审，不自行宣布验收。
+文档同步：在 [U18_DESKTOP_LAYOUT_RESULT.md](../../verification/U18_DESKTOP_LAYOUT_RESULT.md) 追加「§11 第二修订轮」逐项记录（不改 §1–§10 历史，冲突处以 §11 为准）；更新实施计划 U18 状态、CHANGELOG、README 的相关数字；AC11 行改为「浏览器键盘路径通过，原生未验」等如实表述。完成后交回独立复审，不自行宣布验收。
 
 ## 5. 给 zcode 的启动 Prompt
 

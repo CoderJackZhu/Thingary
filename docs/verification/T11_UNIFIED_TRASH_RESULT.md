@@ -1,6 +1,6 @@
 # T11 统一最近删除验收记录
 
-日期：2026-09-25。工作目录 `/Users/jackzhu/Code/Own/Possio`，任务分支 `codex/t11-unified-trash`，起点 `29d6515ffb753c4965bd7fe53a1dd139dbefdeed`。Z code 使用 GLM-5.3 串行完成未提交的首轮实现；额度耗尽后由 Codex 接续审查、修复和验证。没有使用子代理、Hermes、MoA 或并行执行器。首次代码提交为 `dd75c32f7c7e69804139aed90543b510cb113244`，最终 review 修复与本地集成见末节。未推送、未发布。
+日期：2026-09-25。工作目录 `<repo>`，任务分支 `codex/t11-unified-trash`，起点 `29d6515ffb753c4965bd7fe53a1dd139dbefdeed`。Z code 使用 GLM-5.3 串行完成未提交的首轮实现；额度耗尽后由 Codex 接续审查、修复和验证。没有使用子代理、Hermes、MoA 或并行执行器。首次代码提交为 `dd75c32f7c7e69804139aed90543b510cb113244`，最终 review 修复与本地集成见末节。未推送、未发布。
 
 ## 范围与实现
 

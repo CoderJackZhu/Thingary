@@ -4,7 +4,7 @@
 
 ## 1. 起点、执行者与环境
 
-- 工作目录 `/Users/jackzhu/Code/Own/Possio`；从包含交接的最新本地 main `89e19190519a9e81df0d1bbb785bab16393e5b2a` 创建 `codex/t21-p0-acceptance`。未 reset、未合并 main、无远程、未推送。
+- 工作目录 `<repo>`；从包含交接的最新本地 main `89e19190519a9e81df0d1bbb785bab16393e5b2a` 创建 `codex/t21-p0-acceptance`。未 reset、未合并 main、无远程、未推送。
 - 开工仅 `?? .gitignore`；SHA256 `b93631bb68425b2904975118807e90b07d9647b7734cfb2c1842ff09253f21b9`，保持原样、不暂存。
 - 实际执行者：本会话 Codex（系统标识 GPT-6 系列；未提供可核实的 Sol/Astra 子型号及推理档位，不能冒称 Sol 中档或独立 Astra High 已 review）。单执行者，无子代理、MoA、后台循环、全局配置更改；建议由 Astra High 独立核验本报告出口。
 - macOS 27.0 / 26A428，arm64；Node v22.22.3；rustc 1.96.0 / cargo 1.96.0；Tauri CLI 2.11.5。仅 CommandLineTools 27.0.0.0.1788430756、SDK 27.0，`xcodebuild -version` 因无完整 Xcode 退出 1。Info.plist 最低 macOS 14.0 **只是打包目标**；未测 14.0、Intel 或其他机器。

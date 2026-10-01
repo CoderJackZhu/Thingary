@@ -62,10 +62,10 @@ T06c 一般走查建议 GPT-6 Astra 中档；遇到事务、迁移或恢复问�
 
 ### 唯一继续开发入口
 
-- 工作目录：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`
+- 工作目录：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`
 - 分支：`codex/t06b-taxonomy-storage`。本次交接整理前的代码 HEAD 为 `d6268cd`，其后只有交接文档更新。
 - 已包含的链条：T06a 返修 `7eb1eeb` → A 视觉对齐 `3ce42b9` → 存储 `fdb67ad` → 页面接入与验证 `d6268cd`。
-- 主工作树 `/Users/jackzhu/Code/Own/Possio` 仍在 `main` 的 `3b46442`，不是最新开发入口；其中用户未跟踪的 `.gitignore` 保持原样。其他 `Possio-t06a`、`Possio-t06a-repair`、`Possio-visual` 工作树保留，不清理、不覆盖、不重复拣选它们的提交。
+- 主工作树 `<repo>` 仍在 `main` 的 `3b46442`，不是最新开发入口；其中用户未跟踪的 `.gitignore` 保持原样。其他 `Possio-t06a`、`Possio-t06a-repair`、`Possio-visual` 工作树保留，不清理、不覆盖、不重复拣选它们的提交。
 - 接手先核对 cwd、分支、HEAD 和 git status；沿用现有工作树，不再复制仓库或从 main 新开一个旧基线。
 
 ### 按需读取，控制上下文

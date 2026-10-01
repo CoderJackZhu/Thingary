@@ -4,7 +4,7 @@
 
 ## 1. 基线与变更边界
 
-- 目录 `/Users/jackzhu/Code/Own/Possio`，分支 `main`，接手 HEAD `6cc4189ecbed56a6b0301abd2cb9a86bc307c6b4`（与交接一致；交付时 HEAD 不变，**工作区实现未提交，HEAD 不包含 U17 实现**）。
+- 目录 `<repo>`，分支 `main`，接手 HEAD `6cc4189ecbed56a6b0301abd2cb9a86bc307c6b4`（与交接一致；交付时 HEAD 不变，**工作区实现未提交，HEAD 不包含 U17 实现**）。
 - 接手时已有文档差异（保留、未改动语义）：README、CHANGELOG、PRODUCT_DESIGN、IMPLEMENTATION_PLAN、FUNCTIONAL_SPEC、USER_GUIDE、ADR-001、U16_DESIGN_SPEC、U17_TAG_INVESTMENT_DESIGN（新）、U17_ZCODE_HANDOFF（新）、未跟踪 `.claude/`（未动）。
 - zcode 新增改动：
   - 后端：`src-tauri/src/tag_investment.rs`（新，只读聚合）、`commands.rs`（命令 `tag_investment_view`）、`lib.rs`（模块与注册）、`demo.rs`（样例标签事实）、`demo-assets.json`（`label` 字段）。
@@ -137,7 +137,7 @@ Rust 夹具全部改为 D23 元基准（12000 元 → `Some("1200000")` 分等�
 
 ```text
 U17 zcode 修订轮回交（R1–R4 已修复、证据已补，等待复审，未提交/未发布）
-目录：/Users/jackzhu/Code/Own/Possio
+目录：<repo>
 分支 / 接手 HEAD / 当前 HEAD：main / 6cc4189ecbed56a6b0301abd2cb9a86bc307c6b4 / 6cc4189ecbed56a6b0301abd2cb9a86bc307c6b4（实现未提交）
 接手已有文档与本次新增改动：接手差异=README/CHANGELOG/PRODUCT_DESIGN/IMPLEMENTATION_PLAN/FUNCTIONAL_SPEC/USER_GUIDE/ADR-001/U16_DESIGN_SPEC/U17 设计与交接文档；新增=tag_investment.rs(聚合+命令)、demo 标签事实、tag-investment.ts/TagInvestment.tsx/main.tsx 接线、预览实现、2 个测试文件、tag-investment 证据目录、u17.conf.json、u17_fixture example
 已完成阶段 / 尚未达到出口的阶段：U17a–d + 修订轮（R1–R4 修复、AC 证据补齐）完成；复审由原 Codex 对话进行

@@ -4,10 +4,10 @@
 
 ## 1. 唯一工作位置与起点
 
-- 目录：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`
+- 目录：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`
 - 分支：`codex/t06b-taxonomy-storage`。
 - 应用代码基线：`9e6079954466f5ae96a352fc247f6d3666b7c442`。本交接随后有一个纯文档提交；执行时记录实际 HEAD，并确认该基线是祖先，不将 HEAD 强制 reset 到它。
-- **不要使用 `/Users/jackzhu/Code/Own/Possio` 的落后 main，不从 main 建树。** 先核对 pwd、branch、HEAD、status；未知改动保留并查明来源，不覆盖、不 clean、不 reset。
+- **不要使用 `<repo>` 的落后 main，不从 main 建树。** 先核对 pwd、branch、HEAD、status；未知改动保留并查明来源，不覆盖、不 clean、不 reset。
 - 本轮允许实现、必要测试、文档更新、当前分支本地提交。用户自己启动 Z code；不开 Hermes、后台循环、多 Agent，不推送/合并/发布，不继续 T10。
 
 ## 2. 目标与最少阅读
@@ -100,7 +100,7 @@ git diff --check
 请实现 Possio U01“内置素材库选择”，完成后停下交回 Codex review。
 
 直接使用工作目录：
-/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b
+~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b
 预期分支 codex/t06b-taxonomy-storage。先核对 cwd、分支、HEAD、git status；不要使用落后的 main、创建新工作树或 reset 当前提交。
 
 先读 AGENTS.md、README.md，然后完整读取 docs/handoffs/U01_MATERIAL_LIBRARY_ZCODE.md，并按其中最少阅读顺序、范围、数据契约和验收执行。业务目标是新增/编辑默认从八种原始 Demo 素材选择封面与图片，无需上传；正式离线 App 可用且持久保存，可不选图片。复用现有托管、草稿、回执和照片兼容机制，不重画、不引入 Demo 业务资料、不推进 T10。

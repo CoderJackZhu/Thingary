@@ -4,7 +4,7 @@
 
 ## 1. 位置、基线与授权
 
-- 主目录：`/Users/jackzhu/Code/Own/Possio`。T06–T09、视觉还原、U01 已合入 main，集成基线 `1182eea0c6bbbcc89e8553ddc394c338aa4c63f5`；其后的本次交接文档提交也必须保留。实际实现起点记录为开工时完整 HEAD。
+- 主目录：`<repo>`。T06–T09、视觉还原、U01 已合入 main，集成基线 `1182eea0c6bbbcc89e8553ddc394c338aa4c63f5`；其后的本次交接文档提交也必须保留。实际实现起点记录为开工时完整 HEAD。
 - 先核对 `pwd`、`git branch --show-current`、`git rev-parse HEAD`、`git status --short`。首次执行应处于含本交接提交的 main；执行 `git switch -c codex/t10-warranties`，在同一主目录开发。若分支已存在，先核对其实际内容；不能覆盖、reset 或重复创建工作树。遇到未预期的代码改动先说明，不覆盖他人工作。
 - 主目录已知未跟踪 `.gitignore` 是用户文件，保留、不暂存、不替换；其 SHA256 为 `b93631bb68425b2904975118807e90b07d9647b7734cfb2c1842ff09253f21b9`。不要把它当作必须清理的脏状态。旧 `outputs/Possio-t06b` 只保留，不在那里实施。
 - 由用户粘贴末尾 Prompt 后，授权本任务实现、必要测试、文档和任务分支本地提交；不自动合并 main、推送、发布、配置远程或启动 T11。仅用户另行发起的 GLM-5.3 单执行者串行工作，不开子代理、Hermes、MoA 或后台循环。Flash 可由用户手动用于机械核对，不能代替关键协议实现与最终验收。
@@ -93,11 +93,11 @@ git diff --check
 
 ```text
 请 review Possio T10 保障档案。
-工作目录：/Users/jackzhu/Code/Own/Possio
+工作目录：<repo>
 分支：codex/t10-warranties
 起点 HEAD：<完整 SHA>
 最终 HEAD：<完整 SHA>
-报告：/Users/jackzhu/Code/Own/Possio/docs/verification/T10_WARRANTY_RESULT.md
+报告：<repo>/docs/verification/T10_WARRANTY_RESULT.md
 实际模型：<实际使用模型>
 提交后检查：<命令、退出码与数量>
 原生已验／未验：<分开列出>
@@ -109,7 +109,7 @@ git diff --check
 ```text
 请实现 Possio T10「保障档案」，完成后停止并交回 Codex review。
 
-直接使用主目录 /Users/jackzhu/Code/Own/Possio。先核对 cwd、分支、HEAD、git status；从包含 T10 交接文档的最新 main 创建 codex/t10-warranties 分支，在同一目录实施。不要使用 outputs 下旧工作树，不 reset，不覆盖已有改动。已知未跟踪 .gitignore 是用户文件，保持原样，不提交。
+直接使用主目录 <repo>。先核对 cwd、分支、HEAD、git status；从包含 T10 交接文档的最新 main 创建 codex/t10-warranties 分支，在同一目录实施。不要使用 outputs 下旧工作树，不 reset，不覆盖已有改动。已知未跟踪 .gitignore 是用户文件，保持原样，不提交。
 
 先读 AGENTS.md、README.md，然后完整读取 docs/handoffs/T10_WARRANTY_ZCODE.md，严格按其中局部阅读顺序、范围、工程约束和验收矩阵执行。只做保障新增／同 ID 更正、多份展示、状态摘要与筛选、跨日刷新、图片及草稿／错误恢复；允许必要 schema 9→下一版迁移。保障允许未来生效、截止日当天有效、30 天含边界、未知日期不等于有效，不改变资产生命周期和成本。沿用 A「静序」视觉与已有恢复协议，不实施 T11 或通知／PDF／全局时间轴。
 

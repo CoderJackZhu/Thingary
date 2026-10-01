@@ -4,7 +4,7 @@
 
 ## 1. 分工与环境
 
-- zcode 按 [交接](../U13_ZCODE_HANDOFF.md) 完成 U13a 后端、U13b 设置界面与浏览器截图，原生验收停在“额外备份位置”，未写报告。
+- zcode 按 [交接](../archive/handoffs/U13_ZCODE_HANDOFF.md) 完成 U13a 后端、U13b 设置界面与浏览器截图，原生验收停在“额外备份位置”，未写报告。
 - Claude 复核（U13d）并完成 U13c：审阅全部差异、复跑检查、隔离原生逐项实测、修复 3 处问题、写文档。
 - 原生身份 `local.possio.u13.acceptance`（`npm run tauri -- build --debug --config .local/u13.conf.json --bundles app`，无故障注入），窗口 1280×820，资料为虚构记录与临时分类「验收分类甲…庚」。**正式库 `local.possio.main` 未打开**：复核时其目录无 `auto-backups`，最后修改时间停在 9 月 28 日。
 - 驱动方式：AX 按钮按压 + 仅窗口截图（`screencapture -l <窗口 ID>`）；文件夹面板用 ⌘⇧G 输入 `/tmp/possio-u13-extra`，不浏览个人文件夹。

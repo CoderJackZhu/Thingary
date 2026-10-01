@@ -6,7 +6,7 @@
 
 ## 1. 起点与授权
 
-- 工作目录 `/Users/jackzhu/Code/Own/Possio`。从**包含本文的最新 main HEAD** 创建 `codex/t22-self-use-release`，开工记录完整 SHA；先核对 cwd、branch、HEAD、git status，不 reset、不覆盖现有改动。
+- 工作目录 `<repo>`。从**包含本文的最新 main HEAD** 创建 `codex/t22-self-use-release`，开工记录完整 SHA；先核对 cwd、branch、HEAD、git status，不 reset、不覆盖现有改动。
 - 未跟踪 `.gitignore` 是用户文件，SHA256 `b93631bb68425b2904975118807e90b07d9647b7734cfb2c1842ff09253f21b9`，不暂存、不修改。仓库无远程：不配置、不推送、不发布到任何外部渠道。
 - 用户粘贴第 7 节 Prompt 即授权：T22 范围内的配置与少量代码/文档改动、测试、构建、把正式包安装到 `/Applications`、任务分支本地提交。不合并 main（交回 Claude review），不启动 P1。
 - 单执行者串行（建议 Sol 中档；数据身份与发布配置请 Astra 审），不启子代理或后台循环，不改全局配置。报告写实际模型与档位。
@@ -73,7 +73,7 @@
 
 ```text
 请 review Possio T22 自用正式版。
-工作目录：/Users/jackzhu/Code/Own/Possio
+工作目录：<repo>
 分支：codex/t22-self-use-release
 起点 HEAD：<完整 SHA>
 最终 HEAD：<完整 SHA>
@@ -89,7 +89,7 @@
 ```text
 请执行 Possio T22「自用正式版」，完成后停止并交回 Claude review。
 
-直接在 /Users/jackzhu/Code/Own/Possio 工作。先核对 cwd、分支、HEAD 和 git status；从包含 docs/handoffs/T22_SELF_USE_RELEASE_GPT.md 的最新 main 创建 codex/t22-self-use-release。不 reset、不覆盖现有改动；未跟踪 .gitignore 是用户文件，保持原样且不提交。仓库无远程，不配置、不推送。
+直接在 <repo> 工作。先核对 cwd、分支、HEAD 和 git status；从包含 docs/handoffs/T22_SELF_USE_RELEASE_GPT.md 的最新 main 创建 codex/t22-self-use-release。不 reset、不覆盖现有改动；未跟踪 .gitignore 是用户文件，保持原样且不提交。仓库无远程，不配置、不推送。
 
 先读 AGENTS.md、README.md，再完整读交接文档并严格执行：保持默认 tauri.conf.json 的开发身份 local.possio.preview 不变；新增入库的 src-tauri/tauri.release.conf.json（productName 物志、identifier local.possio.app、标题 物志、版本 1.0.0）和 npm run release；确认正式包不含故障注入、QA、预览页与 Demo 导入；安装到 /Applications。正式身份下只做空库首启、离线、退出无残留、重开检查，绝不写入虚构资料；功能复测用 .local/ 下的临时 identifier 覆盖构建。新增 docs/USER_GUIDE.md（中文、非技术用户、强调录入真实资料后立即完整备份并异地保存）。
 

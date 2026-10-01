@@ -4,7 +4,7 @@
 
 ## 1. 起点与授权
 
-- 工作目录：`/Users/jackzhu/Code/Own/Possio`。准备前 main 为 `f3101e88709041a314d880187eb148d34bb24f8a`，包含 T10 本地集成。实际开发从**包含本文的最新 main HEAD** 开始，Z code 开工时记录完整 SHA。
+- 工作目录：`<repo>`。准备前 main 为 `f3101e88709041a314d880187eb148d34bb24f8a`，包含 T10 本地集成。实际开发从**包含本文的最新 main HEAD** 开始，Z code 开工时记录完整 SHA。
 - 先核对 cwd、branch、HEAD、git status；从最新 main 在同一主目录创建 `codex/t11-unified-trash`。若分支已存在先检查内容；不覆盖、不 reset、不使用旧 `outputs/Possio-t06b` 工作树。
 - 已知未跟踪 `.gitignore` 是用户文件，SHA256 `b93631bb68425b2904975118807e90b07d9647b7734cfb2c1842ff09253f21b9`。不暂存、不修改。其他未预期改动先确认来源。
 - 用户粘贴第 7 节 Prompt 后，授权 T11 实现、测试、文档及任务分支本地提交，交回 Codex review。不得自行合并 main、推送、发布、配置远程或启动 T12。GLM-5.3 单执行者串行，不自动启用 Hermes、子代理、MoA、Flash 并发或后台循环。
@@ -65,11 +65,11 @@
 
 ```text
 请 review Possio T11 统一最近删除。
-工作目录：/Users/jackzhu/Code/Own/Possio
+工作目录：<repo>
 分支：codex/t11-unified-trash
 起点 HEAD：<完整 SHA>
 最终 HEAD：<完整 SHA>
-报告：/Users/jackzhu/Code/Own/Possio/docs/verification/T11_UNIFIED_TRASH_RESULT.md
+报告：<repo>/docs/verification/T11_UNIFIED_TRASH_RESULT.md
 实际模型：<实际模型与执行方式>
 最终代码提交后的检查：<命令、退出码、测试数量>
 原生已验／未验：<分开列，浏览器内存不当原生>
@@ -81,7 +81,7 @@
 ```text
 请实现 Possio T11「统一最近删除」，完成后停止并交回 Codex review。
 
-直接在 /Users/jackzhu/Code/Own/Possio 工作。先核对 cwd、分支、HEAD 和 git status；从包含 T11 交接文档的最新 main 创建 codex/t11-unified-trash，在同一主目录开发。不要使用 outputs 旧工作树，不 reset、不覆盖现有改动；未跟踪 .gitignore 是用户文件，保持原样且不提交。
+直接在 <repo> 工作。先核对 cwd、分支、HEAD 和 git status；从包含 T11 交接文档的最新 main 创建 codex/t11-unified-trash，在同一主目录开发。不要使用 outputs 旧工作树，不 reset、不覆盖现有改动；未跟踪 .gitignore 是用户文件，保持原样且不提交。
 
 先读 AGENTS.md、README.md，再完整读 docs/handoffs/T11_UNIFIED_TRASH_ZCODE.md；严格按其最少阅读顺序、业务规则、事务/回执约束和 E09、AC13/27–29/41–44 矩阵执行。当前 schema 10 已预留三类 deleted_at，不机械增加迁移。补维护/保障单条软删除/恢复与统一最近删除四类筛选；父恢复不复活此前独立删除的子项，父删不造子删除项，父仍删除时子恢复需引导先恢复父。金额未知与零、Sold 状态、保障状态、图片与请求幂等/未知回执都要保持正确。
 

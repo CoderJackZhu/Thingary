@@ -2,7 +2,7 @@
 
 2026-09-30 · **Request changes（需修订，不能验收或发布）**。
 
-审查基线：`/Users/jackzhu/Code/Own/Possio`，`main`，HEAD `91b7bd90d1b3218772314ec1d37cb37d838ad6bd`；实现与设计均为工作区未提交差异。本轮读取实际 diff、图工具定位及源码、复跑工程检查、使用 Ego Lite 本地虚构预览做定向复现，并抽看作者截图。未修改应用代码、未启动或读写正式 App/资料库、未提交/推送/安装。
+审查基线：`<repo>`，`main`，HEAD `91b7bd90d1b3218772314ec1d37cb37d838ad6bd`；实现与设计均为工作区未提交差异。本轮读取实际 diff、图工具定位及源码、复跑工程检查、使用 Ego Lite 本地虚构预览做定向复现，并抽看作者截图。未修改应用代码、未启动或读写正式 App/资料库、未提交/推送/安装。
 
 权威范围：[产品 D24](../PRODUCT_DESIGN.md#u18-product)、[U18 UI](../ui/U18_DESKTOP_LAYOUT_DESIGN.md)、[实施计划](../IMPLEMENTATION_PLAN.md#u18)。作者记录见[自测报告](U18_DESKTOP_LAYOUT_RESULT.md)；其中通过声明保留为历史回交，当前结论以本报告为准。
 

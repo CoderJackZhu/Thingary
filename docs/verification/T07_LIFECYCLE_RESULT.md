@@ -52,7 +52,7 @@
 
 ## 跨窗口交接与剩余边界
 
-- 工作目录：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`；分支仍 `codex/t06b-taxonomy-storage`。先核对 cwd/branch/HEAD/status；主目录未取得此轮实现。
+- 工作目录：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b`；分支仍 `codex/t06b-taxonomy-storage`。先核对 cwd/branch/HEAD/status；主目录未取得此轮实现。
 - App：`src-tauri/target/debug/bundle/macos/Possio T06b Preview.app`；窗口标题为“物志 · T07 虚构资料验收”，保留包名和 `local.possio.t06b.preview` 标识以沿用同一虚构库。
 - 启动/重打包：沿用被忽略的 `.local/t06b.conf.json`，`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`；通过 app 路径打开。不要把普通 `local.possio.preview` 旧包当最新构建。
 - 浏览器开发入口仍为 `npm run dev -- --port 1429` → `http://127.0.0.1:1429/visual-preview.html`，仅内存资料，刷新重置，不能替代原生持久性验收。

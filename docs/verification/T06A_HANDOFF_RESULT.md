@@ -5,10 +5,10 @@
 ## 结论与位置
 
 **主要功能缺陷已修复并复验；视觉验收尚未完成，暂未合并。** 这不是整个 T06 或 AC37 通过。
-- 工作目录：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a-repair`
+- 工作目录：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a-repair`
 - 分支：`codex/t06a-review-fixes`；基线：`3b46442b0e335b37364071e26ceb5fed70d623ca`
 - 输入：Hermes 的未提交 T06a 产物。原目录仍有客户端进程，无法断言已停止写入，因此采用独立分支，读取前后哈希核对一致后保存快照；未修改原目录。
-- 原始快照和哈希清单：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a-repair/.local/t06a/original/`，未入库。
+- 原始快照和哈希清单：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a-repair/.local/t06a/original/`，未入库。
 - 最终提交号由聊天回复给出，不在自身提交内循环记录。
 
 ## 改动
@@ -30,8 +30,8 @@
 ### 命令
 
 - `npm ci --offline`：退出码 0，使用已有缓存，锁文件无变化。
-- `npm run build`：退出码 0。日志：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a-repair/.local/t06a/build.log`。
-- `npm run test:ui`：退出码 0，14 项通过。日志：`/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a-repair/.local/t06a/test-ui.log`。
+- `npm run build`：退出码 0。日志：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a-repair/.local/t06a/build.log`。
+- `npm run test:ui`：退出码 0，14 项通过。日志：`~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06a-repair/.local/t06a/test-ui.log`。
 - `git diff --check`：通过。
 - `test ! -e dist/t06-preview.html`：通过；预览未进入正式 dist。
 - 未运行无关的 Rust 全量故障实验。

@@ -4,7 +4,7 @@
 
 ## 1. 起点与授权
 
-- 工作目录：`/Users/jackzhu/Code/Own/Possio`。准备时 main 为 `cf39e99`（含 T12–T20），实际从**包含本文的最新 main HEAD** 开始，开工时记录完整 SHA。
+- 工作目录：`<repo>`。准备时 main 为 `cf39e99`（含 T12–T20），实际从**包含本文的最新 main HEAD** 开始，开工时记录完整 SHA。
 - 先核对 cwd、branch、HEAD、git status；从最新 main 在主目录创建 `codex/t21-p0-acceptance`。分支已存在先检查内容；不覆盖、不 reset、不使用旧 `outputs/Possio-t06b` 工作树。
 - 未跟踪 `.gitignore` 是用户文件，SHA256 `b93631bb68425b2904975118807e90b07d9647b7734cfb2c1842ff09253f21b9`，不暂存、不修改。仓库没有远程：不配置、不推送、不发布。
 - 用户粘贴第 7 节 Prompt 后，授权：逐项验收、编写验证报告与交付说明、为验收所需的**小型**缺陷修复（带测试）、任务分支本地提交。不得合并 main，不宣布 CP4／P0 通过——最终判定由 review 与用户作出。
@@ -74,7 +74,7 @@
 
 ```text
 请 review Possio T21 完整 P0 验收。
-工作目录：/Users/jackzhu/Code/Own/Possio
+工作目录：<repo>
 分支：codex/t21-p0-acceptance
 起点 HEAD：<完整 SHA>
 最终 HEAD：<完整 SHA>
@@ -91,7 +91,7 @@ AC 汇总：通过 <n>／部分 <n>／未执行 <n>／失败 <n>；阻塞项：<
 ```text
 请执行 Possio T21「完整 P0 验收」，完成后停止并交回 review。
 
-直接在 /Users/jackzhu/Code/Own/Possio 工作。先核对 cwd、分支、HEAD 和 git status；从包含 docs/handoffs/T21_P0_ACCEPTANCE_GPT.md 的最新 main 创建 codex/t21-p0-acceptance。不 reset、不覆盖现有改动；未跟踪 .gitignore 是用户文件，保持原样且不提交。仓库无远程，不配置、不推送。
+直接在 <repo> 工作。先核对 cwd、分支、HEAD 和 git status；从包含 docs/handoffs/T21_P0_ACCEPTANCE_GPT.md 的最新 main 创建 codex/t21-p0-acceptance。不 reset、不覆盖现有改动；未跟踪 .gitignore 是用户文件，保持原样且不提交。仓库无远程，不配置、不推送。
 
 先读 AGENTS.md、README.md，再完整读交接文档，按其阅读顺序、§4 补验表和数据隔离规则执行：AC01–AC44 逐项给出证据与结论（通过／部分／未执行／失败），既有阶段出口不等于整条 AC 通过；补 release 正式包（独立 identifier，不写普通库 local.possio.preview）上的离线、退出无残留、重开保持、备份→空库恢复与 CSV 含义等实测。只用虚构资料；操作隔离库前做一致性快照。原生操作用辅助功能 API，每次键盘注入前确认 Possio 在前台且窗口可达，用户在用其他应用时停止。
 

@@ -2,7 +2,7 @@
 // 全部走浏览器键盘输入管线（不用 fill 直写值，键入必须以焦点为前提）。
 // 结果写 revision/revision2-interaction.json，不覆盖首轮 revision-interaction.json。
 import { writeFileSync } from 'node:fs';
-const OUT = '/Users/jackzhu/Code/Own/Possio/docs/ui/desktop-layout/revision/revision2-interaction.json';
+const OUT = new URL('./revision2-interaction.json', import.meta.url).pathname;
 const results = { startedAt: new Date().toISOString(), checks: [], errors: [] };
 const record = (name, pass, detail) => { results.checks.push({ name, pass, detail }); console.log(pass ? 'PASS' : 'FAIL', name, JSON.stringify(detail).slice(0, 200)); };
 
@@ -147,7 +147,7 @@ await page.waitForSelector('.cat-menu-panel', { timeout: 5000 });
 await page.waitForTimeout(400);
 s = await page.evaluate(() => ({ isSearch: document.activeElement === document.querySelector('.cat-menu-search') }));
 if (s.isSearch) {
-  await page.screenshot({ path: '/Users/jackzhu/Code/Own/Possio/docs/ui/desktop-layout/after/category-menu-keyboard-1280x820-B-light.png' });
+  await page.screenshot({ path: new URL('../after/category-menu-keyboard-1280x820-B-light.png', import.meta.url).pathname });
   record('8 键盘打开菜单证据截图（焦点在搜索框）', true, s);
 } else record('8 键盘打开菜单证据截图', false, s);
 

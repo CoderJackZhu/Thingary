@@ -1,6 +1,6 @@
 # Q03 · 时间轴与来源跳转实现与验证
 
-日期：2026-09-28。授权：用户要求按 [Q03 交接](../Q03_ZCODE_HANDOFF.md) 第 6 节启动 Prompt 由 zcode 接续 Q03a–Q03f。本轮在未提交工作区上继续（不 reset、不重做 Q02），未提交、推送、安装或打开正式 App；正式库 `local.possio.main` 未参与任何测试，全部数据为临时目录中的虚构记录或浏览器内存样例。工作目录 `/Users/jackzhu/Code/Own/Possio`，分支 `main`，HEAD 仍为 `cd4e11125be950840c9ea6457114278cfa331693`（1.8.0），`.gitignore` 与 `.claude/` 未修改。
+日期：2026-09-28。授权：用户要求按 [Q03 交接](../archive/handoffs/Q03_ZCODE_HANDOFF.md) 第 6 节启动 Prompt 由 zcode 接续 Q03a–Q03f。本轮在未提交工作区上继续（不 reset、不重做 Q02），未提交、推送、安装或打开正式 App；正式库 `local.possio.main` 未参与任何测试，全部数据为临时目录中的虚构记录或浏览器内存样例。工作目录 `<repo>`，分支 `main`，HEAD 仍为 `cd4e11125be950840c9ea6457114278cfa331693`（1.8.0），`.gitignore` 与 `.claude/` 未修改。
 
 ## 交付
 

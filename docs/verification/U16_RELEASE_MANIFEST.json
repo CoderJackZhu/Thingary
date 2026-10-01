@@ -4,7 +4,7 @@
   "identifier": "local.possio.main",
   "version": "2.1.0",
   "installed": "/Applications/家底.app",
-  "rollback": "/Users/jackzhu/Code/Own/Possio/.local/install/家底-2.0.0.app",
+  "rollback": "<repo>/.local/install/家底-2.0.0.app",
   "replaced_original": "/Applications/.家底-u16-replaced.app",
   "strict_signature": "passed (ad-hoc)",
   "notarized": false,

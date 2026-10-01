@@ -1,10 +1,10 @@
 # U12 · zcode 顶栏与页面搜索交接
 
-更新：2026-09-29。本文件仅维护接手基线、代码入口、技术风险与启动 Prompt；业务规则以产品设计 3.5 为准，阶段状态只在实施计划 U12 更新。**历史交接文件**：zcode 已按本文件完成 U12a–d，Claude 已复核，当前状态与结果见实施计划 U12 及 [U12 验证记录](verification/U12_TOPBAR_SEARCH_RESULT.md)。
+更新：2026-09-29。本文件仅维护接手基线、代码入口、技术风险与启动 Prompt；业务规则以产品设计 3.5 为准，阶段状态只在实施计划 U12 更新。**历史交接文件**：zcode 已按本文件完成 U12a–d，Claude 已复核，当前状态与结果见实施计划 U12 及 [U12 验证记录](../../verification/U12_TOPBAR_SEARCH_RESULT.md)。
 
 ## 1. 基线与授权
 
-- 工作目录：`/Users/jackzhu/Code/Own/Possio`。
+- 工作目录：`<repo>`。
 - 文档整理时分支 `main`，HEAD `1e41c192f26a9b64f2f557ac0ee576dab49c85e9`（1.12.1）。本次文档是未提交工作区内容，普通新 worktree 不包含它们；直接在本目录接续，不要求新建分支。
 - 开始前已存在未跟踪 `.claude/`，不修改、不清理、不提交；根 `.gitignore` 由用户维护。先重新核对实际状态，不 reset/clean，不覆盖用户或其他任务差异。
 - 用户已确认方向并指定交给 zcode。接手范围为 U12a–d 顺序开发、必要查询接入、文档、测试和隔离原生验收；完成当前步骤出口即可继续下一步，不需要逐阶段重复批准。
@@ -15,12 +15,12 @@
 
 ## 2. 阅读顺序与职责
 
-1. [README](../README.md)、[AGENTS](../AGENTS.md)：项目约束和运行入口。
-2. [产品设计 3.3–3.5](PRODUCT_DESIGN.md#33-搜索与快捷键)：页面矩阵、完整搜索字段、状态、快捷键、U12-AC01–10；D14 查样例规则，第 17 节查金额和来源规则。
-3. [实施计划 U12](IMPLEMENTATION_PLAN.md#u12--页面顶栏与搜索统一2026-09-29zcode-实现claude-复核随-1130-发布)：唯一阶段进度表。
-4. [UI 设计 U12](UI_DESIGN.md#u12--顶栏与页面搜索2026-09-29随-1130-发布)：布局与同尺寸证据。
-5. [ADR-001](decisions/001-local-desktop.md)：既有查询、generation、回执及第 22 节来源/返回契约。U12a 在同一 ADR 补充本次技术接线方案，不另建平行规格。
-6. [Q03 验证](verification/Q03_SOURCE_NAVIGATION_RESULT.md)、[Q04 原生验证](verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)、[最近设置验证](verification/SETTINGS_POLISH_RESULT.md)：只参考方法和风险，旧结果不代替 U12 验收。
+1. [README](../../../README.md)、[AGENTS](../../../AGENTS.md)：项目约束和运行入口。
+2. [产品设计 3.3–3.5](../../PRODUCT_DESIGN.md#33-搜索与快捷键)：页面矩阵、完整搜索字段、状态、快捷键、U12-AC01–10；D14 查样例规则，第 17 节查金额和来源规则。
+3. [实施计划 U12](../../IMPLEMENTATION_PLAN.md#u12--页面顶栏与搜索统一2026-09-29zcode-实现claude-复核随-1130-发布)：唯一阶段进度表。
+4. [UI 设计 U12](../../UI_DESIGN.md#u12--顶栏与页面搜索2026-09-29随-1130-发布)：布局与同尺寸证据。
+5. [ADR-001](../../decisions/001-local-desktop.md)：既有查询、generation、回执及第 22 节来源/返回契约。U12a 在同一 ADR 补充本次技术接线方案，不另建平行规格。
+6. [Q03 验证](../../verification/Q03_SOURCE_NAVIGATION_RESULT.md)、[Q04 原生验证](../../verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)、[最近设置验证](../../verification/SETTINGS_POLISH_RESULT.md)：只参考方法和风险，旧结果不代替 U12 验收。
 
 产品设计 3.5 中账户标签切换、搜索匹配算法、输入上限、分页与返回状态等是对已确认方向的执行细化。发现实际字段/接口不足，记录在 U12a 并补齐必要只读契约；不要静默删掉页面或字段，也不要扩大成全局检索、拼音搜索、全文索引或数据迁移。
 
@@ -78,7 +78,7 @@ U12d 新建 `docs/verification/U12_TOPBAR_SEARCH_RESULT.md`：逐 AC 写命令�
 ## 6. 可直接复制的启动 Prompt
 
 ```text
-请在 /Users/jackzhu/Code/Own/Possio 接手 U12「页面顶栏与搜索统一」。先完整阅读 docs/U12_ZCODE_HANDOFF.md，并依其顺序读取 README、AGENTS、PRODUCT_DESIGN 3.3–3.5、IMPLEMENTATION_PLAN 的 U12、UI_DESIGN 的 U12 和相关 ADR。
+请在 <repo> 接手 U12「页面顶栏与搜索统一」。先完整阅读 docs/U12_ZCODE_HANDOFF.md，并依其顺序读取 README、AGENTS、PRODUCT_DESIGN 3.3–3.5、IMPLEMENTATION_PLAN 的 U12、UI_DESIGN 的 U12 和相关 ADR。
 
 用户已确认该方案，授权你按 U12a→U12b→U12c→U12d 顺序完成技术核对、顶栏与动作统一、各页面真实搜索、回归和隔离原生验收。每步先通过出口再继续，不是只给方案或逐步等待批准。产品规则以 PRODUCT_DESIGN 3.5 为准，阶段状态只更新 IMPLEMENTATION_PLAN；不要另造一套需求和计划。
 

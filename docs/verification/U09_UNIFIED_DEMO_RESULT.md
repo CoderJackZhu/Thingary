@@ -80,4 +80,4 @@
 | 旧 `outputs/Possio-t06b/src-tauri/target` | 11.86 GiB | 外层完整源码、文档、验证材料及工作树 |
 | 当前 `src-tauri/target` 内 26 个旧阶段验收应用包 | 0.86 GiB | 当前 debug/release 编译缓存、U09 验收包、1.5.0 正式包 |
 
-删除前 `du` 占用合计 **12.72 GiB**，不是文件系统可用空间的精确增量（可能受快照等影响）。旧 target 完整路径为 `/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target`。此次未清理任何资料库、验证截图、源码、用户 `.claude/` 或 `.gitignore`。
+删除前 `du` 占用合计 **12.72 GiB**，不是文件系统可用空间的精确增量（可能受快照等影响）。旧 target 完整路径为 `~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri/target`。此次未清理任何资料库、验证截图、源码、用户 `.claude/` 或 `.gitignore`。

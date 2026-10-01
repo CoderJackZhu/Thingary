@@ -22,17 +22,17 @@ dist/assets/index-DXgFuet6.js   533.46 kB │ gzip: 140.46 kB
 - Using dynamic import() to code-split the application
 - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
-   Compiling possio v0.0.1 (/Users/jackzhu/Code/Own/Possio/src-tauri)
+   Compiling possio v0.0.1 (<repo>/src-tauri)
     Finished `release` profile [optimized] target(s) in 1m 02s
-       Built application at: /Users/jackzhu/Code/Own/Possio/src-tauri/target/release/possio
-    Bundling 物志.app (/Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/物志.app)
+       Built application at: <repo>/src-tauri/target/release/possio
+    Bundling 物志.app (<repo>/src-tauri/target/release/bundle/macos/物志.app)
      Signing with identity "-"
 Signing with identity "-"
-Signing /Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/物志.app/Contents/MacOS/possio
-/Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/物志.app/Contents/MacOS/possio: replacing existing signature
+Signing <repo>/src-tauri/target/release/bundle/macos/物志.app/Contents/MacOS/possio
+<repo>/src-tauri/target/release/bundle/macos/物志.app/Contents/MacOS/possio: replacing existing signature
 Signing with identity "-"
-Signing /Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/物志.app
-/Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/物志.app: replacing existing signature
+Signing <repo>/src-tauri/target/release/bundle/macos/物志.app
+<repo>/src-tauri/target/release/bundle/macos/物志.app: replacing existing signature
         Warn skipping app notarization, no APPLE_ID & APPLE_PASSWORD & APPLE_TEAM_ID or APPLE_API_KEY & APPLE_API_ISSUER & APPLE_API_KEY_PATH environment variables found
     Finished 1 bundle at:
-        /Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/物志.app
+        <repo>/src-tauri/target/release/bundle/macos/物志.app

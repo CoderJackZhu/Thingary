@@ -7,10 +7,10 @@
     "   Compiling tauri-plugin-single-instance v2.4.5",
     "   Compiling rusqlite v0.40.2",
     "    Finished `release` profile [optimized] target(s) in 1m 12s",
-    "       Built application at: /Users/jackzhu/Code/Own/Possio/src-tauri/target/release/possio",
-    "    Bundling Possio Verification.app (/Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/Possio Verification.app)",
+    "       Built application at: <repo>/src-tauri/target/release/possio",
+    "    Bundling Possio Verification.app (<repo>/src-tauri/target/release/bundle/macos/Possio Verification.app)",
     "    Finished 1 bundle at:",
-    "        /Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/Possio Verification.app",
+    "        <repo>/src-tauri/target/release/bundle/macos/Possio Verification.app",
     ""
   ],
   "binary_sha256": "c756090fd9f454259c287e50f29abab60349d48f9fe6a90652402a9dbd370751",
@@ -19,7 +19,7 @@
     "launches": 2,
     "dataset_preserved": true,
     "network_denied": true,
-    "app": "/Users/jackzhu/Code/Own/Possio/src-tauri/target/release/bundle/macos/Possio Verification.app"
+    "app": "<repo>/src-tauri/target/release/bundle/macos/Possio Verification.app"
   },
   "observations": [
     "two launches under per-process network deny sandbox",

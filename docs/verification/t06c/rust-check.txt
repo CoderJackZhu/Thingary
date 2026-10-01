@@ -20,5 +20,5 @@
     Checking tauri-runtime-wry v2.11.4
     Checking tauri v2.11.6
     Checking tauri-plugin-single-instance v2.4.5
-    Checking possio v0.0.1 (/Users/jackzhu/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
+    Checking possio v0.0.1 (~/Documents/Codex/2026-09-24/referenced-chatgpt-conversation-this-is-an/outputs/Possio-t06b/src-tauri)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.98s

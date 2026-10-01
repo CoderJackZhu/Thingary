@@ -2,7 +2,7 @@
 > possio@0.0.1 test
 > cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --lib --tests
 
-   Compiling possio v0.0.1 (/Users/jackzhu/Code/Own/Possio/src-tauri)
+   Compiling possio v0.0.1 (<repo>/src-tauri)
     Finished `test` profile [unoptimized + debuginfo] target(s) in 4.72s
      Running unittests src/lib.rs (src-tauri/target/debug/deps/possio_lib-c71b8736cbf45db1)
 

@@ -97,7 +97,7 @@ record('周期 tabs 宽度自主、互不重叠、文字完整', tabChecks.every
 
 results.finishedAt = new Date().toISOString();
 results.allPass = results.checks.every(c => c.pass);
-writeFileSync('/Users/jackzhu/Code/Own/Possio/docs/ui/desktop-layout/revision/revision-interaction.json', JSON.stringify(results, null, 2));
+writeFileSync(new URL('./revision-interaction.json', import.meta.url).pathname, JSON.stringify(results, null, 2));
 console.log('ALL-PASS:', results.allPass);
 await task.finish({ keep: [] });
 process.exit(results.allPass ? 0 : 1);

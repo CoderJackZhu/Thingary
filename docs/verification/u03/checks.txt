@@ -4,7 +4,7 @@
 
     Checking objc2-exception-helper v0.1.1
     Checking libsqlite3-sys v0.38.2
-   Compiling possio v0.0.1 (/Users/jackzhu/Code/Own/Possio/src-tauri)
+   Compiling possio v0.0.1 (<repo>/src-tauri)
     Checking objc2 v0.6.4
     Checking rusqlite v0.40.2
     Checking objc2-core-foundation v0.3.2
