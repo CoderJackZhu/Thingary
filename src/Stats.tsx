@@ -3,13 +3,15 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Info } from './FormControls';
 import { errorMessage, money, unitMoney } from './asset';
+import { changeText } from './wealth';
+import { percentText, type ResaleRate } from './resale';
 
 type Bucket = { key: string; start: string; end: string; count: number; known_cents: string; unknown_price_count: number; cumulative_cents: string };
 type Trend = { generation: string; today: string; granularity: Granularity; buckets: Bucket[]; known_cents: string; unknown_price_count: number; unknown_date_count: number; unknown_date_known_cents: string };
 type Granularity = 'month' | 'quarter' | 'year';
 type StatsPeriod = 'all' | 'week' | 'month' | 'quarter' | 'year';
 type StatsCategory = {id:string|null;name:string;count:number;known_cents:string;unknown_price_count:number};
-type StatsSnapshot = {period:StatsPeriod;start:string|null;end:string;total:number;active:number;retired:number;sold:number;known_cents:string;unknown_price_count:number;sale_proceeds_cents:string;sold_purchase_cents:string;sold_unknown_price_count:number;categories:StatsCategory[]};
+type StatsSnapshot = {period:StatsPeriod;start:string|null;end:string;total:number;active:number;retired:number;sold:number;known_cents:string;unknown_price_count:number;sale_proceeds_cents:string;sold_purchase_cents:string;sold_unknown_price_count:number;sold_zero_price_count:number;categories:StatsCategory[]};
 const share=(part:number,total:number)=>total>0?`${(part/total*100).toFixed(1)}%`:'—';
 const series=(i:number)=>`var(--series-${i%7+1})`;
 
@@ -28,7 +30,7 @@ function StatsDashboard(){
     <article className="ui-card ui-content"><div className="ui-section-head"><h3>分类持仓</h3><span>按当前档案数量</span></div><div className="stats-donut-layout"><div className="stats-donut" role="img" aria-label={'分类持仓：'+rows.map(r=>`${r.name}${r.count}件`).join('，')} style={{background:stops.parts.length?`conic-gradient(${stops.parts.join(',')})`:undefined}}><span><strong>{total}</strong><small>件物品</small></span></div><ul>{rows.map((row,i)=><li key={row.id??'none'}><i style={{background:series(i)}}/>{row.name}<strong>{row.count}</strong></li>)}</ul></div></article>
    </div>
    <div className="stats-pair"><article className="ui-card ui-content"><div className="ui-section-head"><h3>状态总览</h3><span>占全部物品</span></div><div className="stats-status-track" role="img" aria-label={`使用中 ${share(data.active,total)}，已退役 ${share(data.retired,total)}，已售出 ${share(data.sold,total)}`}><span style={{width:share(data.active,total)}}/><span style={{width:share(data.retired,total)}}/><span style={{width:share(data.sold,total)}}/></div><div className="stats-status-legend"><span>使用中 <strong>{data.active} 件 · {share(data.active,total)}</strong></span><span>已退役 <strong>{data.retired} 件 · {share(data.retired,total)}</strong></span><span>已售出 <strong>{data.sold} 件 · {share(data.sold,total)}</strong></span></div></article>
-    <article className="ui-card ui-content"><div className="ui-section-head"><h3>回收分析</h3><span>已售出物品</span></div><div className="stats-recovery"><div><span>售出回收</span><strong>{money(data.sale_proceeds_cents)}</strong></div><div><span>已知购入成本</span><strong>{money(data.sold_purchase_cents)}</strong></div><div><span>购入成本回收率</span><strong>{purchased>0?share(returned,purchased):'—'}</strong></div></div><p className="muted small">仅比较购入价与售出价，不含维护费用。{data.sold_unknown_price_count>0?`${data.sold_unknown_price_count} 件售出物品的购入价未知，未纳入回收率。`:''}</p></article></div>
+    <article className="ui-card ui-content"><div className="ui-section-head"><h3>回收分析</h3><span>已售出物品</span></div><div className="stats-recovery"><div><span>售出回收</span><strong>{money(data.sale_proceeds_cents)}</strong></div><div><span>已知购入成本</span><strong>{money(data.sold_purchase_cents)}</strong></div><div><span>购入成本回收率</span><strong>{purchased>0?share(returned,purchased):'—'}</strong></div></div><p className="muted small">仅比较购入价与售出价，不含维护费用。{data.sold_unknown_price_count+data.sold_zero_price_count>0?`${data.sold_unknown_price_count+data.sold_zero_price_count} 件售出物品的购入价未知或为 ¥0，未纳入回收率。`:''}</p></article></div>
   </>}
  </div>
 }
@@ -83,6 +85,7 @@ export function StatsPage({ onOpenAsset }: { onOpenAsset: (id: string) => void }
       </>}
     </article>
     <HoldingCards onOpenAsset={onOpenAsset}/>
+    <ResaleCard onOpenAsset={onOpenAsset}/>
   </section>;
 }
 
@@ -123,4 +126,35 @@ export function HoldingCards({ onOpenAsset }: { onOpenAsset: (id: string) => voi
       {data.excluded.length > 0 && <details className="trend-table"><summary>{data.excluded.length} 件资料不完整，未参与排行</summary><ul className="excluded-list">{data.excluded.map(x => <li key={x.id}><button className="link-cell" onClick={() => onOpenAsset(x.id)}>{x.name}</button><span className="muted">{x.reason}</span></li>)}</ul></details>}
     </article>
   </>;
+}
+
+/** U19 售出保值率：售出价 ÷ 购入价，只用购入价，不含维护费；全部历史，不随页面其他筛选变化。 */
+export function ResaleCard({ onOpenAsset }: { onOpenAsset: (id: string) => void }) {
+  const [descending, setDescending] = useState(true);
+  const [data, setData] = useState<ResaleRate | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let live = true; setError('');
+    invoke<ResaleRate>('resale_rate').then(d => { if (live) setData(d); }).catch(e => { if (live) setError(errorMessage(e)); });
+    return () => { live = false; };
+  }, [retry]);
+  if (error) return <article className="ui-card ui-content resale-card" role="alert"><p>售出保值率读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>;
+  if (!data) return <p role="status" className="muted">正在读取售出保值率…</p>;
+  const list = descending ? data.rows : data.rows.slice().reverse();
+  const rated = data.included_count > 0;
+  return <article className="ui-card ui-content resale-card">
+    <div className="ui-section-head"><h3>售出保值率</h3><Info text="售出价 ÷ 购入价，不含维护费。平均保值率每件同权；总回收率按金额加权。购入价未知或为 ¥0 的物品不参与。全部历史，不随页面其他筛选变化。"/></div>
+    {!rated && data.excluded.length === 0 ? <p className="muted">还没有售出记录。</p> : <>
+      <div className="holding-stats">
+        <div><span>平均保值率</span><strong>{data.average_rate_hundredths === null ? '—' : percentText(data.average_rate_hundredths)}</strong></div>
+        <div><span>总回收率</span><strong>{data.weighted_rate_hundredths === null ? '—' : percentText(data.weighted_rate_hundredths)}</strong></div>
+        <div><span>总盈亏</span><strong>{rated ? changeText(data.total_gain_cents) : '—'}</strong></div>
+      </div>
+      <p className="muted small">{rated ? `${data.included_count} 件参与 · 总购入 ${money(data.total_purchase_cents)} · 总售出 ${money(data.total_sale_cents)}` : '没有可计算保值率的售出物品。'}</p>
+      {rated && <>
+        <div className="overview-controls"><div className="segmented" role="group" aria-label="保值率排序方向">{([[true, '从高到低'], [false, '从低到高']] as const).map(([k, l]) => <button key={l} aria-pressed={descending === k} onClick={() => setDescending(k)}>{l}</button>)}</div></div>
+        <table className="ui-table"><thead><tr><th>#</th><th>物品</th><th>购入价</th><th>售出价</th><th>差额</th><th>保值率</th></tr></thead><tbody>{list.map((r, i) => <tr key={r.id}><td>{i + 1}</td><td><button className="link-cell" title={r.name} onClick={() => onOpenAsset(r.id)}>{r.name}</button></td><td>{money(r.purchase_cents)}</td><td>{money(r.sale_cents)}</td><td>{changeText(r.gain_cents)}</td><td>{percentText(r.rate_hundredths)}</td></tr>)}</tbody></table>
+      </>}
+      {data.excluded.length > 0 && <details className="trend-table"><summary>{data.excluded.length} 件未参与保值率</summary><ul className="excluded-list">{data.excluded.map(x => <li key={x.id}><button className="link-cell" onClick={() => onOpenAsset(x.id)}>{x.name}</button><span className="muted">{x.reason}</span></li>)}</ul></details>}
+    </>}
+  </article>;
 }
