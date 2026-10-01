@@ -1,8 +1,8 @@
-# Possio（物谱）项目协作规则
+# 物谱 Thingary（工程内部名 Possio）项目协作规则
 
 ## 项目与当前状态
 
-Possio（物谱）面向个人实物资产的长期记录与回顾。文档入口见 [README](README.md)，任务状态以 [实施计划](docs/IMPLEMENTATION_PLAN.md) 为准，逐次变更与历史协作说明见 [CHANGELOG](CHANGELOG.md)。
+物谱 Thingary（工程内部名 Possio）面向个人实物资产的长期记录与回顾。文档入口见 [README](README.md)，任务状态以 [实施计划](docs/IMPLEMENTATION_PLAN.md) 为准，逐次变更与历史协作说明见 [CHANGELOG](CHANGELOG.md)。
 
 当前状态（2026-10-01）：P0 闭环、统一资产扩展（A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验）及 U 系列迭代（至 U18 桌面布局与导航整理）均已合入 main；自用正式版 2.3.3（中文名「物谱」，产品设计 D26；近似名分析显示软件类有近似商标，待用户决定是否换名）已安装在 `/Applications/物谱.app`（identifier 仍为 `local.possio.main`，回退副本在 `.local/install/`）。逐次变更见 CHANGELOG，任务状态以实施计划为准。竞品、平台与名称调研见竞品调研第 9–28 节；中文名已换为「物谱」（D26，用户选择换名），商标近似名分析与官方商标网复核待做，开源许可与公开发布方式待用户决定，发布前盘点见 [发布前盘点](docs/RELEASE_AUDIT.md)。下一步范围由用户选择，不自行推进新阶段。仓库已有 GitHub 远程 `origin`，推送只在用户要求时进行。
 

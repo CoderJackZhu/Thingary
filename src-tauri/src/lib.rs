@@ -75,7 +75,16 @@ pub fn run() {
                 "物谱",
                 true,
                 &[
-                    &Item::about(app, Some("关于物谱"), None)?,
+                    &Item::about(
+                        app,
+                        Some("关于物谱"),
+                        Some(
+                            tauri::menu::AboutMetadataBuilder::new()
+                                .name(Some("物谱 Thingary"))
+                                .credits(Some("物品档案与家底回顾\nYour things, over time\n许可证 GPL-3.0-or-later"))
+                                .build(),
+                        ),
+                    )?,
                     &Item::separator(app)?,
                     &MenuItem::with_id(app, "open-settings", "设置…", true, Some("CmdOrCtrl+,"))?,
                     &Item::separator(app)?,
