@@ -6,9 +6,9 @@
 
 **独立 Review（2026-09-30）：Request changes（R1–R7）。** [U18 Review](verification/U18_REVIEW_RESULT.md)指出分类渲染循环空白、周期按钮仍 26px、分类预算边界、时间轴门控、子页返回、错误重试及 21 张空白截图。**修订轮（同日）已按 R1→R2→R3→R4–R6→R7 完成**：真实组件交互测试 6/6、R5/R6 验证 8/8（`desktop-layout/revision/`）、受影响 after 39 张重拍并逐张人工审看、before 全矩阵 72 张以 HEAD 原版补齐、源码与截图 SHA-256 指纹绑定（[作者报告 §10](verification/U18_DESKTOP_LAYOUT_RESULT.md#10-修订轮review-r1r7)）；复跑 test:ui 173（含分类布局 12 项）、cargo 226、check、build、git diff --check 全过。下表「待修订」行已更新为修订结果；原生 UI 行为仍为未验项。
 
-**第二修订轮（2026-10-01，复审二 Approve with nits：[U18_REVIEW_ROUND2_RESULT](verification/U18_REVIEW_ROUND2_RESULT.md)）。** 只处理 P2-1 与 P3-1~P3-4（[交接](archive/handoffs/U18_ZCODE_REVISION2_HANDOFF.md)）：P2-1 分类菜单键盘焦点修复并按交接 §3 以**真实按键**（Tab/Enter/方向键/Esc/键入，无 fill）验证 8/8（`desktop-layout/revision/revision2-keyboard-test.mjs` → `revision2-interaction.json`）；P3-1 manifest 重生成（实际存在 151 张＝before 72＋after 79，完整 64 位 SHA-256，代码指纹 `3daab3b7…`）；P3-2 index.html before 全矩阵与陈旧表述更正；P3-3 窄窗残留登记（C/D 侧栏折行既有、800×600 设置/三态需滚动可达、400 compact 裁切仅形态证明）；P3-4 test:ui 数字更正为 179 并实现 reserveMore 可选项＋边界单测（分类布局 13 项）。复跑 test:ui 179、cargo 226、check、build、git diff --check 全过；新增键盘打开菜单证据截图并登记 manifest。AC11 更正为「浏览器键盘路径通过，原生未验」。作者报告见[§11](verification/U18_DESKTOP_LAYOUT_RESULT.md#11-第二修订轮p2-1-与-p3-1p3-4)。
+**第二修订轮（2026-10-01，复审二 Approve with nits：[U18_REVIEW_ROUND2_RESULT](verification/U18_REVIEW_ROUND2_RESULT.md)）。** 只处理 P2-1 与 P3-1~P3-4（交接）：P2-1 分类菜单键盘焦点修复并按交接 §3 以**真实按键**（Tab/Enter/方向键/Esc/键入，无 fill）验证 8/8（`desktop-layout/revision/revision2-keyboard-test.mjs` → `revision2-interaction.json`）；P3-1 manifest 重生成（实际存在 151 张＝before 72＋after 79，完整 64 位 SHA-256，代码指纹 `3daab3b7…`）；P3-2 index.html before 全矩阵与陈旧表述更正；P3-3 窄窗残留登记（C/D 侧栏折行既有、800×600 设置/三态需滚动可达、400 compact 裁切仅形态证明）；P3-4 test:ui 数字更正为 179 并实现 reserveMore 可选项＋边界单测（分类布局 13 项）。复跑 test:ui 179、cargo 226、check、build、git diff --check 全过；新增键盘打开菜单证据截图并登记 manifest。AC11 更正为「浏览器键盘路径通过，原生未验」。作者报告见[§11](verification/U18_DESKTOP_LAYOUT_RESULT.md#11-第二修订轮p2-1-与-p3-1p3-4)。
 
-用户确认六项调整方向，随后指定交给 zcode 的 GLM 5.3 Flash，并要求准备材料和启动 Prompt。用户发送[U18 zcode 交接](archive/handoffs/U18_ZCODE_HANDOFF.md)第 7 节 Prompt 后，zcode 按其授权完成 U18a–e；实现与自测在工作区（接手基线 main `91b7bd90d1b3218772314ec1d37cb37d838ad6bd` 未提交，**HEAD 不包含 U18 实现**）。规则/AC 唯一见[产品 D24](PRODUCT_DESIGN.md#u18-product)，交互/取证要求见[U18 界面设计](ui/U18_DESKTOP_LAYOUT_DESIGN.md)，命令结果、根因调查、AC 证据矩阵与原生受阻说明见[验证报告](verification/U18_DESKTOP_LAYOUT_RESULT.md)，视觉索引见 `docs/ui/desktop-layout/index.html`（三尺寸 × 三主题 × 明暗 × 4 页面同尺寸截图）。工程检查全绿（test:ui 173、cargo 226、check、build、git diff --check）；隔离原生完成身份/资料/句柄/启动验证，**原生 UI 行为验收因执行环境 AX 树退化＋无屏幕录制授权而受阻未执行**，已在验证报告 §6.2 如实记录，包与夹具就绪可复跑。
+用户确认六项调整方向，随后指定交给 zcode 的 GLM 5.3 Flash，并要求准备材料和启动 Prompt。用户发送U18 zcode 交接第 7 节 Prompt 后，zcode 按其授权完成 U18a–e；实现与自测在工作区（接手基线 main `91b7bd90d1b3218772314ec1d37cb37d838ad6bd` 未提交，**HEAD 不包含 U18 实现**）。规则/AC 唯一见[产品 D24](PRODUCT_DESIGN.md#u18-product)，交互/取证要求见[U18 界面设计](ui/U18_DESKTOP_LAYOUT_DESIGN.md)，命令结果、根因调查、AC 证据矩阵与原生受阻说明见[验证报告](verification/U18_DESKTOP_LAYOUT_RESULT.md)，视觉索引见 `docs/ui/desktop-layout/index.html`（三尺寸 × 三主题 × 明暗 × 4 页面同尺寸截图）。工程检查全绿（test:ui 173、cargo 226、check、build、git diff --check）；隔离原生完成身份/资料/句柄/启动验证，**原生 UI 行为验收因执行环境 AX 树退化＋无屏幕录制授权而受阻未执行**，已在验证报告 §6.2 如实记录，包与夹具就绪可复跑。
 
 | 阶段 | 依赖与工作 | 出口及 AC 归属 | 状态 |
 |---|---|---|---|
@@ -35,7 +35,7 @@
 
 ## U17 · 标签投入分析（2026-09-30，已复审并随 2.2.0 发布）
 
-用户已确认功能方向，并要求“先把相关的设计、计划、文档全部写清楚”。设计文档随后经用户交给 zcode 按交接完成开发与自测（U17a–d）；首轮独立 Review 给出 R1–R4 修订要求，zcode 修订轮已逐项修复并补齐证据（验证报告 §7b），原对话第二轮复审已通过（含非阻断备注），R1–R4 关闭；已按用户授权提交、推送、安装 2.2.0。完整接手说明与可复制 Prompt 见[U17 zcode 交接](archive/handoffs/U17_ZCODE_HANDOFF.md)。业务及 U17-AC01–11 唯一见[产品设计 D23](PRODUCT_DESIGN.md#u17-product)，界面见[U17 设计](ui/U17_TAG_INVESTMENT_DESIGN.md)，技术见[ADR-001 第 25 节](decisions/001-local-desktop.md#u17-technical)。**用户现已明确授权“提交推送安装收尾”；仅发布本次 U17，不推进新阶段。**
+用户已确认功能方向，并要求“先把相关的设计、计划、文档全部写清楚”。设计文档随后经用户交给 zcode 按交接完成开发与自测（U17a–d）；首轮独立 Review 给出 R1–R4 修订要求，zcode 修订轮已逐项修复并补齐证据（验证报告 §7b），原对话第二轮复审已通过（含非阻断备注），R1–R4 关闭；已按用户授权提交、推送、安装 2.2.0。完整接手说明与可复制 Prompt 见U17 zcode 交接。业务及 U17-AC01–11 唯一见[产品设计 D23](PRODUCT_DESIGN.md#u17-product)，界面见[U17 设计](ui/U17_TAG_INVESTMENT_DESIGN.md)，技术见[ADR-001 第 25 节](decisions/001-local-desktop.md#u17-technical)。**用户现已明确授权“提交推送安装收尾”；仅发布本次 U17，不推进新阶段。**
 
 | 阶段 | 依赖及任务 | 出口与验收归属 | 状态 |
 |---|---|---|---|
@@ -59,7 +59,7 @@
 
 ## U16 · 与设计稿对齐（2026-09-30，已验收并发布 2.1.0）
 
-用户对照设计稿指出 2.0.0 与设计稿「天壤之别」，并要求先把文档补清楚再开工。依据：[U16 设计规范](ui/U16_DESIGN_SPEC.md)（开发依据）、[U16 设计对齐计划](ui/U16_DESIGN_PARITY_PLAN.md)（差距、阶段任务、验收方法）、设计稿 v3（`docs/ui/u16/mockup-v3.html`，Open Design 同步）。已确认决策 U16-D1–D8 见规范第 1 节。
+用户对照设计稿指出 2.0.0 与设计稿「天壤之别」，并要求先把文档补清楚再开工。依据：[U16 设计规范](ui/U16_DESIGN_SPEC.md)（开发依据）、U16 设计对齐计划（差距、阶段任务、验收方法）、设计稿 v3（`docs/ui/u16/mockup-v3.html`，Open Design 同步）。已确认决策 U16-D1–D8 见规范第 1 节。
 
 | 阶段 | 范围 | 出口 | 状态 |
 |---|---|---|---|
@@ -99,7 +99,7 @@
 
 ## U13 · 默认自动备份（2026-09-29，zcode 实现、Claude 复核，随 1.14.0 发布）
 
-用户确认方案（“按照这个方案可以实现”），并指定写清文档后交给 zcode 执行、Claude 复核。产品规则唯一来源：[产品设计 D20](PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)；技术契约：[ADR-001 第 24 节](decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)；执行入口：[U13_ZCODE_HANDOFF](archive/handoffs/U13_ZCODE_HANDOFF.md)。
+用户确认方案（“按照这个方案可以实现”），并指定写清文档后交给 zcode 执行、Claude 复核。产品规则唯一来源：[产品设计 D20](PRODUCT_DESIGN.md#d20--默认自动备份2026-09-29-用户确认u13)；技术契约：[ADR-001 第 24 节](decisions/001-local-desktop.md#24-u13--默认自动备份技术契约2026-09-29)；执行入口：U13_ZCODE_HANDOFF。
 
 | 阶段 | 范围 | 出口 | 状态 |
 |---|---|---|---|
@@ -116,14 +116,14 @@
 
 ## U12 · 页面顶栏与搜索统一（2026-09-29，zcode 实现、Claude 复核，随 1.13.0 发布）
 
-用户已确认方案；Codex 整理文档、阶段与 zcode Prompt，zcode 按 a→d 实现并验收（额度用尽前完成代码与主要证据），Claude 随后复核并修复遗漏（见表后「复核」）。产品规则唯一来源：[产品设计 3.5](PRODUCT_DESIGN.md#35-u12--页面顶栏与搜索统一2026-09-29已确认随-1130-发布)；视觉约束见 [UI 设计 U12](UI_DESIGN.md#u12--顶栏与页面搜索2026-09-29随-1130-发布)；执行入口见 [U12_ZCODE_HANDOFF](archive/handoffs/U12_ZCODE_HANDOFF.md)。
+用户已确认方案；Codex 整理文档、阶段与 zcode Prompt，zcode 按 a→d 实现并验收（额度用尽前完成代码与主要证据），Claude 随后复核并修复遗漏（见表后「复核」）。产品规则唯一来源：[产品设计 3.5](PRODUCT_DESIGN.md#35-u12--页面顶栏与搜索统一2026-09-29已确认随-1130-发布)；视觉约束见 UI 设计 U12；执行入口见 U12_ZCODE_HANDOFF。
 
 | 阶段 | 范围与依赖 | 阶段出口 | 状态 |
 |---|---|---|---|
-| U12a 技术核对与基线 | 核对 main 顶栏/快捷键、各页搜索字段、完整集合或分页、摘要查询、样例及来源返回状态；拍改前同尺寸基线，记录最小接线方案 | 在现有 ADR-001 增补 U12 技术契约：动作归属、查询/摘要分离、取消与会话状态；发现接口缺口不能静默漏搜 | 完成：契约见 [ADR-001 第 23 节](decisions/001-local-desktop.md#23-u12--顶栏与页面搜索技术契约2026-09-29u12a-核对)；确认快捷键穿透与作用域缺口、物品搜索缺标签、支出 Line 缺备注、trash 搜索需后端过滤；改前基线截图见 [证据索引](ui/topbar-search/index.html) | 完成；zcode |
+| U12a 技术核对与基线 | 核对 main 顶栏/快捷键、各页搜索字段、完整集合或分页、摘要查询、样例及来源返回状态；拍改前同尺寸基线，记录最小接线方案 | 在现有 ADR-001 增补 U12 技术契约：动作归属、查询/摘要分离、取消与会话状态；发现接口缺口不能静默漏搜 | 完成：契约见 [ADR-001 第 23 节](decisions/001-local-desktop.md#23-u12--顶栏与页面搜索技术契约2026-09-29u12a-核对)；确认快捷键穿透与作用域缺口、物品搜索缺标签、支出 Line 缺备注、trash 搜索需后端过滤；改前基线截图见 证据索引 | 完成；zcode |
 | U12b 顶栏与动作统一 | 依赖 a；页面矩阵、菜单、文案、当前页快捷键、去重及窄窗口；已有搜索迁入顶栏，缺失搜索不以假输入框冒充完成 | AC01–03、08/09 相关行为；构建和对应测试通过，提供浅深色实际对照；不得绕过旧回执与切库保护 | 完成：`src/topbar-model.ts`/`src/topbar.tsx` 注册机制 + 十页矩阵接线 + 「新增物品」文案统一 + 新增记录菜单 + ⌘N/⌘F 页面分派与 modal 守卫 + ≤900px 折叠展开；走查中修复 hooks 崩溃、菜单键盘与关闭焦点 | 完成；zcode |
 | U12c 全页面搜索 | 依赖 b；逐模块补齐查询、匹配字段、分页计数、汇总隔离、内存状态与来源返回；必要时扩展只读后端查询及预览适配 | AC04–07/08；跨页命中、摘要不变及乱序请求行为测试通过，正常/缺失/空/错误 UI 证据齐备 | 完成：物品标签搜索（Rust）、trash 后端搜索、`expense_view` 补 notes、七页顶栏搜索接入、统一空态与「找到 N 条」；KPI 与搜索隔离；新增 `tests/topbar_search.rs` 4 项与前端 7+7 项 | 完成；zcode |
-| U12d 综合回归与隔离原生验收 | 依赖 c；完整回归、样例/我的资料隔离验证、键盘、重开、来源往返、全部尺寸与报告 | AC01–10 逐项归属；在 verification/U12_TOPBAR_SEARCH_RESULT.md 记录证据/命令/未验项；更新使用说明、计划及变更记录，停在审阅 | 完成：最终回归 build/前端 139/Rust 197/check/diff 全过；浏览器前后对照 73 张（[索引](ui/topbar-search/index.html)）+ AC01–09 走查；隔离原生 `local.possio.u12.acceptance` 验证快捷键/搜索/切库/重开/深浅色（[报告](verification/U12_TOPBAR_SEARCH_RESULT.md)）；未验项已逐条写明；停在审阅 | 完成；zcode |
+| U12d 综合回归与隔离原生验收 | 依赖 c；完整回归、样例/我的资料隔离验证、键盘、重开、来源往返、全部尺寸与报告 | AC01–10 逐项归属；在 verification/U12_TOPBAR_SEARCH_RESULT.md 记录证据/命令/未验项；更新使用说明、计划及变更记录，停在审阅 | 完成：最终回归 build/前端 139/Rust 197/check/diff 全过；浏览器前后对照 73 张（索引）+ AC01–09 走查；隔离原生 `local.possio.u12.acceptance` 验证快捷键/搜索/切库/重开/深浅色（[报告](verification/U12_TOPBAR_SEARCH_RESULT.md)）；未验项已逐条写明；停在审阅 | 完成；zcode |
 
 **复核（2026-09-29，Claude）**：zcode 额度用尽，停在文档收尾。用户要求修复复核发现的问题并补齐文档与截图：心愿页顶栏输入未同步到列表查询（只在重新进入时生效）；账户页在概览/盘点记录标签输入搜索未切到账户列表（3.5.1）；素材库说明残留「新增资产」；「找到 N 条」挪出表头改为结果区状态行；「新增记录 ▾」按钮在窄窗口换行。浏览器截图补齐为改前/改后各 11 页 × 3 尺寸 × 浅深色（66+66）及 8 张状态图；隔离原生复核心愿当场搜索、账户切标签、来源按 ID 打开（含物品搜索不匹配）及返回保留搜索词、⌘N 保存、退出重开。前端 140 项、Rust 197 项等回归通过。用户随后决定「拆开吧，搜索不影响概览卡」：物品页概览卡在有搜索词时改读同筛选、无关键词的查询，业务筛选仍生效，前端 141 项通过。用户追加「提交并推送，然后安装」：按主题提交并推送，release 升为 1.13.0 安装到 `/Applications/物志.app`，保留 1.12.1 回退副本；
 
@@ -135,7 +135,7 @@ zcode 接手后可在本任务范围内按 a→d 连续推进，每步达到出�
 
 ## D · 综合体验（2026-09-28，已完成并随 1.9.0 发布）
 
-授权来源：用户对“先整理 D 的页面方案和统计口径”回复“那就按照建议来”。随后用户回复“感觉还可以，那就进行下一步”，授权 Q01 界面对照与技术核对；业务与验收定义统一见[产品设计第 17.13 节](PRODUCT_DESIGN.md#1713-d--综合体验方案2026-09-28已随-190-发布)。以下 Q 编号用于 D 的候选实施步骤，避免与既有产品 D 决策编号混淆；Q01 仅制作设计稿；用户随后回复“那就开始下一步”，授权 Q02 实现。Q02 已完成本阶段出口；Q03 随用户“进行下一步”开始，中途用户要求拆分材料交给 zcode（见[交接入口](archive/handoffs/Q03_ZCODE_HANDOFF.md)），zcode 已按交接完成 Q03a–Q03f，Claude 审阅后修正来源跳转问题；用户回复“进入 Q04”，Q04 隔离原生验收已完成并停在审阅。
+授权来源：用户对“先整理 D 的页面方案和统计口径”回复“那就按照建议来”。随后用户回复“感觉还可以，那就进行下一步”，授权 Q01 界面对照与技术核对；业务与验收定义统一见[产品设计第 17.13 节](PRODUCT_DESIGN.md#1713-d--综合体验方案2026-09-28已随-190-发布)。以下 Q 编号用于 D 的候选实施步骤，避免与既有产品 D 决策编号混淆；Q01 仅制作设计稿；用户随后回复“那就开始下一步”，授权 Q02 实现。Q02 已完成本阶段出口；Q03 随用户“进行下一步”开始，中途用户要求拆分材料交给 zcode（见交接入口），zcode 已按交接完成 Q03a–Q03f，Claude 审阅后修正来源跳转问题；用户回复“进入 Q04”，Q04 隔离原生验收已完成并停在审阅。
 
 | 步骤 | 具体产物与出口 | 验收归属 | 状态 |
 |---|---|---|---|
@@ -149,7 +149,7 @@ Q02 已修改应用代码，未改 schema、正式资料或模型配置；未启
 
 ### Q03 顺序任务与交接出口（2026-09-28）
 
-交接入口：[Q03_ZCODE_HANDOFF](archive/handoffs/Q03_ZCODE_HANDOFF.md)，包含当前代码、材料、已知风险与完整启动 Prompt。用户要求准备材料交给 zcode；Codex 不再继续功能接线。以下是 Q03 的细分，不额外扩展阶段范围。不自动委派。
+交接入口：Q03_ZCODE_HANDOFF，包含当前代码、材料、已知风险与完整启动 Prompt。用户要求准备材料交给 zcode；Codex 不再继续功能接线。以下是 Q03 的细分，不额外扩展阶段范围。不自动委派。
 
 | 子任务 | 依赖与范围 | 出口 | 交接状态 |
 |---|---|---|---|
@@ -157,7 +157,7 @@ Q02 已修改应用代码，未改 schema、正式资料或模型配置；未启
 | Q03b 导航与返回 | 依赖 a；`source.ts` / `useSource.ts` / `main.tsx`，请求身份、returnContext、来源页就绪、年份/筛选/滚动恢复 | 快速 A→B、离页、同 generation 更正、切库/备份恢复丢弃旧响应；只在数据就绪后恢复位置；不绕过未决回执 | 完成：`openSourceRequest`/`useSource` 重写（alive 契约），returnContext/滚动恢复/年份传递接线；`tests/source.test.mjs` 7 项 |
 | Q03c 来源页面接入 | 依赖 b；物品、心愿、盘点、独立支出/退款、付款、计划、虚拟档案按 ID 打开 | 同名与分页不影响定位；付款精确到期次；盘点删除/同日替换不误开新建；关闭不保存；失效有提示且刷新源列表 | 完成：五页面 + 心愿按 ID 重读定位，盘点 expectedId 与用户改日期边界，未决回执优先；浏览器七类往返实测 |
 | Q03d 综合与时间轴整合 | 依赖 a–c；换入最终时间轴、来源按钮、attention 双 target、recent 统一投影；年份传递 | 不再仅跳模块；合组仍各有付款/权益入口；删除前端重复盘点合并；筛选组合/空期间/未知日期正确；返回恢复 | 完成：SourceTimelinePage 替换双入口；attention 双 target；recent 统一投影并移除前端合并；实物概览最近事件按 target 打开 |
-| Q03e 样例与 UI 证据 | 依赖 d；扩展现有 preview adapter，不另建业务统计；真实交互路径、浅深色、1280×820 / 1080×760 / 800×600 | 每类来源往返、错误/重试、同名/失效/键盘可用的证据；旧实物与侧栏对照保留，浏览器模拟限制写清 | 完成：preview 增 timeline_view/validate_source/心愿样例/?source=missing；11 张截图 + measurements + [索引](ui/comprehensive/q03/index.html) |
+| Q03e 样例与 UI 证据 | 依赖 d；扩展现有 preview adapter，不另建业务统计；真实交互路径、浅深色、1280×820 / 1080×760 / 800×600 | 每类来源往返、错误/重试、同名/失效/键盘可用的证据；旧实物与侧栏对照保留，浏览器模拟限制写清 | 完成：preview 增 timeline_view/validate_source/心愿样例/?source=missing；11 张截图 + measurements + 索引 |
 | Q03f 回归与审阅交付 | 依赖 a–e；全量检查，更新 Q03 报告、计划、ADR、README 与 CHANGELOG | 构建、前端、Rust、格式/静态检查通过；逐 AC 写证据与未验项；停在 Q03，Q04/发布另行安排 | 完成：122 项前端 + 32 组 184 项串行 Rust + check/diff 全过；报告与权威文档已更新；停在开发审阅 |
 
 交接检查（2026-09-28，历史记录）：`npm run build` 通过（既有包体积提示保留）；`npm run test:ui` 115 项通过；`npm run check` 通过；`cargo test --manifest-path src-tauri/Cargo.toml --lib review::tests` 4 项通过；`cargo test --manifest-path src-tauri/Cargo.toml --test timeline` 2 项通过；`git diff --check` 和交接文件链接检查通过。当时仅证明半成品可编译、既有路径未回退。
@@ -224,8 +224,8 @@ Q03 完成检查（2026-09-28，zcode 按交接接续）：交接第 4 节风险
 
 插入任务 U04（已完成）：攒满心愿留在「全部／已实现」并自动收起详情；时间轴整列连线；维护／保障说明和图片合并；提醒许可等待期间表单可操作。1.1.2 已完成隔离验证并安装；见 [U04 验证](verification/U04_WISH_TIMELINE_REMINDER_RESULT.md)。
 
-插入任务 U02（已完成）：用户授权资产／心愿分块表单与素材升级，确认独立标签＋自动业务状态、按日＋按次、攒钱达到 100% 自动实现且自动来源随进度回退。实现及隔离原生验收完成，退出后的系统提醒和取消已实测；用户确认保存退出后，1.1.0 已安装。见 [U02 清单](archive/handoffs/U02_ASSET_WISHLIST_UPGRADE.md)、[U02 验证](verification/U02_ASSET_WISHLIST_RESULT.md)。正式资料库不用于测试。
-用户先回复“确认开始”授权 V 批次，随后要求“进行下一个阶段”，授权推进 T01–T05。实际证据见 [验证报告](VERIFICATION_REPORT.md)。下方为任务范围与验收要求，当前完成情况以本段和任务状态表为准。
+插入任务 U02（已完成）：用户授权资产／心愿分块表单与素材升级，确认独立标签＋自动业务状态、按日＋按次、攒钱达到 100% 自动实现且自动来源随进度回退。实现及隔离原生验收完成，退出后的系统提醒和取消已实测；用户确认保存退出后，1.1.0 已安装。见 U02 清单、[U02 验证](verification/U02_ASSET_WISHLIST_RESULT.md)。正式资料库不用于测试。
+用户先回复“确认开始”授权 V 批次，随后要求“进行下一个阶段”，授权推进 T01–T05。实际证据见 验证报告。下方为任务范围与验收要求，当前完成情况以本段和任务状态表为准。
 
 | 任务 | 当前状态 |
 |---|---|
@@ -280,7 +280,7 @@ T05 按两段落实：T05a 原生解码/托管/schema 4/原子保存与故障测
 
 任务表最初承接准备阶段；随后用户“确认开始”，已授权 V00–V05 工程验证。之后“进行下一个阶段”的新授权覆盖基本资产流程 T01–T05；不含发布。
 
-本文件只维护任务顺序、验收归属、分工和阶段检查。业务依据是 [产品设计](PRODUCT_DESIGN.md) 与 [功能规格](FUNCTIONAL_SPEC.md)，视觉采用 [A「静序」](UI_DESIGN.md)，技术方案及 R01–R07 由 [ADR-001](decisions/001-local-desktop.md) 维护。
+本文件只维护任务顺序、验收归属、分工和阶段检查。业务依据是 [产品设计](PRODUCT_DESIGN.md) 与 [功能规格](FUNCTIONAL_SPEC.md)，视觉采用 A「静序」，技术方案及 R01–R07 由 [ADR-001](decisions/001-local-desktop.md) 维护。
 
 历史 CP1 检查结论（不是当前状态）：当时基本资产流程具备继续下一阶段的证据，完整 P0 尚未完成。之后 T01–T22 已完成，P0 与 A–C2 的最新状态见本文件顶部；AC40 的未实测边界见 T21 报告，不因后续阶段完成而消失。
 

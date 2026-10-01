@@ -39,7 +39,7 @@ Claude 停在 `209be0a`：U16a–c 的主要代码已推送，U16d 尚未开始�
 
 | 首轮待验项 | 复核依据与结论 |
 |---|---|
-| 规范组件页与说明页构图不同 | 计划 U16a 允许临时组件页或逐页组件实例。按实际组件核对而不是复刻说明文案；六组合实测形态与规范 2.1/7 一致，见 [参数记录](../ui/u16/capture/release-theme-audit.json)。关闭。 |
+| 规范组件页与说明页构图不同 | 计划 U16a 允许临时组件页或逐页组件实例。按实际组件核对而不是复刻说明文案；六组合实测形态与规范 2.1/7 一致，见 参数记录。关闭。 |
 | 顶栏搜索与新增入口不同于静态稿 | 规范 5.2 明确「与 U12 行为一致，只改样式」。保留现有搜索矩阵及各页新增操作符合规范，不属于未授权偏差。关闭。 |
 | 详情/表单内容高度不同 | 规范 6.4/6.5 要求保留完整备注、维护、保障和表单字段；计划第6节允许数据文本长度、实际插图不同。布局与主题已检查，窄窗可滚动。关闭。 |
 | 统计比静态稿多区块 | 规范 6.13 明确全部现有分析区块保留并改为两列；实现符合该条，静态稿只作示意。关闭。 |
@@ -49,80 +49,80 @@ Claude 停在 `209be0a`：U16a–c 的主要代码已推送，U16d 尚未开始�
 
 - 鼠标打开弹出菜单没有自动进入第一项：监听原生 details toggle，焦点进入首个可用菜单项；方向键直接打开时保留原本目标，Esc 返回触发按钮。浏览器实测鼠标点击后焦点为「退役…」。
 - 完整曲线浮层未计入 SVG 等比缩放的两侧留白：ResizeObserver 跟踪宽度并换算同一绘图区坐标。1280 窗口中点横向误差由 57.88px 降到 0.005px；键盘、鼠标使用同一实际数据点。
-- 图表 live region 放在 role=img 内部：移到同级并标记 atomic，避免图片角色吞掉内部文字；最新隔离原生 AX 已直接呈现并更新「2026-07-30，净资产 ¥327,600，较上次 +¥10,500（+3.31%）」，见 [截图](../ui/u16/capture/release-native-chart.png) / [AX记录](../ui/u16/capture/release-native-chart.txt)。这是结构验证，不冒充 VoiceOver 音频验证。
+- 图表 live region 放在 role=img 内部：移到同级并标记 atomic，避免图片角色吞掉内部文字；最新隔离原生 AX 已直接呈现并更新「2026-07-30，净资产 ¥327,600，较上次 +¥10,500（+3.31%）」，见 截图 / AX记录。这是结构验证，不冒充 VoiceOver 音频验证。
 - 柔和主题独立指标卡继承了共享指标的左分隔线：移除独立卡边线；六组合参数检查确认 B/C 保留分隔、D 为独立圆角卡。
 
 结论：在现行规范及用户明确取消 VoiceOver 朗读验收的范围内，U16 自用发布验收通过。保留样例数据与说明页内容差异，不改变业务数据语义。发布与安装证据见下方发布记录。
 
 ## 证据入口与复现
 
-截图位于 [capture](../ui/u16/capture/)，下表每行对应一组。少数截图右侧粉色浮标来自浏览器扩展，不属于应用；原生截图没有该浮标。设计稿工具条被隐藏，框架与应用均为 1280×820。图片、文本、记录数与日期来自各自虚构样例，不一致不代表计算缺陷。
+截图位于 capture，下表每行对应一组。少数截图右侧粉色浮标来自浏览器扩展，不属于应用；原生截图没有该浮标。设计稿工具条被隐藏，框架与应用均为 1280×820。图片、文本、记录数与日期来自各自虚构样例，不一致不代表计算缺陷。
 
 浏览器复现：启动 `npm run dev -- --port 1429`，在仓库根目录运行 `ego-browser nodejs < docs/ui/u16/capture.mjs`。脚本通过设置页真实控件选主题，截图仅操作本地预览。它会新建自己的 TaskSpace，结束后关闭自己的页面。原生构建使用忽略目录 `.local/u16.conf.json`，identifier 必须为 `local.possio.u16.acceptance`；不要替换成正式身份。
 
 | 页面 / 主题 / 模式 | 应用 | 设计稿 | 差异说明 |
 |---|---|---|---|
-| spec-native-light | [应用](../ui/u16/capture/spec-native-light-app.png) | [设计稿](../ui/u16/capture/spec-native-light-mockup.png) | 组件样本页与规范说明页内容不同；比较令牌/组件，不判整页零差异。 |
-| overview-native-light | [应用](../ui/u16/capture/overview-native-light-app.png) | [设计稿](../ui/u16/capture/overview-native-light-mockup.png) | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
-| items-native-light | [应用](../ui/u16/capture/items-native-light-app.png) | [设计稿](../ui/u16/capture/items-native-light-mockup.png) | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
-| detail-native-light | [应用](../ui/u16/capture/detail-native-light-app.png) | [设计稿](../ui/u16/capture/detail-native-light-mockup.png) | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
-| form-native-light | [应用](../ui/u16/capture/form-native-light-app.png) | [设计稿](../ui/u16/capture/form-native-light-mockup.png) | 保留全部现有字段，滚动长度不同；未裁掉业务功能。 |
-| wish-native-light | [应用](../ui/u16/capture/wish-native-light-app.png) | [设计稿](../ui/u16/capture/wish-native-light-mockup.png) | 卡片与内联检视器结构已落地；虚构预览为倒计时，原生另覆盖攒钱。 |
-| accounts-native-light | [应用](../ui/u16/capture/accounts-native-light-app.png) | [设计稿](../ui/u16/capture/accounts-native-light-mockup.png) | 保留纵轴、资产结构与负债、完整账户清单；数据和高度不同。 |
-| stock-native-light | [应用](../ui/u16/capture/stock-native-light-app.png) | [设计稿](../ui/u16/capture/stock-native-light-mockup.png) | 当前日期已有盘点，显示更正说明；静态稿是新建示例。 |
-| expenses-native-light | [应用](../ui/u16/capture/expenses-native-light-app.png) | [设计稿](../ui/u16/capture/expenses-native-light-mockup.png) | 图表数值与来源标签齐全；年月样例与明细数量不同。 |
-| recurring-native-light | [应用](../ui/u16/capture/recurring-native-light-app.png) | [设计稿](../ui/u16/capture/recurring-native-light-mockup.png) | 仅首条待确认实心按钮；实际待确认和计划数量不同。 |
-| virtual-native-light | [应用](../ui/u16/capture/virtual-native-light-app.png) | [设计稿](../ui/u16/capture/virtual-native-light-mockup.png) | 表格与检视器齐全；保留原有指标与状态筛选，静态稿较精简。 |
-| timeline-native-light | [应用](../ui/u16/capture/timeline-native-light-app.png) | [设计稿](../ui/u16/capture/timeline-native-light-mockup.png) | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
-| stats-native-light | [应用](../ui/u16/capture/stats-native-light-app.png) | [设计稿](../ui/u16/capture/stats-native-light-mockup.png) | 规范要求的完整分析区块保留并两列化，静态稿区块较少；不按静态稿删功能。 |
-| trash-native-light | [应用](../ui/u16/capture/trash-native-light-app.png) | [设计稿](../ui/u16/capture/trash-native-light-mockup.png) | 虚构已删除旧电脑一条；表格结构齐全，数量与内容不同。 |
-| settings-native-light | [应用](../ui/u16/capture/settings-native-light-app.png) | [设计稿](../ui/u16/capture/settings-native-light-mockup.png) | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
-| spec-native-dark | [应用](../ui/u16/capture/spec-native-dark-app.png) | [设计稿](../ui/u16/capture/spec-native-dark-mockup.png) | 组件样本页与规范说明页内容不同；比较令牌/组件，不判整页零差异。 |
-| overview-native-dark | [应用](../ui/u16/capture/overview-native-dark-app.png) | [设计稿](../ui/u16/capture/overview-native-dark-mockup.png) | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
-| items-native-dark | [应用](../ui/u16/capture/items-native-dark-app.png) | [设计稿](../ui/u16/capture/items-native-dark-mockup.png) | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
-| detail-native-dark | [应用](../ui/u16/capture/detail-native-dark-app.png) | [设计稿](../ui/u16/capture/detail-native-dark-mockup.png) | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
-| form-native-dark | [应用](../ui/u16/capture/form-native-dark-app.png) | [设计稿](../ui/u16/capture/form-native-dark-mockup.png) | 保留全部现有字段，滚动长度不同；未裁掉业务功能。 |
-| wish-native-dark | [应用](../ui/u16/capture/wish-native-dark-app.png) | [设计稿](../ui/u16/capture/wish-native-dark-mockup.png) | 卡片与内联检视器结构已落地；虚构预览为倒计时，原生另覆盖攒钱。 |
-| accounts-native-dark | [应用](../ui/u16/capture/accounts-native-dark-app.png) | [设计稿](../ui/u16/capture/accounts-native-dark-mockup.png) | 保留纵轴、资产结构与负债、完整账户清单；数据和高度不同。 |
-| stock-native-dark | [应用](../ui/u16/capture/stock-native-dark-app.png) | [设计稿](../ui/u16/capture/stock-native-dark-mockup.png) | 当前日期已有盘点，显示更正说明；静态稿是新建示例。 |
-| expenses-native-dark | [应用](../ui/u16/capture/expenses-native-dark-app.png) | [设计稿](../ui/u16/capture/expenses-native-dark-mockup.png) | 图表数值与来源标签齐全；年月样例与明细数量不同。 |
-| recurring-native-dark | [应用](../ui/u16/capture/recurring-native-dark-app.png) | [设计稿](../ui/u16/capture/recurring-native-dark-mockup.png) | 仅首条待确认实心按钮；实际待确认和计划数量不同。 |
-| virtual-native-dark | [应用](../ui/u16/capture/virtual-native-dark-app.png) | [设计稿](../ui/u16/capture/virtual-native-dark-mockup.png) | 表格与检视器齐全；保留原有指标与状态筛选，静态稿较精简。 |
-| timeline-native-dark | [应用](../ui/u16/capture/timeline-native-dark-app.png) | [设计稿](../ui/u16/capture/timeline-native-dark-mockup.png) | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
-| stats-native-dark | [应用](../ui/u16/capture/stats-native-dark-app.png) | [设计稿](../ui/u16/capture/stats-native-dark-mockup.png) | 规范要求的完整分析区块保留并两列化，静态稿区块较少；不按静态稿删功能。 |
-| trash-native-dark | [应用](../ui/u16/capture/trash-native-dark-app.png) | [设计稿](../ui/u16/capture/trash-native-dark-mockup.png) | 虚构已删除旧电脑一条；表格结构齐全，数量与内容不同。 |
-| settings-native-dark | [应用](../ui/u16/capture/settings-native-dark-app.png) | [设计稿](../ui/u16/capture/settings-native-dark-mockup.png) | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
-| overview-paper-light | [应用](../ui/u16/capture/overview-paper-light-app.png) | [设计稿](../ui/u16/capture/overview-paper-light-mockup.png) | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
-| items-paper-light | [应用](../ui/u16/capture/items-paper-light-app.png) | [设计稿](../ui/u16/capture/items-paper-light-mockup.png) | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
-| detail-paper-light | [应用](../ui/u16/capture/detail-paper-light-app.png) | [设计稿](../ui/u16/capture/detail-paper-light-mockup.png) | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
-| timeline-paper-light | [应用](../ui/u16/capture/timeline-paper-light-app.png) | [设计稿](../ui/u16/capture/timeline-paper-light-mockup.png) | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
-| settings-paper-light | [应用](../ui/u16/capture/settings-paper-light-app.png) | [设计稿](../ui/u16/capture/settings-paper-light-mockup.png) | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
-| overview-paper-dark | [应用](../ui/u16/capture/overview-paper-dark-app.png) | [设计稿](../ui/u16/capture/overview-paper-dark-mockup.png) | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
-| items-paper-dark | [应用](../ui/u16/capture/items-paper-dark-app.png) | [设计稿](../ui/u16/capture/items-paper-dark-mockup.png) | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
-| detail-paper-dark | [应用](../ui/u16/capture/detail-paper-dark-app.png) | [设计稿](../ui/u16/capture/detail-paper-dark-mockup.png) | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
-| timeline-paper-dark | [应用](../ui/u16/capture/timeline-paper-dark-app.png) | [设计稿](../ui/u16/capture/timeline-paper-dark-mockup.png) | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
-| settings-paper-dark | [应用](../ui/u16/capture/settings-paper-dark-app.png) | [设计稿](../ui/u16/capture/settings-paper-dark-mockup.png) | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
-| overview-bento-light | [应用](../ui/u16/capture/overview-bento-light-app.png) | [设计稿](../ui/u16/capture/overview-bento-light-mockup.png) | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
-| items-bento-light | [应用](../ui/u16/capture/items-bento-light-app.png) | [设计稿](../ui/u16/capture/items-bento-light-mockup.png) | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
-| detail-bento-light | [应用](../ui/u16/capture/detail-bento-light-app.png) | [设计稿](../ui/u16/capture/detail-bento-light-mockup.png) | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
-| timeline-bento-light | [应用](../ui/u16/capture/timeline-bento-light-app.png) | [设计稿](../ui/u16/capture/timeline-bento-light-mockup.png) | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
-| settings-bento-light | [应用](../ui/u16/capture/settings-bento-light-app.png) | [设计稿](../ui/u16/capture/settings-bento-light-mockup.png) | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
-| overview-bento-dark | [应用](../ui/u16/capture/overview-bento-dark-app.png) | [设计稿](../ui/u16/capture/overview-bento-dark-mockup.png) | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
-| items-bento-dark | [应用](../ui/u16/capture/items-bento-dark-app.png) | [设计稿](../ui/u16/capture/items-bento-dark-mockup.png) | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
-| detail-bento-dark | [应用](../ui/u16/capture/detail-bento-dark-app.png) | [设计稿](../ui/u16/capture/detail-bento-dark-mockup.png) | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
-| timeline-bento-dark | [应用](../ui/u16/capture/timeline-bento-dark-app.png) | [设计稿](../ui/u16/capture/timeline-bento-dark-mockup.png) | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
-| settings-bento-dark | [应用](../ui/u16/capture/settings-bento-dark-app.png) | [设计稿](../ui/u16/capture/settings-bento-dark-mockup.png) | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
-| spec-paper-light（补充） | [应用](../ui/u16/capture/spec-paper-light-app.png) | [设计稿](../ui/u16/capture/spec-paper-light-mockup.png) | 组件样本与规范说明内容不同，只比较组件形态。 |
-| spec-paper-dark（补充） | [应用](../ui/u16/capture/spec-paper-dark-app.png) | [设计稿](../ui/u16/capture/spec-paper-dark-mockup.png) | 组件样本与规范说明内容不同，只比较组件形态。 |
-| spec-bento-light（补充） | [应用](../ui/u16/capture/spec-bento-light-app.png) | [设计稿](../ui/u16/capture/spec-bento-light-mockup.png) | 组件样本与规范说明内容不同，只比较组件形态。 |
-| spec-bento-dark（补充） | [应用](../ui/u16/capture/spec-bento-dark-app.png) | [设计稿](../ui/u16/capture/spec-bento-dark-mockup.png) | 组件样本与规范说明内容不同，只比较组件形态。 |
+| spec-native-light | 应用 | 设计稿 | 组件样本页与规范说明页内容不同；比较令牌/组件，不判整页零差异。 |
+| overview-native-light | 应用 | 设计稿 | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
+| items-native-light | 应用 | 设计稿 | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
+| detail-native-light | 应用 | 设计稿 | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
+| form-native-light | 应用 | 设计稿 | 保留全部现有字段，滚动长度不同；未裁掉业务功能。 |
+| wish-native-light | 应用 | 设计稿 | 卡片与内联检视器结构已落地；虚构预览为倒计时，原生另覆盖攒钱。 |
+| accounts-native-light | 应用 | 设计稿 | 保留纵轴、资产结构与负债、完整账户清单；数据和高度不同。 |
+| stock-native-light | 应用 | 设计稿 | 当前日期已有盘点，显示更正说明；静态稿是新建示例。 |
+| expenses-native-light | 应用 | 设计稿 | 图表数值与来源标签齐全；年月样例与明细数量不同。 |
+| recurring-native-light | 应用 | 设计稿 | 仅首条待确认实心按钮；实际待确认和计划数量不同。 |
+| virtual-native-light | 应用 | 设计稿 | 表格与检视器齐全；保留原有指标与状态筛选，静态稿较精简。 |
+| timeline-native-light | 应用 | 设计稿 | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
+| stats-native-light | 应用 | 设计稿 | 规范要求的完整分析区块保留并两列化，静态稿区块较少；不按静态稿删功能。 |
+| trash-native-light | 应用 | 设计稿 | 虚构已删除旧电脑一条；表格结构齐全，数量与内容不同。 |
+| settings-native-light | 应用 | 设计稿 | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
+| spec-native-dark | 应用 | 设计稿 | 组件样本页与规范说明页内容不同；比较令牌/组件，不判整页零差异。 |
+| overview-native-dark | 应用 | 设计稿 | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
+| items-native-dark | 应用 | 设计稿 | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
+| detail-native-dark | 应用 | 设计稿 | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
+| form-native-dark | 应用 | 设计稿 | 保留全部现有字段，滚动长度不同；未裁掉业务功能。 |
+| wish-native-dark | 应用 | 设计稿 | 卡片与内联检视器结构已落地；虚构预览为倒计时，原生另覆盖攒钱。 |
+| accounts-native-dark | 应用 | 设计稿 | 保留纵轴、资产结构与负债、完整账户清单；数据和高度不同。 |
+| stock-native-dark | 应用 | 设计稿 | 当前日期已有盘点，显示更正说明；静态稿是新建示例。 |
+| expenses-native-dark | 应用 | 设计稿 | 图表数值与来源标签齐全；年月样例与明细数量不同。 |
+| recurring-native-dark | 应用 | 设计稿 | 仅首条待确认实心按钮；实际待确认和计划数量不同。 |
+| virtual-native-dark | 应用 | 设计稿 | 表格与检视器齐全；保留原有指标与状态筛选，静态稿较精简。 |
+| timeline-native-dark | 应用 | 设计稿 | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
+| stats-native-dark | 应用 | 设计稿 | 规范要求的完整分析区块保留并两列化，静态稿区块较少；不按静态稿删功能。 |
+| trash-native-dark | 应用 | 设计稿 | 虚构已删除旧电脑一条；表格结构齐全，数量与内容不同。 |
+| settings-native-dark | 应用 | 设计稿 | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
+| overview-paper-light | 应用 | 设计稿 | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
+| items-paper-light | 应用 | 设计稿 | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
+| detail-paper-light | 应用 | 设计稿 | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
+| timeline-paper-light | 应用 | 设计稿 | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
+| settings-paper-light | 应用 | 设计稿 | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
+| overview-paper-dark | 应用 | 设计稿 | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
+| items-paper-dark | 应用 | 设计稿 | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
+| detail-paper-dark | 应用 | 设计稿 | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
+| timeline-paper-dark | 应用 | 设计稿 | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
+| settings-paper-dark | 应用 | 设计稿 | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
+| overview-bento-light | 应用 | 设计稿 | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
+| items-bento-light | 应用 | 设计稿 | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
+| detail-bento-light | 应用 | 设计稿 | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
+| timeline-bento-light | 应用 | 设计稿 | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
+| settings-bento-light | 应用 | 设计稿 | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
+| overview-bento-dark | 应用 | 设计稿 | 相同两主卡、指标、关注/近期结构；样例记录与未知金额披露造成高度差。 |
+| items-bento-dark | 应用 | 设计稿 | 选中物品、分类数、金额不同；保留现有筛选与总数披露。 |
+| detail-bento-dark | 应用 | 设计稿 | 相机与电脑样例不同；实际维护和保障内容较多，卡片高度不同；菜单截图状态不同。 |
+| timeline-bento-dark | 应用 | 设计稿 | 月份、日期、类型、金额与整行来源齐全；事件文本数量不同，筛选保留原有能力。 |
+| settings-bento-dark | 应用 | 设计稿 | 主题选中状态与实际主题一致；保留原有说明与跟随系统选项。 |
+| spec-paper-light（补充） | 应用 | 设计稿 | 组件样本与规范说明内容不同，只比较组件形态。 |
+| spec-paper-dark（补充） | 应用 | 设计稿 | 组件样本与规范说明内容不同，只比较组件形态。 |
+| spec-bento-light（补充） | 应用 | 设计稿 | 组件样本与规范说明内容不同，只比较组件形态。 |
+| spec-bento-dark（补充） | 应用 | 设计稿 | 组件样本与规范说明内容不同，只比较组件形态。 |
 
 ## 发布记录
 
 - 安装时间：2026-09-30 01:26（Asia/Shanghai）；应用 `/Applications/家底.app`，版本 **2.1.0**，identifier `local.possio.main`。
 - 构建源码：`a631fd7d852b3b00847c582c213dbf83d8b9a719`，已合入并推送 main。最后只有发布记录变动，不改变已验收二进制。
 - 最终回归：`npm run build`、`npm run test:ui`（150/150）、`npm run check`、`npm test`（216/216）、隔离 debug bundle 与 `npm run release` 全部通过。正式包未启用 fault-injection；本地 ad-hoc 签名，未公证。构建保留 Vite 大块体积提示，不影响通过。
-- 安装前确认正式进程未运行。2.0.0 保存至 `.local/install/家底-2.0.0.app`，与原包完整清单一致；使用同卷暂存包和可回退重命名完成替换。候选、暂存和最终应用均通过严格签名验证；最终应用与候选全部 4 个文件的内容哈希及权限一致。见 [完整清单](U16_RELEASE_MANIFEST.json)。
+- 安装前确认正式进程未运行。2.0.0 保存至 `.local/install/家底-2.0.0.app`，与原包完整清单一致；使用同卷暂存包和可回退重命名完成替换。候选、暂存和最终应用均通过严格签名验证；最终应用与候选全部 4 个文件的内容哈希及权限一致。见 完整清单。
 - 2.1.0 包清单摘要：`b4a6b7a0d60e8eca4c5962fd0a61a6c60581bb749b9f95519270dfc4bbd50b36`。2.0.0 回退清单摘要：`bed97745cb21bc7842d6c18daed7088502a0068a0c9656e179feb253a9758295`。
 - **此次没有启动正式 App，也未读取或写入正式资料库。** 功能验证来自隔离身份；安装验证只覆盖应用包。
 - 归档：已删除全部合入 main 的 `claude/u15-redesign`、`claude/u16-parity` 本地与远程分支；提交历史和截图继续保留在 main。原始构建/测试日志、隔离配置与安装脚本保存在 `.local/archive/u16-2.1.0/`。浏览器验收 TaskSpace、开发服务器和隔离 App 已关闭；Rust 临时编译产物已清理。用户未跟踪目录 `.claude/` 原样保留。下一阶段未启动。

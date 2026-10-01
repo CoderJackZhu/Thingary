@@ -1,6 +1,0 @@
-The following is a diff from the previous accessibility tree for Window: "物志 · 桌面交互验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
-~				77 text ¥76.00 / ¥100.00
-~				78 progress indicator (settable, float) 攒钱总进度, Value: 76
-~				79 text 已完成 76% · 还差 ¥24.00
-+				100 text 已保存这笔金额。
-The focused UI element is 67 container 虚构旅行镜头

@@ -1,3 +1,0 @@
-The following is a diff from the previous accessibility tree for Window: "物志 · T07 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
-~					88 text field (settable) 动作日期（必填）, Value: 2026-09-11, Placeholder: YYYY-MM-DD
-+					93 text 日期不能晚于相邻重新启用（2026-09-10）；同日保留原动作顺序。

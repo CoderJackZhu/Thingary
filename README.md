@@ -6,10 +6,10 @@
 
 ## 当前状态（2026-10-01）
 
-- 自用正式版 **2.3.0**（含 U18 桌面布局修复与导航整理，已合并 main）当前安装在 `/Applications/家底.app`（旧名）；**2.3.2（中文名改为「物谱」，见 D26）已构建、尚未安装**，安装后为 `/Applications/物谱.app`。身份 `local.possio.main` 不变，回退副本保存在本机 `.local/install/`（不入库）。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- 自用正式版 **2.3.2**（中文名「物谱」，含 U18 布局修复、设置分组与默认主题调整）已安装在 `/Applications/物谱.app`，安装时间 2026-10-01T17:36+08:00；身份 `local.possio.main` 不变，回退副本保存在本机 `.local/install/`（2.3.0「家底」等，不入库）。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
 - P0 闭环、A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验及 U 系列迭代均已交付。任务状态以[实施计划](docs/IMPLEMENTATION_PLAN.md)为准，逐次变更见 [CHANGELOG](CHANGELOG.md)。
 - 原生验收已补做大部分（见[原生验收补做](docs/verification/NATIVE_ACCEPTANCE_20261001_RESULT.md)）；系统外观实时切换、VoiceOver 等需要本人操作的项目与发布前盘点结论见[发布前盘点](docs/RELEASE_AUDIT.md)。
-- 名称：用户选择换名，中文名定为「物谱」（产品设计 D26，具体用词待用户确认；「物志」在软件类已有他人注册）；英文名建议 Thingary；许可证已定为 GPL-3.0（见 `LICENSE`）。详见[竞品调研第 14.2 节](docs/COMPETITOR_RESEARCH.md#142-商标检索结果2026-10-01)与[发布前盘点](docs/RELEASE_AUDIT.md)。
+- 名称：用户选择换名，中文名为「物谱」（产品设计 D26；「物志」在软件类已有他人注册，用户要求安装 2.3.2 时未对用词提出异议）；英文名建议 Thingary；许可证已定为 GPL-3.0（见 `LICENSE`）。详见[竞品调研第 14.2 节](docs/COMPETITOR_RESEARCH.md#142-商标检索结果2026-10-01)与[发布前盘点](docs/RELEASE_AUDIT.md)。
 - 仅在 Apple Silicon Mac 验证；macOS 14 与 Intel 尚未实测。
 
 使用前请阅读 [使用说明](docs/USER_GUIDE.md)。
@@ -21,17 +21,15 @@
 - [使用说明](docs/USER_GUIDE.md)：安装、资料位置、完整备份与恢复及当前限制。
 - [产品设计](docs/PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、P0/P1/P2 与验收标准；第 15.2 节为实物决策表；[第 17 节](docs/PRODUCT_DESIGN.md#17-统一资产扩展需求草案2026-09-28)集中维护统一资产扩展，17.12 为 A–C2 已确认规则，17.13 为 D 综合体验方案（已交付）。
 - [P0 功能规格](docs/FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义。
-- **现行界面规范**：[U16 设计规范](docs/ui/U16_DESIGN_SPEC.md)（令牌、格式、组件、逐页规范、三主题检查表）与设计稿 v3 [`docs/ui/u16/mockup-v3.html`](docs/ui/u16/mockup-v3.html)；计划见 [U16 设计对齐计划](docs/ui/U16_DESIGN_PARITY_PLAN.md)，接续结果、50 组对照、验收收口与发布记录见 [U16 验证记录](docs/verification/U16_PARITY_RESULT.md)。
-- [UI 方向与原型（历史）](docs/UI_DESIGN.md)：早期选定 A「静序」为基线；[交互原型](docs/ui/prototype.html)。已由 U16 规范取代，仅供追溯。
+- **现行界面规范**：[U16 设计规范](docs/ui/U16_DESIGN_SPEC.md)（令牌、格式、组件、逐页规范、三主题检查表）与设计稿 v3 [`docs/ui/u16/mockup-v3.html`](docs/ui/u16/mockup-v3.html)；接续结果、验收收口与发布记录见 [U16 验证记录](docs/verification/U16_PARITY_RESULT.md)。
 - [竞品调研](docs/COMPETITOR_RESEARCH.md)：直接竞品与开源候选比较、差异化假设；第 9–28 节为 2026-10-01 补充的同类应用快照与功能对照、开源逐项核验（平台、成熟度、与本项目对比）、平台受众（含安卓、Windows、Linux）、付费与分发、名称核查、移植工作量评估。
 
 **技术与计划**
 
 - [技术设计 ADR-001](docs/decisions/001-local-desktop.md)：本地桌面架构、数据与图片一致性、最近删除、备份恢复协议与风险验证计划。
 - [实施计划](docs/IMPLEMENTATION_PLAN.md)：任务拆分、依赖、验收归属、阶段出口；任务状态唯一入口。
-- [工程与流程验证报告](docs/VERIFICATION_REPORT.md)：底层实验、进程中断证据与构建结果。
 
-**验证记录**（`docs/verification/`，每项含自动检查、隔离原生证据与未验边界）
+**验证记录**（`docs/verification/`，每项含自动检查、隔离原生结果与未验边界；2026-10-01 起只保留报告文本，截图与机器日志已移出工作树，见该目录的 README）
 
 - [设置与操作入口修订](docs/verification/SETTINGS_POLISH_RESULT.md)：渠道/标签改名删除、设置分组、返回与关闭按钮；已验证，已随 1.12.1 安装。
 
@@ -45,9 +43,9 @@
 | 财富盘点 | [W03 删除恢复、备份与原生验收](docs/verification/W03_WEALTH_RESULT.md)；设计见 ADR-001 第 17 节 |
 | 重要支出 | [E03 删除恢复、时间轴与原生验收](docs/verification/E03_EXPENSES_RESULT.md)；设计见 ADR-001 第 18 节 |
 | 周期费用 | [R03 删除恢复、时间轴与原生验收](docs/verification/R03_RECURRING_RESULT.md)；设计见 ADR-001 第 19 节 |
-| 综合体验 D | [Q02 综合回顾](docs/verification/Q02_COMPREHENSIVE_RESULT.md) · [Q03 时间轴与来源跳转](docs/verification/Q03_SOURCE_NAVIGATION_RESULT.md) · [Q04 原生验收](docs/verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)（[浏览器证据](docs/ui/comprehensive/q03/index.html)）；Q04 原生全量验收未开始 |
+| 综合体验 D | [Q02 综合回顾](docs/verification/Q02_COMPREHENSIVE_RESULT.md) · [Q03 时间轴与来源跳转](docs/verification/Q03_SOURCE_NAVIGATION_RESULT.md) · [Q04 原生验收](docs/verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)（浏览器证据）；Q04 原生全量验收未开始 |
 
-已完成任务的交接契约归档在 [docs/archive](docs/archive/README.md)。协作规则见 [AGENTS.md](AGENTS.md)。
+历史交接文档、早期 UI 方向文档与验收截图已于 2026-10-01 从工作树移出，仍可在 git 历史与本地标签 `archive/pre-cleanup-2026-10-01` 中查看。协作规则见 [AGENTS.md](AGENTS.md)。
 
 产品需求以产品设计为准，竞品事实以调研文档注明的来源和核验日期为准；技术方案独立维护在 ADR-001，任务与分工集中在实施计划，互不重复抄录。
 

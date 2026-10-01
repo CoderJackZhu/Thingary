@@ -31,7 +31,7 @@
 | 原生窗口 | 新包显示十件，搜索 Demo 为八件；网格直接展示各自原图，键盘摘要为 keyboard.png、¥0，编辑表单读到原封面、分类、赠送渠道和备注；ESC 取消成功。退出重开仍为十件，iPad 原封面、已售出状态及净成本保持 |
 | 持久库读回 | `integrity_check=ok`；八件 Demo、九条总照片关联、总计 Active 6／Retired 2／Sold 2；维护为原 ¥150 + 相机 ¥300 + 手机 ¥519。旧相机维护仍 ¥150，原五条审计不变 |
 
-原生截图：[八件 Demo 网格及键盘摘要](demo-transfer/native-grid.png)。截图来自隔离 App 放大后的窗口，包含真实托管 PNG 与 SQLite 资料，不是浏览器内存预览。窗口标题仍来自本地 T08 验收配置。
+原生截图：八件 Demo 网格及键盘摘要。截图来自隔离 App 放大后的窗口，包含真实托管 PNG 与 SQLite 资料，不是浏览器内存预览。窗口标题仍来自本地 T08 验收配置。
 
 可重复命令与图片转换入口见 [README 的原生 Demo 样例](../../README.md#原生-demo-样例)。T09 原生图片修复和部分错误恢复缺口保持原报告状态；本轮不宣布 CP2 或整个分支具备完整集成条件，不推进 T10。
 
@@ -110,11 +110,11 @@ Ego Lite 完成页面观察和操作；其普通与 raw 截图均超时，因此
 
 | 原始 A Demo | 当前实际组件 |
 |---|---|
-| [原始列表与摘要](demo-restoration/reference-list-light.png) | [还原后的列表与摘要](demo-restoration/list-light.png) |
+| 原始列表与摘要 | 还原后的列表与摘要 |
 
-其他浏览器图均为 1280×720：[详情](demo-restoration/detail-light.png)、[新增对话框](demo-restoration/form-light.png)、[深色网格与分类插图](demo-restoration/grid-dark.png)。
+其他浏览器图均为 1280×720：详情、新增对话框、深色网格与分类插图。
 
-隔离原生窗口为 1080×760：[浅色及 HEIC 封面](demo-restoration/native-light.png)、[深色及无照片插图](demo-restoration/native-dark.png)、[详情](demo-restoration/native-detail-light.png)。全部仅含虚构资料。
+隔离原生窗口为 1080×760：浅色及 HEIC 封面、深色及无照片插图、详情。全部仅含虚构资料。
 
 ## 完成边界与后续
 
@@ -171,11 +171,11 @@ Ego Lite 页面观察可用，但普通与 raw 截图均出现 `Page.captureScre
 
 1280×900 浅色：
 
-- [列表与摘要](visual-alignment/list-light.png)
-- [完整详情](visual-alignment/detail-light.png)
-- [渐进式新增](visual-alignment/form-light.png)
+- 列表与摘要
+- 完整详情
+- 渐进式新增
 
-900×720：[深色网格与摘要](visual-alignment/grid-dark-900.png)。截图只包含虚构样例；页面能滚动，截图不代表全部内容需挤进首屏。
+900×720：深色网格与摘要。截图只包含虚构样例；页面能滚动，截图不代表全部内容需挤进首屏。
 
 ### 接下来
 

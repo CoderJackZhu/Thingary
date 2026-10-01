@@ -1,9 +1,0 @@
-{
-  "url": "http://127.0.0.1:1438/visual-preview.html?category-fixture=30",
-  "width": 1920,
-  "height": 870,
-  "errors": [
-    "Uncaught Error: Maximum update depth exceeded. This can happen when a component repeatedly calls setState inside componentWillUpdate or componentDidUpdate. React limits the number of nested updates to prevent infinite loops."
-  ],
-  "body": "界面验收 · 虚构数据 · 刷新重置"
-}

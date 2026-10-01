@@ -16,9 +16,9 @@
 
 ## 自动验证
 
-- 前端：90 项通过，含新增未提交清理／未决回执保留行为测试。[输出](u03/ui-tests.txt)
-- Rust 分类／渠道：6 项通过，新增整组排序、ID 集合校验、幂等回执与重开顺序测试。[输出](u03/taxonomy-tests.txt)
-- Rust 格式及 Clippy：通过。[输出](u03/checks.txt)
+- 前端：90 项通过，含新增未提交清理／未决回执保留行为测试。输出
+- Rust 分类／渠道：6 项通过，新增整组排序、ID 集合校验、幂等回执与重开顺序测试。输出
+- Rust 格式及 Clippy：通过。输出
 - TypeScript、Vite、隔离原生及正式 release 构建通过。未将构建通过替代原生交互检查。
 
 ## 隔离原生检查
@@ -37,7 +37,7 @@
 | 攒钱更新 | 点击 +1 后 75 元变为 76 元，显示 76%，剩余 24 元 |
 | 时间轴 | 浅色模式连续虚线与节点清晰可见 |
 
-截图：[新增资产深色](u03/asset-form-dark.jpg)、[心愿录入](u03/wish-editor-dark.jpg)、[心愿详情](u03/wish-detail-dark.jpg)、[资产详情](u03/asset-detail-light.jpg)、[设置双栏](u03/settings-light.jpg)、[图标顺序](u03/icon-picker-light.jpg)、[渠道选中态](u03/channel-choice-light.jpg)、[时间轴](u03/timeline-light.jpg)。
+截图：新增资产深色、心愿录入、心愿详情、资产详情、设置双栏、图标顺序、渠道选中态、时间轴。
 
 ## 发布
 
@@ -45,6 +45,6 @@
 
 正式包及安装后的完整 App 均通过 `codesign --verify --deep --strict`；版本 1.1.1，二进制 SHA256 一致：`ad2d5f89ce5c4f49accd178f4ba88cc0fd4ab5d974c4165b6173dac84bfdd381`。使用本地临时签名，未公证。
 
-小窗口证据：[滚动前](u03/asset-form-small.jpg)、[滚动后顶部操作](u03/asset-form-small-scrolled.jpg)、[直接关闭](u03/asset-dismiss-small.txt)、[心愿同屏](u03/wish-detail-small.jpg)、[攒钱更新](u03/savings-update.txt)。
+小窗口证据：滚动前、滚动后顶部操作、直接关闭、心愿同屏、攒钱更新。
 
 源码实现提交 `8994685`；仅本地提交并集成 main，没有远程推送。隔离验收 App 已退出。

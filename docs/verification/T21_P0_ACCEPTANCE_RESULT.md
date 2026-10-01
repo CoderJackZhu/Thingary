@@ -17,42 +17,42 @@
 
 普通库 `local.possio.preview` 未打开或写入。未重置、未重导 Demo，也未操作开工前已运行的 T06b 虚构库。本轮只从已知虚构的 `/tmp/possio-t18/t18-with-trash.possio` 恢复到 T21 身份，原阶段资料不变。
 
-首次 T21 启动确认目录原不存在、库 0 资产。每次定位均解析 `library/active.json`，使用 SQLite backup API 做一致性快照；见 [源初始快照](t21/initial-snapshot.json)、[目标空库快照](t21/empty-snapshot.json)。源库后续恢复前、缺图操作前另有 `library/backups/t21-before-*.sqlite`；自动恢复保护副本与旧数据集原样保留。数据库、备份、修复源图全部只在隔离库和 `/tmp/possio-t21`，不提交 Git。
+首次 T21 启动确认目录原不存在、库 0 资产。每次定位均解析 `library/active.json`，使用 SQLite backup API 做一致性快照；见 源初始快照、目标空库快照。源库后续恢复前、缺图操作前另有 `library/backups/t21-before-*.sqlite`；自动恢复保护副本与旧数据集原样保留。数据库、备份、修复源图全部只在隔离库和 `/tmp/possio-t21`，不提交 Git。
 
 ### 2.2 release 离线闭环与重开
 
 先仅填名称“ T21 虚构耳机”（实际值见 AX 记录）保存，金额/日期留空，进入详情并显示待补充。正常 ⌘Q 退出后，用 `sandbox-exec` 启动同一正式包，仅禁止 IP 入站/出站，保留本机系统 IPC；新增“ T21 离线虚构相机”、进入详情、更正名称、软删除、从侧栏最近删除同记录恢复，再从设置入口查看最近删除为空，均成功。退出后目标 PID 消失，重开两条记录仍在。完整命令、启动工具限制和残留核对见 [运行记录](t21/runtime.md)。
 
-明确选择浅色后正常退出、重开，[浅色与新旧 iPad](t21/reopened-light.png) 保持；[浅色总览](t21/overview-light.png) 与 [深色总览](t21/overview-dark.png) 为同尺寸 1080×760 实际窗口，文字/关键操作可读。首次脚本把同名标题当下拉，未改主题；修正 AX 角色后成功，失败截图不当浅色证据。
+明确选择浅色后正常退出、重开，浅色与新旧 iPad 保持；浅色总览 与 深色总览 为同尺寸 1080×760 实际窗口，文字/关键操作可读。首次脚本把同名标题当下拉，未改主题；修正 AX 角色后成功，失败截图不当浅色证据。
 
 ### 2.3 买回、统计、图片
 
-恢复既有虚构数据后，独立算回的买回前总览：持有 15，购入 3,921,550 分，平均 688.7 天（界面总览 689）、中位 516、最长 2054。正式包显示一致，统计毛/净日均分列。随后通过新增创建同名 `iPad Air 4`：新 ID `1e7dfc48-0ea1-410a-adc3-3b3b5059584f`，Active、¥1,000、2026-09-26；旧 ID `3494ca5d-416c-40ed-8dce-8ed62c268949` 仍 Sold、原购入 ¥4,799、售出 ¥1,800，维护与历史保持。旧净成本 ¥2,999 / 1412 天，新成本 ¥1,000 / 1 天，各自独立。买回后持有 16、¥40,215.50，历史 ¥45,014.50，平均 626.1818 天；见 [独立计算](t21/independent-readback.json)及[脚本](t21/verify_release.py)。（review 注：脚本独立算出持有数、金额与天数，并核对新旧 ID、售价与维护；旧净成本 ¥2,999／1412 天为按 T17 公式写入的期望值，未在脚本中重新推导。）
+恢复既有虚构数据后，独立算回的买回前总览：持有 15，购入 3,921,550 分，平均 688.7 天（界面总览 689）、中位 516、最长 2054。正式包显示一致，统计毛/净日均分列。随后通过新增创建同名 `iPad Air 4`：新 ID `1e7dfc48-0ea1-410a-adc3-3b3b5059584f`，Active、¥1,000、2026-09-26；旧 ID `3494ca5d-416c-40ed-8dce-8ed62c268949` 仍 Sold、原购入 ¥4,799、售出 ¥1,800，维护与历史保持。旧净成本 ¥2,999 / 1412 天，新成本 ¥1,000 / 1 天，各自独立。买回后持有 16、¥40,215.50，历史 ¥45,014.50，平均 626.1818 天；见 独立计算及脚本。（review 注：脚本独立算出持有数、金额与天数，并核对新旧 ID、售价与维护；旧净成本 ¥2,999／1412 天为按 T17 公式写入的期望值，未在脚本中重新推导。）
 
 关闭源 App、快照并可逆移走新 iPad 的一张托管图片（保留原件与修复源），正式包显示缺图占位和明确修复入口，档案未清空；经 NSOpenPanel 重新选择同一原图后“原图已修复”，SHA256 相同。非图片内容伪装 `.png` 被正式包拒绝，“不使用这次未读取的图片”后可取消空表单；取消后目标库全部表仍与恢复备份相同。不是依靠 SQL 写业务数据来制造 GUI 通过。
 
 ### 2.4 同库备份、CSV 与空库恢复
 
-正式包先取消保存备份面板，回到空闲且 T21 目录无 `.possio`；再次保存成功并提示已校验。输出 `/tmp/possio-t21/物志备份-20260926-1438.possio`，548,885 字节；清单 10 项（SQLite + 9 原图）逐项散列及大小一致，SQLite integrity 为 ok。随后同库导出 CSV，标准 CSV 解析器独立按只读 SQL 对照全部 13 列：18 条未删除资产一致，已删除 1 条排除；未知价格 5、明确零价 1、未知日期 6、售出 2。见 [读回](t21/csv-readback.txt)及[脚本](t21/verify_csv.py)。
+正式包先取消保存备份面板，回到空闲且 T21 目录无 `.possio`；再次保存成功并提示已校验。输出 `/tmp/possio-t21/物志备份-20260926-1438.possio`，548,885 字节；清单 10 项（SQLite + 9 原图）逐项散列及大小一致，SQLite integrity 为 ok。随后同库导出 CSV，标准 CSV 解析器独立按只读 SQL 对照全部 13 列：18 条未删除资产一致，已删除 1 条排除；未知价格 5、明确零价 1、未知日期 6、售出 2。见 读回及脚本。
 
-备份是归档，不是可读资产表；CSV 不含关系、原图、最近删除，不能恢复。新身份空库原生“选择→检查摘要→确认替换”恢复本轮备份后：19 资产（含 1 最近删除）、103 心愿、6 维护、3 保障、17 资产附件行（共享后共 9 原图）。[独立比对](t21/restore-readback.json)覆盖 **25 张表全部行**（包括请求、审计、关系），全部相同；9 原图哈希相同、外键 0 异常、保护副本 1 份。已实现心愿可打开正确资产，最近删除可见原项目，重开保持。
+备份是归档，不是可读资产表；CSV 不含关系、原图、最近删除，不能恢复。新身份空库原生“选择→检查摘要→确认替换”恢复本轮备份后：19 资产（含 1 最近删除）、103 心愿、6 维护、3 保障、17 资产附件行（共享后共 9 原图）。独立比对覆盖 **25 张表全部行**（包括请求、审计、关系），全部相同；9 原图哈希相同、外键 0 异常、保护副本 1 份。已实现心愿可打开正确资产，最近删除可见原项目，重开保持。
 
-原生选择 `bad.possio` 后明确提示“不能用于恢复，当前资料未改变”；[再比对](t21/bad-backup-unchanged.json)仍全部一致。恢复阶段进程中断、权限/空间故障与备份写入排队复用 T18/底层实验，在最终自动检查重跑，未在正常 GUI 包强造磁盘满。
+原生选择 `bad.possio` 后明确提示“不能用于恢复，当前资料未改变”；再比对仍全部一致。恢复阶段进程中断、权限/空间故障与备份写入排队复用 T18/底层实验，在最终自动检查重跑，未在正常 GUI 包强造磁盘满。
 
 ### 2.5 review 补验：AC05／AC06／AC09（Claude，2026-09-26）
 
 Claude review T21 后按用户选择 B 在本分支补验。隔离 debug 包 `local.possio.t06b.preview`（主目录 `4a1d682` 代码），操作前 SQLite backup API 快照 `library/backups/t21-ac-before-20260926-222603.sqlite`。每次键盘注入前确认 Possio 在前台且窗口在辅助功能树中；中途发现用户在前台使用其他应用即暂停，用户回复“继续”后再做。
 
-- **AC05**：⌘N 填名称「AC05 虚构关闭草稿」并选耳机素材为封面。「关闭表单」与 ⌘W 均显示「放弃未保存的修改？」且窗口不关闭；「继续编辑」后名称与封面图仍在。再关闭选「放弃修改」：表单关闭，[放弃前](t21/review-followup/ac05-table-counts-before.json)与[放弃后](t21/review-followup/ac05-table-counts-after-discard.json) 25 张表行数完全相同；正常退出重开无草稿提示。放弃留下 1 条 `staging/photo-*.json` 与该素材的托管文件，属 VERIFICATION_REPORT 第 28 行、ADR-001 第 99 行已登记的“无引用暂存暂不自动回收”，不是业务残留。
+- **AC05**：⌘N 填名称「AC05 虚构关闭草稿」并选耳机素材为封面。「关闭表单」与 ⌘W 均显示「放弃未保存的修改？」且窗口不关闭；「继续编辑」后名称与封面图仍在。再关闭选「放弃修改」：表单关闭，放弃前与放弃后 25 张表行数完全相同；正常退出重开无草稿提示。放弃留下 1 条 `staging/photo-*.json` 与该素材的托管文件，属 VERIFICATION_REPORT 第 28 行、ADR-001 第 99 行已登记的“无引用暂存暂不自动回收”，不是业务残留。
 - **AC06**：800×600，筛选「当前持有」＋排序「名称」（17 件），滚动到并选中「T11 Fictional Parent」，回车进入完整详情后返回：条件、选中、焦点均保持，前后窗口截图**逐像素相同**（含列表滚动位置）。再搜索「T12」＋网格视图＋选中「T12 翻页样例 099」往返详情：搜索、筛选、排序、网格与选中保持，截图仅所选卡片焦点区有差异；切回列表仍为 3 件且条件与选中不变。
-- **AC09**：无结果——搜索不存在的关键词显示「没有找到匹配的物品」＋「清除条件」，清除后回到 19 件。已删除链接——把「T13 虚构相机心愿」资产移入最近删除后，已实现心愿卡片显示「关联资产…在最近删除中，恢复后仍指向这条心愿，不能再次转换」＋「前往最近删除」，跳转后定位该项并确认恢复（只读 SQL：删除资产 0、资产 19、心愿 103）。不存在与读取失败——正常使用无法触发，按 T10/T11/T13 方法用临时 QA 构建（[补丁](t21/review-followup/qa-ac09-not-committed.patch)：名称以 `QA-MISSING`／`QA-READFAIL` 开头的资产读取返回空／错误，搜索 `QA-LISTFAIL` 列表读取报错），经 GUI 新建两件虚构资产后：不存在显示「找不到这件物品。」，读取失败显示错误原文，摘要均有「关闭提示」、完整详情均有「重新读取」与返回；列表读取失败显示「资料加载失败」＋「重新读取」，未出现「从第一件物品开始」，「清除条件」后恢复。源码立即 `git checkout` 还原，重建正常 debug 包后两件 QA 资产可正常读取，随后移入最近删除（隔离库现资产 21，其中最近删除 2）。
+- **AC09**：无结果——搜索不存在的关键词显示「没有找到匹配的物品」＋「清除条件」，清除后回到 19 件。已删除链接——把「T13 虚构相机心愿」资产移入最近删除后，已实现心愿卡片显示「关联资产…在最近删除中，恢复后仍指向这条心愿，不能再次转换」＋「前往最近删除」，跳转后定位该项并确认恢复（只读 SQL：删除资产 0、资产 19、心愿 103）。不存在与读取失败——正常使用无法触发，按 T10/T11/T13 方法用临时 QA 构建（补丁：名称以 `QA-MISSING`／`QA-READFAIL` 开头的资产读取返回空／错误，搜索 `QA-LISTFAIL` 列表读取报错），经 GUI 新建两件虚构资产后：不存在显示「找不到这件物品。」，读取失败显示错误原文，摘要均有「关闭提示」、完整详情均有「重新读取」与返回；列表读取失败显示「资料加载失败」＋「重新读取」，未出现「从第一件物品开始」，「清除条件」后恢复。源码立即 `git checkout` 还原，重建正常 debug 包后两件 QA 资产可正常读取，随后移入最近删除（隔离库现资产 21，其中最近删除 2）。
 
 补验只改文档与证据，没有应用代码变更。
 
 ### 2.6 CP4 准备：Dock 点击与文字对比度（Claude，2026-09-26）
 
-- **Dock**：正式包 `local.possio.t21.release` 在设置页按 ⌘W 后窗口离开屏幕；经 Dock 的辅助功能接口点击其图标，窗口[重新出现并停在设置页](t21/cp4/dock-reopen.png)。⌘Q 后再点 Dock 需要把 App 固定在 Dock（改用户 Dock 设置），留给用户。
-- **对比度**：[contrast.py](t21/cp4/contrast.py) 按实际 CSS（后加载者覆盖）计算 WCAG 对比度。浅色 `--muted:#6c7480` 在侧栏 4.33、浅底 4.44、选中行 4.21，低于 AA 4.5（用于 10–11px 次要文字）。在分支 `codex/t21-muted-contrast` 改为 `#676f7b`（每通道暗 5），[修复后最低 4.52](t21/cp4/contrast.txt)；深色与强调、错误、正向色原本均 ≥4.5。新增 `tests/contrast.test.mjs`：旧色值失败（4.33）、新色值通过。
+- **Dock**：正式包 `local.possio.t21.release` 在设置页按 ⌘W 后窗口离开屏幕；经 Dock 的辅助功能接口点击其图标，窗口重新出现并停在设置页。⌘Q 后再点 Dock 需要把 App 固定在 Dock（改用户 Dock 设置），留给用户。
+- **对比度**：contrast.py 按实际 CSS（后加载者覆盖）计算 WCAG 对比度。浅色 `--muted:#6c7480` 在侧栏 4.33、浅底 4.44、选中行 4.21，低于 AA 4.5（用于 10–11px 次要文字）。在分支 `codex/t21-muted-contrast` 改为 `#676f7b`（每通道暗 5），修复后最低 4.52；深色与强调、错误、正向色原本均 ≥4.5。新增 `tests/contrast.test.mjs`：旧色值失败（4.33）、新色值通过。
 
 ## 3. AC01–AC44 逐项结论
 
@@ -60,49 +60,49 @@ Claude review T21 后按用户选择 B 在本分支补验。隔离 debug 包 `lo
 
 | AC | 主责任任务 | 证据来源 | 本轮复测 | 结论 | 范围与缺口 |
 |---|---|---|---|---|---|
-| AC01 | T01 | 本轮名称最小新增、禁网闭环及重开；[名称](t21/name-only.txt)、[重开](t21/reopened.txt) | 是 | 通过 | 价格/日期留空，独立建档；旧数据集及快照仍保留。 |
-| AC02 | T01 | [CP1](../VERIFICATION_REPORT.md) 空名称/未来日期；表单测试 | 自动回归 | 通过 | 原生历史证据＋当前自动测试；本轮未逐字段重复 GUI。 |
-| AC03 | T05 | [T05](../VERIFICATION_REPORT.md) 托管、移动源文件、故障；本轮恢复原图散列 | 恢复/自动 | 通过 | 原件与源分离；失败点沿用集成测试。 |
-| AC04 | T01 | [CP1](../VERIFICATION_REPORT.md)、[T13](T13_WISHLIST_CONVERSION_RESULT.md)；提交回执及崩溃测试 | 自动回归 | 通过 | 重复保存、提交后丢回执、转换同请求均有证据；不是仅凭阶段出口。 |
-| AC05 | T01 | review 补验（§2.5）：[填名称＋选图](t21/review-followup/ac05-1-filled.png)、[继续编辑后保留](t21/review-followup/ac05-3-kept.png)、[放弃确认](t21/review-followup/ac05-5-discard-prompt.png)、[放弃前](t21/review-followup/ac05-table-counts-before.json)／[后](t21/review-followup/ac05-table-counts-after-discard.json)全表计数 | 是 | 通过 | 关闭按钮与 ⌘W 两条路径均提示；继续编辑保留名称与封面图；放弃后 25 张表行数不变、重开无草稿。放弃留下的暂存记录与托管文件属已登记的不自动回收设计。 |
-| AC06 | T02 | review 补验（§2.5）：[列表返回前](t21/review-followup/ac06-1-before.png)／[后](t21/review-followup/ac06-3-after.png)像素一致；[网格前](t21/review-followup/ac06-4-grid-before.png)／[后](t21/review-followup/ac06-5-grid-after.png)；[切回列表](t21/review-followup/ac06-6-list-kept.png) | 是 | 通过 | 800×600 下筛选＋排序＋滚动＋选中、搜索＋网格＋选中往返完整详情均保持；列表/网格切换不丢条件。显示缩放属 AC40／用户检查，不在 AC06 条文内。 |
+| AC01 | T01 | 本轮名称最小新增、禁网闭环及重开；名称、重开 | 是 | 通过 | 价格/日期留空，独立建档；旧数据集及快照仍保留。 |
+| AC02 | T01 | CP1 空名称/未来日期；表单测试 | 自动回归 | 通过 | 原生历史证据＋当前自动测试；本轮未逐字段重复 GUI。 |
+| AC03 | T05 | T05 托管、移动源文件、故障；本轮恢复原图散列 | 恢复/自动 | 通过 | 原件与源分离；失败点沿用集成测试。 |
+| AC04 | T01 | CP1、[T13](T13_WISHLIST_CONVERSION_RESULT.md)；提交回执及崩溃测试 | 自动回归 | 通过 | 重复保存、提交后丢回执、转换同请求均有证据；不是仅凭阶段出口。 |
+| AC05 | T01 | review 补验（§2.5）：填名称＋选图、继续编辑后保留、放弃确认、放弃前／后全表计数 | 是 | 通过 | 关闭按钮与 ⌘W 两条路径均提示；继续编辑保留名称与封面图；放弃后 25 张表行数不变、重开无草稿。放弃留下的暂存记录与托管文件属已登记的不自动回收设计。 |
+| AC06 | T02 | review 补验（§2.5）：列表返回前／后像素一致；网格前／后；切回列表 | 是 | 通过 | 800×600 下筛选＋排序＋滚动＋选中、搜索＋网格＋选中往返完整详情均保持；列表/网格切换不丢条件。显示缩放属 AC40／用户检查，不在 AC06 条文内。 |
 | AC07 | T03 | [T14](T14_TIMELINE_RESULT.md) 补日期事件归位一次；[T15](T15_OVERVIEW_RESULT.md) 汇总；本轮同记录更正 | 是/自动 | 通过 | 原建档、同 ID 与有效事件由存储和时间轴测试覆盖。 |
 | AC08 | T03 | [T07](T07_LIFECYCLE_RESULT.md) 退役筛选更正后说明；[T06c](T06C_REGRESSION_RESULT.md) 失效分类筛选 | 自动回归 | 通过 | 不匹配后详情结果可见、返回有解释及清除入口；历史 GUI 证据复用。 |
-| AC09 | T02 | review 补验（§2.5）：[无结果](t21/review-followup/ac09-1-noresult.png)、[已删除链接](t21/review-followup/ac09-deleted-link-ax.txt)→[最近删除定位](t21/review-followup/ac09-3-trash-target.png)、[不存在：摘要](t21/review-followup/ac09-MISSING-summary.png)／[详情](t21/review-followup/ac09-MISSING-detail.png)、[读取失败：摘要](t21/review-followup/ac09-READFAIL-summary.png)／[详情](t21/review-followup/ac09-READFAIL-detail.png)／[列表](t21/review-followup/ac09-LISTFAIL.png) | 是 | 通过 | 四种状态文案与入口各不相同；列表读取失败显示“资料加载失败＋重新读取”，不出现“从第一件物品开始”。不存在与读取失败用临时 QA 构建注入（[补丁](t21/review-followup/qa-ac09-not-committed.patch)，未提交，已换回正常包）。 |
+| AC09 | T02 | review 补验（§2.5）：无结果、已删除链接→最近删除定位、不存在：摘要／详情、读取失败：摘要／详情／列表 | 是 | 通过 | 四种状态文案与入口各不相同；列表读取失败显示“资料加载失败＋重新读取”，不出现“从第一件物品开始”。不存在与读取失败用临时 QA 构建注入（补丁，未提交，已换回正常包）。 |
 | AC10 | T03 | [T07](T07_LIFECYCLE_RESULT.md)、[T09](T09_MAINTENANCE_RESULT.md#5-已验证边界与未验证边界) 双向日期与冲突 | 自动回归 | 通过 | 购入晚于维护/退役/售出阻止，已有 GUI 和领域测试互补。 |
 | AC11 | T09 | [T09](T09_MAINTENANCE_RESULT.md)、[T14](T14_TIMELINE_RESULT.md)；维护及 timeline 测试 | 自动回归 | 通过 | 同维护 ID 更正、费用只计一次，事件与汇总同步。 |
 | AC12 | T09 | [T11](T11_UNIFIED_TRASH_RESULT.md) unknown/zero 恢复测试；维护 E01/E02 | 自动回归 | 通过 | 未知费用不当零；删除/恢复后完整性重新派生。 |
 | AC13 | T11 | [T11](T11_UNIFIED_TRASH_RESULT.md) E09 与确认/取消、成本联动；T18 全关系恢复 | 自动回归 | 通过 | 原 ID、有效时间轴与费用同步，独立删除语义保留。 |
-| AC14 | T10 | [T10](T10_WARRANTY_RESULT.md) 重叠/未来/今日保障；[日期测试](t21/date-tests.log) 与 Rust E04 | 固定日期/自动 | 通过 | 0/30/31 天及次日 Expired/29/30；刷新路径列表和详情各读一次；未修改系统时间。 |
+| AC14 | T10 | [T10](T10_WARRANTY_RESULT.md) 重叠/未来/今日保障；日期测试 与 Rust E04 | 固定日期/自动 | 通过 | 0/30/31 天及次日 Expired/29/30；刷新路径列表和详情各读一次；未修改系统时间。 |
 | AC15 | T10 | [T10](T10_WARRANTY_RESULT.md)、[T14](T14_TIMELINE_RESULT.md) 同 ID 更正和重启；timeline 测试 | 自动回归 | 通过 | 到期查询派生，无持久重复事件/常驻通知进程。 |
 | AC16 | T12 | [T12](T12_WISHLIST_RESULT.md) GUI 放弃；[T15](T15_OVERVIEW_RESULT.md) 总览隔离 | 自动回归 | 通过 | 预计价、资产实付与进行中心愿汇总分开，历史保留。 |
-| AC17 | T13 | [T13](T13_WISHLIST_CONVERSION_RESULT.md) 1500→1200；[恢复详情](t21/restored-conversion-detail.txt) | 恢复/自动 | 通过 | 原预计与实付分离，双方引用及唯一购入事件保留。 |
+| AC17 | T13 | [T13](T13_WISHLIST_CONVERSION_RESULT.md) 1500→1200；恢复详情 | 恢复/自动 | 通过 | 原预计与实付分离，双方引用及唯一购入事件保留。 |
 | AC18 | T13 | [T13](T13_WISHLIST_CONVERSION_RESULT.md) 连续触发/取消/回包丢失崩溃；[T18](T18_BACKUP_RESTORE_RESULT.md) worker 排队 | 自动回归 | 通过 | 恢复/故障自动用例复测；未把本轮正常包当作 GUI 故障注入。 |
-| AC19 | T13 | [T13](T13_WISHLIST_CONVERSION_RESULT.md)、[恢复心愿](t21/restored-wishlist.txt) | 恢复/自动 | 通过 | 已实现保持，删除关联引导最近删除，不再转换。 |
+| AC19 | T13 | [T13](T13_WISHLIST_CONVERSION_RESULT.md)、恢复心愿 | 恢复/自动 | 通过 | 已实现保持，删除关联引导最近删除，不再转换。 |
 | AC20 | T07 | [T07](T07_LIFECYCLE_RESULT.md) Active→Retired→Active；[T17](T17_HOLDING_RESULT.md) | 自动回归 | 通过 | 原购买与费用、持有天数不重置。 |
 | AC21 | T07 | [T07](T07_LIFECYCLE_RESULT.md)、[T08](T08_SALES_RESULT.md) Sold 拒绝启用和日期顺序 | 自动回归 | 通过 | 同日顺序、相邻动作及 Sold 来源有定向测试。 |
 | AC22 | T08 | [T09](T09_MAINTENANCE_RESULT.md)、[T17](T17_HOLDING_RESULT.md)；maintenance/sales/insights 测试 | 自动回归 | 通过 | 含维护净成本、售出截至日冻结；本轮新旧 iPad 独立算回。 |
 | AC23 | T08 | [T08](T08_SALES_RESULT.md) 原生负净成本；[T19](T19_CSV_EXPORT_RESULT.md) 原始售价导出 | 导出/自动 | 通过 | 同售出 ID 更正；负净成本不截零；CSV 不冒充成本结算表。 |
 | AC24 | T08 | [T08](T08_SALES_RESULT.md) Retired 撤销并重开；[T14](T14_TIMELINE_RESULT.md) 有效事件 | 自动回归 | 通过 | 恢复售出前状态，纠错审计保留，有效结算移除。 |
 | AC25 | T08 | [T08](T08_SALES_RESULT.md) 未知购入/零售价 GUI；[T17](T17_HOLDING_RESULT.md) 排除原因 | 自动回归 | 通过 | 未知不显示精确净成本，已售出仍退出当前持有。 |
-| AC26 | T08 | [买回详情](t21/repurchase.txt)、[独立核对](t21/independent-readback.json)、[同名两件](t21/reopened-light.png) | 是 | 通过 | 新旧真实 UUID 不同；旧 Sold、旧维护/售价保留，新 Active 独立成本。 |
+| AC26 | T08 | 买回详情、独立核对、同名两件 | 是 | 通过 | 新旧真实 UUID 不同；旧 Sold、旧维护/售价保留，新 Active 独立成本。 |
 | AC27 | T04 | [T11](T11_UNIFIED_TRASH_RESULT.md)、[T13](T13_WISHLIST_CONVERSION_RESULT.md)、完整关系备份测试 | 自动回归 | 通过 | 图片/子记录/心愿关联保持；删除不变更生命周期。 |
-| AC28 | T04 | [T11](T11_UNIFIED_TRASH_RESULT.md)、[T13](T13_WISHLIST_CONVERSION_RESULT.md)、[全表核对](t21/restore-readback.json) | 恢复/自动 | 通过 | 原 ID/状态/共享原图和关系一致；不增重复业务记录。 |
+| AC28 | T04 | [T11](T11_UNIFIED_TRASH_RESULT.md)、[T13](T13_WISHLIST_CONVERSION_RESULT.md)、全表核对 | 恢复/自动 | 通过 | 原 ID/状态/共享原图和关系一致；不增重复业务记录。 |
 | AC29 | T04 | [T08](T08_SALES_RESULT.md) Sold 恢复；[T11](T11_UNIFIED_TRASH_RESULT.md) 写锁与同请求重试 | 自动回归 | 通过 | 失败仍在最近删除；无自动永久清空。 |
-| AC30 | T18、T19 | [完整备份](t21/backup-done.txt)、[CSV](t21/csv-done.txt)、[逐行核对](t21/csv-readback.txt) | 是 | 通过 | 同库两种输出；备份 19 资产及关系/原图，CSV 18 未删除资产、不能恢复。 |
-| AC31 | T18 | [空库前快照](t21/empty-snapshot.json)、[恢复后](t21/empty-restored.txt)、[全表/原图比对](t21/restore-readback.json) | 是 | 通过 | 新 identifier 空库，25 张表全部行相同、9 原图一致；重开及最近删除可用。 |
-| AC32 | T18 | [坏档拒绝](t21/bad-backup.txt)、[未改变](t21/bad-backup-unchanged.json)；backup/recovery 测试 | 是/自动 | 通过 | 坏文件原生拒绝；不支持版本/缺文件/非法路径由故障测试复测。 |
-| AC33 | T18 | [T18](T18_BACKUP_RESTORE_RESULT.md)、[工程恢复实验](../VERIFICATION_REPORT.md)；recovery 子进程中断测试 | 自动回归 | 通过 | 测试独立临时库的中断/空间权限故障；未制造真实磁盘满或电源中断，不据此保证硬件耐久。 |
+| AC30 | T18、T19 | 完整备份、CSV、逐行核对 | 是 | 通过 | 同库两种输出；备份 19 资产及关系/原图，CSV 18 未删除资产、不能恢复。 |
+| AC31 | T18 | 空库前快照、恢复后、全表/原图比对 | 是 | 通过 | 新 identifier 空库，25 张表全部行相同、9 原图一致；重开及最近删除可用。 |
+| AC32 | T18 | 坏档拒绝、未改变；backup/recovery 测试 | 是/自动 | 通过 | 坏文件原生拒绝；不支持版本/缺文件/非法路径由故障测试复测。 |
+| AC33 | T18 | [T18](T18_BACKUP_RESTORE_RESULT.md)、工程恢复实验；recovery 子进程中断测试 | 自动回归 | 通过 | 测试独立临时库的中断/空间权限故障；未制造真实磁盘满或电源中断，不据此保证硬件耐久。 |
 | AC34 | T18 | [T18](T18_BACKUP_RESTORE_RESULT.md) backup_pauses_queued_writes；本轮原生取消备份面板 | 是/自动 | 通过 | 取消后无 .possio 输出再发起正式备份；worker 排队和失败不发布由自动测试覆盖。 |
-| AC35 | T15 | [正式包总览](t21/release-overview.txt)、[统计](t21/release-statistics.txt)、[独立计算](t21/independent-readback.json) | 是/自动 | 通过 | Active+Retired、历史含 Sold、未知单列、毛/净日均分列；买回前后分别核对。 |
+| AC35 | T15 | 正式包总览、统计、独立计算 | 是/自动 | 通过 | Active+Retired、历史含 Sold、未知单列、毛/净日均分列；买回前后分别核对。 |
 | AC36 | T16、T17 | [T16](T16_TRENDS_RESULT.md)、[T17](T17_HOLDING_RESULT.md)、本轮正式包统计与独立算回 | 是/自动 | 通过 | E06/E07 月末闰日与期间边界沿用固定日期 tests；本机日期未改。 |
 | AC37 | T06 | [T06c](T06C_REGRESSION_RESULT.md)、[T12](T12_WISHLIST_RESULT.md)；taxonomy/wishlist 测试 | 自动回归 | 通过 | 分类/渠道 ID、迁移、软删除与心愿引用覆盖；不只引用早期资产出口。 |
 | AC38 | T14 | [T14](T14_TIMELINE_RESULT.md)、[T18](T18_BACKUP_RESTORE_RESULT.md) 全投影比较；本轮完整恢复 | 恢复/自动 | 通过 | 有效业务日期、未知日期单列、过滤、心愿购入去重均有测试证据。 |
-| AC39 | T20 | 本轮 IP 禁网闭环、[重开浅色](t21/reopened-light.png)、[运行记录](t21/runtime.md) | 是 | 通过 | 明确为进程级禁网；未关闭 Wi-Fi。目标 App 已退出，无本任务 HTTP 服务。 |
-| AC40 | T05、T20 | [缺图](t21/missing-image.txt)、[修复](t21/image-repaired.txt)、[格式拒绝](t21/unsupported-image.txt)、浅深色截图、T20 键盘与焦点、[对比度](t21/cp4/contrast.txt) | 是/局部 | 部分 | 图片、键盘主流程与焦点有原生证据；浅色次要文字对比度不足已修复（§2.6）。VoiceOver、系统外观实时切换与显示缩放待用户，故仍为部分。 |
+| AC39 | T20 | 本轮 IP 禁网闭环、重开浅色、[运行记录](t21/runtime.md) | 是 | 通过 | 明确为进程级禁网；未关闭 Wi-Fi。目标 App 已退出，无本任务 HTTP 服务。 |
+| AC40 | T05、T20 | 缺图、修复、格式拒绝、浅深色截图、T20 键盘与焦点、对比度 | 是/局部 | 部分 | 图片、键盘主流程与焦点有原生证据；浅色次要文字对比度不足已修复（§2.6）。VoiceOver、系统外观实时切换与显示缩放待用户，故仍为部分。 |
 | AC41 | T11 | [T11](T11_UNIFIED_TRASH_RESULT.md) 子项删除恢复/附件；T18 全关系测试 | 自动回归 | 通过 | 原记录 ID，费用/保障/有效事件同步，附件保持。 |
 | AC42 | T11 | [T11](T11_UNIFIED_TRASH_RESULT.md) E09 原生；unified_trash 与 full_backup | 自动回归 | 通过 | 先删子后删父，恢复父不复活已独立删除子项。 |
-| AC43 | T11 | [T11](T11_UNIFIED_TRASH_RESULT.md) 恢复所属物品入口；[设置最近删除](t21/settings-trash.txt) | 入口/自动 | 通过 | 父未恢复时不连带恢复；正式包侧栏/设置入口抽检。 |
+| AC43 | T11 | [T11](T11_UNIFIED_TRASH_RESULT.md) 恢复所属物品入口；设置最近删除 | 入口/自动 | 通过 | 父未恢复时不连带恢复；正式包侧栏/设置入口抽检。 |
 | AC44 | T11 | [T11](T11_UNIFIED_TRASH_RESULT.md) 原请求回包丢失核对；本轮删除恢复，unified_trash | 局部/自动 | 通过 | 父删除不制造独立子删除项，回执重放无重复费用/事件/文件。 |
 
 ## 4. 风险与缺陷

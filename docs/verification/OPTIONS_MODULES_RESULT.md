@@ -20,11 +20,11 @@
 
 | 场景 | 改前 | 改后 |
 |---|---|---|
-| 物品列表 | [before](../ui/options-modules/before-list.jpg) | [after](../ui/options-modules/after-list.jpg) |
-| 无封面物品详情 | [before](../ui/options-modules/before-box-detail.jpg) | [after](../ui/options-modules/after-box-detail.jpg) |
-| 设置 | [before](../ui/options-modules/before-settings.jpg) | [after](../ui/options-modules/after-settings.jpg) |
+| 物品列表 | before | after |
+| 无封面物品详情 | before | after |
+| 设置 | before | after |
 
-其他：[售出渠道页](../ui/options-modules/after-sale-tab.jpg)、[状态标签页](../ui/options-modules/after-label-tab.jpg)、[关闭模块后的设置](../ui/options-modules/after-modules-off-settings.jpg)、[总览](../ui/options-modules/after-modules-off-overview.jpg)、[时间轴](../ui/options-modules/after-modules-off-timeline.jpg)。
+其他：售出渠道页、状态标签页、关闭模块后的设置、总览、时间轴。
 
 ## 自动化
 

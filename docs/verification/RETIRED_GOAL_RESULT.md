@@ -17,7 +17,7 @@
 
 核对：2026-05-15 至 2026-08-01 含首日共 79 天，需 400 天，79÷400=19.75%，399,900÷79≈5,062 分；2024-01-01 至 2026-01-01 共 732 天，50,000÷732≈68 分。顶部成本卡的日均持有成本仍按既有规则计算到今天（¥28.98、138 天）。
 
-截图：[改前](../ui/retired-goal/before-retired.jpg)／[改后](../ui/retired-goal/after-retired.jpg)，[已达成改前](../ui/retired-goal/before-reached.jpg)／[改后](../ui/retired-goal/after-reached.jpg)，[重新启用后](../ui/retired-goal/after-reactivated.jpg)。
+截图：改前／改后，已达成改前／改后，重新启用后。
 
 ## 自动化
 

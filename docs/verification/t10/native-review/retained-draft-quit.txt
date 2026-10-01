@@ -1,9 +1,0 @@
-The following is a diff from the previous accessibility tree for Window: "物志 · T08 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
-Removed element IDs: 3-67
-+			77 container 保留草稿后退出？
-+				78 heading 保留草稿后退出？, Value: 2
-+					79 text 保留草稿后退出？
-+				80 text 草稿已保存在本机，下次打开仍可恢复。待确认的保存请求也会保留，恢复时会核对原请求，不代表已经保存成功。
-+				81 button 继续使用
-+				82 button 保留草稿并退出
-The focused UI element is 81 button 继续使用

@@ -1,6 +1,6 @@
 # 设置与操作入口修订验收
 
-日期：2026-09-29。基线 `main` / `f577155`；本轮发布 1.12.1。用户同意按建议实现，并明确本任务无需逐项再次询问。规则见 [产品设计第 10 节](../PRODUCT_DESIGN.md#10-分类标签渠道与图片附件)，视觉规格见 [UI 设计](../UI_DESIGN.md#设置与关闭入口修订2026-09-29)。本轮完成实现与验证；用户随后要求安装推送，已完成正式包安装，代码与本记录随发布提交推送。
+日期：2026-09-29。基线 `main` / `f577155`；本轮发布 1.12.1。用户同意按建议实现，并明确本任务无需逐项再次询问。规则见 [产品设计第 10 节](../PRODUCT_DESIGN.md#10-分类标签渠道与图片附件)，视觉规格见 UI 设计。本轮完成实现与验证；用户随后要求安装推送，已完成正式包安装，代码与本记录随发布提交推送。
 
 ## 结果
 
@@ -46,11 +46,11 @@
 
 | 页面 | 调整前 | 调整后 |
 |---|---|---|
-| 设置浅色 | [前](settings-polish/before-settings-light.jpg) | [后](settings-polish/after-settings-light.jpg) |
-| 设置深色 | [前](settings-polish/before-settings-dark.jpg) | [后](settings-polish/after-settings-dark.jpg) |
-| 确认已付 | [前](settings-polish/before-payment-light.jpg) | [后](settings-polish/after-payment-light.jpg) |
+| 设置浅色 | 前 | 后 |
+| 设置深色 | 前 | 后 |
+| 确认已付 | 前 | 后 |
 
-补充：[设置下方两列](settings-polish/after-settings-lower-dark.jpg)、[详情返回入口](settings-polish/after-detail-light.jpg)。
+补充：设置下方两列、详情返回入口。
 
 ## 边界与复核
 

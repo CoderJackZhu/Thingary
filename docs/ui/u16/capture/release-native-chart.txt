@@ -1,3 +1,0 @@
-The following is a diff from the previous accessibility tree for Window: "家底 · U16 隔离验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
-~						107 text 2026-07-30，净资产 ¥327,600，较上次 +¥10,500（+3.31%）
-The focused UI element is 46 image 金融净资产趋势，共 5 次完整盘点

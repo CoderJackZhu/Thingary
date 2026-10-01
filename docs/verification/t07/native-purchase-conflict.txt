@@ -1,6 +1,0 @@
-The following is a diff from the previous accessibility tree for Window: "物志 · T07 虚构资料验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
-~					92 text field (settable) 购入日期 不确定时留空，不自动填写今天。, Value: 2026-09-06, Placeholder: YYYY-MM-DD（可留空）
-~							122 text entry area (settable) 备注, Value: T06c 虚构资料：更正、图片与恢复回归
-~					124 text 购入日期晚于已有状态记录：退役（2026-09-05）。请先更正相关动作日期。 输入已保留。
-~					125 button 取消
-+					126 button 保存资料

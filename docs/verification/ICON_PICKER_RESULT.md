@@ -32,12 +32,12 @@
 
 ## 视觉证据
 
-- [新增表单](icon-picker/editor-light.png)
-- [浅色选择器](icon-picker/picker-light.png)
-- [小窗口深色选择器](icon-picker/picker-small-dark.png)
-- [原生小窗口控件](icon-picker/picker-small-native.txt)
-- [重开后的图标](icon-picker/reopened-native.png)与[控件记录](icon-picker/reopened-native.txt)
-- [深色主窗口与外观胶囊](icon-picker/shell-dark.png)
+- 新增表单
+- 浅色选择器
+- 小窗口深色选择器
+- 原生小窗口控件
+- 重开后的图标与控件记录
+- 深色主窗口与外观胶囊
 
 ## 实现与复现
 
@@ -66,8 +66,8 @@
 
 - `npm run build` 通过（保留 Vite 单包超过 500 kB 的提示）；`npm run test:ui` 100/100；`npm run check` 通过。
 - `cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --test materials` 8/8，使用临时虚构库；遍历目录清单与内嵌图片的已有测试覆盖新资源。
-- Ego Lite 同一 TaskSpace，本地独立 1437 端口虚构预览：家居分类新增项目及图片加载正常；NAS 搜索命中网络存储；无匹配关键词呈现空结果；深色表单搜索“滚筒”命中洗衣机，点击直接返回，名称未改，封面加载成功，保存后图片附件显示“洗衣机示意图（非实物照片）”。[保存后的浏览器控件证据](icon-expansion/browser-save.txt)。
-- 同尺寸 100×100 新旧图标对照：[浅色](icon-expansion/contact-light.png)、[深色](icon-expansion/contact-dark.png)。第一行是原有六个主题，其余为 22 个新增主题，已检查识别度、边界与配色。
+- Ego Lite 同一 TaskSpace，本地独立 1437 端口虚构预览：家居分类新增项目及图片加载正常；NAS 搜索命中网络存储；无匹配关键词呈现空结果；深色表单搜索“滚筒”命中洗衣机，点击直接返回，名称未改，封面加载成功，保存后图片附件显示“洗衣机示意图（非实物照片）”。保存后的浏览器控件证据。
+- 同尺寸 100×100 新旧图标对照：浅色、深色。第一行是原有六个主题，其余为 22 个新增主题，已检查识别度、边界与配色。
 - Ego Lite `Page.captureScreenshot` 两次超时，未取得实际页面截图；上述对照为 SVG 渲染的图标板，不冒充 App 截图。浏览器控件和图像加载检查通过。现有虚构预览另显示提醒不可用、保存后的 `list_timeline` 未模拟提示，与本次素材扩充无关，未修改这些流程。
 - 首轮未执行原生 GUI 保存/重开与全流程回归；后续补验与打包结果见下节。首轮未启动正式 App、未打开正式资料库，未提交、推送或安装。
 
@@ -79,7 +79,7 @@
 用户要求“继续完成后续工作以及收尾”。从 `main` 的 `64fdcef05d93bb1834430c38c0b761b54170d5c8` 继续；保留无关未跟踪 `.claude/` 与 `docs/ui/batch-mock.js`，不推送远程。默认开发 identity 不变，正式 override 版本升至 1.6.2，schema 仍为 18。
 
 - 隔离构建：`.local/icon-expansion.conf.json`，identifier `local.possio.icon.expansion.acceptance`，窗口 1280×840。仅该身份填写虚构资料，AX 操作检查前台和窗口存在，不向其他应用输入。
-- 原生验收：家电分类显示全部新增家电，搜索“滚筒”找到洗衣机；应用后保存“虚构大件图标验收洗衣机”，完整档案出现一张洗衣机封面；退出重开后同一名称与洗衣机缩略图仍可见。截图：[选择器](icon-expansion/native-picker.png)、[重开](icon-expansion/native-reopened.png)；控件证据：[保存](icon-expansion/native-saved.txt)、[重开](icon-expansion/native-reopened.txt)。本轮原生补验弥补首轮浏览器截图失败与持久性证据缺口；未重复全产品 GUI 回归。
+- 原生验收：家电分类显示全部新增家电，搜索“滚筒”找到洗衣机；应用后保存“虚构大件图标验收洗衣机”，完整档案出现一张洗衣机封面；退出重开后同一名称与洗衣机缩略图仍可见。截图：选择器、重开；控件证据：保存、重开。本轮原生补验弥补首轮浏览器截图失败与持久性证据缺口；未重复全产品 GUI 回归。
 - 发布检查：Rust 全套 164/164、UI 100/100、样例 2/2；既有 `npm run check` 通过，最终 `npm run release` 再次完成 TypeScript/Vite 与 release App 构建。首次沙盒全套回归在维护照片测试报 `IMAGE_CORRUPT`，相同测试在允许 macOS ImageIO 的环境全套重跑通过，未改业务代码。
 - 正式产物：`src-tauri/target/release/bundle/macos/物志.app`；Info.plist 为 `local.possio.main` / `1.6.2`，`codesign --verify --deep --strict` 通过，沿用本地 ad-hoc 签名，未公证。
 - 主程序 SHA-256：`a4145446646699f3384f9cc38a6dccfc0c1c60c47e8c8ecacbaf3525a5b32f08`。副本 `.local/install/物志-1.6.2.app` 哈希一致；旧 `.local/install/物志-1.6.1.app` 已保留。
@@ -92,8 +92,8 @@
 
 - 保留原 4 个立体图标、72 个普通图标与 8 个早期示意图，所有旧清单对象及 PNG 字节均与 HEAD 对照一致；无 schema、交互布局、分类或数据语义变更。
 - 继续在 `scripts/design-material-art.mjs` 的立体主题数组中维护原创几何形状，复用现有配色/轮廓/渐变/阴影；侧面较暗、顶面较亮，采用三分之四视角。清单 SVG、320×320 透明 PNG 和 Rust 嵌入资源同步，16 张立体 PNG 与现场重新渲染结果逐字节一致。生成脚本重复运行结果相同。
-- 同尺寸对照：[浅色](dimensional-expansion/contact-light.png)、[深色](dimensional-expansion/contact-dark.png)，每个图标 100×100；首行为原有 4 个主题，后面 12 个为新增。已检查轮廓、裁切、识别度和浅深色背景。
+- 同尺寸对照：浅色、深色，每个图标 100×100；首行为原有 4 个主题，后面 12 个为新增。已检查轮廓、裁切、识别度和浅深色背景。
 - `npm run tauri -- build --debug --config .local/icon-expansion.conf.json --bundles app` 通过，包含 TypeScript/Vite 构建；`npm run test:ui` 100/100；素材存储 8/8；`npm run check` 通过。原有测试将立体数量固定为 4，已更新为 16，并检查“滚筒”在立体/普通来源下分别命中 `object3d-washer` / `icon-washer`。
-- 隔离原生身份 `local.possio.icon.expansion.acceptance`：首轮窗口失去前台后 AX 保护停止输入；用户要求继续后完成本轮验收。立体来源显示全部 16 个主题，搜索“黑胶”仅显示唱片机；选择后保存“虚构立体图标唱片机”，完整档案显示唱片机封面，退出重开后该资产及立体缩略图仍显示。截图：[原生选择器](dimensional-expansion/native-picker.png)、[重开列表](dimensional-expansion/native-reopened.png)；控件记录：[保存](dimensional-expansion/native-saved.txt)、[重开](dimensional-expansion/native-reopened.txt)。首次退出后立即打开出现 LaunchServices -609，待退出完成再启动成功；未修改应用代码。验收后隔离应用已退出。
+- 隔离原生身份 `local.possio.icon.expansion.acceptance`：首轮窗口失去前台后 AX 保护停止输入；用户要求继续后完成本轮验收。立体来源显示全部 16 个主题，搜索“黑胶”仅显示唱片机；选择后保存“虚构立体图标唱片机”，完整档案显示唱片机封面，退出重开后该资产及立体缩略图仍显示。截图：原生选择器、重开列表；控件记录：保存、重开。首次退出后立即打开出现 LaunchServices -609，待退出完成再启动成功；未修改应用代码。验收后隔离应用已退出。
 - 实现提交 `f862986`。用户随后要求“安装推送”，正式 override 升至 1.6.3，`npm run release` 通过（包含 TypeScript/Vite 及 Rust release 构建）；未修改 schema 或开发身份。安装前复核正式进程已退出，旧 1.6.2 包与 `.local/install/物志-1.6.2.app` 逐文件哈希一致。
 - 已安装 `/Applications/物志.app`：`local.possio.main` / `1.6.3`，严格签名验证通过，整包逐文件哈希与构建产物一致。主程序 SHA-256：`9d278cfc6228d45878164a6ac8add8e4034dd997b042c679e082a551650c3a0a`。沿用本地 ad-hoc 签名、未公证；临时安装目录已清理，正式应用和资料库未打开。无关 `.claude/` 和 `docs/ui/batch-mock.js` 保留。

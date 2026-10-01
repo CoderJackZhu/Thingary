@@ -25,10 +25,10 @@
 
 | 场景 | 改前 | 改后 |
 |---|---|---|
-| 样例 MacBook，1280×820 浅色 | [before](../ui/detail-layout/before-1280x820-light-sample.jpg) | [after](../ui/detail-layout/after-1280x820-light-sample.jpg) |
-| 带目标，1280×820 深色 | [before](../ui/detail-layout/before-1280x820-dark-goal.jpg) | [after](../ui/detail-layout/after-1280x820-dark-goal.jpg) |
-| 无记录物品，1280×820 浅色 | [before](../ui/detail-layout/before-1280x820-light-bare.jpg) | [after](../ui/detail-layout/after-1280x820-light-bare.jpg) |
-| 带目标，800×600 浅色 | [before](../ui/detail-layout/before-800x600-light-goal.jpg) | [after](../ui/detail-layout/after-800x600-light-goal.jpg) |
+| 样例 MacBook，1280×820 浅色 | before | after |
+| 带目标，1280×820 深色 | before | after |
+| 无记录物品，1280×820 浅色 | before | after |
+| 带目标，800×600 浅色 | before | after |
 
 ## 未验
 

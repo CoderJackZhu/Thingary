@@ -1,8 +1,0 @@
-# 2026-09-26 正常 debug 包（local.possio.t06b.preview），资产「T13 虚构相机心愿」经详情「移入最近删除…」确认后，心愿清单 状态=已实现 的卡片辅助功能树摘录：
-AXGroup T13 虚构相机心愿
- AXHeading T13 虚构相机心愿
- AXStaticText 目标日期：未设置 · 加入：2026-09-26 · 实现：2026-09-26
- AXStaticText 关联资产「 T13 虚构相机心愿 」在最近删除中，恢复后仍指向这条心愿，不能再次转换。
- AXButton 前往最近删除
-# 按「前往最近删除」→ 最近删除页 AXHeading T13 虚构相机心愿 / AXButton 恢复 T13 虚构相机心愿（见 ac09-3-trash-target.png）
-# 确认恢复 → 「物品已恢复到我的物品，原档案保持完整。」；只读 SQL：deleted_at 非空资产 0，assets 19，wishlist_items 103。

@@ -1,6 +1,6 @@
 # T22 自用正式版结果（已 review，含 §7 更正）
 
-日期：2026-09-27。执行契约：[T22 交接](../archive/handoffs/T22_SELF_USE_RELEASE_GPT.md)。本报告只记录 T22 已完成的本地工作；未合并 main、未配置远程或推送，也未实施签名、公证或 P1。
+日期：2026-09-27。执行契约：T22 交接。本报告只记录 T22 已完成的本地工作；未合并 main、未配置远程或推送，也未实施签名、公证或 P1。
 
 ## 1. 起点、执行者与改动
 
@@ -15,7 +15,7 @@
 | 默认配置 | `Possio Preview` / `local.possio.preview` / `0.0.1` /「物志 · 开发预览」保持原样；`git diff -- src-tauri/tauri.conf.json` 为空。 |
 | T22 正式覆盖 | `物志` / `local.possio.app` / `1.0.0` /「物志」；`npm run release` 无 `--debug` 或 feature。 |
 | 正式产物 | `src-tauri/target/release/bundle/macos/物志.app`；安装到 `/Applications/物志.app`。提交后最终构建再次安装并确认两个主程序 SHA256 相同；最后一次构建的哈希以交回消息为准。 |
-| macOS 元数据及关于窗口 | 安装包 Info.plist：`CFBundleIdentifier=local.possio.app`、`CFBundleShortVersionString=1.0.0`、`CFBundleDisplayName=物志`；原生「关于物志」显示 `Version 1.0.0 (1.0.0)`，见[截图](t22/official-about.png)。 |
+| macOS 元数据及关于窗口 | 安装包 Info.plist：`CFBundleIdentifier=local.possio.app`、`CFBundleShortVersionString=1.0.0`、`CFBundleDisplayName=物志`；原生「关于物志」显示 `Version 1.0.0 (1.0.0)`，见截图。 |
 | 隔离 debug 验证 | `npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app` 通过；该隔离包仍是 `local.possio.t06b.preview`，未指向正式库。普通 dev/debug 默认配置仍为预览身份。 |
 
 Tauri CLI 对用户指定的 `local.possio.app` 输出“以 `.app` 结尾不推荐，因为与 macOS 包扩展名冲突”的警告；构建、安装、启动、单实例和重开均未见异常，按交接保留该 identifier。安装时只替换同名的本轮初次构建包；没有触碰其他 App 或资料库。
@@ -24,7 +24,7 @@ Tauri CLI 对用户指定的 `local.possio.app` 输出“以 `.app` 结尾不推
 
 ## 3. 正式身份无资料检查
 
-启动前 `~/Library/Application Support/local.possio.app/` 不存在。安装后原生窗口 1080×760 显示「0 件物品」和「从第一件物品开始」，见[空库截图](t22/official-empty.png)。只读 SQL 检查资产、心愿、维护、保障、附件及业务审计/请求表均为 0，`PRAGMA integrity_check=ok`；默认分类 6、渠道 7 是应用初始资料。没有在正式身份写入虚构资产。
+启动前 `~/Library/Application Support/local.possio.app/` 不存在。安装后原生窗口 1080×760 显示「0 件物品」和「从第一件物品开始」，见空库截图。只读 SQL 检查资产、心愿、维护、保障、附件及业务审计/请求表均为 0，`PRAGMA integrity_check=ok`；默认分类 6、渠道 7 是应用初始资料。没有在正式身份写入虚构资产。
 
 按 ⌘Q 后首个 PID `51776` 消失。用 `sandbox-exec` 禁止 IP 入站和出站启动安装包，第二个 PID `52847` 的窗口仍显示 0 件；`lsof -nP -a -p 52847 -i` 无 IP socket（退出码 1 表示无匹配），按 ⌘Q 后 PID 消失。再正常打开同一安装包，仍是 0 件欢迎页，退出后无 T22 正式进程。最后复核 `local.possio.app` 的 `assets` 总数和未删除数均为 0。
 
@@ -38,7 +38,7 @@ Tauri CLI 对用户指定的 `local.possio.app` 输出“以 `.app` 结尾不推
 
 在 `check` 的「设置 › 资料管理」保存 `/tmp/possio-t22/物志备份-20260927-0010.possio`，原生提示“已保存并校验”；随后导出 `/tmp/possio-t22/物志资产表-20260927.csv`，原生提示 1 件。在新的 `restore` 空库（先以只读 SQL 确认资产 0）选择同一备份，检查摘要为 1 件、格式版本 12、图片 0，确认替换后 UI 出现同一更正资产。
 
-独立[读回脚本](t22/verify_readback.py)验证备份清单唯一 SQLite 的大小与 SHA256、完整性和外键；按 13 列 CSV 契约将每行与备份只读 SQL 对照，1 行相同；恢复库与备份 **25 张表全部行一致**，外键异常 0。执行方式：`python3 docs/verification/t22/verify_readback.py --backup /tmp/possio-t22/物志备份-20260927-0010.possio --csv /tmp/possio-t22/物志资产表-20260927.csv --restored-library "$HOME/Library/Application Support/local.possio.t22.restore/library"`，退出码 0。两个临时 App 均已按 ⌘Q 退出；两个临时库各保留一件虚构资产，供复核，不入库。
+独立读回脚本验证备份清单唯一 SQLite 的大小与 SHA256、完整性和外键；按 13 列 CSV 契约将每行与备份只读 SQL 对照，1 行相同；恢复库与备份 **25 张表全部行一致**，外键异常 0。执行方式：`python3 docs/verification/t22/verify_readback.py --backup /tmp/possio-t22/物志备份-20260927-0010.possio --csv /tmp/possio-t22/物志资产表-20260927.csv --restored-library "$HOME/Library/Application Support/local.possio.t22.restore/library"`，退出码 0。两个临时 App 均已按 ⌘Q 退出；两个临时库各保留一件虚构资产，供复核，不入库。
 
 ## 5. 文档与检查
 
@@ -65,7 +65,7 @@ Tauri CLI 对用户指定的 `local.possio.app` 输出“以 `.app` 结尾不推
 
 ## 7. Claude review 与更正（2026-09-27）
 
-复核属实：默认配置未改、正式配置独立；`dist` 与主程序无测试入口；正式库原为空库；临时身份的[读回脚本](t22/verify_readback.py)复跑 exit 0（25 张表一致）。移除 `possio.qa.*` 排除只影响测试构建的恢复提示计数，正式版不产生该类键，接受。
+复核属实：默认配置未改、正式配置独立；`dist` 与主程序无测试入口；正式库原为空库；临时身份的读回脚本复跑 exit 0（25 张表一致）。移除 `possio.qa.*` 排除只影响测试构建的恢复提示计数，正式版不产生该类键，接受。
 
 **更正 1：identifier。** 交接指定的 `local.possio.app` 以 `.app` 结尾（Tauri 已告警）。复核发现 macOS 把资料文件夹 `~/Library/Application Support/local.possio.app` 识别为应用程序包（`mdls kMDItemKind = 应用程序`，`com.apple.application-bundle`），用户在访达里会看到一个“App”而不是资料文件夹。趁正式库仍为空，改为 **`local.possio.main`**：`npm run release` 无告警，Info.plist `CFBundleIdentifier=local.possio.main`，重新 `ditto` 安装到 `/Applications/物志.app`（review 更正提交 `3d97f3b` 的最终 release 构建已重新安装，构建与安装主程序 SHA256 前缀均为 `e0cd88db8e6fa490`）；首次启动显示「0 件物品／从第一件物品开始」后 ⌘Q 退出、无残留进程；新资料文件夹 `kMDItemKind = 文件夹`，`integrity_check=ok`、资产 0。旧的空 `local.possio.app` 文件夹（0 件资产）已移到废纸篓。前文 §2–3 中的 `local.possio.app` 为更正前记录。
 

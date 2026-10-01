@@ -8,11 +8,11 @@
 
 - 完整检查实际通过：45 项前端、58 项 Rust、2 项 Demo，fmt/Clippy、前端构建均 exit 0。
 - 取消原生选图后返回素材库，提示“没有保存素材”，未写素材行。
-- 新增虚构 `U01 Native Draft Recovery`，选择键盘作为封面；正常退出被关闭保护拦住并选“继续编辑”，随后对准确核对的隔离 App 进程进行受控中断。重启出现恢复入口，名称／键盘图片／封面完整恢复，保存成功，ID `3c1ff7c2-1b3c-447a-a69e-7eacfd42696b`，revision 1，购入金额和日期 NULL。证据：[恢复](u01-native-completion/draft-restored.txt)、[截图](u01-native-completion/draft-restored.png)、[保存](u01-native-completion/draft-saved.txt)。
-- 仅名称、无图片保存虚构 `U01 Native Name Only` 成功，ID `e92954c3-a6a7-4463-a533-9bd1bcca7f5e`。证据：[原生状态](u01-native-completion/name-only.txt)。
+- 新增虚构 `U01 Native Draft Recovery`，选择键盘作为封面；正常退出被关闭保护拦住并选“继续编辑”，随后对准确核对的隔离 App 进程进行受控中断。重启出现恢复入口，名称／键盘图片／封面完整恢复，保存成功，ID `3c1ff7c2-1b3c-447a-a69e-7eacfd42696b`，revision 1，购入金额和日期 NULL。证据：恢复、截图、保存。
+- 仅名称、无图片保存虚构 `U01 Native Name Only` 成功，ID `e92954c3-a6a7-4463-a533-9bd1bcca7f5e`。证据：原生状态。
 - 只读 SQLite 核对 `integrity_check=ok`，自定义素材仍为 0；两件测试资产均保留。未重置／重导入虚构库，未触碰普通 App 数据。
-- 经用户具体确认，通过 NSOpenPanel 导入 `U01-fictional-camera.heic`，素材行 `fb397569-d624-4af3-845a-7b071b958ba0` 出现；原生编辑已有 `U01 Native Name Only`，直接从素材小图选择并保存，原 ID 保留、revision 2、金额／日期仍 NULL。见 [导入](u01-native-completion/uploaded.txt)、[保存](u01-native-completion/custom-asset-saved.txt)。
-- 经用户即时确认，删除上述素材目录条目。退出重启后，原资产封面及图片预览正常；素材表恢复 0 行，资产行及图片关系完全未变。见 [删除](u01-native-completion/material-removed.txt)、[重开预览](u01-native-completion/removed-reopened-preview.txt)、[截图](u01-native-completion/removed-reopened-preview.png)、[前后数据库核对](u01-native-completion/after-removal.json)。`integrity_check=ok`、外键检查空、所有附件原图存在且哈希一致。
+- 经用户具体确认，通过 NSOpenPanel 导入 `U01-fictional-camera.heic`，素材行 `fb397569-d624-4af3-845a-7b071b958ba0` 出现；原生编辑已有 `U01 Native Name Only`，直接从素材小图选择并保存，原 ID 保留、revision 2、金额／日期仍 NULL。见 导入、保存。
+- 经用户即时确认，删除上述素材目录条目。退出重启后，原资产封面及图片预览正常；素材表恢复 0 行，资产行及图片关系完全未变。见 删除、重开预览、截图、前后数据库核对。`integrity_check=ok`、外键检查空、所有附件原图存在且哈希一致。
 - 当前隔离库 13 件资产；新增的两件虚构验收资产保留，未重置或重导入。原维护图片修复已在 T09 实测；原自定义素材文件仍留 `/tmp/possio-u01-completion/`，无真实数据入仓库。
 - U01-01–05 本阶段出口已满足：原生新增／同 ID 编辑／追加与封面／重开证据结合本轮取消、仅名称、草稿中断恢复、自定义素材上传与删除保留引用；20 张上限、失败／回执丢失、备份恢复继续采用已执行自动／浏览器证据，不冒称逐项原生故障注入。完整备份 UI 归 T18，完整 Mac 交互矩阵归 T20。
 - T09 原生缺口已在 `fd4fe27` 完成。以下第 0–7 节为各次交回时的历史记录，旧“未验／尚不可集成”不代表当前状态。

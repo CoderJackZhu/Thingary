@@ -26,10 +26,10 @@
 
 | | 浅色 | 深色 |
 |---|---|---|
-| 改前 | [before-daily-light](../ui/asset-goal/before-daily-light.jpg) | [before-daily-dark](../ui/asset-goal/before-daily-dark.jpg) |
-| 改后 | [after-daily-light](../ui/asset-goal/after-daily-light.jpg) | [after-daily-dark](../ui/asset-goal/after-daily-dark.jpg) |
+| 改前 | before-daily-light | before-daily-dark |
+| 改后 | after-daily-light | after-daily-dark |
 
-其他状态：[目标日期](../ui/asset-goal/after-date-light.jpg)、[按次](../ui/asset-goal/after-per-use-light.jpg)、[已达成](../ui/asset-goal/after-reached-light.jpg)、[日期未知](../ui/asset-goal/after-unknown-light.jpg)、[已售出（深色）](../ui/asset-goal/after-sold-dark.jpg)。
+其他状态：目标日期、按次、已达成、日期未知、已售出（深色）。
 
 ## 验收中修正
 

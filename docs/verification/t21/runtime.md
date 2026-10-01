@@ -17,18 +17,18 @@ sandbox-exec -p '(version 1)(allow default)(deny network-outbound (remote ip "*:
 
 PID 46320。直接从二进制启动时未被 bundle 搜索发现，按已核对 PID 建立 NSRunningApplication/AXUIElement，激活并等待窗口绘制后完成：
 
-1. 原名称最小资产仍在；新增 `T21 离线虚构相机`，价格/日期留空，[保存详情](offline-created.txt)。
+1. 原名称最小资产仍在；新增 `T21 离线虚构相机`，价格/日期留空，保存详情。
 2. 同记录改为 `T21 离线虚构相机 更正`，进入详情。
-3. 软删除后[侧栏最近删除](offline-trash.txt)显示唯一该条、原状态使用中。
-4. 确认恢复后[原资料保持](offline-restored.txt)，设置入口最近删除为空（[证据](settings-trash.txt)）。
+3. 软删除后侧栏最近删除显示唯一该条、原状态使用中。
+4. 确认恢复后原资料保持，设置入口最近删除为空（证据）。
 5. `lsof -nP -a -p 46320 -i` 无输出（无 IP socket/监听）；按 ⌘Q 后 `ps -p 46320` 无输出。没有为此包启动 HTTP 开发服务器。原始空输出保留 `/tmp/possio-t21/offline-sockets.txt`、`offline-after-quit.txt`。
-6. LaunchServices 重新打开同一 `.app`，两条记录都在（[重开](reopened.txt)）。旧数据集随后通过恢复协议被保留，未抹除；[持久化只读旁证](offline-persistence.json)记录同一 ID 与版本。
+6. LaunchServices 重新打开同一 `.app`，两条记录都在（重开）。旧数据集随后通过恢复协议被保留，未抹除；持久化只读旁证记录同一 ID 与版本。
 
 这是主 App 进程的 IP 禁网验收，不等于关闭整机网络或对全部系统 XPC 服务抓包。前端正式 CSP 限制连接为 self/ipc；没有声称测试了所有离线 P0 路径。用户可按报告检查单做整机断网复核。
 
 ## 主题、图片与恢复
 
-浅色选择成功后正常退出、重开确认截图仍浅色（[截图](reopened-light.png)）。初次主题选择器命中了同名 heading，修正脚本为 AXPopUpButton 后成功；无应用代码修改。NSOpenPanel 前往路径未确认时不把正在等待面板的 UI 当死锁，观察到路径弹层后再次确认。
+浅色选择成功后正常退出、重开确认截图仍浅色（截图）。初次主题选择器命中了同名 heading，修正脚本为 AXPopUpButton 后成功；无应用代码修改。NSOpenPanel 前往路径未确认时不把正在等待面板的 UI 当死锁，观察到路径弹层后再次确认。
 
 源库在完整备份后做快照，可逆移走新 iPad 的托管原图到 `library/backups/t21-held-340abae4…`，另保留 `/tmp/possio-t21/repair.png`。GUI 修复后原路径 SHA256 为 `340abae4f1e0e8519c762a72ef4d7c4c9fc866cb9801702f44ca88326177b49b`，与原件一致；备份中的所有原图和空库恢复图也逐项相同。
 

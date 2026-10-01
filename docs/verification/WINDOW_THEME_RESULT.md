@@ -15,7 +15,7 @@
 - `npm run release` 通过，正式包 identifier 为 `local.possio.main`，主程序 SHA256 为 `a3195857479d6eabe8952aab27edfa89339b08ec37062873e4b03ac80132bcab`。
 - 使用独立身份 `local.possio.window.acceptance` 构建并启动 1280×840 原生窗口，八件虚构样例展示正常；选中物品后右侧两个操作可见，切换到浅色后图标与无障碍名称反向更新。
 - 使用独立身份 `local.possio.small.acceptance` 构建并启动 800×600 原生窗口：侧栏状态保持单行，主题按钮可见；右侧摘要正文滚动后两个操作仍可见；打开完整档案并滚动到底后可见附件、档案信息及最近删除入口。
-- 截图：[1280 深色摘要](window-theme/1280-dark-summary.jpeg)、[1280 浅色摘要](window-theme/1280-light-summary.jpeg)、[800 深色摘要](window-theme/800-dark-summary.jpeg)、[800 详情底部](window-theme/800-detail-bottom.jpeg)。截图均来自隔离身份和虚构数据。
+- 截图：1280 深色摘要、1280 浅色摘要、800 深色摘要、800 详情底部。截图均来自隔离身份和虚构数据。
 
 ## 安装
 

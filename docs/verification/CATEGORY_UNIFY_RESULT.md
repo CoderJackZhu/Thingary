@@ -19,7 +19,7 @@
 
 物品总数不变（样例 9 件、个人库 9 件），自建「乐器」保留且排在统一集之后。
 
-截图：[样例改前](../ui/categories/before-sample-settings.jpg)、[样例改后](../ui/categories/after-sample-settings.jpg)、[个人库改前](../ui/categories/before-personal-settings.jpg)、[个人库改后](../ui/categories/after-personal-settings.jpg)、[重置样例后的列表](../ui/categories/after-sample-assets.jpg)。设置页高于窗口，完整分类表以 AX 文本为准。
+截图：样例改前、样例改后、个人库改前、个人库改后、重置样例后的列表。设置页高于窗口，完整分类表以 AX 文本为准。
 
 ## 自动化
 

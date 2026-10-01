@@ -1,1 +1,0 @@
-OK rows=18 deleted_excluded=0 states={'已退役': 2, '已售出': 2, '使用中': 14} unknown_price=5 zero_price=1 unknown_date=7 sold_with_date=2 uncategorized=7

@@ -156,16 +156,16 @@ git diff --check
 
 | 检查 | 实际结果与证据 |
 | --- | --- |
-| 维护 HEIC 选择／保存 | 经用户确认，通过 NSOpenPanel 选择 `/tmp/possio-t09-native/maintenance.heic`，更正原相机维护，保存后出现维护预览入口。见 [保存状态](t09-native-completion/image-saved.txt) |
-| 移动源文件 | 源文件移为 `maintenance-moved.heic` 后仍可预览，证明使用托管副本。见 [预览状态](t09-native-completion/source-moved-preview.txt) |
-| 缺图及修复 | 可逆移走托管原图，预览明确提示原图缺失；重新选择同一 HEIC 后显示“原图已修复”。见 [缺图](t09-native-completion/missing-image.txt)、[修复](t09-native-completion/repaired.txt)、[截图](t09-native-completion/repaired.png) |
-| 修复后退出／重开 | 正常退出并重开 App，原维护图片仍可预览。维护 ID、附件 ID 和原图哈希保持；相机维护仍为 1 条、¥150。见 [重开](t09-native-completion/reopened-preview.txt)、[截图](t09-native-completion/reopened-preview.png) |
-| 写锁失败恢复 | 独立 SQLite 连接持有 `BEGIN IMMEDIATE`，不改行。原生保存提示“已确认未提交，输入已保留”；释放锁后重试成功，同维护 ID，无重复费用。见 [失败](t09-native-completion/lock-error.txt)、[重试](t09-native-completion/lock-retry.txt) |
+| 维护 HEIC 选择／保存 | 经用户确认，通过 NSOpenPanel 选择 `/tmp/possio-t09-native/maintenance.heic`，更正原相机维护，保存后出现维护预览入口。见 保存状态 |
+| 移动源文件 | 源文件移为 `maintenance-moved.heic` 后仍可预览，证明使用托管副本。见 预览状态 |
+| 缺图及修复 | 可逆移走托管原图，预览明确提示原图缺失；重新选择同一 HEIC 后显示“原图已修复”。见 缺图、修复、截图 |
+| 修复后退出／重开 | 正常退出并重开 App，原维护图片仍可预览。维护 ID、附件 ID 和原图哈希保持；相机维护仍为 1 条、¥150。见 重开、截图 |
+| 写锁失败恢复 | 独立 SQLite 连接持有 `BEGIN IMMEDIATE`，不改行。原生保存提示“已确认未提交，输入已保留”；释放锁后重试成功，同维护 ID，无重复费用。见 失败、重试 |
 | 维护日期早于购买 | 相机购入 2026-09-01；维护填 2026-08-31，提示“维护日期不能早于购买日期”。改为 2026-09-20 后正常保存 |
-| 历史 Sold 补录／日期上界 | iPad 售出 2025-04-12；维护填 4/13 被拒，改为 4/12、费用 0 后保存。仍为 Sold，净成本 ¥2,999、日均 ¥2.12，未重复增加费用。见 [拒绝](t09-native-completion/sale-date-error.txt)、[成功](t09-native-completion/sold-history-saved.txt) |
-| 反向日期保护 | 售出改为 4/11，被明确提示不能早于维护 4/12；购入改为 4/13，被提示晚于售出，输入保留。恢复原输入后取消，未写入冲突日期。见 [售出](t09-native-completion/reverse-sale-error.txt)、[购入](t09-native-completion/reverse-purchase-error.txt)。购入与维护直接冲突的完整组合继续由后端双向日期测试覆盖 |
+| 历史 Sold 补录／日期上界 | iPad 售出 2025-04-12；维护填 4/13 被拒，改为 4/12、费用 0 后保存。仍为 Sold，净成本 ¥2,999、日均 ¥2.12，未重复增加费用。见 拒绝、成功 |
+| 反向日期保护 | 售出改为 4/11，被明确提示不能早于维护 4/12；购入改为 4/13，被提示晚于售出，输入保留。恢复原输入后取消，未写入冲突日期。见 售出、购入。购入与维护直接冲突的完整组合继续由后端双向日期测试覆盖 |
 
-只读 [数据库核对](t09-native-completion/data-check.json)：`integrity_check=ok`，`foreign_key_check=[]`，所有附件原文件存在且哈希正确。相机原维护 ID `22ea3882-83af-4f2d-ad20-138a572cbbba`、图片 ID `52c3fecd-0fd4-4d4a-bd15-58bdad1e2990`；日期现为 2026-09-20，金额仍为 15000 分。本次新增 iPad 虚构免费维护 `e0eff841-1117-4651-8ca1-f45f9c4b7b34`。源文件和可逆保留副本仍在 `/tmp/possio-t09-native/`，托管原图已修复，无悬挂写锁。
+只读 数据库核对：`integrity_check=ok`，`foreign_key_check=[]`，所有附件原文件存在且哈希正确。相机原维护 ID `22ea3882-83af-4f2d-ad20-138a572cbbba`、图片 ID `52c3fecd-0fd4-4d4a-bd15-58bdad1e2990`；日期现为 2026-09-20，金额仍为 15000 分。本次新增 iPad 虚构免费维护 `e0eff841-1117-4651-8ca1-f45f9c4b7b34`。源文件和可逆保留副本仍在 `/tmp/possio-t09-native/`，托管原图已修复，无悬挂写锁。
 
 最终代码检查实际通过：`npm run test:ui` 45 项、`npm test` 58 项（含维护图片／备份恢复／事务故障）、`npm run check`（fmt + Clippy）、`npm run build`、隔离 Tauri debug App 构建、`git diff --check`。原生包不带 fault-injection；自动故障注入和历史浏览器回执／草稿测试不冒充原生故障注入。
 

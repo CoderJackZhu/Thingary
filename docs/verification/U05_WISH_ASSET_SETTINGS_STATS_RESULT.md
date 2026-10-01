@@ -15,6 +15,6 @@
 - `npm run test:ui`：90/90 通过；`npm run test:demo`：2/2 通过。
 - Rust 全套故障注入测试在 macOS 原生图片框架可用的环境下通过；沙盒内的单项 `IMAGE_CORRUPT` 经同项原生复跑通过。新增测试覆盖手动实现后的资产备注、分类、图片和来源关系，攒钱回退、重复请求，以及 schema 13 的已实现心愿补建一次；统计样例核对周／月／全部及售出回收。
 - 原生隔离版 `local.possio.u05.acceptance`：保存虚构手动实现心愿后，清单保留该心愿，资产列表从 8 件变 9 件；资产详情可追溯原心愿，备注显示“手动实现心愿”，购入金额保持待补充。分类拖动与独立上移按钮均改变排序。
-- 另一隔离身份 `local.possio.u05.visual` 复核默认窗口的统计布局、设置双栏与浅／深／跟随系统三档；截图见 [深色统计](u05-native/stats-dark.jpeg)、[深色设置](u05-native/settings-dark.jpeg)、[浅色设置](u05-native/settings-light.jpeg)。未通过修改 macOS 系统设置来模拟系统主题切换。
+- 另一隔离身份 `local.possio.u05.visual` 复核默认窗口的统计布局、设置双栏与浅／深／跟随系统三档；截图见 深色统计、深色设置、浅色设置。未通过修改 macOS 系统设置来模拟系统主题切换。
 
 正式身份 `local.possio.main` 的资料库未用于开发或验收。正式 App 进程退出后，已把 1.1.3 安装到 `/Applications/物志.app`；安装后核对 bundle identifier、版本、签名和主程序哈希。旧 1.1.2 应用包临时保存在 `/private/tmp/possio-u05-install/物志-1.1.2.app`。安装过程没有打开正式资料库；正式库升级与旧心愿补建将在用户下次自行打开应用时执行。

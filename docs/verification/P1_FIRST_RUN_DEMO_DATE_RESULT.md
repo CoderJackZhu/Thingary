@@ -20,7 +20,7 @@
 | 隔离资料只读核对 | `library` 2 件测试资产、`demo-library` 8 件样例；两个 SQLite `integrity_check` 都为 `ok` |
 | `npm run release` | `物志.app` 构建成功，bundle identifier 为 `local.possio.main`；安装后应用可执行文件 SHA-256 与构建产物一致：`6cfdab4e5b21004f1e01019df18d346c1bad28979b03673f2a267b0504eb5f66` |
 
-同尺寸原生界面对照：[默认今天](p1-demo-date/date-default.png) · [展开鼠标日历](p1-demo-date/date-calendar.png)，均为 2160 × 1520 像素的隔离验收窗口。日历留在表单内，无横向滚动；日期按钮可在辅助功能树中逐日访问。
+同尺寸原生界面对照：默认今天 · 展开鼠标日历，均为 2160 × 1520 像素的隔离验收窗口。日历留在表单内，无横向滚动；日期按钮可在辅助功能树中逐日访问。
 
 ## 边界
 

@@ -1,8 +1,0 @@
-The following is a diff from the previous accessibility tree for Window: "物志 · 表单与心愿隔离验收" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
-Removed element IDs: 93-97
-+				135 container
-+					136 text ⠿ 京东
-+					137 button 上移京东
-+					138 button 下移京东
-+					139 switch (settable, boolean) 启用京东, Value: on
-The focused UI element is 68 container 管理购买渠道

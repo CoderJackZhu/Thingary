@@ -1,5 +1,12 @@
 # 变更记录
 
+## 2026-10-01 · 2.3.2「物谱」安装、清理与侧栏折行修复
+
+- 用户要求关闭运行中的应用并提交、推送、安装：先以正常退出请求关闭正在运行的 2.3.0（未强杀）；`物谱.app` 2.3.2 经同卷暂存逐文件比对后安装到 `/Applications/物谱.app`（2026-10-01T17:36+08:00，严格签名通过），旧 `家底.app`（2.3.0）整体移到 `.local/install/家底-2.3.0.app` 作回退；未启动新版，未打开正式资料库。
+- 清理（用户放行）：删除 `docs/archive/` 交接文档、`docs/UI_DESIGN.md`、`docs/VERIFICATION_REPORT.md`、`docs/ui/` 与 `docs/verification/` 下的旧截图与机器日志（约 120 MB）、`t06-preview.html`、`src/t06-preview.tsx`、3 个 `tests/*.browser.mjs`；跟踪文件 1,652 → 约 400 个；692 处失效链接改为纯文本，0 断链；新增 `docs/verification/README.md` 说明。已删文件仍在 git 历史与本地标签 `archive/pre-cleanup-2026-10-01`。
+- 修复：窗口宽度 ≤980 px 时侧栏窄栏宽 145 → 164 px 并禁止折行，800×600 下「全部资产」「心愿清单」「周期费用」不再折成两行（原生核对）。
+- 构建、前端 183、Rust 226、fmt/clippy 全过。仍待：商标近似名分析与官方商标网复核；自动备份文件前缀仍是「物志自动备份-」（兼容既有备份，未改）。
+
 ## 2026-10-01 · 素材库设置分组、默认柔和卡片、样例心愿提示（随 2.3.2，已构建，未安装）
 
 - 素材库从「外观」里的入口改为「设置」里与「外观」并列的分组（外观｜素材库｜选项管理｜功能模块｜资料与备份｜样例），内容内嵌，顶栏「添加图片」「搜索素材」与原生菜单文字随之挂到设置页；原独立素材库页已无入口（清理候选）。
@@ -81,7 +88,7 @@
 
 - 按交接 Prompt 完成 U18a–e：三问题全部复现并定位实际根因——心愿详情挤碎（桌面详情双列网格泄漏进 300px 检视器）、周期付款记录竖排遮挡（图标 segmented 的 26px 定宽命中文字 tabs＋窄窗表格逐字断行）、分类看不全（隐藏横向滚动＋24px 渐隐遮罩）；调查表与 before/after 证据见[验证报告](docs/verification/U18_DESKTOP_LAYOUT_RESULT.md)。
 - 六项修复：心愿筛选「全部」移首位（默认/记忆语义不变）；检视器单列、金额不拆字、快捷按钮整钮换行；周期 tabs/到期/付款表完整单元不逐字断行（名称/备注仍可换行）；分类栏实测宽度排完整胶囊＋固定「更多分类」菜单（搜索、全部/未分类固定项、当前项勾选、键盘、portal 防裁切）＋极窄选择按钮（`planCategoryLayout` 纯函数＋7 项新测试）；「物品统计」入物品组末尾、取消「回顾」分组、时间轴移侧栏底部设置上方；素材库/最近删除收进设置并保留来源感知返回；侧栏底部独立浅色/深色/跟随系统三态（与 B/C/D 风格分开保存、设置内同源双向同步）。
-- 工程检查全绿：test:ui 173（含新增 7 项）、cargo 226、check、build、git diff --check；U17 两层返回浏览器冒烟通过。18 组合 × 4 页面同尺寸截图见[视觉索引](docs/ui/desktop-layout/index.html)。
+- 工程检查全绿：test:ui 173（含新增 7 项）、cargo 226、check、build、git diff --check；U17 两层返回浏览器冒烟通过。18 组合 × 4 页面同尺寸截图见视觉索引。
 - 隔离原生完成身份/虚构资料/句柄/启动验证（`local.possio.u18.acceptance`，正式库零句柄）；原生 UI 行为验收因执行环境 AX 树退化＋无屏幕录制授权受阻未执行，已在报告 §6.2 如实记录，包与夹具可复跑。未提交、未推送、未升版、未安装。
 
 ## 2026-09-30 · U18 zcode 开发交接准备（未启动开发）
@@ -191,7 +198,7 @@
 
 - 用户反馈总览「当前持有物购入金额」右侧「8 件」过小，并补充「使用中和件数应在右边和价值对称，使用中的小字应在右边」：卡片改为左右两列，左列金额及金额未知说明，右列持有件数及「使用中 · 已退役」；件数与金额同字号、同颜色，「件」保持小号灰色。综合回顾两列各占一半；实物概览指标格较窄，两列按内容排开，说明只在「·」处换行。截图覆盖 1280/1080/800 浅深色。
 - 用户反馈「刚装好后好像是空的，需要在设置中进入样例体验」，并确认「库为空时默认显示样例」：只要我的资料没有任何记录（最近删除中的也算有记录），启动时默认进入样例，即使此前记录过又全部永久删除；顶部「返回我的资料」回到空白资料，资料不被填入样例。取代 D14 原「删空或恢复空库后不自动展示样例」，产品设计 D14、U09 验收③与使用说明已同步。全新安装本来就进入样例，此前看到空白是「曾有记录后删空」的情形。
-- zcode 起步完成代码与 Rust 测试；Claude 复核：zcode 的截图夹带用户私人聊天与终端内容且显示旧界面，已全部删除，改由浏览器（浅深色）与隔离原生窗口截图重新取证（[证据](docs/ui/review-count/)）。隔离原生 `local.possio.sample.acceptance` 实测：全新库进入样例；记录一条心愿后重启进入我的资料；永久删除后重启回到样例并可返回我的资料；验收后删除该身份资料。
+- zcode 起步完成代码与 Rust 测试；Claude 复核：zcode 的截图夹带用户私人聊天与终端内容且显示旧界面，已全部删除，改由浏览器（浅深色）与隔离原生窗口截图重新取证（证据）。隔离原生 `local.possio.sample.acceptance` 实测：全新库进入样例；记录一条心愿后重启进入我的资料；永久删除后重启回到样例并可返回我的资料；验收后删除该身份资料。
 - `npm run build`、前端 142 项、`npm run check`、Rust 串行 198 项、`git diff --check` 通过。
 
 ## 2026-09-29 · 1.13.1 自用正式版 · 顶栏一致性与原生菜单随页
@@ -220,11 +227,11 @@
 - 顶栏按页面矩阵统一：搜索与主操作集中到顶栏（面包屑、搜索、次按钮、主按钮）；「新增资产」统一为「新增物品」；综合页与时间轴提供「新增记录 ▾」菜单（固定顺序、按模块开关过滤、方向键/Enter/Esc 键盘可用）；⌘N/⌘F 按当前页分派，弹窗打开时不穿透；窄窗口（≤900px）搜索缩为具名按钮、展开为顶栏内整行。
 - 各页面真实搜索：物品（含标签名）、账户、支出（含独立支出备注与来源名）、周期计划、虚拟资产、心愿、时间轴、素材、最近删除（后端过滤）。分页页面在后端先搜索后分页，计数为全部匹配；搜索只影响结果列表与「找到 N 条」，不改变任何汇总金额；搜索词保存在内存，切页保留、切库/重启/模块关闭清空；无结果提供清除搜索。
 - 走查中修复：财富页盘点打开时的 hooks 崩溃、菜单键盘焦点、表单关闭焦点恢复（原生 dialog close 时序）、折叠断点与最小窗口匹配。
-- `npm run build`、`npm run test:ui` 139 项、`npm run check`、Rust 串行 197 项（新增 4 项搜索测试）与 `git diff --check` 通过；浏览器前后对照 73 张见[证据索引](docs/ui/topbar-search/index.html)，行为走查与隔离原生验收（`local.possio.u12.acceptance`，快捷键/切库/重开/深浅色）见[记录](docs/verification/U12_TOPBAR_SEARCH_RESULT.md)。schema 20 不变。正式库未访问；未提交、未升版、未安装。
+- `npm run build`、`npm run test:ui` 139 项、`npm run check`、Rust 串行 197 项（新增 4 项搜索测试）与 `git diff --check` 通过；浏览器前后对照 73 张见证据索引，行为走查与隔离原生验收（`local.possio.u12.acceptance`，快捷键/切库/重开/深浅色）见[记录](docs/verification/U12_TOPBAR_SEARCH_RESULT.md)。schema 20 不变。正式库未访问；未提交、未升版、未安装。
 
 ## 2026-09-29 · U12 顶栏与页面搜索交接（文档，未实现）
 
-- 用户确认页面相关主操作及当前页搜索，指定 zcode 实现。更新产品设计 3.3–3.5、UI 设计与实施计划 U12a–d，新增[交接与 Prompt](docs/archive/handoffs/U12_ZCODE_HANDOFF.md)。明确完整结果搜索、分页、汇总隔离、快捷键、样例及来源返回边界。
+- 用户确认页面相关主操作及当前页搜索，指定 zcode 实现。更新产品设计 3.3–3.5、UI 设计与实施计划 U12a–d，新增交接与 Prompt。明确完整结果搜索、分页、汇总隔离、快捷键、样例及来源返回边界。
 - 本轮未修改应用代码、未运行功能验收、未提交或发布；不改变 1.12.1 已安装状态。
 
 ## 2026-09-29 · 1.12.1 自用正式版 · 设置与操作入口修订
@@ -300,7 +307,7 @@
 ## 2026-09-28 · Q03 部分实现与 zcode 交接
 
 - 增加稳定来源与盘点时间轴后端初稿，前端来源 props、hook 与新时间轴组件尚未接入主导航。
-- 用户中途改为由 zcode 接手；停止继续功能接线，保留可编译衔接状态，分解 Q03a–Q03f 并提供 [交接材料与 Prompt](docs/archive/handoffs/Q03_ZCODE_HANDOFF.md)。
+- 用户中途改为由 zcode 接手；停止继续功能接线，保留可编译衔接状态，分解 Q03a–Q03f 并提供 交接材料与 Prompt。
 - Q03 未完成、未做新来源 UI 验收；不将 Q02 的测试结果冒充本阶段通过。未提交、推送或安装。
 
 ## 2026-09-28 · Q02 综合回顾
@@ -517,7 +524,7 @@
 
 ### U02 资产与心愿升级
 
-本轮按用户确认升级分块录入、独立状态标签、按次成本、四项统计排除、攒钱心愿与本地提醒；完整彩色图标、少量独立 3D 素材及月亮／时间轴同步调整。业务库升级为 schema 13，旧资料默认行为保留。实现、自动验证和隔离原生验收完成；用户保存退出后，1.1.0 已安装到 `/Applications/物志.app`；见 [执行清单](docs/archive/handoffs/U02_ASSET_WISHLIST_UPGRADE.md) 与 [验证记录](docs/verification/U02_ASSET_WISHLIST_RESULT.md)。
+本轮按用户确认升级分块录入、独立状态标签、按次成本、四项统计排除、攒钱心愿与本地提醒；完整彩色图标、少量独立 3D 素材及月亮／时间轴同步调整。业务库升级为 schema 13，旧资料默认行为保留。实现、自动验证和隔离原生验收完成；用户保存退出后，1.1.0 已安装到 `/Applications/物志.app`；见 执行清单 与 [验证记录](docs/verification/U02_ASSET_WISHLIST_RESULT.md)。
 
 ### P1 首次样例与日期输入
 
@@ -527,11 +534,11 @@
 
 CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；验收边界见 [T21 报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。T22 自用正式版已 review 并本地合并：`/Applications/物志.app` 可以开始录入真实资料。正式版使用独立身份 `local.possio.main`，开发预览仍使用 `local.possio.preview`；使用前请阅读 [物志使用说明](docs/USER_GUIDE.md)。中文名「物志」、英文名「Possio」用于本次自用构建；公开发布前仍需核查名称可用性。
 
-**T21 完整 P0 验收（已 review、补验并本地合并）**：AC01–AC44 逐项证据、独立 release 离线闭环、同库备份/CSV、空库恢复及用户检查单见 [T21 验收报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。review 后补验 AC05/06/09，现通过 43、部分 1（AC40，含 VoiceOver 等待用户项）；浅色次要文字对比度已修至 AA；用户授权由 Claude 判定，**CP3、CP4 达到出口，P0 闭环完成**（AC40 未实测项为已接受风险，见报告 §9）。T22 自用正式版按[交接](docs/archive/handoffs/T22_SELF_USE_RELEASE_GPT.md)在 `codex/t22-self-use-release` 实施；[T22 记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)已 review（§7 更正 identifier）并本地合并。
+**T21 完整 P0 验收（已 review、补验并本地合并）**：AC01–AC44 逐项证据、独立 release 离线闭环、同库备份/CSV、空库恢复及用户检查单见 [T21 验收报告](docs/verification/T21_P0_ACCEPTANCE_RESULT.md)。review 后补验 AC05/06/09，现通过 43、部分 1（AC40，含 VoiceOver 等待用户项）；浅色次要文字对比度已修至 AA；用户授权由 Claude 判定，**CP3、CP4 达到出口，P0 闭环完成**（AC40 未实测项为已接受风险，见报告 §9）。T22 自用正式版按交接在 `codex/t22-self-use-release` 实施；[T22 记录](docs/verification/T22_SELF_USE_RELEASE_RESULT.md)已 review（§7 更正 identifier）并本地合并。
 
 ## T06–T20 开发阶段
 
-**T20 Mac 操作体验**：原生菜单与 ⌘N/⌘F/⌘E/⌘, 实测、焦点与弹窗、外观重启保持、800×600 浅深色对照与长文本，修复三处窄窗版式；VoiceOver 与系统外观实时切换待用户实测，见 [T20 记录](docs/verification/T20_MAC_EXPERIENCE_RESULT.md)；下一阶段 T21 完整 P0 验收交由 GPT 执行，契约与 Prompt 见 [T21 交接](docs/archive/handoffs/T21_P0_ACCEPTANCE_GPT.md)。当前仓库没有远程，成果只有本地提交。
+**T20 Mac 操作体验**：原生菜单与 ⌘N/⌘F/⌘E/⌘, 实测、焦点与弹窗、外观重启保持、800×600 浅深色对照与长文本，修复三处窄窗版式；VoiceOver 与系统外观实时切换待用户实测，见 [T20 记录](docs/verification/T20_MAC_EXPERIENCE_RESULT.md)；下一阶段 T21 完整 P0 验收交由 GPT 执行，契约与 Prompt 见 T21 交接。当前仓库没有远程，成果只有本地提交。
 
 **T19 CSV 资产导出**：设置 › 资料管理导出全部未删除物品的可读表格（UTF-8 BOM、未知留空、¥0 写 0.00、公式防护），与备份共用原生保存面板；原生导出已由独立脚本与只读 SQL 逐行核对，见 [T19 记录](docs/verification/T19_CSV_EXPORT_RESULT.md)。
 
@@ -547,9 +554,9 @@ CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；�
 
 **T13 心愿转资产** 在 `codex/t13-wishlist-conversion` 实现并验收，结果与剩余边界见 [T13 记录](docs/verification/T13_WISHLIST_CONVERSION_RESULT.md)。
 
-**T12 心愿记录** 的 [Hermes 执行契约](docs/archive/handoffs/T12_HERMES.md) 已由任务分支落实，Codex review 的五项修复、原生放弃／筛选／翻页／缺图修复／重启收尾验收见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md#原生-gui-收尾验收2026-09-26claude)。T12 已本地快进合并 `main`。
+**T12 心愿记录** 的 Hermes 执行契约 已由任务分支落实，Codex review 的五项修复、原生放弃／筛选／翻页／缺图修复／重启收尾验收见 [T12 记录](docs/verification/T12_WISHLIST_RESULT.md#原生-gui-收尾验收2026-09-26claude)。T12 已本地快进合并 `main`。
 
-最近完成 **T11 统一最近删除与 CP2 补验**：Z code 首轮实现后由 Codex 接续 review、修复与验收，最终代码修复提交 `57b1207` 已快进合并到本地 `main`。资产、维护和保障的统一软删除／恢复、四类筛选、原生父子独立恢复、保障删/恢复及重启持久性已通过；原生 800×600、真实写锁失败后重试，以及恢复操作提交后回包丢失／崩溃重启按原请求核对也已补齐。临时注入源码已撤除，正常隔离包重建并复核。**CP2 达到阶段出口，完整 P0 尚未完成**；执行边界见 [T11 交接](docs/archive/handoffs/T11_UNIFIED_TRASH_ZCODE.md)，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。尚未配置远程或推送。
+最近完成 **T11 统一最近删除与 CP2 补验**：Z code 首轮实现后由 Codex 接续 review、修复与验收，最终代码修复提交 `57b1207` 已快进合并到本地 `main`。资产、维护和保障的统一软删除／恢复、四类筛选、原生父子独立恢复、保障删/恢复及重启持久性已通过；原生 800×600、真实写锁失败后重试，以及恢复操作提交后回包丢失／崩溃重启按原请求核对也已补齐。临时注入源码已撤除，正常隔离包重建并复核。**CP2 达到阶段出口，完整 P0 尚未完成**；执行边界见 T11 交接，实际结果见 [T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)。尚未配置远程或推送。
 
 上一阶段：**T10 review 修复及原生补验完成，已按用户授权本地合并 main**。修复保留草稿后无法退出、保障附件 ID 跨实体混用两项问题；代码提交 `2b74e1f` 后前端 57 项、Rust 69 项、Demo 2 项及检查／构建通过。原生多份保障新增／同 ID 更正、日期校验、HEIC 草稿恢复／缺图修复／重启与写锁恢复已补验，见 [T10 记录第 10 节](docs/verification/T10_WARRANTY_RESULT.md#10-codex-review-修复与本地集成2026-09-25)。后续又补齐原生 800×600 与提交后响应丢失／崩溃重启核对，见 [第 11 节](docs/verification/T10_WARRANTY_RESULT.md#11-cp2-原生缺口补验2026-09-25)；CP2/P0 状态仍以实施计划为准。
 
@@ -559,7 +566,7 @@ CP1–CP4 已达到阶段出口，P0 自用闭环已由 Claude 判定完成；�
 
 2026-09-25 已将 `codex/t06b-taxonomy-storage` 的 `7e6c6e5` 快进合并到 `main`（原 main 为 `3b46442`）。**后续主入口为 `<repo>`**，原 `outputs/Possio-t06b` 工作树保留，不再作为默认开发目录。用户选择只做本地合并：未配置远程、未推送或发布。
 
-合并后在主目录重新执行并通过：前端 45 项、Rust 58 项、Demo 2 项、fmt/Clippy、前端构建，以及隔离原生 App 构建。通过完整 App 路径启动并核对进程确实来自主目录，既有 13 件虚构资产正常加载，见 [启动状态](docs/verification/u01-native-completion/main-launch.txt)／[截图](docs/verification/u01-native-completion/main-launch.png)。本次只更新代码位置，仍使用 `local.possio.t06b.preview` 的原隔离资料库；未搬移或导入用户数据。用户原有未跟踪 `.gitignore` 原样保留。T09/U01 已完成阶段出口，其后 T10 的最新状态见下文，完整 P0 仍未完成。
+合并后在主目录重新执行并通过：前端 45 项、Rust 58 项、Demo 2 项、fmt/Clippy、前端构建，以及隔离原生 App 构建。通过完整 App 路径启动并核对进程确实来自主目录，既有 13 件虚构资产正常加载，见 启动状态／截图。本次只更新代码位置，仍使用 `local.possio.t06b.preview` 的原隔离资料库；未搬移或导入用户数据。用户原有未跟踪 `.gitignore` 原样保留。T09/U01 已完成阶段出口，其后 T10 的最新状态见下文，完整 P0 仍未完成。
 
 主目录复现隔离构建：`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app`。本机 `.local/t06b.conf.json` 已沿用原隔离标识，配置与构建产物不入版本库。
 
@@ -596,9 +603,9 @@ V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程
 
 此前用户要求暂停 T10，先按原始 A Demo 完成视觉还原。随后明确反馈状态入口重复，现仅保留左侧状态导航，中间用于结果数量、分类／排序及视图切换；这是对原型的已授权调整。后续实现不得自行改动已确认的状态导航与页面分区；新增界面应复用既有 SVG、tokens 和组件，提交同尺寸对照证据。当前结论见视觉验证记录，T09 已登记的原生补验现已完成；用户随后授权先完成本地集成复核，再进入 T10。
 
-历史 U01 插入任务（现已验收并合并）：用户当时要求先准备内置素材库功能的文档与 Prompt，再由用户自行发给 Z code（GLM5.3 主实现、Flash 可辅助机械核对），完成后交回 Codex review。唯一执行契约为 [U01 交接](docs/archive/handoffs/U01_MATERIAL_LIBRARY_ZCODE.md)。不自动启动执行器、多 Agent 或 T10；不把当前 Demo 数据导入误写为已实现素材选择器。2026-09-25 实施中途用户调整：侧栏新增“素材库”页面（含上传/删除自定义素材，schema 9），表单封面区改为平铺小图直选；以 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md) 和产品设计 D13/UI 设计 U01 更新后的章节为准。
+历史 U01 插入任务（现已验收并合并）：用户当时要求先准备内置素材库功能的文档与 Prompt，再由用户自行发给 Z code（GLM5.3 主实现、Flash 可辅助机械核对），完成后交回 Codex review。唯一执行契约为 U01 交接。不自动启动执行器、多 Agent 或 T10；不把当前 Demo 数据导入误写为已实现素材选择器。2026-09-25 实施中途用户调整：侧栏新增“素材库”页面（含上传/删除自定义素材，schema 9），表单封面区改为平铺小图直选；以 [U01 记录](docs/verification/U01_MATERIAL_LIBRARY_RESULT.md) 和产品设计 D13/UI 设计 U01 更新后的章节为准。
 
-- T09 已由 Hermes 在当前工作树串行实现并完成本轮验证，具体执行契约见 [T09 Hermes 交接](docs/archive/handoffs/T09_HERMES.md)，结果见 [T09 记录](docs/verification/T09_MAINTENANCE_RESULT.md)；两轮 review 所列问题已修复，原生补验已完成，具备 T09 集成条件。本次未启动 MoA、子代理、zcode/Codex 代写或后台循环，不提前推进 T10。
+- T09 已由 Hermes 在当前工作树串行实现并完成本轮验证，具体执行契约见 T09 Hermes 交接，结果见 [T09 记录](docs/verification/T09_MAINTENANCE_RESULT.md)；两轮 review 所列问题已修复，原生补验已完成，具备 T09 集成条件。本次未启动 MoA、子代理、zcode/Codex 代写或后台循环，不提前推进 T10。
 
 ### 当前集成安排（2026-09-25）
 
@@ -608,11 +615,11 @@ V00–V05 已执行；用户已授权进入下一阶段，T01–T05 基本流程
 
 ### T11 统一最近删除
 
-2026-09-25 T10 与 T11 已 review 修复并本地集成 `main`。T11 的契约和实际结果分别见 [统一最近删除交接](docs/archive/handoffs/T11_UNIFIED_TRASH_ZCODE.md)、[T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)；原生小窗口及错误注入仍缺，CP2/P0 未宣布完成。用户本轮授权 T11 审查后的本地合并和推送，但仓库尚未配置 Git remote，未推送；不凭空指定远程，也不自动推进 T12。原有未跟踪 `.gitignore` 属于用户文件，保持原样。
+2026-09-25 T10 与 T11 已 review 修复并本地集成 `main`。T11 的契约和实际结果分别见 统一最近删除交接、[T11 记录](docs/verification/T11_UNIFIED_TRASH_RESULT.md)；原生小窗口及错误注入仍缺，CP2/P0 未宣布完成。用户本轮授权 T11 审查后的本地合并和推送，但仓库尚未配置 Git remote，未推送；不凭空指定远程，也不自动推进 T12。原有未跟踪 `.gitignore` 属于用户文件，保持原样。
 
 ### P0 完成，T22 自用正式版（2026-09-26）
 
-T12–T21 已本地集成 main；用户授权由 Claude 判定，CP3、CP4 达到出口，P0 闭环完成（AC40 的 VoiceOver 等未实测项为已接受风险，见 T21 报告 §9）。下一任务 T22 自用正式版交由 GPT，唯一入口 [T22 交接](docs/archive/handoffs/T22_SELF_USE_RELEASE_GPT.md)；完成后交回 Claude review。仍无远程、不推送；`.gitignore` 为用户文件。
+T12–T21 已本地集成 main；用户授权由 Claude 判定，CP3、CP4 达到出口，P0 闭环完成（AC40 的 VoiceOver 等未实测项为已接受风险，见 T21 报告 §9）。下一任务 T22 自用正式版交由 GPT，唯一入口 T22 交接；完成后交回 Claude review。仍无远程、不推送；`.gitignore` 为用户文件。
 
 ### T22 完成（2026-09-27）
 

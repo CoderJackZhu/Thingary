@@ -6,7 +6,7 @@
 - 编辑表单的叉直接关闭未保存修改，顶部保留“保存资产”。保存结果待核对时，沿用原有防重复提交保护。
 - macOS 原有“新增资产”菜单快捷键是 ⌘N；顶部按钮现显示 ⌘N，与搜索框的 ⌘F 提示一致。
 
-`npm run build`、`node --test tests/mac-shortcuts.test.mjs`、`git diff --check` 通过。使用隔离身份 `local.possio.u07.layout` 的八件虚构 Demo 验证：已有资产编辑页可完整看到八行试填备注，叉直接退出且不保存；从资产列表按 ⌘N 打开新增资产。默认窗口 1360 × 900 下，浅色与深色截图分别见[浅色八行备注](u08-native/notes-light.png)和[深色编辑页](u08-native/notes-dark.png)。正式资料库未参与测试。
+`npm run build`、`node --test tests/mac-shortcuts.test.mjs`、`git diff --check` 通过。使用隔离身份 `local.possio.u07.layout` 的八件虚构 Demo 验证：已有资产编辑页可完整看到八行试填备注，叉直接退出且不保存；从资产列表按 ⌘N 打开新增资产。默认窗口 1360 × 900 下，浅色与深色截图分别见浅色八行备注和深色编辑页。正式资料库未参与测试。
 
 用户已授权由 Codex 自行退出正在运行的应用。1.1.6 正式安装包构建通过；安装前通过应用快捷键正常退出 1.1.5，并将旧版保留在 `/private/tmp/possio-u08-install/物志-1.1.5-original.app`。新版已安装到 `/Applications/物志.app`，安装后核对版本、`local.possio.main` 身份、签名与程序哈希。正式版保持关闭，未为验证打开正式资料库。
 

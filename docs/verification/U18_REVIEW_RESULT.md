@@ -14,7 +14,7 @@
 
 `useLayoutEffect` 无依赖数组，每次提交都执行 `measure()`；溢出时 `planCategoryLayout` 返回新对象，`setVisible(plan)` 再次触发渲染，即使内容完全一样也不停循环。新建 ResizeObserver 也随每次提交重复发生。现有“纯函数稳定性”测试只验证输入输出值相等，无法覆盖组件状态更新环。
 
-**独立复现：** 本轮 Vite 1438、Ego Lite TaskSpace 16，打开 `visual-preview.html?category-fixture=30`，1920px 宽从总览点「全部资产」，捕获 `Uncaught Error: Maximum update depth exceeded`，随后 `.cat-chip-row` 和应用主体均消失。诊断见 [category-crash.json](../ui/desktop-layout/review/category-crash.json)。没有改代码或注入替代实现。
+**独立复现：** 本轮 Vite 1438、Ego Lite TaskSpace 16，打开 `visual-preview.html?category-fixture=30`，1920px 宽从总览点「全部资产」，捕获 `Uncaught Error: Maximum update depth exceeded`，随后 `.cat-chip-row` 和应用主体均消失。诊断见 category-crash.json。没有改代码或注入替代实现。
 
 **修订出口：** 只在实际测量结果改变时更新布局，稳定 effect/observer 生命周期；用真实 React/DOM 场景覆盖溢出首次进入、切状态页、改变尺寸与选择隐藏项，断言无 error/空白/重复更新。修复后重新完成分类全部交互和视觉验收。
 
@@ -24,7 +24,7 @@
 
 新增 `.recurring-tabs button {width:auto}` 与后加载的 `.segmented button {width:26px}` 优先级相同；后者仍胜出。`nowrap` 仅将逐字竖排变成水平溢出，未解决按钮尺寸。
 
-**独立复现：** 800×600 的周期费用页，两个按钮 bounding width 都是 26，内容 scrollWidth 分别为 50、76，computed width 都是 `26px`。见 [测量 JSON](../ui/desktop-layout/review/recurring-tabs.json) 与 [截图](../ui/desktop-layout/review/recurring-tabs-800x600.png)。作者 `after/recurring-payments-800x600-B-light.png` 也可见同一遮叠。
+**独立复现：** 800×600 的周期费用页，两个按钮 bounding width 都是 26，内容 scrollWidth 分别为 50、76，computed width 都是 `26px`。见 测量 JSON 与 截图。作者 `after/recurring-payments-800x600-B-light.png` 也可见同一遮叠。
 
 **修订出口：** 正确限定图标分段与文本分段的宽度作用域/层叠，实际验证两个按钮的可点击区域互不重叠且完整包住文字，三尺寸六组合复查。不能再仅用文字是否换行判断修复。
 
@@ -70,7 +70,7 @@ CategoryFilter 调用只传 entries/value/onChange/disabled，未传 `taxonomy.l
 
 位置：`docs/verification/U18_DESKTOP_LAYOUT_RESULT.md` §7–9、`docs/ui/desktop-layout/index.html`、实施计划 U18e。
 
-实际打开标准 1280×820 和800×600 的分类 after，均只剩底部“界面验收”标识。对全部 after 做像素检查：去除底部25px，**21张整块只有单一颜色**，包括18张标准分类矩阵以及2张菜单展开、1张compact。清单见 [blank-screenshots.txt](../ui/desktop-layout/review/blank-screenshots.txt)。另两张较早的分类截图有内容，不能替代最终标准矩阵，也不能证明当前代码无 R1。
+实际打开标准 1280×820 和800×600 的分类 after，均只剩底部“界面验收”标识。对全部 after 做像素检查：去除底部25px，**21张整块只有单一颜色**，包括18张标准分类矩阵以及2张菜单展开、1张compact。清单见 blank-screenshots.txt。另两张较早的分类截图有内容，不能替代最终标准矩阵，也不能证明当前代码无 R1。
 
 因此“72张齐全/链接全通”只证明文件存在，不证明页面有效；AC04/05/06/10及相关分类交互需重验。周期截图仍显示 R2，也不能保留 AC03 无条件通过。原生行为尚未执行以及返回/键盘缺口也不满足 U18e 出口。作者 AC05 的表格“通过”和摘要“部分”互相矛盾。
 

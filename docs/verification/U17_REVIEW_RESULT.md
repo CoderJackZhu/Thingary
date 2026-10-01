@@ -133,6 +133,6 @@ R4 的浏览器自动指针点击因页脚不在视口受阻，随后使用已�
 - 用户明确授权「提交推送安装收尾」。功能源码提交 `43fa716ac2f0cea7656f985dc9a6dae83184dc20` 已推送 `origin/main`；后续只补文档与安装清单，不改变二进制。
 - `npm run release` 通过；版本 2.2.0、identity `local.possio.main`，默认 `local.possio.preview` 未改。普通 release 不启用故障注入；本地 ad-hoc 签名，未公证。
 - 安装时间：2026-09-30T13:12:24.594856+08:00。安装前两次核对正式 App 未运行；原 2.1.0 保存于 `.local/install/家底-2.1.0.app`，全部文件与原包一致。候选、同卷暂存、最终 `/Applications/家底.app` 均通过严格签名与完整文件哈希/权限比较。
-- 安装清单：[`U17_RELEASE_MANIFEST.json`](U17_RELEASE_MANIFEST.json)，共 4 个文件，清单摘要 `4e64604afdea9cfdb58b52fedf6e57da91d6b9c5acf50a634c2b00120eddd84b`。
+- 安装清单：`U17_RELEASE_MANIFEST.json`，共 4 个文件，清单摘要 `4e64604afdea9cfdb58b52fedf6e57da91d6b9c5acf50a634c2b00120eddd84b`。
 - 本次未启动正式应用，未打开或写入正式资料库；功能验收来自隔离身份与虚构预览。本次仅更新应用包。
 - 验收日志、安装脚本、临时 `u17_fixture.rs` 与隔离配置归档到 `.local/archive/u17-2.2.0/`；临时工具不入库，`.claude/` 原样保留。已校验并清除同卷重复旧包，保留 2.1.0 及更早回退版本。未推进新的功能阶段。

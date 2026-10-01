@@ -20,7 +20,7 @@
 
 ## 截图（1280×820）
 
-改前：[筛选与排序](../ui/tags-sort/before-filters.jpg)、[编辑表单](../ui/tags-sort/before-editor.jpg)、[统计](../ui/tags-sort/before-stats.jpg)。改后：[筛选与排序](../ui/tags-sort/after-filters.jpg)、[编辑表单](../ui/tags-sort/after-editor.jpg)、[统计](../ui/tags-sort/after-stats.jpg)、[标签管理](../ui/tags-sort/after-settings-tags.jpg)、[日均成本排序](../ui/tags-sort/after-sort-daily.jpg)、[按标签筛选](../ui/tags-sort/after-filter-tag.jpg)。
+改前：筛选与排序、编辑表单、统计。改后：筛选与排序、编辑表单、统计、标签管理、日均成本排序、按标签筛选。
 
 ## 自动化
 

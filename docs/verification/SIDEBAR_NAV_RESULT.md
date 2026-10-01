@@ -23,7 +23,7 @@
 
 | 场景 | 改前 | 改后 |
 |---|---|---|
-| 使用中（浅色） | [before](../ui/sidebar-nav/before-light-active.jpg) | [after](../ui/sidebar-nav/after-light-active.jpg) |
-| 使用中（深色） | [before](../ui/sidebar-nav/before-dark-active.jpg) | [after](../ui/sidebar-nav/after-dark-active.jpg) |
-| 最近删除（浅色） | [before](../ui/sidebar-nav/before-light-trash.jpg) | [after](../ui/sidebar-nav/after-light-trash.jpg) |
-| 设置（深色） | [before](../ui/sidebar-nav/before-dark-settings.jpg) | [after](../ui/sidebar-nav/after-dark-settings.jpg) |
+| 使用中（浅色） | before | after |
+| 使用中（深色） | before | after |
+| 最近删除（浅色） | before | after |
+| 设置（深色） | before | after |

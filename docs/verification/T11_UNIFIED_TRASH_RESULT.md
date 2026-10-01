@@ -13,19 +13,19 @@ Codex 接续修复了 Z code 首轮实现中的前端模块导入、仅在第一
 ## 自动与浏览器证据
 
 - Rust `unified_trash` 聚焦测试 8 项通过，覆盖 E09 父子删除顺序、未知/零维护费用与 Sold、保障、附件和备份、日期冲突、分页排序、同请求重放/异 payload 冲突以及事务故障点。代码提交 `dd75c32` 之后按交接顺序重跑：`npm run test:ui` 62/62、`npm test` 77/77（macOS 原生权限，以允许 HEIC 解码）、`npm run test:demo` 2/2、`npm run check` exit 0、`npm run build` exit 0、`npm run tauri -- build --debug --config .local/t06b.conf.json --bundles app` exit 0、`git diff --check` exit 0。
-- UI 逻辑测试 62 项通过，Demo 导入测试 2 项通过。浏览器内存预览的空态与四个筛选在 [1080×760](t11/browser-empty-1080.png) 和 [800×600](t11/browser-empty-800.png) 核对，修复后 `scrollWidth == clientWidth`；浏览器资料刷新即重置，不能作为原生持久性证据。
+- UI 逻辑测试 62 项通过，Demo 导入测试 2 项通过。浏览器内存预览的空态与四个筛选在 1080×760 和 800×600 核对，修复后 `scrollWidth == clientWidth`；浏览器资料刷新即重置，不能作为原生持久性证据。
 
 ## 原生隔离库
 
 仅使用 bundle ID `local.possio.t06b.preview` 的虚构库；操作前通过 SQLite backup API 制作 `/tmp/possio-t11-protection/before.sqlite` 一致性快照，schema 10、`integrity_check=ok`，原有 13 件资产、4 条维护、2 份保障、15 个附件。未重置或导入 Demo，未触碰普通 `local.possio.preview` 库。
 
-为 E09 在图形界面新增虚构父资产 `T11 Fictional Parent`（购入 ¥1,000）、维护 A（¥200）、维护 B（¥100）及一份日期待补全的保障。图形界面删除维护 A 后，详情维护投入显示 ¥100、总投入显示 ¥1,100；统一最近删除列出 A、所属父资产与 ¥200。正常退出旧运行进程后，启动 `dd75c32` 构建的隔离 App，A 仍在[最近删除](t11/native-trash-after-restart.jpeg)，父资产摘要仍显示维护 ¥100，且保障与维护 B 仍可见。只读 SQLite 旁证：schema 10、`integrity_check=ok`，14 件资产、6 条维护、3 份保障、15 个附件；A 的 `deleted_at` 非空，B/保障/父资产的 `deleted_at` 仍为空。
+为 E09 在图形界面新增虚构父资产 `T11 Fictional Parent`（购入 ¥1,000）、维护 A（¥200）、维护 B（¥100）及一份日期待补全的保障。图形界面删除维护 A 后，详情维护投入显示 ¥100、总投入显示 ¥1,100；统一最近删除列出 A、所属父资产与 ¥200。正常退出旧运行进程后，启动 `dd75c32` 构建的隔离 App，A 仍在最近删除，父资产摘要仍显示维护 ¥100，且保障与维护 B 仍可见。只读 SQLite 旁证：schema 10、`integrity_check=ok`，14 件资产、6 条维护、3 份保障、15 个附件；A 的 `deleted_at` 非空，B/保障/父资产的 `deleted_at` 仍为空。
 
 用户对两次原生删除分别作出即时确认后，完成后续图形界面操作：
 
-- 在[父资产确认框](t11/native-parent-confirm.jpeg)移入最近删除，正常列表由 14 件变为 13 件。统一最近删除同时显示父资产和先前独立删除的维护 A；A 行提示先恢复父资产，点击“恢复所属物品 T11 Fictional Parent”打开正确的父恢复框。恢复父资产后，它仍是“使用中”，维护 B 和保障仍可见，维护 A 仍独立留在最近删除，总投入仍为 ¥1,100。再单独恢复 A，最近删除变空，总投入回到 ¥1,300、维护投入回到 ¥300，A/B 均在详情可见。这一顺序覆盖 E09、AC13/42 的父子独立恢复和 AC43 的定位入口。
+- 在父资产确认框移入最近删除，正常列表由 14 件变为 13 件。统一最近删除同时显示父资产和先前独立删除的维护 A；A 行提示先恢复父资产，点击“恢复所属物品 T11 Fictional Parent”打开正确的父恢复框。恢复父资产后，它仍是“使用中”，维护 B 和保障仍可见，维护 A 仍独立留在最近删除，总投入仍为 ¥1,100。再单独恢复 A，最近删除变空，总投入回到 ¥1,300、维护投入回到 ¥300，A/B 均在详情可见。这一顺序覆盖 E09、AC13/42 的父子独立恢复和 AC43 的定位入口。
 - 单独移入最近删除 `T11 Fictional Warranty` 时，父资产仍在正常列表，详情暂时显示无保障记录，成本和两条维护记录不变；最近删除的保障筛选显示 1 条、维护筛选为空。单独恢复原保障后，保障重新出现在详情，保障筛选清空。
-- 正常退出并重开同一完整路径的隔离 App；[深色恢复后](t11/native-e09-restored.jpeg)和[浅色恢复后](t11/native-light-restored.jpeg)均见父资产、两条维护、保障及总投入 ¥1,300。统一最近删除为空。只读 SQLite 复核 schema 10、`integrity_check=ok`，14 件资产、6 条维护、3 份保障、15 个附件；父资产、A、B、保障的原 ID 均未改变且 `deleted_at` 均为空。未重置或导入隔离库。
+- 正常退出并重开同一完整路径的隔离 App；深色恢复后和浅色恢复后均见父资产、两条维护、保障及总投入 ¥1,300。统一最近删除为空。只读 SQLite 复核 schema 10、`integrity_check=ok`，14 件资产、6 条维护、3 份保障、15 个附件；父资产、A、B、保障的原 ID 均未改变且 `deleted_at` 均为空。未重置或导入隔离库。
 
 ## 剩余边界与最终交回
 
@@ -41,12 +41,12 @@ T10 留存的原生 800×600 截图与响应丢失 GUI 注入不因 T11 完成�
 
 ## CP2 原生缺口补验（2026-09-25）
 
-本节更新上文历史缺口。通过仅用于本机验收的 Tauri 窗口配置将隔离 App 设为 **800×600 逻辑像素**；Sky 截图为 1600×1200 Retina 像素。原生[最近删除空态](cp2/native-800-trash-light.jpeg)和[深色列表](cp2/native-800-list-dark.jpeg)保持 A「静序」布局，筛选与操作可见，未发现横向溢出。原生详情与保障表单见 [T10 补验](T10_WARRANTY_RESULT.md#11-cp2-原生缺口补验2026-09-25)。这里没有以浏览器内存预览替代原生小窗口验收。
+本节更新上文历史缺口。通过仅用于本机验收的 Tauri 窗口配置将隔离 App 设为 **800×600 逻辑像素**；Sky 截图为 1600×1200 Retina 像素。原生最近删除空态和深色列表保持 A「静序」布局，筛选与操作可见，未发现横向溢出。原生详情与保障表单见 [T10 补验](T10_WARRANTY_RESULT.md#11-cp2-原生缺口补验2026-09-25)。这里没有以浏览器内存预览替代原生小窗口验收。
 
-用户确认对隔离库「T11 Fictional Service B」进行写锁、软删除及恢复验收。先以真实 SQLite `BEGIN IMMEDIATE` 持有写锁，并由第二个独立写事务确认得到 `database is locked`；随后在正常原生 App 点击软删除，界面显示[“本次操作未提交”](cp2/native-t11-lock-failed.jpeg)（[AX 文本](cp2/native-t11-lock-failed.txt)）。只读库核对该维护 `deleted_at` 仍为空、请求总数仍为 55。释放锁，在同一确认框重试后，[维护投入由 ¥300 降至 ¥200、总投入由 ¥1,300 降至 ¥1,200](cp2/native-t11-lock-retried.jpeg)（[AX 文本](cp2/native-t11-lock-retried.txt)），请求总数变为 56，原维护 ID 保留。
+用户确认对隔离库「T11 Fictional Service B」进行写锁、软删除及恢复验收。先以真实 SQLite `BEGIN IMMEDIATE` 持有写锁，并由第二个独立写事务确认得到 `database is locked`；随后在正常原生 App 点击软删除，界面显示“本次操作未提交”（AX 文本）。只读库核对该维护 `deleted_at` 仍为空、请求总数仍为 55。释放锁，在同一确认框重试后，维护投入由 ¥300 降至 ¥200、总投入由 ¥1,300 降至 ¥1,200（AX 文本），请求总数变为 56，原维护 ID 保留。
 
-再用**临时 QA 构建**验证恢复时的响应丢失：真实 `change_record_trash` 已提交后，只丢弃前端收到的回包，并让首次 `saved_record_trash_request` 回包也丢失。原生确认框保留原请求、禁用取消且仅允许[核对结果](cp2/native-t11-response-pending.jpeg)（[AX 文本](cp2/native-t11-response-pending.txt)）；⌘Q 被拦住。仅终止该隔离 QA App 进程模拟崩溃，重启后出现“核对上次操作”，点击后仍以原请求核对到已提交回执，[恢复成功](cp2/native-t11-response-recovered.jpeg)（[AX 文本](cp2/native-t11-response-recovered.txt)），最近删除为空，维护投入回到 ¥300、总投入回到 ¥1,300（[费用图](cp2/native-t11-cost-restored.jpeg)／[AX 文本](cp2/native-t11-cost-restored.txt)）。
+再用**临时 QA 构建**验证恢复时的响应丢失：真实 `change_record_trash` 已提交后，只丢弃前端收到的回包，并让首次 `saved_record_trash_request` 回包也丢失。原生确认框保留原请求、禁用取消且仅允许核对结果（AX 文本）；⌘Q 被拦住。仅终止该隔离 QA App 进程模拟崩溃，重启后出现“核对上次操作”，点击后仍以原请求核对到已提交回执，恢复成功（AX 文本），最近删除为空，维护投入回到 ¥300、总投入回到 ¥1,300（费用图／AX 文本）。
 
-临时注入源码已撤除，并以正常配置重建隔离 App、退出重开；[正常包截图](cp2/native-t11-final-normal.jpeg)仍见 ¥300 维护投入，且无待核对入口。最终只读 [SQLite 旁证](cp2/native-final-persistence.json)：schema 10、`integrity_check=ok`、外键检查 0 异常；14 件资产、6 条维护、3 份保障、15 个附件。B 原 ID `96194390-59ee-4e22-bf2c-a1322db6553b` 保留且 `deleted_at` 为空，恢复请求 `c19ae38d-0ef7-4f81-9fd6-bb9c04dea863` 仅一条回执。T10 保障回包丢失的更正请求也仅一条审计。此原生注入覆盖维护记录恢复，不代表对所有实体逐个执行相同 GUI 故障；其他事务和重复请求边界沿用 Rust 测试证据。
+临时注入源码已撤除，并以正常配置重建隔离 App、退出重开；正常包截图仍见 ¥300 维护投入，且无待核对入口。最终只读 SQLite 旁证：schema 10、`integrity_check=ok`、外键检查 0 异常；14 件资产、6 条维护、3 份保障、15 个附件。B 原 ID `96194390-59ee-4e22-bf2c-a1322db6553b` 保留且 `deleted_at` 为空，恢复请求 `c19ae38d-0ef7-4f81-9fd6-bb9c04dea863` 仅一条回执。T10 保障回包丢失的更正请求也仅一条审计。此原生注入覆盖维护记录恢复，不代表对所有实体逐个执行相同 GUI 故障；其他事务和重复请求边界沿用 Rust 测试证据。
 
 本轮所列 T10/T11 小窗口与错误恢复缺口已补齐；结合前述 E09、费用、附件、备份及状态回归，**CP2 已达到本阶段出口**。完整 P0、T12–T21 与 T20 完整 Mac 体验仍未完成；本结论不扩展到这些范围。
