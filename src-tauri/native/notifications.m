@@ -27,7 +27,7 @@ char *possio_notifications(const char *json, int ask) {
   else {[center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings){status=settings.authorizationStatus;dispatch_semaphore_signal(auth);}];}
   if(dispatch_semaphore_wait(auth,dispatch_time(DISPATCH_TIME_NOW,15*NSEC_PER_SEC))!=0)return strdup(ask?"通知授权待确认，请在右上角系统提示中允许后重试":"通知服务未及时响应，请重试");
   if(ask&&authorizationError)return strdup([[NSString stringWithFormat:@"通知权限请求失败：%@",authorizationError] UTF8String]);
-  if(ask)return strdup(status==2?"":status==1?"通知权限未开启，请在系统设置中允许物志通知":"通知权限请求失败");
+  if(ask)return strdup(status==2?"":status==1?"通知权限未开启，请在系统设置中允许物谱通知":"通知权限请求失败");
   NSData *data=[[NSString stringWithUTF8String:json] dataUsingEncoding:NSUTF8StringEncoding];
   NSArray *plans=[NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
   if(![plans isKindOfClass:NSArray.class])return strdup("提醒计划无效");

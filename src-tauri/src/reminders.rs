@@ -138,7 +138,7 @@ fn enqueue(request: Request) -> bool {
             });
         if spawned.is_err() {
             if let Ok(mut last) = LAST.lock() {
-                last.1 = "提醒服务未能启动，请重启物志".into();
+                last.1 = "提醒服务未能启动，请重启物谱".into();
             }
         }
         Mutex::new(tx)

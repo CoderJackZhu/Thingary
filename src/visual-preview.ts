@@ -273,7 +273,7 @@ function autoBackupFixture(): PreviewAutoBackup {
     last_error: mode === 'error' ? { at: when(18), message: '模拟自动备份失败：目标磁盘空间不足' } : null,
     items,
     total_size: items.reduce((sum, item) => sum + item.size, 0),
-    extra_dir: mode === 'ok' || mode === 'extra-error' ? '/Users/虚构用户/额外备份/物志' : null,
+    extra_dir: mode === 'ok' || mode === 'extra-error' ? '/Users/虚构用户/额外备份/物谱' : null,
     extra_last_at: mode === 'ok' ? when(42) : null,
     extra_last_error: mode === 'extra-error' ? { at: when(11), message: '额外备份位置不可用：外接盘未连接' } : null,
   };
@@ -727,7 +727,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     images.set(id,Promise.resolve(new Uint8Array(args.bytes as number[]).buffer));
     return {id,name:String(args.name)};
   }
-  if (command === 'save_csv_template') return '/Users/demo/Downloads/物志导入模板.csv';
+  if (command === 'save_csv_template') return '/Users/demo/Downloads/物谱导入模板.csv';
   if (command === 'inspect_csv_import') return {path:'/tmp/旧表格.csv',name:'旧表格.csv',preview:{hash:'h',valid:12,invalid:[{line:5,name:'台灯',reason:'金额「约100」须为不小于 0 的数字，最多两位小数'},{line:9,name:'',reason:'名称须为 1–200 字'}],duplicates:[{line:3,name:'降噪耳机',reason:'名称、购入日期和购入价与已有物品相同'}],new_categories:['乐器'],new_channels:['闲鱼']}};
   if (command === 'commit_csv_import') throw {message:'导入请在原生 App 验证。'};
   if (command === 'pick_photo') throw {message:'图片选择请在原生 App 中验证，此页面仅使用虚构示意图。'};

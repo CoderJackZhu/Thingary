@@ -1,12 +1,12 @@
 {
-  "productName": "物志",
-  "version": "2.3.1",
+  "productName": "物谱",
+  "version": "2.3.2",
   "identifier": "local.possio.main",
   "app": {
     "windows": [
       {
         "label": "main",
-        "title": "物志",
+        "title": "物谱",
         "width": 1360,
         "height": 900,
         "minWidth": 800,

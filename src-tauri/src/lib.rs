@@ -69,17 +69,17 @@ pub fn run() {
             app.manage(commands::LibraryGuard::default());
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem as Item, Submenu};
             let quit =
-                MenuItem::with_id(app, "quit-possio", "退出物志", true, Some("CmdOrCtrl+Q"))?;
+                MenuItem::with_id(app, "quit-possio", "退出物谱", true, Some("CmdOrCtrl+Q"))?;
             let app_menu = Submenu::with_items(
                 app,
-                "物志",
+                "物谱",
                 true,
                 &[
-                    &Item::about(app, Some("关于物志"), None)?,
+                    &Item::about(app, Some("关于物谱"), None)?,
                     &Item::separator(app)?,
                     &MenuItem::with_id(app, "open-settings", "设置…", true, Some("CmdOrCtrl+,"))?,
                     &Item::separator(app)?,
-                    &Item::hide(app, Some("隐藏物志"))?,
+                    &Item::hide(app, Some("隐藏物谱"))?,
                     &Item::hide_others(app, Some("隐藏其他"))?,
                     &Item::show_all(app, Some("显示全部"))?,
                     &Item::separator(app)?,
