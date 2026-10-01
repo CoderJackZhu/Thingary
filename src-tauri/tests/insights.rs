@@ -662,3 +662,243 @@ fn holding_statistics_and_exact_daily_rankings_from_an_independent_sample() {
     assert_eq!(all.median_days, Some((10 + 20) as f64 / 2.0));
     assert!(s.holding("bogus", today).is_err());
 }
+
+fn sell(s: &mut Store, record: &AssetRecord, price: &str) -> AssetRecord {
+    s.change_sale(
+        &sales::Change {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: record.asset.id.clone(),
+            expected_revision: record.asset.revision,
+            action: sales::Action::Sell {
+                fields: sales::Fields {
+                    date: "2026-09-05".into(),
+                    price_cents: price.into(),
+                    platform: String::new(),
+                    buyer: String::new(),
+                    notes: String::new(),
+                },
+            },
+        },
+        TODAY,
+    )
+    .unwrap()
+}
+
+fn excluded_from_statistics(s: &mut Store, record: &AssetRecord) {
+    let mut options = possio_lib::preferences::AssetOptions::default();
+    options.preferences.exclude.statistics = true;
+    s.save_asset(
+        &SaveAsset {
+            options: Some(options),
+            base: Save {
+                request_id: id(),
+                generation: s.generation(),
+                asset_id: Some(record.asset.id.clone()),
+                expected_revision: Some(record.asset.revision),
+                name: record.asset.name.clone(),
+                price_cents: record.asset.price_cents.clone(),
+                purchase_date: record.asset.purchase_date.clone(),
+            },
+            details: Details::default(),
+            photos: None,
+            classification: None,
+        },
+        TODAY,
+    )
+    .unwrap();
+}
+
+/// U19 sample (docs/ui/U19_RESALE_RATE_DESIGN.md §7): values are independent of the code.
+#[test]
+fn u19_resale_rate_matches_the_documented_sample() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let day = Some("2026-08-01");
+    let a = asset(&mut s, "A 相机", None, Some("1000000"), day);
+    let a = sell(&mut s, &a, "650000");
+    let b = asset(&mut s, "B 耳机", None, Some("200000"), day);
+    sell(&mut s, &b, "240000");
+    let c = asset(&mut s, "C 键盘", None, Some("80000"), day);
+    sell(&mut s, &c, "0");
+    let d = asset(&mut s, "D 手机", None, None, day);
+    sell(&mut s, &d, "100000");
+    let e = asset(&mut s, "E 赠品", None, Some("0"), day);
+    sell(&mut s, &e, "5000");
+    let f = asset(&mut s, "F 不计入", None, Some("100000"), day);
+    let f = sell(&mut s, &f, "90000");
+    excluded_from_statistics(&mut s, &f);
+    let g = asset(&mut s, "G 已删除", None, Some("100000"), day);
+    let g = sell(&mut s, &g, "80000");
+    s.change_trash(&TrashChange {
+        request_id: id(),
+        generation: s.generation(),
+        asset_id: g.asset.id.clone(),
+        expected_revision: g.asset.revision,
+        deleted: true,
+    })
+    .unwrap();
+    let h = asset(&mut s, "H 已撤销", None, Some("100000"), day);
+    let h = sell(&mut s, &h, "70000");
+    let sale_id = s.record(&h.asset.id).unwrap().unwrap().sale.unwrap().id;
+    let h = s.record(&h.asset.id).unwrap().unwrap();
+    s.change_sale(
+        &sales::Change {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: h.asset.id.clone(),
+            expected_revision: h.asset.revision,
+            action: sales::Action::Revoke { sale_id },
+        },
+        TODAY,
+    )
+    .unwrap();
+    let i = asset(&mut s, "I 退役", None, Some("100000"), day);
+    s.change_lifecycle(
+        &lifecycle::Change {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: i.asset.id.clone(),
+            expected_revision: i.asset.revision,
+            action: lifecycle::Action::Append {
+                kind: lifecycle::Kind::Retire,
+                date: "2026-09-02".into(),
+                notes: String::new(),
+            },
+        },
+        TODAY,
+    )
+    .unwrap();
+    let _ = a;
+
+    let r = s.resale_rate(TODAY).unwrap();
+    assert_eq!(r.included_count, 3);
+    assert_eq!(
+        (
+            r.total_purchase_cents.as_str(),
+            r.total_sale_cents.as_str(),
+            r.total_gain_cents.as_str()
+        ),
+        ("1280000", "890000", "-390000")
+    );
+    // (65 + 120 + 0) / 3 = 61.666…% → 61.67%; 890,000 / 1,280,000 = 69.53125% → 69.53%.
+    assert_eq!(r.average_rate_hundredths, Some(6167));
+    assert_eq!(r.weighted_rate_hundredths, Some(6953));
+    let rows: Vec<_> = r
+        .rows
+        .iter()
+        .map(|x| (x.name.as_str(), x.rate_hundredths, x.gain_cents.as_str()))
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            ("B 耳机", 12000, "40000"),
+            ("A 相机", 6500, "-350000"),
+            ("C 键盘", 0, "-80000")
+        ]
+    );
+    let mut excluded: Vec<_> = r
+        .excluded
+        .iter()
+        .map(|x| (x.name.as_str(), x.reason.as_str()))
+        .collect();
+    excluded.sort();
+    assert_eq!(
+        excluded,
+        [
+            ("D 手机", "购入金额未知"),
+            ("E 赠品", "购入价为 ¥0，不计算")
+        ]
+    );
+
+    // The recovery card shares the same eligible set (§3): 8,900 / 12,800, not 9,950 / 12,800.
+    let all = s.stats_snapshot("all", TODAY).unwrap();
+    assert_eq!(
+        (
+            all.sale_proceeds_cents.as_str(),
+            all.sold_purchase_cents.as_str()
+        ),
+        ("890000", "1280000")
+    );
+    assert_eq!(
+        (all.sold_unknown_price_count, all.sold_zero_price_count),
+        (1, 1)
+    );
+    assert_eq!(all.sold, 5);
+}
+
+#[test]
+fn u19_resale_rate_edges_ties_corrections_and_extremes() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let empty = s.resale_rate(TODAY).unwrap();
+    assert_eq!(
+        (empty.included_count, empty.average_rate_hundredths),
+        (0, None)
+    );
+    assert_eq!(empty.weighted_rate_hundredths, None);
+    assert_eq!(empty.total_gain_cents, "0");
+    assert!(empty.rows.is_empty() && empty.excluded.is_empty());
+    assert!(s.resale_rate("bogus").is_err());
+
+    // Nothing rateable: no 0% and no division, only the reason list.
+    let lone = asset(&mut s, "无购入价", None, None, Some("2026-08-01"));
+    sell(&mut s, &lone, "1000");
+    let none = s.resale_rate(TODAY).unwrap();
+    assert_eq!(none.average_rate_hundredths, None);
+    assert_eq!(none.excluded.len(), 1);
+
+    // A ratio differing by one hundredth of a percent is ordered by the exact value.
+    let x = asset(&mut s, "X", None, Some("1000"), Some("2026-08-01"));
+    sell(&mut s, &x, "333");
+    let y = asset(&mut s, "Y", None, Some("10000"), Some("2026-08-01"));
+    sell(&mut s, &y, "3334");
+    // Equal ratios fall back to the asset id; 1/3 rounds half up at the hundredth.
+    let (p, q) = (
+        asset(&mut s, "P", None, Some("300"), Some("2026-08-01")),
+        asset(&mut s, "Q", None, Some("600"), Some("2026-08-01")),
+    );
+    sell(&mut s, &p, "100");
+    sell(&mut s, &q, "200");
+    let r = s.resale_rate(TODAY).unwrap();
+    let names: Vec<_> = r.rows.iter().map(|x| x.name.as_str()).collect();
+    assert_eq!(names[0], "Y");
+    assert_eq!(names[3], "X");
+    assert_eq!(r.rows[1].rate_hundredths, 3333);
+    assert_eq!(r.rows[1].rate_hundredths, r.rows[2].rate_hundredths);
+    assert!(r.rows[1].id < r.rows[2].id);
+    let (x_row, y_row) = (&r.rows[3], &r.rows[0]);
+    assert_eq!((x_row.rate_hundredths, y_row.rate_hundredths), (3330, 3334));
+
+    // Correcting the sale price moves the rate; a sale far above purchase is not capped.
+    let record = s.record(&x.asset.id).unwrap().unwrap();
+    let sale = record.sale.clone().unwrap();
+    s.change_sale(
+        &sales::Change {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: x.asset.id.clone(),
+            expected_revision: record.asset.revision,
+            action: sales::Action::Correct {
+                sale_id: sale.id,
+                fields: sales::Fields {
+                    price_cents: "5000".into(),
+                    ..sale.fields
+                },
+            },
+        },
+        TODAY,
+    )
+    .unwrap();
+    let r = s.resale_rate(TODAY).unwrap();
+    assert_eq!(r.rows[0].name, "X");
+    assert_eq!(r.rows[0].rate_hundredths, 50000);
+
+    // Extreme amounts stay exact and are returned as strings.
+    let big = asset(&mut s, "极值", None, Some("1"), Some("2026-08-01"));
+    sell(&mut s, &big, "99999999999");
+    let r = s.resale_rate(TODAY).unwrap();
+    assert_eq!(r.rows[0].name, "极值");
+    assert_eq!(r.rows[0].rate_hundredths, 999_999_999_990_000);
+    assert_eq!(r.rows[0].gain_cents, "99999999998");
+}

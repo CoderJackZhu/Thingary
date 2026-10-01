@@ -676,6 +676,16 @@ pub async fn purchase_trend(
 }
 
 #[tauri::command]
+pub async fn resale_rate(worker: tauri::State<'_, Worker>) -> Result<crate::insights::ResaleRate> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.resale_rate(&chrono::Local::now().format("%Y-%m-%d").to_string()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保值率读取失败，请重试"))?
+}
+
+#[tauri::command]
 pub async fn holding(
     scope: String,
     worker: tauri::State<'_, Worker>,

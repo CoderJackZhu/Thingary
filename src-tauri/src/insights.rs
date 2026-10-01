@@ -145,6 +145,8 @@ pub struct StatsSnapshot {
     pub sale_proceeds_cents: String,
     pub sold_purchase_cents: String,
     pub sold_unknown_price_count: i64,
+    /// Sold assets bought for ¥0: no resale rate exists, so they stay out of the recovery figures.
+    pub sold_zero_price_count: i64,
     pub categories: Vec<SnapshotCategory>,
 }
 
@@ -182,6 +184,7 @@ impl Store {
             sale_proceeds_cents: "0".into(),
             sold_purchase_cents: "0".into(),
             sold_unknown_price_count: 0,
+            sold_zero_price_count: 0,
             categories: Vec::new(),
         };
         let (mut known, mut proceeds, mut sold_purchase) = (0i64, 0i64, 0i64);
@@ -204,13 +207,15 @@ impl Store {
                 result.unknown_price_count += 1
             }
             if state == "sold" {
-                if let Some(value) = sale_price {
-                    proceeds += value
-                }
-                if let Some(value) = price {
-                    sold_purchase += value
-                } else {
-                    result.sold_unknown_price_count += 1
+                // Recovery compares like with like: only sales of assets whose purchase
+                // price is known and positive enter either side.
+                match price {
+                    Some(value) if value > 0 => {
+                        sold_purchase += value;
+                        proceeds += sale_price.unwrap_or(0);
+                    }
+                    Some(_) => result.sold_zero_price_count += 1,
+                    None => result.sold_unknown_price_count += 1,
                 }
             }
             let idx = result
@@ -567,6 +572,127 @@ impl Store {
             longest: days_list.into_iter().next().map(|d| d.1),
             held_ranking: held_rank,
             sold_ranking: sold_rank,
+            excluded,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct ResaleRow {
+    pub id: String,
+    pub name: String,
+    pub purchase_cents: String,
+    pub sale_cents: String,
+    /// 售出价 − 购入价; negative when sold below purchase.
+    pub gain_cents: String,
+    /// 售出价 ÷ 购入价 in hundredths of a percent, rounded half up; not capped at 100%.
+    pub rate_hundredths: i64,
+    pub sold_date: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ResaleRate {
+    pub generation: String,
+    pub today: String,
+    pub included_count: i64,
+    pub total_purchase_cents: String,
+    pub total_sale_cents: String,
+    pub total_gain_cents: String,
+    /// Plain mean of the per-asset rates; `None` when nothing qualifies.
+    pub average_rate_hundredths: Option<i64>,
+    /// Total sale price ÷ total purchase price over the same assets.
+    pub weighted_rate_hundredths: Option<i64>,
+    /// Highest rate first; equal ratios fall back to the asset id.
+    pub rows: Vec<ResaleRow>,
+    pub excluded: Vec<Excluded>,
+}
+
+impl Store {
+    /// Resale rate of sold assets (U19): sale price ÷ purchase price, maintenance
+    /// ignored. Unknown or zero purchase prices cannot be rated and are listed,
+    /// never counted as zero.
+    pub fn resale_rate(&self, today: &str) -> Result<ResaleRate> {
+        crate::domain::date(today)?;
+        let c = self.conn()?;
+        let mut stmt = c.prepare(
+            "SELECT a.id,a.name,a.price_cents,s.price_cents,s.date FROM assets a JOIN sales s ON s.asset_id=a.id AND s.revoked_at IS NULL WHERE a.deleted_at IS NULL AND a.lifecycle_state='sold' AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1) ORDER BY a.id",
+        )?;
+        let sold = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, Option<i64>>(2)?,
+                    r.get::<_, i64>(3)?,
+                    r.get::<_, String>(4)?,
+                ))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut rows = Vec::new();
+        let mut excluded = Vec::new();
+        let (mut purchase_total, mut sale_total) = (0i128, 0i128);
+        for (id, name, purchase, sale, sold_date) in sold {
+            match purchase {
+                Some(purchase) if purchase > 0 => {
+                    let (p, s) = (i128::from(purchase), i128::from(sale));
+                    purchase_total += p;
+                    sale_total += s;
+                    rows.push(ResaleRow {
+                        id,
+                        name,
+                        purchase_cents: p.to_string(),
+                        sale_cents: s.to_string(),
+                        gain_cents: (s - p).to_string(),
+                        rate_hundredths: ((s * 20000 + p) / (p * 2)) as i64,
+                        sold_date,
+                    });
+                }
+                other => excluded.push(Excluded {
+                    id,
+                    name,
+                    reason: if other.is_none() {
+                        "购入金额未知"
+                    } else {
+                        "购入价为 ¥0，不计算"
+                    }
+                    .into(),
+                }),
+            }
+        }
+        // Exact ratio ordering, highest first: a/b > c/d ⇔ a·d > c·b (purchases are positive).
+        rows.sort_by(|x, y| {
+            let n = |r: &ResaleRow| {
+                (
+                    r.sale_cents.parse::<i128>().unwrap_or(0),
+                    r.purchase_cents.parse::<i128>().unwrap_or(1),
+                )
+            };
+            let ((a, b), (p, q)) = (n(x), n(y));
+            (p * b).cmp(&(a * q)).then_with(|| x.id.cmp(&y.id))
+        });
+        let count = rows.len() as i64;
+        let average = (count > 0).then(|| {
+            let sum: f64 = rows
+                .iter()
+                .map(|r| {
+                    r.sale_cents.parse::<f64>().unwrap_or(0.0) * 10000.0
+                        / r.purchase_cents.parse::<f64>().unwrap_or(1.0)
+                })
+                .sum();
+            (sum / count as f64).round() as i64
+        });
+        let weighted = (count > 0)
+            .then(|| ((sale_total * 20000 + purchase_total) / (purchase_total * 2)) as i64);
+        Ok(ResaleRate {
+            generation: self.generation(),
+            today: today.into(),
+            included_count: count,
+            total_purchase_cents: purchase_total.to_string(),
+            total_sale_cents: sale_total.to_string(),
+            total_gain_cents: (sale_total - purchase_total).to_string(),
+            average_rate_hundredths: average,
+            weighted_rate_hundredths: weighted,
+            rows,
             excluded,
         })
     }
