@@ -2,9 +2,9 @@
 
 ## 项目与当前状态
 
-物谱 Thingary（工程内部名 Possio）面向个人实物资产的长期记录与回顾。文档入口见 [README](README.md)，任务状态以 [实施计划](docs/IMPLEMENTATION_PLAN.md) 为准，逐次变更与历史协作说明见 [CHANGELOG](CHANGELOG.md)。
+物谱 Thingary（工程内部名 Possio）面向个人实物资产的长期记录与回顾。文档入口见 [文档索引](docs/INDEX.md)，任务状态以 [实施计划](docs/IMPLEMENTATION_PLAN.md) 为准，逐次变更与历史协作说明见 [CHANGELOG](CHANGELOG.md)。
 
-当前状态（2026-10-01）：P0 闭环、统一资产扩展（A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验）及 U 系列迭代（至 U18 桌面布局与导航整理）均已合入 main；自用正式版 2.4.0（中文名「物谱」英文名 Thingary，产品设计 D26；近似名分析显示软件类有近似商标，待用户决定是否换名）已安装在 `/Applications/物谱.app`（identifier 仍为 `local.possio.main`，回退副本在 `.local/install/`）。逐次变更见 CHANGELOG，任务状态以实施计划为准。竞品、平台与名称调研见竞品调研第 9–28 节；中文名已换为「物谱」（D26，用户选择换名），商标近似名分析与官方商标网复核待做，开源许可与公开发布方式待用户决定，发布前盘点见 [发布前盘点](docs/RELEASE_AUDIT.md)。下一步范围由用户选择，不自行推进新阶段。仓库已有 GitHub 远程 `origin`，推送只在用户要求时进行。
+当前状态（2026-10-02）：P0 闭环、统一资产扩展（A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验）及 U 系列迭代均已合入 main；自用正式版 2.4.3（中文名「物谱」英文名 Thingary，均已由用户确认不再换名，见产品设计 D26）已安装在 `/Applications/物谱.app`（identifier 仍为 `local.possio.main`，回退副本在 `.local/install/`）。公开发布的收尾工作与状态见[发布前盘点第 10 节](docs/RELEASE_AUDIT.md)；开源许可已定为 GPL-3.0，名称与图标不在 GPL 授权范围内。竞品、平台与名称调研见竞品调研第 9–28 节。下一步范围由用户选择，不自行推进新阶段。仓库已有 GitHub 远程 `origin`，推送、改名、公开都只在用户要求时进行。
 
 长期约束：
 
@@ -17,10 +17,10 @@
 
 ## 文档权威与读取顺序
 
-1. 先读 [README](README.md)，了解当前阶段和入口。
+1. 先读 [文档索引](docs/INDEX.md)，了解当前阶段和入口。
 2. 产品范围、业务规则和验收以 [PRODUCT_DESIGN](docs/PRODUCT_DESIGN.md) 为准；第 15.2 节区分已确认与待确认决策。
 3. 竞品事实、来源和核验边界以 [COMPETITOR_RESEARCH](docs/COMPETITOR_RESEARCH.md) 为准；不把尚未实测的差异化假设当作事实。
-4. 后续 UI、架构与任务文档建立后，在 README 登记职责和入口；各自只维护所属内容，不重复抄录整份产品需求。
+4. 后续 UI、架构与任务文档建立后，在文档索引（docs/INDEX.md）登记职责和入口；各自只维护所属内容，不重复抄录整份产品需求。
 
 最新用户决定优先于旧文档。用户确认后，更新原有权威章节并记录决策来源；冲突未解决时保留为待决策，不能默默当作已批准。开始修改前读取实际文件，保留其他任务或用户已作的更新。
 
@@ -42,4 +42,4 @@
 
 ## 命令与技术约定
 
-应用基于 Tauri 2 / React / TypeScript / Rust / SQLite；Rust 部分链接 macOS 原生框架，只能在 Mac 上构建和测试。实际构建与检查入口见 README，结果见验证报告。默认只用临时虚构数据；故障注入 feature 仅用于测试，不带入普通 App 构建。不能把后端实验通过解释为未执行的 UI 验收通过。
+应用基于 Tauri 2 / React / TypeScript / Rust / SQLite；Rust 部分链接 macOS 原生框架，只能在 Mac 上构建和测试。实际构建与检查入口见根目录 README 与文档索引，结果见验证报告。默认只用临时虚构数据；故障注入 feature 仅用于测试，不带入普通 App 构建。不能把后端实验通过解释为未执行的 UI 验收通过。
