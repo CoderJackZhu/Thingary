@@ -91,8 +91,10 @@ export function TopbarSearchBox({ search, value, inputRef, expanded, disabled = 
     <input ref={inputRef} aria-label={search.placeholder} placeholder={search.placeholder} value={value} maxLength={200} disabled={disabled}
       onChange={e => onChange(e.target.value)}
       onKeyDown={e => {
-        // IME composition owns Escape until the candidate window closes.
-        if (e.key === 'Escape' && !e.nativeEvent.isComposing) { e.stopPropagation(); if (value) onChange(''); }
+        // IME composition owns Escape until the candidate window closes. WebKit
+        // ends the composition before this keydown (isComposing is already
+        // false) but still marks the key as IME-handled with keyCode 229.
+        if (e.key === 'Escape' && !e.nativeEvent.isComposing && e.nativeEvent.keyCode !== 229) { e.stopPropagation(); if (value) onChange(''); }
       }}/>
     {value && <button type="button" className="search-clear" aria-label={`清除${search.placeholder}`} disabled={disabled} onClick={() => { onChange(''); inputRef.current?.focus(); }}>
       <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" aria-hidden="true"><path d="M5 5l10 10M15 5 5 15"/></svg>
