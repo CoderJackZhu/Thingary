@@ -123,3 +123,33 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 **清理已执行（2026-10-01，用户放行后）。** 已删除：`docs/archive/`（交接文档）、`docs/UI_DESIGN.md`、`docs/VERIFICATION_REPORT.md`、`docs/ui/` 下除规范与 v3 设计稿外的截图与脚本（约 82 MB）、`docs/verification/` 下除报告外的截图与日志（约 39 MB）、根目录 `t06-preview.html` 与 `src/t06-preview.tsx`、3 个依赖 Ego Lite 的 `tests/*.browser.mjs`；跟踪文件由 1,652 个降到约 400 个。文档中指向这些文件的 692 处链接已改为纯文本，检查器报告 0 断链。所有报告文本、产品设计、ADR、使用说明、规范与竞品调研保留。已删文件仍在 git 历史与本地标签 `archive/pre-cleanup-2026-10-01` 中；因为保留完整历史，`.git` 体积不会变小。
 
 **侧栏折行已修复。** 800×600 时侧栏窄栏宽由 145 px 增至 164 px，标签不折行；原生核对「全部资产」「心愿清单」「周期费用」均单行。
+
+## 10. 公开发布执行清单（2026-10-02）
+
+**已决定：** 中文名「物谱」、英文名 Thingary（D26 追加）；仓库公开时用英文名 Thingary；许可证 GPL-3.0；保留全部提交历史；首发仅 macOS。
+
+状态：`[x]` 已完成　`[ ]` 待做　`[用户]` 必须由你本人操作或提供凭据，我不做。
+
+**必做**
+
+- [ ] M1 版本号统一：`package.json`、`Cargo.toml`、`tauri.conf.json` 与发布配置同一版本，发布配置不再单独写版本
+- [ ] M2 `.gitignore`：你维护该文件，建议内容见本节末，由你加入 `[用户]`
+- [ ] M3 面向用户的 README（定位、截图、安装、从源码构建、数据位置、许可证、仅 macOS／Apple Silicon 验证）；原 README 的内部导览改放 `docs/INDEX.md`，`AGENTS.md` 同步
+- [ ] M4 展示截图：浏览器预览的虚构数据，浅色与深色各数张，放入 `docs/images/`
+- [ ] M5 签名与公证：写清步骤与未签名时的打开方法；真正签名公证需要 Apple Developer 账号 `[用户]`
+- [ ] M6 打包 dmg 的脚本与一次实测
+
+**建议做**
+
+- [ ] S1 CI：macOS 工作流跑构建、前端测试、fmt/clippy 与 Rust 测试
+- [ ] S2 `CONTRIBUTING`、`SECURITY`、Issue 与 PR 模板
+- [ ] S3 第三方许可证清单（生成脚本加清单文件）
+- [ ] S4 过时文字清理：`AGENTS.md` 当前状态、README 与盘点里「待决定名称」等措辞
+
+**需要你操作（外部可见，我不代做）**
+
+- [ ] U1 把 GitHub 仓库从 `Possio` 改名为 `Thingary`，随后我更新本地 `origin` `[用户]`
+- [ ] U2 推送与公开仓库、发布第一个版本 `[用户]`
+- [ ] U3 本节 4.3 的手工检查（系统外观实时切换、VoiceOver 等）`[用户]`
+
+建议加入根 `.gitignore` 的内容：`/node_modules/`、`/dist/`、`/.local/`、`/.claude/`、`.DS_Store`、`/src-tauri/target/`、`/src-tauri/gen/`（先在全新克隆里确认 `git status` 干净）。
