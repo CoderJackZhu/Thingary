@@ -189,3 +189,4 @@
 .timeline-section .lifecycle-history li>button{font-size:11px;padding:4px 8px}
 .timeline-section .timeline:before,.timeline-section .timeline>.lifecycle-history:before{display:none}.timeline-section .timeline,.timeline-section .timeline>.lifecycle-history{padding-left:0;margin-left:0}
 .popover-menu>div>hr{width:100%;border:0;border-top:1px solid var(--line);margin:4px 0}.popover-menu>div>button.danger{color:var(--error)}.popover-menu>div>button.danger:hover{background:var(--error);color:#fff}
+.resale-card{grid-column:1/-1}.resale-card .ui-table td:nth-child(2){max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.resale-card .ui-table td:nth-child(n+3),.resale-card .ui-table th:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}

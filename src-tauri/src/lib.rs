@@ -223,6 +223,7 @@ pub fn run() {
             commands::stats_snapshot,
             commands::purchase_trend,
             commands::holding,
+            commands::resale_rate,
             commands::create_backup,
             commands::inspect_backup,
             commands::restore_backup,

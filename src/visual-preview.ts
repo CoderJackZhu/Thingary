@@ -16,6 +16,7 @@ import { deriveStatus, summarizeWarranties } from './warranty';
 import { fixtureArt } from './visual-fixtures';
 import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materials';
 import { previewRecord } from './preview-costs';
+import { previewResaleRate } from './resale';
 import demoAssets from './demo-assets.json';
 import { wealthPreview, financialTimelineEvents, previewWishPage, previewReadWish, validatePreviewSource } from './wealth-preview';
 import type { PreviewEvent } from './wealth-preview';
@@ -148,6 +149,13 @@ if (params.has('tag-fixture')) {
     for (let i = 1; i <= 130; i++) records.push(tagFixtureRecord(`tag-n${String(i).padStart(3, '0')}`, `常规${String(i).padStart(3, '0')}`, String(i * 10000), 'active'));
     for (let i = 131; i <= 150; i++) records.push(tagFixtureRecord(`tag-n${String(i).padStart(3, '0')}`, `已售${String(i).padStart(3, '0')}`, String(i * 10000), 'sold', [], String(i * 8000)));
   }
+}
+// U19 预览夹具：docs/ui/U19_RESALE_RATE_DESIGN.md §7 的虚构样例，只加入内存；?resale-fixture=skipped 只留不可计算的售出物品。
+if (params.has('resale-fixture')) {
+  const skippedOnly = params.get('resale-fixture') === 'skipped';
+  records = records.filter(r => r.lifecycle?.state !== 'sold');
+  if (!skippedOnly) records.push(tagFixtureRecord('rs-a', '相机', '1000000', 'sold', [], '650000'), tagFixtureRecord('rs-b', '耳机', '200000', 'sold', [], '240000'), tagFixtureRecord('rs-c', '键盘', '80000', 'sold', [], '0'));
+  records.push(tagFixtureRecord('rs-d', '手机', null, 'sold', [], '100000'), tagFixtureRecord('rs-e', '赠品', '0', 'sold', [], '5000'));
 }
 // U17 预览夹具：缺失、全排除状态只改内存虚构事实，刷新即重置。
 if (params.get('tag-view') === 'missing') {
@@ -371,8 +379,12 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   // Screenshot fixtures only: authoritative statistical calculations stay in Rust.
   if (command === 'stats_snapshot') {
     const rows=records.filter(r=>!r.deleted&&!r.preferences?.exclude.statistics), sum=(rs:AssetRecord[])=>rs.reduce((n,r)=>n+BigInt(r.asset.price_cents??0),0n).toString();
-    const sold=rows.filter(r=>r.lifecycle?.state==='sold');
-    return {period:args.period,start:null,end:localDay(),total:rows.length,active:rows.filter(r=>r.lifecycle?.state==='active').length,retired:rows.filter(r=>r.lifecycle?.state==='retired').length,sold:sold.length,known_cents:sum(rows),unknown_price_count:rows.filter(r=>r.asset.price_cents===null).length,sale_proceeds_cents:sold.reduce((n,r)=>n+BigInt(r.sale?.fields.price_cents??0),0n).toString(),sold_purchase_cents:sum(sold),sold_unknown_price_count:sold.filter(r=>r.asset.price_cents===null).length,categories:catalog.categories.flatMap(c=>{const items=rows.filter(r=>r.classification?.category_id===c.id);return items.length?[{id:c.id,name:c.name,count:items.length,known_cents:sum(items),unknown_price_count:items.filter(r=>r.asset.price_cents===null).length}]:[]})};
+    const sold=rows.filter(r=>r.lifecycle?.state==='sold'), rated=sold.filter(r=>r.asset.price_cents!==null&&BigInt(r.asset.price_cents)>0n);
+    return {period:args.period,start:null,end:localDay(),total:rows.length,active:rows.filter(r=>r.lifecycle?.state==='active').length,retired:rows.filter(r=>r.lifecycle?.state==='retired').length,sold:sold.length,known_cents:sum(rows),unknown_price_count:rows.filter(r=>r.asset.price_cents===null).length,sale_proceeds_cents:rated.reduce((n,r)=>n+BigInt(r.sale?.fields.price_cents??0),0n).toString(),sold_purchase_cents:sum(rated),sold_unknown_price_count:sold.filter(r=>r.asset.price_cents===null).length,sold_zero_price_count:sold.filter(r=>r.asset.price_cents==='0').length,categories:catalog.categories.flatMap(c=>{const items=rows.filter(r=>r.classification?.category_id===c.id);return items.length?[{id:c.id,name:c.name,count:items.length,known_cents:sum(items),unknown_price_count:items.filter(r=>r.asset.price_cents===null).length}]:[]})};
+  }
+  if (command === 'resale_rate') {
+    if (params.has('resale-error')) throw { message: '虚构保值率读取失败，用于验证错误与重试。' };
+    return previewResaleRate(records);
   }
   if (command === 'purchase_trend') {
     const rows=records.filter(r=>!r.deleted), dated=rows.filter(r=>r.asset.purchase_date), groups=new Map<string,AssetRecord[]>();
