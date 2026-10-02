@@ -132,7 +132,7 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 
 **必做**
 
-- [ ] M1 版本号统一：`package.json`、`Cargo.toml`、`tauri.conf.json` 与发布配置同一版本，发布配置不再单独写版本
+- [x] M1 版本号统一：`package.json`、`Cargo.toml`、`tauri.conf.json` 与发布配置同一版本，发布配置不再单独写版本
 - [ ] M2 `.gitignore`：你维护该文件，建议内容见本节末，由你加入 `[用户]`
 - [ ] M3 面向用户的 README（定位、截图、安装、从源码构建、数据位置、许可证、仅 macOS／Apple Silicon 验证）；原 README 的内部导览改放 `docs/INDEX.md`，`AGENTS.md` 同步
 - [ ] M4 展示截图：浏览器预览的虚构数据，浅色与深色各数张，放入 `docs/images/`

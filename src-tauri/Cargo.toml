@@ -1,6 +1,6 @@
 [package]
 name = "possio"
-version = "0.0.1"
+version = "2.4.3"
 edition = "2021"
 license = "GPL-3.0-or-later"
 description = "物谱 Thingary: a local-first macOS archive of the things you own"
