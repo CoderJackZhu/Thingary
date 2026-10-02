@@ -1,0 +1,37 @@
+name: 缺陷报告
+description: 应用行为不符合预期
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 发生了什么
+      description: 你做了什么、看到了什么、期望看到什么。请不要粘贴真实的个人资料。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 物谱版本
+      description: 「物谱 › 关于物谱」里可以看到。
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: macOS 版本与芯片
+      placeholder: 例如 macOS 27、Apple Silicon
+    validations:
+      required: true
+  - type: checkboxes
+    id: data
+    attributes:
+      label: 资料安全
+      options:
+        - label: 我已确认这不是资料丢失或损坏；若是，我已先保留现有资料和备份，再来报告
