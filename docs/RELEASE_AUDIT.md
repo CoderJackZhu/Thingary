@@ -128,14 +128,14 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 
 ## 10. 公开发布执行清单（2026-10-02）
 
-**已决定：** 中文名「物谱」、英文名 Thingary（D26 追加）；仓库公开时用英文名 Thingary；许可证 GPL-3.0；保留全部提交历史；首发仅 macOS。
+**已决定：** 中文名「物谱」、英文名 Thingary（D26 追加）；仓库公开时用英文名 Thingary；许可证 GPL-3.0；保留全部提交历史；首发仅 macOS；首发不签名、不公证（2026-10-02，用户决定），README 的未签名打开方法即为安装说明。
 
 状态：`[x]` 已完成　`[ ]` 待做　`[用户]` 必须由你本人操作或提供凭据，我不做。
 
 **必做**
 
 - [x] M1 版本号统一：`package.json`、`Cargo.toml`、`tauri.conf.json` 与发布配置同一版本，发布配置不再单独写版本
-- [ ] M2 `.gitignore`：你维护该文件，建议内容见本节末，由你加入 `[用户]`。注意现有文件只有一行 `.DS_store` 且**末尾没有换行**，直接追加会和新内容连成一行而失效；建议整体替换。已在全新克隆里用建议内容验证：`npm ci`、构建、前端 189 项、fmt/clippy、Rust 全部通过，`git status` 干净
+- [x] M2 `.gitignore`：用户已按建议内容替换（2026-10-02），补末尾换行后提交。此前已在全新克隆里用同样内容验证：`npm ci`、构建、前端 189 项、fmt/clippy、Rust 全部通过，`git status` 干净
 - [x] M3 面向用户的 README（定位、截图、安装、从源码构建、数据位置、许可证、仅 macOS／Apple Silicon 验证）；原 README 的内部导览改放 `docs/INDEX.md`，`AGENTS.md` 同步
 - [x] M4 展示截图：浏览器预览的虚构数据，浅色与深色各数张，放入 `docs/images/`
 - [x] M5 签名与公证的步骤已写入[发布流程](RELEASING.md)，未签名时的打开方法在 README；真正签名公证需要 Apple Developer 账号 `[用户]`
@@ -150,8 +150,6 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 
 **需要你操作（外部可见，我不代做）**
 
-- [ ] U1 把 GitHub 仓库从 `Possio` 改名为 `Thingary`，随后我更新本地 `origin` `[用户]`
+- [x] U1 GitHub 仓库已由用户改名为 `Thingary`（2026-10-02）；本地 `origin` 仍是旧地址（GitHub 自动重定向），改指向由用户执行 `[用户]`
 - [ ] U2 推送与公开仓库、发布第一个版本 `[用户]`
 - [ ] U3 本节 4.3 的手工检查（系统外观实时切换、VoiceOver 等）`[用户]`
-
-建议加入根 `.gitignore` 的内容：`/node_modules/`、`/dist/`、`/.local/`、`/.claude/`、`.DS_Store`、`/src-tauri/target/`、`/src-tauri/gen/`（先在全新克隆里确认 `git status` 干净）。
