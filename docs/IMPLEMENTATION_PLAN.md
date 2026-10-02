@@ -2,7 +2,7 @@
 
 <a id="u19"></a>
 
-## U19 · 售出保值率（2026-10-01，已实现并自测，原生验收与独立 Review 未做）
+## U19 · 售出保值率（2026-10-01，已实现并自测，原生验收已补做（见 [U19 原生验收](verification/U19_NATIVE_ACCEPTANCE_RESULT.md)），独立 Review 未做）
 
 用户对比竞品「有数」的「洞悉」页后，选择**只做保值率**（目标进展总览、文字摘要、AI 均不做），并认可方案建议后要求完成实现并提交推送。规则与验收唯一见[产品设计 D29](PRODUCT_DESIGN.md#d29-product)，界面与技术见[U19 设计](ui/U19_RESALE_RATE_DESIGN.md)，命令结果与证据见[验证报告](verification/U19_RESALE_RATE_RESULT.md)。
 
