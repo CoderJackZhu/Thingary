@@ -875,7 +875,7 @@ U09 验收：①全新隔离库各模块有同源样例；②各类真实首条�
 
 - **用法：** 侧栏品牌小字由 `POSSIO` 改为 `THINGARY`；macOS「关于物谱」面板显示「物谱 Thingary」，并在说明里列出中文副标题「物品档案与家底回顾」、英文副标题「Your things, over time」与许可证 GPL-3.0-or-later；README 标题、`package.json` 与 `Cargo.toml` 的描述同步。窗口标题与菜单仍用中文名。取代 D25 中「应用内不加副标题」。
 - **不变：** Possio 保留为工程内部名、代码标识与应用标识：Rust crate `possio`、`local.possio.*` 标识与资料目录、备份文件扩展名 `.possio`、`localStorage` 键 `possio.*`、`POSSIO_*` 环境变量、原生通知类名；这些改名会读不到既有资料或破坏文件格式，不改。其余面向人的文档与界面已把英文名统一为 Thingary（开发预览包名 `Thingary Preview`）。
-- **Logo：** 应用图标仍是占位图，6 个概念稿在 `docs/brand/drafts/`，待用户选择，见 [品牌与图标](brand/README.md)。
+- **Logo：** 2.3.5 起应用图标与侧栏小标志为「物谱线」五线谱（用户选定，放松间距版，小尺寸用三线版），过程与取舍见 [品牌与图标](brand/README.md)。
 - **验证：** 隔离原生包核对侧栏品牌与关于面板文字；构建、clippy 通过。
 
 ### 15.3 已确认规则的验收样例

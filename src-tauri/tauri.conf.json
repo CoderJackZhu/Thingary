@@ -31,6 +31,7 @@
       "app"
     ],
     "icon": [
+      "icons/icon.icns",
       "icons/icon.png"
     ],
     "macOS": {
