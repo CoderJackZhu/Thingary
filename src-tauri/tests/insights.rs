@@ -902,3 +902,29 @@ fn u19_resale_rate_edges_ties_corrections_and_extremes() {
     assert_eq!(r.rows[0].rate_hundredths, 999_999_999_990_000);
     assert_eq!(r.rows[0].gain_cents, "99999999998");
 }
+
+#[test]
+fn trend_ignores_purchase_dates_after_today_instead_of_building_endless_periods() {
+    let root = tempfile::tempdir().unwrap();
+    let s = Store::open(root.path()).unwrap();
+    let active: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.path().join("active.json")).unwrap()).unwrap();
+    let db = root
+        .path()
+        .join("datasets")
+        .join(active["id"].as_str().unwrap())
+        .join("data.sqlite");
+    drop(s);
+    {
+        let raw = rusqlite::Connection::open(&db).unwrap();
+        raw.execute(
+            "INSERT INTO assets(id,name,price_cents,purchase_date,revision) VALUES('11111111-1111-4111-8111-111111111111','损坏日期',100,'9999-12-31',1)",
+            [],
+        )
+        .unwrap();
+    }
+    let s = Store::open(root.path()).unwrap();
+    let trend = s.purchase_trend("month", "2026-10-02").unwrap();
+    assert!(trend.buckets.is_empty());
+    assert_eq!(trend.unknown_date_count, 1);
+}

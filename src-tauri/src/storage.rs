@@ -70,6 +70,52 @@ pub(crate) fn check_db(c: &Connection) -> Result<()> {
     }
     Ok(())
 }
+/// Newest pre-migration snapshots kept.
+const KEEP_PRE_MIGRATION: usize = 2;
+/// A library about to be upgraded keeps a copy of its database as it was: an
+/// older app refuses a newer schema, so without it a faulty migration could
+/// not be undone. Fresh libraries (version 1, no assets) have nothing to keep.
+/// Photos are content-addressed and never touched by a migration.
+fn snapshot_before_migration(db: &Connection, root: &Path) -> Result<()> {
+    let v: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    if !(1..SCHEMA_VERSION).contains(&v) {
+        return Ok(());
+    }
+    let empty: bool =
+        v == 1 && db.query_row("SELECT NOT EXISTS(SELECT 1 FROM assets)", [], |r| r.get(0))?;
+    if empty {
+        return Ok(());
+    }
+    let dir = root.join("pre-migration");
+    fs::create_dir_all(&dir)?;
+    let name = format!(
+        "schema-{v}-{}.sqlite",
+        chrono::Utc::now().format("%Y%m%dT%H%M%SZ")
+    );
+    let partial = dir.join(format!(".{name}.partial"));
+    let _ = fs::remove_file(&partial);
+    {
+        let mut target = Connection::open(&partial)?;
+        rusqlite::backup::Backup::new(db, &mut target)?.run_to_completion(
+            128,
+            Duration::from_millis(1),
+            None,
+        )?;
+    }
+    File::open(&partial)?.sync_all()?;
+    fs::rename(&partial, dir.join(&name))?;
+    sync_dir(&dir)?;
+    let mut old: Vec<String> = fs::read_dir(&dir)?
+        .filter_map(|e| e.ok()?.file_name().into_string().ok())
+        .filter(|n| n.starts_with("schema-") && n.ends_with(".sqlite"))
+        .collect();
+    // Names end in a UTC timestamp, so that part orders them by age.
+    old.sort_unstable_by_key(|n| n.rsplit('-').next().map(str::to_owned));
+    for stale in old.iter().rev().skip(KEEP_PRE_MIGRATION) {
+        let _ = fs::remove_file(dir.join(stale));
+    }
+    Ok(())
+}
 impl Store {
     pub fn open(root: &Path) -> Result<Self> {
         fs::create_dir_all(root)?;
@@ -109,9 +155,11 @@ impl Store {
             a
         };
         let db = connection(&root.join("datasets").join(&active.id).join("data.sqlite"))?;
+        snapshot_before_migration(&db, root)?;
         migrate(&db, &|_| Ok(()))?;
         check_db(&db)?;
         crate::wishlist::backfill_achieved_assets(&db)?;
+        crate::csv_import::repair_sale_receipts(&db)?;
         Ok(Self {
             root: root.to_owned(),
             active,

@@ -179,10 +179,16 @@ fn apply(json: &str, force: bool) {
     if !force && last.0 == json {
         return;
     }
-    last.0 = json.to_owned();
+    // A failed call is not remembered: the next queued plan is applied, not skipped as unchanged.
     last.1 = match native(json, false) {
-        Ok(()) => String::new(),
-        Err(e) => e.message,
+        Ok(()) => {
+            last.0 = json.to_owned();
+            String::new()
+        }
+        Err(e) => {
+            last.0.clear();
+            e.message
+        }
     };
 }
 pub fn status() -> String {

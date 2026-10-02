@@ -157,3 +157,35 @@ fn d21_import_is_all_or_nothing_and_checks_the_file() {
     );
     assert_eq!(s.count().unwrap(), 2);
 }
+
+#[test]
+fn imported_sales_keep_backup_valid_and_old_libraries_are_repaired() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let csv = "名称,购入价（元）,购入日期,状态,退役日期,售出日期,售价（元）\n\
+旧相机,5000,2024-01-01,已售出,,2026-01-01,2000\n\
+旧耳机,300,2024-02-01,已售出,2025-01-01,2026-01-01,100\n";
+    assert_eq!(import(&mut s, csv, false).unwrap().imported, 2);
+    let out = tempfile::tempdir().unwrap();
+    s.backup(Some(&out.path().join("a.possio"))).unwrap();
+    // A library imported before the fix: audits with no saved reply.
+    drop(s);
+    let active: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.path().join("active.json")).unwrap()).unwrap();
+    let db = root
+        .path()
+        .join("datasets")
+        .join(active["id"].as_str().unwrap())
+        .join("data.sqlite");
+    let raw = rusqlite::Connection::open(&db).unwrap();
+    raw.execute(
+        "DELETE FROM requests WHERE id IN (SELECT request_id FROM sale_audit)",
+        [],
+    )
+    .unwrap();
+    drop(raw);
+    let mut s = Store::open(root.path()).unwrap();
+    s.backup(Some(&out.path().join("c.possio"))).unwrap();
+    assert_eq!(import(&mut s, csv, true).unwrap().imported, 2);
+    s.backup(Some(&out.path().join("d.possio"))).unwrap();
+}

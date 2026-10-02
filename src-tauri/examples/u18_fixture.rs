@@ -198,7 +198,9 @@ fn main() {
     let canonical = std::fs::canonicalize(&root).unwrap_or_else(|_| root.clone());
     let normalized = canonical.to_string_lossy();
     assert!(
-        normalized.contains("local.possio.u18.acceptance"),
+        canonical
+            .components()
+            .any(|c| c.as_os_str() == "local.possio.u18.acceptance"),
         "refusing non-isolated path: {} (from {})",
         normalized,
         root.display()

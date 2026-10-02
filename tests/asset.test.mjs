@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {inputMoney,validate,emptyFields,costs,money,unitMoney} from '../src/asset.ts';
+import {inputMoney,validate,emptyFields,costs,money,unitMoney,yuan} from '../src/asset.ts';
 test('money preserves unknown and zero, without float conversion',()=>{
  assert.equal(inputMoney(''),null);assert.equal(inputMoney('0'),'0');assert.equal(inputMoney('1.01'),'101');assert.equal(inputMoney('999999999.99'),'99999999999');
  for(const s of ['-1','1.001','1e3','Infinity','1000000000'])assert.throws(()=>inputMoney(s));
@@ -30,4 +30,9 @@ test('money drops .00 for whole yuan and unitMoney always keeps two decimals', (
   assert.equal(unitMoney(null), '待补充');
   assert.equal(unitMoney('-50000'), '−\u2060¥500.00');
   assert.equal(money('-540000'), '−\u2060¥5,400');
+});
+test('negative amounts keep cents, and never show -0',()=>{
+  assert.equal(money('-54050'), '−\u2060¥540.50');
+  assert.equal(yuan('-54000', true), '−\u2060¥540.00');
+  assert.equal(money('-0'), '¥0');
 });

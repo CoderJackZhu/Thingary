@@ -77,3 +77,38 @@ fn missing_pointer_never_recreates_existing_data() {
     std::fs::remove_file(temp.path().join("active.json")).unwrap();
     assert_eq!(Store::open(temp.path()).err().unwrap().code, "RECOVERY");
 }
+
+#[test]
+fn upgrading_a_library_keeps_a_database_snapshot_first() {
+    let root = tempfile::tempdir().unwrap();
+    // A fresh library migrates from version 1 with nothing to keep.
+    drop(Store::open(root.path()).unwrap());
+    assert!(!root.path().join("pre-migration").exists());
+    // An old library holding data keeps its database as it was.
+    let active: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.path().join("active.json")).unwrap()).unwrap();
+    let db_path = root
+        .path()
+        .join("datasets")
+        .join(active["id"].as_str().unwrap())
+        .join("data.sqlite");
+    for _ in 0..3 {
+        {
+            let db = rusqlite::Connection::open(&db_path).unwrap();
+            db.execute_batch("PRAGMA wal_checkpoint(TRUNCATE)").unwrap();
+            // Faking the previous version: the migration itself may then fail on
+            // already-present objects, which is irrelevant here; the snapshot comes first.
+            db.execute_batch("PRAGMA user_version=19").unwrap();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        let _ = Store::open(root.path());
+    }
+    let kept: Vec<String> = std::fs::read_dir(root.path().join("pre-migration"))
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    assert!(kept.len() <= 2, "{kept:?}");
+    assert!(kept
+        .iter()
+        .all(|n| n.starts_with("schema-19-") && !n.starts_with('.')));
+}

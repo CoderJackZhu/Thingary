@@ -100,7 +100,7 @@ function LineTable({ lines, undated, found, onOpen }: { lines: Line[]; undated: 
     <td>{l.date ?? <span className="muted">日期待补</span>}</td>
     <td>{l.source === 'payment' || l.source === 'virtual' ? l.title : <button className="link-cell" onClick={() => onOpen(l)}>{l.title}</button>}</td>
     <td><span className="ui-tag">{sourceLabel[l.source]}</span></td><td>{categoryText(l)}</td>
-    <td className="amount">{l.amount_cents === null ? <span className="muted">金额未知</span> : l.source === 'refund' || l.source === 'sale' ? '−' + money(l.amount_cents) : money(l.amount_cents)}</td>
+    <td className="amount">{l.amount_cents === null ? <span className="muted">金额未知</span> : money(l.source === 'refund' || l.source === 'sale' ? '-' + l.amount_cents : l.amount_cents)}</td>
   </tr>;
   return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table expense-lines"><thead><tr><th>日期</th><th>名称</th><th>来源</th><th>分类</th><th>金额</th></tr></thead>
     <tbody>{lines.map(row)}{undated.map(row)}</tbody></table></>;

@@ -19,9 +19,9 @@ export const assetKinds = [['cash', '现金与存款'], ['investment', '投资�
 export const liabilityKinds = [['credit_card', '信用卡'], ['loan', '贷款'], ['other_liability', '其他负债']] as const;
 export const kindLabel = (kind: string) => [...assetKinds, ...liabilityKinds].find(([k]) => k === kind)?.[1] ?? kind;
 
-/** Signed amount: negative net worth shows a real minus sign. */
-export function signedMoney(cents: string) { return cents.startsWith('-') ? '−' + money(cents.slice(1)) : money(cents); }
-export function changeText(cents: string) { return cents.startsWith('-') ? signedMoney(cents) : '+' + money(cents); }
+/** Signed amount: `money` already renders a negative with a real minus sign and no line break after it. */
+export const signedMoney = money;
+export function changeText(cents: string) { return cents.startsWith('-') ? money(cents) : '+' + money(cents); }
 export function rateText(hundredths: number) { return `${hundredths < 0 ? '−' : '+'}${(Math.abs(hundredths) / 100).toFixed(2)}%`; }
 
 // Only a submitted request whose reply was lost is kept; unsubmitted input is not.

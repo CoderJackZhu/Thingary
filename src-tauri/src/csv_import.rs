@@ -383,6 +383,46 @@ fn ensure(c: &Connection, kind: taxonomy::Kind, name: &str) -> Result<String> {
     Ok(id)
 }
 
+/// Libraries imported before 2.4.2 hold sale audits with no saved reply, which
+/// made every backup of them fail validation. Adds the missing replies; a
+/// library without such rows is untouched.
+pub(crate) fn repair_sale_receipts(c: &Connection) -> Result<usize> {
+    let mut stmt = c.prepare(
+        "SELECT a.request_id,x.id,x.name,x.price_cents,x.purchase_date,x.revision FROM sale_audit a JOIN sales s ON s.id=a.sale_id JOIN assets x ON x.id=s.asset_id WHERE NOT EXISTS(SELECT 1 FROM requests r WHERE r.id=a.request_id)",
+    )?;
+    let missing = stmt
+        .query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                crate::domain::Asset {
+                    id: r.get(1)?,
+                    name: r.get(2)?,
+                    price_cents: r.get::<_, Option<i64>>(3)?.map(|n| n.to_string()),
+                    purchase_date: r.get(4)?,
+                    revision: r.get(5)?,
+                },
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    drop(stmt);
+    if missing.is_empty() {
+        return Ok(0);
+    }
+    let tx = c.unchecked_transaction()?;
+    for (request, asset) in &missing {
+        tx.execute(
+            "INSERT INTO requests VALUES(?1,?2,?3)",
+            params![
+                request,
+                digest(request.as_bytes()),
+                serde_json::to_string(asset)?
+            ],
+        )?;
+    }
+    tx.commit()?;
+    Ok(missing.len())
+}
+
 impl Store {
     pub fn preview_csv_import(&self, bytes: &[u8], today: &str) -> Result<Preview> {
         Ok(check(self.conn()?, bytes, today)?.preview)
@@ -478,7 +518,17 @@ impl Store {
                 let sale = uid();
                 tx.execute("INSERT INTO sales(id,asset_id,previous_state,date,price_cents,platform,buyer,notes,created_at,updated_at,revoked_at) VALUES(?1,?2,?3,?4,?5,'','','',?6,?6,NULL)", params![sale, asset.id, previous, d, price, now])?;
                 let snapshot = serde_json::json!({"id": sale, "previous_state": previous, "fields": {"date": d, "price_cents": price.to_string(), "platform": "", "buyer": "", "notes": ""}});
-                tx.execute("INSERT INTO sale_audit(request_id,sale_id,action,snapshot,created_at) VALUES(?1,?2,'sell',?3,?4)", params![uid(), sale, snapshot.to_string(), now])?;
+                // Backups trace every sale audit to a saved reply holding the asset.
+                let request = uid();
+                tx.execute(
+                    "INSERT INTO requests VALUES(?1,?2,?3)",
+                    params![
+                        request,
+                        digest(request.as_bytes()),
+                        serde_json::to_string(&asset)?
+                    ],
+                )?;
+                tx.execute("INSERT INTO sale_audit(request_id,sale_id,action,snapshot,created_at) VALUES(?1,?2,'sell',?3,?4)", params![request, sale, snapshot.to_string(), now])?;
                 tx.execute(
                     "UPDATE assets SET lifecycle_state='sold' WHERE id=?1",
                     [&asset.id],

@@ -33,10 +33,12 @@ export function previewResaleRate(records: AssetRecord[]): ResaleRate {
     return l < rr ? -1 : l > rr ? 1 : x.id < y.id ? -1 : x.id > y.id ? 1 : 0;
   });
   const n = rows.length;
-  const mean = n ? rows.reduce((sum, row) => sum + Number(row.sale_cents) * 10000 / Number(row.purchase_cents), 0) / n : null;
+  // 与 Rust 一致的整数平均：每行比值放大 1e12 后取整，合计再半数进位。
+  const SCALE = 1_000_000_000_000n, N = BigInt(n);
+  const mean = n ? Number((rows.reduce((sum, row) => sum + BigInt(row.sale_cents) * 10000n * SCALE / BigInt(row.purchase_cents), 0n) + N * SCALE / 2n) / (N * SCALE)) : null;
   return {
     included_count: n, total_purchase_cents: purchaseTotal.toString(), total_sale_cents: saleTotal.toString(), total_gain_cents: (saleTotal - purchaseTotal).toString(),
-    average_rate_hundredths: mean === null ? null : Math.round(mean),
+    average_rate_hundredths: mean,
     weighted_rate_hundredths: n ? hundredths(saleTotal, purchaseTotal) : null,
     rows, excluded,
   };

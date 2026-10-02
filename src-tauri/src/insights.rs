@@ -270,7 +270,8 @@ pub struct Trend {
     pub buckets: Vec<Bucket>,
     pub known_cents: String,
     pub unknown_price_count: i64,
-    /// Purchases without a date are never assigned to a period.
+    /// Purchases without a date, or dated after today (only a damaged backup holds
+    /// one), are never assigned to a period.
     pub unknown_date_count: i64,
     pub unknown_date_known_cents: String,
 }
@@ -301,16 +302,16 @@ impl Store {
         let today_date = crate::domain::date(today)?;
         let c = self.conn()?;
         let mut stmt = c.prepare(
-            "SELECT purchase_date,price_cents FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.statistics')=1) AND purchase_date IS NOT NULL ORDER BY purchase_date",
+            "SELECT purchase_date,price_cents FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.statistics')=1) AND purchase_date IS NOT NULL AND purchase_date<=?1 ORDER BY purchase_date",
         )?;
         let rows = stmt
-            .query_map([], |r| {
+            .query_map([today], |r| {
                 Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?))
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let (unknown_dates, unknown_date_cents): (i64, i64) = c.query_row(
-            "SELECT count(*),coalesce(sum(price_cents),0) FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.statistics')=1) AND purchase_date IS NULL",
-            [],
+            "SELECT count(*),coalesce(sum(price_cents),0) FROM assets WHERE deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=assets.id AND json_extract(p.payload,'$.exclude.statistics')=1) AND (purchase_date IS NULL OR purchase_date>?1)",
+            [today],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
         let mut buckets: Vec<Bucket> = Vec::new();
@@ -318,7 +319,7 @@ impl Store {
         if let Some((first, _)) = rows.first() {
             // Continuous periods from the first purchase to the current one, empty ones included.
             let mut cursor = crate::domain::date(first)?;
-            let last = today_date.max(crate::domain::date(&rows[rows.len() - 1].0)?);
+            let last = today_date;
             let mut rows = rows.iter().peekable();
             loop {
                 let (key, start, end) = period(cursor, granularity);
@@ -671,15 +672,20 @@ impl Store {
             (p * b).cmp(&(a * q)).then_with(|| x.id.cmp(&y.id))
         });
         let count = rows.len() as i64;
+        // Exact integer mean: each rate scaled to 1e-12 hundredths (floored), then rounded half up.
         let average = (count > 0).then(|| {
-            let sum: f64 = rows
+            const SCALE: i128 = 1_000_000_000_000;
+            let sum: i128 = rows
                 .iter()
                 .map(|r| {
-                    r.sale_cents.parse::<f64>().unwrap_or(0.0) * 10000.0
-                        / r.purchase_cents.parse::<f64>().unwrap_or(1.0)
+                    let (s, p) = (
+                        r.sale_cents.parse::<i128>().unwrap_or(0),
+                        r.purchase_cents.parse::<i128>().unwrap_or(1),
+                    );
+                    s * 10_000 * SCALE / p
                 })
                 .sum();
-            (sum / count as f64).round() as i64
+            ((sum + i128::from(count) * SCALE / 2) / (i128::from(count) * SCALE)) as i64
         });
         let weighted = (count > 0)
             .then(|| ((sale_total * 20000 + purchase_total) / (purchase_total * 2)) as i64);
