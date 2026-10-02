@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage, money } from './asset';
+import { errorMessage, money } from './asset.ts';
 
 export type Side = 'asset' | 'liability';
 export type AccountFields = { name: string; institution: string; side: Side; kind: string; counted: boolean; opened_on: string; closed_on: string | null; notes: string };
@@ -12,6 +12,14 @@ export type Draft = { generation: string; date: string; existing: Snapshot | nul
 export type Point = { snapshot_id: string; date: string; assets_cents: string; liabilities_cents: string; net_cents: string; complete: boolean; missing: number; compared_to: string | null; scope_changed: boolean; change_cents: string | null; change_rate_hundredths: number | null };
 export type Share = { kind: string; amount_cents: string; share_hundredths: number | null };
 export type Summary = { generation: string; points: Point[]; structure_date: string | null; structure: Share[]; liabilities: Share[] };
+// U20 账户变化与盘点比较（产品设计 17.14）：一次比较的两个端点。
+export type CompareCell = { state: string; amount_cents: string | null; counted: boolean | null };
+export type CompareRow = { account_id: string; name: string; institution: string; side: Side; kind: string; from: CompareCell; to: CompareCell; change_cents: string | null; effect_cents: string | null; rate_hundredths: number | null; group: 'counted' | 'uncounted' | 'scope_changed'; tag: 'new' | 'closed' | null };
+export type CompareEnd = { snapshot_id: string; date: string; complete: boolean; missing: number };
+export type StructurePair = { kind: string; from_cents: string | null; from_share: number | null; to_cents: string | null; to_share: number | null };
+export type Compare = { generation: string; from: CompareEnd; to: CompareEnd; reconciled: boolean; net_change_cents: string | null; assets_change_cents: string | null; liabilities_change_cents: string | null; net_rate_hundredths: number | null; known_effect_cents: string; missing_names: string[]; rows: CompareRow[]; structure: StructurePair[] };
+export type HistoryRow = { snapshot_id: string; date: string; state: string; amount_cents: string | null; counted: boolean; change_cents: string | null };
+export type AccountHistory = { generation: string; account: Account; rows: HistoryRow[] };
 export type AccountSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: AccountFields };
 export type SnapshotSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; date: string; notes: string; entries: { account_id: string; state: EntryState; amount_cents: string | null }[] };
 
@@ -24,6 +32,42 @@ export const signedMoney = money;
 export function changeText(cents: string) { return cents.startsWith('-') ? money(cents) : '+' + money(cents); }
 export function rateText(hundredths: number) { return `${hundredths < 0 ? '−' : '+'}${(Math.abs(hundredths) / 100).toFixed(2)}%`; }
 
+// ---- U20 账户变化（产品设计 17.14，规则与 Rust 一致） ----------------------
+
+/** 默认比较区间：概览「与上次比较」同一对日期；否则最后两次盘点。返回盘点 id。 */
+export function defaultRange(points: Point[]): { from: string; to: string } | null {
+  const lastComplete = [...points].reverse().find(p => p.complete);
+  if (lastComplete?.compared_to) {
+    const from = points.find(p => p.date === lastComplete.compared_to);
+    if (from) return { from: from.snapshot_id, to: lastComplete.snapshot_id };
+  }
+  if (points.length >= 2) return { from: points[points.length - 2].snapshot_id, to: points[points.length - 1].snapshot_id };
+  return null;
+}
+
+/** 只在前端排序：按影响＝对净资产影响绝对值降序、未知最后；按类型＝类型顺序再按账户位置。 */
+export function sortRows(rows: CompareRow[], mode: 'impact' | 'kind'): CompareRow[] {
+  const order = [...assetKinds, ...liabilityKinds];
+  const kindRank = (r: CompareRow) => { const i = order.findIndex(([k]) => k === r.kind); return i === -1 ? order.length : i; };
+  return rows.map((row, index) => ({ row, index })).sort((a, b) => {
+    if (mode === 'impact') {
+      const ax = a.row.effect_cents === null ? null : Math.abs(Number(a.row.effect_cents));
+      const bx = b.row.effect_cents === null ? null : Math.abs(Number(b.row.effect_cents));
+      if (ax === null || bx === null) return ax === bx ? a.index - b.index : ax === null ? 1 : -1;
+      return bx - ax || a.index - b.index;
+    }
+    return kindRank(a.row) - kindRank(b.row) || a.index - b.index;
+  }).map(x => x.row);
+}
+
+/** 端点金额格文案：未启用／已停用／未知是文字，负债写「欠」前缀（17.14.4.2）。 */
+export function cellText(cell: CompareCell, side: Side): string {
+  if (cell.state === 'not_open') return '未启用';
+  if (cell.state === 'closed') return '已停用';
+  if (cell.state === 'missing' || cell.amount_cents === null) return '未知';
+  return side === 'liability' ? `欠 ${money(cell.amount_cents)}` : money(cell.amount_cents);
+}
+
 // Only a submitted request whose reply was lost is kept; unsubmitted input is not.
 export const pendingKey = 'possio.wealth-pending.v1';
 export type TrashChange = { request_id: string; generation: string; kind: TrashKind; id: string; expected_revision: number; deleted: boolean };
@@ -34,7 +78,8 @@ export function storedPending(): Pending | null {
   return null;
 }
 const clearPending = () => { try { localStorage.removeItem(pendingKey); } catch { /* nothing to clear */ } };
-const code = (e: unknown) => typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : '';
+/** Tauri errors surface as `{code, message}`; the code drives fallback flows. */
+export const code = (e: unknown) => typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : '';
 
 /** Unresolved means the request may or may not have committed; it stays stored. */
 export class Unresolved extends Error {}

@@ -167,6 +167,8 @@ pub fn run() {
             commands::wealth_snapshot_save,
             commands::wealth_request_result,
             commands::wealth_summary,
+            commands::wealth_compare,
+            commands::wealth_account_history,
             commands::wealth_trash,
             commands::purge_trash,
             commands::asset_ids,

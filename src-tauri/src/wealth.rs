@@ -187,6 +187,98 @@ pub struct Summary {
     pub liabilities: Vec<Share>,
 }
 
+// ---- U20 账户变化与盘点比较（产品设计 17.14，只读） ------------------------
+
+/// One account's recorded cell at one end of a comparison.
+#[derive(Debug, Clone, Serialize)]
+pub struct CompareCell {
+    /// entered | unchanged | missing | not_open | closed
+    pub state: String,
+    /// entered/unchanged carry the amount; not_open/closed are None but count as zero.
+    pub amount_cents: Option<String>,
+    /// The check-in row's recorded setting; None without a row.
+    pub counted: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CompareRow {
+    pub account_id: String,
+    pub name: String,
+    pub institution: String,
+    pub side: String,
+    /// The to-end row's kind, else the from-end's, else the account's current one.
+    pub kind: String,
+    pub from: CompareCell,
+    pub to: CompareCell,
+    /// Own-direction change (to − from); None while either end is unknown.
+    pub change_cents: Option<String>,
+    /// Assets equal the change, liabilities are negated (17.14.4.2).
+    pub effect_cents: Option<String>,
+    /// Only for assets whose starting amount is known and positive.
+    pub rate_hundredths: Option<i64>,
+    /// counted | uncounted | scope_changed
+    pub group: String,
+    /// new（起点未启用）| closed（终点已停用）| None
+    pub tag: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CompareEnd {
+    pub snapshot_id: String,
+    pub date: String,
+    pub complete: bool,
+    pub missing: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct StructurePair {
+    pub kind: String,
+    pub from_cents: Option<String>,
+    pub from_share: Option<i64>,
+    pub to_cents: Option<String>,
+    pub to_share: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Compare {
+    pub generation: String,
+    pub from: CompareEnd,
+    pub to: CompareEnd,
+    /// Both ends complete and no scope_changed row; only then do the totals
+    /// and the rate carry values.
+    pub reconciled: bool,
+    pub net_change_cents: Option<String>,
+    pub assets_change_cents: Option<String>,
+    pub liabilities_change_cents: Option<String>,
+    pub net_rate_hundredths: Option<i64>,
+    /// Sum of known effects in the counted group; always present.
+    pub known_effect_cents: String,
+    /// Counted-group accounts unknown at either end.
+    pub missing_names: Vec<String>,
+    /// In account position order; the front end sorts for display.
+    pub rows: Vec<CompareRow>,
+    /// Assets by kind, ASSET_KINDS order, union of both ends.
+    pub structure: Vec<StructurePair>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct HistoryRow {
+    pub snapshot_id: String,
+    pub date: String,
+    pub state: String,
+    pub amount_cents: Option<String>,
+    pub counted: bool,
+    /// Own-direction change from the immediately preceding row, when both are known.
+    pub change_cents: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AccountHistory {
+    pub generation: String,
+    pub account: Account,
+    pub rows: Vec<HistoryRow>,
+}
+
 fn account_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
     Ok(Account {
         id: r.get(0)?,
@@ -345,6 +437,63 @@ fn sum(mut values: impl Iterator<Item = i64>) -> Result<i64> {
         t.checked_add(v)
             .ok_or_else(|| Error::new("WEALTH_OVERFLOW", "金额合计超出范围"))
     })
+}
+
+fn overflow_error() -> Error {
+    Error::new("WEALTH_OVERFLOW", "金额合计超出范围")
+}
+
+/// Counted known (assets, liabilities) of one check-in; unknown amounts are
+/// never treated as zero.
+fn net_of(s: &Snapshot) -> Result<(i64, i64)> {
+    let known = |side: &'static str| {
+        s.entries
+            .iter()
+            .filter(move |e| e.counted && e.side == side)
+            .filter_map(|e| e.amount_cents.as_deref()?.parse::<i64>().ok())
+    };
+    Ok((sum(known("asset"))?, sum(known("liability"))?))
+}
+
+/// Per-kind totals of counted known amounts in kind-list order. `wealth_summary`
+/// only feeds it complete check-ins (every counted entry then has an amount);
+/// `wealth_compare` also feeds partial ones, where unknown amounts are skipped,
+/// not zeroed (17.14.4.4).
+fn structure_of(s: &Snapshot, side: &str) -> Result<Vec<Share>> {
+    let mut by_kind: BTreeMap<&str, i64> = BTreeMap::new();
+    for e in s
+        .entries
+        .iter()
+        .filter(|e| e.counted && e.side == side && e.amount_cents.is_some())
+    {
+        let v: i64 = e
+            .amount_cents
+            .as_deref()
+            .unwrap_or("0")
+            .parse()
+            .unwrap_or(0);
+        let slot = by_kind.entry(e.kind.as_str()).or_default();
+        *slot = slot
+            .checked_add(v)
+            .ok_or_else(|| Error::new("WEALTH_OVERFLOW", "金额合计超出范围"))?;
+    }
+    let total = sum(by_kind.values().copied())?;
+    let order: &[&str] = if side == "asset" {
+        &ASSET_KINDS
+    } else {
+        &LIABILITY_KINDS
+    };
+    let mut out = Vec::new();
+    for kind in order {
+        if let Some(v) = by_kind.get(kind) {
+            out.push(Share {
+                kind: (*kind).into(),
+                amount_cents: v.to_string(),
+                share_hundredths: (total > 0).then(|| hundredths(*v as i128, total as i128)),
+            });
+        }
+    }
+    Ok(out)
 }
 
 impl Store {
@@ -632,14 +781,7 @@ impl Store {
         for id in ids {
             let s = snapshot(c, &id, &live)?
                 .ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"))?;
-            let known = |side: &'static str| {
-                s.entries
-                    .iter()
-                    .filter(move |e| e.counted && e.side == side)
-                    .filter_map(|e| e.amount_cents.as_deref()?.parse::<i64>().ok())
-            };
-            let assets = sum(known("asset"))?;
-            let liabilities = sum(known("liability"))?;
+            let (assets, liabilities) = net_of(&s)?;
             let net = assets - liabilities;
             let complete = s.missing.is_empty();
             let mut point = Point {
@@ -684,37 +826,8 @@ impl Store {
         let (mut structure, mut liabilities, mut structure_date) = (vec![], vec![], None);
         if let Some((s, _)) = &last_complete {
             structure_date = Some(s.date.clone());
-            for (side, out) in [("asset", &mut structure), ("liability", &mut liabilities)] {
-                let mut by_kind: BTreeMap<&str, i64> = BTreeMap::new();
-                for e in s.entries.iter().filter(|e| e.counted && e.side == side) {
-                    let v: i64 = e
-                        .amount_cents
-                        .as_deref()
-                        .unwrap_or("0")
-                        .parse()
-                        .unwrap_or(0);
-                    let slot = by_kind.entry(e.kind.as_str()).or_default();
-                    *slot = slot
-                        .checked_add(v)
-                        .ok_or_else(|| Error::new("WEALTH_OVERFLOW", "金额合计超出范围"))?;
-                }
-                let total = sum(by_kind.values().copied())?;
-                let order: &[&str] = if side == "asset" {
-                    &ASSET_KINDS
-                } else {
-                    &LIABILITY_KINDS
-                };
-                for kind in order {
-                    if let Some(v) = by_kind.get(kind) {
-                        out.push(Share {
-                            kind: (*kind).into(),
-                            amount_cents: v.to_string(),
-                            share_hundredths: (total > 0)
-                                .then(|| hundredths(*v as i128, total as i128)),
-                        });
-                    }
-                }
-            }
+            structure = structure_of(s, "asset")?;
+            liabilities = structure_of(s, "liability")?;
         }
         Ok(Summary {
             generation: self.generation(),
@@ -722,6 +835,248 @@ impl Store {
             structure_date,
             structure,
             liabilities,
+        })
+    }
+
+    /// Per-account comparison of two check-ins (17.14.4). Read-only; the two
+    /// ids must be live check-ins with `from` earlier than `to`.
+    pub fn wealth_compare(&self, from_id: &str, to_id: &str) -> Result<Compare> {
+        let c = self.conn()?;
+        let live = accounts(c)?;
+        let from = snapshot(c, from_id, &live)?
+            .ok_or_else(|| Error::new("NOT_FOUND", "找不到起点盘点"))?;
+        let to =
+            snapshot(c, to_id, &live)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到终点盘点"))?;
+        if from.date.as_str() >= to.date.as_str() {
+            return Err(Error::new("WEALTH_COMPARE_RANGE", "起点盘点须早于终点"));
+        }
+        let cell_of =
+            |a: &Account, s: &Snapshot| match s.entries.iter().find(|e| e.account_id == a.id) {
+                Some(e) => CompareCell {
+                    state: if e.amount_cents.is_some() {
+                        e.state.clone()
+                    } else {
+                        "missing".into()
+                    },
+                    amount_cents: e.amount_cents.clone(),
+                    counted: Some(e.counted),
+                },
+                None => {
+                    let state = if a.fields.opened_on.as_str() > s.date.as_str() {
+                        "not_open"
+                    } else if a
+                        .fields
+                        .closed_on
+                        .as_deref()
+                        .is_some_and(|closed| closed <= s.date.as_str())
+                    {
+                        "closed"
+                    } else {
+                        "missing"
+                    };
+                    CompareCell {
+                        state: state.into(),
+                        amount_cents: None,
+                        counted: None,
+                    }
+                }
+            };
+        let outside = |cell: &CompareCell| cell.state == "not_open" || cell.state == "closed";
+        let value = |cell: &CompareCell| -> Option<i64> {
+            match cell.state.as_str() {
+                // Outside the account's open period it participates as zero.
+                "not_open" | "closed" => Some(0),
+                "missing" => None,
+                _ => cell.amount_cents.as_deref().and_then(|v| v.parse().ok()),
+            }
+        };
+        let mut rows = Vec::new();
+        for a in &live {
+            let from_cell = cell_of(a, &from);
+            let to_cell = cell_of(a, &to);
+            if outside(&from_cell) && outside(&to_cell) {
+                continue;
+            }
+            let from_entry = from.entries.iter().find(|e| e.account_id == a.id);
+            let to_entry = to.entries.iter().find(|e| e.account_id == a.id);
+            let (side, kind) = to_entry
+                .or(from_entry)
+                .map(|e| (e.side.clone(), e.kind.clone()))
+                .unwrap_or((a.fields.side.clone(), a.fields.kind.clone()));
+            let group = match (from_cell.counted, to_cell.counted) {
+                (Some(f), Some(t)) if f != t => "scope_changed",
+                (Some(f), Some(_)) if f => "counted",
+                (Some(_), Some(_)) => "uncounted",
+                (Some(f), None) | (None, Some(f)) if f => "counted",
+                (Some(_), None) | (None, Some(_)) => "uncounted",
+                (None, None) if a.fields.counted => "counted",
+                (None, None) => "uncounted",
+            };
+            let change = match (value(&from_cell), value(&to_cell)) {
+                (Some(f), Some(t)) => Some(t.checked_sub(f).ok_or_else(overflow_error)?),
+                _ => None,
+            };
+            let effect = match change {
+                Some(c) if side == "liability" => Some(c.checked_neg().ok_or_else(overflow_error)?),
+                other => other,
+            };
+            let rate = match (side.as_str(), value(&from_cell), change) {
+                ("asset", Some(f), Some(c)) if f > 0 => Some(hundredths(c as i128, f as i128)),
+                _ => None,
+            };
+            let tag = if from_cell.state == "not_open" {
+                Some("new")
+            } else if to_cell.state == "closed" {
+                Some("closed")
+            } else {
+                None
+            };
+            rows.push(CompareRow {
+                account_id: a.id.clone(),
+                name: a.fields.name.clone(),
+                institution: a.fields.institution.clone(),
+                side,
+                kind,
+                from: from_cell,
+                to: to_cell,
+                change_cents: change.map(|c| c.to_string()),
+                effect_cents: effect.map(|c| c.to_string()),
+                rate_hundredths: rate,
+                group: group.into(),
+                tag: tag.map(Into::into),
+            });
+        }
+        let known_effect = sum(rows
+            .iter()
+            .filter(|r| r.group == "counted")
+            .filter_map(|r| r.effect_cents.as_deref().and_then(|v| v.parse().ok())))?;
+        let missing_names: Vec<String> = rows
+            .iter()
+            .filter(|r| {
+                r.group == "counted" && (r.from.state == "missing" || r.to.state == "missing")
+            })
+            .map(|r| r.name.clone())
+            .collect();
+        let scope_changed = rows.iter().any(|r| r.group == "scope_changed");
+        let reconciled = from.missing.is_empty() && to.missing.is_empty() && !scope_changed;
+        let (net_change, assets_change, liabilities_change, net_rate) = if reconciled {
+            let (from_assets, from_liabilities) = net_of(&from)?;
+            let (to_assets, to_liabilities) = net_of(&to)?;
+            let from_net = from_assets
+                .checked_sub(from_liabilities)
+                .ok_or_else(overflow_error)?;
+            let to_net = to_assets
+                .checked_sub(to_liabilities)
+                .ok_or_else(overflow_error)?;
+            let diff = to_net.checked_sub(from_net).ok_or_else(overflow_error)?;
+            // 内部一致性：计入组已知影响之和必须等于净资产变化（17.14.4.3）。
+            if diff != known_effect {
+                return Err(Error::new(
+                    "WEALTH_COMPARE_MISMATCH",
+                    "账户变化与净资产变化对不上，请反馈",
+                ));
+            }
+            (
+                Some(diff),
+                Some(
+                    to_assets
+                        .checked_sub(from_assets)
+                        .ok_or_else(overflow_error)?,
+                ),
+                Some(
+                    to_liabilities
+                        .checked_sub(from_liabilities)
+                        .ok_or_else(overflow_error)?,
+                ),
+                (from_net > 0).then(|| hundredths(diff as i128, from_net as i128)),
+            )
+        } else {
+            (None, None, None, None)
+        };
+        let from_shares = structure_of(&from, "asset")?;
+        let to_shares = structure_of(&to, "asset")?;
+        let mut structure = Vec::new();
+        for kind in ASSET_KINDS {
+            let f = from_shares.iter().find(|s| s.kind == kind);
+            let t = to_shares.iter().find(|s| s.kind == kind);
+            if f.is_none() && t.is_none() {
+                continue;
+            }
+            structure.push(StructurePair {
+                kind: kind.into(),
+                from_cents: f.map(|s| s.amount_cents.clone()),
+                from_share: f.and_then(|s| s.share_hundredths),
+                to_cents: t.map(|s| s.amount_cents.clone()),
+                to_share: t.and_then(|s| s.share_hundredths),
+            });
+        }
+        Ok(Compare {
+            generation: self.generation(),
+            from: CompareEnd {
+                snapshot_id: from.id.clone(),
+                date: from.date.clone(),
+                complete: from.missing.is_empty(),
+                missing: from.missing.len(),
+            },
+            to: CompareEnd {
+                snapshot_id: to.id.clone(),
+                date: to.date.clone(),
+                complete: to.missing.is_empty(),
+                missing: to.missing.len(),
+            },
+            reconciled,
+            net_change_cents: net_change.map(|v| v.to_string()),
+            assets_change_cents: assets_change.map(|v| v.to_string()),
+            liabilities_change_cents: liabilities_change.map(|v| v.to_string()),
+            net_rate_hundredths: net_rate,
+            known_effect_cents: known_effect.to_string(),
+            missing_names,
+            rows,
+            structure,
+        })
+    }
+
+    /// Every live check-in row of one account, date ascending, with the
+    /// adjacent-row change (unknown rows are never skipped over).
+    pub fn wealth_account_history(&self, account_id: &str) -> Result<AccountHistory> {
+        let c = self.conn()?;
+        let account =
+            account(c, account_id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到账户"))?;
+        let mut q = c.prepare(
+            "SELECT s.id,s.date,e.state,e.amount_cents,e.counted FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE e.account_id=?1 AND s.deleted_at IS NULL ORDER BY s.date,s.id",
+        )?;
+        let raw = q
+            .query_map([account_id], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, Option<i64>>(3)?,
+                    r.get::<_, bool>(4)?,
+                ))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut rows = Vec::new();
+        let mut previous: Option<i64> = None;
+        for (snapshot_id, day, state, amount, counted) in raw {
+            let change = match (amount, previous) {
+                (Some(v), Some(p)) => Some(v.checked_sub(p).ok_or_else(overflow_error)?),
+                _ => None,
+            };
+            rows.push(HistoryRow {
+                snapshot_id,
+                date: day,
+                state,
+                amount_cents: amount.map(|v| v.to_string()),
+                counted,
+                change_cents: change.map(|v| v.to_string()),
+            });
+            previous = amount;
+        }
+        Ok(AccountHistory {
+            generation: self.generation(),
+            account,
+            rows,
         })
     }
 }

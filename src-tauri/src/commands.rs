@@ -1231,6 +1231,29 @@ pub async fn wealth_summary(worker: tauri::State<'_, Worker>) -> Result<crate::w
         .map_err(|_| Error::new("WORKER", "暂时无法读取财富概览"))?
 }
 #[tauri::command]
+pub async fn wealth_compare(
+    from: String,
+    to: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wealth::Compare> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.wealth_compare(&from, &to)))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取账户变化"))?
+}
+#[tauri::command]
+pub async fn wealth_account_history(
+    account: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wealth::AccountHistory> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.wealth_account_history(&account))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "暂时无法读取账户历史"))?
+}
+#[tauri::command]
 pub async fn wealth_trash(
     input: crate::wealth::TrashChange,
     worker: tauri::State<'_, Worker>,

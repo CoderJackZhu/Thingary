@@ -685,3 +685,406 @@ fn x_ac14_check_ins_and_unused_accounts_delete_and_restore_safely() {
         .unwrap();
     assert_eq!(c.wealth_summary().unwrap().points.len(), 1);
 }
+
+// ===== U20 账户变化与盘点比较 =====
+// 金额以产品设计 17.14.6 的虚构样例为唯一来源，期望值直接写死（单位：分）。
+
+struct U20Book {
+    cash: Account,
+    broker: Account,
+    fund: Account,
+    card: Account,
+    mortgage: Account,
+}
+
+fn u20_book(s: &mut Store) -> U20Book {
+    let cash = open(s, "招行储蓄", "cash", "2026-01-01");
+    let broker = open(s, "证券账户", "investment", "2026-01-01");
+    let fund = open(s, "公积金", "housing_fund", "2026-01-01");
+    let card = open(s, "信用卡", "credit_card", "2026-01-01");
+    let mortgage = open(s, "房贷", "loan", "2026-01-01");
+    let mortgage = edit(s, &mortgage, |f| f.counted = false).unwrap();
+    U20Book {
+        cash,
+        broker,
+        fund,
+        card,
+        mortgage,
+    }
+}
+
+fn u20_rows(
+    b: &U20Book,
+    cash: i64,
+    broker: i64,
+    fund: i64,
+    card: i64,
+    mortgage: i64,
+) -> Vec<EntryInput> {
+    vec![
+        row(&b.cash, "entered", Some(cash)),
+        row(&b.broker, "entered", Some(broker)),
+        row(&b.fund, "entered", Some(fund)),
+        row(&b.card, "entered", Some(card)),
+        row(&b.mortgage, "entered", Some(mortgage)),
+    ]
+}
+
+#[test]
+fn u20_w_ac01_ac02_compare_reconciles_and_structures_by_kind() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let b = u20_book(&mut s);
+    let from = s
+        .wealth_snapshot_save(
+            &check_in(
+                &s,
+                "2026-08-31",
+                u20_rows(&b, 50_000, 200_000, 80_000, 5_000, 900_000),
+            ),
+            TODAY,
+        )
+        .unwrap();
+    let to = s
+        .wealth_snapshot_save(
+            &check_in(
+                &s,
+                "2026-09-28",
+                u20_rows(&b, 42_000, 215_000, 82_000, 3_000, 896_000),
+            ),
+            TODAY,
+        )
+        .unwrap();
+    let cmp = s.wealth_compare(&from.id, &to.id).unwrap();
+    assert!(cmp.reconciled);
+    assert_eq!((cmp.from.complete, cmp.to.complete), (true, true));
+    // 净资产 325,000 → 336,000：变化 +11,000、+3.38%；资产 +9,000；计入负债 −2,000
+    assert_eq!(cmp.net_change_cents.as_deref(), Some("1100000"));
+    assert_eq!(cmp.net_rate_hundredths, Some(338));
+    assert_eq!(cmp.assets_change_cents.as_deref(), Some("900000"));
+    assert_eq!(cmp.liabilities_change_cents.as_deref(), Some("-200000"));
+    assert_eq!(cmp.known_effect_cents, "1100000");
+    assert!(cmp.missing_names.is_empty());
+    let named = |name: &str| cmp.rows.iter().find(|r| r.name == name).unwrap();
+    let cash = named("招行储蓄");
+    assert_eq!(
+        (
+            cash.change_cents.as_deref(),
+            cash.effect_cents.as_deref(),
+            cash.rate_hundredths
+        ),
+        (Some("-800000"), Some("-800000"), Some(-1600))
+    );
+    let broker = named("证券账户");
+    assert_eq!(
+        (
+            broker.change_cents.as_deref(),
+            broker.effect_cents.as_deref(),
+            broker.rate_hundredths
+        ),
+        (Some("1500000"), Some("1500000"), Some(750))
+    );
+    assert_eq!(named("公积金").rate_hundredths, Some(250));
+    let card = named("信用卡");
+    assert_eq!(
+        (
+            card.change_cents.as_deref(),
+            card.effect_cents.as_deref(),
+            card.rate_hundredths,
+            card.group.as_str()
+        ),
+        (Some("-200000"), Some("200000"), None, "counted")
+    );
+    // 房贷单列：欠款 −4,000 · 不计入，不进合计
+    let mortgage = named("房贷");
+    assert_eq!(
+        (
+            mortgage.group.as_str(),
+            mortgage.change_cents.as_deref(),
+            mortgage.effect_cents.as_deref()
+        ),
+        ("uncounted", Some("-400000"), Some("400000"))
+    );
+    // W-AC02：投资 60.61% → 63.42%，现金 15.15% → 12.39%，公积金 24.24% → 24.19%
+    let pairs: Vec<_> = cmp
+        .structure
+        .iter()
+        .map(|p| (p.kind.as_str(), p.from_share, p.to_share))
+        .collect();
+    assert_eq!(
+        pairs,
+        vec![
+            ("cash", Some(1515), Some(1239)),
+            ("investment", Some(6061), Some(6342)),
+            ("housing_fund", Some(2424), Some(2419))
+        ]
+    );
+    let investment = cmp
+        .structure
+        .iter()
+        .find(|p| p.kind == "investment")
+        .unwrap();
+    assert_eq!(
+        (
+            investment.from_cents.as_deref(),
+            investment.to_cents.as_deref()
+        ),
+        (Some("20000000"), Some("21500000"))
+    );
+    assert_eq!(
+        cmp.structure
+            .iter()
+            .map(|p| p.from_share.unwrap())
+            .sum::<i64>(),
+        10000
+    );
+    assert_eq!(
+        cmp.structure
+            .iter()
+            .map(|p| p.to_share.unwrap())
+            .sum::<i64>(),
+        10000
+    );
+}
+
+#[test]
+fn u20_w_ac03_unknown_endpoint_blocks_reconciliation() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let b = u20_book(&mut s);
+    let from = s
+        .wealth_snapshot_save(
+            &check_in(
+                &s,
+                "2026-08-31",
+                u20_rows(&b, 50_000, 200_000, 80_000, 5_000, 900_000),
+            ),
+            TODAY,
+        )
+        .unwrap();
+    let to = s
+        .wealth_snapshot_save(
+            &check_in(
+                &s,
+                "2026-09-28",
+                vec![
+                    row(&b.cash, "missing", None),
+                    row(&b.broker, "entered", Some(215_000)),
+                    row(&b.fund, "entered", Some(82_000)),
+                    row(&b.card, "entered", Some(3_000)),
+                    row(&b.mortgage, "entered", Some(896_000)),
+                ],
+            ),
+            TODAY,
+        )
+        .unwrap();
+    let cmp = s.wealth_compare(&from.id, &to.id).unwrap();
+    assert!(!cmp.reconciled);
+    assert_eq!((cmp.to.complete, cmp.to.missing), (false, 1));
+    let cash = cmp.rows.iter().find(|r| r.name == "招行储蓄").unwrap();
+    assert_eq!(
+        (
+            cash.to.state.as_str(),
+            cash.change_cents.as_deref(),
+            cash.effect_cents.as_deref(),
+            cash.rate_hundredths
+        ),
+        ("missing", None, None, None)
+    );
+    assert_eq!(cmp.net_change_cents, None);
+    assert_eq!(cmp.net_rate_hundredths, None);
+    assert_eq!(
+        cmp.known_effect_cents, "1900000",
+        "已知账户变化合计 +19,000"
+    );
+    assert_eq!(cmp.missing_names, vec!["招行储蓄".to_string()]);
+}
+
+#[test]
+fn u20_w_ac04_account_opened_inside_the_range_counts_from_zero() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let b = u20_book(&mut s);
+    let from = s
+        .wealth_snapshot_save(
+            &check_in(
+                &s,
+                "2026-08-31",
+                u20_rows(&b, 50_000, 200_000, 80_000, 5_000, 900_000),
+            ),
+            TODAY,
+        )
+        .unwrap();
+    let opened = open(&mut s, "基金账户", "fund", "2026-09-10");
+    let mut rows = u20_rows(&b, 42_000, 215_000, 82_000, 3_000, 896_000);
+    rows.push(row(&opened, "entered", Some(10_000)));
+    let to = s
+        .wealth_snapshot_save(&check_in(&s, "2026-09-28", rows), TODAY)
+        .unwrap();
+    let cmp = s.wealth_compare(&from.id, &to.id).unwrap();
+    let fresh = cmp.rows.iter().find(|r| r.name == "基金账户").unwrap();
+    assert_eq!(
+        (
+            fresh.from.state.as_str(),
+            fresh.to.amount_cents.as_deref(),
+            fresh.tag.as_deref(),
+            fresh.change_cents.as_deref(),
+            fresh.effect_cents.as_deref(),
+            fresh.rate_hundredths
+        ),
+        (
+            "not_open",
+            Some("1000000"),
+            Some("new"),
+            Some("1000000"),
+            Some("1000000"),
+            None
+        )
+    );
+    // 对账仍成立：起点净资产本来不含它
+    assert!(cmp.reconciled);
+    assert_eq!(cmp.net_change_cents.as_deref(), Some("2100000"));
+    assert_eq!(cmp.known_effect_cents, "2100000");
+}
+
+#[test]
+fn u20_w_ac05_scope_change_blocks_the_rate_and_the_reconciliation() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let b = u20_book(&mut s);
+    let from = s
+        .wealth_snapshot_save(
+            &check_in(
+                &s,
+                "2026-08-31",
+                u20_rows(&b, 50_000, 200_000, 80_000, 5_000, 900_000),
+            ),
+            TODAY,
+        )
+        .unwrap();
+    edit(&mut s, &b.mortgage, |f| f.counted = true).unwrap();
+    let to = s
+        .wealth_snapshot_save(
+            &check_in(
+                &s,
+                "2026-09-28",
+                u20_rows(&b, 42_000, 215_000, 82_000, 3_000, 896_000),
+            ),
+            TODAY,
+        )
+        .unwrap();
+    let cmp = s.wealth_compare(&from.id, &to.id).unwrap();
+    let mortgage = cmp.rows.iter().find(|r| r.name == "房贷").unwrap();
+    assert_eq!(
+        (
+            mortgage.group.as_str(),
+            mortgage.from.counted,
+            mortgage.to.counted
+        ),
+        ("scope_changed", Some(false), Some(true))
+    );
+    assert!(!cmp.reconciled);
+    assert_eq!(cmp.net_change_cents, None);
+    assert_eq!(cmp.net_rate_hundredths, None);
+    assert_eq!(
+        cmp.known_effect_cents, "1100000",
+        "计入范围变化的行不进合计"
+    );
+    assert!(cmp.missing_names.is_empty());
+}
+
+#[test]
+fn u20_compare_rejects_reversed_ranges_and_deleted_check_ins() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let b = u20_book(&mut s);
+    let from = s
+        .wealth_snapshot_save(
+            &check_in(&s, "2026-08-31", u20_rows(&b, 1, 2, 3, 4, 5)),
+            TODAY,
+        )
+        .unwrap();
+    let to = s
+        .wealth_snapshot_save(
+            &check_in(&s, "2026-09-28", u20_rows(&b, 1, 2, 3, 4, 5)),
+            TODAY,
+        )
+        .unwrap();
+    assert_eq!(
+        code(s.wealth_compare(&to.id, &from.id)),
+        "WEALTH_COMPARE_RANGE"
+    );
+    assert_eq!(
+        code(s.wealth_compare(&from.id, &from.id)),
+        "WEALTH_COMPARE_RANGE"
+    );
+    s.wealth_trash(&trash(&s, "snapshot", &to.id, to.revision, true))
+        .unwrap();
+    assert_eq!(code(s.wealth_compare(&from.id, &to.id)), "NOT_FOUND");
+}
+
+#[test]
+fn u20_account_history_is_ascending_and_never_skips_unknowns() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let b = book(&mut s);
+    s.wealth_snapshot_save(
+        &check_in(&s, "2026-09-01", full(&b, 100_000, 1, 1, 1)),
+        TODAY,
+    )
+    .unwrap();
+    let partial = s
+        .wealth_snapshot_save(
+            &check_in(
+                &s,
+                "2026-09-15",
+                vec![
+                    row(&b.cash, "missing", None),
+                    row(&b.broker, "entered", Some(1)),
+                    row(&b.fund, "entered", Some(1)),
+                    row(&b.loan, "entered", Some(1)),
+                ],
+            ),
+            TODAY,
+        )
+        .unwrap();
+    s.wealth_snapshot_save(
+        &check_in(&s, "2026-09-20", full(&b, 105_000, 1, 1, 1)),
+        TODAY,
+    )
+    .unwrap();
+    s.wealth_snapshot_save(
+        &check_in(&s, "2026-09-25", full(&b, 110_000, 1, 1, 1)),
+        TODAY,
+    )
+    .unwrap();
+    let history = s.wealth_account_history(&b.cash.id).unwrap();
+    assert_eq!(history.account.id, b.cash.id);
+    let dates: Vec<_> = history.rows.iter().map(|r| r.date.as_str()).collect();
+    assert_eq!(
+        dates,
+        ["2026-09-01", "2026-09-15", "2026-09-20", "2026-09-25"]
+    );
+    let changes: Vec<_> = history
+        .rows
+        .iter()
+        .map(|r| r.change_cents.as_deref())
+        .collect();
+    assert_eq!(
+        changes,
+        [None, None, None, Some("500000")],
+        "不跨过未知去找更早的值"
+    );
+    assert!(history.rows.iter().all(|r| r.counted));
+    // 已删除的盘点不出现
+    s.wealth_trash(&trash(&s, "snapshot", &partial.id, partial.revision, true))
+        .unwrap();
+    let history = s.wealth_account_history(&b.cash.id).unwrap();
+    assert_eq!(history.rows.len(), 3);
+    // 已删除账户与未知账户都报 NOT_FOUND
+    let spare = open(&mut s, "误建账户", "cash", "2026-01-01");
+    s.wealth_trash(&trash(&s, "account", &spare.id, spare.revision, true))
+        .unwrap();
+    assert_eq!(code(s.wealth_account_history(&spare.id)), "NOT_FOUND");
+    assert_eq!(code(s.wealth_account_history("no-such-id")), "NOT_FOUND");
+}

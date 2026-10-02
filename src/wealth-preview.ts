@@ -1,7 +1,8 @@
 // Development-only in-memory stand-in for the wealth commands used by
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
 // proves nothing about native storage or calculation.
-import type { Account, AccountSave, Draft, Entry, Point, Share, Snapshot, SnapshotSave, Summary } from './wealth';
+import type { Account, AccountSave, Compare, CompareCell, CompareEnd, CompareRow, Draft, Entry, HistoryRow, Point, Share, Snapshot, SnapshotSave, StructurePair, Summary } from './wealth';
+import { assetKinds } from './wealth';
 import type { Expense, ExpenseSave, ExpenseView, Line } from './expenses';
 import type { Due, Overview, Payment, PaymentSave, Plan, PlanSave } from './recurring';
 import type { VirtualAsset, VirtualFields, VirtualKind, VirtualOverview, VirtualSave, VirtualStatus } from './virtual';
@@ -26,6 +27,23 @@ const entry = (a: Account, yuan: number | null): Entry => ({ account_id: a.id, s
 let snapshots: Stored[] = demoFinance.snapshots.map((s, i) => ({ id: `w-snap-${i}`, date: shifted(s.months_ago), notes: '虚构盘点', revision: 1, entries: accounts.map((a, n) => entry(a, s.amounts_yuan[n])) }));
 if (params.get('wealth') === 'empty' || params.get('state') === 'empty') { accounts = []; snapshots = []; }
 if (params.get('wealth') === 'first') snapshots = [];
+if (params.get('wealth') === 'one' && snapshots.length > 1) snapshots = snapshots.slice(-1);
+if (params.get('wealth') === 'missing' && snapshots.length) {
+  // 把最近一次盘点的第一个已知金额改为未知，概览与比较共用同一份缺口（仅浏览器预览）。
+  const last = snapshots[snapshots.length - 1];
+  const i = last.entries.findIndex(e => e.amount_cents !== null);
+  snapshots = snapshots.map(s => s === last ? { ...s, entries: s.entries.map((e, n) => n === i ? { ...e, state: 'missing' as const, amount_cents: null } : e) } : s);
+}
+// U20 预览夹具：区间中段新开一个基金账户（W-AC04「新增账户」），房贷只在中间那次
+// 不完整盘点改为计入（W-AC05「计入范围变化」）。只改内存虚构数据，刷新即重置。
+if (params.get('wealth-fixture') === 'compare' && snapshots.length > 2 && params.get('wealth') !== 'empty') {
+  const opened = snapshots[snapshots.length - 2].date, latestDay = snapshots[snapshots.length - 1].date;
+  const fund: Account = { id: 'w-fund-demo', fields: { name: '虚构基金账户', institution: '虚构基金', side: 'asset', kind: 'fund', counted: true, opened_on: opened, closed_on: null, notes: '虚构样例' }, position: accounts.length, revision: 1, latest: null };
+  accounts = [...accounts, fund];
+  snapshots = snapshots.map(s => s.date >= opened ? { ...s, entries: [...s.entries, entry(fund, s.date === latestDay ? 10000 : 9000)] } : s);
+  const mid = snapshots[snapshots.length - 2];
+  snapshots = snapshots.map(s => s === mid ? { ...s, entries: s.entries.map(e => e.account_id === 'w-loan' ? { ...e, counted: true } : e) } : s);
+}
 const receipts = new Map<string, string>();
 
 const due = (a: Account, d: string) => a.fields.opened_on <= d && (!a.fields.closed_on || d < a.fields.closed_on);
@@ -196,13 +214,86 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   if (!command.startsWith('wealth_')) return null;
   if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: '虚构读取失败，用于验证错误状态。' };
-  if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: '虚构盘点读取失败。' }; const result = summary(); if (params.get('wealth') === 'missing' && result.points.length) { const last = result.points.at(-1)!; last.complete = false; last.missing = 1; } return { value: result }; }
+  if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: '虚构盘点读取失败。' }; return { value: summary() }; }
   if (command === 'wealth_accounts') return { value: accounts.map(withLatest) };
   if (command === 'wealth_request_result') return { value: receipts.get(String(args.request)) ?? null };
   if (command === 'wealth_snapshot_draft') {
     const date = String(args.date), existing = snapshots.find(s => s.date === date);
     const draft: Draft = { generation, date, existing: existing ? view(existing) : null, rows: accounts.filter(a => due(a, date)).map(a => ({ account: withLatest(a), previous: latestBefore(a.id, date) })) };
     return { value: draft };
+  }
+  // U20 账户变化：预览模拟，规则与 Rust wealth_compare 一致（产品设计 17.14.4）。
+  if (command === 'wealth_compare') {
+    if (params.get('wealth') === 'compare-error') throw { message: '虚构账户变化读取失败，用于验证局部错误。' };
+    const from = snapshots.find(s => s.id === String(args.from)), to = snapshots.find(s => s.id === String(args.to));
+    if (!from || !to) throw { code: 'NOT_FOUND', message: '找不到起点或终点盘点' };
+    if (from.date >= to.date) throw { code: 'WEALTH_COMPARE_RANGE', message: '起点盘点须早于终点' };
+    const fv = view(from), tv = view(to);
+    const cellOf = (a: Account, s: Stored): CompareCell => {
+      const e = s.entries.find(x => x.account_id === a.id);
+      if (e) return { state: e.amount_cents === null ? 'missing' : e.state, amount_cents: e.amount_cents, counted: e.counted };
+      const state = a.fields.opened_on > s.date ? 'not_open' : a.fields.closed_on !== null && s.date >= a.fields.closed_on ? 'closed' : 'missing';
+      return { state, amount_cents: null, counted: null };
+    };
+    const rows: CompareRow[] = [];
+    for (const a of accounts) {
+      const fc = cellOf(a, fv), tc = cellOf(a, tv);
+      const outside = (c: CompareCell) => c.state === 'not_open' || c.state === 'closed';
+      if (outside(fc) && outside(tc)) continue;
+      const fe = fv.entries.find(x => x.account_id === a.id), te = tv.entries.find(x => x.account_id === a.id);
+      const side = (te ?? fe ?? { side: a.fields.side } as Entry).side as 'asset' | 'liability', kind = (te ?? fe ?? { kind: a.fields.kind } as Entry).kind;
+      const group: CompareRow['group'] = fc.counted !== null && tc.counted !== null && fc.counted !== tc.counted ? 'scope_changed'
+        : (tc.counted ?? fc.counted ?? a.fields.counted) ? 'counted' : 'uncounted';
+      const val = (c: CompareCell) => outside(c) ? 0n : c.amount_cents === null ? null : BigInt(c.amount_cents);
+      const f = val(fc), t = val(tc);
+      const change = f === null || t === null ? null : (t - f).toString();
+      const effect = change === null ? null : (side === 'liability' ? -BigInt(change) : BigInt(change)).toString();
+      const rate = side !== 'asset' || f === null || f <= 0n || change === null ? null : hundredths(BigInt(change), f);
+      const tag: CompareRow['tag'] = fc.state === 'not_open' ? 'new' : tc.state === 'closed' ? 'closed' : null;
+      rows.push({ account_id: a.id, name: a.fields.name, institution: a.fields.institution, side, kind, from: fc, to: tc, change_cents: change, effect_cents: effect, rate_hundredths: rate, group, tag });
+    }
+    const reconciled = !fv.missing.length && !tv.missing.length && !rows.some(r => r.group === 'scope_changed');
+    const knownEffect = rows.filter(r => r.group === 'counted' && r.effect_cents !== null).reduce((t, r) => t + BigInt(r.effect_cents!), 0n);
+    const netOf = (s: Stored) => (side: string) => s.entries.filter(e => e.counted && e.side === side && e.amount_cents !== null).reduce((t, e) => t + BigInt(e.amount_cents!), 0n);
+    let netChange: string | null = null, assetsChange: string | null = null, liabChange: string | null = null, netRate: number | null = null;
+    if (reconciled) {
+      const fromNet = netOf(fv)('asset') - netOf(fv)('liability'), toNet = netOf(tv)('asset') - netOf(tv)('liability'), diff = toNet - fromNet;
+      if (diff !== knownEffect) throw { code: 'WEALTH_COMPARE_MISMATCH', message: '账户变化与净资产变化对不上，请反馈' };
+      netChange = diff.toString();
+      assetsChange = (netOf(tv)('asset') - netOf(fv)('asset')).toString();
+      liabChange = (netOf(tv)('liability') - netOf(fv)('liability')).toString();
+      if (fromNet > 0n) netRate = hundredths(diff, fromNet);
+    }
+    const sharesOf = (s: Stored, side: string): Share[] => {
+      const by = new Map<string, bigint>();
+      for (const e of s.entries) if (e.counted && e.side === side && e.amount_cents !== null) by.set(e.kind, (by.get(e.kind) ?? 0n) + BigInt(e.amount_cents));
+      const total = [...by.values()].reduce((x, y) => x + y, 0n);
+      return [...by].map(([kind, v]) => ({ kind, amount_cents: String(v), share_hundredths: total > 0n ? hundredths(v, total) : null }));
+    };
+    const fShares = sharesOf(fv, 'asset'), tShares = sharesOf(tv, 'asset');
+    const structure: StructurePair[] = assetKinds.flatMap(([kind]) => {
+      const f = fShares.find(s => s.kind === kind), t = tShares.find(s => s.kind === kind);
+      return f || t ? [{ kind, from_cents: f?.amount_cents ?? null, from_share: f?.share_hundredths ?? null, to_cents: t?.amount_cents ?? null, to_share: t?.share_hundredths ?? null }] : [];
+    });
+    const end = (s: Snapshot): CompareEnd => ({ snapshot_id: s.id, date: s.date, complete: !s.missing.length, missing: s.missing.length });
+    return { value: {
+      generation, from: end(fv), to: end(tv), reconciled, net_change_cents: netChange,
+      assets_change_cents: assetsChange, liabilities_change_cents: liabChange, net_rate_hundredths: netRate,
+      known_effect_cents: knownEffect.toString(),
+      missing_names: rows.filter(r => r.group === 'counted' && (r.from.state === 'missing' || r.to.state === 'missing')).map(r => r.name),
+      rows, structure,
+    } };
+  }
+  if (command === 'wealth_account_history') {
+    const a = accounts.find(x => x.id === String(args.account));
+    if (!a) throw { code: 'NOT_FOUND', message: '找不到账户' };
+    const rows: HistoryRow[] = [...snapshots].filter(s => s.entries.some(e => e.account_id === a.id)).sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id)).map(s => {
+      const e = s.entries.find(x => x.account_id === a.id)!;
+      return { snapshot_id: s.id, date: s.date, state: e.state, amount_cents: e.amount_cents, counted: e.counted, change_cents: null };
+    });
+    // 与前次＝紧邻的前一行，两行都已知才有值，不跨过未知去找更早的值。
+    for (let i = 1; i < rows.length; i++) { const p = rows[i - 1], c = rows[i]; if (p.amount_cents !== null && c.amount_cents !== null) c.change_cents = (BigInt(c.amount_cents) - BigInt(p.amount_cents)).toString(); }
+    return { value: { generation, account: withLatest(a), rows } };
   }
   if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
   if (command === 'wealth_account_save') {

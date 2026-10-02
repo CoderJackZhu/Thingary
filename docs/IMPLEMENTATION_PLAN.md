@@ -2,16 +2,16 @@
 
 <a id="u20"></a>
 
-## U20 · 账户变化与盘点比较（2026-10-02，方案已确认，交 zcode 实现，未开始）
+## U20 · 账户变化与盘点比较（2026-10-02，已实现并自测（Mac 本机），隔离原生验收已做，Claude 复核通过（两处小修）；未提交）
 
-用户问「复盘总金额时能否清晰分析每个账户的资金变化」，核对为不能；用户要求先设计，随后回复「同意你的建议」确认 W-D01–W-D05，并要求细化实现后交给 zcode。规则与验收唯一见[产品设计 17.14](PRODUCT_DESIGN.md#u20-product)，界面、技术与取证见[U20 设计](ui/U20_ACCOUNT_CHANGES_DESIGN.md)，结果写入 `docs/verification/U20_ACCOUNT_CHANGES_RESULT.md`（实施后创建）。
+用户问「复盘总金额时能否清晰分析每个账户的资金变化」，核对为不能；用户要求先设计，随后回复「同意你的建议」确认 W-D01–W-D05，并要求细化实现后交给 zcode。规则与验收唯一见[产品设计 17.14](PRODUCT_DESIGN.md#u20-product)，界面、技术与取证见[U20 设计](ui/U20_ACCOUNT_CHANGES_DESIGN.md)，结果写入 `docs/verification/U20_ACCOUNT_CHANGES_RESULT.md`。
 
 | 阶段 | 范围 | 出口 | 状态 |
 |---|---|---|---|
-| U20a 预览稿 | 前端与预览模拟实现，1280×820 浅／深色对照 | 截图可审阅；口径问题先回报 | 未开始 |
-| U20b 后端 | `wealth_compare`、`wealth_account_history`、函数抽取、Rust 测试 | W-AC01–05 数据层断言；`wealth_summary` 不变 | 未开始 |
-| U20c 接线与状态 | 真实命令、五种状态、展开历史、窄窗 | 前端测试；尺寸矩阵截图 | 未开始 |
-| U20d 验收与记录 | 全套检查、隔离原生、验证报告、使用说明、CHANGELOG | W-AC01–09 逐条证据或未验说明；停在审阅 | 未开始 |
+| U20a 预览稿 | 前端与预览模拟实现，1280×820 浅／深对照 | 截图可审阅；口径问题先回报 | 完成；未发现 17.14 口径冲突 |
+| U20b 后端 | `wealth_compare`、`wealth_account_history`、函数抽取、Rust 测试 | W-AC01–05 数据层断言；`wealth_summary` 不变 | 完成；wealth 套件 18 项（新增 6 项）全过，既有测试回归不变 |
+| U20c 接线与状态 | 真实命令、五种状态、展开历史、窄窗 | 前端测试；尺寸矩阵截图 | 完成；test:ui 192 项、3 尺寸 × 4 主题矩阵与五状态截图 |
+| U20d 验收与记录 | 全套检查、隔离原生、验证报告、使用说明、CHANGELOG | W-AC01–09 逐条证据或未验说明；停在审阅 | 完成；W-AC01–07 通过（原生＋浏览器），W-AC08 浏览器通过原生未验，W-AC09 部分（键盘切日期未验），见[验证报告 §3、§7](verification/U20_ACCOUNT_CHANGES_RESULT.md) |
 
 ### U20 边界
 

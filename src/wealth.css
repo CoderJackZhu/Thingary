@@ -41,6 +41,26 @@
 .check-in-state button{white-space:nowrap}
 .wealth-section .ui-table th{white-space:nowrap}
 .wealth-section .recurring-due td:first-child,.wealth-section .recurring-payments td:first-child{white-space:nowrap}
+/* U20 变化分段：控件行、排序按钮、行标签、展开按钮与展开历史（docs/ui/U20_ACCOUNT_CHANGES_DESIGN.md §2）。 */
+.changes-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px}
+.changes-controls label{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.changes-controls select{max-width:160px}
+/* U18 经验：wealth.css 先于 app-layout.css 进入样式表，同特异性会输，
+ * 排序分段用 .wealth-section 前缀抬高特异性，保证文字按钮宽度自主。 */
+.wealth-section .changes-sort{flex:none;border:1px solid var(--line);border-radius:6px;padding:2px;gap:2px}
+.wealth-section .changes-sort button{width:auto;height:auto;min-width:0;padding:5px 10px;white-space:nowrap}
+.changes-link{margin-top:4px;font-size:12px;justify-self:start}
+.changes-table strong{font-weight:600}
+.row-tag{display:block;margin-top:2px;font-size:11px;color:var(--accent)}
+.row-expand{width:26px;height:26px;padding:0;line-height:1;font-size:11px;color:var(--muted)}
+.row-expand[aria-expanded=true]{color:var(--text)}
+.history-row td{height:auto;padding:12px 10px;background:var(--soft)}
+.account-history{display:grid;gap:12px}
+.account-history .net-chart{max-width:520px}
+.changes-table tfoot td{font-size:13px}
+.changes-table tfoot strong{font-variant-numeric:tabular-nums}
+/* 窄宽度隐藏次要列；金额不截断，整页不横向滚动（W-AC09）。 */
+@media(max-width:900px){.changes-table .col-kind,.changes-table .col-rate{display:none}}
 .wealth-section .ui-table td:nth-child(3),.wealth-section .ui-table td:nth-child(4),.wealth-section .ui-table td:nth-child(5),.wealth-section .ui-table td:nth-child(6){white-space:nowrap}
 .recurring-due tr[data-overdue=true] td:first-child{font-weight:600}
 .recurring-due td.amount,.wealth-section td.amount{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
