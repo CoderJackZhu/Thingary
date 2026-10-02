@@ -138,12 +138,12 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 - [ ] M2 `.gitignore`：你维护该文件，建议内容见本节末，由你加入 `[用户]`
 - [x] M3 面向用户的 README（定位、截图、安装、从源码构建、数据位置、许可证、仅 macOS／Apple Silicon 验证）；原 README 的内部导览改放 `docs/INDEX.md`，`AGENTS.md` 同步
 - [x] M4 展示截图：浏览器预览的虚构数据，浅色与深色各数张，放入 `docs/images/`
-- [ ] M5 签名与公证：写清步骤与未签名时的打开方法；真正签名公证需要 Apple Developer 账号 `[用户]`
-- [ ] M6 打包 dmg 的脚本与一次实测
+- [x] M5 签名与公证的步骤已写入[发布流程](RELEASING.md)，未签名时的打开方法在 README；真正签名公证需要 Apple Developer 账号 `[用户]`
+- [x] M6 打包 dmg 的脚本 `scripts/make-dmg.sh`，已实测（挂载、校验、应用签名完好）
 
 **建议做**
 
-- [ ] S1 CI：macOS 工作流跑构建、前端测试、fmt/clippy 与 Rust 测试
+- [x] S1 CI（`.github/workflows/ci.yml`，未在 GitHub 上运行过，首次推送后请看结果）：macOS 工作流跑构建、前端测试、fmt/clippy 与 Rust 测试
 - [x] S2 `CONTRIBUTING`、`SECURITY`、Issue 与 PR 模板
 - [x] S3 第三方许可证清单（生成脚本加清单文件）
 - [x] S4 过时文字清理：`AGENTS.md` 当前状态、README 与盘点里「待决定名称」等措辞

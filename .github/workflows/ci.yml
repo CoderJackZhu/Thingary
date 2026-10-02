@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Rust 部分链接 macOS 原生框架，只能在 macOS 上构建与测试。
+jobs:
+  check:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: 类型检查与前端构建
+        run: npm run build
+      - name: 前端纯逻辑检查
+        run: npm run test:ui
+      - name: cargo fmt 与 clippy
+        run: npm run check
+      - name: Rust 测试
+        run: npm test
