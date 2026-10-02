@@ -278,7 +278,22 @@
 .appearance-tri .tri-mode:hover:not(:disabled){color:var(--text);background:var(--soft)}
 .appearance-tri .tri-mode[aria-pressed=true]{background:var(--nav-active-bg,var(--selected));color:var(--nav-active-fg,var(--accent));border-color:var(--line)}
 :root[data-style=bento] .sidebar nav .tri-mode .ui-icon{width:16px;height:16px;padding:0;border-radius:0;background:none;color:inherit}
-:root[data-style=bento] .sidebar nav .tri-mode[aria-pressed=true] .ui-icon{color:var(--nav-active-ic,#5e5ce6)}
+:root[data-style=bento] .sidebar nav .tri-mode[aria-pressed=true] .ui-icon{color:var(--accent)}
+/* 明暗切换动效：按钮底色与图标色渐变；选中的图标各做一次小动画（太阳转、月亮摆、跟随系统淡入）；减少动态效果时全部关闭。 */
+@media (prefers-reduced-motion:no-preference){
+.appearance-tri .tri-mode{transition:background-color .25s ease,color .25s ease,border-color .25s ease}
+.appearance-tri .tri-mode[aria-pressed=true][data-mode=light] .ui-icon{animation:tri-sun .6s cubic-bezier(.34,1.4,.64,1)}
+.appearance-tri .tri-mode[aria-pressed=true][data-mode=dark] .ui-icon{animation:tri-moon .55s cubic-bezier(.34,1.4,.64,1)}
+.appearance-tri .tri-mode[aria-pressed=true][data-mode=system] .ui-icon{animation:tri-fade .4s ease}
+@keyframes tri-sun{from{transform:rotate(-90deg) scale(.55);opacity:.3}to{transform:none;opacity:1}}
+@keyframes tri-moon{from{transform:rotate(-40deg) scale(.55);opacity:.3}to{transform:none;opacity:1}}
+@keyframes tri-fade{from{opacity:.2;transform:scale(.8)}to{opacity:1;transform:none}}
+}
+/* 整页主题切换：由 appearance.ts 用 View Transition 从点击处圆形展开；这里只关掉默认的淡入淡出，由脚本给出动画。 */
+:root.theme-reveal::view-transition-old(root),:root.theme-reveal::view-transition-new(root){animation:none;mix-blend-mode:normal}
+:root.theme-reveal::view-transition-old(root){z-index:1}
+:root.theme-reveal::view-transition-new(root){z-index:2}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.35s}
 
 /* U17 标签投入分析：指标行复用 ui-metrics；占比条、未知提示与窄窗折行 */
 .tag-notice{display:flex;align-items:center;gap:8px;margin:-6px 0 14px;padding:8px 14px;border-radius:var(--ctl-radius);background:var(--warn-bg);color:var(--warn);font-size:13px}
