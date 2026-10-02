@@ -11,7 +11,7 @@ export type Page = { generation: string; items: AssetRecord[]; total: number; to
 export type Fields = Details & { name: string; price: string; date: string };
 export const emptyFields: Fields = { name: '', price: '', date: '', brand: '', model: '', serial_number: '', notes: '' };
 // U16-D2：整数元不显示角分；单位成本（日均、每次）用 unitMoney，始终两位。只改显示。
-export function yuan(cents: string, always = false) { const n = Number(cents); return `¥${(n / 100).toLocaleString('zh-CN', { minimumFractionDigits: always || n % 100 !== 0 ? 2 : 0, maximumFractionDigits: 2 })}`; }
+export function yuan(cents: string, always = false) { const n = Number(cents); return `${n < 0 ? '−\u2060' : ''}¥${(Math.abs(n) / 100).toLocaleString('zh-CN', { minimumFractionDigits: always || n % 100 !== 0 ? 2 : 0, maximumFractionDigits: 2 })}`; }
 export function money(cents: string | null) { return cents === null ? '待补充' : yuan(cents); }
 export function unitMoney(cents: string | null) { return cents === null ? '待补充' : yuan(cents, true); }
 export function inputMoney(value: string): string | null {

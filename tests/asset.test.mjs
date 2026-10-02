@@ -28,4 +28,6 @@ test('money drops .00 for whole yuan and unitMoney always keeps two decimals', (
   assert.equal(unitMoney('1800'), '¥18.00');
   assert.equal(unitMoney('1836'), '¥18.36');
   assert.equal(unitMoney(null), '待补充');
+  assert.equal(unitMoney('-50000'), '−\u2060¥500.00');
+  assert.equal(money('-540000'), '−\u2060¥5,400');
 });

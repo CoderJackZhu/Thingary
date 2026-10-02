@@ -75,7 +75,9 @@ fn main() {
     }
     let canonical = std::fs::canonicalize(&root).unwrap_or_else(|_| root.clone());
     assert!(
-        canonical.to_string_lossy().contains("local.possio.u19.acceptance"),
+        canonical
+            .to_string_lossy()
+            .contains("local.possio.u19.acceptance"),
         "refusing non-isolated path: {}",
         canonical.display()
     );
@@ -85,11 +87,46 @@ fn main() {
         return;
     }
     // 参与保值率（金额单位：分）
-    asset(&mut s, "虚构相机", Some("900000"), "2024-03-01", Some(("2026-05-10", "630000")), false); // 70%
-    asset(&mut s, "虚构手机", Some("500000"), "2025-01-15", Some(("2026-06-01", "550000")), false); // 110%
-    asset(&mut s, "虚构耳机", Some("200000"), "2025-06-01", Some(("2026-07-01", "0")), false); // 0%
-    asset(&mut s, "虚构键盘", Some("100000"), "2025-02-01", Some(("2026-03-01", "50000")), false); // 50%
-    asset(&mut s, "虚构鼠标", Some("20000"), "2025-02-01", Some(("2026-03-02", "10000")), false); // 50%，与键盘并列
+    asset(
+        &mut s,
+        "虚构相机",
+        Some("900000"),
+        "2024-03-01",
+        Some(("2026-05-10", "630000")),
+        false,
+    ); // 70%
+    asset(
+        &mut s,
+        "虚构手机",
+        Some("500000"),
+        "2025-01-15",
+        Some(("2026-06-01", "550000")),
+        false,
+    ); // 110%
+    asset(
+        &mut s,
+        "虚构耳机",
+        Some("200000"),
+        "2025-06-01",
+        Some(("2026-07-01", "0")),
+        false,
+    ); // 0%
+    asset(
+        &mut s,
+        "虚构键盘",
+        Some("100000"),
+        "2025-02-01",
+        Some(("2026-03-01", "50000")),
+        false,
+    ); // 50%
+    asset(
+        &mut s,
+        "虚构鼠标",
+        Some("20000"),
+        "2025-02-01",
+        Some(("2026-03-02", "10000")),
+        false,
+    ); // 50%，与键盘并列
     asset(
         &mut s,
         "虚构长名称物品 · 带木框的全画幅旅行镜头与整套滤镜转接环收纳套装",
@@ -98,13 +135,41 @@ fn main() {
         Some(("2026-08-20", "240000")),
         false,
     ); // 80%
-    // 不参与：购入价未知、¥0
-    asset(&mut s, "虚构旧书架（购入价未知）", None, "2023-01-01", Some(("2026-04-01", "8000")), false);
-    asset(&mut s, "虚构赠品（购入价 ¥0）", Some("0"), "2024-01-01", Some(("2026-04-02", "10000")), false);
+       // 不参与：购入价未知、¥0
+    asset(
+        &mut s,
+        "虚构旧书架（购入价未知）",
+        None,
+        "2023-01-01",
+        Some(("2026-04-01", "8000")),
+        false,
+    );
+    asset(
+        &mut s,
+        "虚构赠品（购入价 ¥0）",
+        Some("0"),
+        "2024-01-01",
+        Some(("2026-04-02", "10000")),
+        false,
+    );
     // 不参与：不计入统计
-    asset(&mut s, "虚构台灯（不计入统计）", Some("50000"), "2025-03-01", Some(("2026-04-03", "25000")), true);
+    asset(
+        &mut s,
+        "虚构台灯（不计入统计）",
+        Some("50000"),
+        "2025-03-01",
+        Some(("2026-04-03", "25000")),
+        true,
+    );
     // 不参与：已删除
-    let gone = asset(&mut s, "虚构音箱（已删除）", Some("100000"), "2025-03-01", Some(("2026-04-04", "90000")), false);
+    let gone = asset(
+        &mut s,
+        "虚构音箱（已删除）",
+        Some("100000"),
+        "2025-03-01",
+        Some(("2026-04-04", "90000")),
+        false,
+    );
     s.change_trash(&TrashChange {
         request_id: rid(),
         generation: s.generation(),
@@ -114,6 +179,13 @@ fn main() {
     })
     .unwrap();
     // 未售出
-    asset(&mut s, "虚构笔记本电脑（使用中）", Some("1200000"), "2025-04-01", None, false);
+    asset(
+        &mut s,
+        "虚构笔记本电脑（使用中）",
+        Some("1200000"),
+        "2025-04-01",
+        None,
+        false,
+    );
     println!("u19-fixture-done");
 }
