@@ -135,7 +135,7 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 **必做**
 
 - [x] M1 版本号统一：`package.json`、`Cargo.toml`、`tauri.conf.json` 与发布配置同一版本，发布配置不再单独写版本
-- [ ] M2 `.gitignore`：你维护该文件，建议内容见本节末，由你加入 `[用户]`
+- [ ] M2 `.gitignore`：你维护该文件，建议内容见本节末，由你加入 `[用户]`。注意现有文件只有一行 `.DS_store` 且**末尾没有换行**，直接追加会和新内容连成一行而失效；建议整体替换。已在全新克隆里用建议内容验证：`npm ci`、构建、前端 189 项、fmt/clippy、Rust 全部通过，`git status` 干净
 - [x] M3 面向用户的 README（定位、截图、安装、从源码构建、数据位置、许可证、仅 macOS／Apple Silicon 验证）；原 README 的内部导览改放 `docs/INDEX.md`，`AGENTS.md` 同步
 - [x] M4 展示截图：浏览器预览的虚构数据，浅色与深色各数张，放入 `docs/images/`
 - [x] M5 签名与公证的步骤已写入[发布流程](RELEASING.md)，未签名时的打开方法在 README；真正签名公证需要 Apple Developer 账号 `[用户]`
