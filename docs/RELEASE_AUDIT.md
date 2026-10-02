@@ -151,6 +151,6 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 
 **需要你操作（外部可见，我不代做）**
 
-- [x] U1 GitHub 仓库已由用户改名为 `Thingary`（2026-10-02）；本地 `origin` 仍是旧地址（GitHub 自动重定向），改指向由用户执行 `[用户]`
+- [x] U1 GitHub 仓库已由用户改名为 `Thingary`（2026-10-02），本地 `origin` 已由用户改为新地址
 - [ ] U2 推送与公开仓库、发布第一个版本 `[用户]`
 - [ ] U3 本节 4.3 的手工检查：系统外观实时切换（AC09）与输入法组合中按 Esc（U12）已由代理在隔离包补做（2026-10-02，后者发现并修复一处缺陷，见 CHANGELOG）；VoiceOver、iCloud 额外备份位置、Numbers／Excel 打开 CSV 仍待你本人 `[用户]`
