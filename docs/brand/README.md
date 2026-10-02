@@ -2,7 +2,7 @@
 
 ## 现状
 
-**2.3.5 起应用图标是「物谱线」五线谱**（见文末「选定方向」）：`src-tauri/icons/icon.icns` 按尺寸分图稿——128 px 以上用放松五线版，16／32／64 px 用三线版；`icon.png` 是 1024 px 五线版；侧栏品牌小标志是同一图形的单色三线版（`src/LogoMark.tsx`，颜色取 currentColor）。此前的占位图（三条蓝色横线）已替换。
+**2.3.5 起应用图标是「物谱线」五线谱**（见文末「选定方向」）：`src-tauri/icons/icon.icns` 按尺寸分图稿——128 px 以上用放松五线版，16／32／64 px 用「三线·方形」版（`chosen/staff-small-3sq.svg`）；`icon.png` 是 1024 px 五线版；侧栏品牌小标志是同一图形的单色三线·方形版（`src/LogoMark.tsx`，颜色取 currentColor）。此前的占位图（三条蓝色横线）已替换。
 
 ## Logo 草稿（2026-10-01，待选）
 
@@ -82,3 +82,5 @@
 **尚未做：** 把选定版接入应用（生成带分尺寸图稿的 `icon.icns`、更新 `tauri.conf.json` 的图标配置、重新构建安装）；侧栏小标志的单色版。
 
 **已接入应用（2.3.5）：** 用户选定第 1 条路（放松五线做主图，小尺寸用三线版，接受它像滑块这一点）。`icon.icns` 由 `chosen/` 里的两个 SVG 经 Chrome 无头渲染成 1024 px 透明 PNG，再用 `sips` 缩到各尺寸、`iconutil` 打包；`tauri.conf.json` 的 `bundle.icon` 改为 `icons/icon.icns` 加 `icons/icon.png`。隔离原生包核对：「关于物谱」面板显示新图标，侧栏品牌小标志为新图形。
+
+**小尺寸版的修正（2.3.5）：** 用户指出旧三线版（`staff-small-3.svg`）内容是 608×280 的横条（宽高比 2.17），在方形图标里「太长」。改为 `staff-small-3sq.svg`：线距 213、线宽 44、点更大，内容撑成 470×470 的正方形，三线版的线间空隙 169。同时做了「四线·方形」（`staff-small-4sq.svg`，更像谱，但 16 px 更糊且右下暖色点旁留有一小截谱线残留）作对比，没有采用。旧的 `staff-small-3.svg` 保留作记录。对比页 `chosen/compare-small-sizes.html`。
