@@ -156,3 +156,10 @@ h1,h2,h3{font-family:var(--display)}
 @media(max-width:980px){.browser-columns:has(>.summary-idle){grid-template-columns:minmax(0,1fr)}.summary.summary-idle{display:none}}
 /* 主题卡片在窄设置面板里：名称与说明上下排，避免「柔和卡片」被折成两行。 */
 @media(max-width:980px){.theme-name{flex-direction:column;align-items:flex-start;gap:2px}.theme-name strong{white-space:nowrap}}
+/* 同一窄宽度下，空面板让出的宽度还给列表：恢复购入日期、日均与状态列。 */
+@media(max-width:980px){
+  .browser-columns:has(>.summary-idle) .list-head,.browser-columns:has(>.summary-idle) .list .asset-row{grid-template-columns:minmax(130px,1fr) 100px 96px 76px 72px}
+  .browser-columns:has(>.summary-idle) .list .purchase-date{display:block}
+  .browser-columns:has(>.summary-idle) .list .asset-row>.pill{display:inline-block}
+  .browser-columns:has(>.summary-idle) .list-head>span:last-child{display:block}
+}
