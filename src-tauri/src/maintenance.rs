@@ -380,7 +380,7 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
     }
     let invalid: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM maintenance_photos p JOIN maintenances m ON m.id=p.maintenance_id JOIN attachments a ON a.id=p.attachment_id WHERE a.asset_id!=m.asset_id)", [], |r| r.get(0))?;
     if invalid {
-        return Err(Error::new("REFERENCE", "维护图片不属于对应资产"));
+        return Err(Error::new("REFERENCE", "维护图片不属于对应物品"));
     }
     Ok(())
 }

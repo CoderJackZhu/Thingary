@@ -572,7 +572,7 @@ fn query_entries(
 /// matches this text so users can find rows by what the page calls them.
 fn kind_label(kind: &str) -> String {
     match kind {
-        "asset" => "资产",
+        "asset" => "物品",
         "maintenance" => "维护",
         "warranty" => "保障",
         "wish" => "心愿",

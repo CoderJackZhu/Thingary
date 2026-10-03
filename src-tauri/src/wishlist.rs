@@ -445,7 +445,7 @@ impl Store {
         let base = &input.asset.base;
         self.check_generation(&base.generation)?;
         if base.asset_id.is_some() || base.expected_revision.is_some() {
-            return Err(Error::new("REVISION", "转换只能新建资产"));
+            return Err(Error::new("REVISION", "转换只能新建物品"));
         }
         uuid::Uuid::parse_str(&input.wishlist_id).map_err(|_| Error::new("ID", "心愿标识无效"))?;
         base.validate(today)?;
@@ -482,7 +482,7 @@ impl Store {
         if converted.is_some() {
             return Err(Error::new(
                 "WISHLIST_ACHIEVED",
-                "这条心愿已转为资产，不能再次转换",
+                "这条心愿已转为物品，不能再次转换",
             ));
         }
         if !["ongoing", "achieved"].contains(&status.as_str()) {
@@ -652,7 +652,7 @@ pub(crate) fn validate_dataset(c: &Connection, version: i64) -> Result<()> {
     if invalid {
         return Err(Error::new(
             "REFERENCE",
-            "心愿封面归属错误或与资产附件共用标识",
+            "心愿封面归属错误或与物品附件共用标识",
         ));
     }
     let achieved: bool = c.query_row(
@@ -684,7 +684,7 @@ pub(crate) fn validate_dataset(c: &Connection, version: i64) -> Result<()> {
                     .map_err(|_| Error::new("WISHLIST", "心愿实现时间无效"))?;
             }
             ("ongoing" | "abandoned", None, None) => {}
-            _ => return Err(Error::new("WISHLIST", "心愿实现状态与关联资产不一致")),
+            _ => return Err(Error::new("WISHLIST", "心愿实现状态与关联物品不一致")),
         }
     }
     Ok(())

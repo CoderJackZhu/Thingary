@@ -6,7 +6,7 @@ const entry = over => ({ kind: 'asset', id: 'e1', title: '虚构相机', subtype
 
 test('asset entries keep their original lifecycle state', () => {
   const display = entryDisplay(entry({ asset_state: 'retired' }));
-  assert.equal(display.typeLabel, '资产');
+  assert.equal(display.typeLabel, '物品');
   assert.equal(display.title, '虚构相机');
   assert.deepEqual(display.facts, ['原状态：已退役']);
   assert.equal(display.parentBlocked, false);

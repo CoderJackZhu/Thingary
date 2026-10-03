@@ -7,16 +7,21 @@ use std::{fs, path::Path, path::PathBuf};
 
 /// Automatic backups keep this many dated archives per location (D20 rule 4).
 pub const KEEP: usize = 7;
-/// `^物谱自动备份-\d{4}-\d{2}-\d{2}\.possio$`; only these are listed, pruned
-/// or restorable, so cleanup can never remove a user's own files.
+/// New archives end in `.thingary`; `.possio` is what 2.4.4 and earlier wrote
+/// and stays listed, pruned and restorable.
+pub const EXT: &str = ".thingary";
+const LEGACY_EXT: &str = ".possio";
+/// `^物谱自动备份-\d{4}-\d{2}-\d{2}\.(thingary|possio)$`; only these are listed,
+/// pruned or restorable, so cleanup can never remove a user's own files.
 pub fn is_auto_backup_name(name: &str) -> bool {
     date_of(name).is_some()
 }
 /// The local calendar day encoded in an archive name, if the name is ours.
 pub fn date_of(name: &str) -> Option<&str> {
-    let date = name
-        .strip_prefix("物谱自动备份-")?
-        .strip_suffix(".possio")?;
+    let date = name.strip_prefix("物谱自动备份-")?;
+    let date = date
+        .strip_suffix(EXT)
+        .or_else(|| date.strip_suffix(LEGACY_EXT))?;
     let b = date.as_bytes();
     let expected = |i: usize| matches!(i, 4 | 7);
     if b.len() != 10
@@ -104,7 +109,7 @@ pub fn run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf> {
             fs::remove_file(entry.path())?;
         }
     }
-    let final_path = dir.join(format!("物谱自动备份-{date}.possio"));
+    let final_path = dir.join(format!("物谱自动备份-{date}{EXT}"));
     let partial = dir.join(format!(".物谱自动备份-{date}.partial"));
     if partial.exists() {
         fs::remove_file(&partial)?;
@@ -112,6 +117,8 @@ pub fn run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf> {
     match store.backup(Some(&partial)) {
         Ok(_) => {
             fs::rename(&partial, &final_path)?;
+            // A same-day archive in the old extension is superseded by this one.
+            let _ = fs::remove_file(dir.join(format!("物谱自动备份-{date}{LEGACY_EXT}")));
             sync_dir(dir)?;
             Ok(final_path)
         }

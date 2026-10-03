@@ -174,7 +174,7 @@ impl Store {
         if self.sample {
             return Err(Error::new(
                 "SAMPLE_NO_NEW_ASSET",
-                "样例不接受新增资产，实现心愿也会新增一件资产。请回到我的资料后记录。",
+                "样例不接受新增物品，实现心愿也会新增一件物品。请回到我的资料后记录。",
             ));
         }
         Ok(())

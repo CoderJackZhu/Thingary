@@ -40,7 +40,7 @@ export async function recoverMaintenance(
     if (JSON.stringify(expected) !== JSON.stringify(state.pending)) return blocked("暂存请求与草稿不一致，已停止提交。原始输入保留，请核对资料后处理。");
     try {
       const result = await receipt(state.pending.request_id, state.generation);
-      if (result) return result.asset.id === state.record.asset.id ? { kind: "saved", record: result } : blocked("回执中的资产与草稿不一致，已停止恢复。");
+      if (result) return result.asset.id === state.record.asset.id ? { kind: "saved", record: result } : blocked("回执中的物品与草稿不一致，已停止恢复。");
       state = { ...state, pending: null };
     } catch (error) {
       if (typeof error === "object" && error !== null && "code" in error && error.code === "STALE_DATASET") return blocked("资料库已切换，原请求仍保留；请切回原资料库后核对，或保留草稿并关闭。");
@@ -48,9 +48,9 @@ export async function recoverMaintenance(
     }
   }
   const latest = await read(state.record.asset.id);
-  if (!latest || latest.deleted || latest.asset.id !== state.record.asset.id) return blocked("原资产已删除或不可用。输入仍保留，请恢复原资产后重试；不会把草稿转存到其他资产。");
+  if (!latest || latest.deleted || latest.asset.id !== state.record.asset.id) return blocked("原物品已删除或不可用。输入仍保留，请恢复原物品后重试；不会把草稿转存到其他物品。");
   if (state.maintenance_id && !latest.maintenances.some(item => item.id === state.maintenance_id)) return blocked("原维护记录已不可用。输入仍保留，请恢复原记录后重试；不会自动改成新增。");
-  if (latest.asset.revision !== state.record.asset.revision) return { kind: "edit", state, issue: { kind: "conflict", latest, message: "资产已更新。请核对当前记录，再明确确认是否保留你的输入；尚未替换草稿版本。" } };
+  if (latest.asset.revision !== state.record.asset.revision) return { kind: "edit", state, issue: { kind: "conflict", latest, message: "物品已更新。请核对当前记录，再明确确认是否保留你的输入；尚未替换草稿版本。" } };
   return { kind: "edit", state: { ...state, record: latest }, issue: null };
 }
 

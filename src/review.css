@@ -3,12 +3,12 @@
 .review-section{padding:0 22px 28px;color:var(--text);font-size:13px}
 /* 持有金额与件数并排，各自的说明在自己下方：综合回顾卡各占一半；实物概览指标格较窄，两列按内容排开，说明可换行。 */
 .held-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 24px}.held-split>*>:first-child,.held-split p span{white-space:nowrap}
-.review-sub{font-size:11px;color:var(--muted);margin:4px 0;line-height:1.7;overflow-wrap:anywhere}
+.review-sub{font-size:12px;color:var(--muted);margin:4px 0;line-height:1.7;overflow-wrap:anywhere}
 .review-footer{display:flex;justify-content:flex-end;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap}
-button.review-action{border:0;background:transparent;color:var(--accent);padding:3px 0;font-size:11px;white-space:normal;text-align:left;min-height:24px}
+button.review-action{border:0;background:transparent;color:var(--accent);padding:3px 0;font-size:12px;white-space:normal;text-align:left;min-height:24px}
 .review-chart,.review-lower{margin-top:14px}.review-chart .trend-chart{width:100%;max-height:220px}
 .review-list{list-style:none;padding:0;margin:8px 0 0}.review-list li{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid var(--line)}.review-list li>div:first-child{min-width:0}.review-list strong{font-size:13px;font-weight:500;overflow-wrap:anywhere}.review-links{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0}
-.review-empty{padding:24px 0;color:var(--muted);line-height:1.8}.review-notice{padding:12px 14px;margin-bottom:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;line-height:1.8}.review-error{color:var(--error);margin:8px 0}.review-section select{font-size:11px;padding:3px 5px;max-width:110px}
+.review-empty{padding:24px 0;color:var(--muted);line-height:1.8}.review-notice{padding:12px 14px;margin-bottom:12px;background:var(--card);border:1px solid var(--line);border-radius:10px;line-height:1.8}.review-error{color:var(--error);margin:8px 0}.review-section select{font-size:12px;padding:3px 5px;max-width:110px}
 .review-section button:focus-visible,.overview-switch button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 @media(max-width:900px){.review-list li{flex-wrap:wrap}.review-links{align-items:flex-start}}
 
@@ -23,7 +23,7 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 .review-lists .ui-empty{padding:18px var(--surface-pad-x);margin:0}
 .review-lists .review-links{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .review-lists .ui-row.clickable{cursor:pointer}
-.review-lists .ui-section-head select{font-size:11px;padding:2px 6px;height:24px}
+.review-lists .ui-section-head select{font-size:12px;padding:2px 6px;height:24px}
 .page-header-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
 @media(max-width:980px){.review-heroes,.review-lists{grid-template-columns:minmax(0,1fr)}}
 /* U16c 只看物品（规范 6.2） */
@@ -33,3 +33,9 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 .overview-section .distribution{padding:4px var(--surface-pad-x) 8px}
 .overview-section .ui-row.clickable{cursor:pointer}
 .overview-section .ui-empty{padding:18px var(--surface-pad-x);margin:0}
+
+/* 空资料库的起步提示：只在没有物品也没有盘点时出现。 */
+.review-start{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.review-start h3{margin:0 0 4px;font:600 15px var(--head)}
+.review-start p{margin:0;font-size:13px;color:var(--muted)}
+.review-start-actions{display:flex;gap:8px;flex-wrap:wrap}

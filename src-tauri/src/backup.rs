@@ -134,7 +134,7 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
             || price.is_some_and(|v| !(0..=crate::domain::MAX_CENTS).contains(&v))
             || rev < 1
         {
-            return Err(Error::new("DATA_CONSTRAINT", "备份含非法资产资料"));
+            return Err(Error::new("DATA_CONSTRAINT", "备份含非法物品资料"));
         }
         if let Some(d) = date {
             crate::domain::date(&d)?;
@@ -230,7 +230,7 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     if v >= 4 {
         let invalid: bool = db.query_row("SELECT EXISTS(SELECT 1 FROM asset_photos p JOIN attachments a ON a.id=p.attachment_id WHERE a.asset_id!=p.asset_id) OR EXISTS(SELECT 1 FROM asset_media m WHERE m.cover_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM asset_photos p WHERE p.asset_id=m.asset_id AND p.attachment_id=m.cover_id))", [], |r| r.get(0))?;
         if invalid {
-            return Err(Error::new("REFERENCE", "图片或封面不属于该资产"));
+            return Err(Error::new("REFERENCE", "图片或封面不属于该物品"));
         }
     }
     if v >= 2 {

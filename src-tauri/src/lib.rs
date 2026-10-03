@@ -236,6 +236,7 @@ pub fn run() {
             commands::auto_backup_open_folder,
             commands::inspect_auto_backup,
             commands::export_csv,
+            commands::export_finance_csv,
             commands::save_csv_template,
             commands::inspect_csv_import,
             commands::commit_csv_import,

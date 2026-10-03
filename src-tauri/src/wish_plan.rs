@@ -112,7 +112,7 @@ fn transition(
             if intent == "ongoing"
                 && item.preferences.achievement_source.as_deref() != Some("savings")
             {
-                return Err(Error::new("WISH_STATUS", "已进入资产档案的心愿不能回退"));
+                return Err(Error::new("WISH_STATUS", "已进入物品档案的心愿不能回退"));
             }
             if item.preferences.achievement_source.as_deref() == Some("savings") {
                 let target = cents(f.estimated_price_cents.as_deref())?;

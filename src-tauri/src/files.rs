@@ -90,7 +90,7 @@ impl Store {
         }
         let live:bool=self.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM assets WHERE id=?1 AND revision=?2 AND deleted_at IS NULL)",params![input.asset_id,input.expected_revision],|r|r.get(0))?;
         if !live {
-            return Err(Error::new("REVISION_CONFLICT", "所属资产已更改或删除"));
+            return Err(Error::new("REVISION_CONFLICT", "所属物品已更改或删除"));
         }
         validate_image(bytes)?;
         let dir = self.dataset();

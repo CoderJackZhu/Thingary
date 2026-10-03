@@ -13,7 +13,7 @@ import { attention, latestComplete, ready, requestGate } from './review';
 import type { Read, Review, ReviewPage } from './review';
 import { Info } from './FormControls';
 import './review.css';
-const labels: Record<ReviewPage, string> = { wealth: '账户与盘点', assets: '全部资产', expenses: '重要支出', recurring: '周期费用', virtual: '虚拟资产', timeline: '时间轴' };
+const labels: Record<ReviewPage, string> = { wealth: '账户与盘点', assets: '全部物品', expenses: '重要支出', recurring: '周期费用', virtual: '虚拟资产', timeline: '时间轴' };
 
 export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, restoreScroll, modules = allModules }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; restoreScroll?: ScrollRestore }) {
   const [data, setData] = useState<Review | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
@@ -69,6 +69,10 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   return <section className="review-section u16" aria-label="综合回顾" aria-busy={updating}>
     {updating && <p className="review-sub" role="status">正在更新，暂时显示上次读取的结果…</p>}
     {modules.wealth && lastPoint && !lastPoint.complete && <div className="review-notice">{lastPoint.date} 盘点尚缺 {lastPoint.missing} 个账户 · {latest ? `当前显示 ${latest.date} 的完整盘点` : '尚无完整盘点'} {link('wealth')}</div>}
+    {p && p.held_count === 0 && (!w || w.points.length === 0) && <article className="ui-card ui-content review-start">
+      <div><h3>从这里开始</h3><p>物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。</p></div>
+      <div className="review-start-actions"><button className="primary" onClick={() => onNavigate('assets')}>记录第一件物品</button>{modules.wealth && <button onClick={() => onNavigate('wealth')}>建立账户并盘点</button>}</div>
+    </article>}
     <div className={'review-heroes' + (modules.wealth ? '' : ' single')}>
       {modules.wealth && <article className="ui-card ui-hero tint-1">
         <div className="ui-label">金融净资产{latest && <Info text={`最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。只统计计入范围的账户，不含实物。`}/>}</div>

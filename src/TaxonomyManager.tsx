@@ -403,7 +403,7 @@ function RemoveDialog({
         这些引用将迁移到你指定的目标；选「{nullLabel}」则改为未分类/未记录，不会删除任何物品。
       </p>
       <div className="taxonomy-stats" aria-label="当前引用统计">
-        <span><strong>正常资产引用：</strong>{target.referenceCount}</span>
+        <span><strong>正常物品引用：</strong>{target.referenceCount}</span>
         <span><strong>最近删除引用：</strong>{target.deletedReferenceCount}</span>
         {target.kind === "category" ? <span><strong>进行中心愿：</strong>{target.ongoingWishlistCount}</span> : null}
         {target.kind === "category" ? <span><strong>已放弃心愿：</strong>{target.abandonedWishlistCount}</span> : null}
@@ -721,7 +721,6 @@ export default function TaxonomyManager({
   return (
     <section className="taxonomy-shell" aria-labelledby="taxonomy-heading">
       <header>
-        <p className="taxonomy-eyebrow">设置</p>
         <h1 id="taxonomy-heading">选项管理</h1>
         <p className="taxonomy-lede">
           整理分类、购买与售出渠道，以及给物品分组用的标签。

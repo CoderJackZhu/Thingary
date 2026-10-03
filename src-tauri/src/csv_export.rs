@@ -1,5 +1,6 @@
-//! Readable asset table (AC30, R06). Not a backup: no photos, maintenance,
-//! warranties or wishes. RFC 4180 with UTF-8 BOM and CRLF so spreadsheets
+//! Readable tables (AC30, R06): the asset table plus three finance tables
+//! (check-ins, important expenses, recurring costs). Not backups: no photos,
+//! maintenance, warranties or wishes. RFC 4180 with UTF-8 BOM and CRLF so spreadsheets
 //! open Chinese text correctly; unknown values stay empty, never zero.
 use crate::{
     domain::Result,
@@ -100,5 +101,221 @@ impl Store {
             [],
             |r| r.get(0),
         )?)
+    }
+
+    /// Check-ins as one row per account per check-in, oldest first.
+    fn wealth_csv(&self) -> Result<(String, i64)> {
+        let mut stmt = self.conn()?.prepare(
+            "SELECT s.date,a.name,a.institution,e.side,e.kind,e.counted,e.state,e.amount_cents
+             FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id
+             JOIN fin_accounts a ON a.id=e.account_id
+             WHERE s.deleted_at IS NULL ORDER BY s.date,a.position,a.id",
+        )?;
+        let rows = stmt
+            .query_map([], |r| {
+                let kind: String = r.get(4)?;
+                let state: String = r.get(6)?;
+                Ok(vec![
+                    r.get::<_, String>(0)?,
+                    text(&r.get::<_, String>(1)?),
+                    text(&r.get::<_, String>(2)?),
+                    if r.get::<_, String>(3)? == "liability" {
+                        "负债"
+                    } else {
+                        "资产"
+                    }
+                    .into(),
+                    account_kind(&kind).into(),
+                    if r.get::<_, bool>(5)? { "是" } else { "否" }.into(),
+                    match state.as_str() {
+                        "entered" => "录入",
+                        "unchanged" => "确认未变",
+                        _ => "未知",
+                    }
+                    .into(),
+                    yuan(r.get(7)?),
+                ])
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let header = [
+            "盘点日期",
+            "账户",
+            "平台",
+            "方向",
+            "类型",
+            "计入净资产",
+            "状态",
+            "金额（元）",
+        ];
+        Ok((table(&header, &rows), rows.len() as i64))
+    }
+
+    /// Important expenses with their refund and the linked item's name.
+    fn expenses_csv(&self) -> Result<(String, i64)> {
+        let mut stmt = self.conn()?.prepare(
+            "SELECT x.date,x.title,x.category,x.amount_cents,x.refund_cents,x.refund_date,a.name,x.notes
+             FROM expenses x LEFT JOIN assets a ON a.id=x.asset_id
+             WHERE x.deleted_at IS NULL ORDER BY x.date,x.id",
+        )?;
+        let rows = stmt
+            .query_map([], |r| {
+                let category: String = r.get(2)?;
+                Ok(vec![
+                    r.get::<_, String>(0)?,
+                    text(&r.get::<_, String>(1)?),
+                    expense_category(&category).into(),
+                    yuan(r.get(3)?),
+                    yuan(r.get(4)?),
+                    r.get::<_, Option<String>>(5)?.unwrap_or_default(),
+                    text(&r.get::<_, Option<String>>(6)?.unwrap_or_default()),
+                    text(&r.get::<_, String>(7)?),
+                ])
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let header = [
+            "日期",
+            "名称",
+            "分类",
+            "金额（元）",
+            "退款（元）",
+            "退款日期",
+            "关联物品",
+            "备注",
+        ];
+        Ok((table(&header, &rows), rows.len() as i64))
+    }
+
+    /// Plans with their confirmed or skipped periods; a plan without any
+    /// payment still appears once, with empty payment columns.
+    fn recurring_csv(&self) -> Result<(String, i64)> {
+        let mut stmt = self.conn()?.prepare(
+            "SELECT p.name,p.category,p.interval_months,p.amount_cents,p.first_due,p.end_date,p.paused,
+                    y.due_date,y.state,y.paid_date,y.amount_cents,y.notes
+             FROM recurring_plans p LEFT JOIN plan_payments y ON y.plan_id=p.id AND y.deleted_at IS NULL
+             WHERE p.deleted_at IS NULL ORDER BY p.name,p.id,y.due_date",
+        )?;
+        let rows = stmt
+            .query_map([], |r| {
+                let category: String = r.get(1)?;
+                let months: i64 = r.get(2)?;
+                let state: Option<String> = r.get(8)?;
+                Ok(vec![
+                    text(&r.get::<_, String>(0)?),
+                    recurring_category(&category).into(),
+                    match months {
+                        1 => "每月".to_owned(),
+                        3 => "每季".to_owned(),
+                        6 => "每半年".to_owned(),
+                        12 => "每年".to_owned(),
+                        n => format!("每 {n} 个月"),
+                    },
+                    yuan(r.get(3)?),
+                    r.get::<_, String>(4)?,
+                    r.get::<_, Option<String>>(5)?.unwrap_or_default(),
+                    if r.get::<_, bool>(6)? {
+                        "已暂停"
+                    } else {
+                        "进行中"
+                    }
+                    .into(),
+                    r.get::<_, Option<String>>(7)?.unwrap_or_default(),
+                    match state.as_deref() {
+                        Some("paid") => "已付",
+                        Some("skipped") => "本期不付",
+                        _ => "",
+                    }
+                    .into(),
+                    r.get::<_, Option<String>>(9)?.unwrap_or_default(),
+                    yuan(r.get(10)?),
+                    text(&r.get::<_, Option<String>>(11)?.unwrap_or_default()),
+                ])
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let header = [
+            "计划",
+            "分类",
+            "周期",
+            "每期金额（元）",
+            "首期到期日",
+            "结束日期",
+            "计划状态",
+            "到期日",
+            "付款状态",
+            "实付日期",
+            "实付金额（元）",
+            "备注",
+        ];
+        Ok((table(&header, &rows), rows.len() as i64))
+    }
+
+    /// `kind` is `wealth`, `expenses` or `recurring`; the native save panel
+    /// already confirmed any replacement and the write is atomic.
+    pub fn export_finance_csv(&self, kind: &str, destination: &Path) -> Result<i64> {
+        let (csv, rows) = match kind {
+            "wealth" => self.wealth_csv()?,
+            "expenses" => self.expenses_csv()?,
+            "recurring" => self.recurring_csv()?,
+            _ => return Err(crate::domain::Error::new("EXPORT_KIND", "不支持的导出类型")),
+        };
+        atomic_write(destination, csv.as_bytes())?;
+        Ok(rows)
+    }
+}
+
+fn table(header: &[&str], rows: &[Vec<String>]) -> String {
+    let mut out = String::from("\u{feff}");
+    out.push_str(
+        &header
+            .iter()
+            .map(|h| field(h))
+            .collect::<Vec<_>>()
+            .join(","),
+    );
+    out.push_str("\r\n");
+    for row in rows {
+        out.push_str(&row.iter().map(|v| field(v)).collect::<Vec<_>>().join(","));
+        out.push_str("\r\n");
+    }
+    out
+}
+
+fn account_kind(kind: &str) -> &str {
+    match kind {
+        "cash" => "现金与存款",
+        "investment" => "投资账户",
+        "mixed" => "混合投资",
+        "fund" => "基金",
+        "bond" => "债券",
+        "housing_fund" => "公积金",
+        "other_asset" => "其他资产",
+        "credit_card" => "信用卡",
+        "loan" => "贷款",
+        "other_liability" => "其他负债",
+        other => other,
+    }
+}
+
+fn expense_category(category: &str) -> &str {
+    match category {
+        "travel" => "旅行",
+        "education" => "教育培训",
+        "health" => "医疗健康",
+        "home" => "家居服务",
+        "digital" => "数字服务",
+        "gift" => "礼物人情",
+        "other" => "其他",
+        other => other,
+    }
+}
+
+fn recurring_category(category: &str) -> &str {
+    match category {
+        "rent" => "房租",
+        "subscription" => "订阅",
+        "utilities" => "水电网",
+        "insurance" => "保险",
+        "membership" => "会员服务",
+        "other" => "其他",
+        other => other,
     }
 }

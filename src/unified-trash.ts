@@ -22,7 +22,7 @@ export type TrashContent = { kind: 'maintenance' | 'warranty' | 'expense' | 'pho
 export type TrashEntry = { kind: 'asset' | RecordKind | 'snapshot' | 'account' | 'expense' | 'plan' | 'payment' | 'wish' | 'virtual'; id: string; title: string; subtype: string | null; date: string | null; end_date: string | null; cost_cents: string | null; provider: string | null; deleted_at: string; asset_id: string | null; asset_name: string | null; asset_deleted: boolean; asset_revision: number; asset_state: string | null; contents: TrashContent[] };
 export type TrashPage = { generation: string; items: TrashEntry[]; total: number };
 export const stateText: Record<string, string> = { active: '使用中', retired: '已退役', sold: '已售出' };
-export const trashFilters = [['all', '全部'], ['asset', '资产'], ['maintenance', '维护'], ['warranty', '保障'], ['wish', '心愿'], ['wealth', '财富']] as const;
+export const trashFilters = [['all', '全部'], ['asset', '物品'], ['maintenance', '维护'], ['warranty', '保障'], ['wish', '心愿'], ['wealth', '财富']] as const;
 const costText = (cents: string | null) => cents === null ? '待补录' : yuan(cents);
 
 // Pure display facts for one unified-trash row, shared by the panel and tests.
@@ -42,7 +42,7 @@ export function entryDisplay(entry: TrashEntry): { typeLabel: string; title: str
   if (entry.kind === 'virtual') return { typeLabel: '虚拟资产', title: entry.title, facts: [[virtualKindText(entry.subtype ?? ''), entry.date && `购于 ${entry.date}`].filter(Boolean).join(' · ')], parentBlocked: false };
   if (entry.kind === 'wish') return { typeLabel: '心愿', title: entry.title, facts: [entry.subtype === 'achieved' ? `已实现${entry.date ? ' · ' + entry.date : ''}` : '未实现', ...(entry.asset_name ? [`实现的物品「${entry.asset_name}」${entry.asset_deleted ? '也在最近删除中' : '仍在我的物品中'}`] : [])], parentBlocked: false };
   if (entry.kind === 'account') return { typeLabel: '账户', title: entry.title, facts: ['未出现在任何盘点中的账户'], parentBlocked: false };
-  if (entry.kind === 'asset') return { typeLabel: '资产', title: entry.title, facts: [`原状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}`], parentBlocked: false };
+  if (entry.kind === 'asset') return { typeLabel: '物品', title: entry.title, facts: [`原状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}`], parentBlocked: false };
   if (entry.kind === 'maintenance') {
     const kind = maintenanceKinds.find(([k]) => k === entry.subtype)?.[1] ?? '维护';
     return { typeLabel: '维护', title: entry.title || kind, facts: [`${entry.date || '日期未知'} · 费用 ${costText(entry.cost_cents)}`], parentBlocked: entry.asset_deleted };

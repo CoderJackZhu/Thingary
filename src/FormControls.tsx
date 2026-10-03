@@ -95,7 +95,7 @@ export function ChoiceManager({kind,label,generation}:{kind:ChoiceKind;label:str
 export function ChoiceField({kind,label,value,onChange,generation,disabled,byName=false}:{kind:ChoiceKind;label:string;value:string|null;onChange:(v:string|null)=>void;generation:string;disabled?:boolean;byName?:boolean}){
  const c=useChoices(kind,generation),{data,locked}=c,[open,setOpen]=useState(false),[manage,setManage]=useState(false);
  const panel=useRef<HTMLDialogElement>(null);
- const empty=kind==='category'?'全部':kind==='label'?'未设置':'未选择';
+ const empty=kind==='category'?'未分类':'未选择';
  useEffect(()=>{if(open)panel.current?.showModal();else panel.current?.close()},[open]);useEffect(()=>{panel.current?.querySelector('.choice-body')?.scrollTo(0,0)},[manage]);
  const selected=data?.items.find(e=>(byName?e.name:e.id)===value);
  const previousSelection=useRef<Entry|null>(null);

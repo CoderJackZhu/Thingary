@@ -92,14 +92,14 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
     setBusy(true); setConfirming(null);
     try {
       setEntries(await invoke<MaterialEntry[]>('remove_material', { id, generation }));
-      onNotice(`已删除素材「${name}」。已保存资产的图片不受影响。`);
+      onNotice(`已删除素材「${name}」。已保存物品的图片不受影响。`);
     } catch (e) { onNotice(errorMessage(e)); reload(); }
     finally { lock.current = false; setBusy(false); }
   }
   return <section className="materials-section" aria-labelledby="materials-heading">
     <section className="card">
       <h2 id="materials-heading">素材库</h2>
-      <p className="muted">新增或编辑资产时，点击物品名称旁的图标即可选择。内置素材为示意图，非实物照片；也可以上传自己的图片作为素材。</p>
+      <p className="muted">新增或编辑物品时，点击物品名称旁的图标即可选择。内置素材为示意图，非实物照片；也可以上传自己的图片作为素材。</p>
       <div className="material-library-actions">
         <span className="muted small">JPEG、PNG、HEIC、WebP · 每张 20 MiB。上传后随档案保存在本机。</span>
       </div>
@@ -115,7 +115,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
           <span className="material-card-name" title={entry.name}>{entry.name}</span>
           <span className="material-card-kind">{entry.builtin ? '内置示意图' : '自定义'}</span>
           {!entry.builtin && (confirming === entry.id
-            ? <div className="material-card-actions"><span>删除后不可恢复，已保存资产不受影响。</span><button type="button" className="primary danger" disabled={busy || !!pending || !recoveryReady} onClick={() => void remove(entry.id, entry.name)}>确认删除</button><button type="button" disabled={busy || !!pending || !recoveryReady} onClick={() => setConfirming(null)}>保留</button></div>
+            ? <div className="material-card-actions"><span>删除后不可恢复，已保存物品不受影响。</span><button type="button" className="primary danger" disabled={busy || !!pending || !recoveryReady} onClick={() => void remove(entry.id, entry.name)}>确认删除</button><button type="button" disabled={busy || !!pending || !recoveryReady} onClick={() => setConfirming(null)}>保留</button></div>
             : <div className="material-card-actions"><button type="button" disabled={busy || !!pending || !recoveryReady} onClick={() => setConfirming(entry.id)}>删除</button></div>)}
         </div>)}
       </div> : <p className="muted" role="status">正在读取素材…</p>}

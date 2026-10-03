@@ -83,8 +83,12 @@ char *possio_pick_backup_open(void) {
         panel.canChooseFiles = YES;
         panel.canChooseDirectories = NO;
         panel.allowsMultipleSelection = NO;
-        UTType *type = [UTType typeWithFilenameExtension:@"possio"];
-        if (type) panel.allowedContentTypes = @[type];
+        NSMutableArray<UTType *> *types = [NSMutableArray array];
+        for (NSString *ext in @[@"thingary", @"possio"]) { // possio: backups made by 2.4.4 and earlier
+            UTType *type = [UTType typeWithFilenameExtension:ext];
+            if (type) [types addObject:type];
+        }
+        if (types.count) panel.allowedContentTypes = types;
         if ([panel runModal] != NSModalResponseOK) return NULL;
         return strdup(panel.URL.fileSystemRepresentation);
     }
@@ -92,7 +96,7 @@ char *possio_pick_backup_open(void) {
 char *possio_pick_csv_open(void) {
     @autoreleasepool {
         NSOpenPanel *panel = [NSOpenPanel openPanel];
-        panel.title = @"选择要导入的资产表";
+        panel.title = @"选择要导入的物品表";
         panel.prompt = @"检查表格";
         panel.canChooseFiles = YES;
         panel.canChooseDirectories = NO;

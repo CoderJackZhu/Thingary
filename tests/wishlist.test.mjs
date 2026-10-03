@@ -82,5 +82,5 @@ test('conversion form never copies the estimate into the actual price and reuses
   const detail = readFileSync(new URL('../src/WishDetail.tsx', import.meta.url), 'utf8');
   assert.match(detail, /!item.converted_asset/);
   assert.match(detail, /前往最近删除/);
-  assert.match(detail, /查看资产/);
+  assert.match(detail, /查看物品/);
 });

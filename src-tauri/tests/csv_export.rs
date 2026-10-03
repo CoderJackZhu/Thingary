@@ -169,7 +169,7 @@ fn ac30_r06_csv_is_complete_safe_and_round_trips_text() {
     })
     .unwrap();
 
-    let path = root.path().join("资产表.csv");
+    let path = root.path().join("物品表.csv");
     assert_eq!(s.export_csv(&path).unwrap(), 4);
     let bytes = std::fs::read(&path).unwrap();
     assert!(

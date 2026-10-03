@@ -723,10 +723,10 @@ pub async fn create_backup(
     worker: tauri::State<'_, Worker>,
 ) -> Result<Option<BackupDone>> {
     worker.require_personal()?;
-    // The panel appends ".possio" itself; a suggested extension would be doubled.
+    // The panel appends ".thingary" itself; a suggested extension would be doubled.
     let suggested = format!("物谱备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
     let receive = on_main(&app, move || {
-        crate::native_images::pick_save("保存完整备份", "保存备份", &suggested, "possio")
+        crate::native_images::pick_save("保存完整备份", "保存备份", &suggested, "thingary")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -1003,9 +1003,9 @@ pub async fn export_csv(
     worker: tauri::State<'_, Worker>,
 ) -> Result<Option<CsvDone>> {
     worker.require_personal()?;
-    let suggested = format!("物谱资产表-{}", chrono::Local::now().format("%Y%m%d"));
+    let suggested = format!("物谱物品表-{}", chrono::Local::now().format("%Y%m%d"));
     let receive = on_main(&app, move || {
-        crate::native_images::pick_save("导出资产表", "导出", &suggested, "csv")
+        crate::native_images::pick_save("导出物品表", "导出", &suggested, "csv")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -1017,6 +1017,52 @@ pub async fn export_csv(
         };
         let target = path.clone();
         let rows = w.call_personal(move |s| s.export_csv(&target))?;
+        Ok(Some(CsvDone {
+            name: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into(),
+            folder: path
+                .parent()
+                .map(|p| p.display().to_string())
+                .unwrap_or_default(),
+            rows,
+        }))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到导出结果，请到目标位置核对"))?
+}
+
+/// Check-ins, important expenses or recurring costs as a readable table.
+/// Cancelling the save panel returns `None` and writes nothing.
+#[tauri::command]
+pub async fn export_finance_csv(
+    kind: String,
+    app: tauri::AppHandle,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<CsvDone>> {
+    worker.require_personal()?;
+    let (title, base) = match kind.as_str() {
+        "wealth" => ("导出盘点记录", "物谱盘点记录"),
+        "expenses" => ("导出重要支出", "物谱重要支出"),
+        "recurring" => ("导出周期费用", "物谱周期费用"),
+        _ => return Err(Error::new("EXPORT_KIND", "不支持的导出类型")),
+    };
+    let suggested = format!("{base}-{}", chrono::Local::now().format("%Y%m%d"));
+    let receive = on_main(&app, move || {
+        crate::native_images::pick_save(title, "导出", &suggested, "csv")
+    })?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        let target = path.clone();
+        let rows = w.call_personal(move |s| s.export_finance_csv(&kind, &target))?;
         Ok(Some(CsvDone {
             name: path
                 .file_name()

@@ -14,15 +14,15 @@
 .check-in-header p{margin:0;font-size:13px}
 .check-in-date{display:grid;gap:6px;font-size:13px}
 .check-in-table td{vertical-align:middle}
-.check-in-table td small{display:block;margin-top:3px;font-size:11px}
+.check-in-table td small{display:block;margin-top:3px;font-size:12px}
 .check-in-table input{width:140px;font-variant-numeric:tabular-nums;text-align:right}
 .check-in-table tr[data-state=missing] td:first-child strong{color:var(--muted)}
 .check-in-state{display:flex;gap:6px}
-.check-in-state button{font-size:11px;padding:4px 9px}
+.check-in-state button{font-size:12px;padding:4px 9px}
 .check-in-state button[aria-pressed=true]{background:var(--soft);color:var(--accent);border-color:var(--accent)}
 .check-in-footer{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;align-items:center;gap:16px;padding:14px 18px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
 .check-in-footer>div{display:grid;gap:4px}
-.check-in-footer span{font-size:11px;color:var(--muted)}
+.check-in-footer span{font-size:12px;color:var(--muted)}
 .check-in-footer strong{font-size:15px;font-variant-numeric:tabular-nums}
 .check-in-submit{display:flex!important;gap:8px;grid-auto-flow:column}
 @media(max-width:900px){.check-in-header{grid-template-columns:1fr}.check-in-footer{grid-template-columns:1fr 1fr}.check-in-submit{grid-column:1/-1}}
@@ -32,7 +32,7 @@
 .expense-link{display:inline-flex;align-items:center;gap:10px;font-size:13px}
 .expense-link-search{display:grid;gap:6px;justify-items:end}
 .expense-link-results{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
-.expense-link-results button{font-size:11px;padding:4px 9px}
+.expense-link-results button{font-size:12px;padding:4px 9px}
 /* U18：计划／付款记录分段是文字按钮——图标 segmented 的 26px 定宽不再命中。
  * wealth.css 经组件导入，先于 app-layout.css 进入样式表；同特异性会输，
  * 因此用 .wealth-section 前缀抬高特异性，保证文字按钮宽度自主。 */
@@ -51,8 +51,8 @@
 .wealth-section .changes-sort button{width:auto;height:auto;min-width:0;padding:5px 10px;white-space:nowrap}
 .changes-link{margin-top:4px;font-size:12px;justify-self:start}
 .changes-table strong{font-weight:600}
-.row-tag{display:block;margin-top:2px;font-size:11px;color:var(--accent)}
-.row-expand{width:26px;height:26px;padding:0;line-height:1;font-size:11px;color:var(--muted)}
+.row-tag{display:block;margin-top:2px;font-size:12px;color:var(--accent)}
+.row-expand{width:26px;height:26px;padding:0;line-height:1;font-size:12px;color:var(--muted)}
 .row-expand[aria-expanded=true]{color:var(--text)}
 .history-row td{height:auto;padding:12px 10px;background:var(--soft)}
 .account-history{display:grid;gap:12px}
@@ -64,4 +64,6 @@
 .wealth-section .ui-table td:nth-child(3),.wealth-section .ui-table td:nth-child(4),.wealth-section .ui-table td:nth-child(5),.wealth-section .ui-table td:nth-child(6){white-space:nowrap}
 .recurring-due tr[data-overdue=true] td:first-child{font-weight:600}
 .recurring-due td.amount,.wealth-section td.amount{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.virtual-filter{display:inline-flex;max-width:100%;flex-wrap:wrap;gap:5px;border:0;padding:0;margin:4px 0 12px;background:transparent}.virtual-filter button{width:auto;height:auto;padding:7px 13px;border:1px solid var(--line);border-radius:6px;white-space:nowrap;font-size:11px;color:var(--muted)}.virtual-filter button[aria-pressed=true]{background:var(--selected);border-color:var(--selected);color:var(--accent);font-weight:600}.virtual-table td small{display:block;margin-top:2px}.virtual-state{font-size:11px;white-space:nowrap;color:var(--positive)}.virtual-state::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:1px}.virtual-state[data-state=expiring]{color:var(--accent)}.virtual-state[data-state=expired]{color:var(--error)}.virtual-state[data-state=stopped],.virtual-state[data-state=unknown]{color:var(--muted)}.virtual-linked-note{margin:4px 0 8px;line-height:1.7}
+.virtual-filter{display:inline-flex;max-width:100%;flex-wrap:wrap;gap:5px;border:0;padding:0;margin:4px 0 12px;background:transparent}.virtual-filter button{width:auto;height:auto;padding:7px 13px;border:1px solid var(--line);border-radius:6px;white-space:nowrap;font-size:12px;color:var(--muted)}.virtual-filter button[aria-pressed=true]{background:var(--selected);border-color:var(--selected);color:var(--accent);font-weight:600}.virtual-table td small{display:block;margin-top:2px}.virtual-state{font-size:12px;white-space:nowrap;color:var(--positive)}.virtual-state::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:1px}.virtual-state[data-state=expiring]{color:var(--accent)}.virtual-state[data-state=expired]{color:var(--error)}.virtual-state[data-state=stopped],.virtual-state[data-state=unknown]{color:var(--muted)}.virtual-linked-note{margin:4px 0 8px;line-height:1.7}
+.trend-table{overflow-x:auto}
+.table-scroll{overflow-x:auto}

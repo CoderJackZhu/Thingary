@@ -295,7 +295,7 @@ function autoBackupPreview(command: string, args: Record<string, unknown>): unkn
   if (command === 'auto_backup_choose_extra') throw { message: '额外备份位置选择请在原生 App 中验证，此页面仅展示界面状态。' };
   if (command === 'inspect_auto_backup') {
     const name = String(args.name ?? '');
-    if (!/^物谱自动备份-\d{4}-\d{2}-\d{2}\.possio$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
+    if (!/^物谱自动备份-\d{4}-\d{2}-\d{2}\.(thingary|possio)$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
     return { path: `${previewAutoBackup.folder}/${name}`, name, summary: { hash: 'preview-fixture', created_at: when(120), schema: 20, assets: 9, deleted_assets: 0, wishes: 2, maintenances: 3, warranties: 4, accounts: 2, snapshots: 6, expenses: 5, plans: 2, payments: 12, virtual_assets: 3, files: 11 } };
   }
   throw { message: '此操作需在原生 App 验证：' + command };
@@ -550,7 +550,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   // Unified trash listing: independently deleted records plus deleted assets.
   if (command === 'list_trash') {
     const query = args.query as { filter: string; offset: number; search?: string };
-    const kindLabel = (kind: string) => ({ asset: '资产', maintenance: '维护', warranty: '保障' } as Record<string, string>)[kind] ?? kind;
+    const kindLabel = (kind: string) => ({ asset: '物品', maintenance: '维护', warranty: '保障' } as Record<string, string>)[kind] ?? kind;
     const items: TrashEntry[] = [];
     for (const r of records) if (r.deleted) items.push({ kind:'asset', id:r.asset.id, title:r.asset.name, subtype:null, date:null, end_date:null, cost_cents:null, provider:null, deleted_at:r.deleted_at!, asset_id:null, asset_name:null, asset_deleted:true, asset_revision:r.asset.revision, asset_state:r.lifecycle?.state ?? 'active', contents:([['maintenance',r.maintenances.length],['warranty',(r.warranties??[]).length],['photo',r.photos.length]] as const).filter(([,n])=>n>0).map(([kind,count])=>({kind,count})) });
     const parentFacts = (assetId: string) => { const parent = records.find(r => r.asset.id === assetId); return parent ? { parent, state: parent.lifecycle?.state ?? 'active' } : null; };

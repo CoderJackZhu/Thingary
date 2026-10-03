@@ -17,7 +17,7 @@ test('after a restore only old-generation work is cleared, appearance stays', ()
 });
 
 test('three data operations are named and not interchangeable', () => {
-  for (const title of ['完整备份', '从备份恢复', '导出资产表（CSV）', '最近删除']) assert.ok(src.includes(`<h3>${title}</h3>`), title);
+  for (const title of ['完整备份', '从备份恢复', '导出物品表（CSV）', '导出财富表（CSV）', '最近删除']) assert.ok(src.includes(`<h3>${title}</h3>`), title);
   assert.match(src, /不能用于恢复/);
 });
 

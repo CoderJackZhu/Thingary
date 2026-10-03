@@ -38,7 +38,7 @@ fn save_real_asset(worker: &Worker, name: &str) {
         .unwrap();
 }
 fn dated_name(date: &str) -> String {
-    format!("物谱自动备份-{date}.possio")
+    format!("物谱自动备份-{date}.thingary")
 }
 
 #[test]
@@ -527,5 +527,36 @@ fn run_uses_the_existing_backup_protocol_without_touching_final_on_error() {
     assert_eq!(
         Path::new(&published).file_name().unwrap().to_str().unwrap(),
         dated_name("2026-09-29")
+    );
+}
+
+#[test]
+fn archives_written_before_the_extension_change_stay_usable() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("auto-backups");
+    std::fs::create_dir_all(&dir).unwrap();
+    // 2.4.4 and earlier wrote .possio; those files remain ours: listed, restorable.
+    std::fs::write(dir.join("物谱自动备份-2026-09-27.possio"), b"old").unwrap();
+    std::fs::write(dir.join("物谱自动备份-2026-09-28.possio"), b"old").unwrap();
+    assert!(auto_backup::is_auto_backup_name(
+        "物谱自动备份-2026-09-27.possio"
+    ));
+    assert!(auto_backup::is_auto_backup_name(&dated_name("2026-09-27")));
+    assert_eq!(auto_backup::list(&dir).len(), 2);
+    // A new archive for a day that already has an old-extension one replaces it.
+    let store = Store::open(&tmp.path().join("library")).unwrap();
+    let written = auto_backup::run(&store, &dir, "2026-09-28").unwrap();
+    assert!(written.ends_with(dated_name("2026-09-28")));
+    assert!(!dir.join("物谱自动备份-2026-09-28.possio").exists());
+    let names: Vec<String> = auto_backup::list(&dir)
+        .into_iter()
+        .map(|i| i.name)
+        .collect();
+    assert_eq!(
+        names,
+        vec![
+            dated_name("2026-09-28"),
+            "物谱自动备份-2026-09-27.possio".to_string()
+        ]
     );
 }

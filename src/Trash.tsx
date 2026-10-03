@@ -76,7 +76,7 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
             <p className="muted small">{display.typeLabel}{entry.kind !== 'asset' && entry.asset_name ? ` · 所属：${entry.asset_name}` : ''}{entry.asset_id ? ` · 状态：${stateText[entry.asset_state ?? 'active'] ?? '使用中'}` : ''}</p>
             {display.facts.map(fact => <p className="small" key={fact}>{fact}</p>)}
             {contentsText(entry.contents) && <p className="small">{contentsText(entry.contents)}，恢复时一起回来</p>}
-            {display.parentBlocked && <p className="small" role="note">所属物品仍在最近删除中，请先恢复所属资产。</p>}
+            {display.parentBlocked && <p className="small" role="note">所属物品仍在最近删除中，请先恢复所属物品。</p>}
             </div></td><td><span className="ui-tag">{display.typeLabel}</span></td><td className="trash-date">{entry.deleted_at ? entry.deleted_at.slice(0,10) : '时间待补充'}</td>
           <td><div className="trash-actions">{display.parentBlocked
             ? <button onClick={() => entry.asset_id && onRestoreAsset(entry.asset_id, page.generation)} aria-label={'恢复所属物品 ' + (entry.asset_name ?? '')}>先恢复所属物品</button>

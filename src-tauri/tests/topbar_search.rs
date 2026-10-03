@@ -173,12 +173,12 @@ fn trash_search_filters_before_pagination_and_matches_type_labels() {
     assert_eq!(page.items.len(), 1);
     assert_eq!(page.items[0].title, "待找回的三脚架");
 
-    // The type label ("资产") is searchable too, and counts every match.
+    // The type label ("物品") is searchable too, and counts every match.
     let page = s
         .list_trash(&possio_lib::trash::TrashQuery {
             filter: "all".into(),
             offset: 0,
-            search: "资产".into(),
+            search: "物品".into(),
         })
         .unwrap();
     assert_eq!(page.total, 103);

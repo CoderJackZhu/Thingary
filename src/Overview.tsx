@@ -56,7 +56,7 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
       <div><span className="ui-label">当前持有物购入金额</span><span className="ui-value">{money(data.held_known_cents)}<small>· {data.held_count} 件</small></span><span className="ui-note">使用中 {data.active_count} · 已退役 {data.retired_count}{data.held_unknown_price_count ? ` · ${data.held_unknown_price_count} 件金额未知，未计入` : ''}</span></div>
       <div><span className="ui-label">历史购入金额</span><span className="ui-value">{money(data.history_known_cents)}</span><span className="ui-note">含已售出 {data.sold_count} 件{data.history_unknown_price_count ? ` · ${data.history_unknown_price_count} 件金额未知，未计入` : ''}</span></div>
       <div><span className="ui-label">平均持有<Info text="按购入日至今天，含当天；购入日期未知的物品不计入。"/></span><span className="ui-value">{data.average_holding_days === null ? '—' : <>{data.average_holding_days.toLocaleString('zh-CN')}<small>天</small></>}</span>{data.held_unknown_date_count > 0 && <span className="ui-note">{data.held_unknown_date_count} 件购入日期未知，未计入</span>}</div>
-      <div><span className="ui-label">进行中心愿<Info text="心愿的预计金额不计入资产。"/></span><span className="ui-value">{data.ongoing_wishes}<small>条</small></span></div>
+      <div><span className="ui-label">进行中心愿<Info text="心愿的预计金额不计入持有物品。"/></span><span className="ui-value">{data.ongoing_wishes}<small>条</small></span></div>
     </div>
     <div className="overview-grid">
       <article className="ui-card">
@@ -67,7 +67,7 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
           <table className="ui-table distribution-table"><thead><tr><th>分类</th><th>数量</th><th>购入金额</th><th>{metric === 'count' ? '数量占比' : '金额占比'}</th></tr></thead><tbody>{rows.map(c => <tr key={c.id ?? 'none'}><td><span className="swatch" style={{ background: color(c) }}/>{c.name}</td><td>{c.count}</td><td>{money(c.known_cents)}{c.unknown_price_count > 0 && <small> · {c.unknown_price_count} 件未知</small>}</td><td>{percent(value(c), total)}</td></tr>)}</tbody></table>
         </div>}
         {metric === 'amount' && unknown > 0 && <p className="muted small ui-pad">{unknown} 件金额未知，不计入金额占比。</p>}
-        <div className="ui-card-foot"><button className="ui-link" onClick={onBrowse}>在资产列表中核对 →</button></div>
+        <div className="ui-card-foot"><button className="ui-link" onClick={onBrowse}>在物品列表中核对 →</button></div>
       </article>
       <article className="ui-card">
         <div className="ui-section-head"><h3>最近事件</h3><span className="ui-aside">来自时间轴</span></div>
