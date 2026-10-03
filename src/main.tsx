@@ -246,6 +246,8 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const mainRef = useRef<HTMLElement>(null), collectionRef = useRef<HTMLDivElement>(null), listScroll = useRef(0);
   const [taxonomyDirty, setTaxonomyDirty] = useState(false);
   const taxonomy = useTaxonomy(() => { void refresh(); if (selected) void select(selected.asset.id); setTrashVersion(v => v + 1); });
+  // The library identity is also available when the physical list cannot load.
+  const libraryGeneration = page?.generation ?? taxonomy.snapshot?.generation;
   async function changeDemoMode(demo: boolean, reset = false, thenNewAsset = false) {
     if (modeBusy) return;
     if (modeBlocked || pendingGenerations(localStorage).length || document.querySelector('dialog[open]')) {
@@ -295,21 +297,21 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   // The target page shows its own failure message; the App only clears the focus.
   const onSourceDone = () => setSourceFocus(null);
   function beginReturn() {
-    if (!page) return;
-    setReturnContext({ section, generation: page.generation, scroll: mainRef.current?.scrollTop ?? 0, reviewYear, timeline: timelineSelection });
+    if (!libraryGeneration) return;
+    setReturnContext({ section, generation: libraryGeneration, scroll: mainRef.current?.scrollTop ?? 0, reviewYear, timeline: timelineSelection });
   }
   /** Open a record from a stable target: validate first, then let the target
    * page locate it by ID. A failed source refreshes and explains; it never
    * lands on a same-named record or a fabricated new one. */
   function openSource(target: SourceTarget) {
-    if (!page) return;
+    if (!libraryGeneration) return;
     beginReturn();
     // Synchronous like the other kinds: read_asset's own ticket drops a late
     // answer, and its not-found/deleted states explain an invalid source.
     if (target.kind === 'asset') { setDetailId(null); setSection('assets'); void select(target.id, true); return; }
     // A stale name search from an earlier asset→wish link must not filter the list behind the source.
     if (target.kind === 'wish') setWishFocus(null);
-    setSourceFocus({ target, generation: page.generation, token: ++sourceToken.current });
+    setSourceFocus({ target, generation: libraryGeneration, token: ++sourceToken.current });
     setDetailId(null);
     setSection(sourcePage(target));
   }
@@ -330,14 +332,14 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   // Returning to the originating section restores its year/filter state; the
   // scroll follows once that page has rendered real data (restoreScroll).
   useEffect(() => {
-    if (!page || !returnContext || section !== returnContext.section) return;
-    const context = validReturn(returnContext, page.generation);
+    if (!libraryGeneration || !returnContext || section !== returnContext.section) return;
+    const context = validReturn(returnContext, libraryGeneration);
     setReturnContext(null);
     if (!context) return;
     if (context.section === 'overview') setReviewYear(context.reviewYear);
     if (context.section === 'timeline') setTimelineSelection(context.timeline);
     setPendingReturn(context);
-  }, [section, returnContext, page]);
+  }, [section, returnContext, libraryGeneration]);
   // The carried year is consumed by the expenses page's mount; clear it so a
   // later unrelated visit falls back to the default current year.
   useEffect(() => { if (section === 'expenses') setExpensesYear(undefined); }, [section]);
@@ -924,7 +926,11 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.virtual} onSearch={v => setSearches(s => (s.virtual === v ? s : { ...s, virtual: v }))} autoNew={autoNew === 'virtual'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} initialYear={expensesYear} onOpenAsset={id => { setSection('assets'); void select(id, true); }} source={sourceFocus} onSourceDone={onSourceDone} search={searches.expenses} onSearch={v => setSearches(s => (s.expenses === v ? s : { ...s, expenses: v }))} autoNew={autoNew === 'expenses'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
-      {section === 'overview' && !modeBusy && page && <OverviewPage modules={modules} key={page.generation} generation={page.generation} today={today} version={page} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>}
+      {section === 'overview' && !modeBusy && <>
+        {loadError && <div className="notice" role="alert"><strong>物品资料读取失败</strong><p>{loadError}</p><button disabled={loading} onClick={() => { void refresh(); void taxonomy.reload().catch(() => {}); }}>重新读取</button></div>}
+        {libraryGeneration ? <OverviewPage modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
+          : !loadError && <p className="loading" role="status">正在读取总览…</p>}
+      </>}
       {section === 'timeline' && <SourceTimelinePage modules={modules} selection={timelineSelection} onSelection={setTimelineSelection} version={page ?? undefined} onOpenSource={openSource} restoreScroll={scrollRestore('timeline')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} search={searches.timeline} onSearch={v => setSearches(s => (s.timeline === v ? s : { ...s, timeline: v }))}/>}
       {section === 'wishlist' && <WishlistPanel
         taxonomy={taxonomy.snapshot}

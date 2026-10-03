@@ -159,6 +159,7 @@
 /* U15d 新增／编辑物品：单列分组，高度只随内容变化 */
 .editor.asset-editor{width:min(640px,calc(100vw - 48px))}
 .asset-editor .editor-body{grid-template-columns:minmax(0,1fr);gap:12px;padding:18px 20px 22px}
+.asset-editor>form>.editor-notice{flex:none;margin:0;padding:10px 20px;border-bottom:1px solid var(--line);border-radius:0}
 .asset-editor .editor-body>*,.asset-editor-existing .editor-body>.form-notes,.asset-editor-existing .editor-body>.form-notes~.form-block{grid-column:1/-1;grid-row:auto}
 .asset-editor .editor-body>.form-notes{order:1}
 .asset-editor .editor-body>.more-fields{order:2}

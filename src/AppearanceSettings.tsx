@@ -9,7 +9,14 @@ const swatch: Record<Style, { bg: string; side: string; ink: string; accent: str
 export function AppearanceSettings({ style, onStyle }: { style: Style; onStyle: (s: Style) => void }) {
   return <section className="ui-card ui-content module-settings appearance-settings" aria-labelledby="appearance-heading">
     <div className="data-heading"><div><p className="eyebrow">界面</p><h2 id="appearance-heading">外观</h2></div></div>
-    <div className="theme-cards" role="radiogroup" aria-label="主题">{styles.map(s => { const c = swatch[s.value]; return <button key={s.value} type="button" role="radio" aria-checked={style === s.value} className="theme-card" onClick={() => onStyle(s.value)}>
+    <div className="theme-cards" role="radiogroup" aria-label="主题">{styles.map((s, index) => { const c = swatch[s.value]; return <button key={s.value} type="button" role="radio" aria-checked={style === s.value} tabIndex={style === s.value ? 0 : -1} className="theme-card" onClick={() => onStyle(s.value)} onKeyDown={event => {
+      const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0;
+      if (!direction && event.key !== 'Home' && event.key !== 'End') return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? styles.length - 1 : (index + direction + styles.length) % styles.length;
+      event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+      onStyle(styles[next].value);
+    }}>
       <span className="theme-preview" aria-hidden="true" style={{ background: c.bg }}>
         <span style={{ background: c.side }}><i style={{ background: c.ink, width: '55%' }}/><i style={{ background: c.ink, opacity: .15 }}/><i style={{ background: c.ink, opacity: .15, width: '70%' }}/></span>
         <span><i style={{ background: c.ink, width: '45%' }}/><b style={c.card}/><i style={{ background: c.accent, width: '32%' }}/></span>

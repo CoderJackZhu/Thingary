@@ -1,9 +1,9 @@
 [package]
 name = "thingary"
-version = "2.6.0"
+version = "2.6.1"
 edition = "2021"
 license = "GPL-3.0-or-later"
-description = "物谱 Thingary: a local-first macOS archive of the things you own"
+description = "物谱 Thingary: a local-first macOS archive for possessions and financial net worth"
 default-run = "thingary"
 
 [lib]

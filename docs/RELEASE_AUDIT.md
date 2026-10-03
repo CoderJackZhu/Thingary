@@ -153,5 +153,5 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 
 - [x] U1 GitHub 仓库已由用户改名为 `Thingary`（2026-10-02），本地 `origin` 已由用户改为新地址
 - [x] U2a 推送到私有远程；CI 在 `main` 上连续通过（2026-10-02 最近 5 次均 success）；两个已合入的旧远程分支已删除，远程只剩 `main`（2026-10-03）
-- [ ] U2b 公开仓库后开启 Private vulnerability reporting（私有仓库上该接口返回 404，只能公开后开；`SECURITY.md` 依赖它）；再发布 v2.4.4 `[用户]`
+- [ ] U2b 公开仓库后开启 Private vulnerability reporting（私有仓库上该接口返回 404，只能公开后开；`SECURITY.md` 依赖它）；再发布经最终验收确认的版本（当前安装状态见[文档索引](INDEX.md)） `[用户]`
 - [ ] U3 本节 4.3 的手工检查：系统外观实时切换（AC09）与输入法组合中按 Esc（U12）已由代理在隔离包补做（2026-10-02，后者发现并修复一处缺陷，见 CHANGELOG）；VoiceOver、iCloud 额外备份位置、Numbers／Excel 打开 CSV 仍待你本人 `[用户]`
