@@ -16,7 +16,7 @@ npm run build && npm run test:ui && npm run check && npm test
 
 - 改了计算或数据语义，请同时更新相应测试样例；涉及界面，请覆盖正常、缺失、空白和错误状态。
 - 不要在测试里使用真实资料；样例与测试数据一律虚构。
-- 开发与测试只用开发预览身份（`local.possio.preview`）或临时目录，**不要打开或写入正式版的资料库**（`~/Library/Application Support/local.possio.main/`）。
+- 开发与测试只用开发预览身份（`local.thingary.preview`）或临时目录，**不要打开或写入正式版的资料库**（`~/Library/Application Support/local.thingary.main/`）。
 - 界面改动请复用已有的 SVG、令牌（`src/theme.css`）和组件，并附同尺寸的改前改后截图。
 
 ## 代码约定

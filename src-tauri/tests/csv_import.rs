@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     csv_import::{template, Commit, Done},
     domain::Error,
     storage::Store,
@@ -167,7 +167,7 @@ fn imported_sales_keep_backup_valid_and_old_libraries_are_repaired() {
 旧耳机,300,2024-02-01,已售出,2025-01-01,2026-01-01,100\n";
     assert_eq!(import(&mut s, csv, false).unwrap().imported, 2);
     let out = tempfile::tempdir().unwrap();
-    s.backup(Some(&out.path().join("a.possio"))).unwrap();
+    s.backup(Some(&out.path().join("a.thingary"))).unwrap();
     // A library imported before the fix: audits with no saved reply.
     drop(s);
     let active: serde_json::Value =
@@ -185,7 +185,7 @@ fn imported_sales_keep_backup_valid_and_old_libraries_are_repaired() {
     .unwrap();
     drop(raw);
     let mut s = Store::open(root.path()).unwrap();
-    s.backup(Some(&out.path().join("c.possio"))).unwrap();
+    s.backup(Some(&out.path().join("c.thingary"))).unwrap();
     assert_eq!(import(&mut s, csv, true).unwrap().imported, 2);
-    s.backup(Some(&out.path().join("d.possio"))).unwrap();
+    s.backup(Some(&out.path().join("d.thingary"))).unwrap();
 }

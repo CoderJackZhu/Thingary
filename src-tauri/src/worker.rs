@@ -134,7 +134,7 @@ impl Worker {
         let (tx, rx) = mpsc::sync_channel::<Job>(32);
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
         thread::Builder::new()
-            .name("possio-storage".into())
+            .name("thingary-storage".into())
             .spawn(move || {
                 match (|| -> Result<Libraries> {
                     let real = Store::open(&root)?;

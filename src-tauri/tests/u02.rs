@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     photos::Selection,
     storage::Store,
     wish_plan::{Preferences, Save, Saving},
@@ -32,7 +32,7 @@ fn wish(s: &Store) -> Save {
         achieved_date: None,
     }
 }
-fn saving(s: &Store, w: &possio_lib::wishlist::WishlistItem, mode: &str, cents: &str) -> Saving {
+fn saving(s: &Store, w: &thingary_lib::wishlist::WishlistItem, mode: &str, cents: &str) -> Saving {
     Saving {
         request_id: uuid::Uuid::new_v4().to_string(),
         generation: s.generation(),
@@ -194,7 +194,7 @@ fn savings_caps_the_last_addition_and_rejects_more_after_completion() {
     assert_eq!(achieved.status, "achieved");
     assert_eq!(achieved.preferences.saved_cents, "10000");
     let all = s
-        .query_wishlist(&possio_lib::wishlist::Query {
+        .query_wishlist(&thingary_lib::wishlist::Query {
             search: String::new(),
             filter: "all".into(),
             sort: "created".into(),
@@ -241,9 +241,9 @@ fn wish_photos_edit_replay_and_backup_preserve_independent_copies() {
     let w = s.save_wish_plan(&input, TODAY).unwrap();
     assert_eq!(w.photos.len(), 2);
     assert!(s.photo_preview(&a.id, &s.generation()).is_ok());
-    let archive = dir.path().join("test.possio");
+    let archive = dir.path().join("test.thingary");
     s.backup(Some(&archive)).unwrap();
-    let hash = possio_lib::backup::archive_hash(&archive).unwrap();
+    let hash = thingary_lib::backup::archive_hash(&archive).unwrap();
     let other = tempfile::tempdir().unwrap();
     let mut target = Store::open(other.path()).unwrap();
     target
@@ -267,7 +267,7 @@ fn unknown_target_never_auto_achieves_and_atomic_errors_leave_no_wish() {
     bad.preferences.channel_id = Some("missing".into());
     assert!(s.save_wish_plan(&bad, TODAY).is_err());
     assert_eq!(
-        s.query_wishlist(&possio_lib::wishlist::Query {
+        s.query_wishlist(&thingary_lib::wishlist::Query {
             search: "".into(),
             filter: "ongoing".into(),
             sort: "created".into(),
@@ -281,7 +281,7 @@ fn unknown_target_never_auto_achieves_and_atomic_errors_leave_no_wish() {
 }
 #[test]
 fn asset_options_history_exclusions_pin_and_backup_are_atomic() {
-    use possio_lib::{
+    use thingary_lib::{
         catalog::{Details, Query, SaveAsset},
         domain::Save as AssetSave,
         preferences::{AssetOptions, AssetPreferences, Exclusions, NewWarranty, Reminder},
@@ -343,7 +343,7 @@ fn asset_options_history_exclusions_pin_and_backup_are_atomic() {
     assert_eq!(s.purchase_trend("month", TODAY).unwrap().known_cents, "0");
     assert!(s
         .timeline(
-            &possio_lib::timeline::Query {
+            &thingary_lib::timeline::Query {
                 filter: "all".into(),
                 asset_id: None
             },
@@ -354,7 +354,7 @@ fn asset_options_history_exclusions_pin_and_backup_are_atomic() {
         .is_empty());
     assert!(!s
         .timeline(
-            &possio_lib::timeline::Query {
+            &thingary_lib::timeline::Query {
                 filter: "all".into(),
                 asset_id: Some(r.asset.id.clone())
             },
@@ -381,7 +381,7 @@ fn asset_options_history_exclusions_pin_and_backup_are_atomic() {
         .total,
         1
     );
-    let archive = dir.path().join("options.possio");
+    let archive = dir.path().join("options.thingary");
     s.backup(Some(&archive)).unwrap();
     input.base.request_id = uuid::Uuid::new_v4().to_string();
     input.options.as_mut().unwrap().retired_date = Some("2020-01-01".into());
@@ -390,7 +390,7 @@ fn asset_options_history_exclusions_pin_and_backup_are_atomic() {
 }
 #[test]
 fn wishlist_lost_reply_and_failure_do_not_duplicate() {
-    use possio_lib::domain::Error;
+    use thingary_lib::domain::Error;
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let input = wish(&s);
@@ -449,7 +449,7 @@ fn wishlist_lost_reply_and_failure_do_not_duplicate() {
 }
 #[test]
 fn managed_choices_order_disable_and_create_preserve_history() {
-    use possio_lib::choices::{Action, Change};
+    use thingary_lib::choices::{Action, Change};
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let snap = s.choices("channel").unwrap();
@@ -489,7 +489,7 @@ fn managed_choices_order_disable_and_create_preserve_history() {
 
 #[test]
 fn schema_twelve_upgrade_rolls_back_and_preserves_old_records() {
-    use possio_lib::{
+    use thingary_lib::{
         domain::Error,
         storage::{migrate_to, SCHEMA},
     };
@@ -539,20 +539,20 @@ fn reminders_follow_edits_achievement_and_restore() {
     let w = s.save_wish_plan(&input, TODAY).unwrap();
     assert_eq!(s.reminder_plans().unwrap().len(), 1);
     assert_eq!(s.reminder_plans().unwrap()[0].date, "2027-02-01");
-    let archive = dir.path().join("reminder.possio");
+    let archive = dir.path().join("reminder.thingary");
     s.backup(Some(&archive)).unwrap();
     input.expected_revision = Some(w.revision);
     input.request_id = uuid::Uuid::new_v4().to_string();
     input.status_intent = "manual".into();
     s.save_wish_plan(&input, TODAY).unwrap();
     assert!(s.reminder_plans().unwrap().is_empty());
-    let hash = possio_lib::backup::archive_hash(&archive).unwrap();
+    let hash = thingary_lib::backup::archive_hash(&archive).unwrap();
     s.restore(&archive, &hash, &s.generation()).unwrap();
     assert_eq!(s.reminder_plans().unwrap()[0].date, "2027-02-01");
 }
 #[test]
 fn switching_the_wishlist_off_pauses_only_its_reminders() {
-    use possio_lib::modules::{read, write, Modules};
+    use thingary_lib::modules::{read, write, Modules};
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("library");
     let mut s = Store::open(&root).unwrap();
@@ -582,7 +582,7 @@ fn switching_the_wishlist_off_pauses_only_its_reminders() {
 }
 #[test]
 fn explicit_purchase_conversion_still_converts_once() {
-    use possio_lib::{
+    use thingary_lib::{
         catalog::{Details, SaveAsset},
         domain::Save as AssetSave,
         wishlist::Convert,
@@ -625,6 +625,6 @@ fn explicit_purchase_conversion_still_converts_once() {
         w.preferences.achievement_source.as_deref(),
         Some("conversion")
     );
-    s.backup(Some(&dir.path().join("converted.possio")))
+    s.backup(Some(&dir.path().join("converted.thingary")))
         .unwrap();
 }

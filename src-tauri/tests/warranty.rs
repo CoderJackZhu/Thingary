@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     backup::archive_hash,
     catalog::{AssetRecord, Details, Query, SaveAsset},
     domain::{Error, Save},
@@ -29,7 +29,7 @@ fn create(s: &mut Store, name: &str, category: Option<&str>) -> AssetRecord {
             },
             details: Details::default(),
             photos: None,
-            classification: category.map(|category_id| possio_lib::taxonomy::Classification {
+            classification: category.map(|category_id| thingary_lib::taxonomy::Classification {
                 category_id: Some(category_id.to_owned()),
                 channel_id: None,
             }),
@@ -92,7 +92,7 @@ fn query(warranty: &str) -> Query {
         label: None,
     }
 }
-fn names(page: &possio_lib::catalog::Page) -> Vec<&str> {
+fn names(page: &thingary_lib::catalog::Page) -> Vec<&str> {
     page.items.iter().map(|r| r.asset.name.as_str()).collect()
 }
 fn dataset(root: &std::path::Path) -> std::path::PathBuf {
@@ -293,7 +293,7 @@ fn e05_mixed_facts_summary_and_filters_use_one_rule_set() {
         vec!["虚构长效保障耳机"]
     );
     let mut category_query = query("expiring");
-    category_query.category = possio_lib::taxonomy::CategoryFilter::Category {
+    category_query.category = thingary_lib::taxonomy::CategoryFilter::Category {
         id: category.clone(),
     };
     assert_eq!(
@@ -637,7 +637,7 @@ fn photos_parent_trash_backup_restore_and_reopen_preserve_warranties() {
         )
         .unwrap_err();
     assert_eq!(err.code, "IMAGE_OWNER");
-    let backup = root.path().join("warranty.possio");
+    let backup = root.path().join("warranty.thingary");
     s.backup(Some(&backup)).unwrap();
     let hash = archive_hash(&backup).unwrap();
     // Parent deletion hides the record; restore brings it back unchanged.
@@ -800,9 +800,9 @@ fn schema_ten_upgrade_preserves_data_and_rolls_back_atomically() {
 
     // A failing 9→10 step leaves the library at 9 without partial tables.
     let c = rusqlite::Connection::open_in_memory().unwrap();
-    c.execute_batch(possio_lib::storage::SCHEMA).unwrap();
-    possio_lib::storage::migrate_to(&c, 9, &|_| Ok(())).unwrap();
-    assert!(possio_lib::storage::migrate_to(&c, 10, &|point| {
+    c.execute_batch(thingary_lib::storage::SCHEMA).unwrap();
+    thingary_lib::storage::migrate_to(&c, 9, &|_| Ok(())).unwrap();
+    assert!(thingary_lib::storage::migrate_to(&c, 10, &|point| {
         if point == "migration.before_commit" {
             Err(Error::new("INJECTED", "中断"))
         } else {
@@ -816,7 +816,7 @@ fn schema_ten_upgrade_preserves_data_and_rolls_back_atomically() {
         9
     );
     assert!(c.prepare("SELECT 1 FROM warranties").is_err());
-    possio_lib::storage::migrate_to(&c, 10, &|_| Ok(())).unwrap();
+    thingary_lib::storage::migrate_to(&c, 10, &|_| Ok(())).unwrap();
     assert_eq!(
         c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
@@ -847,7 +847,7 @@ fn legacy_schema_nine_backup_restores_and_migrates() {
     };
     let bytes = std::fs::read(legacy_path.join("data.sqlite")).unwrap();
     let manifest = serde_json::json!({"format":1,"schema":9,"created_at":"2026-09-24T00:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
-    let archive = root.path().join("legacy.possio");
+    let archive = root.path().join("legacy.thingary");
     {
         use std::io::Write;
         let mut z = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
@@ -887,7 +887,7 @@ fn legacy_schema_nine_backup_restores_and_migrates() {
 
 #[test]
 fn attachment_ids_are_exclusive_but_identical_bytes_can_be_shared() {
-    use possio_lib::maintenance;
+    use thingary_lib::maintenance;
     let root = tempfile::tempdir().unwrap();
     let mut s = Store::open(root.path()).unwrap();
     let a = create(&mut s, "虚构附件归属", None);
@@ -1055,7 +1055,7 @@ fn attachment_ids_are_exclusive_but_identical_bytes_can_be_shared() {
             .unwrap(),
         4
     );
-    let archive = root.path().join("exclusive.possio");
+    let archive = root.path().join("exclusive.thingary");
     s.backup(Some(&archive)).unwrap();
     s.restore(&archive, &archive_hash(&archive).unwrap(), &s.generation())
         .unwrap();
@@ -1075,7 +1075,7 @@ fn attachment_ids_are_exclusive_but_identical_bytes_can_be_shared() {
     )
     .unwrap();
     assert_eq!(
-        s.backup(Some(&root.path().join("invalid.possio")))
+        s.backup(Some(&root.path().join("invalid.thingary")))
             .unwrap_err()
             .code,
         "REFERENCE"
@@ -1084,7 +1084,7 @@ fn attachment_ids_are_exclusive_but_identical_bytes_can_be_shared() {
 
 #[test]
 fn reminder_correction_cancellation_and_invalid_date_are_atomic() {
-    use possio_lib::{preferences::Reminder, warranty::ReminderSetting};
+    use thingary_lib::{preferences::Reminder, warranty::ReminderSetting};
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let a = create(&mut s, "虚构提醒物品", None);

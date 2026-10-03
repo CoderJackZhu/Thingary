@@ -78,8 +78,8 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
 }
 
 export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, restoreScroll, modules = allModules, newMenu, onOpenNewMenu }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void }) {
-  const [view, setView] = useState(() => { try { return overviewView(localStorage.getItem('possio.overview-view.v1')); } catch { return 'combined'; } });
-  const changeView = (value: 'combined' | 'physical') => { setView(value); try { localStorage.setItem('possio.overview-view.v1', value); } catch { /* The current choice remains usable without persistence. */ } };
+  const [view, setView] = useState(() => { try { return overviewView(localStorage.getItem('thingary.overview-view.v1')); } catch { return 'combined'; } });
+  const changeView = (value: 'combined' | 'physical') => { setView(value); try { localStorage.setItem('thingary.overview-view.v1', value); } catch { /* The current choice remains usable without persistence. */ } };
   const shared = { generation, today, version, onOpenSource, onBrowse, restoreScroll };
   // 综合回顾's main action is the 新增记录 menu; the physical view falls back
   // to the App default (新增物品) by publishing null.

@@ -14,7 +14,7 @@ import type { TaxonomySnapshot } from './taxonomy';
 import type { Classification } from './asset';
 import type { Photo } from './asset';
 import type { AssetRecord, Fields, SaveAsset } from './asset';
-export const draftKey = 'possio.asset-draft.v1';
+export const draftKey = 'thingary.asset-draft.v1';
 // Older drafts predate photoErrorKind; a missing kind means the file picker flow.
 // A conversion draft creates the asset through convert_wishlist; the estimate is shown, never copied into the price.
 export type Conversion = { wishlist_id: string; expected_revision: number; wish_name: string; estimated_price_cents: string | null; cover_notice?: string };

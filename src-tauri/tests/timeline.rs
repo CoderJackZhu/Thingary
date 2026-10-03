@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     catalog::{AssetRecord, Details, SaveAsset},
     domain::Save,
     lifecycle, maintenance,

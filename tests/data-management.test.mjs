@@ -12,7 +12,7 @@ test('restore is inspect-then-confirm and bound to the checked hash', () => {
 });
 
 test('after a restore only old-generation work is cleared, appearance stays', () => {
-  assert.match(src, /k\?\.startsWith\('possio\.'\) && k !== 'possio\.theme'/);
+  assert.match(src, /k\?\.startsWith\('thingary\.'\) && k !== 'thingary\.theme'/);
   assert.match(src, /location\.reload\(\)/);
 });
 

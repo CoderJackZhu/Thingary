@@ -3,7 +3,7 @@
 //! unique hit on a later page is still found. Tag names are searchable for
 //! assets; the expense view carries standalone notes for search.
 
-use possio_lib::{
+use thingary_lib::{
     batch::{Change, Item},
     catalog::{AssetRecord, Details, Query, SaveAsset},
     domain::Save,
@@ -53,7 +53,7 @@ fn query(search: &str, offset: u32) -> Query {
 
 fn create_label(s: &mut Store, name: &str) -> String {
     let snap = s.choices("label").unwrap();
-    let create: possio_lib::choices::Change = serde_json::from_value(serde_json::json!({
+    let create: thingary_lib::choices::Change = serde_json::from_value(serde_json::json!({
         "request_id": uuid::Uuid::new_v4().to_string(),
         "generation": s.generation(),
         "expected_revision": snap.revision,
@@ -143,7 +143,7 @@ fn trash_search_filters_before_pagination_and_matches_type_labels() {
     // prove filtering happens before paging even when the needle rows are deep.
     for i in 0..102 {
         let filler = create(&mut s, &format!("填充删除{i:03}"));
-        s.change_trash(&possio_lib::trash::TrashChange {
+        s.change_trash(&thingary_lib::trash::TrashChange {
             request_id: id(),
             generation: s.generation(),
             asset_id: filler.asset.id.clone(),
@@ -153,7 +153,7 @@ fn trash_search_filters_before_pagination_and_matches_type_labels() {
         .unwrap();
     }
     let hit = create(&mut s, "待找回的三脚架");
-    s.change_trash(&possio_lib::trash::TrashChange {
+    s.change_trash(&thingary_lib::trash::TrashChange {
         request_id: id(),
         generation: s.generation(),
         asset_id: hit.asset.id.clone(),
@@ -163,7 +163,7 @@ fn trash_search_filters_before_pagination_and_matches_type_labels() {
     .unwrap();
 
     let page = s
-        .list_trash(&possio_lib::trash::TrashQuery {
+        .list_trash(&thingary_lib::trash::TrashQuery {
             filter: "all".into(),
             offset: 0,
             search: "三脚架".into(),
@@ -175,7 +175,7 @@ fn trash_search_filters_before_pagination_and_matches_type_labels() {
 
     // The type label ("物品") is searchable too, and counts every match.
     let page = s
-        .list_trash(&possio_lib::trash::TrashQuery {
+        .list_trash(&thingary_lib::trash::TrashQuery {
             filter: "all".into(),
             offset: 0,
             search: "物品".into(),
@@ -185,7 +185,7 @@ fn trash_search_filters_before_pagination_and_matches_type_labels() {
 
     // Over-long search input is refused like the other lists.
     let err = s
-        .list_trash(&possio_lib::trash::TrashQuery {
+        .list_trash(&thingary_lib::trash::TrashQuery {
             filter: "all".into(),
             offset: 0,
             search: "字".repeat(201),
@@ -197,7 +197,7 @@ fn trash_search_filters_before_pagination_and_matches_type_labels() {
 
 #[test]
 fn expense_view_lines_carry_standalone_notes_for_search() {
-    use possio_lib::expenses::{Fields, Save};
+    use thingary_lib::expenses::{Fields, Save};
 
     let root = tempfile::tempdir().unwrap();
     let mut s = Store::open(root.path()).unwrap();

@@ -1,9 +1,9 @@
-use possio_lib::{
+use std::io::Cursor;
+use thingary_lib::{
     domain::{Error, Save},
     files::{validate_image, Attach},
     storage::Store,
 };
-use std::io::Cursor;
 fn fixture(format: image::ImageFormat) -> Vec<u8> {
     let mut out = Cursor::new(Vec::new());
     image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(

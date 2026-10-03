@@ -158,8 +158,8 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const load = () => invoke<{ items: { id: string; name: string; enabled: boolean }[] }>('choice_list', { kind: 'label' }).then(s => setTags(s.items)).catch(() => setTags([]));
-    void load(); window.addEventListener('possio-choices-changed', load);
-    return () => window.removeEventListener('possio-choices-changed', load);
+    void load(); window.addEventListener('thingary-choices-changed', load);
+    return () => window.removeEventListener('thingary-choices-changed', load);
   }, [page?.generation]);
   useEffect(() => { invoke<Modules>('modules_get').then(setModules).catch(() => { /* Everything stays on if the setting cannot be read. */ }); }, []);
   // Leave a page, or a timeline filter, whose module was just switched off.
@@ -346,30 +346,30 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     : null;
   // 浏览器预览截图入口：自动进入标签投入分析（原生无此流程）。
   useEffect(() => {
-    const tag = sessionStorage.getItem('possio.enter-tag.v1');
+    const tag = sessionStorage.getItem('thingary.enter-tag.v1');
     if (!tag || !page || !eventsReady) return;
-    sessionStorage.removeItem('possio.enter-tag.v1');
-    const search = sessionStorage.getItem('possio.enter-tag-search.v1') ?? '';
-    sessionStorage.removeItem('possio.enter-tag-search.v1');
-    const scope = sessionStorage.getItem('possio.enter-tag-scope.v1') === 'held' ? 'held' : 'all';
-    sessionStorage.removeItem('possio.enter-tag-scope.v1');
+    sessionStorage.removeItem('thingary.enter-tag.v1');
+    const search = sessionStorage.getItem('thingary.enter-tag-search.v1') ?? '';
+    sessionStorage.removeItem('thingary.enter-tag-search.v1');
+    const scope = sessionStorage.getItem('thingary.enter-tag-scope.v1') === 'held' ? 'held' : 'all';
+    sessionStorage.removeItem('thingary.enter-tag-scope.v1');
     setQuery(q => ({ ...q, label: tag, offset: 0 }));
     setDetailId(null); setSelected(null);
     setAnalysis({ labelId: tag, labelName: tags.find(t => t.id === tag)?.name ?? '', scope, search, shown: TAG_PAGE_SIZE, listScroll: 0, viewScroll: 0, focusAsset: null });
   }, [page, eventsReady]);
   // 浏览器预览截图入口：经稳定 ID 来源跳转打开心愿详情（原生无此流程）。
   useEffect(() => {
-    const id = sessionStorage.getItem('possio.open-wish.v1');
+    const id = sessionStorage.getItem('thingary.open-wish.v1');
     if (!id || !page || !eventsReady) return;
-    sessionStorage.removeItem('possio.open-wish.v1');
+    sessionStorage.removeItem('thingary.open-wish.v1');
     openSource({ kind: 'wish', id });
   }, [page, eventsReady]);
   // 浏览器预览截图入口：滚动到指定选择器（原生无此流程）。
   // 目标可能晚于首帧渲染（如来源跳转打开的检视器），轮询等待。
   useEffect(() => {
-    const selector = sessionStorage.getItem('possio.scroll-to.v1');
+    const selector = sessionStorage.getItem('thingary.scroll-to.v1');
     if (!selector || !page || !eventsReady) return;
-    sessionStorage.removeItem('possio.scroll-to.v1');
+    sessionStorage.removeItem('thingary.scroll-to.v1');
     let tries = 0;
     const tick = () => {
       const el = document.querySelector(selector);
@@ -379,9 +379,9 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     requestAnimationFrame(tick);
   }, [page, eventsReady]);
   useEffect(() => {
-    const tag = sessionStorage.getItem('possio.preset-label.v1');
+    const tag = sessionStorage.getItem('thingary.preset-label.v1');
     if (!tag || !page || !eventsReady) return;
-    sessionStorage.removeItem('possio.preset-label.v1');
+    sessionStorage.removeItem('thingary.preset-label.v1');
     setQuery(q => ({ ...q, label: tag, offset: 0 }));
   }, [page, eventsReady]);
   useEffect(() => {
@@ -976,7 +976,7 @@ async function start() {
     const generations = pendingGenerations(localStorage);
     if (generations.length > 1) throw new Error('发现属于不同资料的待核对请求，请保留资料并联系支持处理。');
     const status = await invoke<DemoStatus>('demo_status', { pendingGeneration: generations[0] ?? null });
-    localStorage.removeItem('possio.first-real-asset.v1');
+    localStorage.removeItem('thingary.first-real-asset.v1');
     root.render(<App initialDemo={status}/>);
   } catch (e) {
     root.render(<div className="empty" role="alert"><h2>资料暂未准备好</h2><p>{errorMessage(e)}</p><button onClick={() => void start()}>重新读取</button></div>);

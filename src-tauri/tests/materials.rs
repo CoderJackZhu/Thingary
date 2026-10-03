@@ -1,4 +1,5 @@
-use possio_lib::{
+use std::{fs, path::Path};
+use thingary_lib::{
     backup::archive_hash,
     catalog::{AssetRecord, Details, SaveAsset},
     domain::{Result, Save},
@@ -6,7 +7,6 @@ use possio_lib::{
     photos::Selection,
     storage::Store,
 };
-use std::{fs, path::Path};
 const TODAY: &str = "2026-09-25";
 fn dataset(root: &Path) -> std::path::PathBuf {
     let active: serde_json::Value =
@@ -205,7 +205,7 @@ fn material_photos_survive_reopen_and_backup_restore() {
     let record = {
         let page = s
             .query_assets(
-                &possio_lib::catalog::Query {
+                &thingary_lib::catalog::Query {
                     search: String::new(),
                     filter: "all".into(),
                     sort: "created".into(),
@@ -229,7 +229,7 @@ fn material_photos_survive_reopen_and_backup_restore() {
     fs::write(&upload, materials::builtin("camera").unwrap().bytes).unwrap();
     let entry = s.add_material(&upload, &s.generation()).unwrap();
     assert_eq!(entry.name, "我的相机素材.png");
-    let archive = root.path().join("material.possio");
+    let archive = root.path().join("material.thingary");
     s.backup(Some(&archive)).unwrap();
     let other = tempfile::tempdir().unwrap();
     let mut restored = Store::open(other.path()).unwrap();
@@ -364,7 +364,7 @@ fn lost_upload_response_retries_same_id_after_reopen_without_source_file() {
     let generation = s.generation();
     s.set_hook(|point| {
         if point == "material.after_commit" {
-            Err(possio_lib::domain::Error::new(
+            Err(thingary_lib::domain::Error::new(
                 "LOST_RESPONSE",
                 "test lost response",
             ))
@@ -411,7 +411,7 @@ fn upload_failure_before_commit_can_be_confirmed_absent_then_retried() {
     let generation = s.generation();
     s.set_hook(|point| {
         if point == "material.before_commit" {
-            Err(possio_lib::domain::Error::new(
+            Err(thingary_lib::domain::Error::new(
                 "WRITE_FAILED",
                 "test write failure",
             ))

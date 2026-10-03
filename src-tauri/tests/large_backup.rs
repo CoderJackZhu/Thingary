@@ -1,10 +1,10 @@
-use possio_lib::{
+use std::io::Cursor;
+use thingary_lib::{
     backup::archive_hash,
     domain::Save,
     files::{Attach, MAX_IMAGE_BYTES},
     storage::Store,
 };
-use std::io::Cursor;
 
 /// Incompressible PNG just under the per-image limit, distinct per seed.
 fn noise_png(seed: u32) -> Vec<u8> {
@@ -64,7 +64,7 @@ fn libraries_above_the_former_100_mib_cap_back_up_and_restore() {
         revision += 1;
     }
     assert!(total > 100 * 1024 * 1024);
-    let archive = root.path().join("large.possio");
+    let archive = root.path().join("large.thingary");
     s.backup(Some(&archive)).unwrap();
     assert!(std::fs::metadata(&archive).unwrap().len() > 100 * 1024 * 1024);
     let summary = s.inspect_backup(&archive).unwrap();

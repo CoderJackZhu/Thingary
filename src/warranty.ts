@@ -15,7 +15,7 @@ export interface WarrantyChange {reminder?:{value:{date:string;notes:string}|nul
 export interface WarrantyState { record: AssetRecord; generation: string; warranty_id?: string; fields: WarrantyDraft; original: WarrantyDraft; photos: Photo[]; pending: WarrantyChange | null }
 
 export const blankWarranty = (): WarrantyDraft => ({ kind: "manufacturer", provider: "", start: "", end: "", notes: "", photo_ids: [] });
-export const warrantyKey = "possio.warranty-draft.v1";
+export const warrantyKey = "thingary.warranty-draft.v1";
 export function storedWarranty(): WarrantyState | null {
   try {
     const value = JSON.parse(localStorage.getItem(warrantyKey) || "null") as WarrantyState | null;

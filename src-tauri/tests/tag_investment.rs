@@ -2,7 +2,8 @@
 //! 每个用例从干净基准开始（AC06 的“更正后撤销”除外）；预期值来自产品设计
 //! D23 的人工计算，不与前端展示共用代码。常规写入无法表达的坏状态
 //! （售出不一致、聚合溢出）在隔离测试库直接注入 SQL（ADR 25.7）。
-use possio_lib::{
+use rusqlite::Connection;
+use thingary_lib::{
     catalog::{AssetRecord, Details, SaveAsset},
     choices,
     domain::Save,
@@ -10,7 +11,6 @@ use possio_lib::{
     storage::Store,
     trash::{RecordChange, TrashChange},
 };
-use rusqlite::Connection;
 
 const TODAY: &str = "2026-09-10";
 
@@ -877,7 +877,7 @@ fn ac10_errors_overflow_and_inconsistent_sale() {
 fn u17b_demo_sample_carries_photography_tag() {
     let tmp = tempfile::tempdir().unwrap();
     let mut s = Store::open(tmp.path()).unwrap();
-    possio_lib::demo::import(&mut s, TODAY).unwrap();
+    thingary_lib::demo::import(&mut s, TODAY).unwrap();
     let snap = s.choices("label").unwrap();
     let photo = snap
         .items

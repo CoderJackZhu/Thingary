@@ -1,8 +1,9 @@
 //! U18 隔离验收夹具（临时工具，验收后删除，不入库）：把 U18 设计 §6.1 的
-//! 虚构事实经业务 API 写入指定资料库根目录（只允许 local.possio.u18.acceptance）。
+//! 虚构事实经业务 API 写入指定资料库根目录（只允许 local.thingary.u18.acceptance）。
 //! 心愿：2,850/850 攒钱、大金额、未知/零价格、长名称、已实现、已放弃；
 //! 周期：30 条付款（含本期不付）+ 单条 + 零条计划；分类：30 个虚构分类。
-use possio_lib::{
+use std::path::PathBuf;
+use thingary_lib::{
     catalog::{Details, SaveAsset},
     domain::Save,
     photos::Selection,
@@ -12,7 +13,6 @@ use possio_lib::{
     wish_plan::{Preferences, Save as WishSave},
     wishlist::{Change, Fields as WishFields},
 };
-use std::path::PathBuf;
 
 const TODAY: &str = "2026-09-30";
 
@@ -65,7 +65,7 @@ fn wish(
     mode: &str,
     saved: &str,
     status_intent: &str,
-) -> possio_lib::wishlist::WishlistItem {
+) -> thingary_lib::wishlist::WishlistItem {
     s.save_wish_plan(
         &WishSave {
             request_id: rid(),
@@ -102,7 +102,7 @@ fn wish(
     .unwrap()
 }
 
-fn abandon_wish(s: &mut Store, item: &possio_lib::wishlist::WishlistItem) {
+fn abandon_wish(s: &mut Store, item: &thingary_lib::wishlist::WishlistItem) {
     let change: Change = serde_json::from_value(serde_json::json!({
         "request_id": rid(), "generation": s.generation(), "expected_revision": item.revision,
         "action": {"type": "abandon", "wishlist_id": item.id},
@@ -118,7 +118,7 @@ fn create_plan(
     interval: u32,
     first: &str,
     notes: &str,
-) -> possio_lib::recurring::Plan {
+) -> thingary_lib::recurring::Plan {
     s.recurring_plan_save(
         &PlanSave {
             request_id: rid(),
@@ -200,7 +200,7 @@ fn main() {
     assert!(
         canonical
             .components()
-            .any(|c| c.as_os_str() == "local.possio.u18.acceptance"),
+            .any(|c| c.as_os_str() == "local.thingary.u18.acceptance"),
         "refusing non-isolated path: {} (from {})",
         normalized,
         root.display()

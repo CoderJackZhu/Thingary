@@ -12,7 +12,7 @@ export type { RecordKind, RecordTrashAction, RecordTrashChange, TrashEntry, Tras
 export { entryDisplay, recordKindLabel, storedRecordTrash, trashFilters } from './unified-trash';
 export type TrashChange = { request_id: string; generation: string; asset_id: string; expected_revision: number; deleted: boolean };
 export type TrashAction = { input: TrashChange; record: AssetRecord; pending: boolean };
-const pendingKey = 'possio.trash-request.v1';
+const pendingKey = 'thingary.trash-request.v1';
 export function storedTrash(): TrashAction | null {
   try {
     const value = JSON.parse(localStorage.getItem(pendingKey) || 'null');

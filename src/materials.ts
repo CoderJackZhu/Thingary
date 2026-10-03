@@ -28,8 +28,8 @@ export function filterMaterials(entries: MaterialEntry[], source: MaterialSource
   return source === 'recent' ? filtered.sort((a,b)=>recent.indexOf(a.id)-recent.indexOf(b.id)) : filtered.sort((a,b)=>rank(a.id)-rank(b.id));
 }
 export function readRecentMaterials(storage: Pick<Storage, 'getItem'>, generation: string): string[] {
-  try { const value: unknown = JSON.parse(storage.getItem('possio.recent-materials.' + generation) || '[]'); return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(0, 24) : []; } catch { return []; }
+  try { const value: unknown = JSON.parse(storage.getItem('thingary.recent-materials.' + generation) || '[]'); return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(0, 24) : []; } catch { return []; }
 }
 export function rememberMaterial(storage: Pick<Storage, 'getItem' | 'setItem'>, generation: string, id: string) {
-  storage.setItem('possio.recent-materials.' + generation, JSON.stringify([id, ...readRecentMaterials(storage, generation).filter(x => x !== id)].slice(0, 24)));
+  storage.setItem('thingary.recent-materials.' + generation, JSON.stringify([id, ...readRecentMaterials(storage, generation).filter(x => x !== id)].slice(0, 24)));
 }

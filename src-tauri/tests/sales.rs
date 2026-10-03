@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     backup::archive_hash,
     catalog::{AssetRecord, Details, Query, SaveAsset},
     domain::{daily_cents, held_days, Error, Save},
@@ -203,7 +203,7 @@ fn sell_correct_revoke_preserve_identity_and_source_states() {
     assert_eq!(s.query_assets(&query("held"), TODAY).unwrap().total, 1);
     assert_eq!(s.query_assets(&query("all"), TODAY).unwrap().total, 3);
     assert_eq!(bought_again.lifecycle.state, State::Active);
-    let archive = root.path().join("sales.possio");
+    let archive = root.path().join("sales.thingary");
     s.backup(Some(&archive)).unwrap();
 }
 #[test]
@@ -374,7 +374,7 @@ fn atomic_failure_receipts_photos_trash_backup_and_reopen() {
                     purchase_date: a.asset.purchase_date.clone(),
                 },
                 details: a.details.clone(),
-                photos: Some(possio_lib::photos::Selection {
+                photos: Some(thingary_lib::photos::Selection {
                     ids: vec![photo.id.clone()],
                     cover_id: Some(photo.id.clone()),
                 }),
@@ -450,7 +450,7 @@ fn atomic_failure_receipts_photos_trash_backup_and_reopen() {
             TODAY
         )
         .is_err());
-    let archive = root.path().join("sold.possio");
+    let archive = root.path().join("sold.thingary");
     s.backup(Some(&archive)).unwrap();
     let other = tempfile::tempdir().unwrap();
     let mut restored = Store::open(other.path()).unwrap();

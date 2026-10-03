@@ -1,12 +1,12 @@
-use possio_lib::{
+use rusqlite::Connection;
+use std::fs;
+use thingary_lib::{
     catalog::{Details, SaveAsset},
     domain::Save,
     storage::{migrate_to, Store, SCHEMA},
     taxonomy::{Change as TaxonomyChange, Command, Kind},
     wishlist::{Action, Change, Fields, Query},
 };
-use rusqlite::Connection;
-use std::fs;
 
 fn fields(name: &str, price: Option<&str>) -> Fields {
     Fields {
@@ -25,7 +25,7 @@ fn add(
     request: &str,
     fields: Fields,
     cover: Vec<String>,
-) -> possio_lib::wishlist::WishlistItem {
+) -> thingary_lib::wishlist::WishlistItem {
     store
         .change_wishlist(&Change {
             request_id: request.into(),
@@ -33,7 +33,7 @@ fn add(
             expected_revision: None,
             action: Action::Add {
                 fields,
-                cover: possio_lib::photos::Selection {
+                cover: thingary_lib::photos::Selection {
                     cover_id: cover.first().cloned(),
                     ids: cover,
                 },
@@ -48,7 +48,7 @@ fn ac16_create_cancel_and_abandon_do_not_touch_assets() {
     let mut store = Store::open(dir.path()).unwrap();
     let before = store
         .query_assets(
-            &possio_lib::catalog::Query {
+            &thingary_lib::catalog::Query {
                 search: "".into(),
                 filter: "all".into(),
                 sort: "created".into(),
@@ -95,7 +95,7 @@ fn ac16_create_cancel_and_abandon_do_not_touch_assets() {
     assert_eq!(
         store
             .query_assets(
-                &possio_lib::catalog::Query {
+                &thingary_lib::catalog::Query {
                     search: "".into(),
                     filter: "all".into(),
                     sort: "created".into(),
@@ -229,7 +229,7 @@ fn null_zero_future_sorts_search_and_stale_protocol() {
         expected_revision: None,
         action: Action::Add {
             fields: fields("different", None),
-            cover: possio_lib::photos::Selection {
+            cover: thingary_lib::photos::Selection {
                 ids: vec![],
                 cover_id: None,
             },
@@ -245,7 +245,7 @@ fn null_zero_future_sorts_search_and_stale_protocol() {
         expected_revision: None,
         action: Action::Add {
             fields: fields("stale", None),
-            cover: possio_lib::photos::Selection {
+            cover: thingary_lib::photos::Selection {
                 ids: vec![],
                 cover_id: None,
             },
@@ -298,7 +298,7 @@ fn receipt_lookup_requires_exact_wishlist_payload_and_audit() {
         expected_revision: None,
         action: Action::Add {
             fields: fields("exact receipt", Some("1234")),
-            cover: possio_lib::photos::Selection {
+            cover: thingary_lib::photos::Selection {
                 ids: vec![],
                 cover_id: None,
             },
@@ -560,7 +560,7 @@ fn faults_lost_receipt_and_real_write_lock_do_not_duplicate() {
         expected_revision: None,
         action: Action::Add {
             fields: fields("fault", Some("1")),
-            cover: possio_lib::photos::Selection {
+            cover: thingary_lib::photos::Selection {
                 ids: vec![],
                 cover_id: None,
             },
@@ -568,7 +568,7 @@ fn faults_lost_receipt_and_real_write_lock_do_not_duplicate() {
     };
     store.set_hook(|point| {
         if point == "wishlist.before_commit" {
-            Err(possio_lib::domain::Error::new("INJECTED", "中断"))
+            Err(thingary_lib::domain::Error::new("INJECTED", "中断"))
         } else {
             Ok(())
         }
@@ -590,7 +590,7 @@ fn faults_lost_receipt_and_real_write_lock_do_not_duplicate() {
     );
     store.set_hook(|point| {
         if point == "wishlist.after_commit" {
-            Err(possio_lib::domain::Error::new("LOST", "回包丢失"))
+            Err(thingary_lib::domain::Error::new("LOST", "回包丢失"))
         } else {
             Ok(())
         }
@@ -630,7 +630,7 @@ fn faults_lost_receipt_and_real_write_lock_do_not_duplicate() {
         expected_revision: None,
         action: Action::Add {
             fields: fields("locked", None),
-            cover: possio_lib::photos::Selection {
+            cover: thingary_lib::photos::Selection {
                 ids: vec![],
                 cover_id: None,
             },
@@ -703,9 +703,9 @@ fn custom_material_removal_backup_restore_and_reopen_keep_cover() {
         )
         .unwrap();
     assert!(store.photo_preview(&photo.id, &store.generation()).is_ok());
-    let archive = dir.path().join("wishlist.possio");
+    let archive = dir.path().join("wishlist.thingary");
     store.backup(Some(&archive)).unwrap();
-    let hash = possio_lib::backup::archive_hash(&archive).unwrap();
+    let hash = thingary_lib::backup::archive_hash(&archive).unwrap();
     let generation = store.generation();
     store.restore(&archive, &hash, &generation).unwrap();
     assert_eq!(

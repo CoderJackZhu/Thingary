@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Thingary Preview",
-  "version": "2.5.0",
-  "identifier": "local.possio.preview",
+  "version": "2.6.0",
+  "identifier": "local.thingary.preview",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",

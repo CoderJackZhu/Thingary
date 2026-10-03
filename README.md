@@ -68,7 +68,7 @@ npm test                    # Rust 测试（使用临时目录）
 
 ## 数据放在哪里
 
-正式版的资料在 `~/Library/Application Support/local.possio.main/`，自动备份在其中的 `auto-backups/`。请通过应用管理资料，不要手动改动这个文件夹。删除应用不会删除资料。开发预览与测试使用各自独立的资料位置，互不影响。
+正式版的资料在 `~/Library/Application Support/local.thingary.main/`，自动备份在其中的 `auto-backups/`。请通过应用管理资料，不要手动改动这个文件夹。删除应用不会删除资料。开发预览与测试使用各自独立的资料位置，互不影响。
 
 ## 文档
 

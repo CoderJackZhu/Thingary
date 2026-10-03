@@ -1,7 +1,7 @@
 //! D17/D18: deletion hides a record and what exists only for it everywhere,
 //! restore brings exactly that back, permanent deletion leaves nothing behind,
 //! and a mistaken latest lifecycle event can be revoked.
-use possio_lib::{
+use thingary_lib::{
     catalog::{AssetRecord, Details, SaveAsset},
     domain::Save as AssetSave,
     expenses,
@@ -65,7 +65,7 @@ fn purge(
     s: &mut Store,
     kind: Option<&str>,
     id: &str,
-) -> possio_lib::domain::Result<possio_lib::purge::Purged> {
+) -> thingary_lib::domain::Result<thingary_lib::purge::Purged> {
     s.purge_trash(&Purge {
         request_id: rid(),
         generation: s.generation(),
@@ -89,7 +89,7 @@ fn kinds(s: &Store, filter: &str) -> Vec<String> {
         .map(|e| e.kind)
         .collect()
 }
-fn manual_wish(s: &mut Store, name: &str) -> possio_lib::wishlist::WishlistItem {
+fn manual_wish(s: &mut Store, name: &str) -> thingary_lib::wishlist::WishlistItem {
     s.save_wish_plan(
         &WishSave {
             request_id: rid(),
@@ -179,7 +179,7 @@ fn a_deleted_wish_disappears_everywhere_and_returns_whole() {
     let mut s = Store::open(dir.path()).unwrap();
     let wish = manual_wish(&mut s, "虚构心愿台灯");
     let linked = wish.converted_asset.clone().unwrap();
-    let query = possio_lib::wishlist::Query {
+    let query = thingary_lib::wishlist::Query {
         search: String::new(),
         filter: "all".into(),
         sort: "created".into(),
@@ -303,13 +303,13 @@ fn only_the_latest_lifecycle_event_can_be_revoked_and_never_past_a_sale() {
     .unwrap();
     let sold = s
         .change_sale(
-            &possio_lib::sales::Change {
+            &thingary_lib::sales::Change {
                 request_id: rid(),
                 generation: s.generation(),
                 asset_id: a.asset.id.clone(),
                 expected_revision: a.asset.revision,
-                action: possio_lib::sales::Action::Sell {
-                    fields: possio_lib::sales::Fields {
+                action: thingary_lib::sales::Action::Sell {
+                    fields: thingary_lib::sales::Fields {
                         date: "2026-09-21".into(),
                         price_cents: "1000".into(),
                         platform: String::new(),

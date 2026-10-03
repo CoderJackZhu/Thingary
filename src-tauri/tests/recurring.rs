@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     domain::Error,
     recurring::{PaymentSave, Plan, PlanFields, PlanSave},
     storage::Store,
@@ -342,7 +342,7 @@ fn backups_carry_plans_and_schema_sixteen_backups_migrate() {
         "2026-09-28",
     )
     .unwrap();
-    let file = dir.path().join("备份.possio");
+    let file = dir.path().join("备份.thingary");
     a.backup(Some(&file)).unwrap();
     drop(a);
     let mut b = Store::open(&dir.path().join("b")).unwrap();
@@ -361,12 +361,12 @@ fn backups_carry_plans_and_schema_sixteen_backups_migrate() {
     use std::io::Write;
     let v16 = dir.path().join("v16.sqlite");
     let db = rusqlite::Connection::open(&v16).unwrap();
-    db.execute_batch(possio_lib::storage::SCHEMA).unwrap();
-    possio_lib::storage::migrate_to(&db, 16, &|_| Ok(())).unwrap();
+    db.execute_batch(thingary_lib::storage::SCHEMA).unwrap();
+    thingary_lib::storage::migrate_to(&db, 16, &|_| Ok(())).unwrap();
     drop(db);
     let bytes = std::fs::read(&v16).unwrap();
     let manifest = serde_json::json!({"format":1,"schema":16,"created_at":"2026-09-28T02:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
-    let old = dir.path().join("v16.possio");
+    let old = dir.path().join("v16.thingary");
     let mut z = zip::ZipWriter::new(std::fs::File::create(&old).unwrap());
     let opts =
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -383,7 +383,7 @@ fn backups_carry_plans_and_schema_sixteen_backups_migrate() {
 
 #[test]
 fn plans_and_payments_delete_restore_and_reach_the_timeline() {
-    use possio_lib::{timeline::Query, trash::TrashQuery, wealth::TrashChange};
+    use thingary_lib::{timeline::Query, trash::TrashQuery, wealth::TrashChange};
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     const T: &str = "2026-09-28";

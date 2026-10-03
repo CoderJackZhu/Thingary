@@ -1,9 +1,9 @@
-use possio_lib::{
+use std::io::Write;
+use thingary_lib::{
     domain::Error,
     storage::{migrate, migrate_to, Store, SCHEMA},
     wealth::{Account, AccountFields, AccountSave, EntryInput, SnapshotSave},
 };
-use std::io::Write;
 const TODAY: &str = "2026-12-31";
 fn rid() -> String {
     uuid::Uuid::new_v4().to_string()
@@ -501,7 +501,7 @@ fn archive(dir: &std::path::Path, schema: u32, db: &std::path::Path) -> std::pat
     use sha2::{Digest, Sha256};
     let bytes = std::fs::read(db).unwrap();
     let manifest = serde_json::json!({"format":1,"schema":schema,"created_at":"2026-09-28T02:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
-    let path = dir.join(format!("v{schema}.possio"));
+    let path = dir.join(format!("v{schema}.thingary"));
     let mut z = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
     let opts =
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -524,7 +524,7 @@ fn backups_carry_check_ins_old_ones_migrate_and_newer_ones_are_refused() {
         TODAY,
     )
     .unwrap();
-    let file = dir.path().join("完整备份.possio");
+    let file = dir.path().join("完整备份.thingary");
     a.backup(Some(&file)).unwrap();
     let before = serde_json::to_string(&a.wealth_summary().unwrap().points).unwrap();
     drop(a);
@@ -571,8 +571,8 @@ fn trash(
     id: &str,
     revision: i64,
     deleted: bool,
-) -> possio_lib::wealth::TrashChange {
-    possio_lib::wealth::TrashChange {
+) -> thingary_lib::wealth::TrashChange {
+    thingary_lib::wealth::TrashChange {
         request_id: rid(),
         generation: s.generation(),
         kind: kind.into(),
@@ -582,7 +582,7 @@ fn trash(
     }
 }
 fn trash_kinds(s: &Store) -> Vec<(String, String)> {
-    s.list_trash(&possio_lib::trash::TrashQuery {
+    s.list_trash(&thingary_lib::trash::TrashQuery {
         filter: "wealth".into(),
         offset: 0,
         search: String::new(),
@@ -674,7 +674,7 @@ fn x_ac14_check_ins_and_unused_accounts_delete_and_restore_safely() {
     // Deleted check-ins survive a backup round trip and stay restorable.
     s.wealth_trash(&trash(&s, "snapshot", &snap.id, 3, true))
         .unwrap();
-    let file = dir.path().join("备份.possio");
+    let file = dir.path().join("备份.thingary");
     s.backup(Some(&file)).unwrap();
     drop(s);
     let mut c = Store::open(&dir.path().join("c")).unwrap();

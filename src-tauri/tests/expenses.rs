@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     catalog::{AssetRecord, Details, SaveAsset},
     domain::{Error, Save as AssetSave},
     expenses::{Fields, Save},
@@ -340,7 +340,7 @@ fn backups_carry_expenses_and_schema_fifteen_backups_migrate() {
     let mut a = Store::open(&dir.path().join("a")).unwrap();
     a.expense_save(&new(&a, fields("虚构旅行", "2026-07-01", "880000")), TODAY)
         .unwrap();
-    let file = dir.path().join("备份.possio");
+    let file = dir.path().join("备份.thingary");
     a.backup(Some(&file)).unwrap();
     drop(a);
     let mut b = Store::open(&dir.path().join("b")).unwrap();
@@ -354,12 +354,12 @@ fn backups_carry_expenses_and_schema_fifteen_backups_migrate() {
     use std::io::Write;
     let v15 = dir.path().join("v15.sqlite");
     let db = rusqlite::Connection::open(&v15).unwrap();
-    db.execute_batch(possio_lib::storage::SCHEMA).unwrap();
-    possio_lib::storage::migrate_to(&db, 15, &|_| Ok(())).unwrap();
+    db.execute_batch(thingary_lib::storage::SCHEMA).unwrap();
+    thingary_lib::storage::migrate_to(&db, 15, &|_| Ok(())).unwrap();
     drop(db);
     let bytes = std::fs::read(&v15).unwrap();
     let manifest = serde_json::json!({"format":1,"schema":15,"created_at":"2026-09-28T02:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
-    let old = dir.path().join("v15.possio");
+    let old = dir.path().join("v15.thingary");
     let mut z = zip::ZipWriter::new(std::fs::File::create(&old).unwrap());
     let opts =
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -377,7 +377,7 @@ fn backups_carry_expenses_and_schema_fifteen_backups_migrate() {
 
 #[test]
 fn expenses_delete_restore_and_show_on_the_timeline() {
-    use possio_lib::{timeline::Query, trash::TrashQuery, wealth::TrashChange};
+    use thingary_lib::{timeline::Query, trash::TrashQuery, wealth::TrashChange};
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let mut f = fields("虚构旅行", "2026-08-01", "300000");

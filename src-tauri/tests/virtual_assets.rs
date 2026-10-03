@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     domain::Error,
     purge::Purge,
     recurring::{PaymentSave, Plan, PlanFields, PlanSave},
@@ -273,7 +273,7 @@ fn one_time_prices_reach_expenses_timeline_and_backups() {
     a.wealth_trash(&trash(&a, "virtual", &v.id, v.revision + 1, false))
         .unwrap();
 
-    let file = dir.path().join("备份.possio");
+    let file = dir.path().join("备份.thingary");
     a.backup(Some(&file)).unwrap();
     drop(a);
     let mut b = Store::open(&dir.path().join("b")).unwrap();

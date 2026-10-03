@@ -1,4 +1,5 @@
-use possio_lib::{
+use std::{fs, io::Cursor, path::Path};
+use thingary_lib::{
     backup::archive_hash,
     catalog::{Details, SaveAsset},
     domain::{Error, Save},
@@ -6,7 +7,6 @@ use possio_lib::{
     storage::Store,
     trash::TrashChange,
 };
-use std::{fs, io::Cursor, path::Path};
 const PNG: &[u8] = include_bytes!("fixtures/camera.png");
 const HEIC: &[u8] = include_bytes!("fixtures/camera.heic");
 fn input(s: &Store, ids: Vec<String>) -> SaveAsset {
@@ -113,7 +113,7 @@ fn originals_survive_move_cover_change_trash_and_restore() {
         assert_eq!(r.photos, b.photos);
         assert_eq!(r.cover_id, b.cover_id);
     }
-    let archive = root.path().join("images.possio");
+    let archive = root.path().join("images.thingary");
     s.backup(Some(&archive)).unwrap();
     let other = tempfile::tempdir().unwrap();
     let mut restored = Store::open(other.path()).unwrap();
@@ -233,7 +233,7 @@ fn schema_three_migrates_existing_attachments() {
     let a = s.save_asset(&input(&s, vec![]), "2026-09-24").unwrap();
     let photo = s
         .attach(
-            &possio_lib::files::Attach {
+            &thingary_lib::files::Attach {
                 request_id: uuid::Uuid::new_v4().to_string(),
                 generation: s.generation(),
                 asset_id: a.asset.id.clone(),
@@ -270,7 +270,7 @@ fn preview_honors_orientation_and_dimension_limits() {
     oriented.extend_from_slice(&((exif.len() + 2) as u16).to_be_bytes());
     oriented.extend_from_slice(&exif);
     oriented.extend_from_slice(&jpeg.into_inner()[2..]);
-    let preview = possio_lib::native_images::preview(&oriented).unwrap();
+    let preview = thingary_lib::native_images::preview(&oriented).unwrap();
     let image = image::load_from_memory(&preview).unwrap();
     assert_eq!((image.width(), image.height()), (320, 480));
     let mut oversized = Cursor::new(Vec::new());
@@ -278,7 +278,7 @@ fn preview_honors_orientation_and_dimension_limits() {
         .write_to(&mut oversized, image::ImageFormat::Png)
         .unwrap();
     assert_eq!(
-        possio_lib::native_images::preview(oversized.get_ref())
+        thingary_lib::native_images::preview(oversized.get_ref())
             .unwrap_err()
             .code,
         "IMAGE_DIMENSIONS"

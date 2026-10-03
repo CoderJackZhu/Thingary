@@ -23,9 +23,9 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   // 浏览器预览截图入口：?recurring-tab=payments 直达付款记录（原生无此流程）。
   const [tab, setTab] = useState<'plans' | 'payments'>(() => {
-    const preset = sessionStorage.getItem('possio.recurring-tab.v1');
+    const preset = sessionStorage.getItem('thingary.recurring-tab.v1');
     if (preset !== 'payments') return 'plans';
-    sessionStorage.removeItem('possio.recurring-tab.v1');
+    sessionStorage.removeItem('thingary.recurring-tab.v1');
     return 'payments';
   });
   const [paying, setPaying] = useState<PaymentTarget | null>(null);

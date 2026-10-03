@@ -73,7 +73,7 @@ impl Store {
             &self
                 .root
                 .join("protection")
-                .join(format!("{}.possio", uid())),
+                .join(format!("{}.thingary", uid())),
         ))?;
         self.hit("restore.after_protection")?;
         let next = Active {

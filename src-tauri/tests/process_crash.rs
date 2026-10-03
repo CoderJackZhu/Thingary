@@ -1,7 +1,4 @@
 #![cfg(feature = "fault-injection")]
-use possio_lib::{
-    backup::archive_hash, domain::Save, files::Attach, storage::Store, trash::TrashChange,
-};
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
@@ -10,6 +7,9 @@ use std::{
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
+use thingary_lib::{
+    backup::archive_hash, domain::Save, files::Attach, storage::Store, trash::TrashChange,
+};
 #[derive(Serialize, Deserialize)]
 struct Case {
     action: String,
@@ -17,7 +17,7 @@ struct Case {
     save: Save,
     attach: Attach,
     bytes: Vec<u8>,
-    photo_save: Option<possio_lib::catalog::SaveAsset>,
+    photo_save: Option<thingary_lib::catalog::SaveAsset>,
 }
 fn request(s: &Store, name: &str) -> Save {
     Save {
@@ -32,7 +32,7 @@ fn request(s: &Store, name: &str) -> Save {
 }
 #[test]
 fn crash_child() {
-    let Ok(root) = std::env::var("POSSIO_CRASH_TEST_ROOT") else {
+    let Ok(root) = std::env::var("THINGARY_CRASH_TEST_ROOT") else {
         return;
     };
     let root = Path::new(&root);
@@ -75,10 +75,10 @@ fn crash_child() {
             s.attach(&case.attach, &case.bytes).unwrap();
         }
         "backup" => {
-            s.backup(Some(&root.join("output.possio"))).unwrap();
+            s.backup(Some(&root.join("output.thingary"))).unwrap();
         }
         "restore" => {
-            let archive = root.join("source.possio");
+            let archive = root.join("source.thingary");
             s.restore(&archive, &archive_hash(&archive).unwrap(), &s.generation())
                 .unwrap();
         }
@@ -90,7 +90,7 @@ fn kill_at(root: &Path, case: &Case) {
     fs::write(root.join("case.json"), serde_json::to_vec(case).unwrap()).unwrap();
     let mut child = Command::new(std::env::current_exe().unwrap())
         .args(["--exact", "crash_child", "--nocapture"])
-        .env("POSSIO_CRASH_TEST_ROOT", root)
+        .env("THINGARY_CRASH_TEST_ROOT", root)
         .stdout(Stdio::null())
         .stderr(Stdio::inherit())
         .spawn()
@@ -190,7 +190,8 @@ fn real_process_termination_preserves_complete_state() {
             }
             if action == "restore" {
                 photo = Some(s.attach(&attach, bytes.get_ref()).unwrap());
-                s.backup(Some(&root.path().join("source.possio"))).unwrap();
+                s.backup(Some(&root.path().join("source.thingary")))
+                    .unwrap();
                 let mut edit = request(&s, "备份后");
                 edit.asset_id = Some(attach.asset_id.clone());
                 edit.expected_revision = Some(2);
@@ -200,12 +201,12 @@ fn real_process_termination_preserves_complete_state() {
                 let p = s
                     .stage_photo("样例", bytes.get_ref(), &s.generation(), None)
                     .unwrap();
-                Some(possio_lib::catalog::SaveAsset {
+                Some(thingary_lib::catalog::SaveAsset {
                     options: None,
                     classification: None,
                     base: save.clone(),
                     details: Default::default(),
-                    photos: Some(possio_lib::photos::Selection {
+                    photos: Some(thingary_lib::photos::Selection {
                         ids: vec![p.id.clone()],
                         cover_id: Some(p.id),
                     }),
@@ -292,7 +293,7 @@ fn real_process_termination_preserves_complete_state() {
                     assert_eq!(s.asset(&attach.asset_id).unwrap().unwrap().revision, 2);
                 }
                 "backup" => {
-                    assert!(!root.path().join("output.possio").exists());
+                    assert!(!root.path().join("output.thingary").exists());
                     assert_eq!(s.count().unwrap(), 1);
                 }
                 "restore" => {

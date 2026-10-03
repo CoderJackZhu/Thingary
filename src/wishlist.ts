@@ -11,8 +11,8 @@ export type WishlistPage = { generation: string; items: WishlistItem[]; total: n
 export type WishlistChange = { request_id: string; generation: string; expected_revision: number | null; action: { type: 'add'; fields: { name: string; category_id: string | null; estimated_price_cents: string | null; priority: WishlistPriority; target_date: string | null; external_link: string; notes: string }; cover: { ids: string[]; cover_id: string | null } } | { type: 'abandon'; wishlist_id: string } };
 export type WishlistDraft = { transientCover?:string; item?:WishlistItem; preferences?:import("./preferences").WishPreferences; photos?:Photo[]; statusIntent?:'preserve'|'manual'|'ongoing'; achievedDate?:string; planPending?:WishPlanSave|null; generation: string; fields: WishlistFields; cover: Photo | null; photoError: string; pending: WishlistChange | null };
 
-export const wishlistDraftKey = 'possio.wishlist-draft.v1';
-export const wishlistAbandonKey = 'possio.wishlist-abandon.v1';
+export const wishlistDraftKey = 'thingary.wishlist-draft.v1';
+export const wishlistAbandonKey = 'thingary.wishlist-abandon.v1';
 export const emptyWishlistFields: WishlistFields = { name: '', category_id: null, estimated_price: '', priority: null, target_date: '', external_link: '', notes: '' };
 
 export function wishlistBlocksApp(state: { editor: WishlistDraft | null; recovered: WishlistDraft | null; abandon: WishlistItem | null; abandonRecovery: WishlistChange | null }): boolean {

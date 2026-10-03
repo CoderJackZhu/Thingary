@@ -8,13 +8,13 @@ test('switch destination is consumed once and rejects unknown sections',()=>{
 });
 test('receipts recover their originating library across business modules without treating preferences as writes',()=>{
  const s=storage([
- ['possio.asset-draft.v1',JSON.stringify({generation:'demo',pending:{generation:'demo'}})],
- ['possio.wealth-pending.v1',JSON.stringify({input:{generation:'personal'}})],
- ['possio.wishlist-abandon.v1',JSON.stringify({generation:'demo'})],
- ['possio.material-upload.v1',JSON.stringify({generation:'demo'})],
- ['possio.preferences',JSON.stringify({generation:'irrelevant'})],
+ ['thingary.asset-draft.v1',JSON.stringify({generation:'demo',pending:{generation:'demo'}})],
+ ['thingary.wealth-pending.v1',JSON.stringify({input:{generation:'personal'}})],
+ ['thingary.wishlist-abandon.v1',JSON.stringify({generation:'demo'})],
+ ['thingary.material-upload.v1',JSON.stringify({generation:'demo'})],
+ ['thingary.preferences',JSON.stringify({generation:'irrelevant'})],
  [resetKey,'reset-receipt'],
- ['possio.invalid-pending.v1','{'],
+ ['thingary.invalid-pending.v1','{'],
  ]);
  assert.deepEqual(pendingGenerations(s),['demo','personal']);assert.equal(s.getItem(resetKey),'reset-receipt');
 });

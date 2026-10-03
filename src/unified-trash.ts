@@ -8,7 +8,7 @@ import { virtualKindText } from './virtual.ts';
 export type RecordKind = 'maintenance' | 'warranty';
 export type RecordTrashChange = { request_id: string; generation: string; asset_id: string; record_id: string; kind: RecordKind; expected_revision: number; deleted: boolean };
 export type RecordTrashAction = { input: RecordTrashChange; meta: { title: string; assetName: string }; pending: boolean };
-export const recordPendingKey = 'possio.record-trash-request.v1';
+export const recordPendingKey = 'thingary.record-trash-request.v1';
 export function storedRecordTrash(): RecordTrashAction | null {
   try {
     const value = JSON.parse(localStorage.getItem(recordPendingKey) || 'null');

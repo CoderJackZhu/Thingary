@@ -13,8 +13,8 @@ export interface MaintenanceChange { request_id: string; generation: string; ass
 export interface MaintenanceState { record: AssetRecord; generation: string; maintenance_id?: string; fields: MaintenanceDraft; original: MaintenanceDraft; photos: Photo[]; pending: MaintenanceChange | null }
 
 export const blankMaintenance = (): MaintenanceDraft => ({ date:null, kind:"repair", title:"", description:"", cost:"", provider:"", photo_ids:[] });
-export const draftKey = (assetId:string, maintenanceId?:string) => `possio:maintenance:${assetId}:${maintenanceId ?? "new"}`;
-export const maintenanceKey = "possio.maintenance-draft.v1";
+export const draftKey = (assetId:string, maintenanceId?:string) => `thingary:maintenance:${assetId}:${maintenanceId ?? "new"}`;
+export const maintenanceKey = "thingary.maintenance-draft.v1";
 export function storedMaintenance(): MaintenanceState | null {
   try {
     const value = JSON.parse(localStorage.getItem(maintenanceKey) || "null") as MaintenanceState | null;

@@ -41,7 +41,7 @@ test('warranty entries compose kind and provider and flag a deleted parent', () 
 
 test('record trash reminder survives restart and rejects corrupt values', () => {
   const action = { pending: true, input: { request_id: 'request-1', generation: 'g1', asset_id: 'asset-1', record_id: 'record-1', kind: 'maintenance', expected_revision: 4, deleted: true }, meta: { title: '更换快门', assetName: '虚构相机' } };
-  const values = new Map([['possio.record-trash-request.v1', JSON.stringify(action)]]);
+  const values = new Map([['thingary.record-trash-request.v1', JSON.stringify(action)]]);
   const previous = globalThis.localStorage;
   globalThis.localStorage = { getItem: key => values.get(key) ?? null, setItem: (k, v) => values.set(k, v), removeItem: k => values.delete(k) };
   try {
@@ -51,10 +51,10 @@ test('record trash reminder survives restart and rejects corrupt values', () => 
     assert.equal(stored.meta.assetName, '虚构相机');
     assert.equal(recordKindLabel[stored.input.kind], '维护记录');
     for (const corrupt of [null, '{"pending":false}', '{"pending":true,"input":{"kind":"asset"}}', JSON.stringify({ ...action, input: { ...action.input, generation: undefined } }), 'not json']) {
-      values.set('possio.record-trash-request.v1', corrupt);
+      values.set('thingary.record-trash-request.v1', corrupt);
       assert.equal(storedRecordTrash(), null, corrupt);
     }
-    values.delete('possio.record-trash-request.v1');
+    values.delete('thingary.record-trash-request.v1');
     assert.equal(storedRecordTrash(), null);
   } finally {
     if (previous === undefined) delete globalThis.localStorage; else globalThis.localStorage = previous;

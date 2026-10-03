@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     backup::archive_hash,
     catalog::{AssetRecord, Details, SaveAsset},
     domain::{Error, Save},
@@ -416,7 +416,7 @@ fn photos_parent_trash_backup_restore_and_reopen_preserve_children() {
         )
         .unwrap();
     let maintenance_id = b.maintenances[0].id.clone();
-    let backup = root.path().join("maintenance.possio");
+    let backup = root.path().join("maintenance.thingary");
     s.backup(Some(&backup)).unwrap();
     let hash = archive_hash(&backup).unwrap();
     let deleted = s

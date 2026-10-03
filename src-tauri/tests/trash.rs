@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     backup::archive_hash,
     catalog::{Details, Query, SaveAsset},
     domain::{Error, Save},
@@ -81,7 +81,7 @@ fn trash_restore_preserves_identity_files_and_backup() {
         s.change_trash(&delete).unwrap().deleted_at,
         deleted.deleted_at
     );
-    let archive = root.path().join("trash.possio");
+    let archive = root.path().join("trash.thingary");
     s.backup(Some(&archive)).unwrap();
     let other = tempfile::tempdir().unwrap();
     let mut restored = Store::open(other.path()).unwrap();

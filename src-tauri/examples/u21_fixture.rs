@@ -1,7 +1,8 @@
-//! 2.5.0 隔离原生验收夹具（只允许路径含 local.possio.u21.acceptance）：
+//! 2.5.0 隔离原生验收夹具（只允许路径含 local.thingary.u21.acceptance）：
 //! 几件虚构物品、两个账户两次盘点、两笔重要支出（其一有退款）、两个周期计划及其付款，
 //! 用来核对财富表导出、`.thingary` 备份与恢复、窄窗口物品列表。
-use possio_lib::{
+use std::path::PathBuf;
+use thingary_lib::{
     catalog::{Details, SaveAsset},
     domain::Save as AssetSave,
     expenses::{Fields, Save as ExpenseSave},
@@ -9,7 +10,6 @@ use possio_lib::{
     storage::Store,
     wealth::{AccountFields, AccountSave, EntryInput, SnapshotSave},
 };
-use std::path::PathBuf;
 
 const TODAY: &str = "2026-10-03";
 
@@ -30,7 +30,7 @@ fn main() {
     assert!(
         canonical
             .components()
-            .any(|c| c.as_os_str() == "local.possio.u21.acceptance"),
+            .any(|c| c.as_os_str() == "local.thingary.u21.acceptance"),
         "refusing non-isolated path: {}",
         canonical.display()
     );

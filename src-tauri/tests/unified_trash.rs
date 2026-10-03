@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     backup::archive_hash,
     catalog::{AssetRecord, Details, SaveAsset},
     domain::{Error, Save},
@@ -113,7 +113,7 @@ fn asset_change(s: &Store, a: &AssetRecord, deleted: bool) -> TrashChange {
         deleted,
     }
 }
-fn trash(s: &Store, filter: &str) -> possio_lib::trash::TrashPage {
+fn trash(s: &Store, filter: &str) -> thingary_lib::trash::TrashPage {
     s.list_trash(&TrashQuery {
         filter: filter.into(),
         offset: 0,
@@ -499,7 +499,7 @@ fn sold_state_and_unknown_costs_survive_record_delete_restore() {
         },
     };
     let sold = s.change_sale(&sold, TODAY).unwrap();
-    assert_eq!(sold.lifecycle.state, possio_lib::lifecycle::State::Sold);
+    assert_eq!(sold.lifecycle.state, thingary_lib::lifecycle::State::Sold);
     // AC29: delete and restore the Sold asset; it stays Sold with its sale.
     let asset_deleted = s.change_trash(&asset_change(&s, &sold, true)).unwrap();
     let asset_restored = s
@@ -507,7 +507,7 @@ fn sold_state_and_unknown_costs_survive_record_delete_restore() {
         .unwrap();
     assert_eq!(
         asset_restored.lifecycle.state,
-        possio_lib::lifecycle::State::Sold
+        thingary_lib::lifecycle::State::Sold
     );
     assert_eq!(
         asset_restored.sale.as_ref().unwrap().fields.price_cents,
@@ -626,7 +626,7 @@ fn mixed_deletes_keep_files_and_survive_backup_restore() {
     assert_eq!(w_deleted.photos.len(), 1);
     assert_eq!(trash(&s, "all").total, 3);
     // Backup and restore into a fresh library keeps all three delete marks.
-    let archive = root.path().join("t11.possio");
+    let archive = root.path().join("t11.thingary");
     s.backup(Some(&archive)).unwrap();
     let other = tempfile::tempdir().unwrap();
     let mut restored_store = Store::open(other.path()).unwrap();

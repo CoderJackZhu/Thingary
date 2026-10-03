@@ -6,7 +6,7 @@ export function persistSubmission(key: string, value: {pending?: unknown; planPe
 }
 export function clearUnsubmittedEditors(storage: Pick<Storage,'getItem'|'removeItem'>) {
   for (const kind of ['asset','wishlist','maintenance','warranty','sale','lifecycle']) {
-    const key = `possio.${kind}-draft.v1`;
+    const key = `thingary.${kind}-draft.v1`;
     try { const value = JSON.parse(storage.getItem(key) || 'null'); if (value && !value.pending && !value.planPending) storage.removeItem(key); } catch { storage.removeItem(key); }
   }
 }

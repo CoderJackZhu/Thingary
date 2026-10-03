@@ -14,8 +14,8 @@ static ENABLED: AtomicBool = AtomicBool::new(false);
 static AUTH_PENDING: AtomicUsize = AtomicUsize::new(0);
 static LAST: Mutex<(String, String)> = Mutex::new((String::new(), String::new()));
 extern "C" {
-    fn possio_notifications(json: *const c_char, ask: i32) -> *mut c_char;
-    fn possio_free(ptr: *mut c_void);
+    fn thingary_notifications(json: *const c_char, ask: i32) -> *mut c_char;
+    fn thingary_free(ptr: *mut c_void);
 }
 #[derive(Serialize)]
 pub struct Plan {
@@ -33,7 +33,7 @@ impl Store {
             // A switched-off wishlist pauses its reminders; warranties always stay.
             .query_map([crate::modules::read(&self.root).wishlist], |r| {
                 Ok(Plan {
-                    id: format!("possio-{}", r.get::<_, String>(0)?),
+                    id: format!("thingary-{}", r.get::<_, String>(0)?),
                     date: r.get(1)?,
                     title: format!("{} · {}", r.get::<_, String>(4)?, r.get::<_, String>(2)?),
                     body: r.get(3)?,
@@ -56,14 +56,14 @@ fn native(json: &str, ask: bool) -> Result<()> {
         return Ok(());
     }
     let json = CString::new(json).map_err(|_| Error::new("REMINDER", "提醒内容无效"))?;
-    let ptr = unsafe { possio_notifications(json.as_ptr(), i32::from(ask)) };
+    let ptr = unsafe { thingary_notifications(json.as_ptr(), i32::from(ask)) };
     if ptr.is_null() {
         return Err(Error::new("REMINDER", "通知服务不可用"));
     }
     let message = unsafe { CStr::from_ptr(ptr) }
         .to_string_lossy()
         .into_owned();
-    unsafe { possio_free(ptr.cast()) };
+    unsafe { thingary_free(ptr.cast()) };
     if message.is_empty() {
         Ok(())
     } else {
@@ -111,7 +111,7 @@ fn enqueue(request: Request) -> bool {
     let queue = QUEUE.get_or_init(|| {
         let (tx, rx) = mpsc::channel::<Request>();
         let spawned = std::thread::Builder::new()
-            .name("possio-reminders".into())
+            .name("thingary-reminders".into())
             .spawn(move || {
                 let mut latest: Option<Snapshot> = None;
                 while let Ok(first) = rx.recv() {
@@ -207,7 +207,8 @@ mod tests {
     #[test]
     fn a_late_status_check_never_reapplies_a_stale_plan() {
         enable();
-        let stale_json = r#"[{"id":"possio-cancelled","date":"2099-01-01","title":"t","body":""}]"#;
+        let stale_json =
+            r#"[{"id":"thingary-cancelled","date":"2099-01-01","title":"t","body":""}]"#;
         let stale = Snapshot::new(stale_json.into());
         let newer = Snapshot::new("[]".into());
         schedule(newer);

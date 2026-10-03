@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     backup::archive_hash,
     catalog::{Details, Query, SaveAsset},
     domain::{held_days, Error, Save},
@@ -9,7 +9,7 @@ use possio_lib::{
 fn id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
-fn create(s: &mut Store) -> possio_lib::catalog::AssetRecord {
+fn create(s: &mut Store) -> thingary_lib::catalog::AssetRecord {
     let q = SaveAsset {
         options: None,
         base: Save {
@@ -30,7 +30,7 @@ fn create(s: &mut Store) -> possio_lib::catalog::AssetRecord {
     };
     s.save_asset(&q, "2026-09-25").unwrap()
 }
-fn change(s: &Store, a: &possio_lib::catalog::AssetRecord, action: Action) -> Change {
+fn change(s: &Store, a: &thingary_lib::catalog::AssetRecord, action: Action) -> Change {
     Change {
         request_id: id(),
         generation: s.generation(),
@@ -241,7 +241,7 @@ fn faults_receipts_conflicts_reopen_trash_and_backup() {
         .code,
         "REVISION_CONFLICT"
     );
-    let archive = root.path().join("state.possio");
+    let archive = root.path().join("state.thingary");
     s.backup(Some(&archive)).unwrap();
     let other = tempfile::tempdir().unwrap();
     let mut restored = Store::open(other.path()).unwrap();

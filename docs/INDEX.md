@@ -2,13 +2,13 @@
 
 > 本文件是原 README 的内部导览（当前状态、文档入口、开发命令）。面向用户的介绍见仓库根目录的 [README](../README.md)。
 
-物谱 Thingary——Your things and your net worth, over time。一个面向 macOS 的 Local-first 应用（中文副标题：物品档案与净资产盘点；工程内部名 Possio）：记录值得记住的物品，盘点账户、看清净资产如何随时间变化，两者并重（D30）。重要支出、周期费用、虚拟资产为可开关的辅助模块（产品设计 D22；2.0.0–2.3.0 曾称「家底」，2.3.1 曾短暂改回「物志」；因重名与商标冲突，2.3.2 起为「物谱」，见 D26）。
+物谱 Thingary——Your things and your net worth, over time。一个面向 macOS 的 Local-first 应用（中文副标题：物品档案与净资产盘点）：记录值得记住的物品，盘点账户、看清净资产如何随时间变化，两者并重（D30）。重要支出、周期费用、虚拟资产为可开关的辅助模块（产品设计 D22；2.0.0–2.3.0 曾称「家底」，2.3.1 曾短暂改回「物志」；因重名与商标冲突，2.3.2 起为「物谱」，见 D26）。
 
 **当前定位：高完成度的 Mac 桌面体验 + 个人物品档案 + 金融净资产盘点（并重）+ 本地数据。** 不做日常小额记账（约每月记一次大额支出与贵重物品），不依赖服务器。统一产品需求见产品设计第 17 节；其中 A · 财富盘点随 1.2.0、B · 重要支出随 1.3.0、C1 · 周期费用随 1.4.0、C2 · 虚拟资产随 1.8.0、D · 综合体验随 1.9.0 发布。
 
 ## 当前状态（2026-10-01）
 
-- 自用正式版 **2.4.3**（中文名「物谱」英文名 Thingary，含新应用图标、统计页「售出保值率」U19、负金额格式修复、CSV 导入出售行后备份失败的修复、明暗按钮可见性与主题切换动画）已安装在 `/Applications/物谱.app`，安装时间 2026-10-02T16:17+08:00；身份 `local.possio.main` 不变，回退副本保存在本机 `.local/install/`（2.4.2、2.4.1、2.4.0、2.3.5、2.3.4、2.3.3、2.3.2「物谱」、2.3.0「家底」等，不入库）。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
+- 自用正式版 **2.4.3**（中文名「物谱」英文名 Thingary，含新应用图标、统计页「售出保值率」U19、负金额格式修复、CSV 导入出售行后备份失败的修复、明暗按钮可见性与主题切换动画）已安装在 `/Applications/物谱.app`，安装时间 2026-10-02T16:17+08:00；身份当时为 `local.possio.main`（2.6.0 起改为 `local.thingary.main`），回退副本保存在本机 `.local/install/`（2.4.2、2.4.1、2.4.0、2.3.5、2.3.4、2.3.3、2.3.2「物谱」、2.3.0「家底」等，不入库）。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
 - P0 闭环、A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验及 U 系列迭代均已交付。任务状态以[实施计划](IMPLEMENTATION_PLAN.md)为准，逐次变更见 [CHANGELOG](../CHANGELOG.md)。
 - 原生验收已补做大部分（见[原生验收补做](verification/NATIVE_ACCEPTANCE_20261001_RESULT.md)）；系统外观实时切换、VoiceOver 等需要本人操作的项目与发布前盘点结论见[发布前盘点](RELEASE_AUDIT.md)。
 - 名称：中文名「物谱」、英文名 Thingary，均已由用户确认（2026-10-02，产品设计 D26）；近似商标风险由用户知情承担，官方商标网复核未做，见[竞品调研第 14.3 节](COMPETITOR_RESEARCH.md#143-近似名分析与官方商标网复核2026-10-01第二次)。许可证 GPL-3.0（见 `LICENSE`）。公开发布清单见[发布前盘点第 10 节](RELEASE_AUDIT.md)。
@@ -68,7 +68,7 @@
 - 本机 App 打包：`npm run tauri -- build --bundles app`，产物位于 `src-tauri/target/release/bundle/macos/Thingary Preview.app`；不要把旧产物当成最新构建。
 - 自用正式版打包：`npm run release`（仅覆盖正式身份；安装与验收见 T22 记录）。
 
-开发预览标识为 `local.possio.preview`，资料位于 `~/Library/Application Support/local.possio.preview/library`，只用于虚构资料，与正式版及各隔离验收库分开。不含远程更新或后台代理。只在 Apple Silicon Mac 验证，macOS 14 与 Intel 尚未实测。
+开发预览标识为 `local.thingary.preview`，资料位于 `~/Library/Application Support/local.thingary.preview/library`，只用于虚构资料，与正式版及各隔离验收库分开。不含远程更新或后台代理。只在 Apple Silicon Mac 验证，macOS 14 与 Intel 尚未实测。
 
 ### 浏览器中的虚构数据预览
 
@@ -82,4 +82,4 @@
 
 实物与金融样例源分别为 `src/demo-assets.json`、`src/demo-finance.json`；浏览器预览复用基础事实但为内存模拟，不能代替原生持久性验收。封面 PNG 随内置素材库位于 `src-tauri/materials/`（清单 `materials.json`）。
 
-`npm run demo:import` 只向隔离的 `local.possio.t06b.preview` 虚构库导入同一组样例（拒绝其他路径及符号链接，可重复执行、不覆盖编辑）；`npm run test:demo` 验证导入、图片、重开和目标路径限制。PNG 转换的可选开发命令是 `node scripts/render-demo-art.mjs <已有 sharp 模块的绝对入口>`。
+`npm run demo:import` 只向隔离的 `local.thingary.t06b.preview` 虚构库导入同一组样例（拒绝其他路径及符号链接，可重复执行、不覆盖编辑）；`npm run test:demo` 验证导入、图片、重开和目标路径限制。PNG 转换的可选开发命令是 `node scripts/render-demo-art.mjs <已有 sharp 模块的绝对入口>`。

@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     catalog::{AssetRecord, Details, SaveAsset},
     csv_export::HEADER,
     domain::Save,

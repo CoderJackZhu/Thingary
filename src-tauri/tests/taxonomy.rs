@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     backup::archive_hash,
     catalog::{Details, Query, SaveAsset},
     domain::{Error, Save},
@@ -340,7 +340,7 @@ fn backup_restore_preserves_taxonomy_and_rejects_old_generation() {
             name: "更名".into(),
         },
     );
-    let path = root.path().join("taxonomy.possio");
+    let path = root.path().join("taxonomy.thingary");
     s.backup(Some(&path)).unwrap();
     s.change_taxonomy(&pending).unwrap();
     s.restore(&path, &archive_hash(&path).unwrap(), &s.generation())
@@ -378,7 +378,7 @@ fn channel_migration_survives_edit_photos_trash_restore_and_reopen() {
         .stage_photo("虚构.heic", bytes, &s.generation(), None)
         .unwrap();
     let mut input = save(&s, Some(&category), Some(&source));
-    input.photos = Some(possio_lib::photos::Selection {
+    input.photos = Some(thingary_lib::photos::Selection {
         ids: vec![photo.id.clone()],
         cover_id: Some(photo.id.clone()),
     });

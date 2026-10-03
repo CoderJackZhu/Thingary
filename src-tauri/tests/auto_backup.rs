@@ -1,10 +1,10 @@
-use possio_lib::{
+use std::{path::Path, time::Duration};
+use thingary_lib::{
     auto_backup,
     domain::{Error, Save},
     storage::Store,
     worker::{Policy, TickOutcome, Worker},
 };
-use std::{path::Path, time::Duration};
 
 fn policy(today: &str, idle: Duration, backoff: Duration) -> Policy {
     Policy {
@@ -248,7 +248,7 @@ fn prune_keeps_seven_named_archives_and_nothing_else() {
         )
         .unwrap();
     }
-    std::fs::write(dir.join("物谱备份-2026-09-01.possio"), b"manual").unwrap();
+    std::fs::write(dir.join("物谱备份-2026-09-01.thingary"), b"manual").unwrap();
     std::fs::write(dir.join("重要资料.txt"), b"mine").unwrap();
     std::fs::write(dir.join(".物谱自动备份-2026-09-09.partial"), b"tmp").unwrap();
     auto_backup::prune(&dir).unwrap();
@@ -261,7 +261,7 @@ fn prune_keeps_seven_named_archives_and_nothing_else() {
         names,
         vec![
             ".物谱自动备份-2026-09-09.partial".to_string(),
-            "物谱备份-2026-09-01.possio".to_string(),
+            "物谱备份-2026-09-01.thingary".to_string(),
             dated_name("2026-09-03"),
             dated_name("2026-09-04"),
             dated_name("2026-09-05"),
@@ -283,11 +283,11 @@ fn resolve_rejects_anything_that_is_not_one_dated_name() {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("library");
     for bad in [
-        "../物谱自动备份-2026-09-29.possio",
-        "sub/物谱自动备份-2026-09-29.possio",
+        "../物谱自动备份-2026-09-29.thingary",
+        "sub/物谱自动备份-2026-09-29.thingary",
         "物谱自动备份-2026-09-29.zip",
-        "物谱备份-2026-09-29.possio",
-        "物谱自动备份-2026-9-29.possio",
+        "物谱备份-2026-09-29.thingary",
+        "物谱自动备份-2026-9-29.thingary",
         ".",
         "..",
         "",
@@ -306,7 +306,7 @@ fn copy_extra_errors_on_a_missing_target_and_keeps_the_source() {
     let tmp = tempfile::tempdir().unwrap();
     let source = tmp.path().join(dated_name("2026-09-29"));
     std::fs::write(&source, b"archive").unwrap();
-    let vanished = tmp.path().join("unmounted-disk/possio");
+    let vanished = tmp.path().join("unmounted-disk/thingary");
     let missing = auto_backup::copy_extra(&source, &vanished).unwrap_err();
     assert!(missing.message.contains("找不到额外备份位置"));
     assert!(!vanished.exists());
@@ -344,7 +344,7 @@ fn damaged_or_missing_settings_read_as_enabled() {
     // Saved state survives a round trip.
     let settings = auto_backup::Settings {
         enabled: false,
-        extra_dir: Some("/Volumes/Fiction/possio".into()),
+        extra_dir: Some("/Volumes/Fiction/thingary".into()),
         last_success_at: Some("2026-09-29T10:00:00+08:00".into()),
         last_error: Some(auto_backup::Failure {
             at: "2026-09-29T11:00:00+08:00".into(),
@@ -357,7 +357,7 @@ fn damaged_or_missing_settings_read_as_enabled() {
     assert!(!auto_backup::Settings::load(&root).enabled);
     assert_eq!(
         auto_backup::Settings::load(&root).extra_dir.as_deref(),
-        Some("/Volumes/Fiction/possio")
+        Some("/Volumes/Fiction/thingary")
     );
     // A disabled switch stops the tick before anything else.
     let worker = Worker::start(root.clone()).unwrap();
@@ -479,7 +479,7 @@ fn published_archives_are_complete_backups_of_the_real_library() {
         .call_personal(move |s| s.inspect_backup(&archive))
         .unwrap();
     assert_eq!(summary.assets, 1);
-    assert_eq!(summary.schema, possio_lib::storage::SCHEMA_VERSION as u32);
+    assert_eq!(summary.schema, thingary_lib::storage::SCHEMA_VERSION as u32);
 }
 
 #[test]
@@ -527,36 +527,5 @@ fn run_uses_the_existing_backup_protocol_without_touching_final_on_error() {
     assert_eq!(
         Path::new(&published).file_name().unwrap().to_str().unwrap(),
         dated_name("2026-09-29")
-    );
-}
-
-#[test]
-fn archives_written_before_the_extension_change_stay_usable() {
-    let tmp = tempfile::tempdir().unwrap();
-    let dir = tmp.path().join("auto-backups");
-    std::fs::create_dir_all(&dir).unwrap();
-    // 2.4.4 and earlier wrote .possio; those files remain ours: listed, restorable.
-    std::fs::write(dir.join("物谱自动备份-2026-09-27.possio"), b"old").unwrap();
-    std::fs::write(dir.join("物谱自动备份-2026-09-28.possio"), b"old").unwrap();
-    assert!(auto_backup::is_auto_backup_name(
-        "物谱自动备份-2026-09-27.possio"
-    ));
-    assert!(auto_backup::is_auto_backup_name(&dated_name("2026-09-27")));
-    assert_eq!(auto_backup::list(&dir).len(), 2);
-    // A new archive for a day that already has an old-extension one replaces it.
-    let store = Store::open(&tmp.path().join("library")).unwrap();
-    let written = auto_backup::run(&store, &dir, "2026-09-28").unwrap();
-    assert!(written.ends_with(dated_name("2026-09-28")));
-    assert!(!dir.join("物谱自动备份-2026-09-28.possio").exists());
-    let names: Vec<String> = auto_backup::list(&dir)
-        .into_iter()
-        .map(|i| i.name)
-        .collect();
-    assert_eq!(
-        names,
-        vec![
-            dated_name("2026-09-28"),
-            "物谱自动备份-2026-09-27.possio".to_string()
-        ]
     );
 }

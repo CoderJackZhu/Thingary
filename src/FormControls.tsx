@@ -18,8 +18,8 @@ type ChoiceKind='category'|'channel'|'label'|'sale_channel';
 function useChoices(kind:ChoiceKind,generation:string){
  const [data,setData]=useState<Snapshot|null>(null),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  const pending=useRef<unknown>(null),lock=useRef(false);
- const key=`possio.choice-request.v1.${generation}.${kind}`;
- const notify=()=>window.dispatchEvent(new Event('possio-choices-changed'));
+ const key=`thingary.choice-request.v1.${generation}.${kind}`;
+ const notify=()=>window.dispatchEvent(new Event('thingary-choices-changed'));
  async function load(){
   try {
    const stored=JSON.parse(localStorage.getItem(key)||'null');

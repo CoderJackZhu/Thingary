@@ -69,7 +69,7 @@ export function cellText(cell: CompareCell, side: Side): string {
 }
 
 // Only a submitted request whose reply was lost is kept; unsubmitted input is not.
-export const pendingKey = 'possio.wealth-pending.v1';
+export const pendingKey = 'thingary.wealth-pending.v1';
 export type TrashChange = { request_id: string; generation: string; kind: TrashKind; id: string; expected_revision: number; deleted: boolean };
 export type TrashKind = 'snapshot' | 'account' | 'expense' | 'plan' | 'payment' | 'wish' | 'virtual';
 export type Pending = { command: 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save'; input: AccountSave | SnapshotSave | TrashChange | { request_id: string; generation: string }; label: string };

@@ -1,6 +1,6 @@
 //! Readable finance tables: check-ins, important expenses, recurring costs.
 //! Expected text is written out by hand from the fictional records below.
-use possio_lib::{
+use thingary_lib::{
     expenses::{Fields, Save as ExpenseSave},
     recurring::{PaymentSave, PlanFields, PlanSave},
     storage::Store,
@@ -46,7 +46,7 @@ fn check_ins_export_one_row_per_account_with_unknown_left_empty() {
     };
     let cash = open("虚构储蓄卡", "asset", "cash", true);
     let loan = open("虚构房贷", "liability", "loan", false);
-    let entry = |a: &possio_lib::wealth::Account, state: &str, cents: Option<&str>| EntryInput {
+    let entry = |a: &thingary_lib::wealth::Account, state: &str, cents: Option<&str>| EntryInput {
         account_id: a.id.clone(),
         state: state.into(),
         amount_cents: cents.map(str::to_owned),

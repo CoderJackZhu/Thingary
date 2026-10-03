@@ -11,7 +11,7 @@ import {FormRow,Segments} from './FormControls';
 import type {TaxonomySnapshot} from './taxonomy';
 import type {CloseIntent} from './AssetEditor';
 import type {WishlistItem} from './wishlist';
-const key='possio.savings-pending.v1';
+const key='thingary.savings-pending.v1';
 type Saving={request_id:string;generation:string;id:string;expected_revision:number;mode:'add'|'total';cents:string};
 export function SavingsRing({item}:{item:WishlistItem}){const p=item.preferences??defaultWishPreferences(),v=savingPercent(p.saved_cents,item.fields.estimated_price_cents);return <span className="savings-ring" role="img" aria-label={`攒钱进度 ${v===null?'待设价格':v+'%'}`}><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="20"/><circle cx="24" cy="24" r="20" pathLength="100" strokeDasharray={`${v??0} 100`}/></svg><b>{v===null?'—':v+'%'}</b></span>}
 export function WishDetail({onBusyChange,onAbandon,onDeleted,initial,generation,onClose,onEdit,onChange,onConvert,closeIntent,onKeepClose,onFinishClose,onOpenAsset,onOpenTrash,taxonomy}:{onBusyChange:(busy:boolean)=>void;onAbandon:(item:WishlistItem)=>void;onDeleted:()=>void;onOpenAsset:(id:string)=>void;onOpenTrash:()=>void;onFinishClose:(intent:CloseIntent)=>void;taxonomy:TaxonomySnapshot|null;closeIntent:CloseIntent|null;onKeepClose:()=>void;initial:WishlistItem;generation:string;onClose:()=>void;onEdit:(i:WishlistItem)=>void;onChange:(i:WishlistItem)=>void;onConvert:(i:WishlistItem)=>void}){

@@ -6,7 +6,7 @@ export type SaleAction = { type: 'sell'; fields: SaleFields } | { type: 'correct
 export type SaleChange = { request_id: string; generation: string; asset_id: string; expected_revision: number; action: SaleAction };
 export type SaleForm = { date: string; price: string; platform: string; buyer: string; notes: string };
 export type SaleDraft = { record: AssetRecord; generation: string; mode: 'sell' | 'correct' | 'revoke'; fields: SaleForm; original: SaleForm; pending: SaleChange | null };
-export const saleKey = 'possio.sale-draft.v1';
+export const saleKey = 'thingary.sale-draft.v1';
 export function saleFields(record: AssetRecord, today: string): SaleForm {
   const f=record.sale?.fields;
   return f ? {date:f.date,price:(Number(f.price_cents)/100).toFixed(2),platform:f.platform,buyer:f.buyer,notes:f.notes} : {date:today,price:'',platform:'',buyer:'',notes:''};

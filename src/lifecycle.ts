@@ -7,7 +7,7 @@ export type LifecycleAction = { type: 'append'; kind: LifecycleKind; date: strin
 export type LifecycleChange = { request_id: string; generation: string; asset_id: string; expected_revision: number; action: LifecycleAction | { type: 'revoke'; event_id: string } };
 /** `revoke` turns a date correction into removing that mistaken event (D18). */
 export type LifecycleDraft = { record: AssetRecord; generation: string; action: LifecycleAction; original: LifecycleAction; pending: LifecycleChange | null; revoke?: boolean };
-export const lifecycleKey = 'possio.lifecycle-draft.v1';
+export const lifecycleKey = 'thingary.lifecycle-draft.v1';
 export function stateLabel(record: AssetRecord) { return { active: '使用中', retired: '已退役', sold: '已售出' }[record.lifecycle?.state ?? 'active']; }
 export function kindLabel(kind: LifecycleKind) { return kind === 'retire' ? '退役' : '重新启用'; }
 export function lifecycleError(record: AssetRecord, action: LifecycleAction, today: string): string {

@@ -1,6 +1,6 @@
 {
   "productName": "物谱",
-  "identifier": "local.possio.main",
+  "identifier": "local.thingary.main",
   "app": {
     "windows": [
       {

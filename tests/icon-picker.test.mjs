@@ -23,7 +23,7 @@ test('recent choices are bounded, deduplicated and isolated by dataset generatio
  assert.equal(readRecentMaterials(storage,'demo').length,24);
  assert.equal(readRecentMaterials(storage,'demo')[0],'25');
  assert.deepEqual(readRecentMaterials(storage,'real'),[]);
- data.set('possio.recent-materials.demo','{"bad":true}');assert.deepEqual(readRecentMaterials(storage,'demo'),[]);
+ data.set('thingary.recent-materials.demo','{"bad":true}');assert.deepEqual(readRecentMaterials(storage,'demo'),[]);
 });
 test('replacing a draft icon retains saved photos and attachments, removes only its transient predecessor',()=>{
  const saved={id:'saved',name:'实物照片'};const receipt={id:'receipt',name:'发票'};const first={id:'first',name:'手机图标'};const second={id:'second',name:'相机图标'};

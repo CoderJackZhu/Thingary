@@ -1,5 +1,25 @@
 # 变更记录
 
+## 2026-10-03 · 2.6.0 工程名全部改为 Thingary，不做旧名兼容（未安装）
+
+用户确认「Possio」是老名字、不会再用，要求整个项目改过来且不做兼容（产品尚未正式发版）。决定记录在[产品设计 D31](docs/PRODUCT_DESIGN.md#d31-product)。
+
+- **改了什么**：Rust 包名与库名（`possio`／`possio_lib` → `thingary`／`thingary_lib`，可执行文件现为 `thingary`）、原生桥函数与类名、环境变量（`POSSIO_*` → `THINGARY_*`）、线程名与菜单项标识、应用标识（`local.possio.main` → `local.thingary.main`，预览 `local.thingary.preview`，各验收身份同理）、浏览器存储键与事件名（`possio.*` → `thingary.*`）、npm 包名、验收夹具里的隔离路径守卫、现行文档（README、CONTRIBUTING、SECURITY、AGENTS、文档索引、使用说明、产品设计里的备份文件名）。
+- **备份扩展名**：只认 `.thingary`；2.5.0 加入的 `.possio` 兼容代码与测试已删除，恢复面板与自动备份列表不再识别 `.possio`。
+- **没改**：历史记录（旧 CHANGELOG 条目、验证报告、ADR、竞品调研、实施计划里的旧记载）；样例数据的内部散列种子 `possio.original-demo.v1`（只在样例库里生成固定编号，改了会让已有样例库重复导入）。
+- **⚠ 升级前必须手动迁移已有真实资料**（应用标识就是资料目录名）。**在安装并首次打开 2.6.0 之前**，先退出物谱，再在终端执行：
+
+  ```sh
+  cd ~/Library/Application\ Support
+  mv local.possio.main local.thingary.main
+  # 旧备份文件改扩展名后才能被新版识别（自动备份在 local.thingary.main/library/auto-backups/，手动备份在你保存的位置）
+  for f in local.thingary.main/library/auto-backups/*.possio; do mv "$f" "${f%.possio}.thingary"; done
+  ```
+
+  若先启动了新版，它会在新位置建一个空库；这时先退出，删除（移到废纸篓）新建的 `local.thingary.main`，再按上面改名。开发预览与各验收库是虚构数据，不需要迁移。
+- **随标识丢失**：主题与界面风格偏好回到默认（再选一次）；未提交的草稿丢弃；系统通知权限需要重新允许（设置里的提醒不变，在资料里）；旧标识下已排队的系统通知不会再触发或被取消。
+- 验证：`npm run build`、前端 192 项、`npm run check`、Rust 241 项（比 2.5.0 少的 1 项是已删除的 `.possio` 兼容测试）、`npm run test:demo`、`git diff --check` 通过。原生核对（隔离身份 `local.thingary.u21.acceptance`，新建资料目录并用 `u21_fixture` 写入虚构数据）：新构建的进程名为 `thingary`，只打开新身份的资料目录（对 `local.possio.*`、`local.thingary.main` 句柄数 0）；数据正常显示；手动备份面板默认 `物谱备份-….thingary`、保存并校验成功；自动备份生成 `物谱自动备份-2026-10-03.thingary`。**未安装、未推送**；真实资料未触碰。
+
 ## 2026-10-03 · 2.5.0 产品审视后的整理：定位、用语、导出与界面去重
 
 用户要求从界面、交互、功能、风格、主题等方面整体审视软件，并逐条回复处理意见；决定记录在[产品设计 D30](docs/PRODUCT_DESIGN.md#d30-product)。

@@ -1,3 +1,3 @@
 fn main() {
-    possio_lib::run()
+    thingary_lib::run()
 }

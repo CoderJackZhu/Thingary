@@ -6,7 +6,7 @@ import { undoTarget } from './undo-shortcut';
 // D17 rule 6: right after a deletion, one click puts it back. Recently Deleted
 // stays the durable path; this bar only covers a click made by mistake.
 type Offer = { label: string; run: () => Promise<void | string> };
-const offerEvent = 'possio-undo', restoredEvent = 'possio-restored';
+const offerEvent = 'thingary-undo', restoredEvent = 'thingary-restored';
 
 /** `run` may return its own result line, e.g. how many items were skipped. */
 export function offerUndo(label: string, run: () => Promise<void | string>) {

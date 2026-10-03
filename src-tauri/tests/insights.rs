@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     catalog::{AssetRecord, Details, SaveAsset},
     domain::Save,
     lifecycle,
@@ -686,7 +686,7 @@ fn sell(s: &mut Store, record: &AssetRecord, price: &str) -> AssetRecord {
 }
 
 fn excluded_from_statistics(s: &mut Store, record: &AssetRecord) {
-    let mut options = possio_lib::preferences::AssetOptions::default();
+    let mut options = thingary_lib::preferences::AssetOptions::default();
     options.preferences.exclude.statistics = true;
     s.save_asset(
         &SaveAsset {

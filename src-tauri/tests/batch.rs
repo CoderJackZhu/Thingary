@@ -1,6 +1,6 @@
 //! D19 batch operations: one transaction, single-item rules, one undo that
 //! skips items changed since.
-use possio_lib::{
+use thingary_lib::{
     batch::{Change, Item, Undo},
     catalog::{AssetRecord, Details, Query, SaveAsset},
     domain::Save,
@@ -54,7 +54,7 @@ fn change(s: &Store, action: &str, items: Vec<Item>) -> Change {
         items,
     }
 }
-fn undo(s: &mut Store, batch: &Change) -> possio_lib::batch::Outcome {
+fn undo(s: &mut Store, batch: &Change) -> thingary_lib::batch::Outcome {
     s.batch_undo(&Undo {
         request_id: rid(),
         generation: s.generation(),
@@ -161,12 +161,12 @@ fn retire_labels_exclusions_and_delete_undo_cleanly() {
     assert!(state(&s, &a.asset.id).events.is_empty());
     assert_eq!(
         state(&s, &a.asset.id).state,
-        possio_lib::lifecycle::State::Active
+        thingary_lib::lifecycle::State::Active
     );
 
     // New libraries have no tags; create one to assign.
     let snap = s.choices("label").unwrap();
-    let create: possio_lib::choices::Change = serde_json::from_value(serde_json::json!({"request_id": uuid::Uuid::new_v4().to_string(), "generation": s.generation(), "expected_revision": snap.revision, "kind": "label", "action": {"type": "create", "name": "工作用"}})).unwrap();
+    let create: thingary_lib::choices::Change = serde_json::from_value(serde_json::json!({"request_id": uuid::Uuid::new_v4().to_string(), "generation": s.generation(), "expected_revision": snap.revision, "kind": "label", "action": {"type": "create", "name": "工作用"}})).unwrap();
     let label = s.change_choices(&create).unwrap().items[0].id.clone();
     let tagged = change(
         &s,
@@ -253,7 +253,7 @@ fn batch_warranty_and_sale_undo_and_keep_backups_valid() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let (a, b) = (asset(&mut s, "虚构甲"), asset(&mut s, "虚构乙"));
-    let warranty = |start: &str| possio_lib::warranty::Fields {
+    let warranty = |start: &str| thingary_lib::warranty::Fields {
         kind: "manufacturer".into(),
         provider: String::new(),
         start_date: Some(start.into()),
@@ -277,7 +277,7 @@ fn batch_warranty_and_sale_undo_and_keep_backups_valid() {
     s.batch_change(&covered, TODAY).unwrap();
     assert_eq!(s.record(&a.asset.id).unwrap().unwrap().warranties.len(), 1);
 
-    let sale = |price: &str| possio_lib::sales::Fields {
+    let sale = |price: &str| thingary_lib::sales::Fields {
         date: "2026-09-20".into(),
         price_cents: price.into(),
         platform: "虚构回收商".into(),
@@ -300,18 +300,18 @@ fn batch_warranty_and_sale_undo_and_keep_backups_valid() {
     );
     s.batch_change(&sold, TODAY).unwrap();
     let rec = s.record(&a.asset.id).unwrap().unwrap();
-    assert_eq!(rec.lifecycle.state, possio_lib::lifecycle::State::Sold);
+    assert_eq!(rec.lifecycle.state, thingary_lib::lifecycle::State::Sold);
     assert_eq!(rec.sale.unwrap().fields.price_cents, "30000");
 
     // A library holding batch sales and warranties passes backup validation.
-    let file = dir.path().join("批量.possio");
+    let file = dir.path().join("批量.thingary");
     s.backup(Some(&file)).unwrap();
     assert_eq!(s.inspect_backup(&file).unwrap().assets, 2);
 
     assert_eq!(undo(&mut s, &sold).changed, 2);
     let rec = s.record(&b.asset.id).unwrap().unwrap();
     assert!(rec.sale.is_none());
-    assert_eq!(rec.lifecycle.state, possio_lib::lifecycle::State::Active);
+    assert_eq!(rec.lifecycle.state, thingary_lib::lifecycle::State::Active);
     // Undoing the older warranty batch now skips: the sale undo moved revisions on.
     assert_eq!(undo(&mut s, &covered).skipped, 2);
 
@@ -319,7 +319,7 @@ fn batch_warranty_and_sale_undo_and_keep_backups_valid() {
         &s,
         "sell",
         vec![Item {
-            sale: Some(possio_lib::sales::Fields {
+            sale: Some(thingary_lib::sales::Fields {
                 date: "2026-08-01".into(),
                 ..sale("1")
             }),

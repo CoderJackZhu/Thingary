@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     backup::archive_hash,
     catalog::{AssetRecord, Details, SaveAsset},
     choices::{Action, Change},
@@ -119,7 +119,7 @@ fn rename_sale_channel_corrects_live_and_trashed_sales_and_roundtrips_backup() {
             TODAY
         )
         .is_err());
-    let archive = root.path().join("choices.possio");
+    let archive = root.path().join("choices.thingary");
     s.backup(Some(&archive)).unwrap();
     let restored_root = tempfile::tempdir().unwrap();
     let mut restored = Store::open(restored_root.path()).unwrap();
@@ -217,7 +217,7 @@ fn label_removal_replaces_and_clears_including_trash_with_stale_count_guard() {
         s.record(&a.asset.id).unwrap().unwrap().preferences.label_id,
         None
     );
-    let archive = root.path().join("labels.possio");
+    let archive = root.path().join("labels.thingary");
     s.backup(Some(&archive)).unwrap();
     s.inspect_backup(&archive).unwrap();
     let r = s.record(&b.asset.id).unwrap().unwrap();
@@ -295,7 +295,7 @@ fn channel_delete_replacement_clear_and_revoked_history_are_valid() {
             .platform,
         ""
     );
-    let archive = root.path().join("clear.possio");
+    let archive = root.path().join("clear.thingary");
     s.backup(Some(&archive)).unwrap();
     s.inspect_backup(&archive).unwrap();
 }
@@ -414,7 +414,7 @@ fn atomic_rollback_and_lost_reply_replay_do_not_duplicate_sale_corrections() {
         s.record(&a.asset.id).unwrap().unwrap().asset.revision,
         a.asset.revision + 1
     );
-    let archive = root.path().join("retry.possio");
+    let archive = root.path().join("retry.thingary");
     s.backup(Some(&archive)).unwrap();
     s.inspect_backup(&archive).unwrap();
 }

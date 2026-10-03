@@ -13,7 +13,7 @@ type Task = { kind: 'idle' } | { kind: 'running'; label: string } | { kind: 'don
 /** Drafts and pending requests belong to one dataset generation; after a restore they can never apply. */
 export function localWorkKeys() {
   const keys: string[] = [];
-  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('possio.') && k !== 'possio.theme') keys.push(k); } } catch { /* storage unavailable: nothing to clear */ }
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('thingary.') && k !== 'thingary.theme') keys.push(k); } } catch { /* storage unavailable: nothing to clear */ }
   return keys;
 }
 

@@ -374,8 +374,8 @@ export function CategoryFilter({
   // 浏览器预览截图入口：?category-menu=open 在分类就绪后直接开菜单（原生无此流程）；
   // 声明在关菜单 effect 之后，首次加载时后者的 setMenuOpen(false) 被覆盖。
   useEffect(() => {
-    if (!entries.length || sessionStorage.getItem('possio.category-menu.v1') !== 'open') return;
-    sessionStorage.removeItem('possio.category-menu.v1');
+    if (!entries.length || sessionStorage.getItem('thingary.category-menu.v1') !== 'open') return;
+    sessionStorage.removeItem('thingary.category-menu.v1');
     setMenuOpen(true);
   }, [entriesKey]);
   useEffect(() => { if (!menuOpen) return; const close = () => setMenuOpen(false); window.addEventListener("resize", close); return () => window.removeEventListener("resize", close); }, [menuOpen]);

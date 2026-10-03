@@ -1,6 +1,6 @@
 //! Q03a: stable source targets, snapshot events, and the domain/year timeline
 //! projection. All data is fictional and lives in temporary directories only.
-use possio_lib::{
+use thingary_lib::{
     catalog::{AssetRecord, Details, SaveAsset},
     domain::Save,
     expenses,
@@ -18,7 +18,7 @@ const TODAY: &str = "2026-09-28";
 fn rid() -> String {
     uuid::Uuid::new_v4().to_string()
 }
-fn code<T: std::fmt::Debug>(r: std::result::Result<T, possio_lib::domain::Error>) -> String {
+fn code<T: std::fmt::Debug>(r: std::result::Result<T, thingary_lib::domain::Error>) -> String {
     r.unwrap_err().code
 }
 fn asset(s: &mut Store, name: &str, price: &str, date: &str) -> AssetRecord {
@@ -178,7 +178,7 @@ fn wish(s: &mut Store, name: &str) -> wishlist::WishlistItem {
                 external_link: String::new(),
                 notes: String::new(),
             },
-            cover: possio_lib::photos::Selection {
+            cover: thingary_lib::photos::Selection {
                 cover_id: None,
                 ids: vec![],
             },
@@ -372,7 +372,7 @@ fn validate_source_follows_deletion_relations_and_payment_state() {
         "NOT_FOUND"
     );
     // The linked asset is gone, so the still-live expense no longer resolves.
-    s.change_trash(&possio_lib::trash::TrashChange {
+    s.change_trash(&thingary_lib::trash::TrashChange {
         request_id: rid(),
         generation: s.generation(),
         asset_id: a.asset.id.clone(),
@@ -571,13 +571,13 @@ fn undated_facts_stay_visible_under_domain_but_never_join_a_year() {
     let mut s = Store::open(dir.path()).unwrap();
     let a = asset(&mut s, "虚构相机", "1500000", "2025-01-10");
     s.change_maintenance(
-        &possio_lib::maintenance::Change {
+        &thingary_lib::maintenance::Change {
             request_id: rid(),
             generation: s.generation(),
             asset_id: a.asset.id.clone(),
             expected_revision: a.asset.revision,
-            action: possio_lib::maintenance::Action::Add {
-                fields: possio_lib::maintenance::Fields {
+            action: thingary_lib::maintenance::Action::Add {
+                fields: thingary_lib::maintenance::Fields {
                     date: None,
                     kind: "repair".into(),
                     title: "日期待补的维护".into(),
@@ -585,7 +585,7 @@ fn undated_facts_stay_visible_under_domain_but_never_join_a_year() {
                     cost_cents: Some("30000".into()),
                     provider: String::new(),
                 },
-                photos: possio_lib::photos::Selection {
+                photos: thingary_lib::photos::Selection {
                     cover_id: None,
                     ids: vec![],
                 },
@@ -752,8 +752,8 @@ fn review_recent_shares_one_projection_with_the_timeline() {
     mixed(&mut s);
     let review = s.review_overview(None, TODAY).unwrap();
     let recent = match review.recent {
-        possio_lib::review::Read::Ready(v) => v,
-        possio_lib::review::Read::Error(e) => panic!("{e}"),
+        thingary_lib::review::Read::Ready(v) => v,
+        thingary_lib::review::Read::Error(e) => panic!("{e}"),
     };
     let projection = s
         .timeline_view(
@@ -773,8 +773,8 @@ fn review_recent_shares_one_projection_with_the_timeline() {
     assert!(recent.iter().any(|e| e.kind == "snapshot"));
     let y2025 = s.review_overview(Some(2025), TODAY).unwrap();
     let recent = match y2025.recent {
-        possio_lib::review::Read::Ready(v) => v,
-        possio_lib::review::Read::Error(e) => panic!("{e}"),
+        thingary_lib::review::Read::Ready(v) => v,
+        thingary_lib::review::Read::Error(e) => panic!("{e}"),
     };
     assert!(recent
         .iter()

@@ -8,7 +8,7 @@ import type { AssetRecord, Photo } from './asset';
 export function PhotoView({ photo, generation, version = 0, compact = false, onMissing }: { photo: Photo; generation: string; version?: number; compact?: boolean; onMissing?: (missing: boolean) => void }) {
   const [src, setSrc] = useState(''), [error, setError] = useState('');
   const [repairVersion, setRepairVersion] = useState(0);
-  useEffect(() => { const refresh = () => setRepairVersion(v => v + 1); window.addEventListener('possio-photo-repaired', refresh); return () => window.removeEventListener('possio-photo-repaired', refresh); }, []);
+  useEffect(() => { const refresh = () => setRepairVersion(v => v + 1); window.addEventListener('thingary-photo-repaired', refresh); return () => window.removeEventListener('thingary-photo-repaired', refresh); }, []);
   useEffect(() => {
     let live = true, url = ''; setSrc(''); setError(''); onMissing?.(false);
     void invoke<ArrayBuffer>('photo_preview', { id: photo.id, generation }).then(bytes => {
@@ -28,7 +28,7 @@ export function PhotoPreview({ photo, generation, onClose }: { photo: Photo; gen
   useEffect(() => { ref.current?.showModal(); return () => ref.current?.close(); }, []);
   async function repair() {
     if (busy) return; setBusy(true); setNotice('');
-    try { const selected = await invoke<Photo | null>('pick_photo', { generation, repair: photo.id }); if (selected) { setVersion(v => v + 1); window.dispatchEvent(new Event('possio-photo-repaired')); setNotice('原图已修复。'); } }
+    try { const selected = await invoke<Photo | null>('pick_photo', { generation, repair: photo.id }); if (selected) { setVersion(v => v + 1); window.dispatchEvent(new Event('thingary-photo-repaired')); setNotice('原图已修复。'); } }
     catch (e) { setNotice(errorMessage(e)); }
     finally { setBusy(false); }
   }

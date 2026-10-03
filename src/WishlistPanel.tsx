@@ -62,7 +62,7 @@ export function WishlistPanel({ taxonomy, closeIntent, onKeepClose, onFinishClos
   }
   useEffect(() => { void reload(query); }, [query]);
   useRestored(() => void reload());
-  useEffect(()=>{if(!page)return;try{const pending=JSON.parse(localStorage.getItem('possio.savings-pending.v1')||'null');if(!pending)return;if(pending.generation!==page.generation){localStorage.removeItem('possio.savings-pending.v1');return;}void invoke<WishlistItem|null>('read_wishlist',{id:pending.id}).then(item=>{if(item)setDetail(item)}).catch(e=>setNotice(errorMessage(e)))}catch{}},[page?.generation]);
+  useEffect(()=>{if(!page)return;try{const pending=JSON.parse(localStorage.getItem('thingary.savings-pending.v1')||'null');if(!pending)return;if(pending.generation!==page.generation){localStorage.removeItem('thingary.savings-pending.v1');return;}void invoke<WishlistItem|null>('read_wishlist',{id:pending.id}).then(item=>{if(item)setDetail(item)}).catch(e=>setNotice(errorMessage(e)))}catch{}},[page?.generation]);
   useEffect(() => { onEditingChange(detailBusy || wishlistBlocksApp({ editor, recovered, abandon, abandonRecovery })); }, [detailBusy,editor, recovered, abandon, abandonRecovery, onEditingChange]);
   useEffect(() => { if (page && recovered && recovered.generation !== page.generation) { localStorage.removeItem(wishlistDraftKey); setRecovered(null); setNotice('资料已切换，旧心愿保存请求未恢复。'); } }, [page, recovered]);
   useEffect(() => { if (page && abandonRecovery) void resolveAbandon(); }, [page, abandonRecovery]);

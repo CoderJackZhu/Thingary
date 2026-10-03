@@ -1,5 +1,5 @@
 import type { MaterialEntry } from './materials.ts';
-export const uploadKey = 'possio.material-upload.v1';
+export const uploadKey = 'thingary.material-upload.v1';
 export type PendingUpload = { request: string; generation: string };
 export function pendingUpload(storage: Pick<Storage, 'getItem'>): PendingUpload | null {
   const raw = storage.getItem(uploadKey);

@@ -1,4 +1,6 @@
-use possio_lib::{
+use serde_json::{json, Value};
+use std::io::Write;
+use thingary_lib::{
     backup::archive_hash,
     catalog::{AssetRecord, Details, SaveAsset},
     domain::Save,
@@ -12,8 +14,6 @@ use possio_lib::{
     warranty,
     wishlist::{self, Convert},
 };
-use serde_json::{json, Value};
-use std::io::Write;
 
 const TODAY: &str = "2026-09-20";
 const PNG: &[u8] = include_bytes!("fixtures/camera.png");
@@ -89,7 +89,7 @@ fn wish(s: &mut Store, name: &str, cover: bool) -> wishlist::WishlistItem {
 /// Everything a user can see, minus the dataset generation that restore must change.
 fn snapshot(s: &Store) -> Value {
     let mut v = json!({
-        "assets": s.query_assets(&possio_lib::catalog::Query { search: String::new(), filter: "all".into(), sort: "created".into(), descending: true, offset: 0, category: Default::default(), warranty: "all".into(), label: None }, TODAY).unwrap().items,
+        "assets": s.query_assets(&thingary_lib::catalog::Query { search: String::new(), filter: "all".into(), sort: "created".into(), descending: true, offset: 0, category: Default::default(), warranty: "all".into(), label: None }, TODAY).unwrap().items,
         "trash": s.list_trash(&TrashQuery { filter: "all".into(), offset: 0, search: String::new() }).unwrap().items,
         "timeline": [s.timeline(&timeline::Query { filter: "all".into(), asset_id: None }, TODAY).unwrap().dated, s.timeline(&timeline::Query { filter: "all".into(), asset_id: None }, TODAY).unwrap().undated],
         "taxonomy": s.taxonomy_snapshot().unwrap().categories,
@@ -345,7 +345,7 @@ fn ac31_every_p0_relation_restores_into_an_empty_library() {
         "asset, maintenance, warranty, converted asset and two wish covers: {ids:?}"
     );
     let gone_photo_id = gone.photos[0].id.clone();
-    let archive = dir.path().join("完整备份.possio");
+    let archive = dir.path().join("完整备份.thingary");
     a.backup(Some(&archive)).unwrap();
     drop(a);
 
@@ -447,7 +447,7 @@ fn schema_eleven_wishlist_backup_inspects_and_migrates_on_restore() {
     drop(db);
     let bytes = std::fs::read(&path).unwrap();
     let manifest = json!({"format":1,"schema":11,"created_at":"2026-09-25T02:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
-    let archive = dir.path().join("v11.possio");
+    let archive = dir.path().join("v11.thingary");
     let mut z = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
     let opts =
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -474,11 +474,11 @@ fn ac32_inspection_rejects_bad_archives_without_touching_the_library() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(&dir.path().join("lib")).unwrap();
     let kept = asset(&mut s, "原有资料", "100", None);
-    let junk = dir.path().join("junk.possio");
+    let junk = dir.path().join("junk.thingary");
     std::fs::write(&junk, b"not a zip").unwrap();
     assert!(s.inspect_backup(&junk).is_err());
     assert!(s
-        .inspect_backup(&dir.path().join("missing.possio"))
+        .inspect_backup(&dir.path().join("missing.thingary"))
         .is_err());
     assert!(s.restore(&junk, "deadbeef", &s.generation()).is_err());
     assert_eq!(s.asset(&kept.asset.id).unwrap().unwrap().name, "原有资料");

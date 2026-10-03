@@ -1,13 +1,13 @@
 [package]
-name = "possio"
-version = "2.5.0"
+name = "thingary"
+version = "2.6.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
 description = "物谱 Thingary: a local-first macOS archive of the things you own"
-default-run = "possio"
+default-run = "thingary"
 
 [lib]
-name = "possio_lib"
+name = "thingary_lib"
 crate-type = ["lib"]
 
 [build-dependencies]

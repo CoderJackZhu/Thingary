@@ -7,8 +7,8 @@ export const styles: readonly { value: Style; label: string; note: string }[] = 
   { value: 'bento', label: '柔和卡片', note: '圆角 · 彩色 · 默认' },
 ];
 const darkQuery = () => window.matchMedia('(prefers-color-scheme: dark)');
-export function readMode(): Mode { const v = localStorage.getItem('possio.theme'); return v === 'light' || v === 'dark' ? v : 'system'; }
-export function readStyle(): Style { const v = localStorage.getItem('possio.style'); return v === 'paper' || v === 'native' ? v : 'bento'; } // 默认柔和卡片（D27）；已保存的选择不变
+export function readMode(): Mode { const v = localStorage.getItem('thingary.theme'); return v === 'light' || v === 'dark' ? v : 'system'; }
+export function readStyle(): Style { const v = localStorage.getItem('thingary.style'); return v === 'paper' || v === 'native' ? v : 'bento'; } // 默认柔和卡片（D27）；已保存的选择不变
 export const resolveMode = (mode: Mode): 'light' | 'dark' => mode === 'system' ? (darkQuery().matches ? 'dark' : 'light') : mode;
 // 侧栏按钮与 ⌘⇧D：切到与当前显示相反的一侧，「跟随系统」也按实际显示判断。
 export const toggledMode = (mode: Mode): Mode => resolveMode(mode) === 'dark' ? 'light' : 'dark';
@@ -19,7 +19,7 @@ const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)')
 function write(style: Style, mode: Mode) {
   const root = document.documentElement;
   root.dataset.style = style; root.dataset.theme = mode; root.dataset.mode = resolveMode(mode);
-  localStorage.setItem('possio.style', style); localStorage.setItem('possio.theme', mode);
+  localStorage.setItem('thingary.style', style); localStorage.setItem('thingary.theme', mode);
 }
 export function applyAppearance(style: Style, mode: Mode) {
   const root = document.documentElement;

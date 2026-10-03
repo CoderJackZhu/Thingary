@@ -52,7 +52,7 @@ pub fn run() {
             {
                 let worker = app.state::<worker::Worker>().inner().clone();
                 std::thread::Builder::new()
-                    .name("possio-auto-backup".into())
+                    .name("thingary-auto-backup".into())
                     .spawn(move || loop {
                         std::thread::sleep(std::time::Duration::from_secs(30));
                         let policy = worker::Policy::production();
@@ -69,7 +69,7 @@ pub fn run() {
             app.manage(commands::LibraryGuard::default());
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem as Item, Submenu};
             let quit =
-                MenuItem::with_id(app, "quit-possio", "退出物谱", true, Some("CmdOrCtrl+Q"))?;
+                MenuItem::with_id(app, "quit-thingary", "退出物谱", true, Some("CmdOrCtrl+Q"))?;
             let app_menu = Submenu::with_items(
                 app,
                 "物谱",
@@ -280,7 +280,7 @@ pub fn run() {
                     let _ = w.emit("asset-action", action);
                 }
             }
-            if action == "quit-possio" {
+            if action == "quit-thingary" {
                 if app.state::<commands::EditGuard>().0.load(Ordering::SeqCst) {
                     if let Some(w) = app.get_webview_window("main") {
                         let _ = w.show();

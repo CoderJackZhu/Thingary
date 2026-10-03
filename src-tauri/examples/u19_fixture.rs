@@ -1,16 +1,16 @@
 //! U19 隔离验收夹具：把「售出保值率」各种情形的虚构数据经业务 API 写入资料库
-//! （只允许路径含 local.possio.u19.acceptance）。
+//! （只允许路径含 local.thingary.u19.acceptance）。
 //! 参与计算：正常 70%、高于原价 110%、售价为 0 的 0%、两件同为 50% 的并列项、长名称；
 //! 不参与：购入价未知、购入价为 ¥0、「不计入统计」的已售出物品、已删除的已售出物品；
 //! 另有未售出物品与带维护费用的已售出物品（维护费不影响保值率）。
-use possio_lib::{
+use std::path::PathBuf;
+use thingary_lib::{
     catalog::{Details, SaveAsset},
     domain::Save,
     sales::Fields as SaleFields,
     storage::Store,
     trash::TrashChange,
 };
-use std::path::PathBuf;
 
 const TODAY: &str = "2026-10-02";
 
@@ -26,7 +26,7 @@ fn asset(
     bought: &str,
     sale: Option<(&str, &str)>,
     exclude_stats: bool,
-) -> possio_lib::catalog::AssetRecord {
+) -> thingary_lib::catalog::AssetRecord {
     let preferences = serde_json::json!({
         "cost_mode": "daily",
         "exclude": {"total": false, "daily": false, "statistics": exclude_stats, "timeline": false},
@@ -77,7 +77,7 @@ fn main() {
     assert!(
         canonical
             .components()
-            .any(|c| c.as_os_str() == "local.possio.u19.acceptance"),
+            .any(|c| c.as_os_str() == "local.thingary.u19.acceptance"),
         "refusing non-isolated path: {}",
         canonical.display()
     );

@@ -170,18 +170,18 @@ if (params.get('tag-view') === 'excluded') {
 if (params.has('maintenance-photo') && records[0]) records[0].maintenances=[{id:'maintenance-fixture',fields:{date:'2026-09-20',kind:'repair',title:'更换快门',description:'虚构验收记录',cost_cents:'15000',provider:'虚构维修点'},created_at:new Date().toISOString(),updated_at:new Date().toISOString(),photos:[{id:'maintenance-photo-fixture',name:'维护前照片'}]}];
 // This preview owns its isolated origin and only removes its own reminder keys:
 // records reset on reload, so pending requests from the previous fixture are stale.
-for (const key of ['possio.asset-draft.v1','possio.trash-request.v1','possio.record-trash-request.v1','possio.taxonomy-request.v1','possio.lifecycle-draft.v1','possio.sale-draft.v1']) localStorage.removeItem(key);
-if (!params.has('preserve-maintenance')) localStorage.removeItem('possio.maintenance-draft.v1');
-if (!params.has('preserve-warranty')) localStorage.removeItem('possio.warranty-draft.v1');
-if (params.has('theme')) localStorage.setItem('possio.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
-if (params.has('style')) localStorage.setItem('possio.style', params.get('style') === 'paper' ? 'paper' : params.get('style') === 'bento' ? 'bento' : 'native');
-if (params.get('preset-label')) sessionStorage.setItem('possio.preset-label.v1', params.get('preset-label')!);
+for (const key of ['thingary.asset-draft.v1','thingary.trash-request.v1','thingary.record-trash-request.v1','thingary.taxonomy-request.v1','thingary.lifecycle-draft.v1','thingary.sale-draft.v1']) localStorage.removeItem(key);
+if (!params.has('preserve-maintenance')) localStorage.removeItem('thingary.maintenance-draft.v1');
+if (!params.has('preserve-warranty')) localStorage.removeItem('thingary.warranty-draft.v1');
+if (params.has('theme')) localStorage.setItem('thingary.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
+if (params.has('style')) localStorage.setItem('thingary.style', params.get('style') === 'paper' ? 'paper' : params.get('style') === 'bento' ? 'bento' : 'native');
+if (params.get('preset-label')) sessionStorage.setItem('thingary.preset-label.v1', params.get('preset-label')!);
 if (params.has('enter-tag') || params.has('preset-label')) document.getElementById('visual-preview-label')?.remove();
 // U18 截图入口：?open-wish=<心愿ID> 走真实来源跳转打开详情；?recurring-tab=payments 直达付款记录视图。
-if (params.get('open-wish')) sessionStorage.setItem('possio.open-wish.v1', params.get('open-wish')!);
-if (params.get('recurring-tab')) sessionStorage.setItem('possio.recurring-tab.v1', params.get('recurring-tab')!);
-if (params.get('scroll-to')) sessionStorage.setItem('possio.scroll-to.v1', params.get('scroll-to')!);
-if (params.get('category-menu')) sessionStorage.setItem('possio.category-menu.v1', params.get('category-menu')!);
+if (params.get('open-wish')) sessionStorage.setItem('thingary.open-wish.v1', params.get('open-wish')!);
+if (params.get('recurring-tab')) sessionStorage.setItem('thingary.recurring-tab.v1', params.get('recurring-tab')!);
+if (params.get('scroll-to')) sessionStorage.setItem('thingary.scroll-to.v1', params.get('scroll-to')!);
+if (params.get('category-menu')) sessionStorage.setItem('thingary.category-menu.v1', params.get('category-menu')!);
 const images = new Map<string, Promise<ArrayBuffer>>();
 // Staged material selections keep their artwork key so previews render the
 // same illustration the native app hosts; ids are per-selection and independent.
@@ -273,10 +273,10 @@ const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOSt
 const when = (offset: number) => new Date(Date.now() - offset * 60000).toISOString();
 function autoBackupFixture(): PreviewAutoBackup {
   const mode = params.get('autobackup') ?? 'never';
-  const items = mode === 'never' ? [] : Array.from({ length: mode === 'error' ? 3 : 7 }, (_, i) => { const date = day(-i - (mode === 'error' ? 1 : 0)); return { name: `物谱自动备份-${date}.possio`, date, size: 6_000_000 + i * 812_345 }; });
+  const items = mode === 'never' ? [] : Array.from({ length: mode === 'error' ? 3 : 7 }, (_, i) => { const date = day(-i - (mode === 'error' ? 1 : 0)); return { name: `物谱自动备份-${date}.thingary`, date, size: 6_000_000 + i * 812_345 }; });
   return {
     enabled: true,
-    folder: '/Users/虚构用户/Library/Application Support/local.possio.preview/library/auto-backups',
+    folder: '/Users/虚构用户/Library/Application Support/local.thingary.preview/library/auto-backups',
     last_success_at: mode === 'never' ? null : when(mode === 'error' ? 26 * 60 : 42),
     last_error: mode === 'error' ? { at: when(18), message: '模拟自动备份失败：目标磁盘空间不足' } : null,
     items,
@@ -295,7 +295,7 @@ function autoBackupPreview(command: string, args: Record<string, unknown>): unkn
   if (command === 'auto_backup_choose_extra') throw { message: '额外备份位置选择请在原生 App 中验证，此页面仅展示界面状态。' };
   if (command === 'inspect_auto_backup') {
     const name = String(args.name ?? '');
-    if (!/^物谱自动备份-\d{4}-\d{2}-\d{2}\.(thingary|possio)$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
+    if (!/^物谱自动备份-\d{4}-\d{2}-\d{2}\.thingary$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
     return { path: `${previewAutoBackup.folder}/${name}`, name, summary: { hash: 'preview-fixture', created_at: when(120), schema: 20, assets: 9, deleted_assets: 0, wishes: 2, maintenances: 3, warranties: 4, accounts: 2, snapshots: 6, expenses: 5, plans: 2, payments: 12, virtual_assets: 3, files: 11 } };
   }
   throw { message: '此操作需在原生 App 验证：' + command };
@@ -752,12 +752,12 @@ window.addEventListener('keydown',event=>{
   const action:Record<string,string>={n:'new-asset',f:'find-asset',e:'edit-asset',a:'select-all',z:'undo'};
   if(action[event.key.toLowerCase()]){event.preventDefault();void emit('asset-action',action[event.key.toLowerCase()]);}
 });
-if (params.get('section')) sessionStorage.setItem('possio.library-section.v1', params.get('section')!);
+if (params.get('section')) sessionStorage.setItem('thingary.library-section.v1', params.get('section')!);
 // 截图入口：自动进入指定标签的分析子视图（仅浏览器预览；?enter-tag=<labelId>&analysis-search=<词>）。
 if (params.get('enter-tag')) {
-  sessionStorage.setItem('possio.enter-tag.v1', params.get('enter-tag')!);
-  sessionStorage.setItem('possio.enter-tag-search.v1', params.get('analysis-search') ?? '');
-  sessionStorage.setItem('possio.enter-tag-scope.v1', params.get('analysis-scope') === 'held' ? 'held' : 'all');
+  sessionStorage.setItem('thingary.enter-tag.v1', params.get('enter-tag')!);
+  sessionStorage.setItem('thingary.enter-tag-search.v1', params.get('analysis-search') ?? '');
+  sessionStorage.setItem('thingary.enter-tag-scope.v1', params.get('analysis-scope') === 'held' ? 'held' : 'all');
 }
 if (params.get('state') === 'components') void import('./ComponentPreview');
 else void import('./main');

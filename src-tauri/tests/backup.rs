@@ -1,9 +1,3 @@
-use possio_lib::{
-    domain::{Error, Save},
-    files::Attach,
-    storage::Store,
-    worker::Worker,
-};
 use std::{
     io::{Cursor, Read},
     sync::{
@@ -11,6 +5,12 @@ use std::{
         mpsc, Arc, Mutex,
     },
     time::{Duration, Instant},
+};
+use thingary_lib::{
+    domain::{Error, Save},
+    files::Attach,
+    storage::Store,
+    worker::Worker,
 };
 fn seed(s: &mut Store) -> String {
     s.save(
@@ -48,7 +48,7 @@ fn archive_has_snapshot_and_originals() {
             b.get_ref(),
         )
         .unwrap();
-    let target = root.path().join("backup.possio");
+    let target = root.path().join("backup.thingary");
     let now = Instant::now();
     s.backup(Some(&target)).unwrap();
     println!("nonempty backup elapsed {:?}", now.elapsed());
@@ -81,7 +81,7 @@ fn cancelled_and_failed_backup_never_publish() {
                 Ok(())
             }
         });
-        let target = root.path().join("backup.possio");
+        let target = root.path().join("backup.thingary");
         assert!(s.backup(None).unwrap().is_none());
         assert!(s.backup(Some(&target)).is_err());
         assert!(!target.exists());
@@ -109,7 +109,7 @@ fn backup_pauses_queued_writes() {
         Ok(())
     })
     .unwrap();
-    let dest = root.path().join("backup.possio");
+    let dest = root.path().join("backup.thingary");
     let wb = w.clone();
     let first = std::thread::spawn(move || wb.call(move |s| s.backup(Some(&dest))));
     entered_rx.recv_timeout(Duration::from_secs(5)).unwrap();

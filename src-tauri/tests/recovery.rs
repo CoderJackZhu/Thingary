@@ -1,12 +1,12 @@
-use possio_lib::{
+use std::{
+    io::{Cursor, Read, Write},
+    path::Path,
+};
+use thingary_lib::{
     backup::archive_hash,
     domain::{Error, Save},
     files::Attach,
     storage::Store,
-};
-use std::{
-    io::{Cursor, Read, Write},
-    path::Path,
 };
 fn input(s: &Store, name: &str) -> Save {
     Save {
@@ -37,7 +37,7 @@ fn backup_fixture(root: &Path) -> (Store, String, String, std::path::PathBuf) {
             b.get_ref(),
         )
         .unwrap();
-    let backup = root.join("source.possio");
+    let backup = root.join("source.thingary");
     s.backup(Some(&backup)).unwrap();
     let mut edit = input(&s, "备份后");
     edit.asset_id = Some(a.id.clone());
@@ -102,7 +102,7 @@ fn bad_archives_leave_current_data() {
         "absolute",
         "unexpected",
     ] {
-        let dst = root.path().join(format!("{case}.possio"));
+        let dst = root.path().join(format!("{case}.thingary"));
         rewrite(&src, &dst, |name, mut b| {
             if case == "missing" && name.starts_with("files/") {
                 return None;
@@ -199,7 +199,7 @@ PRAGMA user_version=1; PRAGMA application_id=1347375955;").unwrap();
     drop(db);
     let bytes = std::fs::read(&legacy_path).unwrap();
     let manifest = serde_json::json!({"format":1,"schema":1,"created_at":"2026-09-24T00:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
-    let archive = root.path().join("legacy.possio");
+    let archive = root.path().join("legacy.thingary");
     let mut z = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
     let opts =
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);

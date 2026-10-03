@@ -5,7 +5,7 @@
 #include <string.h>
 
 // Called only on the AppKit main thread. Ownership of the copied path passes to Rust.
-char *possio_pick_image(void) {
+char *thingary_pick_image(void) {
     @autoreleasepool {
         NSOpenPanel *panel = [NSOpenPanel openPanel];
         panel.title = @"选择物品图片";
@@ -18,10 +18,10 @@ char *possio_pick_image(void) {
         return strdup(panel.URL.fileSystemRepresentation);
     }
 }
-void possio_free(void *bytes) { free(bytes); }
+void thingary_free(void *bytes) { free(bytes); }
 // 1 invalid/unsupported; 2 dimensions; 3 corrupt/encode/allocation failure.
 // Produce an orientation-correct bounded PNG preview; never rewrite the original.
-int possio_preview(const unsigned char *bytes, size_t count, unsigned char **output, size_t *length) {
+int thingary_preview(const unsigned char *bytes, size_t count, unsigned char **output, size_t *length) {
     @autoreleasepool {
         *output = NULL; *length = 0;
         NSData *data = [NSData dataWithBytesNoCopy:(void *)bytes length:count freeWhenDone:NO];
@@ -62,7 +62,7 @@ int possio_preview(const unsigned char *bytes, size_t count, unsigned char **out
 
 // Save panels. Called only on the AppKit main thread; returns NULL when cancelled.
 // The panel appends the extension itself, so `suggested` carries none.
-char *possio_pick_save(const char *title, const char *prompt, const char *suggested, const char *extension) {
+char *thingary_pick_save(const char *title, const char *prompt, const char *suggested, const char *extension) {
     @autoreleasepool {
         NSSavePanel *panel = [NSSavePanel savePanel];
         panel.title = [NSString stringWithUTF8String:title];
@@ -75,7 +75,7 @@ char *possio_pick_save(const char *title, const char *prompt, const char *sugges
         return strdup(panel.URL.fileSystemRepresentation);
     }
 }
-char *possio_pick_backup_open(void) {
+char *thingary_pick_backup_open(void) {
     @autoreleasepool {
         NSOpenPanel *panel = [NSOpenPanel openPanel];
         panel.title = @"选择要恢复的备份";
@@ -83,17 +83,13 @@ char *possio_pick_backup_open(void) {
         panel.canChooseFiles = YES;
         panel.canChooseDirectories = NO;
         panel.allowsMultipleSelection = NO;
-        NSMutableArray<UTType *> *types = [NSMutableArray array];
-        for (NSString *ext in @[@"thingary", @"possio"]) { // possio: backups made by 2.4.4 and earlier
-            UTType *type = [UTType typeWithFilenameExtension:ext];
-            if (type) [types addObject:type];
-        }
-        if (types.count) panel.allowedContentTypes = types;
+        UTType *type = [UTType typeWithFilenameExtension:@"thingary"];
+        if (type) panel.allowedContentTypes = @[type];
         if ([panel runModal] != NSModalResponseOK) return NULL;
         return strdup(panel.URL.fileSystemRepresentation);
     }
 }
-char *possio_pick_csv_open(void) {
+char *thingary_pick_csv_open(void) {
     @autoreleasepool {
         NSOpenPanel *panel = [NSOpenPanel openPanel];
         panel.title = @"选择要导入的物品表";
@@ -107,7 +103,7 @@ char *possio_pick_csv_open(void) {
     }
 }
 // Folder panel for the extra automatic backup location (D20 rule 7).
-char *possio_pick_folder(void) {
+char *thingary_pick_folder(void) {
     @autoreleasepool {
         NSOpenPanel *panel = [NSOpenPanel openPanel];
         panel.title = @"选择额外备份位置";

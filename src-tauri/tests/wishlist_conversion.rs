@@ -1,4 +1,6 @@
-use possio_lib::{
+use rusqlite::Connection;
+use std::{fs, path::PathBuf};
+use thingary_lib::{
     catalog::{Details, SaveAsset},
     domain::{Error, Save},
     photos::Selection,
@@ -6,8 +8,6 @@ use possio_lib::{
     trash::TrashChange,
     wishlist::{Action, Change, Convert, Fields, Query, WishlistItem},
 };
-use rusqlite::Connection;
-use std::{fs, path::PathBuf};
 
 const TODAY: &str = "2026-09-26";
 
@@ -82,7 +82,7 @@ fn convert_input(
                 cover_id: photos.first().cloned(),
                 ids: photos,
             }),
-            classification: Some(possio_lib::taxonomy::Classification {
+            classification: Some(thingary_lib::taxonomy::Classification {
                 category_id: wish.fields.category_id.clone(),
                 channel_id: None,
             }),
@@ -435,9 +435,9 @@ fn backup_restore_and_reopen_keep_conversion_link() {
             TODAY,
         )
         .unwrap();
-    let archive = dir.path().join("conversion.possio");
+    let archive = dir.path().join("conversion.thingary");
     store.backup(Some(&archive)).unwrap();
-    let hash = possio_lib::backup::archive_hash(&archive).unwrap();
+    let hash = thingary_lib::backup::archive_hash(&archive).unwrap();
     let generation = store.generation();
     store.restore(&archive, &hash, &generation).unwrap();
     let wish_after = store.wishlist_item(&wish.id).unwrap().unwrap();

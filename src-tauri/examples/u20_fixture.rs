@@ -1,15 +1,15 @@
 //! U20 隔离验收夹具：把产品设计 17.14.6 的虚构样例经业务 API 写入资料库
-//! （只允许路径含 local.possio.u20.acceptance）。
+//! （只允许路径含 local.thingary.u20.acceptance）。
 //! 三次盘点：
 //! · 2026-08-31 全部已知（W-AC01 起点）；
 //! · 2026-09-20 信用卡未知、房贷临时改为计入（W-AC03 的未知与 W-AC05 的计入范围变化）；
 //! · 2026-09-28 全部已知（W-AC01 终点）。
 //! 基金账户 2026-09-10 启用（W-AC04「新增账户」）。默认区间＝8/31→9/28，与概览一致。
-use possio_lib::{
+use std::path::PathBuf;
+use thingary_lib::{
     storage::Store,
     wealth::{AccountFields, AccountSave, EntryInput, SnapshotSave},
 };
-use std::path::PathBuf;
 
 const TODAY: &str = "2026-10-02";
 
@@ -28,7 +28,7 @@ fn account(
     kind: &str,
     counted: bool,
     opened: &str,
-) -> possio_lib::wealth::Account {
+) -> thingary_lib::wealth::Account {
     s.wealth_account_save(
         &AccountSave {
             request_id: rid(),
@@ -51,7 +51,7 @@ fn account(
     .unwrap()
 }
 
-fn edit_counted(s: &mut Store, a: &possio_lib::wealth::Account, counted: bool) {
+fn edit_counted(s: &mut Store, a: &thingary_lib::wealth::Account, counted: bool) {
     let mut fields = a.fields.clone();
     fields.counted = counted;
     s.wealth_account_save(
@@ -67,7 +67,7 @@ fn edit_counted(s: &mut Store, a: &possio_lib::wealth::Account, counted: bool) {
     .unwrap();
 }
 
-fn entry(a: &possio_lib::wealth::Account, state: &str, amount: Option<i64>) -> EntryInput {
+fn entry(a: &thingary_lib::wealth::Account, state: &str, amount: Option<i64>) -> EntryInput {
     EntryInput {
         account_id: a.id.clone(),
         state: state.into(),
@@ -100,7 +100,7 @@ fn main() {
     assert!(
         canonical
             .components()
-            .any(|c| c.as_os_str() == "local.possio.u20.acceptance"),
+            .any(|c| c.as_os_str() == "local.thingary.u20.acceptance"),
         "refusing non-isolated path: {}",
         canonical.display()
     );

@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     backup::archive_hash,
     catalog::{Details, Query, SaveAsset},
     domain::{Error, Save},
@@ -68,7 +68,7 @@ fn create_edit_retry_and_metadata_restore() {
         s.save_asset(&edit, "2026-09-24").unwrap_err().code,
         "REVISION_CONFLICT"
     );
-    let path = root.path().join("profile.possio");
+    let path = root.path().join("profile.thingary");
     s.backup(Some(&path)).unwrap();
     let hash = archive_hash(&path).unwrap();
     let other = tempfile::tempdir().unwrap();
@@ -153,7 +153,7 @@ fn daily_cost_sort_puts_per_use_and_unknowns_last_and_tags_filter() {
     let today = "2026-09-24";
     let snap = s.choices("label").unwrap();
     assert!(snap.items.is_empty(), "new libraries start without tags");
-    let change: possio_lib::choices::Change = serde_json::from_value(serde_json::json!({"request_id": uuid::Uuid::new_v4().to_string(), "generation": s.generation(), "expected_revision": snap.revision, "kind": "label", "action": {"type": "create", "name": "工作用"}})).unwrap();
+    let change: thingary_lib::choices::Change = serde_json::from_value(serde_json::json!({"request_id": uuid::Uuid::new_v4().to_string(), "generation": s.generation(), "expected_revision": snap.revision, "kind": "label", "action": {"type": "create", "name": "工作用"}})).unwrap();
     let tag = s.change_choices(&change).unwrap().items[0].id.clone();
     // 10 days held on 2026-09-24: 1000 → 100/day, 3000 → 300/day; sold: (5000−4000) over 5 days → 200/day.
     for (name, price, date, prefs, sale) in [

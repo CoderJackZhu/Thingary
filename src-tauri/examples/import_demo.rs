@@ -1,20 +1,20 @@
 //! Explicit developer tool for the legacy isolated fictional acceptance library only.
 //! The application imports into its separate demo library through `demo::import`.
 #[cfg(test)]
-use possio_lib::{catalog::SaveAsset, domain::Save, lifecycle};
-use possio_lib::{demo, storage::Store};
-#[cfg(test)]
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+#[cfg(test)]
+use thingary_lib::{catalog::SaveAsset, domain::Save, lifecycle};
+use thingary_lib::{demo, storage::Store};
 
 fn import(
     s: &mut Store,
     today: &str,
-) -> possio_lib::domain::Result<Vec<possio_lib::catalog::AssetRecord>> {
+) -> thingary_lib::domain::Result<Vec<thingary_lib::catalog::AssetRecord>> {
     demo::import(s, today)
 }
 fn allowed_root(home: &Path, requested: &Path) -> std::io::Result<bool> {
-    let expected = home.join("Library/Application Support/local.possio.t06b.preview/library");
+    let expected = home.join("Library/Application Support/local.thingary.t06b.preview/library");
     // Reject symlinks as well as other library identifiers, including the main preview.
     let canonical = expected.canonicalize()?;
     Ok(requested == expected && canonical == expected)
@@ -26,7 +26,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         return Err("Usage: cargo run --example import_demo -- --isolated-preview (quit the isolated App first)".into());
     }
     let home = PathBuf::from(std::env::var("HOME")?);
-    let root = home.join("Library/Application Support/local.possio.t06b.preview/library");
+    let root = home.join("Library/Application Support/local.thingary.t06b.preview/library");
     if !allowed_root(&home, &root)? {
         return Err("Refusing a non-isolated or redirected library".into());
     }
@@ -48,7 +48,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use possio_lib::catalog::Query;
+    use thingary_lib::catalog::Query;
     const TODAY: &str = "2026-09-25";
     fn count(s: &Store) -> i64 {
         s.query_assets(
@@ -153,12 +153,12 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         // canonicalize tempfile first, because macOS /var is itself an OS symlink.
         let home = temp.path().canonicalize().unwrap();
-        let root = home.join("Library/Application Support/local.possio.t06b.preview/library");
+        let root = home.join("Library/Application Support/local.thingary.t06b.preview/library");
         std::fs::create_dir_all(&root).unwrap();
         assert!(allowed_root(&home, &root).unwrap());
         assert!(!allowed_root(
             &home,
-            &home.join("Library/Application Support/local.possio.preview/library")
+            &home.join("Library/Application Support/local.thingary.preview/library")
         )
         .unwrap());
         std::fs::remove_dir(&root).unwrap();

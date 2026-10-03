@@ -1,5 +1,5 @@
 // U16-D5：侧栏计数与点进该入口后的列表总数一致，已删除的不计。
-use possio_lib::{
+use thingary_lib::{
     catalog::{AssetRecord, Details, Query, SaveAsset},
     domain::Save,
     lifecycle,

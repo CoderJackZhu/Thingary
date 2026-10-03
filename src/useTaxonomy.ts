@@ -5,7 +5,7 @@ import type { CommandResult, TaxonomyCommand, TaxonomySnapshot } from './taxonom
 
 export interface StoredTaxonomy extends TaxonomySnapshot { generation: string; revision: number }
 type Request = { request_id: string; generation: string; expected_revision: number; command: TaxonomyCommand };
-const pendingKey = 'possio.taxonomy-request.v1';
+const pendingKey = 'thingary.taxonomy-request.v1';
 function pendingRequest(): Request | null {
   try {
     const value = JSON.parse(localStorage.getItem(pendingKey) || 'null');
@@ -37,7 +37,7 @@ export function useTaxonomy(onChange: () => void) {
     } catch (e) { setLoadError(errorMessage(e)); throw new Error(errorMessage(e)); }
     finally { lock.current = false; setLoading(false); }
   }
-  useEffect(() => { void reload().catch(() => {}); const changed=()=>void reload().catch(()=>{}); window.addEventListener("possio-choices-changed",changed);return()=>window.removeEventListener("possio-choices-changed",changed); }, []);
+  useEffect(() => { void reload().catch(() => {}); const changed=()=>void reload().catch(()=>{}); window.addEventListener("thingary-choices-changed",changed);return()=>window.removeEventListener("thingary-choices-changed",changed); }, []);
   async function command(command: TaxonomyCommand): Promise<CommandResult> {
     if (lock.current || !current.current || pending.current) return {status:'error',message:'请先重新加载并核对上次操作。',recovery:'reload'};
     lock.current = true; setBusy(true);

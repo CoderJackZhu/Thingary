@@ -1,4 +1,4 @@
-use possio_lib::{
+use thingary_lib::{
     domain::{Error, Save},
     storage::Store,
 };
