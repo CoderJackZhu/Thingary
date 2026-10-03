@@ -509,6 +509,13 @@ mod tests {
 
     #[test]
     fn first_real_asset_exits_an_isolated_editable_demo() {
+        // The sample is dated from the real clock, so "today" must be real too.
+        let today: &'static str = Box::leak(
+            chrono::Local::now()
+                .format("%Y-%m-%d")
+                .to_string()
+                .into_boxed_str(),
+        );
         let tmp = tempfile::tempdir().unwrap();
         let worker = Worker::start(tmp.path().join("library")).unwrap();
         assert!(worker.demo_status().unwrap().active);
@@ -525,7 +532,7 @@ mod tests {
         let demo_page = worker
             .call({
                 let q = query.clone();
-                move |s| s.query_assets(&q, "2026-09-27")
+                move |s| s.query_assets(&q, today)
             })
             .unwrap();
         assert_eq!(demo_page.total, 9);
@@ -555,7 +562,7 @@ mod tests {
                             photos: None,
                             classification: None,
                         },
-                        "2026-09-27",
+                        today,
                     )
                 }
             })
@@ -590,16 +597,14 @@ mod tests {
                         photos: None,
                         classification: None,
                     },
-                    "2026-09-27",
+                    today,
                 )
             })
             .unwrap();
         assert!(worker.demo_status().unwrap().started);
         assert!(worker.switch_demo(true).unwrap().active);
         worker.switch_demo(false).unwrap();
-        let real_page = worker
-            .call(move |s| s.query_assets(&query, "2026-09-27"))
-            .unwrap();
+        let real_page = worker.call(move |s| s.query_assets(&query, today)).unwrap();
         assert_eq!(real_page.total, 1);
         assert_eq!(real_page.items[0].asset.name, "真实库测试物品");
         assert_ne!(real_page.generation, demo_page.generation);
