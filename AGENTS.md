@@ -4,7 +4,7 @@
 
 物谱 Thingary 面向个人物品档案与金融净资产盘点（二者并重）的长期记录与回顾；不做日常小额记账，只在约每月一次的低频节奏记录大额支出、贵重物品与账户盘点（产品设计 D30）。文档入口见 [文档索引](docs/INDEX.md)，任务状态以 [实施计划](docs/IMPLEMENTATION_PLAN.md) 为准，逐次变更与历史协作说明见 [CHANGELOG](CHANGELOG.md)。
 
-当前状态（2026-10-02）：P0 闭环、统一资产扩展（A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验）及 U 系列迭代均已合入 main；自用正式版 2.5.0（中文名「物谱」英文名 Thingary，均已由用户确认不再换名，见产品设计 D26）已安装在 `/Applications/物谱.app`（identifier 自 2.6.0 起为 `local.thingary.main`，此前为 `local.possio.main`，见 CHANGELOG，回退副本在 `.local/install/`）。公开发布的收尾工作与状态见[发布前盘点第 10 节](docs/RELEASE_AUDIT.md)；开源许可已定为 GPL-3.0，名称与图标不在 GPL 授权范围内。竞品、平台与名称调研见竞品调研第 9–28 节。下一步范围由用户选择，不自行推进新阶段；「账户变化与盘点比较」（U20）已随 2.4.4 发布。仓库已有 GitHub 远程 `origin`，推送、改名、公开都只在用户要求时进行。
+当前状态（2026-10-02）：P0 闭环、统一资产扩展（A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验）及 U 系列迭代均已合入 main；自用正式版 2.6.0（中文名「物谱」英文名 Thingary，均已由用户确认不再换名，见产品设计 D26）已安装在 `/Applications/物谱.app`（identifier 自 2.6.0 起为 `local.thingary.main`，此前为 `local.possio.main`，见 CHANGELOG，回退副本在 `.local/install/`）。公开发布的收尾工作与状态见[发布前盘点第 10 节](docs/RELEASE_AUDIT.md)；开源许可已定为 GPL-3.0，名称与图标不在 GPL 授权范围内。竞品、平台与名称调研见竞品调研第 9–28 节。下一步范围由用户选择，不自行推进新阶段；「账户变化与盘点比较」（U20）已随 2.4.4 发布。仓库已有 GitHub 远程 `origin`，推送、改名、公开都只在用户要求时进行。
 
 长期约束：
 
