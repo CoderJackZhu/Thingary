@@ -1,3 +1,5 @@
+import { SortHeader } from './SortHeader';
+import { sortRecords, moneySortValue, type ListSort } from './list-sort';
 import { HeaderSlot } from './HeaderSlot';
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
@@ -96,14 +98,16 @@ export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSo
 }
 
 function LineTable({ lines, undated, found, onOpen }: { lines: Line[]; undated: Line[]; found: number | null; onOpen: (l: Line) => void }) {
+  const [sort, setSort] = useState<ListSort>({ key: 'date', descending: true });
+  const sorted = sortRecords([...lines, ...undated], sort, (l, key) => key === 'date' ? l.date : key === 'name' ? l.title : key === 'source' ? sourceLabel[l.source] : key === 'category' ? categoryText(l) : l.amount_cents === null ? null : moneySortValue(l.source === 'refund' || l.source === 'sale' ? '-' + l.amount_cents : l.amount_cents), l => l.source + l.id);
   const row = (l: Line) => <tr key={l.source + l.id} className={countsAsSpending(l) ? undefined : 'closed'}>
     <td>{l.date ?? <span className="muted">日期待补</span>}</td>
     <td>{l.source === 'payment' || l.source === 'virtual' ? l.title : <button className="link-cell" onClick={() => onOpen(l)}>{l.title}</button>}</td>
     <td><span className="ui-tag">{sourceLabel[l.source]}</span></td><td>{categoryText(l)}</td>
     <td className="amount">{l.amount_cents === null ? <span className="muted">金额未知</span> : money(l.source === 'refund' || l.source === 'sale' ? '-' + l.amount_cents : l.amount_cents)}</td>
   </tr>;
-  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table expense-lines"><thead><tr><th>日期</th><th>名称</th><th>来源</th><th>分类</th><th>金额</th></tr></thead>
-    <tbody>{lines.map(row)}{undated.map(row)}</tbody></table></>;
+  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table expense-lines"><thead><tr><SortHeader field="date" label="日期" sort={sort} onSort={setSort}/><SortHeader field="name" label="名称" sort={sort} onSort={setSort}/><SortHeader field="source" label="来源" sort={sort} onSort={setSort}/><SortHeader field="category" label="分类" sort={sort} onSort={setSort}/><SortHeader field="amount" label="金额" sort={sort} onSort={setSort}/></tr></thead>
+    <tbody>{sorted.map(row)}</tbody></table></>;
 }
 
 function MonthBars({ months }: { months: ExpenseView['months'] }) {

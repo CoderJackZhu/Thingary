@@ -222,3 +222,73 @@ fn daily_cost_sort_puts_per_use_and_unknowns_last_and_tags_filter() {
     q.label = Some("x' OR 1=1 --".into());
     assert!(s.query_assets(&q, today).is_err());
 }
+
+#[test]
+fn holding_duration_and_status_sort_keep_unknown_dates_last_and_sale_cutoff() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let today = "2026-09-24";
+    for (name, date, retired, sale) in [
+        ("active", Some("2026-09-15"), None, None),
+        ("retired", Some("2026-08-01"), Some("2026-09-10"), None),
+        (
+            "sold",
+            Some("2026-09-01"),
+            None,
+            Some(
+                serde_json::json!({"date":"2026-09-05","price_cents":"100","platform":"","buyer":"","notes":""}),
+            ),
+        ),
+        ("today-price-unknown", Some(today), None, None),
+        ("date-unknown", None, None, None),
+    ] {
+        let mut i = input(&s, name, None);
+        i.base.purchase_date = date.map(Into::into);
+        i.options = Some(serde_json::from_value(serde_json::json!({"preferences": {}, "warranty": null, "retired_date": retired, "sale": sale})).unwrap());
+        s.save_asset(&i, today).unwrap();
+    }
+    let mut q = query();
+    q.sort = "held".into();
+    let asc = s.query_assets(&q, today).unwrap();
+    assert_eq!(asc.total, 5);
+    assert_eq!(
+        asc.items
+            .iter()
+            .map(|r| r.asset.name.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "today-price-unknown",
+            "sold",
+            "active",
+            "retired",
+            "date-unknown"
+        ]
+    );
+    assert_eq!(asc.items[1].costs.held_days, Some(5));
+    q.descending = true;
+    let desc = s.query_assets(&q, today).unwrap();
+    assert_eq!(
+        desc.items
+            .iter()
+            .map(|r| r.asset.name.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "retired",
+            "active",
+            "sold",
+            "today-price-unknown",
+            "date-unknown"
+        ]
+    );
+    q.sort = "status".into();
+    q.descending = false;
+    let states = s.query_assets(&q, today).unwrap();
+    assert_eq!(states.items[3].asset.name, "retired");
+    assert_eq!(states.items[4].asset.name, "sold");
+    q.descending = true;
+    let states = s.query_assets(&q, today).unwrap();
+    assert_eq!(states.items[0].asset.name, "sold");
+    assert_eq!(states.items[1].asset.name, "retired");
+    q.filter = "held".into();
+    assert_eq!(s.query_assets(&q, today).unwrap().total, 4);
+}

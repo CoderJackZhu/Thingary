@@ -1,3 +1,5 @@
+import { SortHeader } from './SortHeader';
+import { sortRecords, moneySortValue, type ListSort } from './list-sort';
 import { HeaderSlot } from './HeaderSlot';
 import { changeLine } from './Sparkline';
 import { CloseButton } from './CloseButton';
@@ -150,7 +152,9 @@ function ShareBars({ rows, empty }: { rows: Summary['structure']; empty: string 
 }
 
 function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (date: string) => void }) {
-  return <table className="ui-table"><thead><tr><th>盘点日期</th><th>金融净资产</th><th>资产</th><th>负债</th><th>状态</th><th>与上次比较</th></tr></thead><tbody>{points.slice().reverse().map(p => <tr key={p.snapshot_id}>
+  const [sort, setSort] = useState<ListSort>({ key: 'date', descending: true });
+  const sorted = sortRecords(points, sort, (p, key) => key === 'date' ? p.date : key === 'net' ? p.complete ? moneySortValue(p.net_cents) : null : key === 'assets' ? moneySortValue(p.assets_cents) : moneySortValue(p.liabilities_cents), p => p.snapshot_id);
+  return <table className="ui-table"><thead><tr><SortHeader field="date" label="盘点日期" sort={sort} onSort={setSort}/><SortHeader field="net" label="金融净资产" sort={sort} onSort={setSort}/><SortHeader field="assets" label="资产" sort={sort} onSort={setSort}/><SortHeader field="liabilities" label="负债" sort={sort} onSort={setSort}/><th>状态</th><th>与上次比较</th></tr></thead><tbody>{sorted.map(p => <tr key={p.snapshot_id}>
     <td>{onOpen ? <button className="link-cell" onClick={() => onOpen(p.date)}>{p.date}</button> : p.date}</td>
     <td>{p.complete ? signedMoney(p.net_cents) : <span className="muted" title="有账户金额未知，净资产无法确定">—</span>}</td><td>{money(p.assets_cents)}{!p.complete && <small className="muted"> 已知</small>}</td><td>{money(p.liabilities_cents)}{!p.complete && <small className="muted"> 已知</small>}</td>
     <td>{p.complete ? '完整' : `缺 ${p.missing} 个账户`}</td>
@@ -191,8 +195,10 @@ export function NetChart({ points, label }: { points: Point[]; label?: string })
 }
 
 function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {
+  const [sort, setSort] = useState<ListSort>({ key: 'name', descending: false });
+  const sorted = sortRecords(accounts, sort, (a, key) => key === 'name' ? a.fields.name : key === 'kind' ? (a.fields.side === 'liability' ? '负债 · ' : '') + kindLabel(a.fields.kind) : key === 'counted' ? Number(a.fields.counted) : moneySortValue(a.latest?.amount_cents), a => a.id);
   if (!accounts.length) return <div className="empty"><h2>还没有账户</h2><p>先添加一个需要定期核对的账户或负债。</p><button className="primary" onClick={onNew}>新增账户</button></div>;
-  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table wealth-accounts"><thead><tr><th>账户</th><th>类型</th><th>计入净资产</th><th>最近金额</th><th>状态</th></tr></thead><tbody>{accounts.map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
+  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table wealth-accounts"><thead><tr><SortHeader field="name" label="账户" sort={sort} onSort={setSort}/><SortHeader field="kind" label="类型" sort={sort} onSort={setSort}/><SortHeader field="counted" label="计入净资产" sort={sort} onSort={setSort}/><SortHeader field="amount" label="最近金额" sort={sort} onSort={setSort}/><th>状态</th></tr></thead><tbody>{sorted.map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
     <td><button className="link-cell" onClick={() => onEdit(a)}>{a.fields.name}</button>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}</td>
     <td>{a.fields.side === 'liability' ? '负债 · ' : ''}{kindLabel(a.fields.kind)}</td>
     <td>{a.fields.counted ? '计入' : '不计入'}</td>

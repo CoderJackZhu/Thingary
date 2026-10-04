@@ -504,8 +504,27 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
       if(query.warranty==='lapsed') found=found.filter(r=>summaryOf(r).status==='not_covered');
       if(query.warranty==='none') found=found.filter(r=>summaryOf(r).status==='none');
     }
-    const value=(r:AssetRecord):string|number|null => query.sort==='name'?r.asset.name:query.sort==='price'?(r.asset.price_cents===null?null:Number(r.asset.price_cents)):query.sort==='date'?r.asset.purchase_date:query.sort==='deleted'?r.deleted_at:r.created_at;
-    found.sort((a,b)=>{const x=value(a),y=value(b); if(x===null)return y===null?0:1;if(y===null)return -1;return (typeof x==='number' && typeof y==='number'?x-y:String(x).localeCompare(String(y),'zh-CN'))*(query.descending?-1:1);});
+    const value=(r:AssetRecord):string|number|null => {
+      if(query.sort==='name')return r.asset.name.toLowerCase();
+      if(query.sort==='price')return r.asset.price_cents===null?null:Number(r.asset.price_cents);
+      if(query.sort==='date')return r.asset.purchase_date;
+      if(query.sort==='held')return previewRecord(r).costs.held_days;
+      if(query.sort==='status')return ['active','retired','sold'].indexOf(r.lifecycle?.state ?? 'active');
+      if(query.sort==='daily') {
+        if(r.preferences?.cost_mode==='per_use')return null;
+        const c=previewRecord(r).costs;
+        const cost=r.sale?c.net_cost_cents:c.total_investment_cents;
+        return cost===null || !c.held_days ? null : Number(cost)/c.held_days;
+      }
+      return query.sort==='deleted'?r.deleted_at:r.created_at;
+    };
+    found.sort((a,b)=>{
+      const pinned=Number(!!b.preferences?.pinned)-Number(!!a.preferences?.pinned);if(pinned)return pinned;
+      const x=value(a),y=value(b);
+      if(x===null && y!==null)return 1;if(y===null && x!==null)return -1;
+      const order=x===null?0:typeof x==='number' && typeof y==='number'?x-y:String(x)<String(y)?-1:String(x)>String(y)?1:0;
+      return order*(query.descending?-1:1)||a.asset.id.localeCompare(b.asset.id);
+    });
     return { generation, items: found.slice(query.offset,args.all ? undefined : query.offset+100).map(r => previewRecord(r)), total:found.length, today:localDay() } satisfies Page;
   }
   if (command === 'read_asset') { const record = records.find(r=>r.asset.id===args.id); return record ? previewRecord(record) : null; }

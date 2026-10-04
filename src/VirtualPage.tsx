@@ -1,3 +1,5 @@
+import { SortHeader } from './SortHeader';
+import { sortRecords, moneySortValue, type ListSort } from './list-sort';
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
@@ -25,6 +27,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   const [editing, setEditing] = useState<VirtualAsset | 'new' | null>(null);
   const [selectedId,setSelectedId]=useState<string|null>(null), [stopping,setStopping]=useState(false);
   const [filter, setFilter] = useState<VirtualFilter>('all');
+  const [sort, setSort] = useState<ListSort>({ key: 'name', descending: false });
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
@@ -59,8 +62,9 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   }, [autoNew]);
   // The keyword intersects the status filter; the KPI counts stay whole-library.
   const keyword = search.trim().toLowerCase();
-  const shown = (data?.items.filter(v => matchesFilter(v, filter)) ?? [])
+  const matches = (data?.items.filter(v => matchesFilter(v, filter)) ?? [])
     .filter(v => !keyword || [v.fields.name, virtualKindText(v.fields.kind), v.fields.provider, v.fields.notes].some(t => t.toLowerCase().includes(keyword)));
+  const shown = sortRecords(matches, sort, (v, key) => key === 'name' ? v.fields.name : key === 'kind' ? virtualKindText(v.fields.kind) : key === 'spent' ? moneySortValue(v.spent_cents) : key === 'status' ? statusText[v.status] : v.plan && (v.plan.fields.service_start || v.fields.kind === 'subscription') ? v.plan.fields.end_date : v.status === 'ongoing' || v.status === 'perpetual' || v.status === 'paused' ? null : v.valid_until, v => v.id);
   const selected = shown.find(v=>v.id===selectedId);
   async function stop(item: VirtualAsset) {
     if (!data || stopping || pending || busy) return;
@@ -87,7 +91,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
           {virtualFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => setFilter(key)}>{label}</button>)}<Info text="持续订阅表示当前付款安排；已确认费用与估算分开，有限期权益按到期日提示。"/>
         </div>
         <div className={selected?"virtual-browser has-inspector":"virtual-browser"}><article className="ui-card ui-content"><div className="ui-section-head"><h3>{virtualFilters.find(([k]) => k === filter)?.[1]}</h3><span>{keyword ? `找到 ${shown.length} 条 · ` : ''}点名称编辑；停用和到期都保留档案</span></div>
-          {!shown.length ? <p className="muted">{keyword ? <>当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></> : '这一类目前没有虚拟资产。'}</p> : <table className="ui-table virtual-table"><thead><tr><th>名称</th><th>类型</th><th>期限与付款安排</th><th>状态</th><th>已花费</th></tr></thead><tbody>
+          {!shown.length ? <p className="muted">{keyword ? <>当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></> : '这一类目前没有虚拟资产。'}</p> : <table className="ui-table virtual-table"><thead><tr><SortHeader field="name" label="名称" sort={sort} onSort={setSort}/><SortHeader field="kind" label="类型" sort={sort} onSort={setSort}/><SortHeader field="end" label="期限与付款安排" sort={sort} onSort={setSort} sortLabel="结束日期（无结束日期置后）"/><SortHeader field="status" label="状态" sort={sort} onSort={setSort}/><SortHeader field="spent" label="已花费" sort={sort} onSort={setSort}/></tr></thead><tbody>
             {shown.map(v => <tr key={v.id} tabIndex={0} aria-selected={selectedId===v.id} onClick={()=>setSelectedId(v.id)} onKeyDown={e=>{if(e.target===e.currentTarget&&(e.key==='Enter'||e.key===' ')){e.preventDefault();setSelectedId(v.id)}}} className={v.status === 'stopped' ? 'closed' : undefined}>
               <td><button className="link-cell" disabled={!!pending||busy||stopping} onClick={() => setEditing(v)}>{v.fields.name}</button>{(v.fields.provider || v.plan_name) && <small className="muted">{[v.fields.provider, v.plan_name && `关联「${v.plan_name}」`].filter(Boolean).join(' · ')}</small>}</td>
               <td>{virtualKindText(v.fields.kind)}</td><td>{validityText(v)}{v.plan && <><small className="muted">{intervalText(v.plan.fields.interval_months)} {money(v.plan.fields.amount_cents)} · 月均 {money(v.plan.monthly_cents ?? null)}</small><small className="muted">下次付款 {v.plan.fields.paused ? '已暂停' : v.plan.next_due ?? '无后续期'}</small></>}</td>

@@ -206,6 +206,8 @@ impl Store {
             "date" => "a.purchase_date",
             "created" => "p.created_at",
             "deleted" => "a.deleted_at",
+            "status" => "CASE a.lifecycle_state WHEN 'active' THEN 0 WHEN 'retired' THEN 1 WHEN 'sold' THEN 2 ELSE 3 END",
+            "held" => "julianday(coalesce((SELECT s.date FROM sales s WHERE s.asset_id=a.id AND s.revoked_at IS NULL),?4)) - julianday(a.purchase_date) + 1",
             // Same basis as the statistics ranking: (purchase + maintenance − sale) ÷
             // held days up to the sale or today (?4). Per-use items and anything
             // with an unknown price, date or maintenance cost sort last (NULL).

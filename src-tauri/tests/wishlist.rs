@@ -732,3 +732,53 @@ fn custom_material_removal_backup_restore_and_reopen_keep_cover() {
         photo.id
     );
 }
+
+#[test]
+fn name_sort_orders_the_whole_filtered_wishlist_before_pagination() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(dir.path()).unwrap();
+    for index in (0..102).rev() {
+        add(
+            &mut store,
+            &uuid::Uuid::new_v4().to_string(),
+            fields(&format!("虚构排序心愿 {index:03}"), Some("100")),
+            vec![],
+        );
+    }
+    add(
+        &mut store,
+        &uuid::Uuid::new_v4().to_string(),
+        fields("不匹配", None),
+        vec![],
+    );
+    let query = |descending, offset| {
+        store
+            .query_wishlist(&Query {
+                search: "虚构排序心愿".into(),
+                filter: "ongoing".into(),
+                sort: "name".into(),
+                descending,
+                offset,
+            })
+            .unwrap()
+    };
+    for (descending, first_name, last_name) in [
+        (false, "虚构排序心愿 000", "虚构排序心愿 101"),
+        (true, "虚构排序心愿 101", "虚构排序心愿 000"),
+    ] {
+        let first = query(descending, 0);
+        let second = query(descending, 100);
+        assert_eq!(
+            (first.total, first.items.len(), second.items.len()),
+            (102, 100, 2)
+        );
+        assert_eq!(first.items[0].fields.name, first_name);
+        assert_eq!(second.items[1].fields.name, last_name);
+        assert_eq!(first.ongoing_known_cents, "10200");
+        assert_eq!(first.ongoing_unknown_count, 1);
+        assert!(second
+            .items
+            .iter()
+            .all(|r| !first.items.iter().any(|x| x.id == r.id)));
+    }
+}

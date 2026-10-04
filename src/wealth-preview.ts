@@ -395,8 +395,8 @@ if (params.get('recurring-fixture') === '30') {
 export function previewWishPage(query: WishlistQuery): WishlistPage {
   const found = wishes.filter(w => (!query.search || w.fields.name.toLowerCase().includes(query.search.toLowerCase()))
     && (query.filter === 'all' || w.status === query.filter));
-  const value = (w: PreviewWish): string | number | null => query.sort === 'priority' ? w.fields.priority ?? null : query.sort === 'price' ? w.fields.estimated_price_cents === null ? null : Number(w.fields.estimated_price_cents) : query.sort === 'target' ? w.fields.target_date ?? null : w.created_at;
-  found.sort((a, b) => { const x = value(a), y = value(b); if (x === null) return y === null ? 0 : 1; if (y === null) return -1; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y))) * (query.descending ? -1 : 1); });
+  const value = (w: PreviewWish): string | number | null => query.sort === 'name' ? w.fields.name.toLowerCase() : query.sort === 'priority' ? w.fields.priority ?? null : query.sort === 'price' ? w.fields.estimated_price_cents === null ? null : Number(w.fields.estimated_price_cents) : query.sort === 'target' ? w.fields.target_date ?? null : w.preferences?.added_date ?? w.created_at.slice(0,10);
+  found.sort((a, b) => { const pinned=Number(!!b.preferences?.pinned)-Number(!!a.preferences?.pinned); if(pinned)return pinned; const x=value(a),y=value(b); if(x===null && y!==null)return 1;if(y===null && x!==null)return -1;const order=x===null?0:typeof x==='number' && typeof y==='number'?x-y:String(x)<String(y)?-1:String(x)>String(y)?1:0;return order*(query.descending?-1:1)||b.created_at.localeCompare(a.created_at)||a.id.localeCompare(b.id); });
   const ongoing = wishes.filter(w => w.status === 'ongoing');
   return { generation, items: found.slice(query.offset, query.offset + 100).map(w => structuredClone(w)), total: found.length,
     ongoing_known_cents: String(ongoing.reduce((t, w) => t + BigInt(w.fields.estimated_price_cents ?? '0'), 0n)),

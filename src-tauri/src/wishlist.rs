@@ -573,6 +573,7 @@ impl Store {
         };
         let direction = if q.descending { "DESC" } else { "ASC" };
         let order = match q.sort.as_str() {
+            "name" => format!("w.name COLLATE NOCASE {direction}"),
             "created" => format!("coalesce((SELECT json_extract(payload,'$.added_date') FROM wishlist_preferences WHERE wishlist_id=w.id),substr(w.created_at,1,10)) {direction}"),
             "priority" => format!("w.priority IS NULL ASC,CASE w.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 END {direction}"),
             "price" => format!("w.estimated_price_cents IS NULL ASC,w.estimated_price_cents {direction}"),

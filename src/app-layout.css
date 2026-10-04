@@ -163,3 +163,37 @@ h1,h2,h3{font-family:var(--display)}
   .browser-columns:has(>.summary-idle) .list .asset-row>.pill{display:inline-block}
   .browser-columns:has(>.summary-idle) .list-head>span:last-child{display:block}
 }
+
+/* 列表的排序入口就在列标题；窄窗口保留各列，在列表内横向滚动。 */
+.asset-list-scroll{min-width:0;overflow-x:auto}
+.asset-list-scroll .list-head,.asset-list-scroll .list .asset-row{grid-template-columns:minmax(130px,1fr) 100px 100px 80px 64px;min-width:580px;gap:12px}
+.asset-list-scroll .list-head{padding-block:4px}
+.asset-list-scroll .list .purchase-date,.asset-list-scroll .list .daily-cost,.asset-list-scroll .list-head>span:last-child{display:block}
+.asset-list-scroll .list .asset-row>.pill{display:inline-block}
+.more-list-sort .filter-controls{min-width:200px;width:200px}
+.more-list-sort .column-sort{justify-content:space-between}
+.more-list-sort p{margin:0;line-height:1.6}
+.list-head .column-sort{display:flex;align-items:center;gap:4px;min-width:0;min-height:32px;border:0;border-radius:4px;padding:4px 0;background:transparent;color:var(--muted);font:inherit;white-space:nowrap;text-align:left}
+.list-head .column-sort.asset-name{justify-content:flex-start}
+.list-head .column-sort.amount,.list-head .column-sort.daily-cost{justify-content:flex-end}
+.list-head .column-sort[aria-pressed=true]{color:var(--text);font-weight:600}
+.list-head .column-sort:hover{color:var(--accent)}
+.list-head .column-sort:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.column-sort-arrow{font-size:12px;color:var(--muted);opacity:.65}
+.column-sort[aria-pressed=true] .column-sort-arrow{color:var(--accent);opacity:1}
+/* 同一排序按钮用于财富表格与心愿表头。 */
+.column-sort{display:inline-flex;align-items:center;gap:4px;min-height:32px;border:0;border-radius:4px;padding:4px 0;background:transparent;color:var(--muted);font:inherit;white-space:nowrap;text-align:left}
+.column-sort[aria-pressed=true]{color:var(--text);font-weight:600}
+.column-sort:hover{color:var(--accent)}
+.column-sort:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ui-table th>.column-sort{width:100%}
+.ui-table th:last-child>.column-sort{justify-content:flex-end}
+.wishlist-sort-scroll{min-width:0;overflow-x:auto}
+.wishlist-list-head,.wishlist-sort-scroll .wishlist-items.list .wishlist-card{display:grid;grid-template-columns:48px minmax(130px,1fr) 100px 96px 150px;gap:16px;min-width:620px;align-items:center;padding:4px 16px}
+.wishlist-list-head{border-bottom:1px solid var(--line);font-size:12px}
+.wishlist-list-head>.column-sort:first-child{grid-column:span 2}
+.wishlist-list-head>.column-sort:nth-child(2){justify-content:flex-end}
+.wishlist-sort-scroll .wishlist-items.list .wish-row-date{display:block}
+.wishlist-sort-scroll .wishlist-items.list .wish-row-price{text-align:right}
+.wishlist-sort-scroll .wishlist-items.list .wish-progress{padding-bottom:0!important}
+.wishlist-sort-scroll .wishlist-items.list .wishlist-card{padding-block:12px}

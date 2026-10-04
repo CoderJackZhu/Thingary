@@ -108,7 +108,8 @@ mod tests {
     #[test]
     fn unified_demo_matches_every_domain_and_year_without_writing() {
         let root = tempfile::tempdir().unwrap();
-        let store = crate::demo::open(root.path(), TODAY).unwrap();
+        // The sample is a sibling of the library; keep both inside this test's tempdir.
+        let store = crate::demo::open(&root.path().join("library"), TODAY).unwrap();
         let changes = store.conn().unwrap().total_changes();
         for year in [None, Some(2025), Some(2026), Some(2000)] {
             let result = store.review_overview(year, TODAY).unwrap();
