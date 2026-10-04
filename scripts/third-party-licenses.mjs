@@ -1,13 +1,13 @@
 // 生成 THIRD_PARTY_LICENSES.md：随应用分发的 Rust crate（macOS 目标）与前端生产依赖的名称、版本、许可证。
 // 用法：node scripts/third-party-licenses.mjs   （需要 cargo 与已执行 npm ci）
-// 只列许可证标识与来源，不收录各许可证全文；发布安装包时如需附全文，请另用 cargo-about 之类的工具生成。
+// 只列标识与来源；安装包全文由 distribution-notices.mjs 离线收集。
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const root = new URL('..', import.meta.url).pathname;
 const run = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 });
 
-const meta = JSON.parse(run('cargo', ['metadata', '--format-version', '1', '--manifest-path', 'src-tauri/Cargo.toml', '--filter-platform', 'aarch64-apple-darwin']));
+const meta = JSON.parse(run('cargo', ['metadata', '--offline', '--locked', '--format-version', '1', '--manifest-path', 'src-tauri/Cargo.toml', '--filter-platform', 'aarch64-apple-darwin']));
 const self = new Set(meta.workspace_members);
 const rust = meta.packages.filter(p => !self.has(p.id)).map(p => ({ name: p.name, version: p.version, license: p.license ?? (p.license_file ? `见 ${p.license_file}` : '未声明'), url: p.repository ?? p.homepage ?? '' }));
 
@@ -29,7 +29,7 @@ const sort = rows => rows.sort((a, b) => a.name.localeCompare(b.name) || a.versi
 
 writeFileSync(`${root}THIRD_PARTY_LICENSES.md`, `# 第三方许可证清单
 
-本文件由 \`node scripts/third-party-licenses.mjs\` 生成，列出随物谱分发的第三方依赖及其许可证标识。物谱自身按 [GPL-3.0-or-later](LICENSE) 授权。仅列标识与来源，不含各许可证全文；依赖升级后请重新生成。
+本文件由 \`node scripts/third-party-licenses.mjs\` 生成，列出锁定的 macOS Rust 依赖（保守包含构建依赖）与前端生产依赖及其许可证标识。物谱自身按 [GPL-3.0-or-later](LICENSE) 授权。此清单仅列标识与来源；安装包内 \`许可/THIRD_PARTY_NOTICES.txt\` 附全文与声明，由 \`node scripts/distribution-notices.mjs\` 离线收集，另附每份文本的来源和 SHA-256。补全文本见 [说明](https://github.com/CoderJackZhu/Thingary/blob/main/scripts/license-overrides/README.md)；依赖升级后请重新核对并生成。
 
 ## Rust（macOS 目标，${rust.length} 个）
 

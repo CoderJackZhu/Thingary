@@ -2,7 +2,7 @@
 
 **Your things and your net worth, over time.** 一个面向 macOS 的本地应用：物品档案与金融净资产盘点并重——记录值得留档的物品，每隔一段时间盘点账户，看清两者如何随时间变化。
 
-数据只保存在你的 Mac 上，没有账号、没有服务器、没有网络请求。
+主资料保存在你的 Mac 上，没有账号、没有服务器、没有网络请求。资料与备份没有应用级加密；你主动选用云盘作为额外备份位置时，由云盘软件同步副本。
 
 ![总览](docs/images/overview-light.png)
 
@@ -39,11 +39,21 @@
 - 目前没有同步，也没有自动更新。界面暂时只有中文。
 - 版本以 [CHANGELOG](CHANGELOG.md) 为准；已知的未验证项见使用说明末尾的「限制」。
 
-## 安装
+## 下载与开始使用
 
-目前没有公开的安装包，请从源码构建（见下）。
+**[下载页面：GitHub Releases](https://github.com/CoderJackZhu/Thingary/releases) · [图文使用说明](docs/USER_GUIDE.md#download)**
 
-之后发布的安装包若没有经过 Apple 公证，macOS 首次会拦截：到「系统设置 › 隐私与安全性」找到被阻止的「物谱」，确认来源后选择「仍要打开」。只对你信任的安装包这样操作。
+选择版本附件中的 `Thingary-<版本>-arm64.dmg`；自动生成的 Source code 是源码，不是安装包。首发仅 Apple Silicon Mac。若当前版本尚无 DMG 附件，请等待安装包发布。
+
+下载 DMG → 打开 → 将「物谱」拖入「应用程序」→ 打开物谱。首发未经过 Developer ID 签名和公证，首次可能需要在「系统设置 › 隐私与安全性」对物谱选择「仍要打开」；[完整安装与故障排查](docs/USER_GUIDE.md#download)有具体步骤，无需编译或使用终端。
+
+进入后可先浏览独立的虚构样例，准备好时点「开始记录我的资料」：
+
+- [记录第一件物品](docs/USER_GUIDE.md#first-record)
+- [完成第一次账户盘点](docs/USER_GUIDE.md#first-snapshot)
+- [做一次完整备份](docs/USER_GUIDE.md#backup)
+
+更新、换 Mac 与卸载见[使用说明](docs/USER_GUIDE.md#update)。
 
 ## 从源码构建
 
@@ -68,7 +78,7 @@ npm test                    # Rust 测试（使用临时目录）
 
 ## 数据放在哪里
 
-正式版的资料在 `~/Library/Application Support/local.thingary.main/`，自动备份在其中的 `auto-backups/`。请通过应用管理资料，不要手动改动这个文件夹。删除应用不会删除资料。开发预览与测试使用各自独立的资料位置，互不影响。
+正式版的资料在 `~/Library/Application Support/local.thingary.main/`，自动备份在其中的 `library/auto-backups/`。请通过应用管理资料，不要手动改动这个文件夹。删除应用不会删除资料。开发预览与测试使用各自独立的资料位置，互不影响。
 
 ## 文档
 

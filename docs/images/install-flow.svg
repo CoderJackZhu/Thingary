@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="200" viewBox="0 0 1000 200" role="img" aria-labelledby="title desc">
+<title id="title">物谱 DMG 安装步骤</title><desc id="desc">下载 arm64 DMG，打开后将物谱拖入应用程序，再从应用程序打开物谱。示意图不是系统界面截图。</desc>
+<rect width="1000" height="200" rx="16" fill="#f5f4f0"/>
+<g font-family="PingFang SC, sans-serif" text-anchor="middle" fill="#2e3a36">
+<text x="500" y="29" font-size="17">安装步骤示意 · 不需要编程或终端</text>
+<g fill="#fff" stroke="#dddcd5"><rect x="22" y="54" width="211" height="99" rx="12"/><rect x="271" y="54" width="211" height="99" rx="12"/><rect x="520" y="54" width="211" height="99" rx="12"/><rect x="769" y="54" width="211" height="99" rx="12"/></g>
+<g font-size="20"><text x="127" y="89">① 下载 DMG</text><text x="376" y="89">② 双击打开</text><text x="625" y="89">③ 拖入应用程序</text><text x="874" y="89">④ 打开物谱</text></g>
+<g font-size="14" fill="#69736f"><text x="127" y="121">选择 arm64.dmg 附件</text><text x="376" y="121">看到物谱与 Applications</text><text x="625" y="121">等待复制完成</text><text x="874" y="121">从「应用程序」启动</text></g>
+<g font-size="26" fill="#718d7e"><text x="251" y="110">→</text><text x="500" y="110">→</text><text x="749" y="110">→</text></g>
+<text x="500" y="178" font-size="14" fill="#69736f">首次若无法验证开发者，请按使用说明在「隐私与安全性」中允许物谱。</text>
+</g></svg>

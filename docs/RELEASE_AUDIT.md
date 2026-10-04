@@ -127,9 +127,9 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 
 **侧栏折行已修复。** 800×600 时侧栏窄栏宽由 145 px 增至 164 px，标签不折行；原生核对「全部资产」「心愿清单」「周期费用」均单行。
 
-## 10. 公开发布执行清单（2026-10-02）
+## 10. 公开发布执行清单（更新于 2026-10-04）
 
-**已决定：** 中文名「物谱」、英文名 Thingary（D26 追加）；仓库公开时用英文名 Thingary；许可证 GPL-3.0；保留全部提交历史；首发仅 macOS；首发不签名、不公证（2026-10-02，用户决定），README 的未签名打开方法即为安装说明。
+**已决定：** 中文名「物谱」、英文名 Thingary（D26 追加）；许可证 GPL-3.0；保留全部提交历史；首发仅 Apple Silicon macOS；不采用 Developer ID、不做 Apple 公证（2026-10-02，用户决定），包保留本地临时签名。用户于 2026-10-04 确认补齐安装包、Release 与普通用户文档，任务状态见[首发交付](IMPLEMENTATION_PLAN.md#public-distribution)，核验见[交付验证](verification/FIRST_PUBLIC_RELEASE_20261004_RESULT.md)。
 
 状态：`[x]` 已完成　`[ ]` 待做　`[用户]` 必须由你本人操作或提供凭据，我不做。
 
@@ -139,19 +139,19 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 - [x] M2 `.gitignore`：用户已按建议内容替换（2026-10-02），补末尾换行后提交。此前已在全新克隆里用同样内容验证：`npm ci`、构建、前端 189 项、fmt/clippy、Rust 全部通过，`git status` 干净
 - [x] M3 面向用户的 README（定位、截图、安装、从源码构建、数据位置、许可证、仅 macOS／Apple Silicon 验证）；原 README 的内部导览改放 `docs/INDEX.md`，`AGENTS.md` 同步
 - [x] M4 展示截图：浏览器预览的虚构数据，浅色与深色各数张，放入 `docs/images/`
-- [x] M5 签名与公证的步骤已写入[发布流程](RELEASING.md)，未签名时的打开方法在 README；真正签名公证需要 Apple Developer 账号 `[用户]`
+- [x] M5 发布流程与用户说明采用首发既定的临时签名、未公证路线；单应用允许打开方法按 Apple 官方说明，不要求普通用户使用终端或关闭全局保护。未来采用 Developer ID 和公证时再另行配置凭据与验证。
 - [x] M6 打包 dmg 的脚本 `scripts/make-dmg.sh`，已实测（挂载、校验、应用签名完好）
 
 **建议做**
 
-- [x] S1 CI（`.github/workflows/ci.yml`，未在 GitHub 上运行过，首次推送后请看结果）：macOS 工作流跑构建、前端测试、fmt/clippy 与 Rust 测试
+- [x] S1 CI（`.github/workflows/ci.yml`）：已在 GitHub 运行并连续成功；本轮开始时最新通过提交为 `534303b`、运行 `37104143135`。最终交付提交需另查其 CI，不能用旧提交结果替代。
 - [x] S2 `CONTRIBUTING`、`SECURITY`、Issue 与 PR 模板
-- [x] S3 第三方许可证清单（生成脚本加清单文件）
+- [x] S3 第三方许可证摘要与全文收集：Rust 锁定 macOS 依赖 279 个（保守含构建依赖）、前端生产依赖 4 个；缺失文本按确切上游版本补齐并固定 SHA-256，随 DMG 分发 GPL、声明、全文、来源清单和源码入口。
 - [x] S4 过时文字清理：`AGENTS.md` 当前状态、README 与盘点里「待决定名称」等措辞
 
-**需要你操作（外部可见，我不代做）**
+**外部交付状态与剩余验收**
 
 - [x] U1 GitHub 仓库已由用户改名为 `Thingary`（2026-10-02），本地 `origin` 已由用户改为新地址
 - [x] U2a 推送到私有远程；CI 在 `main` 上连续通过（2026-10-02 最近 5 次均 success）；两个已合入的旧远程分支已删除，远程只剩 `main`（2026-10-03）
-- [ ] U2b 公开仓库后开启 Private vulnerability reporting（私有仓库上该接口返回 404，只能公开后开；`SECURITY.md` 依赖它）；再发布经最终验收确认的版本（当前安装状态见[文档索引](INDEX.md)） `[用户]`
+- [ ] U2b 公开仓库、启用 Private vulnerability reporting、发布首个 Release。首发交付材料与核验完成后，按用户的公开授权执行；私有草稿不代表普通用户已可下载。当前状态以实施计划与交付验证为准。
 - [ ] U3 本节 4.3 的手工检查：系统外观实时切换（AC09）与输入法组合中按 Esc（U12）已由代理在隔离包补做（2026-10-02，后者发现并修复一处缺陷，见 CHANGELOG）；VoiceOver、iCloud 额外备份位置、Numbers／Excel 打开 CSV 仍待你本人 `[用户]`
