@@ -52,6 +52,7 @@ const extras={
  dumbbell:'<path d="M24 27h16v10H24Z" fill="url(#metal)"/><path d="M15 17h9v30h-9ZM40 17h9v30h-9ZM8 24h7v16H8ZM49 24h7v16h-7Z" fill="#657783"/><path d="M18 20v24M43 20v24" stroke="#a5b8bd" stroke-width="2"/>'
 };
 for (const m of catalog) {
+ if (m.id==='icon-box' && m.art) continue;
  if (m.id.startsWith('icon-') && !m.shape) continue;
  if(!m.id.startsWith('icon-')){m.style='icon';m.hidden=m.id!=='coffee';continue;}
  const key=m.id.slice(5);const colors=palettes[m.category]??palettes.数码;
@@ -113,5 +114,29 @@ dimensional.push(
 );
 
 for (const [key,name,category,keywords,body] of dimensional) catalog.push({id:'object3d-'+key,name,style:'dimensional',category,keywords,art:frame(body,palettes[category])});
+// Photography accessories share the existing object palette and SVG frame.
+const photography = [
+ ['flash','闪光灯','机顶灯 热靴 闪光 speedlight flash','<path d="M23 31h19v21H23Z" fill="url(#body)"/><path d="M18 10h32v20H18Z" fill="url(#body)"/><rect x="22" y="14" width="24" height="11" rx="2" fill="#eee9dc"/><path d="M27 52h11v6H27Z" fill="url(#metal)"/><rect x="27" y="36" width="11" height="7" rx="1" fill="url(#glass)"/><circle cx="34" cy="47" r="1.5" fill="#bdccb5"/>'],
+ ['fill-light','补光灯','LED 摄影灯 常亮灯 视频 面板灯 fill light','<rect x="10" y="8" width="44" height="30" rx="3" fill="url(#body)"/><rect x="14" y="12" width="36" height="22" rx="2" fill="#f4e8bd"/><path d="M21 12v22M29 12v22M37 12v22M45 12v22M14 19h36M14 27h36" stroke="#d4c99e"/><path d="M32 38v18m0-9-12 13m12-13 12 13" stroke-width="2.5" fill="none"/>'],
+ ['filter','滤镜','UV ND CPL 偏振 减光 镜片 filter','<ellipse cx="32" cy="36" rx="23" ry="22" fill="#334b5a"/><ellipse cx="32" cy="32" rx="23" ry="22" fill="url(#metal)"/><ellipse cx="32" cy="32" rx="19" ry="18" fill="url(#glass)"/><path d="m21 39 18-20m-11 25 15-18" stroke="#d3e4df" stroke-width="2" fill="none"/><path d="M13 46q19 15 38 0" stroke="#728995" fill="none"/>'],
+ ['reflector','反光板','五合一 柔光板 银面 金面 reflector','<ellipse cx="32" cy="31" rx="24" ry="23" fill="url(#metal)" stroke-width="2.5"/><path d="M12 26q18-21 39 1M13 41q18-19 36 0" stroke="#dce5df" stroke-width="2" fill="none"/><path d="M25 53h14l-3 6h-8Z" fill="#546979"/><path d="M18 15q8-5 13-4" stroke="#f5f3e5" stroke-width="2" fill="none"/>'],
+ ['camera-battery','相机电池','摄影电池 备用电池 锂电池 battery','<path d="M18 14 26 8h22v43l-8 7H18Z" fill="#3c5464"/><rect x="14" y="14" width="26" height="44" rx="3" fill="url(#body)"/><path d="M14 14 22 8h26l-8 6Z" fill="url(#metal)"/><path d="M23 9h4v4h-4m8-4h4v4h-4" fill="#d8bd79"/><path d="m29 25-8 13h7l-3 12 11-17h-8Z" fill="#c9ded9" stroke="none"/><path d="M18 53h10" stroke="#a9c4c7"/>'],
+ ['camera-charger','充电盒','相机电池 充电器 双槽 电池盒 charger charging case','<path d="M9 22 22 14h35v34L44 59 9 49Z" fill="#486474"/><path d="M9 22 44 32l13-18-35-1Z" fill="url(#metal)"/><path d="M9 22 44 32v27L9 49Z" fill="url(#body)"/><path d="m16 24 7-6 10 3-7 6Zm15 4 7-6 10 3-7 6Z" fill="#344c5a"/><path d="m14 38 23 7" stroke="#a8bdc5"/><circle cx="19" cy="42" r="1.5" fill="#b6d6bd"/><circle cx="31" cy="46" r="1.5" fill="#b6d6bd"/>'],
+ ['camera-bag','相机包','摄影包 单肩包 器材包 camera bag','<path d="M21 20v-7q11-9 22 0v7" fill="none" stroke-width="3"/><rect x="8" y="20" width="48" height="35" rx="7" fill="url(#body)"/><path d="M8 22q24 14 48 0v14H8Z" fill="#7f97a5"/><path d="M28 30h8v11h-8Z" fill="url(#metal)"/><path d="M13 45v7M51 45v7M18 48h9" stroke="#bfccd1" fill="none"/><path d="M9 29q-10 18 0 20m47-20q10 18 0 20" fill="none" stroke-width="2"/>'],
+ ['dry-cabinet','防潮箱','电子防潮柜 相机柜 干燥箱 dry cabinet','<rect x="12" y="6" width="40" height="52" rx="3" fill="url(#body)"/><rect x="17" y="15" width="30" height="37" rx="2" fill="url(#glass)"/><path d="M18 33h28M18 45h28" stroke="#a2b8c1"/><rect x="33" y="9" width="11" height="4" rx="1" fill="#b6d6bd"/><path d="M43 25v11" stroke="#d5dfdc" stroke-width="2"/><path d="M20 27h12v5H20Z" fill="#627f8e"/><circle cx="26" cy="29" r="3" fill="#b5cbd0"/><path d="M22 39h8v6h-8Z" fill="#768f9b"/>'],
+ ['tripod','三脚架','摄影 支架 脚架 tripod','<rect x="23" y="9" width="18" height="7" rx="2" fill="url(#metal)"/><circle cx="32" cy="22" r="6" fill="url(#body)"/><path d="M32 28v14M32 34 12 59m20-25 20 25m-20-25v26" stroke="#546979" stroke-width="4" fill="none"/><path d="M26 20 15 14" stroke-width="3" fill="none"/><path d="M13 51h7m24 0h7M29 51h6" stroke="#bacbd0" stroke-width="2"/>'],
+ ['memory-card','存储卡','SD CFexpress 闪存卡 摄影 memory card','<path d="M19 7h22l9 10v40H16V12Z" fill="url(#body)"/><path d="M23 7v11h18V7" fill="#d3bd87"/><path d="M27 8v9m5-9v9m5-9v9" stroke="#7f744f"/><rect x="21" y="28" width="24" height="18" rx="2" fill="#e0e6df"/><path d="M25 34h16m-16 6h10" stroke="#718b98" stroke-width="2"/>'],
+ ['lens-hood','遮光罩','镜头罩 遮光 摄影 lens hood','<path d="M11 16q21 11 42 0l-5 32q-16 15-32 0Z" fill="url(#body)"/><ellipse cx="32" cy="16" rx="21" ry="10" fill="#334b59"/><ellipse cx="32" cy="16" rx="15" ry="6" fill="url(#glass)"/><path d="M14 26q18 11 36 0M17 46q15 12 30 0" fill="none" stroke="#a4bac4"/><path d="M22 31v12m20-12v12" fill="none"/>'],
+ ['camera-strap','相机肩带','背带 腕带 摄影 camera strap','<path d="M15 45C-1 1 65 1 49 45" stroke="#486474" stroke-width="10" fill="none"/><path d="M15 44C2 6 62 6 49 44" stroke="#adc0c8" stroke-width="2" fill="none"/><path d="M14 41v13m36-13v13" stroke="#6c8997" stroke-width="5" fill="none"/><path d="M10 51h8v7h-8m28-7h8v7h-8" fill="url(#metal)"/>']
+];
+for (const [key,name,keywords,body] of photography) {
+ const id='icon-'+key;
+ const material={id,name,style:'icon',category:'摄影',keywords,art:frame(body,palettes.数码)};
+ const index=catalog.findIndex(m=>m.id===id);
+ if(index<0) catalog.push(material); else catalog[index]=material;
+}
+const photographyIds=new Set(['camera','icon-camera','icon-webcam','icon-camcorder','icon-actioncam','icon-drone','icon-gimbal','icon-lens','object3d-camera']);
+for (const m of catalog) if(photographyIds.has(m.id)) m.category='摄影';
+
 await writeFile(path,JSON.stringify(catalog,null,2)+'\n');
 console.log(`Designed ${catalog.length} original materials, including ${dimensional.length} distinct 3D subjects.`);

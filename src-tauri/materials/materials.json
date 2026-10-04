@@ -11,7 +11,7 @@
     "id": "camera",
     "name": "相机",
     "style": "icon",
-    "category": "数码",
+    "category": "摄影",
     "keywords": "",
     "hidden": true
   },
@@ -130,7 +130,7 @@
     "id": "icon-camera",
     "name": "相机",
     "style": "icon",
-    "category": "数码",
+    "category": "摄影",
     "keywords": "摄影 单反 camera",
     "shape": "<path d=\"m21 20 4-7h14l4 7h10a4 4 0 0 1 4 4v23a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4Z\"/><circle cx=\"32\" cy=\"35\" r=\"11\"/><circle cx=\"32\" cy=\"35\" r=\"6\"/><path d=\"M47 26h3\"/>",
     "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 240 180\" role=\"img\" aria-label=\"分类示意图（非实物照片）\"><path d=\"m52 57 10-16h42l10 16h66a12 12 0 0 1 12 12v67H43V68a11 11 0 0 1 9-11\" fill=\"#515759\"/><rect x=\"43\" y=\"76\" width=\"149\" height=\"57\" rx=\"5\" fill=\"#333a3b\"/><rect x=\"55\" y=\"45\" width=\"35\" height=\"10\" rx=\"3\" fill=\"#272e30\"/><circle cx=\"127\" cy=\"95\" r=\"43\" fill=\"#292f31\" stroke=\"#8d9798\" stroke-width=\"3\"/><circle cx=\"127\" cy=\"95\" r=\"32\" fill=\"#52676f\" stroke=\"#171f26\" stroke-width=\"8\"/><circle cx=\"127\" cy=\"95\" r=\"16\" fill=\"#243945\"/><path d=\"M111 83a19 19 0 0 1 24-3\" stroke=\"#91a8b0\" stroke-width=\"4\" fill=\"none\"/><rect x=\"51\" y=\"66\" width=\"18\" height=\"6\" rx=\"2\" fill=\"#c6c4ac\"/></svg>"
@@ -193,7 +193,7 @@
     "id": "icon-webcam",
     "name": "摄像头",
     "style": "icon",
-    "category": "数码",
+    "category": "摄影",
     "keywords": "网络 摄像 监控",
     "shape": "<rect x=\"12\" y=\"12\" width=\"40\" height=\"27\" rx=\"10\"/><circle cx=\"32\" cy=\"25\" r=\"8\"/><path d=\"M32 39v9M21 53l3-5h16l3 5ZM46 25h1\"/>",
     "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"12\" y=\"12\" width=\"40\" height=\"27\" rx=\"10\"/><circle fill=\"url(#body)\" cx=\"32\" cy=\"25\" r=\"8\"/><path d=\"M32 39v9M21 53l3-5h16l3 5ZM46 25h1\" fill=\"url(#body)\"/><circle cx=\"32\" cy=\"25\" r=\"7\" fill=\"url(#glass)\"/><circle cx=\"30\" cy=\"23\" r=\"2\" fill=\"#d4e5e9\" stroke=\"none\"/><circle cx=\"46\" cy=\"25\" r=\"1.5\" fill=\"#a6d0b8\" stroke=\"none\"/></g></svg>"
@@ -202,7 +202,7 @@
     "id": "icon-camcorder",
     "name": "摄像机",
     "style": "icon",
-    "category": "数码",
+    "category": "摄影",
     "keywords": "摄影 录像 DV",
     "shape": "<rect x=\"7\" y=\"22\" width=\"34\" height=\"26\" rx=\"4\"/><path d=\"m41 30 15-8v26l-15-8M16 22v-8h18v8M13 41h8\"/>",
     "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"7\" y=\"22\" width=\"34\" height=\"26\" rx=\"4\"/><path d=\"m41 30 15-8v26l-15-8M16 22v-8h18v8M13 41h8\" fill=\"none\"/><path d=\"M41 30l15-8v26l-15-8\" fill=\"#344a57\"/><rect x=\"11\" y=\"27\" width=\"24\" height=\"14\" rx=\"2\" fill=\"url(#glass)\"/><path d=\"M9 24h29\" stroke=\"#d5dcd9\"/></g></svg>"
@@ -310,7 +310,7 @@
     "id": "icon-actioncam",
     "name": "便携运动相机",
     "style": "icon",
-    "category": "数码",
+    "category": "摄影",
     "keywords": "GoPro 运动摄像",
     "shape": "<rect x=\"9\" y=\"17\" width=\"46\" height=\"31\" rx=\"5\"/><circle cx=\"41\" cy=\"30\" r=\"9\"/><rect x=\"15\" y=\"25\" width=\"12\" height=\"15\" rx=\"2\"/><path d=\"M26 48v7h12v-7M14 17v-4h12v4\"/>",
     "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"9\" y=\"17\" width=\"46\" height=\"31\" rx=\"5\"/><circle fill=\"url(#body)\" cx=\"41\" cy=\"30\" r=\"9\"/><rect fill=\"url(#body)\" x=\"15\" y=\"25\" width=\"12\" height=\"15\" rx=\"2\"/><path d=\"M26 48v7h12v-7M14 17v-4h12v4\" fill=\"none\"/><circle cx=\"41\" cy=\"30\" r=\"8\" fill=\"url(#glass)\"/><circle cx=\"39\" cy=\"27\" r=\"2\" fill=\"#cbdde1\" stroke=\"none\"/><rect x=\"15\" y=\"25\" width=\"12\" height=\"15\" rx=\"2\" fill=\"#344c5a\"/></g></svg>"
@@ -319,7 +319,7 @@
     "id": "icon-drone",
     "name": "无人机",
     "style": "icon",
-    "category": "数码",
+    "category": "摄影",
     "keywords": "飞行 航拍",
     "shape": "<path d=\"M25 26h14v13H25ZM25 26 15 16M39 26l10-10M25 39 15 49M39 39l10 10M29 39v8h6v-8\"/><ellipse cx=\"13\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse cx=\"51\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse cx=\"13\" cy=\"49\" rx=\"10\" ry=\"5\"/><ellipse cx=\"51\" cy=\"49\" rx=\"10\" ry=\"5\"/>",
     "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M25 26h14v13H25ZM25 26 15 16M39 26l10-10M25 39 15 49M39 39l10 10M29 39v8h6v-8\" fill=\"url(#body)\"/><ellipse fill=\"url(#body)\" cx=\"13\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse fill=\"url(#body)\" cx=\"51\" cy=\"15\" rx=\"10\" ry=\"5\"/><ellipse fill=\"url(#body)\" cx=\"13\" cy=\"49\" rx=\"10\" ry=\"5\"/><ellipse fill=\"url(#body)\" cx=\"51\" cy=\"49\" rx=\"10\" ry=\"5\"/><path d=\"M25 26h14v13H25Z\" fill=\"#899dab\"/><circle cx=\"32\" cy=\"44\" r=\"3\" fill=\"url(#glass)\"/><path d=\"M4 15h18M42 15h18M4 49h18M42 49h18\" stroke=\"#465f70\" stroke-width=\"3\"/></g></svg>"
@@ -337,7 +337,7 @@
     "id": "icon-gimbal",
     "name": "口袋云台相机",
     "style": "icon",
-    "category": "数码",
+    "category": "摄影",
     "keywords": "大疆 DJI Pocket 录像",
     "shape": "<rect x=\"25\" y=\"29\" width=\"14\" height=\"28\" rx=\"4\"/><rect x=\"24\" y=\"8\" width=\"20\" height=\"15\" rx=\"4\"/><circle cx=\"34\" cy=\"15\" r=\"4\"/><path d=\"M24 15h-6v14h14M29 36h6M31 47h2\"/>",
     "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect fill=\"url(#body)\" x=\"25\" y=\"29\" width=\"14\" height=\"28\" rx=\"4\"/><rect fill=\"url(#body)\" x=\"24\" y=\"8\" width=\"20\" height=\"15\" rx=\"4\"/><circle fill=\"url(#body)\" cx=\"34\" cy=\"15\" r=\"4\"/><path d=\"M24 15h-6v14h14M29 36h6M31 47h2\" fill=\"none\"/><rect x=\"27\" y=\"31\" width=\"10\" height=\"23\" rx=\"3\" fill=\"#596f7b\"/><circle cx=\"34\" cy=\"15\" r=\"5\" fill=\"url(#glass)\"/><rect x=\"29\" y=\"35\" width=\"6\" height=\"9\" rx=\"1\" fill=\"#9fb5bd\"/></g></svg>"
@@ -565,7 +565,7 @@
     "id": "icon-lens",
     "name": "相机镜头",
     "style": "icon",
-    "category": "数码",
+    "category": "摄影",
     "keywords": "摄影 定焦 变焦 长焦 lens",
     "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M17 18h30v36c-5 8-25 8-30 0Z\" fill=\"url(#body)\"/><ellipse cx=\"32\" cy=\"18\" rx=\"15\" ry=\"9\" fill=\"#3b515f\"/><ellipse cx=\"32\" cy=\"18\" rx=\"11\" ry=\"6\" fill=\"url(#glass)\"/><ellipse cx=\"29\" cy=\"16\" rx=\"4\" ry=\"2\" fill=\"#b8d1d3\" stroke=\"none\"/><path d=\"M17 30q15 8 30 0M17 43q15 8 30 0M21 33v8M26 35v8M32 36v8M38 35v8M43 33v8\" fill=\"none\"/><path d=\"M18 50q14 7 28 0\" stroke=\"#c5b593\" stroke-width=\"2\" fill=\"none\"/></g></svg>"
   },
@@ -733,7 +733,7 @@
     "id": "object3d-camera",
     "name": "相机",
     "style": "dimensional",
-    "category": "数码",
+    "category": "摄影",
     "keywords": "摄影 微单 单反 camera",
     "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M7 25 24 17h31l7 7v28L43 61 7 49Z\" fill=\"#567180\"/><path d=\"M7 25 43 35l19-11-36-10Z\" fill=\"#b1c2ca\"/><path d=\"M7 25 43 35v26L7 49Z\" fill=\"url(#body)\"/><path d=\"M43 35 62 24v28L43 61Z\" fill=\"#597484\"/><path d=\"M16 22v-8l10-5 13 4v9l-10 5Z\" fill=\"#7f97a5\"/><path d=\"m16 14 13 4 10-5M29 18v9\" fill=\"none\"/><path d=\"M21 35 35 30q17 8 11 22l-14 7Z\" fill=\"#58717e\"/><ellipse cx=\"25\" cy=\"46\" rx=\"12\" ry=\"13\" transform=\"rotate(-20 25 46)\" fill=\"#344e60\"/><ellipse cx=\"25\" cy=\"46\" rx=\"8\" ry=\"9\" fill=\"url(#glass)\"/><ellipse cx=\"23\" cy=\"43\" rx=\"3\" ry=\"2\" fill=\"#c3dce0\" stroke=\"none\"/><path d=\"m10 30 7 2v5l-7-2Z\" fill=\"#e2ded1\"/></g></svg>"
   },
@@ -816,5 +816,101 @@
     "category": "家居",
     "keywords": "钢琴 乐器 电钢琴 upright piano",
     "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#c5cbbb\"/><stop offset=\"1\" stop-color=\"#859482\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#515e55\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M8 17 26 7l32 11v36l-18 12L8 54Z\" fill=\"#596e60\"/><path d=\"M8 17 26 7l32 11-18 11Z\" fill=\"#adbca4\"/><path d=\"M40 29 58 18v36L40 66Z\" fill=\"#42594d\"/><path d=\"m12 22 24 9v16l-24-9Z\" fill=\"url(#body)\"/><path d=\"M8 40 40 51l10-6-32-11Z\" fill=\"#efeddf\"/><path d=\"m15 38 4 2-4 4m6-2 4 2-4 4m7-2 4 2-4 4m6-2 4 2-4 4\" fill=\"none\" stroke=\"#405549\" stroke-width=\"2\"/><path d=\"M8 40v7l32 12 10-7v-7L40 51Z\" fill=\"#768e77\"/><path d=\"M11 50v11M39 60v7M52 53v8\" stroke=\"#4d6354\" stroke-width=\"3\"/><path d=\"m23 59 6 2\" stroke=\"#c1ad7e\" stroke-width=\"3\"/></g></svg>"
+  },
+  {
+    "id": "icon-flash",
+    "name": "闪光灯",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "机顶灯 热靴 闪光 speedlight flash",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M23 31h19v21H23Z\" fill=\"url(#body)\"/><path d=\"M18 10h32v20H18Z\" fill=\"url(#body)\"/><rect x=\"22\" y=\"14\" width=\"24\" height=\"11\" rx=\"2\" fill=\"#eee9dc\"/><path d=\"M27 52h11v6H27Z\" fill=\"url(#metal)\"/><rect x=\"27\" y=\"36\" width=\"11\" height=\"7\" rx=\"1\" fill=\"url(#glass)\"/><circle cx=\"34\" cy=\"47\" r=\"1.5\" fill=\"#bdccb5\"/></g></svg>"
+  },
+  {
+    "id": "icon-fill-light",
+    "name": "补光灯",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "LED 摄影灯 常亮灯 视频 面板灯 fill light",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect x=\"10\" y=\"8\" width=\"44\" height=\"30\" rx=\"3\" fill=\"url(#body)\"/><rect x=\"14\" y=\"12\" width=\"36\" height=\"22\" rx=\"2\" fill=\"#f4e8bd\"/><path d=\"M21 12v22M29 12v22M37 12v22M45 12v22M14 19h36M14 27h36\" stroke=\"#d4c99e\"/><path d=\"M32 38v18m0-9-12 13m12-13 12 13\" stroke-width=\"2.5\" fill=\"none\"/></g></svg>"
+  },
+  {
+    "id": "icon-filter",
+    "name": "滤镜",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "UV ND CPL 偏振 减光 镜片 filter",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><ellipse cx=\"32\" cy=\"36\" rx=\"23\" ry=\"22\" fill=\"#334b5a\"/><ellipse cx=\"32\" cy=\"32\" rx=\"23\" ry=\"22\" fill=\"url(#metal)\"/><ellipse cx=\"32\" cy=\"32\" rx=\"19\" ry=\"18\" fill=\"url(#glass)\"/><path d=\"m21 39 18-20m-11 25 15-18\" stroke=\"#d3e4df\" stroke-width=\"2\" fill=\"none\"/><path d=\"M13 46q19 15 38 0\" stroke=\"#728995\" fill=\"none\"/></g></svg>"
+  },
+  {
+    "id": "icon-reflector",
+    "name": "反光板",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "五合一 柔光板 银面 金面 reflector",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><ellipse cx=\"32\" cy=\"31\" rx=\"24\" ry=\"23\" fill=\"url(#metal)\" stroke-width=\"2.5\"/><path d=\"M12 26q18-21 39 1M13 41q18-19 36 0\" stroke=\"#dce5df\" stroke-width=\"2\" fill=\"none\"/><path d=\"M25 53h14l-3 6h-8Z\" fill=\"#546979\"/><path d=\"M18 15q8-5 13-4\" stroke=\"#f5f3e5\" stroke-width=\"2\" fill=\"none\"/></g></svg>"
+  },
+  {
+    "id": "icon-camera-battery",
+    "name": "相机电池",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "摄影电池 备用电池 锂电池 battery",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M18 14 26 8h22v43l-8 7H18Z\" fill=\"#3c5464\"/><rect x=\"14\" y=\"14\" width=\"26\" height=\"44\" rx=\"3\" fill=\"url(#body)\"/><path d=\"M14 14 22 8h26l-8 6Z\" fill=\"url(#metal)\"/><path d=\"M23 9h4v4h-4m8-4h4v4h-4\" fill=\"#d8bd79\"/><path d=\"m29 25-8 13h7l-3 12 11-17h-8Z\" fill=\"#c9ded9\" stroke=\"none\"/><path d=\"M18 53h10\" stroke=\"#a9c4c7\"/></g></svg>"
+  },
+  {
+    "id": "icon-camera-charger",
+    "name": "充电盒",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "相机电池 充电器 双槽 电池盒 charger charging case",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M9 22 22 14h35v34L44 59 9 49Z\" fill=\"#486474\"/><path d=\"M9 22 44 32l13-18-35-1Z\" fill=\"url(#metal)\"/><path d=\"M9 22 44 32v27L9 49Z\" fill=\"url(#body)\"/><path d=\"m16 24 7-6 10 3-7 6Zm15 4 7-6 10 3-7 6Z\" fill=\"#344c5a\"/><path d=\"m14 38 23 7\" stroke=\"#a8bdc5\"/><circle cx=\"19\" cy=\"42\" r=\"1.5\" fill=\"#b6d6bd\"/><circle cx=\"31\" cy=\"46\" r=\"1.5\" fill=\"#b6d6bd\"/></g></svg>"
+  },
+  {
+    "id": "icon-camera-bag",
+    "name": "相机包",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "摄影包 单肩包 器材包 camera bag",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M21 20v-7q11-9 22 0v7\" fill=\"none\" stroke-width=\"3\"/><rect x=\"8\" y=\"20\" width=\"48\" height=\"35\" rx=\"7\" fill=\"url(#body)\"/><path d=\"M8 22q24 14 48 0v14H8Z\" fill=\"#7f97a5\"/><path d=\"M28 30h8v11h-8Z\" fill=\"url(#metal)\"/><path d=\"M13 45v7M51 45v7M18 48h9\" stroke=\"#bfccd1\" fill=\"none\"/><path d=\"M9 29q-10 18 0 20m47-20q10 18 0 20\" fill=\"none\" stroke-width=\"2\"/></g></svg>"
+  },
+  {
+    "id": "icon-dry-cabinet",
+    "name": "防潮箱",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "电子防潮柜 相机柜 干燥箱 dry cabinet",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect x=\"12\" y=\"6\" width=\"40\" height=\"52\" rx=\"3\" fill=\"url(#body)\"/><rect x=\"17\" y=\"15\" width=\"30\" height=\"37\" rx=\"2\" fill=\"url(#glass)\"/><path d=\"M18 33h28M18 45h28\" stroke=\"#a2b8c1\"/><rect x=\"33\" y=\"9\" width=\"11\" height=\"4\" rx=\"1\" fill=\"#b6d6bd\"/><path d=\"M43 25v11\" stroke=\"#d5dfdc\" stroke-width=\"2\"/><path d=\"M20 27h12v5H20Z\" fill=\"#627f8e\"/><circle cx=\"26\" cy=\"29\" r=\"3\" fill=\"#b5cbd0\"/><path d=\"M22 39h8v6h-8Z\" fill=\"#768f9b\"/></g></svg>"
+  },
+  {
+    "id": "icon-tripod",
+    "name": "三脚架",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "摄影 支架 脚架 tripod",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><rect x=\"23\" y=\"9\" width=\"18\" height=\"7\" rx=\"2\" fill=\"url(#metal)\"/><circle cx=\"32\" cy=\"22\" r=\"6\" fill=\"url(#body)\"/><path d=\"M32 28v14M32 34 12 59m20-25 20 25m-20-25v26\" stroke=\"#546979\" stroke-width=\"4\" fill=\"none\"/><path d=\"M26 20 15 14\" stroke-width=\"3\" fill=\"none\"/><path d=\"M13 51h7m24 0h7M29 51h6\" stroke=\"#bacbd0\" stroke-width=\"2\"/></g></svg>"
+  },
+  {
+    "id": "icon-memory-card",
+    "name": "存储卡",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "SD CFexpress 闪存卡 摄影 memory card",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M19 7h22l9 10v40H16V12Z\" fill=\"url(#body)\"/><path d=\"M23 7v11h18V7\" fill=\"#d3bd87\"/><path d=\"M27 8v9m5-9v9m5-9v9\" stroke=\"#7f744f\"/><rect x=\"21\" y=\"28\" width=\"24\" height=\"18\" rx=\"2\" fill=\"#e0e6df\"/><path d=\"M25 34h16m-16 6h10\" stroke=\"#718b98\" stroke-width=\"2\"/></g></svg>"
+  },
+  {
+    "id": "icon-lens-hood",
+    "name": "遮光罩",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "镜头罩 遮光 摄影 lens hood",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M11 16q21 11 42 0l-5 32q-16 15-32 0Z\" fill=\"url(#body)\"/><ellipse cx=\"32\" cy=\"16\" rx=\"21\" ry=\"10\" fill=\"#334b59\"/><ellipse cx=\"32\" cy=\"16\" rx=\"15\" ry=\"6\" fill=\"url(#glass)\"/><path d=\"M14 26q18 11 36 0M17 46q15 12 30 0\" fill=\"none\" stroke=\"#a4bac4\"/><path d=\"M22 31v12m20-12v12\" fill=\"none\"/></g></svg>"
+  },
+  {
+    "id": "icon-camera-strap",
+    "name": "相机肩带",
+    "style": "icon",
+    "category": "摄影",
+    "keywords": "背带 腕带 摄影 camera strap",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 80 80\"><defs><linearGradient id=\"body\" x2=\".8\" y2=\"1\"><stop stop-color=\"#a5b6c6\"/><stop offset=\"1\" stop-color=\"#546979\"/></linearGradient><linearGradient id=\"glass\" x2=\"1\" y2=\"1\"><stop stop-color=\"#223d55\"/><stop offset=\".55\" stop-color=\"#557b91\"/><stop offset=\"1\" stop-color=\"#a6c1c8\"/></linearGradient><linearGradient id=\"metal\" x2=\"1\" y2=\"1\"><stop stop-color=\"#edf0ed\"/><stop offset=\".5\" stop-color=\"#aab9bb\"/><stop offset=\"1\" stop-color=\"#728990\"/></linearGradient></defs><ellipse cx=\"40\" cy=\"69\" rx=\"24\" ry=\"3\" fill=\"#263d50\" opacity=\".1\"/><g transform=\"translate(8 7)\" stroke=\"#263d50\" stroke-width=\"1.2\" stroke-linejoin=\"round\" stroke-linecap=\"round\"><path d=\"M15 45C-1 1 65 1 49 45\" stroke=\"#486474\" stroke-width=\"10\" fill=\"none\"/><path d=\"M15 44C2 6 62 6 49 44\" stroke=\"#adc0c8\" stroke-width=\"2\" fill=\"none\"/><path d=\"M14 41v13m36-13v13\" stroke=\"#6c8997\" stroke-width=\"5\" fill=\"none\"/><path d=\"M10 51h8v7h-8m28-7h8v7h-8\" fill=\"url(#metal)\"/></g></svg>"
   }
 ]

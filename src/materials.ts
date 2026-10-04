@@ -3,7 +3,7 @@ import { objectArt } from './illustrations.ts';
 export type Material = { id: string; name: string; style: string; category: string; keywords: string; shape?: string; art?: string; hidden?: boolean };
 export type MaterialEntry = { id: string; name: string; builtin: boolean };
 export const MATERIALS: Material[] = catalog;
-export const materialCategories = ['全部', '通用', '数码', '家电', '家居', '办公', '交通', '运动', '厨具'] as const;
+export const materialCategories = ['全部', '通用', '数码', '摄影', '家电', '家居', '办公', '交通', '运动', '厨具'] as const;
 export type MaterialSource = 'icon' | 'dimensional' | 'recent' | 'custom';
 export function materialOf(id: string | null): Material | null { return id ? MATERIALS.find(m => m.id === id) ?? null : null; }
 export function materialArt(id: string): string {
@@ -24,7 +24,9 @@ export function filterMaterials(entries: MaterialEntry[], source: MaterialSource
     return matchesSource && (category === '全部' || info?.category === category) && (!query || `${entry.name} ${info?.keywords ?? ''}`.toLocaleLowerCase().includes(query));
   });
   const frequent=['icon-phone','icon-laptop','icon-tablet','icon-desktop','icon-watch','icon-headphones','icon-camera','icon-keyboard','icon-mouse'];
-  const rank=(id:string)=>{const i=frequent.indexOf(id);return i<0?(id==='coffee'?1000:100):i};
+  // Common capture gear first, then lighting and less frequently chosen accessories.
+  const photography=['icon-camera','icon-lens','icon-camera-battery','icon-memory-card','icon-camera-bag','icon-camera-charger','icon-tripod','icon-filter','icon-flash','icon-fill-light','icon-reflector','icon-dry-cabinet','icon-lens-hood','icon-camera-strap','icon-actioncam','icon-gimbal','icon-drone','icon-camcorder','icon-webcam','object3d-camera'];
+  const rank=(id:string)=>{const photo=photography.indexOf(id);if(category==='摄影')return photo<0?100:photo;const i=frequent.indexOf(id);return i<0?(id==='coffee'?1000:100):i};
   return source === 'recent' ? filtered.sort((a,b)=>recent.indexOf(a.id)-recent.indexOf(b.id)) : filtered.sort((a,b)=>rank(a.id)-rank(b.id));
 }
 export function readRecentMaterials(storage: Pick<Storage, 'getItem'>, generation: string): string[] {

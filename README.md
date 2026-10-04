@@ -4,7 +4,7 @@
 
 物谱是一个本地使用的 macOS 应用。为值得留档的物品建立档案，每隔一段时间核对账户余额，看看物品、花费和金融净资产如何随时间变化。无需注册账号，也无需编程或联网使用。
 
-**[下载 0.1.0-beta.1 公开测试版 · Apple Silicon Mac](https://github.com/CoderJackZhu/Thingary/releases/download/v0.1.0-beta.1/Thingary-0.1.0-beta.1-arm64.dmg)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.1.0-beta.1) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
+**[下载 0.0.1 公开测试版 · Apple Silicon Mac](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.1/Thingary-0.0.1-arm64.dmg)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.1) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
 
 ![物谱总览：物品档案与账户盘点](docs/images/overview-light.png)
 
@@ -15,7 +15,7 @@
 3. 点「开始记录我的资料」，[记录第一件物品](docs/USER_GUIDE.md#first-record)；需要时再[完成第一次账户盘点](docs/USER_GUIDE.md#first-snapshot)。
 4. 录入自己的资料后，[做一次完整备份并异地保存](docs/USER_GUIDE.md#backup)。
 
-当前 **0.1.0-beta.1 公开测试版** 使用本地临时签名，未经过 Developer ID 签名和 Apple 公证。首次打开可能需要在「系统设置 › 隐私与安全性」选择「仍要打开」；请按[安装与故障排查指南](docs/USER_GUIDE.md#download)操作，无需编译或使用终端。下载页中的 Source code 是源码，不是安装包。
+当前 **0.0.1 公开测试版** 使用本地临时签名，未经过 Developer ID 签名和 Apple 公证。首次打开可能需要在「系统设置 › 隐私与安全性」选择「仍要打开」；请按[安装与故障排查指南](docs/USER_GUIDE.md#download)操作，无需编译或使用终端。下载页中的 Source code 是源码，不是安装包。
 
 | 支持范围 | 当前情况 |
 |---|---|

@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {savingPercent} from '../src/preferences.ts';
+import {newAssetWarranty} from '../src/preferences.ts';
+test('new asset warranty runs one calendar year from the added date, including leap days',()=>{
+ assert.deepEqual(newAssetWarranty('2026-10-04'),{start_date:'2026-10-04',end_date:'2027-10-04',reminder:null});
+ assert.equal(newAssetWarranty('2024-02-29').end_date,'2025-02-28');
+ assert.equal(newAssetWarranty('2023-02-28').end_date,'2024-02-28');
+});
 test('savings ring agrees with cent precision at the completion boundary',()=>{
  assert.equal(savingPercent('9999','10000'),99);
  assert.equal(savingPercent('10000','10000'),100);

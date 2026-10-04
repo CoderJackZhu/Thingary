@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { MATERIALS, materialOf, materialArt, materialPhotoName, materialActionLabel } from '../src/materials.ts';
+import { MATERIALS, materialOf, materialArt, materialPhotoName, materialActionLabel, materialCategories, filterMaterials } from '../src/materials.ts';
 import { objectArt } from '../src/illustrations.ts';
 
 test('material catalog equals the shipped manifest and embedded artwork', () => {
@@ -26,6 +26,18 @@ test('unknown material ids resolve to nothing and fall back to the generic art',
   assert.equal(materialOf(null), null);
   assert.equal(materialArt('../materials/laptop'), objectArt('box'));
   assert.ok(new Set(MATERIALS.map(m => materialArt(m.id))).size >= 50);
+});
+
+test('photography groups existing gear with distinct accessories and keeps recent-use ordering', () => {
+  assert.ok(materialCategories.includes('摄影'));
+  for (const id of ['camera','icon-camera','icon-lens','icon-camcorder','icon-webcam','icon-actioncam','icon-drone','icon-gimbal','object3d-camera']) assert.equal(materialOf(id).category,'摄影');
+  const entries=MATERIALS.map(m=>({id:m.id,name:m.name,builtin:true}));
+  const photos=filterMaterials(entries,'icon','摄影','',[]);
+  assert.deepEqual(photos.slice(0,6).map(m=>m.id),['icon-camera','icon-lens','icon-camera-battery','icon-memory-card','icon-camera-bag','icon-camera-charger']);
+  for(const id of ['flash','fill-light','filter','reflector','camera-battery','camera-charger','camera-bag','dry-cabinet','tripod','memory-card','lens-hood','camera-strap']) assert.ok(photos.some(m=>m.id==='icon-'+id));
+  assert.equal(new Set(photos.map(m=>materialArt(m.id))).size,photos.length);
+  assert.deepEqual(filterMaterials(entries,'recent','摄影','',['icon-filter','icon-lens']).map(m=>m.id),['icon-filter','icon-lens']);
+  assert.deepEqual(filterMaterials(entries,'icon','摄影','ND',[]).map(m=>m.id),['icon-filter']);
 });
 
 test('material photo names state they are illustrations, not photos', () => {
