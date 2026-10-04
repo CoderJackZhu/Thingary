@@ -928,3 +928,224 @@ fn trend_ignores_purchase_dates_after_today_instead_of_building_endless_periods(
     assert!(trend.buckets.is_empty());
     assert_eq!(trend.unknown_date_count, 1);
 }
+
+#[test]
+fn overview_daily_cost_sums_held_records_with_independent_exclusions_and_maintenance() {
+    use thingary_lib::{catalog::Query, maintenance};
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    for (name, price, date, prefs, retired, sale, maintenance_cost, deleted) in [
+        (
+            "active",
+            Some("100000"),
+            Some("2026-09-01"),
+            serde_json::json!({}),
+            None,
+            None,
+            None,
+            false,
+        ),
+        (
+            "retired",
+            Some("200000"),
+            Some("2026-09-06"),
+            serde_json::json!({}),
+            Some("2026-09-07"),
+            None,
+            None,
+            false,
+        ),
+        (
+            "zero",
+            Some("0"),
+            Some(TODAY),
+            serde_json::json!({}),
+            None,
+            None,
+            None,
+            false,
+        ),
+        (
+            "maintenance",
+            Some("10000"),
+            Some("2026-09-01"),
+            serde_json::json!({}),
+            None,
+            None,
+            Some(Some("3000")),
+            false,
+        ),
+        (
+            "unknown-price",
+            None,
+            Some(TODAY),
+            serde_json::json!({}),
+            None,
+            None,
+            None,
+            false,
+        ),
+        (
+            "unknown-date",
+            Some("100"),
+            None,
+            serde_json::json!({}),
+            None,
+            None,
+            None,
+            false,
+        ),
+        (
+            "unknown-maintenance",
+            Some("100"),
+            Some(TODAY),
+            serde_json::json!({}),
+            None,
+            None,
+            Some(None),
+            false,
+        ),
+        (
+            "per-use",
+            Some("100000"),
+            Some(TODAY),
+            serde_json::json!({"cost_mode":"per_use","use_count":10}),
+            None,
+            None,
+            None,
+            false,
+        ),
+        (
+            "excluded-daily",
+            Some("100000"),
+            Some(TODAY),
+            serde_json::json!({"exclude":{"daily":true}}),
+            None,
+            None,
+            None,
+            false,
+        ),
+        (
+            "excluded-other",
+            Some("100"),
+            Some(TODAY),
+            serde_json::json!({"exclude":{"total":true,"statistics":true}}),
+            None,
+            None,
+            None,
+            false,
+        ),
+        (
+            "sold",
+            Some("200000"),
+            Some("2026-09-01"),
+            serde_json::json!({}),
+            None,
+            Some(
+                serde_json::json!({"date":"2026-09-05","price_cents":"100","platform":"","buyer":"","notes":""}),
+            ),
+            None,
+            false,
+        ),
+        (
+            "deleted",
+            Some("200000"),
+            Some(TODAY),
+            serde_json::json!({}),
+            None,
+            None,
+            None,
+            true,
+        ),
+    ] {
+        let mut a = s.save_asset(&SaveAsset {
+            options: Some(serde_json::from_value(serde_json::json!({"preferences":prefs,"warranty":null,"retired_date":retired,"sale":sale})).unwrap()),
+            base: Save { request_id: id(), generation:s.generation(), asset_id:None, expected_revision:None, name:name.into(), price_cents:price.map(Into::into), purchase_date:date.map(Into::into) },
+            details:Details::default(), photos:None, classification:None,
+        }, TODAY).unwrap();
+        if let Some(cost) = maintenance_cost {
+            a = s
+                .change_maintenance(
+                    &maintenance::Change {
+                        request_id: id(),
+                        generation: s.generation(),
+                        asset_id: a.asset.id.clone(),
+                        expected_revision: a.asset.revision,
+                        action: maintenance::Action::Add {
+                            fields: maintenance::Fields {
+                                date: Some(TODAY.into()),
+                                kind: "upgrade".into(),
+                                title: "虚构维护".into(),
+                                description: String::new(),
+                                cost_cents: cost.map(Into::into),
+                                provider: String::new(),
+                            },
+                            photos: Selection {
+                                ids: vec![],
+                                cover_id: None,
+                            },
+                        },
+                    },
+                    TODAY,
+                )
+                .unwrap();
+        }
+        if deleted {
+            s.change_trash(&TrashChange {
+                request_id: id(),
+                generation: s.generation(),
+                asset_id: a.asset.id,
+                expected_revision: a.asset.revision,
+                deleted: true,
+            })
+            .unwrap();
+        }
+    }
+    let q = Query {
+        category: Default::default(),
+        search: String::new(),
+        filter: "all".into(),
+        sort: "name".into(),
+        descending: false,
+        offset: 0,
+        warranty: "all".into(),
+        label: None,
+    };
+    let before = serde_json::to_value(s.query_assets(&q, TODAY).unwrap()).unwrap();
+    for scope in ["held", "history"] {
+        let daily = s.overview(scope, TODAY).unwrap().held_daily;
+        assert_eq!(daily.known_cents.as_deref(), Some("51400"));
+        assert_eq!(daily.included_count, 5);
+        assert_eq!(daily.unknown_count, 3);
+        assert_eq!(daily.per_use_count, 1);
+        assert_eq!(daily.excluded_count, 1);
+    }
+    assert_eq!(
+        serde_json::to_value(s.query_assets(&q, TODAY).unwrap()).unwrap(),
+        before
+    );
+}
+
+#[test]
+fn overview_daily_cost_distinguishes_empty_unknown_and_known_zero() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    assert_eq!(
+        s.overview("held", TODAY)
+            .unwrap()
+            .held_daily
+            .known_cents
+            .as_deref(),
+        Some("0")
+    );
+    asset(&mut s, "unknown", None, None, Some(TODAY));
+    let daily = s.overview("held", TODAY).unwrap().held_daily;
+    assert_eq!(daily.known_cents, None);
+    assert_eq!(daily.included_count, 0);
+    assert_eq!(daily.unknown_count, 1);
+    asset(&mut s, "zero", None, Some("0"), Some(TODAY));
+    let daily = s.overview("held", TODAY).unwrap().held_daily;
+    assert_eq!(daily.known_cents.as_deref(), Some("0"));
+    assert_eq!(daily.included_count, 1);
+    assert_eq!(daily.unknown_count, 1);
+}

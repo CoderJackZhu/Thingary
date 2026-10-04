@@ -22,6 +22,15 @@ pub struct CategoryShare {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct DailyCostSummary {
+    pub known_cents: Option<String>,
+    pub included_count: i64,
+    pub unknown_count: i64,
+    pub per_use_count: i64,
+    pub excluded_count: i64,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct Overview {
     pub generation: String,
     pub today: String,
@@ -36,6 +45,7 @@ pub struct Overview {
     /// Mean natural-day holding length of held assets with a known purchase date.
     pub average_holding_days: Option<i64>,
     pub held_unknown_date_count: i64,
+    pub held_daily: DailyCostSummary,
     pub ongoing_wishes: i64,
     pub scope: String,
     pub categories: Vec<CategoryShare>,
@@ -43,6 +53,53 @@ pub struct Overview {
 }
 
 impl Store {
+    fn held_daily_cost(&self, today: &str) -> Result<DailyCostSummary> {
+        let c = self.conn()?;
+        let mut stmt = c.prepare("SELECT id FROM assets WHERE deleted_at IS NULL AND lifecycle_state IN ('active','retired') ORDER BY id")?;
+        let ids = stmt
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut result = DailyCostSummary {
+            known_cents: None,
+            included_count: 0,
+            unknown_count: 0,
+            per_use_count: 0,
+            excluded_count: 0,
+        };
+        let mut total = 0i64;
+        for id in &ids {
+            let preferences = crate::preferences::read(c, id)?;
+            // Exclusions are independent: total/statistics flags do not exclude daily cost.
+            if preferences.exclude.daily {
+                result.excluded_count += 1;
+                continue;
+            }
+            if preferences.cost_mode == "per_use" {
+                result.per_use_count += 1;
+                continue;
+            }
+            let asset = self
+                .asset(id)?
+                .ok_or_else(|| Error::new("NOT_FOUND", "档案不存在"))?;
+            let costs = crate::maintenance::summary(c, &asset, None, today)?;
+            if let Some(daily) = costs.daily_cents {
+                let cents = daily
+                    .parse::<i64>()
+                    .map_err(|_| Error::new("OVERFLOW", "日均成本超出范围"))?;
+                total = total
+                    .checked_add(cents)
+                    .ok_or_else(|| Error::new("OVERFLOW", "日均成本合计超出范围"))?;
+                result.included_count += 1;
+            } else {
+                result.unknown_count += 1;
+            }
+        }
+        if result.included_count > 0 || ids.is_empty() {
+            result.known_cents = Some(total.to_string());
+        }
+        Ok(result)
+    }
+
     pub fn overview(&self, scope: &str, today: &str) -> Result<Overview> {
         crate::domain::date(today)?;
         let states = match scope {
@@ -114,6 +171,7 @@ impl Store {
             history_unknown_price_count: history_unknown,
             average_holding_days: average.map(|d| d.round() as i64),
             held_unknown_date_count: unknown_date,
+            held_daily: self.held_daily_cost(today)?,
             ongoing_wishes: ongoing,
             scope: scope.into(),
             categories,

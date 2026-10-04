@@ -12,6 +12,7 @@ import { useRestored } from './undo';
 import { attention, latestComplete, ready, requestGate } from './review';
 import type { Read, Review, ReviewPage } from './review';
 import { Info } from './FormControls';
+import { DailyCostMetric } from './DailyCostMetric';
 import './review.css';
 const labels: Record<ReviewPage, string> = { wealth: '账户与盘点', assets: '全部物品', expenses: '重要支出', recurring: '周期费用', virtual: '虚拟资产', timeline: '时间轴' };
 
@@ -95,6 +96,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
             <div><div className="ui-big">{money(p.held_known_cents)}</div><p className="ui-sub">{p.held_unknown_price_count ? `购入金额 · ${p.held_unknown_price_count} 件未知` : p.held_count ? '购入金额' : '还没有记录物品'}</p></div>
             <div><div className="ui-big">{p.held_count}<small>件</small></div><p className="ui-sub">使用中 {p.active_count} · 已退役 {p.retired_count}</p></div>
           </div>
+          <DailyCostMetric summary={p.held_daily}/>
           {cats.length > 0 && <>
             <div className="ui-share-bar" role="img" aria-label="持有物按分类的购入金额占比">{known > 0 && cats.filter(c => Number(c.known_cents) > 0).map(c => <span key={c.id ?? 'none'} style={{ width: `${Number(c.known_cents) / known * 100}%`, background: color(c.slot) }}/>)}</div>
             <div className="ui-legend">{legend.map(c => <div key={c.id ?? 'none'}><i style={{ background: Number(c.known_cents) > 0 ? color(c.slot) : 'var(--soft-strong, var(--line))' }}/><span>{c.name}</span>{Number(c.known_cents) > 0 ? <b>{money(c.known_cents)}</b> : <b className="muted">金额未知</b>}</div>)}</div>

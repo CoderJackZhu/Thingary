@@ -3,6 +3,9 @@
 .review-section{padding:0 22px 28px;color:var(--text);font-size:13px}
 /* 持有金额与件数并排，各自的说明在自己下方：综合回顾卡各占一半；实物概览指标格较窄，两列按内容排开，说明可换行。 */
 .held-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 24px}.held-split>*>:first-child,.held-split p span{white-space:nowrap}
+.daily-cost-metric .ui-value,.daily-cost-metric .ui-note{display:block}
+.review-heroes .daily-cost-metric{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.review-heroes .daily-cost-metric .ui-value{font:500 28px/1.3 var(--display);margin-top:4px;font-variant-numeric:tabular-nums}
 .review-sub{font-size:12px;color:var(--muted);margin:4px 0;line-height:1.7;overflow-wrap:anywhere}
 .review-footer{display:flex;justify-content:flex-end;gap:12px;margin-top:12px;align-items:center;flex-wrap:wrap}
 button.review-action{border:0;background:transparent;color:var(--accent);padding:3px 0;font-size:12px;white-space:normal;text-align:left;min-height:24px}

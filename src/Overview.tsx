@@ -1,4 +1,5 @@
 import { HeaderSlot } from './HeaderSlot';
+import { DailyCostMetric, type DailyCostSummary } from './DailyCostMetric';
 import { allModules, financeOff, type Modules } from './modules';
 import { useEffect } from 'react';
 import { useState, type CSSProperties } from 'react';
@@ -16,7 +17,7 @@ import type { BarMenu } from './topbar';
 import type { ReviewPage } from './review';
 
 type CategoryShare = { id: string | null; name: string; slot: number | null; count: number; known_cents: string; unknown_price_count: number };
-export type OverviewData = { generation: string; today: string; held_count: number; active_count: number; retired_count: number; sold_count: number; held_known_cents: string; held_unknown_price_count: number; history_known_cents: string; history_unknown_price_count: number; average_holding_days: number | null; held_unknown_date_count: number; ongoing_wishes: number; scope: 'held' | 'history'; categories: CategoryShare[]; recent: TimelineEvent[] };
+export type OverviewData = { generation: string; today: string; held_count: number; active_count: number; retired_count: number; sold_count: number; held_known_cents: string; held_unknown_price_count: number; history_known_cents: string; history_unknown_price_count: number; average_holding_days: number | null; held_unknown_date_count: number; held_daily: DailyCostSummary; ongoing_wishes: number; scope: 'held' | 'history'; categories: CategoryShare[]; recent: TimelineEvent[] };
 
 // Color follows the category (backend slot in category order, same in both
 // scopes); later categories and 未分类 share the neutral, named by the list.
@@ -52,8 +53,9 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   const value = (c: CategoryShare) => metric === 'count' ? c.count : Number(c.known_cents);
   const total = metric === 'count' ? count : amount;
   return <section className="overview-section" aria-label="总览">
-    <div className="ui-card ui-metrics" style={{ '--n': 4 } as CSSProperties}>
+    <div className="ui-card ui-metrics" style={{ '--n': 5 } as CSSProperties}>
       <div><span className="ui-label">当前持有物购入金额</span><span className="ui-value">{money(data.held_known_cents)}<small>· {data.held_count} 件</small></span><span className="ui-note">使用中 {data.active_count} · 已退役 {data.retired_count}{data.held_unknown_price_count ? ` · ${data.held_unknown_price_count} 件金额未知，未计入` : ''}</span></div>
+      <DailyCostMetric summary={data.held_daily}/>
       <div><span className="ui-label">历史购入金额</span><span className="ui-value">{money(data.history_known_cents)}</span><span className="ui-note">含已售出 {data.sold_count} 件{data.history_unknown_price_count ? ` · ${data.history_unknown_price_count} 件金额未知，未计入` : ''}</span></div>
       <div><span className="ui-label">平均持有<Info text="按购入日至今天，含当天；购入日期未知的物品不计入。"/></span><span className="ui-value">{data.average_holding_days === null ? '—' : <>{data.average_holding_days.toLocaleString('zh-CN')}<small>天</small></>}</span>{data.held_unknown_date_count > 0 && <span className="ui-note">{data.held_unknown_date_count} 件购入日期未知，未计入</span>}</div>
       <div><span className="ui-label">进行中心愿<Info text="心愿的预计金额不计入持有物品。"/></span><span className="ui-value">{data.ongoing_wishes}<small>条</small></span></div>
