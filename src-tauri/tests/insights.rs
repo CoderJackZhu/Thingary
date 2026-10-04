@@ -709,7 +709,7 @@ fn excluded_from_statistics(s: &mut Store, record: &AssetRecord) {
     .unwrap();
 }
 
-/// U19 sample (docs/ui/U19_RESALE_RATE_DESIGN.md §7): values are independent of the code.
+/// Resale sample (business rules: docs/PRODUCT_RULES.md): values are independent of the code.
 #[test]
 fn u19_resale_rate_matches_the_documented_sample() {
     let root = tempfile::tempdir().unwrap();

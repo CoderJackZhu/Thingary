@@ -41,7 +41,7 @@
 .check-in-state button{white-space:nowrap}
 .wealth-section .ui-table th{white-space:nowrap}
 .wealth-section .recurring-due td:first-child,.wealth-section .recurring-payments td:first-child{white-space:nowrap}
-/* U20 变化分段：控件行、排序按钮、行标签、展开按钮与展开历史（docs/ui/U20_ACCOUNT_CHANGES_DESIGN.md §2）。 */
+/* U20 变化分段：控件行、排序按钮、行标签、展开按钮与展开历史（当前盘点口径见 docs/PRODUCT_RULES.md）。 */
 .changes-controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px}
 .changes-controls label{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 .changes-controls select{max-width:160px}

@@ -1,93 +1,69 @@
 # 物谱 · Thingary
 
-**Your things and your net worth, over time.** 一个面向 macOS 的本地应用：物品档案与金融净资产盘点并重——记录值得留档的物品，每隔一段时间盘点账户，看清两者如何随时间变化。
+**记录你的物品，回顾你的净资产。**
 
-主资料保存在你的 Mac 上，没有账号、没有服务器、没有网络请求。资料与备份没有应用级加密；你主动选用云盘作为额外备份位置时，由云盘软件同步副本。
+物谱是一个本地使用的 macOS 应用。为值得留档的物品建立档案，每隔一段时间核对账户余额，看看物品、花费和金融净资产如何随时间变化。无需注册账号，也无需编程或联网使用。
 
-![总览](docs/images/overview-light.png)
+**[下载 Apple Silicon Mac 安装包](https://github.com/CoderJackZhu/Thingary/releases/download/v2.6.1/Thingary-2.6.1-arm64.dmg)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
+
+![物谱总览：物品档案与账户盘点](docs/images/overview-light.png)
+
+## 开始使用
+
+1. 下载 `.dmg`，打开后将「物谱」拖入「应用程序」。
+2. 从「应用程序」打开物谱，先浏览独立的虚构样例。
+3. 点「开始记录我的资料」，[记录第一件物品](docs/USER_GUIDE.md#first-record)；需要时再[完成第一次账户盘点](docs/USER_GUIDE.md#first-snapshot)。
+4. 录入自己的资料后，[做一次完整备份并异地保存](docs/USER_GUIDE.md#backup)。
+
+当前安装包 **2.6.1** 使用本地临时签名，未经过 Developer ID 签名和 Apple 公证。首次打开可能需要在「系统设置 › 隐私与安全性」选择「仍要打开」；请按[安装与故障排查指南](docs/USER_GUIDE.md#download)操作，无需编译或使用终端。下载页中的 Source code 是源码，不是安装包。
+
+| 支持范围 | 当前情况 |
+|---|---|
+| 芯片 | 提供 Apple Silicon（M 系列）安装包；暂无 Intel 包 |
+| 系统 | 已在 macOS 27 验证；打包最低目标为 macOS 14，其他版本尚未实测 |
+| 语言与更新 | 界面为中文；目前需手动下载安装更新 |
+| 其他平台 | 暂无 Windows、Linux、手机客户端或跨设备同步 |
+
+## 可以记录什么
+
+| 你想做的事 | 物谱提供的功能 |
+|---|---|
+| 为贵重物品留档 | 名称、品牌型号、购入日期与金额、照片、备注、维护和保障记录 |
+| 回顾持有与处置 | 使用中、退役、售出，日均／按次成本，以及售出保值率 |
+| 规划想买的东西 | 心愿清单与攒钱进度，实现后转换为物品档案 |
+| 定期核对家底 | 账户与负债快照、金融净资产趋势、两次盘点的账户变化 |
+| 回顾重要花费 | 大额支出、退款、周期费用及软件／域名等虚拟资产档案 |
+| 找回与带走资料 | 最近删除、完整备份恢复、自动备份、CSV 导入导出 |
+
+物谱适合低频记录，例如每月盘点一次账户、补充近期的重要购入。它不提供日常流水记账、行情交易或自动付款。物品购入金额和金融净资产分别展示，不相加，也不重复扣减。辅助模块可在设置中关闭。
 
 <details>
-<summary>深色与更多页面</summary>
+<summary>查看更多界面：深色外观、物品档案与账户盘点</summary>
 
-| | |
+| 物品档案 | 账户与盘点 |
 |---|---|
-| ![总览（深色）](docs/images/overview-dark.png) | ![物品统计（深色）](docs/images/stats-dark.png) |
 | ![全部物品](docs/images/assets-light.png) | ![账户与盘点](docs/images/wealth-light.png) |
+| ![深色总览](docs/images/overview-dark.png) | ![深色物品统计](docs/images/stats-dark.png) |
 
 </details>
 
-> 截图是浏览器预览渲染的同一套界面，数据全部为虚构。
+截图来自浏览器预览，全部使用虚构资料；应用提供浅色、深色、跟随系统，以及三种界面风格。
 
-## 它做什么
+## 资料与隐私
 
-不做日常小额记账。它面向「低频、值得留档」的东西，大约每月记一次大额支出、贵重物品和账户余额：
+主资料保存在你的 Mac 上，没有账号、服务器或应用网络请求。**资料与备份没有应用级加密**；若主动选用云盘作为额外备份位置，副本由该云盘软件同步。自动备份和主资料同盘，仍应额外保留异地完整备份。
 
-- **物品档案**：名称、品牌型号、购入价与日期、渠道、照片、备注；使用中／已退役／已售出的生命周期；维护与保障记录，保障到期可提醒。
-- **成本回顾**：日均持有成本、按次成本、售出后的净成本与**售出保值率**，价格不详时标「待补充」，不当作 0。
-- **心愿清单**：想买的东西与攒钱进度，实现后一键变成档案。
-- **净资产盘点**：账户与负债的定期快照，看金融净资产随时间的变化，以及每个账户各带来多少变化（可选模块）。
-- **重要支出、周期费用、虚拟资产**：可单独开关的辅助模块。
-- **总览、统计、时间轴**：把以上内容按时间和分类串起来。
-- **你的数据你做主**：CSV 导入导出（物品、盘点记录、重要支出、周期费用），完整备份与恢复，自动备份（保留最近 7 天），误删可在「最近删除」找回。
-- 浅色／深色／跟随系统，三种界面风格；首次打开有一份可随意修改的虚构样例，不会混进你的资料。
+删除应用不会删除资料。更新、换 Mac、资料位置、恢复与当前限制统一见[使用指南](docs/USER_GUIDE.md#update)。反馈时请遮住真实资料，不上传数据库或备份；漏洞请按[安全政策](SECURITY.md)私下报告。
 
-范围边界与每条规则见[产品设计](docs/PRODUCT_DESIGN.md)；操作方法见[使用说明](docs/USER_GUIDE.md)。
+## 文档与参与贡献
 
-## 平台与状态
+- 使用软件：[使用指南](docs/USER_GUIDE.md)，包含安装、入门、模块操作、备份、更新与常见问题。
+- 理解计算：[业务规则](docs/PRODUCT_RULES.md)，说明成本、净资产、支出与未知值的口径。
+- 参与开发：[贡献指南](CONTRIBUTING.md)、[开发与测试](docs/DEVELOPMENT.md)、[架构说明](docs/ARCHITECTURE.md)。
+- 维护项目：[文档职责与维护方式](docs/MAINTAINING.md)、[发布流程](docs/RELEASING.md)、[版本记录](CHANGELOG.md)。
 
-- 仅 macOS，**只在 Apple Silicon、macOS 27 上验证过**；macOS 14 和 Intel Mac 没有实测，不做承诺。
-- 目前没有同步，也没有自动更新。界面暂时只有中文。
-- 版本以 [CHANGELOG](CHANGELOG.md) 为准；已知的未验证项见使用说明末尾的「限制」。
+完整文档入口见[文档索引](docs/INDEX.md)。从源码运行需要 Mac、Node.js、Rust 与 Xcode 命令行工具；普通用户直接下载安装包即可。
 
-## 下载与开始使用
+## 许可
 
-**[下载物谱 2.6.1（Apple Silicon Mac）](https://github.com/CoderJackZhu/Thingary/releases/download/v2.6.1/Thingary-2.6.1-arm64.dmg) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v2.6.1) · [图文使用说明](docs/USER_GUIDE.md#download)**
-
-选择版本附件中的 `Thingary-<版本>-arm64.dmg`；自动生成的 Source code 是源码，不是安装包。首发仅 Apple Silicon Mac。若当前版本尚无 DMG 附件，请等待安装包发布。
-
-下载 DMG → 打开 → 将「物谱」拖入「应用程序」→ 打开物谱。首发未经过 Developer ID 签名和公证，首次可能需要在「系统设置 › 隐私与安全性」对物谱选择「仍要打开」；[完整安装与故障排查](docs/USER_GUIDE.md#download)有具体步骤，无需编译或使用终端。
-
-进入后可先浏览独立的虚构样例，准备好时点「开始记录我的资料」：
-
-- [记录第一件物品](docs/USER_GUIDE.md#first-record)
-- [完成第一次账户盘点](docs/USER_GUIDE.md#first-snapshot)
-- [做一次完整备份](docs/USER_GUIDE.md#backup)
-
-更新、换 Mac 与卸载见[使用说明](docs/USER_GUIDE.md#update)。
-
-## 从源码构建
-
-需要一台 Apple Silicon Mac（Rust 部分链接 macOS 原生框架，其他系统无法构建）、Xcode 命令行工具、Node.js 和 Rust 稳定版工具链。
-
-```sh
-npm ci                      # 安装锁定的依赖
-npm run tauri -- dev        # 开发窗口（使用独立的预览资料，不碰正式资料）
-npm run release             # 打包「物谱.app」，位于 src-tauri/target/release/bundle/macos/
-```
-
-检查与测试：
-
-```sh
-npm run build               # 类型检查与前端构建
-npm run test:ui             # 前端纯逻辑检查
-npm run check               # cargo fmt 与 clippy
-npm test                    # Rust 测试（使用临时目录）
-```
-
-没有 Mac 也可以在浏览器里看界面：`npm run dev -- --port 1429`，打开 <http://127.0.0.1:1429/visual-preview.html>（内存中的虚构数据，刷新即重置）。
-
-## 数据放在哪里
-
-正式版的资料在 `~/Library/Application Support/local.thingary.main/`，自动备份在其中的 `library/auto-backups/`。请通过应用管理资料，不要手动改动这个文件夹。删除应用不会删除资料。开发预览与测试使用各自独立的资料位置，互不影响。
-
-## 文档
-
-- [使用说明](docs/USER_GUIDE.md)：安装、资料位置、备份与恢复、当前限制。
-- [产品设计](docs/PRODUCT_DESIGN.md)、[技术设计](docs/decisions/001-local-desktop.md)、[竞品调研](docs/COMPETITOR_RESEARCH.md)。
-- [文档索引与项目状态](docs/INDEX.md)：全部文档入口与验证记录。
-- 参与贡献见 [CONTRIBUTING](CONTRIBUTING.md)，安全问题见 [SECURITY](SECURITY.md)。
-
-## 许可与标志
-
-- 代码按 [GPL-3.0-or-later](LICENSE) 授权；第三方依赖的许可证见 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES.md)。
-- **名称「物谱」「Thingary」与应用图标（五线谱标志，见[品牌与图标](docs/brand/README.md)）不在 GPL 授权范围内**，使用权保留：欢迎 fork 和学习代码，但再发布修改版时请换用自己的名称与图标，避免与本项目混淆。
+代码按 [GPL-3.0-or-later](LICENSE) 授权，第三方依赖许可见 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES.md)。名称「物谱」「Thingary」与应用图标不在 GPL 授权范围内；修改版再发布请采用自己的名称与图标，详见[品牌使用说明](docs/brand/README.md)。

@@ -1,89 +1,28 @@
-# 文档索引与项目状态
+# 物谱文档
 
-> 本文件是原 README 的内部导览（当前状态、文档入口、开发命令）。面向用户的介绍见仓库根目录的 [README](../README.md)。
+第一次使用请从[使用指南](USER_GUIDE.md#download)开始；无需阅读开发文档或自行编译。
 
-物谱 Thingary——Your things and your net worth, over time。一个面向 macOS 的 Local-first 应用（中文副标题：物品档案与净资产盘点）：记录值得记住的物品，盘点账户、看清净资产如何随时间变化，两者并重（D30）。重要支出、周期费用、虚拟资产为可开关的辅助模块（产品设计 D22；2.0.0–2.3.0 曾称「家底」，2.3.1 曾短暂改回「物志」；因重名与商标冲突，2.3.2 起为「物谱」，见 D26）。
+## 使用软件
 
-**当前定位：高完成度的 Mac 桌面体验 + 个人物品档案 + 金融净资产盘点（并重）+ 本地数据。** 不做日常小额记账（约每月记一次大额支出与贵重物品），不依赖服务器。统一产品需求见产品设计第 17 节；其中 A · 财富盘点随 1.2.0、B · 重要支出随 1.3.0、C1 · 周期费用随 1.4.0、C2 · 虚拟资产随 1.8.0、D · 综合体验随 1.9.0 发布。
-
-## 当前状态（2026-10-04）
-
-- 自用正式版 **2.6.1**（中文名「物谱」英文名 Thingary，含 U20 账户变化与盘点比较、D30 产品定位与体验整理、D31 工程名统一与 D32 审查修复）已安装在 `/Applications/物谱.app`，安装时间 2026-10-03T14:45+08:00；身份为 `local.thingary.main`。回退副本保存在本机 `.local/install/`（含 2.6.0 同身份回退与 2.5.0 等旧版本，不入库）；2.5.0 及更早版本使用旧身份与旧资料目录，不能直接视为新版资料的回退。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
-- 本轮已确认问题修复（D32）验证通过，已按用户授权提交并安装 2.6.1；正式包身份、严格签名与逐文件一致性通过，未启动正式应用；范围与进度见[实施计划](IMPLEMENTATION_PLAN.md#product-audit-fixes)。
-- 首发材料和隔离入门走查已完成，[v2.6.1](https://github.com/CoderJackZhu/Thingary/releases/tag/v2.6.1) 已公开发布，附 DMG 与校验文件、授权及匿名回读一致，对应源码 `442d3ac` 的 CI 成功；仓库公开、私密漏洞报告已开启。范围与状态见[首发交付任务](IMPLEMENTATION_PLAN.md#public-distribution)。
-- P0 闭环、A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验及 U 系列迭代均已交付。任务状态以[实施计划](IMPLEMENTATION_PLAN.md)为准，逐次变更见 [CHANGELOG](../CHANGELOG.md)。
-- 原生验收已补做大部分（见[原生验收补做](verification/NATIVE_ACCEPTANCE_20261001_RESULT.md)）；系统外观实时切换已在隔离包补做，VoiceOver 等剩余手工项目与发布前盘点结论见[发布前盘点](RELEASE_AUDIT.md)。
-- 名称：中文名「物谱」、英文名 Thingary，均已由用户确认（2026-10-02，产品设计 D26）；近似商标风险由用户知情承担，官方商标网复核未做，见[竞品调研第 14.3 节](COMPETITOR_RESEARCH.md#143-近似名分析与官方商标网复核2026-10-01第二次)。许可证 GPL-3.0（见 `LICENSE`）。公开发布清单见[发布前盘点第 10 节](RELEASE_AUDIT.md)。
-- 仅在 Apple Silicon Mac 验证；macOS 14 与 Intel 尚未实测。
-
-使用前请阅读 [使用说明](USER_GUIDE.md)。
-
-## 许可与标志
-
-- 代码按 [GPL-3.0-or-later](../LICENSE) 授权。
-- **名称「物谱」「Thingary」与应用图标（五线谱标志，见 [品牌与图标](brand/README.md)）不在 GPL 授权范围内**，使用权保留：欢迎 fork 和学习代码，但再发布修改版时请换用自己的名称与图标，避免与本项目混淆。
-
-## 文档
-
-**使用与产品**
-
-- [使用说明](USER_GUIDE.md)：下载安装、第一件物品、首次盘点、备份恢复、更新换机、卸载与 FAQ；普通用户的唯一完整指南，安装包离线版从本文生成。
-- [产品设计](PRODUCT_DESIGN.md)：产品边界、页面与交互、生命周期、计算口径、数据模型、P0/P1/P2 与验收标准；第 15.2 节为实物决策表；[第 17 节](PRODUCT_DESIGN.md#17-统一资产扩展需求草案2026-09-28)集中维护统一资产扩展，17.12 为 A–C2 已确认规则，17.13 为 D 综合体验方案（已交付）。
-- [P0 功能规格](FUNCTIONAL_SPEC.md)：八条核心流程、输入与失败契约、44 条验收定义。
-- **现行界面规范**：[U16 设计规范](ui/U16_DESIGN_SPEC.md)（令牌、格式、组件、逐页规范、三主题检查表）与设计稿 v3 [`docs/ui/u16/mockup-v3.html`](ui/u16/mockup-v3.html)；接续结果、验收收口与发布记录见 [U16 验证记录](verification/U16_PARITY_RESULT.md)。
-- [竞品调研](COMPETITOR_RESEARCH.md)：直接竞品与开源候选比较、差异化假设；第 9–28 节为 2026-10-01 补充的同类应用快照与功能对照、开源逐项核验（平台、成熟度、与本项目对比）、平台受众（含安卓、Windows、Linux）、付费与分发、名称核查、移植工作量评估。
-
-**技术与计划**
-
-- [技术设计 ADR-001](decisions/001-local-desktop.md)：本地桌面架构、数据与图片一致性、最近删除、备份恢复协议与风险验证计划。
-- [实施计划](IMPLEMENTATION_PLAN.md)：任务拆分、依赖、验收归属、阶段出口；任务状态唯一入口。
-- [发布流程](RELEASING.md)：版本、DMG 与离线材料生成、许可证全文、包核验、Release 草稿与公开；首发采用本地临时签名、未公证路线。
-- [2.6.1 Release 正文](releases/v2.6.1.md)：已发布版本的对外说明；安装包下载与后续发布状态见实施计划及 GitHub Releases。
-- [首发交付验证](verification/FIRST_PUBLIC_RELEASE_20261004_RESULT.md)：包与说明、隔离原生入门、已验／未验及 GitHub 交付状态。
-
-**验证记录**（`docs/verification/`，每项含自动检查、隔离原生结果与未验边界；2026-10-01 起只保留报告文本，截图与机器日志已移出工作树，见该目录的 README）
-
-- [设置与操作入口修订](verification/SETTINGS_POLISH_RESULT.md)：渠道/标签改名删除、设置分组、返回与关闭按钮；已验证，已随 1.12.1 安装。
-
-| 阶段 | 记录 |
+| 你要找的内容 | 入口 |
 |---|---|
-| P0 验收与发布 | [T21 完整 P0 验收](verification/T21_P0_ACCEPTANCE_RESULT.md) · [T22 自用正式版](verification/T22_SELF_USE_RELEASE_RESULT.md) |
-| 资产档案 | [T06b 分类与渠道](verification/T06B_STORAGE_RESULT.md) · [T06c 综合回归](verification/T06C_REGRESSION_RESULT.md) · [T07 退役／启用](verification/T07_LIFECYCLE_RESULT.md) · [T08 售出与纠错](verification/T08_SALES_RESULT.md) · [T09 维护](verification/T09_MAINTENANCE_RESULT.md) · [T10 保障](verification/T10_WARRANTY_RESULT.md) · [T11 统一最近删除](verification/T11_UNIFIED_TRASH_RESULT.md) |
-| 心愿与回顾 | [T12 心愿](verification/T12_WISHLIST_RESULT.md) · [T13 心愿转资产](verification/T13_WISHLIST_CONVERSION_RESULT.md) · [T14 时间轴](verification/T14_TIMELINE_RESULT.md) · [T15 总览](verification/T15_OVERVIEW_RESULT.md) · [T16 趋势](verification/T16_TRENDS_RESULT.md) · [T17 持有分析](verification/T17_HOLDING_RESULT.md) |
-| 数据与 Mac 体验 | [T18 备份恢复](verification/T18_BACKUP_RESTORE_RESULT.md) · [T19 CSV 导出](verification/T19_CSV_EXPORT_RESULT.md) · [T20 Mac 操作体验](verification/T20_MAC_EXPERIENCE_RESULT.md) · [窗口与外观](verification/WINDOW_THEME_RESULT.md) · [视觉还原](verification/VISUAL_ALIGNMENT.md) |
-| 迭代 | [U01 素材库](verification/U01_MATERIAL_LIBRARY_RESULT.md) · [图标选择器](verification/ICON_PICKER_RESULT.md) · [P1 首次样例与日期](verification/P1_FIRST_RUN_DEMO_DATE_RESULT.md) · [U02](verification/U02_ASSET_WISHLIST_RESULT.md) · [U03](verification/U03_DESKTOP_INTERACTION_RESULT.md) · [U04](verification/U04_WISH_TIMELINE_REMINDER_RESULT.md) · [U05](verification/U05_WISH_ASSET_SETTINGS_STATS_RESULT.md) · [U06](verification/U06_SETTINGS_ALIGNMENT_RESULT.md) · [U07](verification/U07_DESKTOP_POLISH_RESULT.md) · [U08](verification/U08_ASSET_EDITOR_USABILITY_RESULT.md) |
-| 财富盘点 | [W03 删除恢复、备份与原生验收](verification/W03_WEALTH_RESULT.md)；设计见 ADR-001 第 17 节 |
-| 重要支出 | [E03 删除恢复、时间轴与原生验收](verification/E03_EXPENSES_RESULT.md)；设计见 ADR-001 第 18 节 |
-| 周期费用 | [R03 删除恢复、时间轴与原生验收](verification/R03_RECURRING_RESULT.md)；设计见 ADR-001 第 19 节 |
-| 综合体验 D | [Q02 综合回顾](verification/Q02_COMPREHENSIVE_RESULT.md) · [Q03 时间轴与来源跳转](verification/Q03_SOURCE_NAVIGATION_RESULT.md) · [Q04 原生验收](verification/Q04_COMPREHENSIVE_NATIVE_RESULT.md)（浏览器证据）；Q04 原生全量验收未开始 |
+| 下载、安装、首次打开 | [安装步骤](USER_GUIDE.md#download) |
+| 记录物品与核对账户 | [第一件物品](USER_GUIDE.md#first-record) · [第一次盘点](USER_GUIDE.md#first-snapshot) |
+| 备份、恢复与换机 | [完整备份](USER_GUIDE.md#backup) · [更新与换机](USER_GUIDE.md#update) |
+| 操作疑问与支持范围 | [常见问题](USER_GUIDE.md#faq) · [当前限制](USER_GUIDE.md#limits) |
+| 数字如何计算 | [业务规则](PRODUCT_RULES.md) |
+| 下载与版本变化 | [GitHub Releases](https://github.com/CoderJackZhu/Thingary/releases) · [版本记录](../CHANGELOG.md) |
 
-历史交接文档、早期 UI 方向文档与验收截图已于 2026-10-01 从工作树移出，仍可在 git 历史与本地标签 `archive/pre-cleanup-2026-10-01` 中查看。协作规则见 [AGENTS.md](../AGENTS.md)。
+## 贡献与维护
 
-产品需求以产品设计为准，竞品事实以调研文档注明的来源和核验日期为准；技术方案独立维护在 ADR-001，任务与分工集中在实施计划，互不重复抄录。
+| 文档 | 职责 |
+|---|---|
+| [贡献指南](../CONTRIBUTING.md) | 改动范围、issue／PR、代码约定 |
+| [开发与测试](DEVELOPMENT.md) | 环境、预览、检查入口、界面验证 |
+| [架构说明](ARCHITECTURE.md) | 分层、存储、文件、请求与恢复约束 |
+| [文档维护](MAINTAINING.md) | 权威入口、代码与笔记分工、变更时怎样保持一致 |
+| [发布流程](RELEASING.md) | 版本、安装包、许可、核验与公开交付 |
+| [安全政策](../SECURITY.md) | 私密漏洞报告 |
+| [品牌使用](brand/README.md) | 正式图标源文件与名称图标边界 |
 
-## 开发
-
-- 安装锁定依赖：`npm ci`。
-- 开发窗口：`npm run tauri -- dev`。
-- 前端类型检查与构建：`npm run build`。
-- 格式与 Rust 检查：`npm run check`。
-- 表单与金额／日期纯逻辑检查：`npm run test:ui`（不是原生 UI 自动化）。
-- 数据与故障实验：`npm test`（使用独立临时目录；会终止自己创建的测试子进程）。Rust 部分链接 macOS 原生框架，只能在 Mac 上构建。
-- 本机 App 打包：`npm run tauri -- build --bundles app`，产物位于 `src-tauri/target/release/bundle/macos/Thingary Preview.app`；不要把旧产物当成最新构建。
-- 自用正式版打包：`npm run release`（仅覆盖正式身份；安装与验收见 T22 记录）。
-
-开发预览标识为 `local.thingary.preview`，资料位于 `~/Library/Application Support/local.thingary.preview/library`，只用于虚构资料，与正式版及各隔离验收库分开。不含远程更新或后台代理。只在 Apple Silicon Mac 验证，macOS 14 与 Intel 尚未实测。
-
-### 浏览器中的虚构数据预览
-
-运行 `npm run dev -- --port 1429`，打开 <http://127.0.0.1:1429/visual-preview.html>。可体验与 App 相同的列表／网格、详情、新增、更正、删除／恢复、分类／渠道及生命周期 UI；使用内存虚构数据，刷新即重置，不能证明原生持久性。
-
-附加 `?state=empty`、`?state=error`、`?state=save-error` 检查空白、读取失败和保存失败；财富页另有 `?wealth=empty`、`?wealth=first`、`?wealth=error`，重要支出页有 `?expenses=empty`、`?expenses=error`，周期费用页有 `?recurring=empty`、`?recurring=error`；`?theme=dark` 对照深色；`?no-photos` 检查六种分类插图。这个入口不包含在 `npm run build` 的产物中。原始设计比较仍在 `docs/ui/prototype.html`，两者职责不同。
-
-### 样例数据
-
-1.5.0 首次使用展示独立完整样例，涵盖原始八件物品及心愿生成资产、保障、账户与六期盘点、支出/退款、周期计划/付款。样例内编辑、删除仅影响样例，不接受新增物品（含心愿实现），“新增物品”会回到我的资料；先明确切到“我的资料”，首次成功记录后长期记住该状态。设置可查看或确认重置样例；删空真实记录不自动恢复样例。样例体验规则及入口见[使用说明](USER_GUIDE.md)。
-
-实物与金融样例源分别为 `src/demo-assets.json`、`src/demo-finance.json`；浏览器预览复用基础事实但为内存模拟，不能代替原生持久性验收。封面 PNG 随内置素材库位于 `src-tauri/materials/`（清单 `materials.json`）。
-
-`npm run demo:import` 只向隔离的 `local.thingary.t06b.preview` 虚构库导入同一组样例（拒绝其他路径及符号链接，可重复执行、不覆盖编辑）；`npm run test:demo` 验证导入、图片、重开和目标路径限制。PNG 转换的可选开发命令是 `node scripts/render-demo-art.mjs <已有 sharp 模块的绝对入口>`。
+本目录维护当前软件的使用与贡献说明。逐轮开发计划、调研和验收记录另行归档，不作为使用前置材料。

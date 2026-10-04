@@ -1,4 +1,4 @@
-/* A 静序: layout and dimensions from docs/ui/prototype.html, with real data controls. */
+/* 静序 layout, adapted from the original project prototype; current constraints: docs/ARCHITECTURE.md. */
 :root{font-family:'PingFang SC','Hiragino Sans GB',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
 .ui-icon{width:16px;height:16px;flex-shrink:0;display:block}
 button{border-radius:6px;font-weight:400}.primary{font-weight:600}.shell{grid-template-columns:216px minmax(0,1fr)}

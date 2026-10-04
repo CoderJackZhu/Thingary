@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { percentText, previewResaleRate } from '../src/resale.ts';
 
-// 与 docs/ui/U19_RESALE_RATE_DESIGN.md §7 及 Rust 测试同一份虚构样例（单位：分）。
+// 与 Rust 测试同一份虚构样例，业务口径见 docs/PRODUCT_RULES.md（单位：分）。
 const rec = (name, price, sale, over = {}) => ({
   deleted: false,
   asset: { id: `id-${name}`, name, price_cents: price },

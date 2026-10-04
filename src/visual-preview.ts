@@ -150,7 +150,7 @@ if (params.has('tag-fixture')) {
     for (let i = 131; i <= 150; i++) records.push(tagFixtureRecord(`tag-n${String(i).padStart(3, '0')}`, `已售${String(i).padStart(3, '0')}`, String(i * 10000), 'sold', [], String(i * 8000)));
   }
 }
-// U19 预览夹具：docs/ui/U19_RESALE_RATE_DESIGN.md §7 的虚构样例，只加入内存；?resale-fixture=skipped 只留不可计算的售出物品。
+// U19 预览夹具：售出保值率虚构样例（口径见 docs/PRODUCT_RULES.md），只加入内存；?resale-fixture=skipped 只留不可计算的售出物品。
 if (params.has('resale-fixture')) {
   const skippedOnly = params.get('resale-fixture') === 'skipped';
   records = records.filter(r => r.lifecycle?.state !== 'sold');
