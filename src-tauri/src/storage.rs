@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 20;
+pub const SCHEMA_VERSION: i64 = 21;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -651,6 +651,13 @@ PRAGMA user_version=14;")?;
         tx.execute_batch("PRAGMA user_version=20;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 20;
+    }
+    if v == 20 && target >= 21 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("subscriptions.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -839,7 +846,7 @@ mod taxonomy_migration_tests {
         assert_eq!(
             c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
                 .unwrap(),
-            20
+            SCHEMA_VERSION
         );
     }
     #[test]

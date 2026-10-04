@@ -32,6 +32,7 @@ fn fields(name: &str, kind: &str) -> Fields {
 fn save(s: &mut Store, old: Option<&VirtualAsset>, f: Fields) -> Result<VirtualAsset, Error> {
     s.virtual_save(
         &Save {
+            plan: None,
             request_id: rid(),
             generation: s.generation(),
             id: old.map(|v| v.id.clone()),
@@ -49,6 +50,8 @@ fn plan(s: &mut Store, name: &str, interval: u32, first: &str) -> Plan {
             id: None,
             expected_revision: None,
             fields: PlanFields {
+                service_start: None,
+                coverage_start: None,
                 name: name.into(),
                 category: "subscription".into(),
                 amount_cents: "2500".into(),
@@ -278,7 +281,10 @@ fn one_time_prices_reach_expenses_timeline_and_backups() {
     drop(a);
     let mut b = Store::open(&dir.path().join("b")).unwrap();
     let summary = b.inspect_backup(&file).unwrap();
-    assert_eq!((summary.schema, summary.virtual_assets), (20, 2));
+    assert_eq!(
+        (summary.schema, summary.virtual_assets),
+        (thingary_lib::storage::SCHEMA_VERSION as u32, 2)
+    );
     b.restore(&file, &summary.hash, &b.generation()).unwrap();
     assert_eq!(b.virtual_overview(T).unwrap().items.len(), 2);
 }

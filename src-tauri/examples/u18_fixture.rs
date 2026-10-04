@@ -126,6 +126,8 @@ fn create_plan(
             id: None,
             expected_revision: None,
             fields: PlanFields {
+                service_start: None,
+                coverage_start: None,
                 name: name.into(),
                 category: "insurance".into(),
                 amount_cents: amount.into(),

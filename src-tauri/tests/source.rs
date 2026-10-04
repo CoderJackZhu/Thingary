@@ -96,6 +96,8 @@ fn plan(s: &mut Store, name: &str, first: &str) -> Plan {
             id: None,
             expected_revision: None,
             fields: PlanFields {
+                service_start: None,
+                coverage_start: None,
                 name: name.into(),
                 category: "subscription".into(),
                 amount_cents: "12000".into(),
@@ -153,6 +155,7 @@ fn virtual_fields(name: &str, plan_id: Option<&str>) -> virtual_assets::Fields {
 fn virtual_save(s: &mut Store, fields: virtual_assets::Fields) -> virtual_assets::VirtualAsset {
     s.virtual_save(
         &virtual_assets::Save {
+            plan: None,
             request_id: rid(),
             generation: s.generation(),
             id: None,

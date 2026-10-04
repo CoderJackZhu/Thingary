@@ -1428,6 +1428,18 @@ pub async fn recurring_payment_save(
     .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn recurring_payment_range_save(
+    input: crate::recurring::PaymentRangeSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.recurring_payment_range_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
 pub async fn virtual_overview(
     worker: tauri::State<'_, Worker>,
 ) -> Result<crate::virtual_assets::Overview> {

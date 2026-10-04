@@ -1,9 +1,9 @@
 //! Virtual assets (ADR-001 §21): software licenses, domains and subscriptions.
 //! Status and validity are derived on read (X-D14). A linked recurring plan is
-//! the only source of cost and validity for that item (X-D15).
+//! the source of confirmed cost, service arrangement and paid coverage.
 use crate::{
     domain::{cents, date, Error, Result},
-    recurring::{nth, receipt},
+    recurring::{enrich_plan, nth, plan, receipt, save_plan, Plan, PlanFields},
     storage::{digest, uid, Store},
 };
 use chrono::{Duration, NaiveDate};
@@ -35,7 +35,16 @@ pub struct Fields {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LinkedPlanSave {
+    pub id: Option<String>,
+    pub expected_revision: Option<i64>,
+    pub fields: PlanFields,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Save {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<LinkedPlanSave>,
     pub request_id: String,
     pub generation: String,
     pub id: Option<String>,
@@ -45,6 +54,8 @@ pub struct Save {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct VirtualAsset {
+    pub paid_until: Option<String>,
+    pub plan: Option<Plan>,
     pub id: String,
     pub fields: Fields,
     pub revision: i64,
@@ -53,7 +64,8 @@ pub struct VirtualAsset {
     /// Linked plan is in Recently Deleted: no validity or cost from it.
     pub plan_deleted: bool,
     pub valid_until: Option<String>,
-    /// `stopped`, `perpetual`, `unknown`, `expired`, `expiring` or `active`.
+    /// `stopped`, `perpetual`, `unknown`, `expired`, `expiring`, `active`,
+    /// `ongoing` or `paused`.
     pub status: String,
     /// Confirmed spending; `None` when the price is unknown.
     pub spent_cents: Option<String>,
@@ -164,8 +176,10 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Row> {
             plan_name: r.get(12)?,
             plan_deleted: r.get::<_, Option<bool>>(13)?.unwrap_or(false),
             valid_until: None,
+            paid_until: None,
             status: String::new(),
             spent_cents: None,
+            plan: None,
         },
         interval: r.get(14)?,
     })
@@ -178,24 +192,57 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
     if v.plan_deleted {
         v.plan_name = None;
     }
-    if let (Some(plan), Some(interval)) = (&linked, row.interval) {
-        let (last, sum): (Option<String>, Option<i64>) = c.query_row(
-            "SELECT max(due_date),sum(amount_cents) FROM plan_payments WHERE plan_id=?1 AND state='paid' AND deleted_at IS NULL",
-            [plan],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+    if let (Some(plan_id), Some(interval)) = (&linked, row.interval) {
+        let (last, covered, sum): (Option<String>, Option<String>, Option<i64>) = c.query_row(
+            "SELECT max(due_date),max(coverage_end),sum(amount_cents) FROM plan_payments WHERE plan_id=?1 AND state='paid' AND deleted_at IS NULL",
+            [plan_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )?;
-        v.valid_until = last
-            .map(|d| -> Result<String> {
+        v.valid_until = if covered.is_some() {
+            covered
+        } else {
+            last.map(|d| -> Result<String> {
                 let end = nth(date(&d)?, interval, 1)
                     .and_then(|x| x.pred_opt())
                     .ok_or_else(|| Error::new("DATE", "日期超出范围"))?;
                 Ok(end.format("%Y-%m-%d").to_string())
             })
-            .transpose()?;
+            .transpose()?
+        };
+        v.paid_until = v.valid_until.clone();
+        v.plan = plan(c, plan_id)?;
+        if let Some(p) = &mut v.plan {
+            let today = today.to_string();
+            let overview_next = crate::recurring::schedule(
+                &p.fields,
+                date(&today)?.max(date(&p.active_from)?),
+                nth(date(&today)?, 12, 1).unwrap_or(date(&today)?),
+            )?;
+            p.next_due = None;
+            if !p.fields.paused {
+                for due in overview_next {
+                    let recorded: bool = c.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM plan_payments WHERE plan_id=?1 AND due_date=?2 AND deleted_at IS NULL)",
+                        params![p.id, due.to_string()],
+                        |r| r.get(0),
+                    )?;
+                    if !recorded {
+                        p.next_due = Some(due.to_string());
+                        break;
+                    }
+                }
+            }
+            enrich_plan(c, p, &today)?;
+        }
         v.spent_cents = Some(sum.unwrap_or(0).to_string());
     } else if v.fields.plan_id.is_none() {
         v.valid_until = v.fields.expires.clone();
         v.spent_cents = v.fields.price_cents.clone();
+    }
+    if let Some(p) = &v.plan {
+        if p.fields.service_start.is_some() && p.fields.end_date.is_some() {
+            v.valid_until = p.fields.end_date.clone();
+        }
     }
     let window = if linked.is_some() {
         LINKED_EXPIRING_DAYS
@@ -209,6 +256,25 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
     v.status = match (&v.fields.stopped_on, &v.valid_until) {
         (Some(_), _) => "stopped",
         (None, None) if v.fields.kind == "license" && v.fields.plan_id.is_none() => "perpetual",
+        (None, _)
+            if v.plan.as_ref().is_some_and(|p| {
+                p.fields.service_start.is_some() && !p.fields.paused && p.fields.end_date.is_none()
+            }) =>
+        {
+            "ongoing"
+        }
+        (None, _)
+            if v.plan.as_ref().is_some_and(|p| {
+                p.fields.service_start.is_some()
+                    && p.fields.paused
+                    && p.fields
+                        .end_date
+                        .as_deref()
+                        .is_none_or(|e| e >= now.as_str())
+            }) =>
+        {
+            "paused"
+        }
         (None, None) => "unknown",
         (None, Some(u)) if *u < now => "expired",
         (None, Some(u)) if *u <= soon => "expiring",
@@ -242,8 +308,7 @@ impl Store {
         if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
             return one(&tx, &id);
         }
-        let f = &input.fields;
-        let price = validate(f, today)?;
+        let mut fields = input.fields.clone();
         let old = input.id.as_deref().map(|id| one(&tx, id)).transpose()?;
         if old.as_ref().map(|v| v.revision) != input.expected_revision {
             return Err(Error::new(
@@ -252,23 +317,56 @@ impl Store {
             ));
         }
         let id = input.id.clone().unwrap_or_else(uid);
-        if let Some(plan) = &f.plan_id {
+        if let Some(p) = &input.plan {
+            if fields.kind != "subscription"
+                || p.fields.category != "subscription"
+                || p.fields.service_start.is_none()
+            {
+                return Err(Error::new("VIRTUAL_PLAN", "订阅计划需要开始使用日期"));
+            }
+            if let Some(pid) = &p.id {
+                if old.as_ref().and_then(|o| o.fields.plan_id.as_ref()) != Some(pid)
+                    && fields.plan_id.as_ref() != Some(pid)
+                {
+                    return Err(Error::new("VIRTUAL_PLAN", "关联的计划已经变化"));
+                }
+                let taken: bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM virtual_assets WHERE plan_id=?1 AND id!=?2 AND deleted_at IS NULL)",params![pid,id],|r|r.get(0))?;
+                if taken {
+                    return Err(Error::new("VIRTUAL_PLAN_TAKEN", "此计划已关联其他虚拟资产"));
+                }
+            }
+            let pid = p.id.clone().unwrap_or_else(uid);
+            save_plan(
+                &tx,
+                &pid,
+                p.expected_revision,
+                &p.fields,
+                p.id.is_some(),
+                today,
+            )?;
+            fields.plan_id = Some(pid);
+            fields.price_cents = None;
+            fields.expires = None;
+        }
+        let f = &fields;
+        let price = validate(f, today)?;
+        if let Some(plan_id) = &f.plan_id {
             let live: bool = tx.query_row(
                 "SELECT EXISTS(SELECT 1 FROM recurring_plans WHERE id=?1 AND deleted_at IS NULL)",
-                [plan],
+                [plan_id],
                 |r| r.get(0),
             )?;
             // A link to a plan now in Recently Deleted may stay as it was.
             let kept = old
                 .as_ref()
-                .is_some_and(|o| o.fields.plan_id.as_ref() == Some(plan));
+                .is_some_and(|o| o.fields.plan_id.as_ref() == Some(plan_id));
             if !live && !kept {
                 return Err(Error::new("VIRTUAL_PLAN", "找不到这项周期计划"));
             }
             let taken: Option<String> = tx
                 .query_row(
                     "SELECT name FROM virtual_assets WHERE plan_id=?1 AND id!=?2 AND deleted_at IS NULL",
-                    params![plan, id],
+                    params![plan_id, id],
                     |r| r.get(0),
                 )
                 .optional()?;
@@ -306,6 +404,7 @@ impl Store {
         let result = one(&tx, &id)?;
         self.hit("virtual.before_commit")?;
         tx.commit()?;
+        self.hit("virtual.after_commit")?;
         Ok(result)
     }
 

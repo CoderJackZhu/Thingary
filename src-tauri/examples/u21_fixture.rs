@@ -160,6 +160,8 @@ fn main() {
                 id: None,
                 expected_revision: None,
                 fields: PlanFields {
+                    service_start: None,
+                    coverage_start: None,
                     name: name.into(),
                     category: "rent".into(),
                     amount_cents: amount.into(),

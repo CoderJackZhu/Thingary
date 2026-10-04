@@ -7,13 +7,15 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
-import { CentInput, FormRow, Info, Segments, Switch } from './FormControls';
+import { CentInput, FormRow, Info, Segments } from './FormControls';
 import { Icon } from './AssetViews';
 import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
-import { intervals, intervalText, planStatus, recurringCategories, recurringCategoryText } from './recurring';
-import type { Due, Overview, Payment, PaymentSave, Plan, PlanFields, PlanSave } from './recurring';
+import { intervalText, planStatus, recurringCategories, recurringCategoryText } from './recurring';
+import type { Due, Overview, Payment, PaymentSave, Plan, PlanFields, PlanSave, PaymentRangeSave } from './recurring';
 import './wealth.css';
+import { PlanFieldsForm } from './PlanFieldsForm';
+import { blankPlan, periodLabel, scheduleDates } from './recurring-model';
 import { useRestored } from './undo';
 
 type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; plan_amount: string; record: Payment | null };
@@ -87,26 +89,26 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
           <article><span>待确认</span><strong>{data.due.length}<small> 期</small></strong><em>{data.upcoming.length ? `另有 ${data.upcoming.length} 期 7 天内到期` : '7 天内没有到期'}</em></article>
           <article><span>当前年化负担</span><strong>{money(data.annual_cents)}</strong><em>进行中的计划，不是已付</em></article>
           <article><span>月均</span><strong>{money(data.monthly_cents)}</strong><em>年化 ÷ 12</em></article>
-          <article><span>未来 12 个月预计</span><strong>{money(data.next12_cents)}</strong><em>按实际到期日，含结束与暂停</em></article>
+          <article><span>未来 12 个月预计</span><strong>{money(data.next12_cents)}</strong><em>按付款日与服务覆盖期，含结束与暂停</em></article>
         </div>
-        {(data.due.length > 0 || data.upcoming.length > 0) && <article className="ui-card ui-content"><div className="ui-section-head"><h3>到期</h3><span>确认已付后才计入重要支出<Info text="计划只代表以后；到期不会自动记成已付，需逐期确认。"/></span></div>
-          <table className="ui-table recurring-due"><thead><tr><th>到期日</th><th>计划</th><th>分类</th><th>计划金额</th><th/></tr></thead><tbody>
+        {(data.due.length > 0 || data.upcoming.length > 0) && <article className="ui-card ui-content"><div className="ui-section-head"><h3>到期</h3><span>确认已付后才计入重要支出<Info text="计划代表付款安排，不代表已付。历史范围可在计划中补记。"/></span></div>
+          <table className="ui-table recurring-due"><thead><tr><th>到期日</th><th>计划与覆盖期</th><th>分类</th><th>计划金额</th><th/></tr></thead><tbody>
             {[...data.due.map(d => [d, true] as const), ...data.upcoming.map(d => [d, false] as const)].map(([d, overdue], index) => <tr key={d.plan_id + d.due_date} data-overdue={overdue}>
-              <td>{d.due_date}{overdue ? <small className="muted"> 待确认</small> : <small className="muted"> 即将到期</small>}</td><td>{d.plan_name}</td><td>{recurringCategoryText(d.category)}</td><td className="amount">{money(d.amount_cents)}</td>
+              <td>{d.due_date}{overdue ? <small className="muted"> 待确认</small> : <small className="muted"> 即将到期</small>}</td><td>{d.plan_name}{d.coverage_start && <small className="muted">服务：{periodLabel(d.coverage_start,d.coverage_end)}</small>}</td><td>{recurringCategoryText(d.category)}</td><td className="amount">{money(d.amount_cents)}</td>
               <td><div className="check-in-state"><button className={overdue&&index===0?"primary":undefined} disabled={!!pending} onClick={() => setPaying(target(d))}>确认已付</button><SkipButton disabled={!!pending} onSkip={() => void skip(d)}/></div></td>
             </tr>)}
           </tbody></table></article>}
         <div className="segmented recurring-tabs" role="group" aria-label="计划与付款记录"><button aria-pressed={tab === 'plans'} onClick={() => setTab('plans')}>计划 {data.plans.length}</button><button aria-pressed={tab === 'payments'} onClick={() => setTab('payments')}>付款记录 {data.payments.length}</button></div>
         {tab === 'plans' && <article className="ui-card ui-content"><div className="ui-section-head"><h3>计划</h3><span>{keyword ? `找到 ${shownPlans.length} 条 · ` : ''}点名称编辑；改金额或周期只影响尚未记录的期</span></div>
-          {!shownPlans.length ? <p className="muted">当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></p> : <table className="ui-table"><thead><tr><th>名称</th><th>分类</th><th>周期</th><th>每期金额</th><th>下次</th><th>状态</th></tr></thead><tbody>
+          {!shownPlans.length ? <p className="muted">当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></p> : <table className="ui-table"><thead><tr><th>名称</th><th>分类</th><th>周期</th><th>每期金额</th><th>下次付款</th><th>状态与费用</th></tr></thead><tbody>
             {shownPlans.map(p => <tr key={p.id} className={p.fields.paused || (p.fields.end_date && p.fields.end_date < today) ? 'closed' : undefined}>
               <td><button className="link-cell" onClick={() => setEditing(p)}>{p.fields.name}</button></td><td>{recurringCategoryText(p.fields.category)}</td><td>{intervalText(p.fields.interval_months)}</td>
-              <td className="amount">{money(p.fields.amount_cents)}</td><td>{p.fields.paused ? '—' : p.next_due ?? '—'}</td><td>{planStatus(p, today)}</td></tr>)}
+              <td className="amount">{money(p.fields.amount_cents)}</td><td>{p.fields.paused ? '—' : p.next_due ?? '—'}{p.next_coverage && <small className="muted">服务：{periodLabel(...p.next_coverage)}</small>}</td><td>{planStatus(p, today)}{p.monthly_cents && <small className="muted">月均 {money(p.monthly_cents)} · 已确认 {money(p.paid_cents ?? '0')}</small>}{p.contract_cents && <small className="muted">租期／期限预计 {money(p.contract_cents)}</small>}{p.estimated_cents && <small className="muted">累计估算 {money(p.estimated_cents)}（按价格记录估算）</small>}</td></tr>)}
           </tbody></table>}</article>}
         {tab === 'payments' && (!data.payments.length ? <p className="muted">还没有付款记录。到期后点「确认已付」或「本期不付」就会记在这里。</p> : <article className="ui-card ui-content"><div className="ui-section-head"><h3>付款记录</h3><span>点期次更正；实付金额可与计划不同</span></div>
           <table className="ui-table recurring-payments"><thead><tr><th>期次</th><th>计划</th><th>状态</th><th>实付日期</th><th>实付金额</th></tr></thead><tbody>
             {data.payments.map(p => <tr key={p.id} className={p.state === 'skipped' ? 'closed' : undefined}>
-              <td><button className="link-cell" onClick={() => { const plan = data.plans.find(x => x.id === p.plan_id); setPaying({ plan_id: p.plan_id, plan_name: p.plan_name, due_date: p.due_date, plan_amount: plan?.fields.amount_cents ?? '', record: p }); }}>{p.due_date}</button>{p.off_schedule && <small className="muted"> 计划外</small>}</td>
+              <td><button className="link-cell" onClick={() => { const plan = data.plans.find(x => x.id === p.plan_id); setPaying({ plan_id: p.plan_id, plan_name: p.plan_name, due_date: p.due_date, plan_amount: plan?.fields.amount_cents ?? '', record: p }); }}>{p.due_date}</button>{p.coverage_start && <small className="muted">服务：{periodLabel(p.coverage_start,p.coverage_end)}</small>}{p.off_schedule && <small className="muted"> 计划外</small>}</td>
               <td>{p.plan_name}</td><td>{p.state === 'paid' ? '已付' : '本期不付'}</td><td>{p.paid_date ?? '—'}</td><td className="amount">{p.amount_cents === null ? '—' : money(p.amount_cents)}</td></tr>)}
           </tbody></table></article>)}
       </>}
@@ -120,7 +122,7 @@ function SkipButton({ disabled, onSkip }: { disabled: boolean; onSkip: () => voi
   return armed ? <button className="danger" disabled={disabled} onClick={() => { setArmed(false); onSkip(); }}>确认不付</button> : <button disabled={disabled} onClick={() => setArmed(true)}>本期不付</button>;
 }
 
-const blankPlan = (today: string): PlanFields => ({ name: '', category: 'subscription', amount_cents: '', interval_months: 1, first_due: today, end_date: null, paused: false, notes: '' });
+
 
 function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; generation: string; today: string; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -144,12 +146,10 @@ function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; g
     <section className="form-block">
       <FormRow label="名称"><input id="plan-name" aria-label="计划名称" maxLength={80} value={f.name} disabled={frozen} onChange={e => set('name', e.target.value)} placeholder="例如 房租、视频会员"/></FormRow>
       <FormRow label="分类"><select aria-label="分类" value={f.category} disabled={frozen} onChange={e => set('category', e.target.value)}>{recurringCategories.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></FormRow>
-      <FormRow label="每期金额"><CentInput label="每期金额" value={f.amount_cents} disabled={frozen} placeholder="0.00" onChange={v => set('amount_cents', v)}/></FormRow>
-      <FormRow label="周期"><Segments label="周期" value={String(f.interval_months) as '1' | '3' | '6' | '12'} disabled={frozen} options={intervals.map(([k, l]) => ({ value: String(k) as '1' | '3' | '6' | '12', label: l }))} onChange={v => set('interval_months', Number(v))}/></FormRow>
-      <FormRow label="首次付款日" hint="通常填下一次付款日；更早的日期会把之后各期列为待确认"><DateInput id="plan-first-due" value={f.first_due} disabled={frozen} onChange={v => v && set('first_due', v)}/></FormRow>
-      <FormRow label="结束日期" hint="到期不再续费时填写；可留空"><DateInput id="plan-end" value={f.end_date ?? ''} min={f.first_due} allowClear disabled={frozen} onChange={v => set('end_date', v || null)}/></FormRow>
-      {plan && <FormRow label="暂停" hint="暂停期间不提示；恢复后从当天起算，不补暂停期间"><Switch label="暂停" value={f.paused} disabled={frozen} onChange={v => set('paused', v)}/></FormRow>}
+      <PlanFieldsForm fields={f} onChange={setF} disabled={frozen} today={today} editing={!!plan}/>
+
     </section>
+    {plan && !stuck && <PaymentRangeForm plan={plan} generation={generation} today={today} disabled={busy} onBusyChange={setBusy} onSaved={() => onClose(true)} onError={(m, unresolved) => {setNotice(m); setStuck(unresolved);}}/>}
     <section className="form-block form-notes"><label htmlFor="plan-notes">备注</label><textarea id="plan-notes" maxLength={10000} value={f.notes} disabled={frozen} onChange={e => set('notes', e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}
   </form></dialog>;
@@ -183,4 +183,20 @@ function PaymentDialog({ target, generation, today, onClose }: { target: Payment
     <section className="form-block form-notes"><label htmlFor="payment-notes">备注</label><textarea id="payment-notes" maxLength={10000} value={notes} disabled={frozen} onChange={e => setNotes(e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}
   </form></dialog>;
+}
+
+function PaymentRangeForm({ plan, generation, today, disabled, onBusyChange, onSaved, onError }: { plan: Plan; generation: string; today: string; disabled: boolean; onBusyChange: (busy: boolean) => void; onSaved: () => void; onError: (message: string, unresolved: boolean) => void }) {
+  const dates = scheduleDates(plan.fields, plan.fields.service_start ? '1900-01-01' : plan.fields.first_due, today).slice(-600);
+  const [from, setFrom] = useState(dates[0] ?? ''), [to, setTo] = useState(dates.at(-1) ?? '');
+  const [amount, setAmount] = useState(plan.fields.amount_cents), [confirmed, setConfirmed] = useState(false), [saving, setSaving] = useState(false);
+  const count = dates.filter(d => d >= from && d <= to).length;
+  async function saveRange() {
+    if (!confirmed || !count || !amount || amount === '0') {onError('请选择有效范围、填写每期实付，并明确确认已付。',false);return;}
+    const input: PaymentRangeSave = {request_id:crypto.randomUUID(),generation,plan_id:plan.id,expected_revision:plan.revision,from_due:from,to_due:to,amount_cents:amount,confirmed};
+    setSaving(true); onBusyChange(true);
+    try { await submit({command:'recurring_payment_range_save',input,label:`${plan.fields.name} 往期付款补记`}); onSaved(); }
+    catch(e) {onError(e instanceof Error ? e.message : errorMessage(e),e instanceof Unresolved);}
+    finally {setSaving(false); onBusyChange(false);}
+  }
+  return <details className="form-block plan-backfill"><summary>补记往期实际付款</summary><p className="muted small">可选操作。仅补尚未记录的期，不覆盖已付或跳过记录。按每期付款日记实付日期；若日期或金额不同，请保存后单独更正。请先保存对计划的修改。</p>{!dates.length ? <p className="muted">还没有可补记的往期。</p> : <><FormRow label="从哪一期"><select aria-label="补记开始期" value={from} disabled={disabled||saving} onChange={e=>setFrom(e.target.value)}>{dates.map(d=><option key={d}>{d}</option>)}</select></FormRow><FormRow label="到哪一期"><select aria-label="补记结束期" value={to} disabled={disabled||saving} onChange={e=>setTo(e.target.value)}>{dates.filter(d=>d>=from).map(d=><option key={d}>{d}</option>)}</select></FormRow><FormRow label="每期实付"><CentInput label="每期实付" value={amount} disabled={disabled||saving} onChange={setAmount}/></FormRow><label className="small"><input type="checkbox" checked={confirmed} disabled={disabled||saving} onChange={e=>setConfirmed(e.target.checked)}/>我确认所选范围确实已付，每期金额如上</label><p className="muted small">所选 {count} 期；已有记录将跳过。此次补记会计入重要支出。</p><button type="button" disabled={disabled||saving||!confirmed||!count} onClick={()=>void saveRange()}>{saving?'正在补记…':'确认补记付款'}</button></>}</details>;
 }

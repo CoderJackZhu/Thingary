@@ -8,6 +8,8 @@ fn rid() -> String {
 }
 fn fields(name: &str, amount: &str, interval: u32, first: &str) -> PlanFields {
     PlanFields {
+        service_start: None,
+        coverage_start: None,
         name: name.into(),
         category: "subscription".into(),
         amount_cents: amount.into(),
@@ -203,6 +205,8 @@ fn input_rules() {
         (fields("x", "1", 2, "2026-10-01"), "PLAN_INTERVAL"),
         (
             PlanFields {
+                service_start: None,
+                coverage_start: None,
                 category: "food".into(),
                 ..fields("x", "1", 1, "2026-10-01")
             },
@@ -349,7 +353,7 @@ fn backups_carry_plans_and_schema_sixteen_backups_migrate() {
     let summary = b.inspect_backup(&file).unwrap();
     assert_eq!(
         (summary.schema, summary.plans, summary.payments),
-        (20, 1, 1)
+        (thingary_lib::storage::SCHEMA_VERSION as u32, 1, 1)
     );
     b.restore(&file, &summary.hash, &b.generation()).unwrap();
     assert_eq!(

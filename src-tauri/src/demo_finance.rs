@@ -231,6 +231,8 @@ fn import_plans(s: &mut Store, data: Vec<Plan>, now: NaiveDate, today: &str) -> 
                 id: None,
                 expected_revision: None,
                 fields: crate::recurring::PlanFields {
+                    service_start: None,
+                    coverage_start: None,
                     name: p.name,
                     category: p.category,
                     amount_cents: p.amount_cents.clone(),
@@ -300,6 +302,7 @@ pub(crate) fn import_virtual(s: &mut Store, today: &str) -> Result<()> {
         }
         s.virtual_save(
             &crate::virtual_assets::Save {
+                plan: None,
                 request_id,
                 generation: s.generation(),
                 id: None,

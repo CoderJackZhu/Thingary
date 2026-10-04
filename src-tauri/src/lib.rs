@@ -182,6 +182,7 @@ pub fn run() {
             commands::recurring_overview,
             commands::recurring_plan_save,
             commands::recurring_payment_save,
+            commands::recurring_payment_range_save,
             commands::virtual_overview,
             commands::virtual_save,
             commands::open_notification_settings,
