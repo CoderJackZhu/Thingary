@@ -41,7 +41,7 @@
 
 ## 下载与开始使用
 
-**[下载页面：GitHub Releases](https://github.com/CoderJackZhu/Thingary/releases) · [图文使用说明](docs/USER_GUIDE.md#download)**
+**[下载物谱 2.6.1（Apple Silicon Mac）](https://github.com/CoderJackZhu/Thingary/releases/download/v2.6.1/Thingary-2.6.1-arm64.dmg) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v2.6.1) · [图文使用说明](docs/USER_GUIDE.md#download)**
 
 选择版本附件中的 `Thingary-<版本>-arm64.dmg`；自动生成的 Source code 是源码，不是安装包。首发仅 Apple Silicon Mac。若当前版本尚无 DMG 附件，请等待安装包发布。
 

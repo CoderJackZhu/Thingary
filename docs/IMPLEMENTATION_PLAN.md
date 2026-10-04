@@ -2,20 +2,20 @@
 
 <a id="public-distribution"></a>
 
-## 首发交付材料（2026-10-04，已准备私有草稿，待公开确认）
+## 首发交付材料（2026-10-04，2.6.1 已公开发布）
 
 用户确认补齐 DMG、首个 Release、普通用户图文入门、常见问题、许可材料与安装走查。首发沿用无 Developer ID／未公证的既定路线；只提供 Apple Silicon macOS 包，不扩展产品功能。
 
 | 阶段 | 产物 | 状态 |
 |---|---|---|
 | 文档 | README 下载入口；唯一完整 USER_GUIDE 的安装、入门、更新与 FAQ；修正现行发布清单 | 完成；图文与入口核对通过 |
-| 分发 | DMG、校验文件、离线说明、许可证文本、对应源码与 Release 说明 | 完成；`v2.6.1` 私有草稿已上传两个附件，回下载逐字节一致 |
+| 分发 | DMG、校验文件、离线说明、许可证文本、对应源码与 Release 说明 | 完成；`v2.6.1` 已发布，两个附件授权及匿名回下载均逐字节一致 |
 | 核验 | 包身份／签名／文件比对、虚构资料入门走查、已验和未验边界 | 完成；含备份恢复与重启，详见验证记录 |
-| 公开 | 仓库可见性、首个公开 Release 与私密漏洞报告 | 待最终公开确认；不将私有草稿写成已发布 |
+| 公开 | 仓库可见性、首个公开 Release 与私密漏洞报告 | 完成；仓库 PUBLIC、Release 非草稿、漏洞私密报告已开启 |
 
 正式应用与真实库不启动、不打开、不写入；工作区中无关文件与根 `.gitignore` 保留。
 
-产物与检查见[首发交付验证](verification/FIRST_PUBLIC_RELEASE_20261004_RESULT.md)；对外正文见[2.6.1 Release 说明](releases/v2.6.1.md)。交付源码与标签为 `442d3ac`，其 GitHub CI `37183815932` 成功；完整历史公开、发布草稿与私密漏洞报告仍未执行。
+产物与检查见[首发交付验证](verification/FIRST_PUBLIC_RELEASE_20261004_RESULT.md)；对外正文见[2.6.1 Release 说明](releases/v2.6.1.md)。交付源码与标签为 `442d3ac`，其 GitHub CI `37183815932` 成功。已按本轮首发确认公开保留历史并发布 [v2.6.1](https://github.com/CoderJackZhu/Thingary/releases/tag/v2.6.1)；未验证边界不冒充通过。
 
 <a id="product-audit-fixes"></a>
 

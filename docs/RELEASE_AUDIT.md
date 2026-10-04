@@ -153,5 +153,5 @@ macOS 14 与 Intel Mac 没有实测，当前只在 Apple Silicon、macOS 27 上�
 
 - [x] U1 GitHub 仓库已由用户改名为 `Thingary`（2026-10-02），本地 `origin` 已由用户改为新地址
 - [x] U2a 推送到私有远程；CI 在 `main` 上连续通过（2026-10-02 最近 5 次均 success）；两个已合入的旧远程分支已删除，远程只剩 `main`（2026-10-03）
-- [ ] U2b 公开仓库、启用 Private vulnerability reporting、发布首个 Release。首发交付材料与核验完成后，按用户的公开授权执行；私有草稿不代表普通用户已可下载。当前状态以实施计划与交付验证为准。
+- [x] U2b 本轮首发任务确认后完成材料与核验，2026-10-04 已公开仓库、保留全部历史，启用 Private vulnerability reporting 并发布 [v2.6.1](https://github.com/CoderJackZhu/Thingary/releases/tag/v2.6.1)。DMG 与校验文件已上传，授权和匿名回下载均与本地一致；当前状态见实施计划与交付验证。
 - [ ] U3 本节 4.3 的手工检查：系统外观实时切换（AC09）与输入法组合中按 Esc（U12）已由代理在隔离包补做（2026-10-02，后者发现并修复一处缺陷，见 CHANGELOG）；VoiceOver、iCloud 额外备份位置、Numbers／Excel 打开 CSV 仍待你本人 `[用户]`

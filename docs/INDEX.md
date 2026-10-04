@@ -10,7 +10,7 @@
 
 - 自用正式版 **2.6.1**（中文名「物谱」英文名 Thingary，含 U20 账户变化与盘点比较、D30 产品定位与体验整理、D31 工程名统一与 D32 审查修复）已安装在 `/Applications/物谱.app`，安装时间 2026-10-03T14:45+08:00；身份为 `local.thingary.main`。回退副本保存在本机 `.local/install/`（含 2.6.0 同身份回退与 2.5.0 等旧版本，不入库）；2.5.0 及更早版本使用旧身份与旧资料目录，不能直接视为新版资料的回退。**正式库是真实资料，开发、测试和验收一律不得打开或写入。**
 - 本轮已确认问题修复（D32）验证通过，已按用户授权提交并安装 2.6.1；正式包身份、严格签名与逐文件一致性通过，未启动正式应用；范围与进度见[实施计划](IMPLEMENTATION_PLAN.md#product-audit-fixes)。
-- 首发材料和隔离入门走查已完成，`v2.6.1` 私有 Release 草稿已附 DMG 与校验文件、回读一致，对应源码 `442d3ac` 的 CI 成功；尚未公开仓库或发布草稿。范围与状态见[首发交付任务](IMPLEMENTATION_PLAN.md#public-distribution)。
+- 首发材料和隔离入门走查已完成，[v2.6.1](https://github.com/CoderJackZhu/Thingary/releases/tag/v2.6.1) 已公开发布，附 DMG 与校验文件、授权及匿名回读一致，对应源码 `442d3ac` 的 CI 成功；仓库公开、私密漏洞报告已开启。范围与状态见[首发交付任务](IMPLEMENTATION_PLAN.md#public-distribution)。
 - P0 闭环、A 财富盘点、B 重要支出、C 周期费用与虚拟资产、D 综合体验及 U 系列迭代均已交付。任务状态以[实施计划](IMPLEMENTATION_PLAN.md)为准，逐次变更见 [CHANGELOG](../CHANGELOG.md)。
 - 原生验收已补做大部分（见[原生验收补做](verification/NATIVE_ACCEPTANCE_20261001_RESULT.md)）；系统外观实时切换已在隔离包补做，VoiceOver 等剩余手工项目与发布前盘点结论见[发布前盘点](RELEASE_AUDIT.md)。
 - 名称：中文名「物谱」、英文名 Thingary，均已由用户确认（2026-10-02，产品设计 D26）；近似商标风险由用户知情承担，官方商标网复核未做，见[竞品调研第 14.3 节](COMPETITOR_RESEARCH.md#143-近似名分析与官方商标网复核2026-10-01第二次)。许可证 GPL-3.0（见 `LICENSE`）。公开发布清单见[发布前盘点第 10 节](RELEASE_AUDIT.md)。
@@ -38,7 +38,7 @@
 - [技术设计 ADR-001](decisions/001-local-desktop.md)：本地桌面架构、数据与图片一致性、最近删除、备份恢复协议与风险验证计划。
 - [实施计划](IMPLEMENTATION_PLAN.md)：任务拆分、依赖、验收归属、阶段出口；任务状态唯一入口。
 - [发布流程](RELEASING.md)：版本、DMG 与离线材料生成、许可证全文、包核验、Release 草稿与公开；首发采用本地临时签名、未公证路线。
-- [2.6.1 Release 正文](releases/v2.6.1.md)：对外版本说明；文件存在不代表已公开发布，状态见实施计划。
+- [2.6.1 Release 正文](releases/v2.6.1.md)：已发布版本的对外说明；安装包下载与后续发布状态见实施计划及 GitHub Releases。
 - [首发交付验证](verification/FIRST_PUBLIC_RELEASE_20261004_RESULT.md)：包与说明、隔离原生入门、已验／未验及 GitHub 交付状态。
 
 **验证记录**（`docs/verification/`，每项含自动检查、隔离原生结果与未验边界；2026-10-01 起只保留报告文本，截图与机器日志已移出工作树，见该目录的 README）

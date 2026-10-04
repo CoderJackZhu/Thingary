@@ -68,6 +68,8 @@
 
 - 交付提交 `442d3ac8fc54c9c1fd20b04e42974982fd192ef9` 已推送；注释标签 `v2.6.1` 指向该提交，应用源码、锁文件与配置和 `79b97c9` 无差异。
 - 标签提交的 GitHub CI `37183815932` 已全部成功；这是本轮提交实际运行的结果。后续只补交付状态记录，不改变对应源码或包内容。
-- [私有 Release 草稿](https://github.com/CoderJackZhu/Thingary/releases/tag/untagged-2dd28c4ed7af53266c21) 已创建，`tagName=v2.6.1`、`isDraft=true`，正文来自 `docs/releases/v2.6.1.md`。
+- 先创建私有 Release 草稿并核验，随后按本轮首发确认公开仓库并发布 [v2.6.1](https://github.com/CoderJackZhu/Thingary/releases/tag/v2.6.1)，`isDraft=false`、`isPrerelease=false`，发布时间 2026-10-04T07:06:02Z；正文来自 `docs/releases/v2.6.1.md`。
 - DMG 和 SHA256SUMS 两个附件为 uploaded；DMG 远程大小 10,578,898 字节、服务器 SHA-256 与本地相同。通过授权连接回下载两个附件，校验通过，与本地文件逐字节相同。回下载本身没有启动应用，不能算 Gatekeeper 首开验收。
-- 仓库仍为 PRIVATE；公开保留历史、发布草稿和启用私密漏洞报告尚未执行，等待最终公开确认。草稿不等于普通用户已能下载。
+- 发布后仓库为 PUBLIC，保留全部历史；Private vulnerability reporting 接口确认 `enabled=true`。
+- 不携带认证凭据匿名下载公开 DMG，SHA-256 与本地相同、逐字节一致；匿名 Release API 返回已发布版本与两个公开附件。公开下载已验证，未启动正式身份包，Gatekeeper 首开仍属未验边界。
+- 同版本源码归档的匿名请求重定向到 codeload，返回 HTTP 200、`Thingary-2.6.1.tar.gz`；Source code 对应已推送标签。
