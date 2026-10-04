@@ -4,7 +4,7 @@
 
 ## 1. 确认版本和范围
 
-当前公开版本是 **2.6.1、Apple Silicon Mac、本地临时签名、未公证**。后续发布先确定版本与支持范围；制作 DMG 本身不要求注册 Apple Developer。最低系统配置为 macOS 14，但只在 macOS 27 实测，不承诺其他系统或 Intel 可用。
+当前公开系列从 **0.1.0-beta.1、Apple Silicon Mac、本地临时签名、未公证** 开始；GitHub 必须标记为 Pre-release。后续发布先确定版本与支持范围；制作 DMG 本身不要求注册 Apple Developer。最低系统配置为 macOS 14，但只在 macOS 27 实测，不承诺其他系统或 Intel 可用。
 
 版本号保持一致：`package.json`、`package-lock.json`（开头两处）、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json`。发布配置不重复版本号，身份必须是 `local.thingary.main`，预览和验收身份不得作为正式安装包。
 
@@ -40,10 +40,10 @@ DMG 内含「物谱.app」、Applications 快捷方式、`开始使用.html`、�
 
 ## 4. Release 草稿与公开
 
-每次发布在 `docs/releases/v<版本>.md` 维护正文，现有示例为[2.6.1 发布说明](releases/v2.6.1.md)。先推送最终源代码提交，在该提交创建 `v<版本>` 标签和 **draft Release**，上传 DMG 与 SHA256SUMS；不要移动已经发布的标签或覆盖现有附件。自动生成的 Source code 归档应对应这个标签，保留锁文件、构建脚本、文档和依赖源码获取入口。
+每次发布在 `docs/releases/v<版本>.md` 维护正文，现有示例为[0.1.0-beta.1 发布说明](releases/v0.1.0-beta.1.md)。先推送最终源代码提交，在该提交创建 `v<版本>` 标签和 **draft Release**，上传 DMG 与 SHA256SUMS；带 beta 后缀的版本设置 Pre-release，README 直接链接对应版本，不能依赖只返回正式版的 latest 入口。不要移动已经发布的标签或覆盖现有附件。自动生成的 Source code 归档应对应这个标签，保留锁文件、构建脚本、文档和依赖源码获取入口。
 
 草稿不等于已公开。发布前核对源代码、完整许可材料和支持边界，确保 [Private vulnerability reporting](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository) 可用。取得本次发布授权后发布草稿，以未登录方式检查说明、附件和下载入口；不要把仅本机安装或只有源码附件写成“普通用户可下载”。把最终源码 SHA、标签、附件散列和验证边界登记到私有笔记。
 
-公开仓库保留历史，移出 main 的文件仍可从历史查看。发布从公开源码标签构建，不从私有笔记仓库打包；整理当前文档不会改变旧安装包内的离线说明。
+公开仓库保留历史，移出 main 的文件仍可从历史查看。发布从公开源码标签构建，不从私有笔记仓库打包；编号重排也必须以同版本源码重新构建，不能只改附件名；版本变化不重置资料身份、schema 或备份格式。已撤下的包、元数据和对应源码私有保全，不宣称能收回他人已下载的副本。
 
 若发现包错误，先隐藏或撤下有问题的发布，保留本地错误包和核验记录；修复后发布新补丁版本，不静默替换同版本附件。不要要求用户直接降级打开已经迁移的资料；说明恢复与旧版本兼容的升级前备份。

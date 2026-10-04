@@ -4,7 +4,7 @@
 
 [下载安装](#download) · [第一件物品](#first-record) · [第一次盘点](#first-snapshot) · [日常操作](#modules) · [备份与恢复](#backup) · [更新与换机](#update) · [常见问题](#faq) · [当前限制](#limits)
 
-安装包与版本说明见 [GitHub Releases](https://github.com/CoderJackZhu/Thingary/releases)。若某个版本没有 DMG 附件，说明该版本尚未提供安装包；维护者的本机安装状态不代表已公开发布。
+当前采用 **0.1.0-beta.1 公开测试版**，用于收集使用与兼容性反馈。安装包与版本说明见 [GitHub Releases](https://github.com/CoderJackZhu/Thingary/releases)。若某个版本没有 DMG 附件，说明该版本尚未提供安装包；维护者的本机安装状态不代表已公开发布。
 
 <a id="download"></a>
 
@@ -14,7 +14,7 @@
 
 首发面向 **Apple Silicon Mac**（M1、M2、M3 等 M 系列）。在  › 关于本机查看芯片：显示「芯片 Apple M…」才选 `arm64.dmg`。当前只在 macOS 27 验证，尚未实测 macOS 14 和 Intel Mac；暂不提供 Windows、Linux 或 Intel 安装包。
 
-1. 在 [Releases](https://github.com/CoderJackZhu/Thingary/releases) 打开最新发布版本。
+1. 在 [Releases](https://github.com/CoderJackZhu/Thingary/releases) 打开最新公开测试版（标有 Pre-release），当前为 `0.1.0-beta.1`。
 2. 在附件（Assets）中下载 `Thingary-<版本>-arm64.dmg`。`Source code.zip` 与 `Source code.tar.gz` 是源码，不是安装包。
 3. 双击下载好的 DMG，将「物谱」拖到同一窗口里的「Applications／应用程序」文件夹。
 4. 等待复制完成，在 Finder 的「应用程序」中双击「物谱」。安装后可推出 DMG；无需一直保留挂载窗口。不要直接从 DMG 运行应用。
@@ -234,11 +234,15 @@
 
 卸载旧应用不是更新的必需步骤。更新通常保留资料，但不要跳过备份；不要直接降级打开较新版本修改过的资料。确需回退时，使用与旧版本兼容的升级前备份，并保留现有资料。
 
+### 从此前 2.6.1 更换为公开测试系列
+
+此前 2.6.1 安装包已撤下，公开版本重新编号为 `0.1.0-beta.1`。这次是发布编号重排，应用资料身份、备份格式和数据库 schema 不变。**仍先做完整备份并异地保存**，退出旧应用，再按上面的安装更新步骤手动替换；核对资料后继续使用。当前没有自动更新，较低的公开版本号不是数据格式降级；以后真正降级仍须确认兼容性，不要据此假定所有旧版都可读新资料。
+
 <a id="legacy-upgrade"></a>
 
 ### 从 2.5.0 或更早的自用版本迁移
 
-**新用户不用做这一步。** 旧身份 `local.possio.main` 不会被 2.6.0 及以后自动读取，旧 `.possio` 备份也不再识别。曾用过旧自用版且有自己的资料时：
+**新用户不用做这一步。** 当前版本不会自动读取旧身份 `local.possio.main`，旧 `.possio` 备份也不再识别。曾用过旧自用版且有自己的资料时：
 
 1. 在旧版做完整备份，异地保存；退出旧版与新版应用。
 2. 在 Finder 的「前往 › 前往文件夹」输入 `~/Library/Application Support/`，把旧 `local.possio.main` 文件夹完整复制到安全位置，保留原始副本。

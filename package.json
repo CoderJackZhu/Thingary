@@ -3,7 +3,7 @@
   "private": true,
   "description": "物谱 Thingary：物品档案与净资产盘点，本地优先的 macOS 应用",
   "license": "GPL-3.0-or-later",
-  "version": "2.6.1",
+  "version": "0.1.0-beta.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
