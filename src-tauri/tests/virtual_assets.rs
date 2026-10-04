@@ -129,7 +129,7 @@ fn status_follows_dates_and_stop() {
     let sub = save(&mut s, None, fields("虚构云盘", "subscription")).unwrap();
     assert_eq!(
         (sub.status.as_str(), sub.spent_cents.clone()),
-        ("unknown", None)
+        ("ongoing", None)
     );
     // Stopping wins over any date and can be undone.
     let mut f = d.fields.clone();
@@ -170,7 +170,7 @@ fn linked_plan_is_the_only_source_of_validity_and_cost() {
     let v = save(&mut s, None, f.clone()).unwrap();
     assert_eq!(
         (v.status.as_str(), v.valid_until.clone()),
-        ("unknown", None)
+        ("ongoing", None)
     );
     assert_eq!(v.spent_cents.as_deref(), Some("0"));
     pay(&mut s, &p, "2026-07-31", "2500");
@@ -179,7 +179,7 @@ fn linked_plan_is_the_only_source_of_validity_and_cost() {
     assert_eq!(
         status(&s, &v.id),
         (
-            "expiring".into(),
+            "ongoing".into(),
             Some("2026-09-29".into()),
             Some("5300".into())
         )
@@ -287,4 +287,83 @@ fn one_time_prices_reach_expenses_timeline_and_backups() {
     );
     b.restore(&file, &summary.hash, &b.generation()).unwrap();
     assert_eq!(b.virtual_overview(T).unwrap().items.len(), 2);
+}
+
+#[test]
+fn legacy_continuing_subscriptions_keep_paid_facts_and_use_only_explicit_end_dates() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let p = plan(&mut s, "虚构旧 GPT", 1, "2026-07-31");
+    let mut f = fields("虚构旧 GPT", "subscription");
+    f.plan_id = Some(p.id.clone());
+    let v = save(&mut s, None, f).unwrap();
+    pay(&mut s, &p, "2026-07-31", "2400");
+    let before = s.recurring_overview(T).unwrap();
+    let future = s.virtual_overview("2028-01-01").unwrap();
+    let read = &future.items[0];
+    assert_eq!(read.status, "ongoing");
+    assert_eq!(read.paid_until.as_deref(), Some("2026-08-30"));
+    assert_eq!(read.spent_cents.as_deref(), Some("2400"));
+    assert_eq!(read.revision, v.revision);
+    let after = s.recurring_overview(T).unwrap();
+    assert_eq!(
+        serde_json::to_value(before).unwrap(),
+        serde_json::to_value(after).unwrap()
+    );
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "2400");
+
+    let mut f = p.fields.clone();
+    f.paused = true;
+    let paused = s
+        .recurring_plan_save(
+            &PlanSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: Some(p.id.clone()),
+                expected_revision: Some(p.revision),
+                fields: f.clone(),
+            },
+            T,
+        )
+        .unwrap();
+    assert_eq!(s.virtual_overview(T).unwrap().items[0].status, "paused");
+    f.paused = false;
+    f.end_date = Some("2026-10-31".into());
+    s.recurring_plan_save(
+        &PlanSave {
+            request_id: rid(),
+            generation: s.generation(),
+            id: Some(p.id),
+            expected_revision: Some(paused.revision),
+            fields: f,
+        },
+        T,
+    )
+    .unwrap();
+    let finite = s.virtual_overview("2026-10-04").unwrap().items.remove(0);
+    assert_eq!(finite.status, "active");
+    assert_eq!(finite.valid_until.as_deref(), Some("2026-10-31"));
+    assert_eq!(finite.paid_until.as_deref(), Some("2026-08-30"));
+    assert_eq!(
+        s.virtual_overview("2026-10-31").unwrap().items[0].status,
+        "expiring"
+    );
+    assert_eq!(
+        s.virtual_overview("2026-11-01").unwrap().items[0].status,
+        "expired"
+    );
+
+    let d = plan(&mut s, "虚构域名计划", 1, "2026-07-31");
+    let mut domain = fields("example.test", "domain");
+    domain.plan_id = Some(d.id.clone());
+    let dv = save(&mut s, None, domain).unwrap();
+    pay(&mut s, &d, "2026-07-31", "1000");
+    assert_eq!(status(&s, &dv.id).0, "expired");
+
+    let mut single = fields("虚构旧单次服务", "subscription");
+    single.price_cents = Some("12800".into());
+    let single = save(&mut s, None, single).unwrap();
+    assert_eq!(single.status, "ongoing");
+    assert_eq!(single.spent_cents.as_deref(), Some("12800"));
+    assert!(single.fields.plan_id.is_none());
 }

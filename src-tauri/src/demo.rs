@@ -434,7 +434,7 @@ mod unified_tests {
         assert_eq!(recurring.plans.len(), 4);
         let virtuals = s.virtual_overview(TODAY).unwrap();
         let states: Vec<_> = virtuals.items.iter().map(|v| v.status.as_str()).collect();
-        assert_eq!(states, ["expiring", "expiring", "perpetual", "stopped"]);
+        assert_eq!(states, ["expiring", "ongoing", "perpetual", "stopped"]);
         assert_eq!(virtuals.spent_cents, "267300");
         assert_eq!(recurring.payments.len(), 4);
         assert_eq!(recurring.annual_cents, "3756000");

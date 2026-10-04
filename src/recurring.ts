@@ -11,11 +11,19 @@ export type Overview = { generation: string; today: string; due: Due[]; upcoming
 export const intervals = [[1, '每月'], [3, '每季'], [6, '每半年'], [12, '每年']] as const;
 export const intervalText = (n: number) => intervals.find(([k]) => k === n)?.[1] ?? `每 ${n} 个月`;
 export const recurringCategoryText = (k: string) => recurringCategories.find(([c]) => c === k)?.[1] ?? '其他';
+/** Continuing subscriptions need no monthly attention badge; payment facts stay available. */
+export function isContinuousSubscription(f: Pick<PlanFields, 'category' | 'end_date'>) {
+  return f.category === 'subscription' && f.end_date === null;
+}
+export function paymentReminders(o: Pick<Overview, 'due' | 'upcoming'> & { plans?: Plan[] }) {
+  const quiet = new Set((o.plans ?? []).filter(p => isContinuousSubscription(p.fields)).map(p => p.id));
+  return { due: o.due.filter(d => !quiet.has(d.plan_id)), upcoming: o.upcoming.filter(d => !quiet.has(d.plan_id)) };
+}
 /** Plan status for the list: ended plans no longer have future periods. */
 export function planStatus(p: Plan, today: string) {
   if (p.fields.end_date && p.fields.end_date < today) return `已于 ${p.fields.end_date} 结束`;
   if (p.fields.paused) return '已暂停';
-  return p.fields.end_date ? `进行中，至 ${p.fields.end_date}` : '进行中';
+  return p.fields.end_date ? `进行中，至 ${p.fields.end_date}` : isContinuousSubscription(p.fields) ? '持续续费' : '进行中';
 }
 
 export type PaymentRangeSave = { request_id: string; generation: string; plan_id: string; expected_revision: number; from_due: string; to_due: string; amount_cents: string; confirmed: boolean };

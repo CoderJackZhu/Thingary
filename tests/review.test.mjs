@@ -36,3 +36,10 @@ test('default overview is combined; valid explicit preference survives', () => {
   for (const value of [null, '', 'invalid', 'combined']) assert.equal(overviewView(value), 'combined');
   assert.equal(overviewView('physical'), 'physical');
 });
+
+test('combined attention omits continuing subscriptions and retains finite and rent reminders',()=>{
+  const plans=[{id:'gpt',fields:{category:'subscription',end_date:null}},{id:'claude',fields:{category:'subscription',end_date:null}},{id:'finite',fields:{category:'subscription',end_date:'2026-10-31'}},{id:'rent',fields:{category:'rent',end_date:null}}];
+  const due=plans.map(p=>({plan_id:p.id,plan_name:p.id,due_date:'2026-10-04'}));
+  const groups=attention({...review,recurring:ok({plans,due,upcoming:[]}),virtual_assets:ok({items:[{id:'gpt-profile',fields:{name:'虚构 GPT',plan_id:'gpt'},status:'ongoing',valid_until:'2024-02-01'}]})});
+  assert.deepEqual(groups.map(g=>g.id),['plan:finite','plan:rent']);
+});

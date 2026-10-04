@@ -240,7 +240,9 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
         v.spent_cents = v.fields.price_cents.clone();
     }
     if let Some(p) = &v.plan {
-        if p.fields.service_start.is_some() && p.fields.end_date.is_some() {
+        if (p.fields.service_start.is_some() || v.fields.kind == "subscription")
+            && p.fields.end_date.is_some()
+        {
             v.valid_until = p.fields.end_date.clone();
         }
     }
@@ -256,16 +258,19 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
     v.status = match (&v.fields.stopped_on, &v.valid_until) {
         (Some(_), _) => "stopped",
         (None, None) if v.fields.kind == "license" && v.fields.plan_id.is_none() => "perpetual",
+        (None, None) if v.fields.kind == "subscription" && v.fields.plan_id.is_none() => "ongoing",
         (None, _)
             if v.plan.as_ref().is_some_and(|p| {
-                p.fields.service_start.is_some() && !p.fields.paused && p.fields.end_date.is_none()
+                (p.fields.service_start.is_some() || v.fields.kind == "subscription")
+                    && !p.fields.paused
+                    && p.fields.end_date.is_none()
             }) =>
         {
             "ongoing"
         }
         (None, _)
             if v.plan.as_ref().is_some_and(|p| {
-                p.fields.service_start.is_some()
+                (p.fields.service_start.is_some() || v.fields.kind == "subscription")
                     && p.fields.paused
                     && p.fields
                         .end_date

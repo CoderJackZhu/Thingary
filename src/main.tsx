@@ -52,6 +52,7 @@ import { StatsPage } from './Stats';
 import { WealthPage } from './WealthPage';
 import { ExpensesPage } from './ExpensesPage';
 import { RecurringPage } from './RecurringPage';
+import { paymentReminders, type Overview as RecurringOverview } from './recurring';
 import { VirtualPage } from './VirtualPage';
 import { DataManagement } from './DataManagement';
 import { DemoSettings } from './DemoSettings';
@@ -204,7 +205,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     let live = true;
     void invoke<{ all: number; active: number; covered: number; retired: number; sold: number }>('asset_counts').then(c => { if (live) setSideCounts(c); }).catch(() => { if (live) setSideCounts(null); });
     if (modules.wishlist) void invoke<{ ongoing_wishes: number }>('overview', { scope: 'held' }).then(o => { if (live) setSideWishes(o.ongoing_wishes); }).catch(() => { if (live) setSideWishes(null); });
-    if (modules.recurring) void invoke<{ due: unknown[] }>('recurring_overview').then(o => { if (live) setSideDue(o.due.length); }).catch(() => { if (live) setSideDue(0); });
+    if (modules.recurring) void invoke<RecurringOverview>('recurring_overview').then(o => { if (live) setSideDue(paymentReminders(o).due.length); }).catch(() => { if (live) setSideDue(0); });
     else setSideDue(0);
     return () => { live = false; };
   }, [page, trashVersion, section, modules.wishlist, modules.recurring]);

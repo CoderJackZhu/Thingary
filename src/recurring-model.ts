@@ -18,6 +18,12 @@ export function suggestCoverage(start: string, due: string, interval: number) {
 export function blankPlan(today: string): PlanFields {
   return { name: '', category: 'subscription', amount_cents: '', interval_months: 1, first_due: today, service_start: today, coverage_start: today, end_date: null, paused: false, notes: '' };
 }
+export function firstSubscriptionPeriod(f: PlanFields): [string, string] | null {
+  const start = f.service_start;
+  if (f.category !== 'subscription' || !start || !/^\d{4}-\d{2}-\d{2}$/.test(start) || !Number.isFinite(Date.parse(start + 'T12:00:00Z')) || ![1, 3, 6, 12].includes(f.interval_months) || shiftMonth(start, 0) !== start) return null;
+  const end = previousDay(shiftMonth(start, f.interval_months));
+  return [start, f.end_date && f.end_date >= start && f.end_date < end ? f.end_date : end];
+}
 export function periodLabel(from?: string | null, to?: string | null) { return from && to ? `${from} 至 ${to}` : '覆盖期未记录'; }
 export function scheduleDates(f: PlanFields, from: string, to: string): string[] {
   const a = f.first_due.split('-').map(Number), b = from.split('-').map(Number);

@@ -162,11 +162,13 @@ function virtualOverview(): VirtualOverview {
   const items: VirtualAsset[] = virtuals.map(v => {
     const p = recurringOverview().plans.find(x => x.id === v.fields.plan_id), paid = payments.filter(x => x.plan_id === p?.id && x.state === 'paid');
     const last = paid.map(x => x.due_date).sort().at(-1);
-    const until = p?.fields.service_start && p.fields.end_date ? p.fields.end_date : p ? (last ? (() => { const [y, m, d] = nth(last, p.fields.interval_months, 1).split('-').map(Number); return iso(new Date(y, m - 1, d - 1)); })() : null) : v.fields.expires;
+    const paidUntil = paid.map(x => x.coverage_end).filter((x): x is string => !!x).sort().at(-1) ?? (p && last ? (() => { const [y, m, d] = nth(last, p.fields.interval_months, 1).split('-').map(Number); return iso(new Date(y, m - 1, d - 1)); })() : null);
+    const renewal = !!p && (!!p.fields.service_start || v.fields.kind === 'subscription');
+    const until = renewal && p!.fields.end_date ? p!.fields.end_date : p ? paidUntil : v.fields.expires;
     const spent = p ? String(paid.reduce((t, x) => t + BigInt(x.amount_cents ?? '0'), 0n)) : v.fields.price_cents;
     const soon = dayOffset(p ? 7 : 30);
-    const status: VirtualStatus = v.fields.stopped_on ? 'stopped' : p?.fields.service_start && p.fields.paused ? 'paused' : p?.fields.service_start && !p.fields.end_date ? 'ongoing' : until === null ? (v.fields.kind === 'license' && !p ? 'perpetual' : 'unknown') : until < todayIso ? 'expired' : until <= soon ? 'expiring' : 'active';
-    return { ...v, paid_until: paid.map(x=>x.coverage_end??null).filter((x):x is string=>!!x).sort().at(-1)??null, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent };
+    const status: VirtualStatus = v.fields.stopped_on ? 'stopped' : renewal && p!.fields.paused && (!p!.fields.end_date || p!.fields.end_date >= todayIso) ? 'paused' : renewal && !p!.fields.paused && !p!.fields.end_date ? 'ongoing' : !p && !v.fields.plan_id && v.fields.kind === 'subscription' && !v.fields.expires ? 'ongoing' : until === null ? (v.fields.kind === 'license' && !p ? 'perpetual' : 'unknown') : until < todayIso ? 'expired' : until <= soon ? 'expiring' : 'active';
+    return { ...v, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent };
   }).sort((a, b) => a.fields.name.localeCompare(b.fields.name));
   return { generation, today: todayIso, items, in_use: items.filter(v => v.status !== 'stopped').length, expiring: items.filter(v => v.status === 'expiring').length, expired: items.filter(v => v.status === 'expired').length,
     spent_cents: String(items.reduce((t, v) => t + BigInt(v.spent_cents ?? '0'), 0n)), unknown_price: items.filter(v => v.spent_cents === null).length,

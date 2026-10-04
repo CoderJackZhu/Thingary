@@ -3,6 +3,7 @@ import type { OverviewData } from './Overview';
 import type { Summary, Point } from './wealth';
 import type { ExpenseView } from './expenses';
 import type { Overview as Recurring } from './recurring';
+import { paymentReminders } from './recurring.ts';
 import type { VirtualOverview } from './virtual';
 import type { TimelineEvent } from './Timeline';
 import type { SourceTarget } from './source';
@@ -21,7 +22,8 @@ export function attention(review: Review, m: Modules = allModules): Attention[] 
   const latest = m.wealth ? ready(review.wealth)?.points.at(-1) : undefined;
   if (latest && !latest.complete) groups.set('snapshot:' + latest.snapshot_id, { id: 'snapshot:' + latest.snapshot_id, priority: 0, date: latest.date, title: '最新盘点尚未完整', details: [`${latest.date} · 缺 ${latest.missing} 个账户`], entries: [{ action: '查看盘点', target: { kind: 'snapshot', id: latest.snapshot_id } }] });
   const recurring = m.recurring ? ready(review.recurring) : undefined;
-  for (const [rows, priority, label] of [[recurring?.due ?? [], 1, '付款待确认'], [recurring?.upcoming ?? [], 2, '即将到期付款']] as const) {
+  const reminders = recurring ? paymentReminders(recurring) : { due: [], upcoming: [] };
+  for (const [rows, priority, label] of [[reminders.due, 1, '付款待确认'], [reminders.upcoming, 2, '即将到期付款']] as const) {
     for (const r of rows) {
       const id = 'plan:' + r.plan_id;
       if (!groups.has(id)) groups.set(id, { id, priority, date: r.due_date, title: r.plan_name, details: [`${label} · ${r.due_date}`], entries: [{ action: '进入计划', target: { kind: 'plan', id: r.plan_id } }] });

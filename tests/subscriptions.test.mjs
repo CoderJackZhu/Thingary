@@ -27,3 +27,25 @@ test('ongoing subscriptions and paused renewal keep usable filter without fabric
   assert.equal(statusText.ongoing,'持续订阅');assert.ok(matchesFilter(v,'valid'));assert.equal(validityText(v),'持续进行，无结束日期');
   v.plan.fields.paused=true;v.status='paused';assert.ok(matchesFilter(v,'valid'));assert.equal(validityText(v),'暂停续费，结束日期未指定');
 });
+
+test('default subscription is ongoing and the first service period lasts one calendar month',async()=>{
+  const { firstSubscriptionPeriod }=await import('../src/recurring-model.ts');
+  const f=blankPlan('2026-10-04');
+  assert.equal(f.interval_months,1);assert.equal(f.end_date,null);
+  assert.deepEqual(firstSubscriptionPeriod(f),['2026-10-04','2026-11-03']);
+  assert.deepEqual(firstSubscriptionPeriod(blankPlan('2024-01-31')),['2024-01-31','2024-02-28']);
+  assert.deepEqual(firstSubscriptionPeriod(blankPlan('2025-01-31')),['2025-01-31','2025-02-27']);
+  for(const service_start of ['', '2026-02-31', '2026-13-01']) assert.equal(firstSubscriptionPeriod({...f,service_start}),null);
+});
+
+test('ongoing payment reminders are quiet without removing dues, history or financial totals',async()=>{
+  const { paymentReminders }=await import('../src/recurring.ts');
+  const plans=[{id:'new',fields:blankPlan('2026-10-04')},{id:'old',fields:{...blankPlan('2026-10-04'),service_start:null,coverage_start:null}},{id:'finite',fields:{...blankPlan('2026-10-04'),end_date:'2027-01-01'}},{id:'rent',fields:{...blankPlan('2026-10-04'),category:'rent'}}];
+  const o={plans,due:plans.map(p=>({plan_id:p.id})),upcoming:plans.map(p=>({plan_id:p.id})),payments:[{id:'old-payment',amount_cents:'14000'}],annual_cents:'123456'};
+  const before=structuredClone(o),reminders=paymentReminders(o);
+  assert.deepEqual(reminders.due.map(x=>x.plan_id),['finite','rent']);assert.deepEqual(reminders.upcoming.map(x=>x.plan_id),['finite','rent']);assert.deepEqual(o,before);
+  const v={fields:{kind:'subscription',plan_id:'old'},plan:plans[1],status:'ongoing',valid_until:'2024-02-01'};
+  assert.equal(validityText(v),'持续进行，无结束日期');
+  v.plan={...plans[1],fields:{...plans[1].fields,end_date:'2027-01-01'}};v.status='active';
+  assert.equal(validityText(v),'至 2027-01-01');
+});

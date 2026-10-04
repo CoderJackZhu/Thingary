@@ -20,7 +20,9 @@ export function matchesFilter(v: VirtualAsset, filter: VirtualFilter) {
 }
 /** Where validity comes from, shown next to the date. */
 export function validityText(v: VirtualAsset) {
-  if (v.plan?.fields.service_start) return v.plan.fields.end_date ? `至 ${v.plan.fields.end_date}` : v.plan.fields.paused ? '暂停续费，结束日期未指定' : '持续进行，无结束日期';
+  if (v.status === 'ongoing') return '持续进行，无结束日期';
+  if (v.status === 'paused' && !v.plan?.fields.end_date) return '暂停续费，结束日期未指定';
+  if (v.plan && (v.plan.fields.service_start || v.fields.kind === 'subscription')) return v.plan.fields.end_date ? `至 ${v.plan.fields.end_date}` : v.plan.fields.paused ? '暂停续费，结束日期未指定' : '持续进行，无结束日期';
   if (v.fields.kind === 'license' && !v.fields.plan_id && !v.valid_until) return '永久有效';
   if (v.fields.plan_id) return v.plan_deleted ? '关联计划在最近删除中' : v.valid_until ? `${v.valid_until}（按已付期推算）` : '待首次付款';
   return v.valid_until ?? '待补充';
