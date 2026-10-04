@@ -168,9 +168,9 @@ function virtualOverview(): VirtualOverview {
     const spent = p ? String(paid.reduce((t, x) => t + BigInt(x.amount_cents ?? '0'), 0n)) : v.fields.price_cents;
     const soon = dayOffset(p ? 7 : 30);
     const status: VirtualStatus = v.fields.stopped_on ? 'stopped' : renewal && p!.fields.paused && (!p!.fields.end_date || p!.fields.end_date >= todayIso) ? 'paused' : renewal && !p!.fields.paused && !p!.fields.end_date ? 'ongoing' : !p && !v.fields.plan_id && v.fields.kind === 'subscription' && !v.fields.expires ? 'ongoing' : until === null ? (v.fields.kind === 'license' && !p ? 'perpetual' : 'unknown') : until < todayIso ? 'expired' : until <= soon ? 'expiring' : 'active';
-    return { ...v, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent };
+    return { ...v, paid_count: paid.length, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent };
   }).sort((a, b) => a.fields.name.localeCompare(b.fields.name));
-  return { generation, today: todayIso, items, in_use: items.filter(v => v.status !== 'stopped').length, expiring: items.filter(v => v.status === 'expiring').length, expired: items.filter(v => v.status === 'expired').length,
+  return { generation, today: todayIso, items, in_use: items.filter(v => v.status !== 'stopped' && v.status !== 'expired').length, expiring: items.filter(v => v.status === 'expiring').length, expired: items.filter(v => v.status === 'expired').length,
     spent_cents: String(items.reduce((t, v) => t + BigInt(v.spent_cents ?? '0'), 0n)), unknown_price: items.filter(v => v.spent_cents === null).length,
     plans: plans.map(p => ({ id: p.id, name: p.fields.name, interval_months: p.fields.interval_months, linked_to: virtuals.find(v => v.fields.plan_id === p.id)?.fields.name ?? null })) };
 }

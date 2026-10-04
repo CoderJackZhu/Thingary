@@ -427,3 +427,58 @@ fn paused_renewal_keeps_paid_rights_and_fixed_term_still_expires() {
         "expired"
     );
 }
+
+#[test]
+fn historical_subscription_ends_without_future_dues_and_backfills_only_confirmed_facts() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let mut input = sub(&s);
+    input.fields.purchase_date = Some("2024-01-20".into());
+    let f = &mut input.plan.as_mut().unwrap().fields;
+    f.service_start = Some("2024-01-20".into());
+    f.first_due = "2026-01-20".into();
+    f.coverage_start = Some("2026-01-20".into());
+    f.end_date = Some("2026-02-19".into());
+    let v = s.virtual_save(&input, TODAY).unwrap();
+    assert_eq!(v.status, "expired");
+    assert_eq!(v.valid_until.as_deref(), Some("2026-02-19"));
+    assert_eq!(v.paid_count, 0);
+    assert_eq!(v.spent_cents.as_deref(), Some("0"));
+    let p = v.plan.unwrap();
+    assert_eq!(p.estimated_cents.as_deref(), Some("350000"));
+    assert_eq!(p.next_due, None);
+    let o = s.virtual_overview(TODAY).unwrap();
+    assert_eq!((o.in_use, o.expired), (0, 1));
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "0");
+    let q = PaymentRangeSave {
+        request_id: id(),
+        generation: s.generation(),
+        plan_id: p.id.clone(),
+        expected_revision: p.revision,
+        from_due: "2024-01-20".into(),
+        to_due: "2026-01-20".into(),
+        amount_cents: "14000".into(),
+        confirmed: true,
+    };
+    s.recurring_payment_range_save(&q, TODAY).unwrap();
+    s.recurring_payment_range_save(&q, TODAY).unwrap();
+    let later = s.virtual_overview("2028-01-01").unwrap().items.remove(0);
+    assert_eq!(later.status, "expired");
+    assert_eq!(later.paid_count, 25);
+    assert_eq!(later.spent_cents.as_deref(), Some("350000"));
+    assert_eq!(
+        later.plan.as_ref().unwrap().estimated_cents.as_deref(),
+        Some("350000")
+    );
+    assert_eq!(later.plan.unwrap().next_due, None);
+    assert!(s.recurring_overview(TODAY).unwrap().due.is_empty());
+    assert!(s.recurring_overview(TODAY).unwrap().upcoming.is_empty());
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "350000");
+    drop(s);
+    let restored = Store::open(dir.path())
+        .unwrap()
+        .virtual_overview(TODAY)
+        .unwrap();
+    assert_eq!(restored.items[0].paid_count, 25);
+    assert_eq!(restored.items[0].spent_cents.as_deref(), Some("350000"));
+}

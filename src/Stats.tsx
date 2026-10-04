@@ -1,5 +1,5 @@
 import { HeaderSlot } from './HeaderSlot';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Info } from './FormControls';
 import { errorMessage, money, unitMoney } from './asset';
@@ -43,20 +43,51 @@ const yuan = (cents: number) => cents >= 1_000_000 ? `¥${(cents / 1_000_000).to
 
 /** One series, one axis: the chart title names it, the table below is the exact view. */
 function Chart({ buckets, value, kind, label }: { buckets: Bucket[]; value: (b: Bucket) => number; kind: 'bar' | 'line'; label: string }) {
+  const root = useRef<HTMLDivElement>(null), detailId = useId();
+  const [current, setCurrent] = useState<number | null>(null), [fixed, setFixed] = useState(false);
+  useEffect(() => { setCurrent(null); setFixed(false); }, [buckets]);
   const max = Math.max(...buckets.map(value), 0), grid = ticks(max), top = grid.at(-1) || 1;
   const step = (W - L) / buckets.length, y = (v: number) => T + (H - T - B) * (1 - v / top);
   const every = Math.ceil(buckets.length / 8);
   const points = buckets.map((b, i) => `${L + step * (i + 0.5)},${y(value(b))}`).join(' ');
-  return <svg className="trend-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
+  const shown = current === null ? null : buckets[current];
+  const unknown = shown ? kind === 'bar' ? shown.unknown_price_count : buckets.slice(0, current! + 1).reduce((n, b) => n + b.unknown_price_count, 0) : 0;
+  const pick = (e: { currentTarget: SVGSVGElement; clientX: number; clientY: number }) => {
+    const matrix = e.currentTarget.getScreenCTM();
+    if (!matrix) return null;
+    const point = e.currentTarget.createSVGPoint(); point.x = e.clientX; point.y = e.clientY;
+    const local = point.matrixTransform(matrix.inverse());
+    return local.x < L || local.x > W || local.y < T || local.y > H - B ? null : Math.min(buckets.length - 1, Math.floor((local.x - L) / step));
+  };
+  return <div ref={root} className="purchase-trend" tabIndex={0} role="group" aria-label={`${label}，左右方向键选择期间，回车固定，Escape 关闭详情`} aria-describedby={shown ? detailId : undefined}
+    onFocus={() => setCurrent(n => n ?? buckets.length - 1)} onBlur={() => { setCurrent(null); setFixed(false); }}
+    onPointerLeave={() => { if (!fixed) setCurrent(null); }}
+    onKeyDown={e => {
+      if (e.key === 'Escape') { e.preventDefault(); setCurrent(null); setFixed(false); }
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCurrent(n => n ?? buckets.length - 1); setFixed(f => !f); }
+      else if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault(); setCurrent(n => e.key === 'Home' ? 0 : e.key === 'End' ? buckets.length - 1 : Math.max(0, Math.min(buckets.length - 1, (n ?? buckets.length - 1) + (e.key === 'ArrowLeft' ? -1 : 1))));
+      }
+    }}>
+    <svg className="trend-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}
+      onPointerMove={e => { if (!fixed) setCurrent(pick(e)); }}
+      onClick={e => { const selected = pick(e); if (selected !== null) { root.current?.focus({ preventScroll: true }); setCurrent(selected); setFixed(!(fixed && selected === current)); } }}>
     {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className="grid"/><text x={L - 6} y={y(v) + 3} textAnchor="end">{yuan(v)}</text></g>)}
     {buckets.map((b, i) => i % every === 0 && <text key={b.key} x={L + step * (i + 0.5)} y={H - 6} textAnchor="middle">{b.key}</text>)}
     {kind === 'line' && <polyline points={points} className="trend-line"/>}
     {buckets.map((b, i) => { const x = L + step * i, v = value(b);
-      return <g key={b.key} className="trend-hit"><rect x={x} y={T} width={step} height={H - T - B} className="hit"/>
-        {kind === 'bar' ? v > 0 && <rect x={x + Math.max(step * 0.2, 1)} y={y(v)} width={Math.max(step * 0.6, 1)} height={Math.max(H - B - y(v), 1)} rx={Math.min(3, step * 0.2)} className="trend-bar"/> : <circle cx={x + step / 2} cy={y(v)} r={buckets.length > 40 ? 0 : 3} className="trend-dot"/>}
-        <title>{b.key}（{b.start} 至 {b.end}）：{kind === 'bar' ? `购入 ${money(b.known_cents)}，${b.count} 件${b.unknown_price_count ? `，${b.unknown_price_count} 件金额未知` : ''}` : `累计 ${money(b.cumulative_cents)}`}</title></g>; })}
+      return <g key={b.key} className="trend-hit" data-selected={i === current || undefined}><rect x={x} y={T} width={step} height={H - T - B} className="hit"/>
+        {kind === 'bar' ? v > 0 && <rect x={x + Math.max(step * 0.2, 1)} y={y(v)} width={Math.max(step * 0.6, 1)} height={Math.max(H - B - y(v), 1)} rx={Math.min(3, step * 0.2)} className="trend-bar"/> : <circle cx={x + step / 2} cy={y(v)} r={i === current ? 5 : buckets.length > 40 ? 0 : 3} className="trend-dot"/>}
+        </g>; })}
     <line x1={L} x2={W} y1={H - B} y2={H - B} className="axis"/>
-  </svg>;
+    </svg>
+    {shown && <div id={detailId} className="ui-tip purchase-trend-tip" role="status" aria-live="polite" aria-atomic="true" style={{ left: `clamp(min(130px, 50%), ${(L + step * (current! + 0.5)) / W * 100}%, max(calc(100% - 130px), 50%))` }}>
+      <span>{shown.start} 至 {shown.end}</span>
+      <b>{kind === 'bar' ? '本期购入' : '累计购入'} {unitMoney(kind === 'bar' ? shown.known_cents : shown.cumulative_cents)}</b>
+      <span>本期购入 {shown.count} 件{unknown ? ` · ${kind === 'line' ? '累计 ' : ''}${unknown} 件金额未知，未计入` : ''}</span>
+      {fixed && <small>已固定 · 再点取消，Esc 关闭</small>}
+    </div>}
+  </div>;
 }
 
 export function StatsPage({ onOpenAsset }: { onOpenAsset: (id: string) => void }) {
@@ -71,7 +102,7 @@ export function StatsPage({ onOpenAsset }: { onOpenAsset: (id: string) => void }
     <StatsDashboard/>
     <article className="ui-card ui-content">
       <div className="ui-section-head"><h3>购买趋势</h3><Info text="历史全部：含已售出，不含已删除；按购入日期归入期间，期间首尾两天都包含。"/></div>
-      <div className="overview-controls"><div className="segmented" role="group" aria-label="期间粒度">{([['month', '按月'], ['quarter', '按季'], ['year', '按年']] as const).map(([k, l]) => <button key={k} aria-pressed={granularity === k} onClick={() => setGranularity(k)}>{l}</button>)}</div></div>
+      <div className="overview-controls"><div className="segmented" role="group" aria-label="期间粒度">{([['month', '按月'], ['quarter', '按季'], ['year', '按年']] as const).map(([k, l]) => <button key={k} aria-pressed={granularity === k} onClick={() => setGranularity(k)}>{l}</button>)}</div><span className="muted small">悬浮查看详情 · 点击固定 · 方向键切换期间</span></div>
       {error ? <div role="alert"><p>趋势读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : !trend ? <p role="status" className="muted">正在读取趋势…</p> : <>
         <p className="trend-summary">已知购入合计 <strong>{money(trend.known_cents)}</strong>{trend.unknown_price_count > 0 && ` · ${trend.unknown_price_count} 件有日期但金额未知，未计入`}{trend.unknown_date_count > 0 && ` · ${trend.unknown_date_count} 件购入日期未知，不归入任何期间（其中已知金额 ${money(trend.unknown_date_known_cents)}）`}</p>
         {!trend.buckets.length ? <p className="muted">还没有带购入日期的物品。</p> : <>

@@ -54,6 +54,8 @@ pub struct Save {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct VirtualAsset {
+    /// Number of recorded paid periods; estimates never create payment facts.
+    pub paid_count: i64,
     pub paid_until: Option<String>,
     pub plan: Option<Plan>,
     pub id: String,
@@ -159,6 +161,7 @@ struct Row {
 fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Row> {
     Ok(Row {
         item: VirtualAsset {
+            paid_count: 0,
             id: r.get(0)?,
             fields: Fields {
                 name: r.get(1)?,
@@ -193,11 +196,12 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
         v.plan_name = None;
     }
     if let (Some(plan_id), Some(interval)) = (&linked, row.interval) {
-        let (last, covered, sum): (Option<String>, Option<String>, Option<i64>) = c.query_row(
-            "SELECT max(due_date),max(coverage_end),sum(amount_cents) FROM plan_payments WHERE plan_id=?1 AND state='paid' AND deleted_at IS NULL",
+        let (last, covered, sum, count): (Option<String>, Option<String>, Option<i64>, i64) = c.query_row(
+            "SELECT max(due_date),max(coverage_end),sum(amount_cents),count(*) FROM plan_payments WHERE plan_id=?1 AND state='paid' AND deleted_at IS NULL",
             [plan_id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )?;
+        v.paid_count = count;
         v.valid_until = if covered.is_some() {
             covered
         } else {
@@ -442,7 +446,10 @@ impl Store {
         Ok(Overview {
             generation: self.generation(),
             today: today.into(),
-            in_use: items.iter().filter(|v| v.status != "stopped").count() as i64,
+            in_use: items
+                .iter()
+                .filter(|v| v.status != "stopped" && v.status != "expired")
+                .count() as i64,
             expiring: count("expiring"),
             expired: count("expired"),
             unknown_price: items.iter().filter(|v| v.spent_cents.is_none()).count() as i64,

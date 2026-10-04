@@ -49,3 +49,29 @@ test('ongoing payment reminders are quiet without removing dues, history or fina
   v.plan={...plans[1],fields:{...plans[1].fields,end_date:'2027-01-01'}};v.status='active';
   assert.equal(validityText(v),'至 2027-01-01');
 });
+
+test('past payment dates remain ongoing; an explicit historical end stops future periods', () => {
+  const today='2026-10-05';
+  const f={...blankPlan(today),service_start:'2024-01-20',first_due:'2026-01-20',coverage_start:'2026-01-20'};
+  assert.ok(scheduleDates(f,today,'2027-10-05').length > 0);
+  const ended={...f,end_date:'2026-02-19'};
+  assert.equal(scheduleDates(ended,'2024-01-20',today).length,25);
+  assert.deepEqual(scheduleDates(ended,today,'2027-10-05'),[]);
+  assert.equal(ended.first_due,f.first_due);
+  assert.equal(ended.coverage_start,f.coverage_start);
+  const future={...f,end_date:'2027-02-19'};
+  assert.ok(scheduleDates(future,today,'2027-10-05').length > 0);
+});
+
+test('subscription cost distinguishes estimates, unknown amounts and recorded zero payments', async () => {
+  const { cumulativeCost, paymentScheduleText, virtualStatusText } = await import('../src/virtual.ts');
+  const v={fields:{kind:'subscription'},status:'expired',spent_cents:'0',paid_count:0,plan:{estimated_cents:'350000',fields:{end_date:'2026-02-19',paused:false},next_due:null}};
+  assert.deepEqual(cumulativeCost(v),{estimated:true,cents:'350000'});
+  assert.equal(virtualStatusText(v),'已结束');
+  assert.equal(paymentScheduleText(v),'订阅已结束，不再续费');
+  const copy=structuredClone(v);copy.plan.estimated_cents='0';copy.paid_count=1;
+  assert.deepEqual(cumulativeCost(copy),{estimated:true,cents:'0'});
+  assert.deepEqual(cumulativeCost({...v,plan:null,spent_cents:null}),{estimated:false,cents:null});
+  assert.deepEqual(cumulativeCost({...v,plan:{...v.plan,estimated_cents:null},spent_cents:'12300'}),{estimated:false,cents:'12300'});
+  assert.equal(virtualStatusText({...v,fields:{kind:'domain'}}),'已到期');
+});

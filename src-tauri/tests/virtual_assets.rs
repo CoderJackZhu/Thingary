@@ -148,7 +148,7 @@ fn status_follows_dates_and_stop() {
             o.spent_cents.as_str(),
             o.unknown_price
         ),
-        (3, 0, 1, "199800", 2)
+        (2, 0, 1, "199800", 2)
     );
     // Inputs: future purchase, stop before purchase.
     let mut bad = fields("x", "license");
