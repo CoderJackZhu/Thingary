@@ -8,7 +8,7 @@ import { DefaultAssetIcon, IconPicker, type IconChoice } from './IconPicker';
 import { replaceDraftCover } from './asset-media';
 import { FormRow, ChoiceField, AddImageButton } from './FormControls';
 import { AssetOptionsFields } from './AssetOptionsFields';
-import { defaultPreferences, type AssetOptions } from './preferences';
+import { changeNewAssetWarrantyPurchase, defaultPreferences, type AssetOptions } from './preferences';
 import { DateInput } from './DateInput';
 import type { TaxonomySnapshot } from './taxonomy';
 import type { Classification } from './asset';
@@ -18,7 +18,7 @@ export const draftKey = 'thingary.asset-draft.v1';
 // Older drafts predate photoErrorKind; a missing kind means the file picker flow.
 // A conversion draft creates the asset through convert_wishlist; the estimate is shown, never copied into the price.
 export type Conversion = { wishlist_id: string; expected_revision: number; wish_name: string; estimated_price_cents: string | null; cover_notice?: string };
-export type Draft = { options?:AssetOptions; originalOptions?:AssetOptions; transientCover?: string; conversion?: Conversion; classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
+export type Draft = { warrantyEndEdited?:boolean; options?:AssetOptions; originalOptions?:AssetOptions; transientCover?: string; conversion?: Conversion; classification?: Classification; originalClassification?: Classification; photos?: Photo[]; cover?: string | null; originalMedia?: {photos: Photo[]; cover: string | null}; photoError?: string; photoErrorKind?: 'material' | 'file'; fields: Fields; original: Fields; generation: string; id: string | null; revision: number | null; pending: SaveAsset | null };
 export type CloseIntent = 'form' | 'window' | 'quit';
 export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, onSaved, onDelete }: { initial: Draft; taxonomy: TaxonomySnapshot | null; closeIntent: CloseIntent | null; onKeep: () => void; onClose: (intent: CloseIntent) => void; onSaved: (record: AssetRecord) => void; onDelete?: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -44,6 +44,9 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   function remember(next: Draft) { persistSubmission(draftKey, next); setDraft(next); }
   function change(key: keyof Fields, value: string) {
     const next = { ...draft, fields: { ...draft.fields, [key]: value } };
+    if (key === 'date' && !draft.id && options.warranty && !validate(next.fields,localDay()).date) {
+      next.options = {...options,warranty:changeNewAssetWarrantyPurchase(options.warranty,value || null,localDay(),draft.warrantyEndEdited)};
+    }
     setDraft(next); setErrors(e => ({ ...e, [key]: undefined }));
     try { persistSubmission(draftKey, next); } catch { setNotice('暂时无法更新编辑状态，请重试。'); }
   }
@@ -151,7 +154,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       <div className="asset-identity-editor"><button type="button" className="asset-avatar-button" aria-label="选择物品图标" title="选择物品图标" disabled={busy || !!draft.pending} onClick={openPicker}>{coverPhoto ? <PhotoView photo={coverPhoto} generation={draft.generation}/> : <DefaultAssetIcon/>}<span className="avatar-edit">更换图标</span></button>{field('name', '物品名称')}</div>
       <section className="form-block"><FormRow label="分类"><ChoiceField kind="category" label="分类" generation={draft.generation} value={draft.classification?.category_id??null} onChange={id=>classify('category_id',id)} disabled={disabled}/></FormRow><FormRow label="标签"><ChoiceField kind="label" label="标签" generation={draft.generation} value={options.preferences.label_id} onChange={label_id=>remember({...draft,options:{...options,preferences:{...options.preferences,label_id}}})} disabled={disabled}/></FormRow></section>
       <section className="form-block"><FormRow label="购买价格（元）">{field('price','购买价格','留空为未知；0 为免费。')}</FormRow><FormRow label="购买日期">{field('date','购买日期')}</FormRow><FormRow label="购买渠道"><ChoiceField kind="channel" label="购买渠道" generation={draft.generation} value={draft.classification?.channel_id??null} onChange={id=>classify('channel_id',id)} disabled={disabled}/></FormRow></section>
-      <AssetOptionsFields options={options} generation={draft.generation} disabled={disabled} existing={!!draft.id} onChange={options=>remember({...draft,options})}>
+      <AssetOptionsFields options={options} generation={draft.generation} disabled={disabled} existing={!!draft.id} purchaseDate={draft.fields.date||null} onChange={options=>remember({...draft,options,warrantyEndEdited:!!options.warranty && (!!draft.warrantyEndEdited || !!draft.options?.warranty && options.warranty.end_date !== draft.options.warranty.end_date)})}>
       <section className="form-block form-notes">{field('notes','备注')}<div className="photo-strip">{attachments.map(photo=><div className="photo-tile" key={photo.id}><PhotoView photo={photo} generation={draft.generation}/><button type="button" disabled={disabled} aria-label={'移除图片'+photo.name} onClick={()=>media({...draft,photos:photos.filter(p=>p.id!==photo.id)})}>移除</button></div>)}<AddImageButton disabled={disabled||photos.length>=20} onClick={()=>void pickPhoto()}/></div></section>
       </AssetOptionsFields>
 

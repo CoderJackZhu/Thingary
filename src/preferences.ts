@@ -2,8 +2,15 @@ import type { SaleFields } from './sales';
 import { addYears } from './batch-select.ts';
 export type AssetPreferences = { label_id:string|null; cost_mode:'daily'|'per_use'; use_count:number; goal:{mode:'none'}|{mode:'cost';cents:string}|{mode:'date';date:string}; pinned:boolean; exclude:{total:boolean;daily:boolean;statistics:boolean;timeline:boolean} };
 export type AssetOptions = {preferences:AssetPreferences;warranty?:{start_date:string|null;end_date:string;reminder:{date:string;notes:string}|null}|null;retired_date?:string|null;sale?:SaleFields|null};
-export function newAssetWarranty(addedDate: string): NonNullable<AssetOptions['warranty']> {
- return {start_date:addedDate,end_date:addYears(addedDate,1),reminder:null};
+export function newAssetWarranty(purchaseDate: string | null, today: string): NonNullable<AssetOptions['warranty']> {
+ const parsed = new Date((purchaseDate || '') + 'T00:00:00Z');
+ const start = purchaseDate && /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate) && Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0,10) === purchaseDate ? purchaseDate : today;
+ return {start_date:start,end_date:addYears(start,1),reminder:null};
+}
+export function changeNewAssetWarrantyPurchase(warranty: NonNullable<AssetOptions['warranty']>, purchaseDate: string | null, today: string, preserveEnd = false): NonNullable<AssetOptions['warranty']> {
+ const next = newAssetWarranty(purchaseDate,today);
+ const end = !preserveEnd && warranty.end_date === addYears(warranty.start_date || today,1) ? next.end_date : warranty.end_date;
+ return {...warranty,start_date:next.start_date,end_date:end,reminder:warranty.reminder && warranty.reminder.date === warranty.end_date ? {...warranty.reminder,date:end} : warranty.reminder};
 }
 export const defaultPreferences = ():AssetPreferences=>({label_id:null,cost_mode:'daily',use_count:0,goal:{mode:'none'},pinned:false,exclude:{total:false,daily:false,statistics:false,timeline:false}});
 export type WishPreferences = {added_date:string|null;channel_id:string|null;mode:'countdown'|'savings';saved_cents:string;achievement_source:'manual'|'savings'|'conversion'|null;pinned:boolean;reminder:boolean};
