@@ -1,6 +1,6 @@
 # 规划模块设计
 
-状态：**设计草案，尚未实现。** 核对基线：公开 `98abc50bde1112b6c90c5e21c8a03ddcc1053082`，schema 28。目标范围见 §2；当前使用指南与业务规则不包含本功能，实施后再同步。
+状态：**阶段 1（§3、§4）已实现，阶段 2–4 尚未实现。** 设计核对基线：公开 `98abc50bde1112b6c90c5e21c8a03ddcc1053082`，schema 28；阶段 1 使用 schema 29。阶段 1 的现行规则见 [PRODUCT_RULES](PRODUCT_RULES.md#规划月度收入与储蓄)，操作见 [USER_GUIDE](USER_GUIDE.md)，实现取舍见 [ARCHITECTURE](ARCHITECTURE.md)；阶段 1 的预览与自动检查已做，原生验收未做。
 
 ## 1. 定位与设计决定
 

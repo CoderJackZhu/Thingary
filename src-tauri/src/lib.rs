@@ -18,6 +18,8 @@ pub mod materials;
 pub mod modules;
 pub mod native_images;
 pub mod photos;
+pub mod plan_income;
+pub mod plan_savings;
 pub mod preferences;
 pub mod purge;
 mod recovery;
@@ -188,6 +190,11 @@ pub fn run() {
             commands::expense,
             commands::expense_save,
             commands::expense_view,
+            commands::plan_income_list,
+            commands::plan_income_save,
+            commands::plan_review,
+            commands::plan_interval_reasons,
+            commands::plan_baseline_mark,
             commands::recurring_overview,
             commands::recurring_plan_save,
             commands::recurring_payment_save,

@@ -427,6 +427,7 @@ impl Store {
             entries.extend(query_entries(c, "SELECT id,date,NULL,date,deleted_at,revision FROM fin_snapshots WHERE deleted_at IS NOT NULL", wealth("snapshot"))?);
             entries.extend(query_entries(c, "SELECT id,name,kind,NULL,deleted_at,revision FROM fin_accounts WHERE deleted_at IS NOT NULL", wealth("account"))?);
             entries.extend(query_entries(c, "SELECT id,title,category,date,deleted_at,revision FROM expenses WHERE deleted_at IS NOT NULL", wealth("expense"))?);
+            entries.extend(query_entries(c, "SELECT id,date,NULL,date,deleted_at,revision FROM plan_income WHERE deleted_at IS NOT NULL", wealth("income"))?);
             entries.extend(query_entries(c, "SELECT id,name,category,NULL,deleted_at,revision FROM recurring_plans WHERE deleted_at IS NOT NULL", wealth("plan"))?);
             entries.extend(query_entries(c, "SELECT id,name,kind,purchase_date,deleted_at,revision FROM virtual_assets WHERE deleted_at IS NOT NULL", wealth("virtual"))?);
             // Independently deleted topups and balance check-ins; a topup hidden
@@ -607,6 +608,7 @@ fn kind_label(kind: &str) -> String {
         "snapshot" => "盘点",
         "account" => "账户",
         "expense" => "支出",
+        "income" => "收入记录",
         "plan" => "周期计划",
         "payment" => "周期付款",
         "virtual" => "虚拟资产",

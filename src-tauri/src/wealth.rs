@@ -1106,7 +1106,7 @@ impl Store {
 pub struct TrashChange {
     pub request_id: String,
     pub generation: String,
-    /// `snapshot`, `account`, `expense`, `plan`, `payment`, `wish` or `virtual`.
+    /// `snapshot`, `account`, `expense`, `income`, `plan`, `payment`, `wish` or `virtual`.
     pub kind: String,
     pub id: String,
     pub expected_revision: i64,
@@ -1131,6 +1131,7 @@ impl Store {
             "snapshot" => "fin_snapshots",
             "account" => "fin_accounts",
             "expense" => "expenses",
+            "income" => "plan_income",
             "plan" => "recurring_plans",
             "payment" => "plan_payments",
             "wish" => "wishlist_items",

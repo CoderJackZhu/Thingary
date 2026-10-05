@@ -12,6 +12,8 @@ import type { BalanceRecord, BalanceSave, TopupFields, TopupSave, VirtualAsset, 
 import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 import type { SourceTarget, TimelineSelection } from './source';
 import { coverageFor, scheduleDates, shiftDays } from './recurring-model';
+import { computeReview } from './plan';
+import type { Income, IncomeSave, Mark, Reasons } from './plan';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
 
@@ -223,6 +225,12 @@ function virtualOverview(): VirtualOverview {
 }
 
 /** 浏览器预览的全局搜索桩：仅用于界面检查，不能验证 Rust 的快照、排序或完整字段覆盖。 */
+
+// 规划预览：虚构月度收入（每月 15 日到账）、一次性标记与已删除行；计算用 plan.ts 的预览实现。
+const payday = (monthsAgo: number) => { const d = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 15); return iso(d); };
+let planIncomes: Income[] = (params.get('plan') === 'empty' || params.get('state') === 'empty') ? [] : [6, 5, 4, 3, 2, 1, 0].map(m => ({ id: 'p-inc-' + m, revision: 1, fields: { date: payday(m), net_cents: '2000000', hpf_cents: '300000', notes: m === 3 ? '含虚构年终奖' : '' } })).filter(i => i.fields.date <= todayIso);
+const planMarks = new Set<string>();
+let planTrash: Income[] = [];
 let searchPreviewAttempts = 0;
 export function searchPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command !== 'search_all') return null;
@@ -313,6 +321,11 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       balances = input.deleted ? balances.filter(b => b.id !== input.id) : balances;
       return { value: null };
     }
+    if (input.kind === 'income') {
+      if (input.deleted) { const row = planIncomes.find(i => i.id === input.id); if (row) { planTrash = [...planTrash, { ...row, revision: row.revision + 1 }]; planIncomes = planIncomes.filter(i => i.id !== input.id); } }
+      else { const row = planTrash.find(i => i.id === input.id); if (row) { planIncomes = [...planIncomes, { ...row, revision: row.revision + 1 }]; planTrash = planTrash.filter(i => i.id !== input.id); } }
+      return { value: null };
+    }
     return { value: null };
   }
   if (command === 'virtual_topup_save') {
@@ -362,6 +375,37 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     expenses = old ? expenses.map(e => e.id === id ? next : e) : [...expenses, next];
     receipts.set(input.request_id, id);
     return { value: next };
+  }
+  if (command.startsWith('plan_')) {
+    if (params.get('plan') === 'error' && command !== 'plan_income_save' && command !== 'plan_baseline_mark') throw { message: '虚构读取失败，用于验证错误状态。' };
+    if (command === 'plan_income_list') return { value: { generation, rows: [...planIncomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date) || a.id.localeCompare(b.id)) } };
+    if (command === 'plan_income_save') {
+      if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+      const input = args.input as IncomeSave, id = input.id ?? crypto.randomUUID(), old = planIncomes.find(i => i.id === id);
+      const next: Income = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1 };
+      planIncomes = old ? planIncomes.map(i => i.id === id ? next : i) : [...planIncomes, next];
+      receipts.set(input.request_id, id);
+      return { value: next };
+    }
+    if (command === 'plan_review') return { value: computeReview(summary().points, planIncomes, planMarks, generation) };
+    if (command === 'plan_baseline_mark') {
+      const input = args.input as Mark;
+      if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+      if (input.excluded) planMarks.add(input.snapshot_id); else planMarks.delete(input.snapshot_id);
+      receipts.set(input.request_id, input.snapshot_id);
+      return { value: null };
+    }
+    if (command === 'plan_interval_reasons') {
+      if (params.get('plan') === 'reasons-error') throw { message: '虚构读取失败，用于验证原因区的局部错误。' };
+      const point = summary().points.find(p => p.snapshot_id === String(args.snapshotId) && p.complete && p.compared_to);
+      if (!point) throw { code: 'NOT_FOUND', message: '找不到这次盘点' };
+      const from = point.compared_to!;
+      const lines = [...expenseView(null).lines].filter(l => l.date !== null && l.date > from && l.date <= point.date && l.amount_cents !== null && l.source !== 'linked')
+        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || a.source.localeCompare(b.source) || a.id.localeCompare(b.id));
+      const reasons: Reasons = { generation, snapshot_id: point.snapshot_id, from, to: point.date, notes: point.notes, lines };
+      return { value: reasons };
+    }
+    return null;
   }
   if (!command.startsWith('wealth_')) return null;
   if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: '虚构读取失败，用于验证错误状态。' };

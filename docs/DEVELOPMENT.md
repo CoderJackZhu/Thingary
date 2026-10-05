@@ -31,6 +31,7 @@ npm run dev -- --port 1429
 | `?wealth=empty`、`?wealth=first`、`?wealth=error` | 账户与盘点状态 |
 | `?expenses=empty`、`?expenses=error` | 重要支出状态 |
 | `?recurring=empty`、`?recurring=error` | 周期费用状态 |
+| `?section=planning`、`&plan=empty`、`&plan=error`、`&plan=reasons-error` | 规划页：虚构月度收入、无收入、读取失败、复盘「原因」区局部失败 |
 | `?section=recurring&recurring-fixture=layout` | 长名称、历史订阅费用与未设置服务覆盖期的计划，检查窄窗口换行 |
 | `?theme=dark`、`?no-photos` | 深色与缺少照片 |
 | `?search=error-once` | 搜索首次查询失败，点击「重新搜索」后恢复（仅内存桩） |

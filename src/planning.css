@@ -1,0 +1,14 @@
+/* 规划页：只补充 wealth.css 没有的少量版式。 */
+.planning-section .plan-steps { display: grid; gap: 14px; }
+.planning-section .plan-steps h4 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.planning-section .plan-steps section { padding-top: 12px; border-top: 1px solid var(--line); }
+.planning-section .plan-steps .ui-section-head + section { border-top: 0; padding-top: 0; }
+.planning-section .plan-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px 18px; margin: 0; }
+.planning-section .plan-facts div { display: grid; gap: 2px; }
+.planning-section .plan-facts dt { font-size: 12px; color: var(--muted); }
+.planning-section .plan-facts dd { margin: 0; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.planning-section tr.selected td { background: var(--selected); }
+.planning-section .ui-tag + .ui-tag { margin-left: 6px; }
+.planning-section .ui-tag.warn { color: var(--warn); }
+.planning-section .plan-reasons td:nth-child(3) { overflow-wrap: anywhere; }
+.planning-section th.amount { text-align: right; }

@@ -26,12 +26,13 @@ pub struct Purged {
     pub kept: usize,
 }
 
-const KINDS: [(&str, &str); 10] = [
+const KINDS: [(&str, &str); 11] = [
     ("wish", "wishlist_items"),
     ("payment", "plan_payments"),
     ("maintenance", "maintenances"),
     ("warranty", "warranties"),
     ("expense", "expenses"),
+    ("income", "plan_income"),
     ("snapshot", "fin_snapshots"),
     ("account", "fin_accounts"),
     ("virtual", "virtual_assets"),
@@ -209,6 +210,7 @@ fn purge_one(
             id,
             &[
                 "DELETE FROM fin_snapshot_entries WHERE snapshot_id=?1",
+                "DELETE FROM plan_baseline_marks WHERE snapshot_id=?1",
                 "DELETE FROM fin_snapshots WHERE id=?1",
             ],
         )?,
@@ -225,6 +227,7 @@ fn purge_one(
         )?,
         "account" => run(tx, id, &["DELETE FROM fin_accounts WHERE id=?1"])?,
         "expense" => run(tx, id, &["DELETE FROM expenses WHERE id=?1"])?,
+        "income" => run(tx, id, &["DELETE FROM plan_income WHERE id=?1"])?,
         "payment" => run(tx, id, &["DELETE FROM plan_payments WHERE id=?1"])?,
         "virtual" => run(
             tx,

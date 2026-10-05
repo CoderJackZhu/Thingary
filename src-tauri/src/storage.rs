@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 28;
+pub const SCHEMA_VERSION: i64 = 29;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -754,6 +754,14 @@ PRAGMA user_version=14;")?;
         // the purchase link.
         let tx = c.unchecked_transaction()?;
         tx.execute_batch(include_str!("wishlist_replacement.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 28;
+    }
+    if v == 28 && target >= 29 {
+        // Planning stage 1: monthly income and baseline marks.
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("plan_income.sql"))?;
         hook("migration.before_commit")?;
         tx.commit()?;
     }

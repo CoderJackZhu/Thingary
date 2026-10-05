@@ -172,7 +172,7 @@ fn read(c: &Connection, id: &str) -> Result<Option<Expense>> {
 // Every branch reads only effective rows, mirroring the timeline projection.
 // Items excluded from the statistics page stay out of expenses too (X-D05).
 // The trailing notes column carries the standalone expense's notes for search.
-const LINES: &str = "
+pub(crate) const LINES: &str = "
 SELECT 'purchase',a.id,a.id,a.name,c.name,a.purchase_date,a.price_cents,NULL
   FROM assets a LEFT JOIN categories c ON c.id=a.category_id
   WHERE a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)

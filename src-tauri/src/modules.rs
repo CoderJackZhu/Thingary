@@ -17,6 +17,7 @@ pub struct Modules {
     pub recurring: bool,
     #[serde(rename = "virtual")]
     pub virtual_assets: bool,
+    pub planning: bool,
 }
 impl Default for Modules {
     fn default() -> Self {
@@ -28,6 +29,7 @@ impl Default for Modules {
             expenses: true,
             recurring: true,
             virtual_assets: true,
+            planning: true,
         }
     }
 }

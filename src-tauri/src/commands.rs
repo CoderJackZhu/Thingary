@@ -1431,6 +1431,56 @@ pub async fn expense_view(
         .map_err(|_| Error::new("WORKER", "暂时无法读取重要支出"))?
 }
 #[tauri::command]
+pub async fn plan_income_list(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::plan_income::List> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.plan_income_list()))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取收入记录"))?
+}
+#[tauri::command]
+pub async fn plan_income_save(
+    input: crate::plan_income::Save,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::plan_income::Income> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.plan_income_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn plan_review(worker: tauri::State<'_, Worker>) -> Result<crate::plan_savings::Review> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.plan_review()))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取储蓄分析"))?
+}
+#[tauri::command]
+pub async fn plan_interval_reasons(
+    snapshot_id: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::plan_savings::Reasons> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.plan_interval_reasons(&snapshot_id))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "暂时无法读取这段区间的记录"))?
+}
+#[tauri::command]
+pub async fn plan_baseline_mark(
+    input: crate::plan_savings::Mark,
+    worker: tauri::State<'_, Worker>,
+) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.plan_baseline_mark(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
 pub async fn recurring_overview(
     worker: tauri::State<'_, Worker>,
 ) -> Result<crate::recurring::Overview> {
