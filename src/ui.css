@@ -139,22 +139,22 @@
 .nav-count{margin-left:auto;font-size:12px;color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
 .nav-count.warn{color:var(--warn);font-weight:600}
 .nav-caption{font-family:var(--head);letter-spacing:var(--h-track)}
-/* D：白色线性图标放在彩色圆角方块里 */
-:root[data-style=bento] .sidebar nav .ui-icon{width:22px;height:22px;padding:4px;border-radius:6px;color:#fff;opacity:1;stroke-width:1.9;background:#8e8e93}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=overview]{background:#5e5ce6}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=items]{background:#0a84ff}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=circle]{background:#34c759}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=shield]{background:#30b0c7}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=arrow]{background:#af52de}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=heart]{background:#ff2d55}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=wallet]{background:#ff9500}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=receipt]{background:#ff6b3d}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=repeat]{background:#32ade6}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=cloud]{background:#5856d6}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=clock]{background:#64c466}
-:root[data-style=bento] .sidebar nav .ui-icon[data-icon=chart]{background:#ff9f0a}
+/* D：每个图标有自己的色值（--ic）。侧栏只有选中项把白色线性图标放进彩色圆角方块，其余与 native 一样是单色线条；总览事件图标复用同一张色值表。 */
+:root[data-style=bento] .ui-icon[data-icon=overview]{--ic:#5e5ce6}
+:root[data-style=bento] .ui-icon[data-icon=items]{--ic:#0a84ff}
+:root[data-style=bento] .ui-icon[data-icon=circle]{--ic:#34c759}
+:root[data-style=bento] .ui-icon[data-icon=shield]{--ic:#30b0c7}
+:root[data-style=bento] .ui-icon[data-icon=arrow]{--ic:#af52de}
+:root[data-style=bento] .ui-icon[data-icon=heart]{--ic:#ff2d55}
+:root[data-style=bento] .ui-icon[data-icon=wallet]{--ic:#ff9500}
+:root[data-style=bento] .ui-icon[data-icon=receipt]{--ic:#ff6b3d}
+:root[data-style=bento] .ui-icon[data-icon=repeat]{--ic:#32ade6}
+:root[data-style=bento] .ui-icon[data-icon=cloud]{--ic:#5856d6}
+:root[data-style=bento] .ui-icon[data-icon=clock]{--ic:#64c466}
+:root[data-style=bento] .ui-icon[data-icon=chart]{--ic:#ff9f0a}
+:root[data-style=bento] .sidebar nav .ui-icon{width:22px;height:22px;padding:4px;border-radius:6px;color:inherit;opacity:.75;stroke-width:1.9;background:none}
 :root[data-style=bento] .sidebar nav .mode-toggle .ui-icon{width:16px;height:16px;padding:0;background:none;color:var(--muted)}
-:root[data-style=bento] .sidebar nav button.nav-active .ui-icon{color:#fff}
+:root[data-style=bento] .sidebar nav button.nav-active .ui-icon{color:#fff;opacity:1;background:var(--ic,#8e8e93)}
 
 /* 5.3 页头（U16b）：页标题随主题（C 为 28 宋体） */
 .page-header h1{font:600 var(--page-title)/1.25 var(--head);letter-spacing:var(--h-track)}

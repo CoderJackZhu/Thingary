@@ -16,3 +16,14 @@ test('asset detail and global page read the same backend timeline projection', (
   assert.match(read('../src/main.tsx'), /section === 'timeline' && <SourceTimelinePage/);
   assert.doesNotMatch(read('../src/main.tsx'), /\bTimelinePage\b/);
 });
+
+test('every labelled event kind has an icon, shared by the timeline page and the overview recent list', () => {
+  const timeline = read('../src/Timeline.tsx');
+  const labels = timeline.match(/export function eventLabel[\s\S]*?return \(\{([\s\S]*?)\} as Record<string, string>/)[1];
+  const kinds = new Set([...labels.matchAll(/(\w+): /g)].map(m => m[1]));
+  const icons = timeline.match(/export function eventIcon[\s\S]*?\?\? 'clock';/)[0];
+  assert.ok(kinds.size >= 14, 'label table parsed');
+  for (const kind of kinds) assert.ok(kind.startsWith('wish_') || kind.startsWith('warranty_') || new RegExp(`\\b${kind}: '`).test(icons), `no icon for ${kind}`);
+  assert.match(timeline, /const icon = eventIcon\(e\.kind\)/);
+  assert.match(read('../src/ReviewView.tsx'), /icon: eventIcon\(ev\.kind\)/);
+});

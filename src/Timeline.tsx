@@ -20,6 +20,11 @@ type TimelinePage = { generation: string; today: string; years?: number[]; dated
 
 export const timelineFilters: [TimelineFilter, string][] = [['all', '全部'], ['purchase', '购买'], ['maintenance', '维护'], ['warranty', '保障'], ['lifecycle', '退役／售出'], ['wishlist', '心愿'], ['expense', '支出'], ['snapshot', '盘点']];
 
+/** 时间轴与总览近期记录共用：每种事件一个图标，未知类型回落时钟。 */
+export function eventIcon(kind: string): ComponentProps<typeof Icon>['name'] {
+  return kind.startsWith('wish_') ? 'heart' : kind.startsWith('warranty_') ? 'shield' : ({ purchase: 'items', maintenance: 'settings', retire: 'archive', activate: 'circle', sale: 'arrow', expense: 'receipt', refund: 'receipt', payment: 'repeat', snapshot: 'wallet', virtual: 'cloud' } as Record<string, ComponentProps<typeof Icon>['name']>)[kind] ?? 'clock';
+}
+
 export function eventLabel(e: TimelineEvent) {
   return ({ snapshot: '财富盘点', purchase: e.wishlist_id ? '购入 · 实现心愿' : '购入', retire: '退役', activate: '重新启用', sale: '售出', maintenance: '维护', warranty_start: '保障生效', warranty_end: '保障到期', wish_achieved: e.note === 'legacy_achieved' ? '旧版自动实现心愿' : '实现心愿', expense: '支出', refund: '退款', payment: '周期付款', virtual: '虚拟资产', wish_added: '加入心愿', wish_abandoned: '不再考虑' } as Record<string, string>)[e.kind] ?? e.kind;
 }
@@ -78,7 +83,7 @@ export function Timeline({ assetId, version, filter = 'all', onOpenAsset, onOpen
     const open = !assetId && (e.target && onOpenSource ? () => onOpenSource(e.target!) : e.asset_id && onOpenAsset ? () => onOpenAsset(e.asset_id!) : e.wishlist_id && onOpenWish ? () => onOpenWish(e.title, e.note) : null);
     const correctable = onCorrect && (e.kind === 'retire' || e.kind === 'activate');
     if (!assetId) {
-      const icon = e.kind.startsWith('wish_') ? 'heart' : e.kind.startsWith('warranty_') ? 'shield' : ({purchase:'items',maintenance:'settings',retire:'archive',activate:'circle',sale:'arrow',expense:'receipt',refund:'receipt',payment:'repeat',snapshot:'wallet',virtual:'cloud'} as Record<string,ComponentProps<typeof Icon>['name']>)[e.kind] ?? 'clock';
+      const icon = eventIcon(e.kind);
       const body = <><span className="timeline-day">{e.date ? Number(e.date.slice(8)) : '—'}<small>日</small></span><span className="timeline-kind"><Icon name={icon}/></span><span className="timeline-copy"><strong>{eventLabel(e)}{e.kind!=='snapshot'&&` · ${e.title}`}</strong><small>{eventDetail(e)}</small></span>{e.amount_cents!==null&&<span className="timeline-amount">{money(e.amount_cents)}</span>}{open&&<span aria-hidden="true">›</span>}</>;
       return <li key={e.id} data-kind={e.kind} className="timeline-entry">{open?<button type="button" className="timeline-row" onClick={open} aria-label={`打开${e.kind==='snapshot'?`${e.date} 盘点`:e.title}`}>{body}</button>:<div className="timeline-row">{body}</div>}</li>;
     }

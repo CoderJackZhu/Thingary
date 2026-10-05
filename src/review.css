@@ -67,3 +67,8 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 :root[data-style=bento] .ui-metrics.review-metrics>div+div{border-left:1px solid var(--line)}
 @media(max-width:1050px){:root[data-style=bento] .ui-metrics.review-metrics>div:nth-child(odd){border-left:0}}
 @media(max-width:980px){.review-nw-big{font-size:36px}}
+
+/* 总览近期记录：每行一个事件图标（与时间轴同一映射）。native／paper 为单色线条，bento 为带色值的小方块。 */
+.review-ev{flex:none;display:grid;place-items:center;width:24px;height:24px}
+.review-ev .ui-icon{width:18px;height:18px;color:var(--muted)}
+:root[data-style=bento] .review-ev .ui-icon{width:24px;height:24px;padding:5px;border-radius:7px;color:#fff;background:var(--ic,#8e8e93);stroke-width:1.9}
