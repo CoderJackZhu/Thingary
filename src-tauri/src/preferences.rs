@@ -286,7 +286,11 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
                 return Err(Error::new("REFERENCE", "心愿渠道引用不存在"));
             }
         }
-        if converted.is_none() && status == "achieved" {
+        // Schema 27 moved the authority to decision_state; legacy_achieved
+        // rows may carry no active conversion link, which
+        // wishlist::validate_dataset checks instead for those versions.
+        let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        if version < 27 && converted.is_none() && status == "achieved" {
             if ![Some("manual"), Some("savings")].contains(&p.achievement_source.as_deref()) {
                 return Err(Error::new("WISH_STATUS", "已实现心愿缺少来源"));
             }
@@ -295,7 +299,7 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
                 return Err(Error::new("WISH_STATUS", "心愿实现记录不可追溯"));
             }
             if p.achievement_source.as_deref() == Some("savings")
-                && (p.mode != "savings"
+                && (p.mode.as_deref() != Some("savings")
                     || !price.is_some_and(|goal| {
                         cents(Some(&p.saved_cents))
                             .ok()

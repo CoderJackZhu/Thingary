@@ -284,16 +284,20 @@ pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
             )?;
         }
     }
-    for (key, name, mode, saved, intent) in [
-        ("tripod", "虚构轻便三脚架", "countdown", "0", "ongoing"),
-        ("lens", "虚构旅行镜头", "savings", "150000", "ongoing"),
-        ("display", "虚构便携显示器", "countdown", "0", "manual"),
-        ("stand", "虚构显示器支架", "countdown", "0", "ongoing"),
-    ] {
-        let wish = s.save_wish_plan(
+    // Four decision states, all through the current domain paths: a wish being
+    // considered, a historical savings achievement pending verification, a
+    // confirmed purchase, and a dropped record that then shows Recently
+    // Deleted (D17).
+    let wish_save = |key: &str,
+                     name: &str,
+                     saved: &str,
+                     mode: Option<&str>,
+                     s: &mut Store|
+     -> Result<crate::wishlist::WishlistItem> {
+        s.save_wish_plan(
             &crate::wish_plan::Save {
                 request_id: request(key, "unified-wish-v1"),
-                generation: generation.clone(),
+                generation: s.generation(),
                 id: None,
                 expected_revision: None,
                 fields: crate::wishlist::Fields {
@@ -303,39 +307,91 @@ pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
                     priority: Some("medium".into()),
                     target_date: Some(day(30)),
                     external_link: String::new(),
-                    notes: "虚构心愿；已实现项可追溯关联物品。".into(),
+                    notes: "虚构心愿；考虑理由与备注都在这里。".into(),
                 },
                 preferences: crate::wish_plan::Preferences {
                     added_date: Some(day(-30)),
-                    mode: mode.into(),
                     saved_cents: saved.into(),
+                    mode: mode.map(str::to_owned),
                     ..Default::default()
                 },
                 photos: Selection {
                     ids: vec![],
                     cover_id: None,
                 },
-                status_intent: intent.into(),
-                achieved_date: if intent == "manual" {
-                    Some(day(-5))
-                } else {
-                    None
-                },
+                replacement_asset_id: None,
+                clear_replacement: false,
             },
             today,
+        )
+    };
+    wish_save("tripod", "虚构轻便三脚架", "0", None, s)?;
+    // The lens reproduces exactly what the schema-27 migration leaves behind
+    // for an old savings-mode achievement: read-only saved amount, the
+    // generated asset kept as a historical relation pending verification.
+    let lens = wish_save("lens", "虚构旅行镜头", "150000", Some("savings"), s)?;
+    {
+        let legacy_asset = uuid::Uuid::new_v4().to_string();
+        s.conn()?
+            .execute("INSERT INTO assets(id,name,price_cents,purchase_date,revision) VALUES(?1,'虚构旅行镜头',NULL,NULL,1)", [&legacy_asset])?;
+        let at = chrono::DateTime::parse_from_rfc3339(&format!("{}T09:00:00+08:00", day(-3)))
+            .expect("fixed demo date")
+            .to_rfc3339();
+        s.conn()?.execute(
+            "UPDATE wishlist_items SET decision_state='legacy_achieved',status='achieved',achieved_at=?2,purchase_source='legacy_auto',legacy_generated_asset_id=?3,legacy_generated_at=?2 WHERE id=?1",
+            rusqlite::params![lens.id, at, legacy_asset],
         )?;
-        // One deleted wish shows how Recently Deleted holds wishes (D17).
-        if key == "stand" {
-            s.wealth_trash(&crate::wealth::TrashChange {
-                request_id: request(key, "unified-wish-trash-v1"),
-                generation: generation.clone(),
-                kind: "wish".into(),
-                id: wish.id,
-                expected_revision: wish.revision,
-                deleted: true,
-            })?;
-        }
     }
+    // A confirmed purchase through the real conversion transaction; the
+    // estimate stays on the wish and never becomes the paid price.
+    let display = wish_save("display", "虚构便携显示器", "0", None, s)?;
+    s.convert_wishlist(
+        &crate::wishlist::Convert {
+            wishlist_id: display.id.clone(),
+            expected_revision: display.revision,
+            asset: SaveAsset {
+                options: None,
+                base: Save {
+                    request_id: request("display", "unified-wish-purchase-v1"),
+                    generation: s.generation(),
+                    asset_id: None,
+                    expected_revision: None,
+                    name: "虚构便携显示器".into(),
+                    price_cents: Some("289900".into()),
+                    purchase_date: Some(day(-5)),
+                },
+                details: Details {
+                    brand: String::new(),
+                    model: String::new(),
+                    serial_number: String::new(),
+                    notes: "虚构购入记录；实际价格与心愿预计价不同。".into(),
+                },
+                photos: None,
+                classification: None,
+            },
+        },
+        today,
+    )?;
+    let stand = wish_save("stand", "虚构显示器支架", "0", None, s)?;
+    s.change_wishlist(&crate::wishlist::Change {
+        request_id: request("stand", "unified-wish-drop-v1"),
+        generation: s.generation(),
+        expected_revision: Some(stand.revision),
+        action: crate::wishlist::Action::Drop {
+            wishlist_id: stand.id.clone(),
+            decision_note: "虚构决定备注：暂时不换支架。".into(),
+        },
+    })?;
+    // One deleted wish shows how Recently Deleted holds wishes (D17).
+    let trashed = s.wishlist_item(&stand.id)?.expect("dropped wish");
+    s.wealth_trash(&crate::wealth::TrashChange {
+        request_id: request("stand", "unified-wish-trash-v1"),
+        generation: s.generation(),
+        kind: "wish".into(),
+        id: stand.id,
+        expected_revision: trashed.revision,
+        deleted: true,
+    })?;
     crate::storage::atomic_write(&done, b"1")?;
     crate::demo_finance::import_virtual(s, today)
 }
@@ -451,8 +507,9 @@ mod unified_tests {
             4
         );
         assert_eq!(expenses.refund_cents, "60000");
-        // Original dated purchases 39286 + maintenance 819 + 16400 standalone + 6240 payments + 2433 virtual.
-        assert_eq!(expenses.spent_cents, "6517800");
+        // Dated purchases 39286 + the demo wish purchase 2899 + maintenance 819
+        // + 16400 standalone + 6240 payments + 2433 virtual.
+        assert_eq!(expenses.spent_cents, "6807700");
         assert_eq!(expenses.undated_cents, "100000");
         assert_eq!(
             s.conn()
@@ -521,8 +578,8 @@ mod unified_tests {
             .unwrap();
         prepare(&mut store, TODAY).unwrap();
         assert!(store.record(&laptop.asset.id).unwrap().unwrap().deleted);
-        // The legacy library also gains the virtual sample: 4574600 + 243300.
-        assert_eq!(store.expense_view(None).unwrap().spent_cents, "4817900");
+        // The legacy library also gains the virtual sample and the demo purchase.
+        assert_eq!(store.expense_view(None).unwrap().spent_cents, "5107800");
         prepare(&mut store, "2027-01-01").unwrap();
         assert!(store.record(&laptop.asset.id).unwrap().unwrap().deleted);
     }
@@ -540,7 +597,7 @@ mod unified_tests {
                 store.recurring_overview(today).unwrap().annual_cents,
                 "3756000"
             );
-            assert_eq!(store.expense_view(None).unwrap().spent_cents, "6517800");
+            assert_eq!(store.expense_view(None).unwrap().spent_cents, "6807700");
         }
     }
 
@@ -624,7 +681,7 @@ mod unified_tests {
             TODAY,
         )
         .unwrap();
-        // Savings reaching the price would achieve the wish and create an asset.
+        // Savings writes are retired for every library, sample included.
         let lens: String = s
             .conn()
             .unwrap()
@@ -635,7 +692,7 @@ mod unified_tests {
             )
             .unwrap();
         let wish = s.wishlist_item(&lens).unwrap().unwrap();
-        refused(
+        assert_eq!(
             s.save_wish_savings(
                 &crate::wish_plan::Saving {
                     request_id: uuid::Uuid::new_v4().to_string(),
@@ -647,9 +704,14 @@ mod unified_tests {
                 },
                 TODAY,
             )
-            .map(|_| ()),
+            .unwrap_err()
+            .code,
+            "WISH_SAVINGS_DISABLED"
         );
-        assert_eq!(s.wishlist_item(&lens).unwrap().unwrap().status, "ongoing");
+        assert_eq!(
+            s.wishlist_item(&lens).unwrap().unwrap().decision_state,
+            "legacy_achieved"
+        );
         assert_eq!(assets(&s), before);
     }
     #[test]

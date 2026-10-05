@@ -70,13 +70,13 @@ UNION ALL
 SELECT 'warranty_end:'||x.id,'warranty_end',x.end_date,a.id,NULL,a.name,x.kind||'|'||x.provider,NULL,0,'','asset' AS source_kind,a.id AS source_id,NULL AS plan_id
   FROM warranties x JOIN assets a ON a.id=x.asset_id WHERE x.deleted_at IS NULL AND a.deleted_at IS NULL AND x.end_date IS NOT NULL AND x.end_date<=?1
 UNION ALL
-SELECT 'wish_added:'||w.id,'wish_added',coalesce((SELECT json_extract(payload,'$.added_date') FROM wishlist_preferences WHERE wishlist_id=w.id),date(w.created_at,'localtime')),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.created_at,'wish' AS source_kind,w.id AS source_id,NULL AS plan_id
+SELECT 'wish_added:'||w.id,'wish_added',coalesce((SELECT json_extract(payload,'$.added_date') FROM wishlist_preferences WHERE wishlist_id=w.id),date(w.created_at,'localtime')),NULL,w.id,w.name,w.decision_state,w.estimated_price_cents,0,w.created_at,'wish' AS source_kind,w.id AS source_id,NULL AS plan_id
   FROM wishlist_items w WHERE w.deleted_at IS NULL
 UNION ALL
-SELECT 'wish_abandoned:'||w.id,'wish_abandoned',date(w.abandoned_at,'localtime'),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.abandoned_at,'wish' AS source_kind,w.id AS source_id,NULL AS plan_id
-  FROM wishlist_items w WHERE w.status='abandoned' AND w.deleted_at IS NULL
+SELECT 'wish_abandoned:'||w.id,'wish_abandoned',date(w.abandoned_at,'localtime'),NULL,w.id,w.name,w.decision_state,w.estimated_price_cents,0,w.abandoned_at,'wish' AS source_kind,w.id AS source_id,NULL AS plan_id
+  FROM wishlist_items w WHERE w.decision_state='dropped' AND w.deleted_at IS NULL
 UNION ALL
-SELECT 'wish_achieved:'||w.id,'wish_achieved',date(w.achieved_at,'localtime'),NULL,w.id,w.name,w.status,w.estimated_price_cents,0,w.achieved_at,'wish' AS source_kind,w.id AS source_id,NULL AS plan_id FROM wishlist_items w WHERE w.status='achieved' AND w.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM assets x WHERE x.id=w.converted_asset_id AND x.deleted_at IS NULL)
+SELECT 'wish_achieved:'||w.id,'wish_achieved',date(coalesce(w.achieved_at,w.legacy_generated_at),'localtime'),NULL,w.id,w.name,CASE WHEN w.legacy_generated_asset_id IS NOT NULL OR w.decision_state='legacy_achieved' THEN 'legacy_achieved' ELSE w.decision_state END,w.estimated_price_cents,0,coalesce(w.achieved_at,w.legacy_generated_at),'wish' AS source_kind,w.id AS source_id,NULL AS plan_id FROM wishlist_items w WHERE coalesce(w.achieved_at,w.legacy_generated_at) IS NOT NULL AND w.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM assets x WHERE x.id=w.converted_asset_id AND x.deleted_at IS NULL)
 UNION ALL
 SELECT 'expense:'||e.id,'expense',e.date,NULL,NULL,e.title,e.category,e.amount_cents,0,'','expense' AS source_kind,e.id AS source_id,NULL AS plan_id FROM expenses e WHERE e.deleted_at IS NULL AND e.asset_id IS NULL
 UNION ALL

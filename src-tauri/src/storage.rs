@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 26;
+pub const SCHEMA_VERSION: i64 = 28;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -158,7 +158,6 @@ impl Store {
         snapshot_before_migration(&db, root)?;
         migrate(&db, &|_| Ok(()))?;
         check_db(&db)?;
-        crate::wishlist::backfill_achieved_assets(&db)?;
         crate::csv_import::repair_sale_receipts(&db)?;
         Ok(Self {
             root: root.to_owned(),
@@ -201,6 +200,16 @@ impl Store {
     #[cfg(any(test, feature = "fault-injection"))]
     pub fn set_hook(&mut self, hook: impl Fn(&str) -> Result<()> + Send + 'static) {
         self.hook = Box::new(hook);
+    }
+    /// Test-only access to the raw digest, so receipt fixtures can reproduce
+    /// retired commands' fingerprints exactly.
+    #[cfg(any(test, feature = "fault-injection"))]
+    pub fn digest_for_test(bytes: &[u8]) -> String {
+        digest(bytes)
+    }
+    #[cfg(any(test, feature = "fault-injection"))]
+    pub fn conn_for_test(&self) -> Result<&Connection> {
+        self.conn()
     }
     pub fn asset(&self, id: &str) -> Result<Option<Asset>> {
         Ok(self
@@ -727,6 +736,24 @@ PRAGMA user_version=14;")?;
     if v == 25 && target >= 26 {
         let tx = c.unchecked_transaction()?;
         tx.execute_batch(include_str!("subscription_reminders.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 26;
+    }
+    if v == 26 && target >= 27 {
+        // Wishes become purchase considerations and decisions; savings-mode
+        // achievements become historical records pending verification.
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("wishlist_decisions.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 27;
+    }
+    if v == 27 && target >= 28 {
+        // Considered-replacement relation on wishes (§7.1), independent of
+        // the purchase link.
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("wishlist_replacement.sql"))?;
         hook("migration.before_commit")?;
         tx.commit()?;
     }

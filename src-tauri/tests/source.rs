@@ -362,7 +362,7 @@ fn validate_source_follows_deletion_relations_and_payment_state() {
         .unwrap();
     let v = virtual_save(&mut s, virtual_fields("虚构订阅", None));
     let generation = s.generation();
-    // Correcting the payment to skipped invalidates its target; the plan lives on.
+    // Correcting to skipped preserves the stable fact target and its exact period.
     s.recurring_payment_save(
         &PaymentSave {
             request_id: rid(),
@@ -379,16 +379,11 @@ fn validate_source_follows_deletion_relations_and_payment_state() {
         TODAY,
     )
     .unwrap();
-    assert_eq!(
-        code(s.validate_source(
-            &Target::Payment {
-                id: payment,
-                plan_id: p.id.clone()
-            },
-            &generation
-        )),
-        "NOT_FOUND"
-    );
+    let payment_target = Target::Payment {
+        id: payment,
+        plan_id: p.id.clone(),
+    };
+    s.validate_source(&payment_target, &generation).unwrap();
     // The linked asset is gone, so the still-live expense no longer resolves.
     s.change_trash(&thingary_lib::trash::TrashChange {
         request_id: rid(),
@@ -407,6 +402,10 @@ fn validate_source_follows_deletion_relations_and_payment_state() {
         .unwrap();
     assert_eq!(
         code(s.validate_source(&Target::Plan { id: p.id }, &generation)),
+        "NOT_FOUND"
+    );
+    assert_eq!(
+        code(s.validate_source(&payment_target, &generation)),
         "NOT_FOUND"
     );
     s.wealth_trash(&trash(&s, "wish", &w.id, w.revision, true))
@@ -520,6 +519,8 @@ fn timeline_view_partitions_domains_and_carries_targets() {
             }
             Target::Virtual { id } => virtual_targets.push(id.clone()),
             Target::Plan { .. } => panic!("no plan-only event exists"),
+            // Accounts have no timeline events; only search results open them.
+            Target::Account { .. } => panic!("no account event exists"),
         }
     }
     assert_eq!(virtual_targets.len(), 2);

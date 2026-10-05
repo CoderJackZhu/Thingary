@@ -10,19 +10,25 @@ export type EntryState = 'entered' | 'unchanged' | 'missing';
 export type Entry = { account_id: string; state: EntryState; amount_cents: string | null; side: Side; kind: string; counted: boolean };
 export type Snapshot = { id: string; date: string; notes: string; revision: number; entries: Entry[]; missing: string[] };
 export type Draft = { generation: string; date: string; existing: Snapshot | null; rows: { account: Account; previous: Observation | null }[] };
-export type Point = { snapshot_id: string; date: string; assets_cents: string; liabilities_cents: string; net_cents: string; complete: boolean; missing: number; compared_to: string | null; scope_changed: boolean; change_cents: string | null; change_rate_hundredths: number | null };
+export type Point = { snapshot_id: string; date: string; notes: string; assets_cents: string; liabilities_cents: string; net_cents: string; complete: boolean; missing: number; compared_to: string | null; scope_changed: boolean; change_cents: string | null; change_rate_hundredths: number | null };
 export type Share = { kind: string; amount_cents: string; share_hundredths: number | null };
 export type Summary = { generation: string; points: Point[]; structure_date: string | null; structure: Share[]; liabilities: Share[] };
 // U20 账户变化与盘点比较（产品设计 17.14）：一次比较的两个端点。
 export type CompareCell = { state: string; amount_cents: string | null; counted: boolean | null };
 export type CompareRow = { account_id: string; name: string; institution: string; side: Side; kind: string; from: CompareCell; to: CompareCell; change_cents: string | null; effect_cents: string | null; rate_hundredths: number | null; group: 'counted' | 'uncounted' | 'scope_changed'; tag: 'new' | 'closed' | null };
-export type CompareEnd = { snapshot_id: string; date: string; complete: boolean; missing: number };
+export type CompareEnd = { snapshot_id: string; date: string; notes: string; complete: boolean; missing: number };
 export type StructurePair = { kind: string; from_cents: string | null; from_share: number | null; to_cents: string | null; to_share: number | null };
 export type Compare = { generation: string; from: CompareEnd; to: CompareEnd; reconciled: boolean; net_change_cents: string | null; assets_change_cents: string | null; liabilities_change_cents: string | null; net_rate_hundredths: number | null; known_effect_cents: string; missing_names: string[]; rows: CompareRow[]; structure: StructurePair[] };
 export type HistoryRow = { snapshot_id: string; date: string; state: string; amount_cents: string | null; counted: boolean; change_cents: string | null };
 export type AccountHistory = { generation: string; account: Account; rows: HistoryRow[] };
 export type AccountSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: AccountFields };
 export type SnapshotSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; date: string; notes: string; entries: { account_id: string; state: EntryState; amount_cents: string | null }[] };
+export type CheckInRow = { state: EntryState | null; cents: string; edited?: boolean };
+/** Loaded unchanged rows keep history; explicitly reconfirmed rows carry the displayed amount. */
+export function snapshotEntryInput(accountId: string, row: CheckInRow): SnapshotSave['entries'][number] {
+  if (!row.state) throw new Error('请先处理这个账户。');
+  return { account_id: accountId, state: row.state, amount_cents: row.state === 'entered' || (row.state === 'unchanged' && row.edited) ? row.cents : null };
+}
 
 export const assetKinds = [['cash', '现金与存款'], ['investment', '投资账户'], ['mixed', '混合投资'], ['fund', '基金'], ['bond', '债券'], ['housing_fund', '公积金'], ['other_asset', '其他资产']] as const;
 export const liabilityKinds = [['credit_card', '信用卡'], ['loan', '贷款'], ['other_liability', '其他负债']] as const;
@@ -31,6 +37,12 @@ export const kindLabel = (kind: string) => [...assetKinds, ...liabilityKinds].fi
 /** Signed amount: `money` already renders a negative with a real minus sign and no line break after it. */
 export const signedMoney = money;
 export function changeText(cents: string) { return cents.startsWith('-') ? money(cents) : '+' + money(cents); }
+/** 备注摘要：约 40 字，有内容才显示；空备注返回 null。 */
+export function noteSummary(notes: string): string | null {
+  if (!notes.trim()) return null;
+  const first = notes.split('\n', 1)[0].trim();
+  return [...first].length > 40 ? [...first].slice(0, 40).join('') + '…' : first;
+}
 export function rateText(hundredths: number) { return `${hundredths < 0 ? '−' : '+'}${(Math.abs(hundredths) / 100).toFixed(2)}%`; }
 
 // ---- U20 账户变化（产品设计 17.14，规则与 Rust 一致） ----------------------

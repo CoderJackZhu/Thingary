@@ -62,9 +62,8 @@ fn wish(
     s: &mut Store,
     name: &str,
     price: Option<&str>,
-    mode: &str,
+    mode: Option<&str>,
     saved: &str,
-    status_intent: &str,
 ) -> thingary_lib::wishlist::WishlistItem {
     s.save_wish_plan(
         &WishSave {
@@ -84,7 +83,7 @@ fn wish(
             preferences: Preferences {
                 added_date: Some("2026-09-01".into()),
                 channel_id: None,
-                mode: mode.into(),
+                mode: mode.map(str::to_owned),
                 saved_cents: saved.into(),
                 achievement_source: None,
                 pinned: false,
@@ -94,8 +93,8 @@ fn wish(
                 ids: vec![],
                 cover_id: None,
             },
-            status_intent: status_intent.into(),
-            achieved_date: None,
+            replacement_asset_id: None,
+            clear_replacement: false,
         },
         TODAY,
     )
@@ -283,51 +282,28 @@ fn main() {
         &mut s,
         "虚构长名称心愿 · 等待很久的木框全画幅镜头与整套滤镜系统",
         Some("285000"),
-        "savings",
+        Some("savings"),
         "85000",
-        "ongoing",
     );
     wish(
         &mut s,
         "大金额心愿 · 工作室整套设备",
         Some("1234567890"),
-        "savings",
-        "0",
-        "ongoing",
-    );
-    wish(
-        &mut s,
-        "价格未知心愿 · 待定型号耳机",
         None,
-        "countdown",
         "0",
-        "ongoing",
     );
+    wish(&mut s, "价格未知心愿 · 待定型号耳机", None, None, "0");
     wish(
         &mut s,
         "零价格心愿 · 朋友转让的旧书架",
         Some("0"),
-        "savings",
+        None,
         "0",
-        "ongoing",
     );
-    let done = wish(
-        &mut s,
-        "已实现心愿 · 键盘",
-        Some("29900"),
-        "savings",
-        "29900",
-        "manual",
-    );
+    // 购买是一次显式确认，不再是保存表单的副作用。
+    let done = wish(&mut s, "已购入心愿 · 键盘", Some("29900"), None, "0");
     let _ = done;
-    let given_up = wish(
-        &mut s,
-        "已放弃心愿 · 跑步机",
-        Some("399900"),
-        "countdown",
-        "0",
-        "ongoing",
-    );
+    let given_up = wish(&mut s, "不再考虑心愿 · 跑步机", Some("399900"), None, "0");
     abandon_wish(&mut s, &given_up);
     // 周期：长名称 30 条付款（第 4、11、18、25 期为本期不付）+ 单条 + 零条。
     let long = create_plan(

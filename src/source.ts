@@ -1,13 +1,13 @@
 import type { Section } from './library-mode';
 import { errorMessage } from './asset.ts';
-export type SourceTarget = { kind: 'asset' | 'wish' | 'snapshot' | 'expense' | 'virtual' | 'plan'; id: string } | { kind: 'payment'; id: string; plan_id: string } | { kind: 'topup'; id: string; asset_id: string };
+export type SourceTarget = { kind: 'asset' | 'wish' | 'snapshot' | 'expense' | 'virtual' | 'plan' | 'account'; id: string } | { kind: 'payment'; id: string; plan_id: string } | { kind: 'topup'; id: string; asset_id: string };
 export type SourceFocus = { target: SourceTarget; generation: string; token: number };
 export type SourceProps = { source?: SourceFocus | null; onSourceDone?: (message?: string) => void };
 /** Resolvers re-read by stable ID, then check alive() before applying any state. */
 export type SourceResolver = (target: SourceTarget, alive: () => boolean) => Promise<boolean> | boolean;
 export type TimelineSelection = { filter: string; domain: string; year: number | null };
 export const defaultTimeline: TimelineSelection = { filter: 'all', domain: 'all', year: null };
-export const sourcePage = (target: SourceTarget): Section => ({ asset: 'assets', wish: 'wishlist', snapshot: 'wealth', expense: 'expenses', payment: 'recurring', plan: 'recurring', virtual: 'virtual', topup: 'virtual' } as const)[target.kind];
+export const sourcePage = (target: SourceTarget): Section => ({ asset: 'assets', wish: 'wishlist', snapshot: 'wealth', expense: 'expenses', payment: 'recurring', plan: 'recurring', virtual: 'virtual', topup: 'virtual', account: 'wealth' } as const)[target.kind];
 export type ReturnContext = { section: Section; generation: string; scroll: number; reviewYear: number | null; timeline: TimelineSelection };
 export const validReturn = (context: ReturnContext | null, generation: string) => context?.generation === generation ? context : null;
 export const missingSource = '这条来源记录已删除或失效，请返回后重新读取。';

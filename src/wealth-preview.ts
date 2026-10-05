@@ -2,7 +2,10 @@
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
 // proves nothing about native storage or calculation.
 import type { Account, AccountSave, Compare, CompareCell, CompareEnd, CompareRow, Draft, Entry, HistoryRow, Point, Share, Snapshot, SnapshotSave, StructurePair, Summary } from './wealth';
-import { assetKinds } from './wealth';
+import { assetKinds, kindLabel } from './wealth';
+import { expenseCategories } from './expenses';
+import { recurringCategories } from './recurring';
+import { virtualKindText } from './virtual';
 import type { Expense, ExpenseSave, ExpenseView, Line } from './expenses';
 import type { Due, Overview, Payment, PaymentSave, Plan, PlanSave, PaymentRangeSave } from './recurring';
 import type { BalanceRecord, BalanceSave, TopupFields, TopupSave, VirtualAsset, VirtualFields, VirtualKind, VirtualOverview, VirtualSave, VirtualStatus, ReminderState, ReminderSave } from './virtual';
@@ -65,7 +68,7 @@ function summary(): Summary {
     const s = view(stored);
     const sum = (side: string) => s.entries.filter(e => e.counted && e.side === side && known(e)).reduce((t, e) => t + BigInt(e.amount_cents!), 0n);
     const assets = sum('asset'), liabilities = sum('liability'), net = assets - liabilities, complete = !s.missing.length;
-    const p: Point = { snapshot_id: s.id, date: s.date, assets_cents: String(assets), liabilities_cents: String(liabilities), net_cents: String(net), complete, missing: s.missing.length, compared_to: null, scope_changed: false, change_cents: null, change_rate_hundredths: null };
+    const p: Point = { snapshot_id: s.id, date: s.date, notes: s.notes, assets_cents: String(assets), liabilities_cents: String(liabilities), net_cents: String(net), complete, missing: s.missing.length, compared_to: null, scope_changed: false, change_cents: null, change_rate_hundredths: null };
     if (complete) {
       if (last) { p.compared_to = last.s.date; const change = net - last.net; p.change_cents = String(change); if (last.net > 0n) p.change_rate_hundredths = hundredths(change, last.net); }
       last = { s, net };
@@ -207,6 +210,47 @@ function virtualOverview(): VirtualOverview {
     plans: plans.map(p => ({ id: p.id, name: p.fields.name, interval_months: p.fields.interval_months, linked_to: virtuals.find(v => v.fields.plan_id === p.id)?.fields.name ?? null })) };
 }
 
+/** 浏览器预览的全局搜索桩：仅用于界面检查，不能验证 Rust 的快照、排序或完整字段覆盖。 */
+let searchPreviewAttempts = 0;
+export function searchPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  if (command !== 'search_all') return null;
+  const input = args.input as { keyword: string; type_filter: string; offset: number; limit: number; generation: string };
+  if (params.get('search') === 'error-once' && searchPreviewAttempts++ === 0) throw { message: '虚构读取失败，请重新搜索。' };
+  const fold = (value: string) => value.replace(/[A-Z]/g, c => c.toLowerCase());
+  const keyword = fold(input.keyword.trim());
+  if ([...input.keyword.trim()].length > 200 || input.keyword.includes('\0')) throw { message: '关键词最多 200 个字符且不能包含空字符。' };
+  if (!keyword) throw { code: 'QUERY', message: '空关键词不查询' };
+  if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已变化，请返回后重新读取。' };
+  type Row = { kind: string; id: string; title: string; date: string | null; status: string; matched_field: string; context: string; target: unknown; at: string; primary: boolean };
+  const rows: Row[] = [];
+  const push = (row: Omit<Row, 'context' | 'matched_field'>, fields: [string, string | null | undefined, boolean][]) => {
+    for (const [label, value, primary] of fields) {
+      if (value && fold(value).includes(keyword)) {
+        rows.push({ ...row, matched_field: label, context: (() => { const at = value.slice(0, fold(value).indexOf(keyword)).length; const before = [...value.slice(0, at)].length; const chars = [...value]; const start = Math.max(0, before - 40), end = Math.min(chars.length, before + [...keyword].length + 40); return (start ? '…' : '') + chars.slice(start, end).join('') + (end < chars.length ? '…' : ''); })(), primary });
+        return;
+      }
+    }
+  };
+  for (const w of wishes) push({ kind: 'wish', id: w.id, title: w.fields.name, date: w.created_at.slice(0, 10), status: w.decision_state === 'purchased' ? '已购入' : w.decision_state === 'dropped' ? '不再考虑' : w.decision_state === 'legacy_achieved' ? '历史待核实' : '考虑中', target: { kind: 'wish', id: w.id }, at: w.created_at, primary: false }, [['名称', w.fields.name, true], ['考虑理由', w.fields.notes, false], ['决定备注', w.decision_note, false], ['相关链接', w.fields.external_link, false]]);
+  for (const a of accounts) push({ kind: 'account', id: a.id, title: a.fields.name, date: a.fields.opened_on, status: a.fields.closed_on ? '已停用' : '在用', target: { kind: 'account', id: a.id }, at: '', primary: false }, [['名称', a.fields.name, true], ['类型', kindLabel(a.fields.kind), false], ['平台', a.fields.institution, false], ['备注', a.fields.notes, false]]);
+  for (const s of snapshots) push({ kind: 'snapshot', id: s.id, title: s.date, date: s.date, status: '', target: { kind: 'snapshot', id: s.id }, at: s.date, primary: false }, [['日期', s.date, true], ['备注', s.notes, false]]);
+  for (const e of expenses) if (!e.fields.asset_id) push({ kind: 'expense', id: e.id, title: e.fields.title, date: e.fields.date, status: '', target: { kind: 'expense', id: e.id }, at: e.fields.date, primary: false }, [['名称', e.fields.title, true], ['分类', expenseCategories.find(([key]) => key === e.fields.category)?.[1], false], ['备注', e.fields.notes, false], ['日期', e.fields.date, false]]);
+  for (const p of plans) push({ kind: 'plan', id: p.id, title: p.fields.name, date: p.fields.first_due, status: p.fields.paused ? '已暂停' : '进行中', target: { kind: 'plan', id: p.id }, at: p.fields.first_due, primary: false }, [['名称', p.fields.name, true], ['类别', recurringCategories.find(([key]) => key === p.fields.category)?.[1], false], ['备注', p.fields.notes, false]]);
+  for (const pay of payments) push({ kind: 'payment', id: pay.id, title: `${pay.plan_name} · ${pay.due_date}`, date: pay.paid_date ?? pay.due_date, status: pay.state === 'paid' ? '已付' : '已跳过', target: { kind: 'payment', id: pay.id, plan_id: pay.plan_id }, at: pay.due_date, primary: false }, [['所属计划', pay.plan_name, true], ['应付日期', pay.due_date, true], ['实付日期', pay.paid_date, false], ['付款备注', pay.notes, false]]);
+  for (const v of virtuals) push({ kind: 'virtual', id: v.id, title: v.fields.name, date: v.fields.purchase_date, status: v.fields.stopped_on ? '已停用' : '使用中', target: { kind: 'virtual', id: v.id }, at: (v.fields.purchase_date ?? ''), primary: false }, [['名称', v.fields.name, true], ['类型', virtualKindText(v.fields.kind), false], ['标签', null, false], ['备注', v.fields.notes, false]]);
+  for (const t of topups) {
+    const parent = virtuals.find(v => v.id === t.asset_id);
+    if (!parent) continue;
+    push({kind: 'topup', id: t.id, title: parent.fields.name, date: t.fields.topup_date, status: '', target: {kind: 'topup', id: t.id, asset_id: t.asset_id}, at: t.fields.topup_date ?? '', primary: false}, [['档案名称', parent.fields.name, true], ['充值日期', t.fields.topup_date, true], ['充值备注', t.fields.notes, false]]);
+  }
+  // Demo assets join by their fixture names.
+  for (const a of demoAssets) push({ kind: 'asset', id: a.key, title: a.name, date: a.purchase_date ?? null, status: '使用中', target: { kind: 'asset', id: a.key }, at: a.purchase_date ?? '', primary: false }, [['名称', a.name, true], ['备注', a.notes, false]]);
+  const order = ['asset', 'wish', 'account', 'snapshot', 'expense', 'plan', 'payment', 'virtual', 'topup'];
+  rows.sort((a, b) => Number(b.primary) - Number(a.primary) || b.at.localeCompare(a.at) || order.indexOf(a.kind) - order.indexOf(b.kind) || a.id.localeCompare(b.id));
+  const type_counts = order.map(kind => [kind, rows.filter(r => r.kind === kind).length] as [string, number]);
+  const filtered = input.type_filter === 'all' ? rows : rows.filter(r => r.kind === input.type_filter);
+  return { value: { generation, revision: 'preview-layout-only', keyword: input.keyword.trim(), type_filter: input.type_filter, offset: input.offset, limit: input.limit, total: filtered.length, type_counts, items: filtered.slice(input.offset, input.offset + input.limit) } };
+}
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command === 'notification_permission') return { value: null };
   if (command === 'virtual_reminder_save') {
@@ -312,6 +356,8 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: '虚构盘点读取失败。' }; return { value: summary() }; }
   if (command === 'wealth_accounts') return { value: accounts.map(withLatest) };
   if (command === 'wealth_request_result') return { value: receipts.get(String(args.request)) ?? null };
+  // 只读详情：按稳定 ID 读取一次盘点（§5.2），浏览不写资料。
+  if (command === 'wealth_snapshot') { const found = snapshots.find(s => s.id === String(args.id)); return { value: found ? view(found) : null }; }
   if (command === 'wealth_snapshot_draft') {
     const date = String(args.date), existing = snapshots.find(s => s.date === date);
     const draft: Draft = { generation, date, existing: existing ? view(existing) : null, rows: accounts.filter(a => due(a, date)).map(a => ({ account: withLatest(a), previous: latestBefore(a.id, date) })) };
@@ -370,7 +416,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       const f = fShares.find(s => s.kind === kind), t = tShares.find(s => s.kind === kind);
       return f || t ? [{ kind, from_cents: f?.amount_cents ?? null, from_share: f?.share_hundredths ?? null, to_cents: t?.amount_cents ?? null, to_share: t?.share_hundredths ?? null }] : [];
     });
-    const end = (s: Snapshot): CompareEnd => ({ snapshot_id: s.id, date: s.date, complete: !s.missing.length, missing: s.missing.length });
+    const end = (s: Snapshot): CompareEnd => ({ snapshot_id: s.id, date: s.date, notes: s.notes, complete: !s.missing.length, missing: s.missing.length });
     return { value: {
       generation, from: end(fv), to: end(tv), reconciled, net_change_cents: netChange,
       assets_change_cents: assetsChange, liabilities_change_cents: liabChange, net_rate_hundredths: netRate,
@@ -423,9 +469,9 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
 // resolution stays demonstrable in the browser preview.
 type PreviewWish = WishlistItem;
 const wishFixture = (id: string, name: string, yuan: string | null, created: string): PreviewWish => ({
-  id, fields: { name, category_id: null, estimated_price_cents: yuan, priority: null, target_date: '', external_link: '', notes: '虚构心愿样例' },
-  status: 'ongoing', revision: 1, created_at: created, updated_at: created, abandoned_at: null, achieved_at: null,
-  converted_asset: null, cover: null, photos: [],
+  id, fields: { name, category_id: null, estimated_price_cents: yuan, priority: null, target_date: '', external_link: '', notes: '虚构心愿样例：为什么想买、还有什么顾虑。' },
+  status: 'ongoing', decision_state: 'considering', decision_note: '', purchase_source: null, revision: 1, created_at: created, updated_at: created, abandoned_at: null, achieved_at: null,
+  converted_asset: null, legacy_generated_asset: null, legacy_generated_at: null, cover: null, photos: [],
 });
 let wishes: PreviewWish[] = params.get('state') === 'empty' ? [] : [
   wishFixture('wish-lens', '虚构心愿 · 相机镜头', '880000', '2026-08-05T09:00:00.000Z'),
@@ -436,19 +482,23 @@ let wishes: PreviewWish[] = params.get('state') === 'empty' ? [] : [
 // U18 布局夹具：心愿按设计 §6.1 覆盖金额/状态组合（价格 2,850、已攒 850、
 // 还差 2,000；大金额、未知/零、长名称、已实现/已放弃）；周期按 0/1/30 条
 // 付款与长名称/备注构造。仅浏览器预览，刷新即重置。
-const layoutWish = (id: string, name: string, price: string | null, prefs: Partial<PreviewWish['preferences']> & { mode: 'countdown' | 'savings' }, status: PreviewWish['status'] = 'ongoing', created = '2026-09-01T09:00:00.000Z'): PreviewWish => ({
-  ...wishFixture(id, name, price, created), status,
+const layoutWish = (id: string, name: string, price: string | null, prefs: Partial<PreviewWish['preferences']> & { mode: 'countdown' | 'savings' | null }, decision: PreviewWish['decision_state'] = 'considering', created = '2026-09-01T09:00:00.000Z'): PreviewWish => ({
+  ...wishFixture(id, name, price, created),
+  status: decision === 'purchased' || decision === 'legacy_achieved' ? 'achieved' : decision === 'dropped' ? 'abandoned' : 'ongoing',
+  decision_state: decision,
   preferences: { added_date: '2026-09-01', channel_id: null, saved_cents: '0', achievement_source: null, pinned: false, reminder: false, ...prefs },
 });
 if (params.get('wish-fixture') === 'layout') {
+  const [lensTarget] = demoAssets.filter(a => a.key === 'camera');
   wishes = [
-    layoutWish('wish-2850', '虚构长名称心愿 · 等待很久的木框全画幅镜头与整套滤镜系统', '285000', { mode: 'savings', saved_cents: '85000' }),
-    layoutWish('wish-big', '大金额心愿 · 工作室整套设备', '1234567890', { mode: 'savings', saved_cents: '0' }),
-    layoutWish('wish-unknown', '价格未知心愿 · 待定型号耳机', null, { mode: 'countdown' }),
-    layoutWish('wish-zero', '零价格心愿 · 朋友转让的旧书架', '0', { mode: 'savings', saved_cents: '0' }),
-    layoutWish('wish-no-date', '无目标日期心愿 · 年度旅行相机包', '99000', { mode: 'countdown' }),
-    layoutWish('wish-done', '已实现心愿 · 键盘', '29900', { mode: 'savings', saved_cents: '29900', achievement_source: 'savings' }, 'achieved'),
-    layoutWish('wish-given-up', '已放弃心愿 · 跑步机', '399900', { mode: 'countdown' }, 'abandoned'),
+    { ...layoutWish('wish-2850', '虚构长名称心愿 · 等待很久的木框全画幅镜头与整套滤镜系统', '285000', { mode: 'savings', saved_cents: '85000' }), replacement_asset: lensTarget ? { id: lensTarget.key, name: lensTarget.name, deleted: false } : null, replacement_asset_name: '' },
+    layoutWish('wish-big', '大金额心愿 · 工作室整套设备', '1234567890', { mode: null }),
+    layoutWish('wish-unknown', '价格未知心愿 · 待定型号耳机', null, { mode: null }),
+    layoutWish('wish-zero', '零价格心愿 · 朋友转让的旧书架', '0', { mode: null }),
+    layoutWish('wish-no-date', '无计划日期心愿 · 年度旅行相机包', '99000', { mode: null }),
+    layoutWish('wish-done', '已购入心愿 · 键盘', '29900', { mode: null }, 'purchased'),
+    layoutWish('wish-given-up', '不再考虑心愿 · 跑步机', '399900', { mode: 'countdown' }, 'dropped'),
+    layoutWish('wish-legacy', '历史待核实心愿 · 旧攒钱达标的显示器', '300000', { mode: 'savings', saved_cents: '300000', achievement_source: 'savings' }, 'legacy_achieved'),
   ];
 }
 if (params.get('recurring-fixture') === '30') {
@@ -469,13 +519,14 @@ if (params.get('recurring-fixture') === '30') {
 
 export function previewWishPage(query: WishlistQuery): WishlistPage {
   const found = wishes.filter(w => (!query.search || w.fields.name.toLowerCase().includes(query.search.toLowerCase()))
-    && (query.filter === 'all' || w.status === query.filter));
+    && (query.filter === 'all' || w.decision_state === query.filter || (query.filter === 'considering' && w.decision_state === 'legacy_achieved')));
   const value = (w: PreviewWish): string | number | null => query.sort === 'name' ? w.fields.name.toLowerCase() : query.sort === 'priority' ? w.fields.priority ?? null : query.sort === 'price' ? w.fields.estimated_price_cents === null ? null : Number(w.fields.estimated_price_cents) : query.sort === 'target' ? w.fields.target_date ?? null : w.preferences?.added_date ?? w.created_at.slice(0,10);
   found.sort((a, b) => { const pinned=Number(!!b.preferences?.pinned)-Number(!!a.preferences?.pinned); if(pinned)return pinned; const x=value(a),y=value(b); if(x===null && y!==null)return 1;if(y===null && x!==null)return -1;const order=x===null?0:typeof x==='number' && typeof y==='number'?x-y:String(x)<String(y)?-1:String(x)>String(y)?1:0;return order*(query.descending?-1:1)||b.created_at.localeCompare(a.created_at)||a.id.localeCompare(b.id); });
-  const ongoing = wishes.filter(w => w.status === 'ongoing');
+  const considering = wishes.filter(w => w.decision_state === 'considering');
   return { generation, items: found.slice(query.offset, query.offset + 100).map(w => structuredClone(w)), total: found.length,
-    ongoing_known_cents: String(ongoing.reduce((t, w) => t + BigInt(w.fields.estimated_price_cents ?? '0'), 0n)),
-    ongoing_unknown_count: ongoing.filter(w => w.fields.estimated_price_cents === null).length };
+    considering_known_cents: String(considering.reduce((t, w) => t + BigInt(w.fields.estimated_price_cents ?? '0'), 0n)),
+    considering_unknown_count: considering.filter(w => w.fields.estimated_price_cents === null).length,
+    legacy_achieved_count: wishes.filter(w => w.decision_state === 'legacy_achieved').length };
 }
 export function previewReadWish(id: string): WishlistItem | null {
   const found = wishes.find(w => w.id === id);
@@ -502,9 +553,11 @@ export function financialTimelineEvents(): PreviewEvent[] {
 }
 export function validatePreviewSource(target: SourceTarget): void {
   const fail = () => { throw { code: 'NOT_FOUND', message: '这条来源记录已删除或失效，请返回后重新读取。' }; };
+  if (target.kind === 'account') { if (!accounts.some(a => a.id === target.id)) fail(); return; }
+  if (target.kind === 'topup') { if (!topups.some(t => t.id === target.id && t.asset_id === target.asset_id) || !virtuals.some(v => v.id === target.asset_id)) fail(); return; }
   if (target.kind === 'snapshot') { if (!snapshots.some(s => s.id === target.id)) fail(); return; }
   if (target.kind === 'expense') { const e = expenses.find(x => x.id === target.id); if (!e || e.asset_deleted) fail(); return; }
-  if (target.kind === 'payment') { if (!payments.some(p => p.id === target.id && p.plan_id === target.plan_id && p.state === 'paid')) fail(); return; }
+  if (target.kind === 'payment') { if (!payments.some(p => p.id === target.id && p.plan_id === target.plan_id) || !plans.some(p => p.id === target.plan_id)) fail(); return; }
   if (target.kind === 'plan') { if (!plans.some(p => p.id === target.id)) fail(); return; }
   if (target.kind === 'virtual') { if (!virtuals.some(v => v.id === target.id)) fail(); return; }
   if (target.kind === 'wish') { if (!wishes.some(w => w.id === target.id)) fail(); return; }

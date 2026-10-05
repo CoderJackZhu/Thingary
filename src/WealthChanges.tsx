@@ -5,7 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset.ts';
 import { Info } from './FormControls';
 import { NetChart } from './WealthPage';
-import { cellText, changeText, code, defaultRange, kindLabel, rateText, sortRows } from './wealth';
+import { cellText, changeText, code, defaultRange, kindLabel, rateText, sortRows, noteSummary } from './wealth';
 import type { Account, AccountHistory, Compare, CompareRow, Point, Summary } from './wealth';
 
 type Range = { from: string; to: string };
@@ -90,6 +90,9 @@ export function WealthChanges({ summary, accounts, initial, today, onNewAccount,
       <label>到 {dateSelect('终点盘点', range.to, setTo)}</label>
       <button onClick={() => { const fresh = defaultRange(points); if (fresh) setRange(fresh); }}>与上次</button>
       <Info text={NOTE}/>
+      {compare && <div className="compare-endpoint-notes">
+        {([['起点', compare.from], ['终点', compare.to]] as const).map(([label, end]) => <details key={label} className="endpoint-note"><summary>{label} {end.date} 的备注{noteSummary(end.notes) ? '' : '（未填写）'}</summary><p className="notes" style={{whiteSpace:'pre-wrap'}}>{end.notes.trim() || '未填写备注'}</p></details>)}
+      </div>}
     </article>
     {error ? <article className="ui-card ui-content" role="alert"><p>变化读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>
       : !compare ? <p role="status" className="muted">正在读取账户变化…</p>
@@ -179,7 +182,7 @@ function HistoryBlock({ id, name, side, history, onRetry }: {
   if (history.status === 'error') return <div role="alert"><p>历史读取失败：{history.message}</p><button onClick={() => onRetry(id)}>重新读取</button></div>;
   const data = history.data;
   // 未知金额不画 0：complete=false 让 NetChart 只留虚线标记（W-AC07）。
-  const points: Point[] = data.rows.map(row => ({ snapshot_id: row.snapshot_id, date: row.date, assets_cents: row.amount_cents ?? '0', liabilities_cents: '0', net_cents: row.amount_cents ?? '0', complete: row.amount_cents !== null, missing: row.amount_cents === null ? 1 : 0, compared_to: null, scope_changed: false, change_cents: null, change_rate_hundredths: null }));
+  const points: Point[] = data.rows.map(row => ({ snapshot_id: row.snapshot_id, date: row.date, notes: '', assets_cents: row.amount_cents ?? '0', liabilities_cents: '0', net_cents: row.amount_cents ?? '0', complete: row.amount_cents !== null, missing: row.amount_cents === null ? 1 : 0, compared_to: null, scope_changed: false, change_cents: null, change_rate_hundredths: null }));
   const known = data.rows.filter(row => row.amount_cents !== null).length;
   return <div className="account-history">
     {known > 0 ? <NetChart points={points} label={`「${name}」的金额趋势，共 ${known} 次已知金额`}/> : <p className="muted">还没有已知金额。</p>}

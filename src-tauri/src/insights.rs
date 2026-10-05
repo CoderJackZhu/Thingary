@@ -46,7 +46,8 @@ pub struct Overview {
     pub average_holding_days: Option<i64>,
     pub held_unknown_date_count: i64,
     pub held_daily: DailyCostSummary,
-    pub ongoing_wishes: i64,
+    pub considering_wishes: i64,
+    pub legacy_wishes: i64,
     pub scope: String,
     pub categories: Vec<CategoryShare>,
     pub recent: Vec<crate::timeline::Event>,
@@ -128,10 +129,10 @@ impl Store {
             [today],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
-        let ongoing: i64 = c.query_row(
-            "SELECT count(*) FROM wishlist_items WHERE status='ongoing' AND deleted_at IS NULL",
+        let (considering, legacy): (i64, i64) = c.query_row(
+            "SELECT coalesce(sum(decision_state='considering'),0),coalesce(sum(decision_state='legacy_achieved'),0) FROM wishlist_items WHERE deleted_at IS NULL",
             [],
-            |r| r.get(0),
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
         let mut stmt = c.prepare(&format!(
             "SELECT c.id,coalesce(c.name,'未分类'),CASE WHEN c.id IS NOT NULL THEN (SELECT count(*) FROM categories o WHERE o.position<c.position AND EXISTS(SELECT 1 FROM assets x WHERE x.category_id=o.id AND x.deleted_at IS NULL)) END,count(*),coalesce(sum(a.price_cents),0),coalesce(sum(a.price_cents IS NULL),0) FROM assets a LEFT JOIN categories c ON c.id=a.category_id WHERE a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.total')=1) AND a.lifecycle_state IN {states} GROUP BY c.id ORDER BY c.position IS NULL,c.position"
@@ -172,7 +173,8 @@ impl Store {
             average_holding_days: average.map(|d| d.round() as i64),
             held_unknown_date_count: unknown_date,
             held_daily: self.held_daily_cost(today)?,
-            ongoing_wishes: ongoing,
+            considering_wishes: considering,
+            legacy_wishes: legacy,
             scope: scope.into(),
             categories,
             recent,

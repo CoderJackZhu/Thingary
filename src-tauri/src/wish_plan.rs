@@ -1,11 +1,13 @@
-//! Editable wishlist plans and integer-cent savings. All transitions are atomic.
+//! Wishlist plans. Savings amounts are read-only history since the purchase
+//! decision redesign (LOW_FREQUENCY_REVIEW_DESIGN §3.6): the write command
+//! answers with a clear feature-retired error, while old receipts stay
+//! readable and are never re-executed.
 use crate::{
     domain::{cents, date, Error, Result},
     photos::Selection,
     storage::{digest, uid, Store},
     wishlist::{Fields, WishlistItem},
 };
-use chrono::TimeZone;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -13,7 +15,8 @@ use serde::{Deserialize, Serialize};
 pub struct Preferences {
     pub added_date: Option<String>,
     pub channel_id: Option<String>,
-    pub mode: String,
+    /// Legacy field, read-only history; None for new wishes (§3.1).
+    pub mode: Option<String>,
     pub saved_cents: String,
     pub achievement_source: Option<String>,
     pub pinned: bool,
@@ -24,7 +27,7 @@ impl Default for Preferences {
         Self {
             added_date: None,
             channel_id: None,
-            mode: "countdown".into(),
+            mode: None,
             saved_cents: "0".into(),
             achievement_source: None,
             pinned: false,
@@ -38,7 +41,10 @@ impl Preferences {
             date(d)?;
         }
         cents(Some(&self.saved_cents))?;
-        if !["countdown", "savings"].contains(&self.mode.as_str())
+        if self
+            .mode
+            .as_deref()
+            .is_some_and(|m| !["countdown", "savings"].contains(&m))
             || self
                 .achievement_source
                 .as_deref()
@@ -71,9 +77,41 @@ pub struct Save {
     pub fields: Fields,
     pub preferences: Preferences,
     pub photos: Selection,
-    /// preserve, manual, or ongoing; clients cannot assert automatic provenance.
-    pub status_intent: String,
-    pub achieved_date: Option<String>,
+    /// The item this wish is considering replacing; None drops an active
+    /// relation but preserves any purged display history until explicitly
+    /// cleared. New targets must be live; an unchanged soft-deleted relation
+    /// is kept without touching the item (§7.1).
+    #[serde(default)]
+    pub replacement_asset_id: Option<String>,
+    /// Clear the minimum history after a purge only on an explicit removal.
+    /// Omit false to keep existing schema-28 receipt fingerprints unchanged.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub clear_replacement: bool,
+}
+// Schema-27 queued requests and receipts predate the replacement fields.
+// Serialize their exact original shape and order for replay compatibility;
+// this alternative is never accepted for a request changing a relation.
+fn legacy_plan_fingerprint(input: &Save) -> Result<String> {
+    #[derive(Serialize)]
+    struct LegacySave<'a> {
+        request_id: &'a str,
+        generation: &'a str,
+        id: &'a Option<String>,
+        expected_revision: Option<i64>,
+        fields: &'a Fields,
+        preferences: &'a Preferences,
+        photos: &'a Selection,
+    }
+    let old = LegacySave {
+        request_id: &input.request_id,
+        generation: &input.generation,
+        id: &input.id,
+        expected_revision: input.expected_revision,
+        fields: &input.fields,
+        preferences: &input.preferences,
+        photos: &input.photos,
+    };
+    Ok(digest(&serde_json::to_vec(&("wish_plan", old))?))
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -85,93 +123,9 @@ pub struct Saving {
     pub mode: String,
     pub cents: String,
 }
-fn local_noon(day: &str) -> Result<String> {
-    let dt = date(day)?
-        .and_hms_opt(12, 0, 0)
-        .ok_or_else(|| Error::new("DATE", "日期无效"))?;
-    chrono::Local
-        .from_local_datetime(&dt)
-        .single()
-        .map(|v| v.to_rfc3339())
-        .ok_or_else(|| Error::new("DATE", "当地时间无效"))
-}
-fn transition(
-    old: Option<&WishlistItem>,
-    p: &mut Preferences,
-    f: &Fields,
-    intent: &str,
-    chosen: Option<&str>,
-    today: &str,
-) -> Result<(String, Option<String>)> {
-    date(today)?;
-    if !["preserve", "manual", "ongoing"].contains(&intent) {
-        return Err(Error::new("WISH_STATUS", "请选择有效的心愿状态"));
-    }
-    if let Some(item) = old {
-        if item.converted_asset.is_some() {
-            if intent == "ongoing"
-                && item.preferences.achievement_source.as_deref() != Some("savings")
-            {
-                return Err(Error::new("WISH_STATUS", "已进入物品档案的心愿不能回退"));
-            }
-            if item.preferences.achievement_source.as_deref() == Some("savings") {
-                let target = cents(f.estimated_price_cents.as_deref())?;
-                let saved = cents(Some(&p.saved_cents))?.unwrap_or(0);
-                if intent == "ongoing"
-                    || (intent != "manual" && target.is_none_or(|value| saved < value))
-                {
-                    p.achievement_source = None;
-                    return Ok(("ongoing".into(), None));
-                }
-            }
-            p.achievement_source = if intent == "manual" {
-                Some("manual".into())
-            } else {
-                item.preferences
-                    .achievement_source
-                    .clone()
-                    .or(Some("conversion".into()))
-            };
-            return Ok(("achieved".into(), item.achieved_at.clone()));
-        }
-        if item.status == "abandoned" {
-            return Err(Error::new("WISH_STATUS", "已放弃心愿不能直接修改"));
-        }
-    }
-    p.achievement_source = old
-        .and_then(|w| w.preferences.achievement_source.clone())
-        .filter(|_| intent == "preserve");
-    if intent == "manual" {
-        p.achievement_source = Some("manual".into());
-    }
-    let target = cents(f.estimated_price_cents.as_deref())?;
-    let saved = cents(Some(&p.saved_cents))?.unwrap_or(0);
-    let reached = p.mode == "savings" && target.is_some_and(|t| saved >= t);
-    if p.achievement_source.as_deref() != Some("manual") {
-        p.achievement_source = if reached {
-            Some("savings".into())
-        } else {
-            None
-        };
-    }
-    if p.achievement_source.is_none() {
-        return Ok(("ongoing".into(), None));
-    }
-    let at = if intent == "manual" {
-        let d = chosen.unwrap_or(today);
-        date(d)?;
-        if d > today {
-            return Err(Error::new("WISH_DATE", "实现日期不能晚于今天"));
-        }
-        local_noon(d)?
-    } else {
-        old.and_then(|w| w.achieved_at.clone())
-            .map(Ok)
-            .unwrap_or_else(|| local_noon(today))?
-    };
-    Ok(("achieved".into(), Some(at)))
-}
-fn receipt(c: &Connection, id: &str, fingerprint: &str) -> Result<Option<String>> {
+/// Replay-only receipt lookup shared by the decision commands: same id with a
+/// different fingerprint is a conflict; no row means it never committed.
+pub(crate) fn receipt(c: &Connection, id: &str, fingerprint: &str) -> Result<Option<String>> {
     let prior: Option<(String, String)> = c
         .query_row(
             "SELECT fingerprint,result FROM feature_requests WHERE id=?1",
@@ -201,13 +155,26 @@ fn reference(c: &Connection, table: &str, id: Option<&str>) -> Result<()> {
     Ok(())
 }
 impl Store {
+    /// Saves wish fields and preferences. Editing never changes the decision
+    /// state, never generates, deletes or retires an asset, and never drives
+    /// the retired savings transitions (§3.1, §3.3, A16).
     pub fn save_wish_plan(&mut self, input: &Save, today: &str) -> Result<WishlistItem> {
         self.check_generation(&input.generation)?;
         uuid::Uuid::parse_str(&input.request_id)
             .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
         let fingerprint = digest(&serde_json::to_vec(&("wish_plan", input))?);
         let tx = self.conn()?.unchecked_transaction()?;
-        if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
+        let prior = match receipt(&tx, &input.request_id, &fingerprint) {
+            Err(e)
+                if e.code == "REQUEST_CONFLICT"
+                    && input.replacement_asset_id.is_none()
+                    && !input.clear_replacement =>
+            {
+                receipt(&tx, &input.request_id, &legacy_plan_fingerprint(input)?)?
+            }
+            other => other?,
+        };
+        if let Some(id) = prior {
             return crate::wishlist::read(&tx, &id)?
                 .ok_or_else(|| Error::new("NOT_FOUND", "找不到心愿"));
         }
@@ -235,45 +202,65 @@ impl Store {
         {
             return Err(Error::new("REVISION_CONFLICT", "心愿已变化，请重新读取"));
         }
+        // Newly selected targets must be live. Keeping the wish's original
+        // soft-deleted target must not block unrelated field edits.
+        if input.clear_replacement && input.replacement_asset_id.is_some() {
+            return Err(Error::new("WISH_REPLACEMENT", "清除关系时不能同时选择物品"));
+        }
+        if let Some(asset_id) = &input.replacement_asset_id {
+            uuid::Uuid::parse_str(asset_id).map_err(|_| Error::new("ID", "物品标识无效"))?;
+            let live: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM assets WHERE id=?1 AND deleted_at IS NULL)",
+                [asset_id],
+                |r| r.get(0),
+            )?;
+            let kept = old
+                .as_ref()
+                .and_then(|w| w.replacement_asset.as_ref())
+                .is_some_and(|a| a.id == *asset_id);
+            if !live && !kept {
+                return Err(Error::new(
+                    "WISH_REPLACEMENT",
+                    "这件物品已删除或不存在，请重新选择",
+                ));
+            }
+        }
         let id = input.id.clone().unwrap_or_else(uid);
-        let mut p = input.preferences.clone();
-        let (status, at) = transition(
-            old.as_ref(),
-            &mut p,
-            &input.fields,
-            &input.status_intent,
-            input.achieved_date.as_deref(),
-            today,
-        )?;
+        let p = input.preferences.clone();
+        // Only a wish still being considered keeps a reminder, and only with a
+        // plan date; reconsidering never restores an old reminder (§3.5).
+        let considering = old
+            .as_ref()
+            .map(|w| w.decision_state == "considering")
+            .unwrap_or(true);
         let now = chrono::Utc::now().to_rfc3339();
         let f = &input.fields;
-        if status == "ongoing" {
-            if let Some(previous) = &old {
-                crate::wishlist::unlink_auto_achieved_asset(&tx, previous)?;
-            }
-        }
         if old.is_some() {
-            tx.execute("UPDATE wishlist_items SET name=?2,category_id=?3,estimated_price_cents=?4,priority=?5,target_date=?6,external_link=?7,notes=?8,status=?9,achieved_at=?10,revision=revision+1,updated_at=?11 WHERE id=?1",params![id,f.name.trim(),f.category_id,cents(f.estimated_price_cents.as_deref())?,f.priority,f.target_date,f.external_link.trim(),f.notes,status,at,now])?;
+            tx.execute("UPDATE wishlist_items SET name=?2,category_id=?3,estimated_price_cents=?4,priority=?5,target_date=?6,external_link=?7,notes=?8,revision=revision+1,updated_at=?9 WHERE id=?1",params![id,f.name.trim(),f.category_id,cents(f.estimated_price_cents.as_deref())?,f.priority,f.target_date,f.external_link.trim(),f.notes,now])?;
         } else {
-            tx.execute("INSERT INTO wishlist_items(id,name,category_id,estimated_price_cents,priority,target_date,external_link,notes,status,achieved_at,revision,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,?11,?11)",params![id,f.name.trim(),f.category_id,cents(f.estimated_price_cents.as_deref())?,f.priority,f.target_date,f.external_link.trim(),f.notes,status,at,now])?;
+            tx.execute("INSERT INTO wishlist_items(id,name,category_id,estimated_price_cents,priority,target_date,external_link,notes,status,decision_state,revision,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,'ongoing','considering',1,?9,?9)",params![id,f.name.trim(),f.category_id,cents(f.estimated_price_cents.as_deref())?,f.priority,f.target_date,f.external_link.trim(),f.notes,now])?;
         }
+        match &input.replacement_asset_id {
+            Some(asset_id) => tx.execute(
+                "UPDATE wishlist_items SET replacement_asset_id=?2,replacement_asset_name='' WHERE id=?1",
+                params![id, asset_id],
+            )?,
+            None => tx.execute(
+                "UPDATE wishlist_items SET replacement_asset_id=NULL,replacement_asset_name=CASE WHEN ?2 THEN '' ELSE replacement_asset_name END WHERE id=?1",
+                params![id, input.clear_replacement],
+            )?,
+        };
         self.commit_wishlist_cover(&tx, &id, &input.photos)?;
         tx.execute("INSERT INTO wishlist_preferences VALUES(?1,?2) ON CONFLICT(wishlist_id) DO UPDATE SET payload=excluded.payload",params![id,serde_json::to_string(&p)?])?;
-        if status == "achieved" {
-            if old.as_ref().is_none_or(|w| w.status != "achieved") {
-                self.refuse_new_asset()?;
-            }
-            crate::wishlist::link_achieved_asset(&tx, &id)?;
-        }
         tx.execute(
             "DELETE FROM reminders WHERE kind='wishlist' AND entity_id=?1",
             [&id],
         )?;
-        if p.reminder && p.mode == "countdown" && status == "ongoing" {
+        if considering && p.reminder {
             let d = f
                 .target_date
                 .as_ref()
-                .ok_or_else(|| Error::new("REMINDER", "到期通知需要目标日期"))?;
+                .ok_or_else(|| Error::new("REMINDER", "到期通知需要计划日期"))?;
             tx.execute(
                 "INSERT INTO reminders(id,kind,entity_id,source_id,date,notes) VALUES(?1,'wishlist',?2,NULL,?3,'')",
                 params![format!("wish-{id}"), id, d],
@@ -294,7 +281,10 @@ impl Store {
         self.hit("wish_plan.after_commit")?;
         Ok(result)
     }
-    pub fn save_wish_savings(&mut self, input: &Saving, today: &str) -> Result<WishlistItem> {
+    /// The savings write is retired. A request that already committed returns
+    /// its saved result; anything else is refused with a clear message and no
+    /// business side effect (A16, A17).
+    pub fn save_wish_savings(&mut self, input: &Saving, _today: &str) -> Result<WishlistItem> {
         self.check_generation(&input.generation)?;
         uuid::Uuid::parse_str(&input.request_id)
             .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
@@ -304,68 +294,10 @@ impl Store {
             return crate::wishlist::read(&tx, &id)?
                 .ok_or_else(|| Error::new("NOT_FOUND", "找不到心愿"));
         }
-        let old = crate::wishlist::read(&tx, &input.id)?
-            .ok_or_else(|| Error::new("NOT_FOUND", "找不到心愿"))?;
-        if old.revision != input.expected_revision || old.deleted {
-            return Err(Error::new("REVISION_CONFLICT", "心愿已变化，请重新读取"));
-        }
-        if old.preferences.mode != "savings" {
-            return Err(Error::new("WISH_MODE", "此心愿未启用攒钱模式"));
-        }
-        let mut p = old.preferences.clone();
-        let amount = cents(Some(&input.cents))?.unwrap_or(0);
-        let prior = cents(Some(&p.saved_cents))?.unwrap_or(0);
-        let target = cents(old.fields.estimated_price_cents.as_deref())?;
-        if input.mode == "add"
-            && (old.status == "achieved" || target.is_some_and(|limit| prior >= limit))
-        {
-            return Err(Error::new(
-                "SAVING_COMPLETE",
-                "这条心愿已攒够；如需更正，请修改累计金额",
-            ));
-        }
-        p.saved_cents = match input.mode.as_str() {
-            "add" => prior
-                .checked_add(amount)
-                .ok_or_else(|| Error::new("AMOUNT", "累计金额过大"))?
-                .min(target.unwrap_or(i64::MAX))
-                .to_string(),
-            "total" => amount.min(target.unwrap_or(i64::MAX)).to_string(),
-            _ => return Err(Error::new("SAVING_MODE", "请选择新增金额或更正累计")),
-        };
-        p.validate()?;
-        let (status, at) = transition(Some(&old), &mut p, &old.fields, "preserve", None, today)?;
-        let now = chrono::Utc::now().to_rfc3339();
-        if status == "ongoing" {
-            crate::wishlist::unlink_auto_achieved_asset(&tx, &old)?;
-        }
-        tx.execute("UPDATE wishlist_items SET status=?2,achieved_at=?3,revision=revision+1,updated_at=?4 WHERE id=?1",params![input.id,status,at,now])?;
-        tx.execute("INSERT INTO wishlist_preferences VALUES(?1,?2) ON CONFLICT(wishlist_id) DO UPDATE SET payload=excluded.payload",params![input.id,serde_json::to_string(&p)?])?;
-        if status == "achieved" {
-            if old.status != "achieved" {
-                self.refuse_new_asset()?;
-            }
-            crate::wishlist::link_achieved_asset(&tx, &input.id)?;
-        }
-        let result = crate::wishlist::read(&tx, &input.id)?
-            .ok_or_else(|| Error::new("NOT_FOUND", "找不到心愿"))?;
-        tx.execute(
-            "INSERT INTO feature_requests VALUES(?1,?2,?3)",
-            params![input.request_id, fp, input.id],
-        )?;
-        tx.execute(
-            "INSERT INTO feature_audit VALUES(?1,'savings',?2,?3,?4)",
-            params![
-                input.request_id,
-                input.id,
-                serde_json::to_string(&result)?,
-                now
-            ],
-        )?;
-        self.hit("wish_plan.before_commit")?;
-        tx.commit()?;
-        self.hit("wish_plan.after_commit")?;
-        Ok(result)
+        Err(Error::new(
+            "WISH_SAVINGS_DISABLED",
+            "心愿攒钱已停用：已攒金额保留为只读历史。如需记录实际购入，请使用「已买到，记录购入」。",
+        ))
     }
 }
 impl Store {

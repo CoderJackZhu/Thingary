@@ -95,7 +95,7 @@ fn snapshot(s: &Store) -> Value {
         "taxonomy": s.taxonomy_snapshot().unwrap().categories,
         "materials": s.material_entries().unwrap(),
     });
-    for filter in ["ongoing", "achieved", "abandoned"] {
+    for filter in ["considering", "purchased", "dropped"] {
         v[filter] = json!(
             s.query_wishlist(&wishlist::Query {
                 search: String::new(),
@@ -114,7 +114,7 @@ fn snapshot(s: &Store) -> Value {
         o.sold_count,
         o.held_known_cents,
         o.history_known_cents,
-        o.ongoing_wishes,
+        o.considering_wishes,
         o.categories
     ]);
     v

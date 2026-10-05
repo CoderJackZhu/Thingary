@@ -18,7 +18,7 @@ import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materia
 import { previewRecord } from './preview-costs';
 import { previewResaleRate } from './resale';
 import demoAssets from './demo-assets.json';
-import { wealthPreview, financialTimelineEvents, previewWishPage, previewReadWish, validatePreviewSource } from './wealth-preview';
+import { wealthPreview, financialTimelineEvents, previewWishPage, previewReadWish, validatePreviewSource, searchPreview } from './wealth-preview';
 import type { PreviewEvent } from './wealth-preview';
 import type { OverviewData } from './Overview';
 import type { Review, Read } from './review';
@@ -239,7 +239,7 @@ function physicalPreview(scope: string): OverviewData {
   if (daily.included_count || !dailyHeld.length) daily.known_cents = dailyTotal.toString();
   const ids = [...new Set(rows.map(r => r.classification?.category_id ?? null))];
   return { generation, today: localDay(), scope: scope === 'history' ? 'history' : 'held', held_count: held.length, active_count: held.filter(r => r.lifecycle?.state !== 'retired').length, retired_count: held.filter(r => r.lifecycle?.state === 'retired').length, sold_count: live.length - held.length,
-    held_known_cents: total(held), held_unknown_price_count: unknown(held), history_known_cents: total(live), history_unknown_price_count: unknown(live), average_holding_days: days.length ? Math.round(days.reduce((a, b) => a + b, 0) / days.length) : null, held_unknown_date_count: held.length - days.length, held_daily: daily, ongoing_wishes: previewWishPage({ search: '', filter: 'ongoing', sort: 'created', descending: true, offset: 0 }).total,
+    held_known_cents: total(held), held_unknown_price_count: unknown(held), history_known_cents: total(live), history_unknown_price_count: unknown(live), average_holding_days: days.length ? Math.round(days.reduce((a, b) => a + b, 0) / days.length) : null, held_unknown_date_count: held.length - days.length, held_daily: daily, considering_wishes: previewWishPage({ search: '', filter: 'considering', sort: 'created', descending: true, offset: 0 }).total - previewWishPage({ search: '', filter: 'considering', sort: 'created', descending: true, offset: 0 }).legacy_achieved_count, legacy_wishes: previewWishPage({ search: '', filter: 'considering', sort: 'created', descending: true, offset: 0 }).legacy_achieved_count,
     categories: ids.map((id, slot) => { const items = rows.filter(r => (r.classification?.category_id ?? null) === id); return { id, slot: slot < 7 ? slot : null, name: catalog.categories.find(c => c.id === id)?.name ?? '未分类', count: items.length, known_cents: total(items), unknown_price_count: unknown(items) }; }),
     recent: live.filter(r => r.asset.purchase_date).map(r => ({ id: 'purchase:' + r.asset.id, kind: 'purchase', date: r.asset.purchase_date, asset_id: r.asset.id, wishlist_id: null, title: r.asset.name, note: '', amount_cents: r.asset.price_cents, target: { kind: 'asset' as const, id: r.asset.id }, domain: 'physical' })).sort((a,b) => b.date!.localeCompare(a.date!)).slice(0,5) };
 }
@@ -414,6 +414,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   if (command === 'overview') return physicalPreview(String(args.scope));
   if (command === 'timeline_view' || command === 'list_timeline') return timelinePreview(args);
   if (command === 'validate_source') {
+    if (args.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已变化，请返回后重新读取。' };
     // ?source=missing demonstrates the failed-source path: notice plus refresh,
     // never a same-named substitute record.
     if (params.get('source') === 'missing') throw { code: 'NOT_FOUND', message: '这条来源记录已删除或失效，请返回后重新读取。' };
@@ -438,6 +439,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     return result;
   }
   const wealth = wealthPreview(command,args); if (wealth) return wealth.value;
+  const search = searchPreview(command,args); if (search) return search.value;
   if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:true};
   if (command === 'switch_demo' || command === 'reset_demo') throw {message:'浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。'};
   if (command.startsWith('auto_backup_') || command === 'inspect_auto_backup') return autoBackupPreview(command, args);
@@ -540,7 +542,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     });
     return { generation, items: found.slice(query.offset,args.all ? undefined : query.offset+100).map(r => previewRecord(r)), total:found.length, today:localDay() } satisfies Page;
   }
-  if (command === 'read_asset') { const record = records.find(r=>r.asset.id===args.id); return record ? previewRecord(record) : null; }
+  if (command === 'read_asset') { if(params.get('replacement-read')==='error') throw {message:'虚构原物品读取失败'}; const record = records.find(r=>r.asset.id===args.id); return record ? previewRecord(record) : null; }
   if (command === 'saved_request') {
     const request=String(args.request);
     if(lostMaintenanceReceipts.delete(request)) throw {message:'模拟首次回执查询失败。'};

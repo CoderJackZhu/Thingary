@@ -25,6 +25,7 @@ pub mod recurring;
 pub mod reminders;
 pub mod review;
 pub mod sales;
+pub mod search;
 pub mod source;
 pub mod storage;
 pub mod tag_investment;
@@ -100,6 +101,13 @@ pub fn run() {
                 MenuItem::with_id(app, "new-asset", "新增物品", true, Some("CmdOrCtrl+N"))?;
             let find_item =
                 MenuItem::with_id(app, "find-asset", "搜索物品", true, Some("CmdOrCtrl+F"))?;
+            let global_search_item = MenuItem::with_id(
+                app,
+                "global-search",
+                "搜索全部资料",
+                true,
+                Some("CmdOrCtrl+Shift+F"),
+            )?;
             app.manage(commands::PageMenu {
                 new: new_item.clone(),
                 find: find_item.clone(),
@@ -126,6 +134,7 @@ pub fn run() {
                     &MenuItem::with_id(app, "select-all", "全选", true, Some("CmdOrCtrl+A"))?,
                     &Item::separator(app)?,
                     &find_item,
+                    &global_search_item,
                     &MenuItem::with_id(app, "edit-asset", "编辑资料", true, Some("CmdOrCtrl+E"))?,
                 ],
             )?;
@@ -221,9 +230,12 @@ pub fn run() {
             commands::saved_wishlist_request,
             commands::convert_wishlist,
             commands::stage_wishlist_cover,
+            commands::link_wish_asset,
+            commands::verify_legacy_wish,
             commands::list_timeline,
             commands::timeline_view,
             commands::validate_source,
+            commands::search_all,
             commands::overview,
             commands::review_overview,
             commands::stats_snapshot,
@@ -272,6 +284,7 @@ pub fn run() {
                 action,
                 "new-asset"
                     | "find-asset"
+                    | "global-search"
                     | "edit-asset"
                     | "open-settings"
                     | "undo"

@@ -106,7 +106,7 @@ impl Store {
     /// Check-ins as one row per account per check-in, oldest first.
     fn wealth_csv(&self) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
-            "SELECT s.date,a.name,a.institution,e.side,e.kind,e.counted,e.state,e.amount_cents
+            "SELECT s.date,a.name,a.institution,e.side,e.kind,e.counted,e.state,e.amount_cents,s.notes
              FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id
              JOIN fin_accounts a ON a.id=e.account_id
              WHERE s.deleted_at IS NULL ORDER BY s.date,a.position,a.id",
@@ -134,6 +134,7 @@ impl Store {
                     }
                     .into(),
                     yuan(r.get(7)?),
+                    text(&r.get::<_, String>(8)?),
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -146,6 +147,7 @@ impl Store {
             "计入净资产",
             "状态",
             "金额（元）",
+            "盘点备注",
         ];
         Ok((table(&header, &rows), rows.len() as i64))
     }

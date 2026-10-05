@@ -51,9 +51,10 @@ fn check_ins_export_one_row_per_account_with_unknown_left_empty() {
         state: state.into(),
         amount_cents: cents.map(str::to_owned),
     };
-    for (date, entries) in [
+    for (date, note, entries) in [
         (
             "2026-08-31",
+            "年终盘点，含奖金入账\n第二行说明",
             vec![
                 entry(&cash, "entered", Some("5000000")),
                 entry(&loan, "entered", Some("90000000")),
@@ -61,6 +62,7 @@ fn check_ins_export_one_row_per_account_with_unknown_left_empty() {
         ),
         (
             "2026-09-28",
+            "",
             vec![
                 entry(&cash, "missing", None),
                 entry(&loan, "entered", Some("89600000")),
@@ -74,7 +76,7 @@ fn check_ins_export_one_row_per_account_with_unknown_left_empty() {
                 id: None,
                 expected_revision: None,
                 date: date.into(),
-                notes: String::new(),
+                notes: note.into(),
                 entries,
             },
             TODAY,
@@ -85,11 +87,11 @@ fn check_ins_export_one_row_per_account_with_unknown_left_empty() {
     assert_eq!(rows, 4);
     assert_eq!(
         csv,
-        "\u{feff}盘点日期,账户,平台,方向,类型,计入净资产,状态,金额（元）\r\n\
-         2026-08-31,虚构储蓄卡,虚构平台,资产,现金与存款,是,录入,50000.00\r\n\
-         2026-08-31,虚构房贷,虚构平台,负债,贷款,否,录入,900000.00\r\n\
-         2026-09-28,虚构储蓄卡,虚构平台,资产,现金与存款,是,未知,\r\n\
-         2026-09-28,虚构房贷,虚构平台,负债,贷款,否,录入,896000.00\r\n"
+        "\u{feff}盘点日期,账户,平台,方向,类型,计入净资产,状态,金额（元）,盘点备注\r\n\
+         2026-08-31,虚构储蓄卡,虚构平台,资产,现金与存款,是,录入,50000.00,\"年终盘点，含奖金入账\n第二行说明\"\r\n\
+         2026-08-31,虚构房贷,虚构平台,负债,贷款,否,录入,900000.00,\"年终盘点，含奖金入账\n第二行说明\"\r\n\
+         2026-09-28,虚构储蓄卡,虚构平台,资产,现金与存款,是,未知,,\r\n\
+         2026-09-28,虚构房贷,虚构平台,负债,贷款,否,录入,896000.00,\r\n"
     );
 }
 

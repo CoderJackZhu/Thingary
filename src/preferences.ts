@@ -13,9 +13,8 @@ export function changeNewAssetWarrantyPurchase(warranty: NonNullable<AssetOption
  return {...warranty,start_date:next.start_date,end_date:end,reminder:warranty.reminder && warranty.reminder.date === warranty.end_date ? {...warranty.reminder,date:end} : warranty.reminder};
 }
 export const defaultPreferences = ():AssetPreferences=>({label_id:null,cost_mode:'daily',use_count:0,goal:{mode:'none'},pinned:false,exclude:{total:false,daily:false,statistics:false,timeline:false}});
-export type WishPreferences = {added_date:string|null;channel_id:string|null;mode:'countdown'|'savings';saved_cents:string;achievement_source:'manual'|'savings'|'conversion'|null;pinned:boolean;reminder:boolean};
-export const defaultWishPreferences = ():WishPreferences=>({added_date:null,channel_id:null,mode:'countdown',saved_cents:'0',achievement_source:null,pinned:false,reminder:false});
-export function savingPercent(saved:string,price:string|null){if(price===null)return null;const goal=BigInt(price);return goal===0n?100:Number((BigInt(saved)*100n/goal)>100n?100n:BigInt(saved)*100n/goal);}
+export type WishPreferences = {added_date:string|null;channel_id:string|null;/** 旧版字段，只读历史；新心愿为 null（§3.1）。 */mode:'countdown'|'savings'|null;saved_cents:string;achievement_source:'manual'|'savings'|'conversion'|null;pinned:boolean;reminder:boolean};
+export const defaultWishPreferences = ():WishPreferences=>({added_date:null,channel_id:null,mode:null,saved_cents:'0',achievement_source:null,pinned:false,reminder:false});
 export type GoalProgress={hundredths:number;remaining:number;unit:'天'|'次';reached_date:string|null;projected_cents:string|null};
 const plusDays=(date:string,n:number)=>new Date(Date.parse(date+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
 // 按日：已持有天数 ÷ ⌈总投入 ÷ 目标⌉；按次同理用次数；目标日期：已持有天数 ÷ 购入日到目标日天数。假设之后不再新增维护支出。

@@ -63,9 +63,9 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   const legend = cats.length > 4 ? [...cats.slice(0, 3), { id: 'rest', name: `其他 ${cats.length - 3} 类`, slot: null, count: 0, known_cents: String(cats.slice(3).reduce((s, c) => s + Number(c.known_cents), 0)), unknown_price_count: cats.slice(3).reduce((s, c) => s + c.unknown_price_count, 0) }] : cats;
   const metrics = [
     modules.expenses && e && { label: `${year ?? '全部期间'}${year === null ? '' : ' 年'}重要支出`, value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? `${e.unknown_amount_count} 笔金额未知` : '', page: 'expenses' as ReviewPage },
-    modules.recurring && r && { label: '固定负担', value: <>{money(r.monthly_cents)}<small>/月</small></>, note: '', page: 'recurring' as ReviewPage },
+    modules.recurring && r && { label: '固定负担', value: <>{money(r.monthly_cents)}<small>/月</small></>, note: '当前计划', page: 'recurring' as ReviewPage },
     p && { label: '平均持有', value: p.average_holding_days === null ? '—' : <>{p.average_holding_days.toLocaleString('zh-CN')}<small>天</small></>, note: '', page: 'assets' as ReviewPage },
-    modules.wishlist && p && { label: '心愿进行中', value: <>{p.ongoing_wishes}<small>条</small></>, note: '', page: null },
+    modules.wishlist && p && { label: '考虑中心愿', value: <>{p.considering_wishes}<small>条</small></>, note: p.legacy_wishes > 0 ? `另有 ${p.legacy_wishes} 条历史待核实` : '', page: null },
   ].filter(Boolean) as { label: string; value: ReactNode; note: string; page: ReviewPage | null }[];
   return <section className="review-section u16" aria-label="综合回顾" aria-busy={updating}>
     {updating && <p className="review-sub" role="status">正在更新，暂时显示上次读取的结果…</p>}
@@ -76,15 +76,16 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     </article>}
     <div className={'review-heroes' + (modules.wealth ? '' : ' single')}>
       {modules.wealth && <article className="ui-card ui-hero tint-1">
-        <div className="ui-label">金融净资产{latest && <Info text={`最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。只统计计入范围的账户，不含实物。`}/>}</div>
+        <div className="ui-label">金融净资产{latest && <Info text={`只统计计入范围的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
         {failure(data.wealth)}
         {w && <>
           <div className="ui-big">{latest ? signedMoney(latest.net_cents) : '—'}</div>
           {latest ? <>
+            <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天</p>
             <p className={'ui-sub' + tone(latest.change_cents)}>{latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
             <p className="ui-sub">资产 {money(latest.assets_cents)} · 负债 {money(latest.liabilities_cents)}</p>
             <Sparkline points={w.points}/>
-          </> : <p className="ui-sub">{w.points.length ? '现有盘点均不完整，补全后显示净资产。' : '添加账户并完成盘点后，这里会显示金融净资产。'}</p>}
+          </> : <p className="ui-sub">{w.points.length ? '—／尚无完整盘点：现有盘点均不完整，补全后显示净资产。' : '添加账户并完成盘点后，这里会显示金融净资产。'}</p>}
         </>}
         <div className="ui-hero-foot">{link('wealth')}</div>
       </article>}
@@ -117,6 +118,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
       </article>
       <article className="ui-card">
         <div className="ui-section-head"><h3>近期记录</h3><span className="ui-aside"><select aria-label="期间" value={year ?? 'all'} onChange={ev => onYear(ev.target.value === 'all' ? null : Number(ev.target.value))}><option value="all">全部期间</option>{years.map(y => <option key={y} value={y}>{y} 年</option>)}</select><button className="ui-link" onClick={() => onNavigate('timeline')}>时间轴 →</button></span></div>
+        <p className="review-period-note muted">所选期间用于重要支出与近期记录；持有物品与固定负担为当前资料，净资产取最近完整盘点。</p>
         {failure(data.recent)}
         {!recent.length ? <p className="ui-empty">{data.recent.status === 'ready' ? '所选期间暂无记录。' : '可用来源中暂无记录。'}</p> : <ul className="ui-rows">{recent.slice(0, 5).map(ev => <li key={ev.id} className={'ui-row' + (ev.target ? ' clickable' : '')} onClick={ev.target ? () => onOpenSource(ev.target!) : undefined}><div className="ui-main"><div>{ev.title}</div><small>{ev.date}{ev.detail ? ` · ${ev.detail}` : ''}</small></div>{ev.target && <button className="ui-link" aria-label={`查看来源：${ev.title}`} onClick={e2 => { e2.stopPropagation(); onOpenSource(ev.target!); }}>›</button>}</li>)}</ul>}
       </article>

@@ -13,7 +13,7 @@ import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info, Segments, Switch } from './FormControls';
 import { Icon } from './AssetViews';
-import { assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, rateText, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
+import { assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, rateText, noteSummary, snapshotEntryInput, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
 import type { Account, AccountFields, AccountSave, Draft, EntryState, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
 import { WealthChanges } from './WealthChanges';
 import { offerUndo, useRestored } from './undo';
@@ -49,6 +49,8 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [sourceSnapshot, setSourceSnapshot] = useState<string | undefined>();
   const [checkIn, setCheckIn] = useState<string | null>(null);
+  const [checkInPin, setCheckInPin] = useState<string | undefined>();
+  const [snapshotDetail, setSnapshotDetail] = useState<string | null>(null);
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
   useEffect(() => {
     let live = true; setError('');
@@ -60,8 +62,18 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!checkIn); return () => onEditingChange(false); }, [editing, pending, busy, checkIn, onEditingChange]);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!checkIn || !!snapshotDetail); return () => onEditingChange(false); }, [editing, pending, busy, checkIn, snapshotDetail, onEditingChange]);
   const sourceError = useSource({source,onSourceDone}, summary?.generation, async (target, alive) => {
+    // 账户来源：按稳定 ID 打开账户资料表单；未保存的输入不写入（§6.2）。
+    if (target.kind === 'account') {
+      if (pending || busy) throw new Error('请先核对上次保存结果，再打开来源账户。');
+      const fresh = await invoke<Account[]>('wealth_accounts');
+      if (!alive()) return false;
+      const found = fresh.find(a => a.id === target.id);
+      if (!found) return false;
+      setAccounts(fresh);
+      setEditing(found); return true;
+    }
     if (target.kind !== 'snapshot') return false;
     if (pending || busy) throw new Error('请先核对上次保存结果，再打开来源盘点。');
     // A same-generation correction must be visible: read points again instead
@@ -72,7 +84,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     setSummary(fresh);
     const point = fresh.points.find(p => p.snapshot_id === target.id);
     if (!point) return false;
-    setSourceSnapshot(target.id); setCheckIn(point.date); return true;
+    setSourceSnapshot(target.id); setSnapshotDetail(point.snapshot_id); return true;
   });
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
   // Hooks must run on every render: the check-in view is an early return below.
@@ -89,7 +101,8 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     onAutoNewDone?.();
     setEditing('new');
   }, [autoNew]);
-  if (checkIn) return <CheckIn expectedId={sourceSnapshot} date={checkIn} today={today} onClose={saved => { setCheckIn(null); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setTab('history'); reload(); } refocusHeading(); }}/>;
+  if (snapshotDetail) return <SnapshotDetail id={snapshotDetail} today={today} onCorrect={id => { const date = summary?.points.find(p => p.snapshot_id === id)?.date; setSnapshotDetail(null); if (date) { setCheckInPin(id); setCheckIn(date); } }} onClose={() => { setSnapshotDetail(null); reload(); refocusHeading(); }}/>;
+  if (checkIn) return <CheckIn expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onClose={saved => { setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setTab('history'); reload(); } refocusHeading(); }}/>;
   const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
   const closeAccount = (saved: boolean) => {
     (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close();
@@ -115,7 +128,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
         ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
         : <Accounts accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
       : tab === 'changes' ? <WealthChanges summary={summary} accounts={accounts} today={today} initial={changesSeed} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn}/>
-      : <History points={points} onOpen={setCheckIn} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
+      : <History points={points} onOpen={setSnapshotDetail} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
     {editing && summary && <AccountDialog account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onClose={closeAccount}/>}
   </section>;
 }
@@ -128,7 +141,7 @@ function Overview({ summary, accounts, latest, lastComplete, onNewAccount, onChe
   return <>
     {!latest.complete && <div className="notice">{latest.date} 的盘点还有 {latest.missing} 个账户没有金额，未计入完整净资产和变化比较。<button onClick={() => onCheckIn(latest.date)}>补录</button></div>}
     <div className="ui-metrics ui-card">
-      <article><span>金融净资产</span><strong>{lastComplete ? signedMoney(lastComplete.net_cents) : '—'}</strong><em>{lastComplete ? `截至 ${lastComplete.date} 盘点` : '尚无完整盘点'}</em></article>
+      <article><span>金融净资产</span><strong>{lastComplete ? signedMoney(lastComplete.net_cents) : '—'}</strong><em>{lastComplete ? `截至 ${lastComplete.date} 完整盘点 · 距今 ${Math.max(0, Math.round((Date.parse(today) - Date.parse(lastComplete.date)) / 86400000))} 天` : '—／尚无完整盘点'}</em></article>
       <article><span>金融资产</span><strong>{money(shown.assets_cents)}</strong><em>{shown.complete ? '计入范围内' : '仅已知部分'}</em></article>
       <article><span>负债</span><strong>{money(shown.liabilities_cents)}</strong><em>{shown.complete ? '计入范围内的尚欠金额' : '计入范围内，仅已知部分'}</em></article>
       <article><span>与上次比较</span><strong>{lastComplete?.change_cents ? changeText(lastComplete.change_cents) : '—'}</strong><em>{!lastComplete?.compared_to ? '至少两次完整盘点后显示' : lastComplete.scope_changed ? '有账户改变了计入设置，不直接比较' : `对比 ${lastComplete.compared_to}${lastComplete.change_rate_hundredths !== null ? ' · ' + rateText(lastComplete.change_rate_hundredths) : ''}`}</em>{comparedPoint && lastComplete && <button className="link-cell changes-link" onClick={() => onOpenChanges({ from: comparedPoint.snapshot_id, to: lastComplete.snapshot_id })}>看哪些账户带来变化 →</button>}</article>
@@ -151,13 +164,14 @@ function ShareBars({ rows, empty }: { rows: Summary['structure']; empty: string 
   return <ul className="stats-category-bars">{rows.map((r, i) => <li key={r.kind}><span><i style={{ background: series(i) }}/>{kindLabel(r.kind)}</span><div className="stats-bar"><span style={{ width: r.share_hundredths === null ? 0 : `${r.share_hundredths / 100}%`, background: series(i) }}/></div><strong>{r.share_hundredths === null ? '—' : `${(r.share_hundredths / 100).toFixed(1)}%`}</strong><small>{money(r.amount_cents)}</small></li>)}</ul>;
 }
 
-function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (date: string) => void }) {
+function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (id: string) => void }) {
   const [sort, setSort] = useState<ListSort>({ key: 'date', descending: true });
   const sorted = sortRecords(points, sort, (p, key) => key === 'date' ? p.date : key === 'net' ? p.complete ? moneySortValue(p.net_cents) : null : key === 'assets' ? moneySortValue(p.assets_cents) : moneySortValue(p.liabilities_cents), p => p.snapshot_id);
-  return <table className="ui-table"><thead><tr><SortHeader field="date" label="盘点日期" sort={sort} onSort={setSort}/><SortHeader field="net" label="金融净资产" sort={sort} onSort={setSort}/><SortHeader field="assets" label="资产" sort={sort} onSort={setSort}/><SortHeader field="liabilities" label="负债" sort={sort} onSort={setSort}/><th>状态</th><th>与上次比较</th></tr></thead><tbody>{sorted.map(p => <tr key={p.snapshot_id}>
-    <td>{onOpen ? <button className="link-cell" onClick={() => onOpen(p.date)}>{p.date}</button> : p.date}</td>
+  return <table className="ui-table"><thead><tr><SortHeader field="date" label="盘点日期" sort={sort} onSort={setSort}/><SortHeader field="net" label="金融净资产" sort={sort} onSort={setSort}/><SortHeader field="assets" label="资产" sort={sort} onSort={setSort}/><SortHeader field="liabilities" label="负债" sort={sort} onSort={setSort}/><th>状态</th><th>备注</th><th>与上次比较</th></tr></thead><tbody>{sorted.map(p => <tr key={p.snapshot_id}>
+    <td>{onOpen ? <button className="link-cell" onClick={() => onOpen(p.snapshot_id)}>{p.date}</button> : p.date}</td>
     <td>{p.complete ? signedMoney(p.net_cents) : <span className="muted" title="有账户金额未知，净资产无法确定">—</span>}</td><td>{money(p.assets_cents)}{!p.complete && <small className="muted"> 已知</small>}</td><td>{money(p.liabilities_cents)}{!p.complete && <small className="muted"> 已知</small>}</td>
     <td>{p.complete ? '完整' : `缺 ${p.missing} 个账户`}</td>
+    <td>{onOpen ? (noteSummary(p.notes) ? <button className="link-cell" title="查看完整备注" onClick={() => onOpen(p.snapshot_id)}>{noteSummary(p.notes)}</button> : <span className="muted">—</span>) : noteSummary(p.notes) ?? ''}</td>
     <td>{p.change_cents ? `${changeText(p.change_cents)}${p.change_rate_hundredths !== null ? ' · ' + rateText(p.change_rate_hundredths) : ''}` : p.scope_changed ? '计入范围有变化' : '—'}{p.compared_to && <small className="muted"> 对比 {p.compared_to}</small>}</td>
   </tr>)}</tbody></table>;
 }
@@ -191,7 +205,7 @@ export function NetChart({ points, label }: { points: Point[]; label?: string })
     {full.length > 1 && <polyline points={full.map(p => `${x(p.date)},${y(Number(p.net_cents))}`).join(' ')} className="trend-line"/>}
     {shown&&<line x1={x(shown.date)} x2={x(shown.date)} y1={T} y2={H-B} className="partial-mark"/>}
     {full.map((p,i) => <circle key={p.snapshot_id} cx={x(p.date)} cy={y(Number(p.net_cents))} r={i===current?5:3} className="trend-dot"/>)}
-  </svg>{shown&&<div className="ui-tip" style={{left:`clamp(100px, ${plotLeft+x(shown.date)*plotScale}px, calc(100% - 100px))`,top:`${plotTop+y(Number(shown.net_cents))*plotScale}px`}}>{shown.date}<b>{signedMoney(shown.net_cents)}</b><span>{changeLine(shown)}</span></div>}</div><span className="visually-hidden" aria-live="polite" aria-atomic="true">{shown?`${shown.date}，${signedMoney(shown.net_cents)}，${changeLine(shown)}`:''}</span></>;
+  </svg>{shown&&<div className="ui-tip" style={{left:`clamp(100px, ${plotLeft+x(shown.date)*plotScale}px, calc(100% - 100px))`,top:`${plotTop+y(Number(shown.net_cents))*plotScale}px`}}>{shown.date}<b>{signedMoney(shown.net_cents)}</b><span>{changeLine(shown)}</span>{noteSummary(shown.notes)&&<span>备注：{noteSummary(shown.notes)}</span>}</div>}</div><span className="visually-hidden" aria-live="polite" aria-atomic="true">{shown?`${shown.date}，${signedMoney(shown.net_cents)}，${changeLine(shown)}`:''}</span></>;
 }
 
 function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {
@@ -207,7 +221,7 @@ function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onE
   </tr>)}</tbody></table></>;
 }
 
-function History({ points, onOpen, onNew, canStart }: { points: Point[]; onOpen: (date: string) => void; onNew: () => void; canStart: boolean }) {
+function History({ points, onOpen, onNew, canStart }: { points: Point[]; onOpen: (id: string) => void; onNew: () => void; canStart: boolean }) {
   if (!points.length) return <div className="empty"><h2>还没有盘点</h2><p>每次盘点记录一个日期上各账户的余额与欠款。</p><button className="primary" disabled={!canStart} onClick={onNew}>开始盘点</button></div>;
   return <div className="table-scroll"><PointTable points={points} onOpen={onOpen}/></div>;
 }
@@ -263,15 +277,40 @@ export function DeleteButton({ label, disabled, kind, id, revision, generation, 
     : <button type="button" disabled={disabled} onClick={() => setArmed(true)}>{label}</button>;
 }
 
-type Row = { state: EntryState | null; cents: string };
+type Row = { state: EntryState | null; cents: string; edited?: boolean };
+/** 只读盘点详情（§5.2）：按稳定 snapshot ID 读取，浏览不写任何资料。 */
+function SnapshotDetail({ id, today, onCorrect, onClose }: { id: string; today: string; onClose: () => void; onCorrect: (id: string) => void }) {
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [accounts, setAccounts] = useState<Account[] | null>(null);
+  useEffect(() => {
+    let live = true; setError(''); setSnapshot(null);
+    Promise.all([invoke<Snapshot | null>('wealth_snapshot', { id }), invoke<Account[]>('wealth_accounts')])
+      .then(([s, a]) => { if (live) { setAccounts(a); setSnapshot(s); } })
+      .catch(e => { if (live) setError(errorMessage(e)); });
+    return () => { live = false; };
+  }, [id]);
+  usePageBar('wealth', {});
+  if (error) return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading"><header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> 返回财富</button><div><h2 id="snapshot-detail-heading">盘点详情</h2></div></header><div role="alert"><p>盘点读取失败：{error}</p><button onClick={() => onClose()}>返回</button></div></section>;
+  if (!snapshot || !accounts) return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading"><header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> 返回财富</button><div><h2 id="snapshot-detail-heading">盘点详情</h2></div></header><p role="status" className="muted">正在读取盘点…</p></section>;
+  const stateText = (state: string, amount: string | null) => amount === null ? '未知' : state === 'unchanged' ? '未变' : '录入';
+  return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading">
+    <header className="check-in-header"><button className="back" disabled={busy} onClick={onClose}><Icon name="back"/> 返回财富</button><div><h2 id="snapshot-detail-heading">盘点详情</h2><p className="muted">只读查看，不改动任何资料。</p></div><div className="field check-in-date"><label>盘点日期</label><output>{snapshot.date}</output></div></header>
+    <table className="ui-table check-in-table"><thead><tr><th>账户</th><th>记录金额</th><th>状态</th><th>计入</th></tr></thead><tbody>{snapshot.entries.map(e => { const a = accounts.find(x => x.id === e.account_id); return <tr key={e.account_id}><td><strong>{a?.fields.name ?? e.account_id}</strong><small className="muted">{e.side === 'liability' ? '负债' : kindLabel(e.kind)}</small></td><td>{e.amount_cents === null ? <span className="muted">未知</span> : money(e.amount_cents)}</td><td>{stateText(e.state, e.amount_cents)}</td><td>{e.counted ? '计入' : '不计入'}</td></tr>; })}</tbody></table>
+    <footer className="check-in-footer"><div><span>完整性</span><strong>{snapshot.missing.length === 0 ? '完整' : `缺 ${snapshot.missing.length} 个账户`}</strong></div>
+      <div className="check-in-submit"><button className="primary" disabled={busy} onClick={() => onCorrect(snapshot.id)}>更正这次盘点</button></div></footer>
+    <section className="form-block form-notes snapshot-notes"><h3>备注</h3>{snapshot.notes.trim() ? <p className="notes" style={{whiteSpace:'pre-wrap'}}>{snapshot.notes}</p> : <p className="muted">未填写备注</p>}</section>
+  </section>;
+}
 function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: string; date: string; today: string; onClose: (saved: boolean) => void }) {
   const [date, setDate] = useState(initial);
   // The source's stable-ID guard holds only while its own date is being viewed:
   // once the user deliberately switches dates, this is a normal check-in again.
   const [pin, setPin] = useState(expectedId);
   const [draft, setDraft] = useState<Draft | null>(null), [error, setError] = useState('');
+  const [notes, setNotes] = useState(''), [notesDirty, setNotesDirty] = useState(false);
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
+  const [switchTo, setSwitchTo] = useState<string | null>(null);
   const table = useRef<HTMLTableElement>(null);
   const fromSaved = useRef(false);
   useEffect(() => {
@@ -282,6 +321,9 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
       // or as a brand-new check-in; the user returns and re-reads instead.
       if (pin && d.existing?.id !== pin) { setError('这条盘点已删除或变化，请返回后重新读取。'); return; }
       setDraft(d);
+      // Notes belong to the snapshot of the viewed date; a new date starts empty.
+      setNotes(d.existing?.notes ?? '');
+      setNotesDirty(false);
       // Only values typed for a new check-in follow a date change. Amounts loaded
       // from a saved check-in never carry to another date unreviewed (17.4 #2).
       setRows(old => {
@@ -295,9 +337,12 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
     }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [date, pin]);
-  const set = (id: string, row: Row) => setRows(r => ({ ...r, [id]: row }));
+  const set = (id: string, row: Row) => {
+    setRows(r => ({ ...r, [id]: { ...row, edited: true } }));
+    setNotice('');
+  };
   const open = draft?.rows ?? [], existing = draft?.existing ?? null;
-  const unfilled = open.filter(r => !rows[r.account.id]?.state);
+  const unfilled = open.filter(r => !rows[r.account.id]?.state || rows[r.account.id].state === 'missing' || rows[r.account.id].cents === '');
   const totals = previewTotals(open.map(r => ({ side: r.account.fields.side, counted: existing?.entries.find(e => e.account_id === r.account.id)?.counted ?? r.account.fields.counted, cents: rows[r.account.id]?.state && rows[r.account.id].state !== 'missing' && rows[r.account.id].cents !== '' ? rows[r.account.id].cents : null })));
   const before = existing ? previewTotals(existing.entries.map(e => ({ side: e.side, counted: e.counted, cents: e.amount_cents }))) : null;
   function focusNext(from: HTMLElement) {
@@ -306,8 +351,9 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
   }
   async function save() {
     if (!draft) return;
-    if (unfilled.length) { setNotice(`还有 ${unfilled.length} 个账户没有处理：填写金额、确认未变，或标为未知。`); return; }
-    const input: SnapshotSave = { request_id: crypto.randomUUID(), generation: draft.generation, id: existing?.id ?? null, expected_revision: existing?.revision ?? null, date, notes: existing?.notes ?? '', entries: open.map(r => { const row = rows[r.account.id]; return { account_id: r.account.id, state: row.state!, amount_cents: row.state === 'entered' ? row.cents : null }; }) };
+    if (unfilled.length) { setNotice(`还有 ${unfilled.length} 个账户未填写：填写本次金额，零余额请填 0。`); return; }
+    if ([...notes].length > 10000 || notes.includes('\0')) { setNotice('备注最多 10000 字，且不能含空字符。'); return; }
+    const input: SnapshotSave = { request_id: crypto.randomUUID(), generation: draft.generation, id: existing?.id ?? null, expected_revision: existing?.revision ?? null, date, notes, entries: open.map(r => snapshotEntryInput(r.account.id, rows[r.account.id])) };
     setBusy(true); setNotice('');
     try { await submit<Snapshot>({ command: 'wealth_snapshot_save', input, label: `${date} 盘点` }); onClose(true); }
     catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
@@ -317,27 +363,27 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
   return <section className="stats-section wealth-section check-in" aria-labelledby="check-in-heading">
     <header className="check-in-header">
       <button className="back" disabled={busy} onClick={() => onClose(false)}><Icon name="back"/> 返回财富</button>
-      <div><h2 id="check-in-heading">{existing ? '更正盘点' : '盘点'}</h2><p className="muted">对照各平台逐行填写。回车跳到下一行；「未变」沿用上次金额，「未知」不当作 0。关闭即放弃未保存的输入。</p></div>
-      <div className="field check-in-date"><label htmlFor="check-in-date">盘点日期</label><DateInput id="check-in-date" value={date} max={today} disabled={frozen} onChange={v => { if (!v) return; setPin(undefined); setDate(v); }}/></div>
+      <div><h2 id="check-in-heading">{existing ? '更正盘点' : '盘点'}</h2><p className="muted">对照各平台填写每个账户的当前金额，零余额填 0，差额自动计算。回车跳到下一行；填齐后保存，关闭即放弃未保存的输入。</p></div>
+      <div className="field check-in-date"><label htmlFor="check-in-date">盘点日期</label>{switchTo ? <div className="check-in-date-switch" role="alert"><p>切换日期将丢弃当前备注修改。</p><button type="button" onClick={() => setSwitchTo(null)}>取消</button><button type="button" className="primary" onClick={() => { const target = switchTo; setSwitchTo(null); setNotesDirty(false); setPin(undefined); if (target) setDate(target); }}>确认切换</button></div> : null}<DateInput id="check-in-date" value={date} max={today} disabled={frozen || !!switchTo} onChange={v => { if (!v) return; if (notesDirty) { setSwitchTo(v); return; } setPin(undefined); setDate(v); }}/></div>
     </header>
     {existing && draft && <div className="notice">这一天已有盘点，保存会更正原记录，并影响它与前后两次盘点的比较。<DeleteButton label="删除这次盘点" disabled={frozen} kind="snapshot" id={existing.id} revision={existing.revision} generation={draft.generation} name={`${date} 盘点`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/></div>}
     {error ? <div role="alert"><p>盘点读取失败：{error}</p></div> : !draft ? <p role="status" className="muted">正在准备盘点…</p> : !open.length ? <p className="muted">这一天没有需要盘点的账户（账户启用日期都晚于此日或已停用）。</p> : <>
-      <table ref={table} className="ui-table check-in-table"><thead><tr><th>账户</th><th>上次金额</th><th>本次金额</th><th>差额</th><th>状态</th></tr></thead><tbody>{open.map(({ account: a, previous }) => {
+      <table ref={table} className="ui-table check-in-table"><thead><tr><th>账户</th><th>上次金额</th><th>本次金额</th><th>差额</th></tr></thead><tbody>{open.map(({ account: a, previous }) => {
         const row = rows[a.id] ?? { state: null, cents: '' };
         const diff = row.state && row.state !== 'missing' && row.cents !== '' && previous ? (BigInt(row.cents) - BigInt(previous.amount_cents)).toString() : null;
         return <tr key={a.id} data-state={row.state ?? 'empty'}>
           <td><strong>{a.fields.name}</strong><small className="muted">{a.fields.side === 'liability' ? '负债 · 尚欠' : kindLabel(a.fields.kind)}{a.fields.counted ? '' : ' · 不计入'}</small></td>
           <td>{previous ? <>{money(previous.amount_cents)}<small className="muted">{previous.date}</small></> : <span className="muted">无</span>}</td>
           <td onKeyDown={e => { if (e.key === 'Enter' && e.target instanceof HTMLInputElement) { e.preventDefault(); focusNext(e.target); } }}>
-            {row.state === 'missing' ? <span className="muted">未知</span> : <span data-amount-wrap><CentInput label={`${a.fields.name} 本次金额`} value={row.cents} disabled={frozen} placeholder={previous ? money(previous.amount_cents) : '0.00'} onChange={v => set(a.id, { state: v === '' ? null : previous && v === previous.amount_cents ? 'unchanged' : 'entered', cents: v })}/></span>}
+            <span data-amount-wrap><CentInput label={`${a.fields.name} 本次金额`} value={row.cents} disabled={frozen} placeholder="0.00" onChange={v => set(a.id, { state: v === '' ? null : 'entered', cents: v })}/></span>
           </td>
           <td>{diff === null ? <span className="muted">—</span> : diff === '0' ? '持平' : changeText(diff)}</td>
-          <td><div className="check-in-state"><button type="button" aria-pressed={row.state === 'unchanged'} disabled={frozen || !previous} onClick={() => set(a.id, row.state === 'unchanged' ? { state: null, cents: '' } : { state: 'unchanged', cents: previous!.amount_cents })}>未变</button><button type="button" aria-pressed={row.state === 'missing'} disabled={frozen} onClick={() => set(a.id, row.state === 'missing' ? { state: null, cents: '' } : { state: 'missing', cents: '' })}>未知</button></div></td>
         </tr>; })}</tbody></table>
+      <section className="form-block form-notes check-in-notes"><label htmlFor="check-in-notes">本次盘点备注（可选）</label><textarea id="check-in-notes" rows={3} maxLength={10000} placeholder="记录这次盘点的背景，例如大额购买、账户调整；备注不参与金额计算" value={notes} disabled={frozen} onChange={e => { setNotes(e.target.value); setNotesDirty(true); }}/></section>
       <footer className="check-in-footer">
         <div><span>金融资产</span><strong>{money(totals.assets)}</strong></div><div><span>负债</span><strong>{money(totals.liabilities)}</strong></div>
-        <div><span>金融净资产{totals.missing || unfilled.length ? '（不完整）' : ''}</span><strong>{signedMoney(totals.net)}</strong>{before && <small className="muted">原记录 {signedMoney(before.net)}</small>}</div>
-        <div className="check-in-submit">{unfilled.length > 0 && <button type="button" disabled={frozen} onClick={() => setRows(r => ({ ...r, ...Object.fromEntries(unfilled.map(u => [u.account.id, { state: 'missing' as const, cents: '' }])) }))}>其余 {unfilled.length} 个标为未知</button>}{stuck ? <button type="button" onClick={() => onClose(false)}>返回，稍后核对</button> : <button className="primary" disabled={frozen} onClick={() => void save()}>{busy ? '保存中…' : existing ? '保存更正' : '保存盘点'}</button>}</div>
+        <div><span>金融净资产{totals.missing || unfilled.length ? '（待填写）' : ''}</span><strong>{signedMoney(totals.net)}</strong>{before && <small className="muted">原记录 {signedMoney(before.net)}</small>}</div>
+        <div className="check-in-submit">{unfilled.length > 0 && <span className="muted">还有 {unfilled.length} 个账户未填写</span>}{stuck ? <button type="button" onClick={() => onClose(false)}>返回，稍后核对</button> : <button className="primary" disabled={frozen} onClick={() => void save()}>{busy ? '保存中…' : existing ? '保存更正' : '保存盘点'}</button>}</div>
       </footer>
     </>}
     {notice && <p className="notice" role="status">{notice}</p>}

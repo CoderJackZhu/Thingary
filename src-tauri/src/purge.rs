@@ -90,13 +90,20 @@ fn purge_one(
     match kind {
         "asset" => {
             let linked: bool = tx.query_row(
-                "SELECT EXISTS(SELECT 1 FROM wishlist_items WHERE converted_asset_id=?1)",
+                "SELECT EXISTS(SELECT 1 FROM wishlist_items WHERE converted_asset_id=?1 OR legacy_generated_asset_id=?1)",
                 [id],
                 |r| r.get(0),
             )?;
             if linked {
                 return Ok(false);
             }
+            // A considered-replacement relation never blocks deletion: the FK
+            // clears and the item's name stays as the stale relation's
+            // display history (§7.1).
+            tx.execute(
+                "UPDATE wishlist_items SET replacement_asset_id=NULL,replacement_asset_name=(SELECT name FROM assets WHERE id=?1),revision=revision+1 WHERE replacement_asset_id=?1",
+                [id],
+            )?;
             hashes(
                 tx,
                 "SELECT hash FROM attachments WHERE asset_id=?1",

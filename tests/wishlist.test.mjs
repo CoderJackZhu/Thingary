@@ -80,7 +80,14 @@ test('conversion form never copies the estimate into the actual price and reuses
   assert.match(editor, /conversion \? await invoke<AssetRecord>\('convert_wishlist'/);
   assert.match(editor, /invoke<AssetRecord \| null>\('saved_request', \{ request: input\.base\.request_id/);
   const detail = readFileSync(new URL('../src/WishDetail.tsx', import.meta.url), 'utf8');
-  assert.match(detail, /!item.converted_asset/);
-  assert.match(detail, /前往最近删除/);
+  assert.match(detail, /converted_asset\?\.deleted/);
+  assert.match(detail, /关联物品在最近删除/);
   assert.match(detail, /查看物品/);
+  // 决策操作与旧记录核实进入详情（§3.3、§3.6）。
+  assert.match(detail, /已买到，记录购入/);
+  assert.match(detail, /关联已有物品/);
+  assert.match(detail, /不再考虑/);
+  assert.match(detail, /重新考虑/);
+  assert.match(detail, /核实这条旧记录/);
+  assert.match(detail, /旧版由此心愿自动生成/);
 });

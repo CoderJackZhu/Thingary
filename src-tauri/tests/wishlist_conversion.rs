@@ -107,13 +107,13 @@ fn ongoing_total(store: &Store) -> String {
     store
         .query_wishlist(&Query {
             search: String::new(),
-            filter: "ongoing".into(),
+            filter: "considering".into(),
             sort: "created".into(),
             descending: true,
             offset: 0,
         })
         .unwrap()
-        .ongoing_known_cents
+        .considering_known_cents
 }
 
 fn fail_at(store: &mut Store, at: &'static str, code: &'static str) {
@@ -176,7 +176,7 @@ fn ac17_actual_price_is_separate_and_both_sides_trace_each_other() {
     let page = store
         .query_wishlist(&Query {
             search: String::new(),
-            filter: "achieved".into(),
+            filter: "purchased".into(),
             sort: "created".into(),
             descending: true,
             offset: 0,

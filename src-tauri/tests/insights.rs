@@ -160,7 +160,7 @@ fn ac35_held_and_history_scopes_count_unknowns_and_exclude_deleted() {
         (Some(7), 1),
         "(10+11+1)/3, C excluded"
     );
-    assert_eq!(o.ongoing_wishes, 2);
+    assert_eq!(o.considering_wishes, 2);
     let held: Vec<_> = o
         .categories
         .iter()

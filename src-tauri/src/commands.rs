@@ -114,6 +114,16 @@ pub async fn list_assets(query: Query, worker: tauri::State<'_, Worker>) -> Resu
     .await
     .map_err(|_| Error::new("WORKER", "读取失败，请重试"))?
 }
+#[tauri::command]
+pub async fn search_all(
+    input: crate::search::Query,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::search::Results> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.search_all(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "搜索失败，请重新搜索"))?
+}
 /// U17 标签投入分析：当前库只读聚合，跟随样例/我的资料切换。
 #[tauri::command]
 pub async fn tag_investment_view(
@@ -611,6 +621,32 @@ pub async fn stage_wishlist_cover(
     })
     .await
     .map_err(|_| Error::new("WORKER", "心愿封面准备失败，请重试"))?
+}
+
+#[tauri::command]
+pub async fn link_wish_asset(
+    input: crate::wishlist::Link,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wishlist::WishlistItem> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_wish_asset(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "未收到关联结果，请检查该次提交"))?
+}
+
+#[tauri::command]
+pub async fn verify_legacy_wish(
+    input: crate::wishlist::Verify,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wishlist::WishlistItem> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| {
+            s.verify_legacy_wish(&input, &chrono::Local::now().format("%Y-%m-%d").to_string())
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到核实结果，请检查该次提交"))?
 }
 
 #[tauri::command]

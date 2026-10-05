@@ -34,6 +34,10 @@ pub enum Target {
         id: String,
         asset_id: String,
     },
+    /// A wealth account, opened by stable ID in its form (§6.2).
+    Account {
+        id: String,
+    },
 }
 impl Store {
     pub fn validate_source(&self, target: &Target, generation: &str) -> Result<()> {
@@ -52,6 +56,7 @@ impl Store {
             Target::Virtual { id } => ("virtual_assets", id),
             Target::Plan { id } => ("recurring_plans", id),
             Target::Topup { id, .. } => ("virtual_topups", id),
+            Target::Account { id } => ("fin_accounts", id),
         };
         uuid::Uuid::parse_str(id).map_err(|_| Error::new("ID", "来源标识无效"))?;
         let exists: bool = self.conn()?.query_row(
@@ -66,7 +71,7 @@ impl Store {
             ));
         }
         if let Target::Payment { id, plan_id } = target {
-            let valid: bool = self.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id WHERE p.id=?1 AND p.plan_id=?2 AND r.deleted_at IS NULL AND p.state='paid')",rusqlite::params![id,plan_id],|r|r.get(0))?;
+            let valid: bool = self.conn()?.query_row("SELECT EXISTS(SELECT 1 FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id WHERE p.id=?1 AND p.plan_id=?2 AND r.deleted_at IS NULL AND p.state IN ('paid','skipped'))",rusqlite::params![id,plan_id],|r|r.get(0))?;
             if !valid {
                 return Err(Error::new(
                     "NOT_FOUND",

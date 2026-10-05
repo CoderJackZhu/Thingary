@@ -56,7 +56,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
     if (target.kind === 'plan') { const plan = fresh.plans.find(p => p.id === target.id); if (!plan) return false; setEditing(plan); return true; }
     if (target.kind !== 'payment') return false;
     // A payment target lands on its exact recorded period, never a nearby one.
-    const payment = fresh.payments.find(p => p.id === target.id && p.plan_id === target.plan_id && p.state === 'paid');
+    const payment = fresh.payments.find(p => p.id === target.id && p.plan_id === target.plan_id);
     const plan = fresh.plans.find(p => p.id === target.plan_id);
     if (!payment || !plan) return false;
     setTab('payments'); setPaying({plan_id:plan.id,plan_name:plan.fields.name,due_date:payment.due_date,plan_amount:plan.fields.amount_cents,record:payment}); return true;

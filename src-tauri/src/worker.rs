@@ -535,7 +535,7 @@ mod tests {
                 move |s| s.query_assets(&q, today)
             })
             .unwrap();
-        assert_eq!(demo_page.total, 9);
+        assert_eq!(demo_page.total, 10);
         let original = &demo_page.items[0];
         let edited = worker
             .call({

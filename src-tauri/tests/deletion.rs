@@ -90,35 +90,61 @@ fn kinds(s: &Store, filter: &str) -> Vec<String> {
         .collect()
 }
 fn manual_wish(s: &mut Store, name: &str) -> thingary_lib::wishlist::WishlistItem {
-    s.save_wish_plan(
-        &WishSave {
-            request_id: rid(),
-            generation: s.generation(),
-            id: None,
-            expected_revision: None,
-            fields: Fields {
-                name: name.into(),
-                category_id: None,
-                estimated_price_cents: Some("5000".into()),
-                priority: None,
-                target_date: None,
-                external_link: String::new(),
-                notes: String::new(),
+    let wish = s
+        .save_wish_plan(
+            &WishSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: Fields {
+                    name: name.into(),
+                    category_id: None,
+                    estimated_price_cents: Some("5000".into()),
+                    priority: None,
+                    target_date: None,
+                    external_link: String::new(),
+                    notes: String::new(),
+                },
+                preferences: Preferences {
+                    mode: None,
+                    ..Default::default()
+                },
+                photos: Selection {
+                    ids: vec![],
+                    cover_id: None,
+                },
+                replacement_asset_id: None,
+                clear_replacement: false,
             },
-            preferences: Preferences {
-                mode: "countdown".into(),
-                ..Default::default()
+            TODAY,
+        )
+        .unwrap();
+    // A purchase is an explicit confirmation, never a side effect of saving.
+    s.convert_wishlist(
+        &thingary_lib::wishlist::Convert {
+            wishlist_id: wish.id.clone(),
+            expected_revision: wish.revision,
+            asset: thingary_lib::catalog::SaveAsset {
+                options: None,
+                base: AssetSave {
+                    request_id: rid(),
+                    generation: s.generation(),
+                    asset_id: None,
+                    expected_revision: None,
+                    name: name.into(),
+                    price_cents: None,
+                    purchase_date: None,
+                },
+                details: Default::default(),
+                photos: None,
+                classification: None,
             },
-            photos: Selection {
-                ids: vec![],
-                cover_id: None,
-            },
-            status_intent: "manual".into(),
-            achieved_date: None,
         },
         TODAY,
     )
-    .unwrap()
+    .unwrap();
+    s.wishlist_item(&wish.id).unwrap().unwrap()
 }
 
 #[test]
@@ -222,8 +248,8 @@ fn a_deleted_wish_disappears_everywhere_and_returns_whole() {
             ids: vec![],
             cover_id: None,
         },
-        status_intent: "preserve".into(),
-        achieved_date: None,
+        replacement_asset_id: None,
+        clear_replacement: false,
     };
     assert_eq!(
         s.save_wish_plan(&change, TODAY).unwrap_err().code,

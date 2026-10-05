@@ -156,6 +156,7 @@ pub struct Draft {
 pub struct Point {
     pub snapshot_id: String,
     pub date: String,
+    pub notes: String,
     pub assets_cents: String,
     pub liabilities_cents: String,
     pub net_cents: String,
@@ -226,6 +227,7 @@ pub struct CompareRow {
 pub struct CompareEnd {
     pub snapshot_id: String,
     pub date: String,
+    pub notes: String,
     pub complete: bool,
     pub missing: usize,
 }
@@ -697,20 +699,36 @@ impl Store {
                     None
                 }
                 "unchanged" => {
-                    let prev = observation_before(&tx, &e.account_id, Some(&input.date))?
-                        .ok_or_else(|| {
-                            Error::new("SNAPSHOT_UNCHANGED", "没有更早的金额可确认未变")
-                        })?;
-                    let prev: i64 = prev
-                        .amount_cents
-                        .parse()
-                        .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?;
-                    if given.is_some_and(|g| g != prev) {
-                        return Err(Error::new(
-                            "SNAPSHOT_UNCHANGED",
-                            "确认未变的金额须与上次相同",
-                        ));
-                    }
+                    // A correction of a row that was already saved as
+                    // unchanged keeps its recorded amount: re-deriving from
+                    // the latest earlier check-in would silently rewrite it
+                    // once that earlier snapshot is corrected (A22).
+                    // A supplied amount marks an explicit confirmation in this
+                    // request, including re-confirming a previously unchanged row.
+                    let recorded = kept
+                        .get(e.account_id.as_str())
+                        .filter(|k| k.state == "unchanged" && given.is_none())
+                        .and_then(|k| k.amount_cents.as_deref())
+                        .and_then(|v| v.parse::<i64>().ok());
+                    let prev: i64 = if let Some(recorded) = recorded {
+                        recorded
+                    } else {
+                        let prev = observation_before(&tx, &e.account_id, Some(&input.date))?
+                            .ok_or_else(|| {
+                                Error::new("SNAPSHOT_UNCHANGED", "没有更早的金额可确认未变")
+                            })?;
+                        let prev: i64 = prev
+                            .amount_cents
+                            .parse()
+                            .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?;
+                        if given.is_some_and(|g| g != prev) {
+                            return Err(Error::new(
+                                "SNAPSHOT_UNCHANGED",
+                                "确认未变的金额须与上次相同",
+                            ));
+                        }
+                        prev
+                    };
                     Some(prev)
                 }
                 _ => return Err(Error::new("SNAPSHOT_STATE", "请选择填写、未变或未知")),
@@ -787,6 +805,7 @@ impl Store {
             let mut point = Point {
                 snapshot_id: s.id.clone(),
                 date: s.date.clone(),
+                notes: s.notes.clone(),
                 assets_cents: assets.to_string(),
                 liabilities_cents: liabilities.to_string(),
                 net_cents: net.to_string(),
@@ -1015,12 +1034,14 @@ impl Store {
             from: CompareEnd {
                 snapshot_id: from.id.clone(),
                 date: from.date.clone(),
+                notes: from.notes.clone(),
                 complete: from.missing.is_empty(),
                 missing: from.missing.len(),
             },
             to: CompareEnd {
                 snapshot_id: to.id.clone(),
                 date: to.date.clone(),
+                notes: to.notes.clone(),
                 complete: to.missing.is_empty(),
                 missing: to.missing.len(),
             },

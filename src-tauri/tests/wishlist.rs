@@ -78,7 +78,7 @@ fn ac16_create_cancel_and_abandon_do_not_touch_assets() {
     let page = store
         .query_wishlist(&Query {
             search: "虚构".into(),
-            filter: "ongoing".into(),
+            filter: "considering".into(),
             sort: "created".into(),
             descending: true,
             offset: 0,
@@ -87,8 +87,8 @@ fn ac16_create_cancel_and_abandon_do_not_touch_assets() {
     assert_eq!(
         (
             page.total,
-            page.ongoing_known_cents.as_str(),
-            page.ongoing_unknown_count
+            page.considering_known_cents.as_str(),
+            page.considering_unknown_count
         ),
         (1, "150000", 0)
     );
@@ -126,20 +126,20 @@ fn ac16_create_cancel_and_abandon_do_not_touch_assets() {
         store
             .query_wishlist(&Query {
                 search: "".into(),
-                filter: "ongoing".into(),
+                filter: "considering".into(),
                 sort: "created".into(),
                 descending: true,
                 offset: 0
             })
             .unwrap()
-            .ongoing_known_cents,
+            .considering_known_cents,
         "0"
     );
     assert_eq!(
         store
             .query_wishlist(&Query {
                 search: "虚构".into(),
-                filter: "abandoned".into(),
+                filter: "dropped".into(),
                 sort: "created".into(),
                 descending: true,
                 offset: 0
@@ -170,7 +170,7 @@ fn null_zero_future_sorts_search_and_stale_protocol() {
         store
             .query_wishlist(&Query {
                 search: "alpha".into(),
-                filter: "ongoing".into(),
+                filter: "considering".into(),
                 sort: sort.into(),
                 descending: false,
                 offset: 0,
@@ -208,7 +208,7 @@ fn null_zero_future_sorts_search_and_stale_protocol() {
         let names = store
             .query_wishlist(&Query {
                 search: String::new(),
-                filter: "ongoing".into(),
+                filter: "considering".into(),
                 sort: "priority".into(),
                 descending,
                 offset: 0,
@@ -273,7 +273,7 @@ fn wishlist_pagination_reaches_items_after_the_first_hundred() {
         store
             .query_wishlist(&Query {
                 search: String::new(),
-                filter: "ongoing".into(),
+                filter: "considering".into(),
                 sort: "created".into(),
                 descending: true,
                 offset,
@@ -579,7 +579,7 @@ fn faults_lost_receipt_and_real_write_lock_do_not_duplicate() {
         store
             .query_wishlist(&Query {
                 search: "fault".into(),
-                filter: "ongoing".into(),
+                filter: "considering".into(),
                 sort: "created".into(),
                 descending: true,
                 offset: 0
@@ -604,7 +604,7 @@ fn faults_lost_receipt_and_real_write_lock_do_not_duplicate() {
         store
             .query_wishlist(&Query {
                 search: "fault".into(),
-                filter: "ongoing".into(),
+                filter: "considering".into(),
                 sort: "created".into(),
                 descending: true,
                 offset: 0
@@ -755,7 +755,7 @@ fn name_sort_orders_the_whole_filtered_wishlist_before_pagination() {
         store
             .query_wishlist(&Query {
                 search: "虚构排序心愿".into(),
-                filter: "ongoing".into(),
+                filter: "considering".into(),
                 sort: "name".into(),
                 descending,
                 offset,
@@ -774,8 +774,8 @@ fn name_sort_orders_the_whole_filtered_wishlist_before_pagination() {
         );
         assert_eq!(first.items[0].fields.name, first_name);
         assert_eq!(second.items[1].fields.name, last_name);
-        assert_eq!(first.ongoing_known_cents, "10200");
-        assert_eq!(first.ongoing_unknown_count, 1);
+        assert_eq!(first.considering_known_cents, "10200");
+        assert_eq!(first.considering_unknown_count, 1);
         assert!(second
             .items
             .iter()

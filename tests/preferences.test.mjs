@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {savingPercent} from '../src/preferences.ts';
 import {newAssetWarranty,changeNewAssetWarrantyPurchase} from '../src/preferences.ts';
 test('new asset warranty runs one year from purchase rather than the added date',()=>{
  const today='2026-10-04';
@@ -24,14 +23,6 @@ test('explicit warranty end stays fixed even when it coincides with the new defa
  const moved=changeNewAssetWarrantyPurchase(edited,'2026-04-03',today,true);
  assert.equal(moved.end_date,'2027-04-03');
  assert.equal(changeNewAssetWarrantyPurchase(moved,'2024-04-03',today,true).end_date,'2027-04-03');
-});
-test('savings ring agrees with cent precision at the completion boundary',()=>{
- assert.equal(savingPercent('9999','10000'),99);
- assert.equal(savingPercent('10000','10000'),100);
- assert.equal(savingPercent('10001','10000'),100);
- assert.equal(savingPercent('0',null),null);
- assert.equal(savingPercent('0','0'),100);
- assert.equal(savingPercent('99999999998','99999999999'),99);
 });
 import {goalProgress,defaultPreferences} from '../src/preferences.ts';
 test('asset goal progress',()=>{
