@@ -15,7 +15,7 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
 
 test('text and muted text meet 4.5:1 on every surface in every theme, light and dark', () => {
   const base = tokens(':root'), combos = [['native light', base], ['native dark', { ...base, ...tokens(':root[data-mode=dark]') }]];
-  for (const style of ['paper', 'bento']) {
+  for (const style of ['olive', 'bento']) {
     const light = { ...base, ...tokens(`:root[data-style=${style}]`) };
     combos.push([`${style} light`, light], [`${style} dark`, { ...light, ...tokens(`:root[data-style=${style}][data-mode=dark]`) }]);
   }

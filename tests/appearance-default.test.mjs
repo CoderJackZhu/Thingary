@@ -8,7 +8,8 @@ globalThis.localStorage = { getItem: k => (store.has(k) ? store.get(k) : null), 
 test('first run defaults to the bento theme and saved choices are kept', () => {
   store.clear();
   assert.equal(readStyle(), 'bento');
-  for (const saved of ['native', 'paper', 'bento']) { store.set('thingary.style', saved); assert.equal(readStyle(), saved); }
+  for (const saved of ['native', 'olive', 'bento']) { store.set('thingary.style', saved); assert.equal(readStyle(), saved); }
+  store.set('thingary.style', 'paper'); assert.equal(readStyle(), 'olive', 'the retired paper style reads as its replacement');
   store.set('thingary.style', 'garbage'); assert.equal(readStyle(), 'bento');
 });
 

@@ -1,5 +1,5 @@
 /* 物谱主题变量（U15a，产品设计 D22）。颜色与字体只在这里定义。
- * 主题 data-style：native 清新原生（默认）/ paper 纸本档案 / bento 柔和卡片；
+ * 主题 data-style：native 清新原生 / olive 暖米橄榄 / bento 柔和卡片（默认）；
  * 模式 data-mode：light / dark，由应用把「跟随系统」解析后写入。
  * 其他样式文件只引用变量，不再各自定义深浅色。 */
 :root{
@@ -21,23 +21,21 @@
   --positive:#32c979;--pos-bg:#32c9791f;--warn:#ffb340;--warn-bg:#ffb3401f;--error:#ff7a73;--danger-bg:#ff69611f;
   --series-1:#3987e5;--series-2:#d95926;--series-3:#199e70;--series-4:#c98500;--series-5:#d55181;--series-6:#008300;--series-7:#9085e9;--series-rest:#6b7482}
 
-/* C 纸本档案：暖纸、衬线标题与数字 */
-:root[data-style=paper]{
+/* C 暖米橄榄：暖米底、橄榄绿强调、金与沙色系列；细边框卡片，浅深对比度见 tests/contrast.test.mjs */
+:root[data-style=olive]{
   color-scheme:light;
-  --display:"Songti SC","STSong","Noto Serif SC",Georgia,serif;
-  --num:"Iowan Old Style","New York",Georgia,"Songti SC",serif;--h-track:1px;
-  --bg:#f7f3ea;--side:#efe8da;--card:#fbf8f1;--soft:#ede6d6;--mark:#ebe3d2;--image:#ebe3d2;
-  --text:#2a2621;--muted:#6b6154;--line:#dcd2be;--line-soft:#e8e1d1;
-  --accent:#9a4320;--button-bg:#9a4320;--button-text:#fbf8f1;--selected:#efe4d2;
-  --positive:#3f6e42;--pos-bg:#e3ebd9;--warn:#935510;--warn-bg:#f3e2c7;--error:#b23a2a;--danger-bg:#f5dcd4;
-  --series-1:#9a4320;--series-2:#c79a55;--series-3:#6f8157;--series-4:#7d6a9a;--series-5:#b8863a;--series-6:#4f7a6e;--series-7:#a35d6a;--series-rest:#a39a8a}
-:root[data-style=paper][data-mode=dark]{
+  --bg:#f6f2ea;--side:#f1ece2;--card:#fffdf9;--soft:#efe9dc;--mark:#ebe4d4;--image:#f1ece0;
+  --text:#26231d;--muted:#6d665a;--line:#e4dccb;--line-soft:#eee8da;
+  --accent:#4f6b3a;--button-bg:#4f6b3a;--button-text:#fff;--selected:#e9eddc;
+  --positive:#3a7336;--pos-bg:#e6efdc;--warn:#945610;--warn-bg:#f6e6c8;--error:#b03a28;--danger-bg:#f9e8e3;
+  --series-1:#4f6b3a;--series-2:#c9a24a;--series-3:#a58a63;--series-4:#8a5a3b;--series-5:#7f9a78;--series-6:#6b7c86;--series-7:#b86b4a;--series-rest:#a39a8a}
+:root[data-style=olive][data-mode=dark]{
   color-scheme:dark;
-  --bg:#1f1c18;--side:#191714;--card:#26221d;--soft:#2c2823;--mark:#2f2a24;--image:#2c2823;
-  --text:#ebe3d3;--muted:#a89d8b;--line:#3a352d;--line-soft:#2d2924;
-  --accent:#e39a70;--button-bg:#e39a70;--button-text:#1f1c18;--selected:#3a2a20;
-  --positive:#93b58f;--pos-bg:#93b58f1f;--warn:#e0a45c;--warn-bg:#e0a45c1f;--error:#e57a6a;--danger-bg:#e57a6a1f;
-  --series-1:#c0643a;--series-2:#c9a066;--series-3:#8a9a74;--series-4:#9c8ab8;--series-5:#c9a040;--series-6:#6fa393;--series-7:#c07a88;--series-rest:#7d7466}
+  --bg:#1b1a16;--side:#151410;--card:#24221d;--soft:#2d2a24;--mark:#322f28;--image:#2d2a24;
+  --text:#ece6d6;--muted:#a89f8c;--line:#3a362d;--line-soft:#2e2b24;
+  --accent:#9db77a;--button-bg:#9db77a;--button-text:#1b1a16;--selected:#2c3320;
+  --positive:#9fc27a;--pos-bg:#9fc27a1f;--warn:#e0a45c;--warn-bg:#e0a45c1f;--error:#e57a6a;--danger-bg:#e57a6a1f;
+  --series-1:#9db77a;--series-2:#d9b866;--series-3:#b49c78;--series-4:#c08460;--series-5:#8fab88;--series-6:#8296a3;--series-7:#c9806a;--series-rest:#6f6859}
 
 /* D 柔和卡片：浅灰底、白卡片、轻阴影 */
 :root[data-style=bento]{
@@ -65,12 +63,13 @@
   --nav-active-bg:#e1e1e6;--nav-active-fg:var(--text);--nav-active-ic:var(--accent);--nav-active-shadow:0 0 #0000;--nav-active-bar:0 0 #0000;--nav-active-w:500;--nav-ic-tile:0;--side-divider:1px solid var(--line);
   --brand-bg:#1d1d1f;--brand-fg:#fff;--chart:var(--accent)}
 :root[data-mode=dark]{--nav-active-bg:#3a3a3f;--brand-bg:#f2f2f4;--brand-fg:#1e1e20}
-:root[data-style=paper]{
-  --surface:transparent;--surface-border:none;--surface-rule:1.5px solid var(--text);--surface-radius:0;--surface-pad-x:0px;
-  --key-w:400;--page-title:28px;--h-track:1px;--ctl-radius:3px;
-  --nav-active-bg:color-mix(in srgb,var(--selected) 40%,transparent);--nav-active-fg:var(--text);--nav-active-ic:var(--accent);--nav-active-bar:inset 3px 0 0 var(--accent);--nav-active-w:600;
-  --brand-bg:#9a4320;--brand-fg:#fbf8f1}
-:root[data-style=paper][data-mode=dark]{--brand-bg:#c0643a;--brand-fg:#1f1c18}
+:root[data-style=olive]{
+  --surface-border:1px solid var(--line);--surface-radius:12px;
+  --hero-tint-1:linear-gradient(160deg,#eef0e0,var(--card) 60%);--hero-tint-2:linear-gradient(160deg,#f7ecd6,var(--card) 60%);
+  --key-w:600;--key-size:32px;--ctl-radius:8px;
+  --nav-active-bg:var(--selected);--nav-active-fg:var(--text);--nav-active-ic:var(--button-text);--nav-active-w:600;
+  --brand-bg:linear-gradient(135deg,#4f6b3a,#9aa64f);--brand-fg:#fff}
+:root[data-style=olive][data-mode=dark]{--hero-tint-1:linear-gradient(160deg,#2a3320,var(--card) 60%);--hero-tint-2:linear-gradient(160deg,#3a2f1a,var(--card) 60%);--brand-bg:linear-gradient(135deg,#7f9a5c,#c3c77a);--brand-fg:#1b1a16}
 :root[data-style=bento]{
   --surface-border:none;--surface-radius:16px;--surface-shadow:var(--card-shadow);
   --metric-gap:12px;--metric-tile:1;--hero-tint-1:linear-gradient(160deg,#ececfe,var(--card) 55%);--hero-tint-2:linear-gradient(160deg,#fff1e2,var(--card) 55%);

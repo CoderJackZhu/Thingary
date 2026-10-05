@@ -174,7 +174,7 @@ for (const key of ['thingary.asset-draft.v1','thingary.trash-request.v1','thinga
 if (!params.has('preserve-maintenance')) localStorage.removeItem('thingary.maintenance-draft.v1');
 if (!params.has('preserve-warranty')) localStorage.removeItem('thingary.warranty-draft.v1');
 if (params.has('theme')) localStorage.setItem('thingary.theme',params.get('theme') === 'dark' ? 'dark' : 'light');
-if (params.has('style')) localStorage.setItem('thingary.style', params.get('style') === 'paper' ? 'paper' : params.get('style') === 'bento' ? 'bento' : 'native');
+if (params.has('style')) localStorage.setItem('thingary.style', params.get('style') === 'olive' || params.get('style') === 'paper' ? 'olive' : params.get('style') === 'bento' ? 'bento' : 'native');
 if (params.get('preset-label')) sessionStorage.setItem('thingary.preset-label.v1', params.get('preset-label')!);
 if (params.has('enter-tag') || params.has('preset-label')) document.getElementById('visual-preview-label')?.remove();
 // U18 截图入口：?open-wish=<心愿ID> 走真实来源跳转打开详情；?recurring-tab=payments 直达付款记录视图。

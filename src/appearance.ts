@@ -1,14 +1,14 @@
 // U15a 外观：主题（data-style）与浅色／深色（data-theme 为用户选择，data-mode 为解析结果）。
 export type Mode = 'light' | 'dark' | 'system';
-export type Style = 'native' | 'paper' | 'bento';
+export type Style = 'native' | 'olive' | 'bento';
 export const styles: readonly { value: Style; label: string; note: string }[] = [
   { value: 'native', label: '清新原生', note: '简洁 · 蓝色' },
-  { value: 'paper', label: '纸本档案', note: '衬线 · 暖色' },
+  { value: 'olive', label: '暖米橄榄', note: '圆角 · 暖色 · 橄榄' },
   { value: 'bento', label: '柔和卡片', note: '圆角 · 彩色 · 默认' },
 ];
 const darkQuery = () => window.matchMedia('(prefers-color-scheme: dark)');
 export function readMode(): Mode { const v = localStorage.getItem('thingary.theme'); return v === 'light' || v === 'dark' ? v : 'system'; }
-export function readStyle(): Style { const v = localStorage.getItem('thingary.style'); return v === 'paper' || v === 'native' ? v : 'bento'; } // 默认柔和卡片（D27）；已保存的选择不变
+export function readStyle(): Style { const v = localStorage.getItem('thingary.style'); return v === 'native' || v === 'olive' ? v : v === 'paper' ? 'olive' : 'bento'; } // 默认柔和卡片（D27）；已保存的选择不变；旧的 paper（纸本档案已由暖米橄榄取代）读作 olive
 export const resolveMode = (mode: Mode): 'light' | 'dark' => mode === 'system' ? (darkQuery().matches ? 'dark' : 'light') : mode;
 // 侧栏按钮与 ⌘⇧D：切到与当前显示相反的一侧，「跟随系统」也按实际显示判断。
 export const toggledMode = (mode: Mode): Mode => resolveMode(mode) === 'dark' ? 'light' : 'dark';

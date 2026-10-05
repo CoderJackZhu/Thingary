@@ -3,7 +3,7 @@
 
 /* 4.1 卡片 */
 .ui-card{background:var(--surface);border:var(--surface-border);border-top:var(--surface-rule,var(--surface-border));border-radius:var(--surface-radius);box-shadow:var(--surface-shadow);min-width:0}
-:root:not([data-style=paper]) .ui-card{border-top:var(--surface-border)}
+.ui-card{border-top:var(--surface-border)}
 .ui-card>.ui-section-head{padding:14px var(--surface-pad-x) 4px}
 .ui-card>.ui-pad{padding:14px var(--surface-pad-x)}
 .ui-card>.ui-card-foot{padding:10px var(--surface-pad-x) 14px;border-top:1px solid var(--line-soft);color:var(--muted)}
@@ -20,7 +20,6 @@
 .ui-metrics{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:var(--metric-gap);margin:0 0 16px}
 .ui-metrics>:is(div,article){padding:14px 18px;min-width:0}
 .ui-metrics:not(.ui-tiles)>:is(div,article)+:is(div,article){border-left:1px solid var(--line)}
-:root[data-style=paper] .ui-metrics>:is(div,article):first-child{padding-left:0}
 .ui-metrics .ui-label{display:block;font-size:12px;color:var(--muted)}
 .ui-metrics .ui-value{display:block;margin-top:2px;font:var(--key-w) 20px/1.3 var(--num);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ui-metrics .ui-value small{font:400 13px var(--num);color:var(--muted);margin-left:3px}
@@ -34,7 +33,7 @@
 .ui-hero{padding:18px var(--surface-pad-x) 14px;display:flex;flex-direction:column;min-width:0}
 .ui-hero.tint-1{background:var(--hero-tint-1),var(--surface)}
 .ui-hero.tint-2{background:var(--hero-tint-2),var(--surface)}
-:root:not([data-style=bento]) .ui-hero.tint-1,:root:not([data-style=bento]) .ui-hero.tint-2{background:var(--surface)}
+:root:not([data-style=bento]):not([data-style=olive]) .ui-hero.tint-1,:root:not([data-style=bento]):not([data-style=olive]) .ui-hero.tint-2{background:var(--surface)}
 .ui-hero .ui-label{color:var(--muted);display:flex;align-items:center;gap:6px}
 .ui-hero .ui-big{font:var(--key-w) var(--key-size)/1.2 var(--num);font-variant-numeric:tabular-nums;letter-spacing:-.4px;margin:4px 0 2px;overflow-wrap:anywhere}
 .ui-hero .ui-big small{font:400 15px var(--num);color:var(--muted);margin-left:4px;letter-spacing:0}
@@ -82,7 +81,6 @@
 /* 4.8 表格 */
 .ui-table{width:100%;border-collapse:collapse}
 .ui-table th{height:32px;padding:0 10px;font-size:12px;font-weight:400;color:var(--muted);text-align:left;background:none;border-bottom:1px solid var(--line)}
-:root[data-style=paper] .ui-table th{border-bottom-color:var(--text)}
 .ui-table td{height:48px;padding:0 10px;border-bottom:1px solid var(--line-soft)}
 .ui-table tr:last-child td{border-bottom:0}
 .ui-table .num,.ui-table .r{text-align:right;font-family:var(--num);font-variant-numeric:tabular-nums}
@@ -135,7 +133,6 @@
 .sidebar nav button .ui-icon{opacity:.75}
 .sidebar nav button.nav-active{background:var(--nav-active-bg);color:var(--nav-active-fg);font-weight:var(--nav-active-w);box-shadow:var(--nav-active-bar),var(--nav-active-shadow)}
 .sidebar nav button.nav-active .ui-icon{opacity:1;color:var(--nav-active-ic)}
-:root[data-style=paper] .sidebar nav button.nav-active{border-radius:0}
 .nav-count{margin-left:auto;font-size:12px;color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
 .nav-count.warn{color:var(--warn);font-weight:600}
 .nav-caption{font-family:var(--head);letter-spacing:var(--h-track)}
@@ -155,6 +152,38 @@
 :root[data-style=bento] .sidebar nav .ui-icon{width:22px;height:22px;padding:4px;border-radius:6px;color:inherit;opacity:.75;stroke-width:1.9;background:none}
 :root[data-style=bento] .sidebar nav .mode-toggle .ui-icon{width:16px;height:16px;padding:0;background:none;color:var(--muted)}
 :root[data-style=bento] .sidebar nav button.nav-active .ui-icon{color:#fff;opacity:1;background:var(--ic,#8e8e93)}
+/* 暖米橄榄：每个图标有自己的色值（--ic，深色另一张更亮的表），事件图标是描边淡底小方块；侧栏只有选中项是实心橄榄绿方块，其余为单色线条。 */
+:root[data-style=olive] .ui-icon[data-icon=overview]{--ic:#4f6b3a}
+:root[data-style=olive] .ui-icon[data-icon=items]{--ic:#6b7c86}
+:root[data-style=olive] .ui-icon[data-icon=circle]{--ic:#7f9a78}
+:root[data-style=olive] .ui-icon[data-icon=shield]{--ic:#5f8a8b}
+:root[data-style=olive] .ui-icon[data-icon=arrow]{--ic:#8a6aa0}
+:root[data-style=olive] .ui-icon[data-icon=heart]{--ic:#b85a4a}
+:root[data-style=olive] .ui-icon[data-icon=wallet]{--ic:#c9a24a}
+:root[data-style=olive] .ui-icon[data-icon=receipt]{--ic:#b86b4a}
+:root[data-style=olive] .ui-icon[data-icon=repeat]{--ic:#6b8fa6}
+:root[data-style=olive] .ui-icon[data-icon=cloud]{--ic:#7a6f9a}
+:root[data-style=olive] .ui-icon[data-icon=clock]{--ic:#7f9a78}
+:root[data-style=olive] .ui-icon[data-icon=chart]{--ic:#c9a24a}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=overview]{--ic:#9db77a}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=items]{--ic:#8296a3}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=circle]{--ic:#8fab88}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=shield]{--ic:#7fb0b0}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=arrow]{--ic:#b394c9}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=heart]{--ic:#d9806f}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=wallet]{--ic:#d9b866}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=receipt]{--ic:#c9806a}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=repeat]{--ic:#8fb0c9}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=cloud]{--ic:#a499c4}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=clock]{--ic:#8fab88}
+:root[data-style=olive][data-mode=dark] .ui-icon[data-icon=chart]{--ic:#d9b866}
+:root[data-style=olive] .sidebar nav .ui-icon{width:22px;height:22px;padding:4px;border-radius:6px;color:inherit;opacity:.75;stroke-width:1.9;background:none}
+:root[data-style=olive] .sidebar nav .mode-toggle .ui-icon{width:16px;height:16px;padding:0;background:none;color:var(--muted)}
+:root[data-style=olive] .sidebar nav button.nav-active .ui-icon{color:var(--button-text);opacity:1;background:var(--accent)}
+/* 时间轴的事件图标：基础样式按事件类型写死了 iOS 亮色，olive 改用同一张色值表的描边淡底小方块，与总览近期记录一致。 */
+:root[data-style=olive] .timeline-kind{width:24px;height:24px;background:none}
+:root[data-style=olive] .timeline-kind .ui-icon{width:24px;height:24px;padding:5px;border-radius:7px;stroke-width:1.9;color:var(--ic,#8e8e93);background:color-mix(in srgb,var(--ic,#8e8e93) 12%,transparent);border:1px solid color-mix(in srgb,var(--ic,#8e8e93) 38%,transparent)}
+:root[data-style=olive][data-mode=dark] .timeline-kind .ui-icon{background:color-mix(in srgb,var(--ic,#8e8e93) 16%,transparent)}
 
 /* 5.3 页头（U16b）：页标题随主题（C 为 28 宋体） */
 .page-header h1{font:600 var(--page-title)/1.25 var(--head);letter-spacing:var(--h-track)}
@@ -235,8 +264,6 @@
 [data-kind=purchase] .timeline-kind{background:#0a84ff}[data-kind^=warranty] .timeline-kind{background:#30b0c7}[data-kind=retire] .timeline-kind,[data-kind=sale] .timeline-kind{background:#af52de}[data-kind^=wish] .timeline-kind{background:#ff2d55}[data-kind=expense] .timeline-kind,[data-kind=refund] .timeline-kind{background:#ff6b3d}[data-kind=payment] .timeline-kind{background:#32ade6}[data-kind=snapshot] .timeline-kind{background:#ff9500}
 .timeline-copy{flex:1;min-width:0}.timeline-copy strong,.timeline-copy small{display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.timeline-copy strong{font-size:13px;font-weight:500}.timeline-copy small{font-size:12px;color:var(--muted);margin-top:3px}
 .timeline-amount{font:13px var(--num);white-space:nowrap}
-:root[data-style=paper] .timeline-kind{border-radius:50%;width:8px;height:8px;background:none;border:2px solid var(--accent);margin:0 6px}
-:root[data-style=paper] .timeline-kind svg{display:none}
 .ui-content{padding:14px var(--surface-pad-x)}
 .ui-content>.ui-section-head{padding:0}
 .virtual-browser{min-width:0}.virtual-browser.has-inspector{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
@@ -278,8 +305,8 @@
 .appearance-tri .tri-mode{flex:none;width:auto;min-width:0;height:28px;padding:0;display:grid;place-items:center;justify-content:center;color:var(--muted);border:1px solid transparent;border-radius:var(--ctl-radius);background:transparent}
 .appearance-tri .tri-mode:hover:not(:disabled){color:var(--text);background:var(--soft)}
 .appearance-tri .tri-mode[aria-pressed=true]{background:var(--nav-active-bg,var(--selected));color:var(--nav-active-fg,var(--accent));border-color:var(--line)}
-:root[data-style=bento] .sidebar nav .tri-mode .ui-icon{width:16px;height:16px;padding:0;border-radius:0;background:none;color:inherit}
-:root[data-style=bento] .sidebar nav .tri-mode[aria-pressed=true] .ui-icon{color:var(--accent)}
+:root:is([data-style=bento],[data-style=olive]) .sidebar nav .tri-mode .ui-icon{width:16px;height:16px;padding:0;border-radius:0;background:none;color:inherit}
+:root:is([data-style=bento],[data-style=olive]) .sidebar nav .tri-mode[aria-pressed=true] .ui-icon{color:var(--accent)}
 /* 明暗切换动效：按钮底色与图标色渐变；选中的图标各做一次小动画（太阳转、月亮摆、跟随系统淡入）；减少动态效果时全部关闭。 */
 @media (prefers-reduced-motion:no-preference){
 .appearance-tri .tri-mode{transition:background-color .25s ease,color .25s ease,border-color .25s ease}

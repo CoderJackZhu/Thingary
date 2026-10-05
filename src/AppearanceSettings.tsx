@@ -3,7 +3,7 @@ import { styles, type Style } from './appearance';
 // 主题卡片里的小示意：侧栏、标题条、一张卡片和一个强调色块，颜色取自该主题浅色版。
 const swatch: Record<Style, { bg: string; side: string; ink: string; accent: string; card: CSSProperties }> = {
   native: { bg: '#fff', side: '#f4f4f6', ink: '#1d1d1f', accent: '#0a6cff', card: { border: '1px solid #e3e3e8' } },
-  paper: { bg: '#f7f3ea', side: '#efe8da', ink: '#2a2621', accent: '#9a4320', card: { borderTop: '2px solid #2a2621' } },
+  olive: { bg: '#f6f2ea', side: '#f1ece2', ink: '#26231d', accent: '#4f6b3a', card: { background: '#fffdf9', border: '1px solid #e4dccb' } },
   bento: { bg: '#f2f2f7', side: '#f2f2f7', ink: '#1c1c1e', accent: '#5e5ce6', card: { background: '#fff', boxShadow: '0 2px 6px #0000001a' } },
 };
 export function AppearanceSettings({ style, onStyle }: { style: Style; onStyle: (s: Style) => void }) {

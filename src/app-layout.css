@@ -115,7 +115,7 @@ button{border-radius:6px;font-weight:400}.primary{font-weight:600}.shell{grid-te
 .theme-name{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.theme-name strong{font-weight:500}.theme-name small{font-size:12px;color:var(--muted)}
 .appearance-mode{display:flex;align-items:center;justify-content:space-between;gap:12px}.appearance-mode .form-segments{min-width:0;width:240px}
 
-/* U15b 标题跟随主题字体（纸本档案为宋体） */
+/* U15b 标题跟随主题字体 */
 h1,h2,h3{font-family:var(--display)}
 /* U15c 全部物品：页头一行数字、筛选一行、日均列、检视器三要素 */
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
