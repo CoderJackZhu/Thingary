@@ -156,7 +156,7 @@ function AmountCell({ v }: { v: VirtualAsset }) {
   const mode = billingOf(v);
   if (mode === 'subscription') {
     const cents = v.plan?.fields.amount_cents ?? null;
-    return <td className="amount">{cents != null ? <>{money(cents)}<small className="muted">／{v.plan!.fields.interval_days ? `${v.plan!.fields.interval_days}天` : ({ 1: '月', 3: '季', 6: '半年', 12: '年' } as Record<number, string>)[v.plan!.fields.interval_months] ?? '期'}</small>{v.plan!.monthly_cents != null && <small className="muted">月均 {money(v.plan!.monthly_cents)}</small>}</> : <span className="muted">待补充</span>}</td>;
+    return <td className="amount">{cents != null ? <>{money(cents)}<span className="muted">／{v.plan!.fields.interval_days ? `${v.plan!.fields.interval_days}天` : ({ 1: '月', 3: '季', 6: '半年', 12: '年' } as Record<number, string>)[v.plan!.fields.interval_months] ?? '期'}</span>{!v.plan!.fields.interval_days && v.plan!.fields.interval_months > 1 && v.plan!.monthly_cents != null && <small className="muted">月均 {money(v.plan!.monthly_cents)}</small>}</> : <span className="muted">待补充</span>}</td>;
   }
   if (mode === 'topup') return <td className="amount"><small className="muted">按充值实付</small></td>;
   return <td className="amount">{v.fields.price_cents != null ? <>{money(v.fields.price_cents)}<small className="muted"> 单次</small></> : <span className="muted">待补充</span>}</td>;
