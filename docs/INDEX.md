@@ -29,4 +29,4 @@
 
 ## 已批准的设计
 
-- [虚拟资产标签与计费](VIRTUAL_ASSET_BILLING_DESIGN.md)：标签复用、订阅与储值的目标行为、兼容性和验收约束。已在开发分支实现（已独立复审修复，待原生验收，未随现有安装包发布）；有效规则见 [PRODUCT_RULES](PRODUCT_RULES.md)。
+- [虚拟资产标签与计费](VIRTUAL_ASSET_BILLING_DESIGN.md)：标签复用、订阅与储值的目标行为、兼容性和验收约束。已实现并完成独立复审修复，纳入 2026-10-05 重建的 0.0.1 Beta（原生完整交互验收尚未闭环）；有效规则见 [PRODUCT_RULES](PRODUCT_RULES.md)。
