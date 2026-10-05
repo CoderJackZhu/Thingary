@@ -885,7 +885,7 @@ fn timeline_labels_legacy_achievements_with_their_own_date() {
     {
         let db = s.conn_for_test().unwrap();
         db.execute(
-            "UPDATE wishlist_items SET decision_state='legacy_achieved',status='achieved',achieved_at='2026-08-15T01:00:00+08:00',legacy_generated_asset_id=?2,legacy_generated_at='2026-08-15T01:00:00+08:00' WHERE id=?1",
+            "UPDATE wishlist_items SET decision_state='legacy_achieved',status='achieved',achieved_at='2026-08-15T12:00:00Z',legacy_generated_asset_id=?2,legacy_generated_at='2026-08-15T12:00:00Z' WHERE id=?1",
             params![wish.id, legacy_asset],
         )
         .unwrap();
