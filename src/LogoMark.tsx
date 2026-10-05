@@ -1,8 +1,8 @@
-/** 侧栏小标志：小尺寸三线·方形版的单色形（3 条谱线、1 根小节线、3 个点，点周围镂空；大点居中、一点在右上、一点在右下，与五线主图的位置对应；点盖住线的末端，不留线头），颜色取 currentColor。 */
+/** 侧栏标志：与应用图标同款的五线版单色形（5 条谱线、1 根小节线、5 个点，点周围镂空，点盖住线的末端），位置取自 docs/brand/chosen/staff-relaxed-5.svg，颜色取 currentColor。 */
 export function LogoMark() {
-  return <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-    <defs><mask id="logo-mark-holes"><rect width="24" height="24" fill="#fff"/><g fill="#000"><circle cx="12" cy="12" r="3.8"/><circle cx="17.4" cy="6.2" r="2.9"/><circle cx="17.6" cy="17.8" r="3.3"/></g></mask></defs>
-    <g mask="url(#logo-mark-holes)" fill="currentColor" opacity=".75"><rect x="4.5" y="4.9" width="15" height="2.6"/><rect x="4.5" y="10.7" width="15" height="2.6"/><rect x="4.5" y="16.5" width="15" height="2.6"/><rect x="4.5" y="4.9" width="2.6" height="14.2"/></g>
-    <g fill="currentColor"><circle cx="12" cy="12" r="2.9"/><circle cx="17.4" cy="6.2" r="2"/><circle cx="17.6" cy="17.8" r="2.4"/></g>
+  return <svg viewBox="180 220 680 580" width="26" height="22" aria-hidden="true" focusable="false">
+    <defs><mask id="logo-mark-holes" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024"><rect width="1024" height="1024" fill="#fff"/><g fill="#000"><circle cx="306" cy="616" r="52"/><circle cx="424" cy="408" r="44"/><circle cx="542" cy="512" r="68"/><circle cx="660" cy="304" r="50"/><circle cx="778" cy="720" r="60"/></g></mask></defs>
+    <g mask="url(#logo-mark-holes)" fill="currentColor" opacity=".75"><rect x="208" y="288" width="608" height="32"/><rect x="208" y="392" width="608" height="32"/><rect x="208" y="496" width="608" height="32"/><rect x="208" y="600" width="608" height="32"/><rect x="208" y="704" width="608" height="32"/><rect x="208" y="288" width="32" height="448"/></g>
+    <g fill="currentColor"><circle cx="306" cy="616" r="38"/><circle cx="424" cy="408" r="30"/><circle cx="542" cy="512" r="54"/><circle cx="660" cy="304" r="36"/><circle cx="778" cy="720" r="46"/></g>
   </svg>;
 }

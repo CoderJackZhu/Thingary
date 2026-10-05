@@ -129,7 +129,7 @@
 
 /* 5.1 侧栏（U16b）：品牌方块、计数、三主题选中态与图标形态 */
 .sidebar{border-right:var(--side-divider)}
-.brand-mark{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--brand-bg);color:var(--brand-fg);font:600 15px var(--head);border:0}
+.brand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:9px;background:var(--brand-bg);color:var(--brand-fg);font:600 15px var(--head);border:0}
 .brand strong{font:600 15px var(--head);letter-spacing:1px}
 .sidebar nav button{height:30px;padding:0 10px;gap:9px;font-size:13px;border-radius:var(--ctl-radius)}
 .sidebar nav button .ui-icon{opacity:.75}

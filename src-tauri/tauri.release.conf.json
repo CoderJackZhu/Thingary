@@ -6,8 +6,9 @@
       {
         "label": "main",
         "title": "物谱",
-        "width": 1360,
-        "height": 900,
+        "width": 1440,
+        "height": 940,
+        "center": true,
         "minWidth": 800,
         "minHeight": 600,
         "dragDropEnabled": false
