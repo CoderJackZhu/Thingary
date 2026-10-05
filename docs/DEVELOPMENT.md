@@ -31,6 +31,7 @@ npm run dev -- --port 1429
 | `?wealth=empty`、`?wealth=first`、`?wealth=error` | 账户与盘点状态 |
 | `?expenses=empty`、`?expenses=error` | 重要支出状态 |
 | `?recurring=empty`、`?recurring=error` | 周期费用状态 |
+| `?section=recurring&recurring-fixture=layout` | 长名称、历史订阅费用与未设置服务覆盖期的计划，检查窄窗口换行 |
 | `?theme=dark`、`?no-photos` | 深色与缺少照片 |
 
 参数按 URL 查询规则组合，例如 `?state=error&theme=dark`。不要把真实资料复制到预览。

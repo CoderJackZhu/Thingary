@@ -64,6 +64,18 @@
 .wealth-section .ui-table td:nth-child(3),.wealth-section .ui-table td:nth-child(4),.wealth-section .ui-table td:nth-child(5),.wealth-section .ui-table td:nth-child(6){white-space:nowrap}
 .recurring-due tr[data-overdue=true] td:first-child{font-weight:600}
 .recurring-due td.amount,.wealth-section td.amount{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Keep long plan descriptions inside the page; grow rows instead of the table. */
+.recurring-section{grid-template-columns:minmax(0,1fr)}
+.wealth-section .recurring-plans td{white-space:normal;overflow-wrap:anywhere;vertical-align:top;padding-block:12px;line-height:1.6}
+.recurring-plans td:first-child{width:20%}
+.recurring-plans td:last-child{width:28%}
+.recurring-plans td small{display:block;margin-top:3px;font-size:12px;white-space:normal}
+.wealth-section .recurring-plans td.amount{white-space:nowrap;overflow-wrap:normal}
+.wealth-section .recurring-plans td:nth-child(5){white-space:nowrap}
+.wealth-section .recurring-plans th{white-space:normal}
+.recurring-section .recurring-due td:nth-child(2),.recurring-section .recurring-payments td:nth-child(2){overflow-wrap:anywhere}
+.recurring-section .recurring-due td small,.recurring-section .recurring-payments td small{display:block;white-space:normal;overflow-wrap:anywhere}
+.recurring-section .check-in-state{flex-wrap:wrap}
 .virtual-filter{display:inline-flex;max-width:100%;flex-wrap:wrap;gap:5px;border:0;padding:0;margin:4px 0 12px;background:transparent}.virtual-filter button{width:auto;height:auto;padding:7px 13px;border:1px solid var(--line);border-radius:6px;white-space:nowrap;font-size:12px;color:var(--muted)}.virtual-filter button[aria-pressed=true]{background:var(--selected);border-color:var(--selected);color:var(--accent);font-weight:600}.virtual-table td small{display:block;margin-top:2px}.virtual-state{font-size:12px;white-space:nowrap;color:var(--positive)}.virtual-state::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:1px}.virtual-state[data-state=expiring]{color:var(--accent)}.virtual-state[data-state=expired]{color:var(--error)}.virtual-state[data-state=stopped],.virtual-state[data-state=unknown]{color:var(--muted)}.virtual-linked-note{margin:4px 0 8px;line-height:1.7}
 .trend-table{overflow-x:auto}
 .table-scroll{overflow-x:auto}

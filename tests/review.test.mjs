@@ -43,3 +43,19 @@ test('combined attention omits subscription payment prompts and retains rent rem
   const groups=attention({...review,recurring:ok({plans,due,upcoming:[]}),virtual_assets:ok({items:[{id:'gpt-profile',fields:{name:'虚构 GPT',plan_id:'gpt'},status:'ongoing',valid_until:'2024-02-01'}]})});
   assert.deepEqual(groups.map(g=>g.id),['plan:rent']);
 });
+
+test('ended subscriptions stay in history without attention; upcoming expiries and other rights remain actionable', () => {
+  const items = [
+    { id: 'gpt', fields: { name: '虚构 GPT Plus', kind: 'subscription', plan_id: 'gpt-plan' }, status: 'expired', valid_until: '2025-02-19' },
+    { id: 'legacy', fields: { name: '旧独立订阅', kind: 'subscription', plan_id: null }, status: 'expired', valid_until: '2025-02-19' },
+    { id: 'new', fields: { name: '新订阅', kind: 'general', billing: 'subscription', plan_id: 'new-plan' }, status: 'expired', valid_until: '2026-10-04' },
+    { id: 'linked', fields: { name: '关联订阅', kind: 'license', plan_id: 'linked-plan' }, plan: { fields: { category: 'subscription' } }, status: 'expired', valid_until: '2026-10-04' },
+    { id: 'today', fields: { name: '今天最后使用', kind: 'subscription', plan_id: null }, status: 'expiring', valid_until: '2026-10-05' },
+    { id: 'domain', fields: { name: '域名', kind: 'domain', plan_id: null }, status: 'expired', valid_until: '2026-10-04' },
+  ];
+  const plans = items.filter(v => v.fields.plan_id).map(v => ({ id: v.fields.plan_id, fields: { category: 'subscription', end_date: v.valid_until } }));
+  const input = { ...review, today: '2026-10-05', recurring: ok({ plans, due: plans.map(p => ({ plan_id: p.id, plan_name: p.id, due_date: '2025-01-20' })), upcoming: [], payments: [{ id: 'historical-payment', amount_cents: '14000' }] }), virtual_assets: ok({ items, spent_cents: '14000' }) };
+  const before = structuredClone(input);
+  assert.deepEqual(attention(input).map(g => g.id), ['virtual:domain', 'virtual:today']);
+  assert.deepEqual(input, before);
+});

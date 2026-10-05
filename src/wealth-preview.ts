@@ -128,6 +128,14 @@ let payments: Payment[] = (params.get('recurring') === 'empty' || params.get('st
   const due = nth(shifted(p.months_ago, p.day_offset), p.interval_months, k);
   return { id: `p-${p.key}-${k}`, plan_id: 'r-' + p.key, plan_name: p.name, due_date: due, state: 'paid', paid_date: due, amount_cents: p.amount_cents, notes: '虚构付款', revision: 1, off_schedule: false };
 }));
+// Browser-only long status/cost fixture; all amounts and dates are fictional.
+if (params.get('recurring-fixture') === 'layout') {
+  const historical = plan('r-layout-gpt', 'GPT Plus · 虚构历史订阅', 'subscription', '14000', 1, '2024-01-20', { service_start: '2024-01-20', coverage_start: '2024-01-20', end_date: '2025-02-19', auto_renew: false });
+  const longName = plan('r-layout-long', 'LongSubscriptionNameWithoutSpaces'.repeat(4), 'subscription', '999900', 1, todayIso, { service_start: todayIso, coverage_start: todayIso });
+  const unknown = plan('r-layout-legacy', '旧计划 · 服务覆盖期未设置', 'membership', '2500', 12, todayIso, { paused: true });
+  plans = [historical, longName, unknown];
+  payments = [{ id: 'p-layout-gpt', plan_id: historical.id, plan_name: historical.fields.name, due_date: '2024-01-20', state: 'paid', paid_date: '2024-01-20', amount_cents: '14000', notes: '虚构历史付款', revision: 1, off_schedule: false }];
+}
 function recurringOverview(): Overview {
   const soon = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7)), year = iso(new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()));
   const tomorrow = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
@@ -160,6 +168,13 @@ let virtuals: { id: string; fields: VirtualFields; revision: number }[] = (param
   name: v.name, kind: v.kind as VirtualKind, billing: v.plan_key ? 'subscription' : 'single', label_id: null, provider: v.provider, purchase_date: v.purchase_days_ago === null ? null : dayOffset(-v.purchase_days_ago),
   price_cents: v.plan_key ? null : v.price_cents, expires: v.expires_in_days === null ? null : dayOffset(v.expires_in_days), plan_id: v.plan_key ? 'r-' + v.plan_key : null,
   url: '', notes: '虚构样例', stopped_on: v.stopped_days_ago === null ? null : dayOffset(-v.stopped_days_ago) } }));
+if (params.get('recurring-fixture') === 'layout' && virtuals.length) {
+  const base = virtuals[0].fields;
+  virtuals = [
+    { id: 'v-layout-gpt', revision: 1, fields: { ...base, name: 'GPT Plus · 虚构历史订阅', kind: 'subscription', billing: 'subscription', price_cents: null, plan_id: 'r-layout-gpt', expires: '2025-02-19', stopped_on: null } },
+    { id: 'v-layout-soon', revision: 1, fields: { ...base, name: '虚构即将到期授权', kind: 'license', billing: 'single', price_cents: '8800', plan_id: null, expires: dayOffset(3), stopped_on: null } },
+  ];
+}
 function virtualOverview(): VirtualOverview {
   const items: VirtualAsset[] = virtuals.map(v => {
     const p = recurringOverview().plans.find(x => x.id === v.fields.plan_id), paid = payments.filter(x => x.plan_id === p?.id && x.state === 'paid');

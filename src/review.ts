@@ -31,6 +31,8 @@ export function attention(review: Review, m: Modules = allModules): Attention[] 
   }
   for (const v of m.virtual ? ready(review.virtual_assets)?.items ?? [] : []) {
     if (v.status !== 'expired' && v.status !== 'expiring') continue;
+    // Ended subscriptions are history, not an outstanding renewal task.
+    if (v.status === 'expired' && (v.fields.kind === 'subscription' || v.fields.billing === 'subscription' || v.plan?.fields.category === 'subscription')) continue;
     const linked = v.fields.plan_id && !v.plan_deleted;
     const id = linked ? 'plan:' + v.fields.plan_id : 'virtual:' + v.id;
     const priority = v.status === 'expired' ? 1 : 2, date = v.valid_until!;
