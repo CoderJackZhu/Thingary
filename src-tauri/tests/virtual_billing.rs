@@ -2486,7 +2486,8 @@ fn period_reminders_advance_only_after_real_payment_and_roundtrip_backup() {
     assert_eq!(v.status, "ongoing");
     assert_eq!(v.paid_count, 1);
     assert_eq!(v.spent_cents.as_deref(), Some("14000"));
-    assert_eq!(v.payment_due.as_ref().unwrap().due_date, "2026-10-20");
+    // 15 days out is beyond the 7-day window: no action yet, reminder still tracks the period.
+    assert!(v.payment_due.is_none());
     assert_eq!(v.reminder.as_ref().unwrap().date, "2026-10-17");
     assert_eq!(s.expense_view(None).unwrap().spent_cents, "14000");
     // Explicit early payment advances the next reminder, without ending service.
@@ -2497,7 +2498,7 @@ fn period_reminders_advance_only_after_real_payment_and_roundtrip_backup() {
         .items
         .pop()
         .unwrap();
-    assert_eq!(v.payment_due.as_ref().unwrap().due_date, "2026-11-20");
+    assert!(v.payment_due.is_none());
     assert_eq!(v.reminder.as_ref().unwrap().date, "2026-11-17");
     assert_eq!(v.status, "ongoing");
     assert!(!s
@@ -2576,11 +2577,14 @@ fn reminders_and_payment_candidates_follow_trial_special_end_price_and_fixed_day
         .items
         .pop()
         .unwrap();
+    assert!(v.payment_due.is_none());
+    assert_eq!(v.reminder.unwrap().date, "2026-10-24");
+    // Inside the window the candidate carries the next period's price.
+    let v = s.virtual_overview("2026-10-22").unwrap().items.pop().unwrap();
     let candidate = v.payment_due.unwrap();
     assert_eq!(candidate.due_date, "2026-10-27");
     assert_eq!(candidate.coverage_end.as_deref(), Some("2026-11-30"));
     assert_eq!(candidate.amount_cents, "16000");
-    assert_eq!(v.reminder.unwrap().date, "2026-10-24");
     // Historical unrecorded periods are not revived as current payment actions.
     let v = s
         .virtual_overview("2027-02-02")
@@ -2732,4 +2736,33 @@ fn schema26_preserves_single_reminders_and_rolls_back_on_interruption() {
         ("2026-10-17".into(), "仅本次".into(), 0, 3)
     );
     assert!(db.execute("INSERT INTO reminders(id,kind,entity_id,date,notes,repeat_every_period) VALUES('bad','wishlist','w','2026-10-17','',1)", []).is_err());
+}
+
+#[test]
+fn payment_action_appears_only_inside_the_prepayment_window() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("lib")).unwrap();
+    let mut f = plan_fields("虚构博客域名", "9000", "2026-09-15");
+    f.interval_months = 12;
+    let plan = s
+        .recurring_plan_save(
+            &PlanSave {
+                request_id: id(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: f,
+            },
+            "2026-09-15",
+        )
+        .unwrap();
+    s.virtual_save(&sub_save(&s, "虚构博客域名", &plan, |_| {}), "2026-09-15")
+        .unwrap();
+    pay(&mut s, &plan, "2026-09-15", "9000", "2026-09-15");
+    let due = |today: &str| s.virtual_overview(today).unwrap().items.pop().unwrap().payment_due;
+    // Yearly plans open 30 days ahead; a year out nothing is asked.
+    assert!(due("2026-10-06").is_none());
+    assert!(due("2027-08-15").is_none());
+    assert_eq!(due("2027-08-16").unwrap().due_date, "2027-09-15");
+    assert_eq!(due("2027-09-20").unwrap().due_date, "2027-09-15"); // overdue stays
 }

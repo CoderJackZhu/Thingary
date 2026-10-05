@@ -194,9 +194,11 @@ function virtualOverview(): VirtualOverview {
           const coverage = coverageFor(p.fields, d);
           return coverage && coverage[1] >= todayIso && !payments.some(x => x.plan_id === p.id && x.due_date === d);
         }) : null;
-    const payment_due: Due | null = candidateDate && p ? { plan_id: p.id, plan_name: p.fields.name, category: p.fields.category, due_date: candidateDate, amount_cents: p.fields.amount_cents, coverage_start: coverageFor(p.fields, candidateDate)?.[0], coverage_end: coverageFor(p.fields, candidateDate)?.[1] } : null;
+    const storedLead = renewalReminders.get(v.id);
+    const windowDays = Math.max(storedLead?.repeat_every_period ? storedLead.lead_days ?? 3 : 0, p && (p.fields.interval_days ? p.fields.interval_days >= 365 : p.fields.interval_months >= 12) ? 30 : 7);
+    const payment_due: Due | null = candidateDate && p && candidateDate <= dayOffset(windowDays) ? { plan_id: p.id, plan_name: p.fields.name, category: p.fields.category, due_date: candidateDate, amount_cents: p.fields.amount_cents, coverage_start: coverageFor(p.fields, candidateDate)?.[0], coverage_end: coverageFor(p.fields, candidateDate)?.[1] } : null;
     const storedReminder = renewalReminders.get(v.id) ?? null;
-    const reminder = storedReminder?.repeat_every_period && payment_due ? { ...storedReminder, date: shiftDays(payment_due.due_date, -(storedReminder.lead_days ?? 3)) } : storedReminder;
+    const reminder = storedReminder?.repeat_every_period && candidateDate ? { ...storedReminder, date: shiftDays(candidateDate, -(storedReminder.lead_days ?? 3)) } : storedReminder;
     const mine = topups.filter(t => t.asset_id === v.id);
     const known = mine.reduce((t, x) => t + BigInt(x.fields.paid_cents ?? '0'), 0n);
     const credit = mine.reduce((t, x) => t + BigInt(x.fields.credit_cents ?? '0'), 0n);

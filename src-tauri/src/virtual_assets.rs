@@ -608,14 +608,26 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
         }
         .into()
     };
+    let mut next_due = None;
     if v.fields.billing == "subscription" && v.fields.stopped_on.is_none() {
         if let Some(p) = &v.plan {
-            v.payment_due = crate::recurring::subscription_payment_candidates(c, p, &now)?
+            // The candidate walk looks 12 months ahead for reminders; the list
+            // action only appears inside the pre-payment window (overdue always).
+            let f = &p.fields;
+            let yearly = f.interval_days.map_or(f.interval_months >= 12, |d| d >= 365);
+            let lead = v.reminder.as_ref().filter(|r| r.repeat_every_period).map_or(0, |r| r.lead_days);
+            let window = lead.max(if yearly { 30 } else { 7 });
+            let limit = today
+                .checked_add_days(chrono::Days::new(u64::from(window)))
+                .ok_or_else(|| Error::new("DATE", "付款窗口超出范围"))?
+                .to_string();
+            next_due = crate::recurring::subscription_payment_candidates(c, p, &now)?
                 .into_iter()
                 .next();
+            v.payment_due = next_due.clone().filter(|d| d.due_date <= limit);
         }
     }
-    if let (Some(reminder), Some(due)) = (&mut v.reminder, &v.payment_due) {
+    if let (Some(reminder), Some(due)) = (&mut v.reminder, &next_due) {
         if reminder.repeat_every_period {
             reminder.date = date(&due.due_date)?
                 .checked_sub_days(chrono::Days::new(u64::from(reminder.lead_days)))

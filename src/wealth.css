@@ -90,7 +90,6 @@
 .ui-inspector .subscription-reminder .form-row-label small{max-width:none}
 .ui-inspector .form-block:has(>button.primary){display:grid;gap:8px}
 .wealth-section .virtual-table td:not(.amount),.wealth-section .virtual-table th{white-space:normal;overflow-wrap:anywhere;line-height:1.6}
-.wealth-section .virtual-table td:nth-child(3){white-space:nowrap}
 .virtual-table .ui-link{white-space:normal;text-align:left}
 @media(max-width:1400px){.wealth-section .virtual-browser.has-inspector{grid-template-columns:minmax(0,1fr)}.wealth-section .virtual-browser .ui-inspector{border-left:0;border-top:1px solid var(--line)}}
 .table-scroll{overflow-x:auto}
