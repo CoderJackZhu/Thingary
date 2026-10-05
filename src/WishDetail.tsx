@@ -1,4 +1,4 @@
-import { DeleteButton, usePendingReceipt } from './WealthPage';
+import { usePendingReceipt } from './WealthPage';
 import { storedPending } from './wealth';
 import { CloseButton } from './CloseButton';
 import {useEffect,useRef,useState} from 'react';
@@ -21,10 +21,9 @@ const verifyKey='thingary.wish-verify-pending.v1';
 type Saving={request_id:string;generation:string;id:string;expected_revision:number;mode:'add'|'total';cents:string};
 import { loadAssetCandidates as linkCandidates, assetStateLabel, type AssetCandidate as LinkCandidate, type AssetCandidatePage as LinkPage } from './asset-picker';
 
-export function WishDetail({onBusyChange,onDeleted,initial,generation,onClose,onEdit,onChange,onConvert,closeIntent,onKeepClose,onFinishClose,onOpenAsset,onOpenTrash,taxonomy}:{onBusyChange:(busy:boolean)=>void;onDeleted:()=>void;onOpenAsset:(id:string)=>void;onOpenTrash:()=>void;onFinishClose:(intent:CloseIntent)=>void;taxonomy:TaxonomySnapshot|null;closeIntent:CloseIntent|null;onKeepClose:()=>void;initial:WishlistItem;generation:string;onClose:()=>void;onEdit:(i:WishlistItem)=>void;onChange:(i:WishlistItem)=>void;onConvert:(i:WishlistItem)=>void}){
+export function WishDetail({onBusyChange,initial,generation,onClose,onEdit,onChange,onConvert,closeIntent,onKeepClose,onFinishClose,onOpenAsset,onOpenTrash,taxonomy}:{onBusyChange:(busy:boolean)=>void;onOpenAsset:(id:string)=>void;onOpenTrash:()=>void;onFinishClose:(intent:CloseIntent)=>void;taxonomy:TaxonomySnapshot|null;closeIntent:CloseIntent|null;onKeepClose:()=>void;initial:WishlistItem;generation:string;onClose:()=>void;onEdit:(i:WishlistItem)=>void;onChange:(i:WishlistItem)=>void;onConvert:(i:WishlistItem)=>void}){
  const lock=useRef(false);
  const receipt=usePendingReceipt(()=>{onChange(item);void reload()});
- const [deleting,setDeleting]=useState(false);
  const [item,setItem]=useState(initial),[busy,setBusy]=useState(false),[notice,setNotice]=useState('');
  const [dropOpen,setDropOpen]=useState(false),[dropNote,setDropNote]=useState('');
  const [reconsiderOpen,setReconsiderOpen]=useState(false),[reconsiderNote,setReconsiderNote]=useState(initial.decision_note??'');
@@ -47,7 +46,7 @@ export function WishDetail({onBusyChange,onDeleted,initial,generation,onClose,on
  useEffect(()=>{const d=readStored<WishlistChange>(decisionKey);if(d&&wishIdOf(d)===initial.id)setDecisionPending(d);const l=readStored<WishLink>(linkKey);if(l&&l.wishlist_id===initial.id)setLinkPending(l);const v=readStored<WishVerify>(verifyKey);if(v&&v.wishlist_id===initial.id)setVerifyPending(v)},[initial.id]);
  const pending=decisionPending||linkPending||verifyPending||oldSaving;
  async function reload(){const fresh=await invoke<WishlistItem|null>('read_wishlist',{id:item.id});if(fresh)onChange(fresh)}
- useEffect(()=>{onBusyChange(busy||!!pending||deleting||!!receipt.pending||receipt.busy);return()=>onBusyChange(false)},[busy,pending,deleting,receipt.pending,receipt.busy,onBusyChange]);
+ useEffect(()=>{onBusyChange(busy||!!pending||!!receipt.pending||receipt.busy);return()=>onBusyChange(false)},[busy,pending,receipt.pending,receipt.busy,onBusyChange]);
  const noticeRef=useRef<HTMLParagraphElement>(null);
  useEffect(()=>{if(notice)noticeRef.current?.scrollIntoView({block:'nearest'})},[notice]);
  const p=item.preferences??defaultWishPreferences();
@@ -151,10 +150,10 @@ export function WishDetail({onBusyChange,onDeleted,initial,generation,onClose,on
    catch(e){setNotice(errorMessage(e)+' 暂时无法核对，请求仍保留。')}
    finally{setBusy(false)}
  }
- useEffect(()=>{if(closeIntent){if(busy||!!pending||deleting||!!receipt.pending||receipt.busy){setNotice('正在核对这次操作，请稍候。');onKeepClose()}else{onClose();onFinishClose(closeIntent)}}},[closeIntent]);
- const blocked=busy||!!pending||deleting||!!receipt.pending||receipt.busy;
+ useEffect(()=>{if(closeIntent){if(busy||!!pending||!!receipt.pending||receipt.busy){setNotice('正在核对这次操作，请稍候。');onKeepClose()}else{onClose();onFinishClose(closeIntent)}}},[closeIntent]);
+ const blocked=busy||!!pending||!!receipt.pending||receipt.busy;
  const stateLine=`${taxonomy?.categories.find(c=>c.id===item.fields.category_id)?.name||'未分类'} · ${wishDecisionLabel(item.decision_state)}${p.pinned?' · 置顶':''}`;
- return <aside className="ui-inspector wish-inspector" aria-labelledby="wish-detail-title"><header><CloseButton type="button" className="icon-button" disabled={blocked} aria-label="关闭心愿详情" onClick={onClose}/><div className="wish-detail-identity">{item.cover?<PhotoView photo={item.cover} generation={generation}/>:<DefaultAssetIcon/>}<div><p className="eyebrow">{wishDecisionLabel(item.decision_state)}</p><h2 id="wish-detail-title">{item.fields.name}</h2></div></div><button type="button" className="wish-edit" disabled={blocked} onClick={()=>onEdit(item)}>编辑</button><details className="popover-menu" data-popover><summary aria-label="心愿更多操作">⋯</summary><div role="menu"><DeleteButton label="删除心愿…" disabled={blocked} kind="wish" id={item.id} revision={item.revision} generation={generation} name={item.fields.name} onBusyChange={setDeleting} onDone={onDeleted} onError={message=>{setNotice(message);receipt.setPending(storedPending())}}/></div></details></header>
+ return <aside className="ui-inspector wish-inspector" aria-labelledby="wish-detail-title"><header><CloseButton type="button" className="icon-button" disabled={blocked} aria-label="关闭心愿详情" onClick={onClose}/><div className="wish-detail-identity">{item.cover?<PhotoView photo={item.cover} generation={generation}/>:<DefaultAssetIcon/>}<div><p className="eyebrow">{wishDecisionLabel(item.decision_state)}</p><h2 id="wish-detail-title">{item.fields.name}</h2></div></div><button type="button" className="wish-edit" disabled={blocked} onClick={()=>onEdit(item)}>编辑</button></header>
  <div className="wish-detail-body">{receipt.pending&&<div className="notice">删除结果待确认。<button disabled={receipt.busy} onClick={()=>void receipt.verify()}>核对结果</button></div>}
  {oldSaving&&<div className="notice" role="status">有一笔升级前的攒钱提交结果待核对。<button disabled={busy} onClick={()=>void checkOldSaving()}>核对旧请求</button></div>}
  {decisionPending&&<div className="notice" role="status">上次「{decisionPending.action.type==='drop'?'不再考虑':'重新考虑'}」的结果待确认。<button disabled={busy} onClick={()=>void resolveDecision()}>再次核对</button></div>}
