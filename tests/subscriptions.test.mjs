@@ -191,3 +191,25 @@ test('unknown reminder save propagates without reporting a successful settings u
   const {saveReminderWithPermission}=await import('../src/virtual.ts');
   await assert.rejects(saveReminderWithPermission(true,async()=>{throw new Error('denied');},async()=>{throw new Error('result unknown');}),/result unknown/);
 });
+
+test('automatic final-day suggestion follows a changed start without waiting for focus', async () => {
+  const { syncSuggestedFinalDay } = await import('../src/recurring-model.ts');
+  const original = { ...blankPlan('2026-09-20'), auto_renew: false, end_date: '2026-10-19' };
+  const changed = { ...original, service_start: '2026-09-10', first_due: '2026-09-10', coverage_start: '2026-09-10' };
+  const result = syncSuggestedFinalDay(changed, '2026-10-05', true);
+  assert.equal(result.end_date, '2026-10-09');
+  assert.equal(changed.end_date, '2026-10-19', 'do not mutate the previous draft');
+  assert.equal(syncSuggestedFinalDay({ ...changed, interval_months: 3 }, '2026-10-05', true).end_date, '2026-12-09');
+  assert.equal(syncSuggestedFinalDay({ ...changed, interval_days: 30 }, '2026-10-05', true).end_date, '2026-10-09');
+  assert.equal(syncSuggestedFinalDay({ ...changed, trial_days: 7, coverage_start: '2026-09-17' }, '2026-10-05', true).end_date, '2026-10-16');
+});
+
+test('manual or saved final days, ongoing plans and incomplete dates retain their values', async () => {
+  const { syncSuggestedFinalDay } = await import('../src/recurring-model.ts');
+  const manual = { ...blankPlan('2026-09-10'), end_date: '2027-04-30' };
+  assert.equal(syncSuggestedFinalDay(manual, '2026-10-05', false).end_date, '2027-04-30');
+  assert.equal(syncSuggestedFinalDay(blankPlan('2026-09-10'), '2026-10-05', true).end_date, null);
+  for (const date of ['', '2026-09-', '2026-02-30']) {
+    assert.equal(syncSuggestedFinalDay({ ...manual, coverage_start: date }, '2026-10-05', true).end_date, '2027-04-30');
+  }
+});

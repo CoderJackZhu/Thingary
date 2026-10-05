@@ -109,3 +109,11 @@ export function suggestedFinalDay(f: PlanFields, today: string): string {
   }
   return today;
 }
+
+/** Only an unsaved, automatically suggested final day follows schedule edits. */
+export function syncSuggestedFinalDay(f: PlanFields, today: string, linked: boolean): PlanFields {
+  const anchor = f.coverage_start ?? f.first_due;
+  if (!linked || f.end_date === null || !/^\d{4}-\d{2}-\d{2}$/.test(anchor)
+    || !Number.isFinite(Date.parse(anchor + 'T12:00:00Z')) || shiftMonth(anchor, 0) !== anchor) return f;
+  return { ...f, end_date: suggestedFinalDay(f, today) };
+}

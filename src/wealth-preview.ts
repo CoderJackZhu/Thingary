@@ -5,10 +5,10 @@ import type { Account, AccountSave, Compare, CompareCell, CompareEnd, CompareRow
 import { assetKinds } from './wealth';
 import type { Expense, ExpenseSave, ExpenseView, Line } from './expenses';
 import type { Due, Overview, Payment, PaymentSave, Plan, PlanSave, PaymentRangeSave } from './recurring';
-import type { BalanceRecord, BalanceSave, TopupFields, TopupSave, VirtualAsset, VirtualFields, VirtualKind, VirtualOverview, VirtualSave, VirtualStatus } from './virtual';
+import type { BalanceRecord, BalanceSave, TopupFields, TopupSave, VirtualAsset, VirtualFields, VirtualKind, VirtualOverview, VirtualSave, VirtualStatus, ReminderState, ReminderSave } from './virtual';
 import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 import type { SourceTarget, TimelineSelection } from './source';
-import { coverageFor, scheduleDates } from './recurring-model';
+import { coverageFor, scheduleDates, shiftDays } from './recurring-model';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
 
@@ -164,6 +164,7 @@ function recurringOverview(): Overview {
 const dayOffset = (days: number) => iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days));
 let topups: { id: string; asset_id: string; fields: TopupFields; revision: number }[] = [];
 let balances: BalanceRecord[] = [];
+const renewalReminders = new Map<string, ReminderState>();
 let virtuals: { id: string; fields: VirtualFields; revision: number }[] = (params.get('virtual') === 'empty' || params.get('state') === 'empty') ? [] : demoFinance.virtuals.map(v => ({ id: 'v-' + v.key, revision: 1, fields: {
   name: v.name, kind: v.kind as VirtualKind, billing: v.plan_key ? 'subscription' : 'single', label_id: null, provider: v.provider, purchase_date: v.purchase_days_ago === null ? null : dayOffset(-v.purchase_days_ago),
   price_cents: v.plan_key ? null : v.price_cents, expires: v.expires_in_days === null ? null : dayOffset(v.expires_in_days), plan_id: v.plan_key ? 'r-' + v.plan_key : null,
@@ -185,13 +186,21 @@ function virtualOverview(): VirtualOverview {
     const spent = p ? String(paid.reduce((t, x) => t + BigInt(x.amount_cents ?? '0'), 0n)) : v.fields.price_cents;
     const soon = dayOffset(p ? 7 : 30);
     const status: VirtualStatus = v.fields.stopped_on ? 'stopped' : renewal && p!.fields.paused && (!p!.fields.end_date || p!.fields.end_date >= todayIso) ? 'paused' : renewal && !p!.fields.paused && !p!.fields.end_date ? 'ongoing' : !p && !v.fields.plan_id && v.fields.kind === 'subscription' && !v.fields.expires ? 'ongoing' : until === null ? (v.fields.kind === 'license' && !p ? 'perpetual' : 'unknown') : until < todayIso ? 'expired' : until <= soon ? 'expiring' : 'active';
+    const candidateDate = p && p.fields.service_start && !p.fields.paused && !v.fields.stopped_on && (!p.fields.end_date || p.fields.end_date >= todayIso)
+      ? schedule(p, p.fields.service_start < p.fields.first_due ? p.fields.service_start : p.fields.first_due, dayOffset(366)).find(d => {
+          const coverage = coverageFor(p.fields, d);
+          return coverage && coverage[1] >= todayIso && !payments.some(x => x.plan_id === p.id && x.due_date === d);
+        }) : null;
+    const payment_due: Due | null = candidateDate && p ? { plan_id: p.id, plan_name: p.fields.name, category: p.fields.category, due_date: candidateDate, amount_cents: p.fields.amount_cents, coverage_start: coverageFor(p.fields, candidateDate)?.[0], coverage_end: coverageFor(p.fields, candidateDate)?.[1] } : null;
+    const storedReminder = renewalReminders.get(v.id) ?? null;
+    const reminder = storedReminder?.repeat_every_period && payment_due ? { ...storedReminder, date: shiftDays(payment_due.due_date, -(storedReminder.lead_days ?? 3)) } : storedReminder;
     const mine = topups.filter(t => t.asset_id === v.id);
     const known = mine.reduce((t, x) => t + BigInt(x.fields.paid_cents ?? '0'), 0n);
     const credit = mine.reduce((t, x) => t + BigInt(x.fields.credit_cents ?? '0'), 0n);
     const unknownPaid = mine.filter(x => x.fields.paid_cents == null).length;
     const balance = balances.filter(b => b.asset_id === v.id).sort((a, b) => b.recorded_on.localeCompare(a.recorded_on))[0] ?? null;
     return { ...v, paid_count: paid.length, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent,
-      label_name: null, reminder: null, topup_count: mine.length, topups: mine.slice().sort((a, b) => (b.fields.topup_date ?? '').localeCompare(a.fields.topup_date ?? '')), topup_unknown_paid: unknownPaid, topup_known_cents: mine.length ? String(known) : null, topup_credit_cents: mine.length ? String(credit) : null, balance };
+      label_name: null, reminder, payment_due, topup_count: mine.length, topups: mine.slice().sort((a, b) => (b.fields.topup_date ?? '').localeCompare(a.fields.topup_date ?? '')), topup_unknown_paid: unknownPaid, topup_known_cents: mine.length ? String(known) : null, topup_credit_cents: mine.length ? String(credit) : null, balance };
   }).sort((a, b) => a.fields.name.localeCompare(b.fields.name));
   return { generation, today: todayIso, items, in_use: items.filter(v => v.status !== 'stopped' && v.status !== 'expired').length, expiring: items.filter(v => v.status === 'expiring').length, expired: items.filter(v => v.status === 'expired').length,
     spent_cents: String(items.reduce((t, v) => t + BigInt(v.spent_cents ?? '0'), 0n)), unknown_price: items.filter(v => v.spent_cents === null).length,
@@ -199,6 +208,16 @@ function virtualOverview(): VirtualOverview {
 }
 
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  if (command === 'notification_permission') return { value: null };
+  if (command === 'virtual_reminder_save') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as ReminderSave;
+    if (input.reminder) renewalReminders.set(input.asset_id, { ...input.reminder, repeat_every_period: input.repeat_every_period ?? false, lead_days: input.lead_days ?? 3 });
+    else renewalReminders.delete(input.asset_id);
+    virtuals = virtuals.map(v => v.id === input.asset_id ? { ...v, revision: v.revision + 1 } : v);
+    receipts.set(input.request_id, input.asset_id);
+    return { value: virtualOverview().items.find(v => v.id === input.asset_id) };
+  }
   if (command === 'recurring_overview') { if (params.get('recurring') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: recurringOverview() }; }  if (command === 'recurring_plan_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as PlanSave, id = input.id ?? crypto.randomUUID(), old = plans.find(p => p.id === id);

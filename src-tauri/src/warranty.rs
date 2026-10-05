@@ -326,7 +326,7 @@ impl Store {
                     return Err(Error::new("REMINDER", "提醒须不晚于已知的保障结束日期"));
                 }
                 tx.execute(
-                    "INSERT INTO reminders VALUES(?1,'warranty',?2,?3,?4,?5)",
+                    "INSERT INTO reminders(id,kind,entity_id,source_id,date,notes) VALUES(?1,'warranty',?2,?3,?4,?5)",
                     params![
                         format!("warranty-{warranty_id}"),
                         input.asset_id,

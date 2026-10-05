@@ -26,10 +26,14 @@ pub struct Plan {
 }
 impl Store {
     pub fn reminder_plans(&self) -> Result<Vec<Plan>> {
+        self.reminder_plans_for(&chrono::Local::now().format("%Y-%m-%d").to_string())
+    }
+    pub fn reminder_plans_for(&self, today: &str) -> Result<Vec<Plan>> {
+        crate::domain::date(today)?;
         let c = self.conn()?;
         let modules = crate::modules::read(&self.root);
-        let sql="SELECT r.id,r.date,a.name,r.notes,'保障到期提醒' FROM reminders r JOIN assets a ON a.id=r.entity_id JOIN warranties w ON w.id=r.source_id AND w.asset_id=a.id WHERE r.kind='warranty' AND a.deleted_at IS NULL AND w.deleted_at IS NULL AND r.date<=w.end_date UNION ALL SELECT r.id,r.date,w.name,r.notes,'心愿到期提醒' FROM reminders r JOIN wishlist_items w ON w.id=r.entity_id WHERE r.kind='wishlist' AND ?1 AND w.status='ongoing' AND w.deleted_at IS NULL UNION ALL SELECT r.id,r.date,v.name,r.notes,'订阅续期提醒' FROM reminders r JOIN virtual_assets v ON v.id=r.entity_id WHERE r.kind='renewal' AND ?2 AND v.deleted_at IS NULL AND v.stopped_on IS NULL AND COALESCE((SELECT p.end_date FROM recurring_plans p WHERE p.id=v.plan_id AND p.deleted_at IS NULL),v.expires,'9999-12-31') >= r.date ORDER BY 1";
-        let plans = c
+        let sql="SELECT r.id,r.date,a.name,r.notes,'保障到期提醒' FROM reminders r JOIN assets a ON a.id=r.entity_id JOIN warranties w ON w.id=r.source_id AND w.asset_id=a.id WHERE r.kind='warranty' AND a.deleted_at IS NULL AND w.deleted_at IS NULL AND r.date<=w.end_date UNION ALL SELECT r.id,r.date,w.name,r.notes,'心愿到期提醒' FROM reminders r JOIN wishlist_items w ON w.id=r.entity_id WHERE r.kind='wishlist' AND ?1 AND w.status='ongoing' AND w.deleted_at IS NULL UNION ALL SELECT r.id,r.date,v.name,r.notes,'订阅续期提醒' FROM reminders r JOIN virtual_assets v ON v.id=r.entity_id WHERE r.kind='renewal' AND r.repeat_every_period=0 AND ?2 AND v.deleted_at IS NULL AND v.stopped_on IS NULL AND COALESCE((SELECT p.end_date FROM recurring_plans p WHERE p.id=v.plan_id AND p.deleted_at IS NULL),v.expires,'9999-12-31') >= r.date ORDER BY 1";
+        let mut plans = c
             .prepare(sql)?
             // A switched-off wishlist or virtual module pauses its reminders;
             // warranties always stay.
@@ -45,6 +49,43 @@ impl Store {
                 },
             )?
             .collect::<std::result::Result<Vec<_>, _>>()?;
+        if modules.virtual_assets {
+            for asset in self.virtual_overview(today)?.items {
+                let Some(reminder) = &asset.reminder else {
+                    continue;
+                };
+                let Some(p) = &asset.plan else {
+                    continue;
+                };
+                if !reminder.repeat_every_period
+                    || asset.fields.stopped_on.is_some()
+                    || asset.fields.billing != "subscription"
+                    || !p.fields.auto_renew
+                {
+                    continue;
+                }
+                let id: String = c.query_row(
+                    "SELECT id FROM reminders WHERE kind='renewal' AND entity_id=?1",
+                    [&asset.id],
+                    |r| r.get(0),
+                )?;
+                for due in crate::recurring::subscription_payment_candidates(c, p, today)? {
+                    let day = crate::domain::date(&due.due_date)?
+                        .checked_sub_days(chrono::Days::new(u64::from(reminder.lead_days)))
+                        .ok_or_else(|| Error::new("DATE", "提醒日期超出范围"))?;
+                    plans.push(Plan {
+                        id: format!("thingary-{id}-{}", due.due_date),
+                        date: day.to_string(),
+                        title: format!("订阅备款提醒 · {}", asset.fields.name),
+                        body: format!(
+                            "{} 将于 {} 扣款，请提前备足余额；扣款后在物谱确认已付。{}",
+                            asset.fields.name, due.due_date, reminder.notes
+                        ),
+                    });
+                }
+            }
+        }
+        plans.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(plans)
     }
 }

@@ -1,4 +1,4 @@
-import type { Plan, PlanFields } from './recurring';
+import type { Due, Plan, PlanFields } from './recurring';
 import { planIntervalText } from './recurring.ts';
 export const virtualKinds = [['license', '买断软件'], ['domain', '域名'], ['subscription', '订阅服务'], ['general', '虚拟资产']] as const;
 export type VirtualKind = typeof virtualKinds[number][0];
@@ -11,12 +11,12 @@ export type VirtualFields = { name: string; kind: VirtualKind; billing: BillingM
 export type TopupFields = { topup_date: string | null; paid_cents: string | null; gift_cents: string | null; credit_cents: string | null; pay_method: string; notes: string };
 export type TopupRecord = { id: string; asset_id: string; fields: TopupFields; revision: number };
 export type BalanceRecord = { id: string; asset_id: string; balance_cents: string; recorded_on: string; notes: string; revision: number };
-export type ReminderState = { date: string; notes: string };
-export type VirtualAsset = { paid_count?: number; paid_until?: string | null; plan?: Plan | null; id: string; fields: VirtualFields; revision: number; plan_name: string | null; plan_deleted: boolean; valid_until: string | null; status: VirtualStatus; spent_cents: string | null; label_name?: string | null; reminder?: ReminderState | null; topup_count?: number; topups?: TopupRecord[]; topup_unknown_paid?: number; topup_known_cents?: string | null; topup_credit_cents?: string | null; balance?: BalanceRecord | null };
+export type ReminderState = { date: string; notes: string; repeat_every_period?: boolean; lead_days?: number };
+export type VirtualAsset = { paid_count?: number; paid_until?: string | null; plan?: Plan | null; id: string; fields: VirtualFields; revision: number; plan_name: string | null; plan_deleted: boolean; valid_until: string | null; status: VirtualStatus; spent_cents: string | null; label_name?: string | null; reminder?: ReminderState | null; payment_due?: Due | null; topup_count?: number; topups?: TopupRecord[]; topup_unknown_paid?: number; topup_known_cents?: string | null; topup_credit_cents?: string | null; balance?: BalanceRecord | null };
 export type VirtualSave = { plan?: { id: string | null; expected_revision: number | null; fields: PlanFields }; renewal_price_cents?: string | null; renewal_from?: string | null; special_end?: { period_start: string; coverage_end: string | null } | null; first_topup?: TopupFields | null; request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: VirtualFields };
 export type TopupSave = { request_id: string; generation: string; asset_id: string; id: string | null; expected_revision: number | null; fields: TopupFields };
 export type BalanceSave = { request_id: string; generation: string; asset_id: string; id: string | null; expected_revision: number | null; balance_cents: string; recorded_on: string; notes: string };
-export type ReminderSave = { request_id: string; generation: string; asset_id: string; expected_revision: number; reminder: { date: string; notes: string } | null };
+export type ReminderSave = { request_id: string; generation: string; asset_id: string; expected_revision: number; repeat_every_period?: boolean; lead_days?: number; reminder: { date: string; notes: string } | null };
 export type PlanChoice = { id: string; name: string; interval_months: number; linked_to: string | null };
 export type VirtualOverview = { generation: string; today: string; items: VirtualAsset[]; in_use: number; expiring: number; expired: number; spent_cents: string; unknown_price: number; plans: PlanChoice[] };
 

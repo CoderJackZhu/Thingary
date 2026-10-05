@@ -21,7 +21,7 @@ import { PlanFieldsForm } from './PlanFieldsForm';
 import { blankPlan, periodLabel } from './recurring-model';
 import { useRestored } from './undo';
 
-type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; plan_amount: string; record: Payment | null };
+export type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; plan_amount: string; record: Payment | null };
 
 export function RecurringPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [data, setData] = useState<Overview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
@@ -166,7 +166,7 @@ function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; g
   </form></dialog>;
 }
 
-function PaymentDialog({ target, generation, today, onClose }: { target: PaymentTarget; generation: string; today: string; onClose: (saved: boolean) => void }) {
+export function PaymentDialog({ target, generation, today, onClose }: { target: PaymentTarget; generation: string; today: string; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const r = target.record;
   const [state, setState] = useState<'paid' | 'skipped'>(r?.state ?? 'paid');

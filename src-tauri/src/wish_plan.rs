@@ -275,7 +275,7 @@ impl Store {
                 .as_ref()
                 .ok_or_else(|| Error::new("REMINDER", "到期通知需要目标日期"))?;
             tx.execute(
-                "INSERT INTO reminders VALUES(?1,'wishlist',?2,NULL,?3,'')",
+                "INSERT INTO reminders(id,kind,entity_id,source_id,date,notes) VALUES(?1,'wishlist',?2,NULL,?3,'')",
                 params![format!("wish-{id}"), id, d],
             )?;
         }

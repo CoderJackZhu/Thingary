@@ -494,6 +494,62 @@ fn schedule_for(
     periods_for(c, f, id, ends.clone())?.scheduled(f, from, to)
 }
 
+/// Current and future service periods with no live payment fact.
+pub(crate) fn subscription_payment_candidates(
+    c: &Connection,
+    p: &Plan,
+    today: &str,
+) -> Result<Vec<Due>> {
+    let f = &p.fields;
+    let now = date(today)?;
+    if f.paused || f.service_start.is_none() || f.end_date.as_deref().is_some_and(|e| e < today) {
+        return Ok(Vec::new());
+    }
+    let ends = period_ends(c, &p.id)?;
+    let periods = periods_for(c, f, &p.id, ends.clone())?;
+    let from = date(f.service_start.as_deref().unwrap())?.min(date(&f.first_due)?);
+    let to = now.checked_add_months(Months::new(12)).unwrap_or(now);
+    let final_end = f.end_date.as_deref().map(date).transpose()?;
+    let mut candidates = Vec::new();
+    // Walk once: daily subscriptions can have many years of history. Searching
+    // the chain again for every due date would make this quadratic.
+    for k in periods.first_index()..120000 {
+        let Some(node) = periods.walk(k)? else { break };
+        let due = node.due;
+        if due > to {
+            break;
+        }
+        let seg = &periods.segs[node.rule];
+        let end = final_end.map_or(node.end, |e| node.end.min(e));
+        if due < from
+            || seg.service.is_some_and(|s| node.start < s)
+            || final_end.is_some_and(|e| node.start > e)
+            || (seg.trial.is_some() && node.start < seg.anchor)
+            || end < now
+        {
+            continue;
+        };
+        let start = node.start.to_string();
+        let recorded: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM plan_payments WHERE plan_id=?1 AND due_date=?2 AND deleted_at IS NULL)", params![p.id, due.to_string()], |r| r.get(0))?;
+        if recorded {
+            continue;
+        }
+        let amount: Option<i64> = c.query_row("SELECT amount_cents FROM plan_rates WHERE plan_id=?1 AND effective_date<=?2 ORDER BY effective_date DESC LIMIT 1", params![p.id, start], |r| r.get(0)).optional()?;
+        candidates.push(Due {
+            plan_id: p.id.clone(),
+            plan_name: f.name.clone(),
+            category: f.category.clone(),
+            due_date: due.to_string(),
+            amount_cents: amount
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| f.amount_cents.clone()),
+            coverage_start: Some(start),
+            coverage_end: Some(end.to_string()),
+        });
+    }
+    Ok(candidates)
+}
+
 /// Scheduled payment dates in `[from, to]`, respecting the plan end. Historical
 /// periods (k < 0) are enumerated only for legacy month-based plans without a
 /// trial, so old libraries can still backfill before the anchor; a modern

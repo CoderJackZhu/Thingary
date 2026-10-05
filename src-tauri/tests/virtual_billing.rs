@@ -2401,3 +2401,335 @@ fn trial_free_window_has_no_current_burden_and_future_paid_dates_remain() {
     assert_eq!(o.plans[0].monthly_cents.as_deref(), Some("0"));
     assert!(o.next12_cents.parse::<u64>().unwrap() > 0);
 }
+
+fn period_reminder(
+    s: &mut Store,
+    asset_id: &str,
+    today: &str,
+) -> thingary_lib::virtual_assets::VirtualAsset {
+    let asset = s
+        .virtual_overview(today)
+        .unwrap()
+        .items
+        .into_iter()
+        .find(|v| v.id == asset_id)
+        .unwrap();
+    s.virtual_reminder_save(
+        &thingary_lib::virtual_assets::ReminderSave {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: asset.id,
+            expected_revision: asset.revision,
+            repeat_every_period: true,
+            lead_days: 3,
+            reminder: Some(thingary_lib::preferences::Reminder {
+                date: today.into(),
+                notes: "虚构付款账户备款".into(),
+            }),
+        },
+        today,
+    )
+    .unwrap()
+}
+
+#[test]
+fn period_reminders_advance_only_after_real_payment_and_roundtrip_backup() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("lib");
+    let mut s = Store::open(&root).unwrap();
+    let plan = save_plan(&mut s, "虚构 GPT 月费", "14000", "2026-09-20", "2026-10-05");
+    let v = s
+        .virtual_save(&sub_save(&s, "虚构 GPT 月费", &plan, |_| {}), "2026-10-05")
+        .unwrap();
+    assert_eq!(v.payment_due.as_ref().unwrap().due_date, "2026-09-20");
+    assert_eq!(v.status, "ongoing");
+    assert!(s.reminder_plans_for("2026-10-05").unwrap().is_empty());
+    let opted = period_reminder(&mut s, &v.id, "2026-10-05");
+    assert_eq!(opted.reminder.as_ref().unwrap().date, "2026-09-17");
+    assert_eq!(opted.paid_count, 0); // Funding preferences never create expenses.
+    assert!(s.expense_view(None).unwrap().lines.is_empty());
+    let before = s.reminder_plans_for("2026-10-05").unwrap();
+    assert!(before.iter().any(|p| p.date == "2026-09-17"));
+    let october = before
+        .iter()
+        .find(|p| p.date == "2026-10-17")
+        .unwrap()
+        .id
+        .clone();
+    // One explicit payment creates one expense. Replaying the receipt is safe.
+    let payment = PaymentSave {
+        request_id: id(),
+        generation: s.generation(),
+        id: None,
+        expected_revision: None,
+        plan_id: plan.id.clone(),
+        due_date: "2026-09-20".into(),
+        state: "paid".into(),
+        paid_date: Some("2026-10-05".into()),
+        amount_cents: Some("14000".into()),
+        notes: String::new(),
+    };
+    s.recurring_payment_save(&payment, "2026-10-05").unwrap();
+    s.recurring_payment_save(&payment, "2026-10-05").unwrap();
+    let after = s.reminder_plans_for("2026-10-05").unwrap();
+    assert!(!after.iter().any(|p| p.date == "2026-09-17"));
+    assert_eq!(
+        after.iter().find(|p| p.date == "2026-10-17").unwrap().id,
+        october
+    );
+    let v = s
+        .virtual_overview("2026-10-05")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(v.status, "ongoing");
+    assert_eq!(v.paid_count, 1);
+    assert_eq!(v.spent_cents.as_deref(), Some("14000"));
+    assert_eq!(v.payment_due.as_ref().unwrap().due_date, "2026-10-20");
+    assert_eq!(v.reminder.as_ref().unwrap().date, "2026-10-17");
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "14000");
+    // Explicit early payment advances the next reminder, without ending service.
+    pay(&mut s, &plan, "2026-10-20", "14000", "2026-10-05");
+    let v = s
+        .virtual_overview("2026-10-05")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(v.payment_due.as_ref().unwrap().due_date, "2026-11-20");
+    assert_eq!(v.reminder.as_ref().unwrap().date, "2026-11-17");
+    assert_eq!(v.status, "ongoing");
+    assert!(!s
+        .reminder_plans_for("2026-10-05")
+        .unwrap()
+        .iter()
+        .any(|p| p.date == "2026-10-17"));
+    let file = dir.path().join("period.thingary");
+    s.backup(Some(&file)).unwrap();
+    let summary = s.inspect_backup(&file).unwrap();
+    assert_eq!(summary.schema, 26);
+    let mut restored = Store::open(&dir.path().join("restored")).unwrap();
+    restored
+        .restore(&file, &summary.hash, &restored.generation())
+        .unwrap();
+    let restored_v = restored
+        .virtual_overview("2026-10-05")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(restored_v.paid_count, 2);
+    assert_eq!(restored_v.reminder.as_ref().unwrap().date, "2026-11-17");
+    assert!(restored_v.reminder.unwrap().repeat_every_period);
+    assert_eq!(
+        serde_json::to_value(s.reminder_plans_for("2026-10-05").unwrap()).unwrap(),
+        serde_json::to_value(restored.reminder_plans_for("2026-10-05").unwrap()).unwrap()
+    );
+}
+
+#[test]
+fn reminders_and_payment_candidates_follow_trial_special_end_price_and_fixed_days() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("lib")).unwrap();
+    let mut f = plan_fields("试用订阅", "14000", "2026-09-27");
+    f.service_start = Some("2026-09-20".into());
+    f.trial_days = Some(7);
+    f.interval_days = Some(30);
+    let plan = s
+        .recurring_plan_save(
+            &PlanSave {
+                request_id: id(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: f,
+            },
+            "2026-09-20",
+        )
+        .unwrap();
+    let mut save = sub_save(&s, "试用订阅", &plan, |_| {});
+    save.special_end = Some(SpecialEnd {
+        period_start: "2026-09-27".into(),
+        coverage_end: Some("2026-10-31".into()),
+    });
+    let v = s.virtual_save(&save, "2026-09-20").unwrap();
+    let mut price_save = sub_save(&s, "Trial subscription", &fresh_plan(&s, &plan.id), |_| {});
+    price_save.id = Some(v.id.clone());
+    price_save.expected_revision = Some(v.revision);
+    price_save.renewal_price_cents = Some("16000".into());
+    price_save.renewal_from = Some("2026-11-01".into());
+    let v = s.virtual_save(&price_save, "2026-09-20").unwrap();
+    let candidate = v.payment_due.as_ref().unwrap();
+    assert_eq!(candidate.due_date, "2026-09-27");
+    assert_eq!(candidate.coverage_end.as_deref(), Some("2026-10-31"));
+    period_reminder(&mut s, &v.id, "2026-09-20");
+    assert!(s
+        .reminder_plans_for("2026-09-20")
+        .unwrap()
+        .iter()
+        .any(|p| p.date == "2026-09-24"));
+    pay(&mut s, &plan, "2026-09-27", "14000", "2026-09-27");
+    let v = s
+        .virtual_overview("2026-09-27")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    let candidate = v.payment_due.unwrap();
+    assert_eq!(candidate.due_date, "2026-10-27");
+    assert_eq!(candidate.coverage_end.as_deref(), Some("2026-11-30"));
+    assert_eq!(candidate.amount_cents, "16000");
+    assert_eq!(v.reminder.unwrap().date, "2026-10-24");
+    // Historical unrecorded periods are not revived as current payment actions.
+    let v = s
+        .virtual_overview("2027-02-02")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert!(v.payment_due.unwrap().coverage_end.unwrap().as_str() >= "2027-02-02");
+    let current_reminder = v.reminder.unwrap().date;
+    assert!(s
+        .reminder_plans_for("2027-02-02")
+        .unwrap()
+        .iter()
+        .all(|p| p.date >= current_reminder));
+}
+
+#[test]
+fn period_reminders_pause_with_renewal_plan_module_and_end_and_skip_paid_periods() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("lib");
+    let mut s = Store::open(&root).unwrap();
+    let plan = save_plan(&mut s, "虚构订阅", "100", "2026-10-20", "2026-10-05");
+    let v = s
+        .virtual_save(&sub_save(&s, "虚构订阅", &plan, |_| {}), "2026-10-05")
+        .unwrap();
+    period_reminder(&mut s, &v.id, "2026-10-05");
+    let update = |s: &mut Store, edit: fn(&mut PlanFields)| {
+        let p = fresh_plan(s, &plan.id);
+        let mut f = p.fields.clone();
+        edit(&mut f);
+        s.recurring_plan_save(
+            &PlanSave {
+                request_id: id(),
+                generation: s.generation(),
+                id: Some(p.id),
+                expected_revision: Some(p.revision),
+                fields: f,
+            },
+            "2026-10-05",
+        )
+        .unwrap();
+    };
+    update(&mut s, |f| {
+        f.auto_renew = false;
+        f.end_date = Some("2026-11-19".into());
+    });
+    assert!(s.reminder_plans_for("2026-10-05").unwrap().is_empty());
+    update(&mut s, |f| {
+        f.auto_renew = true;
+        f.end_date = None;
+        f.paused = true;
+    });
+    assert!(s.reminder_plans_for("2026-10-05").unwrap().is_empty());
+    assert!(s.virtual_overview("2026-10-05").unwrap().items[0]
+        .payment_due
+        .is_none());
+    update(&mut s, |f| f.paused = false);
+    assert!(!s.reminder_plans_for("2026-10-05").unwrap().is_empty());
+    thingary_lib::modules::write(
+        &root,
+        &thingary_lib::modules::Modules {
+            virtual_assets: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(s.reminder_plans_for("2026-10-05").unwrap().is_empty());
+    thingary_lib::modules::write(&root, &Default::default()).unwrap();
+    // A skipped period is an explicit fact too; it has no funding reminder.
+    s.recurring_payment_save(
+        &PaymentSave {
+            request_id: id(),
+            generation: s.generation(),
+            id: None,
+            expected_revision: None,
+            plan_id: plan.id.clone(),
+            due_date: "2026-10-20".into(),
+            state: "skipped".into(),
+            paid_date: None,
+            amount_cents: None,
+            notes: String::new(),
+        },
+        "2026-10-05",
+    )
+    .unwrap();
+    assert!(!s
+        .reminder_plans_for("2026-10-05")
+        .unwrap()
+        .iter()
+        .any(|p| p.date == "2026-10-17"));
+    update(&mut s, |f| f.end_date = Some("2026-10-31".into()));
+    assert!(s.reminder_plans_for("2026-11-01").unwrap().is_empty());
+    assert!(s.virtual_overview("2026-11-01").unwrap().items[0]
+        .payment_due
+        .is_none());
+    assert_eq!(
+        s.virtual_overview("2026-11-01").unwrap().items[0].status,
+        "expired"
+    );
+}
+
+#[test]
+fn schema26_preserves_single_reminders_and_rolls_back_on_interruption() {
+    // An unresolved old request must keep the same serialized fingerprint.
+    let old_request = r#"{"request_id":"old-request","generation":"old-library","asset_id":"v","expected_revision":1,"reminder":{"date":"2026-10-17","notes":"single"}}"#;
+    let parsed: thingary_lib::virtual_assets::ReminderSave =
+        serde_json::from_str(old_request).unwrap();
+    assert!(!parsed.repeat_every_period);
+    assert_eq!(serde_json::to_string(&parsed).unwrap(), old_request);
+    let db = rusqlite::Connection::open_in_memory().unwrap();
+    db.execute_batch(SCHEMA).unwrap();
+    migrate_to(&db, 25, &|_| Ok(())).unwrap();
+    db.execute("INSERT INTO reminders(id,kind,entity_id,date,notes) VALUES('old','renewal','v','2026-10-17','仅本次')", []).unwrap();
+    assert!(
+        migrate_to(&db, 26, &|point| if point == "migration.before_commit" {
+            Err(Error::new("INJECTED", "中断"))
+        } else {
+            Ok(())
+        })
+        .is_err()
+    );
+    assert_eq!(
+        db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        25
+    );
+    assert_eq!(
+        db.query_row(
+            "SELECT count(*) FROM pragma_table_info('reminders') WHERE name='repeat_every_period'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+    migrate_to(&db, 26, &|_| Ok(())).unwrap();
+    assert_eq!(
+        db.query_row(
+            "SELECT date,notes,repeat_every_period,lead_days FROM reminders WHERE id='old'",
+            [],
+            |r| Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, i64>(3)?
+            ))
+        )
+        .unwrap(),
+        ("2026-10-17".into(), "仅本次".into(), 0, 3)
+    );
+    assert!(db.execute("INSERT INTO reminders(id,kind,entity_id,date,notes,repeat_every_period) VALUES('bad','wishlist','w','2026-10-17','',1)", []).is_err());
+}

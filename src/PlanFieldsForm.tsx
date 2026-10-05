@@ -2,8 +2,8 @@ import { DateInput } from './DateInput';
 import { CentInput, FormRow, Segments, Switch } from './FormControls';
 import { intervals, intervalText, intervalDaysText } from './recurring';
 import type { PlanFields } from './recurring';
-import { firstSubscriptionPeriod, periodLabel, shiftDays, shiftPeriod, suggestCoverage, suggestedFinalDay } from './recurring-model';
-import { useState, type ReactNode } from 'react';
+import { firstSubscriptionPeriod, periodLabel, shiftDays, shiftPeriod, suggestCoverage, suggestedFinalDay, syncSuggestedFinalDay } from './recurring-model';
+import { useRef, useState, type ReactNode } from 'react';
 
 const dayPresets = [7, 30, 90, 365] as const;
 /** 固定天数周期合法范围 1–3650（设计 §4.2）。 */
@@ -20,7 +20,13 @@ const parseDays = (v: string): number | null => {
  */
 export function PlanFieldsForm({ fields: f, onChange, disabled, today, editing = false, firstDueTouched = false, onFirstDueTouched, advanced }: { advanced?: ReactNode; fields: PlanFields; onChange: (f: PlanFields) => void; disabled: boolean; today: string; editing?: boolean; firstDueTouched?: boolean; onFirstDueTouched?: () => void }) {
   const fixed = f.end_date !== null;
-  const set = <K extends keyof PlanFields>(k: K, v: PlanFields[K]) => onChange({ ...f, [k]: v });
+  // Existing dates and dates entered by hand are explicit facts, never suggestions.
+  const finalDayLinked = useRef(false);
+  const change = (next: PlanFields) => onChange(syncSuggestedFinalDay(next, today, finalDayLinked.current));
+  const set = <K extends keyof PlanFields>(k: K, v: PlanFields[K]) => {
+    if (k === 'end_date') finalDayLinked.current = false;
+    change({ ...f, [k]: v });
+  };
   const modern = f.service_start !== null && f.service_start !== undefined;
   const isSubscription = f.category === 'subscription';
   // 尚未手工修改的付款锚点随开始日期／试用联动（review R10）：下次付款
@@ -28,7 +34,7 @@ export function PlanFieldsForm({ fields: f, onChange, disabled, today, editing =
   const updateSchedule = (next: PlanFields) => {
     const billing = next.trial_days && next.service_start ? shiftDays(next.service_start, next.trial_days) : next.service_start;
     const linkedDue = !firstDueTouched && billing ? billing : next.first_due;
-    onChange({
+    change({
       ...next,
       first_due: linkedDue,
       coverage_start: billing && linkedDue ? suggestCoverage(billing, linkedDue, next.interval_days ?? next.interval_months, !!next.interval_days) : null,
@@ -43,7 +49,7 @@ export function PlanFieldsForm({ fields: f, onChange, disabled, today, editing =
   const applyDays = (raw: string) => {
     setDaysDraft(raw);
     const n = parseDays(raw);
-    if (n) onChange({ ...f, interval_days: n, interval_months: 1 });
+    if (n) updateSchedule({ ...f, interval_days: n, interval_months: 1 });
   };
   const setMode = (v: string) => {
     if (v === 'days') {
@@ -59,17 +65,21 @@ export function PlanFieldsForm({ fields: f, onChange, disabled, today, editing =
     if (!on) { updateSchedule({ ...f, trial_days: null }); return; }
     // 试用从开始日计入第一天；计费起点默认推到试用结束的次日（设计 §4.4）。
     const billing = shiftDays(f.service_start, 7);
-    onChange({ ...f, trial_days: 7, first_due: firstDueTouched ? f.first_due : billing, coverage_start: billing });
+    change({ ...f, trial_days: 7, first_due: firstDueTouched ? f.first_due : billing, coverage_start: billing });
   };
   const setTrialDays = (raw: string) => {
     const n = parseDays(raw);
     if (!n || !modern || !f.service_start) return;
     const billing = shiftDays(f.service_start, n);
-    onChange({ ...f, trial_days: n, first_due: firstDueTouched ? f.first_due : billing, coverage_start: billing });
+    change({ ...f, trial_days: n, first_due: firstDueTouched ? f.first_due : billing, coverage_start: billing });
   };
   // 自动续费与最后使用日是两个独立控件（review R14）：开启续费仍可指定
   // 最终使用日；关闭续费必须确认“使用至”某天。
   const suggestEnd = () => suggestedFinalDay(f, today);
+  const setSuggestedEnd = () => {
+    finalDayLinked.current = true;
+    change({ ...f, end_date: suggestEnd() });
+  };
   const firstPeriod = firstSubscriptionPeriod(f);
   const ended = fixed && (f.end_date ?? '') < today;
   // 草稿摘要的下次付款按草稿规则即时推算，不读保存前的 next_due（R14）。
@@ -90,7 +100,12 @@ export function PlanFieldsForm({ fields: f, onChange, disabled, today, editing =
       : <Segments label="付款周期" value={mode} disabled={disabled} options={intervals.map(([k, l]) => ({ value: String(k), label: l }))} onChange={setMode}/>}</FormRow>
     <FormRow label={`${f.interval_days ? intervalDaysText(f.interval_days) : intervalText(f.interval_months)}${(f.interval_days ? 1 : f.interval_months) === 1 ? '金额' : '总额'}`} hint="填一次付款的总金额；不自动记为已付"><CentInput label="每期金额" value={f.amount_cents} disabled={disabled} placeholder="0.00" onChange={v => set('amount_cents', v)}/></FormRow>
     {modern && <FormRow label={f.category === 'rent' ? '租住开始日期' : '开始使用日期'} hint="可填历史日期；未手改的付款锚点随之联动"><DateInput id="plan-service-start" label={f.category === 'rent' ? '租住开始日期' : '开始使用日期'} value={f.service_start!} disabled={disabled} onChange={v => updateSchedule({ ...f, service_start: v })}/></FormRow>}
-    <FormRow label="自动续费" hint={fixed ? '按周期续费至最后使用日期' : '开启则按周期持续续费；关闭需确认最后使用日期'}><div className="form-inline"><Switch label="自动续费" value={f.auto_renew !== false} disabled={disabled} onChange={on => onChange({...f, auto_renew:on, end_date: on ? f.end_date : (f.end_date ?? suggestEnd())})}/>{!fixed && <button type="button" className="ui-link" disabled={disabled} onClick={() => set('end_date', suggestEnd())}>设定最后使用日期…</button>}</div></FormRow>
+    <FormRow label="自动续费" hint={fixed ? '按周期续费至最后使用日期' : '开启则按周期持续续费；关闭需确认最后使用日期'}><div className="form-inline"><Switch label="自动续费" value={f.auto_renew !== false} disabled={disabled} onChange={on => {
+      if (!on && f.end_date === null) finalDayLinked.current = true;
+      const end = on && finalDayLinked.current ? null : on ? f.end_date : (f.end_date ?? suggestEnd());
+      if (on && finalDayLinked.current) finalDayLinked.current = false;
+      change({ ...f, auto_renew: on, end_date: end });
+    }}/>{!fixed && <button type="button" className="ui-link" disabled={disabled} onClick={setSuggestedEnd}>设定最后使用日期…</button>}</div></FormRow>
     {fixed && <FormRow label="最后使用日期" hint="含当天；之后不再续费，按日期自动结束"><DateInput id="plan-end" label="最后使用日期" value={f.end_date ?? ''} disabled={disabled} min={f.service_start ?? f.first_due} allowClear={f.auto_renew !== false} onChange={v => set('end_date', v || null)}/>{endError && <small className="error" role="alert">结束日期不能早于开始使用日期</small>}</FormRow>}
     {(firstPeriod || draftNextDue || ended) && <p className="muted small" aria-live="polite">{[
       f.trial_days && f.service_start ? `试用至 ${shiftDays(f.service_start, f.trial_days - 1)}，计费开始 ${shiftDays(f.service_start, f.trial_days)}` : null,

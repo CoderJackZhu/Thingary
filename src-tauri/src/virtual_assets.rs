@@ -120,8 +120,10 @@ pub struct VirtualAsset {
     pub spent_cents: Option<String>,
     /// Display name of the virtual label, when set.
     pub label_name: Option<String>,
-    /// The opt-in one-shot renewal reminder, when set.
+    /// The opt-in renewal reminder settings, when set.
     pub reminder: Option<ReminderState>,
+    /// Explicit payment confirmation is independent of service validity.
+    pub payment_due: Option<crate::recurring::Due>,
     /// Stored-value facts (topup billing only).
     pub topup_count: i64,
     /// Every live topup, newest first (maintenance list, review R13).
@@ -138,6 +140,8 @@ pub struct VirtualAsset {
 pub struct ReminderState {
     pub date: String,
     pub notes: String,
+    pub repeat_every_period: bool,
+    pub lead_days: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -354,6 +358,7 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Row> {
             spent_cents: None,
             label_name: None,
             reminder: None,
+            payment_due: None,
             topup_count: 0,
             topups: Vec::new(),
             topup_unknown_paid: 0,
@@ -393,12 +398,14 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
     v.label_name = label_name;
     v.reminder = c
         .query_row(
-            "SELECT date,notes FROM reminders WHERE kind='renewal' AND entity_id=?1",
+            "SELECT date,notes,repeat_every_period,lead_days FROM reminders WHERE kind='renewal' AND entity_id=?1",
             [&v.id],
             |r| {
                 Ok(Some(ReminderState {
                     date: r.get(0)?,
                     notes: r.get(1)?,
+                    repeat_every_period: r.get(2)?,
+                    lead_days: r.get(3)?,
                 }))
             },
         )
@@ -601,6 +608,21 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
         }
         .into()
     };
+    if v.fields.billing == "subscription" && v.fields.stopped_on.is_none() {
+        if let Some(p) = &v.plan {
+            v.payment_due = crate::recurring::subscription_payment_candidates(c, p, &now)?
+                .into_iter()
+                .next();
+        }
+    }
+    if let (Some(reminder), Some(due)) = (&mut v.reminder, &v.payment_due) {
+        if reminder.repeat_every_period {
+            reminder.date = date(&due.due_date)?
+                .checked_sub_days(chrono::Days::new(u64::from(reminder.lead_days)))
+                .ok_or_else(|| Error::new("DATE", "提醒日期超出范围"))?
+                .to_string();
+        }
+    }
     Ok(v)
 }
 
@@ -1047,6 +1069,18 @@ impl Store {
         }
         if let Some(r) = &input.reminder {
             r.validate()?;
+            if input.lead_days > 30 {
+                return Err(Error::new("REMINDER", "提前天数须为 0–30 天"));
+            }
+            if input.repeat_every_period
+                && (asset.fields.billing != "subscription"
+                    || asset
+                        .plan
+                        .as_ref()
+                        .is_none_or(|p| p.fields.service_start.is_none()))
+            {
+                return Err(Error::new("REMINDER", "每期备款提醒需要关联订阅计划"));
+            }
         }
         tx.execute(
             "DELETE FROM reminders WHERE kind='renewal' AND entity_id=?1",
@@ -1054,8 +1088,8 @@ impl Store {
         )?;
         if let Some(r) = &input.reminder {
             tx.execute(
-                "INSERT INTO reminders(id,kind,entity_id,source_id,date,notes) VALUES(?1,'renewal',?2,NULL,?3,?4)",
-                params![uid(), input.asset_id, r.date, r.notes],
+                "INSERT INTO reminders(id,kind,entity_id,source_id,date,notes,repeat_every_period,lead_days) VALUES(?1,'renewal',?2,NULL,?3,?4,?5,?6)",
+                params![uid(), input.asset_id, r.date, r.notes, input.repeat_every_period, input.lead_days],
             )?;
         }
         // The reminder state rides the asset revision so stale editors fail.
@@ -1176,6 +1210,24 @@ pub struct ReminderSave {
     pub asset_id: String,
     pub expected_revision: i64,
     pub reminder: Option<crate::preferences::Reminder>,
+    #[serde(default, skip_serializing_if = "reminder_is_single")]
+    pub repeat_every_period: bool,
+    #[serde(
+        default = "reminder_lead_default",
+        skip_serializing_if = "reminder_lead_is_default"
+    )]
+    pub lead_days: u32,
+}
+
+// Preserve fingerprints of pre-upgrade pending one-shot requests.
+fn reminder_is_single(repeat: &bool) -> bool {
+    !repeat
+}
+fn reminder_lead_is_default(days: &u32) -> bool {
+    *days == reminder_lead_default()
+}
+fn reminder_lead_default() -> u32 {
+    3
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

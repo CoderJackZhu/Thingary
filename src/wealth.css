@@ -78,6 +78,21 @@
 .recurring-section .check-in-state{flex-wrap:wrap}
 .virtual-filter{display:inline-flex;max-width:100%;flex-wrap:wrap;gap:5px;border:0;padding:0;margin:4px 0 12px;background:transparent}.virtual-filter button{width:auto;height:auto;padding:7px 13px;border:1px solid var(--line);border-radius:6px;white-space:nowrap;font-size:12px;color:var(--muted)}.virtual-filter button[aria-pressed=true]{background:var(--selected);border-color:var(--selected);color:var(--accent);font-weight:600}.virtual-table td small{display:block;margin-top:2px}.virtual-state{font-size:12px;white-space:nowrap;color:var(--positive)}.virtual-state::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor;margin-right:5px;vertical-align:1px}.virtual-state[data-state=expiring]{color:var(--accent)}.virtual-state[data-state=expired]{color:var(--error)}.virtual-state[data-state=stopped],.virtual-state[data-state=unknown]{color:var(--muted)}.virtual-linked-note{margin:4px 0 8px;line-height:1.7}
 .trend-table{overflow-x:auto}
+.subscription-reminder .form-row{align-items:flex-start}
+.subscription-reminder .form-row-control{display:flex;flex-direction:column;align-items:stretch;gap:8px;max-width:65%}
+.subscription-reminder .form-segments{min-width:0;width:100%}
+.subscription-reminder .form-inline{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.subscription-reminder .form-row-control small{text-align:left;line-height:1.6}
+.subscription-reminder .form-row-control input{text-align:left}
+.subscription-reminder .form-row-control select{width:auto;min-width:0}
+.ui-inspector .subscription-reminder .form-row{flex-direction:column;gap:8px;padding:0}
+.ui-inspector .subscription-reminder .form-row-control{max-width:100%;width:100%}
+.ui-inspector .subscription-reminder .form-row-label small{max-width:none}
+.ui-inspector .form-block:has(>button.primary){display:grid;gap:8px}
+.wealth-section .virtual-table td:not(.amount),.wealth-section .virtual-table th{white-space:normal;overflow-wrap:anywhere;line-height:1.6}
+.wealth-section .virtual-table td:nth-child(3){white-space:nowrap}
+.virtual-table .ui-link{white-space:normal;text-align:left}
+@media(max-width:1400px){.wealth-section .virtual-browser.has-inspector{grid-template-columns:minmax(0,1fr)}.wealth-section .virtual-browser .ui-inspector{border-left:0;border-top:1px solid var(--line)}}
 .table-scroll{overflow-x:auto}
 
 .plan-advanced { border-top: 1px solid var(--line); padding-block: 12px; }
