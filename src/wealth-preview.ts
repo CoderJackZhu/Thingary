@@ -146,7 +146,7 @@ function recurringOverview(): Overview {
   const due: Due[] = [], upcoming: Due[] = []; let annual = 0n, next12 = 0n;
   const out = plans.map(p => {
     const item = (d: string): Due => ({ coverage_start: coverageFor(p.fields,d)?.[0], coverage_end: coverageFor(p.fields,d)?.[1], plan_id: p.id, plan_name: p.fields.name, category: p.fields.category, due_date: d, amount_cents: p.fields.amount_cents });
-    const next = schedule(p, todayIso > p.active_from ? todayIso : p.active_from, year).find(d => free(p, d)) ?? null;
+    const next = schedule(p, todayIso > p.active_from ? todayIso : p.active_from, iso(new Date(now.getFullYear() + 5, now.getMonth(), now.getDate()))).find(d => free(p, d)) ?? null;
     if (!p.fields.paused) {
       due.push(...schedule(p, p.active_from, todayIso).filter(d => free(p, d)).map(item));
       upcoming.push(...schedule(p, tomorrow, soon).filter(d => free(p, d)).map(item));

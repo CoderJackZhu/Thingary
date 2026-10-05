@@ -1379,6 +1379,10 @@ impl Store {
         let year = now
             .checked_add_months(Months::new(12))
             .ok_or_else(|| Error::new("DATE", "日期超出范围"))?;
+        // The next unrecorded payment may be years out once periods are prepaid.
+        let far = now
+            .checked_add_months(Months::new(60))
+            .ok_or_else(|| Error::new("DATE", "日期超出范围"))?;
         let mut all = plans(c)?;
         let records = payments(c, None)?;
         let recorded: BTreeSet<(&str, &str)> = records
@@ -1432,7 +1436,7 @@ impl Store {
                 due_date: d.format("%Y-%m-%d").to_string(),
                 amount_cents: period_rate(d).unwrap_or(amount).to_string(),
             };
-            p.next_due = schedule_for(c, f, &pid, &ends, now.max(date(&p.active_from)?), year)?
+            p.next_due = schedule_for(c, f, &pid, &ends, now.max(date(&p.active_from)?), far)?
                 .into_iter()
                 .find(|d| free(d))
                 .map(|d| d.format("%Y-%m-%d").to_string());

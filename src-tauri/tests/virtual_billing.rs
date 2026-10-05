@@ -2765,4 +2765,9 @@ fn payment_action_appears_only_inside_the_prepayment_window() {
     assert!(due("2027-08-15").is_none());
     assert_eq!(due("2027-08-16").unwrap().due_date, "2027-09-15");
     assert_eq!(due("2027-09-20").unwrap().due_date, "2027-09-15"); // overdue stays
+    // Prepaying years ahead must not erase the next scheduled payment.
+    pay(&mut s, &plan, "2027-09-15", "9000", "2026-10-06");
+    pay(&mut s, &plan, "2028-09-15", "9000", "2026-10-06");
+    let next = s.recurring_overview("2026-10-06").unwrap().plans[0].next_due.clone();
+    assert_eq!(next.as_deref(), Some("2029-09-15"));
 }
