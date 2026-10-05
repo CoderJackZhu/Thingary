@@ -199,9 +199,10 @@
 .wish-progress{display:block;font-size:12px;padding-bottom:12px!important;color:var(--muted)}
 .wish-progress .saving-bar{display:block;margin:4px 0 6px;height:5px}
 .wishlist-card[aria-pressed=true]{outline:2px solid var(--accent);outline-offset:2px}
-.wish-inspector header{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:start}
-.wish-inspector header>.icon-button{position:static;grid-column:3;grid-row:1}
-.wish-inspector header>.popover-menu{grid-column:2;grid-row:1}
+.wish-inspector header{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center}
+.wish-inspector header>.icon-button{position:static;grid-column:4;grid-row:1}
+.wish-inspector header>.popover-menu{grid-column:3;grid-row:1}
+.wish-inspector header>.wish-edit{grid-column:2;grid-row:1;padding:5px 12px;font-size:12px;background:transparent}
 .wish-inspector .popover-menu>div{left:auto;right:0}
 .wish-inspector .wish-detail-identity{display:flex;flex-direction:column;width:100%;align-items:stretch;grid-column:1/-1;grid-row:2;min-width:0}
 .wish-inspector .wish-detail-identity>img,.wish-inspector .wish-detail-identity>svg{width:100%;height:128px;object-fit:contain;background:var(--soft);border-radius:var(--surface-radius)}
@@ -211,7 +212,7 @@
 .wish-inspector .wish-detail-body{padding:0;overflow:visible;grid-template-columns:1fr;gap:0}
 .wish-inspector .form-row{display:flex;justify-content:space-between;gap:10px;min-height:30px;padding:6px 0;font-size:12px}
 .wish-inspector .form-row-control{min-width:0;text-align:right}
-.wish-inspector .form-block{background:none;border-radius:0;box-shadow:none;padding:10px 0;margin:0;border-top:1px solid var(--line-soft)}
+.wish-inspector .form-block{background:none;border:0;border-top:1px solid var(--line-soft);border-radius:0;box-shadow:none;padding:10px 0;margin:0}
 .wish-inspector .saving-summary strong{font:var(--key-w) 20px var(--num);white-space:nowrap}
 .wish-inspector .quick-savings{display:flex;flex-wrap:wrap;gap:4px}
 .wish-inspector .quick-savings button{flex:1 0 auto;white-space:nowrap}
@@ -316,3 +317,6 @@
 .page-header-actions .segmented button{white-space:nowrap}
 .segmented.tag-scope{flex-wrap:nowrap;flex-shrink:0;gap:2px;border:1px solid var(--line);border-radius:6px;padding:2px}
 .segmented.tag-scope button{width:auto;height:auto;min-width:0;padding:5px 10px;white-space:nowrap;color:var(--text)}
+
+.wishlist-editor .wish-editor-delete{order:9;margin-top:4px;padding-top:12px;border-top:1px solid var(--line-soft)}.wishlist-editor .wish-editor-delete button{color:var(--error)}
+.wishlist-editor .form-block>.field.wide{display:grid;gap:6px;padding:10px 12px;border-top:1px solid var(--border)}.wishlist-editor .form-block>.field.wide>label{font-size:13px;font-weight:500}.wishlist-editor .form-block>.field.wide>textarea{box-sizing:border-box;width:100%}

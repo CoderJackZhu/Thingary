@@ -78,7 +78,13 @@ test('savings UI is fully retired while old receipts keep an entry point', () =>
   const editor = readFileSync(new URL('../src/WishEditor.tsx', import.meta.url), 'utf8');
   assert.doesNotMatch(editor, /实现方式/);
   assert.doesNotMatch(editor, /已攒金额（元）/);
-  assert.match(editor, /考虑理由与备注/);
+  assert.match(editor, /想买的理由与顾虑/);
+  // 低频精简：分类／渠道／置顶仅旧记录有值时出现，添加时间不可在表单修改。
+  assert.match(editor, /shown\.category&&/);
+  assert.match(editor, /shown\.channel&&/);
+  assert.match(editor, /shown\.pinned&&/);
+  assert.doesNotMatch(editor, /label="添加时间"/);
+  assert.doesNotMatch(editor, /<details className="more-fields" open/);
   assert.match(editor, /相关链接/);
   assert.match(editor, /计划日期/);
   assert.match(editor, /为什么想买？还有什么顾虑？以后回来时提醒自己/);
