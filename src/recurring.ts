@@ -10,6 +10,7 @@ export type Due = { coverage_start?: string | null; coverage_end?: string | null
 export type Overview = { generation: string; today: string; due: Due[]; upcoming: Due[]; annual_cents: string; monthly_cents: string; next12_cents: string; plans: Plan[]; payments: Payment[] };
 
 export const intervals = [[1, '每月'], [3, '每季'], [6, '每半年'], [12, '每年']] as const;
+export const intervalUnit = (f: { interval_days?: number | null; interval_months: number }) => f.interval_days ? `${f.interval_days}天` : ({ 1: '月', 3: '季', 6: '半年', 12: '年' } as Record<number, string>)[f.interval_months] ?? '期';
 export const intervalText = (n: number) => intervals.find(([k]) => k === n)?.[1] ?? `每 ${n} 个月`;
 /** 固定天数周期：显示“固定 N 天”，与自然月明确区分（设计 §4.2）。 */
 export const intervalDaysText = (n: number) => `固定 ${n} 天`;

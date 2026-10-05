@@ -2765,6 +2765,10 @@ fn payment_action_appears_only_inside_the_prepayment_window() {
     assert!(due("2027-08-15").is_none());
     assert_eq!(due("2027-08-16").unwrap().due_date, "2027-09-15");
     assert_eq!(due("2027-09-20").unwrap().due_date, "2027-09-15"); // overdue stays
+    // The periodic-cost page's "upcoming" list uses the same 30-day yearly window.
+    let upcoming = |today: &str| s.recurring_overview(today).unwrap().upcoming.len();
+    assert_eq!(upcoming("2027-08-15"), 0);
+    assert_eq!(upcoming("2027-08-16"), 1);
     // Prepaying years ahead must not erase the next scheduled payment.
     pay(&mut s, &plan, "2027-09-15", "9000", "2026-10-06");
     pay(&mut s, &plan, "2028-09-15", "9000", "2026-10-06");

@@ -149,7 +149,7 @@ function recurringOverview(): Overview {
     const next = schedule(p, todayIso > p.active_from ? todayIso : p.active_from, iso(new Date(now.getFullYear() + 5, now.getMonth(), now.getDate()))).find(d => free(p, d)) ?? null;
     if (!p.fields.paused) {
       due.push(...schedule(p, p.active_from, todayIso).filter(d => free(p, d)).map(item));
-      upcoming.push(...schedule(p, tomorrow, soon).filter(d => free(p, d)).map(item));
+      upcoming.push(...schedule(p, tomorrow, p.fields.interval_months >= 12 ? iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30)) : soon).filter(d => free(p, d)).map(item));
       next12 += BigInt(p.fields.amount_cents) * BigInt(schedule(p, tomorrow, year).filter(d => free(p, d)).length);
       if (!p.fields.end_date || p.fields.end_date >= todayIso) annual += BigInt(p.fields.amount_cents) * 12n / BigInt(p.fields.interval_months);
     }

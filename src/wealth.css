@@ -68,10 +68,10 @@
 .recurring-section{grid-template-columns:minmax(0,1fr)}
 .wealth-section .recurring-plans td{white-space:normal;overflow-wrap:anywhere;vertical-align:top;padding-block:12px;line-height:1.6}
 .recurring-plans td:first-child{width:20%}
-.recurring-plans td:last-child{width:28%}
+.recurring-plans td:nth-child(5){width:24%}
 .recurring-plans td small{display:block;margin-top:3px;font-size:12px;white-space:normal}
 .wealth-section .recurring-plans td.amount{white-space:nowrap;overflow-wrap:normal}
-.wealth-section .recurring-plans td:nth-child(5){white-space:nowrap}
+.wealth-section .recurring-plans td:nth-child(4){white-space:nowrap}
 .wealth-section .recurring-plans th{white-space:normal}
 .recurring-section .recurring-due td:nth-child(2),.recurring-section .recurring-payments td:nth-child(2){overflow-wrap:anywhere}
 .recurring-section .recurring-due td small,.recurring-section .recurring-payments td small{display:block;white-space:normal;overflow-wrap:anywhere}
