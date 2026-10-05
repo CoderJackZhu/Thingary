@@ -48,6 +48,11 @@ if (params.get('wealth-fixture') === 'compare' && snapshots.length > 2 && params
   const mid = snapshots[snapshots.length - 2];
   snapshots = snapshots.map(s => s === mid ? { ...s, entries: s.entries.map(e => e.account_id === 'w-loan' ? { ...e, counted: true } : e) } : s);
 }
+// 总览预览夹具：最近一次完整盘点把房贷的“计入”改掉，与上一次完整盘点的计入范围不同（总览结构变化应显示“不可比”）。
+if (params.get('wealth-fixture') === 'scope' && snapshots.length > 1 && params.get('wealth') !== 'empty') {
+  const last = snapshots[snapshots.length - 1];
+  snapshots = snapshots.map(s => s === last ? { ...s, entries: s.entries.map(e => e.account_id === 'w-loan' ? { ...e, counted: !e.counted } : e) } : s);
+}
 const receipts = new Map<string, string>();
 
 const due = (a: Account, d: string) => a.fields.opened_on <= d && (!a.fields.closed_on || d < a.fields.closed_on);
@@ -70,7 +75,12 @@ function summary(): Summary {
     const assets = sum('asset'), liabilities = sum('liability'), net = assets - liabilities, complete = !s.missing.length;
     const p: Point = { snapshot_id: s.id, date: s.date, notes: s.notes, assets_cents: String(assets), liabilities_cents: String(liabilities), net_cents: String(net), complete, missing: s.missing.length, compared_to: null, scope_changed: false, change_cents: null, change_rate_hundredths: null };
     if (complete) {
-      if (last) { p.compared_to = last.s.date; const change = net - last.net; p.change_cents = String(change); if (last.net > 0n) p.change_rate_hundredths = hundredths(change, last.net); }
+      if (last) {
+        p.compared_to = last.s.date;
+        const before = new Map(last.s.entries.map(e => [e.account_id, e.counted]));
+        p.scope_changed = s.entries.some(e => before.has(e.account_id) && before.get(e.account_id) !== e.counted);
+        if (!p.scope_changed) { const change = net - last.net; p.change_cents = String(change); if (last.net > 0n) p.change_rate_hundredths = hundredths(change, last.net); }
+      }
       last = { s, net };
     }
     points.push(p);

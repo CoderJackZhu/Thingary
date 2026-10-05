@@ -3,24 +3,68 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
-import { changeText, rateText, signedMoney } from './wealth';
+import { changeText, kindLabel, rateText, signedMoney } from './wealth';
+import type { Compare, Summary } from './wealth';
 import { Sparkline } from './Sparkline';
 import { eventDetail, eventLabel } from './Timeline';
 import type { ScrollRestore } from './Timeline';
 import type { SourceTarget } from './source';
 import { useRestored } from './undo';
-import { attention, latestComplete, ready, requestGate } from './review';
-import type { Read, Review, ReviewPage } from './review';
+import { attention, latestComplete, rangePoints, rangeUsable, ready, requestGate, structureCompareRange, structureRows, trendRanges } from './review';
+import type { Read, Review, ReviewPage, TrendRange } from './review';
 import { Info } from './FormControls';
 import { DailyCostMetric } from './DailyCostMetric';
 import './review.css';
 const labels: Record<ReviewPage, string> = { wealth: '账户与盘点', assets: '全部物品', expenses: '重要支出', recurring: '周期费用', virtual: '虚拟资产', timeline: '时间轴' };
 
+const series = (i: number) => `var(--series-${i % 7 + 1})`;
+const tone = (cents: string | null) => cents?.startsWith('-') ? ' neg' : cents && cents !== '0' ? ' pos' : '';
+
+/**
+ * 资产结构：类别、占比、金额，以及较上一次完整盘点的变化。变化来自只读命令 wealth_compare，
+ * 只在最近两次完整盘点可比时读取；读取中、失败或不可比都显示“—”和原因，不当作零。
+ */
+function StructureCard({ summary }: { summary: Summary }) {
+  const span = structureCompareRange(summary.points), latest = latestComplete(summary.points);
+  const key = span ? `${span.from}>${span.to}@${summary.generation}` : '';
+  const [pairs, setPairs] = useState<{ key: string; value: Compare['structure'] | null } | null>(null), [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (!span) return;
+    let live = true;
+    invoke<Compare>('wealth_compare', { from: span.from, to: span.to })
+      .then(c => { if (live) setPairs({ key, value: c.generation === summary.generation ? c.structure : null }); })
+      .catch(() => { if (live) setPairs({ key, value: null }); });
+    return () => { live = false; };
+  }, [key, retry]);
+  const settled = span && pairs?.key === key ? pairs : null;
+  const rows = structureRows(summary.structure, settled?.value ?? null);
+  const note = !latest?.compared_to ? '第一份完整盘点，暂无可比变化。'
+    : latest.scope_changed ? `较 ${latest.compared_to}：账户计入范围有变化，暂不能逐类比较。`
+    : !settled ? '正在读取变化…'
+    : settled.value === null ? '变化暂时无法读取。'
+    : `变化为较 ${latest.compared_to} 完整盘点；含存取与估值，不等于投资收益。`;
+  const known = rows.reduce((sum, r) => sum + Math.max(0, Number(r.amount_cents)), 0);
+  return <article className="ui-card review-structure">
+    <div className="ui-section-head"><h3>资产结构</h3><span className="ui-aside">{summary.structure_date} 完整盘点 · 计入范围</span></div>
+    {!rows.length ? <p className="ui-empty">没有计入的资产。</p> : <>
+      <div className="ui-share-bar" role="img" aria-label="计入资产按类型的金额占比">{known > 0 && rows.map((r, i) => Number(r.amount_cents) > 0 && <span key={r.kind} style={{ width: `${Number(r.amount_cents) / known * 100}%`, background: series(i) }}/>)}</div>
+      <table className="ui-table review-structure-table"><thead><tr><th>类别</th><th>占比</th><th>金额</th><th>较上次</th></tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={r.kind}>
+          <td><i className="swatch" style={{ background: series(i) }}/>{kindLabel(r.kind)}</td>
+          <td>{r.share_hundredths === null ? '—' : `${(r.share_hundredths / 100).toFixed(1)}%`}</td>
+          <td>{signedMoney(r.amount_cents)}</td>
+          <td className={'review-delta' + tone(r.change_cents)}>{r.change_cents === null ? <span className="muted">—</span> : <>{changeText(r.change_cents)}{r.added && <small> 新增</small>}</>}</td>
+        </tr>)}</tbody></table>
+    </>}
+    <p className="review-structure-note muted">{note}{settled?.value === null && <button className="ui-link" onClick={() => { setPairs(null); setRetry(n => n + 1); }}>重新读取</button>}</p>
+  </article>;
+}
+
 export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, restoreScroll, modules = allModules }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; restoreScroll?: ScrollRestore }) {
   const [data, setData] = useState<Review | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const gate = useRef(requestGate());
   const context = useRef<{ generation: string; today: string; version: unknown; year: number | null } | null>(null);
-  const [updating, setUpdating] = useState(false);
+  const [updating, setUpdating] = useState(false), [range, setRange] = useState<TrendRange>('all');
   useRestored(() => setRetry(n => n + 1));
   useEffect(() => {
     const refresh = () => setRetry(n => n + 1);
@@ -54,19 +98,19 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   // event; merging wealth points here again would duplicate 盘点 rows.
   const hidden = hiddenKinds(modules);
   const recent = (ready(data.recent) ?? []).filter(ev => !hidden.has(ev.kind)).map(ev => ({ id: 'event:' + ev.id, date: ev.date!, title: ev.kind === 'snapshot' ? eventLabel(ev) : eventLabel(ev) + ' · ' + ev.title, detail: eventDetail(ev), target: ev.target ?? null }));
+  const activeRange: TrendRange = w && rangeUsable(w.points, range, data.today) ? range : 'all';
   const daysSince = latest ? Math.max(0, Math.round((Date.parse(data.today) - Date.parse(latest.date)) / 86400000)) : 0;
-  const tone = (cents: string | null) => cents?.startsWith('-') ? ' neg' : cents && cents !== '0' ? ' pos' : '';
   // 分类色条：金额未知的类别不占宽度；图例最多 4 行，其余合并（规范 4.6）。
   const cats = (p?.categories ?? []).filter(c => c.count > 0);
   const known = cats.reduce((sum, c) => sum + Number(c.known_cents), 0);
   const color = (slot: number | null) => slot === null ? 'var(--series-rest)' : `var(--series-${slot + 1})`;
   const legend = cats.length > 4 ? [...cats.slice(0, 3), { id: 'rest', name: `其他 ${cats.length - 3} 类`, slot: null, count: 0, known_cents: String(cats.slice(3).reduce((s, c) => s + Number(c.known_cents), 0)), unknown_price_count: cats.slice(3).reduce((s, c) => s + c.unknown_price_count, 0) }] : cats;
   const metrics = [
-    modules.expenses && e && { label: `${year ?? '全部期间'}${year === null ? '' : ' 年'}重要支出`, value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? `${e.unknown_amount_count} 笔金额未知` : '', page: 'expenses' as ReviewPage },
-    modules.recurring && r && { label: '固定负担', value: <>{money(r.monthly_cents)}<small>/月</small></>, note: '当前计划', page: 'recurring' as ReviewPage },
+    modules.expenses && e && { label: `${year ?? '全部期间'}${year === null ? '' : ' 年'}重要支出`, value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? `${e.unknown_amount_count} 笔金额未知` : '', page: 'expenses' as ReviewPage, big: true },
+    modules.recurring && r && { label: '固定负担', value: <>{money(r.monthly_cents)}<small>/月</small></>, note: '当前计划', page: 'recurring' as ReviewPage, big: true },
     p && { label: '平均持有', value: p.average_holding_days === null ? '—' : <>{p.average_holding_days.toLocaleString('zh-CN')}<small>天</small></>, note: '', page: 'assets' as ReviewPage },
     modules.wishlist && p && { label: '考虑中心愿', value: <>{p.considering_wishes}<small>条</small></>, note: p.legacy_wishes > 0 ? `另有 ${p.legacy_wishes} 条历史待核实` : '', page: null },
-  ].filter(Boolean) as { label: string; value: ReactNode; note: string; page: ReviewPage | null }[];
+  ].filter(Boolean) as { label: string; value: ReactNode; note: string; page: ReviewPage | null; big?: boolean }[];
   return <section className="review-section u16" aria-label="综合回顾" aria-busy={updating}>
     {updating && <p className="review-sub" role="status">正在更新，暂时显示上次读取的结果…</p>}
     {modules.wealth && lastPoint && !lastPoint.complete && <div className="review-notice">{lastPoint.date} 盘点尚缺 {lastPoint.missing} 个账户 · {latest ? `当前显示 ${latest.date} 的完整盘点` : '尚无完整盘点'} {link('wealth')}</div>}
@@ -74,21 +118,25 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
       <div><h3>从这里开始</h3><p>物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。</p></div>
       <div className="review-start-actions"><button className="primary" onClick={() => onNavigate('assets')}>记录第一件物品</button>{modules.wealth && <button onClick={() => onNavigate('wealth')}>建立账户并盘点</button>}</div>
     </article>}
-    <div className={'review-heroes' + (modules.wealth ? '' : ' single')}>
-      {modules.wealth && <article className="ui-card ui-hero tint-1">
-        <div className="ui-label">金融净资产{latest && <Info text={`只统计计入范围的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
-        {failure(data.wealth)}
-        {w && <>
-          <div className="ui-big">{latest ? signedMoney(latest.net_cents) : '—'}</div>
-          {latest ? <>
-            <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天</p>
-            <p className={'ui-sub' + tone(latest.change_cents)}>{latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
-            <p className="ui-sub">资产 {money(latest.assets_cents)} · 负债 {money(latest.liabilities_cents)}</p>
-            <Sparkline points={w.points}/>
-          </> : <p className="ui-sub">{w.points.length ? '—／尚无完整盘点：现有盘点均不完整，补全后显示净资产。' : '添加账户并完成盘点后，这里会显示金融净资产。'}</p>}
-        </>}
-        <div className="ui-hero-foot">{link('wealth')}</div>
-      </article>}
+    {modules.wealth && <section className="review-nw" aria-label="金融净资产">
+      <div className="ui-label">金融净资产{latest && <Info text={`只统计计入范围的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
+      {failure(data.wealth)}
+      {w && <>
+        <div className="review-nw-big">{latest ? signedMoney(latest.net_cents) : '—'}</div>
+        {latest ? <>
+          <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天</p>
+          <p className={'ui-sub' + tone(latest.change_cents)}>{latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
+          <p className="ui-sub">资产 {money(latest.assets_cents)} · 负债 {money(latest.liabilities_cents)}</p>
+          <Sparkline hero points={rangePoints(w.points, activeRange, data.today)}/>
+          <div className="review-nw-bar">
+            {rangeUsable(w.points, 'all', data.today) ? <div className="ui-seg" role="group" aria-label="曲线时间范围">{trendRanges.map(([k, label]) => { const usable = rangeUsable(w.points, k, data.today); return <button key={k} aria-pressed={activeRange === k} disabled={!usable} title={usable ? undefined : '这个范围内完整盘点不足两次'} onClick={() => setRange(k)}>{label}</button>; })}</div> : <span/>}
+            {link('wealth')}
+          </div>
+        </> : <p className="ui-sub">{w.points.length ? '—／尚无完整盘点：现有盘点均不完整，补全后显示净资产。' : '添加账户并完成盘点后，这里会显示金融净资产。'}</p>}
+      </>}
+    </section>}
+    <div className={'review-heroes' + (modules.wealth && w?.structure_date ? '' : ' single')}>
+      {modules.wealth && w?.structure_date && <StructureCard summary={w}/>}
       <article className="ui-card ui-hero tint-2">
         <div className="ui-label">持有物品<Info text={`截至 ${data.today} 的持有物购入金额，包含使用中与已退役物品；不是当前估值，不与金融净资产相加。`}/></div>
         {failure(data.physical)}
@@ -106,8 +154,8 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
         <div className="ui-hero-foot">{link('assets')}</div>
       </article>
     </div>
-    {metrics.length > 0 && <div className="ui-card ui-metrics review-metrics" style={{ '--n': metrics.length } as CSSProperties} aria-label="辅助指标">
-      {metrics.map(m => <div key={m.label}><span className="ui-label">{m.label}</span><span className="ui-value">{m.value}</span>{m.note && <span className="ui-note">{m.note}</span>}</div>)}
+    {metrics.length > 0 && <div className="ui-metrics review-metrics" style={{ '--n': metrics.length } as CSSProperties} aria-label="辅助指标">
+      {metrics.map(m => <div key={m.label} className={m.big ? 'big' : undefined}><span className="ui-label">{m.label}</span><span className="ui-value">{m.value}</span>{m.note && <span className="ui-note">{m.note}</span>}</div>)}
     </div>}
     <div className="review-lists">
       <article className="ui-card">
