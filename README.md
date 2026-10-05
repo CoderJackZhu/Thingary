@@ -1,6 +1,10 @@
-# 物谱 · Thingary
+<p align="center">
+  <img src="src-tauri/icons/icon.png" alt="物谱应用图标：谱线与记录点" width="112" height="112">
+</p>
 
-**记录你的物品，回顾你的净资产。**
+<h1 align="center">物谱 · Thingary</h1>
+
+<p align="center"><strong>记录你的物品，回顾你的净资产。</strong></p>
 
 物谱是一个本地使用的 macOS 应用。为值得留档的物品建立档案，每隔一段时间核对账户余额，看看物品、花费和金融净资产如何随时间变化。无需注册账号，也无需编程或联网使用。
 
