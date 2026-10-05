@@ -179,6 +179,8 @@ if (params.get('preset-label')) sessionStorage.setItem('thingary.preset-label.v1
 if (params.has('enter-tag') || params.has('preset-label')) document.getElementById('visual-preview-label')?.remove();
 // U18 截图入口：?open-wish=<心愿ID> 走真实来源跳转打开详情；?recurring-tab=payments 直达付款记录视图。
 if (params.get('open-wish')) sessionStorage.setItem('thingary.open-wish.v1', params.get('open-wish')!);
+// U22 截图入口：?open-virtual=new 打开新增对话框；?open-virtual=<虚拟资产ID> 打开编辑。
+if (params.get('open-virtual')) sessionStorage.setItem('thingary.open-virtual.v1', params.get('open-virtual')!);
 if (params.get('recurring-tab')) sessionStorage.setItem('thingary.recurring-tab.v1', params.get('recurring-tab')!);
 if (params.get('scroll-to')) sessionStorage.setItem('thingary.scroll-to.v1', params.get('scroll-to')!);
 if (params.get('category-menu')) sessionStorage.setItem('thingary.category-menu.v1', params.get('category-menu')!);

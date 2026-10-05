@@ -96,6 +96,9 @@ fn plan(s: &mut Store, name: &str, first: &str) -> Plan {
             id: None,
             expected_revision: None,
             fields: PlanFields {
+                auto_renew: true,
+                interval_days: None,
+                trial_days: None,
                 service_start: None,
                 coverage_start: None,
                 name: name.into(),
@@ -133,6 +136,14 @@ fn pay(s: &mut Store, plan_id: &str, due: &str) -> String {
 }
 fn virtual_fields(name: &str, plan_id: Option<&str>) -> virtual_assets::Fields {
     virtual_assets::Fields {
+        billing: if plan_id.is_some() {
+            "subscription".into()
+        } else {
+            "single".into()
+        },
+        label_id: None,
+        pay_method: None,
+        perpetual: None,
         name: name.into(),
         // A plan-linked entitlement must be a recurring kind, never a buyout.
         kind: if plan_id.is_some() {
@@ -155,6 +166,10 @@ fn virtual_fields(name: &str, plan_id: Option<&str>) -> virtual_assets::Fields {
 fn virtual_save(s: &mut Store, fields: virtual_assets::Fields) -> virtual_assets::VirtualAsset {
     s.virtual_save(
         &virtual_assets::Save {
+            renewal_price_cents: None,
+            renewal_from: None,
+            special_end: None,
+            first_topup: None,
             plan: None,
             request_id: rid(),
             generation: s.generation(),
@@ -494,6 +509,7 @@ fn timeline_view_partitions_domains_and_carries_targets() {
     for e in all.dated.iter().chain(all.undated.iter()) {
         assert!(!e.domain.is_empty(), "event {} lacks a domain", e.id);
         match &e.target {
+            Target::Topup { .. } => {}
             Target::Asset { id } => assert_eq!(id, &m.asset_id),
             Target::Wish { id } => assert_eq!(id, &m.wish_id),
             Target::Snapshot { id } => assert_eq!(id, &m.snapshot_id),

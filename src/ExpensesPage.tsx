@@ -3,7 +3,7 @@ import { sortRecords, moneySortValue, type ListSort } from './list-sort';
 import { HeaderSlot } from './HeaderSlot';
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
-import type { SourceProps } from './source';
+import type { SourceProps, SourceTarget } from './source';
 import { usePageBar } from './topbar';
 import { refocusHeading } from './topbar-model';
 import { useEffect, useRef, useState } from 'react';
@@ -20,7 +20,7 @@ import type { Expense, ExpenseFields, ExpenseSave, ExpenseView, Line } from './e
 import './wealth.css';
 import { useRestored } from './undo';
 
-export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSourceDone, initialYear, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { initialYear?: number | null; onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
+export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange, source, onSourceDone, initialYear, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { initialYear?: number | null; onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void; onOpenSource: (target: SourceTarget) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const thisYear = Number(today.slice(0, 4));
   const [year, setYear] = useState<number | null>(initialYear === undefined ? thisYear : initialYear);
   const [view, setView] = useState<ExpenseView | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
@@ -38,6 +38,9 @@ export function ExpensesPage({ today, onOpenAsset, onEditingChange, source, onSo
     if (line.source === 'expense' || line.source === 'linked' || line.source === 'refund') {
       try { const e = await invoke<Expense | null>('expense', { id: line.id }); if (e) setEditing(e); else reload(); }
       catch (e) { setError(errorMessage(e)); }
+    } else if (line.source === 'topup' && line.asset_id) {
+      // 充值来源定位到父档案＋对应充值事实（设计 §9）。
+      onOpenSource({ kind: 'topup', id: line.id, asset_id: line.asset_id });
     } else if (line.asset_id) onOpenAsset(line.asset_id);
   }
   const sourceError = useSource({source,onSourceDone}, view?.generation, async (target, alive) => {

@@ -2,7 +2,7 @@ import { errorMessage, inputMoney, yuan, type AssetRecord, type Photo, type Sele
 
 export const maintenanceKinds = [
   ["repair", "维修"], ["service", "保养"], ["cleaning", "清洁"],
-  ["replacement", "换件"], ["upgrade", "升级"], ["other", "其他"],
+  ["replacement", "换件"], ["upgrade", "升级"], ["accessory", "配件"], ["other", "其他"],
 ] as const;
 export type MaintenanceKind = typeof maintenanceKinds[number][0];
 export interface MaintenanceFields { date: string | null; kind: MaintenanceKind; title: string; description: string; cost_cents: string | null; provider: string }

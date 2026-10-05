@@ -10,7 +10,14 @@ pub struct Entry {
     pub id: String,
     pub name: String,
     pub enabled: bool,
+    /// References in the physical domain (item preferences, including trashed).
     pub references: i64,
+    /// Label scope: `physical`, `virtual` or `both`; `None` for other kinds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scope: Option<String>,
+    /// References in the virtual domain (including trashed rows).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub virtual_references: Option<i64>,
 }
 #[derive(Serialize, Deserialize)]
 pub struct Snapshot {
@@ -22,6 +29,9 @@ pub struct Snapshot {
 pub enum Action {
     Create {
         name: String,
+        /// Label only: scope of a newly created label; defaults to `physical`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        scope: Option<String>,
     },
     Enable {
         id: String,
@@ -37,7 +47,18 @@ pub enum Action {
     Remove {
         id: String,
         replacement: Option<String>,
+        /// Physical references (including trashed rows) at read time.
         expected_references: i64,
+        /// Virtual references at read time; part of the same confirmation
+        /// (review R9).
+        #[serde(default)]
+        expected_virtual_references: i64,
+    },
+    /// Label only: which domains may pick this label (design §2). Narrowing is
+    /// refused while the other domain still references it.
+    Scope {
+        id: String,
+        scope: String,
     },
 }
 #[derive(Serialize, Deserialize)]
@@ -69,15 +90,39 @@ impl Store {
                     name: r.get(1)?,
                     enabled: r.get(2)?,
                     references: 0,
+                    scope: None,
+                    virtual_references: None,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         for item in &mut items {
-            item.references = match kind {
-                "label" => c.query_row("SELECT count(*) FROM asset_preferences WHERE json_extract(payload,'$.label_id')=?1", [&item.id], |r| r.get(0))?,
-                "sale_channel" => c.query_row("SELECT count(*) FROM sales WHERE platform=?1 AND revoked_at IS NULL", [&item.name], |r| r.get(0))?,
-                _ => 0,
-            };
+            match kind {
+                "label" => {
+                    item.references = c.query_row("SELECT count(*) FROM asset_preferences WHERE json_extract(payload,'$.label_id')=?1", [&item.id], |r| r.get(0))?;
+                    item.virtual_references = Some(c.query_row(
+                        "SELECT count(*) FROM virtual_assets WHERE label_id=?1",
+                        [&item.id],
+                        |r| r.get(0),
+                    )?);
+                    item.scope = Some(
+                        c.query_row(
+                            "SELECT scope FROM label_scopes WHERE label_id=?1",
+                            [&item.id],
+                            |r| r.get(0),
+                        )
+                        .optional()?
+                        .unwrap_or_else(|| "physical".into()),
+                    );
+                }
+                "sale_channel" => {
+                    item.references = c.query_row(
+                        "SELECT count(*) FROM sales WHERE platform=?1 AND revoked_at IS NULL",
+                        [&item.name],
+                        |r| r.get(0),
+                    )?;
+                }
+                _ => {}
+            }
         }
         Ok(Snapshot {
             revision: c.query_row("SELECT revision FROM taxonomy_state WHERE id=1", [], |r| {
@@ -111,7 +156,7 @@ impl Store {
             return Err(Error::new("TAXONOMY_STALE", "选项已变化，请重新读取"));
         }
         match &input.action {
-            Action::Create { name } => {
+            Action::Create { name, scope } => {
                 let name = crate::taxonomy::canonical_name(crate::taxonomy::Kind::Channel, name)?;
                 if ["全部", "未设置", "未选择"].contains(&name.as_str())
                     || (input.kind == "label"
@@ -144,6 +189,16 @@ impl Store {
                             "INSERT INTO named_choices VALUES(?1,?2,?3,?4,?5,1)",
                             params![id, input.kind, name, key, position],
                         )?;
+                        if input.kind == "label" {
+                            let scope = scope.as_deref().unwrap_or("physical");
+                            if !["physical", "virtual", "both"].contains(&scope) {
+                                return Err(Error::new("CHOICE_SCOPE", "标签适用范围无效"));
+                            }
+                            tx.execute(
+                                "INSERT INTO label_scopes(label_id,scope) VALUES(?1,?2)",
+                                params![id, scope],
+                            )?;
+                        }
                     }
                 }
             }
@@ -182,6 +237,7 @@ impl Store {
                 id,
                 replacement,
                 expected_references,
+                expected_virtual_references,
             } => {
                 if t.is_some() {
                     return Err(Error::new("CHOICE", "分类与购买渠道请使用对应的管理入口"));
@@ -191,7 +247,11 @@ impl Store {
                     .iter()
                     .find(|e| &e.id == id)
                     .ok_or_else(|| Error::new("CHOICE", "选项已不存在"))?;
-                if old.references != *expected_references {
+                // Both domains are confirmed together; a stale request that
+                // missed new references of either side is rejected (R9).
+                if old.references != *expected_references
+                    || old.virtual_references.unwrap_or(0) != *expected_virtual_references
+                {
                     return Err(Error::new(
                         "CHOICE_REFERENCES",
                         "关联数量已变化，请重新查看后删除",
@@ -207,11 +267,34 @@ impl Store {
                             .ok_or_else(|| Error::new("CHOICE", "替换选项已不可用，请重新选择"))
                     })
                     .transpose()?;
+                // 迁移目标必须兼容每一个仍有引用的领域（review R9）：跨域
+                // 引用不能迁到单域标签。
+                if let Some(target) = target {
+                    let scope = target.scope.as_deref().unwrap_or("physical");
+                    if old.references > 0 && !matches!(scope, "physical" | "both") {
+                        return Err(Error::new(
+                            "CHOICE_SCOPE",
+                            "替换标签的适用范围不包含实物引用，请选择通用标签或清空",
+                        ));
+                    }
+                    if old.virtual_references.unwrap_or(0) > 0
+                        && !matches!(scope, "virtual" | "both")
+                    {
+                        return Err(Error::new(
+                            "CHOICE_SCOPE",
+                            "替换标签的适用范围不包含虚拟引用，请选择通用标签或清空",
+                        ));
+                    }
+                }
                 if input.kind == "label" {
                     let now = chrono::Utc::now().to_rfc3339();
                     tx.execute("UPDATE assets SET revision=revision+1 WHERE id IN (SELECT asset_id FROM asset_preferences WHERE json_extract(payload,'$.label_id')=?1)", [id])?;
                     tx.execute("UPDATE asset_profiles SET updated_at=?2 WHERE asset_id IN (SELECT asset_id FROM asset_preferences WHERE json_extract(payload,'$.label_id')=?1)", params![id,now])?;
                     tx.execute("UPDATE asset_preferences SET payload=json_set(payload,'$.label_id',?2) WHERE json_extract(payload,'$.label_id')=?1",params![id,replacement])?;
+                    // Both domains migrate together in this transaction; the
+                    // virtual references counted above included trashed rows.
+                    tx.execute("UPDATE virtual_assets SET label_id=?2,revision=revision+1,updated_at=?3 WHERE label_id=?1", params![id, replacement, now])?;
+                    tx.execute("DELETE FROM label_scopes WHERE label_id=?1", [id])?;
                 } else {
                     self.rewrite_choice_sales(
                         &tx,
@@ -246,6 +329,38 @@ impl Store {
                         params![enabled, id, input.kind],
                     )?;
                 }
+            }
+            Action::Scope { id, scope } => {
+                if input.kind != "label" {
+                    return Err(Error::new("CHOICE", "只有标签有适用范围"));
+                }
+                let entry = current
+                    .items
+                    .iter()
+                    .find(|e| &e.id == id)
+                    .ok_or_else(|| Error::new("CHOICE", "选项已不存在"))?;
+                if !["physical", "virtual", "both"].contains(&scope.as_str()) {
+                    return Err(Error::new("CHOICE_SCOPE", "标签适用范围无效"));
+                }
+                if scope != "both" {
+                    // Narrowing needs the other domain's references gone first;
+                    // counts include rows in Recently Deleted.
+                    let blocked = if scope == "physical" {
+                        entry.virtual_references.unwrap_or(0)
+                    } else {
+                        entry.references
+                    };
+                    if blocked > 0 {
+                        return Err(Error::new(
+                            "CHOICE_SCOPE",
+                            "此标签在另一领域仍有引用；请先迁移或清空那些引用，再收窄适用范围",
+                        ));
+                    }
+                }
+                tx.execute(
+                    "INSERT INTO label_scopes(label_id,scope) VALUES(?1,?2) ON CONFLICT(label_id) DO UPDATE SET scope=excluded.scope",
+                    params![id, scope],
+                )?;
             }
             Action::Reorder { ids } => {
                 if ids.len() != current.items.len()

@@ -27,18 +27,23 @@ pub struct Plan {
 impl Store {
     pub fn reminder_plans(&self) -> Result<Vec<Plan>> {
         let c = self.conn()?;
-        let sql="SELECT r.id,r.date,a.name,r.notes,'保障到期提醒' FROM reminders r JOIN assets a ON a.id=r.entity_id JOIN warranties w ON w.id=r.source_id AND w.asset_id=a.id WHERE r.kind='warranty' AND a.deleted_at IS NULL AND w.deleted_at IS NULL AND r.date<=w.end_date UNION ALL SELECT r.id,r.date,w.name,r.notes,'心愿到期提醒' FROM reminders r JOIN wishlist_items w ON w.id=r.entity_id WHERE r.kind='wishlist' AND ?1 AND w.status='ongoing' AND w.deleted_at IS NULL ORDER BY 1";
+        let modules = crate::modules::read(&self.root);
+        let sql="SELECT r.id,r.date,a.name,r.notes,'保障到期提醒' FROM reminders r JOIN assets a ON a.id=r.entity_id JOIN warranties w ON w.id=r.source_id AND w.asset_id=a.id WHERE r.kind='warranty' AND a.deleted_at IS NULL AND w.deleted_at IS NULL AND r.date<=w.end_date UNION ALL SELECT r.id,r.date,w.name,r.notes,'心愿到期提醒' FROM reminders r JOIN wishlist_items w ON w.id=r.entity_id WHERE r.kind='wishlist' AND ?1 AND w.status='ongoing' AND w.deleted_at IS NULL UNION ALL SELECT r.id,r.date,v.name,r.notes,'订阅续期提醒' FROM reminders r JOIN virtual_assets v ON v.id=r.entity_id WHERE r.kind='renewal' AND ?2 AND v.deleted_at IS NULL AND v.stopped_on IS NULL AND COALESCE((SELECT p.end_date FROM recurring_plans p WHERE p.id=v.plan_id AND p.deleted_at IS NULL),v.expires,'9999-12-31') >= r.date ORDER BY 1";
         let plans = c
             .prepare(sql)?
-            // A switched-off wishlist pauses its reminders; warranties always stay.
-            .query_map([crate::modules::read(&self.root).wishlist], |r| {
-                Ok(Plan {
-                    id: format!("thingary-{}", r.get::<_, String>(0)?),
-                    date: r.get(1)?,
-                    title: format!("{} · {}", r.get::<_, String>(4)?, r.get::<_, String>(2)?),
-                    body: r.get(3)?,
-                })
-            })?
+            // A switched-off wishlist or virtual module pauses its reminders;
+            // warranties always stay.
+            .query_map(
+                rusqlite::params![modules.wishlist, modules.virtual_assets],
+                |r| {
+                    Ok(Plan {
+                        id: format!("thingary-{}", r.get::<_, String>(0)?),
+                        date: r.get(1)?,
+                        title: format!("{} · {}", r.get::<_, String>(4)?, r.get::<_, String>(2)?),
+                        body: r.get(3)?,
+                    })
+                },
+            )?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         Ok(plans)
     }

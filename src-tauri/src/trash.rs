@@ -429,6 +429,24 @@ impl Store {
             entries.extend(query_entries(c, "SELECT id,title,category,date,deleted_at,revision FROM expenses WHERE deleted_at IS NOT NULL", wealth("expense"))?);
             entries.extend(query_entries(c, "SELECT id,name,category,NULL,deleted_at,revision FROM recurring_plans WHERE deleted_at IS NOT NULL", wealth("plan"))?);
             entries.extend(query_entries(c, "SELECT id,name,kind,purchase_date,deleted_at,revision FROM virtual_assets WHERE deleted_at IS NOT NULL", wealth("virtual"))?);
+            // Independently deleted topups and balance check-ins; a topup hidden
+            // by its deleted account is not a row (its parent restores it).
+            let mut topups = query_entries(c, "SELECT t.id,v.name,NULL,t.topup_date,t.deleted_at,t.revision,v.id,v.name,v.deleted_at IS NOT NULL FROM virtual_topups t JOIN virtual_assets v ON v.id=t.asset_id WHERE t.deleted_at IS NOT NULL", |r| {
+                let mut e = wealth("topup")(r)?;
+                e.asset_id = Some(r.get(6)?);
+                e.asset_name = Some(r.get(7)?);
+                e.asset_deleted = r.get(8)?;
+                Ok(e)
+            })?;
+            entries.append(&mut topups);
+            let mut balances = query_entries(c, "SELECT b.id,v.name,NULL,b.recorded_on,b.deleted_at,b.revision,v.id,v.name,v.deleted_at IS NOT NULL FROM virtual_balances b JOIN virtual_assets v ON v.id=b.asset_id WHERE b.deleted_at IS NOT NULL", |r| {
+                let mut e = wealth("balance")(r)?;
+                e.asset_id = Some(r.get(6)?);
+                e.asset_name = Some(r.get(7)?);
+                e.asset_deleted = r.get(8)?;
+                Ok(e)
+            })?;
+            entries.append(&mut balances);
             // Only independently deleted payments are rows; a payment hidden by its
             // deleted plan is not (section 5). `asset_deleted` marks that plan.
             let mut paid = query_entries(c, "SELECT p.id,r.name,p.state,p.due_date,p.deleted_at,p.revision,p.amount_cents,r.deleted_at IS NOT NULL FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id WHERE p.deleted_at IS NOT NULL", |r| {
@@ -536,6 +554,16 @@ fn contents(c: &Connection, kind: &str, id: &str) -> Result<Vec<Content>> {
             "payment",
             "SELECT count(*) FROM plan_payments WHERE plan_id=?1 AND deleted_at IS NULL",
         )],
+        "virtual" => &[
+            (
+                "topup",
+                "SELECT count(*) FROM virtual_topups WHERE asset_id=?1 AND deleted_at IS NULL",
+            ),
+            (
+                "balance",
+                "SELECT count(*) FROM virtual_balances WHERE asset_id=?1 AND deleted_at IS NULL",
+            ),
+        ],
         "snapshot" => &[(
             "entry",
             "SELECT count(*) FROM fin_snapshot_entries WHERE snapshot_id=?1",
@@ -582,6 +610,8 @@ fn kind_label(kind: &str) -> String {
         "plan" => "周期计划",
         "payment" => "周期付款",
         "virtual" => "虚拟资产",
+        "topup" => "充值",
+        "balance" => "余额记录",
         other => other,
     }
     .to_string()

@@ -56,7 +56,14 @@ fn create(s: &mut Store, label: Option<String>, platform: Option<&str>) -> Asset
     .unwrap()
 }
 fn add_label(s: &mut Store, name: &str) -> String {
-    let input = change(s, "label", Action::Create { name: name.into() });
+    let input = change(
+        s,
+        "label",
+        Action::Create {
+            name: name.into(),
+            scope: None,
+        },
+    );
     s.change_choices(&input)
         .unwrap()
         .items
@@ -170,6 +177,7 @@ fn label_removal_replaces_and_clears_including_trash_with_stale_count_guard() {
             id: from.clone(),
             replacement: Some(to.clone()),
             expected_references: 1,
+            expected_virtual_references: 0,
         },
     );
     assert!(s.change_choices(&invalid).is_err());
@@ -193,6 +201,7 @@ fn label_removal_replaces_and_clears_including_trash_with_stale_count_guard() {
             id: from.clone(),
             replacement: Some(to.clone()),
             expected_references: 2,
+            expected_virtual_references: 0,
         },
     );
     s.change_choices(&remove).unwrap();
@@ -210,6 +219,7 @@ fn label_removal_replaces_and_clears_including_trash_with_stale_count_guard() {
             id: to,
             replacement: None,
             expected_references: 2,
+            expected_virtual_references: 0,
         },
     );
     s.change_choices(&clear).unwrap();
@@ -262,6 +272,7 @@ fn channel_delete_replacement_clear_and_revoked_history_are_valid() {
             id: from.id.clone(),
             replacement: Some(to.id.clone()),
             expected_references: 1,
+            expected_virtual_references: 0,
         },
     );
     s.change_choices(&remove).unwrap();
@@ -282,6 +293,7 @@ fn channel_delete_replacement_clear_and_revoked_history_are_valid() {
             id: to.id.clone(),
             replacement: None,
             expected_references: 1,
+            expected_virtual_references: 0,
         },
     );
     s.change_choices(&clear).unwrap();
@@ -325,6 +337,7 @@ fn rejects_duplicate_reserved_cross_kind_self_target_stale_revision_and_generati
                 id: a.clone(),
                 replacement: Some(target),
                 expected_references: 0,
+                expected_virtual_references: 0,
             },
         );
         assert!(s.change_choices(&i).is_err());
@@ -345,6 +358,7 @@ fn rejects_duplicate_reserved_cross_kind_self_target_stale_revision_and_generati
             id: a.clone(),
             replacement: Some(b),
             expected_references: 0,
+            expected_virtual_references: 0,
         },
     );
     assert!(s.change_choices(&i).is_err());

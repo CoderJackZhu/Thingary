@@ -231,6 +231,9 @@ fn import_plans(s: &mut Store, data: Vec<Plan>, now: NaiveDate, today: &str) -> 
                 id: None,
                 expected_revision: None,
                 fields: crate::recurring::PlanFields {
+                    auto_renew: true,
+                    interval_days: None,
+                    trial_days: None,
                     service_start: None,
                     coverage_start: None,
                     name: p.name,
@@ -307,8 +310,20 @@ pub(crate) fn import_virtual(s: &mut Store, today: &str) -> Result<()> {
                 generation: s.generation(),
                 id: None,
                 expected_revision: None,
+                renewal_price_cents: None,
+                renewal_from: None,
+                special_end: None,
+                first_topup: None,
                 fields: crate::virtual_assets::Fields {
                     name: v.name,
+                    billing: if plan_id.is_some() {
+                        "subscription".into()
+                    } else {
+                        "single".into()
+                    },
+                    label_id: None,
+                    pay_method: None,
+                    perpetual: None,
                     kind: v.kind,
                     provider: v.provider,
                     purchase_date: v.purchase_days_ago.map(|d| before(now, d)),

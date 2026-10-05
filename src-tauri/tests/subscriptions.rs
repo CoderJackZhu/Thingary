@@ -10,6 +10,9 @@ fn id() -> String {
 }
 fn fields() -> PlanFields {
     PlanFields {
+        auto_renew: true,
+        interval_days: None,
+        trial_days: None,
         name: "虚构 GPT".into(),
         category: "subscription".into(),
         amount_cents: "14000".into(),
@@ -24,6 +27,10 @@ fn fields() -> PlanFields {
 }
 fn sub(s: &Store) -> Save {
     Save {
+        renewal_price_cents: None,
+        renewal_from: None,
+        special_end: None,
+        first_topup: None,
         request_id: id(),
         generation: s.generation(),
         id: None,
@@ -34,6 +41,10 @@ fn sub(s: &Store) -> Save {
             fields: fields(),
         }),
         fields: Fields {
+            billing: "subscription".into(),
+            label_id: None,
+            pay_method: None,
+            perpetual: None,
             name: "虚构 GPT".into(),
             kind: "subscription".into(),
             provider: String::new(),
@@ -360,6 +371,10 @@ fn virtual_and_plan_revision_conflicts_roll_back_the_entire_edit() {
     )
     .unwrap();
     let mut q = Save {
+        renewal_price_cents: None,
+        renewal_from: None,
+        special_end: None,
+        first_topup: None,
         request_id: id(),
         generation: s.generation(),
         id: Some(v.id.clone()),

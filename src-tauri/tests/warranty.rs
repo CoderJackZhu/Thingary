@@ -757,7 +757,7 @@ fn schema_ten_upgrade_preserves_data_and_rolls_back_atomically() {
     );
     let db = rusqlite::Connection::open(dataset.join("data.sqlite")).unwrap();
     db.execute_batch(
-        "DROP TABLE plan_rates; DROP TABLE virtual_assets; DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
+        "DROP TABLE plan_rules; DROP TABLE label_scopes; DROP TABLE plan_period_ends; DROP TABLE virtual_topups; DROP TABLE virtual_balances; DROP TABLE plan_rates; DROP TABLE virtual_assets; DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
     )
     .unwrap();
     drop(db);
@@ -835,9 +835,23 @@ fn legacy_schema_nine_backup_restores_and_migrates() {
         drop(s);
         let db = rusqlite::Connection::open(dataset(root.path()).join("data.sqlite")).unwrap();
         db.execute_batch(
-            "DROP TABLE plan_rates; DROP TABLE virtual_assets; DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
+            "DROP TABLE plan_rules; DROP TABLE label_scopes; DROP TABLE plan_period_ends; DROP TABLE virtual_topups; DROP TABLE virtual_balances; DROP TABLE plan_rates; DROP TABLE virtual_assets; DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; DROP TABLE reminders; DROP TABLE feature_audit; DROP TABLE feature_requests; DROP TABLE wishlist_preferences; DROP TABLE asset_preferences; DROP TABLE disabled_choices; DROP TABLE named_choices; DROP TABLE wishlist_audit; DROP TABLE wishlist_media; DROP TABLE wishlist_attachments; DROP TABLE wishlist_items; DROP TRIGGER warranty_dates_update; DROP TRIGGER warranty_dates_insert; DROP TABLE warranty_audit; DROP TABLE warranty_photos; DROP TABLE warranties; PRAGMA user_version=9;",
         )
         .unwrap();
+        // A version number alone does not reconstruct a legacy backup: schema25
+        // widened the maintenance CHECK. Recreate the authentic schema9 table
+        // and guards here; child tables are empty in this fixture.
+        db.execute_batch("DROP TRIGGER maintenance_dates_insert;
+DROP TRIGGER maintenance_dates_update;
+DROP TRIGGER asset_purchase_after_maintenance_insert;
+DROP TRIGGER asset_purchase_after_maintenance_update;
+DROP TABLE maintenances;
+CREATE TABLE maintenances(id TEXT PRIMARY KEY,asset_id TEXT NOT NULL REFERENCES assets(id),date TEXT,kind TEXT NOT NULL CHECK(kind IN ('repair','service','cleaning','replacement','upgrade','other')),title TEXT NOT NULL,description TEXT NOT NULL,cost_cents INTEGER CHECK(cost_cents BETWEEN 0 AND 99999999999),provider TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deleted_at TEXT);
+CREATE INDEX maintenances_asset ON maintenances(asset_id,date);
+CREATE TRIGGER maintenance_dates_insert BEFORE INSERT ON maintenances WHEN NEW.deleted_at IS NULL AND NEW.date IS NOT NULL BEGIN SELECT RAISE(ABORT,'maintenance before purchase') FROM assets WHERE id=NEW.asset_id AND purchase_date IS NOT NULL AND NEW.date<purchase_date; SELECT RAISE(ABORT,'maintenance after sale') FROM sales WHERE asset_id=NEW.asset_id AND revoked_at IS NULL AND NEW.date>date; END;
+CREATE TRIGGER maintenance_dates_update BEFORE UPDATE OF asset_id,date,deleted_at ON maintenances WHEN NEW.deleted_at IS NULL AND NEW.date IS NOT NULL BEGIN SELECT RAISE(ABORT,'maintenance before purchase') FROM assets WHERE id=NEW.asset_id AND purchase_date IS NOT NULL AND NEW.date<purchase_date; SELECT RAISE(ABORT,'maintenance after sale') FROM sales WHERE asset_id=NEW.asset_id AND revoked_at IS NULL AND NEW.date>date; END;
+CREATE TRIGGER asset_purchase_after_maintenance_insert BEFORE INSERT ON assets WHEN NEW.purchase_date IS NOT NULL BEGIN SELECT RAISE(ABORT,'purchase after maintenance') FROM maintenances WHERE asset_id=NEW.id AND deleted_at IS NULL AND date IS NOT NULL AND date<NEW.purchase_date LIMIT 1; END;
+CREATE TRIGGER asset_purchase_after_maintenance_update BEFORE UPDATE OF purchase_date ON assets WHEN NEW.purchase_date IS NOT NULL BEGIN SELECT RAISE(ABORT,'purchase after maintenance') FROM maintenances WHERE asset_id=NEW.id AND deleted_at IS NULL AND date IS NOT NULL AND date<NEW.purchase_date LIMIT 1; END;" ).unwrap();
         drop(db);
         let bytes = std::fs::read(dataset(root.path()).join("data.sqlite")).unwrap();
         let staged = root.path().join("legacy-v9");

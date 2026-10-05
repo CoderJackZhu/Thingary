@@ -209,8 +209,9 @@ fn purge_one(
             tx,
             id,
             &[
-                // A purged plan leaves its virtual asset unlinked (ADR-001 §21.3).
-                "UPDATE virtual_assets SET plan_id=NULL WHERE plan_id=?1",
+                // A purged plan leaves its virtual asset unlinked (ADR-001 §21.3);
+                // without a plan the billing mode reads as a one-time spend again.
+                "UPDATE virtual_assets SET plan_id=NULL,billing='single' WHERE plan_id=?1",
                 "DELETE FROM plan_payments WHERE plan_id=?1",
                 "DELETE FROM recurring_plans WHERE id=?1",
             ],
@@ -218,7 +219,17 @@ fn purge_one(
         "account" => run(tx, id, &["DELETE FROM fin_accounts WHERE id=?1"])?,
         "expense" => run(tx, id, &["DELETE FROM expenses WHERE id=?1"])?,
         "payment" => run(tx, id, &["DELETE FROM plan_payments WHERE id=?1"])?,
-        "virtual" => run(tx, id, &["DELETE FROM virtual_assets WHERE id=?1"])?,
+        "virtual" => run(
+            tx,
+            id,
+            &[
+                // Facts die with their account, so do their reminders.
+                "DELETE FROM reminders WHERE kind='renewal' AND entity_id=?1",
+                "DELETE FROM virtual_topups WHERE asset_id=?1",
+                "DELETE FROM virtual_balances WHERE asset_id=?1",
+                "DELETE FROM virtual_assets WHERE id=?1",
+            ],
+        )?,
         _ => return Err(Error::new("TRASH_KIND", "不支持的类型")),
     }
     // Saved replies may carry the removed content; a purge leaves no copy.

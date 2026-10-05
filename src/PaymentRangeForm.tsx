@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Plan, PaymentRangeSave } from './recurring';
-import { scheduleDates } from './recurring-model';
+import { planScheduleDates } from './recurring-model';
 import { CentInput, FormRow } from './FormControls';
 import { submit, Unresolved } from './wealth';
 import { errorMessage } from './asset';
@@ -12,7 +12,7 @@ export function PaymentRangeForm({ plan, generation, today, disabled, onBusyChan
     const frame = requestAnimationFrame(() => { detail.current?.scrollIntoView({ block: 'nearest' }); detail.current?.querySelector('select')?.focus({ preventScroll: true }); });
     return () => cancelAnimationFrame(frame);
   }, [initialOpen]);
-  const dates = scheduleDates(plan.fields, plan.fields.service_start ? '1900-01-01' : plan.fields.first_due, today).slice(-600);
+  const dates = planScheduleDates(plan, plan.fields.service_start ? '1900-01-01' : plan.fields.first_due, today).slice(-600);
   const [from, setFrom] = useState(dates[0] ?? ''), [to, setTo] = useState(dates.at(-1) ?? '');
   const [amount, setAmount] = useState(plan.fields.amount_cents), [confirmed, setConfirmed] = useState(false), [saving, setSaving] = useState(false);
   const count = dates.filter(d => d >= from && d <= to).length;

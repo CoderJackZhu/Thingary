@@ -1,0 +1,12 @@
+DROP TRIGGER asset_purchase_after_maintenance_insert;
+DROP TRIGGER asset_purchase_after_maintenance_update;
+CREATE TABLE maintenances_v25(id TEXT PRIMARY KEY,asset_id TEXT NOT NULL REFERENCES assets(id),date TEXT,kind TEXT NOT NULL CHECK(kind IN ('repair','service','cleaning','replacement','upgrade','accessory','other')),title TEXT NOT NULL,description TEXT NOT NULL,cost_cents INTEGER CHECK(cost_cents BETWEEN 0 AND 99999999999),provider TEXT NOT NULL,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deleted_at TEXT);
+INSERT INTO maintenances_v25 SELECT id,asset_id,date,kind,title,description,cost_cents,provider,created_at,updated_at,deleted_at FROM maintenances;
+DROP TABLE maintenances;
+ALTER TABLE maintenances_v25 RENAME TO maintenances;
+CREATE INDEX maintenances_asset ON maintenances(asset_id,date);
+CREATE TRIGGER maintenance_dates_insert BEFORE INSERT ON maintenances WHEN NEW.deleted_at IS NULL AND NEW.date IS NOT NULL BEGIN SELECT RAISE(ABORT,'maintenance before purchase') FROM assets WHERE id=NEW.asset_id AND purchase_date IS NOT NULL AND NEW.date<purchase_date; SELECT RAISE(ABORT,'maintenance after sale') FROM sales WHERE asset_id=NEW.asset_id AND revoked_at IS NULL AND NEW.date>date; END;
+CREATE TRIGGER maintenance_dates_update BEFORE UPDATE OF asset_id,date,deleted_at ON maintenances WHEN NEW.deleted_at IS NULL AND NEW.date IS NOT NULL BEGIN SELECT RAISE(ABORT,'maintenance before purchase') FROM assets WHERE id=NEW.asset_id AND purchase_date IS NOT NULL AND NEW.date<purchase_date; SELECT RAISE(ABORT,'maintenance after sale') FROM sales WHERE asset_id=NEW.asset_id AND revoked_at IS NULL AND NEW.date>date; END;
+CREATE TRIGGER asset_purchase_after_maintenance_insert BEFORE INSERT ON assets WHEN NEW.purchase_date IS NOT NULL BEGIN SELECT RAISE(ABORT,'purchase after maintenance') FROM maintenances WHERE asset_id=NEW.id AND deleted_at IS NULL AND date IS NOT NULL AND date<NEW.purchase_date LIMIT 1; END;
+CREATE TRIGGER asset_purchase_after_maintenance_update BEFORE UPDATE OF purchase_date ON assets WHEN NEW.purchase_date IS NOT NULL BEGIN SELECT RAISE(ABORT,'purchase after maintenance') FROM maintenances WHERE asset_id=NEW.id AND deleted_at IS NULL AND date IS NOT NULL AND date<NEW.purchase_date LIMIT 1; END;
+PRAGMA user_version=25;

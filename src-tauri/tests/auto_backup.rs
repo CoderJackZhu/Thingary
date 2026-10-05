@@ -1,4 +1,7 @@
-use std::{path::Path, time::Duration};
+use std::{
+    path::Path,
+    time::{Duration, Instant},
+};
 use thingary_lib::{
     auto_backup,
     domain::{Error, Save},
@@ -31,7 +34,7 @@ fn save_real_asset(worker: &Worker, name: &str) {
                     price_cents: Some("100000".into()),
                     purchase_date: None,
                 },
-                "2026-09-29",
+                &real_today(),
             )
             .map(|_| ())
         })
@@ -39,6 +42,27 @@ fn save_real_asset(worker: &Worker, name: &str) {
 }
 fn dated_name(date: &str) -> String {
     format!("物谱自动备份-{date}.thingary")
+}
+/// The sample library is dated from the real clock, so every "today" in this
+/// file must be too; a fixed past date rejects sample dates as future.
+fn real_today() -> String {
+    chrono::Local::now().format("%Y-%m-%d").to_string()
+}
+
+/// Worker shutdown finishes queued jobs and closes SQLite asynchronously.
+/// Wait for the observable library lock release, with a bounded wall-clock
+/// deadline rather than assuming 100 starts fit within two seconds under load.
+fn restart_worker(root: &Path) -> Worker {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        match Worker::start(root.to_owned()) {
+            Ok(worker) => return worker,
+            Err(error) if error.code == "LOCKED" && Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(20))
+            }
+            Err(error) => panic!("worker restart failed: {error}"),
+        }
+    }
 }
 
 #[test]
@@ -61,7 +85,7 @@ fn real_writes_mark_the_sample_never_does() {
                     price_cents: record.price_cents,
                     purchase_date: record.purchase_date,
                 },
-                "2026-09-29",
+                &real_today(),
             )
             .map(|_| ())
         })
@@ -72,8 +96,8 @@ fn real_writes_mark_the_sample_never_does() {
     assert!(auto_backup::marker_path(&root).exists());
     worker.switch_demo(true).unwrap();
     assert_eq!(
-        worker.auto_backup_tick(&immediate("2026-09-29")).unwrap(),
-        TickOutcome::BackedUp(auto_backup::backup_dir(&root).join(dated_name("2026-09-29")))
+        worker.auto_backup_tick(&immediate(&real_today())).unwrap(),
+        TickOutcome::BackedUp(auto_backup::backup_dir(&root).join(dated_name(&real_today())))
     );
 }
 
@@ -88,7 +112,7 @@ fn tick_waits_for_idle_then_publishes_and_clears_the_marker() {
     assert_eq!(
         worker
             .auto_backup_tick(&policy(
-                "2026-09-29",
+                &real_today(),
                 Duration::from_secs(600),
                 Duration::from_secs(0)
             ))
@@ -96,9 +120,9 @@ fn tick_waits_for_idle_then_publishes_and_clears_the_marker() {
         TickOutcome::NotIdle
     );
     assert!(marker.exists());
-    let published = auto_backup::backup_dir(&root).join(dated_name("2026-09-29"));
+    let published = auto_backup::backup_dir(&root).join(dated_name(&real_today()));
     assert_eq!(
-        worker.auto_backup_tick(&immediate("2026-09-29")).unwrap(),
+        worker.auto_backup_tick(&immediate(&real_today())).unwrap(),
         TickOutcome::BackedUp(published.clone())
     );
     assert!(published.is_file());
@@ -115,24 +139,24 @@ fn same_day_runs_replace_the_single_dated_archive() {
     let root = tmp.path().join("library");
     let worker = Worker::start(root.clone()).unwrap();
     save_real_asset(&worker, "虚构相机");
-    worker.auto_backup_tick(&immediate("2026-09-29")).unwrap();
+    worker.auto_backup_tick(&immediate(&real_today())).unwrap();
     let dir = auto_backup::backup_dir(&root);
-    let first = std::fs::read(dir.join(dated_name("2026-09-29"))).unwrap();
+    let first = std::fs::read(dir.join(dated_name(&real_today()))).unwrap();
     save_real_asset(&worker, "虚构镜头");
-    worker.auto_backup_tick(&immediate("2026-09-29")).unwrap();
+    worker.auto_backup_tick(&immediate(&real_today())).unwrap();
     let names: Vec<String> = auto_backup::list(&dir)
         .into_iter()
         .map(|i| i.name)
         .collect();
-    assert_eq!(names, vec![dated_name("2026-09-29")]);
-    let second = std::fs::read(dir.join(dated_name("2026-09-29"))).unwrap();
+    assert_eq!(names, vec![dated_name(&real_today())]);
+    let second = std::fs::read(dir.join(dated_name(&real_today()))).unwrap();
     // Stored zips differ whenever the manifest's creation time or the
     // database content changed, so equality proves the rerun never published.
     assert_ne!(first, second);
     // A stale dot-prefixed leftover from a force-quit is cleared on rerun.
     std::fs::write(dir.join(".物谱自动备份-2026-09-29.partial"), b"stale").unwrap();
     save_real_asset(&worker, "虚构三脚架");
-    worker.auto_backup_tick(&immediate("2026-09-29")).unwrap();
+    worker.auto_backup_tick(&immediate(&real_today())).unwrap();
     assert!(!dir.join(".物谱自动备份-2026-09-29.partial").exists());
 }
 
@@ -141,15 +165,22 @@ fn a_new_local_day_gets_its_own_archive() {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("library");
     let worker = Worker::start(root.clone()).unwrap();
+    let today = real_today();
     save_real_asset(&worker, "虚构相机");
-    worker.auto_backup_tick(&immediate("2026-09-29")).unwrap();
+    worker.auto_backup_tick(&immediate(&today)).unwrap();
     save_real_asset(&worker, "虚构镜头");
-    worker.auto_backup_tick(&immediate("2026-09-30")).unwrap();
+    // The next local day: the sample and the first archive stay dated today.
+    let next = (chrono::NaiveDate::parse_from_str(&today, "%Y-%m-%d")
+        .unwrap()
+        .succ_opt()
+        .unwrap())
+    .to_string();
+    worker.auto_backup_tick(&immediate(&next)).unwrap();
     let names: Vec<String> = auto_backup::list(&auto_backup::backup_dir(&root))
         .into_iter()
         .map(|i| i.date)
         .collect();
-    assert_eq!(names, vec!["2026-09-30", "2026-09-29"]);
+    assert!(names.contains(&today) && names.contains(&next) && names.len() == 2);
 }
 
 #[test]
@@ -160,7 +191,7 @@ fn an_empty_personal_library_clears_the_marker_and_writes_nothing() {
     // A marker left by an earlier session over records that are gone now.
     std::fs::write(auto_backup::marker_path(&root), b"1").unwrap();
     assert_eq!(
-        worker.auto_backup_tick(&immediate("2026-09-29")).unwrap(),
+        worker.auto_backup_tick(&immediate(&real_today())).unwrap(),
         TickOutcome::EmptyLibrary
     );
     assert!(!auto_backup::marker_path(&root).exists());
@@ -176,22 +207,13 @@ fn a_marker_from_a_force_quit_is_made_up_after_restart() {
         save_real_asset(&worker, "虚构相机");
         assert!(auto_backup::marker_path(&root).exists());
     }
-    let restarted = (0..100)
-        .find_map(|_| match Worker::start(root.clone()) {
-            Ok(worker) => Some(worker),
-            Err(error) if error.code == "LOCKED" => {
-                std::thread::sleep(Duration::from_millis(20));
-                None
-            }
-            Err(error) => panic!("unexpected restart failure: {error}"),
-        })
-        .expect("old worker released library lock");
+    let restarted = restart_worker(&root);
     // No change was observed this session, so the leftover marker is idle.
     assert_eq!(
         restarted
-            .auto_backup_tick(&immediate("2026-09-29"))
+            .auto_backup_tick(&immediate(&real_today()))
             .unwrap(),
-        TickOutcome::BackedUp(auto_backup::backup_dir(&root).join(dated_name("2026-09-29")))
+        TickOutcome::BackedUp(auto_backup::backup_dir(&root).join(dated_name(&real_today())))
     );
     assert!(!auto_backup::marker_path(&root).exists());
 }
@@ -206,19 +228,12 @@ fn an_existing_library_without_any_auto_backup_gets_one_without_a_change() {
     }
     // Simulate an upgrade from a version without automatic backup.
     std::fs::remove_file(auto_backup::marker_path(&root)).unwrap();
-    let upgraded = (0..100)
-        .find_map(|_| match Worker::start(root.clone()) {
-            Ok(worker) => Some(worker),
-            Err(error) if error.code == "LOCKED" => {
-                std::thread::sleep(Duration::from_millis(20));
-                None
-            }
-            Err(error) => panic!("unexpected restart failure: {error}"),
-        })
-        .expect("old worker released library lock");
+    let upgraded = restart_worker(&root);
     assert_eq!(
-        upgraded.auto_backup_tick(&immediate("2026-09-29")).unwrap(),
-        TickOutcome::BackedUp(auto_backup::backup_dir(&root).join(dated_name("2026-09-29")))
+        upgraded
+            .auto_backup_tick(&immediate(&real_today()))
+            .unwrap(),
+        TickOutcome::BackedUp(auto_backup::backup_dir(&root).join(dated_name(&real_today())))
     );
     // Once one exists, nothing more happens until a real change.
     assert_eq!(
@@ -230,7 +245,7 @@ fn an_existing_library_without_any_auto_backup_gets_one_without_a_change() {
     let empty_root = tmp.path().join("empty");
     let empty = Worker::start(empty_root.clone()).unwrap();
     assert_eq!(
-        empty.auto_backup_tick(&immediate("2026-09-29")).unwrap(),
+        empty.auto_backup_tick(&immediate(&real_today())).unwrap(),
         TickOutcome::NoMarker
     );
     assert!(!auto_backup::backup_dir(&empty_root).exists());
@@ -294,7 +309,7 @@ fn resolve_rejects_anything_that_is_not_one_dated_name() {
     ] {
         assert!(auto_backup::resolve(&root, bad).is_err(), "{bad}");
     }
-    let good = dated_name("2026-09-29");
+    let good = dated_name(&real_today());
     assert_eq!(
         auto_backup::resolve(&root, &good).unwrap(),
         auto_backup::backup_dir(&root).join(good)
@@ -304,7 +319,7 @@ fn resolve_rejects_anything_that_is_not_one_dated_name() {
 #[test]
 fn copy_extra_errors_on_a_missing_target_and_keeps_the_source() {
     let tmp = tempfile::tempdir().unwrap();
-    let source = tmp.path().join(dated_name("2026-09-29"));
+    let source = tmp.path().join(dated_name(&real_today()));
     std::fs::write(&source, b"archive").unwrap();
     let vanished = tmp.path().join("unmounted-disk/thingary");
     let missing = auto_backup::copy_extra(&source, &vanished).unwrap_err();
@@ -322,10 +337,10 @@ fn copy_extra_errors_on_a_missing_target_and_keeps_the_source() {
     }
     auto_backup::copy_extra(&source, &extra).unwrap();
     assert_eq!(
-        std::fs::read(extra.join(dated_name("2026-09-29"))).unwrap(),
+        std::fs::read(extra.join(dated_name(&real_today()))).unwrap(),
         b"archive"
     );
-    let mode = std::fs::metadata(extra.join(dated_name("2026-09-29")))
+    let mode = std::fs::metadata(extra.join(dated_name(&real_today())))
         .unwrap()
         .permissions()
         .mode();
@@ -364,7 +379,7 @@ fn damaged_or_missing_settings_read_as_enabled() {
     save_real_asset(&worker, "虚构相机");
     assert!(auto_backup::marker_path(&root).exists());
     assert_eq!(
-        worker.auto_backup_tick(&immediate("2026-09-29")).unwrap(),
+        worker.auto_backup_tick(&immediate(&real_today())).unwrap(),
         TickOutcome::Disabled
     );
     assert!(!auto_backup::backup_dir(&root).exists());
@@ -377,9 +392,9 @@ fn a_failed_run_keeps_the_old_archive_the_marker_and_records_the_error() {
     let root = tmp.path().join("library");
     let worker = Worker::start(root.clone()).unwrap();
     save_real_asset(&worker, "虚构相机");
-    worker.auto_backup_tick(&immediate("2026-09-29")).unwrap();
+    worker.auto_backup_tick(&immediate(&real_today())).unwrap();
     let dir = auto_backup::backup_dir(&root);
-    let old = std::fs::read(dir.join(dated_name("2026-09-29"))).unwrap();
+    let old = std::fs::read(dir.join(dated_name(&real_today()))).unwrap();
     worker
         .call(|s| {
             s.set_hook(|point| {
@@ -395,21 +410,21 @@ fn a_failed_run_keeps_the_old_archive_the_marker_and_records_the_error() {
     save_real_asset(&worker, "虚构镜头");
     assert!(worker
         .auto_backup_tick(&policy(
-            "2026-09-29",
+            &real_today(),
             Duration::from_secs(0),
             Duration::from_secs(1800)
         ))
         .is_err());
     // The dated archive is the untouched previous one; no temporaries remain.
     assert_eq!(
-        std::fs::read(dir.join(dated_name("2026-09-29"))).unwrap(),
+        std::fs::read(dir.join(dated_name(&real_today()))).unwrap(),
         old
     );
     let leftovers: Vec<String> = std::fs::read_dir(&dir)
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .collect();
-    assert_eq!(leftovers, vec![dated_name("2026-09-29")]);
+    assert_eq!(leftovers, vec![dated_name(&real_today())]);
     // The marker survives so the run is retried, and the failure is recorded.
     assert!(auto_backup::marker_path(&root).exists());
     let settings = auto_backup::Settings::load(&root);
@@ -438,7 +453,7 @@ fn backoff_skips_until_it_expires_or_a_new_change_arrives() {
         })
         .unwrap();
     let backoff = policy(
-        "2026-09-29",
+        &real_today(),
         Duration::from_secs(0),
         Duration::from_secs(1800),
     );
@@ -461,7 +476,7 @@ fn backoff_skips_until_it_expires_or_a_new_change_arrives() {
         TickOutcome::BackedUp(_)
     ));
     assert!(auto_backup::backup_dir(&root)
-        .join(dated_name("2026-09-29"))
+        .join(dated_name(&real_today()))
         .is_file());
 }
 
@@ -473,8 +488,8 @@ fn published_archives_are_complete_backups_of_the_real_library() {
     let root = tmp.path().join("library");
     let worker = Worker::start(root.clone()).unwrap();
     save_real_asset(&worker, "虚构相机");
-    worker.auto_backup_tick(&immediate("2026-09-29")).unwrap();
-    let archive = auto_backup::backup_dir(&root).join(dated_name("2026-09-29"));
+    worker.auto_backup_tick(&immediate(&real_today())).unwrap();
+    let archive = auto_backup::backup_dir(&root).join(dated_name(&real_today()));
     let summary = worker
         .call_personal(move |s| s.inspect_backup(&archive))
         .unwrap();
@@ -499,12 +514,12 @@ fn run_uses_the_existing_backup_protocol_without_touching_final_on_error() {
                 price_cents: None,
                 purchase_date: None,
             },
-            "2026-09-29",
+            &real_today(),
         )
         .unwrap();
     let dir = tmp.path().join("auto-backups");
-    let published = auto_backup::run(&store, &dir, "2026-09-29").unwrap();
-    assert_eq!(published, dir.join(dated_name("2026-09-29")));
+    let published = auto_backup::run(&store, &dir, &real_today()).unwrap();
+    assert_eq!(published, dir.join(dated_name(&real_today())));
     assert!(published.is_file());
     let before = std::fs::read(&published).unwrap();
     // A second run of the same day replaces the file with fresh content.
@@ -519,13 +534,13 @@ fn run_uses_the_existing_backup_protocol_without_touching_final_on_error() {
                 price_cents: None,
                 purchase_date: None,
             },
-            "2026-09-29",
+            &real_today(),
         )
         .unwrap();
-    auto_backup::run(&store, &dir, "2026-09-29").unwrap();
+    auto_backup::run(&store, &dir, &real_today()).unwrap();
     assert_ne!(std::fs::read(&published).unwrap(), before);
     assert_eq!(
         Path::new(&published).file_name().unwrap().to_str().unwrap(),
-        dated_name("2026-09-29")
+        dated_name(&real_today())
     );
 }

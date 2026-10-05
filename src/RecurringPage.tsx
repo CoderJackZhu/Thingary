@@ -136,11 +136,13 @@ function SkipButton({ disabled, onSkip }: { disabled: boolean; onSkip: () => voi
 function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; generation: string; today: string; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [f, setF] = useState<PlanFields>(plan?.fields ?? blankPlan(today));
+  const [firstDueTouched, setFirstDueTouched] = useState(!!plan);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('plan-name')?.focus(); return () => dialog.current?.close(); }, []);
   const set = <K extends keyof PlanFields>(k: K, v: PlanFields[K]) => setF(x => ({ ...x, [k]: v }));
   const frozen = busy || stuck;
   async function save() {
+    if (!dialog.current?.querySelector("form")?.reportValidity()) return;
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
     if (!f.name.trim()) return stop('计划名称', '请填写名称。');
     if (!f.amount_cents || f.amount_cents === '0') return stop('每期金额', '请填写每期金额。');
@@ -155,10 +157,10 @@ function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; g
     <section className="form-block">
       <FormRow label="名称"><input id="plan-name" aria-label="计划名称" maxLength={80} value={f.name} disabled={frozen} onChange={e => set('name', e.target.value)} placeholder="例如 房租、视频会员"/></FormRow>
       <FormRow label="分类"><select aria-label="分类" value={f.category} disabled={frozen} onChange={e => set('category', e.target.value)}>{recurringCategories.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></FormRow>
-      <PlanFieldsForm fields={f} onChange={setF} disabled={frozen} today={today} editing={!!plan}/>
+      <PlanFieldsForm fields={f} onChange={setF} disabled={frozen} today={today} editing={!!plan} firstDueTouched={firstDueTouched} onFirstDueTouched={() => setFirstDueTouched(true)}/>
 
     </section>
-    {plan && !stuck && <PaymentRangeForm plan={plan} generation={generation} today={today} disabled={busy} onBusyChange={setBusy} onSaved={() => onClose(true)} onError={(m, unresolved) => {setNotice(m); setStuck(unresolved);}}/>}
+    {plan && !stuck && <PaymentRangeForm plan={plan} generation={generation} today={today} disabled={frozen || JSON.stringify(f) !== JSON.stringify(plan.fields)} onBusyChange={setBusy} onSaved={() => onClose(true)} onError={(m, unresolved) => {setNotice(m); setStuck(unresolved);}}/>}
     <section className="form-block form-notes"><label htmlFor="plan-notes">备注</label><textarea id="plan-notes" maxLength={10000} value={f.notes} disabled={frozen} onChange={e => set('notes', e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}
   </form></dialog>;

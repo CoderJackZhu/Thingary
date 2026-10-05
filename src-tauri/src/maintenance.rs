@@ -28,6 +28,7 @@ impl Fields {
             "cleaning",
             "replacement",
             "upgrade",
+            "accessory",
             "other",
         ]
         .contains(&self.kind.as_str())

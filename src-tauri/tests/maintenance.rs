@@ -458,3 +458,56 @@ fn photos_parent_trash_backup_restore_and_reopen_preserve_children() {
         [137, 80, 78, 71]
     );
 }
+
+#[test]
+fn accessory_cost_and_photo_survive_backup_restore() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let a = create(&mut s);
+    let photo = s
+        .stage_photo(
+            "accessory.heic",
+            include_bytes!("fixtures/camera.heic"),
+            &s.generation(),
+            None,
+        )
+        .unwrap();
+    let b = s
+        .change_maintenance(
+            &change(
+                &s,
+                &a,
+                Action::Add {
+                    fields: fields(Some("2026-09-02"), Some("20000"), "accessory"),
+                    photos: Selection {
+                        ids: vec![photo.id.clone()],
+                        cover_id: None,
+                    },
+                },
+            ),
+            TODAY,
+        )
+        .unwrap();
+    assert_eq!(b.costs.total_investment_cents.as_deref(), Some("120000"));
+    assert_eq!(b.costs.daily_cents.as_deref(), Some("12000"));
+    let view = s.expense_view(None).unwrap();
+    assert_eq!(view.spent_cents, "120000");
+    assert_eq!(
+        view.lines
+            .iter()
+            .filter(|l| l.source == "maintenance")
+            .count(),
+        1
+    );
+    let backup = root.path().join("accessory.thingary");
+    s.backup(Some(&backup)).unwrap();
+    let hash = archive_hash(&backup).unwrap();
+    let generation = s.generation();
+    s.restore(&backup, &hash, &generation).unwrap();
+    let r = s.record(&a.asset.id).unwrap().unwrap();
+    assert_eq!(r.maintenances[0].id, b.maintenances[0].id);
+    assert_eq!(r.maintenances[0].fields.kind, "accessory");
+    assert_eq!(r.maintenances[0].photos[0].id, photo.id);
+    assert_eq!(r.costs.total_investment_cents.as_deref(), Some("120000"));
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "120000");
+}

@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 21;
+pub const SCHEMA_VERSION: i64 = 25;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -658,6 +658,70 @@ PRAGMA user_version=14;")?;
         tx.execute_batch(include_str!("subscriptions.sql"))?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 21;
+    }
+    if v == 21 && target >= 22 {
+        // Virtual asset labels & billing (ADR-001 §21 extension).
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("x06.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 22;
+    }
+    if v == 22 && target >= 23 {
+        // Billing-rule segments and the service-bounded end date (review R4/R2).
+        // recurring_plans is rebuilt while plan_payments/plan_rates/virtual_assets
+        // reference it, so foreign keys pause for this one transaction only.
+        let foreign_keys: bool = c.query_row("PRAGMA foreign_keys", [], |r| r.get(0))?;
+        c.execute_batch("PRAGMA foreign_keys=OFF")?;
+        let result = (|| -> Result<()> {
+            let tx = c.unchecked_transaction()?;
+            tx.execute_batch(include_str!("x07.sql"))?;
+            let mut check = tx.prepare("PRAGMA foreign_key_check")?;
+            if check.query([])?.next()?.is_some() {
+                return Err(Error::new("DATABASE_FORMAT", "迁移后引用校验失败"));
+            }
+            drop(check);
+            hook("migration.before_commit")?;
+            tx.commit()?;
+            Ok(())
+        })();
+        c.execute_batch(if foreign_keys {
+            "PRAGMA foreign_keys=ON"
+        } else {
+            "PRAGMA foreign_keys=OFF"
+        })?;
+        result?;
+        v = 23;
+    }
+    if v == 23 && target >= 24 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("x08.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 24;
+    }
+    if v == 24 && target >= 25 {
+        let foreign_keys: bool = c.query_row("PRAGMA foreign_keys", [], |r| r.get(0))?;
+        c.execute_batch("PRAGMA foreign_keys=OFF")?;
+        let result = (|| -> Result<()> {
+            let tx = c.unchecked_transaction()?;
+            tx.execute_batch(include_str!("accessories.sql"))?;
+            let mut check = tx.prepare("PRAGMA foreign_key_check")?;
+            if check.query([])?.next()?.is_some() {
+                return Err(Error::new("DATABASE_FORMAT", "迁移后引用校验失败"));
+            }
+            drop(check);
+            hook("migration.before_commit")?;
+            tx.commit()?;
+            Ok(())
+        })();
+        c.execute_batch(if foreign_keys {
+            "PRAGMA foreign_keys=ON"
+        } else {
+            "PRAGMA foreign_keys=OFF"
+        })?;
+        result?;
     }
     Ok(())
 }
@@ -892,6 +956,75 @@ mod taxonomy_migration_tests {
             .unwrap(),
             first
         );
+    }
+
+    #[test]
+    fn accessory_upgrade_preserves_history_and_rolls_back() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(SCHEMA).unwrap();
+        migrate_to(&c, 24, &|_| Ok(())).unwrap();
+        c.execute_batch("PRAGMA foreign_keys=ON;
+INSERT INTO assets(id,name,revision,lifecycle_state,purchase_date) VALUES('a','旧物品',1,'active','2026-09-01');
+INSERT INTO maintenances VALUES('m','a','2026-09-02','repair','原维修','原说明',123,'原服务方','2026-09-02','2026-09-03',NULL);
+INSERT INTO maintenance_audit VALUES(1,'q','m','add','原审计','2026-09-02');
+INSERT INTO maintenances VALUES('deleted','a',NULL,'other','原删除','',NULL,'','2026-09-02','2026-09-03','2026-09-03');").unwrap();
+        assert!(migrate(&c, &|_| Err(Error::new("INJECTED", "中断"))).is_err());
+        assert_eq!(
+            c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            24
+        );
+        assert_eq!(
+            c.query_row("PRAGMA foreign_keys", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            1
+        );
+        migrate(&c, &|_| Ok(())).unwrap();
+        let row: (String, i64, String) = c
+            .query_row(
+                "SELECT kind,cost_cents,updated_at FROM maintenances WHERE id='m'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(row, ("repair".into(), 123, "2026-09-03".into()));
+        assert_eq!(
+            c.query_row(
+                "SELECT snapshot FROM maintenance_audit WHERE maintenance_id='m'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "原审计"
+        );
+        assert_eq!(
+            c.query_row(
+                "SELECT deleted_at FROM maintenances WHERE id='deleted'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+            "2026-09-03"
+        );
+        c.execute("UPDATE maintenances SET kind='accessory' WHERE id='m'", [])
+            .unwrap();
+        assert!(c
+            .execute(
+                "UPDATE assets SET purchase_date='2026-09-03' WHERE id='a'",
+                []
+            )
+            .is_err());
+        assert!(c
+            .execute("UPDATE maintenances SET date='2026-08-31' WHERE id='m'", [])
+            .is_err());
+        assert!(c
+            .prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query([])
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_none());
     }
 
     #[test]

@@ -8,6 +8,9 @@ fn rid() -> String {
 }
 fn fields(name: &str, amount: &str, interval: u32, first: &str) -> PlanFields {
     PlanFields {
+        auto_renew: true,
+        interval_days: None,
+        trial_days: None,
         service_start: None,
         coverage_start: None,
         name: name.into(),
@@ -205,6 +208,9 @@ fn input_rules() {
         (fields("x", "1", 2, "2026-10-01"), "PLAN_INTERVAL"),
         (
             PlanFields {
+                auto_renew: true,
+                interval_days: None,
+                trial_days: None,
                 service_start: None,
                 coverage_start: None,
                 category: "food".into(),
@@ -214,6 +220,9 @@ fn input_rules() {
         ),
         (
             PlanFields {
+                auto_renew: true,
+                interval_days: None,
+                trial_days: None,
                 end_date: Some("2026-09-01".into()),
                 ..fields("x", "1", 1, "2026-10-01")
             },

@@ -5,7 +5,7 @@ import type { Account, AccountSave, Compare, CompareCell, CompareEnd, CompareRow
 import { assetKinds } from './wealth';
 import type { Expense, ExpenseSave, ExpenseView, Line } from './expenses';
 import type { Due, Overview, Payment, PaymentSave, Plan, PlanSave, PaymentRangeSave } from './recurring';
-import type { VirtualAsset, VirtualFields, VirtualKind, VirtualOverview, VirtualSave, VirtualStatus } from './virtual';
+import type { BalanceRecord, BalanceSave, TopupFields, TopupSave, VirtualAsset, VirtualFields, VirtualKind, VirtualOverview, VirtualSave, VirtualStatus } from './virtual';
 import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 import type { SourceTarget, TimelineSelection } from './source';
 import { coverageFor, scheduleDates } from './recurring-model';
@@ -154,8 +154,10 @@ function recurringOverview(): Overview {
 
 // Virtual assets share the native fixture definitions; derivation mirrors virtual_assets.rs.
 const dayOffset = (days: number) => iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days));
+let topups: { id: string; asset_id: string; fields: TopupFields; revision: number }[] = [];
+let balances: BalanceRecord[] = [];
 let virtuals: { id: string; fields: VirtualFields; revision: number }[] = (params.get('virtual') === 'empty' || params.get('state') === 'empty') ? [] : demoFinance.virtuals.map(v => ({ id: 'v-' + v.key, revision: 1, fields: {
-  name: v.name, kind: v.kind as VirtualKind, provider: v.provider, purchase_date: v.purchase_days_ago === null ? null : dayOffset(-v.purchase_days_ago),
+  name: v.name, kind: v.kind as VirtualKind, billing: v.plan_key ? 'subscription' : 'single', label_id: null, provider: v.provider, purchase_date: v.purchase_days_ago === null ? null : dayOffset(-v.purchase_days_ago),
   price_cents: v.plan_key ? null : v.price_cents, expires: v.expires_in_days === null ? null : dayOffset(v.expires_in_days), plan_id: v.plan_key ? 'r-' + v.plan_key : null,
   url: '', notes: '虚构样例', stopped_on: v.stopped_days_ago === null ? null : dayOffset(-v.stopped_days_ago) } }));
 function virtualOverview(): VirtualOverview {
@@ -168,7 +170,13 @@ function virtualOverview(): VirtualOverview {
     const spent = p ? String(paid.reduce((t, x) => t + BigInt(x.amount_cents ?? '0'), 0n)) : v.fields.price_cents;
     const soon = dayOffset(p ? 7 : 30);
     const status: VirtualStatus = v.fields.stopped_on ? 'stopped' : renewal && p!.fields.paused && (!p!.fields.end_date || p!.fields.end_date >= todayIso) ? 'paused' : renewal && !p!.fields.paused && !p!.fields.end_date ? 'ongoing' : !p && !v.fields.plan_id && v.fields.kind === 'subscription' && !v.fields.expires ? 'ongoing' : until === null ? (v.fields.kind === 'license' && !p ? 'perpetual' : 'unknown') : until < todayIso ? 'expired' : until <= soon ? 'expiring' : 'active';
-    return { ...v, paid_count: paid.length, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent };
+    const mine = topups.filter(t => t.asset_id === v.id);
+    const known = mine.reduce((t, x) => t + BigInt(x.fields.paid_cents ?? '0'), 0n);
+    const credit = mine.reduce((t, x) => t + BigInt(x.fields.credit_cents ?? '0'), 0n);
+    const unknownPaid = mine.filter(x => x.fields.paid_cents == null).length;
+    const balance = balances.filter(b => b.asset_id === v.id).sort((a, b) => b.recorded_on.localeCompare(a.recorded_on))[0] ?? null;
+    return { ...v, paid_count: paid.length, paid_until: paidUntil, plan:p??null, plan_name: p?.fields.name ?? null, plan_deleted: false, valid_until: until, status, spent_cents: spent,
+      label_name: null, reminder: null, topup_count: mine.length, topups: mine.slice().sort((a, b) => (b.fields.topup_date ?? '').localeCompare(a.fields.topup_date ?? '')), topup_unknown_paid: unknownPaid, topup_known_cents: mine.length ? String(known) : null, topup_credit_cents: mine.length ? String(credit) : null, balance };
   }).sort((a, b) => a.fields.name.localeCompare(b.fields.name));
   return { generation, today: todayIso, items, in_use: items.filter(v => v.status !== 'stopped' && v.status !== 'expired').length, expiring: items.filter(v => v.status === 'expiring').length, expired: items.filter(v => v.status === 'expired').length,
     spent_cents: String(items.reduce((t, v) => t + BigInt(v.spent_cents ?? '0'), 0n)), unknown_price: items.filter(v => v.spent_cents === null).length,
@@ -205,6 +213,32 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     receipts.set(input.request_id,p.id);return {value:p.id};
   }
   if (command === 'virtual_overview') { if (params.get('virtual') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: virtualOverview() }; }
+  if (command === 'wealth_trash') {
+    const input = args.input as { kind: string; id: string; deleted: boolean };
+    if (input.kind === 'topup') {
+      topups = input.deleted ? topups.filter(t => t.id !== input.id) : topups;
+      return { value: null };
+    }
+    if (input.kind === 'balance') {
+      balances = input.deleted ? balances.filter(b => b.id !== input.id) : balances;
+      return { value: null };
+    }
+    return { value: null };
+  }
+  if (command === 'virtual_topup_save') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as TopupSave;
+    topups = [...topups, { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, fields: input.fields, revision: 1 }];
+    receipts.set(input.request_id, input.asset_id);
+    return { value: { id: input.id ?? '', asset_id: input.asset_id, fields: input.fields, revision: 1 } };
+  }
+  if (command === 'virtual_balance_save') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as BalanceSave;
+    balances = [...balances, { id: input.id ?? crypto.randomUUID(), asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 }];
+    receipts.set(input.request_id, input.asset_id);
+    return { value: { id: input.id ?? '', asset_id: input.asset_id, balance_cents: input.balance_cents, recorded_on: input.recorded_on, notes: input.notes, revision: 1 } };
+  }
   if (command === 'virtual_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as VirtualSave, id = input.id ?? crypto.randomUUID(), old = virtuals.find(v => v.id === id);
@@ -213,9 +247,16 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if(input.plan) {
       const pid=input.plan.id??crypto.randomUUID(), oldPlan=plans.find(x=>x.id===pid);
       const pf=input.plan.fields;
-      const nextPlan: Plan={id:pid,fields:pf,revision:(oldPlan?.revision??0)+1,active_from:oldPlan?.active_from??(todayIso>pf.first_due?todayIso:pf.first_due),next_due:null};
+      const nextPlan: Plan={id:pid,fields:pf,revision:(oldPlan?.revision??0)+1,active_from:oldPlan?.active_from??(todayIso>pf.first_due?todayIso:pf.first_due),next_due:null,renewal_cents:input.renewal_price_cents||null,renewal_from:input.renewal_price_cents?input.renewal_from??null:null,special_start:null,special_end:null};
       plans=oldPlan?plans.map(x=>x.id===pid?nextPlan:x):[...plans,nextPlan];
       input.fields={...input.fields,plan_id:pid,price_cents:null,expires:null};
+    }
+    // R6：空串取消未生效价格段；null 不触碰（预览内存模型）。
+    if(input.renewal_price_cents===''){const pid=input.fields.plan_id;const p=plans.find(x=>x.id===pid);if(p){p.renewal_cents=null;p.renewal_from=null;}}
+    // R13：首次充值随档案保存进入事实列表（到账默认实付＋赠送）。
+    if(input.first_topup&&input.first_topup.paid_cents!=null){
+      const credit=input.first_topup.credit_cents??String(BigInt(input.first_topup.paid_cents||'0')+BigInt(input.first_topup.gift_cents||'0'));
+      topups=[...topups,{id:crypto.randomUUID(),asset_id:id,fields:{...input.first_topup,credit_cents:credit},revision:1}];
     }
     const next = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1 };
     virtuals = old ? virtuals.map(v => v.id === id ? next : v) : [...virtuals, next];

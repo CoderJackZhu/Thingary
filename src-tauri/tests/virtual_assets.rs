@@ -16,7 +16,14 @@ fn code<T: std::fmt::Debug>(r: Result<T, Error>) -> String {
     r.unwrap_err().code
 }
 fn fields(name: &str, kind: &str) -> Fields {
+    fields_billing(name, kind, "single")
+}
+fn fields_billing(name: &str, kind: &str, billing: &str) -> Fields {
     Fields {
+        billing: billing.into(),
+        label_id: None,
+        pay_method: None,
+        perpetual: None,
         name: name.into(),
         kind: kind.into(),
         provider: "虚构提供方".into(),
@@ -32,6 +39,10 @@ fn fields(name: &str, kind: &str) -> Fields {
 fn save(s: &mut Store, old: Option<&VirtualAsset>, f: Fields) -> Result<VirtualAsset, Error> {
     s.virtual_save(
         &Save {
+            renewal_price_cents: None,
+            renewal_from: None,
+            special_end: None,
+            first_topup: None,
             plan: None,
             request_id: rid(),
             generation: s.generation(),
@@ -50,6 +61,9 @@ fn plan(s: &mut Store, name: &str, interval: u32, first: &str) -> Plan {
             id: None,
             expected_revision: None,
             fields: PlanFields {
+                auto_renew: true,
+                interval_days: None,
+                trial_days: None,
                 service_start: None,
                 coverage_start: None,
                 name: name.into(),
@@ -165,7 +179,7 @@ fn linked_plan_is_the_only_source_of_validity_and_cost() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let p = plan(&mut s, "虚构视频会员", 1, "2026-07-31");
-    let mut f = fields("虚构视频会员", "subscription");
+    let mut f = fields_billing("虚构视频会员", "subscription", "subscription");
     f.plan_id = Some(p.id.clone());
     let v = save(&mut s, None, f.clone()).unwrap();
     assert_eq!(
@@ -294,7 +308,7 @@ fn legacy_continuing_subscriptions_keep_paid_facts_and_use_only_explicit_end_dat
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();
     let p = plan(&mut s, "虚构旧 GPT", 1, "2026-07-31");
-    let mut f = fields("虚构旧 GPT", "subscription");
+    let mut f = fields_billing("虚构旧 GPT", "subscription", "subscription");
     f.plan_id = Some(p.id.clone());
     let v = save(&mut s, None, f).unwrap();
     pay(&mut s, &p, "2026-07-31", "2400");
@@ -354,7 +368,7 @@ fn legacy_continuing_subscriptions_keep_paid_facts_and_use_only_explicit_end_dat
     );
 
     let d = plan(&mut s, "虚构域名计划", 1, "2026-07-31");
-    let mut domain = fields("example.test", "domain");
+    let mut domain = fields_billing("example.test", "domain", "subscription");
     domain.plan_id = Some(d.id.clone());
     let dv = save(&mut s, None, domain).unwrap();
     pay(&mut s, &d, "2026-07-31", "1000");

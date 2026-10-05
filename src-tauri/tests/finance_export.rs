@@ -158,6 +158,9 @@ fn recurring_export_lists_each_period_and_a_plan_without_payments_once() {
                 id: None,
                 expected_revision: None,
                 fields: PlanFields {
+                    auto_renew: true,
+                    interval_days: None,
+                    trial_days: None,
                     service_start: None,
                     coverage_start: None,
                     name: name.into(),

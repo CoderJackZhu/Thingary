@@ -513,6 +513,8 @@ pub struct Summary {
     pub plans: i64,
     pub payments: i64,
     pub virtual_assets: i64,
+    /// Stored-value facts (schema 22 and newer); zero on older backups.
+    pub virtual_topups: i64,
     pub files: usize,
 }
 
@@ -581,6 +583,11 @@ impl Store {
             },
             virtual_assets: if v >= 19 {
                 count("SELECT count(*) FROM virtual_assets")?
+            } else {
+                0
+            },
+            virtual_topups: if v >= 22 {
+                count("SELECT count(*) FROM virtual_topups")?
             } else {
                 0
             },

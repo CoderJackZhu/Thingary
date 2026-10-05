@@ -154,7 +154,7 @@ fn legacy_achieved_wish_is_backfilled_once_on_reopen() {
         [&old_asset],
     )
     .unwrap();
-    db.execute_batch("DROP TABLE plan_rates; DROP TABLE virtual_assets; DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; ALTER TABLE wishlist_items DROP COLUMN deleted_at; CREATE TRIGGER wishlist_achievement_update BEFORE UPDATE ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.achieved_at IS NOT NULL) OR (NEW.converted_asset_id IS NOT NULL AND NEW.status!='achieved') OR (OLD.converted_asset_id IS NOT NULL AND (NEW.converted_asset_id IS NOT OLD.converted_asset_id OR NEW.achieved_at IS NOT OLD.achieved_at)) BEGIN SELECT RAISE(ABORT,'wishlist achievement state'); END; PRAGMA user_version=13;").unwrap();
+    db.execute_batch("DROP TABLE plan_rules; DROP TABLE label_scopes; DROP TABLE plan_period_ends; DROP TABLE virtual_topups; DROP TABLE virtual_balances; DROP TABLE plan_rates; DROP TABLE virtual_assets; DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE expenses; DROP TABLE fin_snapshot_entries; DROP TABLE fin_snapshots; DROP TABLE fin_accounts; ALTER TABLE wishlist_items DROP COLUMN deleted_at; CREATE TRIGGER wishlist_achievement_update BEFORE UPDATE ON wishlist_items WHEN (NEW.status='achieved') IS NOT (NEW.achieved_at IS NOT NULL) OR (NEW.converted_asset_id IS NOT NULL AND NEW.status!='achieved') OR (OLD.converted_asset_id IS NOT NULL AND (NEW.converted_asset_id IS NOT OLD.converted_asset_id OR NEW.achieved_at IS NOT OLD.achieved_at)) BEGIN SELECT RAISE(ABORT,'wishlist achievement state'); END; PRAGMA user_version=13;").unwrap();
     drop(db);
     let s = Store::open(dir.path()).unwrap();
     let linked = s
@@ -480,6 +480,7 @@ fn managed_choices_order_disable_and_create_preserve_history() {
         expected_revision: snap.revision,
         kind: "label".into(),
         action: Action::Create {
+            scope: None,
             name: "旅行专用".into(),
         },
     };

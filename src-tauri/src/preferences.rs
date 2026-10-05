@@ -307,7 +307,17 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
             }
         }
     }
-    let invalid:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM reminders r WHERE (r.kind='warranty' AND NOT EXISTS(SELECT 1 FROM warranties w WHERE w.id=r.source_id AND w.asset_id=r.entity_id)) OR (r.kind='wishlist' AND NOT EXISTS(SELECT 1 FROM wishlist_items w WHERE w.id=r.entity_id)))",[],|r|r.get(0))?;
+    // Renewal reminders exist only from schema 22; older libraries have no
+    // virtual_assets table to check against.
+    let renewal_check = {
+        let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        if version >= 22 {
+            " OR (r.kind='renewal' AND NOT EXISTS(SELECT 1 FROM virtual_assets v WHERE v.id=r.entity_id))"
+        } else {
+            ""
+        }
+    };
+    let invalid:bool=c.query_row(&format!("SELECT EXISTS(SELECT 1 FROM reminders r WHERE (r.kind='warranty' AND NOT EXISTS(SELECT 1 FROM warranties w WHERE w.id=r.source_id AND w.asset_id=r.entity_id)) OR (r.kind='wishlist' AND NOT EXISTS(SELECT 1 FROM wishlist_items w WHERE w.id=r.entity_id)){renewal_check})"),[],|r|r.get(0))?;
     if invalid {
         return Err(Error::new("REFERENCE", "提醒引用不存在"));
     }

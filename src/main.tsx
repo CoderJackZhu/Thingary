@@ -368,6 +368,17 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     sessionStorage.removeItem('thingary.open-wish.v1');
     openSource({ kind: 'wish', id });
   }, [page, eventsReady]);
+  // 浏览器预览截图入口：打开虚拟资产对话框（原生无此流程）。
+  useEffect(() => {
+    const id = sessionStorage.getItem('thingary.open-virtual.v1');
+    if (!id || section !== 'virtual' || !libraryGeneration) return;
+    sessionStorage.removeItem('thingary.open-virtual.v1');
+    if (id === 'new') {
+      setAutoNew('virtual');
+      return;
+    }
+    openSource({ kind: 'virtual', id });
+  }, [section, libraryGeneration]);
   // 浏览器预览截图入口：滚动到指定选择器（原生无此流程）。
   // 目标可能晚于首帧渲染（如来源跳转打开的检视器），轮询等待。
   useEffect(() => {
@@ -926,7 +937,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       {section === 'wealth' && <WealthPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.recurring} onSearch={v => setSearches(s => (s.recurring === v ? s : { ...s, recurring: v }))} autoNew={autoNew === 'recurring'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.virtual} onSearch={v => setSearches(s => (s.virtual === v ? s : { ...s, virtual: v }))} autoNew={autoNew === 'virtual'} onAutoNewDone={() => setAutoNew(null)}/>}
-      {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} initialYear={expensesYear} onOpenAsset={id => { setSection('assets'); void select(id, true); }} source={sourceFocus} onSourceDone={onSourceDone} search={searches.expenses} onSearch={v => setSearches(s => (s.expenses === v ? s : { ...s, expenses: v }))} autoNew={autoNew === 'expenses'} onAutoNewDone={() => setAutoNew(null)}/>}
+      {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} initialYear={expensesYear} onOpenAsset={id => { setSection('assets'); void select(id, true); }} onOpenSource={openSource} source={sourceFocus} onSourceDone={onSourceDone} search={searches.expenses} onSearch={v => setSearches(s => (s.expenses === v ? s : { ...s, expenses: v }))} autoNew={autoNew === 'expenses'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
       {section === 'overview' && !modeBusy && <>
         {loadError && <div className="notice" role="alert"><strong>物品资料读取失败</strong><p>{loadError}</p><button disabled={loading} onClick={() => { void refresh(); void taxonomy.reload().catch(() => {}); }}>重新读取</button></div>}

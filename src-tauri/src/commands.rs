@@ -1458,6 +1458,42 @@ pub async fn virtual_save(
         .await
         .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
+#[tauri::command]
+pub async fn virtual_topup_save(
+    input: crate::virtual_assets::TopupSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::virtual_assets::TopupRecord> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.virtual_topup_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn virtual_reminder_save(
+    input: crate::virtual_assets::ReminderSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::virtual_assets::VirtualAsset> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.virtual_reminder_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn virtual_balance_save(
+    input: crate::virtual_assets::BalanceSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::virtual_assets::BalanceRecord> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.virtual_balance_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
 
 #[tauri::command]
 pub async fn review_overview(

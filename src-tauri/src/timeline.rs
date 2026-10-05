@@ -84,6 +84,8 @@ SELECT 'payment:'||p.id,'payment',p.paid_date,NULL,NULL,r.name,r.category,p.amou
 UNION ALL
 SELECT 'virtual:'||v.id,'virtual',v.purchase_date,NULL,NULL,v.name,v.kind,CASE WHEN v.plan_id IS NULL THEN v.price_cents END,0,'','virtual' AS source_kind,v.id AS source_id,NULL AS plan_id FROM virtual_assets v WHERE v.deleted_at IS NULL AND v.purchase_date IS NOT NULL
 UNION ALL
+SELECT 'topup:'||t.id,'topup',t.topup_date,NULL,NULL,v.name,'digital',t.paid_cents,0,'','topup' AS source_kind,t.id AS source_id,v.id AS plan_id FROM virtual_topups t JOIN virtual_assets v ON v.id=t.asset_id WHERE t.deleted_at IS NULL AND v.deleted_at IS NULL AND t.paid_cents IS NOT NULL AND t.topup_date IS NOT NULL
+UNION ALL
 SELECT 'refund:'||e.id,'refund',e.refund_date,e.asset_id,NULL,e.title,e.category,e.refund_cents,0,'','expense' AS source_kind,e.id AS source_id,NULL AS plan_id FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))";
 
 fn kinds(filter: &str) -> Result<&'static [&'static str]> {
@@ -103,12 +105,13 @@ fn kinds(filter: &str) -> Result<&'static [&'static str]> {
             "refund",
             "payment",
             "virtual",
+            "topup",
             "snapshot",
         ],
         "snapshot" => &["snapshot"],
         "purchase" => &["purchase"],
         // A linked expense is the item's purchase, so it only shows there (X-D08).
-        "expense" => &["expense", "refund", "payment", "virtual"],
+        "expense" => &["expense", "refund", "payment", "virtual", "topup"],
         "maintenance" => &["maintenance"],
         "warranty" => &["warranty_start", "warranty_end"],
         "lifecycle" => &["retire", "activate", "sale"],
@@ -144,6 +147,10 @@ impl Store {
                     plan_id: r.get(10)?,
                 },
                 "virtual" => crate::source::Target::Virtual { id },
+                "topup" => crate::source::Target::Topup {
+                    id,
+                    asset_id: r.get(10)?,
+                },
                 _ => crate::source::Target::Expense { id },
             };
             let domain = match source_kind.as_str() {

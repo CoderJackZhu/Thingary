@@ -1114,6 +1114,8 @@ impl Store {
             "payment" => "plan_payments",
             "wish" => "wishlist_items",
             "virtual" => "virtual_assets",
+            "topup" => "virtual_topups",
+            "balance" => "virtual_balances",
             _ => return Err(Error::new("TRASH_KIND", "不支持的类型")),
         };
         let current: Option<(i64, Option<String>)> = tx
@@ -1187,6 +1189,22 @@ impl Store {
                 return Err(Error::new(
                     "PAYMENT_EXISTS",
                     "这一期已有新的记录，不能恢复；可打开那条记录更正",
+                ));
+            }
+        }
+        if (input.kind == "topup" || input.kind == "balance") && !input.deleted {
+            // A fact returns only under its live account.
+            let parent_live: bool = tx.query_row(
+                &format!(
+                    "SELECT EXISTS(SELECT 1 FROM virtual_assets v JOIN {table} t ON t.asset_id=v.id WHERE t.id=?1 AND v.deleted_at IS NULL)"
+                ),
+                [&input.id],
+                |r| r.get(0),
+            )?;
+            if !parent_live {
+                return Err(Error::new(
+                    "PARENT_DELETED",
+                    "所属虚拟资产仍在最近删除中，请先恢复它",
                 ));
             }
         }
