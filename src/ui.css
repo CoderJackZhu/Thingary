@@ -345,3 +345,16 @@
 
 .wishlist-editor .wish-editor-delete{order:9;margin-top:4px;padding-top:12px;border-top:1px solid var(--line-soft)}.wishlist-editor .wish-editor-delete button{color:var(--error)}
 .wishlist-editor .form-block>.field.wide{display:grid;gap:6px;padding:10px 12px;border-top:1px solid var(--border)}.wishlist-editor .form-block>.field.wide>label{font-size:13px;font-weight:500}.wishlist-editor .form-block>.field.wide>textarea{box-sizing:border-box;width:100%}
+
+/* 清新原生：系统“源列表”风格的独立图标。图标统一用强调蓝的双色线条（蓝色线条加淡蓝填充），选中行整行蓝底白字；总览近期记录与时间轴的事件图标同为蓝色双色线条，不再用彩色方块。 */
+:root[data-style=native] .sidebar nav button:not(.nav-active):not(.tri-mode) .ui-icon{color:var(--accent);opacity:1}
+:root[data-style=native] .sidebar nav button:not(.tri-mode) .ui-icon path{fill:color-mix(in srgb,currentColor 18%,transparent)}
+:root[data-style=native] .sidebar nav button.nav-active{background:var(--button-bg);color:#fff;box-shadow:none}
+:root[data-style=native] .sidebar nav button.nav-active .ui-icon{color:#fff;opacity:1}
+:root[data-style=native] .sidebar nav button.nav-active .ui-icon path{fill:color-mix(in srgb,#fff 28%,transparent)}
+:root[data-style=native] .sidebar nav button.nav-active .nav-count,:root[data-style=native] .sidebar nav button.nav-active .nav-count.warn{color:#ffffffd9}
+:root[data-style=native] .sidebar nav button .ui-icon:is([data-icon=arrow],[data-icon=chart],[data-icon=settings],[data-icon=repeat]) path{fill:none}
+:root[data-style=native] .review-ev .ui-icon,:root[data-style=native] .timeline-kind{color:var(--accent)}
+:root[data-style=native] .timeline-kind{background:none}
+:root[data-style=native] .review-ev .ui-icon path,:root[data-style=native] .timeline-kind .ui-icon path{fill:color-mix(in srgb,currentColor 18%,transparent)}
+:root[data-style=native] .review-ev .ui-icon:is([data-icon=arrow],[data-icon=chart],[data-icon=settings],[data-icon=repeat]) path,:root[data-style=native] .timeline-kind .ui-icon:is([data-icon=arrow],[data-icon=chart],[data-icon=settings],[data-icon=repeat]) path{fill:none}
