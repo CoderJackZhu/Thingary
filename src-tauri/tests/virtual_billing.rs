@@ -2580,7 +2580,12 @@ fn reminders_and_payment_candidates_follow_trial_special_end_price_and_fixed_day
     assert!(v.payment_due.is_none());
     assert_eq!(v.reminder.unwrap().date, "2026-10-24");
     // Inside the window the candidate carries the next period's price.
-    let v = s.virtual_overview("2026-10-22").unwrap().items.pop().unwrap();
+    let v = s
+        .virtual_overview("2026-10-22")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
     let candidate = v.payment_due.unwrap();
     assert_eq!(candidate.due_date, "2026-10-27");
     assert_eq!(candidate.coverage_end.as_deref(), Some("2026-11-30"));
@@ -2759,19 +2764,28 @@ fn payment_action_appears_only_inside_the_prepayment_window() {
     s.virtual_save(&sub_save(&s, "虚构博客域名", &plan, |_| {}), "2026-09-15")
         .unwrap();
     pay(&mut s, &plan, "2026-09-15", "9000", "2026-09-15");
-    let due = |today: &str| s.virtual_overview(today).unwrap().items.pop().unwrap().payment_due;
+    let due = |today: &str| {
+        s.virtual_overview(today)
+            .unwrap()
+            .items
+            .pop()
+            .unwrap()
+            .payment_due
+    };
     // Yearly plans open 30 days ahead; a year out nothing is asked.
     assert!(due("2026-10-06").is_none());
     assert!(due("2027-08-15").is_none());
     assert_eq!(due("2027-08-16").unwrap().due_date, "2027-09-15");
     assert_eq!(due("2027-09-20").unwrap().due_date, "2027-09-15"); // overdue stays
-    // The periodic-cost page's "upcoming" list uses the same 30-day yearly window.
+                                                                   // The periodic-cost page's "upcoming" list uses the same 30-day yearly window.
     let upcoming = |today: &str| s.recurring_overview(today).unwrap().upcoming.len();
     assert_eq!(upcoming("2027-08-15"), 0);
     assert_eq!(upcoming("2027-08-16"), 1);
     // Prepaying years ahead must not erase the next scheduled payment.
     pay(&mut s, &plan, "2027-09-15", "9000", "2026-10-06");
     pay(&mut s, &plan, "2028-09-15", "9000", "2026-10-06");
-    let next = s.recurring_overview("2026-10-06").unwrap().plans[0].next_due.clone();
+    let next = s.recurring_overview("2026-10-06").unwrap().plans[0]
+        .next_due
+        .clone();
     assert_eq!(next.as_deref(), Some("2029-09-15"));
 }

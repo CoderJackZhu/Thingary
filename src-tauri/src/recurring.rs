@@ -1454,8 +1454,14 @@ impl Store {
                     .map(item),
             );
             // Yearly plans open their payment window a month ahead, like the virtual list.
-            let yearly = f.interval_days.map_or(f.interval_months >= 12, |d| d >= 365);
-            let soon = if yearly { now + chrono::Duration::days(30) } else { soon };
+            let yearly = f
+                .interval_days
+                .map_or(f.interval_months >= 12, |d| d >= 365);
+            let soon = if yearly {
+                now + chrono::Duration::days(30)
+            } else {
+                soon
+            };
             upcoming.extend(
                 schedule_for(c, f, &pid, &ends, now.succ_opt().unwrap_or(now), soon)?
                     .into_iter()

@@ -614,8 +614,14 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
             // The candidate walk looks 12 months ahead for reminders; the list
             // action only appears inside the pre-payment window (overdue always).
             let f = &p.fields;
-            let yearly = f.interval_days.map_or(f.interval_months >= 12, |d| d >= 365);
-            let lead = v.reminder.as_ref().filter(|r| r.repeat_every_period).map_or(0, |r| r.lead_days);
+            let yearly = f
+                .interval_days
+                .map_or(f.interval_months >= 12, |d| d >= 365);
+            let lead = v
+                .reminder
+                .as_ref()
+                .filter(|r| r.repeat_every_period)
+                .map_or(0, |r| r.lead_days);
             let window = lead.max(if yearly { 30 } else { 7 });
             let limit = today
                 .checked_add_days(chrono::Days::new(u64::from(window)))
