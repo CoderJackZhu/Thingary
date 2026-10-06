@@ -1,0 +1,7 @@
+﻿account_key,name,kind,enabled_from,disabled_from,counted,platform,note
+acc_cash,现金钱包,cash,2024-01-01,,true,招商银行,日常开销
+acc_bank,工资储蓄卡,cash,2024-01-01,,true,工商银行,工资到账
+acc_fund,沪深300指数基金,investment,2024-01-01,,true,天天基金,月定投
+acc_hpf,公积金账户,housing_fund,2024-01-01,,true,北京公积金,单位加个人缴存
+acc_card,信用卡,credit_card,2024-01-01,2026-01-01,true,招商银行,2025年底还清后销卡
+acc_loan,房贷,loan,2024-01-01,,false,工商银行,示例中未计入净资产
