@@ -1,3 +1,7 @@
+import { PlanningOccurrenceDialog } from './PlanningOccurrenceDialog';
+import { emptyCore } from './plan-core';
+import type { RetireCalc } from './plan-retire-calc';
+import type { Occurrence } from './plan-core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CloseButton } from './CloseButton';
 import { CentInput, FormRow, Info, Segments, Switch } from './FormControls';
@@ -31,20 +35,22 @@ const presets: { key: string; label: string; years: number; make: (date: string)
 export function PlanningEvents({ plan, today, onEditingChange, onPending }: { plan: RetirePlan; today: string; onEditingChange: (v: boolean) => void; onPending: () => void }) {
   const { state, calc, reload } = plan;
   const [editing, setEditing] = useState<{ draft: StoredLifeEvent; isNew: boolean } | null>(null), [confirm, setConfirm] = useState<string | null>(null);
+  const [occurring, setOccurring] = useState<StoredLifeEvent | null>(null);
   const saver = useSaver(state ?? { generation: '', saved: null }, reload, onPending);
-  useEffect(() => { onEditingChange(editing !== null); return () => onEditingChange(false); }, [editing, onEditingChange]);
+  useEffect(() => { onEditingChange(editing !== null || occurring !== null); return () => onEditingChange(false); }, [editing, occurring, onEditingChange]);
   const saved = state?.saved ?? null;
   const events = saved?.profile.retire.life_events ?? [];
   const ready = !!calc && isReady(calc);
   const emergency = ready ? calc.r.emergency_months * (calc.plan.items[0]?.monthly_cents ?? 0) : 0;
   const rows = useMemo(() => {
     if (!ready || !calc.plan0) return null;
-    const P0 = calc.plan0, evs = events.map(toEvent);
-    return { items: evs.map(e => ({ e, impact: eventImpact(P0, e, offsetOf(e.date, today), emergency) as EventImpact })), total: totalImpact(P0, evs.filter(e => e.included).map(e => ({ e, offset: offsetOf(e.date, today) }))) };
+    const P0 = { ...calc.plan0, anchor_date: calc.plan.anchor_date, core: calc.r.core, basis_factor: calc.plan.basis_factor, first_month_fraction: calc.plan.first_month_fraction }, evs = events.map(toEvent);
+    return { items: evs.filter(e => e.date >= today.slice(0, 7) && !retireOccurrence(calc, e.id)).map(e => ({ e, impact: eventImpact(P0, e, offsetOf(e.date, calc?.plan?.anchor_date ?? today), emergency) as EventImpact })), total: totalImpact(P0, evs.filter(e => e.included && !retireOccurrence(calc,e.id)).map(e => ({ e, offset: offsetOf(e.date, calc?.plan?.anchor_date ?? today) }))) };
   }, [ready, calc, events, today, emergency]);
   if (!saved) return null;
   const retire = saved.profile.retire;
-  const write = (next: StoredLifeEvent[]) => saver.save({ ...retire, life_events: next });
+  const write = (next: StoredLifeEvent[]) => saver.save({ ...retire, life_events: next, core: retire.core ? { ...retire.core, costs: retire.core.costs.filter(c => c.source_id === 'personal_pension' || next.some(e => c.source_id.startsWith(`event:${e.id}:`))), occurrences: retire.core.occurrences.filter(o => next.some(e => e.id === o.event_id)) } : retire.core });
+  async function saveOccurrence(o: Occurrence) { const core = retire.core ?? emptyCore(today); if (await saver.save({ ...retire, core: { ...core, occurrences: [...core.occurrences.filter(x => x.event_id !== o.event_id), o] } })) setOccurring(null); }
   async function toggle(id: string, included: boolean) { await write(events.map(e => (e.id === id ? { ...e, included } : e))); }
   async function remove(id: string) { setConfirm(null); await write(events.filter(e => e.id !== id)); }
   // 已经有一套房计入时，新加的房默认不计入，避免两套房同时发生；想比较方案就只勾选其中一套。
@@ -55,20 +61,21 @@ export function PlanningEvents({ plan, today, onEditingChange, onPending }: { pl
     {saver.notice && <p className="notice" role="status">{saver.notice}</p>}
     {events.length === 0 ? <p className="muted">还没有大额计划。现在租房、短期不会买，但几年内买房买车是大概率的事：先放一个设想进来，看对退休的影响。金额只是占位，请按自己的情况改；可以放几套方案（北京、二三线、老家）并排比较，只勾选其中一套计入。</p> : <>
       <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="大额计划列表"><table className="ui-table plan-event-table"><thead><tr><th>计划</th><th className="amount">总价 / 首付</th><th>买后每月</th><th>首付付得起吗</th><th>对退休的影响（只算这一件）</th><th>计入</th><th/></tr></thead>
-        <tbody>{events.map(s => { const i = rows?.items.find(x => x.e.id === s.id)?.impact; return <tr key={s.id} className={s.included ? undefined : 'closed'}>
-          <td><b>{s.label}</b><small className="muted">{kindText[s.kind]} · {s.date}{s.kind === 'car' && s.cycle_years ? ` · 每 ${s.cycle_years} 年换` : ''}</small></td>
+        <tbody>{events.map(s => { const i = rows?.items.find(x => x.e.id === s.id)?.impact; return <tr key={s.id} className={s.included || retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred') ? undefined : 'closed'}>
+          <td><b>{s.label}</b><small className="muted">{retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'occurred' ? '已确认发生 · 后续费用继续' : retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'cancelled' ? '已取消' : s.date < today.slice(0, 7) ? '日期已过，待核对' : '未确认发生'}</small><small className="muted">{kindText[s.kind]} · {s.date}{s.kind === 'car' && s.cycle_years ? ` · 每 ${s.cycle_years} 年换` : ''}</small></td>
           <td className="amount">{yuan(Number(s.price_cents))}<small className="muted">首付 {yuan(Number(s.down_cents))}</small></td>
-          <td>{i && i.payment_nominal > 0 ? <>月供 {yuan(i.payment_nominal)}<small className="muted">固定名义金额</small></> : <span className="muted">无月供</span>}{Number(s.holding_cents) > 0 && <small className="muted">{s.kind === 'car' ? '养车' : '持有'} {yuan(Number(s.holding_cents))}</small>}
+          <td>{i && i.payment_nominal > 0 ? <>月供 {yuan(i.payment_nominal)}<small className="muted">固定名义金额</small></> : <span className="muted">{retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0) ? '余债按已核对剩余期延续' : '待测算'}</span>}{Number(s.holding_cents) > 0 && <small className="muted">{s.kind === 'car' ? '养车' : '持有'} {yuan(Number(s.holding_cents))}</small>}
             {i && (i.payment_nominal > 0 || Number(s.holding_cents) > 0) && <small className={i.saving_not_positive ? 'warn' : 'muted'}>买后每月储蓄约 {yuan(i.saving_after)}{i.saving_not_positive ? '，要靠当时的收入支撑' : ''}</small>}</td>
-          <td>{!i ? <span className="muted">资料待补齐</span> : i.short === 0 ? <>够：{s.date} 时可支配资产约 {yuan(i.assets_at_date)}<small className="muted">需 {yuan(i.cash_needed)}（含应急金线）</small></> : <><span className="warn">差 {yuan(i.short)}</span><small className="muted">需 {yuan(i.cash_needed)}；{i.earliest_offset === null ? '按当前储蓄不会够' : `最早约 ${monthLabel(today, i.earliest_offset)} 够`}</small></>}</td>
+          <td>{!i ? <span className="muted">{retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred') ? '按实际付款核对接续' : '资料待补齐'}</span> : i.short === 0 ? <>够：{s.date} 时可支配资产约 {yuan(i.assets_at_date)}<small className="muted">需 {yuan(i.cash_needed)}（含应急金线）</small></> : <><span className="warn">差 {yuan(i.short)}</span><small className="muted">需 {yuan(i.cash_needed)}；{i.earliest_offset === null ? '按当前储蓄不会够' : `最早约 ${monthLabel(calc?.plan?.anchor_date ?? today, i.earliest_offset)} 够`}</small></>}</td>
           <td>{i ? <>{delayText(i.delay_months, i.base_fi, i.with_fi)}{s.kind === 'house' && <small className="muted">{i.sweep.map(w => `${w.years} 年后买：${w.delay_months === null ? '达不到' : w.delay_months === 0 ? '无影响' : `+${w.delay_months} 个月`}`).join('；')}</small>}</> : <span className="muted">—</span>}</td>
-          <td><Switch label={`计入${s.label}`} value={s.included} disabled={saver.busy} onChange={v => void toggle(s.id, v)}/></td>
-          <td className="rs-actions"><button type="button" className="ui-btn" disabled={saver.busy} onClick={() => setEditing({ isNew: false, draft: s })}>编辑</button>
-            {confirm === s.id ? <button type="button" className="danger" disabled={saver.busy} onClick={() => void remove(s.id)}>确认删除</button> : <button type="button" className="ui-btn" disabled={saver.busy} onClick={() => setConfirm(s.id)}>删除</button>}</td></tr>; })}</tbody></table></div>
-      {rows && rows.items.some(x => x.e.included) && <p>已计入的几件一起发生：<strong>{delayText(rows.total.delay_months, rows.total.base_fi, rows.total.with_fi)}</strong>（相对于都不发生）。已经含在上面的退休结论里。</p>}
+          <td><Switch label={`计入${s.label}`} value={s.included || !!retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred')} disabled={saver.busy || !!retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred')} onChange={v => void toggle(s.id, v)}/></td>
+          <td className="rs-actions"><button type="button" className="ui-btn" disabled={saver.busy || saver.stuck} onClick={() => setOccurring(s)}>发生核对</button><button type="button" className="ui-btn" disabled={saver.busy} onClick={() => setEditing({ isNew: false, draft: s })}>编辑</button>
+            {confirm === s.id ? <button type="button" className="danger" disabled={saver.busy} onClick={() => void remove(s.id)}>确认删除</button> : <button type="button" className="ui-btn" disabled={saver.busy || !!retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred')} onClick={() => setConfirm(s.id)}>删除</button>}</td></tr>; })}</tbody></table></div>
+      {rows && !retire.core?.occurrences.some(o => o.status === 'occurred') && rows.items.some(x => x.e.included) && <p>已计入的几件一起发生：<strong>{delayText(rows.total.delay_months, rows.total.base_fi, rows.total.with_fi)}</strong>（相对于都不发生）。已经含在上面的退休结论里。</p>}
       {rows && rows.items.filter(x => x.e.kind === 'house' && x.e.included).length > 1 && <p className="rs-note">有多套房同时计入，会按都买来算；比较方案时请只勾选一套。</p>}
     </>}
     <details className="plan-explanation"><summary>怎么算的</summary><p className="muted small">首付、杂费在计划月份一次性扣；贷款本金按买房那天的名义价格算，等额本息、固定名义月供，到期结束，所以实际购买力逐年下降；月供与持有成本在退休前压低每月储蓄，退休后算进支出；买房后不再付的房租会补回每月储蓄（只算退休前）；买车可设换车周期、截止年龄和每次卖旧车回收，每次实际花的是「价格减回收」。「首付付得起吗」按当前储蓄推演到计划月份的可支配资产，对照首付、杂费与应急金线。价格按今天的钱，默认实际不涨价，想保守就填高一点。公积金贷款与提取暂未单独建模。</p></details>
+    {occurring && <PlanningOccurrenceDialog event={occurring} existing={retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={plan.snapshot} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={() => setOccurring(null)} onSave={o => void saveOccurrence(o)}/>}
     {editing && saved && <EventDialog draft={editing.draft} isNew={editing.isNew} today={today} events={events} busy={saver.busy} onClose={() => setEditing(null)} onSave={async ev => { const next = editing.isNew ? [...events, ev] : events.map(x => (x.id === ev.id ? ev : x)); if (await write(next)) setEditing(null); }} notice={saver.notice}/>}
   </article>;
 }
@@ -86,7 +93,7 @@ function EventDialog({ draft, isNew, today, busy, notice, onClose, onSave }: { d
   function save() {
     const stop = (m: string) => setErr(m);
     if (!label.trim()) return stop('请填写名称。');
-    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(date) || date < today.slice(0, 7)) return stop('计划月份须是本月或以后，格式 YYYY-MM。');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(date)) return stop('计划月份格式须是 YYYY-MM；过去日期将显示待核对。');
     if (!price || price === '0') return stop('请填写总价。');
     if (Number(down || 0) > Number(price)) return stop('首付不能高于总价。');
     const r = pctToHundredths(rate), y = Number(years);
@@ -96,14 +103,14 @@ function EventDialog({ draft, isNew, today, busy, notice, onClose, onSave }: { d
     if (c !== null && (!Number.isInteger(c) || c < 1 || c > 40)) return stop('换车周期须是 1 到 40 的整数年，留空表示只买一次。');
     if (u !== null && (!Number.isInteger(u) || u < 0 || u > 120)) return stop('截止年龄须是 0 到 120 的整数。');
     setErr('');
-    onSave({ id: draft.id, label: label.trim(), kind, date, included, price_cents: price, down_cents: down || '0', extra_cents: extra || '0', loan_rate_hundredths: financed ? (r as number) : draft.loan_rate_hundredths, loan_years: financed ? y : draft.loan_years, holding_cents: holding || '0', rent_saved_cents: kind === 'house' ? rent || '0' : '0', cycle_years: kind === 'car' ? c : null, until_age: kind === 'car' ? u : null, resale_cents: kind === 'car' ? resale || '0' : '0' });
+    onSave({ ...draft, id: draft.id, label: label.trim(), kind, date, included, price_cents: price, down_cents: down || '0', extra_cents: extra || '0', loan_rate_hundredths: financed ? (r as number) : draft.loan_rate_hundredths, loan_years: financed ? y : draft.loan_years, holding_cents: holding || '0', rent_saved_cents: kind === 'house' ? rent || '0' : '0', cycle_years: kind === 'car' ? c : null, until_age: kind === 'car' ? u : null, resale_cents: kind === 'car' ? resale || '0' : '0' });
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="event-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); save(); }}>
     <header><div><p className="eyebrow">规划 · 大额计划</p><h2 id="event-heading">{isNew ? '新增' : '编辑'}大额计划</h2><p className="muted">金额都按「今天的钱」；这些是设想，不是事实，不会扣你真实的资产。</p></div><CloseButton type="button" aria-label="关闭大额计划表单" disabled={busy} onClick={onClose}/><div className="editor-header-actions"><button className="primary" disabled={busy}>{busy ? '保存中…' : '保存'}</button></div></header>
     <section className="form-block">
       <FormRow label="类型"><Segments label="类型" value={kind} options={[{ value: 'house', label: '买房' }, { value: 'car', label: '买车' }, { value: 'other', label: '其他' }]} onChange={setKind} disabled={busy}/></FormRow>
       <FormRow label="名称" hint="例如「北京买房」「二手车」"><input aria-label="名称" value={label} disabled={busy} onChange={e => setLabel(e.target.value)}/></FormRow>
-      <FormRow label="计划购买月份" hint="还不确定就填大概的月份，也可以在列表里看 5、7、10 年后买的差别"><input type="month" aria-label="计划购买月份" value={date} min={today.slice(0, 7)} disabled={busy} onChange={e => setDate(e.target.value)}/></FormRow>
+      <FormRow label="计划购买月份" hint="还不确定就填大概的月份，也可以在列表里看 5、7、10 年后买的差别"><input type="month" aria-label="计划购买月份" value={date} disabled={busy} onChange={e => setDate(e.target.value)}/></FormRow>
       <FormRow label="总价"><CentInput label="总价" value={price} disabled={busy} onChange={setPrice}/></FormRow>
       <FormRow label="首付 / 一次付清的现金" hint="等于总价就是全款，没有贷款"><CentInput label="首付" value={down} disabled={busy} onChange={setDown}/></FormRow>
       <FormRow label={kind === 'house' ? '一次性杂费（税费、中介、装修等）' : '一次性杂费'}><CentInput label="杂费" value={extra} disabled={busy} onChange={setExtra}/></FormRow>
@@ -121,3 +128,5 @@ function EventDialog({ draft, isNew, today, busy, notice, onClose, onSave }: { d
     <Info text="退休后月预算「日常生活」请不要再含房租、房贷、车；这些由大额计划来出。"/>
   </form></dialog>;
 }
+
+function retireOccurrence(calc: RetireCalc | null, id: string) { return calc?.r.core?.occurrences.some(o => o.event_id === id); }

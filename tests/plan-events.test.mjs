@@ -11,10 +11,10 @@ const plan = (over = {}) => ({
 });
 const ev = (over = {}) => ({ id: 'e', label: '房', kind: 'house', date: '2033-10', included: true, price_cents: 450_000_000, down_cents: 150_000_000, extra_cents: 10_000_000, loan_rate_hundredths: 350, loan_years: 30, holding_cents: 150_000, rent_saved_cents: 270_000, cycle_years: null, until_age: null, resale_cents: 0, ...over });
 
-test('offset in months is calendar based and never negative', () => {
+test('offset in months is calendar based and preserves overdue dates', () => {
   assert.equal(offsetOf('2033-10', '2026-10-06'), 84);
   assert.equal(offsetOf('2026-10', '2026-10-31'), 0);
-  assert.equal(offsetOf('2025-01', '2026-10-06'), 0);
+  assert.equal(offsetOf('2025-01', '2026-10-06'), -21);
 });
 
 test('the monthly payment amortises the loan to zero', () => {

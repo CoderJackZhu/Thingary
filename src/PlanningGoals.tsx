@@ -3,6 +3,7 @@ import { money } from './asset';
 import { ageText, rateText } from './plan';
 import type { Income, PlanReview } from './plan';
 import { coverageNow, goalHeadline } from './plan-summary';
+import { PlanningCoreCard } from './PlanningCoreCard';
 import { PlanningEvents } from './PlanningEvents';
 import { PlanningWishes } from './PlanningWishes';
 import { RetireDetail, isReady, useRetirePlan } from './PlanningRetire';
@@ -44,13 +45,13 @@ export function PlanningGoals({ focus = false, onFocusDone, today, review, incom
             : !fire ? <><strong>{headline!.main}：{headline!.sub}</strong><span>传统模式 · {out!.funded_at_goal ? '按当前储蓄够用' : '按当前储蓄尚不够'}</span></>
             : <><strong>{headline!.main}</strong>{headline!.sub && <span>{headline!.sub}</span>}</>}</p>
           {headline?.warn && <p className="ui-note" role="status">{headline.warn}</p>}
-          <p className="muted">{ready ? `按今天的购买力，覆盖到 ${calc.r.horizon_age} 岁；养老金从 ${ageText(calc.start)}起领取。` : '退休预算由你决定。历史里的医疗、一次性购买与其他特殊支出，不会自动成为未来每个月的预算。'}</p>
+          <p className="muted">{ready ? `按 ${calc.plan.monetary_basis_date ?? today} 的购买力，覆盖到 ${calc.r.horizon_age} 岁；养老金从 ${ageText(calc.start)}起领取。` : '退休预算由你决定。历史里的医疗、一次性购买与其他特殊支出，不会自动成为未来每个月的预算。'}</p>
           <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={() => calc ? setDetail(true) : onGoto('pension')}>{!calc ? '填写个人资料' : ready ? '查看退休测算' : '设置月预算与假设'}</button><button type="button" className="ui-btn" onClick={() => onGoto('savings')}>查看储蓄依据</button></div>
         </div>
         <dl className="plan-facts plan-goal-inputs">
           <div><dt>退休后月预算</dt><dd>{yuan(calc?.spend)}</dd><small className="muted">按今天的物价，自己填写</small></div>
-          <div><dt>{usesPlanSaving ? '测算用月储蓄' : '常态月储蓄'}</dt><dd>{yuan(calc?.saving)}</dd><small className="muted">{usesPlanSaving ? '按已设置的储蓄阶段／路线' : '来自收入与完整盘点的中位数'}</small></div>
-          <div><dt>当前可支配资产</dt><dd>{yuan(calc?.assets)}</dd><small className="muted">扣除负债与公积金</small></div>
+          <div><dt>未来每月净投入</dt><dd>{yuan(calc?.saving)}</dd><small className="muted">{usesPlanSaving ? '显式阶段假设' : '旧自动参考待确认'}</small></div>
+          <div><dt>当前可支配资产</dt><dd>{yuan(calc?.assets)}</dd><small className="muted">仅明确可用资金；债务另列</small></div>
         </dl>
       </div>
       {ready && <div className="plan-goal-progress">
@@ -60,6 +61,7 @@ export function PlanningGoals({ focus = false, onFocusDone, today, review, incom
       </div>}
       {!ready && <div className="plan-goal-next" role="status">{calc ? <ul>{calc.missing.map(m => <li key={m}>{m}</li>)}</ul> : <p>先在养老金页填写出生年月与缴费资料，再设置月预算。购买计划可以先查看。</p>}</div>}
     </article>
+    <PlanningCoreCard state={state} snapshot={snapshot} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange}/>
     <PlanningEvents plan={plan} today={today} onEditingChange={onEditingChange} onPending={onPending}/>
     <PlanningWishes calc={calc} today={today}/>
   </div>;

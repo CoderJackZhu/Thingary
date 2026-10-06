@@ -161,7 +161,7 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
       const real = (1 + (it.inflation_hundredths ?? P.inflation_hundredths) / 10000) / infl;
       return { id: it.id, label: it.label, monthly: active ? it.monthly_cents * real ** ((month - P.now_months) / 12) * k : 0, start: it.start_age === null ? '退休' : `${it.start_age} 岁`, end: ageOf(it.end_age), essential: it.essential, active };
     }),
-    flow_items: (P.spend_flows ?? []).map(f => { const i = month - P.now_months, active = month >= f.from_month && (f.to_month === null || month < f.to_month); return { id: f.label + f.from_month, label: f.label, monthly: active ? (f.nominal ? f.cents / infl ** (i / 12) : f.cents) * k : 0, start: `${ageInt(f.from_month)} 岁`, end: f.to_month === null ? '终身' : `${ageInt(f.to_month)} 岁`, essential: f.essential, active }; }),
+    flow_items: (P.spend_flows ?? []).map(f => { const active = month >= f.from_month && (f.to_month === null || month < f.to_month); return { id: f.label + f.from_month, label: f.label, monthly: active ? (f.nominal ? f.cents / nominalFactor(P, month) : f.cents) * k : 0, start: `${ageInt(f.from_month)} 岁`, end: f.to_month === null ? '终身' : `${ageInt(f.to_month)} 岁`, essential: f.essential, active }; }),
     income_items: [
       ...P.incomes.map(s => ({ id: s.id, label: s.label, monthly: c.items.find(x => x.id === s.id)!.monthly * k, start: `${s.start_age} 岁`, end: ageOf(s.end_age), active: c.items.find(x => x.id === s.id)!.active })),
       ...(proj.pension && proj.pension.monthly_cents > 0 ? [{ id: 'pension', label: '国家养老金', monthly: c.pension * k, start: `${ageInt(proj.pension.unlock_age_months)} 岁`, end: '终身', active: c.pension > 0 }] : []),

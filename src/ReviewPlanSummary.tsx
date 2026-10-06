@@ -19,12 +19,12 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
 
   const actions: { label: string; run: () => void }[] = retire.kind === 'ready' ? [
     { label: '查看目标 →', run: () => onGotoPlanning('goals') },
-    { label: '储蓄与收入 →', run: () => onGotoPlanning('savings') },
+    { label: '收入与复盘 →', run: () => onGotoPlanning('savings') },
   ] : retire.kind === 'blocked' ? (
     retire.step === 'snapshot' ? [{ label: '查看账户与盘点 →', run: () => onNavigate('wealth') }] :
     retire.step === 'profile' ? [{ label: '填写个人资料 →', run: () => onGotoPlanning('pension', 'profile') }] :
-    retire.step === 'budget' ? [{ label: '补充退休预算 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '储蓄与收入 →', run: () => onGotoPlanning('savings') }] :
-    retire.step === 'saving' ? [{ label: '储蓄与收入 →', run: () => onGotoPlanning('savings') }] :
+    retire.step === 'budget' ? [{ label: '补充退休预算 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '收入与复盘 →', run: () => onGotoPlanning('savings') }] :
+    retire.step === 'saving' ? [{ label: '确认未来净投入 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '收入与复盘 →', run: () => onGotoPlanning('savings') }] :
     [{ label: '查看目标 →', run: () => onGotoPlanning('goals') }]
   ) : [];
   return <article className="ui-card review-plan" aria-label="规划摘要">
@@ -36,7 +36,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
       {retire.headline.warn && <p className="review-plan-warn" role="status">{retire.headline.warn}</p>}
       <div className="review-plan-cov">
         <div className="review-plan-cov-head">
-          <span>当前可支配资产／今天退休所需<Info text={`当前可支配资产 ${yuan(retire.coverage.assets)}（最近完整盘点里计入的资产 − 负债 − 公积金类账户），今天退休所需 ${yuan(retire.coverage.requiredNow)}。这是资产比例，不是时间进度或成功概率。`}/></span>
+          <span>当前可支配资产／今天退休所需<Info text={`当前可支配资产 ${yuan(retire.coverage.assets)}（明确可用资产份额；受限资金与余债另列），今天退休所需 ${yuan(retire.coverage.requiredNow)}。这是资产比例，不是时间进度或成功概率。`}/></span>
           <b>{rateText(retire.coverage.percent)}</b>
         </div>
         <div className="review-plan-bar" role="img" aria-label={`当前可支配资产约为今天退休所需的 ${rateText(retire.coverage.percent)}`}><div style={{ width: `${retire.coverage.percent / 100}%` }}/></div>
@@ -49,14 +49,14 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
       </>}
     <div className="review-plan-divide">
       <div className="review-plan-save">
-        <span>常态月储蓄<Info text="由最近 12 个月内结束的可比盘点区间推出的月储蓄中位数（净资产变化 − 公积金余额变化），包含利息和投资涨跌，不等同于工资结余；标记为一次性变动的区间不参与。它是历史参考，不是退休测算用的未来储蓄。"/></span>
+        <span>历史月均净资产变化（含估值变化）<Info text="近12个月可比盘点的金融净资产变化，按区间天数加权；含估值变化。历史参考不会自动成为未来净投入。"/></span>
         {saving.kind === 'known' ? <b className={saving.negative ? 'neg' : undefined}>{money(saving.monthly_cents)}<small>／月</small></b> : null}
       </div>
       {saving.kind === 'known' ? <p className="review-plan-source">
-        {saving.low_sample ? `样本少 · ${saving.count} 个区间` : `近 12 个月可比区间中位数 · ${saving.count} 个区间`}{saving.window_from ? ` · ${saving.window_from} 起` : ''}{retire.kind !== 'ready' && saving.latest_date ? ` · 截至 ${saving.latest_date}` : ''}
-        {saving.negative && ' · 近期在动用积累'}
+        {saving.low_sample ? `样本少 · ${saving.count} 个区间` : `近 12 个月按天数加权 · ${saving.count} 个区间`}{saving.window_from ? ` · ${saving.window_from} 起` : ''}{retire.kind !== 'ready' && saving.latest_date ? ` · 截至 ${saving.latest_date}` : ''}
+        {saving.negative && ' · 近期净资产下降（含估值变化）'}
       </p> : saving.kind === 'unknown' ? <p className="review-plan-source">待补充 · {saving.reason}</p>
-      : saving.kind === 'error' ? <p className="review-plan-source">历史储蓄暂时无法读取。</p>
+      : saving.kind === 'error' ? <p className="review-plan-source">历史资产参考暂时无法读取。</p>
       : <p className="review-plan-source" role="status">正在读取…</p>}
     </div>
     {basis && <p className="review-plan-source">{basis.join(' · ')}</p>}

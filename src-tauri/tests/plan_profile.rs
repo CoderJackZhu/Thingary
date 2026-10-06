@@ -600,3 +600,381 @@ fn leaving_work_costs_default_to_none_for_older_profiles_and_are_validated() {
         assert_eq!(got, want, "case {i}");
     }
 }
+
+fn core_fixture(s: &mut Store) -> (Profile, String, String) {
+    use thingary_lib::{
+        plan_core::{Core, FundRule, Occurrence, Payment},
+        wealth::{AccountFields, AccountSave, EntryInput, SnapshotSave},
+    };
+    let account = s
+        .wealth_account_save(
+            &AccountSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: AccountFields {
+                    name: "虚构可用账户".into(),
+                    institution: "虚构".into(),
+                    side: "asset".into(),
+                    kind: "cash".into(),
+                    counted: true,
+                    opened_on: "2026-01-01".into(),
+                    closed_on: None,
+                    notes: String::new(),
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    let snapshot = s
+        .wealth_snapshot_save(
+            &SnapshotSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                date: "2026-10-31".into(),
+                notes: "虚构完整盘点".into(),
+                entries: vec![EntryInput {
+                    account_id: account.id.clone(),
+                    state: "entered".into(),
+                    amount_cents: Some("70000000".into()),
+                }],
+            },
+            TODAY,
+        )
+        .unwrap();
+    let mut p = profile();
+    p.retire.saving_phases = vec![SavingPhase {
+        id: "phase".into(),
+        label: "明确零".into(),
+        from_age_months: 0,
+        monthly_cents: 0,
+    }];
+    p.retire.life_events = vec![LifeEvent {
+        id: "event".into(),
+        label: "虚构已购物品".into(),
+        kind: "other".into(),
+        date: "2026-09".into(),
+        included: false,
+        price_cents: "30000000".into(),
+        down_cents: "30000000".into(),
+        extra_cents: "0".into(),
+        loan_rate_hundredths: 0,
+        loan_years: 1,
+        holding_cents: "0".into(),
+        rent_saved_cents: "0".into(),
+        cycle_years: None,
+        until_age: None,
+        resale_cents: "0".into(),
+    }];
+    p.retire.core = Some(Core {
+        contract_version: 1,
+        monetary_basis_date: "2026-10-07".into(),
+        fund_rules: vec![FundRule {
+            account_id: account.id.clone(),
+            availability: "available".into(),
+            share_hundredths: 10000,
+        }],
+        hpf_monthly_cents: Some("0".into()),
+        personal_pension_account_id: None,
+        personal_pension_balance_confirmed: true,
+        costs: vec![],
+        occurrences: vec![Occurrence {
+            id: rid(),
+            event_id: "event".into(),
+            status: "occurred".into(),
+            actual_date: "2026-09-01".into(),
+            payments_complete: true,
+            payments: vec![Payment {
+                id: rid(),
+                date: "2026-09-01".into(),
+                amount_cents: Some("30000000".into()),
+                account_id: Some(account.id.clone()),
+                absorbed_snapshot_id: Some(snapshot.id.clone()),
+                absorbed_revision: Some(snapshot.revision),
+                source_kind: None,
+                source_id: None,
+            }],
+            loan: None,
+        }],
+    });
+    (p, account.id, snapshot.id)
+}
+
+#[test]
+fn core_committed_unknown_receipt_restart_restore_and_conflict_preserve_one_occurrence() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("fictional");
+    let mut s = Store::open(&root).unwrap();
+    let (p, _, snapshot) = core_fixture(&mut s);
+    let input = save(&s, p.clone(), None);
+    s.set_hook(|point| {
+        if point == "plan_profile.before_commit" {
+            Err(Error::new("INJECTED", "事务提交前中断"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(code(s.plan_profile_save(&input, TODAY)), "INJECTED");
+    assert!(s.plan_profile().unwrap().saved.is_none());
+    s.set_hook(|point| {
+        if point == "plan_profile.after_commit" {
+            Err(Error::new("INJECTED", "提交成功后回执丢失"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(code(s.plan_profile_save(&input, TODAY)), "INJECTED");
+    s.set_hook(|_| Ok(()));
+    assert_eq!(s.plan_profile_save(&input, TODAY).unwrap().revision, 1);
+    assert_eq!(
+        code(s.plan_profile_save(&save(&s, p.clone(), None), TODAY)),
+        "REVISION_CONFLICT"
+    );
+    let mut cancelled = p.clone();
+    cancelled.retire.core.as_mut().unwrap().occurrences.clear();
+    assert_eq!(
+        code(s.plan_profile_save(&save(&s, cancelled, Some(1)), TODAY)),
+        "PLANNING_OCCURRENCE"
+    );
+    let mut basis = p.clone();
+    basis.retire.core.as_mut().unwrap().monetary_basis_date = "2026-10-08".into();
+    assert_eq!(
+        code(s.plan_profile_save(&save(&s, basis, Some(1)), TODAY)),
+        "PLANNING_BASIS"
+    );
+    drop(s);
+    let s = Store::open(&root).unwrap();
+    let read = s.plan_profile().unwrap().saved.unwrap();
+    assert_eq!(read.profile, p);
+    assert!(read.reference_issues.is_empty());
+    let file = dir.path().join("fictional.thingary");
+    s.backup(Some(&file)).unwrap();
+    let mut restored = Store::open(&dir.path().join("restored")).unwrap();
+    let summary = restored.inspect_backup(&file).unwrap();
+    assert_eq!(summary.schema, 31);
+    restored
+        .restore(&file, &summary.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(restored.plan_profile().unwrap().saved.unwrap().profile, p);
+    assert_eq!(
+        restored
+            .wealth_snapshot(&snapshot)
+            .unwrap()
+            .unwrap()
+            .entries[0]
+            .amount_cents,
+        Some("70000000".into())
+    );
+}
+
+#[test]
+fn core_referenced_sources_cannot_delete_and_corrections_raise_read_time_missing() {
+    use thingary_lib::{
+        expenses::{Fields, Save},
+        wealth::{EntryInput, SnapshotSave, TrashChange},
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("fictional")).unwrap();
+    let (mut p, account, snapshot) = core_fixture(&mut s);
+    let expense = s
+        .expense_save(
+            &Save {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: Fields {
+                    title: "虚构已付首付款".into(),
+                    date: "2026-09-01".into(),
+                    amount_cents: "30000000".into(),
+                    category: "other".into(),
+                    notes: String::new(),
+                    refund_cents: None,
+                    refund_date: None,
+                    asset_id: None,
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    let payment = &mut p.retire.core.as_mut().unwrap().occurrences[0].payments[0];
+    payment.source_kind = Some("expense".into());
+    payment.source_id = Some(expense.id.clone());
+    s.plan_profile_save(&save(&s, p.clone(), None), TODAY)
+        .unwrap();
+    for (kind, id, revision) in [
+        ("snapshot", snapshot.clone(), 1),
+        ("expense", expense.id.clone(), 1),
+    ] {
+        assert_eq!(
+            code(s.wealth_trash(&TrashChange {
+                request_id: rid(),
+                generation: s.generation(),
+                kind: kind.into(),
+                id,
+                expected_revision: revision,
+                deleted: true
+            })),
+            "PLANNING_DEPENDENCY"
+        );
+    }
+    let mut fields = expense.fields.clone();
+    fields.amount_cents = "30000001".into();
+    s.expense_save(
+        &Save {
+            request_id: rid(),
+            generation: s.generation(),
+            id: Some(expense.id.clone()),
+            expected_revision: Some(1),
+            fields,
+        },
+        TODAY,
+    )
+    .unwrap();
+    assert!(!s
+        .plan_profile()
+        .unwrap()
+        .saved
+        .unwrap()
+        .reference_issues
+        .is_empty());
+    assert_eq!(
+        code(s.plan_profile_save(&save(&s, p.clone(), Some(1)), TODAY)),
+        "PLANNING_SOURCE"
+    );
+    let payment = &mut p.retire.core.as_mut().unwrap().occurrences[0].payments[0];
+    payment.amount_cents = Some("30000001".into());
+    s.plan_profile_save(&save(&s, p.clone(), Some(1)), TODAY)
+        .unwrap();
+    s.wealth_snapshot_save(
+        &SnapshotSave {
+            request_id: rid(),
+            generation: s.generation(),
+            id: Some(snapshot.clone()),
+            expected_revision: Some(1),
+            date: "2026-10-31".into(),
+            notes: "更正虚构盘点".into(),
+            entries: vec![EntryInput {
+                account_id: account,
+                state: "entered".into(),
+                amount_cents: Some("0".into()),
+            }],
+        },
+        TODAY,
+    )
+    .unwrap();
+    assert!(!s
+        .plan_profile()
+        .unwrap()
+        .saved
+        .unwrap()
+        .reference_issues
+        .is_empty());
+    assert_eq!(
+        code(s.plan_profile_save(&save(&s, p.clone(), Some(2)), TODAY)),
+        "PLANNING_ABSORPTION"
+    );
+    p.retire.core.as_mut().unwrap().occurrences[0].payments[0].absorbed_revision = Some(2);
+    s.plan_profile_save(&save(&s, p, Some(2)), TODAY).unwrap();
+    assert!(s
+        .plan_profile()
+        .unwrap()
+        .saved
+        .unwrap()
+        .reference_issues
+        .is_empty());
+}
+
+#[test]
+fn core_unknown_partial_duplicate_and_invalid_inputs_are_not_promoted_to_complete() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("fictional")).unwrap();
+    let (mut p, _, _) = core_fixture(&mut s);
+    let o = &mut p.retire.core.as_mut().unwrap().occurrences[0];
+    o.payments_complete = false;
+    o.payments[0].amount_cents = None;
+    o.payments[0].account_id = None;
+    o.payments[0].absorbed_snapshot_id = None;
+    o.payments[0].absorbed_revision = None;
+    s.plan_profile_save(&save(&s, p.clone(), None), TODAY)
+        .unwrap();
+    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, p);
+    let mut dup = p.clone();
+    let mut o = dup.retire.core.as_ref().unwrap().occurrences[0].clone();
+    o.id = rid();
+    dup.retire.core.as_mut().unwrap().occurrences.push(o);
+    assert_eq!(
+        code(s.plan_profile_save(&save(&s, dup, Some(1)), TODAY)),
+        "PLANNING_CORE"
+    );
+    let mut invalid = p.clone();
+    invalid.retire.core.as_mut().unwrap().monetary_basis_date = "2026-02-30".into();
+    assert!(s
+        .plan_profile_save(&save(&s, invalid, Some(1)), TODAY)
+        .is_err());
+    let mut future = p.clone();
+    future.retire.core.as_mut().unwrap().contract_version = 2;
+    assert_eq!(
+        code(s.plan_profile_save(&save(&s, future, Some(1)), TODAY)),
+        "PLANNING_VERSION"
+    );
+    let mut raw = serde_json::to_value(&p).unwrap();
+    raw["retire"]["core"]["future_field"] = serde_json::json!(1);
+    assert!(serde_json::from_value::<Profile>(raw).is_err());
+}
+
+#[test]
+fn schema30_upgrade_rolls_back_without_rewriting_legacy_ids_zero_and_explicit_amounts() {
+    let c = Connection::open_in_memory().unwrap();
+    c.execute_batch(SCHEMA).unwrap();
+    migrate_to(&c, 30, &|_| Ok(())).unwrap();
+    let mut p = profile();
+    p.retire.saving_phases = vec![
+        SavingPhase {
+            id: "old-zero".into(),
+            label: "零".into(),
+            from_age_months: 0,
+            monthly_cents: 0,
+        },
+        SavingPhase {
+            id: "old-nonzero".into(),
+            label: "非零".into(),
+            from_age_months: 480,
+            monthly_cents: 500000,
+        },
+    ];
+    let mut raw = serde_json::to_value(&p).unwrap();
+    raw["retire"].as_object_mut().unwrap().remove("core");
+    let payload = raw.to_string();
+    c.execute(
+        "INSERT INTO plan_profile VALUES(1,?1,7,'2026-10-07T00:00:00Z')",
+        [&payload],
+    )
+    .unwrap();
+    assert!(
+        migrate_to(&c, 31, &|point| if point == "migration.before_commit" {
+            Err(Error::new("INJECTED", "迁移中断"))
+        } else {
+            Ok(())
+        })
+        .is_err()
+    );
+    assert_eq!(
+        c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        30
+    );
+    migrate_to(&c, 31, &|_| Ok(())).unwrap();
+    assert_eq!(
+        c.query_row("SELECT payload FROM plan_profile", [], |r| r
+            .get::<_, String>(0))
+            .unwrap(),
+        payload
+    );
+    let loaded: Profile = serde_json::from_str(&payload).unwrap();
+    assert!(loaded.retire.core.is_none());
+    assert_eq!(loaded.retire.saving_phases, p.retire.saving_phases);
+}

@@ -1,5 +1,6 @@
 // 退休与 FIRE 的输入汇总与计算（纯函数）：目标卡片、详情页与心愿详情共用，结果不存库。
 import { fundsFrom } from './plan.ts';
+import { normalizeFunds, occurrenceMissing, costSources, includedReference } from './plan-core.ts';
 import type { Income, PlanReview, ProfileState, RetireInputs, StoredLifeEvent } from './plan.ts';
 import { beijing, effectiveParams } from './plan-params.ts';
 import { emergency, pensionTable } from './plan-fire.ts';
@@ -17,16 +18,9 @@ export { expectedSaving };
 
 export const SEARCH_CAP_YEARS = 70;
 
-/** 可支配资产 = 最近完整盘点里计入的资产 − 负债 − 公积金类账户（锁定到领取年龄）。 */
+/** 规划可用资金与负债本金分开；完整测算还需要显式确认各账户规则。 */
 export function disposable(snapshot: Snapshot | null): number | null {
-  if (!snapshot) return null;
-  let total = 0n;
-  for (const e of snapshot.entries) {
-    if (!e.counted || e.amount_cents === null) continue;
-    if (e.kind === 'housing_fund') continue;
-    total += (e.side === 'liability' ? -1n : 1n) * BigInt(e.amount_cents);
-  }
-  return Number(total);
+  return normalizeFunds(snapshot).available;
 }
 
 
@@ -57,29 +51,54 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
     const p = saved.profile, r = p.retire, region = effectiveParams(beijing, p.overrides);
     const stats = review.stats;
     const { funds: gross } = fundsFrom(snapshot?.entries ?? null, incomes);
-    // 公积金池每月净增加 = 最近非零缴存 − 近期每月平均提取（自动提取等），由复盘区间的缴存与余额变化推算。
-    const funds = { ...gross, hpf_monthly_cents: String(Math.max(0, Number(gross.hpf_monthly_cents) - monthlyHpfOut(review))) };
-    const now = ageMonthsAt(p.birth_month, today), start = startAgeMonths(p);
-    const assets = disposable(snapshot);
-    const measured = stats.median_monthly_saving_cents === null ? null : Number(stats.median_monthly_saving_cents);
-    // 用户填了储蓄阶段就以阶段为准（盘点中位数含一次性大额消费与失业月份，只作参考）；没填才用盘点中位数。
-    const saving = r.saving_phases.length ? r.saving_phases[0].monthly_cents : measured;
-    const derivedSpend = stats.median_monthly_spend_cents === null ? null : Number(stats.median_monthly_spend_cents);
+    // 未来公积金采用单独确认的假设，不沿用历史非零金额。
+    const core = r.core, normalized = normalizeFunds(snapshot, core);
+    const funds = { ...gross, hpf_monthly_cents: core?.hpf_monthly_cents ?? '0' };
+    // Only confirmed, counted restricted housing-fund balances enter this pool.
+    funds.hpf_balance_cents = String(normalized.housingFund);
+    const anchor = snapshot?.date ?? today;
+    const now = ageMonthsAt(p.birth_month, anchor), start = startAgeMonths(p);
+    const basis = core?.monetary_basis_date ?? today;
+    const basisFactor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(basis)) / (86400000 * 365.25));
+    funds.hpf_monthly_cents = String(Math.round(Number(core?.hpf_monthly_cents ?? 0) * basisFactor));
+    const assets = normalized.available === null ? null : normalized.available / basisFactor;
+    const measured = stats.mean_monthly_change_cents == null ? null : Number(stats.mean_monthly_change_cents);
+    // 显式净投入阶段保留；旧自动参考不作为未来假设。
+    const saving = r.saving_phases.length ? r.saving_phases[0].monthly_cents : null;
+    const derivedSpend = null; // Asset changes do not establish historical spending.
     const spend = r.spend_cents !== null ? Number(r.spend_cents) : null;
-    const missing: string[] = [];
+    const missing: string[] = [...normalized.missing, ...(saved.reference_issues ?? [])];
+    if (snapshot) missing.push(...occurrenceMissing(snapshot, core, r.life_events, today));
+    if (Number(p.personal_pension_annual_cents) > 0 && !core?.personal_pension_balance_confirmed) missing.push('已有个人养老金余额待核对；无余额也需明确确认。');
+    const ppEntry = snapshot?.entries.find(e => e.account_id === core?.personal_pension_account_id && e.side === 'asset' && e.counted);
+    if (core?.personal_pension_account_id && (!ppEntry || ppEntry.kind === 'housing_fund' || !core.fund_rules.some(f => f.account_id === ppEntry.account_id && f.availability === 'restricted' && f.share_hundredths === 10000))) missing.push('个人养老金账户必须是单独确认的受限资产，不能同时进入可用／公积金池。');
+    if ((Number(funds.hpf_balance_cents) > 0 || incomes.some(i => Number(i.fields.hpf_cents) > 0)) && core?.hpf_monthly_cents == null) missing.push('未来公积金缴存待确认（最新明确零优先）。');
+    if (core && (snapshot?.entries ?? []).some(e => e.kind === 'housing_fund' && core.fund_rules.some(f => f.account_id === e.account_id && f.availability === 'available'))) missing.push('公积金解锁来源待核对，请保留受限规则。');
+    const activeEvents = r.life_events.filter(e => e.included || core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred'));
+    const sources = costSources(activeEvents, p.personal_pension_annual_cents);
+    if (r.route_id && sources.length) missing.push('职业路线与费用包含关系尚未联合核对；请改用显式阶段。');
+    for (const phase of r.saving_phases) for (const source of sources) {
+      const occurred = source.id === 'personal_pension' || core?.occurrences.some(o => o.status === 'occurred' && source.id.startsWith(`event:${o.event_id}:`));
+      if (!occurred && core?.costs.some(c => c.phase_id === phase.id && c.source_id === source.id && c.included)) missing.push(`${phase.label}：未发生费用不能标记已含；请改为额外费用。`);
+      if (occurred && includedReference(core, phase, source.id) === null) missing.push(`${phase.label}：${source.label}包含关系待确认。`);
+    }
     if (assets === null) missing.push('还没有完整盘点，算不出当前可支配资产。');
-    if (saving === null) missing.push('还没有常态月储蓄：需要至少两次完整盘点并记录月度收入，或者在「储蓄阶段」里直接填写每月储蓄。');
+    if (saving === null) missing.push('未来净投入待确认：请在「储蓄阶段」保存明确假设；旧自动参考（含估值变化）不会采用。');
     if (spend === null) missing.push('请填写退休后月预算；历史支出仅作参考，不会自动成为退休预算。');
     if (r.horizon_age * 12 < now + 12) missing.push('规划终点年龄至少要比当前年龄晚一年，请在计划输入里调整。');
     if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, emergency: undefined, plan: undefined, plan0: undefined, events: [] as LifeEvent[], proj: undefined, out: undefined };
     const horizon = r.horizon_age * 12;
     const route = routeById(r.route_id), routeFrom = r.route_from_age * 12;
-    const employment = route ? routeEmployment(route, routeFrom, monthlyHpfOut(review)) : [];
-    const plan0 = retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start), employment, keepFor(r, now)) });
-    // 大额计划：计入的并进同一个账本；plan0 是不含任何计划的版本，用来逐件比较影响。
+    const employment = route ? routeEmployment(route, routeFrom, 0) : [];
+    const fraction = snapshot?.date ? (new Date(Date.UTC(+anchor.slice(0, 4), +anchor.slice(5, 7), 0)).getUTCDate() - +anchor.slice(8, 10)) / new Date(Date.UTC(+anchor.slice(0, 4), +anchor.slice(5, 7), 0)).getUTCDate() : 1;
+    const pensions = pensionTable(p, region, anchor, { ...funds, first_month_fraction: fraction, personal_pension_balance_cents: ppEntry?.amount_cents ?? '0', hpf_growth_hundredths: p.assumptions.inflation_hundredths }, now, Math.max(now, start), employment, keepFor(r, now));
+    const anchored = { ...retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: age => { const pen = pensions(age); return { ...pen, monthly_cents: pen.monthly_cents / basisFactor, lump_cents: pen.lump_cents / basisFactor }; } }), anchor_date: anchor, calculation_date: today, monetary_basis_date: basis, basis_factor: basisFactor, first_month_fraction: fraction, core };
+    // 大额计划：计入的并进同一个账本；plan0 保留全部已发生安排，只排除未来设想，用来逐件比较影响。
     const events = r.life_events.map(toEvent);
-    const plan = applyEvents(plan0, events.filter(e => e.included).map(e => ({ e, offset: offsetOf(e.date, today) })));
-    const proj = project(plan, Number(today.slice(0, 4)));
+    const occurred = (id: string) => core?.occurrences.some(o => o.event_id === id && o.status === 'occurred');
+    const plan0 = applyEvents(anchored, events.filter(e => occurred(e.id)).map(e => ({ e, offset: offsetOf(e.date, anchor) })));
+    const plan = applyEvents(plan0, events.filter(e => e.included && !occurred(e.id)).map(e => ({ e, offset: offsetOf(e.date, anchor) })));
+    const proj = project(plan, Number(anchor.slice(0, 4)));
     return {
       p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, plan, plan0, events, proj, out: outcome(plan, proj),
       // 应急金按离职后的全部必需支出算（日常生活、房租、续缴社保等），不只是日常生活预算。
@@ -89,9 +108,10 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
 export type RetireCalc = ReturnType<typeof buildRetireCalc>;
 
 /** 引擎输入：日常生活预算是必需的第一个支出桶，其余支出项与收入项来自资料；养老金按辞职年龄重算。
- *  储蓄的实际增长＝工资增长相对通胀；名义换算只在展示时用通胀。 */
+ *  净投入采用独立阶段，阶段内保持 T 实际金额；工资增长仅用于养老金，名义金额按同一 B/T 系数换算。 */
 export function retirePlan(saved: NonNullable<ProfileState['saved']>, x: { now: number; horizon: number; assets: number; saving: number; spend: number; pension_at: Plan['pension_at'] }): Plan {
   const p = saved.profile, r = p.retire, a = p.assumptions, { spend, assets, saving } = x;
+  const normalizedStages = { ...r, saving_phases: r.saving_phases.map(phase => ({ ...phase, monthly_cents: phase.monthly_cents + (r.core?.costs ?? []).filter(c => c.phase_id === phase.id && c.included && (c.source_id === 'personal_pension' && Number(p.personal_pension_annual_cents) > 0 || r.life_events.some(e => r.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred') && costSources([e], '0').some(s => s.id === c.source_id)))).reduce((s,c) => s + Number(c.reference_cents), 0) })) };
   const items: SpendItem[] = [
     { id: 'living', label: '日常生活', monthly_cents: spend, start_age: null, end_age: null, inflation_hundredths: null, essential: true },
     ...r.spend_items.map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })),
@@ -100,11 +120,12 @@ export function retirePlan(saved: NonNullable<ProfileState['saved']>, x: { now: 
     now_months: x.now, horizon_months: x.horizon, search_cap_months: Math.min(SEARCH_CAP_YEARS * 12, x.horizon),
     target_months: Math.max(r.target_age * 12, x.now), mode: r.mode,
     assets_cents: assets, saving_cents: saving,
-    saving_growth_hundredths: Math.round(((1 + a.wage_growth_hundredths / 10000) / (1 + a.inflation_hundredths / 10000) - 1) * 10000),
+    saving_growth_hundredths: 0, // Net contribution growth must not inherit wage growth implicitly.
     r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths,
     inflation_hundredths: a.inflation_hundredths, volatility_hundredths: r.volatility_hundredths,
     items, incomes: r.income_items.map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })),
-    saving_phases: savingPhases(r, x.now, saving, leaveCost(r, spend)),
+    saving_phases: savingPhases(normalizedStages, x.now, saving, leaveCost(r, spend)),
+    saving_flows: Number(p.personal_pension_annual_cents) > 0 ? [{ label: '个人养老金现金转入', from_month: x.now, to_month: startAgeMonths(p), cents: -Number(p.personal_pension_annual_cents) / 12, nominal: true, essential: false, prorate_first: true }] : [],
     pension_at: x.pension_at, spends: [],
     spend_flows: leaveFlows(r, x.now), rent_cents: Number(r.rent_cents),
   };
@@ -125,7 +146,7 @@ export function monthlyHpfOut(review: PlanReview): number {
   return Math.max(0, Math.round(Number(iv.hpf_out_cents) * 487 / (16 * iv.days)));
 }
 
-/** 引擎用的储蓄阶段：用户的阶段（按平均空窗比例折算）或盘点中位数；选了路线则从换路线的年龄起由路线取代。 */
+/** 引擎用的储蓄阶段：用户确认的阶段（按平均空窗比例折算）；选了路线则从换路线的年龄起由路线取代。 */
 function savingPhases(r: RetireInputs, now: number, measured: number, living: number): SavingPhase[] | undefined {
   const user: SavingPhase[] = r.saving_phases.map((ph, i) => ({ from_month: i === 0 ? now : ph.from_age_months, cents: expectedSaving(ph.monthly_cents, r.gap_share_hundredths, living) }));
   const route = routeById(r.route_id);

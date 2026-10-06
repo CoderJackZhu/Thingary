@@ -52,6 +52,7 @@ export function RetireOverview({ calc, mode, onMode }: { calc: Ready; mode: Valu
       {v.guidance && <p className={`rd-guidance ${v.tone}`}>{v.guidance}</p>}
     </article>
 
+    <p className="muted small">资金起点：{P.anchor_date ?? '当前'} 收盘；现值金额基准：{P.monetary_basis_date ?? '当前'}。计划付款在月初核对，投入计入月末。</p>
     <EventWarnings calc={calc}/>
     <Range calc={calc} mode={mode}/>
 
@@ -71,8 +72,8 @@ export function RetireOverview({ calc, mode, onMode }: { calc: Ready; mode: Valu
 function EventWarnings({ calc }: { calc: Ready }) {
   const warnings = useMemo(() => {
     if (!calc.plan0) return [];
-    const emergency = calc.r.emergency_months * (calc.plan0.items[0]?.monthly_cents ?? 0), today = new Date().toISOString().slice(0, 10);
-    return calc.events.filter(e => e.included).flatMap(e => {
+    const emergency = calc.r.emergency_months * (calc.plan0.items[0]?.monthly_cents ?? 0), today = calc.plan.anchor_date ?? new Date().toISOString().slice(0, 10);
+    return calc.events.filter(e => e.included && !calc.r.core?.occurrences.some(o => o.event_id === e.id)).flatMap(e => {
       const i = eventImpact(calc.plan0!, e, offsetOf(e.date, today), emergency), out: string[] = [];
       if (i.short > 0) out.push(`「${e.label}」在 ${e.date} 付不起首付：还差 ${yuan(i.short)}（含杂费与应急金线），结论按先借后还算。`);
       if (i.saving_not_positive) out.push(`「${e.label}」买后每月储蓄约 ${yuan(i.saving_after)}，不为正，要靠当时的收入支撑。`);

@@ -6,14 +6,14 @@ import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
 
 const saved = spend => ({ revision: 1, updated_at: '2026-10-06', profile: {
   birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0,
-  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, spend_cents: spend },
+  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, core: { contract_version: 1, monetary_basis_date: '2026-10-06', fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', costs: [], occurrences: [] }, saving_phases: [{ id: 'default-explicit', label: '显式测试假设', from_age_months: 0, monthly_cents: 1000000 }], spend_cents: spend },
 } });
-const snapshot = { entries: [{ counted: true, side: 'asset', kind: 'cash', amount_cents: '20000000' }] };
+const snapshot = { entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: '20000000' }] };
 const review = { intervals: [], stats: { median_monthly_saving_cents: '1000000', median_monthly_spend_cents: '1700000' } };
 
 test('a high historical spend never silently becomes the retirement budget', () => {
   const r = buildRetireCalc(saved(null), snapshot, review, [], '2026-10-06');
-  assert.equal(r.derivedSpend, 1700000);
+  assert.equal(r.derivedSpend, null);
   assert.equal(r.spend, null);
   assert.match(r.missing.join(' '), /请填写退休后月预算/);
   for (const key of ['plan', 'proj', 'out', 'emergency']) assert.equal(r[key], undefined);
@@ -23,7 +23,7 @@ test('explicit monthly budget drives retirement and purchase estimates independe
   const r = buildRetireCalc(saved('500000'), snapshot, review, [], '2026-10-06');
   assert.equal(r.spend, 500000);
   assert.equal(r.plan.items[0].monthly_cents, 500000);
-  assert.equal(r.derivedSpend, 1700000);
+  assert.equal(r.derivedSpend, null);
   assert.deepEqual(r.missing, []);
   assert.ok(r.out);
   const changed = buildRetireCalc(saved('500000'), snapshot, { intervals: [], stats: { ...review.stats, median_monthly_spend_cents: '-100' } }, [], '2026-10-06');
@@ -55,7 +55,7 @@ test('saving phases replace the measured median, and the average gap share weigh
   assert.equal(expectedSaving(-100, 1000, 500000), -100);
   // 不分阶段时仍用盘点中位数，空窗比例不起作用。
   const plain = buildRetireCalc(saved('500000'), snapshot, review, [], '2026-10-06');
-  assert.equal(plain.plan.saving_phases, undefined);
+  assert.equal(plain.plan.saving_phases[0].cents, 1000000);
   assert.equal(plain.plan.saving_cents, 1000000);
 });
 
@@ -67,3 +67,10 @@ test('the housing fund pot grows by the latest deposit minus the average monthly
   assert.equal(monthlyHpfOut({ intervals: [iv({ hpf_out_cents: null }), iv({ status: 'no_income' })] }), 0);
   assert.equal(monthlyHpfOut({ intervals: [] }), 0);
 });
+
+ test('old automatic median has no future contribution until explicitly saved', () => {
+   const s = saved('500000'); s.profile.retire.saving_phases = [];
+   const c = buildRetireCalc(s, snapshot, review, [], '2026-10-06');
+   assert.equal(c.saving, null); assert.equal(c.plan, undefined);
+   assert.match(c.missing.join(' '), /未来净投入待确认/);
+ });

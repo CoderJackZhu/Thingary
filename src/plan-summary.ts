@@ -53,17 +53,17 @@ export type UsualSaving =
   | { kind: 'known'; monthly_cents: string; count: number; low_sample: boolean; window_from: string | null; latest_date: string | null; negative: boolean }
   | { kind: 'unknown'; reason: string };
 
-/** 历史常态月储蓄：只看 plan_review 的统计（中位数与样本数），不被储蓄阶段覆盖。 */
+/** 历史月均净资产变化（含估值变化）：只看 plan_review 的统计，不被储蓄阶段覆盖。 */
 export function usualSaving(review: PlanReview): UsualSaving {
   const s = review.stats;
-  if (s.median_monthly_saving_cents !== null) {
-    return { kind: 'known', monthly_cents: s.median_monthly_saving_cents, count: s.count, low_sample: s.low_sample, window_from: s.window_from, latest_date: s.latest_date, negative: s.median_monthly_saving_cents.startsWith('-') };
+  if (s.mean_monthly_change_cents != null) {
+    return { kind: 'known', monthly_cents: s.mean_monthly_change_cents, count: s.change_count ?? s.count, low_sample: (s.change_count ?? s.count) < 3, window_from: s.window_from, latest_date: s.latest_date, negative: s.mean_monthly_change_cents.startsWith('-') };
   }
   let reason: string;
   const current = review.intervals.filter(i => i.in_window);
   const usable = current.filter(i => i.status === 'ok' && !i.excluded);
   if (s.latest_date === null) reason = '还没有完整盘点。';
-  else if (!review.intervals.length) reason = '需要至少两次完整盘点，并记录这段时间的月度收入。';
+  else if (!review.intervals.length) reason = '需要至少两次完整盘点。';
   else if (!current.length) reason = '近 12 个月内没有可比区间。';
   else if (!usable.length) {
     if (current.some(i => !i.excluded && i.status === 'no_income')) reason = '这段时间还没有记录月度收入。';
@@ -94,12 +94,12 @@ export function summaryRetire(sources: PlanSources, today: string): SummaryRetir
   if (!saved) return { kind: 'blocked', step: 'profile', main: '先填写个人资料', note: '退休与财务自由的估算需要出生年月和缴费资料。' };
   const calc = buildRetireCalc(saved, sources.snapshot.value, sources.review.value, sources.incomes.value, today);
   if (calc.spend === null) return { kind: 'blocked', step: 'budget', main: '先确定退休后的月预算', note: '补齐后才能估算退休时间。' };
-  if (calc.saving === null) return { kind: 'blocked', step: 'saving', main: '储蓄依据不足', note: '需要可比区间与月度收入，或在储蓄阶段里直接填写。' };
+  if (calc.saving === null) return { kind: 'blocked', step: 'saving', main: '未来净投入待确认', note: '请在目标的储蓄阶段中保存明确假设，历史资产变化不会自动采用。' };
   if (!calc.plan || !calc.proj || !calc.out) return { kind: 'blocked', step: 'other', main: '计算输入不足', note: calc.missing[0] ?? '请到目标页核对假设。' };
   const ready = calc as ReadyCalc;
   return {
     kind: 'ready', mode: ready.plan.mode, headline: goalHeadline(ready, today), coverage: coverageNow(ready),
-    snapshotDate: sources.snapshotDate, usesPhases: ready.r.saving_phases.length > 0 || ready.r.route_id !== null, hasEvents: ready.events.some(e => e.included), calc: ready,
+    snapshotDate: sources.snapshotDate, usesPhases: ready.r.saving_phases.length > 0 || ready.r.route_id !== null, hasEvents: ready.events.some(e => e.included || ready.r.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')), calc: ready,
   };
 }
 
@@ -107,8 +107,8 @@ export function summaryRetire(sources: PlanSources, today: string): SummaryRetir
 export function basisNotes(calc: ReadyCalc, snapshotDate: string | null): string[] {
   return [
     snapshotDate ? `依据 ${snapshotDate} 完整盘点` : null,
-    calc.r.saving_phases.length || calc.r.route_id ? '退休估算采用已设置的储蓄阶段／路线' : '退休估算沿用历史常态储蓄',
-    calc.events.some(e => e.included) ? '已计入大额计划' : null,
+    calc.r.saving_phases.length || calc.r.route_id ? '退休估算采用已设置的储蓄阶段／路线' : '未来净投入待确认',
+    calc.events.some(e => e.included || calc.r.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')) ? '已计入大额计划' : null,
     '按当前假设估算',
   ].filter((x): x is string => x !== null);
 }

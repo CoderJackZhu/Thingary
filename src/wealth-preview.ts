@@ -13,6 +13,7 @@ import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 import type { SourceTarget, TimelineSelection } from './source';
 import { coverageFor, scheduleDates, shiftDays } from './recurring-model';
 import { computeReview, defaultRetire } from './plan';
+import { emptyCore, eventSource } from './plan-core';
 import type { Income, IncomeSave, Mark, ProfileSave, ProfileState, Reasons, StoredProfile } from './plan';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
@@ -244,6 +245,26 @@ let planProfile: ProfileState['saved'] = params.get('plan-profile') === 'empty' 
     { id: 'fx-home', label: '老家全款买房', kind: 'house' as const, date: `${now.getFullYear() + 7}-${String(now.getMonth() + 1).padStart(2, '0')}`, included: false, price_cents: '40000000', down_cents: '40000000', extra_cents: '3000000', loan_rate_hundredths: 350, loan_years: 30, holding_cents: '30000', rent_saved_cents: '150000', cycle_years: null, until_age: null, resale_cents: '0' },
     { id: 'fx-car', label: '二手车', kind: 'car' as const, date: `${now.getFullYear() + 2}-${String(now.getMonth() + 1).padStart(2, '0')}`, included: true, price_cents: '7000000', down_cents: '7000000', extra_cents: '0', loan_rate_hundredths: 350, loan_years: 3, holding_cents: '120000', rent_saved_cents: '0', cycle_years: 5, until_age: 60, resale_cents: '2000000' },
   ] } : {}), ...(params.get('plan-route') ? { route_id: params.get('plan-route'), route_from_age: 35 } : {}), ...(params.get('plan-return') === '1' ? { real_return_before_hundredths: 150, real_return_after_hundredths: 100 } : {}) } } as StoredProfile };
+// Confirmed planning / continuation acceptance fixtures, all balances fictional.
+const coreScenario = params.get('plan-core');
+if (coreScenario && planProfile && snapshots.length) {
+  const s = snapshots[snapshots.length - 1], cash = accounts.find(a => a.fields.kind === 'cash')!, debt = accounts.find(a => a.fields.kind === 'loan')!;
+  s.entries = s.entries.map(e => e.account_id === cash.id ? { ...e, amount_cents: '70000000' } : e.side === 'liability' ? { ...e, counted: true, amount_cents: e.account_id === debt.id && ['occurred','partial'].includes(coreScenario) ? '10000000' : '0' } : e);
+  const r = planProfile.profile.retire;
+  r.saving_phases = [{ id: 'fx-confirmed', label: '明确净投入', from_age_months: 0, monthly_cents: 500000 }];
+  r.core = { ...emptyCore(s.date), hpf_monthly_cents: '300000', fund_rules: s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: e.kind === 'cash' ? 'available' : 'restricted', share_hundredths: 10000 })) };
+  r.core.personal_pension_balance_confirmed = true;
+  r.core.costs = [{ phase_id: 'fx-confirmed', source_id: 'personal_pension', included: false, reference_cents: '0' }];
+  if (['occurred','partial','overdue'].includes(coreScenario)) {
+    const date = shifted(1).slice(0, 7);
+    r.life_events = [{ id: 'fx-occurred', label: '虚构已购住宅', kind: 'house', date, included: false, price_cents: '40000000', down_cents: '30000000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 30, holding_cents: '10000', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }];
+    if (coreScenario === 'overdue') r.life_events[0].included = true;
+    else {
+      r.core.occurrences = [{ id: 'fx-occurrence', event_id: 'fx-occurred', status: 'occurred', actual_date: date + '-01', payments_complete: coreScenario === 'occurred', payments: [{ id: 'fx-payment', date: date + '-01', amount_cents: '30000000', account_id: cash.id, absorbed_snapshot_id: s.id, absorbed_revision: s.revision, source_kind: null, source_id: null }], loan: { account_id: debt.id, as_of: s.date, principal_cents: '10000000', remaining_months: 50 } }];
+      r.core.costs.push({ phase_id: 'fx-confirmed', source_id: eventSource('fx-occurred','loan'), included: true, reference_cents: '200000' }, { phase_id: 'fx-confirmed', source_id: eventSource('fx-occurred','holding'), included: false, reference_cents: '0' });
+    }
+  }
+}
 // 首页规划摘要的局部读取失败夹具：只让指定来源失败，验证独立降级与局部重试。
 const planFail = (source: string) => params.get('plan-fail') === source;
 let searchPreviewAttempts = 0;
@@ -400,6 +421,8 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (command === 'plan_profile_save') {
       if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
       const input = args.input as ProfileSave;
+      if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '虚构资料库已变化。' };
+      if (input.expected_revision !== (planProfile?.revision ?? null)) throw { code: 'REVISION_CONFLICT', message: '虚构个人资料已变化，请重新读取。' };
       planProfile = { profile: input.profile, revision: (planProfile?.revision ?? 0) + 1, updated_at: new Date().toISOString() };
       receipts.set(input.request_id, 'profile');
       return { value: planProfile };

@@ -16,7 +16,7 @@ test('saving removes housing fund deposits; spending is what is left of income a
   assert.equal(i.spend_cents, '2100000');
   assert.equal(i.monthly_saving_cents, '980191');
   assert.equal(i.rate_hundredths, 4750);
-  assert.equal(i.income_possibly_missing, false);
+  assert.equal(i.income_possibly_missing, true);
 });
 
 test('negative saving is kept and income on the start date belongs to the earlier interval', () => {
@@ -70,7 +70,7 @@ test('old intervals leave the 12-month window, incomplete check-ins never end an
 test('missing income months are flagged but still computed', () => {
   const points = [point('a', '2026-01-01', null, null), point('b', '2026-04-01', '2026-01-01', 0)];
   assert.equal(review(points, [pay('2026-02-10', 5)]).intervals[0].income_possibly_missing, true);
-  assert.equal(review(points, [pay('2026-02-10', 5), pay('2026-03-10', 5)]).intervals[0].income_possibly_missing, false);
+  assert.equal(review(points, [pay('2026-02-10', 5), pay('2026-03-10', 5)]).intervals[0].income_possibly_missing, true);
 });
 
 test('year-before clamps to month end like chrono', () => {

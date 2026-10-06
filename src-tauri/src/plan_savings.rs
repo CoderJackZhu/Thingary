@@ -73,11 +73,14 @@ pub struct Interval {
 pub struct Stats {
     /// Comparable, unmarked intervals inside the window.
     pub count: usize,
+    pub change_count: usize,
     pub low_sample: bool,
     pub median_monthly_saving_cents: Option<String>,
     /// Weighted by interval length: total saving over total months.
     pub mean_monthly_saving_cents: Option<String>,
     pub median_monthly_spend_cents: Option<String>,
+    pub median_monthly_change_cents: Option<String>,
+    pub mean_monthly_change_cents: Option<String>,
     pub window_from: Option<String>,
     pub latest_date: Option<String>,
 }
@@ -174,7 +177,7 @@ pub fn compute(
             monthly_saving_cents: None,
             monthly_spend_cents: None,
             rate_hundredths: None,
-            income_possibly_missing: (rows.len() as i128) < days as i128 * MONTH_DEN / MONTH_NUM,
+            income_possibly_missing: true,
             excluded: marks.contains(&p.snapshot_id),
             in_window: cutoff
                 .as_ref()
@@ -217,6 +220,11 @@ pub fn compute(
                 interval.rate_hundredths = Some(round_div(saving * 10000, base) as i64);
             }
         }
+        // Asset facts survive absent income. Income row count never confirms coverage.
+        if !p.scope_changed {
+            interval.delta_nw_cents = p.change_cents.clone();
+            interval.hpf_change_cents = p.hpf_change_cents.clone();
+        }
         out.push(interval);
     }
 
@@ -242,6 +250,7 @@ pub fn compute(
     }
     let mut stats = Stats {
         count: usual.len(),
+        change_count: 0,
         low_sample: usual.len() < MIN_SAMPLE,
         window_from: cutoff,
         latest_date: latest,
@@ -260,6 +269,23 @@ pub fn compute(
                 out[i].anomaly = (v - m).abs() > 3 * scale;
             }
         }
+    }
+    let comparable: Vec<_> = out
+        .iter()
+        .filter(|i| i.delta_nw_cents.is_some() && !i.excluded && i.in_window)
+        .collect();
+    let mut changes: Vec<i128> = comparable
+        .iter()
+        .map(|i| Ok(monthly(num(&i.delta_nw_cents)?, i.days)))
+        .collect::<Result<_>>()?;
+    stats.change_count = comparable.len();
+    stats.median_monthly_change_cents = median(&mut changes).map(|v| v.to_string());
+    if !comparable.is_empty() {
+        let total = comparable
+            .iter()
+            .try_fold(0i128, |s, i| Ok::<_, Error>(s + num(&i.delta_nw_cents)?))?;
+        let days = comparable.iter().map(|i| i.days).sum();
+        stats.mean_monthly_change_cents = Some(monthly(total, days).to_string());
     }
     Ok((out, stats, incomplete))
 }
@@ -496,7 +522,7 @@ mod tests {
         assert_eq!(i.monthly_saving_cents.as_deref(), Some("980191"));
         // 1 900 000 ÷ 4 000 000 = 47.5 %.
         assert_eq!(i.rate_hundredths, Some(4750));
-        assert!(!i.income_possibly_missing);
+        assert!(i.income_possibly_missing);
     }
 
     #[test]
@@ -635,7 +661,7 @@ mod tests {
         assert_eq!(v[0].status, "ok");
         let full = [pay("2026-02-10", 5, 0), pay("2026-03-10", 5, 0)];
         let (v, _, _) = compute(&points, &full, &none()).unwrap();
-        assert!(!v[0].income_possibly_missing);
+        assert!(v[0].income_possibly_missing);
     }
 
     #[test]

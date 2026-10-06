@@ -41,6 +41,12 @@ npm run dev -- --port 1429
 
 参数按 URL 查询规则组合，例如 `?state=error&theme=dark`。不要把真实资料复制到预览。
 
+### 规划核算与实际发生预览
+
+在独立开发树运行 `npm run dev -- --port 1429`，访问 `http://127.0.0.1:1429/visual-preview.html?section=planning&plan-budget=set&plan-core=confirmed`。`plan-core=occurred` 展示虚构已吸收首付／余债接续；`partial` 展示部分付款缺项；`overdue` 展示逾期待核对。去掉 `plan-core` 可核对旧自动参考／规则缺省；`state=empty`、`plan=error` 与 `state=save-error` 检查空、读取失败和保存失败。全部是内存夹具，刷新重置，不代表原生或持久化验收。
+
+`tests/planning-core.test.mjs` 覆盖资产事实、分池、已含费用、余债与首月顺序。`src-tauri/tests/plan_profile.rs` 对真实临时 Store 测试 core 保存、修订冲突、提交后回执丢失重放、重启、备份恢复、引用更正和 schema30→31 回滚。不得对正式资料库运行。
+
 ## 自动检查
 
 在仓库根目录执行：
