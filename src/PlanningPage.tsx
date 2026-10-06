@@ -7,7 +7,7 @@ import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningPension } from './PlanningPension';
 import { PlanningGoals } from './PlanningGoals';
-import { changeSentence, largeOneOffs, latestHpf, monthlyWithoutOneOffs, rateText, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
+import { changeSentence, largeOneOffs, latestHpf, monthlyWithoutOneOffs, rateText, savingViews, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeFields, IncomeList, IncomeSave, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
 import { refocusHeading } from './topbar-model';
@@ -123,6 +123,8 @@ function Steps({ interval: i, review, busy, markError, onMark, generation }: { i
         <div><dt>支出</dt><dd>{money(i.spend_cents)}</dd></div>
         <div><dt>储蓄率</dt><dd>{rateText(i.rate_hundredths)}</dd></div>
       </dl> : <p className="muted">{statusText[i.status]}，这一期没有储蓄数字。{i.status === 'no_income' && '在这段时间内记录月度收入后即可计算。'}</p>}
+      {ok && savingViews(i).length > 1 && <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="三种储蓄口径"><table className="ui-table plan-views"><thead><tr><th>口径</th><th className="amount">本期合计</th><th className="amount">每月</th><th className="amount">占比</th><th>含义</th></tr></thead>
+        <tbody>{savingViews(i).map(v => <tr key={v.id}><td>{v.label}</td><td className="amount">{money(v.total.toString())}</td><td className="amount">{money(v.monthly.toString())}</td><td className="amount">{rateText(v.rate_hundredths)}</td><td className="muted small">{v.note}</td></tr>)}</tbody></table></div>}
       {i.income_possibly_missing && ok && <p className="muted small">这一期的收入记录少于整月数，可能漏记；数字仍按已记录的计算。</p>}
     </section>
     <section aria-labelledby="plan-step-2"><h4 id="plan-step-2">变化</h4>

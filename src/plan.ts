@@ -228,3 +228,18 @@ export function monthlyWithoutOneOffs(interval: Interval, oneOffs: bigint): bigi
   if (interval.status !== 'ok' || interval.saving_cents === null || interval.days <= 0) return null;
   return monthly(BigInt(interval.saving_cents) + oneOffs, interval.days);
 }
+
+/** 同一个区间的三种储蓄口径（金额分、每月分、占比万分比）。没有计入公积金账户时三者相同，只给一行。
+ *  现金流：到手 − 支出（个人理财与 FIRE 社区常用）；总储蓄：净资产增长，含公积金；自由现金：现金与投资的增长（退休估算用，公积金池另算）。 */
+export type SavingView = { id: 'cashflow' | 'total' | 'free'; label: string; total: bigint; monthly: bigint; rate_hundredths: number | null; note: string };
+export function savingViews(i: Interval): SavingView[] {
+  if (i.status !== 'ok' || i.delta_nw_cents === null || i.saving_cents === null) return [];
+  const delta = BigInt(i.delta_nw_cents), income = BigInt(i.income_cents), hpf = BigInt(i.hpf_cents), free = BigInt(i.saving_cents);
+  const row = (id: SavingView['id'], label: string, total: bigint, base: bigint, note: string): SavingView => ({ id, label, total, monthly: monthly(total, i.days), rate_hundredths: base > 0n ? Number(roundDiv(total * 10000n, base)) : null, note });
+  if (i.hpf_change_cents === null) return [row('free', '储蓄', free, income, '净资产的增长；盘点里没有计入公积金账户，缴存不在其中')];
+  return [
+    row('cashflow', '现金流储蓄', delta - hpf, income, '到手工资 − 全部支出，不含公积金；个人理财与 FIRE 社区最常用'),
+    row('free', '自由现金储蓄', free, income + (BigInt(i.hpf_out_cents ?? '0') > 0n ? BigInt(i.hpf_out_cents ?? '0') : 0n), '现金与投资的增长，含从公积金提取进现金的钱；退休估算用它，公积金池另算'),
+    row('total', '总储蓄', delta, income + hpf, '净资产的全部增长，含公积金账户；占比按「到手 + 公积金缴存」'),
+  ];
+}

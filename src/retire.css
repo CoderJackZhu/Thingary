@@ -193,3 +193,6 @@
 .plan-event-table tr.closed td { opacity: .6; }
 .plan-events .ui-section-head .rs-presets { max-width: 60%; justify-content: flex-end; }
 .plan-events .plan-table-scroll { overflow-y: hidden; }
+
+.plan-views td:last-child { white-space: normal; min-width: 220px; }
+.plan-views { margin-top: 10px; }
