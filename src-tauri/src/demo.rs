@@ -238,7 +238,8 @@ pub fn import(s: &mut Store, today: &str) -> Result<Vec<AssetRecord>> {
 pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
     let done = s.root.join("unified-demo-details-v1.complete");
     if done.exists() {
-        return crate::demo_finance::import_virtual(s, today);
+        crate::demo_finance::import_virtual(s, today)?;
+        return crate::demo_finance::import_plan(s, today);
     }
     import(s, today)?;
     crate::demo_finance::import(s, today)?;
@@ -393,7 +394,8 @@ pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
         deleted: true,
     })?;
     crate::storage::atomic_write(&done, b"1")?;
-    crate::demo_finance::import_virtual(s, today)
+    crate::demo_finance::import_virtual(s, today)?;
+    crate::demo_finance::import_plan(s, today)
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -493,6 +495,10 @@ mod unified_tests {
         assert_eq!(states, ["expiring", "ongoing", "perpetual", "stopped"]);
         assert_eq!(virtuals.spent_cents, "267300");
         assert_eq!(recurring.payments.len(), 4);
+        assert_eq!(s.plan_income_list().unwrap().rows.len(), 6);
+        let saved = s.plan_profile().unwrap().saved.unwrap();
+        assert_eq!(saved.profile.retire.life_events.len(), 1);
+        assert_eq!(saved.profile.retire.saving_phases.len(), 3);
         assert_eq!(recurring.annual_cents, "3756000");
         assert_eq!(recurring.monthly_cents, "313000");
         assert!(!recurring.due.is_empty());

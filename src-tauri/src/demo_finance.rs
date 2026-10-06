@@ -345,3 +345,79 @@ pub(crate) fn import_virtual(s: &mut Store, today: &str) -> Result<()> {
     crate::storage::atomic_write(&complete, b"1")?;
     Ok(())
 }
+
+/// Planning samples (monthly income, pension profile, saving phases, a car plan)
+/// carry their own marker so older sample libraries gain them on upgrade.
+pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
+    let complete = s.root.join("unified-demo-plan-v1.complete");
+    if complete.exists() {
+        return Ok(());
+    }
+    let anchor = s.root.join("unified-demo-plan-v1.date");
+    let date = if anchor.exists() {
+        std::fs::read_to_string(&anchor)?
+    } else {
+        crate::storage::atomic_write(&anchor, today.as_bytes())?;
+        today.to_owned()
+    };
+    let now = crate::domain::date(&date)?;
+    let generation = s.generation();
+    for m in 0..6u32 {
+        s.plan_income_save(
+            &crate::plan_income::Save {
+                request_id: rid(&format!("plan-income-{m}")),
+                generation: generation.clone(),
+                id: None,
+                expected_revision: None,
+                fields: crate::plan_income::Fields {
+                    date: day(now
+                        .checked_sub_months(Months::new(m))
+                        .expect("bounded sample date")),
+                    net_cents: "2000000".into(),
+                    hpf_cents: "180000".into(),
+                    notes: if m == 3 { "含虚构年终奖" } else { "" }.into(),
+                },
+            },
+            &date,
+        )?;
+    }
+    let profile = serde_json::from_value(serde_json::json!({
+        "birth_month": "1990-06", "worker": "male", "region": "beijing",
+        "paid_months": 48, "account_balance_cents": "5000000", "base_cents": "2000000",
+        "past_index_hundredths": null, "flex_months": 0,
+        "personal_pension_annual_cents": "1200000", "marginal_tax_hundredths": 1000,
+        "assumptions": { "inflation_hundredths": 200, "wage_growth_hundredths": 200, "pp_return_hundredths": 200 },
+        "retire": {
+            "spend_cents": "500000", "real_return_before_hundredths": 300, "real_return_after_hundredths": 200,
+            "spend_items": [
+                { "id": "demo-health", "label": "医疗", "monthly_cents": "100000", "start_age": 65, "end_age": null, "inflation_hundredths": 400, "essential": true },
+                { "id": "demo-travel", "label": "旅行", "monthly_cents": "150000", "start_age": null, "end_age": 75, "inflation_hundredths": null, "essential": false }
+            ],
+            "income_items": [
+                { "id": "demo-annuity", "label": "企业年金", "monthly_cents": "120000", "start_age": 60, "end_age": null, "indexed": false }
+            ],
+            "saving_phases": [
+                { "id": "demo-work", "label": "稳定工作", "from_age_months": 0, "monthly_cents": 800000 },
+                { "id": "demo-gap", "label": "换工作空窗", "from_age_months": 468, "monthly_cents": -500000 },
+                { "id": "demo-back", "label": "恢复收入", "from_age_months": 474, "monthly_cents": 800000 }
+            ],
+            "life_events": [
+                { "id": "demo-car", "label": "换车", "kind": "car", "date": day(now.checked_add_months(Months::new(18)).expect("bounded sample date"))[..7], "included": true,
+                  "price_cents": "20000000", "down_cents": "6000000", "extra_cents": "1000000",
+                  "loan_rate_hundredths": 350, "loan_years": 3, "holding_cents": "100000",
+                  "rent_saved_cents": "0", "cycle_years": 8, "until_age": 70, "resale_cents": "3000000" }
+            ]
+        }
+    }))?;
+    s.plan_profile_save(
+        &crate::plan_profile::ProfileSave {
+            request_id: rid("plan-profile"),
+            generation,
+            expected_revision: None,
+            profile,
+        },
+        &date,
+    )?;
+    crate::storage::atomic_write(&complete, b"1")?;
+    Ok(())
+}
