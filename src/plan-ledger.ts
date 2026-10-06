@@ -44,6 +44,8 @@ export type Plan = {
   /** 国家养老金：在某个辞职年龄（月）下的月养老金与一次性解锁额，由养老金计算器给出。 */
   pension_at: (ageMonths: number) => Pension;
   spends: Spend[];
+  /** 退休后每月已经在付的房租（今天的钱，分）；买房事件在购买月起把它取消，不超过这个数。 */
+  rent_cents?: number;
 };
 
 const rate = (h: number) => h / 10000;

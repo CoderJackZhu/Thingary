@@ -535,3 +535,68 @@ fn the_career_route_is_bounded_and_round_trips() {
     assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, p);
     assert_eq!(Retire::default().route_id, None);
 }
+
+#[test]
+fn leaving_work_costs_default_to_none_for_older_profiles_and_are_validated() {
+    // 升级前保存的资料没有这几个字段：照常读取，默认值等于「没有」。
+    let mut raw = serde_json::to_value(profile()).unwrap();
+    let retire = raw["retire"].as_object_mut().unwrap();
+    for key in [
+        "keep_paying_until_age",
+        "keep_paying_monthly_cents",
+        "keep_paying_base_cents",
+        "gap_keeps_paying",
+        "rent_cents",
+    ] {
+        retire.remove(key);
+    }
+    let old: Profile = serde_json::from_value(raw).unwrap();
+    assert_eq!(old.retire, Retire::default());
+    assert_eq!(old.retire.keep_paying_until_age, None);
+    assert_eq!(
+        (
+            old.retire.keep_paying_monthly_cents.as_str(),
+            old.retire.rent_cents.as_str(),
+            old.retire.gap_keeps_paying
+        ),
+        ("0", "0", false)
+    );
+    old.validate(TODAY).unwrap();
+
+    type Change = Box<dyn Fn(&mut Retire)>;
+    let cases: Vec<(Change, &str)> = vec![
+        (
+            Box::new(|r| {
+                r.keep_paying_until_age = Some(60);
+                r.keep_paying_monthly_cents = "212000".into();
+                r.keep_paying_base_cents = "727000".into();
+                r.rent_cents = "600000".into();
+                r.gap_keeps_paying = true;
+            }),
+            "",
+        ),
+        (
+            Box::new(|r| r.keep_paying_until_age = Some(19)),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| r.keep_paying_until_age = Some(71)),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| r.keep_paying_monthly_cents = "-1".into()),
+            "PROFILE_AMOUNT",
+        ),
+        (Box::new(|r| r.rent_cents = "abc".into()), "PROFILE_AMOUNT"),
+        (
+            Box::new(|r| r.keep_paying_base_cents = "".into()),
+            "PROFILE_AMOUNT",
+        ),
+    ];
+    for (i, (change, want)) in cases.into_iter().enumerate() {
+        let mut p = profile();
+        change(&mut p.retire);
+        let got = p.validate(TODAY).err().map(|e| e.code).unwrap_or_default();
+        assert_eq!(got, want, "case {i}");
+    }
+}

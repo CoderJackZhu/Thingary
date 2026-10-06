@@ -5,7 +5,7 @@ import { CentInput, Info, Segments, Switch } from './FormControls';
 import { hundredthsToPct, pctToHundredths, rateText } from './plan';
 import type { ProfileSave, ProfileState, RetireInputs, StoredIncomeItem, StoredSavingPhase, StoredSpendItem } from './plan';
 import type { Assumptions } from './plan-params';
-import { expectedSaving } from './plan-retire-calc';
+import { expectedSaving, leaveCost } from './plan-retire-calc';
 import type { RetireCalc, RouteResult } from './plan-retire-calc';
 import { routeById, routes } from './plan-routes';
 import { workSaving } from './plan-risk';
@@ -14,7 +14,7 @@ import { submit, Unresolved } from './wealth';
 import './retire.css';
 
 type Saved = NonNullable<ProfileState['saved']>;
-type Section = 'plan' | 'saving' | 'route' | 'spend' | 'income' | 'assume' | null;
+type Section = 'plan' | 'saving' | 'route' | 'spend' | 'leave' | 'income' | 'assume' | null;
 
 /** 保存退休假设与通胀、工资增长（后两者属于 assumptions）。返回是否保存成功。 */
 export function useSaver(state: ProfileState, reload: () => void, onPending: () => void) {
@@ -57,6 +57,7 @@ export function RetireSidebar({ calc, state, compare, reload, onEditingChange, o
     <SavingCard r={r} calc={calc} nowAge={nowAge} editing={section === 'saving'} saver={saver} onEdit={() => open('saving')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <RouteCard r={r} nowAge={nowAge} compare={compare} editing={section === 'route'} saver={saver} onEdit={() => open('route')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <SpendCard r={r} editing={section === 'spend'} saver={saver} nowAge={nowAge} derived={calc.derivedSpend} onEdit={() => open('spend')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
+    <LeaveCard r={r} nowAge={nowAge} editing={section === 'leave'} saver={saver} onEdit={() => open('leave')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <IncomeCard r={r} calc={calc} editing={section === 'income'} saver={saver} nowAge={nowAge} onEdit={() => open('income')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <AssumeCard r={r} a={a} editing={section === 'assume'} saver={saver} onEdit={() => open('assume')} onCancel={() => setSection(null)} onSave={(next, asm) => void done(saver.save(next, asm))}/>
   </div>;
@@ -119,7 +120,7 @@ function SavingCard({ r, calc, nowAge, editing, saver, onEdit, onCancel, onSave 
   return <Card kicker="储蓄" title="储蓄阶段" tip="退休前每月存多少，按今天的钱。收入不会一直不变：高收入期、空窗期、清闲期各设一段，结果就按这条时间线算。空窗期没有收入时填负数，表示每月动用存款。不分阶段则全程用盘点的常态储蓄。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
     read={r.saving_phases.length === 0
       ? <><Rows rows={[['按盘点的常态储蓄', measured === null ? '待补充' : yuan(measured)]]}/><p className="rs-note">还没有分阶段：全程按近 12 个月盘点的中位数算。这个数含一次性大额消费和没有收入的月份，通常偏低；建议点「编辑」按自己的收入变化分几段。</p></>
-      : <><ul className="rs-list">{r.saving_phases.map((p, i) => <li key={p.id}><span>{p.label}<small>{phaseStart(p, i)}起{r.gap_share_hundredths > 0 && p.monthly_cents > 0 ? ` · 折后约 ${yuan(expectedSaving(p.monthly_cents, r.gap_share_hundredths, Number(r.spend_cents ?? 0)))}/月` : ''}</small></span><b className={p.monthly_cents < 0 ? 'warn' : undefined}>{p.monthly_cents < 0 ? '−' : ''}{yuan(Math.abs(p.monthly_cents))}/月</b></li>)}</ul>
+      : <><ul className="rs-list">{r.saving_phases.map((p, i) => <li key={p.id}><span>{p.label}<small>{phaseStart(p, i)}起{r.gap_share_hundredths > 0 && p.monthly_cents > 0 ? ` · 折后约 ${yuan(expectedSaving(p.monthly_cents, r.gap_share_hundredths, leaveCost(r, Number(r.spend_cents ?? 0))))}/月` : ''}</small></span><b className={p.monthly_cents < 0 ? 'warn' : undefined}>{p.monthly_cents < 0 ? '−' : ''}{yuan(Math.abs(p.monthly_cents))}/月</b></li>)}</ul>
         {r.gap_share_hundredths > 0 && <p className="muted small">平均空窗 {rateText(r.gap_share_hundredths)}：有收入的阶段按期望值折算。</p>}</>}
     edit={<div className="rs-form">
       {items.map((d, i) => <div key={d.id} className="rs-item"><div className="rs-item-head"><input aria-label="阶段名称" value={d.label} onChange={e => patch(d.id, { label: e.target.value })}/><button type="button" className="ui-btn" aria-label={`移除${d.label}`} onClick={() => setItems(xs => xs.filter(x => x.id !== d.id))}>移除</button></div>
@@ -191,7 +192,7 @@ function SpendCard({ r, nowAge, derived, editing, saver, onEdit, onCancel, onSav
     setErr(''); onSave({ ...r, spend_cents: living === '' ? null : living, spend_items: out });
   }
   const monthly = (i: StoredSpendItem) => `${yuan(Number(i.monthly_cents))}/月`;
-  return <Card kicker="支出" title="退休支出" tip="金额按今天的物价，每月。「日常生活」请不要含房租、房贷和车，它们由目标页的大额计划来出。必需支出优先于灵活支出得到保障；留空起始年龄表示从退休开始；独立通胀可以让医疗等项目涨得比总体通胀快。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
+  return <Card kicker="支出" title="退休支出" tip="金额按今天的物价，每月。「日常生活」请不要含房租、房贷和车：房租在下面的「离职之后」里填，房贷和车由大额计划来出。必需支出优先于灵活支出得到保障；留空起始年龄表示从退休开始；独立通胀可以让医疗等项目涨得比总体通胀快。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
     read={<ul className="rs-list"><li><span>日常生活<small>退休起 · 终身 · 必需</small></span><b>{r.spend_cents === null ? '待填写' : yuan(Number(r.spend_cents)) + '/月'}</b></li>
       {r.spend_items.map(i => <li key={i.id}><span>{i.label}<small>{i.start_age ?? '退休'}{i.start_age === null ? '' : ' 岁'} → {i.end_age === null ? '终身' : `${i.end_age} 岁`} · {i.essential ? '必需' : '灵活'}{i.inflation_hundredths !== null ? ` · ${rateText(i.inflation_hundredths)} 通胀` : ''}</small></span><b>{monthly(i)}</b></li>)}</ul>}
     edit={<div className="rs-form">
@@ -209,6 +210,29 @@ function SpendCard({ r, nowAge, derived, editing, saver, onEdit, onCancel, onSav
 }
 
 type IncomeDraft = { id: string; label: string; cents: string; start: string; end: string; indexed: boolean };
+const withZero = (v: string) => (v === '' ? '0' : v);
+function LeaveCard({ r, nowAge, editing, saver, onEdit, onCancel, onSave }: { r: RetireInputs; nowAge: number; editing: boolean; saver: Saver; onEdit: () => void; onCancel: () => void; onSave: (r: RetireInputs) => void }) {
+  const [rent, setRent] = useState(r.rent_cents), [until, setUntil] = useState(r.keep_paying_until_age === null ? '' : String(r.keep_paying_until_age)), [pay, setPay] = useState(r.keep_paying_monthly_cents), [base, setBase] = useState(r.keep_paying_base_cents), [gap, setGap] = useState(r.gap_keeps_paying), [err, setErr] = useState('');
+  useEffect(() => { if (editing) { setRent(r.rent_cents); setUntil(r.keep_paying_until_age === null ? '' : String(r.keep_paying_until_age)); setPay(r.keep_paying_monthly_cents); setBase(r.keep_paying_base_cents); setGap(r.gap_keeps_paying); setErr(''); } }, [editing]);
+  function save() {
+    const age = until.trim() === '' ? null : Number(until);
+    if (age !== null && (!Number.isInteger(age) || age <= nowAge || age > 70)) return setErr(`续缴到的年龄须是大于当前年龄（${nowAge} 岁）、不超过 70 的整数；留空表示停工就停缴。`);
+    setErr(''); onSave({ ...r, rent_cents: withZero(rent), keep_paying_until_age: age, keep_paying_monthly_cents: withZero(pay), keep_paying_base_cents: withZero(base), gap_keeps_paying: gap });
+  }
+  const on = r.keep_paying_until_age !== null;
+  return <Card kicker="离职" title="离职之后：房租与社保" tip="不再工作不等于不用缴社保和付房租。这里填离职后每月的房租（买房后由大额计划里的购房取代），以及是否自己续缴社保：续缴会把缴费年限、个人账户算到续缴的年龄，每月花费计入必需支出。医保保费请含在「每月续缴花费」里；北京退休医保的累计缴费年限要求与养老不同，以官方规定为准，这里不替你核对。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
+    read={<><Rows rows={[['退休后月房租', Number(r.rent_cents) > 0 ? `${yuan(Number(r.rent_cents))}/月` : '没有（日常生活已含，或不付房租）'], ['续缴社保', on ? `到 ${r.keep_paying_until_age} 岁，每月 ${yuan(Number(r.keep_paying_monthly_cents))}` : '不续缴：停工即停缴'], ['空窗月份', r.gap_keeps_paying ? '仍算缴费月份' : '停缴，不计缴费年限与公积金']]}/>
+      {!on && <p className="muted small">没有续缴时，养老金的缴费年限只算到辞职那一天；离职后每月的社保与医保没有计入支出。</p>}</>}
+    edit={<div className="rs-form">
+      <Field label="退休后每月房租" hint="今天的钱；计划买房的话，购房那个月起不再付（取消额不超过「买房后不再付的月房租」）。不付房租填 0。"><CentInput label="退休后月房租" value={rent} onChange={setRent}/></Field>
+      <div className="rs-pair"><Field label="续缴社保到几岁" hint="留空：停工就停缴"><input aria-label="续缴社保到几岁" inputMode="numeric" value={until} placeholder="不续缴" onChange={e => setUntil(e.target.value)}/></Field>
+        <Field label="每月续缴花费" hint="养老、医保等自缴项合计，今天的钱"><CentInput label="每月续缴花费" value={pay} onChange={setPay}/></Field></div>
+      <Field label="续缴缴费基数" hint="填 0 沿用养老金页个人资料里的基数；灵活就业常按当地下限"><CentInput label="续缴缴费基数" value={base} onChange={setBase}/></Field>
+      <Field label="空窗期也续缴社保" hint="关闭时，没有收入的月份（储蓄为负的阶段、平均空窗比例）按停缴算，缴费年限、个人账户与公积金都会少。打开则算作缴费，其成本请自己计入那段的储蓄。"><Switch label="空窗期也续缴社保" value={gap} onChange={setGap}/></Field>
+      {err && <p className="notice" role="status">{err}</p>}
+    </div>}/>;
+}
+
 function IncomeCard({ r, calc, nowAge, editing, saver, onEdit, onCancel, onSave }: { r: RetireInputs; calc: RetireCalc; nowAge: number; editing: boolean; saver: Saver; onEdit: () => void; onCancel: () => void; onSave: (r: RetireInputs) => void }) {
   const toDraft = (i: StoredIncomeItem): IncomeDraft => ({ id: i.id, label: i.label, cents: i.monthly_cents, start: String(i.start_age), end: i.end_age === null ? '' : String(i.end_age), indexed: i.indexed });
   const [items, setItems] = useState<IncomeDraft[]>(r.income_items.map(toDraft)), [err, setErr] = useState('');

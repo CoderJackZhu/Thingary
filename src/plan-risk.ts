@@ -120,7 +120,7 @@ export const stressLabels: Record<StressId, { label: string; description: string
   'income-drop': { label: '收入骤降', description: '三年后起，每月储蓄减半（已经为负的阶段不变）。' },
   'raise-30': { label: '跳槽涨薪 30%', description: '三年后起，每月储蓄在有收入的阶段增加 30%（上行情形）。' },
   'raise-double': { label: '收入翻倍', description: '五年后起，有收入阶段的每月储蓄翻倍（上行情形，行业好、晋升或跳槽成功）。' },
-  'job-gap': { label: '一年后失业一年', description: '一年后有 12 个月没有收入，期间每月动用存款付日常生活预算。' },
+  'job-gap': { label: '一年后失业一年', description: '一年后有 12 个月没有收入，期间每月动用存款付全部必需支出（日常生活、房租、续缴社保、房贷等）。' },
   'early-crash': { label: '退休初期市场下跌', description: '假设退休第一年市场下跌 30%。' },
 };
 
@@ -194,7 +194,7 @@ export function stressTests(P: Plan, year: number): StressResult[] {
     make('income-drop', evaluate(saveFrom(P, P.now_months + 36, 0.5), year)),
     make('raise-30', evaluate(saveFrom(P, P.now_months + 36, 1.3), year)),
     make('raise-double', evaluate(saveFrom(P, P.now_months + 60, 2), year)),
-    make('job-gap', evaluate(gapAt(P, P.now_months + 12, 12, -(P.items[0]?.monthly_cents ?? 0)), year)),
+    make('job-gap', evaluate(gapAt(P, P.now_months + 12, 12, -(table(P).essential[12] ?? P.items[0]?.monthly_cents ?? 0)), year)),
     make('early-crash', crash),
   ];
 }

@@ -3,12 +3,14 @@ import { fundsFrom } from './plan.ts';
 import type { Income, PlanReview, ProfileState, RetireInputs, StoredLifeEvent } from './plan.ts';
 import { beijing, effectiveParams } from './plan-params.ts';
 import { emergency, pensionTable } from './plan-fire.ts';
+import type { Keep } from './plan-fire.ts';
 import { ageMonthsAt, startAgeMonths } from './plan-pension.ts';
 import { applyEvents, offsetOf } from './plan-events.ts';
 import type { LifeEvent } from './plan-events.ts';
 import { expectedSaving, outcome, project } from './plan-ledger.ts';
 import { routeById, routeEmployment, routeSavingPhases, routes } from './plan-routes.ts';
-import type { Plan, SavingPhase, SpendItem } from './plan-ledger.ts';
+import { table } from './plan-ledger.ts';
+import type { Flow, Plan, SavingPhase, SpendItem } from './plan-ledger.ts';
 import type { Snapshot } from './wealth.ts';
 
 export { expectedSaving };
@@ -27,6 +29,28 @@ export function disposable(snapshot: Snapshot | null): number | null {
   return Number(total);
 }
 
+
+/** 不再工作之后每月必须付的钱（今天的钱，分）：日常生活预算、房租，以及空窗期也续缴时的社保自缴。
+ *  空窗期没有收入时就是靠这笔钱活着，所以折算空窗比例用它，不只是日常生活预算。 */
+export const leaveCost = (r: RetireInputs, living: number) => living + Number(r.rent_cents) + (r.gap_keeps_paying ? Number(r.keep_paying_monthly_cents) : 0);
+
+/** 缴费设置：续缴到几岁、按什么基数缴，以及某个月龄里没有缴费的比例。
+ *  空窗（储蓄为负的阶段，或有收入阶段里的平均空窗比例，选了路线则是路线的比例）默认停缴；勾选「空窗期也续缴」则不停。 */
+export function keepFor(r: RetireInputs, now: number): Keep {
+  const keepUntil = r.keep_paying_until_age === null ? null : r.keep_paying_until_age * 12;
+  const base = Number(r.keep_paying_base_cents);
+  if (r.gap_keeps_paying) return { keepUntil, base };
+  const route = routeById(r.route_id), routeFrom = r.route_from_age * 12, own = r.gap_share_hundredths / 10000;
+  const phases = r.saving_phases;
+  const idle = (m: number) => {
+    if (route && m >= routeFrom) return route.gap_share_hundredths / 10000;
+    if (!phases.length) return 0;
+    let at = phases[0];
+    for (let i = 1; i < phases.length; i++) if (phases[i].from_age_months <= m) at = phases[i];
+    return at.monthly_cents < 0 ? 1 : own;
+  };
+  return { keepUntil, base, idle };
+}
 
 /** 个人资料、最近完整盘点（null 表示还没有）与统计齐全时给出估算；缺什么在 missing 里说明。 */
 export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snapshot: Snapshot | null, review: PlanReview, incomes: Income[], today: string) {
@@ -51,14 +75,15 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
     const horizon = r.horizon_age * 12;
     const route = routeById(r.route_id), routeFrom = r.route_from_age * 12;
     const employment = route ? routeEmployment(route, routeFrom, monthlyHpfOut(review)) : [];
-    const plan0 = retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start), employment) });
+    const plan0 = retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start), employment, keepFor(r, now)) });
     // 大额计划：计入的并进同一个账本；plan0 是不含任何计划的版本，用来逐件比较影响。
     const events = r.life_events.map(toEvent);
     const plan = applyEvents(plan0, events.filter(e => e.included).map(e => ({ e, offset: offsetOf(e.date, today) })));
     const proj = project(plan, Number(today.slice(0, 4)));
     return {
       p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, plan, plan0, events, proj, out: outcome(plan, proj),
-      emergency: emergency(assets, spend, r.emergency_months),
+      // 应急金按离职后的全部必需支出算（日常生活、房租、续缴社保等），不只是日常生活预算。
+      emergency: emergency(assets, table(plan).essential[0] ?? spend, r.emergency_months),
     };
 }
 export type RetireCalc = ReturnType<typeof buildRetireCalc>;
@@ -79,9 +104,18 @@ export function retirePlan(saved: NonNullable<ProfileState['saved']>, x: { now: 
     r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths,
     inflation_hundredths: a.inflation_hundredths, volatility_hundredths: r.volatility_hundredths,
     items, incomes: r.income_items.map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })),
-    saving_phases: savingPhases(r, x.now, saving, spend),
+    saving_phases: savingPhases(r, x.now, saving, leaveCost(r, spend)),
     pension_at: x.pension_at, spends: [],
+    spend_flows: leaveFlows(r, x.now), rent_cents: Number(r.rent_cents),
   };
+}
+
+/** 离职之后的持续支出：房租（买房后由购房取代）与续缴社保（到续缴年龄为止）。都是必需支出；只在退休后的月份起作用。 */
+function leaveFlows(r: RetireInputs, now: number): Flow[] {
+  const flows: Flow[] = [], rent = Number(r.rent_cents), pay = Number(r.keep_paying_monthly_cents);
+  if (rent > 0) flows.push({ label: '房租', from_month: now, to_month: null, cents: rent, nominal: false, essential: true });
+  if (pay > 0 && r.keep_paying_until_age !== null) flows.push({ label: '续缴社保', from_month: now, to_month: r.keep_paying_until_age * 12, cents: pay, nominal: false, essential: true });
+  return flows;
 }
 
 /** 最近一个可比区间里每月平均从公积金提取多少（分，推算；没有或为负时为 0）。 */

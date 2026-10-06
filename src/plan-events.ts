@@ -22,7 +22,7 @@ export const monthIndex = (d: string) => Number(d.slice(0, 4)) * 12 + Number(d.s
 /** 计划月份距今天的月数；早于本月按本月算。 */
 export const offsetOf = (date: string, today: string) => Math.max(0, monthIndex(date) - monthIndex(today));
 
-type Ctx = Pick<Plan, 'now_months' | 'horizon_months' | 'inflation_hundredths'>;
+type Ctx = Pick<Plan, 'now_months' | 'horizon_months' | 'inflation_hundredths' | 'rent_cents'>;
 export type EventParts = { spends: Spend[]; saving_flows: Flow[]; spend_flows: Flow[]; principal_cents: number; payment_cents: number; loan_months: number };
 
 /** 等额本息月供（名义）：本金、年利率（万分比）、期数；利率为 0 时平均分。 */
@@ -47,6 +47,8 @@ export function eventParts(c: Ctx, e: LifeEvent, offset: number): EventParts {
   if (pay > 0) both(`${e.label}月供`, m0, m0 + n, pay, true, true);
   const until = e.until_age === null ? null : e.until_age * 12;
   if (e.holding_cents > 0) both(`${e.label}${e.kind === 'car' ? '养车' : '持有成本'}`, m0, e.kind === 'car' ? until : null, e.holding_cents, false, e.kind === 'house');
+  // 退休后的房租在计划里是一条持续的必需支出；买房之后不再付，取消额不超过房租本身。
+  if (e.kind === 'house' && e.rent_saved_cents > 0 && (c.rent_cents ?? 0) > 0) spend_flows.push({ label: `${e.label}后不再付房租`, from_month: m0, to_month: null, cents: -Math.min(e.rent_saved_cents, c.rent_cents!), nominal: false, essential: true });
   if (e.rent_saved_cents > 0) saving_flows.push({ label: `${e.label}省下的房租`, from_month: m0, to_month: null, cents: e.rent_saved_cents, nominal: false, essential: false });
   if (e.cycle_years !== null && e.cycle_years > 0) {
     const end = until ?? c.horizon_months, step = e.cycle_years * 12;

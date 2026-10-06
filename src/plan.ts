@@ -159,8 +159,14 @@ export type RetireInputs = {
   life_events: StoredLifeEvent[];
   /** 35 岁起的职业路线（预设路线的标识，见 plan-routes.ts）；null 表示不选，沿用储蓄阶段。 */
   route_id: string | null; route_from_age: number;
+  /** 不再工作之后自己续缴社保到几岁（null 表示停工即停缴）、每月花费（含养老、医保等，分）、续缴所按的缴费基数（"0" 沿用个人资料）。 */
+  keep_paying_until_age: number | null; keep_paying_monthly_cents: string; keep_paying_base_cents: string;
+  /** 空窗月份（储蓄为负的阶段、平均空窗比例）是否仍算缴费月份。 */
+  gap_keeps_paying: boolean;
+  /** 退休后每月房租（今天的钱，分，"0" 表示没有）；计划买房后由购房取代。 */
+  rent_cents: string;
 };
-export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0, life_events: [], route_id: null, route_from_age: 35 };
+export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0, life_events: [], route_id: null, route_from_age: 35, keep_paying_until_age: null, keep_paying_monthly_cents: '0', keep_paying_base_cents: '0', gap_keeps_paying: false, rent_cents: '0' };
 export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides; retire: RetireInputs };
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string } | null };
 

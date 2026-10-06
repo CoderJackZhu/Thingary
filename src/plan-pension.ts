@@ -106,7 +106,7 @@ export const requiredContributionMonths = (retireYear: number) => 180 + 6 * clam
 export const ageMonthsAt = (birthMonth: string, today: string) => monthIndex(today.slice(0, 7)) - monthIndex(birthMonth);
 
 /** 在 quitAgeMonths 停止缴费时的养老金与锁定资金估算。 */
-export function project(profile: Profile, region: RegionParams, today: string, quitAgeMonths: number, funds: Funds, employment: Employment[] = []): Projection {
+export function project(profile: Profile, region: RegionParams, today: string, quitAgeMonths: number, funds: Funds, employment: Employment[] = [], idle?: (ageMonths: number) => number): Projection {
   const a = profile.assumptions;
   const g = rate(a.wage_growth_hundredths), inflation = rate(a.inflation_hundredths);
   const notional = rate(region.notional_rate_hundredths), hpfRate = rate(region.hpf_rate_hundredths), ppRate = rate(a.pp_return_hundredths);
@@ -132,24 +132,26 @@ export function project(profile: Profile, region: RegionParams, today: string, q
   // 第 k 个缴费月适用的基数与公积金月缴存：最近一个已开始的分段，之前用资料里的。
   const phaseAt = (k: number) => { let e: Employment | null = null; for (const x of employment) if (x.from_age_months <= nowAge + k) e = x; return e; };
   const baseAt = (k: number) => { const e = phaseAt(k); return e ? clamp(e.base_cents, cents(region.base_lower_cents), cents(region.base_upper_cents)) : base; };
-  let indexSum = 0;
+  // idle：某个月龄里没有缴费的比例（0–1，空窗期停缴）；缴费月数、个人账户、公积金与缴费指数都按实际缴费的份额计。
+  let indexSum = 0, effective = 0;
   for (let k = 0; k < toStart; k++) {
     account *= monthly(notional);
     hpf *= monthly(hpfRate);
     pp *= monthly(ppRate);
     if (k < contribution) {
-      const b = baseAt(k), e = phaseAt(k);
-      account += 0.08 * b * grow(k);
-      hpf += (e ? e.hpf_monthly_cents : hpfMonthly) * grow(k);
+      const b = baseAt(k), e = phaseAt(k), w = 1 - clamp(idle ? idle(nowAge + k) : 0, 0, 1);
+      account += 0.08 * b * grow(k) * w;
+      hpf += (e ? e.hpf_monthly_cents : hpfMonthly) * grow(k) * w;
       pp += ppMonthly;
-      indexSum += clamp(b / wage, 0.6, 3);
+      indexSum += clamp(b / wage, 0.6, 3) * w;
+      effective += w;
     }
   }
 
-  const totalMonths = Math.max(0, profile.paid_months) + contribution;
+  const totalMonths = Math.max(0, profile.paid_months) + Math.round(effective);
   const kNow = clamp(base / wage, 0.6, 3);
   const kPast = clamp(profile.past_index_hundredths === null ? kNow : profile.past_index_hundredths / 100, 0.6, 3);
-  const kAvg = totalMonths === 0 ? 0 : (Math.max(0, profile.paid_months) * kPast + (employment.length ? indexSum : contribution * kNow)) / totalMonths;
+  const kAvg = totalMonths === 0 ? 0 : (Math.max(0, profile.paid_months) * kPast + (employment.length ? indexSum : effective * kNow)) / totalMonths;
   const wageAtStart = wage * (1 + g) ** Math.max(0, retireYear - 1 - region.avg_wage_year);
   const basePension = ((wageAtStart + wageAtStart * kAvg) / 2) * (totalMonths / 12) * 0.01;
   const disbursement = disbursementMonths(start);

@@ -132,6 +132,16 @@ pub struct Retire {
     /// The career route from `route_from_age` on (ids live in the front end); `None` keeps the saving phases as they are.
     pub route_id: Option<String>,
     pub route_from_age: u32,
+    /// After you stop working, keep paying social insurance yourself until this age; `None` stops paying when you stop.
+    pub keep_paying_until_age: Option<u32>,
+    /// What that costs per month (pension, medical and so on), today's money; `"0"` is none.
+    pub keep_paying_monthly_cents: String,
+    /// The base you pay on while paying yourself; `"0"` uses the base in the profile.
+    pub keep_paying_base_cents: String,
+    /// Gap months (negative saving phases, the average gap share) still count as contribution months when true.
+    pub gap_keeps_paying: bool,
+    /// Rent you pay each month while retired, until a planned house purchase takes it over; today's money, `"0"` is none.
+    pub rent_cents: String,
 }
 impl Default for Retire {
     fn default() -> Self {
@@ -151,6 +161,11 @@ impl Default for Retire {
             life_events: Vec::new(),
             route_id: None,
             route_from_age: 35,
+            keep_paying_until_age: None,
+            keep_paying_monthly_cents: "0".into(),
+            keep_paying_base_cents: "0".into(),
+            gap_keeps_paying: false,
+            rent_cents: "0".into(),
         }
     }
 }
@@ -447,6 +462,21 @@ impl Profile {
             || !(20..=70).contains(&r.route_from_age)
         {
             return Err(bad("PROFILE_RETIRE", "路线换成的年龄须在 20 到 70 岁之间"));
+        }
+        for (value, label) in [
+            (&r.keep_paying_monthly_cents, "续缴社保每月花费"),
+            (&r.keep_paying_base_cents, "续缴缴费基数"),
+            (&r.rent_cents, "退休后月房租"),
+        ] {
+            money(value, false, label)?;
+        }
+        if r.keep_paying_until_age
+            .is_some_and(|age| !(20..=70).contains(&age))
+        {
+            return Err(bad(
+                "PROFILE_RETIRE",
+                "续缴社保到的年龄须在 20 到 70 岁之间",
+            ));
         }
         r.validate_items()?;
         let o = &self.overrides;
