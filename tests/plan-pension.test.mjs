@@ -127,5 +127,5 @@ test('a past contribution index different from today changes the average index',
 });
 
 test('default assumptions are rates in hundredths of a percent', () => {
-  assert.deepEqual(defaultAssumptions, { inflation_hundredths: 200, wage_growth_hundredths: 300, pp_return_hundredths: 200 });
+  assert.deepEqual(defaultAssumptions, { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 });
 });

@@ -22,3 +22,5 @@
 .planning-section .plan-params { table-layout: fixed; width: 100%; min-width: 0; }
 .planning-section .plan-params th:nth-child(1) { width: 28%; }
 .planning-section .plan-params th:nth-child(2) { width: 15%; }
+.planning-section .plan-sens th, .planning-section .plan-sens td { white-space: nowrap; }
+.planning-section .plan-sens tbody th { font-weight: 500; text-align: left; }

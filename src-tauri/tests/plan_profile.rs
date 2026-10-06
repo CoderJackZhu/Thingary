@@ -4,7 +4,7 @@
 use rusqlite::Connection;
 use thingary_lib::{
     domain::Error,
-    plan_profile::{Assumptions, Overrides, Profile, ProfileSave},
+    plan_profile::{Assumptions, Overrides, Profile, ProfileSave, Retire},
     storage::{migrate_to, Store, SCHEMA, SCHEMA_VERSION},
 };
 const TODAY: &str = "2026-12-31";
@@ -32,6 +32,7 @@ fn profile() -> Profile {
             pp_return_hundredths: 200,
         },
         overrides: Overrides::default(),
+        retire: Retire::default(),
     }
 }
 fn save(s: &Store, p: Profile, expected: Option<i64>) -> ProfileSave {
@@ -115,6 +116,19 @@ fn profile_validation_names_the_bad_field() {
             "PROFILE_INDEX",
         ),
         (Box::new(|p| p.flex_months = 37), "PROFILE_FLEX"),
+        (
+            Box::new(|p| p.retire.spend_cents = Some("0".into())),
+            "PROFILE_AMOUNT",
+        ),
+        (
+            Box::new(|p| p.retire.real_return_before_hundredths = 2001),
+            "PROFILE_RATE",
+        ),
+        (Box::new(|p| p.retire.horizon_age = 69), "PROFILE_RETIRE"),
+        (
+            Box::new(|p| p.retire.emergency_months = 37),
+            "PROFILE_RETIRE",
+        ),
         (Box::new(|p| p.flex_months = -37), "PROFILE_FLEX"),
         (
             Box::new(|p| p.personal_pension_annual_cents = "1200001".into()),
@@ -220,4 +234,26 @@ fn schema_29_libraries_upgrade_and_profiles_survive_backup_and_restore() {
     let summary = t.inspect_backup(&file).unwrap();
     t.restore(&file, &summary.hash, &t.generation()).unwrap();
     assert_eq!(t.plan_profile().unwrap().saved.unwrap().profile, p);
+}
+
+#[test]
+fn a_stage_2_profile_without_retirement_fields_loads_with_defaults() {
+    let mut raw = serde_json::to_value(profile()).unwrap();
+    raw.as_object_mut().unwrap().remove("retire");
+    let p: Profile = serde_json::from_value(raw).unwrap();
+    assert_eq!(p.retire, Retire::default());
+    assert_eq!((p.retire.horizon_age, p.retire.emergency_months), (90, 6));
+    let mut custom = profile();
+    custom.retire = Retire {
+        spend_cents: Some("800000".into()),
+        real_return_before_hundredths: 100,
+        real_return_after_hundredths: 50,
+        horizon_age: 95,
+        emergency_months: 9,
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("lib")).unwrap();
+    s.plan_profile_save(&save(&s, custom.clone(), None), TODAY)
+        .unwrap();
+    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, custom);
 }

@@ -27,6 +27,33 @@ pub struct Overrides {
     pub hpf_rate_hundredths: Option<i32>,
 }
 
+/// Retirement / FIRE inputs (PLANNING_DESIGN §6). Every field has a default so
+/// a stage-2 profile without them still loads unchanged.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Retire {
+    /// Monthly spending after retiring, in today's money; `None` uses the
+    /// median spending derived from the check-ins.
+    pub spend_cents: Option<String>,
+    /// Real (after inflation) yearly return before and after retiring.
+    pub real_return_before_hundredths: i32,
+    pub real_return_after_hundredths: i32,
+    /// Planning horizon (age) and the emergency fund line in months of spending.
+    pub horizon_age: u32,
+    pub emergency_months: u32,
+}
+impl Default for Retire {
+    fn default() -> Self {
+        Self {
+            spend_cents: None,
+            real_return_before_hundredths: 0,
+            real_return_after_hundredths: 0,
+            horizon_age: 90,
+            emergency_months: 6,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
@@ -45,6 +72,8 @@ pub struct Profile {
     pub assumptions: Assumptions,
     #[serde(default)]
     pub overrides: Overrides,
+    #[serde(default)]
+    pub retire: Retire,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -150,6 +179,28 @@ impl Profile {
         rate(a.inflation_hundredths, -1000, 2000, "通胀率")?;
         rate(a.wage_growth_hundredths, -1000, 2000, "工资增长率")?;
         rate(a.pp_return_hundredths, -1000, 3000, "个人养老金收益率")?;
+        let r = &self.retire;
+        if let Some(v) = &r.spend_cents {
+            money(v, true, "退休后月支出")?;
+        }
+        rate(
+            r.real_return_before_hundredths,
+            -1000,
+            2000,
+            "退休前实际收益率",
+        )?;
+        rate(
+            r.real_return_after_hundredths,
+            -1000,
+            2000,
+            "退休后实际收益率",
+        )?;
+        if !(70..=110).contains(&r.horizon_age) || r.emergency_months > 36 {
+            return Err(bad(
+                "PROFILE_RETIRE",
+                "规划终点年龄须在 70 到 110 岁之间，应急金不超过 36 个月",
+            ));
+        }
         let o = &self.overrides;
         for (value, label) in [
             (&o.avg_wage_cents, "上年度月平均工资"),

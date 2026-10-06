@@ -133,7 +133,10 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
 // ---- 第二阶段：个人资料与养老金页的纯函数 ----
 
 /** 与 Rust plan_profile::Profile 同形：计算用的资料加地区与参数覆盖。 */
-export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides };
+/** 退休与 FIRE 输入；缺省字段由后端补默认值。 */
+export type RetireInputs = { spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number };
+export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6 };
+export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides; retire: RetireInputs };
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number } | null };
 export type ProfileSave = { request_id: string; generation: string; expected_revision: number | null; profile: StoredProfile };
 

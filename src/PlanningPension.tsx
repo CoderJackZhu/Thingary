@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
 import { CentInput, FormRow, Info } from './FormControls';
-import { ageText, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText } from './plan';
+import { ageText, defaultRetire, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText } from './plan';
 import type { Income, ProfileSave, ProfileState, StoredProfile } from './plan';
 import { PERSONAL_PENSION_CAP_CENTS, beijing, defaultAssumptions, effectiveParams, isOverridden, noOverrides, paramSources, verifiedText } from './plan-params';
 import type { ParamKey, Overrides } from './plan-params';
@@ -150,6 +150,7 @@ function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileSt
       birth_month: f.birth, worker: f.worker, region: 'beijing', paid_months: Number(f.paid), account_balance_cents: f.balance, base_cents: f.base, past_index_hundredths: past, flex_months: flex,
       personal_pension_annual_cents: f.pp, marginal_tax_hundredths: Number(f.tax), assumptions: { inflation_hundredths: infl, wage_growth_hundredths: wage, pp_return_hundredths: ppr },
       overrides: { ...noOverrides, avg_wage_cents: f.oWage || null, base_lower_cents: f.oLower || null, base_upper_cents: f.oUpper || null, notional_rate_hundredths: notional, hpf_rate_hundredths: hpf },
+      retire: saved?.profile.retire ?? defaultRetire,
     };
     const input: ProfileSave = { request_id: crypto.randomUUID(), generation, expected_revision: saved?.revision ?? null, profile };
     setBusy(true); setNotice('');

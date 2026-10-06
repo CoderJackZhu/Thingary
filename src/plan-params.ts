@@ -47,7 +47,7 @@ export const verifiedText: Record<Verified, string> = { official: '官方原文'
 
 /** 假设项：出厂预填值只是占位，界面上标明「这是假设」，由用户确认或修改。 */
 export type Assumptions = { inflation_hundredths: number; wage_growth_hundredths: number; pp_return_hundredths: number };
-export const defaultAssumptions: Assumptions = { inflation_hundredths: 200, wage_growth_hundredths: 300, pp_return_hundredths: 200 };
+export const defaultAssumptions: Assumptions = { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 };
 
 /** 个人养老金每年缴存上限（分）：国家规定 12000 元。 */
 export const PERSONAL_PENSION_CAP_CENTS = 1_200_000;

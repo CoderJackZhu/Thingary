@@ -6,6 +6,7 @@ import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningPension } from './PlanningPension';
+import { PlanningRetire } from './PlanningRetire';
 import { changeSentence, rateText, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeFields, IncomeList, IncomeSave, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
@@ -23,7 +24,7 @@ export function PlanningPage({ today, onEditingChange }: { today: string; onEdit
   const [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<Income | 'new' | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [tab, setTab] = useState<'savings' | 'pension'>('savings');
+  const [tab, setTab] = useState<'savings' | 'pension' | 'retire'>('savings');
   const [marking, setMarking] = useState(false), [markError, setMarkError] = useState('');
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
@@ -56,11 +57,12 @@ export function PlanningPage({ today, onEditingChange }: { today: string; onEdit
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
-      <div className="segmented" role="group" aria-label="规划内容"><button aria-pressed={tab === 'savings'} onClick={() => setTab('savings')}>储蓄与收入</button><button aria-pressed={tab === 'pension'} onClick={() => setTab('pension')}>养老金</button></div>
+      <div className="segmented" role="group" aria-label="规划内容"><button aria-pressed={tab === 'savings'} onClick={() => setTab('savings')}>储蓄与收入</button><button aria-pressed={tab === 'pension'} onClick={() => setTab('pension')}>养老金</button><button aria-pressed={tab === 'retire'} onClick={() => setTab('retire')}>退休与 FIRE</button></div>
       <Info text="储蓄 = 两次完整盘点之间的净资产变化 − 同期公积金缴存；支出 = 税后到账 + 公积金缴存 − 净资产变化。公积金提取是账户间转移，不需要记录。这些是用盘点与收入推出的估算，不是逐笔账。"/>
     </div></HeaderSlot>
     {error ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !review || !incomes ? <p role="status" className="muted">正在读取规划…</p>
+      : tab === 'retire' ? <PlanningRetire today={today} review={review} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())}/>
       : tab === 'pension' ? <PlanningPension today={today} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())}/>
       : <>
         <Usual review={review}/>
