@@ -2789,3 +2789,40 @@ fn payment_action_appears_only_inside_the_prepayment_window() {
         .clone();
     assert_eq!(next.as_deref(), Some("2029-09-15"));
 }
+
+/// 简易表单生成的订阅：付款比服务开始提前 10 天（首次付款日早于服务开始日），一次保存档案与计划。
+#[test]
+fn simple_form_subscription_paid_ahead_saves_with_its_plan() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let today = "2026-10-06";
+    let mut p = plan_fields("虚构订阅", "2000", "2026-10-15");
+    p.service_start = Some("2026-10-25".into());
+    p.coverage_start = Some("2026-10-25".into());
+    let mut f = fields("虚构订阅", "subscription");
+    f.price_cents = None;
+    let input = VirtualSave {
+        plan: Some(LinkedPlanSave {
+            id: None,
+            expected_revision: None,
+            fields: p,
+        }),
+        renewal_price_cents: None,
+        renewal_from: None,
+        special_end: None,
+        first_topup: None,
+        request_id: id(),
+        generation: s.generation(),
+        id: None,
+        expected_revision: None,
+        fields: f,
+    };
+    let saved = s.virtual_save(&input, today).unwrap();
+    let plan = saved
+        .plan
+        .as_ref()
+        .expect("the plan is created together with the asset");
+    assert_eq!(plan.fields.first_due, "2026-10-15");
+    assert_eq!(plan.fields.service_start.as_deref(), Some("2026-10-25"));
+    assert_eq!(plan.fields.amount_cents, "2000");
+}
