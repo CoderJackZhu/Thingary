@@ -545,6 +545,15 @@ let wishes: PreviewWish[] = params.get('state') === 'empty' ? [] : [
   wishFixture('wish-desk', '虚构心愿 · 实木书桌', '450000', '2026-09-20T09:00:00.000Z'),
 ];
 
+// 规划预览：?plan-wishes=dates 给前三个心愿设日期（一个未来、一个已过、一个未设）并让最后一个没有价格。
+if (params.get('plan-wishes') === 'dates') {
+  const future = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+  const open = wishes.filter(w => w.decision_state === 'considering');
+  if (open[0]) open[0].fields.target_date = iso(future);
+  if (open[1]) open[1].fields.target_date = '2026-01-15';
+  if (open[2]) open[2].fields.estimated_price_cents = null;
+}
+
 // U18 布局夹具：心愿按设计 §6.1 覆盖金额/状态组合（价格 2,850、已攒 850、
 // 还差 2,000；大金额、未知/零、长名称、已实现/已放弃）；周期按 0/1/30 条
 // 付款与长名称/备注构造。仅浏览器预览，刷新即重置。

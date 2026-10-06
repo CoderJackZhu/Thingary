@@ -3,6 +3,7 @@ import { money } from './asset';
 import { ageText, rateText } from './plan';
 import type { Income, PlanReview } from './plan';
 import { monthsLeftText, progressHundredths } from './plan-fire';
+import { PlanningWishes } from './PlanningWishes';
 import { RetireDetail, useRetirePlan } from './PlanningRetire';
 import './planning.css';
 
@@ -45,5 +46,6 @@ export function PlanningGoals({ today, review, incomes, onEditingChange, onPendi
         <div className="plan-goal-actions"><button type="button" className="primary" onClick={() => setDetail(true)}>查看详情</button></div>
       </>}
     </article>
+    <PlanningWishes calc={calc} today={today}/>
   </div>;
 }

@@ -6,6 +6,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {money,errorMessage,localDay} from './asset';
 import {defaultWishPreferences} from './preferences';
 import {PhotoView} from './Photos';
+import {WishPlanLine} from './WishPlanLine';
 import {DefaultAssetIcon} from './IconPicker';
 import {FormRow} from './FormControls';
 import {DateInput} from './DateInput';
@@ -170,6 +171,7 @@ export function WishDetail({onBusyChange,initial,generation,onClose,onEdit,onCha
    </div>}
  </section>}
  <div className="inspector-metrics"><div><span>预计价格</span><strong>{money(item.fields.estimated_price_cents)}</strong></div>{item.fields.target_date&&<div><span>计划日期{item.fields.target_date<localDay()?'（已过）':''}</span><strong>{item.fields.target_date}</strong></div>}</div>
+ {considering&&<WishPlanLine item={item} today={localDay()}/>}
  <section className="form-block wish-facts"><FormRow label="添加时间">{p.added_date??localDay(new Date(item.created_at))}</FormRow>{item.fields.category_id&&<FormRow label="分类">{taxonomy?.categories.find(c=>c.id===item.fields.category_id)?.name||'未分类'}</FormRow>}{p.channel_id&&<FormRow label="可能购买的渠道">{taxonomy?.channels.find(c=>c.id===p.channel_id)?.name||'未选择'}</FormRow>}{item.fields.target_date&&<FormRow label="计划日期提醒">{p.reminder?'已开启（当日 9:00 单次通知）':'未开启'}</FormRow>}</section>
  {(item.fields.notes||item.fields.external_link||item.photos?.some(x=>x.id!==item.cover?.id))&&<section className="form-block form-notes wish-notes">{item.fields.notes&&<><h3>想买的理由与顾虑</h3><p className="notes">{item.fields.notes}</p></>}{item.fields.external_link&&<a href={item.fields.external_link} target="_blank" rel="noreferrer">相关链接</a>}<div className="photo-strip">{item.photos?.filter(x=>x.id!==item.cover?.id).map(photo=><PhotoView key={photo.id} photo={photo} generation={generation}/>)}</div></section>}
  {dropped&&item.decision_note&&<section className="form-block wish-decision-note"><h3>为什么不买</h3><p className="notes">{item.decision_note}</p></section>}

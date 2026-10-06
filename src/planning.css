@@ -30,3 +30,6 @@
 .planning-section .plan-progress { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; margin-bottom: 14px; }
 .planning-section .plan-progress div { height: 100%; background: var(--accent); border-radius: 4px; min-width: 2px; }
 .planning-section .plan-goal-actions { display: flex; gap: 8px; margin-top: 8px; }
+.planning-section .plan-wish-table td { vertical-align: top; }
+.planning-section .plan-wish-table tr.closed td { color: var(--muted); }
+.wish-plan-line { margin: 8px 0; line-height: 1.6; }
