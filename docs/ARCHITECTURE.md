@@ -2,6 +2,8 @@
 
 物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，运行于 macOS。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
 
+下一阶段逻辑对象、方案/事实分离、事件与贷款接续、基准和导入事务的目标契约见 [统一规划设计](PLANNING_LIFECYCLE_DESIGN.md)及其专项规格，**尚未实现**；下文仍说明当前架构。物理表、命令与迁移版本在实际实施前确定，不能从设计对象推定数据库已变更。
+
 ## 分层与入口
 
 ```mermaid
