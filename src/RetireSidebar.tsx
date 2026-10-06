@@ -96,7 +96,10 @@ function SavingCard({ r, calc, nowAge, editing, saver, onEdit, onCancel, onSave 
   useEffect(() => { if (editing) { setItems(r.saving_phases.map(toPhase)); setGap(hundredthsToPct(r.gap_share_hundredths)); setErr(''); } }, [editing]);
   const patch = (id: string, p: Partial<PhaseDraft>) => setItems(xs => xs.map(x => x.id === id ? { ...x, ...p } : x));
   const spend = r.spend_cents === null ? 500000 : Number(r.spend_cents);
-  const add = (label: string, cents: number) => setItems(xs => { const last = xs[xs.length - 1]; const from = last ? Number(last.years) + 1 : nowAge; return [...xs, { id: crypto.randomUUID(), label, years: String(Math.max(from, nowAge)), months: '0', amount: centsText(cents) }]; });
+  // 新加一段：接在上一段后面。上一段是空窗期（储蓄为负）就默认 6 个月后，否则 1 年后；第一段从现在起。
+  const add = (label: string, cents: number) => setItems(xs => { const last = xs[xs.length - 1], lastFrom = last ? Number(last.years) * 12 + Number(last.months || '0') : calc.now; const from = Math.max(calc.now, last && Number(last.amount) < 0 ? lastFrom + 6 : last ? lastFrom + 12 : calc.now); return [...xs, { id: crypto.randomUUID(), label, years: String(Math.floor(from / 12)), months: String(from % 12), amount: centsText(cents) }]; });
+  const fromOf = (d: PhaseDraft) => Number(d.years) * 12 + Number(d.months || '0');
+  const setFrom = (id: string, months: number) => patch(id, { years: String(Math.floor(months / 12)), months: String(months % 12) });
   function save() {
     const out: StoredSavingPhase[] = [];
     for (let i = 0; i < items.length; i++) {
@@ -120,7 +123,8 @@ function SavingCard({ r, calc, nowAge, editing, saver, onEdit, onCancel, onSave 
         {r.gap_share_hundredths > 0 && <p className="muted small">平均空窗 {rateText(r.gap_share_hundredths)}：有收入的阶段按期望值折算。</p>}</>}
     edit={<div className="rs-form">
       {items.map((d, i) => <div key={d.id} className="rs-item"><div className="rs-item-head"><input aria-label="阶段名称" value={d.label} onChange={e => patch(d.id, { label: e.target.value })}/><button type="button" className="ui-btn" aria-label={`移除${d.label}`} onClick={() => setItems(xs => xs.filter(x => x.id !== d.id))}>移除</button></div>
-        {i === 0 ? <p className="muted small">从现在起</p> : <div className="rs-pair"><Field label="起始（岁）"><input aria-label={`${d.label}起始岁`} inputMode="numeric" value={d.years} onChange={e => patch(d.id, { years: e.target.value })}/></Field><Field label="加（个月）"><input aria-label={`${d.label}起始月`} inputMode="numeric" value={d.months} onChange={e => patch(d.id, { months: e.target.value })}/></Field></div>}
+        {i === 0 ? <p className="muted small">从现在起</p> : <><Field label="几个月后开始" hint={Number.isFinite(fromOf(d)) ? `约 ${Math.floor(fromOf(d) / 12)} 岁 ${fromOf(d) % 12} 个月` : undefined}><input aria-label={`${d.label}几个月后开始`} inputMode="numeric" value={Number.isFinite(fromOf(d)) ? String(Math.max(0, fromOf(d) - calc.now)) : ''} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 0) setFrom(d.id, calc.now + n); }}/></Field>
+          <div className="rs-pair"><Field label="或直接填起始（岁）"><input aria-label={`${d.label}起始岁`} inputMode="numeric" value={d.years} onChange={e => patch(d.id, { years: e.target.value })}/></Field><Field label="加（个月）"><input aria-label={`${d.label}起始月`} inputMode="numeric" value={d.months} onChange={e => patch(d.id, { months: e.target.value })}/></Field></div></>}
         <Field label="每月储蓄（元）" hint="没有收入、在花存款时填负数"><input aria-label={`${d.label}每月储蓄`} inputMode="decimal" value={d.amount} onChange={e => patch(d.id, { amount: e.target.value })}/></Field></div>)}
       {items.length === 0 && <p className="muted small">还没有阶段。盘点中位数含一次性消费，建议自己填。</p>}
       <div className="rs-presets">
