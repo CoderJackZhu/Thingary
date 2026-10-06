@@ -69,7 +69,7 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
     const spend = r.spend_cents !== null ? Number(r.spend_cents) : null;
     const missing: string[] = [...normalized.missing, ...(saved.reference_issues ?? [])];
     if (snapshot) missing.push(...occurrenceMissing(snapshot, core, r.life_events, today));
-    if (Number(p.personal_pension_annual_cents) > 0 && !core?.personal_pension_balance_confirmed) missing.push('已有个人养老金余额待核对；无余额也需明确确认。');
+    if ((Number(p.personal_pension_annual_cents) > 0 || !!core?.personal_pension_account_id) && !core?.personal_pension_balance_confirmed) missing.push('已有个人养老金余额待核对；无余额也需明确确认。');
     const ppEntry = snapshot?.entries.find(e => e.account_id === core?.personal_pension_account_id && e.side === 'asset' && e.counted);
     if (core?.personal_pension_account_id && (!ppEntry || ppEntry.kind === 'housing_fund' || !core.fund_rules.some(f => f.account_id === ppEntry.account_id && f.availability === 'restricted' && f.share_hundredths === 10000))) missing.push('个人养老金账户必须是单独确认的受限资产，不能同时进入可用／公积金池。');
     if ((Number(funds.hpf_balance_cents) > 0 || incomes.some(i => Number(i.fields.hpf_cents) > 0)) && core?.hpf_monthly_cents == null) missing.push('未来公积金缴存待确认（最新明确零优先）。');

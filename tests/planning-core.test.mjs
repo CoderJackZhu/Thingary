@@ -135,6 +135,8 @@ test('a PP balance without confirmation stays unknown rather than default zero',
   const c=core(['cash','available']);c.costs=[{phase_id:'phase',source_id:'personal_pension',included:false,reference_cents:'0'}];
   const p=profile(c);p.profile.personal_pension_annual_cents='1200000';
   assert.match(calc(p,snap([entry('cash','asset','cash',10000000)])).missing.join(' '),/已有个人养老金余额待核对/);
+  p.profile.personal_pension_annual_cents='0';c.personal_pension_account_id='pp';c.fund_rules.push({account_id:'pp',availability:'restricted',share_hundredths:10000});
+  assert.match(calc(p,snap([entry('cash','asset','cash',10000000),entry('pp','asset','other_asset',5000000)])).missing.join(' '),/已有个人养老金余额待核对/);
 });
 
 
