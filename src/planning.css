@@ -34,3 +34,29 @@
 .planning-section .plan-wish-table tr.closed td { color: var(--muted); }
 .wish-plan-line { margin: 8px 0; line-height: 1.6; }
 .planning-section .account-estimate, .account-estimate { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* 目标主卡先呈现生活预算与下一步，金额只在资料完整后参与测算。 */
+.planning-section .plan-retirement-goal { background: var(--hero-tint-1), var(--card); padding: 22px; }
+.planning-section .plan-goal .ui-section-head { align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.planning-section .plan-goal .eyebrow { margin: 0 0 6px; }
+.planning-section .plan-goal-overview { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr); gap: 28px; margin-top: 18px; }
+.planning-section .plan-goal-overview > div > p { line-height: 1.7; }
+.planning-section .plan-goal-headline { font-size: clamp(22px, 3vw, 30px); line-height: 1.35; margin: 0 0 10px; }
+.planning-section .plan-goal-headline > span { display: block; font-size: 14px; margin-top: 10px; color: var(--muted); }
+.planning-section .plan-goal-inputs { grid-template-columns: 1fr; gap: 14px; padding-left: 22px; border-left: 1px solid var(--line); }
+.planning-section .plan-goal-inputs dd { font-size: 20px; }
+.planning-section .plan-goal-progress { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 18px; }
+.planning-section .plan-progress-caption { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.planning-section .plan-goal-next { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; font-size: 13px; color: var(--muted); line-height: 1.7; }
+.planning-section .plan-goal-next ul { margin: 0; padding-left: 18px; }
+.planning-section .plan-goal-actions { flex-wrap: wrap; margin-top: 18px; }
+.planning-section .plan-table-scroll { overflow-x: auto; max-width: 100%; }
+.planning-section .plan-wish-table { min-width: 620px; }
+.planning-section .plan-explanation { margin-top: 14px; font-size: 12px; color: var(--muted); line-height: 1.7; }
+.planning-section .plan-explanation summary { cursor: pointer; }
+.plan-budget-reference { padding: 12px; line-height: 1.7; }
+.planning-section .plan-source { display: block; margin-top: 4px; line-height: 1.6; }
+.planning-section .plan-params td .plan-source { white-space: normal; }
+@media (max-width: 900px) {
+  .planning-section .plan-goal-overview { grid-template-columns: 1fr; gap: 20px; }
+  .planning-section .plan-goal-inputs { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+}

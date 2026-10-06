@@ -36,10 +36,11 @@ export function useRetirePlan(today: string, review: PlanReview, incomes: Income
 export type RetirePlan = ReturnType<typeof useRetirePlan>;
 
 /** 退休与 FIRE 详情：所需资产、达成年限、敏感性表。全部用「今天的钱」。 */
-export function RetireDetail({ plan, today, onEditingChange, onPending }: { plan: RetirePlan; today: string; onEditingChange: (v: boolean) => void; onPending: () => void }) {
+export function RetireDetail({ plan, today, onEditingChange, onPending, initialEditing = false }: { initialEditing?: boolean; plan: RetirePlan; today: string; onEditingChange: (v: boolean) => void; onPending: () => void }) {
   const { state, snapshot, error, calc, reload } = plan;
   const saved = state?.saved ?? null;
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(initialEditing);
+  const editButton = useRef<HTMLButtonElement>(null);
   useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
 
   if (error) return <article className="ui-card ui-content" role="alert"><p>退休估算读取失败：{error}</p><button onClick={reload}>重新读取</button></article>;
@@ -48,12 +49,12 @@ export function RetireDetail({ plan, today, onEditingChange, onPending }: { plan
   const { r } = calc;
   return <>
     <article className="ui-card ui-content plan-steps" aria-label="退休与财务自由估算">
-      <div className="ui-section-head"><h3>你的起点</h3><span><button type="button" className="ui-btn" onClick={() => setEditing(true)}>编辑退休假设</button></span></div>
+      <div className="ui-section-head"><h3>退休与财务自由</h3><span><button ref={editButton} type="button" className="ui-btn" onClick={() => setEditing(true)}>编辑月预算与假设</button></span></div>
       <section aria-labelledby="fire-start"><h4 id="fire-start">现状（今天的钱）</h4>
         <dl className="plan-facts">
           <div><dt>可支配资产</dt><dd>{calc.assets === null ? '—' : yuan(calc.assets)}</dd><small className="muted">最近完整盘点，不含公积金账户</small></div>
           <div><dt>常态月储蓄</dt><dd>{calc.saving === null ? '—' : yuan(calc.saving)}</dd><small className="muted">近 12 个月中位数</small></div>
-          <div><dt>退休后月支出</dt><dd>{calc.spend === null ? '—' : yuan(calc.spend)}</dd><small className="muted">{r.spend_cents !== null ? '你填写的目标' : '近 12 个月推出的支出中位数'}</small></div>
+          <div><dt>退休后月支出</dt><dd>{calc.spend === null ? '—' : yuan(calc.spend)}</dd><small className="muted">{r.spend_cents !== null ? '你填写的月预算' : '尚未填写月预算'}</small></div>
           <div><dt>应急金</dt><dd>{calc.emergency ? (calc.emergency.covered_months === null ? '—' : `${calc.emergency.covered_months.toFixed(1)} 个月`) : '—'}</dd><small className="muted">线：{r.emergency_months} 个月支出</small></div>
         </dl>
         {calc.emergency?.below && <p className="notice" role="status">当前可支配资产不足 {r.emergency_months} 个月支出，低于应急金线。</p>}
@@ -71,23 +72,23 @@ export function RetireDetail({ plan, today, onEditingChange, onPending }: { plan
           <p><strong>{ageText(calc.trad.age_months)}时{calc.trad.surplus_cents >= 0 ? '资产够用' : '资产不够'}</strong>：预计资产 {yuan(calc.trad.assets_cents)}，所需 {yuan(calc.trad.required_cents)}，{calc.trad.surplus_cents >= 0 ? '多出' : '缺口'} {yuan(Math.abs(calc.trad.surplus_cents))}。</p>
         </section></>}
     </article>
-    {calc.sens && <article className="ui-card ui-content"><div className="ui-section-head"><h3>敏感性：FIRE 年龄</h3><span>行：月储蓄；列：实际收益率（退休前后相同）</span></div>
-      <table className="ui-table plan-sens"><thead><tr><th>月储蓄</th>{calc.sens.rates.map(x => <th key={x} className="amount">{rateText(x)}</th>)}</tr></thead>
+    {calc.sens && <article className="ui-card ui-content"><div className="ui-section-head"><h3>不同储蓄与收益下的退休年龄</h3><span>行：月储蓄；列：实际收益率（退休前后相同）</span></div>
+      <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="退休年龄比较表"><table className="ui-table plan-sens"><thead><tr><th>月储蓄</th>{calc.sens.rates.map(x => <th key={x} className="amount">{rateText(x)}</th>)}</tr></thead>
         <tbody>{calc.sens.cells.map((row, i) => <tr key={calc.sens!.factors[i]} className={calc.sens!.factors[i] === 1 ? 'selected' : undefined}>
           <th scope="row">{calc.saving !== null ? yuan(calc.saving * calc.sens!.factors[i]) : ''}<small className="muted"> {Math.round(calc.sens!.factors[i] * 100)}%</small></th>
-          {row.map((age, k) => <td key={k} className="amount">{age === null ? <span className="muted">—</span> : ageText(age)}</td>)}</tr>)}</tbody></table>
+          {row.map((age, k) => <td key={k} className="amount">{age === null ? <span className="muted">—</span> : ageText(age)}</td>)}</tr>)}</tbody></table></div>
       <p className="muted small">一眼看出多存钱和提高收益哪个对你更有用；「—」表示 {SEARCH_CAP_YEARS} 岁前达不到。这是估算，不是承诺；它不预测裁员、跳槽或涨薪，只按最近的真实储蓄往后推。</p></article>}
-    {editing && <RetireDialog state={state} today={today} onClose={ok => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(false); onPending(); if (ok) reload(); }}/>}
+    {editing && <RetireDialog state={state} derivedSpend={calc.derivedSpend} onClose={ok => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); editButton.current?.focus(); setEditing(false); onPending(); if (ok) reload(); }}/>}
   </>;
 }
 
-function RetireDialog({ state, today, onClose }: { state: ProfileState; today: string; onClose: (saved: boolean) => void }) {
+function RetireDialog({ state, derivedSpend, onClose }: { state: ProfileState; derivedSpend: number | null; onClose: (saved: boolean) => void }) {
   const saved = state.saved!, r0 = saved.profile.retire;
   const dialog = useRef<HTMLDialogElement>(null);
   const [spend, setSpend] = useState(r0.spend_cents ?? ''), [before, setBefore] = useState(hundredthsToPct(r0.real_return_before_hundredths)), [after, setAfter] = useState(hundredthsToPct(r0.real_return_after_hundredths));
   const [horizon, setHorizon] = useState(String(r0.horizon_age)), [months, setMonths] = useState(String(r0.emergency_months));
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
-  useEffect(() => { dialog.current?.showModal(); document.getElementById('retire-spend')?.focus(); return () => dialog.current?.close(); }, []);
+  useEffect(() => { dialog.current?.showModal(); dialog.current?.querySelector<HTMLElement>('[aria-label="退休后月支出"]')?.focus(); return () => dialog.current?.close(); }, []);
   const frozen = busy || stuck;
   async function save() {
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
@@ -97,7 +98,7 @@ function RetireDialog({ state, today, onClose }: { state: ProfileState; today: s
     const h = Number(horizon), m = Number(months);
     if (!Number.isInteger(h) || h < 70 || h > 110) return stop('规划到的年龄', '规划终点须是 70 到 110 之间的整数岁。');
     if (!Number.isInteger(m) || m < 0 || m > 36) return stop('应急金线', '应急金线须是 0 到 36 个月。');
-    if (spend === '0') return stop('退休后月支出', '退休后月支出须大于 0，或留空使用推算值。');
+    if (spend === '0') return stop('退休后月支出', '退休后月预算须大于 0；留空则暂不估算退休时间。');
     const retire: RetireInputs = { spend_cents: spend === '' ? null : spend, real_return_before_hundredths: b, real_return_after_hundredths: a, horizon_age: h, emergency_months: m };
     const input: ProfileSave = { request_id: crypto.randomUUID(), generation: state.generation, expected_revision: saved.revision, profile: { ...saved.profile, retire } };
     setBusy(true); setNotice('');
@@ -108,7 +109,8 @@ function RetireDialog({ state, today, onClose }: { state: ProfileState; today: s
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="retire-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
     <header><div><p className="eyebrow">规划 · 退休与 FIRE</p><h2 id="retire-heading">退休假设</h2><p className="muted">全部按「今天的钱」计算；这些是假设，不是事实。</p></div><CloseButton type="button" aria-label="关闭退休假设表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存假设'}</button>}</div></header>
     <section className="form-block">
-      <FormRow label="退休后月支出" hint="今天的钱；留空则用近 12 个月推出的支出中位数"><span id="retire-spend"><CentInput label="退休后月支出" value={spend} disabled={frozen} placeholder="留空使用推算值" onChange={setSpend}/></span></FormRow>
+      <FormRow label="退休后月支出" hint="按今天的物价填写日常生活预算；留空则暂不估算"><CentInput label="退休后月支出" value={spend} disabled={frozen} placeholder="填写自己的月预算" onChange={setSpend}/></FormRow>
+      <p className="muted small plan-budget-reference">{derivedSpend === null ? '还没有可参考的历史支出。' : `历史推算月支出为 ${yuan(derivedSpend)}，仅供核对。`}大额医疗、一次性购买等不代表每个月都会发生，请按预期的日常生活填写预算。</p>
       <FormRow label="退休前实际收益率（年，%）" hint="扣除通胀；货币基金为主时接近 0，这是假设"><input aria-label="退休前实际收益率" inputMode="decimal" value={before} disabled={frozen} onChange={e => setBefore(e.target.value)}/></FormRow>
       <FormRow label="退休后实际收益率（年，%）" hint="扣除通胀，这是假设"><input aria-label="退休后实际收益率" inputMode="decimal" value={after} disabled={frozen} onChange={e => setAfter(e.target.value)}/></FormRow>
       <FormRow label="规划到的年龄" hint="70 到 110 岁，默认 90"><input aria-label="规划到的年龄" inputMode="numeric" value={horizon} disabled={frozen} onChange={e => setHorizon(e.target.value)}/></FormRow>

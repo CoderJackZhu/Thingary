@@ -1,8 +1,8 @@
 // 规划模块第二阶段的内置参数（PLANNING_DESIGN §5.6）。政策与利率每年变化：每项带来源、
 // 生效日期与核对状态，用户可在个人资料里覆盖；覆盖值优先，内置值随应用版本更新。
-// 核对状态：official 取自官方文件原文；reported 来自媒体或第三方转述；unchecked 尚未核对。
+// 核对状态：official 官方原文；derived 据官方值推算；assumption 测算假设；reported 转述；unchecked 尚未核对。
 
-export type Verified = 'official' | 'reported' | 'unchecked';
+export type Verified = 'official' | 'reported' | 'unchecked' | 'derived' | 'assumption';
 export type Region = 'beijing';
 
 /** 利率与增长率一律用「万分比」整数：200 = 2.00%，与盘点比较的 rate_hundredths 同一约定。 */
@@ -21,7 +21,7 @@ export type RegionParams = {
   hpf_rate_hundredths: number;
 };
 export type ParamKey = Exclude<keyof RegionParams, 'region' | 'name' | 'avg_wage_year' | 'base_effective'>;
-export type ParamSource = { key: ParamKey; label: string; verified: Verified; source: string; effective: string };
+export type ParamSource = { key: ParamKey; label: string; verified: Verified; source: string; effective: string; url: string; checked_on: string };
 
 export const beijing: RegionParams = {
   region: 'beijing',
@@ -35,15 +35,17 @@ export const beijing: RegionParams = {
   hpf_rate_hundredths: 150,
 };
 
+const baseNotice = 'https://rsj.beijing.gov.cn/xxgk/2024zcwj/202608/t20260821_4831461.html';
+const checkedOn = '2026-10-06';
 export const paramSources: ParamSource[] = [
-  { key: 'avg_wage_cents', label: '上年度月平均工资（北京 2025 年度）', verified: 'reported', source: '北京市人社局发布，经媒体转述；与缴费基数上下限互相印证，未取得原文', effective: '2026-07-01' },
-  { key: 'base_upper_cents', label: '月缴费基数上限', verified: 'official', source: '北京市人社局、医保局、税务局《关于 2026 年度各项社会保险缴费工资基数上下限的通告》（2026-08-21）', effective: '2026-07-01' },
-  { key: 'base_lower_cents', label: '月缴费基数下限', verified: 'official', source: '同上', effective: '2026-07-01' },
-  { key: 'notional_rate_hundredths', label: '个人账户记账利率', verified: 'reported', source: '2025 年 1.5% 仅见媒体报道，未找到官方公告原文', effective: '2025-01-01' },
-  { key: 'hpf_rate_hundredths', label: '公积金账户存款利率', verified: 'unchecked', source: '暂用 1.5%，未核对', effective: '' },
+  { key: 'avg_wage_cents', label: '社平工资参考值（2025 年度）', verified: 'derived', source: '按 2026 年缴费基数上限 36348 ÷ 3 得 12116 元；用于长期测算，未核实为北京养老金计发基数', effective: '', url: baseNotice, checked_on: checkedOn },
+  { key: 'base_upper_cents', label: '月缴费基数上限', verified: 'official', source: '北京市人社局等《2026 年度各项社会保险缴费工资基数上下限的通告》，京人社发〔2026〕7号', effective: '2026-07-01', url: baseNotice, checked_on: checkedOn },
+  { key: 'base_lower_cents', label: '月缴费基数下限', verified: 'official', source: '同一通告明确下限 7270 元', effective: '2026-07-01', url: baseNotice, checked_on: checkedOn },
+  { key: 'notional_rate_hundredths', label: '个人账户未来记账利率', verified: 'assumption', source: '暂用 1.5% 作长期测算假设；未取得对应年度职工养老保险利率原文。国家逐年公布，不保证未来固定为此值', effective: '', url: 'https://www.mohrss.gov.cn/yanglaobxs/YLBXSzhengcewenjian/201704/t20170424_269935.html', checked_on: checkedOn },
+  { key: 'hpf_rate_hundredths', label: '公积金账户存款利率', verified: 'official', source: '银发〔2016〕43号及北京公积金结息政策解读；2026 年国管中心对账公告确认本年度仍按 1.50% 计息，未来暂按此值测算', effective: '2016-02-21', url: 'https://www.zzz.gov.cn/html/xwzx/tzgg/19291.html', checked_on: checkedOn },
 ];
 
-export const verifiedText: Record<Verified, string> = { official: '官方原文', reported: '媒体转述，未核对原文', unchecked: '未核对' };
+export const verifiedText: Record<Verified, string> = { official: '已核对官方原文', reported: '媒体转述，未核对原文', unchecked: '未核对', derived: '据官方值推算', assumption: '测算假设' };
 
 /** 假设项：出厂预填值只是占位，界面上标明「这是假设」，由用户确认或修改。 */
 export type Assumptions = { inflation_hundredths: number; wage_growth_hundredths: number; pp_return_hundredths: number };

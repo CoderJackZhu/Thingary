@@ -108,9 +108,9 @@ function Table({ calc }: { calc: Calc }) {
 function Params({ overrides, region }: { overrides: Overrides; region: ReturnType<typeof effectiveParams> }) {
   const shown = (key: ParamKey) => key.endsWith('rate_hundredths') ? rateText(region[key] as number) : money(region[key] as string);
   return <article className="ui-card ui-content"><div className="ui-section-head"><h3>参数表（{region.name}）</h3><span>每年更新；可在个人资料里改</span></div>
-    <table className="ui-table plan-params"><thead><tr><th>参数</th><th className="amount">取值</th><th>来源与核对状态</th></tr></thead>
-      <tbody>{paramSources.map(s => <tr key={s.key}><td>{s.label}</td><td className="amount">{shown(s.key)}{isOverridden(s.key, overrides) && <span className="ui-tag"> 已改</span>}</td>
-        <td><span className={'ui-tag' + (s.verified === 'official' ? '' : ' warn')}>{verifiedText[s.verified]}</span> <small className="muted">{s.source}{s.effective ? `（${s.effective} 起）` : ''}</small></td></tr>)}</tbody></table>
+    <table className="ui-table plan-params"><thead><tr><th>参数</th><th className="amount">取值</th><th>依据与核对状态</th></tr></thead>
+      <tbody>{paramSources.map(s => <tr key={s.key}><td>{s.label}</td><td className="amount">{shown(s.key)}{isOverridden(s.key, overrides) && <span className="ui-tag"> 自定</span>}</td>
+        <td><span className={'ui-tag' + (s.verified === 'official' ? '' : ' warn')}>{isOverridden(s.key, overrides) ? '用户自定值' : verifiedText[s.verified]}</span><small className="muted plan-source">{s.source}{s.effective ? `（${s.effective} 起）` : ''}</small><small className="muted plan-source"><a href={s.url} target="_blank" rel="noreferrer">{s.verified === 'derived' ? '查看推算依据' : s.verified === 'assumption' ? '查看利率公布规则' : '查看官方来源'}</a> · 核对 {s.checked_on}</small>{isOverridden(s.key, overrides) && <small className="muted plan-source">来源说明内置参考值；当前自定值未作官方核验。</small>}</td></tr>)}</tbody></table>
     <p className="muted small">法定退休年龄按国务院《渐进式延迟法定退休年龄的办法》，计发月数按国发〔2005〕38 号附表，个人养老金年缴上限 12000 元、领取按 3% 计税。</p></article>;
 }
 
@@ -162,7 +162,7 @@ function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileSt
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="profile-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">规划 · 养老金</p><h2 id="profile-heading">个人资料</h2><p className="muted">按社保 App 当前显示的数字填写；资料只存本机，估算结果不保存。</p></div><CloseButton type="button" aria-label="关闭个人资料表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存资料'}</button>}</div></header>
+    <header><div><p className="eyebrow">规划 · 养老金</p><h2 id="profile-heading">个人资料</h2><p className="muted">按社保 App 当前显示的数字填写；未来利率和增长率属于测算假设。</p></div><CloseButton type="button" aria-label="关闭个人资料表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存资料'}</button>}</div></header>
     <section className="form-block">
       <FormRow label="出生日期" hint="点日历选择；只用到年和月"><DateInput id="profile-birth" label="出生日期" value={f.birth} max={today} disabled={frozen} onChange={v => set('birth', v)}/></FormRow>
       <FormRow label="性别与职工类型" hint="决定法定退休年龄的延迟节奏：男职工原 60 岁；女干部（干部、管理、专业技术岗位）原 55 岁；女工人（一线工人）原 50 岁。拿不准就看劳动合同或问单位人事"><select aria-label="性别与职工类型" value={f.worker} disabled={frozen} onChange={e => set('worker', e.target.value as Worker)}>{(Object.keys(workerText) as Worker[]).map(k => <option key={k} value={k}>{workerText[k]}</option>)}</select></FormRow>

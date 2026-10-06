@@ -23,6 +23,8 @@ export type VirtualOverview = { generation: string; today: string; items: Virtua
 export const virtualKindText = (k: string) => virtualKinds.find(([c]) => c === k)?.[1] ?? '虚拟资产';
 export const statusText: Record<VirtualStatus, string> = { stopped: '已停用', perpetual: '永久有效', unknown: '有效期待补充', expired: '已到期', expiring: '即将到期', active: '有效', ongoing: '持续订阅', paused: '已暂停续费', future: '未开始' };
 export const virtualStatusText = (v: VirtualAsset) => {
+  if (billingOf(v) === 'single' && v.status === 'stopped') return '已结束使用';
+  if (billingOf(v) === 'single' && v.fields.kind === 'general' && v.status === 'unknown') return '未设置有效期';
   if (v.fields.kind === 'subscription' && v.status === 'expired') return '已结束';
   // 储值没有“有效期待补充”语义：空到期日就是未设置（设计 §3）。
   if (billingOf(v) === 'topup' && v.status === 'unknown') return '未设置到期日';
@@ -56,7 +58,7 @@ export function paymentScheduleText(v: VirtualAsset) {
   if (billingOf(v) === 'topup') return v.fields.expires ? `额度到期 ${v.fields.expires}` : '未设置到期日';
   return v.plan?.next_due ? `下次付款 ${v.plan.next_due}` : '无后续期';
 }
-export const virtualFilters = [['all', '全部'], ['valid', '有效'], ['expiring', '即将到期'], ['expired', '已结束／到期'], ['stopped', '已停用']] as const;
+export const virtualFilters = [['all', '全部'], ['valid', '有效'], ['expiring', '即将到期'], ['expired', '已结束／到期'], ['stopped', '已结束使用／停用']] as const;
 export type VirtualFilter = typeof virtualFilters[number][0];
 /** “有效” groups everything still usable, including perpetual and not-yet-known validity. */
 export function matchesFilter(v: VirtualAsset, filter: VirtualFilter) {
@@ -66,6 +68,7 @@ export function matchesFilter(v: VirtualAsset, filter: VirtualFilter) {
 }
 /** Where validity comes from, shown next to the date. */
 export function validityText(v: VirtualAsset) {
+  if (v.fields.stopped_on) return `${billingOf(v) === 'single' ? '使用结束于' : '停用于'} ${v.fields.stopped_on}`;
   if (v.status === 'future') return `未开始（${v.plan?.fields.service_start ?? ''}）`;
   if (v.status === 'perpetual') return '永久有效';
   if (billingOf(v) === 'single' && !v.fields.plan_id && v.fields.perpetual) return '永久有效';

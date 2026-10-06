@@ -12,12 +12,12 @@ export function RentPlanForm({ value: r, onChange, disabled, today, rent }: { va
   const advance = [[0, '当天'], [7, '提前 7 天'], [15, '提前 15 天'], [oneMonthBefore(r.start), '提前一个月']] as const;
   const preview = rentPreview(r, today);
   return <>
-    <FormRow label="付款周期" hint="多久付一次房租"><Segments label="付款周期" value={String(r.interval_months)} disabled={disabled} options={rentIntervals.map(([m, l]) => ({ value: String(m), label: l }))} onChange={v => set('interval_months', Number(v) as RentForm['interval_months'])}/></FormRow>
+    <FormRow label="付款周期" hint={rent ? '多久付一次房租' : '多久付一次订阅费用'}><Segments label="付款周期" value={String(r.interval_months)} disabled={disabled} options={rentIntervals.map(([m, l]) => ({ value: String(m), label: l }))} onChange={v => set('interval_months', Number(v) as RentForm['interval_months'])}/></FormRow>
     <FormRow label="每期金额" hint="每次付款的总额：按季付就填一整季的钱"><CentInput label="每期金额" value={r.amount_cents} disabled={disabled} placeholder="0.00" onChange={v => set('amount_cents', v)}/></FormRow>
     <FormRow label={rent ? '租住开始日期' : '开始日期'} hint={rent ? '合同上的起租日，可以是过去的日期' : '第一期服务开始的日期，可以是过去的日期'}><DateInput id="rent-start" label={rent ? '租住开始日期' : '开始日期'} value={r.start} disabled={disabled} onChange={v => v && set('start', v)}/></FormRow>
     <FormRow label="提前几天付款" hint="每期服务开始前多少天付钱；当天付就选「当天」">
       <span className="rent-advance">{advance.map(([d, l]) => <button key={l} type="button" className="ui-btn" aria-pressed={r.advance_days === d} disabled={disabled} onClick={() => set('advance_days', d)}>{l}</button>)}
-        <input aria-label="提前天数" inputMode="numeric" value={String(r.advance_days)} disabled={disabled} onChange={e => { const n = Number(e.target.value.replace(/\D/g, '') || 0); set('advance_days', Math.min(366, n)); }}/> 天</span>
+        <span className="rent-advance-value"><input aria-label="提前天数" inputMode="numeric" value={String(r.advance_days)} disabled={disabled} onChange={e => { const n = Number(e.target.value.replace(/\D/g, '') || 0); set('advance_days', Math.min(366, n)); }}/><span>天</span></span></span>
     </FormRow>
     <FormRow label={rent ? '租期到期日' : '结束日期'} hint={rent ? '合同到期日，不含当天（到期日就是下一期的第一天，不再付款）；不确定租到何时就留空，会一直续费' : '不再付款的日期，不含当天（这一天就是下一期的第一天）；不确定何时结束就留空，会一直续费'}><DateInput id="rent-end" label={rent ? '租期到期日' : '结束日期'} value={r.end} allowClear disabled={disabled} onChange={v => set('end', v)}/></FormRow>
     <div className="rent-preview" aria-live="polite">

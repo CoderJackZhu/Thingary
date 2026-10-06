@@ -103,3 +103,22 @@
 .rent-advance button[aria-pressed="true"] { background: var(--selected); color: var(--accent); }
 .rent-preview { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
 .rent-preview ol { margin: 6px 0 0; padding-left: 20px; line-height: 1.7; font-size: 13px; font-variant-numeric: tabular-nums; }
+/* 提前天数与单位作为一个控件换行；覆盖通用表单 input 的 width:100%。 */
+.editor .rent-advance { justify-content: flex-end; max-width: 100%; }
+.editor .rent-advance-value { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; white-space: nowrap; }
+.editor .rent-advance-value input { width: 56px; min-width: 0; flex: 0 0 56px; padding: 7px 4px; }
+.editor.virtual-editor .form-row { align-items: flex-start; }
+.editor.virtual-editor .form-row-label { flex: 0 1 32%; min-width: 0; overflow-wrap: anywhere; }
+.editor.virtual-editor .form-row-control { align-self: center; flex-wrap: wrap; gap: 6px; }
+.editor.virtual-editor .form-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+.editor.virtual-editor .form-inline > * { flex: 1 1 140px; min-width: 0; }
+.editor.virtual-editor .form-inline > .form-switch { flex: 0 0 auto; }
+.editor.virtual-editor .form-row-control > small { flex-basis: 100%; line-height: 1.6; text-align: left; }
+.editor.virtual-editor .plan-advanced summary { line-height: 1.6; overflow-wrap: anywhere; }
+.editor.virtual-editor p > .ui-link { max-width: 100%; white-space: normal; text-align: left; line-height: 1.6; }
+@media (max-width: 620px) {
+  .editor.virtual-editor .form-row { flex-direction: column; gap: 8px; }
+  .editor.virtual-editor .form-row-label { flex-basis: auto; }
+  .editor.virtual-editor .form-row-control { width: 100%; max-width: 100%; }
+  .editor.virtual-editor .form-row-label small { display: block; max-width: none; }
+}

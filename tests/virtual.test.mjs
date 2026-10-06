@@ -28,3 +28,16 @@ test('deleted virtual assets restore through the shared wealth command', () => {
   const d = entryDisplay({ kind: 'virtual', id: 'v1', title: 'example-notes.cn', subtype: 'domain', date: '2025-10-18', end_date: null, cost_cents: null, provider: null, deleted_at: '2026-09-28T08:00:00+00:00', asset_id: null, asset_name: null, asset_deleted: false, asset_revision: 2, asset_state: null, contents: [] });
   assert.deepEqual([d.typeLabel, d.title, d.facts], ['虚拟资产', 'example-notes.cn', ['域名 · 购于 2025-10-18']]);
 });
+
+test('ending a single service takes priority over perpetual validity without losing its cost', async () => {
+  const { virtualStatusText, cumulativeCost } = await import('../src/virtual.ts');
+  const ended = item({ status: 'stopped', spent_cents: '2500000' }, { billing: 'single', perpetual: true, purchase_date: '2026-01-20', stopped_on: '2026-06-30', price_cents: '2500000' });
+  assert.equal(virtualStatusText(ended), '已结束使用');
+  assert.equal(validityText(ended), '使用结束于 2026-06-30');
+  assert.equal(matchesFilter(ended, 'valid'), false);
+  assert.equal(matchesFilter(ended, 'stopped'), true);
+  assert.equal(cumulativeCost(ended).cents, '2500000');
+  const reopened = { ...ended, status: 'perpetual', fields: { ...ended.fields, stopped_on: null } };
+  assert.equal(validityText(reopened), '永久有效');
+  assert.equal(matchesFilter(reopened, 'valid'), true);
+});
