@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { TopupSave, BalanceSave, ReminderSave } from './virtual';
-import type { IncomeSave, Mark } from './plan';
+import type { IncomeSave, Mark, ProfileSave } from './plan';
 import { errorMessage, money } from './asset.ts';
 
 export type Side = 'asset' | 'liability';
@@ -86,7 +86,7 @@ export function cellText(cell: CompareCell, side: Side): string {
 export const pendingKey = 'thingary.wealth-pending.v1';
 export type TrashChange = { request_id: string; generation: string; kind: TrashKind; id: string; expected_revision: number; deleted: boolean };
 export type TrashKind = 'snapshot' | 'account' | 'expense' | 'income' | 'plan' | 'payment' | 'wish' | 'virtual' | 'topup' | 'balance';
-export type Pending = { command: 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save'; input: AccountSave | SnapshotSave | TrashChange | IncomeSave | Mark | TopupSave | BalanceSave | ReminderSave | { request_id: string; generation: string }; label: string };
+export type Pending = { command: 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save'; input: AccountSave | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | { request_id: string; generation: string }; label: string };
 export function storedPending(): Pending | null {
   try { const p = JSON.parse(localStorage.getItem(pendingKey) || 'null'); if (p && typeof p.command === 'string' && typeof p.input?.request_id === 'string') return p; } catch { /* unreadable receipt is ignored */ }
   return null;

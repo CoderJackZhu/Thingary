@@ -2,6 +2,8 @@
 // 事实由 Rust 只读命令 plan_review 计算；这里的 computeReview 只给浏览器预览用，
 // 规则与 plan_savings.rs 一致，并由 tests/plan.test.mjs 用同一组数值核对。
 import type { Line } from './expenses.ts';
+import type { Profile as PensionProfile, Funds } from './plan-pension.ts';
+import type { Overrides } from './plan-params.ts';
 import type { Point } from './wealth.ts';
 
 export type IncomeFields = { date: string; net_cents: string; hpf_cents: string; notes: string };
@@ -126,4 +128,41 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     }
   }
   return { generation, intervals, stats, incomplete_count: points.filter(p => !p.complete).length };
+}
+
+// ---- 第二阶段：个人资料与养老金页的纯函数 ----
+
+/** 与 Rust plan_profile::Profile 同形：计算用的资料加地区与参数覆盖。 */
+export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides };
+export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number } | null };
+export type ProfileSave = { request_id: string; generation: string; expected_revision: number | null; profile: StoredProfile };
+
+/** 百分数输入（可带一位以上小数）转万分比整数；空或无效返回 null。 */
+export function pctToHundredths(text: string): number | null {
+  const t = text.trim().replace(/%$/, '');
+  if (!/^-?\d{1,3}(\.\d{1,2})?$/.test(t)) return null;
+  return Math.round(Number(t) * 100);
+}
+export const hundredthsToPct = (v: number): string => String(v / 100);
+
+/** 公积金池的起点：最近完整盘点里公积金类账户余额之和，月缴存取最近一条收入记录。 */
+export function fundsFrom(entries: { kind: string; amount_cents: string | null }[] | null, incomes: { fields: { date: string; hpf_cents: string } }[]): { funds: Funds; notes: string[] } {
+  const notes: string[] = [];
+  let balance = 0n, found = false;
+  for (const e of entries ?? []) if (e.kind === 'housing_fund' && e.amount_cents !== null) { balance += BigInt(e.amount_cents); found = true; }
+  if (!entries) notes.push('还没有完整盘点，公积金余额按 0 计算。');
+  else if (!found) notes.push('最近盘点里没有公积金类账户，公积金余额按 0 计算。');
+  const latest = [...incomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date))[0];
+  if (!latest) notes.push('还没有月度收入记录，公积金月缴存按 0 计算。');
+  return { funds: { hpf_balance_cents: balance.toString(), hpf_monthly_cents: latest?.fields.hpf_cents ?? '0' }, notes };
+}
+
+/** 年龄（月）显示为「63 岁 1 个月」。 */
+export const ageText = (months: number) => `${Math.floor(months / 12)} 岁${months % 12 ? ` ${months % 12} 个月` : ''}`;
+
+/** 停缴年龄选项：从现在起每 5 岁一档，直到领取年龄。 */
+export function quitAges(nowMonths: number, startMonths: number): number[] {
+  const out: number[] = [];
+  for (let y = Math.ceil(nowMonths / 60) * 5; y * 12 < startMonths; y += 5) if (y * 12 > nowMonths) out.push(y);
+  return out;
 }

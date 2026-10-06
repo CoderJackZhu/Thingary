@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { changeSentence, computeReview, rateText, yearBefore } from '../src/plan.ts';
+import { ageText, changeSentence, computeReview, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, yearBefore } from '../src/plan.ts';
 
 // 与 src-tauri/src/plan_savings.rs 的单元测试使用同一组数值：预览不得和 Rust 口径漂移。
 const point = (id, date, prev, change, extra = {}) => ({ snapshot_id: id, date, notes: '', assets_cents: '0', liabilities_cents: '0', net_cents: '0', complete: true, missing: 0, compared_to: prev, scope_changed: false, change_cents: change === null ? null : String(change), change_rate_hundredths: null, ...extra });
@@ -89,4 +89,27 @@ test('rate and change wording', () => {
   assert.equal(changeSentence({ status: 'no_income', monthly_saving_cents: null, excluded: false }, stats), '');
   assert.equal(changeSentence({ status: 'ok', monthly_saving_cents: '5', excluded: false }, { median_monthly_saving_cents: '-3' }), '常态月储蓄不为正，无法按比例比较。');
   assert.equal(changeSentence({ status: 'ok', monthly_saving_cents: '5', excluded: false }, { median_monthly_saving_cents: null }), '');
+});
+
+test('percent inputs convert to hundredths of a percent and back', () => {
+  assert.deepEqual(['2', '2.5', '0.05', '-1', ' 3% ', '2.555', '', 'abc', '1000'].map(pctToHundredths), [200, 250, 5, -100, 300, null, null, null, null]);
+  assert.deepEqual([200, 250, -100, 5].map(hundredthsToPct), ['2', '2.5', '-1', '0.05']);
+});
+
+test('housing fund start: sum of housing fund accounts in the latest check-in, monthly deposit from the newest income row', () => {
+  const entries = [{ kind: 'housing_fund', amount_cents: '1000' }, { kind: 'housing_fund', amount_cents: '500' }, { kind: 'cash', amount_cents: '9999' }, { kind: 'housing_fund', amount_cents: null }];
+  const incomes = [{ fields: { date: '2026-01-15', hpf_cents: '100' } }, { fields: { date: '2026-03-15', hpf_cents: '300' } }, { fields: { date: '2026-02-15', hpf_cents: '200' } }];
+  const r = fundsFrom(entries, incomes);
+  assert.deepEqual(r.funds, { hpf_balance_cents: '1500', hpf_monthly_cents: '300' });
+  assert.deepEqual(r.notes, []);
+  // 缺什么就说明按 0 计算，不静默当成已知。
+  assert.equal(fundsFrom(null, []).notes.length, 2);
+  assert.deepEqual(fundsFrom([{ kind: 'cash', amount_cents: '1' }], incomes).notes, ['最近盘点里没有公积金类账户，公积金余额按 0 计算。']);
+});
+
+test('age wording and quit-age choices', () => {
+  assert.deepEqual([756, 757, 721].map(ageText), ['63 岁', '63 岁 1 个月', '60 岁 1 个月']);
+  // 现在 36 岁 4 个月、63 岁领取：40、45、…、60 岁。
+  assert.deepEqual(quitAges(436, 756), [40, 45, 50, 55, 60]);
+  assert.deepEqual(quitAges(756, 756), []);
 });

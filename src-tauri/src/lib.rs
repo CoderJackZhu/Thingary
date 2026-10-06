@@ -19,6 +19,7 @@ pub mod modules;
 pub mod native_images;
 pub mod photos;
 pub mod plan_income;
+pub mod plan_profile;
 pub mod plan_savings;
 pub mod preferences;
 pub mod purge;
@@ -192,6 +193,8 @@ pub fn run() {
             commands::expense_view,
             commands::plan_income_list,
             commands::plan_income_save,
+            commands::plan_profile,
+            commands::plan_profile_save,
             commands::plan_review,
             commands::plan_interval_reasons,
             commands::plan_baseline_mark,

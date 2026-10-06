@@ -13,7 +13,7 @@ import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 import type { SourceTarget, TimelineSelection } from './source';
 import { coverageFor, scheduleDates, shiftDays } from './recurring-model';
 import { computeReview } from './plan';
-import type { Income, IncomeSave, Mark, Reasons } from './plan';
+import type { Income, IncomeSave, Mark, ProfileSave, ProfileState, Reasons, StoredProfile } from './plan';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
 
@@ -231,6 +231,8 @@ const payday = (monthsAgo: number) => { const d = new Date(now.getFullYear(), no
 let planIncomes: Income[] = (params.get('plan') === 'empty' || params.get('state') === 'empty') ? [] : [6, 5, 4, 3, 2, 1, 0].map(m => ({ id: 'p-inc-' + m, revision: 1, fields: { date: payday(m), net_cents: '2000000', hpf_cents: '300000', notes: m === 3 ? '含虚构年终奖' : '' } })).filter(i => i.fields.date <= todayIso);
 const planMarks = new Set<string>();
 let planTrash: Income[] = [];
+// 虚构个人资料（1990-06 出生的男职工，数字均为虚构）；?plan-profile=empty 为尚未填写。
+let planProfile: ProfileState['saved'] = params.get('plan-profile') === 'empty' ? null : { revision: 1, profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '1200000', marginal_tax_hundredths: 1000, assumptions: { inflation_hundredths: 200, wage_growth_hundredths: 300, pp_return_hundredths: 200 }, overrides: { avg_wage_cents: null, base_lower_cents: null, base_upper_cents: null, notional_rate_hundredths: null, hpf_rate_hundredths: null } } as StoredProfile };
 let searchPreviewAttempts = 0;
 export function searchPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command !== 'search_all') return null;
@@ -378,6 +380,14 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   if (command.startsWith('plan_')) {
     if (params.get('plan') === 'error' && command !== 'plan_income_save' && command !== 'plan_baseline_mark') throw { message: '虚构读取失败，用于验证错误状态。' };
+    if (command === 'plan_profile') return { value: { generation, saved: planProfile } satisfies ProfileState };
+    if (command === 'plan_profile_save') {
+      if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+      const input = args.input as ProfileSave;
+      planProfile = { profile: input.profile, revision: (planProfile?.revision ?? 0) + 1 };
+      receipts.set(input.request_id, 'profile');
+      return { value: planProfile };
+    }
     if (command === 'plan_income_list') return { value: { generation, rows: [...planIncomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date) || a.id.localeCompare(b.id)) } };
     if (command === 'plan_income_save') {
       if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };

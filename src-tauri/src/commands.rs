@@ -1452,6 +1452,25 @@ pub async fn plan_income_save(
     .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn plan_profile(worker: tauri::State<'_, Worker>) -> Result<crate::plan_profile::State> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.plan_profile()))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取个人资料"))?
+}
+#[tauri::command]
+pub async fn plan_profile_save(
+    input: crate::plan_profile::ProfileSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::plan_profile::Saved> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.plan_profile_save(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
 pub async fn plan_review(worker: tauri::State<'_, Worker>) -> Result<crate::plan_savings::Review> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || w.call(|s| s.plan_review()))

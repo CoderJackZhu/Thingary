@@ -2509,7 +2509,7 @@ fn period_reminders_advance_only_after_real_payment_and_roundtrip_backup() {
     let file = dir.path().join("period.thingary");
     s.backup(Some(&file)).unwrap();
     let summary = s.inspect_backup(&file).unwrap();
-    assert_eq!(summary.schema, 29);
+    assert_eq!(summary.schema, 30);
     let mut restored = Store::open(&dir.path().join("restored")).unwrap();
     restored
         .restore(&file, &summary.hash, &restored.generation())

@@ -12,3 +12,13 @@
 .planning-section .ui-tag.warn { color: var(--warn); }
 .planning-section .plan-reasons td:nth-child(3) { overflow-wrap: anywhere; }
 .planning-section th.amount { text-align: right; }
+.planning-section .plan-quit { display: inline-flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
+.planning-section .plan-facts small { white-space: normal; overflow-wrap: anywhere; min-width: 0; }
+.planning-section .plan-params td:last-child { overflow-wrap: anywhere; }
+.planning-section .plan-quits tr.closed td { color: var(--muted); }
+.planning-section .ui-table.plan-params th, .planning-section .ui-table.plan-params td:nth-child(n) { white-space: normal; overflow-wrap: anywhere; }
+.planning-section .ui-table.plan-params td.amount:nth-child(n) { white-space: nowrap; }
+.planning-section .plan-steps section > p + p, .planning-section .plan-steps .plan-facts + p { margin-top: 10px; }
+.planning-section .plan-params { table-layout: fixed; width: 100%; min-width: 0; }
+.planning-section .plan-params th:nth-child(1) { width: 28%; }
+.planning-section .plan-params th:nth-child(2) { width: 15%; }

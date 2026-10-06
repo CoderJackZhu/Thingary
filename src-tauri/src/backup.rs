@@ -181,6 +181,9 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
         if v >= 29 {
             crate::plan_income::validate_dataset(&db)?;
         }
+        if v >= 30 {
+            crate::plan_profile::validate_dataset(&db)?;
+        }
     }
     if v >= 17 {
         crate::recurring::validate_dataset(&db)?;

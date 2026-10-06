@@ -444,7 +444,6 @@ fn schema_28_libraries_upgrade_and_new_backups_round_trip() {
         )
         .unwrap();
     assert_eq!(after, 2);
-    assert_eq!(SCHEMA_VERSION, 29);
 
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(&dir.path().join("a")).unwrap();
