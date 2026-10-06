@@ -1,6 +1,6 @@
 // 退休风险实验室（纯函数）：市场路径模拟、压力测试、两张决策矩阵与崩盘路径。
 // 全程「今天的钱」（实际口径）：实际收益率取对数正态、中位数等于假设收益率；不建模通胀的随机波动。
-import { outcome, project, requiredAt, scaleSpend, table } from './plan-ledger.ts';
+import { outcome, project, requiredAt, savingsOf, scaleSaving, scaleSpend, table } from './plan-ledger.ts';
 import type { Outcome, Plan } from './plan-ledger.ts';
 
 const rate = (h: number) => h / 10000;
@@ -13,7 +13,7 @@ function mulberry32(seed: number) {
 const normal = (rand: () => number) => Math.sqrt(-2 * Math.log(1 - rand())) * Math.cos(2 * Math.PI * rand());
 /** 计划的数值指纹（FNV-1a）：同一计划得同一种子。 */
 export function seedOf(P: Plan): number {
-  const text = [P.now_months, P.horizon_months, P.target_months, P.mode, P.assets_cents, P.saving_cents, P.r_before_hundredths, P.r_after_hundredths, P.volatility_hundredths, P.items.map(i => `${i.monthly_cents}:${i.start_age}:${i.end_age}`).join(',')].join('|');
+  const text = [P.now_months, P.horizon_months, P.target_months, P.mode, P.assets_cents, P.saving_cents, JSON.stringify(P.saving_phases ?? []), P.r_before_hundredths, P.r_after_hundredths, P.volatility_hundredths, P.items.map(i => `${i.monthly_cents}:${i.start_age}:${i.end_age}`).join(',')].join('|');
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193); }
   return h >>> 0;
@@ -38,7 +38,7 @@ type Pen = { monthly_cents: number; lump_cents: number; unlock_age_months: numbe
 
 /** 逐月推演 n 条路径；每年抽一次收益（对数正态，中位数＝假设值），年内按月摊开。分块让出线程，界面不卡。 */
 export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; progress?: (done: number) => void } = {}): Promise<MonteCarlo> {
-  const N = Math.max(1, P.horizon_months - P.now_months), T = table(P), reqArr = requiredAt(P);
+  const N = Math.max(1, P.horizon_months - P.now_months), T = table(P), reqArr = requiredAt(P), savings = savingsOf(P);
   const S = Math.floor((N - 1) / 12) + 1;
   const values = new Float64Array((S + 1) * n), finals = new Float64Array(n);
   const rand = mulberry32(opts.seed ?? seedOf(P));
@@ -65,7 +65,7 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
       }
       if (t % 12 === 0) values[(t / 12) * n + i] = Math.max(0, a);
       if (retire >= 0 && !unlocked && pen!.unlock_age_months <= m) { unlocked = true; a += pen!.lump_cents; }
-      if (retire < 0) a = a * gb + P.saving_cents * (1 + rate(P.saving_growth_hundredths)) ** Math.floor(t / 12);
+      if (retire < 0) { a = a * gb + savings[t]; if (savings[t] < 0 && a < 0) a = 0; }
       else {
         const lump = !unlocked && m + 1 >= pen!.unlock_age_months ? pen!.lump_cents : 0;
         if (lump) unlocked = true;
@@ -100,7 +100,7 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
 }
 
 // ---- 压力测试 ----
-export type StressId = 'return-drag' | 'inflation-shock' | 'spending-shock' | 'retire-earlier' | 'save-less' | 'early-crash';
+export type StressId = 'return-drag' | 'inflation-shock' | 'spending-shock' | 'retire-earlier' | 'save-less' | 'income-drop' | 'job-gap' | 'early-crash';
 export type Severity = 'low' | 'medium' | 'high';
 export type StressResult = {
   id: StressId; label: string; description: string;
@@ -116,6 +116,8 @@ export const stressLabels: Record<StressId, { label: string; description: string
   'spending-shock': { label: '支出增加', description: '所有退休支出金额增加 10%。' },
   'retire-earlier': { label: '提前 2 年退休', description: '目标退休年龄提前两年，不早于现在。' },
   'save-less': { label: '缴款减少', description: '每月缴款减少 25%。' },
+  'income-drop': { label: '收入骤降', description: '三年后起，每月储蓄减半（已经为负的阶段不变）。' },
+  'job-gap': { label: '一年后失业一年', description: '一年后有 12 个月没有收入，期间每月动用存款付日常生活预算。' },
   'early-crash': { label: '退休初期市场下跌', description: '假设退休第一年市场下跌 30%。' },
 };
 
@@ -139,6 +141,25 @@ const severityOf = (base: Outcome, s: Outcome, fiDelay: number | null): Severity
 /** 退休后第 y 年的实际收益：用于「第一年下跌」等路径。 */
 export const crashReturns = (P: Plan, drops: Record<number, number>) => (y: number) => drops[y] ?? rate(P.r_after_hundredths);
 
+// ---- 储蓄时间线的改写：压力测试与矩阵用 ----
+type Phase = { from_month: number; cents: number };
+const phasesOf = (P: Plan): Phase[] => (P.saving_phases && P.saving_phases.length ? P.saving_phases : [{ from_month: P.now_months, cents: P.saving_cents }]);
+const valueAt = (ph: Phase[], m: number) => { let v = ph[0].cents; for (const x of ph) if (x.from_month <= m) v = x.cents; return v; };
+/** 在 breaks 处切开时间线，再对每一段重新取值；再并掉相邻相同金额。 */
+function reshape(P: Plan, breaks: number[], f: (cents: number, from: number) => number): Plan {
+  const ph = phasesOf(P), starts = [...new Set([ph[0].from_month, ...ph.map(x => x.from_month), ...breaks.filter(b => b > ph[0].from_month)])].sort((a, b) => a - b);
+  const out: Phase[] = [];
+  for (const m of starts) { const cents = f(valueAt(ph, m), m); if (!out.length || out[out.length - 1].cents !== cents) out.push({ from_month: m, cents }); }
+  return { ...P, saving_phases: out };
+}
+/** 从 from 月龄起，正储蓄乘以 factor。 */
+export const saveFrom = (P: Plan, from: number, factor: number): Plan => reshape(P, [from], (c, m) => (m >= from && c > 0 ? c * factor : c));
+/** 从 from 月龄起连续 months 个月，储蓄变成 cents（负数表示动用存款），之后恢复原来的阶段。 */
+export const gapAt = (P: Plan, from: number, months: number, cents: number): Plan => reshape(P, [from, from + months], (c, m) => (m >= from && m < from + months ? cents : c));
+/** 有收入时的储蓄（所有阶段里最大的正数）：矩阵的缴款轴以它为基准。 */
+export const workSaving = (P: Plan) => Math.max(0, ...phasesOf(P).map(x => x.cents));
+const withWorkSaving = (P: Plan, cents: number): Plan => { const base = workSaving(P); return base > 0 ? scaleSaving(P, cents / base) : { ...P, saving_cents: cents, saving_phases: undefined }; };
+
 export function stressTests(P: Plan, year: number): StressResult[] {
   const baseProj = project(P, year), baseline = outcome(P, baseProj);
   const make = (id: StressId, stressed: Outcome): StressResult => {
@@ -152,7 +173,9 @@ export function stressTests(P: Plan, year: number): StressResult[] {
     make('inflation-shock', evaluate(withInflation(P, 150), year)),
     make('spending-shock', evaluate(scaleSpend(P, 1.1), year)),
     make('retire-earlier', evaluate({ ...P, target_months: earlier }, year)),
-    make('save-less', evaluate({ ...P, saving_cents: P.saving_cents * 0.75 }, year)),
+    make('save-less', evaluate(scaleSaving(P, 0.75), year)),
+    make('income-drop', evaluate(saveFrom(P, P.now_months + 36, 0.5), year)),
+    make('job-gap', evaluate(gapAt(P, P.now_months + 12, 12, -(P.items[0]?.monthly_cents ?? 0)), year)),
     make('early-crash', crash),
   ];
 }
@@ -182,10 +205,11 @@ function moneyAxis(base: number, multipliers: number[], step: number, fallback: 
 /** 行：实际收益率偏移（−2 至 +2 个百分点，退休前后同移）；列：每月缴款。 */
 export function contributionReturnMatrix(P: Plan, year: number): Matrix {
   const rows = [-200, -100, 0, 100, 200];
-  const cols = moneyAxis(P.saving_cents, [0.6, 0.8, 1, 1.2, 1.4], 10000, [0, 50000, 100000, 150000, 200000]);
+  const base = workSaving(P) > 0 ? workSaving(P) : P.saving_cents;
+  const cols = moneyAxis(base, [0.6, 0.8, 1, 1.2, 1.4], 10000, [0, 50000, 100000, 150000, 200000]);
   return {
-    rows, cols, base_row: 2, base_col: cols.indexOf(P.saving_cents) >= 0 ? cols.indexOf(P.saving_cents) : null,
-    cells: rows.map(d => cols.map(c => cellOf({ ...P, saving_cents: c, r_before_hundredths: shift(P.r_before_hundredths, d), r_after_hundredths: shift(P.r_after_hundredths, d) }, year))),
+    rows, cols, base_row: 2, base_col: cols.indexOf(base) >= 0 ? cols.indexOf(base) : null,
+    cells: rows.map(d => cols.map(c => cellOf({ ...withWorkSaving(P, c), r_before_hundredths: shift(P.r_before_hundredths, d), r_after_hundredths: shift(P.r_after_hundredths, d) }, year))),
   };
 }
 

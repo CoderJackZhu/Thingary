@@ -1,6 +1,6 @@
 // 退休概览的展示模型（纯函数）：判词、总结句、进度、里程碑、轨迹点、覆盖拆分与逐年表。
 // 引擎全程「今天的钱」；名义值只在这里乘以 (1+通胀)^年数。
-import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, table } from './plan-ledger.ts';
+import { coastAmount, coastAt, coverageAt, glide, nominalFactor, required, scaleSpend, table } from './plan-ledger.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
 
 export type ValueMode = 'today' | 'nominal';
@@ -188,4 +188,27 @@ export function coverageSeries(P: Plan, proj: Projection, mode: ValueMode): Cove
   const order = { income: 0, pension: 1, portfolio: 2, unfunded: 3 };
   keys.sort((a, b) => order[a.kind] - order[b.kind]);
   return { keys, points, start_month: start };
+}
+
+/** 结果区间：基准与几种收入变化情形的 FI 年龄（FIRE）或目标年龄时的盈亏（传统）并排。 */
+export type RangeRow = { id: string; label: string; fi_month: number | null; late_months: number | null; surplus: number; failed: boolean };
+export function rangeRows(P: Plan, stress: { id: string; label: string; stressed: Outcome }[], base: Outcome): RangeRow[] {
+  const row = (id: string, label: string, o: Outcome): RangeRow => ({ id, label, fi_month: o.fi_month, late_months: o.fi_month !== null && base.fi_month !== null ? o.fi_month - base.fi_month : null, surplus: o.assets_at_goal - o.required_at_goal, failed: o.failure_month !== null || o.shortfall_month !== null });
+  const pick = ['income-drop', 'job-gap', 'save-less'];
+  return [row('base', '基准', base), ...pick.flatMap(id => { const r = stress.find(s => s.id === id); return r ? [row(id, r.label, r.stressed)] : []; })];
+}
+
+/** Coast 检查点：到某个月龄至少要有多少，之后哪怕不再存钱也能在目标年龄达标；对照按计划那时预计有多少。
+ *  取储蓄阶段里每一次下降的起点；没有下降时给 35 岁作参考。 */
+export type Checkpoint = { month: number; label: string; need: number; expected: number; ok: boolean };
+export function checkpoints(P: Plan, proj: Projection): Checkpoint[] {
+  const ph = P.saving_phases ?? [];
+  const months: { m: number; label: string }[] = [];
+  ph.forEach((x, i) => { if (i > 0 && x.cents < ph[i - 1].cents) months.push({ m: x.from_month, label: '储蓄下降前' }); });
+  if (!months.length) months.push({ m: 35 * 12, label: '35 岁参考' });
+  const last = Math.min(P.target_months, proj.retire_month ?? Infinity);
+  return months.filter(x => x.m > P.now_months && x.m < last).slice(0, 3).map(x => {
+    const need = coastAt(P, x.m), expected = Math.max(0, proj.assets[Math.min(proj.assets.length - 1, x.m - P.now_months)]);
+    return { month: x.m, label: x.label, need, expected, ok: expected >= need };
+  });
 }

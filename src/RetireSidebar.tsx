@@ -3,15 +3,17 @@ import type { ReactNode } from 'react';
 import { errorMessage } from './asset';
 import { CentInput, Info, Segments, Switch } from './FormControls';
 import { hundredthsToPct, pctToHundredths, rateText } from './plan';
-import type { ProfileSave, ProfileState, RetireInputs, StoredIncomeItem, StoredSpendItem } from './plan';
+import type { ProfileSave, ProfileState, RetireInputs, StoredIncomeItem, StoredSavingPhase, StoredSpendItem } from './plan';
 import type { Assumptions } from './plan-params';
+import { expectedSaving } from './plan-retire-calc';
 import type { RetireCalc } from './plan-retire-calc';
+import { workSaving } from './plan-risk';
 import { yuan } from './RetireOverview';
 import { submit, Unresolved } from './wealth';
 import './retire.css';
 
 type Saved = NonNullable<ProfileState['saved']>;
-type Section = 'plan' | 'spend' | 'income' | 'assume' | null;
+type Section = 'plan' | 'saving' | 'spend' | 'income' | 'assume' | null;
 
 /** 保存退休假设与通胀、工资增长（后两者属于 assumptions）。返回是否保存成功。 */
 function useSaver(state: ProfileState, reload: () => void, onPending: () => void) {
@@ -50,7 +52,8 @@ export function RetireSidebar({ calc, state, reload, onEditingChange, onPending,
   const done = async (ok: Promise<boolean>) => { if (await ok) setSection(null); };
   const fire = r.mode === 'fire';
   return <div className="rd-side">
-    <PlanCard r={r} nowAge={nowAge} saving={calc.saving} editing={section === 'plan'} saver={saver} onEdit={() => open('plan')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))} fire={fire}/>
+    <PlanCard r={r} nowAge={nowAge} saving={calc.plan ? workSaving(calc.plan) : calc.saving} editing={section === 'plan'} saver={saver} onEdit={() => open('plan')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))} fire={fire}/>
+    <SavingCard r={r} calc={calc} nowAge={nowAge} editing={section === 'saving'} saver={saver} onEdit={() => open('saving')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <SpendCard r={r} editing={section === 'spend'} saver={saver} nowAge={nowAge} derived={calc.derivedSpend} onEdit={() => open('spend')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <IncomeCard r={r} calc={calc} editing={section === 'income'} saver={saver} nowAge={nowAge} onEdit={() => open('income')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <AssumeCard r={r} a={a} editing={section === 'assume'} saver={saver} onEdit={() => open('assume')} onCancel={() => setSection(null)} onSave={(next, asm) => void done(saver.save(next, asm))}/>
@@ -69,14 +72,62 @@ function PlanCard({ r, nowAge, saving, editing, saver, fire, onEdit, onCancel, o
     setErr(''); onSave({ ...r, mode, target_age: t, horizon_age: h, emergency_months: m });
   }
   return <Card kicker="计划" title="计划输入" tip="FIRE：找到资产第一次够用的年龄，不早于期望年龄。传统：到期望年龄就开始退休，看资金够不够。两种类型共用同一套计算，只有退休开始的条件不同。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
-    read={<Rows rows={[['计划类型', fire ? 'FIRE' : '传统'], ['当前年龄', `${nowAge} 岁`], [fire ? '期望退休年龄' : '退休年龄', `${r.target_age} 岁`], ['计划终止年龄', `${r.horizon_age} 岁`], ['退休前每月供款', saving === null ? '待补充' : yuan(saving)], ['应急金线', `${r.emergency_months} 个月支出`]]}/>}
+    read={<Rows rows={[['计划类型', fire ? 'FIRE' : '传统'], ['当前年龄', `${nowAge} 岁`], [fire ? '期望退休年龄' : '退休年龄', `${r.target_age} 岁`], ['计划终止年龄', `${r.horizon_age} 岁`], ['有收入时每月储蓄', saving === null ? '待补充' : yuan(saving)], ['应急金线', `${r.emergency_months} 个月支出`]]}/>}
     edit={<div className="rs-form">
       <Field label="计划类型" hint="选择你的目标年龄是传统退休日期，还是希望实现财务独立的年龄。"><Segments label="计划类型" value={mode} options={[{ value: 'fire', label: 'FIRE' }, { value: 'traditional', label: '传统' }]} onChange={setMode}/></Field>
       {mode !== r.mode && <p className="rs-note">这仅改变计算模型。{mode === 'traditional' ? '期望退休年龄将成为固定的退休开始年龄。' : '退休年龄将成为期望的财务独立年龄；规划器会寻找首个可持续的年龄。'}</p>}
       <p className="muted small">当前年龄 {nowAge} 岁，由出生年月自动更新（在养老金页修改）。</p>
       <div className="rs-pair"><Field label={mode === 'fire' ? '期望退休年龄' : '退休年龄'}><input aria-label="期望退休年龄" inputMode="numeric" value={target} onChange={e => setTarget(e.target.value)}/></Field><Field label="计划终止年龄" hint="计划应覆盖至的年龄"><input aria-label="计划终止年龄" inputMode="numeric" value={horizon} onChange={e => setHorizon(e.target.value)}/></Field></div>
       <Field label="应急金线（个月支出）" hint="可支配资产低于它时提示"><input aria-label="应急金线" inputMode="numeric" value={months} onChange={e => setMonths(e.target.value)}/></Field>
-      <p className="muted small">退休前每月供款来自盘点推出的常态储蓄，不在这里填；在「储蓄与收入」页补收入或盘点后会更新。</p>
+      <p className="muted small">每月储蓄在下面的「储蓄阶段」里设置。</p>
+      {err && <p className="notice" role="status">{err}</p>}
+    </div>}/>;
+}
+
+type PhaseDraft = { id: string; label: string; years: string; months: string; amount: string };
+const centsText = (c: number) => String(c / 100);
+const toPhase = (p: StoredSavingPhase): PhaseDraft => ({ id: p.id, label: p.label, years: String(Math.floor(p.from_age_months / 12)), months: String(p.from_age_months % 12), amount: centsText(p.monthly_cents) });
+const phaseStart = (p: StoredSavingPhase, i: number) => (i === 0 ? '现在' : `${Math.floor(p.from_age_months / 12)} 岁${p.from_age_months % 12 ? ` ${p.from_age_months % 12} 个月` : ''}`);
+
+function SavingCard({ r, calc, nowAge, editing, saver, onEdit, onCancel, onSave }: { r: RetireInputs; calc: RetireCalc; nowAge: number; editing: boolean; saver: Saver; onEdit: () => void; onCancel: () => void; onSave: (r: RetireInputs) => void }) {
+  const [items, setItems] = useState<PhaseDraft[]>(r.saving_phases.map(toPhase)), [gap, setGap] = useState(hundredthsToPct(r.gap_share_hundredths)), [err, setErr] = useState('');
+  useEffect(() => { if (editing) { setItems(r.saving_phases.map(toPhase)); setGap(hundredthsToPct(r.gap_share_hundredths)); setErr(''); } }, [editing]);
+  const patch = (id: string, p: Partial<PhaseDraft>) => setItems(xs => xs.map(x => x.id === id ? { ...x, ...p } : x));
+  const spend = r.spend_cents === null ? 500000 : Number(r.spend_cents);
+  const add = (label: string, cents: number) => setItems(xs => { const last = xs[xs.length - 1]; const from = last ? Number(last.years) + 1 : nowAge; return [...xs, { id: crypto.randomUUID(), label, years: String(Math.max(from, nowAge)), months: '0', amount: centsText(cents) }]; });
+  function save() {
+    const out: StoredSavingPhase[] = [];
+    for (let i = 0; i < items.length; i++) {
+      const d = items[i], name = d.label.trim() || '阶段';
+      const y = i === 0 ? 0 : Number(d.years), m = i === 0 ? 0 : Number(d.months || '0');
+      if (!Number.isInteger(y) || !Number.isInteger(m) || y < 0 || y > 120 || m < 0 || m > 11) return setErr(`「${name}」的起始年龄须是整数岁加 0–11 个月。`);
+      if (!/^-?\d{1,7}(\.\d{1,2})?$/.test(d.amount.trim())) return setErr(`「${name}」的每月储蓄请填数字（元），空窗期动用存款填负数。`);
+      const from = y * 12 + m;
+      if (out.length && from <= out[out.length - 1].from_age_months) return setErr(`「${name}」的起始年龄要晚于上一段。`);
+      out.push({ id: d.id, label: name, from_age_months: from, monthly_cents: Math.round(Number(d.amount) * 100) });
+    }
+    const g = pctToHundredths(gap);
+    if (g === null || g < 0 || g > 5000) return setErr('平均空窗比例请填 0 到 50 之间的百分数。');
+    setErr(''); onSave({ ...r, saving_phases: out, gap_share_hundredths: g });
+  }
+  const measured = calc.measured;
+  return <Card kicker="储蓄" title="储蓄阶段" tip="退休前每月存多少，按今天的钱。收入不会一直不变：高收入期、空窗期、清闲期各设一段，结果就按这条时间线算。空窗期没有收入时填负数，表示每月动用存款。不分阶段则全程用盘点的常态储蓄。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
+    read={r.saving_phases.length === 0
+      ? <><Rows rows={[['按盘点的常态储蓄', measured === null ? '待补充' : yuan(measured)]]}/><p className="rs-note">还没有分阶段：全程按近 12 个月盘点的中位数算。这个数含一次性大额消费和没有收入的月份，通常偏低；建议点「编辑」按自己的收入变化分几段。</p></>
+      : <><ul className="rs-list">{r.saving_phases.map((p, i) => <li key={p.id}><span>{p.label}<small>{phaseStart(p, i)}起{r.gap_share_hundredths > 0 && p.monthly_cents > 0 ? ` · 折后约 ${yuan(expectedSaving(p.monthly_cents, r.gap_share_hundredths, Number(r.spend_cents ?? 0)))}/月` : ''}</small></span><b className={p.monthly_cents < 0 ? 'warn' : undefined}>{p.monthly_cents < 0 ? '−' : ''}{yuan(Math.abs(p.monthly_cents))}/月</b></li>)}</ul>
+        {r.gap_share_hundredths > 0 && <p className="muted small">平均空窗 {rateText(r.gap_share_hundredths)}：有收入的阶段按期望值折算。</p>}</>}
+    edit={<div className="rs-form">
+      {items.map((d, i) => <div key={d.id} className="rs-item"><div className="rs-item-head"><input aria-label="阶段名称" value={d.label} onChange={e => patch(d.id, { label: e.target.value })}/><button type="button" className="ui-btn" aria-label={`移除${d.label}`} onClick={() => setItems(xs => xs.filter(x => x.id !== d.id))}>移除</button></div>
+        {i === 0 ? <p className="muted small">从现在起</p> : <div className="rs-pair"><Field label="起始（岁）"><input aria-label={`${d.label}起始岁`} inputMode="numeric" value={d.years} onChange={e => patch(d.id, { years: e.target.value })}/></Field><Field label="加（个月）"><input aria-label={`${d.label}起始月`} inputMode="numeric" value={d.months} onChange={e => patch(d.id, { months: e.target.value })}/></Field></div>}
+        <Field label="每月储蓄（元）" hint="没有收入、在花存款时填负数"><input aria-label={`${d.label}每月储蓄`} inputMode="decimal" value={d.amount} onChange={e => patch(d.id, { amount: e.target.value })}/></Field></div>)}
+      {items.length === 0 && <p className="muted small">还没有阶段。盘点中位数含一次性消费，建议自己填。</p>}
+      <div className="rs-presets">
+        <button type="button" className="ui-btn" disabled={items.length >= 30} onClick={() => add('空窗期', -spend)}>+ 空窗期</button>
+        <button type="button" className="ui-btn" disabled={items.length >= 30} onClick={() => add('有收入', measured !== null && measured > 0 ? measured : 1000000)}>+ 有收入</button>
+        <button type="button" className="ui-btn" disabled={items.length >= 30} onClick={() => add('清闲／稳定工作', 800000)}>+ 清闲／稳定</button>
+      </div>
+      <Field label="平均空窗比例（%）" hint="工作的年份里，平均有多大比例的月份没有收入（跳槽、被裁）。填了以后，有收入的阶段按「(1−比例)×储蓄 − 比例×日常生活月预算」折算，空窗月份动用日常生活预算花存款。不需要逐次填空窗；0 表示不折算。"><input aria-label="平均空窗比例" inputMode="decimal" value={gap} onChange={e => setGap(e.target.value)}/></Field>
+      <p className="muted small">预设金额只是占位，请改成自己的数。空窗期默认按退休日常生活预算动用存款。近 12 个月盘点中位数：{measured === null ? '暂无' : yuan(measured)}（含一次性大额消费，仅供参考）。</p>
       {err && <p className="notice" role="status">{err}</p>}
     </div>}/>;
 }

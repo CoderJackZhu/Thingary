@@ -7,7 +7,7 @@ import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningPension } from './PlanningPension';
 import { PlanningGoals } from './PlanningGoals';
-import { changeSentence, latestHpf, rateText, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
+import { changeSentence, largeOneOffs, latestHpf, monthlyWithoutOneOffs, rateText, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeFields, IncomeList, IncomeSave, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
 import { refocusHeading } from './topbar-model';
@@ -85,8 +85,19 @@ function Usual({ review }: { review: PlanReview }) {
       <article><span>常态月支出（中位数）</span><strong>{m(s.median_monthly_spend_cents)}</strong></article>
       <article><span>参与统计的区间</span><strong>{s.count} 个</strong>{s.low_sample && <small className="muted">样本少，仅供参考</small>}</article>
     </div>
-    <p className="muted small">{s.latest_date ? `统计近 12 个月内（${s.window_from} 之后）结束的区间，最新完整盘点 ${s.latest_date}。` : '还没有完整盘点。'}标为一次性变动、账户范围变化或未记录收入的区间不参与。{review.incomplete_count > 0 && `另有 ${review.incomplete_count} 次不完整盘点未使用。`}</p>
+    <p className="muted small">{s.latest_date ? `统计近 12 个月内（${s.window_from} 之后）结束的区间，最新完整盘点 ${s.latest_date}。` : '还没有完整盘点。'}只有一个区间时，「常态」就是这一期本身，含全部一次性消费。标为一次性变动、账户范围变化或未记录收入的区间不参与。{review.incomplete_count > 0 && `另有 ${review.incomplete_count} 次不完整盘点未使用。`}</p>
   </>;
+}
+
+const thresholdKey = 'thingary.plan.oneOffThreshold';
+/** 剔除大额一次性之后的每月储蓄：储蓄是「到账减去全部支出」，物品购入与重要支出都算支出；这里只是把大额的加回来看常态，仅供参考。 */
+function OneOffs({ interval, lines }: { interval: Interval; lines: Reasons['lines'] | null }) {
+  const [text, setText] = useState(() => { try { return localStorage.getItem(thresholdKey) ?? '2000'; } catch { return '2000'; } });
+  if (!lines || interval.status !== 'ok') return null;
+  const yuan = Number(text), valid = Number.isFinite(yuan) && yuan >= 0, { count, total } = largeOneOffs(lines, valid ? Math.round(yuan * 100) : 200000), adj = monthlyWithoutOneOffs(interval, total);
+  const change = (v: string) => { setText(v); try { localStorage.setItem(thresholdKey, v); } catch { /* 偏好存不下不影响使用 */ } };
+  return <div className="plan-oneoffs"><p>储蓄 = 税后到账 − 全部支出，物品购入、重要支出也算支出（盘点只计金融资产，物品不计入净资产）。{count > 0 ? <>其中单笔不低于 <input aria-label="大额阈值（元）" className="plan-threshold" inputMode="decimal" value={text} onChange={e => change(e.target.value)}/> 元的物品购入与重要支出共 <strong>{count} 笔、{money(total.toString())}</strong>，剔除后这一期折合每月储蓄约 <strong>{adj === null ? '—' : money(adj.toString())}</strong>。</> : <>没有单笔不低于 <input aria-label="大额阈值（元）" className="plan-threshold" inputMode="decimal" value={text} onChange={e => change(e.target.value)}/> 元的物品购入或重要支出。</>}</p>
+    <p className="muted small">只是参考，不改变上面的数字，也不会自动用于退休估算。这一期里没有收入的月份仍算在月数里；失业月份请记一行「税后 0」。</p></div>;
 }
 
 /** 复盘三段式：现状 → 变化 → 原因（PLANNING_DESIGN §4.4）。 */
@@ -116,6 +127,7 @@ function Steps({ interval: i, review, busy, markError, onMark, generation }: { i
     <section aria-labelledby="plan-step-2"><h4 id="plan-step-2">变化</h4>
       {ok ? <>
         <p>{sentence || '还没有足够的常态数据可比较。'}{i.monthly_saving_cents !== null && ` 折合每月储蓄 ${money(i.monthly_saving_cents)}。`}</p>
+        <OneOffs interval={i} lines={reasons?.lines ?? null}/>
         {i.anomaly && <p className="notice" role="status">这一期与常态相差较大，建议在这次盘点补一条备注，或标记为一次性变动。</p>}
         <button type="button" className="ui-btn" disabled={busy} onClick={onMark}>{i.excluded ? '取消「一次性变动」标记' : '标记为一次性变动（不计入常态）'}</button>
         {markError && <p className="error" role="alert">{markError}</p>}

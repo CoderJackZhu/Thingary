@@ -11,6 +11,8 @@ export type SpendItem = { id: string; label: string; monthly_cents: number; star
 /** 退休收入流（税后，每月，今天的钱）：indexed 为真随通胀上涨，否则固定名义金额（实际口径下逐年缩水）。 */
 export type IncomeItem = { id: string; label: string; monthly_cents: number; start_age: number; end_age: number | null; indexed: boolean };
 
+export type SavingPhase = { from_month: number; cents: number };
+
 export type Plan = {
   now_months: number;
   horizon_months: number;
@@ -23,6 +25,8 @@ export type Plan = {
   /** 退休前每月储蓄（今天的钱）与每年的实际增长（万分比）。 */
   saving_cents: number;
   saving_growth_hundredths: number;
+  /** 储蓄分阶段：从 from_month（月龄）起每月存 cents（可为负，表示动用存款）；按 from_month 升序，第一段从现在起。缺省时全程用 saving_cents。 */
+  saving_phases?: SavingPhase[];
   r_before_hundredths: number;
   r_after_hundredths: number;
   inflation_hundredths: number;
@@ -65,6 +69,31 @@ export function table(P: Plan): Table {
   tables.set(P, t);
   return t;
 }
+
+/** 每个月（距现在 t 个月）的退休前储蓄：阶段金额 × 实际增长；同一份计划只算一次。 */
+const savingSeries = new WeakMap<Plan, Float64Array>();
+export function savingsOf(P: Plan): Float64Array {
+  let s = savingSeries.get(P);
+  if (s) return s;
+  const n = Math.max(0, P.horizon_months - P.now_months), g = 1 + rate(P.saving_growth_hundredths);
+  s = new Float64Array(n);
+  const phases = P.saving_phases && P.saving_phases.length ? P.saving_phases : null;
+  let k = 0;
+  for (let t = 0; t < n; t++) {
+    let cents = P.saving_cents;
+    if (phases) { while (k + 1 < phases.length && phases[k + 1].from_month <= P.now_months + t) k++; cents = phases[k].cents; }
+    s[t] = cents * g ** Math.floor(t / 12);
+  }
+  savingSeries.set(P, s);
+  return s;
+}
+/** 现在这个月的储蓄金额（阶段里的第一段）。 */
+export const savingNow = (P: Plan) => (P.saving_phases && P.saving_phases.length ? P.saving_phases[0].cents : P.saving_cents);
+/** 所有正储蓄按比例缩放；空窗期的负数（动用存款）不缩放。 */
+export const scaleSaving = (P: Plan, factor: number): Plan => ({
+  ...P, saving_cents: P.saving_cents > 0 ? P.saving_cents * factor : P.saving_cents,
+  saving_phases: P.saving_phases?.map(x => ({ ...x, cents: x.cents > 0 ? x.cents * factor : x.cents })),
+});
 
 /** 把所有支出按比例缩放（Lean 70%、Fat 150%、压力测试 +10%）。 */
 export const scaleSpend = (P: Plan, factor: number): Plan => ({ ...P, items: P.items.map(it => ({ ...it, monthly_cents: it.monthly_cents * factor })) });
@@ -149,7 +178,7 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
   let failure: number | null = null, shortfall: number | null = null, unlocked = false;
   const rows: Row[] = [];
   let row: Row | null = null;
-  const cap = Math.min(P.search_cap_months, P.horizon_months), reqArr = requiredAt(P);
+  const cap = Math.min(P.search_cap_months, P.horizon_months), reqArr = requiredAt(P), savings = savingsOf(P);
   for (let t = 0; t < N; t++) {
     const m = P.now_months + t;
     if (t % 12 === 0) {
@@ -170,8 +199,10 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
     // 退休时已经可以领取：一次性解锁额与退休同时到账（记录资产时还未含，所需资金里已按到账计）。
     if (retire !== null && !unlocked && pension!.unlock_age_months <= m) { unlocked = true; a += pension!.lump_cents; r.unlock += pension!.lump_cents; }
     if (retire === null) {
-      const c = P.saving_cents * (1 + rate(P.saving_growth_hundredths)) ** Math.floor(t / 12);
+      const c = savings[t];
+      // 动用存款的月份不会把资产花成负数；心愿等一次性支出造成的负值照实保留。
       a = a * gb + c;
+      if (c < 0 && a < 0) a = 0;
       r.contribution += c;
     } else {
       const spend = T.spend[t], essential = T.essential[t];
@@ -223,7 +254,7 @@ export function outcome(P: Plan, proj: Projection): Outcome {
 export function glide(P: Plan, proj: Projection): number[] {
   const G = P.target_months, R = proj.retire_month;
   const atGoal = required(P, Math.max(G, P.now_months));
-  const gb = monthlyGrowth(P.r_before_hundredths);
+  const gb = monthlyGrowth(P.r_before_hundredths), sv = savingsOf(P);
   return proj.rows.map(row => {
     const m = row.start_month;
     if (R !== null && m >= R) {
@@ -234,13 +265,15 @@ export function glide(P: Plan, proj: Projection): number[] {
     if (m >= G) return required(P, m);
     // 剩余储蓄到目标年龄的终值：Σ saving_j · gb^(G-m-1-j) 逐月累加
     let fv = 0;
-    for (let t = m - P.now_months; t < G - P.now_months; t++) fv = fv * gb + P.saving_cents * (1 + rate(P.saving_growth_hundredths)) ** Math.floor(t / 12);
+    for (let t = m - P.now_months; t < G - P.now_months; t++) fv = fv * gb + sv[t];
     return Math.max(0, (atGoal - fv) / gb ** (G - m));
   });
 }
 
-/** Coast FIRE：现在手里至少有多少，从此一分不存也能在目标年龄达标。 */
-export const coastAmount = (P: Plan) => required(P, Math.max(P.target_months, P.now_months)) / monthlyGrowth(P.r_before_hundredths) ** Math.max(0, P.target_months - P.now_months);
+/** Coast：在 month 月龄手里至少有多少，从此一分不存也能在目标年龄达标。 */
+export const coastAt = (P: Plan, month: number) => required(P, Math.max(P.target_months, P.now_months)) / monthlyGrowth(P.r_before_hundredths) ** Math.max(0, P.target_months - month);
+/** Coast FIRE：现在手里至少有多少。 */
+export const coastAmount = (P: Plan) => coastAt(P, P.now_months);
 
 /** 某月龄的资金支持拆分（每月，今天的钱）：支出、各收入流、养老金、投资组合提取与无资金部分。 */
 export type Coverage = { spend: number; essential: number; items: { id: string; label: string; monthly: number; active: boolean }[]; pension: number; withdrawal: number; unfunded: number };

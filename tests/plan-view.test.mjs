@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { project, outcome, required } from '../src/plan-ledger.ts';
-import { compactYuan, coverage, milestones, progress, scaleAt, snapshotRows, trajectory, verdict } from '../src/plan-view.ts';
+import { stressTests } from '../src/plan-risk.ts';
+import { checkpoints, compactYuan, coverage, milestones, rangeRows, progress, scaleAt, snapshotRows, trajectory, verdict } from '../src/plan-view.ts';
 
 const pension = () => ({ monthly_cents: 300, lump_cents: 20_000, unlock_age_months: 756 });
 const plan = (over = {}) => ({
@@ -90,4 +91,20 @@ test('snapshot rows scale by the inflation at the start of each row', () => {
   assert.ok(Math.abs(n[5].contribution - t[5].contribution * 1.02 ** 5) < 1e-6);
   assert.equal(t[0].age, 30);
   assert.equal(t[0].year, 2026);
+});
+
+test('range rows put the base case beside the income shocks; checkpoints show what must be saved before the saving drops', () => {
+  const P = plan({ saving_phases: [{ from_month: 436, cents: 1500 }, { from_month: 520, cents: 600 }], now_months: 436, target_months: 760, mode: 'fire' });
+  const proj = project(P, 2026), base = outcome(P, proj), rows = rangeRows(P, stressTests(P, 2026), base);
+  assert.deepEqual(rows.map(r => r.id), ['base', 'income-drop', 'job-gap', 'save-less']);
+  assert.ok(rows.slice(1).every(r => r.late_months === null || r.late_months >= 0));
+  const cps = checkpoints(P, proj);
+  assert.equal(cps.length, 1);
+  assert.equal(cps[0].month, 520);
+  assert.equal(cps[0].label, '储蓄下降前');
+  assert.ok(cps[0].need > 0 && cps[0].expected > 0);
+  // 没有储蓄下降时给 35 岁参考；已过去或在目标之后的检查点不出现。
+  const flat = plan({ now_months: 360, target_months: 600 });
+  assert.deepEqual(checkpoints(flat, project(flat, 2026)).map(c => c.month), [420]);
+  assert.deepEqual(checkpoints(plan({ now_months: 440 }), project(plan({ now_months: 440 }), 2026)), []);
 });

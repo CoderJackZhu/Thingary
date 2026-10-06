@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { coastAmount, coverageAt, glide, nominalFactor, outcome, project, required, scaleSpend } from '../src/plan-ledger.ts';
+import { coastAmount, coastAt, coverageAt, glide, nominalFactor, outcome, project, required, savingsOf, scaleSaving, scaleSpend } from '../src/plan-ledger.ts';
 import { findFire, requiredAssets, traditional } from './legacy-fire.ts';
 
 const none = () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 756 });
@@ -114,4 +114,21 @@ test('coverage splits a month into income, pension, portfolio withdrawal and the
   const early = coverageAt(P, proj, 400), late = coverageAt(P, proj, 800);
   assert.deepEqual([early.spend, early.pension, early.items[0].active], [1000, 0, false]);
   assert.deepEqual([late.pension, late.items[0].monthly, Math.round(late.withdrawal)], [300, 200, 500]);
+});
+
+test('saving phases: each month follows its phase; negative phases draw down but never below zero; scaling spares the negatives', () => {
+  const P = plan({ target_months: 2000, mode: 'traditional', assets_cents: 3000, saving_cents: 0, saving_phases: [{ from_month: 360, cents: -1000 }, { from_month: 364, cents: 500 }, { from_month: 372, cents: 800 }] });
+  const s = savingsOf(P);
+  assert.deepEqual([s[0], s[3], s[4], s[11], s[12], s[100]], [-1000, -1000, 500, 500, 800, 800]);
+  const proj = project(P, 2026);
+  assert.deepEqual(Array.from(proj.assets.slice(0, 6)), [3000, 2000, 1000, 0, 0, 500]);
+  const scaled = scaleSaving(P, 2).saving_phases.map(p => p.cents);
+  assert.deepEqual(scaled, [-1000, 1000, 1600]);
+});
+
+test('coast checkpoint: the balance needed at a month grows into the goal requirement with no more saving', () => {
+  const P = plan({ r_before_hundredths: 300, target_months: 600 });
+  assert.ok(Math.abs(coastAt(P, 480) * (1.03) ** ((600 - 480) / 12) - required(P, 600)) < 1e-4);
+  assert.equal(coastAt(P, 360), coastAmount(P));
+  assert.equal(coastAt(P, 700), required(P, 600));
 });

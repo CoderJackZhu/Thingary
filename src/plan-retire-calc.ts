@@ -30,20 +30,22 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
     const { funds } = fundsFrom(snapshot?.entries ?? null, incomes);
     const now = ageMonthsAt(p.birth_month, today), start = startAgeMonths(p);
     const assets = disposable(snapshot);
-    const saving = stats.median_monthly_saving_cents === null ? null : Number(stats.median_monthly_saving_cents);
+    const measured = stats.median_monthly_saving_cents === null ? null : Number(stats.median_monthly_saving_cents);
+    // 用户填了储蓄阶段就以阶段为准（盘点中位数含一次性大额消费与失业月份，只作参考）；没填才用盘点中位数。
+    const saving = r.saving_phases.length ? r.saving_phases[0].monthly_cents : measured;
     const derivedSpend = stats.median_monthly_spend_cents === null ? null : Number(stats.median_monthly_spend_cents);
     const spend = r.spend_cents !== null ? Number(r.spend_cents) : null;
     const missing: string[] = [];
     if (assets === null) missing.push('还没有完整盘点，算不出当前可支配资产。');
-    if (saving === null) missing.push('还没有常态月储蓄：需要至少两次完整盘点，并在这段时间内记录月度收入。');
+    if (saving === null) missing.push('还没有常态月储蓄：需要至少两次完整盘点并记录月度收入，或者在「储蓄阶段」里直接填写每月储蓄。');
     if (spend === null) missing.push('请填写退休后月预算；历史支出仅作参考，不会自动成为退休预算。');
     if (r.horizon_age * 12 < now + 12) missing.push('规划终点年龄至少要比当前年龄晚一年，请在计划输入里调整。');
-    if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, spend, derivedSpend, emergency: undefined, plan: undefined, proj: undefined, out: undefined };
+    if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, emergency: undefined, plan: undefined, proj: undefined, out: undefined };
     const horizon = r.horizon_age * 12;
     const plan = retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start)) });
     const proj = project(plan, Number(today.slice(0, 4)));
     return {
-      p, r, now, start, missing, assets, saving, spend, derivedSpend, plan, proj, out: outcome(plan, proj),
+      p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, plan, proj, out: outcome(plan, proj),
       emergency: emergency(assets, spend, r.emergency_months),
     };
 }
@@ -65,6 +67,14 @@ export function retirePlan(saved: NonNullable<ProfileState['saved']>, x: { now: 
     r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths,
     inflation_hundredths: a.inflation_hundredths, volatility_hundredths: r.volatility_hundredths,
     items, incomes: r.income_items.map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })),
+    saving_phases: r.saving_phases.length ? r.saving_phases.map((ph, i) => ({ from_month: i === 0 ? x.now : ph.from_age_months, cents: expectedSaving(ph.monthly_cents, r.gap_share_hundredths, spend) })) : undefined,
     pension_at: x.pension_at, spends: [],
   };
 }
+
+/** 按平均空窗比例折算有收入阶段的储蓄：(1−g)·储蓄 − g·空窗时的月支出；已经为负的阶段（本身就是空窗）不动。 */
+export const expectedSaving = (cents: number, gapHundredths: number, livingCents: number) => {
+  if (cents <= 0 || gapHundredths <= 0) return cents;
+  const g = gapHundredths / 10000;
+  return Math.round((1 - g) * cents - g * livingCents);
+};

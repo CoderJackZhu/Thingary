@@ -56,7 +56,22 @@ pub struct IncomeItem {
     pub indexed: bool,
 }
 
+/// One stretch of the saving timeline: from this age (in months) on, the user
+/// saves this much per month, in today's money. Negative means drawing down
+/// savings (a stretch without a job). Phases are ordered by start; the first one
+/// applies from today on.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SavingPhase {
+    pub id: String,
+    pub label: String,
+    pub from_age_months: u32,
+    pub monthly_cents: i64,
+}
+
 const MAX_ITEMS: usize = 20;
+const MAX_PHASES: usize = 30;
+const MAX_SAVING_CENTS: i64 = 100_000_000;
 
 /// Retirement / FIRE inputs (PLANNING_DESIGN §6). Every field has a default so
 /// a profile saved before a field existed still loads unchanged.
@@ -80,6 +95,11 @@ pub struct Retire {
     pub volatility_hundredths: i32,
     pub spend_items: Vec<SpendItem>,
     pub income_items: Vec<IncomeItem>,
+    /// Saving timeline before retiring; empty uses the measured usual saving throughout.
+    pub saving_phases: Vec<SavingPhase>,
+    /// Average share of working time without income (job changes, layoffs), in
+    /// hundredths of a percent; the plan weighs positive phases by it.
+    pub gap_share_hundredths: i32,
 }
 impl Default for Retire {
     fn default() -> Self {
@@ -94,6 +114,8 @@ impl Default for Retire {
             volatility_hundredths: 500,
             spend_items: Vec::new(),
             income_items: Vec::new(),
+            saving_phases: Vec::new(),
+            gap_share_hundredths: 0,
         }
     }
 }
@@ -187,6 +209,33 @@ impl Retire {
     fn validate_items(&self) -> Result<()> {
         if self.spend_items.len() > MAX_ITEMS || self.income_items.len() > MAX_ITEMS {
             return Err(bad("PROFILE_RETIRE", "支出项与收入项各最多 20 个"));
+        }
+        if self.saving_phases.len() > MAX_PHASES {
+            return Err(bad("PROFILE_RETIRE", "储蓄阶段最多 30 段"));
+        }
+        let mut phase_ids = std::collections::HashSet::new();
+        let mut previous: Option<u32> = None;
+        for p in &self.saving_phases {
+            if p.id.is_empty()
+                || p.id.len() > 40
+                || p.label.trim().is_empty()
+                || p.label.chars().count() > 40
+            {
+                return Err(bad("PROFILE_RETIRE", "储蓄阶段须有名称（不超过 40 字）"));
+            }
+            if !phase_ids.insert(p.id.as_str()) {
+                return Err(bad("PROFILE_RETIRE", "储蓄阶段的标识不能重复"));
+            }
+            if p.from_age_months > 1440 || previous.is_some_and(|q| p.from_age_months <= q) {
+                return Err(bad(
+                    "PROFILE_RETIRE",
+                    "储蓄阶段的起始年龄须按先后递增，且不超过 120 岁",
+                ));
+            }
+            if p.monthly_cents.abs() > MAX_SAVING_CENTS {
+                return Err(bad("PROFILE_AMOUNT", "储蓄阶段的月金额超出范围"));
+            }
+            previous = Some(p.from_age_months);
         }
         let mut ids = std::collections::HashSet::new();
         let span = |start: Option<u32>, end: Option<u32>| {
@@ -312,6 +361,7 @@ impl Profile {
             ));
         }
         rate(r.volatility_hundredths, 0, 6000, "年度波动率")?;
+        rate(r.gap_share_hundredths, 0, 5000, "平均空窗比例")?;
         r.validate_items()?;
         let o = &self.overrides;
         for (value, label) in [

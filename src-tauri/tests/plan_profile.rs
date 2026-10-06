@@ -4,7 +4,9 @@
 use rusqlite::Connection;
 use thingary_lib::{
     domain::Error,
-    plan_profile::{Assumptions, IncomeItem, Overrides, Profile, ProfileSave, Retire, SpendItem},
+    plan_profile::{
+        Assumptions, IncomeItem, Overrides, Profile, ProfileSave, Retire, SavingPhase, SpendItem,
+    },
     storage::{migrate_to, Store, SCHEMA, SCHEMA_VERSION},
 };
 const TODAY: &str = "2026-12-31";
@@ -313,6 +315,7 @@ fn a_profile_saved_before_plan_types_loads_and_new_fields_round_trip() {
         volatility_hundredths: 1200,
         spend_items: vec![spend("a")],
         income_items: vec![income("b")],
+        saving_phases: vec![phase("p1", 0, -600000), phase("p2", 300, 1700000)],
         ..Retire::default()
     };
     let dir = tempfile::tempdir().unwrap();
@@ -377,6 +380,61 @@ fn plan_type_items_and_volatility_are_validated() {
         let mut p = profile();
         p.retire.spend_items = vec![spend("a")];
         p.retire.income_items = vec![income("b")];
+        change(&mut p.retire);
+        let got = p.validate(TODAY).err().map(|e| e.code).unwrap_or_default();
+        assert_eq!(got, want, "case {i}");
+    }
+}
+
+fn phase(id: &str, from: u32, cents: i64) -> SavingPhase {
+    SavingPhase {
+        id: id.into(),
+        label: "阶段".into(),
+        from_age_months: from,
+        monthly_cents: cents,
+    }
+}
+
+#[test]
+fn saving_phases_are_ordered_bounded_and_may_be_negative() {
+    type Change = Box<dyn Fn(&mut Retire)>;
+    let cases: Vec<(Change, &str)> = vec![
+        (Box::new(|_| {}), ""),
+        (Box::new(|r| r.gap_share_hundredths = 5000), ""),
+        (Box::new(|r| r.gap_share_hundredths = 5001), "PROFILE_RATE"),
+        (Box::new(|r| r.gap_share_hundredths = -1), "PROFILE_RATE"),
+        (
+            Box::new(|r| r.saving_phases[0].monthly_cents = -100_000_001),
+            "PROFILE_AMOUNT",
+        ),
+        (
+            Box::new(|r| r.saving_phases[1].from_age_months = 0),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| r.saving_phases[1].from_age_months = 1441),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| r.saving_phases[1].id = "a".into()),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| r.saving_phases[0].label = " ".into()),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| {
+                r.saving_phases = (0..31)
+                    .map(|n| phase(&format!("p{n}"), n * 12, 1))
+                    .collect();
+            }),
+            "PROFILE_RETIRE",
+        ),
+    ];
+    for (i, (change, want)) in cases.into_iter().enumerate() {
+        let mut p = profile();
+        p.retire.saving_phases = vec![phase("a", 100, -600000), phase("b", 300, 800000)];
         change(&mut p.retire);
         let got = p.validate(TODAY).err().map(|e| e.code).unwrap_or_default();
         assert_eq!(got, want, "case {i}");

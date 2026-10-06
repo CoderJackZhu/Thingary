@@ -68,7 +68,7 @@ const roundDiv = (n: bigint, d: bigint): bigint => {
   const sign = (n < 0n ? -1n : 1n) * (d < 0n ? -1n : 1n);
   return 2n * (r < 0n ? -r : r) >= (d < 0n ? -d : d) ? q + sign : q;
 };
-const monthly = (amount: bigint, days: number) => roundDiv(amount * MONTH_NUM, MONTH_DEN * BigInt(days));
+export const monthly = (amount: bigint, days: number) => roundDiv(amount * MONTH_NUM, MONTH_DEN * BigInt(days));
 const median = (values: bigint[]): bigint | null => {
   const v = [...values].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   if (!v.length) return null;
@@ -137,11 +137,15 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
 /** 退休支出项与收入项（日常生活预算另存在 spend_cents）；金额是整数分字符串，每月，今天的钱。 */
 export type StoredSpendItem = { id: string; label: string; monthly_cents: string; start_age: number | null; end_age: number | null; inflation_hundredths: number | null; essential: boolean };
 export type StoredIncomeItem = { id: string; label: string; monthly_cents: string; start_age: number; end_age: number | null; indexed: boolean };
+/** 储蓄阶段：从该年龄（月）起每月存多少（分，可为负＝动用存款）；第一段从现在起，存 0。 */
+export type StoredSavingPhase = { id: string; label: string; from_age_months: number; monthly_cents: number };
 export type RetireInputs = {
   spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number;
-  mode: 'fire' | 'traditional'; target_age: number; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[];
+  mode: 'fire' | 'traditional'; target_age: number; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[]; saving_phases: StoredSavingPhase[];
+  /** 工作年份里平均有多大比例的月份没有收入（万分比）；只作用于有收入的储蓄阶段。 */
+  gap_share_hundredths: number;
 };
-export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [] };
+export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0 };
 export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides; retire: RetireInputs };
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string } | null };
 
@@ -168,7 +172,9 @@ export function fundsFrom(entries: { kind: string; amount_cents: string | null }
   for (const e of entries ?? []) if (e.kind === 'housing_fund' && e.amount_cents !== null) { balance += BigInt(e.amount_cents); found = true; }
   if (!entries) notes.push('还没有完整盘点，公积金余额按 0 计算。');
   else if (!found) notes.push('最近盘点里没有公积金类账户，公积金余额按 0 计算。');
-  const latest = [...incomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date))[0];
+  // 失业月份记的 0 不代表平时的缴存额：取最近一条非零的，全是 0 才用 0。
+  const byDate = [...incomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date));
+  const latest = byDate.find(r => BigInt(r.fields.hpf_cents || '0') > 0n) ?? byDate[0];
   if (!latest) notes.push('还没有月度收入记录，公积金月缴存按 0 计算。');
   return { funds: { hpf_balance_cents: balance.toString(), hpf_monthly_cents: latest?.fields.hpf_cents ?? '0' }, notes };
 }
@@ -180,9 +186,12 @@ export function estimateAccountCents(paidMonths: number, baseCents: string): str
 
 /** 新增收入时默认带上的公积金缴存：取日期最近的一条（同一天取先出现的）；没有记录返回空串。 */
 export function latestHpf(rows: { fields: { date: string; hpf_cents: string } }[]): string {
-  let best: { date: string; hpf_cents: string } | null = null;
-  for (const r of rows) if (!best || r.fields.date > best.date) best = r.fields;
-  return best?.hpf_cents ?? '';
+  let best: { date: string; hpf_cents: string } | null = null, any: { date: string; hpf_cents: string } | null = null;
+  for (const r of rows) {
+    if (!any || r.fields.date > any.date) any = r.fields;
+    if (BigInt(r.fields.hpf_cents || '0') > 0n && (!best || r.fields.date > best.date)) best = r.fields;
+  }
+  return (best ?? any)?.hpf_cents ?? '';
 }
 
 /** 年龄（月）显示为「63 岁 1 个月」。 */
@@ -193,4 +202,16 @@ export function quitAges(nowMonths: number, startMonths: number): number[] {
   const out: number[] = [];
   for (let y = Math.ceil(nowMonths / 60) * 5; y * 12 < startMonths; y += 5) if (y * 12 > nowMonths) out.push(y);
   return out;
+}
+
+/** 区间里的大额一次性支出：物品购入与重要支出，单笔不低于阈值（分）。只用来解释，不改变储蓄统计。 */
+export function largeOneOffs(lines: ReasonLine[], thresholdCents: number): { count: number; total: bigint } {
+  let count = 0, total = 0n;
+  for (const l of lines) if ((l.source === 'purchase' || l.source === 'expense') && l.amount_cents !== null && BigInt(l.amount_cents) >= BigInt(thresholdCents)) { count++; total += BigInt(l.amount_cents); }
+  return { count, total };
+}
+/** 剔除这些大额之后，这一期折合的每月储蓄（分）；这一期不可比时为 null。 */
+export function monthlyWithoutOneOffs(interval: Interval, oneOffs: bigint): bigint | null {
+  if (interval.status !== 'ok' || interval.saving_cents === null || interval.days <= 0) return null;
+  return monthly(BigInt(interval.saving_cents) + oneOffs, interval.days);
 }

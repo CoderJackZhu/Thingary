@@ -178,3 +178,9 @@
 .wealth-section .net-chart .trend-chart, .wealth-section .trend-chart { height: auto; max-height: 320px; }
 .wealth-section .review-chart .trend-chart { max-height: 320px; }
 .wealth-section .trend-chart text { font-size: 8px; }
+
+.rs-list b.warn { color: var(--error); }
+.rd-checkpoints { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.rd-checkpoints h4 { margin: 0 0 6px; font-size: 13px; }
+.rd-checkpoints p { margin: 6px 0; font-size: 13px; line-height: 1.8; }
+.rd-checkpoints strong.good { color: var(--positive); } .rd-checkpoints strong.warn { color: var(--error); }

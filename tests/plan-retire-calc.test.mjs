@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRetireCalc } from '../src/plan-retire-calc.ts';
+import { buildRetireCalc, expectedSaving } from '../src/plan-retire-calc.ts';
 import { defaultRetire } from '../src/plan.ts';
 import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
 
@@ -36,4 +36,25 @@ test('a planning horizon not after today leaves the estimate unavailable instead
   const r = buildRetireCalc(old, snapshot, review, [], '2026-10-06');
   assert.match(r.missing.join(' '), /规划终点年龄至少要比当前年龄晚一年/);
   assert.equal(r.plan, undefined);
+});
+
+test('saving phases replace the measured median, and the average gap share weighs working phases only', () => {
+  const s = saved('500000');
+  s.profile.retire = { ...s.profile.retire, saving_phases: [
+    { id: 'a', label: '空窗期', from_age_months: 0, monthly_cents: -600000 },
+    { id: 'b', label: '有收入', from_age_months: 440, monthly_cents: 1700000 },
+    { id: 'c', label: '清闲', from_age_months: 540, monthly_cents: 800000 },
+  ], gap_share_hundredths: 1000 };
+  const r = buildRetireCalc(s, snapshot, { stats: { median_monthly_saving_cents: null, median_monthly_spend_cents: null } }, [], '2026-10-06');
+  assert.deepEqual(r.missing, []);
+  assert.equal(r.saving, -600000);
+  assert.equal(r.measured, null);
+  // 10% 的月份没有收入、那时按日常生活预算 5000 元花存款：17000×0.9 − 5000×0.1 = 14800 元。
+  assert.deepEqual(r.plan.saving_phases.map(p => p.cents), [-600000, 1480000, 670000]);
+  assert.equal(expectedSaving(1700000, 0, 500000), 1700000);
+  assert.equal(expectedSaving(-100, 1000, 500000), -100);
+  // 不分阶段时仍用盘点中位数，空窗比例不起作用。
+  const plain = buildRetireCalc(saved('500000'), snapshot, review, [], '2026-10-06');
+  assert.equal(plain.plan.saving_phases, undefined);
+  assert.equal(plain.plan.saving_cents, 1000000);
 });
