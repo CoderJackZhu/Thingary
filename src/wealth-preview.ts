@@ -12,7 +12,7 @@ import type { BalanceRecord, BalanceSave, TopupFields, TopupSave, VirtualAsset, 
 import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 import type { SourceTarget, TimelineSelection } from './source';
 import { coverageFor, scheduleDates, shiftDays } from './recurring-model';
-import { computeReview } from './plan';
+import { computeReview, defaultRetire } from './plan';
 import type { Income, IncomeSave, Mark, ProfileSave, ProfileState, Reasons, StoredProfile } from './plan';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
@@ -232,7 +232,7 @@ let planIncomes: Income[] = (params.get('plan') === 'empty' || params.get('state
 const planMarks = new Set<string>();
 let planTrash: Income[] = [];
 // 虚构个人资料（1990-06 出生的男职工，数字均为虚构）；?plan-profile=empty 为尚未填写。
-let planProfile: ProfileState['saved'] = params.get('plan-profile') === 'empty' ? null : { revision: 1, updated_at: params.get('plan-stale') === '1' ? '2026-01-02T00:00:00Z' : new Date().toISOString(), profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '1200000', marginal_tax_hundredths: 1000, assumptions: { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 }, overrides: { avg_wage_cents: null, base_lower_cents: null, base_upper_cents: null, notional_rate_hundredths: null, hpf_rate_hundredths: null }, retire: { spend_cents: params.get('plan-budget') === 'set' ? '500000' : null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6 } } as StoredProfile };
+let planProfile: ProfileState['saved'] = params.get('plan-profile') === 'empty' ? null : { revision: 1, updated_at: params.get('plan-stale') === '1' ? '2026-01-02T00:00:00Z' : new Date().toISOString(), profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '1200000', marginal_tax_hundredths: 1000, assumptions: { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 }, overrides: { avg_wage_cents: null, base_lower_cents: null, base_upper_cents: null, notional_rate_hundredths: null, hpf_rate_hundredths: null }, retire: { ...defaultRetire, spend_cents: params.get('plan-budget') === 'set' ? '500000' : null, ...(params.get('plan-mode') === 'traditional' ? { mode: 'traditional' as const, target_age: 60 } : {}), ...(params.get('plan-items') === '1' ? { spend_items: [{ id: 'fx-health', label: '医疗', monthly_cents: '100000', start_age: 65, end_age: null, inflation_hundredths: 400, essential: true }, { id: 'fx-travel', label: '旅行', monthly_cents: '150000', start_age: null, end_age: 75, inflation_hundredths: null, essential: false }], income_items: [{ id: 'fx-annuity', label: '企业年金', monthly_cents: '120000', start_age: 60, end_age: null, indexed: false }] } : {}), ...(params.get('plan-return') === '1' ? { real_return_before_hundredths: 150, real_return_after_hundredths: 100 } : {}) } } as StoredProfile };
 let searchPreviewAttempts = 0;
 export function searchPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command !== 'search_all') return null;

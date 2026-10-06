@@ -1,4 +1,4 @@
-// 退休与 FIRE 估算（PLANNING_DESIGN §6）：纯函数，全程「今天的钱」（实际口径），不碰数据库。
+// 退休估算的小工具（PLANNING_DESIGN §6）：养老金表、进展与应急金线。主体计算在 plan-ledger.ts。
 // 「未来缺口折现」代替 4% 法则：提前辞职的人先靠存款，到养老金起领年龄后才有养老金与公积金、
 // 个人养老金的一次性解锁。输出是估算，内部用浮点，显示时取整到分。
 import { project } from './plan-pension.ts';
@@ -8,88 +8,8 @@ import type { RegionParams } from './plan-params.ts';
 /** 在某个辞职年龄（月）下的养老金与锁定资金，均为今天的钱（分）。 */
 export type Pension = { monthly_cents: number; lump_cents: number; unlock_age_months: number };
 
-export type Ledger = {
-  /** 现在的年龄、规划终点与搜索上限，单位月。 */
-  now_months: number;
-  horizon_months: number;
-  search_cap_months: number;
-  /** 退休后每月支出（今天的钱，分）。 */
-  spend_cents: number;
-  /** 当前可支配资产（分）。 */
-  assets_cents: number;
-  pension_at: (ageMonths: number) => Pension;
-};
-
-const monthly = (annual: number) => (1 + annual) ** (1 / 12);
-const rate = (hundredths: number) => hundredths / 10000;
-
-/** 期末付款年金现值系数：Σ_{k=1..n} (1+i)^-k；i 为月利率。 */
-export function annuity(n: number, i: number): number {
-  if (n <= 0) return 0;
-  return i === 0 ? n : (1 - (1 + i) ** -n) / i;
-}
-
-/** 在 a（月）辞职所需资产：Σ[支出 − 养老金·1(已起领) − 一次性解锁]，按退休后实际收益率折现。 */
-export function requiredAssets(L: Ledger, aMonths: number, rAfterHundredths: number): number {
-  const n = L.horizon_months - aMonths;
-  if (n <= 0) return 0;
-  const i = monthly(rate(rAfterHundredths)) - 1;
-  const pension = L.pension_at(aMonths);
-  const d = Math.max(0, pension.unlock_age_months - aMonths);
-  const spend = L.spend_cents * annuity(n, i);
-  const received = pension.monthly_cents * (annuity(n, i) - annuity(Math.min(d, n), i));
-  const lump = d <= n ? pension.lump_cents * (1 + i) ** -d : 0;
-  return Math.max(0, spend - received - lump);
-}
-
 /** 带日期的一次性支出（今天的钱，分）：offset_months 为距现在的月数，0 表示当月。 */
 export type Spend = { offset_months: number; cents: number };
-const spendByMonth = (spends: Spend[]) => { const m = new Map<number, number>(); for (const e of spends) m.set(e.offset_months, (m.get(e.offset_months) ?? 0) + e.cents); return m; };
-
-export type Fire = { offset_months: number; age_months: number; required_cents: number; assets_cents: number };
-
-/** 逐月推演：每月加储蓄、按退休前实际收益率增长，第一个资产 ≥ 所需资产的月份就是 FIRE 日期。 */
-export function findFire(L: Ledger, savingMonthly: number, rBeforeHundredths: number, rAfterHundredths: number, spends: Spend[] = []): Fire | null {
-  const g = monthly(rate(rBeforeHundredths));
-  const out = spendByMonth(spends);
-  let assets = L.assets_cents;
-  const last = Math.min(L.search_cap_months, L.horizon_months) - L.now_months;
-  for (let t = 0; t <= last; t++) {
-    if (t > 0) assets = assets * g + savingMonthly;
-    assets -= out.get(t) ?? 0;
-    const age = L.now_months + t;
-    const required = requiredAssets(L, age, rAfterHundredths);
-    if (assets >= required) return { offset_months: t, age_months: age, required_cents: required, assets_cents: assets };
-  }
-  return null;
-}
-
-export type Traditional = { age_months: number; assets_cents: number; required_cents: number; surplus_cents: number };
-
-/** 传统模式：到法定领取年龄才退，看那时资产够不够（surplus 为负表示缺口）。 */
-export function traditional(L: Ledger, startMonths: number, savingMonthly: number, rBeforeHundredths: number, rAfterHundredths: number, spends: Spend[] = []): Traditional {
-  const g = monthly(rate(rBeforeHundredths));
-  const out = spendByMonth(spends);
-  const months = Math.max(0, startMonths - L.now_months);
-  let assets = L.assets_cents - (out.get(0) ?? 0);
-  for (let t = 1; t <= months; t++) assets = assets * g + savingMonthly - (out.get(t) ?? 0);
-  const required = requiredAssets(L, Math.max(startMonths, L.now_months), rAfterHundredths);
-  return { age_months: Math.max(startMonths, L.now_months), assets_cents: assets, required_cents: required, surplus_cents: assets - required };
-}
-
-export const sensitivityFactors = [0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3];
-export const sensitivityRates = [0, 100, 200, 300, 400];
-
-export type Sensitivity = { factors: number[]; rates: number[]; cells: (number | null)[][] };
-
-/** 行：月储蓄（当前的 70%–130%）；列：实际收益率（退休前后相同）；格子：FIRE 年龄（月），不可达为 null。 */
-export function sensitivity(L: Ledger, savingMonthly: number): Sensitivity {
-  return {
-    factors: sensitivityFactors,
-    rates: sensitivityRates,
-    cells: sensitivityFactors.map(f => sensitivityRates.map(r => findFire(L, savingMonthly * f, r, r)?.age_months ?? null)),
-  };
-}
 
 /** 进展：当前可支配资产 ÷ 今天就辞职所需资产，万分比，限定在 0–100%；所需为 0 时视为 100%。 */
 export const progressHundredths = (assets: number, required: number): number => (required <= 0 ? 10000 : Math.round(Math.min(1, Math.max(0, assets / required)) * 10000));
@@ -128,19 +48,4 @@ export function pensionTable(profile: Profile, region: RegionParams, today: stri
     }
     return hit;
   };
-}
-
-/** 逐月资产：index 为距现在的月数；before 是当月支出前，after 是支出后。到 months 为止。 */
-export function assetSeries(L: Ledger, savingMonthly: number, rBeforeHundredths: number, months: number, spends: Spend[] = []): { before: number[]; after: number[] } {
-  const g = monthly(rate(rBeforeHundredths));
-  const out = spendByMonth(spends);
-  const before: number[] = [], after: number[] = [];
-  let assets = L.assets_cents;
-  for (let t = 0; t <= months; t++) {
-    if (t > 0) assets = assets * g + savingMonthly;
-    before.push(assets);
-    assets -= out.get(t) ?? 0;
-    after.push(assets);
-  }
-  return { before, after };
 }

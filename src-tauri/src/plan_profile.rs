@@ -27,13 +27,44 @@ pub struct Overrides {
     pub hpf_rate_hundredths: Option<i32>,
 }
 
+/// One retirement spending bucket besides the main budget in `Retire::spend_cents`.
+/// Amounts are monthly, in today's money; a missing start means "from retiring".
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpendItem {
+    pub id: String,
+    pub label: String,
+    pub monthly_cents: String,
+    pub start_age: Option<u32>,
+    pub end_age: Option<u32>,
+    /// Own yearly inflation; absent follows the general inflation assumption.
+    pub inflation_hundredths: Option<i32>,
+    pub essential: bool,
+}
+
+/// One retirement income stream besides the state pension (which the pension
+/// calculator derives): after-tax, monthly, today's money.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IncomeItem {
+    pub id: String,
+    pub label: String,
+    pub monthly_cents: String,
+    pub start_age: u32,
+    pub end_age: Option<u32>,
+    /// Rises with inflation; otherwise a fixed nominal amount that loses value.
+    pub indexed: bool,
+}
+
+const MAX_ITEMS: usize = 20;
+
 /// Retirement / FIRE inputs (PLANNING_DESIGN §6). Every field has a default so
-/// a stage-2 profile without them still loads unchanged.
+/// a profile saved before a field existed still loads unchanged.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Retire {
-    /// Monthly spending after retiring, in today's money; `None` uses the
-    /// median spending derived from the check-ins.
+    /// Monthly spending after retiring, in today's money: the essential
+    /// "daily living" bucket. `None` means not filled in yet.
     pub spend_cents: Option<String>,
     /// Real (after inflation) yearly return before and after retiring.
     pub real_return_before_hundredths: i32,
@@ -41,6 +72,14 @@ pub struct Retire {
     /// Planning horizon (age) and the emergency fund line in months of spending.
     pub horizon_age: u32,
     pub emergency_months: u32,
+    /// `fire` finds the earliest sustainable age; `traditional` retires at `target_age`.
+    pub mode: String,
+    /// Desired retirement / independence age.
+    pub target_age: u32,
+    /// Yearly volatility of the real return, for the market-path simulation.
+    pub volatility_hundredths: i32,
+    pub spend_items: Vec<SpendItem>,
+    pub income_items: Vec<IncomeItem>,
 }
 impl Default for Retire {
     fn default() -> Self {
@@ -50,6 +89,11 @@ impl Default for Retire {
             real_return_after_hundredths: 0,
             horizon_age: 90,
             emergency_months: 6,
+            mode: "fire".into(),
+            target_age: 50,
+            volatility_hundredths: 500,
+            spend_items: Vec::new(),
+            income_items: Vec::new(),
         }
     }
 }
@@ -139,6 +183,61 @@ fn money(value: &str, positive: bool, label: &str) -> Result<i64> {
         })
 }
 
+impl Retire {
+    fn validate_items(&self) -> Result<()> {
+        if self.spend_items.len() > MAX_ITEMS || self.income_items.len() > MAX_ITEMS {
+            return Err(bad("PROFILE_RETIRE", "支出项与收入项各最多 20 个"));
+        }
+        let mut ids = std::collections::HashSet::new();
+        let span = |start: Option<u32>, end: Option<u32>| {
+            let ok = start.is_none_or(|v| v <= 120)
+                && end.is_none_or(|v| v <= 120)
+                && match (start, end) {
+                    (Some(a), Some(b)) => a < b,
+                    _ => true,
+                };
+            if ok {
+                Ok(())
+            } else {
+                Err(bad(
+                    "PROFILE_RETIRE",
+                    "起止年龄须在 0 到 120 岁之间，且结束晚于开始",
+                ))
+            }
+        };
+        let label = |id: &str, name: &str| {
+            if id.is_empty() || id.len() > 40 || name.trim().is_empty() || name.chars().count() > 40
+            {
+                return Err(bad(
+                    "PROFILE_RETIRE",
+                    "支出项与收入项须有名称（不超过 40 字）",
+                ));
+            }
+            Ok(())
+        };
+        for it in &self.spend_items {
+            label(&it.id, &it.label)?;
+            if !ids.insert(it.id.as_str()) {
+                return Err(bad("PROFILE_RETIRE", "支出项与收入项的标识不能重复"));
+            }
+            money(&it.monthly_cents, true, "支出项月金额")?;
+            span(it.start_age, it.end_age)?;
+            if let Some(v) = it.inflation_hundredths {
+                rate(v, -1000, 2000, "支出项通胀率")?;
+            }
+        }
+        for it in &self.income_items {
+            label(&it.id, &it.label)?;
+            if !ids.insert(it.id.as_str()) {
+                return Err(bad("PROFILE_RETIRE", "支出项与收入项的标识不能重复"));
+            }
+            money(&it.monthly_cents, true, "收入项月金额")?;
+            span(Some(it.start_age), it.end_age)?;
+        }
+        Ok(())
+    }
+}
+
 impl Profile {
     pub fn validate(&self, today: &str) -> Result<()> {
         let birth = date(&format!("{}-01", self.birth_month))
@@ -203,6 +302,17 @@ impl Profile {
                 "规划终点年龄须在 70 到 110 岁之间，应急金不超过 36 个月",
             ));
         }
+        if !["fire", "traditional"].contains(&r.mode.as_str()) {
+            return Err(bad("PROFILE_RETIRE", "计划类型须是 FIRE 或传统"));
+        }
+        if !(20..r.horizon_age).contains(&r.target_age) {
+            return Err(bad(
+                "PROFILE_RETIRE",
+                "期望退休年龄须在 20 岁与规划终点之间",
+            ));
+        }
+        rate(r.volatility_hundredths, 0, 6000, "年度波动率")?;
+        r.validate_items()?;
         let o = &self.overrides;
         for (value, label) in [
             (&o.avg_wage_cents, "上年度月平均工资"),

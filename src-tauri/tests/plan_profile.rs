@@ -4,7 +4,7 @@
 use rusqlite::Connection;
 use thingary_lib::{
     domain::Error,
-    plan_profile::{Assumptions, Overrides, Profile, ProfileSave, Retire},
+    plan_profile::{Assumptions, IncomeItem, Overrides, Profile, ProfileSave, Retire, SpendItem},
     storage::{migrate_to, Store, SCHEMA, SCHEMA_VERSION},
 };
 const TODAY: &str = "2026-12-31";
@@ -252,10 +252,133 @@ fn a_stage_2_profile_without_retirement_fields_loads_with_defaults() {
         real_return_after_hundredths: 50,
         horizon_age: 95,
         emergency_months: 9,
+        ..Retire::default()
     };
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(&dir.path().join("lib")).unwrap();
     s.plan_profile_save(&save(&s, custom.clone(), None), TODAY)
         .unwrap();
     assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, custom);
+}
+
+fn spend(id: &str) -> SpendItem {
+    SpendItem {
+        id: id.into(),
+        label: "医疗".into(),
+        monthly_cents: "50000".into(),
+        start_age: Some(65),
+        end_age: None,
+        inflation_hundredths: Some(400),
+        essential: true,
+    }
+}
+fn income(id: &str) -> IncomeItem {
+    IncomeItem {
+        id: id.into(),
+        label: "企业年金".into(),
+        monthly_cents: "100000".into(),
+        start_age: 60,
+        end_age: None,
+        indexed: false,
+    }
+}
+
+#[test]
+fn a_profile_saved_before_plan_types_loads_and_new_fields_round_trip() {
+    let mut raw = serde_json::to_value(profile()).unwrap();
+    let r = raw["retire"].as_object_mut().unwrap();
+    for k in [
+        "mode",
+        "target_age",
+        "volatility_hundredths",
+        "spend_items",
+        "income_items",
+    ] {
+        r.remove(k);
+    }
+    let p: Profile = serde_json::from_value(raw).unwrap();
+    assert_eq!(p.retire, Retire::default());
+    assert_eq!(
+        (
+            p.retire.mode.as_str(),
+            p.retire.target_age,
+            p.retire.volatility_hundredths
+        ),
+        ("fire", 50, 500)
+    );
+    let mut custom = profile();
+    custom.retire = Retire {
+        mode: "traditional".into(),
+        target_age: 60,
+        volatility_hundredths: 1200,
+        spend_items: vec![spend("a")],
+        income_items: vec![income("b")],
+        ..Retire::default()
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("lib")).unwrap();
+    s.plan_profile_save(&save(&s, custom.clone(), None), TODAY)
+        .unwrap();
+    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, custom);
+}
+
+#[test]
+fn plan_type_items_and_volatility_are_validated() {
+    type Change = Box<dyn Fn(&mut Retire)>;
+    let cases: Vec<(Change, &str)> = vec![
+        (Box::new(|_| {}), ""),
+        (Box::new(|r| r.mode = "coast".into()), "PROFILE_RETIRE"),
+        (Box::new(|r| r.target_age = 19), "PROFILE_RETIRE"),
+        (Box::new(|r| r.target_age = 90), "PROFILE_RETIRE"),
+        (Box::new(|r| r.volatility_hundredths = 6001), "PROFILE_RATE"),
+        (
+            Box::new(|r| r.spend_items.push(spend("a"))),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| r.income_items[0].id = "a".into()),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| r.spend_items[0].label = " ".into()),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| r.spend_items[0].monthly_cents = "0".into()),
+            "PROFILE_AMOUNT",
+        ),
+        (
+            Box::new(|r| r.spend_items[0].start_age = Some(121)),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| {
+                r.spend_items[0].start_age = Some(70);
+                r.spend_items[0].end_age = Some(70);
+            }),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| r.spend_items[0].inflation_hundredths = Some(2001)),
+            "PROFILE_RATE",
+        ),
+        (
+            Box::new(|r| r.income_items[0].end_age = Some(60)),
+            "PROFILE_RETIRE",
+        ),
+        (
+            Box::new(|r| {
+                r.income_items = (0..21).map(|n| income(&format!("i{n}"))).collect();
+            }),
+            "PROFILE_RETIRE",
+        ),
+    ];
+    for (i, (change, want)) in cases.into_iter().enumerate() {
+        let mut p = profile();
+        p.retire.spend_items = vec![spend("a")];
+        p.retire.income_items = vec![income("b")];
+        change(&mut p.retire);
+        let got = p.validate(TODAY).err().map(|e| e.code).unwrap_or_default();
+        assert_eq!(got, want, "case {i}");
+    }
 }

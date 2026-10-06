@@ -134,8 +134,14 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
 
 /** 与 Rust plan_profile::Profile 同形：计算用的资料加地区与参数覆盖。 */
 /** 退休与 FIRE 输入；缺省字段由后端补默认值。 */
-export type RetireInputs = { spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number };
-export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6 };
+/** 退休支出项与收入项（日常生活预算另存在 spend_cents）；金额是整数分字符串，每月，今天的钱。 */
+export type StoredSpendItem = { id: string; label: string; monthly_cents: string; start_age: number | null; end_age: number | null; inflation_hundredths: number | null; essential: boolean };
+export type StoredIncomeItem = { id: string; label: string; monthly_cents: string; start_age: number; end_age: number | null; indexed: boolean };
+export type RetireInputs = {
+  spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number;
+  mode: 'fire' | 'traditional'; target_age: number; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[];
+};
+export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [] };
 export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides; retire: RetireInputs };
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string } | null };
 

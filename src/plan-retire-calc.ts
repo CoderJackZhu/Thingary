@@ -2,9 +2,10 @@
 import { fundsFrom } from './plan.ts';
 import type { Income, PlanReview, ProfileState } from './plan.ts';
 import { beijing, effectiveParams } from './plan-params.ts';
-import { emergency, findFire, pensionTable, requiredAssets, sensitivity, traditional } from './plan-fire.ts';
-import type { Ledger } from './plan-fire.ts';
+import { emergency, pensionTable } from './plan-fire.ts';
 import { ageMonthsAt, startAgeMonths } from './plan-pension.ts';
+import { outcome, project } from './plan-ledger.ts';
+import type { Plan, SpendItem } from './plan-ledger.ts';
 import type { Snapshot } from './wealth.ts';
 
 export const SEARCH_CAP_YEARS = 70;
@@ -36,16 +37,34 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
     if (assets === null) missing.push('还没有完整盘点，算不出当前可支配资产。');
     if (saving === null) missing.push('还没有常态月储蓄：需要至少两次完整盘点，并在这段时间内记录月度收入。');
     if (spend === null) missing.push('请填写退休后月预算；历史支出仅作参考，不会自动成为退休预算。');
-    if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, spend, derivedSpend, L: undefined, fire: undefined, trad: undefined, sens: undefined, emergency: undefined, required_now: undefined };
+    if (r.horizon_age * 12 < now + 12) missing.push('规划终点年龄至少要比当前年龄晚一年，请在计划输入里调整。');
+    if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, spend, derivedSpend, emergency: undefined, plan: undefined, proj: undefined, out: undefined };
     const horizon = r.horizon_age * 12;
-    const L: Ledger = { now_months: now, horizon_months: horizon, search_cap_months: Math.min(SEARCH_CAP_YEARS * 12, horizon), spend_cents: spend, assets_cents: assets, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start)) };
+    const plan = retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start)) });
+    const proj = project(plan, Number(today.slice(0, 4)));
     return {
-      p, r, now, start, missing, assets, saving, spend, derivedSpend, L,
-      fire: findFire(L, saving, r.real_return_before_hundredths, r.real_return_after_hundredths),
-      trad: traditional(L, start, saving, r.real_return_before_hundredths, r.real_return_after_hundredths),
-      sens: sensitivity(L, saving),
-      required_now: requiredAssets(L, now, r.real_return_after_hundredths),
+      p, r, now, start, missing, assets, saving, spend, derivedSpend, plan, proj, out: outcome(plan, proj),
       emergency: emergency(assets, spend, r.emergency_months),
     };
 }
 export type RetireCalc = ReturnType<typeof buildRetireCalc>;
+
+/** 引擎输入：日常生活预算是必需的第一个支出桶，其余支出项与收入项来自资料；养老金按辞职年龄重算。
+ *  储蓄的实际增长＝工资增长相对通胀；名义换算只在展示时用通胀。 */
+export function retirePlan(saved: NonNullable<ProfileState['saved']>, x: { now: number; horizon: number; assets: number; saving: number; spend: number; pension_at: Plan['pension_at'] }): Plan {
+  const p = saved.profile, r = p.retire, a = p.assumptions, { spend, assets, saving } = x;
+  const items: SpendItem[] = [
+    { id: 'living', label: '日常生活', monthly_cents: spend, start_age: null, end_age: null, inflation_hundredths: null, essential: true },
+    ...r.spend_items.map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })),
+  ];
+  return {
+    now_months: x.now, horizon_months: x.horizon, search_cap_months: Math.min(SEARCH_CAP_YEARS * 12, x.horizon),
+    target_months: Math.max(r.target_age * 12, x.now), mode: r.mode,
+    assets_cents: assets, saving_cents: saving,
+    saving_growth_hundredths: Math.round(((1 + a.wage_growth_hundredths / 10000) / (1 + a.inflation_hundredths / 10000) - 1) * 10000),
+    r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths,
+    inflation_hundredths: a.inflation_hundredths, volatility_hundredths: r.volatility_hundredths,
+    items, incomes: r.income_items.map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })),
+    pension_at: x.pension_at, spends: [],
+  };
+}

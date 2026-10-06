@@ -1,13 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assetSeries, findFire, traditional } from '../src/plan-fire.ts';
+import { project } from '../src/plan-ledger.ts';
 import { classifyWishes, counted, impactOf, impactSentence, isReady } from '../src/plan-wishes.ts';
 
 const TODAY = '2026-10-06';
 const wish = (id, price, date, state = 'considering') => ({ id, name: '虚构心愿 ' + id, price_cents: price, target_date: date, decision_state: state });
 const none = () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 756 });
-const ledger = (over = {}) => ({ now_months: 360, horizon_months: 1080, search_cap_months: 840, spend_cents: 1000, assets_cents: 0, pension_at: none, ...over });
-const calc = (L = ledger()) => ({ L, saving: 1000, missing: [], r: { real_return_before_hundredths: 0, real_return_after_hundredths: 0, emergency_months: 6 } });
+const ledger = (over = {}) => ({
+  now_months: 360, horizon_months: 1080, search_cap_months: 840, target_months: 360, mode: 'fire', assets_cents: 0, saving_cents: 1000, saving_growth_hundredths: 0,
+  r_before_hundredths: 0, r_after_hundredths: 0, inflation_hundredths: 200, volatility_hundredths: 0,
+  items: [{ id: 'l', label: '生活', monthly_cents: 1000, start_age: null, end_age: null, inflation_hundredths: null, essential: true }], incomes: [], pension_at: none, spends: [], ...over,
+});
+const calc = (plan = ledger()) => ({ plan, saving: 1000, missing: [], r: { emergency_months: 6 } });
+const fire = (plan, spends = []) => project({ ...plan, spends }, 2026).fi_month - plan.now_months;
 
 test('only considering wishes count; dates decide the month, expired and unpriced ones stay out', () => {
   const spends = classifyWishes([
@@ -21,18 +26,15 @@ test('only considering wishes count; dates decide the month, expired and unprice
 
 test('a one-time spend moves the FIRE date by the extra months of saving it needs', () => {
   // 基线 360 个月；12 个月后花 36 000：2000t ≥ 756 000，t = 378。
-  assert.equal(findFire(ledger(), 1000, 0, 0).offset_months, 360);
-  assert.equal(findFire(ledger(), 1000, 0, 0, [{ offset_months: 12, cents: 36_000 }]).offset_months, 378);
+  assert.equal(fire(ledger()), 360);
+  assert.equal(fire(ledger(), [{ offset_months: 12, cents: 36_000 }]), 378);
   // 当月花的钱也要算（offset 0）。
-  assert.equal(findFire(ledger(), 1000, 0, 0, [{ offset_months: 0, cents: 10_000 }]).offset_months > 360, true);
+  assert.equal(fire(ledger(), [{ offset_months: 0, cents: 10_000 }]) > 360, true);
 });
 
-test('asset series reports before and after each month, and traditional mode subtracts the spend', () => {
-  const s = assetSeries(ledger({ assets_cents: 5000 }), 1000, 0, 3, [{ offset_months: 2, cents: 1500 }]);
-  assert.deepEqual(s.before, [5000, 6000, 7000, 6500]);
-  assert.deepEqual(s.after, [5000, 6000, 5500, 6500]);
-  const t = traditional(ledger({ assets_cents: 5000 }), 756, 1000, 0, 0, [{ offset_months: 12, cents: 2000 }]);
-  assert.equal(t.assets_cents, 5000 + 396 * 1000 - 2000);
+test('the projection reports assets after each month, including one-time spends', () => {
+  const p = project({ ...ledger({ assets_cents: 5000, horizon_months: 364, mode: 'traditional', target_months: 2000 }), spends: [{ offset_months: 2, cents: 1500 }] }, 2026);
+  assert.deepEqual(Array.from(p.assets), [5000, 6000, 5500, 6500, 7500]);
 });
 
 test('impact of a wish: delay, assets around the date, emergency line', () => {
@@ -57,7 +59,7 @@ test('several wishes add up; unreachable and missing inputs are stated, not fake
   const slow = impactOf({ ...calc(ledger({ search_cap_months: 730 })) }, classifyWishes([wish('a', '300000', '2027-10-06')], TODAY));
   assert.deepEqual([slow.base_offset, slow.with_offset, slow.delay_months], [360, null, null]);
   // 缺少输入时不可用。
-  assert.equal(isReady({ missing: ['x'], L: undefined, saving: null }), false);
+  assert.equal(isReady({ missing: ['x'], plan: undefined, saving: null }), false);
   assert.equal(isReady(null), false);
   // 没有任何计入的心愿：影响为零。
   const zero = impactOf(calc(), classifyWishes([wish('c', '100', '2020-01-01')], TODAY));

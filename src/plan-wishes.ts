@@ -1,6 +1,7 @@
 // 心愿接入（PLANNING_DESIGN §7）：「考虑中」且有预计价格的心愿作为带日期的一次性支出进入退休账本，
 // 回答两个问题：到那天钱够不够；买下后 FIRE 日期推迟多久。纯函数，不改变心愿状态。
-import { assetSeries, findFire } from './plan-fire.ts';
+import { project } from './plan-ledger.ts';
+import type { Plan } from './plan-ledger.ts';
 import type { Spend } from './plan-fire.ts';
 import type { RetireCalc } from './plan-retire-calc.ts';
 
@@ -44,26 +45,23 @@ export type Impact = {
   breaches_emergency: boolean;
 };
 
-type Ready = RetireCalc & { L: NonNullable<RetireCalc['L']>; saving: number };
-export const isReady = (calc: RetireCalc | null): calc is Ready => !!calc && calc.L !== undefined && calc.saving !== null && calc.missing.length === 0;
+type Ready = RetireCalc & { plan: Plan; saving: number };
+export const isReady = (calc: RetireCalc | null): calc is Ready => !!calc && calc.plan !== undefined && calc.saving !== null && calc.missing.length === 0;
 
 /** 一组一次性支出（带月份的，含「按今天」的假设）对 FIRE 日期的影响：与「没有这些支出」的基线比较。合计请传 counted(...)。 */
 export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
-  const { L, saving, r } = calc;
+  const P = calc.plan, now = P.now_months;
   const events = spends.filter(s => s.offset_months !== null).map(toSpend);
-  const base = findFire(L, saving, r.real_return_before_hundredths, r.real_return_after_hundredths);
-  const withSpend = findFire(L, saving, r.real_return_before_hundredths, r.real_return_after_hundredths, events);
-  const last = Math.max(0, ...events.map(e => e.offset_months));
-  const baseSeries = assetSeries(L, saving, r.real_return_before_hundredths, last);
-  const afterSeries = assetSeries(L, saving, r.real_return_before_hundredths, last, events);
-  const line = r.emergency_months * L.spend_cents;
+  const base = project({ ...P, spends: [] }, 0), withSpend = project({ ...P, spends: events }, 0);
+  const first = events.length ? Math.min(...events.map(e => e.offset_months)) : 0, last = Math.min(Math.max(0, ...events.map(e => e.offset_months)), base.assets.length - 1);
+  const line = calc.r.emergency_months * P.items[0].monthly_cents;
   return {
-    base_offset: base?.offset_months ?? null,
-    with_offset: withSpend?.offset_months ?? null,
-    delay_months: base && withSpend ? withSpend.offset_months - base.offset_months : null,
-    assets_before_cents: baseSeries.before[last],
-    assets_after_cents: afterSeries.after[last],
-    breaches_emergency: events.length > 0 && afterSeries.after.slice(Math.min(...events.map(e => e.offset_months))).some(v => v < line),
+    base_offset: base.fi_month === null ? null : base.fi_month - now,
+    with_offset: withSpend.fi_month === null ? null : withSpend.fi_month - now,
+    delay_months: base.fi_month !== null && withSpend.fi_month !== null ? withSpend.fi_month - base.fi_month : null,
+    assets_before_cents: base.assets[last],
+    assets_after_cents: withSpend.assets[last],
+    breaches_emergency: events.length > 0 && Array.from(withSpend.assets.subarray(first, last + 1)).some(v => v < line),
   };
 }
 
