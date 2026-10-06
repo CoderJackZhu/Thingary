@@ -7,7 +7,7 @@ import type { RetireCalc } from './plan-retire-calc.ts';
 /** 心愿里规划用到的字段（来自 WishlistItem）。 */
 export type WishLike = { id: string; name: string; price_cents: string | null; target_date: string | null; decision_state: string };
 
-/** dated 按计划日期；today 没有计划日期，按今天计入；expired 计划日期已过，不计入；no_price 没有预计价格。 */
+/** dated 按计划日期（计入合计）；today 没有计划日期，只作「如果今天买下」的假设，不计入合计；expired 计划日期已过，不计入；no_price 没有预计价格。 */
 export type WishStatus = 'dated' | 'today' | 'expired' | 'no_price';
 export type WishSpend = { id: string; name: string; status: WishStatus; cents: number; date: string | null; offset_months: number | null };
 
@@ -27,8 +27,8 @@ export function classifyWishes(items: WishLike[], today: string): WishSpend[] {
   return out;
 }
 
-/** 计入账本的心愿。 */
-export const counted = (spends: WishSpend[]) => spends.filter(s => s.status === 'dated' || s.status === 'today');
+/** 计入合计的心愿：只有填了计划日期、表示「打算买」的。没填日期的只在单件假设里看影响。 */
+export const counted = (spends: WishSpend[]) => spends.filter(s => s.status === 'dated');
 const toSpend = (s: WishSpend): Spend => ({ offset_months: s.offset_months!, cents: s.cents });
 
 export type Impact = {
@@ -47,10 +47,10 @@ export type Impact = {
 type Ready = RetireCalc & { L: NonNullable<RetireCalc['L']>; saving: number };
 export const isReady = (calc: RetireCalc | null): calc is Ready => !!calc && calc.L !== undefined && calc.saving !== null && calc.missing.length === 0;
 
-/** 一组一次性支出对 FIRE 日期的影响：与「没有这些支出」的基线比较。 */
+/** 一组一次性支出（带月份的，含「按今天」的假设）对 FIRE 日期的影响：与「没有这些支出」的基线比较。合计请传 counted(...)。 */
 export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
   const { L, saving, r } = calc;
-  const events = counted(spends).map(toSpend);
+  const events = spends.filter(s => s.offset_months !== null).map(toSpend);
   const base = findFire(L, saving, r.real_return_before_hundredths, r.real_return_after_hundredths);
   const withSpend = findFire(L, saving, r.real_return_before_hundredths, r.real_return_after_hundredths, events);
   const last = Math.max(0, ...events.map(e => e.offset_months));
@@ -71,7 +71,7 @@ export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
 export function impactSentence(s: WishSpend, i: Impact, emergencyMonths: number, money: (cents: number) => string): string {
   if (s.status === 'no_price') return '';
   if (s.status === 'expired') return '计划日期已过，规划没有计入这笔支出；更新计划日期后会重新估算。';
-  const when = s.status === 'today' ? '未设计划日期，按今天买下估算：可支配资产约' : `按当前储蓄，${s.date} 时可支配资产约`;
+  const when = s.status === 'today' ? '未设计划日期，只作假设：如果今天买下，可支配资产约' : `如果按计划在 ${s.date} 买下，按当前储蓄那时可支配资产约`;
   let tail: string;
   if (i.base_offset === null) tail = '按现在的储蓄，70 岁前本来就达不到 FIRE，买下后同样达不到';
   else if (i.with_offset === null) tail = '买下后 FIRE 在 70 岁前达不到（原本可以）';

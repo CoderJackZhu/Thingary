@@ -15,7 +15,8 @@ test('only considering wishes count; dates decide the month, expired and unprice
     wish('e', '100', '2026-10-31'), wish('f', '100', '2026-11-01'), wish('g', '100', '2027-01-01', 'purchased'), wish('h', '100', null, 'dropped'),
   ], TODAY);
   assert.deepEqual(spends.map(s => [s.id, s.status, s.offset_months]), [['a', 'dated', 12], ['b', 'today', 0], ['c', 'expired', null], ['d', 'no_price', null], ['e', 'dated', 0], ['f', 'dated', 1]]);
-  assert.deepEqual(counted(spends).map(s => s.id), ['a', 'b', 'e', 'f']);
+  // 没填计划日期的（b）只作假设，不计入合计。
+  assert.deepEqual(counted(spends).map(s => s.id), ['a', 'e', 'f']);
 });
 
 test('a one-time spend moves the FIRE date by the extra months of saving it needs', () => {
@@ -62,15 +63,18 @@ test('several wishes add up; unreachable and missing inputs are stated, not fake
   const zero = impactOf(calc(), classifyWishes([wish('c', '100', '2020-01-01')], TODAY));
   assert.equal(zero.delay_months, 0);
   assert.equal(zero.breaches_emergency, false);
+  // 合计只传 counted()：没填日期的不会混进去。
+  const mixed = classifyWishes([wish('a', '10000', '2027-10-06'), wish('b', '10000', null)], TODAY);
+  assert.equal(impactOf(calc(), counted(mixed)).delay_months, impactOf(calc(), [mixed[0]]).delay_months);
 });
 
 test('the one-line sentence names the date, the assets, the delay and the emergency line', () => {
   const m = c => `¥${c}`;
   const [dated] = classifyWishes([wish('a', '36000', '2027-10-06')], TODAY);
   const i = impactOf(calc(), [dated]);
-  assert.equal(impactSentence(dated, i, 6, m), '按当前储蓄，2027-10-06 时可支配资产约 ¥12000；买下后 FIRE 推迟约 18 个月；买下后可支配资产会低于 6 个月支出的应急金线。');
+  assert.equal(impactSentence(dated, i, 6, m), '如果按计划在 2027-10-06 买下，按当前储蓄那时可支配资产约 ¥12000；买下后 FIRE 推迟约 18 个月；买下后可支配资产会低于 6 个月支出的应急金线。');
   const [today] = classifyWishes([wish('b', '500', null)], TODAY);
-  assert.match(impactSentence(today, impactOf(calc(ledger({ assets_cents: 1e7 })), [today]), 6, m), /^未设计划日期，按今天买下估算：可支配资产约 ¥10000000；买下后(对 FIRE 日期几乎没有影响|FIRE 推迟约 \d+ 个月)。$/);
+  assert.match(impactSentence(today, impactOf(calc(ledger({ assets_cents: 1e7 })), [today]), 6, m), /^未设计划日期，只作假设：如果今天买下，可支配资产约 ¥10000000；买下后(对 FIRE 日期几乎没有影响|FIRE 推迟约 \d+ 个月)。$/);
   const [expired] = classifyWishes([wish('c', '100', '2020-01-01')], TODAY);
   assert.match(impactSentence(expired, impactOf(calc(), [expired]), 6, m), /计划日期已过，规划没有计入/);
   const [noPrice] = classifyWishes([wish('d', null, '2027-01-01')], TODAY);
