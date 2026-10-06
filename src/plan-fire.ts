@@ -84,6 +84,16 @@ export function sensitivity(L: Ledger, savingMonthly: number): Sensitivity {
   };
 }
 
+/** 进展：当前可支配资产 ÷ 今天就辞职所需资产，万分比，限定在 0–100%；所需为 0 时视为 100%。 */
+export const progressHundredths = (assets: number, required: number): number => (required <= 0 ? 10000 : Math.round(Math.min(1, Math.max(0, assets / required)) * 10000));
+
+/** 距离达成还有多久：「已经够了」「7 个月」「12 年 4 个月」。 */
+export function monthsLeftText(months: number): string {
+  if (months <= 0) return '已经够了';
+  const y = Math.floor(months / 12), m = months % 12;
+  return y === 0 ? `${m} 个月` : m === 0 ? `${y} 年` : `${y} 年 ${m} 个月`;
+}
+
 /** 当前可支配资产相当于几个月支出；低于应急金线时 below 为 true。 */
 export function emergency(assetsCents: number, spendCents: number, months: number): { covered_months: number | null; below: boolean } {
   if (spendCents <= 0) return { covered_months: null, below: false };

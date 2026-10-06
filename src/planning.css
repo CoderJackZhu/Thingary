@@ -24,3 +24,9 @@
 .planning-section .plan-params th:nth-child(2) { width: 15%; }
 .planning-section .plan-sens th, .planning-section .plan-sens td { white-space: nowrap; }
 .planning-section .plan-sens tbody th { font-weight: 500; text-align: left; }
+.planning-section .plan-goals { display: grid; gap: 14px; }
+.planning-section .plan-goal-headline { font-size: 22px; margin: 4px 0 10px; }
+.planning-section .plan-goal-headline strong { font-weight: 650; }
+.planning-section .plan-progress { height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; margin-bottom: 14px; }
+.planning-section .plan-progress div { height: 100%; background: var(--accent); border-radius: 4px; min-width: 2px; }
+.planning-section .plan-goal-actions { display: flex; gap: 8px; margin-top: 8px; }

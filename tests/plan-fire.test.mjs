@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { annuity, emergency, findFire, pensionTable, requiredAssets, sensitivity, traditional } from '../src/plan-fire.ts';
+import { annuity, emergency, findFire, monthsLeftText, pensionTable, progressHundredths, requiredAssets, sensitivity, traditional } from '../src/plan-fire.ts';
 import { beijing } from '../src/plan-params.ts';
 
 const none = () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 756 });
@@ -97,4 +97,9 @@ test('pension table built from the pension calculator: retiring later is better,
   const withFunds = findFire({ ...base, pension_at: at }, 600_000, 0, 0);
   const without = findFire({ ...base, pension_at: none }, 600_000, 0, 0);
   assert.ok(withFunds.offset_months <= without.offset_months);
+});
+
+test('goal progress and time-left wording', () => {
+  assert.deepEqual([[295, 1000], [0, 1000], [2000, 1000], [5, 0], [-50, 1000]].map(([a, r]) => progressHundredths(a, r)), [2950, 0, 10000, 10000, 0]);
+  assert.deepEqual([0, -3, 1, 11, 12, 13, 24, 148].map(monthsLeftText), ['已经够了', '已经够了', '1 个月', '11 个月', '1 年', '1 年 1 个月', '2 年', '12 年 4 个月']);
 });

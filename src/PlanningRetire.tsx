@@ -6,7 +6,7 @@ import { CentInput, FormRow, Info } from './FormControls';
 import { ageText, fundsFrom, hundredthsToPct, pctToHundredths, rateText } from './plan';
 import type { Income, PlanReview, ProfileSave, ProfileState, RetireInputs } from './plan';
 import { beijing, effectiveParams } from './plan-params';
-import { emergency, findFire, pensionTable, sensitivity, traditional } from './plan-fire';
+import { emergency, findFire, pensionTable, requiredAssets, sensitivity, traditional } from './plan-fire';
 import type { Ledger } from './plan-fire';
 import { ageMonthsAt, startAgeMonths } from './plan-pension';
 import { submit, Unresolved } from './wealth';
@@ -29,11 +29,10 @@ function disposable(snapshot: Snapshot | null): number | null {
   return Number(total);
 }
 
-/** 退休与 FIRE：所需资产、达成年限、敏感性表。全部用「今天的钱」；结果不存库。 */
-export function PlanningRetire({ today, review, incomes, onEditingChange, onPending }: { today: string; review: PlanReview; incomes: Income[]; onEditingChange: (v: boolean) => void; onPending: () => void }) {
+/** 退休与 FIRE 的数据与计算：目标卡片和详情页共用，结果不存库。 */
+export function useRetirePlan(today: string, review: PlanReview, incomes: Income[]) {
   const [state, setState] = useState<ProfileState | null>(null), [snapshot, setSnapshot] = useState<Snapshot | null | undefined>(undefined);
-  const [error, setError] = useState(''), [retry, setRetry] = useState(0), [editing, setEditing] = useState(false);
-  useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
+  const [error, setError] = useState(''), [retry, setRetry] = useState(0);
   useEffect(() => {
     let live = true; setError('');
     (async () => {
@@ -61,7 +60,7 @@ export function PlanningRetire({ today, review, incomes, onEditingChange, onPend
     if (assets === null) missing.push('还没有完整盘点，算不出当前可支配资产。');
     if (saving === null) missing.push('还没有常态月储蓄：需要至少两次完整盘点，并在这段时间内记录月度收入。');
     if (spend === null) missing.push('没有可用的退休后月支出：请在假设里填写，或先积累有收入记录的盘点区间。');
-    if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, spend, derivedSpend, fire: undefined, trad: undefined, sens: undefined, emergency: undefined };
+    if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, spend, derivedSpend, fire: undefined, trad: undefined, sens: undefined, emergency: undefined, required_now: undefined };
     const horizon = r.horizon_age * 12;
     const L: Ledger = { now_months: now, horizon_months: horizon, search_cap_months: Math.min(SEARCH_CAP_YEARS * 12, horizon), spend_cents: spend, assets_cents: assets, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start)) };
     return {
@@ -69,11 +68,22 @@ export function PlanningRetire({ today, review, incomes, onEditingChange, onPend
       fire: findFire(L, saving, r.real_return_before_hundredths, r.real_return_after_hundredths),
       trad: traditional(L, start, saving, r.real_return_before_hundredths, r.real_return_after_hundredths),
       sens: sensitivity(L, saving),
+      required_now: requiredAssets(L, now, r.real_return_after_hundredths),
       emergency: emergency(assets, spend, r.emergency_months),
     };
   }, [saved, snapshot, incomes, review, today]);
+  return { state, snapshot, error, calc, reload: () => setRetry(n => n + 1) };
+}
+export type RetirePlan = ReturnType<typeof useRetirePlan>;
 
-  if (error) return <article className="ui-card ui-content" role="alert"><p>退休估算读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>;
+/** 退休与 FIRE 详情：所需资产、达成年限、敏感性表。全部用「今天的钱」。 */
+export function RetireDetail({ plan, today, onEditingChange, onPending }: { plan: RetirePlan; today: string; onEditingChange: (v: boolean) => void; onPending: () => void }) {
+  const { state, snapshot, error, calc, reload } = plan;
+  const saved = state?.saved ?? null;
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
+
+  if (error) return <article className="ui-card ui-content" role="alert"><p>退休估算读取失败：{error}</p><button onClick={reload}>重新读取</button></article>;
   if (!state || snapshot === undefined) return <p role="status" className="muted">正在读取…</p>;
   if (!saved || !calc) return <div className="empty"><span className="empty-mark">¥</span><h2>先填写个人资料</h2><p>退休与财务自由的估算需要出生年月和养老金资料。请先到「养老金」页签填写个人资料。</p></div>;
   const { r } = calc;
@@ -108,7 +118,7 @@ export function PlanningRetire({ today, review, incomes, onEditingChange, onPend
           <th scope="row">{calc.saving !== null ? yuan(calc.saving * calc.sens!.factors[i]) : ''}<small className="muted"> {Math.round(calc.sens!.factors[i] * 100)}%</small></th>
           {row.map((age, k) => <td key={k} className="amount">{age === null ? <span className="muted">—</span> : ageText(age)}</td>)}</tr>)}</tbody></table>
       <p className="muted small">一眼看出多存钱和提高收益哪个对你更有用；「—」表示 {SEARCH_CAP_YEARS} 岁前达不到。这是估算，不是承诺；它不预测裁员、跳槽或涨薪，只按最近的真实储蓄往后推。</p></article>}
-    {editing && <RetireDialog state={state} today={today} onClose={ok => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(false); onPending(); if (ok) setRetry(n => n + 1); }}/>}
+    {editing && <RetireDialog state={state} today={today} onClose={ok => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(false); onPending(); if (ok) reload(); }}/>}
   </>;
 }
 
