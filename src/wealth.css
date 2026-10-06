@@ -98,3 +98,8 @@
 .plan-advanced > summary, .plan-backfill > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
 .plan-advanced[open] > summary, .plan-backfill[open] > summary { margin-bottom: 12px; }
 .plan-backfill > label { display: flex; align-items: flex-start; gap: 8px; }
+.rent-advance { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rent-advance input { width: 56px; text-align: right; }
+.rent-advance button[aria-pressed="true"] { background: var(--selected); color: var(--accent); }
+.rent-preview { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.rent-preview ol { margin: 6px 0 0; padding-left: 20px; line-height: 1.7; font-size: 13px; font-variant-numeric: tabular-nums; }

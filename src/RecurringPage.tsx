@@ -10,15 +10,18 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
-import { CentInput, FormRow, Info, Segments } from './FormControls';
+import { CentInput, FormRow, Info, Segments, Switch } from './FormControls';
+import { RentPlanForm } from './RentPlanForm';
+import { blankRent, fieldsToRent, rentPreview, rentToFields } from './rent-plan';
+import type { RentForm } from './rent-plan';
 import { Icon } from './AssetViews';
 import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
 import { intervalUnit, planStatus, recurringCategories, recurringCategoryText } from './recurring';
-import type { Due, Overview, Payment, PaymentSave, Plan, PlanFields, PlanSave } from './recurring';
+import type { Due, Overview, Payment, PaymentRangeSave, PaymentSave, Plan, PlanFields, PlanSave } from './recurring';
 import './wealth.css';
 import { PlanFieldsForm } from './PlanFieldsForm';
-import { blankPlan, periodLabel } from './recurring-model';
+import { blankPlan, periodLabel, planScheduleDates } from './recurring-model';
 import { useRestored } from './undo';
 
 export type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; plan_amount: string; record: Payment | null };
@@ -136,6 +139,14 @@ function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; g
   const dialog = useRef<HTMLDialogElement>(null);
   const [f, setF] = useState<PlanFields>(plan?.fields ?? blankPlan(today));
   const [firstDueTouched, setFirstDueTouched] = useState(!!plan);
+  // 房租用简易表单；已有的复杂计划（固定天数、试用、分段价格等）仍用完整表单。
+  const initialRent = plan ? fieldsToRent(plan) : null;
+  const [rent, setRent] = useState<RentForm>(initialRent ?? blankRent(today)), [backfill, setBackfill] = useState(true);
+  const rentMode = f.category === 'rent' && (!plan || initialRent !== null);
+  const effective: PlanFields = rentMode ? { ...f, ...rentToFields(rent) } : f;
+  const dirty = !plan ? true : rentMode ? JSON.stringify(rent) !== JSON.stringify(initialRent) || f.name !== plan.fields.name || f.notes !== plan.fields.notes || f.category !== plan.fields.category : JSON.stringify(f) !== JSON.stringify(plan.fields);
+  const pastDues = rentMode && !plan ? (rentPreview(rent, today)?.rows.filter(r => r.due <= today).length ?? 0) : 0;
+  const [late, setLate] = useState(false);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('plan-name')?.focus(); return () => dialog.current?.close(); }, []);
   const set = <K extends keyof PlanFields>(k: K, v: PlanFields[K]) => setF(x => ({ ...x, [k]: v }));
@@ -144,22 +155,38 @@ function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; g
     if (!dialog.current?.querySelector("form")?.reportValidity()) return;
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
     if (!f.name.trim()) return stop('计划名称', '请填写名称。');
-    if (!f.amount_cents || f.amount_cents === '0') return stop('每期金额', '请填写每期金额。');
-    const input: PlanSave = { request_id: crypto.randomUUID(), generation, id: plan?.id ?? null, expected_revision: plan?.revision ?? null, fields: { ...f, name: f.name.trim() } };
+    if (!effective.amount_cents || effective.amount_cents === '0') return stop('每期金额', '请填写每期金额。');
+    if (rentMode && !rentPreview(rent, today)) return stop('租期到期日', '请检查开始日期和到期日：到期日须晚于开始日期。');
+    const input: PlanSave = { request_id: crypto.randomUUID(), generation, id: plan?.id ?? null, expected_revision: plan?.revision ?? null, fields: { ...effective, name: f.name.trim() } };
     setBusy(true); setNotice('');
-    try { await submit({ command: 'recurring_plan_save', input, label: `计划 ${input.fields.name}` }); onClose(true); }
+    try {
+      const saved = await submit<Plan>({ command: 'recurring_plan_save', input, label: `计划 ${input.fields.name}` });
+      if (rentMode && !plan && backfill && pastDues > 0) {
+        // 把已过去的期次一次补记为已付；失败时计划已保存，说明如何用「补记往期实际付款」补上。
+        const dates = planScheduleDates(saved, '1900-01-01', today);
+        if (dates.length) {
+          const range: PaymentRangeSave = { request_id: crypto.randomUUID(), generation, plan_id: saved.id, expected_revision: saved.revision, from_due: dates[0], to_due: dates[dates.length - 1], amount_cents: effective.amount_cents, confirmed: true };
+          try { await submit({ command: 'recurring_payment_range_save', input: range, label: `${input.fields.name} 往期付款补记` }); }
+          catch (e) { setLate(true); setNotice('计划已保存，但自动补记没有完成：' + (e instanceof Error ? e.message : errorMessage(e)) + ' 请关闭后打开这条计划，用「补记往期实际付款」补上。'); return; }
+        }
+      }
+      onClose(true);
+    }
     catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="plan-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">财富 · 周期费用</p><h2 id="plan-heading">{plan ? '编辑计划' : '新增计划'}</h2><p className="muted">改动只影响尚未记录的期；已确认的付款保持原样。删除计划会连同付款记录一起移入最近删除。</p></div><CloseButton type="button" aria-label="关闭计划表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{plan && !stuck && <DeleteButton label="删除计划" disabled={busy} kind="plan" id={plan.id} revision={plan.revision} generation={generation} name={`计划 ${plan.fields.name}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存计划'}</button>}</div></header>
+    <header><div><p className="eyebrow">财富 · 周期费用</p><h2 id="plan-heading">{plan ? '编辑计划' : '新增计划'}</h2><p className="muted">改动只影响尚未记录的期；已确认的付款保持原样。删除计划会连同付款记录一起移入最近删除。</p></div><CloseButton type="button" aria-label="关闭计划表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{plan && !stuck && !late && <DeleteButton label="删除计划" disabled={busy} kind="plan" id={plan.id} revision={plan.revision} generation={generation} name={`计划 ${plan.fields.name}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{late ? <button type="button" className="primary" onClick={() => onClose(true)}>关闭</button> : stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存计划'}</button>}</div></header>
     <section className="form-block">
       <FormRow label="名称"><input id="plan-name" aria-label="计划名称" maxLength={80} value={f.name} disabled={frozen} onChange={e => set('name', e.target.value)} placeholder="例如 房租、视频会员"/></FormRow>
       <FormRow label="分类"><select aria-label="分类" value={f.category} disabled={frozen} onChange={e => set('category', e.target.value)}>{recurringCategories.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></FormRow>
-      <PlanFieldsForm fields={f} onChange={setF} disabled={frozen} today={today} editing={!!plan} firstDueTouched={firstDueTouched} onFirstDueTouched={() => setFirstDueTouched(true)}/>
+      {rentMode ? <>
+        <RentPlanForm value={rent} onChange={setRent} disabled={frozen || late} today={today}/>
+        {pastDues > 0 && <FormRow label={`已过去的 ${pastDues} 期都已付清`} hint="保存时自动补记为已付（日期按付款日、金额同每期），计入重要支出；日期或金额不同，之后单独更正"><Switch label="保存后自动补记已过去的期次" value={backfill} disabled={frozen} onChange={setBackfill}/></FormRow>}
+      </> : <PlanFieldsForm fields={f} onChange={setF} disabled={frozen} today={today} editing={!!plan} firstDueTouched={firstDueTouched} onFirstDueTouched={() => setFirstDueTouched(true)}/>}
 
     </section>
-    {plan && !stuck && <PaymentRangeForm plan={plan} generation={generation} today={today} disabled={frozen || JSON.stringify(f) !== JSON.stringify(plan.fields)} onBusyChange={setBusy} onSaved={() => onClose(true)} onError={(m, unresolved) => {setNotice(m); setStuck(unresolved);}}/>}
+    {plan && !stuck && <PaymentRangeForm plan={plan} generation={generation} today={today} disabled={frozen || dirty} onBusyChange={setBusy} onSaved={() => onClose(true)} onError={(m, unresolved) => {setNotice(m); setStuck(unresolved);}}/>}
     <section className="form-block form-notes"><label htmlFor="plan-notes">备注</label><textarea id="plan-notes" maxLength={10000} value={f.notes} disabled={frozen} onChange={e => set('notes', e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}
   </form></dialog>;

@@ -488,3 +488,61 @@ fn plans_and_payments_delete_restore_and_reach_the_timeline() {
     assert_eq!((o.plans.len(), o.payments.len()), (1, 1));
     assert_eq!(s.expense_view(None).unwrap().spent_cents, "5000");
 }
+
+/// 房租简易表单（一年、每季 8400、提前一个月付、到期日 2026-07-06）换算出的计划：
+/// 4 期、33 600，付款日在 6/9/12/3 月；保存后一次补记全部已过去的期次。
+#[test]
+fn simple_rent_form_plan_has_four_periods_and_backfills_in_one_range() {
+    use thingary_lib::recurring::PaymentRangeSave;
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let today = "2026-10-06";
+    let mut f = fields("房租", "840000", 3, "2025-06-06");
+    f.category = "rent".into();
+    f.service_start = Some("2025-07-06".into());
+    f.coverage_start = Some("2025-07-06".into());
+    f.end_date = Some("2026-07-05".into()); // 到期日 2026-07-06（不含当天）的前一天
+    let plan = create(&mut s, f, today);
+    let range = PaymentRangeSave {
+        request_id: rid(),
+        generation: s.generation(),
+        plan_id: plan.id.clone(),
+        expected_revision: plan.revision,
+        from_due: "2025-06-06".into(),
+        to_due: "2026-03-06".into(),
+        amount_cents: "840000".into(),
+        confirmed: true,
+    };
+    s.recurring_payment_range_save(&range, today).unwrap();
+    let overview = s.recurring_overview(today).unwrap();
+    let mut dues: Vec<&str> = overview
+        .payments
+        .iter()
+        .map(|p| p.due_date.as_str())
+        .collect();
+    dues.sort_unstable();
+    assert_eq!(
+        dues,
+        ["2025-06-06", "2025-09-06", "2025-12-06", "2026-03-06"]
+    );
+    assert!(overview
+        .payments
+        .iter()
+        .all(|p| p.state == "paid" && p.amount_cents.as_deref() == Some("840000")));
+    assert!(overview.due.is_empty(), "nothing is left to confirm");
+    let saved = &overview.plans[0];
+    assert_eq!(saved.contract_cents.as_deref(), Some("3360000"));
+    assert_eq!(saved.monthly_cents.as_deref(), Some("280000"));
+    // 范围外的期（第五期 2026-06-06）不存在：补到第五期会被拒绝。
+    let beyond = PaymentRangeSave {
+        request_id: rid(),
+        generation: s.generation(),
+        plan_id: plan.id.clone(),
+        expected_revision: overview.plans[0].revision,
+        from_due: "2026-06-06".into(),
+        to_due: "2026-06-06".into(),
+        amount_cents: "840000".into(),
+        confirmed: true,
+    };
+    assert!(s.recurring_payment_range_save(&beyond, today).is_err());
+}
