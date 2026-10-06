@@ -13,6 +13,11 @@ export type IncomeItem = { id: string; label: string; monthly_cents: number; sta
 
 export type SavingPhase = { from_month: number; cents: number };
 
+/** 持续的月度收支流（买房月供、持有成本、少付的房租等）：to_month 为空表示到规划终点。
+ *  saving_flows 的 cents 是对退休前每月储蓄的增减（负数是多花）；spend_flows 的 cents 是退休后多出的月支出（正数是多花）。
+ *  nominal 为真表示固定名义金额（房贷月供），按通胀折成今天的钱；否则已是今天的钱。 */
+export type Flow = { label: string; from_month: number; to_month: number | null; cents: number; nominal: boolean; essential: boolean };
+
 export type Plan = {
   now_months: number;
   horizon_months: number;
@@ -27,6 +32,8 @@ export type Plan = {
   saving_growth_hundredths: number;
   /** 储蓄分阶段：从 from_month（月龄）起每月存 cents（可为负，表示动用存款）；按 from_month 升序，第一段从现在起。缺省时全程用 saving_cents。 */
   saving_phases?: SavingPhase[];
+  saving_flows?: Flow[];
+  spend_flows?: Flow[];
   r_before_hundredths: number;
   r_after_hundredths: number;
   inflation_hundredths: number;
@@ -60,6 +67,10 @@ export function table(P: Plan): Table {
     const to = it.end_age === null ? n : Math.min(n, it.end_age * 12 - P.now_months);
     for (let i = from; i < to; i++) { const a = it.monthly_cents * real ** (i / 12); spend[i] += a; if (it.essential) essential[i] += a; }
   }
+  for (const f of P.spend_flows ?? []) {
+    const from = Math.max(0, f.from_month - P.now_months), to = f.to_month === null ? n : Math.min(n, f.to_month - P.now_months);
+    for (let i = from; i < to; i++) { const a = f.nominal ? f.cents / infl ** (i / 12) : f.cents; spend[i] += a; if (f.essential) essential[i] += a; }
+  }
   for (const it of P.incomes) {
     const from = Math.max(0, it.start_age * 12 - P.now_months);
     const to = it.end_age === null ? n : Math.min(n, it.end_age * 12 - P.now_months);
@@ -83,6 +94,11 @@ export function savingsOf(P: Plan): Float64Array {
     let cents = P.saving_cents;
     if (phases) { while (k + 1 < phases.length && phases[k + 1].from_month <= P.now_months + t) k++; cents = phases[k].cents; }
     s[t] = cents * g ** Math.floor(t / 12);
+  }
+  const infl = 1 + rate(P.inflation_hundredths);
+  for (const f of P.saving_flows ?? []) {
+    const from = Math.max(0, f.from_month - P.now_months), to = f.to_month === null ? n : Math.min(n, f.to_month - P.now_months);
+    for (let t = from; t < to; t++) s[t] += f.nominal ? f.cents / infl ** (t / 12) : f.cents;
   }
   savingSeries.set(P, s);
   return s;
@@ -142,6 +158,8 @@ export type Row = {
   /** 国家养老金与收入流合计（不含一次性解锁）。 */
   income: number; unlock: number;
   spend: number; essential: number;
+  /** 当年发生的大额一次性支出（心愿、买房首付、买车等）。 */
+  oneoff: number;
   withdrawal: number; unfunded: number; essential_unfunded: number;
 };
 
@@ -182,10 +200,11 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
   for (let t = 0; t < N; t++) {
     const m = P.now_months + t;
     if (t % 12 === 0) {
-      row = { k: t / 12, start_month: m, age: Math.floor(P.now_months / 12) + t / 12, year: rowYear(todayYear, t / 12), phase: retire === null ? 'accumulation' : 'retired', start: a, end: a, contribution: 0, income: 0, unlock: 0, spend: 0, essential: 0, withdrawal: 0, unfunded: 0, essential_unfunded: 0 };
+      row = { k: t / 12, start_month: m, age: Math.floor(P.now_months / 12) + t / 12, year: rowYear(todayYear, t / 12), phase: retire === null ? 'accumulation' : 'retired', start: a + (t === 0 ? oneOff.get(0) ?? 0 : 0), end: a, contribution: 0, income: 0, unlock: 0, spend: 0, essential: 0, oneoff: 0, withdrawal: 0, unfunded: 0, essential_unfunded: 0 };
       rows.push(row);
     }
     const r = row!;
+    if (t === 0) r.oneoff += oneOff.get(0) ?? 0;
     if (retire === null) {
       const req = reqArr[t];
       const ok = a >= req;
@@ -220,7 +239,9 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
       if (essentialGap > 0) { r.essential_unfunded += essentialGap; if (shortfall === null && essentialGap > Math.max(100, spend * 0.001)) shortfall = m; }
       if (a <= 0 && failure === null && gap > 0) failure = m;
     }
-    a -= oneOff.get(t + 1) ?? 0;
+    const out = oneOff.get(t + 1) ?? 0;
+    a -= out;
+    r.oneoff += out;
     r.end = a;
   }
   assets[N] = a;

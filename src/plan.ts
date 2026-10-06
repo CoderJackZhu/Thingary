@@ -139,13 +139,20 @@ export type StoredSpendItem = { id: string; label: string; monthly_cents: string
 export type StoredIncomeItem = { id: string; label: string; monthly_cents: string; start_age: number; end_age: number | null; indexed: boolean };
 /** 储蓄阶段：从该年龄（月）起每月存多少（分，可为负＝动用存款）；第一段从现在起，存 0。 */
 export type StoredSavingPhase = { id: string; label: string; from_age_months: number; monthly_cents: number };
+/** 大额计划（买房、买车、其他）：金额是今天的钱（整数分字符串），date 是计划购买月份。 */
+export type StoredLifeEvent = {
+  id: string; label: string; kind: 'house' | 'car' | 'other'; date: string; included: boolean;
+  price_cents: string; down_cents: string; extra_cents: string; loan_rate_hundredths: number; loan_years: number;
+  holding_cents: string; rent_saved_cents: string; cycle_years: number | null; until_age: number | null; resale_cents: string;
+};
 export type RetireInputs = {
   spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number;
   mode: 'fire' | 'traditional'; target_age: number; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[]; saving_phases: StoredSavingPhase[];
   /** 工作年份里平均有多大比例的月份没有收入（万分比）；只作用于有收入的储蓄阶段。 */
   gap_share_hundredths: number;
+  life_events: StoredLifeEvent[];
 };
-export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0 };
+export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0, life_events: [] };
 export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides; retire: RetireInputs };
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string } | null };
 

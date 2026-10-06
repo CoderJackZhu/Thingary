@@ -1,0 +1,100 @@
+// 大额计划（买房、买车、其他）：把一件事拆成一次性现金支出（首付、杂费、换车净支出）和持续的月度收支流
+// （月供、持有成本、不再付的房租），并入同一个退休账本，不另起一套计算。纯函数，全程今天的钱。
+import { project, savingsOf } from './plan-ledger.ts';
+import type { Flow, Plan } from './plan-ledger.ts';
+import type { Spend } from './plan-fire.ts';
+
+export type EventKind = 'house' | 'car' | 'other';
+/** 金额一律是今天的钱（分）。house：总价、首付、贷款、每月物业维修、买房后不再付的月房租。car：总价、每月养车费、换车周期、每次卖旧车回收。 */
+export type LifeEvent = {
+  id: string; label: string; kind: EventKind;
+  /** 计划购买月份 YYYY-MM。 */
+  date: string;
+  /** 计入规划；关掉就当没有这件事（仍保留，方便比较）。 */
+  included: boolean;
+  price_cents: number; down_cents: number; extra_cents: number;
+  loan_rate_hundredths: number; loan_years: number;
+  holding_cents: number; rent_saved_cents: number;
+  cycle_years: number | null; until_age: number | null; resale_cents: number;
+};
+
+export const monthIndex = (d: string) => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - 1;
+/** 计划月份距今天的月数；早于本月按本月算。 */
+export const offsetOf = (date: string, today: string) => Math.max(0, monthIndex(date) - monthIndex(today));
+
+type Ctx = Pick<Plan, 'now_months' | 'horizon_months' | 'inflation_hundredths'>;
+export type EventParts = { spends: Spend[]; saving_flows: Flow[]; spend_flows: Flow[]; principal_cents: number; payment_cents: number; loan_months: number };
+
+/** 等额本息月供（名义）：本金、年利率（万分比）、期数；利率为 0 时平均分。 */
+export function monthlyPayment(principal: number, rateHundredths: number, months: number): number {
+  if (principal <= 0 || months <= 0) return 0;
+  const r = rateHundredths / 10000 / 12;
+  return r === 0 ? principal / months : (principal * r) / (1 - (1 + r) ** -months);
+}
+
+export function eventParts(c: Ctx, e: LifeEvent, offset: number): EventParts {
+  const m0 = c.now_months + offset, infl = 1 + c.inflation_hundredths / 10000;
+  const down = Math.min(e.down_cents, e.price_cents), real = e.price_cents - down;
+  const spends: Spend[] = [{ offset_months: offset, cents: down + e.extra_cents }];
+  const saving_flows: Flow[] = [], spend_flows: Flow[] = [];
+  const both = (label: string, from: number, to: number | null, cents: number, nominal: boolean, essential: boolean) => {
+    saving_flows.push({ label, from_month: from, to_month: to, cents: -cents, nominal, essential });
+    spend_flows.push({ label, from_month: from, to_month: to, cents, nominal, essential });
+  };
+  // 贷款：本金按购买那天的名义价格算，月供固定名义金额，到期结束。
+  const principal = real * infl ** (offset / 12), n = Math.round(e.loan_years * 12);
+  const pay = monthlyPayment(principal, e.loan_rate_hundredths, n);
+  if (pay > 0) both(`${e.label}月供`, m0, m0 + n, pay, true, true);
+  const until = e.until_age === null ? null : e.until_age * 12;
+  if (e.holding_cents > 0) both(`${e.label}${e.kind === 'car' ? '养车' : '持有成本'}`, m0, e.kind === 'car' ? until : null, e.holding_cents, false, e.kind === 'house');
+  if (e.rent_saved_cents > 0) saving_flows.push({ label: `${e.label}省下的房租`, from_month: m0, to_month: null, cents: e.rent_saved_cents, nominal: false, essential: false });
+  if (e.cycle_years !== null && e.cycle_years > 0) {
+    const end = until ?? c.horizon_months, step = e.cycle_years * 12;
+    for (let k = 1; m0 + k * step < end; k++) spends.push({ offset_months: offset + k * step, cents: Math.max(0, e.price_cents - e.resale_cents) });
+  }
+  return { spends, saving_flows, spend_flows, principal_cents: principal, payment_cents: pay, loan_months: pay > 0 ? n : 0 };
+}
+
+/** 把这些事件并入计划（不改原计划）。events 里的 offset 由调用方按今天算好。 */
+export function applyEvents(P: Plan, events: { e: LifeEvent; offset: number }[]): Plan {
+  let spends = [...P.spends], sf = [...(P.saving_flows ?? [])], pf = [...(P.spend_flows ?? [])];
+  for (const { e, offset } of events) { const x = eventParts(P, e, offset); spends = spends.concat(x.spends); sf = sf.concat(x.saving_flows); pf = pf.concat(x.spend_flows); }
+  return { ...P, spends, saving_flows: sf, spend_flows: pf };
+}
+
+export type EventImpact = {
+  base_fi: number | null; with_fi: number | null;
+  /** 财务独立推迟的月数；任一边没达成时为 null。 */
+  delay_months: number | null;
+  /** 首付、杂费与应急金线合计；计划日期时的可支配资产（不含这件事）；差多少（够则 0）；最早哪个月（距今月数）够。 */
+  cash_needed: number; assets_at_date: number; short: number; earliest_offset: number | null;
+  /** 名义月供；买后那个月的每月储蓄（今天的钱）；每月储蓄不为正说明要靠收入支撑。 */
+  payment_nominal: number; saving_after: number; saving_not_positive: boolean;
+  /** 若改在 5、7、10 年后买，财务独立推迟多少月。 */
+  sweep: { years: number; delay_months: number | null }[];
+};
+
+const delay = (a: number | null, b: number | null) => (a !== null && b !== null ? b - a : null);
+
+/** 只算这一件事（其他事件不发生）：对财务独立的影响、付不付得起首付、月供压力。P0 是不含任何事件的计划。 */
+export function eventImpact(P0: Plan, e: LifeEvent, offset: number, emergencyCents: number): EventImpact {
+  const base = project(P0, 0), withE = project(applyEvents(P0, [{ e, offset }]), 0);
+  const need = Math.min(e.down_cents, e.price_cents) + e.extra_cents + emergencyCents;
+  const at = base.assets[Math.min(offset, base.assets.length - 1)];
+  let earliest: number | null = null;
+  for (let t = 0; t < base.assets.length; t++) if (base.assets[t] >= need) { earliest = t; break; }
+  const parts = eventParts(P0, e, offset), P1 = applyEvents(P0, [{ e, offset }]);
+  const sv = savingsOf(P1), after = sv[Math.min(offset, sv.length - 1)] ?? 0;
+  return {
+    base_fi: base.fi_month, with_fi: withE.fi_month, delay_months: delay(base.fi_month, withE.fi_month),
+    cash_needed: need, assets_at_date: at, short: Math.max(0, need - at), earliest_offset: earliest,
+    payment_nominal: parts.payment_cents, saving_after: after, saving_not_positive: after <= 0 && (parts.payment_cents > 0 || e.holding_cents > 0),
+    sweep: [5, 7, 10].map(years => { const o = years * 12, w = project(applyEvents(P0, [{ e, offset: o }]), 0); return { years, delay_months: delay(base.fi_month, w.fi_month) }; }),
+  };
+}
+
+/** 全部计入的事件一起发生：FI 月份的变化。 */
+export function totalImpact(P0: Plan, events: { e: LifeEvent; offset: number }[]) {
+  const base = project(P0, 0), all = project(applyEvents(P0, events), 0);
+  return { base_fi: base.fi_month, with_fi: all.fi_month, delay_months: delay(base.fi_month, all.fi_month) };
+}

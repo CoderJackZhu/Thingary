@@ -107,21 +107,21 @@ function Coverage({ calc, mode }: { calc: Ready; mode: ValueMode }) {
         {c.draw_rate !== null && <span className="rd-right">从投资组合提取：{rateText(Math.round(c.draw_rate * 10000))}/年<Info text="此年龄段的投资组合总提取额除以预计投资组合价值。仅供参考——它不设定你的支出。"/></span>}</p>
       {c.income_items.every(i => !i.active) && c.next_income_age !== null && <p className="muted small">{c.age} 岁时无生效收入；首笔收入始于 {c.next_income_age} 岁。</p>}
       <div className="rd-schedules">
-        <section><h4>支出计划表</h4><ul>{c.spend_items.map(i => <li key={i.id} className={i.active ? undefined : 'inactive'}><span>{i.label}<small>{i.start} → {i.end}{i.active ? '' : ' · 未生效'}</small></span><i className="ui-tag">{i.essential ? '必需' : '灵活'}</i><b>{fmt(i.monthly)}/月</b></li>)}</ul></section>
+        <section><h4>支出计划表</h4><ul>{[...c.spend_items, ...c.flow_items].map(i => <li key={i.id} className={i.active ? undefined : 'inactive'}><span>{i.label}<small>{i.start} → {i.end}{i.active ? '' : ' · 未生效'}</small></span><i className="ui-tag">{i.essential ? '必需' : '灵活'}</i><b>{fmt(i.monthly)}/月</b></li>)}</ul></section>
         <section><h4>收入计划表</h4>{c.income_items.length === 0 ? <p className="muted small">未配置退休收入。国家养老金需先在养老金页填写个人资料。</p> : <ul>{c.income_items.map(i => <li key={i.id} className={i.active ? undefined : 'inactive'}><span>{i.label}<small>{i.start} → {i.end}{i.active ? '' : ' · 未生效'}</small></span><b>{fmt(i.monthly)}/月</b></li>)}</ul>}</section>
       </div></>}
   </article>;
 }
 
 function Snapshot({ calc, mode, rows }: { calc: Ready; mode: ValueMode; rows: ReturnType<typeof snapshotRows> }) {
-  const { plan: P, proj } = calc, goal = Math.floor(P.target_months / 12), hasUnlock = rows.some(r => r.unlock > 0);
+  const { plan: P, proj } = calc, goal = Math.floor(P.target_months / 12), hasUnlock = rows.some(r => r.unlock > 0), hasOneoff = rows.some(r => r.oneoff > 0);
   const marks = new Map<number, string>([[goal, '目标']]);
   if (proj.fi_month !== null) marks.set(Math.floor(proj.fi_month / 12), (marks.get(Math.floor(proj.fi_month / 12)) ? marks.get(Math.floor(proj.fi_month / 12)) + ' · ' : '') + 'FI');
   if (proj.retire_month !== null) marks.set(Math.floor(proj.retire_month / 12), (marks.get(Math.floor(proj.retire_month / 12)) ? marks.get(Math.floor(proj.retire_month / 12)) + ' · ' : '') + '退休');
   return <article className="ui-card rd-card" aria-label="逐年快照">
     <div className="rd-head"><div><p className="eyebrow">表格</p><h3>逐年快照</h3></div><span className="muted small">金额按{valueModeLabel[mode]}</span></div>
-    <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="逐年快照表"><table className="ui-table rd-table"><thead><tr><th>年龄</th><th>年份</th><th>阶段</th><th className="amount">期末投资组合</th><th className="amount">供款/年</th><th className="amount">退休收入/年</th>{hasUnlock && <th className="amount">一次性解锁</th>}<th className="amount">计划支出/年</th><th className="amount">投资组合提取/年</th></tr></thead>
-      <tbody>{rows.map(r => <tr key={r.age} className={marks.has(r.age) ? 'selected' : undefined}><td>{r.age}{marks.has(r.age) && <span className="ui-tag">{marks.get(r.age)}</span>}</td><td>{r.year}</td><td>{r.phase === 'retired' ? '退休' : '积累'}</td><td className="amount">{yuan(r.end)}</td><td className="amount">{r.contribution ? yuan(r.contribution) : '—'}</td><td className="amount">{r.income ? yuan(r.income) : '—'}</td>{hasUnlock && <td className="amount">{r.unlock ? yuan(r.unlock) : '—'}</td>}<td className="amount">{r.spend ? yuan(r.spend) : '—'}</td><td className="amount">{r.withdrawal ? yuan(r.withdrawal) : '—'}{r.unfunded > 0 && <small className="warn"> 缺 {yuan(r.unfunded)}</small>}</td></tr>)}</tbody></table></div>
+    <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="逐年快照表"><table className="ui-table rd-table"><thead><tr><th>年龄</th><th>年份</th><th>阶段</th><th className="amount">期末投资组合</th><th className="amount">供款/年</th><th className="amount">退休收入/年</th>{hasUnlock && <th className="amount">一次性解锁</th>}{hasOneoff && <th className="amount">大额一次性</th>}<th className="amount">计划支出/年</th><th className="amount">投资组合提取/年</th></tr></thead>
+      <tbody>{rows.map(r => <tr key={r.age} className={marks.has(r.age) ? 'selected' : undefined}><td>{r.age}{marks.has(r.age) && <span className="ui-tag">{marks.get(r.age)}</span>}</td><td>{r.year}</td><td>{r.phase === 'retired' ? '退休' : '积累'}</td><td className="amount">{yuan(r.end)}</td><td className="amount">{r.contribution ? yuan(r.contribution) : '—'}</td><td className="amount">{r.income ? yuan(r.income) : '—'}</td>{hasUnlock && <td className="amount">{r.unlock ? yuan(r.unlock) : '—'}</td>}{hasOneoff && <td className="amount">{r.oneoff ? yuan(r.oneoff) : '—'}</td>}<td className="amount">{r.spend ? yuan(r.spend) : '—'}</td><td className="amount">{r.withdrawal ? yuan(r.withdrawal) : '—'}{r.unfunded > 0 && <small className="warn"> 缺 {yuan(r.unfunded)}</small>}</td></tr>)}</tbody></table></div>
     <p className="muted small">国家养老金与收入流合并在「退休收入」；公积金与个人养老金在领取年龄一次性解锁，单列一栏。起点是当前盘点，逐月推演后按年汇总。</p>
   </article>;
 }

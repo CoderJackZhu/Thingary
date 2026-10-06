@@ -16,7 +16,7 @@ type Saved = NonNullable<ProfileState['saved']>;
 type Section = 'plan' | 'saving' | 'spend' | 'income' | 'assume' | null;
 
 /** 保存退休假设与通胀、工资增长（后两者属于 assumptions）。返回是否保存成功。 */
-function useSaver(state: ProfileState, reload: () => void, onPending: () => void) {
+export function useSaver(state: ProfileState, reload: () => void, onPending: () => void) {
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   async function save(retire: RetireInputs, assumptions?: Assumptions): Promise<boolean> {
     const saved = state.saved as Saved;
@@ -159,7 +159,7 @@ function SpendCard({ r, nowAge, derived, editing, saver, onEdit, onCancel, onSav
     setErr(''); onSave({ ...r, spend_cents: living === '' ? null : living, spend_items: out });
   }
   const monthly = (i: StoredSpendItem) => `${yuan(Number(i.monthly_cents))}/月`;
-  return <Card kicker="支出" title="退休支出" tip="金额按今天的物价，每月。必需支出优先于灵活支出得到保障；留空起始年龄表示从退休开始；独立通胀可以让医疗等项目涨得比总体通胀快。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
+  return <Card kicker="支出" title="退休支出" tip="金额按今天的物价，每月。「日常生活」请不要含房租、房贷和车，它们由目标页的大额计划来出。必需支出优先于灵活支出得到保障；留空起始年龄表示从退休开始；独立通胀可以让医疗等项目涨得比总体通胀快。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
     read={<ul className="rs-list"><li><span>日常生活<small>退休起 · 终身 · 必需</small></span><b>{r.spend_cents === null ? '待填写' : yuan(Number(r.spend_cents)) + '/月'}</b></li>
       {r.spend_items.map(i => <li key={i.id}><span>{i.label}<small>{i.start_age ?? '退休'}{i.start_age === null ? '' : ' 岁'} → {i.end_age === null ? '终身' : `${i.end_age} 岁`} · {i.essential ? '必需' : '灵活'}{i.inflation_hundredths !== null ? ` · ${rateText(i.inflation_hundredths)} 通胀` : ''}</small></span><b>{monthly(i)}</b></li>)}</ul>}
     edit={<div className="rs-form">

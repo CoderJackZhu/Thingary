@@ -52,7 +52,8 @@ export const isReady = (calc: RetireCalc | null): calc is Ready => !!calc && cal
 export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
   const P = calc.plan, now = P.now_months;
   const events = spends.filter(s => s.offset_months !== null).map(toSpend);
-  const base = project({ ...P, spends: [] }, 0), withSpend = project({ ...P, spends: events }, 0);
+  // 基线是「已计入的大额计划都发生、这些心愿不发生」；心愿叠加在其上。
+  const base = project(P, 0), withSpend = project({ ...P, spends: [...P.spends, ...events] }, 0);
   const first = events.length ? Math.min(...events.map(e => e.offset_months)) : 0, last = Math.min(Math.max(0, ...events.map(e => e.offset_months)), base.assets.length - 1);
   const line = calc.r.emergency_months * P.items[0].monthly_cents;
   return {

@@ -1,9 +1,11 @@
 // 退休与 FIRE 的输入汇总与计算（纯函数）：目标卡片、详情页与心愿详情共用，结果不存库。
 import { fundsFrom } from './plan.ts';
-import type { Income, PlanReview, ProfileState } from './plan.ts';
+import type { Income, PlanReview, ProfileState, StoredLifeEvent } from './plan.ts';
 import { beijing, effectiveParams } from './plan-params.ts';
 import { emergency, pensionTable } from './plan-fire.ts';
 import { ageMonthsAt, startAgeMonths } from './plan-pension.ts';
+import { applyEvents, offsetOf } from './plan-events.ts';
+import type { LifeEvent } from './plan-events.ts';
 import { outcome, project } from './plan-ledger.ts';
 import type { Plan, SpendItem } from './plan-ledger.ts';
 import type { Snapshot } from './wealth.ts';
@@ -40,12 +42,15 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
     if (saving === null) missing.push('还没有常态月储蓄：需要至少两次完整盘点并记录月度收入，或者在「储蓄阶段」里直接填写每月储蓄。');
     if (spend === null) missing.push('请填写退休后月预算；历史支出仅作参考，不会自动成为退休预算。');
     if (r.horizon_age * 12 < now + 12) missing.push('规划终点年龄至少要比当前年龄晚一年，请在计划输入里调整。');
-    if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, emergency: undefined, plan: undefined, proj: undefined, out: undefined };
+    if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, emergency: undefined, plan: undefined, plan0: undefined, events: [] as LifeEvent[], proj: undefined, out: undefined };
     const horizon = r.horizon_age * 12;
-    const plan = retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start)) });
+    const plan0 = retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start)) });
+    // 大额计划：计入的并进同一个账本；plan0 是不含任何计划的版本，用来逐件比较影响。
+    const events = r.life_events.map(toEvent);
+    const plan = applyEvents(plan0, events.filter(e => e.included).map(e => ({ e, offset: offsetOf(e.date, today) })));
     const proj = project(plan, Number(today.slice(0, 4)));
     return {
-      p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, plan, proj, out: outcome(plan, proj),
+      p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, plan, plan0, events, proj, out: outcome(plan, proj),
       emergency: emergency(assets, spend, r.emergency_months),
     };
 }
@@ -78,3 +83,12 @@ export const expectedSaving = (cents: number, gapHundredths: number, livingCents
   const g = gapHundredths / 10000;
   return Math.round((1 - g) * cents - g * livingCents);
 };
+
+/** 存储形态（金额为整数分字符串）转成引擎用的数字。 */
+export const toEvent = (e: StoredLifeEvent): LifeEvent => ({
+  id: e.id, label: e.label, kind: e.kind, date: e.date, included: e.included,
+  price_cents: Number(e.price_cents), down_cents: Number(e.down_cents), extra_cents: Number(e.extra_cents),
+  loan_rate_hundredths: e.loan_rate_hundredths, loan_years: e.loan_years,
+  holding_cents: Number(e.holding_cents), rent_saved_cents: Number(e.rent_saved_cents),
+  cycle_years: e.cycle_years, until_age: e.until_age, resale_cents: Number(e.resale_cents),
+});

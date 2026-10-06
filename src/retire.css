@@ -184,3 +184,12 @@
 .rd-checkpoints h4 { margin: 0 0 6px; font-size: 13px; }
 .rd-checkpoints p { margin: 6px 0; font-size: 13px; line-height: 1.8; }
 .rd-checkpoints strong.good { color: var(--positive); } .rd-checkpoints strong.warn { color: var(--error); }
+
+/* 大额计划表 */
+.plan-event-table td { vertical-align: top; }
+.plan-event-table small { display: block; margin-top: 2px; line-height: 1.5; white-space: normal; }
+.plan-event-table small.warn, .plan-event-table .warn { color: var(--error); }
+.plan-event-table td.rs-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.plan-event-table tr.closed td { opacity: .6; }
+.plan-events .ui-section-head .rs-presets { max-width: 60%; justify-content: flex-end; }
+.plan-events .plan-table-scroll { overflow-y: hidden; }

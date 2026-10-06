@@ -4,6 +4,7 @@ import { ageText, rateText } from './plan';
 import type { Income, PlanReview } from './plan';
 import { monthsLeftText, progressHundredths } from './plan-fire';
 import { required } from './plan-ledger';
+import { PlanningEvents } from './PlanningEvents';
 import { PlanningWishes } from './PlanningWishes';
 import { RetireDetail, isReady, useRetirePlan } from './PlanningRetire';
 import './planning.css';
@@ -53,6 +54,7 @@ export function PlanningGoals({ today, review, incomes, onEditingChange, onPendi
       </div>}
       {!ready && <div className="plan-goal-next" role="status">{calc ? <ul>{calc.missing.map(m => <li key={m}>{m}</li>)}</ul> : <p>先在养老金页填写出生年月与缴费资料，再设置月预算。购买计划可以先查看。</p>}</div>}
     </article>
+    <PlanningEvents plan={plan} today={today} onEditingChange={onEditingChange} onPending={onPending}/>
     <PlanningWishes calc={calc} today={today}/>
   </div>;
 }

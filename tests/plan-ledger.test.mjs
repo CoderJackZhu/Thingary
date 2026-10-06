@@ -61,7 +61,7 @@ test('a large unlock early on does not hide the shortfall before it arrives', ()
 test('rows conserve money at zero return and a plan funded exactly to its requirement ends at zero', () => {
   const P0 = plan({ pension_at: withPension, target_months: 720, assets_cents: 50_000 });
   const proj = project(P0, 2026);
-  for (const r of proj.rows) assert.ok(Math.abs(r.end - (r.start + r.contribution + r.unlock + r.income - r.spend + r.unfunded)) < 1e-6, `row ${r.k}`);
+  for (const r of proj.rows) assert.ok(Math.abs(r.end - (r.start + r.contribution + r.unlock + r.income - r.spend + r.unfunded - r.oneoff)) < 1e-6, `row ${r.k}`);
   const P = plan({ pension_at: withPension, target_months: 360 });
   const funded = { ...P, assets_cents: required(P, 360) };
   const p2 = project(funded, 2026);
@@ -131,4 +131,24 @@ test('coast checkpoint: the balance needed at a month grows into the goal requir
   assert.ok(Math.abs(coastAt(P, 480) * (1.03) ** ((600 - 480) / 12) - required(P, 600)) < 1e-4);
   assert.equal(coastAt(P, 360), coastAmount(P));
   assert.equal(coastAt(P, 700), required(P, 600));
+});
+
+test('flows: spending flows raise the need only while active; nominal flows lose value with inflation; saving flows add to or take from the monthly saving', () => {
+  const P = plan({ spend_flows: [{ label: '月供', from_month: 720, to_month: 780, cents: 400, nominal: false, essential: true }] });
+  assert.equal(required(P, 720), 1000 * 360 + 400 * 60);
+  assert.equal(required(P, 780), 1000 * 300);
+  const nominal = plan({ spend_flows: [{ label: '月供', from_month: 720, to_month: 722, cents: 1000, nominal: true, essential: true }] });
+  const infl = 1.02;
+  assert.ok(Math.abs(required(nominal, 720) - (1000 * 360 + 1000 / infl ** ((720 - 360) / 12) + 1000 / infl ** ((721 - 360) / 12))) < 1e-6);
+  const S = plan({ saving_flows: [{ label: '月供', from_month: 372, to_month: 384, cents: -600, nominal: false, essential: true }, { label: '省房租', from_month: 378, to_month: null, cents: 100, nominal: false, essential: false }] });
+  const s = savingsOf(S);
+  assert.deepEqual([s[0], s[12], s[17], s[18], s[23], s[24], s[100]], [1000, 400, 400, 500, 500, 1100, 1100]);
+});
+
+test('one-off spends appear in their year row and rows still conserve money', () => {
+  const P = plan({ target_months: 2000, mode: 'traditional', assets_cents: 50_000, spends: [{ offset_months: 0, cents: 1000 }, { offset_months: 14, cents: 7000 }] });
+  const proj = project(P, 2026);
+  assert.deepEqual([proj.rows[0].oneoff, proj.rows[1].oneoff], [1000, 7000]);
+  for (const r of proj.rows) assert.ok(Math.abs(r.end - (r.start + r.contribution + r.unlock + r.income - r.spend + r.unfunded - r.oneoff)) < 1e-6, `row ${r.k}`);
+  assert.equal(proj.rows[0].start, 50_000);
 });

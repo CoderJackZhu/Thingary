@@ -5,7 +5,8 @@ use rusqlite::Connection;
 use thingary_lib::{
     domain::Error,
     plan_profile::{
-        Assumptions, IncomeItem, Overrides, Profile, ProfileSave, Retire, SavingPhase, SpendItem,
+        Assumptions, IncomeItem, LifeEvent, Overrides, Profile, ProfileSave, Retire, SavingPhase,
+        SpendItem,
     },
     storage::{migrate_to, Store, SCHEMA, SCHEMA_VERSION},
 };
@@ -439,4 +440,74 @@ fn saving_phases_are_ordered_bounded_and_may_be_negative() {
         let got = p.validate(TODAY).err().map(|e| e.code).unwrap_or_default();
         assert_eq!(got, want, "case {i}");
     }
+}
+
+fn event(id: &str) -> LifeEvent {
+    LifeEvent {
+        id: id.into(),
+        label: "买房".into(),
+        kind: "house".into(),
+        date: "2033-10".into(),
+        included: true,
+        price_cents: "45000000".into(),
+        down_cents: "15000000".into(),
+        extra_cents: "1000000".into(),
+        loan_rate_hundredths: 350,
+        loan_years: 30,
+        holding_cents: "150000".into(),
+        rent_saved_cents: "270000".into(),
+        cycle_years: None,
+        until_age: None,
+        resale_cents: "0".into(),
+    }
+}
+
+#[test]
+fn life_events_are_validated_and_round_trip() {
+    type Change = Box<dyn Fn(&mut LifeEvent)>;
+    let cases: Vec<(Change, &str)> = vec![
+        (Box::new(|_| {}), ""),
+        (
+            Box::new(|e| {
+                e.kind = "car".into();
+                e.cycle_years = Some(5);
+                e.until_age = Some(60);
+            }),
+            "",
+        ),
+        (Box::new(|e| e.kind = "boat".into()), "PROFILE_RETIRE"),
+        (Box::new(|e| e.date = "2033-13".into()), "PROFILE_RETIRE"),
+        (Box::new(|e| e.date = "2033-1".into()), "PROFILE_RETIRE"),
+        (Box::new(|e| e.price_cents = "0".into()), "PROFILE_AMOUNT"),
+        (
+            Box::new(|e| e.down_cents = "45000001".into()),
+            "PROFILE_AMOUNT",
+        ),
+        (Box::new(|e| e.extra_cents = "-1".into()), "PROFILE_AMOUNT"),
+        (Box::new(|e| e.loan_rate_hundredths = 2001), "PROFILE_RATE"),
+        (Box::new(|e| e.loan_years = 0), "PROFILE_RETIRE"),
+        (Box::new(|e| e.cycle_years = Some(41)), "PROFILE_RETIRE"),
+        (Box::new(|e| e.until_age = Some(121)), "PROFILE_RETIRE"),
+        (Box::new(|e| e.label = " ".into()), "PROFILE_RETIRE"),
+    ];
+    for (i, (change, want)) in cases.into_iter().enumerate() {
+        let mut p = profile();
+        p.retire.life_events = vec![event("a")];
+        change(&mut p.retire.life_events[0]);
+        let got = p.validate(TODAY).err().map(|e| e.code).unwrap_or_default();
+        assert_eq!(got, want, "case {i}");
+    }
+    let mut dup = profile();
+    dup.retire.life_events = vec![event("a"), event("a")];
+    assert_eq!(dup.validate(TODAY).unwrap_err().code, "PROFILE_RETIRE");
+    let mut many = profile();
+    many.retire.life_events = (0..21).map(|n| event(&format!("e{n}"))).collect();
+    assert_eq!(many.validate(TODAY).unwrap_err().code, "PROFILE_RETIRE");
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("lib")).unwrap();
+    let mut ok = profile();
+    ok.retire.life_events = vec![event("a"), event("b")];
+    s.plan_profile_save(&save(&s, ok.clone(), None), TODAY)
+        .unwrap();
+    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, ok);
 }

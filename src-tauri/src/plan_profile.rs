@@ -69,6 +69,33 @@ pub struct SavingPhase {
     pub monthly_cents: i64,
 }
 
+/// A big plan on the timeline (house, car, other): one purchase month, cash
+/// outlay, optional loan, running costs. All amounts are today's money in cents
+/// as strings; the front end turns them into one-off outlays and monthly flows
+/// inside the same retirement ledger.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LifeEvent {
+    pub id: String,
+    pub label: String,
+    /// `house`, `car` or `other`.
+    pub kind: String,
+    /// Planned purchase month, `YYYY-MM`.
+    pub date: String,
+    /// Counted in the plan; off keeps it for comparison.
+    pub included: bool,
+    pub price_cents: String,
+    pub down_cents: String,
+    pub extra_cents: String,
+    pub loan_rate_hundredths: i32,
+    pub loan_years: u32,
+    pub holding_cents: String,
+    pub rent_saved_cents: String,
+    pub cycle_years: Option<u32>,
+    pub until_age: Option<u32>,
+    pub resale_cents: String,
+}
+
 const MAX_ITEMS: usize = 20;
 const MAX_PHASES: usize = 30;
 const MAX_SAVING_CENTS: i64 = 100_000_000;
@@ -100,6 +127,8 @@ pub struct Retire {
     /// Average share of working time without income (job changes, layoffs), in
     /// hundredths of a percent; the plan weighs positive phases by it.
     pub gap_share_hundredths: i32,
+    /// Big plans: house, car, other.
+    pub life_events: Vec<LifeEvent>,
 }
 impl Default for Retire {
     fn default() -> Self {
@@ -116,6 +145,7 @@ impl Default for Retire {
             income_items: Vec::new(),
             saving_phases: Vec::new(),
             gap_share_hundredths: 0,
+            life_events: Vec::new(),
         }
     }
 }
@@ -212,6 +242,50 @@ impl Retire {
         }
         if self.saving_phases.len() > MAX_PHASES {
             return Err(bad("PROFILE_RETIRE", "储蓄阶段最多 30 段"));
+        }
+        if self.life_events.len() > MAX_ITEMS {
+            return Err(bad("PROFILE_RETIRE", "大额计划最多 20 个"));
+        }
+        let mut event_ids = std::collections::HashSet::new();
+        for e in &self.life_events {
+            if e.id.is_empty()
+                || e.id.len() > 40
+                || e.label.trim().is_empty()
+                || e.label.chars().count() > 40
+            {
+                return Err(bad("PROFILE_RETIRE", "大额计划须有名称（不超过 40 字）"));
+            }
+            if !event_ids.insert(e.id.as_str()) {
+                return Err(bad("PROFILE_RETIRE", "大额计划的标识不能重复"));
+            }
+            if !["house", "car", "other"].contains(&e.kind.as_str()) {
+                return Err(bad("PROFILE_RETIRE", "大额计划类型须是买房、买车或其他"));
+            }
+            if e.date.len() != 7
+                || date(&format!("{}-01", e.date))
+                    .map(|d| d.format("%Y-%m").to_string() != e.date)
+                    .unwrap_or(true)
+            {
+                return Err(bad("PROFILE_RETIRE", "大额计划的日期格式应为 YYYY-MM"));
+            }
+            let price = money(&e.price_cents, true, "大额计划总价")?;
+            if money(&e.down_cents, false, "首付")? > price {
+                return Err(bad("PROFILE_AMOUNT", "首付不能高于总价"));
+            }
+            money(&e.extra_cents, false, "杂费")?;
+            money(&e.holding_cents, false, "每月持有成本")?;
+            money(&e.rent_saved_cents, false, "省下的月房租")?;
+            money(&e.resale_cents, false, "卖旧车回收")?;
+            rate(e.loan_rate_hundredths, 0, 2000, "贷款利率")?;
+            if !(1..=40).contains(&e.loan_years)
+                || e.cycle_years.is_some_and(|y| !(1..=40).contains(&y))
+                || e.until_age.is_some_and(|a| a > 120)
+            {
+                return Err(bad(
+                    "PROFILE_RETIRE",
+                    "贷款年限、换车周期须在 1 到 40 年，截止年龄不超过 120 岁",
+                ));
+            }
         }
         let mut phase_ids = std::collections::HashSet::new();
         let mut previous: Option<u32> = None;

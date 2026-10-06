@@ -130,6 +130,8 @@ export type CoverageView = {
   /** 年提取占当时组合价值的比例（万分比整数以外的小数，仅参考）；没有组合价值时为 null。 */
   draw_rate: number | null;
   spend_items: { id: string; label: string; monthly: number; start: string; end: string; essential: boolean; active: boolean }[];
+  /** 大额计划带来的持续支出（月供、持有成本），与支出计划表并列。 */
+  flow_items: { id: string; label: string; monthly: number; start: string; end: string; essential: boolean; active: boolean }[];
   income_items: { id: string; label: string; monthly: number; start: string; end: string; active: boolean }[];
   next_income_age: number | null;
 };
@@ -159,6 +161,7 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
       const real = (1 + (it.inflation_hundredths ?? P.inflation_hundredths) / 10000) / infl;
       return { id: it.id, label: it.label, monthly: active ? it.monthly_cents * real ** ((month - P.now_months) / 12) * k : 0, start: it.start_age === null ? '退休' : `${it.start_age} 岁`, end: ageOf(it.end_age), essential: it.essential, active };
     }),
+    flow_items: (P.spend_flows ?? []).map(f => { const i = month - P.now_months, active = month >= f.from_month && (f.to_month === null || month < f.to_month); return { id: f.label + f.from_month, label: f.label, monthly: active ? (f.nominal ? f.cents / infl ** (i / 12) : f.cents) * k : 0, start: `${ageInt(f.from_month)} 岁`, end: f.to_month === null ? '终身' : `${ageInt(f.to_month)} 岁`, essential: f.essential, active }; }),
     income_items: [
       ...P.incomes.map(s => ({ id: s.id, label: s.label, monthly: c.items.find(x => x.id === s.id)!.monthly * k, start: `${s.start_age} 岁`, end: ageOf(s.end_age), active: c.items.find(x => x.id === s.id)!.active })),
       ...(proj.pension && proj.pension.monthly_cents > 0 ? [{ id: 'pension', label: '国家养老金', monthly: c.pension * k, start: `${ageInt(proj.pension.unlock_age_months)} 岁`, end: '终身', active: c.pension > 0 }] : []),
@@ -168,9 +171,9 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
 }
 
 /** 逐年快照表的一行：金额按当前口径（行首月龄的通胀系数）。 */
-export type SnapshotRow = { age: number; year: number; phase: 'accumulation' | 'retired'; end: number; contribution: number; income: number; unlock: number; spend: number; withdrawal: number; unfunded: number; start_month: number };
+export type SnapshotRow = { oneoff: number; age: number; year: number; phase: 'accumulation' | 'retired'; end: number; contribution: number; income: number; unlock: number; spend: number; withdrawal: number; unfunded: number; start_month: number };
 export function snapshotRows(P: Plan, proj: Projection, mode: ValueMode): SnapshotRow[] {
-  return proj.rows.map(r => { const k = scaleAt(P, mode, r.start_month); return { age: r.age, year: r.year, phase: r.phase, end: r.end * k, contribution: r.contribution * k, income: r.income * k, unlock: r.unlock * k, spend: r.spend * k, withdrawal: r.withdrawal * k, unfunded: r.unfunded * k, start_month: r.start_month }; });
+  return proj.rows.map(r => { const k = scaleAt(P, mode, r.start_month); return { age: r.age, year: r.year, phase: r.phase, end: r.end * k, contribution: r.contribution * k, income: r.income * k, unlock: r.unlock * k, spend: r.spend * k, oneoff: r.oneoff * k, withdrawal: r.withdrawal * k, unfunded: r.unfunded * k, start_month: r.start_month }; });
 }
 
 export { durationText };
