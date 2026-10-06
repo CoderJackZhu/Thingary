@@ -166,3 +166,15 @@
 .rl-sorr td.amount, .rl-sorr th.amount { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 1100px) { .rd-grid { grid-template-columns: minmax(0, 1fr); } .rd-side { position: static; } .rl-matrices { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 720px) { .rd-milestones { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rd-schedules { grid-template-columns: minmax(0, 1fr); } .rd-hero, .rd-card { padding: 16px; } }
+
+/* 财富与规划页：不再卡在 1200px，宽屏时内容跟着变宽；概览／假设分析页签放大。 */
+.stats-section.wealth-section { max-width: none; }
+.rd-tabs { gap: 8px; margin-bottom: 18px; }
+.rd-tabs button { padding: 10px 26px; font-size: 15px; font-weight: 500; border-radius: 8px; }
+.rd-tabs button[aria-pressed=true] { font-weight: 700; }
+.rd-grid { grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 440px); }
+.rd-table th, .rd-table td { padding: 7px 10px; font-size: 13px; }
+/* 财富页的趋势图按宽度等比放大，不再被固定高度压成居中的一小块。 */
+.wealth-section .net-chart .trend-chart, .wealth-section .trend-chart { height: auto; max-height: 320px; }
+.wealth-section .review-chart .trend-chart { max-height: 320px; }
+.wealth-section .trend-chart text { font-size: 8px; }

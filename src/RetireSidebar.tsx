@@ -171,9 +171,10 @@ function AssumeCard({ r, a, editing, saver, onEdit, onCancel, onSave }: { r: Ret
   }
   const real = Math.round(((1 + a.wage_growth_hundredths / 10000) / (1 + a.inflation_hundredths / 10000) - 1) * 10000);
   const warnings = [a.inflation_hundredths > 500 && '通胀假设偏高。在该通胀率下，长期支出需求会变得更加敏感。', r.volatility_hundredths > 2500 && '波动率假设偏高。结果区间可能变得非常宽。', (r.real_return_before_hundredths > 600 || r.real_return_after_hundredths > 600) && '实际收益率假设较高。预计余额对这一比率较为敏感。', real > 300 && '供款增长假设偏高。这意味着持续大幅增加储蓄。'].filter(Boolean) as string[];
-  return <Card kicker="假设" title="预测假设" tip="全部是假设，不是事实。收益率按「扣除通胀后的实际收益」填写，费用已包含在内；货币基金为主的组合扣除通胀后通常接近 0。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
+  return <Card kicker="假设" title="预测假设" tip="全部是假设，不是事实。收益率按「扣除通胀后的实际收益」填写，费用已包含在内；货币基金为主的组合扣除通胀后通常接近 0。注意：每月供款来自净资产变化，已经包含了现有账户的利息与涨跌，所以这里不要再把同一笔收益重复计入。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
     read={<><Rows rows={[['退休前实际收益率', rateText(r.real_return_before_hundredths)], ['退休期实际收益率', rateText(r.real_return_after_hundredths)], ['年度波动率', rateText(r.volatility_hundredths)], ['通胀', rateText(a.inflation_hundredths)], ['每年供款实际增长', rateText(real)]]}/>{warnings.map(w => <p key={w} className="rs-note">{w}</p>)}</>}
     edit={<div className="rs-form">
+      <p className="rs-note">每月供款来自盘点的净资产变化，已经包含了账户现有的利息和涨跌。收益率只填「在此之外还会持续增值」的部分；以现金和货币基金为主就填 0，投资仓位变大后再按实际调整。</p>
       <div className="rs-pair"><Field label="退休前实际收益率（%）" hint="储蓄期间，扣除通胀与费用"><input aria-label="退休前实际收益率" inputMode="decimal" value={before} onChange={e => setBefore(e.target.value)}/></Field><Field label="退休期实际收益率（%）" hint="开始提取后"><input aria-label="退休后实际收益率" inputMode="decimal" value={after} onChange={e => setAfter(e.target.value)}/></Field></div>
       <Field label="年度波动率（%）" hint="实际收益围绕假设值的波动幅度，只用于假设分析的市场路径；货币基金为主填 1–3，股票占比大填 12–18。"><input aria-label="年度波动率" inputMode="decimal" value={vol} onChange={e => setVol(e.target.value)}/></Field>
       <div className="rs-pair"><Field label="通胀（%）" hint="假设的年度物价涨幅，与养老金页共用"><input aria-label="通胀" inputMode="decimal" value={infl} onChange={e => setInfl(e.target.value)}/></Field><Field label="工资增长（%）" hint="与通胀之差就是供款的实际增长，也影响养老金"><input aria-label="工资增长" inputMode="decimal" value={wage} onChange={e => setWage(e.target.value)}/></Field></div>
