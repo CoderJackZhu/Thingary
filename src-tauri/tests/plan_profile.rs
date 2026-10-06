@@ -58,7 +58,9 @@ fn profile_saves_once_then_by_revision_and_replays_requests() {
         (1, 1),
         "a retried request is a no-op"
     );
-    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, profile());
+    let saved = s.plan_profile().unwrap().saved.unwrap();
+    assert_eq!(saved.profile, profile());
+    assert!(chrono::DateTime::parse_from_rfc3339(&saved.updated_at).is_ok());
 
     // A second create (no expected revision) and a stale edit are both refused.
     assert_eq!(

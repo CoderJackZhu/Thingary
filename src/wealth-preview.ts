@@ -232,7 +232,7 @@ let planIncomes: Income[] = (params.get('plan') === 'empty' || params.get('state
 const planMarks = new Set<string>();
 let planTrash: Income[] = [];
 // 虚构个人资料（1990-06 出生的男职工，数字均为虚构）；?plan-profile=empty 为尚未填写。
-let planProfile: ProfileState['saved'] = params.get('plan-profile') === 'empty' ? null : { revision: 1, profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '1200000', marginal_tax_hundredths: 1000, assumptions: { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 }, overrides: { avg_wage_cents: null, base_lower_cents: null, base_upper_cents: null, notional_rate_hundredths: null, hpf_rate_hundredths: null }, retire: { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6 } } as StoredProfile };
+let planProfile: ProfileState['saved'] = params.get('plan-profile') === 'empty' ? null : { revision: 1, updated_at: params.get('plan-stale') === '1' ? '2026-01-02T00:00:00Z' : new Date().toISOString(), profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '1200000', marginal_tax_hundredths: 1000, assumptions: { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 }, overrides: { avg_wage_cents: null, base_lower_cents: null, base_upper_cents: null, notional_rate_hundredths: null, hpf_rate_hundredths: null }, retire: { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6 } } as StoredProfile };
 let searchPreviewAttempts = 0;
 export function searchPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command !== 'search_all') return null;
@@ -384,7 +384,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (command === 'plan_profile_save') {
       if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
       const input = args.input as ProfileSave;
-      planProfile = { profile: input.profile, revision: (planProfile?.revision ?? 0) + 1 };
+      planProfile = { profile: input.profile, revision: (planProfile?.revision ?? 0) + 1, updated_at: new Date().toISOString() };
       receipts.set(input.request_id, 'profile');
       return { value: planProfile };
     }

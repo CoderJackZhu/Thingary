@@ -137,7 +137,14 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
 export type RetireInputs = { spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number };
 export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6 };
 export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides; retire: RetireInputs };
-export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number } | null };
+export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string } | null };
+
+/** 个人资料多久没更新（整月数）；超过 STALE_MONTHS 个月提醒对一次社保记录。 */
+export const STALE_MONTHS = 6;
+export function staleMonths(updatedAt: string, today: string): number {
+  const m = (d: string) => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - 1;
+  return Math.max(0, m(today) - m(updatedAt.slice(0, 10)));
+}
 export type ProfileSave = { request_id: string; generation: string; expected_revision: number | null; profile: StoredProfile };
 
 /** 百分数输入（可带一位以上小数）转万分比整数；空或无效返回 null。 */

@@ -3,7 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
 import { CentInput, FormRow, Info } from './FormControls';
-import { ageText, defaultRetire, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText } from './plan';
+import { DateInput } from './DateInput';
+import { STALE_MONTHS, ageText, defaultRetire, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths } from './plan';
 import type { Income, ProfileSave, ProfileState, StoredProfile } from './plan';
 import { PERSONAL_PENSION_CAP_CENTS, beijing, defaultAssumptions, effectiveParams, isOverridden, noOverrides, paramSources, verifiedText } from './plan-params';
 import type { ParamKey, Overrides } from './plan-params';
@@ -51,7 +52,7 @@ export function PlanningPension({ today, incomes, onEditingChange, onPending }: 
       : !state || snapshot === undefined ? <p role="status" className="muted">正在读取个人资料…</p>
       : !saved || !calc ? <div className="empty"><span className="empty-mark">¥</span><h2>还没有个人资料</h2><p>填写出生年月、缴费情况和个人账户余额（社保 App 里可查），就能估算法定退休年龄和退休时的养老金。资料只存在本机，估算结果不会保存。</p><button className="primary" onClick={() => setEditing(true)}>填写个人资料</button></div>
       : <>
-        <Result calc={calc} quit={quit} onQuit={setQuit} onEdit={() => setEditing(true)}/>
+        <Result calc={calc} quit={quit} onQuit={setQuit} onEdit={() => setEditing(true)} updatedAt={saved.updated_at} today={today}/>
         <Table calc={calc}/>
         <Params overrides={calc.p.overrides} region={calc.region}/>
       </>}
@@ -61,10 +62,12 @@ export function PlanningPension({ today, incomes, onEditingChange, onPending }: 
 
 type Calc = { p: StoredProfile; region: ReturnType<typeof effectiveParams>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
 
-function Result({ calc, quit, onQuit, onEdit }: { calc: Calc; quit: number | 'start'; onQuit: (v: number | 'start') => void; onEdit: () => void }) {
+function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; quit: number | 'start'; onQuit: (v: number | 'start') => void; onEdit: () => void; updatedAt: string; today: string }) {
   const r = calc.main;
+  const stale = staleMonths(updatedAt, today);
   return <article className="ui-card ui-content plan-steps" aria-label="养老金估算">
     <div className="ui-section-head"><h3>养老金估算</h3><span><button type="button" className="ui-btn" onClick={onEdit}>编辑个人资料</button></span></div>
+    {stale >= STALE_MONTHS && <p className="notice" role="status">个人资料更新于 {updatedAt.slice(0, 10)}，已经 {stale} 个月没更新。累计缴费月数和个人账户余额会随缴费变化，请对一次京通再改。</p>}
     <section aria-labelledby="pension-start"><h4 id="pension-start">领取年龄</h4>
       <p><strong>{ageText(r.start_age_months)}</strong>（{r.start_month}）{calc.p.flex_months !== 0 && <span className="muted">，含弹性{calc.p.flex_months > 0 ? '延后' : '提前'} {Math.abs(calc.p.flex_months)} 个月</span>}</p>
       <label className="plan-quit">假设在这个年龄停止缴费：<select aria-label="停止缴费的年龄" value={quit === 'start' ? 'start' : String(quit)} onChange={e => onQuit(e.target.value === 'start' ? 'start' : Number(e.target.value))}>
@@ -114,7 +117,7 @@ function Params({ overrides, region }: { overrides: Overrides; region: ReturnTyp
 type Form = { birth: string; worker: Worker; paid: string; balance: string; base: string; past: string; flex: string; pp: string; tax: string; infl: string; wage: string; ppReturn: string;
   oWage: string; oLower: string; oUpper: string; oNotional: string; oHpf: string };
 const toForm = (p: StoredProfile | null): Form => ({
-  birth: p?.birth_month ?? '', worker: p?.worker ?? 'male', paid: p ? String(p.paid_months) : '', balance: p?.account_balance_cents ?? '', base: p?.base_cents ?? '',
+  birth: p ? p.birth_month + '-01' : '', worker: p?.worker ?? 'male', paid: p ? String(p.paid_months) : '', balance: p?.account_balance_cents ?? '', base: p?.base_cents ?? '',
   past: p?.past_index_hundredths == null ? '' : String(p.past_index_hundredths / 100), flex: String(p?.flex_months ?? 0), pp: p?.personal_pension_annual_cents ?? '0', tax: String(p?.marginal_tax_hundredths ?? 1000),
   infl: hundredthsToPct((p?.assumptions ?? defaultAssumptions).inflation_hundredths), wage: hundredthsToPct((p?.assumptions ?? defaultAssumptions).wage_growth_hundredths), ppReturn: hundredthsToPct((p?.assumptions ?? defaultAssumptions).pp_return_hundredths),
   oWage: p?.overrides.avg_wage_cents ?? '', oLower: p?.overrides.base_lower_cents ?? '', oUpper: p?.overrides.base_upper_cents ?? '',
@@ -130,8 +133,8 @@ function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileSt
   const frozen = busy || stuck;
   async function save() {
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
-    if (!/^\d{4}-\d{2}$/.test(f.birth)) return stop('出生年月', '请填写出生年月。');
-    if (f.birth >= today.slice(0, 7)) return stop('出生年月', '出生年月须早于本月。');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.birth)) return stop('出生日期', '请选择出生日期。');
+    if (f.birth.slice(0, 7) >= today.slice(0, 7)) return stop('出生日期', '出生日期须早于本月。');
     if (!/^\d{1,4}$/.test(f.paid)) return stop('累计缴费月数', '请填写累计缴费月数（社保 App 可查），没有就填 0。');
     if (f.balance === '') return stop('个人账户余额', '请填写个人账户余额，没有就填 0。');
     if (f.base === '') return stop('当前月缴费基数', '请填写当前月缴费基数。');
@@ -147,7 +150,7 @@ function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileSt
     const notional = rateOrNull(f.oNotional, '记账利率'); if (notional === undefined) return;
     const hpf = rateOrNull(f.oHpf, '公积金利率'); if (hpf === undefined) return;
     const profile: StoredProfile = {
-      birth_month: f.birth, worker: f.worker, region: 'beijing', paid_months: Number(f.paid), account_balance_cents: f.balance, base_cents: f.base, past_index_hundredths: past, flex_months: flex,
+      birth_month: f.birth.slice(0, 7), worker: f.worker, region: 'beijing', paid_months: Number(f.paid), account_balance_cents: f.balance, base_cents: f.base, past_index_hundredths: past, flex_months: flex,
       personal_pension_annual_cents: f.pp, marginal_tax_hundredths: Number(f.tax), assumptions: { inflation_hundredths: infl, wage_growth_hundredths: wage, pp_return_hundredths: ppr },
       overrides: { ...noOverrides, avg_wage_cents: f.oWage || null, base_lower_cents: f.oLower || null, base_upper_cents: f.oUpper || null, notional_rate_hundredths: notional, hpf_rate_hundredths: hpf },
       retire: saved?.profile.retire ?? defaultRetire,
@@ -161,14 +164,16 @@ function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileSt
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="profile-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
     <header><div><p className="eyebrow">规划 · 养老金</p><h2 id="profile-heading">个人资料</h2><p className="muted">按社保 App 当前显示的数字填写；资料只存本机，估算结果不保存。</p></div><CloseButton type="button" aria-label="关闭个人资料表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存资料'}</button>}</div></header>
     <section className="form-block">
-      <FormRow label="出生年月"><input id="profile-birth" aria-label="出生年月" type="month" value={f.birth} disabled={frozen} max={today.slice(0, 7)} onChange={e => set('birth', e.target.value)}/></FormRow>
+      <FormRow label="出生日期" hint="点日历选择；只用到年和月"><DateInput id="profile-birth" label="出生日期" value={f.birth} max={today} disabled={frozen} onChange={v => set('birth', v)}/></FormRow>
       <FormRow label="性别与职工类型" hint="决定法定退休年龄的延迟节奏"><select aria-label="性别与职工类型" value={f.worker} disabled={frozen} onChange={e => set('worker', e.target.value as Worker)}>{(Object.keys(workerText) as Worker[]).map(k => <option key={k} value={k}>{workerText[k]}</option>)}</select></FormRow>
-      <FormRow label="累计缴费月数" hint="社保 App 可查"><input aria-label="累计缴费月数" inputMode="numeric" value={f.paid} disabled={frozen} onChange={e => set('paid', e.target.value)} placeholder="例如 48"/></FormRow>
-      <FormRow label="个人账户余额" hint="社保 App 可查"><CentInput label="个人账户余额" value={f.balance} disabled={frozen} placeholder="0.00" onChange={v => set('balance', v)}/></FormRow>
-      <FormRow label="当前月缴费基数" hint="当地上下限之外按上下限计"><CentInput label="当前月缴费基数" value={f.base} disabled={frozen} placeholder="0.00" onChange={v => set('base', v)}/></FormRow>
-      <FormRow label="历史平均缴费指数" hint="缴费基数 ÷ 当年社平；留空表示与现在相同"><input aria-label="历史平均缴费指数" inputMode="decimal" value={f.past} disabled={frozen} onChange={e => set('past', e.target.value)} placeholder="例如 0.85"/></FormRow>
-      <FormRow label="弹性领取月数" hint="提前为负、延后为正，最多 36 个月"><input aria-label="弹性领取月数" inputMode="numeric" value={f.flex} disabled={frozen} onChange={e => set('flex', e.target.value)}/></FormRow>
+      <FormRow label="累计缴费月数" hint="京通「社保缴费信息」里，数缴了养老保险的月数"><input aria-label="累计缴费月数" inputMode="numeric" value={f.paid} disabled={frozen} onChange={e => set('paid', e.target.value)} placeholder="例如 48"/></FormRow>
+      <FormRow label="个人账户余额" hint="把每月个人缴的养老里记入账户的部分加起来（单位上班是 8% 的基数，灵活就业也只有 8% 进账户）；查不到可先估算，不知道就填 0"><CentInput label="个人账户余额" value={f.balance} disabled={frozen} placeholder="0.00" onChange={v => set('balance', v)}/></FormRow>
+      <FormRow label="当前月缴费基数" hint="按你接下来打算缴的填：回去上班填上班的基数，继续灵活就业填灵活的；超出当地上下限按上下限计"><CentInput label="当前月缴费基数" value={f.base} disabled={frozen} placeholder="0.00" onChange={v => set('base', v)}/></FormRow>
     </section>
+    <details className="form-block" open={f.past !== '' || f.flex !== '0'}><summary>更多（一般不用填）</summary>
+      <FormRow label="历史平均缴费指数" hint="过去各月缴费基数 ÷ 当年社平的平均；留空表示与当前基数相同。只有过去的基数和现在差得很多时才需要填"><input aria-label="历史平均缴费指数" inputMode="decimal" value={f.past} disabled={frozen} onChange={e => set('past', e.target.value)} placeholder="例如 2.5"/></FormRow>
+      <FormRow label="弹性领取月数" hint="保持 0 即可；想比较提前或延后领取时才改：提前为负、延后为正，最多 36 个月"><input aria-label="弹性领取月数" inputMode="numeric" value={f.flex} disabled={frozen} onChange={e => set('flex', e.target.value)}/></FormRow>
+    </details>
     <section className="form-block">
       <FormRow label="个人养老金每年缴存" hint={`没有开户填 0；每年最多 ${money(String(PERSONAL_PENSION_CAP_CENTS))}`}><CentInput label="个人养老金每年缴存" value={f.pp} disabled={frozen} placeholder="0.00" onChange={v => set('pp', v)}/></FormRow>
       <FormRow label="个税边际税率" hint="用于估算个人养老金每年省多少税"><select aria-label="个税边际税率" value={f.tax} disabled={frozen} onChange={e => set('tax', e.target.value)}>{taxRates.map(r => <option key={r} value={r}>{rateText(r)}</option>)}</select></FormRow>

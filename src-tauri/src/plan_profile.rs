@@ -80,6 +80,8 @@ pub struct Profile {
 pub struct Saved {
     pub profile: Profile,
     pub revision: i64,
+    /// RFC 3339 time of the last save; the page uses it to remind the user to refresh the figures.
+    pub updated_at: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -229,18 +231,19 @@ impl Profile {
 }
 
 fn read(c: &Connection) -> Result<Option<Saved>> {
-    let row: Option<(String, i64)> = c
+    let row: Option<(String, i64, String)> = c
         .query_row(
-            "SELECT payload,revision FROM plan_profile WHERE id=1",
+            "SELECT payload,revision,updated_at FROM plan_profile WHERE id=1",
             [],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
         .optional()?;
-    row.map(|(payload, revision)| {
+    row.map(|(payload, revision, updated_at)| {
         Ok(Saved {
             profile: serde_json::from_str(&payload)
                 .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?,
             revision,
+            updated_at,
         })
     })
     .transpose()
