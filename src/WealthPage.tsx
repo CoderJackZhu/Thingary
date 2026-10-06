@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
-import { CentInput, FormRow, Info, Segments, Switch } from './FormControls';
+import { CentInput, FormRow, Info, Switch } from './FormControls';
 import { Icon } from './AssetViews';
 import { assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, rateText, noteSummary, snapshotEntryInput, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
 import type { Account, AccountFields, AccountSave, Draft, EntryState, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
@@ -234,7 +234,6 @@ function AccountDialog({ account, generation, today, onClose }: { account: Accou
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('wealth-account-name')?.focus(); return () => dialog.current?.close(); }, []);
   const set = <K extends keyof AccountFields>(k: K, v: AccountFields[K]) => setFields(f => ({ ...f, [k]: v }));
-  const kinds = fields.side === 'asset' ? assetKinds : liabilityKinds;
   async function save() {
     if (!fields.name.trim()) { setNotice('请填写账户名称。'); document.getElementById('wealth-account-name')?.focus(); return; }
     const input: AccountSave = { request_id: crypto.randomUUID(), generation, id: account?.id ?? null, expected_revision: account?.revision ?? null, fields: { ...fields, name: fields.name.trim(), institution: fields.institution.trim() } };
@@ -248,8 +247,10 @@ function AccountDialog({ account, generation, today, onClose }: { account: Accou
     <section className="form-block">
       <FormRow label="名称"><input id="wealth-account-name" aria-label="账户名称" maxLength={80} value={fields.name} disabled={busy || stuck} onChange={e => set('name', e.target.value)} placeholder="例如 招行储蓄卡"/></FormRow>
       <FormRow label="平台" hint="只用于分组"><input aria-label="平台" maxLength={80} value={fields.institution} disabled={busy || stuck} onChange={e => set('institution', e.target.value)} placeholder="可留空"/></FormRow>
-      <FormRow label="方向" hint={account ? '建立后不能更改' : undefined}><Segments label="资产或负债" value={fields.side} disabled={!!account || busy || stuck} options={[{ value: 'asset', label: '资产' }, { value: 'liability', label: '负债' }]} onChange={v => setFields(f => ({ ...f, side: v, kind: v === 'asset' ? 'cash' : 'credit_card' }))}/></FormRow>
-      <FormRow label="类型"><select aria-label="类型" value={fields.kind} disabled={busy || stuck} onChange={e => set('kind', e.target.value)}>{kinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></FormRow>
+      <FormRow label="类型" hint={account ? '资产或负债建立后不能更改' : '选了类型就知道是资产还是负债：信用卡、贷款等是负债，盘点时填欠款金额'}><select aria-label="类型" value={fields.kind} disabled={busy || stuck} onChange={e => { const kind = e.target.value; setFields(f => ({ ...f, kind, side: liabilityKinds.some(([k]) => k === kind) ? 'liability' : 'asset' })); }}>
+        {(!account || fields.side === 'asset') && <optgroup label="资产">{assetKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
+        {(!account || fields.side === 'liability') && <optgroup label="负债">{liabilityKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
+      </select></FormRow>
       <FormRow label="计入金融净资产" hint={fields.side === 'liability' ? '房贷、车贷等可关闭' : undefined}><Switch label="计入金融净资产" value={fields.counted} disabled={busy || stuck} onChange={v => set('counted', v)}/></FormRow>
       <FormRow label="启用日期" hint="此日之前的盘点不要求填写"><DateInput id="wealth-account-opened" value={fields.opened_on} max={today} disabled={busy || stuck} onChange={v => set('opened_on', v)}/></FormRow>
       {account && <FormRow label="停用日期" hint="停用前最后一次盘点须为 0"><DateInput id="wealth-account-closed" value={fields.closed_on ?? ''} max={today} allowClear disabled={busy || stuck} onChange={v => set('closed_on', v || null)}/></FormRow>}

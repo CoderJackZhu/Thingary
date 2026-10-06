@@ -16,6 +16,9 @@ import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
 import type { PlanFields } from './recurring';
 import { PlanFieldsForm } from './PlanFieldsForm';
+import { RentPlanForm } from './RentPlanForm';
+import { blankRent, fieldsToRent, rentToFields } from './rent-plan';
+import type { RentForm } from './rent-plan';
 import { blankPlan, periodLabel, shiftDays, suggestedFinalDay } from './recurring-model';
 import { billingModes, billingOf, billingText, cumulativeCost, matchesFilter, paymentScheduleText, planAssociationText, renewalPayload, saveReminderWithPermission, topupSpendText, validityText, virtualFilters, virtualStatusText, virtualKindText } from './virtual';
 import type { TopupFields, TopupRecord, VirtualAsset, VirtualFields, VirtualFilter, VirtualOverview, VirtualSave, BillingMode } from './virtual';
@@ -280,7 +283,12 @@ function VirtualDialog({ item, data, today, onClose, backfill }: { backfill: boo
   const dialog = useRef<HTMLDialogElement>(null);
   const [f, setF] = useState<VirtualFields>(item ? { ...item.fields, billing: billingOf(item) } : blank());
   const legacyLink = !!item && !!item.fields.plan_id && (!item.plan || !item.plan.fields.service_start);
-  const [planFields, setPlanFields] = useState<PlanFields>(item?.plan?.fields ?? blankPlan(today));
+  const [planFieldsState, setPlanFields] = useState<PlanFields>(item?.plan?.fields ?? blankPlan(today));
+  // 订阅默认用简易表单；续费价格、特殊到期等分段设置在「更多」里，由原有字段处理，不影响能否使用简易表单。
+  const initialSimple = item?.plan ? fieldsToRent({ ...item.plan, rules: [], period_ends: {}, special_start: null, special_end: null, renewal_cents: null }) : null;
+  const [simpleState, setSimpleState] = useState<RentForm>(initialSimple ?? blankRent(today)), [forceFull, setForceFull] = useState(false);
+  const simple = !forceFull && (!item?.plan || initialSimple !== null);
+  const planFields: PlanFields = simple ? { ...planFieldsState, ...rentToFields(simpleState, planFieldsState.category || 'subscription') } : planFieldsState;
   const [firstDueTouched, setFirstDueTouched] = useState(!!item?.plan);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   const initialRenewal = item?.plan?.renewal_cents ?? '';
@@ -299,7 +307,7 @@ function VirtualDialog({ item, data, today, onClose, backfill }: { backfill: boo
   const mode = f.billing;
   const isSubscription = mode === 'subscription';
   const summary = isSubscription ? subscriptionSummary(planFields, today) : '';
-  const dirty = !!item && (renewal !== initialRenewal || renewalFrom !== (item.plan?.renewal_from ?? '') || specialOn !== !!item.plan?.special_end || specialEnd !== (item.plan?.special_end ?? '') || JSON.stringify(planFields) !== JSON.stringify(item.plan?.fields ?? null) || JSON.stringify({ ...f, billing: billingOf(item), pay_method: f.pay_method ?? null }) !== JSON.stringify({ ...item.fields, billing: billingOf(item) }));
+  const dirty = !!item && (renewal !== initialRenewal || renewalFrom !== (item.plan?.renewal_from ?? '') || specialOn !== !!item.plan?.special_end || specialEnd !== (item.plan?.special_end ?? '') || (simple ? JSON.stringify(simpleState) !== JSON.stringify(initialSimple) : JSON.stringify(planFields) !== JSON.stringify(item.plan?.fields ?? null)) || JSON.stringify({ ...f, billing: billingOf(item), pay_method: f.pay_method ?? null }) !== JSON.stringify({ ...item.fields, billing: billingOf(item) }));
   async function save() {
     if (!dialog.current?.querySelector("form")?.reportValidity()) return;
     if (!f.name.trim()) { setNotice('请填写名称。'); document.getElementById('virtual-name')?.focus(); return; }
@@ -340,6 +348,11 @@ function VirtualDialog({ item, data, today, onClose, backfill }: { backfill: boo
       {item && mode === 'single' && item.fields.kind === 'subscription' && !item.fields.plan_id && <p className="muted small">{planAssociationText(item)}。若要按月计费，请核对每期金额与服务期间后新建订阅，避免把旧金额误算成月费。</p>}
       {isSubscription && (legacyLink
         ? <p className="muted small">这项档案关联的是旧版周期计划（{item!.plan_name ?? '排期'}），按原排期与付款记录管理；新的订阅设置不套用到旧计划。</p>
+        : simple ? <>
+          <RentPlanForm value={simpleState} onChange={setSimpleState} disabled={frozen} today={today} rent={false} />
+          <details className="plan-advanced"><summary>更多：后续续费价格、备款提醒、支付方式</summary>{advanced}</details>
+          <p className="muted small"><button type="button" className="ui-link" disabled={frozen} onClick={() => { setPlanFields(planFields); setForceFull(true); }}>需要免费试用、固定天数、暂停续费等高级设置？改用完整表单</button></p>
+        </>
         : <PlanFieldsForm fields={planFields} onChange={setPlanFields} disabled={frozen} today={today} advanced={advanced} editing={!!item?.plan} firstDueTouched={firstDueTouched} onFirstDueTouched={() => setFirstDueTouched(true)} />)}
       {isSubscription && !legacyLink && <p className="muted small" aria-live="polite">{summary}</p>}
       {mode === 'single' && <>
