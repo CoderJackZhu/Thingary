@@ -11,7 +11,8 @@ test('the preset routes are internally consistent and inside the Beijing limits'
     assert.ok(r.base_cents >= Number(beijing.base_lower_cents) && r.base_cents <= Number(beijing.base_upper_cents), r.id + ' base');
     assert.ok(r.hpf_cents <= 0.24 * r.base_cents + 1, r.id + ' hpf is at most 12%+12% of the base');
     assert.ok(r.saving_cents > 0 && r.gap_share_hundredths >= 0 && r.gap_share_hundredths <= 5000, r.id);
-    assert.ok(['user', 'assumption'].includes(r.verified) && r.basis.length > 10, r.id);
+    assert.ok(r.basis.startsWith('示例假设') || r.basis.startsWith('假设'), r.id + ' is a generic preset');
+    assert.ok(!/你/.test(r.basis + r.summary + r.label), r.id + ' carries no personal wording');
   }
   assert.equal(routeById('soe').saving_cents, 800_000);
   assert.equal(routeById(null), null);

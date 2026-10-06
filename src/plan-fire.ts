@@ -6,7 +6,11 @@ import type { Employment, Funds, Profile } from './plan-pension.ts';
 import type { RegionParams } from './plan-params.ts';
 
 /** 在某个辞职年龄（月）下的养老金与锁定资金，均为今天的钱（分）。 */
-export type Pension = { monthly_cents: number; lump_cents: number; unlock_age_months: number };
+export type Pension = {
+  monthly_cents: number; lump_cents: number; unlock_age_months: number;
+  /** 缴费年限不足最低要求时为 false，short_months 是还差的月数；不足时 monthly_cents 为 0。缺省视为满足。 */
+  eligible?: boolean; short_months?: number;
+};
 
 /** 带日期的一次性支出（今天的钱，分）：offset_months 为距现在的月数，0 表示当月。 */
 export type Spend = { offset_months: number; cents: number };
@@ -30,7 +34,7 @@ export function emergency(assetsCents: number, spendCents: number, months: numbe
 
 /** 用养老金计算器给每个候选辞职年龄（月）算一次养老金与解锁额，并缓存。 */
 export function pensionTable(profile: Profile, region: RegionParams, today: string, funds: Funds, fromMonths: number, toMonths: number, employment: Employment[] = []): (ageMonths: number) => Pension {
-  const projected = new Map<number, { monthly_cents: number; lump_cents: number; start: number }>();
+  const projected = new Map<number, { monthly_cents: number; lump_cents: number; start: number; short: number }>();
   const cache = new Map<number, Pension>();
   return (age: number) => {
     let hit = cache.get(age);
@@ -40,10 +44,14 @@ export function pensionTable(profile: Profile, region: RegionParams, today: stri
       let r = projected.get(a);
       if (!r) {
         const p = project(profile, region, today, a, funds, employment);
-        r = { monthly_cents: p.total_today_cents, lump_cents: p.pots_today_cents, start: p.start_age_months };
+        // 年限不足不能按月领基本养老金（养老金页仍按公式显示并提示）：月额按 0 计，个人账户余额近似为一次性领回；续缴或补缴凑够年限另算。
+        const short = p.eligible ? 0 : p.required_months - p.total_paid_months;
+        r = p.eligible
+          ? { monthly_cents: p.total_today_cents, lump_cents: p.pots_today_cents, start: p.start_age_months, short }
+          : { monthly_cents: 0, lump_cents: p.pots_today_cents + Math.round(p.account_pension_today_cents * p.disbursement_months), start: p.start_age_months, short };
         projected.set(a, r);
       }
-      hit = { monthly_cents: r.monthly_cents, lump_cents: r.lump_cents, unlock_age_months: Math.max(r.start, age) };
+      hit = { monthly_cents: r.monthly_cents, lump_cents: r.lump_cents, unlock_age_months: Math.max(r.start, age), eligible: r.short === 0, short_months: r.short };
       cache.set(age, hit);
     }
     return hit;

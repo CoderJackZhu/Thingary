@@ -228,7 +228,8 @@ function IncomeCard({ r, calc, nowAge, editing, saver, onEdit, onCancel, onSave 
   const pensionLine = pension ? <li><span>国家养老金<small>{Math.floor(pension.unlock_age_months / 12)} 岁起 · 终身 · 随通胀 · 按辞职年龄重算</small></span><b>{yuan(pension.monthly_cents)}/月</b></li> : <li><span>国家养老金<small>补齐盘点与月预算后按辞职年龄估算</small></span><b>—</b></li>;
   return <Card kicker="收入" title="退休收入" tip="税后每月，今天的钱。国家养老金由养老金页的个人资料推算，辞职越早越少，已按各自的辞职年龄重算；个人账户、公积金与个人养老金的一次性解锁也一并计入。公共养老金之外的收入（企业年金、租金、返聘等）在这里添加。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
     read={<><ul className="rs-list">{pensionLine}{r.income_items.map(i => <li key={i.id}><span>{i.label}<small>{i.start_age} → {i.end_age === null ? '终身' : `${i.end_age}`} 岁 · {i.indexed ? '通胀挂钩' : '固定名义'}</small></span><b>{yuan(Number(i.monthly_cents))}/月</b></li>)}</ul>
-      {pension && pension.lump_cents > 0 && <p className="muted small">另有公积金与个人养老金约 {yuan(pension.lump_cents)}（今天的钱），{Math.floor(pension.unlock_age_months / 12)} 岁一次性解锁。</p>}</>}
+      {pension && pension.eligible === false && <p className="rs-note">按这个辞职年龄，缴费年限还差 {pension.short_months} 个月，达不到按月领取基本养老金的最低要求：月养老金按 0 计，个人账户余额近似为一次性领回。续缴或补缴凑够年限后会有月养老金，具体办法以当地规定为准。</p>}
+      {pension && pension.lump_cents > 0 && <p className="muted small">另有公积金、个人养老金{pension.eligible === false ? '与个人账户余额' : ''}约 {yuan(pension.lump_cents)}（今天的钱），{Math.floor(pension.unlock_age_months / 12)} 岁一次性解锁。</p>}</>}
     edit={<div className="rs-form">
       <p className="muted small">国家养老金不用在这里填，随个人资料自动计算。</p>
       {items.map(d => <div key={d.id} className="rs-item"><div className="rs-item-head"><input aria-label="收入名称" value={d.label} onChange={e => patch(d.id, { label: e.target.value })}/><button type="button" className="ui-btn" aria-label={`移除${d.label}`} onClick={() => setItems(xs => xs.filter(x => x.id !== d.id))}>移除</button></div>

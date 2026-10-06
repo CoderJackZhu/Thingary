@@ -1,5 +1,5 @@
 // 35 岁以后的路线：几套预设的职业去向，每条路线自带储蓄、社保缴费基数、公积金与空窗比例，用户只选一条。
-// 参数是写死的假设（verified 标明来源），远期的东西不让用户逐项调；想改就在储蓄阶段里手填。
+// 参数是写死的示例假设（不是任何人的真实收入，也未核对），远期的东西不让用户逐项调；想改就在储蓄阶段里手填。
 import type { Employment } from './plan-pension.ts';
 import { expectedSaving } from './plan-ledger.ts';
 import type { SavingPhase } from './plan-ledger.ts';
@@ -10,19 +10,17 @@ export type Route = {
   saving_cents: number; base_cents: number; hpf_cents: number;
   /** 平均空窗比例（万分比），只作用于这条路线的储蓄。 */
   gap_share_hundredths: number;
-  /** user：来自用户自己的估计；assumption：我的假设，未核对。 */
-  verified: 'user' | 'assumption';
   basis: string;
 };
 
 export const routes: Route[] = [
-  { id: 'soe', label: '国企／事业单位', summary: '稳定，收入中等', saving_cents: 800_000, base_cents: 1_500_000, hpf_cents: 360_000, gap_share_hundredths: 500, verified: 'assumption',
+  { id: 'soe', label: '国企／事业单位', summary: '稳定，收入中等', saving_cents: 800_000, base_cents: 1_500_000, hpf_cents: 360_000, gap_share_hundredths: 500,
     basis: '示例假设：月薪约 1.5 万、扣掉房租每月存 8000；缴费基数取 1.5 万；公积金按北京上限比例 12%＋12%；空窗比例 5%。' },
-  { id: 'civil', label: '机关事业单位／公务员', summary: '最稳，收入偏低', saving_cents: 500_000, base_cents: 1_200_000, hpf_cents: 288_000, gap_share_hundredths: 0, verified: 'assumption',
+  { id: 'civil', label: '机关事业单位／公务员', summary: '最稳，收入偏低', saving_cents: 500_000, base_cents: 1_200_000, hpf_cents: 288_000, gap_share_hundredths: 0,
     basis: '假设月薪约 1.2 万、每月存 5000，未核对；公积金 12%＋12%；机关事业养老金另有职业年金，这里按同一公式近似，会偏保守。' },
-  { id: 'tech', label: '继续互联网', summary: '高薪但不稳', saving_cents: 1_500_000, base_cents: 3_000_000, hpf_cents: 720_000, gap_share_hundredths: 1500, verified: 'assumption',
+  { id: 'tech', label: '继续互联网', summary: '高薪但不稳', saving_cents: 1_500_000, base_cents: 3_000_000, hpf_cents: 720_000, gap_share_hundredths: 1500,
     basis: '示例假设：每月存 1.5 万、缴费基数 3 万、公积金 12%＋12%；行业裁员频繁，按 15% 的空窗折算。' },
-  { id: 'flex', label: '灵活就业／自由职业', summary: '自己交社保，没有公积金', saving_cents: 300_000, base_cents: 727_000, hpf_cents: 0, gap_share_hundredths: 0, verified: 'assumption',
+  { id: 'flex', label: '灵活就业／自由职业', summary: '自己交社保，没有公积金', saving_cents: 300_000, base_cents: 727_000, hpf_cents: 0, gap_share_hundredths: 0,
     basis: '示例假设：每月净存 3000；社保按北京下限 7270 自缴（医保、失业、养老三项合计约 2000 元/月，已含在这笔储蓄里）；没有公积金。' },
 ];
 

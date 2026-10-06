@@ -1,6 +1,6 @@
 // 退休风险实验室（纯函数）：市场路径模拟、压力测试、两张决策矩阵与崩盘路径。
 // 全程「今天的钱」（实际口径）：实际收益率取对数正态、中位数等于假设收益率；不建模通胀的随机波动。
-import { outcome, project, requiredAt, savingsOf, scaleSaving, scaleSpend, table } from './plan-ledger.ts';
+import { brokeAfter, oneOffsOf, outcome, project, requiredAt, retiredMonth, savingsOf, scaleSaving, scaleSpend, table } from './plan-ledger.ts';
 import type { Outcome, Plan } from './plan-ledger.ts';
 
 const rate = (h: number) => h / 10000;
@@ -46,14 +46,13 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
   const med = (h: number) => Math.max(0.01, 1 + rate(h));
   const sLn = (h: number) => Math.sqrt(Math.log(1 + (sigma / med(h)) ** 2));
   const muB = Math.log(med(P.r_before_hundredths)), muA = Math.log(med(P.r_after_hundredths)), sB = sLn(P.r_before_hundredths), sA = sLn(P.r_after_hundredths);
-  const oneOff = new Map<number, number>();
-  for (const e of P.spends) oneOff.set(e.offset_months, (oneOff.get(e.offset_months) ?? 0) + e.cents);
+  const oneOff = oneOffsOf(P);
   const pens = new Map<number, Pen>();
   const penAt = (m: number) => { let p = pens.get(m); if (!p) { p = P.pension_at(m); pens.set(m, p); } return p; };
   let ok = 0;
   const fiMonths: number[] = [];
   for (let i = 0; i < n; i++) {
-    let a = P.assets_cents - (oneOff.get(0) ?? 0), retire = -1, fi = -1, unlocked = false, pen: Pen | null = null;
+    let a = P.assets_cents - oneOff[0], retire = -1, fi = -1, unlocked = false, pen: Pen | null = null;
     let failed = false, gb = 1, ga = 1;
     for (let t = 0; t < N; t++) {
       const m = P.now_months + t;
@@ -70,17 +69,19 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
         const lump = !unlocked && m + 1 >= pen!.unlock_age_months ? pen!.lump_cents : 0;
         if (lump) unlocked = true;
         const spend = T.spend[t], income = T.income[t] + (m >= pen!.unlock_age_months ? pen!.monthly_cents : 0);
-        const avail = Math.max(0, a * ga + lump), need = Math.max(0, spend - income), w = Math.min(avail, need), gap = need - w;
-        a = avail - w + Math.max(0, income - spend);
+        const step = retiredMonth(a, ga, lump, spend, income), w = step.withdrawal;
+        a = step.a;
         if (Math.max(0, T.essential[t] - income) - w > Math.max(100, spend * 0.001)) failed = true;
-        if (a <= 0 && gap > 0) failed = true;
+        if (brokeAfter(a, step.gap)) failed = true;
       }
-      a -= oneOff.get(t + 1) ?? 0;
+      a -= oneOff[t + 1];
     }
+    if (retire >= 0 && a < 0) failed = true;
     values[S * n + i] = Math.max(0, a);
     finals[i] = Math.max(0, a);
     if (fi >= 0) fiMonths.push(fi);
-    if (!failed && (P.mode === 'traditional' || fi >= 0)) ok++;
+    // 与逐月推演同一判据：必须真的开始了退休（曾经达到 FI 但后来动用存款、始终没退成的路径不算成功）。
+    if (!failed && retire >= 0 && (P.mode === 'traditional' || fi >= 0)) ok++;
     if (opts.progress && (i + 1) % 500 === 0) { opts.progress(i + 1); await new Promise(r => setTimeout(r, 0)); }
   }
   const bands: Bands = { p10: [], p25: [], p50: [], p75: [], p90: [] };

@@ -114,6 +114,28 @@ export const scaleSaving = (P: Plan, factor: number): Plan => ({
 /** 把所有支出按比例缩放（Lean 70%、Fat 150%、压力测试 +10%）。 */
 export const scaleSpend = (P: Plan, factor: number): Plan => ({ ...P, items: P.items.map(it => ({ ...it, monthly_cents: it.monthly_cents * factor })) });
 
+/** 大额一次性支出按「距现在的月数」汇总，下标 0..月数；同一份计划只算一次，所需资金、逐月推演与市场路径共用。 */
+const oneOffSeries = new WeakMap<Plan, Float64Array>();
+export function oneOffsOf(P: Plan): Float64Array {
+  let s = oneOffSeries.get(P);
+  if (!s) {
+    s = new Float64Array(Math.max(0, P.horizon_months - P.now_months) + 1);
+    for (const e of P.spends) if (e.offset_months >= 0 && e.offset_months < s.length) s[e.offset_months] += e.cents;
+    oneOffSeries.set(P, s);
+  }
+  return s;
+}
+
+/** 退休后过一个月（逐月推演与市场路径共用）：资产为负是没付上的欠款，不增值、不清零，先用解锁额与收入偿还；
+ *  返回新资产、从组合提取的钱与没有资金支持的部分。 */
+export function retiredMonth(a: number, g: number, lump: number, spend: number, income: number): { a: number; withdrawal: number; gap: number } {
+  const avail = a >= 0 ? a * g + lump : a + lump;
+  const need = Math.max(0, spend - income), w = Math.min(Math.max(0, avail), need);
+  return { a: avail - w + Math.max(0, income - spend), withdrawal: w, gap: need - w };
+}
+/** 退休后这个月是否资金耗尽：资产为负（欠款），或资产用完仍有缺口。 */
+export const brokeAfter = (a: number, gap: number) => a < 0 || (a <= 0 && gap > 0);
+
 /** 在 from（月龄）开始动用资产所需的最低资产：退休后实际收益率折现，且此后任何一个月资产都不能为负。
  *  retire 决定国家养老金按哪个辞职年龄计算（默认就是 from）；pension 可直接指定（退休后下滑曲线用）。 */
 export function required(P: Plan, from: number, retire: number = from, pension?: Pension): number {
@@ -123,12 +145,13 @@ export function required(P: Plan, from: number, retire: number = from, pension?:
   const d = Math.max(0, pen.unlock_age_months - from);
   let pv = 0, best = 0, disc = 1;
   if (d === 0) { pv -= pen.lump_cents; best = Math.max(best, pv); }
-  const base = from - P.now_months;
+  const base = from - P.now_months, out = oneOffsOf(P);
   for (let k = 1; k <= n; k++) {
     disc *= v;
     const i = base + k - 1;
     const pensionNow = from + k - 1 >= pen.unlock_age_months ? pen.monthly_cents : 0;
-    pv += (T.spend[i] - T.income[i] - pensionNow) * disc;
+    // 退休之后才发生的大额支出（首付、换车、心愿）与月支出一样必须由这笔资产付出；退休之前的已经从资产里扣掉了。
+    pv += (T.spend[i] - T.income[i] - pensionNow + (out[base + k] ?? 0)) * disc;
     if (k === d && d > 0) pv -= pen.lump_cents * disc;
     if (pv > best) best = pv;
   }
@@ -188,10 +211,9 @@ export type ProjectOptions = { after?: (yearsSinceRetire: number) => number };
 export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): Projection {
   const T = table(P), N = Math.max(0, P.horizon_months - P.now_months);
   const gb = monthlyGrowth(P.r_before_hundredths), ga = monthlyGrowth(P.r_after_hundredths);
-  const oneOff = new Map<number, number>();
-  for (const e of P.spends) oneOff.set(e.offset_months, (oneOff.get(e.offset_months) ?? 0) + e.cents);
+  const oneOff = oneOffsOf(P);
   const assets = new Float64Array(N + 1), withdrawn = new Float64Array(N), unfunded = new Float64Array(N);
-  let a = P.assets_cents - (oneOff.get(0) ?? 0);
+  let a = P.assets_cents - oneOff[0];
   let fi: number | null = null, retire: number | null = null, reason: Projection['reason'] = null, funded = false, pension: Pension | null = null;
   let failure: number | null = null, shortfall: number | null = null, unlocked = false;
   const rows: Row[] = [];
@@ -200,11 +222,11 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
   for (let t = 0; t < N; t++) {
     const m = P.now_months + t;
     if (t % 12 === 0) {
-      row = { k: t / 12, start_month: m, age: Math.floor(P.now_months / 12) + t / 12, year: rowYear(todayYear, t / 12), phase: retire === null ? 'accumulation' : 'retired', start: a + (t === 0 ? oneOff.get(0) ?? 0 : 0), end: a, contribution: 0, income: 0, unlock: 0, spend: 0, essential: 0, oneoff: 0, withdrawal: 0, unfunded: 0, essential_unfunded: 0 };
+      row = { k: t / 12, start_month: m, age: Math.floor(P.now_months / 12) + t / 12, year: rowYear(todayYear, t / 12), phase: retire === null ? 'accumulation' : 'retired', start: a + (t === 0 ? oneOff[0] : 0), end: a, contribution: 0, income: 0, unlock: 0, spend: 0, essential: 0, oneoff: 0, withdrawal: 0, unfunded: 0, essential_unfunded: 0 };
       rows.push(row);
     }
     const r = row!;
-    if (t === 0) r.oneoff += oneOff.get(0) ?? 0;
+    if (t === 0) r.oneoff += oneOff[0];
     if (retire === null) {
       const req = reqArr[t];
       const ok = a >= req;
@@ -231,21 +253,22 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
       const lump = !unlocked && m + 1 >= pension!.unlock_age_months ? pension!.lump_cents : 0;
       if (lump) { unlocked = true; r.unlock += lump; }
       const g = opts.after ? (1 + opts.after(Math.floor((m - retire) / 12))) ** (1 / 12) : ga;
-      const avail = Math.max(0, a * g + lump), need = Math.max(0, spend - income);
-      const w = Math.min(avail, need), gap = need - w;
-      a = avail - w + Math.max(0, income - spend);
+      const step = retiredMonth(a, g, lump, spend, income), w = step.withdrawal, gap = step.gap;
+      a = step.a;
       r.income += income; r.spend += spend; r.essential += essential; r.withdrawal += w; r.unfunded += gap;
       withdrawn[t] = w; unfunded[t] = gap;
       const essentialGap = Math.max(0, essential - income) - w;
       if (essentialGap > 0) { r.essential_unfunded += essentialGap; if (shortfall === null && essentialGap > Math.max(100, spend * 0.001)) shortfall = m; }
-      if (a <= 0 && failure === null && gap > 0) failure = m;
+      if (failure === null && brokeAfter(a, gap)) failure = m;
     }
-    const out = oneOff.get(t + 1) ?? 0;
+    const out = oneOff[t + 1];
     a -= out;
     r.oneoff += out;
     r.end = a;
   }
   assets[N] = a;
+  // 最后一个月的大额支出付不起：没有下个月可以检出，这里补记。
+  if (retire !== null && failure === null && a < 0) failure = P.horizon_months;
   return { rows, assets, withdrawn, unfunded, fi_month: fi, retire_month: retire, reason, funded_at_retire: funded, pension, failure_month: failure, shortfall_month: shortfall };
 }
 

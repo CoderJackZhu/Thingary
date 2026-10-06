@@ -35,3 +35,19 @@ test('goal progress and time-left wording', () => {
   assert.deepEqual([[295, 1000], [0, 1000], [2000, 1000], [5, 0], [-50, 1000]].map(([a, r]) => progressHundredths(a, r)), [2950, 0, 10000, 10000, 0]);
   assert.deepEqual([0, -3, 1, 11, 12, 13, 24, 148].map(monthsLeftText), ['已经够了', '已经够了', '1 个月', '11 个月', '1 年', '1 年 1 个月', '2 年', '12 年 4 个月']);
 });
+
+test('pension table: not enough contribution years means no monthly pension, but the personal account balance comes back as a lump sum', () => {
+  const profile = {
+    birth_month: '1990-06', worker: 'male', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0,
+    personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000,
+    assumptions: { inflation_hundredths: 0, wage_growth_hundredths: 0, pp_return_hundredths: 0 },
+  };
+  const funds = { hpf_balance_cents: '0', hpf_monthly_cents: '0' };
+  const at = pensionTable(profile, { ...beijing, notional_rate_hundredths: 0, hpf_rate_hundredths: 0 }, '2026-10-06', funds, 436, 756);
+  const short = at(480), enough = at(756);
+  assert.deepEqual([short.eligible, short.monthly_cents], [false, 0]);
+  assert.ok(short.short_months > 0);
+  assert.ok(short.lump_cents >= 5_000_000, 'the account balance is paid back');
+  assert.deepEqual([enough.eligible, enough.short_months], [true, 0]);
+  assert.ok(enough.monthly_cents > 0 && enough.lump_cents === 0);
+});
