@@ -81,7 +81,7 @@ function Stress({ results, fmt }: { results: StressResult[]; fmt: (c: number) =>
       <tbody>{results.map(r => {
         const noChange = r.fi_delay_months === 0 || r.fi_delay_months === null && r.stressed.fi_month === r.baseline.fi_month;
         return <tr key={r.id}><td><b>{r.label}</b><small>{r.description}</small></td>
-          <td>{r.stressed.fi_month === null ? <span className="muted">未达成</span> : <>{ageText(r.stressed.fi_month)}</>}<small>{r.fi_delay_months ? `晚 ${durationText(r.fi_delay_months)}` : noChange ? '无变化' : r.baseline.fi_month === null ? '' : '未达成'}</small></td>
+          <td>{r.stressed.fi_month === null ? <span className="muted">未达成</span> : <>{ageText(r.stressed.fi_month)}</>}<small>{r.fi_delay_months ? (r.fi_delay_months < 0 ? `早 ${durationText(-r.fi_delay_months)}` : `晚 ${durationText(r.fi_delay_months)}`) : noChange ? '无变化' : r.baseline.fi_month === null ? '' : '未达成'}</small></td>
           <td className="amount">{r.shortfall_delta > 0 ? fmt(r.shortfall_delta) : '无变化'}{r.stressed.shortfall_month !== null && <small>缺口始于 {ageText(r.stressed.shortfall_month)}</small>}</td>
           <td className="amount">{fmt(Math.max(0, r.stressed.at_horizon))}<small>{r.horizon_delta === 0 ? '无变化' : `${r.horizon_delta < 0 ? '减少' : '增加'} ${fmt(Math.abs(r.horizon_delta))}`}</small>{r.stressed.failure_month !== null && <small>{ageText(r.stressed.failure_month)}时资金不足</small>}</td>
           <td><span className={`rl-sev ${r.severity}`}>{sevText[r.severity]}</span></td></tr>;

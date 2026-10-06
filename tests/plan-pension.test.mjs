@@ -129,3 +129,26 @@ test('a past contribution index different from today changes the average index',
 test('default assumptions are rates in hundredths of a percent', () => {
   assert.deepEqual(defaultAssumptions, { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 });
 });
+
+test('employment phases change the contribution base and housing fund deposit by age; a phase from today equals the plain profile', () => {
+  const profile = { birth_month: '1990-06', worker: 'male', paid_months: 48, account_balance_cents: '5000000', base_cents: '3000000', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions };
+  const funds = { hpf_balance_cents: '1000000', hpf_monthly_cents: '700000' };
+  const today = '2026-10-06', now = ageMonthsAt('1990-06', today), quit = 756;
+  const plain = project(profile, beijing, today, quit, funds);
+  // 从现在起就是资料里的基数与缴存：和不给分段完全一致。
+  const same = project(profile, beijing, today, quit, funds, [{ from_age_months: now, base_cents: 3_000_000, hpf_monthly_cents: 700_000 }]);
+  for (const k of ['total_nominal_cents', 'hpf_at_start_cents', 'account_at_start_cents', 'replacement_hundredths']) assert.equal(same[k], plain[k], k);
+  // 35 岁起改成低基数、没有公积金：养老金、个人账户、公积金都更少；替代率按停缴时的基数算。
+  const lower = project(profile, beijing, today, quit, funds, [{ from_age_months: 420, base_cents: 1_000_000, hpf_monthly_cents: 0 }]);
+  assert.ok(lower.total_nominal_cents < plain.total_nominal_cents);
+  assert.ok(lower.account_at_start_cents < plain.account_at_start_cents);
+  assert.ok(lower.hpf_at_start_cents < plain.hpf_at_start_cents);
+  assert.ok(lower.hpf_at_start_cents > Math.round(1_000_000 * (1 + 0.015) ** ((756 - now) / 12) * 0.9));
+  // 停在换路线之前：分段不起作用。
+  const early = project(profile, beijing, today, 420, funds, [{ from_age_months: 480, base_cents: 1_000_000, hpf_monthly_cents: 0 }]);
+  assert.equal(early.total_nominal_cents, project(profile, beijing, today, 420, funds).total_nominal_cents);
+  // 基数不会超出当地上下限。
+  const capped = project(profile, beijing, today, quit, funds, [{ from_age_months: now, base_cents: 99_999_999, hpf_monthly_cents: 700_000 }]);
+  assert.ok(capped.account_at_start_cents > plain.account_at_start_cents);
+  assert.ok(capped.account_at_start_cents < project({ ...profile, base_cents: '99999999' }, beijing, today, quit, funds).account_at_start_cents + 1);
+});

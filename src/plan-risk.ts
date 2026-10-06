@@ -100,7 +100,7 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
 }
 
 // ---- 压力测试 ----
-export type StressId = 'return-drag' | 'inflation-shock' | 'spending-shock' | 'retire-earlier' | 'save-less' | 'income-drop' | 'job-gap' | 'early-crash';
+export type StressId = 'return-drag' | 'inflation-shock' | 'spending-shock' | 'retire-earlier' | 'save-less' | 'income-drop' | 'job-gap' | 'raise-30' | 'raise-double' | 'early-crash';
 export type Severity = 'low' | 'medium' | 'high';
 export type StressResult = {
   id: StressId; label: string; description: string;
@@ -117,6 +117,8 @@ export const stressLabels: Record<StressId, { label: string; description: string
   'retire-earlier': { label: '提前 2 年退休', description: '目标退休年龄提前两年，不早于现在。' },
   'save-less': { label: '缴款减少', description: '每月缴款减少 25%。' },
   'income-drop': { label: '收入骤降', description: '三年后起，每月储蓄减半（已经为负的阶段不变）。' },
+  'raise-30': { label: '跳槽涨薪 30%', description: '三年后起，每月储蓄在有收入的阶段增加 30%（上行情形）。' },
+  'raise-double': { label: '收入翻倍', description: '五年后起，有收入阶段的每月储蓄翻倍（上行情形，行业好、晋升或跳槽成功）。' },
   'job-gap': { label: '一年后失业一年', description: '一年后有 12 个月没有收入，期间每月动用存款付日常生活预算。' },
   'early-crash': { label: '退休初期市场下跌', description: '假设退休第一年市场下跌 30%。' },
 };
@@ -156,6 +158,20 @@ function reshape(P: Plan, breaks: number[], f: (cents: number, from: number) => 
 export const saveFrom = (P: Plan, from: number, factor: number): Plan => reshape(P, [from], (c, m) => (m >= from && c > 0 ? c * factor : c));
 /** 从 from 月龄起连续 months 个月，储蓄变成 cents（负数表示动用存款），之后恢复原来的阶段。 */
 export const gapAt = (P: Plan, from: number, months: number, cents: number): Plan => reshape(P, [from, from + months], (c, m) => (m >= from && m < from + months ? cents : c));
+/** 反推：从现在起到 untilMonth（月龄）每月至少存多少，才能在目标年龄达标（资产不低于所需、没有支出缺口）。
+ *  untilMonth 之后沿用原来的储蓄安排；已经够了返回 0，每月存到 100 万也不够返回 null。今天的钱，精确到分。 */
+export function requiredSaving(P: Plan, year: number, untilMonth: number): number | null {
+  const ph = phasesOf(P), until = Math.max(untilMonth, P.now_months + 1);
+  const later = ph.filter((x, i) => i > 0 && x.from_month > until), resume = valueAt(ph, until);
+  const trial = (s: number): Plan => ({ ...P, saving_phases: [{ from_month: P.now_months, cents: s }, ...(valueAt(ph, until) === s ? [] : [{ from_month: until, cents: resume }]), ...later] });
+  const ok = (s: number) => { const o = evaluate(trial(s), year); return o.funded_at_goal && o.shortfall_month === null && o.failure_month === null; };
+  if (ok(0)) return 0;
+  let lo = 0, hi = 100_000_000;
+  if (!ok(hi)) return null;
+  while (hi - lo > 1) { const mid = Math.floor((lo + hi) / 2); if (ok(mid)) hi = mid; else lo = mid; }
+  return hi;
+}
+
 /** 有收入时的储蓄（所有阶段里最大的正数）：矩阵的缴款轴以它为基准。 */
 export const workSaving = (P: Plan) => Math.max(0, ...phasesOf(P).map(x => x.cents));
 const withWorkSaving = (P: Plan, cents: number): Plan => { const base = workSaving(P); return base > 0 ? scaleSaving(P, cents / base) : { ...P, saving_cents: cents, saving_phases: undefined }; };
@@ -175,6 +191,8 @@ export function stressTests(P: Plan, year: number): StressResult[] {
     make('retire-earlier', evaluate({ ...P, target_months: earlier }, year)),
     make('save-less', evaluate(scaleSaving(P, 0.75), year)),
     make('income-drop', evaluate(saveFrom(P, P.now_months + 36, 0.5), year)),
+    make('raise-30', evaluate(saveFrom(P, P.now_months + 36, 1.3), year)),
+    make('raise-double', evaluate(saveFrom(P, P.now_months + 60, 2), year)),
     make('job-gap', evaluate(gapAt(P, P.now_months + 12, 12, -(P.items[0]?.monthly_cents ?? 0)), year)),
     make('early-crash', crash),
   ];
@@ -183,7 +201,7 @@ export function stressTests(P: Plan, year: number): StressResult[] {
 const severityRank: Record<Severity, number> = { low: 0, medium: 1, high: 2 };
 /** 影响最大的一项：先比严重程度，再比缺口增加，再比财务独立推迟。没有任何实质影响时返回 null。 */
 export function largestRisk(results: StressResult[]): StressResult | null {
-  const sorted = [...results].sort((a, b) => severityRank[b.severity] - severityRank[a.severity] || b.shortfall_delta - a.shortfall_delta || (b.fi_delay_months ?? 0) - (a.fi_delay_months ?? 0));
+  const sorted = results.filter(r => r.id !== 'raise-30' && r.id !== 'raise-double').sort((a, b) => severityRank[b.severity] - severityRank[a.severity] || b.shortfall_delta - a.shortfall_delta || (b.fi_delay_months ?? 0) - (a.fi_delay_months ?? 0));
   const top = sorted[0];
   return top && (top.severity !== 'low' || top.shortfall_delta > 0 || (top.fi_delay_months ?? 0) > 0) ? top : null;
 }

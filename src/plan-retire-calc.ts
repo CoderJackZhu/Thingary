@@ -1,14 +1,17 @@
 // 退休与 FIRE 的输入汇总与计算（纯函数）：目标卡片、详情页与心愿详情共用，结果不存库。
 import { fundsFrom } from './plan.ts';
-import type { Income, PlanReview, ProfileState, StoredLifeEvent } from './plan.ts';
+import type { Income, PlanReview, ProfileState, RetireInputs, StoredLifeEvent } from './plan.ts';
 import { beijing, effectiveParams } from './plan-params.ts';
 import { emergency, pensionTable } from './plan-fire.ts';
 import { ageMonthsAt, startAgeMonths } from './plan-pension.ts';
 import { applyEvents, offsetOf } from './plan-events.ts';
 import type { LifeEvent } from './plan-events.ts';
-import { outcome, project } from './plan-ledger.ts';
-import type { Plan, SpendItem } from './plan-ledger.ts';
+import { expectedSaving, outcome, project } from './plan-ledger.ts';
+import { routeById, routeEmployment, routeSavingPhases, routes } from './plan-routes.ts';
+import type { Plan, SavingPhase, SpendItem } from './plan-ledger.ts';
 import type { Snapshot } from './wealth.ts';
+
+export { expectedSaving };
 
 export const SEARCH_CAP_YEARS = 70;
 
@@ -46,7 +49,9 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
     if (r.horizon_age * 12 < now + 12) missing.push('规划终点年龄至少要比当前年龄晚一年，请在计划输入里调整。');
     if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, emergency: undefined, plan: undefined, plan0: undefined, events: [] as LifeEvent[], proj: undefined, out: undefined };
     const horizon = r.horizon_age * 12;
-    const plan0 = retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start)) });
+    const route = routeById(r.route_id), routeFrom = r.route_from_age * 12;
+    const employment = route ? routeEmployment(route, routeFrom, monthlyHpfOut(review)) : [];
+    const plan0 = retirePlan(saved, { now, horizon, assets, saving, spend, pension_at: pensionTable(p, region, today, funds, now, Math.max(now, start), employment) });
     // 大额计划：计入的并进同一个账本；plan0 是不含任何计划的版本，用来逐件比较影响。
     const events = r.life_events.map(toEvent);
     const plan = applyEvents(plan0, events.filter(e => e.included).map(e => ({ e, offset: offsetOf(e.date, today) })));
@@ -74,17 +79,35 @@ export function retirePlan(saved: NonNullable<ProfileState['saved']>, x: { now: 
     r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths,
     inflation_hundredths: a.inflation_hundredths, volatility_hundredths: r.volatility_hundredths,
     items, incomes: r.income_items.map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })),
-    saving_phases: r.saving_phases.length ? r.saving_phases.map((ph, i) => ({ from_month: i === 0 ? x.now : ph.from_age_months, cents: expectedSaving(ph.monthly_cents, r.gap_share_hundredths, spend) })) : undefined,
+    saving_phases: savingPhases(r, x.now, saving, spend),
     pension_at: x.pension_at, spends: [],
   };
 }
 
-/** 按平均空窗比例折算有收入阶段的储蓄：(1−g)·储蓄 − g·空窗时的月支出；已经为负的阶段（本身就是空窗）不动。 */
-export const expectedSaving = (cents: number, gapHundredths: number, livingCents: number) => {
-  if (cents <= 0 || gapHundredths <= 0) return cents;
-  const g = gapHundredths / 10000;
-  return Math.round((1 - g) * cents - g * livingCents);
-};
+/** 最近一个可比区间里每月平均从公积金提取多少（分，推算；没有或为负时为 0）。 */
+export function monthlyHpfOut(review: PlanReview): number {
+  const iv = [...review.intervals].reverse().find(i => i.status === 'ok' && i.hpf_out_cents !== null);
+  if (!iv || iv.days <= 0) return 0;
+  return Math.max(0, Math.round(Number(iv.hpf_out_cents) * 487 / (16 * iv.days)));
+}
+
+/** 引擎用的储蓄阶段：用户的阶段（按平均空窗比例折算）或盘点中位数；选了路线则从换路线的年龄起由路线取代。 */
+function savingPhases(r: RetireInputs, now: number, measured: number, living: number): SavingPhase[] | undefined {
+  const user: SavingPhase[] = r.saving_phases.map((ph, i) => ({ from_month: i === 0 ? now : ph.from_age_months, cents: expectedSaving(ph.monthly_cents, r.gap_share_hundredths, living) }));
+  const route = routeById(r.route_id);
+  if (!route) return user.length ? user : undefined;
+  return routeSavingPhases(user, measured, now, route, r.route_from_age * 12, living);
+}
+
+/** 各条路线（以及不选路线）并排：财务独立月龄与是否够用，用同一个构建函数，只换路线。 */
+export type RouteResult = { id: string | null; label: string; fi_month: number | null; funded_at_goal: boolean; shortfall_month: number | null };
+export function routeCompare(saved: NonNullable<ProfileState['saved']>, snapshot: Snapshot | null, review: PlanReview, incomes: Income[], today: string): RouteResult[] {
+  const ids: (string | null)[] = [null, ...routes.map(x => x.id)];
+  return ids.map(id => {
+    const c = buildRetireCalc({ ...saved, profile: { ...saved.profile, retire: { ...saved.profile.retire, route_id: id } } }, snapshot, review, incomes, today);
+    return { id, label: id === null ? '不选路线' : routeById(id)!.label, fi_month: c.out ? c.out.fi_month : null, funded_at_goal: !!c.out && c.out.funded_at_goal, shortfall_month: c.out ? c.out.shortfall_month : null };
+  });
+}
 
 /** 存储形态（金额为整数分字符串）转成引擎用的数字。 */
 export const toEvent = (e: StoredLifeEvent): LifeEvent => ({
@@ -95,9 +118,3 @@ export const toEvent = (e: StoredLifeEvent): LifeEvent => ({
   cycle_years: e.cycle_years, until_age: e.until_age, resale_cents: Number(e.resale_cents),
 });
 
-/** 最近一个可比区间里每月平均从公积金提取多少（分，推算；没有或为负时为 0）。 */
-export function monthlyHpfOut(review: PlanReview): number {
-  const iv = [...review.intervals].reverse().find(i => i.status === 'ok' && i.hpf_out_cents !== null);
-  if (!iv || iv.days <= 0) return 0;
-  return Math.max(0, Math.round(Number(iv.hpf_out_cents) * 487 / (16 * iv.days)));
-}

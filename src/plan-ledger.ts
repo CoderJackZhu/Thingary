@@ -313,3 +313,10 @@ export function coverageAt(P: Plan, proj: Projection, month: number): Coverage {
   const withdrawal = retiredNow ? proj.withdrawn[i] : 0, unfunded = retiredNow ? proj.unfunded[i] : 0;
   return { spend, essential, items, pension, withdrawal, unfunded };
 }
+
+/** 按平均空窗比例折算有收入阶段的储蓄：(1−g)·储蓄 − g·空窗时的月支出；已经为负的阶段（本身就是空窗）不动。 */
+export const expectedSaving = (cents: number, gapHundredths: number, livingCents: number) => {
+  if (cents <= 0 || gapHundredths <= 0) return cents;
+  const g = gapHundredths / 10000;
+  return Math.round((1 - g) * cents - g * livingCents);
+};

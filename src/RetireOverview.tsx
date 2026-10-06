@@ -4,7 +4,7 @@ import { Info, Segments } from './FormControls';
 import { rateText } from './plan';
 import type { RetireCalc } from './plan-retire-calc';
 import { eventImpact, offsetOf } from './plan-events';
-import { stressTests } from './plan-risk';
+import { requiredSaving, stressTests, workSaving } from './plan-risk';
 import { checkpoints, compactYuan, coverage, coverageSeries, durationText, milestones, progress, rangeRows, scaleAt, snapshotRows, trajectory, verdict } from './plan-view';
 import type { Seg, ValueMode } from './plan-view';
 import { CoverageChart, TrajectoryChart } from './RetireCharts';
@@ -88,6 +88,10 @@ function Range({ calc, mode }: { calc: Ready; mode: ValueMode }) {
   const { plan: P, proj, out } = calc, fire = P.mode === 'fire';
   const rows = useMemo(() => rangeRows(P, stressTests(P, 0), out), [P, out]);
   const cps = useMemo(() => checkpoints(P, proj), [P, proj]);
+  const back = useMemo(() => {
+    const goal = requiredSaving(P, 0, P.target_months), first = cps.find(c => c.label === '储蓄下降前');
+    return { goal, front: first ? { month: first.month, cents: requiredSaving(P, 0, first.month) } : null, now: workSaving(P) };
+  }, [P, cps]);
   const k = (m: number) => scaleAt(P, mode, m);
   const age = (m: number | null) => (m === null ? '无法达成' : `${Math.floor(m / 12)} 岁${m % 12 ? ` ${m % 12} 个月` : ''}`);
   return <article className="ui-card rd-card" aria-label="结果区间">
@@ -95,7 +99,12 @@ function Range({ calc, mode }: { calc: Ready; mode: ValueMode }) {
     <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="收入变化对照表"><table className="ui-table rd-table"><thead><tr><th>情形</th><th>{fire ? '财务独立年龄' : '目标年龄时'}</th><th className="amount">{fire ? '相比基准' : '盈余／缺口'}</th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.id} className={r.id === 'base' ? 'selected' : undefined}><td>{r.label}</td>
         <td>{fire ? age(r.fi_month) : r.surplus >= 0 ? '资金够用' : '资金不够'}{r.failed && <span className="ui-tag warn">资金不足</span>}</td>
-        <td className="amount">{fire ? (r.id === 'base' ? '—' : r.late_months === null ? '—' : r.late_months === 0 ? '无变化' : `晚 ${durationText(r.late_months)}`) : `${r.surplus >= 0 ? '+' : '−'}${compactYuan(Math.abs(r.surplus) * k(P.target_months))}`}</td></tr>)}</tbody></table></div>
+        <td className="amount">{fire ? (r.id === 'base' ? '—' : r.late_months === null ? '—' : r.late_months === 0 ? '无变化' : r.late_months < 0 ? `早 ${durationText(-r.late_months)}` : `晚 ${durationText(r.late_months)}`) : `${r.surplus >= 0 ? '+' : '−'}${compactYuan(Math.abs(r.surplus) * k(P.target_months))}`}</td></tr>)}</tbody></table></div>
+    <div className="rd-checkpoints"><h4>反推：要存多少才够</h4>
+      <p>{back.goal === null ? <>要在 <strong>{Math.floor(P.target_months / 12)} 岁</strong>达到目标，按当前假设，每月存到 100 万也不够，需要调整目标年龄、退休预算或大额计划。</> : back.goal === 0 ? <>要在 <strong>{Math.floor(P.target_months / 12)} 岁</strong>达到目标，按现有设置不用再存，已经够了。</> : <>要在 <strong>{Math.floor(P.target_months / 12)} 岁</strong>达到目标，从现在到那时<strong>每月至少存 {yuan(back.goal)}</strong>（今天的钱）；你有收入时的储蓄是 {yuan(back.now)}，{back.goal <= back.now ? '够。' : `还差 ${yuan(back.goal - back.now)}。`}</>}</p>
+      {back.front && back.front.cents !== null && <p>若只在 <strong>{Math.floor(back.front.month / 12)} 岁</strong>以前集中存、之后沿用你设的更低储蓄：前期{back.front.cents === 0 ? '不用额外存。' : <>每月至少存 <strong>{yuan(back.front.cents)}</strong>。</>}</p>}
+      {back.front && back.front.cents === null && <p>若只在 <strong>{Math.floor(back.front.month / 12)} 岁</strong>以前存，每月存到 100 万也不够，说明之后的低储蓄撑不住目标。</p>}
+      <p className="muted small">这是反过来问：不预测收入，只看目标需要什么。数字按当前假设、最少需要的恒定金额算；真实收入起伏时，前期多存是最稳的办法。</p></div>
     {cps.length > 0 && <div className="rd-checkpoints"><h4>前期要存到多少</h4>
       {cps.map(c => <p key={c.month}>{c.label}，到 <strong>{Math.floor(c.month / 12)} 岁</strong>手里至少要有 <strong>{compactYuan(c.need * k(c.month))}</strong>，之后就算不再存钱也能按期退休；按计划那时预计有 <strong className={c.ok ? 'good' : 'warn'}>{compactYuan(c.expected * k(c.month))}</strong>{c.ok ? '，够。' : `，还差 ${compactYuan((c.need - c.expected) * k(c.month))}。`}</p>)}
       <p className="muted small">实际收益率接近 0 时钱不会自己增值，所以几乎等于全部所需资金：高收入期存下的钱是决定退休早晚的主要因素。</p></div>}

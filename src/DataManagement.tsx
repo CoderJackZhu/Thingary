@@ -53,18 +53,11 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       setTask(done ? { kind: 'done', text: `已保存并校验「${done.name}」，位于 ${done.folder}。` } : { kind: 'idle' });
     } catch (e) { setTask({ kind: 'error', text: '备份未完成，当前资料未改变：' + errorMessage(e) }); }
   }
-  async function exportCsv() {
-    setCandidate(null); setTask({ kind: 'running', label: '正在导出物品表…' });
+  async function exportAll() {
+    setCandidate(null); setTask({ kind: 'running', label: '正在导出全部表格…' });
     try {
-      const done = await invoke<{ name: string; folder: string; rows: number } | null>('export_csv');
-      setTask(done ? { kind: 'done', text: `已导出「${done.name}」共 ${done.rows} 件物品，位于 ${done.folder}。` } : { kind: 'idle' });
-    } catch (e) { setTask({ kind: 'error', text: '导出未完成：' + errorMessage(e) }); }
-  }
-  async function exportFinance(kind: 'wealth' | 'expenses' | 'recurring', label: string) {
-    setCandidate(null); setTask({ kind: 'running', label: `正在导出${label}…` });
-    try {
-      const done = await invoke<{ name: string; folder: string; rows: number } | null>('export_finance_csv', { kind });
-      setTask(done ? { kind: 'done', text: `已导出「${done.name}」共 ${done.rows} 行，位于 ${done.folder}。` } : { kind: 'idle' });
+      const done = await invoke<{ folder: string; files: { name: string; rows: number }[] } | null>('export_all_csv');
+      setTask(done ? { kind: 'done', text: `已导出到文件夹「${done.folder}」：${done.files.map(f => `${f.name.replace('.csv', '')} ${f.rows} 行`).join('、')}。` } : { kind: 'idle' });
     } catch (e) { setTask({ kind: 'error', text: '导出未完成：' + errorMessage(e) }); }
   }
   async function inspect() {
@@ -97,13 +90,12 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     <div className="data-actions">
       <div className="data-action"><span className="data-action-icon"><Icon name="archive"/></span><div className="data-action-copy"><h3>完整备份</h3><p>保存物品、财富记录和图片等全部资料。</p></div><button disabled={busy || blocked || demo} onClick={() => void backup()}>备份…</button></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="back"/></span><div className="data-action-copy"><h3>从备份恢复</h3><p>先检查文件，再确认是否替换当前资料。</p></div><button disabled={busy || blocked || demo || !generation} onClick={() => void inspect()}>选择…</button></div>
-      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出物品表（CSV）</h3><p>生成可阅读的表格，未知值留空。</p></div><button disabled={busy || blocked || demo} onClick={() => void exportCsv()}>导出…</button></div>
-      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出财富表（CSV）</h3><p>盘点记录、重要支出、周期费用，各一份可阅读的表格；不能用于恢复。</p></div><span className="data-action-buttons"><button disabled={busy || blocked || demo} onClick={() => void exportFinance('wealth', '盘点记录')}>盘点记录…</button><button disabled={busy || blocked || demo} onClick={() => void exportFinance('expenses', '重要支出')}>重要支出…</button><button disabled={busy || blocked || demo} onClick={() => void exportFinance('recurring', '周期费用')}>周期费用…</button></span></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出全部表格（CSV）</h3><p>物品、盘点记录、重要支出、周期费用、月度收入，各一份可阅读的表格，放进一个新文件夹；不能用于恢复。</p></div><button disabled={busy || blocked || demo} onClick={() => void exportAll()}>导出…</button></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导入物品表（CSV）</h3><p>把已有表格搬进来，只新增、不覆盖；导入前先预览。</p></div><span className="data-action-buttons"><button disabled={busy || demo} onClick={() => void saveTemplate()}>下载模板…</button><button disabled={busy || blocked || demo || !generation} onClick={() => void inspectCsv()}>选择表格…</button></span></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="trash"/></span><div className="data-action-copy"><h3>最近删除</h3><p>找回误删的物品、心愿、维护、保障、账户、盘点、支出、周期费用与虚拟资产。</p></div><button id="settings-open-trash" disabled={busy || blocked} onClick={onTrash}>打开</button></div>
     </div>
     <AutoBackup generation={generation} demo={demo} blocked={blocked} busy={busy} candidateOpen={!!candidate} onInspect={name => void inspectAuto(name)}/>
-    <details className="data-explainer"><summary>备份、导出导入和最近删除有什么区别？</summary><p>完整备份包含物品、维护、保障、心愿、账户与盘点、重要支出与退款、周期计划与付款、虚拟资产、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p><p>自动备份在资料有改动后自动生成，保留最近 7 份，放在本机资料目录旁；与手动备份格式相同，都可用于恢复。额外备份位置由你选择，可保存副本到云盘或外接盘。</p><p>物品 CSV 只包含未删除物品的可读数据，不含图片、维护、保障或心愿；财富 CSV 分别导出盘点记录、重要支出（含退款）与周期费用（含付款）。两类 CSV 都不能用于恢复；以 = + - @ 开头的文字会加上保护字符。最近删除仅用于找回误删记录。</p><p>导入物品表只新增物品，不修改或合并已有物品；只有名称必填，状态为已退役须填退役日期，已售出须填售出日期与售价。导出的物品表也可以直接导入，财富 CSV 不能导入。整体搬家或回到以前请用完整备份。</p></details>
+    <details className="data-explainer"><summary>备份、导出导入和最近删除有什么区别？</summary><p>完整备份包含物品、维护、保障、心愿、账户与盘点、重要支出与退款、周期计划与付款、虚拟资产、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p><p>自动备份在资料有改动后自动生成，保留最近 7 份，放在本机资料目录旁；与手动备份格式相同，都可用于恢复。额外备份位置由你选择，可保存副本到云盘或外接盘。</p><p>导出全部表格会在你起名的新文件夹里放五份 CSV：物品（只含未删除物品，不含图片、维护、保障或心愿）、盘点记录、重要支出（含退款）、周期费用（含付款）、月度收入；文件夹已存在时不会覆盖，换个名字即可。这些 CSV 都不能用于恢复；以 = + - @ 开头的文字会加上保护字符。最近删除仅用于找回误删记录。</p><p>导入物品表只新增物品，不修改或合并已有物品；只有名称必填，状态为已退役须填退役日期，已售出须填售出日期与售价。导出文件夹里的「物品.csv」也可以直接导入，其余表格不能导入。整体搬家或回到以前请用完整备份。</p></details>
     {blocked && <p className="notice">请先处理正在编辑或待核对的内容，再进行备份或恢复。</p>}
     {task.kind === 'running' && <p role="status" className="notice">{task.label}</p>}
     {task.kind === 'done' && <p role="status" className="notice">{task.text}</p>}

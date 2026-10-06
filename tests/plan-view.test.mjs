@@ -96,8 +96,9 @@ test('snapshot rows scale by the inflation at the start of each row', () => {
 test('range rows put the base case beside the income shocks; checkpoints show what must be saved before the saving drops', () => {
   const P = plan({ saving_phases: [{ from_month: 436, cents: 1500 }, { from_month: 520, cents: 600 }], now_months: 436, target_months: 760, mode: 'fire' });
   const proj = project(P, 2026), base = outcome(P, proj), rows = rangeRows(P, stressTests(P, 2026), base);
-  assert.deepEqual(rows.map(r => r.id), ['base', 'income-drop', 'job-gap', 'save-less']);
-  assert.ok(rows.slice(1).every(r => r.late_months === null || r.late_months >= 0));
+  assert.deepEqual(rows.map(r => r.id), ['base', 'raise-double', 'raise-30', 'income-drop', 'job-gap', 'save-less']);
+  assert.ok(rows.slice(1, 3).every(r => r.late_months === null || r.late_months <= 0));
+  assert.ok(rows.slice(3).every(r => r.late_months === null || r.late_months >= 0));
   const cps = checkpoints(P, proj);
   assert.equal(cps.length, 1);
   assert.equal(cps[0].month, 520);

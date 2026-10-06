@@ -196,3 +196,9 @@
 
 .plan-views td:last-child { white-space: normal; min-width: 220px; }
 .plan-views { margin-top: 10px; }
+
+.rs-route { cursor: pointer; }
+.rs-route small { display: block; line-height: 1.5; }
+.rs-route .rs-item-head { justify-content: flex-start; gap: 8px; }
+.rs-route .rs-item-head input { flex: 0 0 auto; width: auto; }
+.rs-route-result { color: var(--accent); font-weight: 600; }

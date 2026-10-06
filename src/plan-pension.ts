@@ -28,6 +28,10 @@ export type Profile = {
 
 export type Funds = { hpf_balance_cents: string; hpf_monthly_cents: string };
 
+/** 缴费分段：从该年龄（月）起，社保缴费基数与公积金月缴存（今天的钱，分）改成这两个数；按 from_age_months 升序。
+ *  不给分段时全程用资料里的基数与公积金月缴存。 */
+export type Employment = { from_age_months: number; base_cents: number; hpf_monthly_cents: number };
+
 export type Projection = {
   /** 领取年龄（月）与领取月份 YYYY-MM。 */
   start_age_months: number;
@@ -102,7 +106,7 @@ export const requiredContributionMonths = (retireYear: number) => 180 + 6 * clam
 export const ageMonthsAt = (birthMonth: string, today: string) => monthIndex(today.slice(0, 7)) - monthIndex(birthMonth);
 
 /** 在 quitAgeMonths 停止缴费时的养老金与锁定资金估算。 */
-export function project(profile: Profile, region: RegionParams, today: string, quitAgeMonths: number, funds: Funds): Projection {
+export function project(profile: Profile, region: RegionParams, today: string, quitAgeMonths: number, funds: Funds, employment: Employment[] = []): Projection {
   const a = profile.assumptions;
   const g = rate(a.wage_growth_hundredths), inflation = rate(a.inflation_hundredths);
   const notional = rate(region.notional_rate_hundredths), hpfRate = rate(region.hpf_rate_hundredths), ppRate = rate(a.pp_return_hundredths);
@@ -125,21 +129,27 @@ export function project(profile: Profile, region: RegionParams, today: string, q
   let pp = 0;
   const ppMonthly = Math.min(cents(profile.personal_pension_annual_cents), PERSONAL_PENSION_CAP_CENTS) / 12;
   const hpfMonthly = cents(funds.hpf_monthly_cents);
+  // 第 k 个缴费月适用的基数与公积金月缴存：最近一个已开始的分段，之前用资料里的。
+  const phaseAt = (k: number) => { let e: Employment | null = null; for (const x of employment) if (x.from_age_months <= nowAge + k) e = x; return e; };
+  const baseAt = (k: number) => { const e = phaseAt(k); return e ? clamp(e.base_cents, cents(region.base_lower_cents), cents(region.base_upper_cents)) : base; };
+  let indexSum = 0;
   for (let k = 0; k < toStart; k++) {
     account *= monthly(notional);
     hpf *= monthly(hpfRate);
     pp *= monthly(ppRate);
     if (k < contribution) {
-      account += 0.08 * base * grow(k);
-      hpf += hpfMonthly * grow(k);
+      const b = baseAt(k), e = phaseAt(k);
+      account += 0.08 * b * grow(k);
+      hpf += (e ? e.hpf_monthly_cents : hpfMonthly) * grow(k);
       pp += ppMonthly;
+      indexSum += clamp(b / wage, 0.6, 3);
     }
   }
 
   const totalMonths = Math.max(0, profile.paid_months) + contribution;
   const kNow = clamp(base / wage, 0.6, 3);
   const kPast = clamp(profile.past_index_hundredths === null ? kNow : profile.past_index_hundredths / 100, 0.6, 3);
-  const kAvg = totalMonths === 0 ? 0 : (Math.max(0, profile.paid_months) * kPast + contribution * kNow) / totalMonths;
+  const kAvg = totalMonths === 0 ? 0 : (Math.max(0, profile.paid_months) * kPast + (employment.length ? indexSum : contribution * kNow)) / totalMonths;
   const wageAtStart = wage * (1 + g) ** Math.max(0, retireYear - 1 - region.avg_wage_year);
   const basePension = ((wageAtStart + wageAtStart * kAvg) / 2) * (totalMonths / 12) * 0.01;
   const disbursement = disbursementMonths(start);
@@ -148,7 +158,7 @@ export function project(profile: Profile, region: RegionParams, today: string, q
   const deflate = (1 + inflation) ** (toStart / 12);
   const required = requiredContributionMonths(retireYear);
   const totalNominal = basePension + accountPension;
-  const stopWageToday = cents(profile.base_cents) * ((1 + g) / (1 + inflation)) ** (contribution / 12);
+  const stopWageToday = (contribution > 0 ? baseAt(contribution - 1) : cents(profile.base_cents)) * ((1 + g) / (1 + inflation)) ** (contribution / 12);
   const ppAfterTax = pp * (1 - PERSONAL_PENSION_TAX_HUNDREDTHS / 10000);
   const round = Math.round;
   return {
@@ -167,6 +177,6 @@ export function project(profile: Profile, region: RegionParams, today: string, q
 }
 
 /** 对一组停缴年龄（岁）各重算一次：辞职越早，缴费年限、个人账户与公积金越少（§5.4）。 */
-export function byQuitAge(profile: Profile, region: RegionParams, today: string, agesYears: number[], funds: Funds): Projection[] {
-  return agesYears.map(y => project(profile, region, today, y * 12, funds));
+export function byQuitAge(profile: Profile, region: RegionParams, today: string, agesYears: number[], funds: Funds, employment: Employment[] = []): Projection[] {
+  return agesYears.map(y => project(profile, region, today, y * 12, funds, employment));
 }

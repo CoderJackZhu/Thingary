@@ -2,7 +2,7 @@
 // 「未来缺口折现」代替 4% 法则：提前辞职的人先靠存款，到养老金起领年龄后才有养老金与公积金、
 // 个人养老金的一次性解锁。输出是估算，内部用浮点，显示时取整到分。
 import { project } from './plan-pension.ts';
-import type { Funds, Profile } from './plan-pension.ts';
+import type { Employment, Funds, Profile } from './plan-pension.ts';
 import type { RegionParams } from './plan-params.ts';
 
 /** 在某个辞职年龄（月）下的养老金与锁定资金，均为今天的钱（分）。 */
@@ -29,7 +29,7 @@ export function emergency(assetsCents: number, spendCents: number, months: numbe
 }
 
 /** 用养老金计算器给每个候选辞职年龄（月）算一次养老金与解锁额，并缓存。 */
-export function pensionTable(profile: Profile, region: RegionParams, today: string, funds: Funds, fromMonths: number, toMonths: number): (ageMonths: number) => Pension {
+export function pensionTable(profile: Profile, region: RegionParams, today: string, funds: Funds, fromMonths: number, toMonths: number, employment: Employment[] = []): (ageMonths: number) => Pension {
   const projected = new Map<number, { monthly_cents: number; lump_cents: number; start: number }>();
   const cache = new Map<number, Pension>();
   return (age: number) => {
@@ -39,7 +39,7 @@ export function pensionTable(profile: Profile, region: RegionParams, today: stri
       const a = Math.min(Math.max(age, fromMonths), toMonths);
       let r = projected.get(a);
       if (!r) {
-        const p = project(profile, region, today, a, funds);
+        const p = project(profile, region, today, a, funds, employment);
         r = { monthly_cents: p.total_today_cents, lump_cents: p.pots_today_cents, start: p.start_age_months };
         projected.set(a, r);
       }

@@ -940,10 +940,15 @@ pub async fn inspect_auto_backup(
 }
 
 #[derive(serde::Serialize)]
-pub struct CsvDone {
+pub struct CsvFile {
     pub name: String,
-    pub folder: String,
     pub rows: i64,
+}
+
+#[derive(serde::Serialize)]
+pub struct CsvAllDone {
+    pub folder: String,
+    pub files: Vec<CsvFile>,
 }
 
 /// Saves the header-only import template; cancelling writes nothing.
@@ -1032,16 +1037,17 @@ pub async fn commit_csv_import(
     .map_err(|_| Error::new("WORKER", "未收到导入结果，请到物品列表核对"))?
 }
 
-/// Cancelling the save panel returns `None` and writes nothing.
+/// Every readable table in one new folder named in the save panel; cancelling
+/// writes nothing, and an existing folder is never touched.
 #[tauri::command]
-pub async fn export_csv(
+pub async fn export_all_csv(
     app: tauri::AppHandle,
     worker: tauri::State<'_, Worker>,
-) -> Result<Option<CsvDone>> {
+) -> Result<Option<CsvAllDone>> {
     worker.require_personal()?;
-    let suggested = format!("物谱物品表-{}", chrono::Local::now().format("%Y%m%d"));
+    let suggested = format!("物谱表格-{}", chrono::Local::now().format("%Y%m%d"));
     let receive = on_main(&app, move || {
-        crate::native_images::pick_save("导出物品表", "导出", &suggested, "csv")
+        crate::native_images::pick_save("导出全部表格", "导出", &suggested, "")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -1052,64 +1058,16 @@ pub async fn export_csv(
             return Ok(None);
         };
         let target = path.clone();
-        let rows = w.call_personal(move |s| s.export_csv(&target))?;
-        Ok(Some(CsvDone {
-            name: path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into(),
-            folder: path
-                .parent()
-                .map(|p| p.display().to_string())
-                .unwrap_or_default(),
-            rows,
-        }))
-    })
-    .await
-    .map_err(|_| Error::new("WORKER", "未收到导出结果，请到目标位置核对"))?
-}
-
-/// Check-ins, important expenses or recurring costs as a readable table.
-/// Cancelling the save panel returns `None` and writes nothing.
-#[tauri::command]
-pub async fn export_finance_csv(
-    kind: String,
-    app: tauri::AppHandle,
-    worker: tauri::State<'_, Worker>,
-) -> Result<Option<CsvDone>> {
-    worker.require_personal()?;
-    let (title, base) = match kind.as_str() {
-        "wealth" => ("导出盘点记录", "物谱盘点记录"),
-        "expenses" => ("导出重要支出", "物谱重要支出"),
-        "recurring" => ("导出周期费用", "物谱周期费用"),
-        _ => return Err(Error::new("EXPORT_KIND", "不支持的导出类型")),
-    };
-    let suggested = format!("{base}-{}", chrono::Local::now().format("%Y%m%d"));
-    let receive = on_main(&app, move || {
-        crate::native_images::pick_save(title, "导出", &suggested, "csv")
-    })?;
-    let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let Some(path) = receive
-            .recv()
-            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
-        else {
-            return Ok(None);
-        };
-        let target = path.clone();
-        let rows = w.call_personal(move |s| s.export_finance_csv(&kind, &target))?;
-        Ok(Some(CsvDone {
-            name: path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into(),
-            folder: path
-                .parent()
-                .map(|p| p.display().to_string())
-                .unwrap_or_default(),
-            rows,
+        let files = w.call_personal(move |s| s.export_all_csv(&target))?;
+        Ok(Some(CsvAllDone {
+            folder: path.display().to_string(),
+            files: files
+                .into_iter()
+                .map(|(name, rows)| CsvFile {
+                    name: name.into(),
+                    rows,
+                })
+                .collect(),
         }))
     })
     .await

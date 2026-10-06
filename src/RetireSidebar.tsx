@@ -6,14 +6,15 @@ import { hundredthsToPct, pctToHundredths, rateText } from './plan';
 import type { ProfileSave, ProfileState, RetireInputs, StoredIncomeItem, StoredSavingPhase, StoredSpendItem } from './plan';
 import type { Assumptions } from './plan-params';
 import { expectedSaving } from './plan-retire-calc';
-import type { RetireCalc } from './plan-retire-calc';
+import type { RetireCalc, RouteResult } from './plan-retire-calc';
+import { routeById, routes } from './plan-routes';
 import { workSaving } from './plan-risk';
 import { yuan } from './RetireOverview';
 import { submit, Unresolved } from './wealth';
 import './retire.css';
 
 type Saved = NonNullable<ProfileState['saved']>;
-type Section = 'plan' | 'saving' | 'spend' | 'income' | 'assume' | null;
+type Section = 'plan' | 'saving' | 'route' | 'spend' | 'income' | 'assume' | null;
 
 /** 保存退休假设与通胀、工资增长（后两者属于 assumptions）。返回是否保存成功。 */
 export function useSaver(state: ProfileState, reload: () => void, onPending: () => void) {
@@ -43,7 +44,7 @@ const Field = ({ label, hint, children }: { label: string; hint?: string; childr
 const Rows = ({ rows }: { rows: [string, ReactNode][] }) => <dl className="rs-rows">{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>;
 const intOrNull = (t: string) => (t.trim() === '' ? null : /^\d{1,3}$/.test(t.trim()) ? Number(t.trim()) : NaN);
 
-export function RetireSidebar({ calc, state, reload, onEditingChange, onPending, initial = null }: { calc: RetireCalc; state: ProfileState; reload: () => void; onEditingChange: (v: boolean) => void; onPending: () => void; initial?: Section }) {
+export function RetireSidebar({ calc, state, compare, reload, onEditingChange, onPending, initial = null }: { calc: RetireCalc; state: ProfileState; compare: () => RouteResult[] | null; reload: () => void; onEditingChange: (v: boolean) => void; onPending: () => void; initial?: Section }) {
   const saver = useSaver(state, reload, onPending);
   const [section, setSection] = useState<Section>(initial);
   useEffect(() => { onEditingChange(section !== null); return () => onEditingChange(false); }, [section, onEditingChange]);
@@ -54,6 +55,7 @@ export function RetireSidebar({ calc, state, reload, onEditingChange, onPending,
   return <div className="rd-side">
     <PlanCard r={r} nowAge={nowAge} saving={calc.plan ? workSaving(calc.plan) : calc.saving} editing={section === 'plan'} saver={saver} onEdit={() => open('plan')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))} fire={fire}/>
     <SavingCard r={r} calc={calc} nowAge={nowAge} editing={section === 'saving'} saver={saver} onEdit={() => open('saving')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
+    <RouteCard r={r} nowAge={nowAge} compare={compare} editing={section === 'route'} saver={saver} onEdit={() => open('route')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <SpendCard r={r} editing={section === 'spend'} saver={saver} nowAge={nowAge} derived={calc.derivedSpend} onEdit={() => open('spend')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <IncomeCard r={r} calc={calc} editing={section === 'income'} saver={saver} nowAge={nowAge} onEdit={() => open('income')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <AssumeCard r={r} a={a} editing={section === 'assume'} saver={saver} onEdit={() => open('assume')} onCancel={() => setSection(null)} onSave={(next, asm) => void done(saver.save(next, asm))}/>
@@ -128,6 +130,32 @@ function SavingCard({ r, calc, nowAge, editing, saver, onEdit, onCancel, onSave 
       </div>
       <Field label="平均空窗比例（%）" hint="工作的年份里，平均有多大比例的月份没有收入（跳槽、被裁）。填了以后，有收入的阶段按「(1−比例)×储蓄 − 比例×日常生活月预算」折算，空窗月份动用日常生活预算花存款。不需要逐次填空窗；0 表示不折算。"><input aria-label="平均空窗比例" inputMode="decimal" value={gap} onChange={e => setGap(e.target.value)}/></Field>
       <p className="muted small">预设金额只是占位，请改成自己的数。空窗期默认按退休日常生活预算动用存款。近 12 个月盘点中位数：{measured === null ? '暂无' : yuan(measured)}（含一次性大额消费，仅供参考）。</p>
+      {err && <p className="notice" role="status">{err}</p>}
+    </div>}/>;
+}
+
+const fiText = (m: number | null) => (m === null ? '达不到' : `${Math.floor(m / 12)} 岁${m % 12 ? ` ${m % 12} 个月` : ''}`);
+function RouteCard({ r, nowAge, compare, editing, saver, onEdit, onCancel, onSave }: { r: RetireInputs; nowAge: number; compare: () => RouteResult[] | null; editing: boolean; saver: Saver; onEdit: () => void; onCancel: () => void; onSave: (r: RetireInputs) => void }) {
+  const [id, setId] = useState<string | null>(r.route_id), [from, setFrom] = useState(String(r.route_from_age)), [err, setErr] = useState('');
+  const [results, setResults] = useState<RouteResult[] | null>(null);
+  useEffect(() => { if (editing) { setId(r.route_id); setFrom(String(r.route_from_age)); setErr(''); setResults(compare()); } }, [editing]);
+  function save() {
+    const a = Number(from);
+    if (!Number.isInteger(a) || a < Math.max(20, nowAge) || a > 70) return setErr(`换路线的年龄须是 ${Math.max(20, nowAge)} 到 70 之间的整数。`);
+    setErr(''); onSave({ ...r, route_id: id, route_from_age: a });
+  }
+  const route = routeById(r.route_id);
+  return <Card kicker="路线" title="35 岁以后的路线" tip="远期的收入没法预测，也不该把现在的收入一直外推。这里预设几条路线，每条自带每月储蓄、社保缴费基数、公积金和空窗比例，你只选一条，看看会怎样。参数是我配的假设，会标明依据；不选就沿用「储蓄阶段」。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
+    read={route ? <><Rows rows={[['路线', route.label], ['从', `${r.route_from_age} 岁起`], ['每月储蓄', yuan(route.saving_cents)], ['社保缴费基数', yuan(route.base_cents)], ['公积金月缴存', route.hpf_cents ? yuan(route.hpf_cents) : '无'], ['平均空窗', rateText(route.gap_share_hundredths)]]}/><p className="muted small">{route.basis}</p></>
+      : <p className="muted">还没选路线：{r.route_from_age} 岁以后沿用「储蓄阶段」，缴费基数和公积金也沿用个人资料里的当前值。点「编辑」选一条看看。</p>}
+    edit={<div className="rs-form">
+      <Field label="从几岁起换成这条路线" hint="之前沿用你自己的储蓄阶段与当前的缴费情况"><input aria-label="换路线的年龄" inputMode="numeric" value={from} onChange={e => setFrom(e.target.value)}/></Field>
+      {[{ key: null as string | null, label: '不选路线', line: '沿用储蓄阶段与个人资料里的当前缴费基数', basis: '', tag: '' }, ...routes.map(x => ({ key: x.id as string | null, label: x.label, line: `每月存 ${yuan(x.saving_cents)} · 社保基数 ${yuan(x.base_cents)} · 公积金 ${x.hpf_cents ? yuan(x.hpf_cents) + '/月' : '无'} · 空窗 ${rateText(x.gap_share_hundredths)}`, basis: x.basis, tag: '示例假设' }))].map(o => {
+        const res = results?.find(x => x.id === o.key);
+        return <label key={String(o.key)} className="rs-item rs-route"><span className="rs-item-head"><input type="radio" name="route" checked={id === o.key} onChange={() => setId(o.key)} aria-label={o.label}/><strong>{o.label}</strong>{o.tag && <i className="ui-tag">{o.tag}</i>}</span>
+          <small>{o.line}</small>{o.basis && <small className="muted">{o.basis}</small>}
+          {res && <small className="rs-route-result">按它：财务独立 {fiText(res.fi_month)}{res.shortfall_month !== null ? '，退休后有支出缺口' : ''}</small>}</label>;
+      })}
       {err && <p className="notice" role="status">{err}</p>}
     </div>}/>;
 }

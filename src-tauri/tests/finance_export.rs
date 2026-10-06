@@ -2,6 +2,7 @@
 //! Expected text is written out by hand from the fictional records below.
 use thingary_lib::{
     expenses::{Fields, Save as ExpenseSave},
+    plan_income::{Fields as IncomeFields, Save as IncomeSave},
     recurring::{PaymentSave, PlanFields, PlanSave},
     storage::Store,
     wealth::{AccountFields, AccountSave, EntryInput, SnapshotSave},
@@ -230,4 +231,54 @@ fn exports_are_empty_but_well_formed_without_records() {
             "{kind}"
         );
     }
+}
+
+#[test]
+fn all_tables_go_into_one_new_folder_and_nothing_is_overwritten() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("lib")).unwrap();
+    s.plan_income_save(
+        &IncomeSave {
+            request_id: rid(),
+            generation: s.generation(),
+            id: None,
+            expected_revision: None,
+            fields: IncomeFields {
+                date: "2026-02-15".into(),
+                net_cents: "2000000".into(),
+                hpf_cents: "300000".into(),
+                notes: "=虚构备注".into(),
+            },
+        },
+        TODAY,
+    )
+    .unwrap();
+    let target = dir.path().join("物谱表格");
+    let done = s.export_all_csv(&target).unwrap();
+    assert_eq!(
+        done,
+        vec![
+            ("物品.csv", 0),
+            ("盘点记录.csv", 0),
+            ("重要支出.csv", 0),
+            ("周期费用.csv", 0),
+            ("月度收入.csv", 1)
+        ]
+    );
+    let income = std::fs::read_to_string(target.join("月度收入.csv")).unwrap();
+    assert_eq!(
+        income,
+        "\u{feff}到账日期,税后到账（元）,公积金缴存（元）,备注\r\n2026-02-15,20000.00,3000.00,'=虚构备注\r\n"
+    );
+    for name in ["物品.csv", "盘点记录.csv", "重要支出.csv", "周期费用.csv"] {
+        assert!(target.join(name).is_file(), "{name}");
+    }
+    // 已有同名文件夹：报错，里面的东西原样保留。
+    std::fs::write(target.join("留着.txt"), "x").unwrap();
+    assert_eq!(s.export_all_csv(&target).unwrap_err().code, "EXPORT_EXISTS");
+    assert!(target.join("留着.txt").is_file());
+    // 导出到不存在的上级目录失败，不留下半成品。
+    let broken = dir.path().join("没有的目录").join("表格");
+    assert!(s.export_all_csv(&broken).is_err());
+    assert!(!broken.exists());
 }

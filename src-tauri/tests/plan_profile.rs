@@ -511,3 +511,27 @@ fn life_events_are_validated_and_round_trip() {
         .unwrap();
     assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, ok);
 }
+
+#[test]
+fn the_career_route_is_bounded_and_round_trips() {
+    let mut p = profile();
+    p.retire.route_id = Some("soe".into());
+    p.retire.route_from_age = 35;
+    assert!(p.validate(TODAY).is_ok());
+    for (age, id, want) in [
+        (19, "soe", "PROFILE_RETIRE"),
+        (71, "soe", "PROFILE_RETIRE"),
+        (35, "", "PROFILE_RETIRE"),
+    ] {
+        let mut q = profile();
+        q.retire.route_id = Some(id.into());
+        q.retire.route_from_age = age;
+        assert_eq!(q.validate(TODAY).unwrap_err().code, want);
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("lib")).unwrap();
+    s.plan_profile_save(&save(&s, p.clone(), None), TODAY)
+        .unwrap();
+    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, p);
+    assert_eq!(Retire::default().route_id, None);
+}

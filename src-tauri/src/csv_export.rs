@@ -252,6 +252,65 @@ impl Store {
 
     /// `kind` is `wealth`, `expenses` or `recurring`; the native save panel
     /// already confirmed any replacement and the write is atomic.
+    /// Monthly income rows, oldest first.
+    fn income_csv(&self) -> Result<(String, i64)> {
+        let mut stmt = self.conn()?.prepare(
+            "SELECT date,net_cents,hpf_cents,notes FROM plan_income WHERE deleted_at IS NULL ORDER BY date,id",
+        )?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok(vec![
+                    r.get::<_, String>(0)?,
+                    yuan(r.get(1)?),
+                    yuan(r.get(2)?),
+                    text(&r.get::<_, String>(3)?),
+                ])
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let header = ["到账日期", "税后到账（元）", "公积金缴存（元）", "备注"];
+        Ok((table(&header, &rows), rows.len() as i64))
+    }
+
+    /// Every readable table in one new folder: items, check-ins, important
+    /// expenses, recurring costs and monthly income. The folder must not exist
+    /// yet; nothing is overwritten, and a failure removes what was written.
+    pub fn export_all_csv(&self, folder: &Path) -> Result<Vec<(&'static str, i64)>> {
+        if folder.exists() {
+            return Err(crate::domain::Error::new(
+                "EXPORT_EXISTS",
+                "已有同名文件夹，请换一个名字",
+            ));
+        }
+        std::fs::create_dir(folder)?;
+        let result = (|| -> Result<Vec<(&'static str, i64)>> {
+            let mut done = Vec::new();
+            let items = self.asset_csv()?;
+            atomic_write(&folder.join("物品.csv"), items.as_bytes())?;
+            done.push((
+                "物品.csv",
+                self.conn()?.query_row(
+                    "SELECT count(*) FROM assets WHERE deleted_at IS NULL",
+                    [],
+                    |r| r.get(0),
+                )?,
+            ));
+            for (name, csv) in [
+                ("盘点记录.csv", self.wealth_csv()?),
+                ("重要支出.csv", self.expenses_csv()?),
+                ("周期费用.csv", self.recurring_csv()?),
+                ("月度收入.csv", self.income_csv()?),
+            ] {
+                atomic_write(&folder.join(name), csv.0.as_bytes())?;
+                done.push((name, csv.1));
+            }
+            Ok(done)
+        })();
+        if result.is_err() {
+            let _ = std::fs::remove_dir_all(folder);
+        }
+        result
+    }
+
     pub fn export_finance_csv(&self, kind: &str, destination: &Path) -> Result<i64> {
         let (csv, rows) = match kind {
             "wealth" => self.wealth_csv()?,

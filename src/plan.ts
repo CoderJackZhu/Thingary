@@ -157,8 +157,10 @@ export type RetireInputs = {
   /** 工作年份里平均有多大比例的月份没有收入（万分比）；只作用于有收入的储蓄阶段。 */
   gap_share_hundredths: number;
   life_events: StoredLifeEvent[];
+  /** 35 岁起的职业路线（预设路线的标识，见 plan-routes.ts）；null 表示不选，沿用储蓄阶段。 */
+  route_id: string | null; route_from_age: number;
 };
-export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0, life_events: [] };
+export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0, life_events: [], route_id: null, route_from_age: 35 };
 export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides; retire: RetireInputs };
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string } | null };
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import type { Income, PlanReview, ProfileState } from './plan';
-import { buildRetireCalc } from './plan-retire-calc';
+import { buildRetireCalc, routeCompare } from './plan-retire-calc';
 import type { RetireCalc } from './plan-retire-calc';
 import { RetireOverview, useValueMode, yuan } from './RetireOverview';
 import { RetireSidebar } from './RetireSidebar';
@@ -29,7 +29,9 @@ export function useRetirePlan(today: string, review: PlanReview, incomes: Income
 
   const saved = state?.saved ?? null;
   const calc = useMemo(() => (saved && snapshot !== undefined ? buildRetireCalc(saved, snapshot, review, incomes, today) : null), [saved, snapshot, incomes, review, today]);
-  return { state, snapshot, error, calc, reload: () => setRetry(n => n + 1) };
+  // 各路线并排：编辑路线时才算，不在每次渲染里算。
+  const compare = () => (saved && snapshot !== undefined ? routeCompare(saved, snapshot, review, incomes, today) : null);
+  return { state, snapshot, error, calc, compare, reload: () => setRetry(n => n + 1) };
 }
 export type RetirePlan = ReturnType<typeof useRetirePlan>;
 
@@ -47,7 +49,7 @@ export function RetireDetail({ plan, today, onEditingChange, onPending, initialE
       {ready ? <>
         <div className="rd-main"><RetireOverview calc={calc} mode={mode} onMode={setMode}/>
           {calc.emergency?.below && <p className="notice" role="status">当前可支配资产不足 {calc.r.emergency_months} 个月支出（{yuan(calc.spend ?? 0)}/月），低于应急金线。</p>}</div></> : <Missing calc={calc}/>}
-      <RetireSidebar calc={calc} state={state} reload={reload} onEditingChange={onEditingChange} onPending={onPending} initial={initialEditing ? 'spend' : null}/>
+      <RetireSidebar calc={calc} state={state} compare={plan.compare} reload={reload} onEditingChange={onEditingChange} onPending={onPending} initial={initialEditing ? 'spend' : null}/>
     </div>}
   </div>;
 }

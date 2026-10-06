@@ -129,6 +129,9 @@ pub struct Retire {
     pub gap_share_hundredths: i32,
     /// Big plans: house, car, other.
     pub life_events: Vec<LifeEvent>,
+    /// The career route from `route_from_age` on (ids live in the front end); `None` keeps the saving phases as they are.
+    pub route_id: Option<String>,
+    pub route_from_age: u32,
 }
 impl Default for Retire {
     fn default() -> Self {
@@ -146,6 +149,8 @@ impl Default for Retire {
             saving_phases: Vec::new(),
             gap_share_hundredths: 0,
             life_events: Vec::new(),
+            route_id: None,
+            route_from_age: 35,
         }
     }
 }
@@ -436,6 +441,13 @@ impl Profile {
         }
         rate(r.volatility_hundredths, 0, 6000, "年度波动率")?;
         rate(r.gap_share_hundredths, 0, 5000, "平均空窗比例")?;
+        if r.route_id
+            .as_ref()
+            .is_some_and(|id| id.is_empty() || id.len() > 40)
+            || !(20..=70).contains(&r.route_from_age)
+        {
+            return Err(bad("PROFILE_RETIRE", "路线换成的年龄须在 20 到 70 岁之间"));
+        }
         r.validate_items()?;
         let o = &self.overrides;
         for (value, label) in [
