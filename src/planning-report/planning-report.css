@@ -1,0 +1,58 @@
+/* 决策报告组件样式：只引用 theme.css 令牌，不另建颜色体系。 */
+.planning-report{display:grid;gap:14px;padding:4px 2px 24px;color:var(--text);font-size:13px;min-width:0}
+.pr-head{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.pr-head-main{min-width:0;flex:1}
+.pr-kind{display:inline-block;font-size:11px;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:1px 7px;margin-bottom:4px}
+.pr-title{margin:2px 0;font:600 18px/1.4 var(--head);overflow-wrap:anywhere}
+.pr-meta{margin:0;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.pr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
+.pr-segmented{display:inline-flex;border:1px solid var(--line);border-radius:var(--ctl-radius);overflow:hidden}
+.pr-seg{border:0;background:var(--card);color:var(--muted);padding:5px 14px;font-size:12px;cursor:pointer;min-height:28px}
+.pr-seg.on{background:var(--accent);color:var(--button-text)}
+.pr-btn{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:var(--ctl-radius);padding:5px 14px;font-size:12px;cursor:pointer;min-height:28px}
+.pr-btn:hover{border-color:var(--accent)}
+.pr-link{border:0;background:none;color:var(--accent);font-size:12px;cursor:pointer;padding:2px 4px}
+.pr-banner{margin:0;padding:9px 14px;background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn);border-radius:var(--surface-radius);line-height:1.7}
+.pr-card{background:var(--card);border:var(--surface-border);border-radius:var(--surface-radius);box-shadow:var(--surface-shadow);padding:14px var(--surface-pad-x);min-width:0}
+.pr-conclusion .pr-headline{margin:0 0 4px;font:600 15px/1.7 var(--head)}
+.pr-conclusion .pr-muted{margin:0}
+.pr-h{margin:0 0 8px;font:600 14px/1.4 var(--head);display:flex;align-items:baseline;gap:10px}
+.pr-h .pr-link{margin-left:auto}
+.pr-muted{color:var(--muted);font-size:12px}
+.pr-table{border-collapse:collapse;width:100%;font-size:12.5px}
+.pr-table th,.pr-table td{border-bottom:1px solid var(--line-soft);padding:6px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.pr-table th{color:var(--muted);font-weight:500}
+.pr-num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.pr-error h3{color:var(--error)}
+.pr-state{padding:32px var(--surface-pad-x);background:var(--card);border:var(--surface-border);border-radius:var(--surface-radius);line-height:1.8}
+.pr-state h3{margin:0 0 6px;font:600 15px var(--head)}
+.pr-state ul{margin:6px 0;padding-left:20px;font-size:12px;color:var(--muted)}
+.pr-chart{position:relative;outline:none}
+.pr-chart:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.pr-chart svg{width:100%;display:block}
+.pr-line-proj{fill:none;stroke:var(--series-1);stroke-width:1.8}
+.pr-line-ref{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-dasharray:5 4}
+.pr-dot-proj{fill:var(--series-1)}
+.pr-dot-act{fill:var(--positive);stroke:var(--card);stroke-width:1.5}
+.pr-dot-act.on{stroke:var(--accent);stroke-width:2.5}
+.pr-guide{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+.pr-tip{position:absolute;top:8px;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:var(--card-shadow);padding:4px 10px;font-size:12px;white-space:nowrap;pointer-events:none}
+.pr-legend{margin:6px 0 0;font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.pr-sw{display:inline-block;width:14px;height:3px;border-radius:2px;background:var(--series-1);vertical-align:middle;margin-left:10px}
+.pr-sw:first-child{margin-left:0}
+.pr-sw.act{background:var(--positive);height:8px;width:8px;border-radius:50%}
+.pr-sw.ref{background:var(--muted);height:2px}
+.pr-details summary{cursor:pointer;font:600 14px var(--head)}
+.pr-details .pr-table{margin-top:10px}
+.pr-missing{margin:0;padding-left:0;list-style:none;display:grid;gap:8px}
+.pr-impact{display:inline-block;border-radius:5px;padding:0 7px;font-size:11px;margin-right:8px}
+.pr-impact.blocks_headline{background:var(--danger-bg);color:var(--error)}
+.pr-impact.degrades{background:var(--warn-bg);color:var(--warn)}
+.pr-impact.info{background:var(--soft);color:var(--muted)}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* 独立预览页控制条（不属于产品组件本体）。 */
+.pr-preview-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;margin-bottom:14px;background:var(--card);border:var(--surface-border);border-radius:var(--surface-radius);font-size:12px}
+.pr-preview-bar select,.pr-preview-bar button{font-size:12px;padding:4px 8px;min-height:26px}
+.pr-preview-bar .pr-fictional{color:var(--warn);font-weight:600}
+@media(max-width:900px){.pr-head{flex-direction:column}.pr-actions{width:100%}}
