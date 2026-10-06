@@ -29,7 +29,9 @@ export function disposable(snapshot: Snapshot | null): number | null {
 export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snapshot: Snapshot | null, review: PlanReview, incomes: Income[], today: string) {
     const p = saved.profile, r = p.retire, region = effectiveParams(beijing, p.overrides);
     const stats = review.stats;
-    const { funds } = fundsFrom(snapshot?.entries ?? null, incomes);
+    const { funds: gross } = fundsFrom(snapshot?.entries ?? null, incomes);
+    // 公积金池每月净增加 = 最近非零缴存 − 近期每月平均提取（自动提取等），由复盘区间的缴存与余额变化推算。
+    const funds = { ...gross, hpf_monthly_cents: String(Math.max(0, Number(gross.hpf_monthly_cents) - monthlyHpfOut(review))) };
     const now = ageMonthsAt(p.birth_month, today), start = startAgeMonths(p);
     const assets = disposable(snapshot);
     const measured = stats.median_monthly_saving_cents === null ? null : Number(stats.median_monthly_saving_cents);
@@ -92,3 +94,10 @@ export const toEvent = (e: StoredLifeEvent): LifeEvent => ({
   holding_cents: Number(e.holding_cents), rent_saved_cents: Number(e.rent_saved_cents),
   cycle_years: e.cycle_years, until_age: e.until_age, resale_cents: Number(e.resale_cents),
 });
+
+/** 最近一个可比区间里每月平均从公积金提取多少（分，推算；没有或为负时为 0）。 */
+export function monthlyHpfOut(review: PlanReview): number {
+  const iv = [...review.intervals].reverse().find(i => i.status === 'ok' && i.hpf_out_cents !== null);
+  if (!iv || iv.days <= 0) return 0;
+  return Math.max(0, Math.round(Number(iv.hpf_out_cents) * 487 / (16 * iv.days)));
+}

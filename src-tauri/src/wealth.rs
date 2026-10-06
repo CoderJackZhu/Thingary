@@ -167,6 +167,9 @@ pub struct Point {
     /// True when a shared account changed whether it counts; no change is given.
     pub scope_changed: bool,
     pub change_cents: Option<String>,
+    /// Change of the counted housing fund accounts alone; `None` when no such
+    /// account is counted at either end (or the change is not given).
+    pub hpf_change_cents: Option<String>,
     /// Change as hundredths of a percent; only when the earlier net is positive.
     pub change_rate_hundredths: Option<i64>,
 }
@@ -455,6 +458,17 @@ fn net_of(s: &Snapshot) -> Result<(i64, i64)> {
             .filter_map(|e| e.amount_cents.as_deref()?.parse::<i64>().ok())
     };
     Ok((sum(known("asset"))?, sum(known("liability"))?))
+}
+
+/// Counted housing fund balance of a check-in; `None` when none is counted.
+fn hpf_of(s: &Snapshot) -> Result<Option<i64>> {
+    let kind = |e: &&Entry| e.counted && e.side == "asset" && e.kind == "housing_fund";
+    if !s.entries.iter().any(|e| kind(&e)) {
+        return Ok(None);
+    }
+    Ok(Some(sum(s.entries.iter().filter(kind).filter_map(|e| {
+        e.amount_cents.as_deref()?.parse::<i64>().ok()
+    }))?))
 }
 
 /// Per-kind totals of counted known amounts in kind-list order. `wealth_summary`
@@ -814,6 +828,7 @@ impl Store {
                 compared_to: None,
                 scope_changed: false,
                 change_cents: None,
+                hpf_change_cents: None,
                 change_rate_hundredths: None,
             };
             if complete {
@@ -832,6 +847,10 @@ impl Store {
                     if !point.scope_changed {
                         let change = net - prev_net;
                         point.change_cents = Some(change.to_string());
+                        point.hpf_change_cents = match (hpf_of(prev)?, hpf_of(&s)?) {
+                            (None, None) => None,
+                            (a, b) => Some((b.unwrap_or(0) - a.unwrap_or(0)).to_string()),
+                        };
                         if *prev_net > 0 {
                             point.change_rate_hundredths =
                                 Some(hundredths(change as i128, *prev_net as i128));

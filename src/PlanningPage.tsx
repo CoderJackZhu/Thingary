@@ -59,7 +59,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange }: { today: st
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
-      <Info text="储蓄 = 两次完整盘点之间的净资产变化 − 同期公积金缴存；支出 = 税后到账 + 公积金缴存 − 净资产变化。公积金提取是账户间转移，不需要记录。这些是用盘点与收入推出的估算，不是逐笔账。"/>
+      <Info text="储蓄 = 两次完整盘点之间的净资产变化 − 公积金账户的余额变化（现金与投资的增长，从公积金提取进现金的算现金）；支出 = 税后到账 + 公积金缴存 − 净资产变化。公积金提取不需要记录，用缴存和余额变化推算。这些是用盘点与收入推出的估算，不是逐笔账。"/>
     </div></HeaderSlot>
     {error ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !review || !incomes ? <p role="status" className="muted">正在读取规划…</p>
@@ -96,7 +96,7 @@ function OneOffs({ interval, lines }: { interval: Interval; lines: Reasons['line
   if (!lines || interval.status !== 'ok') return null;
   const yuan = Number(text), valid = Number.isFinite(yuan) && yuan >= 0, { count, total } = largeOneOffs(lines, valid ? Math.round(yuan * 100) : 200000), adj = monthlyWithoutOneOffs(interval, total);
   const change = (v: string) => { setText(v); try { localStorage.setItem(thresholdKey, v); } catch { /* 偏好存不下不影响使用 */ } };
-  return <div className="plan-oneoffs"><p>储蓄 = 税后到账 − 全部支出，物品购入、重要支出也算支出（盘点只计金融资产，物品不计入净资产）。{count > 0 ? <>其中单笔不低于 <input aria-label="大额阈值（元）" className="plan-threshold" inputMode="decimal" value={text} onChange={e => change(e.target.value)}/> 元的物品购入与重要支出共 <strong>{count} 笔、{money(total.toString())}</strong>，剔除后这一期折合每月储蓄约 <strong>{adj === null ? '—' : money(adj.toString())}</strong>。</> : <>没有单笔不低于 <input aria-label="大额阈值（元）" className="plan-threshold" inputMode="decimal" value={text} onChange={e => change(e.target.value)}/> 元的物品购入或重要支出。</>}</p>
+  return <div className="plan-oneoffs"><p>储蓄 = 净资产变化 − 公积金账户的变化，也就是现金与投资的增长（从公积金提取进现金的钱算现金）；物品购入、重要支出都已经花掉了（盘点只计金融资产，物品不计入净资产）。{count > 0 ? <>其中单笔不低于 <input aria-label="大额阈值（元）" className="plan-threshold" inputMode="decimal" value={text} onChange={e => change(e.target.value)}/> 元的物品购入与重要支出共 <strong>{count} 笔、{money(total.toString())}</strong>，剔除后这一期折合每月储蓄约 <strong>{adj === null ? '—' : money(adj.toString())}</strong>。</> : <>没有单笔不低于 <input aria-label="大额阈值（元）" className="plan-threshold" inputMode="decimal" value={text} onChange={e => change(e.target.value)}/> 元的物品购入或重要支出。</>}</p>
     <p className="muted small">只是参考，不改变上面的数字，也不会自动用于退休估算。这一期里没有收入的月份仍算在月数里；失业月份请记一行「税后 0」。</p></div>;
 }
 
@@ -118,7 +118,8 @@ function Steps({ interval: i, review, busy, markError, onMark, generation }: { i
         <div><dt>净资产变化</dt><dd>{money(i.delta_nw_cents)}</dd></div>
         <div><dt>税后到账</dt><dd>{money(i.income_cents)}</dd></div>
         <div><dt>公积金缴存</dt><dd>{money(i.hpf_cents)}</dd></div>
-        <div><dt>储蓄</dt><dd>{money(i.saving_cents)}</dd></div>
+        {i.hpf_change_cents !== null && <div><dt>公积金账户变化</dt><dd>{money(i.hpf_change_cents)}</dd><small className="muted">{BigInt(i.hpf_out_cents ?? '0') > 0n ? `缴存之外少了 ${money(i.hpf_out_cents)}，推算为提取` : '没有明显提取'}</small></div>}
+        <div><dt>储蓄</dt><dd>{money(i.saving_cents)}</dd><small className="muted">{i.hpf_change_cents !== null ? '现金与投资的增长' : '净资产变化'}</small></div>
         <div><dt>支出</dt><dd>{money(i.spend_cents)}</dd></div>
         <div><dt>储蓄率</dt><dd>{rateText(i.rate_hundredths)}</dd></div>
       </dl> : <p className="muted">{statusText[i.status]}，这一期没有储蓄数字。{i.status === 'no_income' && '在这段时间内记录月度收入后即可计算。'}</p>}

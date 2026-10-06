@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { STALE_MONTHS, ageText, changeSentence, estimateAccountCents, latestHpf, computeReview, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths, yearBefore } from '../src/plan.ts';
 
 // 与 src-tauri/src/plan_savings.rs 的单元测试使用同一组数值：预览不得和 Rust 口径漂移。
-const point = (id, date, prev, change, extra = {}) => ({ snapshot_id: id, date, notes: '', assets_cents: '0', liabilities_cents: '0', net_cents: '0', complete: true, missing: 0, compared_to: prev, scope_changed: false, change_cents: change === null ? null : String(change), change_rate_hundredths: null, ...extra });
+const point = (id, date, prev, change, extra = {}) => ({ snapshot_id: id, date, notes: '', assets_cents: '0', liabilities_cents: '0', net_cents: '0', complete: true, missing: 0, compared_to: prev, scope_changed: false, change_cents: change === null ? null : String(change), hpf_change_cents: null, change_rate_hundredths: null, ...extra });
 const pay = (date, net, hpf = 0) => ({ id: date + net, revision: 1, fields: { date, net_cents: String(net), hpf_cents: String(hpf), notes: '' } });
 const review = (points, incomes, marks = []) => computeReview(points, incomes, new Set(marks), 'g');
 
 test('saving removes housing fund deposits; spending is what is left of income and deposits', () => {
-  const r = review([point('a', '2026-01-31', null, null), point('b', '2026-03-31', '2026-01-31', 2_500_000)], [pay('2026-02-15', 2_000_000, 300_000), pay('2026-03-15', 2_000_000, 300_000)]);
+  const r = review([point('a', '2026-01-31', null, null), point('b', '2026-03-31', '2026-01-31', 2_500_000, { hpf_change_cents: '600000' })], [pay('2026-02-15', 2_000_000, 300_000), pay('2026-03-15', 2_000_000, 300_000)]);
   const i = r.intervals[0];
   assert.equal(i.status, 'ok');
   assert.equal(i.days, 59);
@@ -126,4 +126,14 @@ test('account estimate is months x base x 8%, rounded; the income default is the
   const row = (date, hpf) => ({ fields: { date, hpf_cents: hpf } });
   assert.equal(latestHpf([row('2026-02-15', '100'), row('2026-04-15', '300'), row('2026-03-15', '200')]), '300');
   assert.equal(latestHpf([]), '');
+});
+
+test('housing fund money withdrawn into cash counts as cash saving; without a counted fund account nothing is taken out', () => {
+  const incomes = [pay('2026-02-15', 2_000_000, 300_000), pay('2026-03-15', 2_000_000, 300_000)];
+  const withdrawn = review([point('a', '2026-01-31', null, null), point('b', '2026-03-31', '2026-01-31', 2_500_000, { hpf_change_cents: '400000' })], incomes).intervals[0];
+  assert.deepEqual([withdrawn.hpf_change_cents, withdrawn.hpf_out_cents, withdrawn.saving_cents, withdrawn.spend_cents, withdrawn.rate_hundredths], ['400000', '200000', '2100000', '2100000', 5000]);
+  const grown = review([point('a', '2026-01-31', null, null), point('b', '2026-03-31', '2026-01-31', 2_500_000, { hpf_change_cents: '610000' })], incomes).intervals[0];
+  assert.deepEqual([grown.hpf_out_cents, grown.rate_hundredths], ['-10000', 4725]);
+  const untracked = review([point('a', '2026-01-31', null, null), point('b', '2026-03-31', '2026-01-31', 2_500_000)], incomes).intervals[0];
+  assert.deepEqual([untracked.hpf_change_cents, untracked.hpf_out_cents, untracked.saving_cents, untracked.spend_cents], [null, null, '2500000', '1500000']);
 });

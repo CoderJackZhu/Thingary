@@ -11,7 +11,7 @@ export type EntryState = 'entered' | 'unchanged' | 'missing';
 export type Entry = { account_id: string; state: EntryState; amount_cents: string | null; side: Side; kind: string; counted: boolean };
 export type Snapshot = { id: string; date: string; notes: string; revision: number; entries: Entry[]; missing: string[] };
 export type Draft = { generation: string; date: string; existing: Snapshot | null; rows: { account: Account; previous: Observation | null }[] };
-export type Point = { snapshot_id: string; date: string; notes: string; assets_cents: string; liabilities_cents: string; net_cents: string; complete: boolean; missing: number; compared_to: string | null; scope_changed: boolean; change_cents: string | null; change_rate_hundredths: number | null };
+export type Point = { snapshot_id: string; date: string; notes: string; assets_cents: string; liabilities_cents: string; net_cents: string; complete: boolean; missing: number; compared_to: string | null; scope_changed: boolean; change_cents: string | null; hpf_change_cents: string | null; change_rate_hundredths: number | null };
 export type Share = { kind: string; amount_cents: string; share_hundredths: number | null };
 export type Summary = { generation: string; points: Point[]; structure_date: string | null; structure: Share[]; liabilities: Share[] };
 // U20 账户变化与盘点比较（产品设计 17.14）：一次比较的两个端点。

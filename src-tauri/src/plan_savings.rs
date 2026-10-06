@@ -5,8 +5,11 @@
 //! An interval runs between two consecutive complete check-ins, exactly the
 //! pairs `wealth_summary` compares, so comparability (incomplete check-ins,
 //! changed account scope) is decided in one place. Saving is the net-worth
-//! change minus the housing fund deposits of the interval; spending is what is
-//! left of income plus deposits.
+//! change minus the change of the housing fund accounts (so deposits that were
+//! later withdrawn into cash count as cash, not as spending); without a counted
+//! housing fund account the deposits never entered the net worth and nothing is
+//! subtracted. Spending is take-home pay plus deposits minus the net-worth
+//! change, i.e. everything that was actually consumed.
 use crate::{
     domain::{date, Error, Result},
     expenses::{Line, LINES},
@@ -43,6 +46,11 @@ pub struct Interval {
     pub status: &'static str,
     pub income_cents: String,
     pub hpf_cents: String,
+    /// Change of the housing fund accounts' balance over the interval, when tracked.
+    pub hpf_change_cents: Option<String>,
+    /// Housing fund money that left the account (deposits − balance change, so
+    /// interest counts as negative); an estimate, when tracked.
+    pub hpf_out_cents: Option<String>,
     pub income_records: usize,
     pub delta_nw_cents: Option<String>,
     pub saving_cents: Option<String>,
@@ -157,6 +165,8 @@ pub fn compute(
             status: "ok",
             income_cents: income.to_string(),
             hpf_cents: hpf.to_string(),
+            hpf_change_cents: None,
+            hpf_out_cents: None,
             income_records: rows.len(),
             delta_nw_cents: None,
             saving_cents: None,
@@ -182,15 +192,29 @@ pub fn compute(
                 .ok_or_else(corrupt)?
                 .parse()
                 .map_err(|_| corrupt())?;
-            let saving = delta - hpf;
-            let spend = income + hpf - delta;
+            let dh: Option<i128> = p
+                .hpf_change_cents
+                .as_deref()
+                .map(|v| v.parse().map_err(|_| corrupt()))
+                .transpose()?;
+            // Tracked housing fund: only its balance change is set aside; what was
+            // withdrawn into cash is cash. Untracked: deposits never entered the net worth.
+            let (saving, spend, out) = match dh {
+                Some(dh) => (delta - dh, income + hpf - delta, Some(hpf - dh)),
+                None => (delta, income - delta, None),
+            };
             interval.delta_nw_cents = Some(delta.to_string());
+            interval.hpf_change_cents = dh.map(|v| v.to_string());
+            interval.hpf_out_cents = out.map(|v| v.to_string());
             interval.saving_cents = Some(saving.to_string());
             interval.spend_cents = Some(spend.to_string());
             interval.monthly_saving_cents = Some(monthly(saving, days).to_string());
             interval.monthly_spend_cents = Some(monthly(spend, days).to_string());
-            if income > 0 {
-                interval.rate_hundredths = Some(round_div(saving * 10000, income) as i64);
+            // The rate is measured against everything that could be saved: take-home pay
+            // plus housing fund money that came out as cash.
+            let base = income + out.unwrap_or(0).max(0);
+            if base > 0 {
+                interval.rate_hundredths = Some(round_div(saving * 10000, base) as i64);
             }
         }
         out.push(interval);
@@ -418,8 +442,14 @@ mod tests {
             compared_to: prev.map(Into::into),
             scope_changed: false,
             change_cents: change.map(|c| c.to_string()),
+            hpf_change_cents: None,
             change_rate_hundredths: None,
         }
+    }
+    /// The same point with the housing fund balance change known (tracked account).
+    fn tracked(mut p: Point, hpf_change: i64) -> Point {
+        p.hpf_change_cents = Some(hpf_change.to_string());
+        p
     }
     fn pay(day: &str, net: i64, hpf: i64) -> IncomeRow {
         IncomeRow {
@@ -437,7 +467,10 @@ mod tests {
         // Two months: pay 20 000 + deposit 3 000 each; net worth up 25 000.
         let points = [
             point("a", "2026-01-31", None, None),
-            point("b", "2026-03-31", Some("2026-01-31"), Some(2_500_000)),
+            tracked(
+                point("b", "2026-03-31", Some("2026-01-31"), Some(2_500_000)),
+                600_000,
+            ),
         ];
         let incomes = [
             pay("2026-02-15", 2_000_000, 300_000),
@@ -456,6 +489,61 @@ mod tests {
         // 1 900 000 ÷ 4 000 000 = 47.5 %.
         assert_eq!(i.rate_hundredths, Some(4750));
         assert!(!i.income_possibly_missing);
+    }
+
+    #[test]
+    fn housing_fund_money_withdrawn_into_cash_counts_as_cash_saving() {
+        // Deposits 6 000 over two months, 2 000 withdrawn: the account grew by 4 000.
+        let points = [
+            point("a", "2026-01-31", None, None),
+            tracked(
+                point("b", "2026-03-31", Some("2026-01-31"), Some(2_500_000)),
+                400_000,
+            ),
+        ];
+        let incomes = [
+            pay("2026-02-15", 2_000_000, 300_000),
+            pay("2026-03-15", 2_000_000, 300_000),
+        ];
+        let i = &compute(&points, &incomes, &none()).unwrap().0[0];
+        assert_eq!(i.hpf_change_cents.as_deref(), Some("400000"));
+        assert_eq!(i.hpf_out_cents.as_deref(), Some("200000"));
+        // saving = 25 000 − 4 000 (the cash side); spending is unchanged: 40 000 + 6 000 − 25 000.
+        assert_eq!(i.saving_cents.as_deref(), Some("2100000"));
+        assert_eq!(i.spend_cents.as_deref(), Some("2100000"));
+        // rate against take-home pay plus the 2 000 that came out as cash.
+        assert_eq!(i.rate_hundredths, Some(5000));
+        // Interest makes the balance grow more than the deposits: no negative withdrawal in the base.
+        let grown = [
+            point("a", "2026-01-31", None, None),
+            tracked(
+                point("b", "2026-03-31", Some("2026-01-31"), Some(2_500_000)),
+                610_000,
+            ),
+        ];
+        let g = &compute(&grown, &incomes, &none()).unwrap().0[0];
+        assert_eq!(g.hpf_out_cents.as_deref(), Some("-10000"));
+        assert_eq!(
+            g.rate_hundredths,
+            Some(round_div(1_890_000 * 10000, 4_000_000) as i64)
+        );
+    }
+
+    #[test]
+    fn deposits_without_a_counted_housing_fund_account_are_not_taken_out_of_saving() {
+        let points = [
+            point("a", "2026-01-31", None, None),
+            point("b", "2026-03-31", Some("2026-01-31"), Some(2_500_000)),
+        ];
+        let incomes = [
+            pay("2026-02-15", 2_000_000, 300_000),
+            pay("2026-03-15", 2_000_000, 300_000),
+        ];
+        let i = &compute(&points, &incomes, &none()).unwrap().0[0];
+        assert_eq!(i.hpf_change_cents, None);
+        assert_eq!(i.hpf_out_cents, None);
+        assert_eq!(i.saving_cents.as_deref(), Some("2500000"));
+        assert_eq!(i.spend_cents.as_deref(), Some("1500000"));
     }
 
     #[test]

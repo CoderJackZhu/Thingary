@@ -182,7 +182,7 @@ function HistoryBlock({ id, name, side, history, onRetry }: {
   if (history.status === 'error') return <div role="alert"><p>历史读取失败：{history.message}</p><button onClick={() => onRetry(id)}>重新读取</button></div>;
   const data = history.data;
   // 未知金额不画 0：complete=false 让 NetChart 只留虚线标记（W-AC07）。
-  const points: Point[] = data.rows.map(row => ({ snapshot_id: row.snapshot_id, date: row.date, notes: '', assets_cents: row.amount_cents ?? '0', liabilities_cents: '0', net_cents: row.amount_cents ?? '0', complete: row.amount_cents !== null, missing: row.amount_cents === null ? 1 : 0, compared_to: null, scope_changed: false, change_cents: null, change_rate_hundredths: null }));
+  const points: Point[] = data.rows.map(row => ({ snapshot_id: row.snapshot_id, date: row.date, notes: '', assets_cents: row.amount_cents ?? '0', liabilities_cents: '0', net_cents: row.amount_cents ?? '0', complete: row.amount_cents !== null, missing: row.amount_cents === null ? 1 : 0, compared_to: null, scope_changed: false, change_cents: null, hpf_change_cents: null, change_rate_hundredths: null }));
   const known = data.rows.filter(row => row.amount_cents !== null).length;
   return <div className="account-history">
     {known > 0 ? <NetChart points={points} label={`「${name}」的金额趋势，共 ${known} 次已知金额`}/> : <p className="muted">还没有已知金额。</p>}

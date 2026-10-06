@@ -15,6 +15,8 @@ export type IntervalStatus = 'ok' | 'scope_changed' | 'no_income';
 export type Interval = {
   snapshot_id: string; from: string; to: string; days: number; status: IntervalStatus;
   income_cents: string; hpf_cents: string; income_records: number;
+  /** 公积金账户余额的变化与推算提取额（缴存 − 余额变化，利息算负数）；没有计入的公积金账户时为 null。 */
+  hpf_change_cents: string | null; hpf_out_cents: string | null;
   delta_nw_cents: string | null; saving_cents: string | null; spend_cents: string | null;
   monthly_saving_cents: string | null; monthly_spend_cents: string | null; rate_hundredths: number | null;
   income_possibly_missing: boolean; excluded: boolean; in_window: boolean; anomaly: boolean;
@@ -94,7 +96,7 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     const hpf = rows.reduce((s, i) => s + BigInt(i.fields.hpf_cents), 0n);
     const iv: Interval = {
       snapshot_id: p.snapshot_id, from, to: p.date, days, status: 'ok',
-      income_cents: income.toString(), hpf_cents: hpf.toString(), income_records: rows.length,
+      income_cents: income.toString(), hpf_cents: hpf.toString(), income_records: rows.length, hpf_change_cents: null, hpf_out_cents: null,
       delta_nw_cents: null, saving_cents: null, spend_cents: null, monthly_saving_cents: null, monthly_spend_cents: null, rate_hundredths: null,
       income_possibly_missing: BigInt(rows.length) < (BigInt(days) * MONTH_DEN) / MONTH_NUM,
       excluded: marks.has(p.snapshot_id), in_window: cutoff !== null && p.date > cutoff, anomaly: false,
@@ -102,10 +104,14 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     if (p.scope_changed) iv.status = 'scope_changed';
     else if (!rows.length) iv.status = 'no_income';
     else {
-      const delta = BigInt(p.change_cents ?? '0'), saving = delta - hpf, spend = income + hpf - delta;
+      const delta = BigInt(p.change_cents ?? '0'), dh = p.hpf_change_cents === null ? null : BigInt(p.hpf_change_cents);
+      // 公积金账户有计入时只扣它的余额变化（提取进现金的算现金）；没有时缴存从未进过净资产，不扣。
+      const saving = dh === null ? delta : delta - dh, spend = dh === null ? income - delta : income + hpf - delta, out = dh === null ? null : hpf - dh;
       iv.delta_nw_cents = delta.toString(); iv.saving_cents = saving.toString(); iv.spend_cents = spend.toString();
+      iv.hpf_change_cents = dh === null ? null : dh.toString(); iv.hpf_out_cents = out === null ? null : out.toString();
       iv.monthly_saving_cents = monthly(saving, days).toString(); iv.monthly_spend_cents = monthly(spend, days).toString();
-      if (income > 0n) iv.rate_hundredths = Number(roundDiv(saving * 10000n, income));
+      const base = income + (out !== null && out > 0n ? out : 0n);
+      if (base > 0n) iv.rate_hundredths = Number(roundDiv(saving * 10000n, base));
     }
     intervals.push(iv);
   }
