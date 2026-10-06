@@ -19,10 +19,16 @@ const taxRates = [0, 300, 1000, 2000, 2500, 3000, 3500, 4500];
 const yuan = (c: number) => money(String(c));
 
 /** 个人资料与养老金估算。资料只含输入与假设；结果每次打开重算，不存库。 */
-export function PlanningPension({ today, incomes, onEditingChange, onPending }: { today: string; incomes: Income[]; onEditingChange: (v: boolean) => void; onPending: () => void }) {
+export function PlanningPension({ focus = false, onFocusDone, today, incomes, onEditingChange, onPending }: { focus?: boolean; onFocusDone: () => void; today: string; incomes: Income[]; onEditingChange: (v: boolean) => void; onPending: () => void }) {
   const [state, setState] = useState<ProfileState | null>(null), [snapshot, setSnapshot] = useState<Snapshot | null | undefined>(undefined);
   const [error, setError] = useState(''), [retry, setRetry] = useState(0), [editing, setEditing] = useState(false);
   const [quit, setQuit] = useState<number | 'start'>('start');
+  // Wait for the real entry to render; navigation away drops the parent's intent.
+  useEffect(() => {
+    if (!focus || !state || snapshot === undefined || error) return;
+    const entry = document.getElementById('plan-profile-edit');
+    if (entry) { entry.focus(); onFocusDone(); }
+  }, [focus, state, snapshot, error, onFocusDone]);
   useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
   useEffect(() => {
     let live = true; setError('');
@@ -50,7 +56,7 @@ export function PlanningPension({ today, incomes, onEditingChange, onPending }: 
   return <>
     {error ? <article className="ui-card ui-content" role="alert"><p>个人资料读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>
       : !state || snapshot === undefined ? <p role="status" className="muted">正在读取个人资料…</p>
-      : !saved || !calc ? <div className="empty"><span className="empty-mark">¥</span><h2>还没有个人资料</h2><p>填写出生年月、缴费情况和个人账户余额（社保 App 里可查），就能估算法定退休年龄和退休时的养老金。资料只存在本机，估算结果不会保存。</p><button className="primary" onClick={() => setEditing(true)}>填写个人资料</button></div>
+      : !saved || !calc ? <div className="empty"><span className="empty-mark">¥</span><h2>还没有个人资料</h2><p>填写出生年月、缴费情况和个人账户余额（社保 App 里可查），就能估算法定退休年龄和退休时的养老金。资料只存在本机，估算结果不会保存。</p><button id="plan-profile-edit" className="primary" onClick={() => setEditing(true)}>填写个人资料</button></div>
       : <>
         <Result calc={calc} quit={quit} onQuit={setQuit} onEdit={() => setEditing(true)} updatedAt={saved.updated_at} today={today}/>
         <Table calc={calc}/>
@@ -66,7 +72,7 @@ function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; 
   const r = calc.main;
   const stale = staleMonths(updatedAt, today);
   return <article className="ui-card ui-content plan-steps" aria-label="养老金估算">
-    <div className="ui-section-head"><h3>养老金估算</h3><span><button type="button" className="ui-btn" onClick={onEdit}>编辑个人资料</button></span></div>
+    <div className="ui-section-head"><h3>养老金估算</h3><span><button type="button" id="plan-profile-edit" className="ui-btn" onClick={onEdit}>编辑个人资料</button></span></div>
     {stale >= STALE_MONTHS && <p className="notice" role="status">个人资料更新于 {updatedAt.slice(0, 10)}，已经 {stale} 个月没更新。累计缴费月数和个人账户余额会随缴费变化，请对一次京通再改。</p>}
     <section aria-labelledby="pension-start"><h4 id="pension-start">领取年龄</h4>
       <p><strong>{ageText(r.start_age_months)}</strong>（{r.start_month}）{calc.p.flex_months !== 0 && <span className="muted">，含弹性{calc.p.flex_months > 0 ? '延后' : '提前'} {Math.abs(calc.p.flex_months)} 个月</span>}</p>

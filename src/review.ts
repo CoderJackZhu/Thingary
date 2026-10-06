@@ -1,3 +1,4 @@
+import type { PlanSources } from './plan-summary';
 import { allModules, type Modules } from './modules.ts';
 import type { OverviewData } from './Overview';
 import type { Summary, Point } from './wealth';
@@ -8,7 +9,7 @@ import type { VirtualOverview } from './virtual';
 import type { TimelineEvent } from './Timeline';
 import type { SourceTarget } from './source';
 export type Read<T> = { status: 'ready'; value: T } | { status: 'error'; value: { code: string; message: string } };
-export type Review = { generation: string; today: string; year: number | null; physical: Read<OverviewData>; wealth: Read<Summary>; expenses: Read<ExpenseView>; recurring: Read<Recurring>; virtual_assets: Read<VirtualOverview>; recent: Read<TimelineEvent[]> };
+export type Review = { generation: string; today: string; year: number | null; physical: Read<OverviewData>; wealth: Read<Summary>; expenses: Read<ExpenseView>; recurring: Read<Recurring>; virtual_assets: Read<VirtualOverview>; recent: Read<TimelineEvent[]>; planning?: PlanSources | null };
 export type ReviewPage = 'wealth' | 'assets' | 'expenses' | 'recurring' | 'virtual' | 'timeline';
 export const ready = <T,>(r: Read<T> | undefined): T | undefined => r?.status === 'ready' ? r.value : undefined;
 export const overviewView = (value: string | null) => value === 'physical' ? 'physical' : 'combined';
@@ -30,6 +31,13 @@ export function rangePoints(points: Point[], range: TrendRange, today: string) {
 }
 /** 范围内至少两次完整盘点才画得出走势；否则该范围置灰，不显示空图。 */
 export const rangeUsable = (points: Point[], range: TrendRange, today: string) => rangePoints(points, range, today).filter(p => p.complete).length >= 2;
+
+/** 曲线时间范围的同库页面记忆：跳去规划等页面再回总览时保留选择；只在当前会话与当前资料库内有效，
+ *  切库／恢复由组件按 generation 重挂载自然清空，不持久化成跨库缓存。 */
+let trendRangeMemory: { generation: string; range: TrendRange } | null = null;
+export const recallTrendRange = (generation: string): TrendRange => (trendRangeMemory && trendRangeMemory.generation === generation ? trendRangeMemory.range : 'all');
+export const clearTrendRange = (): void => { trendRangeMemory = null; };
+export const rememberTrendRange = (generation: string, range: TrendRange): void => { trendRangeMemory = { generation, range }; };
 
 /** 总览资产结构的“较上次变化”只比最近一次完整盘点与它的上一次完整盘点（账户计入范围变化时不可比）。 */
 export function structureCompareRange(points: Point[]): { from: string; to: string } | null {

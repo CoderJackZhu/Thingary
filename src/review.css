@@ -18,7 +18,7 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 /* U15e 收尾：变化行着色；辅助指标与其他页指标行同样式（一张卡、竖线分隔） */
 .review-change.pos{color:var(--positive)}.review-change.neg{color:var(--error)}
 /* U16c 综合回顾（规范 6.1）：两张主卡 → 辅助指标 → 待关注＋近期记录 */
-.review-section.u16{display:grid;gap:16px}
+.review-section.u16{display:grid;gap:16px;container-type:inline-size}
 .review-heroes{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px}
 .review-heroes.single{grid-template-columns:minmax(0,1fr)}
 .review-section.u16 .review-metrics{margin:0}
@@ -75,3 +75,34 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 
 :root[data-style=olive] .review-ev .ui-icon{width:24px;height:24px;padding:5px;border-radius:7px;stroke-width:1.9;color:var(--ic,#8e8e93);background:color-mix(in srgb,var(--ic,#8e8e93) 12%,transparent);border:1px solid color-mix(in srgb,var(--ic,#8e8e93) 38%,transparent)}
 :root[data-style=olive][data-mode=dark] .review-ev .ui-icon{background:color-mix(in srgb,var(--ic,#8e8e93) 16%,transparent)}
+
+/* 首页顶部（OVERVIEW_PLANNING_DESIGN §2.2）：约 2:1，金融净资产与曲线居左、规划摘要居右。
+ * 按容器内容宽度 W 判断（已扣侧栏与页面留白），不套用窗口断点；两模块其一关闭时自然恢复单列满宽。 */
+.review-top{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}
+.review-top.duo{align-items:start}
+@container (min-width:960px){.review-top.duo{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}}
+
+/* 右侧规划摘要：复用 ui-card 表面与主题令牌；导航靠近底部，长文案换行不截断。 */
+.review-plan{display:flex;flex-direction:column;gap:8px;padding:14px var(--surface-pad-x) 16px;min-width:0}
+.review-plan-goal{margin:0;font-size:13px;color:var(--muted)}
+.review-plan-goal small{font-size:12px}
+.review-plan-main{margin:2px 0 0;font:var(--key-w) 24px/1.3 var(--num);font-variant-numeric:tabular-nums;letter-spacing:-.3px;overflow-wrap:anywhere}
+.review-plan-main.muted{font-weight:400;font-size:15px;color:var(--muted)}
+.review-plan-sub{margin:0;font-size:13px;color:var(--muted);line-height:1.6;overflow-wrap:anywhere}
+.review-plan-warn{margin:0;font-size:12px;color:var(--warn);line-height:1.6}
+.review-plan-cov{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.review-plan-cov-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;color:var(--muted)}
+.review-plan-cov-head>b{font:var(--key-w) 14px var(--num);font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap}
+.review-plan-bar{height:6px;border-radius:3px;background:var(--soft);overflow:hidden}
+.review-plan-bar>div{height:100%;min-width:1px;background:var(--accent);border-radius:3px}
+.review-plan-divide{border-top:1px solid var(--line);margin-top:6px;padding-top:12px;display:flex;flex-direction:column;gap:4px}
+.review-plan-save{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.review-plan-save>span{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:4px}
+.review-plan-save b{font:600 22px var(--num);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.review-plan-save b.neg{color:var(--error)}
+.review-plan-save b small{font-size:13px;font-weight:400;color:var(--muted)}
+.review-plan-source{margin:0;font-size:12px;color:var(--muted);line-height:1.6;overflow-wrap:anywhere}
+.review-plan-actions{display:flex;gap:16px;flex-wrap:wrap;margin-top:auto;padding-top:10px}
+.review-plan .review-error{margin:4px 0 0;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.review-plan-dep{padding:16px var(--surface-pad-x) 18px;display:flex;flex-direction:column;gap:8px}
+.review-plan-dep .review-plan-actions{margin-top:4px}

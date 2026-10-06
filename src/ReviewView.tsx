@@ -10,8 +10,10 @@ import { eventDetail, eventIcon, eventLabel } from './Timeline';
 import { Icon } from './AssetViews';
 import type { ScrollRestore } from './Timeline';
 import type { SourceTarget } from './source';
+import type { PlanningTab } from './PlanningPage';
 import { useRestored } from './undo';
-import { attention, latestComplete, rangePoints, rangeUsable, ready, requestGate, structureCompareRange, structureRows, trendRanges } from './review';
+import { ReviewPlanSummary } from './ReviewPlanSummary';
+import { attention, latestComplete, rangePoints, rangeUsable, ready, recallTrendRange, rememberTrendRange, requestGate, structureCompareRange, structureRows, trendRanges } from './review';
 import type { Read, Review, ReviewPage, TrendRange } from './review';
 import { Info } from './FormControls';
 import { DailyCostMetric } from './DailyCostMetric';
@@ -61,11 +63,12 @@ function StructureCard({ summary }: { summary: Summary }) {
   </article>;
 }
 
-export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, restoreScroll, modules = allModules }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; restoreScroll?: ScrollRestore }) {
+export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onOpenSettings, restoreScroll, modules = allModules }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
   const [data, setData] = useState<Review | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const gate = useRef(requestGate());
   const context = useRef<{ generation: string; today: string; version: unknown; year: number | null } | null>(null);
-  const [updating, setUpdating] = useState(false), [range, setRange] = useState<TrendRange>('all');
+  const [updating, setUpdating] = useState(false), [range, setRange] = useState<TrendRange>(() => recallTrendRange(generation));
+  useEffect(() => { rememberTrendRange(generation, range); }, [generation, range]);
   useRestored(() => setRetry(n => n + 1));
   useEffect(() => {
     const refresh = () => setRetry(n => n + 1);
@@ -78,16 +81,16 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     if (!prior || prior.generation !== generation || prior.today !== today || prior.version !== version || prior.year !== year) setData(null);
     context.current = { generation, today, version, year };
     setUpdating(true); setError('');
-    invoke<Review>('review_overview', { year }).then(result => {
+    invoke<Review>('review_overview', { year, planning: modules.planning && modules.wealth }).then(result => {
       if (gate.current.accepts(ticket, generation, result.generation)) { setData(result); setUpdating(false); }
-      else if (gate.current.accepts(ticket, generation, generation)) setError('资料库已变化，请重新读取。');
-    }).catch(e => { if (gate.current.accepts(ticket, generation, generation)) setError(errorMessage(e)); });
+      else if (gate.current.accepts(ticket, generation, generation)) { setError('资料库已变化，请重新读取。'); setUpdating(false); }
+    }).catch(e => { if (gate.current.accepts(ticket, generation, generation)) { setError(errorMessage(e)); setUpdating(false); } });
     return () => gate.current.invalidate();
-  }, [generation, today, version, year, retry]);
+  }, [generation, today, version, year, retry, modules.planning, modules.wealth]);
   // Restore only once the whole review has rendered, never against the loading stub.
   useEffect(() => { if (data) restoreScroll?.done(); }, [data, restoreScroll]);
   const reload = () => setRetry(n => n + 1);
-  if (error) return <div className="empty error" role="alert"><h2>综合回顾读取失败</h2><p>{error}</p><button onClick={reload}>重新读取</button></div>;
+  if (error && !data) return <div className="empty error" role="alert"><h2>综合回顾读取失败</h2><p>{error}</p><button onClick={reload}>重新读取</button></div>;
   if (!data || data.year !== year || data.generation !== generation) return <p className="loading" role="status">正在读取综合回顾…</p>;
   const w = ready(data.wealth), p = ready(data.physical), e = ready(data.expenses), r = ready(data.recurring);
   const latest = w && latestComplete(w.points), lastPoint = w?.points.at(-1);
@@ -113,29 +116,41 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     modules.wishlist && p && { label: '考虑中心愿', value: <>{p.considering_wishes}<small>条</small></>, note: p.legacy_wishes > 0 ? `另有 ${p.legacy_wishes} 条历史待核实` : '', page: null },
   ].filter(Boolean) as { label: string; value: ReactNode; note: string; page: ReviewPage | null; big?: boolean }[];
   return <section className="review-section u16" aria-label="综合回顾" aria-busy={updating}>
+    {error && <div className="review-error" role="alert"><p>更新失败，当前显示上次读取的结果：{error}</p><button onClick={reload}>重新读取</button></div>}
     {updating && <p className="review-sub" role="status">正在更新，暂时显示上次读取的结果…</p>}
     {modules.wealth && lastPoint && !lastPoint.complete && <div className="review-notice">{lastPoint.date} 盘点尚缺 {lastPoint.missing} 个账户 · {latest ? `当前显示 ${latest.date} 的完整盘点` : '尚无完整盘点'} {link('wealth')}</div>}
     {p && p.held_count === 0 && (!w || w.points.length === 0) && <article className="ui-card ui-content review-start">
       <div><h3>从这里开始</h3><p>物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。</p></div>
       <div className="review-start-actions"><button className="primary" onClick={() => onNavigate('assets')}>记录第一件物品</button>{modules.wealth && <button onClick={() => onNavigate('wealth')}>建立账户并盘点</button>}</div>
     </article>}
-    {modules.wealth && <section className="review-nw" aria-label="金融净资产">
-      <div className="ui-label">金融净资产{latest && <Info text={`只统计计入范围的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
-      {failure(data.wealth)}
-      {w && <>
-        <div className="review-nw-big">{latest ? signedMoney(latest.net_cents) : '—'}</div>
-        {latest ? <>
-          <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天</p>
-          <p className={'ui-sub' + tone(latest.change_cents)}>{latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
-          <p className="ui-sub">资产 {money(latest.assets_cents)} · 负债 {money(latest.liabilities_cents)}</p>
-          <Sparkline hero points={rangePoints(w.points, activeRange, data.today)}/>
-          <div className="review-nw-bar">
-            {rangeUsable(w.points, 'all', data.today) ? <div className="ui-seg" role="group" aria-label="曲线时间范围">{trendRanges.map(([k, label]) => { const usable = rangeUsable(w.points, k, data.today); return <button key={k} aria-pressed={activeRange === k} disabled={!usable} title={usable ? undefined : '这个范围内完整盘点不足两次'} onClick={() => setRange(k)}>{label}</button>; })}</div> : <span/>}
-            {link('wealth')}
-          </div>
-        </> : <p className="ui-sub">{w.points.length ? '—／尚无完整盘点：现有盘点均不完整，补全后显示净资产。' : '添加账户并完成盘点后，这里会显示金融净资产。'}</p>}
-      </>}
-    </section>}
+    {(modules.wealth || modules.planning) && <div className={'review-top' + (modules.wealth && modules.planning ? ' duo' : '')}>
+      {modules.wealth && <section className="review-nw" aria-label="金融净资产">
+        <div className="ui-label">金融净资产{latest && <Info text={`只统计计入范围的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
+        {failure(data.wealth)}
+        {w && <>
+          <div className="review-nw-big">{latest ? signedMoney(latest.net_cents) : '—'}</div>
+          {latest ? <>
+            <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天</p>
+            <p className={'ui-sub' + tone(latest.change_cents)}>{latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
+            <p className="ui-sub">资产 {money(latest.assets_cents)} · 负债 {money(latest.liabilities_cents)}</p>
+            <Sparkline hero points={rangePoints(w.points, activeRange, data.today)}/>
+            <div className="review-nw-bar">
+              {rangeUsable(w.points, 'all', data.today) ? <div className="ui-seg" role="group" aria-label="曲线时间范围">{trendRanges.map(([k, label]) => { const usable = rangeUsable(w.points, k, data.today); return <button key={k} aria-pressed={activeRange === k} disabled={!usable} title={usable ? undefined : '这个范围内完整盘点不足两次'} onClick={() => setRange(k)}>{label}</button>; })}</div> : <span/>}
+              {link('wealth')}
+            </div>
+          </> : <p className="ui-sub">{w.points.length ? '—／尚无完整盘点：现有盘点均不完整，补全后显示净资产。' : '添加账户并完成盘点后，这里会显示金融净资产。'}</p>}
+        </>}
+      </section>}
+      {modules.planning && (modules.wealth
+        ? <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
+        : <article className="ui-card ui-content review-plan-dep" aria-label="规划">
+          <div className="ui-section-head"><h3>规划</h3></div>
+          <p className="review-plan-goal">退休与财务自由</p>
+          <p className="review-plan-main">开启「账户与盘点」后显示规划摘要</p>
+          <p className="review-plan-sub">规划摘要依据完整盘点推出储蓄与退休估算；不会自动开启模块，历史规划资料保持不变。</p>
+          <div className="review-plan-actions"><button className="review-action" onClick={onOpenSettings}>前往设置 →</button></div>
+        </article>)}
+    </div>}
     <div className={'review-heroes' + (modules.wealth && w?.structure_date ? '' : ' single')}>
       {modules.wealth && w?.structure_date && <StructureCard summary={w}/>}
       <article className="ui-card ui-hero tint-2">

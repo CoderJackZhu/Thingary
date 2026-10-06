@@ -21,6 +21,8 @@ import demoAssets from './demo-assets.json';
 import { wealthPreview, financialTimelineEvents, previewWishPage, previewReadWish, validatePreviewSource, searchPreview } from './wealth-preview';
 import type { PreviewEvent } from './wealth-preview';
 import type { OverviewData } from './Overview';
+import type { IncomeList, PlanReview, ProfileState } from './plan';
+import type { Snapshot, Summary } from './wealth';
 import type { Review, Read } from './review';
 import type { ExpenseView } from './expenses';
 import type { SourceTarget } from './source';
@@ -435,7 +437,16 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     // Recent rides the same unified projection as the timeline, snapshots and
     // stable targets included, exactly like the native review command.
     const recent: Read<PreviewEvent[]> = expenses.status === 'error' ? expenses : { status: 'ready', value: (timelinePreview({ query: { filter: 'all' }, domain: 'all', year: args.year }).dated as PreviewEvent[]).slice(0, 8) };
-    const result: Review = { generation, today: localDay(), year: args.year as number | null, physical: { status: 'ready', value: physicalPreview('held') }, wealth: read('wealth_summary'), expenses, recurring: read('recurring_overview'), virtual_assets: read('virtual_overview'), recent };
+    const wealth = read<Summary>('wealth_summary');
+    const latest = wealth.status === 'ready' ? wealth.value.points.filter(p => p.complete).at(-1) : null;
+    const list = args.planning ? read<IncomeList>('plan_income_list') : null;
+    const planning = args.planning ? {
+      review: read<PlanReview>('plan_review'), profile: read<ProfileState>('plan_profile'),
+      incomes: list!.status === 'ready' ? { status: 'ready' as const, value: list!.value.rows } : list!,
+      snapshot: wealth.status === 'error' ? wealth : latest ? read<Snapshot | null>('wealth_snapshot', { id: latest.snapshot_id }) : { status: 'ready' as const, value: null },
+      snapshotId: latest?.snapshot_id ?? null, snapshotDate: latest?.date ?? null,
+    } : null;
+    const result: Review = { generation, today: localDay(), year: args.year as number | null, physical: { status: 'ready', value: physicalPreview('held') }, wealth, planning, expenses, recurring: read('recurring_overview'), virtual_assets: read('virtual_overview'), recent };
     return result;
   }
   const wealth = wealthPreview(command,args); if (wealth) return wealth.value;

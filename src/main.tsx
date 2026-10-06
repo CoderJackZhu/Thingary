@@ -48,6 +48,7 @@ import type { SearchSession } from './search';
 import type { ReturnContext, SourceFocus, SourceTarget, TimelineSelection } from './source';
 import { OverviewPage } from './Overview';
 import type { ReviewPage } from './review';
+import { clearTrendRange } from './review';
 import { PageBarContext, BarMenuButton, TopbarSearchBox, useCompactTopbar, emptySearches, buildNewMenu } from './topbar';
 import { TagInvestment, type AnalysisViewState } from './TagInvestment';
 import { TAG_PAGE_SIZE, analysisAfterScopeChange, labelFilterOptions, type TagScope } from './tag-investment';
@@ -145,6 +146,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   // Q03 source navigation: one focus at a time, its return context, and the
   // timeline selection that survives a source roundtrip.
   const [sourceFocus, setSourceFocus] = useState<SourceFocus | null>(null);
+  const [planFocus, setPlanFocus] = useState<{ tab: PlanningTab; focus: 'budget' | 'profile'; generation: string } | null>(null);
   // 全局搜索的会话状态：仅内存；资料库切换、模块开关或重启后清空（§6.1）。
   const [searchSession, setSearchSession] = useState<SearchSession>(emptySearchSession);
   const sourceToken = useRef(0);
@@ -196,6 +198,8 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     const generation = page?.generation ?? null;
     if (!generation) return;
     if (lastGeneration.current && lastGeneration.current !== generation) {
+      clearTrendRange();
+      setPlanFocus(null);
       setSearches({ ...emptySearches });
       setMenuOpen(false);
       setAutoNew(null);
@@ -333,6 +337,22 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     if (target === 'timeline') setTimelineSelection(s => ({ ...s, year: reviewYear }));
     if (target === 'expenses') setExpensesYear(reviewYear);
     setSection(target); setDetailId(null);
+  }
+  // 总览规划摘要的入口：进规划页签并沿用总览返回上下文；budget／profile 的定位意图
+  // 由目标页／养老金页各消费一次，用户离开后迟到的意图不再跳转。
+  function gotoPlanning(tab: PlanningTab, focus?: 'budget' | 'profile') {
+    beginReturn();
+    setPlanFocus(focus && libraryGeneration ? { tab, focus, generation: libraryGeneration } : null);
+    setPlanningTab(tab); setSection('planning'); setDetailId(null);
+  }
+  useEffect(() => {
+    if (planFocus && (section !== 'planning' || planningTab !== planFocus.tab || libraryGeneration !== planFocus.generation)) setPlanFocus(null);
+  }, [section, planningTab, libraryGeneration, planFocus]);
+  function openModuleSettings() {
+    beginReturn();
+    setSettingsGroup('modules');
+    setSection('settings'); setDetailId(null);
+    void taxonomy.reload().catch(() => {});
   }
   // An unconsumed focus is dropped when its page is left, so a later visit
   // never re-opens an editor the user already navigated away from.
@@ -962,12 +982,12 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       {section === 'wealth' && <WealthPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.recurring} onSearch={v => setSearches(s => (s.recurring === v ? s : { ...s, recurring: v }))} autoNew={autoNew === 'recurring'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.virtual} onSearch={v => setSearches(s => (s.virtual === v ? s : { ...s, virtual: v }))} autoNew={autoNew === 'virtual'} onAutoNewDone={() => setAutoNew(null)}/>}
-      {section === 'planning' && <PlanningPage today={today} tab={planningTab} onTab={setPlanningTab} onEditingChange={setFeatureEditing}/>}
+      {section === 'planning' && <PlanningPage key={libraryGeneration} focus={planFocus && planFocus.generation === libraryGeneration ? planFocus.focus : null} onFocusDone={() => setPlanFocus(null)} today={today} tab={planningTab} onTab={setPlanningTab} onEditingChange={setFeatureEditing}/>}
       {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} initialYear={expensesYear} onOpenAsset={id => { setSection('assets'); void select(id, true); }} onOpenSource={openSource} source={sourceFocus} onSourceDone={onSourceDone} search={searches.expenses} onSearch={v => setSearches(s => (s.expenses === v ? s : { ...s, expenses: v }))} autoNew={autoNew === 'expenses'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
       {section === 'overview' && !modeBusy && <>
         {loadError && <div className="notice" role="alert"><strong>物品资料读取失败</strong><p>{loadError}</p><button disabled={loading} onClick={() => { void refresh(); void taxonomy.reload().catch(() => {}); }}>重新读取</button></div>}
-        {libraryGeneration ? <OverviewPage modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
+        {libraryGeneration ? <OverviewPage modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} onGotoPlanning={gotoPlanning} onOpenSettings={openModuleSettings} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
           : !loadError && <p className="loading" role="status">正在读取总览…</p>}
       </>}
       {searchSession.open && libraryGeneration && <SearchPanel session={searchSession} onSessionChange={setSearchSession} onClose={() => setSearchSession(s => ({ ...s, open: false }))} generation={libraryGeneration} modulesOn={kind => { const owner = searchKindModule(kind); return owner == null || modules[owner]; }} onOpenSource={openSource}/>}

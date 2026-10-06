@@ -22,7 +22,7 @@ const dateRange = (i: Interval) => `${i.from} → ${i.to}`;
 export type PlanningTab = 'goals' | 'savings' | 'pension';
 export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['savings', '储蓄与收入'], ['pension', '养老金']];
 
-export function PlanningPage({ today, tab, onTab, onEditingChange }: { today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
+export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone }: { focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
   const [review, setReview] = useState<PlanReview | null>(null), [incomes, setIncomes] = useState<IncomeList | null>(null);
   const [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [editing, setEditing] = useState<Income | 'new' | null>(null);
@@ -63,8 +63,8 @@ export function PlanningPage({ today, tab, onTab, onEditingChange }: { today: st
     </div></HeaderSlot>
     {error ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !review || !incomes ? <p role="status" className="muted">正在读取规划…</p>
-      : tab === 'goals' ? <PlanningGoals today={today} review={review} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())} onGoto={onTab}/>
-      : tab === 'pension' ? <PlanningPension today={today} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())}/>
+      : tab === 'goals' ? <PlanningGoals focus={focus === 'budget'} onFocusDone={onFocusDone} today={today} review={review} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())} onGoto={onTab}/>
+      : tab === 'pension' ? <PlanningPension focus={focus === 'profile'} onFocusDone={onFocusDone} today={today} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())}/>
       : <>
         <Usual review={review}/>
         {shown ? <Steps interval={shown} review={review} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)} generation={review.generation}/>

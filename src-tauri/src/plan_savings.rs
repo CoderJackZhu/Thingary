@@ -287,9 +287,17 @@ pub struct Mark {
 impl Store {
     pub fn plan_review(&self) -> Result<Review> {
         let tx = self.conn()?.unchecked_transaction()?;
+        let result = self.plan_review_in_transaction();
+        tx.commit()?;
+        result
+    }
+
+    /// Called only inside an already pinned read transaction (including the homepage).
+    pub(crate) fn plan_review_in_transaction(&self) -> Result<Review> {
+        let conn = self.conn()?;
         let summary = self.wealth_summary()?;
-        let incomes = incomes(&tx)?;
-        let marks: BTreeSet<String> = tx
+        let incomes = incomes(conn)?;
+        let marks: BTreeSet<String> = conn
             .prepare("SELECT snapshot_id FROM plan_baseline_marks")?
             .query_map([], |r| r.get(0))?
             .collect::<std::result::Result<_, _>>()?;

@@ -1561,12 +1561,15 @@ pub async fn virtual_balance_save(
 #[tauri::command]
 pub async fn review_overview(
     year: Option<i32>,
+    planning: Option<bool>,
     worker: tauri::State<'_, Worker>,
 ) -> Result<crate::review::Overview> {
     let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.review_overview(year, &today())))
-        .await
-        .map_err(|_| Error::new("WORKER", "综合回顾读取失败，请重试"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.review_overview_with_planning(year, &today(), planning.unwrap_or(false)))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "综合回顾读取失败，请重试"))?
 }
 
 #[tauri::command]

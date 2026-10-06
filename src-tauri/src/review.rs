@@ -30,9 +30,31 @@ pub struct Overview {
     pub recurring: Read<crate::recurring::Overview>,
     pub virtual_assets: Read<crate::virtual_assets::Overview>,
     pub recent: Read<Vec<crate::timeline::Event>>,
+    pub planning: Option<PlanSources>,
+}
+
+/// All sources share the overview's SQLite snapshot and worker/library identity.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanSources {
+    pub review: Read<crate::plan_savings::Review>,
+    pub incomes: Read<Vec<crate::plan_income::Income>>,
+    pub profile: Read<crate::plan_profile::State>,
+    pub snapshot: Read<Option<crate::wealth::Snapshot>>,
+    pub snapshot_id: Option<String>,
+    pub snapshot_date: Option<String>,
 }
 impl Store {
     pub fn review_overview(&self, year: Option<i32>, today: &str) -> Result<Overview> {
+        self.review_overview_with_planning(year, today, false)
+    }
+
+    pub fn review_overview_with_planning(
+        &self,
+        year: Option<i32>,
+        today: &str,
+        planning: bool,
+    ) -> Result<Overview> {
         crate::domain::date(today)?;
         if year.is_some_and(|y| !(1..=9999).contains(&y)) {
             return Err(Error::new("QUERY", "年份无效"));
@@ -43,12 +65,37 @@ impl Store {
         let physical = self.overview("held", today).into();
         #[cfg(test)]
         self.hit("review.after_physical")?;
+        let wealth: Read<crate::wealth::Summary> = self.wealth_summary().into();
+        #[cfg(test)]
+        self.hit("review.after_wealth")?;
+        let planning = planning.then(|| {
+            let (snapshot_id, snapshot_date, snapshot) = match &wealth {
+                Read::Ready(summary) => match summary.points.iter().rev().find(|p| p.complete) {
+                    Some(point) => (
+                        Some(point.snapshot_id.clone()),
+                        Some(point.date.clone()),
+                        self.wealth_snapshot(&point.snapshot_id).into(),
+                    ),
+                    None => (None, None, Read::Ready(None)),
+                },
+                Read::Error(e) => (None, None, Read::Error(Error::new(&e.code, &e.message))),
+            };
+            PlanSources {
+                review: self.plan_review_in_transaction().into(),
+                incomes: self.plan_income_list().map(|list| list.rows).into(),
+                profile: self.plan_profile().into(),
+                snapshot,
+                snapshot_id,
+                snapshot_date,
+            }
+        });
         let result = Overview {
             generation: self.generation(),
             today: today.into(),
             year,
             physical,
-            wealth: self.wealth_summary().into(),
+            wealth,
+            planning,
             expenses: self.expense_view(year).into(),
             recurring: self.recurring_overview(today).into(),
             virtual_assets: self.virtual_overview(today).into(),
@@ -156,6 +203,75 @@ mod tests {
         assert_eq!(value(result.recurring).monthly_cents, "0");
         assert!(store.conn().unwrap().is_autocommit());
     }
+    #[test]
+    fn planning_is_optional_atomic_and_does_not_write() {
+        let root = tempfile::tempdir().unwrap();
+        let mut store = crate::demo::open(&root.path().join("library"), TODAY).unwrap();
+        let changes = store.conn().unwrap().total_changes();
+        let latest = store
+            .wealth_summary()
+            .unwrap()
+            .points
+            .into_iter()
+            .rev()
+            .find(|p| p.complete)
+            .unwrap();
+        let expected_snapshot =
+            to_value(store.wealth_snapshot(&latest.snapshot_id).unwrap().unwrap()).unwrap();
+        let expected_review = to_value(store.plan_review().unwrap()).unwrap();
+        let expected_incomes = to_value(store.plan_income_list().unwrap().rows).unwrap();
+        let expected_profile = to_value(store.plan_profile().unwrap()).unwrap();
+        let path = store.dataset().join("data.sqlite");
+        store.set_hook(move |point| {
+            if point == "review.after_wealth" {
+                let conn = rusqlite::Connection::open(&path)?;
+                conn.execute_batch("UPDATE plan_income SET net_cents=1; DELETE FROM plan_profile; UPDATE fin_snapshot_entries SET amount_cents=1 WHERE amount_cents IS NOT NULL;")?;
+            }
+            Ok(())
+        });
+        let result = store
+            .review_overview_with_planning(None, TODAY, true)
+            .unwrap();
+        let wealth = value(result.wealth);
+        let sources = result.planning.unwrap();
+        let latest = wealth.points.iter().rev().find(|p| p.complete).unwrap();
+        assert_eq!(
+            sources.snapshot_id.as_deref(),
+            Some(latest.snapshot_id.as_str())
+        );
+        let snapshot = value(sources.snapshot).unwrap();
+        assert_eq!(snapshot.id, latest.snapshot_id);
+        assert_eq!(to_value(snapshot).unwrap(), expected_snapshot);
+        assert_eq!(to_value(value(sources.review)).unwrap(), expected_review);
+        assert_eq!(to_value(value(sources.incomes)).unwrap(), expected_incomes);
+        assert_eq!(to_value(value(sources.profile)).unwrap(), expected_profile);
+        assert_ne!(
+            to_value(store.plan_income_list().unwrap().rows).unwrap(),
+            expected_incomes
+        );
+        assert_eq!(store.conn().unwrap().total_changes(), changes);
+        store.set_hook(|_| Ok(()));
+        // Disabled means no planning reads, even when their tables cannot be read.
+        store
+            .conn()
+            .unwrap()
+            .execute_batch("DROP TABLE plan_profile; DROP TABLE plan_income")
+            .unwrap();
+        assert!(store
+            .review_overview(None, TODAY)
+            .unwrap()
+            .planning
+            .is_none());
+        let partial = store
+            .review_overview_with_planning(None, TODAY, true)
+            .unwrap();
+        let sources = partial.planning.unwrap();
+        assert!(matches!(sources.profile, Read::Error(_)));
+        assert!(matches!(sources.incomes, Read::Error(_)));
+        assert!(matches!(sources.snapshot, Read::Ready(Some(_))));
+        assert!(store.conn().unwrap().is_autocommit());
+    }
+
     #[test]
     fn external_write_cannot_split_physical_and_expense_snapshot() {
         let root = tempfile::tempdir().unwrap();

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Point } from './wealth';
 import { changeText, rateText, signedMoney } from './wealth';
 
@@ -13,11 +13,22 @@ export function changeLine(p: Point) {
   return `较上次 ${changeText(p.change_cents)}${p.change_rate_hundredths === null ? '' : `（${rateText(p.change_rate_hundredths)}）`}`;
 }
 
-/** 默认是总览卡里的小折线；hero 是总览顶部的满宽头图，数据、悬停与键盘操作完全一样，只是更高、标签更疏。 */
+/** 默认是总览卡里的小折线；hero 是总览顶部的满宽头图，数据、悬停与键盘操作完全一样，只是更高、标签更疏。
+ *  标签密度跟随实际渲染宽度：双列较窄时至多约 6 个月份标签，一列更宽时可至多约 8 个；宽度变化只影响标签，不删数据点。 */
 export function Sparkline({ points, hero = false }: { points: Point[]; hero?: boolean }) {
   const H = hero ? 190 : 78;
   const full = points.filter(p => p.complete);
   const [cur, setCur] = useState<number | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const [maxLabels, setMaxLabels] = useState(6);
+  useEffect(() => {
+    if (!hero) return;
+    const el = box.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(entries => { setMaxLabels(entries[0].contentRect.width >= 900 ? 8 : 6); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hero, full.length >= 2]);
   if (full.length < 2) return <p className="ui-sub">完成两次完整盘点后显示走势。</p>;
   const x0 = day(points[0].date), x1 = Math.max(day(points.at(-1)!.date), x0 + 1);
   const values = full.map(p => Number(p.net_cents)), lo = Math.min(...values), hi = Math.max(...values), span = hi - lo || 1;
@@ -27,16 +38,16 @@ export function Sparkline({ points, hero = false }: { points: Point[]; hero?: bo
   const area = `${line} L${x(full.at(-1)!.date).toFixed(1)} ${H} L${x(full[0].date).toFixed(1)} ${H}Z`;
   const all = [...new Map(points.map(p => [p.date.slice(0, 7), p])).values()];
   // 点多时只标每隔几个月的刻度，保证不重叠；跨年时在每年的第一个刻度写上年份。
-  const step = Math.max(1, Math.ceil(all.length / (hero ? 8 : 6))), spansYears = new Set(all.map(p => p.date.slice(0, 4))).size > 1;
+  const step = Math.max(1, Math.ceil(all.length / (hero ? maxLabels : 6))), spansYears = new Set(all.map(p => p.date.slice(0, 4))).size > 1;
   const months = all.filter((_, i) => (all.length - 1 - i) % step === 0);
   const tick = (p: Point, i: number) => { const m = Number(p.date.slice(5, 7)); return (spansYears && (i === 0 || m === 1) ? `${p.date.slice(2, 4)}年` : '') + `${m}月` + (p.complete ? '' : '未盘'); };
   const shown = cur === null ? null : full[cur];
-  const move = (clientX: number, box: DOMRect) => {
-    const vx = (clientX - box.left) / box.width * W;
+  const move = (clientX: number, boxRect: DOMRect) => {
+    const vx = (clientX - boxRect.left) / boxRect.width * W;
     let best = 0; full.forEach((p, i) => { if (Math.abs(x(p.date) - vx) < Math.abs(x(full[best].date) - vx)) best = i; });
     setCur(best);
   };
-  return <><div className={'ui-spark' + (hero ? ' hero' : '')} tabIndex={0} role="img" aria-label={`金融净资产趋势，共 ${full.length} 次完整盘点`}
+  return <><div ref={box} className={'ui-spark' + (hero ? ' hero' : '')} tabIndex={0} role="img" aria-label={`金融净资产趋势，共 ${full.length} 次完整盘点`}
     onFocus={() => setCur(full.length - 1)} onBlur={() => setCur(null)}
     onKeyDown={e => {
       if (e.key === 'ArrowRight') { e.preventDefault(); setCur(c => Math.min(full.length - 1, (c ?? -1) + 1)); }
