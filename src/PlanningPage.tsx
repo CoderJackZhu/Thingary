@@ -7,7 +7,7 @@ import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningPension } from './PlanningPension';
 import { PlanningGoals } from './PlanningGoals';
-import { changeSentence, rateText, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
+import { changeSentence, latestHpf, rateText, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeFields, IncomeList, IncomeSave, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
 import { refocusHeading } from './topbar-model';
@@ -72,7 +72,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange }: { today: st
         {newest.length > 0 && <Intervals intervals={newest} selected={shown?.snapshot_id ?? null} onSelect={setSelected}/>}
         <IncomeTable incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/>
       </>}
-    {editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
+    {editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} hpfDefault={latestHpf(incomes.rows)} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;
 }
 
@@ -156,9 +156,10 @@ function IncomeTable({ incomes, onOpen, onNew, disabled }: { incomes: IncomeList
 
 const blank = (today: string): IncomeFields => ({ date: today, net_cents: '', hpf_cents: '', notes: '' });
 
-function IncomeDialog({ income, generation, today, onClose }: { income: Income | null; generation: string; today: string; onClose: (saved: boolean) => void }) {
+function IncomeDialog({ income, generation, today, hpfDefault, onClose }: { income: Income | null; generation: string; today: string; hpfDefault: string; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [f, setF] = useState<IncomeFields>(income?.fields ?? blank(today));
+  // 公积金缴存一段时间内固定：新增时带入上一条的金额（可改），每月只需要填税后到账。
+  const [f, setF] = useState<IncomeFields>(income?.fields ?? { ...blank(today), hpf_cents: hpfDefault });
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('income-date')?.focus(); return () => dialog.current?.close(); }, []);
   const set = <K extends keyof IncomeFields>(k: K, v: IncomeFields[K]) => setF(x => ({ ...x, [k]: v }));
@@ -179,7 +180,7 @@ function IncomeDialog({ income, generation, today, onClose }: { income: Income |
     <section className="form-block">
       <FormRow label="到账日期" hint="同一天可以有多行，例如工资与奖金分开发放"><DateInput id="income-date" value={f.date} max={today} disabled={frozen} onChange={v => set('date', v)}/></FormRow>
       <FormRow label="税后到账" hint="工资、奖金等实际到卡金额；年终奖记在到账当月"><CentInput label="税后到账" value={f.net_cents} disabled={frozen} placeholder="0.00" onChange={v => set('net_cents', v)}/></FormRow>
-      <FormRow label="公积金缴存" hint="个人与单位合计；没有就填 0"><CentInput label="公积金缴存" value={f.hpf_cents} disabled={frozen} placeholder="0.00" onChange={v => set('hpf_cents', v)}/></FormRow>
+      <FormRow label="公积金缴存" hint={!income && hpfDefault ? '已带入上一条的金额，变了请改；个人与单位合计，没有就填 0' : '个人与单位合计；没有就填 0'}><CentInput label="公积金缴存" value={f.hpf_cents} disabled={frozen} placeholder="0.00" onChange={v => set('hpf_cents', v)}/></FormRow>
     </section>
     <section className="form-block form-notes"><label htmlFor="income-notes">备注</label><textarea id="income-notes" maxLength={500} value={f.notes} disabled={frozen} onChange={e => set('notes', e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}

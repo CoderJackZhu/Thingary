@@ -50,10 +50,18 @@ test('reading back: simple plans round trip, complex ones fall back to the full 
   const complex = [
     planOf(r, { rules: [{}, {}] }), planOf(r, { period_ends: { '2025-07-06': '2025-10-01' } }), planOf(r, { renewal_cents: '900000' }),
     { ...planOf(r), fields: { ...planOf(r).fields, interval_days: 30 } }, { ...planOf(r), fields: { ...planOf(r).fields, trial_days: 7 } },
-    { ...planOf(r), fields: { ...planOf(r).fields, category: 'subscription' } }, { ...planOf(r), fields: { ...planOf(r).fields, coverage_start: '2025-07-20' } },
+    { ...planOf(r), fields: { ...planOf(r).fields, coverage_start: '2025-07-20' } },
     { ...planOf(r), fields: { ...planOf(r).fields, interval_months: 2 } }, { ...planOf(r), fields: { ...planOf(r).fields, first_due: '2025-07-20' } },
   ];
   assert.deepEqual(complex.map(fieldsToRent), complex.map(() => null));
+});
+
+test('other categories use the same simple form and keep their category', () => {
+  const sub = rent({ interval_months: 1, amount_cents: '3000', start: '2026-10-25', advance_days: 0, end: '' });
+  const f = rentToFields(sub, 'subscription');
+  assert.equal(f.category, 'subscription');
+  assert.deepEqual(fieldsToRent({ ...planOf(sub), fields: { name: '会员', notes: '', ...f } }), sub);
+  assert.deepEqual(fieldsToRent({ ...planOf(sub), fields: { name: '保险', notes: '', ...rentToFields(rent(), 'insurance') } }), rent());
 });
 
 test('invalid input gives no preview; one month before follows the calendar', () => {

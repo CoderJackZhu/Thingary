@@ -4,7 +4,7 @@ import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
 import { CentInput, FormRow, Info } from './FormControls';
 import { DateInput } from './DateInput';
-import { STALE_MONTHS, ageText, defaultRetire, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths } from './plan';
+import { STALE_MONTHS, ageText, defaultRetire, estimateAccountCents, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths } from './plan';
 import type { Income, ProfileSave, ProfileState, StoredProfile } from './plan';
 import { PERSONAL_PENSION_CAP_CENTS, beijing, defaultAssumptions, effectiveParams, isOverridden, noOverrides, paramSources, verifiedText } from './plan-params';
 import type { ParamKey, Overrides } from './plan-params';
@@ -165,9 +165,9 @@ function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileSt
     <header><div><p className="eyebrow">规划 · 养老金</p><h2 id="profile-heading">个人资料</h2><p className="muted">按社保 App 当前显示的数字填写；资料只存本机，估算结果不保存。</p></div><CloseButton type="button" aria-label="关闭个人资料表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存资料'}</button>}</div></header>
     <section className="form-block">
       <FormRow label="出生日期" hint="点日历选择；只用到年和月"><DateInput id="profile-birth" label="出生日期" value={f.birth} max={today} disabled={frozen} onChange={v => set('birth', v)}/></FormRow>
-      <FormRow label="性别与职工类型" hint="决定法定退休年龄的延迟节奏"><select aria-label="性别与职工类型" value={f.worker} disabled={frozen} onChange={e => set('worker', e.target.value as Worker)}>{(Object.keys(workerText) as Worker[]).map(k => <option key={k} value={k}>{workerText[k]}</option>)}</select></FormRow>
+      <FormRow label="性别与职工类型" hint="决定法定退休年龄的延迟节奏：男职工原 60 岁；女干部（干部、管理、专业技术岗位）原 55 岁；女工人（一线工人）原 50 岁。拿不准就看劳动合同或问单位人事"><select aria-label="性别与职工类型" value={f.worker} disabled={frozen} onChange={e => set('worker', e.target.value as Worker)}>{(Object.keys(workerText) as Worker[]).map(k => <option key={k} value={k}>{workerText[k]}</option>)}</select></FormRow>
       <FormRow label="累计缴费月数" hint="京通「社保缴费信息」里，数缴了养老保险的月数"><input aria-label="累计缴费月数" inputMode="numeric" value={f.paid} disabled={frozen} onChange={e => set('paid', e.target.value)} placeholder="例如 48"/></FormRow>
-      <FormRow label="个人账户余额" hint="把每月个人缴的养老里记入账户的部分加起来（单位上班是 8% 的基数，灵活就业也只有 8% 进账户）；查不到可先估算，不知道就填 0"><CentInput label="个人账户余额" value={f.balance} disabled={frozen} placeholder="0.00" onChange={v => set('balance', v)}/></FormRow>
+      <FormRow label="个人账户余额" hint="把每月个人缴的养老里记入账户的部分加起来（单位上班是 8% 的基数，灵活就业也只有 8% 进账户）；查不到可先估算，不知道就填 0"><span className="account-estimate"><CentInput label="个人账户余额" value={f.balance} disabled={frozen} placeholder="0.00" onChange={v => set('balance', v)}/><button type="button" className="ui-btn" disabled={frozen || !/^\d+$/.test(f.paid) || f.base === ''} onClick={() => set('balance', estimateAccountCents(Number(f.paid), f.base))}>帮我估算</button></span></FormRow>
       <FormRow label="当前月缴费基数" hint="按你接下来打算缴的填：回去上班填上班的基数，继续灵活就业填灵活的；超出当地上下限按上下限计"><CentInput label="当前月缴费基数" value={f.base} disabled={frozen} placeholder="0.00" onChange={v => set('base', v)}/></FormRow>
     </section>
     <details className="form-block" open={f.past !== '' || f.flex !== '0'}><summary>更多（一般不用填）</summary>
@@ -178,12 +178,12 @@ function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileSt
       <FormRow label="个人养老金每年缴存" hint={`没有开户填 0；每年最多 ${money(String(PERSONAL_PENSION_CAP_CENTS))}`}><CentInput label="个人养老金每年缴存" value={f.pp} disabled={frozen} placeholder="0.00" onChange={v => set('pp', v)}/></FormRow>
       <FormRow label="个税边际税率" hint="用于估算个人养老金每年省多少税"><select aria-label="个税边际税率" value={f.tax} disabled={frozen} onChange={e => set('tax', e.target.value)}>{taxRates.map(r => <option key={r} value={r}>{rateText(r)}</option>)}</select></FormRow>
     </section>
-    <section className="form-block">
+    <details className="form-block" open={f.infl !== hundredthsToPct(defaultAssumptions.inflation_hundredths) || f.wage !== hundredthsToPct(defaultAssumptions.wage_growth_hundredths) || f.ppReturn !== hundredthsToPct(defaultAssumptions.pp_return_hundredths)}><summary>假设（有默认值，一般不用改）</summary>
       <p className="muted small">下面是假设，不是事实；预填值只是占位，请按自己的判断修改。</p>
       <FormRow label="通胀率（年）" hint="这是假设"><input aria-label="通胀率" inputMode="decimal" value={f.infl} disabled={frozen} onChange={e => set('infl', e.target.value)}/></FormRow>
       <FormRow label="工资与社平增长率（年，名义）" hint="这是假设"><input aria-label="工资增长率" inputMode="decimal" value={f.wage} disabled={frozen} onChange={e => set('wage', e.target.value)}/></FormRow>
       <FormRow label="个人养老金收益率（年，名义）" hint="这是假设"><input aria-label="个人养老金收益率" inputMode="decimal" value={f.ppReturn} disabled={frozen} onChange={e => set('ppReturn', e.target.value)}/></FormRow>
-    </section>
+    </details>
     <details className="form-block"><summary>参数覆盖（留空使用内置值）</summary>
       <FormRow label="上年度月平均工资"><CentInput label="上年度月平均工资" value={f.oWage} disabled={frozen} placeholder={(Number(beijing.avg_wage_cents) / 100).toFixed(2)} onChange={v => set('oWage', v)}/></FormRow>
       <FormRow label="缴费基数下限"><CentInput label="缴费基数下限" value={f.oLower} disabled={frozen} placeholder={(Number(beijing.base_lower_cents) / 100).toFixed(2)} onChange={v => set('oLower', v)}/></FormRow>

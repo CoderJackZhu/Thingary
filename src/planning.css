@@ -33,3 +33,4 @@
 .planning-section .plan-wish-table td { vertical-align: top; }
 .planning-section .plan-wish-table tr.closed td { color: var(--muted); }
 .wish-plan-line { margin: 8px 0; line-height: 1.6; }
+.planning-section .account-estimate, .account-estimate { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }

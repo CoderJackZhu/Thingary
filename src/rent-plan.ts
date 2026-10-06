@@ -1,4 +1,4 @@
-// 房租的简易填写：把「开始日期、付款周期、提前几天付、到期日」换算成现有计划字段，反过来也能读回。
+// 周期费用的简易填写（房租、订阅、水电网、保险等）：把「开始日期、付款周期、提前几天付、到期日」换算成现有计划字段，反过来也能读回。
 // 不新增数据字段；复杂的计划（固定天数、试用、分段价格、特殊期）不进简易表单，仍用完整表单。
 import { previousDay, scheduleDates, shiftDays, shiftMonth } from './recurring-model.ts';
 import type { Plan, PlanFields } from './recurring.ts';
@@ -27,9 +27,9 @@ export const blankRent = (today: string): RentForm => ({ amount_cents: '', inter
 export const oneMonthBefore = (start: string): number => (isDay(start) ? daysBetween(shiftMonth(start, -1), start) : 30);
 
 /** 换算成计划字段（不含名称、备注）。到期日不含当天，存成「最后使用日期」要往前一天。 */
-export function rentToFields(r: RentForm): Pick<PlanFields, 'category' | 'amount_cents' | 'interval_months' | 'interval_days' | 'trial_days' | 'first_due' | 'service_start' | 'coverage_start' | 'end_date' | 'paused' | 'auto_renew'> {
+export function rentToFields(r: RentForm, category = 'rent'): Pick<PlanFields, 'category' | 'amount_cents' | 'interval_months' | 'interval_days' | 'trial_days' | 'first_due' | 'service_start' | 'coverage_start' | 'end_date' | 'paused' | 'auto_renew'> {
   return {
-    category: 'rent', amount_cents: r.amount_cents, interval_months: r.interval_months, interval_days: null, trial_days: null,
+    category, amount_cents: r.amount_cents, interval_months: r.interval_months, interval_days: null, trial_days: null,
     first_due: shiftDays(r.start, -Math.max(0, Math.trunc(r.advance_days))), service_start: r.start, coverage_start: r.start,
     end_date: r.end ? previousDay(r.end) : null, paused: false, auto_renew: true,
   };
@@ -38,7 +38,7 @@ export function rentToFields(r: RentForm): Pick<PlanFields, 'category' | 'amount
 /** 读回简易表单；计划超出简易能表达的范围时返回 null（改用完整表单）。 */
 export function fieldsToRent(plan: Pick<Plan, 'fields' | 'rules' | 'period_ends' | 'special_start' | 'special_end' | 'renewal_cents'>): RentForm | null {
   const f = plan.fields;
-  if (f.category !== 'rent' || f.interval_days || f.trial_days || f.paused || f.auto_renew === false) return null;
+  if (f.interval_days || f.trial_days || f.paused || f.auto_renew === false) return null;
   if (![1, 3, 6, 12].includes(f.interval_months)) return null;
   if ((plan.rules?.length ?? 0) > 1 || Object.keys(plan.period_ends ?? {}).length || plan.special_start || plan.special_end || plan.renewal_cents) return null;
   const start = f.service_start;

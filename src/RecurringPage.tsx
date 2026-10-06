@@ -141,9 +141,11 @@ function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; g
   const [firstDueTouched, setFirstDueTouched] = useState(!!plan);
   // 房租用简易表单；已有的复杂计划（固定天数、试用、分段价格等）仍用完整表单。
   const initialRent = plan ? fieldsToRent(plan) : null;
-  const [rent, setRent] = useState<RentForm>(initialRent ?? blankRent(today)), [backfill, setBackfill] = useState(true);
-  const rentMode = f.category === 'rent' && (!plan || initialRent !== null);
-  const effective: PlanFields = rentMode ? { ...f, ...rentToFields(rent) } : f;
+  const [rent, setRent] = useState<RentForm>(initialRent ?? blankRent(today)), [backfill, setBackfill] = useState(true), [backfillTouched, setBackfillTouched] = useState(false), [forceFull, setForceFull] = useState(false);
+  // 所有周期费用默认用简易表单；需要固定天数、免费试用、分段价格等高级设置时可改用完整表单。
+  const rentMode = !forceFull && (!plan || initialRent !== null);
+  const doBackfill = backfillTouched ? backfill : f.category === 'rent';
+  const effective: PlanFields = rentMode ? { ...f, ...rentToFields(rent, f.category) } : f;
   const dirty = !plan ? true : rentMode ? JSON.stringify(rent) !== JSON.stringify(initialRent) || f.name !== plan.fields.name || f.notes !== plan.fields.notes || f.category !== plan.fields.category : JSON.stringify(f) !== JSON.stringify(plan.fields);
   const pastDues = rentMode && !plan ? (rentPreview(rent, today)?.rows.filter(r => r.due <= today).length ?? 0) : 0;
   const [late, setLate] = useState(false);
@@ -156,12 +158,12 @@ function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; g
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
     if (!f.name.trim()) return stop('计划名称', '请填写名称。');
     if (!effective.amount_cents || effective.amount_cents === '0') return stop('每期金额', '请填写每期金额。');
-    if (rentMode && !rentPreview(rent, today)) return stop('租期到期日', '请检查开始日期和到期日：到期日须晚于开始日期。');
+    if (rentMode && !rentPreview(rent, today)) return stop(f.category === 'rent' ? '租期到期日' : '结束日期', '请检查开始日期和结束日期：结束日期须晚于开始日期。');
     const input: PlanSave = { request_id: crypto.randomUUID(), generation, id: plan?.id ?? null, expected_revision: plan?.revision ?? null, fields: { ...effective, name: f.name.trim() } };
     setBusy(true); setNotice('');
     try {
       const saved = await submit<Plan>({ command: 'recurring_plan_save', input, label: `计划 ${input.fields.name}` });
-      if (rentMode && !plan && backfill && pastDues > 0) {
+      if (rentMode && !plan && doBackfill && pastDues > 0) {
         // 把已过去的期次一次补记为已付；失败时计划已保存，说明如何用「补记往期实际付款」补上。
         const dates = planScheduleDates(saved, '1900-01-01', today);
         if (dates.length) {
@@ -181,8 +183,9 @@ function PlanDialog({ plan, generation, today, onClose }: { plan: Plan | null; g
       <FormRow label="名称"><input id="plan-name" aria-label="计划名称" maxLength={80} value={f.name} disabled={frozen} onChange={e => set('name', e.target.value)} placeholder="例如 房租、视频会员"/></FormRow>
       <FormRow label="分类"><select aria-label="分类" value={f.category} disabled={frozen} onChange={e => set('category', e.target.value)}>{recurringCategories.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></FormRow>
       {rentMode ? <>
-        <RentPlanForm value={rent} onChange={setRent} disabled={frozen || late} today={today}/>
-        {pastDues > 0 && <FormRow label={`已过去的 ${pastDues} 期都已付清`} hint="保存时自动补记为已付（日期按付款日、金额同每期），计入重要支出；日期或金额不同，之后单独更正"><Switch label="保存后自动补记已过去的期次" value={backfill} disabled={frozen} onChange={setBackfill}/></FormRow>}
+        <RentPlanForm value={rent} onChange={setRent} disabled={frozen || late} today={today} rent={f.category === 'rent'}/>
+        {pastDues > 0 && <FormRow label={`已过去的 ${pastDues} 期都已付清`} hint="保存时自动补记为已付（日期按付款日、金额同每期），计入重要支出；日期或金额不同，之后单独更正"><Switch label="保存后自动补记已过去的期次" value={doBackfill} disabled={frozen} onChange={v => { setBackfill(v); setBackfillTouched(true); }}/></FormRow>}
+        <p className="muted small"><button type="button" className="ui-link" disabled={frozen || late} onClick={() => { setF(effective); setForceFull(true); }}>需要固定天数、免费试用、分段价格等高级设置？改用完整表单</button></p>
       </> : <PlanFieldsForm fields={f} onChange={setF} disabled={frozen} today={today} editing={!!plan} firstDueTouched={firstDueTouched} onFirstDueTouched={() => setFirstDueTouched(true)}/>}
 
     </section>

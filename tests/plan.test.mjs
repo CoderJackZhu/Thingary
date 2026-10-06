@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { STALE_MONTHS, ageText, changeSentence, computeReview, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths, yearBefore } from '../src/plan.ts';
+import { STALE_MONTHS, ageText, changeSentence, estimateAccountCents, latestHpf, computeReview, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths, yearBefore } from '../src/plan.ts';
 
 // 与 src-tauri/src/plan_savings.rs 的单元测试使用同一组数值：预览不得和 Rust 口径漂移。
 const point = (id, date, prev, change, extra = {}) => ({ snapshot_id: id, date, notes: '', assets_cents: '0', liabilities_cents: '0', net_cents: '0', complete: true, missing: 0, compared_to: prev, scope_changed: false, change_cents: change === null ? null : String(change), change_rate_hundredths: null, ...extra });
@@ -117,4 +117,13 @@ test('age wording and quit-age choices', () => {
 test('stale profile reminder counts whole months since the last save', () => {
   assert.equal(STALE_MONTHS, 6);
   assert.deepEqual([['2026-10-02T01:00:00Z', '2026-10-06'], ['2026-04-30T23:00:00Z', '2026-10-06'], ['2026-01-02T00:00:00Z', '2026-10-06'], ['2025-10-06T00:00:00Z', '2026-10-06'], ['2027-01-01T00:00:00Z', '2026-10-06']].map(([u, t]) => staleMonths(u, t)), [0, 6, 9, 12, 0]);
+});
+
+test('account estimate is months x base x 8%, rounded; the income default is the newest row\'s deposit', () => {
+  // 14 个月、基数 32 592 元：约 8% 进个人账户。
+  assert.equal(estimateAccountCents(14, '3259200'), '3650304');
+  assert.deepEqual([estimateAccountCents(0, '3259200'), estimateAccountCents(12, ''), estimateAccountCents(1, '7270')], ['0', '0', '582']);
+  const row = (date, hpf) => ({ fields: { date, hpf_cents: hpf } });
+  assert.equal(latestHpf([row('2026-02-15', '100'), row('2026-04-15', '300'), row('2026-03-15', '200')]), '300');
+  assert.equal(latestHpf([]), '');
 });

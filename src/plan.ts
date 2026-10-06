@@ -167,6 +167,18 @@ export function fundsFrom(entries: { kind: string; amount_cents: string | null }
   return { funds: { hpf_balance_cents: balance.toString(), hpf_monthly_cents: latest?.fields.hpf_cents ?? '0' }, notes };
 }
 
+/** 按「累计缴费月数 × 当前缴费基数 × 8%」估算个人账户余额（分，四舍五入）；只是粗估，以京通为准。 */
+export function estimateAccountCents(paidMonths: number, baseCents: string): string {
+  return ((BigInt(Math.max(0, Math.trunc(paidMonths))) * BigInt(baseCents || '0') * 8n + 50n) / 100n).toString();
+}
+
+/** 新增收入时默认带上的公积金缴存：取日期最近的一条（同一天取先出现的）；没有记录返回空串。 */
+export function latestHpf(rows: { fields: { date: string; hpf_cents: string } }[]): string {
+  let best: { date: string; hpf_cents: string } | null = null;
+  for (const r of rows) if (!best || r.fields.date > best.date) best = r.fields;
+  return best?.hpf_cents ?? '';
+}
+
 /** 年龄（月）显示为「63 岁 1 个月」。 */
 export const ageText = (months: number) => `${Math.floor(months / 12)} 岁${months % 12 ? ` ${months % 12} 个月` : ''}`;
 
