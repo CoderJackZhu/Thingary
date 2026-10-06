@@ -219,9 +219,10 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
     if (retire !== null && !unlocked && pension!.unlock_age_months <= m) { unlocked = true; a += pension!.lump_cents; r.unlock += pension!.lump_cents; }
     if (retire === null) {
       const c = savings[t];
-      // 动用存款的月份不会把资产花成负数；心愿等一次性支出造成的负值照实保留。
+      // 动用存款的月份不会把原本为正的资产花成负数；但大额一次性支出（首付付不起等）造成的负债照实保留，不会被后面的亏空抹掉。
+      const before = a;
       a = a * gb + c;
-      if (c < 0 && a < 0) a = 0;
+      if (c < 0 && a < 0 && before >= 0) a = 0;
       r.contribution += c;
     } else {
       const spend = T.spend[t], essential = T.essential[t];

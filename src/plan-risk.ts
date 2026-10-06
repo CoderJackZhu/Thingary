@@ -65,7 +65,7 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
       }
       if (t % 12 === 0) values[(t / 12) * n + i] = Math.max(0, a);
       if (retire >= 0 && !unlocked && pen!.unlock_age_months <= m) { unlocked = true; a += pen!.lump_cents; }
-      if (retire < 0) { a = a * gb + savings[t]; if (savings[t] < 0 && a < 0) a = 0; }
+      if (retire < 0) { const before = a; a = a * gb + savings[t]; if (savings[t] < 0 && a < 0 && before >= 0) a = 0; }
       else {
         const lump = !unlocked && m + 1 >= pen!.unlock_age_months ? pen!.lump_cents : 0;
         if (lump) unlocked = true;

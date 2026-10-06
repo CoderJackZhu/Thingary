@@ -3,6 +3,7 @@ import { money } from './asset';
 import { Info, Segments } from './FormControls';
 import { rateText } from './plan';
 import type { RetireCalc } from './plan-retire-calc';
+import { eventImpact, offsetOf } from './plan-events';
 import { stressTests } from './plan-risk';
 import { checkpoints, compactYuan, coverage, coverageSeries, durationText, milestones, progress, rangeRows, scaleAt, snapshotRows, trajectory, verdict } from './plan-view';
 import type { Seg, ValueMode } from './plan-view';
@@ -51,6 +52,7 @@ export function RetireOverview({ calc, mode, onMode }: { calc: Ready; mode: Valu
       {v.guidance && <p className={`rd-guidance ${v.tone}`}>{v.guidance}</p>}
     </article>
 
+    <EventWarnings calc={calc}/>
     <Range calc={calc} mode={mode}/>
 
     <article className="ui-card rd-card" aria-label="投资组合轨迹">
@@ -63,6 +65,22 @@ export function RetireOverview({ calc, mode, onMode }: { calc: Ready; mode: Valu
     <Snapshot calc={calc} mode={mode} rows={rows}/>
     <aside className="rd-disclaimer"><strong>有一点需要记住</strong><p>预测取决于你的假设。实际结果可能不同。不构成财务建议。</p></aside>
   </div>;
+}
+
+/** 已计入的大额计划里付不起首付或买后储蓄不为正的：结论按先借后还算，不可靠，必须提醒。 */
+function EventWarnings({ calc }: { calc: Ready }) {
+  const warnings = useMemo(() => {
+    if (!calc.plan0) return [];
+    const emergency = calc.r.emergency_months * (calc.plan0.items[0]?.monthly_cents ?? 0), today = new Date().toISOString().slice(0, 10);
+    return calc.events.filter(e => e.included).flatMap(e => {
+      const i = eventImpact(calc.plan0!, e, offsetOf(e.date, today), emergency), out: string[] = [];
+      if (i.short > 0) out.push(`「${e.label}」在 ${e.date} 付不起首付：还差 ${yuan(i.short)}（含杂费与应急金线），结论按先借后还算。`);
+      if (i.saving_not_positive) out.push(`「${e.label}」买后每月储蓄约 ${yuan(i.saving_after)}，不为正，要靠当时的收入支撑。`);
+      return out;
+    });
+  }, [calc]);
+  if (!warnings.length) return null;
+  return <aside className="notice" role="status" aria-label="大额计划提醒"><strong>已计入的大额计划有不现实的地方，下面的结论不可靠：</strong>{warnings.map(w => <p key={w}>{w}</p>)}<p className="muted small">调整日期、首付或贷款，或到目标页暂时取消计入后再看。</p></aside>;
 }
 
 /** 结果区间：基准与收入变化并排；收入是最大的不确定因素，这不是预测。 */

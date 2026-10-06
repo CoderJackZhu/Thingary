@@ -152,3 +152,12 @@ test('one-off spends appear in their year row and rows still conserve money', ()
   for (const r of proj.rows) assert.ok(Math.abs(r.end - (r.start + r.contribution + r.unlock + r.income - r.spend + r.unfunded - r.oneoff)) < 1e-6, `row ${r.k}`);
   assert.equal(proj.rows[0].start, 50_000);
 });
+
+test('a one-off that cannot be paid leaves a debt that later deficits do not wipe out', () => {
+  const P = plan({ target_months: 2000, mode: 'traditional', assets_cents: 3000, saving_cents: 0, saving_phases: [{ from_month: 360, cents: 500 }, { from_month: 366, cents: -400 }], spends: [{ offset_months: 4, cents: 10_000 }] });
+  const a = project(P, 2026).assets;
+  assert.deepEqual([a[3], a[4], a[5], a[6], a[7]], [4500, -5000, -4500, -4000, -4400]);
+  // 同样的亏空发生在手里有钱的时候：花到 0 为止。
+  const poor = plan({ target_months: 2000, mode: 'traditional', assets_cents: 600, saving_cents: 0, saving_phases: [{ from_month: 360, cents: -400 }] });
+  assert.deepEqual(Array.from(project(poor, 2026).assets.slice(0, 4)), [600, 200, 0, 0]);
+});
