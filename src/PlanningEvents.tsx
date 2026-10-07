@@ -1,3 +1,4 @@
+import { MonthInput } from './DateInput';
 import { PlanningOccurrenceDialog } from './PlanningOccurrenceDialog';
 import { emptyCore } from './plan-core';
 import type { RetireCalc } from './plan-retire-calc';
@@ -110,7 +111,7 @@ function EventDialog({ draft, isNew, today, busy, notice, onClose, onSave }: { d
     <section className="form-block">
       <FormRow label="类型"><Segments label="类型" value={kind} options={[{ value: 'house', label: '买房' }, { value: 'car', label: '买车' }, { value: 'other', label: '其他' }]} onChange={setKind} disabled={busy}/></FormRow>
       <FormRow label="名称" hint="例如「北京买房」「二手车」"><input aria-label="名称" value={label} disabled={busy} onChange={e => setLabel(e.target.value)}/></FormRow>
-      <FormRow label="计划购买月份" hint="还不确定就填大概的月份，也可以在列表里看 5、7、10 年后买的差别"><input type="month" aria-label="计划购买月份" value={date} disabled={busy} onChange={e => setDate(e.target.value)}/></FormRow>
+      <FormRow label="计划购买月份" hint="还不确定就填大概的月份，也可以在列表里看 5、7、10 年后买的差别"><MonthInput label="计划购买月份" value={date} disabled={busy} onChange={setDate}/></FormRow>
       <FormRow label="总价"><CentInput label="总价" value={price} disabled={busy} onChange={setPrice}/></FormRow>
       <FormRow label="首付 / 一次付清的现金" hint="等于总价就是全款，没有贷款"><CentInput label="首付" value={down} disabled={busy} onChange={setDown}/></FormRow>
       <FormRow label={kind === 'house' ? '一次性杂费（税费、中介、装修等）' : '一次性杂费'}><CentInput label="杂费" value={extra} disabled={busy} onChange={setExtra}/></FormRow>

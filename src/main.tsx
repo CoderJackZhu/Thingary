@@ -76,6 +76,7 @@ import './desktop-polish.css';
 import './ui.css';
 import './search.css';
 import './theme.css';
+import './controls.css';
 import { SettingsView, type SettingsCategory } from './SettingsView';
 import { AppearanceSettings } from './AppearanceSettings';
 import { applyAppearance, readMode, readStyle, toggledMode, watchSystemMode, type Mode, type Style } from './appearance';

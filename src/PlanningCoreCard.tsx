@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CentInput, FormRow, Info } from './FormControls';
+import { DateInput } from './DateInput';
 import { CloseButton } from './CloseButton';
 import { money } from './asset';
 import { kindLabel } from './wealth';
@@ -30,7 +31,7 @@ function CoreDialog({ r, snapshot, today, annual, busy, stuck, notice, onClose, 
   const save = () => { if (!/^\d{4}-\d{2}-\d{2}$/.test(core.monetary_basis_date)) return setError('请填写金额基准日期。'); onSave(core); };
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="core-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); save(); }}>
     <header><div><p className="eyebrow">规划 · 核对</p><h2 id="core-heading">资金与费用假设</h2></div><CloseButton type="button" aria-label="关闭资金核对" disabled={busy} onClick={onClose}/><button className="primary" disabled={busy || stuck}>{busy ? '保存中…' : '确认并保存'}</button></header>
-    <section className="form-block"><FormRow label="金额基准日期" hint="与盘点收盘日独立；首次保存后固定，避免重新解释已有金额"><input type="date" aria-label="金额基准日期" value={core.monetary_basis_date} disabled={busy || !!r.core} onChange={e => patch({ monetary_basis_date: e.target.value })}/></FormRow>
+    <section className="form-block"><FormRow label="金额基准日期" hint="与盘点收盘日独立；首次保存后固定，避免重新解释已有金额"><DateInput label="金额基准日期" value={core.monetary_basis_date} disabled={busy || !!r.core} onChange={value => patch({ monetary_basis_date: value })}/></FormRow>
     <p>起点：{snapshot.date} 的完整盘点。仅明确可用资产用于支付；未覆盖的负债会阻止完整结论。</p>
     {snapshot.entries.filter(e => e.counted && e.side === 'asset').map(e => { const f = core.fund_rules.find(f => f.account_id === e.account_id); return <FormRow key={e.account_id} label={`${kindLabel(e.kind)} · ${e.account_id.slice(0, 8)}`} hint={money(e.amount_cents)}><select aria-label={`可用性 ${e.account_id}`} value={f?.availability ?? ''} disabled={busy} onChange={v => patch({ fund_rules: [...core.fund_rules.filter(f => f.account_id !== e.account_id), { account_id: e.account_id, availability: v.target.value as 'available', share_hundredths: f?.share_hundredths ?? 10000 }] })}><option value="" disabled>待确认</option><option value="available" disabled={e.kind === 'housing_fund'}>可动用</option><option value="restricted">受限</option><option value="excluded">本情景排除</option></select><input aria-label={`参与比例 ${e.account_id}`} type="number" min="0" max="100" value={(f?.share_hundredths ?? 10000) / 100} disabled={busy} onChange={v => patch({ fund_rules: [...core.fund_rules.filter(f => f.account_id !== e.account_id), { account_id: e.account_id, availability: f?.availability ?? 'restricted', share_hundredths: Math.round(Number(v.target.value) * 100) }] })}/> %</FormRow>; })}
     <FormRow label="未来公积金月缴存" hint="工资扣缴及单位缴存，只增加受限池，不再扣税后净投入。留空待确认，明确0保留。"><CentInput label="未来公积金月缴存" value={core.hpf_monthly_cents ?? ''} disabled={busy} onChange={v => patch({ hpf_monthly_cents: v === '' ? null : v })}/></FormRow>

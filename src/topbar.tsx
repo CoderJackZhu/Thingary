@@ -58,7 +58,8 @@ export function BarMenuButton({ menu, open, onOpen, buttonRef, kbd = false }: { 
     const at = items.indexOf(document.activeElement as HTMLButtonElement);
     if (e.key === 'ArrowDown') { e.preventDefault(); items[Math.min(at + 1, items.length - 1)]?.focus(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); items[Math.max(at - 1, 0)]?.focus(); }
-    else if (e.key === 'Escape') { e.preventDefault(); onOpen(false); buttonRef.current?.focus(); }
+    else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); items[e.key === 'Home' ? 0 : items.length - 1]?.focus(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onOpen(false); buttonRef.current?.focus(); }
     else if (e.key === 'Tab') onOpen(false);
   };
   // Keys pressed while focus is still on the trigger keep working too.
