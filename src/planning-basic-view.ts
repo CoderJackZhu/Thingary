@@ -46,6 +46,7 @@ export function missingText(m: PlanningMissing): string {
     INCOME_MODE_UNKNOWN: '这次要不要算养老金等退休收入？也可以选择先不算。',
     CONTRIBUTION_UNKNOWN: '还没估计每月能存多少钱，先看目标需要的钱也可以。',
     PENSION_FACTS_UNKNOWN: '选择了养老金估算，还需要补齐社保资料。',
+    PENSION_CONTRIBUTIONS_UNKNOWN: '还需要确认以后是否继续交社保，以及公积金每月缴存（没有就填 0）。',
   };
   if (m.code === 'COST_SCOPE_UNKNOWN' && m.field.startsWith('basic.')) return m.field.includes('contribution')
     ? '还有费用没核对：每月存钱的金额是否已经扣除了它？'
@@ -56,7 +57,7 @@ export function missingAction(m: PlanningMissing): string {
   const actions: Record<string, string> = {
     birth_month: '填写出生年月', target_age: '选择想退休的年龄', spend_cents: '填写每月生活费',
     'basic.start': '填写现在可用的钱', 'basic.retirement_income.mode': '选择是否计入养老金',
-    'basic.pension_contributions': '设置以后怎样缴社保',
+    'basic.pension_contributions': '确认社保和公积金',
   };
   return actions[m.field] ?? ownerAction[m.owner];
 }

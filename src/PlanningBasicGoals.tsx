@@ -11,7 +11,9 @@ import type { EventsStore } from './PlanningEvents';
 import { PlanningWishes } from './PlanningWishes';
 import { buildRetireCalc } from './plan-retire-calc';
 import { ready } from './review';
-import { eventsInput } from './planning-basic-forms';
+import { contributionSection, eventsInput } from './planning-basic-forms';
+import { HISTORY_CAVEAT, historyHints } from './planning-basic-defaults';
+import type { History } from './planning-basic-defaults';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
 import { amountState, needsContribution, setupStepFor, SAVE_CONTRIBUTION_HINT, terminalText } from './planning-basic-view';
 import type { PlanMode } from './planning-basic-view';
@@ -26,6 +28,7 @@ export function PlanningBasicGoals({ sources, mode, today, reload, onPending, on
   const snapshot: Snapshot | null = ready(sources.snapshot) ?? null, accounts: Account[] = ready(sources.accounts) ?? [];
   const result = useCapabilities(sources);
   const saver = useSectionSaver(sources, reload, onPending);
+  const hist = useMemo(() => historyHints(ready(sources.review)), [sources.review]);
   const goEvents = () => { setDetail(null); requestAnimationFrame(() => { const el = document.getElementById('plan-events-section'); el?.scrollIntoView({ block: 'start' }); el?.focus(); }); };
   const fundsOpen = useRef<(() => void) | null>(null);
   useEffect(() => { if (focus) { const entry = document.getElementById('plan-budget-entry'); if (entry) { entry.focus(); onFocusDone(); } } }, [focus, onFocusDone, saved]);
@@ -82,9 +85,25 @@ export function PlanningBasicGoals({ sources, mode, today, reload, onPending, on
     </article>
     {result.status !== 'ready' ? <CapabilityNotice result={result}/> : <RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy}/>}
     {caps && <RunwayCard caps={caps} today={today} onOwner={owner}/>}
-    {caps && !pred && contribution === 'unknown' && <article className="ui-card ui-content plan-contribution-prompt" aria-label="每月能存的钱"><div className="ui-section-head"><h3>想看看按自己的储蓄速度，能否达到目标？</h3><button type="button" className="ui-btn" onClick={() => setDetail({ contribution: true })}>估计每月能存多少钱</button></div><p className="muted">这一步选填。还没想好就先跳过，不会替你假定每月存 0 元。</p></article>}
+    {caps && !pred && contribution === 'unknown' && <HistoryForecast sources={sources} hist={hist} busy={saver.busy || saver.stuck} notice={saver.notice} onDetail={() => setDetail({ contribution: true })} onAdopt={async () => { const input = contributionSection(saved as Saved, hist.saving, today); if (input) await saver.save(input); }}/>}
     {caps && <FundsCard caps={caps} sources={sources} saved={saved as Saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openRef={fundsOpen}/>}
     {events && <div id="plan-events-section" tabIndex={-1}><PlanningEvents store={events} today={today} onEditingChange={onEditingChange}/></div>}
     <PlanningWishes calc={wishCalc} today={today} hint={wishHint} onContribution={goContribution}/>
   </div>;
+}
+
+/** Unknown contribution: show what the past 盘点 imply (labelled, unsaved) or say why not and how to estimate by hand. */
+function HistoryForecast({ sources, hist, busy, notice, onDetail, onAdopt }: { sources: PlanningSources; hist: History; busy: boolean; notice: string; onDetail: () => void; onAdopt: () => void }) {
+  if (hist.saving === null) return <article className="ui-card ui-content plan-contribution-prompt" aria-label="每月能存的钱"><div className="ui-section-head"><h3>想看看按自己的储蓄速度，能否达到目标？</h3><button type="button" className="ui-btn" onClick={onDetail}>估计每月能存多少钱</button></div><p className="muted">{hist.reason}可以填每月到账和开销估一个，不填也不影响上面的需求。</p></article>;
+  return <HistoryLine sources={sources} hist={hist} busy={busy} notice={notice} onDetail={onDetail} onAdopt={onAdopt}/>;
+}
+function HistoryLine({ sources, hist, busy, notice, onDetail, onAdopt }: { sources: PlanningSources; hist: History; busy: boolean; notice: string; onDetail: () => void; onAdopt: () => void }) {
+  const r = useCapabilities(sources, { contribution: hist.saving });
+  const pred = r.status === 'ready' && r.caps.prediction.status === 'ready' ? r.caps.prediction.value : null;
+  return <article className="ui-card ui-content plan-contribution-prompt" aria-label="按过去盘点推算"><div className="ui-section-head"><h3>按你过去的盘点推算</h3><span className="ui-tag warn">按过去盘点推算，未保存</span></div>
+    <p>过去 {hist.count} 个盘点区间，你每月存下的中位数约 {money(hist.saving!)}。{pred ? `按这个速度：${terminalText[pred.terminal]}。` : '其他条件补齐后可看到预测。'}</p>
+    <p className="muted small">{HISTORY_CAVEAT}。只在目标详情里显示，不进入首页和心愿；点「采用」才保存为你的预计投入。</p>
+    <div className="plan-goal-actions"><button type="button" className="primary" disabled={busy} onClick={onAdopt}>采用并保存</button><button type="button" className="ui-btn" onClick={onDetail}>查看测算详情</button></div>
+    {notice && <p className="notice" role="status">{notice}</p>}
+  </article>;
 }

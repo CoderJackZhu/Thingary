@@ -13,7 +13,7 @@ import './retire.css';
 
 type Ready = { plan: Plan; assets: number };
 /** Basic mode: an unsaved trial is labelled, and the terminal wording follows the complete-budget horizon. */
-export type BasicRisk = { temporary: boolean; terminal: keyof typeof terminalText };
+export type BasicRisk = { temporary: boolean; note?: string; terminal: keyof typeof terminalText };
 
 const ageText = (months: number | null) => (months === null ? '无法达成' : `${Math.floor(months / 12)} 岁`);
 const sevText = { high: '高', medium: '中', low: '低' };
@@ -40,7 +40,7 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
   const o = base.out, gap = o.shortfall_at_goal;
   const pctTone = mc ? (mc.success_rate >= 0.9 ? 'good' : mc.success_rate >= 0.75 ? 'watch' : 'bad') : '';
   return <div className="rl">
-    {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">临时试算，未保存</span> : <span className="ui-tag">按已保存的预计投入</span>} 风险结果按完整预算、覆盖到规划终点；{terminalText[basic.terminal]}。</p>}
+    {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? '临时试算，未保存'}</span> : <span className="ui-tag">按已保存的预计投入</span>} 风险结果按完整预算、覆盖到规划终点；{terminalText[basic.terminal]}。</p>}
     <article className="ui-card rl-hero" aria-label="基准情形">
       <div className="rl-lead"><span>基准情形</span><strong>你的基础计划 <span className={`rd-badge ${v.tone}`}><i/>{v.badge}</span></strong>
         <small>{top ? `在这些测试中，${top.label}的影响最大${top.shortfall_delta > 0 ? `，退休缺口增加 ${fmt(top.shortfall_delta)}` : ''}${top.fi_delay_months ? `${top.shortfall_delta > 0 ? ' 和' : '，'}财务独立推迟 ${durationText(top.fi_delay_months)}` : ''}。` : '这些压力测试均未实质性改变你的基础计划。'}</small></div>

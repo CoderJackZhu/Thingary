@@ -33,7 +33,7 @@ const text = (segs: Seg[]) => segs.map((s, i) => s.strong ? <strong key={i}>{s.t
 export type OverviewInput = { plan: Plan; proj: Projection; out: Outcome; assets: number; plan0?: Plan; events: LifeEvent[]; r: RetireInputs };
 type Ready = OverviewInput;
 /** Basic-mode context: where the contribution came from and how the horizon ends. Hides the original plan's income-change table. */
-export type BasicOverview = { temporary: boolean; contribution: string; terminal: keyof typeof terminalText };
+export type BasicOverview = { temporary: boolean; note?: string; contribution: string; terminal: keyof typeof terminalText };
 
 /** 概览主列：判词、进度、轨迹、里程碑、覆盖与逐年快照。 */
 export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mode: ValueMode; onMode: (m: ValueMode) => void; basic?: BasicOverview }) {
@@ -59,7 +59,7 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
       {v.guidance && <p className={`rd-guidance ${v.tone}`}>{v.guidance}</p>}
     </article>
 
-    {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">临时试算，未保存</span> : <span className="ui-tag">按已保存的预计投入</span>} 每月净投入 {money(basic.contribution)}（不含投资收益）；{terminalText[basic.terminal]}。</p>}
+    {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? '临时试算，未保存'}</span> : <span className="ui-tag">按已保存的预计投入</span>} 每月净投入 {money(basic.contribution)}（不含投资收益）；{terminalText[basic.terminal]}。</p>}
     <p className="muted small">资金起点：{P.anchor_date ?? '当前'} 收盘；现值金额基准：{P.monetary_basis_date ?? '当前'}。计划付款在月初核对，投入计入月末。</p>
     <EventWarnings calc={calc}/>
     {!basic && <Range calc={calc} mode={mode}/>}

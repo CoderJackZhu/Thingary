@@ -5,7 +5,8 @@ import type { Draft } from './planning-basic-forms.ts';
 
 type Saved = ProfileState['saved'];
 export const HISTORY_MIN_INTERVALS = 3;
-export const HISTORY_CAVEAT = '含投资涨跌；收入记录没记全时，推算的花销会偏低';
+export const HISTORY_CAVEAT = '含投资涨跌，不等于真正攒下的钱';
+export const SPEND_CAVEAT = '由收入减去资产变化推算：投资上涨、或收入没记全，都会让它偏低';
 
 export type History = { saving: string | null; spend: string | null; count: number; reason: string };
 /** Median of the usual (complete, income-recorded, not one-off, last 12 months) intervals. Fewer than 3 gives nothing, never 0. */
