@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
-import { compactYuan } from './plan-view';
+import { calloutBaselines, compactYuan, refLabelLayout } from './plan-view';
 import type { CoverageSeries, SnapshotRow, TrajectoryPoint } from './plan-view';
 import './retire.css';
 
-const W = 720, H = 300, L = 58, R = 18, T = 26, B = 42;
+const W = 720, H = 300, L = 58, R = 18, T = 38, B = 42;
 
 /** 取整刻度：不超过 count 档、步长为 1/2/5×10^n（分）。 */
 export function niceTicks(max: number, count = 5): { top: number; ticks: number[] } {
@@ -68,6 +68,10 @@ export function TrajectoryChart({ points, rows, goalAge, fiAge, retireAge, tone,
   const area = (pts: TrajectoryPoint[]) => pts.length < 2 ? '' : `${line(pts, 'projected')}L${s.x(pts[pts.length - 1].age).toFixed(1)} ${s.y(0)}L${s.x(pts[0].age).toFixed(1)} ${s.y(0)}Z`;
   const goal = points.reduce((b, p) => (Math.abs(p.age - goalAge) < Math.abs(b.age - goalAge) ? p : b), points[0]);
   const hover = near.i === null ? null : points[near.i], row = near.i === null ? undefined : rows[near.i];
+  const showFi = fiAge !== null && Math.abs(fiAge - goalAge) > 0.01;
+  const refs = [{ x: s.x(goalAge), text: `目标 · ${goalAge}`, fi: false }, ...(showFi ? [{ x: s.x(fiAge!), text: `FI · ${Math.floor(fiAge!)}`, fi: true }] : [])];
+  const lay = refLabelLayout(refs.map(r => ({ x: r.x, w: r.text.length * 7.5 })), W - R);
+  const gy = calloutBaselines(s.y(goal.projected), s.y(goal.required), H - B - 4), gEnd = s.x(goal.age) > W - R - 60, gx = s.x(goal.age) + (gEnd ? -9 : 9);
   const statusVar = tone === 'good' ? 'var(--positive)' : tone === 'watch' ? 'var(--warn)' : 'var(--error)';
   return <div className="rc-wrap">
     <svg ref={near.ref} className="rc-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`投资组合轨迹，${Math.round(a0)} 岁至 ${Math.round(a1)} 岁，${valueLabel}。目标 ${goalAge} 岁时预计 ${fmt(goal.projected)}，所需 ${fmt(goal.required)}`} {...near.handlers}>
@@ -78,11 +82,12 @@ export function TrajectoryChart({ points, rows, goalAge, fiAge, retireAge, tone,
       <path d={area(acc)} fill="url(#rc-acc)"/><path d={area(ret)} fill="url(#rc-ret)"/>
       <path d={line(acc, 'projected')} className="rc-line" style={{ stroke: 'var(--chart)' }}/><path d={line(ret, 'projected')} className="rc-line" style={{ stroke: 'var(--warn)' }}/>
       <g className="rc-refs">
-        <line x1={s.x(goalAge)} x2={s.x(goalAge)} y1={T} y2={H - B} className="rc-ref"/><text x={s.x(goalAge) + 5} y={T - 8} className="rc-label">目标 · {goalAge}</text>
-        {fiAge !== null && Math.abs(fiAge - goalAge) > 0.01 && <><line x1={s.x(fiAge)} x2={s.x(fiAge)} y1={T} y2={H - B} className="rc-ref rc-fi"/><text x={s.x(fiAge) + (fiAge < goalAge && s.x(goalAge) - s.x(fiAge) < 78 ? -5 : 5)} textAnchor={fiAge < goalAge && s.x(goalAge) - s.x(fiAge) < 78 ? 'end' : 'start'} y={T - 8} className="rc-label rc-fi-text">FI · {Math.floor(fiAge)}</text></>}
+        <line x1={s.x(goalAge)} x2={s.x(goalAge)} y1={T} y2={H - B} className="rc-ref"/>
+        {fiAge !== null && showFi && <line x1={s.x(fiAge)} x2={s.x(fiAge)} y1={T} y2={H - B} className="rc-ref rc-fi"/>}
+        {refs.map((r, i) => <text key={r.text} x={r.x + (lay[i].end ? -5 : 5)} textAnchor={lay[i].end ? 'end' : 'start'} y={T - 8 - lay[i].row * 14} className={`rc-label${r.fi ? ' rc-fi-text' : ''}`}>{r.text}</text>)}
         {retireAge !== null && retireAge !== fiAge && retireAge !== goalAge && <line x1={s.x(retireAge)} x2={s.x(retireAge)} y1={T} y2={H - B} className="rc-ref"/>}
-        <circle cx={s.x(goal.age)} cy={s.y(goal.projected)} r="4" style={{ fill: statusVar }}/><text x={s.x(goal.age) + 9} y={s.y(goal.projected) - 6} className="rc-callout" style={{ fill: statusVar }}>{compactYuan(goal.projected)}</text>
-        {goal.required > 0 && <><circle cx={s.x(goal.age)} cy={s.y(goal.required)} r="3.5" className="rc-dot-ref"/><text x={s.x(goal.age) + 9} y={s.y(goal.required) + 14} className="rc-callout rc-muted">{compactYuan(goal.required)}</text></>}
+        <circle cx={s.x(goal.age)} cy={s.y(goal.projected)} r="4" style={{ fill: statusVar }}/><text x={gx} textAnchor={gEnd ? 'end' : 'start'} y={gy.projected} className="rc-callout" style={{ fill: statusVar }}>{compactYuan(goal.projected)}</text>
+        {goal.required > 0 && <><circle cx={s.x(goal.age)} cy={s.y(goal.required)} r="3.5" className="rc-dot-ref"/><text x={gx} textAnchor={gEnd ? 'end' : 'start'} y={gy.required} className="rc-callout rc-muted">{compactYuan(goal.required)}</text></>}
       </g>
       {hover && <g><line x1={s.x(hover.age)} x2={s.x(hover.age)} y1={T} y2={H - B} className="rc-cursor"/><circle cx={s.x(hover.age)} cy={s.y(hover.projected)} r="4" style={{ fill: hover.phase === 'retired' ? 'var(--warn)' : 'var(--chart)' }}/></g>}
     </svg>

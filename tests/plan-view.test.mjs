@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { project, outcome, required } from '../src/plan-ledger.ts';
 import { stressTests } from '../src/plan-risk.ts';
-import { checkpoints, compactYuan, coverage, milestones, rangeRows, progress, scaleAt, snapshotRows, trajectory, verdict } from '../src/plan-view.ts';
+import { calloutBaselines, checkpoints, compactYuan, refLabelLayout, coverage, milestones, rangeRows, progress, scaleAt, snapshotRows, trajectory, verdict } from '../src/plan-view.ts';
 
 const pension = () => ({ monthly_cents: 300, lump_cents: 20_000, unlock_age_months: 756 });
 const plan = (over = {}) => ({
@@ -108,4 +108,17 @@ test('range rows put the base case beside the income shocks; checkpoints show wh
   const flat = plan({ now_months: 360, target_months: 600 });
   assert.deepEqual(checkpoints(flat, project(flat, 2026)).map(c => c.month), [420]);
   assert.deepEqual(checkpoints(plan({ now_months: 440 }), project(plan({ now_months: 440 }), 2026)), []);
+});
+
+test('trajectory chart labels: close reference lines go on separate rows, edge labels flip, callouts keep 14 apart', () => {
+  const w = 52;
+  assert.deepEqual(refLabelLayout([{ x: 300, w }, { x: 340, w }], 702), [{ row: 0, end: false }, { row: 1, end: false }]);
+  assert.deepEqual(refLabelLayout([{ x: 340, w }, { x: 300, w }], 702), [{ row: 1, end: false }, { row: 0, end: false }]);
+  assert.deepEqual(refLabelLayout([{ x: 200, w }, { x: 400, w }], 702), [{ row: 0, end: false }, { row: 0, end: false }]);
+  assert.deepEqual(refLabelLayout([{ x: 690, w }], 702), [{ row: 0, end: true }]);
+  for (const [p, r] of [[100, 100], [100, 108], [108, 100], [100, 200], [200, 100], [270, 270], [269, 120]]) {
+    const b = calloutBaselines(p, r, 270 - 4);
+    assert.ok(Math.abs(b.projected - b.required) >= 14 && b.projected <= 266 && b.required <= 266, `${p}/${r}`);
+    if (Math.abs(p - r) > 20) assert.equal(b.projected < b.required, p < r);
+  }
 });

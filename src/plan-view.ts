@@ -220,3 +220,20 @@ export function checkpoints(P: Plan, proj: Projection): Checkpoint[] {
     return { month: x.m, label: x.label, need, expected, ok: expected >= need };
   });
 }
+
+/** 图顶竖线标签分行：同一行放不下（会盖住前一个）就挪到第二行；贴右边界时改为向左伸展。 */
+export function refLabelLayout(items: { x: number; w: number }[], right: number): { row: number; end: boolean }[] {
+  const placed: { row: number; a: number; b: number }[] = [], out = items.map(() => ({ row: 0, end: false }));
+  items.map((it, i) => [it, i] as const).sort((p, q) => p[0].x - q[0].x).forEach(([it, i]) => {
+    const end = it.x + 5 + it.w > right, a = end ? it.x - 5 - it.w : it.x + 5, b = a + it.w;
+    const row = [0, 1].find(r => !placed.some(p => p.row === r && a < p.b + 4 && p.a < b + 4)) ?? 1;
+    placed.push({ row, a, b }); out[i] = { row, end };
+  });
+  return out;
+}
+
+/** 目标年龄处两个数值标注的基线：高的放点上方、低的放点下方，两者至少相隔 14，且不越过横轴 floor。 */
+export function calloutBaselines(yProjected: number, yRequired: number, floor: number): { projected: number; required: number } {
+  const low = Math.min(Math.max(yProjected, yRequired) + 14, floor), high = Math.min(Math.min(yProjected, yRequired) - 6, low - 14);
+  return yProjected <= yRequired ? { projected: high, required: low } : { projected: low, required: high };
+}
