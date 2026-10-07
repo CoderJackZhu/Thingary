@@ -1,7 +1,7 @@
 // Form drafts -> shared section DTOs. Syntax only: blank means unknown (null), never 0. Domain rules stay native.
 import { defaultRetire, pctToHundredths, hundredthsToPct } from './plan.ts';
 import type { BasicFields, BudgetFields, CostScope, EventsFields, FundsFields, IncomeSelection, PensionFields, ProfileState, RetireInputs, StoredIncomeItem } from './plan.ts';
-import { costSources } from './plan-core.ts';
+import { costSources, mustStayInLedger } from './plan-core.ts';
 import type { FundRule } from './plan-core.ts';
 import { defaultAssumptions, noOverrides } from './plan-params.ts';
 import type { Worker } from './plan-pension.ts';
@@ -85,7 +85,7 @@ const rate = (t: string, label: string): number => pctToHundredths(t) ?? fail(`$
 export const monthOf = (d: string) => (d ? d.slice(0, 7) : null);
 
 const scopes = (sources: CostSource[], d: Record<string, ScopeDraft>): CostScope[] => sources.flatMap((s): CostScope[] => {
-  const x = d[s.id]; if (!x || x.treatment === '') return [];
+  const x = d[s.id]; if (!x || x.treatment === '' || (x.treatment === 'excluded' && mustStayInLedger(s.id))) return [];
   if (x.treatment === 'included') return [{ source_id: s.id, treatment: 'included', reference_cents: x.ref === '' ? fail(`「${s.label}」已含在预算里时，请填写含多少。`) : x.ref }];
   return [{ source_id: s.id, treatment: x.treatment, reference_cents: null }];
 });

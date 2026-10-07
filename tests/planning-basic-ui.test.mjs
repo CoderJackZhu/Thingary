@@ -133,3 +133,11 @@ test('missing-input guidance preserves constraints and routes fee/pension correc
   assert.equal(setupStepFor('basic', 'basic.pension_contributions'), 1);
   assert.equal(setupStepFor('budget', 'basic.retirement_costs'), 0);
 });
+
+test('loan payments and personal pension cannot be offered or saved as excluded', async () => {
+  const { mustStayInLedger } = await import('../src/plan-core.ts');
+  assert.equal(mustStayInLedger('event:e1:loan'), true);
+  assert.equal(mustStayInLedger('personal_pension'), true);
+  assert.equal(mustStayInLedger('event:e1:holding'), false);
+  assert.match(fs.readFileSync(new URL('../src/PlanningSetup.tsx', import.meta.url), 'utf8'), /\{!locked && <option value="excluded">/);
+});

@@ -31,6 +31,8 @@ export function normalizeFunds(snapshot: Snapshot | null, core?: PlanningCore | 
   return { available: Number(available), restricted: Number(restricted), housingFund: Number(housingFund), debt: Number(debt), net: Number(net), missing };
 }
 export const eventSource = (id: string, kind: 'loan' | 'holding') => `event:${id}:${kind}`;
+/** Loan payments and personal-pension cash transfers are real outflows; they may not be excluded from the ledger. */
+export const mustStayInLedger = (sourceId: string) => sourceId.endsWith(':loan') || sourceId === 'personal_pension';
 export function costSources(events: StoredLifeEvent[], ppAnnual: string) {
   const out: { id: string; label: string }[] = [];
   for (const e of events) {

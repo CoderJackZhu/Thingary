@@ -2,7 +2,7 @@
 import { hasPensionProfile } from './plan.ts';
 import type { StoredLifeEvent } from './plan.ts';
 import type { BasicCapabilities, PlanningSources, PlanningMissing, Capability, RequirementResult, RequirementValue, PredictionValue, PlanningContext, CostScope, CapabilityName } from './plan-basic-contract.ts';
-import { normalizeFunds, occurrenceMissing, costSources } from './plan-core.ts';
+import { normalizeFunds, occurrenceMissing, costSources, mustStayInLedger } from './plan-core.ts';
 import { ageMonthsAt, project as pensionProject } from './plan-pension.ts';
 import { beijing, effectiveParams } from './plan-params.ts';
 import { applyEvents, monthIndex, offsetOf } from './plan-events.ts';
@@ -125,7 +125,7 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
       set.add(s.source_id);
       const occurred = core?.occurrences.some(o => o.status === 'occurred' && s.source_id.startsWith(`event:${o.event_id}:`));
       if (s.treatment === 'included' && (s.reference_cents === null || (pre && s.source_id.startsWith('event:') && !occurred))) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', field, '已含参考额未知，或尚未发生费用被标作净投入已含。'));
-      if (s.treatment === 'excluded' && (s.source_id.endsWith(':loan') || s.source_id === 'personal_pension')) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'events', field, '已纳入的债务付款或养老金现金转入不能从完整账本排除。', 'constraint'));
+      if (s.treatment === 'excluded' && mustStayInLedger(s.source_id)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'events', field, '月供和个人养老金转入是真实支出，必须计入：请把它改选为「已包含」或「另外加上」。', 'constraint'));
     }
     for (const id of ids) if (!scopes.some(s => s.source_id === id)) reqMissing.push(missing('COST_SCOPE_UNKNOWN', 'requirement', 'budget', field, `费用 ${id} 的${pre ? '净投入' : '退休总预算'}包含作用域待核对。`));
   };

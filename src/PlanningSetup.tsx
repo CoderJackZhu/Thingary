@@ -7,6 +7,7 @@ import { FundsEditor } from './PlanningFunds';
 import { PlanningProfileFields } from './PlanningProfileFields';
 import { CapabilityNotice, RequirementCard } from './PlanningRequirement';
 import { ageMonthsAt } from './plan-pension';
+import { mustStayInLedger } from './plan-core';
 import { ready } from './review';
 import { ContributionHelper } from './PlanningContributionHelper';
 import { SPEND_CAVEAT, historyHints, savingFromFlow, withDefaults } from './planning-basic-defaults';
@@ -99,7 +100,7 @@ function GoalStep({ d, patch, frozen, now, sources, history }: { d: Draft; patch
     <FormRow label="退休后，每月生活费大约多少？" hint="按现在的物价，合计吃饭、住房、日常生活等开销。还没想好可以先留空"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="0.00" onChange={v => patch({ budget: v })}/></FormRow>
     {history.spend !== null && d.budget === '' && <p className="muted small plan-suggest" role="status">按过去 {history.count} 个盘点区间，你每月花销的中位数约 {money(history.spend)}（{SPEND_CAVEAT}）。<button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ budget: history.spend! })}>采用</button></p>}
     {sources.length > 0 && <fieldset className="plan-scope"><legend>核对已保存的费用<Info text="这里只看以后要付的钱，过去已经交过的社保等费用不会再扣一次。生活费里已经包括的，选「已包含」；还要额外支付的，选「另外加上」。"/></legend><p className="muted small">这些是以前保存的费用假设。请确认它们是否包含在上面填写的生活费里，避免算两次。</p>
-      {sources.map(s => <ScopeRow key={s.id} label={`${s.id === 'social_insurance' ? '以后自己交社保（旧计划）' : s.label} ${s.cents ? money(s.cents) : ''}/月`} value={d.retScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef={s.cents ?? ''} disabled={frozen} onChange={v => patch({ retScopes: { ...d.retScopes, [s.id]: v } })}/>)}</fieldset>}
+      {sources.map(s => <ScopeRow key={s.id} id={s.id} label={`${s.id === 'social_insurance' ? '以后自己交社保（旧计划）' : s.label} ${s.cents ? money(s.cents) : ''}/月`} value={d.retScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef={s.cents ?? ''} disabled={frozen} onChange={v => patch({ retScopes: { ...d.retScopes, [s.id]: v } })}/>)}</fieldset>}
     <details><summary>更多假设：规划终点、收益、通胀与应急金</summary>
       <p className="muted small">这些是可以修改的假设。规划终点默认 90 岁，实际收益默认 0%，请按自己的判断确认。</p>
       <FormRow label="规划到几岁"><input aria-label="规划到几岁" inputMode="numeric" value={d.horizon} disabled={frozen} onChange={e => patch({ horizon: e.target.value })}/></FormRow>
@@ -111,8 +112,10 @@ function GoalStep({ d, patch, frozen, now, sources, history }: { d: Draft; patch
   </section>;
 }
 
-function ScopeRow({ label, value, placeholderRef, disabled, onChange }: { label: string; value: ScopeDraft; placeholderRef: string; disabled: boolean; onChange: (v: ScopeDraft) => void }) {
-  return <FormRow label={label}><span className="plan-scope-row"><select aria-label={`${label}包含关系`} value={value.treatment} disabled={disabled} onChange={e => { const treatment = e.target.value as ScopeDraft['treatment']; onChange({ treatment, ref: treatment === 'included' && value.ref === '' ? placeholderRef : treatment === 'included' ? value.ref : '' }); }}><option value="">请选择</option><option value="included">已包含，不再重复算</option><option value="extra">另外加上这笔费用</option><option value="excluded">这次先不算</option></select>{value.treatment === 'included' && <details className="plan-scope-amount"><summary>核对已包含的金额：{value.ref === '' ? '待填写' : money(value.ref)}</summary><CentInput label={`${label}已含金额`} value={value.ref} disabled={disabled} onChange={v => onChange({ ...value, ref: v })}/></details>}</span></FormRow>;
+function ScopeRow({ id, label, value, placeholderRef, disabled, onChange }: { id: string; label: string; value: ScopeDraft; placeholderRef: string; disabled: boolean; onChange: (v: ScopeDraft) => void }) {
+  const locked = mustStayInLedger(id);
+  if (locked && value.treatment === 'excluded') value = { treatment: '', ref: '' };
+  return <FormRow label={label}><span className="plan-scope-row"><select aria-label={`${label}包含关系`} value={value.treatment} disabled={disabled} onChange={e => { const treatment = e.target.value as ScopeDraft['treatment']; onChange({ treatment, ref: treatment === 'included' && value.ref === '' ? placeholderRef : treatment === 'included' ? value.ref : '' }); }}><option value="">请选择</option><option value="included">已包含，不再重复算</option><option value="extra">另外加上这笔费用</option>{!locked && <option value="excluded">这次先不算</option>}</select>{value.treatment === 'included' && <details className="plan-scope-amount"><summary>核对已包含的金额：{value.ref === '' ? '待填写' : money(value.ref)}</summary><CentInput label={`${label}已含金额`} value={value.ref} disabled={disabled} onChange={v => onChange({ ...value, ref: v })}/></details>}</span></FormRow>;
 }
 
 const incomeModes: { value: IncomeMode; label: string; hint: string }[] = [
@@ -210,7 +213,7 @@ function ConfirmStep({ d, patch, frozen, history, legacy, previewMissing, source
       <p className="muted small" role="status">{state === 'unknown' ? '没填写也可以：先看目标需要存多少钱，以后再补自己的估计。' : state === 'zero' ? '这次按每月存 0 元计算，以后可以修改。' : state === 'positive' ? '按你估计每月能存下的钱计算，不包含投资涨跌。' : '负数：按每月动用存款试算。'}</p>
     </details>
     {sources.length > 0 && <fieldset className="form-block plan-scope"><legend>核对退休前已保存的费用</legend><p className="muted small">这些费用也会影响目标需要准备的钱，因此单独核对。若填写了每月能存的钱，请确认这笔费用是否已扣除；没填时也不要把已知费用当作不存在。</p>
-      {sources.map(s => <ScopeRow key={s.id} label={s.label} value={d.conScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef="0" disabled={frozen} onChange={v => patch({ conScopes: { ...d.conScopes, [s.id]: v } })}/>)}</fieldset>}
+      {sources.map(s => <ScopeRow key={s.id} id={s.id} label={s.label} value={d.conScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef="0" disabled={frozen} onChange={v => patch({ conScopes: { ...d.conScopes, [s.id]: v } })}/>)}</fieldset>}
     <section className="form-block"><h3>你的计划</h3><dl className="plan-facts">
       <div><dt>目标</dt><dd>{d.mode === 'fire' ? '财务自由' : '按年龄退休'} · {d.target ? `${d.target} 岁` : '年龄未定'}</dd></div>
       <div><dt>退休后每月预算</dt><dd>{d.budget ? money(d.budget) : '未填写'}</dd></div>
