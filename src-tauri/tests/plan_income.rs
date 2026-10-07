@@ -95,6 +95,7 @@ fn trash(s: &Store, kind: &str, id: &str, revision: i64, deleted: bool) -> Trash
 }
 fn purge(s: &Store, kind: &str, id: &str) -> Purge {
     Purge {
+        preview: None,
         request_id: rid(),
         generation: s.generation(),
         kind: Some(kind.into()),

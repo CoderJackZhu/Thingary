@@ -754,7 +754,7 @@ fn core_committed_unknown_receipt_restart_restore_and_conflict_preserve_one_occu
     s.backup(Some(&file)).unwrap();
     let mut restored = Store::open(&dir.path().join("restored")).unwrap();
     let summary = restored.inspect_backup(&file).unwrap();
-    assert_eq!(summary.schema, 31);
+    assert_eq!(summary.schema, thingary_lib::storage::SCHEMA_VERSION as u32);
     restored
         .restore(&file, &summary.hash, &restored.generation())
         .unwrap();

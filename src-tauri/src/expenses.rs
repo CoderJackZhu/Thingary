@@ -60,6 +60,7 @@ pub struct Line {
     pub source: String,
     pub id: String,
     pub asset_id: Option<String>,
+    pub plan_id: Option<String>,
     pub title: String,
     pub category: Option<String>,
     pub date: Option<String>,
@@ -74,6 +75,24 @@ pub struct Month {
     pub month: String,
     pub spent_cents: String,
     pub refund_cents: String,
+    /// Spend-participating dated lines in the month, known and unknown alike.
+    pub count: usize,
+    pub known_count: usize,
+    pub unknown_count: usize,
+}
+
+/// One year bucket of the all-years view (design §3.1). Counts describe the
+/// spend-participating dated lines only; refunds and sales never join them.
+#[derive(Debug, Clone, Serialize)]
+pub struct AnnualTotal {
+    pub year: i32,
+    pub spent_cents: String,
+    pub refund_cents: String,
+    pub net_cents: String,
+    pub sale_cents: String,
+    pub count: usize,
+    pub known_count: usize,
+    pub unknown_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -88,6 +107,8 @@ pub struct View {
     pub undated: Vec<Line>,
     /// Twelve months when a year is chosen, otherwise empty.
     pub months: Vec<Month>,
+    /// Ascending year buckets of the all-years view; empty for one year.
+    pub annual_totals: Vec<AnnualTotal>,
     pub spent_cents: String,
     pub refund_cents: String,
     pub net_cents: String,
@@ -173,32 +194,32 @@ fn read(c: &Connection, id: &str) -> Result<Option<Expense>> {
 // Items excluded from the statistics page stay out of expenses too (X-D05).
 // The trailing notes column carries the standalone expense's notes for search.
 pub(crate) const LINES: &str = "
-SELECT 'purchase',a.id,a.id,a.name,c.name,a.purchase_date,a.price_cents,NULL
+SELECT 'purchase',a.id,a.id,a.name,c.name,a.purchase_date,a.price_cents,NULL,NULL
   FROM assets a LEFT JOIN categories c ON c.id=a.category_id
   WHERE a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)
 UNION ALL
-SELECT 'maintenance',m.id,a.id,a.name||CASE WHEN trim(m.title)='' THEN '' ELSE ' · '||m.title END,c.name,m.date,m.cost_cents,NULL
+SELECT 'maintenance',m.id,a.id,a.name||CASE WHEN trim(m.title)='' THEN '' ELSE ' · '||m.title END,c.name,m.date,m.cost_cents,NULL,NULL
   FROM maintenances m JOIN assets a ON a.id=m.asset_id LEFT JOIN categories c ON c.id=a.category_id
   WHERE m.deleted_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)
 UNION ALL
-SELECT CASE WHEN e.asset_id IS NULL THEN 'expense' ELSE 'linked' END,e.id,e.asset_id,e.title,e.category,e.date,e.amount_cents,e.notes
+SELECT CASE WHEN e.asset_id IS NULL THEN 'expense' ELSE 'linked' END,e.id,e.asset_id,e.title,e.category,e.date,e.amount_cents,e.notes,NULL
   FROM expenses e WHERE e.deleted_at IS NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))
 UNION ALL
-SELECT 'refund',e.id,e.asset_id,e.title,e.category,e.refund_date,e.refund_cents,e.notes
+SELECT 'refund',e.id,e.asset_id,e.title,e.category,e.refund_date,e.refund_cents,e.notes,NULL
   FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))
 UNION ALL
-SELECT 'payment',p.id,NULL,r.name,r.category,p.paid_date,p.amount_cents,NULL
+SELECT 'payment',p.id,NULL,r.name,r.category,p.paid_date,p.amount_cents,NULL,p.plan_id
   FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id
   WHERE p.deleted_at IS NULL AND r.deleted_at IS NULL AND p.state='paid'
 UNION ALL
-SELECT 'virtual',v.id,NULL,v.name,'digital',v.purchase_date,v.price_cents,NULL
+SELECT 'virtual',v.id,NULL,v.name,'digital',v.purchase_date,v.price_cents,NULL,NULL
   FROM virtual_assets v WHERE v.deleted_at IS NULL AND v.plan_id IS NULL AND v.price_cents IS NOT NULL
 UNION ALL
-SELECT 'topup',t.id,v.id,v.name,'digital',t.topup_date,t.paid_cents,NULL
+SELECT 'topup',t.id,v.id,v.name,'digital',t.topup_date,t.paid_cents,NULL,NULL
   FROM virtual_topups t JOIN virtual_assets v ON v.id=t.asset_id
   WHERE t.deleted_at IS NULL AND v.deleted_at IS NULL AND t.paid_cents IS NOT NULL
 UNION ALL
-SELECT 'sale',s.id,a.id,a.name,c.name,s.date,s.price_cents,NULL
+SELECT 'sale',s.id,a.id,a.name,c.name,s.date,s.price_cents,NULL,NULL
   FROM sales s JOIN assets a ON a.id=s.asset_id LEFT JOIN categories c ON c.id=a.category_id
   WHERE s.revoked_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)";
 
@@ -290,6 +311,7 @@ impl Store {
                     date: r.get(5)?,
                     amount_cents: r.get::<_, Option<i64>>(6)?.map(|v| v.to_string()),
                     notes: r.get(7)?,
+                    plan_id: r.get(8)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -300,12 +322,15 @@ impl Store {
         let in_period = |d: &str| year.is_none_or(|y| d.starts_with(&format!("{y:04}-")));
         let (mut spent, mut refunds, mut sales, mut undated_total) = (0i64, 0i64, 0i64, 0i64);
         let mut unknown = 0;
-        let mut months: BTreeMap<String, (i64, i64)> = BTreeMap::new();
+        let mut months: BTreeMap<String, MonthAcc> = BTreeMap::new();
         if let Some(y) = year {
             for m in 1..=12 {
-                months.insert(format!("{y:04}-{m:02}"), (0, 0));
+                months.insert(format!("{y:04}-{m:02}"), MonthAcc::default());
             }
         }
+        // Year buckets of the all-years view are built from the same walk, in
+        // the same read snapshot as the summary and detail (design §3.1).
+        let mut annual: BTreeMap<i32, AnnualAcc> = BTreeMap::new();
         let (mut lines, mut undated) = (Vec::new(), Vec::new());
         for l in all {
             let amount = l
@@ -326,6 +351,30 @@ impl Store {
             if !in_period(&day) {
                 continue;
             }
+            let y: i32 = day
+                .get(..4)
+                .and_then(|s| s.parse().ok())
+                .ok_or_else(|| Error::new("FORMAT", "资料格式不兼容或损坏"))?;
+            let month_key = day[..7].to_string();
+            // Spends participate with counts regardless of a known amount;
+            // refunds and sales only carry their totals (§3.1/§3.2).
+            let spend = matches!(
+                l.source.as_str(),
+                "purchase" | "maintenance" | "expense" | "payment" | "virtual" | "topup"
+            );
+            if year.is_none() {
+                let a = annual.entry(y).or_default();
+                match (l.source.as_str(), amount) {
+                    (_, Some(v)) if spend => {
+                        add(&mut a.spent, v)?;
+                        a.known += 1;
+                    }
+                    (_, None) if spend => a.unknown += 1,
+                    ("refund", Some(v)) => add(&mut a.refund, v)?,
+                    ("sale", Some(v)) => add(&mut a.sale, v)?,
+                    _ => {}
+                }
+            }
             match (l.source.as_str(), amount) {
                 ("purchase" | "maintenance", None) => unknown += 1,
                 (
@@ -333,18 +382,29 @@ impl Store {
                     Some(v),
                 ) => {
                     add(&mut spent, v)?;
-                    if let Some(m) = months.get_mut(&day[..7]) {
-                        add(&mut m.0, v)?;
+                    if let Some(m) = months.get_mut(&month_key) {
+                        add(&mut m.spent, v)?;
                     }
                 }
                 ("refund", Some(v)) => {
                     add(&mut refunds, v)?;
-                    if let Some(m) = months.get_mut(&day[..7]) {
-                        add(&mut m.1, v)?;
+                    if let Some(m) = months.get_mut(&month_key) {
+                        add(&mut m.refund, v)?;
                     }
                 }
                 ("sale", Some(v)) => add(&mut sales, v)?,
                 _ => {}
+            }
+            // 月桶参与笔数只在此处维护：count = known + unknown（R4）。
+            if spend {
+                if let Some(m) = months.get_mut(&month_key) {
+                    m.count += 1;
+                    if amount.is_some() {
+                        m.known += 1;
+                    } else {
+                        m.unknown += 1;
+                    }
+                }
             }
             lines.push(l);
         }
@@ -355,6 +415,27 @@ impl Store {
                 .then_with(|| a.id.cmp(&b.id))
         });
         undated.sort_by(|a, b| a.title.cmp(&b.title).then_with(|| a.id.cmp(&b.id)));
+        let mut annual_totals: Vec<AnnualTotal> = annual
+            .into_iter()
+            .map(|(year, a)| -> Result<AnnualTotal> {
+                let spent = a.spent;
+                let refund = a.refund;
+                Ok(AnnualTotal {
+                    year,
+                    spent_cents: spent.to_string(),
+                    refund_cents: refund.to_string(),
+                    net_cents: spent
+                        .checked_sub(refund)
+                        .ok_or_else(|| Error::new("EXPENSE_OVERFLOW", "金额合计超出范围"))?
+                        .to_string(),
+                    sale_cents: a.sale.to_string(),
+                    count: a.known + a.unknown,
+                    known_count: a.known,
+                    unknown_count: a.unknown,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        annual_totals.sort_by_key(|a| a.year);
         Ok(View {
             generation: self.generation(),
             year,
@@ -363,12 +444,16 @@ impl Store {
             undated,
             months: months
                 .into_iter()
-                .map(|(month, (s, r))| Month {
+                .map(|(month, m)| Month {
                     month,
-                    spent_cents: s.to_string(),
-                    refund_cents: r.to_string(),
+                    spent_cents: m.spent.to_string(),
+                    refund_cents: m.refund.to_string(),
+                    count: m.count,
+                    known_count: m.known,
+                    unknown_count: m.unknown,
                 })
                 .collect(),
+            annual_totals,
             spent_cents: spent.to_string(),
             refund_cents: refunds.to_string(),
             net_cents: (spent - refunds).to_string(),
@@ -377,6 +462,26 @@ impl Store {
             unknown_amount_count: unknown,
         })
     }
+}
+
+/// Running totals of one year bucket (design §3.1).
+#[derive(Default)]
+struct AnnualAcc {
+    spent: i64,
+    refund: i64,
+    sale: i64,
+    known: usize,
+    unknown: usize,
+}
+
+/// Running totals of one month bucket.
+#[derive(Default)]
+struct MonthAcc {
+    spent: i64,
+    refund: i64,
+    count: usize,
+    known: usize,
+    unknown: usize,
 }
 
 /// Backup validation for schema 16 data beyond what SQL CHECKs cover.

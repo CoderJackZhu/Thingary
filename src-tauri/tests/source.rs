@@ -15,6 +15,74 @@ use thingary_lib::{
     wishlist,
 };
 const TODAY: &str = "2026-09-28";
+
+#[test]
+fn expense_projection_retains_exact_payment_owner_and_virtual_source() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let first = plan(&mut s, "同名虚构服务", "2026-09-01");
+    let second = plan(&mut s, "同名虚构服务", "2026-09-01");
+    let first_payment = pay(&mut s, &first.id, "2026-09-01");
+    let second_payment = pay(&mut s, &second.id, "2026-09-01");
+    let v = virtual_save(&mut s, virtual_fields("同名虚构服务", None));
+    let generation = s.generation();
+    for year in [None, Some(2026)] {
+        let view = s.expense_view(year).unwrap();
+        for (payment_id, plan_id) in [(&first_payment, &first.id), (&second_payment, &second.id)] {
+            let row = view
+                .lines
+                .iter()
+                .find(|l| &l.id == payment_id && l.source == "payment")
+                .unwrap();
+            assert_eq!(row.plan_id.as_ref(), Some(plan_id));
+            assert_eq!(row.asset_id, None);
+            s.validate_source(
+                &Target::Payment {
+                    id: row.id.clone(),
+                    plan_id: row.plan_id.clone().unwrap(),
+                },
+                &generation,
+            )
+            .unwrap();
+        }
+        let row = view
+            .lines
+            .iter()
+            .find(|l| l.source == "virtual" && l.id == v.id)
+            .unwrap();
+        assert_eq!(row.plan_id, None);
+        s.validate_source(&Target::Virtual { id: row.id.clone() }, &generation)
+            .unwrap();
+    }
+    assert_eq!(
+        code(s.validate_source(
+            &Target::Payment {
+                id: first_payment.clone(),
+                plan_id: second.id.clone()
+            },
+            &generation
+        )),
+        "NOT_FOUND"
+    );
+    s.wealth_trash(&trash(&s, "plan", &first.id, first.revision, true))
+        .unwrap();
+    assert_eq!(
+        code(s.validate_source(
+            &Target::Payment {
+                id: first_payment.clone(),
+                plan_id: first.id.clone()
+            },
+            &generation
+        )),
+        "NOT_FOUND"
+    );
+    let after = s.expense_view(None).unwrap();
+    assert!(!after.lines.iter().any(|l| l.id == first_payment));
+    assert!(after
+        .lines
+        .iter()
+        .any(|l| l.id == second_payment && l.plan_id.as_deref() == Some(&second.id)));
+}
 fn rid() -> String {
     uuid::Uuid::new_v4().to_string()
 }

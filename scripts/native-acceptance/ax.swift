@@ -63,6 +63,15 @@ case "dump":
         if !l.isEmpty || ["AXButton", "AXWebArea", "AXPopUpButton", "AXCheckBox", "AXTextField", "AXLink", "AXRadioButton", "AXHeading"].contains(r) {
             print(String(repeating: " ", count: min(d, 20)) + r + " [" + l.prefix(110) + "] " + fmt(frame(e)))
         } } }
+case "setvalue":
+    // ax setvalue <pid> <needle> <value> : set AXValue on the first matching element
+    let pid = pidArg(2); let needle = a[3]; let value = a[4]
+    var budget = 6000; var hits: [AXUIElement] = []
+    for w in windows(pid) { walk(w, depth: 0, maxDepth: 40, budget: &budget) { e, _ in
+        if label(e).contains(needle) && str(e, kAXRoleAttribute) == "AXTextField" { hits.append(e) } } }
+    if hits.isEmpty { print("NOT FOUND:", needle); exit(1) }
+    let r = AXUIElementSetAttributeValue(hits[0], kAXValueAttribute as CFString, value as CFString)
+    print("setvalue", needle, "->", r == .success ? "ok" : "err \(r.rawValue)")
 case "find", "press", "frame", "center":
     let pid = pidArg(2); let needle = a[3]; let roleFilter = a.count > 4 ? a[4] : ""
     var budget = 6000; var hits: [AXUIElement] = []

@@ -67,6 +67,7 @@ fn purge(
     id: &str,
 ) -> thingary_lib::domain::Result<thingary_lib::purge::Purged> {
     s.purge_trash(&Purge {
+        preview: None,
         request_id: rid(),
         generation: s.generation(),
         kind: kind.map(str::to_owned),

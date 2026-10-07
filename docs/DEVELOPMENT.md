@@ -29,8 +29,9 @@ npm run dev -- --port 1429
 | `?state=error` | 读取失败 |
 | `?state=save-error` | 保存失败 |
 | `?wealth=empty`、`?wealth=first`、`?wealth=error` | 账户与盘点状态 |
-| `?expenses=empty`、`?expenses=error` | 重要支出状态 |
+| `?expenses=empty`、`?expenses=error` | 独立支出空白／重要支出读取错误；全来源空白用 `?state=empty` |
 | `?recurring=empty`、`?recurring=error` | 周期费用状态 |
+| `?link=error` | 关联订阅详情／整组删除预览的读取失败 |
 | `?section=planning`、`&plan=empty`、`&plan=error`、`&plan=reasons-error`、`&plan-profile=empty`、`&plan-budget=set`（虚构月预算 5000 元，也可传非负元数如 `&plan-budget=6000`）、`&plan-mode=traditional`（传统类型、期望 60 岁）、`&plan-items=1`（虚构医疗、旅行支出与企业年金收入）、`&plan-return=1`（实际收益率 1.5%／1%）、`&plan-phases=1`（虚构储蓄阶段：空窗、有收入、清闲）、`&plan-route=soe`（35 岁起选国企路线，可选 soe／civil／tech／flex）、`&plan-events=1`（虚构大额计划：北京买房、老家全款买房、二手车）、`&plan-wishes=dates`（心愿设日期：未来、已过、无价格） | 规划页：虚构月度收入、无收入、读取失败、复盘「原因」区局部失败、养老金页尚未填写个人资料 |
 | `?plan-fail=profile`、`?plan-fail=review`、`?plan-fail=income`、`?plan-fail=snapshot` | 首页规划来源局部读取失败；成功的历史储蓄可独立保留 |
 | `?section=recurring&recurring-fixture=layout` | 长名称、历史订阅费用与未设置服务覆盖期的计划，检查窄窗口换行 |
@@ -45,7 +46,9 @@ npm run dev -- --port 1429
 
 在独立开发树运行 `npm run dev -- --port 1429`，访问 `http://127.0.0.1:1429/visual-preview.html?section=planning&plan-budget=set&plan-core=confirmed`。`plan-core=occurred` 展示虚构已吸收首付／余债接续；`partial` 展示部分付款缺项；`overdue` 展示逾期待核对。去掉 `plan-core` 可核对旧自动参考／规则缺省；`state=empty`、`plan=error` 与 `state=save-error` 检查空、读取失败和保存失败。全部是内存夹具，刷新重置，不代表原生或持久化验收。
 
-`tests/planning-core.test.mjs` 覆盖资产事实、分池、已含费用、余债与首月顺序。`src-tauri/tests/plan_profile.rs` 对真实临时 Store 测试 core 保存、修订冲突、提交后回执丢失重放、重启、备份恢复、引用更正和 schema30→31 回滚。不得对正式资料库运行。
+`tests/planning-core.test.mjs` 覆盖资产事实、分池、已含费用、余债与首月顺序。
+
+关联订阅生命周期（组删除／恢复、共享保存双方修订、预览失效、历史归组与备份往返）在 `src-tauri/tests/link_groups.rs` 对临时 Store 验证；重要支出年度桶的固定金额样例在 `src-tauri/tests/expenses.rs`（`annual_buckets_match_design_example`），前端桶口径在 `tests/expense-annual.test.mjs`。`src-tauri/tests/plan_profile.rs` 对真实临时 Store 测试 core 保存、修订冲突、提交后回执丢失重放、重启、备份恢复、引用更正和 schema30→31 回滚。不得对正式资料库运行。
 
 ### 金融导入解析与报告组件
 

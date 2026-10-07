@@ -1599,3 +1599,128 @@ pub async fn validate_source(
     .await
     .map_err(|_| Error::new("WORKER", "来源读取失败"))?
 }
+
+#[tauri::command]
+pub async fn link_view(
+    kind: String,
+    id: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::link::LinkView> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_view(&kind, &id)))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取关联详情"))?
+}
+#[tauri::command]
+pub async fn link_delete_preview(
+    side: String,
+    id: String,
+    partner_id: Option<String>,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::link::LinkPreview> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.link_delete_preview(&side, &id, partner_id.as_deref()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "暂时无法读取删除影响"))?
+}
+#[tauri::command]
+pub async fn link_trash(
+    input: crate::link::LinkTrashSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_trash(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "删除结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn link_restore_preview(
+    group_id: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::link::LinkRestorePreview> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_restore_preview(&group_id)))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取恢复影响"))?
+}
+#[tauri::command]
+pub async fn link_restore(
+    input: crate::link::LinkRestoreSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_restore(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "恢复结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn link_save(
+    input: crate::link::LinkSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_save(&input, &today())))
+        .await
+        .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn link_create(
+    input: crate::link::LinkCreateSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_create(&input, &today())))
+        .await
+        .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn link_reconcile(
+    input: crate::link::ReconcileSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.link_reconcile(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "核对结果未返回，请核对本次请求"))?
+}
+
+#[tauri::command]
+pub async fn link_purge_preview(
+    group_id: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::link::LinkPurgePreview> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_purge_preview(&group_id)))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取清除影响"))?
+}
+
+#[tauri::command]
+pub async fn link_repair_preview(
+    side: String,
+    id: String,
+    partner_id: Option<String>,
+    action: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::link::LinkRepairPreview> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.link_repair_preview(&side, &id, partner_id.as_deref(), &action))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "暂时无法读取关系修复影响"))?
+}
+
+#[tauri::command]
+pub async fn purge_all_preview(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::purge::PurgeAllPreview> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.purge_all_preview()))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取清空影响"))?
+}

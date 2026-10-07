@@ -6,7 +6,9 @@ import type { AssetRecord } from './asset';
 import type { CloseIntent } from './AssetEditor';
 import { usePageBar } from './topbar';
 import { Info } from './FormControls';
-import { contentsText, entryDisplay, recordKindLabel, recordPendingKey, restoresViaWealth, stateText, storedRecordTrash, trashFilters } from './unified-trash';
+import { contentsText, entryDisplay, recordKindLabel, recordPendingKey, restoresAsGroup, restoresViaWealth, stateText, storedRecordTrash, trashFilters } from './unified-trash';
+import { LinkPurgeDialog, LinkRepairDialog, LinkRestoreDialog, PurgeAllDialog } from './LinkDialogs';
+import { linkView } from './link';
 import type { RecordTrashAction, RecordTrashChange, TrashEntry, TrashPage } from './unified-trash';
 export type { RecordKind, RecordTrashAction, RecordTrashChange, TrashEntry, TrashPage } from './unified-trash';
 export { entryDisplay, recordKindLabel, storedRecordTrash, trashFilters } from './unified-trash';
@@ -22,6 +24,12 @@ export function storedTrash(): TrashAction | null {
 }
 
 export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestoreRecord }: { version: number; search: string; onSearch: (value: string) => void; onRestoreAsset: (id: string, generation: string) => void; onRestoreRecord: (entry: TrashEntry, generation: string) => void }) {
+  // 关联订阅整组恢复：先读后端预览，再确认同一事务恢复（设计 §7.2）。
+  const [repairing, setRepairing] = useState<{ side: 'virtual' | 'plan'; id: string } | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [groupRestore, setGroupRestore] = useState<{ id: string; name: string; generation: string } | null>(null);
+  // 整组永久清除：先读完整影响（R7），确认提交同一摘要。
+  const [groupPurge, setGroupPurge] = useState<{ id: string; name: string } | null>(null);
   const [page, setPage] = useState<TrashPage | null>(null);
   const [filter, setFilter] = useState<string>('all');
   const [offset, setOffset] = useState(0);
@@ -40,10 +48,16 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
     finally { setWealthBusy(false); setRetry(n => n + 1); }
   }
   async function restoreWealth(entry: TrashEntry, generation: string) {
-    if (entry.kind === 'asset' || entry.kind === 'maintenance' || entry.kind === 'warranty') return;
+    if (entry.kind === 'asset' || entry.kind === 'maintenance' || entry.kind === 'warranty' || entry.kind === 'link_group') return;
     if (storedPending()) { setWealthNotice('财富页有一次保存结果待核对，请先到“账户与盘点”处理。'); return; }
     setWealthBusy(true); setWealthNotice('');
-    try { await submitWealth({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind: entry.kind, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, label: '恢复' + entryDisplay(entry).title }); setWealthNotice(`已恢复「${entryDisplay(entry).title}」。`); setRetry(n => n + 1); }
+    try {
+      if (entry.kind === 'virtual' || entry.kind === 'plan') {
+        const link = await linkView(entry.kind, entry.id);
+        if (link.group) { setGroupRestore({ id: link.group.id, name: entryDisplay(entry).title, generation }); return; }
+        if ((link.asset && link.plan) || link.candidates.length) { setRepairing({ side: entry.kind, id: entry.id }); return; }
+      }
+      await submitWealth({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind: entry.kind, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, label: '恢复' + entryDisplay(entry).title }); setWealthNotice(`已恢复「${entryDisplay(entry).title}」。`); setRetry(n => n + 1); }
     catch (e) { setWealthNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setWealthBusy(false); }
   }
@@ -64,7 +78,7 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
     <div className="trash-header"><div className="segmented trash-filter" role="group" aria-label="按类型筛选最近删除">
       {trashFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => { setFilter(key); setOffset(0); }}>{label}</button>)}
     </div><Info text="误删的物品、维护、保障记录、心愿以及盘点、账户、支出和周期费用都会在这里，可以随时找回。资料与图片会保留，不会自动清空；只有永久删除才会真正移除。"/><span className="trash-spacer"/>
-      {!!page?.total && filter === 'all' && (armed === 'all' ? <button className="primary danger" disabled={wealthBusy} onClick={() => void purge(null, page.generation)}>确认永久删除全部 {page.total} 项</button> : <button disabled={wealthBusy} onClick={() => setArmed('all')}>清空最近删除…</button>)}</div>
+      {!!page?.total && filter === 'all' && (armed === 'all' ? <button className="primary danger" disabled={wealthBusy} onClick={() => { setArmed(null); setClearing(true); }}>确认永久删除全部 {page.total} 项</button> : <button disabled={wealthBusy} onClick={() => setArmed('all')}>清空最近删除…</button>)}</div>
     {wealthNotice && <p className="notice" role="status">{wealthNotice}</p>}
     {error ? <div className="empty" role="alert"><h2>最近删除读取失败</h2><p>{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : loading ? <p role="status">正在读取最近删除…</p> : !page?.items.length ? (search.trim() ? <div className="empty"><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button>{filter !== 'all' && <button onClick={() => { onSearch(''); setFilter('all'); setOffset(0); }}>重置筛选</button>}</div> : <div className="empty"><h2>最近删除是空的</h2><p>{filter === 'all' ? '删除的物品和记录会出现在这里。' : '这一类目前没有删除项。'}</p></div>) : <>
       <p className="collection-caption">{search.trim() ? `找到 ${total} 条` : `${total} 项`} · 按删除时间从新到旧</p>
@@ -80,14 +94,19 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
             </div></td><td><span className="ui-tag">{display.typeLabel}</span></td><td className="trash-date">{entry.deleted_at ? entry.deleted_at.slice(0,10) : '时间待补充'}</td>
           <td><div className="trash-actions">{display.parentBlocked
             ? <button onClick={() => entry.asset_id && onRestoreAsset(entry.asset_id, page.generation)} aria-label={'恢复所属物品 ' + (entry.asset_name ?? '')}>先恢复所属物品</button>
+            : restoresAsGroup(entry.kind)
+              ? <button disabled={wealthBusy} onClick={() => setGroupRestore({ id: entry.id, name: display.title, generation: page.generation })} aria-label={'整组恢复 ' + display.title}>整组恢复</button>
             : restoresViaWealth(entry.kind)
               ? <button disabled={wealthBusy} onClick={() => void restoreWealth(entry, page.generation)} aria-label={'恢复 ' + display.title}>恢复{display.typeLabel}</button>
             : entry.kind === 'asset'
               ? <button onClick={() => onRestoreAsset(entry.id, page.generation)} aria-label={'恢复 ' + entry.title}>恢复物品</button>
               : <button onClick={() => onRestoreRecord(entry, page.generation)} aria-label={'恢复 ' + display.title}>恢复记录</button>}
-            {armed === entry.kind + entry.id ? <button className="primary danger" disabled={wealthBusy} onClick={() => void purge(entry, page.generation)}>确认永久删除</button> : <button className="danger" disabled={wealthBusy} onClick={() => setArmed(entry.kind + entry.id)} aria-label={'永久删除 ' + display.title}>永久删除…</button>}</div></td>
+            {restoresAsGroup(entry.kind)
+              ? (armed === entry.kind + entry.id ? <button className="primary danger" disabled={wealthBusy} onClick={() => { setArmed(null); setGroupPurge({ id: entry.id, name: display.title }); }}>读取影响并确认…</button> : <button className="danger" disabled={wealthBusy} onClick={() => setArmed(entry.kind + entry.id)} aria-label={'永久删除 ' + display.title}>永久删除…</button>)
+              : armed === entry.kind + entry.id ? <button className="primary danger" disabled={wealthBusy} onClick={() => void purge(entry, page.generation)}>确认永久删除</button> : <button className="danger" disabled={wealthBusy} onClick={() => setArmed(entry.kind + entry.id)} aria-label={'永久删除 ' + display.title}>永久删除…</button>}</div></td>
         </tr>; })}
-      </tbody></table></div><div className="pagination"><button disabled={!offset} onClick={() => setOffset(n => Math.max(0, n - 100))}>上一页</button><span>第 {Math.floor(offset / 100) + 1} 页</span><button disabled={offset + 100 >= total} onClick={() => setOffset(n => n + 100)}>下一页</button></div>
+      </tbody></table></div>{groupRestore && <LinkRestoreDialog groupId={groupRestore.id} name={groupRestore.name} onClose={saved => { if (saved) setRetry(n => n + 1); setGroupRestore(null); }} onDone={() => setWealthNotice('已整组恢复这组关联订阅，双方恢复原 ID。')} />}
+{repairing && <LinkRepairDialog side={repairing.side} id={repairing.id} onClose={saved => { setRepairing(null); if (saved) setRetry(n => n + 1); }} onDone={setWealthNotice} />}{clearing && <PurgeAllDialog onClose={saved => { setClearing(false); if (saved) setRetry(n => n + 1); }} onDone={setWealthNotice} />}{groupPurge && <LinkPurgeDialog groupId={groupPurge.id} name={groupPurge.name} onClose={saved => { if (saved) setRetry(n => n + 1); setGroupPurge(null); }} onDone={m => setWealthNotice(m)} />}<div className="pagination"><button disabled={!offset} onClick={() => setOffset(n => Math.max(0, n - 100))}>上一页</button><span>第 {Math.floor(offset / 100) + 1} 页</span><button disabled={offset + 100 >= total} onClick={() => setOffset(n => n + 100)}>下一页</button></div>
     </>}
   </section>;
 }

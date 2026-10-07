@@ -149,18 +149,18 @@ let resolveSource;
 function discover(node){if(ts.isCallExpression(node)&&node.expression.getText(recurringSource)==='useSource')resolveSource=node.arguments[2];ts.forEachChild(node,discover);}
 discover(recurringSource);
 const recurringScript=ts.transpileModule('module.exports='+resolveSource.getText(recurringSource),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
-test('skipped payment resolves by exact stable ID to its recorded period',async()=>{
+test('skipped payment resolves by exact stable ID into read-only plan detail',async()=>{
   const payment={id:'fictional-payment',plan_id:'fictional-plan',due_date:'2026-09-01',state:'skipped'};
-  let paying;
+  let selectedPayment, detail;
   const context={module:{exports:{}},pending:null,busy:false,data:{generation:'fictional-generation'},
     invoke:async()=>({generation:'fictional-generation',payments:[payment],plans:[{id:'fictional-plan',fields:{name:'fictional plan',amount_cents:'2500'}}]}),
-    setData(){},setTab(){},setEditing(){},setPaying:v=>{paying=v;}};
+    setData(){},setDetailPayment:v=>{selectedPayment=v;},setDetail:v=>{detail=v;},setPaying(){throw new Error('source must remain read-only');}};
   vm.runInNewContext(recurringScript,context);
   assert.equal(await context.module.exports({kind:'payment',id:payment.id,plan_id:payment.plan_id},()=>true),true);
-  assert.equal(paying.record.state,'skipped');assert.equal(paying.due_date,'2026-09-01');
-  paying=undefined;
+  assert.equal(selectedPayment.state,'skipped');assert.equal(selectedPayment.due_date,'2026-09-01');assert.equal(detail.id,payment.plan_id);
+  selectedPayment=undefined;detail=undefined;
   assert.equal(await context.module.exports({kind:'payment',id:payment.id,plan_id:'wrong-parent'},()=>true),false);
-  assert.equal(paying,undefined);
+  assert.equal(selectedPayment,undefined);assert.equal(detail,undefined);
 });
 
 test('new read revision resets the visible page to the returned first page',async()=>{

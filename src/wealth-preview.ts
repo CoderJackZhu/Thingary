@@ -114,7 +114,7 @@ function expenseView(year: number | null): ExpenseView {
     ...(a.maintenance ? [{ source: 'maintenance' as const, id: 'm-' + a.key, asset_id: a.key, title: `${a.name} · ${a.maintenance.title}`, category: a.category, date: a.maintenance.date, amount_cents: a.maintenance.cost_cents, notes: null }] : []),
     ...(a.sale ? [{ source: 'sale' as const, id: 's-' + a.key, asset_id: a.key, title: a.name, category: a.category, date: a.sale.date, amount_cents: a.sale.price_cents, notes: null }] : []),
   ]);
-  const paidLines: Line[] = payments.filter(p => p.state === 'paid').map(p => ({ source: 'payment', id: p.id, asset_id: null, title: p.plan_name, category: plans.find(x => x.id === p.plan_id)?.fields.category ?? null, date: p.paid_date, amount_cents: p.amount_cents, notes: null }));
+  const paidLines: Line[] = payments.filter(p => p.state === 'paid').map(p => ({ source: 'payment', id: p.id, asset_id: null, plan_id: p.plan_id, title: p.plan_name, category: plans.find(x => x.id === p.plan_id)?.fields.category ?? null, date: p.paid_date, amount_cents: p.amount_cents, notes: null }));
   const virtualLines: Line[] = virtuals.filter(v => !v.fields.plan_id && v.fields.price_cents !== null).map(v => ({ source: 'virtual', id: v.id, asset_id: null, title: v.fields.name, category: 'digital', date: v.fields.purchase_date, amount_cents: v.fields.price_cents, notes: null }));
   const all: Line[] = [...items, ...paidLines, ...virtualLines, ...expenses.flatMap(e => [
     { source: e.fields.asset_id ? 'linked' as const : 'expense' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.date, amount_cents: e.fields.amount_cents, notes: e.fields.notes },
@@ -123,10 +123,17 @@ function expenseView(year: number | null): ExpenseView {
   const inYear = (l: Line) => l.date !== null && (year === null || l.date.startsWith(`${year}-`));
   const lines = all.filter(inYear).sort((a, b) => b.date!.localeCompare(a.date!)), undated = all.filter(l => l.date === null);
   const sum = (ls: Line[]) => ls.reduce((t, l) => t + BigInt(l.amount_cents ?? '0'), 0n);
-  const spentLines = lines.filter(l => ['purchase', 'maintenance', 'expense', 'payment', 'virtual'].includes(l.source) && l.amount_cents !== null);
+  const spendSource = (l: Line) => ['purchase', 'maintenance', 'expense', 'payment', 'virtual', 'topup'].includes(l.source);
+  const spentLines = lines.filter(l => spendSource(l) && l.amount_cents !== null);
   const spent = sum(spentLines), refunds = sum(lines.filter(l => l.source === 'refund'));
-  return { generation, year, years: [...new Set(all.flatMap(l => l.date ? [Number(l.date.slice(0, 4))] : []))].sort((a, b) => b - a), lines, undated,
-    months: year === null ? [] : Array.from({ length: 12 }, (_, i) => { const m = `${year}-${String(i + 1).padStart(2, '0')}`; return { month: m, spent_cents: String(sum(spentLines.filter(l => l.date!.startsWith(m)))), refund_cents: String(sum(lines.filter(l => l.source === 'refund' && l.date!.startsWith(m)))) }; }),
+  const yearKeys = [...new Set(all.flatMap(l => l.date ? [l.date.slice(0, 4)] : []))].sort();
+  const bucket = (ls: Line[]) => { const spentB = sum(ls.filter(l => spendSource(l) && l.amount_cents !== null)); const count = ls.filter(l => spendSource(l)).length; const known = ls.filter(l => spendSource(l) && l.amount_cents !== null).length;
+    return { spent: String(spentB), refund: String(sum(ls.filter(l => l.source === 'refund'))), sale: String(sum(ls.filter(l => l.source === 'sale'))), count, known_count: known, unknown_count: count - known }; };
+  const annual_totals = year === null ? yearKeys.map(k => { const b = bucket(all.filter(l => l.date?.startsWith(k + '-'))); return { year: Number(k), spent_cents: b.spent, refund_cents: b.refund, net_cents: String(BigInt(b.spent) - BigInt(b.refund)), sale_cents: b.sale, count: b.count, known_count: b.known_count, unknown_count: b.unknown_count }; }) : [];
+  const monthBucket = (m: string) => { const b = bucket(all.filter(l => l.date?.startsWith(m))); return { month: m, spent_cents: b.spent, refund_cents: b.refund, count: b.count, known_count: b.known_count, unknown_count: b.unknown_count }; };
+  return { generation, year, years: yearKeys.map(Number).sort((a, b) => b - a), lines, undated,
+    months: year === null ? [] : Array.from({ length: 12 }, (_, i) => monthBucket(`${year}-${String(i + 1).padStart(2, '0')}`)),
+    annual_totals,
     spent_cents: String(spent), refund_cents: String(refunds), net_cents: String(spent - refunds), sale_cents: String(sum(lines.filter(l => l.source === 'sale'))),
     undated_cents: String(sum(undated)), unknown_amount_count: lines.filter(l => l.amount_cents === null).length };
 }
@@ -173,7 +180,16 @@ function recurringOverview(): Overview {
     const amount=BigInt(p.fields.amount_cents), start=p.fields.service_start;
     const historyCount = start ? scheduleDates({...p.fields,first_due:p.fields.coverage_start!,coverage_start:p.fields.coverage_start},start,todayIso).length : 0;
     const contractCount = start && p.fields.end_date ? scheduleDates({...p.fields,first_due:p.fields.coverage_start!,coverage_start:p.fields.coverage_start},start,p.fields.end_date).length : 0;
-    return { ...p, next_due: p.fields.paused ? null : next, next_coverage: next && !p.fields.paused ? coverageFor(p.fields,next) : null, monthly_cents: String((amount+BigInt(p.fields.interval_months)/2n)/BigInt(p.fields.interval_months)), paid_cents: String(payments.filter(x=>x.plan_id===p.id&&x.state==='paid').reduce((t,x)=>t+BigInt(x.amount_cents ?? '0'),0n)), estimated_cents: start ? String(amount*BigInt(historyCount)) : null, contract_cents: contractCount ? String(amount*BigInt(contractCount)) : null };
+    // 当前服务期（R3）：包含 today 的期，独立于下一付款候选。
+    let currentCoverage: [string, string] | null = null;
+    if (p.fields.coverage_start) {
+      const all = scheduleDates(p.fields, p.fields.coverage_start, todayIso);
+      for (const d of all) {
+        const span = coverageFor(p.fields, d);
+        if (span && span[0] <= todayIso && todayIso <= span[1]) { currentCoverage = span; break; }
+      }
+    }
+    return { ...p, next_due: p.fields.paused ? null : next, current_coverage: currentCoverage, next_coverage: next ? coverageFor(p.fields, next) : null, monthly_cents: String((amount+BigInt(p.fields.interval_months)/2n)/BigInt(p.fields.interval_months)), paid_cents: String(payments.filter(x=>x.plan_id===p.id&&x.state==='paid').reduce((t,x)=>t+BigInt(x.amount_cents ?? '0'),0n)), estimated_cents: start ? String(amount*BigInt(historyCount)) : null, contract_cents: contractCount ? String(amount*BigInt(contractCount)) : null };
   });
   return { generation, today: todayIso, due: due.sort((a, b) => a.due_date.localeCompare(b.due_date)), upcoming: upcoming.sort((a, b) => a.due_date.localeCompare(b.due_date)),
     annual_cents: String(annual), monthly_cents: String((annual + 6n) / 12n), next12_cents: String(next12), plans: out,
@@ -307,8 +323,66 @@ export function searchPreview(command: string, args: Record<string, unknown>): {
   const filtered = input.type_filter === 'all' ? rows : rows.filter(r => r.kind === input.type_filter);
   return { value: { generation, revision: 'preview-layout-only', keyword: input.keyword.trim(), type_filter: input.type_filter, offset: input.offset, limit: input.limit, total: filtered.length, type_counts, items: filtered.slice(input.offset, input.offset + input.limit) } };
 }
+const previewGroups = new Map<string, { assetId: string; planId: string; assetName: string; planName: string }>();
+/** 预览最近删除中的关联订阅组（内存桩）。 */
+export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command === 'notification_permission') return { value: null };
+  // ---- 关联订阅命令的内存桩（EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN）----
+  if (command === 'link_view') {
+    const kind = args.kind as 'virtual' | 'plan', id = args.id as string;
+    if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
+    const asset = virtuals.find(v => (kind === 'virtual' ? v.id === id : v.fields.plan_id === id));
+    const plan = plans.find(p => (kind === 'plan' ? p.id === id : p.id === asset?.fields.plan_id));
+    const paid = payments.filter(p => p.plan_id === plan?.id && p.state === 'paid');
+    const relation = asset && plan ? 'linked' : plan ? 'asset_trashed' : 'unlinked';
+    return { value: { generation, relation, asset: asset ? { id: asset.id, name: asset.fields.name, revision: asset.revision, deleted: false, billing: 'subscription', stopped_on: asset.fields.stopped_on ?? null } : null, plan: plan ? { id: plan.id, name: plan.fields.name, revision: plan.revision, deleted: false, category: plan.fields.category, end_date: plan.fields.end_date ?? null, auto_renew: plan.fields.auto_renew ?? true, paused: plan.fields.paused, service_start: plan.fields.service_start ?? null } : null, paid_count: paid.length, skipped_count: 0, paid_cents: String(paid.reduce((t, p) => t + BigInt(p.amount_cents ?? '0'), 0n)), paid_until: paid.at(-1)?.due_date ?? null, needs_review: !!asset?.fields.stopped_on && (plan?.fields.end_date ?? null) === null, occupied_by: null, candidates: [], group: null, reminder: null } };
+  }
+  if (command === 'link_delete_preview' || command === 'link_restore_preview') {
+    if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
+    if (command === 'link_delete_preview') {
+      const side = args.side as 'virtual' | 'plan', id = args.id as string;
+      const asset = virtuals.find(v => (side === 'virtual' ? v.id === id : v.fields.plan_id === id));
+      const plan = plans.find(p => (side === 'plan' ? p.id === id : p.id === asset?.fields.plan_id));
+      const paid = payments.filter(p => p.plan_id === plan?.id && p.state === 'paid');
+      return { value: { generation, preview: 'preview-fixture', asset_id: asset?.id ?? '', plan_id: plan?.id ?? '', asset_name: asset?.fields.name ?? '', plan_name: plan?.fields.name ?? '', asset_revision: asset?.revision ?? 1, plan_revision: plan?.revision ?? 1, paid_count: paid.length, skipped_count: 0, paid_cents: String(paid.reduce((t, p) => t + BigInt(p.amount_cents ?? '0'), 0n)), blockers: [], partner_deleted: false } };
+    }
+    const groupId = args.groupId as string;
+    const [assetId, planId] = groupId.split('|');
+    const asset = virtuals.find(v => v.id === assetId), plan = plans.find(p => p.id === planId);
+    return { value: { generation, preview: 'preview-fixture', group_id: groupId, asset_name: asset?.fields.name ?? '', plan_name: plan?.fields.name ?? '', payments_hidden: payments.filter(p => p.plan_id === planId).length, payments_stay_deleted: 0, blockers: [] } };
+  }
+  if (command === 'link_trash') {
+    const input = args.input as { request_id: string; side: 'virtual' | 'plan'; id: string; asset_expected_revision: number; plan_expected_revision: number };
+    const asset = virtuals.find(v => (input.side === 'virtual' ? v.id === input.id : v.fields.plan_id === input.id));
+    const plan = plans.find(p => (input.side === 'plan' ? p.id === input.id : p.id === asset?.fields.plan_id));
+    if (!asset || !plan) throw { message: '找不到这组关联订阅' };
+    virtuals = virtuals.filter(v => v.id !== asset.id);
+    plans = plans.filter(p => p.id !== plan.id);
+    payments = payments.filter(p => p.plan_id !== plan.id);
+    const groupId = `${asset.id}|${plan.id}`;
+    receipts.set(input.request_id ?? crypto.randomUUID(), groupId);
+    previewGroups.set(groupId, { assetId: asset.id, planId: plan.id, assetName: asset.fields.name, planName: plan.fields.name });
+    return { value: groupId };
+  }
+  if (command === 'link_restore') {
+    const input = args.input as { group_id: string };
+    const g = previewGroups.get(input.group_id);
+    if (!g) throw { message: '这组记录已恢复或已清除，请重新读取最近删除' };
+    previewGroups.delete(input.group_id);
+    const plan = g ? recurringOverview().plans.find(() => false) : null;
+    void plan;
+    return { value: input.group_id };
+  }
+  if (command === 'link_save' || command === 'link_create' || command === 'link_reconcile') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as { request_id: string; fields?: { name?: string; amount_cents?: string } };
+    if (input.fields?.name && input.fields.amount_cents) {
+      plans = plans.map(p => p.fields.name === input.fields!.name || p.id === (args.input as { plan_id?: string }).plan_id ? { ...p, fields: { ...p.fields, name: input.fields!.name!, amount_cents: input.fields!.amount_cents! }, revision: p.revision + 1 } : p);
+    }
+    receipts.set(input.request_id, 'link');
+    return { value: 'link' };
+  }
   if (command === 'virtual_reminder_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as ReminderSave;

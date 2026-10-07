@@ -191,6 +191,9 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     if v >= 19 {
         crate::virtual_assets::validate_dataset(&db)?;
     }
+    if v >= 32 {
+        crate::link::validate_dataset(&db)?;
+    }
     if v >= 9 {
         let mut stmt = db.prepare("SELECT id,name,hash,size,created_at FROM materials")?;
         let rows = stmt
@@ -521,6 +524,8 @@ pub struct Summary {
     pub virtual_assets: i64,
     /// Stored-value facts (schema 22 and newer); zero on older backups.
     pub virtual_topups: i64,
+    /// Linked-subscription trash groups (schema 32 and newer).
+    pub link_groups: i64,
     pub files: usize,
 }
 
@@ -594,6 +599,11 @@ impl Store {
             },
             virtual_topups: if v >= 22 {
                 count("SELECT count(*) FROM virtual_topups")?
+            } else {
+                0
+            },
+            link_groups: if v >= 32 {
+                count("SELECT count(*) FROM link_trash_groups")?
             } else {
                 0
             },

@@ -204,6 +204,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       setMenuOpen(false);
       setAutoNew(null);
       setSearchExpanded(false);
+      expensesReturnYear.current = null;
       // 切库/恢复/重置使分析上下文失效：退回物品列表并清空标签范围。
       setAnalysis(null);
       if (query.search || query.label) adjust({ search: '', label: null });
@@ -249,6 +250,9 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); document.removeEventListener('keydown', menuKeys); document.removeEventListener('toggle', enterMenu, true); };
   }, []);
   const [expensesYear, setExpensesYear] = useState<number | null | undefined>(undefined);
+  // 重要支出返回上下文：明细打开原记录后再返回，恢复所选期间（§2.1）。
+  // 期间不落库，仅会话内存；切换资料库即失效。
+  const expensesReturnYear = useRef<{ generation: string; year: number | null } | null>(null);
   const loadedDay = useRef(today);
   const maintenanceOpening = useRef(false);
   const [theme, setTheme] = useState<Mode>(readMode), [style, setStyle] = useState<Style>(readStyle);
@@ -263,6 +267,13 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const taxonomy = useTaxonomy(() => { void refresh(); if (selected) void select(selected.asset.id); setTrashVersion(v => v + 1); });
   // The library identity is also available when the physical list cannot load.
   const libraryGeneration = page?.generation ?? taxonomy.snapshot?.generation;
+  // 挂载时解析重要支出的初始期间：总览指定年 > 返回上下文恢复 > 普通「全部」。
+  const expensesInitialYear = (): number | null => {
+    if (expensesYear !== undefined) return expensesYear;
+    if (returnContext && returnContext.section === 'expenses' && libraryGeneration && returnContext.generation === libraryGeneration) return expensesReturnYear.current?.generation === libraryGeneration ? expensesReturnYear.current.year : null;
+    return null;
+  };
+  const rememberExpensesYear = (y: number | null) => { if (libraryGeneration) expensesReturnYear.current = { generation: libraryGeneration, year: y }; };
   async function changeDemoMode(demo: boolean, reset = false, thenNewAsset = false) {
     if (modeBusy) return;
     if (modeBlocked || pendingGenerations(localStorage).length || document.querySelector('dialog[open]')) {
@@ -980,10 +991,10 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         demo: demoStatus.available ? <DemoSettings status={demoStatus} blocked={modeBusy || modeBlocked} onSwitch={() => void changeDemoMode(!demoStatus.active)} onReset={() => void changeDemoMode(true, true)}/> : <p className="muted">样例资料暂不可用。</p>,
       }}/>}
       {section === 'wealth' && <WealthPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
-      {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.recurring} onSearch={v => setSearches(s => (s.recurring === v ? s : { ...s, recurring: v }))} autoNew={autoNew === 'recurring'} onAutoNewDone={() => setAutoNew(null)}/>}
-      {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.virtual} onSearch={v => setSearches(s => (s.virtual === v ? s : { ...s, virtual: v }))} autoNew={autoNew === 'virtual'} onAutoNewDone={() => setAutoNew(null)}/>}
+      {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.recurring} onSearch={v => setSearches(s => (s.recurring === v ? s : { ...s, recurring: v }))} autoNew={autoNew === 'recurring'} onAutoNewDone={() => setAutoNew(null)} modules={modules} onOpenSource={openSource}/>}
+      {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.virtual} onSearch={v => setSearches(s => (s.virtual === v ? s : { ...s, virtual: v }))} autoNew={autoNew === 'virtual'} onAutoNewDone={() => setAutoNew(null)} modules={modules} onOpenSource={openSource}/>}
       {section === 'planning' && <PlanningPage key={libraryGeneration} focus={planFocus && planFocus.generation === libraryGeneration ? planFocus.focus : null} onFocusDone={() => setPlanFocus(null)} today={today} tab={planningTab} onTab={setPlanningTab} onEditingChange={setFeatureEditing}/>}
-      {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} initialYear={expensesYear} onOpenAsset={id => { setSection('assets'); void select(id, true); }} onOpenSource={openSource} source={sourceFocus} onSourceDone={onSourceDone} search={searches.expenses} onSearch={v => setSearches(s => (s.expenses === v ? s : { ...s, expenses: v }))} autoNew={autoNew === 'expenses'} onAutoNewDone={() => setAutoNew(null)}/>}
+      {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} initialYear={expensesInitialYear()} onOpenAsset={id => { beginReturn(); setSection('assets'); void select(id, true); }} onOpenSource={openSource} source={sourceFocus} onSourceDone={onSourceDone} search={searches.expenses} onSearch={v => setSearches(s => (s.expenses === v ? s : { ...s, expenses: v }))} autoNew={autoNew === 'expenses'} onAutoNewDone={() => setAutoNew(null)} restoreScroll={scrollRestore('expenses')} generation={libraryGeneration} onYearRemember={rememberExpensesYear}/>}
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
       {section === 'overview' && !modeBusy && <>
         {loadError && <div className="notice" role="alert"><strong>物品资料读取失败</strong><p>{loadError}</p><button disabled={loading} onClick={() => { void refresh(); void taxonomy.reload().catch(() => {}); }}>重新读取</button></div>}
