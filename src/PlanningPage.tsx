@@ -7,6 +7,7 @@ import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningPension } from './PlanningPension';
 import { PlanningGoals } from './PlanningGoals';
+import { PlanningSetup } from './PlanningSetup';
 import { latestHpf, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeFields, IncomeList, IncomeSave, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
@@ -63,15 +64,15 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     </div></HeaderSlot>
     {error ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !review || !incomes ? <p role="status" className="muted">正在读取规划…</p>
-      : tab === 'goals' ? <PlanningGoals focus={focus === 'budget'} onFocusDone={onFocusDone} today={today} review={review} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())} onGoto={onTab}/>
-      : tab === 'pension' ? <PlanningPension focus={focus === 'profile'} onFocusDone={onFocusDone} today={today} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())}/>
+      : <PlanningSetup today={today} incomes={incomes.rows} refresh={retry} onSaved={reload} recordView={tab === 'savings'} onRecords={() => onTab('savings')} onPending={() => setPending(storedPending())} onEditingChange={onEditingChange}>{tab === 'goals' ? <PlanningGoals key={retry} focus={focus === 'budget'} onFocusDone={onFocusDone} today={today} review={review} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())} onGoto={onTab}/>
+      : tab === 'pension' ? <PlanningPension key={retry} focus={focus === 'profile'} onFocusDone={onFocusDone} today={today} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())}/>
       : <>
         <Usual review={review}/>
         {shown ? <Steps interval={shown} review={review} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)} generation={review.generation}/>
           : <div className="empty"><span className="empty-mark">¥</span><h2>还没有可比较的盘点区间</h2><p>需要至少两次完整且范围可比的盘点；收入缺项不抹去资产事实。{review.incomplete_count > 0 && `有 ${review.incomplete_count} 次不完整盘点，补齐后才能参与。`}</p></div>}
         {newest.length > 0 && <Intervals intervals={newest} selected={shown?.snapshot_id ?? null} onSelect={setSelected}/>}
         <IncomeTable incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/>
-      </>}
+      </>}</PlanningSetup>}
     {editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} hpfDefault={latestHpf(incomes.rows)} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;
 }

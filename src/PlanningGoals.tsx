@@ -61,7 +61,7 @@ export function PlanningGoals({ focus = false, onFocusDone, today, review, incom
       </div>}
       {!ready && <div className="plan-goal-next" role="status">{calc ? <ul>{calc.missing.map(m => <li key={m}>{m}</li>)}</ul> : <p>先在养老金页填写出生年月与缴费资料，再设置月预算。购买计划可以先查看。</p>}</div>}
     </article>
-    <PlanningCoreCard state={state} snapshot={snapshot} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange}/>
+    <PlanningCoreCard state={state} snapshot={snapshot} accounts={plan.accounts} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange}/>
     <PlanningEvents plan={plan} today={today} onEditingChange={onEditingChange} onPending={onPending}/>
     <PlanningWishes calc={calc} today={today}/>
   </div>;

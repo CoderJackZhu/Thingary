@@ -1219,3 +1219,73 @@ fn core_payment_aliases_reject_and_legacy_duplicates_degrade_after_restore() {
         .iter()
         .any(|i| i.contains("重复关联")));
 }
+
+#[test]
+fn guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restore() {
+    use thingary_lib::plan_income::{Fields, Save};
+    let mut old = serde_json::to_value(profile()).unwrap();
+    old["retire"]
+        .as_object_mut()
+        .unwrap()
+        .remove("setup_completed");
+    let legacy: Profile = serde_json::from_value(old).unwrap();
+    assert!(!legacy.retire.setup_completed);
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("library")).unwrap();
+    let (mut p, _, _) = core_fixture(&mut s);
+    s.plan_income_save(
+        &Save {
+            request_id: rid(),
+            generation: s.generation(),
+            id: None,
+            expected_revision: None,
+            fields: Fields {
+                date: "2026-12-20".into(),
+                net_cents: "100000".into(),
+                hpf_cents: "0".into(),
+                notes: "虚构到账".into(),
+            },
+        },
+        TODAY,
+    )
+    .unwrap();
+    s.plan_profile_save(&save(&s, p.clone(), None), TODAY)
+        .unwrap();
+    let facts = serde_json::json!({"accounts":s.wealth_accounts().unwrap(),"wealth":s.wealth_summary().unwrap(),"review":s.plan_review().unwrap(),"income":s.plan_income_list().unwrap()});
+    let occurrences = p.retire.core.as_ref().unwrap().occurrences.clone();
+    p.retire.setup_completed = true;
+    p.retire.route_id = None;
+    p.retire.spend_cents = Some("120000".into());
+    s.plan_profile_save(&save(&s, p.clone(), Some(1)), TODAY)
+        .unwrap();
+    assert_eq!(
+        facts,
+        serde_json::json!({"accounts":s.wealth_accounts().unwrap(),"wealth":s.wealth_summary().unwrap(),"review":s.plan_review().unwrap(),"income":s.plan_income_list().unwrap()})
+    );
+    assert_eq!(
+        s.plan_profile()
+            .unwrap()
+            .saved
+            .unwrap()
+            .profile
+            .retire
+            .core
+            .unwrap()
+            .occurrences,
+        occurrences
+    );
+    let file = dir.path().join("setup.thingary");
+    s.backup(Some(&file)).unwrap();
+    drop(s);
+    let mut restored = Store::open(&dir.path().join("restored")).unwrap();
+    let summary = restored.inspect_backup(&file).unwrap();
+    restored
+        .restore(&file, &summary.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(restored.plan_profile().unwrap().saved.unwrap().profile, p);
+    let mut after = serde_json::json!({"accounts":restored.wealth_accounts().unwrap(),"wealth":restored.wealth_summary().unwrap(),"review":restored.plan_review().unwrap(),"income":restored.plan_income_list().unwrap()});
+    for key in ["wealth", "review", "income"] {
+        after[key]["generation"] = facts[key]["generation"].clone();
+    }
+    assert_eq!(after, facts);
+}

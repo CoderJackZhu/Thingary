@@ -12,6 +12,7 @@ export const emptyCore = (date: string): PlanningCore => ({ contract_version: 1,
 export function normalizeFunds(snapshot: Snapshot | null, core?: PlanningCore | null) {
   let available = 0n, restricted = 0n, housingFund = 0n, debt = 0n, net = 0n;
   const missing: string[] = [];
+  let unconfirmed = 0;
   if (!snapshot || snapshot.missing?.length) return { available: null, restricted: 0, housingFund: 0, debt: 0, net: null, missing: ['需要完整盘点作为资金起点。'] };
   for (const e of snapshot.entries) {
     if (!e.counted) continue;
@@ -21,11 +22,12 @@ export function normalizeFunds(snapshot: Snapshot | null, core?: PlanningCore | 
     const rule = core?.fund_rules.find(x => x.account_id === e.account_id);
     // Only explicit rules can promote investments or other assets into cash.
     const mode = rule?.availability ?? (e.kind === 'cash' ? 'available' : 'restricted');
-    if (!rule) missing.push(`账户 ${e.account_id ?? e.kind} 的资金范围／可用性待确认。`);
+    if (!rule) unconfirmed++;
     const amount = v * BigInt(rule?.share_hundredths ?? 10000) / 10000n;
     if (mode === 'available') available += amount;
     else if (mode === 'restricted') { restricted += amount; if (e.kind === 'housing_fund') housingFund += amount; }
   }
+  if (unconfirmed) missing.push(`${unconfirmed} 个账户的规划用途待确认，请通过引导设置核对资金范围。`);
   return { available: Number(available), restricted: Number(restricted), housingFund: Number(housingFund), debt: Number(debt), net: Number(net), missing };
 }
 export const eventSource = (id: string, kind: 'loan' | 'holding') => `event:${id}:${kind}`;
@@ -68,6 +70,7 @@ export function occurrenceMissing(snapshot: Snapshot, core: PlanningCore | null 
       }
     }
   }
-  for (const e of snapshot.entries) if (e.counted && e.side === 'liability' && Number(e.amount_cents) > 0 && !coveredDebts.has(e.account_id)) missing.push(`负债 ${e.account_id} 尚未建立还款接续。`);
+  const debts = snapshot.entries.filter(e => e.counted && e.side === 'liability' && Number(e.amount_cents) > 0 && !coveredDebts.has(e.account_id)).length;
+  if (debts) missing.push(`${debts} 个负债账户尚未建立还款接续，请在已发生的大额计划中核对。`);
   return missing;
 }

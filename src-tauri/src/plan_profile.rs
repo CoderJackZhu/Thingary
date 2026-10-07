@@ -105,6 +105,8 @@ const MAX_SAVING_CENTS: i64 = 100_000_000;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Retire {
+    /// Explicit first-use configuration; old records remain unconfirmed.
+    pub setup_completed: bool,
     pub core: Option<crate::plan_core::Core>,
     /// Monthly spending after retiring, in today's money: the essential
     /// "daily living" bucket. `None` means not filled in yet.
@@ -148,6 +150,7 @@ impl Default for Retire {
     fn default() -> Self {
         Self {
             core: None,
+            setup_completed: false,
             spend_cents: None,
             real_return_before_hundredths: 0,
             real_return_after_hundredths: 0,

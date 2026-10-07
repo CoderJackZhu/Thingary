@@ -60,3 +60,30 @@
   .planning-section .plan-goal-overview { grid-template-columns: 1fr; gap: 20px; }
   .planning-section .plan-goal-inputs { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); padding: 16px 0 0; border-left: 0; border-top: 1px solid var(--line); }
 }
+
+.planning-setup-entry { margin-bottom: var(--space-4, 16px); }
+.planning-setup-entry p { margin-bottom: 0; }
+.planning-setup-steps { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 16px 24px; border-bottom: 1px solid var(--line); color: var(--muted); }
+.planning-setup-steps [aria-current="step"] { color: var(--text); font-weight: 600; }
+.planning-setup-phase { padding: 16px 0; border-bottom: 1px solid var(--line); }
+.planning-setup-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 20px 24px; border-top: 1px solid var(--line); }
+.planning-setup-footer span { display: flex; gap: 8px; }
+.planning-setup-dialog h2:focus { outline: none; }
+dialog.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[open] { width: min(820px, calc(100vw - 40px)); padding: 0; overflow: hidden; }
+.planning-setup-dialog > form { display: flex; flex-direction: column; max-height: calc(100dvh - 52px); }
+.editor.planning-setup-dialog > form > header { margin: 0; padding: 20px 24px 12px; flex-shrink: 0; }
+.editor.planning-setup-dialog > form > footer { margin: 0; flex-shrink: 0; padding: 16px 24px; }
+.planning-setup-body { padding: 0 24px 20px; overflow: auto; min-height: 0; }
+.planning-setup-dialog .form-row-label small { max-width: 240px; }
+.planning-setup-dialog .plan-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.planning-setup-dialog .plan-facts dd { margin: 5px 0 0; }
+@media (max-width: 850px) {
+  .planning-setup-body { padding-inline: 16px; }
+  .planning-setup-dialog .plan-facts { grid-template-columns: 1fr; }
+}
+dialog.planning-setup-dialog .form-row .form-row-label { flex: 0 1 45%; min-width: 0; }
+dialog.planning-setup-dialog .form-row .form-row-label small { max-width: none; }
+dialog.planning-setup-dialog .form-row .form-row-control { max-width: 55%; }
+.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[open] > form > header { margin: 0; padding: 20px 24px 12px; }
+.planning-setup-dialog > form > header > div { flex: 1; min-width: 0; }
+.planning-setup-dialog > form > .setup-notice { margin: 10px 24px; flex-shrink: 0; }
