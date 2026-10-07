@@ -105,6 +105,7 @@ const MAX_SAVING_CENTS: i64 = 100_000_000;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Retire {
+    pub core: Option<crate::plan_core::Core>,
     /// Monthly spending after retiring, in today's money: the essential
     /// "daily living" bucket. `None` means not filled in yet.
     pub spend_cents: Option<String>,
@@ -146,6 +147,7 @@ pub struct Retire {
 impl Default for Retire {
     fn default() -> Self {
         Self {
+            core: None,
             spend_cents: None,
             real_return_before_hundredths: 0,
             real_return_after_hundredths: 0,
@@ -194,6 +196,7 @@ pub struct Profile {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Saved {
+    pub reference_issues: Vec<String>,
     pub profile: Profile,
     pub revision: i64,
     /// RFC 3339 time of the last save; the page uses it to remind the user to refresh the figures.
@@ -424,6 +427,9 @@ impl Profile {
         rate(a.wage_growth_hundredths, -1000, 2000, "工资增长率")?;
         rate(a.pp_return_hundredths, -1000, 3000, "个人养老金收益率")?;
         let r = &self.retire;
+        if let Some(core) = &r.core {
+            core.validate(r, today)?;
+        }
         if let Some(v) = &r.spend_cents {
             money(v, true, "退休后月支出")?;
         }
@@ -515,9 +521,18 @@ fn read(c: &Connection) -> Result<Option<Saved>> {
         )
         .optional()?;
     row.map(|(payload, revision, updated_at)| {
+        let profile: Profile = serde_json::from_str(&payload)
+            .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?;
+        let reference_issues = profile
+            .retire
+            .core
+            .as_ref()
+            .and_then(|core| core.validate_references(c, true).err())
+            .map(|e| vec![e.message])
+            .unwrap_or_default();
         Ok(Saved {
-            profile: serde_json::from_str(&payload)
-                .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?,
+            profile,
+            reference_issues,
             revision,
             updated_at,
         })
@@ -560,6 +575,37 @@ impl Store {
                 "个人资料已变化，请重新读取",
             ));
         }
+        if let Some(core) = &input.profile.retire.core {
+            core.validate_references(&tx, true)?;
+        }
+        if let Some(old_core) = old.as_ref().and_then(|s| s.profile.retire.core.as_ref()) {
+            if input
+                .profile
+                .retire
+                .core
+                .as_ref()
+                .is_some_and(|core| core.monetary_basis_date != old_core.monetary_basis_date)
+            {
+                return Err(Error::new(
+                    "PLANNING_BASIS",
+                    "已有金额基准日期固定；变更需要独立换算流程",
+                ));
+            }
+            for o in &old_core.occurrences {
+                if o.status == "occurred"
+                    && !input.profile.retire.core.as_ref().is_some_and(|core| {
+                        core.occurrences.iter().any(|n| {
+                            n.id == o.id && n.event_id == o.event_id && n.status == "occurred"
+                        })
+                    })
+                {
+                    return Err(Error::new(
+                        "PLANNING_OCCURRENCE",
+                        "已发生事实不能通过删除计划或纳入开关撤销；请在原来源核对更正",
+                    ));
+                }
+            }
+        }
         let payload = serde_json::to_string(&input.profile)?;
         let now = chrono::Utc::now().to_rfc3339();
         if old.is_some() {
@@ -590,6 +636,9 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
     let bad = || Error::new("DATA_CONSTRAINT", "备份含非法个人资料");
     if let Some(saved) = read(c).map_err(|_| bad())? {
         saved.profile.validate("9999-12-31").map_err(|_| bad())?;
+        if let Some(core) = &saved.profile.retire.core {
+            core.validate_references(c, false)?;
+        }
     }
     let stamp: Option<String> = c
         .query_row("SELECT updated_at FROM plan_profile", [], |r| r.get(0))

@@ -5,6 +5,7 @@ import type { Line } from './expenses.ts';
 import type { Profile as PensionProfile, Funds } from './plan-pension.ts';
 import type { Overrides } from './plan-params.ts';
 import type { Point } from './wealth.ts';
+import type { PlanningCore } from './plan-core.ts';
 
 export type IncomeFields = { date: string; net_cents: string; hpf_cents: string; notes: string };
 export type Income = { id: string; fields: IncomeFields; revision: number };
@@ -24,6 +25,8 @@ export type Interval = {
 export type Stats = {
   count: number; low_sample: boolean;
   median_monthly_saving_cents: string | null; mean_monthly_saving_cents: string | null; median_monthly_spend_cents: string | null;
+  change_count?: number;
+  median_monthly_change_cents?: string | null; mean_monthly_change_cents?: string | null;
   window_from: string | null; latest_date: string | null;
 };
 export type PlanReview = { generation: string; intervals: Interval[]; stats: Stats; incomplete_count: number };
@@ -98,7 +101,7 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
       snapshot_id: p.snapshot_id, from, to: p.date, days, status: 'ok',
       income_cents: income.toString(), hpf_cents: hpf.toString(), income_records: rows.length, hpf_change_cents: null, hpf_out_cents: null,
       delta_nw_cents: null, saving_cents: null, spend_cents: null, monthly_saving_cents: null, monthly_spend_cents: null, rate_hundredths: null,
-      income_possibly_missing: BigInt(rows.length) < (BigInt(days) * MONTH_DEN) / MONTH_NUM,
+      income_possibly_missing: true, // No persisted coverage declaration yet; row count is not coverage.
       excluded: marks.has(p.snapshot_id), in_window: cutoff !== null && p.date > cutoff, anomaly: false,
     };
     if (p.scope_changed) iv.status = 'scope_changed';
@@ -113,6 +116,7 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
       const base = income + (out !== null && out > 0n ? out : 0n);
       if (base > 0n) iv.rate_hundredths = Number(roundDiv(saving * 10000n, base));
     }
+    if (!p.scope_changed) { iv.delta_nw_cents = p.change_cents; iv.hpf_change_cents = p.hpf_change_cents; }
     intervals.push(iv);
   }
   const usual = intervals.filter(i => i.status === 'ok' && !i.excluded && i.in_window);
@@ -133,6 +137,10 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
       usual.forEach((i, k) => { i.anomaly = abs(savings[k] - m) > 3n * scale; });
     }
   }
+  const comparable = intervals.filter(i => i.delta_nw_cents !== null && !i.excluded && i.in_window);
+  stats.change_count = comparable.length;
+  stats.median_monthly_change_cents = median(comparable.map(i => monthly(BigInt(i.delta_nw_cents!), i.days)))?.toString() ?? null;
+  stats.mean_monthly_change_cents = comparable.length ? monthly(comparable.reduce((s, i) => s + BigInt(i.delta_nw_cents!), 0n), comparable.reduce((s, i) => s + i.days, 0)).toString() : null;
   return { generation, intervals, stats, incomplete_count: points.filter(p => !p.complete).length };
 }
 
@@ -152,6 +160,7 @@ export type StoredLifeEvent = {
   holding_cents: string; rent_saved_cents: string; cycle_years: number | null; until_age: number | null; resale_cents: string;
 };
 export type RetireInputs = {
+  core?: PlanningCore | null;
   spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number;
   mode: 'fire' | 'traditional'; target_age: number; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[]; saving_phases: StoredSavingPhase[];
   /** 工作年份里平均有多大比例的月份没有收入（万分比）；只作用于有收入的储蓄阶段。 */
@@ -168,7 +177,7 @@ export type RetireInputs = {
 };
 export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0, life_events: [], route_id: null, route_from_age: 35, keep_paying_until_age: null, keep_paying_monthly_cents: '0', keep_paying_base_cents: '0', gap_keeps_paying: false, rent_cents: '0' };
 export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides; retire: RetireInputs };
-export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string } | null };
+export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string; reference_issues?: string[] } | null };
 
 /** 个人资料多久没更新（整月数）；超过 STALE_MONTHS 个月提醒对一次社保记录。 */
 export const STALE_MONTHS = 6;
@@ -193,9 +202,9 @@ export function fundsFrom(entries: { kind: string; amount_cents: string | null }
   for (const e of entries ?? []) if (e.kind === 'housing_fund' && e.amount_cents !== null) { balance += BigInt(e.amount_cents); found = true; }
   if (!entries) notes.push('还没有完整盘点，公积金余额按 0 计算。');
   else if (!found) notes.push('最近盘点里没有公积金类账户，公积金余额按 0 计算。');
-  // 失业月份记的 0 不代表平时的缴存额：取最近一条非零的，全是 0 才用 0。
+  // 最新明确零保留；该历史字段不直接作为未来缴存假设。
   const byDate = [...incomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date));
-  const latest = byDate.find(r => BigInt(r.fields.hpf_cents || '0') > 0n) ?? byDate[0];
+  const latest = byDate[0];
   if (!latest) notes.push('还没有月度收入记录，公积金月缴存按 0 计算。');
   return { funds: { hpf_balance_cents: balance.toString(), hpf_monthly_cents: latest?.fields.hpf_cents ?? '0' }, notes };
 }
@@ -207,12 +216,11 @@ export function estimateAccountCents(paidMonths: number, baseCents: string): str
 
 /** 新增收入时默认带上的公积金缴存：取日期最近的一条（同一天取先出现的）；没有记录返回空串。 */
 export function latestHpf(rows: { fields: { date: string; hpf_cents: string } }[]): string {
-  let best: { date: string; hpf_cents: string } | null = null, any: { date: string; hpf_cents: string } | null = null;
+  let any: { date: string; hpf_cents: string } | null = null;
   for (const r of rows) {
     if (!any || r.fields.date > any.date) any = r.fields;
-    if (BigInt(r.fields.hpf_cents || '0') > 0n && (!best || r.fields.date > best.date)) best = r.fields;
   }
-  return (best ?? any)?.hpf_cents ?? '';
+  return any?.hpf_cents ?? '';
 }
 
 /** 年龄（月）显示为「63 岁 1 个月」。 */

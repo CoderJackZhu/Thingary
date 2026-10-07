@@ -2,6 +2,8 @@
 // 与 plan-fire.ts 的区别：支出分桶（起止年龄、独立通胀、必需/灵活）、退休收入流、
 // FIRE／传统两种计划类型、所需资金下滑曲线、逐年快照与覆盖拆分。名义值只用于展示：实际值 × (1+通胀)^年数。
 import type { Pension, Spend } from './plan-fire.ts';
+import { elapsedMonths } from './plan-core.ts';
+import type { PlanningCore } from './plan-core.ts';
 
 export type Mode = 'fire' | 'traditional';
 
@@ -16,9 +18,13 @@ export type SavingPhase = { from_month: number; cents: number };
 /** 持续的月度收支流（买房月供、持有成本、少付的房租等）：to_month 为空表示到规划终点。
  *  saving_flows 的 cents 是对退休前每月储蓄的增减（负数是多花）；spend_flows 的 cents 是退休后多出的月支出（正数是多花）。
  *  nominal 为真表示固定名义金额（房贷月供），按通胀折成今天的钱；否则已是今天的钱。 */
-export type Flow = { label: string; from_month: number; to_month: number | null; cents: number; nominal: boolean; essential: boolean };
+export type Flow = { label: string; from_month: number; to_month: number | null; cents: number; nominal: boolean; essential: boolean; prorate_first?: boolean; timing?: 'start' | 'end' };
 
+export type LoanSchedule = { id: string; from_offset: number; principal_cents: number; rate_hundredths: number; months: number; payment_cents: number; existing?: boolean };
 export type Plan = {
+  anchor_date?: string; calculation_date?: string; monetary_basis_date?: string; basis_factor?: number; first_month_fraction?: number;
+  core?: PlanningCore | null;
+  loans?: LoanSchedule[];
   now_months: number;
   horizon_months: number;
   /** 找 FI 年龄时的搜索上限（月龄）。 */
@@ -52,7 +58,7 @@ const rate = (h: number) => h / 10000;
 const monthlyGrowth = (h: number) => (1 + rate(h)) ** (1 / 12);
 
 /** 到某月龄的名义换算系数：(1+通胀)^年数。 */
-export const nominalFactor = (P: Pick<Plan, 'now_months' | 'inflation_hundredths'>, months: number) => (1 + rate(P.inflation_hundredths)) ** (Math.max(0, months - P.now_months) / 12);
+export const nominalFactor = (P: Pick<Plan, 'now_months' | 'inflation_hundredths' | 'basis_factor' | 'first_month_fraction'>, months: number) => (P.basis_factor ?? 1) * (1 + rate(P.inflation_hundredths)) ** (elapsedMonths(months - P.now_months, P.first_month_fraction) / 12);
 
 /** 每个月的计划支出、必需支出与收入流（不含国家养老金）。退休当月起算：未写起始年龄的桶视为一直生效。 */
 type Table = { spend: Float64Array; essential: Float64Array; income: Float64Array };
@@ -67,16 +73,23 @@ export function table(P: Plan): Table {
     const real = (1 + rate(it.inflation_hundredths ?? P.inflation_hundredths)) / infl;
     const from = it.start_age === null ? 0 : Math.max(0, it.start_age * 12 - P.now_months);
     const to = it.end_age === null ? n : Math.min(n, it.end_age * 12 - P.now_months);
-    for (let i = from; i < to; i++) { const a = it.monthly_cents * real ** (i / 12); spend[i] += a; if (it.essential) essential[i] += a; }
+    for (let i = from; i < to; i++) { const a = it.monthly_cents * real ** (elapsedMonths(i, P.first_month_fraction) / 12); spend[i] += a; if (it.essential) essential[i] += a; }
   }
   for (const f of P.spend_flows ?? []) {
     const from = Math.max(0, f.from_month - P.now_months), to = f.to_month === null ? n : Math.min(n, f.to_month - P.now_months);
-    for (let i = from; i < to; i++) { const a = f.nominal ? f.cents / infl ** (i / 12) : f.cents; spend[i] += a; if (f.essential) essential[i] += a; }
+    for (let i = from; i < to; i++) { const a = f.nominal ? f.cents / nominalFactor(P, P.now_months + i) : f.cents; spend[i] += a; if (f.essential) essential[i] += a; }
   }
   for (const it of P.incomes) {
     const from = Math.max(0, it.start_age * 12 - P.now_months);
     const to = it.end_age === null ? n : Math.min(n, it.end_age * 12 - P.now_months);
-    for (let i = from; i < to; i++) income[i] += it.indexed ? it.monthly_cents : it.monthly_cents / infl ** (i / 12);
+    for (let i = from; i < to; i++) income[i] += it.indexed ? it.monthly_cents : it.monthly_cents / nominalFactor(P, P.now_months + i);
+  }
+  if (n && P.first_month_fraction !== undefined) {
+    // Regular income/budget uses remaining days; known monthly flows remain due once.
+    const f = P.first_month_fraction;
+    for (const it of P.items) if (it.start_age === null || it.start_age * 12 <= P.now_months) { spend[0] -= it.monthly_cents * (1 - f); if (it.essential) essential[0] -= it.monthly_cents * (1 - f); }
+    income[0] *= f;
+    if (f === 0) { spend[0] = 0; essential[0] = 0; }
   }
   t = { spend, essential, income };
   tables.set(P, t);
@@ -97,10 +110,10 @@ export function savingsOf(P: Plan): Float64Array {
     if (phases) { while (k + 1 < phases.length && phases[k + 1].from_month <= P.now_months + t) k++; cents = phases[k].cents; }
     s[t] = cents * g ** Math.floor(t / 12);
   }
-  const infl = 1 + rate(P.inflation_hundredths);
+  if (n) s[0] *= P.first_month_fraction ?? 1;
   for (const f of P.saving_flows ?? []) {
     const from = Math.max(0, f.from_month - P.now_months), to = f.to_month === null ? n : Math.min(n, f.to_month - P.now_months);
-    for (let t = from; t < to; t++) s[t] += f.nominal ? f.cents / infl ** (t / 12) : f.cents;
+    for (let t = from; t < to; t++) if (t > 0 || P.first_month_fraction !== 0) s[t] += (f.nominal ? f.cents / nominalFactor(P, P.now_months + t) : f.cents) * (t === 0 && f.prorate_first ? P.first_month_fraction ?? 1 : 1);
   }
   savingSeries.set(P, s);
   return s;
@@ -128,6 +141,22 @@ export function oneOffsOf(P: Plan): Float64Array {
   return s;
 }
 
+/** Known plan payments happen before any month-end contribution or income.
+ * Saving/spending totals already contain these amounts; use them only to order the same flows. */
+const startPaymentCache = new WeakMap<Plan, Float64Array>();
+export function startPaymentsOf(P: Plan): Float64Array {
+  let result = startPaymentCache.get(P);
+  if (result) return result;
+  const n = Math.max(0,P.horizon_months-P.now_months);
+  result = new Float64Array(n);
+  for (const f of P.saving_flows ?? []) if (f.timing === 'start' && f.cents < 0) {
+    const from = Math.max(0,f.from_month-P.now_months),to = f.to_month === null ? n : Math.min(n,f.to_month-P.now_months);
+    for (let t=from;t<to;t++) if (t>0 || P.first_month_fraction !== 0) result[t] += -(f.nominal ? f.cents/nominalFactor(P,P.now_months+t) : f.cents);
+  }
+  startPaymentCache.set(P,result);
+  return result;
+}
+
 /** 退休后过一个月（逐月推演与市场路径共用）：资产为负是没付上的欠款，不增值、不清零，先用解锁额与收入偿还；
  *  返回新资产、从组合提取的钱与没有资金支持的部分。 */
 export function retiredMonth(a: number, g: number, lump: number, spend: number, income: number): { a: number; withdrawal: number; gap: number } {
@@ -143,21 +172,19 @@ export const brokeAfter = (a: number, gap: number) => a < 0 || (a <= 0 && gap > 
 export function required(P: Plan, from: number, retire: number = from, pension?: Pension): number {
   const n = P.horizon_months - from;
   if (n <= 0) return 0;
-  const T = table(P), v = 1 / monthlyGrowth(P.r_after_hundredths), pen = pension ?? P.pension_at(retire);
-  const d = Math.max(0, pen.unlock_age_months - from);
-  let pv = 0, best = 0, disc = 1;
-  if (d === 0) { pv -= pen.lump_cents; best = Math.max(best, pv); }
-  const base = from - P.now_months, out = oneOffsOf(P);
-  for (let k = 1; k <= n; k++) {
-    disc *= v;
-    const i = base + k - 1;
-    const pensionNow = from + k - 1 >= pen.unlock_age_months ? pen.monthly_cents : 0;
-    // 退休之后才发生的大额支出（首付、换车、心愿）与月支出一样必须由这笔资产付出；退休之前的已经从资产里扣掉了。
-    pv += (T.spend[i] - T.income[i] - pensionNow + (out[base + k] ?? 0)) * disc;
-    if (k === d && d > 0) pv -= pen.lump_cents * disc;
-    if (pv > best) best = pv;
+  const T = table(P), pen = pension ?? P.pension_at(retire), out = oneOffsOf(P), due = startPaymentsOf(P);
+  const base = from-P.now_months;
+  let need = 0;
+  for (let k=n-1;k>=0;k--) {
+    const i=base+k,m=from+k;
+    const upfront=due[i] ?? 0, fraction=i===0 ? P.first_month_fraction ?? 1 : 1;
+    const income=T.income[i]+(m>=pen.unlock_age_months ? pen.monthly_cents*fraction : 0);
+    const lump=(k===0 && pen.unlock_age_months<=from || m===pen.unlock_age_months) ? pen.lump_cents : 0;
+    const g=monthlyGrowth(P.r_after_hundredths)**fraction;
+    // A month begins after its one-off; known payments precede unlock and income.
+    need=Math.max(upfront,upfront-lump+(need+(out[i+1] ?? 0)+T.spend[i]-upfront-income)/g,0);
   }
-  return best;
+  return need;
 }
 
 /** 每个月龄「此刻退休」所需资产，逐月一份（蒙特卡洛与逐月推演共用，同一份计划只算一次）。 */
@@ -192,6 +219,7 @@ export type Projection = {
   rows: Row[];
   /** 逐月资产（长度 = 月数 + 1）。 */
   assets: Float64Array;
+  debt: Float64Array;
   /** 逐月从投资组合提取的金额与没有资金支持的支出（长度 = 月数；退休前为 0）。 */
   withdrawn: Float64Array; unfunded: Float64Array;
   /** 资产第一次达到「此刻退休所需」的月龄；搜索上限内没有则为 null。 */
@@ -217,10 +245,10 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
   const assets = new Float64Array(N + 1), withdrawn = new Float64Array(N), unfunded = new Float64Array(N);
   let a = P.assets_cents - oneOff[0];
   let fi: number | null = null, retire: number | null = null, reason: Projection['reason'] = null, funded = false, pension: Pension | null = null;
-  let failure: number | null = null, shortfall: number | null = null, unlocked = false;
+  let failure: number | null = a < 0 ? P.now_months : null, shortfall: number | null = null, unlocked = false;
   const rows: Row[] = [];
   let row: Row | null = null;
-  const cap = Math.min(P.search_cap_months, P.horizon_months), reqArr = requiredAt(P), savings = savingsOf(P);
+  const cap = Math.min(P.search_cap_months, P.horizon_months), reqArr = requiredAt(P), savings = savingsOf(P), due = startPaymentsOf(P);
   for (let t = 0; t < N; t++) {
     const m = P.now_months + t;
     if (t % 12 === 0) {
@@ -239,39 +267,39 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
       }
     }
     assets[t] = a;
+    const upfront = due[t], paidUpfront = Math.min(Math.max(0,a),upfront);
+    a-=upfront;
+    if (failure===null && a<0) failure=m;
     // 退休时已经可以领取：一次性解锁额与退休同时到账（记录资产时还未含，所需资金里已按到账计）。
     if (retire !== null && !unlocked && pension!.unlock_age_months <= m) { unlocked = true; a += pension!.lump_cents; r.unlock += pension!.lump_cents; }
     if (retire === null) {
       const c = savings[t];
-      // 动用存款的月份不会把原本为正的资产花成负数；但大额一次性支出（首付付不起等）造成的负债照实保留，不会被后面的亏空抹掉。
-      const before = a;
-      a = a * gb + c;
-      if (c < 0 && a < 0 && before >= 0) a = 0;
+      // 现金不足照实保留，不因月底投入或后续月份恢复而抹去已发生的缺口。
+      a = (a > 0 ? a * gb ** (t === 0 ? P.first_month_fraction ?? 1 : 1) : a) + c + upfront;
+      if (failure === null && a < 0) failure = m;
       r.contribution += c;
     } else {
       const spend = T.spend[t], essential = T.essential[t];
-      const income = T.income[t] + (m >= pension!.unlock_age_months ? pension!.monthly_cents : 0);
-      // 退休后才到领取年龄：解锁额在该月龄到账，当月支出前就可动用。
-      const lump = !unlocked && m + 1 >= pension!.unlock_age_months ? pension!.lump_cents : 0;
-      if (lump) { unlocked = true; r.unlock += lump; }
-      const g = opts.after ? (1 + opts.after(Math.floor((m - retire) / 12))) ** (1 / 12) : ga;
-      const step = retiredMonth(a, g, lump, spend, income), w = step.withdrawal, gap = step.gap;
+      const income = T.income[t] + (m >= pension!.unlock_age_months ? pension!.monthly_cents * (t === 0 ? P.first_month_fraction ?? 1 : 1) : 0);
+      const g = (opts.after ? (1 + opts.after(Math.floor((m - retire) / 12))) ** (1 / 12) : ga) ** (t === 0 ? P.first_month_fraction ?? 1 : 1);
+      const step = retiredMonth(a, g, 0, Math.max(0,spend-upfront), income), w = step.withdrawal, gap = step.gap;
       a = step.a;
-      r.income += income; r.spend += spend; r.essential += essential; r.withdrawal += w; r.unfunded += gap;
-      withdrawn[t] = w; unfunded[t] = gap;
-      const essentialGap = Math.max(0, essential - income) - w;
+      r.income += income; r.spend += spend; r.essential += essential; r.withdrawal += w + paidUpfront; r.unfunded += gap;
+      withdrawn[t] = w + paidUpfront; unfunded[t] = gap;
+      const essentialGap = Math.max(0, essential - income) - w - paidUpfront;
       if (essentialGap > 0) { r.essential_unfunded += essentialGap; if (shortfall === null && essentialGap > Math.max(100, spend * 0.001)) shortfall = m; }
       if (failure === null && brokeAfter(a, gap)) failure = m;
     }
     const out = oneOff[t + 1];
     a -= out;
+    if (failure === null && a < 0) failure = m + 1;
     r.oneoff += out;
     r.end = a;
   }
   assets[N] = a;
   // 最后一个月的大额支出付不起：没有下个月可以检出，这里补记。
   if (retire !== null && failure === null && a < 0) failure = P.horizon_months;
-  return { rows, assets, withdrawn, unfunded, fi_month: fi, retire_month: retire, reason, funded_at_retire: funded, pension, failure_month: failure, shortfall_month: shortfall };
+  return { rows, assets, debt: debtSeries(P), withdrawn, unfunded, fi_month: fi, retire_month: retire, reason, funded_at_retire: funded, pension, failure_month: failure, shortfall_month: shortfall };
 }
 
 /** 到目标年龄的结论：用于判词、压力测试与矩阵。 */
@@ -301,7 +329,7 @@ export function outcome(P: Plan, proj: Projection): Outcome {
 export function glide(P: Plan, proj: Projection): number[] {
   const G = P.target_months, R = proj.retire_month;
   const atGoal = required(P, Math.max(G, P.now_months));
-  const gb = monthlyGrowth(P.r_before_hundredths), sv = savingsOf(P);
+  const sv = savingsOf(P);
   return proj.rows.map(row => {
     const m = row.start_month;
     if (R !== null && m >= R) {
@@ -310,15 +338,22 @@ export function glide(P: Plan, proj: Projection): number[] {
       return required(P, m, R, owed ? pen : { ...pen, lump_cents: 0 });
     }
     if (m >= G) return required(P, m);
-    // 剩余储蓄到目标年龄的终值：Σ saving_j · gb^(G-m-1-j) 逐月累加
-    let fv = 0;
-    for (let t = m - P.now_months; t < G - P.now_months; t++) fv = fv * gb + sv[t];
-    return Math.max(0, (atGoal - fv) / gb ** (G - m));
+    return accumulationNeed(P, m, G, atGoal, sv);
   });
 }
 
 /** Coast：在 month 月龄手里至少有多少，从此一分不存也能在目标年龄达标。 */
-export const coastAt = (P: Plan, month: number) => required(P, Math.max(P.target_months, P.now_months)) / monthlyGrowth(P.r_before_hundredths) ** Math.max(0, P.target_months - month);
+function accumulationNeed(P: Plan, from: number, goal: number, atGoal: number, saving: Float64Array): number {
+  const due = startPaymentsOf(P), out = oneOffsOf(P);
+  let need = atGoal;
+  for (let m = goal - 1; m >= from; m--) {
+    const t = m - P.now_months, upfront = due[t] ?? 0;
+    const g = monthlyGrowth(P.r_before_hundredths) ** (t === 0 ? P.first_month_fraction ?? 1 : 1);
+    need = Math.max(upfront, upfront + (need + (out[t + 1] ?? 0) - (saving[t] ?? 0) - upfront) / g, 0);
+  }
+  return need;
+}
+export const coastAt = (P: Plan, month: number) => accumulationNeed(P, month, Math.max(P.target_months, P.now_months), required(P, Math.max(P.target_months, P.now_months)), savingsOf({ ...P, saving_cents: 0, saving_phases: undefined }));
 /** Coast FIRE：现在手里至少有多少。 */
 export const coastAmount = (P: Plan) => coastAt(P, P.now_months);
 
@@ -326,10 +361,9 @@ export const coastAmount = (P: Plan) => coastAt(P, P.now_months);
 export type Coverage = { spend: number; essential: number; items: { id: string; label: string; monthly: number; active: boolean }[]; pension: number; withdrawal: number; unfunded: number };
 export function coverageAt(P: Plan, proj: Projection, month: number): Coverage {
   const T = table(P), i = Math.min(Math.max(0, month - P.now_months), Math.max(0, T.spend.length - 1));
-  const infl = 1 + rate(P.inflation_hundredths);
   const items = P.incomes.map(s => {
     const active = month >= s.start_age * 12 && (s.end_age === null || month < s.end_age * 12);
-    return { id: s.id, label: s.label, monthly: active ? (s.indexed ? s.monthly_cents : s.monthly_cents / infl ** (i / 12)) : 0, active };
+    return { id: s.id, label: s.label, monthly: active ? (s.indexed ? s.monthly_cents : s.monthly_cents / nominalFactor(P, P.now_months + i)) : 0, active };
   });
   const retired = proj.retire_month !== null && month >= proj.retire_month;
   const pension = retired && month >= proj.pension!.unlock_age_months ? proj.pension!.monthly_cents : 0;
@@ -345,3 +379,19 @@ export const expectedSaving = (cents: number, gapHundredths: number, livingCents
   const g = gapHundredths / 10000;
   return Math.round((1 - g) * cents - g * livingCents);
 };
+
+/** Nominal remaining principal. Cash payments are already the corresponding source flows. */
+export function debtSeries(P: Plan): Float64Array {
+  const n = Math.max(0, P.horizon_months - P.now_months), out = new Float64Array(n + 1);
+  for (const loan of P.loans ?? []) {
+    let principal = loan.principal_cents, paid = 0;
+    for (let t = loan.existing ? 0 : Math.max(0, loan.from_offset); t <= n; t++) {
+      out[t] += principal;
+      if (t < n && t >= loan.from_offset && paid < loan.months && (t > 0 || P.first_month_fraction !== 0)) {
+        principal = Math.max(0, principal * (1 + loan.rate_hundredths / 120000) - loan.payment_cents);
+        paid++;
+      }
+    }
+  }
+  return out;
+}

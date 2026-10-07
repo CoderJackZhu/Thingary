@@ -53,9 +53,9 @@ test('income streams reduce the need; a fixed nominal stream is worth less than 
 });
 
 test('a large unlock early on does not hide the shortfall before it arrives', () => {
-  // 退休当月就没有养老金，3 个月后解锁 1,000,000：前两个月的支出必须自己有，第 3 个月的支出与解锁同时发生。
+  // 退休当月就没有养老金，3 个月后解锁 1,000,000：前三个月的支出必须自己有；月龄363的期初才解锁。
   const P = plan({ horizon_months: 400, now_months: 360, pension_at: () => ({ monthly_cents: 0, lump_cents: 1_000_000, unlock_age_months: 363 }) });
-  assert.equal(required(P, 360), 2000);
+  assert.equal(required(P, 360), 3000);
 });
 
 test('rows conserve money at zero return and a plan funded exactly to its requirement ends at zero', () => {
@@ -116,12 +116,12 @@ test('coverage splits a month into income, pension, portfolio withdrawal and the
   assert.deepEqual([late.pension, late.items[0].monthly, Math.round(late.withdrawal)], [300, 200, 500]);
 });
 
-test('saving phases: each month follows its phase; negative phases draw down but never below zero; scaling spares the negatives', () => {
+test('saving phases: each month follows its phase; negative phases retain their funding deficit; scaling spares the negatives', () => {
   const P = plan({ target_months: 2000, mode: 'traditional', assets_cents: 3000, saving_cents: 0, saving_phases: [{ from_month: 360, cents: -1000 }, { from_month: 364, cents: 500 }, { from_month: 372, cents: 800 }] });
   const s = savingsOf(P);
   assert.deepEqual([s[0], s[3], s[4], s[11], s[12], s[100]], [-1000, -1000, 500, 500, 800, 800]);
   const proj = project(P, 2026);
-  assert.deepEqual(Array.from(proj.assets.slice(0, 6)), [3000, 2000, 1000, 0, 0, 500]);
+  assert.deepEqual(Array.from(proj.assets.slice(0, 6)), [3000, 2000, 1000, 0, -1000, -500]);
   const scaled = scaleSaving(P, 2).saving_phases.map(p => p.cents);
   assert.deepEqual(scaled, [-1000, 1000, 1600]);
 });
@@ -159,5 +159,5 @@ test('a one-off that cannot be paid leaves a debt that later deficits do not wip
   assert.deepEqual([a[3], a[4], a[5], a[6], a[7]], [4500, -5000, -4500, -4000, -4400]);
   // 同样的亏空发生在手里有钱的时候：花到 0 为止。
   const poor = plan({ target_months: 2000, mode: 'traditional', assets_cents: 600, saving_cents: 0, saving_phases: [{ from_month: 360, cents: -400 }] });
-  assert.deepEqual(Array.from(project(poor, 2026).assets.slice(0, 4)), [600, 200, 0, 0]);
+  assert.deepEqual(Array.from(project(poor, 2026).assets.slice(0, 4)), [600, 200, -200, -600]);
 });

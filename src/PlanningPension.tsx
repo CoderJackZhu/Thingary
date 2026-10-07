@@ -4,7 +4,7 @@ import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
 import { CentInput, FormRow, Info } from './FormControls';
 import { DateInput } from './DateInput';
-import { STALE_MONTHS, ageText, defaultRetire, estimateAccountCents, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths } from './plan';
+import { STALE_MONTHS, ageText, defaultRetire, estimateAccountCents, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths } from './plan';
 import type { Income, ProfileSave, ProfileState, StoredProfile } from './plan';
 import { PERSONAL_PENSION_CAP_CENTS, beijing, defaultAssumptions, effectiveParams, isOverridden, noOverrides, paramSources, verifiedText } from './plan-params';
 import type { ParamKey, Overrides } from './plan-params';
@@ -12,6 +12,7 @@ import { ageMonthsAt, byQuitAge, project, startAgeMonths } from './plan-pension'
 import type { Projection, Worker } from './plan-pension';
 import { storedPending, submit, Unresolved } from './wealth';
 import type { Snapshot, Summary } from './wealth';
+import { normalizeFunds } from './plan-core';
 import './planning.css';
 
 const workerText: Record<Worker, string> = { male: '男职工', female_cadre: '女干部（原 55 岁退休）', female_worker: '女工人（原 50 岁退休）' };
@@ -46,11 +47,17 @@ export function PlanningPension({ focus = false, onFocusDone, today, incomes, on
   const calc = useMemo(() => {
     if (!saved || snapshot === undefined) return null;
     const p = saved.profile, region = effectiveParams(beijing, p.overrides);
-    const { funds, notes } = fundsFrom(snapshot?.entries ?? null, incomes);
-    const now = ageMonthsAt(p.birth_month, today), start = startAgeMonths(p);
+    const core = p.retire.core, normalized = normalizeFunds(snapshot ?? null, core), anchor = snapshot?.date ?? today;
+    const basisFactor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(core?.monetary_basis_date ?? anchor)) / (86400000 * 365.25));
+    const restricted = (id: string) => core?.fund_rules.some(f => f.account_id === id && f.availability === 'restricted' && f.share_hundredths === 10000);
+    const funds = { hpf_balance_cents: String(normalized.housingFund), hpf_monthly_cents: String(Math.round(Number(core?.hpf_monthly_cents ?? 0) * basisFactor)), personal_pension_balance_cents: snapshot?.entries.find(e => e.account_id === core?.personal_pension_account_id && restricted(e.account_id) && e.kind !== 'housing_fund')?.amount_cents ?? '0', first_month_fraction: snapshot ? (new Date(Date.UTC(+anchor.slice(0,4),+anchor.slice(5,7),0)).getUTCDate() - +anchor.slice(8,10)) / new Date(Date.UTC(+anchor.slice(0,4),+anchor.slice(5,7),0)).getUTCDate() : 1, hpf_growth_hundredths: p.assumptions.inflation_hundredths };
+    const notes = [...normalized.missing, ...(saved.reference_issues ?? []), `资金起点为 ${anchor} 收盘；本页实际金额按该日购买力展示。`];
+    if ((Number(p.personal_pension_annual_cents) > 0 || !!core?.personal_pension_account_id) && !core?.personal_pension_balance_confirmed) notes.push('已有个人养老金余额待核对，受限池只是部分估算。');
+    if (core?.hpf_monthly_cents == null) notes.push('未来公积金待确认，当前只是未计未来缴存的部分估算；请到目标页核对资金。');
+    const now = ageMonthsAt(p.birth_month, anchor), start = startAgeMonths(p);
     const ages = quitAges(now, start);
     const chosen = quit === 'start' || !ages.includes(quit) ? start : quit * 12;
-    return { p, region, funds, notes, now, start, ages, main: project(p, region, today, chosen, funds), rows: byQuitAge(p, region, today, ages, funds).concat(project(p, region, today, start, funds)) };
+    return { p, region, funds, notes, now, start, ages, main: project(p, region, anchor, chosen, funds), rows: byQuitAge(p, region, anchor, ages, funds).concat(project(p, region, anchor, start, funds)) };
   }, [saved, snapshot, incomes, today, quit]);
 
   return <>

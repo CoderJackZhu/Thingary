@@ -20,6 +20,7 @@ type Section = 'plan' | 'saving' | 'route' | 'spend' | 'leave' | 'income' | 'ass
 export function useSaver(state: ProfileState, reload: () => void, onPending: () => void) {
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   async function save(retire: RetireInputs, assumptions?: Assumptions): Promise<boolean> {
+    if (busy || stuck || !state.saved) return false;
     const saved = state.saved as Saved;
     const input: ProfileSave = { request_id: crypto.randomUUID(), generation: state.generation, expected_revision: saved.revision, profile: { ...saved.profile, retire, assumptions: assumptions ?? saved.profile.assumptions } };
     setBusy(true); setNotice('');
@@ -114,12 +115,12 @@ function SavingCard({ r, calc, nowAge, editing, saver, onEdit, onCancel, onSave 
     }
     const g = pctToHundredths(gap);
     if (g === null || g < 0 || g > 5000) return setErr('平均空窗比例请填 0 到 50 之间的百分数。');
-    setErr(''); onSave({ ...r, saving_phases: out, gap_share_hundredths: g });
+    setErr(''); onSave({ ...r, saving_phases: out, gap_share_hundredths: g, core: r.core ? { ...r.core, costs: r.core.costs.filter(c => out.some(p => p.id === c.phase_id)) } : r.core });
   }
   const measured = calc.measured;
-  return <Card kicker="储蓄" title="储蓄阶段" tip="退休前每月存多少，按今天的钱。收入不会一直不变：高收入期、空窗期、清闲期各设一段，结果就按这条时间线算。空窗期没有收入时填负数，表示每月动用存款。不分阶段则全程用盘点的常态储蓄。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
+  return <Card kicker="储蓄" title="储蓄阶段" tip="退休前每月存多少，按今天的钱。收入不会一直不变：高收入期、空窗期、清闲期各设一段，结果就按这条时间线算。空窗期没有收入时填负数，表示每月动用存款。没有显式阶段时未来净投入待确认；历史资产变化含估值变化。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
     read={r.saving_phases.length === 0
-      ? <><Rows rows={[['按盘点的常态储蓄', measured === null ? '待补充' : yuan(measured)]]}/><p className="rs-note">还没有分阶段：全程按近 12 个月盘点的中位数算。这个数含一次性大额消费和没有收入的月份，通常偏低；建议点「编辑」按自己的收入变化分几段。</p></>
+      ? <><Rows rows={[['旧自动参考（含估值变化）', measured === null ? '待补充' : yuan(measured)]]}/><p className="rs-note">还没有分阶段：旧自动参考待确认，不用于未来预测。点「编辑」保存明确的净投入假设。</p></>
       : <><ul className="rs-list">{r.saving_phases.map((p, i) => <li key={p.id}><span>{p.label}<small>{phaseStart(p, i)}起{r.gap_share_hundredths > 0 && p.monthly_cents > 0 ? ` · 折后约 ${yuan(expectedSaving(p.monthly_cents, r.gap_share_hundredths, leaveCost(r, Number(r.spend_cents ?? 0))))}/月` : ''}</small></span><b className={p.monthly_cents < 0 ? 'warn' : undefined}>{p.monthly_cents < 0 ? '−' : ''}{yuan(Math.abs(p.monthly_cents))}/月</b></li>)}</ul>
         {r.gap_share_hundredths > 0 && <p className="muted small">平均空窗 {rateText(r.gap_share_hundredths)}：有收入的阶段按期望值折算。</p>}</>}
     edit={<div className="rs-form">
@@ -127,14 +128,14 @@ function SavingCard({ r, calc, nowAge, editing, saver, onEdit, onCancel, onSave 
         {i === 0 ? <p className="muted small">从现在起</p> : <><Field label="几个月后开始" hint={Number.isFinite(fromOf(d)) ? `约 ${Math.floor(fromOf(d) / 12)} 岁 ${fromOf(d) % 12} 个月` : undefined}><input aria-label={`${d.label}几个月后开始`} inputMode="numeric" value={Number.isFinite(fromOf(d)) ? String(Math.max(0, fromOf(d) - calc.now)) : ''} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n >= 0) setFrom(d.id, calc.now + n); }}/></Field>
           <div className="rs-pair"><Field label="或直接填起始（岁）"><input aria-label={`${d.label}起始岁`} inputMode="numeric" value={d.years} onChange={e => patch(d.id, { years: e.target.value })}/></Field><Field label="加（个月）"><input aria-label={`${d.label}起始月`} inputMode="numeric" value={d.months} onChange={e => patch(d.id, { months: e.target.value })}/></Field></div></>}
         <Field label="每月储蓄（元）" hint="没有收入、在花存款时填负数"><input aria-label={`${d.label}每月储蓄`} inputMode="decimal" value={d.amount} onChange={e => patch(d.id, { amount: e.target.value })}/></Field></div>)}
-      {items.length === 0 && <p className="muted small">还没有阶段。盘点中位数含一次性消费，建议自己填。</p>}
+      {items.length === 0 && <p className="muted small">还没有阶段。历史资产变化含估值变化，请保存独立净投入假设。</p>}
       <div className="rs-presets">
         <button type="button" className="ui-btn" disabled={items.length >= 30} onClick={() => add('空窗期', -spend)}>+ 空窗期</button>
-        <button type="button" className="ui-btn" disabled={items.length >= 30} onClick={() => add('有收入', measured !== null && measured > 0 ? measured : 1000000)}>+ 有收入</button>
+        <button type="button" className="ui-btn" disabled={items.length >= 30} onClick={() => add('有收入', 1000000)}>+ 有收入</button>
         <button type="button" className="ui-btn" disabled={items.length >= 30} onClick={() => add('清闲／稳定工作', 800000)}>+ 清闲／稳定</button>
       </div>
       <Field label="平均空窗比例（%）" hint="工作的年份里，平均有多大比例的月份没有收入（跳槽、被裁）。填了以后，有收入的阶段按「(1−比例)×储蓄 − 比例×日常生活月预算」折算，空窗月份动用日常生活预算花存款。不需要逐次填空窗；0 表示不折算。"><input aria-label="平均空窗比例" inputMode="decimal" value={gap} onChange={e => setGap(e.target.value)}/></Field>
-      <p className="muted small">预设金额只是占位，请改成自己的数。空窗期默认按退休日常生活预算动用存款。近 12 个月盘点中位数：{measured === null ? '暂无' : yuan(measured)}（含一次性大额消费，仅供参考）。</p>
+      <p className="muted small">预设金额只是占位，请改成自己的数。空窗期默认按退休日常生活预算动用存款。近 12 个月月均净资产变化：{measured === null ? '暂无' : yuan(measured)}（含估值变化，仅供参考）。</p>
       {err && <p className="notice" role="status">{err}</p>}
     </div>}/>;
 }
@@ -277,15 +278,14 @@ function AssumeCard({ r, a, editing, saver, onEdit, onCancel, onSave }: { r: Ret
     if (i < -1000 || i > 2000 || w < -1000 || w > 2000) return setErr('通胀与工资增长须在 −10% 到 20% 之间。');
     setErr(''); onSave({ ...r, real_return_before_hundredths: b, real_return_after_hundredths: f, volatility_hundredths: v }, { ...a, inflation_hundredths: i, wage_growth_hundredths: w });
   }
-  const real = Math.round(((1 + a.wage_growth_hundredths / 10000) / (1 + a.inflation_hundredths / 10000) - 1) * 10000);
-  const warnings = [a.inflation_hundredths > 500 && '通胀假设偏高。在该通胀率下，长期支出需求会变得更加敏感。', r.volatility_hundredths > 2500 && '波动率假设偏高。结果区间可能变得非常宽。', (r.real_return_before_hundredths > 600 || r.real_return_after_hundredths > 600) && '实际收益率假设较高。预计余额对这一比率较为敏感。', real > 300 && '供款增长假设偏高。这意味着持续大幅增加储蓄。'].filter(Boolean) as string[];
-  return <Card kicker="假设" title="预测假设" tip="全部是假设，不是事实。收益率按「扣除通胀后的实际收益」填写，费用已包含在内；货币基金为主的组合扣除通胀后通常接近 0。注意：每月供款来自净资产变化，已经包含了现有账户的利息与涨跌，所以这里不要再把同一笔收益重复计入。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
-    read={<><Rows rows={[['退休前实际收益率', rateText(r.real_return_before_hundredths)], ['退休期实际收益率', rateText(r.real_return_after_hundredths)], ['年度波动率', rateText(r.volatility_hundredths)], ['通胀', rateText(a.inflation_hundredths)], ['每年供款实际增长', rateText(real)]]}/>{warnings.map(w => <p key={w} className="rs-note">{w}</p>)}</>}
+  const warnings = [a.inflation_hundredths > 500 && '通胀假设偏高。在该通胀率下，长期支出需求会变得更加敏感。', r.volatility_hundredths > 2500 && '波动率假设偏高。结果区间可能变得非常宽。', (r.real_return_before_hundredths > 600 || r.real_return_after_hundredths > 600) && '实际收益率假设较高。预计余额对这一比率较为敏感。'].filter(Boolean) as string[];
+  return <Card kicker="假设" title="预测假设" tip="全部是假设，不是事实。收益率按「扣除通胀后的实际收益」填写，费用已包含在内；货币基金为主的组合扣除通胀后通常接近 0。每月净投入是明确阶段假设，投资收益独立计算；工资增长不自动提高净投入。" editing={editing} saver={saver} onEdit={onEdit} onCancel={onCancel} onSave={save}
+    read={<><Rows rows={[['退休前实际收益率', rateText(r.real_return_before_hundredths)], ['退休期实际收益率', rateText(r.real_return_after_hundredths)], ['年度波动率', rateText(r.volatility_hundredths)], ['通胀', rateText(a.inflation_hundredths)], ['工资增长（养老金假设）', rateText(a.wage_growth_hundredths)], ['阶段内净投入实际增长', '0%']]}/>{warnings.map(w => <p key={w} className="rs-note">{w}</p>)}</>}
     edit={<div className="rs-form">
-      <p className="rs-note">每月供款来自盘点的净资产变化，已经包含了账户现有的利息和涨跌。收益率只填「在此之外还会持续增值」的部分；以现金和货币基金为主就填 0，投资仓位变大后再按实际调整。</p>
+      <p className="rs-note">每月净投入来自你明确保存的阶段假设，不采用历史资产涨幅。投资收益单独计算；请按参与规划的账户和风险假设填写。</p>
       <div className="rs-pair"><Field label="退休前实际收益率（%）" hint="储蓄期间，扣除通胀与费用"><input aria-label="退休前实际收益率" inputMode="decimal" value={before} onChange={e => setBefore(e.target.value)}/></Field><Field label="退休期实际收益率（%）" hint="开始提取后"><input aria-label="退休后实际收益率" inputMode="decimal" value={after} onChange={e => setAfter(e.target.value)}/></Field></div>
       <Field label="年度波动率（%）" hint="实际收益围绕假设值的波动幅度，只用于假设分析的市场路径；货币基金为主填 1–3，股票占比大填 12–18。"><input aria-label="年度波动率" inputMode="decimal" value={vol} onChange={e => setVol(e.target.value)}/></Field>
-      <div className="rs-pair"><Field label="通胀（%）" hint="假设的年度物价涨幅，与养老金页共用"><input aria-label="通胀" inputMode="decimal" value={infl} onChange={e => setInfl(e.target.value)}/></Field><Field label="工资增长（%）" hint="与通胀之差就是供款的实际增长，也影响养老金"><input aria-label="工资增长" inputMode="decimal" value={wage} onChange={e => setWage(e.target.value)}/></Field></div>
+      <div className="rs-pair"><Field label="通胀（%）" hint="假设的年度物价涨幅，与养老金页共用"><input aria-label="通胀" inputMode="decimal" value={infl} onChange={e => setInfl(e.target.value)}/></Field><Field label="工资增长（%）" hint="用于养老金缴费基数估算，不自动提高未来净投入"><input aria-label="工资增长" inputMode="decimal" value={wage} onChange={e => setWage(e.target.value)}/></Field></div>
       {err && <p className="notice" role="status">{err}</p>}
     </div>}/>;
 }

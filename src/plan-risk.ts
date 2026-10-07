@@ -1,6 +1,6 @@
 // 退休风险实验室（纯函数）：市场路径模拟、压力测试、两张决策矩阵与崩盘路径。
 // 全程「今天的钱」（实际口径）：实际收益率取对数正态、中位数等于假设收益率；不建模通胀的随机波动。
-import { brokeAfter, oneOffsOf, outcome, project, requiredAt, retiredMonth, savingsOf, scaleSaving, scaleSpend, table } from './plan-ledger.ts';
+import { brokeAfter, oneOffsOf, outcome, project, requiredAt, retiredMonth, savingsOf, startPaymentsOf, scaleSaving, scaleSpend, table } from './plan-ledger.ts';
 import type { Outcome, Plan } from './plan-ledger.ts';
 
 const rate = (h: number) => h / 10000;
@@ -38,7 +38,7 @@ type Pen = { monthly_cents: number; lump_cents: number; unlock_age_months: numbe
 
 /** 逐月推演 n 条路径；每年抽一次收益（对数正态，中位数＝假设值），年内按月摊开。分块让出线程，界面不卡。 */
 export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; progress?: (done: number) => void } = {}): Promise<MonteCarlo> {
-  const N = Math.max(1, P.horizon_months - P.now_months), T = table(P), reqArr = requiredAt(P), savings = savingsOf(P);
+  const N = Math.max(1, P.horizon_months - P.now_months), T = table(P), reqArr = requiredAt(P), savings = savingsOf(P), due = startPaymentsOf(P);
   const S = Math.floor((N - 1) / 12) + 1;
   const values = new Float64Array((S + 1) * n), finals = new Float64Array(n);
   const rand = mulberry32(opts.seed ?? seedOf(P));
@@ -53,7 +53,7 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
   const fiMonths: number[] = [];
   for (let i = 0; i < n; i++) {
     let a = P.assets_cents - oneOff[0], retire = -1, fi = -1, unlocked = false, pen: Pen | null = null;
-    let failed = false, gb = 1, ga = 1;
+    let failed = a < 0, gb = 1, ga = 1;
     for (let t = 0; t < N; t++) {
       const m = P.now_months + t;
       if (t % 12 === 0) { const z = normal(rand); gb = Math.exp(muB + sB * z) ** (1 / 12); ga = Math.exp(muA + sA * z) ** (1 / 12); }
@@ -63,18 +63,19 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
         if (P.mode === 'fire' ? m >= P.target_months && good : m >= P.target_months) { retire = m; pen = penAt(m); }
       }
       if (t % 12 === 0) values[(t / 12) * n + i] = Math.max(0, a);
+      const upfront=due[t], paidUpfront=Math.min(Math.max(0,a),upfront);
+      a-=upfront; if (a<0) failed=true;
       if (retire >= 0 && !unlocked && pen!.unlock_age_months <= m) { unlocked = true; a += pen!.lump_cents; }
-      if (retire < 0) { const before = a; a = a * gb + savings[t]; if (savings[t] < 0 && a < 0 && before >= 0) a = 0; }
+      if (retire < 0) { a = (a > 0 ? a * gb ** (t === 0 ? P.first_month_fraction ?? 1 : 1) : a) + savings[t] + upfront; if (a < 0) failed = true; }
       else {
-        const lump = !unlocked && m + 1 >= pen!.unlock_age_months ? pen!.lump_cents : 0;
-        if (lump) unlocked = true;
-        const spend = T.spend[t], income = T.income[t] + (m >= pen!.unlock_age_months ? pen!.monthly_cents : 0);
-        const step = retiredMonth(a, ga, lump, spend, income), w = step.withdrawal;
+        const spend = T.spend[t], income = T.income[t] + (m >= pen!.unlock_age_months ? pen!.monthly_cents * (t === 0 ? P.first_month_fraction ?? 1 : 1) : 0);
+        const step = retiredMonth(a, ga ** (t === 0 ? P.first_month_fraction ?? 1 : 1), 0, Math.max(0,spend-upfront), income), w = step.withdrawal;
         a = step.a;
-        if (Math.max(0, T.essential[t] - income) - w > Math.max(100, spend * 0.001)) failed = true;
+        if (Math.max(0, T.essential[t] - income) - w - paidUpfront > Math.max(100, spend * 0.001)) failed = true;
         if (brokeAfter(a, step.gap)) failed = true;
       }
       a -= oneOff[t + 1];
+      if (a < 0) failed = true;
     }
     if (retire >= 0 && a < 0) failed = true;
     values[S * n + i] = Math.max(0, a);

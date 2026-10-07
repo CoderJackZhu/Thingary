@@ -12,10 +12,10 @@ const today = '2026-10-06';
 
 const saved = (retire, birth = '1990-06') => ({ revision: 1, updated_at: today, profile: {
   birth_month: birth, worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0,
-  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, ...retire },
+  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, core: { contract_version: 1, monetary_basis_date: '2026-10-06', fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', costs: [], occurrences: [] }, saving_phases: [{ id: 'default-explicit', label: '显式测试假设', from_age_months: 0, monthly_cents: 1000000 }], ...retire },
 } });
-const snap = cents => ({ entries: [{ counted: true, side: 'asset', kind: 'cash', amount_cents: String(cents) }] });
-const stats = (median, extra = {}) => ({ count: 4, low_sample: false, median_monthly_saving_cents: median, mean_monthly_saving_cents: median, median_monthly_spend_cents: null, window_from: '2025-10-06', latest_date: today, ...extra });
+const snap = cents => ({ entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: String(cents) }] });
+const stats = (median, extra = {}) => ({ mean_monthly_change_cents: median, count: 4, low_sample: false, median_monthly_saving_cents: median, mean_monthly_saving_cents: median, median_monthly_spend_cents: null, window_from: '2025-10-06', latest_date: today, ...extra });
 const reviewOf = median => ({ intervals: [], stats: stats(median), incomplete_count: 0 });
 const ready = calc => {
   assert.ok(calc.plan && calc.proj && calc.out && calc.assets !== null, 'fixture must be calculable');
@@ -36,9 +36,9 @@ test('fire headline: reached and unreachable use the actual search cap, never "f
   assert.equal(reached.main, '当前资产已覆盖退休所需');
   assert.equal(reached.sub, '按当前假设估算');
   // 50 万元预算、零储蓄、20 万资产：搜索范围内不可达；horizon 65 早于 70 岁上限时按实际终点年龄。
-  const capped = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', horizon_age: 65 }), snap(20_000_000), reviewOf('0'), [], today)), today);
+  const capped = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', horizon_age: 65, saving_phases: [{ id: 'zero', label: '明确零', from_age_months: 0, monthly_cents: 0 }] }), snap(20_000_000), reviewOf('0'), [], today)), today);
   assert.equal(capped.main, '当前假设下，65 岁前尚未达成');
-  const defaultCap = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000' }), snap(20_000_000), reviewOf('0'), [], today)), today);
+  const defaultCap = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', saving_phases: [{ id: 'zero', label: '明确零', from_age_months: 0, monthly_cents: 0 }] }), snap(20_000_000), reviewOf('0'), [], today)), today);
   assert.equal(defaultCap.main, '当前假设下，70 岁前尚未达成');
 });
 
@@ -46,7 +46,7 @@ test('traditional headline: surplus and shortfall are words, not just colors', (
   const surplus = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '500000', mode: 'traditional', target_age: 60 }), snap(500_000_000), reviewOf('1000000'), [], today)), today);
   assert.equal(surplus.main, '60 岁退休');
   assert.match(surplus.sub, /^预计盈余 ¥[\d,]+$/);
-  const shortfall = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '500000', mode: 'traditional', target_age: 60 }), snap(0), reviewOf('0'), [], today)), today);
+  const shortfall = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '500000', mode: 'traditional', target_age: 60, saving_phases: [{ id: 'zero', label: '明确零', from_age_months: 0, monthly_cents: 0 }] }), snap(0), reviewOf('0'), [], today)), today);
   assert.match(shortfall.sub, /^预计缺口 ¥[\d,]+$/);
 });
 
@@ -54,10 +54,9 @@ test('coverage ratio uses the goals-page function including its boundaries', () 
   const base = ready(buildRetireCalc(saved({ spend_cents: '500000' }), snap(20_000_000), reviewOf('1000000'), [], today));
   const c = coverageNow(base);
   assert.equal(c.percent, Math.max(0, Math.min(10000, Math.round(Math.min(1, c.assets / c.requiredNow) * 10000))));
-  // 负可支配资产：比例限幅为 0，不当未知。
-  const negative = ready(buildRetireCalc(saved({ spend_cents: '500000' }), { entries: [{ counted: true, side: 'liability', kind: 'loan', amount_cents: '9000000' }] }, reviewOf('1000000'), [], today));
-  assert.ok(negative.assets < 0);
-  assert.equal(coverageNow(negative).percent, 0);
+  const debtOnly = buildRetireCalc(saved({ spend_cents: '500000' }), { entries: [{ account_id: 'debt', counted: true, side: 'liability', kind: 'loan', amount_cents: '9000000' }] }, reviewOf('1000000'), [], today);
+  assert.equal(debtOnly.assets, 0, 'debt principal is not an initial cash withdrawal');
+  assert.match(debtOnly.missing.join(' '), /还款接续/);
   // 所需为零（预算 0）：按现有函数视为 100%。
   const zeroNeed = ready(buildRetireCalc(saved({ spend_cents: '0' }), snap(12345), reviewOf('0'), [], today));
   assert.equal(coverageNow(zeroNeed).requiredNow, 0);
@@ -80,7 +79,7 @@ test('missing inputs follow the design order: snapshot → profile → budget �
   assert.equal(summaryRetire(sources({ profile: { status: 'ready', value: { generation: 'g', saved: null } } }), today).step, 'profile');
   // 预算与储蓄同时缺：预算先提示。
   assert.equal(summaryRetire(sources({ retire: {} }), today).step, 'budget');
-  assert.equal(summaryRetire(sources({ retire: { spend_cents: '500000' }, noMedian: true }), today).step, 'saving');
+  assert.equal(summaryRetire(sources({ retire: { spend_cents: '500000', saving_phases: [] }, noMedian: true }), today).step, 'saving');
   // 历史储蓄未知但阶段已填：退休仍可算（A08）。
   const phased = summaryRetire(sources({ retire: { spend_cents: '500000', saving_phases: [{ id: 'p', label: '阶段', from_age_months: 0, monthly_cents: 800000 }] }, noMedian: true }), today);
   assert.equal(phased.kind, 'ready');
@@ -114,7 +113,7 @@ test('basis notes separate historical median from configured phases and list inc
   const plain = summaryRetire(sources({ retire: { spend_cents: '500000' } }), today);
   const notes = summaryBasis(plain);
   assert.ok(notes.includes(`依据 ${today} 完整盘点`));
-  assert.ok(notes.includes('退休估算沿用历史常态储蓄'));
+  assert.ok(notes.includes('退休估算采用已设置的储蓄阶段／路线'));
   assert.ok(notes.includes('按当前假设估算'));
   const withPhases = summaryRetire(sources({ retire: { spend_cents: '500000', saving_phases: [{ id: 'p', label: '阶段', from_age_months: 0, monthly_cents: 800000 }], life_events: [{ id: 'e', label: '买车', kind: 'car', date: '2027-06', included: true, price_cents: '7000000', down_cents: '7000000', extra_cents: '0', loan_rate_hundredths: 350, loan_years: 3, holding_cents: '120000', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }] } }), today);
   const phaseNotes = summaryBasis(withPhases);
@@ -156,7 +155,7 @@ test('the goals page shares the projection instead of rounding ages differently'
   assert.match(goals, /goalHeadline\(calc, today\)/);
   assert.match(goals, /coverageNow\(calc\)/);
   assert.ok(!goals.includes('const ageOf'), 'no second age formatter that would truncate months');
-  assert.match(goals, /按已设置的储蓄阶段／路线/);
+  assert.match(goals, /显式阶段假设/);
 });
 
 

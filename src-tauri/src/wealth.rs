@@ -1171,6 +1171,9 @@ impl Store {
         if revision != input.expected_revision || deleted_at.is_some() == input.deleted {
             return Err(Error::new("REVISION_CONFLICT", "记录已变化，请重新读取"));
         }
+        if input.deleted {
+            crate::plan_core::protect_reference(&tx, &input.kind, &input.id)?;
+        }
         if input.kind == "account" && input.deleted {
             let used: bool = tx.query_row(
                 "SELECT EXISTS(SELECT 1 FROM fin_snapshot_entries WHERE account_id=?1)",

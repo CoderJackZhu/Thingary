@@ -1,6 +1,7 @@
 // 中国养老金估算（PLANNING_DESIGN §5）：不碰数据库的纯函数。所有「今天」由调用方传入。
 // 输出是估算：内部用浮点，金额在出口取整到分；不得写回或冒充已记录事实。
 // 不处理 1996 年前视同缴费的过渡性养老金。
+import { elapsedMonths } from './plan-core.ts';
 import { PERSONAL_PENSION_CAP_CENTS, PERSONAL_PENSION_TAX_HUNDREDTHS, pensionMonths } from './plan-params.ts';
 import type { Assumptions, RegionParams } from './plan-params.ts';
 
@@ -26,7 +27,7 @@ export type Profile = {
   assumptions: Assumptions;
 };
 
-export type Funds = { hpf_balance_cents: string; hpf_monthly_cents: string };
+export type Funds = { hpf_balance_cents: string; hpf_monthly_cents: string; first_month_fraction?: number; personal_pension_balance_cents?: string; pp_quit_age_months?: number; hpf_growth_hundredths?: number };
 
 /** 缴费分段：从该年龄（月）起，社保缴费基数与公积金月缴存（今天的钱，分）改成这两个数；按 from_age_months 升序。
  *  不给分段时全程用资料里的基数与公积金月缴存。 */
@@ -120,13 +121,13 @@ export function project(profile: Profile, region: RegionParams, today: string, q
 
   const wage = cents(region.avg_wage_cents);
   const base = clamp(cents(profile.base_cents), cents(region.base_lower_cents), cents(region.base_upper_cents));
-  const grow = (months: number) => (1 + g) ** (months / 12);
+  const grow = (months: number) => (1 + g) ** (elapsedMonths(months, funds.first_month_fraction) / 12);
   const monthly = (annualRate: number) => (1 + annualRate) ** (1 / 12);
 
   // 个人账户：现有余额按记账利率增值，缴费期每月计入基数的 8%。
   let account = cents(profile.account_balance_cents);
   let hpf = cents(funds.hpf_balance_cents);
-  let pp = 0;
+  let pp = Number(funds.personal_pension_balance_cents ?? '0');
   const ppMonthly = Math.min(cents(profile.personal_pension_annual_cents), PERSONAL_PENSION_CAP_CENTS) / 12;
   const hpfMonthly = cents(funds.hpf_monthly_cents);
   // 第 k 个缴费月适用的基数与公积金月缴存：最近一个已开始的分段，之前用资料里的。
@@ -135,14 +136,15 @@ export function project(profile: Profile, region: RegionParams, today: string, q
   // idle：某个月龄里没有缴费的比例（0–1，空窗期停缴）；缴费月数、个人账户、公积金与缴费指数都按实际缴费的份额计。
   let indexSum = 0, effective = 0;
   for (let k = 0; k < toStart; k++) {
-    account *= monthly(notional);
-    hpf *= monthly(hpfRate);
-    pp *= monthly(ppRate);
+    const fraction = k === 0 ? funds.first_month_fraction ?? 1 : 1;
+    account *= monthly(notional) ** fraction;
+    hpf *= monthly(hpfRate) ** fraction;
+    pp *= monthly(ppRate) ** fraction;
     if (k < contribution) {
-      const b = baseAt(k), e = phaseAt(k), w = 1 - clamp(idle ? idle(nowAge + k) : 0, 0, 1);
+      const b = baseAt(k), e = phaseAt(k), w = (1 - clamp(idle ? idle(nowAge + k) : 0, 0, 1)) * fraction;
       account += 0.08 * b * grow(k) * w;
-      hpf += (e ? e.hpf_monthly_cents : hpfMonthly) * grow(k) * w;
-      pp += ppMonthly;
+      hpf += (e ? e.hpf_monthly_cents : hpfMonthly) * (1 + rate(funds.hpf_growth_hundredths ?? a.wage_growth_hundredths)) ** (elapsedMonths(k, funds.first_month_fraction) / 12) * w;
+      if (nowAge + k < (funds.pp_quit_age_months ?? quit)) pp += ppMonthly * fraction;
       indexSum += clamp(b / wage, 0.6, 3) * w;
       effective += w;
     }
@@ -157,10 +159,10 @@ export function project(profile: Profile, region: RegionParams, today: string, q
   const disbursement = disbursementMonths(start);
   const accountPension = account / disbursement;
 
-  const deflate = (1 + inflation) ** (toStart / 12);
+  const deflate = (1 + inflation) ** (elapsedMonths(toStart, funds.first_month_fraction) / 12);
   const required = requiredContributionMonths(retireYear);
   const totalNominal = basePension + accountPension;
-  const stopWageToday = (contribution > 0 ? baseAt(contribution - 1) : cents(profile.base_cents)) * ((1 + g) / (1 + inflation)) ** (contribution / 12);
+  const stopWageToday = (contribution > 0 ? baseAt(contribution - 1) : cents(profile.base_cents)) * ((1 + g) / (1 + inflation)) ** (elapsedMonths(contribution, funds.first_month_fraction) / 12);
   const ppAfterTax = pp * (1 - PERSONAL_PENSION_TAX_HUNDREDTHS / 10000);
   const round = Math.round;
   return {
@@ -174,7 +176,7 @@ export function project(profile: Profile, region: RegionParams, today: string, q
     hpf_at_start_cents: round(hpf), personal_pension_at_start_cents: round(pp), personal_pension_after_tax_cents: round(ppAfterTax),
     pots_today_cents: round((hpf + ppAfterTax) / deflate),
     personal_pension_tax_saved_cents: round(Math.min(cents(profile.personal_pension_annual_cents), PERSONAL_PENSION_CAP_CENTS) * rate(profile.marginal_tax_hundredths)),
-    years_to_start: toStart / 12,
+    years_to_start: elapsedMonths(toStart, funds.first_month_fraction) / 12,
   };
 }
 

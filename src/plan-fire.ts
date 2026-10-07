@@ -51,7 +51,7 @@ export function pensionTable(profile: Profile, region: RegionParams, today: stri
         const selfPay = keep.keepUntil !== null && keep.keepUntil > a;
         const emp = selfPay ? [...employment, { from_age_months: a, base_cents: keep.base > 0 ? keep.base : Number(profile.base_cents), hpf_monthly_cents: 0 }] : employment;
         const idle = keep.idle ? (m: number) => (m < a ? keep.idle!(m) : 0) : undefined;
-        const p = project(profile, region, today, selfPay ? keep.keepUntil! : a, funds, emp, idle);
+        const p = project(profile, region, today, selfPay ? keep.keepUntil! : a, { ...funds, pp_quit_age_months: a }, emp, idle);
         // 年限不足不能按月领基本养老金（养老金页仍按公式显示并提示）：月额按 0 计，个人账户余额近似为一次性领回；续缴或补缴凑够年限另算。
         const short = p.eligible ? 0 : p.required_months - p.total_paid_months;
         r = p.eligible

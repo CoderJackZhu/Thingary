@@ -51,7 +51,7 @@ export const isReady = (calc: RetireCalc | null): calc is Ready => !!calc && cal
 /** 一组一次性支出（带月份的，含「按今天」的假设）对 FIRE 日期的影响：与「没有这些支出」的基线比较。合计请传 counted(...)。 */
 export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
   const P = calc.plan, now = P.now_months;
-  const events = spends.filter(s => s.offset_months !== null).map(toSpend);
+  const events = spends.filter(s => s.offset_months !== null).map(s => ({ ...toSpend(s), offset_months: P.anchor_date ? monthIndex(s.date ?? P.calculation_date ?? P.anchor_date) - monthIndex(P.anchor_date) : s.offset_months! }));
   // 基线是「已计入的大额计划都发生、这些心愿不发生」；心愿叠加在其上。
   const base = project(P, 0), withSpend = project({ ...P, spends: [...P.spends, ...events] }, 0);
   const first = events.length ? Math.min(...events.map(e => e.offset_months)) : 0, last = Math.min(Math.max(0, ...events.map(e => e.offset_months)), base.assets.length - 1);

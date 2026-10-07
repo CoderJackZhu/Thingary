@@ -88,6 +88,7 @@ fn purge_one(
         Some(None) => return Err(Error::new("NOT_DELETED", "只能永久删除最近删除中的项目")),
         Some(Some(_)) => {}
     }
+    crate::plan_core::protect_reference(tx, kind, id)?;
     match kind {
         "asset" => {
             let linked: bool = tx.query_row(

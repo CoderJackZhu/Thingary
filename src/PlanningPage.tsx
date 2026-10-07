@@ -7,7 +7,7 @@ import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningPension } from './PlanningPension';
 import { PlanningGoals } from './PlanningGoals';
-import { changeSentence, largeOneOffs, latestHpf, monthlyWithoutOneOffs, rateText, savingViews, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
+import { latestHpf, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeFields, IncomeList, IncomeSave, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
 import { refocusHeading } from './topbar-model';
@@ -20,7 +20,7 @@ import './planning.css';
 const dateRange = (i: Interval) => `${i.from} → ${i.to}`;
 
 export type PlanningTab = 'goals' | 'savings' | 'pension';
-export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['savings', '储蓄与收入'], ['pension', '养老金']];
+export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['savings', '收入与复盘'], ['pension', '养老金']];
 
 export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone }: { focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
   const [review, setReview] = useState<PlanReview | null>(null), [incomes, setIncomes] = useState<IncomeList | null>(null);
@@ -59,7 +59,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
-      <Info text="储蓄 = 两次完整盘点之间的净资产变化 − 公积金账户的余额变化（现金与投资的增长，从公积金提取进现金的算现金）；支出 = 税后到账 + 公积金缴存 − 净资产变化。公积金提取不需要记录，用缴存和余额变化推算。这些是用盘点与收入推出的估算，不是逐笔账。"/>
+      <Info text="金融净资产变化含估值、利息与外部变动，不能证明真实储蓄或消费。收入只展示已记录金额；未来净投入需要独立确认。"/>
     </div></HeaderSlot>
     {error ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !review || !incomes ? <p role="status" className="muted">正在读取规划…</p>
@@ -68,7 +68,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
       : <>
         <Usual review={review}/>
         {shown ? <Steps interval={shown} review={review} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)} generation={review.generation}/>
-          : <div className="empty"><span className="empty-mark">¥</span><h2>还没有可比较的盘点区间</h2><p>需要至少两次完整盘点，并在这段时间内记录月度收入。{review.incomplete_count > 0 && `有 ${review.incomplete_count} 次不完整盘点，补齐后才能参与。`}</p></div>}
+          : <div className="empty"><span className="empty-mark">¥</span><h2>还没有可比较的盘点区间</h2><p>需要至少两次完整且范围可比的盘点；收入缺项不抹去资产事实。{review.incomplete_count > 0 && `有 ${review.incomplete_count} 次不完整盘点，补齐后才能参与。`}</p></div>}
         {newest.length > 0 && <Intervals intervals={newest} selected={shown?.snapshot_id ?? null} onSelect={setSelected}/>}
         <IncomeTable incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/>
       </>}
@@ -77,31 +77,16 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
 }
 
 function Usual({ review }: { review: PlanReview }) {
-  const s = review.stats, m = (v: string | null) => (v === null ? '—' : money(v));
-  return <>
-    <div className="ui-metrics ui-card" aria-label="常态储蓄">
-      <article><span>常态月储蓄（中位数）</span><strong>{m(s.median_monthly_saving_cents)}</strong></article>
-      <article><span>月储蓄平均（按时长加权）</span><strong>{m(s.mean_monthly_saving_cents)}</strong></article>
-      <article><span>常态月支出（中位数）</span><strong>{m(s.median_monthly_spend_cents)}</strong></article>
-      <article><span>参与统计的区间</span><strong>{s.count} 个</strong>{s.low_sample && <small className="muted">样本少，仅供参考</small>}</article>
-    </div>
-    <p className="muted small">{s.latest_date ? `统计近 12 个月内（${s.window_from} 之后）结束的区间，最新完整盘点 ${s.latest_date}。` : '还没有完整盘点。'}只有一个区间时，「常态」就是这一期本身，含全部一次性消费。标为一次性变动、账户范围变化或未记录收入的区间不参与。{review.incomplete_count > 0 && `另有 ${review.incomplete_count} 次不完整盘点未使用。`}</p>
-  </>;
-}
-
-const thresholdKey = 'thingary.plan.oneOffThreshold';
-/** 剔除大额一次性之后的每月储蓄：储蓄是「到账减去全部支出」，物品购入与重要支出都算支出；这里只是把大额的加回来看常态，仅供参考。 */
-function OneOffs({ interval, lines }: { interval: Interval; lines: Reasons['lines'] | null }) {
-  const [text, setText] = useState(() => { try { return localStorage.getItem(thresholdKey) ?? '2000'; } catch { return '2000'; } });
-  if (!lines || interval.status !== 'ok') return null;
-  const yuan = Number(text), valid = Number.isFinite(yuan) && yuan >= 0, { count, total } = largeOneOffs(lines, valid ? Math.round(yuan * 100) : 200000), adj = monthlyWithoutOneOffs(interval, total);
-  const change = (v: string) => { setText(v); try { localStorage.setItem(thresholdKey, v); } catch { /* 偏好存不下不影响使用 */ } };
-  return <div className="plan-oneoffs"><p>储蓄 = 净资产变化 − 公积金账户的变化，也就是现金与投资的增长（从公积金提取进现金的钱算现金）；物品购入、重要支出都已经花掉了（盘点只计金融资产，物品不计入净资产）。{count > 0 ? <>其中单笔不低于 <input aria-label="大额阈值（元）" className="plan-threshold" inputMode="decimal" value={text} onChange={e => change(e.target.value)}/> 元的物品购入与重要支出共 <strong>{count} 笔、{money(total.toString())}</strong>，剔除后这一期折合每月储蓄约 <strong>{adj === null ? '—' : money(adj.toString())}</strong>。</> : <>没有单笔不低于 <input aria-label="大额阈值（元）" className="plan-threshold" inputMode="decimal" value={text} onChange={e => change(e.target.value)}/> 元的物品购入或重要支出。</>}</p>
-    <p className="muted small">只是参考，不改变上面的数字，也不会自动用于退休估算。这一期里没有收入的月份仍算在月数里；失业月份请记一行「税后 0」。</p></div>;
+  const s = review.stats, m = (v: string | null | undefined) => v == null ? '—' : money(v);
+  return <><div className="ui-metrics ui-card" aria-label="历史资产参考">
+    <article><span>月均净资产变化（含估值变化）</span><strong>{m(s.mean_monthly_change_cents)}</strong></article>
+    <article><span>历史中位数（含估值变化）</span><strong>{m(s.median_monthly_change_cents)}</strong></article>
+    <article><span>最近完整盘点</span><strong>{s.latest_date ?? '待补充'}</strong></article>
+  </div><p className="muted small">近12个月的可比盘点区间；均值按天数加权，中位数每区间一票。历史参考不自动成为未来净投入。收入覆盖尚未确认。</p></>;
 }
 
 /** 复盘三段式：现状 → 变化 → 原因（PLANNING_DESIGN §4.4）。 */
-function Steps({ interval: i, review, busy, markError, onMark, generation }: { interval: Interval; review: PlanReview; busy: boolean; markError: string; onMark: () => void; generation: string }) {
+function Steps({ interval: i, busy, markError, onMark, generation }: { interval: Interval; review: PlanReview; busy: boolean; markError: string; onMark: () => void; generation: string }) {
   const [reasons, setReasons] = useState<Reasons | null>(null), [reasonError, setReasonError] = useState('');
   useEffect(() => {
     let live = true; setReasons(null); setReasonError('');
@@ -109,30 +94,22 @@ function Steps({ interval: i, review, busy, markError, onMark, generation }: { i
       .then(r => { if (live) setReasons(r); }).catch(e => { if (live) setReasonError(errorMessage(e)); });
     return () => { live = false; };
   }, [i.snapshot_id, generation]);
-  const ok = i.status === 'ok';
-  const sentence = changeSentence(i, review.stats);
+  const ok = i.delta_nw_cents !== null;
   return <article className="ui-card ui-content plan-steps" aria-label="这一期的复盘">
     <div className="ui-section-head"><h3>{dateRange(i)}</h3><span>{i.days} 天 · 两次完整盘点之间</span></div>
     <section aria-labelledby="plan-step-1"><h4 id="plan-step-1">现状</h4>
       {ok ? <dl className="plan-facts">
         <div><dt>净资产变化</dt><dd>{money(i.delta_nw_cents)}</dd></div>
-        <div><dt>税后到账</dt><dd>{money(i.income_cents)}</dd></div>
-        <div><dt>公积金缴存</dt><dd>{money(i.hpf_cents)}</dd></div>
-        {i.hpf_change_cents !== null && <div><dt>公积金账户变化</dt><dd>{money(i.hpf_change_cents)}</dd><small className="muted">{BigInt(i.hpf_out_cents ?? '0') > 0n ? `缴存之外少了 ${money(i.hpf_out_cents)}，推算为提取` : '没有明显提取'}</small></div>}
-        <div><dt>储蓄</dt><dd>{money(i.saving_cents)}</dd><small className="muted">{i.hpf_change_cents !== null ? '现金与投资的增长' : '净资产变化'}</small></div>
-        <div><dt>支出</dt><dd>{money(i.spend_cents)}</dd></div>
-        <div><dt>储蓄率</dt><dd>{rateText(i.rate_hundredths)}</dd></div>
-      </dl> : <p className="muted">{statusText[i.status]}，这一期没有储蓄数字。{i.status === 'no_income' && '在这段时间内记录月度收入后即可计算。'}</p>}
-      {ok && savingViews(i).length > 1 && <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="三种储蓄口径"><table className="ui-table plan-views"><thead><tr><th>口径</th><th className="amount">本期合计</th><th className="amount">每月</th><th className="amount">占比</th><th>含义</th></tr></thead>
-        <tbody>{savingViews(i).map(v => <tr key={v.id}><td>{v.label}</td><td className="amount">{money(v.total.toString())}</td><td className="amount">{money(v.monthly.toString())}</td><td className="amount">{rateText(v.rate_hundredths)}</td><td className="muted small">{v.note}</td></tr>)}</tbody></table></div>}
-      {i.income_possibly_missing && ok && <p className="muted small">这一期的收入记录少于整月数，可能漏记；数字仍按已记录的计算。</p>}
+        <div><dt>已记录到账收入</dt><dd>{money(i.income_cents)}</dd></div>
+        <div><dt>已记录公积金缴存</dt><dd>{money(i.hpf_cents)}</dd></div>
+        <div><dt>公积金账户变化</dt><dd>{money(i.hpf_change_cents)}</dd></div>
+      </dl> : <p className="muted">{statusText[i.status]}；已记录收入 {money(i.income_cents)}，公积金缴存 {money(i.hpf_cents)}。</p>}
+      <p className="muted small">收入覆盖待核对。净资产变化含估值变化，不能反推消费、真实储蓄或储蓄率。</p>
     </section>
     <section aria-labelledby="plan-step-2"><h4 id="plan-step-2">变化</h4>
       {ok ? <>
-        <p>{sentence || '还没有足够的常态数据可比较。'}{i.monthly_saving_cents !== null && ` 折合每月储蓄 ${money(i.monthly_saving_cents)}。`}</p>
-        <OneOffs interval={i} lines={reasons?.lines ?? null}/>
-        {i.anomaly && <p className="notice" role="status">这一期与常态相差较大，建议在这次盘点补一条备注，或标记为一次性变动。</p>}
-        <button type="button" className="ui-btn" disabled={busy} onClick={onMark}>{i.excluded ? '取消「一次性变动」标记' : '标记为一次性变动（不计入常态）'}</button>
+        <p>本期金融净资产变化 {money(i.delta_nw_cents)}（含估值变化）。</p>
+        <button type="button" className="ui-btn" disabled={busy} onClick={onMark}>{i.excluded ? '取消「一次性变动」标记' : '标记为一次性变动（不计入历史参考）'}</button>
         {markError && <p className="error" role="alert">{markError}</p>}
       </> : <p className="muted">—</p>}
     </section>
@@ -150,14 +127,12 @@ function Steps({ interval: i, review, busy, markError, onMark, generation }: { i
 
 function Intervals({ intervals, selected, onSelect }: { intervals: Interval[]; selected: string | null; onSelect: (id: string) => void }) {
   return <article className="ui-card ui-content"><div className="ui-section-head"><h3>各区间</h3><span>点一行查看复盘</span></div>
-    <table className="ui-table plan-intervals"><thead><tr><th>期间</th><th className="amount">税后到账</th><th className="amount">储蓄</th><th className="amount">月储蓄</th><th className="amount">储蓄率</th><th>说明</th></tr></thead>
+    <table className="ui-table plan-intervals"><thead><tr><th>期间</th><th className="amount">税后到账</th><th className="amount">金融净资产变化</th><th>覆盖</th><th>说明</th></tr></thead>
       <tbody>{intervals.map(i => <tr key={i.snapshot_id} className={i.snapshot_id === selected ? 'selected' : i.excluded || i.status !== 'ok' ? 'closed' : undefined}>
         <td><button className="link-cell" aria-pressed={i.snapshot_id === selected} onClick={() => onSelect(i.snapshot_id)}>{dateRange(i)}</button><small className="muted"> {i.days} 天</small></td>
         <td className="amount">{i.status === 'ok' || i.status === 'scope_changed' ? money(i.income_cents) : <span className="muted">—</span>}</td>
-        <td className="amount">{i.saving_cents === null ? <span className="muted">—</span> : money(i.saving_cents)}</td>
-        <td className="amount">{i.monthly_saving_cents === null ? <span className="muted">—</span> : money(i.monthly_saving_cents)}</td>
-        <td className="amount">{rateText(i.rate_hundredths)}</td>
-        <td>{i.status !== 'ok' && <span className="ui-tag">{statusText[i.status]}</span>}{i.excluded && <span className="ui-tag">一次性变动</span>}{i.anomaly && <span className="ui-tag warn">偏离常态</span>}{i.income_possibly_missing && i.status === 'ok' && <span className="ui-tag">可能漏记收入</span>}</td>
+        <td className="amount">{money(i.delta_nw_cents)}</td><td>收入覆盖待核对</td>
+        <td>{i.status !== 'ok' && <span className="ui-tag">{statusText[i.status]}</span>}{i.excluded && <span className="ui-tag">一次性变动</span>}{i.income_possibly_missing && i.status === 'ok' && <span className="ui-tag">可能漏记收入</span>}</td>
       </tr>)}</tbody></table></article>;
 }
 
@@ -165,7 +140,7 @@ function IncomeTable({ incomes, onOpen, onNew, disabled }: { incomes: IncomeList
   return <article className="ui-card ui-content"><div className="ui-section-head"><h3>月度收入</h3><span>{incomes.rows.length} 条 · 每月到账一行</span></div>
     {incomes.rows.length ? <table className="ui-table plan-income"><thead><tr><th>到账日期</th><th className="amount">税后到账</th><th className="amount">公积金缴存</th><th>备注</th></tr></thead>
       <tbody>{incomes.rows.map(r => <tr key={r.id}><td><button className="link-cell" onClick={() => onOpen(r)}>{r.fields.date}</button></td><td className="amount">{money(r.fields.net_cents)}</td><td className="amount">{money(r.fields.hpf_cents)}</td><td className="muted">{r.fields.notes}</td></tr>)}</tbody></table>
-      : <div className="empty"><span className="empty-mark">¥</span><h2>还没有收入记录</h2><p>每月记一行实际到账的税后收入和公积金缴存，才能算出支出与储蓄率。公积金提取是账户间转移，不用记。</p><button className="primary" disabled={disabled} onClick={onNew}>记一笔收入</button></div>}
+      : <div className="empty"><span className="empty-mark">¥</span><h2>还没有收入记录</h2><p>可记录实际到账的税后收入和公积金缴存；无收入记录仍能查看资产变化。公积金提取是账户间转移，不用记。</p><button className="primary" disabled={disabled} onClick={onNew}>记一笔收入</button></div>}
   </article>;
 }
 

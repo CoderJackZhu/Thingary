@@ -18,6 +18,7 @@ pub mod materials;
 pub mod modules;
 pub mod native_images;
 pub mod photos;
+pub mod plan_core;
 pub mod plan_income;
 pub mod plan_profile;
 pub mod plan_savings;

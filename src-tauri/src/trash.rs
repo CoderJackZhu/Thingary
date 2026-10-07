@@ -140,6 +140,9 @@ impl Store {
                 "物品已更改，请重新读取后再决定",
             ));
         }
+        if input.deleted {
+            crate::plan_core::protect_reference(&tx, "asset", &input.asset_id)?;
+        }
         let now = chrono::Utc::now().to_rfc3339();
         let deleted_at = input.deleted.then_some(now.as_str());
         tx.execute(

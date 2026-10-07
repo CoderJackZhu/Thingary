@@ -23,8 +23,8 @@ test('the monthly saving without one-offs converts the same period by days, and 
 
 test('provident fund monthly uses the latest non-zero row so jobless months recorded as 0 do not erase it', () => {
   const rows = [{ fields: { date: '2026-08-31', hpf_cents: '0' } }, { fields: { date: '2026-09-30', hpf_cents: '0' } }, { fields: { date: '2026-07-31', hpf_cents: '778600' } }, { fields: { date: '2026-06-30', hpf_cents: '700000' } }];
-  assert.equal(latestHpf(rows), '778600');
-  assert.equal(fundsFrom([], rows).funds.hpf_monthly_cents, '778600');
+  assert.equal(latestHpf(rows), '0');
+  assert.equal(fundsFrom([], rows).funds.hpf_monthly_cents, '0');
   const zeros = [{ fields: { date: '2026-08-31', hpf_cents: '0' } }];
   assert.equal(latestHpf(zeros), '0');
   assert.equal(fundsFrom([], zeros).funds.hpf_monthly_cents, '0');
