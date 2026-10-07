@@ -38,7 +38,9 @@ export type PensionFields = Pick<StoredProfile, 'birth_month' | 'worker' | 'regi
 export type FundsFields = { monetary_basis_date: string; fund_rules: FundRule[]; hpf_monthly_cents: string | null; personal_pension_account_id: string | null; personal_pension_balance_confirmed: boolean };
 export type EventsFields = { life_events: StoredLifeEvent[]; occurrences: Occurrence[]; costs: PlanningCore['costs'] };
 export type BudgetFields = Pick<RetireInputs, 'spend_items' | 'income_items' | 'rent_cents' | 'keep_paying_until_age' | 'keep_paying_monthly_cents' | 'keep_paying_base_cents'>;
+export type SetupFields = { basic: BasicFields; budget: BudgetFields | null; funds: FundsFields | null; pension: PensionFields | null };
 export type ProfileUpdate = { request_id: string; generation: string; expected_revision: number | null } & (
+  | { section: 'setup'; fields: SetupFields }
   | { section: 'basic'; fields: BasicFields }
   | { section: 'pension'; fields: PensionFields }
   | { section: 'funds'; fields: FundsFields }

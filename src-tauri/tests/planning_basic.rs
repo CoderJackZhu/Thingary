@@ -230,6 +230,7 @@ fn legacy_reset_confirmation_archive_and_receipt_are_one_transaction() {
     ))
     .unwrap();
     old.generation = s.generation();
+    old.profile.retire.spend_cents = Some("500000".into());
     let a = s.plan_profile_save(&old, "2026-10-07").unwrap();
     assert!(s
         .plan_profile()
@@ -462,4 +463,67 @@ fn incomplete_basic_inputs_save_as_null_and_reject_excluded_loan_or_transfer() {
         assert!(s.plan_profile_update(&changed, "2026-10-07").is_err());
         assert_eq!(s.plan_profile().unwrap().saved.unwrap().revision, 1);
     }
+}
+
+#[test]
+fn setup_is_one_revision_and_replays_all_sections_atomically() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let mut json = serde_json::to_value(input(&s)).unwrap();
+    let mut basic = json["fields"].take();
+    basic["basic"]["retirement_income"] = serde_json::json!({"mode":"manual","selected":[{"id":"annuity","source_id":"annuity","role":"other"}]});
+    json["section"] = "setup".into();
+    json["fields"] = serde_json::json!({"basic":basic,"funds":null,"pension":null,"budget":{
+        "spend_items":[],"income_items":[{"id":"annuity","label":"虚构年金","monthly_cents":"100000","start_age":60,"end_age":null,"indexed":true}],
+        "rent_cents":"0","keep_paying_until_age":null,"keep_paying_monthly_cents":"0","keep_paying_base_cents":"0"
+    }});
+    let u: Update = serde_json::from_value(json.clone()).unwrap();
+    let a = s.plan_profile_update(&u, "2026-10-07").unwrap();
+    assert_eq!(a.revision, 1);
+    assert_eq!(a.profile.retire.income_items.len(), 1);
+    assert_eq!(
+        serde_json::to_value(s.plan_profile_update(&u, "2026-10-07").unwrap()).unwrap(),
+        serde_json::to_value(&a).unwrap()
+    );
+    json["fields"]["budget"]["income_items"][0]["monthly_cents"] = "200000".into();
+    assert_eq!(
+        s.plan_profile_update(&serde_json::from_value(json.clone()).unwrap(), "2026-10-07")
+            .unwrap_err()
+            .code,
+        "REQUEST_CONFLICT"
+    );
+    json["request_id"] = uuid::Uuid::new_v4().to_string().into();
+    json["expected_revision"] = 1.into();
+    json["fields"]["budget"]["income_items"][0]["monthly_cents"] = "-1".into();
+    assert!(s
+        .plan_profile_update(&serde_json::from_value(json).unwrap(), "2026-10-07")
+        .is_err());
+    assert_eq!(
+        serde_json::to_value(s.plan_profile().unwrap().saved.unwrap()).unwrap(),
+        serde_json::to_value(&a).unwrap()
+    );
+}
+
+#[test]
+fn pension_only_partial_facts_save_without_creating_a_retirement_plan() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let mut json = serde_json::to_value(input(&s)).unwrap();
+    json["section"] = "pension".into();
+    json["fields"] = serde_json::json!({"birth_month":"1990-06","worker":null,"region":"beijing","paid_months":12,"account_balance_cents":null,"base_cents":null,"past_index_hundredths":null,"flex_months":null,"personal_pension_annual_cents":null,"marginal_tax_hundredths":null,"wage_growth_hundredths":0,"pp_return_hundredths":0,"overrides":{}});
+    let u: Update = serde_json::from_value(json).unwrap();
+    let a = s.plan_profile_update(&u, "2026-10-07").unwrap();
+    assert_eq!(a.profile.paid_months, Some(12));
+    assert!(a.profile.retire.basic.is_none());
+    assert_eq!(a.profile.retire.target_age, None);
+    let mut b = input(&s);
+    b.request_id = uuid::Uuid::new_v4().to_string();
+    b.expected_revision = Some(1);
+    assert!(s
+        .plan_profile_update(&b, "2026-10-07")
+        .unwrap()
+        .profile
+        .retire
+        .legacy_definition
+        .is_none());
 }

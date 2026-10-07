@@ -366,6 +366,14 @@ pub struct BudgetFields {
     pub keep_paying_base_cents: String,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SetupFields {
+    pub basic: BasicFields,
+    pub budget: Option<BudgetFields>,
+    pub funds: Option<FundsFields>,
+    pub pension: Option<PensionFields>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(
     tag = "section",
     content = "fields",
@@ -373,6 +381,7 @@ pub struct BudgetFields {
     deny_unknown_fields
 )]
 pub enum Section {
+    Setup(Box<SetupFields>),
     Basic(BasicFields),
     Pension(PensionFields),
     Funds(FundsFields),
@@ -437,9 +446,35 @@ impl Update {
     pub(crate) fn merge(&self, old: Option<&Profile>, today: &str) -> Result<Profile> {
         let mut p = old.cloned().unwrap_or_else(empty_profile);
         match &self.section {
+            Section::Setup(f) => {
+                // Capture the original definition before any supporting sections change.
+                // Validate/persist only the final profile in the caller's single transaction.
+                let apply = |section: Section, old: Option<&Profile>| {
+                    Update {
+                        request_id: self.request_id.clone(),
+                        generation: self.generation.clone(),
+                        expected_revision: self.expected_revision,
+                        section,
+                    }
+                    .merge(old, today)
+                };
+                p = apply(Section::Basic(f.basic.clone()), old)?;
+                if let Some(v) = &f.budget {
+                    p = apply(Section::Budget(v.clone()), Some(&p))?;
+                }
+                if let Some(v) = &f.funds {
+                    p = apply(Section::Funds(v.clone()), Some(&p))?;
+                }
+                if let Some(v) = &f.pension {
+                    if v.birth_month != f.basic.birth_month {
+                        return Err(bad("目标与养老金出生年月须一致"));
+                    }
+                    p = apply(Section::Pension(v.clone()), Some(&p))?;
+                }
+            }
             Section::Basic(f) => {
                 if let Some(o) = old {
-                    if o.retire.basic.is_none() {
+                    if o.retire.basic.is_none() && o.retire.has_legacy_plan() {
                         if !f.confirm_legacy_replacement {
                             return Err(bad("重设原规划须明确确认差异"));
                         }

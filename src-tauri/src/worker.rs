@@ -119,7 +119,8 @@ fn has_personal_records(store: &Store) -> Result<bool> {
         "SELECT EXISTS(SELECT 1 FROM assets) OR EXISTS(SELECT 1 FROM wishlist_items)
          OR EXISTS(SELECT 1 FROM fin_accounts) OR EXISTS(SELECT 1 FROM fin_snapshots)
          OR EXISTS(SELECT 1 FROM expenses) OR EXISTS(SELECT 1 FROM recurring_plans)
-         OR EXISTS(SELECT 1 FROM plan_payments) OR EXISTS(SELECT 1 FROM virtual_assets)",
+         OR EXISTS(SELECT 1 FROM plan_payments) OR EXISTS(SELECT 1 FROM virtual_assets)
+         OR EXISTS(SELECT 1 FROM plan_profile) OR EXISTS(SELECT 1 FROM plan_income)",
         [],
         |r| r.get(0),
     )?)
@@ -733,6 +734,26 @@ mod tests {
             restarted.call(|s| Ok(s.generation())).unwrap(),
             real_generation
         );
+    }
+
+    #[test]
+    fn a_saved_basic_plan_is_a_personal_record_on_restart() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("fictional-library");
+        {
+            let mut s = Store::open(&root).unwrap();
+            let mut input: crate::plan_basic::Update = serde_json::from_str(include_str!(
+                "../../tests/fixtures/planning-basic/update.json"
+            ))
+            .unwrap();
+            input.generation = s.generation();
+            s.plan_profile_update(&input, "2026-10-07").unwrap();
+        }
+        let worker = Worker::start(root.clone()).unwrap();
+        let status = worker.demo_status().unwrap();
+        assert!(status.started);
+        assert!(!status.active);
+        assert!(root.join("personal-started").exists());
     }
 
     #[test]

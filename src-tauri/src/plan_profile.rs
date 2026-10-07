@@ -273,6 +273,15 @@ fn money(value: &str, positive: bool, label: &str) -> Result<i64> {
 }
 
 impl Retire {
+    pub(crate) fn has_legacy_plan(&self) -> bool {
+        self.setup_completed
+            || !self.saving_phases.is_empty()
+            || self.route_id.is_some()
+            || self.spend_cents.is_some()
+            || !self.spend_items.is_empty()
+            || !self.income_items.is_empty()
+            || !self.life_events.is_empty()
+    }
     fn validate_items(&self) -> Result<()> {
         if self.spend_items.len() > MAX_ITEMS || self.income_items.len() > MAX_ITEMS {
             return Err(bad("PROFILE_RETIRE", "支出项与收入项各最多 20 个"));
@@ -402,6 +411,7 @@ impl Profile {
     pub fn validate(&self, today: &str) -> Result<()> {
         let basic = self.retire.basic.is_some();
         if !basic
+            && self.retire.has_legacy_plan()
             && [
                 self.birth_month.is_none(),
                 self.worker.is_none(),
@@ -528,7 +538,7 @@ pub(crate) fn validate_retire(r: &Retire, a: &Assumptions, today: &str) -> Resul
     }
     if r.target_age
         .is_some_and(|v| !(20..r.horizon_age).contains(&v))
-        || (!basic && r.target_age.is_none())
+        || (!basic && r.has_legacy_plan() && r.target_age.is_none())
     {
         return Err(bad(
             "PROFILE_RETIRE",

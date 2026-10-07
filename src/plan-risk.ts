@@ -38,7 +38,7 @@ type Pen = { monthly_cents: number; lump_cents: number; unlock_age_months: numbe
 
 /** 逐月推演 n 条路径；每年抽一次收益（对数正态，中位数＝假设值），年内按月摊开。分块让出线程，界面不卡。 */
 export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; progress?: (done: number) => void } = {}): Promise<MonteCarlo> {
-  const N = Math.max(1, P.horizon_months - P.now_months), T = table(P), reqArr = requiredAt(P), savings = savingsOf(P), due = startPaymentsOf(P);
+  const N = Math.max(1, P.horizon_months - P.now_months), T = table(P), reqArr = requiredAt(P), savings = savingsOf(P), due = startPaymentsOf(P), retiredDue = startPaymentsOf(P, 'retired');
   const S = Math.floor((N - 1) / 12) + 1;
   const values = new Float64Array((S + 1) * n), finals = new Float64Array(n);
   const rand = mulberry32(opts.seed ?? seedOf(P));
@@ -49,6 +49,7 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
   const oneOff = oneOffsOf(P);
   const pens = new Map<number, Pen>();
   const penAt = (m: number) => { let p = pens.get(m); if (!p) { p = P.pension_at(m); pens.set(m, p); } return p; };
+  const basicPension = P.input_mode === 'basic' ? penAt(P.target_months) : null;
   let ok = 0;
   const fiMonths: number[] = [];
   for (let i = 0; i < n; i++) {
@@ -63,9 +64,10 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
         if (P.mode === 'fire' ? m >= P.target_months && good : m >= P.target_months) { retire = m; pen = penAt(m); }
       }
       if (t % 12 === 0) values[(t / 12) * n + i] = Math.max(0, a);
-      const upfront=due[t], paidUpfront=Math.min(Math.max(0,a),upfront);
+      const upfront=retire < 0 ? due[t] : retiredDue[t], paidUpfront=Math.min(Math.max(0,a),upfront);
       a-=upfront; if (a<0) failed=true;
-      if (retire >= 0 && !unlocked && pen!.unlock_age_months <= m) { unlocked = true; a += pen!.lump_cents; }
+      const pool = basicPension ?? pen;
+      if (!unlocked && pool && pool.unlock_age_months <= m && (basicPension !== null || retire >= 0)) { unlocked = true; a += pool.lump_cents; }
       if (retire < 0) { a = (a > 0 ? a * gb ** (t === 0 ? P.first_month_fraction ?? 1 : 1) : a) + savings[t] + upfront; if (a < 0) failed = true; }
       else {
         const spend = T.spend[t], income = T.income[t] + (m >= pen!.unlock_age_months ? pen!.monthly_cents * (t === 0 ? P.first_month_fraction ?? 1 : 1) : 0);

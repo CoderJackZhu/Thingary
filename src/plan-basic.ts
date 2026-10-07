@@ -31,7 +31,7 @@ export function solveBasicRequirement(compile: (cents: number, before: number, a
     const out = outcome(fixed, proj);
     return out.success && out.funded_at_goal;
   };
-  const due = startPaymentsOf(zero)[0] ?? 0, upfront = oneOffsOf(zero)[0] ?? 0;
+  const due = startPaymentsOf(zero, zero.target_months <= zero.now_months ? 'retired' : 'accumulation')[0] ?? 0, upfront = oneOffsOf(zero)[0] ?? 0;
   if (zero.assets_cents - upfront < due) return { ...rates, status: 'payment_constraint', message: '起点已有资金不足以支付首月付款；月底投入不能补月初支付，请补现有资金或调整付款时间。' };
   if (run(0)) return { ...rates, status: 'no_positive_contribution', monthly_cents: '0' };
   if (zero.target_months <= zero.now_months) return { ...rates, status: 'not_applicable', message: `没有目标前积累区间；当前退休所需 ${Math.ceil(required(zero, zero.now_months))} 分，需核对现有资金。` };

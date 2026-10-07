@@ -95,13 +95,12 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 ### 规划首次设置
 
-`PlanningPage` 共用 `PlanningSetup`，五步草稿最终通过一次 `plan_profile_save` 及原有请求回执保存。`planning-profile.ts` 共用个人资料表单转换，`planning-setup.ts` 校验显式阶段并保留全部事件与实际发生核对。`retire.setup_completed` 缺省为 false，旧记录反序列化兼容；不执行资产或收入迁移，不新增事实写入命令。组件退出清除草稿，待确认保存仍进入共享回执核对流程。完成后刷新目标／养老金数据；职业预设只供旧记录兼容，新引导使用自定义阶段。
+`PlanningPage` 按任务进入，`PlanningSetup` 四步草稿在当前内存叠加到同批来源，通过真实 `buildBasicCapabilities` 预览。最后使用一次 `plan_profile_update` 的setup分区，包含basic及可选budget/funds/pension，后端先捕获原假设，再合并所选分区，校验最终资料，同事务保存revision与回执。关闭不留草稿；未确认回执阻止新请求覆盖。独立养老金可以只保存已知事实，不伪造basic或目标。
 
+### 通用规划基础
 
-### 通用规划基础 core 分支
-
-本分支已实现持久契约/分区事务及纯计算，状态为待独立Review及UI联合原生验收。`plan_basic.rs` 与 `plan-basic-contract.ts` 区分可空持久资料和完整北京估算输入；唯一plan_profile、core、life_events与发生事实不复制。`plan_profile_update`在同一事务合并允许分区，保留共同revision及回执；明确重设同时保存原假设只读定义，不复制养老事实、付款或余债。basic存在即新模式，旧载荷启动不转换。
+领域分支与界面分支已集成，实际检查范围见[开发文档](DEVELOPMENT.md#通用规划基础联合验收)。`plan_basic.rs` 与 `plan-basic-contract.ts` 区分可空持久资料和完整北京估算输入；唯一plan_profile、core、life_events与发生事实不复制。`plan_profile_update`在同一事务合并允许分区，保留共同revision及回执；明确重设同时保存原假设只读定义，不复制养老事实、付款或余债。basic存在即新模式，旧载荷启动不转换。
 
 `plan-basic.ts`编译固定目标需求与明确投入预测。需求候选仅局部存在，退休后不接回积累额；北京缴费起止及基数独立于投入符号。预算两份费用作用域、收入选择与受限池均按稳定来源归一化。所设/两段实际收益各降低200 bps分别求解。basic的requiredAt用一次倒推，逐月独立required核验等价，原阶段引擎保留。完整预算判定与固定收益模拟一致，零终点无缺口不要求额外余钱。
 
-`planning_sources`在Worker同一任务读取模块状态，Store同一只读事务返回独立Read来源。财富关闭不会进入财富读函数；总览也采用实际开关。`planning-service.ts`共用写入未知核对并使旧读取票据失效；不缓存账户。`plan-summary.ts`、`plan-wishes.ts`、`plan-view.ts`按能力消费，未知预计投入不输出候选FI日期。接口与UI接入要求见[数据规格](PLANNING_DATA_SCENARIOS_DESIGN.md#第一批-core-数值与读取接入)。新UI由独立分支实现，旧TSX的完整保存入口尚待其替换；本分支编译通过不等于界面已集成。
+`planning_sources`在Worker同一任务读取模块状态，Store同一只读事务返回独立Read来源。财富关闭不会进入财富读函数；总览也采用实际开关。`planning-service.ts`共用写入未知核对并使旧读取票据失效；不缓存账户。`plan-summary.ts`、`plan-wishes.ts`、`plan-view.ts`按能力消费，未知预计投入不输出候选FI日期。接口与UI接入要求见[数据规格](PLANNING_DATA_SCENARIOS_DESIGN.md#第一批-core-数值与读取接入)。通用界面使用默认真实provider；虚构状态夹具仅在浏览器预览显式替换。首页与心愿使用同批已保存来源，临时投入只存在详情；后台消费按积累／退休区间选择月初费用，basic受限池在确认节点独立到账一次。原模式保留兼容。

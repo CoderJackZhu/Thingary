@@ -108,3 +108,10 @@ npm run tauri -- build --bundles app
 ### 规划首次设置验收
 
 `tests/planning-setup.test.mjs` 覆盖草稿无副作用、未知与明确零、负数阶段、费用包含关系、实际付款 ID 保留及资产事实不变。Rust `guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restore` 覆盖旧资料兼容、规划保存前后账户／盘点／收入／复盘不变与备份恢复。虚构预览 `/visual-preview.html?section=planning&plan-budget=set&plan-route=soe&plan-events=1` 用于旧计划的首次引导；`plan-profile=empty`、`state=save-error` 用于空白与保存错误。检查跳过、返回步骤、重复进入、账户名称、1440×940 与 800×600、键盘和保存后刷新。原生验收使用独立身份，不打开正式资料库。
+
+
+## 通用规划基础联合验收
+
+第一批将真实 `buildBasicCapabilities` 绑定到基础界面，引导通过只读内存分区叠加预览，最终setup一次事务保存；收入明细、资金规则和养老字段不能分次留下半成品。`tests/planning-basic-service-integration.test.mjs`、`planning-basic-consumers-integration.test.mjs` 与 `planning-basic-ledger-integration.test.mjs` 覆盖真实provider、来源同批、未知／临时隔离、费用作用域、受限池一次解锁、原回执防覆盖；Rustplanning_basic覆盖引导完整保存、失败回滚、重放和独立养老金。Worker覆盖仅保存规划后重启仍进入个人库。
+
+浏览器 `?section=planning&plan-basic=unknown&capabilities=real` 使用虚构来源和真实纯计算；不加capabilities参数的异常状态仍为展示夹具，不能当数值验收。原生使用独立bundle标识 `local.thingary.basic.acceptance.20261007`，实测新建模拟起点、添加手填退休收入、保存后投入保持null、目标／首页需求一致、重启恢复。未完成全套原生VoiceOver、真实中文输入法组合及三主题全窗口矩阵；浏览器证据不替代这些范围。未访问正式库，不代表正式包已安装或公开发布。

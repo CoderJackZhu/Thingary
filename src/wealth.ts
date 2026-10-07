@@ -103,13 +103,22 @@ export class Unresolved extends Error {}
  * its id; a committed one is re-sent unchanged, which returns the original result.
  */
 export async function submit<T>(pending: Pending): Promise<T> {
+  const existing = storedPending();
+  if (existing && JSON.stringify(existing) !== JSON.stringify(pending)) {
+    throw new Unresolved('还有一个提交结果待核对，原请求已保留；请先核对后再保存。');
+  }
   try { localStorage.setItem(pendingKey, JSON.stringify(pending)); }
   catch { throw new Error('无法记录本次请求，尚未提交，请检查可用空间后重试。'); }
   try { const result = await invoke<T>(pending.command, { input: pending.input }); clearPending(); return result; }
   catch (e) {
     const outcome = await resolvePending(pending).catch(() => 'unknown' as const);
-    if (outcome === 'saved') return invoke<T>(pending.command, { input: pending.input });
-    if (outcome === 'unknown') throw new Unresolved(errorMessage(e) + ' 暂时无法确认是否已保存，原请求已保留，可稍后在财富页核对。');
+    if (outcome === 'saved') {
+      // Keep the exact receipt until the replay reply is obtained as well.
+      localStorage.setItem(pendingKey, JSON.stringify(pending));
+      try { const result = await invoke<T>(pending.command, { input: pending.input }); clearPending(); return result; }
+      catch { throw new Unresolved('已确认保存，但暂时无法读取回执；原请求已保留，请继续核对。'); }
+    }
+    if (outcome === 'unknown') throw new Unresolved(errorMessage(e) + ' 暂时无法确认是否已保存，原请求已保留，请在当前页面核对。');
     throw e;
   }
 }
