@@ -18,17 +18,19 @@ export function finishSetup(r: RetireInputs, core: PlanningCore, phases: SetupPh
   return finishStages(r, core, phases, annual, nowMonths);
 }
 export function validateSetupGoal(r: RetireInputs, nowMonths: number) {
-  if (!Number.isInteger(r.target_age) || r.target_age < 20 || r.target_age * 12 <= nowMonths || r.target_age > 109) throw new Error('目标年龄须至少 20 岁、晚于当前年龄，且不超过 109 岁。');
+  if (r.target_age === null || !Number.isInteger(r.target_age) || r.target_age < 20 || r.target_age * 12 <= nowMonths || r.target_age > 109) throw new Error('目标年龄须至少 20 岁、晚于当前年龄，且不超过 109 岁。');
   if (!Number.isInteger(r.horizon_age) || r.horizon_age < 70 || r.horizon_age > 110 || r.horizon_age <= r.target_age) throw new Error('规划终点须为 70 到 110 岁，并晚于目标年龄。');
   if (r.spend_cents == null || !/^\d+$/.test(r.spend_cents) || BigInt(r.spend_cents) <= 0n) throw new Error('请明确填写大于 0 的退休后每月生活预算。');
   if (!Number.isInteger(r.emergency_months) || r.emergency_months < 0 || r.emergency_months > 36) throw new Error('应急金须为 0 到 36 个月。');
 }
 function finishStages(r: RetireInputs, core: PlanningCore, phases: SetupPhase[], annual: string, nowMonths: number): RetireInputs {
   if (!phases.length) throw new Error('请设置从现在开始的未来净投入。');
+  const target = r.target_age;
+  if (target === null) throw new Error("目标年龄未知");
   const saving_phases: StoredSavingPhase[] = phases.map((p, i) => {
     if (!p.label.trim()) throw new Error('请填写阶段名称。');
     if (!/^-?\d+$/.test(p.monthly) || !Number.isSafeInteger(Number(p.monthly))) throw new Error(`${p.label}：请填写每月净投入；未知不能当作 0。`);
-    if (!Number.isInteger(p.from_age_months) || (i === 0 ? p.from_age_months !== 0 : p.from_age_months <= Math.max(nowMonths, phases[i - 1].from_age_months)) || p.from_age_months >= r.target_age * 12) throw new Error('第一阶段从现在开始；后续阶段须依年龄递增并早于目标年龄。');
+    if (!Number.isInteger(p.from_age_months) || (i === 0 ? p.from_age_months !== 0 : p.from_age_months <= Math.max(nowMonths, phases[i - 1].from_age_months)) || p.from_age_months >= target * 12) throw new Error('第一阶段从现在开始；后续阶段须依年龄递增并早于目标年龄。');
     return { id: p.id, label: p.label.trim(), from_age_months: p.from_age_months, monthly_cents: Number(p.monthly) };
   });
   for (const rule of core.fund_rules) if (!Number.isInteger(rule.share_hundredths) || rule.share_hundredths < 0 || rule.share_hundredths > 10000) throw new Error('账户参与比例须为 0 到 100%。');

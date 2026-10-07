@@ -83,7 +83,7 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 [低频整理、盘点与心愿决策设计](LOW_FREQUENCY_REVIEW_DESIGN.md)维护目标行为与技术约束。A 阶段（心愿决策与盘点表达）、B 阶段（全局搜索）与 C 阶段（考虑替换的物品、逐账户金额盘点）已纳入 schema 27／28、搜索投影与各模块说明，完成 Review 修复、自动检查与隔离核心原生验收。原 C2 批量确认已按用户决定撤销；系统输入法组合、VoiceOver 与通知送达仍未原生验证。实施前核对最新 schema 与实际代码，不预占数据库或应用版本号。
 
-规划持久化沿用 `plan_income`（schema29）与单行 `plan_profile` JSON（schema30），写入采用 `feature_requests`、generation 和 expected_revision。当前源码 schema31 只提升兼容版本，不重写旧 ID、零值、显式阶段与回执。`retire.core` 是可选严格契约：资金规则、T 日期、未来公积金、个人养老金账户／余额确认、费用参考额与实际发生分项；校验在 `plan_core.rs`，与个人资料保存同事务，备份采用相同结构和引用校验。旧缺省 core 仍可读，完整测算需补确认。`Saved.reference_issues` 是实时只读投影，不写入 profile；来源被更正后保留原关联并阻止完整结论。删除与 purge 拒绝仍被引用的来源，先在规划表单解除关联。
+规划持久化沿用 `plan_income`（schema29）与单行 `plan_profile` JSON（schema30），写入采用 `feature_requests`、generation 和 expected_revision。当前源码 schema32 只提升严格basic/null载荷兼容版本，不重写旧 ID、零值、显式阶段与回执。`retire.core` 是可选严格契约：资金规则、T 日期、未来公积金、个人养老金账户／余额确认、费用参考额与实际发生分项；校验在 `plan_core.rs`，与个人资料保存同事务，备份采用相同结构和引用校验。旧缺省 core 仍可读，完整测算需补确认。`Saved.reference_issues` 是实时只读投影，不写入 profile；来源被更正后保留原关联并阻止完整结论。删除与 purge 拒绝仍被引用的来源，先在规划表单解除关联。
 
 `plan_savings.rs` 与浏览器 `plan.ts` 都保留资产事实并新增 `mean_monthly_change_cents`、`median_monthly_change_cents`、`change_count`；旧 saving/spend/rate 字段仅为兼容投影，不作默认 UI 或未来假设。收入覆盖始终未确认。`plan-core.ts` 统一资金范围与现实发生缺项；`buildRetireCalc` 是摘要、目标、退休详情和心愿估算共同入口，所有路径通过 `plan-ledger.ts` 月账本，反求／风险路径复用同一本账。初始现金不扣债务本金，余额分池；B 收盘日与 T 金额基准独立，普通首期流按剩余天数折算，期初月供／持有费先支付，月底投入及收入不能掩盖期初不足。名义金额与养老金折现采用同一首期时间比例和 B/T 系数转换。`plan-events.ts` 保留过去月份偏移，逾期不重排；已发生首付按明确吸收关系跳过，B 后付款只扣一次，余债按余期延续，持有费独立。`pensionTable` 缓存各辞职年龄估算，独立受限公积金／个人养老金只在领取时转回可用池；本金不会在两个池收益。
 
@@ -95,4 +95,12 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 ### 规划首次设置
 
-`PlanningPage` 共用 `PlanningSetup`，五步草稿最终通过一次 `plan_profile_save` 及原有请求回执保存。`planning-profile.ts` 共用个人资料表单转换，`planning-setup.ts` 校验显式阶段并保留全部事件与实际发生核对。`retire.setup_completed` 缺省为 false，旧记录反序列化兼容；不执行资产或收入迁移，不新增事实写入命令。组件退出清除草稿，待确认保存仍进入共享回执核对流程。完成后刷新目标／养老金数据；职业预设只供旧记录兼容，新引导使用自定义阶段。
+`PlanningPage` 按任务进入，`PlanningSetup` 四步草稿在当前内存叠加到同批来源，通过真实 `buildBasicCapabilities` 预览。最后使用一次 `plan_profile_update` 的setup分区，包含basic及可选budget/funds/pension，后端先捕获原假设，再合并所选分区，校验最终资料，同事务保存revision与回执。关闭不留草稿；未确认回执阻止新请求覆盖。独立养老金可以只保存已知事实，不伪造basic或目标。
+
+### 通用规划基础
+
+领域分支与界面分支已集成，实际检查范围见[开发文档](DEVELOPMENT.md#通用规划基础联合验收)。`plan_basic.rs` 与 `plan-basic-contract.ts` 区分可空持久资料和完整北京估算输入；唯一plan_profile、core、life_events与发生事实不复制。`plan_profile_update`在同一事务合并允许分区，保留共同revision及回执；明确重设同时保存原假设只读定义，不复制养老事实、付款或余债。basic存在即新模式，旧载荷启动不转换。
+
+`plan-basic.ts`编译固定目标需求与明确投入预测。需求候选仅局部存在，退休后不接回积累额；北京缴费起止及基数独立于投入符号。预算两份费用作用域、收入选择与受限池均按稳定来源归一化。所设/两段实际收益各降低200 bps分别求解。basic的requiredAt用一次倒推，逐月独立required核验等价，原阶段引擎保留。完整预算判定与固定收益模拟一致，零终点无缺口不要求额外余钱。
+
+`planning_sources`在Worker同一任务读取模块状态，Store同一只读事务返回独立Read来源。财富关闭不会进入财富读函数；总览也采用实际开关。`planning-service.ts`共用写入未知核对并使旧读取票据失效；不缓存账户。`plan-summary.ts`、`plan-wishes.ts`、`plan-view.ts`按能力消费，未知预计投入不输出候选FI日期。接口与UI接入要求见[数据规格](PLANNING_DATA_SCENARIOS_DESIGN.md#第一批-core-数值与读取接入)。通用界面使用默认真实provider；虚构状态夹具仅在浏览器预览显式替换。首页与心愿使用同批已保存来源，临时投入只存在详情；后台消费按积累／退休区间选择月初费用，basic受限池在确认节点独立到账一次。原模式保留兼容。

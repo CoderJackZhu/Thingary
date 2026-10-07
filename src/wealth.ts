@@ -86,7 +86,7 @@ export function cellText(cell: CompareCell, side: Side): string {
 export const pendingKey = 'thingary.wealth-pending.v1';
 export type TrashChange = { request_id: string; generation: string; kind: TrashKind; id: string; expected_revision: number; deleted: boolean };
 export type TrashKind = 'snapshot' | 'account' | 'expense' | 'income' | 'plan' | 'payment' | 'wish' | 'virtual' | 'topup' | 'balance';
-export type Pending = { command: 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save'; input: AccountSave | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | { request_id: string; generation: string }; label: string };
+export type Pending = { command: 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'plan_profile_update' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save'; input: import('./plan.ts').ProfileUpdate | AccountSave | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | { request_id: string; generation: string }; label: string };
 export function storedPending(): Pending | null {
   try { const p = JSON.parse(localStorage.getItem(pendingKey) || 'null'); if (p && typeof p.command === 'string' && typeof p.input?.request_id === 'string') return p; } catch { /* unreadable receipt is ignored */ }
   return null;
@@ -103,13 +103,22 @@ export class Unresolved extends Error {}
  * its id; a committed one is re-sent unchanged, which returns the original result.
  */
 export async function submit<T>(pending: Pending): Promise<T> {
+  const existing = storedPending();
+  if (existing && JSON.stringify(existing) !== JSON.stringify(pending)) {
+    throw new Unresolved('还有一个提交结果待核对，原请求已保留；请先核对后再保存。');
+  }
   try { localStorage.setItem(pendingKey, JSON.stringify(pending)); }
   catch { throw new Error('无法记录本次请求，尚未提交，请检查可用空间后重试。'); }
   try { const result = await invoke<T>(pending.command, { input: pending.input }); clearPending(); return result; }
   catch (e) {
     const outcome = await resolvePending(pending).catch(() => 'unknown' as const);
-    if (outcome === 'saved') return invoke<T>(pending.command, { input: pending.input });
-    if (outcome === 'unknown') throw new Unresolved(errorMessage(e) + ' 暂时无法确认是否已保存，原请求已保留，可稍后在财富页核对。');
+    if (outcome === 'saved') {
+      // Keep the exact receipt until the replay reply is obtained as well.
+      localStorage.setItem(pendingKey, JSON.stringify(pending));
+      try { const result = await invoke<T>(pending.command, { input: pending.input }); clearPending(); return result; }
+      catch { throw new Unresolved('已确认保存，但暂时无法读取回执；原请求已保留，请继续核对。'); }
+    }
+    if (outcome === 'unknown') throw new Unresolved(errorMessage(e) + ' 暂时无法确认是否已保存，原请求已保留，请在当前页面核对。');
     throw e;
   }
 }

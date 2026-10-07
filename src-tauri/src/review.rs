@@ -43,6 +43,9 @@ pub struct PlanSources {
     pub snapshot: Read<Option<crate::wealth::Snapshot>>,
     pub snapshot_id: Option<String>,
     pub snapshot_date: Option<String>,
+    pub generation: String,
+    pub write_version: u64,
+    pub modules: PlanningModules,
 }
 impl Store {
     pub fn review_overview(&self, year: Option<i32>, today: &str) -> Result<Overview> {
@@ -55,6 +58,15 @@ impl Store {
         today: &str,
         planning: bool,
     ) -> Result<Overview> {
+        self.review_overview_with_modules(year, today, planning, true)
+    }
+    pub fn review_overview_with_modules(
+        &self,
+        year: Option<i32>,
+        today: &str,
+        planning: bool,
+        wealth_enabled: bool,
+    ) -> Result<Overview> {
         crate::domain::date(today)?;
         if year.is_some_and(|y| !(1..=9999).contains(&y)) {
             return Err(Error::new("QUERY", "年份无效"));
@@ -65,7 +77,11 @@ impl Store {
         let physical = self.overview("held", today).into();
         #[cfg(test)]
         self.hit("review.after_physical")?;
-        let wealth: Read<crate::wealth::Summary> = self.wealth_summary().into();
+        let wealth: Read<crate::wealth::Summary> = if wealth_enabled {
+            self.wealth_summary().into()
+        } else {
+            disabled()
+        };
         #[cfg(test)]
         self.hit("review.after_wealth")?;
         let planning = planning.then(|| {
@@ -81,12 +97,22 @@ impl Store {
                 Read::Error(e) => (None, None, Read::Error(Error::new(&e.code, &e.message))),
             };
             PlanSources {
-                review: self.plan_review_in_transaction().into(),
+                review: if wealth_enabled {
+                    self.plan_review_in_transaction().into()
+                } else {
+                    disabled()
+                },
                 incomes: self.plan_income_list().map(|list| list.rows).into(),
                 profile: self.plan_profile().into(),
                 snapshot,
                 snapshot_id,
                 snapshot_date,
+                generation: self.generation(),
+                write_version: self.conn().map(|c| c.total_changes()).unwrap_or(0),
+                modules: PlanningModules {
+                    planning,
+                    wealth: wealth_enabled,
+                },
             }
         });
         let result = Overview {
@@ -99,30 +125,37 @@ impl Store {
             expenses: self.expense_view(year).into(),
             recurring: self.recurring_overview(today).into(),
             virtual_assets: self.virtual_overview(today).into(),
-            recent: self
-                // One unified projection: snapshot facts ride the same read as
-                // every other event, so the frontend never merges them again.
-                .timeline_with_snapshots(
+            recent: (if wealth_enabled {
+                self.timeline_with_snapshots(
                     &crate::timeline::Query {
                         filter: "all".into(),
                         asset_id: None,
                     },
                     today,
                 )
-                .map(|p| {
-                    p.dated
-                        .into_iter()
-                        .filter(|e| {
-                            year.is_none_or(|y| {
-                                e.date
-                                    .as_ref()
-                                    .is_some_and(|d| d.starts_with(&format!("{y:04}-")))
-                            })
+            } else {
+                self.timeline(
+                    &crate::timeline::Query {
+                        filter: "all".into(),
+                        asset_id: None,
+                    },
+                    today,
+                )
+            })
+            .map(|p| {
+                p.dated
+                    .into_iter()
+                    .filter(|e| {
+                        year.is_none_or(|y| {
+                            e.date
+                                .as_ref()
+                                .is_some_and(|d| d.starts_with(&format!("{y:04}-")))
                         })
-                        .take(8)
-                        .collect()
-                })
-                .into(),
+                    })
+                    .take(8)
+                    .collect()
+            })
+            .into(),
         };
         tx.commit()?;
         Ok(result)
@@ -307,5 +340,78 @@ mod tests {
         let next = store.review_overview(Some(2026), TODAY).unwrap();
         assert_eq!(next.generation, result.generation);
         assert_eq!(value(next.expenses).spent_cents, "1150000");
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlanningModules {
+    pub planning: bool,
+    pub wealth: bool,
+}
+#[derive(Debug, Serialize)]
+pub struct PlanningSources {
+    pub generation: String,
+    pub write_version: u64,
+    pub today: String,
+    pub modules: PlanningModules,
+    pub profile: Read<crate::plan_profile::State>,
+    pub snapshot: Read<Option<crate::wealth::Snapshot>>,
+    pub accounts: Read<Vec<crate::wealth::Account>>,
+    pub review: Read<crate::plan_savings::Review>,
+    pub incomes: Read<Vec<crate::plan_income::Income>>,
+}
+fn disabled<T>() -> Read<T> {
+    Read::Error(Error::new("MODULE_DISABLED", "模块已关闭，本次未读取"))
+}
+impl Store {
+    pub fn planning_sources(
+        &self,
+        planning_enabled: bool,
+        wealth_enabled: bool,
+        today: &str,
+    ) -> Result<PlanningSources> {
+        crate::domain::date(today)?;
+        let tx = self.conn()?.unchecked_transaction()?;
+        let (profile, incomes, review) = if planning_enabled {
+            (
+                self.plan_profile().into(),
+                self.plan_income_list().map(|r| r.rows).into(),
+                if wealth_enabled {
+                    self.plan_review_in_transaction().into()
+                } else {
+                    disabled()
+                },
+            )
+        } else {
+            (disabled(), disabled(), disabled())
+        };
+        let (snapshot, accounts) = if planning_enabled && wealth_enabled {
+            let snapshot = self
+                .wealth_summary()
+                .and_then(|s| match s.points.iter().rev().find(|p| p.complete) {
+                    Some(p) => self.wealth_snapshot(&p.snapshot_id),
+                    None => Ok(None),
+                })
+                .into();
+            (snapshot, self.wealth_accounts().into())
+        } else {
+            (disabled(), disabled())
+        };
+        let result = PlanningSources {
+            generation: self.generation(),
+            write_version: self.conn()?.total_changes(),
+            today: today.into(),
+            modules: PlanningModules {
+                planning: planning_enabled,
+                wealth: wealth_enabled,
+            },
+            profile,
+            snapshot,
+            accounts,
+            review,
+            incomes,
+        };
+        tx.commit()?;
+        Ok(result)
     }
 }

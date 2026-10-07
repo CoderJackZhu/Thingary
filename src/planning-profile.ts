@@ -5,7 +5,7 @@ import { defaultAssumptions, noOverrides } from './plan-params.ts';
 export type Form = { birth: string; worker: Worker; paid: string; balance: string; base: string; past: string; flex: string; pp: string; tax: string; infl: string; wage: string; ppReturn: string;
   oWage: string; oLower: string; oUpper: string; oNotional: string; oHpf: string };
 export const toForm = (p: StoredProfile | null): Form => ({
-  birth: p ? p.birth_month + '-01' : '', worker: p?.worker ?? 'male', paid: p ? String(p.paid_months) : '', balance: p?.account_balance_cents ?? '', base: p?.base_cents ?? '',
+  birth: p?.birth_month ? p.birth_month + '-01' : '', worker: p?.worker ?? 'male', paid: p?.paid_months == null ? '' : String(p.paid_months), balance: p?.account_balance_cents ?? '', base: p?.base_cents ?? '',
   past: p?.past_index_hundredths == null ? '' : String(p.past_index_hundredths / 100), flex: String(p?.flex_months ?? 0), pp: p?.personal_pension_annual_cents ?? '0', tax: String(p?.marginal_tax_hundredths ?? 1000),
   infl: hundredthsToPct((p?.assumptions ?? defaultAssumptions).inflation_hundredths), wage: hundredthsToPct((p?.assumptions ?? defaultAssumptions).wage_growth_hundredths), ppReturn: hundredthsToPct((p?.assumptions ?? defaultAssumptions).pp_return_hundredths),
   oWage: p?.overrides.avg_wage_cents ?? '', oLower: p?.overrides.base_lower_cents ?? '', oUpper: p?.overrides.base_upper_cents ?? '',

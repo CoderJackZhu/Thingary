@@ -11,7 +11,7 @@ import { useSaver } from './RetireSidebar';
 export function PlanningCoreCard({ state, snapshot, accounts, today, reload, onPending, onEditingChange }: { state: ProfileState; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void }) {
   const [editing, setEditing] = useState(false), saver = useSaver(state, reload, onPending);
   useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
-  if (!state.saved || !snapshot) return null;
+  if (!state.saved || !snapshot || state.saved.profile.personal_pension_annual_cents === null) return null;
   const r = state.saved.profile.retire, funds = normalizeFunds(snapshot, r.core);
   return <article className="ui-card ui-content" aria-label="规划资金核对"><div className="ui-section-head"><h3>规划资金与费用<Info text="金融净资产、规划可用资金和受限资金各自计算。债务本金不先扣现金，还款按实际余期延续。资金范围及费用包含关系需要明确确认。"/></h3><button className="ui-btn" disabled={saver.busy || saver.stuck} onClick={() => setEditing(true)}>核对资金与费用</button></div>
     <p>截至 {snapshot.date} 收盘 · 金融净资产 {money(funds.net === null ? null : String(funds.net))} · 规划可用 {money(funds.missing.length || funds.available === null ? null : String(funds.available))} · 受限 {money(String(funds.restricted))} · 余债 {money(String(funds.debt))}</p>

@@ -1,53 +1,43 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
 import { Info } from './FormControls';
 import { PlanningProfileFields } from './PlanningProfileFields';
-import { toForm, profileFromForm } from './planning-profile';
-import type { Form } from './planning-profile';
-import { STALE_MONTHS, ageText, quitAges, rateText, staleMonths } from './plan';
-import type { Income, ProfileSave, ProfileState, StoredProfile } from './plan';
+import { pensionFormOf, pensionInput } from './planning-basic-forms';
+import type { PensionForm } from './planning-basic-forms';
+import { useSectionSaver } from './planning-basic-data';
+import { hasPensionProfile, STALE_MONTHS, ageText, quitAges, rateText, staleMonths } from './plan';
+import type { PlanningSources, ProfileState, StoredProfile, CompletePensionProfile } from './plan';
 import { beijing, effectiveParams, isOverridden, paramSources, verifiedText } from './plan-params';
 import type { ParamKey, Overrides } from './plan-params';
 import { ageMonthsAt, byQuitAge, project, startAgeMonths } from './plan-pension';
 import type { Projection } from './plan-pension';
-import { storedPending, submit, Unresolved } from './wealth';
-import type { Snapshot, Summary } from './wealth';
 import { normalizeFunds } from './plan-core';
 import './planning.css';
 
 const yuan = (c: number) => money(String(c));
 
-/** 个人资料与养老金估算。资料只含输入与假设；结果每次打开重算，不存库。 */
-export function PlanningPension({ focus = false, onFocusDone, today, incomes, onEditingChange, onPending }: { focus?: boolean; onFocusDone: () => void; today: string; incomes: Income[]; onEditingChange: (v: boolean) => void; onPending: () => void }) {
-  const [state, setState] = useState<ProfileState | null>(null), [snapshot, setSnapshot] = useState<Snapshot | null | undefined>(undefined);
-  const [error, setError] = useState(''), [retry, setRetry] = useState(0), [editing, setEditing] = useState(false);
-  const [quit, setQuit] = useState<number | 'start'>('start');
+/** 个人资料与养老金估算。资料只含输入与假设；结果每次打开重算，不存库。只问养老金自己的事实，不要求目标或未来投入。 */
+export function PlanningPension({ focus = false, onFocusDone, today, sources, reload, onEditingChange, onPending }: { focus?: boolean; onFocusDone: () => void; today: string; sources: PlanningSources; reload: () => void; onEditingChange: (v: boolean) => void; onPending: () => void }) {
+  const [editing, setEditing] = useState(false), [quit, setQuit] = useState<number | 'start'>('start');
+  const state = sources.profile.status === 'ready' ? sources.profile.value : null;
+  const snapshot = sources.snapshot.status === 'ready' ? sources.snapshot.value : null;
+  const entry = useRef<HTMLButtonElement | null>(null);
   // Wait for the real entry to render; navigation away drops the parent's intent.
   useEffect(() => {
-    if (!focus || !state || snapshot === undefined || error) return;
-    const entry = document.getElementById('plan-profile-edit');
-    if (entry) { entry.focus(); onFocusDone(); }
-  }, [focus, state, snapshot, error, onFocusDone]);
+    if (!focus || !state) return;
+    const el = document.getElementById('plan-profile-edit');
+    if (el) { el.focus(); onFocusDone(); }
+  }, [focus, state, onFocusDone]);
   useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
-  useEffect(() => {
-    let live = true; setError('');
-    (async () => {
-      const profile = await invoke<ProfileState>('plan_profile');
-      const summary = await invoke<Summary>('wealth_summary');
-      const latest = [...summary.points].reverse().find(p => p.complete);
-      const snap = latest ? await invoke<Snapshot | null>('wealth_snapshot', { id: latest.snapshot_id }) : null;
-      if (live) { setState(profile); setSnapshot(snap); }
-    })().catch(e => { if (live) setError(errorMessage(e)); });
-    return () => { live = false; };
-  }, [retry]);
 
   const saved = state?.saved ?? null;
   const calc = useMemo(() => {
-    if (!saved || snapshot === undefined) return null;
-    const p = saved.profile, region = effectiveParams(beijing, p.overrides);
-    const core = p.retire.core, normalized = normalizeFunds(snapshot ?? null, core), anchor = snapshot?.date ?? today;
+    if (!saved) return null;
+    const p = saved.profile;
+    if (!hasPensionProfile(p)) return null;
+    const region = effectiveParams(beijing, p.overrides);
+    const core = p.retire.core, normalized = normalizeFunds(snapshot, core), anchor = snapshot?.date ?? today;
     const basisFactor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(core?.monetary_basis_date ?? anchor)) / (86400000 * 365.25));
     const restricted = (id: string) => core?.fund_rules.some(f => f.account_id === id && f.availability === 'restricted' && f.share_hundredths === 10000);
     const funds = { hpf_balance_cents: String(normalized.housingFund), hpf_monthly_cents: String(Math.round(Number(core?.hpf_monthly_cents ?? 0) * basisFactor)), personal_pension_balance_cents: snapshot?.entries.find(e => e.account_id === core?.personal_pension_account_id && restricted(e.account_id) && e.kind !== 'housing_fund')?.amount_cents ?? '0', first_month_fraction: snapshot ? (new Date(Date.UTC(+anchor.slice(0,4),+anchor.slice(5,7),0)).getUTCDate() - +anchor.slice(8,10)) / new Date(Date.UTC(+anchor.slice(0,4),+anchor.slice(5,7),0)).getUTCDate() : 1, hpf_growth_hundredths: p.assumptions.inflation_hundredths };
@@ -58,22 +48,25 @@ export function PlanningPension({ focus = false, onFocusDone, today, incomes, on
     const ages = quitAges(now, start);
     const chosen = quit === 'start' || !ages.includes(quit) ? start : quit * 12;
     return { p, region, funds, notes, now, start, ages, main: project(p, region, anchor, chosen, funds), rows: byQuitAge(p, region, anchor, ages, funds).concat(project(p, region, anchor, start, funds)) };
-  }, [saved, snapshot, incomes, today, quit]);
+  }, [saved, snapshot, today, quit]);
 
+  const missing = saved ? missingFacts(saved.profile) : [];
   return <>
-    {error ? <article className="ui-card ui-content" role="alert"><p>个人资料读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>
-      : !state || snapshot === undefined ? <p role="status" className="muted">正在读取个人资料…</p>
-      : !saved || !calc ? <div className="empty"><span className="empty-mark">¥</span><h2>还没有个人资料</h2><p>填写出生年月、缴费情况和个人账户余额（社保 App 里可查），就能估算法定退休年龄和退休时的养老金。资料只存在本机，估算结果不会保存。</p><button id="plan-profile-edit" className="primary" onClick={() => setEditing(true)}>填写个人资料</button></div>
+    {sources.profile.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>个人资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>
+      : !saved || !calc ? <div className="empty"><span className="empty-mark">¥</span><h2>{saved ? '养老金估算还缺一些资料' : '还没有个人资料'}</h2><p>填写出生年月、缴费情况和个人账户余额（社保 App 里可查），就能估算法定退休年龄和退休时的养老金。不需要先设置退休目标；资料只存在本机，估算结果不会保存。</p>{missing.length > 0 && <p className="muted small">还缺：{missing.join('、')}。留空的项目保持未知，不会按 0 计算。</p>}<button id="plan-profile-edit" ref={entry} className="primary" onClick={() => setEditing(true)}>{saved ? '补全个人资料' : '填写个人资料'}</button></div>
       : <>
         <Result calc={calc} quit={quit} onQuit={setQuit} onEdit={() => setEditing(true)} updatedAt={saved.updated_at} today={today}/>
         <Table calc={calc}/>
         <Params overrides={calc.p.overrides} region={calc.region}/>
       </>}
-    {editing && state && <ProfileDialog saved={state.saved} generation={state.generation} today={today} onClose={ok => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(false); onPending(); if (ok) setRetry(n => n + 1); }}/>}
+    {editing && sources.profile.status === 'ready' && <ProfileDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={() => { setEditing(false); requestAnimationFrame(() => document.getElementById('plan-profile-edit')?.focus()); }}/>}
   </>;
 }
 
-type Calc = { p: StoredProfile; region: ReturnType<typeof effectiveParams>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
+const factLabels: [keyof StoredProfile, string][] = [['birth_month', '出生年月'], ['worker', '职工类型'], ['paid_months', '累计缴费月数'], ['account_balance_cents', '个人账户余额'], ['base_cents', '当前缴费基数'], ['flex_months', '弹性领取月数'], ['personal_pension_annual_cents', '个人养老金年缴'], ['marginal_tax_hundredths', '个税边际税率']];
+const missingFacts = (p: StoredProfile) => factLabels.filter(([k]) => p[k] === null).map(([, l]) => l);
+
+type Calc = { p: CompletePensionProfile; region: ReturnType<typeof effectiveParams>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
 
 function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; quit: number | 'start'; onQuit: (v: number | 'start') => void; onEdit: () => void; updatedAt: string; today: string }) {
   const r = calc.main;
@@ -128,25 +121,19 @@ function Params({ overrides, region }: { overrides: Overrides; region: ReturnTyp
 }
 
 
-function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileState['saved']; generation: string; today: string; onClose: (saved: boolean) => void }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const [f, setF] = useState<Form>(toForm(saved?.profile ?? null));
-  const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
+function ProfileDialog({ sources, saved, today, reload, onPending, onClose }: { sources: PlanningSources; saved: ProfileState['saved']; today: string; reload: () => void; onPending: () => void; onClose: () => void }) {
+  const dialog = useRef<HTMLDialogElement>(null), saver = useSectionSaver(sources, reload, onPending);
+  const [f, setF] = useState<PensionForm>(() => pensionFormOf(saved)), [notice, setNotice] = useState('');
   useEffect(() => { dialog.current?.showModal(); document.getElementById('profile-birth')?.focus(); return () => dialog.current?.close(); }, []);
-  const frozen = busy || stuck;
+  const frozen = saver.busy || saver.stuck;
   async function save() {
-    let profile: StoredProfile;
-    try { profile = profileFromForm(f, saved?.profile ?? null, today); }
-    catch (e) { setNotice(e instanceof Error ? e.message : errorMessage(e)); return; }
-    const input: ProfileSave = { request_id: crypto.randomUUID(), generation, expected_revision: saved?.revision ?? null, profile };
-    setBusy(true); setNotice('');
-    try { await submit({ command: 'plan_profile_save', input, label: '个人资料' }); onClose(true); }
-    catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
-    finally { setBusy(false); }
+    let input; try { input = pensionInput(f); } catch (e) { setNotice(e instanceof Error ? e.message : errorMessage(e)); return; }
+    setNotice('');
+    if (await saver.save(input)) onClose();
   }
-  return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="profile-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">规划 · 养老金</p><h2 id="profile-heading">个人资料</h2><p className="muted">按社保 App 当前显示的数字填写；未来利率和增长率属于测算假设。</p></div><CloseButton type="button" aria-label="关闭个人资料表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存资料'}</button>}</div></header>
+  return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="profile-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
+    <header><div><p className="eyebrow">规划 · 养老金</p><h2 id="profile-heading">个人资料</h2><p className="muted">按社保 App 当前显示的数字填写；不知道的留空，不会按 0 计算。未来利率和增长率属于测算假设。</p></div><CloseButton type="button" aria-label="关闭个人资料表单" disabled={saver.busy} onClick={onClose}/><div className="editor-header-actions">{saver.stuck ? <button type="button" onClick={onClose}>关闭，稍后核对</button> : <button className="primary" disabled={saver.busy}>{saver.busy ? '保存中…' : '保存资料'}</button>}</div></header>
     <PlanningProfileFields f={f} setF={setF} today={today} frozen={frozen}/>
-    {notice && <p className="notice" role="status">{notice}</p>}
+    {(notice || saver.notice) && <p className="notice" role="status">{notice || saver.notice}</p>}
   </form></dialog>;
 }

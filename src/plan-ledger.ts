@@ -18,10 +18,11 @@ export type SavingPhase = { from_month: number; cents: number };
 /** 持续的月度收支流（买房月供、持有成本、少付的房租等）：to_month 为空表示到规划终点。
  *  saving_flows 的 cents 是对退休前每月储蓄的增减（负数是多花）；spend_flows 的 cents 是退休后多出的月支出（正数是多花）。
  *  nominal 为真表示固定名义金额（房贷月供），按通胀折成今天的钱；否则已是今天的钱。 */
-export type Flow = { label: string; from_month: number; to_month: number | null; cents: number; nominal: boolean; essential: boolean; prorate_first?: boolean; timing?: 'start' | 'end' };
+export type Flow = { source_id?: string; label: string; from_month: number; to_month: number | null; cents: number; nominal: boolean; essential: boolean; prorate_first?: boolean; timing?: 'start' | 'end' };
 
 export type LoanSchedule = { id: string; from_offset: number; principal_cents: number; rate_hundredths: number; months: number; payment_cents: number; existing?: boolean };
 export type Plan = {
+  input_mode?: 'basic' | 'legacy';
   anchor_date?: string; calculation_date?: string; monetary_basis_date?: string; basis_factor?: number; first_month_fraction?: number;
   core?: PlanningCore | null;
   loans?: LoanSchedule[];
@@ -88,6 +89,10 @@ export function table(P: Plan): Table {
     // Regular income/budget uses remaining days; known monthly flows remain due once.
     const f = P.first_month_fraction;
     for (const it of P.items) if (it.start_age === null || it.start_age * 12 <= P.now_months) { spend[0] -= it.monthly_cents * (1 - f); if (it.essential) essential[0] -= it.monthly_cents * (1 - f); }
+    for (const flow of P.spend_flows ?? []) if (flow.prorate_first && flow.from_month <= P.now_months && (flow.to_month === null || flow.to_month > P.now_months)) {
+      const amount = flow.nominal ? flow.cents / nominalFactor(P, P.now_months) : flow.cents;
+      spend[0] -= amount * (1 - f); if (flow.essential) essential[0] -= amount * (1 - f);
+    }
     income[0] *= f;
     if (f === 0) { spend[0] = 0; essential[0] = 0; }
   }
@@ -143,17 +148,25 @@ export function oneOffsOf(P: Plan): Float64Array {
 
 /** Known plan payments happen before any month-end contribution or income.
  * Saving/spending totals already contain these amounts; use them only to order the same flows. */
-const startPaymentCache = new WeakMap<Plan, Float64Array>();
-export function startPaymentsOf(P: Plan): Float64Array {
-  let result = startPaymentCache.get(P);
-  if (result) return result;
-  const n = Math.max(0,P.horizon_months-P.now_months);
-  result = new Float64Array(n);
-  for (const f of P.saving_flows ?? []) if (f.timing === 'start' && f.cents < 0) {
-    const from = Math.max(0,f.from_month-P.now_months),to = f.to_month === null ? n : Math.min(n,f.to_month-P.now_months);
-    for (let t=from;t<to;t++) if (t>0 || P.first_month_fraction !== 0) result[t] += -(f.nominal ? f.cents/nominalFactor(P,P.now_months+t) : f.cents);
+type PaymentPhase = 'accumulation' | 'retired';
+const startPaymentCache = new WeakMap<Plan, Partial<Record<PaymentPhase, Float64Array>>>();
+export function startPaymentsOf(P: Plan, phase: PaymentPhase = 'accumulation'): Float64Array {
+  const cached = startPaymentCache.get(P) ?? {};
+  if (cached[phase]) return cached[phase];
+  const n = Math.max(0, P.horizon_months - P.now_months);
+  const result = new Float64Array(n);
+  // Basic expense scopes are independently confirmed before and after retirement.
+  // Legacy plans keep their original shared ordering contract.
+  const spending = P.input_mode === 'basic' && phase === 'retired';
+  for (const f of (spending ? P.spend_flows : P.saving_flows) ?? []) if (f.timing === 'start' && (spending ? f.cents > 0 : f.cents < 0)) {
+    const from = Math.max(0, f.from_month - P.now_months), to = f.to_month === null ? n : Math.min(n, f.to_month - P.now_months);
+    for (let t = from; t < to; t++) if (t > 0 || P.first_month_fraction !== 0) {
+      const amount = f.nominal ? f.cents / nominalFactor(P, P.now_months + t) : f.cents;
+      result[t] += (spending ? amount : -amount) * (t === 0 && f.prorate_first ? P.first_month_fraction ?? 1 : 1);
+    }
   }
-  startPaymentCache.set(P,result);
+  cached[phase] = result;
+  startPaymentCache.set(P, cached);
   return result;
 }
 
@@ -172,14 +185,16 @@ export const brokeAfter = (a: number, gap: number) => a < 0 || (a <= 0 && gap > 
 export function required(P: Plan, from: number, retire: number = from, pension?: Pension): number {
   const n = P.horizon_months - from;
   if (n <= 0) return 0;
-  const T = table(P), pen = pension ?? P.pension_at(retire), out = oneOffsOf(P), due = startPaymentsOf(P);
+  const T = table(P), pen = pension ?? P.pension_at(retire), out = oneOffsOf(P), due = startPaymentsOf(P, 'retired');
   const base = from-P.now_months;
+  const unlock = P.input_mode === 'basic' ? Math.max(P.now_months, pen.unlock_age_months) : pen.unlock_age_months;
   let need = 0;
   for (let k=n-1;k>=0;k--) {
     const i=base+k,m=from+k;
     const upfront=due[i] ?? 0, fraction=i===0 ? P.first_month_fraction ?? 1 : 1;
     const income=T.income[i]+(m>=pen.unlock_age_months ? pen.monthly_cents*fraction : 0);
-    const lump=(k===0 && pen.unlock_age_months<=from || m===pen.unlock_age_months) ? pen.lump_cents : 0;
+    const receivesPool = P.input_mode === 'basic' ? m === unlock : (k === 0 && unlock <= from) || m === unlock;
+    const lump = receivesPool ? pen.lump_cents : 0;
     const g=monthlyGrowth(P.r_after_hundredths)**fraction;
     // A month begins after its one-off; known payments precede unlock and income.
     need=Math.max(upfront,upfront-lump+(need+(out[i+1] ?? 0)+T.spend[i]-upfront-income)/g,0);
@@ -194,7 +209,22 @@ export function requiredAt(P: Plan): Float64Array {
   if (!s) {
     const n = Math.max(0, P.horizon_months - P.now_months);
     s = new Float64Array(n);
-    for (let t = 0; t < n; t++) s[t] = required(P, P.now_months + t);
+    if (P.input_mode === 'basic') {
+      // Basic pension/pool conditions are fixed independently of retirement.
+      // One backwards pass checks the same cash ordering as required(), while
+      // an already unlocked pool is cash and never offsets requirements again.
+      const T = table(P), pen = P.pension_at(P.target_months), out = oneOffsOf(P), due = startPaymentsOf(P, 'retired');
+      const unlock = Math.max(P.now_months, pen.unlock_age_months);
+      let next = 0;
+      for (let t = n - 1; t >= 0; t--) {
+        const m = P.now_months + t, fraction = t === 0 ? P.first_month_fraction ?? 1 : 1, upfront = due[t];
+        const income = T.income[t] + (m >= pen.unlock_age_months ? pen.monthly_cents * fraction : 0);
+        const rest = (next + out[t + 1] + T.spend[t] - upfront - income) / monthlyGrowth(P.r_after_hundredths) ** fraction;
+        const lump = m === unlock ? pen.lump_cents : 0;
+        next = Math.max(upfront, upfront - lump + rest, 0);
+        s[t] = next;
+      }
+    } else for (let t = 0; t < n; t++) s[t] = required(P, P.now_months + t);
     requiredSeries.set(P, s);
   }
   return s;
@@ -246,9 +276,10 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
   let a = P.assets_cents - oneOff[0];
   let fi: number | null = null, retire: number | null = null, reason: Projection['reason'] = null, funded = false, pension: Pension | null = null;
   let failure: number | null = a < 0 ? P.now_months : null, shortfall: number | null = null, unlocked = false;
+  const basicPension = P.input_mode === 'basic' ? P.pension_at(P.target_months) : null;
   const rows: Row[] = [];
   let row: Row | null = null;
-  const cap = Math.min(P.search_cap_months, P.horizon_months), reqArr = requiredAt(P), savings = savingsOf(P), due = startPaymentsOf(P);
+  const cap = Math.min(P.search_cap_months, P.horizon_months), reqArr = requiredAt(P), savings = savingsOf(P), due = startPaymentsOf(P), retiredDue = startPaymentsOf(P, 'retired');
   for (let t = 0; t < N; t++) {
     const m = P.now_months + t;
     if (t % 12 === 0) {
@@ -267,11 +298,13 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
       }
     }
     assets[t] = a;
-    const upfront = due[t], paidUpfront = Math.min(Math.max(0,a),upfront);
+    const upfront = retire === null ? due[t] : retiredDue[t], paidUpfront = Math.min(Math.max(0,a),upfront);
     a-=upfront;
     if (failure===null && a<0) failure=m;
-    // 退休时已经可以领取：一次性解锁额与退休同时到账（记录资产时还未含，所需资金里已按到账计）。
-    if (retire !== null && !unlocked && pension!.unlock_age_months <= m) { unlocked = true; a += pension!.lump_cents; r.unlock += pension!.lump_cents; }
+    // Basic pools unlock at their confirmed date; legacy pools keep the retirement trigger.
+    // Known month-start payments precede unlock, and each pool enters cash only once.
+    const pool = basicPension ?? pension;
+    if (!unlocked && pool && pool.unlock_age_months <= m && (basicPension !== null || retire !== null)) { unlocked = true; a += pool.lump_cents; r.unlock += pool.lump_cents; }
     if (retire === null) {
       const c = savings[t];
       // 现金不足照实保留，不因月底投入或后续月份恢复而抹去已发生的缺口。
@@ -311,7 +344,7 @@ export type Outcome = {
   funded_at_goal: boolean; shortfall_at_goal: number;
   at_horizon: number;
   failure_month: number | null; shortfall_month: number | null;
-  /** 必需支出全程有资金、终点有余钱，FIRE 另需达成 FI。 */
+  /** 完整预算全程无缺口（终点可以为零），FIRE 另需达成 FI。 */
   success: boolean;
 };
 
@@ -345,11 +378,13 @@ export function glide(P: Plan, proj: Projection): number[] {
 /** Coast：在 month 月龄手里至少有多少，从此一分不存也能在目标年龄达标。 */
 function accumulationNeed(P: Plan, from: number, goal: number, atGoal: number, saving: Float64Array): number {
   const due = startPaymentsOf(P), out = oneOffsOf(P);
+  const pool = P.input_mode === 'basic' ? P.pension_at(P.target_months) : null;
   let need = atGoal;
   for (let m = goal - 1; m >= from; m--) {
     const t = m - P.now_months, upfront = due[t] ?? 0;
     const g = monthlyGrowth(P.r_before_hundredths) ** (t === 0 ? P.first_month_fraction ?? 1 : 1);
-    need = Math.max(upfront, upfront + (need + (out[t + 1] ?? 0) - (saving[t] ?? 0) - upfront) / g, 0);
+    const lump = pool && m === Math.max(P.now_months, pool.unlock_age_months) ? pool.lump_cents : 0;
+    need = Math.max(upfront, upfront - lump + (need + (out[t + 1] ?? 0) - (saving[t] ?? 0) - upfront) / g, 0);
   }
   return need;
 }

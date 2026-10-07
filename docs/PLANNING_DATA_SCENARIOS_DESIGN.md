@@ -2,9 +2,9 @@
 
 状态：**范围已批准，详细目标规格待实施、待验收。** 基线：`7eaff7c612e51875cdc9f299ecef2951abfd8f87`。总入口见 [整体设计](PLANNING_LIFECYCLE_DESIGN.md)。下面是逻辑对象和业务契约，不预占实际表名、命令名、schema 或版本号。
 
-2026-10-07 补充：§4.4、§8.1 及 §10 按维护者已确认的通用基础优先、未来投入选填、职业模块后置方向收敛。**本补充未开发、未验收，不构成本轮开发授权**。补充核对 HEAD `0747f3b5bb0a70a6e7f25562232246d843614259`，现行工作树另含已交付但未提交的设置修复；新逻辑对象不视为已经有物理表或命令。
+2026-10-07 补充：§4.4、§8.1 及 §10 按维护者已确认的通用基础优先、未来投入选填、职业模块后置方向收敛。**第一批通用基础已集成；更广的场景、承受能力与报告仍按范围另做**。补充核对 HEAD `0747f3b5bb0a70a6e7f25562232246d843614259`，现行工作树另含已交付但未提交的设置修复；新逻辑对象不视为已经有物理表或命令。
 
-实施准备补充：§4.4 的第一批持久化与能力结果职责供并行分支共同冻结接口，§8.1 给出固定目标反求边界。本轮仍只制定设计与计划，尚未实现；具体schema/命令名称在共享契约提交登记，不能自行占用应用发布版本。
+实施准备补充：§4.4 的第一批持久化与能力结果职责供并行分支共同冻结接口，§8.1 给出固定目标反求边界。第一批接口与实现已完成并集成，schema32不改变应用发布版本；验收状态见开发文档。
 
 ## 1. 不变量
 
@@ -207,6 +207,30 @@
 金额输出以整数分字符串/明确字段单位表达；既有数值Plan仍使用合法非空数字。需求结果不带可自动保存的预计投入字段，也不携带供主界面显示的推算FI日期。所有纯转换、类型收窄和费用归一化归Codex；UI只能消费接口，不从缺项文案、`!!amount`或数组长度猜ready。明确0与负数不能被布尔判断误判未知。
 
 首页、目标、心愿使用同一保存上下文；源数据局部成功独立保留。不依赖历史统计的基础需求不因统计失败而blocked。跨来源原子读取尽量沿用既有总览读事务，新增必要字段进入同一读取结构；没有统一修订时不能拼旧盘点与新假设作完整结论。异步失效与局部读取职责集中在共享service，UI负责加载/错误和重试动作。
+
+#### 第一批实际共享契约（P1）
+
+输入/结果类型在 `src/plan-basic-contract.ts`，从 `src/plan.ts` 重导出；严格虚构夹具在 `src/plan-basic-fixtures.ts` 与 `tests/fixtures/planning-basic/`。P1冻结编译与保存接缝；后续core实现提交提供下述数值接口，待独立Review与UI联合原生验收。能力展示夹具不作为数值证据。
+
+- `StoredProfile` 为持久资料；出生、worker/region、累计月数、账户/基数、弹性月数、个人养老金年缴额/税率可为null。`hasPensionProfile` 收窄为 `CompletePensionProfile` 后才调用估算。`retire.target_age` 为null表示未知，旧值原值保留；`planningMode` 只按 `retire.basic` 是否存在判模式。
+- `BasicInputs` v1保存 `start`（`live` 或 `simulation`，后者的稳定id、available_cents/date/notes）、单一 `contribution.id/monthly_cents`、`retirement_income.mode/selected`、独立 `pension_contributions.start_month/stop_month/base_cents`，以及两份 `contribution_costs/retirement_costs`。模拟截至日为B，金额基准只在唯一 `core.monetary_basis_date` 保存；两种起点替换，不相加。费用 treatment为included/extra/excluded；只有included携带明确参考整数分。费用来源沿用 `event:<ID>:loan/holding`、`personal_pension`，退休侧另用 `spend:<ID>`、`rent`、`social_insurance`。已纳入事件的债务或个人养老金现金转入不能以excluded忽略；无该安排应从拥有方关闭/更正，不能只删现金流而保留贷款/受限池。
+- `selected` 每项为流定义id、真实来源身份source_id及state_pension/other角色；模式为null/excluded/manual/beijing。北京的国家养老金身份是 `beijing_state_pension`，不能同时纳入同一手填来源。未来缴费时段左闭右开，开始=结束明确无未来缴费；null未知，投入符号及退休触发不改变时段。开始<结束的缴费区间须有正基数，明确无未来缴费用相同起止月份；未来公积金月缴存仍单独确认。
+- `plan_profile_update` 原生命令/`Store::plan_profile_update` 接受 `ProfileUpdate` /Rust `plan_basic::Update`：request_id、generation、expected_revision及section/fields。section为basic/pension/funds/events/budget/setup（setup包含basic及可选budget/funds/pension，整套引导一次事务保存），每种fields严格限制；不是Partial全资料。返回现有Saved，全部分区共用revision。basic首次无需养老事实，`confirm_legacy_replacement` 只在已有原规划明确重设时要求true，原定义由后端同事务捕获；客户端不传归档副本。养老分区只修改养老及共同出生资料/养老收益，保留通胀、基础与目标。资金分区不携带occurrences；事件分区拥有唯一life_events/occurrences与旧costs；预算分区更新既有明细定义、租金与续缴成本。basic中两份作用域不复制源定义。
+- `planning_sources(planningEnabled, wealthEnabled)` /`Store::planning_sources` 一次只读事务返回 `PlanningSources`：generation/write_version/today/modules、profile/snapshot/accounts/review/incomes各自Read。Worker在同一任务内读取实际模块开关，调用方标记只能进一步关闭。财富关闭不调用账户/盘点/汇总或历史盘点统计，只读允许的个人资料和收入，隐藏源返回MODULE_DISABLED。write_version为当前连接写入计数，仅用于本轮失效判断。
+- `planning-service.ts` 导出 `readPlanningSources`、`savePlanningSection`、`resolvePlanningSection`、`planningReadSession`。保存复用 `wealth.ts` 的提交未知与 `wealth_request_result` 回执协议；后者失效全部旧票据且不缓存隐藏财富。成功提交后调用方刷新整批，模块/身份变化调用invalidate。
+- `BasicCapabilities` 分别表达funds/requirement/prediction/pension，`Capability<T>` 用ready/blocked判定；`PlanningMissing` 的code/capability/owner/field/kind/message用于就近补充。`RequirementResult` 分found/no_positive_contribution/search_not_found/payment_constraint/not_applicable/out_of_bounds，不含候选Plan或FI日期。`PredictionValue` 只携带明确保存/临时投入及Plan/projection/outcome，临时上下文不得传给首页或心愿。
+
+schema32只提升严格载荷/备份兼容版本，不重写旧资料与回执；旧版拒绝新备份。新增basic/legacy_definition缺失不序列化；setup_completed=false不序列化。旧schema31请求字节与实际回放有金样本（原字段顺序），不通过删除新条件做fingerprint fallback；含新条件的不同请求内容同ID仍报REQUEST_CONFLICT。旧完整保存保持原规划兼容；活动basic必须使用分区更新，不能借完整请求覆盖另一任务。原定义不能改写。仅针对无basic/legacy_definition、setup_completed=false的旧请求接受同一字段顺序且显式false的精确备用指纹；不移除任何新条件。
+
+#### 第一批 core 数值与读取接入
+
+`src/plan-basic.ts` 导出 `buildBasicCapabilities(sources: PlanningSources, temporaryContribution?: string): BasicCapabilities`，并由 `plan-retire-calc.ts` 重导出。未知投入仍计算requirement；只有明确投入携带预测Plan。临时参数不写库，其context.source及prediction.source为temporary。`solveBasicRequirement` 用完整固定目标月账本求整数分候选，并区分边界/付款约束；所设及降低200 bps两组收益分别验证，不输出候选FI日期。明确预计投入的Plan带input_mode=basic，不使用旧阶段/route/35岁检查点，养老金时段和受限池不随退休触发改变。
+
+完整总预算先扣退休已含参考额成为其他部分，再按稳定来源添加实际明细、租金、续缴或事件费用；参考额在作用域内固定，来源结束只停止对应实际费用。净投入已含参考额先还原，再扣实际费用。个人养老金现金转入在明确区间分别进入退休前/后同一本账，工资扣缴/单位公积金不再次扣税后现金。普通首期流按B余天比例折算，事件付款保持月初顺序。完整预算不足为失败；终点零但无缺口表示有限期间覆盖、无余量。
+
+`buildRetireCalc(saved,snapshot,review,incomes,today,nativeSources?)` 在basic模式消费同一个能力结果，返回capabilities及仅明确投入的plan/proj/out；review允许null。原模式接口仍保留。UI使用nativeSources或直接调用buildBasicCapabilities，不拼不同批来源。`loadPlanContext()` 改从原子service读取，返回sources及nullable review；心愿旧桥接需将ctx.sources传为第六参数。`isReady` 拒绝未知或temporary预测，`impactOf`再次核验。
+
+总览PlanSources新增generation/writeVersion/modules（JSON camelCase），与原子profile/snapshot同批；TS新增字段可选仅兼容旧调用。原生review_overview也执行Worker实际模块开关，财富关闭跳过财富汇总、历史统计及盘点时间线。`summaryRetire`保留旧discriminant方便UI分支接入：未知预计投入时kind=blocked/step=saving，同时capabilities.requirement可以ready，main给需求；不能把该blocked当成全局能力关闭。`basisNotes`区别模拟和真实盘点。提交成功、恢复/切库/模块切换后必须invalidate并重读整批，连接write_version不作为跨重启永久事实序号。
 
 #### 独立的当前承受能力
 
