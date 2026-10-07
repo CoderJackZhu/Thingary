@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { money } from './asset';
 import { CloseButton } from './CloseButton';
-import { DateInput } from './DateInput';
+import { DateInput, MonthInput } from './DateInput';
 import { CentInput, FormRow, Info, Segments, Switch } from './FormControls';
 import { FundsEditor } from './PlanningFunds';
 import { PlanningProfileFields } from './PlanningProfileFields';
@@ -168,8 +168,8 @@ function ConditionStep({ d, setD, patch, frozen, snapshot, accounts, wealthOn, w
         <p className="muted small">在社保 App 里能查到。留空的项目保持未知，不会按 0 计算；也可以改选「手填」或「本次不计」。</p>
         <PlanningProfileFields hideBirth f={d.pension} setF={fn => setD(x => ({ ...x, pension: typeof fn === 'function' ? fn(x.pension) : fn }))} today={today} frozen={frozen}/>
         <details><summary>自己指定缴费起止月份</summary>
-          <FormRow label="开始缴费月份" hint="留空表示未知"><input type="month" aria-label="开始缴费月份" value={d.pcStart} disabled={frozen} onChange={e => patch({ pcStart: e.target.value, pcPlan: 'custom' })}/></FormRow>
-          <FormRow label="停止缴费月份" hint="与开始相同表示今后不再缴费；留空表示未知"><input type="month" aria-label="停止缴费月份" value={d.pcStop} disabled={frozen} onChange={e => patch({ pcStop: e.target.value, pcPlan: 'custom' })}/></FormRow>
+          <FormRow label="开始缴费月份" hint="留空表示未知"><MonthInput label="开始缴费月份" value={d.pcStart} disabled={frozen} allowClear onChange={value => patch({ pcStart: value, pcPlan: 'custom' })}/></FormRow>
+          <FormRow label="停止缴费月份" hint="与开始相同表示今后不再缴费；留空表示未知"><MonthInput label="停止缴费月份" value={d.pcStop} disabled={frozen} allowClear onChange={value => patch({ pcStop: value, pcPlan: 'custom' })}/></FormRow>
         </details>
       </>}
     </section>

@@ -1261,6 +1261,63 @@ impl Store {
                 ));
             }
         }
+        // 关联组识别（设计 §7/§8）：已关联订阅的删除走整组 link_trash；
+        // 组成员的恢复走整组 link_restore；双方分别历史删除时不能走旧的单
+        // 对象恢复留下半组，须在核对中明确选择。
+        if input.kind == "virtual" || input.kind == "plan" {
+            let live_partner: Option<String> = match input.kind.as_str() {
+                "virtual" => tx
+                    .query_row(
+                        "SELECT r.id FROM virtual_assets v JOIN recurring_plans r ON r.id=v.plan_id WHERE v.id=?1 AND v.deleted_at IS NULL AND r.deleted_at IS NULL",
+                        [&input.id],
+                        |r| r.get(0),
+                    )
+                    .optional()?,
+                _ => tx
+                    .query_row(
+                        "SELECT v.id FROM recurring_plans r JOIN virtual_assets v ON v.plan_id=r.id WHERE r.id=?1 AND r.deleted_at IS NULL AND v.deleted_at IS NULL",
+                        [&input.id],
+                        |r| r.get(0),
+                    )
+                    .optional()?,
+            };
+            if input.deleted {
+                if live_partner.is_some() {
+                    return Err(Error::new(
+                        "LINK_GROUP_REQUIRED",
+                        "这项记录已关联订阅，删除请使用「移入最近删除」的整组删除",
+                    ));
+                }
+            } else {
+                if crate::link::open_group_for(&tx, &input.id)?.is_some() {
+                    return Err(Error::new(
+                        "LINK_GROUP_STALE",
+                        "这组记录属于一个关联订阅删除组，请在最近删除中整组恢复",
+                    ));
+                }
+                // 对方也在最近删除：单边恢复会留下半组，须整组核对。
+                // （对方若已有删除组，本对象必为同组成员，上面的整组恢复
+                // 提示已先触发；这里覆盖双方均无组的历史分别删除。）
+                let partner_trashed: bool = match input.kind.as_str() {
+                    "virtual" => tx.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM virtual_assets v JOIN recurring_plans r ON r.id=v.plan_id WHERE v.id=?1 AND r.deleted_at IS NOT NULL)",
+                        [&input.id],
+                        |r| r.get(0),
+                    )?,
+                    _ => tx.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM recurring_plans r JOIN virtual_assets v ON v.plan_id=r.id WHERE r.id=?1 AND v.deleted_at IS NOT NULL)",
+                        [&input.id],
+                        |r| r.get(0),
+                    )?,
+                };
+                if partner_trashed {
+                    return Err(Error::new(
+                        "LINK_HALF_GROUP",
+                        "它的关联对象也在最近删除；请在最近删除中整组恢复，或在核对中登记为一组",
+                    ));
+                }
+            }
+        }
         if (input.kind == "topup" || input.kind == "balance") && !input.deleted {
             // A fact returns only under its live account.
             let parent_live: bool = tx.query_row(

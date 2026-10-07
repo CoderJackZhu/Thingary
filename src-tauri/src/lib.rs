@@ -13,6 +13,7 @@ pub mod expenses;
 pub mod files;
 pub mod insights;
 pub mod lifecycle;
+pub mod link;
 pub mod maintenance;
 pub mod materials;
 pub mod modules;
@@ -193,6 +194,17 @@ pub fn run() {
             commands::expense,
             commands::expense_save,
             commands::expense_view,
+            commands::link_create,
+            commands::link_delete_preview,
+            commands::link_reconcile,
+            commands::link_repair_preview,
+            commands::link_restore,
+            commands::link_purge_preview,
+            commands::purge_all_preview,
+            commands::link_restore_preview,
+            commands::link_save,
+            commands::link_trash,
+            commands::link_view,
             commands::plan_income_list,
             commands::plan_income_save,
             commands::plan_profile,

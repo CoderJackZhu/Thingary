@@ -29,8 +29,9 @@ npm run dev -- --port 1429
 | `?state=error` | 读取失败 |
 | `?state=save-error` | 保存失败 |
 | `?wealth=empty`、`?wealth=first`、`?wealth=error` | 账户与盘点状态 |
-| `?expenses=empty`、`?expenses=error` | 重要支出状态 |
+| `?expenses=empty`、`?expenses=error` | 独立支出空白／重要支出读取错误；全来源空白用 `?state=empty` |
 | `?recurring=empty`、`?recurring=error` | 周期费用状态 |
+| `?link=error` | 关联订阅详情／整组删除预览的读取失败 |
 | `?section=planning`、`&plan=empty`、`&plan=error`、`&plan=reasons-error`、`&plan-profile=empty`、`&plan-budget=set`（虚构月预算 5000 元，也可传非负元数如 `&plan-budget=6000`）、`&plan-mode=traditional`（传统类型、期望 60 岁）、`&plan-items=1`（虚构医疗、旅行支出与企业年金收入）、`&plan-return=1`（实际收益率 1.5%／1%）、`&plan-phases=1`（虚构储蓄阶段：空窗、有收入、清闲）、`&plan-route=soe`（35 岁起选国企路线，可选 soe／civil／tech／flex）、`&plan-events=1`（虚构大额计划：北京买房、老家全款买房、二手车）、`&plan-wishes=dates`（心愿设日期：未来、已过、无价格） | 规划页：虚构月度收入、无收入、读取失败、复盘「原因」区局部失败、养老金页尚未填写个人资料 |
 | `?plan-fail=profile`、`?plan-fail=review`、`?plan-fail=income`、`?plan-fail=snapshot` | 首页规划来源局部读取失败；成功的历史储蓄可独立保留 |
 | `?section=recurring&recurring-fixture=layout` | 长名称、历史订阅费用与未设置服务覆盖期的计划，检查窄窗口换行 |
@@ -41,11 +42,15 @@ npm run dev -- --port 1429
 
 参数按 URL 查询规则组合，例如 `?state=error&theme=dark`。不要把真实资料复制到预览。
 
+共用操作组件样例使用 `?state=components&style=bento&theme=light`，包含空白、错误、禁用、长提示、日期与月份。`style=native|olive|bento` 与 `theme=light|dark` 组成六种外观；在真实新增物品、账户、计划及大额计划表单中继续检查。日期浮层应覆盖 1440 × 1000、900 × 720、底部向上展开、滚动／缩放后定位、方向键、年月跳转、Escape 返回及 Tab 离开；月份回传值只有 YYYY-MM。详细规格见 [共用界面设计](VISUAL_SYSTEM_DESIGN.md)，样例与浏览器结果不替代原生验收。
+
 ### 规划核算与实际发生预览
 
 在独立开发树运行 `npm run dev -- --port 1429`，访问 `http://127.0.0.1:1429/visual-preview.html?section=planning&plan-budget=set&plan-core=confirmed`。`plan-core=occurred` 展示虚构已吸收首付／余债接续；`partial` 展示部分付款缺项；`overdue` 展示逾期待核对。去掉 `plan-core` 可核对旧自动参考／规则缺省；`state=empty`、`plan=error` 与 `state=save-error` 检查空、读取失败和保存失败。全部是内存夹具，刷新重置，不代表原生或持久化验收。
 
-`tests/planning-core.test.mjs` 覆盖资产事实、分池、已含费用、余债与首月顺序。`src-tauri/tests/plan_profile.rs` 对真实临时 Store 测试 core 保存、修订冲突、提交后回执丢失重放、重启、备份恢复、引用更正和 schema30→31 回滚。不得对正式资料库运行。
+`tests/planning-core.test.mjs` 覆盖资产事实、分池、已含费用、余债与首月顺序。
+
+关联订阅生命周期（组删除／恢复、共享保存双方修订、预览失效、历史归组与备份往返）在 `src-tauri/tests/link_groups.rs` 对临时 Store 验证；其中 schema32→33 矩阵覆盖主分支的无组表版本与未发布订阅分支的完整组表版本，检查升级、旧备份恢复、规划载荷与稳定 ID 保持、非法结构拒绝及事务回滚。重要支出年度桶的固定金额样例在 `src-tauri/tests/expenses.rs`（`annual_buckets_match_design_example`），前端桶口径在 `tests/expense-annual.test.mjs`。`src-tauri/tests/plan_profile.rs` 对真实临时 Store 测试 core 保存、修订冲突、提交后回执丢失重放、重启、备份恢复、引用更正和 schema30→31 回滚。不得对正式资料库运行。
 
 ### 金融导入解析与报告组件
 
@@ -123,3 +128,6 @@ npm run tauri -- build --bundles app
 ### 规划源码来源回归
 
 第三方告知见 [SOURCE_NOTICES](../SOURCE_NOTICES.md)。`tests/source-provenance.test.mjs` 只保存已移除上游文案的长度和散列，防止完整值重新出现，不将通过散列检查当作许可认证。`tests/plan-risk.test.mjs` 验证零波动与同一月账本一致、月初资金缺口不能由随后解锁掩盖、规划终点恰好为零的成功口径，以及无提款时相同年度收益排列的终点余额一致（含不足一年的终点）。打包告知除包管理器依赖外还收集根目录 `SOURCE_NOTICES.md`；生成器不会自动判定新内置内容的授权，新增来源须同步登记。
+
+
+基础规划的操作层可用 `?section=planning&plan-basic=beijing-complete` 查看四步设置与未来缴费月份；`plan-basic=blank|unknown|negative|saved` 分别检查空白、预计投入未知、负值与已保存。`state=save-error` 检查保存失败保留输入。`section=virtual` 的虚构创作服务可查看关联订阅的结束确认窗；`section=expenses` 检查年度柱图进入月度回顾及金额待补提示。合并共用控件时，`tests/cent-input-interactions.test.mjs` 验证真实输入处理保持负整数分、零、未知与字段说明关联。

@@ -116,6 +116,8 @@ pub struct VirtualAsset {
     /// `stopped`, `perpetual`, `unknown`, `expired`, `expiring`, `active`,
     /// `ongoing`, `paused` or `future` (service starts after today).
     pub status: String,
+    /// 旧停用标记仍在，而关联计划仍在进行：需要明确结束或撤回（设计 §6/§8）。
+    pub needs_review: bool,
     /// Confirmed spending; `None` when the price is unknown.
     pub spent_cents: Option<String>,
     /// Display name of the virtual label, when set.
@@ -321,6 +323,19 @@ fn validate(f: &Fields, today: &str) -> Result<Option<i64>> {
     cents(f.price_cents.as_deref()).map_err(|_| Error::new("VIRTUAL_PRICE", "价格须为金额或留空"))
 }
 
+/// Field validation shared with `link_create`: the same rules as a save,
+/// plus label availability, without any old-row conversion context.
+pub(crate) fn validate_fields(c: &Connection, f: &Fields, today: &str) -> Result<()> {
+    validate(f, today)?;
+    if let Some(label) = &f.label_id {
+        if !label_available(c, label)? {
+            return Err(Error::new("LABEL", "标签已不可用，请重新选择"));
+        }
+        validate_label_scope(c, label)?;
+    }
+    Ok(())
+}
+
 const COLUMNS: &str = "v.id,v.name,v.kind,v.provider,v.purchase_date,v.price_cents,v.expires,v.plan_id,v.url,v.notes,v.stopped_on,v.revision,r.name,r.deleted_at IS NOT NULL,r.interval_months";
 
 struct Row {
@@ -355,6 +370,7 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Row> {
             valid_until: None,
             paid_until: None,
             status: String::new(),
+            needs_review: false,
             spent_cents: None,
             label_name: None,
             reminder: None,
@@ -608,6 +624,12 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
         }
         .into()
     };
+    // 旧停用核对：档案仍带 stopped_on 而关联计划仍在进行，说明停用与
+    // 排期相互矛盾，需要明确结束或撤回（设计 §6/§8）。迁移不自动修复。
+    v.needs_review = v.fields.stopped_on.is_some()
+        && v.fields.plan_id.is_some()
+        && !v.plan_deleted
+        && v.plan.as_ref().is_some_and(|p| p.fields.end_date.is_none());
     let mut next_due = None;
     if v.fields.billing == "subscription" && v.fields.stopped_on.is_none() {
         if let Some(p) = &v.plan {
@@ -723,12 +745,45 @@ impl Store {
                 }
             }
         }
+        // 新版关联订阅拒绝单独写入旧停用路径：结束必须经双方一致的
+        // 「结束订阅」，在同一事务设置计划最终结束日并关闭续费（设计 §6）。
+        // 旧档案已有的 stopped_on 保持原义，可保留或经核对动作清除。
+        if let Some(o) = &old {
+            if fields.stopped_on.is_some()
+                && o.fields.stopped_on.is_none()
+                && fields.plan_id.is_some()
+                && !o.plan_deleted
+            {
+                return Err(Error::new(
+                    "VIRTUAL_STOP",
+                    "已关联订阅请在「结束订阅」中确认最后使用日，不能只写停用日期",
+                ));
+            }
+        }
+        if old
+            .as_ref()
+            .is_some_and(|o| o.fields.plan_id.is_some() && !o.plan_deleted)
+            && input.plan.is_none()
+            && (input.renewal_price_cents.is_some() || input.special_end.is_some())
+        {
+            return Err(Error::new(
+                "LINK_CONFLICT",
+                "计费分段修改需要同时核对档案与计划修订，请重新读取",
+            ));
+        }
         let id = input.id.clone().unwrap_or_else(uid);
         if let Some(p) = &input.plan {
             // 新建订阅需要现代服务日期；编辑旧计划按原语义透传，缺
             // service_start 不再阻断档案编辑（review R8）。
             if fields.billing != "subscription"
-                || p.fields.category != "subscription"
+                || (p.fields.category != "subscription"
+                    && old
+                        .as_ref()
+                        .and_then(|o| o.plan.as_ref())
+                        .is_none_or(|old_plan| {
+                            old_plan.id != p.id.as_deref().unwrap_or("")
+                                || old_plan.fields.category != p.fields.category
+                        }))
                 || (p.id.is_none() && p.fields.service_start.is_none())
             {
                 return Err(Error::new("VIRTUAL_PLAN", "订阅计划需要开始使用日期"));
@@ -792,75 +847,24 @@ impl Store {
             }
             validate_label_scope(&tx, label)?;
         }
-        // Future renewal price: a segment in plan_rates, never a rewrite of
-        // history (design §4.5). Empty string clears pending future rates.
-        if let Some(plan_id) = f.plan_id.as_deref() {
-            if let Some(renewal) = &input.renewal_price_cents {
-                if renewal.is_empty() {
-                    tx.execute(
-                        "DELETE FROM plan_rates WHERE plan_id=?1 AND effective_date>?2",
-                        params![plan_id, today],
-                    )?;
-                } else {
-                    let amount = crate::recurring::positive_amount(
-                        renewal,
-                        "RENEWAL_AMOUNT",
-                        "后续续费价格须为正数",
-                    )?;
-                    let from = input
-                        .renewal_from
-                        .as_deref()
-                        .filter(|d| !d.is_empty())
-                        .ok_or_else(|| Error::new("RENEWAL_AMOUNT", "请填写后续价格的生效期"))?;
-                    let from = date(from)?;
-                    if from <= now_day {
-                        return Err(Error::new(
-                            "RENEWAL_AMOUNT",
-                            "后续价格生效期须晚于今天；本期调价请直接修改每期价格",
-                        ));
-                    }
-                    // The effective date must start a service period of the plan.
-                    if let Some(p) = &input.plan {
-                        let periods = crate::recurring::periods_for(
-                            &tx,
-                            &p.fields,
-                            plan_id,
-                            crate::recurring::period_ends(&tx, plan_id)?,
-                        )?;
-                        let on_period = (0..=4000)
-                            .map(|k| periods.span(k))
-                            .take_while(|s| !matches!(s, Ok(None) | Err(_)))
-                            .filter_map(|s| s.ok().flatten().map(|(s, _)| s))
-                            .take_while(|s| *s <= from)
-                            .any(|s| s == from);
-                        if !on_period {
-                            return Err(Error::new(
-                                "RENEWAL_AMOUNT",
-                                "生效期须为某一项服务期的开始日",
-                            ));
-                        }
-                    }
-                    tx.execute(
-                        "INSERT INTO plan_rates(plan_id,effective_date,amount_cents) VALUES(?1,?2,?3) ON CONFLICT(plan_id,effective_date) DO UPDATE SET amount_cents=excluded.amount_cents",
-                        params![plan_id, from.to_string(), amount],
-                    )?;
-                }
-            }
-        }
-        // Special coverage end of one period (design §4.5), same transaction.
-        if let Some(special) = &input.special_end {
-            if let Some(plan_id) = f.plan_id.as_deref() {
-                if let Some(p) = &input.plan {
-                    save_special_end(
-                        &tx,
-                        plan_id,
-                        &p.fields,
-                        &special.period_start,
-                        special.coverage_end.as_deref(),
-                        today,
-                    )?;
-                }
-            }
+        if input.renewal_price_cents.is_some() || input.special_end.is_some() {
+            let linked = input
+                .plan
+                .as_ref()
+                .ok_or_else(|| Error::new("LINK_CONFLICT", "分段计费修改需要同时核对计划修订"))?;
+            let pid = f
+                .plan_id
+                .as_deref()
+                .ok_or_else(|| Error::new("NOT_LINKED", "找不到关联计划"))?;
+            apply_billing_extras(
+                &tx,
+                pid,
+                &linked.fields,
+                input.renewal_price_cents.as_deref(),
+                input.renewal_from.as_deref(),
+                input.special_end.as_ref(),
+                today,
+            )?;
         }
         let now = chrono::Utc::now().to_rfc3339();
         let perpetual =
@@ -1352,6 +1356,80 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
         if orphan {
             return Err(bad());
         }
+    }
+    Ok(())
+}
+
+/// Same period and revision semantics for billing edits from both pages.
+pub(crate) fn apply_billing_extras(
+    c: &Connection,
+    plan_id: &str,
+    fields: &PlanFields,
+    renewal_price_cents: Option<&str>,
+    renewal_from: Option<&str>,
+    special: Option<&SpecialEnd>,
+    today: &str,
+) -> Result<()> {
+    let now_day = date(today)?;
+    if let Some(renewal) = renewal_price_cents {
+        if renewal.is_empty() {
+            c.execute(
+                "DELETE FROM plan_rates WHERE plan_id=?1 AND effective_date>?2",
+                params![plan_id, today],
+            )?;
+        } else {
+            let amount = crate::recurring::positive_amount(
+                renewal,
+                "RENEWAL_AMOUNT",
+                "后续续费价格须为正数",
+            )?;
+            let from = renewal_from
+                .filter(|d| !d.is_empty())
+                .ok_or_else(|| Error::new("RENEWAL_AMOUNT", "请填写后续价格的生效期"))?;
+            let from = date(from)?;
+            if from <= now_day {
+                return Err(Error::new(
+                    "RENEWAL_AMOUNT",
+                    "后续价格生效期须晚于今天；本期调价请直接修改每期价格",
+                ));
+            }
+            // The effective date must start a service period of the plan.
+            {
+                let periods = crate::recurring::periods_for(
+                    c,
+                    fields,
+                    plan_id,
+                    crate::recurring::period_ends(c, plan_id)?,
+                )?;
+                let on_period = (0..=4000)
+                    .map(|k| periods.span(k))
+                    .take_while(|s| !matches!(s, Ok(None) | Err(_)))
+                    .filter_map(|s| s.ok().flatten().map(|(s, _)| s))
+                    .take_while(|s| *s <= from)
+                    .any(|s| s == from);
+                if !on_period {
+                    return Err(Error::new(
+                        "RENEWAL_AMOUNT",
+                        "生效期须为某一项服务期的开始日",
+                    ));
+                }
+            }
+            c.execute(
+                        "INSERT INTO plan_rates(plan_id,effective_date,amount_cents) VALUES(?1,?2,?3) ON CONFLICT(plan_id,effective_date) DO UPDATE SET amount_cents=excluded.amount_cents",
+                        params![plan_id, from.to_string(), amount],
+                    )?;
+        }
+    }
+
+    if let Some(special) = special {
+        save_special_end(
+            c,
+            plan_id,
+            fields,
+            &special.period_start,
+            special.coverage_end.as_deref(),
+            today,
+        )?;
     }
     Ok(())
 }

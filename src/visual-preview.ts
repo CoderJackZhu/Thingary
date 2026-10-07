@@ -18,7 +18,7 @@ import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materia
 import { previewRecord } from './preview-costs';
 import { previewResaleRate } from './resale';
 import demoAssets from './demo-assets.json';
-import { wealthPreview, financialTimelineEvents, previewWishPage, previewReadWish, validatePreviewSource, searchPreview } from './wealth-preview';
+import { wealthPreview, financialTimelineEvents, previewLinkGroups, previewWishPage, previewReadWish, validatePreviewSource, searchPreview } from './wealth-preview';
 import type { PreviewEvent } from './wealth-preview';
 import type { OverviewData } from './Overview';
 import type { IncomeList, PlanReview, ProfileState } from './plan';
@@ -601,7 +601,11 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     const parentFacts = (assetId: string) => { const parent = records.find(r => r.asset.id === assetId); return parent ? { parent, state: parent.lifecycle?.state ?? 'active' } : null; };
     for (const entry of deletedMaintenances) { const facts = parentFacts(entry.assetId); if (!facts) continue; items.push({ kind:'maintenance', id:entry.id, title:entry.snapshot.fields.title, subtype:entry.snapshot.fields.kind, date:entry.snapshot.fields.date, end_date:null, cost_cents:entry.snapshot.fields.cost_cents, provider:null, deleted_at:entry.deleted_at, asset_id:facts.parent.asset.id, asset_name:facts.parent.asset.name, asset_deleted:facts.parent.deleted, asset_revision:facts.parent.asset.revision, asset_state:facts.state, contents:[] }); }
     for (const entry of deletedWarranties) { const facts = parentFacts(entry.assetId); if (!facts) continue; items.push({ kind:'warranty', id:entry.id, title:entry.snapshot.fields.provider, subtype:entry.snapshot.fields.kind, date:entry.snapshot.fields.start_date, end_date:entry.snapshot.fields.end_date, cost_cents:null, provider:entry.snapshot.fields.provider, deleted_at:entry.deleted_at, asset_id:facts.parent.asset.id, asset_name:facts.parent.asset.name, asset_deleted:facts.parent.deleted, asset_revision:facts.parent.asset.revision, asset_state:facts.state, contents:[] }); }
-    const found = query.filter === 'all' ? items : items.filter(i => i.kind === query.filter);
+    // 关联订阅组：一行「关联订阅」，注明隐藏付款数（内存桩）。
+    for (const g of previewLinkGroups()) {
+      items.push({ kind: 'link_group' as const, id: `${g.assetId}|${g.planId}`, title: g.assetName, subtype: 'link', date: null, end_date: null, cost_cents: null, provider: null, deleted_at: new Date().toISOString(), asset_id: null, asset_name: null, asset_deleted: false, asset_revision: 1, asset_state: null, contents: [{ kind: 'payment' as const, count: 2 }] });
+    }
+    const found = query.filter === 'all' ? items : items.filter(i => i.kind === query.filter || (query.filter === 'wealth' && i.kind === 'link_group'));
     found.sort((a,b) => b.deleted_at.localeCompare(a.deleted_at) || a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id));
     // Same backend contract: filter the full result, then paginate the count.
     const needle = (query.search ?? '').trim().toLowerCase();

@@ -1,0 +1,77 @@
+/* Single owner for shared operations. Page layouts remain in app-layout/desktop-polish. */
+@keyframes control-appear{from{opacity:0}to{opacity:1}}
+.topbar-menu{position:relative;display:inline-flex;flex:none}
+.topbar-actions .topbar-menu-trigger{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid transparent;border-radius:var(--control-radius);background:var(--button-bg);color:var(--button-text);font-size:13px;font-weight:500;white-space:nowrap;transition:filter var(--motion-hover)}
+.topbar-menu-trigger:hover{filter:brightness(.96)}
+.topbar-menu-trigger .ui-icon{width:16px;height:16px;flex:none;stroke-width:1.5}
+.topbar-menu-trigger .chevron{width:14px;height:14px;margin-left:2px;opacity:.7}
+.topbar-actions .topbar-menu-trigger kbd{padding:0;margin-left:8px;border:0;background:transparent;font:400 11px/1 var(--display);opacity:.65}
+.topbar-menu-list{position:absolute;z-index:12;right:0;top:calc(100% + 8px);width:208px;max-width:calc(100vw - 24px);padding:6px;border:1px solid var(--line);border-radius:var(--popover-radius);background:var(--card);box-shadow:var(--popover-shadow);animation:control-appear var(--motion-enter) ease-out}
+.topbar-menu-list button{display:flex;align-items:center;width:100%;min-height:36px;margin:0;padding:8px 10px;text-align:left;font-size:13px;font-weight:400;border:0;border-radius:8px;background:transparent;color:var(--text);transition:background var(--motion-hover)}
+.topbar-menu-list button:hover,.topbar-menu-list button:focus-visible{background:var(--soft)}
+.topbar-menu-list button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.editor{width:min(526px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:0 20px 20px;border:1px solid var(--line);border-radius:var(--dialog-radius);background:var(--card);color:var(--text);box-shadow:var(--dialog-shadow)}
+.editor[open]{animation:control-appear var(--motion-enter) ease-out}
+.editor::backdrop{background:var(--backdrop);backdrop-filter:blur(3px)}
+.editor.asset-editor,.editor.wishlist-editor{width:min(640px,calc(100vw - 32px));padding:0;overflow:hidden}
+.editor.asset-editor>form:not([hidden]),.editor.wishlist-editor>form:not([hidden]){display:flex;flex-direction:column;max-height:calc(100dvh - 34px)}
+.editor>form>header,.editor>header,.picker-header{display:flex;align-items:flex-start;gap:12px;padding:20px;position:sticky;top:0;z-index:8;background:var(--card);border-bottom:1px solid var(--line);flex:none}
+.editor>form>header{margin:0 -20px 16px}
+.editor.asset-editor>form>header,.editor.wishlist-editor>form>header{margin:0}
+.editor>form>header>div:first-child,.editor>form>header>h2,.editor>header>h2,.picker-header>div{flex:1;min-width:0}
+.editor h2{margin:0;font:600 20px/1.4 var(--display);letter-spacing:-.2px}
+.editor>form>header p,.picker-header p{margin:6px 0 0;font-size:12px;line-height:1.6;color:var(--muted)}
+.editor>form>header>.dialog-close,.editor>header>.dialog-close,.picker-header>.dialog-close{order:-1;flex:0 0 32px;width:32px;height:32px;min-width:32px;min-height:32px;padding:0;margin:0;display:inline-flex;align-items:center;justify-content:center;align-self:flex-start;background:transparent;color:var(--muted);border:0;border-radius:8px}
+.editor .dialog-close:hover:not(:disabled){background:var(--soft);color:var(--text)}
+.editor-header-actions{display:flex;align-items:center;gap:8px;flex:none!important;margin-left:auto}
+.editor-header-actions>button,.editor>form>header>button.primary{width:auto;height:auto;min-height:34px;padding:7px 12px;font-size:13px;line-height:1.5;border-radius:var(--control-radius)}
+.editor button.primary:not(.danger){background:var(--button-bg);color:var(--button-text);border-color:transparent;font-weight:500}
+.editor :is(input,select,textarea,button):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.editor button,.editor .field input,.editor .field select,.editor .field textarea{border-radius:var(--control-radius)}
+.editor .field input,.editor .field select,.editor .field textarea{background:var(--card);border:1px solid var(--line);font-size:13px}
+.editor .field input,.editor .field select{min-height:var(--control-height)}
+.form-block{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:16px 0;overflow:visible}
+.form-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.65fr);align-items:center;gap:6px 20px;min-height:62px;padding:12px 16px}
+.form-row+.form-row{border-top:1px solid var(--line-soft)}
+.form-row-label{min-width:0;font-size:13px;line-height:1.55;color:var(--text);font-weight:500;overflow-wrap:anywhere}
+.form-row-control{min-width:0;max-width:none;display:flex;justify-content:flex-end;align-items:center;gap:8px;font-size:13px;line-height:1.55}
+.form-row:has([aria-invalid=true])>.form-row-hint{color:var(--error)}
+.form-row-hint{grid-column:1/-1;display:block;margin:0;font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+.form-row-control>input:not([type=checkbox]):not([type=radio]),.form-row-control>select,.form-row-control>.field input,.form-row-control>.field select{width:100%;min-width:0;min-height:var(--control-height);padding:8px 10px;border:1px solid var(--line);border-radius:var(--control-radius);background:var(--card);font-size:13px;line-height:1.5;text-align:left}
+.form-row-control select{cursor:pointer}
+.form-row-control input[type=checkbox],.form-row-control input[type=radio]{width:16px;min-width:16px;height:16px;min-height:16px;padding:0;accent-color:var(--accent)}
+.form-row-control>label{display:flex;align-items:flex-start;gap:8px}
+.form-row-control>label input{margin-top:3px;flex:none}
+.form-row:has(.form-row-control>label){grid-template-columns:minmax(0,1fr) minmax(0,2fr)}
+.form-row-control .field{margin:0;width:100%}
+.form-row-control .field>span,.form-row-control .field>label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+.form-row-control small{text-align:right}
+.form-row-control .date-input{width:100%}
+.form-switch{flex:none;width:40px;height:24px;padding:3px;border:0;border-radius:99px!important;background:var(--line);cursor:pointer;transition:background var(--motion-hover)}
+.form-switch span{display:block;width:18px;height:18px;background:var(--switch-thumb);border-radius:50%;box-shadow:var(--thumb-shadow);transition:transform var(--motion-enter)}
+.form-switch[aria-checked=true]{background:var(--button-bg)}
+.form-switch[aria-checked=true] span{transform:translateX(16px)}
+.form-segments{position:relative;display:grid;grid-template-columns:repeat(var(--segments),minmax(0,1fr));isolation:isolate;width:100%;min-width:0;background:var(--soft);padding:3px;border:1px solid var(--line-soft);border-radius:9px;gap:0}
+.segment-thumb{position:absolute;z-index:-1;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/var(--segments));transform:translateX(calc(var(--selected)*100%));background:var(--card);border-radius:6px;box-shadow:var(--control-shadow);transition:transform var(--motion-enter) ease-out}
+.form-segments button{min-width:0;min-height:30px;border:0;background:transparent;border-radius:6px!important;padding:5px 8px;font-size:12px;color:var(--muted);white-space:normal}
+.form-segments button[aria-pressed=true]{color:var(--text);font-weight:500}
+.editor .choice-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:var(--control-height);padding:8px 10px;border:1px solid var(--line);background:var(--card);border-radius:var(--control-radius);text-align:left}
+.form-notes{padding:16px}
+.form-notes textarea,.editor .form-notes .field textarea{flex:none;width:100%;resize:vertical;background:transparent;border:0;min-height:80px;height:80px;font-size:13px;line-height:1.6}
+.form-notes .field{margin:0}
+.editor .add-image-button,.add-image-button{width:auto;min-height:42px;height:42px;padding:0 12px;display:inline-flex;flex-direction:row;gap:8px;align-items:center;justify-content:center;flex:none;border:1px solid var(--line);background:var(--card);border-radius:var(--control-radius);font-size:12px;color:var(--muted);transition:background var(--motion-hover),color var(--motion-hover)}
+.add-image-button:hover:not(:disabled){background:var(--soft);color:var(--text)}
+.add-image-button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:620px){.form-row{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);padding:12px;gap:6px 12px}.editor>form>header,.editor>header,.picker-header{padding:16px}.editor>form>header{margin-inline:-20px}.editor h2{font-size:18px}.editor-header-actions{gap:6px}}
+@media(max-width:420px){.form-row,.form-row:has(.form-row-control>label){grid-template-columns:minmax(0,1fr);gap:8px}.form-row-control{justify-content:flex-start}.form-row-control>.form-switch{margin-left:auto}.form-row-hint{grid-column:auto}}
+@media(prefers-reduced-motion:reduce){.editor[open],.topbar-menu-list{animation:none}.topbar-menu-trigger,.topbar-menu-list button,.form-switch,.form-switch span,.segment-thumb,.add-image-button{transition:none}}
+
+/* Confirmation and compound fields share the same operation layer. */
+.editor.trash-dialog{padding-top:20px}
+.editor.trash-dialog>.actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line-soft)}
+.form-row-control textarea,.plan-scope-row select,.plan-scope-amount input,.plan-fund-controls select,.plan-fund-controls input,.plan-income-pick select,.rs-field input:not([type=checkbox]),.rs-field select{min-height:var(--control-height);padding:8px 10px;border:1px solid var(--line);border-radius:var(--control-radius);background:var(--card);color:var(--text);font:400 13px/1.5 var(--display)}
+.form-row-control>textarea{width:100%;min-height:80px;resize:vertical}
+.form-row-control>.form-inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%;min-width:0}
+.form-row-control>.form-inline>.date-input{flex:1 1 150px;width:auto}
+.form-row-control>.form-inline>button{flex:none}
+:is(.rs-field,.plan-scope-row,.plan-income-pick) :is(input,select):focus-visible{outline:2px solid var(--accent);outline-offset:2px}

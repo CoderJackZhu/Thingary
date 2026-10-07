@@ -52,7 +52,7 @@
 .ui-spark .partial{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3;opacity:.6;vector-effect:non-scaling-stroke}
 .ui-spark .guide{stroke:var(--muted);stroke-width:1;opacity:.6;vector-effect:non-scaling-stroke}
 .ui-spark-labels{position:relative;height:16px;font-size:12px;color:var(--muted);margin-top:2px}.ui-spark-labels>span{position:absolute;transform:translateX(-50%);white-space:nowrap}.ui-spark-labels>span:first-child{transform:none}.ui-spark-labels>span:last-child{transform:translateX(-100%)}
-.ui-tip{position:absolute;transform:translate(-50%,calc(-100% - 10px));background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #00000024;padding:6px 10px;font-size:12px;line-height:1.5;white-space:nowrap;pointer-events:none;z-index:6;color:var(--text)}
+.ui-tip{position:absolute;transform:translate(-50%,calc(-100% - 10px));background:var(--card);border:1px solid var(--line);border-radius:var(--popover-radius);box-shadow:var(--popover-shadow);padding:8px 12px;font-size:12px;line-height:1.5;white-space:nowrap;pointer-events:none;z-index:6;color:var(--text)}
 .ui-tip b{display:block;font:var(--key-w) 13px var(--num);font-variant-numeric:tabular-nums}
 .ui-tip .pos{color:var(--positive)}.ui-tip .neg{color:var(--error)}
 

@@ -19,7 +19,7 @@ export function storedRecordTrash(): RecordTrashAction | null {
 export const recordKindLabel: Record<RecordKind, string> = { maintenance: '维护记录', warranty: '保障记录' };
 
 export type TrashContent = { kind: 'maintenance' | 'warranty' | 'expense' | 'photo' | 'payment' | 'entry'; count: number };
-export type TrashEntry = { kind: 'asset' | RecordKind | 'snapshot' | 'account' | 'expense' | 'income' | 'plan' | 'payment' | 'wish' | 'virtual'; id: string; title: string; subtype: string | null; date: string | null; end_date: string | null; cost_cents: string | null; provider: string | null; deleted_at: string; asset_id: string | null; asset_name: string | null; asset_deleted: boolean; asset_revision: number; asset_state: string | null; contents: TrashContent[] };
+export type TrashEntry = { kind: 'asset' | RecordKind | 'snapshot' | 'account' | 'expense' | 'income' | 'plan' | 'payment' | 'wish' | 'virtual' | 'link_group'; id: string; title: string; subtype: string | null; date: string | null; end_date: string | null; cost_cents: string | null; provider: string | null; deleted_at: string; asset_id: string | null; asset_name: string | null; asset_deleted: boolean; asset_revision: number; asset_state: string | null; contents: TrashContent[] };
 export type TrashPage = { generation: string; items: TrashEntry[]; total: number };
 export const stateText: Record<string, string> = { active: '使用中', retired: '已退役', sold: '已售出' };
 export const trashFilters = [['all', '全部'], ['asset', '物品'], ['maintenance', '维护'], ['warranty', '保障'], ['wish', '心愿'], ['wealth', '财富']] as const;
@@ -33,8 +33,11 @@ export function contentsText(contents: TrashContent[]): string {
 }
 /** Wealth-side rows and wishes are restored through the shared wealth_trash command. */
 export const restoresViaWealth = (kind: TrashEntry['kind']) => ['snapshot', 'account', 'expense', 'income', 'plan', 'payment', 'wish', 'virtual'].includes(kind);
+/** Linked pairs restore as a whole group through link_restore (design §7.2). */
+export const restoresAsGroup = (kind: TrashEntry['kind']) => kind === 'link_group';
 
 export function entryDisplay(entry: TrashEntry): { typeLabel: string; title: string; facts: string[]; parentBlocked: boolean } {
+  if (entry.kind === 'link_group') return { typeLabel: '关联订阅', title: entry.title, facts: ['包含 1 个服务档案、1 个付款计划，恢复时整组一起回来'], parentBlocked: false };
   if (entry.kind === 'snapshot') return { typeLabel: '盘点', title: `${entry.date} 盘点`, facts: ['恢复后重新计入净资产曲线'], parentBlocked: false };
   if (entry.kind === 'expense') return { typeLabel: '支出', title: entry.title, facts: [`${entry.date ?? ''} · ${expenseCategories.find(([k]) => k === entry.subtype)?.[1] ?? '其他'}`], parentBlocked: false };
   if (entry.kind === 'income') return { typeLabel: '收入记录', title: `${entry.date ?? entry.title} 收入`, facts: ['恢复后重新参与储蓄推算'], parentBlocked: false };

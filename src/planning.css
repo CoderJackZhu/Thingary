@@ -63,8 +63,9 @@
 
 .planning-setup-entry { margin-bottom: var(--space-4, 16px); }
 .planning-setup-entry p { margin-bottom: 0; }
-.planning-setup-steps { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 16px 24px; border-bottom: 1px solid var(--line); color: var(--muted); }
-.planning-setup-steps [aria-current="step"] { color: var(--text); font-weight: 600; }
+.planning-setup-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding: 12px 24px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.6; }
+.planning-setup-steps span { padding: 8px 10px; border-radius: var(--control-radius); }
+.planning-setup-steps [aria-current="step"] { color: var(--text); background: var(--soft); font-weight: 600; }
 .planning-setup-phase { padding: 16px 0; border-bottom: 1px solid var(--line); }
 .planning-setup-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 20px 24px; border-top: 1px solid var(--line); }
 .planning-setup-footer span { display: flex; gap: 8px; }
@@ -74,16 +75,12 @@ dialog.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[ope
 .editor.planning-setup-dialog > form > header { margin: 0; padding: 20px 24px 12px; flex-shrink: 0; }
 .editor.planning-setup-dialog > form > footer { margin: 0; flex-shrink: 0; padding: 16px 24px; }
 .planning-setup-body { padding: 0 24px 20px; overflow: auto; min-height: 0; }
-.planning-setup-dialog .form-row-label small { max-width: 240px; }
 .planning-setup-dialog .plan-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .planning-setup-dialog .plan-facts dd { margin: 5px 0 0; }
 @media (max-width: 850px) {
   .planning-setup-body { padding-inline: 16px; }
   .planning-setup-dialog .plan-facts { grid-template-columns: 1fr; }
 }
-dialog.planning-setup-dialog .form-row .form-row-label { flex: 0 1 45%; min-width: 0; }
-dialog.planning-setup-dialog .form-row .form-row-label small { max-width: none; }
-dialog.planning-setup-dialog .form-row .form-row-control { max-width: 55%; }
 .editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[open] > form > header { margin: 0; padding: 20px 24px 12px; }
 .planning-setup-dialog > form > header > div { flex: 1; min-width: 0; }
 .planning-setup-dialog > form > .setup-notice { margin: 10px 24px; flex-shrink: 0; }
@@ -108,12 +105,15 @@ dialog.planning-setup-dialog .form-row .form-row-control { max-width: 55%; }
 .plan-scope legend { padding: 0; font-size: 13px; font-weight: 600; }
 .plan-scope-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .plan-income-modes { display: grid; gap: 8px; margin: 8px 0 12px; }
-.plan-choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.plan-choice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--control-radius); cursor: pointer; transition: background var(--motion-hover), border-color var(--motion-hover); }
+.plan-choice:hover { background: var(--soft); }
+.plan-choice input { flex: none; width: 16px; height: 16px; margin: 3px 0 0; accent-color: var(--accent); }
+.plan-choice:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .plan-choice:has(input:checked) { border-color: var(--accent); background: var(--selected); }
 .plan-choice span { display: grid; gap: 2px; min-width: 0; }
 .plan-choice small { color: var(--muted); line-height: 1.5; }
 .plan-income-pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 6px 0; }
-.plan-new-income { margin: 10px 0; padding: 12px; border: 1px dashed var(--line); border-radius: 8px; }
+.plan-new-income { margin: 10px 0; padding: 12px; border: 1px solid var(--line); background: var(--soft); border-radius: 12px; }
 .plan-contribution { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .plan-legacy-confirm ul { margin: 6px 0 10px; padding-left: 18px; line-height: 1.7; }
 .plan-contribution-prompt p { margin: 0; }
@@ -121,7 +121,6 @@ dialog.planning-setup-dialog .form-row .form-row-control { max-width: 55%; }
 @media (max-width: 640px) {
   .plan-req-main strong { font-size: 22px; }
   .plan-trial-row .primary, .plan-trial-row .ui-btn, .plan-missing-actions .ui-btn { flex: 1 1 100%; }
-  dialog.planning-setup-dialog .form-row .form-row-control { max-width: 100%; }
 }
 /* 引导里的标题、说明与折叠区不贴边：表单行自带内边距，其余直接子元素统一缩进。 */
 .planning-setup-dialog .form-block > :not(.form-row) { margin-inline: 14px; }
@@ -137,3 +136,12 @@ dialog.planning-setup-dialog .form-row .form-row-control { max-width: 55%; }
 .plan-runway .rs-field input, .plan-runway .rs-field select { width: 100%; min-width: 0; }
 .plan-runway-switch { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
 .plan-runway .plan-req-main strong { font-size: 17px; }
+
+.plan-scope-row { width: 100%; justify-content: flex-end; }
+.plan-scope-row > select { width: 100%; }
+.plan-scope-amount { width: 100%; }
+.plan-fund-controls { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+.plan-fund-controls > select { flex: 1; min-width: 0; }
+.plan-fund-controls > input { flex: 0 0 64px; width: 64px; min-width: 0; }
+@media (max-width: 640px) { .planning-setup-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-inline: 16px; } .planning-setup-footer span { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { .plan-choice { transition: none; } }
