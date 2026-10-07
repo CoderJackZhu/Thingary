@@ -19,4 +19,4 @@ CREATE TABLE link_trash_members(
   PRIMARY KEY(group_id,member_kind)
 );
 CREATE INDEX link_trash_members_lookup ON link_trash_members(member_id);
-PRAGMA user_version=32;
+PRAGMA user_version=33;

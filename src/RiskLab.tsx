@@ -1,26 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Info, Segments } from './FormControls';
 import { rateText } from './plan';
-import type { RetireCalc } from './plan-retire-calc';
 import { outcome, project } from './plan-ledger.ts';
 import type { Plan } from './plan-ledger.ts';
-import { ageSpendingMatrix, contributionReturnMatrix, largestRisk, monteCarlo, sorr, stressTests } from './plan-risk.ts';
+import { ageSpendingMatrix, contributionReturnMatrix, largestRisk, monteCarlo, sorr, stressTests, withoutCareerStress } from './plan-risk.ts';
 import type { Cell, Matrix, MonteCarlo, SorrPath, StressResult } from './plan-risk.ts';
 import { compactYuan, durationText, verdict } from './plan-view.ts';
 import { FanChart, PathsChart } from './RetireCharts';
 import { yuan } from './RetireOverview';
+import { terminalText } from './planning-basic-view';
 import './retire.css';
 
-type Ready = RetireCalc & { plan: Plan; assets: number };
+type Ready = { plan: Plan; assets: number };
+/** Basic mode: an unsaved trial is labelled, and the terminal wording follows the complete-budget horizon. */
+export type BasicRisk = { temporary: boolean; terminal: keyof typeof terminalText };
 
 const ageText = (months: number | null) => (months === null ? '无法达成' : `${Math.floor(months / 12)} 岁`);
 const sevText = { high: '高', medium: '中', low: '低' };
 
 /** 假设分析：基准情形、压力测试、市场路径、决策矩阵与崩盘路径。全部用「今天的钱」。 */
-export function RiskLab({ calc, today }: { calc: Ready; today: string }) {
+export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; basic?: BasicRisk }) {
   const P = calc.plan, year = Number(today.slice(0, 4)), fire = P.mode === 'fire';
   const base = useMemo(() => { const proj = project(P, year); return { proj, out: outcome(P, proj) }; }, [P, year]);
-  const stress = useMemo(() => stressTests(P, year), [P, year]);
+  const isBasic = !!basic;
+  const stress = useMemo(() => { const all = stressTests(P, year); return isBasic ? withoutCareerStress(all) : all; }, [P, year, isBasic]);
   const top = largestRisk(stress);
   const fmt = (c: number) => yuan(c);
   const v = verdict(P, base.proj, base.out, calc.assets, 'today', fmt);
@@ -37,6 +40,7 @@ export function RiskLab({ calc, today }: { calc: Ready; today: string }) {
   const o = base.out, gap = o.shortfall_at_goal;
   const pctTone = mc ? (mc.success_rate >= 0.9 ? 'good' : mc.success_rate >= 0.75 ? 'watch' : 'bad') : '';
   return <div className="rl">
+    {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">临时试算，未保存</span> : <span className="ui-tag">按已保存的预计投入</span>} 风险结果按完整预算、覆盖到规划终点；{terminalText[basic.terminal]}。</p>}
     <article className="ui-card rl-hero" aria-label="基准情形">
       <div className="rl-lead"><span>基准情形</span><strong>你的基础计划 <span className={`rd-badge ${v.tone}`}><i/>{v.badge}</span></strong>
         <small>{top ? `在这些测试中，${top.label}的影响最大${top.shortfall_delta > 0 ? `，退休缺口增加 ${fmt(top.shortfall_delta)}` : ''}${top.fi_delay_months ? `${top.shortfall_delta > 0 ? ' 和' : '，'}财务独立推迟 ${durationText(top.fi_delay_months)}` : ''}。` : '这些压力测试均未实质性改变你的基础计划。'}</small></div>
@@ -50,11 +54,11 @@ export function RiskLab({ calc, today }: { calc: Ready; today: string }) {
     <Stress results={stress} fmt={fmt}/>
 
     <article className="ui-card rd-card" aria-label="市场路径">
-      <div className="rd-head"><div><p className="eyebrow">市场路径</p><h3>资金够用的模拟路径占比是多少？</h3></div></div>
+      <div className="rd-head"><div><p className="eyebrow">市场路径</p><h3>收益有波动时，哪些路径仍能支付预算？</h3></div></div>
       <p className="muted small">我们根据你的假设模拟不同市场路径。阴影显示各年龄的第 10 至第 90 百分位区间；线条显示各路径的中位数，并非单一路径。收益取扣除通胀后的实际收益，围绕假设值按波动率 {rateText(P.volatility_hundredths)} 随机，每年一次，固定种子，同一计划每次结果一致。</p>
-      <p className="muted small">{fire ? `「资金充足」表示计划实现财务独立、覆盖必需支出，并在 ${horizonAge} 岁前仍有余钱。` : `「资金充足」表示计划覆盖必需支出，并在 ${horizonAge} 岁前仍有余钱。`}这些是模型结果，不是现实概率。</p>
+      <p className="muted small">「资金充足」表示{fire ? '计划实现财务独立，' : '计划'}按完整预算覆盖到 {horizonAge} 岁，期间没有无法支付的月份；终点恰好为 0 也算充足，但没有余量。这些是模型结果，不是现实概率。</p>
       <div className="rl-actions"><button type="button" className="primary" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? `正在运行… ${done}` : '运行 1 万条路径'}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(100000)}>{running === 100000 ? `正在运行… ${done.toLocaleString('zh-CN')}` : '运行 10 万条路径'}</button>
-        {running !== null && <span className="muted small" role="status">正在测试多种可能的市场路径。运行完成后结果和扇形图将显示出来。</span>}</div>
+        {running !== null && <span className="muted small" role="status">正在用同一月度账本逐条核算。路径越多，所需时间越长。</span>}</div>
       {mc ? <>
         <div className="rl-mc-stats">
           <div><span>资金充足</span><strong className={`rl-pct ${pctTone}`}>{Math.round(mc.success_rate * 100)}%</strong></div>
@@ -99,10 +103,10 @@ function Moves({ P, year, fire }: { P: Plan; year: number; fire: boolean }) {
   return <article className="ui-card rd-card" aria-label="决策矩阵">
     <div className="rd-head"><div><p className="eyebrow">什么对计划影响最大？</p><h3>哪些因素影响计划？</h3></div>{built && <Segments label="矩阵数值" value={show} options={[{ value: 'money', label: '期末剩余资金' }, { value: 'age', label: ageLabel }]} onChange={setShow}/>}</div>
     <p className="muted small">比较储蓄、收益率、退休年龄和支出。绿色表示比基础计划更好，黄色表示更差。红色表示存在缺口或没有剩余资金；黑框是基础计划。</p>
-    {!built ? <div className="empty"><h4>看看哪些改变最有帮助。</h4><p className="muted small">比较多储蓄、获得不同收益率、减少支出，或在不同年龄退休。</p><button type="button" className="primary" disabled={busy} onClick={build}>{busy ? '正在构建…' : '构建图表'}</button></div>
+    {!built ? <div className="empty"><h4>看看哪些改变最有帮助。</h4><p className="muted small">从当前条件出发，比较投入、收益、预算或目标时间的变化。</p><button type="button" className="primary" disabled={busy} onClick={build}>{busy ? '正在构建…' : '构建图表'}</button></div>
       : <div className="rl-matrices">
-        <MatrixView title="供款 × 收益率" sub={show === 'money' ? '期末剩余资金，以今天的金额计' : ageLabel} m={built.a} show={show} rowText={d => rateText(P.r_before_hundredths + d)} colText={c => compactYuan(c)} rowHead="实际收益率" colHead="每月供款"/>
-        <MatrixView title={`${fire ? '期望年龄' : '退休年龄'} × 支出`} sub={show === 'money' ? '期末剩余资金，以今天的金额计' : ageLabel} m={built.b} show={show} rowText={c => compactYuan(c)} colText={a => `${a}`} rowHead="每月支出" colHead={fire ? '期望年龄' : '退休年龄'} flatHint={fire}/>
+        <MatrixView title="供款 × 收益率" sub={show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel} m={built.a} show={show} rowText={d => rateText(P.r_before_hundredths + d)} colText={c => compactYuan(c)} rowHead="实际收益率" colHead="每月供款"/>
+        <MatrixView title={`${fire ? '期望年龄' : '退休年龄'} × 生活预算`} sub={(show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel) + '；固定事件付款不调整'} m={built.b} show={show} rowText={c => compactYuan(c)} colText={a => `${a}`} rowHead="每月预算分项" colHead={fire ? '期望年龄' : '退休年龄'} flatHint={fire}/>
       </div>}
   </article>;
 }
@@ -127,8 +131,8 @@ function Crash({ P, year, fmt }: { P: Plan; year: number; fmt: (c: number) => st
   const baseFinal = paths?.[0]?.final ?? 0;
   return <article className="ui-card rd-card" aria-label="崩盘路径">
     <div className="rd-head"><div><p className="eyebrow">高级检查</p><h3>早期市场崩盘路径</h3></div><button type="button" className="primary" onClick={() => setPaths(sorr(P, year))}>运行路径</button></div>
-    <p className="muted small">测试退休期内的五种崩盘时点路径：第 1 年下跌、第 5 年下跌、两次下跌、失落的十年，与基准对比。</p>
-    {paths === undefined ? <p className="muted small">检查崩盘时点风险。运行这五条路径，查看哪种序列会最先给计划带来压力。</p>
+    <p className="muted small">比较一组相同收益的不同排列：年率 −30% 的下跌分别放在退休开头和末段，持续时间相同、最多一年，其余时间沿用所设收益。基准不含下跌；两条压力路径的差异来自发生时点。</p>
+    {paths === undefined ? <p className="muted small">检查崩盘时点风险。将同一次下跌分别放到退休开始和规划末段，比较提款受到的影响。</p>
       : paths === null ? <p className="muted small">崩盘路径不可用。此检查需要退休开始时投资组合为正值，且规划期内已经达成退休。</p>
       : <><PathsChart paths={paths} fmt={fmt}/>
         <table className="rl-sorr"><thead><tr><th>情景</th><th>存续</th><th>最早缺口</th><th className="amount">{Math.floor(P.horizon_months / 12)} 岁余额</th></tr></thead>

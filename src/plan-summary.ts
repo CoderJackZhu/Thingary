@@ -9,6 +9,7 @@ import { money } from './asset.ts';
 import { progressHundredths, monthsLeftText } from './plan-fire.ts';
 import { required } from './plan-ledger.ts';
 import { buildRetireCalc } from './plan-retire-calc.ts';
+import type { BasicCapabilities, PlanningSources } from './plan-basic-contract.ts';
 import type { RetireCalc } from './plan-retire-calc.ts';
 
 export type ReadyCalc = RetireCalc & { plan: NonNullable<RetireCalc['plan']>; proj: NonNullable<RetireCalc['proj']>; out: NonNullable<RetireCalc['out']>; assets: number };
@@ -25,10 +26,11 @@ export function goalHeadline(calc: ReadyCalc, today: string): GoalHeadline {
   const target = P.target_months;
   // 目标页已有的资金耗尽／必需支出缺口诊断：摘要只转述最重要的一条，不新造风险等级。
   const warn = out.failure_month !== null || out.shortfall_month !== null ? '规划期内存在资金缺口，请查看目标' : null;
+  if (P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5) return { main: '有限期间预算已覆盖', sub: `至 ${Math.floor(P.horizon_months / 12)} 岁，终点无余量`, warn };
   if (P.mode === 'traditional') {
     const funded = out.funded_at_goal;
     const amount = funded ? Math.max(0, out.assets_at_goal - out.required_at_goal) : out.shortfall_at_goal;
-    return { main: `${Math.floor(target / 12)} 岁退休`, sub: `${funded ? '预计盈余' : '预计缺口'} ${yuan(amount)}`, warn };
+    return { main: `${Math.floor(target / 12)} 岁退休`, sub: P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5 ? '有限期间预算已覆盖，终点无余量' : `${funded ? '预计盈余' : '预计缺口'} ${yuan(amount)}`, warn };
   }
   const fi = calc.proj.fi_month;
   if (fi === null) {
@@ -74,16 +76,29 @@ export function usualSaving(review: PlanReview): UsualSaving {
 }
 
 /** 摘要读取层给出的各来源（独立成败，见 review_overview）。 */
-export type PlanSources = { review: Read<PlanReview>; incomes: Read<Income[]>; profile: Read<ProfileState>; snapshot: Read<Snapshot | null>; snapshotId: string | null; snapshotDate: string | null };
+export type PlanSources = { review: Read<PlanReview>; incomes: Read<Income[]>; profile: Read<ProfileState>; snapshot: Read<Snapshot | null>; snapshotId: string | null; snapshotDate: string | null; generation?: string; writeVersion?: number; modules?: PlanningSources['modules'] };
 
 export type SummaryRetire =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'blocked'; step: 'snapshot' | 'profile' | 'budget' | 'saving' | 'other'; main: string; note: string }
+  | { kind: 'blocked'; step: 'snapshot' | 'profile' | 'budget' | 'saving' | 'other'; main: string; note: string; capabilities?: BasicCapabilities }
   | { kind: 'ready'; mode: 'fire' | 'traditional'; headline: GoalHeadline; coverage: { assets: number; requiredNow: number; percent: number }; snapshotDate: string | null; usesPhases: boolean; hasEvents: boolean; calc: ReadyCalc };
 
 /** 缺项优先顺序（§6.1）：读取失败 → 无完整盘点 → 无个人资料 → 无退休预算 → 缺储蓄依据 → 其他。 */
 export function summaryRetire(sources: PlanSources, today: string): SummaryRetire {
+  if (sources.profile.status === 'ready' && sources.profile.value.saved?.profile.retire.basic) {
+    const saved = sources.profile.value.saved;
+    const native: PlanningSources = { generation: sources.generation ?? sources.profile.value.generation, write_version: sources.writeVersion ?? saved.revision, today, modules: sources.modules ?? { planning: true, wealth: sources.snapshot.status === 'ready' && sources.snapshot.value !== null }, profile: sources.profile, snapshot: sources.snapshot, accounts: { status: 'ready', value: [] }, review: sources.review, incomes: sources.incomes };
+    const calc = buildRetireCalc(saved, null, null, [], today, native), capabilities = calc.capabilities!;
+    if (capabilities.requirement.status === 'blocked') return { kind: 'blocked', step: 'other', main: '需求输入待核对', note: capabilities.requirement.missing[0]?.message ?? '来源待核对', capabilities };
+    if (!calc.plan || !calc.proj || !calc.out || calc.assets === null) {
+      const n = capabilities.requirement.value.set;
+      const main = n.status === 'found' ? `目标所需月投入 ${yuan(Number(n.monthly_cents))}` : n.status === 'no_positive_contribution' ? '无需新增正投入' : '目标需求待核对';
+      return { kind: 'blocked', step: 'saving', main, note: '需求按固定目标计算；保存明确预计投入后可查看预测。', capabilities };
+    }
+    const ready = calc as ReadyCalc;
+    return { kind: 'ready', mode: ready.plan.mode, headline: goalHeadline(ready, today), coverage: coverageNow(ready), snapshotDate: capabilities.context.start.date, usesPhases: false, hasEvents: ready.events.some(e => e.included), calc: ready };
+  }
   // 逐个检查以便类型收窄；个人资料失败优先展示（§6.1：统计已成功时保留历史储蓄）。
   if (sources.profile.status === 'error') return { kind: 'error', message: sources.profile.value.message };
   if (sources.review.status === 'error') return { kind: 'error', message: sources.review.value.message };
@@ -106,8 +121,8 @@ export function summaryRetire(sources: PlanSources, today: string): SummaryRetir
 /** 依据说明：盘点日期、未来储蓄采用的口径、已计入的大额计划与「按当前假设估算」。 */
 export function basisNotes(calc: ReadyCalc, snapshotDate: string | null): string[] {
   return [
-    snapshotDate ? `依据 ${snapshotDate} 完整盘点` : null,
-    calc.r.saving_phases.length || calc.r.route_id ? '退休估算采用已设置的储蓄阶段／路线' : '未来净投入待确认',
+    snapshotDate ? `依据 ${snapshotDate} ${calc.r.basic?.start.kind === 'simulation' ? '模拟起点' : '完整盘点'}` : null,
+    calc.r.basic ? '预测采用已保存的单一预计投入' : calc.r.saving_phases.length || calc.r.route_id ? '退休估算采用已设置的储蓄阶段／路线' : '未来净投入待确认',
     calc.events.some(e => e.included || calc.r.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')) ? '已计入大额计划' : null,
     '按当前假设估算',
   ].filter((x): x is string => x !== null);

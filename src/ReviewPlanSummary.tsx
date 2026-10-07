@@ -3,9 +3,11 @@ import { money } from './asset';
 import { Info } from './FormControls';
 import { rateText } from './plan';
 import { summaryBasis, summaryRetire, usualSaving, yuan } from './plan-summary';
-import type { PlanSources } from './plan-summary';
+import type { PlanSources, SummaryRetire } from './plan-summary';
 import type { ReviewPage } from './review';
 import type { PlanningTab } from './PlanningPage';
+import { RequirementLine } from './PlanningRequirement';
+import { needsContribution, terminalText } from './planning-basic-view';
 
 /** 首页右侧「规划」摘要（只读）：复用目标页的计算与文案投影，缺项、错误与历史储蓄各自独立降级。 */
 export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, onGotoPlanning }: {
@@ -16,6 +18,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
   const retire = useMemo(() => (data ? summaryRetire(data, today) : { kind: 'loading' } as const), [data, today]);
   const saving = useMemo(() => (data ? (data.review.status === 'ready' ? usualSaving(data.review.value) : { kind: 'error' } as const) : { kind: 'loading' } as const), [data]);
   const basis = retire.kind === 'ready' ? summaryBasis(retire) : null;
+  const basicPlan = !!(data && data.profile.status === 'ready' && data.profile.value.saved?.profile.retire.basic);
 
   const actions: { label: string; run: () => void }[] = retire.kind === 'ready' ? [
     { label: '查看目标 →', run: () => onGotoPlanning('goals') },
@@ -30,7 +33,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
   return <article className="ui-card review-plan" aria-label="规划摘要">
     <div className="ui-section-head"><h3>规划</h3>{retire.kind === 'ready' && <span className="ui-aside">按当前假设估算</span>}</div>
     <p className="review-plan-goal">退休与财务自由{retire.kind === 'ready' && <small> · {retire.mode === 'fire' ? 'FIRE' : '传统'}</small>}</p>
-    {retire.kind === 'ready' ? <>
+    {basicPlan ? <BasicSummaryBody sources={data!} retire={retire} onGotoPlanning={onGotoPlanning}/> : retire.kind === 'ready' ? <>
       <p className="review-plan-main">{retire.headline.main}</p>
       {retire.headline.sub && <p className="review-plan-sub">{retire.headline.sub}</p>}
       {retire.headline.warn && <p className="review-plan-warn" role="status">{retire.headline.warn}</p>}
@@ -59,7 +62,23 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
       : saving.kind === 'error' ? <p className="review-plan-source">历史资产参考暂时无法读取。</p>
       : <p className="review-plan-source" role="status">正在读取…</p>}
     </div>
-    {basis && <p className="review-plan-source">{basis.join(' · ')}</p>}
-    {actions.length > 0 && <div className="review-plan-actions">{actions.map(a => <button key={a.label} className="review-action" onClick={a.run}>{a.label}</button>)}</div>}
+    {!basicPlan && basis && <p className="review-plan-source">{basis.join(' · ')}</p>}
+    {!basicPlan && actions.length > 0 && <div className="review-plan-actions">{actions.map(a => <button key={a.label} className="review-action" onClick={a.run}>{a.label}</button>)}</div>}
   </article>;
+}
+
+/** Basic results use the overview's committed batch; refreshing it refreshes every planning number together. */
+function BasicSummaryBody({ sources, retire, onGotoPlanning }: { sources: PlanSources; retire: SummaryRetire; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void }) {
+  const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null, r = saved?.profile.retire;
+  const caps = retire.kind === 'ready' ? retire.calc.capabilities : retire.kind === 'blocked' ? retire.capabilities : null;
+  if (!caps) return <p className="review-plan-main muted" role="status">{retire.kind === 'error' ? `规划结果读取失败：${retire.message}` : '正在读取规划…'}</p>;
+  const pred = caps.prediction.status === 'ready' ? caps.prediction.value : null;
+  return <>
+    <p className="review-plan-main">{retire.kind === 'ready' ? retire.headline.main : r?.target_age == null ? '目标年龄还没有设定' : `目标 ${r.target_age} 岁${r.mode === 'fire' ? ' 财务自由' : ' 退休'}`}</p>
+    {retire.kind === 'ready' && retire.headline.sub && <p className="review-plan-sub">{retire.headline.sub}</p>}
+    {caps.requirement.status === 'ready' ? <RequirementLine value={caps.requirement.value}/> : <p className="review-plan-sub">需求还算不出：{caps.requirement.missing[0]?.message}</p>}
+    {pred ? <p className="review-plan-sub">按你估计每月能存下的钱：{terminalText[pred.terminal]}。</p>
+      : needsContribution(caps) ? <p className="review-plan-sub">还没估计每月能存多少钱，先看目标需要的钱即可。</p> : null}
+    <div className="review-plan-actions"><button className="review-action" onClick={() => onGotoPlanning('goals')}>查看目标 →</button>{caps.requirement.status === 'blocked' && <button className="review-action" onClick={() => onGotoPlanning(caps.requirement.status === 'blocked' && caps.requirement.missing.some(m => m.owner === 'pension') ? 'pension' : 'goals', caps.requirement.status === 'blocked' && caps.requirement.missing.some(m => m.owner === 'pension') ? 'profile' : 'budget')}>补充条件 →</button>}</div>
+  </>;
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { outcome, project, required } from '../src/plan-ledger.ts';
-import { ageSpendingMatrix, contributionReturnMatrix, crashReturns, gapAt, largestRisk, monteCarlo, requiredSaving, saveFrom, seedOf, sorr, stressTests, workSaving } from '../src/plan-risk.ts';
+import { ageSpendingMatrix, contributionReturnMatrix, crashReturns, gapAt, largestRisk, monteCarlo, requiredSaving, saveFrom, seedOf, sorr, stressTests, stressSeverity, withoutCareerStress, careerStressIds, workSaving } from '../src/plan-risk.ts';
 
 const pension = () => ({ monthly_cents: 300, lump_cents: 20_000, unlock_age_months: 756 });
 const plan = (over = {}) => ({
@@ -74,25 +74,59 @@ test('matrices: the baseline cell is the base plan, more saving or more return n
   for (let i = 1; i < m.cells.length; i++) for (let j = 0; j < 5; j++) assert.ok((m.cells[i][j].fi_month ?? Infinity) <= (m.cells[i - 1][j].fi_month ?? Infinity));
   const a = ageSpendingMatrix(P, YEAR);
   assert.deepEqual([a.rows.length, a.cols.length], [5, 5]);
-  assert.deepEqual(a.cols, [37, 39, 40, 42, 44]);
+  assert.deepEqual(a.cols, [36, 38, 40, 42, 44]);
   const b = a.cells[a.base_row][a.base_col];
   assert.deepEqual([b.fi_month, b.at_horizon], [base.fi_month, base.at_horizon]);
   // 支出更高：FI 不会更早。
   for (let j = 0; j < 5; j++) for (let i = 1; i < 5; i++) assert.ok((a.cells[i][j].fi_month ?? Infinity) >= (a.cells[i - 1][j].fi_month ?? Infinity));
-  // 没有储蓄时缴款轴用固定档位。
-  assert.deepEqual(contributionReturnMatrix(plan({ saving_cents: 0 }), YEAR).cols, [0, 50000, 100000, 150000, 200000]);
+  // 明确零投入时，比较金额参照目标预算，仍保留零这个真实基准。
+  assert.deepEqual(contributionReturnMatrix(plan({ saving_cents: 0 }), YEAR).cols, [0, 250, 500, 750, 1000]);
 });
 
 test('crash paths: base is the plan itself, shocks never leave more money, and an unfunded plan has none', () => {
   const P = plan({ assets_cents: 5_000_000 }), proj = project(P, YEAR);
   const paths = sorr(P, YEAR);
-  assert.equal(paths.length, 5);
-  const [base, c1, c5, dbl, lost] = paths;
+  assert.equal(paths.length, 3);
+  const [base, early, late] = paths;
   assert.ok(Math.abs(base.final - Math.max(0, proj.assets[proj.assets.length - 1])) < 1e-6);
-  assert.equal(base.path[0], c1.path[0]);
-  for (const p of [c1, c5, dbl, lost]) assert.ok(p.final <= base.final + 1e-6, p.id);
-  assert.ok(c1.path[1] < base.path[1]);
+  assert.equal(base.path[0], early.path[0]);
+  for (const p of [early, late]) assert.ok(p.final <= base.final + 1e-6, p.id);
+  assert.ok(early.path[1] < base.path[1]);
+  assert.equal(late.path[1], base.path[1]);
   assert.equal(sorr(plan({ assets_cents: 0, saving_cents: 0 }), YEAR), null);
+});
+
+test('severity follows actual loss of coverage rather than a delay or percentage threshold', () => {
+  const covered = { ...outcome(plan(), project(plan(), YEAR)), success: true, funded_at_goal: true, fi_month: 500, failure_month: null, shortfall_month: null, shortfall_at_goal: 0, at_horizon: 1000 };
+  assert.equal(stressSeverity(covered, { ...covered, success: false, failure_month: 800 }), 'high');
+  assert.equal(stressSeverity(covered, { ...covered, fi_month: 548 }), 'medium');
+  assert.equal(stressSeverity(covered, { ...covered, at_horizon: 2000 }), 'low');
+  const failed = { ...covered, success: false, failure_month: 800 };
+  assert.equal(stressSeverity(failed, { ...failed, failure_month: 850 }), 'low');
+  assert.equal(stressSeverity(failed, { ...failed, failure_month: 799 }), 'high');
+});
+
+test('sequence comparison preserves the return product, including a partial final year', () => {
+  const P = plan({ mode: 'traditional', now_months: 360, target_months: 360, horizon_months: 390, assets_cents: 10_000_000, items: [], incomes: [], pension_at: () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 756 }) });
+  const [base, early, late] = sorr(P, YEAR);
+  assert.ok(Math.abs(early.final - late.final) < 1e-6, 'without withdrawals, moving the same full-year loss cannot change wealth');
+  assert.equal(early.years.at(-1), 32.5);
+  assert.equal(base.years.at(-1), 32.5);
+  for (const first_month_fraction of [0, 0.25, 0.5]) {
+    const partial = sorr({ ...P, first_month_fraction }, YEAR);
+    assert.ok(Math.abs(partial[1].final - partial[2].final) < 1e-6, 'partial first months also preserve the total shock duration');
+  }
+  const short = sorr({ ...P, horizon_months: 366 }, YEAR);
+  assert.equal(short[1].final, short[2].final);
+});
+
+test('zero-volatility simulations use the same payment ordering, unlock and final-zero criterion as the ledger', async () => {
+  const P = plan({ input_mode: 'basic', mode: 'traditional', target_months: 360, horizon_months: 362, assets_cents: 2000, saving_cents: 0, r_before_hundredths: 0, r_after_hundredths: 0, pension_at: () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 756 }) });
+  assert.equal((await monteCarlo(P, 3)).success_rate, 1);
+  assert.equal((await monteCarlo(P, 3)).final.p50, 0);
+  const short = { ...P, assets_cents: 0, saving_flows: [{ from_month: 360, to_month: 361, cents: -1000, nominal: false, essential: true, timing: 'start' }], spend_flows: [{ from_month: 360, to_month: 361, cents: 1000, nominal: false, essential: true, timing: 'start' }], pension_at: () => ({ monthly_cents: 0, lump_cents: 10000, unlock_age_months: 360 }) };
+  assert.equal(outcome(short, project(short, YEAR)).success, false);
+  assert.equal((await monteCarlo(short, 3)).success_rate, 0, 'later unlock cannot erase the month-start missed payment');
 });
 
 test('income shocks rewrite the saving timeline: halve from a date, or draw down savings for a stretch', () => {
@@ -143,4 +177,12 @@ test('required saving is the smallest constant monthly amount that reaches the g
   const later = { ...base, saving_phases: [{ from_month: 360, cents: 0 }, { from_month: 420, cents: 500 }] };
   const front = requiredSaving(later, YEAR, 420), whole = requiredSaving(later, YEAR, 480);
   assert.ok(front > whole && front > 0);
+});
+
+test('basic mode drops the preset career stress cases and keeps the neutral ones', () => {
+  const all = stressTests(plan(), YEAR), kept = withoutCareerStress(all);
+  assert.deepEqual(careerStressIds.slice().sort(), ['income-drop', 'job-gap', 'raise-30', 'raise-double']);
+  assert.equal(kept.length, all.length - 4);
+  for (const id of careerStressIds) assert.equal(kept.some(r => r.id === id), false, id);
+  for (const id of ['return-drag', 'inflation-shock', 'spending-shock', 'retire-earlier', 'save-less', 'early-crash']) assert.equal(kept.some(r => r.id === id), true, id);
 });

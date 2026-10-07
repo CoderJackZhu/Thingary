@@ -19,16 +19,16 @@ fn code<T: std::fmt::Debug>(r: Result<T, Error>) -> String {
 }
 fn profile() -> Profile {
     Profile {
-        birth_month: "1990-06".into(),
-        worker: "male".into(),
-        region: "beijing".into(),
-        paid_months: 48,
-        account_balance_cents: "5000000".into(),
-        base_cents: "2000000".into(),
+        birth_month: Some("1990-06".into()),
+        worker: Some("male".into()),
+        region: Some("beijing".into()),
+        paid_months: Some(48),
+        account_balance_cents: Some("5000000".into()),
+        base_cents: Some("2000000".into()),
         past_index_hundredths: None,
-        flex_months: 0,
-        personal_pension_annual_cents: "1200000".into(),
-        marginal_tax_hundredths: 1000,
+        flex_months: Some(0),
+        personal_pension_annual_cents: Some("1200000".into()),
+        marginal_tax_hundredths: Some(1000),
         assumptions: Assumptions {
             inflation_hundredths: 200,
             wage_growth_hundredths: 300,
@@ -71,18 +71,18 @@ fn profile_saves_once_then_by_revision_and_replays_requests() {
         "REVISION_CONFLICT"
     );
     let mut edited = profile();
-    edited.paid_months = 60;
+    edited.paid_months = Some(60);
     let ok = s
         .plan_profile_save(&save(&s, edited.clone(), Some(1)), TODAY)
         .unwrap();
-    assert_eq!((ok.revision, ok.profile.paid_months), (2, 60));
+    assert_eq!((ok.revision, ok.profile.paid_months), (2, Some(60)));
     assert_eq!(
         code(s.plan_profile_save(&save(&s, profile(), Some(1)), TODAY)),
         "REVISION_CONFLICT"
     );
     // Reusing a request id for other content is refused.
     let mut other = first.clone();
-    other.profile.paid_months = 1;
+    other.profile.paid_months = Some(1);
     assert_eq!(code(s.plan_profile_save(&other, TODAY)), "REQUEST_CONFLICT");
     // An older library generation is refused.
     let mut old = save(&s, edited, Some(2));
@@ -97,30 +97,39 @@ fn profile_validation_names_the_bad_field() {
     type Change = Box<dyn Fn(&mut Profile)>;
     let cases: Vec<(Change, &str)> = vec![
         (
-            Box::new(|p| p.birth_month = "1990-13".into()),
+            Box::new(|p| p.birth_month = Some("1990-13".into())),
             "PROFILE_BIRTH",
         ),
         (
-            Box::new(|p| p.birth_month = "2026-12".into()),
+            Box::new(|p| p.birth_month = Some("2026-12".into())),
             "PROFILE_BIRTH",
         ),
         (
-            Box::new(|p| p.birth_month = "1990-6".into()),
+            Box::new(|p| p.birth_month = Some("1990-6".into())),
             "PROFILE_BIRTH",
         ),
-        (Box::new(|p| p.worker = "other".into()), "PROFILE_WORKER"),
-        (Box::new(|p| p.region = "shanghai".into()), "PROFILE_REGION"),
-        (Box::new(|p| p.paid_months = 1201), "PROFILE_MONTHS"),
         (
-            Box::new(|p| p.account_balance_cents = "-1".into()),
+            Box::new(|p| p.worker = Some("other".into())),
+            "PROFILE_WORKER",
+        ),
+        (
+            Box::new(|p| p.region = Some("shanghai".into())),
+            "PROFILE_REGION",
+        ),
+        (Box::new(|p| p.paid_months = Some(1201)), "PROFILE_MONTHS"),
+        (
+            Box::new(|p| p.account_balance_cents = Some("-1".into())),
             "PROFILE_AMOUNT",
         ),
-        (Box::new(|p| p.base_cents = "".into()), "PROFILE_AMOUNT"),
+        (
+            Box::new(|p| p.base_cents = Some("".into())),
+            "PROFILE_AMOUNT",
+        ),
         (
             Box::new(|p| p.past_index_hundredths = Some(0)),
             "PROFILE_INDEX",
         ),
-        (Box::new(|p| p.flex_months = 37), "PROFILE_FLEX"),
+        (Box::new(|p| p.flex_months = Some(37)), "PROFILE_FLEX"),
         (
             Box::new(|p| p.retire.spend_cents = Some("0".into())),
             "PROFILE_AMOUNT",
@@ -134,13 +143,13 @@ fn profile_validation_names_the_bad_field() {
             Box::new(|p| p.retire.emergency_months = 37),
             "PROFILE_RETIRE",
         ),
-        (Box::new(|p| p.flex_months = -37), "PROFILE_FLEX"),
+        (Box::new(|p| p.flex_months = Some(-37)), "PROFILE_FLEX"),
         (
-            Box::new(|p| p.personal_pension_annual_cents = "1200001".into()),
+            Box::new(|p| p.personal_pension_annual_cents = Some("1200001".into())),
             "PROFILE_PENSION",
         ),
         (
-            Box::new(|p| p.marginal_tax_hundredths = 4501),
+            Box::new(|p| p.marginal_tax_hundredths = Some(4501)),
             "PROFILE_RATE",
         ),
         (
@@ -174,9 +183,9 @@ fn profile_validation_names_the_bad_field() {
     );
     // Zero is allowed: no personal pension, nothing paid yet, no balance.
     let mut zero = profile();
-    zero.personal_pension_annual_cents = "0".into();
-    zero.paid_months = 0;
-    zero.account_balance_cents = "0".into();
+    zero.personal_pension_annual_cents = Some("0".into());
+    zero.paid_months = Some(0);
+    zero.account_balance_cents = Some("0".into());
     s.plan_profile_save(&save(&s, zero, None), TODAY).unwrap();
 }
 
@@ -307,12 +316,12 @@ fn a_profile_saved_before_plan_types_loads_and_new_fields_round_trip() {
             p.retire.target_age,
             p.retire.volatility_hundredths
         ),
-        ("fire", 50, 500)
+        ("fire", Some(50), 500)
     );
     let mut custom = profile();
     custom.retire = Retire {
         mode: "traditional".into(),
-        target_age: 60,
+        target_age: Some(60),
         volatility_hundredths: 1200,
         spend_items: vec![spend("a")],
         income_items: vec![income("b")],
@@ -332,8 +341,8 @@ fn plan_type_items_and_volatility_are_validated() {
     let cases: Vec<(Change, &str)> = vec![
         (Box::new(|_| {}), ""),
         (Box::new(|r| r.mode = "coast".into()), "PROFILE_RETIRE"),
-        (Box::new(|r| r.target_age = 19), "PROFILE_RETIRE"),
-        (Box::new(|r| r.target_age = 90), "PROFILE_RETIRE"),
+        (Box::new(|r| r.target_age = Some(19)), "PROFILE_RETIRE"),
+        (Box::new(|r| r.target_age = Some(90)), "PROFILE_RETIRE"),
         (Box::new(|r| r.volatility_hundredths = 6001), "PROFILE_RATE"),
         (
             Box::new(|r| r.spend_items.push(spend("a"))),
@@ -754,7 +763,7 @@ fn core_committed_unknown_receipt_restart_restore_and_conflict_preserve_one_occu
     s.backup(Some(&file)).unwrap();
     let mut restored = Store::open(&dir.path().join("restored")).unwrap();
     let summary = restored.inspect_backup(&file).unwrap();
-    assert_eq!(summary.schema, thingary_lib::storage::SCHEMA_VERSION as u32);
+    assert_eq!(summary.schema, SCHEMA_VERSION as u32);
     restored
         .restore(&file, &summary.hash, &restored.generation())
         .unwrap();
@@ -991,7 +1000,7 @@ fn core_payment_aliases_reject_and_legacy_duplicates_degrade_after_restore() {
     let root = dir.path().join("fictional-alias-repair");
     let mut s = Store::open(&root).unwrap();
     let (mut p, account, _snapshot_id) = core_fixture(&mut s);
-    p.personal_pension_annual_cents = "0".into();
+    p.personal_pension_annual_cents = Some("0".into());
     p.assumptions.inflation_hundredths = 0;
     p.retire.spend_cents = Some("100000".into());
     let a = s
@@ -1218,4 +1227,218 @@ fn core_payment_aliases_reject_and_legacy_duplicates_degrade_after_restore() {
         .reference_issues
         .iter()
         .any(|i| i.contains("重复关联")));
+}
+
+#[test]
+fn guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restore() {
+    use thingary_lib::plan_income::{Fields, Save};
+    let mut old = serde_json::to_value(profile()).unwrap();
+    old["retire"]
+        .as_object_mut()
+        .unwrap()
+        .remove("setup_completed");
+    let legacy: Profile = serde_json::from_value(old).unwrap();
+    assert!(!legacy.retire.setup_completed);
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("library")).unwrap();
+    let (mut p, _, _) = core_fixture(&mut s);
+    s.plan_income_save(
+        &Save {
+            request_id: rid(),
+            generation: s.generation(),
+            id: None,
+            expected_revision: None,
+            fields: Fields {
+                date: "2026-12-20".into(),
+                net_cents: "100000".into(),
+                hpf_cents: "0".into(),
+                notes: "虚构到账".into(),
+            },
+        },
+        TODAY,
+    )
+    .unwrap();
+    s.plan_profile_save(&save(&s, p.clone(), None), TODAY)
+        .unwrap();
+    let facts = serde_json::json!({"accounts":s.wealth_accounts().unwrap(),"wealth":s.wealth_summary().unwrap(),"review":s.plan_review().unwrap(),"income":s.plan_income_list().unwrap()});
+    let occurrences = p.retire.core.as_ref().unwrap().occurrences.clone();
+    p.retire.setup_completed = true;
+    p.retire.route_id = None;
+    p.retire.spend_cents = Some("120000".into());
+    s.plan_profile_save(&save(&s, p.clone(), Some(1)), TODAY)
+        .unwrap();
+    assert_eq!(
+        facts,
+        serde_json::json!({"accounts":s.wealth_accounts().unwrap(),"wealth":s.wealth_summary().unwrap(),"review":s.plan_review().unwrap(),"income":s.plan_income_list().unwrap()})
+    );
+    assert_eq!(
+        s.plan_profile()
+            .unwrap()
+            .saved
+            .unwrap()
+            .profile
+            .retire
+            .core
+            .unwrap()
+            .occurrences,
+        occurrences
+    );
+    let file = dir.path().join("setup.thingary");
+    s.backup(Some(&file)).unwrap();
+    drop(s);
+    let mut restored = Store::open(&dir.path().join("restored")).unwrap();
+    let summary = restored.inspect_backup(&file).unwrap();
+    restored
+        .restore(&file, &summary.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(restored.plan_profile().unwrap().saved.unwrap().profile, p);
+    let mut after = serde_json::json!({"accounts":restored.wealth_accounts().unwrap(),"wealth":restored.wealth_summary().unwrap(),"review":restored.plan_review().unwrap(),"income":restored.plan_income_list().unwrap()});
+    for key in ["wealth", "review", "income"] {
+        after[key]["generation"] = facts[key]["generation"].clone();
+    }
+    assert_eq!(after, facts);
+}
+
+#[test]
+fn basic_reset_preserves_single_core_occurrence_payment_and_existing_account_snapshot_income_ids() {
+    use thingary_lib::plan_basic::{Section, Update};
+    use thingary_lib::plan_income::{Fields as IncomeFields, Save as IncomeSave};
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&d.path().join("fictional")).unwrap();
+    let (mut p, account_id, snapshot_id) = core_fixture(&mut s);
+    use thingary_lib::{
+        plan_core::{CostRule, Loan},
+        wealth::{AccountFields, AccountSave, EntryInput, SnapshotSave},
+    };
+    let debt = s
+        .wealth_account_save(
+            &AccountSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: AccountFields {
+                    name: "虚构余债".into(),
+                    institution: "虚构".into(),
+                    side: "liability".into(),
+                    kind: "loan".into(),
+                    counted: true,
+                    opened_on: "2026-01-01".into(),
+                    closed_on: None,
+                    notes: String::new(),
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    let snapshot = s
+        .wealth_snapshot_save(
+            &SnapshotSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: Some(snapshot_id.clone()),
+                expected_revision: Some(1),
+                date: "2026-10-31".into(),
+                notes: "虚构完整资料".into(),
+                entries: vec![
+                    EntryInput {
+                        account_id: account_id.clone(),
+                        state: "entered".into(),
+                        amount_cents: Some("70000000".into()),
+                    },
+                    EntryInput {
+                        account_id: debt.id.clone(),
+                        state: "entered".into(),
+                        amount_cents: Some("1200000".into()),
+                    },
+                ],
+            },
+            TODAY,
+        )
+        .unwrap();
+    p.retire.life_events[0].price_cents = "40000000".into();
+    let c = p.retire.core.as_mut().unwrap();
+    c.occurrences[0].payments[0].absorbed_revision = Some(snapshot.revision);
+    c.occurrences[0].loan = Some(Loan {
+        account_id: debt.id.clone(),
+        as_of: snapshot.date,
+        principal_cents: "1200000".into(),
+        remaining_months: 12,
+    });
+    c.costs = vec![CostRule {
+        phase_id: "phase".into(),
+        source_id: "event:event:loan".into(),
+        included: true,
+        reference_cents: "100000".into(),
+    }];
+    let income = s
+        .plan_income_save(
+            &IncomeSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: IncomeFields {
+                    date: "2026-09-01".into(),
+                    net_cents: "0".into(),
+                    hpf_cents: "0".into(),
+                    notes: "虚构零事实".into(),
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    let old = s
+        .plan_profile_save(&save(&s, p.clone(), None), TODAY)
+        .unwrap();
+    let before_accounts = serde_json::to_value(s.wealth_accounts().unwrap()).unwrap();
+    let before_snapshot = serde_json::to_value(s.wealth_snapshot(&snapshot_id).unwrap()).unwrap();
+    let before_income = serde_json::to_value(s.plan_income_list().unwrap()).unwrap();
+    let mut i: Update = serde_json::from_str(include_str!(
+        "../../tests/fixtures/planning-basic/update.json"
+    ))
+    .unwrap();
+    i.generation = s.generation();
+    i.expected_revision = Some(1);
+    if let Section::Basic(f) = &mut i.section {
+        f.confirm_legacy_replacement = true;
+    }
+    let new = s.plan_profile_update(&i, TODAY).unwrap();
+    assert_eq!(new.profile.retire.core, old.profile.retire.core);
+    assert_eq!(
+        new.profile.retire.life_events,
+        old.profile.retire.life_events
+    );
+    assert_eq!(
+        new.profile
+            .retire
+            .legacy_definition
+            .as_ref()
+            .unwrap()
+            .event_ids,
+        vec!["event"]
+    );
+    assert_eq!(
+        serde_json::to_value(s.wealth_accounts().unwrap()).unwrap(),
+        before_accounts
+    );
+    assert_eq!(
+        serde_json::to_value(s.wealth_snapshot(&snapshot_id).unwrap()).unwrap(),
+        before_snapshot
+    );
+    assert_eq!(
+        serde_json::to_value(s.plan_income_list().unwrap()).unwrap(),
+        before_income
+    );
+    assert_eq!(
+        s.plan_income(&income.id).unwrap().unwrap().fields.net_cents,
+        "0"
+    );
+    assert_eq!(s.wealth_accounts().unwrap()[0].id, account_id);
+    let count: i64 = s
+        .conn_for_test()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM plan_profile", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(count, 1);
 }

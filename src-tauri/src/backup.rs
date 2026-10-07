@@ -104,6 +104,13 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     let canonical = Connection::open_in_memory()?;
     canonical.execute_batch(SCHEMA)?;
     crate::storage::migrate_to(&canonical, v, &|_| Ok(()))?;
+    let linked_schema = v >= 32 && crate::storage::has_link_trash_schema(&db)?;
+    if v == 32 && linked_schema {
+        // The unpublished subscription branch also used 32. Accept only its
+        // exact canonical definitions, alongside main's table-free version.
+        canonical.execute_batch(include_str!("x09.sql"))?;
+        canonical.execute_batch("PRAGMA user_version=32;")?;
+    }
     if v == SCHEMA_VERSION {
         check_db(&db)?;
     } else {
@@ -191,7 +198,7 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     if v >= 19 {
         crate::virtual_assets::validate_dataset(&db)?;
     }
-    if v >= 32 {
+    if linked_schema {
         crate::link::validate_dataset(&db)?;
     }
     if v >= 9 {
@@ -524,7 +531,7 @@ pub struct Summary {
     pub virtual_assets: i64,
     /// Stored-value facts (schema 22 and newer); zero on older backups.
     pub virtual_topups: i64,
-    /// Linked-subscription trash groups (schema 32 and newer).
+    /// Linked-subscription trash groups (schema 33, or the unpublished 32).
     pub link_groups: i64,
     pub files: usize,
 }
@@ -602,7 +609,7 @@ impl Store {
             } else {
                 0
             },
-            link_groups: if v >= 32 {
+            link_groups: if v >= 32 && crate::storage::has_link_trash_schema(&db)? {
                 count("SELECT count(*) FROM link_trash_groups")?
             } else {
                 0

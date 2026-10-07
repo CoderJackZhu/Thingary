@@ -942,7 +942,7 @@ fn d02_migration_fault_rollback_and_restart() {
     {
         let db = rusqlite::Connection::open(dir.path().join("data.sqlite")).unwrap();
         db.execute_batch(thingary_lib::storage::SCHEMA).unwrap();
-        migrate_to(&db, 31, &|_| Ok(())).unwrap();
+        migrate_to(&db, 32, &|_| Ok(())).unwrap();
     }
     let db = rusqlite::Connection::open(dir.path().join("data.sqlite")).unwrap();
     assert!(migrate_to(
@@ -958,7 +958,7 @@ fn d02_migration_fault_rollback_and_restart() {
     let v: i64 = db
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(v, 31);
+    assert_eq!(v, 32);
     assert!(db
         .prepare("SELECT count(*) FROM link_trash_groups")
         .is_err());
@@ -1561,4 +1561,110 @@ fn shared_plan_price_segments_preserve_paid_facts_and_conflict_other_form() {
     let fresh = asset_of(&s, &asset);
     assert_eq!(fresh.plan.unwrap().renewal_cents.as_deref(), Some("1500"));
     assert_eq!(s.expense_view(None).unwrap().spent_cents, "1200");
+}
+
+/// Both unpublished schema-32 variants retain planning payloads and payment
+/// identities through direct upgrade and a legacy-backup restore.
+#[test]
+fn schema32_variants_upgrade_and_restore_without_losing_planning_or_groups() {
+    use sha2::{Digest, Sha256};
+    use std::io::Write;
+    use thingary_lib::plan_basic::Update;
+    for with_groups in [false, true] {
+        let d = tempfile::tempdir().unwrap();
+        let root = d.path().join("source");
+        let mut s = Store::open(&root).unwrap();
+        let (asset, plan) = sub(&mut s, "虚构合并订阅", "1200");
+        let payment = pay(&mut s, &plan, "2026-09-01", "1200");
+        let mut update: Update = serde_json::from_str(include_str!(
+            "../../tests/fixtures/planning-basic/update.json"
+        ))
+        .unwrap();
+        update.generation = s.generation();
+        let profile = s.plan_profile_update(&update, "2026-10-07").unwrap();
+        let group = with_groups.then(|| group_delete(&mut s, "virtual", &asset));
+        // Simulate the exact main-32 or subscription-32 physical layout.
+        let db = s.conn_for_test().unwrap();
+        let database_path = std::path::PathBuf::from(db.path().unwrap());
+        db.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA user_version=32;")
+            .unwrap();
+        if !with_groups {
+            db.execute_batch("DROP INDEX link_trash_members_lookup; DROP TABLE link_trash_members; DROP TABLE link_trash_groups;").unwrap();
+        }
+        drop(s);
+        let bytes = std::fs::read(database_path).unwrap();
+        let manifest = serde_json::json!({"format":1,"schema":32,"created_at":"2026-10-07T00:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
+        let archive = d.path().join("legacy32.thingary");
+        let mut z = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
+        let opts = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Stored);
+        z.start_file("manifest.json", opts).unwrap();
+        z.write_all(&serde_json::to_vec(&manifest).unwrap())
+            .unwrap();
+        z.start_file("data.sqlite", opts).unwrap();
+        z.write_all(&bytes).unwrap();
+        z.finish().unwrap();
+        let mut dest = Store::open(&d.path().join("restore")).unwrap();
+        let info = dest.inspect_backup(&archive).unwrap();
+        assert_eq!(info.schema, 32);
+        assert_eq!(info.link_groups, i64::from(with_groups));
+        dest.restore(&archive, &info.hash, &dest.generation())
+            .unwrap();
+        let mut upgraded = Store::open(&root).unwrap();
+        for store in [&mut dest, &mut upgraded] {
+            let version: i64 = store
+                .conn_for_test()
+                .unwrap()
+                .query_row("PRAGMA user_version", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(version, 33);
+            assert_eq!(
+                store.plan_profile().unwrap().saved.unwrap().profile,
+                profile.profile
+            );
+            if let Some(group) = &group {
+                assert_eq!(
+                    store.link_view("plan", &plan).unwrap().group.unwrap().id,
+                    *group
+                );
+                restore(store, group);
+            } else {
+                assert_eq!(store.link_view("plan", &plan).unwrap().relation, "linked");
+                let group = group_delete(store, "plan", &plan);
+                restore(store, &group);
+            }
+            let overview = store.recurring_overview(T).unwrap();
+            assert_eq!(overview.payments[0].id, payment);
+            assert_eq!(store.expense_view(None).unwrap().spent_cents, "1200");
+            assert_eq!(store.virtual_overview(T).unwrap().items[0].id, asset);
+            let new_backup = d
+                .path()
+                .join(format!("new-{}.thingary", store.generation()));
+            store.backup(Some(&new_backup)).unwrap();
+            assert_eq!(store.inspect_backup(&new_backup).unwrap().schema, 33);
+        }
+    }
+}
+
+#[test]
+fn schema32_partial_or_altered_group_structure_is_not_silently_accepted() {
+    for altered in [false, true] {
+        let db = rusqlite::Connection::open_in_memory().unwrap();
+        db.execute_batch(thingary_lib::storage::SCHEMA).unwrap();
+        migrate_to(&db, 32, &|_| Ok(())).unwrap();
+        if altered {
+            db.execute_batch(include_str!("../src/x09.sql")).unwrap();
+            db.execute_batch("ALTER TABLE link_trash_groups ADD COLUMN unexpected TEXT;")
+                .unwrap();
+        } else {
+            db.execute_batch("CREATE TABLE link_trash_groups(id TEXT PRIMARY KEY);")
+                .unwrap();
+        }
+        db.execute_batch("PRAGMA user_version=32;").unwrap();
+        assert_eq!(code(migrate_to(&db, 33, &|_| Ok(()))), "DATABASE_SCHEMA");
+        let version: i64 = db
+            .query_row("PRAGMA user_version", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(version, 32);
+    }
 }

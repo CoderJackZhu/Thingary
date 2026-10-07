@@ -119,7 +119,8 @@ fn has_personal_records(store: &Store) -> Result<bool> {
         "SELECT EXISTS(SELECT 1 FROM assets) OR EXISTS(SELECT 1 FROM wishlist_items)
          OR EXISTS(SELECT 1 FROM fin_accounts) OR EXISTS(SELECT 1 FROM fin_snapshots)
          OR EXISTS(SELECT 1 FROM expenses) OR EXISTS(SELECT 1 FROM recurring_plans)
-         OR EXISTS(SELECT 1 FROM plan_payments) OR EXISTS(SELECT 1 FROM virtual_assets)",
+         OR EXISTS(SELECT 1 FROM plan_payments) OR EXISTS(SELECT 1 FROM virtual_assets)
+         OR EXISTS(SELECT 1 FROM plan_profile) OR EXISTS(SELECT 1 FROM plan_income)",
         [],
         |r| r.get(0),
     )?)
@@ -212,6 +213,54 @@ impl Worker {
             } else {
                 f(&mut state.real)
             }
+        })
+    }
+    /// Module switches and active library are sampled in the same worker turn.
+    pub fn planning_overview(
+        &self,
+        year: Option<i32>,
+        planning: bool,
+        today: String,
+    ) -> Result<crate::review::Overview> {
+        self.with_state(move |state| {
+            let modules = crate::modules::read(&state.real.root);
+            let store = if state.demo_mode {
+                state
+                    .demo
+                    .as_mut()
+                    .ok_or_else(|| Error::new("DEMO", "样例库尚未准备好"))?
+            } else {
+                &mut state.real
+            };
+            store.review_overview_with_modules(
+                year,
+                &today,
+                planning && modules.planning,
+                modules.wealth,
+            )
+        })
+    }
+    pub fn planning_sources(
+        &self,
+        planning: bool,
+        wealth: bool,
+        today: String,
+    ) -> Result<crate::review::PlanningSources> {
+        self.with_state(move |state| {
+            let modules = crate::modules::read(&state.real.root);
+            let store = if state.demo_mode {
+                state
+                    .demo
+                    .as_mut()
+                    .ok_or_else(|| Error::new("DEMO", "样例库尚未准备好"))?
+            } else {
+                &mut state.real
+            };
+            store.planning_sources(
+                planning && modules.planning,
+                wealth && modules.wealth,
+                &today,
+            )
         })
     }
     pub fn call_personal<T: Send + 'static>(
@@ -685,6 +734,26 @@ mod tests {
             restarted.call(|s| Ok(s.generation())).unwrap(),
             real_generation
         );
+    }
+
+    #[test]
+    fn a_saved_basic_plan_is_a_personal_record_on_restart() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("fictional-library");
+        {
+            let mut s = Store::open(&root).unwrap();
+            let mut input: crate::plan_basic::Update = serde_json::from_str(include_str!(
+                "../../tests/fixtures/planning-basic/update.json"
+            ))
+            .unwrap();
+            input.generation = s.generation();
+            s.plan_profile_update(&input, "2026-10-07").unwrap();
+        }
+        let worker = Worker::start(root.clone()).unwrap();
+        let status = worker.demo_status().unwrap();
+        assert!(status.started);
+        assert!(!status.active);
+        assert!(root.join("personal-started").exists());
     }
 
     #[test]

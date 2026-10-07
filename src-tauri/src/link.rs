@@ -1443,7 +1443,7 @@ impl Store {
     }
 }
 
-/// Backup validation for schema 32 data beyond what SQL CHECKs cover: group
+/// Backup validation for schema 33 and unpublished schema 32 data beyond what SQL CHECKs cover: group
 /// shape, member sides, delete-state consistency and the one-open-group rule.
 pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
     let bad = || Error::new("DATA_CONSTRAINT", "备份含非法关联删除组资料");

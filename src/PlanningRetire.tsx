@@ -7,22 +7,23 @@ import type { RetireCalc } from './plan-retire-calc';
 import { RetireOverview, useValueMode, yuan } from './RetireOverview';
 import { RetireSidebar } from './RetireSidebar';
 import { RiskLab } from './RiskLab';
-import type { Snapshot, Summary } from './wealth';
+import type { Account, Snapshot, Summary } from './wealth';
 import './planning.css';
 import './retire.css';
 
 /** 退休与 FIRE 的数据与计算：目标卡片和详情页共用，结果不存库。 */
 export function useRetirePlan(today: string, review: PlanReview, incomes: Income[]) {
   const [state, setState] = useState<ProfileState | null>(null), [snapshot, setSnapshot] = useState<Snapshot | null | undefined>(undefined);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [error, setError] = useState(''), [retry, setRetry] = useState(0);
   useEffect(() => {
     let live = true; setError('');
     (async () => {
-      const profile = await invoke<ProfileState>('plan_profile');
+      const [profile, catalog] = await Promise.all([invoke<ProfileState>('plan_profile'), invoke<Account[]>('wealth_accounts')]);
       const summary = await invoke<Summary>('wealth_summary');
       const latest = [...summary.points].reverse().find(p => p.complete);
       const snap = latest ? await invoke<Snapshot | null>('wealth_snapshot', { id: latest.snapshot_id }) : null;
-      if (live) { setState(profile); setSnapshot(snap); }
+      if (live) { setState(profile); setAccounts(catalog); setSnapshot(snap); }
     })().catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [retry]);
@@ -31,7 +32,7 @@ export function useRetirePlan(today: string, review: PlanReview, incomes: Income
   const calc = useMemo(() => (saved && snapshot !== undefined ? buildRetireCalc(saved, snapshot, review, incomes, today) : null), [saved, snapshot, incomes, review, today]);
   // 各路线并排：编辑路线时才算，不在每次渲染里算。
   const compare = () => (saved && snapshot !== undefined ? routeCompare(saved, snapshot, review, incomes, today) : null);
-  return { state, snapshot, error, calc, compare, reload: () => setRetry(n => n + 1) };
+  return { state, snapshot, accounts, error, calc, compare, reload: () => setRetry(n => n + 1) };
 }
 export type RetirePlan = ReturnType<typeof useRetirePlan>;
 

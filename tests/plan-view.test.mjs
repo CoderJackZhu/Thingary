@@ -28,15 +28,15 @@ test('FIRE verdicts: reached, on time, late and never', () => {
   assert.equal(rich.v.tone, 'good');
   const early = run(plan({ target_months: 1000 }));  // 目标定得很晚：按时
   assert.equal(early.v.badge, '进展顺利');
-  assert.match(text(early.v.headline), /^预计您将在\d+ 岁达到财务独立。$/);
+  assert.match(text(early.v.headline), /测算时点为 \d+ 岁/);
   const late = run(plan({ target_months: 361, saving_cents: 300 }));
   assert.ok(late.proj.fi_month > 361 + 12, 'fixture should be late');
-  assert.match(late.v.badge, /^晚 \d+ 年$/);
+  assert.match(late.v.badge, /^晚 \d+ 年/);
   assert.match(late.v.guidance, /后实现财务独立/);
   const never = run(plan({ saving_cents: 0, assets_cents: 0 }));
   assert.equal(never.v.tone, 'bad');
   assert.match(never.v.badge, /^预计 90 岁前无法达到$/);
-  assert.match(never.v.summary.map(x => x.t).join(''), /^根据当前假设及¥1500\/月的缴款，计划包括直至 90 岁的每年¥14400支出。$/.source.length ? /每年¥/ : /./);
+  assert.match(text(never.v.summary), /预计每月投入 ¥0/);
 });
 
 test('traditional verdicts: shortfall, depleted, on track and surplus', () => {
@@ -45,7 +45,7 @@ test('traditional verdicts: shortfall, depleted, on track and surplus', () => {
   const surplus = trad({ assets_cents: need * 3 });
   assert.equal(surplus.v.badge, '盈余');
   assert.equal(surplus.v.status, 'overfunded');
-  const ok = trad({ assets_cents: need * 1.05 / 1.02 ** 10, saving_cents: 0 });
+  const ok = trad({ assets_cents: (need + 100) / 1.02 ** 10, saving_cents: 0 });
   assert.equal(ok.v.status, 'on_track');
   const short = trad({ assets_cents: 0, saving_cents: 0 });
   assert.ok(['shortfall', 'depleted'].includes(short.v.status));
