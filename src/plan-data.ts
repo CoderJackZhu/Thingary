@@ -1,18 +1,21 @@
 // 规划数据的读取（IPC）：目标页与心愿详情共用。纯计算在 plan-retire-calc.ts / plan-wishes.ts。
 import { invoke } from '@tauri-apps/api/core';
-import type { Income, IncomeList, PlanReview, ProfileState } from './plan';
-import type { Snapshot, Summary } from './wealth';
+import type { Income, PlanReview, ProfileState, PlanningSources } from './plan';
+import type { Snapshot } from './wealth';
 import type { WishlistItem, WishlistPage } from './wishlist';
 import type { WishLike } from './plan-wishes';
+import { readPlanningSources } from './planning-service.ts';
+import type { Modules } from './modules.ts';
 
-export type PlanContext = { review: PlanReview; incomes: Income[]; profile: ProfileState; snapshot: Snapshot | null };
+export type PlanContext = { review: PlanReview | null; incomes: Income[]; profile: ProfileState; snapshot: Snapshot | null; sources: PlanningSources };
 
-/** 一次读齐：储蓄统计、收入、个人资料与最近完整盘点。 */
+/** Atomic sources; hidden wealth is never requested. History can fail independently. */
 export async function loadPlanContext(): Promise<PlanContext> {
-  const [review, list, profile, summary] = await Promise.all([invoke<PlanReview>('plan_review'), invoke<IncomeList>('plan_income_list'), invoke<ProfileState>('plan_profile'), invoke<Summary>('wealth_summary')]);
-  const latest = [...summary.points].reverse().find(p => p.complete);
-  const snapshot = latest ? await invoke<Snapshot | null>('wealth_snapshot', { id: latest.snapshot_id }) : null;
-  return { review, incomes: list.rows, profile, snapshot };
+  const modules = await invoke<Modules>('modules_get');
+  const sources = await readPlanningSources(modules);
+  if (sources.profile.status === 'error') throw sources.profile.value;
+  if (!sources.profile.value.saved?.profile.retire.basic && (sources.review.status === 'error' || sources.snapshot.status === 'error')) throw new Error('原规划来源尚未齐全');
+  return { sources, profile: sources.profile.value, review: sources.review.status === 'ready' ? sources.review.value : null, incomes: sources.incomes.status === 'ready' ? sources.incomes.value : [], snapshot: sources.snapshot.status === 'ready' ? sources.snapshot.value : null };
 }
 
 export const wishLike = (w: WishlistItem): WishLike => ({ id: w.id, name: w.fields.name, price_cents: w.fields.estimated_price_cents, target_date: w.fields.target_date || null, decision_state: w.decision_state });

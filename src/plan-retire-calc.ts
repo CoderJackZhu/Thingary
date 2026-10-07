@@ -14,7 +14,10 @@ import { table } from './plan-ledger.ts';
 import type { Flow, Plan, SavingPhase, SpendItem } from './plan-ledger.ts';
 import type { Snapshot } from './wealth.ts';
 
-export { expectedSaving };
+import { buildBasicCapabilities } from './plan-basic.ts';
+import type { PlanningSources, BasicCapabilities } from './plan-basic-contract.ts';
+export { expectedSaving, buildBasicCapabilities };
+const noCapabilities: BasicCapabilities | undefined = undefined;
 
 export const SEARCH_CAP_YEARS = 70;
 
@@ -47,9 +50,18 @@ export function keepFor(r: RetireInputs, now: number): Keep {
 }
 
 /** 个人资料、最近完整盘点（null 表示还没有）与统计齐全时给出估算；缺什么在 missing 里说明。 */
-export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snapshot: Snapshot | null, review: PlanReview, incomes: Income[], today: string) {
-    const p = saved.profile, r = p.retire, region = effectiveParams(beijing, p.overrides);
-    if (!hasPensionProfile(p) || r.target_age === null) return { p, r, now: p.birth_month === null ? 0 : ageMonthsAt(p.birth_month, snapshot?.date ?? today), start: 0, missing: ['原规划估算需要完整个人资料和目标；通用基础按能力计算。'], assets: null, saving: null, measured: null, spend: r.spend_cents === null ? null : Number(r.spend_cents), derivedSpend: null, emergency: undefined, plan: undefined, plan0: undefined, events: [] as LifeEvent[], proj: undefined, out: undefined };
+export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snapshot: Snapshot | null, review: PlanReview | null, incomes: Income[], today: string, nativeSources?: PlanningSources) {
+    const p = saved.profile, r = p.retire;
+    if (r.basic) {
+      const sources = nativeSources ?? { generation: 'adapter', write_version: saved.revision, today, modules: { planning: true, wealth: snapshot !== null }, profile: { status: 'ready', value: { generation: 'adapter', saved } }, snapshot: { status: 'ready', value: snapshot }, accounts: { status: 'ready', value: [] }, review: review ? { status: 'ready', value: review } : { status: 'error', value: { code: 'UNAVAILABLE', message: '历史统计未提供' } }, incomes: { status: 'ready', value: incomes } } satisfies PlanningSources;
+      const capabilities = buildBasicCapabilities(sources);
+      const pred = capabilities.prediction.status === 'ready' ? capabilities.prediction.value : undefined;
+      const assets = capabilities.funds.status === 'ready' ? Number(capabilities.funds.value.available_cents) / (pred?.plan.basis_factor ?? 1) : null;
+      const now = p.birth_month === null ? 0 : ageMonthsAt(p.birth_month, capabilities.context.start.date ?? today);
+      return { p, r, now, start: pred?.plan.pension_at(now).unlock_age_months ?? now, capabilities, missing: capabilities.prediction.status === 'blocked' ? capabilities.prediction.missing.map(m => m.message) : [], assets, saving: r.basic.contribution.monthly_cents === null ? null : Number(r.basic.contribution.monthly_cents), measured: null, spend: r.spend_cents === null ? null : Number(r.spend_cents), derivedSpend: null, emergency: pred && assets !== null ? emergency(assets, table(pred.plan).essential[0] ?? 0, r.emergency_months) : undefined, plan: pred?.plan, plan0: pred?.plan0, events: r.life_events.map(toEvent), proj: pred?.projection, out: pred?.outcome };
+    }
+    if (!hasPensionProfile(p) || r.target_age === null || !review) return { capabilities: noCapabilities, p, r, now: p.birth_month === null ? 0 : ageMonthsAt(p.birth_month, snapshot?.date ?? today), start: 0, missing: ['原规划估算需要完整个人资料和目标；通用基础按能力计算。'], assets: null, saving: null, measured: null, spend: r.spend_cents === null ? null : Number(r.spend_cents), derivedSpend: null, emergency: undefined, plan: undefined, plan0: undefined, events: [] as LifeEvent[], proj: undefined, out: undefined };
+    const region = effectiveParams(beijing, p.overrides);
     const stats = review.stats;
     const { funds: gross } = fundsFrom(snapshot?.entries ?? null, incomes);
     // 未来公积金采用单独确认的假设，不沿用历史非零金额。
@@ -87,7 +99,7 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
     if (saving === null) missing.push('未来净投入待确认：请在「储蓄阶段」保存明确假设；旧自动参考（含估值变化）不会采用。');
     if (spend === null) missing.push('请填写退休后月预算；历史支出仅作参考，不会自动成为退休预算。');
     if (r.horizon_age * 12 < now + 12) missing.push('规划终点年龄至少要比当前年龄晚一年，请在计划输入里调整。');
-    if (missing.length || assets === null || saving === null || spend === null) return { p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, emergency: undefined, plan: undefined, plan0: undefined, events: [] as LifeEvent[], proj: undefined, out: undefined };
+    if (missing.length || assets === null || saving === null || spend === null) return { capabilities: noCapabilities, p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, emergency: undefined, plan: undefined, plan0: undefined, events: [] as LifeEvent[], proj: undefined, out: undefined };
     const horizon = r.horizon_age * 12;
     const route = routeById(r.route_id), routeFrom = r.route_from_age * 12;
     const employment = route ? routeEmployment(route, routeFrom, 0) : [];
@@ -101,7 +113,7 @@ export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snaps
     const plan = applyEvents(plan0, events.filter(e => e.included && !occurred(e.id)).map(e => ({ e, offset: offsetOf(e.date, anchor) })));
     const proj = project(plan, Number(anchor.slice(0, 4)));
     return {
-      p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, plan, plan0, events, proj, out: outcome(plan, proj),
+      capabilities: noCapabilities, p, r, now, start, missing, assets, saving, measured, spend, derivedSpend, plan, plan0, events, proj, out: outcome(plan, proj),
       // 应急金按离职后的全部必需支出算（日常生活、房租、续缴社保等），不只是日常生活预算。
       emergency: emergency(assets, table(plan).essential[0] ?? spend, r.emergency_months),
     };
@@ -159,6 +171,7 @@ function savingPhases(r: RetireInputs, now: number, measured: number, living: nu
 /** 各条路线（以及不选路线）并排：财务独立月龄与是否够用，用同一个构建函数，只换路线。 */
 export type RouteResult = { id: string | null; label: string; fi_month: number | null; funded_at_goal: boolean; shortfall_month: number | null };
 export function routeCompare(saved: NonNullable<ProfileState['saved']>, snapshot: Snapshot | null, review: PlanReview, incomes: Income[], today: string): RouteResult[] {
+  if (saved.profile.retire.basic) return [];
   const ids: (string | null)[] = [null, ...routes.map(x => x.id)];
   return ids.map(id => {
     const c = buildRetireCalc({ ...saved, profile: { ...saved.profile, retire: { ...saved.profile.retire, route_id: id } } }, snapshot, review, incomes, today);

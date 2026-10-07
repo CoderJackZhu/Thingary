@@ -18,10 +18,11 @@ export type SavingPhase = { from_month: number; cents: number };
 /** 持续的月度收支流（买房月供、持有成本、少付的房租等）：to_month 为空表示到规划终点。
  *  saving_flows 的 cents 是对退休前每月储蓄的增减（负数是多花）；spend_flows 的 cents 是退休后多出的月支出（正数是多花）。
  *  nominal 为真表示固定名义金额（房贷月供），按通胀折成今天的钱；否则已是今天的钱。 */
-export type Flow = { label: string; from_month: number; to_month: number | null; cents: number; nominal: boolean; essential: boolean; prorate_first?: boolean; timing?: 'start' | 'end' };
+export type Flow = { source_id?: string; label: string; from_month: number; to_month: number | null; cents: number; nominal: boolean; essential: boolean; prorate_first?: boolean; timing?: 'start' | 'end' };
 
 export type LoanSchedule = { id: string; from_offset: number; principal_cents: number; rate_hundredths: number; months: number; payment_cents: number; existing?: boolean };
 export type Plan = {
+  input_mode?: 'basic' | 'legacy';
   anchor_date?: string; calculation_date?: string; monetary_basis_date?: string; basis_factor?: number; first_month_fraction?: number;
   core?: PlanningCore | null;
   loans?: LoanSchedule[];
@@ -88,6 +89,10 @@ export function table(P: Plan): Table {
     // Regular income/budget uses remaining days; known monthly flows remain due once.
     const f = P.first_month_fraction;
     for (const it of P.items) if (it.start_age === null || it.start_age * 12 <= P.now_months) { spend[0] -= it.monthly_cents * (1 - f); if (it.essential) essential[0] -= it.monthly_cents * (1 - f); }
+    for (const flow of P.spend_flows ?? []) if (flow.prorate_first && flow.from_month <= P.now_months && (flow.to_month === null || flow.to_month > P.now_months)) {
+      const amount = flow.nominal ? flow.cents / nominalFactor(P, P.now_months) : flow.cents;
+      spend[0] -= amount * (1 - f); if (flow.essential) essential[0] -= amount * (1 - f);
+    }
     income[0] *= f;
     if (f === 0) { spend[0] = 0; essential[0] = 0; }
   }
@@ -194,7 +199,21 @@ export function requiredAt(P: Plan): Float64Array {
   if (!s) {
     const n = Math.max(0, P.horizon_months - P.now_months);
     s = new Float64Array(n);
-    for (let t = 0; t < n; t++) s[t] = required(P, P.now_months + t);
+    if (P.input_mode === 'basic') {
+      // Basic pension/pool conditions are fixed independently of retirement.
+      // One backwards pass checks the same cash ordering as required(), while
+      // a candidate retiring after unlock receives its pool exactly once now.
+      const T = table(P), pen = P.pension_at(P.target_months), out = oneOffsOf(P), due = startPaymentsOf(P);
+      let next = 0;
+      for (let t = n - 1; t >= 0; t--) {
+        const m = P.now_months + t, fraction = t === 0 ? P.first_month_fraction ?? 1 : 1, upfront = due[t];
+        const income = T.income[t] + (m >= pen.unlock_age_months ? pen.monthly_cents * fraction : 0);
+        const rest = (next + out[t + 1] + T.spend[t] - upfront - income) / monthlyGrowth(P.r_after_hundredths) ** fraction;
+        const lump = m === pen.unlock_age_months ? pen.lump_cents : 0;
+        next = Math.max(upfront, upfront - lump + rest, 0);
+        s[t] = m > pen.unlock_age_months ? Math.max(upfront, upfront - pen.lump_cents + rest, 0) : next;
+      }
+    } else for (let t = 0; t < n; t++) s[t] = required(P, P.now_months + t);
     requiredSeries.set(P, s);
   }
   return s;
@@ -311,7 +330,7 @@ export type Outcome = {
   funded_at_goal: boolean; shortfall_at_goal: number;
   at_horizon: number;
   failure_month: number | null; shortfall_month: number | null;
-  /** 必需支出全程有资金、终点有余钱，FIRE 另需达成 FI。 */
+  /** 完整预算全程无缺口（终点可以为零），FIRE 另需达成 FI。 */
   success: boolean;
 };
 

@@ -1,6 +1,6 @@
 // 心愿接入（PLANNING_DESIGN §7）：「考虑中」且有预计价格的心愿作为带日期的一次性支出进入退休账本，
 // 回答两个问题：到那天钱够不够；买下后 FIRE 日期推迟多久。纯函数，不改变心愿状态。
-import { project } from './plan-ledger.ts';
+import { project, table } from './plan-ledger.ts';
 import type { Plan } from './plan-ledger.ts';
 import type { Spend } from './plan-fire.ts';
 import type { RetireCalc } from './plan-retire-calc.ts';
@@ -46,16 +46,17 @@ export type Impact = {
 };
 
 type Ready = RetireCalc & { plan: Plan; saving: number };
-export const isReady = (calc: RetireCalc | null): calc is Ready => !!calc && calc.plan !== undefined && calc.saving !== null && calc.missing.length === 0;
+export const isReady = (calc: RetireCalc | null): calc is Ready => !!calc && calc.plan !== undefined && calc.saving !== null && calc.missing.length === 0 && (!calc.capabilities || calc.capabilities.prediction.status === 'ready' && calc.capabilities.prediction.value.source === 'saved');
 
 /** 一组一次性支出（带月份的，含「按今天」的假设）对 FIRE 日期的影响：与「没有这些支出」的基线比较。合计请传 counted(...)。 */
 export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
+  if (!isReady(calc)) throw new Error('心愿影响需要已保存的明确预计投入。');
   const P = calc.plan, now = P.now_months;
   const events = spends.filter(s => s.offset_months !== null).map(s => ({ ...toSpend(s), offset_months: P.anchor_date ? monthIndex(s.date ?? P.calculation_date ?? P.anchor_date) - monthIndex(P.anchor_date) : s.offset_months! }));
   // 基线是「已计入的大额计划都发生、这些心愿不发生」；心愿叠加在其上。
   const base = project(P, 0), withSpend = project({ ...P, spends: [...P.spends, ...events] }, 0);
   const first = events.length ? Math.min(...events.map(e => e.offset_months)) : 0, last = Math.min(Math.max(0, ...events.map(e => e.offset_months)), base.assets.length - 1);
-  const line = calc.r.emergency_months * P.items[0].monthly_cents;
+  const line = calc.r.emergency_months * (table(P).essential[0] ?? 0);
   return {
     base_offset: base.fi_month === null ? null : base.fi_month - now,
     with_offset: withSpend.fi_month === null ? null : withSpend.fi_month - now,

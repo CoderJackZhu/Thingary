@@ -60,7 +60,7 @@ export function occurrenceMissing(snapshot: Snapshot, core: PlanningCore | null 
     }
     const paid = o.payments.reduce((s, p) => s + BigInt(p.amount_cents ?? '0'), 0n);
     if (!o.payments_complete || paid < 0n) missing.push(`${e.label}：仅部分付款已核对，剩余安排待补充。`);
-    if (Number(e.price_cents) > Number(e.down_cents)) {
+    if (Number(e.price_cents) > Number(e.down_cents) || o.loan !== null) {
       const l = o.loan;
       if (!l || l.as_of !== snapshot.date) missing.push(`${e.label}：截至资金起点的余债／剩余期待核对。`);
       else {

@@ -24,7 +24,7 @@ const quantile = (sorted: Float64Array, q: number) => sorted[Math.min(sorted.len
 export type Bands = { p10: number[]; p25: number[]; p50: number[]; p75: number[]; p90: number[] };
 export type MonteCarlo = {
   n: number;
-  /** 必需支出全程有资金、终点有余钱（FIRE 另需达成 FI）的路径占比。 */
+  /** 完整预算全程无缺口（终点可以为零）（FIRE 另需达成 FI）的路径占比。 */
   success_rate: number;
   /** 至少一半路径达成 FI 时的中位数 FI 月龄，否则为 null。 */
   median_fi_month: number | null;

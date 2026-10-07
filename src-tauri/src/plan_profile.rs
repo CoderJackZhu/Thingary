@@ -606,17 +606,39 @@ impl Store {
     }
 
     pub fn plan_profile_save(&mut self, input: &ProfileSave, today: &str) -> Result<Saved> {
-        let fingerprint = digest(&serde_json::to_vec(&("plan_profile", input))?);
+        let bytes = serde_json::to_string(&("plan_profile", input))?;
+        let mut fingerprints = vec![digest(bytes.as_bytes())];
+        // The setup-fix build emitted false as the first retirement field.
+        // Accept only that exact alternate serialization of an otherwise legacy
+        // request. No field is removed; new basic/archive or true conditions
+        // cannot borrow an older receipt.
+        if !input.profile.retire.setup_completed
+            && input.profile.retire.basic.is_none()
+            && input.profile.retire.legacy_definition.is_none()
+        {
+            fingerprints.push(digest(
+                bytes
+                    .replacen("\"retire\":{", "\"retire\":{\"setup_completed\":false,", 1)
+                    .as_bytes(),
+            ));
+        }
         self.save_profile_request(
             &input.request_id,
             &input.generation,
             input.expected_revision,
             today,
-            &fingerprint,
+            &fingerprints,
             |old| {
+                if input.profile.retire.basic.is_some()
+                    || input.profile.retire.legacy_definition.is_some()
+                {
+                    return Err(Error::new(
+                        "PLANNING_SCOPED",
+                        "新基础与原假设保全须通过分区更新",
+                    ));
+                }
                 if let Some(old) = old {
-                    if old.retire.basic.is_some() && input.profile.retire.basic != old.retire.basic
-                    {
+                    if old.retire.basic.is_some() {
                         return Err(Error::new(
                             "PLANNING_SCOPED",
                             "基础条件须通过分区更新，旧完整请求不能替换",
@@ -642,7 +664,7 @@ impl Store {
             &input.generation,
             input.expected_revision,
             today,
-            &fingerprint,
+            &[fingerprint],
             |old| input.merge(old, today),
         )
     }
@@ -653,9 +675,10 @@ impl Store {
         generation: &str,
         expected_revision: Option<i64>,
         today: &str,
-        fingerprint: &str,
+        fingerprints: &[String],
         merge: impl FnOnce(Option<&Profile>) -> Result<Profile>,
     ) -> Result<Saved> {
+        let fingerprint = &fingerprints[0];
         self.check_generation(generation)?;
         uuid::Uuid::parse_str(request_id).map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
         let tx = self.conn()?.unchecked_transaction()?;
@@ -667,7 +690,7 @@ impl Store {
             )
             .optional()?;
         if let Some(f) = prior {
-            if f != fingerprint {
+            if !fingerprints.contains(&f) {
                 return Err(Error::new("REQUEST_CONFLICT", "请求标识已用于不同内容"));
             }
             return read(&tx)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到个人资料"));

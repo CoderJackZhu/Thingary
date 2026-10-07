@@ -1298,3 +1298,147 @@ fn guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restor
     }
     assert_eq!(after, facts);
 }
+
+#[test]
+fn basic_reset_preserves_single_core_occurrence_payment_and_existing_account_snapshot_income_ids() {
+    use thingary_lib::plan_basic::{Section, Update};
+    use thingary_lib::plan_income::{Fields as IncomeFields, Save as IncomeSave};
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&d.path().join("fictional")).unwrap();
+    let (mut p, account_id, snapshot_id) = core_fixture(&mut s);
+    use thingary_lib::{
+        plan_core::{CostRule, Loan},
+        wealth::{AccountFields, AccountSave, EntryInput, SnapshotSave},
+    };
+    let debt = s
+        .wealth_account_save(
+            &AccountSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: AccountFields {
+                    name: "虚构余债".into(),
+                    institution: "虚构".into(),
+                    side: "liability".into(),
+                    kind: "loan".into(),
+                    counted: true,
+                    opened_on: "2026-01-01".into(),
+                    closed_on: None,
+                    notes: String::new(),
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    let snapshot = s
+        .wealth_snapshot_save(
+            &SnapshotSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: Some(snapshot_id.clone()),
+                expected_revision: Some(1),
+                date: "2026-10-31".into(),
+                notes: "虚构完整资料".into(),
+                entries: vec![
+                    EntryInput {
+                        account_id: account_id.clone(),
+                        state: "entered".into(),
+                        amount_cents: Some("70000000".into()),
+                    },
+                    EntryInput {
+                        account_id: debt.id.clone(),
+                        state: "entered".into(),
+                        amount_cents: Some("1200000".into()),
+                    },
+                ],
+            },
+            TODAY,
+        )
+        .unwrap();
+    p.retire.life_events[0].price_cents = "40000000".into();
+    let c = p.retire.core.as_mut().unwrap();
+    c.occurrences[0].payments[0].absorbed_revision = Some(snapshot.revision);
+    c.occurrences[0].loan = Some(Loan {
+        account_id: debt.id.clone(),
+        as_of: snapshot.date,
+        principal_cents: "1200000".into(),
+        remaining_months: 12,
+    });
+    c.costs = vec![CostRule {
+        phase_id: "phase".into(),
+        source_id: "event:event:loan".into(),
+        included: true,
+        reference_cents: "100000".into(),
+    }];
+    let income = s
+        .plan_income_save(
+            &IncomeSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: IncomeFields {
+                    date: "2026-09-01".into(),
+                    net_cents: "0".into(),
+                    hpf_cents: "0".into(),
+                    notes: "虚构零事实".into(),
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    let old = s
+        .plan_profile_save(&save(&s, p.clone(), None), TODAY)
+        .unwrap();
+    let before_accounts = serde_json::to_value(s.wealth_accounts().unwrap()).unwrap();
+    let before_snapshot = serde_json::to_value(s.wealth_snapshot(&snapshot_id).unwrap()).unwrap();
+    let before_income = serde_json::to_value(s.plan_income_list().unwrap()).unwrap();
+    let mut i: Update = serde_json::from_str(include_str!(
+        "../../tests/fixtures/planning-basic/update.json"
+    ))
+    .unwrap();
+    i.generation = s.generation();
+    i.expected_revision = Some(1);
+    if let Section::Basic(f) = &mut i.section {
+        f.confirm_legacy_replacement = true;
+    }
+    let new = s.plan_profile_update(&i, TODAY).unwrap();
+    assert_eq!(new.profile.retire.core, old.profile.retire.core);
+    assert_eq!(
+        new.profile.retire.life_events,
+        old.profile.retire.life_events
+    );
+    assert_eq!(
+        new.profile
+            .retire
+            .legacy_definition
+            .as_ref()
+            .unwrap()
+            .event_ids,
+        vec!["event"]
+    );
+    assert_eq!(
+        serde_json::to_value(s.wealth_accounts().unwrap()).unwrap(),
+        before_accounts
+    );
+    assert_eq!(
+        serde_json::to_value(s.wealth_snapshot(&snapshot_id).unwrap()).unwrap(),
+        before_snapshot
+    );
+    assert_eq!(
+        serde_json::to_value(s.plan_income_list().unwrap()).unwrap(),
+        before_income
+    );
+    assert_eq!(
+        s.plan_income(&income.id).unwrap().unwrap().fields.net_cents,
+        "0"
+    );
+    assert_eq!(s.wealth_accounts().unwrap()[0].id, account_id);
+    let count: i64 = s
+        .conn_for_test()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM plan_profile", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(count, 1);
+}

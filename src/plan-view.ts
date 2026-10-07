@@ -66,6 +66,8 @@ export function verdict(P: Plan, proj: Projection, out: Outcome, assetsNow: numb
   else if (fiNow) guidance = '当前投资组合已达到你的假设下估算的财务独立目标。';
   else if (proj.fi_month === null) { tone = 'bad'; guidance = `预计 ${horizonAge} 岁前无法实现财务独立。请在假设分析中比较假设。`; }
 
+  if (P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5) guidance = '有限期间完整预算已覆盖，终点无余量；此结果不覆盖终点之后。';
+
   if (!fire) {
     const status: Verdict['status'] = failure !== null ? 'depleted' : !out.funded_at_goal ? 'shortfall' : out.assets_at_goal >= out.required_at_goal * 1.25 && out.required_at_goal > 0 ? 'overfunded' : 'on_track';
     const badge = { depleted: '资金不足', shortfall: '缺口', overfunded: '盈余', on_track: '进展顺利' }[status];
@@ -205,6 +207,7 @@ export function rangeRows(P: Plan, stress: { id: string; label: string; stressed
  *  取储蓄阶段里每一次下降的起点；没有下降时给 35 岁作参考。 */
 export type Checkpoint = { month: number; label: string; need: number; expected: number; ok: boolean };
 export function checkpoints(P: Plan, proj: Projection): Checkpoint[] {
+  if (P.input_mode === 'basic') return [];
   const ph = P.saving_phases ?? [];
   const months: { m: number; label: string }[] = [];
   ph.forEach((x, i) => { if (i > 0 && x.cents < ph[i - 1].cents) months.push({ m: x.from_month, label: '储蓄下降前' }); });

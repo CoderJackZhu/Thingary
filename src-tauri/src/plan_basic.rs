@@ -271,6 +271,11 @@ impl Basic {
                 {
                     return Err(bad("费用作用域无效或重复"));
                 }
+                if c.treatment == "excluded"
+                    && (c.source_id.ends_with(":loan") || c.source_id == "personal_pension")
+                {
+                    return Err(bad("已纳入的债务付款/养老金现金转入不能从完整账本排除"));
+                }
                 if c.treatment == "included" {
                     if c.reference_cents.is_none() {
                         return Err(bad("已含费用须有参考额"));

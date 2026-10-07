@@ -44,17 +44,17 @@ export function eventParts(c: Ctx, e: LifeEvent, offset: number): EventParts {
   const down = Math.min(e.down_cents, e.price_cents), real = e.price_cents - down;
   const spends: Spend[] = occurrence ? occurrence.payments.filter(p => p.date > (c.anchor_date ?? '') && p.amount_cents !== null).map(p => ({ offset_months: Math.max(0, offsetOf(p.date, c.anchor_date!)), cents: Number(p.amount_cents) / nominalFactor(c, c.now_months + offsetOf(p.date, c.anchor_date!)) })) : [{ offset_months: offset, cents: down + e.extra_cents }];
   const saving_flows: Flow[] = [], spend_flows: Flow[] = [];
-  const both = (label: string, from: number, to: number | null, cents: number, nominal: boolean, essential: boolean) => {
-    saving_flows.push({ label, from_month: from, to_month: to, cents: -cents, nominal, essential, timing: 'start' });
-    spend_flows.push({ label, from_month: from, to_month: to, cents, nominal, essential, timing: 'start' });
+  const both = (source_id: string, label: string, from: number, to: number | null, cents: number, nominal: boolean, essential: boolean) => {
+    saving_flows.push({ source_id, label, from_month: from, to_month: to, cents: -cents, nominal, essential, timing: 'start' });
+    spend_flows.push({ source_id, label, from_month: from, to_month: to, cents, nominal, essential, timing: 'start' });
   };
   // 贷款：本金按购买那天的名义价格算，月供固定名义金额，到期结束。
   const principal = occurrence ? Number(occurrence.loan?.principal_cents ?? 0) : real * nominalFactor(c, c.now_months + offset);
   const n = occurrence ? occurrence.loan?.remaining_months ?? 0 : Math.round(e.loan_years * 12);
   const pay = monthlyPayment(principal, e.loan_rate_hundredths, n);
-  if (pay > 0) both(`${e.label}月供`, loanFrom, loanFrom + n, pay, true, true);
+  if (pay > 0) both(`event:${e.id}:loan`, `${e.label}月供`, loanFrom, loanFrom + n, pay, true, true);
   const until = e.until_age === null ? null : e.until_age * 12;
-  if (e.holding_cents > 0) both(`${e.label}${e.kind === 'car' ? '养车' : '持有成本'}`, m0, e.kind === 'car' ? until : null, e.holding_cents, false, e.kind === 'house');
+  if (e.holding_cents > 0) both(`event:${e.id}:holding`, `${e.label}${e.kind === 'car' ? '养车' : '持有成本'}`, m0, e.kind === 'car' ? until : null, e.holding_cents, false, e.kind === 'house');
   // 退休后的房租在计划里是一条持续的必需支出；买房之后不再付，取消额不超过房租本身。
   if (e.kind === 'house' && e.rent_saved_cents > 0 && (c.rent_cents ?? 0) > 0) spend_flows.push({ label: `${e.label}后不再付房租`, from_month: m0, to_month: null, cents: -Math.min(e.rent_saved_cents, c.rent_cents!), nominal: false, essential: true });
   if (!occurrence && e.rent_saved_cents > 0) saving_flows.push({ label: `${e.label}省下的房租`, from_month: m0, to_month: null, cents: e.rent_saved_cents, nominal: false, essential: false });
