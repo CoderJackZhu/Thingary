@@ -11,7 +11,7 @@ import { kindLabel } from './wealth';
 import type { Account, Snapshot } from './wealth';
 
 /** Account purposes, future housing-fund deposit and an existing personal-pension account. Used by setup and by the funds card. */
-export function FundsEditor({ d, patch, frozen, snapshot, accounts, live }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; snapshot: Snapshot | null; accounts: Account[]; live: boolean }) {
+export function FundsEditor({ d, patch, frozen, snapshot, accounts, live, hideHpf }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; snapshot: Snapshot | null; accounts: Account[]; live: boolean; hideHpf?: boolean }) {
   const name = (id: string, kind: string) => accounts.find(a => a.id === id)?.fields.name ?? `${kindLabel(kind)}（历史账户）`;
   const assets = snapshot?.entries.filter(e => e.counted && e.side === 'asset') ?? [];
   const update = (id: string, v: Partial<Draft['funds'][number]>) => patch({ funds: d.funds.map(f => f.account_id === id ? { ...f, ...v } : f) });
@@ -20,7 +20,7 @@ export function FundsEditor({ d, patch, frozen, snapshot, accounts, live }: { d:
       <p className="muted small">截至 {snapshot.date} 的完整盘点。这里只设资金是否参与规划，不改变实际余额；建议现金可动用、其他资产受限，请确认。</p>
       {assets.map(e => { const rule = d.funds.find(f => f.account_id === e.account_id); if (!rule) return null; const label = name(e.account_id, e.kind); return <FormRow key={e.account_id} label={label} hint={`${kindLabel(e.kind)} · 已记录 ${money(e.amount_cents)}`}><select aria-label={`${label}规划用途`} value={rule.availability} disabled={frozen} onChange={v => update(e.account_id, { availability: v.target.value as typeof rule.availability })}><option value="available" disabled={e.kind === 'housing_fund'}>可动用</option><option value="restricted">受限：暂不能动用</option><option value="excluded">本计划不参与</option></select><input type="number" aria-label={`${label}参与比例`} min="0" max="100" value={rule.share_hundredths / 100} disabled={frozen} onChange={v => update(e.account_id, { share_hundredths: Math.round(Number(v.target.value) * 100) })}/> %</FormRow>; })}
     </>}
-    <FormRow label="未来公积金月缴存" hint="留空表示未知；明确没有填 0"><CentInput label="未来公积金月缴存" value={d.hpf} disabled={frozen} placeholder="0.00" onChange={v => patch({ hpf: v })}/></FormRow>
+    {!hideHpf && <FormRow label="未来公积金月缴存" hint="留空表示未知；明确没有填 0"><CentInput label="未来公积金月缴存" value={d.hpf} disabled={frozen} placeholder="0.00" onChange={v => patch({ hpf: v })}/></FormRow>}
     {live && snapshot && <details open={!!d.ppAccount}><summary>已有个人养老金余额</summary>
       <FormRow label="关联个人养老金账户" hint="仅参与比例 100% 的受限账户"><select aria-label="关联个人养老金账户" value={d.ppAccount} disabled={frozen} onChange={e => patch({ ppAccount: e.target.value, ppConfirmed: false })}><option value="">明确没有已有余额</option>{assets.filter(e => e.kind !== 'housing_fund' && d.funds.some(x => x.account_id === e.account_id && x.availability === 'restricted' && x.share_hundredths === 10000)).map(e => <option key={e.account_id} value={e.account_id}>{name(e.account_id, e.kind)} · {money(e.amount_cents)}</option>)}</select></FormRow>
       <label><input type="checkbox" aria-label="确认已有个人养老金余额" checked={d.ppConfirmed} disabled={frozen} onChange={e => patch({ ppConfirmed: e.target.checked })}/> 我已核对余额；未关联账户表示没有已有余额</label>

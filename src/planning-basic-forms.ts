@@ -7,6 +7,8 @@ import { defaultAssumptions, noOverrides } from './plan-params.ts';
 import type { Worker } from './plan-pension.ts';
 import type { SectionInput } from './planning-basic-data.ts';
 import { hasLegacyPlan } from './planning-basic-view.ts';
+import { pcPlanOf, pcValues } from './planning-basic-defaults.ts';
+import type { PcPlan } from './planning-basic-defaults.ts';
 import type { Snapshot } from './wealth.ts';
 
 type Saved = ProfileState['saved'];
@@ -23,7 +25,7 @@ export type Draft = {
   retScopes: Record<string, ScopeDraft>; conScopes: Record<string, ScopeDraft>;
   start: 'live' | 'simulation'; simId: string; simAmount: string; simDate: string; simNotes: string;
   incomeMode: IncomeMode; incomeItems: StoredIncomeItem[]; picks: Record<string, IncomePick>;
-  pcStart: string; pcStop: string; pcBase: string;
+  pcStart: string; pcStop: string; pcBase: string; pcPlan: PcPlan;
   contribution: string; contributionId: string;
   funds: FundRule[]; hpf: string; ppAccount: string; ppConfirmed: boolean;
   pension: PensionForm; confirmLegacy: boolean;
@@ -69,6 +71,7 @@ export function draftOf(saved: Saved, snapshot: Snapshot | null, today: string):
     incomeMode: b?.retirement_income.mode ?? '', incomeItems: structuredClone(r.income_items),
     picks: Object.fromEntries(r.income_items.map(i => { const s = b?.retirement_income.selected.find(x => x.id === i.id); return [i.id, { on: !!s, role: s?.role ?? 'other' } as IncomePick]; })),
     pcStart: b?.pension_contributions.start_month ?? '', pcStop: b?.pension_contributions.stop_month ?? '', pcBase: b?.pension_contributions.base_cents ?? '',
+    pcPlan: pcPlanOf(b?.pension_contributions.start_month ?? '', b?.pension_contributions.stop_month ?? '', p?.birth_month ?? '', r.target_age == null ? '' : String(r.target_age)),
     contribution: b?.contribution.monthly_cents ?? '', contributionId: b?.contribution.id ?? crypto.randomUUID(),
     funds: [...known.map(f => ({ ...f })), ...entries.filter(e => !known.some(f => f.account_id === e.account_id)).map(e => ({ account_id: e.account_id, availability: e.kind === 'cash' ? 'available' as const : 'restricted' as const, share_hundredths: 10000 }))],
     hpf: r.core?.hpf_monthly_cents ?? '', ppAccount: r.core?.personal_pension_account_id ?? '', ppConfirmed: r.core?.personal_pension_balance_confirmed ?? false,
@@ -100,7 +103,7 @@ export function basicInput(d: Draft, saved: Saved, today: string): SectionInput 
       start: d.start === 'live' ? { kind: 'live' } : { kind: 'simulation', id: d.simId, available_cents: d.simAmount === '' ? null : d.simAmount, date: d.simDate === '' ? null : d.simDate, notes: d.simNotes },
       contribution: { id: d.contributionId, monthly_cents: d.contribution === '' ? null : d.contribution },
       retirement_income: { mode: d.incomeMode === '' ? null : d.incomeMode, selected: d.incomeMode === 'manual' || d.incomeMode === 'beijing' ? selections(d).filter(s => d.incomeMode === 'manual' || s.role === 'other') : [] },
-      pension_contributions: { start_month: d.pcStart === '' ? null : d.pcStart, stop_month: d.pcStop === '' ? null : d.pcStop, base_cents: d.pcBase === '' ? null : d.pcBase },
+      pension_contributions: (({ start, stop, base }) => ({ start_month: start, stop_month: stop, base_cents: base }))(pcValues(d, today)),
       contribution_costs: scopes(contributionSources(r, (d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.conScopes), retirement_costs: scopes(retirementSources(r, (d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.retScopes),
     },
   };
@@ -128,3 +131,9 @@ export function pensionInput(f: PensionForm): SectionInput {
   return { section: 'pension', fields };
 }
 export const eventsInput = (fields: EventsFields): SectionInput => ({ section: 'events', fields });
+
+/** Saving a contribution alone (adopt a suggestion, save a trial): rebuilds the basic section from the saved plan. */
+export function contributionSection(saved: NonNullable<Saved>, value: string | null, today: string): SectionInput | null {
+  const d = draftOf(saved, null, today); d.contribution = value ?? '';
+  try { return basicInput(d, saved, today); } catch { return null; }
+}
