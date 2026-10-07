@@ -2,8 +2,11 @@ import { useMemo, useState } from 'react';
 import { money } from './asset';
 import { Info, Segments } from './FormControls';
 import { rateText } from './plan';
-import type { RetireCalc } from './plan-retire-calc';
+import type { RetireInputs } from './plan';
+import type { LifeEvent } from './plan-events';
+import type { Outcome, Plan, Projection } from './plan-ledger';
 import { eventImpact, offsetOf } from './plan-events';
+import { terminalText } from './planning-basic-view';
 import { requiredSaving, stressTests, workSaving } from './plan-risk';
 import { checkpoints, compactYuan, coverage, coverageSeries, durationText, milestones, progress, rangeRows, scaleAt, snapshotRows, trajectory, verdict } from './plan-view';
 import type { Seg, ValueMode } from './plan-view';
@@ -26,10 +29,14 @@ export function ValueToggle({ value, onChange }: { value: ValueMode; onChange: (
 
 const text = (segs: Seg[]) => segs.map((s, i) => s.strong ? <strong key={i}>{s.t}</strong> : <span key={i}>{s.t}</span>);
 
-type Ready = RetireCalc & { plan: NonNullable<RetireCalc['plan']>; proj: NonNullable<RetireCalc['proj']>; out: NonNullable<RetireCalc['out']>; assets: number };
+/** What the overview reads. The original plan passes its calc; the basic plan passes the shared prediction value. */
+export type OverviewInput = { plan: Plan; proj: Projection; out: Outcome; assets: number; plan0?: Plan; events: LifeEvent[]; r: RetireInputs };
+type Ready = OverviewInput;
+/** Basic-mode context: where the contribution came from and how the horizon ends. Hides the original plan's income-change table. */
+export type BasicOverview = { temporary: boolean; contribution: string; terminal: keyof typeof terminalText };
 
 /** 概览主列：判词、进度、轨迹、里程碑、覆盖与逐年快照。 */
-export function RetireOverview({ calc, mode, onMode }: { calc: Ready; mode: ValueMode; onMode: (m: ValueMode) => void }) {
+export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mode: ValueMode; onMode: (m: ValueMode) => void; basic?: BasicOverview }) {
   const { plan: P, proj, out } = calc, assets = calc.assets;
   const fmt = (c: number) => yuan(c);
   const v = verdict(P, proj, out, assets, mode, fmt), pr = progress(P, out, assets, mode);
@@ -52,9 +59,10 @@ export function RetireOverview({ calc, mode, onMode }: { calc: Ready; mode: Valu
       {v.guidance && <p className={`rd-guidance ${v.tone}`}>{v.guidance}</p>}
     </article>
 
+    {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">临时试算，未保存</span> : <span className="ui-tag">按已保存的预计投入</span>} 每月净投入 {money(basic.contribution)}（不含投资收益）；{terminalText[basic.terminal]}。</p>}
     <p className="muted small">资金起点：{P.anchor_date ?? '当前'} 收盘；现值金额基准：{P.monetary_basis_date ?? '当前'}。计划付款在月初核对，投入计入月末。</p>
     <EventWarnings calc={calc}/>
-    <Range calc={calc} mode={mode}/>
+    {!basic && <Range calc={calc} mode={mode}/>}
 
     <article className="ui-card rd-card" aria-label="投资组合轨迹">
       <div className="rd-head"><h3>投资组合轨迹<Info text={P.mode === 'fire' ? '财务独立标记显示首个可持续的年龄。「所需」是在计入剩余计划供款后，每个年龄段所需的最低余额；「预计」是预计的投资组合路径。' : '退休标记显示提取开始的时间。「所需」是每个年龄段维持计划退休支出至规划终点所需的最低余额。'}/></h3><span className="muted small">预测 · {Math.round(points[0].age)} → {endAge} 岁</span></div>
@@ -62,7 +70,7 @@ export function RetireOverview({ calc, mode, onMode }: { calc: Ready; mode: Valu
       <div className="rd-milestones">{ms.map(m => <div key={m.id} className={m.done ? 'done' : undefined}><span>{m.label}{m.done && <em>已完成</em>}</span><strong>{compactYuan(m.amount)}</strong><small>{m.hint}</small></div>)}</div>
     </article>
 
-    <Coverage calc={calc} mode={mode}/>
+    <Coverage calc={calc} mode={mode} basic={!!basic}/>
     <Snapshot calc={calc} mode={mode} rows={rows}/>
     <aside className="rd-disclaimer"><strong>有一点需要记住</strong><p>预测取决于你的假设。实际结果可能不同。不构成财务建议。</p></aside>
   </div>;
@@ -112,7 +120,7 @@ function Range({ calc, mode }: { calc: Ready; mode: ValueMode }) {
   </article>;
 }
 
-function Coverage({ calc, mode }: { calc: Ready; mode: ValueMode }) {
+function Coverage({ calc, mode, basic }: { calc: Ready; mode: ValueMode; basic: boolean }) {
   const { plan: P, proj } = calc;
   const [view, setView] = useState<'at' | 'over'>('at');
   const start = proj.retire_month ?? Math.max(P.target_months, P.now_months), end = P.horizon_months - 1;
@@ -136,7 +144,7 @@ function Coverage({ calc, mode }: { calc: Ready; mode: ValueMode }) {
       {c.income_items.every(i => !i.active) && c.next_income_age !== null && <p className="muted small">{c.age} 岁时无生效收入；首笔收入始于 {c.next_income_age} 岁。</p>}
       <div className="rd-schedules">
         <section><h4>支出计划表</h4><ul>{[...c.spend_items, ...c.flow_items].map(i => <li key={i.id} className={i.active ? undefined : 'inactive'}><span>{i.label}<small>{i.start} → {i.end}{i.active ? '' : ' · 未生效'}</small></span><i className="ui-tag">{i.essential ? '必需' : '灵活'}</i><b>{fmt(i.monthly)}/月</b></li>)}</ul></section>
-        <section><h4>收入计划表</h4>{c.income_items.length === 0 ? <p className="muted small">未配置退休收入。国家养老金需先在养老金页填写个人资料。</p> : <ul>{c.income_items.map(i => <li key={i.id} className={i.active ? undefined : 'inactive'}><span>{i.label}<small>{i.start} → {i.end}{i.active ? '' : ' · 未生效'}</small></span><b>{fmt(i.monthly)}/月</b></li>)}</ul>}</section>
+        <section><h4>收入计划表</h4>{c.income_items.length === 0 ? <p className="muted small">{basic ? '这次没有计入退休收入；可在右侧「退休收入」里选择。' : '未配置退休收入。国家养老金需先在养老金页填写个人资料。'}</p> : <ul>{c.income_items.map(i => <li key={i.id} className={i.active ? undefined : 'inactive'}><span>{i.label}<small>{i.start} → {i.end}{i.active ? '' : ' · 未生效'}</small></span><b>{fmt(i.monthly)}/月</b></li>)}</ul>}</section>
       </div></>}
   </article>;
 }

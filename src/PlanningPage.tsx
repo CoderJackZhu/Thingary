@@ -6,8 +6,12 @@ import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningPension } from './PlanningPension';
-import { PlanningGoals } from './PlanningGoals';
-import { PlanningSetup } from './PlanningSetup';
+import { PlanningBasicGoals } from './PlanningBasicGoals';
+import { PlanningLegacyGoals } from './PlanningGoals';
+import { PlanningSetupDialog } from './PlanningSetup';
+import { usePlanningSources } from './planning-basic-data';
+import { modeOf } from './planning-basic-view';
+import { ready } from './review';
 import { latestHpf, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeFields, IncomeList, IncomeSave, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
@@ -24,28 +28,28 @@ export type PlanningTab = 'goals' | 'savings' | 'pension';
 export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['savings', '收入与复盘'], ['pension', '养老金']];
 
 export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone }: { focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
-  const [review, setReview] = useState<PlanReview | null>(null), [incomes, setIncomes] = useState<IncomeList | null>(null);
-  const [error, setError] = useState(''), [retry, setRetry] = useState(0);
-  const [editing, setEditing] = useState<Income | 'new' | null>(null);
+  const { load, reload } = usePlanningSources();
+  const [editing, setEditing] = useState<Income | 'new' | null>(null), [setup, setSetup] = useState<{ step: number } | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [marking, setMarking] = useState(false), [markError, setMarkError] = useState('');
-  const reload = () => setRetry(n => n + 1);
+  const opener = useRef<HTMLElement | null>(null);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking); return () => onEditingChange(false); }, [editing, pending, busy, marking, onEditingChange]);
-  useEffect(() => {
-    let live = true; setError('');
-    Promise.all([invoke<PlanReview>('plan_review'), invoke<IncomeList>('plan_income_list')])
-      .then(([r, l]) => { if (live) { setReview(r); setIncomes(l); } })
-      .catch(e => { if (live) setError(errorMessage(e)); });
-    return () => { live = false; };
-  }, [retry]);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking || !!setup); return () => onEditingChange(false); }, [editing, pending, busy, marking, setup, onEditingChange]);
 
+  const sources = load.status === 'ready' ? load.sources : null;
+  const saved = sources && sources.profile.status === 'ready' ? sources.profile.value.saved : null;
+  const mode = modeOf(saved);
+  const review = sources ? ready(sources.review) : undefined, incomeRows = sources ? ready(sources.incomes) : undefined;
+  const incomes: IncomeList | null = sources && incomeRows ? { generation: sources.generation, rows: incomeRows } : null;
   const newest = review ? [...review.intervals].reverse() : [];
   const shown = newest.find(i => i.snapshot_id === selected) ?? newest.find(i => i.status === 'ok') ?? newest[0] ?? null;
 
   const openNew = { label: '记一笔收入', plus: true, disabled: !!pending || !incomes, run: () => { onTab('savings'); setEditing('new'); } };
   usePageBar('planning', { primary: openNew, newRecord: openNew });
+  // WebKit does not focus a button on click, so the caller passes the clicked element; the heading is the last resort.
+  const openSetup = (step = 0, from?: HTMLElement | null) => { opener.current = from ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null); setSetup({ step }); };
+  const closeSetup = (ok: boolean) => { setSetup(null); setPending(storedPending()); if (ok) reload(); requestAnimationFrame(() => { const back = opener.current?.isConnected ? opener.current : document.getElementById('plan-budget-entry'); if (back) back.focus(); else refocusHeading(); }); };
 
   async function mark(interval: Interval) {
     if (!review) return;
@@ -55,6 +59,8 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     catch (e) { setMarkError(e instanceof Error ? e.message : errorMessage(e)); setPending(storedPending()); }
     finally { setMarking(false); }
   }
+  const onPending = () => setPending(storedPending());
+  const reviewError = sources && sources.review.status === 'error' ? (sources.review.value.code === 'MODULE_DISABLED' ? '资产与盘点已关闭，历史复盘暂不可用；仍可记录实际收入。' : `历史复盘读取失败：${sources.review.value.message}`) : '';
 
   return <section className="stats-section wealth-section planning-section" aria-label="规划">
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
@@ -62,17 +68,23 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     <HeaderSlot><div className="wealth-toolbar">
       <Info text="金融净资产变化含估值、利息与外部变动，不能证明真实储蓄或消费。收入只展示已记录金额；未来净投入需要独立确认。"/>
     </div></HeaderSlot>
-    {error ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
-      : !review || !incomes ? <p role="status" className="muted">正在读取规划…</p>
-      : <PlanningSetup today={today} incomes={incomes.rows} refresh={retry} onSaved={reload} recordView={tab === 'savings'} onRecords={() => onTab('savings')} onPending={() => setPending(storedPending())} onEditingChange={onEditingChange}>{tab === 'goals' ? <PlanningGoals key={retry} focus={focus === 'budget'} onFocusDone={onFocusDone} today={today} review={review} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())} onGoto={onTab}/>
-      : tab === 'pension' ? <PlanningPension key={retry} focus={focus === 'profile'} onFocusDone={onFocusDone} today={today} incomes={incomes.rows} onEditingChange={onEditingChange} onPending={() => setPending(storedPending())}/>
+    {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
+      : !sources ? <p role="status" className="muted">正在读取规划…</p>
+      : tab === 'goals' ? (mode === 'legacy'
+        ? (review && incomeRows ? <PlanningLegacyGoals key={sources.write_version} focus={focus === 'budget'} onFocusDone={onFocusDone} today={today} review={review} incomes={incomeRows} onEditingChange={onEditingChange} onPending={onPending} onGoto={onTab} onReset={el => openSetup(0, el)}/>
+          : <article className="ui-card ui-content" role="alert"><p>原规划需要历史统计与收入记录，读取失败：{reviewError || '收入读取失败'}</p><button onClick={reload}>重新读取</button></article>)
+        : <PlanningBasicGoals key={sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone}/>)
+      : tab === 'pension' ? <PlanningPension key={sources.write_version} focus={focus === 'profile'} onFocusDone={onFocusDone} today={today} sources={sources} reload={reload} onEditingChange={onEditingChange} onPending={onPending}/>
       : <>
-        <Usual review={review}/>
-        {shown ? <Steps interval={shown} review={review} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)} generation={review.generation}/>
-          : <div className="empty"><span className="empty-mark">¥</span><h2>还没有可比较的盘点区间</h2><p>需要至少两次完整且范围可比的盘点；收入缺项不抹去资产事实。{review.incomplete_count > 0 && `有 ${review.incomplete_count} 次不完整盘点，补齐后才能参与。`}</p></div>}
-        {newest.length > 0 && <Intervals intervals={newest} selected={shown?.snapshot_id ?? null} onSelect={setSelected}/>}
-        <IncomeTable incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/>
-      </>}</PlanningSetup>}
+        {mode === 'none' && <article className="ui-card ui-content planning-setup-entry" aria-label="开始规划"><div className="ui-section-head"><div><h3>想知道要攒多少？</h3><p className="muted small">先说目标和预算，几分钟即可，也可以跳过。记录收入不需要先设置。</p></div><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget)}>开始规划</button></div></article>}
+        {review ? <><Usual review={review}/>
+          {shown ? <Steps interval={shown} review={review} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)} generation={review.generation}/>
+            : <div className="empty"><span className="empty-mark">¥</span><h2>还没有可比较的盘点区间</h2><p>需要至少两次完整且范围可比的盘点；收入缺项不抹去资产事实。{review.incomplete_count > 0 && `有 ${review.incomplete_count} 次不完整盘点，补齐后才能参与。`}</p></div>}
+          {newest.length > 0 && <Intervals intervals={newest} selected={shown?.snapshot_id ?? null} onSelect={setSelected}/>}</>
+          : <article className="ui-card ui-content" role="status"><p>{reviewError}</p>{!sources.modules.wealth ? null : <button onClick={reload}>重新读取</button>}</article>}
+        {incomes ? <IncomeTable incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/> : <article className="ui-card ui-content" role="alert"><p>收入记录读取失败。</p><button onClick={reload}>重新读取</button></article>}
+      </>}
+    {setup && sources && <PlanningSetupDialog sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={closeSetup} initialStep={setup.step}/>}
     {editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} hpfDefault={latestHpf(incomes.rows)} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;
 }
