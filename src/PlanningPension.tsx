@@ -2,21 +2,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
-import { CentInput, FormRow, Info } from './FormControls';
-import { DateInput } from './DateInput';
-import { STALE_MONTHS, ageText, defaultRetire, estimateAccountCents, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths } from './plan';
+import { Info } from './FormControls';
+import { PlanningProfileFields } from './PlanningProfileFields';
+import { toForm, profileFromForm } from './planning-profile';
+import type { Form } from './planning-profile';
+import { STALE_MONTHS, ageText, quitAges, rateText, staleMonths } from './plan';
 import type { Income, ProfileSave, ProfileState, StoredProfile } from './plan';
-import { PERSONAL_PENSION_CAP_CENTS, beijing, defaultAssumptions, effectiveParams, isOverridden, noOverrides, paramSources, verifiedText } from './plan-params';
+import { beijing, effectiveParams, isOverridden, paramSources, verifiedText } from './plan-params';
 import type { ParamKey, Overrides } from './plan-params';
 import { ageMonthsAt, byQuitAge, project, startAgeMonths } from './plan-pension';
-import type { Projection, Worker } from './plan-pension';
+import type { Projection } from './plan-pension';
 import { storedPending, submit, Unresolved } from './wealth';
 import type { Snapshot, Summary } from './wealth';
 import { normalizeFunds } from './plan-core';
 import './planning.css';
 
-const workerText: Record<Worker, string> = { male: '男职工', female_cadre: '女干部（原 55 岁退休）', female_worker: '女工人（原 50 岁退休）' };
-const taxRates = [0, 300, 1000, 2000, 2500, 3000, 3500, 4500];
 const yuan = (c: number) => money(String(c));
 
 /** 个人资料与养老金估算。资料只含输入与假设；结果每次打开重算，不存库。 */
@@ -127,47 +127,17 @@ function Params({ overrides, region }: { overrides: Overrides; region: ReturnTyp
     <p className="muted small">法定退休年龄按国务院《渐进式延迟法定退休年龄的办法》，计发月数按国发〔2005〕38 号附表，个人养老金年缴上限 12000 元、领取按 3% 计税。</p></article>;
 }
 
-type Form = { birth: string; worker: Worker; paid: string; balance: string; base: string; past: string; flex: string; pp: string; tax: string; infl: string; wage: string; ppReturn: string;
-  oWage: string; oLower: string; oUpper: string; oNotional: string; oHpf: string };
-const toForm = (p: StoredProfile | null): Form => ({
-  birth: p ? p.birth_month + '-01' : '', worker: p?.worker ?? 'male', paid: p ? String(p.paid_months) : '', balance: p?.account_balance_cents ?? '', base: p?.base_cents ?? '',
-  past: p?.past_index_hundredths == null ? '' : String(p.past_index_hundredths / 100), flex: String(p?.flex_months ?? 0), pp: p?.personal_pension_annual_cents ?? '0', tax: String(p?.marginal_tax_hundredths ?? 1000),
-  infl: hundredthsToPct((p?.assumptions ?? defaultAssumptions).inflation_hundredths), wage: hundredthsToPct((p?.assumptions ?? defaultAssumptions).wage_growth_hundredths), ppReturn: hundredthsToPct((p?.assumptions ?? defaultAssumptions).pp_return_hundredths),
-  oWage: p?.overrides.avg_wage_cents ?? '', oLower: p?.overrides.base_lower_cents ?? '', oUpper: p?.overrides.base_upper_cents ?? '',
-  oNotional: p?.overrides.notional_rate_hundredths == null ? '' : hundredthsToPct(p.overrides.notional_rate_hundredths), oHpf: p?.overrides.hpf_rate_hundredths == null ? '' : hundredthsToPct(p.overrides.hpf_rate_hundredths),
-});
 
 function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileState['saved']; generation: string; today: string; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [f, setF] = useState<Form>(toForm(saved?.profile ?? null));
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('profile-birth')?.focus(); return () => dialog.current?.close(); }, []);
-  const set = <K extends keyof Form>(k: K, v: Form[K]) => setF(x => ({ ...x, [k]: v }));
   const frozen = busy || stuck;
   async function save() {
-    const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.birth)) return stop('出生日期', '请选择出生日期。');
-    if (f.birth.slice(0, 7) >= today.slice(0, 7)) return stop('出生日期', '出生日期须早于本月。');
-    if (!/^\d{1,4}$/.test(f.paid)) return stop('累计缴费月数', '请填写累计缴费月数（社保 App 可查），没有就填 0。');
-    if (f.balance === '') return stop('个人账户余额', '请填写个人账户余额，没有就填 0。');
-    if (f.base === '') return stop('当前月缴费基数', '请填写当前月缴费基数。');
-    const infl = pctToHundredths(f.infl), wage = pctToHundredths(f.wage), ppr = pctToHundredths(f.ppReturn);
-    if (infl === null) return stop('通胀率', '通胀率请填百分数，例如 2 或 2.5。');
-    if (wage === null) return stop('工资增长率', '工资增长率请填百分数，例如 3。');
-    if (ppr === null) return stop('个人养老金收益率', '个人养老金收益率请填百分数，例如 2。');
-    const flex = Number(f.flex);
-    if (!Number.isInteger(flex) || flex < -36 || flex > 36) return stop('弹性领取月数', '弹性提前或延后须是 −36 到 36 之间的整数月。');
-    const past = f.past.trim() === '' ? null : Math.round(Number(f.past) * 100);
-    if (past !== null && !(past >= 1 && past <= 1000)) return stop('历史平均缴费指数', '历史平均缴费指数请填 0.01 到 10 之间的数，或留空。');
-    const rateOrNull = (text: string, label: string): number | null | undefined => { if (text.trim() === '') return null; const v = pctToHundredths(text); if (v === null) { stop(label, `${label}请填百分数，或留空使用内置值。`); return undefined; } return v; };
-    const notional = rateOrNull(f.oNotional, '记账利率'); if (notional === undefined) return;
-    const hpf = rateOrNull(f.oHpf, '公积金利率'); if (hpf === undefined) return;
-    const profile: StoredProfile = {
-      birth_month: f.birth.slice(0, 7), worker: f.worker, region: 'beijing', paid_months: Number(f.paid), account_balance_cents: f.balance, base_cents: f.base, past_index_hundredths: past, flex_months: flex,
-      personal_pension_annual_cents: f.pp, marginal_tax_hundredths: Number(f.tax), assumptions: { inflation_hundredths: infl, wage_growth_hundredths: wage, pp_return_hundredths: ppr },
-      overrides: { ...noOverrides, avg_wage_cents: f.oWage || null, base_lower_cents: f.oLower || null, base_upper_cents: f.oUpper || null, notional_rate_hundredths: notional, hpf_rate_hundredths: hpf },
-      retire: saved?.profile.retire ?? defaultRetire,
-    };
+    let profile: StoredProfile;
+    try { profile = profileFromForm(f, saved?.profile ?? null, today); }
+    catch (e) { setNotice(e instanceof Error ? e.message : errorMessage(e)); return; }
     const input: ProfileSave = { request_id: crypto.randomUUID(), generation, expected_revision: saved?.revision ?? null, profile };
     setBusy(true); setNotice('');
     try { await submit({ command: 'plan_profile_save', input, label: '个人资料' }); onClose(true); }
@@ -176,34 +146,7 @@ function ProfileDialog({ saved, generation, today, onClose }: { saved: ProfileSt
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="profile-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
     <header><div><p className="eyebrow">规划 · 养老金</p><h2 id="profile-heading">个人资料</h2><p className="muted">按社保 App 当前显示的数字填写；未来利率和增长率属于测算假设。</p></div><CloseButton type="button" aria-label="关闭个人资料表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存资料'}</button>}</div></header>
-    <section className="form-block">
-      <FormRow label="出生日期" hint="点日历选择；只用到年和月"><DateInput id="profile-birth" label="出生日期" value={f.birth} max={today} disabled={frozen} onChange={v => set('birth', v)}/></FormRow>
-      <FormRow label="性别与职工类型" hint="决定法定退休年龄的延迟节奏：男职工原 60 岁；女干部（干部、管理、专业技术岗位）原 55 岁；女工人（一线工人）原 50 岁。拿不准就看劳动合同或问单位人事"><select aria-label="性别与职工类型" value={f.worker} disabled={frozen} onChange={e => set('worker', e.target.value as Worker)}>{(Object.keys(workerText) as Worker[]).map(k => <option key={k} value={k}>{workerText[k]}</option>)}</select></FormRow>
-      <FormRow label="累计缴费月数" hint="京通「社保缴费信息」里，数缴了养老保险的月数"><input aria-label="累计缴费月数" inputMode="numeric" value={f.paid} disabled={frozen} onChange={e => set('paid', e.target.value)} placeholder="例如 48"/></FormRow>
-      <FormRow label="个人账户余额" hint="把每月个人缴的养老里记入账户的部分加起来（单位上班是 8% 的基数，灵活就业也只有 8% 进账户）；查不到可先估算，不知道就填 0"><span className="account-estimate"><CentInput label="个人账户余额" value={f.balance} disabled={frozen} placeholder="0.00" onChange={v => set('balance', v)}/><button type="button" className="ui-btn" disabled={frozen || !/^\d+$/.test(f.paid) || f.base === ''} onClick={() => set('balance', estimateAccountCents(Number(f.paid), f.base))}>帮我估算</button></span></FormRow>
-      <FormRow label="当前月缴费基数" hint="按你接下来打算缴的填：回去上班填上班的基数，继续灵活就业填灵活的；超出当地上下限按上下限计"><CentInput label="当前月缴费基数" value={f.base} disabled={frozen} placeholder="0.00" onChange={v => set('base', v)}/></FormRow>
-    </section>
-    <details className="form-block" open={f.past !== '' || f.flex !== '0'}><summary>更多（一般不用填）</summary>
-      <FormRow label="历史平均缴费指数" hint="过去各月缴费基数 ÷ 当年社平的平均；留空表示与当前基数相同。只有过去的基数和现在差得很多时才需要填"><input aria-label="历史平均缴费指数" inputMode="decimal" value={f.past} disabled={frozen} onChange={e => set('past', e.target.value)} placeholder="例如 2.5"/></FormRow>
-      <FormRow label="弹性领取月数" hint="保持 0 即可；想比较提前或延后领取时才改：提前为负、延后为正，最多 36 个月"><input aria-label="弹性领取月数" inputMode="numeric" value={f.flex} disabled={frozen} onChange={e => set('flex', e.target.value)}/></FormRow>
-    </details>
-    <section className="form-block">
-      <FormRow label="个人养老金每年缴存" hint={`没有开户填 0；每年最多 ${money(String(PERSONAL_PENSION_CAP_CENTS))}`}><CentInput label="个人养老金每年缴存" value={f.pp} disabled={frozen} placeholder="0.00" onChange={v => set('pp', v)}/></FormRow>
-      <FormRow label="个税边际税率" hint="用于估算个人养老金每年省多少税"><select aria-label="个税边际税率" value={f.tax} disabled={frozen} onChange={e => set('tax', e.target.value)}>{taxRates.map(r => <option key={r} value={r}>{rateText(r)}</option>)}</select></FormRow>
-    </section>
-    <details className="form-block" open={f.infl !== hundredthsToPct(defaultAssumptions.inflation_hundredths) || f.wage !== hundredthsToPct(defaultAssumptions.wage_growth_hundredths) || f.ppReturn !== hundredthsToPct(defaultAssumptions.pp_return_hundredths)}><summary>假设（有默认值，一般不用改）</summary>
-      <p className="muted small">下面是假设，不是事实；预填值只是占位，请按自己的判断修改。</p>
-      <FormRow label="通胀率（年）" hint="这是假设"><input aria-label="通胀率" inputMode="decimal" value={f.infl} disabled={frozen} onChange={e => set('infl', e.target.value)}/></FormRow>
-      <FormRow label="工资与社平增长率（年，名义）" hint="这是假设"><input aria-label="工资增长率" inputMode="decimal" value={f.wage} disabled={frozen} onChange={e => set('wage', e.target.value)}/></FormRow>
-      <FormRow label="个人养老金收益率（年，名义）" hint="这是假设"><input aria-label="个人养老金收益率" inputMode="decimal" value={f.ppReturn} disabled={frozen} onChange={e => set('ppReturn', e.target.value)}/></FormRow>
-    </details>
-    <details className="form-block"><summary>参数覆盖（留空使用内置值）</summary>
-      <FormRow label="上年度月平均工资"><CentInput label="上年度月平均工资" value={f.oWage} disabled={frozen} placeholder={(Number(beijing.avg_wage_cents) / 100).toFixed(2)} onChange={v => set('oWage', v)}/></FormRow>
-      <FormRow label="缴费基数下限"><CentInput label="缴费基数下限" value={f.oLower} disabled={frozen} placeholder={(Number(beijing.base_lower_cents) / 100).toFixed(2)} onChange={v => set('oLower', v)}/></FormRow>
-      <FormRow label="缴费基数上限"><CentInput label="缴费基数上限" value={f.oUpper} disabled={frozen} placeholder={(Number(beijing.base_upper_cents) / 100).toFixed(2)} onChange={v => set('oUpper', v)}/></FormRow>
-      <FormRow label="记账利率（%）"><input aria-label="记账利率" inputMode="decimal" value={f.oNotional} disabled={frozen} placeholder={hundredthsToPct(beijing.notional_rate_hundredths)} onChange={e => set('oNotional', e.target.value)}/></FormRow>
-      <FormRow label="公积金利率（%）"><input aria-label="公积金利率" inputMode="decimal" value={f.oHpf} disabled={frozen} placeholder={hundredthsToPct(beijing.hpf_rate_hundredths)} onChange={e => set('oHpf', e.target.value)}/></FormRow>
-    </details>
+    <PlanningProfileFields f={f} setF={setF} today={today} frozen={frozen}/>
     {notice && <p className="notice" role="status">{notice}</p>}
   </form></dialog>;
 }

@@ -92,3 +92,7 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 综合首页规划摘要：`review_overview` 以可选 `planning` 参数门控规划读取，在一个 worker job、一个 SQLite 只读事务中返回净资产和 `PlanSources`。明细直接采用该批财富摘要选出的完整盘点；各来源仍用 `Read<T>` 表达独立成败。`plan_review_in_transaction` 复用现有储蓄投影，避免嵌套事务；独立 `plan_review` 保持自己的只读事务。`ReviewPlanSummary` 只接受已提交的整批数据，复用 `plan-summary.ts` 与目标页的结论和比例，不运行压力测试或路线矩阵。`ReviewView` 统一处理请求票据、generation、日期、版本、模块与焦点／恢复刷新；同库刷新失败可保留整批上次结果并标明，身份或上下文变化丢弃旧响应。预算／资料定位意图仅存在 `main.tsx` 状态中，随库、页签与导航失效，读取完成后聚焦既有入口，不保存会话缓存或自动打开表单。
 
 金融 CSV 解析器 `financial_import_parser` 是无存储依赖的 Rust 纯组件；所有 error 级问题均阻止提交，坏行不能被丢弃后将盘点组标为完整。报告组件 `planning-report` 接收严格校验后的只读白名单快照，隐私输出先脱敏再渲染／复制／打印，不读取 Store 或重新计算缺失字段。二者已合入源码与测试，但尚无金融导入写入、真实报告 DTO／产品入口和原生 PDF 流程。
+
+### 规划首次设置
+
+`PlanningPage` 共用 `PlanningSetup`，五步草稿最终通过一次 `plan_profile_save` 及原有请求回执保存。`planning-profile.ts` 共用个人资料表单转换，`planning-setup.ts` 校验显式阶段并保留全部事件与实际发生核对。`retire.setup_completed` 缺省为 false，旧记录反序列化兼容；不执行资产或收入迁移，不新增事实写入命令。组件退出清除草稿，待确认保存仍进入共享回执核对流程。完成后刷新目标／养老金数据；职业预设只供旧记录兼容，新引导使用自定义阶段。

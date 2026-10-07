@@ -56,7 +56,7 @@ export function RetireSidebar({ calc, state, compare, reload, onEditingChange, o
   return <div className="rd-side">
     <PlanCard r={r} nowAge={nowAge} saving={calc.plan ? workSaving(calc.plan) : calc.saving} editing={section === 'plan'} saver={saver} onEdit={() => open('plan')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))} fire={fire}/>
     <SavingCard r={r} calc={calc} nowAge={nowAge} editing={section === 'saving'} saver={saver} onEdit={() => open('saving')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
-    <RouteCard r={r} nowAge={nowAge} compare={compare} editing={section === 'route'} saver={saver} onEdit={() => open('route')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
+    {r.route_id && <RouteCard r={r} nowAge={nowAge} compare={compare} editing={section === 'route'} saver={saver} onEdit={() => open('route')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>}
     <SpendCard r={r} editing={section === 'spend'} saver={saver} nowAge={nowAge} derived={calc.derivedSpend} onEdit={() => open('spend')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <LeaveCard r={r} nowAge={nowAge} editing={section === 'leave'} saver={saver} onEdit={() => open('leave')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>
     <IncomeCard r={r} calc={calc} editing={section === 'income'} saver={saver} nowAge={nowAge} onEdit={() => open('income')} onCancel={() => setSection(null)} onSave={(next) => void done(saver.save(next))}/>

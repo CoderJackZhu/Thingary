@@ -104,3 +104,7 @@ npm run tauri -- build --bundles app
 源码和当前有效文档只在本仓库维护。功能或修复采用短期分支，经检查提交；公开协作使用 issue／PR。个人过程笔记可以另存私有仓库，但外部贡献者无需访问该仓库即可构建、测试或理解业务规则。
 
 修改业务行为时更新 PRODUCT_RULES，修改使用步骤时更新 USER_GUIDE，修改实现取舍时更新 ARCHITECTURE。文件职责与维护者的两仓库流程见[文档维护](MAINTAINING.md)。
+
+### 规划首次设置验收
+
+`tests/planning-setup.test.mjs` 覆盖草稿无副作用、未知与明确零、负数阶段、费用包含关系、实际付款 ID 保留及资产事实不变。Rust `guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restore` 覆盖旧资料兼容、规划保存前后账户／盘点／收入／复盘不变与备份恢复。虚构预览 `/visual-preview.html?section=planning&plan-budget=set&plan-route=soe&plan-events=1` 用于旧计划的首次引导；`plan-profile=empty`、`state=save-error` 用于空白与保存错误。检查跳过、返回步骤、重复进入、账户名称、1440×940 与 800×600、键盘和保存后刷新。原生验收使用独立身份，不打开正式资料库。
