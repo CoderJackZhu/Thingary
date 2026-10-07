@@ -64,8 +64,8 @@ export function PlanningReport({ outer, privacy, onPrivacyChange }: { outer: Rep
 
   if (outer.status === 'loading') return <div className="pr-state" aria-busy="true" role="status">报告读取中…</div>;
   if (outer.status === 'empty') return <div className="pr-state" role="status"><h3>尚未选择报告内容</h3><p className="pr-muted">从当前方案、某份基准或两份比较生成报告后，在此预览。</p></div>;
-  if (outer.status === 'error') return <div className="pr-state pr-error" role="alert"><h3>报告读取失败</h3><p>{outer.message}</p><p className="pr-muted">错误码：{outer.code}。读取失败与输入不完整是两种状态，可在来源处重试。</p></div>;
-  if (parsed && !parsed.ok) return <div className="pr-state pr-error" role="alert"><h3>报告输入无法识别</h3><p className="pr-muted">错误码：{parsed.code}</p><ul>{parsed.issues.slice(0, 8).map(i => <li key={i.path + i.code}>{i.path || '（根）'}：{i.message}</li>)}</ul></div>;
+  if (outer.status === 'error') return <div className="pr-state pr-error" role="alert"><h3>报告读取失败</h3><p>{privacy ? '请在来源处重试，详细错误已隐藏。' : outer.message}</p><p className="pr-muted">错误码：{privacy ? '已隐藏' : outer.code}。读取失败与输入不完整是两种状态，可在来源处重试。</p></div>;
+  if (parsed && !parsed.ok) return <div className="pr-state pr-error" role="alert"><h3>报告输入无法识别</h3><p className="pr-muted">错误码：{parsed.code}</p><ul>{parsed.issues.slice(0, 8).map(i => <li key={i.path + i.code}>{i.path || '（根）'}：{privacy ? '字段无效，请在完整视图核对。' : i.message}</li>)}</ul></div>;
   if (!view) return null;
 
   const trend = trendModel(view.series);

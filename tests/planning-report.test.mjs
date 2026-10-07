@@ -186,3 +186,100 @@ test('component renders only from the view model: privacy redaction before rende
 test('escapeHtml covers the five dangerous characters', () => {
   assert.equal(escapeHtml(`<a href="x">&'</a>`), '&lt;a href=&quot;x&quot;&gt;&amp;&#39;&lt;/a&gt;');
 });
+
+// Every free-text/ID channel and every nested extra property carries a unique marker.
+function hostileReport() {
+  let n = 0;
+  const markers = [];
+  const plant = () => { const s = `虚构秘密${++n}姓名账户余额123456元`; markers.push(s); return s; };
+  const visit = v => {
+    if (Array.isArray(v)) return v.map(visit);
+    if (v && typeof v === 'object') {
+      const out = {};
+      for (const [k, x] of Object.entries(v)) {
+        out[k] = ['id', 'name', 'label', 'text', 'note', 'hint', 'detail', 'subject_name', 'other_name', 'model_version'].includes(k)
+          ? plant() : k === 'missing' && Array.isArray(x) && 'template' in v ? [plant()] : visit(x);
+      }
+      out.extra_secret = plant();
+      return out;
+    }
+    return v;
+  };
+  const fixture = structuredClone(comparisonReport);
+  fixture.missing = [{ id: 'missing', label: 'label', impact: 'blocks_headline', hint: 'hint' }];
+  fixture.assumptions.push({ id: 'free', label: 'free', value: { kind: 'text', text: 'free' }, source: 'confirmed', confirmed_on: null });
+  return { input: visit(fixture), markers };
+}
+
+test('all free strings and extra fields are removed from privacy payload, copy and print', () => {
+  const { input, markers } = hostileReport();
+  const parsed = parseReportInput(input);
+  assert.equal(parsed.ok, true);
+  const outputs = [JSON.stringify(redactReport(input)), copyText(parsed.report, true), printableHtml(parsed.report, { privacy: true })];
+  for (const output of outputs) for (const marker of markers) assert.ok(!output.includes(marker), marker);
+  assert.deepEqual(redactReport(redactReport(parsed.report)), redactReport(parsed.report));
+  assert.equal(parsed.report.extra_secret, undefined);
+  assert.equal(parsed.report.goals[0].extra_secret, undefined);
+  assert.equal(parsed.report.funds[0].amount.extra_secret, undefined);
+  const before = JSON.stringify(parsed.report);
+  input.funds[0].amount.cents = '1';
+  input.goals[0].missing.push('changed');
+  assert.equal(JSON.stringify(parsed.report), before, 'validated snapshot must not retain input references');
+});
+
+test('required nullable money/ratio fields reject missing values and accept explicit null/unknown', () => {
+  for (const key of ['available', 'restricted', 'debt']) {
+    const input = structuredClone(currentReport);
+    delete input.series[0][key];
+    assert.equal(parseReportInput(input).ok, false, key);
+    for (const v of [null, { kind: 'money', cents: null, basis: 'unknown' }]) {
+      input.series[0][key] = v;
+      const parsed = parseReportInput(input);
+      assert.equal(parsed.ok, true);
+      assert.doesNotThrow(() => printableHtml(parsed.report, { privacy: false }));
+    }
+  }
+  const input = structuredClone(comparisonReport);
+  delete input.goals[0].ratio;
+  assert.equal(parseReportInput(input).ok, false);
+  input.goals[0].ratio = null;
+  delete input.differences[0].delta;
+  assert.equal(parseReportInput(input).ok, false);
+  input.differences[0].delta = null;
+  assert.equal(parseReportInput(input).ok, true);
+  input.funds[0].amount.hidden = 'secret';
+  assert.equal(parseReportInput(input).ok, false);
+});
+
+test('actual component DOM/ARIA is private in ready and error states; malformed inputs render an alert', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+  const { pathToFileURL } = await import('node:url');
+  const ts = (await import('typescript')).default;
+  const React = (await import('react')).default;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const cache = new URL('../node_modules/.cache/', import.meta.url);
+  mkdirSync(cache, { recursive: true });
+  const dir = mkdtempSync(cache.pathname + 'planning-report-render-');
+  try {
+    const source = read('../src/planning-report/PlanningReport.tsx').replaceAll("'./model.ts'", JSON.stringify(new URL('../src/planning-report/model.ts', import.meta.url).href));
+    writeFileSync(dir + '/component.mjs', ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);
+    const { PlanningReport } = await import(pathToFileURL(dir + '/component.mjs').href);
+    const render = (outer, privacy = true) => renderToStaticMarkup(React.createElement(PlanningReport, { outer, privacy }));
+    const { input, markers } = hostileReport();
+    const html = render({ status: 'ready', input });
+    for (const marker of markers) assert.ok(!html.includes(marker), `DOM/ARIA leaked ${marker}`);
+    assert.ok(html.includes('金额已隐藏'));
+    const secret = '虚构错误泄漏余额123456元';
+    assert.ok(!render({ status: 'error', message: secret, code: secret }).includes(secret));
+    input.contract_version = secret;
+    assert.ok(!render({ status: 'ready', input }).includes(secret));
+    for (const key of ['available', 'restricted', 'debt']) {
+      const broken = structuredClone(currentReport);
+      delete broken.series[0][key];
+      assert.ok(render({ status: 'ready', input: broken }).includes('报告输入无法识别'));
+    }
+    for (const outer of [{ status: 'loading' }, { status: 'empty' }, { status: 'error', message: secret, code: secret }, { status: 'ready', input: baselineReport }, { status: 'ready', input: currentReport }]) {
+      assert.doesNotThrow(() => render(outer));
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

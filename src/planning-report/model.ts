@@ -46,7 +46,7 @@ export type GoalRow = {
 };
 export type Assumption = {
   id: string;
-  /** 受控标签（由生成方固定短语），不是自由文本 */
+  /** 标签仍是自由字符串；隐私投影使用局部别名 */
   label: string;
   value: Value;
   source: 'confirmed' | 'estimated' | 'excluded' | 'unknown';
@@ -125,12 +125,14 @@ function checkMoney(v: unknown, path: string, issues: ReportIssue[]): void {
   if (!isObj(v) || v.kind !== 'money') { issues.push({ path, code: 'invalid_money', message: '金额必须是 {kind:"money"} 结构' }); return; }
   if (v.cents !== null && !(typeof v.cents === 'string' && CENTS_RE.test(v.cents)))
     issues.push({ path: path + '.cents', code: 'invalid_cents', message: '金额必须是十进制分字符串或 null' });
+  if (v.hidden !== undefined && typeof v.hidden !== 'boolean') issues.push({ path: path + '.hidden', code: 'invalid_hidden', message: 'hidden 必须是布尔值' });
   if (!oneOf(v.basis, ['known', 'estimated', 'unknown']))
     issues.push({ path: path + '.basis', code: 'invalid_basis', message: '依据状态必须是 known/estimated/unknown' });
 }
 function checkRatio(v: unknown, path: string, issues: ReportIssue[]): void {
   if (!isObj(v) || v.kind !== 'ratio') { issues.push({ path, code: 'invalid_ratio', message: '比例必须是 {kind:"ratio"} 结构' }); return; }
-  if (v.hundredths !== null && !(typeof v.hundredths === 'number' && Number.isInteger(v.hundredths)))
+  if (v.hidden !== undefined && typeof v.hidden !== 'boolean') issues.push({ path: path + '.hidden', code: 'invalid_hidden', message: 'hidden 必须是布尔值' });
+  if (v.hundredths !== null && !(typeof v.hundredths === 'number' && Number.isSafeInteger(v.hundredths)))
     issues.push({ path: path + '.hundredths', code: 'invalid_hundredths', message: '比例必须是整数（万分位）或 null' });
 }
 function checkValue(v: unknown, path: string, issues: ReportIssue[]): void {
@@ -165,7 +167,7 @@ export function parseReportInput(raw: unknown): ParseResult {
   optDate(raw.generated_on, 'generated_on', issues);
   optDate(raw.source_date, 'source_date', issues);
   optDate(raw.monetary_basis_date, 'monetary_basis_date', issues);
-  if (raw.scenario_revision !== null && !(typeof raw.scenario_revision === 'number' && Number.isInteger(raw.scenario_revision)))
+  if (raw.scenario_revision !== null && !(typeof raw.scenario_revision === 'number' && Number.isSafeInteger(raw.scenario_revision)))
     issues.push({ path: 'scenario_revision', code: 'invalid_revision', message: '修订号必须是整数或 null' });
   optString(raw.model_version, 'model_version', issues);
   if (!isObj(raw.headline) || !oneOf(raw.headline.status, ['ok', 'shortfall', 'incomplete']))
@@ -191,7 +193,7 @@ export function parseReportInput(raw: unknown): ParseResult {
     optDate(g.date, p + '.date', issues);
     if (!oneOf(g.result, ['ok', 'shortfall', 'incomplete'])) issues.push({ path: p + '.result', code: 'invalid_result', message: '结果状态必须是 ok/shortfall/incomplete' });
     checkMoney(g.amount, p + '.amount', issues);
-    if (g.ratio !== null && g.ratio !== undefined) checkRatio(g.ratio, p + '.ratio', issues);
+    if (g.ratio !== null) checkRatio(g.ratio, p + '.ratio', issues);
     optString(g.note, p + '.note', issues);
     if (!Array.isArray(g.missing) || g.missing.some(m => typeof m !== 'string')) issues.push({ path: p + '.missing', code: 'invalid_missing', message: 'missing 必须是字符串数组' });
   });
@@ -206,13 +208,13 @@ export function parseReportInput(raw: unknown): ParseResult {
     const p = `series[${i}]`;
     if (typeof s.date !== 'string' || !validDate(s.date)) issues.push({ path: p + '.date', code: 'invalid_date', message: '日期必须是 YYYY-MM-DD' });
     if (!oneOf(s.kind, ['projected', 'actual', 'reference'])) issues.push({ path: p + '.kind', code: 'invalid_series_kind', message: '序列种类必须是 projected/actual/reference' });
-    for (const key of ['available', 'restricted', 'debt'] as const) if (s[key] !== null && s[key] !== undefined) checkMoney(s[key], `${p}.${key}`, issues);
+    for (const key of ['available', 'restricted', 'debt'] as const) if (s[key] !== null) checkMoney(s[key], `${p}.${key}`, issues);
   });
   arr(raw.differences, 'differences').forEach((d, i) => {
     const p = `differences[${i}]`;
     reqString(d.id, p + '.id', issues); reqString(d.label, p + '.label', issues);
     checkValue(d.current, p + '.current', issues); checkValue(d.other, p + '.other', issues);
-    if (d.delta !== null && d.delta !== undefined) checkMoney(d.delta, p + '.delta', issues);
+    if (d.delta !== null) checkMoney(d.delta, p + '.delta', issues);
     optString(d.note, p + '.note', issues);
   });
   arr(raw.missing, 'missing').forEach((m, i) => {
@@ -222,46 +224,53 @@ export function parseReportInput(raw: unknown): ParseResult {
     optString(m.hint, p + '.hint', issues);
   });
   if (issues.length) return { ok: false, code: 'invalid_report_input', issues };
-  return { ok: true, report: raw as unknown as ReportInputV1 };
+  return { ok: true, report: projectReport(raw as unknown as ReportInputV1, false) };
 }
 
 // ---------------------------------------------------------------- 脱敏投影
 
-const hideMoney = (m: Money): Money => ({ kind: 'money', cents: null, basis: m.basis, hidden: m.cents !== null });
-const hideRatio = (r: Ratio): Ratio => ({ kind: 'ratio', hundredths: null, hidden: r.hundredths !== null });
-const hideValue = (v: Value): Value =>
-  v.kind === 'money' ? hideMoney(v) : v.kind === 'ratio' ? hideRatio(v) : v;
-
-/**
- * 从报告快照生成隐私视图：账户/来源名称替换为稳定局部别名（账户1/2…），自由名称别名化，
- * 自由备注与明细隐藏，金额与派生比例清空并标 hidden。别名只依赖快照内顺序，同一快照多次投影结果一致。
- * 不做正则删数字——所有自由文本整体隐藏或替换，结构化金额走 Money/Ratio 通道。
- */
-export function redactReport(report: ReportInputV1): ReportInputV1 {
-  return {
-    ...report,
-    subject_name: report.kind === 'comparison' ? '方案 A' : report.kind === 'baseline' ? '基准 A' : '当前方案',
-    other_name: report.other_name === null ? null : '方案 B',
-    headline: { ...report.headline, amount: hideMoney(report.headline.amount) },
-    next_step: { label: report.next_step.label, detail: null },
-    funds: report.funds.map((f, i) => ({ ...f, name: `账户 ${i + 1}`, amount: hideMoney(f.amount), note: null })),
-    goals: report.goals.map((g, i) => ({
-      ...g, name: `目标 ${i + 1}`, amount: hideMoney(g.amount),
-      ratio: g.ratio ? hideRatio(g.ratio) : null, note: null,
-    })),
-    assumptions: report.assumptions.map(a => ({ ...a, value: hideValue(a.value) })),
-    series: report.series.map(s => ({
-      ...s,
-      available: s.available ? hideMoney(s.available) : null,
-      restricted: s.restricted ? hideMoney(s.restricted) : null,
-      debt: s.debt ? hideMoney(s.debt) : null,
-    })),
-    differences: report.differences.map(d => ({
-      ...d, current: hideValue(d.current), other: hideValue(d.other),
-      delta: d.delta ? hideMoney(d.delta) : null, note: null,
-    })),
-    missing: report.missing.map(m => ({ ...m })),
+/** 构造全新白名单快照；完整快照也不保留额外字段或输入对象引用。 */
+function projectReport(r: ReportInputV1, privacy: boolean): ReportInputV1 {
+  const money = (m: Money): Money => ({ kind: 'money', cents: privacy ? null : m.cents, basis: m.basis,
+    hidden: privacy ? Boolean(m.hidden || m.cents !== null) : Boolean(m.hidden) });
+  const ratio = (v: Ratio): Ratio => ({ kind: 'ratio', hundredths: privacy ? null : v.hundredths,
+    hidden: privacy ? Boolean(v.hidden || v.hundredths !== null) : Boolean(v.hidden) });
+  const value = (v: Value): Value => {
+    switch (v.kind) {
+      case 'money': return money(v);
+      case 'ratio': return ratio(v);
+      case 'date': return { kind: 'date', date: v.date };
+      case 'text': return { kind: 'text', text: privacy ? '内容已隐藏' : v.text };
+      case 'unknown': return { kind: 'unknown' };
+    }
   };
+  return {
+    contract_version: 1, kind: r.kind, status: r.status,
+    subject_name: privacy ? (r.kind === 'comparison' ? '方案 A' : r.kind === 'baseline' ? '基准 A' : '当前方案') : r.subject_name,
+    other_name: privacy && r.other_name !== null ? '方案 B' : r.other_name,
+    generated_on: r.generated_on, source_date: r.source_date, monetary_basis_date: r.monetary_basis_date,
+    scenario_revision: r.scenario_revision, model_version: privacy ? null : r.model_version,
+    headline: { status: r.headline.status, amount: money(r.headline.amount), date: r.headline.date },
+    next_step: { label: privacy ? '核对计算依据与缺项' : r.next_step.label, detail: privacy ? null : r.next_step.detail },
+    funds: r.funds.map((f, i) => ({ id: privacy ? `f${i + 1}` : f.id, name: privacy ? `账户 ${i + 1}` : f.name,
+      availability: f.availability, amount: money(f.amount), note: privacy ? null : f.note })),
+    goals: r.goals.map((g, i) => ({ id: privacy ? `g${i + 1}` : g.id, name: privacy ? `目标 ${i + 1}` : g.name,
+      template: g.template, date: g.date, result: g.result, amount: money(g.amount), ratio: g.ratio === null ? null : ratio(g.ratio),
+      note: privacy ? null : g.note, missing: privacy ? g.missing.map(() => '存在待核对资料') : [...g.missing] })),
+    assumptions: r.assumptions.map((a, i) => ({ id: privacy ? `a${i + 1}` : a.id, label: privacy ? `依据 ${i + 1}` : a.label,
+      value: value(a.value), source: a.source, confirmed_on: a.confirmed_on })),
+    series: r.series.map(s => ({ date: s.date, kind: s.kind, available: s.available === null ? null : money(s.available),
+      restricted: s.restricted === null ? null : money(s.restricted), debt: s.debt === null ? null : money(s.debt) })),
+    differences: r.differences.map((d, i) => ({ id: privacy ? `d${i + 1}` : d.id, label: privacy ? `条件 ${i + 1}` : d.label,
+      current: value(d.current), other: value(d.other), delta: d.delta === null ? null : money(d.delta), note: privacy ? null : d.note })),
+    missing: r.missing.map((m, i) => ({ id: privacy ? `m${i + 1}` : m.id, label: privacy ? `待核对项 ${i + 1}` : m.label,
+      impact: m.impact, hint: privacy ? null : m.hint })),
+  };
+}
+
+/** 同一快照的隐私投影：自由字符串整体替换，事实状态与日期保留，金额/比例清空。 */
+export function redactReport(report: ReportInputV1): ReportInputV1 {
+  return projectReport(report, true);
 }
 
 // ---------------------------------------------------------------- 格式化
@@ -338,7 +347,7 @@ export type TrendModel = {
   all: SeriesPoint[];
 };
 
-const withValue = (s: SeriesPoint) => s.available !== null && s.available.cents !== null;
+const withValue = (s: SeriesPoint) => s.available != null && s.available.cents !== null;
 
 export function trendModel(series: SeriesPoint[]): TrendModel {
   const all = [...series].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
