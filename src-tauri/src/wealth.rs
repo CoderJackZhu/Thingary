@@ -170,6 +170,10 @@ pub struct Point {
     /// Change of the counted housing fund accounts alone; `None` when no such
     /// account is counted at either end (or the change is not given).
     pub hpf_change_cents: Option<String>,
+    /// Change of the counted investment, mixed, fund and bond accounts alone
+    /// (transfers in and market moves are not told apart); `None` when none is
+    /// counted at either end or the change is not given.
+    pub market_change_cents: Option<String>,
     /// Change as hundredths of a percent; only when the earlier net is positive.
     pub change_rate_hundredths: Option<i64>,
 }
@@ -463,6 +467,22 @@ fn net_of(s: &Snapshot) -> Result<(i64, i64)> {
 /// Counted housing fund balance of a check-in; `None` when none is counted.
 fn hpf_of(s: &Snapshot) -> Result<Option<i64>> {
     let kind = |e: &&Entry| e.counted && e.side == "asset" && e.kind == "housing_fund";
+    if !s.entries.iter().any(|e| kind(&e)) {
+        return Ok(None);
+    }
+    Ok(Some(sum(s.entries.iter().filter(kind).filter_map(|e| {
+        e.amount_cents.as_deref()?.parse::<i64>().ok()
+    }))?))
+}
+
+/// Counted balance of the accounts whose value moves with markets (investment,
+/// mixed, fund, bond); `None` when none is counted.
+fn market_of(s: &Snapshot) -> Result<Option<i64>> {
+    let kind = |e: &&Entry| {
+        e.counted
+            && e.side == "asset"
+            && matches!(e.kind.as_str(), "investment" | "mixed" | "fund" | "bond")
+    };
     if !s.entries.iter().any(|e| kind(&e)) {
         return Ok(None);
     }
@@ -829,6 +849,7 @@ impl Store {
                 scope_changed: false,
                 change_cents: None,
                 hpf_change_cents: None,
+                market_change_cents: None,
                 change_rate_hundredths: None,
             };
             if complete {
@@ -848,6 +869,10 @@ impl Store {
                         let change = net - prev_net;
                         point.change_cents = Some(change.to_string());
                         point.hpf_change_cents = match (hpf_of(prev)?, hpf_of(&s)?) {
+                            (None, None) => None,
+                            (a, b) => Some((b.unwrap_or(0) - a.unwrap_or(0)).to_string()),
+                        };
+                        point.market_change_cents = match (market_of(prev)?, market_of(&s)?) {
                             (None, None) => None,
                             (a, b) => Some((b.unwrap_or(0) - a.unwrap_or(0)).to_string()),
                         };

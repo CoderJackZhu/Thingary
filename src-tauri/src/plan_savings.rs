@@ -51,12 +51,18 @@ pub struct Interval {
     /// Housing fund money that left the account (deposits − balance change, so
     /// interest counts as negative); an estimate, when tracked.
     pub hpf_out_cents: Option<String>,
+    /// Change of the investment-type accounts' balance over the interval, when counted.
+    pub market_change_cents: Option<String>,
     pub income_records: usize,
     pub delta_nw_cents: Option<String>,
     pub saving_cents: Option<String>,
     pub spend_cents: Option<String>,
     pub monthly_saving_cents: Option<String>,
     pub monthly_spend_cents: Option<String>,
+    /// Cash and debt only: `saving` without the investment accounts' change. Transfers
+    /// into investments look like spending here, market gains never look like saving.
+    pub monthly_cash_saving_cents: Option<String>,
+    pub monthly_cash_spend_cents: Option<String>,
     /// Saving ÷ after-tax income in hundredths of a percent; income must be > 0.
     pub rate_hundredths: Option<i64>,
     /// Fewer income rows than whole months in the interval.
@@ -79,6 +85,10 @@ pub struct Stats {
     /// Weighted by interval length: total saving over total months.
     pub mean_monthly_saving_cents: Option<String>,
     pub median_monthly_spend_cents: Option<String>,
+    /// Medians of the cash-only figures and of the investment accounts' change.
+    pub median_monthly_cash_saving_cents: Option<String>,
+    pub median_monthly_cash_spend_cents: Option<String>,
+    pub median_monthly_market_change_cents: Option<String>,
     pub median_monthly_change_cents: Option<String>,
     pub mean_monthly_change_cents: Option<String>,
     pub window_from: Option<String>,
@@ -170,12 +180,15 @@ pub fn compute(
             hpf_cents: hpf.to_string(),
             hpf_change_cents: None,
             hpf_out_cents: None,
+            market_change_cents: None,
             income_records: rows.len(),
             delta_nw_cents: None,
             saving_cents: None,
             spend_cents: None,
             monthly_saving_cents: None,
             monthly_spend_cents: None,
+            monthly_cash_saving_cents: None,
+            monthly_cash_spend_cents: None,
             rate_hundredths: None,
             income_possibly_missing: true,
             excluded: marks.contains(&p.snapshot_id),
@@ -200,6 +213,11 @@ pub fn compute(
                 .as_deref()
                 .map(|v| v.parse().map_err(|_| corrupt()))
                 .transpose()?;
+            let dm: Option<i128> = p
+                .market_change_cents
+                .as_deref()
+                .map(|v| v.parse().map_err(|_| corrupt()))
+                .transpose()?;
             // Tracked housing fund: only its balance change is set aside; what was
             // withdrawn into cash is cash. Untracked: deposits never entered the net worth.
             let (saving, spend, out) = match dh {
@@ -213,6 +231,11 @@ pub fn compute(
             interval.spend_cents = Some(spend.to_string());
             interval.monthly_saving_cents = Some(monthly(saving, days).to_string());
             interval.monthly_spend_cents = Some(monthly(spend, days).to_string());
+            let dm_or_zero = dm.unwrap_or(0);
+            interval.market_change_cents = dm.map(|v| v.to_string());
+            interval.monthly_cash_saving_cents =
+                Some(monthly(saving - dm_or_zero, days).to_string());
+            interval.monthly_cash_spend_cents = Some(monthly(spend + dm_or_zero, days).to_string());
             // The rate is measured against everything that could be saved: take-home pay
             // plus housing fund money that came out as cash.
             let base = income + out.unwrap_or(0).max(0);
@@ -224,6 +247,7 @@ pub fn compute(
         if !p.scope_changed {
             interval.delta_nw_cents = p.change_cents.clone();
             interval.hpf_change_cents = p.hpf_change_cents.clone();
+            interval.market_change_cents = p.market_change_cents.clone();
         }
         out.push(interval);
     }
@@ -240,10 +264,19 @@ pub fn compute(
     };
     let mut savings = Vec::new();
     let mut spends = Vec::new();
+    let (mut cash_savings, mut cash_spends, mut market_changes) =
+        (Vec::new(), Vec::new(), Vec::new());
     let (mut total_saving, mut total_income, mut total_days) = (0i128, 0i128, 0i128);
     for &i in &usual {
         savings.push(num(&out[i].monthly_saving_cents)?);
         spends.push(num(&out[i].monthly_spend_cents)?);
+        cash_savings.push(num(&out[i].monthly_cash_saving_cents)?);
+        cash_spends.push(num(&out[i].monthly_cash_spend_cents)?);
+        // monthly(dm) = monthly(spend + dm) - monthly(spend) up to rounding; take it from the interval itself.
+        market_changes.push(match &out[i].market_change_cents {
+            Some(v) => monthly(v.parse::<i128>().map_err(|_| corrupt())?, out[i].days),
+            None => 0,
+        });
         total_saving += num(&out[i].saving_cents)?;
         total_income += out[i].income_cents.parse::<i128>().map_err(|_| corrupt())?;
         total_days += out[i].days as i128;
@@ -262,6 +295,10 @@ pub fn compute(
         stats.mean_monthly_saving_cents =
             Some(round_div(total_saving * MONTH_NUM, MONTH_DEN * total_days).to_string());
         stats.median_monthly_spend_cents = median(&mut spends).map(|v| v.to_string());
+        stats.median_monthly_cash_saving_cents = median(&mut cash_savings).map(|v| v.to_string());
+        stats.median_monthly_cash_spend_cents = median(&mut cash_spends).map(|v| v.to_string());
+        stats.median_monthly_market_change_cents =
+            median(&mut market_changes).map(|v| v.to_string());
         if usual.len() >= MIN_SAMPLE {
             let income_month = round_div(total_income * MONTH_NUM, MONTH_DEN * total_days);
             let scale = m.abs().max(income_month / 10);
@@ -477,12 +514,18 @@ mod tests {
             scope_changed: false,
             change_cents: change.map(|c| c.to_string()),
             hpf_change_cents: None,
+            market_change_cents: None,
             change_rate_hundredths: None,
         }
     }
     /// The same point with the housing fund balance change known (tracked account).
     fn tracked(mut p: Point, hpf_change: i64) -> Point {
         p.hpf_change_cents = Some(hpf_change.to_string());
+        p
+    }
+    /// The same point with the investment-type accounts' change known.
+    fn invested(mut p: Point, market_change: i64) -> Point {
+        p.market_change_cents = Some(market_change.to_string());
         p
     }
     fn pay(day: &str, net: i64, hpf: i64) -> IncomeRow {
@@ -494,6 +537,65 @@ mod tests {
     }
     fn none() -> BTreeSet<String> {
         BTreeSet::new()
+    }
+
+    #[test]
+    fn cash_figures_leave_out_the_investment_accounts_change() {
+        // Net worth up 30 000: 10 000 in cash and debt, 20 000 in investment accounts
+        // (transfers in and gains are not told apart). Income 40 000 over two months.
+        let points = [
+            point("a", "2026-01-31", None, None),
+            invested(
+                point("b", "2026-03-31", Some("2026-01-31"), Some(3_000_000)),
+                2_000_000,
+            ),
+        ];
+        let incomes = [
+            pay("2026-02-15", 2_000_000, 0),
+            pay("2026-03-15", 2_000_000, 0),
+        ];
+        let (v, stats, _) = compute(&points, &incomes, &none()).unwrap();
+        let i = &v[0];
+        // The mixed figures are unchanged: saving 30 000, spending 10 000.
+        assert_eq!(i.saving_cents.as_deref(), Some("3000000"));
+        assert_eq!(i.spend_cents.as_deref(), Some("1000000"));
+        // Cash only: saving 10 000, spending 30 000 (money moved into investments looks spent).
+        assert_eq!(i.market_change_cents.as_deref(), Some("2000000"));
+        assert_eq!(i.monthly_cash_saving_cents.as_deref(), Some("515890"));
+        assert_eq!(i.monthly_cash_spend_cents.as_deref(), Some("1547669"));
+        assert_eq!(
+            stats.median_monthly_cash_saving_cents.as_deref(),
+            Some("515890")
+        );
+        assert_eq!(
+            stats.median_monthly_cash_spend_cents.as_deref(),
+            Some("1547669")
+        );
+        assert_eq!(
+            stats.median_monthly_market_change_cents.as_deref(),
+            Some("1031780")
+        );
+    }
+
+    #[test]
+    fn without_investment_accounts_cash_figures_equal_the_mixed_ones() {
+        let points = [
+            point("a", "2026-01-31", None, None),
+            point("b", "2026-03-31", Some("2026-01-31"), Some(1_000_000)),
+        ];
+        let incomes = [
+            pay("2026-02-15", 2_000_000, 0),
+            pay("2026-03-15", 2_000_000, 0),
+        ];
+        let (v, stats, _) = compute(&points, &incomes, &none()).unwrap();
+        let i = &v[0];
+        assert_eq!(i.market_change_cents, None);
+        assert_eq!(i.monthly_cash_saving_cents, i.monthly_saving_cents);
+        assert_eq!(i.monthly_cash_spend_cents, i.monthly_spend_cents);
+        assert_eq!(
+            stats.median_monthly_market_change_cents.as_deref(),
+            Some("0")
+        );
     }
 
     #[test]

@@ -95,6 +95,8 @@ function summary(): Summary {
           const change = net - last.net; p.change_cents = String(change); if (last.net > 0n) p.change_rate_hundredths = hundredths(change, last.net);
           const hpf = (x: Snapshot) => { const e = x.entries.filter(k => k.counted && k.side === 'asset' && k.kind === 'housing_fund'); return e.length ? e.reduce((t, k) => t + (known(k) ? BigInt(k.amount_cents!) : 0n), 0n) : null; };
           const a = hpf(last.s), b = hpf(s); p.hpf_change_cents = a === null && b === null ? null : String((b ?? 0n) - (a ?? 0n));
+          const market = (x: Snapshot) => { const e = x.entries.filter(k => k.counted && k.side === 'asset' && ['investment', 'mixed', 'fund', 'bond'].includes(k.kind)); return e.length ? e.reduce((t, k) => t + (known(k) ? BigInt(k.amount_cents!) : 0n), 0n) : null; };
+          const ma = market(last.s), mb = market(s); p.market_change_cents = ma === null && mb === null ? null : String((mb ?? 0n) - (ma ?? 0n));
         }
       }
       last = { s, net };

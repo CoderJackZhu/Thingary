@@ -14,6 +14,7 @@ import { ready } from './review';
 import { contributionSection, eventsInput } from './planning-basic-forms';
 import { HISTORY_CAVEAT, historyHints } from './planning-basic-defaults';
 import type { History } from './planning-basic-defaults';
+import { MarketNote } from './PlanningContributionHelper';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
 import { amountState, needsContribution, setupStepFor, SAVE_CONTRIBUTION_HINT, terminalText } from './planning-basic-view';
 import type { PlanMode } from './planning-basic-view';
@@ -102,7 +103,7 @@ function HistoryLine({ sources, hist, busy, notice, onDetail, onAdopt }: { sourc
   const pred = r.status === 'ready' && r.caps.prediction.status === 'ready' ? r.caps.prediction.value : null;
   return <article className="ui-card ui-content plan-contribution-prompt" aria-label="按过去盘点推算"><div className="ui-section-head"><h3>按你过去的盘点推算</h3><span className="ui-tag warn">按过去盘点推算，未保存</span></div>
     <p>过去 {hist.count} 个盘点区间，你每月存下的中位数约 {money(hist.saving!)}。{pred ? `按这个速度：${terminalText[pred.terminal]}。` : '其他条件补齐后可看到预测。'}</p>
-    <p className="muted small">{HISTORY_CAVEAT}。只在目标详情里显示，不进入首页和心愿；点「采用」才保存为你的预计投入。</p>
+    <p className="muted small">{HISTORY_CAVEAT}。<MarketNote history={hist}/>只在目标详情里显示，不进入首页和心愿；点「采用」才保存为你的预计投入。</p>
     <div className="plan-goal-actions"><button type="button" className="primary" disabled={busy} onClick={onAdopt}>采用并保存</button><button type="button" className="ui-btn" onClick={onDetail}>查看测算详情</button></div>
     {notice && <p className="notice" role="status">{notice}</p>}
   </article>;

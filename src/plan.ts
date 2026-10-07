@@ -20,8 +20,12 @@ export type Interval = {
   income_cents: string; hpf_cents: string; income_records: number;
   /** 公积金账户余额的变化与推算提取额（缴存 − 余额变化，利息算负数）；没有计入的公积金账户时为 null。 */
   hpf_change_cents: string | null; hpf_out_cents: string | null;
+  /** 投资类账户（投资、混合、基金、债券）的余额变化：转入的钱与涨跌混在一起；没有计入此类账户时为 null。 */
+  market_change_cents?: string | null;
   delta_nw_cents: string | null; saving_cents: string | null; spend_cents: string | null;
   monthly_saving_cents: string | null; monthly_spend_cents: string | null; rate_hundredths: number | null;
+  /** 只含现金、存款与负债：不含投资类账户的变化。转进投资的钱在这里像花销，涨跌不会像储蓄。 */
+  monthly_cash_saving_cents?: string | null; monthly_cash_spend_cents?: string | null;
   income_possibly_missing: boolean; excluded: boolean; in_window: boolean; anomaly: boolean;
 };
 export type Stats = {
@@ -29,6 +33,7 @@ export type Stats = {
   median_monthly_saving_cents: string | null; mean_monthly_saving_cents: string | null; median_monthly_spend_cents: string | null;
   change_count?: number;
   median_monthly_change_cents?: string | null; mean_monthly_change_cents?: string | null;
+  median_monthly_cash_saving_cents?: string | null; median_monthly_cash_spend_cents?: string | null; median_monthly_market_change_cents?: string | null;
   window_from: string | null; latest_date: string | null;
 };
 export type PlanReview = { generation: string; intervals: Interval[]; stats: Stats; incomplete_count: number };
@@ -115,10 +120,13 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
       iv.delta_nw_cents = delta.toString(); iv.saving_cents = saving.toString(); iv.spend_cents = spend.toString();
       iv.hpf_change_cents = dh === null ? null : dh.toString(); iv.hpf_out_cents = out === null ? null : out.toString();
       iv.monthly_saving_cents = monthly(saving, days).toString(); iv.monthly_spend_cents = monthly(spend, days).toString();
+      const dm = BigInt(p.market_change_cents ?? '0');
+      iv.market_change_cents = p.market_change_cents ?? null;
+      iv.monthly_cash_saving_cents = monthly(saving - dm, days).toString(); iv.monthly_cash_spend_cents = monthly(spend + dm, days).toString();
       const base = income + (out !== null && out > 0n ? out : 0n);
       if (base > 0n) iv.rate_hundredths = Number(roundDiv(saving * 10000n, base));
     }
-    if (!p.scope_changed) { iv.delta_nw_cents = p.change_cents; iv.hpf_change_cents = p.hpf_change_cents; }
+    if (!p.scope_changed) { iv.delta_nw_cents = p.change_cents; iv.hpf_change_cents = p.hpf_change_cents; iv.market_change_cents = p.market_change_cents ?? null; }
     intervals.push(iv);
   }
   const usual = intervals.filter(i => i.status === 'ok' && !i.excluded && i.in_window);
@@ -132,6 +140,9 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     stats.median_monthly_saving_cents = m.toString();
     stats.mean_monthly_saving_cents = roundDiv(totalSaving * MONTH_NUM, MONTH_DEN * totalDays).toString();
     stats.median_monthly_spend_cents = median(usual.map(i => BigInt(i.monthly_spend_cents!)))!.toString();
+    stats.median_monthly_cash_saving_cents = median(usual.map(i => BigInt(i.monthly_cash_saving_cents!)))!.toString();
+    stats.median_monthly_cash_spend_cents = median(usual.map(i => BigInt(i.monthly_cash_spend_cents!)))!.toString();
+    stats.median_monthly_market_change_cents = median(usual.map(i => monthly(BigInt(i.market_change_cents ?? '0'), i.days)))!.toString();
     if (usual.length >= 3) {
       const incomeMonth = roundDiv(totalIncome * MONTH_NUM, MONTH_DEN * totalDays);
       const abs = (v: bigint) => (v < 0n ? -v : v);

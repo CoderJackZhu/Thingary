@@ -97,3 +97,23 @@ test('with the defaults, a Beijing plan needs only age, budget, funds, social-in
   assert.equal(shown.prediction.value.source, 'temporary');
   assert.equal(drafts[0].fields.basic.contribution.monthly_cents, null);
 });
+
+test('history prefers cash-only figures and reports the investment change beside them, never inside', async () => {
+  const withCash = stats({ median_monthly_cash_saving_cents: '120000', median_monthly_cash_spend_cents: '700000', median_monthly_market_change_cents: '250000' }).review;
+  const h = historyHints(withCash);
+  assert.equal(h.saving, '120000'); assert.equal(h.spend, '700000'); assert.equal(h.market, '250000');
+  // No investment accounts (or no change): nothing to report.
+  assert.equal(historyHints(stats({ median_monthly_market_change_cents: '0' }).review).market, null);
+  // Older review data without the cash fields falls back to the mixed ones.
+  assert.equal(historyHints(stats().review).saving, '300000');
+
+  const { computeReview } = await import('../src/plan.ts');
+  const point = (id, date, from, change, market) => ({ snapshot_id: id, date, notes: '', assets_cents: '0', liabilities_cents: '0', net_cents: '0', complete: true, missing: 0, compared_to: from, scope_changed: false, change_cents: change, hpf_change_cents: null, market_change_cents: market, change_rate_hundredths: null });
+  const incomes = [{ id: 'i1', revision: 1, fields: { date: '2026-02-15', net_cents: '2000000', hpf_cents: '0', notes: '' } }, { id: 'i2', revision: 1, fields: { date: '2026-03-15', net_cents: '2000000', hpf_cents: '0', notes: '' } }];
+  const r = computeReview([point('a', '2026-01-31', null, null, null), point('b', '2026-03-31', '2026-01-31', '3000000', '2000000')], incomes, new Set(), 'g');
+  const i = r.intervals[0];
+  // Same arithmetic as the Rust side: 59 days, 30.4375-day months.
+  assert.equal(i.monthly_saving_cents, '1547669'); assert.equal(i.monthly_cash_saving_cents, '515890');
+  assert.equal(i.monthly_spend_cents, '515890'); assert.equal(i.monthly_cash_spend_cents, '1547669');
+  assert.equal(r.stats.median_monthly_market_change_cents, '1031780');
+});
