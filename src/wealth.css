@@ -130,3 +130,14 @@
 .expense-chart .empty-bar.faint{opacity:.45}
 .expense-tip{top:4px;transform:translateX(-50%);white-space:nowrap}
 .expense-tip span,.expense-tip strong{display:block}
+
+/* 共享订阅详情：三格主指标、主次操作与折叠的详细信息。 */
+.sub-detail-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 6px 0 0; font-size: 14px; }
+.sub-detail .sub-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sub-detail .sub-metrics small.muted { display: block; margin: 2px 0 0; }
+.sub-detail .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+.sub-detail .more-actions { margin-left: auto; }
+.sub-detail .more-actions > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
+.sub-detail .more-actions[open] { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sub-detail .more-actions[open] > summary { flex-basis: 100%; }
+@media (max-width: 620px) { .sub-detail .sub-metrics { grid-template-columns: minmax(0, 1fr); } }

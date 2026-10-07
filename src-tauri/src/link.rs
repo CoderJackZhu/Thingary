@@ -45,6 +45,8 @@ pub struct AssetRef {
     pub deleted: bool,
     pub billing: String,
     pub stopped_on: Option<String>,
+    pub provider: String,
+    pub label_name: Option<String>,
 }
 
 /// Identity of the plan side of a link.
@@ -351,7 +353,7 @@ impl Store {
 
 fn asset_ref(c: &Connection, id: &str) -> Result<Option<AssetRef>> {
     Ok(c.query_row(
-        "SELECT id,name,revision,billing,stopped_on,deleted_at IS NOT NULL FROM virtual_assets WHERE id=?1",
+        "SELECT id,name,revision,billing,stopped_on,deleted_at IS NOT NULL,provider,(SELECT name FROM named_choices WHERE id=label_id) FROM virtual_assets WHERE id=?1",
         [id],
         |r| {
             Ok(AssetRef {
@@ -361,6 +363,8 @@ fn asset_ref(c: &Connection, id: &str) -> Result<Option<AssetRef>> {
                 billing: r.get(3)?,
                 stopped_on: r.get(4)?,
                 deleted: r.get(5)?,
+                provider: r.get(6)?,
+                label_name: r.get(7)?,
             })
         },
     )

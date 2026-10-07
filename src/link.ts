@@ -14,7 +14,7 @@ export type LinkRelation =
   | 'plan_occupied'
   | 'unlinked';
 
-export type LinkAssetRef = { id: string; name: string; revision: number; deleted: boolean; billing: string; stopped_on: string | null };
+export type LinkAssetRef = { id: string; name: string; revision: number; deleted: boolean; billing: string; stopped_on: string | null; provider: string; label_name: string | null };
 export type LinkPlanRef = { id: string; name: string; revision: number; deleted: boolean; category: string; end_date: string | null; auto_renew: boolean; paused: boolean; service_start: string | null };
 export type LinkCandidate = { id: string; name: string; deleted_at: string; revision: number };
 export type LinkGroupRef = { id: string; status: string };

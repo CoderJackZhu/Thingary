@@ -251,6 +251,8 @@ fn l01_new_pair_and_create_archive_for_existing_plan() {
     let view = s2.link_view("plan", &p2).unwrap();
     assert_eq!(view.relation, "linked");
     assert_eq!(view.asset.as_ref().unwrap().name, "虚构网盘");
+    // 共享详情在周期页也要显示提供方，link_view 一并带出。
+    assert_eq!(view.asset.as_ref().unwrap().provider, "虚构云");
     let _ = asset;
 }
 
