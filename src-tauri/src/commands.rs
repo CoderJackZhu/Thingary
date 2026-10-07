@@ -1448,7 +1448,7 @@ pub async fn planning_sources(
 ) -> Result<crate::review::PlanningSources> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        w.call(move |s| s.planning_sources(planning_enabled, wealth_enabled, &today()))
+        w.planning_sources(planning_enabled, wealth_enabled, today())
     })
     .await
     .map_err(|_| Error::new("WORKER", "暂时无法读取规划来源"))?
@@ -1591,7 +1591,7 @@ pub async fn review_overview(
 ) -> Result<crate::review::Overview> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        w.call(move |s| s.review_overview_with_planning(year, &today(), planning.unwrap_or(false)))
+        w.planning_overview(year, planning.unwrap_or(false), today())
     })
     .await
     .map_err(|_| Error::new("WORKER", "综合回顾读取失败，请重试"))?

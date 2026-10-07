@@ -214,6 +214,54 @@ impl Worker {
             }
         })
     }
+    /// Module switches and active library are sampled in the same worker turn.
+    pub fn planning_overview(
+        &self,
+        year: Option<i32>,
+        planning: bool,
+        today: String,
+    ) -> Result<crate::review::Overview> {
+        self.with_state(move |state| {
+            let modules = crate::modules::read(&state.real.root);
+            let store = if state.demo_mode {
+                state
+                    .demo
+                    .as_mut()
+                    .ok_or_else(|| Error::new("DEMO", "样例库尚未准备好"))?
+            } else {
+                &mut state.real
+            };
+            store.review_overview_with_modules(
+                year,
+                &today,
+                planning && modules.planning,
+                modules.wealth,
+            )
+        })
+    }
+    pub fn planning_sources(
+        &self,
+        planning: bool,
+        wealth: bool,
+        today: String,
+    ) -> Result<crate::review::PlanningSources> {
+        self.with_state(move |state| {
+            let modules = crate::modules::read(&state.real.root);
+            let store = if state.demo_mode {
+                state
+                    .demo
+                    .as_mut()
+                    .ok_or_else(|| Error::new("DEMO", "样例库尚未准备好"))?
+            } else {
+                &mut state.real
+            };
+            store.planning_sources(
+                planning && modules.planning,
+                wealth && modules.wealth,
+                &today,
+            )
+        })
+    }
     pub fn call_personal<T: Send + 'static>(
         &self,
         f: impl FnOnce(&mut Store) -> Result<T> + Send + 'static,
