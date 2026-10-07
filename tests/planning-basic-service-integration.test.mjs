@@ -40,3 +40,14 @@ test('a new planning save cannot overwrite an unresolved receipt from a closed e
  await assert.rejects(submit({...existing,input:{...existing.input,request_id:'second'}}),Unresolved);
  assert.deepEqual(storedPending(),existing);delete globalThis.localStorage;
 });
+
+test('basic FIRE searches the selected horizon instead of silently keeping the legacy age-70 cap',()=>{
+ const d={...fill(),mode:'fire',target:'80',budget:'600000',simAmount:'0',incomeMode:'excluded',incomeItems:[],picks:{},contribution:'200000'};
+ const result=readCapabilities(overlayPlanningDrafts(blank(),[basicInput(d,null,today)]));
+ assert.equal(result.status,'ready');
+ const p=result.caps.prediction.value;
+ assert.equal(p.plan.search_cap_months,p.plan.horizon_months);
+ assert.ok(p.projection.fi_month>70*12);
+ assert.equal(p.outcome.funded_at_goal,true);
+ assert.equal(p.outcome.success,true);
+});
