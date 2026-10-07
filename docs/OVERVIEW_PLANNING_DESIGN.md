@@ -2,6 +2,8 @@
 
 状态：**已实现并复审；自动检查与隔离验收状态见文档索引。**
 
+下一阶段见 [统一规划总设计](PLANNING_LIFECYCLE_DESIGN.md)：保留本页已实现布局、读取保护和导航，仅在普通目标与持续复盘落地后接入共用的通用规划摘要。该后续行为待实施，本页的退休摘要规格仍描述当前实现。
+
 设计日期：2026-10-07。核对基线：`main`，完整 HEAD `3910eaf1a810f1d6dae92f5aebc7ac5f29ebc4d0`。实施前应重新检查 HEAD、模块开关、规划计算与主题令牌；本文件不预占版本号或数据库 schema。
 
 本设计是首页布局与规划摘要的实现规格。退休、储蓄、养老金与大额计划的现行计算规则继续由 [PRODUCT_RULES](PRODUCT_RULES.md#规划月度收入与储蓄) 定义；规划模块的背景见 [PLANNING_DESIGN](PLANNING_DESIGN.md)。本设计不重新定义这些计算。文档职责见 [MAINTAINING](MAINTAINING.md)。
