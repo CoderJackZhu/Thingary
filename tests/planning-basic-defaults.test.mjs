@@ -117,3 +117,10 @@ test('history prefers cash-only figures and reports the investment change beside
   assert.equal(i.monthly_spend_cents, '515890'); assert.equal(i.monthly_cash_spend_cents, '1547669');
   assert.equal(r.stats.median_monthly_market_change_cents, '1031780');
 });
+
+test('goal wording says whether the money is enough at the target age, not only at the end of the plan', async () => {
+  const { goalFitText } = await import('../src/planning-basic-view.ts');
+  const fmt = c => `¥${c}`;
+  assert.equal(goalFitText({ funded_at_goal: true, shortfall_at_goal: 0 }, fmt), '到目标年龄时资金已够用');
+  assert.match(goalFitText({ funded_at_goal: false, shortfall_at_goal: 123456.4 }, fmt), /还差 ¥123456，要更晚退休才够/);
+});

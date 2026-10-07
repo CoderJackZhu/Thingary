@@ -75,6 +75,9 @@ export function requirementLine(r: RequirementResult, fmt: (cents: string) => st
   }
 }
 
+/** Whether the money is enough at the target age itself; the end-of-plan outcome alone can read as "fine" when retiring later is what makes it work. */
+export const goalFitText = (o: { funded_at_goal: boolean; shortfall_at_goal: number }, fmt: (cents: string) => string) => o.funded_at_goal ? '到目标年龄时资金已够用' : `到目标年龄时资金还差 ${fmt(String(Math.round(o.shortfall_at_goal)))}，要更晚退休才够`;
+
 export const terminalText = { surplus: '规划终点仍有余量', no_margin: '规划终点恰好为 0：只覆盖到所选终点，没有余量', gap: '规划终点前出现缺口' } as const;
 
 /** Prediction waits on an explicit contribution only when the contract says so. */
