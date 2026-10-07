@@ -25,6 +25,8 @@ const prediction = s => { const c = buildBasicCapabilities(s); assert.equal(c.pr
 const requirement = s => { const c = buildBasicCapabilities(s); assert.equal(c.requirement.status, 'ready', JSON.stringify(c.requirement)); return c.requirement.value; };
 const stream = (id, amount) => ({ id, label: id, monthly_cents: String(amount), start_age: 0, end_age: null, indexed: true });
 const item = (id, amount, essential = true) => ({ id, label: id, monthly_cents: String(amount), start_age: null, end_age: null, inflation_hundredths: null, essential });
+const ledgerItem = (id, amount, essential = true) => ({ ...item(id, amount, essential), monthly_cents: amount });
+const ledgerIncome = (id, amount) => ({ ...stream(id, amount), monthly_cents: amount });
 const scope = (id, treatment, reference = null) => ({ source_id: id, treatment, reference_cents: reference });
 
 test('B01/B01a/B02/B03/D21/D29/D33 unknown pension facts and failed history do not block simulated fixed-target requirements', () => {
@@ -72,7 +74,7 @@ test('B06/D21 month-start payment cannot be funded by month-end contribution; se
   // Public ledger uses negative saving flows for recurring month-start obligations.
   payment.saving_flows = [{ label: '虚构首月费用', from_month: payment.now_months, to_month: payment.now_months + 1, cents: -10000, nominal: false, essential: true, timing: 'start' }];
   assert.equal(solveBasicRequirement(n => ({ ...payment, saving_cents: n }), 0, 0).status, 'payment_constraint');
-  const huge = { ...base, items: [item('huge', 1e12)] };
+  const huge = { ...base, items: [ledgerItem('huge', 1e12)] };
   assert.equal(solveBasicRequirement(n => ({ ...huge, saving_cents: n }), 0, 0).status, 'search_not_found');
   assert.equal(BASIC_SEARCH_LIMIT_CENTS, 100000000);
 });
@@ -94,10 +96,10 @@ test('B06a/D28/D34 total budget normalizes included rent and detail once, keeps 
 
 test('B06/D31/D32 complete flexible budget and finite zero margin agree in deterministic and fixed-return simulation', async () => {
   const base = prediction(fictionalSources('0')).plan;
-  const p = { ...base, now_months: 720, target_months: 720, horizon_months: 721, first_month_fraction: 1, assets_cents: 0, volatility_hundredths: 0, items: [item('essential', 450000), item('flex', 150000, false)], incomes: [stream('annuity', 500000)] };
+  const p = { ...base, now_months: 720, target_months: 720, horizon_months: 721, first_month_fraction: 1, assets_cents: 0, volatility_hundredths: 0, items: [ledgerItem('essential', 450000), ledgerItem('flex', 150000, false)], incomes: [ledgerIncome('annuity', 500000)] };
   const proj = project(p, 2026); assert.equal(proj.rows[0].essential_unfunded, 0); assert.equal(proj.rows[0].unfunded, 100000); assert.equal(outcome(p, proj).success, false);
   assert.equal((await monteCarlo(p, 8)).success_rate, 0);
-  const zero = { ...p, items: [item('essential', 450000), item('flex', 50000, false)] }, z = project(zero, 2026), o = outcome(zero, z);
+  const zero = { ...p, items: [ledgerItem('essential', 450000), ledgerItem('flex', 50000, false)] }, z = project(zero, 2026), o = outcome(zero, z);
   assert.equal(o.success, true); assert.equal(o.at_horizon, 0); assert.equal((await monteCarlo(zero, 8)).success_rate, 1);
   assert.match(verdict(zero, z, o, 0, 'today', String).guidance, /终点无余量/);
 });
