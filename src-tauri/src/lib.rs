@@ -18,6 +18,7 @@ pub mod materials;
 pub mod modules;
 pub mod native_images;
 pub mod photos;
+pub mod plan_basic;
 pub mod plan_core;
 pub mod plan_income;
 pub mod plan_profile;
@@ -196,6 +197,8 @@ pub fn run() {
             commands::plan_income_save,
             commands::plan_profile,
             commands::plan_profile_save,
+            commands::plan_profile_update,
+            commands::planning_sources,
             commands::plan_review,
             commands::plan_interval_reasons,
             commands::plan_baseline_mark,

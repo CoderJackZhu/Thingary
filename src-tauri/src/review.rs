@@ -309,3 +309,76 @@ mod tests {
         assert_eq!(value(next.expenses).spent_cents, "1150000");
     }
 }
+
+#[derive(Debug, Serialize)]
+pub struct PlanningModules {
+    pub planning: bool,
+    pub wealth: bool,
+}
+#[derive(Debug, Serialize)]
+pub struct PlanningSources {
+    pub generation: String,
+    pub write_version: u64,
+    pub today: String,
+    pub modules: PlanningModules,
+    pub profile: Read<crate::plan_profile::State>,
+    pub snapshot: Read<Option<crate::wealth::Snapshot>>,
+    pub accounts: Read<Vec<crate::wealth::Account>>,
+    pub review: Read<crate::plan_savings::Review>,
+    pub incomes: Read<Vec<crate::plan_income::Income>>,
+}
+fn disabled<T>() -> Read<T> {
+    Read::Error(Error::new("MODULE_DISABLED", "模块已关闭，本次未读取"))
+}
+impl Store {
+    pub fn planning_sources(
+        &self,
+        planning_enabled: bool,
+        wealth_enabled: bool,
+        today: &str,
+    ) -> Result<PlanningSources> {
+        crate::domain::date(today)?;
+        let tx = self.conn()?.unchecked_transaction()?;
+        let (profile, incomes, review) = if planning_enabled {
+            (
+                self.plan_profile().into(),
+                self.plan_income_list().map(|r| r.rows).into(),
+                if wealth_enabled {
+                    self.plan_review_in_transaction().into()
+                } else {
+                    disabled()
+                },
+            )
+        } else {
+            (disabled(), disabled(), disabled())
+        };
+        let (snapshot, accounts) = if planning_enabled && wealth_enabled {
+            let snapshot = self
+                .wealth_summary()
+                .and_then(|s| match s.points.iter().rev().find(|p| p.complete) {
+                    Some(p) => self.wealth_snapshot(&p.snapshot_id),
+                    None => Ok(None),
+                })
+                .into();
+            (snapshot, self.wealth_accounts().into())
+        } else {
+            (disabled(), disabled())
+        };
+        let result = PlanningSources {
+            generation: self.generation(),
+            write_version: self.conn()?.total_changes(),
+            today: today.into(),
+            modules: PlanningModules {
+                planning: planning_enabled,
+                wealth: wealth_enabled,
+            },
+            profile,
+            snapshot,
+            accounts,
+            review,
+            incomes,
+        };
+        tx.commit()?;
+        Ok(result)
+    }
+}

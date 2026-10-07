@@ -5,6 +5,8 @@ import type { Line } from './expenses.ts';
 import type { Profile as PensionProfile, Funds } from './plan-pension.ts';
 import type { Overrides } from './plan-params.ts';
 import type { Point } from './wealth.ts';
+import type { BasicInputs, LegacyDefinition } from './plan-basic-contract.ts';
+export type * from './plan-basic-contract.ts';
 import type { PlanningCore } from './plan-core.ts';
 
 export type IncomeFields = { date: string; net_cents: string; hpf_cents: string; notes: string };
@@ -160,10 +162,12 @@ export type StoredLifeEvent = {
   holding_cents: string; rent_saved_cents: string; cycle_years: number | null; until_age: number | null; resale_cents: string;
 };
 export type RetireInputs = {
+  basic?: BasicInputs;
+  legacy_definition?: LegacyDefinition;
   setup_completed?: boolean;
   core?: PlanningCore | null;
   spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number;
-  mode: 'fire' | 'traditional'; target_age: number; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[]; saving_phases: StoredSavingPhase[];
+  mode: 'fire' | 'traditional'; target_age: number | null; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[]; saving_phases: StoredSavingPhase[];
   /** 工作年份里平均有多大比例的月份没有收入（万分比）；只作用于有收入的储蓄阶段。 */
   gap_share_hundredths: number;
   life_events: StoredLifeEvent[];
@@ -177,7 +181,14 @@ export type RetireInputs = {
   rent_cents: string;
 };
 export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0, life_events: [], route_id: null, route_from_age: 35, keep_paying_until_age: null, keep_paying_monthly_cents: '0', keep_paying_base_cents: '0', gap_keeps_paying: false, rent_cents: '0' };
-export type StoredProfile = PensionProfile & { region: 'beijing'; overrides: Overrides; retire: RetireInputs };
+type NullablePensionKey = 'birth_month' | 'worker' | 'paid_months' | 'account_balance_cents' | 'base_cents' | 'flex_months' | 'personal_pension_annual_cents' | 'marginal_tax_hundredths';
+export type StoredProfile = Omit<PensionProfile, NullablePensionKey> & { [K in NullablePensionKey]: PensionProfile[K] | null } & { region: 'beijing' | null; overrides: Overrides; retire: RetireInputs };
+export type CompletePensionProfile = StoredProfile & PensionProfile & { region: 'beijing' };
+/** No defaults: only complete, validated pension inputs reach the estimator. */
+export function hasPensionProfile(p: StoredProfile): p is CompletePensionProfile {
+  return p.birth_month !== null && p.worker !== null && p.region === 'beijing' && p.paid_months !== null && p.account_balance_cents !== null && p.base_cents !== null && p.flex_months !== null && p.personal_pension_annual_cents !== null && p.marginal_tax_hundredths !== null;
+}
+export const planningMode = (p: StoredProfile) => p.retire.basic ? 'basic' as const : 'legacy' as const;
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string; reference_issues?: string[] } | null };
 
 /** 个人资料多久没更新（整月数）；超过 STALE_MONTHS 个月提醒对一次社保记录。 */

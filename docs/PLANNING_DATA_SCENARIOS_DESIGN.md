@@ -208,6 +208,20 @@
 
 首页、目标、心愿使用同一保存上下文；源数据局部成功独立保留。不依赖历史统计的基础需求不因统计失败而blocked。跨来源原子读取尽量沿用既有总览读事务，新增必要字段进入同一读取结构；没有统一修订时不能拼旧盘点与新假设作完整结论。异步失效与局部读取职责集中在共享service，UI负责加载/错误和重试动作。
 
+#### 第一批实际共享契约（P1）
+
+输入/结果类型在 `src/plan-basic-contract.ts`，从 `src/plan.ts` 重导出；严格虚构夹具在 `src/plan-basic-fixtures.ts` 与 `tests/fixtures/planning-basic/`。P1冻结编译与保存接缝，数值反求随后实现，不把能力夹具当作后端计算结果。
+
+- `StoredProfile` 为持久资料；出生、worker/region、累计月数、账户/基数、弹性月数、个人养老金年缴额/税率可为null。`hasPensionProfile` 收窄为 `CompletePensionProfile` 后才调用估算。`retire.target_age` 为null表示未知，旧值原值保留；`planningMode` 只按 `retire.basic` 是否存在判模式。
+- `BasicInputs` v1保存 `start`（`live` 或 `simulation`，后者的稳定id、available_cents/date/notes）、单一 `contribution.id/monthly_cents`、`retirement_income.mode/selected`、独立 `pension_contributions.start_month/stop_month/base_cents`，以及两份 `contribution_costs/retirement_costs`。模拟截至日为B，金额基准只在唯一 `core.monetary_basis_date` 保存；两种起点替换，不相加。费用 treatment为included/extra/excluded；只有included携带明确参考整数分。费用来源沿用 `event:<ID>:loan/holding`、`personal_pension`，退休侧另用 `spend:<ID>`、`rent`、`social_insurance`。实际债务不能以excluded忽略。
+- `selected` 每项为流定义id、真实来源身份source_id及state_pension/other角色；模式为null/excluded/manual/beijing。北京的国家养老金身份是 `beijing_state_pension`，不能同时纳入同一手填来源。未来缴费时段左闭右开，开始=结束明确无未来缴费；null未知，投入符号及退休触发不改变时段。
+- `plan_profile_update` 原生命令/`Store::plan_profile_update` 接受 `ProfileUpdate` /Rust `plan_basic::Update`：request_id、generation、expected_revision及section/fields。section为basic/pension/funds/events/budget，每种fields严格限制；不是Partial全资料。返回现有Saved，全部分区共用revision。basic首次无需养老事实，`confirm_legacy_replacement` 只在已有原规划明确重设时要求true，原定义由后端同事务捕获；客户端不传归档副本。养老分区只修改养老及共同出生资料/养老收益，保留通胀、基础与目标。资金分区不携带occurrences；事件分区拥有唯一life_events/occurrences与旧costs；预算分区更新既有明细定义、租金与续缴成本。basic中两份作用域不复制源定义。
+- `planning_sources(planningEnabled, wealthEnabled)` /`Store::planning_sources` 一次只读事务返回 `PlanningSources`：generation/write_version/today/modules、profile/snapshot/accounts/review/incomes各自Read。财富关闭不调用账户/盘点/汇总或历史盘点统计，只读允许的个人资料和收入，隐藏源返回MODULE_DISABLED。write_version为当前连接写入计数，仅用于本轮失效判断。
+- `planning-service.ts` 导出 `readPlanningSources`、`savePlanningSection`、`resolvePlanningSection`、`planningReadSession`。保存复用 `wealth.ts` 的提交未知与 `wealth_request_result` 回执协议；后者失效全部旧票据且不缓存隐藏财富。成功提交后调用方刷新整批，模块/身份变化调用invalidate。
+- `BasicCapabilities` 分别表达funds/requirement/prediction/pension，`Capability<T>` 用ready/blocked判定；`PlanningMissing` 的code/capability/owner/field/kind/message用于就近补充。`RequirementResult` 分found/no_positive_contribution/search_not_found/payment_constraint/not_applicable/out_of_bounds，不含候选Plan或FI日期。`PredictionValue` 只携带明确保存/临时投入及Plan/projection/outcome，临时上下文不得传给首页或心愿。
+
+schema32只提升严格载荷/备份兼容版本，不重写旧资料与回执；旧版拒绝新备份。新增basic/legacy_definition缺失不序列化；setup_completed=false不序列化。旧schema31请求字节与实际回放有金样本（原字段顺序），不通过删除新条件做fingerprint fallback；含新条件的不同请求内容同ID仍报REQUEST_CONFLICT。旧完整保存保持原规划兼容，不能清掉活动basic或改写只读原定义。
+
 #### 独立的当前承受能力
 
 CurrentCashFlow 用明确可靠到账与必要开销计算当前净额，不能由退休预算、未来净投入或职业推定。可靠到账明确没有才取零；开销及费用覆盖未知时，不输出完整承受能力。

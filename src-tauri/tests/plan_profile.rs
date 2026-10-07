@@ -19,16 +19,16 @@ fn code<T: std::fmt::Debug>(r: Result<T, Error>) -> String {
 }
 fn profile() -> Profile {
     Profile {
-        birth_month: "1990-06".into(),
-        worker: "male".into(),
-        region: "beijing".into(),
-        paid_months: 48,
-        account_balance_cents: "5000000".into(),
-        base_cents: "2000000".into(),
+        birth_month: Some("1990-06".into()),
+        worker: Some("male".into()),
+        region: Some("beijing".into()),
+        paid_months: Some(48),
+        account_balance_cents: Some("5000000".into()),
+        base_cents: Some("2000000".into()),
         past_index_hundredths: None,
-        flex_months: 0,
-        personal_pension_annual_cents: "1200000".into(),
-        marginal_tax_hundredths: 1000,
+        flex_months: Some(0),
+        personal_pension_annual_cents: Some("1200000".into()),
+        marginal_tax_hundredths: Some(1000),
         assumptions: Assumptions {
             inflation_hundredths: 200,
             wage_growth_hundredths: 300,
@@ -71,18 +71,18 @@ fn profile_saves_once_then_by_revision_and_replays_requests() {
         "REVISION_CONFLICT"
     );
     let mut edited = profile();
-    edited.paid_months = 60;
+    edited.paid_months = Some(60);
     let ok = s
         .plan_profile_save(&save(&s, edited.clone(), Some(1)), TODAY)
         .unwrap();
-    assert_eq!((ok.revision, ok.profile.paid_months), (2, 60));
+    assert_eq!((ok.revision, ok.profile.paid_months), (2, Some(60)));
     assert_eq!(
         code(s.plan_profile_save(&save(&s, profile(), Some(1)), TODAY)),
         "REVISION_CONFLICT"
     );
     // Reusing a request id for other content is refused.
     let mut other = first.clone();
-    other.profile.paid_months = 1;
+    other.profile.paid_months = Some(1);
     assert_eq!(code(s.plan_profile_save(&other, TODAY)), "REQUEST_CONFLICT");
     // An older library generation is refused.
     let mut old = save(&s, edited, Some(2));
@@ -97,30 +97,39 @@ fn profile_validation_names_the_bad_field() {
     type Change = Box<dyn Fn(&mut Profile)>;
     let cases: Vec<(Change, &str)> = vec![
         (
-            Box::new(|p| p.birth_month = "1990-13".into()),
+            Box::new(|p| p.birth_month = Some("1990-13".into())),
             "PROFILE_BIRTH",
         ),
         (
-            Box::new(|p| p.birth_month = "2026-12".into()),
+            Box::new(|p| p.birth_month = Some("2026-12".into())),
             "PROFILE_BIRTH",
         ),
         (
-            Box::new(|p| p.birth_month = "1990-6".into()),
+            Box::new(|p| p.birth_month = Some("1990-6".into())),
             "PROFILE_BIRTH",
         ),
-        (Box::new(|p| p.worker = "other".into()), "PROFILE_WORKER"),
-        (Box::new(|p| p.region = "shanghai".into()), "PROFILE_REGION"),
-        (Box::new(|p| p.paid_months = 1201), "PROFILE_MONTHS"),
         (
-            Box::new(|p| p.account_balance_cents = "-1".into()),
+            Box::new(|p| p.worker = Some("other".into())),
+            "PROFILE_WORKER",
+        ),
+        (
+            Box::new(|p| p.region = Some("shanghai".into())),
+            "PROFILE_REGION",
+        ),
+        (Box::new(|p| p.paid_months = Some(1201)), "PROFILE_MONTHS"),
+        (
+            Box::new(|p| p.account_balance_cents = Some("-1".into())),
             "PROFILE_AMOUNT",
         ),
-        (Box::new(|p| p.base_cents = "".into()), "PROFILE_AMOUNT"),
+        (
+            Box::new(|p| p.base_cents = Some("".into())),
+            "PROFILE_AMOUNT",
+        ),
         (
             Box::new(|p| p.past_index_hundredths = Some(0)),
             "PROFILE_INDEX",
         ),
-        (Box::new(|p| p.flex_months = 37), "PROFILE_FLEX"),
+        (Box::new(|p| p.flex_months = Some(37)), "PROFILE_FLEX"),
         (
             Box::new(|p| p.retire.spend_cents = Some("0".into())),
             "PROFILE_AMOUNT",
@@ -134,13 +143,13 @@ fn profile_validation_names_the_bad_field() {
             Box::new(|p| p.retire.emergency_months = 37),
             "PROFILE_RETIRE",
         ),
-        (Box::new(|p| p.flex_months = -37), "PROFILE_FLEX"),
+        (Box::new(|p| p.flex_months = Some(-37)), "PROFILE_FLEX"),
         (
-            Box::new(|p| p.personal_pension_annual_cents = "1200001".into()),
+            Box::new(|p| p.personal_pension_annual_cents = Some("1200001".into())),
             "PROFILE_PENSION",
         ),
         (
-            Box::new(|p| p.marginal_tax_hundredths = 4501),
+            Box::new(|p| p.marginal_tax_hundredths = Some(4501)),
             "PROFILE_RATE",
         ),
         (
@@ -174,9 +183,9 @@ fn profile_validation_names_the_bad_field() {
     );
     // Zero is allowed: no personal pension, nothing paid yet, no balance.
     let mut zero = profile();
-    zero.personal_pension_annual_cents = "0".into();
-    zero.paid_months = 0;
-    zero.account_balance_cents = "0".into();
+    zero.personal_pension_annual_cents = Some("0".into());
+    zero.paid_months = Some(0);
+    zero.account_balance_cents = Some("0".into());
     s.plan_profile_save(&save(&s, zero, None), TODAY).unwrap();
 }
 
@@ -307,12 +316,12 @@ fn a_profile_saved_before_plan_types_loads_and_new_fields_round_trip() {
             p.retire.target_age,
             p.retire.volatility_hundredths
         ),
-        ("fire", 50, 500)
+        ("fire", Some(50), 500)
     );
     let mut custom = profile();
     custom.retire = Retire {
         mode: "traditional".into(),
-        target_age: 60,
+        target_age: Some(60),
         volatility_hundredths: 1200,
         spend_items: vec![spend("a")],
         income_items: vec![income("b")],
@@ -332,8 +341,8 @@ fn plan_type_items_and_volatility_are_validated() {
     let cases: Vec<(Change, &str)> = vec![
         (Box::new(|_| {}), ""),
         (Box::new(|r| r.mode = "coast".into()), "PROFILE_RETIRE"),
-        (Box::new(|r| r.target_age = 19), "PROFILE_RETIRE"),
-        (Box::new(|r| r.target_age = 90), "PROFILE_RETIRE"),
+        (Box::new(|r| r.target_age = Some(19)), "PROFILE_RETIRE"),
+        (Box::new(|r| r.target_age = Some(90)), "PROFILE_RETIRE"),
         (Box::new(|r| r.volatility_hundredths = 6001), "PROFILE_RATE"),
         (
             Box::new(|r| r.spend_items.push(spend("a"))),
@@ -754,7 +763,7 @@ fn core_committed_unknown_receipt_restart_restore_and_conflict_preserve_one_occu
     s.backup(Some(&file)).unwrap();
     let mut restored = Store::open(&dir.path().join("restored")).unwrap();
     let summary = restored.inspect_backup(&file).unwrap();
-    assert_eq!(summary.schema, 31);
+    assert_eq!(summary.schema, SCHEMA_VERSION as u32);
     restored
         .restore(&file, &summary.hash, &restored.generation())
         .unwrap();
@@ -991,7 +1000,7 @@ fn core_payment_aliases_reject_and_legacy_duplicates_degrade_after_restore() {
     let root = dir.path().join("fictional-alias-repair");
     let mut s = Store::open(&root).unwrap();
     let (mut p, account, _snapshot_id) = core_fixture(&mut s);
-    p.personal_pension_annual_cents = "0".into();
+    p.personal_pension_annual_cents = Some("0".into());
     p.assumptions.inflation_hundredths = 0;
     p.retire.spend_cents = Some("100000".into());
     let a = s

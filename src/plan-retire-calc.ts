@@ -1,5 +1,5 @@
 // 退休与 FIRE 的输入汇总与计算（纯函数）：目标卡片、详情页与心愿详情共用，结果不存库。
-import { fundsFrom } from './plan.ts';
+import { fundsFrom, hasPensionProfile } from './plan.ts';
 import { normalizeFunds, occurrenceMissing, costSources, includedReference } from './plan-core.ts';
 import type { Income, PlanReview, ProfileState, RetireInputs, StoredLifeEvent } from './plan.ts';
 import { beijing, effectiveParams } from './plan-params.ts';
@@ -49,6 +49,7 @@ export function keepFor(r: RetireInputs, now: number): Keep {
 /** 个人资料、最近完整盘点（null 表示还没有）与统计齐全时给出估算；缺什么在 missing 里说明。 */
 export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snapshot: Snapshot | null, review: PlanReview, incomes: Income[], today: string) {
     const p = saved.profile, r = p.retire, region = effectiveParams(beijing, p.overrides);
+    if (!hasPensionProfile(p) || r.target_age === null) return { p, r, now: p.birth_month === null ? 0 : ageMonthsAt(p.birth_month, snapshot?.date ?? today), start: 0, missing: ['原规划估算需要完整个人资料和目标；通用基础按能力计算。'], assets: null, saving: null, measured: null, spend: r.spend_cents === null ? null : Number(r.spend_cents), derivedSpend: null, emergency: undefined, plan: undefined, plan0: undefined, events: [] as LifeEvent[], proj: undefined, out: undefined };
     const stats = review.stats;
     const { funds: gross } = fundsFrom(snapshot?.entries ?? null, incomes);
     // 未来公积金采用单独确认的假设，不沿用历史非零金额。
@@ -111,6 +112,7 @@ export type RetireCalc = ReturnType<typeof buildRetireCalc>;
  *  净投入采用独立阶段，阶段内保持 T 实际金额；工资增长仅用于养老金，名义金额按同一 B/T 系数换算。 */
 export function retirePlan(saved: NonNullable<ProfileState['saved']>, x: { now: number; horizon: number; assets: number; saving: number; spend: number; pension_at: Plan['pension_at'] }): Plan {
   const p = saved.profile, r = p.retire, a = p.assumptions, { spend, assets, saving } = x;
+  if (!hasPensionProfile(p) || r.target_age === null) throw new Error("原规划估算资料不完整");
   const normalizedStages = { ...r, saving_phases: r.saving_phases.map(phase => ({ ...phase, monthly_cents: phase.monthly_cents + (r.core?.costs ?? []).filter(c => c.phase_id === phase.id && c.included && (c.source_id === 'personal_pension' && Number(p.personal_pension_annual_cents) > 0 || r.life_events.some(e => r.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred') && costSources([e], '0').some(s => s.id === c.source_id)))).reduce((s,c) => s + Number(c.reference_cents), 0) })) };
   const items: SpendItem[] = [
     { id: 'living', label: '日常生活', monthly_cents: spend, start_age: null, end_age: null, inflation_hundredths: null, essential: true },

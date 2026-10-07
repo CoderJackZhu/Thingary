@@ -96,6 +96,10 @@ pub struct LifeEvent {
     pub resale_cents: String,
 }
 
+fn is_false(v: &bool) -> bool {
+    !*v
+}
+
 const MAX_ITEMS: usize = 20;
 const MAX_PHASES: usize = 30;
 const MAX_SAVING_CENTS: i64 = 100_000_000;
@@ -106,7 +110,12 @@ const MAX_SAVING_CENTS: i64 = 100_000_000;
 #[serde(default, deny_unknown_fields)]
 pub struct Retire {
     /// Explicit first-use configuration; old records remain unconfirmed.
+    #[serde(skip_serializing_if = "is_false")]
     pub setup_completed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub basic: Option<crate::plan_basic::Basic>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub legacy_definition: Option<crate::plan_basic::LegacyDefinition>,
     pub core: Option<crate::plan_core::Core>,
     /// Monthly spending after retiring, in today's money: the essential
     /// "daily living" bucket. `None` means not filled in yet.
@@ -120,7 +129,7 @@ pub struct Retire {
     /// `fire` finds the earliest sustainable age; `traditional` retires at `target_age`.
     pub mode: String,
     /// Desired retirement / independence age.
-    pub target_age: u32,
+    pub target_age: Option<u32>,
     /// Yearly volatility of the real return, for the market-path simulation.
     pub volatility_hundredths: i32,
     pub spend_items: Vec<SpendItem>,
@@ -151,13 +160,15 @@ impl Default for Retire {
         Self {
             core: None,
             setup_completed: false,
+            basic: None,
+            legacy_definition: None,
             spend_cents: None,
             real_return_before_hundredths: 0,
             real_return_after_hundredths: 0,
             horizon_age: 90,
             emergency_months: 6,
             mode: "fire".into(),
-            target_age: 50,
+            target_age: Some(50),
             volatility_hundredths: 500,
             spend_items: Vec::new(),
             income_items: Vec::new(),
@@ -179,17 +190,17 @@ impl Default for Retire {
 #[serde(deny_unknown_fields)]
 pub struct Profile {
     /// `YYYY-MM`.
-    pub birth_month: String,
+    pub birth_month: Option<String>,
     /// `male`, `female_cadre` or `female_worker`.
-    pub worker: String,
-    pub region: String,
-    pub paid_months: u32,
-    pub account_balance_cents: String,
-    pub base_cents: String,
+    pub worker: Option<String>,
+    pub region: Option<String>,
+    pub paid_months: Option<u32>,
+    pub account_balance_cents: Option<String>,
+    pub base_cents: Option<String>,
     pub past_index_hundredths: Option<i32>,
-    pub flex_months: i32,
-    pub personal_pension_annual_cents: String,
-    pub marginal_tax_hundredths: i32,
+    pub flex_months: Option<i32>,
+    pub personal_pension_annual_cents: Option<String>,
+    pub marginal_tax_hundredths: Option<i32>,
     pub assumptions: Assumptions,
     #[serde(default)]
     pub overrides: Overrides,
@@ -389,105 +400,73 @@ impl Retire {
 
 impl Profile {
     pub fn validate(&self, today: &str) -> Result<()> {
-        let birth = date(&format!("{}-01", self.birth_month))
-            .map_err(|_| bad("PROFILE_BIRTH", "出生年月格式应为 YYYY-MM"))?;
-        if self.birth_month.len() != 7
-            || self.birth_month.as_str() >= &today[..7.min(today.len())]
-            || birth.format("%Y-%m").to_string() != self.birth_month
+        let basic = self.retire.basic.is_some();
+        if !basic
+            && [
+                self.birth_month.is_none(),
+                self.worker.is_none(),
+                self.region.is_none(),
+                self.paid_months.is_none(),
+                self.account_balance_cents.is_none(),
+                self.base_cents.is_none(),
+                self.flex_months.is_none(),
+                self.personal_pension_annual_cents.is_none(),
+                self.marginal_tax_hundredths.is_none(),
+            ]
+            .contains(&true)
         {
-            return Err(bad("PROFILE_BIRTH", "出生年月须早于本月"));
+            return Err(bad(
+                "PROFILE_REQUIRED",
+                "原规划需要完整个人资料；未知资料请使用通用基础保存",
+            ));
         }
-        if !["male", "female_cadre", "female_worker"].contains(&self.worker.as_str()) {
-            return Err(bad("PROFILE_WORKER", "请选择性别与职工类型"));
-        }
-        if self.region != "beijing" {
-            return Err(bad("PROFILE_REGION", "目前只支持北京的参数表"));
-        }
-        if self.paid_months > 1200 {
-            return Err(bad("PROFILE_MONTHS", "累计缴费月数不能超过 1200"));
-        }
-        money(&self.account_balance_cents, false, "个人账户余额")?;
-        money(&self.base_cents, false, "缴费基数")?;
-        if let Some(v) = self.past_index_hundredths {
-            if !(1..=1000).contains(&v) {
-                return Err(bad("PROFILE_INDEX", "历史平均缴费指数须在 0.01 到 10 之间"));
+        if let Some(ym) = &self.birth_month {
+            let birth = date(&format!("{ym}-01"))
+                .map_err(|_| bad("PROFILE_BIRTH", "出生年月格式应为 YYYY-MM"))?;
+            if ym.len() != 7
+                || ym.as_str() >= &today[..7.min(today.len())]
+                || birth.format("%Y-%m").to_string() != *ym
+            {
+                return Err(bad("PROFILE_BIRTH", "出生年月须早于本月"));
             }
         }
-        if !(-36..=36).contains(&self.flex_months) {
+        if self
+            .worker
+            .as_ref()
+            .is_some_and(|v| !["male", "female_cadre", "female_worker"].contains(&v.as_str()))
+        {
+            return Err(bad("PROFILE_WORKER", "请选择性别与职工类型"));
+        }
+        if self.region.as_ref().is_some_and(|v| v != "beijing") {
+            return Err(bad("PROFILE_REGION", "目前只支持北京的参数表"));
+        }
+        if self.paid_months.is_some_and(|v| v > 1200) {
+            return Err(bad("PROFILE_MONTHS", "累计缴费月数不能超过 1200"));
+        }
+        if let Some(v) = &self.account_balance_cents {
+            money(v, false, "个人账户余额")?;
+        }
+        if let Some(v) = &self.base_cents {
+            money(v, false, "缴费基数")?;
+        }
+        if self
+            .past_index_hundredths
+            .is_some_and(|v| !(1..=1000).contains(&v))
+        {
+            return Err(bad("PROFILE_INDEX", "历史平均缴费指数须在 0.01 到 10 之间"));
+        }
+        if self.flex_months.is_some_and(|v| !(-36..=36).contains(&v)) {
             return Err(bad("PROFILE_FLEX", "弹性提前或延后最多 36 个月"));
         }
-        if money(
-            &self.personal_pension_annual_cents,
-            false,
-            "个人养老金年缴额",
-        )? > PENSION_CAP_CENTS
-        {
-            return Err(bad("PROFILE_PENSION", "个人养老金每年最多缴 12000 元"));
+        if let Some(v) = &self.personal_pension_annual_cents {
+            if money(v, false, "个人养老金年缴额")? > PENSION_CAP_CENTS {
+                return Err(bad("PROFILE_PENSION", "个人养老金每年最多缴 12000 元"));
+            }
         }
-        rate(self.marginal_tax_hundredths, 0, 4500, "边际税率")?;
-        let a = &self.assumptions;
-        rate(a.inflation_hundredths, -1000, 2000, "通胀率")?;
-        rate(a.wage_growth_hundredths, -1000, 2000, "工资增长率")?;
-        rate(a.pp_return_hundredths, -1000, 3000, "个人养老金收益率")?;
-        let r = &self.retire;
-        if let Some(core) = &r.core {
-            core.validate(r, today)?;
+        if let Some(v) = self.marginal_tax_hundredths {
+            rate(v, 0, 4500, "边际税率")?;
         }
-        if let Some(v) = &r.spend_cents {
-            money(v, true, "退休后月支出")?;
-        }
-        rate(
-            r.real_return_before_hundredths,
-            -1000,
-            2000,
-            "退休前实际收益率",
-        )?;
-        rate(
-            r.real_return_after_hundredths,
-            -1000,
-            2000,
-            "退休后实际收益率",
-        )?;
-        if !(70..=110).contains(&r.horizon_age) || r.emergency_months > 36 {
-            return Err(bad(
-                "PROFILE_RETIRE",
-                "规划终点年龄须在 70 到 110 岁之间，应急金不超过 36 个月",
-            ));
-        }
-        if !["fire", "traditional"].contains(&r.mode.as_str()) {
-            return Err(bad("PROFILE_RETIRE", "计划类型须是 FIRE 或传统"));
-        }
-        if !(20..r.horizon_age).contains(&r.target_age) {
-            return Err(bad(
-                "PROFILE_RETIRE",
-                "期望退休年龄须在 20 岁与规划终点之间",
-            ));
-        }
-        rate(r.volatility_hundredths, 0, 6000, "年度波动率")?;
-        rate(r.gap_share_hundredths, 0, 5000, "平均空窗比例")?;
-        if r.route_id
-            .as_ref()
-            .is_some_and(|id| id.is_empty() || id.len() > 40)
-            || !(20..=70).contains(&r.route_from_age)
-        {
-            return Err(bad("PROFILE_RETIRE", "路线换成的年龄须在 20 到 70 岁之间"));
-        }
-        for (value, label) in [
-            (&r.keep_paying_monthly_cents, "续缴社保每月花费"),
-            (&r.keep_paying_base_cents, "续缴缴费基数"),
-            (&r.rent_cents, "退休后月房租"),
-        ] {
-            money(value, false, label)?;
-        }
-        if r.keep_paying_until_age
-            .is_some_and(|age| !(20..=70).contains(&age))
-        {
-            return Err(bad(
-                "PROFILE_RETIRE",
-                "续缴社保到的年龄须在 20 到 70 岁之间",
-            ));
-        }
-        r.validate_items()?;
+        validate_retire(&self.retire, &self.assumptions, today)?;
         let o = &self.overrides;
         for (value, label) in [
             (&o.avg_wage_cents, "上年度月平均工资"),
@@ -513,6 +492,81 @@ impl Profile {
         }
         Ok(())
     }
+}
+
+pub(crate) fn validate_retire(r: &Retire, a: &Assumptions, today: &str) -> Result<()> {
+    let basic = r.basic.is_some();
+    rate(a.inflation_hundredths, -1000, 2000, "通胀率")?;
+    rate(a.wage_growth_hundredths, -1000, 2000, "工资增长率")?;
+    rate(a.pp_return_hundredths, -1000, 3000, "个人养老金收益率")?;
+    if let Some(core) = &r.core {
+        core.validate(r, today)?;
+    }
+    if let Some(v) = &r.spend_cents {
+        money(v, true, "退休后月支出")?;
+    }
+    rate(
+        r.real_return_before_hundredths,
+        -1000,
+        2000,
+        "退休前实际收益率",
+    )?;
+    rate(
+        r.real_return_after_hundredths,
+        -1000,
+        2000,
+        "退休后实际收益率",
+    )?;
+    if !(70..=110).contains(&r.horizon_age) || r.emergency_months > 36 {
+        return Err(bad(
+            "PROFILE_RETIRE",
+            "规划终点年龄须在 70 到 110 岁之间，应急金不超过 36 个月",
+        ));
+    }
+    if !["fire", "traditional"].contains(&r.mode.as_str()) {
+        return Err(bad("PROFILE_RETIRE", "计划类型须是 FIRE 或传统"));
+    }
+    if r.target_age
+        .is_some_and(|v| !(20..r.horizon_age).contains(&v))
+        || (!basic && r.target_age.is_none())
+    {
+        return Err(bad(
+            "PROFILE_RETIRE",
+            "期望退休年龄须在 20 岁与规划终点之间",
+        ));
+    }
+    rate(r.volatility_hundredths, 0, 6000, "年度波动率")?;
+    rate(r.gap_share_hundredths, 0, 5000, "平均空窗比例")?;
+    if r.route_id
+        .as_ref()
+        .is_some_and(|id| id.is_empty() || id.len() > 40)
+        || !(20..=70).contains(&r.route_from_age)
+    {
+        return Err(bad("PROFILE_RETIRE", "路线换成的年龄须在 20 到 70 岁之间"));
+    }
+    for (value, label) in [
+        (&r.keep_paying_monthly_cents, "续缴社保每月花费"),
+        (&r.keep_paying_base_cents, "续缴缴费基数"),
+        (&r.rent_cents, "退休后月房租"),
+    ] {
+        money(value, false, label)?;
+    }
+    if r.keep_paying_until_age
+        .is_some_and(|age| !(20..=70).contains(&age))
+    {
+        return Err(bad(
+            "PROFILE_RETIRE",
+            "续缴社保到的年龄须在 20 到 70 岁之间",
+        ));
+    }
+    r.validate_items()?;
+    if let Some(b) = &r.basic {
+        b.validate(r)?;
+    }
+    if let Some(old) = &r.legacy_definition {
+        old.validate()?;
+    }
+    Ok(())
 }
 
 fn read(c: &Connection) -> Result<Option<Saved>> {
@@ -552,15 +606,63 @@ impl Store {
     }
 
     pub fn plan_profile_save(&mut self, input: &ProfileSave, today: &str) -> Result<Saved> {
-        self.check_generation(&input.generation)?;
-        uuid::Uuid::parse_str(&input.request_id)
-            .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
         let fingerprint = digest(&serde_json::to_vec(&("plan_profile", input))?);
+        self.save_profile_request(
+            &input.request_id,
+            &input.generation,
+            input.expected_revision,
+            today,
+            &fingerprint,
+            |old| {
+                if let Some(old) = old {
+                    if old.retire.basic.is_some() && input.profile.retire.basic != old.retire.basic
+                    {
+                        return Err(Error::new(
+                            "PLANNING_SCOPED",
+                            "基础条件须通过分区更新，旧完整请求不能替换",
+                        ));
+                    }
+                    if old.retire.legacy_definition != input.profile.retire.legacy_definition {
+                        return Err(Error::new("PLANNING_SCOPED", "原假设只读定义不能改写"));
+                    }
+                }
+                Ok(input.profile.clone())
+            },
+        )
+    }
+
+    pub fn plan_profile_update(
+        &mut self,
+        input: &crate::plan_basic::Update,
+        today: &str,
+    ) -> Result<Saved> {
+        let fingerprint = digest(&serde_json::to_vec(&("plan_profile_update", input))?);
+        self.save_profile_request(
+            &input.request_id,
+            &input.generation,
+            input.expected_revision,
+            today,
+            &fingerprint,
+            |old| input.merge(old, today),
+        )
+    }
+
+    fn save_profile_request(
+        &mut self,
+        request_id: &str,
+        generation: &str,
+        expected_revision: Option<i64>,
+        today: &str,
+        fingerprint: &str,
+        merge: impl FnOnce(Option<&Profile>) -> Result<Profile>,
+    ) -> Result<Saved> {
+        self.check_generation(generation)?;
+        uuid::Uuid::parse_str(request_id).map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
         let tx = self.conn()?.unchecked_transaction()?;
         let prior: Option<String> = tx
             .query_row(
                 "SELECT fingerprint FROM feature_requests WHERE id=?1",
-                [&input.request_id],
+                [request_id],
                 |r| r.get(0),
             )
             .optional()?;
@@ -570,20 +672,20 @@ impl Store {
             }
             return read(&tx)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到个人资料"));
         }
-        input.profile.validate(today)?;
         let old = read(&tx)?;
-        if old.as_ref().map(|s| s.revision) != input.expected_revision {
+        if old.as_ref().map(|s| s.revision) != expected_revision {
             return Err(Error::new(
                 "REVISION_CONFLICT",
                 "个人资料已变化，请重新读取",
             ));
         }
-        if let Some(core) = &input.profile.retire.core {
+        let profile = merge(old.as_ref().map(|s| &s.profile))?;
+        profile.validate(today)?;
+        if let Some(core) = &profile.retire.core {
             core.validate_references(&tx, true)?;
         }
         if let Some(old_core) = old.as_ref().and_then(|s| s.profile.retire.core.as_ref()) {
-            if input
-                .profile
+            if profile
                 .retire
                 .core
                 .as_ref()
@@ -596,7 +698,7 @@ impl Store {
             }
             for o in &old_core.occurrences {
                 if o.status == "occurred"
-                    && !input.profile.retire.core.as_ref().is_some_and(|core| {
+                    && !profile.retire.core.as_ref().is_some_and(|core| {
                         core.occurrences.iter().any(|n| {
                             n.id == o.id && n.event_id == o.event_id && n.status == "occurred"
                         })
@@ -609,7 +711,7 @@ impl Store {
                 }
             }
         }
-        let payload = serde_json::to_string(&input.profile)?;
+        let payload = serde_json::to_string(&profile)?;
         let now = chrono::Utc::now().to_rfc3339();
         if old.is_some() {
             tx.execute(
@@ -624,7 +726,7 @@ impl Store {
         }
         tx.execute(
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",
-            params![input.request_id, fingerprint, "profile"],
+            params![request_id, fingerprint, "profile"],
         )?;
         let result = read(&tx)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到个人资料"))?;
         self.hit("plan_profile.before_commit")?;

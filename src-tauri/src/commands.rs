@@ -1429,6 +1429,31 @@ pub async fn plan_profile_save(
     .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn plan_profile_update(
+    input: crate::plan_basic::Update,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::plan_profile::Saved> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.plan_profile_update(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn planning_sources(
+    planning_enabled: bool,
+    wealth_enabled: bool,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::review::PlanningSources> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.planning_sources(planning_enabled, wealth_enabled, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "暂时无法读取规划来源"))?
+}
+#[tauri::command]
 pub async fn plan_review(worker: tauri::State<'_, Worker>) -> Result<crate::plan_savings::Review> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || w.call(|s| s.plan_review()))

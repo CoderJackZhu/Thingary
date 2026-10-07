@@ -1,0 +1,29 @@
+{
+  "request_id": "10000000-0000-4000-8000-000000000001",
+  "generation": "fictional-generation",
+  "expected_revision": null,
+  "section": "basic",
+  "fields": {
+    "birth_month": "1990-06",
+    "spend_cents": "400000",
+    "target_age": 60,
+    "horizon_age": 90,
+    "mode": "traditional",
+    "real_return_before_hundredths": 0,
+    "real_return_after_hundredths": 0,
+    "volatility_hundredths": 500,
+    "emergency_months": 0,
+    "inflation_hundredths": 0,
+    "monetary_basis_date": "2026-10-07",
+    "confirm_legacy_replacement": false,
+    "basic": {
+      "contract_version": 1,
+      "start": {"kind": "simulation", "id": "fictional-simulation", "available_cents": "10000000", "date": "2026-09-30", "notes": "严格虚构契约夹具"},
+      "contribution": {"id": "fictional-contribution", "monthly_cents": null},
+      "retirement_income": {"mode": "excluded", "selected": []},
+      "pension_contributions": {"start_month": null, "stop_month": null, "base_cents": null},
+      "contribution_costs": [],
+      "retirement_costs": []
+    }
+  }
+}

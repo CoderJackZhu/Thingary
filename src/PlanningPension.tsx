@@ -6,8 +6,8 @@ import { Info } from './FormControls';
 import { PlanningProfileFields } from './PlanningProfileFields';
 import { toForm, profileFromForm } from './planning-profile';
 import type { Form } from './planning-profile';
-import { STALE_MONTHS, ageText, quitAges, rateText, staleMonths } from './plan';
-import type { Income, ProfileSave, ProfileState, StoredProfile } from './plan';
+import { hasPensionProfile, STALE_MONTHS, ageText, quitAges, rateText, staleMonths } from './plan';
+import type { Income, ProfileSave, ProfileState, StoredProfile, CompletePensionProfile } from './plan';
 import { beijing, effectiveParams, isOverridden, paramSources, verifiedText } from './plan-params';
 import type { ParamKey, Overrides } from './plan-params';
 import { ageMonthsAt, byQuitAge, project, startAgeMonths } from './plan-pension';
@@ -46,7 +46,9 @@ export function PlanningPension({ focus = false, onFocusDone, today, incomes, on
   const saved = state?.saved ?? null;
   const calc = useMemo(() => {
     if (!saved || snapshot === undefined) return null;
-    const p = saved.profile, region = effectiveParams(beijing, p.overrides);
+    const p = saved.profile;
+    if (!hasPensionProfile(p)) return null;
+    const region = effectiveParams(beijing, p.overrides);
     const core = p.retire.core, normalized = normalizeFunds(snapshot ?? null, core), anchor = snapshot?.date ?? today;
     const basisFactor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(core?.monetary_basis_date ?? anchor)) / (86400000 * 365.25));
     const restricted = (id: string) => core?.fund_rules.some(f => f.account_id === id && f.availability === 'restricted' && f.share_hundredths === 10000);
@@ -73,7 +75,7 @@ export function PlanningPension({ focus = false, onFocusDone, today, incomes, on
   </>;
 }
 
-type Calc = { p: StoredProfile; region: ReturnType<typeof effectiveParams>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
+type Calc = { p: CompletePensionProfile; region: ReturnType<typeof effectiveParams>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
 
 function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; quit: number | 'start'; onQuit: (v: number | 'start') => void; onEdit: () => void; updatedAt: string; today: string }) {
   const r = calc.main;
