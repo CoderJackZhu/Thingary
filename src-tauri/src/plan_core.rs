@@ -237,15 +237,24 @@ impl Core {
             }
         }
         if live {
+            // Resolve aliases by factual identity, never by matching date/amount/name.
+            // Historical backups retain their payload; live reads flag legacy duplicates.
+            let mut factual_sources = HashSet::new();
             for o in &self.occurrences {
                 for p in &o.payments {
                     if let (Some(kind), Some(key)) = (&p.source_kind, &p.source_id) {
-                        let source: (Option<String>, Option<i64>) = match kind.as_str() {
-                        "asset" => c.query_row("SELECT purchase_date,price_cents FROM assets WHERE id=?1 AND deleted_at IS NULL", [key], |r| Ok((r.get(0)?, r.get(1)?)))?,
-                        "expense" => c.query_row("SELECT date,amount_cents FROM expenses WHERE id=?1 AND deleted_at IS NULL", [key], |r| Ok((r.get(0)?, r.get(1)?)))?,
-                        "wish" => c.query_row("SELECT a.purchase_date,a.price_cents FROM wishlist_items w JOIN assets a ON a.id=w.converted_asset_id WHERE w.id=?1 AND w.decision_state='purchased' AND w.deleted_at IS NULL AND a.deleted_at IS NULL", [key], |r| Ok((r.get(0)?, r.get(1)?))).optional()?.ok_or_else(|| Error::new("PLANNING_SOURCE", "关联愿望尚未确认购买或其物品已删除"))?,
+                        let source: (Option<String>, Option<i64>, String, String) = match kind.as_str() {
+                        "asset" => c.query_row("SELECT purchase_date,price_cents,'asset',id FROM assets WHERE id=?1 AND deleted_at IS NULL", [key], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?,
+                        "expense" => c.query_row("SELECT date,amount_cents,CASE WHEN asset_id IS NULL THEN 'expense' ELSE 'asset' END,COALESCE(asset_id,id) FROM expenses WHERE id=?1 AND deleted_at IS NULL", [key], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?,
+                        "wish" => c.query_row("SELECT a.purchase_date,a.price_cents,'asset',a.id FROM wishlist_items w JOIN assets a ON a.id=w.converted_asset_id WHERE w.id=?1 AND w.decision_state='purchased' AND w.deleted_at IS NULL AND a.deleted_at IS NULL", [key], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?.ok_or_else(|| Error::new("PLANNING_SOURCE", "关联愿望尚未确认购买或其物品已删除"))?,
                         _ => return Err(bad()),
                     };
+                        if !factual_sources.insert((source.2, source.3)) {
+                            return Err(Error::new(
+                                "PLANNING_SOURCE_DUPLICATE",
+                                "同一实际付款被重复关联，请核对物品、已购愿望或关联支出",
+                            ));
+                        }
                         if source.0.as_ref() != Some(&p.date)
                             || source.1.map(|v| v.to_string()) != p.amount_cents
                             || p.amount_cents.is_none()

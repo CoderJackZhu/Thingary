@@ -175,3 +175,17 @@ test('Coast and glide checkpoints retain actual payments, one-offs and the first
   const coast=coastAt(p,p.now_months),c=project({...p,assets_cents:coast,saving_cents:0},2026);
   assert.equal(c.failure_month,null);assert.ok(c.assets[3]>=100000-.01);assert.ok(coast>900000);
 });
+
+
+test('read-time factual payment duplication blocks every complete projection until corrected', () => {
+  const p = profile(core(['cash', 'available']));
+  const s = snap([entry('cash', 'asset', 'cash', 70000000)]);
+  ready(calc(p, s));
+  p.reference_issues = ['同一实际付款被重复关联，请核对物品、已购愿望或关联支出'];
+  const blocked = calc(p, s);
+  assert.match(blocked.missing.join(' '), /重复关联/);
+  for (const key of ['plan', 'plan0', 'proj', 'out']) assert.equal(blocked[key], undefined, key);
+  assert.deepEqual(blocked.events, []);
+  p.reference_issues = [];
+  ready(calc(p, s));
+});

@@ -978,3 +978,244 @@ fn schema30_upgrade_rolls_back_without_rewriting_legacy_ids_zero_and_explicit_am
     assert!(loaded.retire.core.is_none());
     assert_eq!(loaded.retire.saving_phases, p.retire.saving_phases);
 }
+
+#[test]
+fn core_payment_aliases_reject_and_legacy_duplicates_degrade_after_restore() {
+    use thingary_lib::{
+        catalog::{Details, SaveAsset},
+        domain::Save as AssetSave,
+        photos::Selection,
+        wishlist::{Action, Change, Fields, Link},
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("fictional-alias-repair");
+    let mut s = Store::open(&root).unwrap();
+    let (mut p, account, _snapshot_id) = core_fixture(&mut s);
+    p.personal_pension_annual_cents = "0".into();
+    p.assumptions.inflation_hundredths = 0;
+    p.retire.spend_cents = Some("100000".into());
+    let a = s
+        .save_asset(
+            &SaveAsset {
+                options: None,
+                base: AssetSave {
+                    request_id: rid(),
+                    generation: s.generation(),
+                    asset_id: None,
+                    expected_revision: None,
+                    name: "虚构同一购入".into(),
+                    price_cents: Some("30000000".into()),
+                    purchase_date: Some("2026-11-01".into()),
+                },
+                details: Details::default(),
+                photos: None,
+                classification: None,
+            },
+            TODAY,
+        )
+        .unwrap();
+    let w = s
+        .change_wishlist(&Change {
+            request_id: rid(),
+            generation: s.generation(),
+            expected_revision: None,
+            action: Action::Add {
+                fields: Fields {
+                    name: "虚构同一购买愿望".into(),
+                    category_id: None,
+                    estimated_price_cents: None,
+                    priority: None,
+                    target_date: None,
+                    external_link: String::new(),
+                    notes: String::new(),
+                },
+                cover: Selection {
+                    cover_id: None,
+                    ids: vec![],
+                },
+            },
+        })
+        .unwrap();
+    s.link_wish_asset(&Link {
+        request_id: rid(),
+        generation: s.generation(),
+        wishlist_id: w.id.clone(),
+        expected_revision: w.revision,
+        asset_id: a.asset.id.clone(),
+        expected_asset_revision: a.asset.revision,
+    })
+    .unwrap();
+    let mut ev = p.retire.life_events[0].clone();
+    ev.id = "event-two".into();
+    p.retire.life_events.push(ev);
+    let c = p.retire.core.as_mut().unwrap();
+    let o = &mut c.occurrences[0];
+    o.actual_date = "2026-11-01".into();
+    let pay = &mut o.payments[0];
+    pay.date = "2026-11-01".into();
+    pay.account_id = Some(account);
+    pay.absorbed_snapshot_id = None;
+    pay.absorbed_revision = None;
+    pay.source_kind = Some("asset".into());
+    pay.source_id = Some(a.asset.id.clone());
+    let mut o2 = o.clone();
+    o2.id = rid();
+    o2.event_id = "event-two".into();
+    o2.payments[0].id = rid();
+    o2.payments[0].source_kind = Some("wish".into());
+    o2.payments[0].source_id = Some(w.id.clone());
+    c.occurrences.push(o2);
+
+    let rejected = save(&s, p.clone(), None);
+    for _ in 0..2 {
+        assert_eq!(
+            code(s.plan_profile_save(&rejected, TODAY)),
+            "PLANNING_SOURCE_DUPLICATE"
+        );
+        assert!(
+            s.plan_profile().unwrap().saved.is_none(),
+            "rejected save must not commit"
+        );
+    }
+    // Linked expense is another acquisition alias; standalone expense is a distinct factual payment.
+    let fields = thingary_lib::expenses::Fields {
+        title: "虚构购入支出".into(),
+        date: "2026-11-01".into(),
+        amount_cents: "30000000".into(),
+        category: "other".into(),
+        notes: String::new(),
+        refund_cents: None,
+        refund_date: None,
+        asset_id: Some(a.asset.id.clone()),
+    };
+    let linked = s
+        .expense_save(
+            &thingary_lib::expenses::Save {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: fields.clone(),
+            },
+            TODAY,
+        )
+        .unwrap();
+    let mut ep = p.clone();
+    let payment = &mut ep.retire.core.as_mut().unwrap().occurrences[1].payments[0];
+    payment.source_kind = Some("expense".into());
+    payment.source_id = Some(linked.id);
+    assert_eq!(
+        code(s.plan_profile_save(&save(&s, ep.clone(), None), TODAY)),
+        "PLANNING_SOURCE_DUPLICATE"
+    );
+    let standalone = s
+        .expense_save(
+            &thingary_lib::expenses::Save {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: thingary_lib::expenses::Fields {
+                    asset_id: None,
+                    ..fields
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    ep.retire.core.as_mut().unwrap().occurrences[1].payments[0].source_id = Some(standalone.id);
+    let valid = save(&s, ep.clone(), None);
+    assert_eq!(s.plan_profile_save(&valid, TODAY).unwrap().revision, 1);
+    assert_eq!(s.plan_profile_save(&valid, TODAY).unwrap().revision, 1);
+    assert!(s
+        .plan_profile()
+        .unwrap()
+        .saved
+        .unwrap()
+        .reference_issues
+        .is_empty());
+    // Independent asset with the same date and price must remain legal.
+    let a2 = s
+        .save_asset(
+            &SaveAsset {
+                options: None,
+                base: AssetSave {
+                    request_id: rid(),
+                    generation: s.generation(),
+                    asset_id: None,
+                    expected_revision: None,
+                    name: "虚构另一次购入".into(),
+                    price_cents: Some("30000000".into()),
+                    purchase_date: Some("2026-11-01".into()),
+                },
+                details: Details::default(),
+                photos: None,
+                classification: None,
+            },
+            TODAY,
+        )
+        .unwrap();
+    let mut two = p.clone();
+    let payment = &mut two.retire.core.as_mut().unwrap().occurrences[1].payments[0];
+    payment.source_kind = Some("asset".into());
+    payment.source_id = Some(a2.asset.id);
+    assert_eq!(
+        s.plan_profile_save(&save(&s, two.clone(), Some(1)), TODAY)
+            .unwrap()
+            .revision,
+        2
+    );
+    let good_file = dir.path().join("fictional-good.thingary");
+    s.backup(Some(&good_file)).unwrap();
+    let mut restored = Store::open(&dir.path().join("good-restored")).unwrap();
+    let info = restored.inspect_backup(&good_file).unwrap();
+    restored
+        .restore(&good_file, &info.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(restored.plan_profile().unwrap().saved.unwrap().profile, two);
+    assert!(restored
+        .plan_profile()
+        .unwrap()
+        .saved
+        .unwrap()
+        .reference_issues
+        .is_empty());
+    // Inject ONLY into this temporary fictional library to simulate an older accepted alias payload.
+    drop(s);
+    let active: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("active.json")).unwrap()).unwrap();
+    let db = Connection::open(
+        root.join("datasets")
+            .join(active["id"].as_str().unwrap())
+            .join("data.sqlite"),
+    )
+    .unwrap();
+    db.execute(
+        "UPDATE plan_profile SET payload=?1 WHERE id=1",
+        [serde_json::to_string(&p).unwrap()],
+    )
+    .unwrap();
+    drop(db);
+    let s = Store::open(&root).unwrap();
+    let legacy = s.plan_profile().unwrap().saved.unwrap();
+    assert_eq!(legacy.profile, p);
+    assert!(legacy
+        .reference_issues
+        .iter()
+        .any(|i| i.contains("重复关联")));
+    let bad_file = dir.path().join("fictional-legacy.thingary");
+    s.backup(Some(&bad_file)).unwrap();
+    let mut restored = Store::open(&dir.path().join("legacy-restored")).unwrap();
+    let info = restored.inspect_backup(&bad_file).unwrap();
+    restored
+        .restore(&bad_file, &info.hash, &restored.generation())
+        .unwrap();
+    assert!(restored
+        .plan_profile()
+        .unwrap()
+        .saved
+        .unwrap()
+        .reference_issues
+        .iter()
+        .any(|i| i.contains("重复关联")));
+}
