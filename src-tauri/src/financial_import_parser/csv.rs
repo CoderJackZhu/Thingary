@@ -10,6 +10,7 @@ pub(super) struct RawRecord {
 }
 
 pub(super) struct FormatError {
+    pub(super) record_start_line: usize,
     /// Physical line of the offending character (or of EOF).
     pub(super) line: usize,
     /// 1-based character column on that line.
@@ -103,6 +104,7 @@ pub(super) fn parse_records(
                     return Ok((
                         records,
                         Some(FormatError {
+                            record_start_line: row_start_line,
                             line: cl,
                             column: cc,
                             reason: "引号字段结束后应紧跟逗号或换行，不能有其他字符",
@@ -117,6 +119,7 @@ pub(super) fn parse_records(
                     return Ok((
                         records,
                         Some(FormatError {
+                            record_start_line: row_start_line,
                             line: cl,
                             column: cc,
                             reason: "未加引号的字段中出现引号：如需引号，请把整个字段用引号包裹，并把内部引号写成两个连续引号",
@@ -131,6 +134,7 @@ pub(super) fn parse_records(
         }
     }
     let fatal = quoted.then_some(FormatError {
+        record_start_line: row_start_line,
         line,
         column: col,
         reason: "文件结束处仍有未闭合的引号",

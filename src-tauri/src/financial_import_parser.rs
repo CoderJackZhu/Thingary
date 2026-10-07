@@ -384,9 +384,9 @@ pub struct IssueV1 {
 /// Counts. When the header resolves:
 /// `rows_read == rows_valid + rows_error + duplicates_same +
 /// duplicates_conflict`. Snapshot rows are account-level lines; inventory
-/// counts are the group fields, never derived from row counts. Rows that stay
-/// in `rows` but carry an `error` issue (coverage interval overlaps) are not
-/// counted as errors here — callers judge commitability from `issues`.
+/// counts are the group fields, never derived from row counts. Coverage
+/// conflicts remain normalized in `rows` for preview but count as row errors;
+/// message limits never change the complete unique error-row count.
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct CountsV1 {
     pub rows_read: u32,
@@ -619,7 +619,7 @@ pub fn parse_import_v1(
         ));
     };
     if let Some(f) = &fatal {
-        issues.push(format_issue(f, Some(header_record.start_line as u32)));
+        issues.push(format_issue(f, Some(f.line as u32)));
     }
 
     let header = Header::resolve(kind, header_record, &request.column_mapping, &mut issues);
@@ -651,7 +651,18 @@ pub fn parse_import_v1(
 
     let mut rows: Vec<StandardRowV1> = Vec::new();
     let mut rejected_members: Vec<(String, u32)> = Vec::new();
-    let mut field_errors: u32 = 0;
+    let fatal_data_row = fatal
+        .as_ref()
+        .filter(|f| f.record_start_line > header_record.start_line);
+    let mut field_errors: u32 = u32::from(fatal_data_row.is_some());
+    if let Some(f) = fatal_data_row {
+        if !records.iter().any(|r| r.start_line == f.record_start_line) {
+            counts.rows_read += 1;
+        }
+    }
+    // An unassignable bad snapshot row or fatal CSV blocks every candidate group.
+    let mut unresolved_snapshot_error = fatal.is_some();
+    let mut post_errors = 0;
     let header_cells = header_record.cells.len();
     for record in records.iter().skip(1) {
         if (ctx.cancel)() {
@@ -660,9 +671,13 @@ pub fn parse_import_v1(
                 "解析已取消，未产生结果",
             ));
         }
+        // The tokenizer may expose a partial EOF record; it is never a valid row.
+        if fatal_data_row.is_some_and(|f| record.start_line == f.record_start_line) {
+            continue;
+        }
         if record.cells.len() != header_cells {
             field_errors += 1;
-            issues.push(file_issue_at(
+            let mut issue = file_issue_at(
                 CODE_CSV_COLUMN_COUNT,
                 record.start_line as u32,
                 &format!(
@@ -670,7 +685,20 @@ pub fn parse_import_v1(
                     record.start_line,
                     record.cells.len()
                 ),
-            ));
+            );
+            if kind == "snapshots" {
+                let key = header
+                    .cell(record, "snapshot_key")
+                    .unwrap_or_default()
+                    .trim();
+                if key.is_empty() {
+                    unresolved_snapshot_error = true;
+                } else {
+                    issue.group_key = Some(key.to_string());
+                    rejected_members.push((key.to_string(), record.start_line as u32));
+                }
+            }
+            issues.push(issue);
             continue;
         }
         let parsed = match kind {
@@ -687,6 +715,8 @@ pub fn parse_import_v1(
                 field_errors += 1;
                 if let Some(key) = reject.group_key {
                     rejected_members.push((key, record.start_line as u32));
+                } else if kind == "snapshots" {
+                    unresolved_snapshot_error = true;
                 }
                 issues.extend(reject.issues);
             }
@@ -707,7 +737,7 @@ pub fn parse_import_v1(
             post_account_candidates(&mut rows, &mut issues, &catalog);
         }
         "snapshots" => {
-            let groups = post_snapshots(
+            let mut groups = post_snapshots(
                 &mut rows,
                 &rejected_members,
                 &mut issues,
@@ -715,6 +745,22 @@ pub fn parse_import_v1(
                 &header,
                 &catalog,
             );
+            if unresolved_snapshot_error {
+                for group in &mut groups {
+                    issues.push(IssueV1 {
+                        code: CODE_CSV_FORMAT,
+                        severity: SeverityV1::Error,
+                        source_row: group.source_rows.first().copied(),
+                        column: None,
+                        group_key: Some(group.group_key.clone()),
+                        message: "文件含无法可靠归组的错误，所有候选盘点组需重新核对".into(),
+                    });
+                    group.validation = GroupValidationV1::Invalid;
+                }
+                counts.groups_valid = 0;
+                counts.groups_requires_account_context = 0;
+                counts.groups_invalid = groups.len() as u32;
+            }
             counts.rows_valid = rows.len() as u32;
             return Ok(finish(kind.to_string(), rows, groups, issues, counts));
         }
@@ -728,7 +774,7 @@ pub fn parse_import_v1(
                 &header,
             );
         }
-        "income_coverage" => post_coverage(&mut rows, &mut issues, &header),
+        "income_coverage" => post_errors = post_coverage(&mut rows, &mut issues, &header),
         "net_worth_history" => {
             post_keyed(
                 &mut rows,
@@ -747,7 +793,8 @@ pub fn parse_import_v1(
             "解析已取消，未产生结果",
         ));
     }
-    counts.rows_valid = rows.len() as u32;
+    counts.rows_valid = rows.len() as u32 - post_errors;
+    counts.rows_error += post_errors;
     Ok(finish(kind.to_string(), rows, Vec::new(), issues, counts))
 }
 
@@ -2228,7 +2275,7 @@ fn post_snapshots(
 /// Sweep-sorted interval overlap detection for coverage declarations: each
 /// overlapping row reports one partner, so every conflict is locatable without
 /// emitting quadratic issues.
-fn post_coverage(rows: &mut [StandardRowV1], issues: &mut Vec<IssueV1>, h: &Header) {
+fn post_coverage(rows: &mut [StandardRowV1], issues: &mut Vec<IssueV1>, h: &Header) -> u32 {
     let mut idxs: Vec<usize> = rows
         .iter()
         .enumerate()
@@ -2250,7 +2297,7 @@ fn post_coverage(rows: &mut [StandardRowV1], issues: &mut Vec<IssueV1>, h: &Head
     let mut emitted = 2 * WARNING_CAP;
     let mut best = match idxs.first() {
         Some(&i) => i,
-        None => return,
+        None => return 0,
     };
     for &i in idxs.iter().skip(1) {
         let (StandardRowV1::IncomeCoverage(b), StandardRowV1::IncomeCoverage(c)) =
@@ -2263,10 +2310,7 @@ fn post_coverage(rows: &mut [StandardRowV1], issues: &mut Vec<IssueV1>, h: &Head
                 (c.source_row, b.source_row, &c.from_date, &c.to_date),
                 (b.source_row, c.source_row, &b.from_date, &b.to_date),
             ] {
-                if emitted == 0 {
-                    break;
-                }
-                if flagged.insert(row) {
+                if flagged.insert(row) && emitted > 0 {
                     emitted -= 1;
                     issues.push(IssueV1 {
                         code: CODE_COVERAGE_OVERLAP,
@@ -2285,6 +2329,7 @@ fn post_coverage(rows: &mut [StandardRowV1], issues: &mut Vec<IssueV1>, h: &Head
             best = i;
         }
     }
+    flagged.len() as u32
 }
 
 /// Compact kept rows to the front preserving order and return how many rows

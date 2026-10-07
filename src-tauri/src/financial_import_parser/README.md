@@ -95,10 +95,10 @@ let template = template_csv("incomes")?;
   引用，不在导入侧完整性核对范围内（写入层仍须按真实数据库复核）。
 - **计数口径**：表头解析成功时
   `rows_read = rows_valid + rows_error + duplicates_same + duplicates_conflict`。
-  盘点行是账户级行数，盘点次数只看 `groups_*` 三个计数。
+  盘点行是账户级行数，盘点次数只看 `groups_*` 三个计数。字段数错误仍保留可辨认的组成员并使该组失效；组键无法辨认或 CSV 致命格式错误时，所有候选组失效。覆盖冲突行保留在 rows 供预览纠正，但只计入 rows_error，不计入 rows_valid；错误提示限流不影响完整的唯一错误行计数。
 - **上限与容量**：20 MiB / 50000 数据行超限整体拒绝不截断；重复警告
   （`GROUP_REQUIRES_CONTEXT`、`ACCOUNT_NAME_CANDIDATE`、`ACCOUNT_KEY_MAPPED`、
-  `COVERAGE_OVERLAP`、`EXTRA_COLUMN_IGNORED`）每码至多提示 100 条，计数不受影响。
+  `EXTRA_COLUMN_IGNORED`）每码至多提示 100 条；`COVERAGE_OVERLAP` 至多 200 条，计数不受影响。
 
 ## 错误码表
 

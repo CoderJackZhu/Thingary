@@ -382,7 +382,11 @@ fn bom_crlf_quotes_and_chinese_round_trip() {
 #[test]
 fn format_errors_locate_physical_line_and_column() {
     let p = run_ok(&request("accounts", FIX_BROKEN_QUOTE));
-    let issue = p.issues.iter().find(|i| i.code == CODE_CSV_FORMAT).unwrap();
+    let issue = p
+        .issues
+        .iter()
+        .find(|i| i.code == CODE_CSV_FORMAT && i.column.is_some())
+        .unwrap();
     assert!(
         issue.message.contains("第 3 行"),
         "message: {}",
@@ -390,7 +394,11 @@ fn format_errors_locate_physical_line_and_column() {
     );
 
     let p = run_ok(&request("accounts", FIX_MISPLACED_QUOTE));
-    let issue = p.issues.iter().find(|i| i.code == CODE_CSV_FORMAT).unwrap();
+    let issue = p
+        .issues
+        .iter()
+        .find(|i| i.code == CODE_CSV_FORMAT && i.column.is_some())
+        .unwrap();
     assert!(
         issue.message.contains("第 2 行第 8 列"),
         "message: {}",
@@ -398,7 +406,11 @@ fn format_errors_locate_physical_line_and_column() {
     );
 
     let p = run_ok(&request("accounts", FIX_TRAILING_QUOTE));
-    let issue = p.issues.iter().find(|i| i.code == CODE_CSV_FORMAT).unwrap();
+    let issue = p
+        .issues
+        .iter()
+        .find(|i| i.code == CODE_CSV_FORMAT && i.column.is_some())
+        .unwrap();
     assert!(
         issue.message.contains("第 2 行第 11 列"),
         "message: {}",
@@ -806,7 +818,13 @@ fn coverage_intervals_validate_range_state_and_overlap() {
                2026-02-01,2026-01-01,complete,起点不早于终点\n\
                2026-02-01,2026-03-31,全勤,非法状态\n";
     let p = run_ok(&request("income_coverage", csv));
-    assert_eq!(p.counts.rows_valid, 4, "overlapping rows stay visible");
+    assert_eq!(
+        p.rows.len(),
+        4,
+        "overlapping rows stay visible for correction"
+    );
+    assert_eq!(p.counts.rows_valid, 1);
+    assert_eq!(p.counts.rows_error, 5);
     assert!(has_code(&p, CODE_COVERAGE_OVERLAP));
     assert_eq!(
         p.issues
@@ -963,4 +981,123 @@ fn blank_header_cells_are_formatting_noise_not_duplicates() {
     assert!(only_error_codes(&p).is_empty(), "issues: {:?}", p.issues);
     assert!(!has_code(&p, CODE_DUPLICATE_HEADER));
     assert_eq!(p.counts.rows_valid, 1);
+}
+
+#[test]
+fn snapshot_ragged_members_invalidate_only_the_identifiable_group() {
+    for bad in ["s1,2026-09-30,a,20,extra", "s1,2026-09-30,a"] {
+        let csv = format!(
+            "snapshot_key,date,account_key,amount\ns1,2026-09-30,a,10\n{bad}\ns2,2026-09-29,a,10\n"
+        );
+        let p = run_ok(&cataloged(
+            request("snapshots", &csv),
+            vec![ea(
+                Some("a"),
+                "fictional-a",
+                "虚构账户",
+                "cash",
+                "2026-01-01",
+                None,
+            )],
+        ));
+        let bad_group = p.groups.iter().find(|g| g.group_key == "s1").unwrap();
+        let good_group = p.groups.iter().find(|g| g.group_key == "s2").unwrap();
+        assert_eq!(bad_group.validation, GroupValidationV1::Invalid);
+        assert_eq!(bad_group.source_rows, vec![2, 3]);
+        assert_eq!(good_group.validation, GroupValidationV1::Valid);
+        assert_eq!(p.counts.groups_invalid, 1);
+        assert_eq!(p.counts.groups_valid, 1);
+        let issue = p
+            .issues
+            .iter()
+            .find(|i| i.code == CODE_CSV_COLUMN_COUNT)
+            .unwrap();
+        assert_eq!(issue.source_row, Some(3));
+        assert_eq!(issue.group_key.as_deref(), Some("s1"));
+    }
+}
+
+#[test]
+fn unassignable_or_fatal_snapshot_rows_never_leave_complete_candidates() {
+    for bad in [
+        ",2026-09-30,a,20",
+        ",2026-09-30,a,20,extra",
+        "s1,2026-09-30,a,\"20",
+        "s1,2026-09-30,a,2\"0",
+    ] {
+        let csv = format!("snapshot_key,date,account_key,amount\ns1,2026-09-30,a,10\n{bad}\n");
+        let p = run_ok(&cataloged(
+            request("snapshots", &csv),
+            vec![ea(
+                Some("a"),
+                "fictional-a",
+                "虚构账户",
+                "cash",
+                "2026-01-01",
+                None,
+            )],
+        ));
+        assert!(!p.groups.is_empty());
+        assert!(
+            p.groups
+                .iter()
+                .all(|g| g.validation == GroupValidationV1::Invalid),
+            "{bad}: {:?}",
+            p.groups
+        );
+        assert_eq!(p.counts.groups_valid, 0);
+        assert_eq!(p.counts.rows_read, 2);
+        assert_eq!(p.counts.rows_valid, 1);
+        assert_eq!(p.counts.rows_error, 1);
+        assert!(p.issues.iter().any(|i| i.severity == SeverityV1::Error));
+        if let Some(issue) = p
+            .issues
+            .iter()
+            .find(|i| i.code == CODE_CSV_FORMAT && i.column.is_some())
+        {
+            assert!(
+                issue.source_row.unwrap() >= 3,
+                "must locate the bad record, not header"
+            );
+        }
+    }
+}
+
+#[test]
+fn coverage_counts_include_all_unique_conflicts_after_message_limit() {
+    let mut csv = String::from("from_date,to_date,state\n");
+    for _ in 0..350 {
+        csv.push_str("2026-01-01,2026-03-01,complete\n");
+    }
+    csv.push_str("2026-03-01,2026-04-01,partial\n");
+    let p = run_ok(&request("income_coverage", &csv));
+    assert_eq!(p.rows.len(), 351);
+    assert_eq!(p.counts.rows_read, 351);
+    assert_eq!(p.counts.rows_error, 350);
+    assert_eq!(p.counts.rows_valid, 1, "adjacent interval is valid");
+    assert_eq!(
+        p.issues
+            .iter()
+            .filter(|i| i.code == CODE_COVERAGE_OVERLAP)
+            .count(),
+        200
+    );
+    assert_eq!(
+        p.counts.rows_read,
+        p.counts.rows_valid + p.counts.rows_error
+    );
+}
+
+#[test]
+fn a_fatal_first_data_row_is_counted_as_error_not_an_empty_file() {
+    let p = run_ok(&request(
+        "snapshots",
+        "snapshot_key,date,account_key,amount\ns1,2026-09-30,a,2\"0",
+    ));
+    assert_eq!(p.counts.rows_read, 1);
+    assert_eq!(p.counts.rows_error, 1);
+    assert_eq!(p.counts.rows_valid, 0);
+    assert!(p.rows.is_empty());
+    assert!(has_code(&p, CODE_CSV_FORMAT));
+    assert!(!has_code(&p, CODE_NO_DATA_ROWS));
 }
