@@ -46,7 +46,7 @@ export function PlanningLegacyGoals({ focus = false, onFocusDone, today, review,
             : <><strong>{headline!.main}</strong>{headline!.sub && <span>{headline!.sub}</span>}</>}</p>
           {headline?.warn && <p className="ui-note" role="status">{headline.warn}</p>}
           <p className="muted">{ready ? `按 ${calc.plan.monetary_basis_date ?? today} 的购买力，覆盖到 ${calc.r.horizon_age} 岁；养老金从 ${ageText(calc.start)}起领取。` : '退休预算由你决定。历史里的医疗、一次性购买与其他特殊支出，不会自动成为未来每个月的预算。'}</p>
-          <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={() => calc ? setDetail(true) : onGoto('pension')}>{!calc ? '填写个人资料' : ready ? '查看退休测算' : '设置月预算与假设'}</button><button type="button" className="ui-btn" onClick={() => onGoto('savings')}>查看储蓄依据</button><button type="button" className="ui-btn" onClick={e => onReset(e.currentTarget)}>用通用方式重新设置</button></div>
+          <p className="muted small">这是以前保存的计划。点「使用简化规划」，只需先确认退休年龄、生活费和可用资金；原有资料会保留。</p><div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => onReset(e.currentTarget)}>使用简化规划</button><button type="button" className="ui-btn" onClick={() => calc ? setDetail(true) : onGoto('pension')}>{calc ? '查看以前的计划' : '填写个人资料'}</button><button type="button" className="ui-btn" onClick={() => onGoto('savings')}>查看实际收入与复盘</button></div>
         </div>
         <dl className="plan-facts plan-goal-inputs">
           <div><dt>退休后月预算</dt><dd>{yuan(calc?.spend)}</dd><small className="muted">按今天的物价，自己填写</small></div>

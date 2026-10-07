@@ -25,6 +25,7 @@ ln -s /Applications "$STAGE/Applications"
 node scripts/offline-guide.mjs "$STAGE"
 node scripts/distribution-notices.mjs "$STAGE/许可"
 cp LICENSE THIRD_PARTY_LICENSES.md "$STAGE/许可/"
+cp SOURCE_NOTICES.md "$STAGE/许可/"
 cat > "$STAGE/许可/许可与源码.txt" <<EOF
 物谱 Thingary $VERSION
 
@@ -34,6 +35,7 @@ https://github.com/CoderJackZhu/Thingary/releases/tag/v$VERSION
 https://github.com/CoderJackZhu/Thingary/tree/v$VERSION
 第三方依赖的声明、作者信息与许可证全文见 THIRD_PARTY_NOTICES.txt；
 逐份许可证的来源与 SHA-256 见 license-inventory.json。
+直接内置内容的来源告知见 SOURCE_NOTICES.md。
 
 名称「物谱」「Thingary」及应用图标的使用权保留，不在 GPL 授权范围内。
 再发布修改版请换用自己的名称与图标，避免与官方版本混淆。

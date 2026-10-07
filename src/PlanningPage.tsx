@@ -7,6 +7,7 @@ import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningPension } from './PlanningPension';
 import { PlanningBasicGoals } from './PlanningBasicGoals';
+import { RunwayCard } from './PlanningRunway';
 import { PlanningLegacyGoals } from './PlanningGoals';
 import { PlanningSetupDialog } from './PlanningSetup';
 import { usePlanningSources } from './planning-basic-data';
@@ -66,13 +67,13 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
-      <Info text="金融净资产变化含估值、利息与外部变动，不能证明真实储蓄或消费。收入只展示已记录金额；未来净投入需要独立确认。"/>
+      <Info text="资产涨了，不一定都是存下来的钱，也可能是投资涨跌。收入只展示已记录的金额；每月能存多少由你自己估计，没想好可以先不填。"/>
     </div></HeaderSlot>
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
       : !sources ? <p role="status" className="muted">正在读取规划…</p>
       : tab === 'goals' ? (mode === 'legacy'
-        ? (review && incomeRows ? <PlanningLegacyGoals key={sources.write_version} focus={focus === 'budget'} onFocusDone={onFocusDone} today={today} review={review} incomes={incomeRows} onEditingChange={onEditingChange} onPending={onPending} onGoto={onTab} onReset={el => openSetup(0, el)}/>
-          : <article className="ui-card ui-content" role="alert"><p>原规划需要历史统计与收入记录，读取失败：{reviewError || '收入读取失败'}</p><button onClick={reload}>重新读取</button></article>)
+        ? <>{review && incomeRows ? <PlanningLegacyGoals key={sources.write_version} focus={focus === 'budget'} onFocusDone={onFocusDone} today={today} review={review} incomes={incomeRows} onEditingChange={onEditingChange} onPending={onPending} onGoto={onTab} onReset={el => openSetup(0, el)}/>
+          : <article className="ui-card ui-content" role="alert"><p>原规划需要历史统计与收入记录，读取失败：{reviewError || '收入读取失败'}</p><button onClick={reload}>重新读取</button></article>}<RunwayCard key={`${sources.generation}-${sources.write_version}`} caps={null} today={today} onOwner={() => reload()}/></>
         : <PlanningBasicGoals key={sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone}/>)
       : tab === 'pension' ? <PlanningPension key={sources.write_version} focus={focus === 'profile'} onFocusDone={onFocusDone} today={today} sources={sources} reload={reload} onEditingChange={onEditingChange} onPending={onPending}/>
       : <>

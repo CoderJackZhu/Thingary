@@ -85,7 +85,7 @@ test('home renders requirements from its current batch, without a second read or
   const required = buildBasicCapabilities(s).requirement.value.set.monthly_cents;
   assert.ok(first.includes(asset.money(required)));
   assert.ok(first.includes('2050 年 6 月'));
-  assert.ok(first.includes('预计投入未填写'));
+  assert.ok(first.includes('还没估计每月能存多少钱'));
   assert.ok(!first.includes('预计还需'));
   assert.ok(!first.includes('当前可支配资产／今天退休所需'));
   const next = structuredClone(s); next.write_version++; profile(next).retire.spend_cents = '500000';
@@ -102,7 +102,7 @@ test('home uses the saved prediction headline and stays unchanged after a tempor
     const s = sources(contribution), result = summary.summaryRetire(homeSources(s), s.today), html = renderHome(s);
     assert.equal(result.kind, 'ready');
     assert.ok(html.includes(result.headline.main));
-    assert.ok(!html.includes('预计投入未填写'));
+    assert.ok(!html.includes('还没估计每月能存多少钱'));
   }
   const unknown = sources(), before = renderHome(unknown);
   assert.equal(buildBasicCapabilities(unknown, '1000000').prediction.value.source, 'temporary');
@@ -114,7 +114,7 @@ test('goals pass a real saved calculation to wishes, and no calculation while co
   let received;
   const leaf = () => null;
   const goals = component('PlanningBasicGoals.tsx', { react: React, './asset': asset,
-    './PlanningRequirement': requirement, './PlanningFunds': { FundsCard: leaf }, './PlanningBasicDetail': { PlanningBasicDetail: leaf },
+    './PlanningRequirement': requirement, './PlanningRunway': { RunwayCard: leaf }, './PlanningFunds': { FundsCard: leaf }, './PlanningBasicDetail': { PlanningBasicDetail: leaf },
     './PlanningEvents': { PlanningEvents: leaf }, './PlanningWishes': { PlanningWishes: ({ calc }) => { received = calc; return null; } },
     './plan-retire-calc': calc, './review': review, './planning-basic-forms': {}, './planning-basic-view': view,
     './planning-basic-data': { useCapabilities: s => ({ status: 'ready', caps: buildBasicCapabilities(s) }),
@@ -142,7 +142,7 @@ test('wish detail reads one committed batch and restores impact for positive, ze
     assert.equal(run.seen.text, expectedImpact(s, wish()));
   }
   const s = sources(), run = wishRuntime(() => context(s)); run.run(); await settled();
-  assert.match(run.seen.text, /保存预计投入后可查看/);
+  assert.match(run.seen.text, /填好每月能存多少钱后，可查看影响/);
   assert.ok(!run.seen.text.includes('可支配资产约'));
   assert.equal(run.seen.reads, 1);
 });
@@ -155,4 +155,30 @@ test('wish detail does not render results from closed planning, failed dependenc
   let resolve; const pending = new Promise(r => { resolve = r; });
   const late = wishRuntime(() => pending), cleanup = late.run(); cleanup();
   resolve(context(sources('1000000'))); await settled(); assert.equal(late.seen.text, '');
+});
+
+test('real RiskLab renders complete-budget semantics in both modes and only neutral basic stress rows', async () => {
+  const risk = await import('../src/plan-risk.ts'), ledger = await import('../src/plan-ledger.ts');
+  const comp = component('RiskLab.tsx', { react: React, './FormControls': { ...form, Segments: () => null },
+    './plan': plan, './plan-ledger.ts': ledger, './plan-risk.ts': risk, './plan-view.ts': await import('../src/plan-view.ts'),
+    './RetireCharts': { FanChart: () => null, PathsChart: () => null }, './RetireOverview': { yuan: c => asset.money(String(Math.round(c))) },
+    './planning-basic-view': view, './retire.css': {} });
+  const caps = buildBasicCapabilities(sources('500000')), P = caps.prediction.value.plan;
+  const render = basic => renderToStaticMarkup(React.createElement(comp.RiskLab, { calc: { plan: P, assets: P.assets_cents }, today: '2026-10-07', basic }));
+  const basic = render({ temporary: false, terminal: 'surplus' }), old = render(undefined);
+  for (const text of [basic, old]) { assert.match(text, /按完整预算覆盖到/); assert.doesNotMatch(text, /覆盖必需支出|岁前仍有余钱/); }
+  assert.match(basic, /压力测试 · 6 个情景/); assert.match(old, /压力测试 · 10 个情景/);
+  for (const id of risk.careerStressIds) { assert.equal(basic.includes(risk.stressLabels[id].label), false); assert.equal(old.includes(risk.stressLabels[id].label), true); }
+});
+
+test('runway is accessible without retirement settings and does not turn blanks into zero', async () => {
+  const comp = component('PlanningRunway.tsx', { react: React, './asset': asset, './FormControls': { Info: () => null,
+    CentInput: ({ label, value, disabled }) => React.createElement('input', { 'aria-label': label, value, disabled, readOnly: true }), Switch: () => null },
+    './DateInput': { DateInput: ({ label, value }) => React.createElement('input', { 'aria-label': label, value, readOnly: true }) },
+    './plan-runway': await import('../src/plan-runway.ts'), './planning-basic-view': view, './PlanningRequirement': requirement });
+  const html = renderToStaticMarkup(React.createElement(comp.RunwayCard, { caps: null, today: '2026-10-07', onOwner: noOp }));
+  assert.match(html, /当前可动用资金/); assert.match(html, /无需退休目标或养老金资料/);
+  assert.match(html, /请提供可用资金起点/); assert.doesNotMatch(html, /可完整支付 \d+ 个月/);
+  const withFunds = renderToStaticMarkup(React.createElement(comp.RunwayCard, { caps: buildBasicCapabilities(sources()), today: '2026-10-07', onOwner: noOp }));
+  assert.match(withFunds, /请填写每月可靠到账/); assert.match(withFunds, /截至 2026-09-30/);
 });

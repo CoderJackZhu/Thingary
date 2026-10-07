@@ -6,6 +6,8 @@ import { CapabilityNotice, MissingList, RequirementCard } from './PlanningRequir
 import { RetireOverview, useValueMode } from './RetireOverview';
 import { RiskLab } from './RiskLab';
 import { rateText } from './plan';
+import { ready } from './review';
+import { usualSaving } from './plan-summary';
 import type { BasicCapabilities, PlanningMissing, PlanningSources, ProfileState } from './plan';
 import { toEvent } from './plan-retire-calc';
 import { basicInput, draftOf } from './planning-basic-forms';
@@ -16,7 +18,7 @@ import './retire.css';
 type Saved = NonNullable<ProfileState['saved']>;
 const incomeModeText = { excluded: '本次不计任何退休收入', manual: '手填的收入', beijing: '北京养老金估算' } as const;
 const treatmentText = { included: '已含在总预算', extra: '另外计入', excluded: '本次不计' } as const;
-const contributionText = (cents: string | null) => { const s = amountState(cents); return s === 'unknown' ? '未知（尚未填写）' : s === 'zero' ? '明确 0（不再新增投入）' : `${money(cents!)}/月`; };
+const contributionText = (cents: string | null) => { const s = amountState(cents); return s === 'unknown' ? '以后再估计' : s === 'zero' ? '每月存 0 元（本次估计）' : `${money(cents!)}/月`; };
 
 /** Basic-plan detail: the requirement stays visible; prediction and risk tools open only for an explicit saved or trial contribution. */
 export function PlanningBasicDetail({ sources, saved, today, reload, onPending, onEditingChange, openSetup, onGoto, onEvents, onBack }: { sources: PlanningSources; saved: Saved; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; openSetup: (step: number, from?: HTMLElement | null) => void; onGoto: (tab: 'savings' | 'pension') => void; onEvents: () => void; onBack: () => void }) {
@@ -34,6 +36,8 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const caps = result.status === 'ready' ? result.caps : null;
   const pred = caps?.prediction.status === 'ready' ? caps.prediction.value : null;
   const events = retire.life_events.map(toEvent);
+  const review = ready(sources.review), usual = review ? usualSaving(review) : null;
+  const reference = usual?.kind === 'known' ? `盘点参考区间 ${usual.window_from ?? "起点未记录"} 至 ${usual.latest_date ?? "终点未记录"}：月均净资产变化约 ${money(usual.monthly_cents)}（含估值，共 ${usual.count} 个可比区间${usual.low_sample ? "，样本较少" : ""}）。` : null;
   return <div className="rd-detail">
     <p><button type="button" className="ui-link" onClick={onBack}>{trial !== null ? '← 返回目标（临时试算不会保存）' : '← 返回目标'}</button></p>
     <div className="rd-tabs" role="group" aria-label="退休页签"><button type="button" aria-pressed={tab === 'overview'} onClick={() => setTab('overview')}>概览</button><button type="button" aria-pressed={tab === 'lab'} onClick={() => setTab('lab')}>假设分析</button></div>
@@ -47,7 +51,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
             {pred ? <RetireOverview calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}
           </>}
       </div>
-      <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} onGoto={onGoto} contribution={<ContributionCard saved={saved} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={onEditingChange}/>}/>
+      <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} onGoto={onGoto} contribution={<ContributionCard saved={saved} reference={reference} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={onEditingChange}/>}/>
     </div>
   </div>;
 }
@@ -58,20 +62,20 @@ function NeedContribution({ caps, onOwner }: { caps: BasicCapabilities; onOwner:
   if (p.status === 'ready') return null;
   return <article className="ui-card ui-content" aria-label="预测与风险">
     <h3>预测与风险</h3>
-    {p.missing.some(m => m.code === 'CONTRIBUTION_UNKNOWN') ? <p>还没有预计每月投入，所以这里不显示推算的达成年龄或日期、资产预测图、模拟比例和未来购买余额。需求与你设定的目标时间不受影响。在上方「试算每月投入」试一个数，或在右侧保存预计投入。</p> : <MissingList missing={p.missing} onOwner={onOwner}/>}
+    {p.missing.some(m => m.code === 'CONTRIBUTION_UNKNOWN') ? <p>想看未来的钱够不够，可以先试一个每月能存下的金额。还没想好也没关系，上面的目标需求仍可查看。</p> : <MissingList missing={p.missing} onOwner={onOwner}/>}
   </article>;
 }
 
 function Trial({ trial, onTrial, saved, busy, onSave, notice }: { trial: string | null; onTrial: (v: string | null) => void; saved: string | null; busy: boolean; onSave: () => void; notice: string }) {
   const [text, setText] = useState('');
-  return <article className="ui-card ui-content plan-trial" aria-label="试算每月投入">
-    <div className="ui-section-head"><h3>试算每月投入<Info text="只在这个页面里预览：不保存、不改变首页、心愿或已保存的投入。想保留请明确保存。"/></h3>{trial !== null && <span className="ui-tag warn">临时试算，未保存</span>}</div>
-    <div className="plan-trial-row"><CentInput label="试算每月净投入" signed value={text} placeholder={saved === null ? '填一个金额试试' : money(saved)} onChange={setText}/>
+  return <article className="ui-card ui-content plan-trial" aria-label="试算每月存钱">
+    <div className="ui-section-head"><h3>如果每月存这些钱，会怎样？<Info text="只在这个页面里预览：不保存、不改变首页、心愿或已保存的投入。想保留请明确保存。"/></h3>{trial !== null && <span className="ui-tag warn">临时试算，未保存</span>}</div>
+    <div className="plan-trial-row"><CentInput label="试算每月能存下的钱" signed value={text} placeholder={saved === null ? '填一个金额试试' : money(saved)} onChange={setText}/>
       <button type="button" className="primary" disabled={text === ''} onClick={() => onTrial(text)}>试算</button>
-      <button type="button" className="ui-btn" onClick={() => onTrial('0')}>试算：不再新增投入</button>
+      <button type="button" className="ui-btn" onClick={() => onTrial('0')}>按每月存 0 元试算</button>
       {trial !== null && <button type="button" className="ui-btn" onClick={() => { onTrial(null); setText(''); }}>清除试算</button>}
-      {trial !== null && <button type="button" className="ui-btn" disabled={busy} onClick={onSave}>保存为预计投入</button>}</div>
-    <p className="muted small">日常收支后可留在所选资金范围内的净增减，投资收益另算；负数表示动用存款。</p>
+      {trial !== null && <button type="button" className="ui-btn" disabled={busy} onClick={onSave}>保存这个储蓄估计</button>}</div>
+    <p className="muted small">收入减去全部开销后，留下多少钱就填多少。买基金等投入也算，投资涨跌不算；取用存款填负数。只试算不会保存。</p>
     {notice && <p className="notice" role="status">{notice}</p>}
   </article>;
 }
@@ -97,7 +101,7 @@ function BasicSidebar({ saved, caps, openSetup, onGoto, contribution }: { saved:
       {funds?.status === 'ready' ? <Rows rows={[['来源', funds.value.kind === 'simulation' ? '模拟起点' : '实际盘点'], ['截至', funds.value.date], ['规划可用', money(funds.value.available_cents)], ['受限 / 余债', `${money(funds.value.restricted_cents)} / ${money(funds.value.debt_cents)}`]]}/> : funds ? <ul className="plan-missing-list">{funds.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul> : <p className="muted small">读取中…</p>}
     </Card>
     <Card title="退休收入" onEdit={el => openSetup(1, el)} tip="未选择、本次不计、手填、北京估算含义不同；本次不计不会删除原有收入资料。">
-      <p>{b.retirement_income.mode === null ? '暂不选择（需求暂不计退休收入）' : incomeModeText[b.retirement_income.mode]}</p>
+      <p>{b.retirement_income.mode === null ? '还没选择（选好后才能算需求）' : incomeModeText[b.retirement_income.mode]}</p>
       {b.retirement_income.selected.length > 0 && <ul className="rs-list">{b.retirement_income.selected.map(s => { const i = r.income_items.find(x => x.id === s.id); return <li key={s.id}><span>{i?.label ?? '已删除的收入'}<small>{s.role === 'state_pension' ? '国家养老金' : '其他收入'}</small></span><b>{i ? `${money(i.monthly_cents)}/月` : '—'}</b></li>; })}</ul>}
       {b.retirement_income.mode === 'beijing' && (pension?.status === 'ready' ? <p className="muted small">{pension.value.included ? `政策养老金 ${pension.value.monthly_cents === null ? '' : money(pension.value.monthly_cents) + '/月，'}${pension.value.start_month ? `${pension.value.start_month} 起领` : ''}` : '政策估算未计入'}</p> : pension ? <><ul className="plan-missing-list">{pension.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul><div className="rs-actions"><button type="button" className="ui-btn" onClick={() => onGoto('pension')}>填写养老金事实</button><button type="button" className="ui-btn" onClick={() => openSetup(1)}>改为手填或本次不计</button></div></> : null)}
     </Card>
@@ -105,21 +109,21 @@ function BasicSidebar({ saved, caps, openSetup, onGoto, contribution }: { saved:
     <Card title="更多假设" onEdit={el => openSetup(0, el)} tip="全部是假设，不是事实。收益按扣除通胀后的实际收益填写。">
       <Rows rows={[['退休前 / 后实际收益', `${rateText(r.real_return_before_hundredths)} / ${rateText(r.real_return_after_hundredths)}`], ['通胀', rateText(p.assumptions.inflation_hundredths)], ['规划终点', `${r.horizon_age} 岁`], ['应急金', `${r.emergency_months} 个月`]]}/>
     </Card>
-    {r.legacy_definition && <Card title="原规划假设（只读）" tip="改用通用方式前的原规划定义，原样保留可核对；不再参与通用测算。">
-      <Rows rows={[['记录于', r.legacy_definition.recorded_at], ['原目标', r.legacy_definition.target_age === null ? '未设定' : `${r.legacy_definition.target_age} 岁`], ['原储蓄阶段', `${r.legacy_definition.saving_phases.length} 段${r.legacy_definition.route_id ? ' · 含路线' : ''}`], ['原退休后预算', r.legacy_definition.spend_cents === null ? '未填写' : money(r.legacy_definition.spend_cents)]]}/></Card>}
+    {r.legacy_definition && <details className="ui-card ui-content"><summary>查看以前的规划（只读）</summary><Card title="原规划假设（只读）" tip="改用通用方式前的原规划定义，原样保留可核对；不再参与通用测算。">
+      <Rows rows={[['记录于', r.legacy_definition.recorded_at], ['原目标', r.legacy_definition.target_age === null ? '未设定' : `${r.legacy_definition.target_age} 岁`], ['原储蓄阶段', `${r.legacy_definition.saving_phases.length} 段${r.legacy_definition.route_id ? ' · 含路线' : ''}`], ['原退休后预算', r.legacy_definition.spend_cents === null ? '未填写' : money(r.legacy_definition.spend_cents)]]}/></Card></details>}
   </div>;
 }
 
 /** The only place a contribution is saved from the detail. Blank is unknown; 0 and negatives are explicit values. */
-function ContributionCard({ saved, busy, notice, onSave, onEditingChange }: { saved: Saved; busy: boolean; notice: string; onSave: (v: string | null) => Promise<boolean>; onEditingChange: (v: boolean) => void }) {
+function ContributionCard({ saved, reference, busy, notice, onSave, onEditingChange }: { saved: Saved; reference: string | null; busy: boolean; notice: string; onSave: (v: string | null) => Promise<boolean>; onEditingChange: (v: boolean) => void }) {
   const current = saved.profile.retire.basic?.contribution.monthly_cents ?? null;
   const [editing, setEditing] = useState(false), [text, setText] = useState(current ?? ''), button = useRef<HTMLButtonElement>(null);
   useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
   const close = () => { setEditing(false); requestAnimationFrame(() => button.current?.focus()); };
-  return <article className="ui-card rs-card" id="plan-contribution-card" aria-label="预计投入"><header><div><h3>预计每月投入<Info text="选填。日常收支后可留在所选资金范围内的净增减，投资收益另算。不填也能看需求；填写后才开放预测与风险工具。"/></h3></div>
+  return <article className="ui-card rs-card" id="plan-contribution-card" aria-label="每月能存的钱"><header><div><h3>每月能存的钱（选填）<Info text="例如每月到账 10000 元、全部开销 6000 元，就填 4000 元。包括买基金等留下的钱，不包含投资涨跌。没想好可以不填，以后再修改。"/></h3></div>
     {editing ? <span className="rs-actions"><button type="button" className="ui-btn" disabled={busy} onClick={() => { setText(current ?? ''); close(); }}>取消</button><button type="button" className="primary" disabled={busy} onClick={async () => { if (await onSave(text === '' ? null : text)) close(); }}>{busy ? '保存中…' : '保存'}</button></span>
-      : <button ref={button} type="button" className="ui-btn" aria-label="编辑预计投入" onClick={() => { setText(current ?? ''); setEditing(true); }}>编辑</button>}</header>
-    {editing ? <div className="rs-form"><label className="rs-field"><span>每月净投入</span><CentInput label="预计每月净投入" signed value={text} disabled={busy} placeholder="留空表示未知" onChange={setText}/><small>负数表示动用存款；0 是「明确不再新增投入」，与留空不同。</small></label>{notice && <p className="notice" role="status">{notice}</p>}</div>
+      : <button ref={button} type="button" className="ui-btn" aria-label="编辑每月能存的钱" onClick={() => { setText(current ?? ''); setEditing(true); }}>编辑</button>}</header>
+    {editing ? <div className="rs-form"><label className="rs-field"><span>每月大约能存下多少钱？</span><CentInput label="每月大约能存下多少钱" signed value={text} disabled={busy} placeholder="没想好可以留空" onChange={setText}/><small>例如到账 10000 元、全部开销 6000 元，填 4000 元。取用存款填负数；填 0 只表示本次按每月不存钱计算。</small>{reference && <small className="plan-reference">仅供参考：{reference}资产增减混有估值涨跌，不等于日常收支留下的钱，不会自动填入。</small>}</label>{notice && <p className="notice" role="status">{notice}</p>}</div>
       : <><p>{contributionText(current)}</p>{current === null && <p className="muted small">{SAVE_CONTRIBUTION_HINT}：关联的心愿与大额计划会在保存后显示影响。</p>}</>}
   </article>;
 }

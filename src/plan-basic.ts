@@ -21,7 +21,7 @@ const validSigned = (s: string) => /^-?(0|[1-9]\d*)$/.test(s) && Number.isSafeIn
 /** Candidates are computation variables, never profile patches or prediction outputs. Dates/pension/fees are fixed. */
 export function solveBasicRequirement(compile: (cents: number, before: number, after: number) => Plan, before: number, after: number): RequirementResult {
   const rates = { before_hundredths: before, after_hundredths: after };
-  if (before < -1000 || before > 2000 || after < -1000 || after > 2000) return { ...rates, status: 'out_of_bounds', message: '两段实际收益各降低200 bps后超出合法范围，本条件未应用。' };
+  if (before < -1000 || before > 2000 || after < -1000 || after > 2000) return { ...rates, status: 'out_of_bounds', message: '两段实际收益调整 200 bps 后超出合法范围，本条件未应用。' };
   const zero = compile(0, before, after);
   const run = (n: number) => {
     const p = n === 0 ? zero : compile(n, before, after);
@@ -173,7 +173,8 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
   };
   const set = solveBasicRequirement(compile, r.real_return_before_hundredths, r.real_return_after_hundredths);
   const lower = solveBasicRequirement(compile, r.real_return_before_hundredths - 200, r.real_return_after_hundredths - 200);
-  const requirement: Capability<RequirementValue> = { status: 'ready', value: { set, lower, target_month: ym(monthIndex(birth) + r.target_age * 12), horizon_month: ym(monthIndex(birth) + horizon), budget_scope: 'complete' } };
+  const upper = solveBasicRequirement(compile, r.real_return_before_hundredths + 200, r.real_return_after_hundredths + 200);
+  const requirement: Capability<RequirementValue> = { status: 'ready', value: { set, lower, upper, target_month: ym(monthIndex(birth) + r.target_age * 12), horizon_month: ym(monthIndex(birth) + horizon), budget_scope: 'complete' } };
   let prediction: Capability<PredictionValue> = blocked(predictionMissing);
   if (!predictionMissing.length && contribution !== null) {
     const plan = compile(Number(contribution), r.real_return_before_hundredths, r.real_return_after_hundredths), plan0 = compile(Number(contribution), r.real_return_before_hundredths, r.real_return_after_hundredths, false);

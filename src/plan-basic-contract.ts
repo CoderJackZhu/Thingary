@@ -59,7 +59,7 @@ export type RequirementResult = { before_hundredths: number; after_hundredths: n
   | { status: 'not_applicable'; message: string }
   | { status: 'out_of_bounds'; message: string }
 );
-export type RequirementValue = { set: RequirementResult; lower: RequirementResult; target_month: string; horizon_month: string; budget_scope: 'complete' };
+export type RequirementValue = { set: RequirementResult; lower: RequirementResult; upper: RequirementResult; target_month: string; horizon_month: string; budget_scope: 'complete' };
 export type PredictionValue = { source: 'saved' | 'temporary'; contribution_cents: string; plan: Plan; plan0: Plan; projection: Projection; outcome: Outcome; terminal: 'surplus' | 'no_margin' | 'gap' };
 export type PlanningContext = { generation: string; revision: number | null; today: string; model_version: 'basic-1' | 'legacy'; modules: { planning: boolean; wealth: boolean }; start: { kind: 'live'; snapshot_id: string | null; revision: number | null; date: string | null } | { kind: 'simulation'; id: string; date: string | null }; monetary_basis_date: string | null; source: 'saved' | 'temporary'; write_version: number };
 export type BasicCapabilities = { context: PlanningContext; funds: Capability<{ available_cents: string; restricted_cents: string; debt_cents: string; date: string; kind: 'live' | 'simulation' }>; requirement: Capability<RequirementValue>; prediction: Capability<PredictionValue>; pension: Capability<{ included: boolean; start_month: string | null; monthly_cents: string | null }> };

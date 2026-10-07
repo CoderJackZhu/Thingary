@@ -132,9 +132,9 @@ function Coverage({ calc, mode, basic }: { calc: Ready; mode: ValueMode; basic: 
     <div className="rd-head"><div><p className="eyebrow">覆盖情况</p><h3>退休支出覆盖情况</h3></div>
       <Segments label="覆盖视图" value={view} options={[{ value: 'at', label: '退休时' }, { value: 'over', label: '随时间变化' }]} onChange={setView}/></div>
     {view === 'over' ? <>
-      <p className="muted small">收入和投资组合提取如何在整个退休期内覆盖计划支出。数值以{valueModeLabel[mode]}显示；堆叠区域显示支出的资金来源，虚线为计划退休支出。</p>
+      <p className="muted small">各颜色表示收入或资产提款承担的预算部分；未覆盖部分单独显示。数值以{valueModeLabel[mode]}显示；堆叠区域显示支出的资金来源，虚线为计划退休支出。</p>
       <CoverageChart series={series} fmt={fmt} valueLabel={valueModeLabel[mode]}/></> : <>
-      <p className="rd-cov-caption">{c.age} 岁时的快照：计划 <strong>{fmt(c.spend)}/月</strong> 支出与资金支持。未来项目保持可见，并在生效时计入。</p>
+      <p className="rd-cov-caption">{c.age} 岁时的快照：计划 <strong>{fmt(c.spend)}/月</strong> 该时点的预算及各项资金贡献。</p>
       <label className="rd-slider"><span>查看年龄</span><input type="range" aria-label="覆盖快照年龄" min={Math.ceil(start / 12)} max={Math.floor(end / 12)} value={c.age} onChange={e => setPick(Number(e.target.value) * 12)}/><b>{c.age} 岁</b></label>
       <div className="rd-stack" role="img" aria-label={`${c.age} 岁时：收入 ${Math.round(c.pct.income)}%，投资组合 ${Math.round(c.pct.portfolio)}%，无资金支持 ${Math.round(c.pct.unfunded)}%`}>
         {c.segments.map((s, i) => <div key={s.key} className={`rd-seg ${s.kind}`} style={{ width: `${c.spend > 0 ? Math.min(100, (s.monthly / c.spend) * 100) : 0}%`, opacity: s.kind === 'income' ? Math.max(0.45, 1 - i * 0.2) : 1 }} title={`${s.label}：${Math.round(c.spend > 0 ? (s.monthly / c.spend) * 100 : 0)}%`}/>)}

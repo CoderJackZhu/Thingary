@@ -14,9 +14,9 @@ import { basicInput, budgetInput, contributionSources, draftOf, fundsInput, inco
 import type { CostSource, Draft, IncomeMode, ScopeDraft } from './planning-basic-forms';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
 import type { SectionInput } from './planning-basic-data';
-import { amountState, hasLegacyPlan, ownerLabel, setupStepFor } from './planning-basic-view';
+import { amountState, hasLegacyPlan, missingText, setupStepFor } from './planning-basic-view';
 
-const steps = ['目标与预算', '资金与退休收入', '查看需求', '预计投入与确认'];
+const steps = ['想过怎样的生活', '用哪些钱来准备', '看看每月要存多少', '确认计划'];
 type Saved = ProfileState['saved'];
 
 /** Skippable four-step setup. Nothing is written until the last step; closing, Esc and "skip" never save a draft. */
@@ -69,7 +69,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   const missing = preview.status === 'ready' ? [...(preview.caps.requirement.status === 'blocked' ? preview.caps.requirement.missing : []), ...(preview.caps.funds.status === 'blocked' ? preview.caps.funds.missing : [])] : [];
 
   return <dialog ref={dialog} className="editor wealth-account-editor planning-setup-dialog" aria-labelledby="setup-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); if (step === 3) void save(); else if (step === 2) setStep(3); else next(); }}>
-    <header><div><p className="eyebrow">{legacy ? '用通用方式重新设置' : '开始规划'} · {step + 1} / {steps.length}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 0 ? '没想好的先留空，不会当作 0 保存。可以随时关闭，先去记录收入或查看复盘。' : step === 3 ? '投入可以不填；不填也能保存目标，并继续查看需要多少。' : '这里设置的是假设，随时可以修改。'}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
+    <header><div><p className="eyebrow">{legacy ? '使用简化规划' : '开始规划'} · {step + 1} / {steps.length}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 0 ? '没想好的先留空，不会当作 0 保存。可以随时关闭，先去记录收入或查看复盘。' : step === 3 ? '直接确认就可以。每月能存多少是选填，没想好可以以后再说。' : '这里设置的是假设，随时可以修改。'}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
     <nav className="planning-setup-steps" aria-label="设置步骤">{steps.map((s, i) => <span key={s} aria-current={i === step ? 'step' : undefined}>{i + 1}. {s}</span>)}</nav>
     <div className="planning-setup-body">
       {step === 0 && <GoalStep d={d} patch={patch} frozen={frozen} now={now} sources={r ? retirementSources(r, d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null) : []}/>}
@@ -82,7 +82,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
       {step === 3 && <ConfirmStep d={d} patch={patch} frozen={frozen} legacy={legacy} previewMissing={missing} sources={r ? contributionSources(r, saved?.profile.personal_pension_annual_cents ?? null) : []} hasBeijing={d.incomeMode === 'beijing'}/>}
     </div>
     {(notice || saver.notice) && <p className="notice setup-notice" role="alert">{[notice, saver.notice].filter(Boolean).join(' ')}</p>}
-    <footer className="planning-setup-footer"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : saved?.profile.retire.basic ? '取消本次修改' : legacy ? '取消，保持原规划' : '暂时跳过'}</button><span>{step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : step === 3 ? (legacy ? '确认并启用通用方式' : '确认并保存') : step === 2 ? '下一步：预计投入' : '下一步'}</button></span></footer>
+    <footer className="planning-setup-footer"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : saved?.profile.retire.basic ? '取消本次修改' : legacy ? '取消，保持原规划' : '暂时跳过'}</button><span>{step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : step === 3 ? (legacy ? '确认并使用简化规划' : '确认并保存') : step === 2 ? '下一步：确认计划' : '下一步'}</button></span></footer>
   </form></dialog>;
 }
 
@@ -90,10 +90,10 @@ function GoalStep({ d, patch, frozen, now, sources }: { d: Draft; patch: (v: Par
   return <section className="form-block">
     <FormRow label="生活目标"><select aria-label="生活目标" value={d.mode} disabled={frozen} onChange={e => patch({ mode: e.target.value as Draft['mode'] })}><option value="fire">财务自由：资金够用后退休</option><option value="traditional">按计划年龄退休：检查是否够用</option></select></FormRow>
     <FormRow label="出生年月" hint="目标是年龄、或要引用政策估算时才需要；点日历选择，只用到年和月"><DateInput id="setup-birth" label="出生日期" value={d.birth} max={new Date().toISOString().slice(0, 10)} disabled={frozen} allowClear onChange={v => patch({ birth: v })}/></FormRow>
-    <FormRow label="目标年龄" hint={now === null ? '你期望的年龄，不是系统替你决定的退休日期。留空表示还没想好' : `当前约 ${now} 岁。留空表示还没想好`}><input aria-label="目标年龄" inputMode="numeric" value={d.target} disabled={frozen} placeholder="例如 55" onChange={e => patch({ target: e.target.value })}/></FormRow>
-    <FormRow label="退休后每月生活预算" hint="按今天的物价，填总额即可；留空表示还没想好"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="0.00" onChange={v => patch({ budget: v })}/></FormRow>
-    {sources.length > 0 && <fieldset className="plan-scope"><legend>已有的支出明细，是否已含在总预算里？<Info text="已含：总预算里已经包括这笔，不会再加一次；另外计入：在总预算之外再加；本次不计：这次测算忽略。不选择表示还没确认。"/></legend>
-      {sources.map(s => <ScopeRow key={s.id} label={`${s.label} ${s.cents ? money(s.cents) : ''}/月`} value={d.retScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef={s.cents ?? ''} disabled={frozen} onChange={v => patch({ retScopes: { ...d.retScopes, [s.id]: v } })}/>)}</fieldset>}
+    <FormRow label="想在几岁退休？" hint={now === null ? '你期望的年龄，不是系统替你决定的退休日期。留空表示还没想好' : `当前约 ${now} 岁。留空表示还没想好`}><input aria-label="想在几岁退休？" inputMode="numeric" value={d.target} disabled={frozen} placeholder="例如 55" onChange={e => patch({ target: e.target.value })}/></FormRow>
+    <FormRow label="退休后，每月生活费大约多少？" hint="按现在的物价，合计吃饭、住房、日常生活等开销。还没想好可以先留空"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="0.00" onChange={v => patch({ budget: v })}/></FormRow>
+    {sources.length > 0 && <fieldset className="plan-scope"><legend>核对已保存的费用<Info text="这里只看以后要付的钱，过去已经交过的社保等费用不会再扣一次。生活费里已经包括的，选「已包含」；还要额外支付的，选「另外加上」。"/></legend><p className="muted small">这些是以前保存的费用假设。请确认它们是否包含在上面填写的生活费里，避免算两次。</p>
+      {sources.map(s => <ScopeRow key={s.id} label={`${s.id === 'social_insurance' ? '以后自己交社保（旧计划）' : s.label} ${s.cents ? money(s.cents) : ''}/月`} value={d.retScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef={s.cents ?? ''} disabled={frozen} onChange={v => patch({ retScopes: { ...d.retScopes, [s.id]: v } })}/>)}</fieldset>}
     <details><summary>更多假设：规划终点、收益、通胀与应急金</summary>
       <p className="muted small">这些是可以修改的假设。规划终点默认 90 岁，实际收益默认 0%，请按自己的判断确认。</p>
       <FormRow label="规划到几岁"><input aria-label="规划到几岁" inputMode="numeric" value={d.horizon} disabled={frozen} onChange={e => patch({ horizon: e.target.value })}/></FormRow>
@@ -106,12 +106,12 @@ function GoalStep({ d, patch, frozen, now, sources }: { d: Draft; patch: (v: Par
 }
 
 function ScopeRow({ label, value, placeholderRef, disabled, onChange }: { label: string; value: ScopeDraft; placeholderRef: string; disabled: boolean; onChange: (v: ScopeDraft) => void }) {
-  return <FormRow label={label}><span className="plan-scope-row"><select aria-label={`${label}包含关系`} value={value.treatment} disabled={disabled} onChange={e => { const treatment = e.target.value as ScopeDraft['treatment']; onChange({ treatment, ref: treatment === 'included' && value.ref === '' ? placeholderRef : treatment === 'included' ? value.ref : '' }); }}><option value="">还没确认</option><option value="included">已含在总预算里</option><option value="extra">另外计入</option><option value="excluded">本次不计</option></select>{value.treatment === 'included' && <CentInput label={`${label}已含金额`} value={value.ref} disabled={disabled} onChange={v => onChange({ ...value, ref: v })}/>}</span></FormRow>;
+  return <FormRow label={label}><span className="plan-scope-row"><select aria-label={`${label}包含关系`} value={value.treatment} disabled={disabled} onChange={e => { const treatment = e.target.value as ScopeDraft['treatment']; onChange({ treatment, ref: treatment === 'included' && value.ref === '' ? placeholderRef : treatment === 'included' ? value.ref : '' }); }}><option value="">请选择</option><option value="included">已包含，不再重复算</option><option value="extra">另外加上这笔费用</option><option value="excluded">这次先不算</option></select>{value.treatment === 'included' && <details className="plan-scope-amount"><summary>核对已包含的金额：{value.ref === '' ? '待填写' : money(value.ref)}</summary><CentInput label={`${label}已含金额`} value={value.ref} disabled={disabled} onChange={v => onChange({ ...value, ref: v })}/></details>}</span></FormRow>;
 }
 
 const incomeModes: { value: IncomeMode; label: string; hint: string }[] = [
-  { value: '', label: '暂不选择', hint: '还没想好；需求暂时不会算退休收入，会提示补充' },
-  { value: 'excluded', label: '本次不计', hint: '这次测算不计入任何退休收入；已有的收入资料原样保留' },
+  { value: '', label: '暂不选择', hint: '可以稍后选择，选好后才能计算需要准备多少钱' },
+  { value: 'excluded', label: '先不算养老金等收入', hint: '先看看只靠自己准备需要多少钱，已有资料会保留' },
   { value: 'manual', label: '手填的收入', hint: '只计入你勾选的这些收入' },
   { value: 'beijing', label: '北京养老金估算', hint: '按政策估算国家养老金，可再加你勾选的其他收入' },
 ];
@@ -131,7 +131,7 @@ function ConditionStep({ d, setD, patch, frozen, snapshot, accounts, wealthOn, w
         </>}
     </section>
     <section className="form-block" aria-label="退休收入">
-      <h3>退休后有哪些收入计入？</h3>
+      <h3>这次要不要算养老金等收入？</h3>
       <div className="plan-income-modes" role="radiogroup" aria-label="退休收入计入方式">{incomeModes.map(m => <label key={m.value || 'none'} className="plan-choice"><input type="radio" name="income-mode" checked={d.incomeMode === m.value} disabled={frozen} onChange={() => patch({ incomeMode: m.value })}/><span><strong>{m.label}</strong><small>{m.hint}</small></span></label>)}</div>
       {(d.incomeMode === 'manual' || d.incomeMode === 'beijing') && <>
         {d.incomeItems.length === 0 && <p className="muted small">{d.incomeMode === 'manual' ? '还没有手填的收入。添加一笔，例如企业年金、租金或返聘。' : '没有其他收入也可以，国家养老金按政策估算。'}</p>}
@@ -175,24 +175,26 @@ function NewIncome({ onAdd, onCancel }: { onAdd: (i: Draft['incomeItems'][number
 }
 
 function ConfirmStep({ d, patch, frozen, legacy, previewMissing, sources, hasBeijing }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; legacy: boolean; previewMissing: PlanningMissing[]; sources: CostSource[]; hasBeijing: boolean }) {
+  const [expanded, setExpanded] = useState(d.contribution !== '');
   const state = amountState(d.contribution === '' ? null : d.contribution);
-  const incomeText = { '': '暂不选择（需求暂不计退休收入）', excluded: '本次不计', manual: `手填的 ${d.incomeItems.filter(i => d.picks[i.id]?.on).length} 笔收入`, beijing: '北京养老金估算' }[d.incomeMode];
+  const incomeText = { '': '还没选择（选好后才能算需求）', excluded: '本次不计', manual: `手填的 ${d.incomeItems.filter(i => d.picks[i.id]?.on).length} 笔收入`, beijing: '北京养老金估算' }[d.incomeMode];
   return <>
-    <section className="form-block">
-      <FormRow label="愿意试算每月留下多少吗？" hint="日常收支后可留在所选资金范围内的净增减，投资收益另算。可以暂不填写；负数表示动用存款"><span className="plan-contribution"><CentInput label="预计每月净投入" signed value={d.contribution} disabled={frozen} placeholder="暂不填写" onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>明确不再新增投入（0）</button></span></FormRow>
-      <p className="muted small" role="status">{state === 'unknown' ? '未填写：保存为「未知」。不会按 0 或历史资产增长推算，也不显示预计达成时间。' : state === 'zero' ? '明确为 0：按不再新增投入试算。' : state === 'positive' ? '按每月净投入试算（不含投资收益）。' : '负数：按每月动用存款试算。'}</p>
-      {sources.length > 0 && <fieldset className="plan-scope"><legend>这笔净投入是否已含下面的费用？</legend>
-        {sources.map(s => <ScopeRow key={s.id} label={s.label} value={d.conScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef="0" disabled={frozen} onChange={v => patch({ conScopes: { ...d.conScopes, [s.id]: v } })}/>)}</fieldset>}
-    </section>
-    <section className="form-block"><h3>保存前确认</h3><dl className="plan-facts">
+    <details className="form-block plan-optional" open={expanded} onToggle={e => setExpanded(e.currentTarget.open)}>
+      <summary>每月能存多少钱？（选填，没想好可以跳过）</summary>
+      <FormRow label="每月大约能存下多少钱？" hint="例如到账 10000 元、全部开销 6000 元，就填 4000 元。买基金等投入也算存下的钱，投资涨跌不算；每月取用存款则填负数"><span className="plan-contribution"><CentInput label="每月大约能存下多少钱" signed value={d.contribution} disabled={frozen} placeholder="暂不填写" onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>按每月存 0 元试算</button></span></FormRow>
+      <p className="muted small" role="status">{state === 'unknown' ? '没填写也可以：先看目标需要存多少钱，以后再补自己的估计。' : state === 'zero' ? '这次按每月存 0 元计算，以后可以修改。' : state === 'positive' ? '按你估计每月能存下的钱计算，不包含投资涨跌。' : '负数：按每月动用存款试算。'}</p>
+    </details>
+    {sources.length > 0 && <fieldset className="form-block plan-scope"><legend>核对退休前已保存的费用</legend><p className="muted small">这些费用也会影响目标需要准备的钱，因此单独核对。若填写了每月能存的钱，请确认这笔费用是否已扣除；没填时也不要把已知费用当作不存在。</p>
+      {sources.map(s => <ScopeRow key={s.id} label={s.label} value={d.conScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef="0" disabled={frozen} onChange={v => patch({ conScopes: { ...d.conScopes, [s.id]: v } })}/>)}</fieldset>}
+    <section className="form-block"><h3>你的计划</h3><dl className="plan-facts">
       <div><dt>目标</dt><dd>{d.mode === 'fire' ? '财务自由' : '按年龄退休'} · {d.target ? `${d.target} 岁` : '年龄未定'}</dd></div>
       <div><dt>退休后每月预算</dt><dd>{d.budget ? money(d.budget) : '未填写'}</dd></div>
       <div><dt>资金起点</dt><dd>{d.start === 'live' ? '实际盘点' : `模拟起点 ${d.simAmount ? money(d.simAmount) : '金额未填'}${d.simDate ? ` · 截至 ${d.simDate}` : ''}`}</dd></div>
       <div><dt>退休收入</dt><dd>{incomeText}</dd></div>
-      <div><dt>预计每月投入</dt><dd>{d.contribution === '' ? '未知' : money(d.contribution)}</dd></div>
+      <div><dt>每月能存的钱（选填）</dt><dd>{d.contribution === '' ? '以后再估计' : money(d.contribution)}</dd></div>
       <div><dt>假设</dt><dd>覆盖到 {d.horizon} 岁 · 收益 {d.before}% / {d.after}% · 通胀 {d.infl}%</dd></div>
     </dl>
-    {previewMissing.length > 0 && <div className="plan-missing" role="status"><strong>尚未覆盖：</strong><ul>{previewMissing.map(m => <li key={m.code + m.field}>{ownerLabel[m.owner]}：{m.message}</li>)}</ul></div>}
+    {previewMissing.length > 0 && <div className="plan-missing" role="status"><strong>之后还可以补充：</strong><ul>{previewMissing.map(m => <li key={m.code + m.field}>{missingText(m)}</li>)}</ul></div>}
     {hasBeijing && <p className="muted small">养老金事实与未来缴费作为独立资料保存，之后可在「养老金」页修改。</p>}
     <p className="muted small">只保存规划设置。账户、盘点、实际收入、已记录的付款与余债不会改变。</p></section>
     {legacy && <section className="form-block plan-legacy-confirm" aria-label="与原规划的差异"><h3>与原规划的差异</h3>

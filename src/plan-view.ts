@@ -42,52 +42,54 @@ export type Verdict = {
 
 const seg = (t: string, strong = false): Seg => ({ t, ...(strong ? { strong } : {}) });
 
-/** assetsNow 是当前可支配资产；fmt 把「今天的钱」的分按展示口径格式化（调用方已含缩放时传入的就是缩放后的）。 */
-export function verdict(P: Plan, proj: Projection, out: Outcome, assetsNow: number, mode: ValueMode, fmt: (cents: number) => string): Verdict {
-  const goal = P.target_months, goalAge = ageInt(goal), horizonAge = ageInt(P.horizon_months);
-  const k = scaleAt(P, mode, goal);
-  const T = table(P), idx = Math.min(Math.max(0, goal - P.now_months), Math.max(0, T.spend.length - 1));
-  const annualSpend = (T.spend[idx] ?? 0) * 12 * k;
-  const contribution = `${fmt(P.saving_cents)}/月`;
-  const fire = P.mode === 'fire';
-  const summary = fire
-    ? [seg('根据当前假设及'), seg(contribution, true), seg(`的缴款，计划包括直至 ${horizonAge} 岁的每年`), seg(fmt(annualSpend), true), seg('支出。')]
-    : [seg('根据当前假设及'), seg(contribution, true), seg(`的缴款，${goalAge} 岁时的预计余额为`), seg(fmt(out.assets_at_goal * k), true), seg('，所需资金为'), seg(fmt(out.required_at_goal * k), true), seg('。')];
-  const gap = out.shortfall_at_goal * k;
-  const subShort = gap > 0 ? [seg(`在 ${goalAge} 岁时。预计缺口为`), seg(fmt(gap), true)] : [];
-  const fiNow = proj.fi_month !== null && proj.fi_month <= P.now_months;
-  const failure = proj.failure_month !== null ? ageInt(proj.failure_month) : null, shortfallAge = proj.shortfall_month !== null ? ageInt(proj.shortfall_month) : null;
-
-  // 引导语：按严重程度取第一条成立的（与对标产品同一顺序）。
-  let guidance: string | null = null, tone: Tone = 'good';
-  if (failure !== null) { tone = 'bad'; guidance = `预计投资组合在 ${failure} 岁时出现资金不足。请在假设分析中比较假设。`; }
-  else if (shortfallAge !== null) { tone = 'watch'; guidance = `预计从 ${shortfallAge} 岁起出现支出缺口。请在假设分析中比较假设。`; }
-  else if (!fire) { if (!out.funded_at_goal) { tone = 'watch'; guidance = '预计退休时出现缺口。请在假设分析中比较假设。'; } }
-  else if (fiNow) guidance = '当前投资组合已达到你的假设下估算的财务独立目标。';
-  else if (proj.fi_month === null) { tone = 'bad'; guidance = `预计 ${horizonAge} 岁前无法实现财务独立。请在假设分析中比较假设。`; }
-
-  if (P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5) guidance = '有限期间完整预算已覆盖，终点无余量；此结果不覆盖终点之后。';
-
-  if (!fire) {
-    const status: Verdict['status'] = failure !== null ? 'depleted' : !out.funded_at_goal ? 'shortfall' : out.assets_at_goal >= out.required_at_goal * 1.25 && out.required_at_goal > 0 ? 'overfunded' : 'on_track';
-    const badge = { depleted: '资金不足', shortfall: '缺口', overfunded: '盈余', on_track: '进展顺利' }[status];
-    const headline = status === 'depleted' ? [seg('预计投资组合资金不足的年龄为'), seg(`${failure} 岁`, true), seg(`，即在 ${goalAge} 岁退休之后。`)]
-      : status === 'shortfall' ? [seg(`${goalAge} 岁时预计缺口为`), seg(fmt(gap), true), seg(`才能支撑退休生活至 ${horizonAge} 岁。`)]
-      : status === 'overfunded' ? [seg(`预计您将在 ${goalAge} 岁退休，并有`), seg(fmt((out.assets_at_goal - out.required_at_goal) * k), true), seg('盈余。')]
-      : [seg('预计您将退休于'), seg(`${goalAge} 岁`, true), seg('，进展顺利。')];
-    return { tone: status === 'depleted' ? 'bad' : status === 'shortfall' ? 'watch' : tone, badge, headline, sub: [], summary, guidance, status, late_months: null, reached: out.funded_at_goal };
+/** The verdict is assembled from two independent facts: funding at the chosen
+ * goal and actual monthly payment coverage. A reached goal never hides a later gap. */
+export function verdict(P: Plan, proj: Projection, out: Outcome, _assetsNow: number, mode: ValueMode, fmt: (cents: number) => string): Verdict {
+  const goalAge = ageInt(P.target_months), horizonAge = ageInt(P.horizon_months);
+  const displayFactor = scaleAt(P, mode, P.target_months);
+  const index = Math.max(0, Math.min(table(P).spend.length - 1, P.target_months - P.now_months));
+  const annualBudget = (table(P).spend[index] ?? 0) * 12;
+  const reserve = out.assets_at_goal - out.required_at_goal;
+  const at = (month: number) => `${ageInt(month)} 岁`;
+  const summaries = [
+    seg('预计每月投入 '), seg(fmt(P.saving_cents), true),
+    seg(`；${goalAge} 岁时的预计余额为 `), seg(fmt(out.assets_at_goal * displayFactor), true),
+    seg('，所需资金为 '), seg(fmt(out.required_at_goal * displayFactor), true),
+    seg('。目标时点的预算为每年'), seg(fmt(annualBudget * displayFactor), true), seg('。'),
+  ];
+  const messages: string[] = [];
+  if (proj.failure_month !== null) messages.push(`${at(proj.failure_month)}开始有付款无法由当时资金承担`);
+  if (proj.shortfall_month !== null) messages.push(`${at(proj.shortfall_month)}开始必需开销出现缺口`);
+  if (!out.funded_at_goal) messages.push(`目标时点还差 ${fmt(Math.max(0, -reserve) * displayFactor)}`);
+  if (P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5) messages.push('有限期间完整预算已覆盖，终点无余量；此结果不覆盖终点之后');
+  let tone: Tone = proj.failure_month !== null ? 'bad' : messages.length ? 'watch' : 'good';
+  const common = { summary: summaries, sub: [] as Seg[], guidance: messages.length ? messages.join('；') + '。' : null, tone };
+  if (P.mode === 'traditional') {
+    // Surplus badge means at least one target-year budget remains above the
+    // calculated requirement; smaller reserves are shown without a surplus badge.
+    const status: NonNullable<Verdict['status']> = proj.failure_month !== null ? 'depleted'
+      : !out.funded_at_goal ? 'shortfall' : reserve >= Math.max(1, annualBudget) ? 'overfunded' : 'on_track';
+    const badges = { depleted: '资金不足', shortfall: '缺口', overfunded: '盈余', on_track: '进展顺利' };
+    const headline = status === 'depleted'
+      ? [seg(`计划在 ${goalAge} 岁退休，`), seg(`${at(proj.failure_month!)}出现资金不足`, true)]
+      : status === 'shortfall'
+        ? [seg(`${goalAge} 岁退休还需要 `), seg(fmt(Math.max(0, -reserve) * displayFactor), true)]
+        : [seg(`${goalAge} 岁的资金需求已满足`), ...(status === 'overfunded' ? [seg('，需求之外还有 '), seg(fmt(reserve * displayFactor), true)] : [])];
+    return { ...common, status, badge: badges[status], headline, reached: out.funded_at_goal, late_months: null };
   }
-
-  if (fiNow) return { tone: 'good', badge: '已实现财务独立', headline: [seg('您已实现'), seg('财务独立', true), seg('——按当前假设计算。')], sub: [], summary, guidance, status: null, late_months: null, reached: true };
-  if (proj.fi_month === null) return { tone: 'bad', badge: `预计 ${horizonAge} 岁前无法达到`, headline: [seg(`按当前假设，${horizonAge} 岁前无法达到财务独立。`)], sub: subShort, summary, guidance, status: null, late_months: null, reached: false };
-  const late = proj.fi_month - goal;
-  if (late <= 0) return { tone: failure !== null || shortfallAge !== null ? tone : 'good', badge: '进展顺利', headline: [seg('预计您将在'), seg(`${ageInt(proj.fi_month)} 岁`, true), seg('达到财务独立。')], sub: subShort, summary, guidance, status: null, late_months: null, reached: true };
-  const lateYears = Math.round(late / 12);
+  const fi = proj.fi_month;
+  if (fi === null) return { ...common, tone: 'bad', badge: `预计 ${horizonAge} 岁前无法达到`, headline: [seg(`这些条件下，规划期内没有达到财务独立。`)], status: null, late_months: null, reached: false };
+  const reachedNow = fi <= P.now_months;
+  const delay = Math.max(0, fi - P.target_months);
+  if (delay) messages.push(`比目标晚 ${durationText(delay)}后实现财务独立`);
+  if (delay && tone === 'good') tone = 'watch';
   return {
-    tone: late <= 36 ? 'watch' : 'bad', badge: late < 12 ? `晚 ${late} 个月` : `晚 ${lateYears} 年`,
-    headline: [seg('预计您将在'), seg(`${ageInt(proj.fi_month)} 岁`, true), seg('达到财务独立。')], sub: subShort, summary,
-    guidance: failure !== null || shortfallAge !== null ? guidance : `预计在期望年龄的 ${late < 12 ? `${late} 个月` : `${lateYears} 年`}后实现财务独立。请在假设分析中比较假设。`,
-    status: null, late_months: late, reached: false,
+    ...common, tone, status: null, reached: reachedNow || delay === 0,
+    badge: reachedNow ? '已实现财务独立' : delay ? `晚 ${durationText(delay)}` : '进展顺利',
+    headline: reachedNow ? [seg('当前资金已达到这组条件下的财务独立门槛。')]
+      : [seg('按所设条件，财务独立的测算时点为 '), seg(at(fi), true)],
+    guidance: messages.length ? messages.join('；') + '。' : null,
+    late_months: delay || null,
   };
 }
 

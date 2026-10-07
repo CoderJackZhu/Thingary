@@ -3,6 +3,7 @@ import { money } from './asset';
 import type { Account, Snapshot } from './wealth';
 import type { PlanningMissing, PlanningSources, ProfileState } from './plan';
 import { CapabilityNotice, RequirementCard } from './PlanningRequirement';
+import { RunwayCard } from './PlanningRunway';
 import { FundsCard } from './PlanningFunds';
 import { PlanningBasicDetail } from './PlanningBasicDetail';
 import { PlanningEvents } from './PlanningEvents';
@@ -50,9 +51,10 @@ export function PlanningBasicGoals({ sources, mode, today, reload, onPending, on
     <article className="ui-card ui-content plan-goal plan-retirement-goal" aria-label="退休目标">
       <div className="ui-section-head"><div><p className="eyebrow">长期生活计划</p><h3>退休与财务自由</h3></div><span className="ui-tag">还没有设置</span></div>
       <p className="plan-goal-headline"><strong>先说说你的目标，没想好的可以留空</strong></p>
-      <p className="muted">只需要目标、预算和这次用哪些资金。预计每月投入不是必填；不填也能看到需要每月投入多少。想先记录收入或看复盘，可以直接跳过。</p>
+      <p className="muted">告诉软件想在几岁退休、退休后每月花多少钱，以及现在有多少钱可用于准备。它会帮你算每月大约要存多少；你自己的储蓄估计可以先不填。</p>
       <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始设置</button><button type="button" className="ui-btn" onClick={() => onGoto('savings')}>先看收入与复盘</button></div>
     </article>
+    <RunwayCard caps={null} today={today} onOwner={() => openSetup(1)}/>
     <PlanningWishes calc={null} today={today} hint="设置目标后可查看"/>
   </div>;
 
@@ -67,19 +69,20 @@ export function PlanningBasicGoals({ sources, mode, today, reload, onPending, on
       <div className="plan-goal-overview">
         <div>
           <p className="plan-goal-headline"><strong>目标：{r.target_age === null ? '还没有设定年龄' : `${r.target_age} 岁${r.mode === 'fire' ? ' 财务自由' : ' 退休'}`}</strong>{caps?.requirement.status === 'ready' && <span>{r.mode === 'fire' ? '期望时间' : '目标时间'}：{caps.requirement.value.target_month}</span>}</p>
-          {pred ? <p className="muted">按已保存的预计投入 {money(pred.contribution_cents)}/月：{terminalText[pred.terminal]}。</p>
-            : contribution === 'unknown' ? <p className="muted">你还没有填写预计投入，所以不显示推算的达成年龄或日期、预测图和模拟比例；需要多少投入和你设定的目标时间不受影响。</p> : null}
+          {pred ? <p className="muted">按你估计每月能存下的钱 {money(pred.contribution_cents)}/月：{terminalText[pred.terminal]}。</p>
+            : contribution === 'unknown' ? <p className="muted">先看看这个目标需要每月存多少钱。你自己的储蓄估计可以以后再填。</p> : null}
           <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={() => setDetail({ contribution: false })}>查看测算详情</button><button type="button" className="ui-btn" onClick={e => openSetup(0, e.currentTarget)}>编辑目标与设置</button><button type="button" className="ui-btn" onClick={() => onGoto('savings')}>收入与复盘</button></div>
         </div>
         <dl className="plan-facts plan-goal-inputs">
-          <div><dt>退休后月预算</dt><dd>{r.spend_cents === null ? '待补充' : money(r.spend_cents)}</dd><small className="muted">按今天的物价，完整预算</small></div>
-          <div><dt>预计每月投入</dt><dd>{contribution === 'unknown' ? '未填写' : contribution === 'zero' ? '明确 0' : money(b.contribution.monthly_cents!)}</dd><small className="muted">{contribution === 'unknown' ? '选填，不填也能看需求' : '你保存的假设，不含投资收益'}</small></div>
+          <div><dt>退休后每月生活费</dt><dd>{r.spend_cents === null ? '待补充' : money(r.spend_cents)}</dd><small className="muted">按今天的物价，完整预算</small></div>
+          <div><dt>每月能存的钱（选填）</dt><dd>{contribution === 'unknown' ? '以后再估计' : contribution === 'zero' ? '0 元' : money(b.contribution.monthly_cents!)}</dd><small className="muted">{contribution === 'unknown' ? '不影响查看目标需要的钱' : '你自己的估计，不含投资涨跌'}</small></div>
           <div><dt>规划可用资金</dt><dd>{caps?.funds.status === 'ready' ? money(caps.funds.value.available_cents) : '待补充'}</dd><small className="muted">{caps?.funds.status === 'ready' ? `${caps.funds.value.kind === 'simulation' ? '模拟起点' : '实际盘点'} · 截至 ${caps.funds.value.date}` : '仅明确可用资金'}</small></div>
         </dl>
       </div>
     </article>
     {result.status !== 'ready' ? <CapabilityNotice result={result}/> : <RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy}/>}
-    {caps && !pred && contribution === 'unknown' && <article className="ui-card ui-content plan-contribution-prompt" aria-label="预计投入"><div className="ui-section-head"><h3>预计每月投入（选填）</h3><button type="button" className="ui-btn" onClick={() => setDetail({ contribution: true })}>填写预计投入</button></div><p className="muted">填写后才会开放预测与风险工具；未填写时它保持「未知」，不会当作 0。</p></article>}
+    {caps && <RunwayCard caps={caps} today={today} onOwner={owner}/>}
+    {caps && !pred && contribution === 'unknown' && <article className="ui-card ui-content plan-contribution-prompt" aria-label="每月能存的钱"><div className="ui-section-head"><h3>想看看按自己的储蓄速度，能否达到目标？</h3><button type="button" className="ui-btn" onClick={() => setDetail({ contribution: true })}>估计每月能存多少钱</button></div><p className="muted">这一步选填。还没想好就先跳过，不会替你假定每月存 0 元。</p></article>}
     {caps && <FundsCard caps={caps} sources={sources} saved={saved as Saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openRef={fundsOpen}/>}
     {events && <div id="plan-events-section" tabIndex={-1}><PlanningEvents store={events} today={today} onEditingChange={onEditingChange}/></div>}
     <PlanningWishes calc={wishCalc} today={today} hint={wishHint} onContribution={goContribution}/>

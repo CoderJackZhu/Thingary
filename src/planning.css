@@ -129,3 +129,11 @@ dialog.planning-setup-dialog .form-row .form-row-control { max-width: 55%; }
 .planning-setup-dialog .form-block > :last-child { margin-bottom: 14px; }
 .planning-setup-dialog .form-block > details > summary { padding-block: 8px; }
 .plan-contribution { justify-content: flex-end; }
+
+/* Fixed current cash-flow tool, using shared fields and theme tokens. */
+.plan-runway summary { cursor: pointer; font-weight: 600; }
+.plan-runway-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 12px; margin: 12px 0; }
+.plan-runway .rs-field { display: grid; gap: 6px; min-width: 0; }
+.plan-runway .rs-field input, .plan-runway .rs-field select { width: 100%; min-width: 0; }
+.plan-runway-switch { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+.plan-runway .plan-req-main strong { font-size: 17px; }

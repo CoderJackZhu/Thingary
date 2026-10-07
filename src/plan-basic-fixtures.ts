@@ -22,7 +22,7 @@ const fixtureProjection = project(fixturePlan, 2026);
 export const unknownCapabilityFixture = {
   context: { generation: 'fictional-generation', revision: 1, today: '2026-10-07', model_version: 'basic-1', modules: { planning: true, wealth: false }, start: { kind: 'simulation', id: 'fictional-simulation', date: '2026-09-30' }, monetary_basis_date: '2026-10-07', source: 'saved', write_version: 1 },
   funds: { status: 'ready', value: { available_cents: '10000000', restricted_cents: '0', debt_cents: '0', date: '2026-09-30', kind: 'simulation' } },
-  requirement: { status: 'ready', value: { set: { status: 'found', monthly_cents: '470000', before_hundredths: 0, after_hundredths: 0 }, lower: { status: 'found', monthly_cents: '650000', before_hundredths: -200, after_hundredths: -200 }, target_month: '2050-06', horizon_month: '2080-06', budget_scope: 'complete' } },
+  requirement: { status: 'ready', value: { set: { status: 'found', monthly_cents: '470000', before_hundredths: 0, after_hundredths: 0 }, lower: { status: 'found', monthly_cents: '650000', before_hundredths: -200, after_hundredths: -200 }, upper: { status: 'found', monthly_cents: '330000', before_hundredths: 200, after_hundredths: 200 }, target_month: '2050-06', horizon_month: '2080-06', budget_scope: 'complete' } },
   prediction: { status: 'blocked', missing: [{ code: 'CONTRIBUTION_UNKNOWN', capability: 'prediction', owner: 'basic', field: 'basic.contribution.monthly_cents', message: '虚构夹具：预计投入未知', kind: 'assumption' }] },
   pension: { status: 'ready', value: { included: false, start_month: null, monthly_cents: null } },
 } satisfies BasicCapabilities;

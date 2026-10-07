@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { modeOf, hasLegacyPlan, amountState, contributionState, requirementLine, needsContribution, missingOwners } from '../src/planning-basic-view.ts';
+import { modeOf, hasLegacyPlan, amountState, contributionState, requirementLine, needsContribution, missingOwners, missingText, setupStepFor } from '../src/planning-basic-view.ts';
 import { basicInput, budgetInput, pensionInput, draftOf, emptyPensionForm, retirementSources } from '../src/planning-basic-forms.ts';
 import { defaultRetire } from '../src/plan.ts';
 import { unknownCapabilityFixture, predictionCapabilityFixture, missingCostCapabilityFixture, basicInputFixtures } from '../src/plan-basic-fixtures.ts';
@@ -31,7 +31,7 @@ test('contribution: unknown, explicit zero and negatives are distinct; never a t
 test('requirement wording follows each real DTO status and never shows null as zero', () => {
   const fmt = c => `¥${c}`;
   assert.match(requirementLine({ status: 'found', monthly_cents: '470000', before_hundredths: 0, after_hundredths: 0 }, fmt).text, /每月 ¥470000/);
-  assert.equal(requirementLine({ status: 'no_positive_contribution', monthly_cents: '0', before_hundredths: 0, after_hundredths: 0 }, fmt).text, '无需新增正投入');
+  assert.equal(requirementLine({ status: 'no_positive_contribution', monthly_cents: '0', before_hundredths: 0, after_hundredths: 0 }, fmt).text, '按这些条件，不用再额外存钱');
   assert.match(requirementLine({ status: 'search_not_found', search_limit_cents: '9', before_hundredths: 0, after_hundredths: 0 }, fmt).text, /搜索上限/);
   assert.match(requirementLine({ status: 'payment_constraint', message: 'm', before_hundredths: 0, after_hundredths: 0 }, fmt).text, /付款/);
   assert.match(requirementLine({ status: 'out_of_bounds', message: 'm', before_hundredths: 0, after_hundredths: 0 }, fmt).text, /超出/);
@@ -111,4 +111,25 @@ test('source guard: basic UI never branches on career, phases, route, 35-year ch
     assert.equal(/!!\s*\w*(amount|contribution|monthly)/i.test(src), false, `${f}: no truthiness test of an amount`);
     assert.equal(/plan_profile_save/.test(src), false, `${f}: basic UI saves through sections only`);
   }
+});
+
+test('basic risk lab: no career presets, complete-budget wording; runway card is mounted and unsaved', () => {
+  const risk = fs.readFileSync(new URL('../src/RiskLab.tsx', import.meta.url), 'utf8');
+  assert.match(risk, /isBasic \? withoutCareerStress\(all\) : all/);
+  assert.doesNotMatch(risk, /覆盖必需支出|岁前仍有余钱/);
+  const goals = fs.readFileSync(new URL('../src/PlanningBasicGoals.tsx', import.meta.url), 'utf8');
+  assert.match(goals, /<RunwayCard caps=\{caps\}/);
+  const runwayCard = fs.readFileSync(new URL('../src/PlanningRunway.tsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(runwayCard, /invoke|savePlanningSection|localStorage/);
+  assert.match(runwayCard, /目前没有可靠到账/);
+});
+
+
+test('missing-input guidance preserves constraints and routes fee/pension corrections to their actual step', () => {
+  const m = { code: 'BUDGET_UNKNOWN', capability: 'requirement', owner: 'basic', field: 'spend_cents', message: 'specific constraint', kind: 'constraint' };
+  assert.equal(missingText(m), m.message);
+  assert.equal(missingText({ ...m, kind: 'read_error' }), m.message);
+  assert.equal(setupStepFor('budget', 'basic.contribution_costs'), 3);
+  assert.equal(setupStepFor('basic', 'basic.pension_contributions'), 1);
+  assert.equal(setupStepFor('budget', 'basic.retirement_costs'), 0);
 });

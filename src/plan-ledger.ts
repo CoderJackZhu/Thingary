@@ -131,7 +131,7 @@ export const scaleSaving = (P: Plan, factor: number): Plan => ({
   saving_phases: P.saving_phases?.map(x => ({ ...x, cents: x.cents > 0 ? x.cents * factor : x.cents })),
 });
 
-/** 把所有支出按比例缩放（Lean 70%、Fat 150%、压力测试 +10%）。 */
+/** 把退休预算分项按比例缩放，固定事件付款不变（Lean 70%、Fat 150%、压力测试 +10%）。 */
 export const scaleSpend = (P: Plan, factor: number): Plan => ({ ...P, items: P.items.map(it => ({ ...it, monthly_cents: it.monthly_cents * factor })) });
 
 /** 大额一次性支出按「距现在的月数」汇总，下标 0..月数；同一份计划只算一次，所需资金、逐月推演与市场路径共用。 */
@@ -267,7 +267,12 @@ const rowYear = (todayYear: number, k: number) => todayYear + k;
 
 /** 逐月推演。FIRE：年龄 ≥ 目标且资产 ≥ 当月所需才开始退休；传统：到目标年龄强制开始。
  *  opts.after 给退休后第 y 年（0 起）的实际年收益率，用来推演崩盘路径；不给就用假设的退休后收益率。 */
-export type ProjectOptions = { after?: (yearsSinceRetire: number) => number };
+export type ProjectOptions = {
+  after?: (yearsSinceRetire: number) => number;
+  /** Annual real return for the calendar interval starting at offset_months.
+   * Used by market sampling; does not change obligations, FI thresholds or storage. */
+  annualReturnAt?: (offset_months: number, phase: 'accumulation' | 'retired') => number;
+};
 export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): Projection {
   const T = table(P), N = Math.max(0, P.horizon_months - P.now_months);
   const gb = monthlyGrowth(P.r_before_hundredths), ga = monthlyGrowth(P.r_after_hundredths);
@@ -308,13 +313,15 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
     if (retire === null) {
       const c = savings[t];
       // 现金不足照实保留，不因月底投入或后续月份恢复而抹去已发生的缺口。
-      a = (a > 0 ? a * gb ** (t === 0 ? P.first_month_fraction ?? 1 : 1) : a) + c + upfront;
+      const growth = opts.annualReturnAt ? (1 + opts.annualReturnAt(t, 'accumulation')) ** (1 / 12) : gb;
+      a = (a > 0 ? a * growth ** (t === 0 ? P.first_month_fraction ?? 1 : 1) : a) + c + upfront;
       if (failure === null && a < 0) failure = m;
       r.contribution += c;
     } else {
       const spend = T.spend[t], essential = T.essential[t];
       const income = T.income[t] + (m >= pension!.unlock_age_months ? pension!.monthly_cents * (t === 0 ? P.first_month_fraction ?? 1 : 1) : 0);
-      const g = (opts.after ? (1 + opts.after(Math.floor((m - retire) / 12))) ** (1 / 12) : ga) ** (t === 0 ? P.first_month_fraction ?? 1 : 1);
+      const annual = opts.annualReturnAt?.(t, 'retired') ?? opts.after?.(Math.floor((m - retire) / 12));
+      const g = (annual === undefined ? ga : (1 + annual) ** (1 / 12)) ** (t === 0 ? P.first_month_fraction ?? 1 : 1);
       const step = retiredMonth(a, g, 0, Math.max(0,spend-upfront), income), w = step.withdrawal, gap = step.gap;
       a = step.a;
       r.income += income; r.spend += spend; r.essential += essential; r.withdrawal += w + paidUpfront; r.unfunded += gap;

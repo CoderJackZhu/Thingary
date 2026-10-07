@@ -58,6 +58,9 @@ test('B04/B05/D30 signed explicit predictions, fixed target and two independent 
   const before = structuredClone(s), req = requirement(s);
   const direct = structuredClone(s); retire(direct).real_return_before_hundredths -= 200; retire(direct).real_return_after_hundredths -= 200;
   assert.deepEqual(req.lower, requirement(direct).set);
+  const up = structuredClone(s); retire(up).real_return_before_hundredths += 200; retire(up).real_return_after_hundredths += 200;
+  assert.deepEqual(req.upper, requirement(up).set);
+  assert.equal(req.upper.before_hundredths, 700);
   assert.deepEqual(s, before);
   const candidate = Number(req.set.monthly_cents), pred = prediction({...s, profile: ready({ ...s.profile.value, saved: { ...s.profile.value.saved, profile: { ...profile(s), retire: { ...r, basic: { ...r.basic, contribution: { ...r.basic.contribution, monthly_cents: String(candidate) } } } } } }) });
   const fixed = { ...pred.plan, mode: 'traditional' };
