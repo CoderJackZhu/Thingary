@@ -1,5 +1,6 @@
 import { PaymentDialog, type PaymentTarget } from './RecurringPage';
 import { SubscriptionDetail } from './SubscriptionDetail';
+import { MergeNotice } from './MergeOldSubscriptions';
 import { PaymentRangeForm } from './PaymentRangeForm';
 import { SortHeader } from './SortHeader';
 import { sortRecords, moneySortValue, type ListSort } from './list-sort';
@@ -125,6 +126,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
+    {data && <MergeNotice refresh={retry} disabled={!!pending || busy || maintenance} onDone={m => { setMutationError(m); reload(); }} />}
     {error ? <article className="ui-card ui-content" role="alert"><p>虚拟资产读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !data ? <p role="status" className="muted">正在读取虚拟资产…</p>
         : !data.items.length ? <div className="empty"><span className="empty-mark">◇</span><h2>还没有虚拟资产</h2><p>把买断的软件、注册的域名、订阅的服务和储值卡记下来，就能看到它们的计费方式、什么时候到期、一共花了多少。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>新增虚拟资产</button></div>

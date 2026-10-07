@@ -18,3 +18,12 @@ test('linked subscriptions no longer carry cross-page "关联" rows', () => {
   // 列表副标题只在计划名与档案名不同时才提示付款计划。
   assert.match(virtual, /v\.plan_name !== v\.fields\.name/);
 });
+
+test('old-subscription merge is offered on both pages and only submits after a user pick', () => {
+  assert.match(read('RecurringPage.tsx'), /<MergeNotice /);
+  assert.match(read('VirtualPage.tsx'), /<MergeNotice /);
+  const merge = read('MergeOldSubscriptions.tsx');
+  // 有旧单次价格的候选不默认勾选，避免未看金额影响就合并。
+  assert.match(merge, /filter\(p => !p\.asset_price_cents\)/);
+  assert.match(merge, /command: 'link_merge'/);
+});

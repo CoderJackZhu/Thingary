@@ -1691,6 +1691,25 @@ pub async fn link_save(
         .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn link_merge_view(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::link_merge::MergeView> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_merge_view()))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取可合并的订阅"))?
+}
+#[tauri::command]
+pub async fn link_merge(
+    input: crate::link_merge::MergeSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.link_merge(&input, &today())))
+        .await
+        .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
 pub async fn link_create(
     input: crate::link::LinkCreateSave,
     worker: tauri::State<'_, Worker>,

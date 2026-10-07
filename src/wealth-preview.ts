@@ -450,6 +450,7 @@ export function searchPreview(command: string, args: Record<string, unknown>): {
   const filtered = input.type_filter === 'all' ? rows : rows.filter(r => r.kind === input.type_filter);
   return { value: { generation, revision: 'preview-layout-only', keyword: input.keyword.trim(), type_filter: input.type_filter, offset: input.offset, limit: input.limit, total: filtered.length, type_counts, items: filtered.slice(input.offset, input.offset + input.limit) } };
 }
+let previewMerged = false;
 const previewGroups = new Map<string, { assetId: string; planId: string; assetName: string; planName: string }>();
 /** 预览最近删除中的关联订阅组（内存桩）。 */
 export function previewLinkGroups() { return [...previewGroups.values()]; }
@@ -500,6 +501,15 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const plan = g ? recurringOverview().plans.find(() => false) : null;
     void plan;
     return { value: input.group_id };
+  }
+  // 旧订阅合并发现：?merge=1 显示一对虚构候选，确认后本次预览内不再出现（不改动其他夹具）。
+  if (command === 'link_merge_view') {
+    return { value: { generation, pairs: params.get('merge') === '1' && !previewMerged ? [{ asset_id: 'merge-asset', asset_name: '虚构旧云盘', asset_revision: 1, provider: '虚构提供方', asset_price_cents: '60000', asset_expires: null, stopped_on: null, plan_id: 'merge-plan', plan_name: '虚构旧云盘', plan_revision: 1, amount_cents: '5000', interval_months: 1, interval_days: null, paid_count: 3, paid_cents: '15000' }] : [] } };
+  }
+  if (command === 'link_merge') {
+    previewMerged = true;
+    receipts.set((args.input as { request_id: string }).request_id, '1');
+    return { value: '1' };
   }
   if (command === 'link_save' || command === 'link_create' || command === 'link_reconcile') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };

@@ -28,6 +28,7 @@ import type { LinkView } from './link';
 import { EndSubscriptionDialog, LinkRepairDialog, LinkCreateDialog, LinkDeleteDialog, LinkReviewDialog, SharedReminderRow, UnifyNameDialog, relationNotice, undoLinkDelete } from './LinkDialogs';
 import { renewalPayload } from './virtual';
 import { SubscriptionDetail } from './SubscriptionDetail';
+import { MergeNotice } from './MergeOldSubscriptions';
 import type { Modules } from './modules';
 
 export type PaymentTarget = { plan_id: string; plan_name: string; due_date: string; plan_amount: string; record: Payment | null };
@@ -108,6 +109,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
+    {data && <MergeNotice refresh={retry} disabled={!!pending || busy} onDone={m => { setNotice(m); reload(); }} />}
     {error ? <article className="ui-card ui-content" role="alert"><p>周期费用读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !data ? <p role="status" className="muted">正在读取周期费用…</p>
       : !data.plans.length ? <div className="empty"><span className="empty-mark">¥</span><h2>还没有周期费用</h2><p>把房租、订阅、保险这类定期付的钱记成计划，就能看到每年的固定负担和下次什么时候付。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>新增计划</button></div>

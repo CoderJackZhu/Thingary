@@ -133,3 +133,11 @@ export type LinkRepairPreview = LinkPreview & { asset_deleted: boolean; plan_del
 export const linkRepairPreview = (side: 'virtual' | 'plan', id: string, partnerId: string | null, action: 'restore_pair' | 'register_group') => invoke<LinkRepairPreview>('link_repair_preview', { side, id, partnerId, action });
 export type PurgeAllPreview = { generation: string; preview: string; groups: LinkPurgePreview[]; other_count: number };
 export type Purged = { removed: number; kept: number; kept_reasons: string[] };
+
+export type MergePair = {
+  asset_id: string; asset_name: string; asset_revision: number; provider: string; asset_price_cents: string | null; asset_expires: string | null; stopped_on: string | null;
+  plan_id: string; plan_name: string; plan_revision: number; amount_cents: string; interval_months: number; interval_days: number | null; paid_count: number; paid_cents: string;
+};
+export type MergeView = { generation: string; pairs: MergePair[] };
+export type MergeInput = { request_id: string; generation: string; pairs: { asset_id: string; asset_expected_revision: number; plan_id: string; plan_expected_revision: number }[] };
+export const linkMergeView = () => invoke<MergeView>('link_merge_view');
