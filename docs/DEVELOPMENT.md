@@ -47,6 +47,12 @@ npm run dev -- --port 1429
 
 `tests/planning-core.test.mjs` 覆盖资产事实、分池、已含费用、余债与首月顺序。`src-tauri/tests/plan_profile.rs` 对真实临时 Store 测试 core 保存、修订冲突、提交后回执丢失重放、重启、备份恢复、引用更正和 schema30→31 回滚。不得对正式资料库运行。
 
+### 金融导入解析与报告组件
+
+金融 CSV 解析器的契约、虚构样例和待接入边界见[解析器说明](../src-tauri/src/financial_import_parser/README.md)，回归位于 `src-tauri/tests/financial_import_parser.rs`，由 `npm test` 执行。它不写入数据库。
+
+运行 `npm run dev -- --port 1431`，访问 `http://127.0.0.1:1431/planning-report-preview.html` 查看[只读报告组件](../src/planning-report/README.md)的虚构状态与隐私输出；`tests/planning-report.test.mjs` 由 `npm run test:ui` 执行。预览不进入正常发布构建；真实报告适配、产品入口及原生 PDF／文件对话框尚未接入。
+
 ## 自动检查
 
 在仓库根目录执行：

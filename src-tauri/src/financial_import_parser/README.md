@@ -1,8 +1,8 @@
 # 金融历史 CSV 导入解析组件（financial_import_parser）
 
 状态：**组件已实现并通过独立测试；尚未接入产品。** 本组件实现
-[组件契约](../../docs/PLANNING_COMPONENT_CONTRACTS.md) §2 的「金融导入解析」边界与
-[金融历史导入设计](../../docs/FINANCIAL_HISTORY_IMPORT_DESIGN.md) 中可在纯解析层验证的
+[组件契约](../../../docs/PLANNING_COMPONENT_CONTRACTS.md) §2 的「金融导入解析」边界与
+[金融历史导入设计](../../../docs/FINANCIAL_HISTORY_IMPORT_DESIGN.md) 中可在纯解析层验证的
 部分。它不依赖 Store、SQLite、commands 或文件系统，全部数据为虚构样例。
 
 ## 组件边界
@@ -144,13 +144,12 @@ let template = template_csv("incomes")?;
 | income_coverage.csv | 三段相邻 (from_date, to_date] 声明：complete / partial / unknown |
 | net_worth_history.csv | 4 个历史总额参考点，含负值 |
 
-全部数据虚构，可直接用于明日接入的手工与自动验证；`tests/financial_import_parser.rs`
+全部数据虚构，可直接用于后续接入的手工与自动验证；`tests/financial_import_parser.rs`
 用 `include_str!` 加载同一批文件作为样例回归。
 
-## 明日 Store 接入步骤（由拥有方实施）
+## 后续 Store 接入步骤
 
-1. 在 `lib.rs` 登记模块：`mod financial_import_parser;`（子模块路径已显式声明，
-   两种引入方式布局一致），commands 增加预览入口并把 IPC 载荷反序列化为
+1. 模块已在 `lib.rs` 以 `pub mod financial_import_parser;` 登记。后续在 commands 增加预览入口并把 IPC 载荷反序列化为
    `ImportRequestV1`。
 2. 入口先校验文件字节（UTF-8、20 MiB）得到 `csv_text`，再把用户列映射整理为
    `column_mapping`；`today` 取本地自然日。
