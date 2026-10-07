@@ -8,7 +8,7 @@ import type { WishLike } from './plan-wishes';
 const yuan = (c: number) => money(String(Math.round(c)));
 
 /** 目标页的「大额支出」卡：把「考虑中」的心愿当作一次性支出，看对 FIRE 日期的影响。只读，不改心愿。 */
-export function PlanningWishes({ calc, today }: { calc: RetireCalc | null; today: string }) {
+export function PlanningWishes({ calc, today, hint = '退休资料待补齐', onContribution }: { calc: RetireCalc | null; today: string; hint?: string; onContribution?: () => void }) {
   const [wishes, setWishes] = useState<WishLike[] | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   useEffect(() => {
     let live = true; setError('');
@@ -32,7 +32,7 @@ export function PlanningWishes({ calc, today }: { calc: RetireCalc | null; today
         <td>{s.name}</td>
         <td className="amount">{s.status === 'no_price' ? <span className="muted">未填价格</span> : yuan(s.cents)}</td>
         <td>{s.status === 'today' ? <span className="muted">未设（仅作假设）</span> : s.status === 'expired' ? <span className="ui-tag warn">已过，未计入</span> : s.status === 'dated' ? s.date : '—'}</td>
-        <td>{impact ? <>{delayText(impact.delay_months, impact.base_offset, impact.with_offset)}{impact.breaches_emergency && <span className="ui-tag warn"> 低于应急金线</span>}</> : <span className="muted">{s.status === 'expired' ? '未计入' : s.status === 'no_price' ? '需填预计价格' : '退休资料待补齐'}</span>}</td></tr>)}</tbody></table></div>
+        <td>{impact ? <>{delayText(impact.delay_months, impact.base_offset, impact.with_offset)}{impact.breaches_emergency && <span className="ui-tag warn"> 低于应急金线</span>}</> : <><span className="muted">{s.status === 'expired' ? '未计入' : s.status === 'no_price' ? '需填预计价格' : hint}</span>{onContribution && s.status !== 'expired' && s.status !== 'no_price' && <button type="button" className="ui-link" onClick={onContribution}>估计每月能存多少钱</button>}</>}</td></tr>)}</tbody></table></div>
     {view.total && <p>若有计划日期的这几件都按计划买下：<strong>{delayText(view.total.delay_months, view.total.base_offset, view.total.with_offset)}</strong>{view.total.breaches_emergency && '，中途会低于应急金线'}。</p>}
     <details className="plan-explanation"><summary>估算如何计入购买计划</summary><p className="muted small">每一行是「如果买下」的影响，只算这一件（其他心愿不发生）。合计只计入填了计划日期、也就是打算买的；没填日期的只作「如果今天买」的假设，不进合计；计划日期已过的不计入，更新日期后重新估算；没填预计价格的无法估算。这些只是估算，不扣你真实的资产，不改变心愿的状态，也不替代「已买到，记录购入」；还没决定的心愿不要填计划日期，价格建议填偏保守的。</p></details>
   </article>;

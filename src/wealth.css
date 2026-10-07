@@ -122,3 +122,11 @@
   .editor.virtual-editor .form-row-control { width: 100%; max-width: 100%; }
   .editor.virtual-editor .form-row-label small { display: block; max-width: none; }
 }
+
+/* 重要支出年度／月度图（设计 §2.2/§2.3）：窄窗横向滚动，浮层复用 ui-tip。 */
+.expense-chart{position:relative;min-width:0}
+.expense-chart-scroll{overflow-x:auto}
+.expense-chart .trend-bar.focused,.expense-chart .trend-bar:focus-visible{stroke:var(--accent);stroke-width:2}
+.expense-chart .empty-bar.faint{opacity:.45}
+.expense-tip{top:4px;transform:translateX(-50%);white-space:nowrap}
+.expense-tip span,.expense-tip strong{display:block}

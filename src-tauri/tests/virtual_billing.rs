@@ -6,6 +6,7 @@ use thingary_lib::{
     choices::{Action, Change},
     domain::Error,
     expenses,
+    link::LinkSave,
     recurring::{PaymentRangeSave, PaymentSave, Plan, PlanFields, PlanSave},
     storage::{migrate_to, Store, SCHEMA},
     virtual_assets::{
@@ -14,6 +15,41 @@ use thingary_lib::{
     },
     wealth::TrashChange,
 };
+/// 已关联计划的共享保存（link_save，设计 §9）：按最新双方修订提交。
+fn save_linked(
+    s: &mut Store,
+    asset_id: &str,
+    plan_id: &str,
+    edit: impl FnOnce(&mut PlanFields),
+    today: &str,
+) {
+    let asset = s
+        .virtual_overview(today)
+        .unwrap()
+        .items
+        .into_iter()
+        .find(|x| x.id == asset_id)
+        .unwrap();
+    let plan = fresh_plan(s, plan_id);
+    let mut f = plan.fields.clone();
+    edit(&mut f);
+    s.link_save(
+        &LinkSave {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: asset_id.into(),
+            asset_expected_revision: asset.revision,
+            plan_id: plan_id.into(),
+            plan_expected_revision: plan.revision,
+            fields: f,
+            billing: None,
+            unify_name_to: None,
+        },
+        today,
+    )
+    .unwrap();
+}
+
 fn id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
@@ -422,22 +458,13 @@ fn month_end_anchor_and_fixed_days_never_drift() {
     );
     // Switching the same plan to fixed 30 days counts days instead: the next
     // payment lands on 03-02 and history does not drift.
-    let plan = fresh_plan(&s, &plan.id);
-    let mut fields = plan.fields.clone();
-    fields.interval_days = Some(30);
-    let plan = s
-        .recurring_plan_save(
-            &PlanSave {
-                request_id: id(),
-                generation: s.generation(),
-                id: Some(plan.id.clone()),
-                expected_revision: Some(plan.revision),
-                fields,
-            },
-            "2026-03-31",
-        )
-        .unwrap();
-    let _ = &plan;
+    save_linked(
+        &mut s,
+        &v.id,
+        &plan.id,
+        |f| f.interval_days = Some(30),
+        "2026-03-31",
+    );
     let item = s
         .virtual_overview("2026-02-27")
         .unwrap()
@@ -664,7 +691,7 @@ fn special_period_end_extends_only_the_target_period() {
             .unwrap()
             .plan
             .unwrap()
-            .next_coverage
+            .current_coverage
             .clone()
             .unwrap()
     };
@@ -700,8 +727,9 @@ fn special_period_end_extends_only_the_target_period() {
         })
         .unwrap();
     assert_eq!(june, ("2026-06-03".into(), "2026-07-02".into()));
+    // 特殊到期把包含今天（5-28）的当前服务期延至 6-02；后续期顺延不变（R3 语义）。
     let fourth = read("2026-06-01");
-    assert_eq!(fourth, ("2026-06-03".into(), "2026-07-02".into()));
+    assert_eq!(fourth, ("2026-05-01".into(), "2026-06-02".into()));
     // Confirmed coverage was never rewritten.
     let stored: Vec<(String, String)> = {
         let c = dataset_db(dir.path().join("lib").as_path());
@@ -817,10 +845,10 @@ fn rent_prepay_and_quarterly_year_contract_survive() {
     pay(&mut s, &rent, "2026-10-25", "300000", "2026-10-25");
     let o = s.recurring_overview("2026-10-26").unwrap();
     let r = o.plans.iter().find(|p| p.id == rent.id).unwrap();
-    // The paid 10-25 instalment covered November; the next one covers December.
+    // 当前服务期包含今天（10-26 → 10 月期）；下一付款候选仍是 11-25（R3 语义）。
     assert_eq!(
-        r.next_coverage.clone().unwrap(),
-        ("2026-12-01".into(), "2026-12-31".into())
+        r.current_coverage.clone().unwrap(),
+        ("2026-10-01".into(), "2026-10-31".into())
     );
     assert_eq!(r.next_due.as_deref(), Some("2026-11-25"));
     // Quarterly payments for a one-year contract: exactly four periods.
@@ -1127,6 +1155,7 @@ fn first_topup_is_atomic_and_trash_keeps_facts_consistent() {
     })
     .unwrap();
     s.purge_trash(&thingary_lib::purge::Purge {
+        preview: None,
         request_id: id(),
         generation: s.generation(),
         kind: Some("virtual".into()),
@@ -1441,13 +1470,17 @@ fn renewal_reminders_follow_the_asset_state() {
     let plans = s.reminder_plans().unwrap();
     assert_eq!(plans.len(), 1);
     assert_eq!(plans[0].date, "2026-11-01");
-    // Stopping the asset withdraws the pending notification.
-    let mut input = sub_save(&s, "续费订阅", &fresh_plan(&s, &plan.id), |f| {
-        f.stopped_on = Some("2026-09-15".into());
-    });
-    input.id = Some(v.id.clone());
-    input.expected_revision = Some(v.revision);
-    s.virtual_save(&input, "2026-09-15").unwrap();
+    // 结束订阅经共享保存关闭续费并撤销待通知；单边停用已被拒绝（设计 §6）。
+    save_linked(
+        &mut s,
+        &v.id,
+        &plan.id,
+        |f| {
+            f.auto_renew = false;
+            f.end_date = Some("2026-09-15".into());
+        },
+        "2026-09-15",
+    );
     assert!(s.reminder_plans().unwrap().is_empty());
     // Switching the virtual module off pauses reminders library-wide.
     let o = s.virtual_overview("2026-09-20").unwrap();
@@ -2617,20 +2650,7 @@ fn period_reminders_pause_with_renewal_plan_module_and_end_and_skip_paid_periods
         .unwrap();
     period_reminder(&mut s, &v.id, "2026-10-05");
     let update = |s: &mut Store, edit: fn(&mut PlanFields)| {
-        let p = fresh_plan(s, &plan.id);
-        let mut f = p.fields.clone();
-        edit(&mut f);
-        s.recurring_plan_save(
-            &PlanSave {
-                request_id: id(),
-                generation: s.generation(),
-                id: Some(p.id),
-                expected_revision: Some(p.revision),
-                fields: f,
-            },
-            "2026-10-05",
-        )
-        .unwrap();
+        save_linked(s, &v.id, &plan.id, edit, "2026-10-05");
     };
     update(&mut s, |f| {
         f.auto_renew = false;

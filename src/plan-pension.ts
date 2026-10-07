@@ -27,7 +27,7 @@ export type Profile = {
   assumptions: Assumptions;
 };
 
-export type Funds = { hpf_balance_cents: string; hpf_monthly_cents: string; first_month_fraction?: number; personal_pension_balance_cents?: string; pp_quit_age_months?: number; hpf_growth_hundredths?: number };
+export type Funds = { hpf_balance_cents: string; hpf_monthly_cents: string; first_month_fraction?: number; personal_pension_balance_cents?: string; pp_quit_age_months?: number; pp_start_age_months?: number; hpf_growth_hundredths?: number };
 
 /** 缴费分段：从该年龄（月）起，社保缴费基数与公积金月缴存（今天的钱，分）改成这两个数；按 from_age_months 升序。
  *  不给分段时全程用资料里的基数与公积金月缴存。 */
@@ -144,7 +144,7 @@ export function project(profile: Profile, region: RegionParams, today: string, q
       const b = baseAt(k), e = phaseAt(k), w = (1 - clamp(idle ? idle(nowAge + k) : 0, 0, 1)) * fraction;
       account += 0.08 * b * grow(k) * w;
       hpf += (e ? e.hpf_monthly_cents : hpfMonthly) * (1 + rate(funds.hpf_growth_hundredths ?? a.wage_growth_hundredths)) ** (elapsedMonths(k, funds.first_month_fraction) / 12) * w;
-      if (nowAge + k < (funds.pp_quit_age_months ?? quit)) pp += ppMonthly * fraction;
+      if (nowAge + k >= (funds.pp_start_age_months ?? nowAge) && nowAge + k < (funds.pp_quit_age_months ?? quit)) pp += ppMonthly * fraction;
       indexSum += clamp(b / wage, 0.6, 3) * w;
       effective += w;
     }

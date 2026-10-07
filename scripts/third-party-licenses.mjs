@@ -31,6 +31,8 @@ writeFileSync(`${root}THIRD_PARTY_LICENSES.md`, `# 第三方许可证清单
 
 本文件由 \`node scripts/third-party-licenses.mjs\` 生成，列出锁定的 macOS Rust 依赖（保守包含构建依赖）与前端生产依赖及其许可证标识。物谱自身按 [GPL-3.0-or-later](LICENSE) 授权。此清单仅列标识与来源；安装包内 \`许可/THIRD_PARTY_NOTICES.txt\` 附全文与声明，由 \`node scripts/distribution-notices.mjs\` 离线收集，另附每份文本的来源和 SHA-256。补全文本见 [说明](https://github.com/CoderJackZhu/Thingary/blob/main/scripts/license-overrides/README.md)；依赖升级后请重新核对并生成。
 
+直接内置的外部内容不由包管理器发现，另见 [来源告知](SOURCE_NOTICES.md)；随包告知同时附上来源告知。
+
 ## Rust（macOS 目标，${rust.length} 个）
 
 许可证分布：${count(rust)}

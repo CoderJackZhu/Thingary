@@ -1,5 +1,6 @@
 use thingary_lib::{
     domain::Error,
+    link::{LinkRestoreSave, LinkSave, LinkTrashSave},
     purge::Purge,
     recurring::{PaymentSave, Plan, PlanFields, PlanSave},
     storage::Store,
@@ -213,34 +214,118 @@ fn linked_plan_is_the_only_source_of_validity_and_cost() {
     let o = s.virtual_overview(T).unwrap();
     assert_eq!(o.plans[0].linked_to.as_deref(), Some("虚构视频会员"));
 
-    // Deleting the plan hides its validity; restoring the item is blocked
-    // when its plan went to another item meanwhile.
-    s.wealth_trash(&trash(&s, "virtual", &v.id, v.revision, true))
-        .unwrap();
-    let other = save(&mut s, None, f).unwrap();
+    // 已关联订阅不能单边删除（设计 §7）：档案与计划都必须整组处理。
     assert_eq!(
-        code(s.wealth_trash(&trash(&s, "virtual", &v.id, v.revision + 1, false))),
-        "VIRTUAL_PLAN_TAKEN"
+        code(s.wealth_trash(&trash(&s, "virtual", &v.id, v.revision, true))),
+        "LINK_GROUP_REQUIRED"
     );
-    s.wealth_trash(&trash(&s, "plan", &p.id, p.revision, true))
+    assert_eq!(
+        code(s.wealth_trash(&trash(&s, "plan", &p.id, p.revision, true))),
+        "LINK_GROUP_REQUIRED"
+    );
+    // 预览后更正一笔付款：修订变化同样使旧预览失效（§7.1）。
+    let stale_preview = s.link_delete_preview("plan", &p.id, None).unwrap();
+    let payment = s
+        .recurring_overview(T)
+        .unwrap()
+        .payments
+        .into_iter()
+        .find(|p| p.due_date == "2026-08-31")
         .unwrap();
-    let hidden = &s.virtual_overview(T).unwrap().items[0];
-    assert!(hidden.plan_deleted && hidden.valid_until.is_none() && hidden.spent_cents.is_none());
-    // Purging the plan unlinks every item that pointed to it.
-    s.purge_trash(&Purge {
+    s.recurring_payment_save(
+        &PaymentSave {
+            request_id: rid(),
+            generation: s.generation(),
+            id: Some(payment.id.clone()),
+            expected_revision: Some(payment.revision),
+            plan_id: p.id.clone(),
+            due_date: payment.due_date.clone(),
+            state: "paid".into(),
+            paid_date: payment.paid_date.clone(),
+            amount_cents: Some("2900".into()),
+            notes: String::new(),
+        },
+        T,
+    )
+    .unwrap();
+    let stale = LinkTrashSave {
         request_id: rid(),
         generation: s.generation(),
-        kind: Some("plan".into()),
+        side: "plan".into(),
         id: p.id.clone(),
+        partner_id: None,
+        asset_expected_revision: stale_preview.asset_revision,
+        plan_expected_revision: stale_preview.plan_revision,
+        preview: stale_preview.preview,
+    };
+    assert_eq!(code(s.link_trash(&stale)), "PREVIEW_STALE");
+    // 整组删除把双方一起隐藏；预览标识在后端复核（设计 §7.1）。
+    let preview = s.link_delete_preview("plan", &p.id, None).unwrap();
+    assert_eq!(preview.paid_count, 2);
+    let group = s
+        .link_trash(&LinkTrashSave {
+            request_id: rid(),
+            generation: s.generation(),
+            side: "plan".into(),
+            id: p.id.clone(),
+            partner_id: None,
+            asset_expected_revision: preview.asset_revision,
+            plan_expected_revision: preview.plan_revision,
+            preview: preview.preview.clone(),
+        })
+        .unwrap();
+    // 整组删除后双方一起隐藏：虚拟列表与计划列表都看不到它们（§7.2）。
+    assert!(s.virtual_overview(T).unwrap().items.is_empty());
+    assert!(s.recurring_overview(T).unwrap().plans.is_empty());
+    // 整组恢复一次：双方原 ID 回来，付款重新参与汇总一次（§7.2）。
+    let restore_preview = s.link_restore_preview(&group).unwrap();
+    let restore_digest = restore_preview.preview.clone();
+    s.link_restore(&LinkRestoreSave {
+        request_id: rid(),
+        generation: s.generation(),
+        group_id: group.clone(),
+        preview: restore_digest.clone(),
     })
     .unwrap();
-    let after = &s.virtual_overview(T).unwrap().items[0];
-    assert_eq!(
-        (after.id.as_str(), after.fields.plan_id.clone()),
-        (other.id.as_str(), None)
-    );
-    s.wealth_trash(&trash(&s, "virtual", &v.id, v.revision + 1, false))
+    let back = s.virtual_overview(T).unwrap().items[0].clone();
+    assert_eq!(back.id, v.id);
+    assert_eq!(back.spent_cents.as_deref(), Some("5400"));
+    // 再次删除创建新组：旧回执不能复活新组（§7.2）。
+    let preview2 = s.link_delete_preview("virtual", &v.id, None).unwrap();
+    let replay = LinkRestoreSave {
+        request_id: rid(),
+        generation: s.generation(),
+        group_id: group,
+        preview: restore_digest,
+    };
+    assert_eq!(code(s.link_restore(&replay)), "LINK_GROUP_STALE");
+    let group2 = s
+        .link_trash(&LinkTrashSave {
+            request_id: rid(),
+            generation: s.generation(),
+            side: "virtual".into(),
+            id: v.id.clone(),
+            partner_id: None,
+            asset_expected_revision: preview2.asset_revision,
+            plan_expected_revision: preview2.plan_revision,
+            preview: preview2.preview,
+        })
         .unwrap();
+    assert_ne!(group2, "");
+    // 整组清除：双方与计划侧全部付款一并移除（§7.3）。
+    {
+        let p = s.link_purge_preview(&group2).unwrap();
+        s.purge_trash(&Purge {
+            request_id: rid(),
+            generation: s.generation(),
+            kind: Some("link_group".into()),
+            id: group2,
+            preview: Some(p.preview),
+        })
+        .unwrap();
+    }
+    assert!(s.virtual_overview(T).unwrap().items.is_empty());
+    assert_eq!(s.expense_view(None).unwrap().spent_cents, "0");
 }
 
 #[test]
@@ -328,28 +413,37 @@ fn legacy_continuing_subscriptions_keep_paid_facts_and_use_only_explicit_end_dat
 
     let mut f = p.fields.clone();
     f.paused = true;
-    let paused = s
-        .recurring_plan_save(
-            &PlanSave {
-                request_id: rid(),
-                generation: s.generation(),
-                id: Some(p.id.clone()),
-                expected_revision: Some(p.revision),
-                fields: f.clone(),
-            },
-            T,
-        )
-        .unwrap();
+    // 已关联订阅的排期编辑走共享保存，双方修订一并推进（设计 §9）。
+    s.link_save(
+        &LinkSave {
+            request_id: rid(),
+            generation: s.generation(),
+            asset_id: v.id.clone(),
+            asset_expected_revision: v.revision,
+            plan_id: p.id.clone(),
+            plan_expected_revision: p.revision,
+            fields: f.clone(),
+            billing: None,
+            unify_name_to: None,
+        },
+        T,
+    )
+    .unwrap();
     assert_eq!(s.virtual_overview(T).unwrap().items[0].status, "paused");
     f.paused = false;
     f.end_date = Some("2026-10-31".into());
-    s.recurring_plan_save(
-        &PlanSave {
+    let paused_asset = s.virtual_overview(T).unwrap().items[0].clone();
+    s.link_save(
+        &LinkSave {
             request_id: rid(),
             generation: s.generation(),
-            id: Some(p.id),
-            expected_revision: Some(paused.revision),
+            asset_id: paused_asset.id,
+            asset_expected_revision: paused_asset.revision,
+            plan_id: p.id,
+            plan_expected_revision: p.revision + 1,
             fields: f,
+            billing: None,
+            unify_name_to: None,
         },
         T,
     )

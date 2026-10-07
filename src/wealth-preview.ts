@@ -1,3 +1,4 @@
+import { hasLegacyPlan } from './planning-basic-view';
 // Development-only in-memory stand-in for the wealth commands used by
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
 // proves nothing about native storage or calculation.
@@ -13,7 +14,15 @@ import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 import type { SourceTarget, TimelineSelection } from './source';
 import { coverageFor, scheduleDates, shiftDays } from './recurring-model';
 import { computeReview, defaultRetire } from './plan';
-import { emptyCore, eventSource } from './plan-core';
+import { emptyCore, eventSource, normalizeFunds } from './plan-core';
+import { hasPensionProfile } from './plan';
+import type { BasicCapabilities, BasicFields, CapabilityName, FundsFields, MissingCode, PensionFields, PlanningMissing, PlanningSources, ProfileUpdate } from './plan';
+import { basicInputFixtures, predictionCapabilityFixture, unknownCapabilityFixture } from './plan-basic-fixtures';
+import { outcome, project } from './plan-ledger';
+import { allModules } from './modules';
+import { retirementSources } from './planning-basic-forms';
+import { bindCapabilityProvider } from './planning-basic-port';
+import type { CapabilityOptions } from './planning-basic-port';
 import type { Income, IncomeSave, Mark, ProfileSave, ProfileState, Reasons, StoredProfile } from './plan';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
@@ -114,7 +123,7 @@ function expenseView(year: number | null): ExpenseView {
     ...(a.maintenance ? [{ source: 'maintenance' as const, id: 'm-' + a.key, asset_id: a.key, title: `${a.name} · ${a.maintenance.title}`, category: a.category, date: a.maintenance.date, amount_cents: a.maintenance.cost_cents, notes: null }] : []),
     ...(a.sale ? [{ source: 'sale' as const, id: 's-' + a.key, asset_id: a.key, title: a.name, category: a.category, date: a.sale.date, amount_cents: a.sale.price_cents, notes: null }] : []),
   ]);
-  const paidLines: Line[] = payments.filter(p => p.state === 'paid').map(p => ({ source: 'payment', id: p.id, asset_id: null, title: p.plan_name, category: plans.find(x => x.id === p.plan_id)?.fields.category ?? null, date: p.paid_date, amount_cents: p.amount_cents, notes: null }));
+  const paidLines: Line[] = payments.filter(p => p.state === 'paid').map(p => ({ source: 'payment', id: p.id, asset_id: null, plan_id: p.plan_id, title: p.plan_name, category: plans.find(x => x.id === p.plan_id)?.fields.category ?? null, date: p.paid_date, amount_cents: p.amount_cents, notes: null }));
   const virtualLines: Line[] = virtuals.filter(v => !v.fields.plan_id && v.fields.price_cents !== null).map(v => ({ source: 'virtual', id: v.id, asset_id: null, title: v.fields.name, category: 'digital', date: v.fields.purchase_date, amount_cents: v.fields.price_cents, notes: null }));
   const all: Line[] = [...items, ...paidLines, ...virtualLines, ...expenses.flatMap(e => [
     { source: e.fields.asset_id ? 'linked' as const : 'expense' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.date, amount_cents: e.fields.amount_cents, notes: e.fields.notes },
@@ -123,10 +132,17 @@ function expenseView(year: number | null): ExpenseView {
   const inYear = (l: Line) => l.date !== null && (year === null || l.date.startsWith(`${year}-`));
   const lines = all.filter(inYear).sort((a, b) => b.date!.localeCompare(a.date!)), undated = all.filter(l => l.date === null);
   const sum = (ls: Line[]) => ls.reduce((t, l) => t + BigInt(l.amount_cents ?? '0'), 0n);
-  const spentLines = lines.filter(l => ['purchase', 'maintenance', 'expense', 'payment', 'virtual'].includes(l.source) && l.amount_cents !== null);
+  const spendSource = (l: Line) => ['purchase', 'maintenance', 'expense', 'payment', 'virtual', 'topup'].includes(l.source);
+  const spentLines = lines.filter(l => spendSource(l) && l.amount_cents !== null);
   const spent = sum(spentLines), refunds = sum(lines.filter(l => l.source === 'refund'));
-  return { generation, year, years: [...new Set(all.flatMap(l => l.date ? [Number(l.date.slice(0, 4))] : []))].sort((a, b) => b - a), lines, undated,
-    months: year === null ? [] : Array.from({ length: 12 }, (_, i) => { const m = `${year}-${String(i + 1).padStart(2, '0')}`; return { month: m, spent_cents: String(sum(spentLines.filter(l => l.date!.startsWith(m)))), refund_cents: String(sum(lines.filter(l => l.source === 'refund' && l.date!.startsWith(m)))) }; }),
+  const yearKeys = [...new Set(all.flatMap(l => l.date ? [l.date.slice(0, 4)] : []))].sort();
+  const bucket = (ls: Line[]) => { const spentB = sum(ls.filter(l => spendSource(l) && l.amount_cents !== null)); const count = ls.filter(l => spendSource(l)).length; const known = ls.filter(l => spendSource(l) && l.amount_cents !== null).length;
+    return { spent: String(spentB), refund: String(sum(ls.filter(l => l.source === 'refund'))), sale: String(sum(ls.filter(l => l.source === 'sale'))), count, known_count: known, unknown_count: count - known }; };
+  const annual_totals = year === null ? yearKeys.map(k => { const b = bucket(all.filter(l => l.date?.startsWith(k + '-'))); return { year: Number(k), spent_cents: b.spent, refund_cents: b.refund, net_cents: String(BigInt(b.spent) - BigInt(b.refund)), sale_cents: b.sale, count: b.count, known_count: b.known_count, unknown_count: b.unknown_count }; }) : [];
+  const monthBucket = (m: string) => { const b = bucket(all.filter(l => l.date?.startsWith(m))); return { month: m, spent_cents: b.spent, refund_cents: b.refund, count: b.count, known_count: b.known_count, unknown_count: b.unknown_count }; };
+  return { generation, year, years: yearKeys.map(Number).sort((a, b) => b - a), lines, undated,
+    months: year === null ? [] : Array.from({ length: 12 }, (_, i) => monthBucket(`${year}-${String(i + 1).padStart(2, '0')}`)),
+    annual_totals,
     spent_cents: String(spent), refund_cents: String(refunds), net_cents: String(spent - refunds), sale_cents: String(sum(lines.filter(l => l.source === 'sale'))),
     undated_cents: String(sum(undated)), unknown_amount_count: lines.filter(l => l.amount_cents === null).length };
 }
@@ -173,7 +189,16 @@ function recurringOverview(): Overview {
     const amount=BigInt(p.fields.amount_cents), start=p.fields.service_start;
     const historyCount = start ? scheduleDates({...p.fields,first_due:p.fields.coverage_start!,coverage_start:p.fields.coverage_start},start,todayIso).length : 0;
     const contractCount = start && p.fields.end_date ? scheduleDates({...p.fields,first_due:p.fields.coverage_start!,coverage_start:p.fields.coverage_start},start,p.fields.end_date).length : 0;
-    return { ...p, next_due: p.fields.paused ? null : next, next_coverage: next && !p.fields.paused ? coverageFor(p.fields,next) : null, monthly_cents: String((amount+BigInt(p.fields.interval_months)/2n)/BigInt(p.fields.interval_months)), paid_cents: String(payments.filter(x=>x.plan_id===p.id&&x.state==='paid').reduce((t,x)=>t+BigInt(x.amount_cents ?? '0'),0n)), estimated_cents: start ? String(amount*BigInt(historyCount)) : null, contract_cents: contractCount ? String(amount*BigInt(contractCount)) : null };
+    // 当前服务期（R3）：包含 today 的期，独立于下一付款候选。
+    let currentCoverage: [string, string] | null = null;
+    if (p.fields.coverage_start) {
+      const all = scheduleDates(p.fields, p.fields.coverage_start, todayIso);
+      for (const d of all) {
+        const span = coverageFor(p.fields, d);
+        if (span && span[0] <= todayIso && todayIso <= span[1]) { currentCoverage = span; break; }
+      }
+    }
+    return { ...p, next_due: p.fields.paused ? null : next, current_coverage: currentCoverage, next_coverage: next ? coverageFor(p.fields, next) : null, monthly_cents: String((amount+BigInt(p.fields.interval_months)/2n)/BigInt(p.fields.interval_months)), paid_cents: String(payments.filter(x=>x.plan_id===p.id&&x.state==='paid').reduce((t,x)=>t+BigInt(x.amount_cents ?? '0'),0n)), estimated_cents: start ? String(amount*BigInt(historyCount)) : null, contract_cents: contractCount ? String(amount*BigInt(contractCount)) : null };
   });
   return { generation, today: todayIso, due: due.sort((a, b) => a.due_date.localeCompare(b.due_date)), upcoming: upcoming.sort((a, b) => a.due_date.localeCompare(b.due_date)),
     annual_cents: String(annual), monthly_cents: String((annual + 6n) / 12n), next12_cents: String(next12), plans: out,
@@ -267,6 +292,122 @@ if (coreScenario && planProfile && snapshots.length) {
 }
 // 首页规划摘要的局部读取失败夹具：只让指定来源失败，验证独立降级与局部重试。
 const planFail = (source: string) => params.get('plan-fail') === source;
+
+// ---- 通用规划基础：专用虚构预览（不代表原生保存或计算）----
+// ?plan-basic=unknown|zero|negative|saved|terminal-zero|missing-costs|excluded|manual|beijing|beijing-complete|blank
+// 其余开关：plan-start=live、plan-wealth=off、plan-req=zero|not-found|payment|bounds、state=save-error|unknown-result。
+// 能力结果只在预览里按已保存输入挑选严格夹具；它不是计算器，原生联调以 Codex 的真实服务为准。
+const basicScenario = params.get('plan-basic');
+const basicDefaults = (): StoredProfile => {
+  const f = basicInputFixtures.unknown;
+  const retire = { ...defaultRetire, spend_cents: f.spend_cents, target_age: f.target_age, horizon_age: f.horizon_age, mode: f.mode, emergency_months: 0, setup_completed: true, basic: structuredClone(f.basic), core: { ...emptyCore(todayIso), monetary_basis_date: todayIso } };
+  return { birth_month: f.birth_month, worker: null, region: null, paid_months: null, account_balance_cents: null, base_cents: null, past_index_hundredths: null, flex_months: null, personal_pension_annual_cents: null, marginal_tax_hundredths: null, assumptions: { inflation_hundredths: 0, wage_growth_hundredths: 200, pp_return_hundredths: 200 }, overrides: { avg_wage_cents: null, base_lower_cents: null, base_upper_cents: null, notional_rate_hundredths: null, hpf_rate_hundredths: null }, retire };
+};
+function basicScenarioProfile(kind: string): ProfileState['saved'] {
+  if (kind === 'blank') return null;
+  const p = basicDefaults(), r = p.retire, b = r.basic!;
+  const contribution = { unknown: null, zero: '0', negative: '-200000', saved: '500000', 'terminal-zero': '500000' }[kind as 'unknown'] ?? null;
+  b.contribution.monthly_cents = contribution;
+  r.income_items = [{ id: 'fx-annuity', label: '企业年金', monthly_cents: '120000', start_age: 60, end_age: null, indexed: false }];
+  if (kind === 'manual') b.retirement_income = { mode: 'manual', selected: [{ id: 'fx-annuity', source_id: 'fx-annuity', role: 'other' }] };
+  if (kind === 'excluded') b.retirement_income = { mode: 'excluded', selected: [] };
+  if (kind === 'beijing' || kind === 'beijing-complete') { b.retirement_income = { mode: 'beijing', selected: [] }; b.pension_contributions = { start_month: '2026-10', stop_month: '2050-06', base_cents: '2000000' }; }
+  if (kind === 'beijing-complete') Object.assign(p, { worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000 });
+  if (kind === 'missing-costs') { r.rent_cents = '100000'; r.spend_items = [{ id: 'fx-health', label: '医疗', monthly_cents: '100000', start_age: 65, end_age: null, inflation_hundredths: 400, essential: true }]; }
+  if (kind === 'unknown' || kind === 'zero' || kind === 'negative' || kind === 'saved' || kind === 'terminal-zero') b.retirement_income = { mode: 'excluded', selected: [] };
+  if (params.get('plan-start') === 'live') b.start = { kind: 'live' };
+  return { revision: 1, updated_at: new Date().toISOString(), profile: p };
+}
+if (basicScenario) planProfile = basicScenarioProfile(basicScenario);
+let planWriteVersion = 1;
+const updateResults = new Map<string, NonNullable<ProfileState['saved']>>();
+let lostOnce = false;
+const readError = (message: string, code = 'READ_FAILED') => ({ status: 'error' as const, value: { code, message } });
+const planningSources = (args: Record<string, unknown>): PlanningSources => {
+  const planning = args.planningEnabled !== false, wealth = args.wealthEnabled !== false;
+  const disabled = readError('资产与盘点已关闭', 'MODULE_DISABLED');
+  const point = [...summary().points].reverse().find(p => p.complete), found = point ? snapshots.find(x => x.id === point.snapshot_id) : null;
+  return {
+    generation, write_version: planWriteVersion, today: todayIso, modules: { planning, wealth },
+    profile: planFail('profile') ? readError('虚构个人资料读取失败，用于验证局部降级。') : { status: 'ready', value: { generation, saved: planProfile } },
+    snapshot: !wealth ? disabled : planFail('snapshot') ? readError('虚构盘点明细读取失败，用于验证局部降级。') : { status: 'ready', value: found ? view(found) : null },
+    accounts: !wealth ? disabled : { status: 'ready', value: accounts.map(withLatest) },
+    review: !wealth ? disabled : planFail('review') ? readError('虚构储蓄统计读取失败，用于验证局部降级。') : { status: 'ready', value: computeReview(summary().points, planIncomes, planMarks, generation) },
+    incomes: planFail('income') ? readError('虚构收入列表读取失败，用于验证局部降级。') : { status: 'ready', value: [...planIncomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date) || a.id.localeCompare(b.id)) },
+  };
+};
+/** Mirrors the native section merge for preview only. Whole-profile writes never reach it. */
+function mergeSection(old: StoredProfile | null, u: ProfileUpdate): StoredProfile {
+  const p: StoredProfile = old ? structuredClone(old) : { ...basicDefaults(), birth_month: null, retire: { ...defaultRetire, target_age: null, core: undefined } };
+  const core = (basis: string) => { if (p.retire.core && p.retire.core.monetary_basis_date !== basis) throw { code: 'PLANNING_BASIS', message: '已有金额基准固定' }; return (p.retire.core ??= { ...emptyCore(basis) }); };
+  if (u.section === 'setup') {
+    let next = mergeSection(old, { ...u, section: 'basic', fields: u.fields.basic });
+    if (u.fields.budget) next = mergeSection(next, { ...u, section: 'budget', fields: u.fields.budget });
+    if (u.fields.funds) next = mergeSection(next, { ...u, section: 'funds', fields: u.fields.funds });
+    if (u.fields.pension) next = mergeSection(next, { ...u, section: 'pension', fields: u.fields.pension });
+    return next;
+  }
+  if (u.section === 'basic') {
+    const f = u.fields;
+    if (old && !old.retire.basic && hasLegacyPlan(old.retire)) { if (!f.confirm_legacy_replacement) throw { code: 'PLANNING_BASIC', message: '重设原规划须明确确认差异' }; p.retire.legacy_definition = { contract_version: 1, recorded_at: todayIso, birth_month: old.birth_month, monetary_basis_date: old.retire.core?.monetary_basis_date ?? null, assumptions: old.assumptions, spend_cents: old.retire.spend_cents, target_age: old.retire.target_age, horizon_age: old.retire.horizon_age, mode: old.retire.mode, real_return_before_hundredths: old.retire.real_return_before_hundredths, real_return_after_hundredths: old.retire.real_return_after_hundredths, volatility_hundredths: old.retire.volatility_hundredths, emergency_months: old.retire.emergency_months, saving_phases: old.retire.saving_phases, route_id: old.retire.route_id, route_from_age: old.retire.route_from_age, gap_share_hundredths: old.retire.gap_share_hundredths, gap_keeps_paying: old.retire.gap_keeps_paying, spend_items: old.retire.spend_items, income_items: old.retire.income_items, event_ids: old.retire.life_events.map(e => e.id), costs: old.retire.core?.costs ?? [], keep_paying_until_age: old.retire.keep_paying_until_age, keep_paying_monthly_cents: old.retire.keep_paying_monthly_cents, keep_paying_base_cents: old.retire.keep_paying_base_cents, rent_cents: old.retire.rent_cents }; }
+    else if (old?.retire.basic && old.retire.basic.contribution.id !== f.basic.contribution.id) throw { code: 'PLANNING_BASIC', message: '投入稳定ID不能替换' };
+    core(f.monetary_basis_date); p.birth_month = f.birth_month; p.assumptions.inflation_hundredths = f.inflation_hundredths;
+    Object.assign(p.retire, { basic: f.basic, spend_cents: f.spend_cents, target_age: f.target_age, horizon_age: f.horizon_age, mode: f.mode, real_return_before_hundredths: f.real_return_before_hundredths, real_return_after_hundredths: f.real_return_after_hundredths, volatility_hundredths: f.volatility_hundredths, emergency_months: f.emergency_months, setup_completed: true });
+  } else if (u.section === 'pension') {
+    const f = u.fields;
+    Object.assign(p, { birth_month: f.birth_month, worker: f.worker, region: f.region, paid_months: f.paid_months, account_balance_cents: f.account_balance_cents, base_cents: f.base_cents, past_index_hundredths: f.past_index_hundredths, flex_months: f.flex_months, personal_pension_annual_cents: f.personal_pension_annual_cents, marginal_tax_hundredths: f.marginal_tax_hundredths, overrides: f.overrides });
+    p.assumptions.wage_growth_hundredths = f.wage_growth_hundredths; p.assumptions.pp_return_hundredths = f.pp_return_hundredths;
+  } else if (u.section === 'funds') {
+    const f = u.fields;
+    Object.assign(core(f.monetary_basis_date), { fund_rules: f.fund_rules, hpf_monthly_cents: f.hpf_monthly_cents, personal_pension_account_id: f.personal_pension_account_id, personal_pension_balance_confirmed: f.personal_pension_balance_confirmed });
+  } else if (u.section === 'events') {
+    const f = u.fields;
+    if (!p.retire.core) throw { code: 'PLANNING_BASIC', message: '先确认金额基准' };
+    p.retire.life_events = f.life_events; p.retire.core.occurrences = f.occurrences; p.retire.core.costs = f.costs;
+  } else { const f = u.fields; Object.assign(p.retire, { spend_items: f.spend_items, income_items: f.income_items, rent_cents: f.rent_cents, keep_paying_until_age: f.keep_paying_until_age, keep_paying_monthly_cents: f.keep_paying_monthly_cents, keep_paying_base_cents: f.keep_paying_base_cents }); }
+  return p;
+}
+const missingOf = (code: MissingCode, capability: CapabilityName, owner: PlanningMissing['owner'], field: string, message: string, kind: PlanningMissing['kind'] = 'fact'): PlanningMissing => ({ code, capability, owner, field, message, kind });
+const retag = (m: PlanningMissing[], capability: CapabilityName) => m.map(x => ({ ...x, capability }));
+function previewCapabilities(sources: PlanningSources, o: CapabilityOptions): BasicCapabilities {
+  const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
+  const bd = o.drafts.find(x => x.section === 'basic')?.fields as BasicFields | undefined, fd = o.drafts.find(x => x.section === 'funds')?.fields as FundsFields | undefined, pd = o.drafts.find(x => x.section === 'pension')?.fields as PensionFields | undefined;
+  const r = saved?.profile.retire, basic = bd?.basic ?? r?.basic, target = bd ? bd.target_age : r?.target_age ?? null, spend = bd ? bd.spend_cents : r?.spend_cents ?? null;
+  const core = r?.core, rules = fd?.fund_rules ?? core?.fund_rules ?? [];
+  const sim = basic?.start.kind === 'simulation' ? basic.start : null;
+  const snap = sources.snapshot.status === 'ready' ? sources.snapshot.value : null;
+  const start = basic?.start ?? null;
+  const funds: BasicCapabilities['funds'] = !basic ? { status: 'blocked', missing: [missingOf('START_UNKNOWN', 'funds', 'basic', 'basic.start', '还没有选择资金起点。')] }
+    : sim ? (sim.available_cents === null ? { status: 'blocked', missing: [missingOf('START_UNKNOWN', 'funds', 'basic', 'basic.start.available_cents', '模拟起点的金额还没有填写。')] } : { status: 'ready', value: { available_cents: sim.available_cents, restricted_cents: '0', debt_cents: '0', date: sim.date ?? todayIso, kind: 'simulation' } })
+    : !sources.modules.wealth ? { status: 'blocked', missing: [missingOf('WEALTH_DISABLED', 'funds', 'basic', 'basic.start', '资产与盘点已关闭，请改用模拟起点。', 'constraint')] }
+    : !snap ? { status: 'blocked', missing: [missingOf(sources.snapshot.status === 'error' ? 'SOURCE_ERROR' : 'START_UNKNOWN', 'funds', 'service', 'snapshot', sources.snapshot.status === 'error' ? '盘点读取失败，请重新读取。' : '还没有完整盘点。', sources.snapshot.status === 'error' ? 'read_error' : 'fact')] }
+    : snap.entries.some(e => e.counted && e.side === 'asset' && !rules.some(x => x.account_id === e.account_id)) ? { status: 'blocked', missing: [missingOf('FUNDS_UNCONFIRMED', 'funds', 'funds', 'core.fund_rules', '有账户的规划用途还没有确认。', 'assumption')] }
+    : (() => { const n = normalizeFunds(snap, { ...(core ?? emptyCore(todayIso)), fund_rules: rules }); return { status: 'ready' as const, value: { available_cents: String(n.available ?? 0), restricted_cents: String(n.restricted), debt_cents: String(n.debt), date: snap.date, kind: 'live' as const } }; })();
+  void start;
+  const factsComplete = pd ? [pd.worker, pd.paid_months, pd.account_balance_cents, pd.base_cents, pd.flex_months, pd.personal_pension_annual_cents, pd.marginal_tax_hundredths].every(v => v !== null) : !!saved && hasPensionProfile(saved.profile);
+  const mode = basic?.retirement_income.mode ?? null;
+  const pension: BasicCapabilities['pension'] = mode === 'beijing' ? (factsComplete ? { status: 'ready', value: { included: true, start_month: '2050-06', monthly_cents: '200000' } } : { status: 'blocked', missing: [missingOf('PENSION_FACTS_UNKNOWN', 'pension', 'pension', 'profile', '政策估算需要的养老金事实还没有填完整；留空的项目保持未知。')] }) : mode === null ? { status: 'blocked', missing: [missingOf('INCOME_MODE_UNKNOWN', 'pension', 'basic', 'basic.retirement_income.mode', '还没有选择退休收入怎么计入。', 'assumption')] } : { status: 'ready', value: { included: false, start_month: null, monthly_cents: null } };
+  const scopes = new Set(basic?.retirement_costs.map(c => c.source_id));
+  const unscoped = r ? retirementSources(r).filter(x => !scopes.has(x.id)) : [];
+  const miss: PlanningMissing[] = [
+    ...(target === null ? [missingOf('TARGET_UNKNOWN', 'requirement', 'basic', 'target_age', '目标年龄还没有设定。')] : []),
+    ...(spend === null ? [missingOf('BUDGET_UNKNOWN', 'requirement', 'basic', 'spend_cents', '退休后每月预算还没有填写。')] : []),
+    ...(funds.status === 'blocked' ? retag(funds.missing, 'requirement') : []),
+    ...(pension.status === 'blocked' ? retag(pension.missing, 'requirement') : []),
+    ...(unscoped.length ? [missingOf('COST_SCOPE_UNKNOWN', 'requirement', 'budget', 'basic.retirement_costs', `${unscoped.map(x => x.label).join('、')}是否已含在总预算里，还没有确认。`, 'assumption')] : []),
+  ];
+  const req = params.get('plan-req');
+  const found = unknownCapabilityFixture.requirement.status === 'ready' ? unknownCapabilityFixture.requirement.value : null!;
+  const reqValue = { ...found, set: req === 'zero' ? { status: 'no_positive_contribution' as const, monthly_cents: '0' as const, before_hundredths: 0, after_hundredths: 0 } : req === 'not-found' ? { status: 'search_not_found' as const, search_limit_cents: '100000000', before_hundredths: 0, after_hundredths: 0 } : req === 'payment' ? { status: 'payment_constraint' as const, message: '月初付款在月底投入前就不够。', before_hundredths: 0, after_hundredths: 0 } : req === 'bounds' ? { status: 'out_of_bounds' as const, message: '偏低收益低于可计算范围。', before_hundredths: 0, after_hundredths: 0 } : found.set, lower: req === 'bounds' ? { status: 'out_of_bounds' as const, message: '偏低收益低于可计算范围。', before_hundredths: -200, after_hundredths: -200 } : found.lower };
+  const requirement: BasicCapabilities['requirement'] = miss.length ? { status: 'blocked', missing: miss } : { status: 'ready', value: reqValue };
+  const c = o.contribution ?? (bd ? bd.basic.contribution.monthly_cents : basic?.contribution.monthly_cents ?? null);
+  const baseValue = predictionCapabilityFixture.prediction.status === 'ready' ? predictionCapabilityFixture.prediction.value : null!;
+  const prediction: BasicCapabilities['prediction'] = c === null ? { status: 'blocked', missing: [missingOf('CONTRIBUTION_UNKNOWN', 'prediction', 'basic', 'basic.contribution.monthly_cents', '预计投入未填写，所以不推算达成时间与路径。', 'assumption')] }
+    : miss.length ? { status: 'blocked', missing: retag(miss, 'prediction') }
+    : (() => { const plan = { ...baseValue.plan, saving_cents: Number(c), assets_cents: funds.status === 'ready' ? Number(funds.value.available_cents) : baseValue.plan.assets_cents }, proj = project(plan, Number(todayIso.slice(0, 4))), out = outcome(plan, proj); return { status: 'ready' as const, value: { source: o.contribution !== null ? 'temporary' as const : 'saved' as const, contribution_cents: c, plan, plan0: plan, projection: proj, outcome: out, terminal: params.get('plan-terminal') === 'zero' || basicScenario === 'terminal-zero' ? 'no_margin' as const : out.shortfall_month !== null ? 'gap' as const : 'surplus' as const } }; })();
+  return { context: { generation: sources.generation, revision: saved?.revision ?? null, today: sources.today, model_version: 'basic-1', modules: sources.modules, start: sim ? { kind: 'simulation', id: sim.id, date: sim.date } : { kind: 'live', snapshot_id: snap?.id ?? null, revision: snap?.revision ?? null, date: snap?.date ?? null }, monetary_basis_date: core?.monetary_basis_date ?? null, source: o.contribution !== null ? 'temporary' : 'saved', write_version: sources.write_version }, funds, requirement, prediction, pension };
+}
+if (new URLSearchParams(location.search).get('capabilities') !== 'real') bindCapabilityProvider(previewCapabilities);
 let searchPreviewAttempts = 0;
 export function searchPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command !== 'search_all') return null;
@@ -307,8 +448,66 @@ export function searchPreview(command: string, args: Record<string, unknown>): {
   const filtered = input.type_filter === 'all' ? rows : rows.filter(r => r.kind === input.type_filter);
   return { value: { generation, revision: 'preview-layout-only', keyword: input.keyword.trim(), type_filter: input.type_filter, offset: input.offset, limit: input.limit, total: filtered.length, type_counts, items: filtered.slice(input.offset, input.offset + input.limit) } };
 }
+const previewGroups = new Map<string, { assetId: string; planId: string; assetName: string; planName: string }>();
+/** 预览最近删除中的关联订阅组（内存桩）。 */
+export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command === 'notification_permission') return { value: null };
+  // ---- 关联订阅命令的内存桩（EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN）----
+  if (command === 'link_view') {
+    const kind = args.kind as 'virtual' | 'plan', id = args.id as string;
+    if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
+    const asset = virtuals.find(v => (kind === 'virtual' ? v.id === id : v.fields.plan_id === id));
+    const plan = plans.find(p => (kind === 'plan' ? p.id === id : p.id === asset?.fields.plan_id));
+    const paid = payments.filter(p => p.plan_id === plan?.id && p.state === 'paid');
+    const relation = asset && plan ? 'linked' : plan ? 'asset_trashed' : 'unlinked';
+    return { value: { generation, relation, asset: asset ? { id: asset.id, name: asset.fields.name, revision: asset.revision, deleted: false, billing: 'subscription', stopped_on: asset.fields.stopped_on ?? null } : null, plan: plan ? { id: plan.id, name: plan.fields.name, revision: plan.revision, deleted: false, category: plan.fields.category, end_date: plan.fields.end_date ?? null, auto_renew: plan.fields.auto_renew ?? true, paused: plan.fields.paused, service_start: plan.fields.service_start ?? null } : null, paid_count: paid.length, skipped_count: 0, paid_cents: String(paid.reduce((t, p) => t + BigInt(p.amount_cents ?? '0'), 0n)), paid_until: paid.at(-1)?.due_date ?? null, needs_review: !!asset?.fields.stopped_on && (plan?.fields.end_date ?? null) === null, occupied_by: null, candidates: [], group: null, reminder: null } };
+  }
+  if (command === 'link_delete_preview' || command === 'link_restore_preview') {
+    if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
+    if (command === 'link_delete_preview') {
+      const side = args.side as 'virtual' | 'plan', id = args.id as string;
+      const asset = virtuals.find(v => (side === 'virtual' ? v.id === id : v.fields.plan_id === id));
+      const plan = plans.find(p => (side === 'plan' ? p.id === id : p.id === asset?.fields.plan_id));
+      const paid = payments.filter(p => p.plan_id === plan?.id && p.state === 'paid');
+      return { value: { generation, preview: 'preview-fixture', asset_id: asset?.id ?? '', plan_id: plan?.id ?? '', asset_name: asset?.fields.name ?? '', plan_name: plan?.fields.name ?? '', asset_revision: asset?.revision ?? 1, plan_revision: plan?.revision ?? 1, paid_count: paid.length, skipped_count: 0, paid_cents: String(paid.reduce((t, p) => t + BigInt(p.amount_cents ?? '0'), 0n)), blockers: [], partner_deleted: false } };
+    }
+    const groupId = args.groupId as string;
+    const [assetId, planId] = groupId.split('|');
+    const asset = virtuals.find(v => v.id === assetId), plan = plans.find(p => p.id === planId);
+    return { value: { generation, preview: 'preview-fixture', group_id: groupId, asset_name: asset?.fields.name ?? '', plan_name: plan?.fields.name ?? '', payments_hidden: payments.filter(p => p.plan_id === planId).length, payments_stay_deleted: 0, blockers: [] } };
+  }
+  if (command === 'link_trash') {
+    const input = args.input as { request_id: string; side: 'virtual' | 'plan'; id: string; asset_expected_revision: number; plan_expected_revision: number };
+    const asset = virtuals.find(v => (input.side === 'virtual' ? v.id === input.id : v.fields.plan_id === input.id));
+    const plan = plans.find(p => (input.side === 'plan' ? p.id === input.id : p.id === asset?.fields.plan_id));
+    if (!asset || !plan) throw { message: '找不到这组关联订阅' };
+    virtuals = virtuals.filter(v => v.id !== asset.id);
+    plans = plans.filter(p => p.id !== plan.id);
+    payments = payments.filter(p => p.plan_id !== plan.id);
+    const groupId = `${asset.id}|${plan.id}`;
+    receipts.set(input.request_id ?? crypto.randomUUID(), groupId);
+    previewGroups.set(groupId, { assetId: asset.id, planId: plan.id, assetName: asset.fields.name, planName: plan.fields.name });
+    return { value: groupId };
+  }
+  if (command === 'link_restore') {
+    const input = args.input as { group_id: string };
+    const g = previewGroups.get(input.group_id);
+    if (!g) throw { message: '这组记录已恢复或已清除，请重新读取最近删除' };
+    previewGroups.delete(input.group_id);
+    const plan = g ? recurringOverview().plans.find(() => false) : null;
+    void plan;
+    return { value: input.group_id };
+  }
+  if (command === 'link_save' || command === 'link_create' || command === 'link_reconcile') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as { request_id: string; fields?: { name?: string; amount_cents?: string } };
+    if (input.fields?.name && input.fields.amount_cents) {
+      plans = plans.map(p => p.fields.name === input.fields!.name || p.id === (args.input as { plan_id?: string }).plan_id ? { ...p, fields: { ...p.fields, name: input.fields!.name!, amount_cents: input.fields!.amount_cents! }, revision: p.revision + 1 } : p);
+    }
+    receipts.set(input.request_id, 'link');
+    return { value: 'link' };
+  }
   if (command === 'virtual_reminder_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as ReminderSave;
@@ -412,6 +611,20 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     receipts.set(input.request_id, id);
     return { value: next };
   }
+  if (command === 'modules_get') return { value: { ...allModules, wealth: params.get('plan-wealth') !== 'off' } };
+  if (command === 'planning_sources') { if (params.get('plan') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: planningSources(args) }; }
+  if (command === 'plan_profile_update') {
+    const input = args.input as ProfileUpdate;
+    if (updateResults.has(input.request_id)) return { value: updateResults.get(input.request_id) };
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '虚构资料库已变化。' };
+    if (input.expected_revision !== (planProfile?.revision ?? null)) throw { code: 'REVISION_CONFLICT', message: '虚构个人资料已变化，请重新读取。' };
+    planProfile = { profile: mergeSection(planProfile?.profile ?? null, input), revision: (planProfile?.revision ?? 0) + 1, updated_at: new Date().toISOString() };
+    planWriteVersion += 1; updateResults.set(input.request_id, planProfile); receipts.set(input.request_id, 'profile');
+    if (params.get('state') === 'unknown-result' && !lostOnce) { lostOnce = true; throw { message: '连接中断，保存结果未知。' }; }
+    if (params.get('state') === 'unresolved') throw { message: '连接中断，保存结果未知。' };
+    return { value: planProfile };
+  }
   if (command.startsWith('plan_')) {
     if (params.get('plan') === 'error' && command !== 'plan_income_save' && command !== 'plan_baseline_mark') throw { message: '虚构读取失败，用于验证错误状态。' };
     if (planFail('profile') && command === 'plan_profile') throw { message: '虚构个人资料读取失败，用于验证首页摘要的局部降级。' };
@@ -460,7 +673,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: '虚构读取失败，用于验证错误状态。' };
   if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: '虚构盘点读取失败。' }; return { value: summary() }; }
   if (command === 'wealth_accounts') return { value: accounts.map(withLatest) };
-  if (command === 'wealth_request_result') return { value: receipts.get(String(args.request)) ?? null };
+  if (command === 'wealth_request_result') { if (params.get('state') === 'unresolved') throw { message: '暂时无法核对。' }; return { value: receipts.get(String(args.request)) ?? null }; }
   // 只读详情：按稳定 ID 读取一次盘点（§5.2），浏览不写资料。
   if (command === 'wealth_snapshot') { if (planFail('snapshot')) throw { message: '虚构盘点明细读取失败，用于验证首页摘要的局部降级。' }; const found = snapshots.find(s => s.id === String(args.id)); return { value: found ? view(found) : null }; }
   if (command === 'wealth_snapshot_draft') {

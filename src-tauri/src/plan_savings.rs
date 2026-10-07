@@ -362,6 +362,7 @@ impl Store {
                     date: r.get(5)?,
                     amount_cents: r.get::<_, Option<i64>>(6)?.map(|v| v.to_string()),
                     notes: r.get(7)?,
+                    plan_id: r.get(8)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;

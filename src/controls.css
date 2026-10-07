@@ -25,7 +25,7 @@
 .editor .dialog-close:hover:not(:disabled){background:var(--soft);color:var(--text)}
 .editor-header-actions{display:flex;align-items:center;gap:8px;flex:none!important;margin-left:auto}
 .editor-header-actions>button,.editor>form>header>button.primary{width:auto;height:auto;min-height:34px;padding:7px 12px;font-size:13px;line-height:1.5;border-radius:var(--control-radius)}
-.editor button.primary{background:var(--button-bg);color:var(--button-text);border-color:transparent;font-weight:500}
+.editor button.primary:not(.danger){background:var(--button-bg);color:var(--button-text);border-color:transparent;font-weight:500}
 .editor :is(input,select,textarea,button):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .editor button,.editor .field input,.editor .field select,.editor .field textarea{border-radius:var(--control-radius)}
 .editor .field input,.editor .field select,.editor .field textarea{background:var(--card);border:1px solid var(--line);font-size:13px}
@@ -65,3 +65,13 @@
 @media(max-width:620px){.form-row{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);padding:12px;gap:6px 12px}.editor>form>header,.editor>header,.picker-header{padding:16px}.editor>form>header{margin-inline:-20px}.editor h2{font-size:18px}.editor-header-actions{gap:6px}}
 @media(max-width:420px){.form-row,.form-row:has(.form-row-control>label){grid-template-columns:minmax(0,1fr);gap:8px}.form-row-control{justify-content:flex-start}.form-row-control>.form-switch{margin-left:auto}.form-row-hint{grid-column:auto}}
 @media(prefers-reduced-motion:reduce){.editor[open],.topbar-menu-list{animation:none}.topbar-menu-trigger,.topbar-menu-list button,.form-switch,.form-switch span,.segment-thumb,.add-image-button{transition:none}}
+
+/* Confirmation and compound fields share the same operation layer. */
+.editor.trash-dialog{padding-top:20px}
+.editor.trash-dialog>.actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line-soft)}
+.form-row-control textarea,.plan-scope-row select,.plan-scope-amount input,.plan-fund-controls select,.plan-fund-controls input,.plan-income-pick select,.rs-field input:not([type=checkbox]),.rs-field select{min-height:var(--control-height);padding:8px 10px;border:1px solid var(--line);border-radius:var(--control-radius);background:var(--card);color:var(--text);font:400 13px/1.5 var(--display)}
+.form-row-control>textarea{width:100%;min-height:80px;resize:vertical}
+.form-row-control>.form-inline{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%;min-width:0}
+.form-row-control>.form-inline>.date-input{flex:1 1 150px;width:auto}
+.form-row-control>.form-inline>button{flex:none}
+:is(.rs-field,.plan-scope-row,.plan-income-pick) :is(input,select):focus-visible{outline:2px solid var(--accent);outline-offset:2px}

@@ -101,7 +101,7 @@ const palette = (kind: string, n: number) => kind === 'portfolio' ? 'color-mix(i
 /** 覆盖随时间：堆叠面积是支出的资金来源，虚线是计划退休支出。 */
 export function CoverageChart({ series, fmt, valueLabel }: { series: CoverageSeries; fmt: (cents: number) => string; valueLabel: string }) {
   const pts = series.points;
-  if (pts.length < 2) return <p className="muted">该计划的覆盖情况预测不可用。</p>;
+  if (pts.length < 2) return <p className="muted">资料不足，暂时无法拆分预算的资金构成。</p>;
   const a0 = pts[0].age, a1 = pts[pts.length - 1].age + 1;
   const { top, ticks } = niceTicks(Math.max(...pts.map(p => Math.max(p.spend, Object.values(p.values).reduce((a, b) => a + b, 0)))) * 1.08);
   const s = scales(a0, a1, top), near = useNearest(pts.length, pts.map(p => p.age), s);
@@ -155,7 +155,7 @@ export function PathsChart({ paths, fmt }: { paths: { id: string; label: string;
   const color = ['var(--text)', 'var(--error)', 'var(--warn)', 'color-mix(in srgb, var(--error) 60%, var(--warn))', 'var(--muted)'];
   const i = near.i;
   return <div className="rc-wrap">
-    <svg ref={near.ref} className="rc-chart rc-short" viewBox={`0 0 ${W} ${H - 40}`} role="img" aria-label="五条崩盘路径的资产" {...near.handlers}>
+    <svg ref={near.ref} className="rc-chart rc-short" viewBox={`0 0 ${W} ${H - 40}`} role="img" aria-label={`${paths.length} 条崩盘路径的资产`} {...near.handlers}>
       <Axes s={{ ...s, y: v => T + (1 - v / top) * (H - 40 - T - B) }} a0={a0} a1={a1} ticks={ticks}/>
       {paths.map((p, k) => <path key={p.id} className="rc-line" style={{ stroke: color[k % color.length], strokeDasharray: p.id === 'base' ? undefined : '0' }} d={p.path.map((v, j) => `${j ? 'L' : 'M'}${s.x(p.years[j]).toFixed(1)} ${(T + (1 - v / top) * (H - 40 - T - B)).toFixed(1)}`).join('')}/>)}
       {i !== null && <line x1={s.x(paths[0].years[i])} x2={s.x(paths[0].years[i])} y1={T} y2={H - 40 - B} className="rc-cursor"/>}

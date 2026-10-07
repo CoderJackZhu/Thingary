@@ -22,10 +22,13 @@ import type { RentForm } from './rent-plan';
 import { blankPlan, periodLabel, shiftDays, suggestedFinalDay } from './recurring-model';
 import { billingModes, billingOf, billingText, cumulativeCost, matchesFilter, paymentScheduleText, planAssociationText, renewalPayload, saveReminderWithPermission, topupSpendText, validityText, virtualFilters, virtualStatusText, virtualKindText } from './virtual';
 import type { TopupFields, TopupRecord, VirtualAsset, VirtualFields, VirtualFilter, VirtualOverview, VirtualSave, BillingMode } from './virtual';
+import { EndSubscriptionDialog, LinkDeleteDialog, LinkRepairDialog, LinkReviewDialog, SharedReminderRow, UnifyNameDialog } from './LinkDialogs';
+import { undoLinkDelete } from './LinkDialogs';
 import './wealth.css';
-import { useRestored } from './undo';
+import { offerUndo, useRestored } from './undo';
+import type { Modules } from './modules';
 
-export function VirtualPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
+export function VirtualPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, modules, onOpenSource }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void; modules: Modules; onOpenSource: (target: import('./source').SourceTarget) => void }) {
   const [data, setData] = useState<VirtualOverview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [backfill, setBackfill] = useState(false);
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
@@ -38,6 +41,12 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   const [mutationError, setMutationError] = useState('');
   const [editing, setEditing] = useState<VirtualAsset | 'new' | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null), [stopping, setStopping] = useState(false);
+  // 关联生命周期（设计 §6/§8）：结束订阅、旧停用核对、统一名称与整组删除。
+  const [repairing, setRepairing] = useState<string | null>(null);
+  const [ending, setEnding] = useState<VirtualAsset | null>(null);
+  const [reviewing, setReviewing] = useState<VirtualAsset | null>(null);
+  const [unifying, setUnifying] = useState<VirtualAsset | null>(null);
+  const [groupDelete, setGroupDelete] = useState<{ id: string; name: string } | null>(null);
   const [topupFocus, setTopupFocus] = useState<string | null>(null);
   const [filter, setFilter] = useState<VirtualFilter>('all');
   const [labelFilter, setLabelFilter] = useState<string>('all');
@@ -46,7 +55,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!paying || !!pending || busy || stopping || maintenance); return () => onEditingChange(false); }, [editing, paying, pending, busy, stopping, maintenance, onEditingChange]);
+  useEffect(() => { onEditingChange(!!editing || !!paying || !!pending || busy || stopping || maintenance || !!ending || !!reviewing || !!unifying || !!groupDelete || !!repairing); return () => onEditingChange(false); }, [editing, paying, pending, busy, stopping, maintenance, ending, reviewing, unifying, groupDelete, repairing, onEditingChange]);
   useEffect(() => {
     let live = true; setError('');
     invoke<VirtualOverview>('virtual_overview').then(o => { if (live) setData(o); }).catch(e => { if (live) setError(errorMessage(e)); });
@@ -66,10 +75,12 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
     if (target.kind !== 'virtual') return false;
     const item = fresh.items.find(v => v.id === target.id);
     if (!item) return false;
-    setEditing(item); return true;
+    setSelectedId(item.id); setTopupFocus(null); return true;
   });
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
-  const closed = (saved: boolean, warning?: string | null) => { if (warning) setMutationError(warning); (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPaying(null); setBackfill(false); setPending(storedPending()); if (saved) reload(); refocusHeading(); };
+  const closed = (saved: boolean, warning?: string | null) => { if (warning) setMutationError(warning); (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPaying(null); setBackfill(false); setEnding(null); setRepairing(null); setReviewing(null); setUnifying(null); setGroupDelete(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); };
+  // 结束订阅建议日：已设置结束日或实际当前服务期末；无当前期时由用户填写。
+  const suggestedEndDay = (item: VirtualAsset): string | null => item.plan?.fields.end_date ?? item.plan?.current_coverage?.[1] ?? null;
   const openNew = { label: '新增虚拟资产', plus: true, disabled: !!pending || busy || stopping || maintenance || !data, run: () => setEditing('new') };
   usePageBar('virtual', { primary: openNew, newRecord: openNew, search: { key: 'virtual', placeholder: '搜索虚拟资产' } });
   const consumedAutoNew = useRef(false);
@@ -133,20 +144,25 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
               </select>
               <Info text="持续订阅表示当前付款安排；累计费用与已确认付款分开显示，有限期权益按到期日提示。筛选和搜索只影响列表，不改变总览数字。"/>
             </div>
-            <div className={selected ? "virtual-browser has-inspector" : "virtual-browser"}><article className="ui-card ui-content"><div className="ui-section-head"><h3>{virtualFilters.find(([k]) => k === filter)?.[1]}</h3><span>{keyword ? `找到 ${shown.length} 条 · ` : ''}点名称编辑；点行查看付款与提醒</span></div>
+            <div className={selected ? "virtual-browser has-inspector" : "virtual-browser"}><article className="ui-card ui-content"><div className="ui-section-head"><h3>{virtualFilters.find(([k]) => k === filter)?.[1]}</h3><span>{keyword ? `找到 ${shown.length} 条 · ` : ''}点名称或行查看详情；在详情中明确编辑</span></div>
               {!shown.length ? <p className="muted">{keyword ? <>当前条件下没有找到记录。<button onClick={() => onSearch('')}>清除搜索</button></> : '这一类目前没有虚拟资产。'}</p> : <table className="ui-table virtual-table"><thead><tr><SortHeader field="name" label="名称" sort={sort} onSort={setSort} /><SortHeader field="price" label="金额" sort={sort} onSort={setSort} sortLabel="每期价格或单次金额（未年化原始金额；周期不同不代表负担可比）" /><SortHeader field="end" label="期限与付款安排" sort={sort} onSort={setSort} sortLabel="结束日期（无结束日期置后）" /><SortHeader field="status" label="状态" sort={sort} onSort={setSort} /><SortHeader field="spent" label="累计费用" sort={sort} onSort={setSort} sortLabel="累计费用（估算或实际投入）" /></tr></thead><tbody>
                 {shown.map(v => <tr key={v.id} tabIndex={0} aria-selected={selectedId === v.id} onClick={() => { if (!maintenance && !pending && !busy) { setSelectedId(v.id); setTopupFocus(null); } }} onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); if (!maintenance && !pending && !busy) { setSelectedId(v.id); setTopupFocus(null); } } }} className={v.status === 'stopped' ? 'closed' : undefined}>
-                  <td><button className="link-cell" disabled={!!pending || busy || stopping || maintenance} onClick={() => setEditing(v)}>{v.fields.name}</button>{(v.label_name || v.fields.provider || v.plan_name) && <small className="muted">{[v.label_name, v.fields.provider, v.plan_name && `关联「${v.plan_name}」`].filter(Boolean).join(' · ')}</small>}</td>
+                  <td><button className="link-cell" disabled={!!pending || busy || stopping || maintenance} onClick={e => { e.stopPropagation(); setSelectedId(v.id); setTopupFocus(null); }} aria-label={'查看 ' + v.fields.name + ' 详情'}>{v.fields.name}</button>{(v.label_name || v.fields.provider || v.plan_name) && <small className="muted">{[v.label_name, v.fields.provider, v.plan_name && `关联「${v.plan_name}」`].filter(Boolean).join(' · ')}</small>}</td>
                   <AmountCell v={v} />
                   <td>{validityText(v)}{v.plan && billingOf(v) === 'subscription' && <small className="muted">{paymentScheduleText(v)}</small>}{billingOf(v) === 'topup' && <small className="muted">{paymentScheduleText(v)}</small>}</td>
-                  <td><span className="virtual-state" data-state={v.status}>{virtualStatusText(v)}{v.status === 'stopped' && v.fields.stopped_on ? ` · ${v.fields.stopped_on}` : ''}</span>{v.payment_due && <button className="ui-link" disabled={!!pending || busy || stopping || maintenance} onClick={e => { e.stopPropagation(); pay(v); }}>记录付款</button>}</td>
+                  <td><span className="virtual-state" data-state={v.status}>{virtualStatusText(v)}{v.status === 'stopped' && v.fields.stopped_on ? ` · ${v.fields.stopped_on}` : ''}</span>{v.needs_review && <small className="muted"> 停用待核对</small>}{v.payment_due && <button className="ui-link" disabled={!!pending || busy || stopping || maintenance} onClick={e => { e.stopPropagation(); pay(v); }}>记录付款</button>}</td>
                   <CumulativeCell v={v} />
                 </tr>)}
-              </tbody></table>}</article>{selected && <Inspector data={data} item={selected} today={today} busy={busy} pending={!!pending} stopping={stopping} topupFocus={topupFocus} onSelect={() => { setSelectedId(null); setTopupFocus(null); }} onEdit={() => setEditing(selected)} onStop={() => void stop(selected)} onBackfill={() => { setBackfill(true); setEditing(selected); }} onPay={() => pay(selected)} onMaintenanceChange={setMaintenance} onError={m => { setMutationError(m); setPending(storedPending()); }} onSaved={reload} />}</div>
+              </tbody></table>}</article>{selected && <Inspector data={data} item={selected} today={today} busy={busy} pending={!!pending} stopping={stopping} topupFocus={topupFocus} modules={modules} onOpenSource={onOpenSource} onSelect={() => { setSelectedId(null); setTopupFocus(null); }} onEdit={() => setEditing(selected)} onStop={() => void stop(selected)} onEnd={() => setEnding(selected)} onReview={() => setReviewing(selected)} onRepair={() => setRepairing(selected.id)} onBackfill={() => { setBackfill(true); setEditing(selected); }} onPay={() => pay(selected)} onMaintenanceChange={setMaintenance} onError={m => { setMutationError(m); setPending(storedPending()); }} onSaved={reload} />}</div>
           </>
     }
     {paying && data && <PaymentDialog target={paying} generation={data.generation} today={today} onClose={closed} />}
-    {editing && data && <VirtualDialog item={editing === 'new' ? null : editing} data={data} today={today} backfill={backfill} onClose={closed} />}
+    {editing && data && <VirtualDialog item={editing === 'new' ? null : editing} data={data} today={today} backfill={backfill} modules={modules} onOpenSource={onOpenSource} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={item => { setEditing(null); setUnifying(item); }} onClose={closed} />}
+    {repairing && <LinkRepairDialog side="virtual" id={repairing} onClose={closed} onDone={m => setMutationError(m)} />}
+    {ending && data && <EndSubscriptionDialog assetId={ending.id} planId={ending.plan!.id} assetName={ending.fields.name} assetRevision={ending.revision} planRevision={ending.plan!.revision} fields={ending.plan!.fields} suggestion={suggestedEndDay(ending)} today={today} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
+    {reviewing && data && <LinkReviewDialog assetId={reviewing.id} planId={reviewing.fields.plan_id!} assetName={reviewing.fields.name} assetRevision={reviewing.revision} planRevision={reviewing.plan!.revision} stoppedOn={reviewing.fields.stopped_on} today={today} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
+    {unifying && data && <UnifyNameDialog assetId={unifying.id} planId={unifying.fields.plan_id!} assetName={unifying.fields.name} planName={unifying.plan!.fields.name} assetRevision={unifying.revision} planRevision={unifying.plan!.revision} fields={unifying.plan!.fields} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
+    {groupDelete && data && <LinkDeleteDialog side="virtual" id={groupDelete.id} name={groupDelete.name} generation={data.generation} onClose={saved => { setGroupDelete(null); if (saved) { setEditing(null); reload(); } refocusHeading(); }} onDone={(groupId, name) => { setEditing(null); offerUndo(`已整组删除「${name}」。`, async () => { await undoLinkDelete(groupId); }); reload(); }} />}
   </section>;
 }
 
@@ -175,25 +191,62 @@ function CumulativeCell({ v }: { v: VirtualAsset }) {
   return <td className="amount">{cost.cents != null ? money(cost.cents) : <span className="muted">{billingOf(v) === 'single' ? '价格待补充' : '未知'}</span>}{cost.estimated && <small className="muted">估算</small>}</td>;
 }
 
-/** 详情面板：按计费方式展示派生状态；储值档案在这里维护充值与余额（R13）。 */
-function Inspector({ data, item, today, busy, pending, stopping, topupFocus, onSelect, onEdit, onStop, onBackfill, onPay, onError, onSaved, onMaintenanceChange }: {
-  data: VirtualOverview; item: VirtualAsset; today: string; busy: boolean; pending: boolean; stopping: boolean; topupFocus: string | null;
-   onSelect: () => void; onEdit: () => void; onStop: () => void; onBackfill: () => void; onPay: () => void; onError: (m: string) => void; onSaved: () => void; onMaintenanceChange: (v: boolean) => void;
+/** 详情面板（设计 §5.1）：只读摘要＋明确编辑入口；订阅双方信息共用一套口径。 */
+function Inspector({ data, item, today, busy, pending, stopping, topupFocus, modules, onOpenSource, onSelect, onEdit, onStop, onEnd, onReview, onRepair, onBackfill, onPay, onError, onSaved, onMaintenanceChange }: {
+  data: VirtualOverview; item: VirtualAsset; today: string; busy: boolean; pending: boolean; stopping: boolean; topupFocus: string | null; modules: Modules; onOpenSource: (target: import('./source').SourceTarget) => void;
+   onSelect: () => void; onEdit: () => void; onStop: () => void; onEnd: () => void; onReview: () => void; onRepair: () => void; onBackfill: () => void; onPay: () => void; onError: (m: string) => void; onSaved: () => void; onMaintenanceChange: (v: boolean) => void;
 }) {
   const mode = billingOf(item);
+  const inspector = useRef<HTMLElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 1400px)').matches) inspector.current?.scrollIntoView({ block: 'start' });
+    heading.current?.focus({ preventScroll: true });
+  }, [item.id]);
   const cost = cumulativeCost(item);
   const plan = item.plan;
+  const linked = mode === 'subscription' && !!item.fields.plan_id && !!plan && !item.plan_deleted;
   const [maintaining, setMaintaining] = useState(false);
   const disabled = busy || pending || stopping;
   const onMaintenance = (v: boolean) => { setMaintaining(v); onMaintenanceChange(v); };
-  return <aside className="ui-inspector" aria-label="虚拟资产摘要"><span className="ui-avatar" style={{ background: 'var(--accent)' }}>{item.fields.name.slice(0, 1)}</span><h3>{item.fields.name}</h3><p className="muted">{billingText(mode)}{item.fields.kind !== 'general' ? ` · ${virtualKindText(item.fields.kind)}` : ''} · {item.fields.provider || '提供方待补充'}</p><div className="inspector-metrics"><div><span>有效至</span><strong>{validityText(item)}</strong></div><div><span>{cost.estimated ? '累计费用（估算）' : mode === 'topup' ? '累计充值实付' : '累计费用'}</span><strong>{cost.cents != null ? money(cost.cents) : '未知'}</strong></div></div><dl className="facts"><dt>周期计划</dt><dd>{planAssociationText(item)}</dd><dt>标签</dt><dd>{item.label_name || '未设置'}</dd><dt>开始日期</dt><dd>{plan?.fields.service_start || item.fields.purchase_date || '待补充'}</dd>{plan?.next_coverage && <><dt>下期服务</dt><dd>{periodLabel(...plan.next_coverage)}</dd></>}{item.paid_until && <><dt>已确认付款覆盖至</dt><dd>{item.paid_until}</dd></>}{plan && mode === 'subscription' && <><dt>已记录付款</dt><dd>{item.paid_count ? money(item.spent_cents) : '尚未补记'}<small className="muted">累计估算按每期价格与服务期间计算，未补记部分不计入重要支出。</small></dd><dt>续费安排</dt><dd>{paymentScheduleText(item)}</dd>{plan.fields.trial_days ? <><dt>免费试用</dt><dd>{plan.fields.trial_days} 天</dd></> : null}</>}</dl>
+  const ended = plan?.fields.end_date != null && plan.fields.end_date < today;
+  return <aside ref={inspector} className="ui-inspector" aria-label="虚拟资产摘要"><span className="ui-avatar" style={{ background: 'var(--accent)' }}>{item.fields.name.slice(0, 1)}</span><h3 ref={heading} tabIndex={-1}>{item.fields.name}</h3><p className="muted">{billingText(mode)}{item.fields.kind !== 'general' ? ` · ${virtualKindText(item.fields.kind)}` : ''} · {item.fields.provider || '提供方待补充'}</p>
+    {linked && <p className="muted small">关联付款计划「{plan!.fields.name}」{!modules.recurring && '（周期费用模块已关闭，仅可在此管理计费资料）'}</p>}
+    {item.plan_deleted && item.fields.plan_id && <p className="notice">关联付款计划在最近删除中。<button className="ui-link" disabled={disabled} onClick={onRepair}>核对历史关联记录…</button></p>}
+    {item.needs_review && <div className="notice" role="note">档案停用{item.fields.stopped_on ? `于 ${item.fields.stopped_on}` : ''}，但关联计划仍在进行。<button className="ui-link" disabled={disabled} onClick={onReview}>核对停用记录…</button></div>}
+    <div className="inspector-metrics"><div><span>有效至</span><strong>{validityText(item)}</strong></div><div><span>{cost.estimated ? '累计费用（估算）' : mode === 'topup' ? '累计充值实付' : '累计费用'}</span><strong>{cost.cents != null ? money(cost.cents) : '未知'}</strong></div></div>
+    <dl className="facts">
+      {linked ? <>
+        <dt>关联对象</dt><dd>{planAssociationText(item)}{modules.recurring && <> <button className="ui-link" disabled={disabled} onClick={() => onOpenSource({ kind: 'plan', id: item.fields.plan_id! })}>查看付款计划</button></>}</dd>
+        <dt>每期价格</dt><dd>{money(plan!.fields.amount_cents)}／{plan!.fields.interval_days ? `${plan!.fields.interval_days}天` : ({ 1: '月', 3: '季', 6: '半年', 12: '年' } as Record<number, string>)[plan!.fields.interval_months] ?? '期'}{plan!.monthly_cents && Number(plan!.fields.interval_months) > 1 && <small className="muted"> 月均 {money(plan!.monthly_cents)}（按当前价格折算）</small>}</dd>
+        <dt>累计估算</dt><dd>{plan!.estimated_cents ? money(plan!.estimated_cents) : '—'}<small className="muted">按每期价格与服务期间计算，未补记部分不计入重要支出</small></dd>
+        <dt>已记录付款</dt><dd>{item.paid_count ? `${money(item.spent_cents)} · ${item.paid_count} 笔` : '未记录付款'}<small className="muted">已确认的实付才计入重要支出；明确已付零元也是已记录事实</small></dd>
+        <dt>当前服务期</dt><dd>{plan!.current_coverage ? periodLabel(...plan!.current_coverage) : ended ? `已于 ${plan!.fields.end_date} 结束` : '—'}</dd>
+        <dt>下一付款候选</dt><dd>{item.payment_due ? `${item.payment_due.due_date} · ${money(item.payment_due.amount_cents)}` : plan!.next_due && !ended ? `${plan!.next_due}（未到记录窗口）` : '当前没有待记录期'}</dd>
+        <dt>最终结束日</dt><dd>{plan!.fields.end_date ? `使用至 ${plan!.fields.end_date}` : '未设置（持续续费）'}</dd>
+        <dt>已付覆盖期</dt><dd>{item.paid_until ?? '未记录'}</dd>
+        <dt>续费安排</dt><dd>{paymentScheduleText(item)}</dd>
+        {plan!.fields.trial_days ? <><dt>免费试用</dt><dd>{plan!.fields.trial_days} 天</dd></> : null}
+        <dt>标签</dt><dd>{item.label_name || '未设置'}</dd>
+        <dt>开始日期</dt><dd>{plan!.fields.service_start || item.fields.purchase_date || '待补充'}</dd>
+      </> : <>
+        <dt>周期计划</dt><dd>{planAssociationText(item)}</dd>
+        <dt>标签</dt><dd>{item.label_name || '未设置'}</dd>
+        <dt>开始日期</dt><dd>{plan?.fields.service_start || item.fields.purchase_date || '待补充'}</dd>
+        {plan?.current_coverage && <><dt>当前服务期</dt><dd>{periodLabel(...plan.current_coverage)}</dd></>}
+        {item.paid_until && <><dt>已确认付款覆盖至</dt><dd>{item.paid_until}</dd></>}
+        {plan && mode === 'subscription' && <><dt>已记录付款</dt><dd>{item.paid_count ? money(item.spent_cents) : '尚未补记'}</dd><dt>续费安排</dt><dd>{paymentScheduleText(item)}</dd></>}
+      </>}
+    </dl>
     {mode === 'subscription' && plan?.fields.service_start && <>
       {item.payment_due && <div className="form-block"><p className="muted small">待记录付款 {item.payment_due.due_date} · {money(item.payment_due.amount_cents)}；服务 {periodLabel(item.payment_due.coverage_start, item.payment_due.coverage_end)}</p><button className="primary" disabled={disabled || maintaining} onClick={onPay}>记录付款</button><small className="muted">仅确认真实扣款；备款或充值账户本身不记为订阅支出。</small></div>}
       {!item.payment_due && plan?.next_due && mode === 'subscription' && ['ongoing', 'active', 'expiring'].includes(item.status) && <div className="form-block"><button disabled={disabled || maintaining} onClick={onPay}>提前记录下期付款（{plan.next_due}）</button></div>}
       <ReminderRow key={`${item.id}-${item.revision}`} item={item} generation={data.generation} today={today} disabled={disabled} onNotice={onError} onStuck={() => onError('保存结果未确认，请先核对。')} onSaved={warning => { if (warning) onError(warning); onSaved(); }} onBusyChange={onMaintenance} />
     </>}
     {mode === 'topup' && <TopupMaintenance key={item.id} data={data} item={item} today={today} disabled={disabled} focus={topupFocus} onEditingChange={onMaintenance} onSaved={onSaved} onError={onError} />}
-    <div className="ui-foot"><button disabled={disabled || maintaining} onClick={onEdit}>编辑</button>{plan?.fields.service_start && mode === 'subscription' && <button disabled={disabled || maintaining} onClick={onBackfill}>补记历史付款</button>}{item.status !== 'stopped' && <button className="ui-link" disabled={disabled || maintaining} onClick={onStop}>{stopping ? '保存中…' : mode === 'single' ? '结束使用' : '停用'}</button>}<button className="ui-link" disabled={disabled || maintaining} onClick={onSelect}>收起</button></div>
+    <div className="ui-foot"><button disabled={disabled || maintaining} onClick={onEdit}>编辑</button>{linked && <button disabled={disabled || maintaining} onClick={onBackfill}>补记历史付款</button>}{item.status !== 'stopped' && (linked
+      ? <button className="ui-link" disabled={disabled || maintaining || ended} onClick={onEnd} title="明确最后使用日并关闭续费；两页一致">结束订阅…</button>
+      : <button className="ui-link" disabled={disabled || maintaining} onClick={onStop}>{stopping ? '保存中…' : mode === 'single' ? '结束使用' : '停用'}</button>)}<button className="ui-link" disabled={disabled || maintaining} onClick={onSelect}>收起</button></div>
   </aside>;
 }
 
@@ -279,7 +332,9 @@ function TopupMaintenance({ data, item, today, disabled, focus, onSaved, onError
 const blank = (): VirtualFields => ({ name: '', kind: 'general', billing: 'subscription', label_id: null, provider: '', purchase_date: null, price_cents: null, expires: null, plan_id: null, url: '', notes: '', stopped_on: null });
 const providerLabel: Record<string, string> = { license: '软件商', domain: '注册商', subscription: '平台', general: '提供方' };
 
-function VirtualDialog({ item, data, today, onClose, backfill }: { backfill: boolean; item: VirtualAsset | null; data: VirtualOverview; today: string; onClose: (saved: boolean, warning?: string | null) => void }) {
+function VirtualDialog({ item, data, today, onClose, backfill, modules, onOpenSource, onGroupDelete, onUnify }: { backfill: boolean; item: VirtualAsset | null; data: VirtualOverview; today: string; onClose: (saved: boolean, warning?: string | null) => void; modules: Modules; onOpenSource: (target: import('./source').SourceTarget) => void; onGroupDelete: (id: string, name: string) => void; onUnify: (item: VirtualAsset) => void }) {
+  // 旧记录两页名称可能不同：仅原本统一（或新建）时才一起改计划名（设计 §4）。
+  const namesUnified = !item?.plan || item.plan.fields.name === item.fields.name;
   const dialog = useRef<HTMLDialogElement>(null);
   const [f, setF] = useState<VirtualFields>(item ? { ...item.fields, billing: billingOf(item) } : blank());
   const legacyLink = !!item && !!item.fields.plan_id && (!item.plan || !item.plan.fields.service_start);
@@ -317,7 +372,7 @@ function VirtualDialog({ item, data, today, onClose, backfill }: { backfill: boo
     if (mode === 'single' && perpetual && fields.expires) { setNotice('选择永久有效时不要填写有效至。'); return; }
     const renewalLoad = isSubscription && !legacyLink ? (renewal === initialRenewal && renewalFrom !== (item?.plan?.renewal_from ?? '') ? renewal : renewalPayload(initialRenewal, renewal)) : null;
     const input: VirtualSave = {
-      ...(isSubscription && !legacyLink && (item?.plan || !item) ? { plan: { id: item?.plan?.id ?? null, expected_revision: item?.plan?.revision ?? null, fields: { ...planFields, name: fields.name, category: planFields.category || 'subscription' } } } : {}),
+      ...(isSubscription && ((item?.plan && !item.plan_deleted) || !item) ? { plan: { id: item?.plan?.id ?? null, expected_revision: item?.plan?.revision ?? null, fields: { ...(legacyLink ? planFieldsState : planFields), name: namesUnified || !item ? fields.name : item.plan!.fields.name, category: planFields.category || 'subscription' } } } : {}),
       ...(isSubscription && !legacyLink ? { renewal_price_cents: renewalLoad, renewal_from: renewal ? (renewalFrom || null) : null, special_end: item?.plan?.special_start ? { period_start: item.plan.special_start, coverage_end: specialOn ? (specialEnd || null) : null } : null } : {}),
       ...(mode === 'topup' && !item && withTopup && (firstTopup.paid_cents || firstTopup.gift_cents || firstTopup.credit_cents || autoCredit) ? { first_topup: { ...firstTopup, paid_cents: firstTopup.paid_cents || null, gift_cents: firstTopup.gift_cents || null, credit_cents: firstTopup.credit_cents ?? autoCredit ?? null } } : {}),
       request_id: crypto.randomUUID(), generation: data.generation, id: item?.id ?? null, expected_revision: item?.revision ?? null, fields,
@@ -341,14 +396,17 @@ function VirtualDialog({ item, data, today, onClose, backfill }: { backfill: boo
         <FormRow label="支付方式" hint="可选文字备注；不建立支付账户"><input aria-label="支付方式" maxLength={80} value={f.pay_method ?? ''} disabled={frozen} onChange={e => set('pay_method', e.target.value)} placeholder="可留空" /></FormRow>
   </>;
   return <dialog ref={dialog} className="editor wealth-account-editor virtual-editor" aria-labelledby="virtual-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">财富 · 虚拟资产</p><h2 id="virtual-heading">{item ? '编辑虚拟资产' : '新增虚拟资产'}</h2><p className="muted">{mode === 'subscription' ? '按每期价格与服务期间估算累计费用；确认历史付款后才计入已记录支出。' : mode === 'topup' ? '按充值实付累计投入；赠送与额度不计入支出。' : '单次购买按实付记录；完成一次性服务后可结束使用，仍保留金额和购买日期。'}</p></div><CloseButton type="button" aria-label="关闭虚拟资产表单" disabled={busy} onClick={() => onClose(false)} /><div className="editor-header-actions">{item && !stuck && <DeleteButton label="删除" disabled={busy} kind="virtual" id={item.id} revision={item.revision} generation={data.generation} name={`虚拟资产 ${item.fields.name}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }} />}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存'}</button>}</div></header>
+    <header><div><p className="eyebrow">财富 · 虚拟资产</p><h2 id="virtual-heading">{item ? '编辑虚拟资产' : '新增虚拟资产'}</h2><p className="muted">{mode === 'subscription' ? '按每期价格与服务期间估算累计费用；确认历史付款后才计入已记录支出。' : mode === 'topup' ? '按充值实付累计投入；赠送与额度不计入支出。' : '单次购买按实付记录；完成一次性服务后可结束使用，仍保留金额和购买日期。'}</p></div><CloseButton type="button" aria-label="关闭虚拟资产表单" disabled={busy} onClick={() => onClose(false)} /><div className="editor-header-actions">{item && !stuck && (isSubscription && item.plan && !item.plan_deleted
+          ? <button type="button" disabled={busy} onClick={() => onGroupDelete(item.id, item.fields.name)} title="已关联订阅整组删除：服务档案与付款计划一起移入最近删除">删除…</button>
+          : <DeleteButton label="删除" disabled={busy} kind="virtual" id={item.id} revision={item.revision} generation={data.generation} name={`虚拟资产 ${item.fields.name}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }} />)}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存'}</button>}</div></header>
     <section className="form-block">
-      <FormRow label="名称"><input id="virtual-name" aria-label="名称" maxLength={80} value={f.name} disabled={frozen} onChange={e => set('name', e.target.value)} placeholder="例如 GPT Plus、iCloud、饭卡" /></FormRow>
+      <FormRow label="名称" hint={item?.plan && !namesUnified ? `付款计划名称为「${item.plan.fields.name}」；两页名称不同，仅打开或修改价格不会自动统一` : undefined}><input id="virtual-name" aria-label="名称" maxLength={80} value={f.name} disabled={frozen} onChange={e => set('name', e.target.value)} placeholder="例如 GPT Plus、iCloud、饭卡" /></FormRow>
+      {item?.plan && !namesUnified && <p className="muted small">两页名称不同。<button type="button" className="ui-link" disabled={frozen} onClick={() => onUnify(item)}>统一名称…</button></p>}
       <FormRow label="标签" hint="可留空；与实物标签同一套管理"><ChoiceField kind="label" label="标签" domain="virtual" generation={data.generation} value={f.label_id} onChange={label_id => set('label_id', label_id)} disabled={frozen} /></FormRow>
       <FormRow label="计费方式" hint={mode === 'subscription' ? '订阅按周期持续计费' : mode === 'topup' ? '储值按充值实付累计' : '单次购买一次性投入'}><Segments label="计费方式" value={mode} disabled={frozen} options={billingModes.map(([value, label]) => ({ value, label }))} onChange={switchMode} /></FormRow>
       {item && mode === 'single' && item.fields.kind === 'subscription' && !item.fields.plan_id && <p className="muted small">{planAssociationText(item)}。若要按月计费，请核对每期金额与服务期间后新建订阅，避免把旧金额误算成月费。</p>}
       {isSubscription && (legacyLink
-        ? <p className="muted small">这项档案关联的是旧版周期计划（{item!.plan_name ?? '排期'}），按原排期与付款记录管理；新的订阅设置不套用到旧计划。</p>
+        ? <><p className="muted small">旧版计划保留原排期；修改计费时同时核对关联双方。</p>{item?.plan && !item.plan_deleted && <PlanFieldsForm fields={planFieldsState} onChange={setPlanFields} disabled={frozen} today={today} editing firstDueTouched={firstDueTouched} onFirstDueTouched={() => setFirstDueTouched(true)} />}</>
         : simple ? <>
           <RentPlanForm value={simpleState} onChange={setSimpleState} disabled={frozen} today={today} rent={false} />
           <details className="plan-advanced"><summary>更多：后续续费价格、备款提醒、支付方式</summary>{advanced}</details>
@@ -374,8 +432,11 @@ function VirtualDialog({ item, data, today, onClose, backfill }: { backfill: boo
       <details className="plan-advanced" open={!isSubscription ? true : undefined}><summary>档案补充：提供方 / 链接 / 备注</summary>
         <FormRow label={providerLabel[f.kind] ?? '提供方'}><input aria-label={providerLabel[f.kind] ?? '提供方'} maxLength={80} value={f.provider} disabled={frozen} onChange={e => set('provider', e.target.value)} placeholder="可留空" /></FormRow>
         <FormRow label="链接" hint="购买或管理页面"><input aria-label="链接" maxLength={2000} value={f.url} disabled={frozen} onChange={e => set('url', e.target.value)} placeholder="可留空" /></FormRow>
-        {item && mode !== 'single' && <FormRow label="停用" hint="不再使用；可随时撤回"><Switch label="停用" value={!!f.stopped_on} disabled={frozen} onChange={v => set('stopped_on', v ? today : null)} /></FormRow>}
-        {item && mode !== 'single' && f.stopped_on && <FormRow label="停用日期"><DateInput id="virtual-stopped" value={f.stopped_on} min={f.purchase_date ?? undefined} max={today} disabled={frozen} onChange={v => v && set('stopped_on', v)} /></FormRow>}
+        {/* R6：已关联订阅不再暴露旧停用开关——结束走双方一致的「结束订阅」； */}
+        {/* 单次、储值和无有效关联计划的档案保留原语义。 */}
+        {item && mode !== 'single' && !(isSubscription && item.plan && !item.plan_deleted) && <FormRow label="停用" hint={legacyLink ? '旧关联计划保持原停用语义' : '不再使用；可随时撤回'}><Switch label="停用" value={!!f.stopped_on} disabled={frozen} onChange={v => set('stopped_on', v ? today : null)} /></FormRow>}
+        {item && mode !== 'single' && !(isSubscription && item.plan && !item.plan_deleted) && f.stopped_on && <FormRow label="停用日期"><DateInput id="virtual-stopped" value={f.stopped_on} min={f.purchase_date ?? undefined} max={today} disabled={frozen} onChange={v => v && set('stopped_on', v)} /></FormRow>}
+        {item && isSubscription && item.plan && !item.plan_deleted && <p className="muted small">不再使用这项订阅时，请在详情面板用「结束订阅…」确认最后使用日；两页状态保持一致。</p>}
       </details>
     </section>
     {item?.plan?.fields.service_start && isSubscription && <><PaymentRangeForm plan={item.plan} generation={data.generation} today={today} initialOpen={backfill} disabled={frozen || dirty} onBusyChange={setBusy} onSaved={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }} />{dirty && <p className="muted small">请先保存本次修改，再补记历史付款。</p>}</>}
@@ -397,36 +458,11 @@ function subscriptionSummary(f: PlanFields, today: string): string {
 function ReminderRow({ item, generation, today, disabled, onNotice, onStuck, onSaved, onBusyChange }: {
   item: VirtualAsset; generation: string; today: string; disabled: boolean; onNotice: (m: string) => void; onStuck: (v: boolean) => void; onSaved: (warning?: string | null) => void; onBusyChange?: (v: boolean) => void;
 }) {
-  const current = item.reminder ?? null;
-  const canRepeat = !!item.plan?.fields.service_start;
-  const [on, setOn] = useState(!!current);
-  const [repeat, setRepeat] = useState(current ? !!current.repeat_every_period : canRepeat);
-  const [lead, setLead] = useState(current?.lead_days ?? 3);
-  const [date, setDate] = useState(current?.date ?? '');
-  const [notes, setNotes] = useState(current?.notes ?? '');
-  const [busy, setBusy] = useState(false);
-  const next = item.payment_due?.due_date ?? item.plan?.next_due ?? item.valid_until;
-  const suggestion = next ? shiftDays(next, -lead) : today;
-  const singleSuggestion = suggestion < today ? today : suggestion;
-  async function persist(nextOn: boolean, day: string, memo: string, repeating = repeat, advance = lead) {
-    setBusy(true); onBusyChange?.(true);
-    try {
-      const warning = await saveReminderWithPermission(nextOn, () => invoke('notification_permission'), () => submit({ command: 'virtual_reminder_save', input: { request_id: crypto.randomUUID(), generation, asset_id: item.id, expected_revision: item.revision, repeat_every_period: repeating, lead_days: advance, reminder: nextOn ? { date: day, notes: memo } : null }, label: '备款提醒 ' + item.fields.name }));
-      onSaved(warning);
-    } catch (e) { if (e instanceof Unresolved) onStuck(true); else { setOn(!!current); setRepeat(current ? !!current.repeat_every_period : canRepeat); setLead(current?.lead_days ?? 3); } onNotice(e instanceof Error ? e.message : errorMessage(e)); }
-    finally { setBusy(false); onBusyChange?.(false); }
-  }
-  const frozen = disabled || busy;
-  return <div className="subscription-reminder"><FormRow label="备款提醒" hint={repeat ? '每期提前提醒；确认已付后撤销该期，继续提醒下一期' : '指定日期提醒，仅本次'}>
-    <div className="form-inline"><Switch label="备款提醒" value={on} disabled={frozen} onChange={v => { setOn(v); const day = date || singleSuggestion; setDate(day); void persist(v, day, notes); }} /></div>
-    {canRepeat && <Segments label="备款提醒方式" value={repeat ? 'period' : 'once'} disabled={frozen} options={[{ value: 'period', label: '每期提醒' }, { value: 'once', label: '仅本次' }]} onChange={v => { const r = v === 'period'; setRepeat(r); if (on) void persist(true, date || singleSuggestion, notes, r); }} />}
-    {on && <div className="form-inline">{repeat
-      ? <label>扣款前 <select aria-label="提前几天提醒" value={lead} disabled={frozen} onChange={e => { const n = Number(e.target.value); setLead(n); void persist(true, date || singleSuggestion, notes, true, n); }}>{Array.from({ length: 31 }, (_, n) => <option key={n} value={n}>{n} 天</option>)}</select>提醒</label>
-      : <DateInput label="提醒日期" value={date} disabled={frozen} onChange={setDate} />}
-      <input aria-label="提醒备注" placeholder="例如：充值付款账户" maxLength={1000} value={notes} disabled={frozen} onChange={e => setNotes(e.target.value)} /><button type="button" disabled={frozen || (!repeat && !date)} onClick={() => void persist(true, date || singleSuggestion, notes)}>更新提醒</button></div>}
-    <small className="muted">{current ? current.repeat_every_period
-      ? item.plan?.fields.auto_renew === false || !item.payment_due ? '当前没有可续费期；每期提醒暂停。' : `每期扣款前 ${current.lead_days ?? 3} 天提醒；${current.date < today ? '本期提醒日期已过' : `下次 ${current.date}`}。确认真实扣款后转到下一期。`
-      : `已安排 ${current.date}${current.notes ? ' · ' + current.notes : ''}（仅本次）`
-      : '默认关闭；开启后按系统通知权限执行，关闭、停用或结束会撤销待通知。'}</small>
-  </FormRow></div>;
+  // 与周期页共用同一编辑组件（R5/I05）：同一提醒源、同一门控。
+  return <SharedReminderRow
+    assetId={item.id} assetRevision={item.revision} reminder={item.reminder ?? null}
+    nextDue={item.plan?.next_due ?? null} paymentDueDate={item.payment_due?.due_date ?? null}
+    hasServiceStart={!!item.plan?.fields.service_start}
+    generation={generation} today={today} disabled={disabled}
+    onNotice={onNotice} onStuck={() => onStuck(true)} onSaved={onSaved} onBusyChange={onBusyChange} />;
 }

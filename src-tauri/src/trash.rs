@@ -427,12 +427,55 @@ impl Store {
                     })
                 }
             };
+            // Linked pairs deleted as a group show once as 关联订阅; their two
+            // member rows are suppressed so counts stay per group (§7.2).
+            if q.filter == "all" || q.filter == "asset" || q.filter == "wealth" {
+                let mut g = c.prepare(
+                    "SELECT g.id,g.created_at,g.revision,
+                        (SELECT name FROM virtual_assets v WHERE v.id=(SELECT member_id FROM link_trash_members WHERE group_id=g.id AND member_kind='virtual')),
+                        (SELECT count(*) FROM plan_payments p WHERE p.plan_id=(SELECT member_id FROM link_trash_members WHERE group_id=g.id AND member_kind='plan')),
+                        (SELECT sum(amount_cents) FROM plan_payments p WHERE p.plan_id=(SELECT member_id FROM link_trash_members WHERE group_id=g.id AND member_kind='plan') AND p.state='paid')
+                     FROM link_trash_groups g WHERE g.status='deleted'",
+                )?;
+                let groups = g
+                    .query_map([], |r| {
+                        Ok(Entry {
+                            kind: "link_group".into(),
+                            id: r.get(0)?,
+                            title: r
+                                .get::<_, Option<String>>(3)?
+                                .unwrap_or_else(|| "关联订阅".into()),
+                            subtype: Some("link".into()),
+                            date: None,
+                            end_date: None,
+                            cost_cents: r.get::<_, Option<i64>>(5)?.map(|v| v.to_string()),
+                            provider: None,
+                            deleted_at: r.get(1)?,
+                            asset_id: None,
+                            asset_name: None,
+                            asset_deleted: false,
+                            asset_revision: r.get(2)?,
+                            asset_state: None,
+                            contents: match r.get::<_, i64>(4)? {
+                                0 => vec![],
+                                n => vec![Content {
+                                    kind: "payment",
+                                    count: n,
+                                }],
+                            },
+                        })
+                    })?
+                    .collect::<std::result::Result<Vec<_>, _>>()?;
+                entries.extend(groups);
+            }
+            let group_skip =
+                "AND id NOT IN (SELECT member_id FROM link_trash_members m JOIN link_trash_groups g ON g.id=m.group_id WHERE g.status='deleted')";
             entries.extend(query_entries(c, "SELECT id,date,NULL,date,deleted_at,revision FROM fin_snapshots WHERE deleted_at IS NOT NULL", wealth("snapshot"))?);
             entries.extend(query_entries(c, "SELECT id,name,kind,NULL,deleted_at,revision FROM fin_accounts WHERE deleted_at IS NOT NULL", wealth("account"))?);
             entries.extend(query_entries(c, "SELECT id,title,category,date,deleted_at,revision FROM expenses WHERE deleted_at IS NOT NULL", wealth("expense"))?);
             entries.extend(query_entries(c, "SELECT id,date,NULL,date,deleted_at,revision FROM plan_income WHERE deleted_at IS NOT NULL", wealth("income"))?);
-            entries.extend(query_entries(c, "SELECT id,name,category,NULL,deleted_at,revision FROM recurring_plans WHERE deleted_at IS NOT NULL", wealth("plan"))?);
-            entries.extend(query_entries(c, "SELECT id,name,kind,purchase_date,deleted_at,revision FROM virtual_assets WHERE deleted_at IS NOT NULL", wealth("virtual"))?);
+            entries.extend(query_entries(c, &format!("SELECT id,name,category,NULL,deleted_at,revision FROM recurring_plans WHERE deleted_at IS NOT NULL {group_skip}"), wealth("plan"))?);
+            entries.extend(query_entries(c, &format!("SELECT id,name,kind,purchase_date,deleted_at,revision FROM virtual_assets WHERE deleted_at IS NOT NULL {group_skip}"), wealth("virtual"))?);
             // Independently deleted topups and balance check-ins; a topup hidden
             // by its deleted account is not a row (its parent restores it).
             let mut topups = query_entries(c, "SELECT t.id,v.name,NULL,t.topup_date,t.deleted_at,t.revision,v.id,v.name,v.deleted_at IS NOT NULL FROM virtual_topups t JOIN virtual_assets v ON v.id=t.asset_id WHERE t.deleted_at IS NOT NULL", |r| {
@@ -572,6 +615,11 @@ fn contents(c: &Connection, kind: &str, id: &str) -> Result<Vec<Content>> {
             "entry",
             "SELECT count(*) FROM fin_snapshot_entries WHERE snapshot_id=?1",
         )],
+        // 关联订阅组：隐藏付款数来自组内计划侧（§7.2 预览口径一致）。
+        "link_group" => &[(
+            "payment",
+            "SELECT count(*) FROM plan_payments WHERE plan_id=(SELECT member_id FROM link_trash_members WHERE group_id=?1 AND member_kind='plan') AND deleted_at IS NULL",
+        )],
         "wish" => &[(
             "photo",
             "SELECT count(*) FROM wishlist_attachments WHERE wishlist_id=?1",
@@ -617,6 +665,7 @@ fn kind_label(kind: &str) -> String {
         "virtual" => "虚拟资产",
         "topup" => "充值",
         "balance" => "余额记录",
+        "link_group" => "关联订阅",
         other => other,
     }
     .to_string()

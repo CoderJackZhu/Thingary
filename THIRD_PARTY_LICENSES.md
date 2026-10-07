@@ -2,6 +2,8 @@
 
 本文件由 `node scripts/third-party-licenses.mjs` 生成，列出锁定的 macOS Rust 依赖（保守包含构建依赖）与前端生产依赖及其许可证标识。物谱自身按 [GPL-3.0-or-later](LICENSE) 授权。此清单仅列标识与来源；安装包内 `许可/THIRD_PARTY_NOTICES.txt` 附全文与声明，由 `node scripts/distribution-notices.mjs` 离线收集，另附每份文本的来源和 SHA-256。补全文本见 [说明](https://github.com/CoderJackZhu/Thingary/blob/main/scripts/license-overrides/README.md)；依赖升级后请重新核对并生成。
 
+直接内置的外部内容不由包管理器发现，另见 [来源告知](SOURCE_NOTICES.md)；随包告知同时附上来源告知。
+
 ## Rust（macOS 目标，279 个）
 
 许可证分布：MIT OR Apache-2.0（126）、MIT（46）、Apache-2.0 OR MIT（28）、MIT/Apache-2.0（19）、Unicode-3.0（18）、Zlib OR Apache-2.0 OR MIT（9）、Unlicense OR MIT（6）、MPL-2.0（5）、MIT OR Apache-2.0 OR Zlib（3）、BSD-3-Clause（2）、Zlib（2）、MIT OR Zlib OR Apache-2.0（2）、BSD-3-Clause OR Apache-2.0（2）、Unlicense/MIT（2）、0BSD OR MIT OR Apache-2.0（1）、BSD-3-Clause AND MIT（1）、BSD-3-Clause/MIT（1）、Apache-2.0 AND MIT（1）、CC0-1.0 OR MIT-0 OR Apache-2.0（1）、Apache-2.0 / MIT（1）、Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT（1）、Apache-2.0（1）、(MIT OR Apache-2.0) AND Unicode-3.0（1）

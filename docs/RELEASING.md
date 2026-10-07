@@ -10,6 +10,8 @@
 
 代码变更后运行 `npm run build`、`npm run test:ui`、`npm run check`、`npm test`。只改交付材料时执行相应脚本、文档和包检查，引用同一应用代码提交已经完成的工程回归，不把它冒充新的测试结果。更新 CHANGELOG 和对应 Release 正文；依赖变更时重新生成许可证清单并核对全文覆盖。
 
+发版核对[第三方告知](../SOURCE_NOTICES.md)、依赖许可、对应源码与最终包的一致性。
+
 ### 升级兼容性
 
 每次发布检查资料身份、数据库 schema／迁移、备份格式、已有素材 ID 与设置键。用前一版在隔离身份下生成虚构资料，再以同身份新包打开并重启，比对物品、心愿、账户、金额、未知值、关联、图片和已有保障；验证旧版完整备份恢复。不得在正式资料库做验收。涉及迁移时增加对应旧 schema 夹具及恢复测试，说明可逆性和降级边界。仅替换应用包应保留资料目录；较低的应用版本编号不代表数据格式降级。
@@ -27,7 +29,7 @@ sh scripts/make-dmg.sh
 - `Thingary-<版本>-arm64.dmg`
 - `SHA256SUMS.txt`，仅记录 DMG 的 SHA-256，不是来源认证签名
 
-DMG 内含「物谱.app」、Applications 快捷方式、`开始使用.html`、使用说明图片和 `许可/`（GPL 全文、第三方声明与全文、来源和散列清单、名称图标使用边界、对应源码入口）。离线 HTML 由唯一权威 `docs/USER_GUIDE.md` 生成，不另行维护手抄说明；图片全部为虚构演示。
+DMG 内含「物谱.app」、Applications 快捷方式、`开始使用.html`、使用说明图片和 `许可/`（GPL 全文、第三方声明与全文、来源和散列清单、直接内置内容告知、名称图标使用边界、对应源码入口）。离线 HTML 由唯一权威 `docs/USER_GUIDE.md` 生成，不另行维护手抄说明；图片全部为虚构演示。
 
 `make-dmg.sh` 检查身份、arm64 架构、版本和严格签名；`distribution-notices.mjs` 从锁定依赖和 `license-overrides/manifest.json` 收集全文，缺失或散列错误即失败。后者离线运行，不在打包时下载许可证。先安装锁定 npm 依赖并准备 Cargo 缓存；补充文本来源与升级办法见 [说明](../scripts/license-overrides/README.md)。Rust 清单保守包含构建依赖，不能把清单数量当成二进制中实际链接数量。
 

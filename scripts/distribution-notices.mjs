@@ -59,7 +59,12 @@ function npmPackage(directory) {
 }
 const packageJson = JSON.parse(readFileSync(`${root}/package.json`, 'utf8'));
 for (const name of Object.keys(packageJson.dependencies)) npmPackage(`${root}/node_modules/${name}`);
+// Directly embedded content is not discoverable through either package manager.
+// Keep the human-reviewed source ledger alongside the generated dependency texts.
+const sourceNotices = readFileSync(`${root}/SOURCE_NOTICES.md`);
+texts.push(`\n${'='.repeat(80)}\nDirectly embedded content: SOURCE_NOTICES.md\n${sourceNotices.toString('utf8')}\n`);
+inventory.push({ ecosystem: 'source', name: 'Thingary embedded-content notices', version: '1', license: 'See per-entry declarations in SOURCE_NOTICES.md', repository: '', authors: [], files: [{ name: 'SOURCE_NOTICES.md', source: 'reviewed project source ledger', sha256: sha(sourceNotices) }] });
 mkdirSync(output, { recursive: true });
 writeFileSync(`${output}/THIRD_PARTY_NOTICES.txt`, 'Thingary third-party license texts\nCollected from locked package archives and pinned upstream sources.\nThe Rust inventory conservatively includes build dependencies. System frameworks are not redistributed.\nSPDX reference templates are supplemental; upstream declarations and author metadata are retained.\n' + texts.join(''));
 writeFileSync(`${output}/license-inventory.json`, JSON.stringify(inventory, null, 2) + '\n');
-console.log(JSON.stringify({ output: relative(root, output), rust: inventory.filter(p => p.ecosystem === 'Rust').length, npm: inventory.filter(p => p.ecosystem === 'npm').length, missing: 0, notices_sha256: sha(readFileSync(`${output}/THIRD_PARTY_NOTICES.txt`)) }));
+console.log(JSON.stringify({ output: relative(root, output), rust: inventory.filter(p => p.ecosystem === 'Rust').length, npm: inventory.filter(p => p.ecosystem === 'npm').length, source: inventory.filter(p => p.ecosystem === 'source').length, missing: 0, notices_sha256: sha(readFileSync(`${output}/THIRD_PARTY_NOTICES.txt`)) }));

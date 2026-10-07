@@ -967,6 +967,7 @@ fn purge_waits_for_legacy_relation_too() {
     // active purchase link does.
     let err = s
         .purge_trash(&thingary_lib::purge::Purge {
+            preview: None,
             request_id: uuid::Uuid::new_v4().to_string(),
             generation: s.generation(),
             kind: Some("asset".into()),
@@ -987,6 +988,7 @@ fn purge_waits_for_legacy_relation_too() {
     })
     .unwrap();
     s.purge_trash(&thingary_lib::purge::Purge {
+        preview: None,
         request_id: uuid::Uuid::new_v4().to_string(),
         generation: s.generation(),
         kind: Some("wish".into()),
@@ -994,6 +996,7 @@ fn purge_waits_for_legacy_relation_too() {
     })
     .unwrap();
     s.purge_trash(&thingary_lib::purge::Purge {
+        preview: None,
         request_id: uuid::Uuid::new_v4().to_string(),
         generation: s.generation(),
         kind: Some("asset".into()),

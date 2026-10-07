@@ -268,6 +268,7 @@ fn c02_permanent_delete_clears_the_fk_and_keeps_the_display_name() {
     })
     .unwrap();
     s.purge_trash(&thingary_lib::purge::Purge {
+        preview: None,
         request_id: uuid::Uuid::new_v4().to_string(),
         generation: s.generation(),
         kind: Some("asset".into()),
@@ -349,6 +350,7 @@ fn c02_stale_relation_name_survives_backup_of_a_purged_target() {
     })
     .unwrap();
     s.purge_trash(&thingary_lib::purge::Purge {
+        preview: None,
         request_id: uuid::Uuid::new_v4().to_string(),
         generation: s.generation(),
         kind: Some("asset".into()),
@@ -437,6 +439,7 @@ fn editing_other_fields_keeps_a_purged_replacement_name() {
     })
     .unwrap();
     s.purge_trash(&thingary_lib::purge::Purge {
+        preview: None,
         request_id: uuid::Uuid::new_v4().to_string(),
         generation: s.generation(),
         kind: Some("asset".into()),

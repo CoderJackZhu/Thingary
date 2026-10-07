@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 31;
+pub const SCHEMA_VERSION: i64 = 33;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -781,8 +781,53 @@ PRAGMA user_version=14;")?;
         tx.execute_batch("PRAGMA user_version=31;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 31;
+    }
+    if v == 31 && target >= 32 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch("PRAGMA user_version=32;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 32;
+    }
+    if v == 32 && target >= 33 {
+        // Main's schema 32 had no group tables; the unpublished subscription
+        // branch used the same version with x09. Validate and preserve either.
+        let tx = c.unchecked_transaction()?;
+        if !has_link_trash_schema(&tx)? {
+            tx.execute_batch(include_str!("x09.sql"))?;
+        } else {
+            tx.execute_batch("PRAGMA user_version=33;")?;
+        }
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
+}
+
+/// Recognize only the exact unpublished group schema, never a partial or
+/// altered table set. Shared by migration and legacy-backup validation.
+pub(crate) fn has_link_trash_schema(c: &Connection) -> Result<bool> {
+    fn definitions(c: &Connection) -> Result<Vec<(String, String, String)>> {
+        let mut q = c.prepare("SELECT type,name,coalesce(sql,'') FROM sqlite_master WHERE name IN ('link_trash_groups','link_trash_members','link_trash_members_lookup') ORDER BY type,name")?;
+        let rows = q
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+    let actual = definitions(c)?;
+    if actual.is_empty() {
+        return Ok(false);
+    }
+    let canonical = Connection::open_in_memory()?;
+    canonical.execute_batch(include_str!("x09.sql"))?;
+    if actual != definitions(&canonical)? {
+        return Err(Error::new(
+            "DATABASE_SCHEMA",
+            "关联删除组结构不符合已知版本",
+        ));
+    }
+    Ok(true)
 }
 
 /// Canonical categories, in order, with the exact default names merged into each.

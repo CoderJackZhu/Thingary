@@ -67,6 +67,7 @@ pub struct Plan {
     pub estimated_cents: Option<String>,
     pub paid_cents: Option<String>,
     pub next_coverage: Option<(String, String)>,
+    pub current_coverage: Option<(String, String)>,
     pub id: String,
     pub fields: PlanFields,
     pub revision: i64,
@@ -774,6 +775,7 @@ fn plan_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Plan> {
         estimated_cents: None,
         paid_cents: None,
         next_coverage: None,
+        current_coverage: None,
         renewal_cents: None,
         renewal_from: None,
         special_start: None,
@@ -1078,6 +1080,39 @@ pub(crate) fn enrich_plan(c: &Connection, p: &mut Plan, today: &str) -> Result<(
             None
         };
     }
+    // 当前服务期包含今天，独立于下一未付款期与已付覆盖期。
+    p.current_coverage = None;
+    let now = date(today)?;
+    if f.coverage_start.is_some() {
+        let final_end = f.end_date.as_deref().map(date).transpose()?;
+        if let Some(service) = f.service_start.as_deref().map(date).transpose()? {
+            let billing = date(f.coverage_start.as_deref().unwrap())?;
+            if service <= now && now < billing {
+                let end = final_end.map_or(billing.pred_opt().unwrap(), |e| {
+                    billing.pred_opt().unwrap().min(e)
+                });
+                if now <= end {
+                    p.current_coverage = Some((service.to_string(), end.to_string()));
+                }
+            }
+        }
+        let periods = periods_for(c, f, &p.id, ends.clone())?;
+        for k in periods.first_index()..120000 {
+            let Some((start, end)) = periods.span(k)? else {
+                break;
+            };
+            if start > now {
+                break;
+            }
+            if end >= now {
+                let end = final_end.map_or(end, |e| end.min(e));
+                if now <= end {
+                    p.current_coverage = Some((start.to_string(), end.to_string()));
+                }
+                break;
+            }
+        }
+    }
     // 当前负担按今天生效的价格折算（review R7）；固定天数按 365 天一次舍入。
     let now = date(today)?;
     let current =
@@ -1189,6 +1224,21 @@ impl Store {
             return plan(&tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这项计划"));
         }
         let id = input.id.clone().unwrap_or_else(uid);
+        // 已关联订阅的计划不能单边保存（设计 §9）：共享计费编辑走双方修订的
+        // link_save；这条旧入口对已关联计划拒绝缺少另一方修订的写入并要求重读。
+        if input.id.is_some() {
+            let linked: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM virtual_assets v JOIN recurring_plans r ON r.id=v.plan_id WHERE v.plan_id=?1 AND v.deleted_at IS NULL AND r.deleted_at IS NULL)",
+                [&id],
+                |r| r.get(0),
+            )?;
+            if linked {
+                return Err(Error::new(
+                    "LINK_CONFLICT",
+                    "这项计划已关联订阅，请在共享编辑中保存（需要双方修订）",
+                ));
+            }
+        }
         save_plan(
             &tx,
             &id,

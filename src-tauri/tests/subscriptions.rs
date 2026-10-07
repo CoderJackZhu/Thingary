@@ -1,9 +1,13 @@
 use thingary_lib::{
     domain::Error,
+    link::LinkSave,
     recurring::{PaymentRangeSave, PaymentSave, PlanFields, PlanSave},
     storage::{migrate_to, Store, SCHEMA, SCHEMA_VERSION},
     virtual_assets::{Fields, LinkedPlanSave, Save},
 };
+fn code(result: Result<impl Sized + std::fmt::Debug, Error>) -> String {
+    result.unwrap_err().code
+}
 const TODAY: &str = "2026-10-04";
 fn id() -> String {
     uuid::Uuid::new_v4().to_string()
@@ -359,13 +363,31 @@ fn virtual_and_plan_revision_conflicts_roll_back_the_entire_edit() {
     let p = v.plan.as_ref().unwrap();
     let mut f = p.fields.clone();
     f.amount_cents = "15000".into();
-    s.recurring_plan_save(
-        &PlanSave {
+    // 单边保存已关联计划被拒绝：共享计费编辑必须携带双方修订（设计 §9）。
+    assert_eq!(
+        code(s.recurring_plan_save(
+            &PlanSave {
+                request_id: id(),
+                generation: s.generation(),
+                id: Some(p.id.clone()),
+                expected_revision: Some(p.revision),
+                fields: f.clone(),
+            },
+            TODAY,
+        )),
+        "LINK_CONFLICT"
+    );
+    s.link_save(
+        &LinkSave {
             request_id: id(),
             generation: s.generation(),
-            id: Some(p.id.clone()),
-            expected_revision: Some(p.revision),
+            asset_id: v.id.clone(),
+            asset_expected_revision: v.revision,
+            plan_id: p.id.clone(),
+            plan_expected_revision: p.revision,
             fields: f,
+            billing: None,
+            unify_name_to: None,
         },
         TODAY,
     )
@@ -405,13 +427,17 @@ fn paused_renewal_keeps_paid_rights_and_fixed_term_still_expires() {
         .unwrap();
     let mut f = p.fields.clone();
     f.paused = true;
-    s.recurring_plan_save(
-        &PlanSave {
+    s.link_save(
+        &LinkSave {
             request_id: id(),
             generation: s.generation(),
-            id: Some(p.id.clone()),
-            expected_revision: Some(p.revision),
+            asset_id: v.id.clone(),
+            asset_expected_revision: v.revision,
+            plan_id: p.id.clone(),
+            plan_expected_revision: p.revision,
             fields: f.clone(),
+            billing: None,
+            unify_name_to: None,
         },
         TODAY,
     )
@@ -422,13 +448,19 @@ fn paused_renewal_keeps_paid_rights_and_fixed_term_still_expires() {
     assert_eq!(out.spent_cents.as_deref(), Some("14000"));
     f.paused = false;
     f.end_date = Some("2026-11-30".into());
-    s.recurring_plan_save(
-        &PlanSave {
+    // 结束同样经共享保存：双方修订已被暂停一步推进，按最新读取提交。
+    let asset = s.virtual_overview(TODAY).unwrap().items.pop().unwrap();
+    s.link_save(
+        &LinkSave {
             request_id: id(),
             generation: s.generation(),
-            id: Some(p.id),
-            expected_revision: Some(p.revision + 1),
+            asset_id: asset.id,
+            asset_expected_revision: asset.revision,
+            plan_id: p.id,
+            plan_expected_revision: p.revision + 1,
             fields: f,
+            billing: None,
+            unify_name_to: None,
         },
         TODAY,
     )
