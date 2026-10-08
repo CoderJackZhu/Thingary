@@ -28,6 +28,7 @@ function component(file, dependencies) {
   const exports = {};
   vm.runInNewContext(code, { exports, require(name) {
     if (name === 'react/jsx-runtime') return jsx;
+    if (name === './PlanningCosts') return { CostsDialog: () => null };
     if (Object.hasOwn(dependencies, name)) return dependencies[name];
     throw new Error(`Unexpected consumer dependency: ${name}`);
   } });

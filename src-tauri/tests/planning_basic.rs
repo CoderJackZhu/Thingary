@@ -735,3 +735,52 @@ fn old_backup_reads_facts_only_and_old_receipts_cannot_restore_retired_estimates
         general.profile
     );
 }
+
+#[test]
+fn dormant_event_fee_confirmation_survives_saves_without_reducing_active_budget() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(dir.path()).unwrap();
+    store
+        .plan_profile_update(&input(&store), "2026-10-08")
+        .unwrap();
+    let mut json = serde_json::to_value(input(&store)).unwrap();
+    json["request_id"] = serde_json::json!(uuid::Uuid::new_v4().to_string());
+    json["expected_revision"] = serde_json::json!(1);
+    json["section"] = serde_json::json!("events");
+    json["fields"] = serde_json::json!({"occurrences":[],"life_events":[{
+        "id":"fictional-car","label":"虚构车","kind":"car","date":"2028-10","included":false,
+        "price_cents":"7000000","down_cents":"7000000","extra_cents":"0","loan_rate_hundredths":350,
+        "loan_years":3,"holding_cents":"120000","rent_saved_cents":"0","cycle_years":null,"until_age":null,"resale_cents":"0"
+    }]});
+    let mut events: Update = serde_json::from_value(json).unwrap();
+    store.plan_profile_update(&events, "2026-10-08").unwrap();
+    let mut basic = input(&store);
+    basic.request_id = uuid::Uuid::new_v4().to_string();
+    basic.expected_revision = Some(2);
+    if let Section::Basic(f) = &mut basic.section {
+        f.spend_cents = Some("10000".into());
+        f.basic.retirement_costs = vec![thingary_lib::plan_basic::CostScope {
+            source_id: "event:fictional-car:holding".into(),
+            treatment: "included".into(),
+            reference_cents: Some("120000".into()),
+        }];
+    }
+    store.plan_profile_update(&basic, "2026-10-08").unwrap();
+    drop(store);
+    let mut store = Store::open(dir.path()).unwrap();
+    let saved = store.plan_profile().unwrap().saved.unwrap();
+    assert_eq!(
+        saved.profile.retire.basic.unwrap().retirement_costs[0]
+            .reference_cents
+            .as_deref(),
+        Some("120000")
+    );
+    events.request_id = uuid::Uuid::new_v4().to_string();
+    events.expected_revision = Some(3);
+    if let Section::Events(f) = &mut events.section {
+        f.life_events[0].included = true;
+    }
+    // Re-enabling an included amount larger than the budget remains an explicit conflict.
+    assert!(store.plan_profile_update(&events, "2026-10-08").is_err());
+    assert_eq!(store.plan_profile().unwrap().saved.unwrap().revision, 3);
+}

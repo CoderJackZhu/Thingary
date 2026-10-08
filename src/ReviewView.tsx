@@ -64,6 +64,8 @@ function StructureCard({ summary }: { summary: Summary }) {
 }
 
 export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onOpenSettings, restoreScroll, modules = allModules }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
+  const [amountsHidden, setAmountsHidden] = useState(() => { try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem('thingary.hide-financial-amounts.v1', amountsHidden ? '1' : '0'); } catch { /* Session state still works when preferences cannot be stored. */ } }, [amountsHidden]);
   const [data, setData] = useState<Review | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const gate = useRef(requestGate());
   const context = useRef<{ generation: string; today: string; version: unknown; year: number | null } | null>(null);
@@ -101,7 +103,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   // One backend projection already blends snapshot facts with every other
   // event; merging wealth points here again would duplicate 盘点 rows.
   const hidden = hiddenKinds(modules);
-  const recent = (ready(data.recent) ?? []).filter(ev => !hidden.has(ev.kind)).map(ev => ({ id: 'event:' + ev.id, icon: eventIcon(ev.kind), date: ev.date!, title: ev.kind === 'snapshot' ? eventLabel(ev) : eventLabel(ev) + ' · ' + ev.title, detail: eventDetail(ev), target: ev.target ?? null }));
+  const recent = (ready(data.recent) ?? []).filter(ev => !hidden.has(ev.kind)).map(ev => ({ id: 'event:' + ev.id, icon: eventIcon(ev.kind), date: ev.date!, title: ev.kind === 'snapshot' ? eventLabel(ev) : eventLabel(ev) + ' · ' + ev.title, detail: amountsHidden && ev.kind === 'snapshot' ? '金融金额已隐藏' : eventDetail(ev), target: ev.target ?? null }));
   const activeRange: TrendRange = w && rangeUsable(w.points, range, data.today) ? range : 'all';
   const daysSince = latest ? Math.max(0, Math.round((Date.parse(data.today) - Date.parse(latest.date)) / 86400000)) : 0;
   // 分类色条：金额未知的类别不占宽度；图例最多 4 行，其余合并（规范 4.6）。
@@ -125,15 +127,15 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     </article>}
     {(modules.wealth || modules.planning) && <div className={'review-top' + (modules.wealth && modules.planning ? ' duo' : '')}>
       {modules.wealth && <section className="review-nw" aria-label="金融净资产">
-        <div className="ui-label">金融净资产{latest && <Info text={`只统计计入范围的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
+        <div className="ui-label">金融净资产<button type="button" className="icon-button privacy-toggle" aria-label={amountsHidden ? '显示金融金额' : '隐藏金融金额'} title={amountsHidden ? '显示金融金额' : '隐藏金融金额'} aria-pressed={amountsHidden} onClick={() => setAmountsHidden(v => !v)}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{amountsHidden && <path d="m3 3 18 18"/>}</svg></button>{latest && <Info text={`只统计计入范围的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
         {failure(data.wealth)}
         {w && <>
-          <div className="review-nw-big">{latest ? signedMoney(latest.net_cents) : '—'}</div>
+          <div className="review-nw-big">{amountsHidden ? '******' : latest ? signedMoney(latest.net_cents) : '—'}</div>
           {latest ? <>
             <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天</p>
-            <p className={'ui-sub' + tone(latest.change_cents)}>{latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
-            <p className="ui-sub">资产 {money(latest.assets_cents)} · 负债 {money(latest.liabilities_cents)}</p>
-            <Sparkline hero points={rangePoints(w.points, activeRange, data.today)}/>
+            <p className={'ui-sub' + (amountsHidden ? '' : tone(latest.change_cents))}>{amountsHidden ? '变化金额已隐藏' : latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
+            <p className="ui-sub">资产 {amountsHidden ? '******' : money(latest.assets_cents)} · 负债 {amountsHidden ? '******' : money(latest.liabilities_cents)}</p>
+            {amountsHidden ? <div className="privacy-chart" role="status">金融曲线已隐藏</div> : <Sparkline hero points={rangePoints(w.points, activeRange, data.today)}/>}
             <div className="review-nw-bar">
               {rangeUsable(w.points, 'all', data.today) ? <div className="ui-seg" role="group" aria-label="曲线时间范围">{trendRanges.map(([k, label]) => { const usable = rangeUsable(w.points, k, data.today); return <button key={k} aria-pressed={activeRange === k} disabled={!usable} title={usable ? undefined : '这个范围内完整盘点不足两次'} onClick={() => setRange(k)}>{label}</button>; })}</div> : <span/>}
               {link('wealth')}
@@ -142,7 +144,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
         </>}
       </section>}
       {modules.planning && (modules.wealth
-        ? <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
+        ? amountsHidden ? <article className="ui-card ui-content"><h3>规划摘要</h3><p className="muted">金融金额已隐藏</p></article> : <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
         : <article className="ui-card ui-content review-plan-dep" aria-label="规划">
           <div className="ui-section-head"><h3>规划</h3></div>
           <p className="review-plan-goal">退休与财务自由</p>
@@ -152,7 +154,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
         </article>)}
     </div>}
     <div className={'review-heroes' + (modules.wealth && w?.structure_date ? '' : ' single')}>
-      {modules.wealth && w?.structure_date && <StructureCard summary={w}/>}
+      {modules.wealth && w?.structure_date && (amountsHidden ? <article className="ui-card ui-content"><h3>资产结构</h3><p className="muted">金融金额已隐藏</p></article> : <StructureCard summary={w}/>)}
       <article className="ui-card ui-hero tint-2">
         <div className="ui-label">持有物品<Info text={`截至 ${data.today} 的持有物购入金额，包含使用中与已退役物品；不是当前估值，不与金融净资产相加。`}/></div>
         {failure(data.physical)}

@@ -212,7 +212,22 @@ impl Basic {
             let refs: i64 = self
                 .retirement_costs
                 .iter()
-                .filter(|c| c.treatment == "included")
+                .filter(|c| {
+                    c.treatment == "included"
+                        && !r.life_events.iter().any(|e| {
+                            c.source_id.starts_with(&format!("event:{}:", e.id))
+                                && (r.core.as_ref().is_some_and(|core| {
+                                    core.occurrences
+                                        .iter()
+                                        .any(|o| o.event_id == e.id && o.status == "cancelled")
+                                }) || (!e.included
+                                    && !r.core.as_ref().is_some_and(|core| {
+                                        core.occurrences
+                                            .iter()
+                                            .any(|o| o.event_id == e.id && o.status == "occurred")
+                                    })))
+                        })
+                })
                 .map(|c| {
                     c.reference_cents
                         .as_ref()

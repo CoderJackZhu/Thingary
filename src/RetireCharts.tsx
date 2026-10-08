@@ -1,3 +1,5 @@
+import { spacedLabels } from './chart-labels';
+import { useChartScale } from './chart-width';
 import { useRef, useState } from 'react';
 import type { PointerEvent, ReactNode } from 'react';
 import { calloutBaselines, compactYuan, refLabelLayout } from './plan-view';
@@ -26,9 +28,11 @@ function scales(a0: number, a1: number, top: number): Scale {
 }
 
 function Axes({ s, a0, a1, ticks, mark }: { s: Scale; a0: number; a1: number; ticks: number[]; mark?: { age: number; label: string } | null }) {
-  return <g className="rc-axes">
+  const ref = useRef<SVGGElement>(null), scale = useChartScale(ref, W, H);
+  const labels = spacedLabels(ageTicks(a0, a1), a => s.x(a) * scale, a => String(a).length * 7 * scale);
+  return <g ref={ref} className="rc-axes">
     {ticks.map(v => <g key={v}><line x1={L} x2={W - R} y1={s.y(v)} y2={s.y(v)} className="rc-grid"/><text x={L - 8} y={s.y(v) + 3.5} textAnchor="end">{v === 0 ? '0' : compactYuan(v)}</text></g>)}
-    {ageTicks(a0, a1).map(a => <text key={a} x={s.x(a)} y={H - B + 18} textAnchor="middle">{a}</text>)}
+    {labels.map(a => <text key={a} x={s.x(a)} y={H - B + 18} textAnchor="middle">{a}</text>)}
     {mark && <text x={s.x(mark.age)} y={H - B + 33} textAnchor="middle" className="rc-strong">{mark.label}</text>}
     <line x1={L} x2={W - R} y1={H - B} y2={H - B} className="rc-axis"/>
   </g>;

@@ -7,7 +7,7 @@ import { FundsEditor } from './PlanningFunds';
 import { PlanningProfileFields } from './PlanningProfileFields';
 import { CapabilityNotice, RequirementCard } from './PlanningRequirement';
 import { ageMonthsAt } from './plan-pension';
-import { mustStayInLedger } from './plan-core';
+import { CostsEditor } from './PlanningCosts';
 import { ready } from './review';
 import { ContributionHelper } from './PlanningContributionHelper';
 import { SPEND_CAVEAT, historyHints, savingFromFlow, withDefaults } from './planning-basic-defaults';
@@ -16,7 +16,7 @@ import { defaultRetire } from './plan';
 import type { Account, Snapshot } from './wealth';
 import type { PlanningMissing, PlanningSources, ProfileState } from './plan';
 import { basicInput, budgetInput, contributionSources, draftOf, fundsInput, incomeItemsChanged, pensionInput, retirementSources } from './planning-basic-forms';
-import type { CostSource, Draft, IncomeMode, ScopeDraft } from './planning-basic-forms';
+import type { CostSource, Draft, IncomeMode } from './planning-basic-forms';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
 import type { SectionInput } from './planning-basic-data';
 import { amountState, missingText, setupStepFor } from './planning-basic-view';
@@ -28,12 +28,13 @@ type Saved = ProfileState['saved'];
 export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload, onPending, onClose, initialStep = 0 }: { sources: PlanningSources; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: (saved: boolean) => void; initialStep?: number }) {
   const saved: Saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const dialog = useRef<HTMLDialogElement>(null), heading = useRef<HTMLHeadingElement>(null);
+  const [costsOpen, setCostsOpen] = useState(false);
   const [step, setStep] = useState(initialStep), [d, setD] = useState(() => withDefaults(draftOf(saved, snapshot, today), saved)), [notice, setNotice] = useState('');
   const saver = useSectionSaver(sources, reload, onPending);
   const history = useMemo(() => historyHints(ready(sources.review)), [sources.review]);
   const patch = (v: Partial<Draft>) => setD(x => ({ ...x, ...v }));
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
-  useEffect(() => { heading.current?.focus(); dialog.current?.querySelector('.planning-setup-body')?.scrollTo(0, 0); }, [step]);
+  useEffect(() => { heading.current?.focus(); dialog.current?.querySelector('.planning-setup-body')?.scrollTo(0, 0); }, [step, costsOpen]);
   const frozen = saver.busy || saver.stuck;
   const wealthOn = sources.modules.wealth && snapshot !== null;
   const r = saved?.profile.retire;
@@ -69,36 +70,36 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
     }
     if (await saver.save({ section: 'setup', fields })) onClose(true);
   }
-  const jump = (owner: PlanningMissing['owner'], field?: string) => { if (owner === 'pension') setStep(1); else if (owner !== 'service' && owner !== 'events') setStep(setupStepFor(owner, field)); };
+  const jump = (owner: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (owner === 'pension') setStep(1); else if (owner !== 'service' && owner !== 'events') setStep(setupStepFor(owner, field)); };
   const missing = preview.status === 'ready' ? [...(preview.caps.requirement.status === 'blocked' ? preview.caps.requirement.missing : []), ...(preview.caps.funds.status === 'blocked' ? preview.caps.funds.missing : [])] : [];
 
-  return <dialog ref={dialog} className="editor wealth-account-editor planning-setup-dialog" aria-labelledby="setup-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); if (step === 3) void save(); else if (step === 2) setStep(3); else next(); }}>
-    <header><div><p className="eyebrow">开始规划 · {step + 1} / {steps.length}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 0 ? '没想好的先留空，不会当作 0 保存。可以随时关闭，先去记录收入或查看复盘。' : step === 3 ? '直接确认就可以。每月能存多少是选填，没想好可以以后再说。' : '这里设置的是假设，随时可以修改。'}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
-    <nav className="planning-setup-steps" aria-label="设置步骤">{steps.map((s, i) => <span key={s} aria-current={i === step ? 'step' : undefined}>{i + 1}. {s}</span>)}</nav>
+  return <dialog ref={dialog} className="editor wealth-account-editor planning-setup-dialog" aria-labelledby="setup-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); if (costsOpen) setCostsOpen(false); else if (step === 3) void save(); else if (step === 2) setStep(3); else next(); }}>
+    <header><div><p className="eyebrow">{costsOpen ? '规划 · 费用核对' : `开始规划 · ${step + 1} / ${steps.length}`}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{costsOpen ? '确认这些费用怎么算' : steps[step]}</h2><p className="muted">{costsOpen ? '只核对费用包含关系，完成后返回当前步骤，最后统一保存。' : step === 0 ? '没想好的先留空，不会当作 0 保存。可以随时关闭，先去记录收入或查看复盘。' : step === 3 ? '直接确认就可以。每月能存多少是选填，没想好可以以后再说。' : '这里设置的是假设，随时可以修改。'}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
+    {!costsOpen && <nav className="planning-setup-steps" aria-label="设置步骤">{steps.map((s, i) => <span key={s} aria-current={i === step ? 'step' : undefined}>{i + 1}. {s}</span>)}</nav>}
     <div className="planning-setup-body">
-      {step === 0 && <GoalStep d={d} patch={patch} frozen={frozen} now={now} history={history} sources={r ? retirementSources(r, d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null) : []}/>}
-      {step === 1 && <ConditionStep d={d} setD={setD} patch={patch} frozen={frozen} snapshot={snapshot} accounts={accounts} wealthOn={wealthOn} wealthModule={sources.modules.wealth} today={today}/>}
-      {step === 2 && <>
+      {costsOpen && r && <CostsEditor d={d} patch={patch} frozen={frozen} retire={r} annualPension={d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null}/>}
+      {!costsOpen && step === 0 && <GoalStep onCosts={() => setCostsOpen(true)} d={d} patch={patch} frozen={frozen} now={now} history={history} sources={r ? retirementSources(r, d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null) : []}/>}
+      {!costsOpen && step === 1 && <ConditionStep d={d} setD={setD} patch={patch} frozen={frozen} snapshot={snapshot} accounts={accounts} wealthOn={wealthOn} wealthModule={sources.modules.wealth} today={today}/>}
+      {!costsOpen && step === 2 && <>
         <p className="notice">仅按当前输入试算，尚未保存。</p>
         {built.error ? <article className="ui-card ui-content" role="alert"><p>{built.error}</p><button type="button" className="ui-btn" onClick={() => setStep(0)}>回到目标与预算</button></article>
           : preview.status === 'ready' ? <RequirementCard caps={preview.caps} onOwner={jump} busy={frozen}/> : <CapabilityNotice result={preview}/>}
       </>}
-      {step === 3 && <ConfirmStep d={d} patch={patch} frozen={frozen} history={history} previewMissing={missing} sources={r ? contributionSources(r, saved?.profile.personal_pension_annual_cents ?? null) : []} hasBeijing={d.incomeMode === 'beijing'}/>}
+      {!costsOpen && step === 3 && <ConfirmStep onCosts={() => setCostsOpen(true)} d={d} patch={patch} frozen={frozen} history={history} previewMissing={missing} sources={r ? contributionSources(r, saved?.profile.personal_pension_annual_cents ?? null) : []} hasBeijing={d.incomeMode === 'beijing'}/>}
     </div>
     {(notice || saver.notice) && <p className="notice setup-notice" role="alert">{[notice, saver.notice].filter(Boolean).join(' ')}</p>}
-    <footer className="planning-setup-footer"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : saved?.profile.retire.basic ? '取消本次修改' : '暂时跳过'}</button><span>{step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : step === 3 ? '确认并保存' : step === 2 ? '下一步：确认计划' : '下一步'}</button></span></footer>
+    <footer className="planning-setup-footer"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : saved?.profile.retire.basic ? '取消本次修改' : '暂时跳过'}</button><span>{!costsOpen && step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : costsOpen ? '完成核对，返回设置' : step === 3 ? '确认并保存' : step === 2 ? '下一步：确认计划' : '下一步'}</button></span></footer>
   </form></dialog>;
 }
 
-function GoalStep({ d, patch, frozen, now, sources, history }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; now: number | null; sources: CostSource[]; history: History }) {
+function GoalStep({ d, patch, frozen, now, sources, history, onCosts }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; now: number | null; sources: CostSource[]; history: History; onCosts: () => void }) {
   return <section className="form-block">
     <FormRow label="生活目标"><select aria-label="生活目标" value={d.mode} disabled={frozen} onChange={e => patch({ mode: e.target.value as Draft['mode'] })}><option value="fire">财务自由：资金够用后退休</option><option value="traditional">按计划年龄退休：检查是否够用</option></select></FormRow>
     <FormRow label="出生年月" hint="目标是年龄、或要引用政策估算时才需要；点日历选择，只用到年和月"><DateInput id="setup-birth" label="出生日期" value={d.birth} max={new Date().toISOString().slice(0, 10)} disabled={frozen} allowClear onChange={v => patch({ birth: v })}/></FormRow>
     <FormRow label="想在几岁退休？" hint={now === null ? '你期望的年龄，不是系统替你决定的退休日期。留空表示还没想好' : `当前约 ${now} 岁。留空表示还没想好`}><input aria-label="想在几岁退休？" inputMode="numeric" value={d.target} disabled={frozen} placeholder="例如 55" onChange={e => patch({ target: e.target.value })}/></FormRow>
     <FormRow label="退休后，每月生活费大约多少？" hint="按现在的物价，合计吃饭、住房、日常生活等开销。还没想好可以先留空"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="0.00" onChange={v => patch({ budget: v })}/></FormRow>
     {history.spend !== null && d.budget === '' && <p className="muted small plan-suggest" role="status">按过去 {history.count} 个盘点区间，你每月花销的中位数约 {money(history.spend)}（{SPEND_CAVEAT}）。<button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ budget: history.spend! })}>采用</button></p>}
-    {sources.length > 0 && <fieldset className="plan-scope"><legend>核对已保存的费用<Info text="这里只看以后要付的钱，过去已经交过的社保等费用不会再扣一次。生活费里已经包括的，选「已包含」；还要额外支付的，选「另外加上」。"/></legend><p className="muted small">这些是以前保存的费用假设。请确认它们是否包含在上面填写的生活费里，避免算两次。</p>
-      {sources.map(s => <ScopeRow key={s.id} id={s.id} label={`${s.id === 'social_insurance' ? '以后自己交社保（旧计划）' : s.label} ${s.cents ? money(s.cents) : ''}/月`} value={d.retScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef={s.cents ?? ''} disabled={frozen} onChange={v => patch({ retScopes: { ...d.retScopes, [s.id]: v } })}/>)}</fieldset>}
+    {sources.length > 0 && <button type="button" className="ui-btn" onClick={onCosts}>单独核对费用包含关系</button>}
     <details><summary>更多假设：规划终点、收益、通胀与应急金</summary>
       <p className="muted small">这些是可以修改的假设。规划终点默认 90 岁，实际收益默认 0%，请按自己的判断确认。</p>
       <FormRow label="规划到几岁"><input aria-label="规划到几岁" inputMode="numeric" value={d.horizon} disabled={frozen} onChange={e => patch({ horizon: e.target.value })}/></FormRow>
@@ -110,11 +111,6 @@ function GoalStep({ d, patch, frozen, now, sources, history }: { d: Draft; patch
   </section>;
 }
 
-function ScopeRow({ id, label, value, placeholderRef, disabled, onChange }: { id: string; label: string; value: ScopeDraft; placeholderRef: string; disabled: boolean; onChange: (v: ScopeDraft) => void }) {
-  const locked = mustStayInLedger(id);
-  if (locked && value.treatment === 'excluded') value = { treatment: '', ref: '' };
-  return <FormRow label={label}><span className="plan-scope-row"><select aria-label={`${label}包含关系`} value={value.treatment} disabled={disabled} onChange={e => { const treatment = e.target.value as ScopeDraft['treatment']; onChange({ treatment, ref: treatment === 'included' && value.ref === '' ? placeholderRef : treatment === 'included' ? value.ref : '' }); }}><option value="">请选择</option><option value="included">已包含，不再重复算</option><option value="extra">另外加上这笔费用</option>{!locked && <option value="excluded">这次先不算</option>}</select>{value.treatment === 'included' && <details className="plan-scope-amount"><summary>核对已包含的金额：{value.ref === '' ? '待填写' : money(value.ref)}</summary><CentInput label={`${label}已含金额`} value={value.ref} disabled={disabled} onChange={v => onChange({ ...value, ref: v })}/></details>}</span></FormRow>;
-}
 
 const incomeModes: { value: IncomeMode; label: string; hint: string }[] = [
   { value: '', label: '暂不选择', hint: '可以稍后选择，选好后才能计算需要准备多少钱' },
@@ -199,7 +195,7 @@ function NewIncome({ onAdd, onCancel }: { onAdd: (i: Draft['incomeItems'][number
 }
 
 const historyHas = (h: History) => h.saving !== null;
-function ConfirmStep({ d, patch, frozen, history, previewMissing, sources, hasBeijing }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; history: History; previewMissing: PlanningMissing[]; sources: CostSource[]; hasBeijing: boolean }) {
+function ConfirmStep({ d, patch, frozen, history, previewMissing, sources, hasBeijing, onCosts }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; history: History; previewMissing: PlanningMissing[]; sources: CostSource[]; hasBeijing: boolean; onCosts: () => void }) {
   const [expanded, setExpanded] = useState(d.contribution !== '' || historyHas(history));
   const state = amountState(d.contribution === '' ? null : d.contribution);
   const incomeText = { '': '还没选择（选好后才能算需求）', excluded: '本次不计', manual: `手填的 ${d.incomeItems.filter(i => d.picks[i.id]?.on).length} 笔收入`, beijing: '北京养老金估算' }[d.incomeMode];
@@ -210,8 +206,7 @@ function ConfirmStep({ d, patch, frozen, history, previewMissing, sources, hasBe
       <ContributionHelper history={history} disabled={frozen} onPick={v => patch({ contribution: v })}/>
       <p className="muted small" role="status">{state === 'unknown' ? '没填写也可以：先看目标需要存多少钱，以后再补自己的估计。' : state === 'zero' ? '这次按每月存 0 元计算，以后可以修改。' : state === 'positive' ? '按你估计每月能存下的钱计算，不包含投资涨跌。' : '负数：按每月动用存款试算。'}</p>
     </details>
-    {sources.length > 0 && <fieldset className="form-block plan-scope"><legend>核对退休前已保存的费用</legend><p className="muted small">这些费用也会影响目标需要准备的钱，因此单独核对。若填写了每月能存的钱，请确认这笔费用是否已扣除；没填时也不要把已知费用当作不存在。</p>
-      {sources.map(s => <ScopeRow key={s.id} id={s.id} label={s.label} value={d.conScopes[s.id] ?? { treatment: '', ref: '' }} placeholderRef="0" disabled={frozen} onChange={v => patch({ conScopes: { ...d.conScopes, [s.id]: v } })}/>)}</fieldset>}
+    {sources.length > 0 && <button type="button" className="ui-btn" onClick={onCosts}>单独核对退休前与退休后的费用</button>}
     <section className="form-block"><h3>你的计划</h3><dl className="plan-facts">
       <div><dt>目标</dt><dd>{d.mode === 'fire' ? '财务自由' : '按年龄退休'} · {d.target ? `${d.target} 岁` : '年龄未定'}</dd></div>
       <div><dt>退休后每月预算</dt><dd>{d.budget ? money(d.budget) : '未填写'}</dd></div>

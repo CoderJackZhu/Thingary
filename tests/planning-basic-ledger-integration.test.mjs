@@ -94,3 +94,51 @@ test('cash already received from a basic pool cannot reduce the retirement requi
   const req = requiredAt(p);
   for (let t = 0; t < req.length; t++) assert.equal(req[t], required(p, p.now_months + t));
 });
+
+test('switching an event off and on retains fees and confirmed live account purposes', async () => {
+  const { draftOf, basicInput } = await import('../src/planning-basic-forms.ts');
+  const s = sources('extra', 'extra', 10000, '5000', '1990-06');
+  const r = s.profile.value.saved.profile.retire;
+  s.modules.wealth = true;
+  r.basic.start = { kind: 'live' };
+  r.core.fund_rules = [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }];
+  s.snapshot = ready({ id: 'snap', revision: 1, date: '2026-09-30', missing: [], entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: '1000000' }] });
+  const original = structuredClone(r.basic);
+  for (const included of [true, false, true, false, true]) {
+    r.life_events[0].included = included;
+    const c = buildBasicCapabilities(s);
+    assert.equal(c.funds.status, 'ready');
+    assert.equal(c.requirement.status, 'ready', JSON.stringify(c.requirement));
+    const d = draftOf(s.profile.value.saved, s.snapshot.value, s.today);
+    r.basic = basicInput(d, s.profile.value.saved, s.today).fields.basic;
+    assert.deepEqual(r.basic.contribution_costs, original.contribution_costs);
+    assert.deepEqual(r.basic.retirement_costs, original.retirement_costs);
+  }
+  r.life_events.push({ ...r.life_events[0], id: 'new-event' });
+  assert.ok(buildBasicCapabilities(s).requirement.missing.some(m => m.code === 'COST_SCOPE_UNKNOWN'));
+});
+
+test('inactive included fees do not subtract from current budget; duplicate and missing sources still block', () => {
+  const s = sources('extra', 'included', 10000, '5000', '1990-06');
+  const r = s.profile.value.saved.profile.retire;
+  r.life_events[0].included = false;
+  r.basic.retirement_costs[0].reference_cents = '999999';
+  assert.equal(buildBasicCapabilities(s).requirement.status, 'ready');
+  r.basic.retirement_costs.push({ ...r.basic.retirement_costs[0] });
+  assert.ok(buildBasicCapabilities(s).requirement.missing.some(m => m.code === 'COST_SCOPE_INVALID'));
+  r.basic.retirement_costs.pop(); r.life_events = [];
+  assert.ok(buildBasicCapabilities(s).requirement.missing.some(m => m.code === 'COST_SCOPE_INVALID'));
+});
+
+test('dedicated cost review preserves all saved non-cost basic inputs exactly', async () => {
+  const { draftOf, costsInput } = await import('../src/planning-basic-forms.ts');
+  const s = sources('extra', 'extra', 10000, '5000', '1990-06');
+  const saved = s.profile.value.saved, before = structuredClone(saved.profile.retire.basic);
+  before.pension_contributions = { start_month: '2025-01', stop_month: '2050-06', base_cents: '1234567' };
+  saved.profile.retire.basic = before;
+  const d = draftOf(saved, null, '2026-10-08'); d.retScopes['event:car:holding'] = { treatment: 'excluded', ref: '' };
+  const after = costsInput(d, saved).fields.basic;
+  assert.deepEqual({ ...after, contribution_costs: before.contribution_costs, retirement_costs: before.retirement_costs }, before);
+  assert.equal(after.retirement_costs[0].treatment, 'excluded');
+  assert.equal(costsInput(d, saved).fields.spend_cents, saved.profile.retire.spend_cents);
+});

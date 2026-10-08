@@ -64,6 +64,13 @@ if (params.get('wealth-fixture') === 'scope' && snapshots.length > 1 && params.g
   const last = snapshots[snapshots.length - 1];
   snapshots = snapshots.map(s => s === last ? { ...s, entries: s.entries.map(e => e.account_id === 'w-loan' ? { ...e, counted: !e.counted } : e) } : s);
 }
+// Dense dates and retired accounts; only fictional in-memory evidence.
+if (params.get('wealth-fixture') === 'usability' && snapshots.length > 2) {
+  snapshots[snapshots.length - 2].date = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+  const retired = ['虚构旧银行卡', '虚构旧基金', '虚构旧储蓄'].map((name, i): Account => ({ id: `fx-closed-${i}`, fields: { name, institution: '虚构平台', side: 'asset', kind: 'cash', counted: true, opened_on: shifted(6), closed_on: iso(now), notes: '虚构停用账户' }, position: i * 2, revision: 1, latest: null }));
+  accounts.splice(1, 0, retired[0]); accounts.splice(3, 0, retired[1]); accounts.push(retired[2]);
+  snapshots = snapshots.map(s => ({ ...s, entries: [...s.entries, ...retired.filter(a => s.date < a.fields.closed_on!).map(a => entry(a, 0))] }));
+}
 const receipts = new Map<string, string>();
 
 const due = (a: Account, d: string) => a.fields.opened_on <= d && (!a.fields.closed_on || d < a.fields.closed_on);
@@ -327,6 +334,14 @@ if (coreScenario && planProfile && snapshots.length) {
     r.basic.contribution_costs = scopes;
     r.basic.retirement_costs = scopes.map(source => ({ ...source, treatment: 'extra', reference_cents: null }));
   }
+}
+if (params.get('plan-usability') === '1' && planProfile?.profile.retire.basic) {
+  const r = planProfile.profile.retire;
+  r.life_events = ['北京买房', '二手车', '二三线买房'].map((label, i) => ({ id: `fx-layout-${i}`, label, kind: i === 1 ? 'car' : 'house', date: `${now.getFullYear()+2}-10`, included: i !== 2, price_cents: i === 1 ? '7000000' : '180000000', down_cents: i === 1 ? '7000000' : '60000000', extra_cents: '0', loan_rate_hundredths: 350, loan_years: 30, holding_cents: '120000', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }));
+  const scopes = costSources(r.life_events, '0').map(s => ({ source_id: s.id, treatment: 'extra' as const, reference_cents: null }));
+  r.basic!.contribution_costs = scopes; r.basic!.retirement_costs = scopes;
+  if (params.get('plan-costs') === 'missing') { r.basic!.contribution_costs = []; r.basic!.retirement_costs = []; }
+  if (params.get('plan-funds') === 'missing-one' && r.core) r.core.fund_rules = r.core.fund_rules.slice(1);
 }
 // Historical JSON fixtures use the same read boundary as native storage: facts survive,
 // old goals/budgets are not defaults and unoccurred intentions require reconfirmation.

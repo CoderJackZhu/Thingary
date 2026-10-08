@@ -1,3 +1,5 @@
+import { spacedLabels } from './chart-labels';
+import { useChartScale } from './chart-width';
 import { HeaderSlot } from './HeaderSlot';
 import { useEffect, useId, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -44,11 +46,12 @@ const yuan = (cents: number) => cents >= 1_000_000 ? `¥${(cents / 1_000_000).to
 /** One series, one axis: the chart title names it, the table below is the exact view. */
 function Chart({ buckets, value, kind, label }: { buckets: Bucket[]; value: (b: Bucket) => number; kind: 'bar' | 'line'; label: string }) {
   const root = useRef<HTMLDivElement>(null), detailId = useId();
+  const svg = useRef<SVGSVGElement>(null), scale = useChartScale(svg, W, H);
   const [current, setCurrent] = useState<number | null>(null), [fixed, setFixed] = useState(false);
   useEffect(() => { setCurrent(null); setFixed(false); }, [buckets]);
   const max = Math.max(...buckets.map(value), 0), grid = ticks(max), top = grid.at(-1) || 1;
   const step = (W - L) / buckets.length, y = (v: number) => T + (H - T - B) * (1 - v / top);
-  const every = Math.ceil(buckets.length / 8);
+  const labels = spacedLabels(buckets.map((b,i) => ({ b,i })), v => (L + step * (v.i + 0.5)) * scale, v => v.b.key.length * 6 * scale);
   const points = buckets.map((b, i) => `${L + step * (i + 0.5)},${y(value(b))}`).join(' ');
   const shown = current === null ? null : buckets[current];
   const unknown = shown ? kind === 'bar' ? shown.unknown_price_count : buckets.slice(0, current! + 1).reduce((n, b) => n + b.unknown_price_count, 0) : 0;
@@ -69,11 +72,11 @@ function Chart({ buckets, value, kind, label }: { buckets: Bucket[]; value: (b: 
         e.preventDefault(); setCurrent(n => e.key === 'Home' ? 0 : e.key === 'End' ? buckets.length - 1 : Math.max(0, Math.min(buckets.length - 1, (n ?? buckets.length - 1) + (e.key === 'ArrowLeft' ? -1 : 1))));
       }
     }}>
-    <svg className="trend-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}
+    <svg ref={svg} className="trend-chart" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}
       onPointerMove={e => { if (!fixed) setCurrent(pick(e)); }}
       onClick={e => { const selected = pick(e); if (selected !== null) { root.current?.focus({ preventScroll: true }); setCurrent(selected); setFixed(!(fixed && selected === current)); } }}>
     {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className="grid"/><text x={L - 6} y={y(v) + 3} textAnchor="end">{yuan(v)}</text></g>)}
-    {buckets.map((b, i) => i % every === 0 && <text key={b.key} x={L + step * (i + 0.5)} y={H - 6} textAnchor="middle">{b.key}</text>)}
+    {labels.map(({b,i}) => <text key={b.key} x={L + step * (i + 0.5)} y={H - 6} textAnchor="middle">{b.key}</text>)}
     {kind === 'line' && <polyline points={points} className="trend-line"/>}
     {buckets.map((b, i) => { const x = L + step * i, v = value(b);
       return <g key={b.key} className="trend-hit" data-selected={i === current || undefined}><rect x={x} y={T} width={step} height={H - T - B} className="hit"/>

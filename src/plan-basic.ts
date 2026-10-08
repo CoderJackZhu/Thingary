@@ -118,11 +118,14 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
   const pension: BasicCapabilities['pension'] = mode === null ? blocked([missing('INCOME_MODE_UNKNOWN', 'pension', 'basic', 'basic.retirement_income.mode', '尚未选择是否引用北京养老金。')]) : penMissing.length ? blocked(penMissing) : { status: 'ready', value: { included: mode === 'beijing', start_month: pensionStart, monthly_cents: mode === 'beijing' ? String(Math.round(pen.monthly_cents)) : null } };
   const sourcesPre = [...new Set([...costSources(active, p.personal_pension_annual_cents ?? '0').map(s => s.id), ...(core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => `event:${o.event_id}:loan`)])];
   const sourcesPost = [...sourcesPre, ...r.spend_items.map(s => `spend:${s.id}`), ...(Number(r.rent_cents) > 0 ? ['rent'] : []), ...(Number(r.keep_paying_monthly_cents) > 0 ? ['social_insurance'] : [])];
+  const knownPre = [...new Set([...sourcesPre, ...costSources(r.life_events, p.personal_pension_annual_cents ?? '0').map(s => s.id)])];
+  const knownPost = [...knownPre, ...r.spend_items.map(s => `spend:${s.id}`), ...(Number(r.rent_cents) > 0 ? ['rent'] : []), ...(Number(r.keep_paying_monthly_cents) > 0 ? ['social_insurance'] : [])];
   const checkScope = (ids: string[], scopes: CostScope[], field: string, pre: boolean) => {
     const set = new Set<string>();
     for (const s of scopes) {
-      if (!ids.includes(s.source_id) || set.has(s.source_id)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', field, '费用来源失效或重复，请核对稳定来源。'));
+      if (!(pre ? knownPre : knownPost).includes(s.source_id) || set.has(s.source_id)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', field, '费用来源失效或重复，请核对稳定来源。'));
       set.add(s.source_id);
+      if (!ids.includes(s.source_id)) continue; // Disabled plans retain confirmations without affecting this calculation.
       const occurred = core?.occurrences.some(o => o.status === 'occurred' && s.source_id.startsWith(`event:${o.event_id}:`));
       if (s.treatment === 'included' && (s.reference_cents === null || (pre && s.source_id.startsWith('event:') && !occurred))) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', field, '已含参考额未知，或尚未发生费用被标作净投入已含。'));
       if (s.treatment === 'excluded' && mustStayInLedger(s.source_id)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'events', field, '月供和个人养老金转入是真实支出，必须计入：请把它改选为「已包含」或「另外加上」。', 'constraint'));
@@ -131,7 +134,7 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
   };
   checkScope(sourcesPre, b.contribution_costs, 'basic.contribution_costs', true);
   checkScope(sourcesPost, b.retirement_costs, 'basic.retirement_costs', false);
-  const refs = b.retirement_costs.filter(s => s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
+  const refs = b.retirement_costs.filter(s => sourcesPost.includes(s.source_id) && s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
   if (r.spend_cents !== null && refs > Number(r.spend_cents)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', 'basic.retirement_costs', '退休已含参考额不能超过总预算。'));
   if (anchor && p.birth_month !== null && r.horizon_age * 12 <= ageMonthsAt(p.birth_month, anchor)) reqMissing.push(missing('HORIZON_INVALID', 'requirement', 'basic', 'horizon_age', '规划终点须晚于资金起点。', 'constraint'));
   const contribution = temporaryContribution === undefined ? b.contribution.monthly_cents : temporaryContribution;

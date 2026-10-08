@@ -1,3 +1,6 @@
+import { spacedLabels } from './chart-labels';
+import { accountVisible } from './wealth-display';
+import type { AccountView } from './wealth-display';
 import { SortHeader } from './SortHeader';
 import { sortRecords, moneySortValue, type ListSort } from './list-sort';
 import { HeaderSlot } from './HeaderSlot';
@@ -40,6 +43,7 @@ const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
 export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
+  const [accountView, setAccountView] = useState<AccountView>('active');
   // 概览链接带来的比较区间：只在点「变化」分段时清空，进入时消费一次（U20 §2.1）。
   const [changesSeed, setChangesSeed] = useState<{ from: string; to: string } | null>(null);
   // Typing a search on 概览/盘点记录 moves to the account list it filters (3.5.1).
@@ -113,28 +117,29 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   // Search filters the account list only: the check-in set is every effective
   // account and never depends on the keyword (3.5.1/3.5.2).
   const keyword = search.trim().toLowerCase();
-  const shownAccounts = accounts?.filter(a => !keyword || [a.fields.name, kindLabel(a.fields.kind), a.fields.institution, a.fields.notes].some(t => t.toLowerCase().includes(keyword))) ?? [];
+  const shownAccounts = accounts?.filter(a => accountVisible(a, accountView) && (!keyword || [a.fields.name, kindLabel(a.fields.kind), a.fields.institution, a.fields.notes].some(t => t.toLowerCase().includes(keyword)))) ?? [];
   return <section className="stats-section wealth-section" aria-label="财富">
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
       <div className="segmented" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['changes', '变化'], ['history', '盘点记录']] as const).map(([k, l]) => <button key={k} aria-pressed={tab === k} onClick={() => { setChangesSeed(null); setTab(k); }}>{l}</button>)}</div>
+      {tab !== 'history' && <label className="account-filter">账户范围 <select aria-label="账户范围" value={accountView} onChange={e => setAccountView(e.target.value as AccountView)}><option value="active">在用账户（{open.length}）</option><option value="closed">已停用（{(accounts?.length ?? 0) - open.length}）</option><option value="all">全部账户</option></select></label>}
     </div></HeaderSlot>
     {error ? <article className="ui-card ui-content" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
-      : tab === 'overview' ? <Overview summary={summary} accounts={accounts} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { setChangesSeed(seed); setTab('changes'); }}/>
+      : tab === 'overview' ? <Overview hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { setChangesSeed(seed); setTab('changes'); }}/>
       : tab === 'accounts' ? (keyword && !shownAccounts.length
         ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
         : <Accounts accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
-      : tab === 'changes' ? <WealthChanges summary={summary} accounts={accounts} today={today} initial={changesSeed} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn}/>
+      : tab === 'changes' ? <WealthChanges accountView={accountView} summary={summary} accounts={accounts} today={today} initial={changesSeed} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn}/>
       : <History points={points} onOpen={setSnapshotDetail} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
     {editing && summary && <AccountDialog account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onClose={closeAccount}/>}
   </section>;
 }
 
-function Overview({ summary, accounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges }: { summary: Summary; accounts: Account[]; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
-  if (!accounts.length) return <div className="empty"><span className="empty-mark">¥</span><h2>先建立要定期核对的账户</h2><p>银行卡、证券、基金、公积金，以及信用卡和贷款。只需名称和类型，不需要卡号或登录信息。</p><button className="primary" onClick={onNewAccount}>新增账户</button></div>;
+function Overview({ summary, accounts, hasAccounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges }: { summary: Summary; accounts: Account[]; hasAccounts: boolean; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
+  if (!hasAccounts) return <div className="empty"><span className="empty-mark">¥</span><h2>先建立要定期核对的账户</h2><p>银行卡、证券、基金、公积金，以及信用卡和贷款。只需名称和类型，不需要卡号或登录信息。</p><button className="primary" onClick={onNewAccount}>新增账户</button></div>;
   if (!latest) return <div className="empty"><span className="empty-mark">¥</span><h2>开始第一次盘点</h2><p>对照各平台，把今天的余额和欠款逐行填进来。之后每次盘点都会成为趋势上的一个点。</p><button className="primary" onClick={() => onCheckIn(today)}>开始盘点</button></div>;
   const shown = lastComplete ?? latest;
   const comparedPoint = lastComplete?.compared_to ? summary.points.find(p => p.date === lastComplete.compared_to) : undefined;
@@ -155,7 +160,7 @@ function Overview({ summary, accounts, latest, lastComplete, onNewAccount, onChe
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>资产结构</h3><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入范围` : '尚无完整盘点'}</span></div><ShareBars rows={summary.structure} empty="没有计入的资产。"/></article>
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>计入范围内负债</h3><Info text="按类型统计尚欠金额，不含标为不计入的负债。"/></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
     </div>
-    <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div><ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{!a.fields.counted?' · 不计入净资产':''}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?(a.fields.side==='liability'&&a.latest.amount_cents!=='0'?'−':'')+money(a.latest.amount_cents):'尚未盘点'}</span></li>)}</ul></article>
+    <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div>{!accounts.length && <p className="muted">当前范围没有账户，可切换上方账户范围查看其他账户。</p>}<ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{!a.fields.counted?' · 不计入净资产':''}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?(a.fields.side==='liability'&&a.latest.amount_cents!=='0'?'−':'')+money(a.latest.amount_cents):'尚未盘点'}</span></li>)}</ul></article>
   </>;
 }
 
@@ -194,13 +199,14 @@ export function NetChart({ points, label }: { points: Point[]; label?: string })
   const grid = Array.from({ length: Math.round((top - bottom) / unit) + 1 }, (_, i) => bottom + i * unit);
   const t0 = Date.parse(points[0].date), t1 = Date.parse(points.at(-1)!.date), wide = t1 - t0 || 1;
   const x = (d: string) => L + 12 + (W - L - 36) * (Date.parse(d) - t0) / wide, y = (v: number) => T + (H - T - B) * (1 - (v - bottom) / (top - bottom));
-  const every = Math.ceil(points.length / 6);
+  const scale = Math.min((plotWidth || W) / W, 170 / H);
+  const labels = spacedLabels(points, p => x(p.date) * scale, () => 62 * scale);
   const shown = current===null?null:full[current];
   // The SVG uses xMidYMid meet; account for its horizontal letterbox.
   const plotScale=Math.min(plotWidth/W,170/H), plotLeft=(plotWidth-W*plotScale)/2, plotTop=(170-H*plotScale)/2;
   return <><div className="net-chart" tabIndex={0} role="img" aria-label={label ?? `金融净资产趋势，共 ${full.length} 次完整盘点`} onFocus={()=>setCurrent(full.length-1)} onBlur={()=>setCurrent(null)} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setCurrent(null)}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setCurrent(n=>Math.max(0,Math.min(full.length-1,(n??full.length-1)+(e.key==='ArrowLeft'?-1:1))))}}}><svg ref={svgRef} className="trend-chart" onMouseMove={e=>{const svg=e.currentTarget,matrix=svg.getScreenCTM();if(!matrix)return;const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;const vx=point.matrixTransform(matrix.inverse()).x;let best=0;full.forEach((p,i)=>{if(Math.abs(x(p.date)-vx)<Math.abs(x(full[best].date)-vx))best=i});setCurrent(best)}} onMouseLeave={()=>setCurrent(null)} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={'净资产变化：' + points.map(p => p.complete ? `${p.date} ${signedMoney(p.net_cents)}` : `${p.date} 盘点不完整`).join('，')}>
     {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className={v === 0 ? 'axis' : 'grid'}/><text x={L - 6} y={y(v) + 3} textAnchor="end">{axis(v)}</text></g>)}
-    {points.map((p, i) => i % every === 0 && <text key={p.date} x={x(p.date)} y={H - 6} textAnchor="middle">{p.date.slice(0, 7)}</text>)}
+    {labels.map(p => <text key={p.date} x={x(p.date)} y={H - 6} textAnchor="middle">{p.date}</text>)}
     {points.filter(p => !p.complete).map(p => <line key={p.snapshot_id} x1={x(p.date)} x2={x(p.date)} y1={T} y2={H - B} className="partial-mark"><title>{p.date}：缺 {p.missing} 个账户，总额未知，不画在曲线上</title></line>)}
     {full.length > 1 && <polyline points={full.map(p => `${x(p.date)},${y(Number(p.net_cents))}`).join(' ')} className="trend-line"/>}
     {shown&&<line x1={x(shown.date)} x2={x(shown.date)} y1={T} y2={H-B} className="partial-mark"/>}
@@ -210,9 +216,9 @@ export function NetChart({ points, label }: { points: Point[]; label?: string })
 
 function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {
   const [sort, setSort] = useState<ListSort>({ key: 'name', descending: false });
-  const sorted = sortRecords(accounts, sort, (a, key) => key === 'name' ? a.fields.name : key === 'kind' ? (a.fields.side === 'liability' ? '负债 · ' : '') + kindLabel(a.fields.kind) : key === 'counted' ? Number(a.fields.counted) : moneySortValue(a.latest?.amount_cents), a => a.id);
-  if (!accounts.length) return <div className="empty"><h2>还没有账户</h2><p>先添加一个需要定期核对的账户或负债。</p><button className="primary" onClick={onNew}>新增账户</button></div>;
-  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table wealth-accounts"><thead><tr><SortHeader field="name" label="账户" sort={sort} onSort={setSort}/><SortHeader field="kind" label="类型" sort={sort} onSort={setSort}/><SortHeader field="counted" label="计入净资产" sort={sort} onSort={setSort}/><SortHeader field="amount" label="最近金额" sort={sort} onSort={setSort}/><th>状态</th></tr></thead><tbody>{sorted.map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
+  const sorted = sortRecords(accounts, sort, (a, key) => key === 'name' ? a.fields.name : key === 'kind' ? (a.fields.side === 'liability' ? '负债 · ' : '') + kindLabel(a.fields.kind) : key === 'counted' ? Number(a.fields.counted) : key === 'status' ? Number(!!a.fields.closed_on) : moneySortValue(a.latest?.amount_cents), a => a.id);
+  if (!accounts.length) return <div className="empty"><h2>当前范围没有账户</h2><p>可以切换上方账户范围，或添加新的账户。</p><button className="primary" onClick={onNew}>新增账户</button></div>;
+  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table wealth-accounts"><thead><tr><SortHeader field="name" label="账户" sort={sort} onSort={setSort}/><SortHeader field="kind" label="类型" sort={sort} onSort={setSort}/><SortHeader field="counted" label="计入净资产" sort={sort} onSort={setSort}/><SortHeader field="amount" label="最近金额" sort={sort} onSort={setSort}/><SortHeader field="status" label="状态" sort={sort} onSort={setSort}/></tr></thead><tbody>{(sort.key === 'status' ? sorted : [...sorted].sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))).map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
     <td><button className="link-cell" onClick={() => onEdit(a)}>{a.fields.name}</button>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}</td>
     <td>{a.fields.side === 'liability' ? '负债 · ' : ''}{kindLabel(a.fields.kind)}</td>
     <td>{a.fields.counted ? '计入' : '不计入'}</td>

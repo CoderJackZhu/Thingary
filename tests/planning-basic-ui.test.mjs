@@ -138,5 +138,5 @@ test('loan payments and personal pension cannot be offered or saved as excluded'
   assert.equal(mustStayInLedger('event:e1:loan'), true);
   assert.equal(mustStayInLedger('personal_pension'), true);
   assert.equal(mustStayInLedger('event:e1:holding'), false);
-  assert.match(fs.readFileSync(new URL('../src/PlanningSetup.tsx', import.meta.url), 'utf8'), /\{!locked && <option value="excluded">/);
+  assert.match(fs.readFileSync(new URL('../src/PlanningCosts.tsx', import.meta.url), 'utf8'), /\{!locked && <option value="excluded">/);
 });

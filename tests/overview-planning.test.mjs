@@ -135,7 +135,7 @@ test('top layout is a container-driven 2:1 grid that collapses below 960px', () 
 test('the summary mounts only behind module gating and degrades to a dependency notice', () => {
   const view = read('../src/ReviewView.tsx');
   assert.match(view, /modules\.planning && \(modules\.wealth/);
-  assert.match(view, /\? <ReviewPlanSummary/);
+  assert.match(view, /: <ReviewPlanSummary/);
   assert.match(view, /开启「账户与盘点」后显示规划摘要/);
   assert.match(view, /planning: modules\.planning && modules\.wealth/);
   assert.match(view, /data=\{data\.planning \?\? null\}/);

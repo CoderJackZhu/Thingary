@@ -1,3 +1,4 @@
+import { spacedLabels } from './chart-labels';
 import { useEffect, useRef, useState } from 'react';
 import type { Point } from './wealth';
 import { changeText, rateText, signedMoney } from './wealth';
@@ -20,12 +21,11 @@ export function Sparkline({ points, hero = false }: { points: Point[]; hero?: bo
   const full = points.filter(p => p.complete);
   const [cur, setCur] = useState<number | null>(null);
   const box = useRef<HTMLDivElement>(null);
-  const [maxLabels, setMaxLabels] = useState(6);
+  const [plotWidth, setPlotWidth] = useState(600);
   useEffect(() => {
-    if (!hero) return;
     const el = box.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(entries => { setMaxLabels(entries[0].contentRect.width >= 900 ? 8 : 6); });
+    const ro = new ResizeObserver(entries => { setPlotWidth(entries[0].contentRect.width); });
     ro.observe(el);
     return () => ro.disconnect();
   }, [hero, full.length >= 2]);
@@ -36,11 +36,9 @@ export function Sparkline({ points, hero = false }: { points: Point[]; hero?: bo
   const y = (cents: string) => H - 10 - (Number(cents) - lo) / span * (H - (hero ? 40 : 24));
   const line = full.map((p, i) => `${i ? 'L' : 'M'}${x(p.date).toFixed(1)} ${y(p.net_cents).toFixed(1)}`).join(' ');
   const area = `${line} L${x(full.at(-1)!.date).toFixed(1)} ${H} L${x(full[0].date).toFixed(1)} ${H}Z`;
-  const all = [...new Map(points.map(p => [p.date.slice(0, 7), p])).values()];
-  // 点多时只标每隔几个月的刻度，保证不重叠；跨年时在每年的第一个刻度写上年份。
-  const step = Math.max(1, Math.ceil(all.length / (hero ? maxLabels : 6))), spansYears = new Set(all.map(p => p.date.slice(0, 4))).size > 1;
-  const months = all.filter((_, i) => (all.length - 1 - i) % step === 0);
-  const tick = (p: Point, i: number) => { const m = Number(p.date.slice(5, 7)); return (spansYears && (i === 0 || m === 1) ? `${p.date.slice(2, 4)}年` : '') + `${m}月` + (p.complete ? '' : '未盘'); };
+  const labelX = (p: Point) => Math.max(38, Math.min(plotWidth - 38, x(p.date) / W * plotWidth));
+  const months = spacedLabels(points, labelX, () => 76);
+  const tick = (p: Point) => p.date;
   const shown = cur === null ? null : full[cur];
   const move = (clientX: number, boxRect: DOMRect) => {
     const vx = (clientX - boxRect.left) / boxRect.width * W;
@@ -60,7 +58,7 @@ export function Sparkline({ points, hero = false }: { points: Point[]; hero?: bo
       {shown && <line className="guide" x1={x(shown.date)} x2={x(shown.date)} y1={4} y2={H - 4}/>}
     </svg>
     {full.map((p, i) => <i key={p.snapshot_id} className={'ui-spark-dot' + (i === cur ? ' on' : i === full.length - 1 ? ' last' : '')} style={{ left: `${x(p.date) / W * 100}%`, top: `${y(p.net_cents)}px` }}/>)}
-    <div className="ui-spark-labels" aria-hidden="true">{months.map((p, i) => <span key={p.date} style={{ left: `${x(p.date) / W * 100}%` }}>{tick(p, i)}</span>)}</div>
+    <div className="ui-spark-labels" aria-hidden="true">{months.map(p => <span key={p.date} style={{ left: `${labelX(p) / plotWidth * 100}%`, transform: 'translateX(-50%)' }}>{tick(p)}</span>)}</div>
     {shown && <div className="ui-tip" style={{ left: `clamp(70px, ${x(shown.date) / W * 100}%, calc(100% - 70px))`, top: `${y(shown.net_cents)}px` }}>{shown.date}<b>{signedMoney(shown.net_cents)}</b><span className={shown.change_cents?.startsWith('-') ? 'neg' : shown.change_cents && shown.change_cents !== '0' ? 'pos' : undefined}>{changeLine(shown)}</span></div>}
     </div><span className="visually-hidden" aria-live="polite" aria-atomic="true">{shown ? `${shown.date}，净资产 ${signedMoney(shown.net_cents)}，${changeLine(shown)}` : ''}</span>
   </>;

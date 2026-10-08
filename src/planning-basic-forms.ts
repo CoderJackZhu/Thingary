@@ -41,7 +41,7 @@ export const retirementSources = (r: RetireInputs, annualPension: string | null 
 ];
 const occurred = (r: RetireInputs, id: string) => !!r.core?.occurrences.some(o => o.event_id === id && o.status === 'occurred');
 export const contributionSources = (r: RetireInputs, annualPension: string | null): CostSource[] =>
-  [...new Map([...costSources(r.life_events.filter(e => e.included || occurred(r, e.id)), annualPension ?? '0').map(s => ({ ...s, cents: null })), ...(r.core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => ({ id: `event:${o.event_id}:loan`, label: '已发生计划余债', cents: null }))].map(s => [s.id, s])).values()];
+  [...new Map([...costSources(r.life_events, annualPension ?? '0').map(s => ({ ...s, cents: null })), ...(r.core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => ({ id: `event:${o.event_id}:loan`, label: '已发生计划余债', cents: null }))].map(s => [s.id, s])).values()];
 
 export const emptyPensionForm = (): PensionForm => ({ birth: '', worker: '', paid: '', balance: '', base: '', past: '', flex: '0', pp: '', tax: '1000', wage: hundredthsToPct(defaultAssumptions.wage_growth_hundredths), ppReturn: hundredthsToPct(defaultAssumptions.pp_return_hundredths), oWage: '', oLower: '', oUpper: '', oNotional: '', oHpf: '' });
 export function pensionFormOf(saved: Saved): PensionForm {
@@ -135,4 +135,17 @@ export const eventsInput = (fields: EventsFields): SectionInput => ({ section: '
 export function contributionSection(saved: NonNullable<Saved>, value: string | null, today: string): SectionInput | null {
   const d = draftOf(saved, null, today); d.contribution = value ?? '';
   try { return basicInput(d, saved, today); } catch { return null; }
+}
+
+/** Fee review changes only the two scopes; saved timing, income, goal and contribution remain exact. */
+export function costsInput(d: Draft, saved: NonNullable<Saved>): SectionInput {
+  const p = saved.profile, r = p.retire;
+  if (!r.basic || !r.core) return fail('请先设置目标与金额基准。');
+  return { section: 'basic', fields: {
+    birth_month: p.birth_month, spend_cents: r.spend_cents, target_age: r.target_age, horizon_age: r.horizon_age,
+    mode: r.mode, real_return_before_hundredths: r.real_return_before_hundredths, real_return_after_hundredths: r.real_return_after_hundredths,
+    volatility_hundredths: r.volatility_hundredths, emergency_months: r.emergency_months, inflation_hundredths: p.assumptions.inflation_hundredths,
+    monetary_basis_date: r.core.monetary_basis_date,
+    basic: { ...r.basic, contribution_costs: scopes(contributionSources(r, p.personal_pension_annual_cents), d.conScopes), retirement_costs: scopes(retirementSources(r, p.personal_pension_annual_cents), d.retScopes) },
+  } };
 }

@@ -11,14 +11,14 @@ import { kindLabel } from './wealth';
 import type { Account, Snapshot } from './wealth';
 
 /** Account purposes, future housing-fund deposit and an existing personal-pension account. Used by setup and by the funds card. */
-export function FundsEditor({ d, patch, frozen, snapshot, accounts, live, hideHpf }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; snapshot: Snapshot | null; accounts: Account[]; live: boolean; hideHpf?: boolean }) {
+export function FundsEditor({ d, patch, frozen, snapshot, accounts, live, hideHpf, focusIds }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; snapshot: Snapshot | null; accounts: Account[]; live: boolean; hideHpf?: boolean; focusIds?: Set<string> }) {
   const name = (id: string, kind: string) => accounts.find(a => a.id === id)?.fields.name ?? `${kindLabel(kind)}（历史账户）`;
   const assets = snapshot?.entries.filter(e => e.counted && e.side === 'asset') ?? [];
   const update = (id: string, v: Partial<Draft['funds'][number]>) => patch({ funds: d.funds.map(f => f.account_id === id ? { ...f, ...v } : f) });
   return <>
     {live && snapshot && <>
       <p className="muted small">截至 {snapshot.date} 的完整盘点。这里只设资金是否参与规划，不改变实际余额；建议现金可动用、其他资产受限，请确认。</p>
-      {assets.map(e => { const rule = d.funds.find(f => f.account_id === e.account_id); if (!rule) return null; const label = name(e.account_id, e.kind); return <FormRow key={e.account_id} label={label} hint={`${kindLabel(e.kind)} · 已记录 ${money(e.amount_cents)}`}><span className="plan-fund-controls"><select aria-label={`${label}规划用途`} value={rule.availability} disabled={frozen} onChange={v => update(e.account_id, { availability: v.target.value as typeof rule.availability })}><option value="available" disabled={e.kind === 'housing_fund'}>可动用</option><option value="restricted">受限：暂不能动用</option><option value="excluded">本计划不参与</option></select><input type="number" aria-label={`${label}参与比例`} min="0" max="100" value={rule.share_hundredths / 100} disabled={frozen} onChange={v => update(e.account_id, { share_hundredths: Math.round(Number(v.target.value) * 100) })}/> %</span></FormRow>; })}
+      {assets.filter(e => !focusIds || focusIds.has(e.account_id)).map(e => { const rule = d.funds.find(f => f.account_id === e.account_id); if (!rule) return null; const label = name(e.account_id, e.kind); return <FormRow key={e.account_id} label={label} hint={`${kindLabel(e.kind)} · 已记录 ${money(e.amount_cents)}`}><span className="plan-fund-controls"><select aria-label={`${label}规划用途`} value={rule.availability} disabled={frozen} onChange={v => update(e.account_id, { availability: v.target.value as typeof rule.availability })}><option value="available" disabled={e.kind === 'housing_fund'}>可动用</option><option value="restricted">受限：暂不能动用</option><option value="excluded">本计划不参与</option></select><input type="number" aria-label={`${label}参与比例`} min="0" max="100" value={rule.share_hundredths / 100} disabled={frozen} onChange={v => update(e.account_id, { share_hundredths: Math.round(Number(v.target.value) * 100) })}/> %</span></FormRow>; })}
     </>}
     {!hideHpf && <FormRow label="未来公积金月缴存" hint="留空表示未知；明确没有填 0"><CentInput label="未来公积金月缴存" value={d.hpf} disabled={frozen} placeholder="0.00" onChange={v => patch({ hpf: v })}/></FormRow>}
     {live && snapshot && <details open={!!d.ppAccount}><summary>已有个人养老金余额</summary>
@@ -46,6 +46,8 @@ export function FundsCard({ caps, sources, saved, snapshot, accounts, today, rel
 function FundsDialog({ sources, saved, snapshot, accounts, today, reload, onPending, onClose }: { sources: PlanningSources; saved: NonNullable<ProfileState['saved']>; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null), saver = useSectionSaver(sources, reload, onPending);
   const [d, setD] = useState(() => draftOf(saved, snapshot, today)), [error, setError] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const unconfirmed = new Set(snapshot?.entries.filter(e => e.counted && e.side === 'asset' && !saved.profile.retire.core?.fund_rules.some(f => f.account_id === e.account_id)).map(e => e.account_id));
   const live = saved.profile.retire.basic?.start.kind !== 'simulation', frozen = saver.busy || saver.stuck;
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   async function save() {
@@ -54,7 +56,7 @@ function FundsDialog({ sources, saved, snapshot, accounts, today, reload, onPend
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="funds-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
     <header><div><p className="eyebrow">规划 · 资金</p><h2 id="funds-heading">核对资金范围</h2></div><CloseButton type="button" aria-label="关闭资金核对" disabled={saver.busy} onClick={() => onClose(false)}/>{saver.stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : '确认并保存'}</button>}</header>
-    <section className="form-block"><FundsEditor d={d} patch={v => setD(x => ({ ...x, ...v }))} frozen={frozen} snapshot={snapshot} accounts={accounts} live={live}/></section>
+    <section className="form-block">{live && unconfirmed.size > 0 && <><p>只需核对 {unconfirmed.size} 个新增或尚未确认的账户，其他用途已保留。</p><label><input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)}/> 显示已确认账户</label></>}<FundsEditor focusIds={live && unconfirmed.size > 0 && !showAll ? unconfirmed : undefined} d={d} patch={v => setD(x => ({ ...x, ...v }))} frozen={frozen} snapshot={snapshot} accounts={accounts} live={live}/></section>
     {(error || saver.notice) && <p role="status" className="notice">{error || saver.notice}</p>}
   </form></dialog>;
 }

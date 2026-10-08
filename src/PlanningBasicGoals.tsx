@@ -1,3 +1,4 @@
+import { CostsDialog } from './PlanningCosts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { money } from './asset';
 import type { Account, Snapshot } from './wealth';
@@ -24,6 +25,8 @@ type Saved = NonNullable<ProfileState['saved']>;
 
 /** Goals for the basic and not-yet-set-up cases. Old profiles require new configuration. */
 export function PlanningBasicGoals({ sources, mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null) => void; focus?: boolean; onFocusDone: () => void }) {
+  const [costsOpen, setCostsOpen] = useState(false);
+  useEffect(() => { onEditingChange(costsOpen); return () => onEditingChange(false); }, [costsOpen, onEditingChange]);
   const [detail, setDetail] = useState<{ contribution: boolean } | null>(null);
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const snapshot: Snapshot | null = ready(sources.snapshot) ?? null, accounts: Account[] = ready(sources.accounts) ?? [];
@@ -66,8 +69,9 @@ export function PlanningBasicGoals({ sources, mode, today, reload, onPending, on
 
   const r = saved.profile.retire, b = r.basic!;
   const contribution = amountState(b.contribution.monthly_cents);
-  const owner = (o: PlanningMissing['owner'], field?: string) => { if (o === 'events') goEvents(); else if (o === 'funds') fundsOpen.current?.(); else if (o === 'pension') onGoto('pension'); else if (o === 'service') reload(); else openSetup(setupStepFor(o, field)); };
+  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'events') goEvents(); else if (o === 'funds') fundsOpen.current?.(); else if (o === 'pension') onGoto('pension'); else if (o === 'service') reload(); else openSetup(setupStepFor(o, field)); };
   return <div className="plan-goals">
+    {costsOpen && <CostsDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={() => { setCostsOpen(false); requestAnimationFrame(() => document.getElementById('plan-budget-entry')?.focus()); }}/>}
     <article className="ui-card ui-content plan-goal plan-retirement-goal" aria-label="退休目标">
       <div className="ui-section-head"><div><p className="eyebrow">长期生活计划</p><h3>退休与财务自由</h3></div><span className="ui-tag">{caps?.requirement.status === 'ready' ? '按这些条件估算' : '待补齐条件'}</span></div>
       <div className="plan-goal-overview">

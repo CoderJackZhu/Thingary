@@ -1,3 +1,4 @@
+import { CostsDialog } from './PlanningCosts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { money } from './asset';
@@ -25,6 +26,8 @@ const contributionText = (cents: string | null) => { const s = amountState(cents
 
 /** Basic-plan detail: the requirement stays visible; prediction and risk tools open only for an explicit saved or trial contribution. */
 export function PlanningBasicDetail({ sources, saved, today, reload, onPending, onEditingChange, openSetup, onGoto, onEvents, onBack }: { sources: PlanningSources; saved: Saved; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; openSetup: (step: number, from?: HTMLElement | null) => void; onGoto: (tab: 'savings' | 'pension') => void; onEvents: () => void; onBack: () => void }) {
+  const [costsOpen, setCostsOpen] = useState(false);
+  useEffect(() => { onEditingChange(costsOpen); return () => onEditingChange(false); }, [costsOpen, onEditingChange]);
   const [trial, setTrial] = useState<string | null>(null), [tab, setTab] = useState<'overview' | 'lab'>('overview'), [mode, setMode] = useValueMode();
   const hist = useMemo(() => historyHints(ready(sources.review)), [sources.review]);
   const savedContribution = saved.profile.retire.basic?.contribution.monthly_cents ?? null;
@@ -33,7 +36,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const result = useCapabilities(sources, { contribution: trial ?? (auto ? hist.saving : null) });
   const saver = useSectionSaver(sources, reload, onPending);
   const retire = saved.profile.retire;
-  const owner = (o: PlanningMissing['owner'], field?: string) => { if (o === 'basic' || o === 'budget' || o === 'funds') openSetup(setupStepFor(o, field)); else if (o === 'pension') onGoto('pension'); else if (o === 'events') onEvents(); else if (o === 'service') reload(); };
+  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'basic' || o === 'funds' || o === 'budget') openSetup(setupStepFor(o, field)); else if (o === 'pension') onGoto('pension'); else if (o === 'events') onEvents(); else if (o === 'service') reload(); };
 
   async function saveContribution(value: string | null) {
     const input = contributionSection(saved, value, today); if (!input) return false;
@@ -45,6 +48,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const review = ready(sources.review), usual = review ? usualSaving(review) : null;
   const reference = usual?.kind === 'known' ? `盘点参考区间 ${usual.window_from ?? "起点未记录"} 至 ${usual.latest_date ?? "终点未记录"}：月均净资产变化约 ${money(usual.monthly_cents)}（含估值，共 ${usual.count} 个可比区间${usual.low_sample ? "，样本较少" : ""}）。` : null;
   return <div className="rd-detail">
+    {costsOpen && <CostsDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={() => { setCostsOpen(false); requestAnimationFrame(() => document.getElementById('plan-budget-entry')?.focus()); }}/>}
     <p><button type="button" className="ui-link" onClick={onBack}>{trial !== null ? '← 返回目标（临时试算不会保存）' : '← 返回目标'}</button></p>
     <div className="rd-tabs" role="group" aria-label="退休页签"><button type="button" aria-pressed={tab === 'overview'} onClick={() => setTab('overview')}>概览</button><button type="button" aria-pressed={tab === 'lab'} onClick={() => setTab('lab')}>假设分析</button></div>
     <div className="rd-grid">

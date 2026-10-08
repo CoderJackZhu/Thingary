@@ -1,3 +1,5 @@
+import { accountVisible, changeVisible } from './wealth-display';
+import type { AccountView } from './wealth-display';
 // U20「变化」分段：两次盘点的逐账户比较、按类型的结构比较与单账户历史。
 // 规则由只读命令 wealth_compare / wealth_account_history 计算，前端只展示、排序与展开（产品设计 17.14）。
 import { Fragment, useEffect, useState } from 'react';
@@ -13,8 +15,8 @@ type HistoryState = { status: 'loading' } | { status: 'ok'; data: AccountHistory
 const NOTE = '变化含存取、转账、消费与估值，不等于投资收益；按盘点当时的类型和计入设置计算';
 const stateLabel = (state: string) => state === 'entered' ? '录入' : state === 'unchanged' ? '未变' : state === 'missing' ? '未知' : state;
 
-export function WealthChanges({ summary, accounts, initial, today, onNewAccount, onCheckIn }: {
-  summary: Summary; accounts: Account[]; initial?: Range | null; today: string; onNewAccount: () => void; onCheckIn: (date: string) => void;
+export function WealthChanges({ summary, accounts, accountView, initial, today, onNewAccount, onCheckIn }: {
+  summary: Summary; accounts: Account[]; accountView: AccountView; initial?: Range | null; today: string; onNewAccount: () => void; onCheckIn: (date: string) => void;
 }) {
   const points = summary.points;
   const [range, setRange] = useState<Range | null>(() => initial ?? defaultRange(points));
@@ -59,7 +61,7 @@ export function WealthChanges({ summary, accounts, initial, today, onNewAccount,
     <div className="empty"><span className="empty-mark">¥</span><h2>至少两次盘点后可以比较</h2><p>再完成一次盘点，这里就能显示每个账户带来了多少变化。</p></div>
     <article className="ui-card ui-content">
       <div className="ui-section-head"><h3>单账户历史</h3><Info text={NOTE}/></div>
-      <HistoryTable accounts={accounts} expanded={expanded} toggle={toggle} history={history} retry={loadHistory}/>
+      <HistoryTable accounts={accounts.filter(a => accountVisible(a, accountView))} expanded={expanded} toggle={toggle} history={history} retry={loadHistory}/>
     </article>
   </>;
   // 起点必须早于终点：不满足时自动把另一端调到相邻的合法日期，不弹错误（17.14.4.1）。
@@ -80,8 +82,8 @@ export function WealthChanges({ summary, accounts, initial, today, onNewAccount,
   };
   const dateSelect = (label: string, value: string, onChange: (id: string) => void) =>
     <select aria-label={label} value={value} onChange={e => onChange(e.target.value)}>{points.map(p => <option key={p.snapshot_id} value={p.snapshot_id}>{p.date}{!p.complete && '（不完整）'}</option>)}</select>;
-  const counted = sortRows(compare ? compare.rows.filter(r => r.group !== 'uncounted') : [], sort);
-  const uncounted = compare ? sortRows(compare.rows.filter(r => r.group === 'uncounted'), sort) : [];
+  const counted = sortRows(compare ? compare.rows.filter(r => r.group !== 'uncounted' && changeVisible(r, accounts, accountView)) : [], sort);
+  const uncounted = compare ? sortRows(compare.rows.filter(r => r.group === 'uncounted' && changeVisible(r, accounts, accountView)), sort) : [];
   const reason = compare ? [compare.from.missing ? `起点盘点缺 ${compare.from.missing} 个账户` : '', compare.to.missing ? `终点盘点缺 ${compare.to.missing} 个账户` : '', compare.rows.some(r => r.group === 'scope_changed') ? '有账户改变了计入设置' : ''].filter(Boolean).join('；') : '';
   return <>
     {notice && <p className="notice" role="status">{notice}</p>}
@@ -110,6 +112,7 @@ export function WealthChanges({ summary, accounts, initial, today, onNewAccount,
               <button aria-pressed={sort === 'kind'} onClick={() => setSort('kind')}>按类型</button>
             </div>
           </div>
+          <p className="muted small">按上方账户范围显示；合计始终包含整个比较区间。停用账户有余额变化或待核对金额时仍显示。</p>
           <table className="ui-table changes-table">
             <thead><tr><th>账户</th><th className="col-kind">类型</th><th>起点</th><th>终点</th><th>变化</th><th>对净资产</th><th className="col-rate">变化率</th><th><span className="visually-hidden">展开历史</span></th></tr></thead>
             <tbody>{counted.map(r => <ChangesRow key={r.account_id} r={r} open={expanded.has(r.account_id)} onToggle={toggle} history={history.get(r.account_id)} onRetry={loadHistory}/>)}</tbody>

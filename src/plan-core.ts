@@ -26,7 +26,7 @@ export function normalizeFunds(snapshot: Snapshot | null, core?: PlanningCore | 
     if (mode === 'available') available += amount;
     else if (mode === 'restricted') { restricted += amount; if (e.kind === 'housing_fund') housingFund += amount; }
   }
-  if (unconfirmed) missing.push(`${unconfirmed} 个账户的规划用途待确认，请通过引导设置核对资金范围。`);
+  if (unconfirmed) missing.push(`${unconfirmed} 个账户的规划用途待确认，请核对资金范围。`);
   return { available: Number(available), restricted: Number(restricted), housingFund: Number(housingFund), debt: Number(debt), net: Number(net), missing };
 }
 export const eventSource = (id: string, kind: 'loan' | 'holding') => `event:${id}:${kind}`;
