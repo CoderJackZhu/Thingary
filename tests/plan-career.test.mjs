@@ -257,9 +257,9 @@ test('C11 output wording keeps missing inputs, payment scope and zero positive c
 test('C11 recovery comparison explains unchanged demand without suggesting unchanged assets', () => {
   const s=careerSources(),d=careerDraft();
   const unknown=comparisonText(compareCareerScenario(s,d,{kind:'recovery',monthly_cents:'300000'}));
-  assert.match(unknown.headline,/先确认两组预计投入/);assert.doesNotMatch(unknown.headline,/不变|¥0/);
+  assert.match(unknown.headline,/先填两组“每月能攒多少”/);assert.doesNotMatch(unknown.headline,/不变|¥0/);
   d.recovery.monthly_cents='600000';
   const known=comparisonText(compareCareerScenario(s,d,{kind:'recovery',monthly_cents:'300000'}));
-  assert.equal(known.headline,'目标时点资产减少 ¥504,000');assert.match(known.detail,/所需月净投入不变/);
-  assert.equal(comparisonText(compareCareerScenario(s,d,{kind:'gap',months:18})).headline,'所需月净投入增加 ¥542.33');
+  assert.equal(known.headline,'目标时点资产减少 ¥504,000');assert.match(known.detail,/每月至少要攒多少”不变/);
+  assert.equal(comparisonText(compareCareerScenario(s,d,{kind:'gap',months:18})).headline,'每月至少要攒的钱增加 ¥542.33');
 });

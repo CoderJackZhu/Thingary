@@ -31,8 +31,8 @@ function fixture(state: State) {
 function Result({title,value}:{title:string;value:CareerEvaluation}) {
   const t=resultText(value);
   return <section className="career-result" aria-label={title}><h2>{title}</h2>
-    <p className="career-label">恢复后，为原目标所需月净投入</p><p className={value.requirement.status === 'ready' && ['found','no_positive_contribution'].includes(value.requirement.value.status) ? 'career-number' : 'career-message'}>{t.requirement}</p>
-    <dl><dt>空窗资金检查</dt><dd>{t.cash}</dd><dt>检查范围</dt><dd>{t.cashRange}</dd><dt>期间最低金额</dt><dd>{t.minimum}</dd><dt>底线触及</dt><dd>{t.floor}</dd><dt>所设投入的结果</dt><dd>{t.prediction}</dd></dl>
+    <p className="career-label">找到新工作后，每月至少要攒多少，才能保住原来的退休目标</p><p className={value.requirement.status === 'ready' && ['found','no_positive_contribution'].includes(value.requirement.value.status) ? 'career-number' : 'career-message'}>{t.requirement}</p>
+    <dl><dt>空窗资金检查</dt><dd>{t.cash}</dd><dt>检查范围</dt><dd>{t.cashRange}</dd><dt>期间最低金额</dt><dd>{t.minimum}</dd><dt>底线触及</dt><dd>{t.floor}</dd><dt>按你估计的每月能攒多少</dt><dd>{t.prediction}</dd></dl>
     <p className="career-footnote">仅对所列条件有效；工作阶段月内付款未完整检查。无需正投入不等于可以额外提款。</p>
   </section>;
 }
@@ -55,7 +55,7 @@ function Preview() {
     <div className="career-toolbar"><label>样例状态 <select aria-label="样例状态" value={state} onChange={e=>reload(e.target.value as State)}><option value="ready">完整条件</option><option value="pension">含北京养老金（虚构）</option><option value="unknown">恢复时间未知</option><option value="empty">尚无资料</option><option value="error">来源读取失败</option><option value="shortfall">月内付款不足</option></select></label>
       <label>外观 <select aria-label="外观" value={style} onChange={e=>setStyle(e.target.value)}><option value="bento">柔和卡片</option><option value="native">清新原生</option><option value="olive">暖米橄榄</option></select></label>
       <label><input type="checkbox" checked={dark} onChange={e=>setDark(e.target.checked)}/> 深色</label></div>
-    <section className="career-source"><h2>沿用的条件</h2>{profile?<p>资金截至 2026-09-30 · {state==='shortfall'?'可动用资金 5,000 元':'可动用资金 60 万元'} · 当前月净投入 15,000 元 · 50 岁退休，检查到 90 岁 · 退休预算 {money(profile.retire.spend_cents!)} / 月 · 收益、通胀为 0 · {state==='pension'?'本例计入北京养老金（虚构的缴费史）':'本例不计养老金'}</p>:<p role="status">{state==='error'?'虚构来源读取失败；可重新载入样例。':'尚无通用目标与资金资料。'}</p>}
+    <section className="career-source"><h2>沿用的条件</h2>{profile?<p>资金截至 2026-09-30 · {state==='shortfall'?'可动用资金 5,000 元':'可动用资金 60 万元'} · 现在每月攒 15,000 元 · 50 岁退休，检查到 90 岁 · 退休预算 {money(profile.retire.spend_cents!)} / 月 · 收益、通胀为 0 · {state==='pension'?'本例计入北京养老金（虚构的缴费史）':'本例不计养老金'}</p>:<p role="status">{state==='error'?'虚构来源读取失败；可重新载入样例。':'尚无通用目标与资金资料。'}</p>}
       <button type="button" className={enabled?'':'primary'} onClick={()=>{if(enabled){setEnabled(false);reload(state);setChange({kind:'gap',months:18});}else setEnabled(true);}}>{enabled?'关闭试算并丢弃修改':'打开职业变化试算'}</button>
       {enabled&&<a className="career-result-link" href="#career-results">查看两组结果 ↓</a>}
       {(state==='empty'||state==='error')&&<button type="button" onClick={()=>reload('ready')}>重新载入虚构资料</button>}</section>
@@ -66,13 +66,13 @@ function Preview() {
         {draft.gap_months===null&&<FormRow label="局部检查到"><MonthInput label="局部检查到" value={draft.check_until_month??''} onChange={v=>patch({check_until_month:v||null})}/></FormRow>}
         <FormRow label="空窗月可靠到账（元）"><CentInput label="空窗月可靠到账" value={draft.gap.income_cents??''} onChange={v=>patch({gap:{...draft.gap,income_cents:v||null}})}/></FormRow>
         <FormRow label="空窗月完整开销（元）" hint="本例已确认没有另外的月供、自缴或额外费用。"><CentInput label="空窗月完整开销" value={draft.gap.spend_cents??''} onChange={v=>patch({gap:{...draft.gap,spend_cents:v||null}})}/></FormRow>
-        <FormRow label="恢复后预计月净投入（元）" hint="扣除开销后能用于积累的金额；留空也可先看需要多少。"><CentInput label="恢复后预计月净投入" signed value={draft.recovery.monthly_cents??''} onChange={v=>patch({recovery:{...draft.recovery,monthly_cents:v||null}})}/></FormRow>
+        <FormRow label="你估计找到新工作后每月能攒多少（元）" hint="收入拿到手、扣完全部花销后每月剩下的钱；留空也可以先看至少要攒多少。"><CentInput label="你估计找到新工作后每月能攒多少" signed value={draft.recovery.monthly_cents??''} onChange={v=>patch({recovery:{...draft.recovery,monthly_cents:v||null}})}/></FormRow>
         <details><summary>资金检查条件</summary><FormRow label="空窗资金底线（元）" hint="选填，仅约束这段空窗。"><CentInput label="空窗资金底线" value={draft.floor_cents??''} onChange={v=>patch({floor_cents:v||null})}/></FormRow>
           <label className="career-check"><input type="checkbox" checked={draft.liquid_funds_confirmed} onChange={e=>patch({liquid_funds_confirmed:e.target.checked})}/>本例资金可及时动用</label></details>
       </section><section className="career-input"><h2>只改变一项，看看影响</h2>
         <FormRow label="对照条件"><select aria-label="对照条件" value={change.kind} onChange={e=>setChange(e.target.value==='gap'?{kind:'gap',months:18}:e.target.value==='recovery'?{kind:'recovery',monthly_cents:'300000'}:{kind:'budget',monthly_cents:'1000000'})}><option value="gap">空窗延长</option><option value="recovery">恢复后投入改变</option><option value="budget">退休预算改变</option></select></FormRow>
-        {change.kind==='gap'?<FormRow label="对照空窗月数"><input aria-label="对照空窗月数" type="number" min="0" max="1200" value={change.months??''} onChange={e=>setChange({kind:'gap',months:e.target.value===''?null:Number(e.target.value)})}/></FormRow>:<FormRow label={change.kind==='budget'?'对照退休月预算（元）':'对照恢复后月净投入（元）'}><CentInput label="对照金额" signed={change.kind==='recovery'} value={change.monthly_cents??''} onChange={v=>setChange({...change,monthly_cents:v||null})}/></FormRow>}
-        <p className="career-footnote">每次只改变所选条件，其余保持一致。输入值是本次假设，所需投入不会自动变成预计收入。</p>
+        {change.kind==='gap'?<FormRow label="对照空窗月数"><input aria-label="对照空窗月数" type="number" min="0" max="1200" value={change.months??''} onChange={e=>setChange({kind:'gap',months:e.target.value===''?null:Number(e.target.value)})}/></FormRow>:<FormRow label={change.kind==='budget'?'对照：退休后每月预算（元）':'对照：找到新工作后每月能攒多少（元）'}><CentInput label="对照金额" signed={change.kind==='recovery'} value={change.monthly_cents??''} onChange={v=>setChange({...change,monthly_cents:v||null})}/></FormRow>}
+        <p className="career-footnote">每次只改变所选条件，其余保持一致。输入值是本次假设；算出的“至少要攒多少”不会自动当成你的收入。</p>
         {comparison&&<div className="career-delta" role="status"><p>{comparison.headline}</p>{comparison.detail&&<p className="career-footnote">{comparison.detail}</p>}<a href="#career-results">查看两组结果 ↓</a></div>}
       </section></div>
       {result&&<><div id="career-results" className="career-layout" tabIndex={-1} aria-label="两组比较结果" aria-live="polite"><Result title="原条件" value={result.baseline}/><Result title="对照条件" value={result.alternative}/></div><aside className="career-notes">{[...new Set([...result.baseline.notes,...result.alternative.notes])].map(n=><p key={n}>{n}</p>)}</aside></>}

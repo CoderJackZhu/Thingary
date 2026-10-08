@@ -6,11 +6,11 @@ export function comparisonText(result: CareerComparison) {
   if (result.change.kind === 'recovery') {
     const missingAmount = [result.baseline, result.alternative].some(x => x.prediction.status === 'blocked' && x.prediction.issues.some(i => i.field === 'recovery.monthly_cents'));
     return {
-      headline: result.goal_assets_delta_cents !== null ? difference('目标时点资产', result.goal_assets_delta_cents) : missingAmount ? '先确认两组预计投入，再比较目标资金' : '条件尚未齐全，暂不计算目标资金差额',
-      detail: '目标和预算未变，所以所需月净投入不变；改变预计投入会影响实际推演的资金。',
+      headline: result.goal_assets_delta_cents !== null ? difference('目标时点资产', result.goal_assets_delta_cents) : missingAmount ? '先填两组“每月能攒多少”，再比较目标资金' : '条件尚未齐全，暂不计算目标资金差额',
+      detail: '目标和预算没变，所以“每月至少要攒多少”不变；改变你估计的每月能攒多少，会影响目标时的资金。',
     };
   }
-  return { headline: result.requirement_delta_cents !== null ? difference('所需月净投入', result.requirement_delta_cents) : '部分条件待确认，暂不计算需求差额。', detail: null };
+  return { headline: result.requirement_delta_cents !== null ? difference('每月至少要攒的钱', result.requirement_delta_cents) : '部分条件待确认，暂不计算需求差额。', detail: null };
 }
 export function requirementText(value: CareerRequirement): string {
   if (value.status === 'found') return `${money(value.monthly_cents)} / 月`;

@@ -15,7 +15,7 @@ function stageIssues(stage: CareerStage, field: string): CareerIssue[] {
   const errors: CareerIssue[] = [];
   if (stage.costs === null) errors.push(issue(`${field}.costs`, '请确认该阶段费用的包含范围。'));
   else for (const c of stage.costs) if (!['included', 'extra', 'excluded'].includes(c.treatment) || (c.treatment === 'included' && !amount(c.reference_cents))) errors.push(issue(`${field}.costs`, '已含费用须有合法的非负参考额。'));
-  if (!stage.pension) errors.push(issue(`${field}.pension`, '请确认该阶段未来缴费安排；净投入不决定停缴。'));
+  if (!stage.pension) errors.push(issue(`${field}.pension`, '请确认该阶段未来缴费安排；每月能攒多少不决定停不停缴。'));
   if (!amount(stage.insurance.monthly_cents)) errors.push(issue(`${field}.insurance`, '请确认现金自缴费用，明确没有才填零。'));
   return errors;
 }
@@ -33,7 +33,7 @@ const clipped = (flows: Flow[], from: number, to: number): Flow[] => flows.map(f
 /** No sources or draft are mutated. Unknown recovery only blocks the long-term abilities. */
 export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDraft): CareerEvaluation {
   const basic = prepareBasicPlan(sources, '0');
-  const notes = ['职业条件仅用于本次比较，不改变基础计划。', '工作阶段只有净投入；未完整检查这些区间的月内生活付款。', '空窗按月初支出、月底到账检查，金额为所示基准日购买力。'];
+  const notes = ['职业条件仅用于本次比较，不改变基础计划。', '工作阶段只知道每月能攒多少；未完整检查这些区间的月内生活付款。', '空窗按月初支出、月底到账检查，金额为所示基准日购买力。'];
   const fail = (errors: CareerIssue[]): CareerEvaluation => ({ context: basic.context, model_version: 'career-prototype-1', notes, cash: blocked(errors), requirement: blocked(errors), prediction: blocked(errors) });
   const p = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile : null;
   if (!p?.birth_month || !p.retire.basic || !basic.context.start.date) return fail(basic.plan.status === 'blocked' ? basic.plan.missing.map(m => issue(m.field, m.message)) : [issue('sources', '请先确认通用资料、出生年月和资金截至日。')]);
@@ -62,7 +62,7 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
   const current = r.basic!.contribution.monthly_cents;
   const days = new Date(Date.UTC(+anchor.slice(0, 4), +anchor.slice(5, 7), 0)).getUTCDate();
   const needsCurrent = transition > now + (+anchor.slice(8, 10) === days ? 1 : 0);
-  if (needsCurrent && !amount(current, true)) errors.push(issue('current_contribution', '变化前的预计净投入未知，不能推定未来起点资金。'));
+  if (needsCurrent && !amount(current, true)) errors.push(issue('current_contribution', '变化前每月能攒多少还不知道，不能推算未来的起点资金。'));
   if (errors.length) return fail(errors);
   const recoveryErrors = recovery !== null && recovery < target ? stageIssues(draft.recovery, 'recovery') : [];
   const recoveryPeriods = recovery !== null && recovery < target ? override(draft.recovery, ym(birth + recovery), ym(birth + target)) : [];
@@ -162,7 +162,7 @@ function finishCareer(context: CareerEvaluation['context'], draft: CareerDraft, 
   }
   const predictionIssue = recovery !== null && recovery >= target
     ? issue('gap_months', '原目标前没有恢复后的积累区间，不计算这段投入预测。')
-    : issue('recovery.monthly_cents', draft.recovery.monthly_cents === null ? '恢复后的预计净投入尚未确认；需求结果不会自动作为预计投入。' : '恢复后的预计净投入须为合法整数分，可为零或负数。');
+    : issue('recovery.monthly_cents', draft.recovery.monthly_cents === null ? '你估计的找到新工作后每月能攒多少还没填；算出的“至少要攒多少”不会自动当成你的收入。' : '你估计的找到新工作后每月能攒多少须是合法整数分，可以是零或负数（负数表示每月要动用存款）。');
   let prediction: CareerEvaluation['prediction'] = blocked(errors.length ? errors : [predictionIssue]);
   if (!errors.length && recovery !== null && recovery < target && amount(draft.recovery.monthly_cents, true)) {
     const plan = compile(Number(draft.recovery.monthly_cents)), projection = project(plan, year);

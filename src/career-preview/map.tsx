@@ -54,12 +54,13 @@ export function CareerMapPanel({ sources, draft, patch }: { sources: PlanningSou
   const pensions = useMemo(() => pensionOptions(sources, withL, stage, choices), [sources, withL, stage, cash]);
   const first = pensions.rows[0];
 
+  if (!bounds) return <section className="career-map" aria-label="窗口与社保"><h2>高收入窗口什么时候关闭？</h2><p className="career-message" role="status">先有通用的目标和资金资料，才能画这张图。</p></section>;
   return <section className="career-map" aria-label="窗口与社保">
     <h2>高收入窗口什么时候关闭？</h2>
     <p className="career-footnote">窗口关闭的时间没法预测，这里把它摆成一张图，你读自己认为可能的那一块。所有数字都是“按这些条件”的结果，不是概率。</p>
     <div className="career-layout"><section className="career-input"><h3>关闭之后</h3>
       <FormRow label="先空窗几个月（可为 0）" hint="图里的窗口关闭后，先空窗这么久再恢复；0 表示直接转成较低的投入。"><input aria-label="地图空窗月数" type="number" min="0" step="1" value={mapGap} onChange={e => setMapGap(Math.max(0, Math.floor(Number(e.target.value) || 0)))}/></FormRow>
-      {recoveries.map((v, i) => <FormRow key={i} label={`关闭后每月净投入 ${i + 1}（元）`} hint={i === 0 ? '默认取你当前投入的 0%、25%、50%、75%，可改；负数表示动用存款。' : undefined}><CentInput label={`关闭后每月净投入 ${i + 1}`} signed value={v} onChange={x => setCustom(recoveries.map((o, j) => (j === i ? x || '0' : o)))}/></FormRow>)}
+      {recoveries.map((v, i) => <FormRow key={i} label={`关闭后每月能攒多少 ${i + 1}（元）`} hint={i === 0 ? '默认取你当前投入的 0%、25%、50%、75%，可改；负数表示动用存款。' : undefined}><CentInput label={`关闭后每月能攒多少 ${i + 1}`} signed value={v} onChange={x => setCustom(recoveries.map((o, j) => (j === i ? x || '0' : o)))}/></FormRow>)}
     </section><section className="career-input"><h3>要持续多久</h3>
       {ok && recoveries.map((l, i) => <p key={i} className="career-line"><strong>关闭后每月 {money(l)}</strong><br/>{minText(mins[i])}</p>)}
       {!ok && <p className="career-message">候选金额须是整数分。</p>}
@@ -67,14 +68,14 @@ export function CareerMapPanel({ sources, draft, patch }: { sources: PlanningSou
     </section></div>
 
     {map && <section className="career-input"><h3>窗口地图</h3>
-      <div className="career-table-wrap"><table className="career-table"><caption>横轴是窗口关闭的月份，纵轴是关闭后每月净投入。✓ 表示原目标满足，其余是目标时点缺的资金或先不够的原因。</caption>
+      <div className="career-table-wrap"><table className="career-table"><caption>横轴是窗口关闭的月份，纵轴是关闭后每月能攒多少。✓ 表示原目标满足，其余是目标时点缺的资金或先不够的原因。</caption>
         <thead><tr><th scope="col">关闭后每月</th>{map.closes.map(c => <th key={c} scope="col">{c}</th>)}</tr></thead>
         <tbody>{map.rows.map((row, i) => <tr key={i}><th scope="row">{money(map.recoveries[i])}</th>{row.map(c => <td key={c.close_month} className={`career-cell career-${c.verdict}`}>{c.verdict === 'meets' ? '✓ 满足' : c.verdict === 'blocked' ? '—' : c.reason === 'goal' ? `差 ${wan(c.shortfall_cents ?? 0)}` : c.reason === 'cash' ? '资金先不够' : '付款先不够'}</td>)}</tr>)}</tbody>
       </table></div>
     </section>}
 
-    <section className="career-input"><h3>以下两项按哪一档“关闭后每月净投入”算</h3>
-      <FormRow label="关闭后每月净投入"><select aria-label="关闭后每月净投入档位" value={Math.min(pick, recoveries.length - 1)} onChange={e => setPick(Number(e.target.value))}>{recoveries.map((v, i) => <option key={i} value={i}>{money(v)} / 月</option>)}</select></FormRow>
+    <section className="career-input"><h3>以下两项按哪一档“关闭后每月能攒多少”算</h3>
+      <FormRow label="关闭后每月能攒多少"><select aria-label="关闭后每月能攒多少档位" value={Math.min(pick, recoveries.length - 1)} onChange={e => setPick(Number(e.target.value))}>{recoveries.map((v, i) => <option key={i} value={i}>{money(v)} / 月</option>)}</select></FormRow>
     </section>
     <div className="career-layout"><section className="career-input"><h3>最多能空窗几个月</h3>
       <p className="career-line">{gapText(longest)}</p>

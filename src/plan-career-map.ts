@@ -75,9 +75,9 @@ const bad = (status: 'not_applicable' | 'blocked', message: string): MinWindow =
 export function minWindow(sources: PlanningSources, draft: CareerDraft): MinWindow {
   const span = careerSpan(sources), current = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile.retire.basic?.contribution.monthly_cents ?? null : null;
   if (!span) return bad('blocked', '请先确认通用资料、出生年月和资金截至日。');
-  if (!validCareerAmount(current, true)) return bad('blocked', '当前预计净投入未知，不能比较窗口。');
-  if (!validCareerAmount(draft.recovery.monthly_cents, true)) return bad('blocked', '请先填关闭后的每月净投入。');
-  if (Number(draft.recovery.monthly_cents) >= Number(current)) return bad('not_applicable', '关闭后的每月净投入不低于现在，窗口关闭不会变差。');
+  if (!validCareerAmount(current, true)) return bad('blocked', '现在每月能攒多少还不知道，不能比较窗口。');
+  if (!validCareerAmount(draft.recovery.monthly_cents, true)) return bad('blocked', '请先填关闭后每月能攒多少。');
+  if (Number(draft.recovery.monthly_cents) >= Number(current)) return bad('not_applicable', '关闭后每月能攒的钱不低于现在，窗口关闭不会变差。');
   const gap = draft.gap_months ?? 0, hi = span.target - 1 - gap;
   if (hi < span.now) return bad('blocked', '空窗加恢复超出原目标，没有可比较的关闭月。');
   // The window never closing is the baseline: if even that fails, no window length helps.
@@ -105,7 +105,7 @@ export type MaxGap =
 export function maxGap(sources: PlanningSources, draft: CareerDraft): MaxGap {
   const span = careerSpan(sources);
   if (!span) return { status: 'blocked', message: '请先确认通用资料、出生年月和资金截至日。' };
-  if (!draft.transition_month || !validCareerAmount(draft.recovery.monthly_cents, true)) return { status: 'blocked', message: '请先填变化月份和关闭后的每月净投入。' };
+  if (!draft.transition_month || !validCareerAmount(draft.recovery.monthly_cents, true)) return { status: 'blocked', message: '请先填变化月份和关闭后每月能攒多少。' };
   if (validCareerAmount(draft.gap.income_cents) && validCareerAmount(draft.gap.spend_cents) && Number(draft.gap.income_cents) - Number(draft.gap.spend_cents) > Number(draft.recovery.monthly_cents)) return { status: 'not_applicable', message: '空窗期的净流入高于恢复后，拉长空窗不会变差。' };
   const close = monthIndex(draft.transition_month), cap = span.target - close - 1;
   if (cap < 0) return { status: 'blocked', message: '变化月须早于原目标月。' };
