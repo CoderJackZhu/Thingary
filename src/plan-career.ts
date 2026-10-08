@@ -13,10 +13,11 @@ import type { CareerDraft, CareerStage, CareerIssue, CareerEvaluation, CareerCas
 
 function stageIssues(stage: CareerStage, field: string): CareerIssue[] {
   const errors: CareerIssue[] = [];
+  const label = field === 'gap' ? '空窗阶段' : '恢复阶段';
   if (stage.costs === null) errors.push(issue(`${field}.costs`, '请确认该阶段费用的包含范围。'));
   else for (const c of stage.costs) if (!['included', 'extra', 'excluded'].includes(c.treatment) || (c.treatment === 'included' && !amount(c.reference_cents))) errors.push(issue(`${field}.costs`, '已含费用须有合法的非负参考额。'));
-  if (!stage.pension) errors.push(issue(`${field}.pension`, '请确认该阶段未来缴费安排；每月能攒多少不决定停不停缴。'));
-  if (!amount(stage.insurance.monthly_cents)) errors.push(issue(`${field}.insurance`, '请确认现金自缴费用，明确没有才填零。'));
+  if (!stage.pension) errors.push(issue(`${field}.pension`, `请确认${label}的缴费安排；每月能攒多少不决定停不停缴。`));
+  if (!amount(stage.insurance.monthly_cents)) errors.push(issue(`${field}.insurance`, `请确认${label}的现金自缴费用，明确没有才填零。`));
   return errors;
 }
 function withCosts(sources: PlanningSources, costs: CostScope[]): PlanningSources {
@@ -31,7 +32,7 @@ function override(stage: CareerStage, from: string, to: string): ContributionPer
 const clipped = (flows: Flow[], from: number, to: number): Flow[] => flows.map(f => ({ ...f, from_month: Math.max(from, f.from_month), to_month: Math.min(to, f.to_month ?? to) })).filter(f => f.from_month < f.to_month);
 
 /** No sources or draft are mutated. Unknown recovery only blocks the long-term abilities. */
-export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDraft): CareerEvaluation {
+export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDraft, options: { requirement?: 'calculate' | 'skip' } = {}): CareerEvaluation {
   const basic = prepareBasicPlan(sources, '0');
   const notes = ['职业条件仅用于本次比较，不改变基础计划。', '工作阶段只知道每月能攒多少；未完整检查这些区间的月内生活付款。', '空窗按月初支出、月底到账检查，金额为所示基准日购买力。'];
   const fail = (errors: CareerIssue[]): CareerEvaluation => ({ context: basic.context, model_version: 'career-prototype-1', notes, cash: blocked(errors), requirement: blocked(errors), prediction: blocked(errors) });
@@ -55,14 +56,14 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
   if (extra) {
     const benefit = extra.benefit_monthly_cents !== null && Number(extra.benefit_monthly_cents) > 0;
     if ((extra.lump_cents !== null && !amount(extra.lump_cents)) || (extra.benefit_monthly_cents !== null && !amount(extra.benefit_monthly_cents))) errors.push(issue('gap.extra_income', '补偿金和限期补助须是合法非负整数分，没有就留空。'));
-    else if (benefit && (extra.benefit_months === null || extra.benefit_months < 1 || !hasGap)) errors.push(issue('gap.extra_income', '填了限期补助就要同时填领取月数（至少 1 个月），且须有空窗期可以领取；否则请清空补助。'));
-    if (extra.benefit_months !== null && (!Number.isInteger(extra.benefit_months) || extra.benefit_months < 0 || extra.benefit_months > gapEnd - transition)) errors.push(issue('gap.extra_income', '限期补助月数须是0到空窗月数之间的整数。'));
+    else if ((benefit && (extra.benefit_months === null || extra.benefit_months < 1)) || (extra.benefit_months !== null && extra.benefit_months > 0 && extra.benefit_monthly_cents === null)) errors.push(issue('gap.extra_income', '启用限期补助须同时确认金额和领取月数上限，不能把缺项当零。'));
+    if (extra.benefit_months !== null && (!Number.isInteger(extra.benefit_months) || extra.benefit_months < 0 || extra.benefit_months > 1200)) errors.push(issue('gap.extra_income', '限期补助月数上限须是0至1200的整数；提前恢复时停止计入。'));
   }
   const lumps = draft.lumps ?? [];
   if (lumps.length > 24) errors.push(issue('lumps', '一次性到账最多填 24 笔。'));
   for (const l of lumps) {
     if (!month(l.month) || !amount(l.cents)) errors.push(issue('lumps', '一次性到账须有合法的月份和非负金额，没有就删掉这一行。'));
-    else if (monthIndex(l.month) - birth < now || monthIndex(l.month) - birth >= target) errors.push(issue('lumps', `${l.month} 不在资金起点到原目标退休月之间。`));
+    else if (monthIndex(l.month) - birth < now || monthIndex(l.month) - birth >= target || (l.month === anchor.slice(0, 7) && +anchor.slice(8, 10) === new Date(Date.UTC(+anchor.slice(0, 4), +anchor.slice(5, 7), 0)).getUTCDate())) errors.push(issue('lumps', `${l.month} 不在资金截至日之后、原目标之前；已到账金额请计入起点资产，不在此重复录入。`));
   }
   if (draft.floor_cents !== null && !amount(draft.floor_cents)) errors.push(issue('floor_cents', '底线须为合法非负整数分，或留空。'));
   const current = r.basic!.contribution.monthly_cents;
@@ -125,10 +126,10 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
     return { ...skeleton, mode: 'traditional', r_before_hundredths: rb, r_after_hundredths: ra, saving_cents: 0, saving_flows: flow,
       saving_phases: [{ from_month: now, cents: Number(current ?? 0) }, { from_month: transition, cents: hasGap ? Number(draft.gap.income_cents) - Number(draft.gap.spend_cents) : candidate }, ...(hasGap ? [{ from_month: gapEnd, cents: candidate }] : [])] };
   };
-  return finishCareer(basic.context, draft, notes, birth, transition, gapEnd, recovery, target, compile, recoveryErrors);
+  return finishCareer(basic.context, draft, notes, birth, transition, gapEnd, recovery, target, compile, recoveryErrors, options.requirement !== 'skip');
 }
 
-function finishCareer(context: CareerEvaluation['context'], draft: CareerDraft, notes: string[], birth: number, transition: number, gapEnd: number, recovery: number | null, target: number, compile: (n: number, rb?: number, ra?: number) => Plan, recoveryErrors: CareerIssue[]): CareerEvaluation {
+function finishCareer(context: CareerEvaluation['context'], draft: CareerDraft, notes: string[], birth: number, transition: number, gapEnd: number, recovery: number | null, target: number, compile: (n: number, rb?: number, ra?: number) => Plan, recoveryErrors: CareerIssue[], calculateRequirement: boolean): CareerEvaluation {
   const zero = compile(0), audit: MonthAudit[] = [];
   const year = Number(zero.anchor_date!.slice(0, 4));
   if (![zero.r_before_hundredths, zero.r_after_hundredths].every(r => Number.isFinite(r) && r >= -1000 && r <= 2000)) {
@@ -166,6 +167,7 @@ function finishCareer(context: CareerEvaluation['context'], draft: CareerDraft, 
     const prefix = audit.find(p => p.month < recovery! ? negative(p) : p.month === recovery && Math.min(p.start_cents, p.after_payments_cents) < 0);
     if (prefix) requirement = { status: 'ready', value: { status: 'prefix_payment_gap', message: `${ym(birth + prefix.month)}的已知付款不足不能用之后的月投入补救。` } };
     else if (cashValue?.floor_month && Number(cashValue.minimum_cents) < Number(draft.floor_cents)) requirement = { status: 'ready', value: { status: 'prefix_floor_breach', message: '空窗资金已低于本次设定底线；后续投入不能改变这段条件。' } };
+    else if (!calculateRequirement) requirement = blocked([issue('requirement', '本次候选只检查给定投入，不执行需求反求。')]);
     else requirement = { status: 'ready', value: solveBasicRequirement(compile, zero.r_before_hundredths, zero.r_after_hundredths) };
   }
   const predictionIssue = recovery !== null && recovery >= target

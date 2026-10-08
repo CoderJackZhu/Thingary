@@ -4,7 +4,7 @@ import { prepareBasicPlan } from './plan-basic.ts';
 import type { PlanningSources } from './plan-basic-contract.ts';
 import { monthIndex } from './plan-events.ts';
 import { evaluateCareerScenario } from './plan-career.ts';
-import { careerMonth, validCareerAmount } from './plan-career-contract.ts';
+import { careerMonth, validCareerMonth, validCareerAmount } from './plan-career-contract.ts';
 import type { CareerDraft, CareerEvaluation, CareerPension } from './plan-career-contract.ts';
 
 export type Verdict = 'meets' | 'short' | 'blocked';
@@ -42,7 +42,7 @@ function run(sources: PlanningSources, draft: CareerDraft, over: { close?: numbe
   if (over.close !== undefined) d.transition_month = careerMonth(over.close);
   if (over.gap !== undefined) d.gap_months = over.gap;
   if (over.recovery !== undefined) d.recovery.monthly_cents = over.recovery;
-  return evaluateCareerScenario(sources, d);
+  return evaluateCareerScenario(sources, d, { requirement: 'skip' });
 }
 
 export type MapCell = Judgement & { close_month: string; recovery_cents: string };
@@ -65,66 +65,58 @@ export function closeMonths(sources: PlanningSources, stepMonths = 12): string[]
 export type MinWindow =
   | { status: 'found'; months: number; close_month: string }
   | { status: 'already_met' }
-  | { status: 'not_reachable' | 'until_target'; message: string }
+  | { status: 'not_reachable'; message: string }
   | { status: 'not_applicable' | 'blocked'; message: string };
 const bad = (status: 'not_applicable' | 'blocked', message: string): MinWindow => ({ status, message });
 
-/** The fewest more months of the current contribution after which the goal holds even if the window closes then
- *  (draft supplies the gap and the post-window contribution). Needs the current contribution above the post-window one,
- *  otherwise a later close cannot only help and the search is not defined. */
+/** Exhaustive bounded monthly search. Stage costs and pension eligibility can break monotonicity.
+ * Only the earliest feasible candidate is reported; later months are not implied to be feasible. */
 export function minWindow(sources: PlanningSources, draft: CareerDraft): MinWindow {
-  const span = careerSpan(sources), current = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile.retire.basic?.contribution.monthly_cents ?? null : null;
+  const span = careerSpan(sources);
   if (!span) return bad('blocked', '请先确认通用资料、出生年月和资金截至日。');
-  if (!validCareerAmount(current, true)) return bad('blocked', '现在每月能攒多少还不知道，不能比较窗口。');
   if (!validCareerAmount(draft.recovery.monthly_cents, true)) return bad('blocked', '请先填关闭后每月能攒多少。');
-  if (Number(draft.recovery.monthly_cents) >= Number(current)) return bad('not_applicable', '关闭后每月能攒的钱不低于现在，窗口关闭不会变差。');
-  const gap = draft.gap_months ?? 0, hi = span.target - 1 - gap;
+  if (draft.gap_months === null || !Number.isInteger(draft.gap_months) || draft.gap_months < 0 || draft.gap_months > 1200) return bad('blocked', '请确认合法的空窗月数。');
+  const hi = span.target - 1 - draft.gap_months;
   if (hi < span.now) return bad('blocked', '空窗加恢复超出原目标，没有可比较的关闭月。');
-  // The window never closing is the baseline: if even that fails, no window length helps.
-  const never = judge(run(sources, draft, { close: span.now, gap: 0, recovery: current }));
-  if (never.verdict === 'blocked') return bad('blocked', never.issues.join(' ') || '条件未齐全。');
-  if (never.verdict === 'short') return { status: 'not_reachable', message: '窗口一直持续到目标，原目标也不满足；这不是窗口长度的问题。' };
-  const at = (m: number) => judge(run(sources, draft, { close: m })).verdict;
-  const first = at(span.now);
-  if (first === 'blocked') return bad('blocked', '关闭后的条件未齐全。');
-  if (first === 'meets') return { status: 'already_met' };
-  if (at(hi) !== 'meets') return { status: 'until_target', message: '窗口要一直持续到目标月：连提前一个月关闭都不满足。' };
-  let lo = span.now;
-  let up = hi;
-  while (up - lo > 1) { const mid = Math.floor((lo + up) / 2); if (at(mid) === 'meets') up = mid; else lo = mid; }
-  return { status: 'found', months: up - span.now, close_month: careerMonth(up) };
+  if (hi - span.now > 1200) return bad('blocked', '本次逐月搜索最多覆盖 1200 个月，请缩短目标范围。');
+  for (let m = span.now; m <= hi; m++) {
+    const j = judge(run(sources, draft, { close: m }));
+    if (j.verdict === 'blocked') return bad('blocked', j.issues.join(' ') || '部分候选条件不完整，不能确定最早月份。');
+    if (j.verdict === 'meets') return m === span.now ? { status: 'already_met' } : { status: 'found', months: m - span.now, close_month: careerMonth(m) };
+  }
+  return { status: 'not_reachable', message: `已检查 ${careerMonth(span.now)} 至 ${careerMonth(hi)}，没有满足的变化月；未据此判断维持当前工作到目标月的结果。` };
 }
 
 export type MaxGap =
-  | { status: 'found'; months: number; limit: Reason | 'end' }
+  | { status: 'found'; months: number; limit: Reason | 'end'; ranges?: { from: number; to: number }[] }
   | { status: 'none'; reason: Reason | null }
   | { status: 'not_applicable' | 'blocked'; message: string };
 
-/** The longest gap (months) after the close month that still keeps funds above zero and the goal met.
- *  Needs the gap's net cash flow to be no better than the post-gap contribution, otherwise a longer gap could help. */
+/** Scan every gap length, including discontinuous feasible ranges; blocked is not a failed candidate. */
 export function maxGap(sources: PlanningSources, draft: CareerDraft): MaxGap {
   const span = careerSpan(sources);
   if (!span) return { status: 'blocked', message: '请先确认通用资料、出生年月和资金截至日。' };
-  if (!draft.transition_month || !validCareerAmount(draft.recovery.monthly_cents, true)) return { status: 'blocked', message: '请先填变化月份和关闭后每月能攒多少。' };
-  if (validCareerAmount(draft.gap.income_cents) && validCareerAmount(draft.gap.spend_cents) && Number(draft.gap.income_cents) - Number(draft.gap.spend_cents) > Number(draft.recovery.monthly_cents)) return { status: 'not_applicable', message: '空窗期的净流入高于恢复后，拉长空窗不会变差。' };
+  if (!validCareerMonth(draft.transition_month) || !validCareerAmount(draft.recovery.monthly_cents, true)) return { status: 'blocked', message: '请先填合法的变化月份和恢复后每月能攒多少。' };
   const close = monthIndex(draft.transition_month), cap = span.target - close - 1;
-  if (cap < 0) return { status: 'blocked', message: '变化月须早于原目标月。' };
-  const at = (g: number) => judge(run(sources, draft, { gap: g }));
-  const zero = at(0);
-  if (zero.verdict === 'blocked') return { status: 'blocked', message: zero.issues.join(' ') || '条件未齐全。' };
-  if (zero.verdict === 'short') return { status: 'none', reason: zero.reason };
-  // A blocked gap (e.g. the payment check cannot run) is not a short one; never read it as "this long fails".
-  const blockedAt = (g: number) => { const j = at(g); return j.verdict === 'blocked' ? { status: 'blocked' as const, message: j.issues.join(' ') || '条件未齐全。' } : null; };
-  if (cap >= 1) { const b = blockedAt(1); if (b) return b; }
-  const top = at(cap);
-  if (top.verdict === 'blocked') return { status: 'blocked', message: top.issues.join(' ') || '条件未齐全。' };
-  if (top.verdict === 'meets') return { status: 'found', months: cap, limit: 'end' };
-  let lo = 0, up = cap;
-  while (up - lo > 1) { const mid = Math.floor((lo + up) / 2), j = at(mid); if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || '条件未齐全。' }; if (j.verdict === 'meets') lo = mid; else up = mid; }
-  return { status: 'found', months: lo, limit: at(lo + 1).reason ?? 'goal' };
+  if (close < span.now || cap < 0 || cap > 1200) return { status: 'blocked', message: '变化月须在起点至目标之前，搜索范围不超过 1200 个月。' };
+  const ranges: { from: number; to: number }[] = [];
+  let following: Reason | null = null, firstReason: Reason | null = null;
+  for (let g = 0; g <= cap; g++) {
+    const j = judge(run(sources, draft, { gap: g }));
+    if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || '部分候选条件不完整，不能确定最长空窗。' };
+    if (g === 0) firstReason = j.reason;
+    const last = ranges.at(-1);
+    if (j.verdict === 'meets') {
+      if (last && last.to === g - 1) last.to = g;
+      else ranges.push({ from: g, to: g });
+    } else if (last && last.to === g - 1) following = j.reason;
+  }
+  const last = ranges.at(-1);
+  if (!last) return { status: 'none', reason: firstReason };
+  return { status: 'found', months: last.to, limit: last.to === cap ? 'end' : following ?? 'goal', ...(ranges.length > 1 || ranges[0].from > 0 ? { ranges } : {}) };
 }
 
-export type PensionChoice = { label: string; pension: CareerPension; /** Monthly cash the user pays for this choice (bill amount). null = not entered yet; it is never read as zero. */ cash_cents: string | null; /** When set, the row is not evaluated and shows this reason (e.g. a custom base not entered yet). */ blocked?: string };
+export type PensionChoice = { label: string; pension: CareerPension; /** Monthly cash the user pays for this choice (bill amount). null = not entered yet; it is never read as zero. */ cash_cents: string | null; included?: boolean; /** When set, the row is not evaluated and shows this reason (e.g. a custom base not entered yet). */ blocked?: string };
 export type PensionRow = {
   label: string; cash_cents: string | null; judgement: Judgement;
   /** Cash paid over the whole stage under this choice; null when the stage length is unknown. */
@@ -136,8 +128,8 @@ export type PensionRow = {
 /** The draft with one stage's contribution arrangement and its monthly cash cost replaced; nothing is mutated. */
 export function withChoice(draft: CareerDraft, stage: 'gap' | 'recovery', choice: PensionChoice): CareerDraft {
   const d = structuredClone(draft);
-  d[stage].pension = structuredClone(choice.pension);
-  d[stage].insurance = { monthly_cents: choice.cash_cents, included: false };
+  d[stage].pension = choice.blocked ? null : structuredClone(choice.pension);
+  d[stage].insurance = { monthly_cents: choice.cash_cents, included: choice.included ?? false };
   return d;
 }
 
@@ -176,7 +168,7 @@ export function delayTarget(sources: PlanningSources, draft: CareerDraft, maxAge
   const at = (age: number) => {
     const copy = structuredClone(sources);
     if (copy.profile.status === 'ready' && copy.profile.value.saved) copy.profile.value.saved.profile.retire.target_age = age;
-    return judge(evaluateCareerScenario(copy, draft));
+    return judge(evaluateCareerScenario(copy, draft, { requirement: 'skip' }));
   };
   const first = at(original);
   if (first.verdict === 'blocked') return { status: 'blocked', message: first.issues.join(' ') || '条件未齐全。' };

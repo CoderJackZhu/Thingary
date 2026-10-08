@@ -9,7 +9,7 @@ export type CareerStage = {
   insurance: { monthly_cents: string | null; included: boolean };
 };
 /** User-entered after-tax inflows during the gap. A lump sum (severance, unused leave) lands at the end of the change month;
- *  a limited benefit is paid at each month end for its first N months. Empty means none; nothing here is a default or a policy lookup. */
+ *  a limited benefit is paid at month end for min(N, actual gap months); returning to work stops it. Empty means none; nothing here is a default or a policy lookup. */
 export type CareerExtraIncome = { lump_cents: string | null; benefit_monthly_cents: string | null; benefit_months: number | null };
 /** A one-off after-tax inflow outside the monthly savings figure (share vesting, a large bonus, a side job), landing at the end of its month.
  *  Only money that has been or will be received counts; nothing here is estimated for the user. */

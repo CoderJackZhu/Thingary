@@ -42,7 +42,7 @@ test('M04 longest gap reports cash as the limit when funds run out first, and no
 
 test('M05 undefined searches say so instead of guessing', () => {
   const d = direct(); d.recovery.monthly_cents = null; assert.equal(minWindow(careerSources(), d).status, 'blocked');
-  assert.equal(minWindow(careerSources(), direct('1500000')).status, 'not_applicable');
+  assert.equal(minWindow(careerSources(), direct('1500000')).status, 'already_met');
   const e = direct(); e.recovery.monthly_cents = null; assert.equal(maxGap(careerSources(), e).status, 'blocked');
   const s = careerSources(); s.profile.value.saved.profile.retire.spend_cents = '5000000';
   assert.equal(minWindow(s, direct()).status, 'not_reachable');
@@ -62,7 +62,7 @@ test('M07 severance and a limited benefit enter the gap once: 120k lump -> need 
   assert.equal(a.x.cash.value.minimum_cents, '113000000');
   d.gap.extra_income = { lump_cents: null, benefit_monthly_cents: '500000', benefit_months: 6 };
   assert.equal(need(d).v, '446429');
-  d.gap.extra_income.benefit_months = 13; assert.equal(evaluateCareerScenario(careerSources(), d).requirement.status, 'blocked');
+  d.gap.extra_income.benefit_months = 13; assert.equal(evaluateCareerScenario(careerSources(), d).requirement.status, 'ready', 'benefit stops when the gap ends');
   d.gap.extra_income = { lump_cents: '-1', benefit_monthly_cents: null, benefit_months: null }; assert.equal(evaluateCareerScenario(careerSources(), d).requirement.status, 'blocked');
 });
 
@@ -107,7 +107,7 @@ test('M10 a gap whose payment check cannot run is blocked, never a pass or a len
   const m = windowMap(careerSources(), { ...d, gap_months: 6 }, ['2029-10'], ['464286']); assert.equal(m.rows[0][0].verdict, 'blocked');
 });
 
-test('M11 a lump sum counts with or without a gap; a benefit amount without months or without a gap is rejected, not dropped', () => {
+test('M11 a lump sum counts with or without a gap; benefit duration must be confirmed and zero gap has zero benefit', () => {
   const need = d => evaluateCareerScenario(careerSources(), d).requirement;
   const d = careerDraft(); d.gap_months = 0; d.recovery.monthly_cents = '0';
   assert.equal(need(d).value.monthly_cents, '366667');
@@ -115,7 +115,7 @@ test('M11 a lump sum counts with or without a gap; a benefit amount without mont
   assert.equal(need(d).value.monthly_cents, '300000', '120k over the 180 months after the change');
   d.gap.extra_income = { lump_cents: null, benefit_monthly_cents: '500000', benefit_months: null };
   assert.equal(need(d).status, 'blocked');
-  d.gap.extra_income.benefit_months = 3; assert.equal(need(d).status, 'blocked', 'no gap to receive it in');
+  d.gap.extra_income.benefit_months = 3; assert.equal(need(d).value.monthly_cents, '366667', 'zero gap receives no benefit');
   const e = careerDraft(); e.gap.extra_income = { lump_cents: null, benefit_monthly_cents: '500000', benefit_months: null };
   assert.equal(need(e).status, 'blocked', 'amount without months');
   e.gap.extra_income.benefit_months = 6; assert.equal(need(e).status, 'ready');
@@ -128,10 +128,11 @@ test('M12 contribution choices need an entered monthly cash amount; empty is not
   assert.notEqual(r.rows[1].judgement.verdict, 'blocked'); assert.equal(r.rows[1].stage_cash_cents, 0);
 });
 
-test('M13 when even closing one month early fails, the answer is "until the target", not "not reachable"', () => {
+test('M13 when no pre-target change meets the goal, do not claim the unchanged baseline succeeds', () => {
   const s = careerSources(); s.profile.value.saved.profile.retire.spend_cents = '600000';
   const d = careerDraft(); d.gap_months = 0; d.recovery.monthly_cents = '-100000000';
-  assert.equal(minWindow(s, d).status, 'until_target');
+  assert.equal(minWindow(s, d).status, 'not_reachable');
+  assert.match(minWindow(s, d).message, /未据此判断/);
 });
 
 test('M14 retirement concession: with 3000/month after a 12 month gap the goal needs age 54 (81000A >= 4326000), and the original is untouched', () => {
@@ -173,4 +174,50 @@ test('M18 a blocked choice (custom base not entered) is shown with its reason an
   const d = careerDraft(); d.recovery.monthly_cents = '500000';
   const r = pensionOptions(careerSources(), d, 'gap', [{ label: '自选', pension: { base_cents: '0', hpf_monthly_cents: '0' }, cash_cents: '100', blocked: '先填基数' }]);
   assert.equal(r.rows[0].judgement.verdict, 'blocked'); assert.deepEqual(r.rows[0].judgement.issues, ['先填基数']); assert.equal(r.rows[0].assets_at_goal_cents, null);
+});
+
+
+test('R01 minimum window does not apply recovery insurance to the current working stage', () => {
+  const s=careerSources(), d=direct(); s.profile.value.saved.profile.retire.spend_cents='750000';
+  d.recovery.insurance={monthly_cents:'200000',included:false};
+  const result=minWindow(s,d); assert.equal(result.status,'found');
+  d.transition_month=result.close_month; assert.equal(judge(evaluateCareerScenario(s,d)).verdict,'meets');
+  const month=Number(result.close_month.slice(0,4))*12+Number(result.close_month.slice(5))-2;
+  d.transition_month=`${Math.floor(month/12)}-${String(month%12+1).padStart(2,'0')}`;
+  assert.equal(judge(evaluateCareerScenario(s,d)).verdict,'short');
+});
+
+test('R02 benefit cap participates in gap search, including feasible ranges that do not start at zero', () => {
+  const s=careerSources(),d=careerDraft();d.recovery.monthly_cents='0';
+  d.gap.extra_income={lump_cents:null,benefit_monthly_cents:'10000000',benefit_months:12};
+  const result=maxGap(s,d);
+  assert.deepEqual(result,{status:'found',months:54,limit:'goal',ranges:[{from:8,to:54}]});
+  for(const [months,expected] of [[0,'short'],[7,'short'],[8,'meets'],[54,'meets'],[55,'short']]){
+    d.gap_months=months;assert.equal(judge(evaluateCareerScenario(s,d)).verdict,expected);
+  }
+});
+
+test('R03 explicitly included insurance is not deducted twice; extra cost changes the feasible gap', () => {
+  const s=careerSources(),d=careerDraft();d.recovery.monthly_cents='600000';
+  const choice={label:'self',pension:{base_cents:'727000',hpf_monthly_cents:'0'},cash_cents:'200000',included:true};
+  assert.equal(maxGap(s,withChoice(d,'gap',choice)).months,26);
+  assert.equal(maxGap(s,withChoice(d,'gap',{...choice,included:false})).months,23);
+  assert.equal(maxGap(s,withChoice(d,'gap',{...choice,cash_cents:null})).status,'blocked');
+});
+
+test('R04 money in a closed anchor month must not be silently accepted, while future money is counted', () => {
+  const s=careerSources(),d=careerDraft();d.lumps=[{month:'2026-09',cents:'12000000'}];
+  assert.equal(evaluateCareerScenario(s,d).requirement.status,'blocked');
+  d.lumps[0].month='2026-10';assert.equal(evaluateCareerScenario(s,d).requirement.value.monthly_cents,'392858');
+});
+
+test('R05 search evaluation skips only requirement solving, preserving cash, prefix and prediction', () => {
+  for(const mode of ['ready','prefix','unknown']){
+    const s=careerSources(),d=careerDraft();d.recovery.monthly_cents='600000';
+    if(mode==='prefix'){s.profile.value.saved.profile.retire.basic.start.available_cents='500000';d.transition_month='2026-10';}
+    if(mode==='unknown')d.liquid_funds_confirmed=false;
+    const full=evaluateCareerScenario(s,d), fast=evaluateCareerScenario(s,d,{requirement:'skip'});
+    assert.deepEqual(judge(full),judge(fast));assert.deepEqual(full.cash,fast.cash);
+    assert.deepEqual(full.prediction.value?.outcome,fast.prediction.value?.outcome);
+  }
 });

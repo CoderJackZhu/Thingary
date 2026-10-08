@@ -13,4 +13,8 @@
 .career-rules{margin-top:14px;font-size:13px}.career-rules ul{padding-left:20px;margin:8px 0}.career-rules li{margin:6px 0}.career-rules a{color:var(--accent)}
 @media(max-width:720px){.career-question-grid{grid-template-columns:minmax(0,1fr)}}
 .career-lump{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:center;margin:8px 0}@media(max-width:720px){.career-lump{grid-template-columns:minmax(0,1fr)}}
-.career-explain{background:var(--selected);border-radius:var(--ctl-radius);padding:12px 14px;margin:0 0 14px}.career-explain p{margin:4px 0;font-size:14px}.career-banner{margin:10px 0;font-size:14px;color:var(--accent)}.career-help{display:block;font-weight:400;color:var(--muted);white-space:normal;max-width:320px;margin-top:4px}
+.career-insurance{margin-top:20px}.career-insurance>.career-footnote{margin-top:0}.career-insurance-summary{margin:20px 0;padding:18px;background:var(--selected);border-radius:var(--ctl-radius);overflow-wrap:anywhere}.career-insurance-summary h3{margin:0 0 10px}.career-insurance-summary ul{padding-left:20px;margin:10px 0}.career-insurance-summary button{margin-top:10px}
+
+.career-main-result{margin-top:24px;border-top:3px solid var(--accent)}.career-main-result>h2{margin-top:0}.career-main-result h3{font-size:18px}.career-main-result>.career-result{padding:0;border:0;box-shadow:none;background:transparent}.career-insurance-summary a{color:var(--accent)}.career-sensitivity th,.career-sensitivity td{white-space:normal;overflow-wrap:anywhere}.career-sensitivity th{width:45%}
+
+.career-single-input{margin-bottom:20px}.career-main-result .form-row-control{max-width:100%}
