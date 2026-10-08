@@ -101,8 +101,9 @@ export function InsuranceSection({ sources, draft, patch }: Props) {
   const setForm = (next: Selection, resetCash = false) => {
     setSelection(x => ({ ...x, [stage]: next }));
     const base = next.base === 'floor' ? floor : next.base === 'original' ? original : next.custom;
-    const valid = base !== null && /^\d+$/.test(base) && Number(base) >= Number(floor) && Number(base) <= Number(beijing.base_upper_cents);
-    const pension = next.method === '' ? null : next.method === 'pause' ? 'pause' : next.method === 'employer' && next.base === 'original' ? 'unchanged' : valid ? { base_cents: base!, hpf_monthly_cents: '0' } : null;
+    // A base that is entered but out of range stays in the draft, so the engine blocks it with its own message; only an empty or non-numeric base is "not entered".
+    const entered = base !== null && /^\d+$/.test(base);
+    const pension = next.method === '' ? null : next.method === 'pause' ? 'pause' : next.method === 'employer' && next.base === 'original' ? 'unchanged' : entered ? { base_cents: base!, hpf_monthly_cents: '0' } : null;
     if (resetCash) setEntry(x => ({ ...x, [stage]: { cash: '', inc: '' } }));
     const insurance = resetCash ? { monthly_cents: next.method === 'pause' || next.method === 'employer' ? '0' : null, included: next.method === 'self' ? false : true } : active.insurance;
     patch({ [stage]: { ...active, pension, insurance } } as Partial<CareerDraft>);

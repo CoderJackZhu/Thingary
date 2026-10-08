@@ -197,3 +197,15 @@ export function assumeInsurance(draft: CareerDraft): { draft: CareerDraft; chang
   return { draft: d, changed };
 }
 
+
+export type Missing = { label: string; /** true when the optional exploratory placeholder may stand in for it (contribution fields only). */ assumable: boolean };
+/** What is still unconfirmed for an answer. The estimate of savings after the change can never be assumed; an entered
+ *  but invalid value is not "missing" here: it stays in the draft so the engine blocks it with its own message. */
+export function missingItems(draft: CareerDraft, needRecovery: boolean): Missing[] {
+  const out: Missing[] = [];
+  if (needRecovery && !validCareerAmount(draft.recovery.monthly_cents, true)) out.push({ label: '找到新工作后每月能攒多少', assumable: false });
+  const pending = (s: CareerDraft['gap'] | CareerDraft['recovery']) => s.pension === null || s.insurance.monthly_cents === null;
+  if (draft.gap_months !== 0 && pending(draft.gap)) out.push({ label: '不工作期间的社保（交法、每月缴费、是否已包含）', assumable: true });
+  if (pending(draft.recovery)) out.push({ label: '恢复工作后的社保（交法、每月缴费、是否已包含）', assumable: true });
+  return out;
+}

@@ -1,5 +1,5 @@
 // Development-only, fictional source adapter. No native calls and no persistence.
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CentInput, FormRow } from '../FormControls.tsx';
 import { MonthInput } from '../DateInput.tsx';
@@ -9,7 +9,7 @@ import type { CareerChange } from '../plan-career-compare.ts';
 import type { CareerDraft, CareerEvaluation } from '../plan-career-contract.ts';
 import { money, resultText, comparisonText } from './result-text.ts';
 import { DelaySection, InsuranceAlternatives, InsuranceSection, LowerQuestion, LowerResult, LumpsSection, QuestionPicker, RestQuestion, gapText, minText } from './map.tsx';
-import { assumeInsurance, maxGap, minWindow } from '../plan-career-map.ts';
+import { assumeInsurance, maxGap, minWindow, missingItems } from '../plan-career-map.ts';
 import type { Question } from './map.tsx';
 import { RestResult } from './results.tsx';
 import { careerPensionSources } from './pension-fixture.ts';
@@ -50,12 +50,26 @@ function Preview() {
   const [style,setStyle]=useState('bento');
   document.documentElement.dataset.style=style;document.documentElement.dataset.mode=dark?'dark':'light';
   const {sources,draft}=data;
-  // Answers are computed from a deferred copy so typing stays responsive; unconfirmed contributions use a labelled optimistic placeholder.
-  const assumed=useMemo(()=>assumeInsurance(draft),[draft]);
-  const shown=useDeferredValue(assumed.draft);
-  const restAnswer=useMemo(()=>enabled&&q==='rest'?maxGap(sources,shown):null,[enabled,q,sources,shown]);
-  const lowerAnswer=useMemo(()=>enabled&&q==='lower'?minWindow(sources,shown):null,[enabled,q,sources,shown]);
-  const result=useMemo(()=>enabled&&q==='switch'?compareCareerScenario(sources,shown,change):null,[enabled,q,sources,shown,change]);
+  // Everything below (numbers, conditions, labels) comes from one settled copy of the draft, so they can never disagree.
+  const settled=useDeferredValue(draft);
+  const updating=settled!==draft;
+  const [explore,setExplore]=useState(false);
+  const missing=useMemo(()=>missingItems(settled,q!=='switch'),[settled,q]);
+  const listed=explore?missing.filter(m=>!m.assumable):missing;
+  const blocked=listed.length>0;
+  const assumed=useMemo(()=>explore?assumeInsurance(settled):{draft:settled,changed:false},[explore,settled]);
+  const shown=assumed.draft;
+  const restAnswer=useMemo(()=>enabled&&q==='rest'&&!blocked?maxGap(sources,shown):null,[enabled,q,blocked,sources,shown]);
+  const lowerAnswer=useMemo(()=>enabled&&q==='lower'&&!blocked?minWindow(sources,shown):null,[enabled,q,blocked,sources,shown]);
+  const result=useMemo(()=>enabled&&q==='switch'&&!blocked?compareCareerScenario(sources,shown,change):null,[enabled,q,blocked,sources,shown,change]);
+  const [resultVisible,setResultVisible]=useState(true);
+  // Watch the headline answer itself (not the tall result section): the bar only appears while the answer is out of view.
+  useEffect(()=>{
+    if(!enabled||typeof IntersectionObserver==='undefined')return;
+    const el=document.querySelector('#career-results .career-number, #career-results .career-message');
+    if(!el){setResultVisible(false);return;}
+    const io=new IntersectionObserver(([e])=>setResultVisible(e.isIntersecting),{threshold:0});io.observe(el);return()=>io.disconnect();
+  },[enabled,q,blocked,restAnswer,lowerAnswer,result]);
   const comparison=result?comparisonText(result):null;
   const patch=(value:Partial<CareerDraft>)=>setData(x=>({...x,draft:{...x.draft,...value}}));
   const reload=(next:State)=>{setState(next);setData(fixture(next));};
@@ -66,7 +80,7 @@ function Preview() {
       <label>外观 <select aria-label="外观" value={style} onChange={e=>setStyle(e.target.value)}><option value="bento">柔和卡片</option><option value="native">清新原生</option><option value="olive">暖米橄榄</option></select></label>
       <label><input type="checkbox" checked={dark} onChange={e=>setDark(e.target.checked)}/> 深色</label></div>
     <section className="career-source"><h2>沿用的条件</h2>{profile?<p>资金截至 2026-09-30 · {state==='shortfall'?'可动用资金 5,000 元':'可动用资金 60 万元'} · 现在每月攒 15,000 元 · 50 岁退休，检查到 90 岁 · 退休预算 {money(profile.retire.spend_cents!)} / 月 · 收益、通胀为 0 · {state==='pension'?'本例计入北京养老金（虚构的缴费史）':'本例不计养老金'}</p>:<p role="status">{state==='error'?'虚构来源读取失败；可重新载入样例。':'尚无通用目标与资金资料。'}</p>}
-      <button type="button" className={enabled?'':'primary'} onClick={()=>{if(enabled){setEnabled(false);reload(state);setChange({kind:'gap',months:18});}else setEnabled(true);}}>{enabled?'关闭试算并丢弃修改':'打开职业变化试算'}</button>
+      <button type="button" className={enabled?'':'primary'} onClick={()=>{if(enabled){setEnabled(false);setExplore(false);reload(state);setChange({kind:'gap',months:18});}else setEnabled(true);}}>{enabled?'关闭试算并丢弃修改':'打开职业变化试算'}</button>
       {enabled&&<a className="career-result-link" href="#career-results">查看试算结果 ↓</a>}
       {(state==='empty'||state==='error')&&<button type="button" onClick={()=>reload('ready')}>重新载入虚构资料</button>}</section>
     {enabled&&<>
@@ -90,11 +104,13 @@ function Preview() {
       {q==='lower'&&<LumpsSection draft={draft} patch={patch}/>}
       <InsuranceSection key={state} sources={sources} draft={draft} patch={patch}/>
       <section id="career-results" className="career-input career-main-result" tabIndex={-1} aria-label="试算结果" aria-live="polite">
-        <h2>试算结果</h2>
-        {assumed.changed&&<p className="career-banner" role="status">社保还没填完整：下面的答案暂按“养老社保照常交、自己不掏钱”估算，偏乐观；填完整后会自动替换。</p>}
+        <h2>试算结果{updating&&<span className="career-updating"> · 更新中…</span>}</h2>
+        {blocked&&<div className="career-message" role="status"><p>还差 {listed.length} 项，暂时算不出答案：</p><ul>{listed.map(m=><li key={m.label}>{m.label}</li>)}</ul><p className="career-footnote">缺的项不会按 0 或“照常交”替你填；填写了但不合法的值（例如超出范围的缴费基数）会直接提示，不会被忽略。</p></div>}
+        {(explore||(missing.length>0&&missing.every(m=>m.assumable)))&&<label className="career-check"><input type="checkbox" checked={explore} onChange={e=>setExplore(e.target.checked)}/>先看一眼粗略估计：假设两段社保照常交、自己不掏钱（偏乐观，只是探索，不是答案）</label>}
+        {explore&&assumed.changed&&!blocked&&<p className="career-banner" role="status">这是假设试算，不是答案：社保暂按“照常交、自己不掏钱”，偏乐观；把社保填完整并取消勾选后才是答案。</p>}
         {sources.profile.status!=='ready' || !profile?.retire.basic
           ? <p role="status">{sources.profile.status==='error'?'通用资料读取失败，请重新载入资料。':'尚无通用目标与资金资料，请先补齐资料。'}</p>
-          : <>
+          : !blocked&&<>
             {q==='rest'&&restAnswer&&<RestResult sources={sources} draft={shown} answer={restAnswer}/>}
             {q==='lower'&&lowerAnswer&&<LowerResult sources={sources} draft={shown} patch={patch} answer={lowerAnswer}/>}
             {q==='switch'&&result&&<>
@@ -113,10 +129,14 @@ function Preview() {
             <p className="career-footnote">工作阶段月内付款未完整检查。结果是按所填条件计算的估算，不是职业预测或保证；当前仍为待验证的独立原型。</p>
           </>}
       </section>
-      <div className="career-sticky" role="status" aria-live="polite"><span>当前答案{assumed.changed?'（暂估，偏乐观）':''}：{
-        q==='rest'?(restAnswer?(draft.recovery.monthly_cents===null?'先填复工后每月能攒多少':gapText(restAnswer)):'')
-        :q==='lower'?(lowerAnswer?minText(sources,lowerAnswer):'')
-        :(result?resultText(result.baseline).requirement:'')}</span><a href="#career-results">看详细结果 ↓</a></div>
+      {(blocked||updating||!resultVisible)&&<div className="career-sticky" role="status" aria-live="polite"><span>{
+        blocked?`还差 ${listed.length} 项，答案暂时算不出`
+        :updating?'更新中…'
+        :(()=>{
+          const text=q==='rest'?(restAnswer?gapText(restAnswer):''):q==='lower'?(lowerAnswer?minText(sources,lowerAnswer):''):(result?resultText(result.baseline).requirement:'');
+          const stuck=q==='rest'?restAnswer?.status==='blocked':q==='lower'?lowerAnswer?.status==='blocked':result?.baseline.requirement.status==='blocked';
+          return `${stuck?'暂时算不出':explore&&assumed.changed?'假设试算（偏乐观，不是答案）':'当前答案'}：${text}`;
+        })()}</span><a href={blocked?'#career-insurance':'#career-results'}>{blocked?'去补填 ↑':'看详细结果 ↓'}</a></div>}
     </>}
   </main>;
 }

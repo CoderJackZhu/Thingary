@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { careerSources, careerDraft } from '../src/career-preview/fixtures.ts';
-import { windowMap, minWindow, maxGap, closeMonths, judge, pensionOptions, delayTarget, ageMonthsAt, withChoice, assumeInsurance } from '../src/plan-career-map.ts';
+import { windowMap, minWindow, maxGap, closeMonths, judge, pensionOptions, delayTarget, ageMonthsAt, withChoice, assumeInsurance, missingItems } from '../src/plan-career-map.ts';
 import { evaluateCareerScenario } from '../src/plan-career.ts';
 import { careerPensionSources } from '../src/career-preview/pension-fixture.ts';
 
@@ -233,4 +233,21 @@ test('R06 the placeholder fills only unconfirmed contribution fields, optimistic
   // a confirmed bill is never replaced by the placeholder
   const c = careerDraft(); c.gap.insurance = { monthly_cents: '200000', included: false };
   assert.deepEqual(assumeInsurance(c).draft.gap.insurance, { monthly_cents: '200000', included: false });
+});
+
+test('R07 an entered but invalid contribution base is never replaced by the placeholder and blocks the answer', () => {
+  const s = careerPensionSources(), d = careerDraft(); d.recovery.monthly_cents = '300000';
+  d.gap.pension = { base_cents: '100', hpf_monthly_cents: '0' }; d.gap.insurance = { monthly_cents: '200000', included: false };
+  const a = assumeInsurance(d); assert.deepEqual(a.draft.gap.pension, { base_cents: '100', hpf_monthly_cents: '0' }, 'entered values are kept as entered');
+  assert.equal(maxGap(s, a.draft).status, 'blocked');
+  assert.equal(judge(evaluateCareerScenario(s, a.draft)).verdict, 'blocked');
+});
+
+test('R08 missing items: the savings estimate is never assumable, contribution fields are, a zero gap needs no gap insurance', () => {
+  const d = careerDraft(); d.gap.pension = null; d.gap.insurance = { monthly_cents: null, included: false }; d.recovery.pension = null; d.recovery.insurance = { monthly_cents: null, included: false }; d.recovery.monthly_cents = null;
+  assert.deepEqual(missingItems(d, true).map(m => m.assumable), [false, true, true]);
+  assert.deepEqual(missingItems(d, false).map(m => m.assumable), [true, true], 'the required-savings question does not need the estimate');
+  d.gap_months = 0; assert.equal(missingItems(d, false).length, 1);
+  const done = careerDraft(); assert.deepEqual(missingItems(done, true), [{ label: '找到新工作后每月能攒多少', assumable: false }]);
+  done.recovery.monthly_cents = '300000'; assert.deepEqual(missingItems(done, true), []);
 });
