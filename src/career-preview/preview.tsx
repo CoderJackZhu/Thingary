@@ -8,7 +8,7 @@ import { compareCareerScenario } from '../plan-career-compare.ts';
 import type { CareerChange } from '../plan-career-compare.ts';
 import type { CareerDraft, CareerEvaluation } from '../plan-career-contract.ts';
 import { money, resultText, comparisonText } from './result-text.ts';
-import { DelaySection, InsuranceSection, LowerQuestion, LumpsSection, QuestionPicker, RestQuestion } from './map.tsx';
+import { DelaySection, InsuranceSection, LowerQuestion, LumpsSection, QuestionPicker, RestQuestion, applier } from './map.tsx';
 import type { Question } from './map.tsx';
 import { careerPensionSources } from './pension-fixture.ts';
 import '../style.css';
@@ -84,7 +84,7 @@ function Preview() {
       {result&&<><div id="career-results" className="career-layout" tabIndex={-1} aria-label="两组比较结果" aria-live="polite"><Result title="原条件" value={result.baseline}/><Result title="对照条件" value={result.alternative}/></div><aside className="career-notes">{[...new Set([...result.baseline.notes,...result.alternative.notes])].map(n=><p key={n}>{n}</p>)}</aside></>}
       <LumpsSection draft={draft} patch={patch}/>
       <DelaySection sources={sources} draft={draft} patch={patch}/>
-      <InsuranceSection sources={sources} draft={draft} patch={patch} defaultStage="recovery"/>
+      <InsuranceSection sources={sources} draft={draft} patch={patch} defaultStage="recovery" apply={applier(draft, patch)}/>
       </>}
     </>}
   </main>;

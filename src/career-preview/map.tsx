@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { CentInput, FormRow } from '../FormControls.tsx';
 import { MonthInput } from '../DateInput.tsx';
 import { beijing } from '../plan-params.ts';
-import { ageMonthsAt, careerSpan, closeMonths, delayTarget, maxGap, minWindow, pensionOptions, windowMap } from '../plan-career-map.ts';
+import { ageMonthsAt, careerSpan, closeMonths, delayTarget, maxGap, minWindow, pensionOptions, windowMap, withChoice } from '../plan-career-map.ts';
 import type { DelayTarget, MaxGap, MinWindow, PensionChoice, Reason } from '../plan-career-map.ts';
 import type { PlanningSources } from '../plan-basic-contract.ts';
 import type { CareerDraft } from '../plan-career-contract.ts';
@@ -66,37 +66,54 @@ export function DelaySection({ sources, draft }: Props) {
     <p className="career-footnote">只是和原目标并排看，不会改你的目标。养老金缴费仍按原安排；推迟退休后要不要继续交社保，在“社保怎么交”里比。</p></section>;
 }
 
-/** Contribution choices for the gap or the stage after it. `draft` must already hold the post-change savings estimate. */
-export function InsuranceSection({ sources, draft, defaultStage }: Props & { defaultStage: 'gap' | 'recovery' }) {
+type Stage = 'gap' | 'recovery';
+type Row = { key: string; choice: PensionChoice; help: string };
+export const applier = (draft: CareerDraft, patch: Patch) => (stage: Stage, c: PensionChoice) => patch({ [stage]: withChoice(draft, stage, c)[stage] } as Partial<CareerDraft>);
+
+/** How to pay social insurance in the gap or after it. Picking a row feeds the answers above; `draft` must already hold the savings estimate. */
+export function InsuranceSection({ sources, draft, defaultStage, apply }: Props & { defaultStage: Stage; apply: (stage: Stage, c: PensionChoice) => void }) {
   const p = profileOf(sources), origBase = p?.base_cents ?? null;
-  const [stage, setStage] = useState(defaultStage), [cash, setCash] = useState<(string | null)[]>([null, null, null, null]);
-  const choices: PensionChoice[] = [
-    { label: '停缴', pension: 'pause', cash_cents: cash[0] },
-    { label: '灵活就业自缴（下限）', pension: { base_cents: beijing.base_lower_cents, hpf_monthly_cents: '0' }, cash_cents: cash[1] },
-    ...(origBase ? [{ label: '灵活就业自缴（原基数）', pension: { base_cents: origBase, hpf_monthly_cents: '0' }, cash_cents: cash[2] }] : []),
-    { label: '沿用原安排（如新单位代缴）', pension: 'unchanged' as const, cash_cents: cash[3] },
+  const [stage, setStage] = useState<Stage>(defaultStage), [cash, setCash] = useState<Record<string, string | null>>({}), [custom, setCustom] = useState('');
+  const [adopted, setAdopted] = useState<Record<Stage, string | null>>({ gap: null, recovery: null });
+  const floor = beijing.base_lower_cents;
+  const rows: Row[] = [
+    { key: 'pause', choice: { label: '停缴', pension: 'pause', cash_cents: cash.pause ?? null }, help: '这段时间不交养老金，也不花这笔钱；但累计缴费月数不再增加，退休时养老金变少，缴费年限还可能不够领取资格。' },
+    { key: 'floor', choice: { label: `自己交（灵活就业，按下限 ${money(floor)}）`, pension: { base_cents: floor, hpf_monthly_cents: '0' }, cash_cents: cash.floor ?? null }, help: '自己按北京缴费基数的下限交，花得最少，但缴费月数照常累计。' },
+    ...(origBase ? [{ key: 'orig', choice: { label: `自己交（灵活就业，按原来的基数 ${money(origBase)}）`, pension: { base_cents: origBase, hpf_monthly_cents: '0' }, cash_cents: cash.orig ?? null }, help: '自己按原来的基数交，花得多，退休时养老金也多一点。' } as Row] : []),
+    { key: 'custom', choice: { label: '自己交（基数自己填）', pension: { base_cents: /^\d+$/.test(custom) ? custom : '0', hpf_monthly_cents: '0' }, cash_cents: cash.custom ?? null, blocked: /^\d+$/.test(custom) ? undefined : '先填上面的“自选缴费基数”。' }, help: '介于下限和原基数之间的自选基数，在下面填。' },
+    ...(stage === 'recovery' ? [
+      { key: 'same', choice: { label: '新单位代缴（基数和原来一样）', pension: 'unchanged' as const, cash_cents: cash.same ?? null }, help: '找到的新工作由单位交社保、基数和原来一样。个人那部分已从工资里扣了，算在“每月能攒多少”里，这里填 0。' },
+      { key: 'newcustom', choice: { label: '新单位代缴（基数自己填）', pension: { base_cents: /^\d+$/.test(custom) ? custom : '0', hpf_monthly_cents: '0' }, cash_cents: cash.newcustom ?? null, blocked: /^\d+$/.test(custom) ? undefined : '先填上面的“自选缴费基数”。' }, help: '比如找个清闲的工作，单位按较低的基数交，基数在下面填；个人部分已在工资里扣掉，这里填 0。' } as Row,
+    ] : []),
   ];
-  const slot = (i: number) => (origBase || i < 2 ? i : 3);
-  const res = useMemo(() => pensionOptions(sources, draft, stage, choices), [sources, draft, stage, cash]);
-  const first = res.rows[0], floor = res.rows[1];
+  const needsCustom = rows.some(r => r.key === 'custom' || r.key === 'newcustom');
+  const choices = rows.map(r => r.choice);
+  const res = useMemo(() => pensionOptions(sources, draft, stage, choices), [sources, draft, stage, cash, custom]);
+  const first = res.rows[0], floorRow = res.rows[rows.findIndex(r => r.key === 'floor')];
   const short = first.pension && !first.pension.eligible ? first.pension.short_months : 0;
-  const floorCash = floor.cash_cents !== null && /^\d+$/.test(floor.cash_cents) ? Number(floor.cash_cents) : null;
+  const floorCash = floorRow.cash_cents !== null && /^\d+$/.test(floorRow.cash_cents) ? Number(floorRow.cash_cents) : null;
+  const current = adopted[stage] !== null ? rows.find(r => r.key === adopted[stage]) : null;
+  const pick = (r: Row) => { setAdopted({ ...adopted, [stage]: r.key }); apply(stage, r.choice); };
   return <section className="career-input"><h3>社保怎么交</h3>
-    {draft.recovery.monthly_cents === null && <p className="career-message" role="status">先填“你估计找到新工作后每月能攒多少”，才能算养老金。</p>}
-    <FormRow label="比较哪一段"><select aria-label="比较哪一段" value={stage} onChange={e => setStage(e.target.value as 'gap' | 'recovery')}><option value="gap">空窗期</option><option value="recovery">找到新工作之后到目标前</option></select></FormRow>
-    <div className="career-table-wrap"><table className="career-table"><caption>每月现金社保按缴费单填，含医疗等不进养老金的部分；养老金按所选方式重新算。{res.stage_months === null ? '' : `这一段共 ${res.stage_months} 个月。`}</caption>
-      <thead><tr><th scope="col">方式</th><th scope="col">每月现金（元）</th><th scope="col">这段合计</th><th scope="col">退休时月养老金</th><th scope="col">比第一行</th><th scope="col">目标时资产</th></tr></thead>
+    <div className="career-explain"><p><strong>这一块在做什么：</strong>回答“这段时间社保要不要交、怎么交”。交社保要自己掏现金，你的钱会少一点；但退休时养老金会多一点，缴费年限也不会断。下面把几种交法并排比一比。</p>
+      <p><strong>和上面的答案是连着的：</strong>选中一行（点“按这个算”），上面的答案会立刻按它重新算。没选之前，上面暂时按“照常交、自己不掏钱”算，通常偏乐观。</p></div>
+    <FormRow label="比较哪一段"><select aria-label="比较哪一段" value={stage} onChange={e => setStage(e.target.value as Stage)}><option value="gap">不工作的这段时间（空窗期）</option><option value="recovery">找到新工作之后，一直到退休目标</option></select></FormRow>
+    <p className="career-banner" role="status">{current ? `上面的答案现在按这段「${current.choice.label}」算。` : '这一段还没选交法：上面的答案暂时按“照常交、自己不掏钱”算，通常偏乐观。'}{draft.recovery.monthly_cents === null && ' 先填“你估计找到新工作后每月能攒多少”，才能算养老金。'}</p>
+    {needsCustom && <FormRow label="自选的缴费基数（元/月）" hint={`须在北京缴费基数的上下限之内（下限 ${money(floor)}，上限 ${money(beijing.base_upper_cents)}）；用于下面“基数自己填”的行。`}><CentInput label="自选缴费基数" placeholder="例如 10000" value={custom} onChange={setCustom}/></FormRow>}
+    <div className="career-table-wrap"><table className="career-table"><caption>“每月你自己掏的社保现金”按缴费单填（含医疗等不进养老金的部分）；单位代缴、个人部分已从工资里扣的填 0。{res.stage_months === null ? '' : `这一段共 ${res.stage_months} 个月。`}</caption>
+      <thead><tr><th scope="col">按这个算</th><th scope="col">交法</th><th scope="col">每月你自己掏的现金（元）</th><th scope="col">这段合计</th><th scope="col">退休时月养老金</th><th scope="col">比第一行</th><th scope="col">目标时资产</th></tr></thead>
       <tbody>{res.rows.map((r, i) => {
-        const dc = r.stage_cash_cents !== null && first.stage_cash_cents !== null ? r.stage_cash_cents - first.stage_cash_cents : null, dp = r.pension && first.pension ? r.pension.monthly_cents - first.pension.monthly_cents : null;
-        return <tr key={r.label}><th scope="row">{r.label}</th>
-          <td><CentInput label={`${r.label} 每月现金`} placeholder="0" value={cash[slot(i)] ?? ''} onChange={v => setCash(cash.map((o, j) => (j === slot(i) ? (v === '' ? null : v) : o)))}/></td>
+        const row = rows[i], dc = r.stage_cash_cents !== null && first.stage_cash_cents !== null ? r.stage_cash_cents - first.stage_cash_cents : null, dp = r.pension && first.pension ? r.pension.monthly_cents - first.pension.monthly_cents : null;
+        return <tr key={row.key}><td><input type="radio" name={`insurance-${stage}`} aria-label={`按这个算：${row.choice.label}`} checked={adopted[stage] === row.key} disabled={r.cash_cents === null || !!row.choice.blocked} onChange={() => pick(row)}/></td>
+          <th scope="row">{row.choice.label}<small className="career-help">{row.help}</small></th>
+          <td><CentInput label={`${row.choice.label} 每月现金`} placeholder="0" value={cash[row.key] ?? ''} onChange={v => setCash({ ...cash, [row.key]: v === '' ? null : v })}/></td>
           <td>{r.stage_cash_cents === null ? '—' : money(r.stage_cash_cents)}</td>
           <td>{r.pension === null ? (r.judgement.verdict === 'blocked' ? '—' : '未引用北京养老金') : r.pension.eligible ? money(r.pension.monthly_cents) : `领不到（还差 ${r.pension.short_months} 个月）`}</td>
-          <td>{i === 0 ? '基准' : dc === 0 && !dp ? '与第一行相同' : dc === null ? '—' : `多花 ${money(dc)}${dp === null ? '' : `，月养老金${dp >= 0 ? '多' : '少'} ${money(Math.abs(dp))}${dc > 0 && dp > 0 ? `，约 ${(dc / (dp * 12)).toFixed(1)} 年回本` : ''}`}`}</td>
+          <td>{i === 0 ? '基准' : dc === 0 && !dp ? '与第一行相同' : dc === null ? (first.stage_cash_cents === null ? '先填停缴那行的现金（没有就填 0）' : '—') : `多花 ${money(dc)}${dp === null ? '' : `，月养老金${dp >= 0 ? '多' : '少'} ${money(Math.abs(dp))}${dc > 0 && dp > 0 ? `，约 ${(dc / (dp * 12)).toFixed(1)} 年回本` : ''}`}`}</td>
           <td>{r.assets_at_goal_cents === null ? (r.judgement.issues[0] ?? '—') : money(r.assets_at_goal_cents)}</td></tr>;
       })}</tbody></table></div>
-    {short > 0 && <p className="career-line">停缴的话，离领养老金的资格还差 <strong>{short} 个月</strong>{floorCash !== null ? <>；之后若按“灵活就业自缴（下限）”每月 {money(floorCash)} 补齐，约要 <strong>{money(short * floorCash)}</strong></> : '（填上“灵活就业自缴（下限）”的每月现金，就能算补齐要花多少）'}。</p>}
-    <p className="career-footnote">“回本”不计养老金每年上调和账户利息，只是量级参考。停缴不抹去已缴月数。</p>
+    {short > 0 && <p className="career-line">停缴的话，离领养老金的资格还差 <strong>{short} 个月</strong>{floorCash !== null ? <>；之后若按“自己交（下限）”每月 {money(floorCash)} 补齐，约要 <strong>{money(short * floorCash)}</strong></> : '（填上“自己交（下限）”的每月现金，就能算补齐要花多少）'}。</p>}
+    <p className="career-footnote">“回本”不计养老金每年上调和账户利息，只是量级参考。停缴不抹去已缴月数。空窗期没有“新单位代缴”这一项，因为没有单位。</p>
     <details className="career-rules"><summary>已核实的社保规则（2026-10-08 查官方原文）</summary><ul>
       <li>按月领取基本养老金的最低缴费年限：<strong>从 2030 年 1 月 1 日起由 15 年逐步提高到 20 年，每年提高 6 个月</strong>。<a href="https://www.mot.gov.cn/hudong/xiangguanziliao/202601/t20260114_4197321.html" target="_blank" rel="noreferrer">国务院办法（交通运输部转载）</a></li>
       <li>北京灵活就业人员的职工医保：<strong>首次参保，缴费之月起 6 个月后才享受待遇；断缴 3 个月内足额补缴视为连续（欠缴期间的医疗费补支），超过 3 个月再交，视为初次参保、重新等 6 个月</strong>。<a href="https://www.beijing.gov.cn/fuwu/bmfw/bmzt/lhjyry/202507/t20250709_4145235.html" target="_blank" rel="noreferrer">首都之窗·北京市医疗保障局，2025-07-09</a></li>
@@ -128,7 +145,7 @@ export function RestQuestion({ sources, draft, patch }: Props) {
       <FormRow label="补助领取月数"><input aria-label="补助领取月数" type="number" min="0" step="1" value={extra.benefit_months ?? ''} onChange={e => setExtra({ benefit_months: e.target.value === '' ? null : Number(e.target.value) })}/></FormRow>
     </section></div>
     <LumpsSection draft={draft} patch={patch}/>
-    <InsuranceSection sources={sources} draft={draft} patch={patch} defaultStage="gap"/>
+    <InsuranceSection sources={sources} draft={draft} patch={patch} defaultStage="gap" apply={applier(draft, patch)}/>
   </>;
 }
 
@@ -164,7 +181,7 @@ export function LowerQuestion({ sources, draft, patch }: Props) {
       <FormRow label="之后每月能攒多少"><select aria-label="之后每月能攒多少档位" value={Math.min(pick, recoveries.length - 1)} onChange={e => setPick(Number(e.target.value))}>{recoveries.map((v, i) => <option key={i} value={i}>{money(v)} / 月</option>)}</select></FormRow></section>
     <LumpsSection draft={draft} patch={patch}/>
     <DelaySection sources={sources} draft={withL} patch={patch}/>
-    <InsuranceSection sources={sources} draft={withL} patch={patch} defaultStage="recovery"/>
+    <InsuranceSection sources={sources} draft={withL} patch={patch} defaultStage="recovery" apply={applier(draft, patch)}/>
   </>;
 }
 

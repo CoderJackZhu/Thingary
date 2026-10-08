@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { careerSources, careerDraft } from '../src/career-preview/fixtures.ts';
-import { windowMap, minWindow, maxGap, closeMonths, judge, pensionOptions, delayTarget, ageMonthsAt } from '../src/plan-career-map.ts';
+import { windowMap, minWindow, maxGap, closeMonths, judge, pensionOptions, delayTarget, ageMonthsAt, withChoice } from '../src/plan-career-map.ts';
 import { evaluateCareerScenario } from '../src/plan-career.ts';
+import { careerPensionSources } from '../src/career-preview/pension-fixture.ts';
 
 // Fictional fixture: 600k at 2026-09-30, +15k/month, goal 50 (2044-10) with 3750/month for 480 months = 1.8M, zero returns.
 const direct = (l = '0') => { const d = careerDraft(); d.gap_months = 0; d.recovery.monthly_cents = l; return d; };
@@ -156,4 +157,20 @@ test('M16 one-off inflows anywhere on the timeline count once: 120k in 2028-06 l
     const f = careerDraft(); f.lumps = [bad]; assert.equal(evaluateCareerScenario(careerSources(), f).requirement.status, 'blocked', JSON.stringify(bad));
   }
   const g = careerDraft(); g.lumps = Array.from({ length: 25 }, () => ({ month: '2028-06', cents: '1' })); assert.equal(evaluateCareerScenario(careerSources(), g).requirement.status, 'blocked');
+});
+
+test('M17 the chosen contribution arrangement feeds the answers: free default 84 months, self-paying 2000/month 73; the helper changes nothing in place', () => {
+  const s = careerPensionSources(), d = careerDraft(); d.recovery.monthly_cents = '300000';
+  const frozen = structuredClone(d);
+  assert.deepEqual(maxGap(s, d), { status: 'found', months: 84, limit: 'goal' });
+  const picked = withChoice(d, 'gap', { label: '自己交', pension: { base_cents: '727000', hpf_monthly_cents: '0' }, cash_cents: '200000' });
+  assert.deepEqual(d, frozen);
+  assert.equal(picked.gap.insurance.monthly_cents, '200000'); assert.equal(picked.gap.insurance.included, false);
+  assert.deepEqual(maxGap(s, picked), { status: 'found', months: 73, limit: 'goal' });
+});
+
+test('M18 a blocked choice (custom base not entered) is shown with its reason and never evaluated', () => {
+  const d = careerDraft(); d.recovery.monthly_cents = '500000';
+  const r = pensionOptions(careerSources(), d, 'gap', [{ label: '自选', pension: { base_cents: '0', hpf_monthly_cents: '0' }, cash_cents: '100', blocked: '先填基数' }]);
+  assert.equal(r.rows[0].judgement.verdict, 'blocked'); assert.deepEqual(r.rows[0].judgement.issues, ['先填基数']); assert.equal(r.rows[0].assets_at_goal_cents, null);
 });

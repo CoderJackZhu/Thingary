@@ -124,7 +124,7 @@ export function maxGap(sources: PlanningSources, draft: CareerDraft): MaxGap {
   return { status: 'found', months: lo, limit: at(lo + 1).reason ?? 'goal' };
 }
 
-export type PensionChoice = { label: string; pension: CareerPension; /** Monthly cash the user pays for this choice (bill amount). null = not entered yet; it is never read as zero. */ cash_cents: string | null };
+export type PensionChoice = { label: string; pension: CareerPension; /** Monthly cash the user pays for this choice (bill amount). null = not entered yet; it is never read as zero. */ cash_cents: string | null; /** When set, the row is not evaluated and shows this reason (e.g. a custom base not entered yet). */ blocked?: string };
 export type PensionRow = {
   label: string; cash_cents: string | null; judgement: Judgement;
   /** Cash paid over the whole stage under this choice; null when the stage length is unknown. */
@@ -133,17 +133,23 @@ export type PensionRow = {
   pension: { eligible: boolean; short_months: number; monthly_cents: number; lump_cents: number } | null;
   assets_at_goal_cents: number | null;
 };
+/** The draft with one stage's contribution arrangement and its monthly cash cost replaced; nothing is mutated. */
+export function withChoice(draft: CareerDraft, stage: 'gap' | 'recovery', choice: PensionChoice): CareerDraft {
+  const d = structuredClone(draft);
+  d[stage].pension = structuredClone(choice.pension);
+  d[stage].insurance = { monthly_cents: choice.cash_cents, included: false };
+  return d;
+}
+
 /** Same scenario, one stage's contribution arrangement swapped. Differences are the point: read rows against each other. */
 export function pensionOptions(sources: PlanningSources, draft: CareerDraft, stage: 'gap' | 'recovery', choices: PensionChoice[]): { stage_months: number | null; rows: PensionRow[] } {
   const span = careerSpan(sources), basic = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile.retire.basic : null;
   const start = draft.transition_month ? monthIndex(draft.transition_month) : null, gap = draft.gap_months;
   const months = !span || start === null ? null : stage === 'gap' ? gap : gap === null ? null : Math.max(0, span.target - (start + gap));
   const rows = choices.map((c): PensionRow => {
+    if (c.blocked) return { label: c.label, cash_cents: c.cash_cents, judgement: { verdict: 'blocked', reason: null, shortfall_cents: null, issues: [c.blocked] }, stage_cash_cents: null, pension: null, assets_at_goal_cents: null };
     if (!validCareerAmount(c.cash_cents)) return { label: c.label, cash_cents: c.cash_cents, judgement: { verdict: 'blocked', reason: null, shortfall_cents: null, issues: ['请填每月现金社保；没有也要明确填 0。'] }, stage_cash_cents: null, pension: null, assets_at_goal_cents: null };
-    const d = structuredClone(draft);
-    d[stage].pension = structuredClone(c.pension);
-    d[stage].insurance = { monthly_cents: c.cash_cents, included: false };
-    const ev = evaluateCareerScenario(sources, d), ready = ev.prediction.status === 'ready' ? ev.prediction.value : null;
+    const ev = evaluateCareerScenario(sources, withChoice(draft, stage, c)), ready = ev.prediction.status === 'ready' ? ev.prediction.value : null;
     const p = ready && basic?.retirement_income.mode === 'beijing' ? ready.plan.pension_at(ready.plan.target_months) : null;
     return {
       label: c.label, cash_cents: c.cash_cents, judgement: judge(ev),

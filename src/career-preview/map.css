@@ -13,3 +13,4 @@
 .career-rules{margin-top:14px;font-size:13px}.career-rules ul{padding-left:20px;margin:8px 0}.career-rules li{margin:6px 0}.career-rules a{color:var(--accent)}
 @media(max-width:720px){.career-question-grid{grid-template-columns:minmax(0,1fr)}}
 .career-lump{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:center;margin:8px 0}@media(max-width:720px){.career-lump{grid-template-columns:minmax(0,1fr)}}
+.career-explain{background:var(--selected);border-radius:var(--ctl-radius);padding:12px 14px;margin:0 0 14px}.career-explain p{margin:4px 0;font-size:14px}.career-banner{margin:10px 0;font-size:14px;color:var(--accent)}.career-help{display:block;font-weight:400;color:var(--muted);white-space:normal;max-width:320px;margin-top:4px}
