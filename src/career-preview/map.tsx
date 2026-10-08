@@ -42,7 +42,7 @@ export function CareerMapPanel({ sources, draft, patch }: { sources: PlanningSou
   const extra = draft.gap.extra_income ?? { lump_cents: null, benefit_monthly_cents: null, benefit_months: null };
   const setExtra = (v: Partial<typeof extra>) => patch({ gap: { ...draft.gap, extra_income: { ...extra, ...v } } });
 
-  const [stage, setStage] = useState<'gap' | 'recovery'>('gap'), [cash, setCash] = useState(['0', '0', '0', '0']);
+  const [stage, setStage] = useState<'gap' | 'recovery'>('gap'), [cash, setCash] = useState<(string | null)[]>([null, null, null, null]);
   const origBase = p?.base_cents ?? null;
   const choices: PensionChoice[] = [
     { label: '停缴', pension: 'pause', cash_cents: cash[0] },
@@ -92,7 +92,7 @@ export function CareerMapPanel({ sources, draft, patch }: { sources: PlanningSou
         <tbody>{pensions.rows.map((r, i) => {
           const dc = r.stage_cash_cents !== null && first.stage_cash_cents !== null ? r.stage_cash_cents - first.stage_cash_cents : null, dp = r.pension && first.pension ? r.pension.monthly_cents - first.pension.monthly_cents : null;
           return <tr key={r.label}><th scope="row">{r.label}</th>
-            <td><CentInput label={`${r.label} 每月现金`} placeholder="0" value={cash[cashIndex(i)]} onChange={v => setCash(cash.map((o, j) => (j === cashIndex(i) ? v || '0' : o)))}/></td>
+            <td><CentInput label={`${r.label} 每月现金`} placeholder="0" value={cash[cashIndex(i)] ?? ''} onChange={v => setCash(cash.map((o, j) => (j === cashIndex(i) ? (v === '' ? null : v) : o)))}/></td>
             <td>{r.stage_cash_cents === null ? '—' : money(r.stage_cash_cents)}</td>
             <td>{r.pension === null ? (r.judgement.verdict === 'blocked' ? '—' : '未引用北京养老金') : r.pension.eligible ? money(r.pension.monthly_cents) : `领不到（还差 ${r.pension.short_months} 个月）`}</td>
             <td>{i === 0 ? '基准' : dc === 0 && !dp ? '与第一行相同' : dc === null ? '—' : `多花 ${money(dc)}${dp === null ? '' : `，月养老金${dp >= 0 ? '多' : '少'} ${money(Math.abs(dp))}${dc > 0 && dp > 0 ? `，约 ${(dc / (dp * 12)).toFixed(1)} 年回本` : ''}`}`}</td>

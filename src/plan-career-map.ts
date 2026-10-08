@@ -15,6 +15,11 @@ export type Judgement = { verdict: Verdict; reason: Reason | null; shortfall_cen
 /** One verdict per evaluation. Unknown inputs stay "blocked"; they are never read as zero. */
 export function judge(ev: CareerEvaluation): Judgement {
   const cash = ev.cash.status === 'ready' ? ev.cash.value : null;
+  // A gap whose payment check could not run is not a pass. "No gap interval" is the only blocked reason that is fine.
+  if (ev.cash.status === 'blocked') {
+    if (ev.cash.issues.some(i => i.field === 'funds')) return { verdict: 'short', reason: 'cash', shortfall_cents: null, issues: [] };
+    if (ev.cash.issues.some(i => i.field !== 'gap_months')) return { verdict: 'blocked', reason: null, shortfall_cents: null, issues: ev.cash.issues.map(i => i.message) };
+  }
   if (cash?.first_shortfall_month || cash?.floor_month) return { verdict: 'short', reason: 'cash', shortfall_cents: null, issues: [] };
   if (ev.requirement.status === 'ready' && 'status' in ev.requirement.value && ['prefix_payment_gap', 'prefix_floor_breach'].includes(ev.requirement.value.status)) return { verdict: 'short', reason: 'prefix', shortfall_cents: null, issues: [] };
   if (ev.prediction.status === 'ready') {
@@ -60,7 +65,7 @@ export function closeMonths(sources: PlanningSources, stepMonths = 12): string[]
 export type MinWindow =
   | { status: 'found'; months: number; close_month: string }
   | { status: 'already_met' }
-  | { status: 'not_reachable'; message: string }
+  | { status: 'not_reachable' | 'until_target'; message: string }
   | { status: 'not_applicable' | 'blocked'; message: string };
 const bad = (status: 'not_applicable' | 'blocked', message: string): MinWindow => ({ status, message });
 
@@ -83,7 +88,7 @@ export function minWindow(sources: PlanningSources, draft: CareerDraft): MinWind
   const first = at(span.now);
   if (first === 'blocked') return bad('blocked', '关闭后的条件未齐全。');
   if (first === 'meets') return { status: 'already_met' };
-  if (at(hi) !== 'meets') return { status: 'not_reachable', message: '窗口持续到目标前仍不满足，说明关闭后的条件本身不够。' };
+  if (at(hi) !== 'meets') return { status: 'until_target', message: '窗口要一直持续到目标月：连提前一个月关闭都不满足。' };
   let lo = span.now;
   let up = hi;
   while (up - lo > 1) { const mid = Math.floor((lo + up) / 2); if (at(mid) === 'meets') up = mid; else lo = mid; }
@@ -108,15 +113,20 @@ export function maxGap(sources: PlanningSources, draft: CareerDraft): MaxGap {
   const zero = at(0);
   if (zero.verdict === 'blocked') return { status: 'blocked', message: zero.issues.join(' ') || '条件未齐全。' };
   if (zero.verdict === 'short') return { status: 'none', reason: zero.reason };
-  if (at(cap).verdict === 'meets') return { status: 'found', months: cap, limit: 'end' };
+  // A blocked gap (e.g. the payment check cannot run) is not a short one; never read it as "this long fails".
+  const blockedAt = (g: number) => { const j = at(g); return j.verdict === 'blocked' ? { status: 'blocked' as const, message: j.issues.join(' ') || '条件未齐全。' } : null; };
+  if (cap >= 1) { const b = blockedAt(1); if (b) return b; }
+  const top = at(cap);
+  if (top.verdict === 'blocked') return { status: 'blocked', message: top.issues.join(' ') || '条件未齐全。' };
+  if (top.verdict === 'meets') return { status: 'found', months: cap, limit: 'end' };
   let lo = 0, up = cap;
-  while (up - lo > 1) { const mid = Math.floor((lo + up) / 2); if (at(mid).verdict === 'meets') lo = mid; else up = mid; }
+  while (up - lo > 1) { const mid = Math.floor((lo + up) / 2), j = at(mid); if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || '条件未齐全。' }; if (j.verdict === 'meets') lo = mid; else up = mid; }
   return { status: 'found', months: lo, limit: at(lo + 1).reason ?? 'goal' };
 }
 
-export type PensionChoice = { label: string; pension: CareerPension; /** Monthly cash the user pays for this choice (bill amount, entered by the user). */ cash_cents: string };
+export type PensionChoice = { label: string; pension: CareerPension; /** Monthly cash the user pays for this choice (bill amount). null = not entered yet; it is never read as zero. */ cash_cents: string | null };
 export type PensionRow = {
-  label: string; cash_cents: string; judgement: Judgement;
+  label: string; cash_cents: string | null; judgement: Judgement;
   /** Cash paid over the whole stage under this choice; null when the stage length is unknown. */
   stage_cash_cents: number | null;
   /** Estimated benefit at the target month, only when the Beijing pension is selected for retirement income. */
@@ -128,7 +138,8 @@ export function pensionOptions(sources: PlanningSources, draft: CareerDraft, sta
   const span = careerSpan(sources), basic = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile.retire.basic : null;
   const start = draft.transition_month ? monthIndex(draft.transition_month) : null, gap = draft.gap_months;
   const months = !span || start === null ? null : stage === 'gap' ? gap : gap === null ? null : Math.max(0, span.target - (start + gap));
-  const rows = choices.map(c => {
+  const rows = choices.map((c): PensionRow => {
+    if (!validCareerAmount(c.cash_cents)) return { label: c.label, cash_cents: c.cash_cents, judgement: { verdict: 'blocked', reason: null, shortfall_cents: null, issues: ['请填每月现金社保；没有也要明确填 0。'] }, stage_cash_cents: null, pension: null, assets_at_goal_cents: null };
     const d = structuredClone(draft);
     d[stage].pension = structuredClone(c.pension);
     d[stage].insurance = { monthly_cents: c.cash_cents, included: false };
@@ -136,7 +147,7 @@ export function pensionOptions(sources: PlanningSources, draft: CareerDraft, sta
     const p = ready && basic?.retirement_income.mode === 'beijing' ? ready.plan.pension_at(ready.plan.target_months) : null;
     return {
       label: c.label, cash_cents: c.cash_cents, judgement: judge(ev),
-      stage_cash_cents: months === null || !validCareerAmount(c.cash_cents) ? null : months * Number(c.cash_cents),
+      stage_cash_cents: months === null ? null : months * Number(c.cash_cents),
       pension: p ? { eligible: p.eligible !== false, short_months: p.short_months ?? 0, monthly_cents: Math.round(p.monthly_cents), lump_cents: Math.round(p.lump_cents) } : null,
       assets_at_goal_cents: ready ? Math.round(ready.outcome.assets_at_goal) : null,
     };

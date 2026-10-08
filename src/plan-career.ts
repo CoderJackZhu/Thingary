@@ -52,8 +52,10 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
   const errors = hasGap ? stageIssues(draft.gap, 'gap') : [];
   if (hasGap && (!amount(draft.gap.income_cents) || !amount(draft.gap.spend_cents))) errors.push(issue('gap', '请分别确认空窗可靠到账与开销，未知不能作为零。'));
   const extra = draft.gap.extra_income;
-  if (hasGap && extra) {
+  if (extra) {
+    const benefit = extra.benefit_monthly_cents !== null && Number(extra.benefit_monthly_cents) > 0;
     if ((extra.lump_cents !== null && !amount(extra.lump_cents)) || (extra.benefit_monthly_cents !== null && !amount(extra.benefit_monthly_cents))) errors.push(issue('gap.extra_income', '补偿金和限期补助须是合法非负整数分，没有就留空。'));
+    else if (benefit && (extra.benefit_months === null || extra.benefit_months < 1 || !hasGap)) errors.push(issue('gap.extra_income', '填了限期补助就要同时填领取月数（至少 1 个月），且须有空窗期可以领取；否则请清空补助。'));
     if (extra.benefit_months !== null && (!Number.isInteger(extra.benefit_months) || extra.benefit_months < 0 || extra.benefit_months > gapEnd - transition)) errors.push(issue('gap.extra_income', '限期补助月数须是0到空窗月数之间的整数。'));
   }
   if (draft.floor_cents !== null && !amount(draft.floor_cents)) errors.push(issue('floor_cents', '底线须为合法非负整数分，或留空。'));
@@ -102,7 +104,6 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
     if (transition > now) append(initial, now, transition);
     if (hasGap && gapCompiler) {
       append(gapCompiler, transition, gapEnd, draft.gap);
-      if (extra?.lump_cents && Number(extra.lump_cents) > 0) flow.push({ label: '空窗期一次性到账', from_month: transition, to_month: transition + 1, cents: Number(extra.lump_cents), nominal: false, essential: false });
       const benefitMonths = Math.min(extra?.benefit_months ?? 0, gapEnd - transition);
       if (extra?.benefit_monthly_cents && Number(extra.benefit_monthly_cents) > 0 && benefitMonths > 0) flow.push({ label: '空窗期限期补助', from_month: transition, to_month: transition + benefitMonths, cents: Number(extra.benefit_monthly_cents), nominal: false, essential: false });
       const ordinary = Number(draft.gap.spend_cents) - gapCompiler.included_reference_cents - (draft.gap.insurance.included ? Number(draft.gap.insurance.monthly_cents) : 0);
@@ -110,6 +111,8 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
       flow.push({ label: '空窗普通开销月初支付', from_month: transition, to_month: gapEnd, cents: -ordinary, nominal: false, essential: true, timing: 'start', prorate_first: true },
         { label: '空窗时点还原', from_month: transition, to_month: gapEnd, cents: ordinary, nominal: false, essential: false, prorate_first: true });
     }
+    // A lump sum (severance) arrives with the change itself, with or without a gap.
+    if (extra?.lump_cents && Number(extra.lump_cents) > 0) flow.push({ label: '变化时一次性到账', from_month: transition, to_month: transition + 1, cents: Number(extra.lump_cents), nominal: false, essential: false });
     if (postCompiler && recovery !== null && recovery < target) append(postCompiler, recovery, target, draft.recovery);
     return { ...skeleton, mode: 'traditional', r_before_hundredths: rb, r_after_hundredths: ra, saving_cents: 0, saving_flows: flow,
       saving_phases: [{ from_month: now, cents: Number(current ?? 0) }, { from_month: transition, cents: hasGap ? Number(draft.gap.income_cents) - Number(draft.gap.spend_cents) : candidate }, ...(hasGap ? [{ from_month: gapEnd, cents: candidate }] : [])] };

@@ -96,3 +96,39 @@ test('M09 without the Beijing pension selected, choices still compare cash but r
   assert.ok(r.rows.every(x => x.pension === null));
   assert.ok(r.rows[0].assets_at_goal_cents > r.rows[1].assets_at_goal_cents, 'cash paid for insurance lowers assets when no pension is counted');
 });
+
+test('M10 a gap whose payment check cannot run is blocked, never a pass or a length limit', () => {
+  const d = careerDraft(); d.recovery.monthly_cents = '464286';
+  assert.equal(judge(evaluateCareerScenario(careerSources(), d)).verdict, 'meets');
+  d.liquid_funds_confirmed = false;
+  const j = judge(evaluateCareerScenario(careerSources(), d)); assert.equal(j.verdict, 'blocked'); assert.ok(j.issues.length);
+  assert.equal(maxGap(careerSources(), d).status, 'blocked');
+  const m = windowMap(careerSources(), { ...d, gap_months: 6 }, ['2029-10'], ['464286']); assert.equal(m.rows[0][0].verdict, 'blocked');
+});
+
+test('M11 a lump sum counts with or without a gap; a benefit amount without months or without a gap is rejected, not dropped', () => {
+  const need = d => evaluateCareerScenario(careerSources(), d).requirement;
+  const d = careerDraft(); d.gap_months = 0; d.recovery.monthly_cents = '0';
+  assert.equal(need(d).value.monthly_cents, '366667');
+  d.gap.extra_income = { lump_cents: '12000000', benefit_monthly_cents: null, benefit_months: null };
+  assert.equal(need(d).value.monthly_cents, '300000', '120k over the 180 months after the change');
+  d.gap.extra_income = { lump_cents: null, benefit_monthly_cents: '500000', benefit_months: null };
+  assert.equal(need(d).status, 'blocked');
+  d.gap.extra_income.benefit_months = 3; assert.equal(need(d).status, 'blocked', 'no gap to receive it in');
+  const e = careerDraft(); e.gap.extra_income = { lump_cents: null, benefit_monthly_cents: '500000', benefit_months: null };
+  assert.equal(need(e).status, 'blocked', 'amount without months');
+  e.gap.extra_income.benefit_months = 6; assert.equal(need(e).status, 'ready');
+});
+
+test('M12 contribution choices need an entered monthly cash amount; empty is not zero, explicit 0 is', () => {
+  const d = careerDraft(); d.recovery.monthly_cents = '500000';
+  const r = pensionOptions(careerSources(), d, 'gap', [{ label: '自缴', pension: { base_cents: '727000', hpf_monthly_cents: '0' }, cash_cents: null }, { label: '停缴', pension: 'pause', cash_cents: '0' }]);
+  assert.equal(r.rows[0].judgement.verdict, 'blocked'); assert.equal(r.rows[0].stage_cash_cents, null); assert.equal(r.rows[0].assets_at_goal_cents, null);
+  assert.notEqual(r.rows[1].judgement.verdict, 'blocked'); assert.equal(r.rows[1].stage_cash_cents, 0);
+});
+
+test('M13 when even closing one month early fails, the answer is "until the target", not "not reachable"', () => {
+  const s = careerSources(); s.profile.value.saved.profile.retire.spend_cents = '600000';
+  const d = careerDraft(); d.gap_months = 0; d.recovery.monthly_cents = '-100000000';
+  assert.equal(minWindow(s, d).status, 'until_target');
+});
