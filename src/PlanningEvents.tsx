@@ -108,9 +108,9 @@ function EventDialog({ basic, draft, isNew, today, busy, notice, onClose, onSave
     setErr('');
     onSave({ ...draft, id: draft.id, label: label.trim(), kind, date, included, price_cents: price, down_cents: down || '0', extra_cents: extra || '0', loan_rate_hundredths: financed ? (r as number) : draft.loan_rate_hundredths, loan_years: financed ? y : draft.loan_years, holding_cents: holding || '0', rent_saved_cents: kind === 'house' ? rent || '0' : '0', cycle_years: kind === 'car' ? c : null, until_age: kind === 'car' ? u : null, resale_cents: kind === 'car' ? resale || '0' : '0' });
   }
-  return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="event-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); save(); }}>
+  return <dialog ref={dialog} className="editor asset-editor" aria-labelledby="event-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); save(); }}>
     <header><div><p className="eyebrow">规划 · 大额计划</p><h2 id="event-heading">{isNew ? '新增' : '编辑'}大额计划</h2><p className="muted">金额都按「今天的钱」；这些是设想，不是事实，不会扣你真实的资产。</p></div><CloseButton type="button" aria-label="关闭大额计划表单" disabled={busy} onClick={onClose}/><div className="editor-header-actions"><button className="primary" disabled={busy}>{busy ? '保存中…' : '保存'}</button></div></header>
-    <section className="form-block">
+    <div className="editor-body"><section className="form-block">
       <FormRow label="类型"><Segments label="类型" value={kind} options={[{ value: 'house', label: '买房' }, { value: 'car', label: '买车' }, { value: 'other', label: '其他' }]} onChange={setKind} disabled={busy}/></FormRow>
       <FormRow label="名称" hint="例如「北京买房」「二手车」"><input aria-label="名称" value={label} disabled={busy} onChange={e => setLabel(e.target.value)}/></FormRow>
       <FormRow label="计划购买月份" hint="还不确定就填大概的月份，也可以在列表里看 5、7、10 年后买的差别"><MonthInput label="计划购买月份" value={date} disabled={busy} onChange={setDate}/></FormRow>
@@ -129,6 +129,7 @@ function EventDialog({ basic, draft, isNew, today, busy, notice, onClose, onSave
     </section>
     {(err || notice) && <p className="notice" role="status">{err || notice}</p>}
     <Info text={basic ? "基础总预算可包含房租、房贷和车；请在预算明细确认已含或额外，避免重复。" : "退休后月预算「日常生活」请不要再含房租、房贷、车；这些由大额计划来出。"}/>
+    </div>
   </form></dialog>;
 }
 

@@ -7,7 +7,7 @@
 .date-input .date-picker-toggle{display:grid;place-items:center;flex:0 0 36px;width:36px;padding:0;border:0;border-radius:0;background:transparent;color:var(--muted)}
 .date-input .date-picker-toggle:hover:not(:disabled),.date-input .date-picker-toggle[aria-expanded=true]{background:var(--soft);color:var(--accent)}
 .date-picker-toggle svg,.date-calendar-heading svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.date-calendar{position:fixed;z-index:30;box-sizing:border-box;width:min(304px,calc(100vw - 24px));padding:12px;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--popover-radius);box-shadow:var(--popover-shadow);font:400 13px/1.5 var(--display);animation:control-appear var(--motion-enter) ease-out}
+.date-calendar{position:fixed;z-index:30;box-sizing:border-box;width:min(304px,calc(100vw - 24px));padding:12px;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--popover-radius);box-shadow:var(--popover-shadow);font:400 13px/1.5 var(--display)}
 .date-calendar-heading{display:flex;align-items:center;gap:6px}
 .date-calendar .date-calendar-heading select{flex:1;min-width:0;width:auto;height:32px;padding:4px 6px;border:0;border-radius:6px;background:var(--soft);font-size:13px;text-align:left;cursor:pointer}
 .date-calendar .date-calendar-heading button{display:grid;place-items:center;flex:none;width:28px;height:32px;padding:0;border:0;background:transparent;color:var(--muted);border-radius:6px}
@@ -24,6 +24,5 @@
 .date-calendar .date-calendar-actions button{border:0;border-radius:6px;background:transparent;color:var(--accent);padding:5px 8px;min-height:30px;font-size:12px}
 .month-calendar .date-calendar-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
 .month-calendar .date-calendar-grid button{height:40px}
-@media(prefers-reduced-motion:reduce){.date-calendar{animation:none}}
 
 .editor .date-input .date-input-row input:focus-visible{outline:none}

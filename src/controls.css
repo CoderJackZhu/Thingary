@@ -1,17 +1,17 @@
 /* Single owner for shared operations. Page layouts remain in app-layout/desktop-polish. */
-@keyframes control-appear{from{opacity:0}to{opacity:1}}
 .topbar-menu{position:relative;display:inline-flex;flex:none}
 .topbar-actions .topbar-menu-trigger{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid transparent;border-radius:var(--control-radius);background:var(--button-bg);color:var(--button-text);font-size:13px;font-weight:500;white-space:nowrap;transition:filter var(--motion-hover)}
 .topbar-menu-trigger:hover{filter:brightness(.96)}
 .topbar-menu-trigger .ui-icon{width:16px;height:16px;flex:none;stroke-width:1.5}
 .topbar-menu-trigger .chevron{width:14px;height:14px;margin-left:2px;opacity:.7}
 .topbar-actions .topbar-menu-trigger kbd{padding:0;margin-left:8px;border:0;background:transparent;font:400 11px/1 var(--display);opacity:.65}
-.topbar-menu-list{position:absolute;z-index:12;right:0;top:calc(100% + 8px);width:208px;max-width:calc(100vw - 24px);padding:6px;border:1px solid var(--line);border-radius:var(--popover-radius);background:var(--card);box-shadow:var(--popover-shadow);animation:control-appear var(--motion-enter) ease-out}
+.topbar-menu-list{position:absolute;z-index:12;right:0;top:calc(100% + 8px);width:208px;max-width:calc(100vw - 24px);padding:6px;border:1px solid var(--line);border-radius:var(--popover-radius);background:var(--card);box-shadow:var(--popover-shadow)}
 .topbar-menu-list button{display:flex;align-items:center;width:100%;min-height:36px;margin:0;padding:8px 10px;text-align:left;font-size:13px;font-weight:400;border:0;border-radius:8px;background:transparent;color:var(--text);transition:background var(--motion-hover)}
 .topbar-menu-list button:hover,.topbar-menu-list button:focus-visible{background:var(--soft)}
 .topbar-menu-list button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .editor{width:min(526px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:0 20px 20px;border:1px solid var(--line);border-radius:var(--dialog-radius);background:var(--card);color:var(--text);box-shadow:var(--dialog-shadow)}
-.editor[open]{animation:control-appear var(--motion-enter) ease-out}
+/* Keep interaction surfaces visible when native WebKit suspends animations. */
+.editor[open]{opacity:1}
 .editor::backdrop{background:var(--backdrop);backdrop-filter:blur(3px)}
 .editor.asset-editor,.editor.wishlist-editor{width:min(640px,calc(100vw - 32px));padding:0;overflow:hidden}
 .editor.asset-editor>form:not([hidden]),.editor.wishlist-editor>form:not([hidden]){display:flex;flex-direction:column;max-height:calc(100dvh - 34px)}
@@ -64,7 +64,7 @@
 .add-image-button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:620px){.form-row{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);padding:12px;gap:6px 12px}.editor>form>header,.editor>header,.picker-header{padding:16px}.editor>form>header{margin-inline:-20px}.editor h2{font-size:18px}.editor-header-actions{gap:6px}}
 @media(max-width:420px){.form-row,.form-row:has(.form-row-control>label){grid-template-columns:minmax(0,1fr);gap:8px}.form-row-control{justify-content:flex-start}.form-row-control>.form-switch{margin-left:auto}.form-row-hint{grid-column:auto}}
-@media(prefers-reduced-motion:reduce){.editor[open],.topbar-menu-list{animation:none}.topbar-menu-trigger,.topbar-menu-list button,.form-switch,.form-switch span,.segment-thumb,.add-image-button{transition:none}}
+@media(prefers-reduced-motion:reduce){.topbar-menu-trigger,.topbar-menu-list button,.form-switch,.form-switch span,.segment-thumb,.add-image-button{transition:none}}
 
 /* Confirmation and compound fields share the same operation layer. */
 .editor.trash-dialog{padding-top:20px}
