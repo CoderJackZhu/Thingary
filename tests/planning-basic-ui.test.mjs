@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { modeOf, hasLegacyPlan, amountState, contributionState, requirementLine, needsContribution, missingOwners, missingText, setupStepFor } from '../src/planning-basic-view.ts';
+import { modeOf, amountState, contributionState, requirementLine, needsContribution, missingOwners, missingText, setupStepFor } from '../src/planning-basic-view.ts';
 import { basicInput, budgetInput, pensionInput, draftOf, emptyPensionForm, retirementSources } from '../src/planning-basic-forms.ts';
 import { defaultRetire } from '../src/plan.ts';
 import { unknownCapabilityFixture, predictionCapabilityFixture, missingCostCapabilityFixture, basicInputFixtures } from '../src/plan-basic-fixtures.ts';
@@ -14,8 +14,7 @@ const pensionOnly = profile({ ...defaultRetire });
 test('mode: a pension-only profile is not an original plan; basic wins; legacy needs a real plan', () => {
   assert.equal(modeOf(null), 'none');
   assert.equal(modeOf(pensionOnly), 'none');
-  assert.equal(hasLegacyPlan(legacy.profile.retire), true);
-  assert.equal(modeOf(legacy), 'legacy');
+  assert.equal(modeOf(legacy), 'none');
   assert.equal(modeOf(profile({ ...defaultRetire, basic: basicInputFixtures.unknown.basic })), 'basic');
 });
 
@@ -54,7 +53,7 @@ test('new setup starts blank: no age, no budget, unknown contribution, 90-year e
   const input = basicInput(d, null, today);
   assert.equal(input.fields.target_age, null); assert.equal(input.fields.spend_cents, null);
   assert.equal(input.fields.basic.contribution.monthly_cents, null);
-  assert.equal(input.fields.confirm_legacy_replacement, false);
+  assert.equal(input.fields.confirm_legacy_replacement, undefined);
   assert.equal(input.fields.basic.retirement_income.mode, null);
   const candidate = unknownCapabilityFixture.requirement.value.set.monthly_cents;
   assert.equal(JSON.stringify(input).includes(candidate), false);
@@ -66,13 +65,13 @@ test('explicit zero and negative contributions are saved as values; blank stays 
   assert.equal(basicInput({ ...d, contribution: '-200000' }, null, today).fields.basic.contribution.monthly_cents, '-200000');
 });
 
-test('original plan reset: previous values are reused, contribution stays blank, confirmation flag is explicit', () => {
+test('original plan reset: old estimates are discarded and contribution stays blank, no extra confirmation', () => {
   const d = draftOf(legacy, null, today);
-  assert.equal(d.target, '50'); assert.equal(d.budget, '500000'); assert.equal(d.contribution, '');
-  assert.equal(basicInput(d, legacy, today).fields.confirm_legacy_replacement, false);
-  assert.equal(basicInput({ ...d, confirmLegacy: true }, legacy, today).fields.confirm_legacy_replacement, true);
+  assert.equal(d.target, ''); assert.equal(d.budget, ''); assert.equal(d.contribution, '');
+  assert.equal(basicInput(d, legacy, today).fields.confirm_legacy_replacement, undefined);
+  assert.equal(basicInput({ ...d, confirmLegacy: true }, legacy, today).fields.confirm_legacy_replacement, undefined);
   const again = profile({ ...defaultRetire, basic: basicInputFixtures.unknown.basic, spend_cents: '400000', target_age: 60 });
-  assert.equal(basicInput(draftOf(again, null, today), again, today).fields.confirm_legacy_replacement, false);
+  assert.equal(basicInput(draftOf(again, null, today), again, today).fields.confirm_legacy_replacement, undefined);
 });
 
 test('cost scopes: included needs an explicit amount, extra/excluded carry none, unchosen sources are not guessed', () => {
@@ -115,7 +114,7 @@ test('source guard: basic UI never branches on career, phases, route, 35-year ch
 
 test('basic risk lab: no career presets, complete-budget wording; runway card is mounted and unsaved', () => {
   const risk = fs.readFileSync(new URL('../src/RiskLab.tsx', import.meta.url), 'utf8');
-  assert.match(risk, /isBasic \? withoutCareerStress\(all\) : all/);
+  assert.match(risk, /useMemo\(\(\) => stressTests\(P, year\)/);
   assert.doesNotMatch(risk, /覆盖必需支出|岁前仍有余钱/);
   const goals = fs.readFileSync(new URL('../src/PlanningBasicGoals.tsx', import.meta.url), 'utf8');
   assert.match(goals, /<RunwayCard caps=\{caps\}/);

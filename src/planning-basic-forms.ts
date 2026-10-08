@@ -6,7 +6,6 @@ import type { FundRule } from './plan-core.ts';
 import { defaultAssumptions, noOverrides } from './plan-params.ts';
 import type { Worker } from './plan-pension.ts';
 import type { SectionInput } from './planning-basic-data.ts';
-import { hasLegacyPlan } from './planning-basic-view.ts';
 import { pcPlanOf, pcValues } from './planning-basic-defaults.ts';
 import type { PcPlan } from './planning-basic-defaults.ts';
 import type { Snapshot } from './wealth.ts';
@@ -28,7 +27,7 @@ export type Draft = {
   pcStart: string; pcStop: string; pcBase: string; pcPlan: PcPlan;
   contribution: string; contributionId: string;
   funds: FundRule[]; hpf: string; ppAccount: string; ppConfirmed: boolean;
-  pension: PensionForm; confirmLegacy: boolean;
+  pension: PensionForm;
 };
 
 const spendSources = (r: RetireInputs): CostSource[] => [
@@ -64,8 +63,8 @@ export function draftOf(saved: Saved, snapshot: Snapshot | null, today: string):
   const known = r.core?.fund_rules ?? [];
   const sim = b?.start.kind === 'simulation' ? b.start : null;
   return {
-    mode: r.mode, birth: p?.birth_month ? p.birth_month + '-01' : '', target: r.target_age == null || (fresh && !hasLegacyPlan(r)) ? '' : String(r.target_age), budget: r.spend_cents ?? '',
-    horizon: String(r.horizon_age), before: hundredthsToPct(r.real_return_before_hundredths), after: hundredthsToPct(r.real_return_after_hundredths), infl: hundredthsToPct((p?.assumptions ?? defaultAssumptions).inflation_hundredths), emergency: String(r.emergency_months),
+    mode: fresh ? defaultRetire.mode : r.mode, birth: p?.birth_month ? p.birth_month + '-01' : '', target: r.target_age == null || fresh ? '' : String(r.target_age), budget: fresh ? '' : r.spend_cents ?? '',
+    horizon: String(fresh ? defaultRetire.horizon_age : r.horizon_age), before: hundredthsToPct(fresh ? defaultRetire.real_return_before_hundredths : r.real_return_before_hundredths), after: hundredthsToPct(fresh ? defaultRetire.real_return_after_hundredths : r.real_return_after_hundredths), infl: hundredthsToPct(fresh ? defaultAssumptions.inflation_hundredths : (p?.assumptions ?? defaultAssumptions).inflation_hundredths), emergency: String(fresh ? defaultRetire.emergency_months : r.emergency_months),
     retScopes: scopeDraft(b?.retirement_costs, retirementSources(r, p?.personal_pension_annual_cents ?? null)), conScopes: scopeDraft(b?.contribution_costs, contributionSources(r, p?.personal_pension_annual_cents ?? null)),
     start: sim ? 'simulation' : 'live', simId: sim?.id ?? crypto.randomUUID(), simAmount: sim?.available_cents ?? '', simDate: sim?.date ?? '', simNotes: sim?.notes ?? '',
     incomeMode: b?.retirement_income.mode ?? '', incomeItems: structuredClone(r.income_items),
@@ -75,7 +74,7 @@ export function draftOf(saved: Saved, snapshot: Snapshot | null, today: string):
     contribution: b?.contribution.monthly_cents ?? '', contributionId: b?.contribution.id ?? crypto.randomUUID(),
     funds: [...known.map(f => ({ ...f })), ...entries.filter(e => !known.some(f => f.account_id === e.account_id)).map(e => ({ account_id: e.account_id, availability: e.kind === 'cash' ? 'available' as const : 'restricted' as const, share_hundredths: 10000 }))],
     hpf: r.core?.hpf_monthly_cents ?? '', ppAccount: r.core?.personal_pension_account_id ?? '', ppConfirmed: r.core?.personal_pension_balance_confirmed ?? false,
-    pension: pensionFormOf(saved), confirmLegacy: false,
+    pension: pensionFormOf(saved),
   };
 }
 
@@ -97,7 +96,7 @@ export function basicInput(d: Draft, saved: Saved, today: string): SectionInput 
     birth_month: monthOf(d.birth), spend_cents: d.budget === '' ? null : d.budget, target_age: int(d.target, '目标年龄', 20, 109), horizon_age: int(d.horizon, '规划终点', 70, 110) ?? fail('请填写规划终点。'),
     mode: d.mode, real_return_before_hundredths: rate(d.before, '退休前实际收益'), real_return_after_hundredths: rate(d.after, '退休后实际收益'), volatility_hundredths: r.volatility_hundredths,
     emergency_months: int(d.emergency, '应急金月数', 0, 36) ?? fail('请填写应急金月数。'), inflation_hundredths: rate(d.infl, '通胀'),
-    monetary_basis_date: r.core?.monetary_basis_date ?? today, confirm_legacy_replacement: !!saved && !saved.profile.retire.basic && hasLegacyPlan(saved.profile.retire) && d.confirmLegacy,
+    monetary_basis_date: r.core?.monetary_basis_date ?? today,
     basic: {
       contract_version: 1,
       start: d.start === 'live' ? { kind: 'live' } : { kind: 'simulation', id: d.simId, available_cents: d.simAmount === '' ? null : d.simAmount, date: d.simDate === '' ? null : d.simDate, notes: d.simNotes },

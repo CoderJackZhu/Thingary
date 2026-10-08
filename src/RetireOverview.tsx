@@ -7,8 +7,7 @@ import type { LifeEvent } from './plan-events';
 import type { Outcome, Plan, Projection } from './plan-ledger';
 import { eventImpact, offsetOf } from './plan-events';
 import { terminalText } from './planning-basic-view';
-import { requiredSaving, stressTests, workSaving } from './plan-risk';
-import { checkpoints, compactYuan, coverage, coverageSeries, durationText, milestones, progress, rangeRows, scaleAt, snapshotRows, trajectory, verdict } from './plan-view';
+import { compactYuan, coverage, coverageSeries, durationText, milestones, progress, scaleAt, snapshotRows, trajectory, verdict } from './plan-view';
 import type { Seg, ValueMode } from './plan-view';
 import { CoverageChart, TrajectoryChart } from './RetireCharts';
 import './retire.css';
@@ -62,7 +61,6 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
     {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? '临时试算，未保存'}</span> : <span className="ui-tag">按已保存的预计投入</span>} 每月净投入 {money(basic.contribution)}（不含投资收益）；{terminalText[basic.terminal]}。</p>}
     <p className="muted small">资金起点：{P.anchor_date ?? '当前'} 收盘；现值金额基准：{P.monetary_basis_date ?? '当前'}。计划付款在月初核对，投入计入月末。</p>
     <EventWarnings calc={calc}/>
-    {!basic && <Range calc={calc} mode={mode}/>}
 
     <article className="ui-card rd-card" aria-label="投资组合轨迹">
       <div className="rd-head"><h3>投资组合轨迹<Info text={P.mode === 'fire' ? '财务独立标记显示首个可持续的年龄。「所需」是在计入剩余计划供款后，每个年龄段所需的最低余额；「预计」是预计的投资组合路径。' : '退休标记显示提取开始的时间。「所需」是每个年龄段维持计划退休支出至规划终点所需的最低余额。'}/></h3><span className="muted small">预测 · {Math.round(points[0].age)} → {endAge} 岁</span></div>
@@ -90,34 +88,6 @@ function EventWarnings({ calc }: { calc: Ready }) {
   }, [calc]);
   if (!warnings.length) return null;
   return <aside className="notice" role="status" aria-label="大额计划提醒"><strong>已计入的大额计划有不现实的地方，下面的结论不可靠：</strong>{warnings.map(w => <p key={w}>{w}</p>)}<p className="muted small">调整日期、首付或贷款，或到目标页暂时取消计入后再看。</p></aside>;
-}
-
-/** 结果区间：基准与收入变化并排；收入是最大的不确定因素，这不是预测。 */
-function Range({ calc, mode }: { calc: Ready; mode: ValueMode }) {
-  const { plan: P, proj, out } = calc, fire = P.mode === 'fire';
-  const rows = useMemo(() => rangeRows(P, stressTests(P, 0), out), [P, out]);
-  const cps = useMemo(() => checkpoints(P, proj), [P, proj]);
-  const back = useMemo(() => {
-    const goal = requiredSaving(P, 0, P.target_months), first = cps.find(c => c.label === '储蓄下降前');
-    return { goal, front: first ? { month: first.month, cents: requiredSaving(P, 0, first.month) } : null, now: workSaving(P) };
-  }, [P, cps]);
-  const k = (m: number) => scaleAt(P, mode, m);
-  const age = (m: number | null) => (m === null ? '无法达成' : `${Math.floor(m / 12)} 岁${m % 12 ? ` ${m % 12} 个月` : ''}`);
-  return <article className="ui-card rd-card" aria-label="结果区间">
-    <div className="rd-head"><div><p className="eyebrow">区间</p><h3>收入变了会怎样<Info text="收入是最大的不确定因素，没人能预测哪年被裁或转行。这里把基准和几种收入变化并排，看结论会摇摆多大；你在「储蓄阶段」里设的每一段会直接进入基准。"/></h3></div></div>
-    <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="收入变化对照表"><table className="ui-table rd-table"><thead><tr><th>情形</th><th>{fire ? '财务独立年龄' : '目标年龄时'}</th><th className="amount">{fire ? '相比基准' : '盈余／缺口'}</th></tr></thead>
-      <tbody>{rows.map(r => <tr key={r.id} className={r.id === 'base' ? 'selected' : undefined}><td>{r.label}</td>
-        <td>{fire ? age(r.fi_month) : r.surplus >= 0 ? '资金够用' : '资金不够'}{r.failed && <span className="ui-tag warn">资金不足</span>}</td>
-        <td className="amount">{fire ? (r.id === 'base' ? '—' : r.late_months === null ? '—' : r.late_months === 0 ? '无变化' : r.late_months < 0 ? `早 ${durationText(-r.late_months)}` : `晚 ${durationText(r.late_months)}`) : `${r.surplus >= 0 ? '+' : '−'}${compactYuan(Math.abs(r.surplus) * k(P.target_months))}`}</td></tr>)}</tbody></table></div>
-    <div className="rd-checkpoints"><h4>反推：要存多少才够</h4>
-      <p>{back.goal === null ? <>要在 <strong>{Math.floor(P.target_months / 12)} 岁</strong>达到目标，按当前假设，每月存到 100 万也不够，需要调整目标年龄、退休预算或大额计划。</> : back.goal === 0 ? <>要在 <strong>{Math.floor(P.target_months / 12)} 岁</strong>达到目标，按现有设置不用再存，已经够了。</> : <>要在 <strong>{Math.floor(P.target_months / 12)} 岁</strong>达到目标，从现在到那时<strong>每月至少存 {yuan(back.goal)}</strong>（今天的钱）；你有收入时的储蓄是 {yuan(back.now)}，{back.goal <= back.now ? '够。' : `还差 ${yuan(back.goal - back.now)}。`}</>}</p>
-      {back.front && back.front.cents !== null && <p>若只在 <strong>{Math.floor(back.front.month / 12)} 岁</strong>以前集中存、之后沿用你设的更低储蓄：前期{back.front.cents === 0 ? '不用额外存。' : <>每月至少存 <strong>{yuan(back.front.cents)}</strong>。</>}</p>}
-      {back.front && back.front.cents === null && <p>若只在 <strong>{Math.floor(back.front.month / 12)} 岁</strong>以前存，每月存到 100 万也不够，说明之后的低储蓄撑不住目标。</p>}
-      <p className="muted small">这是反过来问：不预测收入，只看目标需要什么。数字按当前假设、最少需要的恒定金额算；真实收入起伏时，前期多存是最稳的办法。</p></div>
-    {cps.length > 0 && <div className="rd-checkpoints"><h4>前期要存到多少</h4>
-      {cps.map(c => <p key={c.month}>{c.label}，到 <strong>{Math.floor(c.month / 12)} 岁</strong>手里至少要有 <strong>{compactYuan(c.need * k(c.month))}</strong>，之后就算不再存钱也能按期退休；按计划那时预计有 <strong className={c.ok ? 'good' : 'warn'}>{compactYuan(c.expected * k(c.month))}</strong>{c.ok ? '，够。' : `，还差 ${compactYuan((c.need - c.expected) * k(c.month))}。`}</p>)}
-      <p className="muted small">实际收益率接近 0 时钱不会自己增值，所以几乎等于全部所需资金：高收入期存下的钱是决定退休早晚的主要因素。</p></div>}
-  </article>;
 }
 
 function Coverage({ calc, mode, basic }: { calc: Ready; mode: ValueMode; basic: boolean }) {

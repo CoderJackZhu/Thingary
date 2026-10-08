@@ -92,85 +92,7 @@ pub struct LegacyDefinition {
     pub keep_paying_base_cents: String,
     pub rent_cents: String,
 }
-impl LegacyDefinition {
-    pub fn capture(p: &Profile, today: &str) -> Self {
-        let r = &p.retire;
-        Self {
-            contract_version: 1,
-            recorded_at: today.into(),
-            birth_month: p.birth_month.clone(),
-            monetary_basis_date: r.core.as_ref().map(|c| c.monetary_basis_date.clone()),
-            assumptions: p.assumptions.clone(),
-            spend_cents: r.spend_cents.clone(),
-            target_age: r.target_age,
-            horizon_age: r.horizon_age,
-            mode: r.mode.clone(),
-            real_return_before_hundredths: r.real_return_before_hundredths,
-            real_return_after_hundredths: r.real_return_after_hundredths,
-            volatility_hundredths: r.volatility_hundredths,
-            emergency_months: r.emergency_months,
-            saving_phases: r.saving_phases.clone(),
-            route_id: r.route_id.clone(),
-            route_from_age: r.route_from_age,
-            gap_share_hundredths: r.gap_share_hundredths,
-            gap_keeps_paying: r.gap_keeps_paying,
-            spend_items: r.spend_items.clone(),
-            income_items: r.income_items.clone(),
-            event_ids: r.life_events.iter().map(|e| e.id.clone()).collect(),
-            costs: r.core.as_ref().map(|c| c.costs.clone()).unwrap_or_default(),
-            keep_paying_until_age: r.keep_paying_until_age,
-            keep_paying_monthly_cents: r.keep_paying_monthly_cents.clone(),
-            keep_paying_base_cents: r.keep_paying_base_cents.clone(),
-            rent_cents: r.rent_cents.clone(),
-        }
-    }
-    pub fn validate(&self) -> Result<()> {
-        if self.contract_version != 1 {
-            return Err(bad("原定义契约版本不支持"));
-        }
-        date(&self.recorded_at)?;
-        // Reuse legacy validation on an isolated in-memory shape; never persist a fact copy.
-        let mut original = Retire::default();
-        let r = &mut original;
-        r.spend_cents = self.spend_cents.clone();
-        r.target_age = self.target_age;
-        r.horizon_age = self.horizon_age;
-        r.mode = self.mode.clone();
-        r.real_return_before_hundredths = self.real_return_before_hundredths;
-        r.real_return_after_hundredths = self.real_return_after_hundredths;
-        r.volatility_hundredths = self.volatility_hundredths;
-        r.emergency_months = self.emergency_months;
-        r.saving_phases = self.saving_phases.clone();
-        r.route_id = self.route_id.clone();
-        r.route_from_age = self.route_from_age;
-        r.gap_share_hundredths = self.gap_share_hundredths;
-        r.gap_keeps_paying = self.gap_keeps_paying;
-        r.spend_items = self.spend_items.clone();
-        r.income_items = self.income_items.clone();
-        r.keep_paying_until_age = self.keep_paying_until_age;
-        r.keep_paying_monthly_cents = self.keep_paying_monthly_cents.clone();
-        r.keep_paying_base_cents = self.keep_paying_base_cents.clone();
-        r.rent_cents = self.rent_cents.clone();
-        crate::plan_profile::validate_retire(r, &self.assumptions, "9999-12-31")?;
-        if let Some(t) = &self.monetary_basis_date {
-            date(t)?;
-        }
-        let mut ids = HashSet::new();
-        for id in &self.event_ids {
-            valid_id(id)?;
-            if !ids.insert(id) {
-                return Err(bad("原事件引用重复"));
-            }
-        }
-        for c in &self.costs {
-            if !self.saving_phases.iter().any(|p| p.id == c.phase_id) || c.source_id.is_empty() {
-                return Err(bad("原费用引用无效"));
-            }
-            amount(&Some(c.reference_cents.clone()), false)?;
-        }
-        Ok(())
-    }
-}
+
 fn bad(message: &str) -> Error {
     Error::new("PLANNING_BASIC", message)
 }
@@ -320,6 +242,8 @@ pub struct BasicFields {
     pub inflation_hundredths: i32,
     pub monetary_basis_date: String,
     pub basic: Basic,
+    // Kept only for exact replay fingerprints of historical scoped requests.
+    #[serde(default)]
     pub confirm_legacy_replacement: bool,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -443,11 +367,11 @@ fn core<'a>(p: &'a mut Profile, basis: &str) -> Result<&'a mut Core> {
     }))
 }
 impl Update {
-    pub(crate) fn merge(&self, old: Option<&Profile>, today: &str) -> Result<Profile> {
+    pub(crate) fn merge(&self, old: Option<&Profile>) -> Result<Profile> {
         let mut p = old.cloned().unwrap_or_else(empty_profile);
         match &self.section {
             Section::Setup(f) => {
-                // Capture the original definition before any supporting sections change.
+                // Apply the general goal and supporting sections in one transaction.
                 // Validate/persist only the final profile in the caller's single transaction.
                 let apply = |section: Section, old: Option<&Profile>| {
                     Update {
@@ -456,7 +380,7 @@ impl Update {
                         expected_revision: self.expected_revision,
                         section,
                     }
-                    .merge(old, today)
+                    .merge(old)
                 };
                 p = apply(Section::Basic(f.basic.clone()), old)?;
                 if let Some(v) = &f.budget {
@@ -474,13 +398,7 @@ impl Update {
             }
             Section::Basic(f) => {
                 if let Some(o) = old {
-                    if o.retire.basic.is_none() && o.retire.has_legacy_plan() {
-                        if !f.confirm_legacy_replacement {
-                            return Err(bad("重设原规划须明确确认差异"));
-                        }
-                        p.retire.legacy_definition = Some(LegacyDefinition::capture(o, today));
-                    } else if o
-                        .retire
+                    if o.retire
                         .basic
                         .as_ref()
                         .is_some_and(|b| b.contribution.id != f.basic.contribution.id)

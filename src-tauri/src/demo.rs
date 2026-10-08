@@ -498,7 +498,18 @@ mod unified_tests {
         assert_eq!(s.plan_income_list().unwrap().rows.len(), 6);
         let saved = s.plan_profile().unwrap().saved.unwrap();
         assert_eq!(saved.profile.retire.life_events.len(), 1);
-        assert_eq!(saved.profile.retire.saving_phases.len(), 3);
+        assert!(saved.profile.retire.saving_phases.is_empty());
+        assert_eq!(
+            saved
+                .profile
+                .retire
+                .basic
+                .unwrap()
+                .contribution
+                .monthly_cents
+                .as_deref(),
+            Some("800000")
+        );
         assert_eq!(recurring.annual_cents, "3756000");
         assert_eq!(recurring.monthly_cents, "313000");
         assert!(!recurring.due.is_empty());

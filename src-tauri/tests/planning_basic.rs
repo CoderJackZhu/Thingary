@@ -219,7 +219,7 @@ fn scoped_failure_before_commit_is_atomic_unknown_after_commit_replays_once() {
     assert_eq!(count, 1);
 }
 #[test]
-fn legacy_reset_confirmation_archive_and_receipt_are_one_transaction() {
+fn legacy_reset_discards_estimates_and_preserves_facts_and_receipt_in_one_transaction() {
     use thingary_lib::domain::Error;
     use thingary_lib::plan_profile::ProfileSave;
     let d = tempfile::tempdir().unwrap();
@@ -243,10 +243,6 @@ fn legacy_reset_confirmation_archive_and_receipt_are_one_transaction() {
         .is_none());
     let mut i = input(&s);
     i.expected_revision = Some(1);
-    assert!(s.plan_profile_update(&i, "2026-10-07").is_err());
-    if let Section::Basic(f) = &mut i.section {
-        f.confirm_legacy_replacement = true;
-    }
     #[cfg(feature = "fault-injection")]
     {
         s.set_hook(|p| {
@@ -278,24 +274,32 @@ fn legacy_reset_confirmation_archive_and_receipt_are_one_transaction() {
     }
     let b = s.plan_profile_update(&i, "2026-10-07").unwrap();
     assert_eq!(b.revision, 2);
-    let archive = b.profile.retire.legacy_definition.as_ref().unwrap();
-    assert_eq!(archive.saving_phases, a.profile.retire.saving_phases);
-    assert_eq!(archive.route_id, a.profile.retire.route_id);
+    assert!(b.profile.retire.legacy_definition.is_none());
+    assert!(b.profile.retire.saving_phases.is_empty());
+    assert!(b.profile.retire.route_id.is_none());
     assert_eq!(b.profile.paid_months, a.profile.paid_months);
     assert_eq!(
         b.profile.account_balance_cents,
         a.profile.account_balance_cents
     );
-    let json = serde_json::to_value(archive).unwrap();
+    let active = serde_json::to_value(&b).unwrap();
     for key in [
-        "paid_months",
-        "account_balance_cents",
-        "core",
-        "occurrences",
-        "payments",
+        "saving_phases",
+        "route_id",
+        "route_from_age",
+        "gap_share_hundredths",
+        "gap_keeps_paying",
+        "legacy_definition",
     ] {
-        assert!(json.get(key).is_none());
+        assert!(active["profile"]["retire"].get(key).is_none());
     }
+    let payload: String = s
+        .conn_for_test()
+        .unwrap()
+        .query_row("SELECT payload FROM plan_profile", [], |r| r.get(0))
+        .unwrap();
+    assert!(!payload.contains("saving_phases"));
+    assert!(!payload.contains("legacy_definition"));
     drop(s);
     let s = Store::open(&root).unwrap();
     assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, b.profile);
@@ -526,4 +530,96 @@ fn pension_only_partial_facts_save_without_creating_a_retirement_plan() {
         .retire
         .legacy_definition
         .is_none());
+}
+
+#[test]
+fn old_backup_reads_facts_only_and_old_receipts_cannot_restore_retired_estimates() {
+    use thingary_lib::plan_profile::ProfileSave;
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&d.path().join("old-library")).unwrap();
+    let (_, mut old): (String, ProfileSave) = serde_json::from_str(include_str!(
+        "../../tests/fixtures/planning-basic/legacy-receipt.json"
+    ))
+    .unwrap();
+    old.generation = s.generation();
+    old.profile.retire.spend_cents = Some("500000".into());
+    old.profile.retire.route_id = Some("tech".into());
+    old.profile.retire.gap_share_hundredths = 1500;
+    let raw = serde_json::to_string(&old.profile).unwrap();
+    let fingerprint = Store::digest_for_test(&serde_json::to_vec(&("plan_profile", &old)).unwrap());
+    s.conn_for_test()
+        .unwrap()
+        .execute(
+            "INSERT INTO plan_profile VALUES(1,?1,1,'2026-10-07T00:00:00Z')",
+            [&raw],
+        )
+        .unwrap();
+    s.conn_for_test()
+        .unwrap()
+        .execute(
+            "INSERT INTO feature_requests VALUES(?1,?2,'profile')",
+            rusqlite::params![old.request_id, fingerprint],
+        )
+        .unwrap();
+    let before = s.plan_profile().unwrap().saved.unwrap();
+    assert_eq!(before.profile.paid_months, old.profile.paid_months);
+    assert_eq!(
+        before.profile.account_balance_cents,
+        old.profile.account_balance_cents
+    );
+    assert!(before.profile.retire.basic.is_none());
+    assert!(before.profile.retire.spend_cents.is_none());
+    assert!(before.profile.retire.target_age.is_none());
+    assert!(before.profile.retire.saving_phases.is_empty());
+    assert!(before.profile.retire.route_id.is_none());
+    let still_raw: String = s
+        .conn_for_test()
+        .unwrap()
+        .query_row("SELECT payload FROM plan_profile", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(
+        still_raw, raw,
+        "reading an old library must not mutate its bytes or revision"
+    );
+    let backup = d.path().join("old.thingary");
+    s.backup(Some(&backup)).unwrap();
+    let mut restored = Store::open(&d.path().join("restored")).unwrap();
+    let info = restored.inspect_backup(&backup).unwrap();
+    restored
+        .restore(&backup, &info.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(
+        restored.plan_profile().unwrap().saved.unwrap().profile,
+        before.profile
+    );
+    assert_eq!(
+        restored
+            .wealth_request_result(&old.request_id, &restored.generation())
+            .unwrap(),
+        Some("profile".into())
+    );
+    let mut setup = input(&s);
+    setup.expected_revision = Some(1);
+    let general = s.plan_profile_update(&setup, "2026-10-07").unwrap();
+    assert!(general.profile.retire.basic.is_some());
+    assert_eq!(general.profile.paid_months, old.profile.paid_months);
+    assert_eq!(
+        s.plan_profile_save(&old, "2026-10-07").unwrap().revision,
+        2,
+        "historical replay verifies receipt but never reapplies estimates"
+    );
+    assert_eq!(
+        s.plan_profile().unwrap().saved.unwrap().profile,
+        general.profile
+    );
+    old.request_id = uuid::Uuid::new_v4().to_string();
+    old.expected_revision = Some(2);
+    assert_eq!(
+        s.plan_profile_save(&old, "2026-10-07").unwrap_err().code,
+        "PLANNING_SCOPED"
+    );
+    assert_eq!(
+        s.plan_profile().unwrap().saved.unwrap().profile,
+        general.profile
+    );
 }

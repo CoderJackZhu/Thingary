@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyCore, normalizeFunds, occurrenceMissing, eventSource } from '../src/plan-core.ts';
+import { emptyCore, normalizeFunds, occurrenceMissing, eventSource, costSources } from '../src/plan-core.ts';
 import { buildRetireCalc } from '../src/plan-retire-calc.ts';
 import { computeReview, defaultRetire } from '../src/plan.ts';
 import { savingsOf, project, nominalFactor, coastAt, glide } from '../src/plan-ledger.ts';
@@ -14,11 +14,13 @@ const snap = (entries, date = B) => ({ id: 'snapshot', revision: 1, date, entrie
 const core = (...rules) => ({ ...emptyCore(B), hpf_monthly_cents: '0', fund_rules: rules.map(([account_id, availability]) => ({ account_id, availability, share_hundredths: 10000 })) });
 const event = (over = {}) => ({ id: 'house', label: '虚构住宅', kind: 'house', date: '2026-09', included: true, price_cents: '40000000', down_cents: '30000000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 30, holding_cents: '10000', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0', ...over });
 const occurrence = (over = {}) => ({ id: 'occ', event_id: 'house', status: 'occurred', actual_date: '2026-09-01', payments_complete: true, payments: [{ id: 'payment', date: '2026-09-01', amount_cents: '30000000', account_id: 'cash', absorbed_snapshot_id: 'snapshot', absorbed_revision: 1, source_kind: null, source_id: null }], loan: { account_id: 'loan', as_of: B, principal_cents: '10000000', remaining_months: 50 }, ...over });
-const profile = (c, over = {}) => ({ revision: 1, updated_at: B, profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 300, account_balance_cents: '0', base_cents: '0', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 0, assumptions: { inflation_hundredths: 0, wage_growth_hundredths: 0, pp_return_hundredths: 0 }, overrides: noOverrides, retire: { ...defaultRetire, spend_cents: '100000', target_age: 65, saving_phases: [{ id: 'phase', label: '明确净投入', from_age_months: 0, monthly_cents: 500000 }], core: c, ...over } } });
+const basic = () => ({contract_version:1,start:{kind:'live'},contribution:{id:'contribution',monthly_cents:'500000'},retirement_income:{mode:'beijing',selected:[]},pension_contributions:{start_month:'2026-10',stop_month:'2055-06',base_cents:beijing.base_lower_cents},contribution_costs:[],retirement_costs:[]});
+const profile = (c, over = {}) => ({ revision: 1, updated_at: B, profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 300, account_balance_cents: '0', base_cents: '0', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 0, assumptions: { inflation_hundredths: 0, wage_growth_hundredths: 0, pp_return_hundredths: 0 }, overrides: noOverrides, retire: { ...defaultRetire, spend_cents: '100000', target_age: 65, basic:basic(), core: c, ...over } } });
 const review = { stats: { median_monthly_saving_cents: '6000000', median_monthly_spend_cents: '-4000000' }, intervals: [] };
-const calc = (p, s) => buildRetireCalc(p, s, review, [], B);
+const calc = (p, s) => { const n=structuredClone(p),r=n.profile.retire,b=r.basic; const ids=costSources(r.life_events.filter(e=>e.included||r.core.occurrences.some(o=>o.event_id===e.id)),n.profile.personal_pension_annual_cents).map(s=>s.id); b.contribution_costs=ids.map(id=>{const rule=r.core.costs.find(c=>c.source_id===id);return {source_id:id,treatment:rule?.included?'included':'extra',reference_cents:rule?.included?rule.reference_cents:null}});b.retirement_costs=ids.map(id=>({source_id:id,treatment:'extra',reference_cents:null})); return buildRetireCalc(n,s,review,[],B); };
 const ready = c => { assert.deepEqual(c.missing, []); assert.ok(c.plan); return c; };
 const base = (over = {}) => ({ now_months: 420, horizon_months: 424, search_cap_months: 424, target_months: 423, mode: 'fire', assets_cents: 10000000, saving_cents: 0, saving_growth_hundredths: 0, r_before_hundredths: 0, r_after_hundredths: 0, inflation_hundredths: 0, volatility_hundredths: 0, items: [], incomes: [], spends: [], pension_at: () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 1000 }), ...over });
+
 
 test('R01/R02: net asset facts survive no income; income rows never establish complete coverage', () => {
   const points = [{ snapshot_id: 'a', date: '2026-09-01', complete: true, compared_to: null, net_cents: '10000000', scope_changed: false, change_cents: null, hpf_change_cents: null }, { snapshot_id: 'b', date: '2026-10-01', complete: true, compared_to: '2026-09-01', net_cents: '16000000', scope_changed: false, change_cents: '6000000', hpf_change_cents: '0' }];
@@ -29,8 +31,8 @@ test('R01/R02: net asset facts survive no income; income rows never establish co
   assert.equal(recorded.intervals[0].income_possibly_missing, true);
   assert.equal(recorded.stats.mean_monthly_change_cents, noIncome.stats.mean_monthly_change_cents);
   assert.notEqual(noIncome.stats.mean_monthly_change_cents, null);
-  const p = profile(core(['cash', 'available']), { saving_phases: [] });
-  assert.match(calc(p, snap([entry('cash','asset','cash',16000000)])).missing.join(' '), /未来净投入待确认/);
+  const p = profile(core(['cash', 'available']), { basic: {...basic(),contribution:{id:'contribution',monthly_cents:null}} });
+  assert.match(calc(p, snap([entry('cash','asset','cash',16000000)])).missing.join(' '), /预计投入/);
   assert.equal(calc(p, snap([entry('cash','asset','cash',16000000)])).derivedSpend, null);
 });
 
@@ -60,7 +62,7 @@ test('D06: split payments only deduct the part after B; partial or stale absorpt
   const c = core(['cash','available']); const o=occurrence({loan:null}); c.occurrences=[o];
   o.payments.push({ ...o.payments[0], id:'second', date:'2026-11-01', amount_cents:'10000000', absorbed_snapshot_id:null, absorbed_revision:null });
   const e=event({price_cents:'30000000',down_cents:'30000000',holding_cents:'0'}),s=snap([entry('cash','asset','cash',70000000)]);
-  const r=ready(calc(profile(c,{life_events:[e],saving_phases:[{id:'phase',label:'明确零',from_age_months:0,monthly_cents:0}]}),s));
+  const r=ready(calc(profile(c,{life_events:[e],basic:{...basic(),contribution:{id:'contribution',monthly_cents:'0'}}}),s));
   assert.equal(r.proj.assets[0],70000000); assert.equal(r.proj.assets[1],60000000); assert.equal(r.proj.assets[2],60000000);
   o.payments_complete=false; assert.match(calc(profile(c,{life_events:[e]}),s).missing.join(' '),/部分付款/);
   o.payments_complete=true;o.payments[0].absorbed_revision=2;assert.match(calc(profile(c,{life_events:[e]}),s).missing.join(' '),/吸收待核对/);
@@ -95,7 +97,7 @@ test('first remaining days and explicit zero preserve start-of-month order', () 
   const c=core(['cash','available']);c.monetary_basis_date='2026-10-15';
   const r=ready(calc(profile(c),snap([entry('cash','asset','cash',10000000)],'2026-10-15')));
   assert.equal(r.plan.first_month_fraction,16/31);assert.ok(Math.abs(savingsOf(r.plan)[0]-500000*16/31)<0.001);
-  const p=profile(c,{saving_phases:[{id:'zero',label:'明确零',from_age_months:0,monthly_cents:0}]});
+  const p=profile(c,{basic:{...basic(),contribution:{id:'contribution',monthly_cents:'0'}}});
   assert.equal(ready(calc(p,snap([entry('cash','asset','cash',10000000)],'2026-10-15'))).saving,0);
 });
 
@@ -112,7 +114,7 @@ test('D08/D16: PP moves cash once; payroll HPF adds only restricted funds, and p
   assert.equal(pr.hpf_at_start_cents,300000);assert.equal(pr.personal_pension_at_start_cents,5100000);
   p.profile.personal_pension_annual_cents='0';p.profile.retire.core.costs=[];
   assert.equal(savingsOf(ready(calc(p,snap([entry('cash','asset','cash',10000000),entry('pp','asset','other_asset',5000000),entry('hpf','asset','housing_fund',0)]))).plan)[1],500000);
-  c.personal_pension_account_id='cash';assert.match(calc(p,snap([entry('cash','asset','cash',10000000)])).missing.join(' '),/单独确认的受限/);
+  c.personal_pension_account_id='cash';assert.match(calc(p,snap([entry('cash','asset','cash',10000000)])).missing.join(' '),/独立确认.*受限/);
 });
 
 test('duplicate debt continuation, unsupported reference changes, and hypothetical included costs stay incomplete', () => {
@@ -124,11 +126,11 @@ test('duplicate debt continuation, unsupported reference changes, and hypothetic
 });
 
 
-test('included costs normalize before unemployment weighting; occurred rent savings are not credited again', () => {
+test('included costs normalize once; old unemployment shares cannot change the general model', () => {
   const c=core(['cash','available']);c.occurrences=[occurrence()];c.costs=[{phase_id:'phase',source_id:'event:house:loan',included:true,reference_cents:'200000'},{phase_id:'phase',source_id:'event:house:holding',included:false,reference_cents:'0'}];
   const p=profile(c,{life_events:[event({rent_saved_cents:'100000'})],gap_share_hundredths:2000});
   const r=ready(calc(p,snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',10000000)])));
-  assert.equal(savingsOf(r.plan)[1],330000); // .8*(5000+2000)-.2*1000-2000-100, cents.
+  assert.equal(savingsOf(r.plan)[1],490000); // 5000+2000-2000-100; old gap share is ignored.
 });
 
 test('a PP balance without confirmation stays unknown rather than default zero', () => {

@@ -201,19 +201,18 @@ export function coverageSeries(P: Plan, proj: Projection, mode: ValueMode): Cove
 export type RangeRow = { id: string; label: string; fi_month: number | null; late_months: number | null; surplus: number; failed: boolean };
 export function rangeRows(P: Plan, stress: { id: string; label: string; stressed: Outcome }[], base: Outcome): RangeRow[] {
   const row = (id: string, label: string, o: Outcome): RangeRow => ({ id, label, fi_month: o.fi_month, late_months: o.fi_month !== null && base.fi_month !== null ? o.fi_month - base.fi_month : null, surplus: o.assets_at_goal - o.required_at_goal, failed: o.failure_month !== null || o.shortfall_month !== null });
-  const pick = ['raise-double', 'raise-30', 'income-drop', 'job-gap', 'save-less'];
+  const pick = ['return-drag', 'inflation-shock', 'spending-shock', 'save-less'];
   return [row('base', '基准', base), ...pick.flatMap(id => { const r = stress.find(s => s.id === id); return r ? [row(id, r.label, r.stressed)] : []; })];
 }
 
 /** Coast 检查点：到某个月龄至少要有多少，之后哪怕不再存钱也能在目标年龄达标；对照按计划那时预计有多少。
- *  取储蓄阶段里每一次下降的起点；没有下降时给 35 岁作参考。 */
+ *  取显式时间安排里的下降起点，不预设职业年龄。 */
 export type Checkpoint = { month: number; label: string; need: number; expected: number; ok: boolean };
 export function checkpoints(P: Plan, proj: Projection): Checkpoint[] {
   if (P.input_mode === 'basic') return [];
   const ph = P.saving_phases ?? [];
   const months: { m: number; label: string }[] = [];
   ph.forEach((x, i) => { if (i > 0 && x.cents < ph[i - 1].cents) months.push({ m: x.from_month, label: '储蓄下降前' }); });
-  if (!months.length) months.push({ m: 35 * 12, label: '35 岁参考' });
   const last = Math.min(P.target_months, proj.retire_month ?? Infinity);
   return months.filter(x => x.m > P.now_months && x.m < last).slice(0, 3).map(x => {
     const need = coastAt(P, x.m), expected = Math.max(0, proj.assets[Math.min(proj.assets.length - 1, x.m - P.now_months)]);

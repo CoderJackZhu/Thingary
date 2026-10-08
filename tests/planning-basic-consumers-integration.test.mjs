@@ -168,8 +168,8 @@ test('real RiskLab renders complete-budget semantics in both modes and only neut
   const render = basic => renderToStaticMarkup(React.createElement(comp.RiskLab, { calc: { plan: P, assets: P.assets_cents }, today: '2026-10-07', basic }));
   const basic = render({ temporary: false, terminal: 'surplus' }), old = render(undefined);
   for (const text of [basic, old]) { assert.match(text, /按完整预算覆盖到/); assert.doesNotMatch(text, /覆盖必需支出|岁前仍有余钱/); }
-  assert.match(basic, /压力测试 · 6 个情景/); assert.match(old, /压力测试 · 10 个情景/);
-  for (const id of risk.careerStressIds) { assert.equal(basic.includes(risk.stressLabels[id].label), false); assert.equal(old.includes(risk.stressLabels[id].label), true); }
+  assert.match(basic, /压力测试 · 6 个情景/); assert.match(old, /压力测试 · 6 个情景/);
+  for (const label of ['收入骤降','跳槽涨薪','收入翻倍','失业一年']) { assert.equal(basic.includes(label), false); assert.equal(old.includes(label), false); }
 });
 
 test('runway is accessible without retirement settings and does not turn blanks into zero', async () => {

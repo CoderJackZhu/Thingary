@@ -10,7 +10,7 @@ const fingerprints = JSON.parse(readFileSync(new URL('./fixtures/removed-upstrea
 test('audited UI does not reintroduce the removed upstream localization values', () => {
   const forbidden = new Set(fingerprints.map(entry => entry.sha256));
   const lengths = [...new Set(fingerprints.map(entry => entry.characters))];
-  for (const name of ['plan-view.ts', 'RiskLab.tsx', 'RetireOverview.tsx', 'RetireSidebar.tsx', 'RetireCharts.tsx']) {
+  for (const name of ['plan-view.ts', 'RiskLab.tsx', 'RetireOverview.tsx',  'RetireCharts.tsx']) {
     const source = readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
     for (const size of lengths) for (let index = 0; index + size <= source.length; index++) {
       const hash = createHash('sha256').update(source.slice(index, index + size)).digest('hex');

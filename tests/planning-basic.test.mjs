@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBasicCapabilities, solveBasicRequirement, BASIC_SEARCH_LIMIT_CENTS } from '../src/plan-basic.ts';
-import { buildRetireCalc, routeCompare } from '../src/plan-retire-calc.ts';
+import { buildRetireCalc } from '../src/plan-retire-calc.ts';
 import { defaultRetire } from '../src/plan.ts';
 import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
 import { unknownBasicUpdate } from '../src/plan-basic-fixtures.ts';
@@ -28,6 +28,20 @@ const item = (id, amount, essential = true) => ({ id, label: id, monthly_cents: 
 const ledgerItem = (id, amount, essential = true) => ({ ...item(id, amount, essential), monthly_cents: amount });
 const ledgerIncome = (id, amount) => ({ ...stream(id, amount), monthly_cents: amount });
 const scope = (id, treatment, reference = null) => ({ source_id: id, treatment, reference_cents: reference });
+
+test('basic requirements and predictions ignore legacy route and phase assumptions', () => {
+  const s = fictionalSources('1000000');
+  const before = buildBasicCapabilities(s);
+  const changed = structuredClone(s), r = retire(changed);
+  r.route_id = 'tech'; r.route_from_age = 20; r.gap_share_hundredths = 5000;
+  r.saving_phases = [{ id: 'old', label: '旧阶段', from_age_months: 0, monthly_cents: -10000000 }];
+  const after = buildBasicCapabilities(changed);
+  assert.deepEqual(after.requirement, before.requirement);
+  assert.deepEqual(after.funds, before.funds);
+  assert.equal(before.prediction.status, 'ready'); assert.equal(after.prediction.status, 'ready');
+  assert.deepEqual(after.prediction.value.projection, before.prediction.value.projection);
+  assert.deepEqual(after.prediction.value.outcome, before.prediction.value.outcome);
+});
 
 test('B01/B01a/B02/B03/D21/D29/D33 unknown pension facts and failed history do not block simulated fixed-target requirements', () => {
   const s = fictionalSources(), before = structuredClone(s), c = buildBasicCapabilities(s);
@@ -113,7 +127,6 @@ test('B07 legacy stages/routes/worker do not alter basic requirements; no 35-yea
   retire(s).route_id = 'technology'; profile(s).worker = 'female_worker';
   assert.deepEqual(requirement(s), baseline);
   const p = prediction(s); assert.deepEqual(checkpoints(p.plan, p.projection), []);
-  assert.deepEqual(routeCompare(s.profile.value.saved, null, null, [], s.today), []);
 });
 
 function beijingSources(n) {

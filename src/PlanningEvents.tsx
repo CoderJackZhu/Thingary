@@ -12,9 +12,6 @@ import type { RetireInputs, StoredLifeEvent } from './plan';
 import { eventImpact, monthIndex, offsetOf, totalImpact } from './plan-events';
 import type { EventImpact } from './plan-events';
 import { toEvent } from './plan-retire-calc';
-import type { RetirePlan } from './PlanningRetire';
-import { isReady } from './PlanningRetire';
-import { useSaver } from './RetireSidebar';
 import { yuan } from './RetireOverview';
 import './retire.css';
 
@@ -42,18 +39,6 @@ export type EventsStore = {
   /** Present only when the shared service produced a prediction; otherwise `blocked` says why per-row impact is hidden. */
   ready: { plan: Plan; plan0: Plan } | null; blocked: string; onContribution?: () => void;
 };
-
-/** The original plan keeps its whole-profile save. */
-export function LegacyPlanningEvents({ plan, today, onEditingChange, onPending }: { plan: RetirePlan; today: string; onEditingChange: (v: boolean) => void; onPending: () => void }) {
-  const { state, calc, reload } = plan;
-  const saver = useSaver(state ?? { generation: '', saved: null }, reload, onPending);
-  const saved = state?.saved ?? null;
-  if (!saved) return null;
-  const retire = saved.profile.retire, ready = !!calc && isReady(calc) && !!calc.plan0;
-  const store: EventsStore = { retire, snapshot: plan.snapshot ?? null, accounts: plan.accounts, busy: saver.busy, stuck: saver.stuck, notice: saver.notice, ready: ready ? { plan: calc!.plan!, plan0: calc!.plan0! } : null, blocked: '资料待补齐',
-    write: (events, core) => saver.save({ ...retire, life_events: events, core }) };
-  return <PlanningEvents store={store} today={today} onEditingChange={onEditingChange}/>;
-}
 
 /** 目标页的「大额计划」卡：买房、买车、其他。每件拆成一次性现金支出与持续的月度收支，并入退休账本；这里逐件看影响并开关是否计入。 */
 export function PlanningEvents({ store, today, onEditingChange }: { store: EventsStore; today: string; onEditingChange: (v: boolean) => void }) {

@@ -5,7 +5,7 @@ import type { Line } from './expenses.ts';
 import type { Profile as PensionProfile, Funds } from './plan-pension.ts';
 import type { Overrides } from './plan-params.ts';
 import type { Point } from './wealth.ts';
-import type { BasicInputs, LegacyDefinition } from './plan-basic-contract.ts';
+import type { BasicInputs } from './plan-basic-contract.ts';
 export type * from './plan-basic-contract.ts';
 import type { PlanningCore } from './plan-core.ts';
 
@@ -174,24 +174,17 @@ export type StoredLifeEvent = {
 };
 export type RetireInputs = {
   basic?: BasicInputs;
-  legacy_definition?: LegacyDefinition;
   setup_completed?: boolean;
   core?: PlanningCore | null;
   spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number;
-  mode: 'fire' | 'traditional'; target_age: number | null; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[]; saving_phases: StoredSavingPhase[];
-  /** 工作年份里平均有多大比例的月份没有收入（万分比）；只作用于有收入的储蓄阶段。 */
-  gap_share_hundredths: number;
+  mode: 'fire' | 'traditional'; target_age: number | null; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[];
   life_events: StoredLifeEvent[];
-  /** 35 岁起的职业路线（预设路线的标识，见 plan-routes.ts）；null 表示不选，沿用储蓄阶段。 */
-  route_id: string | null; route_from_age: number;
   /** 不再工作之后自己续缴社保到几岁（null 表示停工即停缴）、每月花费（含养老、医保等，分）、续缴所按的缴费基数（"0" 沿用个人资料）。 */
   keep_paying_until_age: number | null; keep_paying_monthly_cents: string; keep_paying_base_cents: string;
-  /** 空窗月份（储蓄为负的阶段、平均空窗比例）是否仍算缴费月份。 */
-  gap_keeps_paying: boolean;
   /** 退休后每月房租（今天的钱，分，"0" 表示没有）；计划买房后由购房取代。 */
   rent_cents: string;
 };
-export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: 50, volatility_hundredths: 500, spend_items: [], income_items: [], saving_phases: [], gap_share_hundredths: 0, life_events: [], route_id: null, route_from_age: 35, keep_paying_until_age: null, keep_paying_monthly_cents: '0', keep_paying_base_cents: '0', gap_keeps_paying: false, rent_cents: '0' };
+export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: null, volatility_hundredths: 500, spend_items: [], income_items: [], life_events: [], keep_paying_until_age: null, keep_paying_monthly_cents: '0', keep_paying_base_cents: '0', rent_cents: '0' };
 type NullablePensionKey = 'birth_month' | 'worker' | 'paid_months' | 'account_balance_cents' | 'base_cents' | 'flex_months' | 'personal_pension_annual_cents' | 'marginal_tax_hundredths';
 export type StoredProfile = Omit<PensionProfile, NullablePensionKey> & { [K in NullablePensionKey]: PensionProfile[K] | null } & { region: 'beijing' | null; overrides: Overrides; retire: RetireInputs };
 export type CompletePensionProfile = StoredProfile & PensionProfile & { region: 'beijing' };
@@ -199,7 +192,7 @@ export type CompletePensionProfile = StoredProfile & PensionProfile & { region: 
 export function hasPensionProfile(p: StoredProfile): p is CompletePensionProfile {
   return p.birth_month !== null && p.worker !== null && p.region === 'beijing' && p.paid_months !== null && p.account_balance_cents !== null && p.base_cents !== null && p.flex_months !== null && p.personal_pension_annual_cents !== null && p.marginal_tax_hundredths !== null;
 }
-export const planningMode = (p: StoredProfile) => p.retire.basic ? 'basic' as const : 'legacy' as const;
+export const planningMode = (p: StoredProfile) => p.retire.basic ? 'basic' as const : 'none' as const;
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string; reference_issues?: string[] } | null };
 
 /** 个人资料多久没更新（整月数）；超过 STALE_MONTHS 个月提醒对一次社保记录。 */

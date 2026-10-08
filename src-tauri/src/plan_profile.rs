@@ -168,7 +168,7 @@ impl Default for Retire {
             horizon_age: 90,
             emergency_months: 6,
             mode: "fire".into(),
-            target_age: Some(50),
+            target_age: None,
             volatility_hundredths: 500,
             spend_items: Vec::new(),
             income_items: Vec::new(),
@@ -211,6 +211,7 @@ pub struct Profile {
 #[derive(Clone, Debug, Serialize)]
 pub struct Saved {
     pub reference_issues: Vec<String>,
+    #[serde(serialize_with = "serialize_active_profile")]
     pub profile: Profile,
     pub revision: i64,
     /// RFC 3339 time of the last save; the page uses it to remind the user to refresh the figures.
@@ -273,15 +274,6 @@ fn money(value: &str, positive: bool, label: &str) -> Result<i64> {
 }
 
 impl Retire {
-    pub(crate) fn has_legacy_plan(&self) -> bool {
-        self.setup_completed
-            || !self.saving_phases.is_empty()
-            || self.route_id.is_some()
-            || self.spend_cents.is_some()
-            || !self.spend_items.is_empty()
-            || !self.income_items.is_empty()
-            || !self.life_events.is_empty()
-    }
     fn validate_items(&self) -> Result<()> {
         if self.spend_items.len() > MAX_ITEMS || self.income_items.len() > MAX_ITEMS {
             return Err(bad("PROFILE_RETIRE", "支出项与收入项各最多 20 个"));
@@ -407,29 +399,73 @@ impl Retire {
     }
 }
 
+/// Old JSON is accepted only at the read/restore/request boundary. Predictions are not facts.
+impl Profile {
+    pub(crate) fn into_general(mut self) -> Self {
+        let r = &mut self.retire;
+        if r.basic.is_none() {
+            let old = std::mem::take(r);
+            let mut events = old.life_events;
+            for e in &mut events {
+                if !old.core.as_ref().is_some_and(|c| {
+                    c.occurrences
+                        .iter()
+                        .any(|o| o.event_id == e.id && o.status == "occurred")
+                }) {
+                    e.included = false;
+                }
+            }
+            *r = Retire {
+                core: old.core,
+                life_events: events,
+                target_age: None,
+                ..Retire::default()
+            };
+        }
+        r.saving_phases.clear();
+        r.route_id = None;
+        r.route_from_age = 35;
+        r.gap_share_hundredths = 0;
+        r.gap_keeps_paying = false;
+        r.legacy_definition = None;
+        if let Some(c) = &mut r.core {
+            c.costs.clear();
+        }
+        self
+    }
+}
+/// Active output/persistence omits obsolete fields. Profile's original wire serialization
+/// stays intact solely for verification of receipts written by older applications.
+fn active_profile_value(p: &Profile) -> Result<serde_json::Value> {
+    let mut value = serde_json::to_value(p)?;
+    if let Some(r) = value
+        .get_mut("retire")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        for key in [
+            "saving_phases",
+            "route_id",
+            "route_from_age",
+            "gap_share_hundredths",
+            "gap_keeps_paying",
+            "legacy_definition",
+        ] {
+            r.remove(key);
+        }
+    }
+    Ok(value)
+}
+fn serialize_active_profile<S: serde::Serializer>(
+    p: &Profile,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
+    active_profile_value(p)
+        .map_err(serde::ser::Error::custom)?
+        .serialize(serializer)
+}
+
 impl Profile {
     pub fn validate(&self, today: &str) -> Result<()> {
-        let basic = self.retire.basic.is_some();
-        if !basic
-            && self.retire.has_legacy_plan()
-            && [
-                self.birth_month.is_none(),
-                self.worker.is_none(),
-                self.region.is_none(),
-                self.paid_months.is_none(),
-                self.account_balance_cents.is_none(),
-                self.base_cents.is_none(),
-                self.flex_months.is_none(),
-                self.personal_pension_annual_cents.is_none(),
-                self.marginal_tax_hundredths.is_none(),
-            ]
-            .contains(&true)
-        {
-            return Err(bad(
-                "PROFILE_REQUIRED",
-                "原规划需要完整个人资料；未知资料请使用通用基础保存",
-            ));
-        }
         if let Some(ym) = &self.birth_month {
             let birth = date(&format!("{ym}-01"))
                 .map_err(|_| bad("PROFILE_BIRTH", "出生年月格式应为 YYYY-MM"))?;
@@ -505,7 +541,6 @@ impl Profile {
 }
 
 pub(crate) fn validate_retire(r: &Retire, a: &Assumptions, today: &str) -> Result<()> {
-    let basic = r.basic.is_some();
     rate(a.inflation_hundredths, -1000, 2000, "通胀率")?;
     rate(a.wage_growth_hundredths, -1000, 2000, "工资增长率")?;
     rate(a.pp_return_hundredths, -1000, 3000, "个人养老金收益率")?;
@@ -538,7 +573,6 @@ pub(crate) fn validate_retire(r: &Retire, a: &Assumptions, today: &str) -> Resul
     }
     if r.target_age
         .is_some_and(|v| !(20..r.horizon_age).contains(&v))
-        || (!basic && r.has_legacy_plan() && r.target_age.is_none())
     {
         return Err(bad(
             "PROFILE_RETIRE",
@@ -573,9 +607,6 @@ pub(crate) fn validate_retire(r: &Retire, a: &Assumptions, today: &str) -> Resul
     if let Some(b) = &r.basic {
         b.validate(r)?;
     }
-    if let Some(old) = &r.legacy_definition {
-        old.validate()?;
-    }
     Ok(())
 }
 
@@ -590,6 +621,7 @@ fn read(c: &Connection) -> Result<Option<Saved>> {
     row.map(|(payload, revision, updated_at)| {
         let profile: Profile = serde_json::from_str(&payload)
             .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?;
+        let profile = profile.into_general();
         let reference_issues = profile
             .retire
             .core
@@ -641,24 +673,16 @@ impl Store {
             |old| {
                 if input.profile.retire.basic.is_some()
                     || input.profile.retire.legacy_definition.is_some()
+                    || old.is_some()
                 {
                     return Err(Error::new(
                         "PLANNING_SCOPED",
-                        "新基础与原假设保全须通过分区更新",
+                        "请使用分区更新；旧完整请求不能覆盖当前资料",
                     ));
                 }
-                if let Some(old) = old {
-                    if old.retire.basic.is_some() {
-                        return Err(Error::new(
-                            "PLANNING_SCOPED",
-                            "基础条件须通过分区更新，旧完整请求不能替换",
-                        ));
-                    }
-                    if old.retire.legacy_definition != input.profile.retire.legacy_definition {
-                        return Err(Error::new("PLANNING_SCOPED", "原假设只读定义不能改写"));
-                    }
-                }
-                Ok(input.profile.clone())
+                // A first pension-only write may still come from an older client.
+                input.profile.validate(today)?;
+                Ok(input.profile.clone().into_general())
             },
         )
     }
@@ -675,7 +699,7 @@ impl Store {
             input.expected_revision,
             today,
             &[fingerprint],
-            |old| input.merge(old, today),
+            |old| input.merge(old),
         )
     }
 
@@ -712,7 +736,7 @@ impl Store {
                 "个人资料已变化，请重新读取",
             ));
         }
-        let profile = merge(old.as_ref().map(|s| &s.profile))?;
+        let profile = merge(old.as_ref().map(|s| &s.profile))?.into_general();
         profile.validate(today)?;
         if let Some(core) = &profile.retire.core {
             core.validate_references(&tx, true)?;
@@ -744,7 +768,7 @@ impl Store {
                 }
             }
         }
-        let payload = serde_json::to_string(&profile)?;
+        let payload = serde_json::to_string(&active_profile_value(&profile)?)?;
         let now = chrono::Utc::now().to_rfc3339();
         if old.is_some() {
             tx.execute(

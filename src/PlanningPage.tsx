@@ -7,8 +7,6 @@ import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningPension } from './PlanningPension';
 import { PlanningBasicGoals } from './PlanningBasicGoals';
-import { RunwayCard } from './PlanningRunway';
-import { PlanningLegacyGoals } from './PlanningGoals';
 import { PlanningSetupDialog } from './PlanningSetup';
 import { usePlanningSources } from './planning-basic-data';
 import { modeOf } from './planning-basic-view';
@@ -71,10 +69,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     </div></HeaderSlot>
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
       : !sources ? <p role="status" className="muted">正在读取规划…</p>
-      : tab === 'goals' ? (mode === 'legacy'
-        ? <>{review && incomeRows ? <PlanningLegacyGoals key={sources.write_version} focus={focus === 'budget'} onFocusDone={onFocusDone} today={today} review={review} incomes={incomeRows} onEditingChange={onEditingChange} onPending={onPending} onGoto={onTab} onReset={el => openSetup(0, el)}/>
-          : <article className="ui-card ui-content" role="alert"><p>原规划需要历史统计与收入记录，读取失败：{reviewError || '收入读取失败'}</p><button onClick={reload}>重新读取</button></article>}<RunwayCard key={`${sources.generation}-${sources.write_version}`} caps={null} today={today} onOwner={() => reload()}/></>
-        : <PlanningBasicGoals key={sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone}/>)
+      : tab === 'goals' ? <PlanningBasicGoals key={sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone}/>
       : tab === 'pension' ? <PlanningPension key={sources.write_version} focus={focus === 'profile'} onFocusDone={onFocusDone} today={today} sources={sources} reload={reload} onEditingChange={onEditingChange} onPending={onPending}/>
       : <>
         {mode === 'none' && <article className="ui-card ui-content planning-setup-entry" aria-label="开始规划"><div className="ui-section-head"><div><h3>想知道要攒多少？</h3><p className="muted small">先说目标和预算，几分钟即可，也可以跳过。记录收入不需要先设置。</p></div><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget)}>开始规划</button></div></article>}

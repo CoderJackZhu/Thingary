@@ -89,11 +89,11 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 [低频整理、盘点与心愿决策设计](LOW_FREQUENCY_REVIEW_DESIGN.md)维护目标行为与技术约束。A 阶段（心愿决策与盘点表达）、B 阶段（全局搜索）与 C 阶段（考虑替换的物品、逐账户金额盘点）已纳入 schema 27／28、搜索投影与各模块说明，完成 Review 修复、自动检查与隔离核心原生验收。原 C2 批量确认已按用户决定撤销；系统输入法组合、VoiceOver 与通知送达仍未原生验证。实施前核对最新 schema 与实际代码，不预占数据库或应用版本号。
 
-规划持久化沿用 `plan_income`（schema29）与单行 `plan_profile` JSON（schema30），写入采用 `feature_requests`、generation 和 expected_revision。规划基础在 schema32 提升严格basic/null载荷兼容版本，不重写旧 ID、零值、显式阶段与回执。`retire.core` 是可选严格契约：资金规则、T 日期、未来公积金、个人养老金账户／余额确认、费用参考额与实际发生分项；校验在 `plan_core.rs`，与个人资料保存同事务，备份采用相同结构和引用校验。旧缺省 core 仍可读，完整测算需补确认。`Saved.reference_issues` 是实时只读投影，不写入 profile；来源被更正后保留原关联并阻止完整结论。删除与 purge 拒绝仍被引用的来源，先在规划表单解除关联。
+规划持久化沿用 `plan_income`（schema29）与单行 `plan_profile` JSON（schema30），写入采用 `feature_requests`、generation和expected_revision，现有兼容边界沿用schema33。旧JSON结构只在读取、备份校验与历史回执摘要边界解析；`Profile::into_general` 保留养老金资料、资金规则、已发生付款／余债及必要事件引用，缺basic时停用未发生设想并重置旧估算。读操作不写库或增加修订。活动输出与新保存去掉职业阶段、路线、空窗及旧归档字段，历史已提交回执可核对，重放不重新应用旧估算，新整份旧式保存不能覆盖现有资料。`retire.core` 的严格校验与来源引用规则保持，备份恢复采用同一事实适配。`Saved.reference_issues` 是实时只读投影；更正来源保留关联并阻止完整结论，删除与purge拒绝仍被引用的来源。
 
 `plan_savings.rs` 与浏览器 `plan.ts` 都保留资产事实并新增 `mean_monthly_change_cents`、`median_monthly_change_cents`、`change_count`；旧 saving/spend/rate 字段仅为兼容投影，不作默认 UI 或未来假设。收入覆盖始终未确认。`plan-core.ts` 统一资金范围与现实发生缺项；`buildRetireCalc` 是摘要、目标、退休详情和心愿估算共同入口，所有路径通过 `plan-ledger.ts` 月账本，反求／风险路径复用同一本账。初始现金不扣债务本金，余额分池；B 收盘日与 T 金额基准独立，普通首期流按剩余天数折算，期初月供／持有费先支付，月底投入及收入不能掩盖期初不足。名义金额与养老金折现采用同一首期时间比例和 B/T 系数转换。`plan-events.ts` 保留过去月份偏移，逾期不重排；已发生首付按明确吸收关系跳过，B 后付款只扣一次，余债按余期延续，持有费独立。`pensionTable` 缓存各辞职年龄估算，独立受限公积金／个人养老金只在领取时转回可用池；本金不会在两个池收益。
 
-界面复用现有规划页与表单组件：`PlanningCoreCard` 核对资金／费用，`PlanningOccurrenceDialog` 核对一次性付款／余债；不自动创建物品或支出。浏览器 `wealth-preview.ts` 仅内存虚构夹具，刷新重置。该阶段不是统一规划目标规格全部实现：冻结基准、明细阶段、通用受限资产解锁、完整报告 DTO、导入事务和收入覆盖存储仍待后续集成。
+界面复用现有规划页与表单组件：`PlanningSetup`／`PlanningBasicDetail` 核对资金／费用，`PlanningOccurrenceDialog` 核对一次性付款／余债；不自动创建物品或支出。浏览器 `wealth-preview.ts` 仅内存虚构夹具，刷新重置。该阶段不是统一规划目标规格全部实现：冻结基准、明细阶段、通用受限资产解锁、完整报告 DTO、导入事务和收入覆盖存储仍待后续集成。
 
 综合首页规划摘要：`review_overview` 以可选 `planning` 参数门控规划读取，在一个 worker job、一个 SQLite 只读事务中返回净资产和 `PlanSources`。明细直接采用该批财富摘要选出的完整盘点；各来源仍用 `Read<T>` 表达独立成败。`plan_review_in_transaction` 复用现有储蓄投影，避免嵌套事务；独立 `plan_review` 保持自己的只读事务。`ReviewPlanSummary` 只接受已提交的整批数据，复用 `plan-summary.ts` 与目标页的结论和比例，不运行压力测试或路线矩阵。`ReviewView` 统一处理请求票据、generation、日期、版本、模块与焦点／恢复刷新；同库刷新失败可保留整批上次结果并标明，身份或上下文变化丢弃旧响应。预算／资料定位意图仅存在 `main.tsx` 状态中，随库、页签与导航失效，读取完成后聚焦既有入口，不保存会话缓存或自动打开表单。
 

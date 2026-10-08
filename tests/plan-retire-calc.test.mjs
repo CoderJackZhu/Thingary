@@ -1,21 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRetireCalc, expectedSaving, monthlyHpfOut } from '../src/plan-retire-calc.ts';
+import { buildRetireCalc } from '../src/plan-retire-calc.ts';
+import { basicInputFixtures } from '../src/plan-basic-fixtures.ts';
 import { defaultRetire } from '../src/plan.ts';
 import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
 
 const saved = spend => ({ revision: 1, updated_at: '2026-10-06', profile: {
   birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0,
-  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, core: { contract_version: 1, monetary_basis_date: '2026-10-06', fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', costs: [], occurrences: [] }, saving_phases: [{ id: 'default-explicit', label: '显式测试假设', from_age_months: 0, monthly_cents: 1000000 }], spend_cents: spend },
+  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, target_age:50, core: { contract_version: 1, monetary_basis_date: '2026-10-06', fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', costs: [], occurrences: [] }, basic: {...structuredClone(basicInputFixtures.prediction.basic),start:{kind:'live'}}, spend_cents: spend },
 } });
-const snapshot = { entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: '20000000' }] };
+const snapshot = {id:'snapshot',revision:1,date:'2026-10-06', entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: '20000000' }] };
 const review = { intervals: [], stats: { median_monthly_saving_cents: '1000000', median_monthly_spend_cents: '1700000' } };
 
 test('a high historical spend never silently becomes the retirement budget', () => {
   const r = buildRetireCalc(saved(null), snapshot, review, [], '2026-10-06');
   assert.equal(r.derivedSpend, null);
   assert.equal(r.spend, null);
-  assert.match(r.missing.join(' '), /请填写退休后月预算/);
+  assert.match(r.missing.join(' '), /预算/);
   for (const key of ['plan', 'proj', 'out', 'emergency']) assert.equal(r[key], undefined);
 });
 
@@ -34,43 +35,6 @@ test('a planning horizon not after today leaves the estimate unavailable instead
   const old = saved('500000');
   old.profile.birth_month = '1930-01';
   const r = buildRetireCalc(old, snapshot, review, [], '2026-10-06');
-  assert.match(r.missing.join(' '), /规划终点年龄至少要比当前年龄晚一年/);
+  assert.match(r.missing.join(' '), /终点|目标年龄/);
   assert.equal(r.plan, undefined);
 });
-
-test('saving phases replace the measured median, and the average gap share weighs working phases only', () => {
-  const s = saved('500000');
-  s.profile.retire = { ...s.profile.retire, saving_phases: [
-    { id: 'a', label: '空窗期', from_age_months: 0, monthly_cents: -600000 },
-    { id: 'b', label: '有收入', from_age_months: 440, monthly_cents: 1700000 },
-    { id: 'c', label: '清闲', from_age_months: 540, monthly_cents: 800000 },
-  ], gap_share_hundredths: 1000 };
-  const r = buildRetireCalc(s, snapshot, { intervals: [], stats: { median_monthly_saving_cents: null, median_monthly_spend_cents: null } }, [], '2026-10-06');
-  assert.deepEqual(r.missing, []);
-  assert.equal(r.saving, -600000);
-  assert.equal(r.measured, null);
-  // 10% 的月份没有收入、那时按日常生活预算 5000 元花存款：17000×0.9 − 5000×0.1 = 14800 元。
-  assert.deepEqual(r.plan.saving_phases.map(p => p.cents), [-600000, 1480000, 670000]);
-  assert.equal(expectedSaving(1700000, 0, 500000), 1700000);
-  assert.equal(expectedSaving(-100, 1000, 500000), -100);
-  // 不分阶段时仍用盘点中位数，空窗比例不起作用。
-  const plain = buildRetireCalc(saved('500000'), snapshot, review, [], '2026-10-06');
-  assert.equal(plain.plan.saving_phases[0].cents, 1000000);
-  assert.equal(plain.plan.saving_cents, 1000000);
-});
-
-test('the housing fund pot grows by the latest deposit minus the average monthly withdrawal', () => {
-  const iv = (over = {}) => ({ status: 'ok', days: 487 * 16 / 16, hpf_out_cents: '2800000', ...over });
-  // 487 天、取出 28000 元：每月约 28000 × 30.4375 ÷ 487 ≈ 1750 元。
-  assert.equal(monthlyHpfOut({ intervals: [iv()] }), Math.round(2800000 * 487 / (16 * 487)));
-  assert.equal(monthlyHpfOut({ intervals: [iv({ hpf_out_cents: '-5000' })] }), 0);
-  assert.equal(monthlyHpfOut({ intervals: [iv({ hpf_out_cents: null }), iv({ status: 'no_income' })] }), 0);
-  assert.equal(monthlyHpfOut({ intervals: [] }), 0);
-});
-
- test('old automatic median has no future contribution until explicitly saved', () => {
-   const s = saved('500000'); s.profile.retire.saving_phases = [];
-   const c = buildRetireCalc(s, snapshot, review, [], '2026-10-06');
-   assert.equal(c.saving, null); assert.equal(c.plan, undefined);
-   assert.match(c.missing.join(' '), /未来净投入待确认/);
- });

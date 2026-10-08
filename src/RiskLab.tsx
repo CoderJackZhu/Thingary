@@ -3,7 +3,7 @@ import { Info, Segments } from './FormControls';
 import { rateText } from './plan';
 import { outcome, project } from './plan-ledger.ts';
 import type { Plan } from './plan-ledger.ts';
-import { ageSpendingMatrix, contributionReturnMatrix, largestRisk, monteCarlo, sorr, stressTests, withoutCareerStress } from './plan-risk.ts';
+import { ageSpendingMatrix, contributionReturnMatrix, largestRisk, monteCarlo, sorr, stressTests } from './plan-risk.ts';
 import type { Cell, Matrix, MonteCarlo, SorrPath, StressResult } from './plan-risk.ts';
 import { compactYuan, durationText, verdict } from './plan-view.ts';
 import { FanChart, PathsChart } from './RetireCharts';
@@ -22,8 +22,7 @@ const sevText = { high: '高', medium: '中', low: '低' };
 export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; basic?: BasicRisk }) {
   const P = calc.plan, year = Number(today.slice(0, 4)), fire = P.mode === 'fire';
   const base = useMemo(() => { const proj = project(P, year); return { proj, out: outcome(P, proj) }; }, [P, year]);
-  const isBasic = !!basic;
-  const stress = useMemo(() => { const all = stressTests(P, year); return isBasic ? withoutCareerStress(all) : all; }, [P, year, isBasic]);
+  const stress = useMemo(() => stressTests(P, year), [P, year]);
   const top = largestRisk(stress);
   const fmt = (c: number) => yuan(c);
   const v = verdict(P, base.proj, base.out, calc.assets, 'today', fmt);

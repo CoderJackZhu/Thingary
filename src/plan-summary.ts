@@ -34,7 +34,7 @@ export function goalHeadline(calc: ReadyCalc, today: string): GoalHeadline {
   }
   const fi = calc.proj.fi_month;
   if (fi === null) {
-    // 搜索终点取实际值（终点年龄早于 70 岁时按实际），不写成永远不可能。
+    // 搜索终点取所选期限，不写成永远不可能。
     const capAge = Math.floor(Math.min(P.search_cap_months, P.horizon_months) / 12);
     return { main: `当前假设下，${capAge} 岁前尚未达成`, sub: null, warn };
   }
@@ -55,7 +55,7 @@ export type UsualSaving =
   | { kind: 'known'; monthly_cents: string; count: number; low_sample: boolean; window_from: string | null; latest_date: string | null; negative: boolean }
   | { kind: 'unknown'; reason: string };
 
-/** 历史月均净资产变化（含估值变化）：只看 plan_review 的统计，不被储蓄阶段覆盖。 */
+/** 历史月均净资产变化（含估值变化）：只看 plan_review 的统计，不被预计投入覆盖。 */
 export function usualSaving(review: PlanReview): UsualSaving {
   const s = review.stats;
   if (s.mean_monthly_change_cents != null) {
@@ -82,7 +82,7 @@ export type SummaryRetire =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'blocked'; step: 'snapshot' | 'profile' | 'budget' | 'saving' | 'other'; main: string; note: string; capabilities?: BasicCapabilities }
-  | { kind: 'ready'; mode: 'fire' | 'traditional'; headline: GoalHeadline; coverage: { assets: number; requiredNow: number; percent: number }; snapshotDate: string | null; usesPhases: boolean; hasEvents: boolean; calc: ReadyCalc };
+  | { kind: 'ready'; mode: 'fire' | 'traditional'; headline: GoalHeadline; coverage: { assets: number; requiredNow: number; percent: number }; snapshotDate: string | null; hasEvents: boolean; calc: ReadyCalc };
 
 /** 缺项优先顺序（§6.1）：读取失败 → 无完整盘点 → 无个人资料 → 无退休预算 → 缺储蓄依据 → 其他。 */
 export function summaryRetire(sources: PlanSources, today: string): SummaryRetire {
@@ -97,32 +97,17 @@ export function summaryRetire(sources: PlanSources, today: string): SummaryRetir
       return { kind: 'blocked', step: 'saving', main, note: '需求按固定目标计算；保存明确预计投入后可查看预测。', capabilities };
     }
     const ready = calc as ReadyCalc;
-    return { kind: 'ready', mode: ready.plan.mode, headline: goalHeadline(ready, today), coverage: coverageNow(ready), snapshotDate: capabilities.context.start.date, usesPhases: false, hasEvents: ready.events.some(e => e.included), calc: ready };
+    return { kind: 'ready', mode: ready.plan.mode, headline: goalHeadline(ready, today), coverage: coverageNow(ready), snapshotDate: capabilities.context.start.date, hasEvents: ready.events.some(e => e.included), calc: ready };
   }
-  // 逐个检查以便类型收窄；个人资料失败优先展示（§6.1：统计已成功时保留历史储蓄）。
   if (sources.profile.status === 'error') return { kind: 'error', message: sources.profile.value.message };
-  if (sources.review.status === 'error') return { kind: 'error', message: sources.review.value.message };
-  if (sources.incomes.status === 'error') return { kind: 'error', message: sources.incomes.value.message };
-  if (sources.snapshot.status === 'error') return { kind: 'error', message: sources.snapshot.value.message };
-  if (!sources.snapshotId || !sources.snapshot.value) return { kind: 'blocked', step: 'snapshot', main: '先完成一次完整盘点', note: '退休估算需要最近一次完整盘点里的资产明细。' };
-  const saved = sources.profile.value.saved;
-  if (!saved) return { kind: 'blocked', step: 'profile', main: '先填写个人资料', note: '退休与财务自由的估算需要出生年月和缴费资料。' };
-  const calc = buildRetireCalc(saved, sources.snapshot.value, sources.review.value, sources.incomes.value, today);
-  if (calc.spend === null) return { kind: 'blocked', step: 'budget', main: '先确定退休后的月预算', note: '补齐后才能估算退休时间。' };
-  if (calc.saving === null) return { kind: 'blocked', step: 'saving', main: '未来净投入待确认', note: '请在目标的储蓄阶段中保存明确假设，历史资产变化不会自动采用。' };
-  if (!calc.plan || !calc.proj || !calc.out) return { kind: 'blocked', step: 'other', main: '计算输入不足', note: calc.missing[0] ?? '请到目标页核对假设。' };
-  const ready = calc as ReadyCalc;
-  return {
-    kind: 'ready', mode: ready.plan.mode, headline: goalHeadline(ready, today), coverage: coverageNow(ready),
-    snapshotDate: sources.snapshotDate, usesPhases: ready.r.saving_phases.length > 0 || ready.r.route_id !== null, hasEvents: ready.events.some(e => e.included || ready.r.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')), calc: ready,
-  };
+  return { kind: 'blocked', step: 'profile', main: sources.profile.value.saved ? '退休目标待重新设置' : '先设置退休目标', note: '请确认目标与完整预算；盘点、收入、社保、付款与余债资料保留。' };
 }
 
 /** 依据说明：盘点日期、未来储蓄采用的口径、已计入的大额计划与「按当前假设估算」。 */
 export function basisNotes(calc: ReadyCalc, snapshotDate: string | null): string[] {
   return [
     snapshotDate ? `依据 ${snapshotDate} ${calc.r.basic?.start.kind === 'simulation' ? '模拟起点' : '完整盘点'}` : null,
-    calc.r.basic ? '预测采用已保存的单一预计投入' : calc.r.saving_phases.length || calc.r.route_id ? '退休估算采用已设置的储蓄阶段／路线' : '未来净投入待确认',
+    '预测采用已保存的单一预计投入',
     calc.events.some(e => e.included || calc.r.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')) ? '已计入大额计划' : null,
     '按当前假设估算',
   ].filter((x): x is string => x !== null);

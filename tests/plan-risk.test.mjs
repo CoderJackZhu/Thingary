@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { outcome, project, required } from '../src/plan-ledger.ts';
-import { ageSpendingMatrix, contributionReturnMatrix, crashReturns, gapAt, largestRisk, monteCarlo, requiredSaving, saveFrom, seedOf, sorr, stressTests, stressSeverity, withoutCareerStress, careerStressIds, workSaving } from '../src/plan-risk.ts';
+import { ageSpendingMatrix, contributionReturnMatrix, crashReturns, gapAt, largestRisk, monteCarlo, requiredSaving, saveFrom, seedOf, sorr, stressTests, stressSeverity, workSaving } from '../src/plan-risk.ts';
 
 const pension = () => ({ monthly_cents: 300, lump_cents: 20_000, unlock_age_months: 756 });
 const plan = (over = {}) => ({
@@ -42,7 +42,7 @@ test('market paths: percentiles are ordered, the seed makes runs repeatable, and
 test('stress tests apply the documented shocks to the same engine', () => {
   const P = plan(), base = outcome(P, project(P, YEAR));
   const by = Object.fromEntries(stressTests(P, YEAR).map(r => [r.id, r]));
-  assert.equal(Object.keys(by).length, 10);
+  assert.equal(Object.keys(by).length, 6);
   assert.deepEqual(by['return-drag'].stressed, outcome(...[{ ...P, r_before_hundredths: 0, r_after_hundredths: -100 }].flatMap(q => [q, project(q, YEAR)])));
   assert.equal(by['spending-shock'].stressed.required_at_goal > base.required_at_goal, true);
   assert.ok(Math.abs(by['spending-shock'].stressed.required_at_goal - required({ ...P, items: [{ ...P.items[0], monthly_cents: 1100 }] }, 480)) < 1e-6);
@@ -140,11 +140,7 @@ test('income shocks rewrite the saving timeline: halve from a date, or draw down
   assert.deepEqual(saveFrom(phased, N + 36, 0.5).saving_phases, [{ from_month: N, cents: -500 }, { from_month: N + 6, cents: 2000 }, { from_month: N + 36, cents: 1000 }, { from_month: N + 60, cents: 400 }]);
   assert.deepEqual(gapAt(phased, N + 58, 4, 0).saving_phases.map(p => p.cents), [-500, 2000, 0, 800]);
   assert.equal(workSaving(phased), 2000);
-  const by = Object.fromEntries(stressTests(P, YEAR).map(r => [r.id, r]));
-  // 收入骤降和失业不会让财务独立更早，也不会让终点资产更多（同一退休年龄比较时）。
-  for (const id of ['income-drop', 'job-gap']) assert.ok(by[id].fi_delay_months === null || by[id].fi_delay_months >= 0, id);
-  assert.ok(by['income-drop'].stressed.assets_at_goal <= by['income-drop'].baseline.assets_at_goal + 1e-6);
-  assert.ok(by['job-gap'].stressed.assets_at_goal < by['job-gap'].baseline.assets_at_goal);
+
 });
 
 test('矩阵 uses the working-income saving as its base when phases exist', () => {
@@ -153,14 +149,6 @@ test('矩阵 uses the working-income saving as its base when phases exist', () =
   assert.equal(m.cols[m.base_col], 2000);
 });
 
-test('upside cases raise the saving and never delay independence; the largest risk ignores them', () => {
-  const P = plan(), results = stressTests(P, YEAR), by = Object.fromEntries(results.map(r => [r.id, r]));
-  assert.ok(by['raise-30'].stressed.assets_at_goal >= by['raise-30'].baseline.assets_at_goal);
-  assert.ok(by['raise-double'].stressed.assets_at_goal >= by['raise-30'].stressed.assets_at_goal);
-  for (const id of ['raise-30', 'raise-double']) assert.ok(by[id].fi_delay_months === null || by[id].fi_delay_months <= 0, id);
-  assert.ok(!['raise-30', 'raise-double'].includes(largestRisk(results)?.id));
-  assert.deepEqual(saveFrom(P, 360 + 36, 1.3).saving_phases, [{ from_month: 360, cents: 1500 }, { from_month: 396, cents: 1950 }]);
-});
 
 test('required saving is the smallest constant monthly amount that reaches the goal, and later plans are kept', () => {
   const base = plan({ r_before_hundredths: 0, r_after_hundredths: 0, pension_at: () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 756 }), assets_cents: 0, saving_cents: 0, mode: 'traditional', target_months: 480 });
@@ -180,9 +168,9 @@ test('required saving is the smallest constant monthly amount that reaches the g
 });
 
 test('basic mode drops the preset career stress cases and keeps the neutral ones', () => {
-  const all = stressTests(plan(), YEAR), kept = withoutCareerStress(all);
+  const kept = stressTests(plan(), YEAR); const careerStressIds=['income-drop','job-gap','raise-30','raise-double'];
   assert.deepEqual(careerStressIds.slice().sort(), ['income-drop', 'job-gap', 'raise-30', 'raise-double']);
-  assert.equal(kept.length, all.length - 4);
+  assert.equal(kept.length, 6);
   for (const id of careerStressIds) assert.equal(kept.some(r => r.id === id), false, id);
   for (const id of ['return-drag', 'inflation-shock', 'spending-shock', 'retire-earlier', 'save-less', 'early-crash']) assert.equal(kept.some(r => r.id === id), true, id);
 });

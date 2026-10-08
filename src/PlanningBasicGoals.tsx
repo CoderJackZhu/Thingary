@@ -22,8 +22,8 @@ import './planning.css';
 
 type Saved = NonNullable<ProfileState['saved']>;
 
-/** Goals for the basic and not-yet-set-up cases. The original plan has its own compatible page. */
-export function PlanningBasicGoals({ sources, mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone }: { sources: PlanningSources; mode: Exclude<PlanMode, 'legacy'>; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null) => void; focus?: boolean; onFocusDone: () => void }) {
+/** Goals for the basic and not-yet-set-up cases. Old profiles require new configuration. */
+export function PlanningBasicGoals({ sources, mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null) => void; focus?: boolean; onFocusDone: () => void }) {
   const [detail, setDetail] = useState<{ contribution: boolean } | null>(null);
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const snapshot: Snapshot | null = ready(sources.snapshot) ?? null, accounts: Account[] = ready(sources.accounts) ?? [];
@@ -53,8 +53,8 @@ export function PlanningBasicGoals({ sources, mode, today, reload, onPending, on
 
   if (mode === 'none' || !saved) return <div className="plan-goals">
     <article className="ui-card ui-content plan-goal plan-retirement-goal" aria-label="退休目标">
-      <div className="ui-section-head"><div><p className="eyebrow">长期生活计划</p><h3>退休与财务自由</h3></div><span className="ui-tag">还没有设置</span></div>
-      <p className="plan-goal-headline"><strong>先说说你的目标，没想好的可以留空</strong></p>
+      <div className="ui-section-head"><div><p className="eyebrow">长期生活计划</p><h3>退休与财务自由</h3></div><span className="ui-tag">{saved ? '待重新设置' : '还没有设置'}</span></div>
+      <p className="plan-goal-headline"><strong>先说说你的目标，没想好的可以留空</strong></p>{saved && <p className="notice">请重新确认目标与完整预算。盘点、收入、社保资料、已记录的付款与余债保留。</p>}
       <p className="muted">告诉软件想在几岁退休、退休后每月花多少钱，以及现在有多少钱可用于准备。它会帮你算每月大约要存多少；你自己的储蓄估计可以先不填。</p>
       <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始设置</button><button type="button" className="ui-btn" onClick={() => onGoto('savings')}>先看收入与复盘</button></div>
     </article>

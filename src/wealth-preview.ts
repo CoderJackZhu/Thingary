@@ -1,4 +1,3 @@
-import { hasLegacyPlan } from './planning-basic-view';
 // Development-only in-memory stand-in for the wealth commands used by
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
 // proves nothing about native storage or calculation.
@@ -23,7 +22,7 @@ import { allModules } from './modules';
 import { retirementSources } from './planning-basic-forms';
 import { bindCapabilityProvider } from './planning-basic-port';
 import type { CapabilityOptions } from './planning-basic-port';
-import type { Income, IncomeSave, Mark, ProfileSave, ProfileState, Reasons, StoredProfile } from './plan';
+import type { Income, IncomeSave, Mark, ProfileState, Reasons, StoredProfile } from './plan';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
 
@@ -278,7 +277,7 @@ if (coreScenario && planProfile && snapshots.length) {
   const s = snapshots[snapshots.length - 1], cash = accounts.find(a => a.fields.kind === 'cash')!, debt = accounts.find(a => a.fields.kind === 'loan')!;
   s.entries = s.entries.map(e => e.account_id === cash.id ? { ...e, amount_cents: '70000000' } : e.side === 'liability' ? { ...e, counted: true, amount_cents: e.account_id === debt.id && ['occurred','partial'].includes(coreScenario) ? '10000000' : '0' } : e);
   const r = planProfile.profile.retire;
-  r.saving_phases = [{ id: 'fx-confirmed', label: '明确净投入', from_age_months: 0, monthly_cents: 500000 }];
+  Object.assign(r, {saving_phases: [{ id: 'fx-confirmed', label: '明确净投入', from_age_months: 0, monthly_cents: 500000 }]});
   r.core = { ...emptyCore(s.date), hpf_monthly_cents: '300000', fund_rules: s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: e.kind === 'cash' ? 'available' : 'restricted', share_hundredths: 10000 })) };
   r.core.personal_pension_balance_confirmed = true;
   r.core.costs = [{ phase_id: 'fx-confirmed', source_id: 'personal_pension', included: false, reference_cents: '0' }];
@@ -321,6 +320,14 @@ function basicScenarioProfile(kind: string): ProfileState['saved'] {
   return { revision: 1, updated_at: new Date().toISOString(), profile: p };
 }
 if (basicScenario) planProfile = basicScenarioProfile(basicScenario);
+// Historical JSON fixtures use the same read boundary as native storage: facts survive,
+// old goals/budgets are not defaults and unoccurred intentions require reconfirmation.
+if (planProfile) {
+  const p=planProfile.profile,r=p.retire;
+  if (!r.basic) p.retire={...structuredClone(defaultRetire),core:r.core,life_events:r.life_events.map(e=>({...e,included:r.core?.occurrences.some(o=>o.status==='occurred'&&o.event_id===e.id)?e.included:false}))};
+  for (const key of ['saving_phases','route_id','route_from_age','gap_share_hundredths','gap_keeps_paying','legacy_definition']) delete (p.retire as Record<string,unknown>)[key];
+  if (p.retire.core) p.retire.core.costs=[];
+}
 let planWriteVersion = 1;
 const updateResults = new Map<string, NonNullable<ProfileState['saved']>>();
 let lostOnce = false;
@@ -351,8 +358,8 @@ function mergeSection(old: StoredProfile | null, u: ProfileUpdate): StoredProfil
   }
   if (u.section === 'basic') {
     const f = u.fields;
-    if (old && !old.retire.basic && hasLegacyPlan(old.retire)) { if (!f.confirm_legacy_replacement) throw { code: 'PLANNING_BASIC', message: '重设原规划须明确确认差异' }; p.retire.legacy_definition = { contract_version: 1, recorded_at: todayIso, birth_month: old.birth_month, monetary_basis_date: old.retire.core?.monetary_basis_date ?? null, assumptions: old.assumptions, spend_cents: old.retire.spend_cents, target_age: old.retire.target_age, horizon_age: old.retire.horizon_age, mode: old.retire.mode, real_return_before_hundredths: old.retire.real_return_before_hundredths, real_return_after_hundredths: old.retire.real_return_after_hundredths, volatility_hundredths: old.retire.volatility_hundredths, emergency_months: old.retire.emergency_months, saving_phases: old.retire.saving_phases, route_id: old.retire.route_id, route_from_age: old.retire.route_from_age, gap_share_hundredths: old.retire.gap_share_hundredths, gap_keeps_paying: old.retire.gap_keeps_paying, spend_items: old.retire.spend_items, income_items: old.retire.income_items, event_ids: old.retire.life_events.map(e => e.id), costs: old.retire.core?.costs ?? [], keep_paying_until_age: old.retire.keep_paying_until_age, keep_paying_monthly_cents: old.retire.keep_paying_monthly_cents, keep_paying_base_cents: old.retire.keep_paying_base_cents, rent_cents: old.retire.rent_cents }; }
-    else if (old?.retire.basic && old.retire.basic.contribution.id !== f.basic.contribution.id) throw { code: 'PLANNING_BASIC', message: '投入稳定ID不能替换' };
+    if (old?.retire.basic && old.retire.basic.contribution.id !== f.basic.contribution.id) throw { code: 'PLANNING_BASIC', message: '投入稳定ID不能替换' };
+    for (const key of ["saving_phases","route_id","route_from_age","gap_share_hundredths","gap_keeps_paying","legacy_definition"]) delete (p.retire as Record<string, unknown>)[key];
     core(f.monetary_basis_date); p.birth_month = f.birth_month; p.assumptions.inflation_hundredths = f.inflation_hundredths;
     Object.assign(p.retire, { basic: f.basic, spend_cents: f.spend_cents, target_age: f.target_age, horizon_age: f.horizon_age, mode: f.mode, real_return_before_hundredths: f.real_return_before_hundredths, real_return_after_hundredths: f.real_return_after_hundredths, volatility_hundredths: f.volatility_hundredths, emergency_months: f.emergency_months, setup_completed: true });
   } else if (u.section === 'pension') {
@@ -644,13 +651,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (planFail('income') && command === 'plan_income_list') throw { message: '虚构收入列表读取失败，用于验证首页摘要的局部降级。' };
     if (command === 'plan_profile') return { value: { generation, saved: planProfile } satisfies ProfileState };
     if (command === 'plan_profile_save') {
-      if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
-      const input = args.input as ProfileSave;
-      if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '虚构资料库已变化。' };
-      if (input.expected_revision !== (planProfile?.revision ?? null)) throw { code: 'REVISION_CONFLICT', message: '虚构个人资料已变化，请重新读取。' };
-      planProfile = { profile: input.profile, revision: (planProfile?.revision ?? 0) + 1, updated_at: new Date().toISOString() };
-      receipts.set(input.request_id, 'profile');
-      return { value: planProfile };
+      throw { code: 'PLANNING_SCOPED', message: '请使用分区更新；旧完整请求不能覆盖当前资料。' };
     }
     if (command === 'plan_income_list') return { value: { generation, rows: [...planIncomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date) || a.id.localeCompare(b.id)) } };
     if (command === 'plan_income_save') {

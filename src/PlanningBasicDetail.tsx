@@ -119,8 +119,7 @@ function BasicSidebar({ saved, caps, openSetup, onGoto, contribution }: { saved:
     <Card title="更多假设" onEdit={el => openSetup(0, el)} tip="全部是假设，不是事实。收益按扣除通胀后的实际收益填写。">
       <Rows rows={[['退休前 / 后实际收益', `${rateText(r.real_return_before_hundredths)} / ${rateText(r.real_return_after_hundredths)}`], ['通胀', rateText(p.assumptions.inflation_hundredths)], ['规划终点', `${r.horizon_age} 岁`], ['应急金', `${r.emergency_months} 个月`]]}/>
     </Card>
-    {r.legacy_definition && <details className="ui-card ui-content"><summary>查看以前的规划（只读）</summary><Card title="原规划假设（只读）" tip="改用通用方式前的原规划定义，原样保留可核对；不再参与通用测算。">
-      <Rows rows={[['记录于', r.legacy_definition.recorded_at], ['原目标', r.legacy_definition.target_age === null ? '未设定' : `${r.legacy_definition.target_age} 岁`], ['原储蓄阶段', `${r.legacy_definition.saving_phases.length} 段${r.legacy_definition.route_id ? ' · 含路线' : ''}`], ['原退休后预算', r.legacy_definition.spend_cents === null ? '未填写' : money(r.legacy_definition.spend_cents)]]}/></Card></details>}
+
   </div>;
 }
 

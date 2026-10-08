@@ -47,6 +47,53 @@ fn save(s: &Store, p: Profile, expected: Option<i64>) -> ProfileSave {
     }
 }
 
+// Compare objective sources, not retired forecast assumptions.
+fn assert_facts(a: &Profile, e: &Profile) {
+    let mut actual = serde_json::to_value(a).unwrap();
+    let mut expected = serde_json::to_value(e).unwrap();
+    actual.as_object_mut().unwrap().remove("retire");
+    expected.as_object_mut().unwrap().remove("retire");
+    assert_eq!(actual, expected);
+    assert_eq!(
+        a.retire.core.as_ref().map(|c| &c.occurrences),
+        e.retire.core.as_ref().map(|c| &c.occurrences)
+    );
+    assert_eq!(
+        a.retire.core.as_ref().map(|c| &c.fund_rules),
+        e.retire.core.as_ref().map(|c| &c.fund_rules)
+    );
+    let defs = |p: &Profile| {
+        p.retire
+            .life_events
+            .iter()
+            .map(|e| {
+                let mut v = serde_json::to_value(e).unwrap();
+                v.as_object_mut().unwrap().remove("included");
+                v
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(defs(a), defs(e));
+    assert!(a.retire.saving_phases.is_empty());
+    assert!(a.retire.route_id.is_none());
+    assert!(a.retire.legacy_definition.is_none());
+}
+fn event_update(s: &Store, p: &Profile, revision: i64) -> thingary_lib::plan_basic::Update {
+    let c = p.retire.core.as_ref().unwrap();
+    thingary_lib::plan_basic::Update {
+        request_id: rid(),
+        generation: s.generation(),
+        expected_revision: Some(revision),
+        section: thingary_lib::plan_basic::Section::Events(
+            thingary_lib::plan_basic::EventsFields {
+                life_events: p.retire.life_events.clone(),
+                occurrences: c.occurrences.clone(),
+                costs: vec![],
+            },
+        ),
+    }
+}
+
 #[test]
 fn profile_saves_once_then_by_revision_and_replays_requests() {
     let dir = tempfile::tempdir().unwrap();
@@ -62,7 +109,7 @@ fn profile_saves_once_then_by_revision_and_replays_requests() {
         "a retried request is a no-op"
     );
     let saved = s.plan_profile().unwrap().saved.unwrap();
-    assert_eq!(saved.profile, profile());
+    assert_facts(&saved.profile, &profile());
     assert!(chrono::DateTime::parse_from_rfc3339(&saved.updated_at).is_ok());
 
     // A second create (no expected revision) and a stale edit are both refused.
@@ -72,8 +119,20 @@ fn profile_saves_once_then_by_revision_and_replays_requests() {
     );
     let mut edited = profile();
     edited.paid_months = Some(60);
+    let full = save(&s, edited.clone(), Some(1));
+    assert_eq!(code(s.plan_profile_save(&full, TODAY)), "PLANNING_SCOPED");
+    let pension=serde_json::from_value(serde_json::json!({"section":"pension","fields":{
+        "birth_month":edited.birth_month,"worker":edited.worker,"region":edited.region,"paid_months":edited.paid_months,"account_balance_cents":edited.account_balance_cents,"base_cents":edited.base_cents,"past_index_hundredths":edited.past_index_hundredths,"flex_months":edited.flex_months,"personal_pension_annual_cents":edited.personal_pension_annual_cents,"marginal_tax_hundredths":edited.marginal_tax_hundredths,"wage_growth_hundredths":300,"pp_return_hundredths":200,"overrides":edited.overrides}})).unwrap();
     let ok = s
-        .plan_profile_save(&save(&s, edited.clone(), Some(1)), TODAY)
+        .plan_profile_update(
+            &thingary_lib::plan_basic::Update {
+                request_id: rid(),
+                generation: s.generation(),
+                expected_revision: Some(1),
+                section: pension,
+            },
+            TODAY,
+        )
         .unwrap();
     assert_eq!((ok.revision, ok.profile.paid_months), (2, Some(60)));
     assert_eq!(
@@ -270,7 +329,7 @@ fn a_stage_2_profile_without_retirement_fields_loads_with_defaults() {
     let mut s = Store::open(&dir.path().join("lib")).unwrap();
     s.plan_profile_save(&save(&s, custom.clone(), None), TODAY)
         .unwrap();
-    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, custom);
+    assert_facts(&s.plan_profile().unwrap().saved.unwrap().profile, &custom);
 }
 
 fn spend(id: &str) -> SpendItem {
@@ -316,7 +375,7 @@ fn a_profile_saved_before_plan_types_loads_and_new_fields_round_trip() {
             p.retire.target_age,
             p.retire.volatility_hundredths
         ),
-        ("fire", Some(50), 500)
+        ("fire", None, 500)
     );
     let mut custom = profile();
     custom.retire = Retire {
@@ -332,7 +391,7 @@ fn a_profile_saved_before_plan_types_loads_and_new_fields_round_trip() {
     let mut s = Store::open(&dir.path().join("lib")).unwrap();
     s.plan_profile_save(&save(&s, custom.clone(), None), TODAY)
         .unwrap();
-    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, custom);
+    assert_facts(&s.plan_profile().unwrap().saved.unwrap().profile, &custom);
 }
 
 #[test]
@@ -518,7 +577,7 @@ fn life_events_are_validated_and_round_trip() {
     ok.retire.life_events = vec![event("a"), event("b")];
     s.plan_profile_save(&save(&s, ok.clone(), None), TODAY)
         .unwrap();
-    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, ok);
+    assert_facts(&s.plan_profile().unwrap().saved.unwrap().profile, &ok);
 }
 
 #[test]
@@ -541,7 +600,7 @@ fn the_career_route_is_bounded_and_round_trips() {
     let mut s = Store::open(&dir.path().join("lib")).unwrap();
     s.plan_profile_save(&save(&s, p.clone(), None), TODAY)
         .unwrap();
-    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, p);
+    assert_facts(&s.plan_profile().unwrap().saved.unwrap().profile, &p);
     assert_eq!(Retire::default().route_id, None);
 }
 
@@ -746,18 +805,18 @@ fn core_committed_unknown_receipt_restart_restore_and_conflict_preserve_one_occu
     cancelled.retire.core.as_mut().unwrap().occurrences.clear();
     assert_eq!(
         code(s.plan_profile_save(&save(&s, cancelled, Some(1)), TODAY)),
-        "PLANNING_OCCURRENCE"
+        "PLANNING_SCOPED"
     );
     let mut basis = p.clone();
     basis.retire.core.as_mut().unwrap().monetary_basis_date = "2026-10-08".into();
     assert_eq!(
         code(s.plan_profile_save(&save(&s, basis, Some(1)), TODAY)),
-        "PLANNING_BASIS"
+        "PLANNING_SCOPED"
     );
     drop(s);
     let s = Store::open(&root).unwrap();
     let read = s.plan_profile().unwrap().saved.unwrap();
-    assert_eq!(read.profile, p);
+    assert_facts(&read.profile, &p);
     assert!(read.reference_issues.is_empty());
     let file = dir.path().join("fictional.thingary");
     s.backup(Some(&file)).unwrap();
@@ -767,7 +826,7 @@ fn core_committed_unknown_receipt_restart_restore_and_conflict_preserve_one_occu
     restored
         .restore(&file, &summary.hash, &restored.generation())
         .unwrap();
-    assert_eq!(restored.plan_profile().unwrap().saved.unwrap().profile, p);
+    assert_facts(&restored.plan_profile().unwrap().saved.unwrap().profile, &p);
     assert_eq!(
         restored
             .wealth_snapshot(&snapshot)
@@ -851,12 +910,12 @@ fn core_referenced_sources_cannot_delete_and_corrections_raise_read_time_missing
         .reference_issues
         .is_empty());
     assert_eq!(
-        code(s.plan_profile_save(&save(&s, p.clone(), Some(1)), TODAY)),
+        code(s.plan_profile_update(&event_update(&s, &p.clone(), 1), TODAY)),
         "PLANNING_SOURCE"
     );
     let payment = &mut p.retire.core.as_mut().unwrap().occurrences[0].payments[0];
     payment.amount_cents = Some("30000001".into());
-    s.plan_profile_save(&save(&s, p.clone(), Some(1)), TODAY)
+    s.plan_profile_update(&event_update(&s, &p.clone(), 1), TODAY)
         .unwrap();
     s.wealth_snapshot_save(
         &SnapshotSave {
@@ -883,11 +942,12 @@ fn core_referenced_sources_cannot_delete_and_corrections_raise_read_time_missing
         .reference_issues
         .is_empty());
     assert_eq!(
-        code(s.plan_profile_save(&save(&s, p.clone(), Some(2)), TODAY)),
+        code(s.plan_profile_update(&event_update(&s, &p.clone(), 2), TODAY)),
         "PLANNING_ABSORPTION"
     );
     p.retire.core.as_mut().unwrap().occurrences[0].payments[0].absorbed_revision = Some(2);
-    s.plan_profile_save(&save(&s, p, Some(2)), TODAY).unwrap();
+    s.plan_profile_update(&event_update(&s, &p, 2), TODAY)
+        .unwrap();
     assert!(s
         .plan_profile()
         .unwrap()
@@ -910,26 +970,21 @@ fn core_unknown_partial_duplicate_and_invalid_inputs_are_not_promoted_to_complet
     o.payments[0].absorbed_revision = None;
     s.plan_profile_save(&save(&s, p.clone(), None), TODAY)
         .unwrap();
-    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, p);
+    assert_facts(&s.plan_profile().unwrap().saved.unwrap().profile, &p);
     let mut dup = p.clone();
     let mut o = dup.retire.core.as_ref().unwrap().occurrences[0].clone();
     o.id = rid();
     dup.retire.core.as_mut().unwrap().occurrences.push(o);
     assert_eq!(
-        code(s.plan_profile_save(&save(&s, dup, Some(1)), TODAY)),
+        code(s.plan_profile_update(&event_update(&s, &dup, 1), TODAY)),
         "PLANNING_CORE"
     );
     let mut invalid = p.clone();
     invalid.retire.core.as_mut().unwrap().monetary_basis_date = "2026-02-30".into();
-    assert!(s
-        .plan_profile_save(&save(&s, invalid, Some(1)), TODAY)
-        .is_err());
+    assert!(invalid.validate(TODAY).is_err());
     let mut future = p.clone();
     future.retire.core.as_mut().unwrap().contract_version = 2;
-    assert_eq!(
-        code(s.plan_profile_save(&save(&s, future, Some(1)), TODAY)),
-        "PLANNING_VERSION"
-    );
+    assert_eq!(code(future.validate(TODAY)), "PLANNING_VERSION");
     let mut raw = serde_json::to_value(&p).unwrap();
     raw["retire"]["core"]["future_field"] = serde_json::json!(1);
     assert!(serde_json::from_value::<Profile>(raw).is_err());
@@ -1169,7 +1224,7 @@ fn core_payment_aliases_reject_and_legacy_duplicates_degrade_after_restore() {
     payment.source_kind = Some("asset".into());
     payment.source_id = Some(a2.asset.id);
     assert_eq!(
-        s.plan_profile_save(&save(&s, two.clone(), Some(1)), TODAY)
+        s.plan_profile_update(&event_update(&s, &two, 1), TODAY)
             .unwrap()
             .revision,
         2
@@ -1181,7 +1236,10 @@ fn core_payment_aliases_reject_and_legacy_duplicates_degrade_after_restore() {
     restored
         .restore(&good_file, &info.hash, &restored.generation())
         .unwrap();
-    assert_eq!(restored.plan_profile().unwrap().saved.unwrap().profile, two);
+    assert_facts(
+        &restored.plan_profile().unwrap().saved.unwrap().profile,
+        &two,
+    );
     assert!(restored
         .plan_profile()
         .unwrap()
@@ -1207,7 +1265,7 @@ fn core_payment_aliases_reject_and_legacy_duplicates_degrade_after_restore() {
     drop(db);
     let s = Store::open(&root).unwrap();
     let legacy = s.plan_profile().unwrap().saved.unwrap();
-    assert_eq!(legacy.profile, p);
+    assert_facts(&legacy.profile, &p);
     assert!(legacy
         .reference_issues
         .iter()
@@ -1241,7 +1299,7 @@ fn guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restor
     assert!(!legacy.retire.setup_completed);
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(&dir.path().join("library")).unwrap();
-    let (mut p, _, _) = core_fixture(&mut s);
+    let (p, _, _) = core_fixture(&mut s);
     s.plan_income_save(
         &Save {
             request_id: rid(),
@@ -1262,11 +1320,16 @@ fn guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restor
         .unwrap();
     let facts = serde_json::json!({"accounts":s.wealth_accounts().unwrap(),"wealth":s.wealth_summary().unwrap(),"review":s.plan_review().unwrap(),"income":s.plan_income_list().unwrap()});
     let occurrences = p.retire.core.as_ref().unwrap().occurrences.clone();
-    p.retire.setup_completed = true;
-    p.retire.route_id = None;
-    p.retire.spend_cents = Some("120000".into());
-    s.plan_profile_save(&save(&s, p.clone(), Some(1)), TODAY)
-        .unwrap();
+    let mut update: thingary_lib::plan_basic::Update = serde_json::from_str(include_str!(
+        "../../tests/fixtures/planning-basic/update.json"
+    ))
+    .unwrap();
+    update.request_id = rid();
+    update.generation = s.generation();
+    update.expected_revision = Some(1);
+    let general = s.plan_profile_update(&update, TODAY).unwrap();
+    assert!(general.profile.retire.basic.is_some());
+    assert!(general.profile.retire.legacy_definition.is_none());
     assert_eq!(
         facts,
         serde_json::json!({"accounts":s.wealth_accounts().unwrap(),"wealth":s.wealth_summary().unwrap(),"review":s.plan_review().unwrap(),"income":s.plan_income_list().unwrap()})
@@ -1291,7 +1354,10 @@ fn guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restor
     restored
         .restore(&file, &summary.hash, &restored.generation())
         .unwrap();
-    assert_eq!(restored.plan_profile().unwrap().saved.unwrap().profile, p);
+    assert_eq!(
+        restored.plan_profile().unwrap().saved.unwrap().profile,
+        general.profile
+    );
     let mut after = serde_json::json!({"accounts":restored.wealth_accounts().unwrap(),"wealth":restored.wealth_summary().unwrap(),"review":restored.plan_review().unwrap(),"income":restored.plan_income_list().unwrap()});
     for key in ["wealth", "review", "income"] {
         after[key]["generation"] = facts[key]["generation"].clone();
@@ -1409,15 +1475,7 @@ fn basic_reset_preserves_single_core_occurrence_payment_and_existing_account_sna
         new.profile.retire.life_events,
         old.profile.retire.life_events
     );
-    assert_eq!(
-        new.profile
-            .retire
-            .legacy_definition
-            .as_ref()
-            .unwrap()
-            .event_ids,
-        vec!["event"]
-    );
+    assert!(new.profile.retire.legacy_definition.is_none());
     assert_eq!(
         serde_json::to_value(s.wealth_accounts().unwrap()).unwrap(),
         before_accounts

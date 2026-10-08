@@ -11,5 +11,5 @@ test('P1: strict TS fixture and native JSON DTO are identical; unknown is not ex
 test('P1: persisted basic inputs do not manufacture a complete pension profile or convert legacy on read',()=>{
  const p={birth_month:'1990-06',worker:null,region:null,paid_months:null,account_balance_cents:null,base_cents:null,flex_months:null,personal_pension_annual_cents:null,marginal_tax_hundredths:null,retire:{basic:unknownBasicUpdate.fields.basic}};
  assert.equal(hasPensionProfile(p),false); assert.equal(planningMode(p),'basic');
- assert.equal(planningMode({...p,retire:{}}),'legacy');
+ assert.equal(planningMode({...p,retire:{}}),'none');
 });

@@ -381,7 +381,7 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
             &date,
         )?;
     }
-    let profile = serde_json::from_value(serde_json::json!({
+    let profile: crate::plan_profile::Profile = serde_json::from_value(serde_json::json!({
         "birth_month": "1990-06", "worker": "male", "region": "beijing",
         "paid_months": 48, "account_balance_cents": "5000000", "base_cents": "2000000",
         "past_index_hundredths": null, "flex_months": 0,
@@ -396,11 +396,6 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
             "income_items": [
                 { "id": "demo-annuity", "label": "企业年金", "monthly_cents": "120000", "start_age": 60, "end_age": null, "indexed": false }
             ],
-            "saving_phases": [
-                { "id": "demo-work", "label": "稳定工作", "from_age_months": 0, "monthly_cents": 800000 },
-                { "id": "demo-gap", "label": "换工作空窗", "from_age_months": 468, "monthly_cents": -500000 },
-                { "id": "demo-back", "label": "恢复收入", "from_age_months": 474, "monthly_cents": 800000 }
-            ],
             "life_events": [
                 { "id": "demo-car", "label": "换车", "kind": "car", "date": day(now.checked_add_months(Months::new(18)).expect("bounded sample date"))[..7], "included": true,
                   "price_cents": "20000000", "down_cents": "6000000", "extra_cents": "1000000",
@@ -409,12 +404,36 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
             ]
         }
     }))?;
-    s.plan_profile_save(
-        &crate::plan_profile::ProfileSave {
+    let base = &profile.retire;
+    let section = serde_json::from_value(serde_json::json!({
+        "section":"setup","fields":{
+            "basic": {"birth_month":profile.birth_month,"spend_cents":"750000","target_age":60,"horizon_age":90,"mode":"traditional",
+                "real_return_before_hundredths":300,"real_return_after_hundredths":200,"volatility_hundredths":500,"emergency_months":6,"inflation_hundredths":200,"monetary_basis_date":date,
+                "basic":{"contract_version":1,"start":{"kind":"live"},"contribution":{"id":"demo-contribution","monthly_cents":"800000"},"retirement_income":{"mode":"excluded","selected":[]},
+                    "pension_contributions":{"start_month":null,"stop_month":null,"base_cents":null},"contribution_costs":[],"retirement_costs":[]}},
+            "pension": {"birth_month":profile.birth_month,"worker":profile.worker,"region":profile.region,"paid_months":profile.paid_months,"account_balance_cents":profile.account_balance_cents,"base_cents":profile.base_cents,"past_index_hundredths":profile.past_index_hundredths,"flex_months":profile.flex_months,"personal_pension_annual_cents":profile.personal_pension_annual_cents,"marginal_tax_hundredths":profile.marginal_tax_hundredths,"wage_growth_hundredths":200,"pp_return_hundredths":200,"overrides":profile.overrides},
+            "budget": null,"funds":null
+        }
+    }))?;
+    let saved = s.plan_profile_update(
+        &crate::plan_basic::Update {
             request_id: rid("plan-profile"),
-            generation,
+            generation: generation.clone(),
             expected_revision: None,
-            profile,
+            section,
+        },
+        &date,
+    )?;
+    s.plan_profile_update(
+        &crate::plan_basic::Update {
+            request_id: rid("plan-events"),
+            generation,
+            expected_revision: Some(saved.revision),
+            section: crate::plan_basic::Section::Events(crate::plan_basic::EventsFields {
+                life_events: base.life_events.clone(),
+                occurrences: vec![],
+                costs: vec![],
+            }),
         },
         &date,
     )?;

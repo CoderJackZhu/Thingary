@@ -33,7 +33,7 @@ npm run dev -- --port 1429
 | `?recurring=empty`、`?recurring=error` | 周期费用状态 |
 | `?merge=1` | 周期费用／虚拟资产页顶部的旧订阅合并提示与确认弹窗（一对虚构候选，确认后本次预览不再出现） |
 | `?link=error` | 关联订阅详情／整组删除预览的读取失败 |
-| `?section=planning`、`&plan=empty`、`&plan=error`、`&plan=reasons-error`、`&plan-profile=empty`、`&plan-budget=set`（虚构月预算 5000 元，也可传非负元数如 `&plan-budget=6000`）、`&plan-mode=traditional`（传统类型、期望 60 岁）、`&plan-items=1`（虚构医疗、旅行支出与企业年金收入）、`&plan-return=1`（实际收益率 1.5%／1%）、`&plan-phases=1`（虚构储蓄阶段：空窗、有收入、清闲）、`&plan-route=soe`（35 岁起选国企路线，可选 soe／civil／tech／flex）、`&plan-events=1`（虚构大额计划：北京买房、老家全款买房、二手车）、`&plan-wishes=dates`（心愿设日期：未来、已过、无价格） | 规划页：虚构月度收入、无收入、读取失败、复盘「原因」区局部失败、养老金页尚未填写个人资料 |
+| `?section=planning&plan-basic=blank|unknown|negative|saved|beijing-complete`，数值验收另加 `&capabilities=real`；`&plan=error`、`&plan-profile=empty`、`&state=save-error`；旧载荷夹具 `&plan-phases=1&plan-route=soe&plan-budget=set` | 通用目标、投入未知／负值、已保存及北京缴费、读取／保存错误；旧载荷应显示待重新设置，阶段／路线不是活动功能 |
 | `?plan-fail=profile`、`?plan-fail=review`、`?plan-fail=income`、`?plan-fail=snapshot` | 首页规划来源局部读取失败；成功的历史储蓄可独立保留 |
 | `?section=recurring&recurring-fixture=layout` | 长名称、历史订阅费用与未设置服务覆盖期的计划，检查窄窗口换行 |
 | `?theme=dark`、`?no-photos` | 深色与缺少照片 |
@@ -47,7 +47,7 @@ npm run dev -- --port 1429
 
 ### 规划核算与实际发生预览
 
-在独立开发树运行 `npm run dev -- --port 1429`，访问 `http://127.0.0.1:1429/visual-preview.html?section=planning&plan-budget=set&plan-core=confirmed`。`plan-core=occurred` 展示虚构已吸收首付／余债接续；`partial` 展示部分付款缺项；`overdue` 展示逾期待核对。去掉 `plan-core` 可核对旧自动参考／规则缺省；`state=empty`、`plan=error` 与 `state=save-error` 检查空、读取失败和保存失败。全部是内存夹具，刷新重置，不代表原生或持久化验收。
+在独立开发树运行 `npm run dev -- --port 1429`，访问 `http://127.0.0.1:1429/visual-preview.html?section=planning&plan-basic=saved&capabilities=real&plan-core=confirmed`。`plan-core=occurred` 展示虚构已吸收首付／余债接续；`partial` 展示部分付款缺项；`overdue` 展示逾期待核对。去掉 `plan-basic` 可核对无通用输入时待重新设置；`state=empty`、`plan=error` 与 `state=save-error` 检查空、读取失败和保存失败。全部是内存夹具，刷新重置，不代表原生或持久化验收。
 
 `tests/planning-core.test.mjs` 覆盖资产事实、分池、已含费用、余债与首月顺序。
 
@@ -113,7 +113,7 @@ npm run tauri -- build --bundles app
 
 ### 规划首次设置验收
 
-`tests/planning-setup.test.mjs` 覆盖草稿无副作用、未知与明确零、负数阶段、费用包含关系、实际付款 ID 保留及资产事实不变。Rust `guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restore` 覆盖旧资料兼容、规划保存前后账户／盘点／收入／复盘不变与备份恢复。虚构预览 `/visual-preview.html?section=planning&plan-budget=set&plan-route=soe&plan-events=1` 用于旧计划的首次引导；`plan-profile=empty`、`state=save-error` 用于空白与保存错误。检查跳过、返回步骤、重复进入、账户名称、1440×940 与 800×600、键盘和保存后刷新。原生验收使用独立身份，不打开正式资料库。
+`tests/planning-basic-ui.test.mjs`、`planning-basic-service-integration.test.mjs` 和 `planning-basic-consumers-integration.test.mjs` 覆盖四步设置、未知／零／负数、草稿无副作用和原回执防覆盖。Rust `src-tauri/tests/planning_basic.rs` 覆盖旧资料只读适配、事实与稳定ID保全、旧备份恢复、旧回执重放及完整保存事务；`plan_profile.rs` 覆盖付款、吸收关系、余债与来源引用。旧阶段／路线夹具应显示「待重新设置」，目标／预算／投入不得自动带入。浏览器覆盖正常、未知、空白和错误状态，同尺寸比较新旧入口；截图或原生功能未完成时记录限制。原生使用独立身份，数据必须虚构。
 
 
 ## 通用规划基础联合验收
@@ -124,7 +124,7 @@ npm run tauri -- build --bundles app
 
 ## 固定当前收支工具与收益对照
 
-运行`npm run test:ui`覆盖`plan-runway.test.mjs`及`planning-basic-consumers-integration.test.mjs`。重点核对空白不等于零、月初支付／月底到账、现金流持平仍可能触底、无法支付时仍有余额、所选检查期、无目标手填入口和临时输入不写入。基础风险页只显示六个通用压力条件；旧版保留职业测试，但完整预算及零终点说明与计算一致。收益升／降200 bps均局部反求，越界不计算，也不回写预计投入。界面验收只用隔离身份和虚构资料，记录原生与浏览器证据；VoiceOver／真实中文输入法及完整主题窗口矩阵不能由自动检查推定通过。
+运行`npm run test:ui`覆盖`plan-runway.test.mjs`及`planning-basic-consumers-integration.test.mjs`。重点核对空白不等于零、月初支付／月底到账、现金流持平仍可能触底、无法支付时仍有余额、所选检查期、无目标手填入口和临时输入不写入。基础风险页只构建六个通用压力条件；无旧职业估算路径，但完整预算及零终点说明与计算一致。收益升／降200 bps均局部反求，越界不计算，也不回写预计投入。界面验收只用隔离身份和虚构资料，记录原生与浏览器证据；VoiceOver／真实中文输入法及完整主题窗口矩阵不能由自动检查推定通过。
 
 ### 规划源码来源回归
 

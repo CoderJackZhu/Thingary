@@ -19,7 +19,7 @@ import { basicInput, budgetInput, contributionSources, draftOf, fundsInput, inco
 import type { CostSource, Draft, IncomeMode, ScopeDraft } from './planning-basic-forms';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
 import type { SectionInput } from './planning-basic-data';
-import { amountState, hasLegacyPlan, missingText, setupStepFor } from './planning-basic-view';
+import { amountState, missingText, setupStepFor } from './planning-basic-view';
 
 const steps = ['想过怎样的生活', '用哪些钱来准备', '看看每月要存多少', '确认计划'];
 type Saved = ProfileState['saved'];
@@ -27,7 +27,6 @@ type Saved = ProfileState['saved'];
 /** Skippable four-step setup. Nothing is written until the last step; closing, Esc and "skip" never save a draft. */
 export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload, onPending, onClose, initialStep = 0 }: { sources: PlanningSources; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: (saved: boolean) => void; initialStep?: number }) {
   const saved: Saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
-  const legacy = !!saved && !saved.profile.retire.basic && hasLegacyPlan(saved.profile.retire);
   const dialog = useRef<HTMLDialogElement>(null), heading = useRef<HTMLHeadingElement>(null);
   const [step, setStep] = useState(initialStep), [d, setD] = useState(() => withDefaults(draftOf(saved, snapshot, today), saved)), [notice, setNotice] = useState('');
   const saver = useSectionSaver(sources, reload, onPending);
@@ -61,7 +60,6 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   }
   async function save() {
     if (frozen) return;
-    if (legacy && !d.confirmLegacy) { setNotice('请先确认改用通用方式，原规划的假设会保留为只读。'); return; }
     if (built.error) { setNotice(built.error); return; }
     const fields: import('./plan').SetupFields = { basic: (basicInput(d, saved, today) as Extract<SectionInput, { section: 'basic' }>).fields, budget: null, funds: null, pension: null };
     for (const { input } of built.sections) {
@@ -75,7 +73,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   const missing = preview.status === 'ready' ? [...(preview.caps.requirement.status === 'blocked' ? preview.caps.requirement.missing : []), ...(preview.caps.funds.status === 'blocked' ? preview.caps.funds.missing : [])] : [];
 
   return <dialog ref={dialog} className="editor wealth-account-editor planning-setup-dialog" aria-labelledby="setup-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); if (step === 3) void save(); else if (step === 2) setStep(3); else next(); }}>
-    <header><div><p className="eyebrow">{legacy ? '使用简化规划' : '开始规划'} · {step + 1} / {steps.length}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 0 ? '没想好的先留空，不会当作 0 保存。可以随时关闭，先去记录收入或查看复盘。' : step === 3 ? '直接确认就可以。每月能存多少是选填，没想好可以以后再说。' : '这里设置的是假设，随时可以修改。'}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
+    <header><div><p className="eyebrow">开始规划 · {step + 1} / {steps.length}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 0 ? '没想好的先留空，不会当作 0 保存。可以随时关闭，先去记录收入或查看复盘。' : step === 3 ? '直接确认就可以。每月能存多少是选填，没想好可以以后再说。' : '这里设置的是假设，随时可以修改。'}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
     <nav className="planning-setup-steps" aria-label="设置步骤">{steps.map((s, i) => <span key={s} aria-current={i === step ? 'step' : undefined}>{i + 1}. {s}</span>)}</nav>
     <div className="planning-setup-body">
       {step === 0 && <GoalStep d={d} patch={patch} frozen={frozen} now={now} history={history} sources={r ? retirementSources(r, d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null) : []}/>}
@@ -85,10 +83,10 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
         {built.error ? <article className="ui-card ui-content" role="alert"><p>{built.error}</p><button type="button" className="ui-btn" onClick={() => setStep(0)}>回到目标与预算</button></article>
           : preview.status === 'ready' ? <RequirementCard caps={preview.caps} onOwner={jump} busy={frozen}/> : <CapabilityNotice result={preview}/>}
       </>}
-      {step === 3 && <ConfirmStep d={d} patch={patch} frozen={frozen} history={history} legacy={legacy} previewMissing={missing} sources={r ? contributionSources(r, saved?.profile.personal_pension_annual_cents ?? null) : []} hasBeijing={d.incomeMode === 'beijing'}/>}
+      {step === 3 && <ConfirmStep d={d} patch={patch} frozen={frozen} history={history} previewMissing={missing} sources={r ? contributionSources(r, saved?.profile.personal_pension_annual_cents ?? null) : []} hasBeijing={d.incomeMode === 'beijing'}/>}
     </div>
     {(notice || saver.notice) && <p className="notice setup-notice" role="alert">{[notice, saver.notice].filter(Boolean).join(' ')}</p>}
-    <footer className="planning-setup-footer"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : saved?.profile.retire.basic ? '取消本次修改' : legacy ? '取消，保持原规划' : '暂时跳过'}</button><span>{step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : step === 3 ? (legacy ? '确认并使用简化规划' : '确认并保存') : step === 2 ? '下一步：确认计划' : '下一步'}</button></span></footer>
+    <footer className="planning-setup-footer"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : saved?.profile.retire.basic ? '取消本次修改' : '暂时跳过'}</button><span>{step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : step === 3 ? '确认并保存' : step === 2 ? '下一步：确认计划' : '下一步'}</button></span></footer>
   </form></dialog>;
 }
 
@@ -201,7 +199,7 @@ function NewIncome({ onAdd, onCancel }: { onAdd: (i: Draft['incomeItems'][number
 }
 
 const historyHas = (h: History) => h.saving !== null;
-function ConfirmStep({ d, patch, frozen, history, legacy, previewMissing, sources, hasBeijing }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; history: History; legacy: boolean; previewMissing: PlanningMissing[]; sources: CostSource[]; hasBeijing: boolean }) {
+function ConfirmStep({ d, patch, frozen, history, previewMissing, sources, hasBeijing }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; history: History; previewMissing: PlanningMissing[]; sources: CostSource[]; hasBeijing: boolean }) {
   const [expanded, setExpanded] = useState(d.contribution !== '' || historyHas(history));
   const state = amountState(d.contribution === '' ? null : d.contribution);
   const incomeText = { '': '还没选择（选好后才能算需求）', excluded: '本次不计', manual: `手填的 ${d.incomeItems.filter(i => d.picks[i.id]?.on).length} 笔收入`, beijing: '北京养老金估算' }[d.incomeMode];
@@ -225,8 +223,6 @@ function ConfirmStep({ d, patch, frozen, history, legacy, previewMissing, source
     {previewMissing.length > 0 && <div className="plan-missing" role="status"><strong>之后还可以补充：</strong><ul>{previewMissing.map(m => <li key={m.code + m.field}>{missingText(m)}</li>)}</ul></div>}
     {hasBeijing && <p className="muted small">养老金事实与未来缴费作为独立资料保存，之后可在「养老金」页修改。</p>}
     <p className="muted small">只保存规划设置。账户、盘点、实际收入、已记录的付款与余债不会改变。</p></section>
-    {legacy && <section className="form-block plan-legacy-confirm" aria-label="与原规划的差异"><h3>与原规划的差异</h3>
-      <ul><li>原规划使用储蓄阶段与路线；通用方式不使用，也不会把旧阶段平均成一个投入。</li><li>预计投入重新留空，由你明确填写后才用于预测。</li><li>原规划的假设与结果会保留为只读，可随时查看；你的事实资料不变。</li></ul>
-      <label><input type="checkbox" aria-label="确认改用通用方式" checked={d.confirmLegacy} disabled={frozen} onChange={e => patch({ confirmLegacy: e.target.checked })}/> 我已了解差异，保存后改用通用方式</label></section>}
+
   </>;
 }

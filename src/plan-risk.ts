@@ -101,7 +101,7 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
 }
 
 // ---- 压力测试 ----
-export type StressId = 'return-drag' | 'inflation-shock' | 'spending-shock' | 'retire-earlier' | 'save-less' | 'income-drop' | 'job-gap' | 'raise-30' | 'raise-double' | 'early-crash';
+export type StressId = 'return-drag' | 'inflation-shock' | 'spending-shock' | 'retire-earlier' | 'save-less' | 'early-crash';
 export type Severity = 'low' | 'medium' | 'high';
 export type StressResult = {
   id: StressId; label: string; description: string;
@@ -117,16 +117,8 @@ export const stressLabels: Record<StressId, { label: string; description: string
   'spending-shock': { label: '支出增加', description: '退休预算分项增加 10%，固定事件付款保持原额。' },
   'retire-earlier': { label: '提前 2 年退休', description: '目标退休年龄提前两年，不早于现在。' },
   'save-less': { label: '缴款减少', description: '每月缴款减少 25%。' },
-  'income-drop': { label: '收入骤降', description: '三年后起，每月储蓄减半（已经为负的阶段不变）。' },
-  'raise-30': { label: '跳槽涨薪 30%', description: '三年后起，每月储蓄在有收入的阶段增加 30%（上行情形）。' },
-  'raise-double': { label: '收入翻倍', description: '五年后起，有收入阶段的每月储蓄翻倍（上行情形，行业好、晋升或跳槽成功）。' },
-  'job-gap': { label: '一年后失业一年', description: '一年后有 12 个月没有收入，期间每月动用存款付全部必需支出（日常生活、房租、续缴社保、房贷等）。' },
   'early-crash': { label: '退休初期市场下跌', description: '假设退休第一年市场下跌 30%。' },
 };
-
-/** 预设了几年后涨薪、降薪或失业的情景。基础模型不预设职业走向，基础版的假设分析不展示它们。 */
-export const careerStressIds: readonly StressId[] = ['income-drop', 'raise-30', 'raise-double', 'job-gap'];
-export const withoutCareerStress = (results: StressResult[]) => results.filter(r => !careerStressIds.includes(r.id));
 
 const evaluate = (P: Plan, year: number): Outcome => outcome(P, project(P, year));
 
@@ -200,10 +192,6 @@ export function stressTests(P: Plan, year: number): StressResult[] {
     { id: 'retire-earlier', apply: p => ({ ...p, target_months: Math.max(p.now_months + 12, p.target_months - 24) }) },
     { id: 'save-less', apply: p => scaleSaving(p, 0.75) },
     { id: 'early-crash', apply: p => p, after: crashReturns(P, { 0: -0.3 }) },
-    { id: 'income-drop', apply: p => saveFrom(p, p.now_months + 36, 0.5) },
-    { id: 'job-gap', apply: p => gapAt(p, p.now_months + 12, 12, -(table(p).essential[12] ?? p.items[0]?.monthly_cents ?? 0)) },
-    { id: 'raise-30', apply: p => saveFrom(p, p.now_months + 36, 1.3) },
-    { id: 'raise-double', apply: p => saveFrom(p, p.now_months + 60, 2) },
   ];
   return cases.map(test => {
     const candidate = test.apply(P);
@@ -221,7 +209,7 @@ export function stressTests(P: Plan, year: number): StressResult[] {
 const severityRank: Record<Severity, number> = { low: 0, medium: 1, high: 2 };
 /** 影响最大的一项：先比严重程度，再比缺口增加，再比财务独立推迟。没有任何实质影响时返回 null。 */
 export function largestRisk(results: StressResult[]): StressResult | null {
-  const sorted = results.filter(r => r.id !== 'raise-30' && r.id !== 'raise-double').sort((a, b) => severityRank[b.severity] - severityRank[a.severity] || b.shortfall_delta - a.shortfall_delta || (b.fi_delay_months ?? 0) - (a.fi_delay_months ?? 0));
+  const sorted = results.slice().sort((a, b) => severityRank[b.severity] - severityRank[a.severity] || b.shortfall_delta - a.shortfall_delta || (b.fi_delay_months ?? 0) - (a.fi_delay_months ?? 0));
   const top = sorted[0];
   return top && (top.severity !== 'low' || top.shortfall_delta > 0 || (top.fi_delay_months ?? 0) > 0) ? top : null;
 }

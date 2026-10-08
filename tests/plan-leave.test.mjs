@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRetireCalc, keepFor, leaveCost } from '../src/plan-retire-calc.ts';
 import { pensionTable } from '../src/plan-fire.ts';
 import { project } from '../src/plan-pension.ts';
 import { eventParts } from '../src/plan-events.ts';
@@ -40,47 +39,4 @@ test('gap months that stop contributions lower the contribution months, the prov
   const half = project(profile, region, TODAY, 756, funds, [], () => 0.5);
   assert.equal(full.total_paid_months - half.total_paid_months, Math.round((756 - 436) / 2));
   assert.deepEqual(project(profile, region, TODAY, 756, funds, [], () => 0), full, 'no idle share changes nothing');
-});
-
-test('which months count as gap months: negative saving phases, the average share, a route, or none when you keep paying', () => {
-  const phases = [{ id: 'a', label: '空窗', from_age_months: 0, monthly_cents: -600_000 }, { id: 'b', label: '有收入', from_age_months: 440, monthly_cents: 1_700_000 }];
-  const r = { ...defaultRetire, saving_phases: phases, gap_share_hundredths: 1000 };
-  const idle = keepFor(r, 436).idle;
-  assert.deepEqual([idle(436), idle(440), idle(600)], [1, 0.1, 0.1]);
-  assert.equal(keepFor({ ...defaultRetire }, 436).idle(500), 0, 'no phases, no gap');
-  const routed = keepFor({ ...r, route_id: 'tech', route_from_age: 40 }, 436).idle;
-  assert.deepEqual([routed(450), routed(480)], [0.1, 0.15]);
-  assert.equal(keepFor({ ...r, gap_keeps_paying: true }, 436).idle, undefined);
-  const k = keepFor({ ...defaultRetire, keep_paying_until_age: 60, keep_paying_base_cents: '727000' }, 436);
-  assert.deepEqual([k.keepUntil, k.base], [720, 727000]);
-  assert.deepEqual([keepFor(defaultRetire, 436).keepUntil], [null]);
-});
-
-test('rent and self-paid insurance are essential spending after leaving, and a house purchase takes over the rent', () => {
-  const r = buildRetireCalc(saved({ rent_cents: '600000', keep_paying_until_age: 55, keep_paying_monthly_cents: '212000', keep_paying_base_cents: '727000' }), snapshot, review, [], TODAY);
-  const T = table(r.plan);
-  assert.equal(T.essential[0], 500_000 + 600_000 + 212_000);
-  const at55 = (55 * 12 - r.now);
-  assert.equal(T.essential[at55 - 1], 1_312_000, 'still paying the month before 55');
-  assert.equal(T.essential[at55], 1_100_000, 'after the self-paid years only the rent is left');
-  assert.equal(r.emergency.covered_months, r.assets / 1_312_000, 'the emergency line counts every essential cost');
-  // 买房：购买月起房租取消，取消额不超过房租本身。
-  const house = { id: 'h', label: '房', kind: 'house', date: '2030-01', included: true, price_cents: 0, down_cents: 0, extra_cents: 0, loan_rate_hundredths: 0, loan_years: 0, holding_cents: 0, rent_saved_cents: 900_000, cycle_years: null, until_age: null, resale_cents: 0 };
-  const parts = eventParts(r.plan, house, 40);
-  const cancel = parts.spend_flows.find(f => f.label.includes('不再付房租'));
-  assert.equal(cancel.cents, -600_000);
-  assert.equal(eventParts({ ...r.plan, rent_cents: 0 }, house, 40).spend_flows.some(f => f.label.includes('不再付房租')), false);
-});
-
-test('without the new inputs nothing changes: no extra flows and no idle months', () => {
-  const r = buildRetireCalc(saved({}), snapshot, review, [], TODAY);
-  assert.deepEqual(r.plan.spend_flows, []);
-  assert.equal(leaveCost(defaultRetire, 500_000), 500_000);
-  assert.equal(table(r.plan).essential[0], 500_000);
-});
-
-test('while gap months keep paying, the self-paid cost is part of what a jobless month costs', () => {
-  const r = { ...defaultRetire, rent_cents: '600000', keep_paying_monthly_cents: '212000', gap_keeps_paying: true };
-  assert.equal(leaveCost(r, 500_000), 1_312_000);
-  assert.equal(leaveCost({ ...r, gap_keeps_paying: false }, 500_000), 1_100_000);
 });

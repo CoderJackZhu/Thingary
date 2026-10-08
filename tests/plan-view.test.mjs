@@ -96,17 +96,16 @@ test('snapshot rows scale by the inflation at the start of each row', () => {
 test('range rows put the base case beside the income shocks; checkpoints show what must be saved before the saving drops', () => {
   const P = plan({ saving_phases: [{ from_month: 436, cents: 1500 }, { from_month: 520, cents: 600 }], now_months: 436, target_months: 760, mode: 'fire' });
   const proj = project(P, 2026), base = outcome(P, proj), rows = rangeRows(P, stressTests(P, 2026), base);
-  assert.deepEqual(rows.map(r => r.id), ['base', 'raise-double', 'raise-30', 'income-drop', 'job-gap', 'save-less']);
-  assert.ok(rows.slice(1, 3).every(r => r.late_months === null || r.late_months <= 0));
-  assert.ok(rows.slice(3).every(r => r.late_months === null || r.late_months >= 0));
+  assert.deepEqual(rows.map(r => r.id), ['base', 'return-drag', 'inflation-shock', 'spending-shock', 'save-less']);
+  assert.ok(rows.slice(1).every(r => r.late_months === null || r.late_months >= 0));
   const cps = checkpoints(P, proj);
   assert.equal(cps.length, 1);
   assert.equal(cps[0].month, 520);
   assert.equal(cps[0].label, '储蓄下降前');
   assert.ok(cps[0].need > 0 && cps[0].expected > 0);
-  // 没有储蓄下降时给 35 岁参考；已过去或在目标之后的检查点不出现。
+  // 没有显式储蓄下降时不增加职业年龄参考；已过去或在目标之后的检查点不出现。
   const flat = plan({ now_months: 360, target_months: 600 });
-  assert.deepEqual(checkpoints(flat, project(flat, 2026)).map(c => c.month), [420]);
+  assert.deepEqual(checkpoints(flat, project(flat, 2026)).map(c => c.month), []);
   assert.deepEqual(checkpoints(plan({ now_months: 440 }), project(plan({ now_months: 440 }), 2026)), []);
 });
 

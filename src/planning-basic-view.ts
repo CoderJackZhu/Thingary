@@ -2,19 +2,15 @@
 // every number comes from the shared contract (capabilities / saved inputs) and is only worded.
 import { durationText } from './plan-view.ts';
 import type { RunwayResult } from './plan-runway.ts';
-import type { BasicCapabilities, BasicInputs, PlanningMissing, ProfileState, RequirementResult, RetireInputs } from './plan.ts';
+import type { BasicCapabilities, BasicInputs, PlanningMissing, ProfileState, RequirementResult } from './plan.ts';
 
-export type PlanMode = 'none' | 'legacy' | 'basic';
+export type PlanMode = 'none' | 'basic';
 type Saved = ProfileState['saved'];
 
-/** A saved profile without `basic` is the original plan only when someone actually set one up; a pension-only profile is not. */
-export function hasLegacyPlan(r: RetireInputs): boolean {
-  return !!r.setup_completed || r.saving_phases.length > 0 || r.route_id !== null || r.spend_cents !== null || r.spend_items.length > 0 || r.income_items.length > 0 || r.life_events.length > 0;
-}
 export function modeOf(saved: Saved): PlanMode {
   if (!saved) return 'none';
   const r = saved.profile.retire;
-  return r.basic ? 'basic' : hasLegacyPlan(r) ? 'legacy' : 'none';
+  return r.basic ? 'basic' : 'none';
 }
 
 export type ContributionState = 'unknown' | 'zero' | 'positive' | 'negative';
