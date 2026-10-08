@@ -184,3 +184,16 @@ export function ageMonthsAt(sources: PlanningSources, month: string): number | n
   return p?.birth_month ? monthIndex(month) - monthIndex(p.birth_month) : null;
 }
 function profileOf(sources: PlanningSources) { return sources.profile.status === 'ready' ? sources.profile.value.saved?.profile ?? null : null; }
+
+/** Fill only the still-unconfirmed contribution fields with the optimistic reading (contributions continue, nothing paid by the user),
+ *  so an answer can be shown early. The caller must say so: this is a placeholder, replaced as soon as the real choices are filled. */
+export function assumeInsurance(draft: CareerDraft): { draft: CareerDraft; changed: boolean } {
+  const d = structuredClone(draft);
+  let changed = false;
+  for (const stage of [d.gap, d.recovery]) {
+    if (stage.pension === null) { stage.pension = 'unchanged'; changed = true; }
+    if (stage.insurance.monthly_cents === null) { stage.insurance = { monthly_cents: '0', included: true }; changed = true; }
+  }
+  return { draft: d, changed };
+}
+

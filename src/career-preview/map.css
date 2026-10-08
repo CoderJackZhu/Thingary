@@ -18,3 +18,4 @@
 .career-main-result{margin-top:24px;border-top:3px solid var(--accent)}.career-main-result>h2{margin-top:0}.career-main-result h3{font-size:18px}.career-main-result>.career-result{padding:0;border:0;box-shadow:none;background:transparent}.career-insurance-summary a{color:var(--accent)}.career-sensitivity th,.career-sensitivity td{white-space:normal;overflow-wrap:anywhere}.career-sensitivity th{width:45%}
 
 .career-single-input{margin-bottom:20px}.career-main-result .form-row-control{max-width:100%}
+.career-sticky{position:sticky;bottom:0;z-index:5;display:flex;gap:14px;justify-content:space-between;align-items:center;background:var(--card);border-top:2px solid var(--accent);padding:10px 14px;margin-top:16px;font-size:14px;overflow-wrap:anywhere}.career-sticky a{color:var(--accent);white-space:nowrap}.career-banner{margin:10px 0;font-size:14px;color:var(--accent)}@media(max-width:720px){.career-sticky{flex-direction:column;align-items:flex-start;gap:4px}}

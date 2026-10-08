@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { careerSources, careerDraft } from '../src/career-preview/fixtures.ts';
-import { windowMap, minWindow, maxGap, closeMonths, judge, pensionOptions, delayTarget, ageMonthsAt, withChoice } from '../src/plan-career-map.ts';
+import { windowMap, minWindow, maxGap, closeMonths, judge, pensionOptions, delayTarget, ageMonthsAt, withChoice, assumeInsurance } from '../src/plan-career-map.ts';
 import { evaluateCareerScenario } from '../src/plan-career.ts';
 import { careerPensionSources } from '../src/career-preview/pension-fixture.ts';
 
@@ -220,4 +220,17 @@ test('R05 search evaluation skips only requirement solving, preserving cash, pre
     assert.deepEqual(judge(full),judge(fast));assert.deepEqual(full.cash,fast.cash);
     assert.deepEqual(full.prediction.value?.outcome,fast.prediction.value?.outcome);
   }
+});
+
+test('R06 the placeholder fills only unconfirmed contribution fields, optimistically, and never mutates the draft', () => {
+  const d = careerDraft(); d.gap.pension = null; d.gap.insurance = { monthly_cents: null, included: false };
+  const frozen = structuredClone(d);
+  const a = assumeInsurance(d);
+  assert.deepEqual(d, frozen); assert.equal(a.changed, true);
+  assert.equal(a.draft.gap.pension, 'unchanged'); assert.deepEqual(a.draft.gap.insurance, { monthly_cents: '0', included: true });
+  assert.deepEqual(a.draft.recovery, d.recovery, 'confirmed fields stay as entered');
+  const full = careerDraft(); const b = assumeInsurance(full); assert.equal(b.changed, false); assert.deepEqual(b.draft, full);
+  // a confirmed bill is never replaced by the placeholder
+  const c = careerDraft(); c.gap.insurance = { monthly_cents: '200000', included: false };
+  assert.deepEqual(assumeInsurance(c).draft.gap.insurance, { monthly_cents: '200000', included: false });
 });

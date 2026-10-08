@@ -27,9 +27,8 @@ function Sensitivity({ sources, draft, baseline }: { sources: PlanningSources; d
   </div>;
 }
 
-export function RestResult({ sources, draft }: { sources: PlanningSources; draft: CareerDraft }) {
+export function RestResult({ sources, draft, answer }: { sources: PlanningSources; draft: CareerDraft; answer: MaxGap }) {
   const [expanded, setExpanded] = useState(false);
-  const answer = useMemo(() => maxGap(sources, draft), [sources, draft]);
   const profile = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile : null;
   return <>
     <h3>保持原退休目标，最长可空窗多久？</h3>

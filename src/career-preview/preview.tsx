@@ -1,5 +1,5 @@
 // Development-only, fictional source adapter. No native calls and no persistence.
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CentInput, FormRow } from '../FormControls.tsx';
 import { MonthInput } from '../DateInput.tsx';
@@ -8,7 +8,8 @@ import { compareCareerScenario } from '../plan-career-compare.ts';
 import type { CareerChange } from '../plan-career-compare.ts';
 import type { CareerDraft, CareerEvaluation } from '../plan-career-contract.ts';
 import { money, resultText, comparisonText } from './result-text.ts';
-import { DelaySection, InsuranceAlternatives, InsuranceSection, LowerQuestion, LowerResult, LumpsSection, QuestionPicker, RestQuestion } from './map.tsx';
+import { DelaySection, InsuranceAlternatives, InsuranceSection, LowerQuestion, LowerResult, LumpsSection, QuestionPicker, RestQuestion, gapText, minText } from './map.tsx';
+import { assumeInsurance, maxGap, minWindow } from '../plan-career-map.ts';
 import type { Question } from './map.tsx';
 import { RestResult } from './results.tsx';
 import { careerPensionSources } from './pension-fixture.ts';
@@ -21,7 +22,7 @@ const states = ['ready','pension','unknown','empty','error','shortfall'] as cons
 type State = typeof states[number];
 function fixture(state: State) {
   const sources=state==='pension'?careerPensionSources():careerSources(),draft=careerDraft();
-  for (const stage of [draft.gap, draft.recovery]) { stage.pension = null; stage.insurance = { monthly_cents: null, included: true }; }
+  for (const stage of [draft.gap, draft.recovery]) { stage.pension = null; stage.insurance = { monthly_cents: null, included: false }; }
   if(state==='unknown'){draft.gap_months=null;draft.check_until_month='2030-10';}
   if(state==='empty' && sources.profile.status==='ready') sources.profile.value.saved=null;
   if(state==='error') sources.profile={status:'error',value:{code:'UNAVAILABLE',message:'虚构来源读取失败'}};
@@ -49,7 +50,12 @@ function Preview() {
   const [style,setStyle]=useState('bento');
   document.documentElement.dataset.style=style;document.documentElement.dataset.mode=dark?'dark':'light';
   const {sources,draft}=data;
-  const result=useMemo(()=>enabled&&q==='switch'?compareCareerScenario(sources,draft,change):null,[enabled,q,sources,draft,change]);
+  // Answers are computed from a deferred copy so typing stays responsive; unconfirmed contributions use a labelled optimistic placeholder.
+  const assumed=useMemo(()=>assumeInsurance(draft),[draft]);
+  const shown=useDeferredValue(assumed.draft);
+  const restAnswer=useMemo(()=>enabled&&q==='rest'?maxGap(sources,shown):null,[enabled,q,sources,shown]);
+  const lowerAnswer=useMemo(()=>enabled&&q==='lower'?minWindow(sources,shown):null,[enabled,q,sources,shown]);
+  const result=useMemo(()=>enabled&&q==='switch'?compareCareerScenario(sources,shown,change):null,[enabled,q,sources,shown,change]);
   const comparison=result?comparisonText(result):null;
   const patch=(value:Partial<CareerDraft>)=>setData(x=>({...x,draft:{...x.draft,...value}}));
   const reload=(next:State)=>{setState(next);setData(fixture(next));};
@@ -85,11 +91,12 @@ function Preview() {
       <InsuranceSection key={state} sources={sources} draft={draft} patch={patch}/>
       <section id="career-results" className="career-input career-main-result" tabIndex={-1} aria-label="试算结果" aria-live="polite">
         <h2>试算结果</h2>
+        {assumed.changed&&<p className="career-banner" role="status">社保还没填完整：下面的答案暂按“养老社保照常交、自己不掏钱”估算，偏乐观；填完整后会自动替换。</p>}
         {sources.profile.status!=='ready' || !profile?.retire.basic
           ? <p role="status">{sources.profile.status==='error'?'通用资料读取失败，请重新载入资料。':'尚无通用目标与资金资料，请先补齐资料。'}</p>
           : <>
-            {q==='rest'&&<RestResult sources={sources} draft={draft}/>}
-            {q==='lower'&&<LowerResult sources={sources} draft={draft} patch={patch}/>}
+            {q==='rest'&&restAnswer&&<RestResult sources={sources} draft={shown} answer={restAnswer}/>}
+            {q==='lower'&&lowerAnswer&&<LowerResult sources={sources} draft={shown} patch={patch} answer={lowerAnswer}/>}
             {q==='switch'&&result&&<>
               <Result title="按当前填写" value={result.baseline}/>
               <details><summary>只改变一项，看看影响</summary>
@@ -100,12 +107,16 @@ function Preview() {
                 {comparison&&<div className="career-delta"><p>{comparison.headline}</p>{comparison.detail&&<p className="career-footnote">{comparison.detail}</p>}</div>}
                 <Result title="对照条件" value={result.alternative}/>
               </details>
-              <details><summary>推迟退休目标的对照</summary><DelaySection sources={sources} draft={draft} patch={patch}/></details>
+              <details><summary>推迟退休目标的对照</summary><DelaySection sources={sources} draft={shown} patch={patch}/></details>
             </>}
             <InsuranceAlternatives sources={sources} draft={draft}/>
             <p className="career-footnote">工作阶段月内付款未完整检查。结果是按所填条件计算的估算，不是职业预测或保证；当前仍为待验证的独立原型。</p>
           </>}
       </section>
+      <div className="career-sticky" role="status" aria-live="polite"><span>当前答案{assumed.changed?'（暂估，偏乐观）':''}：{
+        q==='rest'?(restAnswer?(draft.recovery.monthly_cents===null?'先填复工后每月能攒多少':gapText(restAnswer)):'')
+        :q==='lower'?(lowerAnswer?minText(sources,lowerAnswer):'')
+        :(result?resultText(result.baseline).requirement:'')}</span><a href="#career-results">看详细结果 ↓</a></div>
     </>}
   </main>;
 }

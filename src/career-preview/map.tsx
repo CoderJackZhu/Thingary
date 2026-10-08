@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { CentInput, FormRow } from '../FormControls.tsx';
 import { MonthInput } from '../DateInput.tsx';
 import { beijing } from '../plan-params.ts';
-import { ageMonthsAt, careerSpan, closeMonths, delayTarget, minWindow, pensionOptions, windowMap } from '../plan-career-map.ts';
+import { ageMonthsAt, careerSpan, closeMonths, delayTarget, pensionOptions, windowMap } from '../plan-career-map.ts';
 import type { DelayTarget, MaxGap, MinWindow, PensionChoice, Reason } from '../plan-career-map.ts';
 import type { PlanningSources } from '../plan-basic-contract.ts';
 import type { CareerDraft } from '../plan-career-contract.ts';
@@ -94,6 +94,7 @@ function InsuranceComparison({ sources, draft, stage }: { sources: PlanningSourc
 export function InsuranceSection({ sources, draft, patch }: Props) {
   const [stage, setStage] = useState<Stage>('gap');
   const [selection, setSelection] = useState<Record<Stage, Selection>>({ gap: blankSelection(), recovery: blankSelection() });
+  const [entry, setEntry] = useState<Record<Stage, { cash: string; inc: '' | 'included' | 'extra' }>>({ gap: { cash: '', inc: '' }, recovery: { cash: '', inc: '' } });
   const form = selection[stage], active = draft[stage], p = profileOf(sources);
   const floor = beijing.base_lower_cents, original = p?.base_cents ?? null;
   const customValid = /^\d+$/.test(form.custom) && Number(form.custom) >= Number(floor) && Number(form.custom) <= Number(beijing.base_upper_cents);
@@ -102,10 +103,15 @@ export function InsuranceSection({ sources, draft, patch }: Props) {
     const base = next.base === 'floor' ? floor : next.base === 'original' ? original : next.custom;
     const valid = base !== null && /^\d+$/.test(base) && Number(base) >= Number(floor) && Number(base) <= Number(beijing.base_upper_cents);
     const pension = next.method === '' ? null : next.method === 'pause' ? 'pause' : next.method === 'employer' && next.base === 'original' ? 'unchanged' : valid ? { base_cents: base!, hpf_monthly_cents: '0' } : null;
-    const insurance = resetCash ? { monthly_cents: next.method === 'pause' || next.method === 'employer' ? '0' : null, included: next.method === 'self' ? active.insurance.included : true } : active.insurance;
+    if (resetCash) setEntry(x => ({ ...x, [stage]: { cash: '', inc: '' } }));
+    const insurance = resetCash ? { monthly_cents: next.method === 'pause' || next.method === 'employer' ? '0' : null, included: next.method === 'self' ? false : true } : active.insurance;
     patch({ [stage]: { ...active, pension, insurance } } as Partial<CareerDraft>);
   };
-  const setInsurance = (insurance: typeof active.insurance) => patch({ [stage]: { ...active, insurance } } as Partial<CareerDraft>);
+  const setEntered = (next: { cash: string; inc: '' | 'included' | 'extra' }) => {
+    setEntry(x => ({ ...x, [stage]: next }));
+    // Not counted until both the bill amount and the included-or-extra reading are confirmed; never defaulted.
+    patch({ [stage]: { ...active, insurance: { monthly_cents: next.cash !== '' && next.inc !== '' ? next.cash : null, included: next.inc === 'included' } } } as Partial<CareerDraft>);
+  };
   const summary = (s: Stage) => {
     const x = draft[s], f = selection[s];
     if (!x.pension || x.insurance.monthly_cents === null) return '待填完整';
@@ -125,10 +131,10 @@ export function InsuranceSection({ sources, draft, patch }: Props) {
       </select></FormRow>
       {form.base === 'custom' && <FormRow label="自定义缴费基数（元/月）" hint={`本例范围 ${money(floor)}—${money(beijing.base_upper_cents)}`}><CentInput label="自定义缴费基数" value={form.custom} onChange={v => setForm({ ...form, custom: v })}/>{!customValid && <p className="career-footnote" role="status">请填写范围内的基数，填好后才能计算。</p>}</FormRow>}
       {form.method === 'self' ? <>
-        <FormRow label="每月实际缴费（元）" hint="按缴费单填写养老、医疗等实际扣款总额；基数不会自动换算成这笔金额。"><CentInput label="每月实际缴费" value={active.insurance.monthly_cents ?? ''} onChange={v => setInsurance({ ...active.insurance, monthly_cents: v || null })}/></FormRow>
-        <FormRow label={stage === 'gap' ? '前面的每月总开销包含这笔缴费吗？' : '前面的每月能攒多少，已经扣掉这笔缴费了吗？'}><select aria-label="缴费是否已包含" value={active.insurance.included ? 'included' : 'extra'} onChange={e => setInsurance({ ...active.insurance, included: e.target.value === 'included' })}><option value="included">已经包含，只计算一次</option><option value="extra">还没包含，另外扣除</option></select></FormRow>
-        <p className="career-footnote">{active.insurance.monthly_cents === null ? '实际缴费还没填写，不会按 0 元计算。' : stage === 'gap' && draft.gap.spend_cents !== null ? `前面开销 ${money(draft.gap.spend_cents)} / 月${active.insurance.included ? ` 已含社保 ${money(active.insurance.monthly_cents)}，仍按 ${money(draft.gap.spend_cents)} 计算。` : ` + 社保 ${money(active.insurance.monthly_cents)}，合计 ${money(Number(draft.gap.spend_cents) + Number(active.insurance.monthly_cents))} / 月。`}` : active.insurance.included ? '沿用你填写的月储蓄，不再扣一次社保。' : `从你填写的月储蓄中另扣 ${money(active.insurance.monthly_cents)}。`}</p>
-      </> : <p className="career-footnote">按工资已经扣除个人社保后的结余填写“每月能攒多少”；这里不再额外扣费。沿用原基数时也沿用原缴费起止安排。</p>}
+        <FormRow label="每月实际缴费（元）" hint="按缴费单填写养老、医疗等实际扣款总额；基数不会自动换算成这笔金额。"><CentInput label="每月实际缴费" value={entry[stage].cash} onChange={v => setEntered({ ...entry[stage], cash: v })}/></FormRow>
+        <FormRow label={stage === 'gap' ? '前面的每月总开销包含这笔缴费吗？' : '前面的每月能攒多少，已经扣掉这笔缴费了吗？'} hint="必须选一个：选错会少算或多算一次。"><select aria-label="缴费是否已包含" value={entry[stage].inc} onChange={e => setEntered({ ...entry[stage], inc: e.target.value as '' | 'included' | 'extra' })}><option value="">请选择</option><option value="extra">还没包含，另外扣除</option><option value="included">已经包含，只计算一次</option></select></FormRow>
+        <p className="career-footnote">{active.insurance.monthly_cents === null ? '实际缴费还没填，或还没选“是否已包含”，这一项暂不计算，不会按 0 元算。' : stage === 'gap' && draft.gap.spend_cents !== null ? `前面开销 ${money(draft.gap.spend_cents)} / 月${active.insurance.included ? ` 已含社保 ${money(active.insurance.monthly_cents)}，仍按 ${money(draft.gap.spend_cents)} 计算。` : ` + 社保 ${money(active.insurance.monthly_cents)}，合计 ${money(Number(draft.gap.spend_cents) + Number(active.insurance.monthly_cents))} / 月。`}` : active.insurance.included ? '沿用你填写的月储蓄，不再扣一次社保。' : `从你填写的月储蓄中另扣 ${money(active.insurance.monthly_cents)}。`}</p>
+      </> : <p className="career-footnote">按工资已经扣除个人社保后的结余填写“每月能攒多少”；这里不再额外扣费。沿用原基数时也沿用原缴费起止安排，并保留原来的公积金缴存；改用下限或自定义基数时，这里不计公积金（偏保守），新单位是否缴公积金请自行判断。</p>}
     </>}
     {form.method === 'pause' && <p className="career-footnote">本次按养老、公积金停缴且本项支出为 0 元计算；若仍单独交医保，请把医保费用计入前面的总开销。已缴记录保留，未来缴费月数不再增加。</p>}
     <div className="career-insurance-summary" aria-label="两段缴费摘要">
@@ -180,13 +186,12 @@ export function LowerQuestion({ draft, patch }: Props) {
   </section>;
 }
 
-export function LowerResult({ sources, draft, patch }: Props) {
+export function LowerResult({ sources, draft, patch, answer }: Props & { answer: MinWindow }) {
   const bounds = careerSpan(sources);
   const current = profileOf(sources)?.retire.basic?.contribution.monthly_cents;
   const [expanded, setExpanded] = useState(false);
   const candidates = current ? [0, .25, .5, .75].map(f => String(Math.round(Number(current) * f))) : [];
   const step = bounds ? Math.max(12, Math.ceil((bounds.target - bounds.now) / 8 / 12) * 12) : 12;
-  const answer = useMemo(() => minWindow(sources, draft), [sources, draft]);
   const map = useMemo(() => expanded && bounds ? windowMap(sources, draft, closeMonths(sources, step), candidates) : null, [expanded, sources, draft, step, current]);
   return <>
     <h3>保持退休目标，最早何时可以降低投入？</h3><p className="career-number">{minText(sources, answer)}</p>
