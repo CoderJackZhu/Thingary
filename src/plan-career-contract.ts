@@ -11,6 +11,9 @@ export type CareerStage = {
 /** User-entered after-tax inflows during the gap. A lump sum (severance, unused leave) lands at the end of the change month;
  *  a limited benefit is paid at each month end for its first N months. Empty means none; nothing here is a default or a policy lookup. */
 export type CareerExtraIncome = { lump_cents: string | null; benefit_monthly_cents: string | null; benefit_months: number | null };
+/** A one-off after-tax inflow outside the monthly savings figure (share vesting, a large bonus, a side job), landing at the end of its month.
+ *  Only money that has been or will be received counts; nothing here is estimated for the user. */
+export type CareerLump = { month: string; cents: string };
 export type CareerDraft = {
   transition_month: string | null;
   gap_months: number | null;
@@ -18,6 +21,8 @@ export type CareerDraft = {
   gap: CareerStage & { income_cents: string | null; spend_cents: string | null; budget_scope: 'complete' | 'essential_only'; extra_income?: CareerExtraIncome };
   recovery: CareerStage & { monthly_cents: string | null };
   liquid_funds_confirmed: boolean;
+  /** Optional one-off inflows anywhere between the funds start and the target (at most 24). */
+  lumps?: CareerLump[];
   floor_cents: string | null;
 };
 export type CareerIssue = { field: string; message: string };

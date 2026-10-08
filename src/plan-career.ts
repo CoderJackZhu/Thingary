@@ -58,6 +58,12 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
     else if (benefit && (extra.benefit_months === null || extra.benefit_months < 1 || !hasGap)) errors.push(issue('gap.extra_income', '填了限期补助就要同时填领取月数（至少 1 个月），且须有空窗期可以领取；否则请清空补助。'));
     if (extra.benefit_months !== null && (!Number.isInteger(extra.benefit_months) || extra.benefit_months < 0 || extra.benefit_months > gapEnd - transition)) errors.push(issue('gap.extra_income', '限期补助月数须是0到空窗月数之间的整数。'));
   }
+  const lumps = draft.lumps ?? [];
+  if (lumps.length > 24) errors.push(issue('lumps', '一次性到账最多填 24 笔。'));
+  for (const l of lumps) {
+    if (!month(l.month) || !amount(l.cents)) errors.push(issue('lumps', '一次性到账须有合法的月份和非负金额，没有就删掉这一行。'));
+    else if (monthIndex(l.month) - birth < now || monthIndex(l.month) - birth >= target) errors.push(issue('lumps', `${l.month} 不在资金起点到原目标退休月之间。`));
+  }
   if (draft.floor_cents !== null && !amount(draft.floor_cents)) errors.push(issue('floor_cents', '底线须为合法非负整数分，或留空。'));
   const current = r.basic!.contribution.monthly_cents;
   const days = new Date(Date.UTC(+anchor.slice(0, 4), +anchor.slice(5, 7), 0)).getUTCDate();
@@ -111,6 +117,8 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
       flow.push({ label: '空窗普通开销月初支付', from_month: transition, to_month: gapEnd, cents: -ordinary, nominal: false, essential: true, timing: 'start', prorate_first: true },
         { label: '空窗时点还原', from_month: transition, to_month: gapEnd, cents: ordinary, nominal: false, essential: false, prorate_first: true });
     }
+    // One-off inflows the user entered (share vesting, bonuses): end of their month, independent of the candidate.
+    for (const l of lumps) if (Number(l.cents) > 0) { const at = monthIndex(l.month) - birth; flow.push({ label: '一次性到账', from_month: at, to_month: at + 1, cents: Number(l.cents), nominal: false, essential: false }); }
     // A lump sum (severance) arrives with the change itself, with or without a gap.
     if (extra?.lump_cents && Number(extra.lump_cents) > 0) flow.push({ label: '变化时一次性到账', from_month: transition, to_month: transition + 1, cents: Number(extra.lump_cents), nominal: false, essential: false });
     if (postCompiler && recovery !== null && recovery < target) append(postCompiler, recovery, target, draft.recovery);

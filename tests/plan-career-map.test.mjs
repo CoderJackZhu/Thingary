@@ -146,3 +146,14 @@ test('M14 retirement concession: with 3000/month after a 12 month gap the goal n
 test('M15 age at a month', () => {
   assert.equal(ageMonthsAt(careerSources(), '2033-06'), (2033 - 1994) * 12 + (6 - 10));
 });
+
+test('M16 one-off inflows anywhere on the timeline count once: 120k in 2028-06 lowers the need to (1.8M-1.14M)/168 and closes the window 8 months earlier', () => {
+  const d = careerDraft(); d.lumps = [{ month: '2028-06', cents: '12000000' }];
+  assert.equal(evaluateCareerScenario(careerSources(), d).requirement.value.monthly_cents, '392858');
+  const e = careerDraft(); e.gap_months = 0; e.recovery.monthly_cents = '0'; e.lumps = [{ month: '2028-06', cents: '12000000' }];
+  assert.deepEqual(minWindow(careerSources(), e), { status: 'found', months: 73, close_month: '2032-10' });
+  for (const bad of [{ month: '2026-08', cents: '100' }, { month: '2044-10', cents: '100' }, { month: '2030-13', cents: '100' }, { month: '2030-01', cents: '-5' }]) {
+    const f = careerDraft(); f.lumps = [bad]; assert.equal(evaluateCareerScenario(careerSources(), f).requirement.status, 'blocked', JSON.stringify(bad));
+  }
+  const g = careerDraft(); g.lumps = Array.from({ length: 25 }, () => ({ month: '2028-06', cents: '1' })); assert.equal(evaluateCareerScenario(careerSources(), g).requirement.status, 'blocked');
+});

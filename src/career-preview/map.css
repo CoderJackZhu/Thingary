@@ -12,3 +12,4 @@
 .career-question.on{outline:2px solid var(--accent);background:var(--selected)}.career-question:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 .career-rules{margin-top:14px;font-size:13px}.career-rules ul{padding-left:20px;margin:8px 0}.career-rules li{margin:6px 0}.career-rules a{color:var(--accent)}
 @media(max-width:720px){.career-question-grid{grid-template-columns:minmax(0,1fr)}}
+.career-lump{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:center;margin:8px 0}@media(max-width:720px){.career-lump{grid-template-columns:minmax(0,1fr)}}

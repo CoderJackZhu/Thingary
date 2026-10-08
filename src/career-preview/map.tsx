@@ -11,6 +11,17 @@ import { money } from './result-text.ts';
 import './map.css';
 
 export type Question = 'rest' | 'lower' | 'switch';
+
+/** Optional one-off inflows (share vesting, a large bonus, a side job), each in its own month. */
+export function LumpsSection({ draft, patch }: { draft: CareerDraft; patch: (v: Partial<CareerDraft>) => void }) {
+  const lumps = draft.lumps ?? [];
+  const set = (next: NonNullable<CareerDraft['lumps']>) => patch({ lumps: next });
+  return <section className="career-input"><h3>另有的大额一次性收入（选填）</h3>
+    <p className="career-footnote">股票归属、大额奖金、兼职等，已经或一定会收到的、不在“每月能攒多少”里的钱，税后，记在那个月月底。没收到的不要填。</p>
+    {lumps.map((l, i) => <div key={i} className="career-lump"><MonthInput label={`第 ${i + 1} 笔到账月份`} value={l.month} onChange={v => set(lumps.map((o, j) => (j === i ? { ...o, month: v } : o)))}/><CentInput label={`第 ${i + 1} 笔金额`} placeholder="金额（元）" value={l.cents} onChange={v => set(lumps.map((o, j) => (j === i ? { ...o, cents: v } : o)))}/><button type="button" aria-label={`删除第 ${i + 1} 笔`} onClick={() => set(lumps.filter((_, j) => j !== i))}>删除</button></div>)}
+    <button type="button" disabled={lumps.length >= 24} onClick={() => set([...lumps, { month: draft.transition_month ?? '', cents: '' }])}>添加一笔</button>
+  </section>;
+}
 type Patch = (v: Partial<CareerDraft>) => void;
 type Props = { sources: PlanningSources; draft: CareerDraft; patch: Patch };
 
@@ -116,6 +127,7 @@ export function RestQuestion({ sources, draft, patch }: Props) {
       <FormRow label="限期补助每月（元）" hint="如失业金，税后；只在下面的月数内每月月底到账，要同时填月数。"><CentInput label="限期补助每月" value={extra.benefit_monthly_cents ?? ''} onChange={v => setExtra({ benefit_monthly_cents: v || null })}/></FormRow>
       <FormRow label="补助领取月数"><input aria-label="补助领取月数" type="number" min="0" step="1" value={extra.benefit_months ?? ''} onChange={e => setExtra({ benefit_months: e.target.value === '' ? null : Number(e.target.value) })}/></FormRow>
     </section></div>
+    <LumpsSection draft={draft} patch={patch}/>
     <InsuranceSection sources={sources} draft={draft} patch={patch} defaultStage="gap"/>
   </>;
 }
@@ -150,6 +162,7 @@ export function LowerQuestion({ sources, draft, patch }: Props) {
       </table></div></section>}
     <section className="career-input"><h3>下面两项按哪一档“之后每月能攒多少”算</h3>
       <FormRow label="之后每月能攒多少"><select aria-label="之后每月能攒多少档位" value={Math.min(pick, recoveries.length - 1)} onChange={e => setPick(Number(e.target.value))}>{recoveries.map((v, i) => <option key={i} value={i}>{money(v)} / 月</option>)}</select></FormRow></section>
+    <LumpsSection draft={draft} patch={patch}/>
     <DelaySection sources={sources} draft={withL} patch={patch}/>
     <InsuranceSection sources={sources} draft={withL} patch={patch} defaultStage="recovery"/>
   </>;
