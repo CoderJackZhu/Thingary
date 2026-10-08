@@ -1,0 +1,8 @@
+.career-map{margin-top:28px}.career-map h3{font-size:16px;margin:0 0 10px}.career-map>h2{margin-bottom:6px}.career-map .career-input{margin-bottom:18px}
+.career-line{margin:0 0 14px;overflow-wrap:anywhere}
+.career-table-wrap{overflow-x:auto}.career-table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:14px}
+.career-table caption{text-align:left;color:var(--muted);font-size:13px;padding-bottom:10px}
+.career-table th,.career-table td{padding:8px 10px;border-bottom:1px solid var(--line,rgba(127,127,127,.25));text-align:left;white-space:nowrap}
+.career-table input{width:110px}
+.career-cell{text-align:center}.career-table td.career-cell{text-align:center}
+.career-meets{background:rgba(70,160,90,.16)}.career-short{background:rgba(200,90,70,.14)}.career-blocked{color:var(--muted)}

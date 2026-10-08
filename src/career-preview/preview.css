@@ -1,0 +1,15 @@
+.career-preview{max-width:1120px;margin:0 auto;padding:32px 24px 64px;line-height:1.65;color:var(--text)}
+.career-preview h1{font-size:28px;line-height:1.4}.career-preview h2{font-size:18px;margin-bottom:14px}
+.career-lead,.career-label,.career-footnote{color:var(--muted)}.career-lead{margin-top:10px}.career-footnote{font-size:13px;margin:14px 0 0}
+.career-toolbar{display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin:20px 0}.career-toolbar label{display:flex;gap:8px;align-items:center}
+.career-source,.career-input,.career-result{background:var(--card);border:var(--surface-border);border-radius:var(--surface-radius);box-shadow:var(--surface-shadow);padding:22px;min-width:0}
+.career-source{margin-bottom:20px}.career-source button+button{margin-left:12px}.career-source p{color:var(--muted);font-size:14px}
+.career-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin-bottom:20px;align-items:start}
+.career-input .form-row{display:block;padding:10px 0;border:0}.career-input .form-row-label{margin-bottom:6px}.career-input .form-row-control>input,.career-input .form-row-control>select{width:100%;box-sizing:border-box}
+.career-input .form-row-hint{display:block;margin-top:4px}.career-check{display:flex;gap:8px;align-items:center}.career-preview summary{cursor:pointer;padding:10px 0}
+.career-number{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.5;overflow-wrap:anywhere;margin:0 0 20px}.career-label{font-size:13px;margin:0 0 6px}
+.career-result dl{margin:0}.career-result dt{color:var(--muted);font-size:13px;margin-top:12px}.career-result dd{margin:3px 0 0;overflow-wrap:anywhere}
+.career-delta{background:var(--selected);border-radius:var(--ctl-radius);padding:14px;margin:18px 0 0;font-variant-numeric:tabular-nums}
+.career-notes{font-size:13px;color:var(--muted);padding:0 8px}.career-notes p{margin:4px 0}
+.career-result-link{display:inline-block;margin-left:18px}.career-result-link,.career-delta a{color:var(--accent)}.career-delta p{margin:0}.career-delta .career-footnote{margin:6px 0}.career-delta a{display:inline-block;margin-top:8px}.career-message{font-size:16px;line-height:1.65;margin:0 0 20px;overflow-wrap:anywhere}#career-results{scroll-margin-top:20px;outline-color:var(--accent)}
+@media(max-width:720px){.career-preview{padding:20px 14px 40px}.career-preview h1{font-size:23px}.career-layout{grid-template-columns:minmax(0,1fr)}.career-source,.career-input,.career-result{padding:18px}.career-toolbar{gap:10px}}

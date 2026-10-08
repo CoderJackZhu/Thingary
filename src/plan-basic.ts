@@ -5,6 +5,8 @@ import type { BasicCapabilities, PlanningSources, PlanningMissing, Capability, R
 import { normalizeFunds, occurrenceMissing, costSources, mustStayInLedger } from './plan-core.ts';
 import { ageMonthsAt, project as pensionProject } from './plan-pension.ts';
 import { beijing, effectiveParams } from './plan-params.ts';
+import { pensionPath, pensionPeriodIssue } from './plan-pension-path.ts';
+import type { ContributionPeriod } from './plan-pension-path.ts';
 import { applyEvents, monthIndex, offsetOf } from './plan-events.ts';
 import type { LifeEvent } from './plan-events.ts';
 import { project, outcome, required, startPaymentsOf, oneOffsOf } from './plan-ledger.ts';
@@ -44,8 +46,23 @@ export function solveBasicRequirement(compile: (cents: number, before: number, a
   return { ...rates, status: 'found', monthly_cents: String(hi) };
 }
 
-/** No wealth/history fallback, no pension defaults, and no plan compiled while contribution is unknown. */
-export function buildBasicCapabilities(sources: PlanningSources, temporaryContribution?: string): BasicCapabilities {
+export type BasicPlanCompiler = {
+  included_reference_cents: number;
+  compile: (amount: number, before: number, after: number, future?: boolean) => Plan;
+  contribution: string | null;
+  target_month: string;
+  horizon_month: string;
+  before: number;
+  after: number;
+};
+export type BasicPlanPreparation = Pick<BasicCapabilities, 'context' | 'funds' | 'pension'> & {
+  plan: Capability<BasicPlanCompiler>;
+  predictionMissing: PlanningMissing[];
+};
+
+/** Shared read-only normalization, with no wealth/history fallback or pension defaults.
+ * Compiling a candidate never adopts it as a prediction; accumulation scope cannot certify retirement. */
+export function prepareBasicPlan(sources: PlanningSources, temporaryContribution?: string, contributionPeriods: readonly ContributionPeriod[] = [], scope: 'complete' | 'accumulation' = 'complete'): BasicPlanPreparation {
   const state = sources.profile.status === 'ready' ? sources.profile.value : null;
   const saved = state?.saved ?? null, p = saved?.profile, r = p?.retire, b = r?.basic;
   const snap = sources.modules.wealth && sources.snapshot.status === 'ready' ? sources.snapshot.value : null;
@@ -56,7 +73,7 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
   if (sources.profile.status === 'error') baseMissing.push(missing('SOURCE_ERROR', 'requirement', 'service', 'profile', sources.profile.value.message, 'read_error'));
   else if (!p || !b) baseMissing.push(missing('PROFILE_UNKNOWN', 'requirement', 'basic', 'retire.basic', '尚无通用基础输入；原规划不会自动转换。'));
   if (state && state.generation !== sources.generation) baseMissing.push(missing('SOURCE_STALE', 'requirement', 'service', 'generation', '来源身份已变化，请重新读取。', 'read_error'));
-  if (!p || !r || !b || baseMissing.length) return { context, funds: blocked(baseMissing.map(x => ({ ...x, capability: 'funds' }))), requirement: blocked(baseMissing), prediction: blocked(baseMissing.map(x => ({ ...x, capability: 'prediction' }))), pension: blocked(baseMissing.map(x => ({ ...x, capability: 'pension' }))) };
+  if (!p || !r || !b || baseMissing.length) return { context, funds: blocked(baseMissing.map(x => ({ ...x, capability: 'funds' }))), plan: blocked(baseMissing), predictionMissing: baseMissing.map(x => ({ ...x, capability: 'prediction' })), pension: blocked(baseMissing.map(x => ({ ...x, capability: 'pension' }))) };
   const fundMissing: PlanningMissing[] = [];
   let available: number | null = null, restricted = 0, debt = 0, housing = 0;
   let anchor: string | null = null;
@@ -72,8 +89,8 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
   const funds: BasicCapabilities['funds'] = fundMissing.length || available === null || anchor === null ? blocked(fundMissing) : { status: 'ready', value: { available_cents: String(Math.round(available)), restricted_cents: String(Math.round(restricted)), debt_cents: String(Math.round(debt)), date: anchor, kind: b.start.kind } };
   const reqMissing: PlanningMissing[] = fundMissing.map(x => ({ ...x, capability: 'requirement' }));
   if (p.birth_month === null) reqMissing.push(missing('BIRTH_UNKNOWN', 'requirement', 'basic', 'birth_month', '出生年月未知，不能确定目标月份。'));
-  if (r.target_age === null) reqMissing.push(missing('TARGET_UNKNOWN', 'requirement', 'basic', 'target_age', '目标退休年龄尚未选择。'));
-  if (r.spend_cents === null) reqMissing.push(missing('BUDGET_UNKNOWN', 'requirement', 'basic', 'spend_cents', '请明确完整退休总预算。'));
+  if (scope === 'complete' && r.target_age === null) reqMissing.push(missing('TARGET_UNKNOWN', 'requirement', 'basic', 'target_age', '目标退休年龄尚未选择。'));
+  if (scope === 'complete' && r.spend_cents === null) reqMissing.push(missing('BUDGET_UNKNOWN', 'requirement', 'basic', 'spend_cents', '请明确完整退休总预算。'));
   const core = r.core;
   if (!core) reqMissing.push(missing('FUNDS_UNCONFIRMED', 'requirement', 'funds', 'core.monetary_basis_date', '金额基准尚未确认。'));
   if (snap && b.start.kind === 'live') for (const message of occurrenceMissing(snap, core, r.life_events, sources.today)) reqMissing.push(missing('OCCURRENCE_UNCONFIRMED', 'requirement', 'events', 'core.occurrences', message, 'fact'));
@@ -86,15 +103,17 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
   const penMissing: PlanningMissing[] = [];
   let pen: Pension = { monthly_cents: 0, lump_cents: 0, unlock_age_months: r.horizon_age * 12 };
   let pensionStart: string | null = null;
-  if (mode === null) reqMissing.push(missing('INCOME_MODE_UNKNOWN', 'requirement', 'basic', 'basic.retirement_income.mode', '请选择本次退休收入计入方式。'));
+  if (scope === 'complete' && mode === null) reqMissing.push(missing('INCOME_MODE_UNKNOWN', 'requirement', 'basic', 'basic.retirement_income.mode', '请选择本次退休收入计入方式。'));
   const selected = b.retirement_income.selected;
   const seen = new Set<string>();
-  for (const s of selected) {
+  for (const s of scope === 'complete' ? selected : []) {
     if (!r.income_items.some(i => i.id === s.id) || seen.has(s.source_id) || (mode === 'beijing' && (s.role === 'state_pension' || s.source_id === 'beijing_state_pension'))) reqMissing.push(missing('INCOME_SOURCE_UNKNOWN', 'requirement', 'budget', 'basic.retirement_income.selected', '收入来源须核对；北京国家养老金不能与手填替代项双计。'));
     seen.add(s.source_id);
   }
   const needsPools = housing > 0 || !!core?.personal_pension_account_id || Number(p.personal_pension_annual_cents ?? 0) > 0 || Number(core?.hpf_monthly_cents ?? 0) > 0;
-  const needsEstimator = mode === 'beijing' || needsPools;
+  const periodIssue = pensionPeriodIssue(contributionPeriods, effectiveParams(beijing, p.overrides));
+  if (periodIssue) penMissing.push(missing('PENSION_CONTRIBUTIONS_UNKNOWN', 'pension', 'basic', 'contribution_periods', periodIssue, 'constraint'));
+  const needsEstimator = (scope === 'complete' && mode === 'beijing') || needsPools || contributionPeriods.some(x => Number(x.hpf_monthly_cents) > 0);
   if (needsEstimator) {
     if (!hasPensionProfile(p)) penMissing.push(missing('PENSION_FACTS_UNKNOWN', 'pension', 'pension', 'profile', '所引用的北京估算或受限池解锁需要完整养老资料。', 'fact'));
     const ppEntry = b.start.kind === 'live' ? snap?.entries.find(e => e.account_id === core?.personal_pension_account_id && e.counted && e.side === 'asset') : null;
@@ -109,7 +128,8 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
       const days = new Date(Date.UTC(+anchor.slice(0, 4), +anchor.slice(5, 7), 0)).getUTCDate(), fraction = (days - +anchor.slice(8, 10)) / days;
       const pp = b.start.kind === 'live' ? snap?.entries.find(e => e.account_id === core?.personal_pension_account_id && e.counted && e.side === 'asset') : null;
       const factor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(core?.monetary_basis_date ?? anchor)) / (86400000 * 365.25));
-      const estimate = pensionProject(p, effectiveParams(beijing, p.overrides), anchor, stop, { hpf_balance_cents: String(housing), hpf_monthly_cents: String(Math.round(Number(core?.hpf_monthly_cents) * factor)), personal_pension_balance_cents: pp?.amount_cents ?? '0', first_month_fraction: fraction, pp_quit_age_months: stop, pp_start_age_months: from, hpf_growth_hundredths: p.assumptions.inflation_hundredths }, [{ from_age_months: now, base_cents: Number(pc.base_cents), hpf_monthly_cents: Math.round(Number(core?.hpf_monthly_cents) * factor) }], m => m < from || m >= stop ? 1 : 0);
+      const path = pensionPath(contributionPeriods, p.birth_month, now, from, stop, Number(pc.base_cents), Number(core?.hpf_monthly_cents), factor);
+      const estimate = pensionProject(p, effectiveParams(beijing, p.overrides), anchor, stop, { hpf_balance_cents: String(housing), hpf_monthly_cents: String(Math.round(Number(core?.hpf_monthly_cents) * factor)), personal_pension_balance_cents: pp?.amount_cents ?? '0', first_month_fraction: fraction, pp_quit_age_months: stop, pp_start_age_months: from, hpf_growth_hundredths: p.assumptions.inflation_hundredths }, path.employment, path.idle);
       pen = { monthly_cents: mode === 'beijing' && estimate.eligible ? estimate.total_today_cents / factor : 0, lump_cents: estimate.pots_today_cents / factor, unlock_age_months: estimate.start_age_months, eligible: estimate.eligible, short_months: Math.max(0, estimate.required_months - estimate.total_paid_months) };
       pensionStart = estimate.start_month;
     }
@@ -133,27 +153,28 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
     for (const id of ids) if (!scopes.some(s => s.source_id === id)) reqMissing.push(missing('COST_SCOPE_UNKNOWN', 'requirement', 'budget', field, `费用 ${id} 的${pre ? '净投入' : '退休总预算'}包含作用域待核对。`));
   };
   checkScope(sourcesPre, b.contribution_costs, 'basic.contribution_costs', true);
-  checkScope(sourcesPost, b.retirement_costs, 'basic.retirement_costs', false);
-  const refs = b.retirement_costs.filter(s => sourcesPost.includes(s.source_id) && s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
-  if (r.spend_cents !== null && refs > Number(r.spend_cents)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', 'basic.retirement_costs', '退休已含参考额不能超过总预算。'));
+  if (scope === 'complete') checkScope(sourcesPost, b.retirement_costs, 'basic.retirement_costs', false);
+  const refs = (scope === 'complete' ? b.retirement_costs : []).filter(s => sourcesPost.includes(s.source_id) && s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
+  if (scope === 'complete' && r.spend_cents !== null && refs > Number(r.spend_cents)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', 'basic.retirement_costs', '退休已含参考额不能超过总预算。'));
   if (anchor && p.birth_month !== null && r.horizon_age * 12 <= ageMonthsAt(p.birth_month, anchor)) reqMissing.push(missing('HORIZON_INVALID', 'requirement', 'basic', 'horizon_age', '规划终点须晚于资金起点。', 'constraint'));
   const contribution = temporaryContribution === undefined ? b.contribution.monthly_cents : temporaryContribution;
   const predictionMissing: PlanningMissing[] = reqMissing.map(x => ({ ...x, capability: 'prediction' }));
   if (contribution === null) predictionMissing.push(missing('CONTRIBUTION_UNKNOWN', 'prediction', 'basic', 'basic.contribution.monthly_cents', '保存预计投入后可查看预测及心愿影响；反求值不会作为预计投入。'));
   else if (!validSigned(contribution)) predictionMissing.push(missing('CONTRIBUTION_UNKNOWN', 'prediction', 'basic', 'basic.contribution.monthly_cents', '预计投入须是合法整数分，可明确为零或负数。', 'constraint'));
-  if (reqMissing.length || funds.status !== 'ready' || p.birth_month === null || r.target_age === null || r.spend_cents === null || !anchor || !core || available === null) return { context, funds, requirement: blocked(reqMissing), prediction: blocked(predictionMissing), pension };
-  const birth = p.birth_month, target = Math.max(r.target_age * 12, ageMonthsAt(birth, anchor)), now = ageMonthsAt(birth, anchor), horizon = r.horizon_age * 12;
+  if (reqMissing.length || funds.status !== 'ready' || p.birth_month === null || (scope === 'complete' && (r.target_age === null || r.spend_cents === null)) || !anchor || !core || available === null) return { context, funds, plan: blocked(reqMissing), predictionMissing, pension };
+  const birth = p.birth_month, target = Math.max((r.target_age ?? r.horizon_age) * 12, ageMonthsAt(birth, anchor)), now = ageMonthsAt(birth, anchor), horizon = r.horizon_age * 12;
   const basisFactor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(core.monetary_basis_date)) / (86400000 * 365.25));
   const days = new Date(Date.UTC(+anchor.slice(0, 4), +anchor.slice(5, 7), 0)).getUTCDate(), fraction = (days - +anchor.slice(8, 10)) / days;
-  const budget = Number(r.spend_cents);
+  // Accumulation-only preparation does not certify any retirement income/budget.
+  const budget = scope === 'complete' ? Number(r.spend_cents) : 0;
   const allowed = (id: string, scopes: CostScope[]) => scopes.find(s => s.source_id === id)?.treatment !== 'excluded';
-  const items: SpendItem[] = [{ id: 'living', label: '总预算其他部分', monthly_cents: budget - refs, start_age: null, end_age: null, inflation_hundredths: null, essential: true }, ...r.spend_items.filter(s => allowed(`spend:${s.id}`, b.retirement_costs)).map(s => ({ ...s, monthly_cents: Number(s.monthly_cents) }))];
+  const items: SpendItem[] = [{ id: 'living', label: '总预算其他部分', monthly_cents: budget - refs, start_age: null, end_age: null, inflation_hundredths: null, essential: true }, ...(scope === 'complete' ? r.spend_items : []).filter(s => allowed(`spend:${s.id}`, b.retirement_costs)).map(s => ({ ...s, monthly_cents: Number(s.monthly_cents) }))];
   const flows: Flow[] = [];
-  if (Number(r.rent_cents) > 0 && allowed('rent', b.retirement_costs)) flows.push({ source_id: 'rent', label: '房租', from_month: now, to_month: null, cents: Number(r.rent_cents), nominal: false, essential: true, prorate_first: true });
-  if (Number(r.keep_paying_monthly_cents) > 0 && allowed('social_insurance', b.retirement_costs)) {
+  if (scope === 'complete' && Number(r.rent_cents) > 0 && allowed('rent', b.retirement_costs)) flows.push({ source_id: 'rent', label: '房租', from_month: now, to_month: null, cents: Number(r.rent_cents), nominal: false, essential: true, prorate_first: true });
+  if (scope === 'complete' && Number(r.keep_paying_monthly_cents) > 0 && allowed('social_insurance', b.retirement_costs)) {
     if (r.keep_paying_until_age === null) {
       const m = missing('COST_SCOPE_UNKNOWN', 'requirement', 'budget', 'keep_paying_until_age', '续缴成本有金额但截止年龄未知。');
-      return { context, funds, requirement: blocked([m]), prediction: blocked([{ ...m, capability: 'prediction' }]), pension };
+      return { context, funds, plan: blocked([m]), predictionMissing: [{ ...m, capability: 'prediction' }], pension };
     }
     flows.push({ source_id: 'social_insurance', label: '续缴社保', from_month: now, to_month: r.keep_paying_until_age * 12, cents: Number(r.keep_paying_monthly_cents), nominal: false, essential: true, prorate_first: true });
   }
@@ -164,8 +185,8 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
     savingFlows.push({ ...transfer, cents: -annual / 12 });
     if (allowed('personal_pension', b.retirement_costs)) flows.push({ ...transfer, cents: annual / 12 });
   }
-  const preRefs = b.contribution_costs.filter(s => s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
-  const selectedIds = mode === 'manual' || mode === 'beijing' ? selected.map(s => s.id) : [];
+  const preRefs = b.contribution_costs.filter(s => sourcesPre.includes(s.source_id) && s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
+  const selectedIds = scope === 'complete' && (mode === 'manual' || mode === 'beijing') ? selected.map(s => s.id) : [];
   const skeleton: Plan = { input_mode: 'basic', now_months: now, target_months: target, horizon_months: horizon, search_cap_months: horizon, mode: r.mode, assets_cents: available / basisFactor, saving_cents: 0, saving_growth_hundredths: 0, r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths, inflation_hundredths: p.assumptions.inflation_hundredths, volatility_hundredths: r.volatility_hundredths, items, incomes: r.income_items.filter(i => selectedIds.includes(i.id)).map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })), pension_at: () => pen, spends: [], spend_flows: flows, saving_flows: savingFlows, rent_cents: allowed('rent', b.retirement_costs) ? Number(r.rent_cents) : 0, anchor_date: anchor, calculation_date: sources.today, monetary_basis_date: core.monetary_basis_date, basis_factor: basisFactor, first_month_fraction: fraction, core };
   const events = active.map(eventValue);
   const compile = (amount: number, before: number, after: number, future = true): Plan => {
@@ -174,14 +195,25 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
     // References stay throughout the confirmed scope, even after the source ends.
     return { ...withEvents, saving_phases: undefined, saving_flows: [...(withEvents.saving_flows ?? []).filter(f => !f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id, b.contribution_costs)), { label: '净投入已含费用还原', from_month: now, to_month: null, cents: preRefs, nominal: false, essential: false, prorate_first: true }], spend_flows: (withEvents.spend_flows ?? []).filter(f => !f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id, b.retirement_costs)) };
   };
-  const set = solveBasicRequirement(compile, r.real_return_before_hundredths, r.real_return_after_hundredths);
-  const lower = solveBasicRequirement(compile, r.real_return_before_hundredths - 200, r.real_return_after_hundredths - 200);
-  const upper = solveBasicRequirement(compile, r.real_return_before_hundredths + 200, r.real_return_after_hundredths + 200);
-  const requirement: Capability<RequirementValue> = { status: 'ready', value: { set, lower, upper, target_month: ym(monthIndex(birth) + r.target_age * 12), horizon_month: ym(monthIndex(birth) + horizon), budget_scope: 'complete' } };
+  return { context, funds, pension, predictionMissing, plan: { status: 'ready', value: { compile, contribution, included_reference_cents: preRefs,
+    target_month: ym(monthIndex(birth) + (r.target_age ?? r.horizon_age) * 12), horizon_month: ym(monthIndex(birth) + horizon),
+    before: r.real_return_before_hundredths, after: r.real_return_after_hundredths } } };
+}
+
+/** Public basic behavior stays unchanged; optional scenarios only reuse preparation. */
+export function buildBasicCapabilities(sources: PlanningSources, temporaryContribution?: string): BasicCapabilities {
+  const prepared = prepareBasicPlan(sources, temporaryContribution);
+  const { context, funds, pension, predictionMissing } = prepared;
+  if (prepared.plan.status === 'blocked') return { context, funds, pension, requirement: blocked(prepared.plan.missing), prediction: blocked(predictionMissing) };
+  const { compile, contribution, before, after, target_month, horizon_month } = prepared.plan.value;
+  const set = solveBasicRequirement(compile, before, after);
+  const lower = solveBasicRequirement(compile, before - 200, after - 200);
+  const upper = solveBasicRequirement(compile, before + 200, after + 200);
+  const requirement: Capability<RequirementValue> = { status: 'ready', value: { set, lower, upper, target_month, horizon_month, budget_scope: 'complete' } };
   let prediction: Capability<PredictionValue> = blocked(predictionMissing);
   if (!predictionMissing.length && contribution !== null) {
-    const plan = compile(Number(contribution), r.real_return_before_hundredths, r.real_return_after_hundredths), plan0 = compile(Number(contribution), r.real_return_before_hundredths, r.real_return_after_hundredths, false);
-    const projection = project(plan, Number(anchor.slice(0, 4))), out = outcome(plan, projection);
+    const plan = compile(Number(contribution), before, after), plan0 = compile(Number(contribution), before, after, false);
+    const projection = project(plan, Number(plan.anchor_date!.slice(0, 4))), out = outcome(plan, projection);
     prediction = { status: 'ready', value: { source: temporaryContribution === undefined ? 'saved' : 'temporary', contribution_cents: contribution, plan, plan0, projection, outcome: out, terminal: !out.success ? 'gap' : Math.abs(out.at_horizon) < 0.5 ? 'no_margin' : 'surplus' } };
   }
   return { context, funds, requirement, prediction, pension };

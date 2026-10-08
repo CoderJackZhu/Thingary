@@ -265,14 +265,17 @@ export type Projection = {
 
 const rowYear = (todayYear: number, k: number) => todayYear + k;
 
-/** 逐月推演。FIRE：年龄 ≥ 目标且资产 ≥ 当月所需才开始退休；传统：到目标年龄强制开始。
- *  opts.after 给退休后第 y 年（0 起）的实际年收益率，用来推演崩盘路径；不给就用假设的退休后收益率。 */
+/** Optional observation of the same ledger, before next month's one-off payments. */
+export type MonthAudit = { month: number; start_cents: number; after_payments_cents: number; after_unlock_cents: number; end_cents: number };
 export type ProjectOptions = {
+  onMonth?: (point: MonthAudit) => void;
+  /** 退休后第 y 年（0 起）的实际年收益率；不给就用假设的退休后收益率。 */
   after?: (yearsSinceRetire: number) => number;
   /** Annual real return for the calendar interval starting at offset_months.
    * Used by market sampling; does not change obligations, FI thresholds or storage. */
   annualReturnAt?: (offset_months: number, phase: 'accumulation' | 'retired') => number;
 };
+/** 逐月推演。FIRE 达到目标且资金满足才退休；传统模式在目标年龄开始退休。 */
 export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): Projection {
   const T = table(P), N = Math.max(0, P.horizon_months - P.now_months);
   const gb = monthlyGrowth(P.r_before_hundredths), ga = monthlyGrowth(P.r_after_hundredths);
@@ -303,13 +306,16 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
       }
     }
     assets[t] = a;
+    const monthStart = a;
     const upfront = retire === null ? due[t] : retiredDue[t], paidUpfront = Math.min(Math.max(0,a),upfront);
     a-=upfront;
+    const afterPayments = a;
     if (failure===null && a<0) failure=m;
     // Basic pools unlock at their confirmed date; legacy pools keep the retirement trigger.
     // Known month-start payments precede unlock, and each pool enters cash only once.
     const pool = basicPension ?? pension;
     if (!unlocked && pool && pool.unlock_age_months <= m && (basicPension !== null || retire !== null)) { unlocked = true; a += pool.lump_cents; r.unlock += pool.lump_cents; }
+    const afterUnlock = a;
     if (retire === null) {
       const c = savings[t];
       // 现金不足照实保留，不因月底投入或后续月份恢复而抹去已发生的缺口。
@@ -330,6 +336,7 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
       if (essentialGap > 0) { r.essential_unfunded += essentialGap; if (shortfall === null && essentialGap > Math.max(100, spend * 0.001)) shortfall = m; }
       if (failure === null && brokeAfter(a, gap)) failure = m;
     }
+    opts.onMonth?.({ month: m, start_cents: monthStart, after_payments_cents: afterPayments, after_unlock_cents: afterUnlock, end_cents: a });
     const out = oneOff[t + 1];
     a -= out;
     if (failure === null && a < 0) failure = m + 1;
