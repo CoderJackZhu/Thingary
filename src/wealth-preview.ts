@@ -13,7 +13,7 @@ import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 import type { SourceTarget, TimelineSelection } from './source';
 import { coverageFor, scheduleDates, shiftDays } from './recurring-model';
 import { computeReview, defaultRetire } from './plan';
-import { emptyCore, eventSource, normalizeFunds } from './plan-core';
+import { emptyCore, costSources, eventSource, normalizeFunds } from './plan-core';
 import { hasPensionProfile } from './plan';
 import type { BasicCapabilities, BasicFields, CapabilityName, FundsFields, MissingCode, PensionFields, PlanningMissing, PlanningSources, ProfileUpdate } from './plan';
 import { basicInputFixtures, predictionCapabilityFixture, unknownCapabilityFixture } from './plan-basic-fixtures';
@@ -266,31 +266,11 @@ let planTrash: Income[] = [];
 const planBudgetParam = params.get('plan-budget');
 const planBudgetCents = planBudgetParam === null ? null : planBudgetParam === 'set' ? '500000' : /^\d+(\.\d{1,2})?$/.test(planBudgetParam) ? String(Math.round(Number(planBudgetParam) * 100)) : null;
 // 虚构个人资料（1990-06 出生的男职工，数字均为虚构）；?plan-profile=empty 为尚未填写。
-let planProfile: ProfileState['saved'] = params.get('plan-profile') === 'empty' ? null : { revision: 1, updated_at: params.get('plan-stale') === '1' ? '2026-01-02T00:00:00Z' : new Date().toISOString(), profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '1200000', marginal_tax_hundredths: 1000, assumptions: { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 }, overrides: { avg_wage_cents: null, base_lower_cents: null, base_upper_cents: null, notional_rate_hundredths: null, hpf_rate_hundredths: null }, retire: { ...defaultRetire, spend_cents: planBudgetCents, ...(params.get('plan-mode') === 'traditional' ? { mode: 'traditional' as const, target_age: 60 } : {}), ...(params.get('plan-items') === '1' ? { spend_items: [{ id: 'fx-health', label: '医疗', monthly_cents: '100000', start_age: 65, end_age: null, inflation_hundredths: 400, essential: true }, { id: 'fx-travel', label: '旅行', monthly_cents: '150000', start_age: null, end_age: 75, inflation_hundredths: null, essential: false }], income_items: [{ id: 'fx-annuity', label: '企业年金', monthly_cents: '120000', start_age: 60, end_age: null, indexed: false }] } : {}), ...(params.get('plan-phases') === '1' ? { saving_phases: [{ id: 'fx-gap', label: '空窗期', from_age_months: 0, monthly_cents: -600000 }, { id: 'fx-work', label: '有收入', from_age_months: 440, monthly_cents: 1700000 }, { id: 'fx-calm', label: '清闲／稳定', from_age_months: 504, monthly_cents: 800000 }] } : {}), ...(params.get('plan-events') === '1' ? { life_events: [
+let planProfile: ProfileState['saved'] = params.get('plan-profile') === 'empty' ? null : { revision: 1, updated_at: params.get('plan-stale') === '1' ? '2026-01-02T00:00:00Z' : new Date().toISOString(), profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '1200000', marginal_tax_hundredths: 1000, assumptions: { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 }, overrides: { avg_wage_cents: null, base_lower_cents: null, base_upper_cents: null, notional_rate_hundredths: null, hpf_rate_hundredths: null }, retire: { ...defaultRetire, spend_cents: planBudgetCents, ...(params.get('plan-mode') === 'traditional' ? { mode: 'traditional' as const, target_age: 60 } : {}), ...(params.get('plan-items') === '1' ? { spend_items: [{ id: 'fx-health', label: '医疗', monthly_cents: '100000', start_age: 65, end_age: null, inflation_hundredths: 400, essential: true }, { id: 'fx-travel', label: '旅行', monthly_cents: '150000', start_age: null, end_age: 75, inflation_hundredths: null, essential: false }], income_items: [{ id: 'fx-annuity', label: '企业年金', monthly_cents: '120000', start_age: 60, end_age: null, indexed: false }] } : {}), ...(params.get('plan-events') === '1' ? { life_events: [
     { id: 'fx-bj', label: '北京买房', kind: 'house' as const, date: `${now.getFullYear() + 7}-${String(now.getMonth() + 1).padStart(2, '0')}`, included: true, price_cents: '450000000', down_cents: '150000000', extra_cents: '10000000', loan_rate_hundredths: 350, loan_years: 30, holding_cents: '150000', rent_saved_cents: '270000', cycle_years: null, until_age: null, resale_cents: '0' },
     { id: 'fx-home', label: '老家全款买房', kind: 'house' as const, date: `${now.getFullYear() + 7}-${String(now.getMonth() + 1).padStart(2, '0')}`, included: false, price_cents: '40000000', down_cents: '40000000', extra_cents: '3000000', loan_rate_hundredths: 350, loan_years: 30, holding_cents: '30000', rent_saved_cents: '150000', cycle_years: null, until_age: null, resale_cents: '0' },
     { id: 'fx-car', label: '二手车', kind: 'car' as const, date: `${now.getFullYear() + 2}-${String(now.getMonth() + 1).padStart(2, '0')}`, included: true, price_cents: '7000000', down_cents: '7000000', extra_cents: '0', loan_rate_hundredths: 350, loan_years: 3, holding_cents: '120000', rent_saved_cents: '0', cycle_years: 5, until_age: 60, resale_cents: '2000000' },
-  ] } : {}), ...(params.get('plan-route') ? { route_id: params.get('plan-route'), route_from_age: 35 } : {}), ...(params.get('plan-return') === '1' ? { real_return_before_hundredths: 150, real_return_after_hundredths: 100 } : {}) } } as StoredProfile };
-// Confirmed planning / continuation acceptance fixtures, all balances fictional.
-const coreScenario = params.get('plan-core');
-if (coreScenario && planProfile && snapshots.length) {
-  const s = snapshots[snapshots.length - 1], cash = accounts.find(a => a.fields.kind === 'cash')!, debt = accounts.find(a => a.fields.kind === 'loan')!;
-  s.entries = s.entries.map(e => e.account_id === cash.id ? { ...e, amount_cents: '70000000' } : e.side === 'liability' ? { ...e, counted: true, amount_cents: e.account_id === debt.id && ['occurred','partial'].includes(coreScenario) ? '10000000' : '0' } : e);
-  const r = planProfile.profile.retire;
-  Object.assign(r, {saving_phases: [{ id: 'fx-confirmed', label: '明确净投入', from_age_months: 0, monthly_cents: 500000 }]});
-  r.core = { ...emptyCore(s.date), hpf_monthly_cents: '300000', fund_rules: s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: e.kind === 'cash' ? 'available' : 'restricted', share_hundredths: 10000 })) };
-  r.core.personal_pension_balance_confirmed = true;
-  r.core.costs = [{ phase_id: 'fx-confirmed', source_id: 'personal_pension', included: false, reference_cents: '0' }];
-  if (['occurred','partial','overdue'].includes(coreScenario)) {
-    const date = shifted(1).slice(0, 7);
-    r.life_events = [{ id: 'fx-occurred', label: '虚构已购住宅', kind: 'house', date, included: false, price_cents: '40000000', down_cents: '30000000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 30, holding_cents: '10000', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }];
-    if (coreScenario === 'overdue') r.life_events[0].included = true;
-    else {
-      r.core.occurrences = [{ id: 'fx-occurrence', event_id: 'fx-occurred', status: 'occurred', actual_date: date + '-01', payments_complete: coreScenario === 'occurred', payments: [{ id: 'fx-payment', date: date + '-01', amount_cents: '30000000', account_id: cash.id, absorbed_snapshot_id: s.id, absorbed_revision: s.revision, source_kind: null, source_id: null }], loan: { account_id: debt.id, as_of: s.date, principal_cents: '10000000', remaining_months: 50 } }];
-      r.core.costs.push({ phase_id: 'fx-confirmed', source_id: eventSource('fx-occurred','loan'), included: true, reference_cents: '200000' }, { phase_id: 'fx-confirmed', source_id: eventSource('fx-occurred','holding'), included: false, reference_cents: '0' });
-    }
-  }
-}
+  ] } : {}), ...(params.get('plan-return') === '1' ? { real_return_before_hundredths: 150, real_return_after_hundredths: 100 } : {}) } } as StoredProfile };
 // 首页规划摘要的局部读取失败夹具：只让指定来源失败，验证独立降级与局部重试。
 const planFail = (source: string) => params.get('plan-fail') === source;
 
@@ -320,13 +300,41 @@ function basicScenarioProfile(kind: string): ProfileState['saved'] {
   return { revision: 1, updated_at: new Date().toISOString(), profile: p };
 }
 if (basicScenario) planProfile = basicScenarioProfile(basicScenario);
+// Confirmed planning / continuation acceptance fixtures, all balances fictional.
+const coreScenario = params.get('plan-core');
+if (coreScenario && planProfile && snapshots.length) {
+  const s = snapshots[snapshots.length - 1], cash = accounts.find(a => a.fields.kind === 'cash')!, debt = accounts.find(a => a.fields.kind === 'loan')!;
+  s.entries = s.entries.map(e => e.account_id === cash.id ? { ...e, amount_cents: '70000000' } : e.side === 'liability' ? { ...e, counted: true, amount_cents: e.account_id === debt.id && ['occurred','partial'].includes(coreScenario) ? '10000000' : '0' } : e);
+  const p = planProfile.profile, r = p.retire;
+  if (r.basic) {
+    r.basic.start = { kind: 'live' };
+    r.basic.contribution.monthly_cents = '500000';
+    Object.assign(p, { worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000 });
+    r.basic.pension_contributions = { start_month: todayIso.slice(0,7), stop_month: '2050-06', base_cents: '2000000' };
+  }
+  r.core = { ...emptyCore(s.date), hpf_monthly_cents: '300000', fund_rules: s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: e.kind === 'cash' ? 'available' : 'restricted', share_hundredths: 10000 })) };
+  r.core.personal_pension_balance_confirmed = true;
+  if (['occurred','partial','overdue'].includes(coreScenario)) {
+    const date = shifted(1).slice(0, 7);
+    r.life_events = [{ id: 'fx-occurred', label: '虚构已购住宅', kind: 'house', date, included: false, price_cents: '40000000', down_cents: '30000000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 30, holding_cents: '10000', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }];
+    if (coreScenario === 'overdue') r.life_events[0].included = true;
+    else {
+      r.core.occurrences = [{ id: 'fx-occurrence', event_id: 'fx-occurred', status: 'occurred', actual_date: date + '-01', payments_complete: coreScenario === 'occurred', payments: [{ id: 'fx-payment', date: date + '-01', amount_cents: '30000000', account_id: cash.id, absorbed_snapshot_id: s.id, absorbed_revision: s.revision, source_kind: null, source_id: null }], loan: { account_id: debt.id, as_of: s.date, principal_cents: '10000000', remaining_months: 50 } }];
+    }
+  }
+  if (r.basic) {
+    const scopes = costSources(r.life_events, p.personal_pension_annual_cents ?? '0').map(source => ({ source_id: source.id, treatment: source.id === eventSource('fx-occurred','loan') && coreScenario !== 'overdue' ? 'included' as const : 'extra' as const, reference_cents: source.id === eventSource('fx-occurred','loan') && coreScenario !== 'overdue' ? '200000' : null }));
+    r.basic.contribution_costs = scopes;
+    r.basic.retirement_costs = scopes.map(source => ({ ...source, treatment: 'extra', reference_cents: null }));
+  }
+}
 // Historical JSON fixtures use the same read boundary as native storage: facts survive,
 // old goals/budgets are not defaults and unoccurred intentions require reconfirmation.
 if (planProfile) {
   const p=planProfile.profile,r=p.retire;
   if (!r.basic) p.retire={...structuredClone(defaultRetire),core:r.core,life_events:r.life_events.map(e=>({...e,included:r.core?.occurrences.some(o=>o.status==='occurred'&&o.event_id===e.id)?e.included:false}))};
   for (const key of ['saving_phases','route_id','route_from_age','gap_share_hundredths','gap_keeps_paying','legacy_definition']) delete (p.retire as Record<string,unknown>)[key];
-  if (p.retire.core) p.retire.core.costs=[];
+
 }
 let planWriteVersion = 1;
 const updateResults = new Map<string, NonNullable<ProfileState['saved']>>();
@@ -372,7 +380,8 @@ function mergeSection(old: StoredProfile | null, u: ProfileUpdate): StoredProfil
   } else if (u.section === 'events') {
     const f = u.fields;
     if (!p.retire.core) throw { code: 'PLANNING_BASIC', message: '先确认金额基准' };
-    p.retire.life_events = f.life_events; p.retire.core.occurrences = f.occurrences; p.retire.core.costs = f.costs;
+    if ('costs' in f) throw { code: 'PLANNING_BASIC', message: '旧阶段费用不能保存' };
+    p.retire.life_events = f.life_events; p.retire.core.occurrences = f.occurrences;
   } else { const f = u.fields; Object.assign(p.retire, { spend_items: f.spend_items, income_items: f.income_items, rent_cents: f.rent_cents, keep_paying_until_age: f.keep_paying_until_age, keep_paying_monthly_cents: f.keep_paying_monthly_cents, keep_paying_base_cents: f.keep_paying_base_cents }); }
   return p;
 }

@@ -12,7 +12,7 @@ const profile = { birth_month: '1990-06', worker: 'male', paid_months: 48, accou
 const region = { ...beijing, notional_rate_hundredths: 0, hpf_rate_hundredths: 0 };
 const funds = { hpf_balance_cents: '0', hpf_monthly_cents: '300000' };
 const TODAY = '2026-10-06';
-const saved = retire => ({ revision: 1, updated_at: TODAY, profile: { ...profile, region: 'beijing', assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, core: { contract_version: 1, monetary_basis_date: '2026-10-06', fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', costs: [], occurrences: [] }, saving_phases: [{ id: 'default-explicit', label: '显式测试假设', from_age_months: 0, monthly_cents: 1000000 }], spend_cents: '500000', ...retire } } });
+const saved = retire => ({ revision: 1, updated_at: TODAY, profile: { ...profile, region: 'beijing', assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, core: { contract_version: 1, monetary_basis_date: '2026-10-06', fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', occurrences: [] }, saving_phases: [{ id: 'default-explicit', label: '显式测试假设', from_age_months: 0, monthly_cents: 1000000 }], spend_cents: '500000', ...retire } } });
 const snapshot = { entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: '20000000' }] };
 const review = { intervals: [], stats: { median_monthly_saving_cents: '1000000', median_monthly_spend_cents: null } };
 

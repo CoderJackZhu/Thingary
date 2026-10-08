@@ -432,7 +432,7 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
             section: crate::plan_basic::Section::Events(crate::plan_basic::EventsFields {
                 life_events: base.life_events.clone(),
                 occurrences: vec![],
-                costs: vec![],
+                legacy_costs: None,
             }),
         },
         &date,

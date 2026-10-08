@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { project, outcome, required } from '../src/plan-ledger.ts';
 import { stressTests } from '../src/plan-risk.ts';
-import { calloutBaselines, checkpoints, compactYuan, refLabelLayout, coverage, milestones, rangeRows, progress, scaleAt, snapshotRows, trajectory, verdict } from '../src/plan-view.ts';
+import { calloutBaselines, compactYuan, refLabelLayout, coverage, milestones, rangeRows, progress, scaleAt, snapshotRows, trajectory, verdict } from '../src/plan-view.ts';
 
 const pension = () => ({ monthly_cents: 300, lump_cents: 20_000, unlock_age_months: 756 });
 const plan = (over = {}) => ({
@@ -93,20 +93,11 @@ test('snapshot rows scale by the inflation at the start of each row', () => {
   assert.equal(t[0].year, 2026);
 });
 
-test('range rows put the base case beside the income shocks; checkpoints show what must be saved before the saving drops', () => {
-  const P = plan({ saving_phases: [{ from_month: 436, cents: 1500 }, { from_month: 520, cents: 600 }], now_months: 436, target_months: 760, mode: 'fire' });
+test('range rows compare general assumptions beside the base case', () => {
+  const P = plan({ saving_cents: 1500, now_months: 436, target_months: 760, mode: 'fire' });
   const proj = project(P, 2026), base = outcome(P, proj), rows = rangeRows(P, stressTests(P, 2026), base);
   assert.deepEqual(rows.map(r => r.id), ['base', 'return-drag', 'inflation-shock', 'spending-shock', 'save-less']);
   assert.ok(rows.slice(1).every(r => r.late_months === null || r.late_months >= 0));
-  const cps = checkpoints(P, proj);
-  assert.equal(cps.length, 1);
-  assert.equal(cps[0].month, 520);
-  assert.equal(cps[0].label, '储蓄下降前');
-  assert.ok(cps[0].need > 0 && cps[0].expected > 0);
-  // 没有显式储蓄下降时不增加职业年龄参考；已过去或在目标之后的检查点不出现。
-  const flat = plan({ now_months: 360, target_months: 600 });
-  assert.deepEqual(checkpoints(flat, project(flat, 2026)).map(c => c.month), []);
-  assert.deepEqual(checkpoints(plan({ now_months: 440 }), project(plan({ now_months: 440 }), 2026)), []);
 });
 
 test('trajectory chart labels: close reference lines go on separate rows, edge labels flip, callouts keep 14 apart', () => {

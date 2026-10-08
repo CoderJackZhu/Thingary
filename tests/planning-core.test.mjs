@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyCore, normalizeFunds, occurrenceMissing, eventSource, costSources } from '../src/plan-core.ts';
+import { emptyCore, normalizeFunds, occurrenceMissing, costSources } from '../src/plan-core.ts';
 import { buildRetireCalc } from '../src/plan-retire-calc.ts';
 import { computeReview, defaultRetire } from '../src/plan.ts';
 import { savingsOf, project, nominalFactor, coastAt, glide } from '../src/plan-ledger.ts';
 import { eventParts, applyEvents, offsetOf } from '../src/plan-events.ts';
 import { project as pensionProject } from '../src/plan-pension.ts';
 import { beijing, noOverrides } from '../src/plan-params.ts';
-import { requiredSaving, monteCarlo } from '../src/plan-risk.ts';
+import { monteCarlo } from '../src/plan-risk.ts';
 const B = '2026-10-31';
 const entry = (id, side, kind, amount) => ({ account_id: id, side, kind, amount_cents: String(amount), counted: true, state: 'entered' });
 const snap = (entries, date = B) => ({ id: 'snapshot', revision: 1, date, entries, missing: [] });
@@ -17,7 +17,7 @@ const occurrence = (over = {}) => ({ id: 'occ', event_id: 'house', status: 'occu
 const basic = () => ({contract_version:1,start:{kind:'live'},contribution:{id:'contribution',monthly_cents:'500000'},retirement_income:{mode:'beijing',selected:[]},pension_contributions:{start_month:'2026-10',stop_month:'2055-06',base_cents:beijing.base_lower_cents},contribution_costs:[],retirement_costs:[]});
 const profile = (c, over = {}) => ({ revision: 1, updated_at: B, profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 300, account_balance_cents: '0', base_cents: '0', past_index_hundredths: null, flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 0, assumptions: { inflation_hundredths: 0, wage_growth_hundredths: 0, pp_return_hundredths: 0 }, overrides: noOverrides, retire: { ...defaultRetire, spend_cents: '100000', target_age: 65, basic:basic(), core: c, ...over } } });
 const review = { stats: { median_monthly_saving_cents: '6000000', median_monthly_spend_cents: '-4000000' }, intervals: [] };
-const calc = (p, s) => { const n=structuredClone(p),r=n.profile.retire,b=r.basic; const ids=costSources(r.life_events.filter(e=>e.included||r.core.occurrences.some(o=>o.event_id===e.id)),n.profile.personal_pension_annual_cents).map(s=>s.id); b.contribution_costs=ids.map(id=>{const rule=r.core.costs.find(c=>c.source_id===id);return {source_id:id,treatment:rule?.included?'included':'extra',reference_cents:rule?.included?rule.reference_cents:null}});b.retirement_costs=ids.map(id=>({source_id:id,treatment:'extra',reference_cents:null})); return buildRetireCalc(n,s,review,[],B); };
+const calc = (p, s, included = {}) => { const n=structuredClone(p),r=n.profile.retire,b=r.basic; const ids=costSources(r.life_events.filter(e=>e.included||r.core.occurrences.some(o=>o.event_id===e.id)),n.profile.personal_pension_annual_cents).map(s=>s.id); b.contribution_costs=ids.map(id=>{const reference=included[id];return {source_id:id,treatment:reference!==undefined?'included':'extra',reference_cents:reference??null}});b.retirement_costs=ids.map(id=>({source_id:id,treatment:'extra',reference_cents:null})); return buildRetireCalc(n,s,review,[],B); };
 const ready = c => { assert.deepEqual(c.missing, []); assert.ok(c.plan); return c; };
 const base = (over = {}) => ({ now_months: 420, horizon_months: 424, search_cap_months: 424, target_months: 423, mode: 'fire', assets_cents: 10000000, saving_cents: 0, saving_growth_hundredths: 0, r_before_hundredths: 0, r_after_hundredths: 0, inflation_hundredths: 0, volatility_hundredths: 0, items: [], incomes: [], spends: [], pension_at: () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 1000 }), ...over });
 
@@ -46,14 +46,14 @@ test('D01/D02: restricted money cannot pay, and the emergency line is not a seco
 
 test('D03/D04/D05: absorbed upfront money is retained, debt pays once and holding costs outlive loan', () => {
   const c = core(['cash','available']); c.occurrences = [occurrence()];
-  c.costs = [{ phase_id: 'phase', source_id: eventSource('house','loan'), included: true, reference_cents: '200000' }, { phase_id: 'phase', source_id: eventSource('house','holding'), included: false, reference_cents: '0' }];
-  const r = ready(calc(profile(c,{life_events:[event()]}),snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',10000000)])));
+
+  const r = ready(calc(profile(c,{life_events:[event()]}),snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',10000000)]),{'event:house:loan':'200000'}));
   assert.equal(r.proj.assets[0],70000000); assert.equal(r.proj.debt[0],10000000);
   assert.equal(savingsOf(r.plan0)[1],490000,'hypothetical comparisons retain factual debt and maintenance');
   assert.equal(savingsOf(r.plan)[1],490000); assert.equal(r.proj.debt[2],9800000);
   assert.equal(savingsOf(r.plan)[51],690000,'holding fee continues after loan ends');
-  c.occurrences[0].loan = { account_id: 'loan', as_of: B, principal_cents:'3600000',remaining_months:12 }; c.costs[0].reference_cents='300000';
-  const d = ready(calc(profile(c,{life_events:[event({holding_cents:'0'})]}),snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',3600000)])));
+  c.occurrences[0].loan = { account_id: 'loan', as_of: B, principal_cents:'3600000',remaining_months:12 };
+  const d = ready(calc(profile(c,{life_events:[event({holding_cents:'0'})]}),snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',3600000)]),{'event:house:loan':'300000'}));
   assert.equal(savingsOf(d.plan)[1],500000); assert.equal(savingsOf(d.plan)[13],800000);
   assert.equal(d.proj.debt[13],0); assert.equal(d.proj.assets[0],70000000);
 });
@@ -86,10 +86,9 @@ test('D10/D15: B and T convert nominal balance and payments exactly once', () =>
   assert.equal(x.spends[0].cents,10000000);
 });
 
-test('D11: end-month saving cannot repair a start-month affordability failure, including inverse and risk paths', async () => {
+test('D11: end-month saving cannot repair a start-month affordability failure, including risk paths', async () => {
   const p=base({saving_cents:30000000,spends:[{offset_months:0,cents:30000000}]});
   const proj=project(p,2026);assert.equal(proj.assets[0],-20000000);assert.equal(proj.failure_month,420);
-  assert.equal(requiredSaving(p,2026,423),null);
   assert.equal((await monteCarlo(p,10,{seed:1})).success_rate,0);
 });
 
@@ -102,7 +101,7 @@ test('first remaining days and explicit zero preserve start-of-month order', () 
 });
 
 test('D08/D16: PP moves cash once; payroll HPF adds only restricted funds, and pools never overlap', () => {
-  const c=core(['cash','available'],['pp','restricted'],['hpf','restricted']);c.personal_pension_account_id='pp';c.personal_pension_balance_confirmed=true;c.hpf_monthly_cents='300000';c.costs=[{phase_id:'phase',source_id:'personal_pension',included:false,reference_cents:'0'}];
+  const c=core(['cash','available'],['pp','restricted'],['hpf','restricted']);c.personal_pension_account_id='pp';c.personal_pension_balance_confirmed=true;c.hpf_monthly_cents='300000';
   const p=profile(c);p.profile.personal_pension_annual_cents='1200000';
   const r=ready(calc(p,snap([entry('cash','asset','cash',10000000),entry('pp','asset','other_asset',5000000),entry('hpf','asset','housing_fund',0)])));
   assert.equal(r.assets,10000000);assert.equal(savingsOf(r.plan)[1],400000);
@@ -112,7 +111,7 @@ test('D08/D16: PP moves cash once; payroll HPF adds only restricted funds, and p
   const funds={hpf_balance_cents:'0',hpf_monthly_cents:'300000',personal_pension_balance_cents:'5000000',first_month_fraction:0};
   const pr=pensionProject(p.profile,{...beijing,hpf_rate_hundredths:0},B,r.now+2,funds);
   assert.equal(pr.hpf_at_start_cents,300000);assert.equal(pr.personal_pension_at_start_cents,5100000);
-  p.profile.personal_pension_annual_cents='0';p.profile.retire.core.costs=[];
+  p.profile.personal_pension_annual_cents='0';
   assert.equal(savingsOf(ready(calc(p,snap([entry('cash','asset','cash',10000000),entry('pp','asset','other_asset',5000000),entry('hpf','asset','housing_fund',0)]))).plan)[1],500000);
   c.personal_pension_account_id='cash';assert.match(calc(p,snap([entry('cash','asset','cash',10000000)])).missing.join(' '),/独立确认.*受限/);
 });
@@ -120,21 +119,21 @@ test('D08/D16: PP moves cash once; payroll HPF adds only restricted funds, and p
 test('duplicate debt continuation, unsupported reference changes, and hypothetical included costs stay incomplete', () => {
   const c=core(['cash','available']);c.occurrences=[occurrence(),{...occurrence(),id:'second',event_id:'second'}];
   assert.match(occurrenceMissing(snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',10000000)]),c,[event(),event({id:'second'})],B).join(' '),/重复接续/);
-  const p=profile(core(['cash','available']),{life_events:[event({date:'2030-01'})]});p.profile.retire.core.costs=[{phase_id:'phase',source_id:'event:house:loan',included:true,reference_cents:'300000'}];
-  assert.match(calc(p,snap([entry('cash','asset','cash',70000000)])).missing.join(' '),/未发生费用/);
+  const p=profile(core(['cash','available']),{life_events:[event({date:'2030-01'})]});
+  assert.match(calc(p,snap([entry('cash','asset','cash',70000000)]),{'event:house:loan':'300000'}).missing.join(' '),/未发生费用/);
   p.reference_issues=['来源已变化'];assert.match(calc(p,snap([entry('cash','asset','cash',70000000)])).missing.join(' '),/来源已变化/);
 });
 
 
 test('included costs normalize once; old unemployment shares cannot change the general model', () => {
-  const c=core(['cash','available']);c.occurrences=[occurrence()];c.costs=[{phase_id:'phase',source_id:'event:house:loan',included:true,reference_cents:'200000'},{phase_id:'phase',source_id:'event:house:holding',included:false,reference_cents:'0'}];
+  const c=core(['cash','available']);c.occurrences=[occurrence()];
   const p=profile(c,{life_events:[event({rent_saved_cents:'100000'})],gap_share_hundredths:2000});
-  const r=ready(calc(p,snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',10000000)])));
+  const r=ready(calc(p,snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',10000000)]),{'event:house:loan':'200000'}));
   assert.equal(savingsOf(r.plan)[1],490000); // 5000+2000-2000-100; old gap share is ignored.
 });
 
 test('a PP balance without confirmation stays unknown rather than default zero', () => {
-  const c=core(['cash','available']);c.costs=[{phase_id:'phase',source_id:'personal_pension',included:false,reference_cents:'0'}];
+  const c=core(['cash','available']);
   const p=profile(c);p.profile.personal_pension_annual_cents='1200000';
   assert.match(calc(p,snap([entry('cash','asset','cash',10000000)])).missing.join(' '),/已有个人养老金余额待核对/);
   p.profile.personal_pension_annual_cents='0';c.personal_pension_account_id='pp';c.fund_rules.push({account_id:'pp',availability:'restricted',share_hundredths:10000});
@@ -146,7 +145,7 @@ test('monthly plan payments also precede net contribution and retirement income 
   const from=420,flow={label:'月供',from_month:from,to_month:from+2,cents:-300000,nominal:false,essential:true,timing:'start'};
   const p=base({assets_cents:0,saving_cents:800000,saving_flows:[flow],spend_flows:[{...flow,cents:300000}]});
   const r=project(p,2026);assert.equal(r.failure_month,420);assert.equal(r.assets[1],500000);
-  assert.equal(requiredSaving(p,2026,423),null);assert.equal((await monteCarlo(p,10,{seed:2})).success_rate,0);
+  assert.equal((await monteCarlo(p,10,{seed:2})).success_rate,0);
   const retired={...p,mode:'traditional',target_months:420,saving_cents:0,pension_at:()=>({monthly_cents:300000,lump_cents:0,unlock_age_months:420})};
   assert.equal(project(retired,2026).failure_month,420,'same month pension cannot fund an earlier payment');
 });

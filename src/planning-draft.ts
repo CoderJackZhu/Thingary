@@ -13,7 +13,7 @@ export function overlayPlanningDrafts(sources: PlanningSources, drafts: SectionI
     marginal_tax_hundredths: null, assumptions: { inflation_hundredths: 0, wage_growth_hundredths: 0, pp_return_hundredths: 0 },
     overrides: { ...noOverrides }, retire: structuredClone({ ...defaultRetire, target_age: null }),
   };
-  const core = (basis: string) => p.retire.core ??= { contract_version: 1, monetary_basis_date: basis, fund_rules: [], hpf_monthly_cents: null, personal_pension_account_id: null, personal_pension_balance_confirmed: false, costs: [], occurrences: [] };
+  const core = (basis: string) => p.retire.core ??= { contract_version: 1, monetary_basis_date: basis, fund_rules: [], hpf_monthly_cents: null, personal_pension_account_id: null, personal_pension_balance_confirmed: false, occurrences: [] };
   const apply = (input: SectionInput): void => {
     switch (input.section) {
       case 'setup':
@@ -34,7 +34,7 @@ export function overlayPlanningDrafts(sources: PlanningSources, drafts: SectionI
       }
       case 'events':
         p.retire.life_events = input.fields.life_events;
-        if (p.retire.core) Object.assign(p.retire.core, { costs: input.fields.costs, occurrences: input.fields.occurrences });
+        if (p.retire.core) Object.assign(p.retire.core, { occurrences: input.fields.occurrences });
         break;
       case 'pension': {
         const { wage_growth_hundredths, pp_return_hundredths, ...fields } = input.fields;

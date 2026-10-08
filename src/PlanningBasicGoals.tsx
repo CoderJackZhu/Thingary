@@ -44,7 +44,7 @@ export function PlanningBasicGoals({ sources, mode, today, reload, onPending, on
     return { retire: r, snapshot, accounts, busy: saver.busy, stuck: saver.stuck, notice: saver.notice,
       ready: pred && pred.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '资料待补齐',
       onContribution: needsContribution(caps) ? () => setDetail({ contribution: true }) : undefined,
-      write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences, costs: core.costs }))) };
+      write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) };
   }, [saved, caps, pred, snapshot, accounts, saver.busy, saver.stuck, saver.notice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (sources.profile.status === 'error') return <article className="ui-card ui-content" role="alert"><p>规划资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>;

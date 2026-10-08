@@ -19,7 +19,7 @@ function sources(pre, post, income, amount = '0', birth = '1956-09') {
     birth_month: birth, worker: null, region: null, paid_months: null, account_balance_cents: null, base_cents: null, past_index_hundredths: null, flex_months: null, personal_pension_annual_cents: null, marginal_tax_hundredths: null,
     assumptions: { ...defaultAssumptions, inflation_hundredths: 0 }, overrides: noOverrides,
     retire: { ...structuredClone(defaultRetire), spend_cents: '10000', target_age: 70, horizon_age: 71, mode: 'traditional', real_return_before_hundredths: 0, real_return_after_hundredths: 0, volatility_hundredths: 0, basic: b,
-      core: { contract_version: 1, monetary_basis_date: f.monetary_basis_date, fund_rules: [], hpf_monthly_cents: null, costs: [], occurrences: [] },
+      core: { contract_version: 1, monetary_basis_date: f.monetary_basis_date, fund_rules: [], hpf_monthly_cents: null, occurrences: [] },
       income_items: [{ id: 'income', label: 'fictional retirement income', monthly_cents: String(income), start_age: 0, end_age: null, indexed: true }],
       life_events: [{ id: 'car', label: 'fictional car', kind: 'car', date: '2026-10', included: true, price_cents: '0', down_cents: '0', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 1, holding_cents: '10000', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }],
     },

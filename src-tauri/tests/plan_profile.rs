@@ -88,7 +88,7 @@ fn event_update(s: &Store, p: &Profile, revision: i64) -> thingary_lib::plan_bas
             thingary_lib::plan_basic::EventsFields {
                 life_events: p.retire.life_events.clone(),
                 occurrences: c.occurrences.clone(),
-                costs: vec![],
+                legacy_costs: None,
             },
         ),
     }

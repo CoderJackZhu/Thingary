@@ -12,6 +12,91 @@ fn input(s: &Store) -> Update {
     i
 }
 #[test]
+fn events_costs_only_verify_historical_receipts_and_never_enter_active_storage() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let saved = s.plan_profile_update(&input(&s), "2026-10-07").unwrap();
+    // Exact pre-cleanup serialization, including the position of costs.
+    let raw = format!(
+        r#"["plan_profile_update",{{"request_id":"{}","generation":"{}","expected_revision":1,"section":"events","fields":{{"life_events":[],"occurrences":[],"costs":[]}}}}]"#,
+        uuid::Uuid::new_v4(),
+        s.generation()
+    );
+    let (_, mut old): (String, Update) = serde_json::from_str(&raw).unwrap();
+    assert_eq!(
+        serde_json::to_string(&("plan_profile_update", &old)).unwrap(),
+        raw
+    );
+    let fingerprint = Store::digest_for_test(raw.as_bytes());
+    s.conn_for_test()
+        .unwrap()
+        .execute(
+            "INSERT INTO feature_requests VALUES(?1,?2,'profile')",
+            rusqlite::params![old.request_id, fingerprint],
+        )
+        .unwrap();
+    let historical = old.clone();
+    assert_eq!(
+        s.plan_profile_update(&old, "2026-10-07").unwrap().revision,
+        saved.revision
+    );
+    let active = serde_json::to_value(&saved).unwrap();
+    assert!(active["profile"]["retire"]["core"].get("costs").is_none());
+    old.request_id = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        s.plan_profile_update(&old, "2026-10-07").unwrap_err().code,
+        "PLANNING_BASIC"
+    );
+    if let Section::Events(fields) = &mut old.section {
+        fields.legacy_costs = None;
+    }
+    let json = serde_json::to_value(&old).unwrap();
+    assert!(json["fields"].get("costs").is_none());
+    let mut invalid = json.clone();
+    invalid["fields"]["costs"] = serde_json::Value::Null;
+    assert!(serde_json::from_value::<Update>(invalid).is_err());
+    let next = s.plan_profile_update(&old, "2026-10-07").unwrap();
+    assert_eq!(next.revision, saved.revision + 1);
+    assert_eq!(
+        s.plan_profile_update(&historical, "2026-10-07")
+            .unwrap()
+            .revision,
+        next.revision
+    );
+    let payload: String = s
+        .conn_for_test()
+        .unwrap()
+        .query_row("SELECT payload FROM plan_profile", [], |r| r.get(0))
+        .unwrap();
+    let value: serde_json::Value = serde_json::from_str(&payload).unwrap();
+    assert!(value["retire"]["core"].get("costs").is_none());
+    // Missing costs is supported on restart, and an unmatched old request rolls back.
+    drop(s);
+    let mut s = Store::open(d.path()).unwrap();
+    assert_eq!(
+        s.plan_profile().unwrap().saved.unwrap().revision,
+        next.revision
+    );
+    old.request_id = uuid::Uuid::new_v4().to_string();
+    old.expected_revision = Some(next.revision);
+    if let Section::Events(fields) = &mut old.section {
+        fields.legacy_costs = Some(vec![thingary_lib::plan_core::CostRule {
+            phase_id: "retired".into(),
+            source_id: "personal_pension".into(),
+            included: true,
+            reference_cents: "100000".into(),
+        }]);
+    }
+    assert_eq!(
+        s.plan_profile_update(&old, "2026-10-07").unwrap_err().code,
+        "PLANNING_BASIC"
+    );
+    assert_eq!(
+        serde_json::to_value(s.plan_profile().unwrap().saved.unwrap()).unwrap(),
+        serde_json::to_value(next).unwrap()
+    );
+}
+#[test]
 fn shared_json_is_strict_and_unknown_pension_facts_can_save() {
     let d = tempfile::tempdir().unwrap();
     let mut s = Store::open(d.path()).unwrap();
@@ -545,6 +630,27 @@ fn old_backup_reads_facts_only_and_old_receipts_cannot_restore_retired_estimates
     old.profile.retire.spend_cents = Some("500000".into());
     old.profile.retire.route_id = Some("tech".into());
     old.profile.retire.gap_share_hundredths = 1500;
+    old.profile.retire.income_items = vec![thingary_lib::plan_profile::IncomeItem {
+        id: "annuity".into(),
+        label: "Fictional future annuity".into(),
+        monthly_cents: "120000".into(),
+        start_age: 60,
+        end_age: None,
+        indexed: false,
+    }];
+    old.profile.retire.spend_items = vec![thingary_lib::plan_profile::SpendItem {
+        id: "health".into(),
+        label: "Fictional future expense".into(),
+        monthly_cents: "100000".into(),
+        start_age: None,
+        end_age: None,
+        inflation_hundredths: None,
+        essential: true,
+    }];
+    old.profile.retire.rent_cents = "100000".into();
+    old.profile.retire.keep_paying_until_age = Some(63);
+    old.profile.retire.keep_paying_monthly_cents = "200000".into();
+    old.profile.retire.keep_paying_base_cents = "727000".into();
     let raw = serde_json::to_string(&old.profile).unwrap();
     let fingerprint = Store::digest_for_test(&serde_json::to_vec(&("plan_profile", &old)).unwrap());
     s.conn_for_test()
@@ -572,6 +678,12 @@ fn old_backup_reads_facts_only_and_old_receipts_cannot_restore_retired_estimates
     assert!(before.profile.retire.target_age.is_none());
     assert!(before.profile.retire.saving_phases.is_empty());
     assert!(before.profile.retire.route_id.is_none());
+    assert!(before.profile.retire.income_items.is_empty());
+    assert!(before.profile.retire.spend_items.is_empty());
+    assert_eq!(before.profile.retire.rent_cents, "0");
+    assert_eq!(before.profile.retire.keep_paying_until_age, None);
+    assert_eq!(before.profile.retire.keep_paying_monthly_cents, "0");
+    assert_eq!(before.profile.retire.keep_paying_base_cents, "0");
     let still_raw: String = s
         .conn_for_test()
         .unwrap()

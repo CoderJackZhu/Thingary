@@ -63,6 +63,8 @@ pub struct Core {
     pub personal_pension_account_id: Option<String>,
     #[serde(default)]
     pub personal_pension_balance_confirmed: bool,
+    // Historical profile bytes only; never an active cost-input path.
+    #[serde(default)]
     pub costs: Vec<CostRule>,
     pub occurrences: Vec<Occurrence>,
 }
@@ -81,7 +83,7 @@ impl Core {
             return Err(Error::new("PLANNING_VERSION", "不支持的规划契约版本"));
         }
         date(&self.monetary_basis_date)?;
-        if self.fund_rules.len() > 500 || self.occurrences.len() > 20 || self.costs.len() > 1230 {
+        if self.fund_rules.len() > 500 || self.occurrences.len() > 20 || !self.costs.is_empty() {
             return Err(bad());
         }
         if let Some(v) = &self.hpf_monthly_cents {
@@ -97,29 +99,6 @@ impl Core {
                 || f.share_hundredths > 10000
                 || !["available", "restricted", "excluded"].contains(&f.availability.as_str())
             {
-                return Err(bad());
-            }
-        }
-        let mut cost_keys = HashSet::new();
-        for c in &self.costs {
-            if !r.saving_phases.iter().any(|p| p.id == c.phase_id)
-                || !cost_keys.insert((&c.phase_id, &c.source_id))
-            {
-                return Err(bad());
-            }
-            let valid_source = c.source_id == "personal_pension"
-                || r.life_events.iter().any(|e| {
-                    [
-                        format!("event:{}:loan", e.id),
-                        format!("event:{}:holding", e.id),
-                    ]
-                    .contains(&c.source_id)
-                });
-            if !valid_source {
-                return Err(bad());
-            }
-            amount(&c.reference_cents)?;
-            if !c.included && c.reference_cents != "0" {
                 return Err(bad());
             }
         }

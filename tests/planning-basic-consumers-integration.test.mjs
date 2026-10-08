@@ -52,7 +52,7 @@ function sources(contribution = null) {
       horizon_age: f.horizon_age, mode: f.mode, real_return_before_hundredths: f.real_return_before_hundredths,
       real_return_after_hundredths: f.real_return_after_hundredths, volatility_hundredths: f.volatility_hundredths,
       emergency_months: f.emergency_months, basic: f.basic,
-      core: { contract_version: 1, monetary_basis_date: f.monetary_basis_date, fund_rules: [], hpf_monthly_cents: null, costs: [], occurrences: [] } } };
+      core: { contract_version: 1, monetary_basis_date: f.monetary_basis_date, fund_rules: [], hpf_monthly_cents: null, occurrences: [] } } };
   return { generation: 'fictional-consumers', write_version: 1, today: '2026-10-07', modules: { planning: true, wealth: false },
     profile: ready({ generation: 'fictional-consumers', saved: { revision: 1, updated_at: '2026-10-07', profile } }),
     snapshot: unavailable, accounts: unavailable, review: unavailable, incomes: unavailable };

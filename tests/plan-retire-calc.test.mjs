@@ -7,7 +7,7 @@ import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
 
 const saved = spend => ({ revision: 1, updated_at: '2026-10-06', profile: {
   birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0,
-  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, target_age:50, core: { contract_version: 1, monetary_basis_date: '2026-10-06', fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', costs: [], occurrences: [] }, basic: {...structuredClone(basicInputFixtures.prediction.basic),start:{kind:'live'}}, spend_cents: spend },
+  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, target_age:50, core: { contract_version: 1, monetary_basis_date: '2026-10-06', fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', occurrences: [] }, basic: {...structuredClone(basicInputFixtures.prediction.basic),start:{kind:'live'}}, spend_cents: spend },
 } });
 const snapshot = {id:'snapshot',revision:1,date:'2026-10-06', entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: '20000000' }] };
 const review = { intervals: [], stats: { median_monthly_saving_cents: '1000000', median_monthly_spend_cents: '1700000' } };

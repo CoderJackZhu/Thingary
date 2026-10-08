@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { outcome, project, required } from '../src/plan-ledger.ts';
-import { ageSpendingMatrix, contributionReturnMatrix, crashReturns, gapAt, largestRisk, monteCarlo, requiredSaving, saveFrom, seedOf, sorr, stressTests, stressSeverity, workSaving } from '../src/plan-risk.ts';
+import { ageSpendingMatrix, contributionReturnMatrix, crashReturns, largestRisk, monteCarlo, seedOf, sorr, stressTests, stressSeverity } from '../src/plan-risk.ts';
 
 const pension = () => ({ monthly_cents: 300, lump_cents: 20_000, unlock_age_months: 756 });
 const plan = (over = {}) => ({
@@ -129,43 +129,12 @@ test('zero-volatility simulations use the same payment ordering, unlock and fina
   assert.equal((await monteCarlo(short, 3)).success_rate, 0, 'later unlock cannot erase the month-start missed payment');
 });
 
-test('income shocks rewrite the saving timeline: halve from a date, or draw down savings for a stretch', () => {
-  const P = plan(), N = 360;
-  const half = saveFrom(P, N + 36, 0.5);
-  assert.deepEqual(half.saving_phases, [{ from_month: N, cents: 1500 }, { from_month: N + 36, cents: 750 }]);
-  const gap = gapAt(P, N + 12, 12, -1000);
-  assert.deepEqual(gap.saving_phases, [{ from_month: N, cents: 1500 }, { from_month: N + 12, cents: -1000 }, { from_month: N + 24, cents: 1500 }]);
-  // 已有的阶段：减半只作用于正数，空窗期的负数保持；缺口之后恢复当时那一段的金额。
-  const phased = plan({ saving_phases: [{ from_month: N, cents: -500 }, { from_month: N + 6, cents: 2000 }, { from_month: N + 60, cents: 800 }] });
-  assert.deepEqual(saveFrom(phased, N + 36, 0.5).saving_phases, [{ from_month: N, cents: -500 }, { from_month: N + 6, cents: 2000 }, { from_month: N + 36, cents: 1000 }, { from_month: N + 60, cents: 400 }]);
-  assert.deepEqual(gapAt(phased, N + 58, 4, 0).saving_phases.map(p => p.cents), [-500, 2000, 0, 800]);
-  assert.equal(workSaving(phased), 2000);
-
-});
-
 test('矩阵 uses the working-income saving as its base when phases exist', () => {
   const P = plan({ saving_cents: 0, saving_phases: [{ from_month: 360, cents: -500 }, { from_month: 366, cents: 2000 }] });
   const m = contributionReturnMatrix(P, YEAR);
   assert.equal(m.cols[m.base_col], 2000);
 });
 
-
-test('required saving is the smallest constant monthly amount that reaches the goal, and later plans are kept', () => {
-  const base = plan({ r_before_hundredths: 0, r_after_hundredths: 0, pension_at: () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 756 }), assets_cents: 0, saving_cents: 0, mode: 'traditional', target_months: 480 });
-  const need = required(base, 480), s = requiredSaving(base, YEAR, 480);
-  // 零收益、没有已有资产：每月至少存「所需 ÷ 月数」，向上取整到分。
-  assert.equal(s, Math.ceil(need / 120));
-  const reach = v => { const P = { ...base, saving_phases: [{ from_month: 360, cents: v }] }, o = outcome(P, project(P, YEAR)); return o.funded_at_goal; };
-  assert.equal(reach(s), true);
-  assert.equal(reach(s - 1), false);
-  // 手里已经够了：0。存到 100 万一个月也不够：null。
-  assert.equal(requiredSaving({ ...base, assets_cents: need + 1 }, YEAR, 480), 0);
-  assert.equal(requiredSaving({ ...base, items: [{ ...base.items[0], monthly_cents: 1_000_000_000 }] }, YEAR, 480), null);
-  // 只在前 5 年存：之后沿用原来的阶段，所以前期要存得更多。
-  const later = { ...base, saving_phases: [{ from_month: 360, cents: 0 }, { from_month: 420, cents: 500 }] };
-  const front = requiredSaving(later, YEAR, 420), whole = requiredSaving(later, YEAR, 480);
-  assert.ok(front > whole && front > 0);
-});
 
 test('basic mode drops the preset career stress cases and keeps the neutral ones', () => {
   const kept = stressTests(plan(), YEAR); const careerStressIds=['income-drop','job-gap','raise-30','raise-double'];

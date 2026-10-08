@@ -1,14 +1,13 @@
 // Confirmed planning facts and assumptions. Persistence is the existing profile transaction.
 import type { Snapshot } from './wealth.ts';
-import type { StoredLifeEvent, StoredSavingPhase } from './plan.ts';
+import type { StoredLifeEvent } from './plan.ts';
 export type FundRule = { account_id: string; availability: 'available' | 'restricted' | 'excluded'; share_hundredths: number };
 export type Payment = { id: string; date: string; amount_cents: string | null; account_id: string | null; absorbed_snapshot_id: string | null; absorbed_revision: number | null; source_kind: 'asset' | 'expense' | 'wish' | null; source_id: string | null };
 export type Occurrence = { id: string; event_id: string; status: 'occurred' | 'cancelled'; actual_date: string; payments_complete: boolean; payments: Payment[]; loan: { account_id: string; as_of: string; principal_cents: string; remaining_months: number } | null };
-export type CostRule = { phase_id: string; source_id: string; included: boolean; reference_cents: string };
-export type PlanningCore = { contract_version: 1; monetary_basis_date: string; fund_rules: FundRule[]; hpf_monthly_cents: string | null; personal_pension_account_id?: string | null; personal_pension_balance_confirmed?: boolean; costs: CostRule[]; occurrences: Occurrence[] };
+export type PlanningCore = { contract_version: 1; monetary_basis_date: string; fund_rules: FundRule[]; hpf_monthly_cents: string | null; personal_pension_account_id?: string | null; personal_pension_balance_confirmed?: boolean; occurrences: Occurrence[] };
 /** Elapsed months at a period boundary after B closes partway through its month. */
 export const elapsedMonths = (offset: number, firstFraction = 1) => offset > 0 ? offset - 1 + firstFraction : offset;
-export const emptyCore = (date: string): PlanningCore => ({ contract_version: 1, monetary_basis_date: date, fund_rules: [], hpf_monthly_cents: null, costs: [], occurrences: [] });
+export const emptyCore = (date: string): PlanningCore => ({ contract_version: 1, monetary_basis_date: date, fund_rules: [], hpf_monthly_cents: null, occurrences: [] });
 export function normalizeFunds(snapshot: Snapshot | null, core?: PlanningCore | null) {
   let available = 0n, restricted = 0n, housingFund = 0n, debt = 0n, net = 0n;
   const missing: string[] = [];
@@ -41,10 +40,6 @@ export function costSources(events: StoredLifeEvent[], ppAnnual: string) {
   }
   if (Number(ppAnnual) > 0) out.push({ id: 'personal_pension', label: '个人养老金现金转入' });
   return out;
-}
-export function includedReference(core: PlanningCore | null | undefined, phase: StoredSavingPhase, source: string): number | null {
-  const rule = core?.costs.find(x => x.phase_id === phase.id && x.source_id === source);
-  return rule ? (rule.included ? Number(rule.reference_cents) : 0) : null;
 }
 export function occurrenceMissing(snapshot: Snapshot, core: PlanningCore | null | undefined, events: StoredLifeEvent[], today: string): string[] {
   const missing: string[] = [], coveredDebts = new Set<string>();

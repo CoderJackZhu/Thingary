@@ -52,7 +52,7 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
     const P0 = { ...ready.plan0, anchor_date: ready.plan.anchor_date, core: retire.core, basis_factor: ready.plan.basis_factor, first_month_fraction: ready.plan.first_month_fraction }, evs = events.map(toEvent);
     return { items: evs.filter(e => e.date >= today.slice(0, 7) && !retireOccurrence(retire, e.id)).map(e => ({ e, impact: eventImpact(P0, e, offsetOf(e.date, ready.plan.anchor_date ?? today), emergency) as EventImpact })), total: totalImpact(P0, evs.filter(e => e.included && !retireOccurrence(retire, e.id)).map(e => ({ e, offset: offsetOf(e.date, ready.plan.anchor_date ?? today) }))) };
   }, [ready, retire, events, today, emergency]);
-  const write = (next: StoredLifeEvent[]) => store.write(next, retire.core ? { ...retire.core, costs: retire.core.costs.filter(c => c.source_id === 'personal_pension' || next.some(e => c.source_id.startsWith(`event:${e.id}:`))), occurrences: retire.core.occurrences.filter(o => next.some(e => e.id === o.event_id)) } : retire.core);
+  const write = (next: StoredLifeEvent[]) => store.write(next, retire.core ? { ...retire.core, occurrences: retire.core.occurrences.filter(o => next.some(e => e.id === o.event_id)) } : retire.core);
   async function saveOccurrence(o: Occurrence) { const core = retire.core ?? emptyCore(today); if (await store.write(events, { ...core, occurrences: [...core.occurrences.filter(x => x.event_id !== o.event_id), o] })) setOccurring(null); }
   async function toggle(id: string, included: boolean) { await write(events.map(e => (e.id === id ? { ...e, included } : e))); }
   async function remove(id: string) { setConfirm(null); await write(events.filter(e => e.id !== id)); }

@@ -147,36 +147,10 @@ export function stressSeverity(base: Outcome, tested: Outcome): Severity {
 /** 退休后第 y 年的实际收益：用于「第一年下跌」等路径。 */
 export const crashReturns = (P: Plan, drops: Record<number, number>) => (y: number) => drops[y] ?? rate(P.r_after_hundredths);
 
-// ---- 储蓄时间线的改写：压力测试与矩阵用 ----
+// ---- 通用缴款矩阵的金额轴 ----
 type Phase = { from_month: number; cents: number };
 const phasesOf = (P: Plan): Phase[] => (P.saving_phases && P.saving_phases.length ? P.saving_phases : [{ from_month: P.now_months, cents: P.saving_cents }]);
-const valueAt = (ph: Phase[], m: number) => { let v = ph[0].cents; for (const x of ph) if (x.from_month <= m) v = x.cents; return v; };
-/** 在 breaks 处切开时间线，再对每一段重新取值；再并掉相邻相同金额。 */
-function reshape(P: Plan, breaks: number[], f: (cents: number, from: number) => number): Plan {
-  const ph = phasesOf(P), starts = [...new Set([ph[0].from_month, ...ph.map(x => x.from_month), ...breaks.filter(b => b > ph[0].from_month)])].sort((a, b) => a - b);
-  const out: Phase[] = [];
-  for (const m of starts) { const cents = f(valueAt(ph, m), m); if (!out.length || out[out.length - 1].cents !== cents) out.push({ from_month: m, cents }); }
-  return { ...P, saving_phases: out };
-}
-/** 从 from 月龄起，正储蓄乘以 factor。 */
-export const saveFrom = (P: Plan, from: number, factor: number): Plan => reshape(P, [from], (c, m) => (m >= from && c > 0 ? c * factor : c));
-/** 从 from 月龄起连续 months 个月，储蓄变成 cents（负数表示动用存款），之后恢复原来的阶段。 */
-export const gapAt = (P: Plan, from: number, months: number, cents: number): Plan => reshape(P, [from, from + months], (c, m) => (m >= from && m < from + months ? cents : c));
-/** 反推：从现在起到 untilMonth（月龄）每月至少存多少，才能在目标年龄达标（资产不低于所需、没有支出缺口）。
- *  untilMonth 之后沿用原来的储蓄安排；已经够了返回 0，每月存到 100 万也不够返回 null。今天的钱，精确到分。 */
-export function requiredSaving(P: Plan, year: number, untilMonth: number): number | null {
-  const ph = phasesOf(P), until = Math.max(untilMonth, P.now_months + 1);
-  const later = ph.filter((x, i) => i > 0 && x.from_month > until), resume = valueAt(ph, until);
-  const trial = (s: number): Plan => ({ ...P, saving_phases: [{ from_month: P.now_months, cents: s }, ...(valueAt(ph, until) === s ? [] : [{ from_month: until, cents: resume }]), ...later] });
-  const ok = (s: number) => { const o = evaluate(trial(s), year); return o.funded_at_goal && o.shortfall_month === null && o.failure_month === null; };
-  if (ok(0)) return 0;
-  let lo = 0, hi = 100_000_000;
-  if (!ok(hi)) return null;
-  while (hi - lo > 1) { const mid = Math.floor((lo + hi) / 2); if (ok(mid)) hi = mid; else lo = mid; }
-  return hi;
-}
-
-/** 有收入时的储蓄（所有阶段里最大的正数）：矩阵的缴款轴以它为基准。 */
+/** 内部金额时间线的最大正投入，作为矩阵缴款轴基准；不推断职业或收入。 */
 export const workSaving = (P: Plan) => Math.max(0, ...phasesOf(P).map(x => x.cents));
 const withWorkSaving = (P: Plan, cents: number): Plan => { const base = workSaving(P); return base > 0 ? scaleSaving(P, cents / base) : { ...P, saving_cents: cents, saving_phases: undefined }; };
 

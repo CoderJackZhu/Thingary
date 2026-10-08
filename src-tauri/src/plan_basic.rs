@@ -277,7 +277,19 @@ pub struct FundsFields {
 pub struct EventsFields {
     pub life_events: Vec<LifeEvent>,
     pub occurrences: Vec<Occurrence>,
-    pub costs: Vec<CostRule>,
+    // Preserve old request serialization for receipt lookup, reject fresh writes.
+    #[serde(
+        default,
+        rename = "costs",
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_legacy_costs"
+    )]
+    pub legacy_costs: Option<Vec<CostRule>>,
+}
+fn deserialize_legacy_costs<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<Vec<CostRule>>, D::Error> {
+    Vec::deserialize(deserializer).map(Some)
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -444,6 +456,9 @@ impl Update {
                 c.personal_pension_balance_confirmed = f.personal_pension_balance_confirmed;
             }
             Section::Events(f) => {
+                if f.legacy_costs.is_some() {
+                    return Err(bad("旧阶段费用不能保存，请重新读取后核对通用费用"));
+                }
                 p.retire.life_events = f.life_events.clone();
                 let c = p
                     .retire
@@ -451,7 +466,6 @@ impl Update {
                     .as_mut()
                     .ok_or_else(|| bad("先确认金额基准"))?;
                 c.occurrences = f.occurrences.clone();
-                c.costs = f.costs.clone();
             }
             Section::Budget(f) => {
                 let r = &mut p.retire;

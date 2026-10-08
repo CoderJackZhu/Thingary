@@ -1,6 +1,6 @@
 // 退休概览的展示模型（纯函数）：判词、总结句、进度、里程碑、轨迹点、覆盖拆分与逐年表。
 // 引擎全程「今天的钱」；名义值只在这里乘以 (1+通胀)^年数。
-import { coastAmount, coastAt, coverageAt, glide, nominalFactor, required, scaleSpend, table } from './plan-ledger.ts';
+import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, table } from './plan-ledger.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
 
 export type ValueMode = 'today' | 'nominal';
@@ -203,21 +203,6 @@ export function rangeRows(P: Plan, stress: { id: string; label: string; stressed
   const row = (id: string, label: string, o: Outcome): RangeRow => ({ id, label, fi_month: o.fi_month, late_months: o.fi_month !== null && base.fi_month !== null ? o.fi_month - base.fi_month : null, surplus: o.assets_at_goal - o.required_at_goal, failed: o.failure_month !== null || o.shortfall_month !== null });
   const pick = ['return-drag', 'inflation-shock', 'spending-shock', 'save-less'];
   return [row('base', '基准', base), ...pick.flatMap(id => { const r = stress.find(s => s.id === id); return r ? [row(id, r.label, r.stressed)] : []; })];
-}
-
-/** Coast 检查点：到某个月龄至少要有多少，之后哪怕不再存钱也能在目标年龄达标；对照按计划那时预计有多少。
- *  取显式时间安排里的下降起点，不预设职业年龄。 */
-export type Checkpoint = { month: number; label: string; need: number; expected: number; ok: boolean };
-export function checkpoints(P: Plan, proj: Projection): Checkpoint[] {
-  if (P.input_mode === 'basic') return [];
-  const ph = P.saving_phases ?? [];
-  const months: { m: number; label: string }[] = [];
-  ph.forEach((x, i) => { if (i > 0 && x.cents < ph[i - 1].cents) months.push({ m: x.from_month, label: '储蓄下降前' }); });
-  const last = Math.min(P.target_months, proj.retire_month ?? Infinity);
-  return months.filter(x => x.m > P.now_months && x.m < last).slice(0, 3).map(x => {
-    const need = coastAt(P, x.m), expected = Math.max(0, proj.assets[Math.min(proj.assets.length - 1, x.m - P.now_months)]);
-    return { month: x.m, label: x.label, need, expected, ok: expected >= need };
-  });
 }
 
 /** 图顶竖线标签分行：同一行放不下（会盖住前一个）就挪到第二行；贴右边界时改为向左伸展。 */

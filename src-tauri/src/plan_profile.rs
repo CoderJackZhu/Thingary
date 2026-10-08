@@ -452,6 +452,9 @@ fn active_profile_value(p: &Profile) -> Result<serde_json::Value> {
         ] {
             r.remove(key);
         }
+        if let Some(core) = r.get_mut("core").and_then(serde_json::Value::as_object_mut) {
+            core.remove("costs");
+        }
     }
     Ok(value)
 }
@@ -681,8 +684,12 @@ impl Store {
                     ));
                 }
                 // A first pension-only write may still come from an older client.
-                input.profile.validate(today)?;
-                Ok(input.profile.clone().into_general())
+                let mut profile = input.profile.clone();
+                if let Some(core) = &mut profile.retire.core {
+                    core.costs.clear();
+                }
+                profile.validate(today)?;
+                Ok(profile.into_general())
             },
         )
     }

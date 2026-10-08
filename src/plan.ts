@@ -164,8 +164,6 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
 /** 退休支出项与收入项（日常生活预算另存在 spend_cents）；金额是整数分字符串，每月，今天的钱。 */
 export type StoredSpendItem = { id: string; label: string; monthly_cents: string; start_age: number | null; end_age: number | null; inflation_hundredths: number | null; essential: boolean };
 export type StoredIncomeItem = { id: string; label: string; monthly_cents: string; start_age: number; end_age: number | null; indexed: boolean };
-/** 储蓄阶段：从该年龄（月）起每月存多少（分，可为负＝动用存款）；第一段从现在起，存 0。 */
-export type StoredSavingPhase = { id: string; label: string; from_age_months: number; monthly_cents: number };
 /** 大额计划（买房、买车、其他）：金额是今天的钱（整数分字符串），date 是计划购买月份。 */
 export type StoredLifeEvent = {
   id: string; label: string; kind: 'house' | 'car' | 'other'; date: string; included: boolean;
