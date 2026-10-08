@@ -334,7 +334,6 @@ if (planProfile) {
   const p=planProfile.profile,r=p.retire;
   if (!r.basic) p.retire={...structuredClone(defaultRetire),core:r.core,life_events:r.life_events.map(e=>({...e,included:r.core?.occurrences.some(o=>o.status==='occurred'&&o.event_id===e.id)?e.included:false}))};
   for (const key of ['saving_phases','route_id','route_from_age','gap_share_hundredths','gap_keeps_paying','legacy_definition']) delete (p.retire as Record<string,unknown>)[key];
-
 }
 let planWriteVersion = 1;
 const updateResults = new Map<string, NonNullable<ProfileState['saved']>>();
