@@ -6,3 +6,9 @@
 .career-table input{width:110px}
 .career-cell{text-align:center}.career-table td.career-cell{text-align:center}
 .career-meets{background:rgba(70,160,90,.16)}.career-short{background:rgba(200,90,70,.14)}.career-blocked{color:var(--muted)}
+.career-questions{margin:0 0 20px}.career-question-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.career-question{display:flex;flex-direction:column;gap:6px;background:var(--card);border:var(--surface-border);border-radius:var(--surface-radius);padding:16px;cursor:pointer}
+.career-question input{position:absolute;opacity:0;pointer-events:none}.career-question small{color:var(--muted)}
+.career-question.on{outline:2px solid var(--accent);background:var(--selected)}.career-question:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.career-rules{margin-top:14px;font-size:13px}.career-rules ul{padding-left:20px;margin:8px 0}.career-rules li{margin:6px 0}.career-rules a{color:var(--accent)}
+@media(max-width:720px){.career-question-grid{grid-template-columns:minmax(0,1fr)}}

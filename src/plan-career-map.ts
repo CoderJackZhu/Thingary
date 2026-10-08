@@ -154,3 +154,35 @@ export function pensionOptions(sources: PlanningSources, draft: CareerDraft, sta
   });
   return { stage_months: months, rows };
 }
+
+export type DelayTarget =
+  | { status: 'found'; age: number; delay_years: number }
+  | { status: 'already_met' }
+  | { status: 'not_found'; up_to_age: number }
+  | { status: 'blocked'; message: string };
+
+/** Earliest whole retirement age at which the draft's conditions meet the goal, scanning later and later targets.
+ *  A concession shown beside the original target, never written back. Contributions keep following the confirmed schedule. */
+export function delayTarget(sources: PlanningSources, draft: CareerDraft, maxAge = 75): DelayTarget {
+  const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null, r = saved?.profile.retire;
+  if (!r?.basic) return { status: 'blocked', message: '请先确认通用资料。' };
+  const original = r.target_age ?? r.horizon_age, last = Math.min(r.horizon_age - 1, maxAge);
+  const at = (age: number) => {
+    const copy = structuredClone(sources);
+    if (copy.profile.status === 'ready' && copy.profile.value.saved) copy.profile.value.saved.profile.retire.target_age = age;
+    return judge(evaluateCareerScenario(copy, draft));
+  };
+  const first = at(original);
+  if (first.verdict === 'blocked') return { status: 'blocked', message: first.issues.join(' ') || '条件未齐全。' };
+  if (first.verdict === 'meets') return { status: 'already_met' };
+  // Not a bisection: with a negative post-change contribution a later target can be worse.
+  for (let age = original + 1; age <= last; age++) { const j = at(age); if (j.verdict === 'meets') return { status: 'found', age, delay_years: age - original }; if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || '条件未齐全。' }; }
+  return { status: 'not_found', up_to_age: last };
+}
+
+/** Age in whole months at a YYYY-MM month, or null without a birth month. */
+export function ageMonthsAt(sources: PlanningSources, month: string): number | null {
+  const p = profileOf(sources);
+  return p?.birth_month ? monthIndex(month) - monthIndex(p.birth_month) : null;
+}
+function profileOf(sources: PlanningSources) { return sources.profile.status === 'ready' ? sources.profile.value.saved?.profile ?? null : null; }

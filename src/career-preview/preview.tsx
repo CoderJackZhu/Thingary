@@ -8,7 +8,8 @@ import { compareCareerScenario } from '../plan-career-compare.ts';
 import type { CareerChange } from '../plan-career-compare.ts';
 import type { CareerDraft, CareerEvaluation } from '../plan-career-contract.ts';
 import { money, resultText, comparisonText } from './result-text.ts';
-import { CareerMapPanel } from './map.tsx';
+import { DelaySection, InsuranceSection, LowerQuestion, QuestionPicker, RestQuestion } from './map.tsx';
+import type { Question } from './map.tsx';
 import { careerPensionSources } from './pension-fixture.ts';
 import '../style.css';
 import '../ui.css';
@@ -40,6 +41,7 @@ function Preview() {
   const [state,setState]=useState<State>(()=>states.find(x=>x===new URLSearchParams(location.search).get('state'))??'ready');
   const [data,setData]=useState(()=>fixture(state));
   const [enabled,setEnabled]=useState(false);
+  const [q,setQ]=useState<Question>('rest');
   const [change,setChange]=useState<CareerChange>({kind:'gap',months:18});
   const [dark,setDark]=useState(false);
   const [style,setStyle]=useState('bento');
@@ -57,9 +59,13 @@ function Preview() {
       <label><input type="checkbox" checked={dark} onChange={e=>setDark(e.target.checked)}/> 深色</label></div>
     <section className="career-source"><h2>沿用的条件</h2>{profile?<p>资金截至 2026-09-30 · {state==='shortfall'?'可动用资金 5,000 元':'可动用资金 60 万元'} · 现在每月攒 15,000 元 · 50 岁退休，检查到 90 岁 · 退休预算 {money(profile.retire.spend_cents!)} / 月 · 收益、通胀为 0 · {state==='pension'?'本例计入北京养老金（虚构的缴费史）':'本例不计养老金'}</p>:<p role="status">{state==='error'?'虚构来源读取失败；可重新载入样例。':'尚无通用目标与资金资料。'}</p>}
       <button type="button" className={enabled?'':'primary'} onClick={()=>{if(enabled){setEnabled(false);reload(state);setChange({kind:'gap',months:18});}else setEnabled(true);}}>{enabled?'关闭试算并丢弃修改':'打开职业变化试算'}</button>
-      {enabled&&<a className="career-result-link" href="#career-results">查看两组结果 ↓</a>}
+      {enabled&&q==='switch'&&<a className="career-result-link" href="#career-results">查看两组结果 ↓</a>}
       {(state==='empty'||state==='error')&&<button type="button" onClick={()=>reload('ready')}>重新载入虚构资料</button>}</section>
     {enabled&&<>
+      <QuestionPicker value={q} onChange={setQ}/>
+      {q==='rest'&&<RestQuestion sources={sources} draft={draft} patch={patch}/>}
+      {q==='lower'&&<LowerQuestion sources={sources} draft={draft} patch={patch}/>}
+      {q==='switch'&&<>
       <div className="career-layout"><section className="career-input"><h2>这次变化</h2>
         <FormRow label="变化月份"><MonthInput label="变化月份" value={draft.transition_month??''} onChange={v=>patch({transition_month:v||null})}/></FormRow>
         <FormRow label="空窗月数" hint="留空表示尚不知道何时恢复；0 表示直接转变。"><input aria-label="空窗月数" type="number" min="0" max="1200" step="1" value={draft.gap_months??''} onChange={e=>patch({gap_months:e.target.value===''?null:Number(e.target.value)})}/></FormRow>
@@ -76,7 +82,9 @@ function Preview() {
         {comparison&&<div className="career-delta" role="status"><p>{comparison.headline}</p>{comparison.detail&&<p className="career-footnote">{comparison.detail}</p>}<a href="#career-results">查看两组结果 ↓</a></div>}
       </section></div>
       {result&&<><div id="career-results" className="career-layout" tabIndex={-1} aria-label="两组比较结果" aria-live="polite"><Result title="原条件" value={result.baseline}/><Result title="对照条件" value={result.alternative}/></div><aside className="career-notes">{[...new Set([...result.baseline.notes,...result.alternative.notes])].map(n=><p key={n}>{n}</p>)}</aside></>}
-      <CareerMapPanel sources={sources} draft={draft} patch={patch}/>
+      <DelaySection sources={sources} draft={draft} patch={patch}/>
+      <InsuranceSection sources={sources} draft={draft} patch={patch} defaultStage="recovery"/>
+      </>}
     </>}
   </main>;
 }

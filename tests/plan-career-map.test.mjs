@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { careerSources, careerDraft } from '../src/career-preview/fixtures.ts';
-import { windowMap, minWindow, maxGap, closeMonths, judge, pensionOptions } from '../src/plan-career-map.ts';
+import { windowMap, minWindow, maxGap, closeMonths, judge, pensionOptions, delayTarget, ageMonthsAt } from '../src/plan-career-map.ts';
 import { evaluateCareerScenario } from '../src/plan-career.ts';
 
 // Fictional fixture: 600k at 2026-09-30, +15k/month, goal 50 (2044-10) with 3750/month for 480 months = 1.8M, zero returns.
@@ -131,4 +131,18 @@ test('M13 when even closing one month early fails, the answer is "until the targ
   const s = careerSources(); s.profile.value.saved.profile.retire.spend_cents = '600000';
   const d = careerDraft(); d.gap_months = 0; d.recovery.monthly_cents = '-100000000';
   assert.equal(minWindow(s, d).status, 'until_target');
+});
+
+test('M14 retirement concession: with 3000/month after a 12 month gap the goal needs age 54 (81000A >= 4326000), and the original is untouched', () => {
+  const s = careerSources(), d = careerDraft(); d.recovery.monthly_cents = '300000';
+  const frozen = structuredClone({ s, d });
+  assert.deepEqual(delayTarget(s, d), { status: 'found', age: 54, delay_years: 4 });
+  assert.deepEqual({ s, d }, frozen);
+  d.recovery.monthly_cents = '464286'; assert.deepEqual(delayTarget(s, d), { status: 'already_met' });
+  d.recovery.monthly_cents = '0'; assert.equal(delayTarget(s, d, 55).status, 'not_found');
+  d.recovery.monthly_cents = null; assert.equal(delayTarget(s, d).status, 'blocked');
+});
+
+test('M15 age at a month', () => {
+  assert.equal(ageMonthsAt(careerSources(), '2033-06'), (2033 - 1994) * 12 + (6 - 10));
 });
