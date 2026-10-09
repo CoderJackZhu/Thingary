@@ -15,8 +15,10 @@ import { PensionMarginal } from './pension-marginal.tsx';
 import { maxGap, minWindow, missingItems } from '../plan-career-map.ts';
 import { evaluateCareerScenario } from '../plan-career.ts';
 import { guidedDraft, guidedIncome, restLevers, sayLower, sayRest, saySwitch, yuan } from './guided-model.ts';
+import type { GuidedDefaults } from './guided-model.ts';
 import type { Say } from './guided-model.ts';
 import './guided.css';
+import './preview.css';
 
 type Q = 'rest' | 'lower' | 'switch';
 const questions: { id: Q; title: string; hint: string }[] = [
@@ -29,25 +31,41 @@ function load(state: string) {
   const sources: PlanningSources = state === 'pension' ? careerPensionSources() : state === 'retirement' ? careerRetirementSources() : careerSources();
   if (state === 'empty' && sources.profile.status === 'ready') sources.profile.value.saved = null;
   if (state === 'error') sources.profile = { status: 'error', value: { code: 'UNAVAILABLE', message: '虚构来源读取失败' } };
-  return { sources, draft: guidedDraft(), income: guidedIncome(sources) };
+  return { sources, defaults: { draft: guidedDraft(), income: guidedIncome(sources), from: { spend: null, recovery: null } } as GuidedDefaults };
 }
 
+/** Standalone development page: fictional sources and example numbers. */
 export function Guided() {
-  const params = new URLSearchParams(location.search);
-  const [data, setData] = useState(() => load(params.get('state') ?? 'ready'));
+  const state = new URLSearchParams(location.search).get('state') ?? 'ready';
+  const [round, setRound] = useState(0);
+  const loaded = useMemo(() => load(state), [state, round]);
+  return <GuidedPanel key={round} sources={loaded.sources} defaults={loaded.defaults} example={() => setRound(n => n + 1)}/>;
+}
+
+/** The guided panel itself. `example` is only given by the fictional preview; in the app the figures come from the user's own facts. */
+export function GuidedPanel({ sources, defaults, example, embedded = false }: { sources: PlanningSources; defaults: GuidedDefaults; example?: () => void; embedded?: boolean }) {
+  const [data, setData] = useState(() => ({ draft: defaults.draft, income: defaults.income }));
   const [q, setQ] = useState<Q>('rest');
   const [lowerGap, setLowerGap] = useState(0);
   const [leversOpen, setLeversOpen] = useState(false);
   const patch = (v: Partial<CareerDraft>) => setData(x => ({ ...x, draft: { ...x.draft, ...v } }));
   const setGap = (v: Partial<CareerDraft['gap']>) => patch({ gap: { ...data.draft.gap, ...v } });
   const setIncome = (income: IncomeDraft) => setData(x => ({ ...x, income }));
-  const { draft, income, sources } = data;
+  const { draft, income } = data;
 
   const deferred = useDeferredValue(data), updating = deferred !== data;
-  const scope = useMemo(() => prepareIncomeScope(deferred.sources, deferred.draft, deferred.income), [deferred]);
+  const scope = useMemo(() => prepareIncomeScope(sources, deferred.draft, deferred.income), [sources, deferred]);
   const profile = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile ?? null : null;
   const targetAge = profile?.retire.target_age ?? null, current = profile?.retire.basic?.contribution.monthly_cents ?? null;
-  const missing = useMemo(() => (scope.status === 'ready' ? missingItems(scope.draft, q === 'rest') : []), [scope, q]);
+  const missing = useMemo(() => {
+    if (scope.status !== 'ready') return [];
+    const out = missingItems(scope.draft, q === 'rest');
+    if (q === 'rest' || (q === 'switch' && scope.draft.gap_months !== 0)) {
+      if (scope.draft.gap.spend_cents === null || scope.draft.gap.spend_cents === '') out.unshift({ label: '不工作期间每月总共花多少', assumable: false });
+      if (scope.draft.gap.income_cents === null || scope.draft.gap.income_cents === '') out.unshift({ label: '不工作期间每月还有多少收入', assumable: false });
+    }
+    return out;
+  }, [scope, q]);
   const levels = useMemo(() => (current !== null && /^-?\d+$/.test(current) ? [0, .25, .5, .75].map(f => String(Math.round(Number(current) * f))) : ['0']), [current]);
 
   const say: Say | null = useMemo(() => {
@@ -69,10 +87,14 @@ export function Guided() {
   const setExtra = (v: Partial<typeof extra>) => setGap({ extra_income: { ...extra, ...v } });
   const tone = say?.tone ?? 'wait';
 
-  return <main className="guided">
-    <header><p className="eyebrow">物谱 · 职业变化试算（虚构预览）</p><h1>歇一阵或换工作，退休目标还保得住吗？</h1>
+  const note = example
+    ? <>现在填的是<strong>示例数字</strong>，请改成你自己的。<button type="button" onClick={example}>恢复示例数字</button></>
+    : <>起点按你的资料填好了{defaults.from.spend ? '（每月花销取自过去的盘点）' : ''}{defaults.from.recovery ? '（找到新工作后每月能攒，先按和现在一样）' : ''}，<strong>请改成你自己的估计</strong>。这里的数字只在这次试算里，关闭就丢弃，不会改你的计划。</>;
+  const Root = embedded ? 'div' : 'main';
+  return <Root className={`guided${embedded ? ' guided-embedded' : ''}`}>
+    {embedded ? <p className="guided-note">{note}</p> : <header><p className="eyebrow">物谱 · 职业变化试算（虚构预览）</p><h1>歇一阵或换工作，退休目标还保得住吗？</h1>
       <p className="guided-lead">选一个问题，填几个数，答案马上出来。数字只在这个页面里，关掉就没了，不会改你的计划。</p>
-      <p className="guided-note">现在填的是<strong>示例数字</strong>，请改成你自己的。<button type="button" onClick={() => setData(load(params.get('state') ?? 'ready'))}>恢复示例数字</button></p></header>
+      <p className="guided-note">{note}</p></header>}
     <section aria-label="想知道什么"><div role="radiogroup" aria-label="想知道什么" className="guided-questions">
       {questions.map(x => <label key={x.id} className={`guided-question${q === x.id ? ' on' : ''}`}><input type="radio" name="guided-question" checked={q === x.id} onChange={() => setQ(x.id)}/><strong>{x.title}</strong><small>{x.hint}</small></label>)}
     </div></section>
@@ -127,5 +149,5 @@ export function Guided() {
     <section className="guided-card guided-after"><h2>社保要不要自己交？</h2>
       <p className="guided-hint">上面把社保算在花销里。想看多交一段时间的社保，退休后每月能多拿多少，在这里粗估。</p>
       <PensionMarginal sources={sources}/></section>
-  </main>;
+  </Root>;
 }

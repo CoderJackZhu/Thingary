@@ -116,7 +116,7 @@ test('goals pass a real saved calculation to wishes, and no calculation while co
   let received;
   const leaf = () => null;
   const goals = component('PlanningBasicGoals.tsx', { react: React, './asset': asset,
-    './PlanningRequirement': requirement, './PlanningRunway': { RunwayCard: leaf }, './PlanningFunds': { FundsCard: leaf }, './PlanningBasicDetail': { PlanningBasicDetail: leaf },
+    './PlanningRequirement': requirement, './PlanningRunway': { RunwayCard: leaf }, './PlanningCareerCard': { PlanningCareerCard: leaf }, './PlanningFunds': { FundsCard: leaf }, './PlanningBasicDetail': { PlanningBasicDetail: leaf },
     './PlanningEvents': { PlanningEvents: leaf }, './PlanningWishes': { PlanningWishes: ({ calc }) => { received = calc; return null; } },
     './plan-retire-calc': calc, './review': review, './planning-basic-forms': {}, './planning-basic-defaults': defaults, './PlanningContributionHelper': { MarketNote: () => null }, './planning-basic-view': view,
     './planning-basic-data': { useCapabilities: s => ({ status: 'ready', caps: buildBasicCapabilities(s) }),

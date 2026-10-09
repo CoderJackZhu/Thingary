@@ -5,6 +5,7 @@ import type { Account, Snapshot } from './wealth';
 import type { PlanningMissing, PlanningSources, ProfileState } from './plan';
 import { CapabilityNotice, RequirementCard } from './PlanningRequirement';
 import { RunwayCard } from './PlanningRunway';
+import { PlanningCareerCard } from './PlanningCareerCard';
 import { FundsCard } from './PlanningFunds';
 import { PlanningBasicDetail } from './PlanningBasicDetail';
 import { PlanningEvents } from './PlanningEvents';
@@ -90,6 +91,7 @@ export function PlanningBasicGoals({ sources, mode, today, reload, onPending, on
     </article>
     {result.status !== 'ready' ? <CapabilityNotice result={result}/> : <RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy}/>}
     {caps && <RunwayCard caps={caps} today={today} onOwner={owner}/>}
+    {caps && <PlanningCareerCard sources={sources} today={today}/>}
     {caps && !pred && contribution === 'unknown' && <HistoryForecast sources={sources} hist={hist} busy={saver.busy || saver.stuck} notice={saver.notice} onDetail={() => setDetail({ contribution: true })} onAdopt={async () => { const input = contributionSection(saved as Saved, hist.saving, today); if (input) await saver.save(input); }}/>}
     {caps && <FundsCard caps={caps} sources={sources} saved={saved as Saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openRef={fundsOpen}/>}
     {events && <div id="plan-events-section" tabIndex={-1}><PlanningEvents store={events} today={today} onEditingChange={onEditingChange}/></div>}
