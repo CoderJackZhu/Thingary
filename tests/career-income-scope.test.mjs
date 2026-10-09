@@ -168,3 +168,36 @@ test('an already explicitly excluded housing account stays recorded without trig
   const r=previewAnswers(s,careerDraft(),'switch',change,{...incomeDraft(s),mode:'excluded'});
   assert.equal(r.status,'ready');assert.equal(r.comparison.baseline.requirement.status,'ready');assert.deepEqual(s,before);
 });
+
+test('restricted pools: blocked by default, ignored only on an explicit temporary choice, nothing in the source changes', () => {
+  const s = careerPensionSources(), d = careerDraft(); d.recovery.monthly_cents = '600000';
+  s.profile.value.saved.profile.personal_pension_annual_cents = '1200000';
+  const before = structuredClone({ s, d });
+  assert.equal(previewAnswers(s, d, 'switch', change, { ...incomeDraft(s), mode: 'excluded' }).status, 'pool_blocked');
+  const scope = { ...incomeDraft(s), mode: 'excluded', excludePools: true };
+  const r = previewAnswers(s, d, 'switch', change, scope);
+  assert.equal(r.status, 'ready'); assert.equal(r.comparison.baseline.requirement.status, 'ready');
+  const prepared = prepareIncomeScope(s, d, scope);
+  const core = prepared.sources.profile.value.saved.profile.retire.core;
+  assert.equal(core.hpf_monthly_cents, '0'); assert.equal(prepared.sources.profile.value.saved.profile.personal_pension_annual_cents, '0');
+  assert.deepEqual({ s, d }, before, 'the saved facts are untouched');
+  // it is the same answer as the no-pool sample with the same income choice: pools are simply left out
+  const plain = careerSources(); const q = previewAnswers(plain, d, 'switch', change, { ...incomeDraft(plain), mode: 'excluded' });
+  assert.equal(r.comparison.baseline.requirement.value.monthly_cents, q.comparison.baseline.requirement.value.monthly_cents);
+});
+
+test('a counted housing fund in a live snapshot is blocked by default and excluded (not deleted, not spendable) on the explicit choice', () => {
+  const s = careerSources(), p = s.profile.value.saved.profile, b = p.retire.basic;
+  s.modules.wealth = true;
+  s.snapshot = { status: 'ready', value: { id: 'snap', revision: 1, date: '2026-09-30', missing: [], entries: [
+    { account_id: 'cash1', kind: 'cash', side: 'asset', counted: true, amount_cents: '60000000' },
+    { account_id: 'hf1', kind: 'housing_fund', side: 'asset', counted: true, amount_cents: '6000000' }] } };
+  b.start = { kind: 'live' }; p.retire.core.fund_rules = [{ account_id: 'cash1', availability: 'available', share_hundredths: 10000 }];
+  const d = careerDraft(), before = structuredClone(s);
+  assert.equal(prepareIncomeScope(s, d, { ...incomeDraft(s), mode: 'excluded' }).status, 'pool_blocked');
+  const ok = prepareIncomeScope(s, d, { ...incomeDraft(s), mode: 'excluded', excludePools: true });
+  assert.equal(ok.status, 'ready');
+  assert.deepEqual(ok.sources.profile.value.saved.profile.retire.core.fund_rules.find(x => x.account_id === 'hf1'), { account_id: 'hf1', availability: 'excluded', share_hundredths: 0 });
+  assert.deepEqual(s, before);
+  assert.equal(ok.sources.snapshot.value.entries.length, 2, 'the account entry is still there');
+});

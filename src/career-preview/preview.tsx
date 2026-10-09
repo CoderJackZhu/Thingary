@@ -17,6 +17,7 @@ import { assumeInsurance, missingItems } from '../plan-career-map.ts';
 import type { Question } from './map.tsx';
 import { RestResult } from './results.tsx';
 import { careerRetirementSources, careerPensionSources } from './pension-fixture.ts';
+import { PensionMarginal } from './pension-marginal.tsx';
 import '../style.css';
 import '../ui.css';
 import '../theme.css';
@@ -119,6 +120,7 @@ function Preview() {
         <h2>试算结果{updating&&<span className="career-updating"> · 更新中…</span>}</h2>
         {updating?<p className="career-message">正在更新条件，旧答案已撤下。</p>:<>
         {!gate&&<p className="career-banner">{financialSources?.profile.status==='ready'&&financialSources.profile.value.saved?.profile.retire.basic?.retirement_income.mode==='manual'?'本次按手填退休收入试算；停缴或改变基数不重算这笔收入。':'本次不计任何退休收入；不表示你实际没有养老金。'}</p>}
+        {!gate&&data.income.excludePools&&<p className="career-banner" role="status">本次不计公积金和个人养老金（偏保守）：只用可动用的钱；如开销里有靠公积金付的部分，请按实际现金支出填写。</p>}
         {gate&&gate!=='source_blocked'&&!policyBlocked&&<div className="career-message" role="status">{scope.issues.map(x=><p key={x}>{x}</p>)}</div>}
         {answers?.cash&&((gate&&gate!=='pool_blocked')||blocked||restAnswer?.status==='blocked'||lowerAnswer?.status==='blocked')&&<section aria-label="仅检查已填写的空窗"><h3>仅检查已填写的空窗区间</h3><p>{answers.cash.status==='ready'?`${answers.cash.value.from_month} 至 ${answers.cash.value.until_month} 之前：${answers.cash.value.first_shortfall_month?answers.cash.value.first_shortfall_month+' 首次资金不足':'未发现资金不足'}，期间最低 ${money(answers.cash.value.minimum_cents)}。`:answers.cash.issues.map(x=>x.message).join(' ')}</p><p className="career-footnote">只检查所列开销与付款，不证明退休目标满足，不是最长空窗答案。</p></section>}
         {blocked&&!gate&&<div className="career-message" role="status"><p>还差 {listed.length} 项，暂时算不出长期答案：</p><ul>{listed.map(m=><li key={m.label}>{m.label}</li>)}</ul><p className="career-footnote">缺项不按 0 补齐；已填但不合法的金额也会阻断。</p></div>}
@@ -150,6 +152,7 @@ function Preview() {
           </>}
         </details>}
       </section>
+      {profile?.retire.basic&&<section className="career-input"><PensionMarginal sources={sources}/></section>}
       {(gate||blocked||updating||!resultVisible)&&<div className="career-sticky" role="status" aria-live="polite"><span>{
         updating?'更新中…'
         :policyBlocked?'本预览暂不支持含北京自动估算的职业答案'

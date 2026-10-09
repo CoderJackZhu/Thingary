@@ -4,7 +4,7 @@ import type { StoredIncomeItem } from '../plan.ts';
 import type { CareerDraft } from '../plan-career-contract.ts';
 import { validCareerAmount } from '../plan-career-contract.ts';
 
-export type IncomeDraft = { mode: 'saved' | 'manual' | 'excluded'; selected: string[]; items: (Omit<StoredIncomeItem, 'start_age'> & { start_age: number | null })[] };
+export type IncomeDraft = { mode: 'saved' | 'manual' | 'excluded'; selected: string[]; items: (Omit<StoredIncomeItem, 'start_age'> & { start_age: number | null })[]; /** This trial ignores housing fund and personal pension pools (balances, release, future deposits); conservative, nothing is deleted. */ excludePools?: boolean };
 export type ScopeStatus = 'ready' | 'source_blocked' | 'pool_blocked' | 'policy_blocked' | 'income_blocked';
 export function incomeDraft(sources: PlanningSources): IncomeDraft {
   const p = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile : null;
@@ -25,13 +25,27 @@ export function prepareIncomeScope(sources: PlanningSources, draft: CareerDraft,
       return e.counted && e.side === 'asset' && e.kind === 'housing_fund' && e.amount_cents !== '0' && rule?.availability !== 'excluded' && rule?.share_hundredths !== 0;
     });
   const stagePool = [draft.gap.pension, draft.recovery.pension].some(x => x && typeof x === 'object' && x.hpf_monthly_cents !== '0');
-  if (housing || core?.personal_pension_account_id || (hpf != null && hpf !== '0') || (pp != null && pp !== '0') || stagePool)
-    return blocked('pool_blocked', ['本次资料涉及公积金或个人养老金池估算，首版暂不支持；不能只改退休收入选项放行，也不会删除已有账户或转入。']);
+  const poolFound = housing || core?.personal_pension_account_id || (hpf != null && hpf !== '0') || (pp != null && pp !== '0') || stagePool;
+  if (poolFound && !input.excludePools)
+    return blocked('pool_blocked', ['本次资料涉及公积金或个人养老金池，首版不估算它们的释放；改选退休收入口径不能放行。可勾选“本次不计公积金和个人养老金”只用可动用的钱来算（偏保守），已有账户和转入记录不会被删除。']);
 
   // No pool dependency: contribution bases cannot affect this financial path's external income.
   const financialDraft = structuredClone(draft);
   financialDraft.gap.pension = financialDraft.recovery.pension = 'unchanged';
   const copy = structuredClone(sources), ret = copy.profile.status === 'ready' ? copy.profile.value.saved!.profile.retire : null;
+  if (input.excludePools && copy.profile.status === 'ready' && copy.profile.value.saved) {
+    // Temporary copy only: pools are left out of the plan, never deleted or turned into spendable money.
+    const cp = copy.profile.value.saved.profile, cc = cp.retire.core;
+    cp.personal_pension_annual_cents = '0';
+    if (cc) {
+      cc.hpf_monthly_cents = '0'; cc.personal_pension_account_id = null;
+      const snap = copy.snapshot.status === 'ready' ? copy.snapshot.value : null;
+      for (const e of snap?.entries ?? []) if (e.kind === 'housing_fund' && e.account_id) {
+        const rule = cc.fund_rules.find(x => x.account_id === e.account_id);
+        if (rule) { rule.availability = 'excluded'; rule.share_hundredths = 0; } else cc.fund_rules.push({ account_id: e.account_id, availability: 'excluded', share_hundredths: 0 });
+      }
+    }
+  }
   const mode = input.mode === 'saved' ? p.retire.basic.retirement_income.mode : input.mode;
   const selected = input.mode === 'saved' ? p.retire.basic.retirement_income.selected.map(x => x.id) : input.selected;
   const items = input.mode === 'saved' ? p.retire.income_items : input.items;
