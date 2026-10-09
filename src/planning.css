@@ -146,6 +146,47 @@ dialog.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[ope
 @media (max-width: 640px) { .planning-setup-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-inline: 16px; } .planning-setup-footer span { flex-wrap: wrap; } }
 @media (prefers-reduced-motion: reduce) { .plan-choice { transition: none; } }
 
+.planning-first-result { padding: var(--space-5, 24px); }
+.planning-first-promise { font-size: 18px; line-height: 1.8; max-width: 48em; }
+.planning-result-number { margin: 12px 0; font-size: clamp(24px, 3vw, 36px); line-height: 1.5; font-variant-numeric: tabular-nums; }
+.planning-condition-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 18px; }
+.planning-condition-chips .planning-chip { white-space: normal; text-align: left; background: var(--soft); border: 1px solid var(--line); border-radius: var(--control-radius); color: var(--text); padding: 8px 12px; line-height: 1.6; }
+.planning-condition-chips .prominent { font-weight: 700; border-width: 2px; border-color: var(--accent); }
+.planning-question-checklist { margin: 20px 0; }
+.planning-question-checklist p { display: flex; align-items: baseline; gap: 12px; }
+.planning-question-checklist .ui-tag { flex: none; }
+.planning-refinements { min-width: 0; }
+.planning-refinements > h3 { margin: 8px 0 16px; }
+.planning-refinement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4, 16px); }
+.planning-refinement-card { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.planning-refinement-card h4, .planning-refinement-card p { margin: 0; line-height: 1.7; }
+.planning-refinement-card > div { margin-top: auto; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.planning-refinement-card button { white-space: normal; }
+.planning-more-tools > summary { cursor: pointer; line-height: 1.8; }
+.planning-more-tools > summary strong { margin-right: 12px; }
+.planning-more-tools > summary .ui-tag { display: inline-block; white-space: normal; }
+.planning-more-tools-hint { display: block; margin-top: 8px; }
+.planning-more-tools-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+.planning-more-tools-body > * { min-width: 0; }
+.planning-question-progress { display: flex; gap: 10px; padding: 12px 24px 20px; }
+.planning-question-progress > span { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: var(--control-radius); color: var(--muted); }
+.planning-question-progress [aria-current="step"] { background: var(--selected); border: 2px solid var(--accent); color: var(--text); font-weight: 700; }
+.planning-edit-extras { display: flex; flex-wrap: wrap; gap: 16px; padding: 0 24px 16px; }
+.planning-date-echo { padding: 12px; background: var(--soft); border-radius: var(--control-radius); }
+.planning-selected-funds { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; padding: 14px 0; line-height: 1.8; }
+.planning-setup-body > .form-block { margin-top: 0; }
+.planning-pension-later { cursor: default; background: var(--soft); }
+.planning-pension-saved { border: 2px solid var(--accent); }
+.setup-draft-note { margin-top: 20px; }
+@media (max-width: 640px) {
+  .planning-refinement-grid { grid-template-columns: 1fr; }
+  .planning-first-result { padding: 18px; }
+  .editor.planning-setup-dialog > form > footer { padding-inline: 16px; }
+  .planning-edit-extras, .planning-question-progress { padding-inline: 16px; }
+  .planning-setup-footer { align-items: flex-start; }
+  .planning-setup-footer > span { flex-wrap: wrap; justify-content: flex-end; }
+}
+
 /* Derived post-check-in review; no persisted completion state. */
 .plan-review-checklist, .plan-review-events { list-style: none; padding: 0; margin: 0; }
 .plan-review-checklist > li, .plan-review-events > li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }

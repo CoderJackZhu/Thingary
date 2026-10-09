@@ -36,7 +36,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const result = useCapabilities(sources, { contribution: trial ?? (auto ? hist.saving : null) });
   const saver = useSectionSaver(sources, reload, onPending);
   const retire = saved.profile.retire;
-  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'basic' || o === 'funds' || o === 'budget') openSetup(setupStepFor(o, field)); else if (o === 'pension') onGoto('pension'); else if (o === 'events') onEvents(); else if (o === 'service') reload(); };
+  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'basic' || o === 'funds' || o === 'budget') openSetup(o === 'funds' || field?.startsWith('basic.start') ? 2 : field?.startsWith('basic.retirement_income') ? 3 : field === 'spend_cents' ? 1 : 0); else if (o === 'pension') onGoto('pension'); else if (o === 'events') onEvents(); else if (o === 'service') reload(); };
 
   async function saveContribution(value: string | null) {
     const input = contributionSection(saved, value, today); if (!input) return false;
@@ -103,7 +103,7 @@ const Rows = ({ rows }: { rows: [string, ReactNode][] }) => <dl className="rs-ro
 function BasicSidebar({ saved, caps, openSetup, onGoto, contribution }: { saved: Saved; caps: BasicCapabilities | null; openSetup: (step: number, from?: HTMLElement | null) => void; onGoto: (tab: 'savings' | 'pension') => void; contribution: ReactNode }) {
   const p = saved.profile, r = p.retire, b = r.basic!;
   const funds = caps?.funds, pension = caps?.pension;
-  const scope = (id: string) => { const c = b.retirement_costs.find(x => x.source_id === id); return c ? treatmentText[c.treatment] : '包含关系待确认'; };
+  const scope = (id: string) => { const c = b.retirement_costs.find(x => x.source_id === id); return c ? treatmentText[c.treatment] : '这笔钱是否已含在生活费里，待确认'; };
   return <div className="rd-side">
     <Card title="目标与预算" onEdit={el => openSetup(0, el)}>
       <Rows rows={[['计划类型', r.mode === 'fire' ? '财务自由' : '按年龄退休'], ['目标年龄', r.target_age === null ? '未设定' : `${r.target_age} 岁`], ['出生年月', p.birth_month ?? '未填写'], ['退休后每月预算', r.spend_cents === null ? '未填写' : money(r.spend_cents)]]}/>
@@ -111,16 +111,16 @@ function BasicSidebar({ saved, caps, openSetup, onGoto, contribution }: { saved:
         <ul className="rs-list">{r.spend_items.map(i => <li key={i.id}><span>{i.label}<small>{i.essential ? '必需' : '灵活'} · {scope(`spend:${i.id}`)}</small></span><b>{money(i.monthly_cents)}/月</b></li>)}
           {Number(r.rent_cents) > 0 && <li><span>房租<small>{scope('rent')}</small></span><b>{money(r.rent_cents)}/月</b></li>}</ul></>}
     </Card>
-    <Card title="资金起点" onEdit={el => openSetup(1, el)}>
+    <Card title="资金起点" onEdit={el => openSetup(2, el)}>
       {funds?.status === 'ready' ? <Rows rows={[['来源', funds.value.kind === 'simulation' ? '模拟起点' : '实际盘点'], ['截至', funds.value.date], ['规划可用', money(funds.value.available_cents)], ['受限 / 余债', `${money(funds.value.restricted_cents)} / ${money(funds.value.debt_cents)}`]]}/> : funds ? <ul className="plan-missing-list">{funds.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul> : <p className="muted small">读取中…</p>}
     </Card>
-    <Card title="退休收入" onEdit={el => openSetup(1, el)} tip="未选择、本次不计、手填、北京估算含义不同；本次不计不会删除原有收入资料。">
+    <Card title="退休收入" onEdit={el => openSetup(3, el)} tip="未选择、本次不计、手填、北京估算含义不同；本次不计不会删除原有收入资料。">
       <p>{b.retirement_income.mode === null ? '还没选择（选好后才能算需求）' : incomeModeText[b.retirement_income.mode]}</p>
       {b.retirement_income.selected.length > 0 && <ul className="rs-list">{b.retirement_income.selected.map(s => { const i = r.income_items.find(x => x.id === s.id); return <li key={s.id}><span>{i?.label ?? '已删除的收入'}<small>{s.role === 'state_pension' ? '国家养老金' : '其他收入'}</small></span><b>{i ? `${money(i.monthly_cents)}/月` : '—'}</b></li>; })}</ul>}
-      {b.retirement_income.mode === 'beijing' && (pension?.status === 'ready' ? <p className="muted small">{pension.value.included ? `政策养老金 ${pension.value.monthly_cents === null ? '' : money(pension.value.monthly_cents) + '/月，'}${pension.value.start_month ? `${pension.value.start_month} 起领` : ''}` : '政策估算未计入'}</p> : pension ? <><ul className="plan-missing-list">{pension.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul><div className="rs-actions"><button type="button" className="ui-btn" onClick={() => onGoto('pension')}>填写养老金事实</button><button type="button" className="ui-btn" onClick={() => openSetup(1)}>改为手填或本次不计</button></div></> : null)}
+      {b.retirement_income.mode === 'beijing' && (pension?.status === 'ready' ? <p className="muted small">{pension.value.included ? `政策养老金 ${pension.value.monthly_cents === null ? '' : money(pension.value.monthly_cents) + '/月，'}${pension.value.start_month ? `${pension.value.start_month} 起领` : ''}` : '政策估算未计入'}</p> : pension ? <><ul className="plan-missing-list">{pension.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul><div className="rs-actions"><button type="button" className="ui-btn" onClick={() => onGoto('pension')}>填写养老金事实</button><button type="button" className="ui-btn" onClick={() => openSetup(3)}>改为手填或本次不计</button></div></> : null)}
     </Card>
     {contribution}
-    <Card title="更多假设" onEdit={el => openSetup(0, el)} tip="全部是假设，不是事实。收益按扣除通胀后的实际收益填写。">
+    <Card title="更多假设" onEdit={el => openSetup(5, el)} tip="全部是假设，不是事实。收益按扣除通胀后的实际收益填写。">
       <Rows rows={[['退休前 / 后实际收益', `${rateText(r.real_return_before_hundredths)} / ${rateText(r.real_return_after_hundredths)}`], ['通胀', rateText(p.assumptions.inflation_hundredths)], ['规划终点', `${r.horizon_age} 岁`], ['应急金', `${r.emergency_months} 个月`]]}/>
     </Card>
 

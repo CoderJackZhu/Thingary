@@ -81,7 +81,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --tes
 
 运行 `npm run dev -- --port 1438`，访问 `http://127.0.0.1:1438/career-preview.html`。页面默认是向导式界面（`guided.tsx`，答案放最前、社保算进花销、假设可见可改；`?lab=1` 打开原来的完整面板），用虚构资料回答三个问题：保持退休目标最长可空窗多久、再做多久可以降低投入、换工作后每月至少要攒多少；`?state=retirement|pension|unknown|empty|error|shortfall` 加载无受限池的收入选择、北京养老金与公积金、恢复未知、无资料、读取失败和月内付款不足的样例。独立页面刷新或关闭即丢弃，不调用原生服务、不写存储，其 HTML 不进入普通应用导航和发布构建。共享 `GuidedPanel` 已由目标页内 `PlanningCareerCard` 使用，属于 0.0.2 正常应用。
 
-以下两段描述 `?lab=1` 实验面板；普通向导默认本次不计退休收入并排除受限池，假设可见可改，不能把实验面板的初始门控当作向导默认行为。应用入口可在 `/visual-preview.html?section=planning&plan-basic=saved&capabilities=real` 中打开职业试算核对，操作见[使用指南](USER_GUIDE.md#career-trial)。
+以下两段描述 `?lab=1` 实验面板；尚无已保存收入选择的向导默认先不计退休收入，已有选择优先，假设可见可改，不能把实验面板的初始门控当作向导默认行为。应用入口可在 `/visual-preview.html?section=planning&plan-basic=saved&capabilities=real` 中打开职业试算核对，操作见[使用指南](USER_GUIDE.md#career-trial)。
 
 实验面板先选择本次退休收入口径，再填写收支、可选到账和实际社保费用，之后是唯一结果区。手填复用稳定 ID 的收入明细或添加临时假设，按整岁起止只计退休后的区间；没有自动采用旧北京估算金额或核对面板结果。“不计任何退休收入”须主动选择，排除养老金和年金等全部项；默认沿用原计划选择，未知不补零。首版不要求无法影响手填收入的缴费基数，只要求实际费用和已含／另付关系，工作工资已扣的部分不再重复扣除。恢复储蓄未知仍可反求需求，依赖它的搜索／预测不出答案；退休收入或恢复阶段缺项不抹去之前已知的局部空窗检查，局部结果不冒充最长空窗。
 
@@ -145,12 +145,12 @@ npm run tauri -- build --bundles app
 
 ### 规划首次设置验收
 
-`tests/planning-basic-ui.test.mjs`、`planning-basic-service-integration.test.mjs` 和 `planning-basic-consumers-integration.test.mjs` 覆盖四步设置、未知／零／负数、草稿无副作用和原回执防覆盖。Rust `src-tauri/tests/planning_basic.rs` 覆盖旧资料只读适配、事实与稳定ID保全、旧备份恢复、旧回执重放及完整保存事务；`plan_profile.rs` 覆盖付款、吸收关系、余债与来源引用。旧阶段／路线夹具应显示「待重新设置」，目标／预算／投入不得自动带入。浏览器覆盖正常、未知、空白和错误状态，同尺寸比较新旧入口；截图或原生功能未完成时记录限制。原生使用独立身份，数据必须虚构。
+`tests/planning-basic-ui.test.mjs`、`planning-basic-service-integration.test.mjs` 和 `planning-basic-consumers-integration.test.mjs` 覆盖统一保存、未知／零／负数、草稿无副作用和原回执防覆盖。Rust `src-tauri/tests/planning_basic.rs` 覆盖旧资料只读适配、事实与稳定ID保全、旧备份恢复、旧回执重放及完整保存事务；`plan_profile.rs` 覆盖付款、吸收关系、余债与来源引用。旧阶段／路线夹具应显示「待重新设置」，目标／预算／投入不得自动带入。浏览器覆盖正常、未知、空白和错误状态，同尺寸比较新旧入口；截图或原生功能未完成时记录限制。原生使用独立身份，数据必须虚构。
 
 
 ## 通用规划基础联合验收
 
-第一批将真实 `buildBasicCapabilities` 绑定到基础界面，引导通过只读内存分区叠加预览，最终setup一次事务保存；收入明细、资金规则和养老字段不能分次留下半成品。`tests/planning-basic-service-integration.test.mjs`、`planning-basic-consumers-integration.test.mjs` 与 `planning-basic-ledger-integration.test.mjs` 覆盖真实provider、来源同批、未知／临时隔离、费用作用域、受限池一次解锁、原回执防覆盖；Rustplanning_basic覆盖引导完整保存、失败回滚、重放和独立养老金。Worker覆盖仅保存规划后重启仍进入个人库。
+第一批将真实 `buildBasicCapabilities` 绑定到基础界面，四问输入只在内存持有，Q4 最终 setup 一次事务保存；收入明细、资金规则和养老字段不能分次留下半成品。`tests/planning-basic-service-integration.test.mjs`、`planning-basic-consumers-integration.test.mjs` 与 `planning-basic-ledger-integration.test.mjs` 覆盖真实provider、来源同批、未知／临时隔离、费用作用域、受限池一次解锁、原回执防覆盖；Rustplanning_basic覆盖引导完整保存、失败回滚、重放和独立养老金。Worker覆盖仅保存规划后重启仍进入个人库。
 
 浏览器 `?section=planning&plan-basic=unknown&capabilities=real` 使用虚构来源和真实纯计算；不加capabilities参数的异常状态仍为展示夹具，不能当数值验收。原生使用独立bundle标识 `local.thingary.basic.acceptance.20261007`，实测新建模拟起点、添加手填退休收入、保存后投入保持null、目标／首页需求一致、重启恢复。未完成全套原生VoiceOver、真实中文输入法组合及三主题全窗口矩阵；浏览器证据不替代这些范围。未访问正式库，不代表正式包已安装或公开发布。
 
@@ -163,7 +163,7 @@ npm run tauri -- build --bundles app
 第三方告知见 [SOURCE_NOTICES](../SOURCE_NOTICES.md)。`tests/source-provenance.test.mjs` 只保存已移除上游文案的长度和散列，防止完整值重新出现，不将通过散列检查当作许可认证。`tests/plan-risk.test.mjs` 验证零波动与同一月账本一致、月初资金缺口不能由随后解锁掩盖、规划终点恰好为零的成功口径，以及无提款时相同年度收益排列的终点余额一致（含不足一年的终点）。打包告知除包管理器依赖外还收集根目录 `SOURCE_NOTICES.md`；生成器不会自动判定新内置内容的授权，新增来源须同步登记。
 
 
-基础规划的操作层可用 `?section=planning&plan-basic=beijing-complete` 查看四步设置与未来缴费月份；`plan-basic=blank|unknown|negative|saved` 分别检查空白、预计投入未知、负值与已保存。`state=save-error` 检查保存失败保留输入。`section=virtual` 的虚构创作服务可查看关联订阅的结束确认窗；`section=expenses` 检查年度柱图进入月度回顾及金额待补提示。合并共用控件时，`tests/cent-input-interactions.test.mjs` 验证真实输入处理保持负整数分、零、未知与字段说明关联。
+基础规划的操作层可用 `?section=planning&plan-basic=beijing-complete` 查看已保存北京选择与隐藏缴费资料保全；`plan-basic=blank|unknown|negative|saved` 分别检查空白、预计投入未知、负值与已保存。`state=save-error` 检查保存失败保留输入。`section=virtual` 的虚构创作服务可查看关联订阅的结束确认窗；`section=expenses` 检查年度柱图进入月度回顾及金额待补提示。合并共用控件时，`tests/cent-input-interactions.test.mjs` 验证真实输入处理保持负整数分、零、未知与字段说明关联。
 
 北京养老金政策专项用例运行 `node --test tests/plan-pension-policy.test.mjs`；`node --test tests/plan-pension-contract.test.mjs` 验证独立的显式输入金额核心（缺项／不适用门控、年份、计发月数、金额舍入和次月起领）。`node --test tests/plan-pension-index.test.mjs tests/plan-pension-timing.test.mjs` 验证完整日历年指数与独立账本起领适配器，覆盖普通停缴、整年待遇扣除、精确舍入、缺项和部分年份阻断，以及退休月、跨年、月中起点、池解锁和展示一致性。适配器仅支持显式购买力转换与领取后随通胀增长假设，未被普通入口或预览调用。
 
@@ -176,3 +176,17 @@ npm run tauri -- build --bundles app
 当前截图的应用基线、统一视口、虚构数据和操作路径见[截图维护清单](images/README.md)。截图更新后生成离线指南，检查图片内容及锚点；浏览器截图不代替隔离原生验收。
 
 P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不同编号、收入非法行、混合事务故障、失联回执重启、映射与备份往返。`financial_import` 集成测试另覆盖 x11 替表中途回滚／外键校验、34→35／33→35 和旧 34 备份／回执；`finance_export` 验证未知空单元格、零 `0.00`。`plan_income` 与前端 `plan`／`planning-basic-defaults`／`review-observations` 验证到账与资产事实保留、独立花销样本及 P1-1 观察语义。浏览器布局夹具 `?import-kind=incomes&import=normal|unknown|empty|error`、`?hpf=unknown` 仅验证展示；原生 UI 与故障测试分开登记，具体记录保存在私有笔记。
+
+
+### 四问目标引导与精修入口
+
+`?section=planning&plan-first-run=0|1|2|2b|overdue|costs|beijing&capabilities=real` 使用虚构来源和真实纯计算，分别覆盖未设置、未答完、有结果、组合阻断、过期计划、费用待核对与北京资料不足。`state=save-error` 注入保存失败；结果点「修改」检查带值、每屏保存、预计储蓄与更多假设。所有浏览器夹具仅在内存，刷新重置。1200/520 宽、三种外观浅深的浏览器证据不代表原生验收。
+
+`tests/planning-first-run.test.mjs` 覆盖四种状态、首个未答与数量、收入默认/已保存选择、北京隐藏资料保全、条件芯片、费用项目与数量、已保存大额计划数量（职业试算不保存，无数量）。`tests/planning-fourq-components.test.mjs` 执行实际向导事件处理器，验证关闭/Esc/跳过不提交、编辑带值与每屏保存、失败保留输入可重试、结果未知锁定及工具折叠；叶控件和保存器使用测试替身，无新增依赖。既有消费者集成测试仍用真实 React 渲染与纯计算。
+
+未关联事件的已有贷款或付款引用待核对时，显示「核对已有贷款与付款」精修卡，复用现有大额计划表入口；有明确事件的过期计划仍逐个打开核对窗口，不跳总表。
+
+2b 与养老金跳页均为过渡方案，计算门控与存储契约不变。测算详情保留 `PlanningBasicDetail.tsx` 概览 `RequirementCard` 和 `NeedContribution` 的非预计投入阻断分支旧按钮；它们涉及需求/预测/临时试算多路跳转，本任务未统一替换。原生验收必须使用独立 bundle 标识 `local.thingary.planning.fourq.acceptance20261009` 与虚构资料；验收包供独立运行，不代表安装、发布或生产库验收。
+
+
+四问隔离原生已验：全新个人资料 0→Q1–Q4→结果；编辑模式六屏带值、保存并返回；关闭/Esc/跳过重新打开无草稿；原生文件选择器完整备份、修改、恢复后结果状态重建。北京保全使用精确旧 main 的真实 Store 写入虚构既有资料，再由当前原生向导修改生活费；整个 profile 对比仅生活费变化，含已选收入、养老金事实、缴费安排、隐藏参数、费用与稳定 ID 均保留。重启后状态由保存资料重新推出。尚未验：VoiceOver、真实中文输入法组合、原生三种外观浅深全尺寸矩阵、原生保存故障注入（浏览器/组件测试已覆盖失败与结果未知）。没有访问正式库，验收包未安装、发布。

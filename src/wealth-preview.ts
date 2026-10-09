@@ -287,7 +287,8 @@ const planFail = (source: string) => params.get('plan-fail') === source;
 // ?plan-basic=unknown|zero|negative|saved|terminal-zero|missing-costs|excluded|manual|beijing|beijing-complete|blank
 // 其余开关：plan-start=live、plan-wealth=off、plan-req=zero|not-found|payment|bounds、state=save-error|unknown-result。
 // 能力结果只在预览里按已保存输入挑选严格夹具；它不是计算器，原生联调以 Codex 的真实服务为准。
-const basicScenario = params.get('plan-basic');
+const firstRunFixture = params.get('plan-first-run');
+const basicScenario = firstRunFixture ? ({ '0': 'blank', '1': 'unknown', '2': 'unknown', overdue: 'unknown', costs: 'missing-costs', beijing: 'beijing', '2b': 'beijing' }[firstRunFixture] ?? 'unknown') : params.get('plan-basic');
 const basicDefaults = (): StoredProfile => {
   const f = basicInputFixtures.unknown;
   const retire = { ...defaultRetire, spend_cents: f.spend_cents, target_age: f.target_age, horizon_age: f.horizon_age, mode: f.mode, emergency_months: 0, setup_completed: true, basic: structuredClone(f.basic), core: { ...emptyCore(todayIso), monetary_basis_date: todayIso } };
@@ -310,7 +311,7 @@ function basicScenarioProfile(kind: string): ProfileState['saved'] {
 }
 if (basicScenario) planProfile = basicScenarioProfile(basicScenario);
 // Confirmed planning / continuation acceptance fixtures, all balances fictional.
-const coreScenario = params.get('plan-core');
+const coreScenario = firstRunFixture === 'overdue' || firstRunFixture === '2b' ? 'overdue' : params.get('plan-core');
 if (coreScenario && planProfile && snapshots.length) {
   const s = snapshots[snapshots.length - 1], cash = accounts.find(a => a.fields.kind === 'cash')!, debt = accounts.find(a => a.fields.kind === 'loan')!;
   s.entries = s.entries.map(e => e.account_id === cash.id ? { ...e, amount_cents: '70000000' } : e.side === 'liability' ? { ...e, counted: true, amount_cents: e.account_id === debt.id && ['occurred','partial'].includes(coreScenario) ? '10000000' : '0' } : e);
@@ -336,6 +337,14 @@ if (coreScenario && planProfile && snapshots.length) {
     r.basic.contribution_costs = scopes;
     r.basic.retirement_costs = scopes.map(source => ({ ...source, treatment: 'extra', reference_cents: null }));
   }
+}
+// First-run fixtures are fictional in-memory inputs, using the unchanged real calculator.
+if (firstRunFixture && planProfile?.profile.retire.basic) {
+  const p = planProfile.profile, r = p.retire, b = r.basic!;
+  if (firstRunFixture === '1') { r.spend_cents = null; b.retirement_income.mode = null; }
+  if (firstRunFixture === 'costs') b.retirement_income.mode = 'excluded';
+  if (firstRunFixture === '2b') { p.worker = null; b.retirement_income.mode = 'beijing'; r.rent_cents = '100000'; b.retirement_costs = []; b.contribution.monthly_cents = null; }
+  if (firstRunFixture === 'overdue') { b.retirement_income.mode = 'excluded'; b.contribution.monthly_cents = null; }
 }
 const reviewFixture = params.get('review-fixture');
 if (reviewFixture && snapshots.length >= 2) {

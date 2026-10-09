@@ -115,7 +115,7 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 ### 规划首次设置
 
-`PlanningPage` 按任务进入，`PlanningSetup` 四步草稿在当前内存叠加到同批来源，通过真实 `buildBasicCapabilities` 预览。最后使用一次 `plan_profile_update` 的setup分区，包含basic及可选budget/funds/pension，后端先捕获原假设，再合并所选分区，校验最终资料，同事务保存revision与回执。关闭不留草稿；未确认回执阻止新请求覆盖。独立养老金可以只保存已知事实，不伪造basic或目标。
+`PlanningPage` 按任务进入，`PlanningSetup` 每屏一个问题，只在内存持有输入，Q4 使用一次 `plan_profile_update` 的 setup 分区统一保存；编辑模式另有预计储蓄和更多假设屏。`planning-first-run.ts` 纯函数由保存资料与同批 capabilities 推出目标状态、未答问题、条件芯片和精修卡；2b 保留现行计算阻断语义。界面复用 setup 契约的 basic 与按需 budget/funds，本向导不写 pension 分区，保留已有事实与缴费安排。后端先捕获原假设，再合并所选分区，校验最终资料，同事务保存revision与回执。关闭不留草稿；未确认回执阻止新请求覆盖。独立养老金可以只保存已知事实，不伪造basic或目标。
 
 ### 通用规划基础
 

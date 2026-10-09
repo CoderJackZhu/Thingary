@@ -59,7 +59,7 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
   // 已经有一套房计入时，新加的房默认不计入，避免两套房同时发生；想比较方案就只勾选其中一套。
   const add = (key: string) => { const p = presets.find(x => x.key === key)!, d = p.make(monthLabel(today, p.years * 12)); setEditing({ isNew: true, draft: { id: crypto.randomUUID(), ...d, included: d.kind === 'house' ? d.included && !events.some(x => x.kind === 'house' && x.included) : d.included } }); };
   return <article className="ui-card ui-content plan-goal plan-events" aria-label="大额计划">
-    <div className="ui-section-head"><div><p className="eyebrow">买房、买车与其他</p><h3>大额计划<Info text={retire.basic ? "一次性支出与持续费用并入同一退休账本。总预算已包含的费用须在预算明细核对包含关系，额外费用另计一次。这里只估算，不扣实际资金。" : "把房和车算进来：每件拆成一次性现金支出（首付、杂费、换车净支出）和持续的月度收支（月供、持有成本、不再付的房租），并入同一个退休计算。「日常生活」预算请不要再含房租、房贷和车。这里只估算，不扣你真实的资产，也不划拨。"}/></h3></div>
+    <div className="ui-section-head"><div><p className="eyebrow">买房、买车与其他</p><h3>大额计划<Info text={retire.basic ? "一次性支出与持续费用并入同一退休账本。核对这些费用是否已经含在生活费里，额外费用另计一次。这里只估算，不扣实际资金。" : "把房和车算进来：每件拆成一次性现金支出（首付、杂费、换车净支出）和持续的月度收支（月供、持有成本、不再付的房租），并入同一个退休计算。「日常生活」预算请不要再含房租、房贷和车。这里只估算，不扣你真实的资产，也不划拨。"}/></h3></div>
       <span className="rs-presets">{presets.map(p => <button key={p.key} type="button" className="ui-btn" disabled={saver.busy || events.length >= 20} onClick={() => add(p.key)}>+ {p.label}</button>)}</span></div>
     {saver.notice && <p className="notice" role="status">{saver.notice}</p>}
     {events.length === 0 ? <p className="muted">还没有大额计划。需要比较大额购买时，可以添加一个设想；预设金额仅作占位，请按自己的情况修改，只勾选本次要计入的安排。</p> : <>
@@ -77,7 +77,7 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
       {rows && !retire.core?.occurrences.some(o => o.status === 'occurred') && rows.items.some(x => x.e.included) && <p>已计入的几件一起发生：<strong>{delayText(rows.total.delay_months, rows.total.base_fi, rows.total.with_fi)}</strong>（相对于都不发生）。已经含在上面的退休结论里。</p>}
       {rows && rows.items.filter(x => x.e.kind === 'house' && x.e.included).length > 1 && <p className="rs-note">有多套房同时计入，会按都买来算；比较方案时请只勾选一套。</p>}
     </>}
-    <details className="plan-explanation"><summary>怎么算的</summary><p className="muted small">首付、杂费在计划月份一次性扣；贷款本金按买房那天的名义价格算，等额本息、固定名义月供，到期结束，所以实际购买力逐年下降；月供与持有成本在退休前压低每月储蓄，退休后算进支出；省租按预算与净投入的包含关系处理，基础净投入不自动加回省租；买车可设换车周期、截止年龄和每次卖旧车回收，每次实际花的是「价格减回收」。「首付付得起吗」按当前储蓄推演到计划月份的可支配资产，对照首付、杂费与应急金线。价格按今天的钱，默认实际不涨价，想保守就填高一点。公积金贷款与提取暂未单独建模。</p></details>
+    <details className="plan-explanation"><summary>怎么算的</summary><p className="muted small">首付、杂费在计划月份一次性扣；贷款本金按买房那天的名义价格算，等额本息、固定名义月供，到期结束，所以实际购买力逐年下降；月供与持有成本在退休前压低每月储蓄，退休后算进支出；省租先核对是否已经算入生活费或每月能存的钱，基础净投入不自动加回省租；买车可设换车周期、截止年龄和每次卖旧车回收，每次实际花的是「价格减回收」。「首付付得起吗」按当前储蓄推演到计划月份的可支配资产，对照首付、杂费与应急金线。价格按今天的钱，默认实际不涨价，想保守就填高一点。公积金贷款与提取暂未单独建模。</p></details>
     {occurring && <PlanningOccurrenceDialog event={occurring} existing={retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={store.snapshot} accounts={store.accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={() => setOccurring(null)} onSave={o => void saveOccurrence(o)}/>}
     {editing && <EventDialog basic={!!retire.basic} draft={editing.draft} isNew={editing.isNew} today={today} events={events} busy={saver.busy} onClose={() => setEditing(null)} onSave={async ev => { const next = editing.isNew ? [...events, ev] : events.map(x => (x.id === ev.id ? ev : x)); if (await write(next)) setEditing(null); }} notice={saver.notice}/>}
   </article>;

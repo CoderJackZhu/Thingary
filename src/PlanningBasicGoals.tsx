@@ -1,116 +1,103 @@
-import { CostsDialog } from './PlanningCosts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { money } from './asset';
 import type { Account, Snapshot } from './wealth';
-import type { PlanningMissing, PlanningSources, ProfileState } from './plan';
-import { CapabilityNotice, RequirementCard } from './PlanningRequirement';
+import type { PlanningMissing, PlanningSources, StoredLifeEvent } from './plan';
+import type { Occurrence } from './plan-core';
+import { CapabilityNotice } from './PlanningRequirement';
 import { RunwayCard } from './PlanningRunway';
 import { PlanningCareerCard } from './PlanningCareerCard';
-import { FundsCard } from './PlanningFunds';
 import { PlanningBasicDetail } from './PlanningBasicDetail';
 import { PlanningEvents } from './PlanningEvents';
 import type { EventsStore } from './PlanningEvents';
 import { PlanningWishes } from './PlanningWishes';
+import { PlanningOccurrenceDialog } from './PlanningOccurrenceDialog';
+import { CostsDialog } from './PlanningCosts';
+import { FundsDialog } from './PlanningFunds';
+import { PlanningRefinements } from './PlanningRefinements';
 import { buildRetireCalc } from './plan-retire-calc';
 import { ready } from './review';
-import { contributionSection, eventsInput } from './planning-basic-forms';
-import { HISTORY_CAVEAT, historyHints } from './planning-basic-defaults';
-import type { History } from './planning-basic-defaults';
-import { MarketNote } from './PlanningContributionHelper';
+import { eventsInput } from './planning-basic-forms';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
-import { amountState, goalFitText, needsContribution, setupStepFor, SAVE_CONTRIBUTION_HINT, terminalText } from './planning-basic-view';
+import { needsContribution, requirementLine, SAVE_CONTRIBUTION_HINT } from './planning-basic-view';
 import type { PlanMode } from './planning-basic-view';
+import { conditionChips, goalState, moreToolsBadges, questionProgress, questions, refinementCards } from './planning-first-run';
+import type { Refinement } from './planning-first-run';
 import './planning.css';
 
-type Saved = NonNullable<ProfileState['saved']>;
-
-/** Goals for the basic and not-yet-set-up cases. Old profiles require new configuration. */
-export function PlanningBasicGoals({ sources, mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null) => void; focus?: boolean; onFocusDone: () => void }) {
-  const [costsOpen, setCostsOpen] = useState(false);
-  useEffect(() => { onEditingChange(costsOpen); return () => onEditingChange(false); }, [costsOpen, onEditingChange]);
-  const [detail, setDetail] = useState<{ contribution: boolean } | null>(null);
+/** Goal states are a presentation projection; current calculation gates remain unchanged. */
+export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean) => void; focus?: boolean; onFocusDone: () => void }) {
+  const [fundsOpen, setFundsOpen] = useState(false), [costsOpen, setCostsOpen] = useState(false), [occurring, setOccurring] = useState<StoredLifeEvent | null>(null);
+  const [detail, setDetail] = useState(false), [toolsOpen, setToolsOpen] = useState(false), opener = useRef<HTMLElement | null>(null);
+  useEffect(() => { onEditingChange(fundsOpen || costsOpen || occurring !== null); return () => onEditingChange(false); }, [fundsOpen, costsOpen, occurring, onEditingChange]);
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const snapshot: Snapshot | null = ready(sources.snapshot) ?? null, accounts: Account[] = ready(sources.accounts) ?? [];
-  const result = useCapabilities(sources);
-  const saver = useSectionSaver(sources, reload, onPending);
-  const hist = useMemo(() => historyHints(ready(sources.review)), [sources.review]);
-  const goEvents = () => { setDetail(null); requestAnimationFrame(() => { const el = document.getElementById('plan-events-section'); el?.scrollIntoView({ block: 'start' }); el?.focus(); }); };
-  const fundsOpen = useRef<(() => void) | null>(null);
+  const result = useCapabilities(sources), saver = useSectionSaver(sources, reload, onPending);
+  const caps = result.status === 'ready' ? result.caps : null, pred = caps?.prediction.status === 'ready' ? caps.prediction.value : null;
+  const state = goalState(saved, caps), progress = questionProgress(saved, caps);
+  const cards = saved && caps ? refinementCards(saved, caps, today) : [];
+  const goEvents = () => { setDetail(false); setToolsOpen(true); requestAnimationFrame(() => { const el = document.getElementById('plan-events-section'); el?.scrollIntoView({ block: 'start' }); el?.focus(); }); };
   useEffect(() => { if (focus) { const entry = document.getElementById('plan-budget-entry'); if (entry) { entry.focus(); onFocusDone(); } } }, [focus, onFocusDone, saved]);
-  useEffect(() => { if (detail?.contribution) document.querySelector<HTMLElement>('#plan-contribution-card button')?.focus(); }, [detail]);
-
-  const caps = result.status === 'ready' ? result.caps : null;
-  const pred = caps?.prediction.status === 'ready' ? caps.prediction.value : null;
   const wishCalc = useMemo(() => saved && pred?.source === 'saved' ? buildRetireCalc(saved, snapshot, ready(sources.review) ?? null, ready(sources.incomes) ?? [], today, sources) : null, [saved, pred, snapshot, sources, today]);
-  const events: EventsStore | null = useMemo(() => {
-    if (!saved || !caps) return null;
+  const events: EventsStore | null = saved && caps ? { retire: saved.profile.retire, snapshot, accounts, busy: saver.busy, stuck: saver.stuck, notice: saver.notice,
+    ready: pred?.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '资料待补齐',
+    onContribution: needsContribution(caps) ? () => openSetup(4, null, true) : undefined,
+    write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) } : null;
+  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'pension') onGoto('pension'); else if (o === 'events') goEvents(); else if (o === 'service') reload(); else openSetup(o === 'funds' ? 2 : 0, null, true); };
+  const closeRefinement = () => { setFundsOpen(false); setCostsOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
+  function action(card: Refinement, from: HTMLElement) {
+    opener.current = from;
+    // Transitional pension entry: a later task replaces this tab jump with its refinement dialog.
+    if (card.action === 'pension') onGoto('pension');
+    else if (card.action === 'costs') setCostsOpen(true);
+    else if (card.action === 'funds') setFundsOpen(true);
+    else if (card.action === 'events') goEvents();
+    else if (card.action === 'event') setOccurring(card.event!);
+    else if (card.action === 'contribution') openSetup(4, from, true);
+    else if (card.action === 'setup') openSetup(card.step ?? 0, from, true);
+    else reload();
+  }
+  async function saveOccurrence(o: Occurrence) {
+    if (!saved?.profile.retire.core) return;
     const r = saved.profile.retire;
-    return { retire: r, snapshot, accounts, busy: saver.busy, stuck: saver.stuck, notice: saver.notice,
-      ready: pred && pred.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '资料待补齐',
-      onContribution: needsContribution(caps) ? () => setDetail({ contribution: true }) : undefined,
-      write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) };
-  }, [saved, caps, pred, snapshot, accounts, saver.busy, saver.stuck, saver.notice]); // eslint-disable-line react-hooks/exhaustive-deps
-
+    if (await saver.save(eventsInput({ life_events: r.life_events, occurrences: [...r.core!.occurrences.filter(x => x.event_id !== o.event_id), o] }))) closeRefinement();
+  }
   if (sources.profile.status === 'error') return <article className="ui-card ui-content" role="alert"><p>规划资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>;
-  const wishHint = caps && needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '退休资料待补齐';
-  const goContribution = caps && needsContribution(caps) ? () => setDetail({ contribution: true }) : undefined;
-
-  if (mode === 'none' || !saved) return <div className="plan-goals">
-    <article className="ui-card ui-content plan-goal plan-retirement-goal" aria-label="退休目标">
-      <div className="ui-section-head"><div><p className="eyebrow">长期生活计划</p><h3>退休与财务自由</h3></div><span className="ui-tag">{saved ? '待重新设置' : '还没有设置'}</span></div>
-      <p className="plan-goal-headline"><strong>先说说你的目标，没想好的可以留空</strong></p>{saved && <p className="notice">请重新确认目标与完整预算。盘点、收入、社保资料、已记录的付款与余债保留。</p>}
-      <p className="muted">告诉软件想在几岁退休、退休后每月花多少钱，以及现在有多少钱可用于准备。它会帮你算每月大约要存多少；你自己的储蓄估计可以先不填。</p>
-      <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始设置</button><button type="button" className="ui-btn" onClick={() => onGoto('savings')}>先看收入与复盘</button></div>
+  if (detail && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openSetup={(step, from) => openSetup(step, from, true)} onGoto={onGoto} onEvents={goEvents} onBack={() => { setDetail(false); requestAnimationFrame(() => document.getElementById('plan-detail-entry')?.focus()); }}/>;
+  const req = caps?.requirement.status === 'ready' ? caps.requirement.value : null;
+  const line = req ? requirementLine(req.set, money) : null;
+  return <div className="plan-goals" data-goal-state={state}>
+    {fundsOpen && saved && <FundsDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={() => closeRefinement()}/>}
+    {costsOpen && saved && <CostsDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
+    {occurring && saved && <PlanningOccurrenceDialog event={occurring} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
+    <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
+      <p className="eyebrow">长期生活计划</p>
+      {state === '0' ? <>
+        <h3>想知道：要攒多少钱才够？</h3>
+        <p className="planning-first-promise">回答 4 个问题，算出“想在 X 岁退休，每月大约要存多少钱”。</p><p className="muted">没想好的可以先留空，随时退出，不保存草稿。</p>
+        <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始（约 2 分钟）</button><button type="button" className="ui-link" onClick={() => onGoto('savings')}>先看收入与复盘</button></div>
+      </> : state === '1' ? <>
+        <h3>还差 {progress.remaining} 个问题，就能算出每月要存多少</h3>
+        <div className="planning-question-checklist">{questions.map((q, i) => <p key={q}><span className="ui-tag">{progress.answered[i] ? '已回答' : '还需要'}</span><span>{q}</span></p>)}</div>
+        <button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(progress.first, e.currentTarget)}>继续回答</button>
+      </> : <>
+        {state === '2' && req && line ? <><p className="muted">如果想在 {req.target_month.slice(0, 4)} 年 {Number(req.target_month.slice(5, 7))} 月退休：</p><p className={`planning-result-number ${line.tone}`}><strong>{line.text}</strong></p><p className="muted small">这是参考金额，不用填写，不保证未来一定够用。按今天的物价，准备支付生活费到 {req.horizon_month.slice(0, 4)} 年 {Number(req.horizon_month.slice(5, 7))} 月。</p></>
+          : <><h3>还有 {cards.filter(c => c.required).length} 项需要确认，才能算出结果</h3><p className="muted">四个问题已回答。核对下面这些事项后，再按已保存的条件计算。</p></>}
+        {saved && caps && <div className="planning-condition-chips" aria-label="计算条件">{conditionChips(saved, caps, money).map(chip => <button type="button" className={chip.prominent ? 'planning-chip prominent' : 'planning-chip'} key={chip.step} onClick={e => openSetup(chip.step, e.currentTarget, true)}>{chip.text}</button>)}<button type="button" id="plan-budget-entry" className="ui-link" onClick={e => openSetup(0, e.currentTarget, true)}>修改</button></div>}
+        {state === '2' && <p><button type="button" id="plan-detail-entry" className="ui-link" onClick={() => setDetail(true)}>查看测算详情 ›</button></p>}
+      </>}
     </article>
-    <RunwayCard caps={null} today={today} onOwner={() => openSetup(1)}/>
-    <PlanningWishes calc={null} today={today} hint="设置目标后可查看"/>
-  </div>;
-
-  if (detail && saved.profile.retire.basic) return <PlanningBasicDetail key={detail.contribution ? 'c' : 'd'} sources={sources} saved={saved as Saved} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openSetup={openSetup} onGoto={onGoto} onEvents={goEvents} onBack={() => setDetail(null)}/>;
-
-  const r = saved.profile.retire, b = r.basic!;
-  const contribution = amountState(b.contribution.monthly_cents);
-  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'events') goEvents(); else if (o === 'funds') fundsOpen.current?.(); else if (o === 'pension') onGoto('pension'); else if (o === 'service') reload(); else openSetup(setupStepFor(o, field)); };
-  return <div className="plan-goals">
-    {costsOpen && <CostsDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={() => { setCostsOpen(false); requestAnimationFrame(() => document.getElementById('plan-budget-entry')?.focus()); }}/>}
-    <article className="ui-card ui-content plan-goal plan-retirement-goal" aria-label="退休目标">
-      <div className="ui-section-head"><div><p className="eyebrow">长期生活计划</p><h3>退休与财务自由</h3></div><span className="ui-tag">{caps?.requirement.status === 'ready' ? '按这些条件估算' : '待补齐条件'}</span></div>
-      <div className="plan-goal-overview">
-        <div>
-          <p className="plan-goal-headline"><strong>目标：{r.target_age === null ? '还没有设定年龄' : `${r.target_age} 岁${r.mode === 'fire' ? ' 财务自由' : ' 退休'}`}</strong>{caps?.requirement.status === 'ready' && <span>{r.mode === 'fire' ? '期望时间' : '目标时间'}：{caps.requirement.value.target_month}</span>}</p>
-          {pred ? <p className="muted">按你估计每月能存下的钱 {money(pred.contribution_cents)}/月：{goalFitText(pred.outcome, money)}；{terminalText[pred.terminal]}。</p>
-            : contribution === 'unknown' ? <p className="muted">先看看这个目标需要每月存多少钱。你自己的储蓄估计可以以后再填。</p> : null}
-          <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={() => setDetail({ contribution: false })}>查看测算详情</button><button type="button" className="ui-btn" onClick={e => openSetup(0, e.currentTarget)}>编辑目标与设置</button><button type="button" className="ui-btn" onClick={() => onGoto('savings')}>收入与复盘</button></div>
-        </div>
-        <dl className="plan-facts plan-goal-inputs">
-          <div><dt>退休后每月生活费</dt><dd>{r.spend_cents === null ? '待补充' : money(r.spend_cents)}</dd><small className="muted">按今天的物价，完整预算</small></div>
-          <div><dt>每月能存的钱（选填）</dt><dd>{contribution === 'unknown' ? '以后再估计' : contribution === 'zero' ? '0 元' : money(b.contribution.monthly_cents!)}</dd><small className="muted">{contribution === 'unknown' ? '不影响查看目标需要的钱' : '你自己的估计，不含投资涨跌'}</small></div>
-          <div><dt>规划可用资金</dt><dd>{caps?.funds.status === 'ready' ? money(caps.funds.value.available_cents) : '待补充'}</dd><small className="muted">{caps?.funds.status === 'ready' ? `${caps.funds.value.kind === 'simulation' ? '模拟起点' : '实际盘点'} · 截至 ${caps.funds.value.date}` : '仅明确可用资金'}</small></div>
-        </dl>
+    {result.status !== 'ready' && <><CapabilityNotice result={result}/><button className="ui-btn" onClick={reload}>重新读取</button></>}
+    {/* State 2b is temporary. Overdue events and unreviewed costs still block the unchanged calculation engine. */}
+    {(state === '2' || state === '2b') && <PlanningRefinements cards={cards} blocked={state === '2b'} busy={saver.busy || saver.stuck} onAction={action}/>}
+    {state === '2b' && cards.some(c => !c.required) && <PlanningRefinements cards={cards.filter(c => !c.required)} busy={saver.busy || saver.stuck} onAction={action}/>}
+    {(state === '2' || state === '2b') && <details className="ui-card ui-content planning-more-tools" open={toolsOpen} onToggle={e => setToolsOpen(e.currentTarget.open)}>
+      <summary><strong>更多工具与试算</strong>{moreToolsBadges(saved).map(text => <span className="ui-tag" key={text}>{text}</span>)}<span className="planning-more-tools-hint muted small">查看资金能撑多久、职业变化试算，以及大额计划和心愿购买的影响。</span></summary>
+      <div className="planning-more-tools-body">
+        <RunwayCard caps={caps} today={today} onOwner={owner}/>
+        {saved?.profile.retire.basic && caps && <PlanningCareerCard sources={sources} today={today}/>}
+        {events && <div id="plan-events-section" tabIndex={-1}><PlanningEvents store={events} today={today} onEditingChange={onEditingChange}/></div>}
+        <PlanningWishes calc={wishCalc} today={today} hint={caps && needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '退休资料待补齐'} onContribution={saved?.profile.retire.basic ? () => openSetup(4, null, true) : undefined}/>
       </div>
-    </article>
-    {result.status !== 'ready' ? <CapabilityNotice result={result}/> : <RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy}/>}
-    {caps && <RunwayCard caps={caps} today={today} onOwner={owner}/>}
-    {caps && <PlanningCareerCard sources={sources} today={today}/>}
-    {caps && !pred && contribution === 'unknown' && <HistoryForecast sources={sources} hist={hist} busy={saver.busy || saver.stuck} notice={saver.notice} onDetail={() => setDetail({ contribution: true })} onAdopt={async () => { const input = contributionSection(saved as Saved, hist.saving, today); if (input) await saver.save(input); }}/>}
-    {caps && <FundsCard caps={caps} sources={sources} saved={saved as Saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openRef={fundsOpen}/>}
-    {events && <div id="plan-events-section" tabIndex={-1}><PlanningEvents store={events} today={today} onEditingChange={onEditingChange}/></div>}
-    <PlanningWishes calc={wishCalc} today={today} hint={wishHint} onContribution={goContribution}/>
+    </details>}
   </div>;
-}
-
-/** Unknown contribution: show what the past 盘点 imply (labelled, unsaved) or say why not and how to estimate by hand. */
-function HistoryForecast({ sources, hist, busy, notice, onDetail, onAdopt }: { sources: PlanningSources; hist: History; busy: boolean; notice: string; onDetail: () => void; onAdopt: () => void }) {
-  if (hist.saving === null) return <article className="ui-card ui-content plan-contribution-prompt" aria-label="每月能存的钱"><div className="ui-section-head"><h3>想看看按自己的储蓄速度，能否达到目标？</h3><button type="button" className="ui-btn" onClick={onDetail}>估计每月能存多少钱</button></div><p className="muted">{hist.reason}可以填每月到账和开销估一个，不填也不影响上面的需求。</p></article>;
-  return <HistoryLine sources={sources} hist={hist} busy={busy} notice={notice} onDetail={onDetail} onAdopt={onAdopt}/>;
-}
-function HistoryLine({ sources, hist, busy, notice, onDetail, onAdopt }: { sources: PlanningSources; hist: History; busy: boolean; notice: string; onDetail: () => void; onAdopt: () => void }) {
-  const r = useCapabilities(sources, { contribution: hist.saving });
-  const pred = r.status === 'ready' && r.caps.prediction.status === 'ready' ? r.caps.prediction.value : null;
-  return <article className="ui-card ui-content plan-contribution-prompt" aria-label="按过去盘点推算"><div className="ui-section-head"><h3>按你过去的盘点推算</h3><span className="ui-tag warn">按过去盘点推算，未保存</span></div>
-    <p>过去 {hist.count} 个盘点区间，你每月存下的中位数约 {money(hist.saving!)}。{pred ? `按这个速度：${goalFitText(pred.outcome, money)}；${terminalText[pred.terminal]}。` : '其他条件补齐后可看到预测。'}</p>
-    <p className="muted small">{HISTORY_CAVEAT}。<MarketNote history={hist}/>只在目标详情里显示，不进入首页和心愿；点「采用」才保存为你的预计投入。</p>
-    <div className="plan-goal-actions"><button type="button" className="primary" disabled={busy} onClick={onAdopt}>采用并保存</button><button type="button" className="ui-btn" onClick={onDetail}>查看测算详情</button></div>
-    {notice && <p className="notice" role="status">{notice}</p>}
-  </article>;
 }

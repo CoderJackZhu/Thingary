@@ -1,6 +1,6 @@
 # 界面截图与维护
 
-本目录为 README 与使用指南提供真实界面截图。当前 JPEG 于 **2026-10-09** 使用 **0.0.2** 应用代码拍摄（应用基线 `78715bbe9ead86f8df3098db7d3869c4f91f6808`），浏览器视口统一为 **1440 × 1000**，使用默认「柔和卡片」主题。截图全部来自内存虚构预览，不含正式资料；浏览器截图不证明原生功能已验。`install-flow.svg` 是安装步骤示意，流程未变时无需重新绘制。
+本目录为 README 与使用指南提供真实界面截图。当前 JPEG 于 **2026-10-09** 使用 **0.0.2** 应用代码拍摄（应用基线 `78715bbe9ead86f8df3098db7d3869c4f91f6808`），浏览器视口统一为 **1440 × 1000**，使用默认「柔和卡片」主题。截图全部来自内存虚构预览，不含正式资料；浏览器截图不证明原生功能已验。`planning-goals.jpg` 单独更新为基线 `40f6bb32ea5eafef8e5e2ed340d688bb3ec7ac6d` 上的四问引导代码，视口 **1200 × 900**、浅色，复现参数 `?section=planning&plan-first-run=2&capabilities=real&theme=light`；其他图仍为上述基线。`install-flow.svg` 是安装步骤示意，流程未变时无需重新绘制。
 
 ## 复现入口
 
@@ -18,7 +18,7 @@ http://127.0.0.1:1439/visual-preview.html?plan-basic=saved&capabilities=real&the
 | `assets-light.jpg` | 全部物品，列表视图 |
 | `wealth-light.jpg` | 账户与盘点 › 概览，滚回顶部 |
 | `stats-light.jpg`、`stats-dark.jpg` | 物品统计，全部时间，分别拍摄明暗外观 |
-| `planning-goals.jpg` | 目标页顶部，职业试算保持收起 |
+| `planning-goals.jpg` | 四问结果目标页顶部，更多工具与试算保持收起 |
 | `planning-detail.jpg` | 目标 › 查看测算详情 › 概览 |
 | `career-trial.jpg` | 目标 › 打开职业变化试算；选“我想歇一阵”，开销改为 6,000 元，到账 0，恢复储蓄 5,000 元；展示条件与答案 |
 | `expenses-year.jpg` | 重要支出 › 全部，年度柱状图 |

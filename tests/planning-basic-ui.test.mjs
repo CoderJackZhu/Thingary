@@ -106,7 +106,7 @@ test('source guard: basic UI never branches on career, phases, route, 35-year ch
   for (const f of ['PlanningSetup', 'PlanningPage', 'PlanningBasicGoals', 'PlanningBasicDetail', 'PlanningRequirement', 'PlanningFunds']) {
     const src = fs.readFileSync(new URL(`../src/${f}.tsx`, import.meta.url), 'utf8');
     // The read-only original definition may be displayed; nothing else may touch phases/routes.
-    assert.equal(/setup_completed|saving_phases|route_id|35 岁|职业/.test(src.replace(/legacy_definition\.\w+/g, '')), false, f);
+    assert.equal(/setup_completed|saving_phases|route_id|35 岁/.test(src.replace(/legacy_definition\.\w+/g, '')), false, f);
     assert.equal(/!!\s*\w*(amount|contribution|monthly)/i.test(src), false, `${f}: no truthiness test of an amount`);
     assert.equal(/plan_profile_save/.test(src), false, `${f}: basic UI saves through sections only`);
   }

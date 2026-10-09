@@ -5,7 +5,6 @@ import { DateInput } from './DateInput';
 import type { BasicCapabilities, PlanningMissing } from './plan';
 import { runway } from './plan-runway';
 import { runwayLines } from './planning-basic-view';
-import { MissingList } from './PlanningRequirement';
 
 const STALE_DAYS = 45;
 const daysBetween = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 86400000);
@@ -35,7 +34,7 @@ export function RunwayCard({ caps, today, onOwner }: { caps: BasicCapabilities |
         <label className="rs-field"><span>当前可动用资金（元）</span><CentInput label="当前可动用资金" value={start} placeholder="只填能用于支付的资金" onChange={setStart}/></label>
         <div className="rs-field"><span>资金截至日</span><DateInput label="资金截至日" value={date} max={today} onChange={setDate}/></div>
       </div> : funds?.status === 'blocked' ? <>
-        <p className="muted">规划资金尚未核对。可以核对来源，或改用手填模拟资金独立试算。</p><MissingList missing={funds.missing} onOwner={onOwner}/>
+        <p className="muted">可用资金尚未确认。可以回答准备资金的问题，或改用手填金额独立试算。</p><button type="button" className="ui-btn" onClick={() => onOwner('funds')}>确认现在可用的钱</button>
       </> : funds?.status === 'ready' ? <p className="muted small">起点：{funds.value.kind === 'simulation' ? '模拟起点' : '实际盘点'}，截至 {funds.value.date} 的规划可用资金 {money(funds.value.available_cents)}。</p> : null}
       {stale && <p className="notice" role="status">起点已是 {daysBetween(anchor, today)} 天前的资料，计算从该截至日开始；之后实际发生的变化未覆盖，不能当成今天余额。</p>}
       <div className="plan-runway-fields">
