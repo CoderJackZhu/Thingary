@@ -124,3 +124,8 @@ test('goal wording says whether the money is enough at the target age, not only 
   assert.equal(goalFitText({ funded_at_goal: true, shortfall_at_goal: 0 }, fmt), '到目标年龄时资金已够用');
   assert.match(goalFitText({ funded_at_goal: false, shortfall_at_goal: 123456.4 }, fmt), /还差 ¥123456，要更晚退休才够/);
 });
+
+test('historical spend requires its own three valid samples, saving keeps its original sample semantics',()=>{
+ const two=historyHints(stats({spend_count:2}).review);assert.equal(two.saving,'300000');assert.equal(two.spend,null);assert.equal(two.count,4);assert.equal(two.spend_count,2);
+ const three=historyHints(stats({spend_count:3}).review);assert.equal(three.spend,'650000');assert.equal(three.spend_count,3);
+});

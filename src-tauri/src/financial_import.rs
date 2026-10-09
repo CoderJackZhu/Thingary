@@ -1,4 +1,4 @@
-//! Accounts and complete check-ins only. Preview writes to a private in-memory
+//! Accounts, complete check-ins and monthly income. Preview writes to a private in-memory
 //! SQLite copy; the personal dataset is read-only until the atomic commit.
 use crate::{
     domain::{Error, Result},
@@ -6,6 +6,7 @@ use crate::{
         self as parser, ExistingAccountV1, GroupValidationV1, ImportContext, ImportRequestV1,
         SeverityV1, StandardRowV1,
     },
+    plan_income,
     storage::{digest, Store},
     wealth::{
         self, Account, AccountFields, AccountSave, EntryInput, HistoricalOverrides, SnapshotSave,
@@ -84,11 +85,15 @@ pub struct Object {
 pub struct Counts {
     pub new_accounts: usize,
     pub new_snapshots: usize,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub new_incomes: usize,
     pub same: usize,
     pub conflicts: usize,
     pub errors: usize,
     pub created_accounts: usize,
     pub created_snapshots: usize,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub created_incomes: usize,
     pub corrected: usize,
     pub skipped: usize,
 }
@@ -153,6 +158,12 @@ struct Prepared {
     account_names: BTreeMap<String, String>,
 }
 
+fn has_wealth(b: &BatchInput) -> bool {
+    b.files
+        .iter()
+        .any(|f| matches!(f.kind.as_str(), "accounts" | "snapshots"))
+}
+
 fn checkpoint(cancel: &dyn Fn() -> bool) -> Result<()> {
     if cancel() {
         Err(Error::new("CANCELLED", "解析已取消，未提交任何资料"))
@@ -173,19 +184,21 @@ fn namespace(input: &BatchInput) -> Result<()> {
             ));
         }
     }
-    if input.files.is_empty() || input.files.len() > 2 {
+    if input.files.is_empty() || input.files.len() > 3 {
         return Err(Error::new(
             "IMPORT_FILES",
-            "请选择账户或盘点 CSV，每种最多一份",
+            "请选择账户、盘点或收入 CSV，每种最多一份",
         ));
     }
     let mut kinds = BTreeSet::new();
     let mut bytes = 0usize;
     for file in &input.files {
-        if !matches!(file.kind.as_str(), "accounts" | "snapshots") || !kinds.insert(&file.kind) {
+        if !matches!(file.kind.as_str(), "accounts" | "snapshots" | "incomes")
+            || !kinds.insert(&file.kind)
+        {
             return Err(Error::new(
                 "IMPORT_KIND",
-                "本期仅支持账户与盘点，每种文件最多一份",
+                "支持账户、完整盘点与月度收入，每种文件最多一份",
             ));
         }
         bytes = bytes
@@ -223,15 +236,20 @@ fn keys(c: &Connection, b: &BatchInput) -> Result<BTreeMap<(String, String), Key
         .collect::<std::result::Result<_, _>>()?;
     Ok(result)
 }
-fn context_digest(c: &Connection, cancel: &dyn Fn() -> bool) -> Result<String> {
+fn context_digest(c: &Connection, b: &BatchInput, cancel: &dyn Fn() -> bool) -> Result<String> {
     // Includes deleted objects and mappings: membership changes and edits to
     // reused or skipped objects must invalidate an outstanding preview too.
     let mut values = Vec::<Value>::new();
-    for sql in [
-        "SELECT id,revision,coalesce(deleted_at,'') FROM fin_accounts ORDER BY id",
-        "SELECT id,revision,coalesce(deleted_at,'') FROM fin_snapshots ORDER BY id",
-    ] {
-        let mut q = c.prepare(sql)?;
+    let mut tables = Vec::new();
+    if b.files.iter().any(|f| f.kind == "incomes") {
+        tables.push("plan_income");
+    }
+    if has_wealth(b) {
+        tables.extend(["fin_accounts", "fin_snapshots"]);
+    }
+    for table in tables {
+        let sql = format!("SELECT id,revision,coalesce(deleted_at,'') FROM {table} ORDER BY id");
+        let mut q = c.prepare(&sql)?;
         values.extend(
             q.query_map([], |r| {
                 Ok(json!([
@@ -247,6 +265,7 @@ fn context_digest(c: &Connection, cancel: &dyn Fn() -> bool) -> Result<String> {
             .collect::<Result<Vec<_>>>()?,
         );
     }
+
     let mut q=c.prepare("SELECT source_name,mapping_set_id,object_kind,external_key,object_id,revision,status FROM import_external_key ORDER BY source_name,mapping_set_id,object_kind,external_key")?;
     values.extend(
         q.query_map([], |r| {
@@ -443,19 +462,28 @@ fn prepare(
     today: &str,
     cancel: &dyn Fn() -> bool,
     after_accounts: &dyn Fn() -> Result<()>,
+    after_incomes: &dyn Fn() -> Result<()>,
     progress: &dyn Fn(&str),
 ) -> Result<Prepared> {
     checkpoint(cancel)?;
     namespace(b)?;
     let mappings = keys(tx, b)?;
-    let live = wealth::accounts_cancellable(tx, &|| checkpoint(cancel))?;
+    let live = if has_wealth(b) {
+        wealth::accounts_cancellable(tx, &|| checkpoint(cancel))?
+    } else {
+        Vec::new()
+    };
     let live_by_id: BTreeMap<_, _> = live.iter().map(|a| (a.id.as_str(), a)).collect();
     let mut bindings = BTreeMap::<String, String>::new();
-    let mut next_position: i64 = tx.query_row(
-        "SELECT coalesce(max(position)+1,0) FROM fin_accounts",
-        [],
-        |r| r.get(0),
-    )?;
+    let mut next_position: i64 = if has_wealth(b) {
+        tx.query_row(
+            "SELECT coalesce(max(position)+1,0) FROM fin_accounts",
+            [],
+            |r| r.get(0),
+        )?
+    } else {
+        0
+    };
     let mut issues = Vec::new();
     let mut objects = Vec::new();
     let mut records = Vec::new();
@@ -647,7 +675,11 @@ fn prepare(
     }
     after_accounts()?;
     progress("正在核对账户对应与有效期");
-    let projected = wealth::accounts_cancellable(tx, &|| checkpoint(cancel))?;
+    let projected = if has_wealth(b) {
+        wealth::accounts_cancellable(tx, &|| checkpoint(cancel))?
+    } else {
+        Vec::new()
+    };
     let by_id: BTreeMap<_, _> = projected.iter().map(|a| (a.id.as_str(), a)).collect();
     let catalog: Vec<_> = bindings
         .iter()
@@ -896,6 +928,116 @@ fn prepare(
             });
         }
     }
+    progress("正在核对月度收入");
+    if let Some(file) = b.files.iter().find(|f| f.kind == "incomes") {
+        let p = parse(file, None, today, cancel)?;
+        row_count += p.counts.rows_read;
+        parser_issues(&p, file, b, &mut issues);
+        for row in p.rows {
+            checkpoint(cancel)?;
+            let StandardRowV1::Incomes(r) = row else {
+                continue;
+            };
+            let key = format!("income:{}", r.income_key);
+            standard.push(serde_json::to_value(&r)?);
+            let f = plan_income::Fields {
+                date: r.date,
+                net_cents: r.net_income_cents,
+                hpf_cents: r.hpf_deposit_cents,
+                notes: r.note.unwrap_or_default(),
+            };
+            let mapped = mappings.get(&("income".into(), r.income_key.clone()));
+            let id = mapped
+                .map(|m| m.id.clone())
+                .unwrap_or_else(|| stable_id(b, "income", &r.income_key));
+            let old = plan_income::read(tx, &id)?;
+            let before = old
+                .as_ref()
+                .map(|i| serde_json::to_value(&i.fields))
+                .transpose()?;
+            let after = serde_json::to_value(&f)?;
+            let mut status = if old.is_none() {
+                "new"
+            } else if before.as_ref() == Some(&after) {
+                "same"
+            } else {
+                "conflict"
+            }
+            .to_owned();
+            if mapped.is_some_and(|m| m.status == "purged" || old.is_none()) {
+                status = "error".into();
+                issue(
+                    &mut issues,
+                    &file.name,
+                    Some(&key),
+                    Some(r.source_row),
+                    Error::new(
+                        "IMPORT_TOMBSTONE",
+                        "该外部键指向已删除或清除的收入；请恢复或更换映射集合",
+                    ),
+                    b.actions.get(&key).is_none_or(|a| a.action != "exclude"),
+                );
+            }
+            let rev = old.as_ref().map(|i| i.revision);
+            let action = object_action(b, &key, &status, rev)?;
+            let mut revision_after = rev;
+            if status != "error" && (action == "create" || action == "correct") {
+                match plan_income::write_tx(
+                    tx,
+                    &plan_income::Save {
+                        request_id: String::new(),
+                        generation: b.generation.clone(),
+                        id: old.as_ref().map(|i| i.id.clone()),
+                        expected_revision: rev,
+                        fields: f,
+                    },
+                    today,
+                    Some(&id),
+                ) {
+                    Ok(i) => revision_after = Some(i.revision),
+                    Err(e) => {
+                        status = "error".into();
+                        issue(
+                            &mut issues,
+                            &file.name,
+                            Some(&key),
+                            Some(r.source_row),
+                            e,
+                            true,
+                        );
+                    }
+                }
+            }
+            if status != "error" && action != "exclude" && action != "unresolved" {
+                let value = plan_income::read(tx, &id)?
+                    .map(|i| serde_json::to_value(i.fields))
+                    .transpose()?
+                    .unwrap_or(after.clone());
+                map_write(tx, b, "income", &r.income_key, &id, &value)?;
+                records.push(ReceiptObject {
+                    kind: "income".into(),
+                    external_key: r.income_key.clone(),
+                    id: id.clone(),
+                    action: action.clone(),
+                    revision_before: rev,
+                    revision_after,
+                });
+            }
+            objects.push(Object {
+                key,
+                kind: "income".into(),
+                external_key: r.income_key,
+                id,
+                source_rows: vec![r.source_row],
+                status,
+                action,
+                expected_revision: rev,
+                before,
+                after,
+            });
+        }
+    }
+    after_incomes()?;
     if row_count > parser::MAX_DATA_ROWS as u32 {
         return Err(Error::new(
             "LIMIT_ROWS",
@@ -905,7 +1047,11 @@ fn prepare(
     // Final-state guards run after every chosen correction. They cannot be
     // bypassed by creating a closed account before writing its history.
     progress("正在复核整批最终状态");
-    let final_accounts = wealth::accounts_cancellable(tx, &|| checkpoint(cancel))?;
+    let final_accounts = if has_wealth(b) {
+        wealth::accounts_cancellable(tx, &|| checkpoint(cancel))?
+    } else {
+        Vec::new()
+    };
     let account_names = final_accounts
         .iter()
         .map(|a| (a.id.clone(), a.fields.name.clone()))
@@ -933,6 +1079,8 @@ fn prepare(
             "new" => {
                 if o.kind == "account" {
                     counts.new_accounts += 1
+                } else if o.kind == "income" {
+                    counts.new_incomes += 1
                 } else {
                     counts.new_snapshots += 1
                 }
@@ -948,6 +1096,8 @@ fn prepare(
             "create" => {
                 if r.kind == "account" {
                     counts.created_accounts += 1
+                } else if r.kind == "income" {
+                    counts.created_incomes += 1
                 } else {
                     counts.created_snapshots += 1
                 }
@@ -992,6 +1142,8 @@ fn current_receipt(
         c.prepare("SELECT EXISTS(SELECT 1 FROM fin_accounts WHERE id=?1 AND deleted_at IS NULL)")?;
     let mut snapshots =
         c.prepare("SELECT EXISTS(SELECT 1 FROM fin_snapshots WHERE id=?1 AND deleted_at IS NULL)")?;
+    let mut incomes =
+        c.prepare("SELECT EXISTS(SELECT 1 FROM plan_income WHERE id=?1 AND deleted_at IS NULL)")?;
     let mut seen = BTreeSet::new();
     receipt.unavailable_objects = 0;
     for object in &receipt.objects {
@@ -1002,6 +1154,7 @@ fn current_receipt(
         let query = match object.kind.as_str() {
             "account" => &mut accounts,
             "snapshot" => &mut snapshots,
+            "income" => &mut incomes,
             _ => return Err(Error::new("FORMAT", "回执对象类型无效")),
         };
         let live: bool = query.query_row([&object.id], |r| r.get(0))?;
@@ -1018,14 +1171,19 @@ fn find_receipt(c: &Connection, request: &str) -> Result<Option<Receipt>> {
         .transpose()
 }
 impl Store {
-    fn import_context_digest(&self, c: &Connection, cancel: &dyn Fn() -> bool) -> Result<String> {
+    fn import_context_digest(
+        &self,
+        c: &Connection,
+        b: &BatchInput,
+        cancel: &dyn Fn() -> bool,
+    ) -> Result<String> {
         let stamp = std::fs::metadata(self.root.with_file_name("modules.json"))
             .ok()
             .and_then(|m| m.modified().ok())
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|t| (t.as_secs(), t.subsec_nanos()));
         Ok(digest(&serde_json::to_vec(&(
-            context_digest(c, cancel)?,
+            context_digest(c, b, cancel)?,
             stamp,
         ))?))
     }
@@ -1034,10 +1192,17 @@ impl Store {
         if self.sample {
             return Err(Error::new("SAMPLE_READ_ONLY", "历史导入只可用于个人资料"));
         }
-        if !crate::modules::read(&self.root).wealth {
+        let modules = crate::modules::read(&self.root);
+        if has_wealth(b) && !modules.wealth {
             return Err(Error::new(
                 "MODULE_DISABLED",
                 "账户与盘点模块已关闭，请重新启用并预览",
+            ));
+        }
+        if b.files.iter().any(|f| f.kind == "incomes") && !modules.planning {
+            return Err(Error::new(
+                "MODULE_DISABLED",
+                "规划模块已关闭，请重新启用并预览",
             ));
         }
         namespace(b)
@@ -1060,9 +1225,17 @@ impl Store {
         self.import_context(b)?;
         checkpoint(cancel)?;
         progress("正在读取现有账户与盘点");
-        let context = self.import_context_digest(self.conn()?, cancel)?;
-        let accounts = wealth::accounts_cancellable(self.conn()?, &|| checkpoint(cancel))?;
-        let origin_before = origin(self.conn()?, cancel)?;
+        let context = self.import_context_digest(self.conn()?, b, cancel)?;
+        let accounts = if has_wealth(b) {
+            wealth::accounts_cancellable(self.conn()?, &|| checkpoint(cancel))?
+        } else {
+            Vec::new()
+        };
+        let origin_before = if has_wealth(b) {
+            origin(self.conn()?, cancel)?
+        } else {
+            None
+        };
         let mut memory = Connection::open_in_memory()?;
         {
             let backup = rusqlite::backup::Backup::new(self.conn()?, &mut memory)?;
@@ -1077,10 +1250,10 @@ impl Store {
         }
         memory.execute_batch("PRAGMA foreign_keys=ON; PRAGMA trusted_schema=OFF")?;
         let tx = memory.unchecked_transaction()?;
-        let p = prepare(&tx, b, today, cancel, &|| Ok(()), progress)?;
+        let p = prepare(&tx, b, today, cancel, &|| Ok(()), &|| Ok(()), progress)?;
         self.import_context(b)?;
         checkpoint(cancel)?;
-        if self.import_context_digest(self.conn()?, cancel)? != context {
+        if self.import_context_digest(self.conn()?, b, cancel)? != context {
             return Err(Error::new(
                 "REVISION_CONFLICT",
                 "预览期间资料或模块已变化，请重新预览",
@@ -1162,19 +1335,24 @@ impl Store {
             tx.commit()?;
             return Ok(receipt);
         }
-        if self.import_context_digest(&tx, &|| false)? != input.context_digest {
+        if self.import_context_digest(&tx, &input.batch, &|| false)? != input.context_digest {
             return Err(Error::new(
                 "REVISION_CONFLICT",
-                "账户、盘点或映射在预览后已变化，请重新预览整批",
+                "账户、盘点、收入或映射在预览后已变化，请重新预览整批",
             ));
         }
-        let before = origin(&tx, &|| false)?;
+        let before = if has_wealth(&input.batch) {
+            origin(&tx, &|| false)?
+        } else {
+            None
+        };
         let p = prepare(
             &tx,
             &input.batch,
             today,
             &|| false,
             &|| self.hit("financial_import.after_accounts"),
+            &|| self.hit("financial_import.after_incomes"),
             &|_| {},
         )?;
         if p.file_fingerprints != input.file_fingerprints
@@ -1191,7 +1369,11 @@ impl Store {
                 "整批验证未通过，请修正问题或明确排除错误整组后重新预览",
             ));
         }
-        let after = origin(&tx, &|| false)?;
+        let after = if has_wealth(&input.batch) {
+            origin(&tx, &|| false)?
+        } else {
+            None
+        };
         let receipt = Receipt {
             request_id: input.request_id.clone(),
             batch_fingerprint: batch_fp.clone(),
@@ -1238,6 +1420,7 @@ impl Store {
 }
 
 pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
+    let version: i64 = c.pragma_query_value(None, "user_version", |r| r.get(0))?;
     let mut q=c.prepare("SELECT object_kind,object_id,status,value_fingerprint,source_name,mapping_set_id,external_key FROM import_external_key")?;
     for row in q.query_map([], |r| {
         Ok((
@@ -1260,10 +1443,11 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
         {
             return Err(Error::new("FORMAT", "导入映射格式无效"));
         }
-        let table = if kind == "account" {
-            "fin_accounts"
-        } else {
-            "fin_snapshots"
+        let table = match kind.as_str() {
+            "account" => "fin_accounts",
+            "snapshot" => "fin_snapshots",
+            "income" if version >= 35 => "plan_income",
+            _ => return Err(Error::new("FORMAT", "导入映射类型无效")),
         };
         let exists: bool = c.query_row(
             &format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE id=?1)"),
@@ -1293,7 +1477,8 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
         }
         for o in r.objects {
             uuid::Uuid::parse_str(&o.id).map_err(|_| Error::new("FORMAT", "回执对象 ID 无效"))?;
-            if !matches!(o.kind.as_str(), "account" | "snapshot")
+            if !(matches!(o.kind.as_str(), "account" | "snapshot")
+                || (version >= 35 && o.kind == "income"))
                 || !matches!(o.action.as_str(), "create" | "correct" | "keep")
             {
                 return Err(Error::new("FORMAT", "回执对象动作无效"));

@@ -9,7 +9,7 @@ import type { BasicInputs } from './plan-basic-contract.ts';
 export type * from './plan-basic-contract.ts';
 import type { PlanningCore } from './plan-core.ts';
 
-export type IncomeFields = { date: string; net_cents: string; hpf_cents: string; notes: string };
+export type IncomeFields = { date: string; net_cents: string; hpf_cents: string | null; notes: string };
 export type Income = { id: string; fields: IncomeFields; revision: number };
 export type IncomeList = { generation: string; rows: Income[] };
 export type IncomeSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: IncomeFields };
@@ -17,7 +17,7 @@ export type IncomeSave = { request_id: string; generation: string; id: string | 
 export type IntervalStatus = 'ok' | 'scope_changed' | 'no_income';
 export type Interval = {
   snapshot_id: string; from: string; to: string; days: number; status: IntervalStatus;
-  income_cents: string; hpf_cents: string; income_records: number;
+  income_cents: string; hpf_cents: string | null; hpf_known_cents?: string | null; hpf_unknown_records?: number; income_records: number;
   /** 公积金账户余额的变化与推算提取额（缴存 − 余额变化，利息算负数）；没有计入的公积金账户时为 null。 */
   hpf_change_cents: string | null; hpf_out_cents: string | null;
   /** 投资类账户（投资、混合、基金、债券）的余额变化：转入的钱与涨跌混在一起；没有计入此类账户时为 null。 */
@@ -29,7 +29,7 @@ export type Interval = {
   income_possibly_missing: boolean; excluded: boolean; in_window: boolean; anomaly: boolean;
 };
 export type Stats = {
-  count: number; low_sample: boolean;
+  count: number; spend_count?: number; low_sample: boolean;
   median_monthly_saving_cents: string | null; mean_monthly_saving_cents: string | null; median_monthly_spend_cents: string | null;
   change_count?: number;
   median_monthly_change_cents?: string | null; mean_monthly_change_cents?: string | null;
@@ -103,10 +103,12 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     const from = p.compared_to, days = dayNumber(p.date) - dayNumber(from);
     const rows = incomes.filter(i => i.fields.date > from && i.fields.date <= p.date);
     const income = rows.reduce((s, i) => s + BigInt(i.fields.net_cents), 0n);
-    const hpf = rows.reduce((s, i) => s + BigInt(i.fields.hpf_cents), 0n);
+    const knownRows = rows.filter(i => i.fields.hpf_cents !== null);
+    const known = knownRows.reduce((s, i) => s + BigInt(i.fields.hpf_cents!), 0n);
+    const unknown = rows.length - knownRows.length, hpf = unknown ? null : known;
     const iv: Interval = {
       snapshot_id: p.snapshot_id, from, to: p.date, days, status: 'ok',
-      income_cents: income.toString(), hpf_cents: hpf.toString(), income_records: rows.length, hpf_change_cents: null, hpf_out_cents: null,
+      income_cents: income.toString(), hpf_cents: hpf?.toString() ?? null, hpf_known_cents: knownRows.length ? known.toString() : null, hpf_unknown_records: unknown, income_records: rows.length, hpf_change_cents: null, hpf_out_cents: null,
       delta_nw_cents: null, saving_cents: null, spend_cents: null, monthly_saving_cents: null, monthly_spend_cents: null, rate_hundredths: null,
       income_possibly_missing: true, // No persisted coverage declaration yet; row count is not coverage.
       excluded: marks.has(p.snapshot_id), in_window: cutoff !== null && p.date > cutoff, anomaly: false,
@@ -116,21 +118,22 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     else {
       const delta = BigInt(p.change_cents ?? '0'), dh = p.hpf_change_cents === null ? null : BigInt(p.hpf_change_cents);
       // 公积金账户有计入时只扣它的余额变化（提取进现金的算现金）；没有时缴存从未进过净资产，不扣。
-      const saving = dh === null ? delta : delta - dh, spend = dh === null ? income - delta : income + hpf - delta, out = dh === null ? null : hpf - dh;
-      iv.delta_nw_cents = delta.toString(); iv.saving_cents = saving.toString(); iv.spend_cents = spend.toString();
+      const saving = dh === null ? delta : delta - dh, spend = dh === null ? income - delta : hpf === null ? null : income + hpf - delta, out = dh === null || hpf === null ? null : hpf - dh;
+      iv.delta_nw_cents = delta.toString(); iv.saving_cents = saving.toString(); iv.spend_cents = spend?.toString() ?? null;
       iv.hpf_change_cents = dh === null ? null : dh.toString(); iv.hpf_out_cents = out === null ? null : out.toString();
-      iv.monthly_saving_cents = monthly(saving, days).toString(); iv.monthly_spend_cents = monthly(spend, days).toString();
+      iv.monthly_saving_cents = monthly(saving, days).toString(); iv.monthly_spend_cents = spend === null ? null : monthly(spend, days).toString();
       const dm = BigInt(p.market_change_cents ?? '0');
       iv.market_change_cents = p.market_change_cents ?? null;
-      iv.monthly_cash_saving_cents = monthly(saving - dm, days).toString(); iv.monthly_cash_spend_cents = monthly(spend + dm, days).toString();
+      iv.monthly_cash_saving_cents = monthly(saving - dm, days).toString(); iv.monthly_cash_spend_cents = spend === null ? null : monthly(spend + dm, days).toString();
       const base = income + (out !== null && out > 0n ? out : 0n);
-      if (base > 0n) iv.rate_hundredths = Number(roundDiv(saving * 10000n, base));
+      if (base > 0n && (dh === null || out !== null)) iv.rate_hundredths = Number(roundDiv(saving * 10000n, base));
     }
     if (!p.scope_changed) { iv.delta_nw_cents = p.change_cents; iv.hpf_change_cents = p.hpf_change_cents; iv.market_change_cents = p.market_change_cents ?? null; }
     intervals.push(iv);
   }
   const usual = intervals.filter(i => i.status === 'ok' && !i.excluded && i.in_window);
-  const stats: Stats = { count: usual.length, low_sample: usual.length < 3, median_monthly_saving_cents: null, mean_monthly_saving_cents: null, median_monthly_spend_cents: null, window_from: cutoff, latest_date: latest };
+  const spendRows = usual.filter(i => i.monthly_spend_cents !== null);
+  const stats: Stats = { spend_count: spendRows.length, count: usual.length, low_sample: usual.length < 3, median_monthly_saving_cents: null, mean_monthly_saving_cents: null, median_monthly_spend_cents: null, window_from: cutoff, latest_date: latest };
   const savings = usual.map(i => BigInt(i.monthly_saving_cents!));
   const m = median(savings);
   if (m !== null) {
@@ -139,9 +142,9 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     const totalDays = BigInt(usual.reduce((s, i) => s + i.days, 0));
     stats.median_monthly_saving_cents = m.toString();
     stats.mean_monthly_saving_cents = roundDiv(totalSaving * MONTH_NUM, MONTH_DEN * totalDays).toString();
-    stats.median_monthly_spend_cents = median(usual.map(i => BigInt(i.monthly_spend_cents!)))!.toString();
+    stats.median_monthly_spend_cents = median(spendRows.map(i => BigInt(i.monthly_spend_cents!)))?.toString() ?? null;
     stats.median_monthly_cash_saving_cents = median(usual.map(i => BigInt(i.monthly_cash_saving_cents!)))!.toString();
-    stats.median_monthly_cash_spend_cents = median(usual.map(i => BigInt(i.monthly_cash_spend_cents!)))!.toString();
+    stats.median_monthly_cash_spend_cents = median(spendRows.map(i => BigInt(i.monthly_cash_spend_cents!)))?.toString() ?? null;
     stats.median_monthly_market_change_cents = median(usual.map(i => monthly(BigInt(i.market_change_cents ?? '0'), i.days)))!.toString();
     if (usual.length >= 3) {
       const incomeMonth = roundDiv(totalIncome * MONTH_NUM, MONTH_DEN * totalDays);
@@ -210,7 +213,7 @@ export function pctToHundredths(text: string): number | null {
 export const hundredthsToPct = (v: number): string => String(v / 100);
 
 /** 公积金池的起点：最近完整盘点里公积金类账户余额之和，月缴存取最近一条收入记录。 */
-export function fundsFrom(entries: { kind: string; amount_cents: string | null }[] | null, incomes: { fields: { date: string; hpf_cents: string } }[]): { funds: Funds; notes: string[] } {
+export function fundsFrom(entries: { kind: string; amount_cents: string | null }[] | null, incomes: { fields: { date: string; hpf_cents: string | null } }[]): { funds: Omit<Funds, 'hpf_monthly_cents'> & { hpf_monthly_cents: string | null }; notes: string[] } {
   const notes: string[] = [];
   let balance = 0n, found = false;
   for (const e of entries ?? []) if (e.kind === 'housing_fund' && e.amount_cents !== null) { balance += BigInt(e.amount_cents); found = true; }
@@ -219,8 +222,8 @@ export function fundsFrom(entries: { kind: string; amount_cents: string | null }
   // 最新明确零保留；该历史字段不直接作为未来缴存假设。
   const byDate = [...incomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date));
   const latest = byDate[0];
-  if (!latest) notes.push('还没有月度收入记录，公积金月缴存按 0 计算。');
-  return { funds: { hpf_balance_cents: balance.toString(), hpf_monthly_cents: latest?.fields.hpf_cents ?? '0' }, notes };
+  if (!latest) notes.push('还没有月度收入记录，公积金月缴存未知。');
+  return { funds: { hpf_balance_cents: balance.toString(), hpf_monthly_cents: latest ? latest.fields.hpf_cents : null }, notes };
 }
 
 /** 按「累计缴费月数 × 当前缴费基数 × 8%」估算个人账户余额（分，四舍五入）；只是粗估，以京通为准。 */
@@ -229,8 +232,8 @@ export function estimateAccountCents(paidMonths: number, baseCents: string): str
 }
 
 /** 新增收入时默认带上的公积金缴存：取日期最近的一条（同一天取先出现的）；没有记录返回空串。 */
-export function latestHpf(rows: { fields: { date: string; hpf_cents: string } }[]): string {
-  let any: { date: string; hpf_cents: string } | null = null;
+export function latestHpf(rows: { fields: { date: string; hpf_cents: string | null } }[]): string {
+  let any: { date: string; hpf_cents: string | null } | null = null;
   for (const r of rows) {
     if (!any || r.fields.date > any.date) any = r.fields;
   }
@@ -264,12 +267,23 @@ export function monthlyWithoutOneOffs(interval: Interval, oneOffs: bigint): bigi
 export type SavingView = { id: 'cashflow' | 'total' | 'free'; label: string; total: bigint; monthly: bigint; rate_hundredths: number | null; note: string };
 export function savingViews(i: Interval): SavingView[] {
   if (i.status !== 'ok' || i.delta_nw_cents === null || i.saving_cents === null) return [];
-  const delta = BigInt(i.delta_nw_cents), income = BigInt(i.income_cents), hpf = BigInt(i.hpf_cents), free = BigInt(i.saving_cents);
-  const row = (id: SavingView['id'], label: string, total: bigint, base: bigint, note: string): SavingView => ({ id, label, total, monthly: monthly(total, i.days), rate_hundredths: base > 0n ? Number(roundDiv(total * 10000n, base)) : null, note });
+  const delta = BigInt(i.delta_nw_cents), income = BigInt(i.income_cents), hpf = i.hpf_cents === null ? null : BigInt(i.hpf_cents), free = BigInt(i.saving_cents);
+  const row = (id: SavingView['id'], label: string, total: bigint, base: bigint | null, note: string): SavingView => ({ id, label, total, monthly: monthly(total, i.days), rate_hundredths: base !== null && base > 0n ? Number(roundDiv(total * 10000n, base)) : null, note });
   if (i.hpf_change_cents === null) return [row('free', '储蓄', free, income, '净资产的增长；盘点里没有计入公积金账户，缴存不在其中')];
   return [
-    row('cashflow', '现金流储蓄', delta - hpf, income, '到手工资 − 全部支出，不含公积金；个人理财与 FIRE 社区最常用'),
-    row('free', '自由现金储蓄', free, income + (BigInt(i.hpf_out_cents ?? '0') > 0n ? BigInt(i.hpf_out_cents ?? '0') : 0n), '现金与投资的增长，含从公积金提取进现金的钱；退休估算用它，公积金池另算'),
-    row('total', '总储蓄', delta, income + hpf, '净资产的全部增长，含公积金账户；占比按「到手 + 公积金缴存」'),
+    ...(hpf === null ? [] : [row('cashflow', '现金流储蓄', delta - hpf, income, '到手工资 − 全部支出，不含公积金；个人理财与 FIRE 社区最常用')]),
+    row('free', '自由现金储蓄', free, i.hpf_out_cents === null ? null : income + (BigInt(i.hpf_out_cents) > 0n ? BigInt(i.hpf_out_cents) : 0n), '现金与投资的增长，含从公积金提取进现金的钱；退休估算用它，公积金池另算'),
+    row('total', '总储蓄', delta, hpf === null ? null : income + hpf, '净资产的全部增长，含公积金账户；占比按「到手 + 公积金缴存」'),
   ];
+}
+
+/** Full deposit sum and its completeness share one display rule across review and income list. */
+export function hpfSummary(total: string | null, known: string | null, unknown: number, money: (v: string | null) => string): string {
+  return unknown ? `未知／不完整（已知 ${known === null ? '金额未知' : money(known)}，另有 ${unknown} 条未知）` : money(total);
+}
+
+export function incomeHpfTotals(rows: Pick<Income, 'fields'>[]): { total: string | null; known: string | null; unknown: number } {
+  const known = rows.filter(r => r.fields.hpf_cents !== null), unknown = rows.length - known.length;
+  const sum = known.reduce((s, r) => s + BigInt(r.fields.hpf_cents!), 0n).toString();
+  return { total: unknown ? null : sum, known: known.length ? sum : null, unknown };
 }

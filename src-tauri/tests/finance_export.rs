@@ -246,7 +246,7 @@ fn all_tables_go_into_one_new_folder_and_nothing_is_overwritten() {
             fields: IncomeFields {
                 date: "2026-02-15".into(),
                 net_cents: "2000000".into(),
-                hpf_cents: "300000".into(),
+                hpf_cents: Some("300000".into()),
                 notes: "=虚构备注".into(),
             },
         },
@@ -281,4 +281,34 @@ fn all_tables_go_into_one_new_folder_and_nothing_is_overwritten() {
     let broken = dir.path().join("没有的目录").join("表格");
     assert!(s.export_all_csv(&broken).is_err());
     assert!(!broken.exists());
+}
+
+#[test]
+fn income_export_unknown_is_empty_and_explicit_zero_is_0_00() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    for (day, hpf) in [("2026-08-01", None), ("2026-08-02", Some("0".into()))] {
+        s.plan_income_save(
+            &IncomeSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: IncomeFields {
+                    date: day.into(),
+                    net_cents: "10001".into(),
+                    hpf_cents: hpf,
+                    notes: String::new(),
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    }
+    let folder = dir.path().join("fictional-export");
+    let results = s.export_all_csv(&folder).unwrap();
+    assert_eq!(results.iter().find(|r| r.0 == "月度收入.csv").unwrap().1, 2);
+    let csv = std::fs::read_to_string(folder.join("月度收入.csv")).unwrap();
+    assert!(csv.contains("2026-08-01,100.01,,"));
+    assert!(csv.contains("2026-08-02,100.01,0.00,"));
 }

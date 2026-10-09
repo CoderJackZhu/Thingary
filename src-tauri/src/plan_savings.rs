@@ -32,7 +32,7 @@ const MIN_SAMPLE: usize = 3;
 pub struct IncomeRow {
     pub date: String,
     pub net_cents: i64,
-    pub hpf_cents: i64,
+    pub hpf_cents: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -45,7 +45,9 @@ pub struct Interval {
     /// `ok`, `scope_changed` or `no_income`; only `ok` carries figures.
     pub status: &'static str,
     pub income_cents: String,
-    pub hpf_cents: String,
+    pub hpf_cents: Option<String>,
+    pub hpf_known_cents: Option<String>,
+    pub hpf_unknown_records: usize,
     /// Change of the housing fund accounts' balance over the interval, when tracked.
     pub hpf_change_cents: Option<String>,
     /// Housing fund money that left the account (deposits − balance change, so
@@ -80,6 +82,7 @@ pub struct Stats {
     /// Comparable, unmarked intervals inside the window.
     pub count: usize,
     pub change_count: usize,
+    pub spend_count: usize,
     pub low_sample: bool,
     pub median_monthly_saving_cents: Option<String>,
     /// Weighted by interval length: total saving over total months.
@@ -169,7 +172,13 @@ pub fn compute(
             .filter(|i| i.date > from && i.date <= p.date)
             .collect();
         let income: i128 = rows.iter().map(|i| i.net_cents as i128).sum();
-        let hpf: i128 = rows.iter().map(|i| i.hpf_cents as i128).sum();
+        let known: i128 = rows
+            .iter()
+            .filter_map(|i| i.hpf_cents)
+            .map(i128::from)
+            .sum();
+        let unknown = rows.iter().filter(|i| i.hpf_cents.is_none()).count();
+        let hpf = (unknown == 0).then_some(known);
         let mut interval = Interval {
             snapshot_id: p.snapshot_id.clone(),
             from,
@@ -177,7 +186,9 @@ pub fn compute(
             days,
             status: "ok",
             income_cents: income.to_string(),
-            hpf_cents: hpf.to_string(),
+            hpf_cents: hpf.map(|v| v.to_string()),
+            hpf_known_cents: (rows.len() > unknown).then(|| known.to_string()),
+            hpf_unknown_records: unknown,
             hpf_change_cents: None,
             hpf_out_cents: None,
             market_change_cents: None,
@@ -221,25 +232,30 @@ pub fn compute(
             // Tracked housing fund: only its balance change is set aside; what was
             // withdrawn into cash is cash. Untracked: deposits never entered the net worth.
             let (saving, spend, out) = match dh {
-                Some(dh) => (delta - dh, income + hpf - delta, Some(hpf - dh)),
-                None => (delta, income - delta, None),
+                Some(dh) => (
+                    delta - dh,
+                    hpf.map(|h| income + h - delta),
+                    hpf.map(|h| h - dh),
+                ),
+                None => (delta, Some(income - delta), None),
             };
             interval.delta_nw_cents = Some(delta.to_string());
             interval.hpf_change_cents = dh.map(|v| v.to_string());
             interval.hpf_out_cents = out.map(|v| v.to_string());
             interval.saving_cents = Some(saving.to_string());
-            interval.spend_cents = Some(spend.to_string());
+            interval.spend_cents = spend.map(|v| v.to_string());
             interval.monthly_saving_cents = Some(monthly(saving, days).to_string());
-            interval.monthly_spend_cents = Some(monthly(spend, days).to_string());
+            interval.monthly_spend_cents = spend.map(|v| monthly(v, days).to_string());
             let dm_or_zero = dm.unwrap_or(0);
             interval.market_change_cents = dm.map(|v| v.to_string());
             interval.monthly_cash_saving_cents =
                 Some(monthly(saving - dm_or_zero, days).to_string());
-            interval.monthly_cash_spend_cents = Some(monthly(spend + dm_or_zero, days).to_string());
+            interval.monthly_cash_spend_cents =
+                spend.map(|v| monthly(v + dm_or_zero, days).to_string());
             // The rate is measured against everything that could be saved: take-home pay
             // plus housing fund money that came out as cash.
             let base = income + out.unwrap_or(0).max(0);
-            if base > 0 {
+            if base > 0 && (dh.is_none() || out.is_some()) {
                 interval.rate_hundredths = Some(round_div(saving * 10000, base) as i64);
             }
         }
@@ -269,9 +285,13 @@ pub fn compute(
     let (mut total_saving, mut total_income, mut total_days) = (0i128, 0i128, 0i128);
     for &i in &usual {
         savings.push(num(&out[i].monthly_saving_cents)?);
-        spends.push(num(&out[i].monthly_spend_cents)?);
+        if out[i].monthly_spend_cents.is_some() {
+            spends.push(num(&out[i].monthly_spend_cents)?);
+        }
         cash_savings.push(num(&out[i].monthly_cash_saving_cents)?);
-        cash_spends.push(num(&out[i].monthly_cash_spend_cents)?);
+        if out[i].monthly_cash_spend_cents.is_some() {
+            cash_spends.push(num(&out[i].monthly_cash_spend_cents)?);
+        }
         // monthly(dm) = monthly(spend + dm) - monthly(spend) up to rounding; take it from the interval itself.
         market_changes.push(match &out[i].market_change_cents {
             Some(v) => monthly(v.parse::<i128>().map_err(|_| corrupt())?, out[i].days),
@@ -283,6 +303,7 @@ pub fn compute(
     }
     let mut stats = Stats {
         count: usual.len(),
+        spend_count: spends.len(),
         change_count: 0,
         low_sample: usual.len() < MIN_SAMPLE,
         window_from: cutoff,
@@ -533,7 +554,7 @@ mod tests {
         IncomeRow {
             date: day.into(),
             net_cents: net,
-            hpf_cents: hpf,
+            hpf_cents: Some(hpf),
         }
     }
     fn none() -> BTreeSet<String> {

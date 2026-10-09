@@ -15,7 +15,8 @@ import { PlanningSetupDialog } from './PlanningSetup';
 import { usePlanningSources } from './planning-basic-data';
 import { modeOf } from './planning-basic-view';
 import { ready } from './review';
-import { latestHpf, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
+import { FinancialImportDialog } from './FinancialImportDialog';
+import { latestHpf, hpfSummary, incomeHpfTotals, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeFields, IncomeList, IncomeSave, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
 import { refocusHeading } from './topbar-model';
@@ -33,13 +34,14 @@ export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['sav
 export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone, reviewSnapshotId, onReviewFocusDone, onGotoWealth }: { reviewSnapshotId?: string | null; onReviewFocusDone?: () => void; onGotoWealth?: (action: ReviewAction) => void; focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
   const { load, reload } = usePlanningSources(today);
   const [editing, setEditing] = useState<Income | 'new' | null>(null), [setup, setSetup] = useState<{ step: number } | null>(null);
+  const [importing, setImporting] = useState(false);
   const [reviewEditing, setReviewEditing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [marking, setMarking] = useState(false), [markError, setMarkError] = useState('');
   const opener = useRef<HTMLElement | null>(null);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking || !!setup || reviewEditing); return () => onEditingChange(false); }, [editing, pending, busy, marking, setup, reviewEditing, onEditingChange]);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking || !!setup || reviewEditing || importing); return () => onEditingChange(false); }, [editing, pending, busy, marking, setup, reviewEditing, importing, onEditingChange]);
 
   const sources = load.status === 'ready' ? load.sources : null;
   const saved = sources && sources.profile.status === 'ready' ? sources.profile.value.saved : null;
@@ -76,6 +78,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
+      {tab === 'savings' && <button className="ui-btn" disabled={!incomes || !!pending} onClick={() => setImporting(true)}>导入收入历史…</button>}
       <Info text="资产涨了，不一定都是存下来的钱，也可能是投资涨跌。收入只展示已记录的金额；每月能存多少由你自己估计，没想好可以先不填。"/>
     </div></HeaderSlot>
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
@@ -92,6 +95,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
         {incomes ? <IncomeTable incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/> : <article className="ui-card ui-content" role="alert"><p>收入记录读取失败。</p><button onClick={reload}>重新读取</button></article>}
       </>}
     {setup && sources && <PlanningSetupDialog sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={closeSetup} initialStep={setup.step}/>}
+    {importing && incomes && <FinancialImportDialog mode="incomes" generation={incomes.generation} onClose={saved => { setImporting(false); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
     {editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} hpfDefault={latestHpf(incomes.rows)} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;
 }
@@ -129,9 +133,9 @@ function Steps({ interval: i, busy, markError, onMark, reasons, reasonError }: {
       {ok ? <dl className="plan-facts">
         <div><dt>净资产变化</dt><dd>{money(i.delta_nw_cents)}</dd></div>
         <div><dt>已记录到账收入</dt><dd>{money(i.income_cents)}</dd></div>
-        <div><dt>已记录公积金缴存</dt><dd>{money(i.hpf_cents)}</dd></div>
+        <div><dt>已记录公积金缴存</dt><dd>{hpfSummary(i.hpf_cents, i.hpf_known_cents ?? null, i.hpf_unknown_records ?? 0, money)}</dd></div>
         <div><dt>公积金账户变化</dt><dd>{money(i.hpf_change_cents)}</dd></div>
-      </dl> : <p className="muted">{statusText[i.status]}；已记录收入 {money(i.income_cents)}，公积金缴存 {money(i.hpf_cents)}。</p>}
+      </dl> : <p className="muted">{statusText[i.status]}；已记录收入 {money(i.income_cents)}，公积金缴存 {hpfSummary(i.hpf_cents, i.hpf_known_cents ?? null, i.hpf_unknown_records ?? 0, money)}。</p>}
       <p className="muted small">收入覆盖待核对。净资产变化含估值变化，不能反推消费或真实储蓄。</p>
     </section>
     <section aria-labelledby="plan-step-2"><h4 id="plan-step-2">变化</h4>
@@ -165,19 +169,20 @@ function Intervals({ intervals, selected, onSelect }: { intervals: Interval[]; s
 }
 
 function IncomeTable({ incomes, onOpen, onNew, disabled }: { incomes: IncomeList; onOpen: (i: Income) => void; onNew: () => void; disabled: boolean }) {
-  return <article className="ui-card ui-content"><div className="ui-section-head"><h3>月度收入</h3><span>{incomes.rows.length} 条 · 每月到账一行</span></div>
+  const hpf = incomeHpfTotals(incomes.rows);
+  return <article className="ui-card ui-content"><div className="ui-section-head"><h3>月度收入</h3><span>{incomes.rows.length} 条 · 同日可多笔</span></div><p>已记录公积金缴存：{incomes.rows.length ? hpfSummary(hpf.total, hpf.known, hpf.unknown, money) : "尚未记录"}</p>
     {incomes.rows.length ? <table className="ui-table plan-income"><thead><tr><th>到账日期</th><th className="amount">税后到账</th><th className="amount">公积金缴存</th><th>备注</th></tr></thead>
-      <tbody>{incomes.rows.map(r => <tr key={r.id}><td><button className="link-cell" onClick={() => onOpen(r)}>{r.fields.date}</button></td><td className="amount">{money(r.fields.net_cents)}</td><td className="amount">{money(r.fields.hpf_cents)}</td><td className="muted">{r.fields.notes}</td></tr>)}</tbody></table>
+      <tbody>{incomes.rows.map(r => <tr key={r.id}><td><button className="link-cell" onClick={() => onOpen(r)}>{r.fields.date}</button></td><td className="amount">{money(r.fields.net_cents)}</td><td className="amount">{r.fields.hpf_cents === null ? '未知' : money(r.fields.hpf_cents)}</td><td className="muted">{r.fields.notes}</td></tr>)}</tbody></table>
       : <div className="empty"><span className="empty-mark">¥</span><h2>还没有收入记录</h2><p>可记录实际到账的税后收入和公积金缴存；无收入记录仍能查看资产变化。公积金提取是账户间转移，不用记。</p><button className="primary" disabled={disabled} onClick={onNew}>记一笔收入</button></div>}
   </article>;
 }
 
-const blank = (today: string): IncomeFields => ({ date: today, net_cents: '', hpf_cents: '', notes: '' });
+const blank = (today: string): IncomeFields => ({ date: today, net_cents: '', hpf_cents: null, notes: '' });
 
 function IncomeDialog({ income, generation, today, hpfDefault, onClose }: { income: Income | null; generation: string; today: string; hpfDefault: string; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  // 公积金缴存一段时间内固定：新增时带入上一条的金额（可改），每月只需要填税后到账。
-  const [f, setF] = useState<IncomeFields>(income?.fields ?? { ...blank(today), hpf_cents: hpfDefault });
+  // 新增只带入最新记录的已知缴存；最新未知时留空，不回溯。
+  const [f, setF] = useState<IncomeFields>(income?.fields ?? { ...blank(today), hpf_cents: hpfDefault || null });
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('income-date')?.focus(); return () => dialog.current?.close(); }, []);
   const set = <K extends keyof IncomeFields>(k: K, v: IncomeFields[K]) => setF(x => ({ ...x, [k]: v }));
@@ -186,7 +191,6 @@ function IncomeDialog({ income, generation, today, hpfDefault, onClose }: { inco
     const stop = (label: string, message: string) => { setNotice(message); document.querySelector<HTMLElement>(`dialog [aria-label="${label}"]`)?.focus(); };
     if (!f.date) return stop('到账日期', '请填写到账日期。');
     if (f.net_cents === '') return stop('税后到账', '请填写税后到账金额；没有到账就填 0。');
-    if (f.hpf_cents === '') return stop('公积金缴存', '请填写公积金缴存；没有就填 0。');
     const input: IncomeSave = { request_id: crypto.randomUUID(), generation, id: income?.id ?? null, expected_revision: income?.revision ?? null, fields: f };
     setBusy(true); setNotice('');
     try { await submit({ command: 'plan_income_save', input, label: `收入 ${f.date}` }); onClose(true); }
@@ -194,11 +198,11 @@ function IncomeDialog({ income, generation, today, hpfDefault, onClose }: { inco
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="income-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">规划 · 月度收入</p><h2 id="income-heading">{income ? '编辑收入' : '记一笔收入'}</h2><p className="muted">记录实际到账的税后收入和公积金缴存，每月一行。</p></div><CloseButton type="button" aria-label="关闭收入表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{income && !stuck && <DeleteButton label="删除" disabled={busy} kind="income" id={income.id} revision={income.revision} generation={generation} name={`收入 ${income.fields.date}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存收入'}</button>}</div></header>
+    <header><div><p className="eyebrow">规划 · 月度收入</p><h2 id="income-heading">{income ? '编辑收入' : '记一笔收入'}</h2><p className="muted">记录实际到账的税后收入和公积金缴存，同日可多笔。缴存留空表示未知，填 0 表示明确没有。</p></div><CloseButton type="button" aria-label="关闭收入表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{income && !stuck && <DeleteButton label="删除" disabled={busy} kind="income" id={income.id} revision={income.revision} generation={generation} name={`收入 ${income.fields.date}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存收入'}</button>}</div></header>
     <section className="form-block">
       <FormRow label="到账日期" hint="同一天可以有多行，例如工资与奖金分开发放"><DateInput id="income-date" value={f.date} max={today} disabled={frozen} onChange={v => set('date', v)}/></FormRow>
       <FormRow label="税后到账" hint="工资、奖金等实际到卡金额；年终奖记在到账当月"><CentInput label="税后到账" value={f.net_cents} disabled={frozen} placeholder="0.00" onChange={v => set('net_cents', v)}/></FormRow>
-      <FormRow label="公积金缴存" hint={!income && hpfDefault ? '已带入上一条的金额，变了请改；个人与单位合计，没有就填 0' : '个人与单位合计；没有就填 0'}><CentInput label="公积金缴存" value={f.hpf_cents} disabled={frozen} placeholder="0.00" onChange={v => set('hpf_cents', v)}/></FormRow>
+      <FormRow label="公积金缴存" hint={!income && hpfDefault ? '已带入最新一条的已知金额，可改；留空表示未知，填 0 表示明确没有' : '个人与单位合计；留空表示未知，填 0 表示明确没有'}><CentInput label="公积金缴存" value={f.hpf_cents ?? ''} disabled={frozen} placeholder="0.00" onChange={v => set('hpf_cents', v === '' ? null : v)}/></FormRow>
     </section>
     <section className="form-block form-notes"><label htmlFor="income-notes">备注</label><textarea id="income-notes" maxLength={500} value={f.notes} disabled={frozen} onChange={e => set('notes', e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}

@@ -1590,6 +1590,21 @@ fn schema32_variants_upgrade_and_restore_without_losing_planning_or_groups() {
         let database_path = std::path::PathBuf::from(db.path().unwrap());
         db.execute_batch("DROP INDEX import_external_object; DROP TABLE import_external_key; DROP TABLE import_receipt; PRAGMA journal_mode=DELETE; PRAGMA user_version=32;")
             .unwrap();
+        db.execute_batch(
+            "CREATE TEMP TABLE old_income AS SELECT * FROM plan_income; DROP TABLE plan_income;",
+        )
+        .unwrap();
+        db.execute_batch(
+            include_str!("../src/plan_income.sql")
+                .split("-- A check-in")
+                .next()
+                .unwrap(),
+        )
+        .unwrap();
+        db.execute_batch(
+            "INSERT INTO plan_income SELECT * FROM old_income; DROP TABLE old_income;",
+        )
+        .unwrap();
         if !with_groups {
             db.execute_batch("DROP INDEX link_trash_members_lookup; DROP TABLE link_trash_members; DROP TABLE link_trash_groups;").unwrap();
         }

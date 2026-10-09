@@ -424,7 +424,7 @@ fn purge_one(
     }
     // Saved replies may carry the removed content; a purge leaves no copy.
     tx.execute("DELETE FROM requests WHERE instr(result,?1)>0", [id])?;
-    if matches!(kind, "account" | "snapshot") {
+    if matches!(kind, "account" | "snapshot" | "income") {
         tx.execute("UPDATE import_external_key SET status='purged',revision=revision+1,updated_at=?3 WHERE object_kind=?1 AND object_id=?2 AND status='active'", params![kind,id,chrono::Utc::now().to_rfc3339()])?;
     }
     Ok(true)

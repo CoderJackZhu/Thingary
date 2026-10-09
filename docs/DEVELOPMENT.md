@@ -174,3 +174,5 @@ npm run tauri -- build --bundles app
 ### README 与使用指南截图
 
 当前截图的应用基线、统一视口、虚构数据和操作路径见[截图维护清单](images/README.md)。截图更新后生成离线指南，检查图片内容及锚点；浏览器截图不代替隔离原生验收。
+
+P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不同编号、收入非法行、混合事务故障、失联回执重启、映射与备份往返。`financial_import` 集成测试另覆盖 x11 替表中途回滚／外键校验、34→35／33→35 和旧 34 备份／回执；`finance_export` 验证未知空单元格、零 `0.00`。`plan_income` 与前端 `plan`／`planning-basic-defaults`／`review-observations` 验证到账与资产事实保留、独立花销样本及 P1-1 观察语义。浏览器布局夹具 `?import-kind=incomes&import=normal|unknown|empty|error`、`?hpf=unknown` 仅验证展示；原生 UI 与故障测试分开登记，具体记录保存在私有笔记。

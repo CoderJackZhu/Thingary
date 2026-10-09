@@ -262,7 +262,7 @@ impl Store {
                 Ok(vec![
                     r.get::<_, String>(0)?,
                     yuan(r.get(1)?),
-                    yuan(r.get(2)?),
+                    yuan(r.get::<_, Option<i64>>(2)?),
                     text(&r.get::<_, String>(3)?),
                 ])
             })?

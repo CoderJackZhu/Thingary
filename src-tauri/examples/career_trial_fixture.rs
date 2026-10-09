@@ -97,7 +97,7 @@ fn main() {
                 fields: Fields {
                     date: format!("2026-{m:02}-15"),
                     net_cents: "2200000".into(),
-                    hpf_cents: "0".into(),
+                    hpf_cents: Some("0".into()),
                     notes: "虚构月收入".into(),
                 },
             },

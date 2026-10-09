@@ -25,7 +25,7 @@ fn fields(day: &str, net: i64, hpf: i64) -> Fields {
     Fields {
         date: day.into(),
         net_cents: yuan(net),
-        hpf_cents: yuan(hpf),
+        hpf_cents: Some(yuan(hpf)),
         notes: String::new(),
     }
 }
@@ -102,7 +102,7 @@ fn purge(s: &Store, kind: &str, id: &str) -> Purge {
         id: id.into(),
     }
 }
-fn rows(s: &Store) -> Vec<(String, String, String)> {
+fn rows(s: &Store) -> Vec<(String, String, Option<String>)> {
     s.plan_income_list()
         .unwrap()
         .rows
@@ -148,7 +148,7 @@ fn income_saves_validates_orders_and_replays_requests() {
         ),
         (
             Fields {
-                hpf_cents: "1.5".into(),
+                hpf_cents: Some("1.5".into()),
                 ..fields("2026-01-01", 1, 1)
             },
             "INCOME_HPF",
@@ -579,7 +579,7 @@ fn schema_28_libraries_upgrade_and_new_backups_round_trip() {
     t.restore(&file, &summary.hash, &t.generation()).unwrap();
     assert_eq!(
         rows(&t),
-        [("2026-02-15".into(), "2000000".into(), "300000".into())]
+        [("2026-02-15".into(), "2000000".into(), Some("300000".into()))]
     );
     let marks: i64 = t
         .conn_for_test()
@@ -587,4 +587,64 @@ fn schema_28_libraries_upgrade_and_new_backups_round_trip() {
         .query_row("SELECT count(*) FROM plan_baseline_marks", [], |r| r.get(0))
         .unwrap();
     assert_eq!(marks, 1);
+}
+
+#[test]
+fn unknown_deposit_save_edit_restart_does_not_erase_arrival_or_asset_facts() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("fictional");
+    let mut s = Store::open(&root).unwrap();
+    let b = book(&mut s);
+    check_in(&mut s, "2026-01-31", &[(&b.cash, 10000), (&b.fund, 20000)]);
+    check_in(&mut s, "2026-03-31", &[(&b.cash, 30000), (&b.fund, 26000)]);
+    let f = Fields {
+        hpf_cents: None,
+        ..fields("2026-02-15", 20000, 0)
+    };
+    let i = s.plan_income_save(&new(&s, f), TODAY).unwrap();
+    assert!(i.fields.hpf_cents.is_none());
+    s.plan_income_save(&new(&s, fields("2026-03-15", 20000, 0)), TODAY)
+        .unwrap();
+    let r = s.plan_review().unwrap();
+    let i0 = &r.intervals[0];
+    assert_eq!(
+        (
+            i0.income_cents.as_str(),
+            i0.hpf_cents.as_deref(),
+            i0.hpf_known_cents.as_deref(),
+            i0.hpf_unknown_records
+        ),
+        ("4000000", None, Some("0"), 1)
+    );
+    assert_eq!(
+        (
+            i0.delta_nw_cents.as_deref(),
+            i0.saving_cents.as_deref(),
+            i0.spend_cents.as_deref(),
+            i0.hpf_out_cents.as_deref(),
+            i0.rate_hundredths
+        ),
+        (Some("2600000"), Some("2000000"), None, None, None)
+    );
+    assert_eq!((r.stats.count, r.stats.spend_count), (1, 0));
+    let mut f = i.fields;
+    f.notes = "虚构未知行可编辑".into();
+    s.plan_income_save(
+        &Save {
+            id: Some(i.id.clone()),
+            expected_revision: Some(1),
+            ..new(&s, f)
+        },
+        TODAY,
+    )
+    .unwrap();
+    drop(s);
+    let s = Store::open(&root).unwrap();
+    assert!(s
+        .plan_income(&i.id)
+        .unwrap()
+        .unwrap()
+        .fields
+        .hpf_cents
+        .is_none());
 }

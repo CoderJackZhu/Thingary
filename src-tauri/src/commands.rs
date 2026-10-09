@@ -1955,9 +1955,19 @@ pub async fn financial_import_template(
         ("snapshots", true) => {
             include_str!("financial_import_parser/samples/snapshots.csv").to_string()
         }
-        ("accounts" | "snapshots", false) => crate::financial_import_parser::template_csv(&kind)
-            .map_err(|e| Error::new(&e.code, &e.message))?,
-        _ => return Err(Error::new("IMPORT_KIND", "本期仅提供账户与完整盘点模板")),
+        ("incomes", true) => {
+            include_str!("financial_import_parser/samples/incomes.csv").to_string()
+        }
+        ("accounts" | "snapshots" | "incomes", false) => {
+            crate::financial_import_parser::template_csv(&kind)
+                .map_err(|e| Error::new(&e.code, &e.message))?
+        }
+        _ => {
+            return Err(Error::new(
+                "IMPORT_KIND",
+                "仅提供账户、完整盘点与月度收入模板",
+            ))
+        }
     };
     let name = if sample {
         format!("{kind}-虚构样例")

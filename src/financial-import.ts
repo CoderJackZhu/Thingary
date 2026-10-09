@@ -1,16 +1,17 @@
 import type { Account, Pending } from './wealth.ts';
-export type FileKind = 'accounts' | 'snapshots';
+export type FileKind = 'accounts' | 'snapshots' | 'incomes';
 export type ImportFile = { kind:FileKind; name:string; csv_text:string; column_mapping:Record<string,string> };
 export type ImportAction = { action:'keep'|'correct'|'exclude'; expected_revision:number|null };
 export type ImportBatch = { generation:string; source_name:string; mapping_set_id:string; files:ImportFile[]; mappings:Record<string,{id:string;expected_revision:number}>; actions:Record<string,ImportAction>; page:number };
-export type ImportObject = { key:string;kind:'account'|'snapshot';external_key:string;id:string;source_rows:number[];status:'new'|'same'|'conflict'|'error';action:string;expected_revision:number|null;before:Record<string,unknown>|null;after:Record<string,unknown> };
+export type ImportObject = { key:string;kind:'account'|'snapshot'|'income';external_key:string;id:string;source_rows:number[];status:'new'|'same'|'conflict'|'error';action:string;expected_revision:number|null;before:Record<string,unknown>|null;after:Record<string,unknown> };
 export type ImportIssue = { file:string;code:string;severity:string;source_row:number|null;column:string|null;object_key:string|null;message:string;blocking:boolean };
-export type ImportCounts = { new_accounts:number;new_snapshots:number;same:number;conflicts:number;errors:number;created_accounts:number;created_snapshots:number;corrected:number;skipped:number };
+export type ImportCounts = { new_accounts:number;new_snapshots:number;new_incomes?:number;same:number;conflicts:number;errors:number;created_accounts:number;created_snapshots:number;created_incomes?:number;corrected:number;skipped:number };
 export type ImportReceipt = { unavailable_objects?:number;request_id:string;batch_fingerprint:string;source_name:string;mapping_set_id:string;objects:{kind:string;external_key:string;id:string;action:string;revision_before:number|null;revision_after:number|null}[];counts:ImportCounts;created_at:string;origin_before:string|null;origin_after:string|null;origin_changed:boolean };
 export type ImportPreview = { generation:string;context_digest:string;normalized_digest:string;file_fingerprints:Record<string,string>;objects:ImportObject[];total:number;page:number;issues:ImportIssue[];counts:ImportCounts;can_commit:boolean;accounts:Account[];external_keys:Record<string,string>;referenced_keys:string[];account_names:Record<string,string>;origin_before:string|null;prior_receipt:ImportReceipt|null };
 export type ImportCommit = { request_id:string;batch:ImportBatch;context_digest:string;normalized_digest:string;file_fingerprints:Record<string,string> };
 export const columns:Record<FileKind,string[]> = {
  accounts:['account_key','name','kind','enabled_from','disabled_from','counted','platform','note'],
+ incomes:['income_key','date','net_income','hpf_deposit','note'],
  snapshots:['snapshot_key','date','account_key','amount','note','kind_at_date','counted_at_date'],
 };
 /** Read only the first logical record for the mapping UI; all data validation remains Rust-owned. */

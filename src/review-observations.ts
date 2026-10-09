@@ -38,3 +38,8 @@ export function buildReviewObservations({ interval: i, reasons, pending, snapsho
   const labels = { snapshot: '补录', accounts: '查看账户', income: '记一笔收入', occurrence: '去核对', plan: '复核当前计划' };
   return { items: shown, ...(first?.action ? { next: { label: labels[first.action.kind], action: first.action } } : {}) };
 }
+
+/** Account readiness remains based on complete snapshots and interval status, independently of deposit completeness. */
+export function reviewMissing(interval: Pick<Interval, 'status'>, incomplete: number): number {
+ return incomplete + (interval.status === 'ok' ? 0 : 1);
+}

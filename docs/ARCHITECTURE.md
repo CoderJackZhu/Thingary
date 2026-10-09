@@ -2,7 +2,7 @@
 
 物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，运行于 macOS。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
 
-下一阶段逻辑对象、方案/事实分离、事件与贷款接续、基准和导入事务的目标契约见 [统一规划设计](PLANNING_LIFECYCLE_DESIGN.md)及其专项规格，**分阶段实施中**；当前已接入的资金／事件核对和月账本见下文。命名方案、冻结基准、月度收入导入及真实报告 DTO 尚未接入，其物理表、命令与迁移版本仍在实施前确定，不能从设计对象推定数据库已变更。
+下一阶段逻辑对象、方案/事实分离、事件与贷款接续、基准和导入事务的目标契约见 [统一规划设计](PLANNING_LIFECYCLE_DESIGN.md)及其专项规格，**分阶段实施中**；当前已接入的资金／事件核对和月账本见下文。命名方案、冻结基准及真实报告 DTO 尚未接入，其物理表、命令与迁移版本仍在实施前确定，不能从设计对象推定数据库已变更。
 
 ## 分层与入口
 
@@ -39,7 +39,7 @@ flowchart TD
 
 用户主动关闭普通表单时不保存草稿；明确失败时保留当前输入以便修正。错误转换为可读提示，必要时关联字段与重试入口；日志避免记录完整表单、序列号、账户资料或图片内容。
 
-## 账户与完整盘点历史导入
+## 账户、完整盘点与月度收入历史导入
 
 `FinancialImportDialog.tsx` 在“账户”页更多菜单提供四步界面；`financial-import.ts` 负责列头、动作、分页与请求元数据纯逻辑，金额仍为整数分字符串。`financial_import.rs` 组合纯解析器、真实账户目录与 `wealth.rs` 的 `write_account_tx` / `write_snapshot_tx`，预览只在 SQLite 内存备份的事务副本模拟，提交在个人 Store 的单一事务重新验证后写入。原命令保留 generation、UUID、原指纹、回执和故障点；导入专用历史覆盖与整批最终状态校验不改变普通保存语义。
 
@@ -77,7 +77,7 @@ schema 27（低频整理与心愿决策 A 阶段，已随 0.0.2 发布）为 `wi
 
 schema 33（0.0.2，重要支出年度总览与关联订阅）为整组删除新增 `link_trash_groups`／`link_trash_members`：组状态（deleted／restored／purged）、来源请求 ID 与成员删除前后修订；成员限定虚拟档案与周期计划且不设外键（永久清除后组仅留归属记录），迁移只建结构、不修复任何历史关系。`link.rs` 提供关联读取与操作命令：`link_view` 一次只读快照返回双方、关系状态（linked／asset_trashed／plan_trashed／both_trashed／group_deleted／plan_occupied）、付款摘要与候选；删除／恢复走 `link_delete_preview`→`link_trash` 与 `link_restore_preview`→`link_restore`，预览返回确定性影响摘要（覆盖 generation、动作、双方修订与删除状态、计划下全部付款的 ID／修订／状态、规划引用负载），提交在写事务按同一规则重算并比较——新增付款或更正都会使旧确认失效。共享计费保存 `link_save` 在一个事务携带双方 expected_revision（任一页旧表单冲突）、保持计划分类并按「统一名称」语义同步显示名；`link_create` 给既有计划新增档案不补付款；`link_reconcile` 处理旧停用两种动作与历史归组。旧入口保护：`recurring_plan_save` 拒绝已关联计划的单边写入，`wealth_trash` 对已关联双方要求整组、对组成员要求整组恢复、对双方分别历史删除要求先核对归组，`virtual_save` 拒绝对已关联档案新写旧停用路径；永久删除与清空按组整体处理，计划仍被有效档案使用或组外档案按 ID 引用时保留并说明。新表与命令纳入备份 schema 校验、领域校验、inspect 摘要（link_groups 计数）与恢复检查。`expense_view` 的年度桶与全部摘要、明细在同一只读快照完成，月桶补齐已知／未知计数。
 
-合并后的当前版本为 schema 33：保留主分支 schema 32 的规划载荷契约，再新增关联删除组。未发布订阅分支也曾使用 schema 32 并包含组表，迁移与旧备份检查按完整规范结构识别两种 32；只接受确切组表和索引定义，不接受半组结构或随意新增字段。升级保留组状态、稳定 ID、规划载荷和付款事实；schema 32→33 提交前故障回滚。
+该阶段合并版本为 schema 33：保留主分支 schema 32 的规划载荷契约，再新增关联删除组。未发布订阅分支也曾使用 schema 32 并包含组表，迁移与旧备份检查按完整规范结构识别两种 32；只接受确切组表和索引定义，不接受半组结构或随意新增字段。升级保留组状态、稳定 ID、规划载荷和付款事实；schema 32→33 提交前故障回滚。
 
 数据库 schema 版本、备份格式和应用发布版本承担不同职责。迁移保持历史事实；应用版本号调整不代表可以重置 schema、资料目录或稳定 ID。不要承诺高版本备份可被低版本恢复。
 
@@ -107,11 +107,11 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 `plan_savings.rs` 与浏览器 `plan.ts` 都保留资产事实并新增 `mean_monthly_change_cents`、`median_monthly_change_cents`、`change_count`；旧 saving/spend/rate 字段仅为兼容投影，不作默认 UI 或未来假设。收入覆盖始终未确认。`plan-core.ts` 统一资金范围与现实发生缺项；`buildRetireCalc` 是摘要、目标、退休详情和心愿估算共同入口，所有路径通过 `plan-ledger.ts` 月账本，反求／风险路径复用同一本账。初始现金不扣债务本金，余额分池；B 收盘日与 T 金额基准独立，普通首期流按剩余天数折算，期初月供／持有费先支付，月底投入及收入不能掩盖期初不足。名义金额与养老金折现采用同一首期时间比例和 B/T 系数转换。`plan-events.ts` 保留过去月份偏移，逾期不重排；已发生首付按明确吸收关系跳过，B 后付款只扣一次，余债按余期延续，持有费独立。`pensionTable` 缓存各辞职年龄估算，独立受限公积金／个人养老金只在领取时转回可用池；本金不会在两个池收益。
 
-界面复用现有规划页与表单组件：`PlanningSetup`／`PlanningBasicDetail` 核对资金／费用，`PlanningOccurrenceDialog` 核对一次性付款／余债；不自动创建物品或支出。浏览器 `wealth-preview.ts` 仅内存虚构夹具，刷新重置。该阶段不是统一规划目标规格全部实现：冻结基准、明细阶段、通用受限资产解锁、完整报告 DTO、导入事务和收入覆盖存储仍待后续集成。
+界面复用现有规划页与表单组件：`PlanningSetup`／`PlanningBasicDetail` 核对资金／费用，`PlanningOccurrenceDialog` 核对一次性付款／余债；不自动创建物品或支出。浏览器 `wealth-preview.ts` 仅内存虚构夹具，刷新重置。该阶段不是统一规划目标规格全部实现：冻结基准、明细阶段、通用受限资产解锁、完整报告 DTO 和收入覆盖存储仍待后续集成。
 
 综合首页规划摘要：`review_overview` 以可选 `planning` 参数门控规划读取，在一个 worker job、一个 SQLite 只读事务中返回净资产和 `PlanSources`。明细直接采用该批财富摘要选出的完整盘点；各来源仍用 `Read<T>` 表达独立成败。`plan_review_in_transaction` 复用现有储蓄投影，避免嵌套事务；独立 `plan_review` 保持自己的只读事务。`ReviewPlanSummary` 只接受已提交的整批数据，复用 `plan-summary.ts` 与目标页的结论和比例，不运行压力测试或路线矩阵。`ReviewView` 统一处理请求票据、generation、日期、版本、模块与焦点／恢复刷新；同库刷新失败可保留整批上次结果并标明，身份或上下文变化丢弃旧响应。预算／资料定位意图仅存在 `main.tsx` 状态中，随库、页签与导航失效，读取完成后聚焦既有入口，不保存会话缓存或自动打开表单。
 
-金融 CSV 解析器 `financial_import_parser` 是无存储依赖的 Rust 纯组件；所有 error 级问题均阻止提交，坏行不能被丢弃后将盘点组标为完整。报告组件 `planning-report` 接收严格校验后的只读白名单快照，隐私输出先脱敏再渲染／复制／打印，不读取 Store 或重新计算缺失字段。解析器已由账户／完整盘点导入入口使用；收入／覆盖／总额参考仍只有解析能力。真实报告 DTO／产品入口和原生 PDF 流程尚未接入。
+金融 CSV 解析器 `financial_import_parser` 是无存储依赖的 Rust 纯组件；所有 error 级问题均阻止提交，坏行不能被丢弃后将盘点组标为完整。报告组件 `planning-report` 接收严格校验后的只读白名单快照，隐私输出先脱敏再渲染／复制／打印，不读取 Store 或重新计算缺失字段。解析器已由账户／完整盘点／收入导入入口使用；覆盖／总额参考仍只有解析能力。真实报告 DTO／产品入口和原生 PDF 流程尚未接入。
 
 ### 规划首次设置
 
@@ -128,3 +128,5 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 `plan-runway.ts`是固定当前收支的临时投影，复用`retiredMonth`分别处理月初支付及月底到账，在支付后检查底线，第一笔支付缺口即停止。不编译职业或退休路径，不生成profile更新。`PlanningRunway`在未设置目标时可手填资金及日期，已设置时默认复用已确认可用资金；以generation及父级读取生命周期隔离，关闭不保存。当前必要开销由用户填写包含月供／社保等的总额，不重复追加退休事件；完整贷款变化与一次性事件仍属于后续设计。
 
 职业变化有普通应用中的 `PlanningCareerCard` 与独立 `career-preview.html` 两个入口。普通入口位于已有通用计划的 `PlanningBasicGoals`，默认收起，主动打开才挂载共享 `GuidedPanel`；独立 HTML 不进入发布构建，但共享向导组件进入正常应用。`prepareBasicPlan` 从通用计算中提取只读来源编译，默认完整范围不变；积累范围仅供缺少退休条件时的局部检查，不能用于长期结论。`plan-career.ts` 编译当前／空窗／恢复三个区间与独立费用、临时缴费覆盖，再调用同一月账本及固定目标反求；月内审计回调不改变原账本输出。`plan-career-compare.ts` 只改一个条件，普通基础消费者不导入职业模块。未新增资料字段、数据库命令或后台消费者。卡片使用父级同批 `PlanningSources`，`PlanningPage` 以 `write_version` 为目标组件键，配合既有读取／切库生命周期使草稿失效；关闭和离页卸载临时输入，关闭后焦点回到入口。默认临时排除退休收入和受限池，已保存事实不改写，详见[实施契约](CAREER_SCENARIO_DESIGN.md#当前应用入口0-0-2)。
+
+月度收入导入与账户／完整盘点共用 `financial_import_preview/commit/receipt`。schema 35 的 `x11.sql` 将 `plan_income.hpf_cents` 变为可空并扩展 `import_external_key.object_kind` 为 income；事务替表保留旧数据和索引，提交前外键校验。`plan_income::write_tx` 与普通表单共用校验／修订写入；混合文件、稳定映射与回执在同一事务。旧 schema 34 回执收入计数默认零，备份按原版本 canonical 结构校验再迁移。

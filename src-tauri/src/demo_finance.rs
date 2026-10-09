@@ -374,7 +374,7 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
                         .checked_sub_months(Months::new(m))
                         .expect("bounded sample date")),
                     net_cents: "2000000".into(),
-                    hpf_cents: "180000".into(),
+                    hpf_cents: Some("180000".into()),
                     notes: if m == 3 { "含虚构年终奖" } else { "" }.into(),
                 },
             },

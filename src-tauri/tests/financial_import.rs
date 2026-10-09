@@ -493,9 +493,17 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
         .run_to_completion(128, std::time::Duration::from_millis(1), None)
         .unwrap();
     db.execute_batch(
-        "DROP TABLE import_receipt; DROP TABLE import_external_key; PRAGMA user_version=33;",
+        "DROP TABLE import_receipt; DROP TABLE import_external_key; DROP TABLE plan_income;",
     )
     .unwrap();
+    db.execute_batch(
+        include_str!("../src/plan_income.sql")
+            .split("-- A check-in")
+            .next()
+            .unwrap(),
+    )
+    .unwrap();
+    db.execute_batch("PRAGMA user_version=33;").unwrap();
     drop(db);
     let bytes = std::fs::read(&old_db).unwrap();
     let manifest = serde_json::json!({"format":1,"schema":33,"created_at":"2026-10-09T08:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
@@ -530,7 +538,7 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
             .unwrap()
             .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        34
+        thingary_lib::storage::SCHEMA_VERSION
     );
     drop(target);
     let target = Store::open(&tmp.path().join("target")).unwrap();
@@ -919,4 +927,606 @@ fn snapshot_receipt_availability_is_current_after_delete_and_purge() {
             .unavailable_objects,
         1
     );
+}
+
+fn income_batch(s: &Store, text: &str) -> BatchInput {
+    let mut b = simple(s);
+    b.files = vec![FileInput {
+        kind: "incomes".into(),
+        name: "虚构中文收入.csv".into(),
+        csv_text: text.into(),
+        column_mapping: BTreeMap::new(),
+    }];
+    b
+}
+const INCOME_CSV: &str = "\u{feff}income_key,date,net_income,hpf_deposit,note\r\nu,2026-08-10,100.01,,\"虚构，备注\n第二行\"\r\nz,2026-08-10,100.01,0,明确零\r\n";
+#[test]
+fn i02_i03_income_unknown_zero_same_day_same_amount_and_i11_roundtrip() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("source");
+    let mut s = Store::open(&root).unwrap();
+    let b = income_batch(&s, INCOME_CSV);
+    let input = commit_input(&s, b.clone());
+    let r = s.financial_import_commit(&input, "2026-10-09").unwrap();
+    assert_eq!(r.counts.created_incomes, 2);
+    let rows = s.plan_income_list().unwrap().rows;
+    assert_eq!(rows.len(), 2);
+    assert!(rows.iter().all(|i| i.fields.net_cents == "10001"));
+    assert!(rows
+        .iter()
+        .any(|i| i.fields.hpf_cents.is_none() && i.fields.notes == "虚构，备注\n第二行"));
+    assert!(rows
+        .iter()
+        .any(|i| i.fields.hpf_cents.as_deref() == Some("0")));
+    let prior = s
+        .financial_import_preview(&b, "2026-10-09", &|| false)
+        .unwrap();
+    assert!(!prior.can_commit);
+    assert_eq!(prior.prior_receipt.unwrap().counts.created_incomes, 2);
+    assert_eq!(
+        s.financial_import_commit(&input, "2026-10-09")
+            .unwrap()
+            .request_id,
+        r.request_id
+    );
+    // Different bytes with the same keys and values skip both, never add rows.
+    let same = income_batch(&s, &INCOME_CSV.replace("\r\n", "\n"));
+    let same = commit_input(&s, same);
+    assert_eq!(
+        s.financial_import_commit(&same, "2026-10-09")
+            .unwrap()
+            .counts
+            .skipped,
+        2
+    );
+    let archive = tmp.path().join("虚构35.thingary");
+    s.backup(Some(&archive)).unwrap();
+    drop(s);
+    let s = Store::open(&root).unwrap();
+    assert_eq!(s.plan_income_list().unwrap().rows.len(), 2);
+    let mut t = Store::open(&tmp.path().join("restored")).unwrap();
+    let checked = t.inspect_backup(&archive).unwrap();
+    assert_eq!(
+        (
+            checked.schema,
+            checked.import_mappings,
+            checked.import_receipts
+        ),
+        (35, 2, 2)
+    );
+    t.restore(&archive, &checked.hash, &t.generation()).unwrap();
+    assert_eq!(
+        serde_json::to_value(t.plan_income_list().unwrap().rows).unwrap(),
+        serde_json::to_value(rows).unwrap()
+    );
+    assert_eq!(
+        t.financial_import_receipt(&r.request_id, &t.generation())
+            .unwrap()
+            .unwrap()
+            .counts
+            .created_incomes,
+        2
+    );
+    let mut b = b;
+    b.generation = t.generation();
+    assert!(
+        !t.financial_import_preview(&b, "2026-10-09", &|| false)
+            .unwrap()
+            .can_commit
+    );
+}
+#[test]
+fn income_conflicts_stale_revisions_and_deleted_receipts_preserve_identity() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut s = Store::open(tmp.path()).unwrap();
+    let input = commit_input(&s, income_batch(&s, INCOME_CSV));
+    let receipt = s.financial_import_commit(&input, "2026-10-09").unwrap();
+    let mut b = income_batch(&s, &INCOME_CSV.replace("100.01,,", "100.01,0,"));
+    let p = s
+        .financial_import_preview(&b, "2026-10-09", &|| false)
+        .unwrap();
+    assert_eq!(
+        (p.counts.conflicts, p.counts.same, p.can_commit),
+        (1, 1, false)
+    );
+    let conflict = p.objects.iter().find(|o| o.status == "conflict").unwrap();
+    assert!(conflict.before.as_ref().unwrap()["hpf_cents"].is_null());
+    assert_eq!(conflict.after["hpf_cents"], "0");
+    b.actions.insert(
+        conflict.key.clone(),
+        Action {
+            action: "correct".into(),
+            expected_revision: conflict.expected_revision,
+        },
+    );
+    let correction = commit_input(&s, b);
+    let i = s.plan_income(&conflict.id).unwrap().unwrap();
+    let mut f = i.fields;
+    f.notes = "虚构并发修改".into();
+    s.plan_income_save(
+        &thingary_lib::plan_income::Save {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            generation: s.generation(),
+            id: Some(i.id.clone()),
+            expected_revision: Some(i.revision),
+            fields: f,
+        },
+        "2026-10-09",
+    )
+    .unwrap();
+    assert_eq!(
+        s.financial_import_commit(&correction, "2026-10-09")
+            .unwrap_err()
+            .code,
+        "REVISION_CONFLICT"
+    );
+    let p = s
+        .financial_import_preview(&correction.batch, "2026-10-09", &|| false)
+        .unwrap_err();
+    assert_eq!(p.code, "REVISION_CONFLICT");
+    s.wealth_trash(&thingary_lib::wealth::TrashChange {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        generation: s.generation(),
+        kind: "income".into(),
+        id: i.id.clone(),
+        expected_revision: 2,
+        deleted: true,
+    })
+    .unwrap();
+    assert_eq!(
+        s.financial_import_receipt(&receipt.request_id, &s.generation())
+            .unwrap()
+            .unwrap()
+            .unavailable_objects,
+        1
+    );
+    s.purge_trash(&thingary_lib::purge::Purge {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        generation: s.generation(),
+        kind: Some("income".into()),
+        id: i.id.clone(),
+        preview: None,
+    })
+    .unwrap();
+    assert_eq!(
+        s.financial_import_commit(&input, "2026-10-09")
+            .unwrap()
+            .unavailable_objects,
+        1
+    );
+    let status: String = s
+        .conn_for_test()
+        .unwrap()
+        .query_row(
+            "SELECT status FROM import_external_key WHERE object_id=?1",
+            [i.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(status, "purged");
+    assert_eq!(s.plan_income_list().unwrap().rows.len(), 1);
+}
+#[test]
+fn i07_income_invalid_row_blocks_all_writes_and_cancel_is_read_only() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut s = Store::open(tmp.path()).unwrap();
+    for bad in [
+        "bad,2026-02-30,2,0,x",
+        "bad,2026-08-10,1e3,0,x",
+        "bad,2026-08-10,1.001,0,x",
+        "bad,2026-08-10,,0,x",
+        "bad,2026-08-10,1,-1,x",
+    ] {
+        let b = income_batch(&s, &format!("{INCOME_CSV}{bad}\n"));
+        let p = s
+            .financial_import_preview(&b, "2026-10-09", &|| false)
+            .unwrap();
+        assert!(!p.can_commit);
+        assert!(p
+            .issues
+            .iter()
+            .any(|i| i.blocking && i.source_row.is_some()));
+        let input = CommitInput {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            batch: b,
+            context_digest: p.context_digest,
+            normalized_digest: p.normalized_digest,
+            file_fingerprints: p.file_fingerprints,
+        };
+        assert_eq!(
+            s.financial_import_commit(&input, "2026-10-09")
+                .unwrap_err()
+                .code,
+            "IMPORT_INVALID"
+        );
+        assert!(s.plan_income_list().unwrap().rows.is_empty());
+    }
+    assert_eq!(
+        s.financial_import_preview(&income_batch(&s, INCOME_CSV), "2026-10-09", &|| true)
+            .unwrap_err()
+            .code,
+        "CANCELLED"
+    );
+}
+#[test]
+fn mixed_batch_rolls_back_after_accounts_after_incomes_and_before_commit_i09_restart() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut s = Store::open(tmp.path()).unwrap();
+    let mut b = simple(&s);
+    b.files.extend(income_batch(&s, INCOME_CSV).files);
+    let input = commit_input(&s, b);
+    for fail in [
+        "financial_import.after_accounts",
+        "financial_import.after_incomes",
+        "financial_import.before_commit",
+    ] {
+        s.set_hook(move |p| {
+            if p == fail {
+                Err(thingary_lib::domain::Error::new("INJECTED", fail))
+            } else {
+                Ok(())
+            }
+        });
+        assert_eq!(
+            s.financial_import_commit(&input, "2026-10-09")
+                .unwrap_err()
+                .code,
+            "INJECTED"
+        );
+        for table in [
+            "fin_accounts",
+            "fin_snapshots",
+            "plan_income",
+            "import_external_key",
+            "import_receipt",
+            "feature_requests",
+        ] {
+            let n: i64 = s
+                .conn_for_test()
+                .unwrap()
+                .query_row(&format!("SELECT count(*) FROM {table}"), [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(n, 0, "{fail} {table}");
+        }
+    }
+    s.set_hook(|p| {
+        if p == "financial_import.after_commit" {
+            Err(thingary_lib::domain::Error::new("INJECTED", "lost reply"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(
+        s.financial_import_commit(&input, "2026-10-09")
+            .unwrap_err()
+            .code,
+        "INJECTED"
+    );
+    drop(s);
+    let mut s = Store::open(tmp.path()).unwrap();
+    let r = s
+        .financial_import_receipt(&input.request_id, &s.generation())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        (
+            r.counts.created_accounts,
+            r.counts.created_snapshots,
+            r.counts.created_incomes
+        ),
+        (1, 1, 2)
+    );
+    assert_eq!(
+        s.financial_import_commit(&input, "2026-10-09")
+            .unwrap()
+            .request_id,
+        r.request_id
+    );
+    assert_eq!(s.plan_income_list().unwrap().rows.len(), 2);
+    let archive = tmp.path().join("mixed35.thingary");
+    s.backup(Some(&archive)).unwrap();
+    let mut restored = Store::open(&tmp.path().join("restored")).unwrap();
+    let checked = restored.inspect_backup(&archive).unwrap();
+    assert_eq!(
+        (
+            checked.schema,
+            checked.import_mappings,
+            checked.import_receipts
+        ),
+        (35, 4, 1)
+    );
+    restored
+        .restore(&archive, &checked.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(
+            restored
+                .financial_import_receipt(&r.request_id, &restored.generation())
+                .unwrap()
+                .unwrap()
+                .objects
+        )
+        .unwrap(),
+        serde_json::to_value(&r.objects).unwrap()
+    );
+    assert_eq!(restored.plan_income_list().unwrap().rows.len(), 2);
+    let kinds: i64 = restored
+        .conn_for_test()
+        .unwrap()
+        .query_row(
+            "SELECT count(DISTINCT object_kind) FROM import_external_key",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(kinds, 3);
+}
+#[test]
+fn income_only_import_with_wealth_disabled_and_planning_switch_invalidates_preview() {
+    use thingary_lib::modules::{self, Modules};
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("library");
+    let mut s = Store::open(&root).unwrap();
+    modules::write(
+        &root,
+        &Modules {
+            wealth: false,
+            ..Modules::default()
+        },
+    )
+    .unwrap();
+    let input = commit_input(&s, income_batch(&s, INCOME_CSV));
+    modules::write(
+        &root,
+        &Modules {
+            wealth: false,
+            planning: false,
+            ..Modules::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        s.financial_import_commit(&input, "2026-10-09")
+            .unwrap_err()
+            .code,
+        "MODULE_DISABLED"
+    );
+    assert!(s.plan_income_list().unwrap().rows.is_empty());
+    modules::write(
+        &root,
+        &Modules {
+            wealth: false,
+            ..Modules::default()
+        },
+    )
+    .unwrap();
+    let input = commit_input(&s, income_batch(&s, INCOME_CSV));
+    s.financial_import_commit(&input, "2026-10-09").unwrap();
+}
+
+#[test]
+fn x11_mid_replacement_failure_preserves_schema34_all_data_and_zero_then_upgrades() {
+    use thingary_lib::storage::{migrate_to, SCHEMA};
+    let db = rusqlite::Connection::open_in_memory().unwrap();
+    db.execute_batch(SCHEMA).unwrap();
+    migrate_to(&db, 34, &|_| Ok(())).unwrap();
+    let id = uuid::Uuid::new_v4().to_string();
+    db.execute("INSERT INTO plan_income VALUES(?1,'2026-08-01',10001,0,'虚构零缴存',4,'2026-08-01T00:00:00Z','2026-08-02T00:00:00Z','2026-08-03T00:00:00Z')",[&id]).unwrap();
+    db.execute("INSERT INTO assets(id,name,price_cents,purchase_date,revision) VALUES(?1,'虚构旧物品',NULL,NULL,2)",[&id]).unwrap();
+    db.execute("INSERT INTO import_external_key VALUES('虚构','旧映射','account','purged-key',?1,?2,3,'purged','2026-08-01T00:00:00Z','2026-08-01T00:00:00Z')",rusqlite::params![id,"a".repeat(64)]).unwrap();
+    db.execute("INSERT INTO import_receipt VALUES(?1,?2,?3,'虚构','旧映射','{}','2026-08-01T00:00:00Z','committed')",rusqlite::params![id,"b".repeat(64),"c".repeat(64)]).unwrap();
+    let all_data = || {
+        let mut q = db
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .unwrap();
+        let tables = q
+            .query_map([], |r| r.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        tables
+            .into_iter()
+            .map(|name| {
+                let mut q = db
+                    .prepare(&format!("SELECT * FROM {name} ORDER BY rowid"))
+                    .unwrap();
+                let columns = q.column_count();
+                let rows = q
+                    .query_map([], |r| {
+                        Ok((0..columns)
+                            .map(|i| format!("{:?}", r.get_ref(i).unwrap()))
+                            .collect::<Vec<_>>())
+                    })
+                    .unwrap()
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap();
+                (name, rows)
+            })
+            .collect::<Vec<_>>()
+    };
+    let old_all_data = all_data();
+    let definitions = || {
+        let mut q = db
+            .prepare("SELECT type,name,coalesce(sql,'') FROM sqlite_master ORDER BY type,name")
+            .unwrap();
+        q.query_map([], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+            ))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap()
+    };
+    let data = || {
+        db.query_row("SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,deleted_at FROM plan_income",[],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,i64>(2)?,r.get::<_,Option<i64>>(3)?,r.get::<_,String>(4)?,r.get::<_,i64>(5)?,r.get::<_,String>(6)?,r.get::<_,String>(7)?,r.get::<_,Option<String>>(8)?))).unwrap()
+    };
+    let old_schema = definitions();
+    let old_data = data();
+    let error = migrate_to(&db, 35, &|p| {
+        if p == "migration.x11.replacing" {
+            assert_eq!(
+                db.query_row(
+                    "SELECT count(*) FROM sqlite_master WHERE name='plan_income'",
+                    [],
+                    |r| r.get::<_, i64>(0)
+                )
+                .unwrap(),
+                0
+            );
+            Err(thingary_lib::domain::Error::new("INJECTED", "替表中途"))
+        } else {
+            Ok(())
+        }
+    })
+    .unwrap_err();
+    assert_eq!(error.code, "INJECTED");
+    assert_eq!(
+        db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+            .unwrap(),
+        34
+    );
+    assert_eq!(definitions(), old_schema);
+    assert_eq!(all_data(), old_all_data);
+    assert_eq!(data(), old_data);
+    migrate_to(&db, 35, &|_| Ok(())).unwrap();
+    assert_eq!(
+        db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+            .unwrap(),
+        35
+    );
+    assert_eq!(data(), old_data);
+    assert_eq!(data().3, Some(0));
+    db.execute("UPDATE plan_income SET hpf_cents=NULL WHERE id=?1", [id])
+        .unwrap();
+    assert_eq!(data().3, None);
+    println!("x11: mid replacement -> rollback, complete schema and row preserved, version34; retry34->35 preserved zero/IDs/revision/timestamps/deletion");
+}
+#[test]
+fn x11_foreign_key_check_runs_before_commit_and_rolls_back() {
+    use thingary_lib::storage::{migrate_to, SCHEMA};
+    let db = rusqlite::Connection::open_in_memory().unwrap();
+    db.execute_batch(SCHEMA).unwrap();
+    migrate_to(&db, 34, &|_| Ok(())).unwrap();
+    db.execute_batch(
+        "PRAGMA foreign_keys=OFF; INSERT INTO plan_baseline_marks VALUES('missing-snapshot');",
+    )
+    .unwrap();
+    assert_eq!(
+        migrate_to(&db, 35, &|_| Ok(())).unwrap_err().code,
+        "DATA_CONSTRAINT"
+    );
+    assert_eq!(
+        db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+            .unwrap(),
+        34
+    );
+    let required: i64 = db
+        .query_row(
+            "SELECT \"notnull\" FROM pragma_table_info('plan_income') WHERE name='hpf_cents'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(required, 1);
+}
+#[test]
+fn old34_backup_and_receipt_restore_into35_preserve_replay_zero_and_mappings() {
+    use sha2::{Digest, Sha256};
+    use std::io::Write;
+    let tmp = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&tmp.path().join("source")).unwrap();
+    let input = commit_input(&s, simple(&s));
+    let receipt = s.financial_import_commit(&input, "2026-10-09").unwrap();
+    let income = s
+        .plan_income_save(
+            &thingary_lib::plan_income::Save {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: thingary_lib::plan_income::Fields {
+                    date: "2026-08-01".into(),
+                    net_cents: "10001".into(),
+                    hpf_cents: Some("0".into()),
+                    notes: "虚构旧零".into(),
+                },
+            },
+            "2026-10-09",
+        )
+        .unwrap();
+    let path = tmp.path().join("old34.sqlite");
+    let mut db = rusqlite::Connection::open(&path).unwrap();
+    rusqlite::backup::Backup::new(s.conn_for_test().unwrap(), &mut db)
+        .unwrap()
+        .run_to_completion(128, std::time::Duration::from_millis(1), None)
+        .unwrap();
+    db.execute_batch("CREATE TEMP TABLE old_income AS SELECT * FROM plan_income; CREATE TEMP TABLE old_keys AS SELECT * FROM import_external_key; CREATE TEMP TABLE old_receipts AS SELECT * FROM import_receipt; DROP TABLE plan_income; DROP TABLE import_external_key; DROP TABLE import_receipt;").unwrap();
+    db.execute_batch(
+        include_str!("../src/plan_income.sql")
+            .split("-- A check-in")
+            .next()
+            .unwrap(),
+    )
+    .unwrap();
+    db.execute_batch(include_str!("../src/x10.sql")).unwrap();
+    db.execute_batch("INSERT INTO plan_income SELECT * FROM old_income; INSERT INTO import_external_key SELECT * FROM old_keys; INSERT INTO import_receipt SELECT * FROM old_receipts;").unwrap();
+    drop(db);
+    let bytes = std::fs::read(path).unwrap();
+    let manifest = serde_json::json!({"format":1,"schema":34,"created_at":"2026-10-09T08:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
+    let archive = tmp.path().join("虚构旧34备份.thingary");
+    let mut zip = zip::ZipWriter::new(std::fs::File::create(&archive).unwrap());
+    let opt = zip::write::SimpleFileOptions::default();
+    zip.start_file("manifest.json", opt).unwrap();
+    zip.write_all(&serde_json::to_vec(&manifest).unwrap())
+        .unwrap();
+    zip.start_file("data.sqlite", opt).unwrap();
+    zip.write_all(&bytes).unwrap();
+    zip.finish().unwrap();
+    let mut t = Store::open(&tmp.path().join("target")).unwrap();
+    let checked = t.inspect_backup(&archive).unwrap();
+    assert_eq!(
+        (
+            checked.schema,
+            checked.import_mappings,
+            checked.import_receipts
+        ),
+        (34, 2, 1)
+    );
+    t.restore(&archive, &checked.hash, &t.generation()).unwrap();
+    assert_eq!(
+        t.conn_for_test()
+            .unwrap()
+            .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+            .unwrap(),
+        35
+    );
+    let old = t
+        .financial_import_receipt(&receipt.request_id, &t.generation())
+        .unwrap()
+        .unwrap();
+    assert_eq!((old.counts.created_incomes, old.counts.new_incomes), (0, 0));
+    assert_eq!(old.objects.len(), 2);
+    assert_eq!(
+        t.plan_income(&income.id)
+            .unwrap()
+            .unwrap()
+            .fields
+            .hpf_cents
+            .as_deref(),
+        Some("0")
+    );
+    let mut retry = input.clone();
+    retry.batch.generation = t.generation();
+    retry.request_id = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        t.financial_import_commit(&retry, "2026-10-09")
+            .unwrap()
+            .request_id,
+        receipt.request_id
+    );
+    t.backup(Some(&tmp.path().join("new35.thingary"))).unwrap();
+    println!("old34 backup inspect/restore ->35: old receipt read and same-batch replay, 2 mappings, 1 receipt, zero and IDs preserved");
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildReviewObservations } from '../src/review-observations.ts';
+import { buildReviewObservations, reviewMissing } from '../src/review-observations.ts';
 import { emptyCore, occurrenceIssues, occurrenceMissing } from '../src/plan-core.ts';
 import { computeReview } from '../src/plan.ts';
 const interval = { snapshot_id:'end', from:'2026-09-01', to:'2026-10-01', status:'ok', delta_nw_cents:'6000000', income_cents:'2000000', saving_cents:'6000000', spend_cents:'-4000000', rate_hundredths:30000 };
@@ -57,4 +57,8 @@ test('zero net-asset change states no change and keeps unknown distinct',()=>{
  assert.doesNotMatch(o.items[0].text,/增加|减少|¥0/);
  assert.equal(build({interval:{...interval,delta_nw_cents:null}}).items[0].text,'这期暂无可比较的资产变化。');
  assert.deepEqual(build({interval:{...interval,status:'scope_changed',delta_nw_cents:'0'}}).items.map(x=>x.id),['scope_changed']);
+});
+
+test('P1-1 checklist observations keep identical facts when deposit completeness changes',()=>{
+ const before=build();const unknown=build({interval:{...interval,hpf_cents:null,hpf_known_cents:'0',hpf_unknown_records:1,spend_cents:null,rate_hundredths:null}});assert.deepEqual(unknown,before);assert.equal(reviewMissing({...interval,hpf_cents:null,hpf_unknown_records:2},0),0);assert.equal(reviewMissing({...interval,status:'no_income',hpf_cents:null},0),1);assert.equal(reviewMissing({...interval,hpf_cents:null},2),2);safe(unknown);
 });

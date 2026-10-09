@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 34;
+pub const SCHEMA_VERSION: i64 = 35;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -806,6 +806,26 @@ PRAGMA user_version=14;")?;
     if v == 33 && target >= 34 {
         let tx = c.unchecked_transaction()?;
         tx.execute_batch(include_str!("x10.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 34;
+    }
+    if v == 34 && target >= 35 {
+        let tx = c.unchecked_transaction()?;
+        let (before, after) = include_str!("x11.sql")
+            .split_once("-- replacement checkpoint")
+            .expect("x11 checkpoint");
+        tx.execute_batch(before)?;
+        hook("migration.x11.replacing")?;
+        tx.execute_batch(after)?;
+        let broken = tx
+            .prepare("PRAGMA foreign_key_check")?
+            .query([])?
+            .next()?
+            .is_some();
+        if broken {
+            return Err(Error::new("DATA_CONSTRAINT", "升级后的外键校验失败"));
+        }
         hook("migration.before_commit")?;
         tx.commit()?;
     }

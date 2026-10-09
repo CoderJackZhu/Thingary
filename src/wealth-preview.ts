@@ -269,6 +269,7 @@ function virtualOverview(): VirtualOverview {
 const payday = (monthsAgo: number) => { const d = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 15); return iso(d); };
 let planIncomes: Income[] = (params.get('plan') === 'empty' || params.get('state') === 'empty') ? [] : [6, 5, 4, 3, 2, 1, 0].map(m => ({ id: 'p-inc-' + m, revision: 1, fields: { date: payday(m), net_cents: '2000000', hpf_cents: '300000', notes: m === 3 ? '含虚构年终奖' : '' } })).filter(i => i.fields.date <= todayIso);
 const planMarks = new Set<string>();
+if (params.get('hpf') === 'unknown' && planIncomes.length) [...planIncomes].sort((a,b)=>b.fields.date.localeCompare(a.fields.date))[0].fields.hpf_cents = null;
 let planTrash: Income[] = [];
 // 首页规划摘要的退休预算夹具：set 为虚构 5000 元，也可直接给元数（如 plan-budget=6500）。
 const planBudgetParam = params.get('plan-budget');

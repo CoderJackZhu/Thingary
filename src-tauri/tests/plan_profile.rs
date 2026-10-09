@@ -1309,7 +1309,7 @@ fn guided_setup_marker_is_backward_compatible_and_preserves_facts_through_restor
             fields: Fields {
                 date: "2026-12-20".into(),
                 net_cents: "100000".into(),
-                hpf_cents: "0".into(),
+                hpf_cents: Some("0".into()),
                 notes: "虚构到账".into(),
             },
         },
@@ -1447,7 +1447,7 @@ fn basic_reset_preserves_single_core_occurrence_payment_and_existing_account_sna
                 fields: IncomeFields {
                     date: "2026-09-01".into(),
                     net_cents: "0".into(),
-                    hpf_cents: "0".into(),
+                    hpf_cents: Some("0".into()),
                     notes: "虚构零事实".into(),
                 },
             },

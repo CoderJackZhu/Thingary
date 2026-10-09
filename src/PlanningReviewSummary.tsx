@@ -6,7 +6,7 @@ import { occurrenceIssues } from './plan-core';
 import type { Occurrence, OccurrenceIssueKind } from './plan-core';
 import type { Interval, PlanningSources, Reasons, StoredLifeEvent } from './plan';
 import { ready } from './review';
-import { buildReviewObservations } from './review-observations';
+import { buildReviewObservations, reviewMissing } from './review-observations';
 import type { ReviewAction } from './review-observations';
 import type { Summary } from './wealth';
 
@@ -31,7 +31,7 @@ export function PlanningReviewSummary({ interval, reasons, reasonError, summary,
     else if (action.kind !== 'income' || sources.incomes.status === 'ready') onAction(action);
   };
   const accountError = summaryError || (sources.accounts.status === 'error' ? sources.accounts.value.message : '');
-  const missing = (summary?.points.filter(p => !p.complete).length ?? 0) + (interval.status === 'ok' ? 0 : 1);
+  const missing = reviewMissing(interval, summary?.points.filter(p => !p.complete).length ?? 0);
   async function saveOccurrence(o: Occurrence) {
     if (!retire) return;
     if (await saver.save(eventsInput({ life_events: retire.life_events, occurrences: [...(retire.core?.occurrences ?? []).filter(x => x.event_id !== o.event_id), o] }))) setOccurring(null);
