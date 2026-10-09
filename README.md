@@ -8,7 +8,7 @@
 
 物谱是一个本地使用的 macOS 应用。为值得留档的物品建立档案，每隔一段时间核对账户余额，看看物品、花费和金融净资产如何随时间变化。无需注册账号，也无需编程或联网使用。
 
-**[下载 0.0.1 公开测试版 · Apple Silicon Mac](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.1/Thingary-0.0.1-arm64.dmg)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.1) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
+**[下载 0.0.2 公开测试版 · Apple Silicon Mac](https://github.com/CoderJackZhu/Thingary/releases/download/v0.0.2/Thingary-0.0.2-arm64.dmg)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.2) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
 
 ![物谱总览：物品档案与账户盘点](docs/images/overview-light.png)
 
@@ -19,7 +19,7 @@
 3. 点「开始记录我的资料」，[记录第一件物品](docs/USER_GUIDE.md#first-record)；需要时再[完成第一次账户盘点](docs/USER_GUIDE.md#first-snapshot)。
 4. 录入自己的资料后，[做一次完整备份并异地保存](docs/USER_GUIDE.md#backup)。
 
-当前 **0.0.1 公开测试版** 使用本地临时签名，未经过 Developer ID 签名和 Apple 公证。首次打开可能需要在「系统设置 › 隐私与安全性」选择「仍要打开」；请按[安装与故障排查指南](docs/USER_GUIDE.md#download)操作，无需编译或使用终端。下载页中的 Source code 是源码，不是安装包。
+当前 **0.0.2 公开测试版** 使用本地临时签名，未经过 Developer ID 签名和 Apple 公证。首次打开可能需要在「系统设置 › 隐私与安全性」选择「仍要打开」；请按[安装与故障排查指南](docs/USER_GUIDE.md#download)操作，无需编译或使用终端。下载页中的 Source code 是源码，不是安装包。
 
 | 支持范围 | 当前情况 |
 |---|---|
@@ -28,9 +28,9 @@
 | 语言与更新 | 界面为中文；目前需手动下载安装更新 |
 | 其他平台 | 暂无 Windows、Linux、手机客户端或跨设备同步 |
 
-本系列处于公开测试阶段，欢迎反馈安装、使用与兼容性问题。此前短暂发布的 2.6.1 与 0.1.0-beta.1 安装包已撤下，当前只提供最新 0.0.1 Beta；已使用者请先完整备份，再按[更新步骤](docs/USER_GUIDE.md#update)手动更换。
+本系列处于公开测试阶段，欢迎反馈安装、使用与兼容性问题。此前短暂发布的 2.6.1 与 0.1.0-beta.1 安装包已撤下，最新版本为 0.0.2 Beta，0.0.1 保留为历史发布；已使用者请先完整备份，再按[更新步骤](docs/USER_GUIDE.md#update)手动更换。
 
-本次 0.0.1 Beta 由当前代码重新构建，包含周期费用换行、已结束订阅待关注修复，以及虚拟标签、储值和配件记录。变化与验证边界见[发布说明](docs/releases/v0.0.1.md)。
+本次 0.0.2 Beta 加入退休与财务独立规划、职业变化试算，改进心愿决策、账户盘点和订阅管理。变化与验证边界见[发布说明](docs/releases/v0.0.2.md)。
 
 ## 可以记录什么
 
@@ -38,8 +38,9 @@
 |---|---|
 | 为贵重物品留档 | 名称、品牌型号、购入日期与金额、照片、备注、维护和保障记录 |
 | 回顾持有与处置 | 使用中、退役、售出，日均／按次成本，以及售出保值率 |
-| 规划想买的东西 | 心愿清单与攒钱进度，实现后转换为物品档案 |
+| 规划想买的东西 | 记录理由、顾虑和计划日期，确认购入后关联物品档案 |
 | 定期核对家底 | 账户与负债快照、金融净资产趋势、两次盘点的账户变化 |
+| 评估未来安排 | 退休与财务独立规划、大额计划影响、资金续航与职业变化试算 |
 | 回顾重要花费 | 大额支出、退款、周期费用及软件／域名等虚拟资产档案 |
 | 找回与带走资料 | 最近删除、完整备份恢复、自动备份、CSV 导入导出 |
 
