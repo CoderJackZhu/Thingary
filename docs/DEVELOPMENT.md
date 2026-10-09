@@ -51,6 +51,10 @@ npm run dev -- --port 1429
 
 `tests/planning-core.test.mjs` 覆盖资产事实、分池、已含费用、余债与首月顺序。
 
+轻量复盘夹具在同一预览入口追加 `review-fixture=normal|no-income|scope|incomplete|no-plan|pending`：分别覆盖净资产增加60000元、无收入、计入范围变化、旧盘点缺金额、无计划和逾期安排。原因桩固定含一条 null 金额行；`plan=reasons-error` 检查原因局部失败，`plan-module=off` 检查保存后降级到账户变化，`plan-wealth=off` 检查隐藏财富不读取。主题用 `style=bento|native|olive`、`theme=light|dark`，宽窗1440×1000及窄窗900×720。夹具全部虚构、仅驻留内存。
+
+`tests/review-observations.test.mjs` 覆盖观察顺序与上限、禁用词、无收入资产事实、退款／售出符号、未知与明确零、结构化待核对兼容及确认后余额不变；`src-tauri/tests/plan_income.rs` 回归区间原因的 null 金额、日期／模块过滤与排序。`plan_interval_reasons` 保留日期及模块范围内未知金额行，金额继续为 null。原生保存→提示→对应区间→核对→重启须使用独立验收身份另行登记；浏览器截图和 Store 测试不替代原生、备份恢复或文件选择验证。
+
 关联订阅生命周期（组删除／恢复、共享保存双方修订、预览失效、历史归组与备份往返）在 `src-tauri/tests/link_groups.rs` 对临时 Store 验证（旧订阅合并发现在 `src-tauri/tests/link_merge.rs`）；其中 schema32→33 矩阵覆盖主分支的无组表版本与未发布订阅分支的完整组表版本，检查升级、旧备份恢复、规划载荷与稳定 ID 保持、非法结构拒绝及事务回滚。重要支出年度桶的固定金额样例在 `src-tauri/tests/expenses.rs`（`annual_buckets_match_design_example`），前端桶口径在 `tests/expense-annual.test.mjs`。`src-tauri/tests/plan_profile.rs` 对真实临时 Store 测试 core 保存、修订冲突、提交后回执丢失重放、重启、备份恢复、引用更正和 schema30→31 回滚。不得对正式资料库运行。
 
 ### 金融导入解析与报告组件

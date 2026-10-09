@@ -335,6 +335,20 @@ if (coreScenario && planProfile && snapshots.length) {
     r.basic.retirement_costs = scopes.map(source => ({ ...source, treatment: 'extra', reference_cents: null }));
   }
 }
+const reviewFixture = params.get('review-fixture');
+if (reviewFixture && snapshots.length >= 2) {
+  const last = snapshots.at(-1)!;
+  snapshots = [snapshots[0], last].map((s, i) => ({ ...s, entries: s.entries.map(e => ({ ...e, state: 'entered' as const, amount_cents: e.kind === 'cash' ? (i ? '16000000' : '10000000') : '0', counted: e.side === 'asset' })) }));
+  planIncomes = reviewFixture === 'no-income' ? [] : [{ id: 'review-income', revision: 1, fields: { date: last.date, net_cents: '2000000', hpf_cents: '0', notes: '虚构已记录收入；增长可能含估值' } }];
+  if (reviewFixture === 'scope') snapshots[1].entries[0].counted = !snapshots[0].entries[0].counted;
+  if (reviewFixture === 'incomplete') snapshots.splice(1, 0, { ...structuredClone(snapshots[0]), id: 'review-incomplete', date: shifted(1), entries: snapshots[0].entries.map((e, i) => i ? e : { ...e, amount_cents: null, state: 'missing' }) });
+  if (reviewFixture === 'no-plan') planProfile = null;
+  else if (planProfile) {
+    const r = planProfile.profile.retire, s = snapshots.at(-1)!;
+    r.core = { ...emptyCore(s.date), fund_rules: s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: 'available' as const, share_hundredths: 10000 })) };
+    r.life_events = reviewFixture === 'pending' ? [{ id: 'review-event', label: '虚构大额安排', kind: 'other', date: shifted(1).slice(0,7), included: true, price_cents: '10000', down_cents: '10000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }] : [];
+  }
+}
 if (params.get('plan-usability') === '1' && planProfile?.profile.retire.basic) {
   const r = planProfile.profile.retire;
   r.life_events = ['北京买房', '二手车', '二三线买房'].map((label, i) => ({ id: `fx-layout-${i}`, label, kind: i === 1 ? 'car' : 'house', date: `${now.getFullYear()+2}-10`, included: i !== 2, price_cents: i === 1 ? '7000000' : '180000000', down_cents: i === 1 ? '7000000' : '60000000', extra_cents: '0', loan_rate_hundredths: 350, loan_years: 30, holding_cents: '120000', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }));
@@ -653,7 +667,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     receipts.set(input.request_id, id);
     return { value: next };
   }
-  if (command === 'modules_get') return { value: { ...allModules, wealth: params.get('plan-wealth') !== 'off' } };
+  if (command === 'modules_get') return { value: { ...allModules, planning: params.get('plan-module') !== 'off', wealth: params.get('plan-wealth') !== 'off' } };
   if (command === 'planning_sources') { if (params.get('plan') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: planningSources(args) }; }
   if (command === 'plan_profile_update') {
     const input = args.input as ProfileUpdate;
@@ -698,7 +712,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       const point = summary().points.find(p => p.snapshot_id === String(args.snapshotId) && p.complete && p.compared_to);
       if (!point) throw { code: 'NOT_FOUND', message: '找不到这次盘点' };
       const from = point.compared_to!;
-      const lines = [...expenseView(null).lines].filter(l => l.date !== null && l.date > from && l.date <= point.date && l.amount_cents !== null && l.source !== 'linked')
+      const lines = [...expenseView(null).lines, { source: 'purchase' as const, id: 'review-unknown', asset_id: null, title: '虚构金额待补的购入', category: null, date: point.date, amount_cents: null, notes: null, plan_id: null }].filter(l => l.date !== null && l.date > from && l.date <= point.date)
         .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || a.source.localeCompare(b.source) || a.id.localeCompare(b.id));
       const reasons: Reasons = { generation, snapshot_id: point.snapshot_id, from, to: point.date, notes: point.notes, lines };
       return { value: reasons };

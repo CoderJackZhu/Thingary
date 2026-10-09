@@ -22,6 +22,7 @@ import { WealthChanges } from './WealthChanges';
 import { offerUndo, useRestored } from './undo';
 import './wealth.css';
 
+export type WealthReviewFocus = { generation: string; kind: 'accounts' | 'snapshot'; id?: string };
 type Tab = 'overview' | 'accounts' | 'changes' | 'history';
 
 /** Shared by wealth and expense pages: one stored receipt, checked by request id. */
@@ -41,7 +42,7 @@ export function usePendingReceipt(reload: () => void) {
 }
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
-export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
+export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, onGotoPlanning, reviewFocus, onReviewFocusDone }: SourceProps & { onGotoPlanning?: (snapshotId: string) => void; reviewFocus?: WealthReviewFocus | null; onReviewFocusDone?: () => void; today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [accountView, setAccountView] = useState<AccountView>('active');
   // 概览链接带来的比较区间：只在点「变化」分段时清空，进入时消费一次（U20 §2.1）。
@@ -54,6 +55,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const [sourceSnapshot, setSourceSnapshot] = useState<string | undefined>();
   const [checkIn, setCheckIn] = useState<string | null>(null);
   const [checkInPin, setCheckInPin] = useState<string | undefined>();
+  const [savedSnapshot, setSavedSnapshot] = useState<Snapshot | null>(null);
   const [snapshotDetail, setSnapshotDetail] = useState<string | null>(null);
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
   useEffect(() => {
@@ -63,6 +65,17 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
       .catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [retry]);
+  useEffect(() => {
+    if (!reviewFocus || !summary) return;
+    if (reviewFocus.generation !== summary.generation) { onReviewFocusDone?.(); return; }
+    if (reviewFocus.kind === 'accounts') { setTab('accounts'); setAccountView('all'); onSearch(''); }
+    else {
+      const p = summary.points.find(p => p.snapshot_id === reviewFocus.id);
+      if (p) { setCheckInPin(p.snapshot_id); setCheckIn(p.date); }
+      else setError('这条盘点已删除或变化，请重新读取。');
+    }
+    onReviewFocusDone?.();
+  }, [reviewFocus, summary]);
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
@@ -106,7 +119,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     setEditing('new');
   }, [autoNew]);
   if (snapshotDetail) return <SnapshotDetail id={snapshotDetail} today={today} onCorrect={id => { const date = summary?.points.find(p => p.snapshot_id === id)?.date; setSnapshotDetail(null); if (date) { setCheckInPin(id); setCheckIn(date); } }} onClose={() => { setSnapshotDetail(null); reload(); refocusHeading(); }}/>;
-  if (checkIn) return <CheckIn expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onClose={saved => { setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setTab('history'); reload(); } refocusHeading(); }}/>;
+  if (checkIn) return <CheckIn expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onClose={(saved, snapshot) => { setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setSavedSnapshot(snapshot?.missing.length === 0 ? snapshot : null); setTab('history'); reload(); } refocusHeading(); }}/>;
   const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
   const closeAccount = (saved: boolean) => {
     (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close();
@@ -126,6 +139,10 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
       <div className="segmented" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['changes', '变化'], ['history', '盘点记录']] as const).map(([k, l]) => <button key={k} aria-pressed={tab === k} onClick={() => { setChangesSeed(null); setTab(k); }}>{l}</button>)}</div>
       {tab !== 'history' && <label className="account-filter">账户范围 <select aria-label="账户范围" value={accountView} onChange={e => setAccountView(e.target.value as AccountView)}><option value="active">在用账户（{open.length}）</option><option value="closed">已停用（{(accounts?.length ?? 0) - open.length}）</option><option value="all">全部账户</option></select></label>}
     </div></HeaderSlot>
+    {tab === 'history' && savedSnapshot && !error && <div className="notice wealth-review-entry" role="status"><span>盘点已保存（{savedSnapshot.date}）。</span><button type="button" className="ui-link" disabled={!summary?.points.some(p => p.snapshot_id === savedSnapshot.id)} onClick={() => {
+      if (onGotoPlanning) onGotoPlanning(savedSnapshot.id);
+      else { const point = summary?.points.find(p => p.snapshot_id === savedSnapshot.id), from = summary?.points.find(p => p.complete && p.date === point?.compared_to); setChangesSeed(from ? { from: from.snapshot_id, to: savedSnapshot.id } : null); setTab('changes'); }
+    }}>{onGotoPlanning ? '查看这一期的复盘 →' : '查看这一期的变化 →'}</button><CloseButton type="button" aria-label="关闭盘点后复盘提示" onClick={() => setSavedSnapshot(null)}/></div>}
     {error ? <article className="ui-card ui-content" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
       : tab === 'overview' ? <Overview hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { setChangesSeed(seed); setTab('changes'); }}/>
@@ -308,7 +325,7 @@ function SnapshotDetail({ id, today, onCorrect, onClose }: { id: string; today: 
     <section className="form-block form-notes snapshot-notes"><h3>备注</h3>{snapshot.notes.trim() ? <p className="notes" style={{whiteSpace:'pre-wrap'}}>{snapshot.notes}</p> : <p className="muted">未填写备注</p>}</section>
   </section>;
 }
-function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: string; date: string; today: string; onClose: (saved: boolean) => void }) {
+function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: string; date: string; today: string; onClose: (saved: boolean, snapshot?: Snapshot) => void }) {
   const [date, setDate] = useState(initial);
   // The source's stable-ID guard holds only while its own date is being viewed:
   // once the user deliberately switches dates, this is a normal check-in again.
@@ -362,7 +379,7 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
     if ([...notes].length > 10000 || notes.includes('\0')) { setNotice('备注最多 10000 字，且不能含空字符。'); return; }
     const input: SnapshotSave = { request_id: crypto.randomUUID(), generation: draft.generation, id: existing?.id ?? null, expected_revision: existing?.revision ?? null, date, notes, entries: open.map(r => snapshotEntryInput(r.account.id, rows[r.account.id])) };
     setBusy(true); setNotice('');
-    try { await submit<Snapshot>({ command: 'wealth_snapshot_save', input, label: `${date} 盘点` }); onClose(true); }
+    try { const snapshot = await submit<Snapshot>({ command: 'wealth_snapshot_save', input, label: `${date} 盘点` }); onClose(true, snapshot); }
     catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }

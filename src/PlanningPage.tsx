@@ -5,6 +5,10 @@ import { CloseButton } from './CloseButton';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info } from './FormControls';
 import { HeaderSlot } from './HeaderSlot';
+import { PlanningReviewSummary } from './PlanningReviewSummary';
+import type { ReviewAction } from './review-observations';
+import type { PlanningSources } from './plan';
+import type { Summary } from './wealth';
 import { PlanningPension } from './PlanningPension';
 import { PlanningBasicGoals } from './PlanningBasicGoals';
 import { PlanningSetupDialog } from './PlanningSetup';
@@ -26,15 +30,16 @@ const dateRange = (i: Interval) => `${i.from} → ${i.to}`;
 export type PlanningTab = 'goals' | 'savings' | 'pension';
 export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['savings', '收入与复盘'], ['pension', '养老金']];
 
-export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone }: { focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
+export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone, reviewSnapshotId, onReviewFocusDone, onGotoWealth }: { reviewSnapshotId?: string | null; onReviewFocusDone?: () => void; onGotoWealth?: (action: ReviewAction) => void; focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
   const { load, reload } = usePlanningSources(today);
   const [editing, setEditing] = useState<Income | 'new' | null>(null), [setup, setSetup] = useState<{ step: number } | null>(null);
+  const [reviewEditing, setReviewEditing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [marking, setMarking] = useState(false), [markError, setMarkError] = useState('');
   const opener = useRef<HTMLElement | null>(null);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking || !!setup); return () => onEditingChange(false); }, [editing, pending, busy, marking, setup, onEditingChange]);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking || !!setup || reviewEditing); return () => onEditingChange(false); }, [editing, pending, busy, marking, setup, reviewEditing, onEditingChange]);
 
   const sources = load.status === 'ready' ? load.sources : null;
   const saved = sources && sources.profile.status === 'ready' ? sources.profile.value.saved : null;
@@ -42,8 +47,14 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
   const review = sources ? ready(sources.review) : undefined, incomeRows = sources ? ready(sources.incomes) : undefined;
   const incomes: IncomeList | null = sources && incomeRows ? { generation: sources.generation, rows: incomeRows } : null;
   const newest = review ? [...review.intervals].reverse() : [];
-  const shown = newest.find(i => i.snapshot_id === selected) ?? newest.find(i => i.status === 'ok') ?? newest[0] ?? null;
+  const targetSnapshot = reviewSnapshotId ?? selected;
+  const shown = targetSnapshot ? newest.find(i => i.snapshot_id === targetSnapshot) ?? null : newest.find(i => i.status === 'ok') ?? newest[0] ?? null;
 
+  useEffect(() => {
+    if (!reviewSnapshotId || !review) return;
+    setSelected(reviewSnapshotId); onReviewFocusDone?.();
+  }, [reviewSnapshotId, review, onReviewFocusDone]);
+  const action = (a: ReviewAction) => { if (a.kind === 'income') setEditing('new'); else if (a.kind === 'plan') onTab('goals'); else onGotoWealth?.(a); };
   const openNew = { label: '记一笔收入', plus: true, disabled: !!pending || !incomes, run: () => { onTab('savings'); setEditing('new'); } };
   usePageBar('planning', { primary: openNew, newRecord: openNew });
   // WebKit does not focus a button on click, so the caller passes the clicked element; the heading is the last resort.
@@ -74,7 +85,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
       : <>
         {mode === 'none' && <article className="ui-card ui-content planning-setup-entry" aria-label="开始规划"><div className="ui-section-head"><div><h3>想知道要攒多少？</h3><p className="muted small">先说目标和预算，几分钟即可，也可以跳过。记录收入不需要先设置。</p></div><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget)}>开始规划</button></div></article>}
         {review ? <><Usual review={review}/>
-          {shown ? <Steps interval={shown} review={review} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)} generation={review.generation}/>
+          {shown ? <ReviewPeriod key={shown.snapshot_id + ":" + sources.write_version} interval={shown} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setReviewEditing} onAction={action} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)}/>
             : <div className="empty"><span className="empty-mark">¥</span><h2>还没有可比较的盘点区间</h2><p>需要至少两次完整且范围可比的盘点；收入缺项不抹去资产事实。{review.incomplete_count > 0 && `有 ${review.incomplete_count} 次不完整盘点，补齐后才能参与。`}</p></div>}
           {newest.length > 0 && <Intervals intervals={newest} selected={shown?.snapshot_id ?? null} onSelect={setSelected}/>}</>
           : <article className="ui-card ui-content" role="status"><p>{reviewError}</p>{!sources.modules.wealth ? null : <button onClick={reload}>重新读取</button>}</article>}
@@ -94,15 +105,23 @@ function Usual({ review }: { review: PlanReview }) {
   </div><p className="muted small">近12个月的可比盘点区间；均值按天数加权，中位数每区间一票。历史参考不自动成为未来净投入。收入覆盖尚未确认。</p></>;
 }
 
-/** 复盘三段式：现状 → 变化 → 原因（PLANNING_DESIGN §4.4）。 */
-function Steps({ interval: i, busy, markError, onMark, generation }: { interval: Interval; review: PlanReview; busy: boolean; markError: string; onMark: () => void; generation: string }) {
+function ReviewPeriod({ interval, sources, today, reload, onPending, onEditingChange, onAction, ...steps }: { interval: Interval; sources: PlanningSources; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onAction: (a: ReviewAction) => void; busy: boolean; markError: string; onMark: () => void }) {
   const [reasons, setReasons] = useState<Reasons | null>(null), [reasonError, setReasonError] = useState('');
+  const [summary, setSummary] = useState<Summary | null>(null), [summaryError, setSummaryError] = useState('');
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    let live = true; setReasons(null); setReasonError('');
-    invoke<Reasons>('plan_interval_reasons', { snapshotId: i.snapshot_id })
-      .then(r => { if (live) setReasons(r); }).catch(e => { if (live) setReasonError(errorMessage(e)); });
+    let live = true; setReasons(null); setReasonError(''); setSummary(null); setSummaryError('');
+    if (!sources.modules.wealth) return;
+    invoke<Reasons>('plan_interval_reasons', { snapshotId: interval.snapshot_id })
+      .then(r => { if (live) { if (r.generation !== sources.generation || r.snapshot_id !== interval.snapshot_id) setReasonError('资料已变化，请重试。'); else setReasons(r); } }).catch(e => { if (live) setReasonError(errorMessage(e)); });
+    invoke<Summary>('wealth_summary').then(r => { if (live) { if (r.generation !== sources.generation) setSummaryError('资料已变化，请重试。'); else setSummary(r); } }).catch(e => { if (live) setSummaryError(errorMessage(e)); });
     return () => { live = false; };
-  }, [i.snapshot_id, generation]);
+  }, [interval.snapshot_id, sources.generation, sources.write_version, sources.modules.wealth, retry]);
+  return <><PlanningReviewSummary interval={interval} reasons={reasons} reasonError={reasonError} summary={summary} summaryError={summaryError} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onAction={onAction} blocked={steps.busy} onRetry={() => setRetry(n => n + 1)}/><Steps interval={interval} {...steps} reasons={reasons} reasonError={reasonError}/></>;
+}
+
+/** The observations and the existing reason table share one guarded read. */
+function Steps({ interval: i, busy, markError, onMark, reasons, reasonError }: { interval: Interval; busy: boolean; markError: string; onMark: () => void; reasons: Reasons | null; reasonError: string }) {
   const ok = i.delta_nw_cents !== null;
   return <article className="ui-card ui-content plan-steps" aria-label="这一期的复盘">
     <div className="ui-section-head"><h3>{dateRange(i)}</h3><span>{i.days} 天 · 两次完整盘点之间</span></div>
@@ -113,7 +132,7 @@ function Steps({ interval: i, busy, markError, onMark, generation }: { interval:
         <div><dt>已记录公积金缴存</dt><dd>{money(i.hpf_cents)}</dd></div>
         <div><dt>公积金账户变化</dt><dd>{money(i.hpf_change_cents)}</dd></div>
       </dl> : <p className="muted">{statusText[i.status]}；已记录收入 {money(i.income_cents)}，公积金缴存 {money(i.hpf_cents)}。</p>}
-      <p className="muted small">收入覆盖待核对。净资产变化含估值变化，不能反推消费、真实储蓄或储蓄率。</p>
+      <p className="muted small">收入覆盖待核对。净资产变化含估值变化，不能反推消费或真实储蓄。</p>
     </section>
     <section aria-labelledby="plan-step-2"><h4 id="plan-step-2">变化</h4>
       {ok ? <>
@@ -126,7 +145,7 @@ function Steps({ interval: i, busy, markError, onMark, generation }: { interval:
       {reasonError ? <p className="error" role="alert">读取失败：{reasonError}</p> : !reasons ? <p className="muted" role="status">正在读取…</p> : <>
         <p>{reasons.notes.trim() ? <><span className="muted">这次盘点备注：</span>{reasons.notes}</> : <span className="muted">这次盘点没有备注。</span>}</p>
         {reasons.lines.length ? <table className="ui-table plan-reasons"><thead><tr><th>日期</th><th>来源</th><th>名称</th><th className="amount">金额</th></tr></thead>
-          <tbody>{reasons.lines.map(l => <tr key={l.source + l.id}><td>{l.date}</td><td><span className="ui-tag">{reasonSourceLabel[l.source] ?? l.source}</span></td><td>{l.title}</td><td className="amount">{money(reasonIsInflow(l) && l.amount_cents ? '-' + l.amount_cents : l.amount_cents)}</td></tr>)}</tbody></table>
+          <tbody>{reasons.lines.map(l => <tr key={l.source + l.id}><td>{l.date}</td><td><span className="ui-tag">{reasonSourceLabel[l.source] ?? l.source}</span></td><td>{l.title}</td><td className="amount">{l.amount_cents === null ? <span className="muted">金额未知</span> : money(reasonIsInflow(l) ? '-' + l.amount_cents : l.amount_cents)}</td></tr>)}</tbody></table>
           : <p className="muted">这段时间没有已记录的物品购入、重要支出或周期付款。</p>}
         <p className="muted small">这些记录只用于解释，不会调整上面的数字。</p>
       </>}

@@ -101,6 +101,8 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [featureEditing, setFeatureEditing] = useState(false), [dataBusy, setDataBusy] = useState(false), [modeBusy, setModeBusy] = useState(false);
   const [section, setSection] = useState<Section>(() => localStorage.getItem(resetKey) ? 'settings' : initialSection(sessionStorage));
   const [wishFocus, setWishFocus] = useState<Pick<WishlistQuery, 'search' | 'filter'> | null>(null);
+  const [reviewFocus, setReviewFocus] = useState<{ id: string; generation: string } | null>(null);
+  const [wealthReviewFocus, setWealthReviewFocus] = useState<import('./WealthPage').WealthReviewFocus | null>(null);
   const [planningTab, setPlanningTab] = useState<PlanningTab>('goals');
   const [wishlistEditing, setWishlistEditing] = useState(() => !!storedWishlistDraft(localStorage) || !!storedWishlistChange(localStorage, wishlistAbandonKey));
   const [trashAction, setTrashAction] = useState<TrashAction | null>(null);
@@ -360,6 +362,15 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   useEffect(() => {
     if (planFocus && (section !== 'planning' || planningTab !== planFocus.tab || libraryGeneration !== planFocus.generation)) setPlanFocus(null);
   }, [section, planningTab, libraryGeneration, planFocus]);
+  useEffect(() => {
+    if (reviewFocus && (section !== 'planning' || planningTab !== 'savings' || libraryGeneration !== reviewFocus.generation || !modules.wealth || !modules.planning)) setReviewFocus(null);
+    if (wealthReviewFocus && (section !== 'wealth' || libraryGeneration !== wealthReviewFocus.generation || !modules.wealth)) setWealthReviewFocus(null);
+  }, [section, planningTab, libraryGeneration, modules.wealth, modules.planning, reviewFocus, wealthReviewFocus]);
+  const gotoReview = (id: string) => { gotoPlanning('savings'); if (libraryGeneration) setReviewFocus({ id, generation: libraryGeneration }); };
+  const gotoReviewWealth = (a: import('./review-observations').ReviewAction) => {
+    if (!libraryGeneration || !modules.wealth || (a.kind !== 'accounts' && a.kind !== 'snapshot')) return;
+    beginReturn(); setWealthReviewFocus({ generation: libraryGeneration, kind: a.kind, ...(a.kind === 'snapshot' ? { id: a.id } : {}) }); setSection('wealth'); setDetailId(null);
+  };
   function openModuleSettings() {
     beginReturn();
     setSettingsGroup('modules');
@@ -991,10 +1002,10 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         data: <DataManagement onImported={() => { void refresh(); void taxonomy.reload().catch(() => {}); }} onBusyChange={setDataBusy} generation={page?.generation ?? null} demo={!!demoStatus?.active} blocked={wishlistEditing || taxonomyGuard || !!draft || !!(trashRecovery || recordTrashRecovery)} onTrash={() => openSubpage('trash', 'data')}/>,
         demo: demoStatus.available ? <DemoSettings status={demoStatus} blocked={modeBusy || modeBlocked} onSwitch={() => void changeDemoMode(!demoStatus.active)} onReset={() => void changeDemoMode(true, true)}/> : <p className="muted">样例资料暂不可用。</p>,
       }}/>}
-      {section === 'wealth' && <WealthPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
+      {section === 'wealth' && <WealthPage key={libraryGeneration} reviewFocus={wealthReviewFocus} onReviewFocusDone={() => setWealthReviewFocus(null)} onGotoPlanning={modules.planning ? gotoReview : undefined} today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.recurring} onSearch={v => setSearches(s => (s.recurring === v ? s : { ...s, recurring: v }))} autoNew={autoNew === 'recurring'} onAutoNewDone={() => setAutoNew(null)} modules={modules} onOpenSource={openSource}/>}
       {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.virtual} onSearch={v => setSearches(s => (s.virtual === v ? s : { ...s, virtual: v }))} autoNew={autoNew === 'virtual'} onAutoNewDone={() => setAutoNew(null)} modules={modules} onOpenSource={openSource}/>}
-      {section === 'planning' && <PlanningPage key={libraryGeneration} focus={planFocus && planFocus.generation === libraryGeneration ? planFocus.focus : null} onFocusDone={() => setPlanFocus(null)} today={today} tab={planningTab} onTab={setPlanningTab} onEditingChange={setFeatureEditing}/>}
+      {section === 'planning' && <PlanningPage reviewSnapshotId={reviewFocus && reviewFocus.generation === libraryGeneration ? reviewFocus.id : null} onReviewFocusDone={() => setReviewFocus(null)} onGotoWealth={gotoReviewWealth} key={libraryGeneration} focus={planFocus && planFocus.generation === libraryGeneration ? planFocus.focus : null} onFocusDone={() => setPlanFocus(null)} today={today} tab={planningTab} onTab={setPlanningTab} onEditingChange={setFeatureEditing}/>}
       {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} initialYear={expensesInitialYear()} onOpenAsset={id => { beginReturn(); setSection('assets'); void select(id, true); }} onOpenSource={openSource} source={sourceFocus} onSourceDone={onSourceDone} search={searches.expenses} onSearch={v => setSearches(s => (s.expenses === v ? s : { ...s, expenses: v }))} autoNew={autoNew === 'expenses'} onAutoNewDone={() => setAutoNew(null)} restoreScroll={scrollRestore('expenses')} generation={libraryGeneration} onYearRemember={rememberExpensesYear}/>}
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
       {section === 'overview' && !modeBusy && <>

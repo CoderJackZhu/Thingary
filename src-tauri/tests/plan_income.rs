@@ -403,6 +403,118 @@ fn reasons_list_the_interval_records_and_respect_modules() {
 }
 
 #[test]
+fn reasons_keep_unknown_amounts_without_changing_date_module_or_sort_filters() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("lib");
+    let mut s = Store::open(&root).unwrap();
+    let b = book(&mut s);
+    check_in(&mut s, "2026-01-31", &[(&b.cash, 100), (&b.fund, 100)]);
+    let end = check_in(&mut s, "2026-03-31", &[(&b.cash, 100), (&b.fund, 100)]);
+    let mut ids = Vec::new();
+    for (name, day, amount) in [
+        ("虚构未知金额", Some("2026-03-10"), None),
+        ("虚构已知金额", Some("2026-03-10"), Some("125")),
+        ("虚构较早记录", Some("2026-02-02"), Some("0")),
+        ("虚构起点记录", Some("2026-01-31"), None),
+        ("虚构区间外记录", Some("2026-04-01"), None),
+        ("虚构无日期记录", None, None),
+    ] {
+        ids.push(
+            s.save(
+                &thingary_lib::domain::Save {
+                    request_id: rid(),
+                    generation: s.generation(),
+                    asset_id: None,
+                    expected_revision: None,
+                    name: name.into(),
+                    price_cents: amount.map(str::to_owned),
+                    purchase_date: day.map(str::to_owned),
+                },
+                TODAY,
+            )
+            .unwrap()
+            .id,
+        );
+    }
+    let r = s.plan_interval_reasons(&end).unwrap();
+    let mut same_day = vec![ids[0].clone(), ids[1].clone()];
+    same_day.sort();
+    same_day.push(ids[2].clone());
+    assert_eq!(
+        r.lines.iter().map(|l| l.id.clone()).collect::<Vec<_>>(),
+        same_day
+    );
+    assert_eq!(
+        r.lines
+            .iter()
+            .find(|l| l.id == ids[0])
+            .unwrap()
+            .amount_cents,
+        None
+    );
+    assert_eq!(
+        r.lines
+            .iter()
+            .find(|l| l.id == ids[1])
+            .unwrap()
+            .amount_cents
+            .as_deref(),
+        Some("125")
+    );
+    assert_eq!(
+        r.lines
+            .iter()
+            .find(|l| l.id == ids[2])
+            .unwrap()
+            .amount_cents
+            .as_deref(),
+        Some("0")
+    );
+    let serialized = serde_json::to_value(&r).unwrap();
+    let unknown = serialized["lines"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|l| l["id"] == ids[0])
+        .unwrap();
+    assert!(unknown["amount_cents"].is_null());
+    // Module-owned records remain filtered; physical records remain available.
+    let dataset = std::fs::read_dir(root.join("datasets"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let c = Connection::open(dataset.join("data.sqlite")).unwrap();
+    c.execute_batch("INSERT INTO recurring_plans(id,name,category,amount_cents,interval_months,first_due,paused,active_from,notes,revision,created_at,updated_at) VALUES('review-plan','虚构周期','other',100,1,'2026-03-01',0,'2026-03-01','',1,'2026-03-01','2026-03-01');
+        INSERT INTO plan_payments(id,plan_id,due_date,state,paid_date,amount_cents,notes,revision,created_at,updated_at) VALUES('review-payment','review-plan','2026-03-01','paid','2026-03-01',100,'',1,'2026-03-01','2026-03-01');
+        INSERT INTO virtual_assets(id,name,kind,provider,purchase_date,price_cents,url,notes,revision,created_at,updated_at,billing) VALUES('review-virtual','虚构权益','general','虚构','2026-03-01',200,'','',1,'2026-03-01','2026-03-01','single');").unwrap();
+    let all_modules = s.plan_interval_reasons(&end).unwrap();
+    assert_eq!(all_modules.lines.len(), 5);
+    assert_eq!(
+        all_modules
+            .lines
+            .iter()
+            .find(|l| l.id == "review-virtual")
+            .unwrap()
+            .amount_cents
+            .as_deref(),
+        Some("200")
+    );
+    modules::write(
+        &root,
+        &Modules {
+            recurring: false,
+            virtual_assets: false,
+            expenses: false,
+            ..Modules::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(s.plan_interval_reasons(&end).unwrap().lines.len(), 3);
+}
+
+#[test]
 fn purging_a_check_in_clears_its_mark() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(&dir.path().join("lib")).unwrap();

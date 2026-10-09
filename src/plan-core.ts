@@ -41,33 +41,41 @@ export function costSources(events: StoredLifeEvent[], ppAnnual: string) {
   if (Number(ppAnnual) > 0) out.push({ id: 'personal_pension', label: '个人养老金现金转入' });
   return out;
 }
-export function occurrenceMissing(snapshot: Snapshot, core: PlanningCore | null | undefined, events: StoredLifeEvent[], today: string): string[] {
-  const missing: string[] = [], coveredDebts = new Set<string>();
+export type OccurrenceIssueKind = 'overdue' | 'actual_date' | 'payments' | 'payment_source' | 'absorption' | 'loan' | 'unlinked_debt';
+export type OccurrenceIssue = { event_id: string | null; kind: OccurrenceIssueKind; message: string };
+export function occurrenceIssues(snapshot: Snapshot, core: PlanningCore | null | undefined, events: StoredLifeEvent[], today: string): OccurrenceIssue[] {
+  const missing: OccurrenceIssue[] = [], coveredDebts = new Set<string>();
   for (const e of events) {
+    const add = (kind: OccurrenceIssueKind, message: string) => missing.push({ event_id: e.id, kind, message });
     const o = core?.occurrences.find(x => x.event_id === e.id);
-    if (!o) { if (e.included && e.date < today.slice(0, 7)) missing.push(`${e.label}：日期已过，待核对。`); continue; }
+    if (!o) { if (e.included && e.date < today.slice(0, 7)) add('overdue', `${e.label}：日期已过，待核对。`); continue; }
     if (o.status === 'cancelled') continue;
-    if (o.actual_date > today) missing.push(`${e.label}：实际日期不能晚于今天。`);
-    if (!o.payments.length) missing.push(`${e.label}：实际付款分项待补充。`);
+    if (o.actual_date > today) add('actual_date', `${e.label}：实际日期不能晚于今天。`);
+    if (!o.payments.length) add('payments', `${e.label}：实际付款分项待补充。`);
     for (const p of o.payments) {
       const rule = core?.fund_rules.find(x => x.account_id === p.account_id);
-      if (p.amount_cents === null || !p.account_id || rule?.availability !== 'available' || rule.share_hundredths !== 10000) missing.push(`${e.label}：付款金额／来源范围待核对。`);
-      if (p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision)) missing.push(`${e.label}：付款被哪份盘点吸收待核对。`);
-      if (p.date > snapshot.date && p.absorbed_snapshot_id) missing.push(`${e.label}：起点之后的付款不能标已吸收。`);
+      if (p.amount_cents === null || !p.account_id || rule?.availability !== 'available' || rule.share_hundredths !== 10000) add('payment_source', `${e.label}：付款金额／来源范围待核对。`);
+      if (p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision)) add('absorption', `${e.label}：付款被哪份盘点吸收待核对。`);
+      if (p.date > snapshot.date && p.absorbed_snapshot_id) add('absorption', `${e.label}：起点之后的付款不能标已吸收。`);
     }
     const paid = o.payments.reduce((s, p) => s + BigInt(p.amount_cents ?? '0'), 0n);
-    if (!o.payments_complete || paid < 0n) missing.push(`${e.label}：仅部分付款已核对，剩余安排待补充。`);
+    if (!o.payments_complete || paid < 0n) add('payments', `${e.label}：仅部分付款已核对，剩余安排待补充。`);
     if (Number(e.price_cents) > Number(e.down_cents) || o.loan !== null) {
       const l = o.loan;
-      if (!l || l.as_of !== snapshot.date) missing.push(`${e.label}：截至资金起点的余债／剩余期待核对。`);
+      if (!l || l.as_of !== snapshot.date) add('loan', `${e.label}：截至资金起点的余债／剩余期待核对。`);
       else {
         const entry = snapshot.entries.find(x => x.account_id === l.account_id && x.side === 'liability' && x.counted);
-        if (!entry || entry.amount_cents !== l.principal_cents) missing.push(`${e.label}：余债与盘点负债不一致。`);
-        else { if (coveredDebts.has(l.account_id)) missing.push(`${e.label}：同一余债重复接续。`); coveredDebts.add(l.account_id); }
+        if (!entry || entry.amount_cents !== l.principal_cents) add('loan', `${e.label}：余债与盘点负债不一致。`);
+        else { if (coveredDebts.has(l.account_id)) add('loan', `${e.label}：同一余债重复接续。`); coveredDebts.add(l.account_id); }
       }
     }
   }
   const debts = snapshot.entries.filter(e => e.counted && e.side === 'liability' && Number(e.amount_cents) > 0 && !coveredDebts.has(e.account_id)).length;
-  if (debts) missing.push(`${debts} 个负债账户尚未建立还款接续，请在已发生的大额计划中核对。`);
+  if (debts) missing.push({ event_id: null, kind: 'unlinked_debt', message: `${debts} 个负债账户尚未建立还款接续，请在已发生的大额计划中核对。` });
   return missing;
+}
+
+/** Backward-compatible text projection for all existing calculation callers. */
+export function occurrenceMissing(snapshot: Snapshot, core: PlanningCore | null | undefined, events: StoredLifeEvent[], today: string): string[] {
+  return occurrenceIssues(snapshot, core, events, today).map(issue => issue.message);
 }

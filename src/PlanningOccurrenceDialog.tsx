@@ -5,14 +5,21 @@ import { CentInput, FormRow } from './FormControls';
 import { kindLabel } from './wealth';
 import type { Account, Snapshot } from './wealth';
 import type { StoredLifeEvent } from './plan';
-import type { Occurrence, Payment } from './plan-core';
+import type { Occurrence, OccurrenceIssueKind, Payment } from './plan-core';
 const blankPayment = (date: string): Payment => ({ id: crypto.randomUUID(), date, amount_cents: null, account_id: null, absorbed_snapshot_id: null, absorbed_revision: null, source_kind: null, source_id: null });
-export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, today, busy, stuck, notice, onClose, onSave }: { event: StoredLifeEvent; existing?: Occurrence; snapshot: Snapshot | null | undefined; accounts: Account[]; today: string; busy: boolean; stuck: boolean; notice: string; onClose: () => void; onSave: (o: Occurrence) => void }) {
+export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, today, busy, stuck, notice, initialIssue, onClose, onSave }: { event: StoredLifeEvent; existing?: Occurrence; snapshot: Snapshot | null | undefined; accounts: Account[]; today: string; busy: boolean; stuck: boolean; notice: string; initialIssue?: OccurrenceIssueKind; onClose: () => void; onSave: (o: Occurrence) => void }) {
   const name = (id: string, kind: string) => accounts.find(a => a.id === id)?.fields.name ?? `${kindLabel(kind)}（历史账户）`;
   const dialog = useRef<HTMLDialogElement>(null);
   const [o, setO] = useState<Occurrence>(() => structuredClone(existing ?? { id: crypto.randomUUID(), event_id: event.id, status: 'occurred', actual_date: today, payments_complete: false, payments: [blankPayment(today)], loan: null }));
   const [error, setError] = useState('');
-  useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
+  useEffect(() => {
+    dialog.current?.showModal();
+    const absorptionIndex = Math.max(0, o.payments.findIndex(p => snapshot && (p.date <= snapshot.date ? p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision : !!p.absorbed_snapshot_id)));
+    const payment = o.payments[absorptionIndex], absorptionField = `付款${absorptionIndex + 1}${!payment?.account_id ? '账户' : payment.date <= (snapshot?.date ?? '') ? '已吸收' : '日期'}`;
+    const labels = { overdue: '现实状态', actual_date: '实际发生日期', payments: '付款分项完整', payment_source: '付款1金额', absorption: absorptionField, loan: '贷款账户', unlinked_debt: '贷款账户' };
+    if (initialIssue) dialog.current?.querySelector<HTMLElement>(`[aria-label="${labels[initialIssue]}"]:not(:disabled)`)?.focus();
+    return () => dialog.current?.close();
+  }, [initialIssue]);
   const patch = (p: Partial<Occurrence>) => setO(x => ({ ...x, ...p }));
   const pay = (id: string, fields: Partial<Payment>) => patch({ payments: o.payments.map(p => p.id === id ? { ...p, ...fields } : p) });
   const financed = Number(event.price_cents) > Number(event.down_cents);

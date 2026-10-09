@@ -414,7 +414,7 @@ impl Store {
                 "virtual" | "topup" => m.virtual_assets,
                 _ => true,
             };
-            in_range && enabled && l.amount_cents.is_some()
+            in_range && enabled
         });
         lines.sort_by(|a, b| {
             b.date
