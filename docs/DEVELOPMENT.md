@@ -69,7 +69,7 @@ npm run dev -- --port 1429
 
 `retirement` 样例初始选择自动北京收入，需主动改选本次手填／不计收入才提供长期答案；`pension` 样例保留未来公积金缴存，改选手填也因受限池依赖阻断。参与受限池估算的资料不清空事实或假定已解锁；已有明确排除／零参与的账户仍保留原记录。独立养老金核对面板不解锁职业搜索。契约与出口见[首版范围与输入](CAREER_SCENARIO_DESIGN.md#首版支持范围与输入冻结)：计算、浏览器交互与当前首版状态截图已核对：1280×900 和 420×900 覆盖正常、缺项、错误、空资料及受限池阻断；正常答案覆盖三种外观明暗模式。Ego 截图超时后使用应用内浏览器补齐，未取得历史版本的同尺寸截图；完整用途观察与原生验收尚未完成。
 
-测试：`tests/career-income-scope.test.mjs`（临时收入选择、缺项、受限池门控、独立逐月金额与现金去重、非零收益／通胀下多笔收入起止和少一分边界）、`tests/career-insurance.test.mjs`（相同基数不同输入方式的公积金一致性、非法值阻断）、`tests/plan-career.test.mjs`（真实来源形态的编译、费用去重、缴费对资格与受限池的影响、付款先后、缺项、固定目标反求）、`tests/plan-career-map.test.mjs`（搜索、阶段费用、补助、一次性收入、社保去重）、`tests/plan-career-reference.test.mjs`（独立核算，预期值由 `tests/helpers/career-reference.mjs` 逐月计算，不导入生产引擎；范围与未验证项见契约“唯一结果与独立核算”），均包含在 `test:ui` 中。浏览器和视觉核验记录保存在内部笔记，不在此逐轮记录。独立逐月核对表可用 `node scripts/career-benchmark.mjs > /tmp/career-benchmark.json` 复现，包含完整虚构输入、预期、实际与差值，不读取资料库。用户用途验证、正式入口和原生验收尚未完成。
+测试：`tests/career-income-scope.test.mjs`（临时收入选择、缺项、受限池门控、独立逐月金额与现金去重、非零收益／通胀下多笔收入起止和少一分边界）、`tests/career-insurance.test.mjs`（相同基数不同输入方式的公积金一致性、非法值阻断）、`tests/plan-career.test.mjs`（真实来源形态的编译、费用去重、缴费对资格与受限池的影响、付款先后、缺项、固定目标反求）、`tests/plan-career-map.test.mjs`（搜索、阶段费用、补助、一次性收入、社保去重）、`tests/career-differential.test.mjs`（固定种子的随机虚构情景，引擎与独立逐月账表比对：60 个目标资产与退休需求、16 个最长空窗，需逐分一致）、`tests/plan-career-reference.test.mjs`（独立核算，预期值由 `tests/helpers/career-reference.mjs` 逐月计算，不导入生产引擎；范围与未验证项见契约“唯一结果与独立核算”），均包含在 `test:ui` 中。浏览器和视觉核验记录保存在内部笔记，不在此逐轮记录。独立逐月核对表可用 `node scripts/career-benchmark.mjs > /tmp/career-benchmark.json` 复现，包含完整虚构输入、预期、实际与差值，不读取资料库。用户用途验证、正式入口和原生验收尚未完成。
 
 ## 自动检查
 
