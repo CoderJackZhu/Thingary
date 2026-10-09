@@ -761,3 +761,162 @@ fn maximum_populated_accounts_reimport_and_cancel() {
     println!("populated 50000 cancellation latency={latency:?}");
     assert!(latency < std::time::Duration::from_secs(1));
 }
+
+#[test]
+fn deleted_receipt_reimport_behavior() {
+    for purged in [false, true] {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut s = Store::open(tmp.path()).unwrap();
+        let mut b = simple(&s);
+        b.files.retain(|f| f.kind == "accounts");
+        let input = commit_input(&s, b.clone());
+        let r = s.financial_import_commit(&input, "2026-10-09").unwrap();
+        let id = r.objects[0].id.clone();
+        s.wealth_trash(&thingary_lib::wealth::TrashChange {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            generation: s.generation(),
+            kind: "account".into(),
+            id: id.clone(),
+            expected_revision: 1,
+            deleted: true,
+        })
+        .unwrap();
+        if purged {
+            s.purge_trash(&thingary_lib::purge::Purge {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                kind: Some("account".into()),
+                id: id.clone(),
+                preview: None,
+            })
+            .unwrap();
+        }
+        let p = s
+            .financial_import_preview(&b, "2026-10-09", &|| false)
+            .unwrap();
+        let mut retry = input.clone();
+        retry.request_id = uuid::Uuid::new_v4().to_string();
+        let result = s.financial_import_commit(&retry, "2026-10-09").unwrap();
+        assert!(!p.can_commit);
+        assert_eq!(p.prior_receipt.as_ref().unwrap().unavailable_objects, 1);
+        assert_eq!(result.unavailable_objects, 1);
+        assert_eq!(
+            s.financial_import_commit(&input, "2026-10-09")
+                .unwrap()
+                .unavailable_objects,
+            1
+        );
+        assert_eq!(
+            s.financial_import_receipt(&retry.request_id, &s.generation())
+                .unwrap()
+                .unwrap()
+                .unavailable_objects,
+            1
+        );
+        // Availability is not stored or added to the historical receipt.
+        let raw: String = s
+            .conn_for_test()
+            .unwrap()
+            .query_row(
+                "SELECT result_json FROM import_receipt WHERE request_id=?1",
+                [&input.request_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(!raw.contains("unavailable_objects"));
+        assert_eq!(result.request_id, r.request_id);
+        assert!(s.wealth_accounts().unwrap().is_empty());
+        drop(s);
+        let mut s = Store::open(tmp.path()).unwrap();
+        assert_eq!(
+            s.financial_import_receipt(&retry.request_id, &s.generation())
+                .unwrap()
+                .unwrap()
+                .unavailable_objects,
+            1
+        );
+        if !purged {
+            s.wealth_trash(&thingary_lib::wealth::TrashChange {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                kind: "account".into(),
+                id: id.clone(),
+                expected_revision: 2,
+                deleted: false,
+            })
+            .unwrap();
+            assert_eq!(
+                s.financial_import_receipt(&input.request_id, &s.generation())
+                    .unwrap()
+                    .unwrap()
+                    .unavailable_objects,
+                0
+            );
+            assert_eq!(s.wealth_accounts().unwrap().len(), 1);
+        }
+        // Another mapping set is a new batch; never rebind the old key.
+        b.generation = s.generation();
+        b.mapping_set_id = "另一个映射集合".into();
+        let fresh = commit_input(&s, b);
+        let new = s.financial_import_commit(&fresh, "2026-10-09").unwrap();
+        assert_ne!(new.objects[0].id, id);
+        assert_eq!(new.unavailable_objects, 0);
+        assert_eq!(
+            s.wealth_accounts().unwrap().len(),
+            if purged { 1 } else { 2 }
+        );
+    }
+}
+
+#[test]
+fn snapshot_receipt_availability_is_current_after_delete_and_purge() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut s = Store::open(tmp.path()).unwrap();
+    let input = commit_input(&s, simple(&s));
+    let r = s.financial_import_commit(&input, "2026-10-09").unwrap();
+    let id = r
+        .objects
+        .iter()
+        .find(|o| o.kind == "snapshot")
+        .unwrap()
+        .id
+        .clone();
+    s.wealth_trash(&thingary_lib::wealth::TrashChange {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        generation: s.generation(),
+        kind: "snapshot".into(),
+        id: id.clone(),
+        expected_revision: 1,
+        deleted: true,
+    })
+    .unwrap();
+    assert_eq!(
+        s.financial_import_receipt(&input.request_id, &s.generation())
+            .unwrap()
+            .unwrap()
+            .unavailable_objects,
+        1
+    );
+    s.purge_trash(&thingary_lib::purge::Purge {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        generation: s.generation(),
+        kind: Some("snapshot".into()),
+        id,
+        preview: None,
+    })
+    .unwrap();
+    assert_eq!(
+        s.financial_import_preview(&input.batch, "2026-10-09", &|| false)
+            .unwrap()
+            .prior_receipt
+            .unwrap()
+            .unavailable_objects,
+        1
+    );
+    assert_eq!(
+        s.financial_import_commit(&input, "2026-10-09")
+            .unwrap()
+            .unavailable_objects,
+        1
+    );
+}

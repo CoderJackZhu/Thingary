@@ -6,7 +6,7 @@ export type ImportBatch = { generation:string; source_name:string; mapping_set_i
 export type ImportObject = { key:string;kind:'account'|'snapshot';external_key:string;id:string;source_rows:number[];status:'new'|'same'|'conflict'|'error';action:string;expected_revision:number|null;before:Record<string,unknown>|null;after:Record<string,unknown> };
 export type ImportIssue = { file:string;code:string;severity:string;source_row:number|null;column:string|null;object_key:string|null;message:string;blocking:boolean };
 export type ImportCounts = { new_accounts:number;new_snapshots:number;same:number;conflicts:number;errors:number;created_accounts:number;created_snapshots:number;corrected:number;skipped:number };
-export type ImportReceipt = { request_id:string;batch_fingerprint:string;source_name:string;mapping_set_id:string;objects:{kind:string;external_key:string;id:string;action:string;revision_before:number|null;revision_after:number|null}[];counts:ImportCounts;created_at:string;origin_before:string|null;origin_after:string|null;origin_changed:boolean };
+export type ImportReceipt = { unavailable_objects?:number;request_id:string;batch_fingerprint:string;source_name:string;mapping_set_id:string;objects:{kind:string;external_key:string;id:string;action:string;revision_before:number|null;revision_after:number|null}[];counts:ImportCounts;created_at:string;origin_before:string|null;origin_after:string|null;origin_changed:boolean };
 export type ImportPreview = { generation:string;context_digest:string;normalized_digest:string;file_fingerprints:Record<string,string>;objects:ImportObject[];total:number;page:number;issues:ImportIssue[];counts:ImportCounts;can_commit:boolean;accounts:Account[];external_keys:Record<string,string>;referenced_keys:string[];account_names:Record<string,string>;origin_before:string|null;prior_receipt:ImportReceipt|null };
 export type ImportCommit = { request_id:string;batch:ImportBatch;context_digest:string;normalized_digest:string;file_fingerprints:Record<string,string> };
 export const columns:Record<FileKind,string[]> = {
@@ -62,4 +62,10 @@ export function sourceRowsLabel(rows:number[]):string {
 /** Restore invalidates a preview, but must not erase an unknown submitted result. */
 export function preserveImportReceipt(raw:string|null):boolean {
  try {const p=JSON.parse(raw??'null');return p?.command==='financial_import_commit'&&typeof p.input?.request_id==='string'&&typeof p.input?.generation==='string';}catch{return false;}
+}
+
+/** The counts describe the original transaction; availability describes the current library. */
+export function receiptAvailability(receipt:Pick<ImportReceipt,'created_at'|'unavailable_objects'>):string {
+ const count=receipt.unavailable_objects??0;
+ return count>0?`这个文件已于 ${receipt.created_at.slice(0,10)} 导入，其中 ${count} 个对象已被删除或清除。可从最近删除恢复尚未清除的对象；或修改文件内容并重新核对外部编号／更换映射集合后重新导入。已清除对象的原外部编号不能在原映射集合重新绑定。同批指纹相同不会再次写入。`:'';
 }

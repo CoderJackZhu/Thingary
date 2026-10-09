@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { csvHeaders, replaceFile, selectAction, receiptMetadata, importMoney, previewPageCount, mappingCandidates, receiptPage, sourceRowsLabel, preserveImportReceipt } from '../src/financial-import.ts';
+import { csvHeaders, replaceFile, selectAction, receiptMetadata, importMoney, previewPageCount, mappingCandidates, receiptPage, sourceRowsLabel, preserveImportReceipt, receiptAvailability } from '../src/financial-import.ts';
 test('header mapping handles BOM, quotes, commas and Chinese without parsing amounts',()=>{
  assert.deepEqual(csvHeaders('\ufeff"账户,编号",名称,"备\n注"\r\na,b,c'),['账户,编号','名称','备\n注']);
  assert.throws(()=>csvHeaders('"broken'),/引号/);
@@ -39,4 +39,14 @@ test('restore retains unresolved financial receipt metadata without retaining or
  assert.equal(preserveImportReceipt(JSON.stringify({command:'wealth_account_save',input:{request_id:'request',generation:'old'}})),false);
  assert.equal(preserveImportReceipt('broken'),false);
  assert.equal(preserveImportReceipt(null),false);
+});
+
+test('expired receipts show the original date, missing objects and actionable next steps',()=>{
+ const receipt={created_at:'2026-10-08T08:00:00Z',unavailable_objects:2};
+ assert.match(receiptAvailability(receipt),/2026-10-08.*2 个对象已被删除或清除/);
+ assert.match(receiptAvailability(receipt),/最近删除恢复/);
+ assert.match(receiptAvailability(receipt),/更换映射集合/);
+ assert.match(receiptAvailability(receipt),/同批指纹相同不会再次写入/);
+ assert.equal(receiptAvailability({created_at:receipt.created_at}), '');
+ assert.equal(receiptAvailability({...receipt,unavailable_objects:0}), '');
 });

@@ -61,9 +61,11 @@ npm run dev -- --port 1429
 
 金融 CSV 解析器的契约、虚构样例和组件边界见[解析器说明](../src-tauri/src/financial_import_parser/README.md)，回归位于 `src-tauri/tests/financial_import_parser.rs`，由 `npm test` 执行。它不写入数据库。
 
-P1-3A 的账户／完整盘点写入回归在 `src-tauri/tests/financial_import.rs`：24 个月、真实目录完整性、整组冲突／修订、历史覆盖、回滚无回执、失联重启重放、切库／模块失效、永久清除墓碑、schema33→34 升级失败回滚及旧／新完整备份。`src-tauri/tests/wealth.rs` 对原命令的 generation／UUID／原指纹／回执／故障点保持回归；`recovery.rs` 的旧 schema 恢复日志用例证明并覆盖升级前恢复。故障注入仅在测试 feature 中启用。
+P1-3A 的账户／完整盘点写入回归在 `src-tauri/tests/financial_import.rs`：24 个月、真实目录完整性、整组冲突／修订、历史覆盖、回滚无回执、失联重启重放、切库／模块失效、永久清除墓碑、同批重导入的已删除／清除数量及恢复／重启／更换映射集合、schema33→34 升级失败回滚及旧／新完整备份。`src-tauri/tests/wealth.rs` 对原命令的 generation／UUID／原指纹／回执／故障点保持回归；`recovery.rs` 的旧 schema 恢复日志用例证明并覆盖升级前恢复。故障注入仅在测试 feature 中启用。
 
-`tests/financial-import.test.mjs` 覆盖表头、动作修订、文件替换、整数金额／未知、仅请求元数据、分页、稳定候选、行号范围及恢复保留未知请求。浏览器预览 `/visual-preview.html?section=wealth&import=normal|unknown|empty|error` 为虚构内存桩，不证明原生写入；四状态已核对三种外观、明暗及 1200×800 / 520×800 同尺寸基线对照。
+删除后旧回执补丁已由临时 Store 与虚构浏览器对照验证；原生删除→重导入提示及恢复全过程尚未验。
+
+`tests/financial-import.test.mjs` 覆盖删除回执日期／数量／下一步提示、表头、动作修订、文件替换、整数金额／未知、仅请求元数据、分页、稳定候选、行号范围及恢复保留未知请求。浏览器预览 `/visual-preview.html?section=wealth&import=normal|unknown|empty|error` 为虚构内存桩，不证明原生写入；四状态已核对三种外观、明暗及 1200×800 / 520×800 同尺寸基线对照。
 
 容量用例默认 ignored，单独运行并用 `/usr/bin/time -l` 测量测试进程：
 

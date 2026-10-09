@@ -4,7 +4,7 @@ import { CloseButton } from './CloseButton';
 import { FormRow } from './FormControls';
 import { errorMessage } from './asset';
 import { kindLabel, pendingKey, storedPending, code } from './wealth';
-import { columns, csvHeaders, replaceFile, selectAction, receiptMetadata, importMoney, previewPageCount, mappingCandidates, receiptPage, sourceRowsLabel } from './financial-import';
+import { columns, csvHeaders, replaceFile, selectAction, receiptMetadata, importMoney, previewPageCount, mappingCandidates, receiptPage, sourceRowsLabel, receiptAvailability } from './financial-import';
 import type { FileKind, ImportBatch, ImportCommit, ImportPreview, ImportReceipt, ImportObject, ImportAction } from './financial-import';
 import './financial-import.css';
 
@@ -23,7 +23,7 @@ export function FinancialImportDialog({ generation, onClose }: { generation:stri
  async function readPreview(next:ImportBatch,target:number){
   const old=job.current;if(old)void invoke('financial_import_cancel',{jobId:old}).catch(()=>{});
   const id=crypto.randomUUID(),ticket=++sequence.current;job.current=id;setBusy('正在解析并核对整批资料');setProgress('');setError('');
-  try{const result=await invoke<ImportPreview>('financial_import_preview',{input:next,jobId:id});if(!alive.current||ticket!==sequence.current)return;setPreview(result);setIssuePage(0);setDirty(false);setStep(target);setBatch({...next,page:result.page});if(result.prior_receipt)setNotice('这批内容已完成导入，可以查看原回执。');else setNotice('');}
+  try{const result=await invoke<ImportPreview>('financial_import_preview',{input:next,jobId:id});if(!alive.current||ticket!==sequence.current)return;setPreview(result);setIssuePage(0);setDirty(false);setStep(target);setBatch({...next,page:result.page});if(result.prior_receipt)setNotice(receiptAvailability(result.prior_receipt)||'这批内容已完成导入，可以查看原回执。');else setNotice('');}
   catch(e){if(alive.current&&ticket===sequence.current){setDirty(true);setError(code(e)==='CANCELLED'?'解析已取消，未提交任何资料。':errorMessage(e));}}
   finally{if(alive.current&&ticket===sequence.current){job.current=null;setBusy('');}}
  }
@@ -39,7 +39,7 @@ export function FinancialImportDialog({ generation, onClose }: { generation:stri
   if(!unresolved)return;setBusy('正在按原请求核对回执');setError('');
   try{const saved=await invoke<ImportReceipt|null>('financial_import_receipt',{request:unresolved.input.request_id,generation:currentDataset?generation:unresolved.input.generation});
    if(!saved&&currentDataset&&unresolved.input.generation!==generation){if(alive.current)setNotice('当前资料库没有该回执，不能据此判断原资料库是否提交。原请求元数据仍保留，请回到原资料库核对。');return;}
-   localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setNotice('已确认整批提交成功。');}}else if(alive.current){setNotice('查询无回执：本次未提交。可以重新选择文件和预览。');}
+   localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setNotice(receiptAvailability(saved)||'已确认整批提交成功。');}}else if(alive.current){setNotice('查询无回执：本次未提交。可以重新选择文件和预览。');}
    if(alive.current)setUnresolved(null);
   }catch(e){if(alive.current){if(code(e)==='STALE_DATASET'){setNotice('资料库已切换；原请求元数据仍保留，请回到原资料库核对，或只读检查当前库是否已恢复同一回执；不能在新库重提。');}else setError('暂时无法核对，原请求元数据已保留。'+errorMessage(e));}}
   finally{if(alive.current)setBusy('');}
@@ -50,9 +50,9 @@ export function FinancialImportDialog({ generation, onClose }: { generation:stri
   const metadata=receiptMetadata(input);
   try{localStorage.setItem(pendingKey,JSON.stringify(metadata));}catch{setError('无法保留请求元数据，尚未提交，请检查可用空间后重试。');return;}
   setUnresolved(metadata);setStep(4);setBusy('正在提交整批资料，关闭后仍需核对回执');setError('');
-  try{const saved=await invoke<ImportReceipt>('financial_import_commit',{input});localStorage.removeItem(pendingKey);window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setUnresolved(null);setNotice('整批导入已完成。');}}
+  try{const saved=await invoke<ImportReceipt>('financial_import_commit',{input});localStorage.removeItem(pendingKey);window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setUnresolved(null);setNotice(receiptAvailability(saved)||'整批导入已完成。');}}
   catch(e){
-   try{const saved=await invoke<ImportReceipt|null>('financial_import_receipt',{request:input.request_id,generation:input.batch.generation});localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setUnresolved(null);setNotice('已按原请求确认提交成功。');}}else if(alive.current){setUnresolved(null);setStep(3);setError('查询无回执：本次未提交，整批没有写入。'+errorMessage(e));}}
+   try{const saved=await invoke<ImportReceipt|null>('financial_import_receipt',{request:input.request_id,generation:input.batch.generation});localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setUnresolved(null);setNotice(receiptAvailability(saved)||'已按原请求确认提交成功。');}}else if(alive.current){setUnresolved(null);setStep(3);setError('查询无回执：本次未提交，整批没有写入。'+errorMessage(e));}}
    catch(check){if(alive.current){setError('提交结果未知；原请求元数据已保留，请核对回执。'+errorMessage(check));setUnresolved(metadata);}}
   }finally{if(alive.current)setBusy('');}
  }
@@ -63,7 +63,7 @@ export function FinancialImportDialog({ generation, onClose }: { generation:stri
   <form onSubmit={e=>e.preventDefault()}>
    <header><div><p className="eyebrow">账户与盘点 · 金融历史</p><h2 id="financial-import-title">导入历史</h2><p className="muted">导入账户与完整盘点。金额单位元；负债填正数；不会修改规划假设或冻结基准。</p></div><CloseButton type="button" aria-label="关闭历史导入" onClick={close}/></header>
    <ol className="import-steps" aria-label="导入步骤">{['选择文件','对应账户与列','预览核对','确认与回执'].map((label,i)=><li key={label} aria-current={step===i+1?'step':undefined}>{i+1}. {label}</li>)}</ol>
-   {error&&<p className="notice" role="alert">{error}</p>}{notice&&<p className="notice" role="status">{notice}</p>}
+   {error&&<p className="notice" role="alert">{error}</p>}{notice&&!(step===4&&receipt&&receiptAvailability(receipt))&&<p className="notice" role="status">{notice}</p>}
    {busy&&<div className="notice" role="status">{busy}…{job.current&&<><span>{progress&&` ${progress}。`}</span><progress aria-label="解析与核对进度"/><button type="button" onClick={()=>{const id=job.current;if(id){sequence.current++;job.current=null;void invoke('financial_import_cancel',{jobId:id}).catch(()=>{});setBusy('');setDirty(true);setError('解析已取消，未提交任何资料。');}}}>取消解析</button></>}</div>}
    {step===1&&<section className="form-block">
     <h3>选择 UTF-8 CSV</h3><p>每批合计最多 20 MiB、50000 数据行。日期为 YYYY-MM-DD；金额最多两位小数。空余额是错误，0 是明确零；不复制前值、不自动清理或转换金额。</p>
@@ -95,7 +95,7 @@ export function FinancialImportDialog({ generation, onClose }: { generation:stri
    </section>}
    {step===4&&<section className="form-block">
     {unresolved&&<><h3>提交结果待核对</h3><p>原请求：{unresolved.input.request_id}</p><p>未保留原始 CSV。先查询原请求回执，不换新编号重提。</p><button type="button" disabled={!!busy} onClick={()=>void verify()}>按原请求核对回执</button>{unresolved.input.generation!==generation&&<button type="button" disabled={!!busy} onClick={()=>void verify(true)}>在当前资料库只读核对同一回执</button>}</>}
-    {receipt&&<><h3>整批导入回执</h3><p>账户新增 {receipt.counts.created_accounts} 个 · 盘点新增 {receipt.counts.created_snapshots} 次 · 更正 {receipt.counts.corrected} 项 · 跳过 {receipt.counts.skipped} 项</p><p>{receipt.origin_changed?'起点盘点已改变，请复核当前计划来源。':'起点盘点没有改变。'}未来净投入、规划假设和冻结基准均未自动改变。</p><p className="muted">{receipt.source_name} · {receipt.mapping_set_id} · {receipt.created_at}<br/>回执编号：{receipt.request_id}</p><details><summary>查看对象身份与修订（{receipt.objects.length} 项）</summary><div className="import-receipt-list">{receiptPage(receipt.objects,receiptPageIndex).map((r,i)=><p key={i}>{r.kind==='account'?'账户':'盘点'} · {r.external_key} · {r.action==='create'?'新增':r.action==='correct'?'更正':'跳过'} · 修订 {r.revision_before??'新建'} → {r.revision_after??'未知'}<br/><small>{r.id}</small></p>)}</div><nav className="import-pagination" aria-label="回执分页"><button type="button" disabled={receiptPageIndex===0} onClick={()=>setReceiptPageIndex(p=>p-1)}>上一批回执</button><span>第 {receiptPageIndex+1} / {previewPageCount(receipt.objects.length)} 页</span><button type="button" disabled={receiptPageIndex+1>=previewPageCount(receipt.objects.length)} onClick={()=>setReceiptPageIndex(p=>p+1)}>下一批回执</button></nav></details></>}
+    {receipt&&<><h3>整批导入回执</h3>{receiptAvailability(receipt)&&<p className="notice" role="status">{receiptAvailability(receipt)}</p>}<p>{receipt.unavailable_objects?'原导入记录：':''}账户新增 {receipt.counts.created_accounts} 个 · 盘点新增 {receipt.counts.created_snapshots} 次 · 更正 {receipt.counts.corrected} 项 · 跳过 {receipt.counts.skipped} 项</p><p>{receipt.origin_changed?'起点盘点已改变，请复核当前计划来源。':'起点盘点没有改变。'}未来净投入、规划假设和冻结基准均未自动改变。</p><p className="muted">{receipt.source_name} · {receipt.mapping_set_id} · {receipt.created_at}<br/>回执编号：{receipt.request_id}</p><details><summary>查看对象身份与修订（{receipt.objects.length} 项）</summary><div className="import-receipt-list">{receiptPage(receipt.objects,receiptPageIndex).map((r,i)=><p key={i}>{r.kind==='account'?'账户':'盘点'} · {r.external_key} · {r.action==='create'?'新增':r.action==='correct'?'更正':'跳过'} · 修订 {r.revision_before??'新建'} → {r.revision_after??'未知'}<br/><small>{r.id}</small></p>)}</div><nav className="import-pagination" aria-label="回执分页"><button type="button" disabled={receiptPageIndex===0} onClick={()=>setReceiptPageIndex(p=>p-1)}>上一批回执</button><span>第 {receiptPageIndex+1} / {previewPageCount(receipt.objects.length)} 页</span><button type="button" disabled={receiptPageIndex+1>=previewPageCount(receipt.objects.length)} onClick={()=>setReceiptPageIndex(p=>p+1)}>下一批回执</button></nav></details></>}
     {!unresolved&&!receipt&&<p>尚无已完成回执。可以关闭后重新选择文件。</p>}
    </section>}
    <footer><button type="button" onClick={close}>{receipt?'完成':'关闭'}</button>{step>1&&step<4&&<button type="button" disabled={disabled} onClick={()=>setStep(step-1)}>上一步</button>}

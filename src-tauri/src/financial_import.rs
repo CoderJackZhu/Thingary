@@ -132,6 +132,9 @@ pub struct Receipt {
     pub origin_before: Option<String>,
     pub origin_after: Option<String>,
     pub origin_changed: bool,
+    /// Current availability, computed on read; never rewrites the stored receipt.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub unavailable_objects: usize,
 }
 #[derive(Clone)]
 struct Key {
@@ -976,9 +979,42 @@ fn ready(p: &Prepared) -> bool {
             .iter()
             .any(|o| o.action == "unresolved" || (o.status == "error" && o.action != "exclude"))
 }
+fn is_zero(value: &usize) -> bool {
+    *value == 0
+}
+
+fn current_receipt(
+    c: &Connection,
+    mut receipt: Receipt,
+    cancel: &dyn Fn() -> bool,
+) -> Result<Receipt> {
+    let mut accounts =
+        c.prepare("SELECT EXISTS(SELECT 1 FROM fin_accounts WHERE id=?1 AND deleted_at IS NULL)")?;
+    let mut snapshots =
+        c.prepare("SELECT EXISTS(SELECT 1 FROM fin_snapshots WHERE id=?1 AND deleted_at IS NULL)")?;
+    let mut seen = BTreeSet::new();
+    receipt.unavailable_objects = 0;
+    for object in &receipt.objects {
+        checkpoint(cancel)?;
+        if !seen.insert((&object.kind, &object.id)) {
+            continue;
+        }
+        let query = match object.kind.as_str() {
+            "account" => &mut accounts,
+            "snapshot" => &mut snapshots,
+            _ => return Err(Error::new("FORMAT", "回执对象类型无效")),
+        };
+        let live: bool = query.query_row([&object.id], |r| r.get(0))?;
+        if !live {
+            receipt.unavailable_objects += 1;
+        }
+    }
+    Ok(receipt)
+}
+
 fn find_receipt(c: &Connection, request: &str) -> Result<Option<Receipt>> {
     let raw:Option<String>=c.query_row("SELECT r.result_json FROM feature_requests f JOIN import_receipt r ON r.request_id=f.result WHERE f.id=?1",[request],|r|r.get(0)).optional()?;
-    raw.map(|s| serde_json::from_str(&s).map_err(Into::into))
+    raw.map(|s| current_receipt(c, serde_json::from_str(&s)?, &|| false))
         .transpose()
 }
 impl Store {
@@ -1050,7 +1086,7 @@ impl Store {
                 "预览期间资料或模块已变化，请重新预览",
             ));
         }
-        let can_commit = ready(&p);
+        let ready = ready(&p);
         let total = p.objects.len();
         let page = b.page.min(total.saturating_sub(1) / PAGE_SIZE);
         let prior: Option<String> = self
@@ -1061,6 +1097,10 @@ impl Store {
                 |r| r.get(0),
             )
             .optional()?;
+        let prior_receipt = prior
+            .map(|r| current_receipt(self.conn()?, serde_json::from_str(&r)?, cancel))
+            .transpose()?;
+        let can_commit = ready && prior_receipt.is_none();
         Ok(Preview {
             generation: b.generation.clone(),
             context_digest: context,
@@ -1082,7 +1122,7 @@ impl Store {
             referenced_keys: p.referenced_keys,
             account_names: p.account_names,
             origin_before,
-            prior_receipt: prior.map(|r| serde_json::from_str(&r)).transpose()?,
+            prior_receipt,
         })
     }
     pub fn financial_import_commit(&mut self, input: &CommitInput, today: &str) -> Result<Receipt> {
@@ -1114,12 +1154,13 @@ impl Store {
             )
             .optional()?;
         if let Some((id, raw)) = prior {
+            let receipt = current_receipt(&tx, serde_json::from_str(&raw)?, &|| false)?;
             tx.execute(
                 "INSERT INTO feature_requests VALUES(?1,?2,?3)",
                 params![input.request_id, request_fp, id],
             )?;
             tx.commit()?;
-            return Ok(serde_json::from_str(&raw)?);
+            return Ok(receipt);
         }
         if self.import_context_digest(&tx, &|| false)? != input.context_digest {
             return Err(Error::new(
@@ -1160,6 +1201,7 @@ impl Store {
             counts: p.counts,
             created_at: chrono::Utc::now().to_rfc3339(),
             origin_changed: before != after,
+            unavailable_objects: 0,
             origin_before: before,
             origin_after: after,
         };
