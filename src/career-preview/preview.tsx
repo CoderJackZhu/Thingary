@@ -18,6 +18,7 @@ import type { Question } from './map.tsx';
 import { RestResult } from './results.tsx';
 import { careerRetirementSources, careerPensionSources } from './pension-fixture.ts';
 import { PensionMarginal } from './pension-marginal.tsx';
+import { Guided } from './guided.tsx';
 import '../style.css';
 import '../ui.css';
 import '../theme.css';
@@ -168,4 +169,4 @@ function Preview() {
     </>}
   </main>;
 }
-createRoot(document.getElementById('root')!).render(<Preview/>);
+createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).get('lab')==='1'?<Preview/>:<Guided/>);
