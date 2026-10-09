@@ -30,7 +30,7 @@ test('V8: refunds/sales subtract in integer cents, unknown remains excluded, zer
  const unknown=build({reasons:{lines:[line('a','purchase',null)]}});assert.match(unknown.items[0].text,/—／未知/);assert.doesNotMatch(unknown.items[0].text,/¥0/);
 });
 test('fallback, decrease, zero, no action and missing sources do not fabricate facts',()=>{
- for (const delta of [null,'-125','0']) {const o=build({interval:{...interval,delta_nw_cents:delta},snapshots:null});safe(o);assert.equal(o.next,undefined);assert.match(o.items[0].text,delta===null?/暂无可比较/:delta==='0'?/增加了.*0/:/减少了.*1.25/);}
+ for (const delta of [null,'-125','0']) {const o=build({interval:{...interval,delta_nw_cents:delta},snapshots:null});safe(o);assert.equal(o.next,undefined);assert.match(o.items[0].text,delta===null?/暂无可比较/:delta==='0'?/^金融净资产没有变化，含估值变化。$/:/减少了.*1.25/);}
 });
 test('V3/V4: shared occurrence rules, unique events, no writes on ignore; old messages unchanged',()=>{
  const snapshot={id:'end',revision:1,date:'2026-10-01',entries:[{account_id:'cash',side:'asset',counted:true,amount_cents:'16000000'}],missing:[]};
@@ -48,4 +48,13 @@ test('V3/V4: shared occurrence rules, unique events, no writes on ignore; old me
 test('all six templates and every priority satisfy forbidden-word contract',()=>{
  const cases=[{snapshots:{incomplete_count:1,points:[]}},{interval:{...interval,status:'scope_changed'}},{interval:{...interval,status:'no_income'}},{pending:[{event_id:'e',kind:'loan'}]},{reasons:{lines:[line('a','expense','100')]}},{}];
  assert.deepEqual(cases.map(c=>{const o=build(c);safe(o);return o.items[0].id;}),['incomplete','scope_changed','no_income','pending_events','records','change']);
+});
+
+test('zero net-asset change states no change and keeps unknown distinct',()=>{
+ const o=build({interval:{...interval,delta_nw_cents:'0'}});
+ assert.deepEqual(o.items,[{id:'change',text:'金融净资产没有变化，含估值变化。'}]);
+ safe(o);assert.equal(o.next,undefined);
+ assert.doesNotMatch(o.items[0].text,/增加|减少|¥0/);
+ assert.equal(build({interval:{...interval,delta_nw_cents:null}}).items[0].text,'这期暂无可比较的资产变化。');
+ assert.deepEqual(build({interval:{...interval,status:'scope_changed',delta_nw_cents:'0'}}).items.map(x=>x.id),['scope_changed']);
 });

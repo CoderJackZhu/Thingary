@@ -31,7 +31,7 @@ export function buildReviewObservations({ interval: i, reasons, pending, snapsho
   }
   if (i.delta_nw_cents !== null && i.status !== 'scope_changed') {
     const delta = BigInt(i.delta_nw_cents);
-    items.push({ id: 'change', text: `金融净资产${delta < 0n ? '减少' : '增加'}了 ${money((delta < 0n ? -delta : delta).toString())}，含估值变化。` });
+    items.push({ id: 'change', text: delta === 0n ? '金融净资产没有变化，含估值变化。' : `金融净资产${delta < 0n ? '减少' : '增加'}了 ${money((delta < 0n ? -delta : delta).toString())}，含估值变化。` });
   }
   if (!items.length) items.push({ id: 'change', text: '这期暂无可比较的资产变化。' });
   const shown = items.slice(0, 3), first = shown.find(x => x.action);
