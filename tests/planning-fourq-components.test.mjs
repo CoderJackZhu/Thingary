@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import * as flow from '../src/planning-first-run.ts';
+import { buildBasicCapabilities } from '../src/plan-basic.ts';
 import * as defaults from '../src/planning-basic-defaults.ts';
 import { defaultRetire } from '../src/plan.ts';
 import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
@@ -29,13 +30,16 @@ const sourcesOf = saved => ({ generation: 'fictional-fourq', write_version: 1, t
 function runtime(file, props, save = async () => ({ revision: 5 }), caps = unknownCapabilityFixture) {
   const slots = new Map(), calls = [], closes = [];
   let path = 'root', cursor = 0;
+  let effects = [], dirty = false;
+  const focuses = [];
   const hooks = {
     useState(initial) {
       const key = `${path}:${cursor++}`;
       if (!slots.has(key)) slots.set(key, typeof initial === 'function' ? initial() : initial);
-      return [slots.get(key), next => slots.set(key, typeof next === 'function' ? next(slots.get(key)) : next)];
+      return [slots.get(key), next => { slots.set(key, typeof next === 'function' ? next(slots.get(key)) : next); dirty = true; }];
     },
-    useRef: () => ({ current: null }), useEffect() {}, useMemo: fn => fn(),
+    useRef(initial) { const key = `${path}:${cursor++}`; if (!slots.has(key)) slots.set(key, { current: initial }); return slots.get(key); },
+    useEffect(fn, deps) { const key = `${path}:${cursor++}`, prev = slots.get(key); if (!prev || deps.some((v, i) => !Object.is(v, prev[i]))) { slots.set(key, deps); effects.push(fn); } }, useMemo: fn => fn(),
   };
   const saver = { busy: false, stuck: false, notice: '', async save(input) {
     calls.push(structuredClone(input));
@@ -54,7 +58,7 @@ function runtime(file, props, save = async () => ({ revision: 5 }), caps = unkno
   const script = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
-  vm.runInNewContext(script, { module, exports: module.exports, require: id => modules[id] ?? leaf, crypto: globalThis.crypto, console });
+  vm.runInNewContext(script, { module, exports: module.exports, require: id => modules[id] ?? leaf, crypto: globalThis.crypto, Error, console });
   const component = module.exports[file === 'PlanningSetup' ? 'PlanningSetupDialog' : 'PlanningBasicGoals'];
   const finalProps = { today, snapshot: null, accounts: [], reload() {}, onPending() {}, onPension() {}, onEditingChange() {}, onFocusDone() {}, onClose: v => closes.push(v), ...props };
   let tree;
@@ -64,14 +68,28 @@ function runtime(file, props, save = async () => ({ revision: 5 }), caps = unkno
     if (typeof node.type === 'function') { path = key; cursor = 0; return expand(node.type(node.props), `${key}:child`); }
     return { ...node, props: { ...node.props, children: expand(node.props?.children, `${key}:children`) } };
   }
-  function render() { path = 'root'; cursor = 0; tree = expand(component(finalProps), 'tree'); return tree; }
+  function render() {
+    for (let round = 0; round < 5; round++) {
+      dirty = false; effects = []; path = 'root'; cursor = 0; tree = expand(component(finalProps), 'tree');
+      for (const n of nodes()) if (n.props?.ref) n.props.ref.current = {
+        showModal() {}, close() {}, focus: () => focuses.push(n.props['aria-label'] ?? n.props.id),
+        querySelector(selector) {
+          if (selector === '.planning-setup-body') return { scrollTo() {} };
+          const label = selector.match(/aria-label="(.*)"/)?.[1];
+          return nodes().some(x => x.props?.['aria-label'] === label || x.props?.label === label) ? { focus: () => focuses.push(label) } : null;
+        },
+      };
+      effects.forEach(fn => fn()); if (!dirty) break;
+    }
+    return tree;
+  }
   const nodes = () => { const out = []; const visit = n => { if (Array.isArray(n)) n.forEach(visit); else if (n && typeof n === 'object') { out.push(n); visit(n.props?.children); } }; visit(tree); return out; };
   const text = n => Array.isArray(n) ? n.map(text).join('') : n && typeof n === 'object' ? text(n.props?.children) : n == null || n === false ? '' : String(n);
   const find = (type, predicate = () => true) => nodes().find(n => n.type === type && predicate(n.props, n));
   const button = label => nodes().find(n => (n.type === 'button' || n.type === 'CloseButton') && (n.props['aria-label'] === label || text(n) === label));
   const settle = async () => { await new Promise(resolve => setImmediate(resolve)); render(); };
   render();
-  return { render, nodes, text, find, button, calls, closes, saver, settle, props: finalProps };
+  return { render, nodes, text, find, button, calls, closes, saver, settle, focuses, props: finalProps };
 }
 const event = () => ({ preventDefault() {} });
 
@@ -79,6 +97,8 @@ test('close, Esc cancellation and skip discard edits without sending any setup t
   for (const exit of ['close', 'escape', 'skip']) {
     const r = runtime('PlanningSetup', { sources: sourcesOf(null) });
     r.find('input', p => p['aria-label'] === '想在几岁退休？').props.onChange({ target: { value: '61' } }); r.render();
+    stepButtons(r)[1].props.onClick(); r.render();
+    r.find('CentInput').props.onChange('400000'); r.render();
     if (exit === 'escape') r.find('dialog').props.onCancel(event());
     else r.button(exit === 'close' ? '关闭规划设置' : '暂时跳过').props.onClick();
     await r.settle(); assert.equal(r.calls.length, 0); assert.deepEqual(r.closes, [false]);
@@ -146,4 +166,67 @@ test('goal tools are absent in 0/1, default closed in 2/2b, and badges count per
   assert.equal(r.find('details').props.open, false);
   assert.match(r.text(r.find('summary')), /大额计划 2 项/);
   assert.doesNotMatch(r.text(r.find('summary')), /职业试算 \d/);
+});
+
+
+const stepButtons = r => r.nodes().filter(n => n.type === 'button' && /^\d\. /.test(n.props['aria-label'] ?? ''));
+
+test('question buttons jump directly without validation/saving; current step excludes edit extras', () => {
+  const r = runtime('PlanningSetup', { sources: sourcesOf(null) });
+  r.find('input', p => p['aria-label'] === '想在几岁退休？').props.onChange({ target: { value: '19' } }); r.render();
+  for (const step of [3, 1, 2, 0]) {
+    const button = stepButtons(r)[step]; assert.equal(button.props.type, 'button'); button.props.onClick(); r.render();
+    assert.equal(stepButtons(r).filter(n => n.props['aria-current'] === 'step').length, 1);
+    assert.equal(stepButtons(r)[step].props['aria-current'], 'step');
+  }
+  assert.equal(r.calls.length, 0); assert.equal(r.find('p', p => p.role === 'alert'), undefined);
+  for (const step of [4, 5]) {
+    const edited = runtime('PlanningSetup', { sources: sourcesOf(savedPlan()), editMode: true, initialStep: step });
+    assert.equal(stepButtons(edited).length, 4); assert.ok(stepButtons(edited).every(n => n.props['aria-current'] === undefined));
+  }
+});
+
+test('saving and unresolved receipts disable all four question buttons', () => {
+  for (const flag of ['busy', 'stuck']) {
+    const r = runtime('PlanningSetup', { sources: sourcesOf(null) }); r.saver[flag] = true; r.render();
+    assert.equal(stepButtons(r).length, 4); assert.ok(stepButtons(r).every(n => n.props.disabled));
+    assert.equal(r.button('先保存，稍后继续').props.disabled, true);
+  }
+});
+
+test('every first-run question offers early save; Q2 save yields persisted state 1 with the correct remaining count', async () => {
+  for (let step = 0; step < 4; step++) {
+    const r = runtime('PlanningSetup', { sources: sourcesOf(null), initialStep: step });
+    assert.ok(r.button('先保存，稍后继续')); assert.match(r.text(r.find('footer')), /不保存本次填写/);
+  }
+  let stored;
+  const r = runtime('PlanningSetup', { sources: sourcesOf(null) }, async input => {
+    const { birth_month, ...retire } = input.fields.basic;
+    stored = savedPlan(); stored.profile.birth_month = birth_month;
+    stored.profile.retire = { ...structuredClone(defaultRetire), ...retire }; return { revision: 5 };
+  });
+  r.find('MonthInput').props.onChange('1990-06'); r.render();
+  r.find('input', p => p['aria-label'] === '想在几岁退休？').props.onChange({ target: { value: '60' } }); r.render();
+  stepButtons(r)[1].props.onClick(); r.render(); r.find('CentInput').props.onChange('400000'); r.render();
+  r.button('先保存，稍后继续').props.onClick(); await r.settle();
+  assert.equal(r.calls.length, 1); assert.deepEqual(r.closes, [true]);
+  const sources = sourcesOf(stored), caps = buildBasicCapabilities(sources);
+  assert.equal(flow.goalState(stored, caps), '1');
+  assert.deepEqual(flow.questionProgress(stored, caps), { answered: [true, true, false, true], remaining: 1, first: 2 });
+  const goal = runtime('PlanningBasicGoals', { sources }, undefined, caps);
+  assert.equal(goal.find('div', p => p['data-goal-state']).props['data-goal-state'], '1');
+  assert.match(goal.text(goal.render()), /还差 1 个问题/);
+});
+
+test('save validation from an earlier question returns to its screen and focuses the affected field', async () => {
+  const r = runtime('PlanningSetup', { sources: sourcesOf(null) });
+  r.find('input', p => p['aria-label'] === '想在几岁退休？').props.onChange({ target: { value: '19' } }); r.render();
+  stepButtons(r)[3].props.onClick(); r.render(); r.button('先保存，稍后继续').props.onClick(); await r.settle();
+  assert.equal(stepButtons(r)[0].props['aria-current'], 'step'); assert.equal(r.focuses.at(-1), '想在几岁退休？'); assert.equal(r.calls.length, 0);
+  // Native messages are delivered through the unchanged save hook, including Q2 validation.
+  const native = runtime('PlanningSetup', { sources: sourcesOf(savedPlan()), editMode: true, initialStep: 3 }, async () => { throw new Error('退休后月支出须为大于 0 的金额'); });
+  native.find('form').props.onSubmit(event()); await native.settle();
+  assert.equal(stepButtons(native)[1].props['aria-current'], 'step'); assert.equal(native.focuses.at(-1), '退休后每月生活预算');
+  assert.deepEqual(native.closes, []);
+  native.saver.notice = '金额须为整数分'; native.render(); assert.equal(stepButtons(native)[1].props['aria-current'], 'step');
 });

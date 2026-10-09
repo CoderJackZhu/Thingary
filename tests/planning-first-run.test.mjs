@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { conditionChips, defaultIncomeMode, goalState, moreToolsBadges, questionProgress, retirementMonth, setupDraft, setupFields, refinementCards } from '../src/planning-first-run.ts';
+import { conditionChips, defaultIncomeMode, goalState, moreToolsBadges, questionProgress, retirementMonth, setupDraft, setupFields, setupErrorLocation, refinementCards } from '../src/planning-first-run.ts';
 import { unknownCapabilityFixture, unknownBasicUpdate } from '../src/plan-basic-fixtures.ts';
 import { defaultRetire } from '../src/plan.ts';
 import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
@@ -168,4 +168,25 @@ test('non-event repayment/reference gates still get a concrete existing refineme
 test('fund refinement retains the existing complete funds editor outside the four questions', () => {
   const caps = { ...unknownCapabilityFixture, requirement: { status: 'blocked', missing: [{ code: 'POOL_UNCONFIRMED', field: 'core.personal_pension_balance_confirmed' }] } };
   assert.equal(refinementCards(make(), caps, today).find(c => c.required).action, 'funds');
+});
+
+
+test('setup validation locations follow actual basicInput errors and only unambiguous native messages', () => {
+  for (const [key, value, step, label] of [
+    ['target', '19', 0, '想在几岁退休？'], ['horizon', '69', 5, '规划到几岁'],
+    ['horizon', '', 5, '规划到几岁'], ['before', 'abc', 5, '退休前实际年收益'],
+    ['after', 'abc', 5, '退休后实际年收益'], ['infl', 'abc', 5, '通胀'],
+    ['emergency', '37', 5, '应急金月数'], ['emergency', '', 5, '应急金月数'],
+  ]) {
+    const d = setupDraft(null, null, today, false); d[key] = value;
+    assert.throws(() => setupFields(d, null, today, false), error => {
+      assert.deepEqual(setupErrorLocation(error.message), { step, label }); return true;
+    });
+  }
+  for (const message of ['出生年月格式应为 YYYY-MM', '出生年月须早于本月'])
+    assert.deepEqual(setupErrorLocation(message), { step: 0, label: '出生年月' });
+  assert.deepEqual(setupErrorLocation('期望退休年龄须在 20 岁与规划终点之间'), { step: 0, label: '想在几岁退休？' });
+  assert.deepEqual(setupErrorLocation('退休后月支出须为大于 0 的金额'), { step: 1, label: '退休后每月生活预算' });
+  for (const message of ['金额须为整数分', '月份须为 YYYY-MM', '虚构保存失败', '规划终点年龄须在 70 到 110 岁之间，应急金不超过 36 个月'])
+    assert.equal(setupErrorLocation(message), null);
 });

@@ -9,6 +9,25 @@ type Saved = ProfileState['saved'];
 export const questions = ['你想在几岁退休？', '退休后每月大概花多少钱？', '现在有多少钱可以用来准备？', '退休后有哪些收入要算进去？'] as const;
 export type GoalState = '0' | '1' | '2' | '2b';
 
+export type SetupErrorLocation = { step: number; label: string };
+/** Exact messages from basicInput and native profile validation. Generic money/month
+ * errors can refer to hidden facts or several fields; deliberately leave them unmapped. */
+export function setupErrorLocation(message: string): SetupErrorLocation | null {
+  const locations: [number, string, string[]][] = [
+    [0, '出生年月', ['出生年月格式应为 YYYY-MM', '出生年月须早于本月']],
+    [0, '想在几岁退休？', ['目标年龄须是 20 到 109 的整数。', '期望退休年龄须在 20 岁与规划终点之间']],
+    [1, '退休后每月生活预算', ['退休后月支出须为大于 0 的金额']],
+    [5, '规划到几岁', ['规划终点须是 70 到 110 的整数。', '请填写规划终点。']],
+    [5, '退休前实际年收益', ['退休前实际收益请填百分数，例如 2 或 2.5。', '退休前实际收益率须在 -10.00% 到 20.00% 之间']],
+    [5, '退休后实际年收益', ['退休后实际收益请填百分数，例如 2 或 2.5。', '退休后实际收益率须在 -10.00% 到 20.00% 之间']],
+    [5, '通胀', ['通胀请填百分数，例如 2 或 2.5。']],
+    [5, '应急金月数', ['应急金月数须是 0 到 36 的整数。', '请填写应急金月数。']],
+  ];
+  const match = locations.find(([, , messages]) => messages.includes(message));
+  return match ? { step: match[0], label: match[1] } : null;
+}
+
+
 /** Counts persisted contents only. Career trials are currently unsaved and have no stored count. */
 export function moreToolsBadges(saved: Saved): string[] {
   const count = saved?.profile.retire.life_events.length ?? 0;

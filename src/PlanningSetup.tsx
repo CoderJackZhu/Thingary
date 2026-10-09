@@ -11,8 +11,9 @@ import type { Account, Snapshot } from './wealth';
 import type { PlanningSources } from './plan';
 import type { Draft } from './planning-basic-forms';
 import { useSectionSaver } from './planning-basic-data';
-import { questions, retirementMonth, setupDraft, setupFields } from './planning-first-run';
+import { questions, retirementMonth, setupDraft, setupFields, setupErrorLocation } from './planning-first-run';
 
+const stepLabels = ['退休年龄', '每月生活费', '可用资金', '退休收入'];
 const hints = ['这个年龄是你的设想，不是系统替你决定的。', '按今天的物价，吃饭、住房、日常开销合计。', '默认只动用现金类账户，其他资产不动用，不改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
 
 /** Four questions and one existing setup transaction. Close, Esc and skip discard unsaved input. */
@@ -23,27 +24,41 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   const [step, setStep] = useState(Math.min(initialStep, steps.length - 1));
   const [d, setD] = useState(() => setupDraft(saved, snapshot, today, sources.modules.wealth));
   const [notice, setNotice] = useState('');
+  const [errorFocus, setErrorFocus] = useState<ReturnType<typeof setupErrorLocation>>(null);
   const saver = useSectionSaver(sources, reload, onPending);
   const history = useMemo(() => historyHints(ready(sources.review)), [sources.review]);
   const patch = (v: Partial<Draft>) => setD(x => ({ ...x, ...v }));
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   useEffect(() => { heading.current?.focus(); dialog.current?.querySelector('.planning-setup-body')?.scrollTo(0, 0); }, [step]);
   const frozen = saver.busy || saver.stuck, wealthOn = sources.modules.wealth && snapshot !== null;
+  function locateError(message: string) {
+    const location = setupErrorLocation(message);
+    if (location && location.step < steps.length) { setErrorFocus(location); setStep(location.step); }
+  }
+  useEffect(() => {
+    if (errorFocus?.step === step) dialog.current?.querySelector<HTMLElement>(`[aria-label="${errorFocus.label}"]`)?.focus();
+  }, [step, errorFocus]);
+  // Native validation arrives via the existing saver notice; an unresolved receipt stays frozen.
+  useEffect(() => { if (saver.notice && !frozen) locateError(saver.notice); }, [saver.notice, frozen]);
+  function showError(e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    setNotice(message); locateError(message);
+  }
   async function save() {
     if (frozen) return;
     try { const fields = setupFields(d, saved, today, wealthOn); setNotice(''); if (await saver.save({ section: 'setup', fields })) onClose(true); }
-    catch (e) { setNotice(e instanceof Error ? e.message : String(e)); }
+    catch (e) { showError(e); }
   }
   function next() {
     try { setupFields(d, saved, today, wealthOn); setNotice(''); setStep(n => n + 1); }
-    catch (e) { setNotice(e instanceof Error ? e.message : String(e)); }
+    catch (e) { showError(e); }
   }
   const month = retirementMonth(d.birth, d.target);
   const live = d.start === 'live' && wealthOn;
   const available = live ? snapshot!.entries.filter(e => e.counted && e.side === 'asset').reduce((sum, e) => { const f = d.funds.find(f => f.account_id === e.account_id); return e.amount_cents !== null && f?.availability === 'available' ? sum + (BigInt(e.amount_cents) * BigInt(f.share_hundredths) ) / 10000n : sum; }, 0n) : null;
   return <dialog ref={dialog} className="editor wealth-account-editor planning-setup-dialog" aria-labelledby="setup-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); if (step === 3 || step === 5) void save(); else next(); }}>
     <header><div><p className="eyebrow">{editMode ? '修改规划' : '开始规划'} · {step < 4 ? `问题 ${step + 1} / 4` : '选填'}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{hints[step]}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
-    <nav className="planning-question-progress" aria-label="四个问题">{questions.map((q, i) => <span key={q} aria-current={i === step ? 'step' : undefined}>{i + 1}<span className="visually-hidden">. {q}</span></span>)}</nav>
+    <nav className="planning-question-progress" aria-label="四个问题">{questions.map((q, i) => <button type="button" key={q} aria-label={`${i + 1}. ${q}`} aria-current={i === step ? 'step' : undefined} disabled={frozen} onClick={() => setStep(i)}>{i + 1}. {stepLabels[i]}</button>)}</nav>
     {editMode && <nav className="planning-edit-extras" aria-label="选填设置"><button type="button" className="ui-link" disabled={frozen} onClick={() => setStep(4)}>每月能存多少（选填）</button><button type="button" className="ui-link" disabled={frozen} onClick={() => setStep(5)}>更多假设</button></nav>}
     <div className="planning-setup-body">
       {step === 0 && <section className="form-block">
@@ -79,7 +94,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
       <p className="muted small setup-draft-note">没想好的可以先留空，随时退出，不保存草稿。</p>
     </div>
     {(notice || saver.notice) && <p className="notice setup-notice" role="alert">{[notice, saver.notice].filter(Boolean).join(' ')}</p>}
-    <footer className="planning-setup-footer"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : editMode ? '取消本次修改' : '暂时跳过'}</button><span>{step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}{editMode && step !== 3 && step !== 5 && <button type="button" disabled={frozen} onClick={() => void save()}>保存并返回</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : step === 3 || step === 5 ? editMode ? '保存并返回' : '保存，查看结果' : '下一步'}</button></span></footer>
+    <footer className="planning-setup-footer"><div className="planning-setup-exit"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : editMode ? '取消本次修改' : '暂时跳过'}</button>{!editMode && !saver.stuck && <small className="muted">不保存本次填写。</small>}</div><span>{step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}{(!editMode || (step !== 3 && step !== 5)) && <button type="button" disabled={frozen} onClick={() => void save()}>{editMode ? '保存并返回' : '先保存，稍后继续'}</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : step === 3 || step === 5 ? editMode ? '保存并返回' : '保存，查看结果' : '下一步'}</button></span></footer>
   </form></dialog>;
 }
 

@@ -168,9 +168,12 @@ dialog.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[ope
 .planning-more-tools-hint { display: block; margin-top: 8px; }
 .planning-more-tools-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 16px; }
 .planning-more-tools-body > * { min-width: 0; }
-.planning-question-progress { display: flex; gap: 10px; padding: 12px 24px 20px; }
-.planning-question-progress > span { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: var(--control-radius); color: var(--muted); }
+.planning-question-progress { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 12px 24px 20px; }
+.planning-question-progress > button { min-width: 0; min-height: 40px; padding: 8px 6px; border: 1px solid var(--line); border-radius: var(--control-radius); color: var(--muted); }
 .planning-question-progress [aria-current="step"] { background: var(--selected); border: 2px solid var(--accent); color: var(--text); font-weight: 700; }
+.planning-question-progress > button:hover:not(:disabled) { background: var(--soft); text-decoration: underline; text-underline-offset: 4px; }
+.planning-question-progress > button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; text-decoration: underline; text-underline-offset: 4px; }
+.planning-setup-exit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .planning-edit-extras { display: flex; flex-wrap: wrap; gap: 16px; padding: 0 24px 16px; }
 .planning-date-echo { padding: 12px; background: var(--soft); border-radius: var(--control-radius); }
 .planning-selected-funds { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; padding: 14px 0; line-height: 1.8; }
@@ -183,6 +186,7 @@ dialog.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[ope
   .planning-first-result { padding: 18px; }
   .editor.planning-setup-dialog > form > footer { padding-inline: 16px; }
   .planning-edit-extras, .planning-question-progress { padding-inline: 16px; }
+  .planning-question-progress { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .planning-setup-footer { align-items: flex-start; }
   .planning-setup-footer > span { flex-wrap: wrap; justify-content: flex-end; }
 }
