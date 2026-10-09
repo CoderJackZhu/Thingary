@@ -92,7 +92,7 @@ char *thingary_pick_backup_open(void) {
 char *thingary_pick_csv_open(void) {
     @autoreleasepool {
         NSOpenPanel *panel = [NSOpenPanel openPanel];
-        panel.title = @"选择要导入的物品表";
+        panel.title = @"选择要导入的 CSV 表格";
         panel.prompt = @"检查表格";
         panel.canChooseFiles = YES;
         panel.canChooseDirectories = NO;

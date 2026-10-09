@@ -6,7 +6,7 @@ use crate::{
     domain::{cents, date, Error, Result},
     storage::{digest, uid, Store},
 };
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -309,20 +309,31 @@ fn account_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
 const ACCOUNT_COLUMNS: &str =
     "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision";
 
-fn accounts(c: &Connection) -> Result<Vec<Account>> {
+pub(crate) fn accounts(c: &Connection) -> Result<Vec<Account>> {
+    accounts_cancellable(c, &|| Ok(()))
+}
+/// Import previews may cancel while scanning an already populated directory.
+/// Ordinary reads retain the same ordering and observations without cancellation.
+pub(crate) fn accounts_cancellable(
+    c: &Connection,
+    check: &dyn Fn() -> Result<()>,
+) -> Result<Vec<Account>> {
     let mut q = c.prepare(&format!(
         "SELECT {ACCOUNT_COLUMNS} FROM fin_accounts WHERE deleted_at IS NULL ORDER BY position,id"
     ))?;
-    let mut list = q
-        .query_map([], account_row)?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let mut list = Vec::new();
+    for row in q.query_map([], account_row)? {
+        check()?;
+        list.push(row?);
+    }
     for a in &mut list {
+        check()?;
         a.latest = observation_before(c, &a.id, None)?;
     }
     Ok(list)
 }
 
-fn account(c: &Connection, id: &str) -> Result<Option<Account>> {
+pub(crate) fn account(c: &Connection, id: &str) -> Result<Option<Account>> {
     let found = c
         .query_row(
             &format!(
@@ -353,11 +364,11 @@ fn observation_before(
     ).optional()?)
 }
 
-fn due(a: &Account, day: &str) -> bool {
+pub(crate) fn due(a: &Account, day: &str) -> bool {
     a.fields.opened_on.as_str() <= day && a.fields.closed_on.as_deref().is_none_or(|c| day < c)
 }
 
-fn snapshot(c: &Connection, id: &str, live: &[Account]) -> Result<Option<Snapshot>> {
+pub(crate) fn snapshot(c: &Connection, id: &str, live: &[Account]) -> Result<Option<Snapshot>> {
     let head = c
         .query_row(
             "SELECT date,notes,revision FROM fin_snapshots WHERE id=?1 AND deleted_at IS NULL",
@@ -532,6 +543,254 @@ fn structure_of(s: &Snapshot, side: &str) -> Result<Vec<Share>> {
     Ok(out)
 }
 
+pub(crate) fn write_account_tx(
+    tx: &Transaction<'_>,
+    input: &AccountSave,
+    today: &str,
+    new_id: Option<&str>,
+    defer_history: bool,
+    new_position: Option<i64>,
+) -> Result<Account> {
+    let f = &input.fields;
+    f.validate(today)?;
+    let old = input
+        .id
+        .as_deref()
+        .map(|id| account(tx, id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到账户")))
+        .transpose()?;
+    if old.as_ref().map(|a| a.revision) != input.expected_revision {
+        return Err(Error::new("REVISION_CONFLICT", "账户已变化，请重新读取"));
+    }
+    let id = input
+        .id
+        .clone()
+        .unwrap_or_else(|| new_id.map(str::to_owned).unwrap_or_else(uid));
+    if old.as_ref().is_some_and(|old| old.fields.side != f.side) {
+        return Err(Error::new("ACCOUNT_SIDE", "资产/负债方向建立后不能更改"));
+    }
+    if !defer_history {
+        validate_account_history_tx(tx, &id, f, old.is_some())?;
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    if old.is_some() {
+        tx.execute("UPDATE fin_accounts SET name=?2,institution=?3,kind=?4,counted=?5,opened_on=?6,closed_on=?7,notes=?8,revision=revision+1,updated_at=?9 WHERE id=?1",
+                params![id, f.name.trim(), f.institution.trim(), f.kind, f.counted, f.opened_on, f.closed_on, f.notes, now])?;
+    } else {
+        let position = match new_position {
+            Some(p) => p,
+            None => tx.query_row(
+                "SELECT coalesce(max(position)+1,0) FROM fin_accounts",
+                [],
+                |r| r.get::<_, i64>(0),
+            )?,
+        };
+        tx.execute("INSERT INTO fin_accounts(id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,?11,?11)",
+                params![id, f.name.trim(), f.institution.trim(), f.side, f.kind, f.counted, f.opened_on, f.closed_on, f.notes, position, now])?;
+    }
+    account(tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到账户"))
+}
+
+pub(crate) fn validate_account_history_tx(
+    tx: &Transaction<'_>,
+    id: &str,
+    f: &AccountFields,
+    existing: bool,
+) -> Result<()> {
+    if existing {
+        let outside: Option<String> = tx.query_row("SELECT s.date FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE e.account_id=?1 AND s.deleted_at IS NULL AND (s.date<?2 OR (?3 IS NOT NULL AND s.date>=?3)) ORDER BY s.date LIMIT 1", params![id, f.opened_on, f.closed_on], |r| r.get(0)).optional()?;
+        if let Some(day) = outside {
+            return Err(Error::new(
+                "ACCOUNT_DATE",
+                &format!("{day} 的盘点已记录该账户，启用/停用日期须包含该日"),
+            ));
+        }
+    }
+    if let Some(closed) = &f.closed_on {
+        let last: Option<Option<i64>> = tx.query_row("SELECT e.amount_cents FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE e.account_id=?1 AND s.deleted_at IS NULL AND s.date<?2 ORDER BY s.date DESC LIMIT 1", params![id, closed], |r| r.get(0)).optional()?;
+        if matches!(last, Some(v) if v != Some(0)) {
+            return Err(Error::new(
+                "ACCOUNT_CLOSE_BALANCE",
+                "停用前请先在盘点中记录余额为 0",
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) type HistoricalOverrides = BTreeMap<String, (Option<String>, Option<bool>)>;
+pub(crate) fn write_snapshot_tx(
+    tx: &Transaction<'_>,
+    input: &SnapshotSave,
+    today: &str,
+    new_id: Option<&str>,
+    overrides: Option<&HistoricalOverrides>,
+    live_override: Option<&[Account]>,
+) -> Result<Snapshot> {
+    let loaded = if live_override.is_none() {
+        accounts(tx)?
+    } else {
+        Vec::new()
+    };
+    let live = live_override.unwrap_or(&loaded);
+    date(&input.date)?;
+    if input.date.as_str() > today {
+        return Err(Error::new("SNAPSHOT_DATE", "盘点日期不能晚于今天"));
+    }
+    if input.notes.chars().count() > 10000 || input.notes.contains('\0') {
+        return Err(Error::new(
+            "SNAPSHOT_NOTES",
+            "备注最多 10000 字，且不能含空字符",
+        ));
+    }
+    let old = input
+        .id
+        .as_deref()
+        .map(|id| snapshot(tx, id, live)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点")))
+        .transpose()?;
+    if old.as_ref().map(|s| s.revision) != input.expected_revision {
+        return Err(Error::new("REVISION_CONFLICT", "盘点已变化，请重新读取"));
+    }
+    let id = input
+        .id
+        .clone()
+        .unwrap_or_else(|| new_id.map(str::to_owned).unwrap_or_else(uid));
+    let clash: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM fin_snapshots WHERE date=?1 AND deleted_at IS NULL AND id!=?2)",
+            params![input.date, id],
+            |r| r.get(0),
+        )?;
+    if clash {
+        return Err(Error::new(
+            "SNAPSHOT_DATE_TAKEN",
+            "这一天已有盘点，请打开原盘点更正",
+        ));
+    }
+    let expected: BTreeMap<&str, &Account> = live
+        .iter()
+        .filter(|a| due(a, &input.date))
+        .map(|a| (a.id.as_str(), a))
+        .collect();
+    let mut seen = BTreeSet::new();
+    for e in &input.entries {
+        if !expected.contains_key(e.account_id.as_str()) {
+            return Err(Error::new(
+                "SNAPSHOT_ACCOUNT",
+                "有账户不在该日期的盘点范围内，请重新读取",
+            ));
+        }
+        if !seen.insert(e.account_id.as_str()) {
+            return Err(Error::new("SNAPSHOT_ACCOUNT", "同一账户只能填写一次"));
+        }
+    }
+    if seen.len() != expected.len() {
+        return Err(Error::new(
+            "SNAPSHOT_INCOMPLETE_ROWS",
+            "盘点须包含该日期的全部账户，可标为未知",
+        ));
+    }
+    // Corrections keep each existing row's recorded classification.
+    let kept: BTreeMap<&str, &Entry> = old
+        .iter()
+        .flat_map(|s| s.entries.iter())
+        .map(|e| (e.account_id.as_str(), e))
+        .collect();
+    let mut rows = Vec::new();
+    for e in &input.entries {
+        let given = amount(e.amount_cents.as_deref())?;
+        let value = match e.state.as_str() {
+            "entered" => {
+                Some(given.ok_or_else(|| Error::new("WEALTH_AMOUNT", "请填写金额，或标为未知"))?)
+            }
+            "missing" => {
+                if given.is_some() {
+                    return Err(Error::new("WEALTH_AMOUNT", "未知金额不能同时填写数字"));
+                }
+                None
+            }
+            "unchanged" => {
+                // A correction of a row that was already saved as
+                // unchanged keeps its recorded amount: re-deriving from
+                // the latest earlier check-in would silently rewrite it
+                // once that earlier snapshot is corrected (A22).
+                // A supplied amount marks an explicit confirmation in this
+                // request, including re-confirming a previously unchanged row.
+                let recorded = kept
+                    .get(e.account_id.as_str())
+                    .filter(|k| k.state == "unchanged" && given.is_none())
+                    .and_then(|k| k.amount_cents.as_deref())
+                    .and_then(|v| v.parse::<i64>().ok());
+                let prev: i64 = if let Some(recorded) = recorded {
+                    recorded
+                } else {
+                    let prev = observation_before(tx, &e.account_id, Some(&input.date))?
+                        .ok_or_else(|| {
+                            Error::new("SNAPSHOT_UNCHANGED", "没有更早的金额可确认未变")
+                        })?;
+                    let prev: i64 = prev
+                        .amount_cents
+                        .parse()
+                        .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?;
+                    if given.is_some_and(|g| g != prev) {
+                        return Err(Error::new(
+                            "SNAPSHOT_UNCHANGED",
+                            "确认未变的金额须与上次相同",
+                        ));
+                    }
+                    prev
+                };
+                Some(prev)
+            }
+            _ => return Err(Error::new("SNAPSHOT_STATE", "请选择填写、未变或未知")),
+        };
+        let a = expected[e.account_id.as_str()];
+        let (side, mut kind, mut counted) = kept
+            .get(e.account_id.as_str())
+            .map(|k| (k.side.clone(), k.kind.clone(), k.counted))
+            .unwrap_or((
+                a.fields.side.clone(),
+                a.fields.kind.clone(),
+                a.fields.counted,
+            ));
+        if let Some((historical_kind, historical_counted)) =
+            overrides.and_then(|o| o.get(&e.account_id))
+        {
+            if let Some(k) = historical_kind {
+                let supported = crate::financial_import_parser::ACCOUNT_KINDS
+                    .iter()
+                    .find(|info| info.key == k);
+                if supported.is_none_or(|info| info.side != a.fields.side) {
+                    return Err(Error::new(
+                        "HISTORY_KIND_SIDE",
+                        "历史类型不受支持或与账户方向不一致",
+                    ));
+                }
+                kind = k.clone();
+            }
+            if let Some(c) = historical_counted {
+                counted = *c;
+            }
+        }
+        rows.push((e, value, side, kind, counted));
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    if old.is_some() {
+        tx.execute("UPDATE fin_snapshots SET date=?2,notes=?3,revision=revision+1,updated_at=?4 WHERE id=?1", params![id, input.date, input.notes, now])?;
+        tx.execute(
+            "DELETE FROM fin_snapshot_entries WHERE snapshot_id=?1",
+            [&id],
+        )?;
+    } else {
+        tx.execute("INSERT INTO fin_snapshots(id,date,notes,revision,created_at,updated_at) VALUES(?1,?2,?3,1,?4,?4)", params![id, input.date, input.notes, now])?;
+    }
+    for (e, value, side, kind, counted) in rows {
+        tx.execute(
+            "INSERT INTO fin_snapshot_entries VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            params![id, e.account_id, e.state, value, side, kind, counted],
+        )?;
+    }
+    snapshot(tx, &id, live)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"))
+}
+
 impl Store {
     pub fn wealth_accounts(&self) -> Result<Vec<Account>> {
         accounts(self.conn()?)
@@ -546,66 +805,12 @@ impl Store {
         if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
             return account(&tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到账户"));
         }
-        let f = &input.fields;
-        f.validate(today)?;
-        let old = input
-            .id
-            .as_deref()
-            .map(|id| account(&tx, id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到账户")))
-            .transpose()?;
-        if old.as_ref().map(|a| a.revision) != input.expected_revision {
-            return Err(Error::new("REVISION_CONFLICT", "账户已变化，请重新读取"));
-        }
-        let id = input.id.clone().unwrap_or_else(uid);
-        if let Some(old) = &old {
-            if old.fields.side != f.side {
-                return Err(Error::new("ACCOUNT_SIDE", "资产/负债方向建立后不能更改"));
-            }
-            let outside: Option<String> = tx.query_row(
-                "SELECT s.date FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE e.account_id=?1 AND s.deleted_at IS NULL AND (s.date<?2 OR (?3 IS NOT NULL AND s.date>=?3)) ORDER BY s.date LIMIT 1",
-                params![id, f.opened_on, f.closed_on],
-                |r| r.get(0),
-            ).optional()?;
-            if let Some(day) = outside {
-                return Err(Error::new(
-                    "ACCOUNT_DATE",
-                    &format!("{day} 的盘点已记录该账户，启用/停用日期须包含该日"),
-                ));
-            }
-        }
-        if let Some(closed) = &f.closed_on {
-            // A closing account must leave with a recorded zero, so its last
-            // balance cannot silently vanish from later net worth.
-            let last: Option<Option<i64>> = tx.query_row(
-                "SELECT e.amount_cents FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE e.account_id=?1 AND s.deleted_at IS NULL AND s.date<?2 ORDER BY s.date DESC LIMIT 1",
-                params![id, closed],
-                |r| r.get(0),
-            ).optional()?;
-            if matches!(last, Some(v) if v != Some(0)) {
-                return Err(Error::new(
-                    "ACCOUNT_CLOSE_BALANCE",
-                    "停用前请先在盘点中记录余额为 0",
-                ));
-            }
-        }
-        let now = chrono::Utc::now().to_rfc3339();
-        if old.is_some() {
-            tx.execute("UPDATE fin_accounts SET name=?2,institution=?3,kind=?4,counted=?5,opened_on=?6,closed_on=?7,notes=?8,revision=revision+1,updated_at=?9 WHERE id=?1",
-                params![id, f.name.trim(), f.institution.trim(), f.kind, f.counted, f.opened_on, f.closed_on, f.notes, now])?;
-        } else {
-            let position: i64 = tx.query_row(
-                "SELECT coalesce(max(position)+1,0) FROM fin_accounts",
-                [],
-                |r| r.get(0),
-            )?;
-            tx.execute("INSERT INTO fin_accounts(id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,?11,?11)",
-                params![id, f.name.trim(), f.institution.trim(), f.side, f.kind, f.counted, f.opened_on, f.closed_on, f.notes, position, now])?;
-        }
+        let result = write_account_tx(&tx, input, today, None, false, None)?;
+        let id = &result.id;
         tx.execute(
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",
             params![input.request_id, fingerprint, id],
         )?;
-        let result = account(&tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到账户"))?;
         self.hit("wealth_account.before_commit")?;
         tx.commit()?;
         Ok(result)
@@ -658,148 +863,12 @@ impl Store {
             return snapshot(&tx, &id, &live)?
                 .ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"));
         }
-        date(&input.date)?;
-        if input.date.as_str() > today {
-            return Err(Error::new("SNAPSHOT_DATE", "盘点日期不能晚于今天"));
-        }
-        if input.notes.chars().count() > 10000 || input.notes.contains('\0') {
-            return Err(Error::new(
-                "SNAPSHOT_NOTES",
-                "备注最多 10000 字，且不能含空字符",
-            ));
-        }
-        let old = input
-            .id
-            .as_deref()
-            .map(|id| {
-                snapshot(&tx, id, &live)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"))
-            })
-            .transpose()?;
-        if old.as_ref().map(|s| s.revision) != input.expected_revision {
-            return Err(Error::new("REVISION_CONFLICT", "盘点已变化，请重新读取"));
-        }
-        let id = input.id.clone().unwrap_or_else(uid);
-        let clash: bool = tx.query_row(
-            "SELECT EXISTS(SELECT 1 FROM fin_snapshots WHERE date=?1 AND deleted_at IS NULL AND id!=?2)",
-            params![input.date, id],
-            |r| r.get(0),
-        )?;
-        if clash {
-            return Err(Error::new(
-                "SNAPSHOT_DATE_TAKEN",
-                "这一天已有盘点，请打开原盘点更正",
-            ));
-        }
-        let expected: BTreeMap<&str, &Account> = live
-            .iter()
-            .filter(|a| due(a, &input.date))
-            .map(|a| (a.id.as_str(), a))
-            .collect();
-        let mut seen = BTreeSet::new();
-        for e in &input.entries {
-            if !expected.contains_key(e.account_id.as_str()) {
-                return Err(Error::new(
-                    "SNAPSHOT_ACCOUNT",
-                    "有账户不在该日期的盘点范围内，请重新读取",
-                ));
-            }
-            if !seen.insert(e.account_id.as_str()) {
-                return Err(Error::new("SNAPSHOT_ACCOUNT", "同一账户只能填写一次"));
-            }
-        }
-        if seen.len() != expected.len() {
-            return Err(Error::new(
-                "SNAPSHOT_INCOMPLETE_ROWS",
-                "盘点须包含该日期的全部账户，可标为未知",
-            ));
-        }
-        // Corrections keep each existing row's recorded classification.
-        let kept: BTreeMap<&str, &Entry> = old
-            .iter()
-            .flat_map(|s| s.entries.iter())
-            .map(|e| (e.account_id.as_str(), e))
-            .collect();
-        let mut rows = Vec::new();
-        for e in &input.entries {
-            let given = amount(e.amount_cents.as_deref())?;
-            let value = match e.state.as_str() {
-                "entered" => Some(
-                    given.ok_or_else(|| Error::new("WEALTH_AMOUNT", "请填写金额，或标为未知"))?,
-                ),
-                "missing" => {
-                    if given.is_some() {
-                        return Err(Error::new("WEALTH_AMOUNT", "未知金额不能同时填写数字"));
-                    }
-                    None
-                }
-                "unchanged" => {
-                    // A correction of a row that was already saved as
-                    // unchanged keeps its recorded amount: re-deriving from
-                    // the latest earlier check-in would silently rewrite it
-                    // once that earlier snapshot is corrected (A22).
-                    // A supplied amount marks an explicit confirmation in this
-                    // request, including re-confirming a previously unchanged row.
-                    let recorded = kept
-                        .get(e.account_id.as_str())
-                        .filter(|k| k.state == "unchanged" && given.is_none())
-                        .and_then(|k| k.amount_cents.as_deref())
-                        .and_then(|v| v.parse::<i64>().ok());
-                    let prev: i64 = if let Some(recorded) = recorded {
-                        recorded
-                    } else {
-                        let prev = observation_before(&tx, &e.account_id, Some(&input.date))?
-                            .ok_or_else(|| {
-                                Error::new("SNAPSHOT_UNCHANGED", "没有更早的金额可确认未变")
-                            })?;
-                        let prev: i64 = prev
-                            .amount_cents
-                            .parse()
-                            .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?;
-                        if given.is_some_and(|g| g != prev) {
-                            return Err(Error::new(
-                                "SNAPSHOT_UNCHANGED",
-                                "确认未变的金额须与上次相同",
-                            ));
-                        }
-                        prev
-                    };
-                    Some(prev)
-                }
-                _ => return Err(Error::new("SNAPSHOT_STATE", "请选择填写、未变或未知")),
-            };
-            let a = expected[e.account_id.as_str()];
-            let (side, kind, counted) = kept
-                .get(e.account_id.as_str())
-                .map(|k| (k.side.clone(), k.kind.clone(), k.counted))
-                .unwrap_or((
-                    a.fields.side.clone(),
-                    a.fields.kind.clone(),
-                    a.fields.counted,
-                ));
-            rows.push((e, value, side, kind, counted));
-        }
-        let now = chrono::Utc::now().to_rfc3339();
-        if old.is_some() {
-            tx.execute("UPDATE fin_snapshots SET date=?2,notes=?3,revision=revision+1,updated_at=?4 WHERE id=?1", params![id, input.date, input.notes, now])?;
-            tx.execute(
-                "DELETE FROM fin_snapshot_entries WHERE snapshot_id=?1",
-                [&id],
-            )?;
-        } else {
-            tx.execute("INSERT INTO fin_snapshots(id,date,notes,revision,created_at,updated_at) VALUES(?1,?2,?3,1,?4,?4)", params![id, input.date, input.notes, now])?;
-        }
-        for (e, value, side, kind, counted) in rows {
-            tx.execute(
-                "INSERT INTO fin_snapshot_entries VALUES(?1,?2,?3,?4,?5,?6,?7)",
-                params![id, e.account_id, e.state, value, side, kind, counted],
-            )?;
-        }
+        let result = write_snapshot_tx(&tx, input, today, None, None, None)?;
+        let id = &result.id;
         tx.execute(
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",
             params![input.request_id, fingerprint, id],
         )?;
-        let result =
-            snapshot(&tx, &id, &live)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"))?;
         self.hit("wealth_snapshot.before_commit")?;
         tx.commit()?;
         self.hit("wealth_snapshot.after_commit")?;

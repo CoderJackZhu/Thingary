@@ -198,6 +198,9 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     if v >= 19 {
         crate::virtual_assets::validate_dataset(&db)?;
     }
+    if v >= 34 {
+        crate::financial_import::validate_dataset(&db)?;
+    }
     if linked_schema {
         crate::link::validate_dataset(&db)?;
     }
@@ -533,6 +536,8 @@ pub struct Summary {
     pub virtual_topups: i64,
     /// Linked-subscription trash groups (schema 33, or the unpublished 32).
     pub link_groups: i64,
+    pub import_mappings: i64,
+    pub import_receipts: i64,
     pub files: usize,
 }
 
@@ -606,6 +611,16 @@ impl Store {
             },
             virtual_topups: if v >= 22 {
                 count("SELECT count(*) FROM virtual_topups")?
+            } else {
+                0
+            },
+            import_mappings: if v >= 34 {
+                count("SELECT count(*) FROM import_external_key")?
+            } else {
+                0
+            },
+            import_receipts: if v >= 34 {
+                count("SELECT count(*) FROM import_receipt")?
             } else {
                 0
             },

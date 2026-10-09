@@ -1,6 +1,6 @@
 # 金融历史 CSV 导入解析组件（financial_import_parser）
 
-状态：**组件已实现并通过独立测试；尚未接入产品。** 本组件实现
+状态：**组件已实现并通过独立测试；P1-3A 的账户 + 完整盘点已接入当前源码，尚未发布。** 收入、覆盖声明与总额参考仅保留纯解析能力，未接入产品。 本组件实现
 [组件契约](../../../docs/PLANNING_COMPONENT_CONTRACTS.md) §2 的「金融导入解析」边界与
 [金融历史导入设计](../../../docs/FINANCIAL_HISTORY_IMPORT_DESIGN.md) 中可在纯解析层验证的
 部分。它不依赖 Store、SQLite、commands 或文件系统，全部数据为虚构样例。
@@ -147,10 +147,9 @@ let template = template_csv("incomes")?;
 全部数据虚构，可直接用于后续接入的手工与自动验证；`tests/financial_import_parser.rs`
 用 `include_str!` 加载同一批文件作为样例回归。
 
-## 后续 Store 接入步骤
+## 当前 Store 接入
 
-1. 模块已在 `lib.rs` 以 `pub mod financial_import_parser;` 登记。后续在 commands 增加预览入口并把 IPC 载荷反序列化为
-   `ImportRequestV1`。
+1. P1-3A 本次才在 `lib.rs` 登记 `financial_import_parser` 与 `financial_import`，并接入 commands。此前本说明的“已登记”与代码不符；独立测试曾通过路径加载组件。入口现以组合批次载荷调用 `parse_import_v1`，不扩大到收入／覆盖／总额参考。
 2. 入口先校验文件字节（UTF-8、20 MiB）得到 `csv_text`，再把用户列映射整理为
    `column_mapping`；`today` 取本地自然日。
 3. 解析 accounts 后，把「数据库现有账户 ∪ 本次解析出的账户（键为 account_key）」
@@ -160,11 +159,9 @@ let template = template_csv("incomes")?;
 5. 写入层独立完成：数据库查重（同键同值=相同、不同值=冲突）、外部键命名空间、
    完整性终检（真实账户有效期）、事务提交、回执与备份提醒——这些都不在本组件。
 
-## 未验与边界
+## 验证与边界
 
 组件验证范围对应验收编号 I01（24 个月样例的完整组、映射、分金额）、I02（未知
 缴存与明确 0）、I03（同日同额不同键保留）、I05（缺账户/空金额/重复行报组错）、
 I06（总额参考独立类型）、I07（BOM/引号/换行/中文/非法日期/指数/超两位小数）、
-I12（超限拒绝与取消）。**未验**：I04 预览后修改冲突、I08 故障注入回滚、I09 回执
-重试、I10 切库失效、I11 备份恢复、原生选文件与解析进度取消 UI——这些属于数据库
-与原生集成层，不能用内存桩冒充通过。
+I12（超限拒绝与取消）。P1-3A 的 I04/I08/I09/I10/I11 已在 `tests/financial_import.rs` 的真实临时 Store 验证，原生中文选文件、事务回执、重启、备份恢复和大文件取消已验；故障注入场景未逐项通过原生 UI 验证。详见 [开发与测试](../../../docs/DEVELOPMENT.md#金融导入解析与报告组件)。收入、覆盖与总额参考未集成，不能由纯解析用例推定这些产品流程可用。

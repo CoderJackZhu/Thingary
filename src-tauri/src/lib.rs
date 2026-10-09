@@ -11,6 +11,8 @@ mod demo_finance;
 pub mod domain;
 pub mod expenses;
 pub mod files;
+pub mod financial_import;
+pub mod financial_import_parser;
 pub mod insights;
 pub mod lifecycle;
 pub mod link;
@@ -75,6 +77,7 @@ pub fn run() {
             }
             app.manage(commands::EditGuard::default());
             app.manage(commands::LibraryGuard::default());
+            app.manage(commands::FinancialImportJobs::default());
             use tauri::menu::{Menu, MenuItem, PredefinedMenuItem as Item, Submenu};
             let quit =
                 MenuItem::with_id(app, "quit-thingary", "退出物谱", true, Some("CmdOrCtrl+Q"))?;
@@ -283,6 +286,13 @@ pub fn run() {
             commands::export_all_csv,
             commands::save_csv_template,
             commands::inspect_csv_import,
+            commands::financial_import_read_file,
+            commands::financial_import_template,
+            commands::financial_import_preview,
+            commands::financial_import_commit,
+            commands::financial_import_receipt,
+            commands::financial_import_cancel,
+            commands::financial_import_progress,
             commands::commit_csv_import,
             commands::saved_request,
             commands::set_editing,

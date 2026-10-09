@@ -1588,7 +1588,7 @@ fn schema32_variants_upgrade_and_restore_without_losing_planning_or_groups() {
         // Simulate the exact main-32 or subscription-32 physical layout.
         let db = s.conn_for_test().unwrap();
         let database_path = std::path::PathBuf::from(db.path().unwrap());
-        db.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA user_version=32;")
+        db.execute_batch("DROP INDEX import_external_object; DROP TABLE import_external_key; DROP TABLE import_receipt; PRAGMA journal_mode=DELETE; PRAGMA user_version=32;")
             .unwrap();
         if !with_groups {
             db.execute_batch("DROP INDEX link_trash_members_lookup; DROP TABLE link_trash_members; DROP TABLE link_trash_groups;").unwrap();
@@ -1619,7 +1619,7 @@ fn schema32_variants_upgrade_and_restore_without_losing_planning_or_groups() {
                 .unwrap()
                 .query_row("PRAGMA user_version", [], |r| r.get(0))
                 .unwrap();
-            assert_eq!(version, 33);
+            assert_eq!(version, thingary_lib::storage::SCHEMA_VERSION);
             assert_eq!(
                 store.plan_profile().unwrap().saved.unwrap().profile,
                 profile.profile
@@ -1643,7 +1643,10 @@ fn schema32_variants_upgrade_and_restore_without_losing_planning_or_groups() {
                 .path()
                 .join(format!("new-{}.thingary", store.generation()));
             store.backup(Some(&new_backup)).unwrap();
-            assert_eq!(store.inspect_backup(&new_backup).unwrap().schema, 33);
+            assert_eq!(
+                store.inspect_backup(&new_backup).unwrap().schema,
+                thingary_lib::storage::SCHEMA_VERSION as u32
+            );
         }
     }
 }

@@ -1,0 +1,18 @@
+.editor.financial-import-editor { width: min(920px, calc(100vw - 32px)); max-width: calc(100vw - 32px); overflow-x: hidden; }
+.financial-import-editor form > header { align-items: flex-start; }
+.import-steps { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 16px 0; margin: 0; list-style: none; color: var(--muted); }
+.import-steps [aria-current] { color: var(--text); font-weight: 650; }
+.import-file-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.import-file-row > div { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.import-file-row p { margin: 4px 0; }
+.import-object { margin: 12px 0; padding: 16px; }
+.import-object-heading, .import-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.import-fields > div { display: grid; grid-template-columns: 110px 1fr; gap: 12px; padding: 6px 0; }
+.import-fields dd { margin: 0; overflow-wrap: anywhere; }
+.import-table-wrap { overflow-x: auto; }
+.import-table-wrap table { min-width: 480px; width: 100%; }
+.import-table-wrap td, .import-table-wrap th { text-align: left; padding: 8px; }
+.import-check { display: flex; align-items: flex-start; gap: 8px; margin: 16px 0; }
+.import-receipt-list, .import-issues { max-height: 320px; overflow: auto; overflow-wrap: anywhere; }
+.financial-import-editor footer { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+@media (max-width: 620px) { .editor.financial-import-editor { width: calc(100vw - 16px); max-width: calc(100vw - 16px); } .import-fields > div { grid-template-columns: 1fr; gap: 4px; } }

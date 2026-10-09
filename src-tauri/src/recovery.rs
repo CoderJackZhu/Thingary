@@ -30,13 +30,13 @@ pub(crate) fn recover_root(root: &Path) -> Result<()> {
     let selected = if active
         .as_ref()
         .is_some_and(|a| a.id == journal.next.id && a.generation == journal.next.generation)
-        && validate_dataset(&root.join("datasets").join(&journal.next.id), false).is_ok()
+        && validate_dataset(&root.join("datasets").join(&journal.next.id), true).is_ok()
     {
         journal.next
     } else {
         journal.previous
     };
-    validate_dataset(&root.join("datasets").join(&selected.id), false)?;
+    validate_dataset(&root.join("datasets").join(&selected.id), true)?;
     atomic_write(&root.join("active.json"), &serde_json::to_vec(&selected)?)?;
     fs::remove_file(journal_path)?;
     sync_dir(root)?;
@@ -114,5 +114,52 @@ impl Store {
         fs::remove_file(self.root.join("restore-journal.json"))?;
         sync_dir(&self.root)?;
         Ok(self.generation())
+    }
+}
+
+#[cfg(test)]
+mod legacy_journal_tests {
+    use super::*;
+    #[test]
+    fn old_schema_restore_journal_is_recovered_before_upgrade() {
+        let root = tempfile::tempdir().unwrap();
+        let previous = Active {
+            id: uid(),
+            generation: uid(),
+        };
+        let dir = root.path().join("datasets").join(&previous.id);
+        fs::create_dir_all(&dir).unwrap();
+        let db = rusqlite::Connection::open(dir.join("data.sqlite")).unwrap();
+        db.execute_batch(crate::storage::SCHEMA).unwrap();
+        crate::storage::migrate_to(&db, 32, &|_| Ok(())).unwrap();
+        drop(db);
+        fs::write(
+            root.path().join("active.json"),
+            serde_json::to_vec(&previous).unwrap(),
+        )
+        .unwrap();
+        let journal = Journal {
+            previous: previous.clone(),
+            next: Active {
+                id: uid(),
+                generation: uid(),
+            },
+        };
+        fs::write(
+            root.path().join("restore-journal.json"),
+            serde_json::to_vec(&journal).unwrap(),
+        )
+        .unwrap();
+        let store = Store::open(root.path()).unwrap();
+        assert_eq!(store.generation(), previous.generation);
+        assert!(!root.path().join("restore-journal.json").exists());
+        assert_eq!(
+            store
+                .conn()
+                .unwrap()
+                .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            crate::storage::SCHEMA_VERSION
+        );
     }
 }

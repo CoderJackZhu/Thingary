@@ -1,6 +1,7 @@
 // Development-only in-memory stand-in for the wealth commands used by
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
 // proves nothing about native storage or calculation.
+import { financialImportPreview } from './financial-import-preview';
 import type { Account, AccountSave, Compare, CompareCell, CompareEnd, CompareRow, Draft, Entry, HistoryRow, Point, Share, Snapshot, SnapshotSave, StructurePair, Summary } from './wealth';
 import { assetKinds, kindLabel } from './wealth';
 import { expenseCategories } from './expenses';
@@ -499,6 +500,7 @@ const previewGroups = new Map<string, { assetId: string; planId: string; assetNa
 /** 预览最近删除中的关联订阅组（内存桩）。 */
 export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  const imported = financialImportPreview(command, args, generation); if (imported) return imported;
   if (command === 'notification_permission') return { value: null };
   // ---- 关联订阅命令的内存桩（EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN）----
   if (command === 'link_view') {

@@ -41,7 +41,7 @@ export function usePageBar(section: Section, bar: PageBar | null) {
 }
 
 /** The 新增记录 ▾ menu: arrow keys move, Enter runs, Esc closes back to the button. */
-export function BarMenuButton({ menu, open, onOpen, buttonRef, kbd = false }: { menu: BarMenu; kbd?: boolean; open: boolean; onOpen: (open: boolean) => void; buttonRef: RefObject<HTMLButtonElement | null> }) {
+export function BarMenuButton({ menu, open, onOpen, buttonRef, kbd = false, disabled = false }: { menu: BarMenu; kbd?: boolean; disabled?: boolean; open: boolean; onOpen: (open: boolean) => void; buttonRef: RefObject<HTMLButtonElement | null> }) {
   const listRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -70,7 +70,7 @@ export function BarMenuButton({ menu, open, onOpen, buttonRef, kbd = false }: { 
     else if (e.key === 'Tab') onOpen(false);
   };
   return <span className="topbar-menu">
-    <button ref={buttonRef} className="primary topbar-menu-trigger" aria-haspopup="menu" aria-expanded={open} onClick={() => onOpen(!open)} onKeyDown={triggerKeys}>
+    <button ref={buttonRef} disabled={disabled} className="primary topbar-menu-trigger" aria-haspopup="menu" aria-expanded={open} onClick={() => onOpen(!open)} onKeyDown={triggerKeys}>
       <svg className="ui-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
       <span>{menu.label}</span>
       {kbd && <kbd>⌘N</kbd>}

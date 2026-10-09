@@ -1096,3 +1096,143 @@ fn u20_account_history_is_ascending_and_never_skips_unknowns() {
     assert_eq!(code(s.wealth_account_history(&spare.id)), "NOT_FOUND");
     assert_eq!(code(s.wealth_account_history("no-such-id")), "NOT_FOUND");
 }
+#[cfg(feature = "fault-injection")]
+#[test]
+fn transaction_extraction_keeps_generation_uuid_fingerprint_receipt_and_faults() {
+    use sha2::{Digest, Sha256};
+    let tmp = tempfile::tempdir().unwrap();
+    let mut s = Store::open(tmp.path()).unwrap();
+    let input = AccountSave {
+        request_id: rid(),
+        generation: s.generation(),
+        id: None,
+        expected_revision: None,
+        fields: AccountFields {
+            name: "虚构提取回归".into(),
+            institution: String::new(),
+            side: "asset".into(),
+            kind: "cash".into(),
+            counted: true,
+            opened_on: "2024-01-01".into(),
+            closed_on: None,
+            notes: String::new(),
+        },
+    };
+    let mut bad = input.clone();
+    bad.generation = rid();
+    bad.request_id = "not-a-uuid".into();
+    assert_eq!(
+        s.wealth_account_save(&bad, TODAY).unwrap_err().code,
+        "STALE_DATASET"
+    );
+    bad.generation = s.generation();
+    assert_eq!(
+        s.wealth_account_save(&bad, TODAY).unwrap_err().code,
+        "REQUEST"
+    );
+    s.set_hook(|p| {
+        if p == "wealth_account.before_commit" {
+            Err(Error::new("INJECTED", "回滚"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(
+        s.wealth_account_save(&input, TODAY).unwrap_err().code,
+        "INJECTED"
+    );
+    assert!(s
+        .wealth_request_result(&input.request_id, &s.generation())
+        .unwrap()
+        .is_none());
+    assert!(s.wealth_accounts().unwrap().is_empty());
+    s.set_hook(|_| Ok(()));
+    let a = s.wealth_account_save(&input, TODAY).unwrap();
+    let fp = format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&("wealth_account", &input)).unwrap())
+    );
+    assert_eq!(
+        s.conn_for_test()
+            .unwrap()
+            .query_row(
+                "SELECT fingerprint FROM feature_requests WHERE id=?1",
+                [&input.request_id],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        fp
+    );
+    assert_eq!(s.wealth_account_save(&input, TODAY).unwrap().id, a.id);
+    let mut changed = input.clone();
+    changed.fields.name = "不同内容".into();
+    assert_eq!(
+        s.wealth_account_save(&changed, TODAY).unwrap_err().code,
+        "REQUEST_CONFLICT"
+    );
+    let snapshot = check_in(&s, "2026-09-30", vec![row(&a, "entered", Some(0))]);
+    let mut bad = snapshot.clone();
+    bad.generation = rid();
+    bad.request_id = "invalid".into();
+    assert_eq!(
+        s.wealth_snapshot_save(&bad, TODAY).unwrap_err().code,
+        "STALE_DATASET"
+    );
+    bad.generation = s.generation();
+    assert_eq!(
+        s.wealth_snapshot_save(&bad, TODAY).unwrap_err().code,
+        "REQUEST"
+    );
+    s.set_hook(|p| {
+        if p == "wealth_snapshot.before_commit" {
+            Err(Error::new("INJECTED", "回滚"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(
+        s.wealth_snapshot_save(&snapshot, TODAY).unwrap_err().code,
+        "INJECTED"
+    );
+    assert!(s
+        .wealth_request_result(&snapshot.request_id, &s.generation())
+        .unwrap()
+        .is_none());
+    s.set_hook(|p| {
+        if p == "wealth_snapshot.after_commit" {
+            Err(Error::new("INJECTED", "回执丢失"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(
+        s.wealth_snapshot_save(&snapshot, TODAY).unwrap_err().code,
+        "INJECTED"
+    );
+    let id = s
+        .wealth_request_result(&snapshot.request_id, &s.generation())
+        .unwrap()
+        .unwrap();
+    let fp = format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&("wealth_snapshot", &snapshot)).unwrap())
+    );
+    assert_eq!(
+        s.conn_for_test()
+            .unwrap()
+            .query_row(
+                "SELECT fingerprint FROM feature_requests WHERE id=?1",
+                [&snapshot.request_id],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        fp
+    );
+    assert_eq!(s.wealth_snapshot_save(&snapshot, TODAY).unwrap().id, id);
+    let mut changed = snapshot;
+    changed.notes = "不同内容".into();
+    assert_eq!(
+        s.wealth_snapshot_save(&changed, TODAY).unwrap_err().code,
+        "REQUEST_CONFLICT"
+    );
+}

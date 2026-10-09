@@ -59,7 +59,19 @@ npm run dev -- --port 1429
 
 ### 金融导入解析与报告组件
 
-金融 CSV 解析器的契约、虚构样例和待接入边界见[解析器说明](../src-tauri/src/financial_import_parser/README.md)，回归位于 `src-tauri/tests/financial_import_parser.rs`，由 `npm test` 执行。它不写入数据库。
+金融 CSV 解析器的契约、虚构样例和组件边界见[解析器说明](../src-tauri/src/financial_import_parser/README.md)，回归位于 `src-tauri/tests/financial_import_parser.rs`，由 `npm test` 执行。它不写入数据库。
+
+P1-3A 的账户／完整盘点写入回归在 `src-tauri/tests/financial_import.rs`：24 个月、真实目录完整性、整组冲突／修订、历史覆盖、回滚无回执、失联重启重放、切库／模块失效、永久清除墓碑、schema33→34 升级失败回滚及旧／新完整备份。`src-tauri/tests/wealth.rs` 对原命令的 generation／UUID／原指纹／回执／故障点保持回归；`recovery.rs` 的旧 schema 恢复日志用例证明并覆盖升级前恢复。故障注入仅在测试 feature 中启用。
+
+`tests/financial-import.test.mjs` 覆盖表头、动作修订、文件替换、整数金额／未知、仅请求元数据、分页、稳定候选、行号范围及恢复保留未知请求。浏览器预览 `/visual-preview.html?section=wealth&import=normal|unknown|empty|error` 为虚构内存桩，不证明原生写入；四状态已核对三种外观、明暗及 1200×800 / 520×800 同尺寸基线对照。
+
+容量用例默认 ignored，单独运行并用 `/usr/bin/time -l` 测量测试进程：
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --test financial_import maximum_ -- --ignored --nocapture
+```
+
+覆盖总计 20 MiB / 50000 行、50000 个账户、已有 50000 账户的重导入与取消。上限不因分页缩减后端验证；取消在目录扫描、复制和解析检查点生效。独立原生身份已验证中文路径选文件、24 个月事务回执、重启、旧 schema33 备份恢复、新 schema34 备份往返和 20 MiB / 50000 行取消且无写入。故障失联／预览后切库与模块循环由临时 Store 回归证明；原生 UI 故障注入、VoiceOver、输入法组合及其他系统／架构未逐项验收。
 
 运行 `npm run dev -- --port 1431`，访问 `http://127.0.0.1:1431/planning-report-preview.html` 查看[只读报告组件](../src/planning-report/README.md)的虚构状态与隐私输出；`tests/planning-report.test.mjs` 由 `npm run test:ui` 执行。预览不进入正常发布构建；真实报告适配、产品入口及原生 PDF／文件对话框尚未接入。
 

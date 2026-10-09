@@ -3,6 +3,7 @@ use crate::{
     worker::Worker,
 };
 use serde::Serialize;
+use tauri::Manager;
 #[derive(Serialize)]
 pub struct Snapshot {
     pub generation: String,
@@ -1767,4 +1768,215 @@ pub async fn purge_all_preview(
     tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.purge_all_preview()))
         .await
         .map_err(|_| Error::new("WORKER", "暂时无法读取清空影响"))?
+}
+
+/// Cancellation never enters the serial storage Worker. A cancellation that
+/// arrives before registration is retained until that job starts.
+#[derive(Default)]
+pub struct FinancialImportJobs(
+    std::sync::Mutex<std::collections::BTreeMap<String, std::sync::Arc<ImportJob>>>,
+);
+#[derive(Default)]
+struct ImportJob {
+    phase: std::sync::Mutex<String>,
+    cancelled: std::sync::atomic::AtomicBool,
+    checkpoints: std::sync::atomic::AtomicUsize,
+    started: std::sync::atomic::AtomicBool,
+}
+#[derive(serde::Serialize)]
+pub struct ImportProgress {
+    phase: String,
+    checkpoints: usize,
+    cancelled: bool,
+}
+#[tauri::command]
+pub fn financial_import_cancel(
+    jobs: tauri::State<'_, FinancialImportJobs>,
+    job_id: String,
+) -> Result<()> {
+    uuid::Uuid::parse_str(&job_id).map_err(|_| Error::new("REQUEST", "解析任务标识无效"))?;
+    let mut map = jobs
+        .0
+        .lock()
+        .map_err(|_| Error::new("WORKER", "解析任务不可用"))?;
+    if map.len() >= 128 && !map.contains_key(&job_id) {
+        return Err(Error::new("IMPORT_BUSY", "解析任务太多，请重试"));
+    }
+    map.entry(job_id)
+        .or_default()
+        .cancelled
+        .store(true, std::sync::atomic::Ordering::Release);
+    Ok(())
+}
+#[tauri::command]
+pub fn financial_import_progress(
+    jobs: tauri::State<'_, FinancialImportJobs>,
+    job_id: String,
+) -> Result<Option<ImportProgress>> {
+    let map = jobs
+        .0
+        .lock()
+        .map_err(|_| Error::new("WORKER", "解析任务不可用"))?;
+    Ok(map.get(&job_id).map(|j| ImportProgress {
+        phase: j.phase.lock().map(|p| p.clone()).unwrap_or_default(),
+        checkpoints: j.checkpoints.load(std::sync::atomic::Ordering::Relaxed),
+        cancelled: j.cancelled.load(std::sync::atomic::Ordering::Acquire),
+    }))
+}
+#[tauri::command]
+pub async fn financial_import_preview(
+    app: tauri::AppHandle,
+    worker: tauri::State<'_, Worker>,
+    input: crate::financial_import::BatchInput,
+    job_id: String,
+) -> Result<crate::financial_import::Preview> {
+    uuid::Uuid::parse_str(&job_id).map_err(|_| Error::new("REQUEST", "解析任务标识无效"))?;
+    let job = {
+        let jobs = app.state::<FinancialImportJobs>();
+        let mut map = jobs
+            .0
+            .lock()
+            .map_err(|_| Error::new("WORKER", "解析任务不可用"))?;
+        if map.len() >= 128 && !map.contains_key(&job_id) {
+            return Err(Error::new("IMPORT_BUSY", "解析任务太多，请重试"));
+        }
+        let j = map.entry(job_id.clone()).or_default().clone();
+        if j.started.swap(true, std::sync::atomic::Ordering::AcqRel) {
+            return Err(Error::new("IMPORT_BUSY", "任务标识已使用"));
+        }
+        j
+    };
+    let w = worker.inner().clone();
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        w.call_personal(move |s| {
+            s.financial_import_preview_tracked(
+                &input,
+                &today,
+                &|| {
+                    job.checkpoints
+                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    job.cancelled.load(std::sync::atomic::Ordering::Acquire)
+                },
+                &|phase| {
+                    if let Ok(mut value) = job.phase.lock() {
+                        *value = phase.to_string();
+                    }
+                },
+            )
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到预览结果，请重新预览"));
+    if let Ok(mut map) = app.state::<FinancialImportJobs>().0.lock() {
+        map.remove(&job_id);
+    }
+    result?
+}
+#[tauri::command]
+pub async fn financial_import_commit(
+    worker: tauri::State<'_, Worker>,
+    input: crate::financial_import::CommitInput,
+) -> Result<crate::financial_import::Receipt> {
+    let w = worker.inner().clone();
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call_personal(move |s| s.financial_import_commit(&input, &today))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到提交结果，请按原请求核对回执"))?
+}
+#[tauri::command]
+pub async fn financial_import_receipt(
+    worker: tauri::State<'_, Worker>,
+    request: String,
+    generation: String,
+) -> Result<Option<crate::financial_import::Receipt>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call_personal(move |s| s.financial_import_receipt(&request, &generation))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "回执暂时不可读，请稍后核对"))?
+}
+#[derive(serde::Serialize)]
+pub struct FinancialFile {
+    name: String,
+    csv_text: String,
+}
+#[tauri::command]
+pub async fn financial_import_read_file(
+    app: tauri::AppHandle,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<FinancialFile>> {
+    worker.require_personal()?;
+    let receive = on_main(&app, crate::native_images::pick_csv_open)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        use std::io::Read;
+        let file =
+            std::fs::File::open(&path).map_err(|_| Error::new("CSV_READ", "无法读取所选文件"))?;
+        let mut bytes = Vec::new();
+        file.take(crate::financial_import_parser::MAX_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| Error::new("CSV_READ", "无法读取所选文件"))?;
+        if bytes.len() > crate::financial_import_parser::MAX_BYTES {
+            return Err(Error::new("LIMIT_SIZE", "每批最多 20 MiB，请拆分文件"));
+        }
+        let csv_text = String::from_utf8(bytes)
+            .map_err(|_| Error::new("CSV_UTF8", "文件须为 UTF-8 CSV，请重新导出"))?;
+        Ok(Some(FinancialFile {
+            name: path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into(),
+            csv_text,
+        }))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "文件读取未完成，请重试"))?
+}
+#[tauri::command]
+pub async fn financial_import_template(
+    app: tauri::AppHandle,
+    kind: String,
+    sample: bool,
+) -> Result<Option<String>> {
+    let contents = match (kind.as_str(), sample) {
+        ("accounts", true) => {
+            include_str!("financial_import_parser/samples/accounts.csv").to_string()
+        }
+        ("snapshots", true) => {
+            include_str!("financial_import_parser/samples/snapshots.csv").to_string()
+        }
+        ("accounts" | "snapshots", false) => crate::financial_import_parser::template_csv(&kind)
+            .map_err(|e| Error::new(&e.code, &e.message))?,
+        _ => return Err(Error::new("IMPORT_KIND", "本期仅提供账户与完整盘点模板")),
+    };
+    let name = if sample {
+        format!("{kind}-虚构样例")
+    } else {
+        kind
+    };
+    let receive = on_main(&app, move || {
+        crate::native_images::pick_save("保存金融历史 CSV", "保存", &name, "csv")
+    })?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        crate::storage::atomic_write(&path, contents.as_bytes())?;
+        Ok(Some(path.display().to_string()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "模板未保存，请重试"))?
 }
