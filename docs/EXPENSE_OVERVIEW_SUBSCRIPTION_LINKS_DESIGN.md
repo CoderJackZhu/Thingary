@@ -1,8 +1,8 @@
 # 重要支出年度总览与虚拟订阅关联
 
-**状态：A–D 全部阶段已实现，独立 Review 的 R1–R7 已修复并完成回归及隔离原生核心验收；本地主分支合并采用 schema 33，尚未发布。** 本文是主规格；已实现行为的现行口径同步见[产品规则](PRODUCT_RULES.md)与[使用指南](USER_GUIDE.md)，原生验收边界见[开发说明](DEVELOPMENT.md)。
+**状态：A–D 全部阶段已实现，独立 Review 的 R1–R7 已修复并完成回归及隔离原生核心验收；已随 0.0.2 Beta 发布，采用 schema 33。** 本文是主规格；已实现行为的现行口径同步见[产品规则](PRODUCT_RULES.md)与[使用指南](USER_GUIDE.md)，原生验收边界见[开发说明](DEVELOPMENT.md)。
 
-初始基线：`0747f3b5bb0a70a6e7f25562232246d843614259`。实施分支：`codex/expense-overview-subscription-links`；合并基线为包含通用规划基础的 `08e9a78`。用户已授权验证后本地合入 main，未授权安装、推送或发布。
+初始基线：`0747f3b5bb0a70a6e7f25562232246d843614259`。实施分支：`codex/expense-overview-subscription-links`；合并基线为包含通用规划基础的 `08e9a78`。后续合入主分支并随 0.0.2 发布，当前发布范围以版本说明为准。
 
 ## 1. 目标、现状与范围
 
