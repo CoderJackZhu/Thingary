@@ -15,4 +15,4 @@
 .guided-chips{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:12px 0}.guided-chips li{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--selected);color:var(--muted)}
 .guided-after{margin-top:6px}
 @media(max-width:900px){.guided-body{grid-template-columns:minmax(0,1fr)}.guided-answer{position:static;order:-1}.guided-questions{grid-template-columns:minmax(0,1fr)}.guided h1{font-size:23px}}
-.guided-embedded{max-width:none;padding:0}.guided-embedded .guided-card{margin-bottom:14px}.guided-embedded .guided-answer{top:8px}
+.guided-embedded{max-width:none;padding:0}.guided-embedded .guided-card{margin-bottom:14px}.guided-embedded .guided-answer{top:72px}
