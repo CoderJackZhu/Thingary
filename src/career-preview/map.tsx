@@ -1,3 +1,4 @@
+import { CoverageNote } from '../CoverageNote';
 // Development-only question panels for the career preview: rest, lower contribution, insurance, retirement age. Fictional sources; nothing is stored.
 import { useMemo, useState } from 'react';
 import { CentInput, FormRow } from '../FormControls.tsx';
@@ -65,8 +66,8 @@ function delayText(x: DelayTarget): string {
 /** Retirement-age concession for the draft as filled in (needs the post-change savings estimate). */
 export function DelaySection({ sources, draft }: Props) {
   const r = useMemo(() => delayTarget(sources, draft), [sources, draft]);
-  return <section className="career-input"><h3>推迟目标后的逐岁对照</h3><p className="career-line">{delayText(r)}</p>
-    <p className="career-footnote">只是和原目标并排看，不会改你的目标。每次检查相隔一年，不是精确到月的最早退休日。缴费仍限于原来确认的起止月份；这里没有延长缴费安排。</p></section>;
+  return <><CoverageNote sources={sources} compact/><section className="career-input"><h3>推迟目标后的逐岁对照</h3><p className="career-line">{delayText(r)}</p>
+    <p className="career-footnote">只是和原目标并排看，不会改你的目标。每次检查相隔一年，不是精确到月的最早退休日。缴费仍限于原来确认的起止月份；这里没有延长缴费安排。</p></section></>;
 }
 
 type Stage = 'gap' | 'recovery';
@@ -84,12 +85,12 @@ function InsuranceComparison({ sources, draft, stage }: { sources: PlanningSourc
     { label: '对照交法', pension: kind === 'pause' ? 'pause' : kind === 'employer' ? 'unchanged' : { base_cents: kind === 'original' ? original! : params.base_lower_cents, hpf_monthly_cents: '0' }, cash_cents: kind === 'pause' || kind === 'employer' ? '0' : cash, included: active.insurance.included },
   ];
   const result = useMemo(() => pensionOptions(sources, draft, stage, choices), [sources, draft, stage, kind, cash]);
-  return <div>
+  return <><CoverageNote sources={sources} compact/><div>
     <p className="career-footnote">这里只比较，不改变上面的填写和主答案。沿用“是否已包含”的选择；已包含时总开销或储蓄保持不变。</p>
     <FormRow label="对照交法"><select aria-label="对照交法" value={kind} onChange={e => { setKind(e.target.value); setCash(null); }}><option value="pause">停缴养老及公积金</option><option value="floor">自己交，按下限</option>{original && <option value="original">自己交，按原基数</option>}{stage === 'recovery' && <option value="employer">单位缴纳，沿用原安排</option>}</select></FormRow>
     {(kind === 'floor' || kind === 'original') && <FormRow label="对照交法：每月实际缴费（元）"><CentInput label="对照每月实际缴费" value={cash ?? ''} onChange={v => setCash(v || null)}/></FormRow>}
     <div className="career-table-wrap"><table className="career-table"><caption>按变化月 {draft.transition_month ?? "待确认"}、固定空窗 {draft.gap_months ?? "未知"} 个月比较；不反求最长空窗。更换主方案请修改上方表单。</caption><thead><tr><th>条件</th><th>这段实际缴费合计</th><th>目标时月养老金</th><th>目标时资产</th></tr></thead><tbody>{result.rows.map(r => <tr key={r.label}><th>{r.label}</th><td>{r.stage_cash_cents === null ? '待填' : money(r.stage_cash_cents)}</td><td>{r.pension ? r.pension.eligible ? money(r.pension.monthly_cents) : `缴费资格还差 ${r.pension.short_months} 个月` : '—'}</td><td>{r.assets_at_goal_cents === null ? r.judgement.issues[0] ?? '本例未计入' : money(r.assets_at_goal_cents)}</td></tr>)}</tbody></table></div>
-  </div>;
+  </div></>;
 }
 
 /** One active form, immediately reflected in the shared draft. Other choices are optional comparisons. */
@@ -202,7 +203,7 @@ export function LowerResult({ sources, draft, patch, answer }: Props & { answer:
   const candidates = current ? [0, .25, .5, .75].map(f => String(Math.round(Number(current) * f))) : [];
   const step = bounds ? Math.max(12, Math.ceil((bounds.target - bounds.now) / 8 / 12) * 12) : 12;
   const map = useMemo(() => expanded && bounds ? windowMap(sources, draft, closeMonths(sources, step), candidates) : null, [expanded, sources, draft, step, current]);
-  return <>
+  return <><CoverageNote sources={sources} compact/><>
     <h3>保持退休目标，最早何时可以降低投入？</h3><p className="career-number">{minText(sources, answer)}</p>
     <p className="career-footnote">逐月检查所填条件，只报告最早满足的一个月，不承诺更晚都满足。月数为起点至变化月的日历跨度，起点当月可能没有完整投入。</p>
     <details onToggle={e => setExpanded(e.currentTarget.open)}><summary>展开月份与投入的条件地图</summary>
@@ -212,7 +213,7 @@ export function LowerResult({ sources, draft, patch, answer }: Props & { answer:
       </table></div>}
     </details>
     <details><summary>推迟退休目标的对照</summary><DelaySection sources={sources} draft={draft} patch={patch}/></details>
-  </>;
+  </></>;
 }
 
 export function InsuranceAlternatives({ sources, draft }: Pick<Props, 'sources' | 'draft'>) {

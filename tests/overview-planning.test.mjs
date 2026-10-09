@@ -37,9 +37,9 @@ test('fire headline: reached and unreachable use the actual search cap, never "f
   const reached = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '500000' }), snap(500_000_000), reviewOf('1000000'), [], today)), today);
   assert.equal(reached.main, '当前资产已覆盖退休所需');
   assert.equal(reached.sub, '按当前假设估算');
-  // 50 万元预算、零储蓄、20 万资产：搜索范围内不可达；horizon 65 早于 70 岁上限时按实际终点年龄。
-  const capped = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', horizon_age: 65, contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
-  assert.equal(capped.main, '当前假设下，65 岁前尚未达成');
+  // 50 万元预算、零储蓄、20 万资产：搜索范围内不可达；horizon 70 早于 70 岁上限时按实际终点年龄。
+  const capped = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', horizon_age: 70, contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
+  assert.equal(capped.main, '当前假设下，70 岁前尚未达成');
   const defaultCap = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
   assert.equal(defaultCap.main, '当前假设下，90 岁前尚未达成');
 });
@@ -58,7 +58,8 @@ test('coverage ratio uses the goals-page function including its boundaries', () 
   assert.equal(c.percent, Math.max(0, Math.min(10000, Math.round(Math.min(1, c.assets / c.requiredNow) * 10000))));
   const debtOnly = buildRetireCalc(saved({ spend_cents: '500000' }), {id:'s1',date:today,revision:1, entries: [{ account_id: 'debt', counted: true, side: 'liability', kind: 'loan', amount_cents: '9000000' }] }, reviewOf('1000000'), [], today);
   assert.equal(debtOnly.assets, 0, 'debt principal is not an initial cash withdrawal');
-  assert.match(debtOnly.missing.join(' '), /还款接续/);
+  assert.equal(debtOnly.missing.length, 0);
+  assert.match(debtOnly.annotations.find(a => a.reason_code === 'DEBT_UNLINKED').message, /还款接续/);
   // 所需为零（预算 0）：按现有函数视为 100%。
   const zeroNeed = ready(buildRetireCalc(saved({ spend_cents: '0' }), snap(12345), reviewOf('0'), [], today));
   assert.equal(coverageNow(zeroNeed).requiredNow, 0);

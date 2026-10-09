@@ -16,6 +16,9 @@ import * as data from '../src/plan-data.ts';
 import * as review from '../src/review.ts';
 import * as defaults from '../src/planning-basic-defaults.ts';
 import * as firstRun from '../src/planning-first-run.ts';
+import * as occurrenceActions from '../src/plan-occurrence-actions.ts';
+import * as annotations from '../src/plan-annotations.ts';
+import * as basic from '../src/plan-basic.ts';
 import { buildBasicCapabilities } from '../src/plan-basic.ts';
 import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
 import { unknownBasicUpdate } from '../src/plan-basic-fixtures.ts';
@@ -29,12 +32,16 @@ function component(file, dependencies) {
   const exports = {};
   vm.runInNewContext(code, { exports, require(name) {
     if (name === 'react/jsx-runtime') return jsx;
+    if (name === './CoverageNote' || name === '../CoverageNote') return coverage;
+    if (name === './plan-annotations') return annotations;
+    if (name === './plan-occurrence-actions') return occurrenceActions;
     if (name === './PlanningCosts') return { CostsDialog: () => null };
     if (Object.hasOwn(dependencies, name)) return dependencies[name];
     throw new Error(`Unexpected consumer dependency: ${name}`);
   } });
   return exports;
 }
+const coverage = component('CoverageNote.tsx', { react: React, './plan-annotations': annotations, './plan-basic': basic });
 const noOp = () => {};
 const form = { Info: () => null };
 const requirement = component('PlanningRequirement.tsx', { './asset': asset, './FormControls': form, './planning-basic-view': view });
@@ -75,7 +82,7 @@ const expectedImpact = (s, item) => {
 function wishRuntime(load) {
   const effects = [], seen = { text: '', reads: 0 };
   const runtime = component('WishPlanLine.tsx', { react: {
-    useState: () => ['', value => { seen.text = value; }], useEffect: effect => effects.push(effect),
+    useState: initial => [initial, value => { if (typeof value === 'string') seen.text = value; }], useEffect: effect => effects.push(effect),
   }, './asset': asset, './plan-data': { ...data, loadPlanContext: async () => { seen.reads++; return load(); } },
   './plan-retire-calc': calc, './plan-wishes': wishes, './planning-basic-view': view });
   runtime.WishPlanLine({ item: wish(), today: '2026-10-07' });

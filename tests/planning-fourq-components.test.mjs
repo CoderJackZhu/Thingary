@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
+import * as annotations from '../src/plan-annotations.ts';
+import * as actions from '../src/plan-occurrence-actions.ts';
 import * as flow from '../src/planning-first-run.ts';
 import { buildBasicCapabilities } from '../src/plan-basic.ts';
 import * as defaults from '../src/planning-basic-defaults.ts';
@@ -48,9 +50,9 @@ function runtime(file, props, save = async () => ({ revision: 5 }), caps = unkno
   const leaf = new Proxy({}, { get: (_, key) => String(key) });
   const modules = {
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
-    './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
+    './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
     './planning-first-run': flow, './planning-basic-defaults': defaults,
-    './planning-basic-data': { useSectionSaver: () => saver, useCapabilities: () => ({ status: 'ready', caps }) },
+    './planning-basic-data': { useSectionSaver: () => saver, useCapabilities: () => ({ status: 'ready', caps: typeof caps === 'function' ? caps() : caps }) },
     './planning-basic-view': { needsContribution: () => true, requirementLine: () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
     './plan-retire-calc': { buildRetireCalc: () => null },
   };
@@ -58,8 +60,8 @@ function runtime(file, props, save = async () => ({ revision: 5 }), caps = unkno
   const script = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
-  vm.runInNewContext(script, { module, exports: module.exports, require: id => modules[id] ?? leaf, crypto: globalThis.crypto, Error, console });
-  const component = module.exports[file === 'PlanningSetup' ? 'PlanningSetupDialog' : 'PlanningBasicGoals'];
+  vm.runInNewContext(script, { module, exports: module.exports, require: id => modules[id] ?? leaf, crypto: globalThis.crypto, structuredClone, Error, console });
+  const component = module.exports[file === 'PlanningSetup' ? 'PlanningSetupDialog' : file === 'PlanningOccurrenceDialog' ? 'PlanningOccurrenceDialog' : 'PlanningBasicGoals'];
   const finalProps = { today, snapshot: null, accounts: [], reload() {}, onPending() {}, onPension() {}, onEditingChange() {}, onFocusDone() {}, onClose: v => closes.push(v), ...props };
   let tree;
   function expand(node, key) {
@@ -111,7 +113,7 @@ test('editing prefills every question/extra screen and always offers save-and-re
   const p = savedPlan(); p.profile.retire.basic.retirement_income.mode = 'beijing';
   for (let step = 0; step < 6; step++) {
     const r = runtime('PlanningSetup', { sources: sourcesOf(p), editMode: true, initialStep: step });
-    assert.ok(r.button('保存并返回'), `screen ${step}`);
+    assert.ok(r.button('保存，查看结果'), `screen ${step}`);
     if (step === 0) { assert.equal(r.find('MonthInput').props.value, '1990-06'); assert.equal(r.find('input', p => p['aria-label'] === '想在几岁退休？').props.value, '60'); }
     if (step === 1) assert.equal(r.find('CentInput').props.value, '400000');
     if (step === 2) assert.equal(r.find('CentInput').props.value, '10000000');
@@ -135,19 +137,19 @@ test('failed save keeps edits and dialog open, a retry submits the same values a
   let fail = true;
   const r = runtime('PlanningSetup', { sources: sourcesOf(savedPlan()), editMode: true }, async () => { if (fail) throw new Error('虚构保存失败'); return { revision: 5 }; });
   r.find('input', p => p['aria-label'] === '想在几岁退休？').props.onChange({ target: { value: '61' } }); r.render();
-  r.button('保存并返回').props.onClick(); await r.settle();
+  r.button('保存，查看结果').props.onClick(); await r.settle();
   assert.equal(r.find('input', p => p['aria-label'] === '想在几岁退休？').props.value, '61');
   assert.deepEqual(r.closes, []); assert.match(r.text(r.find('dialog')), /虚构保存失败/);
-  fail = false; r.button('保存并返回').props.onClick(); await r.settle();
+  fail = false; r.button('保存，查看结果').props.onClick(); await r.settle();
   assert.equal(r.calls.length, 2); assert.deepEqual(r.calls[0], r.calls[1]); assert.deepEqual(r.closes, [true]);
 });
 
 test('an unresolved receipt locks both retry and step navigation without discarding edits', async () => {
   const r = runtime('PlanningSetup', { sources: sourcesOf(savedPlan()), editMode: true });
   r.saver.stuck = true; r.saver.notice = '原请求结果待核对'; r.render();
-  assert.equal(r.button('保存并返回').props.disabled, true);
+  assert.equal(r.button('保存，查看结果').props.disabled, true);
   assert.equal(r.button('下一步').props.disabled, true);
-  r.button('保存并返回').props.onClick(); await r.settle(); assert.equal(r.calls.length, 0);
+  r.button('保存，查看结果').props.onClick(); await r.settle(); assert.equal(r.calls.length, 0);
   assert.equal(r.find('input', p => p['aria-label'] === '想在几岁退休？').props.value, '60');
 });
 
@@ -229,4 +231,57 @@ test('save validation from an earlier question returns to its screen and focuses
   assert.equal(stepButtons(native)[1].props['aria-current'], 'step'); assert.equal(native.focuses.at(-1), '退休后每月生活预算');
   assert.deepEqual(native.closes, []);
   native.saver.notice = '金额须为整数分'; native.render(); assert.equal(stepButtons(native)[1].props['aria-current'], 'step');
+});
+
+
+test('Q3 hard blocker card opens third question; saving default selection rerenders goals from 2b to 2', async () => {
+  const batch = JSON.parse(readFileSync(new URL('./fixtures/planning-basic/nonblocking-demo.json', import.meta.url)));
+  const saved = batch.profile.value.saved;
+  saved.profile.retire.core.fund_rules = [];
+  const caps = () => buildBasicCapabilities(batch);
+  assert.equal(caps().requirement.status, 'blocked');
+  let opened;
+  const goals = runtime('PlanningBasicGoals', { sources: batch, openSetup: step => opened = step }, undefined, caps);
+  assert.equal(goals.find('div', p => p['data-goal-state']).props['data-goal-state'], '2b');
+  const card = flow.refinementCards(saved, caps(), batch.today).find(c => c.id === 'funds');
+  assert.equal(card.action, 'setup'); assert.equal(card.step, 2);
+  goals.find('PlanningRefinements', p => p.cards.some(c => c.id === 'funds')).props.onAction(card, {});
+  assert.equal(opened, 2);
+  const original = structuredClone(saved.profile);
+  const setup = runtime('PlanningSetup', { sources: batch, snapshot: batch.snapshot.value, accounts: batch.accounts.value, today: batch.today, initialStep: opened, editMode: true }, async input => {
+    assert.equal(input.section, 'setup');
+    saved.profile.retire.core.fund_rules = input.fields.funds.fund_rules;
+    saved.revision += 1; batch.write_version += 1;
+    return { revision: saved.revision };
+  });
+  assert.match(setup.text(setup.find('dialog')), /默认只动用现金类账户，确认后保存即可/);
+  setup.button('保存，查看结果').props.onClick(); await setup.settle();
+  assert.equal(setup.calls.length, 1); assert.deepEqual(setup.closes, [true]);
+  assert.equal(caps().requirement.status, 'ready');
+  goals.render(); assert.equal(goals.find('div', p => p['data-goal-state']).props['data-goal-state'], '2');
+  const expected = structuredClone(original); expected.retire.core.fund_rules = saved.profile.retire.core.fund_rules;
+  assert.deepEqual(saved.profile, expected);
+});
+
+
+test('future occurrence defaults pending; empty withdrawal is enabled but saved facts forbid it even if draft is cleared', () => {
+  const batch = JSON.parse(readFileSync(new URL('./fixtures/planning-basic/nonblocking-demo.json', import.meta.url)));
+  const ev = batch.profile.value.saved.profile.retire.life_events[0];
+  const saves = [];
+  const props = { event: ev, snapshot: batch.snapshot.value, accounts: batch.accounts.value, today: batch.today, busy: false, stuck: false, notice: '', onSave: value => saves.push(value) };
+  const fresh = runtime('PlanningOccurrenceDialog', props);
+  assert.equal(fresh.find('select', p => p['aria-label'] === '现实状态').props.value, 'pending');
+  assert.equal(fresh.find('DateInput'), undefined);
+  fresh.find('form').props.onSubmit(event()); assert.deepEqual(saves, [null]);
+  const blank = { id: 'empty', event_id: ev.id, status: 'occurred', actual_date: batch.today, payments_complete: false, payments: [], loan: null };
+  const pending = runtime('PlanningOccurrenceDialog', { ...props, existing: blank });
+  assert.equal(pending.button('撤回为尚未发生').props.disabled, false);
+  pending.button('撤回为尚未发生').props.onClick(); assert.deepEqual(saves, [null, null]);
+  for (const fact of [{ amount_cents: '0' }, { account_id: 'cash' }, { absorbed_snapshot_id: 'B' }]) {
+    const existing = { ...blank, payments: [{ id: 'p', date: batch.today, amount_cents: null, account_id: null, absorbed_snapshot_id: null, absorbed_revision: null, source_kind: null, source_id: null, ...fact }] };
+    const factual = runtime('PlanningOccurrenceDialog', { ...props, existing });
+    assert.equal(factual.button('撤回为尚未发生').props.disabled, true);
+    factual.button('移除此核对分项').props.onClick(); factual.render();
+    assert.equal(factual.button('撤回为尚未发生').props.disabled, true);
+  }
 });

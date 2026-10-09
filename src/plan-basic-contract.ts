@@ -39,7 +39,7 @@ export type ProfileUpdate = { request_id: string; generation: string; expected_r
   | { section: 'budget'; fields: BudgetFields }
 );
 export type CapabilityName = 'funds' | 'requirement' | 'prediction' | 'pension';
-export type MissingCode = 'PROFILE_UNKNOWN' | 'BIRTH_UNKNOWN' | 'TARGET_UNKNOWN' | 'BUDGET_UNKNOWN' | 'START_UNKNOWN' | 'WEALTH_DISABLED' | 'SOURCE_ERROR' | 'SOURCE_STALE' | 'FUNDS_UNCONFIRMED' | 'OCCURRENCE_UNCONFIRMED' | 'COST_SCOPE_UNKNOWN' | 'COST_SCOPE_INVALID' | 'INCOME_MODE_UNKNOWN' | 'INCOME_SOURCE_UNKNOWN' | 'PENSION_FACTS_UNKNOWN' | 'PENSION_CONTRIBUTIONS_UNKNOWN' | 'POOL_UNCONFIRMED' | 'CONTRIBUTION_UNKNOWN' | 'HORIZON_INVALID';
+export type MissingCode = 'INPUT_INVALID' | 'PROFILE_UNKNOWN' | 'BIRTH_UNKNOWN' | 'TARGET_UNKNOWN' | 'BUDGET_UNKNOWN' | 'START_UNKNOWN' | 'WEALTH_DISABLED' | 'SOURCE_ERROR' | 'SOURCE_STALE' | 'FUNDS_UNCONFIRMED' | 'OCCURRENCE_UNCONFIRMED' | 'COST_SCOPE_UNKNOWN' | 'COST_SCOPE_INVALID' | 'INCOME_MODE_UNKNOWN' | 'INCOME_SOURCE_UNKNOWN' | 'PENSION_FACTS_UNKNOWN' | 'PENSION_CONTRIBUTIONS_UNKNOWN' | 'POOL_UNCONFIRMED' | 'CONTRIBUTION_UNKNOWN' | 'HORIZON_INVALID';
 export type PlanningMissing = { code: MissingCode; capability: CapabilityName; owner: 'basic' | 'pension' | 'funds' | 'events' | 'budget' | 'service'; field: string; message: string; kind: 'fact' | 'assumption' | 'read_error' | 'constraint' };
 export type Capability<T> = { status: 'ready'; value: T } | { status: 'blocked'; missing: PlanningMissing[] };
 export type RequirementResult = { before_hundredths: number; after_hundredths: number } & (
@@ -52,7 +52,15 @@ export type RequirementResult = { before_hundredths: number; after_hundredths: n
 );
 export type RequirementValue = { set: RequirementResult; lower: RequirementResult; upper: RequirementResult; target_month: string; horizon_month: string; budget_scope: 'complete' };
 export type PredictionValue = { source: 'saved' | 'temporary'; contribution_cents: string; plan: Plan; plan0: Plan; projection: Projection; outcome: Outcome; terminal: 'surplus' | 'no_margin' | 'gap' };
-export type PlanningContext = { generation: string; revision: number | null; today: string; model_version: 'basic-1'; modules: { planning: boolean; wealth: boolean }; start: { kind: 'live'; snapshot_id: string | null; revision: number | null; date: string | null } | { kind: 'simulation'; id: string; date: string | null }; monetary_basis_date: string | null; source: 'saved' | 'temporary'; write_version: number };
-export type BasicCapabilities = { context: PlanningContext; funds: Capability<{ available_cents: string; restricted_cents: string; debt_cents: string; date: string; kind: 'live' | 'simulation' }>; requirement: Capability<RequirementValue>; prediction: Capability<PredictionValue>; pension: Capability<{ included: boolean; start_month: string | null; monthly_cents: string | null }> };
+export type AnnotationEffect = 'requirement_lower' | 'requirement_higher' | 'uncertain' | 'none';
+/** Read-only calculation coverage. Never part of ProfileUpdate or stored profile JSON. */
+export type PlanningAnnotation = {
+  id: string; reason_code: 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
+  message: string; effect: AnnotationEffect; treatment: 'omitted' | 'assumed_extra' | 'not_used';
+  source_ids: string[]; missing_fields: string[];
+  refinement: { owner: PlanningMissing['owner']; field: string; event_id?: string };
+};
+export type PlanningContext = { generation: string; revision: number | null; today: string; model_version: 'basic-1' | 'basic-2'; modules: { planning: boolean; wealth: boolean }; start: { kind: 'live'; snapshot_id: string | null; revision: number | null; date: string | null } | { kind: 'simulation'; id: string; date: string | null }; monetary_basis_date: string | null; source: 'saved' | 'temporary'; write_version: number };
+export type BasicCapabilities = { annotations?: PlanningAnnotation[]; context: PlanningContext; funds: Capability<{ available_cents: string; restricted_cents: string; debt_cents: string; date: string; kind: 'live' | 'simulation' }>; requirement: Capability<RequirementValue>; prediction: Capability<PredictionValue>; pension: Capability<{ included: boolean; start_month: string | null; monthly_cents: string | null }> };
 /** One native read transaction; disabled sources are represented without opening wealth readers. */
 export type PlanningSources = { generation: string; write_version: number; today: string; modules: { planning: boolean; wealth: boolean }; profile: Read<ProfileState>; snapshot: Read<Snapshot | null>; accounts: Read<Account[]>; review: Read<PlanReview>; incomes: Read<Income[]> };

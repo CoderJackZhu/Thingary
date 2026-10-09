@@ -3,6 +3,9 @@ import { money } from './asset';
 import type { Account, Snapshot } from './wealth';
 import type { PlanningMissing, PlanningSources, StoredLifeEvent } from './plan';
 import type { Occurrence } from './plan-core';
+import { CoverageNote } from './CoverageNote';
+import { affectingAnnotations } from './plan-annotations';
+import { retractOccurrence } from './plan-occurrence-actions';
 import { CapabilityNotice } from './PlanningRequirement';
 import { RunwayCard } from './PlanningRunway';
 import { PlanningCareerCard } from './PlanningCareerCard';
@@ -56,10 +59,10 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     else if (card.action === 'setup') openSetup(card.step ?? 0, from, true);
     else reload();
   }
-  async function saveOccurrence(o: Occurrence) {
+  async function saveOccurrence(o: Occurrence | null) {
     if (!saved?.profile.retire.core) return;
     const r = saved.profile.retire;
-    if (await saver.save(eventsInput({ life_events: r.life_events, occurrences: [...r.core!.occurrences.filter(x => x.event_id !== o.event_id), o] }))) closeRefinement();
+    if (await saver.save(eventsInput({ life_events: r.life_events, occurrences: o ? [...r.core!.occurrences.filter(x => x.event_id !== o.event_id), o] : retractOccurrence(r.core!.occurrences, r.core!.occurrences.find(x => x.event_id === occurring?.id)?.id ?? '') }))) closeRefinement();
   }
   if (sources.profile.status === 'error') return <article className="ui-card ui-content" role="alert"><p>规划资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>;
   if (detail && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openSetup={(step, from) => openSetup(step, from, true)} onGoto={onGoto} onEvents={goEvents} onBack={() => { setDetail(false); requestAnimationFrame(() => document.getElementById('plan-detail-entry')?.focus()); }}/>;
@@ -70,7 +73,6 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     {costsOpen && saved && <CostsDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {occurring && saved && <PlanningOccurrenceDialog event={occurring} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
     <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
-      <p className="eyebrow">长期生活计划</p>
       {state === '0' ? <>
         <h3>想知道：要攒多少钱才够？</h3>
         <p className="planning-first-promise">回答 4 个问题，算出“想在 X 岁退休，每月大约要存多少钱”。</p><p className="muted">没想好的可以先留空，随时退出，不保存草稿。</p>
@@ -80,16 +82,18 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
         <div className="planning-question-checklist">{questions.map((q, i) => <p key={q}><span className="ui-tag">{progress.answered[i] ? '已回答' : '还需要'}</span><span>{q}</span></p>)}</div>
         <button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(progress.first, e.currentTarget)}>继续回答</button>
       </> : <>
-        {state === '2' && req && line ? <><p className="muted">如果想在 {req.target_month.slice(0, 4)} 年 {Number(req.target_month.slice(5, 7))} 月退休：</p><p className={`planning-result-number ${line.tone}`}><strong>{line.text}</strong></p><p className="muted small">这是参考金额，不用填写，不保证未来一定够用。按今天的物价，准备支付生活费到 {req.horizon_month.slice(0, 4)} 年 {Number(req.horizon_month.slice(5, 7))} 月。</p></>
+        {state === '2' && req && line ? <><p className="muted">如果想在 {req.target_month.slice(0, 4)} 年 {Number(req.target_month.slice(5, 7))} 月退休：</p><p className={`planning-result-number ${line.tone}`}><strong>{line.text}</strong></p><CoverageNote annotations={caps?.annotations} onRefine={a => { const card = cards.find(c => c.event?.id === a.refinement.event_id || a.refinement.field.includes("_costs") && c.action === "costs"); if (card) action(card, document.getElementById("plan-budget-entry")!); else owner(a.refinement.owner, a.refinement.field); }}/><p className="muted small">这是参考金额，不用填写，不保证未来一定够用。按今天的物价，准备支付生活费到 {req.horizon_month.slice(0, 4)} 年 {Number(req.horizon_month.slice(5, 7))} 月。</p></>
           : <><h3>还有 {cards.filter(c => c.required).length} 项需要确认，才能算出结果</h3><p className="muted">四个问题已回答。核对下面这些事项后，再按已保存的条件计算。</p></>}
         {saved && caps && <div className="planning-condition-chips" aria-label="计算条件">{conditionChips(saved, caps, money).map(chip => <button type="button" className={chip.prominent ? 'planning-chip prominent' : 'planning-chip'} key={chip.step} onClick={e => openSetup(chip.step, e.currentTarget, true)}>{chip.text}</button>)}<button type="button" id="plan-budget-entry" className="ui-link" onClick={e => openSetup(0, e.currentTarget, true)}>修改</button></div>}
         {state === '2' && <p><button type="button" id="plan-detail-entry" className="ui-link" onClick={() => setDetail(true)}>查看测算详情 ›</button></p>}
       </>}
     </article>
     {result.status !== 'ready' && <><CapabilityNotice result={result}/><button className="ui-btn" onClick={reload}>重新读取</button></>}
-    {/* State 2b is temporary. Overdue events and unreviewed costs still block the unchanged calculation engine. */}
-    {(state === '2' || state === '2b') && <PlanningRefinements cards={cards} blocked={state === '2b'} busy={saver.busy || saver.stuck} onAction={action}/>}
-    {state === '2b' && cards.some(c => !c.required) && <PlanningRefinements cards={cards.filter(c => !c.required)} busy={saver.busy || saver.stuck} onAction={action}/>}
+    {(state === '2' || state === '2b') && <>
+      <PlanningRefinements cards={cards.filter(c => c.required)} blocked busy={saver.busy || saver.stuck} onAction={action}/>
+      <PlanningRefinements cards={cards.filter(c => !c.required && c.impacts)} title={`影响结果的待核对项（${new Set(affectingAnnotations(caps?.annotations).flatMap(a => a.source_ids)).size} 项）`} busy={saver.busy || saver.stuck} onAction={action}/>
+      <PlanningRefinements cards={cards.filter(c => !c.required && !c.impacts)} busy={saver.busy || saver.stuck} onAction={action}/>
+    </>}
     {(state === '2' || state === '2b') && <details className="ui-card ui-content planning-more-tools" open={toolsOpen} onToggle={e => setToolsOpen(e.currentTarget.open)}>
       <summary><strong>更多工具与试算</strong>{moreToolsBadges(saved).map(text => <span className="ui-tag" key={text}>{text}</span>)}<span className="planning-more-tools-hint muted small">查看资金能撑多久、职业变化试算，以及大额计划和心愿购买的影响。</span></summary>
       <div className="planning-more-tools-body">

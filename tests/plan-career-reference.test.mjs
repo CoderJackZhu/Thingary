@@ -7,9 +7,10 @@ import { maxGap } from '../src/plan-career-map.ts';
 
 const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 0.02, `${message}: ${actual} vs ${expected}`);
 for (const [name, o] of cases) test(`independent reference: ${name}`, () => {
-  const { s, d } = inputs(o), expected = referenceCareer(o), result = evaluateCareerScenario(s, d);
+  const { s, d } = inputs(o), expected = referenceCareer({ ...o, unlock: null }), result = evaluateCareerScenario(s, d);
   assert.equal(result.prediction.status, 'ready', JSON.stringify(result.prediction));
   const v = result.prediction.value;
+  if (o.unlock) { assert.equal(v.plan.pension_at(v.plan.target_months).lump_cents, 0); assert.ok(v.plan.annotations.some(n => n.reason_code === 'POOL_NOT_USED')); }
   // Compare every accumulation month's start/end, not merely the final integer month.
   for (let m = 0; m < expected.rows.length; m++) {
     near(v.projection.assets[m + (o.firstFraction === undefined ? 1 : 0)], expected.rows[m].start, `month ${m} opening`);

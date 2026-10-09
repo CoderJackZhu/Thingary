@@ -38,6 +38,7 @@ export type CareerEvaluation = {
   context: PlanningContext;
   model_version: 'career-prototype-1';
   notes: string[];
+  annotations?: import('./plan-basic-contract.ts').PlanningAnnotation[];
   cash: CareerCapability<CareerCash>;
   requirement: CareerCapability<CareerRequirement>;
   prediction: CareerCapability<{ plan: Plan; projection: Projection; outcome: Outcome }>;

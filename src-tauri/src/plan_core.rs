@@ -68,6 +68,20 @@ pub struct Core {
     pub costs: Vec<CostRule>,
     pub occurrences: Vec<Occurrence>,
 }
+impl Occurrence {
+    /// Only a blank saved occurrence can be retracted. Zero amounts are actual facts.
+    pub fn has_facts(&self) -> bool {
+        self.loan.is_some()
+            || self.payments.iter().any(|p| {
+                p.amount_cents.is_some()
+                    || p.account_id.is_some()
+                    || p.absorbed_snapshot_id.is_some()
+                    || p.absorbed_revision.is_some()
+                    || p.source_kind.is_some()
+                    || p.source_id.is_some()
+            })
+    }
+}
 fn bad() -> Error {
     Error::new("PLANNING_CORE", "规划资金、费用或发生核对资料无效")
 }

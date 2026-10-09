@@ -1,4 +1,5 @@
 // Opt-in, read-only scenario compiler. No dependency from basic consumers or persistence.
+import { annotationSummary, uniqueAnnotations } from './plan-annotations.ts';
 import { prepareBasicPlan, solveBasicRequirement } from './plan-basic.ts';
 import type { BasicPlanCompiler } from './plan-basic.ts';
 import type { PlanningSources, CostScope } from './plan-basic-contract.ts';
@@ -37,7 +38,7 @@ const clipped = (flows: Flow[], from: number, to: number): Flow[] => flows.map(f
 export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDraft, options: { requirement?: 'calculate' | 'skip' } = {}): CareerEvaluation {
   const basic = prepareBasicPlan(sources, '0');
   const notes = ['职业条件仅用于本次比较，不改变基础计划。', '工作阶段只知道每月能攒多少；未完整检查这些区间的月内生活付款。', '空窗按月初支出、月底到账检查，金额为所示基准日购买力。'];
-  const fail = (errors: CareerIssue[]): CareerEvaluation => ({ context: basic.context, model_version: 'career-prototype-1', notes, cash: blocked(errors), requirement: blocked(errors), prediction: blocked(errors) });
+  const fail = (errors: CareerIssue[]): CareerEvaluation => ({ context: basic.context, model_version: 'career-prototype-1', annotations: basic.annotations, notes: [...annotationSummary(basic.annotations), ...notes], cash: blocked(errors), requirement: blocked(errors), prediction: blocked(errors) });
   const p = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile : null;
   if (!p?.birth_month || !p.retire.basic || !basic.context.start.date) return fail(basic.plan.status === 'blocked' ? basic.plan.missing.map(m => issue(m.field, m.message)) : [issue('sources', '请先确认通用资料、出生年月和资金截至日。')]);
   const birth = monthIndex(p.birth_month), anchor = basic.context.start.date, now = monthIndex(anchor.slice(0, 7)) - birth;
@@ -93,13 +94,16 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
   const first = transition > now ? pre : (hasGap ? gap : post);
   for (const prepared of [first, ...(hasGap ? [gap] : [])]) if (!prepared || prepared.plan.status === 'blocked') return fail(prepared?.plan.status === 'blocked' ? prepared.plan.missing.map(m => issue(m.field, m.message)) : [issue('recovery', '恢复阶段条件未完整确认。')]);
   if (post?.plan.status === 'blocked') recoveryErrors.push(...post.plan.missing.map(m => issue(`recovery.${m.field}`, m.message)));
+  const used = [transition > now ? pre : null, hasGap ? gap : null, recovery !== null && recovery < target ? post : null];
+  const annotations = uniqueAnnotations(used.flatMap(p => p?.annotations ?? []));
+  notes.unshift(...annotationSummary(annotations));
   const initial = first!.plan.status === 'ready' ? first!.plan.value : null;
   if (!initial) return fail([issue('sources', '来源无法编译。')]);
   const gapCompiler = gap?.plan.status === 'ready' ? gap.plan.value : null;
   const postCompiler = post?.plan.status === 'ready' ? post.plan.value : null;
   if (hasGap && gapCompiler && Number(draft.gap.spend_cents) < gapCompiler.included_reference_cents + (draft.gap.insurance.included ? Number(draft.gap.insurance.monthly_cents) : 0)) return fail([issue('gap.spend_cents', '空窗已含费用参考额超过总开销，请核对范围。')]);
   const before = initial.before, after = initial.after;
-  const skeleton = initial.compile(0, before, after);
+  const skeleton = { ...initial.compile(0, before, after), annotations };
   const compile = (candidate: number, rb = before, ra = after): Plan => {
     const flow: Flow[] = [];
     const append = (compiler: BasicPlanCompiler, from: number, to: number, stage?: CareerStage) => {
@@ -136,7 +140,7 @@ function finishCareer(context: CareerEvaluation['context'], draft: CareerDraft, 
   const year = Number(zero.anchor_date!.slice(0, 4));
   if (![zero.r_before_hundredths, zero.r_after_hundredths].every(r => Number.isFinite(r) && r >= -1000 && r <= 2000)) {
     const errors = [issue('returns', '收益条件超出当前合法范围，未运行本次情景。')];
-    return { context, model_version: 'career-prototype-1', notes, cash: blocked(errors), requirement: blocked(errors), prediction: blocked(errors) };
+    return { context, model_version: 'career-prototype-1', annotations: zero.annotations, notes, cash: blocked(errors), requirement: blocked(errors), prediction: blocked(errors) };
   }
   project(zero, year, { onMonth: p => audit.push(p) });
   const negative = (p: MonthAudit) => Math.min(p.start_cents, p.after_payments_cents, p.after_unlock_cents, p.end_cents) < 0;
@@ -184,5 +188,5 @@ function finishCareer(context: CareerEvaluation['context'], draft: CareerDraft, 
     notes.push('底线因可动用条件未确认而未检查，目标需求不代表底线已满足。');
   }
   if (cashValue?.first_shortfall_month) notes.push('最低金额截至首次不足；负数表示按条件推演的缺口，不代表已借入资金。');
-  return { context, model_version: 'career-prototype-1', notes, cash, requirement, prediction };
+  return { context, model_version: 'career-prototype-1', annotations: zero.annotations, notes, cash, requirement, prediction };
 }

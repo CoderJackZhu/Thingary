@@ -2,6 +2,7 @@
 // （月供、持有成本、不再付的房租），并入同一个退休账本，不另起一套计算。纯函数，按已保存的金额基准 T 计算。
 import { project, savingsOf, nominalFactor } from './plan-ledger.ts';
 import type { Flow, Plan, LoanSchedule } from './plan-ledger.ts';
+import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Spend } from './plan-fire.ts';
 
 export type EventKind = 'house' | 'car' | 'other';
@@ -22,8 +23,8 @@ export const monthIndex = (d: string) => Number(d.slice(0, 4)) * 12 + Number(d.s
 /** 计划月份距起点的有符号月数；逾期不移动至当月。 */
 export const offsetOf = (date: string, today: string) => monthIndex(date) - monthIndex(today);
 
-type Ctx = Pick<Plan, 'now_months' | 'horizon_months' | 'inflation_hundredths' | 'rent_cents' | 'core' | 'anchor_date' | 'basis_factor' | 'first_month_fraction'>;
-export type EventParts = { spends: Spend[]; saving_flows: Flow[]; spend_flows: Flow[]; principal_cents: number; payment_cents: number; loan_months: number; loans: LoanSchedule[] };
+type Ctx = Pick<Plan, 'now_months' | 'horizon_months' | 'inflation_hundredths' | 'rent_cents' | 'core' | 'anchor_date' | 'basis_factor' | 'first_month_fraction' | 'event_coverage'>;
+export type EventParts = { spends: Spend[]; saving_flows: Flow[]; spend_flows: Flow[]; principal_cents: number | null; payment_cents: number | null; loan_months: number | null; loans: LoanSchedule[] };
 
 /** 等额本息月供（名义）：本金、年利率（万分比）、期数；利率为 0 时平均分。 */
 export function monthlyPayment(principal: number, rateHundredths: number, months: number): number {
@@ -34,35 +35,38 @@ export function monthlyPayment(principal: number, rateHundredths: number, months
 
 export function eventParts(c: Ctx, e: LifeEvent, offset: number): EventParts {
   const occurrence = c.core?.occurrences.find(x => x.event_id === e.id);
+  const coverage = c.event_coverage?.[e.id];
   const empty: EventParts = { spends: [], saving_flows: [], spend_flows: [], principal_cents: 0, payment_cents: 0, loan_months: 0, loans: [] };
-  if (occurrence?.status === 'cancelled' || (!occurrence && offset < 0)) return empty;
+  if (coverage?.paused || occurrence?.status === 'cancelled' || (!occurrence && offset < 0)) return empty;
   const originOffset = occurrence && c.anchor_date ? offsetOf(occurrence.actual_date, c.anchor_date) : offset;
   const effectiveOffset = Math.max(0, originOffset);
   const m0 = c.now_months + effectiveOffset;
   const loanOffset = effectiveOffset === 0 && c.first_month_fraction === 0 ? 1 : effectiveOffset;
   const loanFrom = c.now_months + loanOffset;
   const down = Math.min(e.down_cents, e.price_cents), real = e.price_cents - down;
-  const spends: Spend[] = occurrence ? occurrence.payments.filter(p => p.date > (c.anchor_date ?? '') && p.amount_cents !== null).map(p => ({ offset_months: Math.max(0, offsetOf(p.date, c.anchor_date!)), cents: Number(p.amount_cents) / nominalFactor(c, c.now_months + offsetOf(p.date, c.anchor_date!)) })) : [{ offset_months: offset, cents: down + e.extra_cents }];
+  const spends: Spend[] = occurrence ? occurrence.payments.filter(p => (!coverage || coverage.payment_ids.includes(p.id)) && p.date > (c.anchor_date ?? '') && p.amount_cents !== null).map(p => ({ offset_months: Math.max(0, offsetOf(p.date, c.anchor_date!)), cents: Number(p.amount_cents) / nominalFactor(c, c.now_months + offsetOf(p.date, c.anchor_date!)) })) : [{ offset_months: offset, cents: down + e.extra_cents }];
   const saving_flows: Flow[] = [], spend_flows: Flow[] = [];
   const both = (source_id: string, label: string, from: number, to: number | null, cents: number, nominal: boolean, essential: boolean) => {
     saving_flows.push({ source_id, label, from_month: from, to_month: to, cents: -cents, nominal, essential, timing: 'start' });
     spend_flows.push({ source_id, label, from_month: from, to_month: to, cents, nominal, essential, timing: 'start' });
   };
   // 贷款：本金按购买那天的名义价格算，月供固定名义金额，到期结束。
-  const principal = occurrence ? Number(occurrence.loan?.principal_cents ?? 0) : real * nominalFactor(c, c.now_months + offset);
-  const n = occurrence ? occurrence.loan?.remaining_months ?? 0 : Math.round(e.loan_years * 12);
-  const pay = monthlyPayment(principal, e.loan_rate_hundredths, n);
-  if (pay > 0) both(`event:${e.id}:loan`, `${e.label}月供`, loanFrom, loanFrom + n, pay, true, true);
+  const needsLoan = real > 0 || occurrence?.loan != null;
+  const knownLoan = occurrence?.loan && (!coverage || coverage.loan) ? occurrence.loan : null;
+  const principal = occurrence ? knownLoan ? Number(knownLoan.principal_cents) : needsLoan ? null : 0 : real * nominalFactor(c, c.now_months + offset);
+  const n = occurrence ? knownLoan ? knownLoan.remaining_months : needsLoan ? null : 0 : Math.round(e.loan_years * 12);
+  const pay = principal === null || n === null ? null : monthlyPayment(principal, e.loan_rate_hundredths, n);
+  if (pay !== null && n !== null && pay > 0) both(`event:${e.id}:loan`, `${e.label}月供`, loanFrom, loanFrom + n, pay, true, true);
   const until = e.until_age === null ? null : e.until_age * 12;
-  if (e.holding_cents > 0) both(`event:${e.id}:holding`, `${e.label}${e.kind === 'car' ? '养车' : '持有成本'}`, m0, e.kind === 'car' ? until : null, e.holding_cents, false, e.kind === 'house');
+  if ((!coverage || coverage.holding) && e.holding_cents > 0) both(`event:${e.id}:holding`, `${e.label}${e.kind === 'car' ? '养车' : '持有成本'}`, m0, e.kind === 'car' ? until : null, e.holding_cents, false, e.kind === 'house');
   // 退休后的房租在计划里是一条持续的必需支出；买房之后不再付，取消额不超过房租本身。
-  if (e.kind === 'house' && e.rent_saved_cents > 0 && (c.rent_cents ?? 0) > 0) spend_flows.push({ label: `${e.label}后不再付房租`, from_month: m0, to_month: null, cents: -Math.min(e.rent_saved_cents, c.rent_cents!), nominal: false, essential: true });
+  if ((!coverage || coverage.holding) && e.kind === 'house' && e.rent_saved_cents > 0 && (c.rent_cents ?? 0) > 0) spend_flows.push({ label: `${e.label}后不再付房租`, from_month: m0, to_month: null, cents: -Math.min(e.rent_saved_cents, c.rent_cents!), nominal: false, essential: true });
   if (!occurrence && e.rent_saved_cents > 0) saving_flows.push({ label: `${e.label}省下的房租`, from_month: m0, to_month: null, cents: e.rent_saved_cents, nominal: false, essential: false });
-  if (e.cycle_years !== null && e.cycle_years > 0) {
+  if ((!coverage || coverage.cycle) && e.cycle_years !== null && e.cycle_years > 0) {
     const end = until ?? c.horizon_months, step = e.cycle_years * 12;
     for (let k = 1; c.now_months + originOffset + k * step < end; k++) if (originOffset + k * step > 0) spends.push({ offset_months: originOffset + k * step, cents: Math.max(0, e.price_cents - e.resale_cents) });
   }
-  return { spends, saving_flows, spend_flows, principal_cents: principal, payment_cents: pay, loan_months: pay > 0 ? n : 0, loans: pay > 0 ? [{ id: e.id, from_offset: loanOffset, principal_cents: principal, rate_hundredths: e.loan_rate_hundredths, months: n, payment_cents: pay, existing: !!occurrence }] : [] };
+  return { spends, saving_flows, spend_flows, principal_cents: principal, payment_cents: pay, loan_months: pay === null ? null : pay > 0 ? n : 0, loans: pay !== null && n !== null && principal !== null && pay > 0 ? [{ id: e.id, from_offset: loanOffset, principal_cents: principal, rate_hundredths: e.loan_rate_hundredths, months: n, payment_cents: pay, existing: !!occurrence }] : [] };
 }
 
 /** 把这些事件并入计划（不改原计划）。events 里的 offset 由调用方按今天算好。 */
@@ -74,6 +78,7 @@ export function applyEvents(P: Plan, events: { e: LifeEvent; offset: number }[])
 }
 
 export type EventImpact = {
+  annotations?: PlanningAnnotation[];
   base_fi: number | null; with_fi: number | null;
   /** 财务独立推迟的月数；任一边没达成时为 null。 */
   delay_months: number | null;
@@ -95,8 +100,10 @@ export function eventImpact(P0: Plan, e: LifeEvent, offset: number, emergencyCen
   let earliest: number | null = null;
   for (let t = 0; t < base.assets.length; t++) if (base.assets[t] >= need) { earliest = t; break; }
   const parts = eventParts(P0, e, offset), P1 = applyEvents(P0, [{ e, offset }]);
+  if (parts.payment_cents === null) throw new Error('贷款接续待核对，不能输出完整单项影响。');
   const sv = savingsOf(P1), after = sv[Math.min(offset, sv.length - 1)] ?? 0;
   return {
+    annotations: P0.annotations ?? [],
     base_fi: base.fi_month, with_fi: withE.fi_month, delay_months: delay(base.fi_month, withE.fi_month),
     cash_needed: need, assets_at_date: at, short: Math.max(0, need - at), earliest_offset: earliest,
     payment_nominal: parts.payment_cents, saving_after: after, saving_not_positive: after <= 0 && (parts.payment_cents > 0 || e.holding_cents > 0),
@@ -107,5 +114,5 @@ export function eventImpact(P0: Plan, e: LifeEvent, offset: number, emergencyCen
 /** 全部计入的事件一起发生：FI 月份的变化。 */
 export function totalImpact(P0: Plan, events: { e: LifeEvent; offset: number }[]) {
   const base = project(P0, 0), all = project(applyEvents(P0, events), 0);
-  return { base_fi: base.fi_month, with_fi: all.fi_month, delay_months: delay(base.fi_month, all.fi_month) };
+  return { annotations: P0.annotations ?? [], base_fi: base.fi_month, with_fi: all.fi_month, delay_months: delay(base.fi_month, all.fi_month) };
 }

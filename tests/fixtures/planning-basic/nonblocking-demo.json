@@ -1,0 +1,350 @@
+{
+  "accounts": {
+    "status": "ready",
+    "value": [
+      {
+        "fields": {
+          "closed_on": null,
+          "counted": true,
+          "institution": "虚构银行",
+          "kind": "cash",
+          "name": "虚构储蓄卡",
+          "notes": "虚构样例；房贷单独展示，不计入金融净资产。",
+          "opened_on": "2026-04-10",
+          "side": "asset"
+        },
+        "id": "00000000-0000-4000-8000-000000000002",
+        "latest": {
+          "amount_cents": "10000000",
+          "date": "2026-10-10"
+        },
+        "position": 0,
+        "revision": 1
+      },
+      {
+        "fields": {
+          "closed_on": null,
+          "counted": true,
+          "institution": "虚构券商",
+          "kind": "mixed",
+          "name": "虚构证券账户",
+          "notes": "虚构样例；房贷单独展示，不计入金融净资产。",
+          "opened_on": "2026-04-10",
+          "side": "asset"
+        },
+        "id": "00000000-0000-4000-8000-000000000005",
+        "latest": {
+          "amount_cents": "20000000",
+          "date": "2026-10-10"
+        },
+        "position": 1,
+        "revision": 1
+      },
+      {
+        "fields": {
+          "closed_on": null,
+          "counted": true,
+          "institution": "公积金中心",
+          "kind": "housing_fund",
+          "name": "虚构公积金",
+          "notes": "虚构样例；房贷单独展示，不计入金融净资产。",
+          "opened_on": "2026-04-10",
+          "side": "asset"
+        },
+        "id": "00000000-0000-4000-8000-000000000003",
+        "latest": {
+          "amount_cents": "5500000",
+          "date": "2026-10-10"
+        },
+        "position": 2,
+        "revision": 1
+      },
+      {
+        "fields": {
+          "closed_on": null,
+          "counted": true,
+          "institution": "虚构银行",
+          "kind": "credit_card",
+          "name": "虚构信用卡",
+          "notes": "虚构样例；房贷单独展示，不计入金融净资产。",
+          "opened_on": "2026-04-10",
+          "side": "liability"
+        },
+        "id": "00000000-0000-4000-8000-000000000001",
+        "latest": {
+          "amount_cents": "500000",
+          "date": "2026-10-10"
+        },
+        "position": 3,
+        "revision": 1
+      },
+      {
+        "fields": {
+          "closed_on": null,
+          "counted": false,
+          "institution": "虚构银行",
+          "kind": "loan",
+          "name": "虚构房贷",
+          "notes": "虚构样例；房贷单独展示，不计入金融净资产。",
+          "opened_on": "2026-04-10",
+          "side": "liability"
+        },
+        "id": "00000000-0000-4000-8000-000000000004",
+        "latest": {
+          "amount_cents": "80000000",
+          "date": "2026-10-10"
+        },
+        "position": 4,
+        "revision": 1
+      }
+    ]
+  },
+  "generation": "fictional-nonblocking",
+  "incomes": {
+    "status": "ready",
+    "value": [
+      {
+        "fields": {
+          "date": "2026-10-10",
+          "hpf_cents": "180000",
+          "net_cents": "2000000",
+          "notes": ""
+        },
+        "id": "00000000-0000-4000-8000-000000000200",
+        "revision": 1
+      },
+      {
+        "fields": {
+          "date": "2026-09-10",
+          "hpf_cents": "180000",
+          "net_cents": "2000000",
+          "notes": ""
+        },
+        "id": "00000000-0000-4000-8000-000000000201",
+        "revision": 1
+      },
+      {
+        "fields": {
+          "date": "2026-08-10",
+          "hpf_cents": "180000",
+          "net_cents": "2000000",
+          "notes": ""
+        },
+        "id": "00000000-0000-4000-8000-000000000202",
+        "revision": 1
+      },
+      {
+        "fields": {
+          "date": "2026-07-10",
+          "hpf_cents": "180000",
+          "net_cents": "2000000",
+          "notes": "含虚构年终奖"
+        },
+        "id": "00000000-0000-4000-8000-000000000203",
+        "revision": 1
+      },
+      {
+        "fields": {
+          "date": "2026-06-10",
+          "hpf_cents": "180000",
+          "net_cents": "2000000",
+          "notes": ""
+        },
+        "id": "00000000-0000-4000-8000-000000000204",
+        "revision": 1
+      },
+      {
+        "fields": {
+          "date": "2026-05-10",
+          "hpf_cents": "180000",
+          "net_cents": "2000000",
+          "notes": ""
+        },
+        "id": "00000000-0000-4000-8000-000000000205",
+        "revision": 1
+      }
+    ]
+  },
+  "modules": {
+    "planning": true,
+    "wealth": true
+  },
+  "profile": {
+    "status": "ready",
+    "value": {
+      "generation": "fictional-nonblocking",
+      "saved": {
+        "profile": {
+          "account_balance_cents": "5000000",
+          "assumptions": {
+            "inflation_hundredths": 200,
+            "pp_return_hundredths": 200,
+            "wage_growth_hundredths": 200
+          },
+          "base_cents": "2000000",
+          "birth_month": "1990-06",
+          "flex_months": 0,
+          "marginal_tax_hundredths": 1000,
+          "overrides": {
+            "avg_wage_cents": null,
+            "base_lower_cents": null,
+            "base_upper_cents": null,
+            "hpf_rate_hundredths": null,
+            "notional_rate_hundredths": null
+          },
+          "paid_months": 48,
+          "past_index_hundredths": null,
+          "personal_pension_annual_cents": "1200000",
+          "region": "beijing",
+          "retire": {
+            "basic": {
+              "contract_version": 1,
+              "contribution": {
+                "id": "demo-contribution",
+                "monthly_cents": "800000"
+              },
+              "contribution_costs": [],
+              "pension_contributions": {
+                "base_cents": null,
+                "start_month": null,
+                "stop_month": null
+              },
+              "retirement_costs": [],
+              "retirement_income": {
+                "mode": "excluded",
+                "selected": []
+              },
+              "start": {
+                "kind": "live"
+              }
+            },
+            "core": {
+              "contract_version": 1,
+              "fund_rules": [
+                {
+                  "account_id": "00000000-0000-4000-8000-000000000002",
+                  "availability": "available",
+                  "share_hundredths": 10000
+                },
+                {
+                  "account_id": "00000000-0000-4000-8000-000000000005",
+                  "availability": "restricted",
+                  "share_hundredths": 10000
+                },
+                {
+                  "account_id": "00000000-0000-4000-8000-000000000003",
+                  "availability": "restricted",
+                  "share_hundredths": 10000
+                }
+              ],
+              "hpf_monthly_cents": null,
+              "monetary_basis_date": "2026-10-10",
+              "occurrences": [],
+              "personal_pension_account_id": null,
+              "personal_pension_balance_confirmed": false
+            },
+            "emergency_months": 6,
+            "horizon_age": 90,
+            "income_items": [],
+            "keep_paying_base_cents": "0",
+            "keep_paying_monthly_cents": "0",
+            "keep_paying_until_age": null,
+            "life_events": [
+              {
+                "cycle_years": 8,
+                "date": "2028-04",
+                "down_cents": "6000000",
+                "extra_cents": "1000000",
+                "holding_cents": "100000",
+                "id": "demo-car",
+                "included": true,
+                "kind": "car",
+                "label": "换车",
+                "loan_rate_hundredths": 350,
+                "loan_years": 3,
+                "price_cents": "20000000",
+                "rent_saved_cents": "0",
+                "resale_cents": "3000000",
+                "until_age": 70
+              }
+            ],
+            "mode": "traditional",
+            "real_return_after_hundredths": 200,
+            "real_return_before_hundredths": 300,
+            "rent_cents": "0",
+            "setup_completed": true,
+            "spend_cents": "750000",
+            "spend_items": [],
+            "target_age": 60,
+            "volatility_hundredths": 500
+          },
+          "worker": "male"
+        },
+        "reference_issues": [],
+        "revision": 2,
+        "updated_at": "2026-10-10T00:00:00Z"
+      }
+    }
+  },
+  "review": {
+    "status": "error",
+    "value": {
+      "code": "UNAVAILABLE",
+      "message": "历史复盘不作为未来投入"
+    }
+  },
+  "snapshot": {
+    "status": "ready",
+    "value": {
+      "date": "2026-10-10",
+      "entries": [
+        {
+          "account_id": "00000000-0000-4000-8000-000000000002",
+          "amount_cents": "10000000",
+          "counted": true,
+          "kind": "cash",
+          "side": "asset",
+          "state": "entered"
+        },
+        {
+          "account_id": "00000000-0000-4000-8000-000000000005",
+          "amount_cents": "20000000",
+          "counted": true,
+          "kind": "mixed",
+          "side": "asset",
+          "state": "entered"
+        },
+        {
+          "account_id": "00000000-0000-4000-8000-000000000003",
+          "amount_cents": "5500000",
+          "counted": true,
+          "kind": "housing_fund",
+          "side": "asset",
+          "state": "entered"
+        },
+        {
+          "account_id": "00000000-0000-4000-8000-000000000001",
+          "amount_cents": "500000",
+          "counted": true,
+          "kind": "credit_card",
+          "side": "liability",
+          "state": "entered"
+        },
+        {
+          "account_id": "00000000-0000-4000-8000-000000000004",
+          "amount_cents": "80000000",
+          "counted": false,
+          "kind": "loan",
+          "side": "liability",
+          "state": "entered"
+        }
+      ],
+      "id": "00000000-0000-4000-8000-000000000100",
+      "missing": [],
+      "notes": "虚构盘点；缺失记录不当作零，不参与完整净资产比较。",
+      "revision": 1
+    }
+  },
+  "today": "2026-10-10",
+  "write_version": 1
+}

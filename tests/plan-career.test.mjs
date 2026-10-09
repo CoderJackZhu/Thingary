@@ -116,7 +116,7 @@ test('C03 real-shaped paid facts, included monthly loan, end of loan and stage s
   assert.equal(saving[1],-1000000);assert.equal(due[1],1000000);
   assert.equal(saving[7],500000);assert.equal(saving[13],600000);
   assert.equal(v.plan.loans.length,1);
-  d.gap.costs=[];assert.equal(check(s,d).cash.status,'blocked');
+  d.gap.costs=[];const extra=check(s,d);assert.equal(extra.cash.status,'ready');assert.ok(extra.notes.some(s=>s.includes('暂按额外费用计入')));
 });
 
 test('C03 excessive/invalid/unknown included costs are rejected instead of creating income', () => {
@@ -129,7 +129,7 @@ test('C03 excessive/invalid/unknown included costs are rejected instead of creat
 
 test('C03 dormant fee confirmations cannot create reference income in any stage', () => {
   const s=careerSources(),d=careerDraft(),before=check(s,d),basicBefore=buildBasicCapabilities(s);
-  r(s).life_events=[{id:'dormant',label:'虚构停用费用',kind:'other',date:'2028-10',included:false,price_cents:'0',down_cents:'0',extra_cents:'0',loan_rate_hundredths:0,loan_years:0,holding_cents:'100000',rent_saved_cents:'0',cycle_years:null,until_age:null,resale_cents:'0'}];
+  r(s).life_events=[{id:'dormant',label:'虚构停用费用',kind:'other',date:'2028-10',included:false,price_cents:'0',down_cents:'0',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'100000',rent_saved_cents:'0',cycle_years:null,until_age:null,resale_cents:'0'}];
   const scopes=[{source_id:'event:dormant:holding',treatment:'included',reference_cents:'100000'}];
   r(s).basic.contribution_costs=structuredClone(scopes);d.gap.costs=structuredClone(scopes);d.recovery.costs=structuredClone(scopes);
   const after=check(s,d);assert.deepEqual(after.cash,before.cash);assert.deepEqual(after.requirement,before.requirement);
@@ -209,7 +209,7 @@ test('C08 nonzero inflation and real returns preserve candidate boundary and fix
 
 test('C05 first recovery-month known upfront obligation cannot use its candidate deposit', () => {
   const s=careerSources(),d=careerDraft();r(s).basic.start.available_cents='1000000';d.transition_month='2026-10';d.gap_months=1;d.gap.spend_cents='0';
-  r(s).life_events=[{id:'bill',label:'虚构付款',kind:'other',date:'2026-11',included:true,price_cents:'2000000',down_cents:'2000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:0,holding_cents:'0',rent_saved_cents:'0',cycle_years:null,until_age:null,resale_cents:'0'}];
+  r(s).life_events=[{id:'bill',label:'虚构付款',kind:'other',date:'2026-11',included:true,price_cents:'2000000',down_cents:'2000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'0',rent_saved_cents:'0',cycle_years:null,until_age:null,resale_cents:'0'}];
   assert.equal(requirement(check(s,d)).status,'prefix_payment_gap');
 });
 

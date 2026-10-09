@@ -1,3 +1,4 @@
+import { CoverageNote } from './CoverageNote';
 import { useMemo, useState } from 'react';
 import { money } from './asset';
 import { Info, Segments } from './FormControls';
@@ -47,7 +48,7 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
   return <div className="rd-main">
     <article className="ui-card rd-hero" aria-label="退休结论">
       <div className="rd-hero-top"><span className={`rd-badge ${v.tone}`}><i/>{v.badge}</span><ValueToggle value={mode} onChange={onMode}/></div>
-      <h2 className="rd-verdict">{text(v.headline)}</h2>
+      <h2 className="rd-verdict">{text(v.headline)}</h2><CoverageNote annotations={P.annotations} compact/>
       {v.sub.length > 0 && <p className="rd-sub">{text(v.sub)}</p>}
       <p className="rd-summary">{text(v.summary)}</p>
       <div className="rd-progress">
@@ -128,7 +129,7 @@ function Snapshot({ calc, mode, rows }: { calc: Ready; mode: ValueMode; rows: Re
     <div className="rd-head"><div><p className="eyebrow">表格</p><h3>逐年快照</h3></div><span className="muted small">金额按{valueModeLabel[mode]}</span></div>
     <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="逐年快照表"><table className="ui-table rd-table"><thead><tr><th>年龄</th><th>年份</th><th>阶段</th><th className="amount">期末投资组合</th><th className="amount">供款/年</th><th className="amount">退休收入/年</th>{hasUnlock && <th className="amount">一次性解锁</th>}{hasOneoff && <th className="amount">大额一次性</th>}<th className="amount">计划支出/年</th><th className="amount">投资组合提取/年</th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.age} className={marks.has(r.age) ? 'selected' : undefined}><td>{r.age}{marks.has(r.age) && <span className="ui-tag">{marks.get(r.age)}</span>}</td><td>{r.year}</td><td>{r.phase === 'retired' ? '退休' : '积累'}</td><td className="amount">{yuan(r.end)}</td><td className="amount">{r.contribution ? yuan(r.contribution) : '—'}</td><td className="amount">{r.income ? yuan(r.income) : '—'}</td>{hasUnlock && <td className="amount">{r.unlock ? yuan(r.unlock) : '—'}</td>}{hasOneoff && <td className="amount">{r.oneoff ? yuan(r.oneoff) : '—'}</td>}<td className="amount">{r.spend ? yuan(r.spend) : '—'}</td><td className="amount">{r.withdrawal ? yuan(r.withdrawal) : '—'}{r.unfunded > 0 && <small className="warn"> 缺 {yuan(r.unfunded)}</small>}</td></tr>)}</tbody></table></div>
-    <p className="muted small">国家养老金与收入流合并在「退休收入」；公积金与个人养老金在领取年龄一次性解锁，单列一栏。起点是当前盘点，逐月推演后按年汇总。</p>
+    <p className="muted small">国家养老金与收入流合并在「退休收入」；仅本次引用的公积金与个人养老金在领取年龄解锁，单列一栏；未采用的池见目标页依据。起点是当前盘点，逐月推演后按年汇总。</p>
   </article>;
 }
 

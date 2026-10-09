@@ -115,7 +115,8 @@ test('switching an event off and on retains fees and confirmed live account purp
     assert.deepEqual(r.basic.retirement_costs, original.retirement_costs);
   }
   r.life_events.push({ ...r.life_events[0], id: 'new-event' });
-  assert.ok(buildBasicCapabilities(s).requirement.missing.some(m => m.code === 'COST_SCOPE_UNKNOWN'));
+  assert.equal(buildBasicCapabilities(s).requirement.status, 'ready');
+  assert.ok(buildBasicCapabilities(s).annotations.some(m => m.reason_code === 'COST_ASSUMED_EXTRA'));
 });
 
 test('inactive included fees do not subtract from current budget; duplicate and missing sources still block', () => {

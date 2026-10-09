@@ -4,6 +4,8 @@
 import type { Pension, Spend } from './plan-fire.ts';
 import { pensionIncomeStart } from './plan-fire.ts';
 import { elapsedMonths } from './plan-core.ts';
+import type { PlanningAnnotation } from './plan-basic-contract.ts';
+import type { EventCoverage } from './plan-coverage.ts';
 import type { PlanningCore } from './plan-core.ts';
 
 export type Mode = 'fire' | 'traditional';
@@ -26,6 +28,8 @@ export type Plan = {
   input_mode?: 'basic' | 'legacy';
   anchor_date?: string; calculation_date?: string; monetary_basis_date?: string; basis_factor?: number; first_month_fraction?: number;
   core?: PlanningCore | null;
+  annotations?: PlanningAnnotation[];
+  event_coverage?: Record<string, EventCoverage>;
   loans?: LoanSchedule[];
   now_months: number;
   horizon_months: number;

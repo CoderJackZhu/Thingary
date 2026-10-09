@@ -1,6 +1,7 @@
 // 退休概览的展示模型（纯函数）：判词、总结句、进度、里程碑、轨迹点、覆盖拆分与逐年表。
 // 引擎全程「今天的钱」；名义值只在这里乘以 (1+通胀)^年数。
 import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, table } from './plan-ledger.ts';
+import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
 import { pensionIncomeStart } from './plan-fire.ts';
 
@@ -24,6 +25,7 @@ export const ageInt = (months: number) => Math.floor(months / 12);
 const durationText = (months: number) => { const y = Math.floor(months / 12), m = months % 12; return y === 0 ? `${m} 个月` : m === 0 ? `${y} 年` : `${y} 年 ${m} 个月`; };
 
 export type Verdict = {
+  annotations?: PlanningAnnotation[];
   tone: Tone;
   badge: string;
   /** 判词（大字）。 */
@@ -64,7 +66,7 @@ export function verdict(P: Plan, proj: Projection, out: Outcome, _assetsNow: num
   if (!out.funded_at_goal) messages.push(`目标时点还差 ${fmt(Math.max(0, -reserve) * displayFactor)}`);
   if (P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5) messages.push('有限期间完整预算已覆盖，终点无余量；此结果不覆盖终点之后');
   let tone: Tone = proj.failure_month !== null ? 'bad' : messages.length ? 'watch' : 'good';
-  const common = { summary: summaries, sub: [] as Seg[], guidance: messages.length ? messages.join('；') + '。' : null, tone };
+  const common = { annotations: P.annotations ?? [], summary: summaries, sub: [] as Seg[], guidance: messages.length ? messages.join('；') + '。' : null, tone };
   if (P.mode === 'traditional') {
     // Surplus badge means at least one target-year budget remains above the
     // calculated requirement; smaller reserves are shown without a surplus badge.

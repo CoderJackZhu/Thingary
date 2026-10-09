@@ -1,8 +1,8 @@
 // Basic requirements and confirmed predictions share the existing full month ledger.
 import { hasPensionProfile } from './plan.ts';
 import type { StoredLifeEvent } from './plan.ts';
-import type { BasicCapabilities, PlanningSources, PlanningMissing, Capability, RequirementResult, RequirementValue, PredictionValue, PlanningContext, CostScope, CapabilityName } from './plan-basic-contract.ts';
-import { normalizeFunds, occurrenceMissing, costSources, mustStayInLedger } from './plan-core.ts';
+import type { BasicCapabilities, PlanningSources, PlanningMissing, Capability, RequirementResult, RequirementValue, PredictionValue, PlanningContext, CostScope, CapabilityName, PlanningAnnotation } from './plan-basic-contract.ts';
+import { normalizeFunds, costSources, mustStayInLedger } from './plan-core.ts';
 import { ageMonthsAt, project as pensionProject } from './plan-pension.ts';
 import { beijing, effectiveParams } from './plan-params.ts';
 import { pensionPath, pensionPeriodIssue } from './plan-pension-path.ts';
@@ -11,6 +11,9 @@ import { applyEvents, monthIndex, offsetOf } from './plan-events.ts';
 import type { LifeEvent } from './plan-events.ts';
 import { project, outcome, required, startPaymentsOf, oneOffsOf } from './plan-ledger.ts';
 import type { Plan, Flow, SpendItem } from './plan-ledger.ts';
+import { basicConstraintMessages } from './plan-basic-validation.ts';
+import { eventCoverage } from './plan-coverage.ts';
+import { uniqueAnnotations } from './plan-annotations.ts';
 import type { Pension } from './plan-fire.ts';
 
 export const BASIC_SEARCH_LIMIT_CENTS = 100_000_000;
@@ -58,22 +61,25 @@ export type BasicPlanCompiler = {
 export type BasicPlanPreparation = Pick<BasicCapabilities, 'context' | 'funds' | 'pension'> & {
   plan: Capability<BasicPlanCompiler>;
   predictionMissing: PlanningMissing[];
+  annotations: PlanningAnnotation[];
 };
 
 /** Shared read-only normalization, with no wealth/history fallback or pension defaults.
  * Compiling a candidate never adopts it as a prediction; accumulation scope cannot certify retirement. */
-export function prepareBasicPlan(sources: PlanningSources, temporaryContribution?: string, contributionPeriods: readonly ContributionPeriod[] = [], scope: 'complete' | 'accumulation' = 'complete'): BasicPlanPreparation {
+export function prepareBasicPlan(sources: PlanningSources, temporaryContribution?: string, contributionPeriods: readonly ContributionPeriod[] = [], scope: 'complete' | 'accumulation' = 'complete', options: { includePools?: boolean } = {}): BasicPlanPreparation {
   const state = sources.profile.status === 'ready' ? sources.profile.value : null;
   const saved = state?.saved ?? null, p = saved?.profile, r = p?.retire, b = r?.basic;
   const snap = sources.modules.wealth && sources.snapshot.status === 'ready' ? sources.snapshot.value : null;
   const start: PlanningContext['start'] = b?.start.kind === 'simulation' ? { kind: 'simulation', id: b.start.id, date: b.start.date } : { kind: 'live', snapshot_id: snap?.id ?? null, revision: snap?.revision ?? null, date: snap?.date ?? null };
-  const context: PlanningContext = { generation: sources.generation, revision: saved?.revision ?? null, today: sources.today, model_version: 'basic-1', modules: { ...sources.modules }, start, monetary_basis_date: r?.core?.monetary_basis_date ?? null, source: temporaryContribution === undefined ? 'saved' : 'temporary', write_version: sources.write_version };
+  const context: PlanningContext = { generation: sources.generation, revision: saved?.revision ?? null, today: sources.today, model_version: 'basic-2', modules: { ...sources.modules }, start, monetary_basis_date: r?.core?.monetary_basis_date ?? null, source: temporaryContribution === undefined ? 'saved' : 'temporary', write_version: sources.write_version };
+  const annotations: PlanningAnnotation[] = [];
   const baseMissing: PlanningMissing[] = [];
   if (!sources.modules.planning) baseMissing.push(missing('SOURCE_ERROR', 'requirement', 'service', 'modules.planning', '规划模块已关闭。', 'read_error'));
   if (sources.profile.status === 'error') baseMissing.push(missing('SOURCE_ERROR', 'requirement', 'service', 'profile', sources.profile.value.message, 'read_error'));
   else if (!p || !b) baseMissing.push(missing('PROFILE_UNKNOWN', 'requirement', 'basic', 'retire.basic', '尚无通用基础输入；原规划不会自动转换。'));
   if (state && state.generation !== sources.generation) baseMissing.push(missing('SOURCE_STALE', 'requirement', 'service', 'generation', '来源身份已变化，请重新读取。', 'read_error'));
-  if (!p || !r || !b || baseMissing.length) return { context, funds: blocked(baseMissing.map(x => ({ ...x, capability: 'funds' }))), plan: blocked(baseMissing), predictionMissing: baseMissing.map(x => ({ ...x, capability: 'prediction' })), pension: blocked(baseMissing.map(x => ({ ...x, capability: 'pension' }))) };
+  for (const message of basicConstraintMessages(sources)) baseMissing.push(missing('INPUT_INVALID', 'requirement', 'basic', 'inputs', message, 'constraint'));
+  if (!p || !r || !b || baseMissing.length) return { context, annotations, funds: blocked(baseMissing.map(x => ({ ...x, capability: 'funds' }))), plan: blocked(baseMissing), predictionMissing: baseMissing.map(x => ({ ...x, capability: 'prediction' })), pension: blocked(baseMissing.map(x => ({ ...x, capability: 'pension' }))) };
   const fundMissing: PlanningMissing[] = [];
   let available: number | null = null, restricted = 0, debt = 0, housing = 0;
   let anchor: string | null = null;
@@ -93,11 +99,17 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   if (scope === 'complete' && r.spend_cents === null) reqMissing.push(missing('BUDGET_UNKNOWN', 'requirement', 'basic', 'spend_cents', '请明确完整退休总预算。'));
   const core = r.core;
   if (!core) reqMissing.push(missing('FUNDS_UNCONFIRMED', 'requirement', 'funds', 'core.monetary_basis_date', '金额基准尚未确认。'));
-  if (snap && b.start.kind === 'live') for (const message of occurrenceMissing(snap, core, r.life_events, sources.today)) reqMissing.push(missing('OCCURRENCE_UNCONFIRMED', 'requirement', 'events', 'core.occurrences', message, 'fact'));
-  else if (b.start.kind === 'simulation' && core?.occurrences.some(o => o.status === 'occurred')) reqMissing.push(missing('OCCURRENCE_UNCONFIRMED', 'requirement', 'events', 'core.occurrences', '模拟起点未确认实际付款吸收与余债接续；隐藏财富不用于核对。', 'fact'));
-  for (const message of saved?.reference_issues ?? []) reqMissing.push(missing('OCCURRENCE_UNCONFIRMED', 'requirement', 'events', 'reference_issues', message, 'fact'));
   const active = r.life_events.filter(e => !core?.occurrences.some(o => o.event_id === e.id && o.status === 'cancelled') && (e.included || core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')));
-  for (const e of active) if (anchor && e.date < anchor.slice(0, 7) && !core?.occurrences.some(o => o.event_id === e.id)) reqMissing.push(missing('OCCURRENCE_UNCONFIRMED', 'requirement', 'events', `life_events.${e.id}`, '预计日期已过，待核对实际发生。', 'fact'));
+  const eventReview = eventCoverage(active, core, b.start.kind === 'live' ? snap : null, sources.today, saved?.reference_issues ?? []);
+  annotations.push(...eventReview.annotations);
+  const seenLoans = new Set<string>();
+  for (const o of core?.occurrences ?? []) {
+    if (o.actual_date > sources.today) reqMissing.push(missing('INPUT_INVALID', 'requirement', 'events', 'core.occurrences', '实际日期不能晚于今天。', 'constraint'));
+    if (o.loan) {
+      if (seenLoans.has(o.loan.account_id)) reqMissing.push(missing('INPUT_INVALID', 'requirement', 'events', 'core.occurrences', '同一余债不能重复接续。', 'constraint'));
+      seenLoans.add(o.loan.account_id);
+    }
+  }
   if (b.start.kind === 'live' && snap?.entries.some(e => e.counted && e.kind === 'housing_fund' && core?.fund_rules.some(rule => rule.account_id === e.account_id && rule.availability === 'available'))) reqMissing.push(missing('POOL_UNCONFIRMED', 'requirement', 'funds', 'core.fund_rules', '公积金不能进入起点可用资金，须按受限池解锁。', 'fact'));
   const mode = b.retirement_income.mode;
   const penMissing: PlanningMissing[] = [];
@@ -110,12 +122,13 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
     if (!r.income_items.some(i => i.id === s.id) || seen.has(s.source_id) || (mode === 'beijing' && (s.role === 'state_pension' || s.source_id === 'beijing_state_pension'))) reqMissing.push(missing('INCOME_SOURCE_UNKNOWN', 'requirement', 'budget', 'basic.retirement_income.selected', '收入来源须核对；北京国家养老金不能与手填替代项双计。'));
     seen.add(s.source_id);
   }
-  const needsPools = housing > 0 || !!core?.personal_pension_account_id || Number(p.personal_pension_annual_cents ?? 0) > 0 || Number(core?.hpf_monthly_cents ?? 0) > 0;
+  // Existing facts are not a request to include a pool. Only the chosen estimator uses policy unlock.
+  const needsPools = (scope === 'complete' && mode === 'beijing') || options.includePools === true;
   const periodIssue = pensionPeriodIssue(contributionPeriods, effectiveParams(beijing, p.overrides));
   if (periodIssue) penMissing.push(missing('PENSION_CONTRIBUTIONS_UNKNOWN', 'pension', 'basic', 'contribution_periods', periodIssue, 'constraint'));
-  const needsEstimator = (scope === 'complete' && mode === 'beijing') || needsPools || contributionPeriods.some(x => Number(x.hpf_monthly_cents) > 0);
+  const needsEstimator = needsPools || contributionPeriods.some(x => Number(x.hpf_monthly_cents) > 0);
   if (needsEstimator) {
-    if (!hasPensionProfile(p)) penMissing.push(missing('PENSION_FACTS_UNKNOWN', 'pension', 'pension', 'profile', '所引用的北京估算或受限池解锁需要完整养老资料。', 'fact'));
+    if (!hasPensionProfile(p)) penMissing.push(missing('PENSION_FACTS_UNKNOWN', 'pension', 'pension', 'profile', '你选择了北京养老金估算，还差社保资料；也可以改选“先不算”先看结果。', 'fact'));
     const ppEntry = b.start.kind === 'live' ? snap?.entries.find(e => e.account_id === core?.personal_pension_account_id && e.counted && e.side === 'asset') : null;
     if (b.start.kind === 'live' && core?.personal_pension_account_id && (!ppEntry || ppEntry.amount_cents === null || ppEntry.kind === 'housing_fund' || !core.fund_rules.some(rule => rule.account_id === ppEntry.account_id && rule.availability === 'restricted' && rule.share_hundredths === 10000))) penMissing.push(missing('POOL_UNCONFIRMED', 'pension', 'funds', 'core.personal_pension_account_id', '个人养老金须是独立确认的完整受限池，不能同时进入可用或公积金池。', 'fact'));
     const pc = b.pension_contributions;
@@ -134,10 +147,21 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
       pensionStart = estimate.start_month;
     }
   }
+  if (mode === 'beijing') for (const item of penMissing) if (!item.message.includes('改选')) item.message += '；也可以改选“先不算”先看结果。';
   reqMissing.push(...penMissing.map(x => ({ ...x, capability: 'requirement' as const })));
   const pension: BasicCapabilities['pension'] = mode === null ? blocked([missing('INCOME_MODE_UNKNOWN', 'pension', 'basic', 'basic.retirement_income.mode', '尚未选择是否引用北京养老金。')]) : penMissing.length ? blocked(penMissing) : { status: 'ready', value: { included: mode === 'beijing', start_month: pensionStart, monthly_cents: mode === 'beijing' ? String(Math.round(pen.monthly_cents)) : null } };
-  const sourcesPre = [...new Set([...costSources(active, p.personal_pension_annual_cents ?? '0').map(s => s.id), ...(core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => `event:${o.event_id}:loan`)])];
-  const sourcesPost = [...sourcesPre, ...r.spend_items.map(s => `spend:${s.id}`), ...(Number(r.rent_cents) > 0 ? ['rent'] : []), ...(Number(r.keep_paying_monthly_cents) > 0 ? ['social_insurance'] : [])];
+  const pc = b.pension_contributions, annual = Number(p.personal_pension_annual_cents ?? 0);
+  const transferReady = annual > 0 && pc.start_month !== null && pc.stop_month !== null;
+  if (annual > 0 && (pc.start_month !== null || pc.stop_month !== null) && !transferReady) annotations.push({ id: 'personal_pension:period', reason_code: 'TRANSFER_PENDING', message: '个人养老金未来转入排期未完整确认，该现金转入未计入。', effect: 'requirement_lower', treatment: 'omitted', source_ids: ['personal_pension'], missing_fields: ['转入起止月份'], refinement: { owner: 'budget', field: 'basic.pension_contributions' } });
+  if (!needsEstimator && (housing > 0 || core?.personal_pension_account_id || annual > 0 || Number(core?.hpf_monthly_cents ?? 0) > 0)) annotations.push({ id: 'pools', reason_code: 'POOL_NOT_USED', message: '本次未引用个人养老金/公积金池，不预计解锁或领取；已明确的现金转入仍按排期计入。', effect: housing > 0 || core?.personal_pension_account_id || transferReady ? 'requirement_higher' : 'none', treatment: 'not_used', source_ids: ['pools'], missing_fields: [], refinement: { owner: 'pension', field: 'basic.retirement_income.mode' } });
+  const sourceRows = costSources(active, transferReady ? p.personal_pension_annual_cents ?? '0' : '0').filter(s => {
+    const event = active.find(e => s.id === `event:${e.id}:loan` || s.id === `event:${e.id}:holding`);
+    if (!event) return true;
+    const review = eventReview.coverage[event.id];
+    return !review.paused && (s.id.endsWith(':loan') ? review.loan : review.holding);
+  });
+  const sourcesPre = [...new Set([...sourceRows.map(s => s.id), ...(core?.occurrences ?? []).filter(o => o.status === 'occurred' && eventReview.coverage[o.event_id]?.loan && o.loan && Number(o.loan.principal_cents) > 0).map(o => `event:${o.event_id}:loan`)])];
+  const sourcesPost = [...sourcesPre, ...r.spend_items.map(s => `spend:${s.id}`), ...(Number(r.rent_cents) > 0 ? ['rent'] : []), ...(Number(r.keep_paying_monthly_cents) > 0 && r.keep_paying_until_age !== null ? ['social_insurance'] : [])];
   const knownPre = [...new Set([...sourcesPre, ...costSources(r.life_events, p.personal_pension_annual_cents ?? '0').map(s => s.id)])];
   const knownPost = [...knownPre, ...r.spend_items.map(s => `spend:${s.id}`), ...(Number(r.rent_cents) > 0 ? ['rent'] : []), ...(Number(r.keep_paying_monthly_cents) > 0 ? ['social_insurance'] : [])];
   const checkScope = (ids: string[], scopes: CostScope[], field: string, pre: boolean) => {
@@ -150,7 +174,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
       if (s.treatment === 'included' && (s.reference_cents === null || (pre && s.source_id.startsWith('event:') && !occurred))) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', field, '已含参考额未知，或尚未发生费用被标作净投入已含。'));
       if (s.treatment === 'excluded' && mustStayInLedger(s.source_id)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'events', field, '月供和个人养老金转入是真实支出，必须计入：请把它改选为「已包含」或「另外加上」。', 'constraint'));
     }
-    for (const id of ids) if (!scopes.some(s => s.source_id === id)) reqMissing.push(missing('COST_SCOPE_UNKNOWN', 'requirement', 'budget', field, `费用 ${id} 的${pre ? '净投入' : '退休总预算'}包含作用域待核对。`));
+    for (const id of ids) if (!scopes.some(s => s.source_id === id)) annotations.push({ id: `cost:${field}:${id}`, reason_code: 'COST_ASSUMED_EXTRA', message: `${sourceRows.find(s => s.id === id)?.label ?? r.spend_items.find(s => `spend:${s.id}` === id)?.label ?? (id === 'rent' ? '房租' : '续缴社保')}的${pre ? '净投入' : '退休总预算'}包含关系待核对：暂按额外费用计入，可能重复包含。`, effect: 'requirement_higher', treatment: 'assumed_extra', source_ids: [id], missing_fields: ['费用包含关系'], refinement: { owner: 'budget', field } });
   };
   checkScope(sourcesPre, b.contribution_costs, 'basic.contribution_costs', true);
   if (scope === 'complete') checkScope(sourcesPost, b.retirement_costs, 'basic.retirement_costs', false);
@@ -161,7 +185,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   const predictionMissing: PlanningMissing[] = reqMissing.map(x => ({ ...x, capability: 'prediction' }));
   if (contribution === null) predictionMissing.push(missing('CONTRIBUTION_UNKNOWN', 'prediction', 'basic', 'basic.contribution.monthly_cents', '保存预计投入后可查看预测及心愿影响；反求值不会作为预计投入。'));
   else if (!validSigned(contribution)) predictionMissing.push(missing('CONTRIBUTION_UNKNOWN', 'prediction', 'basic', 'basic.contribution.monthly_cents', '预计投入须是合法整数分，可明确为零或负数。', 'constraint'));
-  if (reqMissing.length || funds.status !== 'ready' || p.birth_month === null || (scope === 'complete' && (r.target_age === null || r.spend_cents === null)) || !anchor || !core || available === null) return { context, funds, plan: blocked(reqMissing), predictionMissing, pension };
+  if (reqMissing.length || funds.status !== 'ready' || p.birth_month === null || (scope === 'complete' && (r.target_age === null || r.spend_cents === null)) || !anchor || !core || available === null) return { context, annotations, funds, plan: blocked(reqMissing), predictionMissing, pension };
   const birth = p.birth_month, target = Math.max((r.target_age ?? r.horizon_age) * 12, ageMonthsAt(birth, anchor)), now = ageMonthsAt(birth, anchor), horizon = r.horizon_age * 12;
   const basisFactor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(core.monetary_basis_date)) / (86400000 * 365.25));
   const days = new Date(Date.UTC(+anchor.slice(0, 4), +anchor.slice(5, 7), 0)).getUTCDate(), fraction = (days - +anchor.slice(8, 10)) / days;
@@ -173,13 +197,11 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   if (scope === 'complete' && Number(r.rent_cents) > 0 && allowed('rent', b.retirement_costs)) flows.push({ source_id: 'rent', label: '房租', from_month: now, to_month: null, cents: Number(r.rent_cents), nominal: false, essential: true, prorate_first: true });
   if (scope === 'complete' && Number(r.keep_paying_monthly_cents) > 0 && allowed('social_insurance', b.retirement_costs)) {
     if (r.keep_paying_until_age === null) {
-      const m = missing('COST_SCOPE_UNKNOWN', 'requirement', 'budget', 'keep_paying_until_age', '续缴成本有金额但截止年龄未知。');
-      return { context, funds, plan: blocked([m]), predictionMissing: [{ ...m, capability: 'prediction' }], pension };
+      annotations.push({ id: 'social_insurance:period', reason_code: 'COST_PERIOD_PENDING', message: '续缴社保的截止年龄待核对，该费用未计入。', effect: 'requirement_lower', treatment: 'omitted', source_ids: ['social_insurance'], missing_fields: ['截止年龄'], refinement: { owner: 'budget', field: 'keep_paying_until_age' } });
     }
-    flows.push({ source_id: 'social_insurance', label: '续缴社保', from_month: now, to_month: r.keep_paying_until_age * 12, cents: Number(r.keep_paying_monthly_cents), nominal: false, essential: true, prorate_first: true });
+    else flows.push({ source_id: 'social_insurance', label: '续缴社保', from_month: now, to_month: r.keep_paying_until_age * 12, cents: Number(r.keep_paying_monthly_cents), nominal: false, essential: true, prorate_first: true });
   }
   const savingFlows: Flow[] = [];
-  const annual = Number(p.personal_pension_annual_cents ?? 0), pc = b.pension_contributions;
   if (annual > 0 && pc.start_month && pc.stop_month) {
     const transfer = { source_id: 'personal_pension', label: '个人养老金现金转入', from_month: Math.max(now, monthIndex(pc.start_month) - monthIndex(birth)), to_month: Math.min(monthIndex(pc.stop_month) - monthIndex(birth), pen.unlock_age_months), nominal: true, essential: true, prorate_first: true };
     savingFlows.push({ ...transfer, cents: -annual / 12 });
@@ -187,7 +209,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   }
   const preRefs = b.contribution_costs.filter(s => sourcesPre.includes(s.source_id) && s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
   const selectedIds = scope === 'complete' && (mode === 'manual' || mode === 'beijing') ? selected.map(s => s.id) : [];
-  const skeleton: Plan = { input_mode: 'basic', now_months: now, target_months: target, horizon_months: horizon, search_cap_months: horizon, mode: r.mode, assets_cents: available / basisFactor, saving_cents: 0, saving_growth_hundredths: 0, r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths, inflation_hundredths: p.assumptions.inflation_hundredths, volatility_hundredths: r.volatility_hundredths, items, incomes: r.income_items.filter(i => selectedIds.includes(i.id)).map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })), pension_at: () => pen, spends: [], spend_flows: flows, saving_flows: savingFlows, rent_cents: allowed('rent', b.retirement_costs) ? Number(r.rent_cents) : 0, anchor_date: anchor, calculation_date: sources.today, monetary_basis_date: core.monetary_basis_date, basis_factor: basisFactor, first_month_fraction: fraction, core };
+  const skeleton: Plan = { input_mode: 'basic', now_months: now, target_months: target, horizon_months: horizon, search_cap_months: horizon, mode: r.mode, assets_cents: available / basisFactor, saving_cents: 0, saving_growth_hundredths: 0, r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths, inflation_hundredths: p.assumptions.inflation_hundredths, volatility_hundredths: r.volatility_hundredths, items, incomes: r.income_items.filter(i => selectedIds.includes(i.id)).map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })), pension_at: () => pen, spends: [], spend_flows: flows, saving_flows: savingFlows, rent_cents: allowed('rent', b.retirement_costs) ? Number(r.rent_cents) : 0, anchor_date: anchor, calculation_date: sources.today, monetary_basis_date: core.monetary_basis_date, basis_factor: basisFactor, first_month_fraction: fraction, core, annotations, event_coverage: eventReview.coverage };
   const events = active.map(eventValue);
   const compile = (amount: number, before: number, after: number, future = true): Plan => {
     const listed = events.filter(e => future || core.occurrences.some(o => o.event_id === e.id && o.status === 'occurred'));
@@ -195,16 +217,17 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
     // References stay throughout the confirmed scope, even after the source ends.
     return { ...withEvents, saving_phases: undefined, saving_flows: [...(withEvents.saving_flows ?? []).filter(f => !f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id, b.contribution_costs)), { label: '净投入已含费用还原', from_month: now, to_month: null, cents: preRefs, nominal: false, essential: false, prorate_first: true }], spend_flows: (withEvents.spend_flows ?? []).filter(f => !f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id, b.retirement_costs)) };
   };
-  return { context, funds, pension, predictionMissing, plan: { status: 'ready', value: { compile, contribution, included_reference_cents: preRefs,
+  return { context, annotations, funds, pension, predictionMissing, plan: { status: 'ready', value: { compile, contribution, included_reference_cents: preRefs,
     target_month: ym(monthIndex(birth) + (r.target_age ?? r.horizon_age) * 12), horizon_month: ym(monthIndex(birth) + horizon),
     before: r.real_return_before_hundredths, after: r.real_return_after_hundredths } } };
 }
 
-/** Public basic behavior stays unchanged; optional scenarios only reuse preparation. */
+/** Ready results can have incomplete coverage; annotations are part of every consumer context. */
 export function buildBasicCapabilities(sources: PlanningSources, temporaryContribution?: string): BasicCapabilities {
   const prepared = prepareBasicPlan(sources, temporaryContribution);
   const { context, funds, pension, predictionMissing } = prepared;
-  if (prepared.plan.status === 'blocked') return { context, funds, pension, requirement: blocked(prepared.plan.missing), prediction: blocked(predictionMissing) };
+  const annotations = uniqueAnnotations(prepared.annotations);
+  if (prepared.plan.status === 'blocked') return { context, annotations, funds, pension, requirement: blocked(prepared.plan.missing), prediction: blocked(predictionMissing) };
   const { compile, contribution, before, after, target_month, horizon_month } = prepared.plan.value;
   const set = solveBasicRequirement(compile, before, after);
   const lower = solveBasicRequirement(compile, before - 200, after - 200);
@@ -216,5 +239,5 @@ export function buildBasicCapabilities(sources: PlanningSources, temporaryContri
     const projection = project(plan, Number(plan.anchor_date!.slice(0, 4))), out = outcome(plan, projection);
     prediction = { status: 'ready', value: { source: temporaryContribution === undefined ? 'saved' : 'temporary', contribution_cents: contribution, plan, plan0, projection, outcome: out, terminal: !out.success ? 'gap' : Math.abs(out.at_horizon) < 0.5 ? 'no_margin' : 'surplus' } };
   }
-  return { context, funds, requirement, prediction, pension };
+  return { context, annotations, funds, requirement, prediction, pension };
 }

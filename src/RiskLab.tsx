@@ -1,3 +1,4 @@
+import { CoverageNote } from './CoverageNote';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Info, Segments } from './FormControls';
 import { rateText } from './plan';
@@ -38,7 +39,7 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
   const goalAge = Math.floor(P.target_months / 12), horizonAge = Math.floor(P.horizon_months / 12);
   const o = base.out, gap = o.shortfall_at_goal;
   const pctTone = mc ? (mc.success_rate >= 0.9 ? 'good' : mc.success_rate >= 0.75 ? 'watch' : 'bad') : '';
-  return <div className="rl">
+  return <div className="rl"><CoverageNote annotations={P.annotations} compact/>
     {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? '临时试算，未保存'}</span> : <span className="ui-tag">按已保存的预计投入</span>} 风险结果按完整预算、覆盖到规划终点；{terminalText[basic.terminal]}。</p>}
     <article className="ui-card rl-hero" aria-label="基准情形">
       <div className="rl-lead"><span>基准情形</span><strong>你的基础计划 <span className={`rd-badge ${v.tone}`}><i/>{v.badge}</span></strong>

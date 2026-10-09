@@ -1,3 +1,4 @@
+import nonblockingDemo from '../tests/fixtures/planning-basic/nonblocking-demo.json';
 // Development-only in-memory stand-in for the wealth commands used by
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
 // proves nothing about native storage or calculation.
@@ -375,11 +376,24 @@ if (planProfile) {
   if (!r.basic) p.retire={...structuredClone(defaultRetire),core:r.core,life_events:r.life_events.map(e=>({...e,included:r.core?.occurrences.some(o=>o.status==='occurred'&&o.event_id===e.id)?e.included:false}))};
   for (const key of ['saving_phases','route_id','route_from_age','gap_share_hundredths','gap_keeps_paying','legacy_definition']) delete (p.retire as Record<string,unknown>)[key];
 }
+const nonblockingScenario = params.get('plan-nonblocking');
+const nonblockingBatch = structuredClone(nonblockingDemo) as unknown as PlanningSources;
+if (nonblockingScenario) {
+  planProfile = structuredClone(nonblockingBatch.profile.status === 'ready' ? nonblockingBatch.profile.value.saved : null);
+  if (nonblockingScenario === 'empty') planProfile = null;
+  if (planProfile) {
+    const p = planProfile.profile, r = p.retire;
+    if (nonblockingScenario === 'unknown') r.core!.occurrences = [{ id: crypto.randomUUID(), event_id: r.life_events[0].id, status: 'occurred', actual_date: nonblockingBatch.today, payments_complete: false, payments: [{ id: crypto.randomUUID(), date: nonblockingBatch.today, amount_cents: null, account_id: null, absorbed_snapshot_id: null, absorbed_revision: null, source_kind: null, source_id: null }], loan: null }];
+    if (nonblockingScenario === 'funds') r.core!.fund_rules = [];
+    if (nonblockingScenario === 'beijing') { r.basic!.retirement_income.mode = 'beijing'; p.worker = null; }
+  }
+}
 let planWriteVersion = 1;
 const updateResults = new Map<string, NonNullable<ProfileState['saved']>>();
 let lostOnce = false;
 const readError = (message: string, code = 'READ_FAILED') => ({ status: 'error' as const, value: { code, message } });
 const planningSources = (args: Record<string, unknown>): PlanningSources => {
+  if (nonblockingScenario) return { ...nonblockingBatch, generation, write_version: planWriteVersion, profile: nonblockingScenario === 'error' ? { status: 'error', value: { code: 'READ_FAILED', message: '虚构规划资料读取失败' } } : { status: 'ready', value: { generation, saved: planProfile } } };
   const planning = args.planningEnabled !== false, wealth = args.wealthEnabled !== false;
   const disabled = readError('资产与盘点已关闭', 'MODULE_DISABLED');
   const point = [...summary().points].reverse().find(p => p.complete), found = point ? snapshots.find(x => x.id === point.snapshot_id) : null;
@@ -464,7 +478,7 @@ function previewCapabilities(sources: PlanningSources, o: CapabilityOptions): Ba
     : (() => { const plan = { ...baseValue.plan, saving_cents: Number(c), assets_cents: funds.status === 'ready' ? Number(funds.value.available_cents) : baseValue.plan.assets_cents }, proj = project(plan, Number(todayIso.slice(0, 4))), out = outcome(plan, proj); return { status: 'ready' as const, value: { source: o.contribution !== null ? 'temporary' as const : 'saved' as const, contribution_cents: c, plan, plan0: plan, projection: proj, outcome: out, terminal: params.get('plan-terminal') === 'zero' || basicScenario === 'terminal-zero' ? 'no_margin' as const : out.shortfall_month !== null ? 'gap' as const : 'surplus' as const } }; })();
   return { context: { generation: sources.generation, revision: saved?.revision ?? null, today: sources.today, model_version: 'basic-1', modules: sources.modules, start: sim ? { kind: 'simulation', id: sim.id, date: sim.date } : { kind: 'live', snapshot_id: snap?.id ?? null, revision: snap?.revision ?? null, date: snap?.date ?? null }, monetary_basis_date: core?.monetary_basis_date ?? null, source: o.contribution !== null ? 'temporary' : 'saved', write_version: sources.write_version }, funds, requirement, prediction, pension };
 }
-if (new URLSearchParams(location.search).get('capabilities') !== 'real') bindCapabilityProvider(previewCapabilities);
+if (new URLSearchParams(location.search).get('capabilities') !== 'real' && !nonblockingScenario) bindCapabilityProvider(previewCapabilities);
 let searchPreviewAttempts = 0;
 export function searchPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command !== 'search_all') return null;

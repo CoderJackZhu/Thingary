@@ -58,21 +58,21 @@ test('D03/D04/D05: absorbed upfront money is retained, debt pays once and holdin
   assert.equal(d.proj.debt[13],0); assert.equal(d.proj.assets[0],70000000);
 });
 
-test('D06: split payments only deduct the part after B; partial or stale absorption blocks conclusions', () => {
+test('D06: split payments only deduct the part after B; partial or stale absorption marks incomplete coverage', () => {
   const c = core(['cash','available']); const o=occurrence({loan:null}); c.occurrences=[o];
   o.payments.push({ ...o.payments[0], id:'second', date:'2026-11-01', amount_cents:'10000000', absorbed_snapshot_id:null, absorbed_revision:null });
   const e=event({price_cents:'30000000',down_cents:'30000000',holding_cents:'0'}),s=snap([entry('cash','asset','cash',70000000)]);
   const r=ready(calc(profile(c,{life_events:[e],basic:{...basic(),contribution:{id:'contribution',monthly_cents:'0'}}}),s));
   assert.equal(r.proj.assets[0],70000000); assert.equal(r.proj.assets[1],60000000); assert.equal(r.proj.assets[2],60000000);
-  o.payments_complete=false; assert.match(calc(profile(c,{life_events:[e]}),s).missing.join(' '),/部分付款/);
-  o.payments_complete=true;o.payments[0].absorbed_revision=2;assert.match(calc(profile(c,{life_events:[e]}),s).missing.join(' '),/吸收待核对/);
-  o.payments[0].account_id='restricted';assert.match(calc(profile(c,{life_events:[e]}),s).missing.join(' '),/来源范围/);
+  o.payments_complete=false; assert.match(calc(profile(c,{life_events:[e]}),s).annotations.map(a=>a.message).join(' '),/部分付款/);
+  o.payments_complete=true;o.payments[0].absorbed_revision=2;assert.match(calc(profile(c,{life_events:[e]}),s).annotations.map(a=>a.message).join(' '),/盘点吸收关系/);
+  o.payments[0].account_id='restricted';assert.match(calc(profile(c,{life_events:[e]}),s).annotations.map(a=>a.message).join(' '),/来源范围/);
 });
 
 test('D09: overdue is unresolved, never silently shifted to current month', () => {
   assert.equal(offsetOf('2026-09',B),-1);
   const p=profile(core(['cash','available']),{life_events:[event()]});
-  assert.match(calc(p,snap([entry('cash','asset','cash',70000000)])).missing.join(' '),/日期已过，待核对/);
+  assert.match(calc(p,snap([entry('cash','asset','cash',70000000)])).annotations.map(a=>a.message).join(' '),/日期已过，待核对/);
   assert.deepEqual(eventParts(base(),{...event(),price_cents:40000000,down_cents:30000000,holding_cents:10000},-1).spends,[]);
 });
 
@@ -121,7 +121,7 @@ test('duplicate debt continuation, unsupported reference changes, and hypothetic
   assert.match(occurrenceMissing(snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',10000000)]),c,[event(),event({id:'second'})],B).join(' '),/重复接续/);
   const p=profile(core(['cash','available']),{life_events:[event({date:'2030-01'})]});
   assert.match(calc(p,snap([entry('cash','asset','cash',70000000)]),{'event:house:loan':'300000'}).missing.join(' '),/未发生费用/);
-  p.reference_issues=['来源已变化'];assert.match(calc(p,snap([entry('cash','asset','cash',70000000)])).missing.join(' '),/来源已变化/);
+  p.reference_issues=['来源已变化'];assert.match(calc(p,snap([entry('cash','asset','cash',70000000)])).annotations.map(a=>a.message).join(' '),/来源已变化/);
 });
 
 

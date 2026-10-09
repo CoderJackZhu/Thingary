@@ -130,3 +130,5 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 职业变化有普通应用中的 `PlanningCareerCard` 与独立 `career-preview.html` 两个入口。普通入口位于已有通用计划的 `PlanningBasicGoals`，默认收起，主动打开才挂载共享 `GuidedPanel`；独立 HTML 不进入发布构建，但共享向导组件进入正常应用。`prepareBasicPlan` 从通用计算中提取只读来源编译，默认完整范围不变；积累范围仅供缺少退休条件时的局部检查，不能用于长期结论。`plan-career.ts` 编译当前／空窗／恢复三个区间与独立费用、临时缴费覆盖，再调用同一月账本及固定目标反求；月内审计回调不改变原账本输出。`plan-career-compare.ts` 只改一个条件，普通基础消费者不导入职业模块。未新增资料字段、数据库命令或后台消费者。卡片使用父级同批 `PlanningSources`，`PlanningPage` 以 `write_version` 为目标组件键，配合既有读取／切库生命周期使草稿失效；关闭和离页卸载临时输入，关闭后焦点回到入口。默认临时排除退休收入和受限池，已保存事实不改写，详见[实施契约](CAREER_SCENARIO_DESIGN.md#当前应用入口0-0-2)。
 
 月度收入导入与账户／完整盘点共用 `financial_import_preview/commit/receipt`。schema 35 的 `x11.sql` 将 `plan_income.hpf_cents` 变为可空并扩展 `import_external_key.object_kind` 为 income；事务替表保留旧数据和索引，提交前外键校验。`plan_income::write_tx` 与普通表单共用校验／修订写入；混合文件、稳定映射与回执在同一事务。旧 schema 34 回执收入计数默认零，备份按原版本 canonical 结构校验再迁移。
+
+通用规划的 plan-coverage 与 plan-annotations 生成只读覆盖，BasicCapabilities/Plan/CareerEvaluation 保留标注元数据。CoverageNote 统一呈现摘要与依据，planning-consumers 清单枚举独立渲染路径。用途声明、occurrences 和保存回执沿用既有分区；无新增持久字段或迁移。

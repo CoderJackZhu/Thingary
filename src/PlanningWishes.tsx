@@ -1,3 +1,4 @@
+import { CoverageNote } from './CoverageNote';
 import { useEffect, useMemo, useState } from 'react';
 import { errorMessage, money } from './asset';
 import { loadConsideringWishes } from './plan-data';
@@ -27,7 +28,7 @@ export function PlanningWishes({ calc, today, hint = '退休资料待补齐', on
   const delayText = (d: number | null, base: number | null, withSpend: number | null) => base === null ? '本来就达不到' : withSpend === null ? '70 岁前达不到' : d === 0 ? '几乎无影响' : `推迟约 ${d} 个月`;
   return <article className="ui-card ui-content plan-goal" aria-label="大额支出">
     <div className="ui-section-head"><h3>大额购买计划</h3><span>来自「考虑中」的心愿</span></div>
-    <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="购买计划列表"><table className="ui-table plan-wish-table"><thead><tr><th>心愿</th><th className="amount">预计价格</th><th>计划日期</th><th>对退休计划的影响</th></tr></thead>
+    <CoverageNote annotations={calc?.annotations} compact/><div className="plan-table-scroll" tabIndex={0} role="region" aria-label="购买计划列表"><table className="ui-table plan-wish-table"><thead><tr><th>心愿</th><th className="amount">预计价格</th><th>计划日期</th><th>对退休计划的影响</th></tr></thead>
       <tbody>{view.rows.map(({ s, impact }) => <tr key={s.id} className={s.status === 'expired' || s.status === 'no_price' ? 'closed' : undefined}>
         <td>{s.name}</td>
         <td className="amount">{s.status === 'no_price' ? <span className="muted">未填价格</span> : yuan(s.cents)}</td>

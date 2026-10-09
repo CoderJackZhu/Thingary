@@ -1,3 +1,4 @@
+import { CoverageNote } from './CoverageNote';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PlanningSources } from './plan';
 import { GuidedPanel } from './career-preview/guided';
@@ -18,7 +19,7 @@ export function PlanningCareerCard({ sources, today }: { sources: PlanningSource
       <div className="plan-goal-actions"><button type="button" ref={button} className="ui-btn" id="plan-career-open" aria-expanded="false" aria-controls="plan-career-panel" onClick={() => setOpen(true)}>打开职业变化试算</button></div>
     </> : <>
       <div className="plan-goal-actions"><button type="button" ref={button} className="ui-btn" aria-expanded="true" aria-controls="plan-career-panel" onClick={() => setOpen(false)}>关闭并丢弃本次填写</button></div>
-      <div id="plan-career-panel">{defaults && <GuidedPanel sources={sources} defaults={defaults} embedded/>}</div>
+      <div id="plan-career-panel"><CoverageNote sources={sources} compact/>{defaults && <GuidedPanel sources={sources} defaults={defaults} embedded/>}</div>
     </>}
   </article>;
 }

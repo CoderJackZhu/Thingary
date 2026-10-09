@@ -1,3 +1,4 @@
+import { CoverageNote } from './CoverageNote';
 import { money } from './asset';
 import { Info } from './FormControls';
 import type { BasicCapabilities, PlanningMissing } from './plan';
@@ -28,14 +29,14 @@ export function RequirementCard({ caps, onOwner, busy }: { caps: BasicCapabiliti
     {req.status === 'blocked' ? <>
       <p className="plan-req-main muted">再补几项，就能算了</p>
       <MissingList missing={req.missing} onOwner={onOwner} disabled={busy}/>
-    </> : <RequirementBody value={req.value}/>}
+    </> : <RequirementBody value={req.value} annotations={caps.annotations}/>}
   </article>;
 }
 
-function RequirementBody({ value }: { value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
+function RequirementBody({ value, annotations }: { annotations?: BasicCapabilities['annotations']; value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
   const set = requirementLine(value.set, yuanOf), lower = requirementLine(value.lower, yuanOf), upper = requirementLine(value.upper, yuanOf);
   return <>
-    <p className={`plan-req-main ${set.tone}`}><span>如果想在 {monthText(value.target_month)} 退休：</span><strong>{set.text}</strong></p>
+    <p className={`plan-req-main ${set.tone}`}><span>如果想在 {monthText(value.target_month)} 退休：</span><strong>{set.text}</strong></p><CoverageNote annotations={annotations}/>
     <p className="muted small">准备支付生活费到 {monthText(value.horizon_month)}。金额按今天的物价计算。</p>
     <p className="muted small">这是计算结果，不用填写。它取决于生活费和收益假设，不保证未来一定够用。</p>
     <details className="plan-req-lower"><summary>查看计算假设，以及收益变化的影响</summary>
@@ -47,7 +48,7 @@ function RequirementBody({ value }: { value: Extract<BasicCapabilities['requirem
 }
 
 /** One line for compact places (home): the same wording as the card, without the comparison row. */
-export function RequirementLine({ value }: { value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
+export function RequirementLine({ value, annotations }: { annotations?: BasicCapabilities['annotations']; value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
   const set = requirementLine(value.set, yuanOf);
-  return <p className={`review-plan-sub plan-req-line ${set.tone}`}>按这些条件，想在 {monthText(value.target_month)} 退休，每月需要存：<strong>{set.text}</strong></p>;
+  return <><p className={`review-plan-sub plan-req-line ${set.tone}`}>按这些条件，想在 {monthText(value.target_month)} 退休，每月需要存：<strong>{set.text}</strong></p><CoverageNote annotations={annotations} compact/></>;
 }

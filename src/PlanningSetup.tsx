@@ -14,7 +14,7 @@ import { useSectionSaver } from './planning-basic-data';
 import { questions, retirementMonth, setupDraft, setupFields, setupErrorLocation } from './planning-first-run';
 
 const stepLabels = ['退休年龄', '每月生活费', '可用资金', '退休收入'];
-const hints = ['这个年龄是你的设想，不是系统替你决定的。', '按今天的物价，吃饭、住房、日常开销合计。', '默认只动用现金类账户，其他资产不动用，不改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
+const hints = ['这个年龄是你的设想，不是系统替你决定的。', '按今天的物价，吃饭、住房、日常开销合计。', '默认只动用现金类账户，确认后保存即可。不会改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
 
 /** Four questions and one existing setup transaction. Close, Esc and skip discard unsaved input. */
 export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload, onPending, onClose, onPension, initialStep = 0, editMode = false }: { sources: PlanningSources; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: (saved: boolean) => void; onPension: () => void; initialStep?: number; editMode?: boolean }) {
@@ -94,7 +94,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
       <p className="muted small setup-draft-note">没想好的可以先留空，随时退出，不保存草稿。</p>
     </div>
     {(notice || saver.notice) && <p className="notice setup-notice" role="alert">{[notice, saver.notice].filter(Boolean).join(' ')}</p>}
-    <footer className="planning-setup-footer"><div className="planning-setup-exit"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : editMode ? '取消本次修改' : '暂时跳过'}</button>{!editMode && !saver.stuck && <small className="muted">不保存本次填写。</small>}</div><span>{step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}{(!editMode || (step !== 3 && step !== 5)) && <button type="button" disabled={frozen} onClick={() => void save()}>{editMode ? '保存并返回' : '先保存，稍后继续'}</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : step === 3 || step === 5 ? editMode ? '保存并返回' : '保存，查看结果' : '下一步'}</button></span></footer>
+    <footer className="planning-setup-footer"><div className="planning-setup-exit"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : editMode ? '取消本次修改' : '暂时跳过'}</button>{!editMode && !saver.stuck && <small className="muted">不保存本次填写。</small>}</div><span>{step > 0 && <button type="button" disabled={frozen} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}{(!editMode || (step !== 3 && step !== 5)) && <button type="button" disabled={frozen} onClick={() => void save()}>{editMode ? '保存，查看结果' : '先保存，稍后继续'}</button>}<button className="primary" disabled={frozen}>{saver.busy ? '保存中…' : step === 3 || step === 5 ? '保存，查看结果' : '下一步'}</button></span></footer>
   </form></dialog>;
 }
 

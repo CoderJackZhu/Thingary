@@ -1,3 +1,4 @@
+import { CoverageNote } from '../CoverageNote';
 // Development-only, fictional source adapter. No native calls and no persistence.
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -40,7 +41,7 @@ function fixture(state: State) {
 }
 function Result({title,value}:{title:string;value:CareerEvaluation}) {
   const t=resultText(value);
-  return <section className="career-result" aria-label={title}><h2>{title}</h2>
+  return <section className="career-result" aria-label={title}><h2>{title}</h2><CoverageNote annotations={value.annotations} compact/>
     <p className="career-label">找到新工作后，每月至少要攒多少，才能保住原来的退休目标</p><p className={value.requirement.status === 'ready' && ['found','no_positive_contribution'].includes(value.requirement.value.status) ? 'career-number' : 'career-message'}>{t.requirement}</p>
     <dl><dt>空窗资金检查</dt><dd>{t.cash}</dd><dt>检查范围</dt><dd>{t.cashRange}</dd><dt>期间最低金额</dt><dd>{t.minimum}</dd><dt>底线触及</dt><dd>{t.floor}</dd><dt>按你估计的每月能攒多少</dt><dd>{t.prediction}</dd></dl>
     <p className="career-footnote">仅对所列条件有效；工作阶段月内付款未完整检查。无需正投入不等于可以额外提款。</p>
@@ -87,7 +88,7 @@ function Preview() {
   const patch=(value:Partial<CareerDraft>)=>setData(x=>({...x,draft:{...x.draft,...value}}));
   const reload=(next:State)=>{setState(next);setExplore(false);setChange({kind:'gap',months:18});setData(fixture(next));};
   const profile=sources.profile.status==='ready'?sources.profile.value.saved?.profile:null;
-  return <main className="career-preview">
+  return <><CoverageNote sources={financialSources ?? undefined} compact/><main className="career-preview">
     <header><p className="eyebrow">物谱 · 独立虚构预览</p><h1>职业变化，怎样影响原来的退休目标？</h1><p className="career-lead">只比较这次变化的条件。所有样例数字均为虚构，刷新或关闭后丢弃。</p></header>
     <div className="career-toolbar"><label>样例状态 <select aria-label="样例状态" value={state} onChange={e=>reload(e.target.value as State)}><option value="ready">完整条件</option><option value="retirement">退休收入选择（无受限池）</option><option value="pension">北京养老金与公积金（暂不支持）</option><option value="unknown">恢复时间未知</option><option value="empty">尚无资料</option><option value="error">来源读取失败</option><option value="shortfall">月内付款不足</option></select></label>
       <label>外观 <select aria-label="外观" value={style} onChange={e=>setStyle(e.target.value)}><option value="bento">柔和卡片</option><option value="native">清新原生</option><option value="olive">暖米橄榄</option></select></label>
@@ -167,6 +168,6 @@ function Preview() {
           return `${stuck?'暂时算不出':explore&&assumed.changed?'假设试算（偏乐观，不是答案）':'当前答案'}：${text}`;
         })()}</span><a href={blocked&&!gate?'#career-insurance':'#career-results'}>{blocked&&!gate?'去补填 ↑':'看详细结果 ↓'}</a></div>}
     </>}
-  </main>;
+  </main></>;
 }
 createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).get('lab')==='1'?<Preview/>:<Guided/>);

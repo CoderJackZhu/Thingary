@@ -58,7 +58,7 @@ export function occurrenceIssues(snapshot: Snapshot, core: PlanningCore | null |
       if (p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision)) add('absorption', `${e.label}：付款被哪份盘点吸收待核对。`);
       if (p.date > snapshot.date && p.absorbed_snapshot_id) add('absorption', `${e.label}：起点之后的付款不能标已吸收。`);
     }
-    const paid = o.payments.reduce((s, p) => s + BigInt(p.amount_cents ?? '0'), 0n);
+    const paid = o.payments.filter(p => p.amount_cents !== null).reduce((s, p) => s + BigInt(p.amount_cents!), 0n);
     if (!o.payments_complete || paid < 0n) add('payments', `${e.label}：仅部分付款已核对，剩余安排待补充。`);
     if (Number(e.price_cents) > Number(e.down_cents) || o.loan !== null) {
       const l = o.loan;

@@ -404,6 +404,19 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
             ]
         }
     }))?;
+    let sources = s.planning_sources(true, true, &date)?;
+    let snapshot = match sources.snapshot {
+        crate::review::Read::Ready(Some(snapshot)) => snapshot,
+        _ => {
+            return Err(crate::domain::Error::new(
+                "DEMO_INVALID",
+                "样例资金盘点缺失",
+            ))
+        }
+    };
+    let fund_rules: Vec<_> = snapshot.entries.iter().filter(|e| e.counted && e.side == "asset").map(|e| {
+        serde_json::json!({"account_id":e.account_id,"availability":if e.kind == "cash" {"available"} else {"restricted"},"share_hundredths":10000})
+    }).collect();
     let base = &profile.retire;
     let section = serde_json::from_value(serde_json::json!({
         "section":"setup","fields":{
@@ -412,7 +425,7 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
                 "basic":{"contract_version":1,"start":{"kind":"live"},"contribution":{"id":"demo-contribution","monthly_cents":"800000"},"retirement_income":{"mode":"excluded","selected":[]},
                     "pension_contributions":{"start_month":null,"stop_month":null,"base_cents":null},"contribution_costs":[],"retirement_costs":[]}},
             "pension": {"birth_month":profile.birth_month,"worker":profile.worker,"region":profile.region,"paid_months":profile.paid_months,"account_balance_cents":profile.account_balance_cents,"base_cents":profile.base_cents,"past_index_hundredths":profile.past_index_hundredths,"flex_months":profile.flex_months,"personal_pension_annual_cents":profile.personal_pension_annual_cents,"marginal_tax_hundredths":profile.marginal_tax_hundredths,"wage_growth_hundredths":200,"pp_return_hundredths":200,"overrides":profile.overrides},
-            "budget": null,"funds":null
+            "budget": null,"funds":{"monetary_basis_date":date,"fund_rules":fund_rules,"hpf_monthly_cents":null,"personal_pension_account_id":null,"personal_pension_balance_confirmed":false}
         }
     }))?;
     let saved = s.plan_profile_update(
@@ -439,4 +452,191 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
     )?;
     crate::storage::atomic_write(&complete, b"1")?;
     Ok(())
+}
+
+#[cfg(test)]
+mod nonblocking_tests {
+    use super::*;
+    use serde_json::{json, Value};
+
+    fn event_update(
+        store: &Store,
+        saved: &crate::plan_profile::Saved,
+        occurrences: Value,
+    ) -> crate::plan_basic::Update {
+        serde_json::from_value(json!({
+            "request_id": uuid::Uuid::new_v4().to_string(), "generation": store.generation(),
+            "expected_revision": saved.revision, "section": "events",
+            "fields": {"life_events": saved.profile.retire.life_events, "occurrences": occurrences}
+        }))
+        .unwrap()
+    }
+    fn blank_row() -> Value {
+        json!({"id":"10000000-0000-4000-8000-000000000001", "event_id":"demo-car", "status":"occurred", "actual_date":"2026-10-10",
+            "payments_complete":false, "payments":[{"id":"10000000-0000-4000-8000-000000000002", "date":"2026-10-10", "amount_cents":null,
+            "account_id":null, "absorbed_snapshot_id":null, "absorbed_revision":null, "source_kind":null, "source_id":null}], "loan":null})
+    }
+    #[test]
+    fn blank_occurrence_retracts_with_data_preservation_and_idempotent_receipt() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(dir.path()).unwrap();
+        import(&mut store, "2026-10-10").unwrap();
+        import_plan(&mut store, "2026-10-10").unwrap();
+        let before = store.plan_profile().unwrap().saved.unwrap();
+        let recorded = store
+            .plan_profile_update(
+                &event_update(&store, &before, json!([blank_row()])),
+                "2026-10-10",
+            )
+            .unwrap();
+        let update = event_update(&store, &recorded, json!([]));
+        let retracted = store.plan_profile_update(&update, "2026-10-10").unwrap();
+        assert_eq!(
+            serde_json::to_value(&retracted.profile).unwrap(),
+            serde_json::to_value(&before.profile).unwrap()
+        );
+        let replay = store.plan_profile_update(&update, "2026-10-10").unwrap();
+        assert_eq!(
+            serde_json::to_value(&replay).unwrap(),
+            serde_json::to_value(&retracted).unwrap()
+        );
+        assert!(replay.profile.retire.core.unwrap().occurrences.is_empty());
+        drop(store);
+        let store = Store::open(dir.path()).unwrap();
+        assert_eq!(
+            store.plan_profile().unwrap().saved.unwrap().revision,
+            retracted.revision
+        );
+    }
+    #[test]
+    fn factual_occurrence_cannot_be_removed_even_when_new_draft_clears_facts() {
+        for fact in ["amount", "account", "absorption", "loan"] {
+            let dir = tempfile::tempdir().unwrap();
+            let mut store = Store::open(dir.path()).unwrap();
+            import(&mut store, "2026-10-10").unwrap();
+            import_plan(&mut store, "2026-10-10").unwrap();
+            let sources =
+                serde_json::to_value(store.planning_sources(true, true, "2026-10-10").unwrap())
+                    .unwrap();
+            let entries = sources["snapshot"]["value"]["entries"].as_array().unwrap();
+            let cash = entries.iter().find(|e| e["kind"] == "cash").unwrap()["account_id"].clone();
+            let debt = entries
+                .iter()
+                .find(|e| e["side"] == "liability" && e["counted"] == true)
+                .unwrap()["account_id"]
+                .clone();
+            let mut row = blank_row();
+            match fact {
+                "amount" => row["payments"][0]["amount_cents"] = json!("0"),
+                "account" => row["payments"][0]["account_id"] = cash.clone(),
+                "absorption" => {
+                    row["payments"][0]["account_id"] = cash;
+                    row["payments"][0]["absorbed_snapshot_id"] =
+                        sources["snapshot"]["value"]["id"].clone();
+                    row["payments"][0]["absorbed_revision"] =
+                        sources["snapshot"]["value"]["revision"].clone();
+                }
+                "loan" => {
+                    row["loan"] = json!({"account_id":debt,"as_of":"2026-10-10","principal_cents":"500000","remaining_months":10})
+                }
+                _ => unreachable!(),
+            }
+            let before = store.plan_profile().unwrap().saved.unwrap();
+            let saved = store
+                .plan_profile_update(&event_update(&store, &before, json!([row])), "2026-10-10")
+                .unwrap();
+            let error = store
+                .plan_profile_update(&event_update(&store, &saved, json!([])), "2026-10-10")
+                .unwrap_err();
+            assert_eq!(error.code, "PLANNING_OCCURRENCE", "{fact}");
+            assert_eq!(
+                serde_json::to_value(store.plan_profile().unwrap().saved.unwrap()).unwrap(),
+                serde_json::to_value(saved).unwrap()
+            );
+        }
+    }
+
+    /// Generate the checked-in TS regression input with the same domain imports as the app.
+    /// Identity/timestamps are canonicalized only in the export, never in the temporary Store.
+    #[test]
+    fn nonblocking_fixture_matches_real_demo_import() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(dir.path()).unwrap();
+        let date = "2026-10-10";
+        import(&mut store, date).unwrap();
+        import_plan(&mut store, date).unwrap();
+        let mut value =
+            serde_json::to_value(store.planning_sources(true, true, date).unwrap()).unwrap();
+        let mut ids = std::collections::BTreeMap::new();
+        let accounts = value["accounts"]["value"].as_array().unwrap();
+        let mut sorted = accounts.iter().collect::<Vec<_>>();
+        sorted.sort_by_key(|a| a["fields"]["name"].as_str().unwrap());
+        for (i, a) in sorted.iter().enumerate() {
+            ids.insert(
+                a["id"].as_str().unwrap().to_owned(),
+                format!("00000000-0000-4000-8000-{:012}", i + 1),
+            );
+        }
+        ids.insert(
+            value["generation"].as_str().unwrap().to_owned(),
+            "fictional-nonblocking".into(),
+        );
+        ids.insert(
+            value["snapshot"]["value"]["id"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+            "00000000-0000-4000-8000-000000000100".into(),
+        );
+        for (i, a) in value["incomes"]["value"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+        {
+            ids.insert(
+                a["id"].as_str().unwrap().to_owned(),
+                format!("00000000-0000-4000-8000-{:012}", i + 200),
+            );
+        }
+        fn canonical(v: &mut Value, ids: &std::collections::BTreeMap<String, String>) {
+            match v {
+                Value::String(s) => {
+                    if let Some(id) = ids.get(s) {
+                        *s = id.clone();
+                    }
+                }
+                Value::Array(a) => {
+                    for v in a {
+                        canonical(v, ids);
+                    }
+                }
+                Value::Object(o) => {
+                    for v in o.values_mut() {
+                        canonical(v, ids);
+                    }
+                }
+                _ => {}
+            }
+        }
+        // Historical review is unrelated to the capability calculation and contains other snapshot IDs.
+        value["review"] = json!({"status":"error","value":{"code":"UNAVAILABLE","message":"历史复盘不作为未来投入"}});
+        canonical(&mut value, &ids);
+        value["write_version"] = json!(1);
+        value["profile"]["value"]["saved"]["updated_at"] = json!("2026-10-10T00:00:00Z");
+        assert_eq!(
+            value["profile"]["value"]["saved"]["profile"]["retire"]["life_events"][0]["date"],
+            "2028-04"
+        );
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../tests/fixtures/planning-basic/nonblocking-demo.json");
+        if std::env::var("THINGARY_EXPORT_NONBLOCKING_FIXTURE").as_deref() == Ok("1") {
+            std::fs::write(&path, serde_json::to_string_pretty(&value).unwrap() + "\n").unwrap();
+        }
+        let expected: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+        assert_eq!(
+            value, expected,
+            "fixture must come from real demo_finance::import_plan"
+        );
+    }
 }

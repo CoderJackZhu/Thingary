@@ -107,8 +107,9 @@ test('B06a/D28/D34 total budget normalizes included rent and detail once, keeps 
   assert.equal(t.spend[idx], 400000); assert.equal(t.essential[idx], 250000);
   assert.equal(t.spend[idx + 12], 250000);
   r.basic.retirement_costs = [];
-  assert.equal(buildBasicCapabilities(s).requirement.status, 'blocked');
-  assert.ok(buildBasicCapabilities(s).requirement.missing.some(m => m.code === 'COST_SCOPE_UNKNOWN'));
+  assert.equal(buildBasicCapabilities(s).requirement.status, 'ready');
+  assert.ok(buildBasicCapabilities(s).annotations.some(m => m.reason_code === 'COST_ASSUMED_EXTRA'));
+  assert.equal(table(prediction(s).plan).spend[idx], 650000);
 });
 
 test('B06/D31/D32 complete flexible budget and finite zero margin agree in deterministic and fixed-return simulation', async () => {

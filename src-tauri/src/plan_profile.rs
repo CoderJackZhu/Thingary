@@ -762,6 +762,7 @@ impl Store {
             }
             for o in &old_core.occurrences {
                 if o.status == "occurred"
+                    && o.has_facts()
                     && !profile.retire.core.as_ref().is_some_and(|core| {
                         core.occurrences.iter().any(|n| {
                             n.id == o.id && n.event_id == o.event_id && n.status == "occurred"

@@ -1,6 +1,7 @@
 // 心愿接入（PLANNING_DESIGN §7）：「考虑中」且有预计价格的心愿作为带日期的一次性支出进入退休账本，
 // 回答两个问题：到那天钱够不够；买下后 FIRE 日期推迟多久。纯函数，不改变心愿状态。
 import { project, table } from './plan-ledger.ts';
+import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Plan } from './plan-ledger.ts';
 import type { Spend } from './plan-fire.ts';
 import type { RetireCalc } from './plan-retire-calc.ts';
@@ -33,6 +34,7 @@ export const counted = (spends: WishSpend[]) => spends.filter(s => s.status === 
 const toSpend = (s: WishSpend): Spend => ({ offset_months: s.offset_months!, cents: s.cents });
 
 export type Impact = {
+  annotations?: PlanningAnnotation[];
   /** 没有这笔支出时的 FIRE（月数偏移）与有之后的；null 表示 70 岁前达不到。 */
   base_offset: number | null;
   with_offset: number | null;
@@ -58,6 +60,7 @@ export function impactOf(calc: Ready, spends: WishSpend[]): Impact {
   const first = events.length ? Math.min(...events.map(e => e.offset_months)) : 0, last = Math.min(Math.max(0, ...events.map(e => e.offset_months)), base.assets.length - 1);
   const line = calc.r.emergency_months * (table(P).essential[0] ?? 0);
   return {
+    annotations: calc.capabilities?.annotations ?? P.annotations ?? [],
     base_offset: base.fi_month === null ? null : base.fi_month - now,
     with_offset: withSpend.fi_month === null ? null : withSpend.fi_month - now,
     delay_months: base.fi_month !== null && withSpend.fi_month !== null ? withSpend.fi_month - base.fi_month : null,

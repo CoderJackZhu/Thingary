@@ -1,3 +1,4 @@
+import { retractOccurrence } from './plan-occurrence-actions';
 import { useEffect, useState } from 'react';
 import { PlanningOccurrenceDialog } from './PlanningOccurrenceDialog';
 import { useSectionSaver } from './planning-basic-data';
@@ -32,9 +33,9 @@ export function PlanningReviewSummary({ interval, reasons, reasonError, summary,
   };
   const accountError = summaryError || (sources.accounts.status === 'error' ? sources.accounts.value.message : '');
   const missing = reviewMissing(interval, summary?.points.filter(p => !p.complete).length ?? 0);
-  async function saveOccurrence(o: Occurrence) {
+  async function saveOccurrence(o: Occurrence | null) {
     if (!retire) return;
-    if (await saver.save(eventsInput({ life_events: retire.life_events, occurrences: [...(retire.core?.occurrences ?? []).filter(x => x.event_id !== o.event_id), o] }))) setOccurring(null);
+    if (await saver.save(eventsInput({ life_events: retire.life_events, occurrences: o ? [...(retire.core?.occurrences ?? []).filter(x => x.event_id !== o.event_id), o] : retractOccurrence(retire.core?.occurrences ?? [], retire.core?.occurrences.find(x => x.event_id === occurring?.event.id)?.id ?? '') }))) setOccurring(null);
   }
   return <article className="ui-card ui-content plan-review-summary" aria-label="这一期要核对的事">
     <div className="ui-section-head"><div><h3>这一期要核对的事</h3><p className="muted small">{interval.from} → {interval.to} · 可以全部跳过，清单随资料重新计算。</p></div></div>

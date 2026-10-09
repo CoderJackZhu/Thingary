@@ -6,6 +6,7 @@ import { summaryBasis, summaryRetire, usualSaving, yuan } from './plan-summary';
 import type { PlanSources, SummaryRetire } from './plan-summary';
 import type { ReviewPage } from './review';
 import type { PlanningTab } from './PlanningPage';
+import { CoverageNote } from './CoverageNote';
 import { RequirementLine } from './PlanningRequirement';
 import { needsContribution, terminalText } from './planning-basic-view';
 
@@ -34,7 +35,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
     <div className="ui-section-head"><h3>规划</h3>{retire.kind === 'ready' && <span className="ui-aside">按当前假设估算</span>}</div>
     <p className="review-plan-goal">退休与财务自由{retire.kind === 'ready' && <small> · {retire.mode === 'fire' ? 'FIRE' : '传统'}</small>}</p>
     {basicPlan ? <BasicSummaryBody sources={data!} retire={retire} onGotoPlanning={onGotoPlanning}/> : retire.kind === 'ready' ? <>
-      <p className="review-plan-main">{retire.headline.main}</p>
+      <p className="review-plan-main">{retire.headline.main}</p><CoverageNote annotations={retire.calc.annotations} compact/>
       {retire.headline.sub && <p className="review-plan-sub">{retire.headline.sub}</p>}
       {retire.headline.warn && <p className="review-plan-warn" role="status">{retire.headline.warn}</p>}
       <div className="review-plan-cov">
@@ -76,7 +77,7 @@ function BasicSummaryBody({ sources, retire, onGotoPlanning }: { sources: PlanSo
   return <>
     <p className="review-plan-main">{retire.kind === 'ready' ? retire.headline.main : r?.target_age == null ? '目标年龄还没有设定' : `目标 ${r.target_age} 岁${r.mode === 'fire' ? ' 财务自由' : ' 退休'}`}</p>
     {retire.kind === 'ready' && retire.headline.sub && <p className="review-plan-sub">{retire.headline.sub}</p>}
-    {caps.requirement.status === 'ready' ? <RequirementLine value={caps.requirement.value}/> : <p className="review-plan-sub">需求还算不出：{caps.requirement.missing[0]?.message}</p>}
+    {caps.requirement.status === 'ready' ? <RequirementLine value={caps.requirement.value} annotations={caps.annotations}/> : <p className="review-plan-sub">需求还算不出：{caps.requirement.missing[0]?.message}</p>}
     {pred ? <p className="review-plan-sub">按你估计每月能存下的钱：{terminalText[pred.terminal]}。</p>
       : needsContribution(caps) ? <p className="review-plan-sub">还没估计每月能存多少钱，先看目标需要的钱即可。</p> : null}
     <div className="review-plan-actions"><button className="review-action" onClick={() => onGotoPlanning('goals')}>查看目标 →</button>{caps.requirement.status === 'blocked' && <button className="review-action" onClick={() => onGotoPlanning(caps.requirement.status === 'blocked' && caps.requirement.missing.some(m => m.owner === 'pension') ? 'pension' : 'goals', caps.requirement.status === 'blocked' && caps.requirement.missing.some(m => m.owner === 'pension') ? 'profile' : 'budget')}>补充条件 →</button>}</div>

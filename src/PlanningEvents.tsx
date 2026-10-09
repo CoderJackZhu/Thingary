@@ -1,3 +1,5 @@
+import { CoverageNote } from './CoverageNote';
+import { retractOccurrence } from './plan-occurrence-actions';
 import { MonthInput } from './DateInput';
 import { PlanningOccurrenceDialog } from './PlanningOccurrenceDialog';
 import { emptyCore } from './plan-core';
@@ -53,19 +55,19 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
     return { items: evs.filter(e => e.date >= today.slice(0, 7) && !retireOccurrence(retire, e.id)).map(e => ({ e, impact: eventImpact(P0, e, offsetOf(e.date, ready.plan.anchor_date ?? today), emergency) as EventImpact })), total: totalImpact(P0, evs.filter(e => e.included && !retireOccurrence(retire, e.id)).map(e => ({ e, offset: offsetOf(e.date, ready.plan.anchor_date ?? today) }))) };
   }, [ready, retire, events, today, emergency]);
   const write = (next: StoredLifeEvent[]) => store.write(next, retire.core ? { ...retire.core, occurrences: retire.core.occurrences.filter(o => next.some(e => e.id === o.event_id)) } : retire.core);
-  async function saveOccurrence(o: Occurrence) { const core = retire.core ?? emptyCore(today); if (await store.write(events, { ...core, occurrences: [...core.occurrences.filter(x => x.event_id !== o.event_id), o] })) setOccurring(null); }
+  async function saveOccurrence(o: Occurrence | null) { const core = retire.core ?? emptyCore(today); if (await store.write(events, { ...core, occurrences: o ? [...core.occurrences.filter(x => x.event_id !== o.event_id), o] : retractOccurrence(core.occurrences, core.occurrences.find(x => x.event_id === occurring?.id)?.id ?? '') })) setOccurring(null); }
   async function toggle(id: string, included: boolean) { await write(events.map(e => (e.id === id ? { ...e, included } : e))); }
   async function remove(id: string) { setConfirm(null); await write(events.filter(e => e.id !== id)); }
   // 已经有一套房计入时，新加的房默认不计入，避免两套房同时发生；想比较方案就只勾选其中一套。
   const add = (key: string) => { const p = presets.find(x => x.key === key)!, d = p.make(monthLabel(today, p.years * 12)); setEditing({ isNew: true, draft: { id: crypto.randomUUID(), ...d, included: d.kind === 'house' ? d.included && !events.some(x => x.kind === 'house' && x.included) : d.included } }); };
-  return <article className="ui-card ui-content plan-goal plan-events" aria-label="大额计划">
+  return <article className="ui-card ui-content plan-goal plan-events" aria-label="大额计划"><CoverageNote annotations={store.ready?.plan.annotations} compact/>
     <div className="ui-section-head"><div><p className="eyebrow">买房、买车与其他</p><h3>大额计划<Info text={retire.basic ? "一次性支出与持续费用并入同一退休账本。核对这些费用是否已经含在生活费里，额外费用另计一次。这里只估算，不扣实际资金。" : "把房和车算进来：每件拆成一次性现金支出（首付、杂费、换车净支出）和持续的月度收支（月供、持有成本、不再付的房租），并入同一个退休计算。「日常生活」预算请不要再含房租、房贷和车。这里只估算，不扣你真实的资产，也不划拨。"}/></h3></div>
       <span className="rs-presets">{presets.map(p => <button key={p.key} type="button" className="ui-btn" disabled={saver.busy || events.length >= 20} onClick={() => add(p.key)}>+ {p.label}</button>)}</span></div>
     {saver.notice && <p className="notice" role="status">{saver.notice}</p>}
     {events.length === 0 ? <p className="muted">还没有大额计划。需要比较大额购买时，可以添加一个设想；预设金额仅作占位，请按自己的情况修改，只勾选本次要计入的安排。</p> : <>
       <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="大额计划列表"><table className="ui-table plan-event-table"><thead><tr><th>计划</th><th className="amount">总价 / 首付</th><th>买后每月</th><th>首付付得起吗</th><th>对退休的影响（只算这一件）</th><th>计入</th><th/></tr></thead>
         <tbody>{events.map(s => { const i = rows?.items.find(x => x.e.id === s.id)?.impact; return <tr key={s.id} className={s.included || retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred') ? undefined : 'closed'}>
-          <td><b>{s.label}</b><small className="muted">{retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'occurred' ? '已确认发生 · 后续费用继续' : retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'cancelled' ? '已取消' : s.date < today.slice(0, 7) ? '日期已过，待核对' : '未确认发生'}</small><small className="muted">{kindText[s.kind]} · {s.date}{s.kind === 'car' && s.cycle_years ? ` · 每 ${s.cycle_years} 年换` : ''}</small></td>
+          <td><b>{s.label}</b><small className="muted">{retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'occurred' ? '已标发生 · 后续资料见核对清单' : retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'cancelled' ? '已取消' : s.date < today.slice(0, 7) ? '日期已过，待核对' : '尚未发生 · 按预计排期'}</small><small className="muted">{kindText[s.kind]} · {s.date}{s.kind === 'car' && s.cycle_years ? ` · 每 ${s.cycle_years} 年换` : ''}</small></td>
           <td className="amount">{yuan(Number(s.price_cents))}<small className="muted">首付 {yuan(Number(s.down_cents))}</small></td>
           <td>{i && i.payment_nominal > 0 ? <>月供 {yuan(i.payment_nominal)}<small className="muted">固定名义金额</small></> : <span className="muted">{retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0) ? '余债按已核对剩余期延续' : '待测算'}</span>}{Number(s.holding_cents) > 0 && <small className="muted">{s.kind === 'car' ? '养车' : '持有'} {yuan(Number(s.holding_cents))}</small>}
             {i && (i.payment_nominal > 0 || Number(s.holding_cents) > 0) && <small className={i.saving_not_positive ? 'warn' : 'muted'}>买后每月储蓄约 {yuan(i.saving_after)}{i.saving_not_positive ? '，要靠当时的收入支撑' : ''}</small>}</td>

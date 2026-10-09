@@ -205,3 +205,9 @@ dialog.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[ope
   .plan-review-checklist > li, .plan-review-events > li { align-items: start; gap: 10px; }
   .plan-review-summary .ui-section-head { align-items: start; }
 }
+
+.coverage-note { margin: 12px 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.coverage-note .coverage-summary { margin: 4px 0; }
+.coverage-note li { margin: 8px 0; }
+.coverage-note li small { display: block; }
+.coverage-note summary { cursor: pointer; }
