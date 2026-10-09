@@ -17,6 +17,8 @@ function stageIssues(stage: CareerStage, field: string): CareerIssue[] {
   if (stage.costs === null) errors.push(issue(`${field}.costs`, '请确认该阶段费用的包含范围。'));
   else for (const c of stage.costs) if (!['included', 'extra', 'excluded'].includes(c.treatment) || (c.treatment === 'included' && !amount(c.reference_cents))) errors.push(issue(`${field}.costs`, '已含费用须有合法的非负参考额。'));
   if (!stage.pension) errors.push(issue(`${field}.pension`, `请确认${label}的缴费安排；每月能攒多少不决定停不停缴。`));
+  if (typeof stage.pension === 'object' && stage.pension !== null && stage.pension.base_cents === '0') errors.push(issue(`${field}.pension`, '缴费基数须大于零；不缴费请明确选择停缴。'));
+  if (typeof stage.pension === 'object' && stage.pension !== null && stage.pension.hpf_monthly_cents === '') errors.push(issue(`${field}.pension`, `请填写${label}的公积金每月入账合计；没有缴存请选择“本段不缴存”。`));
   if (!amount(stage.insurance.monthly_cents)) errors.push(issue(`${field}.insurance`, `请确认${label}的现金自缴费用，明确没有才填零。`));
   return errors;
 }
@@ -72,7 +74,7 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
   if (needsCurrent && !amount(current, true)) errors.push(issue('current_contribution', '变化前每月能攒多少还不知道，不能推算未来的起点资金。'));
   if (errors.length) return fail(errors);
   const recoveryErrors = recovery !== null && recovery < target ? stageIssues(draft.recovery, 'recovery') : [];
-  const recoveryPeriods = recovery !== null && recovery < target ? override(draft.recovery, ym(birth + recovery), ym(birth + target)) : [];
+  const recoveryPeriods = recovery !== null && recovery < target && !recoveryErrors.length ? override(draft.recovery, ym(birth + recovery), ym(birth + target)) : [];
   const recoveryPeriodIssue = pensionPeriodIssue(recoveryPeriods, effectiveParams(beijing, p.overrides));
   if (recoveryPeriodIssue) recoveryErrors.push(issue('recovery.pension', recoveryPeriodIssue));
   const periods = [ ...(hasGap ? override(draft.gap, draft.transition_month, ym(birth + gapEnd)) : []),

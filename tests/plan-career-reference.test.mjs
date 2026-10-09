@@ -1,53 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { referenceCareer, referenceMaxGap } from './helpers/career-reference.mjs';
-import { careerSources, careerDraft } from '../src/career-preview/fixtures.ts';
+import { inputs, cases } from './helpers/career-benchmark.mjs';
 import { evaluateCareerScenario } from '../src/plan-career.ts';
 import { maxGap } from '../src/plan-career-map.ts';
 
 const near = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 0.02, `${message}: ${actual} vs ${expected}`);
-function inputs(o = {}) {
-  const s = careerSources(), d = careerDraft(), p = s.profile.value.saved.profile, r = p.retire;
-  if (o.preMonths === 0) d.transition_month = '2026-10';
-  r.basic.start.available_cents = String(o.start ?? 60_000_000);
-  r.real_return_before_hundredths = Math.round((o.beforeRate ?? 0) * 10000);
-  r.real_return_after_hundredths = Math.round((o.afterRate ?? 0) * 10000);
-  p.assumptions.inflation_hundredths = Math.round((o.inflation ?? 0) * 10000);
-  d.gap_months = o.gap ?? 12;
-  d.recovery.monthly_cents = String(o.recovery ?? 600_000);
-  d.gap.spend_cents = String(o.spend ?? 1_000_000); d.gap.income_cents = String(o.income ?? 0);
-  d.gap.insurance = { monthly_cents: String(o.gapInsurance ?? 0), included: o.gapIncluded ?? false };
-  d.recovery.insurance = { monthly_cents: String(o.recoveryInsurance ?? 0), included: o.recoveryIncluded ?? false };
-  d.gap.extra_income = { lump_cents: o.lump ? String(o.lump) : null, benefit_monthly_cents: o.benefit ? String(o.benefit) : null, benefit_months: o.benefitMonths ?? null };
-  d.floor_cents = o.floor === undefined ? null : String(o.floor);
-  if (o.pension) {
-    r.income_items = [{ id: 'manual-pension', label: '虚构手填养老金', monthly_cents: String(o.pension), start_age: 63, end_age: null, indexed: o.pensionIndexed ?? true }];
-    r.basic.retirement_income = { mode: 'manual', selected: [{ id: 'manual-pension', source_id: 'manual-pension', role: 'state_pension' }] };
-  }
-  return { s, d };
-}
-const cases = [
-  ['zero-return closed form', {}],
-  ['gap self-pay extra', { gapInsurance: 200_000 }],
-  ['gap self-pay included', { gapInsurance: 200_000, gapIncluded: true }],
-  ['recovery self-pay extra', { recoveryInsurance: 200_000 }],
-  ['included insurance still paid before interest', { gapInsurance: 200_000, gapIncluded: true, recoveryInsurance: 200_000, recoveryIncluded: true, beforeRate: .01 }],
-  ['lump and six-month benefit', { lump: 12_000_000, benefit: 500_000, benefitMonths: 6 }],
-  ['benefit stops on early recovery', { gap: 3, benefit: 500_000, benefitMonths: 6 }],
-  ['zero gap receives no benefit but does receive severance', { gap: 0, lump: 12_000_000, benefit: 500_000, benefitMonths: 6 }],
-  ['different accumulation and retirement returns', { beforeRate: .02, afterRate: .01 }],
-  ['inflation with fixed purchasing-power budgets', { inflation: .025, beforeRate: .01 }],
-  ['manual pension starts at 63, not target 50', { pension: 100_000 }],
-  ['nominal pension loses purchasing power', { pension: 100_000, pensionIndexed: false, inflation: .025 }],
-];
 for (const [name, o] of cases) test(`independent reference: ${name}`, () => {
   const { s, d } = inputs(o), expected = referenceCareer(o), result = evaluateCareerScenario(s, d);
   assert.equal(result.prediction.status, 'ready', JSON.stringify(result.prediction));
   const v = result.prediction.value;
   // Compare every accumulation month's start/end, not merely the final integer month.
-  for (let m = 0; m < 216; m++) {
-    near(v.projection.assets[m + 1], expected.rows[m].start, `month ${m} opening`);
-    near(v.projection.assets[m + 2], expected.rows[m].end, `month ${m} closing`);
+  for (let m = 0; m < expected.rows.length; m++) {
+    near(v.projection.assets[m + (o.firstFraction === undefined ? 1 : 0)], expected.rows[m].start, `month ${m} opening`);
+    near(v.projection.assets[m + (o.firstFraction === undefined ? 2 : 1)], expected.rows[m].end, `month ${m} closing`);
+  }
+  for (const row of expected.retirementRows) {
+    const offset = expected.rows.length + (o.firstFraction === undefined ? 1 : 0) + row.k;
+    near(v.projection.assets[offset], row.start, `retirement month ${row.k} opening`);
+    near(v.projection.assets[offset + 1], row.end, `retirement month ${row.k} closing`);
+    near(v.projection.unfunded[offset], row.unfunded, `retirement month ${row.k} unmet budget`);
   }
   near(v.outcome.assets_at_goal, expected.assets, 'goal assets');
   near(v.outcome.required_at_goal, expected.required, 'discounted retirement budget');
@@ -87,4 +59,37 @@ test('independent closed-form required contribution and one-cent boundary', () =
   assert.equal(evaluateCareerScenario(s, d).requirement.value.monthly_cents, String(required));
   assert.equal(referenceCareer({ recovery: required }).meets, true);
   assert.equal(referenceCareer({ recovery: required - 1 }).meets, false);
+});
+
+test('independent local reference preserves unknown recovery without manufacturing long-term answers', () => {
+  const { s, d } = inputs({ preMonths: 0, gap: 6, gapInsurance: 200_000 });
+  const ref = referenceCareer({ preMonths: 0, gap: 6, gapInsurance: 200_000 });
+  d.gap_months = null; d.check_until_month = '2027-04'; d.recovery.pension = null;
+  const result = evaluateCareerScenario(s, d);
+  assert.equal(result.cash.value.minimum_cents, String(Math.round(ref.minimum)));
+  assert.equal(result.cash.value.until_month, '2027-04');
+  assert.equal(result.requirement.status, 'blocked'); assert.equal(result.prediction.status, 'blocked');
+});
+
+test('independent benefit ledger enumerates feasible gaps that do not start at zero', () => {
+  const o = { recovery: 0, benefit: 10_000_000, benefitMonths: 12 };
+  const feasible = [];
+  for (let gap = 0; gap < 180; gap++) if (referenceCareer({ ...o, gap }).meets) feasible.push(gap);
+  assert.deepEqual(feasible, Array.from({ length: 47 }, (_, i) => i + 8));
+  const { s, d } = inputs(o), result = maxGap(s, d);
+  assert.deepEqual(result.ranges, [{ from: feasible[0], to: feasible.at(-1) }]);
+  assert.equal(result.months, feasible.at(-1));
+});
+
+test('independent delayed inflow creates two separated feasible gap ranges', () => {
+  const o = { start: 1_000_000, preMonths: 0, spend: 100_000, recovery: 1_000_000, recoveryInsurance: 900_000, recoveryIncluded: true, retirementSpend: 100_000, lumps: [{ month: 4, cents: 2_000_000 }] };
+  const ranges = [];
+  for (let gap = 0; gap < 216; gap++) if (referenceCareer({ ...o, gap }).meets) {
+    const last = ranges.at(-1);
+    if (last && last.to === gap - 1) last.to = gap;
+    else ranges.push({ from: gap, to: gap });
+  }
+  assert.deepEqual(ranges, [{ from: 0, to: 1 }, { from: 5, to: 21 }]);
+  const { s, d } = inputs(o), result = maxGap(s, d);
+  assert.deepEqual(result.ranges, ranges); assert.equal(result.months, 21);
 });
