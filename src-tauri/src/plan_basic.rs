@@ -1,6 +1,6 @@
 //! Shared strict basic-planning input and scoped update contract. No parallel fact store.
 use crate::domain::{date, Error, Result};
-use crate::plan_core::{Core, CostRule, FundRule, Occurrence};
+use crate::plan_core::{Core, CostRule, DebtRepayment, FundRule, Occurrence};
 use crate::plan_profile::{
     Assumptions, IncomeItem, LifeEvent, Overrides, Profile, Retire, SavingPhase, SpendItem,
 };
@@ -338,6 +338,13 @@ pub enum Section {
     Funds(FundsFields),
     Events(EventsFields),
     Budget(BudgetFields),
+    DebtRepayments(DebtRepaymentsFields),
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DebtRepaymentsFields {
+    pub updates: Vec<DebtRepayment>,
+    pub remove: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -391,12 +398,38 @@ fn core<'a>(p: &'a mut Profile, basis: &str) -> Result<&'a mut Core> {
         personal_pension_balance_confirmed: false,
         costs: vec![],
         occurrences: vec![],
+        debt_repayments: vec![],
     }))
 }
 impl Update {
     pub(crate) fn merge(&self, old: Option<&Profile>) -> Result<Profile> {
         let mut p = old.cloned().unwrap_or_else(empty_profile);
         match &self.section {
+            Section::DebtRepayments(f) => {
+                if f.updates.len() > 500 || f.remove.len() > 500 {
+                    return Err(bad("还款安排过多"));
+                }
+                let mut ids = HashSet::new();
+                let mut removed = HashSet::new();
+                for account_id in &f.remove {
+                    if uuid::Uuid::parse_str(account_id).is_err() || !removed.insert(account_id) {
+                        return Err(bad("移除的账户不能重复或无效"));
+                    }
+                }
+                for d in &f.updates {
+                    if !ids.insert(&d.account_id) || f.remove.contains(&d.account_id) {
+                        return Err(bad("同一账户不能重复处理"));
+                    }
+                }
+                let c = p
+                    .retire
+                    .core
+                    .as_mut()
+                    .ok_or_else(|| bad("先确认资金起点"))?;
+                c.debt_repayments
+                    .retain(|d| !ids.contains(&d.account_id) && !f.remove.contains(&d.account_id));
+                c.debt_repayments.extend(f.updates.clone());
+            }
             Section::Setup(f) => {
                 // Apply the general goal and supporting sections in one transaction.
                 // Validate/persist only the final profile in the caller's single transaction.

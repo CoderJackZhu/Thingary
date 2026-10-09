@@ -1,4 +1,6 @@
 import nonblockingDemo from '../tests/fixtures/planning-basic/nonblocking-demo.json';
+import debtDemo from '../tests/fixtures/planning-basic/debt-loops.json';
+import { debtFixture } from './planning-debt-fixture';
 // Development-only in-memory stand-in for the wealth commands used by
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
 // proves nothing about native storage or calculation.
@@ -16,6 +18,7 @@ import type { SourceTarget, TimelineSelection } from './source';
 import { coverageFor, scheduleDates, shiftDays } from './recurring-model';
 import { computeReview, defaultRetire } from './plan';
 import { emptyCore, costSources, eventSource, normalizeFunds } from './plan-core';
+import { mergeDebtRepayments } from './plan-debt';
 import { hasPensionProfile } from './plan';
 import type { BasicCapabilities, BasicFields, CapabilityName, FundsFields, MissingCode, PensionFields, PlanningMissing, PlanningSources, ProfileUpdate } from './plan';
 import { basicInputFixtures, predictionCapabilityFixture, unknownCapabilityFixture } from './plan-basic-fixtures';
@@ -389,10 +392,14 @@ if (nonblockingScenario) {
   }
 }
 let planWriteVersion = 1;
+const debtScenario = params.get('plan-debt');
+const debtBatch = debtFixture(debtDemo as unknown as PlanningSources, debtScenario ?? 'normal');
+if (debtScenario && debtBatch.profile.status === 'ready') planProfile = debtBatch.profile.value.saved;
 const updateResults = new Map<string, NonNullable<ProfileState['saved']>>();
 let lostOnce = false;
 const readError = (message: string, code = 'READ_FAILED') => ({ status: 'error' as const, value: { code, message } });
 const planningSources = (args: Record<string, unknown>): PlanningSources => {
+  if (debtScenario) return { ...debtBatch, generation, write_version: planWriteVersion, profile: { status: 'ready', value: { generation, saved: planProfile } } };
   if (nonblockingScenario) return { ...nonblockingBatch, generation, write_version: planWriteVersion, profile: nonblockingScenario === 'error' ? { status: 'error', value: { code: 'READ_FAILED', message: '虚构规划资料读取失败' } } : { status: 'ready', value: { generation, saved: planProfile } } };
   const planning = args.planningEnabled !== false, wealth = args.wealthEnabled !== false;
   const disabled = readError('资产与盘点已关闭', 'MODULE_DISABLED');
@@ -430,6 +437,9 @@ function mergeSection(old: StoredProfile | null, u: ProfileUpdate): StoredProfil
   } else if (u.section === 'funds') {
     const f = u.fields;
     Object.assign(core(f.monetary_basis_date), { fund_rules: f.fund_rules, hpf_monthly_cents: f.hpf_monthly_cents, personal_pension_account_id: f.personal_pension_account_id, personal_pension_balance_confirmed: f.personal_pension_balance_confirmed });
+  } else if (u.section === 'debt_repayments') {
+    if (!p.retire.core) throw { code: 'PLANNING_BASIC', message: '先确认资金起点' };
+    p.retire.core.debt_repayments = mergeDebtRepayments(p.retire.core.debt_repayments ?? [], u.fields.updates, u.fields.remove);
   } else if (u.section === 'events') {
     const f = u.fields;
     if (!p.retire.core) throw { code: 'PLANNING_BASIC', message: '先确认金额基准' };
@@ -478,7 +488,7 @@ function previewCapabilities(sources: PlanningSources, o: CapabilityOptions): Ba
     : (() => { const plan = { ...baseValue.plan, saving_cents: Number(c), assets_cents: funds.status === 'ready' ? Number(funds.value.available_cents) : baseValue.plan.assets_cents }, proj = project(plan, Number(todayIso.slice(0, 4))), out = outcome(plan, proj); return { status: 'ready' as const, value: { source: o.contribution !== null ? 'temporary' as const : 'saved' as const, contribution_cents: c, plan, plan0: plan, projection: proj, outcome: out, terminal: params.get('plan-terminal') === 'zero' || basicScenario === 'terminal-zero' ? 'no_margin' as const : out.shortfall_month !== null ? 'gap' as const : 'surplus' as const } }; })();
   return { context: { generation: sources.generation, revision: saved?.revision ?? null, today: sources.today, model_version: 'basic-1', modules: sources.modules, start: sim ? { kind: 'simulation', id: sim.id, date: sim.date } : { kind: 'live', snapshot_id: snap?.id ?? null, revision: snap?.revision ?? null, date: snap?.date ?? null }, monetary_basis_date: core?.monetary_basis_date ?? null, source: o.contribution !== null ? 'temporary' : 'saved', write_version: sources.write_version }, funds, requirement, prediction, pension };
 }
-if (new URLSearchParams(location.search).get('capabilities') !== 'real' && !nonblockingScenario) bindCapabilityProvider(previewCapabilities);
+if (new URLSearchParams(location.search).get('capabilities') !== 'real' && !nonblockingScenario && !debtScenario) bindCapabilityProvider(previewCapabilities);
 let searchPreviewAttempts = 0;
 export function searchPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   if (command !== 'search_all') return null;
@@ -698,7 +708,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'plan_profile_update') {
     const input = args.input as ProfileUpdate;
     if (updateResults.has(input.request_id)) return { value: updateResults.get(input.request_id) };
-    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    if (params.get('state') === 'save-error' || debtScenario === 'error') throw { message: '模拟保存失败，输入应保留。' };
     if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '虚构资料库已变化。' };
     if (input.expected_revision !== (planProfile?.revision ?? null)) throw { code: 'REVISION_CONFLICT', message: '虚构个人资料已变化，请重新读取。' };
     planProfile = { profile: mergeSection(planProfile?.profile ?? null, input), revision: (planProfile?.revision ?? 0) + 1, updated_at: new Date().toISOString() };

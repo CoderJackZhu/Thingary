@@ -131,4 +131,8 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 月度收入导入与账户／完整盘点共用 `financial_import_preview/commit/receipt`。schema 35 的 `x11.sql` 将 `plan_income.hpf_cents` 变为可空并扩展 `import_external_key.object_kind` 为 income；事务替表保留旧数据和索引，提交前外键校验。`plan_income::write_tx` 与普通表单共用校验／修订写入；混合文件、稳定映射与回执在同一事务。旧 schema 34 回执收入计数默认零，备份按原版本 canonical 结构校验再迁移。
 
-通用规划的 plan-coverage 与 plan-annotations 生成只读覆盖，BasicCapabilities/Plan/CareerEvaluation 保留标注元数据。CoverageNote 统一呈现摘要与依据，planning-consumers 清单枚举独立渲染路径。用途声明、occurrences 和保存回执沿用既有分区；无新增持久字段或迁移。
+通用规划的 plan-coverage 与 plan-annotations 生成只读覆盖，BasicCapabilities/Plan/CareerEvaluation 保留标注元数据。CoverageNote 统一呈现摘要与依据，planning-consumers 清单枚举独立渲染路径。用途声明、occurrences 和保存回执沿用既有分区；已有贷款 JSON 可选字段与新增分区见下文，不进行迁移。
+
+## 已有贷款直接还款安排
+
+新增可选 retire.core.debt_repayments JSON 数组：稳定负债账户 ID、填写／盘点日期与余额、固定起止月份、可空月付款、前后阶段声明。不建表、不迁移；debt_repayments 分区原子 upsert／remove，保留其它账户和资料。Store 校验日期、整数分、枚举、去重与负债引用；空数组省略，旧请求字节／指纹不变，新请求覆盖实际选择。复用 revision、generation、提交未知回执与备份引用校验；含字段数据不能由旧版读取。plan-debt 统一标注，plan-basic 按阶段编译固定名义流，事件优先、归零停流；不改写冻结结果／历史报告。

@@ -1,4 +1,5 @@
 import type { PlanningSources } from './plan-basic-contract.ts';
+import { validateDebtRepayment } from './plan-debt.ts';
 
 const cents = (s: string) => /^(0|[1-9]\d*)$/.test(s) && Number.isSafeInteger(Number(s));
 const month = (s: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(s) && s.slice(0, 4) !== '0000';
@@ -15,6 +16,13 @@ export function basicConstraintMessages(sources: PlanningSources): string[] {
   if (!Number.isInteger(p.assumptions.inflation_hundredths) || p.assumptions.inflation_hundredths < 0 || p.assumptions.inflation_hundredths > 2000) add('通胀输入超出合法范围。');
   if (b.start.kind === 'simulation' && ((b.start.available_cents !== null && !cents(b.start.available_cents)) || (b.start.date !== null && !date(b.start.date)))) add('模拟起点金额或日期非法。');
   if (r.core && !date(r.core.monetary_basis_date)) add('金额基准日期非法。');
+  const debtIds = new Set<string>();
+  if ((r.core?.debt_repayments?.length ?? 0) > 500) add('还款安排过多。');
+  for (const d of r.core?.debt_repayments ?? []) {
+    try { validateDebtRepayment(d); } catch { add('贷款还款安排的金额、日期、期限或处理方式非法。'); }
+    if (debtIds.has(d.account_id) || d.recorded_on > sources.today) add('贷款还款安排重复或填写日期晚于今天。');
+    debtIds.add(d.account_id);
+  }
   const fundIds = new Set<string>();
   for (const f of r.core?.fund_rules ?? []) {
     if (fundIds.has(f.account_id) || !Number.isInteger(f.share_hundredths) || f.share_hundredths < 0 || f.share_hundredths > 10000 || !['available', 'restricted', 'excluded'].includes(f.availability)) add('资金范围规则重复或非法。');

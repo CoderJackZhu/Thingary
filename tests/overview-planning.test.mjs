@@ -59,7 +59,7 @@ test('coverage ratio uses the goals-page function including its boundaries', () 
   const debtOnly = buildRetireCalc(saved({ spend_cents: '500000' }), {id:'s1',date:today,revision:1, entries: [{ account_id: 'debt', counted: true, side: 'liability', kind: 'loan', amount_cents: '9000000' }] }, reviewOf('1000000'), [], today);
   assert.equal(debtOnly.assets, 0, 'debt principal is not an initial cash withdrawal');
   assert.equal(debtOnly.missing.length, 0);
-  assert.match(debtOnly.annotations.find(a => a.reason_code === 'DEBT_UNLINKED').message, /还款接续/);
+  assert.match(debtOnly.annotations.find(a => a.reason_code === 'DEBT_UNLINKED').message, /还款未计入/);
   // 所需为零（预算 0）：按现有函数视为 100%。
   const zeroNeed = ready(buildRetireCalc(saved({ spend_cents: '0' }), snap(12345), reviewOf('0'), [], today));
   assert.equal(coverageNow(zeroNeed).requiredNow, 0);

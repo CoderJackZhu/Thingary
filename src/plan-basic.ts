@@ -14,6 +14,7 @@ import type { Plan, Flow, SpendItem } from './plan-ledger.ts';
 import { basicConstraintMessages } from './plan-basic-validation.ts';
 import { eventCoverage } from './plan-coverage.ts';
 import { uniqueAnnotations } from './plan-annotations.ts';
+import { debtReview, debtMonthIndex } from './plan-debt.ts';
 import type { Pension } from './plan-fire.ts';
 
 export const BASIC_SEARCH_LIMIT_CENTS = 100_000_000;
@@ -100,7 +101,11 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   const core = r.core;
   if (!core) reqMissing.push(missing('FUNDS_UNCONFIRMED', 'requirement', 'funds', 'core.monetary_basis_date', '金额基准尚未确认。'));
   const active = r.life_events.filter(e => !core?.occurrences.some(o => o.event_id === e.id && o.status === 'cancelled') && (e.included || core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')));
-  const eventReview = eventCoverage(active, core, b.start.kind === 'live' ? snap : null, sources.today, saved?.reference_issues ?? []);
+  const debtSnapshot = b.start.kind === 'live' && sources.modules.wealth ? snap : null;
+  const targetMonth = p.birth_month && r.target_age !== null ? ym(monthIndex(p.birth_month) + r.target_age * 12) : undefined;
+  const horizonMonth = p.birth_month ? ym(monthIndex(p.birth_month) + r.horizon_age * 12) : undefined;
+  const debtRows = debtReview(debtSnapshot, core, active, targetMonth, horizonMonth, sources.accounts.status === 'ready' ? sources.accounts.value : []).rows;
+  const eventReview = eventCoverage(active, core, debtSnapshot, sources.today, saved?.reference_issues ?? [], { targetMonth, horizonMonth, accounts: sources.accounts.status === 'ready' ? sources.accounts.value : [] });
   annotations.push(...eventReview.annotations);
   const seenLoans = new Set<string>();
   for (const o of core?.occurrences ?? []) {
@@ -202,6 +207,13 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
     else flows.push({ source_id: 'social_insurance', label: '续缴社保', from_month: now, to_month: r.keep_paying_until_age * 12, cents: Number(r.keep_paying_monthly_cents), nominal: false, essential: true, prorate_first: true });
   }
   const savingFlows: Flow[] = [];
+  for (const row of debtRows) {
+    const d = row.saved;
+    if (!d || row.linked || row.zero || row.entry.amount_cents === null || d.monthly_cents === null || d.last_month === null) continue;
+    const flow = { source_id: `debt:${d.account_id}`, label: `${row.name}还款`, from_month: Math.max(now + 1, debtMonthIndex(d.start_month) - monthIndex(birth)), to_month: debtMonthIndex(d.last_month) - monthIndex(birth) + 1, nominal: true, essential: true, timing: 'start' as const };
+    if (d.before === 'scheduled') savingFlows.push({ ...flow, cents: -Number(d.monthly_cents) });
+    if (scope === 'complete' && d.after === 'scheduled') flows.push({ ...flow, cents: Number(d.monthly_cents) });
+  }
   if (annual > 0 && pc.start_month && pc.stop_month) {
     const transfer = { source_id: 'personal_pension', label: '个人养老金现金转入', from_month: Math.max(now, monthIndex(pc.start_month) - monthIndex(birth)), to_month: Math.min(monthIndex(pc.stop_month) - monthIndex(birth), pen.unlock_age_months), nominal: true, essential: true, prorate_first: true };
     savingFlows.push({ ...transfer, cents: -annual / 12 });

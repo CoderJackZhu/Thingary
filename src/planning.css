@@ -211,3 +211,13 @@ dialog.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[ope
 .coverage-note li { margin: 8px 0; }
 .coverage-note li small { display: block; }
 .coverage-note summary { cursor: pointer; }
+.planning-debt-dialog { width: min(680px, calc(100vw - 24px)); }
+.editor.planning-debt-dialog[open] { max-height: calc(100dvh - 32px); overflow: hidden; }
+.planning-debt-dialog > form { display: flex; flex-direction: column; max-height: calc(100dvh - 72px); }
+.planning-debt-dialog header, .planning-debt-dialog footer { flex-shrink: 0; }
+.planning-debt-body { max-height: 62vh; min-height: 0; overflow-y: auto; }
+.planning-debt-row { min-width: 0; }
+.planning-debt-choices { display: grid; gap: 8px; }
+.planning-debt-row .plan-choice { display: flex; align-items: center; gap: 8px; }
+.planning-debt-row .plan-choice span { min-width: 0; overflow-wrap: anywhere; }
+.editor.planning-debt-dialog footer { flex-wrap: wrap; margin-inline: -20px; padding-inline: 20px; }

@@ -69,3 +69,7 @@ contract_version 在边界校验；未知版本返回明确错误，不默认按
 独立测试使用相同口径的虚构例子。schema、备份、回执、commands、共享类型、主导航和现行规则由基础/集成拥有方调整，避免多个组件各自抢占。
 
 交付注明：组件已验功能、尚未接入产品的功能、输入假设、接口版本、实际测试命令与结果。合并时先基础，后解析/展示，最后做真正数据库导入和基准报告接入，运行全套检查及隔离原生验收。
+
+## 已有贷款直接还款安排
+
+可选 retire.core.debt_repayments 与分区 DTO debt_repayments.fields={updates,remove}，不建表、不迁移。缺省未处理，空数组省略，旧请求序列化／指纹保留原字节；新请求含实际选择。复用修订、generation、未知回执及备份校验，冻结输出和历史回执不重写；含新字段数据不能被旧版读取。DEBT_UNLINKED 是未处理／不完整，DEBT_EXCLUDED 为不催办说明（actionable=false），DEBT_BALANCE_CHANGED 是不增加待办计数的复核提示。适用阶段按固定期限与退休区间判断，未知不补零。

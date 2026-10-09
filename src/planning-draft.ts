@@ -1,6 +1,7 @@
 // Unsaved section overlays reuse the persisted shape; no IPC, receipts or revisions are written.
 import { defaultRetire } from './plan.ts';
 import { noOverrides } from './plan-params.ts';
+import { mergeDebtRepayments } from './plan-debt.ts';
 import type { PlanningSources, ProfileUpdate, StoredProfile } from './plan.ts';
 type SectionInput = ProfileUpdate extends infer T ? T extends ProfileUpdate ? Omit<T, 'request_id' | 'generation' | 'expected_revision'> : never : never;
 export function overlayPlanningDrafts(sources: PlanningSources, drafts: SectionInput[]): PlanningSources {
@@ -28,6 +29,9 @@ export function overlayPlanningDrafts(sources: PlanningSources, drafts: SectionI
         core(monetary_basis_date); Object.assign(p.retire, retire); break;
       }
       case 'budget': Object.assign(p.retire, input.fields); break;
+      case 'debt_repayments':
+        if (p.retire.core) p.retire.core.debt_repayments = mergeDebtRepayments(p.retire.core.debt_repayments ?? [], input.fields.updates, input.fields.remove);
+        break;
       case 'funds': {
         const { monetary_basis_date, ...fields } = input.fields;
         Object.assign(core(monetary_basis_date), fields); break;

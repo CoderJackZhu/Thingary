@@ -184,7 +184,7 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 
 `tests/planning-first-run.test.mjs` 覆盖四种状态、首个未答与数量、收入默认/已保存选择、北京隐藏资料保全、条件芯片、费用项目与数量、已保存大额计划数量（职业试算不保存，无数量）。`tests/planning-fourq-components.test.mjs` 执行实际向导事件处理器，验证关闭/Esc/跳过不提交、编辑带值与每屏保存、失败保留输入可重试、结果未知锁定及工具折叠；叶控件和保存器使用测试替身，无新增依赖。既有消费者集成测试仍用真实 React 渲染与纯计算。
 
-未关联事件的已有贷款或付款引用待核对时，显示「核对已有贷款与付款」精修卡，复用现有大额计划表入口；有明确事件的过期计划仍逐个打开核对窗口，不跳总表。
+未关联事件的已有贷款显示「告诉我你的贷款怎么还」，直接打开逐账户还款安排；通用付款引用待核对仍显示「核对已有贷款与付款」，使用现有大额计划表入口。有明确事件的过期计划仍逐个打开核对窗口，不跳总表。
 
 2b 仅保留硬阻塞，非阻塞缺项显示带覆盖说明的状态 2；存储契约不变。测算详情保留 `PlanningBasicDetail.tsx` 概览 `RequirementCard` 和 `NeedContribution` 的非预计投入阻断分支旧按钮；它们涉及需求/预测/临时试算多路跳转，本任务未统一替换。原生验收必须使用独立 bundle 标识 `local.thingary.planning.fourq.acceptance20261009` 与虚构资料；验收包供独立运行，不代表安装、发布或生产库验收。
 
@@ -192,3 +192,7 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 四问隔离原生已验：全新个人资料 0→Q1–Q4→结果；编辑模式六屏带值、保存并返回；关闭/Esc/跳过重新打开无草稿；原生文件选择器完整备份、修改、恢复后结果状态重建。北京保全使用精确旧 main 的真实 Store 写入虚构既有资料，再由当前原生向导修改生活费；整个 profile 对比仅生活费变化，含已选收入、养老金事实、缴费安排、隐藏参数、费用与稳定 ID 均保留。重启后状态由保存资料重新推出。尚未验：VoiceOver、真实中文输入法组合、原生三种外观浅深全尺寸矩阵、原生保存故障注入（浏览器/组件测试已覆盖失败与结果未知）。没有访问正式库，验收包未安装、发布。
 
 非阻塞回归使用 tests/fixtures/planning-basic/nonblocking-demo.json，由 demo_finance::import_plan 同批真实导入并规范化虚构 ID 生成；原始样例 Q3 已声明每个计入资产的 available/restricted。planning-nonblocking 测月账本/事实保全，planning-fourq-components 测第三问保存 2b→2 与发生窗口，planning-coverage-consumers 遍历共享消费者并以真实 React 检验摘要。预览 ?section=planning&plan-nonblocking=normal|unknown|empty|error|funds|beijing 使用该批数据与真实纯计算。原生验收身份 local.thingary.nonblocking.acceptance20261010，与正式库隔离；缓存用 build-dir 或 /private/tmp/thingary-build-nonblocking，交付前删除。
+
+## 已有贷款直接还款安排
+
+虚构入口 visual-preview.html?section=planning&plan-debt=normal&theme=light；plan-debt 支持 normal、unknown（可空付款／期限）、empty、error（保存失败）、changed、zero、saved。均用 tests/fixtures/planning-basic/debt-loops.json，真实 capabilities，保存后重新读取与重算，刷新重置。tests/planning-debt.test.mjs 执行生产处理器、两张卡闭环、部分保存、三种账本、未知、阶段、事件去重和余额变化；Store plan_profile 的 debt 测试覆盖备份、非法载荷／引用、旧缺省、重启、冲突、提交未知重放，legacy receipt 测试保护旧字节。原生 UI、VoiceOver、系统输入法未验；隔离验收 identifier local.thingary.loops.acceptance20261010。

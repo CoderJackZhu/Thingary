@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { money } from './asset';
 import type { Account, Snapshot } from './wealth';
-import type { PlanningMissing, PlanningSources, StoredLifeEvent } from './plan';
+import type { PlanningAnnotation, PlanningMissing, PlanningSources, StoredLifeEvent } from './plan';
 import type { Occurrence } from './plan-core';
 import { CoverageNote } from './CoverageNote';
-import { affectingAnnotations } from './plan-annotations';
+import { actionableAnnotations } from './plan-annotations';
+import { PlanningDebtDialog } from './PlanningDebtDialog';
 import { retractOccurrence } from './plan-occurrence-actions';
 import { CapabilityNotice } from './PlanningRequirement';
 import { RunwayCard } from './PlanningRunway';
@@ -30,14 +31,16 @@ import './planning.css';
 /** Goal states are a presentation projection; current calculation gates remain unchanged. */
 export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean) => void; focus?: boolean; onFocusDone: () => void }) {
   const [fundsOpen, setFundsOpen] = useState(false), [costsOpen, setCostsOpen] = useState(false), [occurring, setOccurring] = useState<StoredLifeEvent | null>(null);
+  const [debtOpen, setDebtOpen] = useState(false);
   const [detail, setDetail] = useState(false), [toolsOpen, setToolsOpen] = useState(false), opener = useRef<HTMLElement | null>(null);
-  useEffect(() => { onEditingChange(fundsOpen || costsOpen || occurring !== null); return () => onEditingChange(false); }, [fundsOpen, costsOpen, occurring, onEditingChange]);
+  useEffect(() => { onEditingChange(fundsOpen || costsOpen || debtOpen || occurring !== null); return () => onEditingChange(false); }, [fundsOpen, costsOpen, debtOpen, occurring, onEditingChange]);
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const snapshot: Snapshot | null = ready(sources.snapshot) ?? null, accounts: Account[] = ready(sources.accounts) ?? [];
   const result = useCapabilities(sources), saver = useSectionSaver(sources, reload, onPending);
   const caps = result.status === 'ready' ? result.caps : null, pred = caps?.prediction.status === 'ready' ? caps.prediction.value : null;
   const state = goalState(saved, caps), progress = questionProgress(saved, caps);
-  const cards = saved && caps ? refinementCards(saved, caps, today) : [];
+  const debtLabels = Object.fromEntries((snapshot?.entries ?? []).filter(e => e.side === 'liability').map(e => [`debt:${e.account_id}`, { name: accounts.find(a => a.id === e.account_id)?.fields.name ?? '负债账户', balance: e.amount_cents === null ? '未知' : money(e.amount_cents) }]));
+  const cards = saved && caps ? refinementCards(saved, caps, today, debtLabels) : [];
   const goEvents = () => { setDetail(false); setToolsOpen(true); requestAnimationFrame(() => { const el = document.getElementById('plan-events-section'); el?.scrollIntoView({ block: 'start' }); el?.focus(); }); };
   useEffect(() => { if (focus) { const entry = document.getElementById('plan-budget-entry'); if (entry) { entry.focus(); onFocusDone(); } } }, [focus, onFocusDone, saved]);
   const wishCalc = useMemo(() => saved && pred?.source === 'saved' ? buildRetireCalc(saved, snapshot, ready(sources.review) ?? null, ready(sources.incomes) ?? [], today, sources) : null, [saved, pred, snapshot, sources, today]);
@@ -45,12 +48,13 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     ready: pred?.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '资料待补齐',
     onContribution: needsContribution(caps) ? () => openSetup(4, null, true) : undefined,
     write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) } : null;
-  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'pension') onGoto('pension'); else if (o === 'events') goEvents(); else if (o === 'service') reload(); else openSetup(o === 'funds' ? 2 : 0, null, true); };
-  const closeRefinement = () => { setFundsOpen(false); setCostsOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
+  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field === 'core.debt_repayments') setDebtOpen(true); else if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'pension') onGoto('pension'); else if (o === 'events') goEvents(); else if (o === 'service') reload(); else openSetup(o === 'funds' ? 2 : 0, null, true); };
+  const closeRefinement = () => { setFundsOpen(false); setCostsOpen(false); setDebtOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
   function action(card: Refinement, from: HTMLElement) {
     opener.current = from;
     // Transitional pension entry: a later task replaces this tab jump with its refinement dialog.
     if (card.action === 'pension') onGoto('pension');
+    else if (card.action === 'debts') setDebtOpen(true);
     else if (card.action === 'costs') setCostsOpen(true);
     else if (card.action === 'funds') setFundsOpen(true);
     else if (card.action === 'events') goEvents();
@@ -58,6 +62,13 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     else if (card.action === 'contribution') openSetup(4, from, true);
     else if (card.action === 'setup') openSetup(card.step ?? 0, from, true);
     else reload();
+  }
+  function refineAnnotation(annotation: PlanningAnnotation) {
+    const card = annotation.refinement.field === 'core.debt_repayments'
+      ? cards.find(c => c.action === 'debts')
+      : cards.find(c => c.event?.id === annotation.refinement.event_id || annotation.refinement.field.includes('_costs') && c.action === 'costs');
+    if (card) action(card, document.getElementById('plan-budget-entry')!);
+    else owner(annotation.refinement.owner, annotation.refinement.field);
   }
   async function saveOccurrence(o: Occurrence | null) {
     if (!saved?.profile.retire.core) return;
@@ -69,6 +80,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const req = caps?.requirement.status === 'ready' ? caps.requirement.value : null;
   const line = req ? requirementLine(req.set, money) : null;
   return <div className="plan-goals" data-goal-state={state}>
+    {debtOpen && saved && <PlanningDebtDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {fundsOpen && saved && <FundsDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={() => closeRefinement()}/>}
     {costsOpen && saved && <CostsDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {occurring && saved && <PlanningOccurrenceDialog event={occurring} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
@@ -82,7 +94,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
         <div className="planning-question-checklist">{questions.map((q, i) => <p key={q}><span className="ui-tag">{progress.answered[i] ? '已回答' : '还需要'}</span><span>{q}</span></p>)}</div>
         <button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(progress.first, e.currentTarget)}>继续回答</button>
       </> : <>
-        {state === '2' && req && line ? <><p className="muted">如果想在 {req.target_month.slice(0, 4)} 年 {Number(req.target_month.slice(5, 7))} 月退休：</p><p className={`planning-result-number ${line.tone}`}><strong>{line.text}</strong></p><CoverageNote annotations={caps?.annotations} onRefine={a => { const card = cards.find(c => c.event?.id === a.refinement.event_id || a.refinement.field.includes("_costs") && c.action === "costs"); if (card) action(card, document.getElementById("plan-budget-entry")!); else owner(a.refinement.owner, a.refinement.field); }}/><p className="muted small">这是参考金额，不用填写，不保证未来一定够用。按今天的物价，准备支付生活费到 {req.horizon_month.slice(0, 4)} 年 {Number(req.horizon_month.slice(5, 7))} 月。</p></>
+        {state === '2' && req && line ? <><p className="muted">如果想在 {req.target_month.slice(0, 4)} 年 {Number(req.target_month.slice(5, 7))} 月退休：</p><p className={`planning-result-number ${line.tone}`}><strong>{line.text}</strong></p><CoverageNote annotations={caps?.annotations} onRefine={refineAnnotation}/><p className="muted small">这是参考金额，不用填写，不保证未来一定够用。按今天的物价，准备支付生活费到 {req.horizon_month.slice(0, 4)} 年 {Number(req.horizon_month.slice(5, 7))} 月。</p></>
           : <><h3>还有 {cards.filter(c => c.required).length} 项需要确认，才能算出结果</h3><p className="muted">四个问题已回答。核对下面这些事项后，再按已保存的条件计算。</p></>}
         {saved && caps && <div className="planning-condition-chips" aria-label="计算条件">{conditionChips(saved, caps, money).map(chip => <button type="button" className={chip.prominent ? 'planning-chip prominent' : 'planning-chip'} key={chip.step} onClick={e => openSetup(chip.step, e.currentTarget, true)}>{chip.text}</button>)}<button type="button" id="plan-budget-entry" className="ui-link" onClick={e => openSetup(0, e.currentTarget, true)}>修改</button></div>}
         {state === '2' && <p><button type="button" id="plan-detail-entry" className="ui-link" onClick={() => setDetail(true)}>查看测算详情 ›</button></p>}
@@ -91,8 +103,9 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     {result.status !== 'ready' && <><CapabilityNotice result={result}/><button className="ui-btn" onClick={reload}>重新读取</button></>}
     {(state === '2' || state === '2b') && <>
       <PlanningRefinements cards={cards.filter(c => c.required)} blocked busy={saver.busy || saver.stuck} onAction={action}/>
-      <PlanningRefinements cards={cards.filter(c => !c.required && c.impacts)} title={`影响结果的待核对项（${new Set(affectingAnnotations(caps?.annotations).flatMap(a => a.source_ids)).size} 项）`} busy={saver.busy || saver.stuck} onAction={action}/>
+      <PlanningRefinements cards={cards.filter(c => !c.required && c.impacts)} title={`影响结果的待核对项（${new Set(actionableAnnotations(caps?.annotations).flatMap(a => a.source_ids)).size} 项）`} busy={saver.busy || saver.stuck} onAction={action}/>
       <PlanningRefinements cards={cards.filter(c => !c.required && !c.impacts)} busy={saver.busy || saver.stuck} onAction={action}/>
+      {snapshot && sources.modules.wealth && (snapshot.entries.some(e => e.counted && e.side === 'liability') || saved?.profile.retire.core?.debt_repayments?.length) && <p><button type="button" className="ui-link" disabled={saver.busy || saver.stuck} onClick={e => { opener.current = e.currentTarget; setDebtOpen(true); }}>查看或修改贷款还款安排</button></p>}
     </>}
     {(state === '2' || state === '2b') && <details className="ui-card ui-content planning-more-tools" open={toolsOpen} onToggle={e => setToolsOpen(e.currentTarget.open)}>
       <summary><strong>更多工具与试算</strong>{moreToolsBadges(saved).map(text => <span className="ui-tag" key={text}>{text}</span>)}<span className="planning-more-tools-hint muted small">查看资金能撑多久、职业变化试算，以及大额计划和心愿购买的影响。</span></summary>

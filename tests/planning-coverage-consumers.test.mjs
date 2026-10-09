@@ -6,13 +6,13 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as jsx from 'react/jsx-runtime';
 import ts from 'typescript';
-import { annotationSummary, affectingAnnotations, annotationDirection } from '../src/plan-annotations.ts';
+import { actionableAnnotations, annotationSummary, affectingAnnotations, annotationDirection } from '../src/plan-annotations.ts';
 import { planningConsumers, independentPlanningConsumers } from '../src/planning-consumers.ts';
 import { prepareBasicPlan, buildBasicCapabilities } from '../src/plan-basic.ts';
 
 const code=ts.transpileModule(readFileSync(new URL('../src/CoverageNote.tsx',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
 const exports={};
-vm.runInNewContext(code,{exports,require:id=>({'react':React,'react/jsx-runtime':jsx,'./plan-annotations':{annotationSummary,annotationDirection},'./plan-basic':{prepareBasicPlan}}[id])});
+vm.runInNewContext(code,{exports,require:id=>({'react':React,'react/jsx-runtime':jsx,'./plan-annotations':{actionableAnnotations,annotationSummary,annotationDirection},'./plan-basic':{prepareBasicPlan}}[id])});
 const render=(annotations,compact=false)=>renderToStaticMarkup(React.createElement(exports.CoverageNote,{annotations,compact}));
 const batch=JSON.parse(readFileSync(new URL('./fixtures/planning-basic/nonblocking-demo.json',import.meta.url)));
 

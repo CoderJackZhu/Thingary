@@ -54,6 +54,61 @@ pub struct CostRule {
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct DebtRepayment {
+    pub account_id: String,
+    pub recorded_on: String,
+    pub as_of: String,
+    pub balance_cents: String,
+    pub start_month: String,
+    pub last_month: Option<String>,
+    pub monthly_cents: Option<String>,
+    pub before: Option<String>,
+    pub after: Option<String>,
+}
+impl DebtRepayment {
+    pub(crate) fn validate(&self, today: &str) -> Result<()> {
+        id(&self.account_id)?;
+        date(&self.recorded_on)?;
+        date(&self.as_of)?;
+        amount(&self.balance_cents)?;
+        if self.balance_cents.starts_with('0') && self.balance_cents.len() > 1 {
+            return Err(bad());
+        }
+        if self.recorded_on.as_str() > today || self.as_of > self.recorded_on {
+            return Err(bad());
+        }
+        let month = |v: &str| -> Result<i32> {
+            if v.len() != 7 {
+                return Err(bad());
+            }
+            date(&format!("{v}-01"))?;
+            Ok(v[..4].parse::<i32>().map_err(|_| bad())? * 12
+                + v[5..].parse::<i32>().map_err(|_| bad())?
+                - 1)
+        };
+        let start = month(&self.start_month)?;
+        if let Some(last) = &self.last_month {
+            let span = month(last)? - start;
+            if !(0..480).contains(&span) {
+                return Err(bad());
+            }
+        }
+        if let Some(v) = &self.monthly_cents {
+            amount(v)?;
+            if v.starts_with('0') && v.len() > 1 {
+                return Err(bad());
+            }
+        }
+        for treatment in [&self.before, &self.after].into_iter().flatten() {
+            if !["scheduled", "included", "excluded"].contains(&treatment.as_str()) {
+                return Err(bad());
+            }
+        }
+        Ok(())
+    }
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Core {
     pub contract_version: u32,
     pub monetary_basis_date: String,
@@ -67,6 +122,9 @@ pub struct Core {
     #[serde(default)]
     pub costs: Vec<CostRule>,
     pub occurrences: Vec<Occurrence>,
+    // Omitted when absent: historical profile request serialization remains byte-for-byte compatible.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub debt_repayments: Vec<DebtRepayment>,
 }
 impl Occurrence {
     /// Only a blank saved occurrence can be retracted. Zero amounts are actual facts.
@@ -99,6 +157,16 @@ impl Core {
         date(&self.monetary_basis_date)?;
         if self.fund_rules.len() > 500 || self.occurrences.len() > 20 || !self.costs.is_empty() {
             return Err(bad());
+        }
+        if self.debt_repayments.len() > 500 {
+            return Err(bad());
+        }
+        let mut debts = HashSet::new();
+        for d in &self.debt_repayments {
+            d.validate(today)?;
+            if !debts.insert(&d.account_id) {
+                return Err(bad());
+            }
         }
         if let Some(v) = &self.hpf_monthly_cents {
             amount(v)?;
@@ -184,6 +252,9 @@ impl Core {
     }
     pub fn references(&self) -> Vec<(&str, &str)> {
         let mut refs = Vec::new();
+        for d in &self.debt_repayments {
+            refs.push(("account", d.account_id.as_str()));
+        }
         if let Some(v) = &self.personal_pension_account_id {
             refs.push(("account", v.as_str()));
         }
@@ -209,6 +280,19 @@ impl Core {
         refs
     }
     pub fn validate_references(&self, c: &Connection, live: bool) -> Result<()> {
+        for d in &self.debt_repayments {
+            let liability: bool = c.query_row(
+                "SELECT EXISTS(SELECT 1 FROM fin_accounts WHERE id=?1 AND side='liability')",
+                [&d.account_id],
+                |r| r.get(0),
+            )?;
+            if !liability {
+                return Err(Error::new(
+                    "PLANNING_REFERENCE",
+                    "还款安排须引用有效负债账户",
+                ));
+            }
+        }
         for (kind, key) in self.references() {
             let table = match kind {
                 "account" => "fin_accounts",

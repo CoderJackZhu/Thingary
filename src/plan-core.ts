@@ -1,10 +1,13 @@
 // Confirmed planning facts and assumptions. Persistence is the existing profile transaction.
 import type { Snapshot } from './wealth.ts';
 import type { StoredLifeEvent } from './plan.ts';
+import { debtReview } from './plan-debt.ts';
+export type DebtTreatment = 'scheduled' | 'included' | 'excluded' | null;
+export type DebtRepayment = { account_id: string; recorded_on: string; as_of: string; balance_cents: string; start_month: string; last_month: string | null; monthly_cents: string | null; before: DebtTreatment; after: DebtTreatment };
 export type FundRule = { account_id: string; availability: 'available' | 'restricted' | 'excluded'; share_hundredths: number };
 export type Payment = { id: string; date: string; amount_cents: string | null; account_id: string | null; absorbed_snapshot_id: string | null; absorbed_revision: number | null; source_kind: 'asset' | 'expense' | 'wish' | null; source_id: string | null };
 export type Occurrence = { id: string; event_id: string; status: 'occurred' | 'cancelled'; actual_date: string; payments_complete: boolean; payments: Payment[]; loan: { account_id: string; as_of: string; principal_cents: string; remaining_months: number } | null };
-export type PlanningCore = { contract_version: 1; monetary_basis_date: string; fund_rules: FundRule[]; hpf_monthly_cents: string | null; personal_pension_account_id?: string | null; personal_pension_balance_confirmed?: boolean; occurrences: Occurrence[] };
+export type PlanningCore = { contract_version: 1; monetary_basis_date: string; fund_rules: FundRule[]; hpf_monthly_cents: string | null; personal_pension_account_id?: string | null; personal_pension_balance_confirmed?: boolean; occurrences: Occurrence[]; debt_repayments?: DebtRepayment[] };
 /** Elapsed months at a period boundary after B closes partway through its month. */
 export const elapsedMonths = (offset: number, firstFraction = 1) => offset > 0 ? offset - 1 + firstFraction : offset;
 export const emptyCore = (date: string): PlanningCore => ({ contract_version: 1, monetary_basis_date: date, fund_rules: [], hpf_monthly_cents: null, occurrences: [] });
@@ -70,8 +73,8 @@ export function occurrenceIssues(snapshot: Snapshot, core: PlanningCore | null |
       }
     }
   }
-  const debts = snapshot.entries.filter(e => e.counted && e.side === 'liability' && Number(e.amount_cents) > 0 && !coveredDebts.has(e.account_id)).length;
-  if (debts) missing.push({ event_id: null, kind: 'unlinked_debt', message: `${debts} 个负债账户尚未建立还款接续，请在已发生的大额计划中核对。` });
+  const debts = debtReview(snapshot, core, events).rows.filter(r => r.pending.length).length;
+  if (debts) missing.push({ event_id: null, kind: 'unlinked_debt', message: `${debts} 个负债账户还款待填写，请打开贷款还款安排。` });
   return missing;
 }
 

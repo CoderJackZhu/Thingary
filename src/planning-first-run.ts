@@ -85,7 +85,7 @@ export function conditionChips(saved: NonNullable<Saved>, caps: BasicCapabilitie
   ];
 }
 
-export type Refinement = { id: string; title: string; benefit: string; duration: string; action: 'pension' | 'costs' | 'event' | 'contribution' | 'setup' | 'reload' | 'events' | 'funds'; event?: StoredLifeEvent; step?: number; required: boolean; impacts?: boolean };
+export type Refinement = { id: string; title: string; benefit: string; duration: string; action: 'pension' | 'costs' | 'event' | 'contribution' | 'setup' | 'reload' | 'events' | 'funds' | 'debts'; event?: StoredLifeEvent; step?: number; required: boolean; impacts?: boolean };
 function pendingCostsText(saved: NonNullable<Saved>, today: string) {
   const r = saved.profile.retire;
   const { pre, post, pendingRows } = costReviewRows(draftOf(saved, null, today), r, saved.profile.personal_pension_annual_cents);
@@ -104,7 +104,7 @@ function pendingCostsText(saved: NonNullable<Saved>, today: string) {
   if (!count) return '核对已保存的费用设置，避免把同一项费用算两次。';
   return `${names.slice(0, 2).join('、')}${count > 2 ? '等' : ''} ${count} 项：核对是否已经含在生活费里，避免重复计算。`;
 }
-export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabilities, today: string): Refinement[] {
+export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabilities, today: string, debtLabels: Readonly<Record<string, { name: string; balance: string }>> = {}): Refinement[] {
   const r = saved.profile.retire, b = r.basic;
   const missing = caps.requirement.status === 'blocked' ? caps.requirement.missing : [];
   const has = (...codes: PlanningMissing['code'][]) => missing.some(m => codes.includes(m.code));
@@ -135,7 +135,22 @@ export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabiliti
     const fields = [...new Set(rows.flatMap(a => a.missing_fields))];
     cards.push({ id: `event:${event.id}`, title: event.date < today.slice(0, 7) && !r.core?.occurrences.some(o => o.event_id === event.id) ? '确认已过期的大额计划' : '核对大额计划的实际资料', benefit: `${event.label} · 预计 ${event.date}。${fields.length ? '还差：' + fields.join('、') : rows.map(a => a.message).join('；')}`, duration: '约 2 分钟', action: 'event', event, required: false, impacts: true });
   }
-  if (annotations.some(a => ['DEBT_UNLINKED', 'REFERENCE_PENDING'].includes(a.reason_code))) cards.push({ id: 'debt-review', title: '核对已有贷款与付款', benefit: annotations.filter(a => ['DEBT_UNLINKED', 'REFERENCE_PENDING'].includes(a.reason_code)).map(a => a.message).join('；'), duration: '约 2 分钟', action: 'events', required: false, impacts: true });
+  const debtPending = annotations.filter(a => a.reason_code === 'DEBT_UNLINKED');
+  const debtText = (a: NonNullable<BasicCapabilities['annotations']>[number]) => {
+    const label = debtLabels[a.source_ids[0]];
+    return `${label ? `${label.name}（余额 ${label.balance}）` : '负债账户'}：${a.message.replace(/。$/, '')}`;
+  };
+  if (debtPending.length) {
+    const names = [...new Set(debtPending.flatMap(a => a.source_ids))].map(id => {
+      const label = debtLabels[id];
+      return label ? `${label.name} ${label.balance === '未知' ? '余额未知' : label.balance}` : '负债账户';
+    });
+    const list = names.slice(0, 3).join('、');
+    const intro = names.length === 1 ? `你有一笔贷款：${list}` : names.length > 3 ? `你的贷款有${list}等 ${names.length} 笔` : `你有 ${names.length} 笔贷款：${list}`;
+    cards.push({ id: 'debt-review', title: '告诉我你的贷款怎么还', benefit: `${intro}。还没告诉我以后每月怎么还，所以这部分还款没算进去。填写后会算入还款，或按你的选择停止提醒。`, duration: '约 2 分钟', action: 'debts', required: false, impacts: true });
+  }
+  if (annotations.some(a => a.reason_code === 'DEBT_BALANCE_CHANGED') && !debtPending.length) cards.push({ id: 'debt-balance', title: '贷款余额变了，复核原安排', benefit: annotations.filter(a => a.reason_code === 'DEBT_BALANCE_CHANGED').map(debtText).join('；'), duration: '约 1 分钟', action: 'debts', required: false });
+  if (annotations.some(a => a.reason_code === 'REFERENCE_PENDING')) cards.push({ id: 'references', title: '核对已有付款的来源', benefit: annotations.filter(a => a.reason_code === 'REFERENCE_PENDING').map(a => a.message).join('；'), duration: '约 2 分钟', action: 'events', required: false, impacts: true });
   if (annotations.some(a => a.reason_code === 'TRANSFER_PENDING')) cards.push({ id: 'transfer', title: '核对未来缴存安排', benefit: '未来缴存期间待核对，这部分付款暂未计入。', duration: '约 1 分钟', action: 'pension', required: false, impacts: true });
   if (has('INPUT_INVALID') && !cards.some(c => c.required)) cards.push({ id: 'invalid', title: '更正不成立的输入', benefit: missing.map(m => m.message).join('；'), duration: '约 1 分钟', action: 'setup', step: 5, required: true });
   return cards;

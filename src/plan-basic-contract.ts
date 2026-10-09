@@ -1,5 +1,5 @@
 import type { Overrides } from './plan-params.ts';
-import type { Occurrence, FundRule } from './plan-core.ts';
+import type { Occurrence, FundRule, DebtRepayment } from './plan-core.ts';
 import type { RetireInputs, StoredProfile, StoredSpendItem, StoredIncomeItem, StoredLifeEvent, ProfileState } from './plan.ts';
 import type { Plan, Projection, Outcome } from './plan-ledger.ts';
 import type { Read } from './review.ts';
@@ -37,6 +37,7 @@ export type ProfileUpdate = { request_id: string; generation: string; expected_r
   | { section: 'funds'; fields: FundsFields }
   | { section: 'events'; fields: EventsFields }
   | { section: 'budget'; fields: BudgetFields }
+  | { section: 'debt_repayments'; fields: { updates: DebtRepayment[]; remove: string[] } }
 );
 export type CapabilityName = 'funds' | 'requirement' | 'prediction' | 'pension';
 export type MissingCode = 'INPUT_INVALID' | 'PROFILE_UNKNOWN' | 'BIRTH_UNKNOWN' | 'TARGET_UNKNOWN' | 'BUDGET_UNKNOWN' | 'START_UNKNOWN' | 'WEALTH_DISABLED' | 'SOURCE_ERROR' | 'SOURCE_STALE' | 'FUNDS_UNCONFIRMED' | 'OCCURRENCE_UNCONFIRMED' | 'COST_SCOPE_UNKNOWN' | 'COST_SCOPE_INVALID' | 'INCOME_MODE_UNKNOWN' | 'INCOME_SOURCE_UNKNOWN' | 'PENSION_FACTS_UNKNOWN' | 'PENSION_CONTRIBUTIONS_UNKNOWN' | 'POOL_UNCONFIRMED' | 'CONTRIBUTION_UNKNOWN' | 'HORIZON_INVALID';
@@ -55,7 +56,8 @@ export type PredictionValue = { source: 'saved' | 'temporary'; contribution_cent
 export type AnnotationEffect = 'requirement_lower' | 'requirement_higher' | 'uncertain' | 'none';
 /** Read-only calculation coverage. Never part of ProfileUpdate or stored profile JSON. */
 export type PlanningAnnotation = {
-  id: string; reason_code: 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
+  id: string; reason_code: 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'DEBT_EXCLUDED' | 'DEBT_BALANCE_CHANGED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
+  actionable?: boolean;
   message: string; effect: AnnotationEffect; treatment: 'omitted' | 'assumed_extra' | 'not_used';
   source_ids: string[]; missing_fields: string[];
   refinement: { owner: PlanningMissing['owner']; field: string; event_id?: string };

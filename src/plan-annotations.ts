@@ -2,6 +2,7 @@ import type { PlanningAnnotation } from './plan-basic-contract.ts';
 
 /** Unused pools are basis, not unresolved coverage. Each direction gets one visible line. */
 export const affectingAnnotations = (rows: readonly PlanningAnnotation[] = []) => rows.filter(a => a.reason_code !== 'POOL_NOT_USED' && a.treatment !== 'not_used');
+export const actionableAnnotations = (rows: readonly PlanningAnnotation[] = []) => affectingAnnotations(rows).filter(a => a.actionable !== false);
 export function annotationSummary(annotations: readonly PlanningAnnotation[] = []): string[] {
   const rows = affectingAnnotations(annotations), out: string[] = [];
   for (const effect of ['requirement_lower', 'requirement_higher', 'uncertain'] as const) {
