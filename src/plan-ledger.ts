@@ -2,6 +2,7 @@
 // 与 plan-fire.ts 的区别：支出分桶（起止年龄、独立通胀、必需/灵活）、退休收入流、
 // FIRE／传统两种计划类型、所需资金下滑曲线、逐年快照与覆盖拆分。名义值只用于展示：实际值 × (1+通胀)^年数。
 import type { Pension, Spend } from './plan-fire.ts';
+import { pensionIncomeStart } from './plan-fire.ts';
 import { elapsedMonths } from './plan-core.ts';
 import type { PlanningCore } from './plan-core.ts';
 
@@ -192,7 +193,7 @@ export function required(P: Plan, from: number, retire: number = from, pension?:
   for (let k=n-1;k>=0;k--) {
     const i=base+k,m=from+k;
     const upfront=due[i] ?? 0, fraction=i===0 ? P.first_month_fraction ?? 1 : 1;
-    const income=T.income[i]+(m>=pen.unlock_age_months ? pen.monthly_cents*fraction : 0);
+    const income=T.income[i]+(m>=pensionIncomeStart(pen) ? pen.monthly_cents*fraction : 0);
     const receivesPool = P.input_mode === 'basic' ? m === unlock : (k === 0 && unlock <= from) || m === unlock;
     const lump = receivesPool ? pen.lump_cents : 0;
     const g=monthlyGrowth(P.r_after_hundredths)**fraction;
@@ -218,7 +219,7 @@ export function requiredAt(P: Plan): Float64Array {
       let next = 0;
       for (let t = n - 1; t >= 0; t--) {
         const m = P.now_months + t, fraction = t === 0 ? P.first_month_fraction ?? 1 : 1, upfront = due[t];
-        const income = T.income[t] + (m >= pen.unlock_age_months ? pen.monthly_cents * fraction : 0);
+        const income = T.income[t] + (m >= pensionIncomeStart(pen) ? pen.monthly_cents * fraction : 0);
         const rest = (next + out[t + 1] + T.spend[t] - upfront - income) / monthlyGrowth(P.r_after_hundredths) ** fraction;
         const lump = m === unlock ? pen.lump_cents : 0;
         next = Math.max(upfront, upfront - lump + rest, 0);
@@ -325,7 +326,7 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
       r.contribution += c;
     } else {
       const spend = T.spend[t], essential = T.essential[t];
-      const income = T.income[t] + (m >= pension!.unlock_age_months ? pension!.monthly_cents * (t === 0 ? P.first_month_fraction ?? 1 : 1) : 0);
+      const income = T.income[t] + (m >= pensionIncomeStart(pension!) ? pension!.monthly_cents * (t === 0 ? P.first_month_fraction ?? 1 : 1) : 0);
       const annual = opts.annualReturnAt?.(t, 'retired') ?? opts.after?.(Math.floor((m - retire) / 12));
       const g = (annual === undefined ? ga : (1 + annual) ** (1 / 12)) ** (t === 0 ? P.first_month_fraction ?? 1 : 1);
       const step = retiredMonth(a, g, 0, Math.max(0,spend-upfront), income), w = step.withdrawal, gap = step.gap;
@@ -415,7 +416,7 @@ export function coverageAt(P: Plan, proj: Projection, month: number): Coverage {
     return { id: s.id, label: s.label, monthly: active ? (s.indexed ? s.monthly_cents : s.monthly_cents / nominalFactor(P, P.now_months + i)) : 0, active };
   });
   const retired = proj.retire_month !== null && month >= proj.retire_month;
-  const pension = retired && month >= proj.pension!.unlock_age_months ? proj.pension!.monthly_cents : 0;
+  const pension = retired && month >= pensionIncomeStart(proj.pension!) ? proj.pension!.monthly_cents : 0;
   const spend = T.spend[i] ?? 0, essential = T.essential[i] ?? 0;
   const retiredNow = retired && i < proj.withdrawn.length;
   const withdrawal = retiredNow ? proj.withdrawn[i] : 0, unfunded = retiredNow ? proj.unfunded[i] : 0;

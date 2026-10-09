@@ -2,6 +2,7 @@
 // 引擎全程「今天的钱」；名义值只在这里乘以 (1+通胀)^年数。
 import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, table } from './plan-ledger.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
+import { pensionIncomeStart } from './plan-fire.ts';
 
 export type ValueMode = 'today' | 'nominal';
 export type Tone = 'good' | 'watch' | 'bad';
@@ -154,7 +155,10 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
   const value = row ? row.start : 0;
   const ageOf = (a: number | null) => (a === null ? '终身' : `${a} 岁`);
   const retireAge = proj.retire_month !== null ? ageInt(proj.retire_month) : ageInt(P.target_months);
-  const nextIncome = P.incomes.filter(s => s.start_age * 12 > month).map(s => s.start_age).sort((a, b) => a - b)[0] ?? (proj.pension && proj.pension.unlock_age_months > month && proj.pension.monthly_cents > 0 ? ageInt(proj.pension.unlock_age_months) : null);
+  const pensionStart = proj.pension ? pensionIncomeStart(proj.pension) : Infinity;
+  const hasPension = !!proj.pension && proj.pension.monthly_cents > 0 && Number.isFinite(pensionStart);
+  const pensionStartText = `${ageInt(pensionStart)} 岁${pensionStart % 12 ? ` ${pensionStart % 12} 个月` : ''}`;
+  const nextIncome = P.incomes.filter(s => s.start_age * 12 > month).map(s => s.start_age).sort((a, b) => a - b)[0] ?? (hasPension && pensionStart > month ? ageInt(pensionStart) : null);
   const infl = 1 + P.inflation_hundredths / 10000;
   return {
     month, age: ageInt(month), spend, essential: c.essential * k,
@@ -168,7 +172,7 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
     flow_items: (P.spend_flows ?? []).map(f => { const active = month >= f.from_month && (f.to_month === null || month < f.to_month); return { id: f.label + f.from_month, label: f.label, monthly: active ? (f.nominal ? f.cents / nominalFactor(P, month) : f.cents) * k : 0, start: `${ageInt(f.from_month)} 岁`, end: f.to_month === null ? '终身' : `${ageInt(f.to_month)} 岁`, essential: f.essential, active }; }),
     income_items: [
       ...P.incomes.map(s => ({ id: s.id, label: s.label, monthly: c.items.find(x => x.id === s.id)!.monthly * k, start: `${s.start_age} 岁`, end: ageOf(s.end_age), active: c.items.find(x => x.id === s.id)!.active })),
-      ...(proj.pension && proj.pension.monthly_cents > 0 ? [{ id: 'pension', label: '国家养老金', monthly: c.pension * k, start: `${ageInt(proj.pension.unlock_age_months)} 岁`, end: '终身', active: c.pension > 0 }] : []),
+      ...(hasPension ? [{ id: 'pension', label: '国家养老金', monthly: c.pension * k, start: proj.pension!.income_start_age_months === undefined ? `${ageInt(pensionStart)} 岁` : pensionStartText, end: '终身', active: c.pension > 0 }] : []),
     ],
     next_income_age: nextIncome,
   };

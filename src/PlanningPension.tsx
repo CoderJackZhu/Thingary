@@ -79,7 +79,7 @@ function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; 
       <label className="plan-quit">假设在这个年龄停止缴费：<select aria-label="停止缴费的年龄" value={quit === 'start' ? 'start' : String(quit)} onChange={e => onQuit(e.target.value === 'start' ? 'start' : Number(e.target.value))}>
         <option value="start">缴到领取年龄</option>{calc.ages.map(a => <option key={a} value={a}>{a} 岁</option>)}</select></label>
       <p className="muted small">缴费 {Math.floor(r.total_paid_months / 12)} 年 {r.total_paid_months % 12} 个月，其中今后还缴 {r.contribution_months} 个月。停缴不改变法定领取年龄，但缴费年限、个人账户和公积金都会变少。</p>
-      {!r.eligible && <p className="notice" role="status">按这个缴费年限，{r.start_month.slice(0, 4)} 年退休要求至少 {Math.floor(r.required_months / 12)} 年{r.required_months % 12 ? ` ${r.required_months % 12} 个月` : ''}，当前不足，可能不能按月领取基本养老金，需要补缴或按当地规定处理；下面的数字仍按公式计算。</p>}
+      {!r.eligible && <p className="notice" role="status">本次按 {r.required_year} 年的最低缴费要求核对{calc.p.flex_months > 0 ? '（弹性延迟按法定退休年份）' : ''}：至少 {Math.floor(r.required_months / 12)} 年{r.required_months % 12 ? ` ${r.required_months % 12} 个月` : ''}，当前不足。能否续缴、转移或办理领取须按适用规定确认；下面仅展示公式金额，不代表已具备按月领取资格。</p>}
     </section>
     <section aria-labelledby="pension-amount"><h4 id="pension-amount">退休首月养老金</h4>
       <dl className="plan-facts">
@@ -89,6 +89,7 @@ function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; 
         <div><dt>替代率</dt><dd>{rateText(r.replacement_hundredths)}</dd><small className="muted">养老金 ÷ 停缴时月缴费基数</small></div>
       </dl>
       <p className="muted small">「今天的钱」按通胀假设折现；个人账户余额领取时约 {yuan(r.account_at_start_cents)}，计发月数 {r.disbursement_months.toFixed(1)}（非整岁按月插值，官方修订表出台前是近似）。这些都是估算，不是承诺。</p>
+      <p className="muted small">北京断缴指数、待遇计发基数与起领月份尚未完整校准，此页仅作简化试算，不能作为待遇核定结果。</p>
     </section>
     <section aria-labelledby="pension-pots"><h4 id="pension-pots">到领取年龄的锁定资金</h4>
       <dl className="plan-facts">

@@ -8,9 +8,14 @@ import type { RegionParams } from './plan-params.ts';
 /** 在某个辞职年龄（月）下的养老金与锁定资金，均为今天的钱（分）。 */
 export type Pension = {
   monthly_cents: number; lump_cents: number; unlock_age_months: number;
+  /** Separate monthly-income start. Undefined preserves existing behavior;
+   * null explicitly means no payable pension. Pool unlocking is independent. */
+  income_start_age_months?: number | null;
   /** 缴费年限不足最低要求时为 false，short_months 是还差的月数；不足时 monthly_cents 为 0。缺省视为满足。 */
   eligible?: boolean; short_months?: number;
 };
+
+export const pensionIncomeStart = (p: Pension): number => p.income_start_age_months === undefined ? p.unlock_age_months : p.income_start_age_months ?? Infinity;
 
 /** 带日期的一次性支出（今天的钱，分）：offset_months 为距现在的月数，0 表示当月。 */
 export type Spend = { offset_months: number; cents: number };

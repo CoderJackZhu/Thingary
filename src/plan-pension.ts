@@ -1,6 +1,6 @@
 // 中国养老金估算（PLANNING_DESIGN §5）：不碰数据库的纯函数。所有「今天」由调用方传入。
 // 输出是估算：内部用浮点，金额在出口取整到分；不得写回或冒充已记录事实。
-// 不处理 1996 年前视同缴费的过渡性养老金。
+// 不处理北京 1998 年 7 月前参保等涉及的过渡性养老金。
 import { elapsedMonths } from './plan-core.ts';
 import { PERSONAL_PENSION_CAP_CENTS, PERSONAL_PENSION_TAX_HUNDREDTHS, pensionMonths } from './plan-params.ts';
 import type { Assumptions, RegionParams } from './plan-params.ts';
@@ -41,6 +41,8 @@ export type Projection = {
   quit_age_months: number;
   contribution_months: number;
   total_paid_months: number;
+  /** 最低缴费年限适用年份：弹性延迟取法定退休年，提前取所选退休年。 */
+  required_year: number;
   required_months: number;
   eligible: boolean;
   /** 领取时分摊的月数（计发月数，已按月插值）。 */
@@ -160,14 +162,17 @@ export function project(profile: Profile, region: RegionParams, today: string, q
   const accountPension = account / disbursement;
 
   const deflate = (1 + inflation) ** (elapsedMonths(toStart, funds.first_month_fraction) / 12);
-  const required = requiredContributionMonths(retireYear);
+  // 人社部发〔2024〕94号第七条：延迟退休不提高其适用的最低缴费年限。
+  // 仅修正年限门槛；计发工资外推等仍使用实际退休年。
+  const requiredYear = Math.floor((monthIndex(profile.birth_month) + Math.min(start, statutoryAgeMonths(profile.worker, profile.birth_month))) / 12);
+  const required = requiredContributionMonths(requiredYear);
   const totalNominal = basePension + accountPension;
   const stopWageToday = (contribution > 0 ? baseAt(contribution - 1) : cents(profile.base_cents)) * ((1 + g) / (1 + inflation)) ** (elapsedMonths(contribution, funds.first_month_fraction) / 12);
   const ppAfterTax = pp * (1 - PERSONAL_PENSION_TAX_HUNDREDTHS / 10000);
   const round = Math.round;
   return {
     start_age_months: start, start_month: monthText(retireIndex), quit_age_months: quit,
-    contribution_months: contribution, total_paid_months: totalMonths, required_months: required, eligible: totalMonths >= required,
+    contribution_months: contribution, total_paid_months: totalMonths, required_year: requiredYear, required_months: required, eligible: totalMonths >= required,
     disbursement_months: disbursement,
     base_pension_nominal_cents: round(basePension), account_pension_nominal_cents: round(accountPension), total_nominal_cents: round(totalNominal),
     base_pension_today_cents: round(basePension / deflate), account_pension_today_cents: round(accountPension / deflate), total_today_cents: round(totalNominal / deflate),
