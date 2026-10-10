@@ -49,3 +49,49 @@ test('spouse income shortcut is an other-role income, available with the employe
   assert.equal(item.monthly_cents, '300000');
   assert.deepEqual(fields.basic.basic.retirement_income.selected.find(x => x.id === item.id), { id: item.id, source_id: item.id, role: 'other' });
 });
+
+import { ownAgeWhenChild, withSpendItem, withoutSpendItem, draftOf } from '../src/planning-basic-forms.ts';
+import { prepareBasicPlan } from '../src/plan-basic.ts';
+import { table } from '../src/plan-ledger.ts';
+
+test('child age converts to own age; invalid or reversed input stays unknown', () => {
+  assert.equal(ownAgeWhenChild('1990-06-01', '2026-10-11', '8', '22'), 50); // own 36 + 14
+  assert.equal(ownAgeWhenChild('1990-11-01', '2026-10-11', '8', '22'), 49); // own 35 until November
+  for (const [birth, c, u] of [['', '8', '22'], ['1990-06-01', '', '22'], ['1990-06-01', '22', '18'], ['1990-06-01', '8.5', '22']]) assert.equal(ownAgeWhenChild(birth, '2026-10-11', c, u), null);
+});
+
+test('spend item add/remove keeps its extra scope in step; saving sends budget items and extra treatment', async () => {
+  const s = sources();
+  const r = runtime('PlanningSetup', { sources: s, editMode: true, initialStep: 1 });
+  click(r, '+ 添加一笔阶段性支出');
+  click(r, '子女教育');
+  enter(r, 'CentInput', '阶段性支出每月金额', '300000');
+  enter(r, 'input', '孩子现在几岁', '8');
+  const own = ownAgeWhenChild(saved(s).profile.birth_month + '-01', s.today, '8', '22');
+  assert.match(r.text(r.find('div', p => p['aria-label'] === '添加阶段性支出')), new RegExp(`结束于你约 ${own} 岁时`));
+  const target = saved(s).profile.retire.target_age;
+  assert.ok(own <= target);
+  assert.match(r.text(r.find('div', p => p['aria-label'] === '添加阶段性支出')), new RegExp(`在你 ${target} 岁退休前就结束了，不会影响结果`));
+  enter(r, 'input', '供到孩子几岁', String(22 + target - own + 1));
+  assert.doesNotMatch(r.text(r.find('div', p => p['aria-label'] === '添加阶段性支出')), /不会影响结果/);
+  enter(r, 'input', '供到孩子几岁', '22');
+  click(r, '加入列表');
+  r.button('保存，查看结果').props.onClick(); await r.settle();
+  const fields = r.calls.at(-1).fields, item = fields.budget.spend_items.find(i => i.label === '子女教育');
+  assert.deepEqual({ ...item, id: 'x' }, { id: 'x', label: '子女教育', monthly_cents: '300000', start_age: null, end_age: own, inflation_hundredths: null, essential: true });
+  assert.deepEqual(fields.basic.basic.retirement_costs.find(c => c.source_id === `spend:${item.id}`), { source_id: `spend:${item.id}`, treatment: 'extra', reference_cents: null });
+});
+
+test('extra spend item only raises retirement-month spending and removal drops its scope', () => {
+  const s = sources(), base = saved(s), d = draftOf(base, s.snapshot.value, s.today);
+  const item = { id: 'fx-care', label: '医疗与护理', monthly_cents: '100000', start_age: null, end_age: null, inflation_hundredths: null, essential: true };
+  const added = withSpendItem(d, item);
+  assert.equal(added.retScopes['spend:fx-care'].treatment, 'extra');
+  assert.equal(withoutSpendItem(added, 'fx-care').retScopes['spend:fx-care'], undefined);
+  const withItem = structuredClone(s), r = saved(withItem).profile.retire;
+  r.spend_items = [item]; r.basic.retirement_costs = [...r.basic.retirement_costs, { source_id: 'spend:fx-care', treatment: 'extra', reference_cents: null }];
+  const p0 = prepareBasicPlan(s).plan.value, p1 = prepareBasicPlan(withItem).plan.value;
+  const t0 = table(p0.compile(0, p0.before, p0.after)).spend, t1 = table(p1.compile(0, p1.before, p1.after)).spend;
+  assert.ok(Math.abs(t1.at(-1) - t0.at(-1) - 100000) < 1e-6);
+  assert.equal(p1.compile(0, p1.before, p1.after).annotations.some(a => a.source_ids?.includes('spend:fx-care')), false);
+});

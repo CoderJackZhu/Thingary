@@ -54,7 +54,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     vm.runInNewContext(js, { module: m, exports: m.exports, require: id => modules[id] ?? leaf, structuredClone, crypto: globalThis.crypto, console, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn() });
     modules[`./${file}`] = m.exports;
   }
-  for (const file of ['PlanningConfirmation', 'PlanningFunds', 'PlanningCosts', 'PlanningDebtDialog', 'PlanningOccurrenceDialog', 'PlanningRetirementIncome', 'PlanningPensionContributions', 'PlanningProfileFields', 'PlanningPensionRefinement', 'PlanningRefinements']) load(file);
+  for (const file of ['PlanningConfirmation', 'PlanningFunds', 'PlanningCosts', 'PlanningDebtDialog', 'PlanningOccurrenceDialog', 'PlanningRetirementIncome', 'PlanningSpendItems', 'PlanningPensionContributions', 'PlanningProfileFields', 'PlanningPensionRefinement', 'PlanningRefinements']) load(file);
   const module = { exports: {} };
   const script = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },

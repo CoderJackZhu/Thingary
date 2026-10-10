@@ -1,6 +1,6 @@
 // Form drafts -> shared section DTOs. Syntax only: blank means unknown (null), never 0. Domain rules stay native.
 import { defaultRetire, pctToHundredths, hundredthsToPct } from './plan.ts';
-import type { BasicFields, BudgetFields, CostScope, EventsFields, FundsFields, IncomeSelection, PensionFields, ProfileState, RetireInputs, StoredIncomeItem } from './plan.ts';
+import type { BasicFields, BudgetFields, CostScope, EventsFields, FundsFields, IncomeSelection, PensionFields, ProfileState, RetireInputs, StoredIncomeItem, StoredSpendItem } from './plan.ts';
 import { costSources, mustStayInLedger } from './plan-core.ts';
 import type { FundRule } from './plan-core.ts';
 import { defaultAssumptions, noOverrides } from './plan-params.ts';
@@ -23,7 +23,7 @@ export type Draft = {
   horizon: string; before: string; after: string; infl: string; emergency: string;
   retScopes: Record<string, ScopeDraft>; conScopes: Record<string, ScopeDraft>;
   start: 'live' | 'simulation'; simId: string; simAmount: string; simDate: string; simNotes: string;
-  incomeMode: IncomeMode; incomeItems: StoredIncomeItem[]; picks: Record<string, IncomePick>;
+  incomeMode: IncomeMode; incomeItems: StoredIncomeItem[]; picks: Record<string, IncomePick>; spendItems: StoredSpendItem[];
   pcStart: string; pcStop: string; pcBase: string; pcPlan: PcPlan;
   contribution: string; contributionId: string;
   funds: FundRule[]; hpf: string; ppAccount: string; ppConfirmed: boolean;
@@ -67,7 +67,7 @@ export function draftOf(saved: Saved, snapshot: Snapshot | null, today: string):
     horizon: String(fresh ? defaultRetire.horizon_age : r.horizon_age), before: hundredthsToPct(fresh ? defaultRetire.real_return_before_hundredths : r.real_return_before_hundredths), after: hundredthsToPct(fresh ? defaultRetire.real_return_after_hundredths : r.real_return_after_hundredths), infl: hundredthsToPct(fresh ? defaultAssumptions.inflation_hundredths : (p?.assumptions ?? defaultAssumptions).inflation_hundredths), emergency: String(fresh ? defaultRetire.emergency_months : r.emergency_months),
     retScopes: scopeDraft(b?.retirement_costs, retirementSources(r, p?.personal_pension_annual_cents ?? null)), conScopes: scopeDraft(b?.contribution_costs, contributionSources(r, p?.personal_pension_annual_cents ?? null)),
     start: sim ? 'simulation' : 'live', simId: sim?.id ?? crypto.randomUUID(), simAmount: sim?.available_cents ?? '', simDate: sim?.date ?? '', simNotes: sim?.notes ?? '',
-    incomeMode: b?.retirement_income.mode ?? '', incomeItems: structuredClone(r.income_items),
+    incomeMode: b?.retirement_income.mode ?? '', incomeItems: structuredClone(r.income_items), spendItems: structuredClone(r.spend_items),
     picks: Object.fromEntries(r.income_items.map(i => { const s = b?.retirement_income.selected.find(x => x.id === i.id); return [i.id, { on: !!s, role: s?.role ?? 'other' } as IncomePick]; })),
     pcStart: b?.pension_contributions.start_month ?? '', pcStop: b?.pension_contributions.stop_month ?? '', pcBase: b?.pension_contributions.base_cents ?? '',
     pcPlan: pcPlanOf(b?.pension_contributions.start_month ?? '', b?.pension_contributions.stop_month ?? '', p?.birth_month ?? '', r.target_age == null ? '' : String(r.target_age)),
@@ -104,16 +104,16 @@ export function basicInput(d: Draft, saved: Saved, today: string): SectionInput 
       contribution: { id: d.contributionId, monthly_cents: d.contribution === '' ? null : d.contribution },
       retirement_income: retirementIncomeOf(d),
       pension_contributions: (({ start, stop, base }) => ({ start_month: start, stop_month: stop, base_cents: base }))(pcValues(d, today)),
-      contribution_costs: scopes(contributionSources(r, (d.incomeMode === 'employee' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.conScopes), retirement_costs: scopes(retirementSources(r, (d.incomeMode === 'employee' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.retScopes),
+      contribution_costs: scopes(contributionSources(r, (d.incomeMode === 'employee' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.conScopes), retirement_costs: scopes(retirementSources({ ...r, spend_items: d.spendItems }, (d.incomeMode === 'employee' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.retScopes),
     },
   };
   return { section: 'basic', fields };
 }
 export function budgetInput(d: Draft, r: RetireInputs): SectionInput {
-  const fields: BudgetFields = { spend_items: r.spend_items, income_items: d.incomeItems, rent_cents: r.rent_cents, keep_paying_until_age: r.keep_paying_until_age, keep_paying_monthly_cents: r.keep_paying_monthly_cents, keep_paying_base_cents: r.keep_paying_base_cents };
+  const fields: BudgetFields = { spend_items: d.spendItems, income_items: d.incomeItems, rent_cents: r.rent_cents, keep_paying_until_age: r.keep_paying_until_age, keep_paying_monthly_cents: r.keep_paying_monthly_cents, keep_paying_base_cents: r.keep_paying_base_cents };
   return { section: 'budget', fields };
 }
-export const incomeItemsChanged = (d: Draft, r: RetireInputs) => JSON.stringify(d.incomeItems) !== JSON.stringify(r.income_items);
+export const budgetItemsChanged = (d: Draft, r: RetireInputs) => JSON.stringify(d.incomeItems) !== JSON.stringify(r.income_items) || JSON.stringify(d.spendItems) !== JSON.stringify(r.spend_items);
 export function fundsInput(d: Draft, saved: Saved, today: string): SectionInput {
   const fields: FundsFields = { monetary_basis_date: saved?.profile.retire.core?.monetary_basis_date ?? today, fund_rules: d.funds, hpf_monthly_cents: d.hpf === '' ? null : d.hpf, personal_pension_account_id: d.ppAccount === '' ? null : d.ppAccount, personal_pension_balance_confirmed: d.ppConfirmed };
   return { section: 'funds', fields };
@@ -164,3 +164,13 @@ export function retirementIncomeToday(cents: string, start: string, birth: strin
   const value = Math.round(Number(cents) / (1 + context.rate) ** (age - context.age));
   return Number.isSafeInteger(value) && value > 0 ? String(value) : null;
 }
+/** 支出项年龄都按本人年龄：「孩子现在 c 岁、供到 u 岁」结束于本人现在的整岁 + (u − c)。 */
+export function ownAgeWhenChild(birth: string, today: string, childAge: string, untilAge: string): number | null {
+  const month = birth.slice(0, 7), c = Number(childAge), u = Number(untilAge);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month >= today.slice(0, 7) || !/^\d+$/.test(childAge.trim()) || !/^\d+$/.test(untilAge.trim()) || u <= c) return null;
+  const own = Math.floor(((Number(today.slice(0, 4)) - Number(month.slice(0, 4))) * 12 + Number(today.slice(5, 7)) - Number(month.slice(5, 7))) / 12);
+  return own + u - c <= 120 ? own + u - c : null;
+}
+/** 新的阶段性支出按「额外」计入退休预算，避免与生活费总额重复。 */
+export const withSpendItem = (d: Draft, item: StoredSpendItem): Draft => ({ ...d, spendItems: [...d.spendItems, item], retScopes: { ...d.retScopes, [`spend:${item.id}`]: { treatment: 'extra', ref: '' } } });
+export const withoutSpendItem = (d: Draft, id: string): Draft => { const { [`spend:${id}`]: _, ...retScopes } = d.retScopes; return { ...d, spendItems: d.spendItems.filter(i => i.id !== id), retScopes }; };

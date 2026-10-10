@@ -1,7 +1,7 @@
 import type { BasicCapabilities, PlanningMissing, ProfileState, SetupFields, StoredLifeEvent } from './plan.ts';
 import type { Snapshot } from './wealth.ts';
 import { defaultRetire, hundredthsToPct } from './plan.ts';
-import { basicInput, budgetInput, draftOf, fundsInput, incomeItemsChanged } from './planning-basic-forms.ts';
+import { basicInput, budgetInput, draftOf, fundsInput, budgetItemsChanged } from './planning-basic-forms.ts';
 import type { Draft, IncomeMode } from './planning-basic-forms.ts';
 import { costReviewRows } from './planning-cost-review.ts';
 
@@ -63,7 +63,7 @@ export function setupFields(d: Draft, saved: Saved, today: string, liveAvailable
   const input = basicInput(d, saved, today);
   if (input.section !== 'basic') throw new Error('规划设置格式不正确。');
   if (r.basic) input.fields.basic.pension_contributions = { ...r.basic.pension_contributions };
-  return { basic: input.fields, budget: incomeItemsChanged(d, r) ? (budgetInput(d, r) as Extract<ReturnType<typeof budgetInput>, { section: 'budget' }>).fields : null,
+  return { basic: input.fields, budget: budgetItemsChanged(d, r) ? (budgetInput(d, r) as Extract<ReturnType<typeof budgetInput>, { section: 'budget' }>).fields : null,
     funds: d.start === 'live' && liveAvailable ? (fundsInput(d, saved, today) as Extract<ReturnType<typeof fundsInput>, { section: 'funds' }>).fields : null, pension: null };
 }
 

@@ -17,6 +17,7 @@ import type { PlanningSources } from './plan';
 import type { Draft } from './planning-basic-forms';
 import { useSectionSaver } from './planning-basic-data';
 import { IncomeQuestion } from './PlanningRetirementIncome';
+import { SpendItems } from './PlanningSpendItems';
 import { PlanningPensionRefinementDialog } from './PlanningPensionRefinement';
 import { comparePensionRefinement, withPensionRefinement } from './planning-pension-refinement';
 import type { PensionComparison } from './planning-pension-refinement';
@@ -91,6 +92,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
       </section>}
       {step === 1 && <section className="form-block"><ConfirmationField label="退休后每月生活预算" issue={confirmationIssue}><FormRow label="每月生活费总额" hint="没想好可以留空；留空不会当作 0"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="例如 4000.00" onChange={v => patch({ budget: v })}/></FormRow></ConfirmationField>
         {history.spend !== null && d.budget === '' && <p className="muted small plan-suggest" role="status">按过去 {history.spend_count} 个盘点区间，你每月花销的中位数约 {money(history.spend)}（{SPEND_CAVEAT}）。<button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ budget: history.spend! })}>采用</button></p>}
+        <SpendItems d={d} setD={setD} frozen={frozen} today={today}/>
       </section>}
       {step === 2 && <section className="form-block">
         {live && <p className="planning-selected-funds"><strong>用最近一次盘点（截至 {snapshot!.date}）：可动用 {money(String(available))}</strong><span className="ui-tag">已选择</span></p>}

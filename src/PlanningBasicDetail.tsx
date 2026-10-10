@@ -107,7 +107,7 @@ function BasicSidebar({ saved, caps, openSetup, onGoto, contribution }: { saved:
   return <div className="rd-side">
     <Card title="目标与预算" onEdit={el => openSetup(0, el)}>
       <Rows rows={[['计划类型', r.mode === 'fire' ? '财务自由' : '按年龄退休'], ['目标年龄', r.target_age === null ? '未设定' : `${r.target_age} 岁`], ['出生年月', p.birth_month ?? '未填写'], ['退休后每月预算', r.spend_cents === null ? '未填写' : money(r.spend_cents)]]}/>
-      {(r.spend_items.length > 0 || Number(r.rent_cents) > 0) && <><p className="muted small">已有的支出明细（保留标记，已含的不再叠加）：</p>
+      {(r.spend_items.length > 0 || Number(r.rent_cents) > 0) && <><p className="muted small">已有的支出明细（阶段性支出可在「每月生活费」一步增删）：</p>
         <ul className="rs-list">{r.spend_items.map(i => <li key={i.id}><span>{i.label}<small>{i.essential ? '必需' : '灵活'} · {scope(`spend:${i.id}`)}</small></span><b>{money(i.monthly_cents)}/月</b></li>)}
           {Number(r.rent_cents) > 0 && <li><span>房租<small>{scope('rent')}</small></span><b>{money(r.rent_cents)}/月</b></li>}</ul></>}
     </Card>

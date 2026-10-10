@@ -1,5 +1,5 @@
 import type { Draft, PensionForm } from './planning-basic-forms.ts';
-import { budgetInput, incomeItemsChanged, pensionFormOf, pensionInput, retirementIncomeOf } from './planning-basic-forms.ts';
+import { budgetInput, budgetItemsChanged, pensionFormOf, pensionInput, retirementIncomeOf } from './planning-basic-forms.ts';
 import { pcValues } from './planning-basic-defaults.ts';
 import type { PlanningSources, ProfileState, SetupFields, RequirementResult, BasicFields } from './plan.ts';
 import { overlayPlanningDrafts } from './planning-draft.ts';
@@ -28,7 +28,7 @@ export function withPensionRefinement(fields: SetupFields, d: Draft, saved: Save
   out.basic.basic.retirement_income = retirementIncomeOf(d);
   const pc = pcValues(d, today);
   out.basic.basic.pension_contributions = { start_month: pc.start, stop_month: pc.stop, base_cents: pc.base };
-  if (r && incomeItemsChanged(d, r)) out.budget = (budgetInput(d, r) as { fields: NonNullable<SetupFields['budget']> }).fields;
+  if (r && budgetItemsChanged(d, r)) out.budget = (budgetInput(d, r) as { fields: NonNullable<SetupFields['budget']> }).fields;
   const hpf = d.hpf === '' ? null : d.hpf;
   if (out.funds) out.funds.hpf_monthly_cents = hpf;
   else if (hpf !== (r?.core?.hpf_monthly_cents ?? null)) out.funds = { monetary_basis_date: out.basic.monetary_basis_date, fund_rules: structuredClone(r?.core?.fund_rules ?? []), hpf_monthly_cents: hpf,
