@@ -138,3 +138,38 @@ test('goal completion income-choice entry can switch an existing Beijing profile
   assert.equal(r.calls[0].fields.pension.overrides.avg_wage_cents, '1000001');
   assert.equal(r.calls[0].fields.basic.basic.retirement_income.mode, 'employee');
 });
+
+test('switching region clears region-specific wage and base limits, keeps national rates', async () => {
+  const s = sources('normal');
+  const r = runtime('PlanningPensionRefinement', { sources: s, completion: true });
+  r.find('input', p => p['aria-label'] === '职工养老金估算').props.onChange(); r.render();
+  r.find('input', p => p['aria-label'] === '其他城市（自己填当地参数）').props.onChange(); r.render();
+  enter(r, 'CentInput', '当地养老金计发基数', '800000');
+  enter(r, 'CentInput', '缴费基数下限', '480000');
+  enter(r, 'input', '记账利率', '2');
+  r.find('input', p => p['aria-label'] === '北京（内置参数）').props.onChange(); r.render();
+  r.find('input', p => p['aria-label'] === '其他城市（自己填当地参数）').props.onChange(); r.render();
+  assert.equal(r.find('CentInput', p => p.label === '当地养老金计发基数').props.value, '');
+  assert.equal(r.find('CentInput', p => p.label === '缴费基数下限').props.value, '');
+  assert.equal(r.find('input', p => p['aria-label'] === '记账利率').props.value, '2');
+});
+
+test('state pension shortcut only in manual mode; conversion note shows exact inflation text', () => {
+  const s = sources('normal');
+  saved(s).profile.retire.basic.retirement_income.mode = 'employee';
+  const r = runtime('PlanningSetup', { sources: s, initialStep: 3 });
+  click(r, '+ 添加一笔退休收入');
+  assert.ok(r.find('div', p => p['aria-label'] === '添加退休收入'));
+  assert.equal(r.button('国家养老金（测算结果）'), undefined);
+  const m = sources('normal');
+  saved(m).profile.retire.basic.retirement_income.mode = 'manual';
+  saved(m).profile.assumptions.inflation_hundredths = 700;
+  const e = runtime('PlanningSetup', { sources: m, initialStep: 3 });
+  click(e, '+ 添加一笔退休收入');
+  assert.ok(e.button('国家养老金（测算结果）'));
+  enter(e, 'CentInput', '税后每月收入', '500000'); enter(e, 'input', '收入起始年龄', '60');
+  enter(e, 'Switch', '这是退休那年的金额', true);
+  const note = e.text(e.find('div', p => p['aria-label'] === '添加退休收入'));
+  assert.match(note, /按通胀 7% 折算/);
+  assert.doesNotMatch(note, /7\.0000/);
+});
