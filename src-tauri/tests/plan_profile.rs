@@ -1797,3 +1797,28 @@ fn debt_backup_inspection_rejects_illegal_fields_and_missing_account() {
         assert!(restored.inspect_backup(&file).is_err(), "{broken}");
     }
 }
+
+#[test]
+fn custom_region_saves_partial_facts_restarts_and_round_trips_backup() {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("custom");
+    let mut s = Store::open(&root).unwrap();
+    let mut p = profile();
+    p.region = Some("custom".into());
+    // A missing benefit base can be saved in steps; it is never replaced with zero.
+    p.overrides.avg_wage_cents = None;
+    let a = s
+        .plan_profile_save(&save(&s, p.clone(), None), TODAY)
+        .unwrap();
+    assert_eq!(a.profile.region.as_deref(), Some("custom"));
+    assert!(a.profile.overrides.avg_wage_cents.is_none());
+    drop(s);
+    let s = Store::open(&root).unwrap();
+    assert_facts(&s.plan_profile().unwrap().saved.unwrap().profile, &p);
+    let file = d.path().join("custom.thingary");
+    s.backup(Some(&file)).unwrap();
+    let mut t = Store::open(&d.path().join("restore")).unwrap();
+    let info = t.inspect_backup(&file).unwrap();
+    t.restore(&file, &info.hash, &t.generation()).unwrap();
+    assert_facts(&t.plan_profile().unwrap().saved.unwrap().profile, &p);
+}

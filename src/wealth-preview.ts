@@ -308,7 +308,7 @@ function basicScenarioProfile(kind: string): ProfileState['saved'] {
   r.income_items = [{ id: 'fx-annuity', label: '企业年金', monthly_cents: '120000', start_age: 60, end_age: null, indexed: false }];
   if (kind === 'manual') b.retirement_income = { mode: 'manual', selected: [{ id: 'fx-annuity', source_id: 'fx-annuity', role: 'other' }] };
   if (kind === 'excluded') b.retirement_income = { mode: 'excluded', selected: [] };
-  if (kind === 'beijing' || kind === 'beijing-complete') { b.retirement_income = { mode: 'beijing', selected: [] }; b.pension_contributions = { start_month: '2026-10', stop_month: '2050-06', base_cents: '2000000' }; }
+  if (kind === 'beijing' || kind === 'beijing-complete') { b.retirement_income = { mode: 'employee', selected: [] }; b.pension_contributions = { start_month: '2026-10', stop_month: '2050-06', base_cents: '2000000' }; }
   if (kind === 'beijing-complete') Object.assign(p, { worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000 });
   if (kind === 'missing-costs') { r.rent_cents = '100000'; r.spend_items = [{ id: 'fx-health', label: '医疗', monthly_cents: '100000', start_age: 65, end_age: null, inflation_hundredths: 400, essential: true }]; }
   if (kind === 'unknown' || kind === 'zero' || kind === 'negative' || kind === 'saved' || kind === 'terminal-zero') b.retirement_income = { mode: 'excluded', selected: [] };
@@ -349,7 +349,7 @@ if (firstRunFixture && planProfile?.profile.retire.basic) {
   const p = planProfile.profile, r = p.retire, b = r.basic!;
   if (firstRunFixture === '1') { r.spend_cents = null; b.retirement_income.mode = null; }
   if (firstRunFixture === 'costs') b.retirement_income.mode = 'excluded';
-  if (firstRunFixture === '2b') { p.worker = null; b.retirement_income.mode = 'beijing'; r.rent_cents = '100000'; b.retirement_costs = []; b.contribution.monthly_cents = null; }
+  if (firstRunFixture === '2b') { p.worker = null; b.retirement_income.mode = 'employee'; r.rent_cents = '100000'; b.retirement_costs = []; b.contribution.monthly_cents = null; }
   if (firstRunFixture === 'overdue') { b.retirement_income.mode = 'excluded'; b.contribution.monthly_cents = null; }
 }
 const reviewFixture = params.get('review-fixture');
@@ -390,7 +390,7 @@ if (nonblockingScenario) {
     const p = planProfile.profile, r = p.retire;
     if (nonblockingScenario === 'unknown') r.core!.occurrences = [{ id: crypto.randomUUID(), event_id: r.life_events[0].id, status: 'occurred', actual_date: nonblockingBatch.today, payments_complete: false, payments: [{ id: crypto.randomUUID(), date: nonblockingBatch.today, amount_cents: null, account_id: null, absorbed_snapshot_id: null, absorbed_revision: null, source_kind: null, source_id: null }], loan: null }];
     if (nonblockingScenario === 'funds') r.core!.fund_rules = [];
-    if (nonblockingScenario === 'beijing') { r.basic!.retirement_income.mode = 'beijing'; p.worker = null; }
+    if (nonblockingScenario === 'beijing') { r.basic!.retirement_income.mode = 'employee'; p.worker = null; }
   }
 }
 let planWriteVersion = 1;
@@ -408,7 +408,7 @@ let lostOnce = false;
 const readError = (message: string, code = 'READ_FAILED') => ({ status: 'error' as const, value: { code, message } });
 const planningSources = (args: Record<string, unknown>): PlanningSources => {
   if (completionScenario) return { ...completionBatch, generation, write_version: planWriteVersion, profile: { status: 'ready', value: { generation, saved: planProfile } } };
-  if (pensionScenario) return { ...pensionBatch, generation, write_version: planWriteVersion, profile: { status: 'ready', value: { generation, saved: planProfile } } };
+  if (pensionScenario) return { ...pensionBatch, generation, write_version: planWriteVersion, profile: pensionScenario === 'error' ? readError('虚构个人资料读取失败') : { status: 'ready', value: { generation, saved: planProfile } } };
   if (debtScenario) return { ...debtBatch, generation, write_version: planWriteVersion, profile: { status: 'ready', value: { generation, saved: planProfile } } };
   if (nonblockingScenario) return { ...nonblockingBatch, generation, write_version: planWriteVersion, profile: nonblockingScenario === 'error' ? { status: 'error', value: { code: 'READ_FAILED', message: '虚构规划资料读取失败' } } : { status: 'ready', value: { generation, saved: planProfile } } };
   const planning = args.planningEnabled !== false, wealth = args.wealthEnabled !== false;
@@ -477,7 +477,7 @@ function previewCapabilities(sources: PlanningSources, o: CapabilityOptions): Ba
   void start;
   const factsComplete = pd ? [pd.worker, pd.paid_months, pd.account_balance_cents, pd.base_cents, pd.flex_months, pd.personal_pension_annual_cents, pd.marginal_tax_hundredths].every(v => v !== null) : !!saved && hasPensionProfile(saved.profile);
   const mode = basic?.retirement_income.mode ?? null;
-  const pension: BasicCapabilities['pension'] = mode === 'beijing' ? (factsComplete ? { status: 'ready', value: { included: true, start_month: '2050-06', monthly_cents: '200000' } } : { status: 'blocked', missing: [missingOf('PENSION_FACTS_UNKNOWN', 'pension', 'pension', 'profile', '政策估算需要的养老金事实还没有填完整；留空的项目保持未知。')] }) : mode === null ? { status: 'blocked', missing: [missingOf('INCOME_MODE_UNKNOWN', 'pension', 'basic', 'basic.retirement_income.mode', '还没有选择退休收入怎么计入。', 'assumption')] } : { status: 'ready', value: { included: false, start_month: null, monthly_cents: null } };
+  const pension: BasicCapabilities['pension'] = mode === 'employee' ? (factsComplete ? { status: 'ready', value: { included: true, start_month: '2050-06', monthly_cents: '200000' } } : { status: 'blocked', missing: [missingOf('PENSION_FACTS_UNKNOWN', 'pension', 'pension', 'profile', '政策估算需要的养老金事实还没有填完整；留空的项目保持未知。')] }) : mode === null ? { status: 'blocked', missing: [missingOf('INCOME_MODE_UNKNOWN', 'pension', 'basic', 'basic.retirement_income.mode', '还没有选择退休收入怎么计入。', 'assumption')] } : { status: 'ready', value: { included: false, start_month: null, monthly_cents: null } };
   const scopes = new Set(basic?.retirement_costs.map(c => c.source_id));
   const unscoped = r ? retirementSources(r).filter(x => !scopes.has(x.id)) : [];
   const miss: PlanningMissing[] = [

@@ -140,7 +140,7 @@ function pensionSources() {
   const s=careerSources(),p=profile(s),ret=r(s);
   Object.assign(p,{worker:'male',region:'beijing',paid_months:200,account_balance_cents:'5000000',base_cents:'1000000',past_index_hundredths:100,flex_months:0,personal_pension_annual_cents:'0',marginal_tax_hundredths:0});
   p.assumptions.wage_growth_hundredths=0;ret.core.hpf_monthly_cents='100000';
-  ret.basic.retirement_income={mode:'beijing',selected:[]};
+  ret.basic.retirement_income={mode:'employee',selected:[]};
   ret.basic.pension_contributions={start_month:'2026-10',stop_month:'2030-10',base_cents:'1000000'};
   return s;
 }
@@ -242,7 +242,7 @@ test('C07 missing retirement-only budget/target/income does not block known gap 
     assert.equal(x.requirement.status,'blocked',field);
     if(field==='spend_cents')assert.equal(x.requirement.issues.filter(i=>i.field==='spend_cents').length,1);
   }
-  const s=careerSources();r(s).basic.retirement_income.mode='beijing';
+  const s=careerSources();r(s).basic.retirement_income.mode='employee';
   assert.equal(check(s).cash.status,'ready');assert.equal(check(s).requirement.status,'blocked');
 });
 

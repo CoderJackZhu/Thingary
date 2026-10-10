@@ -33,7 +33,7 @@ test('Q4 default excludes only absent choices; saved manual/excluded/Beijing cho
   assert.equal(defaultIncomeMode(null), 'excluded');
   p.profile.retire.basic.retirement_income.mode = null;
   assert.equal(defaultIncomeMode(p), 'excluded');
-  for (const mode of ['manual', 'excluded', 'beijing']) {
+  for (const mode of ['manual', 'excluded', 'employee']) {
     p.profile.retire.basic.retirement_income.mode = mode;
     const before = structuredClone(p);
     p.profile.retire.basic.pension_contributions = { start_month: '2020-01', stop_month: '2050-06', base_cents: '800000' };
@@ -58,8 +58,8 @@ test('condition chips distinguish unknown/zero and conspicuously disclose exclud
   assert.equal(conditionChips(p, unknownCapabilityFixture, fmt)[1].text, '每月生活费 ¥0');
   p.profile.retire.spend_cents = null;
   assert.equal(conditionChips(p, unknownCapabilityFixture, fmt)[1].text, '每月生活费未填');
-  p.profile.retire.basic.retirement_income.mode = 'beijing';
-  assert.equal(conditionChips(p, unknownCapabilityFixture, fmt).at(-1).text, '已选北京养老金估算');
+  p.profile.retire.basic.retirement_income.mode = 'employee';
+  assert.equal(conditionChips(p, unknownCapabilityFixture, fmt).at(-1).text, '已选职工养老金估算');
 });
 
 test('retirement month is immediate, blank/invalid remains unknown', () => {
@@ -72,7 +72,7 @@ test('refinements are applicable and do not inflate question count with optional
   const p = make();
   assert.deepEqual(refinementCards(p, unknownCapabilityFixture, today).map(c => c.action), ['pension', 'contribution']);
   const caps = { ...unknownCapabilityFixture, requirement: { status: 'blocked', missing: [{ code: 'COST_SCOPE_UNKNOWN' }, { code: 'PENSION_FACTS_UNKNOWN' }] } };
-  p.profile.retire.basic.retirement_income.mode = 'beijing';
+  p.profile.retire.basic.retirement_income.mode = 'employee';
   assert.equal(refinementCards(p, caps, today).filter(c => c.required).length, 2);
   assert.equal(questionProgress(p, caps).remaining, 0);
 });
@@ -102,7 +102,7 @@ test('each unanswered Q1–Q4 resumes at its first question; optional and pensio
 test('editing a Beijing plan emits no pension facts/overrides and preserves hidden inputs exactly', () => {
   const p = make(), r = p.profile.retire;
   p.profile.overrides = { ...noOverrides, avg_wage_cents: '987654', notional_rate_hundredths: 137 };
-  r.basic.retirement_income = { mode: 'beijing', selected: [{ id: 'annuity', source_id: 'annuity', role: 'other' }] };
+  r.basic.retirement_income = { mode: 'employee', selected: [{ id: 'annuity', source_id: 'annuity', role: 'other' }] };
   r.income_items = [{ id: 'annuity', label: '虚构年金', monthly_cents: '120000', start_age: 60, end_age: null, indexed: true }];
   r.basic.pension_contributions = { start_month: '2023-01', stop_month: '2053-06', base_cents: '765432' };
   r.rent_cents = '100000';
@@ -120,7 +120,7 @@ test('editing a Beijing plan emits no pension facts/overrides and preserves hidd
 test('all saved income choices survive initialization; facts alone never select Beijing', () => {
   const p = make(); delete p.profile.retire.basic;
   assert.equal(setupDraft(p, null, today, false).incomeMode, 'excluded');
-  for (const mode of ['manual', 'beijing', 'excluded']) {
+  for (const mode of ['manual', 'employee', 'excluded']) {
     const p = make(); p.profile.retire.basic.retirement_income.mode = mode;
     assert.equal(setupDraft(p, null, today, false).incomeMode, mode);
   }

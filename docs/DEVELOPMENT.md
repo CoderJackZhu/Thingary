@@ -45,6 +45,8 @@ npm run dev -- --port 1429
 
 共用操作组件样例使用 `?state=components&style=bento&theme=light`，包含空白、错误、禁用、长提示、日期与月份。`style=native|olive|bento` 与 `theme=light|dark` 组成六种外观；在真实新增物品、账户、计划及大额计划表单中继续检查。日期浮层应覆盖 1440 × 1000、900 × 720、底部向上展开、滚动／缩放后定位、方向键、年月跳转、Escape 返回及 Tab 离开；月份回传值只有 YYYY-MM。详细规格见 [共用界面设计](VISUAL_SYSTEM_DESIGN.md)，样例与浏览器结果不替代原生验收。
 
+养老金预览可追加 `?section=planning&plan-basic=saved&capabilities=real&plan-pension=custom`（自填地区完整参数）或 `plan-pension=custom-missing`（已选其他城市但缺计发基数）；`normal|unknown|empty|error` 覆盖原有正常、未知、空白和读取失败。检查目标卡、国家养老金小窗口、养老金参数表与第四问手填／折算，全部仅驻留虚构内存。
+
 ### 规划核算与实际发生预览
 
 在独立开发树运行 `npm run dev -- --port 1429`，访问 `http://127.0.0.1:1429/visual-preview.html?section=planning&plan-basic=saved&capabilities=real&plan-core=confirmed`。`plan-core=occurred` 展示虚构已吸收首付／余债接续；`partial` 展示部分付款缺项；`overdue` 展示逾期待核对。去掉 `plan-basic` 可核对无通用输入时待重新设置；`state=empty`、`plan=error` 与 `state=save-error` 检查空、读取失败和保存失败。全部是内存夹具，刷新重置，不代表原生或持久化验收。

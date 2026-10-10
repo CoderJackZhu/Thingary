@@ -14,7 +14,7 @@ export type BasicInputs = {
   contract_version: 1;
   start: BasicStart;
   contribution: { id: string; monthly_cents: string | null };
-  retirement_income: { mode: null | 'excluded' | 'manual' | 'beijing'; selected: IncomeSelection[] };
+  retirement_income: { mode: null | 'excluded' | 'manual' | 'employee'; selected: IncomeSelection[] };
   /** Explicit half-open contribution months, independent of contribution amount/sign and retirement trigger. */
   pension_contributions: { start_month: string | null; stop_month: string | null; base_cents: string | null };
   contribution_costs: CostScope[];

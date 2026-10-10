@@ -2,10 +2,10 @@ import { defaultRetire, hundredthsToPct, pctToHundredths } from './plan.ts';
 import type { StoredProfile } from './plan.ts';
 import type { Worker } from './plan-pension.ts';
 import { defaultAssumptions, noOverrides } from './plan-params.ts';
-export type Form = { birth: string; worker: Worker; paid: string; balance: string; base: string; past: string; flex: string; pp: string; tax: string; infl: string; wage: string; ppReturn: string;
+export type Form = { region: '' | 'beijing' | 'custom'; birth: string; worker: Worker; paid: string; balance: string; base: string; past: string; flex: string; pp: string; tax: string; infl: string; wage: string; ppReturn: string;
   oWage: string; oLower: string; oUpper: string; oNotional: string; oHpf: string };
 export const toForm = (p: StoredProfile | null): Form => ({
-  birth: p?.birth_month ? p.birth_month + '-01' : '', worker: p?.worker ?? 'male', paid: p?.paid_months == null ? '' : String(p.paid_months), balance: p?.account_balance_cents ?? '', base: p?.base_cents ?? '',
+  region: p?.region ?? '', birth: p?.birth_month ? p.birth_month + '-01' : '', worker: p?.worker ?? 'male', paid: p?.paid_months == null ? '' : String(p.paid_months), balance: p?.account_balance_cents ?? '', base: p?.base_cents ?? '',
   past: p?.past_index_hundredths == null ? '' : String(p.past_index_hundredths / 100), flex: String(p?.flex_months ?? 0), pp: p?.personal_pension_annual_cents ?? '0', tax: String(p?.marginal_tax_hundredths ?? 1000),
   infl: hundredthsToPct((p?.assumptions ?? defaultAssumptions).inflation_hundredths), wage: hundredthsToPct((p?.assumptions ?? defaultAssumptions).wage_growth_hundredths), ppReturn: hundredthsToPct((p?.assumptions ?? defaultAssumptions).pp_return_hundredths),
   oWage: p?.overrides.avg_wage_cents ?? '', oLower: p?.overrides.base_lower_cents ?? '', oUpper: p?.overrides.base_upper_cents ?? '',
@@ -31,7 +31,7 @@ export function profileFromForm(f: Form, previous: StoredProfile | null, today: 
     const notional = rateOrNull(f.oNotional, '记账利率'); if (notional === undefined) throw invalid('记账利率', '请核对记账利率');
     const hpf = rateOrNull(f.oHpf, '公积金利率'); if (hpf === undefined) throw invalid('公积金利率', '请核对公积金利率');
     const profile: StoredProfile = {
-      birth_month: f.birth.slice(0, 7), worker: f.worker, region: 'beijing', paid_months: Number(f.paid), account_balance_cents: f.balance, base_cents: f.base, past_index_hundredths: past, flex_months: flex,
+      birth_month: f.birth.slice(0, 7), worker: f.worker, region: f.region === '' ? null : f.region, paid_months: Number(f.paid), account_balance_cents: f.balance, base_cents: f.base, past_index_hundredths: past, flex_months: flex,
       personal_pension_annual_cents: f.pp, marginal_tax_hundredths: Number(f.tax), assumptions: { inflation_hundredths: infl, wage_growth_hundredths: wage, pp_return_hundredths: ppr },
       overrides: { ...noOverrides, avg_wage_cents: f.oWage || null, base_lower_cents: f.oLower || null, base_upper_cents: f.oUpper || null, notional_rate_hundredths: notional, hpf_rate_hundredths: hpf },
       retire: previous?.retire ?? defaultRetire,

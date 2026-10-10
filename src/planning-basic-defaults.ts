@@ -45,6 +45,6 @@ export function pcValues(d: Draft, today: string): { start: string | null; stop:
 /** Preselect what the existing facts already imply, only for a plan that has never been set up in the basic way. */
 export function withDefaults(d: Draft, saved: Saved): Draft {
   if (saved?.profile.retire.basic) return d;
-  const incomeMode = d.incomeMode !== '' ? d.incomeMode : saved && hasPensionProfile(saved.profile) ? 'beijing' : 'excluded';
-  return { ...d, incomeMode, pcPlan: d.pcPlan !== '' ? d.pcPlan : incomeMode === 'beijing' ? 'until' : '' };
+  const incomeMode = d.incomeMode !== '' ? d.incomeMode : saved && hasPensionProfile(saved.profile) ? 'employee' : 'excluded';
+  return { ...d, incomeMode, pcPlan: d.pcPlan !== '' ? d.pcPlan : incomeMode === 'employee' ? 'until' : '' };
 }

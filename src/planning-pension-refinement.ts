@@ -7,10 +7,10 @@ import { buildBasicCapabilities } from './plan-basic.ts';
 
 type Saved = ProfileState['saved'];
 const savedOf = (s: PlanningSources) => s.profile.status === 'ready' ? s.profile.value.saved : null;
-export const pensionFactKeys = ['birth', 'worker', 'paid', 'balance', 'base', 'flex', 'pp', 'tax'] as const;
-export const missingPensionFields = (d: Draft): (keyof PensionForm)[] => pensionFactKeys.filter(k => (k === 'birth' ? d.birth : d.pension[k]) === '');
+export const pensionFactKeys = ['birth', 'region', 'oWage', 'worker', 'paid', 'balance', 'base', 'flex', 'pp', 'tax'] as const;
+export const missingPensionFields = (d: Draft): (keyof PensionForm)[] => pensionFactKeys.filter(k => k === 'oWage' ? d.pension.region === 'custom' && d.pension.oWage === '' : (k === 'birth' ? d.birth : d.pension[k]) === '');
 export function needsPensionFacts(d: Draft, saved: Saved): boolean {
-  return missingPensionFields(d).length > 0 || saved?.profile.region !== 'beijing';
+  return missingPensionFields(d).length > 0 || saved?.profile.region == null;
 }
 
 /** Existing setup DTO only. In the standalone editor, all unrelated fields are copied exactly. */
@@ -38,7 +38,7 @@ export function withPensionRefinement(fields: SetupFields, d: Draft, saved: Save
   if (p?.marginal_tax_hundredths == null) original.tax = '';
   // Birth belongs to Q1 as well: both existing sections must agree when that answer changes.
   const f = { ...d.pension, birth: d.birth ? d.birth.slice(0, 7) + '-01' : '' };
-  if (JSON.stringify(f) !== JSON.stringify(original) || d.incomeMode === 'beijing' && p?.region !== 'beijing') out.pension = (pensionInput(f) as { fields: NonNullable<SetupFields['pension']> }).fields;
+  if (JSON.stringify(f) !== JSON.stringify(original) || d.incomeMode === 'employee' && p?.region !== d.pension.region) out.pension = (pensionInput(f) as { fields: NonNullable<SetupFields['pension']> }).fields;
   return out;
 }
 

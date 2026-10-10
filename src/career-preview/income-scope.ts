@@ -64,7 +64,7 @@ export function prepareIncomeScope(sources: PlanningSources, draft: CareerDraft,
   // Cash preparation must not invoke the old Beijing estimate or certify unknown retirement inputs.
   const cashSources = structuredClone(copy);
   if (cashSources.profile.status === 'ready') cashSources.profile.value.saved!.profile.retire.basic!.retirement_income = { mode: null, selected: [] };
-  if (mode === 'beijing') return { status: 'policy_blocked' as const, issues: ['北京养老金自动联动尚未核准；请选择本次明确的手填／不计收入口径，或只检查已知空窗。'], sources: null, cashSources, draft: financialDraft };
+  if (mode === 'employee') return { status: 'policy_blocked' as const, issues: ['职工养老金自动联动尚未核准；请选择本次明确的手填／不计收入口径，或只检查已知空窗。'], sources: null, cashSources, draft: financialDraft };
   if (mode === null || issues.length) return { status: 'income_blocked' as const, issues: issues.length ? issues : ['请选择本次退休收入计入方式。'], sources: null, cashSources, draft: financialDraft };
   if (ret) {
     ret.income_items = structuredClone(items) as StoredIncomeItem[];

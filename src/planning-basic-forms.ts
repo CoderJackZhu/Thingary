@@ -14,9 +14,9 @@ type Saved = ProfileState['saved'];
 export type Treatment = '' | 'included' | 'extra' | 'excluded';
 export type ScopeDraft = { treatment: Treatment; ref: string };
 export type CostSource = { id: string; label: string; cents: string | null };
-export type IncomeMode = '' | 'excluded' | 'manual' | 'beijing';
+export type IncomeMode = '' | 'excluded' | 'manual' | 'employee';
 export type IncomePick = { on: boolean; role: 'state_pension' | 'other' };
-export type PensionForm = { birth: string; worker: Worker | ''; paid: string; balance: string; base: string; past: string; flex: string; pp: string; tax: string; wage: string; ppReturn: string; oWage: string; oLower: string; oUpper: string; oNotional: string; oHpf: string };
+export type PensionForm = { region: '' | 'beijing' | 'custom'; birth: string; worker: Worker | ''; paid: string; balance: string; base: string; past: string; flex: string; pp: string; tax: string; wage: string; ppReturn: string; oWage: string; oLower: string; oUpper: string; oNotional: string; oHpf: string };
 
 export type Draft = {
   mode: 'fire' | 'traditional'; birth: string; target: string; budget: string;
@@ -43,11 +43,11 @@ const occurred = (r: RetireInputs, id: string) => !!r.core?.occurrences.some(o =
 export const contributionSources = (r: RetireInputs, annualPension: string | null): CostSource[] =>
   [...new Map([...costSources(r.life_events, annualPension ?? '0').map(s => ({ ...s, cents: null })), ...(r.core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => ({ id: `event:${o.event_id}:loan`, label: '已发生计划余债', cents: null }))].map(s => [s.id, s])).values()];
 
-export const emptyPensionForm = (): PensionForm => ({ birth: '', worker: '', paid: '', balance: '', base: '', past: '', flex: '0', pp: '', tax: '1000', wage: hundredthsToPct(defaultAssumptions.wage_growth_hundredths), ppReturn: hundredthsToPct(defaultAssumptions.pp_return_hundredths), oWage: '', oLower: '', oUpper: '', oNotional: '', oHpf: '' });
+export const emptyPensionForm = (): PensionForm => ({ region: '', birth: '', worker: '', paid: '', balance: '', base: '', past: '', flex: '0', pp: '', tax: '1000', wage: hundredthsToPct(defaultAssumptions.wage_growth_hundredths), ppReturn: hundredthsToPct(defaultAssumptions.pp_return_hundredths), oWage: '', oLower: '', oUpper: '', oNotional: '', oHpf: '' });
 export function pensionFormOf(saved: Saved): PensionForm {
   const p = saved?.profile; if (!p) return emptyPensionForm();
   const o = p.overrides;
-  return { birth: p.birth_month ? p.birth_month + '-01' : '', worker: p.worker ?? '', paid: p.paid_months == null ? '' : String(p.paid_months), balance: p.account_balance_cents ?? '', base: p.base_cents ?? '',
+  return { region: p.region ?? '', birth: p.birth_month ? p.birth_month + '-01' : '', worker: p.worker ?? '', paid: p.paid_months == null ? '' : String(p.paid_months), balance: p.account_balance_cents ?? '', base: p.base_cents ?? '',
     past: p.past_index_hundredths == null ? '' : String(p.past_index_hundredths / 100), flex: p.flex_months == null ? '0' : String(p.flex_months), pp: p.personal_pension_annual_cents ?? '', tax: p.marginal_tax_hundredths == null ? '' : String(p.marginal_tax_hundredths),
     wage: hundredthsToPct(p.assumptions.wage_growth_hundredths), ppReturn: hundredthsToPct(p.assumptions.pp_return_hundredths),
     oWage: o.avg_wage_cents ?? '', oLower: o.base_lower_cents ?? '', oUpper: o.base_upper_cents ?? '', oNotional: o.notional_rate_hundredths == null ? '' : hundredthsToPct(o.notional_rate_hundredths), oHpf: o.hpf_rate_hundredths == null ? '' : hundredthsToPct(o.hpf_rate_hundredths) };
@@ -89,7 +89,7 @@ const scopes = (sources: CostSource[], d: Record<string, ScopeDraft>): CostScope
   return [{ source_id: s.id, treatment: x.treatment, reference_cents: null }];
 });
 const selections = (d: Draft): IncomeSelection[] => d.incomeItems.filter(i => d.picks[i.id]?.on).map(i => ({ id: i.id, source_id: i.id, role: d.picks[i.id].role }));
-export const retirementIncomeOf = (d: Draft) => ({ mode: d.incomeMode === '' ? null : d.incomeMode, selected: d.incomeMode === 'manual' || d.incomeMode === 'beijing' ? selections(d).filter(s => d.incomeMode === 'manual' || s.role === 'other') : [] });
+export const retirementIncomeOf = (d: Draft) => ({ mode: d.incomeMode === '' ? null : d.incomeMode, selected: d.incomeMode === 'manual' || d.incomeMode === 'employee' ? selections(d).filter(s => d.incomeMode === 'manual' || s.role === 'other') : [] });
 
 export function basicInput(d: Draft, saved: Saved, today: string): SectionInput {
   const r = saved?.profile.retire ?? defaultRetire;
@@ -104,7 +104,7 @@ export function basicInput(d: Draft, saved: Saved, today: string): SectionInput 
       contribution: { id: d.contributionId, monthly_cents: d.contribution === '' ? null : d.contribution },
       retirement_income: retirementIncomeOf(d),
       pension_contributions: (({ start, stop, base }) => ({ start_month: start, stop_month: stop, base_cents: base }))(pcValues(d, today)),
-      contribution_costs: scopes(contributionSources(r, (d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.conScopes), retirement_costs: scopes(retirementSources(r, (d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.retScopes),
+      contribution_costs: scopes(contributionSources(r, (d.incomeMode === 'employee' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.conScopes), retirement_costs: scopes(retirementSources(r, (d.incomeMode === 'employee' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.retScopes),
     },
   };
   return { section: 'basic', fields };
@@ -123,7 +123,7 @@ export function pensionInput(f: PensionForm): SectionInput {
   const past = f.past.trim() === '' ? null : Math.round(Number(f.past) * 100);
   if (past !== null && !(past >= 1 && past <= 1000)) fail('历史平均缴费指数请填 0.01 到 10 之间的数，或留空。');
   const fields: PensionFields = {
-    birth_month: monthOf(f.birth), worker: f.worker === '' ? null : f.worker, region: 'beijing', paid_months: int(f.paid, '累计缴费月数', 0, 1200), account_balance_cents: f.balance === '' ? null : f.balance, base_cents: f.base === '' ? null : f.base,
+    birth_month: monthOf(f.birth), worker: f.worker === '' ? null : f.worker, region: f.region === '' ? null : f.region, paid_months: int(f.paid, '累计缴费月数', 0, 1200), account_balance_cents: f.balance === '' ? null : f.balance, base_cents: f.base === '' ? null : f.base,
     past_index_hundredths: past, flex_months: int(f.flex, '弹性领取月数', -36, 36), personal_pension_annual_cents: f.pp === '' ? null : f.pp, marginal_tax_hundredths: f.tax === '' ? null : Number(f.tax),
     wage_growth_hundredths: rate(f.wage, '工资增长率'), pp_return_hundredths: rate(f.ppReturn, '个人养老金收益率'),
     overrides: { ...noOverrides, avg_wage_cents: f.oWage || null, base_lower_cents: f.oLower || null, base_upper_cents: f.oUpper || null, notional_rate_hundredths: optPct(f.oNotional, '记账利率'), hpf_rate_hundredths: optPct(f.oHpf, '公积金利率') },
@@ -149,4 +149,18 @@ export function costsInput(d: Draft, saved: NonNullable<Saved>): SectionInput {
     monetary_basis_date: r.core.monetary_basis_date,
     basic: { ...r.basic, contribution_costs: scopes(contributionSources(r, p.personal_pension_annual_cents), d.conScopes), retirement_costs: scopes(retirementSources(r, p.personal_pension_annual_cents), d.retScopes) },
   } };
+}
+
+/** Nominal retirement-year estimates are converted once before entering the real-money ledger. */
+export function incomeInflationContext(birth: string, infl: string, today: string): { age: number; rate: number } | null {
+  const month = birth.slice(0, 7), rate = pctToHundredths(infl);
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month) || month >= today.slice(0, 7) || rate === null || rate <= -10000) return null;
+  const age = ((Number(today.slice(0, 4)) - Number(month.slice(0, 4))) * 12 + Number(today.slice(5, 7)) - Number(month.slice(5, 7))) / 12;
+  return { age, rate: rate / 10000 };
+}
+export function retirementIncomeToday(cents: string, start: string, birth: string, infl: string, today: string): string | null {
+  const context = incomeInflationContext(birth, infl, today), age = Number(start);
+  if (!context || !/^\d+$/.test(cents) || !start.trim() || !Number.isInteger(age) || age < 0 || age > 120) return null;
+  const value = Math.round(Number(cents) / (1 + context.rate) ** (age - context.age));
+  return Number.isSafeInteger(value) && value > 0 ? String(value) : null;
 }

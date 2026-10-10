@@ -89,7 +89,7 @@ test('retirement income: excluded keeps facts out of the request; beijing never 
   const p = profile(r), d = draftOf(p, null, today);
   const picks = { a: { on: true, role: 'other' }, b: { on: true, role: 'state_pension' } };
   assert.deepEqual(basicInput({ ...d, incomeMode: 'excluded', picks }, p, today).fields.basic.retirement_income, { mode: 'excluded', selected: [] });
-  assert.deepEqual(basicInput({ ...d, incomeMode: 'beijing', picks }, p, today).fields.basic.retirement_income.selected.map(s => s.id), ['a']);
+  assert.deepEqual(basicInput({ ...d, incomeMode: 'employee', picks }, p, today).fields.basic.retirement_income.selected.map(s => s.id), ['a']);
   assert.equal(basicInput({ ...d, incomeMode: 'manual', picks }, p, today).fields.basic.retirement_income.selected.length, 2);
   assert.equal(budgetInput({ ...d, incomeItems: [...d.incomeItems] }, r).fields.income_items.length, 2);
 });

@@ -2,7 +2,7 @@ import { CoverageNote } from '../CoverageNote';
 import { useMemo, useState } from 'react';
 import { CentInput, FormRow } from '../FormControls.tsx';
 import type { PlanningSources } from '../plan-basic-contract.ts';
-import { beijing } from '../plan-params.ts';
+import { beijing, paramsFor } from '../plan-params.ts';
 import { marginalPension } from './pension-marginal.ts';
 import { money } from './result-text.ts';
 
@@ -10,12 +10,13 @@ import { money } from './result-text.ts';
 export function PensionMarginal({ sources }: { sources: PlanningSources }) {
   const p = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile ?? null : null;
   const [months, setMonths] = useState('12'), [base, setBase] = useState<'floor' | 'original' | 'custom'>('floor'), [custom, setCustom] = useState(''), [cash, setCash] = useState<string | null>(null);
-  const baseCents = base === 'floor' ? beijing.base_lower_cents : base === 'original' ? p?.base_cents ?? '' : custom;
+  const region = p ? paramsFor(p, sources.today) ?? beijing : beijing;
+  const baseCents = base === 'floor' ? region.base_lower_cents : base === 'original' ? p?.base_cents ?? '' : custom;
   const r = useMemo(() => marginalPension(sources, { months: Number(months), base_cents: baseCents ?? '', cash_cents: cash }), [sources, months, baseCents, cash]);
   return <><CoverageNote sources={sources} compact/><details className="career-marginal"><summary>多交社保换来多少养老金？（粗估，只做比较）</summary>
-    <p className="career-footnote">比较“从现在起不再交”和“再多交这么多个月”，只看退休后每月养老金的差。北京养老金的绝对金额还没校准，所以这里只比差，数值是量级参考，不是待遇核定，也不进入上面的答案。</p>
+    <p className="career-footnote">比较“从现在起不再交”和“再多交这么多个月”，只看退休后每月养老金的差。职工养老金的绝对金额尚未完整校准，所以这里只比差，数值是量级参考，不是待遇核定，也不进入上面的答案。</p>
     <FormRow label="再多交几个月"><input aria-label="再多交几个月" type="number" min="1" max="600" step="1" value={months} onChange={e => setMonths(e.target.value)}/></FormRow>
-    <FormRow label="按哪个基数交"><select aria-label="多交社保的基数" value={base} onChange={e => setBase(e.target.value as 'floor' | 'original' | 'custom')}><option value="floor">下限 {money(beijing.base_lower_cents)}</option>{p?.base_cents && <option value="original">原来的基数 {money(p.base_cents)}</option>}<option value="custom">自己填</option></select></FormRow>
+    <FormRow label="按哪个基数交"><select aria-label="多交社保的基数" value={base} onChange={e => setBase(e.target.value as 'floor' | 'original' | 'custom')}><option value="floor">下限 {money(region.base_lower_cents)}</option>{p?.base_cents && <option value="original">原来的基数 {money(p.base_cents)}</option>}<option value="custom">自己填</option></select></FormRow>
     {base === 'custom' && <FormRow label="自己填的缴费基数（元/月）"><CentInput label="自选缴费基数" value={custom} onChange={setCustom}/></FormRow>}
     <FormRow label="这段每月你自己掏的现金（元）" hint="按缴费单填，含医疗等；填了才能算多少年回本。"><CentInput label="多交社保每月现金" value={cash ?? ''} onChange={v => setCash(v || null)}/></FormRow>
     {r.status === 'blocked' ? <p className="career-message" role="status">{r.message}</p> : <div className="career-delta" role="status" aria-live="polite">

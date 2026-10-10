@@ -142,7 +142,7 @@ export function pensionOptions(sources: PlanningSources, draft: CareerDraft, sta
     if (c.blocked) return { label: c.label, cash_cents: c.cash_cents, judgement: { verdict: 'blocked', reason: null, shortfall_cents: null, issues: [c.blocked] }, stage_cash_cents: null, pension: null, assets_at_goal_cents: null };
     if (!validCareerAmount(c.cash_cents)) return { label: c.label, cash_cents: c.cash_cents, judgement: { verdict: 'blocked', reason: null, shortfall_cents: null, issues: ['请填每月现金社保；没有也要明确填 0。'] }, stage_cash_cents: null, pension: null, assets_at_goal_cents: null };
     const ev = evaluateCareerScenario(sources, withChoice(draft, stage, c)), ready = ev.prediction.status === 'ready' ? ev.prediction.value : null;
-    const p = ready && basic?.retirement_income.mode === 'beijing' ? ready.plan.pension_at(ready.plan.target_months) : null;
+    const p = ready && basic?.retirement_income.mode === 'employee' ? ready.plan.pension_at(ready.plan.target_months) : null;
     return {
       label: c.label, cash_cents: c.cash_cents, judgement: judge(ev),
       stage_cash_cents: months === null ? null : months * Number(c.cash_cents),

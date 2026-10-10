@@ -3,7 +3,7 @@
 // 规则与 plan_savings.rs 一致，并由 tests/plan.test.mjs 用同一组数值核对。
 import type { Line } from './expenses.ts';
 import type { Profile as PensionProfile, Funds } from './plan-pension.ts';
-import type { Overrides } from './plan-params.ts';
+import type { Overrides, Region } from './plan-params.ts';
 import type { Point } from './wealth.ts';
 import type { BasicInputs } from './plan-basic-contract.ts';
 export type * from './plan-basic-contract.ts';
@@ -187,11 +187,11 @@ export type RetireInputs = {
 };
 export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: null, volatility_hundredths: 500, spend_items: [], income_items: [], life_events: [], keep_paying_until_age: null, keep_paying_monthly_cents: '0', keep_paying_base_cents: '0', rent_cents: '0' };
 type NullablePensionKey = 'birth_month' | 'worker' | 'paid_months' | 'account_balance_cents' | 'base_cents' | 'flex_months' | 'personal_pension_annual_cents' | 'marginal_tax_hundredths';
-export type StoredProfile = Omit<PensionProfile, NullablePensionKey> & { [K in NullablePensionKey]: PensionProfile[K] | null } & { region: 'beijing' | null; overrides: Overrides; retire: RetireInputs };
-export type CompletePensionProfile = StoredProfile & PensionProfile & { region: 'beijing' };
+export type StoredProfile = Omit<PensionProfile, NullablePensionKey> & { [K in NullablePensionKey]: PensionProfile[K] | null } & { region: Region | null; overrides: Overrides; retire: RetireInputs };
+export type CompletePensionProfile = StoredProfile & PensionProfile & { region: Region };
 /** No defaults: only complete, validated pension inputs reach the estimator. */
 export function hasPensionProfile(p: StoredProfile): p is CompletePensionProfile {
-  return p.birth_month !== null && p.worker !== null && p.region === 'beijing' && p.paid_months !== null && p.account_balance_cents !== null && p.base_cents !== null && p.flex_months !== null && p.personal_pension_annual_cents !== null && p.marginal_tax_hundredths !== null;
+  return p.birth_month !== null && p.worker !== null && p.region !== null && p.paid_months !== null && p.account_balance_cents !== null && p.base_cents !== null && p.flex_months !== null && p.personal_pension_annual_cents !== null && p.marginal_tax_hundredths !== null;
 }
 export const planningMode = (p: StoredProfile) => p.retire.basic ? 'basic' as const : 'none' as const;
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string; reference_issues?: string[] } | null };

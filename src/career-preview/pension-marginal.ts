@@ -2,7 +2,7 @@
 // (index, benefit base, first payment month), but a difference between "stop now" and "keep paying L more months"
 // leaves most of those uncertainties in both terms. Rough, labelled as such; never feeds the main answers.
 import type { PlanningSources } from '../plan-basic-contract.ts';
-import { beijing, effectiveParams } from '../plan-params.ts';
+import { beijing, paramsFor } from '../plan-params.ts';
 import { ageMonthsAt, project } from '../plan-pension.ts';
 import { hasPensionProfile } from '../plan.ts';
 import { validCareerAmount } from '../plan-career-contract.ts';
@@ -17,7 +17,7 @@ export function marginalPension(sources: PlanningSources, o: { months: number; b
   if (!p) return { status: 'blocked', message: '尚无个人资料。' };
   if (!hasPensionProfile(p)) return { status: 'blocked', message: '需要完整的养老金资料（性别与职工类型、已缴月数、个人账户余额、缴费基数）才能粗估。' };
   if (!Number.isInteger(o.months) || o.months < 1 || o.months > 600) return { status: 'blocked', message: '多交的月数须是 1 到 600 的整数。' };
-  const region = effectiveParams(beijing, p.overrides);
+  const region = (paramsFor(p, sources.today) ?? beijing);
   if (!validCareerAmount(o.base_cents) || Number(o.base_cents) < Number(region.base_lower_cents) || Number(o.base_cents) > Number(region.base_upper_cents))
     return { status: 'blocked', message: '缴费基数须在北京缴费基数的上下限之内；不会自动改成上下限。' };
   const nowAge = ageMonthsAt(p.birth_month, sources.today);

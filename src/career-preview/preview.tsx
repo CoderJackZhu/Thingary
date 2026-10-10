@@ -90,7 +90,7 @@ function Preview() {
   const profile=sources.profile.status==='ready'?sources.profile.value.saved?.profile:null;
   return <><CoverageNote sources={financialSources ?? undefined} compact/><main className="career-preview">
     <header><p className="eyebrow">物谱 · 独立虚构预览</p><h1>职业变化，怎样影响原来的退休目标？</h1><p className="career-lead">只比较这次变化的条件。所有样例数字均为虚构，刷新或关闭后丢弃。</p></header>
-    <div className="career-toolbar"><label>样例状态 <select aria-label="样例状态" value={state} onChange={e=>reload(e.target.value as State)}><option value="ready">完整条件</option><option value="retirement">退休收入选择（无受限池）</option><option value="pension">北京养老金与公积金（暂不支持）</option><option value="unknown">恢复时间未知</option><option value="empty">尚无资料</option><option value="error">来源读取失败</option><option value="shortfall">月内付款不足</option></select></label>
+    <div className="career-toolbar"><label>样例状态 <select aria-label="样例状态" value={state} onChange={e=>reload(e.target.value as State)}><option value="ready">完整条件</option><option value="retirement">退休收入选择（无受限池）</option><option value="pension">职工养老金与公积金（暂不支持）</option><option value="unknown">恢复时间未知</option><option value="empty">尚无资料</option><option value="error">来源读取失败</option><option value="shortfall">月内付款不足</option></select></label>
       <label>外观 <select aria-label="外观" value={style} onChange={e=>setStyle(e.target.value)}><option value="bento">柔和卡片</option><option value="native">清新原生</option><option value="olive">暖米橄榄</option></select></label>
       <label><input type="checkbox" checked={dark} onChange={e=>setDark(e.target.checked)}/> 深色</label></div>
     <section className="career-source"><h2>沿用的条件</h2>{profile?<p>资金截至 2026-09-30 · {state==='shortfall'?'可动用资金 5,000 元':'可动用资金 60 万元'} · 现在每月攒 15,000 元 · 50 岁退休，检查到 90 岁 · 退休预算 {money(profile.retire.spend_cents!)} / 月 · 收益、通胀为 0 · {state==='pension'||state==='retirement'?'原计划选择北京自动估算；本次口径在下方选择':'原计划不计任何退休收入'}</p>:<p role="status">{state==='error'?'虚构来源读取失败；可重新载入样例。':'尚无通用目标与资金资料。'}</p>}
@@ -131,7 +131,7 @@ function Preview() {
         {sources.profile.status!=='ready' || !profile?.retire.basic
           ? <p role="status">{sources.profile.status==='error'?'通用资料读取失败，请重新载入资料。':'尚无通用目标与资金资料，请先补齐资料。'}</p>
           : policyBlocked||gate==='pool_blocked' ? <>
-            <div className="career-message" role="status"><h3>暂不能把北京养老金计入职业试算</h3><p>本预览尚未完成北京养老金与职业变化的联动，因此暂不提供自动联动的长期答案。可在上方主动选择本次手填收入或不计任何退休收入；已有受限池的资料仍不支持。</p><ul><li>历史实缴月数和平均指数不足以还原应缴起点、各年缴费与可扣除期。</li><li>退休当年的计发基数、退休时账户余额和最终指数还需明确。</li><li>职业路径尚未接入独立起领月份与受限池解锁的完整链路。</li></ul><p>填齐上面的社保现金或选择粗略估计也不能跳过这些条件。可在下方核对一组明确的金额假设，但它不会解锁职业主答案。</p></div>
+            <div className="career-message" role="status"><h3>暂不能把职工养老金计入职业试算</h3><p>本预览尚未完成职工养老金与职业变化的联动，因此暂不提供自动联动的长期答案。可在上方主动选择本次手填收入或不计任何退休收入；已有受限池的资料仍不支持。</p><ul><li>历史实缴月数和平均指数不足以还原应缴起点、各年缴费与可扣除期。</li><li>退休当年的计发基数、退休时账户余额和最终指数还需明确。</li><li>职业路径尚未接入独立起领月份与受限池解锁的完整链路。</li></ul><p>填齐上面的社保现金或选择粗略估计也不能跳过这些条件。可在下方核对一组明确的金额假设，但它不会解锁职业主答案。</p></div>
             <PensionCheck key={state} sources={sources}/>
           </> : !blocked&&financialSources&&<>
             {q==='rest'&&restAnswer&&<RestResult sources={financialSources} draft={shown} answer={restAnswer}/>}

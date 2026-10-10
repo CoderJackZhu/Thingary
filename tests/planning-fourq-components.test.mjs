@@ -116,14 +116,14 @@ test('close, Esc cancellation and skip discard edits without sending any setup t
 });
 
 test('editing prefills every question/extra screen and always offers save-and-return', () => {
-  const p = savedPlan(); p.profile.retire.basic.retirement_income.mode = 'beijing';
+  const p = savedPlan(); p.profile.retire.basic.retirement_income.mode = 'employee';
   for (let step = 0; step < 6; step++) {
     const r = runtime('PlanningSetup', { sources: sourcesOf(p), editMode: true, initialStep: step });
     assert.ok(r.button('保存，查看结果'), `screen ${step}`);
     if (step === 0) { assert.equal(r.find('MonthInput').props.value, '1990-06'); assert.equal(r.find('input', p => p['aria-label'] === '想在几岁退休？').props.value, '60'); }
     if (step === 1) assert.equal(r.find('CentInput').props.value, '400000');
     if (step === 2) assert.equal(r.find('CentInput').props.value, '10000000');
-    if (step === 3) { assert.match(r.text(r.find('section')), /已选北京养老金估算/); assert.ok(r.button('核对国家养老金')); }
+    if (step === 3) { assert.match(r.text(r.find('section')), /已选职工养老金估算/); assert.ok(r.button('核对国家养老金')); }
     if (step === 4) assert.equal(r.find('CentInput').props.value, '');
     if (step === 5) assert.equal(r.find('input', p => p['aria-label'] === '规划到几岁').props.value, '90');
   }

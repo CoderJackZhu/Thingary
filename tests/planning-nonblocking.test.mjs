@@ -167,7 +167,7 @@ test('explicit pension cash deposits charged once with no receipt/unlock when po
 });
 
 test('chosen Beijing missing facts hard-blocks; explicit excluded switch permits annotated calculation', () => {
-  const s=fixture();profile(s).retire.basic.retirement_income.mode='beijing';profile(s).worker=null;
+  const s=fixture();profile(s).retire.basic.retirement_income.mode='employee';profile(s).worker=null;
   const c=buildBasicCapabilities(s);assert.equal(c.requirement.status,'blocked');
   assert.ok(c.requirement.missing.some(m=>m.code==='PENSION_FACTS_UNKNOWN' && m.message.includes('也可以改选“先不算”先看结果')));
   assert.ok(c.requirement.missing.some(m=>m.code==='POOL_UNCONFIRMED'));

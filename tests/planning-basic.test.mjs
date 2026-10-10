@@ -133,7 +133,7 @@ test('B07 legacy stages/routes/worker do not alter basic requirements; no 35-yea
 function beijingSources(n) {
   const s = fictionalSources(n), p = profile(s), r = p.retire;
   Object.assign(p, { worker: 'male', region: 'beijing', paid_months: 200, account_balance_cents: '5000000', base_cents: '1500000', flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000 });
-  r.core.hpf_monthly_cents = '0'; r.basic.retirement_income.mode = 'beijing'; r.basic.pension_contributions = { start_month: '2027-01', stop_month: '2050-06', base_cents: '1500000' };
+  r.core.hpf_monthly_cents = '0'; r.basic.retirement_income.mode = 'employee'; r.basic.pension_contributions = { start_month: '2027-01', stop_month: '2050-06', base_cents: '1500000' };
   return s;
 }
 
@@ -145,9 +145,9 @@ test('B04/B06a/D20/D35 Beijing contributions independent of signed saving, other
   const c = prediction(s), idx = c.plan.pension_at(c.plan.now_months).unlock_age_months - c.plan.now_months;
   assert.equal(table(c.plan).income[idx], 50000);
   assert.ok(c.plan.pension_at(c.plan.now_months).monthly_cents > 0);
-  r.basic.retirement_income.selected.push({ id: 'state', source_id: 'beijing_state_pension', role: 'state_pension' });
+  r.basic.retirement_income.selected.push({ id: 'state', source_id: 'state_pension_estimate', role: 'state_pension' });
   assert.equal(buildBasicCapabilities(s).requirement.status, 'blocked');
-  r.basic.retirement_income = { mode: 'manual', selected: [{ id: 'state', source_id: 'beijing_state_pension', role: 'state_pension' }, { id: 'other', source_id: 'annuity', role: 'other' }] };
+  r.basic.retirement_income = { mode: 'manual', selected: [{ id: 'state', source_id: 'state_pension_estimate', role: 'state_pension' }, { id: 'other', source_id: 'annuity', role: 'other' }] };
   assert.equal(table(prediction(s).plan).income[idx], 250000);
   r.basic.retirement_income = { mode: 'excluded', selected: [] };
   assert.equal(table(prediction(s).plan).income[idx], 0); assert.equal(r.income_items.length, 2);

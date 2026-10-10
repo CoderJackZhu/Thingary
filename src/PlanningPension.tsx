@@ -8,7 +8,7 @@ import type { PensionForm } from './planning-basic-forms';
 import { useSectionSaver } from './planning-basic-data';
 import { hasPensionProfile, STALE_MONTHS, ageText, quitAges, rateText, staleMonths } from './plan';
 import type { PlanningSources, ProfileState, StoredProfile, CompletePensionProfile } from './plan';
-import { beijing, effectiveParams, isOverridden, paramSources, verifiedText } from './plan-params';
+import { paramsFor, isOverridden, paramSources, verifiedText } from './plan-params';
 import type { ParamKey, Overrides } from './plan-params';
 import { ageMonthsAt, byQuitAge, project, startAgeMonths } from './plan-pension';
 import type { Projection } from './plan-pension';
@@ -36,7 +36,8 @@ export function PlanningPension({ focus = false, onFocusDone, today, sources, re
     if (!saved) return null;
     const p = saved.profile;
     if (!hasPensionProfile(p)) return null;
-    const region = effectiveParams(beijing, p.overrides);
+    const region = paramsFor(p, today);
+    if (!region) return null;
     const core = p.retire.core, normalized = normalizeFunds(snapshot, core), anchor = snapshot?.date ?? today;
     const basisFactor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(core?.monetary_basis_date ?? anchor)) / (86400000 * 365.25));
     const restricted = (id: string) => core?.fund_rules.some(f => f.account_id === id && f.availability === 'restricted' && f.share_hundredths === 10000);
@@ -63,17 +64,17 @@ export function PlanningPension({ focus = false, onFocusDone, today, sources, re
   </>;
 }
 
-const factLabels: [keyof StoredProfile, string][] = [['birth_month', '出生年月'], ['worker', '职工类型'], ['paid_months', '累计缴费月数'], ['account_balance_cents', '个人账户余额'], ['base_cents', '当前缴费基数'], ['flex_months', '弹性领取月数'], ['personal_pension_annual_cents', '个人养老金年缴'], ['marginal_tax_hundredths', '个税边际税率']];
-const missingFacts = (p: StoredProfile) => factLabels.filter(([k]) => p[k] === null).map(([, l]) => l);
+const factLabels: [keyof StoredProfile, string][] = [['region', '参保地'], ['birth_month', '出生年月'], ['worker', '职工类型'], ['paid_months', '累计缴费月数'], ['account_balance_cents', '个人账户余额'], ['base_cents', '当前缴费基数'], ['flex_months', '弹性领取月数'], ['personal_pension_annual_cents', '个人养老金年缴'], ['marginal_tax_hundredths', '个税边际税率']];
+const missingFacts = (p: StoredProfile) => factLabels.filter(([k]) => p[k] === null).map(([, l]) => l).concat(p.region === 'custom' && !p.overrides.avg_wage_cents ? ['当地养老金计发基数'] : []);
 
-type Calc = { p: CompletePensionProfile; region: ReturnType<typeof effectiveParams>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
+type Calc = { p: CompletePensionProfile; region: NonNullable<ReturnType<typeof paramsFor>>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
 
 function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; quit: number | 'start'; onQuit: (v: number | 'start') => void; onEdit: () => void; updatedAt: string; today: string }) {
   const r = calc.main;
   const stale = staleMonths(updatedAt, today);
   return <article className="ui-card ui-content plan-steps" aria-label="养老金估算">
     <div className="ui-section-head"><h3>养老金估算</h3><span><button type="button" id="plan-profile-edit" className="ui-btn" onClick={onEdit}>编辑个人资料</button></span></div>
-    {stale >= STALE_MONTHS && <p className="notice" role="status">个人资料更新于 {updatedAt.slice(0, 10)}，已经 {stale} 个月没更新。累计缴费月数和个人账户余额会随缴费变化，请对一次京通再改。</p>}
+    {stale >= STALE_MONTHS && <p className="notice" role="status">个人资料更新于 {updatedAt.slice(0, 10)}，已经 {stale} 个月没更新。累计缴费月数和个人账户余额会随缴费变化，请核对当地社保查询记录再改。</p>}
     <section aria-labelledby="pension-start"><h4 id="pension-start">领取年龄</h4>
       <p><strong>{ageText(r.start_age_months)}</strong>（{r.start_month}）{calc.p.flex_months !== 0 && <span className="muted">，含弹性{calc.p.flex_months > 0 ? '延后' : '提前'} {Math.abs(calc.p.flex_months)} 个月</span>}</p>
       <label className="plan-quit">假设在这个年龄停止缴费：<select aria-label="停止缴费的年龄" value={quit === 'start' ? 'start' : String(quit)} onChange={e => onQuit(e.target.value === 'start' ? 'start' : Number(e.target.value))}>
@@ -89,7 +90,8 @@ function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; 
         <div><dt>替代率</dt><dd>{rateText(r.replacement_hundredths)}</dd><small className="muted">养老金 ÷ 停缴时月缴费基数</small></div>
       </dl>
       <p className="muted small">「今天的钱」按通胀假设折现；个人账户余额领取时约 {yuan(r.account_at_start_cents)}，计发月数 {r.disbursement_months.toFixed(1)}（非整岁按月插值，官方修订表出台前是近似）。这些都是估算，不是承诺。</p>
-      <p className="muted small">北京断缴指数、待遇计发基数与起领月份尚未完整校准，此页仅作简化试算，不能作为待遇核定结果。</p>
+      <p className="muted small">按全国统一公式简化估算，未计过渡性养老金（视同缴费）等特殊情形，不能作为待遇核定结果。</p>
+      {calc.p.region === 'beijing' && <p className="muted small">北京断缴指数、待遇计发基数与起领月份尚未完整校准。</p>}
     </section>
     <section aria-labelledby="pension-pots"><h4 id="pension-pots">到领取年龄的锁定资金</h4>
       <dl className="plan-facts">
@@ -112,7 +114,11 @@ function Table({ calc }: { calc: Calc }) {
         <td>{r.eligible ? '满足' : <span className="ui-tag warn">不足 {Math.ceil(r.required_months / 12)} 年</span>}</td></tr>)}</tbody></table></article>;
 }
 
-function Params({ overrides, region }: { overrides: Overrides; region: ReturnType<typeof effectiveParams> }) {
+function Params({ overrides, region }: { overrides: Overrides; region: NonNullable<ReturnType<typeof paramsFor>> }) {
+  if (region.region === 'custom') return <article className="ui-card ui-content"><div className="ui-section-head"><h3>参数表（自填地区）</h3><span>你填写的参数</span></div>
+    <table className="ui-table plan-params"><thead><tr><th>参数</th><th className="amount">取值</th><th>依据与核对状态</th></tr></thead><tbody>
+      {([['avg_wage_cents', `养老金计发基数（${region.avg_wage_year} 年度，假设）`], ['base_lower_cents', '月缴费基数下限'], ['base_upper_cents', '月缴费基数上限'], ['notional_rate_hundredths', '个人账户未来记账利率'], ['hpf_rate_hundredths', '公积金账户存款利率']] as [ParamKey, string][]).map(([key, label]) => <tr key={key}><td>{label}</td><td className="amount">{key.endsWith('rate_hundredths') ? rateText(region[key] as number) : money(region[key] as string)}</td><td><span className="ui-tag">用户自定值</span><small className="muted plan-source">{isOverridden(key, overrides) ? '你填写的参数，未作官方核验。' : key === 'base_lower_cents' ? '按计发基数 60% 假设。' : key === 'base_upper_cents' ? '按计发基数 300% 假设。' : '全国统一利率沿用内置值；未来利率为测算假设。'}</small></td></tr>)}
+    </tbody></table><p className="muted small">计发基数按上一年度作为假设；默认上下限和未来利率均可在个人资料里覆盖。</p></article>;
   const shown = (key: ParamKey) => key.endsWith('rate_hundredths') ? rateText(region[key] as number) : money(region[key] as string);
   return <article className="ui-card ui-content"><div className="ui-section-head"><h3>参数表（{region.name}）</h3><span>每年更新；可在个人资料里改</span></div>
     <table className="ui-table plan-params"><thead><tr><th>参数</th><th className="amount">取值</th><th>依据与核对状态</th></tr></thead>

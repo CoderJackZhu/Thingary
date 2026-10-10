@@ -6,7 +6,7 @@ export function completionFixture(raw: PlanningSources, scenario = 'funds'): Pla
   if (s.profile.status !== 'ready' || !s.profile.value.saved) return s;
   const p = s.profile.value.saved.profile, r = p.retire, b = r.basic!, c = r.core!;
   if (['funds', 'pension'].includes(scenario)) {
-    b.retirement_income.mode = 'beijing';
+    b.retirement_income.mode = 'employee';
     b.pension_contributions = { start_month: '2026-10', stop_month: '2050-06', base_cents: '2000000' }; c.hpf_monthly_cents = '0';
   }
   if (scenario === 'funds') { p.personal_pension_annual_cents = '1200000'; c.personal_pension_balance_confirmed = false; b.contribution_costs = [{ source_id: 'personal_pension', treatment: 'extra', reference_cents: null }]; b.retirement_costs = [{ source_id: 'personal_pension', treatment: 'extra', reference_cents: null }]; }

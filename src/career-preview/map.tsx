@@ -3,7 +3,7 @@ import { CoverageNote } from '../CoverageNote';
 import { useMemo, useState } from 'react';
 import { CentInput, FormRow } from '../FormControls.tsx';
 import { MonthInput } from '../DateInput.tsx';
-import { beijing, effectiveParams } from '../plan-params.ts';
+import { beijing, paramsFor } from '../plan-params.ts';
 import { blankInsuranceSelection, selectedPension } from './insurance.ts';
 import type { InsuranceSelection } from './insurance.ts';
 import { ageMonthsAt, careerSpan, closeMonths, delayTarget, pensionOptions, windowMap } from '../plan-career-map.ts';
@@ -78,7 +78,7 @@ type Selection = InsuranceSelection;
 function InsuranceComparison({ sources, draft, stage }: { sources: PlanningSources; draft: CareerDraft; stage: Stage }) {
   const [kind, setKind] = useState('pause'), [cash, setCash] = useState<string | null>(null);
   const p = profileOf(sources), original = p?.retire.basic?.pension_contributions.base_cents;
-  const params = p ? effectiveParams(beijing, p.overrides) : beijing;
+  const params = p ? (paramsFor(p, sources.today) ?? beijing) : beijing;
   const active = draft[stage];
   const choices: PensionChoice[] = [
     { label: '当前填写', pension: active.pension ?? 'pause', cash_cents: active.insurance.monthly_cents, included: active.insurance.included, blocked: active.pension === null ? '请先填完整上面的缴费安排。' : undefined },
@@ -99,7 +99,7 @@ export function InsuranceSection({ sources, draft, patch }: Props) {
   const [selection, setSelection] = useState<Record<Stage, Selection>>({ gap: blankInsuranceSelection(), recovery: blankInsuranceSelection() });
   const [entry, setEntry] = useState<Record<Stage, { cash: string; inc: '' | 'included' | 'extra' }>>({ gap: { cash: '', inc: '' }, recovery: { cash: '', inc: '' } });
   const form = selection[stage], active = draft[stage], p = profileOf(sources);
-  const params = p ? effectiveParams(beijing, p.overrides) : beijing;
+  const params = p ? (paramsFor(p, sources.today) ?? beijing) : beijing;
   const floor = params.base_lower_cents, original = p?.retire.basic?.pension_contributions.base_cents ?? null;
   const originalHpf = p?.retire.core?.hpf_monthly_cents ?? null;
   const customValid = /^\d+$/.test(form.custom) && Number(form.custom) >= Number(floor) && Number(form.custom) <= Number(params.base_upper_cents);

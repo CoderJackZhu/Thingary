@@ -31,7 +31,7 @@ test('C2 without enough history the spend is left empty, never guessed or zero; 
 
 test('C3 defaults never change the source and give an answer path that is not blocked by the plan\'s own pension mode', () => {
   const s = withReview(stats), frozen = structuredClone(s);
-  s.profile.value.saved.profile.retire.basic.retirement_income = { mode: 'beijing', selected: [] };
+  s.profile.value.saved.profile.retire.basic.retirement_income = { mode: 'employee', selected: [] };
   const before = structuredClone(s);
   const x = realGuidedDefaults(s, '2026-10-09');
   const scope = prepareIncomeScope(s, x.draft, x.income);

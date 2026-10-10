@@ -9,8 +9,14 @@ export function pensionFixture(raw: PlanningSources, scenario = 'normal'): Plann
   // Keep the same inventory batch; loans are already declared within monthly spending.
   r.core!.debt_repayments = s.snapshot.value.entries.filter(e => e.counted && e.side === 'liability').map(e => ({ account_id: e.account_id, recorded_on: s.today, as_of: s.snapshot.status === 'ready' ? s.snapshot.value!.date : s.today, balance_cents: e.amount_cents!, before: 'included', after: 'included', start_month: s.today.slice(0, 7), last_month: null, monthly_cents: null }));
   r.core!.personal_pension_balance_confirmed = true;
-  if (scenario === 'unknown' || scenario === 'blocked') { r.basic!.retirement_income.mode = 'beijing'; p.worker = null; p.paid_months = null; }
-  if (scenario.startsWith('transfer')) { r.basic!.retirement_income.mode = scenario === 'transfer-manual' ? 'manual' : scenario === 'transfer-excluded' ? 'excluded' : 'beijing'; p.personal_pension_annual_cents = '1200000'; r.basic!.pension_contributions.start_month = '2026-10'; r.basic!.contribution_costs = [{ source_id: 'personal_pension', treatment: 'extra', reference_cents: null }]; r.basic!.retirement_costs = [{ source_id: 'personal_pension', treatment: 'extra', reference_cents: null }]; }
+  if (scenario === 'unknown' || scenario === 'blocked') { r.basic!.retirement_income.mode = 'employee'; p.worker = null; p.paid_months = null; }
+  if (scenario.startsWith('transfer')) { r.basic!.retirement_income.mode = scenario === 'transfer-manual' ? 'manual' : scenario === 'transfer-excluded' ? 'excluded' : 'employee'; p.personal_pension_annual_cents = '1200000'; r.basic!.pension_contributions.start_month = '2026-10'; r.basic!.contribution_costs = [{ source_id: 'personal_pension', treatment: 'extra', reference_cents: null }]; r.basic!.retirement_costs = [{ source_id: 'personal_pension', treatment: 'extra', reference_cents: null }]; }
+  if (scenario === 'custom' || scenario === 'custom-missing') {
+    p.region = 'custom'; p.overrides.avg_wage_cents = scenario === 'custom' ? '1000001' : null;
+    p.personal_pension_annual_cents = '0'; r.core!.hpf_monthly_cents = '0';
+    r.basic!.retirement_income.mode = 'employee';
+    r.basic!.pension_contributions = { start_month: s.today.slice(0, 7), stop_month: '2050-06', base_cents: '2000000' };
+  }
   if (scenario === 'empty') s.profile.value.saved = null;
   return s;
 }

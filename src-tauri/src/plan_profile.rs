@@ -403,6 +403,26 @@ impl Retire {
 impl Profile {
     pub(crate) fn into_general(mut self) -> Self {
         let r = &mut self.retire;
+        // Read-only compatibility. Request fingerprints retain their original bytes.
+        if let Some(b) = &mut r.basic {
+            if b.retirement_income.mode.as_deref() == Some("beijing") {
+                b.retirement_income.mode = Some("employee".into());
+            }
+            for s in &mut b.retirement_income.selected {
+                if s.source_id == "beijing_state_pension" {
+                    s.source_id = "state_pension_estimate".into();
+                }
+            }
+            for s in b
+                .contribution_costs
+                .iter_mut()
+                .chain(&mut b.retirement_costs)
+            {
+                if s.source_id == "beijing_state_pension" {
+                    s.source_id = "state_pension_estimate".into();
+                }
+            }
+        }
         if r.basic.is_none() {
             let old = std::mem::take(r);
             let mut events = old.life_events;
@@ -486,8 +506,12 @@ impl Profile {
         {
             return Err(bad("PROFILE_WORKER", "请选择性别与职工类型"));
         }
-        if self.region.as_ref().is_some_and(|v| v != "beijing") {
-            return Err(bad("PROFILE_REGION", "目前只支持北京的参数表"));
+        if self
+            .region
+            .as_ref()
+            .is_some_and(|v| !["beijing", "custom"].contains(&v.as_str()))
+        {
+            return Err(bad("PROFILE_REGION", "参保地无效"));
         }
         if self.paid_months.is_some_and(|v| v > 1200) {
             return Err(bad("PROFILE_MONTHS", "累计缴费月数不能超过 1200"));

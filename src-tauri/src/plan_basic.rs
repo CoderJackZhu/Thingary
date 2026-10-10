@@ -149,7 +149,7 @@ impl Basic {
         if ri
             .mode
             .as_ref()
-            .is_some_and(|m| !["excluded", "manual", "beijing"].contains(&m.as_str()))
+            .is_some_and(|m| !["excluded", "manual", "employee"].contains(&m.as_str()))
         {
             return Err(bad("退休收入模式无效"));
         }
@@ -164,10 +164,10 @@ impl Basic {
             {
                 return Err(bad("退休收入的来源/角色须唯一且有定义"));
             }
-            if ri.mode.as_deref() == Some("beijing")
-                && (i.role == "state_pension" || i.source_id == "beijing_state_pension")
+            if ri.mode.as_deref() == Some("employee")
+                && (i.role == "state_pension" || i.source_id == "state_pension_estimate")
             {
-                return Err(bad("北京估算不能重复计同一国家养老金"));
+                return Err(bad("职工养老金估算不能重复计同一国家养老金"));
             }
         }
         if (ri.mode.is_none() || ri.mode.as_deref() == Some("excluded")) && !ri.selected.is_empty()
@@ -457,6 +457,10 @@ impl Update {
                 }
             }
             Section::Basic(f) => {
+                // Only stored data is adapted. Fresh requests use the current mode.
+                if f.basic.retirement_income.mode.as_deref() == Some("beijing") {
+                    return Err(bad("退休收入模式无效"));
+                }
                 if let Some(o) = old {
                     if o.retire
                         .basic

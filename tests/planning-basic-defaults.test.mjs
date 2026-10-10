@@ -60,7 +60,7 @@ test('defaults preselect from existing facts only for a plan never set up; nothi
   assert.equal(input.fields.basic.retirement_income.mode, 'excluded');
   const complete = { revision: 1, updated_at: 'x', profile: { birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 120, account_balance_cents: '1', base_cents: '1000000', past_index_hundredths: 100, flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 300, assumptions: { inflation_hundredths: 200, wage_growth_hundredths: 200, pp_return_hundredths: 200 }, overrides: {}, retire: { ...defaultRetire } } };
   const withPension = withDefaults(draftOf(complete, null, today), complete);
-  assert.equal(withPension.incomeMode, 'beijing'); assert.equal(withPension.pcPlan, 'until');
+  assert.equal(withPension.incomeMode, 'employee'); assert.equal(withPension.pcPlan, 'until');
   // An existing basic plan is never re-defaulted.
   const saved = { ...complete, profile: { ...complete.profile, retire: { ...defaultRetire, basic: basicInput(none, null, today).fields.basic } } };
   assert.equal(withDefaults(draftOf(saved, null, today), saved).incomeMode, 'excluded');
@@ -85,8 +85,8 @@ test('with the defaults, a Beijing plan needs only age, budget, funds, social-in
   const sources = { generation: 'g', write_version: 1, today, modules: { planning: true, wealth: false }, profile: ready({ generation: 'g', saved: { revision: 1, updated_at: today, profile } }), snapshot: unavailable, accounts: unavailable, review: unavailable, incomes: unavailable };
   const saved = sources.profile.value.saved;
   const d = withDefaults(draftOf(saved, null, today), saved);
-  Object.assign(d, { birth: '1990-06-01', target: '55', budget: '600000', start: 'simulation', simAmount: '50000000', simDate: '2026-09-30', hpf: '200000', incomeMode: 'beijing', pcPlan: 'until' });
-  Object.assign(d.pension, { birth: '1990-06-01', worker: 'male', paid: '120', balance: '10000000', base: '1000000', flex: '0', pp: '0', tax: '1000' });
+  Object.assign(d, { birth: '1990-06-01', target: '55', budget: '600000', start: 'simulation', simAmount: '50000000', simDate: '2026-09-30', hpf: '200000', incomeMode: 'employee', pcPlan: 'until' });
+  Object.assign(d.pension, { region: 'beijing', birth: '1990-06-01', worker: 'male', paid: '120', balance: '10000000', base: '1000000', flex: '0', pp: '0', tax: '1000' });
   const drafts = [basicInput(d, saved, today), fundsInput(d, saved, today), pensionInput({ ...d.pension, birth: d.birth })];
   const caps = buildBasicCapabilities(overlayPlanningDrafts(sources, drafts));
   assert.deepEqual(caps.requirement.status === 'blocked' ? caps.requirement.missing.map(m => m.code) : [], []);

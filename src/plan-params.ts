@@ -3,7 +3,7 @@
 // 核对状态：official 官方原文；derived 据官方值推算；assumption 测算假设；reported 转述；unchecked 尚未核对。
 
 export type Verified = 'official' | 'reported' | 'unchecked' | 'derived' | 'assumption';
-export type Region = 'beijing';
+export type Region = 'beijing' | 'custom';
 
 /** 利率与增长率一律用「万分比」整数：200 = 2.00%，与盘点比较的 rate_hundredths 同一约定。 */
 export type RegionParams = {
@@ -74,3 +74,18 @@ export const effectiveParams = (base: RegionParams, o: Overrides): RegionParams 
   hpf_rate_hundredths: o.hpf_rate_hundredths ?? base.hpf_rate_hundredths,
 });
 export const isOverridden = (key: ParamKey, o: Overrides) => o[key] !== null;
+
+/** 记账利率、公积金利率为全国统一值，自填地区沿用内置长期假设。
+ * 60%/300% 上下限与计发基数所属上一年度均为假设，允许用户覆盖上下限。 */
+export function paramsFor(profile: { region: Region | null; overrides: Overrides }, today: string): RegionParams | null {
+  const o = profile.overrides;
+  if (profile.region === 'beijing') return effectiveParams(beijing, o);
+  if (profile.region !== 'custom' || !o.avg_wage_cents) return null;
+  const w = BigInt(o.avg_wage_cents);
+  return { region: 'custom', name: '自填地区', avg_wage_cents: o.avg_wage_cents,
+    avg_wage_year: Number(today.slice(0, 4)) - 1, base_effective: '',
+    base_lower_cents: o.base_lower_cents ?? String((w * 60n + 50n) / 100n),
+    base_upper_cents: o.base_upper_cents ?? String(w * 3n),
+    notional_rate_hundredths: o.notional_rate_hundredths ?? beijing.notional_rate_hundredths,
+    hpf_rate_hundredths: o.hpf_rate_hundredths ?? beijing.hpf_rate_hundredths };
+}

@@ -793,7 +793,7 @@ fn pension_refinement_setup_keeps_unknowns_atomic_replays_and_restarts() {
     let mut s = Store::open(d.path()).unwrap();
     let mut json = serde_json::to_value(input(&s)).unwrap();
     let mut basic = json["fields"].take();
-    basic["basic"]["retirement_income"] = serde_json::json!({"mode":"beijing","selected":[]});
+    basic["basic"]["retirement_income"] = serde_json::json!({"mode":"employee","selected":[]});
     basic["basic"]["pension_contributions"] =
         serde_json::json!({"start_month":null,"stop_month":null,"base_cents":null});
     json["section"] = "setup".into();
@@ -886,4 +886,151 @@ fn pension_refinement_setup_keeps_unknowns_atomic_replays_and_restarts() {
         serde_json::to_value(s.plan_profile().unwrap().saved.unwrap()).unwrap(),
         serde_json::to_value(b).unwrap()
     );
+}
+
+#[test]
+fn old_beijing_mode_and_source_ids_adapt_on_read_backup_and_receipt_only() {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("old");
+    let mut s = Store::open(&root).unwrap();
+    let saved = s.plan_profile_update(&input(&s), "2026-10-10").unwrap();
+    let mut value = serde_json::to_value(&saved.profile).unwrap();
+    // Old persisted JSON may use this source ID for a manual selection and scopes.
+    value["retire"]["income_items"] = serde_json::json!([{"id":"fictional-state","label":"国家养老金","monthly_cents":"100000","start_age":60,"end_age":null,"indexed":true}]);
+    value["retire"]["basic"]["retirement_income"] = serde_json::json!({"mode":"manual","selected":[{"id":"fictional-state","source_id":"beijing_state_pension","role":"state_pension"}]});
+    value["retire"]["basic"]["contribution_costs"] = serde_json::json!([{"source_id":"beijing_state_pension","treatment":"excluded","reference_cents":null}]);
+    value["retire"]["basic"]["retirement_costs"] =
+        value["retire"]["basic"]["contribution_costs"].clone();
+    s.conn_for_test()
+        .unwrap()
+        .execute("UPDATE plan_profile SET payload=?1", [value.to_string()])
+        .unwrap();
+    let read = s.plan_profile().unwrap().saved.unwrap();
+    let b = read.profile.retire.basic.unwrap();
+    assert_eq!(
+        b.retirement_income.selected[0].source_id,
+        "state_pension_estimate"
+    );
+    assert_eq!(b.contribution_costs[0].source_id, "state_pension_estimate");
+    assert_eq!(b.retirement_costs[0].source_id, "state_pension_estimate");
+    value["retire"]["basic"]["retirement_income"] =
+        serde_json::json!({"mode":"beijing","selected":[]});
+    s.conn_for_test()
+        .unwrap()
+        .execute("UPDATE plan_profile SET payload=?1", [value.to_string()])
+        .unwrap();
+    drop(s);
+    let mut s = Store::open(&root).unwrap();
+    assert_eq!(
+        s.plan_profile()
+            .unwrap()
+            .saved
+            .unwrap()
+            .profile
+            .retire
+            .basic
+            .unwrap()
+            .retirement_income
+            .mode
+            .as_deref(),
+        Some("employee")
+    );
+    let file = d.path().join("old.thingary");
+    s.backup(Some(&file)).unwrap();
+    let mut restored = Store::open(&d.path().join("restored")).unwrap();
+    let info = restored.inspect_backup(&file).unwrap();
+    restored
+        .restore(&file, &info.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(
+        restored
+            .plan_profile()
+            .unwrap()
+            .saved
+            .unwrap()
+            .profile
+            .retire
+            .basic
+            .unwrap()
+            .retirement_income
+            .mode
+            .as_deref(),
+        Some("employee")
+    );
+    let mut old = input(&s);
+    old.request_id = uuid::Uuid::new_v4().to_string();
+    old.expected_revision = Some(1);
+    if let Section::Basic(f) = &mut old.section {
+        f.basic.retirement_income.mode = Some("beijing".into());
+    }
+    let bytes = serde_json::to_vec(&("plan_profile_update", &old)).unwrap();
+    let fingerprint = Store::digest_for_test(&bytes);
+    s.conn_for_test()
+        .unwrap()
+        .execute(
+            "INSERT INTO feature_requests VALUES(?1,?2,'profile')",
+            rusqlite::params![old.request_id, fingerprint],
+        )
+        .unwrap();
+    let payload = || {
+        s.conn_for_test()
+            .unwrap()
+            .query_row("SELECT payload FROM plan_profile", [], |r| {
+                r.get::<_, String>(0)
+            })
+            .unwrap()
+    };
+    let before = payload();
+    let replay = s.plan_profile_update(&old, "2026-10-10").unwrap();
+    assert_eq!(replay.revision, 1);
+    assert_eq!(
+        replay
+            .profile
+            .retire
+            .basic
+            .unwrap()
+            .retirement_income
+            .mode
+            .as_deref(),
+        Some("employee")
+    );
+    let after: String = s
+        .conn_for_test()
+        .unwrap()
+        .query_row("SELECT payload FROM plan_profile", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(before, after, "old receipt lookup cannot rewrite old JSON");
+    // A different ID is a new request, not read compatibility.
+    old.request_id = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        s.plan_profile_update(&old, "2026-10-10").unwrap_err().code,
+        "PLANNING_BASIC"
+    );
+    let basic = if let Section::Basic(f) = old.section.clone() {
+        f
+    } else {
+        unreachable!()
+    };
+    old.section = Section::Setup(Box::new(thingary_lib::plan_basic::SetupFields {
+        basic,
+        budget: None,
+        funds: None,
+        pension: None,
+    }));
+    assert_eq!(
+        s.plan_profile_update(&old, "2026-10-10").unwrap_err().code,
+        "PLANNING_BASIC"
+    );
+    if let Section::Setup(f) = &mut old.section {
+        f.basic.basic.retirement_income.mode = Some("employee".into());
+    }
+    let next = s.plan_profile_update(&old, "2026-10-10").unwrap();
+    assert_eq!(next.revision, 2);
+    let current: String = s
+        .conn_for_test()
+        .unwrap()
+        .query_row("SELECT payload FROM plan_profile", [], |r| r.get(0))
+        .unwrap();
+    assert!(!current.contains("beijing_state_pension"));
+    assert!(!current.contains("\"mode\":\"beijing\""));
 }

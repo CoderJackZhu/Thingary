@@ -5,7 +5,7 @@ import type { BasicPlanCompiler } from './plan-basic.ts';
 import type { PlanningSources, CostScope } from './plan-basic-contract.ts';
 import type { ContributionPeriod } from './plan-pension-path.ts';
 import { pensionPeriodIssue } from './plan-pension-path.ts';
-import { beijing, effectiveParams } from './plan-params.ts';
+import { beijing, paramsFor } from './plan-params.ts';
 import { monthIndex } from './plan-events.ts';
 import { project, outcome } from './plan-ledger.ts';
 import type { Plan, Flow, MonthAudit } from './plan-ledger.ts';
@@ -76,7 +76,7 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
   if (errors.length) return fail(errors);
   const recoveryErrors = recovery !== null && recovery < target ? stageIssues(draft.recovery, 'recovery') : [];
   const recoveryPeriods = recovery !== null && recovery < target && !recoveryErrors.length ? override(draft.recovery, ym(birth + recovery), ym(birth + target)) : [];
-  const recoveryPeriodIssue = pensionPeriodIssue(recoveryPeriods, effectiveParams(beijing, p.overrides));
+  const recoveryPeriodIssue = pensionPeriodIssue(recoveryPeriods, (paramsFor(p, sources.today) ?? beijing));
   if (recoveryPeriodIssue) recoveryErrors.push(issue('recovery.pension', recoveryPeriodIssue));
   const periods = [ ...(hasGap ? override(draft.gap, draft.transition_month, ym(birth + gapEnd)) : []),
     ...(!recoveryErrors.length ? recoveryPeriods : []) ];
