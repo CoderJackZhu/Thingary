@@ -41,7 +41,7 @@ export const retirementSources = (r: RetireInputs, annualPension: string | null 
 ];
 const occurred = (r: RetireInputs, id: string) => !!r.core?.occurrences.some(o => o.event_id === id && o.status === 'occurred');
 export const contributionSources = (r: RetireInputs, annualPension: string | null): CostSource[] =>
-  [...new Map([...costSources(r.life_events, annualPension ?? '0').map(s => ({ ...s, cents: null })), ...(r.core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => ({ id: `event:${o.event_id}:loan`, label: '已发生计划余债', cents: null }))].map(s => [s.id, s])).values()];
+  [...new Map([...costSources(r.life_events, annualPension ?? '0').map(s => ({ ...s, cents: null })), ...(r.core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => ({ id: `event:${o.event_id}:loan`, label: '已发生计划的剩余欠款', cents: null }))].map(s => [s.id, s])).values()];
 
 export const emptyPensionForm = (): PensionForm => ({ region: '', birth: '', worker: '', paid: '', balance: '', base: '', past: '', flex: '0', pp: '', tax: '1000', wage: hundredthsToPct(defaultAssumptions.wage_growth_hundredths), ppReturn: hundredthsToPct(defaultAssumptions.pp_return_hundredths), oWage: '', oLower: '', oUpper: '', oNotional: '', oHpf: '' });
 export function pensionFormOf(saved: Saved): PensionForm {

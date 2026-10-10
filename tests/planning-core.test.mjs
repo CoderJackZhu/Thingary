@@ -65,7 +65,7 @@ test('D06: split payments only deduct the part after B; partial or stale absorpt
   const r=ready(calc(profile(c,{life_events:[e],basic:{...basic(),contribution:{id:'contribution',monthly_cents:'0'}}}),s));
   assert.equal(r.proj.assets[0],70000000); assert.equal(r.proj.assets[1],60000000); assert.equal(r.proj.assets[2],60000000);
   o.payments_complete=false; assert.match(calc(profile(c,{life_events:[e]}),s).annotations.map(a=>a.message).join(' '),/部分付款/);
-  o.payments_complete=true;o.payments[0].absorbed_revision=2;assert.match(calc(profile(c,{life_events:[e]}),s).annotations.map(a=>a.message).join(' '),/盘点吸收关系/);
+  o.payments_complete=true;o.payments[0].absorbed_revision=2;assert.match(calc(profile(c,{life_events:[e]}),s).annotations.map(a=>a.message).join(' '),/付款是否已计入盘点/);
   o.payments[0].account_id='restricted';assert.match(calc(profile(c,{life_events:[e]}),s).annotations.map(a=>a.message).join(' '),/来源范围/);
 });
 
@@ -119,9 +119,9 @@ test('D08/D16: PP moves cash once; payroll HPF adds only restricted funds, and p
 
 test('duplicate debt continuation, unsupported reference changes, and hypothetical included costs stay incomplete', () => {
   const c=core(['cash','available']);c.occurrences=[occurrence(),{...occurrence(),id:'second',event_id:'second'}];
-  assert.match(occurrenceMissing(snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',10000000)]),c,[event(),event({id:'second'})],B).join(' '),/重复接续/);
+  assert.match(occurrenceMissing(snap([entry('cash','asset','cash',70000000),entry('loan','liability','loan',10000000)]),c,[event(),event({id:'second'})],B).join(' '),/重复计入/);
   const p=profile(core(['cash','available']),{life_events:[event({date:'2030-01'})]});
-  assert.match(calc(p,snap([entry('cash','asset','cash',70000000)]),{'event:house:loan':'300000'}).missing.join(' '),/未发生费用/);
+  assert.match(calc(p,snap([entry('cash','asset','cash',70000000)]),{'event:house:loan':'300000'}).missing.join(' '),/还没发生的费用/);
   p.reference_issues=['来源已变化'];assert.match(calc(p,snap([entry('cash','asset','cash',70000000)])).annotations.map(a=>a.message).join(' '),/来源已变化/);
 });
 

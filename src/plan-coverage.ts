@@ -30,7 +30,7 @@ export function eventCoverage(events: readonly StoredLifeEvent[], core: Planning
       if (p.account_id && !source) fields.add('付款来源范围');
       const absorbed = !!snapshot && p.date <= snapshot.date && p.absorbed_snapshot_id === snapshot.id && p.absorbed_revision === snapshot.revision;
       const after = !!snapshot && p.date > snapshot.date && !p.absorbed_snapshot_id && p.absorbed_revision === null;
-      if (!absorbed && !after) fields.add('盘点吸收关系');
+      if (!absorbed && !after) fields.add('付款是否已计入盘点');
       const staleReference = !!p.source_id && referenceIssues.length > 0;
       if (staleReference) fields.add('实际来源引用');
       if (p.amount_cents !== null && source && (absorbed || after) && !staleReference) payment_ids.push(p.id);
@@ -40,7 +40,7 @@ export function eventCoverage(events: readonly StoredLifeEvent[], core: Planning
     const l = o.loan, entry = snapshot?.entries.find(x => x.account_id === l?.account_id && x.side === 'liability' && x.counted);
     const needsLoan = Number(e.price_cents) > Number(e.down_cents) || l !== null;
     const loan = !!l && !!snapshot && l.as_of === snapshot.date && entry?.amount_cents === l.principal_cents && (l.principal_cents === '0' || l.remaining_months > 0);
-    if (needsLoan && !loan) add('LOAN_PENDING', '还款接续未计入；还差：贷款余额、剩余期数或截至日/来源核对。', ['贷款余额/剩余期/截至日']);
+    if (needsLoan && !loan) add('LOAN_PENDING', '贷款后续还款还没算进来；还差：贷款余额、剩余期数或截止日期。', ['贷款余额/剩余期数/截止日期']);
     // A blank accidental occurred row cannot start maintenance or recurring replacement.
     const hasFacts = occurrenceHasFacts(o);
     coverage[e.id] = { paused: false, payment_ids, loan, holding: hasFacts, cycle: hasFacts && fields.size === 0 && (!needsLoan || loan) };

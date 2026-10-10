@@ -178,10 +178,10 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
       set.add(s.source_id);
       if (!ids.includes(s.source_id)) continue; // Disabled plans retain confirmations without affecting this calculation.
       const occurred = core?.occurrences.some(o => o.status === 'occurred' && s.source_id.startsWith(`event:${o.event_id}:`));
-      if (s.treatment === 'included' && (s.reference_cents === null || (pre && s.source_id.startsWith('event:') && !occurred))) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', field, '已含参考额未知，或尚未发生费用被标作净投入已含。'));
+      if (s.treatment === 'included' && (s.reference_cents === null || (pre && s.source_id.startsWith('event:') && !occurred))) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', field, '标为「已含」的费用缺少金额，或把还没发生的费用标成了已含在每月能存的钱里。'));
       if (s.treatment === 'excluded' && mustStayInLedger(s.source_id)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'events', field, '月供和个人养老金转入是真实支出，必须计入：请把它改选为「已包含」或「另外加上」。', 'constraint'));
     }
-    for (const id of ids) if (!scopes.some(s => s.source_id === id)) annotations.push({ id: `cost:${field}:${id}`, reason_code: 'COST_ASSUMED_EXTRA', message: `${sourceRows.find(s => s.id === id)?.label ?? r.spend_items.find(s => `spend:${s.id}` === id)?.label ?? (id === 'rent' ? '房租' : '续缴社保')}的${pre ? '净投入' : '退休总预算'}包含关系待核对：暂按额外费用计入，可能重复包含。`, effect: 'requirement_higher', treatment: 'assumed_extra', source_ids: [id], missing_fields: ['费用包含关系'], refinement: { owner: 'budget', field } });
+    for (const id of ids) if (!scopes.some(s => s.source_id === id)) annotations.push({ id: `cost:${field}:${id}`, reason_code: 'COST_ASSUMED_EXTRA', message: `${sourceRows.find(s => s.id === id)?.label ?? r.spend_items.find(s => `spend:${s.id}` === id)?.label ?? (id === 'rent' ? '房租' : '续缴社保')}的${pre ? '每月能存的钱' : '退休总预算'}包含关系待核对：暂按额外费用计入，可能重复包含。`, effect: 'requirement_higher', treatment: 'assumed_extra', source_ids: [id], missing_fields: ['费用包含关系'], refinement: { owner: 'budget', field } });
   };
   checkScope(sourcesPre, b.contribution_costs, 'basic.contribution_costs', true);
   if (scope === 'complete') checkScope(sourcesPost, b.retirement_costs, 'basic.retirement_costs', false);
@@ -229,7 +229,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
     const listed = events.filter(e => future || core.occurrences.some(o => o.event_id === e.id && o.status === 'occurred'));
     const withEvents = applyEvents({ ...skeleton, saving_cents: amount, r_before_hundredths: before, r_after_hundredths: after }, listed.map(e => ({ e, offset: offsetOf(e.date, anchor) })));
     // References stay throughout the confirmed scope, even after the source ends.
-    return { ...withEvents, saving_phases: undefined, saving_flows: [...(withEvents.saving_flows ?? []).filter(f => !f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id, b.contribution_costs)), { label: '净投入已含费用还原', from_month: now, to_month: null, cents: preRefs, nominal: false, essential: false, prorate_first: true }], spend_flows: (withEvents.spend_flows ?? []).filter(f => !f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id, b.retirement_costs)) };
+    return { ...withEvents, saving_phases: undefined, saving_flows: [...(withEvents.saving_flows ?? []).filter(f => !f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id, b.contribution_costs)), { label: '每月能存的钱里已含的费用', from_month: now, to_month: null, cents: preRefs, nominal: false, essential: false, prorate_first: true }], spend_flows: (withEvents.spend_flows ?? []).filter(f => !f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id, b.retirement_costs)) };
   };
   return { context, annotations, funds, pension, predictionMissing, plan: { status: 'ready', value: { compile, contribution, included_reference_cents: preRefs,
     target_month: ym(monthIndex(birth) + (r.target_age ?? r.horizon_age) * 12), horizon_month: ym(monthIndex(birth) + horizon),

@@ -100,13 +100,13 @@ export function summaryRetire(sources: PlanSources, today: string): SummaryRetir
     return { kind: 'ready', mode: ready.plan.mode, headline: goalHeadline(ready, today), coverage: coverageNow(ready), snapshotDate: capabilities.context.start.date, hasEvents: ready.events.some(e => e.included), calc: ready };
   }
   if (sources.profile.status === 'error') return { kind: 'error', message: sources.profile.value.message };
-  return { kind: 'blocked', step: 'profile', main: sources.profile.value.saved ? '退休目标待重新设置' : '先设置退休目标', note: '请确认目标与完整预算；盘点、收入、社保、付款与余债资料保留。' };
+  return { kind: 'blocked', step: 'profile', main: sources.profile.value.saved ? '退休目标待重新设置' : '先设置退休目标', note: '请确认目标与完整预算；盘点、收入、社保、付款与欠款资料都会保留。' };
 }
 
 /** 依据说明：盘点日期、未来储蓄采用的口径、已计入的大额计划与「按当前假设估算」。 */
 export function basisNotes(calc: ReadyCalc, snapshotDate: string | null): string[] {
   return [
-    snapshotDate ? `依据 ${snapshotDate} ${calc.r.basic?.start.kind === 'simulation' ? '模拟起点' : '完整盘点'}` : null,
+    snapshotDate ? `依据 ${snapshotDate} ${calc.r.basic?.start.kind === 'simulation' ? '手填金额' : '完整盘点'}` : null,
     '预测采用已保存的单一预计投入',
     calc.events.some(e => e.included || calc.r.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')) ? '已计入大额计划' : null,
     '按当前假设估算',

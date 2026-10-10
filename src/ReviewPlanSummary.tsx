@@ -28,7 +28,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
     retire.step === 'snapshot' ? [{ label: '查看账户与盘点 →', run: () => onNavigate('wealth') }] :
     retire.step === 'profile' ? [{ label: '填写个人资料 →', run: () => onGotoPlanning('pension', 'profile') }] :
     retire.step === 'budget' ? [{ label: '补充退休预算 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '收入与复盘 →', run: () => onGotoPlanning('savings') }] :
-    retire.step === 'saving' ? [{ label: '确认未来净投入 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '收入与复盘 →', run: () => onGotoPlanning('savings') }] :
+    retire.step === 'saving' ? [{ label: '估一估每月能存多少 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '收入与复盘 →', run: () => onGotoPlanning('savings') }] :
     [{ label: '查看目标 →', run: () => onGotoPlanning('goals') }]
   ) : [];
   return <article className="ui-card review-plan" aria-label="规划摘要">
@@ -40,7 +40,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
       {retire.headline.warn && <p className="review-plan-warn" role="status">{retire.headline.warn}</p>}
       <div className="review-plan-cov">
         <div className="review-plan-cov-head">
-          <span>当前可支配资产／今天退休所需<Info text={`当前可支配资产 ${yuan(retire.coverage.assets)}（明确可用资产份额；受限资金与余债另列），今天退休所需 ${yuan(retire.coverage.requiredNow)}。这是资产比例，不是时间进度或成功概率。`}/></span>
+          <span>当前可支配资产／今天退休所需<Info text={`当前可支配资产 ${yuan(retire.coverage.assets)}（只算确认可以动用的部分；暂不能动用的钱和欠款另列），今天退休所需 ${yuan(retire.coverage.requiredNow)}。这是资产比例，不是时间进度或成功概率。`}/></span>
           <b>{rateText(retire.coverage.percent)}</b>
         </div>
         <div className="review-plan-bar" role="img" aria-label={`当前可支配资产约为今天退休所需的 ${rateText(retire.coverage.percent)}`}><div style={{ width: `${retire.coverage.percent / 100}%` }}/></div>
@@ -53,7 +53,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
       </>}
     <div className="review-plan-divide">
       <div className="review-plan-save">
-        <span>历史月均净资产变化（含估值变化）<Info text="近12个月可比盘点的金融净资产变化，按区间天数加权；含估值变化。历史参考不会自动成为未来净投入。"/></span>
+        <span>历史月均净资产变化（含估值变化）<Info text="近 12 个月里、前后都是完整盘点的区间，金融净资产的平均变化（按天数加权，含投资涨跌）。这只是过去的参考，不会自动当成以后每月能存的钱。"/></span>
         {saving.kind === 'known' ? <b className={saving.negative ? 'neg' : undefined}>{money(saving.monthly_cents)}<small>／月</small></b> : null}
       </div>
       {saving.kind === 'known' ? <p className="review-plan-source">

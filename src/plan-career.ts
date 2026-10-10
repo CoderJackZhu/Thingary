@@ -98,7 +98,7 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
   const annotations = uniqueAnnotations(used.flatMap(p => p?.annotations ?? []));
   notes.unshift(...annotationSummary(annotations));
   const initial = first!.plan.status === 'ready' ? first!.plan.value : null;
-  if (!initial) return fail([issue('sources', '来源无法编译。')]);
+  if (!initial) return fail([issue('sources', '资料不完整，暂时无法试算。')]);
   const gapCompiler = gap?.plan.status === 'ready' ? gap.plan.value : null;
   const postCompiler = post?.plan.status === 'ready' ? post.plan.value : null;
   if (hasGap && gapCompiler && Number(draft.gap.spend_cents) < gapCompiler.included_reference_cents + (draft.gap.insurance.included ? Number(draft.gap.insurance.monthly_cents) : 0)) return fail([issue('gap.spend_cents', '空窗已含费用参考额超过总开销，请核对范围。')]);

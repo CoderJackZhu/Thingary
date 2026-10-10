@@ -58,18 +58,18 @@ export function occurrenceIssues(snapshot: Snapshot, core: PlanningCore | null |
     for (const p of o.payments) {
       const rule = core?.fund_rules.find(x => x.account_id === p.account_id);
       if (p.amount_cents === null || !p.account_id || rule?.availability !== 'available' || rule.share_hundredths !== 10000) add('payment_source', `${e.label}：付款金额／来源范围待核对。`);
-      if (p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision)) add('absorption', `${e.label}：付款被哪份盘点吸收待核对。`);
+      if (p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision)) add('absorption', `${e.label}：付款是否已计入哪次盘点，待核对。`);
       if (p.date > snapshot.date && p.absorbed_snapshot_id) add('absorption', `${e.label}：起点盘点之后的付款，不能标为已计入盘点。`);
     }
     const paid = o.payments.filter(p => p.amount_cents !== null).reduce((s, p) => s + BigInt(p.amount_cents!), 0n);
     if (!o.payments_complete || paid < 0n) add('payments', `${e.label}：仅部分付款已核对，剩余安排待补充。`);
     if (Number(e.price_cents) > Number(e.down_cents) || o.loan !== null) {
       const l = o.loan;
-      if (!l || l.as_of !== snapshot.date) add('loan', `${e.label}：截至资金起点的余债／剩余期待核对。`);
+      if (!l || l.as_of !== snapshot.date) add('loan', `${e.label}：截至资金起点的剩余欠款和剩余期数，待核对。`);
       else {
         const entry = snapshot.entries.find(x => x.account_id === l.account_id && x.side === 'liability' && x.counted);
-        if (!entry || entry.amount_cents !== l.principal_cents) add('loan', `${e.label}：余债与盘点负债不一致。`);
-        else { if (coveredDebts.has(l.account_id)) add('loan', `${e.label}：同一余债重复接续。`); coveredDebts.add(l.account_id); }
+        if (!entry || entry.amount_cents !== l.principal_cents) add('loan', `${e.label}：剩余欠款与盘点里的负债不一致。`);
+        else { if (coveredDebts.has(l.account_id)) add('loan', `${e.label}：同一笔剩余欠款重复计入。`); coveredDebts.add(l.account_id); }
       }
     }
   }

@@ -27,7 +27,7 @@ export function prepareIncomeScope(sources: PlanningSources, draft: CareerDraft,
   const stagePool = [draft.gap.pension, draft.recovery.pension].some(x => x && typeof x === 'object' && x.hpf_monthly_cents !== '0');
   const poolFound = housing || core?.personal_pension_account_id || (hpf != null && hpf !== '0') || (pp != null && pp !== '0') || stagePool;
   if (poolFound && !input.excludePools)
-    return blocked('pool_blocked', ['本次资料涉及公积金或个人养老金池，首版不估算它们的释放；改选退休收入口径不能放行。可勾选“本次不计公积金和个人养老金”只用可动用的钱来算（偏保守），已有账户和转入记录不会被删除。']);
+    return blocked('pool_blocked', ['这次资料里有公积金或个人养老金，试算暂时算不了它们什么时候能取出；只改退休收入的计入方式也解决不了。可勾选“本次不计公积金和个人养老金”只用可动用的钱来算（偏保守），已有账户和转入记录不会被删除。']);
 
   // No pool dependency: contribution bases cannot affect this financial path's external income.
   const financialDraft = structuredClone(draft);
@@ -64,7 +64,7 @@ export function prepareIncomeScope(sources: PlanningSources, draft: CareerDraft,
   // Cash preparation must not invoke the old Beijing estimate or certify unknown retirement inputs.
   const cashSources = structuredClone(copy);
   if (cashSources.profile.status === 'ready') cashSources.profile.value.saved!.profile.retire.basic!.retirement_income = { mode: null, selected: [] };
-  if (mode === 'employee') return { status: 'policy_blocked' as const, issues: ['职工养老金自动联动尚未核准；请选择本次明确的手填／不计收入口径，或只检查已知空窗。'], sources: null, cashSources, draft: financialDraft };
+  if (mode === 'employee') return { status: 'policy_blocked' as const, issues: ['试算暂时不能自动带入职工养老金估算；请改选「我自己填一笔」或「先不算」，或只看已知的空窗期。'], sources: null, cashSources, draft: financialDraft };
   if (mode === null || issues.length) return { status: 'income_blocked' as const, issues: issues.length ? issues : ['请选择本次退休收入计入方式。'], sources: null, cashSources, draft: financialDraft };
   if (ret) {
     ret.income_items = structuredClone(items) as StoredIncomeItem[];

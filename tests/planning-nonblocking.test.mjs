@@ -136,7 +136,7 @@ test('unverified payment source or absorption is omitted with precise fields, no
   Object.assign(o.payments[0], { amount_cents: '200000', account_id: cash(s) });
   const c = calc(s);
   assert.equal(parts(s,c).spends.length, 0);
-  assert.ok(c.annotations.find(a => a.reason_code === 'PAYMENT_PENDING').missing_fields.includes('盘点吸收关系'));
+  assert.ok(c.annotations.find(a => a.reason_code === 'PAYMENT_PENDING').missing_fields.includes('付款是否已计入盘点'));
   assert.equal(o.payments[0].amount_cents, '200000');
 });
 

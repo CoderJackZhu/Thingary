@@ -100,7 +100,7 @@ export function eventImpact(P0: Plan, e: LifeEvent, offset: number, emergencyCen
   let earliest: number | null = null;
   for (let t = 0; t < base.assets.length; t++) if (base.assets[t] >= need) { earliest = t; break; }
   const parts = eventParts(P0, e, offset), P1 = applyEvents(P0, [{ e, offset }]);
-  if (parts.payment_cents === null) throw new Error('贷款接续待核对，不能输出完整单项影响。');
+  if (parts.payment_cents === null) throw new Error('贷款后续还款待核对，暂时算不出这一件的完整影响。');
   const sv = savingsOf(P1), after = sv[Math.min(offset, sv.length - 1)] ?? 0;
   return {
     annotations: P0.annotations ?? [],

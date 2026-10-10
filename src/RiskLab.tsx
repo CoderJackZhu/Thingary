@@ -58,7 +58,7 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
       <p className="muted small">我们根据你的假设模拟不同市场路径。阴影显示各年龄的第 10 至第 90 百分位区间；线条显示各路径的中位数，并非单一路径。收益取扣除通胀后的实际收益，围绕假设值按波动率 {rateText(P.volatility_hundredths)} 随机，每年一次，固定种子，同一计划每次结果一致。</p>
       <p className="muted small">「资金充足」表示{fire ? '计划实现财务独立，' : '计划'}按完整预算覆盖到 {horizonAge} 岁，期间没有无法支付的月份；终点恰好为 0 也算充足，但没有余量。这些是模型结果，不是现实概率。</p>
       <div className="rl-actions"><button type="button" className="primary" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? `正在运行… ${done}` : '运行 1 万条路径'}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(100000)}>{running === 100000 ? `正在运行… ${done.toLocaleString('zh-CN')}` : '运行 10 万条路径'}</button>
-        {running !== null && <span className="muted small" role="status">正在用同一月度账本逐条核算。路径越多，所需时间越长。</span>}</div>
+        {running !== null && <span className="muted small" role="status">正在逐月模拟每条市场路径。路径越多，所需时间越长。</span>}</div>
       {mc ? <>
         <div className="rl-mc-stats">
           <div><span>资金充足</span><strong className={`rl-pct ${pctTone}`}>{Math.round(mc.success_rate * 100)}%</strong></div>

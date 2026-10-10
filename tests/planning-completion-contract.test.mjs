@@ -64,7 +64,7 @@ test('funds card retains its general title and copy for other necessary confirma
  const s=completionFixture(batch,'funds'),c=caps(s);
  c.requirement={status:'blocked',missing:[{code:'FUNDS_UNCONFIRMED',capability:'requirement',owner:'funds',field:'core.fund_rules',message:'资金用途待确认',kind:'fact'}]};
  const card=refinementCards(saved(s),c,s.today).find(c=>c.id==='funds');
- assert.equal(card.title,'确认哪些钱可以动用');assert.equal(card.benefit,'确认本次盘点中哪些账户可动用、哪些受限，以及各账户的参与比例。');
+ assert.equal(card.title,'确认哪些钱可以动用');assert.equal(card.benefit,'确认这次盘点里哪些账户可以动用、哪些暂不能动用，以及各账户计入多少比例。');
 });
 
 test('link choice requires a real eligible account; existing unknown account never defaults to zero',async()=>{

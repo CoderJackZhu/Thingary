@@ -23,7 +23,7 @@ export function useValueMode(): [ValueMode, (v: ValueMode) => void] {
 
 export const valueModeLabel: Record<ValueMode, string> = { today: '现值', nominal: '名义值' };
 export function ValueToggle({ value, onChange }: { value: ValueMode; onChange: (v: ValueMode) => void }) {
-  return <span className="rd-toggle"><Segments label="金额口径" value={value} options={[{ value: 'today', label: '现值' }, { value: 'nominal', label: '名义值' }]} onChange={onChange}/>
+  return <span className="rd-toggle"><Segments label="金额显示方式" value={value} options={[{ value: 'today', label: '现值' }, { value: 'nominal', label: '名义值' }]} onChange={onChange}/>
     <Info text={value === 'today' ? '将未来的金额换算回今天的购买力，使金额与你当前的预算具有可比性。' : '显示计入通胀后的未来名义金额，这是你在未来那一年将看到的数字。'}/></span>;
 }
 
@@ -59,7 +59,7 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
       {v.guidance && <p className={`rd-guidance ${v.tone}`}>{v.guidance}</p>}
     </article>
 
-    {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? '临时试算，未保存'}</span> : <span className="ui-tag">按已保存的预计投入</span>} 每月净投入 {money(basic.contribution)}（不含投资收益）；{terminalText[basic.terminal]}。</p>}
+    {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? '临时试算，未保存'}</span> : <span className="ui-tag">按已保存的预计投入</span>} 每月存入 {money(basic.contribution)}（不含投资收益）；{terminalText[basic.terminal]}。</p>}
     <p className="muted small">从 {P.anchor_date ?? '当前'} 的盘点开始算，金额按 {P.monetary_basis_date ?? '当前'} 的物价。每月的付款按月初扣，存入按月末算。</p>
     <EventWarnings calc={calc}/>
 
