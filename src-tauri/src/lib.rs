@@ -36,6 +36,7 @@ pub mod review;
 pub mod sales;
 pub mod search;
 pub mod source;
+pub mod spreadsheet;
 pub mod storage;
 pub mod tag_investment;
 pub mod taxonomy;
@@ -283,17 +284,17 @@ pub fn run() {
             commands::auto_backup_clear_extra,
             commands::auto_backup_open_folder,
             commands::inspect_auto_backup,
-            commands::export_all_csv,
-            commands::save_csv_template,
-            commands::inspect_csv_import,
-            commands::financial_import_read_file,
+            commands::export_workbook,
+            commands::save_spreadsheet_template,
+            commands::inspect_item_workbook,
+            commands::financial_import_read_workbook,
             commands::financial_import_template,
             commands::financial_import_preview,
             commands::financial_import_commit,
             commands::financial_import_receipt,
             commands::financial_import_cancel,
             commands::financial_import_progress,
-            commands::commit_csv_import,
+            commands::commit_item_workbook,
             commands::saved_request,
             commands::set_editing,
             commands::set_library_busy,

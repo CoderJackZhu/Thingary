@@ -30,6 +30,9 @@ tempfile = "3"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
 
 zip = { version = "8.6.0", default-features = false }
+calamine = { version = "0.36.1", features = ["chrono"] }
+rust_xlsxwriter = "0.99.1"
+quick-xml = "0.41.0"
 
 [features]
 fault-injection = []

@@ -89,15 +89,15 @@ char *thingary_pick_backup_open(void) {
         return strdup(panel.URL.fileSystemRepresentation);
     }
 }
-char *thingary_pick_csv_open(void) {
+char *thingary_pick_spreadsheet_open(void) {
     @autoreleasepool {
         NSOpenPanel *panel = [NSOpenPanel openPanel];
-        panel.title = @"选择要导入的 CSV 表格";
+        panel.title = @"选择要导入的 Excel 工作簿";
         panel.prompt = @"检查表格";
         panel.canChooseFiles = YES;
         panel.canChooseDirectories = NO;
         panel.allowsMultipleSelection = NO;
-        panel.allowedContentTypes = @[UTTypeCommaSeparatedText];
+        panel.allowedContentTypes = @[[UTType typeWithFilenameExtension:@"xlsx"]];
         if ([panel runModal] != NSModalResponseOK) return NULL;
         return strdup(panel.URL.fileSystemRepresentation);
     }

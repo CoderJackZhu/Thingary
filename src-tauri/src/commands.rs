@@ -941,22 +941,22 @@ pub async fn inspect_auto_backup(
 }
 
 #[derive(serde::Serialize)]
-pub struct CsvFile {
+pub struct SheetCount {
     pub name: String,
     pub rows: i64,
 }
 
 #[derive(serde::Serialize)]
-pub struct CsvAllDone {
-    pub folder: String,
-    pub files: Vec<CsvFile>,
+pub struct WorkbookDone {
+    pub path: String,
+    pub files: Vec<SheetCount>,
 }
 
 /// Saves the header-only import template; cancelling writes nothing.
 #[tauri::command]
-pub async fn save_csv_template(app: tauri::AppHandle) -> Result<Option<String>> {
+pub async fn save_spreadsheet_template(app: tauri::AppHandle) -> Result<Option<String>> {
     let receive = on_main(&app, || {
-        crate::native_images::pick_save("下载导入模板", "保存", "物谱导入模板", "csv")
+        crate::native_images::pick_save("下载导入模板", "保存", "物谱导入模板", "xlsx")
     })?;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
@@ -965,7 +965,7 @@ pub async fn save_csv_template(app: tauri::AppHandle) -> Result<Option<String>> 
         else {
             return Ok(None);
         };
-        crate::csv_import::write_template(&path)?;
+        crate::spreadsheet::write_template(&path, false)?;
         Ok(Some(path.display().to_string()))
     })
     .await
@@ -973,30 +973,24 @@ pub async fn save_csv_template(app: tauri::AppHandle) -> Result<Option<String>> 
 }
 
 #[derive(serde::Serialize)]
-pub struct CsvInspected {
+pub struct ItemSheetInspected {
     pub path: String,
     pub name: String,
     pub preview: crate::csv_import::Preview,
 }
 
 fn read_import(path: &std::path::Path) -> Result<Vec<u8>> {
-    let size = std::fs::metadata(path)
-        .map_err(|_| Error::new("CSV_READ", "无法读取所选文件"))?
-        .len();
-    if size > crate::csv_import::MAX_BYTES as u64 {
-        return Err(Error::new("CSV_SIZE", "文件超过 5 MB，请拆分后分批导入"));
-    }
-    std::fs::read(path).map_err(|_| Error::new("CSV_READ", "无法读取所选文件"))
+    crate::spreadsheet::read_items(&crate::spreadsheet::read_file(path)?)
 }
 
-/// Opens a CSV and previews it; nothing is written.
+/// Opens an XLSX workbook and previews it; nothing is written.
 #[tauri::command]
-pub async fn inspect_csv_import(
+pub async fn inspect_item_workbook(
     app: tauri::AppHandle,
     worker: tauri::State<'_, Worker>,
-) -> Result<Option<CsvInspected>> {
+) -> Result<Option<ItemSheetInspected>> {
     worker.require_personal()?;
-    let receive = on_main(&app, crate::native_images::pick_csv_open)?;
+    let receive = on_main(&app, crate::native_images::pick_spreadsheet_open)?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
@@ -1005,10 +999,22 @@ pub async fn inspect_csv_import(
         else {
             return Ok(None);
         };
-        let bytes = read_import(&path)?;
+        let sheet = crate::spreadsheet::read_item_input(&crate::spreadsheet::read_file(&path)?)?;
+        let bytes = sheet.csv_text.into_bytes();
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-        let preview = w.call_personal(move |s| s.preview_csv_import(&bytes, &today))?;
-        Ok(Some(CsvInspected {
+        let mut preview = w.call_personal(move |s| s.preview_item_sheet(&bytes, &today))?;
+        for note in preview
+            .invalid
+            .iter_mut()
+            .chain(preview.duplicates.iter_mut())
+        {
+            note.line = sheet
+                .row_numbers
+                .get(note.line)
+                .copied()
+                .unwrap_or(note.line);
+        }
+        Ok(Some(ItemSheetInspected {
             name: path
                 .file_name()
                 .unwrap_or_default()
@@ -1023,32 +1029,31 @@ pub async fn inspect_csv_import(
 }
 
 #[tauri::command]
-pub async fn commit_csv_import(
+pub async fn commit_item_workbook(
     worker: tauri::State<'_, Worker>,
     path: String,
     input: crate::csv_import::Commit,
 ) -> Result<crate::csv_import::Done> {
-    let bytes = read_import(std::path::Path::new(&path))?;
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        w.call_personal(move |s| s.import_csv(&bytes, &input, &today))
+        let bytes = read_import(std::path::Path::new(&path))?;
+        w.call_personal(move |s| s.import_item_sheet(&bytes, &input, &today))
     })
     .await
     .map_err(|_| Error::new("WORKER", "未收到导入结果，请到物品列表核对"))?
 }
 
-/// Every readable table in one new folder named in the save panel; cancelling
-/// writes nothing, and an existing folder is never touched.
+/// Save every readable table in one workbook, atomically after native confirmation.
 #[tauri::command]
-pub async fn export_all_csv(
+pub async fn export_workbook(
     app: tauri::AppHandle,
     worker: tauri::State<'_, Worker>,
-) -> Result<Option<CsvAllDone>> {
+) -> Result<Option<WorkbookDone>> {
     worker.require_personal()?;
     let suggested = format!("物谱表格-{}", chrono::Local::now().format("%Y%m%d"));
     let receive = on_main(&app, move || {
-        crate::native_images::pick_save("导出全部表格", "导出", &suggested, "")
+        crate::native_images::pick_save("导出全部表格", "导出", &suggested, "xlsx")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -1059,12 +1064,12 @@ pub async fn export_all_csv(
             return Ok(None);
         };
         let target = path.clone();
-        let files = w.call_personal(move |s| s.export_all_csv(&target))?;
-        Ok(Some(CsvAllDone {
-            folder: path.display().to_string(),
+        let files = w.call_personal(move |s| s.export_workbook(&target))?;
+        Ok(Some(WorkbookDone {
+            path: path.display().to_string(),
             files: files
                 .into_iter()
-                .map(|(name, rows)| CsvFile {
+                .map(|(name, rows)| SheetCount {
                     name: name.into(),
                     rows,
                 })
@@ -1900,17 +1905,17 @@ pub async fn financial_import_receipt(
     .map_err(|_| Error::new("WORKER", "回执暂时不可读，请稍后核对"))?
 }
 #[derive(serde::Serialize)]
-pub struct FinancialFile {
+pub struct FinancialWorkbook {
     name: String,
-    csv_text: String,
+    files: Vec<crate::spreadsheet::SheetInput>,
 }
 #[tauri::command]
-pub async fn financial_import_read_file(
+pub async fn financial_import_read_workbook(
     app: tauri::AppHandle,
     worker: tauri::State<'_, Worker>,
-) -> Result<Option<FinancialFile>> {
+) -> Result<Option<FinancialWorkbook>> {
     worker.require_personal()?;
-    let receive = on_main(&app, crate::native_images::pick_csv_open)?;
+    let receive = on_main(&app, crate::native_images::pick_spreadsheet_open)?;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
             .recv()
@@ -1918,25 +1923,14 @@ pub async fn financial_import_read_file(
         else {
             return Ok(None);
         };
-        use std::io::Read;
-        let file =
-            std::fs::File::open(&path).map_err(|_| Error::new("CSV_READ", "无法读取所选文件"))?;
-        let mut bytes = Vec::new();
-        file.take(crate::financial_import_parser::MAX_BYTES as u64 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|_| Error::new("CSV_READ", "无法读取所选文件"))?;
-        if bytes.len() > crate::financial_import_parser::MAX_BYTES {
-            return Err(Error::new("LIMIT_SIZE", "每批最多 20 MiB，请拆分文件"));
-        }
-        let csv_text = String::from_utf8(bytes)
-            .map_err(|_| Error::new("CSV_UTF8", "文件须为 UTF-8 CSV，请重新导出"))?;
-        Ok(Some(FinancialFile {
+        let files = crate::spreadsheet::read_finance(&crate::spreadsheet::read_file(&path)?)?;
+        Ok(Some(FinancialWorkbook {
             name: path
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .into(),
-            csv_text,
+            files,
         }))
     })
     .await
@@ -1945,37 +1939,15 @@ pub async fn financial_import_read_file(
 #[tauri::command]
 pub async fn financial_import_template(
     app: tauri::AppHandle,
-    kind: String,
     sample: bool,
 ) -> Result<Option<String>> {
-    let contents = match (kind.as_str(), sample) {
-        ("accounts", true) => {
-            include_str!("financial_import_parser/samples/accounts.csv").to_string()
-        }
-        ("snapshots", true) => {
-            include_str!("financial_import_parser/samples/snapshots.csv").to_string()
-        }
-        ("incomes", true) => {
-            include_str!("financial_import_parser/samples/incomes.csv").to_string()
-        }
-        ("accounts" | "snapshots" | "incomes", false) => {
-            crate::financial_import_parser::template_csv(&kind)
-                .map_err(|e| Error::new(&e.code, &e.message))?
-        }
-        _ => {
-            return Err(Error::new(
-                "IMPORT_KIND",
-                "仅提供账户、完整盘点与月度收入模板",
-            ))
-        }
-    };
     let name = if sample {
-        format!("{kind}-虚构样例")
+        "物谱金融历史-虚构样例"
     } else {
-        kind
+        "物谱导入模板"
     };
     let receive = on_main(&app, move || {
-        crate::native_images::pick_save("保存金融历史 CSV", "保存", &name, "csv")
+        crate::native_images::pick_save("保存 Excel 导入模板", "保存", name, "xlsx")
     })?;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
@@ -1984,7 +1956,7 @@ pub async fn financial_import_template(
         else {
             return Ok(None);
         };
-        crate::storage::atomic_write(&path, contents.as_bytes())?;
+        crate::spreadsheet::write_template(&path, sample)?;
         Ok(Some(path.display().to_string()))
     })
     .await

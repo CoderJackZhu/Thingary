@@ -26,8 +26,8 @@ pub const HEADER: [&str; 14] = [
 ];
 
 /// Text a spreadsheet could run as a formula gets a leading apostrophe.
-fn text(value: &str) -> String {
-    if value.starts_with(['=', '+', '-', '@', '\t', '\r']) {
+fn text(value: &str, guarded: bool) -> String {
+    if guarded && value.starts_with(['=', '+', '-', '@', '\t', '\r']) {
         format!("'{value}")
     } else {
         value.to_owned()
@@ -51,6 +51,9 @@ fn field(value: &str) -> String {
 
 impl Store {
     pub fn asset_csv(&self) -> Result<String> {
+        self.asset_table(true)
+    }
+    pub(crate) fn asset_table(&self, guarded: bool) -> Result<String> {
         let mut stmt = self.conn()?.prepare(
             "SELECT a.id,a.name,c.name,p.brand,p.model,a.price_cents,a.purchase_date,ch.name,a.lifecycle_state,s.date,s.price_cents,p.notes,
                     CASE WHEN a.lifecycle_state='retired' THEN (SELECT e.date FROM lifecycle_events e WHERE e.asset_id=a.id ORDER BY e.sequence DESC LIMIT 1) END
@@ -70,19 +73,19 @@ impl Store {
             };
             Ok([
                 t(0)?,
-                text(&t(1)?),
-                text(&t(2)?),
-                text(&t(3)?),
-                text(&t(4)?),
+                text(&t(1)?, guarded),
+                text(&t(2)?, guarded),
+                text(&t(3)?, guarded),
+                text(&t(4)?, guarded),
                 yuan(r.get(5)?),
                 "CNY".into(),
                 t(6)?,
-                text(&t(7)?),
+                text(&t(7)?, guarded),
                 state.into(),
                 t(12)?,
                 t(9)?,
                 yuan(r.get(10)?),
-                text(&t(11)?),
+                text(&t(11)?, guarded),
             ])
         })?;
         for row in rows {
@@ -104,7 +107,10 @@ impl Store {
     }
 
     /// Check-ins as one row per account per check-in, oldest first.
-    fn wealth_csv(&self) -> Result<(String, i64)> {
+    pub(crate) fn wealth_csv(&self) -> Result<(String, i64)> {
+        self.wealth_table(true)
+    }
+    pub(crate) fn wealth_table(&self, guarded: bool) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
             "SELECT s.date,a.name,a.institution,e.side,e.kind,e.counted,e.state,e.amount_cents,s.notes
              FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id
@@ -117,8 +123,8 @@ impl Store {
                 let state: String = r.get(6)?;
                 Ok(vec![
                     r.get::<_, String>(0)?,
-                    text(&r.get::<_, String>(1)?),
-                    text(&r.get::<_, String>(2)?),
+                    text(&r.get::<_, String>(1)?, guarded),
+                    text(&r.get::<_, String>(2)?, guarded),
                     if r.get::<_, String>(3)? == "liability" {
                         "负债"
                     } else {
@@ -134,7 +140,7 @@ impl Store {
                     }
                     .into(),
                     yuan(r.get(7)?),
-                    text(&r.get::<_, String>(8)?),
+                    text(&r.get::<_, String>(8)?, guarded),
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -153,7 +159,10 @@ impl Store {
     }
 
     /// Important expenses with their refund and the linked item's name.
-    fn expenses_csv(&self) -> Result<(String, i64)> {
+    pub(crate) fn expenses_csv(&self) -> Result<(String, i64)> {
+        self.expenses_table(true)
+    }
+    pub(crate) fn expenses_table(&self, guarded: bool) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
             "SELECT x.date,x.title,x.category,x.amount_cents,x.refund_cents,x.refund_date,a.name,x.notes
              FROM expenses x LEFT JOIN assets a ON a.id=x.asset_id
@@ -164,13 +173,13 @@ impl Store {
                 let category: String = r.get(2)?;
                 Ok(vec![
                     r.get::<_, String>(0)?,
-                    text(&r.get::<_, String>(1)?),
+                    text(&r.get::<_, String>(1)?, guarded),
                     expense_category(&category).into(),
                     yuan(r.get(3)?),
                     yuan(r.get(4)?),
                     r.get::<_, Option<String>>(5)?.unwrap_or_default(),
-                    text(&r.get::<_, Option<String>>(6)?.unwrap_or_default()),
-                    text(&r.get::<_, String>(7)?),
+                    text(&r.get::<_, Option<String>>(6)?.unwrap_or_default(), guarded),
+                    text(&r.get::<_, String>(7)?, guarded),
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -189,7 +198,10 @@ impl Store {
 
     /// Plans with their confirmed or skipped periods; a plan without any
     /// payment still appears once, with empty payment columns.
-    fn recurring_csv(&self) -> Result<(String, i64)> {
+    pub(crate) fn recurring_csv(&self) -> Result<(String, i64)> {
+        self.recurring_table(true)
+    }
+    pub(crate) fn recurring_table(&self, guarded: bool) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
             "SELECT p.name,p.category,p.interval_months,p.amount_cents,p.first_due,p.end_date,p.paused,
                     y.due_date,y.state,y.paid_date,y.amount_cents,y.notes
@@ -202,7 +214,7 @@ impl Store {
                 let months: i64 = r.get(2)?;
                 let state: Option<String> = r.get(8)?;
                 Ok(vec![
-                    text(&r.get::<_, String>(0)?),
+                    text(&r.get::<_, String>(0)?, guarded),
                     recurring_category(&category).into(),
                     match months {
                         1 => "每月".to_owned(),
@@ -229,7 +241,10 @@ impl Store {
                     .into(),
                     r.get::<_, Option<String>>(9)?.unwrap_or_default(),
                     yuan(r.get(10)?),
-                    text(&r.get::<_, Option<String>>(11)?.unwrap_or_default()),
+                    text(
+                        &r.get::<_, Option<String>>(11)?.unwrap_or_default(),
+                        guarded,
+                    ),
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -253,7 +268,10 @@ impl Store {
     /// `kind` is `wealth`, `expenses` or `recurring`; the native save panel
     /// already confirmed any replacement and the write is atomic.
     /// Monthly income rows, oldest first.
-    fn income_csv(&self) -> Result<(String, i64)> {
+    pub(crate) fn income_csv(&self) -> Result<(String, i64)> {
+        self.income_table(true)
+    }
+    pub(crate) fn income_table(&self, guarded: bool) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
             "SELECT date,net_cents,hpf_cents,notes FROM plan_income WHERE deleted_at IS NULL ORDER BY date,id",
         )?;
@@ -263,7 +281,7 @@ impl Store {
                     r.get::<_, String>(0)?,
                     yuan(r.get(1)?),
                     yuan(r.get::<_, Option<i64>>(2)?),
-                    text(&r.get::<_, String>(3)?),
+                    text(&r.get::<_, String>(3)?, guarded),
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;

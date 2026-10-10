@@ -67,7 +67,7 @@ struct Row {
 }
 
 /// RFC 4180 with CRLF or LF; returns each record with its starting line.
-fn records(text: &str) -> Result<Vec<(usize, Vec<String>)>> {
+pub(crate) fn records(text: &str) -> Result<Vec<(usize, Vec<String>)>> {
     let (mut out, mut row, mut cell) = (Vec::new(), Vec::new(), String::new());
     let (mut quoted, mut line, mut start) = (false, 1, 1);
     let mut chars = text.chars().peekable();
@@ -256,7 +256,7 @@ fn find(c: &Connection, kind: taxonomy::Kind, name: &str) -> Result<Option<Strin
     .optional()?)
 }
 
-fn check(c: &Connection, bytes: &[u8], today: &str) -> Result<Checked> {
+fn check(c: &Connection, bytes: &[u8], today: &str, guarded: bool) -> Result<Checked> {
     if bytes.len() > MAX_BYTES {
         return Err(Error::new("CSV_SIZE", "文件超过 5 MB，请拆分后分批导入"));
     }
@@ -306,7 +306,13 @@ fn check(c: &Connection, bytes: &[u8], today: &str) -> Result<Checked> {
                 .iter()
                 .position(|c| c == label)
                 .and_then(|i| cells.get(i))
-                .map_or(String::new(), |v| unguard(v).to_owned())
+                .map_or(String::new(), |v| {
+                    if guarded {
+                        unguard(v).to_owned()
+                    } else {
+                        v.to_owned()
+                    }
+                })
         };
         match row(line, &cell, today) {
             Err(reason) => out.preview.invalid.push(RowNote {
@@ -425,10 +431,25 @@ pub(crate) fn repair_sale_receipts(c: &Connection) -> Result<usize> {
 
 impl Store {
     pub fn preview_csv_import(&self, bytes: &[u8], today: &str) -> Result<Preview> {
-        Ok(check(self.conn()?, bytes, today)?.preview)
+        Ok(check(self.conn()?, bytes, today, true)?.preview)
     }
 
+    pub fn preview_item_sheet(&self, bytes: &[u8], today: &str) -> Result<Preview> {
+        Ok(check(self.conn()?, bytes, today, false)?.preview)
+    }
+    pub fn import_item_sheet(&mut self, bytes: &[u8], input: &Commit, today: &str) -> Result<Done> {
+        self.import_table(bytes, input, today, false)
+    }
     pub fn import_csv(&mut self, bytes: &[u8], input: &Commit, today: &str) -> Result<Done> {
+        self.import_table(bytes, input, today, true)
+    }
+    fn import_table(
+        &mut self,
+        bytes: &[u8],
+        input: &Commit,
+        today: &str,
+        guarded: bool,
+    ) -> Result<Done> {
         if input.generation != self.generation() {
             return Err(Error::new("STALE_DATASET", "资料已切换，请重新选择文件"));
         }
@@ -441,7 +462,10 @@ impl Store {
             ));
         }
         self.refuse_new_asset()?;
-        let fingerprint = digest(&serde_json::to_vec(&("csv-import", input))?);
+        let fingerprint = digest(&serde_json::to_vec(&(
+            if guarded { "csv-import" } else { "xlsx-import" },
+            input,
+        ))?);
         let tx = self.conn()?.unchecked_transaction()?;
         if let Some((prior, result)) = tx
             .query_row(
@@ -456,7 +480,7 @@ impl Store {
             }
             return Ok(serde_json::from_str(&result)?);
         }
-        let checked = check(&tx, bytes, today)?;
+        let checked = check(&tx, bytes, today, guarded)?;
         let now = chrono::Utc::now().to_rfc3339();
         let mut done = Done {
             imported: 0,

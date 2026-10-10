@@ -1,6 +1,6 @@
 import type { Account, Pending } from './wealth.ts';
 export type FileKind = 'accounts' | 'snapshots' | 'incomes';
-export type ImportFile = { kind:FileKind; name:string; csv_text:string; column_mapping:Record<string,string> };
+export type ImportFile = { kind:FileKind; name:string; csv_text:string; column_mapping:Record<string,string>; row_numbers?:number[] };
 export type ImportAction = { action:'keep'|'correct'|'exclude'; expected_revision:number|null };
 export type ImportBatch = { generation:string; source_name:string; mapping_set_id:string; files:ImportFile[]; mappings:Record<string,{id:string;expected_revision:number}>; actions:Record<string,ImportAction>; page:number };
 export type ImportObject = { key:string;kind:'account'|'snapshot'|'income';external_key:string;id:string;source_rows:number[];status:'new'|'same'|'conflict'|'error';action:string;expected_revision:number|null;before:Record<string,unknown>|null;after:Record<string,unknown> };
