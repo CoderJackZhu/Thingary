@@ -5,6 +5,8 @@ import type { PlanningAnnotation, PlanningMissing, PlanningSources, StoredLifeEv
 import type { Occurrence } from './plan-core';
 import { CoverageNote } from './CoverageNote';
 import { actionableAnnotations } from './plan-annotations';
+import { PlanningPensionRefinementDialog, PensionComparisonNote } from './PlanningPensionRefinement';
+import type { PensionComparison } from './planning-pension-refinement';
 import { PlanningDebtDialog } from './PlanningDebtDialog';
 import { retractOccurrence } from './plan-occurrence-actions';
 import { CapabilityNotice } from './PlanningRequirement';
@@ -29,11 +31,13 @@ import type { Refinement } from './planning-first-run';
 import './planning.css';
 
 /** Goal states are a presentation projection; current calculation gates remain unchanged. */
-export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean) => void; focus?: boolean; onFocusDone: () => void }) {
+export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, comparison, onPensionComparison, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean) => void; comparison?: PensionComparison | null; onPensionComparison?: (c: PensionComparison) => void; focus?: boolean; onFocusDone: () => void }) {
   const [fundsOpen, setFundsOpen] = useState(false), [costsOpen, setCostsOpen] = useState(false), [occurring, setOccurring] = useState<StoredLifeEvent | null>(null);
+  const [pensionContributions, setPensionContributions] = useState(false);
+  const [pensionOpen, setPensionOpen] = useState(false);
   const [debtOpen, setDebtOpen] = useState(false);
   const [detail, setDetail] = useState(false), [toolsOpen, setToolsOpen] = useState(false), opener = useRef<HTMLElement | null>(null);
-  useEffect(() => { onEditingChange(fundsOpen || costsOpen || debtOpen || occurring !== null); return () => onEditingChange(false); }, [fundsOpen, costsOpen, debtOpen, occurring, onEditingChange]);
+  useEffect(() => { onEditingChange(fundsOpen || costsOpen || debtOpen || pensionOpen || occurring !== null); return () => onEditingChange(false); }, [fundsOpen, costsOpen, debtOpen, pensionOpen, occurring, onEditingChange]);
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const snapshot: Snapshot | null = ready(sources.snapshot) ?? null, accounts: Account[] = ready(sources.accounts) ?? [];
   const result = useCapabilities(sources), saver = useSectionSaver(sources, reload, onPending);
@@ -48,12 +52,12 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     ready: pred?.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '资料待补齐',
     onContribution: needsContribution(caps) ? () => openSetup(4, null, true) : undefined,
     write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) } : null;
-  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field === 'core.debt_repayments') setDebtOpen(true); else if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'pension') onGoto('pension'); else if (o === 'events') goEvents(); else if (o === 'service') reload(); else openSetup(o === 'funds' ? 2 : 0, null, true); };
-  const closeRefinement = () => { setFundsOpen(false); setCostsOpen(false); setDebtOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
+  const openPension = (contributions = false) => { setPensionContributions(contributions); setPensionOpen(true); };
+  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field === 'core.debt_repayments') setDebtOpen(true); else if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'pension' || field === 'basic.pension_contributions') openPension(field === 'basic.pension_contributions'); else if (o === 'events') goEvents(); else if (o === 'service') reload(); else openSetup(o === 'funds' ? 2 : 0, null, true); };
+  const closeRefinement = () => { setFundsOpen(false); setCostsOpen(false); setDebtOpen(false); setPensionOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
   function action(card: Refinement, from: HTMLElement) {
     opener.current = from;
-    // Transitional pension entry: a later task replaces this tab jump with its refinement dialog.
-    if (card.action === 'pension') onGoto('pension');
+    if (card.action === 'pension') openPension(card.id === 'transfer');
     else if (card.action === 'debts') setDebtOpen(true);
     else if (card.action === 'costs') setCostsOpen(true);
     else if (card.action === 'funds') setFundsOpen(true);
@@ -64,6 +68,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     else reload();
   }
   function refineAnnotation(annotation: PlanningAnnotation) {
+    if (annotation.refinement.owner === 'pension' || annotation.refinement.field === 'basic.pension_contributions') { openPension(annotation.refinement.field === 'basic.pension_contributions'); return; }
     const card = annotation.refinement.field === 'core.debt_repayments'
       ? cards.find(c => c.action === 'debts')
       : cards.find(c => c.event?.id === annotation.refinement.event_id || annotation.refinement.field.includes('_costs') && c.action === 'costs');
@@ -80,6 +85,8 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const req = caps?.requirement.status === 'ready' ? caps.requirement.value : null;
   const line = req ? requirementLine(req.set, money) : null;
   return <div className="plan-goals" data-goal-state={state}>
+    {pensionOpen && saved && <PlanningPensionRefinementDialog reviewContributions={pensionContributions} sources={sources} today={today} reload={reload} onPending={onPending} onSaved={onPensionComparison} onClose={closeRefinement}/>}
+    {comparison && <PensionComparisonNote comparison={comparison}/>}
     {debtOpen && saved && <PlanningDebtDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {fundsOpen && saved && <FundsDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={() => closeRefinement()}/>}
     {costsOpen && saved && <CostsDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}

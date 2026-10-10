@@ -56,6 +56,12 @@ function runtime(file, props, save = async () => ({ revision: 5 }), caps = unkno
     './planning-basic-view': { needsContribution: () => true, requirementLine: () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
     './plan-retire-calc': { buildRetireCalc: () => null },
   };
+  for (const file of ['PlanningRetirementIncome']) {
+    const m = { exports: {} };
+    const js = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+    vm.runInNewContext(js, { module: m, exports: m.exports, require: id => modules[id] ?? leaf, crypto: globalThis.crypto, structuredClone });
+    modules[`./${file}`] = m.exports;
+  }
   const module = { exports: {} };
   const script = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
@@ -117,16 +123,16 @@ test('editing prefills every question/extra screen and always offers save-and-re
     if (step === 0) { assert.equal(r.find('MonthInput').props.value, '1990-06'); assert.equal(r.find('input', p => p['aria-label'] === '想在几岁退休？').props.value, '60'); }
     if (step === 1) assert.equal(r.find('CentInput').props.value, '400000');
     if (step === 2) assert.equal(r.find('CentInput').props.value, '10000000');
-    if (step === 3) { assert.equal(r.find('input', p => p['aria-label'] === '沿用已保存的北京养老金估算').props.checked, true); assert.ok(r.button('进入养老金页（退出本次未保存修改）')); }
+    if (step === 3) { assert.match(r.text(r.find('section')), /已选北京养老金估算/); assert.ok(r.button('核对国家养老金')); }
     if (step === 4) assert.equal(r.find('CentInput').props.value, '');
     if (step === 5) assert.equal(r.find('input', p => p['aria-label'] === '规划到几岁').props.value, '90');
   }
 });
 
-test('Q4 defaults to excluded, offers no selectable pension for a new plan, and saves directly', async () => {
+test('Q4 defaults to excluded, offers a working add entry, and saves directly', async () => {
   const r = runtime('PlanningSetup', { sources: sourcesOf(null), initialStep: 3 });
   assert.equal(r.find('input', p => p.type === 'radio').props.checked, true);
-  assert.equal(r.find('input', p => p['aria-label'] === '沿用已保存的北京养老金估算'), undefined);
+  assert.ok(r.button('现在添加'));
   r.find('form').props.onSubmit(event()); await r.settle();
   assert.equal(r.calls.length, 1); assert.equal(r.calls[0].section, 'setup');
   assert.equal(r.calls[0].fields.basic.basic.retirement_income.mode, 'excluded');

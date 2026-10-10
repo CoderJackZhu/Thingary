@@ -54,7 +54,7 @@ export function goalState(saved: Saved, caps: BasicCapabilities | null): GoalSta
 
 export function setupDraft(saved: Saved, snapshot: Snapshot | null, today: string, wealthOn: boolean): Draft {
   const d = draftOf(saved, wealthOn ? snapshot : null, today);
-  return { ...d, incomeMode: defaultIncomeMode(saved), start: !saved?.profile.retire.basic && (!wealthOn || !snapshot) ? 'simulation' : d.start };
+  return { ...d, pension: { ...d.pension, flex: saved?.profile.flex_months == null ? '' : d.pension.flex, tax: saved?.profile.marginal_tax_hundredths == null ? '' : d.pension.tax }, incomeMode: defaultIncomeMode(saved), start: !saved?.profile.retire.basic && (!wealthOn || !snapshot) ? 'simulation' : d.start };
 }
 
 /** Use the existing setup transaction. Hidden pension facts and contribution dates are never rewritten. */
@@ -85,7 +85,7 @@ export function conditionChips(saved: NonNullable<Saved>, caps: BasicCapabilitie
   ];
 }
 
-export type Refinement = { id: string; title: string; benefit: string; duration: string; action: 'pension' | 'costs' | 'event' | 'contribution' | 'setup' | 'reload' | 'events' | 'funds' | 'debts'; event?: StoredLifeEvent; step?: number; required: boolean; impacts?: boolean };
+export type Refinement = { id: string; title: string; benefit: string; duration: string; action: 'pension' | 'costs' | 'event' | 'contribution' | 'setup' | 'reload' | 'events' | 'funds' | 'debts'; event?: StoredLifeEvent; step?: number; required: boolean; impacts?: boolean; condition?: boolean };
 function pendingCostsText(saved: NonNullable<Saved>, today: string) {
   const r = saved.profile.retire;
   const { pre, post, pendingRows } = costReviewRows(draftOf(saved, null, today), r, saved.profile.personal_pension_annual_cents);
@@ -109,7 +109,7 @@ export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabiliti
   const missing = caps.requirement.status === 'blocked' ? caps.requirement.missing : [];
   const has = (...codes: PlanningMissing['code'][]) => missing.some(m => codes.includes(m.code));
   const cards: Refinement[] = [];
-  if (b?.retirement_income.mode !== 'beijing' || has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN')) cards.push({ id: 'pension', title: b?.retirement_income.mode === 'beijing' ? '核对北京养老金资料' : '算上国家养老金', benefit: b?.retirement_income.mode === 'beijing' ? missing.filter(m => m.owner === 'pension').map(m => m.message).join('；') : '把国家养老金算进去，通常会让每月需要存的钱变少；需要核对社保资料。', duration: '约 5 分钟', action: 'pension', required: has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN') });
+  if (b?.retirement_income.mode !== 'beijing' || has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN')) cards.push({ id: 'pension', title: b?.retirement_income.mode === 'beijing' ? '核对北京养老金资料' : '算上国家养老金', benefit: b?.retirement_income.mode === 'beijing' ? (has('PENSION_FACTS_UNKNOWN') && has('PENSION_CONTRIBUTIONS_UNKNOWN') ? '还缺一些社保资料和未来缴费安排。补齐后，就能把北京估算算进每月要存的钱里。' : has('PENSION_FACTS_UNKNOWN') ? '还缺一些社保资料。只补缺项，已有数字保留；补齐后就能计算北京估算。' : '还需要确认未来缴费安排。告诉我以后怎么交，就能把北京估算算进结果里。') : b?.retirement_income.mode === 'manual' ? '当前只计入所选手填收入，国家养老金没有另算；可随时修改计入方式。' : '当前先不算国家养老金；这是你选择的计算条件，可以随时添加北京估算。', duration: b?.retirement_income.mode === 'excluded' ? '你选择了先不算' : b?.retirement_income.mode === 'manual' ? '你选择了手填收入' : b?.retirement_income.mode === 'beijing' ? '北京估算待补齐' : '尚未选择计入方式', action: 'pension', condition: b?.retirement_income.mode === 'excluded' || b?.retirement_income.mode === 'manual', required: has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN') });
   if (has('COST_SCOPE_UNKNOWN', 'COST_SCOPE_INVALID')) cards.push({ id: 'costs', title: '核对有没有重复费用', benefit: pendingCostsText(saved, today), duration: '约 1 分钟', action: 'costs', required: true });
   if (has('OCCURRENCE_UNCONFIRMED')) {
     const pending = r.life_events.filter(e => {
@@ -125,7 +125,7 @@ export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabiliti
   if (has('INCOME_SOURCE_UNKNOWN')) cards.push({ id: 'income', title: '核对退休后的收入', benefit: '重新选择仍有效的收入记录，保持已有资料。', duration: '约 1 分钟', action: 'setup', step: 3, required: true });
   if (has('POOL_UNCONFIRMED', 'FUNDS_UNCONFIRMED')) cards.push({ id: 'funds', title: '确认哪些钱可以动用', benefit: '核对暂时不能动用的账户，避免把这些钱提前算入。', duration: '约 1 分钟', action: has('FUNDS_UNCONFIRMED') ? 'setup' : 'funds', step: 2, required: true });
   if (has('SOURCE_ERROR', 'SOURCE_STALE')) cards.push({ id: 'reload', title: '重新读取规划资料', benefit: '获取本次计算所需的当前资料，读取失败不会当成零。', duration: '约几秒', action: 'reload', required: true });
-  if (b?.retirement_income.mode === 'beijing' && missing.some(m => m.owner === 'pension' || m.code === 'POOL_UNCONFIRMED')) cards.push({ id: 'income-switch', title: '改选“先不算”先看结果', benefit: '你选择了北京养老金估算，还差社保资料；也可以改选“先不算”先看结果。原有养老资料保留。', duration: '约几秒', action: 'setup', step: 3, required: false });
+  if (b?.retirement_income.mode === 'beijing' && (has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN') || missing.some(m => m.owner === 'pension' || m.code === 'POOL_UNCONFIRMED'))) cards.push({ id: 'income-switch', title: '改选“先不算”先看结果', benefit: '北京估算还缺必要资料或缴费安排，也可以改选“先不算”先看结果。已有资料会保留。', duration: '约几秒', action: 'pension', required: false });
   const annotations = caps.annotations ?? [];
   const costs = annotations.filter(a => a.reason_code === 'COST_ASSUMED_EXTRA' || a.reason_code === 'COST_PERIOD_PENDING');
   if (costs.length && !cards.some(c => c.id === 'costs')) cards.push({ id: 'costs', title: '核对费用包含关系', benefit: `${[...new Set(costs.map(a => a.message.split('的')[0]))].join('、')}：待核对包含关系；暂按额外费用计入，可能重复包含。`, duration: '约 1 分钟', action: 'costs', required: false, impacts: true });

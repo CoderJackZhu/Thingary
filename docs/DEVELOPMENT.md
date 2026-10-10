@@ -196,3 +196,11 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 ## 已有贷款直接还款安排
 
 虚构入口 visual-preview.html?section=planning&plan-debt=normal&theme=light；plan-debt 支持 normal、unknown（可空付款／期限）、empty、error（保存失败）、changed、zero、saved。均用 tests/fixtures/planning-basic/debt-loops.json，真实 capabilities，保存后重新读取与重算，刷新重置。tests/planning-debt.test.mjs 执行生产处理器、两张卡闭环、部分保存、三种账本、未知、阶段、事件去重和余额变化；Store plan_profile 的 debt 测试覆盖备份、非法载荷／引用、旧缺省、重启、冲突、提交未知重放，legacy receipt 测试保护旧字节。原生 UI、VoiceOver、系统输入法未验；隔离验收 identifier local.thingary.loops.acceptance20261010。
+
+### 养老金精修闭环验收
+
+当前源码已实现（尚未发布）。`?section=planning&plan-pension=normal|unknown|empty|error|transfer` 使用与自动化同批的虚构盘点：正常有完整社保资料、未知为已选北京缺两项资料、空白无计划、错误模拟保存失败、transfer 为个人养老金未来起止未齐。刷新重置，正常构建不导入预览夹具。
+
+`tests/planning-pension-refinement.test.mjs` 运行生产对话框、Q4 和卡片处理器，覆盖五个入口、缺项硬阻塞与改选先不算、内存草稿与统一 setup 保存、隐藏值保全、未来缴存只扣一次，以及固定比较上下文、无原结果／不变／不可计算；原生临时 Store 的 setup 多段保存、null、原子性、重启、冲突和未知回执重放由 `src-tauri/tests/planning_basic.rs` 验证。浏览器可点通与截图不证明原生 UI 持久化；隔离原生 UI 的保存、重启、备份交互及辅助功能仍需另行验收。
+
+从「核对未来缴存安排」卡片或其计算依据进入是一个明确例外：先不算／手填也显示同一个缴费步骤，用于补齐真实缴存排期；保留原收入模式，不引入北京估算，社保资料步仍仅在北京且缺项时出现。普通国家养老金卡与 Q4 仍仅在选北京时显示缴费步骤。预览另有 `plan-pension=transfer-excluded|transfer-manual`，对应生产处理器自动化已覆盖。

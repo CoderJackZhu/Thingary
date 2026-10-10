@@ -89,6 +89,7 @@ const scopes = (sources: CostSource[], d: Record<string, ScopeDraft>): CostScope
   return [{ source_id: s.id, treatment: x.treatment, reference_cents: null }];
 });
 const selections = (d: Draft): IncomeSelection[] => d.incomeItems.filter(i => d.picks[i.id]?.on).map(i => ({ id: i.id, source_id: i.id, role: d.picks[i.id].role }));
+export const retirementIncomeOf = (d: Draft) => ({ mode: d.incomeMode === '' ? null : d.incomeMode, selected: d.incomeMode === 'manual' || d.incomeMode === 'beijing' ? selections(d).filter(s => d.incomeMode === 'manual' || s.role === 'other') : [] });
 
 export function basicInput(d: Draft, saved: Saved, today: string): SectionInput {
   const r = saved?.profile.retire ?? defaultRetire;
@@ -101,7 +102,7 @@ export function basicInput(d: Draft, saved: Saved, today: string): SectionInput 
       contract_version: 1,
       start: d.start === 'live' ? { kind: 'live' } : { kind: 'simulation', id: d.simId, available_cents: d.simAmount === '' ? null : d.simAmount, date: d.simDate === '' ? null : d.simDate, notes: d.simNotes },
       contribution: { id: d.contributionId, monthly_cents: d.contribution === '' ? null : d.contribution },
-      retirement_income: { mode: d.incomeMode === '' ? null : d.incomeMode, selected: d.incomeMode === 'manual' || d.incomeMode === 'beijing' ? selections(d).filter(s => d.incomeMode === 'manual' || s.role === 'other') : [] },
+      retirement_income: retirementIncomeOf(d),
       pension_contributions: (({ start, stop, base }) => ({ start_month: start, stop_month: stop, base_cents: base }))(pcValues(d, today)),
       contribution_costs: scopes(contributionSources(r, (d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.conScopes), retirement_costs: scopes(retirementSources(r, (d.incomeMode === 'beijing' ? d.pension.pp || null : saved?.profile.personal_pension_annual_cents ?? null)), d.retScopes),
     },

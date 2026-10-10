@@ -784,3 +784,106 @@ fn dormant_event_fee_confirmation_survives_saves_without_reducing_active_budget(
     assert!(store.plan_profile_update(&events, "2026-10-08").is_err());
     assert_eq!(store.plan_profile().unwrap().saved.unwrap().revision, 3);
 }
+
+#[cfg(feature = "fault-injection")]
+#[test]
+fn pension_refinement_setup_keeps_unknowns_atomic_replays_and_restarts() {
+    use thingary_lib::domain::Error;
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let mut json = serde_json::to_value(input(&s)).unwrap();
+    let mut basic = json["fields"].take();
+    basic["basic"]["retirement_income"] = serde_json::json!({"mode":"beijing","selected":[]});
+    basic["basic"]["pension_contributions"] =
+        serde_json::json!({"start_month":null,"stop_month":null,"base_cents":null});
+    json["section"] = "setup".into();
+    json["fields"] = serde_json::json!({"basic":basic,"budget":null,"funds":null,"pension":{
+        "birth_month":"1990-06","worker":null,"region":"beijing","paid_months":null,
+        "account_balance_cents":null,"base_cents":null,"past_index_hundredths":null,
+        "flex_months":null,"personal_pension_annual_cents":null,"marginal_tax_hundredths":null,
+        "wage_growth_hundredths":200,"pp_return_hundredths":200,"overrides":{}
+    }});
+    let partial: Update = serde_json::from_value(json.clone()).unwrap();
+    s.set_hook(|point| {
+        if point == "plan_profile.before_commit" {
+            Err(Error::new("INJECTED", "虚构提交前故障"))
+        } else {
+            Ok(())
+        }
+    });
+    assert!(s.plan_profile_update(&partial, "2026-10-10").is_err());
+    assert!(s.plan_profile().unwrap().saved.is_none());
+    s.set_hook(|_| Ok(()));
+    let a = s.plan_profile_update(&partial, "2026-10-10").unwrap();
+    assert_eq!(a.revision, 1);
+    assert!(a.profile.paid_months.is_none());
+    assert!(a.profile.flex_months.is_none());
+    assert!(a
+        .profile
+        .retire
+        .basic
+        .as_ref()
+        .unwrap()
+        .pension_contributions
+        .base_cents
+        .is_none());
+    json["request_id"] = uuid::Uuid::new_v4().to_string().into();
+    json["expected_revision"] = 1.into();
+    json["fields"]["basic"]["basic"]["pension_contributions"] =
+        serde_json::json!({"start_month":"2026-10","stop_month":"2050-06","base_cents":"2000000"});
+    json["fields"]["funds"] = serde_json::json!({"monetary_basis_date":json["fields"]["basic"]["monetary_basis_date"],"fund_rules":[],"hpf_monthly_cents":"0","personal_pension_account_id":null,"personal_pension_balance_confirmed":false});
+    json["fields"]["pension"]["worker"] = "male".into();
+    json["fields"]["pension"]["paid_months"] = 48.into();
+    json["fields"]["pension"]["account_balance_cents"] = "5000000".into();
+    json["fields"]["pension"]["base_cents"] = "2000000".into();
+    json["fields"]["pension"]["flex_months"] = 0.into();
+    json["fields"]["pension"]["personal_pension_annual_cents"] = "0".into();
+    json["fields"]["pension"]["marginal_tax_hundredths"] = 1000.into();
+    let complete: Update = serde_json::from_value(json.clone()).unwrap();
+    s.set_hook(|point| {
+        if point == "plan_profile.after_commit" {
+            Err(Error::new("INJECTED", "虚构提交结果未知"))
+        } else {
+            Ok(())
+        }
+    });
+    assert!(s.plan_profile_update(&complete, "2026-10-10").is_err());
+    drop(s);
+    let mut s = Store::open(d.path()).unwrap();
+    let b = s.plan_profile_update(&complete, "2026-10-10").unwrap();
+    assert_eq!(b.revision, 2);
+    assert_eq!(b.profile.paid_months, Some(48));
+    assert_eq!(
+        b.profile
+            .retire
+            .core
+            .as_ref()
+            .unwrap()
+            .hpf_monthly_cents
+            .as_deref(),
+        Some("0")
+    );
+    json["fields"]["pension"]["paid_months"] = 49.into();
+    assert_eq!(
+        s.plan_profile_update(&serde_json::from_value(json.clone()).unwrap(), "2026-10-10")
+            .unwrap_err()
+            .code,
+        "REQUEST_CONFLICT"
+    );
+    json["request_id"] = uuid::Uuid::new_v4().to_string().into();
+    assert_eq!(
+        s.plan_profile_update(&serde_json::from_value(json.clone()).unwrap(), "2026-10-10")
+            .unwrap_err()
+            .code,
+        "REVISION_CONFLICT"
+    );
+    json["expected_revision"] = 2.into();
+    json["fields"]["basic"]["basic"]["pension_contributions"]["stop_month"] = "2020-01".into();
+    assert!(s
+        .plan_profile_update(&serde_json::from_value(json).unwrap(), "2026-10-10")
+        .is_err());
+    assert_eq!(
+        serde_json::to_value(s.plan_profile().unwrap().saved.unwrap()).unwrap(),
+        serde_json::to_value(b).unwrap()
+    );
+}
