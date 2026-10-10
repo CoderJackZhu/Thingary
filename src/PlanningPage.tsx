@@ -81,7 +81,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
       {tab === 'savings' && <button className="ui-btn" disabled={!incomes || !!pending} onClick={() => setImporting(true)}>导入收入历史…</button>}
-      <Info text="资产涨了，不一定都是存下来的钱，也可能是投资涨跌。收入只展示已记录的金额；每月能存多少由你自己估计，没想好可以先不填。"/>
+      <Info text={tab === 'goals' ? '按你的条件，算出每月至少要存多少才能在目标年龄退休。都是估算，条件随时可以改。' : tab === 'pension' ? '按你填的社保资料估算养老金和锁定的钱，不是待遇核定结果。' : '资产涨了，不一定都是存下来的钱，也可能是投资涨跌。收入只展示已记录的金额。'}/>
     </div></HeaderSlot>
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
       : !sources ? <p role="status" className="muted">正在读取规划…</p>
@@ -108,7 +108,7 @@ function Usual({ review }: { review: PlanReview }) {
     <article><span>月均净资产变化（含估值变化）</span><strong>{m(s.mean_monthly_change_cents)}</strong></article>
     <article><span>历史中位数（含估值变化）</span><strong>{m(s.median_monthly_change_cents)}</strong></article>
     <article><span>最近完整盘点</span><strong>{s.latest_date ?? '待补充'}</strong></article>
-  </div><p className="muted small">近12个月的可比盘点区间；均值按天数加权，中位数每区间一票。历史参考不自动成为未来净投入。收入覆盖尚未确认。</p></>;
+  </div><p className="muted small">取近 12 个月里前后都是完整盘点的区间：平均值按天数加权，中位数每个区间算一次。这只是过去的参考，不会自动当成你以后每月能存的钱，也不代表收入已经记全。</p></>;
 }
 
 function ReviewPeriod({ interval, sources, today, reload, onPending, onEditingChange, onAction, ...steps }: { interval: Interval; sources: PlanningSources; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onAction: (a: ReviewAction) => void; busy: boolean; markError: string; onMark: () => void }) {
@@ -138,7 +138,7 @@ function Steps({ interval: i, busy, markError, onMark, reasons, reasonError }: {
         <div><dt>已记录公积金缴存</dt><dd>{hpfSummary(i.hpf_cents, i.hpf_known_cents ?? null, i.hpf_unknown_records ?? 0, money)}</dd></div>
         <div><dt>公积金账户变化</dt><dd>{money(i.hpf_change_cents)}</dd></div>
       </dl> : <p className="muted">{statusText[i.status]}；已记录收入 {money(i.income_cents)}，公积金缴存 {hpfSummary(i.hpf_cents, i.hpf_known_cents ?? null, i.hpf_unknown_records ?? 0, money)}。</p>}
-      <p className="muted small">收入覆盖待核对。净资产变化含估值变化，不能反推消费或真实储蓄。</p>
+      <p className="muted small">收入可能没记全。资产变化里含投资涨跌，不能直接算出花了多少、存了多少。</p>
     </section>
     <section aria-labelledby="plan-step-2"><h4 id="plan-step-2">变化</h4>
       {ok ? <>
@@ -165,7 +165,7 @@ function Intervals({ intervals, selected, onSelect }: { intervals: Interval[]; s
       <tbody>{intervals.map(i => <tr key={i.snapshot_id} className={i.snapshot_id === selected ? 'selected' : i.excluded || i.status !== 'ok' ? 'closed' : undefined}>
         <td><button className="link-cell" aria-pressed={i.snapshot_id === selected} onClick={() => onSelect(i.snapshot_id)}>{dateRange(i)}</button><small className="muted"> {i.days} 天</small></td>
         <td className="amount">{i.status === 'ok' || i.status === 'scope_changed' ? money(i.income_cents) : <span className="muted">—</span>}</td>
-        <td className="amount">{money(i.delta_nw_cents)}</td><td>收入覆盖待核对</td>
+        <td className="amount">{money(i.delta_nw_cents)}</td><td>收入可能没记全</td>
         <td>{i.status !== 'ok' && <span className="ui-tag">{statusText[i.status]}</span>}{i.excluded && <span className="ui-tag">一次性变动</span>}{i.income_possibly_missing && i.status === 'ok' && <span className="ui-tag">可能漏记收入</span>}</td>
       </tr>)}</tbody></table></article>;
 }

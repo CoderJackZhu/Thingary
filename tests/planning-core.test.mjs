@@ -113,7 +113,8 @@ test('D08/D16: PP moves cash once; payroll HPF adds only restricted funds, and p
   assert.equal(pr.hpf_at_start_cents,300000);assert.equal(pr.personal_pension_at_start_cents,5100000);
   p.profile.personal_pension_annual_cents='0';
   assert.equal(savingsOf(ready(calc(p,snap([entry('cash','asset','cash',10000000),entry('pp','asset','other_asset',5000000),entry('hpf','asset','housing_fund',0)]))).plan)[1],500000);
-  c.personal_pension_account_id='cash';assert.match(calc(p,snap([entry('cash','asset','cash',10000000)])).missing.join(' '),/独立确认.*受限/);
+  c.personal_pension_account_id='cash';assert.match(calc(p,snap([entry('cash','asset','cash',10000000)])).missing.join(' '),/单独设为「暂不能动用」/);
+  assert.doesNotMatch(calc(p,snap([entry('cash','asset','cash',10000000)])).missing.join(' '),/。；/);
 });
 
 test('duplicate debt continuation, unsupported reference changes, and hypothetical included costs stay incomplete', () => {

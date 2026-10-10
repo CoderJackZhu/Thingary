@@ -31,7 +31,7 @@ const cases = [
  ['transfer','transfer','未来缴费停止月份',r=>fill(r,'MonthInput','未来缴费停止月份','2050-06')],
  ['debts','debt-review','虚构信用卡：每月还一笔固定金额，单独算上',r=>{for(const name of ['虚构信用卡','虚构房贷']){radio(r,name+'：每月还一笔固定金额，单独算上');fill(r,'CentInput',name+'每月还款','10000');fill(r,'MonthInput',name+'最后一期','2027-10');}}],
  ['costs','costs','房租是否已含在生活费里',r=>select(r,'房租是否已含在生活费里','included')],
- ['event','event:fictional-overdue','现实状态',r=>select(r,'现实状态','cancelled')],
+ ['event','event:fictional-overdue','是否已经发生',r=>select(r,'是否已经发生','cancelled')],
 ];
 for(const [scenario,id,focus,minimum] of cases){
  test(`${scenario}: empty save remains open, names missing confirmation and focuses it`,async()=>{

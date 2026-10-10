@@ -112,7 +112,7 @@ function BasicSidebar({ saved, caps, openSetup, onGoto, contribution }: { saved:
           {Number(r.rent_cents) > 0 && <li><span>房租<small>{scope('rent')}</small></span><b>{money(r.rent_cents)}/月</b></li>}</ul></>}
     </Card>
     <Card title="资金起点" onEdit={el => openSetup(2, el)}>
-      {funds?.status === 'ready' ? <Rows rows={[['来源', funds.value.kind === 'simulation' ? '模拟起点' : '实际盘点'], ['截至', funds.value.date], ['规划可用', money(funds.value.available_cents)], ['受限 / 余债', `${money(funds.value.restricted_cents)} / ${money(funds.value.debt_cents)}`]]}/> : funds ? <ul className="plan-missing-list">{funds.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul> : <p className="muted small">读取中…</p>}
+      {funds?.status === 'ready' ? <Rows rows={[['来源', funds.value.kind === 'simulation' ? '模拟起点' : '实际盘点'], ['截至', funds.value.date], ['可以动用', money(funds.value.available_cents)], ['暂不能动用 / 欠款', `${money(funds.value.restricted_cents)} / ${money(funds.value.debt_cents)}`]]}/> : funds ? <ul className="plan-missing-list">{funds.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul> : <p className="muted small">读取中…</p>}
     </Card>
     <Card title="退休收入" onEdit={el => openSetup(3, el)} tip="未选择、本次不计、手填、职工养老金估算含义不同；本次不计不会删除原有收入资料。">
       <p>{b.retirement_income.mode === null ? '还没选择（选好后才能算需求）' : incomeModeText[b.retirement_income.mode]}</p>

@@ -112,3 +112,19 @@ test('trajectory chart labels: close reference lines go on separate rows, edge l
     if (Math.abs(p - r) > 20) assert.equal(b.projected < b.required, p < r);
   }
 });
+
+test('snapshot rows show real 12-month periods and mark events on the row they happen in', () => {
+  // 36 岁 4 个月起点，60 岁（720 月龄）按年龄退休：退休落在第 24 行中间（712–723 月龄）。
+  const P = plan({ now_months: 436, target_months: 720, mode: 'traditional', anchor_date: '2026-10-10' }), proj = project(P, 2026);
+  const rows = snapshotRows(P, proj, 'today');
+  assert.equal(rows[0].period, '2026-10 至 2027-09');
+  const hit = rows.filter(r => r.marks.includes('退休'));
+  assert.equal(hit.length, 1);
+  assert.equal(hit[0].start_month, 712);
+  assert.equal(hit[0].period, '2049-10 至 2050-09');
+  assert.equal(hit[0].retire_starts, true);
+  assert.ok(hit[0].marks.includes('目标'));
+  assert.equal(rows.find(r => r.start_month === 724).retire_starts, false);
+  assert.equal(rows.at(-1).period.endsWith(' 至 2080-05'), true); // horizon 1080 月龄 → last month 1079
+  assert.equal(snapshotRows({ ...P, anchor_date: undefined }, proj, 'today')[0].period, null);
+});

@@ -181,9 +181,19 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
 }
 
 /** 逐年快照表的一行：金额按当前口径（行首月龄的通胀系数）。 */
-export type SnapshotRow = { oneoff: number; age: number; year: number; phase: 'accumulation' | 'retired'; end: number; contribution: number; income: number; unlock: number; spend: number; withdrawal: number; unfunded: number; start_month: number };
+/** 每行是从资金起点起的 12 个月（不是日历年）：period 给出实际起止月份，marks 把目标、FI、退休标在实际发生的那一行，
+ *  retire_starts 表示这一行中途开始退休。没有起点日期的旧计划 period 为 null，只显示 year。 */
+export type SnapshotRow = { oneoff: number; age: number; year: number; phase: 'accumulation' | 'retired'; end: number; contribution: number; income: number; unlock: number; spend: number; withdrawal: number; unfunded: number; start_month: number; period: string | null; marks: string[]; retire_starts: boolean };
+const ymOf = (i: number) => `${Math.floor(i / 12)}-${String(i % 12 + 1).padStart(2, '0')}`;
 export function snapshotRows(P: Plan, proj: Projection, mode: ValueMode): SnapshotRow[] {
-  return proj.rows.map(r => { const k = scaleAt(P, mode, r.start_month); return { age: r.age, year: r.year, phase: r.phase, end: r.end * k, contribution: r.contribution * k, income: r.income * k, unlock: r.unlock * k, spend: r.spend * k, oneoff: r.oneoff * k, withdrawal: r.withdrawal * k, unfunded: r.unfunded * k, start_month: r.start_month }; });
+  const anchor = P.anchor_date ?? null, base = anchor ? Number(anchor.slice(0, 4)) * 12 + Number(anchor.slice(5, 7)) - 1 - P.now_months : null;
+  const within = (m: number | null, s: number) => m !== null && m >= s && m < s + 12;
+  return proj.rows.map(r => {
+    const k = scaleAt(P, mode, r.start_month), last = Math.min(r.start_month + 11, P.horizon_months - 1);
+    const marks = ([[P.target_months, '目标'], [proj.fi_month, 'FI'], [proj.retire_month, '退休']] as const).filter(([m]) => within(m, r.start_month)).map(([, label]) => label);
+    return { age: r.age, year: r.year, phase: r.phase, end: r.end * k, contribution: r.contribution * k, income: r.income * k, unlock: r.unlock * k, spend: r.spend * k, oneoff: r.oneoff * k, withdrawal: r.withdrawal * k, unfunded: r.unfunded * k, start_month: r.start_month,
+      period: base === null ? null : `${ymOf(base + r.start_month)} 至 ${ymOf(base + last)}`, marks, retire_starts: proj.retire_month !== null && proj.retire_month > r.start_month && within(proj.retire_month, r.start_month) };
+  });
 }
 
 export { durationText };

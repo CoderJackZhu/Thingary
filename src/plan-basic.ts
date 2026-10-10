@@ -111,11 +111,11 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   for (const o of core?.occurrences ?? []) {
     if (o.actual_date > sources.today) reqMissing.push(missing('INPUT_INVALID', 'requirement', 'events', 'core.occurrences', '实际日期不能晚于今天。', 'constraint'));
     if (o.loan) {
-      if (seenLoans.has(o.loan.account_id)) reqMissing.push(missing('INPUT_INVALID', 'requirement', 'events', 'core.occurrences', '同一余债不能重复接续。', 'constraint'));
+      if (seenLoans.has(o.loan.account_id)) reqMissing.push(missing('INPUT_INVALID', 'requirement', 'events', 'core.occurrences', '同一笔剩余欠款不能重复计入。', 'constraint'));
       seenLoans.add(o.loan.account_id);
     }
   }
-  if (b.start.kind === 'live' && snap?.entries.some(e => e.counted && e.kind === 'housing_fund' && core?.fund_rules.some(rule => rule.account_id === e.account_id && rule.availability === 'available'))) reqMissing.push(missing('POOL_UNCONFIRMED', 'requirement', 'funds', 'core.fund_rules', '公积金不能进入起点可用资金，须按受限池解锁。', 'fact'));
+  if (b.start.kind === 'live' && snap?.entries.some(e => e.counted && e.kind === 'housing_fund' && core?.fund_rules.some(rule => rule.account_id === e.account_id && rule.availability === 'available'))) reqMissing.push(missing('POOL_UNCONFIRMED', 'requirement', 'funds', 'core.fund_rules', '公积金不能当作现在就能用的钱，要到领取时才计入。', 'fact'));
   const mode = b.retirement_income.mode;
   const penMissing: PlanningMissing[] = [];
   let pen: Pension = { monthly_cents: 0, lump_cents: 0, unlock_age_months: r.horizon_age * 12 };
@@ -137,12 +137,12 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
     if (!region) penMissing.push(missing('PENSION_FACTS_UNKNOWN', 'pension', 'pension', p.region === 'custom' ? 'overrides.avg_wage_cents' : 'region', p.region === null ? '请选择参保地；也可以改选“先不算”先看结果。' : '请填写当地养老金计发基数；也可以改选“先不算”先看结果。', 'fact'));
     if (!hasPensionProfile(p)) penMissing.push(missing('PENSION_FACTS_UNKNOWN', 'pension', 'pension', 'profile', '你选择了职工养老金估算，还差社保资料；也可以改选“先不算”先看结果。', 'fact'));
     const ppEntry = b.start.kind === 'live' ? snap?.entries.find(e => e.account_id === core?.personal_pension_account_id && e.counted && e.side === 'asset') : null;
-    if (b.start.kind === 'live' && core?.personal_pension_account_id && (!ppEntry || ppEntry.amount_cents === null || ppEntry.kind === 'housing_fund' || !core.fund_rules.some(rule => rule.account_id === ppEntry.account_id && rule.availability === 'restricted' && rule.share_hundredths === 10000))) penMissing.push(missing('POOL_UNCONFIRMED', 'pension', 'funds', 'core.personal_pension_account_id', '个人养老金须是独立确认的完整受限池，不能同时进入可用或公积金池。', 'fact'));
+    if (b.start.kind === 'live' && core?.personal_pension_account_id && (!ppEntry || ppEntry.amount_cents === null || ppEntry.kind === 'housing_fund' || !core.fund_rules.some(rule => rule.account_id === ppEntry.account_id && rule.availability === 'restricted' && rule.share_hundredths === 10000))) penMissing.push(missing('POOL_UNCONFIRMED', 'pension', 'funds', 'core.personal_pension_account_id', '个人养老金账户要单独设为「暂不能动用」并全额计入，不能同时算作可用资金或公积金。', 'fact'));
     const pc = b.pension_contributions;
     if (pc.start_month === null || pc.stop_month === null || pc.base_cents === null || core?.hpf_monthly_cents == null) penMissing.push(missing('PENSION_CONTRIBUTIONS_UNKNOWN', 'pension', 'basic', 'basic.pension_contributions', '请独立确认未来缴费起止月份、基数及公积金月缴存；不按投入符号停缴。'));
     if (pc.base_cents === '0' && pc.start_month !== null && pc.stop_month !== null && pc.start_month < pc.stop_month) penMissing.push(missing('PENSION_CONTRIBUTIONS_UNKNOWN', 'pension', 'basic', 'basic.pension_contributions.base_cents', '已确认缴费区间需要合法正基数；无未来缴费请明确相同起止月份。', 'constraint'));
     if ((!!core?.personal_pension_account_id || Number(p.personal_pension_annual_cents ?? 0) > 0) && !core?.personal_pension_balance_confirmed) penMissing.push(missing('POOL_UNCONFIRMED', 'pension', 'funds', 'core.personal_pension_balance_confirmed', '已有个人养老金余额待核对。', 'fact'));
-    if (b.start.kind === 'simulation' && (housing > 0 || core?.personal_pension_account_id)) penMissing.push(missing('POOL_UNCONFIRMED', 'pension', 'funds', 'core.personal_pension_account_id', '模拟起点未确认隐藏受限池，不能复用其账户余额。', 'fact'));
+    if (b.start.kind === 'simulation' && (housing > 0 || core?.personal_pension_account_id)) penMissing.push(missing('POOL_UNCONFIRMED', 'pension', 'funds', 'core.personal_pension_account_id', '用手填金额起算时，没法确认公积金和个人养老金账户，不能使用它们的余额。', 'fact'));
     if (!penMissing.length && region && hasPensionProfile(p) && anchor && pc.start_month !== null && pc.stop_month !== null && pc.base_cents !== null) {
       const now = ageMonthsAt(p.birth_month, anchor), stop = monthIndex(pc.stop_month) - monthIndex(p.birth_month), from = monthIndex(pc.start_month) - monthIndex(p.birth_month);
       const days = new Date(Date.UTC(+anchor.slice(0, 4), +anchor.slice(5, 7), 0)).getUTCDate(), fraction = (days - +anchor.slice(8, 10)) / days;
@@ -154,13 +154,13 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
       pensionStart = estimate.start_month;
     }
   }
-  if (mode === 'employee') for (const item of penMissing) if (!item.message.includes('改选')) item.message += '；也可以改选“先不算”先看结果。';
+  if (mode === 'employee') for (const item of penMissing) if (!item.message.includes('改选')) item.message = item.message.replace(/。$/, '') + '；也可以改选“先不算”先看结果。';
   reqMissing.push(...penMissing.map(x => ({ ...x, capability: 'requirement' as const })));
   const pension: BasicCapabilities['pension'] = mode === null ? blocked([missing('INCOME_MODE_UNKNOWN', 'pension', 'basic', 'basic.retirement_income.mode', '尚未选择退休收入怎么计入。')]) : penMissing.length ? blocked(penMissing) : { status: 'ready', value: { included: mode === 'employee', start_month: pensionStart, monthly_cents: mode === 'employee' ? String(Math.round(pen.monthly_cents)) : null } };
   const pc = b.pension_contributions, annual = Number(p.personal_pension_annual_cents ?? 0);
   const transferReady = annual > 0 && pc.start_month !== null && pc.stop_month !== null;
   if (annual > 0 && (pc.start_month !== null || pc.stop_month !== null) && !transferReady) annotations.push({ id: 'personal_pension:period', reason_code: 'TRANSFER_PENDING', message: '个人养老金未来转入排期未完整确认，该现金转入未计入。', effect: 'requirement_lower', treatment: 'omitted', source_ids: ['personal_pension'], missing_fields: ['转入起止月份'], refinement: { owner: 'budget', field: 'basic.pension_contributions' } });
-  if (!needsEstimator && (housing > 0 || core?.personal_pension_account_id || annual > 0 || Number(core?.hpf_monthly_cents ?? 0) > 0)) annotations.push({ id: 'pools', reason_code: 'POOL_NOT_USED', message: '本次未引用个人养老金/公积金池，不预计解锁或领取；已明确的现金转入仍按排期计入。', effect: housing > 0 || core?.personal_pension_account_id || transferReady ? 'requirement_higher' : 'none', treatment: 'not_used', source_ids: ['pools'], missing_fields: [], refinement: { owner: 'pension', field: 'basic.retirement_income.mode' } });
+  if (!needsEstimator && (housing > 0 || core?.personal_pension_account_id || annual > 0 || Number(core?.hpf_monthly_cents ?? 0) > 0)) annotations.push({ id: 'pools', reason_code: 'POOL_NOT_USED', message: '这次没有把公积金和个人养老金算进退休资金；以后要转入个人养老金的现金仍按计划扣除。', effect: housing > 0 || core?.personal_pension_account_id || transferReady ? 'requirement_higher' : 'none', treatment: 'not_used', source_ids: ['pools'], missing_fields: [], refinement: { owner: 'pension', field: 'basic.retirement_income.mode' } });
   const sourceRows = costSources(active, transferReady ? p.personal_pension_annual_cents ?? '0' : '0').filter(s => {
     const event = active.find(e => s.id === `event:${e.id}:loan` || s.id === `event:${e.id}:holding`);
     if (!event) return true;

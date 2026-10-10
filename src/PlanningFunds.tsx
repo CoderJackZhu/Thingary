@@ -48,8 +48,8 @@ export function FundsCard({ caps, sources, saved, snapshot, accounts, today, rel
   const f = caps.funds;
   const close = (ok: boolean) => { setEditing(false); if (ok) reload(); requestAnimationFrame(() => button.current?.focus()); };
   return <article className="ui-card ui-content" aria-label="规划资金">
-    <div className="ui-section-head"><h3>规划资金<Info text="规划可用资金与受限资金分别计算，债务本金不先扣现金。可用资金需要你明确确认。"/></h3><button ref={button} className="ui-btn" onClick={() => setEditing(true)}>核对可用资金</button></div>
-    {f.status === 'ready' ? <p>{f.value.kind === 'simulation' ? '模拟起点' : '实际盘点'}，截至 {f.value.date} · 规划可用 {money(f.value.available_cents)} · 受限 {money(f.value.restricted_cents)} · 余债 {money(f.value.debt_cents)}</p>
+    <div className="ui-section-head"><h3>规划资金<Info text="可以动用的钱和暂不能动用的钱（如公积金）分开算；欠款本金不会先从现金里扣掉。哪些钱可以动用需要你确认。"/></h3><button ref={button} className="ui-btn" onClick={() => setEditing(true)}>核对可用资金</button></div>
+    {f.status === 'ready' ? <p>{f.value.kind === 'simulation' ? '模拟起点' : '实际盘点'}，截至 {f.value.date} · 可以动用 {money(f.value.available_cents)} · 暂不能动用 {money(f.value.restricted_cents)} · 欠款 {money(f.value.debt_cents)}</p>
       : <MissingList missing={f.missing as PlanningMissing[]} onOwner={o => { if (o === 'funds') setEditing(true); }}/>}
     {editing && <FundsDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={close}/>}
   </article>;

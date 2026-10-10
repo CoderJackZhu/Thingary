@@ -42,8 +42,8 @@ export function PlanningPension({ focus = false, onFocusDone, today, sources, re
     const basisFactor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(core?.monetary_basis_date ?? anchor)) / (86400000 * 365.25));
     const restricted = (id: string) => core?.fund_rules.some(f => f.account_id === id && f.availability === 'restricted' && f.share_hundredths === 10000);
     const funds = { hpf_balance_cents: String(normalized.housingFund), hpf_monthly_cents: String(Math.round(Number(core?.hpf_monthly_cents ?? 0) * basisFactor)), personal_pension_balance_cents: snapshot?.entries.find(e => e.account_id === core?.personal_pension_account_id && restricted(e.account_id) && e.kind !== 'housing_fund')?.amount_cents ?? '0', first_month_fraction: snapshot ? (new Date(Date.UTC(+anchor.slice(0,4),+anchor.slice(5,7),0)).getUTCDate() - +anchor.slice(8,10)) / new Date(Date.UTC(+anchor.slice(0,4),+anchor.slice(5,7),0)).getUTCDate() : 1, hpf_growth_hundredths: p.assumptions.inflation_hundredths };
-    const notes = [...normalized.missing, ...(saved.reference_issues ?? []), `资金起点为 ${anchor} 收盘；本页实际金额按该日购买力展示。`];
-    if ((Number(p.personal_pension_annual_cents) > 0 || !!core?.personal_pension_account_id) && !core?.personal_pension_balance_confirmed) notes.push('已有个人养老金余额待核对，受限池只是部分估算。');
+    const notes = [...normalized.missing, ...(saved.reference_issues ?? []), `从 ${anchor} 的盘点开始算，本页金额按那天的物价。`];
+    if ((Number(p.personal_pension_annual_cents) > 0 || !!core?.personal_pension_account_id) && !core?.personal_pension_balance_confirmed) notes.push('已有的个人养老金余额还没核对，这部分只是粗略估算。');
     if (core?.hpf_monthly_cents == null) notes.push('未来公积金待确认，当前只是未计未来缴存的部分估算；请到目标页核对资金。');
     const now = ageMonthsAt(p.birth_month, anchor), start = startAgeMonths(p);
     const ages = quitAges(now, start);

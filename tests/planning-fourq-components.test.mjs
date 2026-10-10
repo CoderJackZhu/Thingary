@@ -276,7 +276,7 @@ test('future occurrence defaults pending; empty withdrawal is enabled but saved 
   const saves = [];
   const props = { event: ev, snapshot: batch.snapshot.value, accounts: batch.accounts.value, today: batch.today, busy: false, stuck: false, notice: '', onSave: value => saves.push(value) };
   const fresh = runtime('PlanningOccurrenceDialog', props);
-  assert.equal(fresh.find('select', p => p['aria-label'] === '现实状态').props.value, 'pending');
+  assert.equal(fresh.find('select', p => p['aria-label'] === '是否已经发生').props.value, 'pending');
   assert.equal(fresh.find('DateInput'), undefined);
   fresh.find('form').props.onSubmit(event()); assert.deepEqual(saves, [null]);
   const blank = { id: 'empty', event_id: ev.id, status: 'occurred', actual_date: batch.today, payments_complete: false, payments: [], loan: null };

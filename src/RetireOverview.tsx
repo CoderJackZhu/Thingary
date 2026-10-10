@@ -60,7 +60,7 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
     </article>
 
     {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? '临时试算，未保存'}</span> : <span className="ui-tag">按已保存的预计投入</span>} 每月净投入 {money(basic.contribution)}（不含投资收益）；{terminalText[basic.terminal]}。</p>}
-    <p className="muted small">资金起点：{P.anchor_date ?? '当前'} 收盘；现值金额基准：{P.monetary_basis_date ?? '当前'}。计划付款在月初核对，投入计入月末。</p>
+    <p className="muted small">从 {P.anchor_date ?? '当前'} 的盘点开始算，金额按 {P.monetary_basis_date ?? '当前'} 的物价。每月的付款按月初扣，存入按月末算。</p>
     <EventWarnings calc={calc}/>
 
     <article className="ui-card rd-card" aria-label="投资组合轨迹">
@@ -70,7 +70,7 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
     </article>
 
     <Coverage calc={calc} mode={mode} basic={!!basic}/>
-    <Snapshot calc={calc} mode={mode} rows={rows}/>
+    <Snapshot mode={mode} rows={rows}/>
     <aside className="rd-disclaimer"><strong>有一点需要记住</strong><p>预测取决于你的假设。实际结果可能不同。不构成财务建议。</p></aside>
   </div>;
 }
@@ -120,16 +120,13 @@ function Coverage({ calc, mode, basic }: { calc: Ready; mode: ValueMode; basic: 
   </article>;
 }
 
-function Snapshot({ calc, mode, rows }: { calc: Ready; mode: ValueMode; rows: ReturnType<typeof snapshotRows> }) {
-  const { plan: P, proj } = calc, goal = Math.floor(P.target_months / 12), hasUnlock = rows.some(r => r.unlock > 0), hasOneoff = rows.some(r => r.oneoff > 0);
-  const marks = new Map<number, string>([[goal, '目标']]);
-  if (proj.fi_month !== null) marks.set(Math.floor(proj.fi_month / 12), (marks.get(Math.floor(proj.fi_month / 12)) ? marks.get(Math.floor(proj.fi_month / 12)) + ' · ' : '') + 'FI');
-  if (proj.retire_month !== null) marks.set(Math.floor(proj.retire_month / 12), (marks.get(Math.floor(proj.retire_month / 12)) ? marks.get(Math.floor(proj.retire_month / 12)) + ' · ' : '') + '退休');
+function Snapshot({ mode, rows }: { mode: ValueMode; rows: ReturnType<typeof snapshotRows> }) {
+  const hasUnlock = rows.some(r => r.unlock > 0), hasOneoff = rows.some(r => r.oneoff > 0), hasPeriod = rows.some(r => r.period !== null);
   return <article className="ui-card rd-card" aria-label="逐年快照">
     <div className="rd-head"><div><p className="eyebrow">表格</p><h3>逐年快照</h3></div><span className="muted small">金额按{valueModeLabel[mode]}</span></div>
-    <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="逐年快照表"><table className="ui-table rd-table"><thead><tr><th>年龄</th><th>年份</th><th>阶段</th><th className="amount">期末投资组合</th><th className="amount">供款/年</th><th className="amount">退休收入/年</th>{hasUnlock && <th className="amount">一次性解锁</th>}{hasOneoff && <th className="amount">大额一次性</th>}<th className="amount">计划支出/年</th><th className="amount">投资组合提取/年</th></tr></thead>
-      <tbody>{rows.map(r => <tr key={r.age} className={marks.has(r.age) ? 'selected' : undefined}><td>{r.age}{marks.has(r.age) && <span className="ui-tag">{marks.get(r.age)}</span>}</td><td>{r.year}</td><td>{r.phase === 'retired' ? '退休' : '积累'}</td><td className="amount">{yuan(r.end)}</td><td className="amount">{r.contribution ? yuan(r.contribution) : '—'}</td><td className="amount">{r.income ? yuan(r.income) : '—'}</td>{hasUnlock && <td className="amount">{r.unlock ? yuan(r.unlock) : '—'}</td>}{hasOneoff && <td className="amount">{r.oneoff ? yuan(r.oneoff) : '—'}</td>}<td className="amount">{r.spend ? yuan(r.spend) : '—'}</td><td className="amount">{r.withdrawal ? yuan(r.withdrawal) : '—'}{r.unfunded > 0 && <small className="warn"> 缺 {yuan(r.unfunded)}</small>}</td></tr>)}</tbody></table></div>
-    <p className="muted small">国家养老金与收入流合并在「退休收入」；仅本次引用的公积金与个人养老金在领取年龄解锁，单列一栏；未采用的池见目标页依据。起点是当前盘点，逐月推演后按年汇总。</p>
+    <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="逐年快照表"><table className="ui-table rd-table"><thead><tr><th>年龄</th><th>{hasPeriod ? '期间' : '年份'}</th><th>阶段</th><th className="amount">期末投资组合</th><th className="amount">供款/年</th><th className="amount">退休收入/年</th>{hasUnlock && <th className="amount">一次性解锁</th>}{hasOneoff && <th className="amount">大额一次性</th>}<th className="amount">计划支出/年</th><th className="amount">投资组合提取/年</th></tr></thead>
+      <tbody>{rows.map(r => <tr key={r.start_month} className={r.marks.length ? 'selected' : undefined}><td>{r.age}{r.marks.length > 0 && <span className="ui-tag">{r.marks.join(' · ')}</span>}</td><td>{r.period ?? r.year}</td><td>{r.retire_starts ? '积累 → 退休' : r.phase === 'retired' ? '退休' : '积累'}</td><td className="amount">{yuan(r.end)}</td><td className="amount">{r.contribution ? yuan(r.contribution) : '—'}</td><td className="amount">{r.income ? yuan(r.income) : '—'}</td>{hasUnlock && <td className="amount">{r.unlock ? yuan(r.unlock) : '—'}</td>}{hasOneoff && <td className="amount">{r.oneoff ? yuan(r.oneoff) : '—'}</td>}<td className="amount">{r.spend ? yuan(r.spend) : '—'}</td><td className="amount">{r.withdrawal ? yuan(r.withdrawal) : '—'}{r.unfunded > 0 && <small className="warn"> 缺 {yuan(r.unfunded)}</small>}</td></tr>)}</tbody></table></div>
+    <p className="muted small">国家养老金和其他退休收入合并在「退休收入」；这次算进来的公积金和个人养老金在领取年龄一次性计入，单列一栏；没算进来的见目标页的计算依据。起点是当前盘点，逐月推演后每 12 个月汇总一行：期间从资金起点算起，不是日历年；年龄是这一行开始时的整岁，标签标在实际发生的那一行。</p>
   </article>;
 }
 

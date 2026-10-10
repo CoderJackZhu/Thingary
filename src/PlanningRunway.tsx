@@ -35,7 +35,7 @@ export function RunwayCard({ caps, today, onOwner }: { caps: BasicCapabilities |
         <div className="rs-field"><span>资金截至日</span><DateInput label="资金截至日" value={date} max={today} onChange={setDate}/></div>
       </div> : funds?.status === 'blocked' ? <>
         <p className="muted">可用资金尚未确认。可以回答准备资金的问题，或改用手填金额独立试算。</p><button type="button" className="ui-btn" onClick={() => onOwner('funds')}>确认现在可用的钱</button>
-      </> : funds?.status === 'ready' ? <p className="muted small">起点：{funds.value.kind === 'simulation' ? '模拟起点' : '实际盘点'}，截至 {funds.value.date} 的规划可用资金 {money(funds.value.available_cents)}。</p> : null}
+      </> : funds?.status === 'ready' ? <p className="muted small">起点：{funds.value.kind === 'simulation' ? '模拟起点' : '实际盘点'}，截至 {funds.value.date} 可以动用的资金 {money(funds.value.available_cents)}。</p> : null}
       {stale && <p className="notice" role="status">起点已是 {daysBetween(anchor, today)} 天前的资料，计算从该截至日开始；之后实际发生的变化未覆盖，不能当成今天余额。</p>}
       <div className="plan-runway-fields">
         <label className="rs-field"><span>每月可靠到账（元）</span><CentInput label="每月可靠到账" value={none ? '' : income} disabled={none} placeholder="只填确定会到账的" onChange={setIncome}/></label>

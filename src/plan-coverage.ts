@@ -16,7 +16,7 @@ export function eventCoverage(events: readonly StoredLifeEvent[], core: Planning
     if (!o) {
       const paused = e.date < today.slice(0, 7) || (!!snapshot && e.date < snapshot.date.slice(0, 7));
       coverage[e.id] = { paused, payment_ids: [], loan: !paused, holding: !paused, cycle: !paused };
-      if (paused) add('EVENT_OVERDUE', '日期已过，待核对；未来付款和持有费未计入。', ['现实状态'], Number(e.rent_saved_cents) > 0 ? 'uncertain' : 'requirement_lower');
+      if (paused) add('EVENT_OVERDUE', '日期已过，待核对；未来付款和持有费未计入。', ['是否已经发生'], Number(e.rent_saved_cents) > 0 ? 'uncertain' : 'requirement_lower');
       continue;
     }
     if (o.status === 'cancelled') { coverage[e.id] = { paused: true, payment_ids: [], loan: false, holding: false, cycle: false }; continue; }
