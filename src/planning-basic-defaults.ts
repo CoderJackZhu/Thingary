@@ -5,8 +5,7 @@ import type { Draft } from './planning-basic-forms.ts';
 
 type Saved = ProfileState['saved'];
 export const HISTORY_MIN_INTERVALS = 3;
-export const HISTORY_CAVEAT = '只算现金与存款，不含投资账户的变化；转进投资账户的钱会让它偏低';
-export const SPEND_CAVEAT = '由收入减去现金变化推算：转进投资账户的钱会让它偏高，收入没记全会让它偏低';
+export const SAVING_BASIS_CAVEAT = '估计存下只看现金、存款和负债：转进投资账户的钱会让它偏低、花销偏高；收入没记全会让花销偏低。';
 
 /** `saving`/`spend` count cash and debt only; `market` is the investment accounts' monthly change (transfers and gains mixed), shown beside them and never added. */
 export type History = { saving: string | null; spend: string | null; market: string | null; count: number; spend_count: number; reason: string };

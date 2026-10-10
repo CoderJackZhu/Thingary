@@ -116,7 +116,8 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     if (p.scope_changed) iv.status = 'scope_changed';
     else if (!rows.length) iv.status = 'no_income';
     else {
-      const delta = BigInt(p.change_cents ?? '0'), dh = p.hpf_change_cents === null ? null : BigInt(p.hpf_change_cents);
+      if (p.change_cents == null) throw new Error('资料格式不兼容或损坏');
+      const delta = BigInt(p.change_cents), dh = p.hpf_change_cents === null ? null : BigInt(p.hpf_change_cents);
       // 公积金账户有计入时只扣它的余额变化（提取进现金的算现金）；没有时缴存从未进过净资产，不扣。
       const saving = dh === null ? delta : delta - dh, spend = dh === null ? income - delta : hpf === null ? null : income + hpf - delta, out = dh === null || hpf === null ? null : hpf - dh;
       iv.delta_nw_cents = delta.toString(); iv.saving_cents = saving.toString(); iv.spend_cents = spend?.toString() ?? null;
@@ -260,21 +261,6 @@ export function largeOneOffs(lines: ReasonLine[], thresholdCents: number): { cou
 export function monthlyWithoutOneOffs(interval: Interval, oneOffs: bigint): bigint | null {
   if (interval.status !== 'ok' || interval.saving_cents === null || interval.days <= 0) return null;
   return monthly(BigInt(interval.saving_cents) + oneOffs, interval.days);
-}
-
-/** 同一个区间的三种储蓄口径（金额分、每月分、占比万分比）。没有计入公积金账户时三者相同，只给一行。
- *  现金流：到手 − 支出（个人理财与 FIRE 社区常用）；总储蓄：净资产增长，含公积金；自由现金：现金与投资的增长（退休估算用，公积金池另算）。 */
-export type SavingView = { id: 'cashflow' | 'total' | 'free'; label: string; total: bigint; monthly: bigint; rate_hundredths: number | null; note: string };
-export function savingViews(i: Interval): SavingView[] {
-  if (i.status !== 'ok' || i.delta_nw_cents === null || i.saving_cents === null) return [];
-  const delta = BigInt(i.delta_nw_cents), income = BigInt(i.income_cents), hpf = i.hpf_cents === null ? null : BigInt(i.hpf_cents), free = BigInt(i.saving_cents);
-  const row = (id: SavingView['id'], label: string, total: bigint, base: bigint | null, note: string): SavingView => ({ id, label, total, monthly: monthly(total, i.days), rate_hundredths: base !== null && base > 0n ? Number(roundDiv(total * 10000n, base)) : null, note });
-  if (i.hpf_change_cents === null) return [row('free', '储蓄', free, income, '净资产的增长；盘点里没有计入公积金账户，缴存不在其中')];
-  return [
-    ...(hpf === null ? [] : [row('cashflow', '现金流储蓄', delta - hpf, income, '到手工资 − 全部支出，不含公积金；个人理财与 FIRE 社区最常用')]),
-    row('free', '自由现金储蓄', free, i.hpf_out_cents === null ? null : income + (BigInt(i.hpf_out_cents) > 0n ? BigInt(i.hpf_out_cents) : 0n), '现金与投资的增长，含从公积金提取进现金的钱；退休估算用它，公积金池另算'),
-    row('total', '总储蓄', delta, hpf === null ? null : income + hpf, '净资产的全部增长，含公积金账户；占比按「到手 + 公积金缴存」'),
-  ];
 }
 
 /** Full deposit sum and its completeness share one display rule across review and income list. */

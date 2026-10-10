@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fundsFrom, largeOneOffs, latestHpf, monthlyWithoutOneOffs, savingViews } from '../src/plan.ts';
+import { fundsFrom, largeOneOffs, latestHpf, monthlyWithoutOneOffs } from '../src/plan.ts';
 
 const line = (source, cents, id = source + cents) => ({ source, id, asset_id: null, title: id, category: null, date: '2026-01-01', amount_cents: cents === null ? null : String(cents) });
 const interval = (over = {}) => ({ snapshot_id: 's', from: '2025-06-25', to: '2026-10-04', days: 466, status: 'ok', saving_cents: '4867780', ...over });
@@ -29,19 +29,4 @@ test('provident fund monthly uses the latest non-zero row so jobless months reco
   assert.equal(latestHpf(zeros), '0');
   assert.equal(fundsFrom([], zeros).funds.hpf_monthly_cents, '0');
   assert.equal(latestHpf([]), '');
-});
-
-test('three saving views: cash flow, free cash and total, from the same interval', () => {
-  const i = interval({ days: 487, income_cents: '31214900', hpf_cents: '9343200', delta_nw_cents: '14989600', hpf_change_cents: '6596300', hpf_out_cents: '2746900', saving_cents: '8393300' });
-  const [flow, free, total] = savingViews(i);
-  assert.deepEqual([flow.id, free.id, total.id], ['cashflow', 'free', 'total']);
-  assert.deepEqual([flow.total, free.total, total.total], [14989600n - 9343200n, 8393300n, 14989600n]);
-  assert.equal(flow.rate_hundredths, Math.round((5646400 * 10000) / 31214900));
-  assert.equal(free.rate_hundredths, Math.round((8393300 * 10000) / (31214900 + 2746900)));
-  assert.equal(total.rate_hundredths, Math.round((14989600 * 10000) / (31214900 + 9343200)));
-  // 487 天约 16 个月：每月 = 合计 × 487/16 ÷ 487。
-  assert.equal(total.monthly, BigInt(Math.round(14989600 * 487 / (16 * 487))));
-  // 没有计入公积金账户：只给一行；区间不可比：空。
-  assert.deepEqual(savingViews(interval({ days: 100, income_cents: '1000', hpf_cents: '0', delta_nw_cents: '500', hpf_change_cents: null, hpf_out_cents: null, saving_cents: '500' })).map(v => v.id), ['free']);
-  assert.deepEqual(savingViews(interval({ status: 'no_income' })), []);
 });

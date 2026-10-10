@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hpfSummary, incomeHpfTotals, savingViews, STALE_MONTHS, ageText, changeSentence, estimateAccountCents, latestHpf, computeReview, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths, yearBefore } from '../src/plan.ts';
+import { hpfSummary, incomeHpfTotals, STALE_MONTHS, ageText, changeSentence, estimateAccountCents, latestHpf, computeReview, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths, yearBefore } from '../src/plan.ts';
 
 // 与 src-tauri/src/plan_savings.rs 的单元测试使用同一组数值：预览不得和 Rust 口径漂移。
 const point = (id, date, prev, change, extra = {}) => ({ snapshot_id: id, date, notes: '', assets_cents: '0', liabilities_cents: '0', net_cents: '0', complete: true, missing: 0, compared_to: prev, scope_changed: false, change_cents: change === null ? null : String(change), hpf_change_cents: null, change_rate_hundredths: null, ...extra });
@@ -145,7 +145,6 @@ test('I02: unknown deposits preserve arrival and saving; dependent figures alone
  assert.deepEqual([i.income_cents,i.hpf_cents,i.hpf_known_cents,i.hpf_unknown_records],['4000000',null,'0',1]);
  assert.deepEqual([i.delta_nw_cents,i.saving_cents,i.spend_cents,i.hpf_out_cents,i.rate_hundredths],['2600000','2000000',null,null,null]);
  assert.deepEqual([r.stats.count,r.stats.spend_count,r.stats.median_monthly_spend_cents],[1,0,null]);
- assert.deepEqual(savingViews(i).map(v=>[v.id,v.total,v.rate_hundredths]),[['free',2000000n,null],['total',2600000n,null]]);
  const untracked=review(points.map(p=>({...p,hpf_change_cents:null})),incomes).intervals[0];assert.equal(untracked.spend_cents,'1400000');assert.equal(untracked.rate_hundredths,6500);
  const totals=incomeHpfTotals(incomes);assert.deepEqual(totals,{total:null,known:'0',unknown:1});
  assert.match(hpfSummary(totals.total,totals.known,totals.unknown,v=>v===null?'未知':v),/未知／不完整.*已知 0.*1 条未知/);
