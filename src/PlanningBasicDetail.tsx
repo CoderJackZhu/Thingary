@@ -12,7 +12,7 @@ import { usualSaving } from './plan-summary';
 import type { BasicCapabilities, PlanningMissing, PlanningSources, ProfileState } from './plan';
 import { toEvent } from './plan-retire-calc';
 import { contributionSection } from './planning-basic-forms';
-import { HISTORY_CAVEAT, historyHints } from './planning-basic-defaults';
+import { SAVING_BASIS_CAVEAT, historyHints } from './planning-basic-defaults';
 import type { History } from './planning-basic-defaults';
 import { ContributionHelper, MarketNote } from './PlanningContributionHelper';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
@@ -79,8 +79,8 @@ function NeedContribution({ caps, onOwner }: { caps: BasicCapabilities; onOwner:
 function Trial({ trial, onTrial, auto, saved, busy, onSave, onAdopt, notice }: { trial: string | null; onTrial: (v: string | null) => void; auto: History | null; saved: string | null; busy: boolean; onSave: () => void; onAdopt: () => void; notice: string }) {
   const [text, setText] = useState('');
   return <article className="ui-card ui-content plan-trial" aria-label="每月存钱的依据">
-    {auto && <><div className="ui-section-head"><h3>下面的预测按过去盘点推算<Info text="取过去可比较的盘点区间里，现金与存款每月增加的钱的中位数，不含投资账户的变化。转进投资账户的钱会让它偏低；没有保存，也不会进入首页和心愿。"/></h3><span className="ui-tag warn">按过去盘点推算，未保存</span></div>
-      <p>每月存下约 {money(auto.saving!)}（{auto.count} 个盘点区间的中位数；{HISTORY_CAVEAT}）。<MarketNote history={auto}/><button type="button" className="primary" disabled={busy} onClick={onAdopt}>采用并保存</button></p></>}
+    {auto && <><div className="ui-section-head"><h3>下面的预测按过去盘点推算<Info text={`${SAVING_BASIS_CAVEAT}没有保存，也不会进入首页和心愿。`}/></h3><span className="ui-tag warn">按过去盘点推算，未保存</span></div>
+      <p>按过去 {auto.count} 个盘点区间，你每月估计存下的中位数约 {money(auto.saving!)}（估计）。{SAVING_BASIS_CAVEAT}<MarketNote history={auto}/><button type="button" className="primary" disabled={busy} onClick={onAdopt}>采用并保存</button></p></>}
     {!auto && trial !== null && <div className="ui-section-head"><h3>临时试算<Info text="只在这个页面里预览：不保存、不改变首页、心愿或已保存的投入。想保留请明确保存。"/></h3><span className="ui-tag warn">临时试算，未保存</span></div>}
     <details open={trial !== null}><summary>{auto ? '想用别的金额看看？' : '试试每月存不同的金额'}</summary>
       <div className="plan-trial-row"><CentInput label="试算每月能存下的钱" signed value={text} placeholder={saved === null ? '填一个金额试试' : money(saved)} onChange={setText}/>

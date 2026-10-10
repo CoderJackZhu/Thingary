@@ -11,7 +11,7 @@ import { CentInput, FormRow, Segments } from './FormControls';
 import { FundsEditor } from './PlanningFunds';
 import { ready } from './review';
 import { ContributionHelper } from './PlanningContributionHelper';
-import { SPEND_CAVEAT, historyHints } from './planning-basic-defaults';
+import { SAVING_BASIS_CAVEAT, historyHints } from './planning-basic-defaults';
 import type { Account, Snapshot } from './wealth';
 import type { PlanningSources } from './plan';
 import type { Draft } from './planning-basic-forms';
@@ -91,7 +91,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
         <p className="planning-date-echo" role="status">{month ? `约 ${month}退休` : '填好出生年月与年龄，就能看到预计退休月份。'}</p>
       </section>}
       {step === 1 && <section className="form-block"><ConfirmationField label="退休后每月生活预算" issue={confirmationIssue}><FormRow label="每月生活费总额" hint="没想好可以留空；留空不会当作 0"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="例如 4000.00" onChange={v => patch({ budget: v })}/></FormRow></ConfirmationField>
-        {history.spend !== null && d.budget === '' && <p className="muted small plan-suggest" role="status">按过去 {history.spend_count} 个盘点区间，你每月花销的中位数约 {money(history.spend)}（{SPEND_CAVEAT}）。<button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ budget: history.spend! })}>采用</button></p>}
+        {history.spend !== null && d.budget === '' && <p className="muted small plan-suggest" role="status">按过去 {history.spend_count} 个盘点区间，你每月推算花销的中位数约 {money(history.spend)}（估计）。{SAVING_BASIS_CAVEAT}<button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ budget: history.spend! })}>采用</button></p>}
         <SpendItems d={d} setD={setD} frozen={frozen} today={today}/>
       </section>}
       {step === 2 && <section className="form-block">

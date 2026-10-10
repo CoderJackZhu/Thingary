@@ -53,7 +53,7 @@ npm run dev -- --port 1429
 
 `tests/planning-core.test.mjs` 覆盖资产事实、分池、已含费用、余债与首月顺序。
 
-轻量复盘夹具在同一预览入口追加 `review-fixture=normal|no-income|scope|incomplete|no-plan|pending`：分别覆盖净资产增加60000元、无收入、计入范围变化、旧盘点缺金额、无计划和逾期安排。原因桩固定含一条 null 金额行；`plan=reasons-error` 检查原因局部失败，`plan-module=off` 检查保存后降级到账户变化，`plan-wealth=off` 检查隐藏财富不读取。主题用 `style=bento|native|olive`、`theme=light|dark`，宽窗1440×1000及窄窗900×720。夹具全部虚构、仅驻留内存。
+轻量复盘夹具在同一预览入口追加 `review-fixture=normal|no-income|scope|incomplete|no-plan|pending`：分别覆盖净资产增加60000元、无收入、计入范围变化、旧盘点缺金额、无计划和逾期安排。原因桩固定含一条 null 金额行；`plan=reasons-error` 检查原因局部失败，`plan-module=off` 检查保存后降级到账户变化，`plan-wealth=off` 检查隐藏财富不读取。主题用 `style=bento|native|olive`、`theme=light|dark`，宽窗1440×1000及窄窗900×720。夹具全部虚构、仅驻留内存。`review-fixture=history` 增加三段可比历史（含非零投资变化），用于核对复盘中位数、第二问与详情建议；`review-fixture=hpf-unknown` 使用同一历史但缴存未知，用于核对只撤下花销估计；`review-fixture=no-investment` 保留三段历史并不计入投资账户。
 
 `tests/review-observations.test.mjs` 覆盖观察顺序与上限、禁用词、无收入资产事实、退款／售出符号、未知与明确零、结构化待核对兼容及确认后余额不变；`src-tauri/tests/plan_income.rs` 回归区间原因的 null 金额、日期／模块过滤与排序。`plan_interval_reasons` 保留日期及模块范围内未知金额行，金额继续为 null。原生保存→提示→对应区间→核对→重启须使用独立验收身份另行登记；浏览器截图和 Store 测试不替代原生、备份恢复或文件选择验证。
 

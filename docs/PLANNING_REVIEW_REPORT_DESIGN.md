@@ -1,5 +1,7 @@
 # 收入复盘、历史基准、金额打码与决策报告设计
 
+2026-10 起由 [PRODUCT_RULES](PRODUCT_RULES.md#规划收入与复盘) 的估计口径取代此前不得反推消费／储蓄的显示约束；以下历史内容保留。
+
 状态：**范围已批准，待实施、待验收。** 基线：`7eaff7c612e51875cdc9f299ecef2951abfd8f87`。入口见 [整体设计](PLANNING_LIFECYCLE_DESIGN.md)，持久化与统一计算见 [资金与方案](PLANNING_DATA_SCENARIOS_DESIGN.md)，迁入见 [CSV 设计](FINANCIAL_HISTORY_IMPORT_DESIGN.md)。
 
 当前源码已接入第一阶段轻量复盘：盘点后入口、派生清单、最多三条事实观察与现有发生核对。收入覆盖声明、归因、冻结基准及正式报告仍为下文目标规格，未由本阶段交付。

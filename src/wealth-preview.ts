@@ -357,12 +357,22 @@ if (reviewFixture && snapshots.length >= 2) {
   const last = snapshots.at(-1)!;
   snapshots = [snapshots[0], last].map((s, i) => ({ ...s, entries: s.entries.map(e => ({ ...e, state: 'entered' as const, amount_cents: e.kind === 'cash' ? (i ? '16000000' : '10000000') : '0', counted: e.side === 'asset' })) }));
   planIncomes = reviewFixture === 'no-income' ? [] : [{ id: 'review-income', revision: 1, fields: { date: last.date, net_cents: '2000000', hpf_cents: '0', notes: '虚构已记录收入；增长可能含估值' } }];
+  if (['history', 'hpf-unknown', 'no-investment'].includes(reviewFixture)) {
+    const base = snapshots[0];
+    snapshots = Array.from({ length: 4 }, (_, i) => ({ ...structuredClone(base), id: `review-history-${i}`, date: shifted(3 - i), notes: '虚构三段可比历史', entries: base.entries.map(e => ({ ...e, counted: reviewFixture !== 'no-investment' || e.kind !== 'mixed', amount_cents: e.kind === 'cash' ? String(10000000 + i * 300000) : e.kind === 'deposit' ? '0' : e.kind === 'housing_fund' ? String(i * 100000) : e.side === 'asset' ? String(i * 200000) : '0' })) }));
+    planIncomes = snapshots.slice(1).map((s, i) => ({ id: `review-history-income-${i}`, revision: 1, fields: { date: s.date, net_cents: '1000000', hpf_cents: reviewFixture === 'hpf-unknown' ? null : '100000', notes: '虚构税后收入和缴存' } }));
+  }
   if (reviewFixture === 'scope') snapshots[1].entries[0].counted = !snapshots[0].entries[0].counted;
   if (reviewFixture === 'incomplete') snapshots.splice(1, 0, { ...structuredClone(snapshots[0]), id: 'review-incomplete', date: shifted(1), entries: snapshots[0].entries.map((e, i) => i ? e : { ...e, amount_cents: null, state: 'missing' }) });
   if (reviewFixture === 'no-plan') planProfile = null;
   else if (planProfile) {
     const r = planProfile.profile.retire, s = snapshots.at(-1)!;
     r.core = { ...emptyCore(s.date), fund_rules: s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: 'available' as const, share_hundredths: 10000 })) };
+    if (['history', 'hpf-unknown', 'no-investment'].includes(reviewFixture)) {
+      r.core.fund_rules = s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: e.kind === 'housing_fund' ? 'restricted' as const : 'available' as const, share_hundredths: 10000 }));
+      r.core.personal_pension_balance_confirmed = true;
+      if (r.basic) r.basic.contribution.monthly_cents = null;
+    }
     r.life_events = reviewFixture === 'pending' ? [{ id: 'review-event', label: '虚构大额安排', kind: 'other', date: shifted(1).slice(0,7), included: true, price_cents: '10000', down_cents: '10000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }] : [];
   }
 }
