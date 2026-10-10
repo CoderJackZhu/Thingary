@@ -94,6 +94,12 @@ export function yearBefore(d: string): string {
   return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(Math.min(day, last)).padStart(2, '0')}`;
 }
 
+/** 估计存下与推算花销的区间合计：去掉投资类账户变化（转入与涨跌），与 monthly_cash_* 同一算式。未知保持 null。 */
+export function cashTotals(i: Pick<Interval, 'saving_cents' | 'spend_cents' | 'market_change_cents'>): { saving: string | null; spend: string | null } {
+  const dm = BigInt(i.market_change_cents ?? '0');
+  return { saving: i.saving_cents == null ? null : (BigInt(i.saving_cents) - dm).toString(), spend: i.spend_cents == null ? null : (BigInt(i.spend_cents) + dm).toString() };
+}
+
 export function computeReview(points: Point[], incomes: Income[], marks: Set<string>, generation: string): PlanReview {
   const latest = [...points].reverse().find(p => p.complete)?.date ?? null;
   const cutoff = latest ? yearBefore(latest) : null;
@@ -123,9 +129,9 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
       iv.delta_nw_cents = delta.toString(); iv.saving_cents = saving.toString(); iv.spend_cents = spend?.toString() ?? null;
       iv.hpf_change_cents = dh === null ? null : dh.toString(); iv.hpf_out_cents = out === null ? null : out.toString();
       iv.monthly_saving_cents = monthly(saving, days).toString(); iv.monthly_spend_cents = spend === null ? null : monthly(spend, days).toString();
-      const dm = BigInt(p.market_change_cents ?? '0');
       iv.market_change_cents = p.market_change_cents ?? null;
-      iv.monthly_cash_saving_cents = monthly(saving - dm, days).toString(); iv.monthly_cash_spend_cents = spend === null ? null : monthly(spend + dm, days).toString();
+      const cash = cashTotals(iv);
+      iv.monthly_cash_saving_cents = monthly(BigInt(cash.saving!), days).toString(); iv.monthly_cash_spend_cents = cash.spend === null ? null : monthly(BigInt(cash.spend), days).toString();
       const base = income + (out !== null && out > 0n ? out : 0n);
       if (base > 0n && (dh === null || out !== null)) iv.rate_hundredths = Number(roundDiv(saving * 10000n, base));
     }

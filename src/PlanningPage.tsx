@@ -17,7 +17,9 @@ import { usePlanningSources } from './planning-basic-data';
 import { modeOf } from './planning-basic-view';
 import { ready } from './review';
 import { HISTORY_MIN_INTERVALS, SAVING_BASIS_CAVEAT } from './planning-basic-defaults';
-import { monthly } from './plan';
+import { cashTotals, monthly } from './plan';
+/** 结余超过已记录收入时，推算花销为负没有意义，通常是收入没记全或有一次性进账。 */
+const NEGATIVE_SPEND = '暂时算不出：存下的比记录的收入还多，收入可能没记全';
 import { FinancialImportDialog } from './FinancialImportDialog';
 import { latestHpf, hpfSummary, incomeHpfTotals, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeFields, IncomeList, IncomeSave, Interval, Mark, PlanReview, Reasons } from './plan';
@@ -111,9 +113,9 @@ function Usual({ review }: { review: PlanReview }) {
     <article><span>月均净资产变化（含估值变化）</span><strong>{m(s.mean_monthly_change_cents)}</strong></article>
     <article><span>历史中位数（含估值变化）</span><strong>{m(s.median_monthly_change_cents)}</strong></article>
     <article><span>每月估计存下（中位数）</span><strong>{estimate(s.median_monthly_cash_saving_cents, s.count)}</strong></article>
-    <article><span>每月推算花销（中位数）</span><strong>{estimate(s.median_monthly_cash_spend_cents, s.spend_count ?? s.count)}</strong></article>
+    <article><span>每月推算花销（中位数）</span><strong>{s.median_monthly_cash_spend_cents != null && BigInt(s.median_monthly_cash_spend_cents) < 0n && (s.spend_count ?? s.count) >= HISTORY_MIN_INTERVALS ? NEGATIVE_SPEND : estimate(s.median_monthly_cash_spend_cents, s.spend_count ?? s.count)}</strong></article>
     <article><span>最近完整盘点</span><strong>{s.latest_date ?? '待补充'}</strong></article>
-  </div><p className="muted small">{SAVING_BASIS_CAVEAT}</p></>;
+  </div><p className="muted small">取近 12 个月里前后都是完整盘点的区间：平均值按天数加权，中位数每个区间算一次。{SAVING_BASIS_CAVEAT}</p></>;
 }
 
 function ReviewPeriod({ interval, sources, today, reload, onPending, onEditingChange, onAction, ...steps }: { interval: Interval; sources: PlanningSources; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onAction: (a: ReviewAction) => void; busy: boolean; markError: string; onMark: () => void }) {
@@ -137,8 +139,7 @@ function Steps({ interval: i, busy, markError, onMark, reasons, reasonError }: {
   const unavailable = i.status === 'scope_changed' ? '暂时算不出：账户范围变化' : i.status === 'no_income' ? '暂时算不出：这一期没有收入记录' : null;
   const period = (total: string | null, perMonth: string | null | undefined) => total == null || perMonth == null ? '暂时算不出：缺少可用的区间金额' : <>{money(total)}<small className="muted"> · 约每月 {money(perMonth)}</small></>;
   const market = i.market_change_cents;
-  const saving = i.saving_cents == null ? null : (BigInt(i.saving_cents) - BigInt(market ?? '0')).toString();
-  const spend = i.spend_cents == null ? null : (BigInt(i.spend_cents) + BigInt(market ?? '0')).toString();
+  const { saving, spend } = cashTotals(i);
   return <article className="ui-card ui-content plan-steps" aria-label="这一期的复盘">
     <div className="ui-section-head"><h3>{dateRange(i)}</h3><span>{i.days} 天 · 两次完整盘点之间</span></div>
     <section aria-labelledby="plan-step-1"><h4 id="plan-step-1">现状</h4>
@@ -150,7 +151,7 @@ function Steps({ interval: i, busy, markError, onMark, reasons, reasonError }: {
       </dl> : <p className="muted">{statusText[i.status]}；已记录收入 {money(i.income_cents)}，公积金缴存 {hpfSummary(i.hpf_cents, i.hpf_known_cents ?? null, i.hpf_unknown_records ?? 0, money)}。</p>}
       <dl className="plan-facts">
         <div><dt>估计存下</dt><dd>{unavailable ?? period(saving, i.monthly_cash_saving_cents)}</dd></div>
-        <div><dt>推算花销</dt><dd>{unavailable ?? (spend === null && (i.hpf_unknown_records ?? 0) > 0 ? '暂时算不出：有缴存金额未知' : period(spend, i.monthly_cash_spend_cents))}</dd></div>
+        <div><dt>推算花销</dt><dd>{unavailable ?? (spend === null && (i.hpf_unknown_records ?? 0) > 0 ? '暂时算不出：有缴存金额未知' : spend !== null && BigInt(spend) < 0n ? NEGATIVE_SPEND : period(spend, i.monthly_cash_spend_cents))}</dd></div>
         <div><dt>投资账户变化 <small>含转入和涨跌</small></dt><dd>{unavailable ?? (market == null ? '没有投资账户' : period(market, monthly(BigInt(market), i.days).toString()))}</dd></div>
       </dl>
       <p className="muted small">{SAVING_BASIS_CAVEAT}</p>

@@ -173,7 +173,7 @@
 .rl-sorr th, .rl-sorr td { padding: 8px; border-bottom: 1px solid var(--line); text-align: left; }
 .rl-sorr td.amount, .rl-sorr th.amount { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 1100px) { .rd-grid { grid-template-columns: minmax(0, 1fr); } .rd-side { position: static; } .rl-matrices { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 720px) { .rd-milestones { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rd-schedules { grid-template-columns: minmax(0, 1fr); } .rd-hero, .rd-card { padding: 16px; } }
+@media (max-width: 720px) { .rd-milestones, .rd-milestones.merged { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rd-schedules { grid-template-columns: minmax(0, 1fr); } .rd-hero, .rd-card { padding: 16px; } }
 
 /* 财富与规划页：不再卡在 1200px，宽屏时内容跟着变宽；概览／假设分析页签放大。 */
 .stats-section.wealth-section { max-width: none; }

@@ -143,3 +143,20 @@ test('zero and negative saving remain numbers; missing cash amounts never become
   const i = { ...r.intervals[0], monthly_cash_saving_cents: null };
   assert.ok(render(Steps, stepProps(i)).includes('暂时算不出：缺少可用的区间金额'));
 });
+
+import { cashTotals as cashTotalsOf } from '../src/plan.ts';
+test('cash totals drop the investment change and keep unknown as null', () => {
+  assert.deepEqual(cashTotalsOf({ saving_cents: '50000', spend_cents: '250000', market_change_cents: '10000' }), { saving: '40000', spend: '260000' });
+  assert.deepEqual(cashTotalsOf({ saving_cents: '50000', spend_cents: null, market_change_cents: null }), { saving: '50000', spend: null });
+  assert.deepEqual(cashTotalsOf({ saving_cents: null, spend_cents: null, market_change_cents: '1' }), { saving: null, spend: null });
+});
+
+test('negative inferred spending is never shown as an amount, per period or as the median', () => {
+  const r = review(3, { change_cents: '5000000' });
+  assert.ok(BigInt(r.intervals[0].spend_cents) < 0n);
+  const step = render(Steps, stepProps(r.intervals[0]));
+  assert.match(step, /存下的比记录的收入还多，收入可能没记全/);
+  assert.ok(BigInt(r.stats.median_monthly_cash_spend_cents) < 0n);
+  const usual = render(Usual, { review: r });
+  assert.match(usual, /每月推算花销（中位数）暂时算不出：存下的比记录的收入还多/);
+});
