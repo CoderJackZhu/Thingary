@@ -34,7 +34,7 @@ export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['sav
 
 export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone, reviewSnapshotId, onReviewFocusDone, onGotoWealth }: { reviewSnapshotId?: string | null; onReviewFocusDone?: () => void; onGotoWealth?: (action: ReviewAction) => void; focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
   const { load, reload } = usePlanningSources(today);
-  const [editing, setEditing] = useState<Income | 'new' | null>(null), [setup, setSetup] = useState<{ step: number; editMode: boolean } | null>(null);
+  const [editing, setEditing] = useState<Income | 'new' | null>(null), [setup, setSetup] = useState<{ step: number; editMode: boolean; completionId?: string } | null>(null);
   const [pensionComparison, setPensionComparison] = useState<PensionComparison | null>(null);
   const [importing, setImporting] = useState(false);
   const [reviewEditing, setReviewEditing] = useState(false);
@@ -62,7 +62,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
   const openNew = { label: '记一笔收入', plus: true, disabled: !!pending || !incomes, run: () => { onTab('savings'); setEditing('new'); } };
   usePageBar('planning', { primary: openNew, newRecord: openNew });
   // WebKit does not focus a button on click, so the caller passes the clicked element; the heading is the last resort.
-  const openSetup = (step = 0, from?: HTMLElement | null, editMode = false) => { opener.current = from ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null); setSetup({ step, editMode: editMode || step >= 4 }); };
+  const openSetup = (step = 0, from?: HTMLElement | null, editMode = false, completionId?: string) => { opener.current = from ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null); setSetup({ step, completionId, editMode: editMode || step >= 4 }); };
   const closeSetup = (ok: boolean) => { setSetup(null); setPending(storedPending()); if (ok) reload(); requestAnimationFrame(() => { const back = opener.current?.isConnected ? opener.current : document.getElementById('plan-budget-entry'); if (back) back.focus(); else refocusHeading(); }); };
 
   async function mark(interval: Interval) {
@@ -96,7 +96,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
           : <article className="ui-card ui-content" role="status"><p>{reviewError}</p>{!sources.modules.wealth ? null : <button onClick={reload}>重新读取</button>}</article>}
         {incomes ? <IncomeTable incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/> : <article className="ui-card ui-content" role="alert"><p>收入记录读取失败。</p><button onClick={reload}>重新读取</button></article>}
       </>}
-    {setup && sources && <PlanningSetupDialog onComparison={setPensionComparison} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode}/>}
+    {setup && sources && <PlanningSetupDialog completionId={setup.completionId} onComparison={setPensionComparison} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode}/>}
     {importing && incomes && <FinancialImportDialog mode="incomes" generation={incomes.generation} onClose={saved => { setImporting(false); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
     {editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} hpfDefault={latestHpf(incomes.rows)} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;

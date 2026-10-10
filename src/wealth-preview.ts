@@ -1,5 +1,6 @@
 import nonblockingDemo from '../tests/fixtures/planning-basic/nonblocking-demo.json';
 import debtDemo from '../tests/fixtures/planning-basic/debt-loops.json';
+import { completionFixture } from './planning-completion-fixture';
 import { pensionFixture } from './planning-pension-fixture';
 import { debtFixture } from './planning-debt-fixture';
 // Development-only in-memory stand-in for the wealth commands used by
@@ -399,10 +400,14 @@ if (debtScenario && debtBatch.profile.status === 'ready') planProfile = debtBatc
 const pensionScenario = params.get('plan-pension');
 const pensionBatch = pensionFixture(debtDemo as unknown as PlanningSources, pensionScenario ?? 'normal');
 if (pensionScenario && pensionBatch.profile.status === 'ready') planProfile = pensionBatch.profile.value.saved;
+const completionScenario = params.get('plan-completion');
+const completionBatch = completionFixture(debtDemo as unknown as PlanningSources, completionScenario ?? 'funds');
+if (completionScenario && completionBatch.profile.status === 'ready') planProfile = completionBatch.profile.value.saved;
 const updateResults = new Map<string, NonNullable<ProfileState['saved']>>();
 let lostOnce = false;
 const readError = (message: string, code = 'READ_FAILED') => ({ status: 'error' as const, value: { code, message } });
 const planningSources = (args: Record<string, unknown>): PlanningSources => {
+  if (completionScenario) return { ...completionBatch, generation, write_version: planWriteVersion, profile: { status: 'ready', value: { generation, saved: planProfile } } };
   if (pensionScenario) return { ...pensionBatch, generation, write_version: planWriteVersion, profile: { status: 'ready', value: { generation, saved: planProfile } } };
   if (debtScenario) return { ...debtBatch, generation, write_version: planWriteVersion, profile: { status: 'ready', value: { generation, saved: planProfile } } };
   if (nonblockingScenario) return { ...nonblockingBatch, generation, write_version: planWriteVersion, profile: nonblockingScenario === 'error' ? { status: 'error', value: { code: 'READ_FAILED', message: '虚构规划资料读取失败' } } : { status: 'ready', value: { generation, saved: planProfile } } };

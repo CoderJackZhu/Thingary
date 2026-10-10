@@ -6,21 +6,32 @@ import { debtFirstMonth, debtMonth, debtMonthIndex, debtReview, debtTreatmentLab
 import { CloseButton } from './CloseButton';
 import { MonthInput } from './DateInput';
 import { CentInput, FormRow } from './FormControls';
+import { ConfirmationField } from './PlanningConfirmation';
+import type { ConfirmationIssue } from './PlanningConfirmation';
 import { money } from './asset';
 import { useSectionSaver } from './planning-basic-data';
 
 type Draft = DebtRepayment & { touched: boolean; term: 'count' | 'last'; count: string };
-export function PlanningDebtDialog({ sources, saved, snapshot, accounts, today, reload, onPending, onClose }: { sources: PlanningSources; saved: NonNullable<ProfileState['saved']>; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: () => void }) {
+export function PlanningDebtDialog({ sources, saved, snapshot, accounts, today, reload, onPending, onClose, completion = false }: { sources: PlanningSources; saved: NonNullable<ProfileState['saved']>; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: () => void; completion?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null), saver = useSectionSaver(sources, reload, onPending);
   const review = debtReview(snapshot, saved.profile.retire.core, saved.profile.retire.life_events, undefined, undefined, accounts);
   const [drafts, setDrafts] = useState<Record<string, Draft>>(() => Object.fromEntries(review.rows.map(r => [r.entry.account_id, { account_id: r.entry.account_id, recorded_on: today, as_of: snapshot!.date, balance_cents: r.entry.amount_cents ?? '', start_month: debtFirstMonth(snapshot!.date), last_month: null, monthly_cents: null, before: null, after: null, ...r.saved, touched: false, term: 'last' as const, count: '' }])));
   const inactive = (saved.profile.retire.core?.debt_repayments ?? []).filter(d => !review.rows.some(r => r.entry.account_id === d.account_id));
   const [remove, setRemove] = useState<string[]>([]), [error, setError] = useState('');
+  const [issue, setIssue] = useState<ConfirmationIssue | null>(null);
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   const frozen = saver.busy || saver.stuck;
   function patch(id: string, fields: Partial<Draft>) { setDrafts(old => ({ ...old, [id]: { ...old[id], ...fields, touched: true } })); }
   async function save() {
     if (frozen) return;
+    if (completion) {
+      for (const r of review.rows.filter(r => !r.linked && (r.pending.length || r.changed))) {
+        const d = drafts[r.entry.account_id];
+        const missing = !d.before || !d.after || r.changed && !d.touched ? '还款方式' : (d.before === 'scheduled' || d.after === 'scheduled') && d.monthly_cents === null ? '每月还款' : (d.before === 'scheduled' || d.after === 'scheduled') && (d.term === 'count' ? !d.count : !d.last_month) ? '最后一期' : null;
+        if (missing) { setIssue(old => ({ label: r.name + missing, attempt: (old?.attempt ?? 0) + 1 })); return; }
+      }
+    }
+    setIssue(null);
     try {
       const updates: DebtRepayment[] = [];
       for (const r of review.rows) {
@@ -53,12 +64,12 @@ export function PlanningDebtDialog({ sources, saved, snapshot, accounts, today, 
           {r.saved && <p className="muted small">按你 {r.saved.recorded_on.slice(0, 7)} 填写的安排 · {r.saved.before === r.saved.after ? debtTreatmentLabel(r.saved.before) : `退休前：${debtTreatmentLabel(r.saved.before)}；退休后：${debtTreatmentLabel(r.saved.after)}`}</p>}
           {r.changed && <p className="notice">原余额 {money(r.saved!.balance_cents)}，这次余额明显变化，请复核。{r.zero && '余额已归零，独立还款已停用。'}</p>}
           {r.linked ? <p>已在“{r.linked.label}”中安排还款，这里不会重复计算。需要修改时请核对该计划。</p> : <>
-            <div role="radiogroup" aria-label={`${r.name}还款方式`} className="planning-debt-choices">{([{ value: 'scheduled', label: '每月还一笔固定金额，单独算上' }, { value: 'included', label: '这笔还款已经含在我的每月开销里' }, { value: 'excluded', label: '这次先不考虑' }] as const).map(o => <label className="plan-choice" key={o.value}><input type="radio" name={`debt-${r.entry.account_id}`} aria-label={`${r.name}：${o.label}`} checked={mode === o.value} disabled={frozen || r.entry.amount_cents === null} onChange={() => patch(r.entry.account_id, { before: o.value, after: o.value })}/><span>{o.label}</span></label>)}</div>
+            <ConfirmationField label={r.name + '还款方式'} attention={completion && (!d.before || !d.after || r.changed && !d.touched)} issue={issue}><div role="radiogroup" aria-label={`${r.name}还款方式`} className="planning-debt-choices">{([{ value: 'scheduled', label: '每月还一笔固定金额，单独算上' }, { value: 'included', label: '这笔还款已经含在我的每月开销里' }, { value: 'excluded', label: '这次先不考虑' }] as const).map(o => <label className="plan-choice" key={o.value}><input type="radio" name={`debt-${r.entry.account_id}`} aria-label={`${r.name}：${o.label}`} checked={mode === o.value} disabled={frozen || r.entry.amount_cents === null} onChange={() => patch(r.entry.account_id, { before: o.value, after: o.value })}/><span>{o.label}</span></label>)}</div></ConfirmationField>
             {(d.before === 'scheduled' || d.after === 'scheduled') && <div>
-              <FormRow label="每月实际还款" hint="你每月实际付出的钱，本金加利息一起，不是剩余本金"><CentInput label={`${r.name}每月还款`} value={d.monthly_cents ?? ''} disabled={frozen} onChange={v => patch(r.entry.account_id, { monthly_cents: v === '' ? null : v })}/></FormRow>
+              <ConfirmationField label={r.name + '每月还款'} attention={completion && d.monthly_cents === null} issue={issue}><FormRow label="每月实际还款" hint="你每月实际付出的钱，本金加利息一起，不是剩余本金"><CentInput label={`${r.name}每月还款`} value={d.monthly_cents ?? ''} disabled={frozen} onChange={v => patch(r.entry.account_id, { monthly_cents: v === '' ? null : v })}/></FormRow></ConfirmationField>
               <p className="muted small">从 {d.start_month} 开始；起止月份固定保存，不因新盘点重新开始。</p>
               <FormRow label="剩余期限"><select aria-label={`${r.name}期限填写方式`} value={d.term} disabled={frozen} onChange={e => patch(r.entry.account_id, { term: e.target.value as Draft['term'] })}><option value="last">最后一期月份</option><option value="count">还剩多少个月</option></select></FormRow>
-              {d.term === 'count' ? <FormRow label="还剩几个月"><input aria-label={`${r.name}剩余月数`} inputMode="numeric" value={d.count} disabled={frozen} onChange={e => patch(r.entry.account_id, { count: e.target.value })}/></FormRow> : <FormRow label="最后一期"><MonthInput label={`${r.name}最后一期`} value={d.last_month ?? ''} min={d.start_month} disabled={frozen} allowClear onChange={v => patch(r.entry.account_id, { last_month: v || null })}/></FormRow>}
+              <ConfirmationField label={r.name + '最后一期'} attention={completion && (d.term === 'count' ? !d.count : !d.last_month)} issue={issue}>{d.term === 'count' ? <FormRow label="还剩几个月"><input aria-label={`${r.name}剩余月数`} inputMode="numeric" value={d.count} disabled={frozen} onChange={e => patch(r.entry.account_id, { count: e.target.value })}/></FormRow> : <FormRow label="最后一期"><MonthInput label={`${r.name}最后一期`} value={d.last_month ?? ''} min={d.start_month} disabled={frozen} allowClear onChange={v => patch(r.entry.account_id, { last_month: v || null })}/></FormRow>}</ConfirmationField>
               <p className="muted small">{d.monthly_cents !== null && months !== null && months > 0 && months <= 480 ? `每月 ${money(d.monthly_cents)} × ${months} 个月 = ${money(String(BigInt(d.monthly_cents) * BigInt(months)))}，不是剩余本金。` : '未知可以留空；未填完整的还款仍会显示待核对。'}</p>
             </div>}
             {mode === 'included' && <p className="muted small">默认同时适用于退休前与退休后，不另外扣款，也不自动增加到期后的生活费。</p>}

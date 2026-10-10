@@ -31,8 +31,9 @@ import type { Refinement } from './planning-first-run';
 import './planning.css';
 
 /** Goal states are a presentation projection; current calculation gates remain unchanged. */
-export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, comparison, onPensionComparison, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean) => void; comparison?: PensionComparison | null; onPensionComparison?: (c: PensionComparison) => void; focus?: boolean; onFocusDone: () => void }) {
+export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, comparison, onPensionComparison, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean, completionId?: string) => void; comparison?: PensionComparison | null; onPensionComparison?: (c: PensionComparison) => void; focus?: boolean; onFocusDone: () => void }) {
   const [fundsOpen, setFundsOpen] = useState(false), [costsOpen, setCostsOpen] = useState(false), [occurring, setOccurring] = useState<StoredLifeEvent | null>(null);
+  const [completionCard, setCompletionCard] = useState<Refinement | null>(null);
   const [pensionContributions, setPensionContributions] = useState(false);
   const [pensionOpen, setPensionOpen] = useState(false);
   const [debtOpen, setDebtOpen] = useState(false);
@@ -54,17 +55,17 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) } : null;
   const openPension = (contributions = false) => { setPensionContributions(contributions); setPensionOpen(true); };
   const owner = (o: PlanningMissing['owner'], field?: string) => { if (field === 'core.debt_repayments') setDebtOpen(true); else if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'pension' || field === 'basic.pension_contributions') openPension(field === 'basic.pension_contributions'); else if (o === 'events') goEvents(); else if (o === 'service') reload(); else openSetup(o === 'funds' ? 2 : 0, null, true); };
-  const closeRefinement = () => { setFundsOpen(false); setCostsOpen(false); setDebtOpen(false); setPensionOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
+  const closeRefinement = () => { setCompletionCard(null); setFundsOpen(false); setCostsOpen(false); setDebtOpen(false); setPensionOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
   function action(card: Refinement, from: HTMLElement) {
-    opener.current = from;
+    opener.current = from; setCompletionCard(card);
     if (card.action === 'pension') openPension(card.id === 'transfer');
     else if (card.action === 'debts') setDebtOpen(true);
     else if (card.action === 'costs') setCostsOpen(true);
     else if (card.action === 'funds') setFundsOpen(true);
     else if (card.action === 'events') goEvents();
     else if (card.action === 'event') setOccurring(card.event!);
-    else if (card.action === 'contribution') openSetup(4, from, true);
-    else if (card.action === 'setup') openSetup(card.step ?? 0, from, true);
+    else if (card.action === 'contribution') openSetup(4, from, true, card.id);
+    else if (card.action === 'setup') openSetup(card.step ?? 0, from, true, card.id === 'invalid' ? undefined : card.id);
     else reload();
   }
   function refineAnnotation(annotation: PlanningAnnotation) {
@@ -85,12 +86,12 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const req = caps?.requirement.status === 'ready' ? caps.requirement.value : null;
   const line = req ? requirementLine(req.set, money) : null;
   return <div className="plan-goals" data-goal-state={state}>
-    {pensionOpen && saved && <PlanningPensionRefinementDialog reviewContributions={pensionContributions} sources={sources} today={today} reload={reload} onPending={onPending} onSaved={onPensionComparison} onClose={closeRefinement}/>}
+    {pensionOpen && saved && <PlanningPensionRefinementDialog switchIncome={completionCard?.id === 'income-switch'} completion={!!completionCard} reviewContributions={pensionContributions} sources={sources} today={today} reload={reload} onPending={onPending} onSaved={onPensionComparison} onClose={closeRefinement}/>}
     {comparison && <PensionComparisonNote comparison={comparison}/>}
-    {debtOpen && saved && <PlanningDebtDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
-    {fundsOpen && saved && <FundsDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={() => closeRefinement()}/>}
-    {costsOpen && saved && <CostsDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
-    {occurring && saved && <PlanningOccurrenceDialog event={occurring} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
+    {debtOpen && saved && <PlanningDebtDialog completion={!!completionCard} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
+    {fundsOpen && saved && <FundsDialog completion={!!completionCard} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={() => closeRefinement()}/>}
+    {costsOpen && saved && <CostsDialog completion={!!completionCard} sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
+    {occurring && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={!!completionCard} event={occurring} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
     <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
       {state === '0' ? <>
         <h3>想知道：要攒多少钱才够？</h3>
@@ -103,8 +104,9 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
       </> : <>
         {state === '2' && req && line ? <><p className="muted">如果想在 {req.target_month.slice(0, 4)} 年 {Number(req.target_month.slice(5, 7))} 月退休：</p><p className={`planning-result-number ${line.tone}`}><strong>{line.text}</strong></p><CoverageNote annotations={caps?.annotations} onRefine={refineAnnotation}/><p className="muted small">这是参考金额，不用填写，不保证未来一定够用。按今天的物价，准备支付生活费到 {req.horizon_month.slice(0, 4)} 年 {Number(req.horizon_month.slice(5, 7))} 月。</p></>
           : <><h3>还有 {cards.filter(c => c.required).length} 项需要确认，才能算出结果</h3><p className="muted">四个问题已回答。核对下面这些事项后，再按已保存的条件计算。</p></>}
+        {(state === '2' || state === '2b') && req && <p className="planning-detail-action"><button type="button" id="plan-detail-entry" className="primary" onClick={() => setDetail(true)}>查看计算详情与图表</button></p>}
         {saved && caps && <div className="planning-condition-chips" aria-label="计算条件">{conditionChips(saved, caps, money).map(chip => <button type="button" className={chip.prominent ? 'planning-chip prominent' : 'planning-chip'} key={chip.step} onClick={e => openSetup(chip.step, e.currentTarget, true)}>{chip.text}</button>)}<button type="button" id="plan-budget-entry" className="ui-link" onClick={e => openSetup(0, e.currentTarget, true)}>修改</button></div>}
-        {state === '2' && <p><button type="button" id="plan-detail-entry" className="ui-link" onClick={() => setDetail(true)}>查看测算详情 ›</button></p>}
+
       </>}
     </article>
     {result.status !== 'ready' && <><CapabilityNotice result={result}/><button className="ui-btn" onClick={reload}>重新读取</button></>}
