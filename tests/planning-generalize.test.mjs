@@ -35,6 +35,16 @@ test('zero real return chip says money only keeps pace with inflation', () => {
   assert.doesNotMatch(conditionChips(p, unknownCapabilityFixture, c => c).find(c => c.step === 5).text, /只跑平/);
 });
 
+test('setup step 3 subtitle distinguishes real inventory from manual amounts', () => {
+  const subtitle = r => { const p = r.nodes().find(n => n.type === 'p' && n.props.className === 'muted' && /默认只动用现金类账户|还没有完整盘点/.test(r.text(n))); return p ? r.text(p) : ''; };
+  const withSnapshot = pensionFixture(raw, 'empty');
+  const inventory = runtime('PlanningSetup', { sources: withSnapshot, snapshot: withSnapshot.snapshot.value, initialStep: 2 });
+  assert.match(subtitle(inventory), /^默认只动用现金类账户，确认后保存即可。不会改变实际余额。$/);
+  const manual = runtime('PlanningSetup', { sources: pensionFixture(raw, 'empty'), initialStep: 2 });
+  assert.match(subtitle(manual), /^还没有完整盘点：先填现在能用来准备退休的钱和截至日期，不会创建盘点，也不会和账户余额相加。$/);
+  assert.notEqual(subtitle(inventory), subtitle(manual));
+});
+
 test('spouse income shortcut is an other-role income, available with the employee estimator', async () => {
   const s = sources();
   saved(s).profile.retire.basic.retirement_income.mode = 'employee';

@@ -27,6 +27,8 @@ const stepLabels = ['退休年龄', '每月生活费', '可用资金', '退休�
 /** 实际收益（已扣通胀）档位只是填写起点，不是预测。 */
 export const returnPresets = [{ label: '存款为主', before: '0', after: '0' }, { label: '稳健理财', before: '1.5', after: '1' }, { label: '含股票基金', before: '3', after: '2' }] as const;
 const hints = ['这个年龄是你的设想，不是系统替你决定的。', '按今天的物价，吃饭、住房、日常开销合计；按全家规划就填全家的。', '默认只动用现金类账户，确认后保存即可。不会改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
+/** 第三问没有可用完整盘点（手填金额）时的副标题。 */
+const manualStartHint = '还没有完整盘点：先填现在能用来准备退休的钱和截至日期，不会创建盘点，也不会和账户余额相加。';
 
 /** Four questions and one existing setup transaction. Close, Esc and skip discard unsaved input. */
 export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload, onPending, onClose, onComparison, initialStep = 0, editMode = false, completionId }: { sources: PlanningSources; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: (saved: boolean) => void; onComparison?: (c: PensionComparison) => void; initialStep?: number; editMode?: boolean; completionId?: string }) {
@@ -81,7 +83,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   const live = d.start === 'live' && wealthOn;
   const available = live ? snapshot!.entries.filter(e => e.counted && e.side === 'asset').reduce((sum, e) => { const f = d.funds.find(f => f.account_id === e.account_id); return e.amount_cents !== null && f?.availability === 'available' ? sum + (BigInt(e.amount_cents) * BigInt(f.share_hundredths) ) / 10000n : sum; }, 0n) : null;
   return <><dialog ref={dialog} className="editor wealth-account-editor planning-setup-dialog" aria-labelledby="setup-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); if (step === 3 || step === 5) void save(); else next(); }}>
-    <header><div><p className="eyebrow">{editMode ? '修改规划' : '开始规划'} · {step < 4 ? `问题 ${step + 1} / 4` : '选填'}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{hints[step]}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
+    <header><div><p className="eyebrow">{editMode ? '修改规划' : '开始规划'} · {step < 4 ? `问题 ${step + 1} / 4` : '选填'}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 2 && !live ? manualStartHint : hints[step]}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
     <nav className="planning-question-progress" aria-label="四个问题">{questions.map((q, i) => <button type="button" key={q} aria-label={`${i + 1}. ${q}`} aria-current={i === step ? 'step' : undefined} disabled={frozen} onClick={() => setStep(i)}>{i + 1}. {stepLabels[i]}</button>)}</nav>
     {editMode && <nav className="planning-edit-extras" aria-label="选填设置"><button type="button" className="ui-link" disabled={frozen} onClick={() => setStep(4)}>每月能存多少（选填）</button><button type="button" className="ui-link" disabled={frozen} onClick={() => setStep(5)}>更多假设</button></nav>}
     <div className="planning-setup-body">

@@ -38,7 +38,7 @@ function RequirementBody({ value, annotations }: { annotations?: BasicCapabiliti
   return <>
     <p className={`plan-req-main ${set.tone}`}><span>如果想在 {monthText(value.target_month)} 退休：</span><strong>{set.text}</strong></p><CoverageNote annotations={annotations}/>
     <p className="muted small">准备支付生活费到 {monthText(value.horizon_month)}。金额按今天的物价计算。</p>
-    <p className="muted small">这是计算结果，不用填写。它取决于生活费和收益假设，不保证未来一定够用。</p>
+    <p className="muted small">它取决于生活费和收益假设。</p>
     <details className="plan-req-lower"><summary>查看计算假设，以及收益变化的影响</summary>
       <p className="muted small">当前假设：{returnBasisText(value.set.before_hundredths, value.set.after_hundredths)}，已扣除通胀。投资不保证收益，之后随时可以修改。</p>
       <p><span className="muted">{returnDropText(value.lower.before_hundredths, value.lower.after_hundredths)}：</span><strong className={lower.tone}>{lower.text}</strong></p>

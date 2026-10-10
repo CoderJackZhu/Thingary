@@ -41,6 +41,9 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
   const fmt = (c: number) => yuan(c);
   const v = verdict(P, proj, out, assets, mode, fmt), pr = progress(P, out, assets, mode);
   const ms = milestones(P, assets, mode);
+  // 收益为 0% 时 Coast 与 FI 相等（四舍五入到元），Coast 卡不再单列。
+  const coast = ms.find(m => m.id === 'coast'), fi = ms.find(m => m.id === 'fi');
+  const sameCoastFi = !!coast && !!fi && Math.round(coast.amount / 100) === Math.round(fi.amount / 100);
   const points = useMemo(() => trajectory(P, proj, mode), [P, proj, mode]);
   const rows = useMemo(() => snapshotRows(P, proj, mode), [P, proj, mode]);
   const fiAge = proj.fi_month === null ? null : proj.fi_month / 12, retireAge = proj.retire_month === null ? null : proj.retire_month / 12;
@@ -66,7 +69,7 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
     <article className="ui-card rd-card" aria-label="投资组合轨迹">
       <div className="rd-head"><h3>投资组合轨迹<Info text={P.mode === 'fire' ? '财务独立标记显示首个可持续的年龄。「所需」是在计入剩余计划供款后，每个年龄段所需的最低余额；「预计」是预计的投资组合路径。' : '退休标记显示提取开始的时间。「所需」是每个年龄段维持计划退休支出至规划终点所需的最低余额。'}/></h3><span className="muted small">预测 · {Math.round(points[0].age)} → {endAge} 岁</span></div>
       <TrajectoryChart points={points} rows={rows} goalAge={P.target_months / 12} fiAge={fiAge} retireAge={retireAge} tone={v.tone} fmt={fmt} valueLabel={valueModeLabel[mode]}/>
-      <div className="rd-milestones">{ms.map(m => <div key={m.id} className={m.done ? 'done' : undefined}><span>{m.label}{m.done && <em>已完成</em>}</span><strong>{compactYuan(m.amount)}</strong><small>{m.hint}</small></div>)}</div>
+      <div className={`rd-milestones${sameCoastFi ? ' merged' : ''}`}>{(sameCoastFi ? ms.filter(m => m.id !== 'coast') : ms).map(m => <div key={m.id} className={m.done ? 'done' : undefined}><span>{m.label}{m.done && <em>已完成</em>}</span><strong>{compactYuan(m.amount)}</strong><small>{m.hint}</small>{sameCoastFi && m.id === 'fi' && <small>收益假设为 0% 时，Coast FIRE 与 FI 相同</small>}</div>)}</div>
     </article>
 
     <Coverage calc={calc} mode={mode} basic={!!basic}/>
@@ -122,12 +125,12 @@ function Coverage({ calc, mode, basic }: { calc: Ready; mode: ValueMode; basic: 
 
 function Snapshot({ mode, rows }: { mode: ValueMode; rows: ReturnType<typeof snapshotRows> }) {
   const hasUnlock = rows.some(r => r.unlock > 0), hasOneoff = rows.some(r => r.oneoff > 0), hasPeriod = rows.some(r => r.period !== null);
-  return <article className="ui-card rd-card" aria-label="逐年快照">
-    <div className="rd-head"><div><p className="eyebrow">表格</p><h3>逐年快照</h3></div><span className="muted small">金额按{valueModeLabel[mode]}</span></div>
+  return <details className="ui-card rd-card rd-snapshot" aria-label="逐年快照">
+    <summary><strong>逐年快照（{rows.length} 行）</strong><span className="muted small">金额按{valueModeLabel[mode]}</span></summary>
     <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="逐年快照表"><table className="ui-table rd-table"><thead><tr><th>年龄</th><th>{hasPeriod ? '期间' : '年份'}</th><th>阶段</th><th className="amount">期末投资组合</th><th className="amount">供款/年</th><th className="amount">退休收入/年</th>{hasUnlock && <th className="amount">一次性解锁</th>}{hasOneoff && <th className="amount">大额一次性</th>}<th className="amount">计划支出/年</th><th className="amount">投资组合提取/年</th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.start_month} className={r.marks.length ? 'selected' : undefined}><td>{r.age}{r.marks.length > 0 && <span className="ui-tag">{r.marks.join(' · ')}</span>}</td><td>{r.period ?? r.year}</td><td>{r.retire_starts ? '积累 → 退休' : r.phase === 'retired' ? '退休' : '积累'}</td><td className="amount">{yuan(r.end)}</td><td className="amount">{r.contribution ? yuan(r.contribution) : '—'}</td><td className="amount">{r.income ? yuan(r.income) : '—'}</td>{hasUnlock && <td className="amount">{r.unlock ? yuan(r.unlock) : '—'}</td>}{hasOneoff && <td className="amount">{r.oneoff ? yuan(r.oneoff) : '—'}</td>}<td className="amount">{r.spend ? yuan(r.spend) : '—'}</td><td className="amount">{r.withdrawal ? yuan(r.withdrawal) : '—'}{r.unfunded > 0 && <small className="warn"> 缺 {yuan(r.unfunded)}</small>}</td></tr>)}</tbody></table></div>
     <p className="muted small">国家养老金和其他退休收入合并在「退休收入」；这次算进来的公积金和个人养老金在领取年龄一次性计入，单列一栏；没算进来的见目标页的计算依据。起点是当前盘点，逐月推演后每 12 个月汇总一行：期间从资金起点算起，不是日历年；年龄是这一行开始时的整岁，标签标在实际发生的那一行。</p>
-  </article>;
+  </details>;
 }
 
 export { scaleAt };

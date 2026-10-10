@@ -61,10 +61,18 @@
 .rd-guidance.watch { background: var(--warn-bg); }
 .rd-guidance.bad { background: var(--danger-bg); }
 .rd-card { padding: 18px 22px; }
+.rd-snapshot > summary { cursor: pointer; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; list-style: none; }
+.rd-snapshot > summary::-webkit-details-marker { display: none; }
+.rd-snapshot > summary::before { content: '▸'; color: var(--muted); transition: transform .15s ease; }
+.rd-snapshot[open] > summary::before { transform: rotate(90deg); }
+.rd-snapshot > summary strong { font-size: 15px; }
+.rd-snapshot > summary .muted { margin-left: auto; }
+.rd-snapshot > summary + .plan-table-scroll { margin-top: 10px; }
 .rd-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .rd-head h3 { margin: 0; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; }
 .rd-head .eyebrow { margin: 0 0 4px; }
 .rd-milestones { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.rd-milestones.merged { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rd-milestones > div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; display: grid; gap: 2px; min-width: 0; }
 .rd-milestones > div.done { border-color: var(--positive); background: var(--pos-bg); }
 .rd-milestones span { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
