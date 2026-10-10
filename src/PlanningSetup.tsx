@@ -23,7 +23,9 @@ import type { PensionComparison } from './planning-pension-refinement';
 import { questions, retirementMonth, setupDraft, setupFields, setupErrorLocation } from './planning-first-run';
 
 const stepLabels = ['退休年龄', '每月生活费', '可用资金', '退休收入'];
-const hints = ['这个年龄是你的设想，不是系统替你决定的。', '按今天的物价，吃饭、住房、日常开销合计。', '默认只动用现金类账户，确认后保存即可。不会改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
+/** 实际收益（已扣通胀）档位只是填写起点，不是预测。 */
+export const returnPresets = [{ label: '存款为主', before: '0', after: '0' }, { label: '稳健理财', before: '1.5', after: '1' }, { label: '含股票基金', before: '3', after: '2' }] as const;
+const hints = ['这个年龄是你的设想，不是系统替你决定的。', '按今天的物价，吃饭、住房、日常开销合计；按全家规划就填全家的。', '默认只动用现金类账户，确认后保存即可。不会改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
 
 /** Four questions and one existing setup transaction. Close, Esc and skip discard unsaved input. */
 export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload, onPending, onClose, onComparison, initialStep = 0, editMode = false, completionId }: { sources: PlanningSources; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: (saved: boolean) => void; onComparison?: (c: PensionComparison) => void; initialStep?: number; editMode?: boolean; completionId?: string }) {
@@ -104,7 +106,8 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
       {editMode && step === 4 && <section className="form-block"><ConfirmationField label="每月大约能存下多少钱" issue={confirmationIssue} attention={completionId === 'contribution'}><FormRow label="每月大约能存下多少钱？" hint="每月到账减去全部开销后剩下的钱；买基金等投入也算，每月取用存款则填负数。没想好可以不填"><span className="plan-contribution"><CentInput label="每月大约能存下多少钱" signed value={d.contribution} disabled={frozen} placeholder="暂不填写" onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>按每月存 0 元试算</button></span></FormRow></ConfirmationField><ContributionHelper history={history} disabled={frozen} onPick={v => patch({ contribution: v })}/></section>}
       {editMode && step === 5 && <section className="form-block">
         <ConfirmationField label="生活目标" issue={confirmationIssue}><FormRow label="生活目标"><select aria-label="生活目标" value={d.mode} disabled={frozen} onChange={e => patch({ mode: e.target.value as Draft['mode'] })}><option value="fire">财务自由：资金够用后退休</option><option value="traditional">按计划年龄退休：检查是否够用</option></select></FormRow></ConfirmationField>
-      <p className="muted small">这些是可以修改的假设。规划终点默认 90 岁，实际收益默认 0%，请按自己的判断确认。</p>
+      <p className="muted small">这些是可以修改的假设。规划终点默认 90 岁；实际收益默认 0%，表示钱只跑平通胀。可以选一档作为起点，再按自己的判断改。</p>
+      <div className="plan-goal-actions plan-return-presets" role="group" aria-label="收益假设档位">{returnPresets.map(x => <button key={x.label} type="button" className="ui-btn" aria-pressed={d.before.trim() !== '' && d.after.trim() !== '' && Number(d.before) === Number(x.before) && Number(d.after) === Number(x.after)} disabled={frozen} onClick={() => patch({ before: x.before, after: x.after })}>{x.label}（{x.before}% / {x.after}%）</button>)}</div>
       <ConfirmationField label="规划到几岁" issue={confirmationIssue} attention={completionId === 'assumptions'}><FormRow label="规划到几岁"><input aria-label="规划到几岁" inputMode="numeric" value={d.horizon} disabled={frozen} onChange={e => patch({ horizon: e.target.value })}/></FormRow></ConfirmationField>
       <ConfirmationField label="退休前实际年收益" issue={confirmationIssue}><FormRow label="退休前实际年收益（%）" hint="扣除通胀与费用后"><input aria-label="退休前实际年收益" inputMode="decimal" value={d.before} disabled={frozen} onChange={e => patch({ before: e.target.value })}/></FormRow></ConfirmationField>
       <ConfirmationField label="退休后实际年收益" issue={confirmationIssue}><FormRow label="退休后实际年收益（%）"><input aria-label="退休后实际年收益" inputMode="decimal" value={d.after} disabled={frozen} onChange={e => patch({ after: e.target.value })}/></FormRow></ConfirmationField>

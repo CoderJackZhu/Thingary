@@ -80,7 +80,7 @@ export function conditionChips(saved: NonNullable<Saved>, caps: BasicCapabilitie
     { text: r.target_age === null ? '退休年龄未填' : `${r.target_age} 岁退休`, step: 0 },
     { text: r.spend_cents === null ? '每月生活费未填' : `每月生活费 ${format(r.spend_cents)}`, step: 1 },
     { text: caps.funds.status === 'ready' ? `可用资金 ${format(caps.funds.value.available_cents)}` : '可用资金待确认', step: 2 },
-    { text: `收益 ${hundredthsToPct(r.real_return_before_hundredths)}% / ${hundredthsToPct(r.real_return_after_hundredths)}% · 通胀 ${hundredthsToPct(p.assumptions.inflation_hundredths)}%`, step: 5 },
+    { text: `收益 ${hundredthsToPct(r.real_return_before_hundredths)}% / ${hundredthsToPct(r.real_return_after_hundredths)}%${r.real_return_before_hundredths === 0 && r.real_return_after_hundredths === 0 ? '（只跑平通胀）' : ''} · 通胀 ${hundredthsToPct(p.assumptions.inflation_hundredths)}%`, step: 5 },
     { text: mode === 'excluded' ? '暂不计退休收入' : mode === 'employee' ? '已选职工养老金估算' : mode === 'manual' ? '计入所选手填收入' : '退休收入未选择', step: 3, prominent: mode === 'excluded' },
   ];
 }

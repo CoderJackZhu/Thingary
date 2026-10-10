@@ -26,7 +26,7 @@ export function IncomeQuestion({ d, setD, patch, frozen, onPension, savedEmploye
 
 export function NewIncome({ onAdd, onCancel, birth, infl, today, frozen = false, statePension = true }: { onAdd: (i: Draft['incomeItems'][number], role: IncomePick['role']) => void; onCancel: () => void; birth: string; infl: string; today: string; frozen?: boolean; statePension?: boolean }) {
   const [label, setLabel] = useState(''), [cents, setCents] = useState(''), [start, setStart] = useState(''), [end, setEnd] = useState(''), [indexed, setIndexed] = useState(true), [err, setErr] = useState('');
-  const [role, setRole] = useState<IncomePick['role']>('other'), [future, setFuture] = useState(false);
+  const [role, setRole] = useState<IncomePick['role']>('other'), [future, setFuture] = useState(false), [spouse, setSpouse] = useState(false);
   const context = incomeInflationContext(birth, infl, today), discounted = retirementIncomeToday(cents, start, birth, infl, today);
   function add() {
     if (frozen) return;
@@ -40,7 +40,9 @@ export function NewIncome({ onAdd, onCancel, birth, infl, today, frozen = false,
   }
   return <div className="plan-new-income" role="group" aria-label="添加退休收入">
     {/* 职工养老金估算已计国家养老金，手填的同角色项会被排除，不提供快捷入口。 */}
-    {statePension && <button type="button" className="ui-btn" disabled={frozen} onClick={() => { setLabel('国家养老金'); setRole('state_pension'); }}>国家养老金（测算结果）</button>}
+    {statePension && <button type="button" className="ui-btn" disabled={frozen} onClick={() => { setLabel('国家养老金'); setRole('state_pension'); setSpouse(false); }}>国家养老金（测算结果）</button>}
+    <button type="button" className="ui-btn" disabled={frozen} onClick={() => { setLabel('配偶养老金'); setRole('other'); setSpouse(true); }}>配偶养老金或收入</button>
+    {spouse && <p className="muted small">按全家规划时使用。起止年龄按<strong>你自己</strong>的年龄填：配偶开始领取时你几岁。</p>}
     <FormRow label="名称"><input disabled={frozen} aria-label="收入名称" value={label} onChange={e => setLabel(e.target.value)}/></FormRow>
     <FormRow label="税后每月收入" hint={future ? '退休那年的金额' : '今天的钱'}><CentInput disabled={frozen} label="税后每月收入" value={cents} onChange={setCents}/></FormRow>
     <FormRow label="起始年龄"><input disabled={frozen} aria-label="收入起始年龄" inputMode="numeric" value={start} onChange={e => setStart(e.target.value)}/></FormRow>

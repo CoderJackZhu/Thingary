@@ -25,10 +25,8 @@ const cents = (yuanAmount: number) => String(Math.round(yuanAmount * 100));
 
 /** 示例预设：金额只是占位，按自己的情况改。日期按「几年后」放在当月。 */
 const presets: { key: string; label: string; years: number; make: (date: string) => Omit<StoredLifeEvent, 'id'> }[] = [
-  { key: 'bj', label: '北京买房', years: 7, make: date => ({ label: '北京买房', kind: 'house', date, included: true, price_cents: cents(4_500_000), down_cents: cents(1_500_000), extra_cents: cents(100_000), loan_rate_hundredths: 350, loan_years: 30, holding_cents: cents(1500), rent_saved_cents: cents(2700), cycle_years: null, until_age: null, resale_cents: '0' }) },
-  { key: 'tier2', label: '二三线买房', years: 7, make: date => ({ label: '二三线买房', kind: 'house', date, included: false, price_cents: cents(1_500_000), down_cents: cents(450_000), extra_cents: cents(50_000), loan_rate_hundredths: 350, loan_years: 30, holding_cents: cents(800), rent_saved_cents: cents(2000), cycle_years: null, until_age: null, resale_cents: '0' }) },
-  { key: 'home', label: '老家全款', years: 7, make: date => ({ label: '老家全款买房', kind: 'house', date, included: false, price_cents: cents(400_000), down_cents: cents(400_000), extra_cents: cents(30_000), loan_rate_hundredths: 350, loan_years: 30, holding_cents: cents(300), rent_saved_cents: cents(1500), cycle_years: null, until_age: null, resale_cents: '0' }) },
-  { key: 'car', label: '二手车', years: 2, make: date => ({ label: '二手车', kind: 'car', date, included: true, price_cents: cents(70_000), down_cents: cents(70_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 3, holding_cents: cents(1200), rent_saved_cents: '0', cycle_years: 5, until_age: 60, resale_cents: cents(20_000) }) },
+  { key: 'house', label: '买房', years: 7, make: date => ({ label: '买房', kind: 'house', date, included: true, price_cents: cents(1_500_000), down_cents: cents(450_000), extra_cents: cents(50_000), loan_rate_hundredths: 350, loan_years: 30, holding_cents: cents(800), rent_saved_cents: cents(2000), cycle_years: null, until_age: null, resale_cents: '0' }) },
+  { key: 'car', label: '买车', years: 2, make: date => ({ label: '买车', kind: 'car', date, included: true, price_cents: cents(100_000), down_cents: cents(100_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 3, holding_cents: cents(1200), rent_saved_cents: '0', cycle_years: 8, until_age: 70, resale_cents: cents(20_000) }) },
   { key: 'other', label: '其他大额', years: 3, make: date => ({ label: '其他大额支出', kind: 'other', date, included: true, price_cents: cents(50_000), down_cents: cents(50_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }) },
 ];
 
@@ -114,7 +112,7 @@ function EventDialog({ basic, draft, isNew, today, busy, notice, onClose, onSave
     <header><div><p className="eyebrow">规划 · 大额计划</p><h2 id="event-heading">{isNew ? '新增' : '编辑'}大额计划</h2><p className="muted">金额都按「今天的钱」；这些是设想，不是事实，不会扣你真实的资产。</p></div><CloseButton type="button" aria-label="关闭大额计划表单" disabled={busy} onClick={onClose}/><div className="editor-header-actions"><button className="primary" disabled={busy}>{busy ? '保存中…' : '保存'}</button></div></header>
     <div className="editor-body"><section className="form-block">
       <FormRow label="类型"><Segments label="类型" value={kind} options={[{ value: 'house', label: '买房' }, { value: 'car', label: '买车' }, { value: 'other', label: '其他' }]} onChange={setKind} disabled={busy}/></FormRow>
-      <FormRow label="名称" hint="例如「北京买房」「二手车」"><input aria-label="名称" value={label} disabled={busy} onChange={e => setLabel(e.target.value)}/></FormRow>
+      <FormRow label="名称" hint="例如「买房」「换车」「装修」"><input aria-label="名称" value={label} disabled={busy} onChange={e => setLabel(e.target.value)}/></FormRow>
       <FormRow label="计划购买月份" hint="还不确定就填大概的月份，也可以在列表里看 5、7、10 年后买的差别"><MonthInput label="计划购买月份" value={date} disabled={busy} onChange={setDate}/></FormRow>
       <FormRow label="总价"><CentInput label="总价" value={price} disabled={busy} onChange={setPrice}/></FormRow>
       <FormRow label="首付 / 一次付清的现金" hint="等于总价就是全款，没有贷款"><CentInput label="首付" value={down} disabled={busy} onChange={setDown}/></FormRow>

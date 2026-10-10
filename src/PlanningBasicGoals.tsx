@@ -95,7 +95,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
       {state === '0' ? <>
         <h3>想知道：要攒多少钱才够？</h3>
-        <p className="planning-first-promise">回答 4 个问题，算出“想在 X 岁退休，每月大约要存多少钱”。</p><p className="muted">没想好的可以先留空，随时退出，不保存草稿。</p>
+        <p className="planning-first-promise">回答 4 个问题，算出“想在 X 岁退休，每月大约要存多少钱”。</p><p className="muted">可以只算自己，也可以按全家算：生活费、资金和收入按同一范围填。没想好的可以先留空，随时退出，不保存草稿。</p>
         <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始（约 2 分钟）</button><button type="button" className="ui-link" onClick={() => onGoto('savings')}>先看收入与复盘</button></div>
       </> : state === '1' ? <>
         <h3>还差 {progress.remaining} 个问题，就能算出每月要存多少</h3>
