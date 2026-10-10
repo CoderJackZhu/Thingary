@@ -71,6 +71,18 @@ export function requirementLine(r: RequirementResult, fmt: (cents: string) => st
   }
 }
 
+/** 目标页把「需要存」和「你估计能存」并排：所需额是最小恒定月投入，预计投入不少于它即够用。未知不当零，也不下结论。 */
+export function contributionVerdict(r: RequirementResult, contribution: string | null, fmt: (cents: string) => string): { text: string; tone: Tone; unknown: boolean } {
+  if (contribution === null) return { text: '你估计每月能存多少：还没填', tone: 'plain', unknown: true };
+  const c = BigInt(contribution), own = c < 0n ? `你估计每月要取用 ${fmt(String(-c))}` : `你估计每月能存 ${fmt(String(c))}`;
+  if (r.status === 'found') {
+    const diff = c - BigInt(r.monthly_cents);
+    return diff === 0n ? { text: `${own}，正好够`, tone: 'good', unknown: false } : diff > 0n ? { text: `${own}，比所需多 ${fmt(String(diff))}`, tone: 'good', unknown: false } : { text: `${own}，每月还差 ${fmt(String(-diff))}`, tone: 'warn', unknown: false };
+  }
+  if (r.status === 'no_positive_contribution') return c >= 0n ? { text: `${own}，按这些条件已经够用`, tone: 'good', unknown: false } : { text: `${own}；是否够用见计算详情`, tone: 'plain', unknown: false };
+  return { text: own, tone: 'plain', unknown: false };
+}
+
 /** Whether the money is enough at the target age itself; the end-of-plan outcome alone can read as "fine" when retiring later is what makes it work. */
 export const goalFitText = (o: { funded_at_goal: boolean; shortfall_at_goal: number }, fmt: (cents: string) => string) => o.funded_at_goal ? '到目标年龄时资金已够用' : `到目标年龄时资金还差 ${fmt(String(Math.round(o.shortfall_at_goal)))}，要更晚退休才够`;
 

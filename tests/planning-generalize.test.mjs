@@ -95,3 +95,32 @@ test('extra spend item only raises retirement-month spending and removal drops i
   assert.ok(Math.abs(t1.at(-1) - t0.at(-1) - 100000) < 1e-6);
   assert.equal(p1.compile(0, p1.before, p1.after).annotations.some(a => a.source_ids?.includes('spend:fx-care')), false);
 });
+
+import { contributionVerdict } from '../src/planning-basic-view.ts';
+import { buildBasicCapabilities } from '../src/plan-basic.ts';
+
+test('contribution verdict compares saved estimate with requirement; unknown is never zero', () => {
+  const fmt = c => `¥${c}`, found = { status: 'found', monthly_cents: '260890', before_hundredths: 0, after_hundredths: 0 };
+  assert.deepEqual(contributionVerdict(found, null, fmt), { text: '你估计每月能存多少：还没填', tone: 'plain', unknown: true });
+  assert.deepEqual(contributionVerdict(found, '500000', fmt), { text: '你估计每月能存 ¥500000，比所需多 ¥239110', tone: 'good', unknown: false });
+  assert.deepEqual(contributionVerdict(found, '260890', fmt), { text: '你估计每月能存 ¥260890，正好够', tone: 'good', unknown: false });
+  assert.deepEqual(contributionVerdict(found, '0', fmt), { text: '你估计每月能存 ¥0，每月还差 ¥260890', tone: 'warn', unknown: false });
+  assert.deepEqual(contributionVerdict(found, '-100000', fmt), { text: '你估计每月要取用 ¥100000，每月还差 ¥360890', tone: 'warn', unknown: false });
+  const none = { status: 'no_positive_contribution', monthly_cents: '0', before_hundredths: 0, after_hundredths: 0 };
+  assert.equal(contributionVerdict(none, '0', fmt).tone, 'good');
+  assert.equal(contributionVerdict(none, '-1', fmt).tone, 'plain');
+  assert.equal(contributionVerdict({ status: 'search_not_found', search_limit_cents: '1', before_hundredths: 0, after_hundredths: 0 }, '500000', fmt).text, '你估计每月能存 ¥500000');
+});
+
+test('goal page shows the verdict under the required amount and offers estimating when unknown', () => {
+  for (const [contribution, pattern] of [['900000000', /比所需多/], [null, /还没填/]]) {
+    const s = sources(); saved(s).profile.retire.basic.contribution.monthly_cents = contribution;
+    const caps = buildBasicCapabilities(s);
+    assert.equal(caps.requirement.value?.set.status, 'found');
+    const r = runtime('PlanningBasicGoals', { sources: s, saved: saved(s), openSetup() {}, onGoto() {} }, undefined, () => caps);
+    const node = r.find('p', p => String(p.className).startsWith('planning-contribution-verdict'));
+    assert.ok(node, `verdict for ${contribution}`);
+    assert.match(r.text(node), pattern);
+    assert.equal(!!r.nodes().find(n => n.type === 'button' && r.text(n) === '估一估'), contribution === null);
+  }
+});

@@ -24,7 +24,7 @@ import { buildRetireCalc } from './plan-retire-calc';
 import { ready } from './review';
 import { eventsInput } from './planning-basic-forms';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
-import { needsContribution, requirementLine, SAVE_CONTRIBUTION_HINT } from './planning-basic-view';
+import { contributionVerdict, needsContribution, requirementLine, SAVE_CONTRIBUTION_HINT } from './planning-basic-view';
 import type { PlanMode } from './planning-basic-view';
 import { conditionChips, goalState, moreToolsBadges, questionProgress, questions, refinementCards } from './planning-first-run';
 import type { Refinement } from './planning-first-run';
@@ -85,6 +85,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   if (detail && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openSetup={(step, from) => openSetup(step, from, true)} onGoto={onGoto} onEvents={goEvents} onBack={() => { setDetail(false); requestAnimationFrame(() => document.getElementById('plan-detail-entry')?.focus()); }}/>;
   const req = caps?.requirement.status === 'ready' ? caps.requirement.value : null;
   const line = req ? requirementLine(req.set, money) : null;
+  const verdict = req && saved?.profile.retire.basic ? contributionVerdict(req.set, saved.profile.retire.basic.contribution.monthly_cents, money) : null;
   return <div className="plan-goals" data-goal-state={state}>
     {pensionOpen && saved && <PlanningPensionRefinementDialog switchIncome={completionCard?.id === 'income-switch'} completion={!!completionCard} reviewContributions={pensionContributions} sources={sources} today={today} reload={reload} onPending={onPending} onSaved={onPensionComparison} onClose={closeRefinement}/>}
     {comparison && <PensionComparisonNote comparison={comparison}/>}
@@ -102,7 +103,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
         <div className="planning-question-checklist">{questions.map((q, i) => <p key={q}><span className="ui-tag">{progress.answered[i] ? '已回答' : '还需要'}</span><span>{q}</span></p>)}</div>
         <button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(progress.first, e.currentTarget)}>继续回答</button>
       </> : <>
-        {state === '2' && req && line ? <><p className="muted">如果想在 {req.target_month.slice(0, 4)} 年 {Number(req.target_month.slice(5, 7))} 月退休：</p><p className={`planning-result-number ${line.tone}`}><strong>{line.text}</strong></p><CoverageNote annotations={caps?.annotations} onRefine={refineAnnotation}/><p className="muted small">这是参考金额，不用填写，不保证未来一定够用。按今天的物价，准备支付生活费到 {req.horizon_month.slice(0, 4)} 年 {Number(req.horizon_month.slice(5, 7))} 月。</p></>
+        {state === '2' && req && line ? <><p className="muted">如果想在 {req.target_month.slice(0, 4)} 年 {Number(req.target_month.slice(5, 7))} 月退休：</p><p className={`planning-result-number ${line.tone}`}><strong>{line.text}</strong></p>{verdict && <p className={`planning-contribution-verdict ${verdict.tone}`}>{verdict.text}{verdict.unknown && <> <button type="button" className="ui-link" onClick={e => openSetup(4, e.currentTarget, true)}>估一估</button></>}</p>}<CoverageNote annotations={caps?.annotations} onRefine={refineAnnotation}/><p className="muted small">这是参考金额，不用填写，不保证未来一定够用。按今天的物价，准备支付生活费到 {req.horizon_month.slice(0, 4)} 年 {Number(req.horizon_month.slice(5, 7))} 月。</p></>
           : <><h3>还有 {cards.filter(c => c.required).length} 项需要确认，才能算出结果</h3><p className="muted">四个问题已回答。核对下面这些事项后，再按已保存的条件计算。</p></>}
         {(state === '2' || state === '2b') && req && <p className="planning-detail-action"><button type="button" id="plan-detail-entry" className="primary" onClick={() => setDetail(true)}>查看计算详情与图表</button></p>}
         {saved && caps && <div className="planning-condition-chips" aria-label="计算条件">{conditionChips(saved, caps, money).map(chip => <button type="button" className={chip.prominent ? 'planning-chip prominent' : 'planning-chip'} key={chip.step} onClick={e => openSetup(chip.step, e.currentTarget, true)}>{chip.text}</button>)}<button type="button" id="plan-budget-entry" className="ui-link" onClick={e => openSetup(0, e.currentTarget, true)}>修改</button></div>}

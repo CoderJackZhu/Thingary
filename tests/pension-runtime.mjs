@@ -45,7 +45,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     './planning-draft': overlay, './plan-basic-validation': validation, './planning-pension-refinement': pension, './plan': planExports, './plan-params': params,
     './planning-first-run': props.goalStateOverride ? { ...flow, goalState: () => props.goalStateOverride } : flow, './planning-basic-defaults': defaults,
     './planning-basic-data': { useSectionSaver: () => saver, useCapabilities: () => ({ status: 'ready', caps: typeof caps === 'function' ? caps() : caps }) },
-    './planning-basic-view': { needsContribution: () => true, requirementLine: props.realSummary ? view.requirementLine : () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
+    './planning-basic-view': { needsContribution: () => true, contributionVerdict: view.contributionVerdict, requirementLine: props.realSummary ? view.requirementLine : () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
     './plan-retire-calc': { buildRetireCalc: () => null },
   };
   function load(file) {

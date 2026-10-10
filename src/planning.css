@@ -241,3 +241,6 @@ dialog.editor.planning-pension-dialog:not(.asset-editor):not(.wishlist-editor)[o
 .planning-confirmation-field { border-left: 3px solid var(--accent); padding: 10px 12px; margin-block: 8px; background: var(--surface); border-radius: var(--surface-radius); }
 .planning-confirmation-field .notice { margin-bottom: 0; }
 .plan-return-presets button[aria-pressed=true] { background: var(--selected); border-color: var(--selected); color: var(--accent); font-weight: 600; }
+.planning-contribution-verdict { margin: -4px 0 12px; font-size: 15px; font-variant-numeric: tabular-nums; }
+.planning-contribution-verdict.good { color: var(--positive); }
+.planning-contribution-verdict.warn { color: var(--warn); }

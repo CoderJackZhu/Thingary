@@ -53,7 +53,7 @@ function runtime(file, props, save = async () => ({ revision: 5 }), caps = unkno
     './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
     './planning-first-run': flow, './planning-basic-defaults': defaults,
     './planning-basic-data': { useSectionSaver: () => saver, useCapabilities: () => ({ status: 'ready', caps: typeof caps === 'function' ? caps() : caps }) },
-    './planning-basic-view': { needsContribution: () => true, requirementLine: () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
+    './planning-basic-view': { needsContribution: () => true, contributionVerdict: () => null, requirementLine: () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
     './plan-retire-calc': { buildRetireCalc: () => null },
   };
   for (const file of ['PlanningRetirementIncome']) {
