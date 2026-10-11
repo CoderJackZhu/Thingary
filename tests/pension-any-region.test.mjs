@@ -6,7 +6,7 @@ import { pensionFixture } from '../src/planning-pension-fixture.ts';
 import { buildBasicCapabilities, prepareBasicPlan } from '../src/plan-basic.ts';
 import { draftOf, pensionInput, incomeInflationContext, retirementIncomeToday } from '../src/planning-basic-forms.ts';
 import { missingPensionFields, pensionRefinementFields } from '../src/planning-pension-refinement.ts';
-import { runtime } from './pension-runtime.mjs';
+import { runtime } from './planning-component-runtime.mjs';
 const today = '2026-10-10';
 const raw = JSON.parse(readFileSync(new URL('./fixtures/planning-basic/debt-loops.json', import.meta.url), 'utf8'));
 const sources = scenario => pensionFixture(raw, scenario);

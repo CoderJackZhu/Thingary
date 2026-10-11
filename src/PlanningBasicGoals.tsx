@@ -32,16 +32,18 @@ import { conditionChips, goalState, moreToolsBadges, questionProgress, questions
 import type { Refinement } from './planning-first-run';
 import './planning.css';
 
+type GoalDialog =
+  | { kind: 'medical' }
+  | { kind: 'pension'; completion: boolean; reviewContributions: boolean; switchIncome: boolean }
+  | { kind: 'debt' | 'funds' | 'costs'; completion: boolean }
+  | { kind: 'occurrence'; completion: boolean; event: StoredLifeEvent };
+
 /** Goal states are a presentation projection; current calculation gates remain unchanged. */
 export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, comparison, onPensionComparison, focus = false, onFocusDone }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings' | 'pension') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean, completionId?: string) => void; comparison?: PensionComparison | null; onPensionComparison?: (c: PensionComparison) => void; focus?: boolean; onFocusDone: () => void }) {
-  const [fundsOpen, setFundsOpen] = useState(false), [costsOpen, setCostsOpen] = useState(false), [occurring, setOccurring] = useState<StoredLifeEvent | null>(null);
-  const [completionCard, setCompletionCard] = useState<Refinement | null>(null);
-  const [pensionContributions, setPensionContributions] = useState(false);
-  const [pensionOpen, setPensionOpen] = useState(false);
-  const [medicalOpen, setMedicalOpen] = useState(false);
-  const [debtOpen, setDebtOpen] = useState(false);
+  const [dialog, setDialog] = useState<GoalDialog | null>(null);
   const [detail, setDetail] = useState(false), [toolsOpen, setToolsOpen] = useState(false), opener = useRef<HTMLElement | null>(null);
-  useEffect(() => { onEditingChange(medicalOpen || fundsOpen || costsOpen || debtOpen || pensionOpen || occurring !== null); return () => onEditingChange(false); }, [medicalOpen, fundsOpen, costsOpen, debtOpen, pensionOpen, occurring, onEditingChange]);
+  const editing = dialog !== null;
+  useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const snapshot: Snapshot | null = ready(sources.snapshot) ?? null, accounts: Account[] = ready(sources.accounts) ?? [];
   const result = useCapabilities(sources), saver = useSectionSaver(sources, reload, onPending);
@@ -58,35 +60,54 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     ready: pred?.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '资料待补齐',
     onContribution: needsContribution(caps) ? () => openSetup(4, null, true) : undefined,
     write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) } : null;
-  const openPension = (contributions = false) => { setPensionContributions(contributions); setPensionOpen(true); };
-  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field === 'core.debt_repayments') setDebtOpen(true); else if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'pension' || field === 'basic.pension_contributions') openPension(field === 'basic.pension_contributions'); else if (o === 'events') goEvents(); else if (o === 'service') reload(); else openSetup(o === 'funds' ? 2 : 0, null, true); };
-  const closeRefinement = () => { setMedicalOpen(false); setCompletionCard(null); setFundsOpen(false); setCostsOpen(false); setDebtOpen(false); setPensionOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
-  function action(card: Refinement, from: HTMLElement) {
-    opener.current = from; setCompletionCard(card);
-    if (card.id === 'medical') setMedicalOpen(true);
-    else if (card.action === 'pension') openPension(card.id === 'transfer');
-    else if (card.action === 'debts') setDebtOpen(true);
-    else if (card.action === 'costs') setCostsOpen(true);
-    else if (card.action === 'funds') setFundsOpen(true);
+  function openDialog(next: GoalDialog, from: HTMLElement | null = document.activeElement as HTMLElement | null) {
+    opener.current = from;
+    setDialog(next);
+  }
+  function closeRefinement() {
+    const from = opener.current;
+    opener.current = null;
+    setDialog(null);
+    requestAnimationFrame(() => {
+      if (from?.isConnected) from.focus();
+      else document.getElementById('plan-budget-entry')?.focus();
+    });
+  }
+  function owner(o: PlanningMissing['owner'], field?: string) {
+    if (field === 'medical_paid_months') openDialog({ kind: 'medical' });
+    else if (field === 'core.debt_repayments') openDialog({ kind: 'debt', completion: false });
+    else if (field?.includes('_costs')) openDialog({ kind: 'costs', completion: false });
+    else if (o === 'pension' || field === 'basic.pension_contributions') openDialog({ kind: 'pension', completion: false, reviewContributions: field === 'basic.pension_contributions', switchIncome: false });
+    else if (o === 'events') goEvents();
+    else if (o === 'service') reload();
+    else openSetup(o === 'funds' ? 2 : 0, null, true);
+  }
+  function action(card: Refinement, from: HTMLElement | null) {
+    if (card.id === 'medical') openDialog({ kind: 'medical' }, from);
+    else if (card.action === 'pension') openDialog({ kind: 'pension', completion: true, reviewContributions: card.id === 'transfer', switchIncome: card.id === 'income-switch' }, from);
+    else if (card.action === 'debts') openDialog({ kind: 'debt', completion: true }, from);
+    else if (card.action === 'costs' || card.action === 'funds') openDialog({ kind: card.action, completion: true }, from);
+    else if (card.action === 'event' && card.event) openDialog({ kind: 'occurrence', completion: true, event: card.event }, from);
     else if (card.action === 'events') goEvents();
-    else if (card.action === 'event') setOccurring(card.event!);
     else if (card.action === 'contribution') openSetup(4, from, true, card.id);
     else if (card.action === 'setup') openSetup(card.step ?? 0, from, true, card.id === 'invalid' ? undefined : card.id);
     else reload();
   }
-  function refineAnnotation(annotation: PlanningAnnotation) {
-    if (annotation.refinement.field === 'medical_paid_months') { setMedicalOpen(true); return; }
-    if (annotation.refinement.owner === 'pension' || annotation.refinement.field === 'basic.pension_contributions') { openPension(annotation.refinement.field === 'basic.pension_contributions'); return; }
-    const card = annotation.refinement.field === 'core.debt_repayments'
+  function refineAnnotation({ refinement }: PlanningAnnotation) {
+    if (refinement.field === 'medical_paid_months' || refinement.owner === 'pension' || refinement.field === 'basic.pension_contributions') {
+      owner(refinement.owner, refinement.field);
+      return;
+    }
+    const card = refinement.field === 'core.debt_repayments'
       ? cards.find(c => c.action === 'debts')
-      : cards.find(c => c.event?.id === annotation.refinement.event_id || annotation.refinement.field.includes('_costs') && c.action === 'costs');
-    if (card) action(card, document.getElementById('plan-budget-entry')!);
-    else owner(annotation.refinement.owner, annotation.refinement.field);
+      : cards.find(c => (refinement.event_id != null && c.event?.id === refinement.event_id) || (refinement.field.includes('_costs') && c.action === 'costs'));
+    if (card) action(card, document.activeElement as HTMLElement | null);
+    else owner(refinement.owner, refinement.field);
   }
   async function saveOccurrence(o: Occurrence | null) {
-    if (!saved?.profile.retire.core) return;
+    if (!saved?.profile.retire.core || dialog?.kind !== 'occurrence') return;
     const r = saved.profile.retire;
-    if (await saver.save(eventsInput({ life_events: r.life_events, occurrences: o ? [...r.core!.occurrences.filter(x => x.event_id !== o.event_id), o] : retractOccurrence(r.core!.occurrences, r.core!.occurrences.find(x => x.event_id === occurring?.id)?.id ?? '') }))) closeRefinement();
+    if (await saver.save(eventsInput({ life_events: r.life_events, occurrences: o ? [...r.core!.occurrences.filter(x => x.event_id !== o.event_id), o] : retractOccurrence(r.core!.occurrences, r.core!.occurrences.find(x => x.event_id === dialog.event.id)?.id ?? '') }))) closeRefinement();
   }
   if (sources.profile.status === 'error') return <article className="ui-card ui-content" role="alert"><p>规划资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>;
   if (detail && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openSetup={(step, from) => openSetup(step, from, true)} onEvents={goEvents} onBack={() => { setDetail(false); requestAnimationFrame(() => document.getElementById('plan-detail-entry')?.focus()); }}/>;
@@ -94,13 +115,13 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const line = req ? requirementLine(req.set, forecastMoney) : null;
   const verdict = req && saved?.profile.retire.basic ? contributionVerdict(req.set, saved.profile.retire.basic.contribution.monthly_cents, money, forecastMoney) : null;
   return <div className="plan-goals" data-goal-state={state}>
-    {medicalOpen && saved && <MedicalProfileDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
-    {pensionOpen && saved && <PlanningPensionRefinementDialog switchIncome={completionCard?.id === 'income-switch'} completion={!!completionCard} reviewContributions={pensionContributions} sources={sources} today={today} reload={reload} onPending={onPending} onSaved={onPensionComparison} onClose={closeRefinement}/>}
+    {dialog?.kind === 'medical' && saved && <MedicalProfileDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
+    {dialog?.kind === 'pension' && saved && <PlanningPensionRefinementDialog switchIncome={dialog.switchIncome} completion={dialog.completion} reviewContributions={dialog.reviewContributions} sources={sources} today={today} reload={reload} onPending={onPending} onSaved={onPensionComparison} onClose={closeRefinement}/>}
     {comparison && <PensionComparisonNote comparison={comparison}/>}
-    {debtOpen && saved && <PlanningDebtDialog completion={!!completionCard} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
-    {fundsOpen && saved && <FundsDialog completion={!!completionCard} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={() => closeRefinement()}/>}
-    {costsOpen && saved && <CostsDialog completion={!!completionCard} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
-    {occurring && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={!!completionCard} event={occurring} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
+    {dialog?.kind === 'debt' && saved && <PlanningDebtDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
+    {dialog?.kind === 'funds' && saved && <FundsDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
+    {dialog?.kind === 'costs' && saved && <CostsDialog completion={dialog.completion} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
+    {dialog?.kind === 'occurrence' && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={dialog.completion} event={dialog.event} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === dialog.event.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
     <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
       {state === '0' ? <>
         <h3>想知道：要攒多少钱才够？</h3>
@@ -123,7 +144,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
       <PlanningRefinements cards={cards.filter(c => c.required)} blocked busy={saver.busy || saver.stuck} onAction={action}/>
       <PlanningRefinements cards={cards.filter(c => !c.required && c.impacts)} title={`影响结果的待核对项（${new Set(actionableAnnotations(caps?.annotations).flatMap(a => a.source_ids)).size} 项）`} busy={saver.busy || saver.stuck} onAction={action}/>
       <PlanningRefinements cards={cards.filter(c => !c.required && !c.impacts)} busy={saver.busy || saver.stuck} onAction={action}/>
-      {snapshot && sources.modules.wealth && (snapshot.entries.some(e => e.counted && e.side === 'liability') || saved?.profile.retire.core?.debt_repayments?.length) && <p><button type="button" className="ui-link" disabled={saver.busy || saver.stuck} onClick={e => { opener.current = e.currentTarget; setDebtOpen(true); }}>查看或修改贷款还款安排</button></p>}
+      {snapshot && sources.modules.wealth && (snapshot.entries.some(e => e.counted && e.side === 'liability') || saved?.profile.retire.core?.debt_repayments?.length) && <p><button type="button" className="ui-link" disabled={saver.busy || saver.stuck} onClick={e => openDialog({ kind: 'debt', completion: false }, e.currentTarget)}>查看或修改贷款还款安排</button></p>}
     </>}
     {(state === '2' || state === '2b') && <details className="ui-card ui-content planning-more-tools" open={toolsOpen} onToggle={e => setToolsOpen(e.currentTarget.open)}>
       <summary><strong>更多工具与试算</strong>{moreToolsBadges(saved).map(text => <span className="ui-tag" key={text}>{text}</span>)}<span className="planning-more-tools-hint muted small">查看资金能撑多久、职业变化试算，以及大额计划和心愿购买的影响。</span></summary>

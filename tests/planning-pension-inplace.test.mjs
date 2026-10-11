@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { runtime } from './pension-runtime.mjs';
+import { runtime } from './planning-component-runtime.mjs';
 import { pensionFixture } from '../src/planning-pension-fixture.ts';
 import { buildBasicCapabilities } from '../src/plan-basic.ts';
 import { overlayPlanningDrafts } from '../src/planning-draft.ts';

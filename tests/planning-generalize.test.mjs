@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { pensionFixture } from '../src/planning-pension-fixture.ts';
 import { conditionChips } from '../src/planning-first-run.ts';
 import { unknownCapabilityFixture } from '../src/plan-basic-fixtures.ts';
-import { runtime } from './pension-runtime.mjs';
+import { runtime } from './planning-component-runtime.mjs';
 const raw = JSON.parse(readFileSync(new URL('./fixtures/planning-basic/debt-loops.json', import.meta.url), 'utf8'));
 const sources = () => pensionFixture(raw, 'normal');
 const saved = s => s.profile.value.saved;

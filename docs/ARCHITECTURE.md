@@ -135,6 +135,10 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 通用规划的 plan-coverage 与 plan-annotations 生成只读覆盖，BasicCapabilities/Plan/CareerEvaluation 保留标注元数据。CoverageNote 统一呈现摘要与依据，planning-consumers 清单枚举独立渲染路径。用途声明、occurrences 和保存回执沿用既有分区；已有贷款 JSON 可选字段与新增分区见下文，不进行迁移。
 
+## 目标页弹窗
+
+`PlanningBasicGoals` 用一个可空的判别联合记录当前弹窗，养老金附带收入切换／缴存复核选项，发生核对附带事件；必填确认标记随本次弹窗一起创建和清除。卡片、结果标注和工具入口共用打开与关闭逻辑，关闭后回到本次触发元素，元素已移除时回到目标修改入口。标注只有明确关联事件 ID 才匹配事件卡，不把两处缺失 ID 当作同一事件。保存和提交结果未知仍由既有表单及回执服务处理。
+
 ## 规划结果复用与显示
 
 目标页的心愿影响通过 `retireCalcFromCapabilities` 适配同一批次已有的规划结果，复用需求、预测和注释；独立读取入口仍由 `buildRetireCalc` 构建。预测金额统一由 `plan-format.ts` 处理显示取整，比较使用原始金额。

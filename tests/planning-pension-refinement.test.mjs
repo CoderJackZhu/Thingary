@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {savingsOf,nominalFactor} from '../src/plan-ledger.ts';
 import {readFileSync} from 'node:fs';
-import {runtime} from './pension-runtime.mjs';
+import {runtime} from './planning-component-runtime.mjs';
 import {pensionFixture} from '../src/planning-pension-fixture.ts';
 import {setupDraft,setupFields,refinementCards} from '../src/planning-first-run.ts';
 import {pensionRefinementFields,comparePensionRefinement,withPensionRefinement} from '../src/planning-pension-refinement.ts';

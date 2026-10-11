@@ -6,7 +6,7 @@ import vm from 'node:vm';
 import * as plan from '../src/plan.ts';
 import * as defaults from '../src/planning-basic-defaults.ts';
 import { pensionFixture } from '../src/planning-pension-fixture.ts';
-import { runtime } from './pension-runtime.mjs';
+import { runtime } from './planning-component-runtime.mjs';
 
 const ts = createRequire(import.meta.url)('typescript');
 const money = cents => `¥${cents}`;
