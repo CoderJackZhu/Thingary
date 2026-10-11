@@ -27,6 +27,7 @@ pub mod plan_core;
 pub mod plan_income;
 pub mod plan_profile;
 pub mod plan_savings;
+pub mod plan_simplified;
 pub mod preferences;
 pub mod purge;
 mod recovery;

@@ -1,6 +1,6 @@
 // 退休概览的展示模型（纯函数）：判词、总结句、进度、里程碑、轨迹点、覆盖拆分与逐年表。
 // 引擎全程「今天的钱」；名义值只在这里乘以 (1+通胀)^年数。
-import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, table } from './plan-ledger.ts';
+import { coastAmount, coverageAt, glide, nominalFactor, required, scaleSpend, table, timeLabel, ageAt } from './plan-ledger.ts';
 import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
 import { pensionIncomeStart } from './plan-fire.ts';
@@ -48,15 +48,15 @@ const seg = (t: string, strong = false): Seg => ({ t, ...(strong ? { strong } : 
 /** The verdict is assembled from two independent facts: funding at the chosen
  * goal and actual monthly payment coverage. A reached goal never hides a later gap. */
 export function verdict(P: Plan, proj: Projection, out: Outcome, _assetsNow: number, mode: ValueMode, fmt: (cents: number) => string): Verdict {
-  const goalAge = ageInt(P.target_months), horizonAge = ageInt(P.horizon_months);
+  const goalTime = timeLabel(P, P.target_months), horizonTime = timeLabel(P, P.age_reference === undefined ? P.horizon_months : P.horizon_months - 1);
   const displayFactor = scaleAt(P, mode, P.target_months);
   const index = Math.max(0, Math.min(table(P).spend.length - 1, P.target_months - P.now_months));
   const annualBudget = (table(P).spend[index] ?? 0) * 12;
   const reserve = out.assets_at_goal - out.required_at_goal;
-  const at = (month: number) => `${ageInt(month)} 岁`;
+  const at = (month: number) => timeLabel(P, month);
   const summaries = [
     seg('预计每月投入 '), seg(fmt(P.saving_cents), true),
-    seg(`；${goalAge} 岁时的预计余额为 `), seg(fmt(out.assets_at_goal * displayFactor), true),
+    seg(`；${goalTime}时的预计余额为 `), seg(fmt(out.assets_at_goal * displayFactor), true),
     seg('，所需资金为 '), seg(fmt(out.required_at_goal * displayFactor), true),
     seg('。目标时点的预算为每年'), seg(fmt(annualBudget * displayFactor), true), seg('。'),
   ];
@@ -74,14 +74,14 @@ export function verdict(P: Plan, proj: Projection, out: Outcome, _assetsNow: num
       : !out.funded_at_goal ? 'shortfall' : reserve >= Math.max(1, annualBudget) ? 'overfunded' : 'on_track';
     const badges = { depleted: '资金不足', shortfall: '缺口', overfunded: '盈余', on_track: '进展顺利' };
     const headline = status === 'depleted'
-      ? [seg(`计划在 ${goalAge} 岁退休，`), seg(`${at(proj.failure_month!)}出现资金不足`, true)]
+      ? [seg(`计划在 ${goalTime}退休，`), seg(`${at(proj.failure_month!)}出现资金不足`, true)]
       : status === 'shortfall'
-        ? [seg(`${goalAge} 岁退休还需要 `), seg(fmt(Math.max(0, -reserve) * displayFactor), true)]
-        : [seg(`${goalAge} 岁的资金需求已满足`), ...(status === 'overfunded' ? [seg('，需求之外还有 '), seg(fmt(reserve * displayFactor), true)] : [])];
+        ? [seg(`${goalTime}退休还需要 `), seg(fmt(Math.max(0, -reserve) * displayFactor), true)]
+        : [seg(`${goalTime}的资金需求已满足`), ...(status === 'overfunded' ? [seg('，需求之外还有 '), seg(fmt(reserve * displayFactor), true)] : [])];
     return { ...common, status, badge: badges[status], headline, reached: out.funded_at_goal, late_months: null };
   }
   const fi = proj.fi_month;
-  if (fi === null) return { ...common, tone: 'bad', badge: `预计 ${horizonAge} 岁前无法达到`, headline: [seg(`这些条件下，规划期内没有达到财务独立。`)], status: null, late_months: null, reached: false };
+  if (fi === null) return { ...common, tone: 'bad', badge: `预计 ${horizonTime}前无法达到`, headline: [seg(`这些条件下，规划期内没有达到财务独立。`)], status: null, late_months: null, reached: false };
   const reachedNow = fi <= P.now_months;
   const delay = Math.max(0, fi - P.target_months);
   if (delay) messages.push(`比目标晚 ${durationText(delay)}后实现财务独立`);
@@ -97,11 +97,11 @@ export function verdict(P: Plan, proj: Projection, out: Outcome, _assetsNow: num
 }
 
 /** 进度：当前资产 ÷ 目标年龄所需（按当前口径）；coast 是 Coast FIRE 在条上的位置。 */
-export type Progress = { now: number; target: number; pct: number | null; coast_pct: number | null; goal_age: number };
+export type Progress = { now: number; target: number; pct: number | null; coast_pct: number | null; goal_age: number | null; goal_month: string };
 export function progress(P: Plan, out: Outcome, assetsNow: number, mode: ValueMode): Progress {
   const k = scaleAt(P, mode, P.target_months), target = out.required_at_goal * k;
   const coast = coastAmount(P) * k;
-  return { now: assetsNow, target, pct: target > 0 ? Math.min(100, (assetsNow / target) * 100) : null, coast_pct: target > 0 ? Math.min(100, (coast / target) * 100) : null, goal_age: ageInt(P.target_months) };
+  return { now: assetsNow, target, pct: target > 0 ? Math.min(100, (assetsNow / target) * 100) : null, coast_pct: target > 0 ? Math.min(100, (coast / target) * 100) : null, goal_age: ageAt(P, P.target_months) === null ? null : ageInt(ageAt(P, P.target_months)!), goal_month: timeLabel(P, P.target_months) };
 }
 
 export type Milestone = { id: 'coast' | 'lean' | 'fi' | 'fat'; label: string; hint: string; amount: number; done: boolean };
@@ -120,19 +120,19 @@ export function milestones(P: Plan, assetsNow: number, mode: ValueMode): Milesto
 }
 
 /** 轨迹图：每个行首一个点，加上规划终点；required 是所需资金下滑曲线。 */
-export type TrajectoryPoint = { age: number; projected: number; required: number; phase: 'accumulation' | 'retired' };
+export type TrajectoryPoint = { month: number; label: string; age: number | null; projected: number; required: number; phase: 'accumulation' | 'retired' };
 export function trajectory(P: Plan, proj: Projection, mode: ValueMode): TrajectoryPoint[] {
   const g = glide(P, proj);
-  const pts: TrajectoryPoint[] = proj.rows.map((r, i) => ({ age: r.start_month / 12, projected: r.start * scaleAt(P, mode, r.start_month), required: g[i] * scaleAt(P, mode, r.start_month), phase: r.phase }));
+  const pts: TrajectoryPoint[] = proj.rows.map((r, i) => ({ month: r.start_month, label: timeLabel(P, r.start_month), age: ageAt(P, r.start_month) === null ? null : ageAt(P, r.start_month)! / 12, projected: r.start * scaleAt(P, mode, r.start_month), required: g[i] * scaleAt(P, mode, r.start_month), phase: r.phase }));
   const last = proj.rows[proj.rows.length - 1];
-  if (last) pts.push({ age: P.horizon_months / 12, projected: Math.max(0, proj.assets[proj.assets.length - 1]) * scaleAt(P, mode, P.horizon_months), required: 0, phase: 'retired' });
+  if (last) pts.push({ month: P.horizon_months, label: timeLabel(P, P.horizon_months), age: ageAt(P, P.horizon_months) === null ? null : ageAt(P, P.horizon_months)! / 12, projected: Math.max(0, proj.assets[proj.assets.length - 1]) * scaleAt(P, mode, P.horizon_months), required: 0, phase: 'retired' });
   return pts;
 }
 
 /** 覆盖拆分：某月龄每月计划支出由收入流、国家养老金、投资组合提取与无资金部分支撑。 */
 export type CoverageSegment = { key: string; label: string; monthly: number; kind: 'income' | 'pension' | 'portfolio' | 'unfunded' };
 export type CoverageView = {
-  month: number; age: number; spend: number; essential: number;
+  month: number; calendar_month: string; age: number | null; spend: number; essential: number;
   segments: CoverageSegment[]; pct: { income: number; portfolio: number; unfunded: number };
   /** 年提取占当时组合价值的比例（万分比整数以外的小数，仅参考）；没有组合价值时为 null。 */
   draw_rate: number | null;
@@ -155,7 +155,7 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
   const income = segments.filter(s => s.kind === 'income' || s.kind === 'pension').reduce((s, x) => s + x.monthly, 0);
   const row = proj.rows.find(r => month >= r.start_month && month < r.start_month + 12);
   const value = row ? row.start : 0;
-  const ageOf = (a: number | null) => (a === null ? '终身' : `${a} 岁`);
+  const ageOf = (a: number | null) => (a === null ? P.age_reference === undefined ? '终身' : '未设结束月' : timeLabel(P, a * 12));
   const retireAge = proj.retire_month !== null ? ageInt(proj.retire_month) : ageInt(P.target_months);
   const pensionStart = proj.pension ? pensionIncomeStart(proj.pension) : Infinity;
   const hasPension = !!proj.pension && proj.pension.monthly_cents > 0 && Number.isFinite(pensionStart);
@@ -163,17 +163,18 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
   const nextIncome = P.incomes.filter(s => s.start_age * 12 > month).map(s => s.start_age).sort((a, b) => a - b)[0] ?? (hasPension && pensionStart > month ? ageInt(pensionStart) : null);
   const infl = 1 + P.inflation_hundredths / 10000;
   return {
-    month, age: ageInt(month), spend, essential: c.essential * k,
+    month, calendar_month: timeLabel(P, month), age: ageAt(P, month) === null ? null : ageInt(ageAt(P, month)!), spend, essential: c.essential * k,
     segments, pct: { income: pct(income), portfolio: pct(c.withdrawal * k), unfunded: pct(c.unfunded * k) },
     draw_rate: value > 0 && c.withdrawal > 0 ? (c.withdrawal * 12) / value : null,
     spend_items: P.items.map(it => {
       const start = it.start_age ?? retireAge, active = month >= start * 12 && (it.end_age === null || month < it.end_age * 12);
       const real = (1 + (it.inflation_hundredths ?? P.inflation_hundredths) / 10000) / infl;
-      return { id: it.id, label: it.label, monthly: active ? it.monthly_cents * real ** ((month - P.now_months) / 12) * k : 0, start: it.start_age === null ? '退休' : `${it.start_age} 岁`, end: ageOf(it.end_age), essential: it.essential, active };
+      return { id: it.id, label: it.label, monthly: active ? it.monthly_cents * real ** ((month - P.now_months) / 12) * k : 0, start: it.start_age === null ? P.age_reference === undefined ? '退休' : timeLabel(P, proj.retire_month ?? P.target_months) : timeLabel(P, it.start_age * 12), end: ageOf(it.end_age), essential: it.essential, active };
     }),
-    flow_items: (P.spend_flows ?? []).map(f => { const active = month >= f.from_month && (f.to_month === null || month < f.to_month); return { id: f.label + f.from_month, label: f.label, monthly: active ? (f.nominal ? f.cents / nominalFactor(P, month) : f.cents) * k : 0, start: `${ageInt(f.from_month)} 岁`, end: f.to_month === null ? '终身' : `${ageInt(f.to_month)} 岁`, essential: f.essential, active }; }),
+    flow_items: (P.spend_flows ?? []).map(f => { const active = month >= f.from_month && (f.to_month === null || month < f.to_month); return { id: f.label + f.from_month, label: f.label, monthly: active ? (f.nominal ? f.cents / nominalFactor(P, month) : f.cents) * k : 0, start: timeLabel(P, f.from_month), end: f.to_month === null ? '未设结束月' : timeLabel(P, f.to_month), essential: f.essential, active }; }),
     income_items: [
-      ...P.incomes.map(s => ({ id: s.id, label: s.label, monthly: c.items.find(x => x.id === s.id)!.monthly * k, start: `${s.start_age} 岁`, end: ageOf(s.end_age), active: c.items.find(x => x.id === s.id)!.active })),
+      ...P.incomes.map(s => ({ id: s.id, label: s.label, monthly: c.items.find(x => x.id === s.id)!.monthly * k, start: timeLabel(P, s.start_age * 12), end: ageOf(s.end_age), active: c.items.find(x => x.id === s.id)!.active })),
+      ...(P.future_incomes ?? []).map(s => ({ id: s.id, label: s.name, monthly: (c.items.find(x => x.id === s.id)?.monthly ?? 0) * k, start: s.start_month ?? '待确认', end: s.end_month ?? '未设结束月', active: c.items.find(x => x.id === s.id)?.active ?? false })),
       ...(hasPension ? [{ id: 'pension', label: '国家养老金', monthly: c.pension * k, start: proj.pension!.income_start_age_months === undefined ? `${ageInt(pensionStart)} 岁` : pensionStartText, end: '终身', active: c.pension > 0 }] : []),
     ],
     next_income_age: nextIncome,
@@ -183,7 +184,7 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
 /** 逐年快照表的一行：金额按当前口径（行首月龄的通胀系数）。 */
 /** 每行是从资金起点起的 12 个月（不是日历年）：period 给出实际起止月份，marks 把目标、FI、退休标在实际发生的那一行，
  *  retire_starts 表示这一行中途开始退休。没有起点日期的旧计划 period 为 null，只显示 year。 */
-export type SnapshotRow = { oneoff: number; age: number; year: number; phase: 'accumulation' | 'retired'; end: number; contribution: number; income: number; unlock: number; spend: number; withdrawal: number; unfunded: number; start_month: number; period: string | null; marks: string[]; retire_starts: boolean };
+export type SnapshotRow = { oneoff: number; age: number | null; year: number; phase: 'accumulation' | 'retired'; end: number; contribution: number; income: number; unlock: number; spend: number; withdrawal: number; unfunded: number; start_month: number; period: string | null; marks: string[]; retire_starts: boolean };
 const ymOf = (i: number) => `${Math.floor(i / 12)}-${String(i % 12 + 1).padStart(2, '0')}`;
 export function snapshotRows(P: Plan, proj: Projection, mode: ValueMode): SnapshotRow[] {
   const anchor = P.anchor_date ?? null, base = anchor ? Number(anchor.slice(0, 4)) * 12 + Number(anchor.slice(5, 7)) - 1 - P.now_months : null;
@@ -199,14 +200,14 @@ export function snapshotRows(P: Plan, proj: Projection, mode: ValueMode): Snapsh
 export { durationText };
 
 /** 覆盖随时间：从退休（未退休则从目标年龄）到规划终点，每行首一个点；keys 是出现过的资金来源，按固定顺序叠放。 */
-export type CoverageSeries = { keys: CoverageSegment[]; points: { age: number; spend: number; values: Record<string, number> }[]; start_month: number };
+export type CoverageSeries = { keys: CoverageSegment[]; points: { month: number; label: string; age: number | null; spend: number; values: Record<string, number> }[]; start_month: number };
 export function coverageSeries(P: Plan, proj: Projection, mode: ValueMode): CoverageSeries {
   const start = proj.retire_month ?? Math.max(P.target_months, P.now_months);
   const keys: CoverageSegment[] = [];
   const points = proj.rows.filter(r => r.start_month + 12 > start).map(r => {
     const m = Math.max(r.start_month, start), c = coverage(P, proj, m, mode), values: Record<string, number> = {};
     for (const s of c.segments) { values[s.key] = s.monthly * 12; if (!keys.some(k => k.key === s.key)) keys.push({ ...s, monthly: 0 }); }
-    return { age: m / 12, spend: c.spend * 12, values };
+    return { month: m, label: timeLabel(P, m), age: ageAt(P, m) === null ? null : ageAt(P, m)! / 12, spend: c.spend * 12, values };
   });
   const order = { income: 0, pension: 1, portfolio: 2, unfunded: 3 };
   keys.sort((a, b) => order[a.kind] - order[b.kind]);

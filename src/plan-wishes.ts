@@ -35,7 +35,7 @@ const toSpend = (s: WishSpend): Spend => ({ offset_months: s.offset_months!, cen
 
 export type Impact = {
   annotations?: PlanningAnnotation[];
-  /** 没有这笔支出时的 FIRE（月数偏移）与有之后的；null 表示 70 岁前达不到。 */
+  /** 没有这笔支出时的 FIRE（月数偏移）与有之后的；null 表示 规划终点前达不到。 */
   base_offset: number | null;
   with_offset: number | null;
   /** 推迟的月数；任一为 null 时没有意义。 */
@@ -76,8 +76,8 @@ export function impactSentence(s: WishSpend, i: Impact, emergencyMonths: number,
   if (s.status === 'expired') return '计划日期已过，规划没有计入这笔支出；更新计划日期后会重新估算。';
   const when = s.status === 'today' ? '未设计划日期，只作假设：如果今天买下，可支配资产约' : `如果按计划在 ${s.date} 买下，按当前储蓄那时可支配资产约`;
   let tail: string;
-  if (i.base_offset === null) tail = '按现在的储蓄，70 岁前本来就达不到 FIRE，买下后同样达不到';
-  else if (i.with_offset === null) tail = '买下后 FIRE 在 70 岁前达不到（原本可以）';
+  if (i.base_offset === null) tail = '按现在的储蓄，规划终点前本来就达不到 FIRE，买下后同样达不到';
+  else if (i.with_offset === null) tail = '买下后 FIRE 在 规划终点前达不到（原本可以）';
   else if (i.delay_months === 0) tail = '买下后对 FIRE 日期几乎没有影响';
   else tail = `买下后 FIRE 推迟约 ${i.delay_months} 个月`;
   const line = i.breaches_emergency ? `；买下后可支配资产会低于 ${emergencyMonths} 个月支出的应急金线` : '';

@@ -29,9 +29,9 @@ test('C2 without enough history the spend is left empty, never guessed or zero; 
   assert.equal(few.draft.gap.spend_cents, null);
 });
 
-test('C3 defaults never change the source and give an answer path that is not blocked by the plan\'s own pension mode', () => {
-  const s = withReview(stats), frozen = structuredClone(s);
-  s.profile.value.saved.profile.retire.basic.retirement_income = { mode: 'employee', selected: [] };
+test('C3 defaults preserve source income, and unknown future cash costs require confirmation', () => {
+  const s = withReview(stats);
+  s.profile.value.saved.profile.retire.simplified.income_mode = 'unconfirmed';
   const before = structuredClone(s);
   const x = realGuidedDefaults(s, '2026-10-09');
   const scope = prepareIncomeScope(s, x.draft, x.income);
@@ -39,9 +39,13 @@ test('C3 defaults never change the source and give an answer path that is not bl
   assert.equal(scope.draft.gap.spend_cents, null);
   assert.notEqual(maxGap(scope.sources, scope.draft).status, 'found');
   scope.draft.gap.spend_cents = '1300000'; // Explicit future spending, not the history default.
+  scope.draft.gap.income_cents = '0'; // User confirms no interim income; unknown stays blocking before confirmation.
+  assert.equal(missingItems(scope.draft, true).length, 2);
+  scope.draft.gap.insurance.monthly_cents = '0'; // User confirms no additional cash expense.
+  scope.draft.recovery.insurance.monthly_cents = '0';
   assert.deepEqual(missingItems(scope.draft, true), []);
   assert.equal(maxGap(scope.sources, scope.draft).status, 'found');
-  assert.deepEqual(s, before); void frozen;
+  assert.deepEqual(s, before);
 });
 
 test('C4 the card is wired as an optional, closed, non-persistent entry', () => {

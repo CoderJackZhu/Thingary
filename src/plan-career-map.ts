@@ -5,7 +5,7 @@ import type { PlanningSources } from './plan-basic-contract.ts';
 import { monthIndex } from './plan-events.ts';
 import { evaluateCareerScenario } from './plan-career.ts';
 import { careerMonth, validCareerMonth, validCareerAmount } from './plan-career-contract.ts';
-import type { CareerDraft, CareerEvaluation, CareerPension } from './plan-career-contract.ts';
+import type { CareerDraft, CareerEvaluation } from './plan-career-contract.ts';
 
 export type Verdict = 'meets' | 'short' | 'blocked';
 /** goal: ends below the required assets; cash: a known payment fails inside the gap; prefix: a failure no later income can fix. */
@@ -32,8 +32,8 @@ export function judge(ev: CareerEvaluation): Judgement {
 /** Absolute month indices of the funds start and the target month, or null when the common inputs are missing. */
 export function careerSpan(sources: PlanningSources): { now: number; target: number } | null {
   const p = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile : null, date = prepareBasicPlan(sources, '0').context.start.date;
-  if (!p?.birth_month || !p.retire.basic || !date) return null;
-  return { now: monthIndex(date.slice(0, 7)), target: monthIndex(p.birth_month) + (p.retire.target_age ?? p.retire.horizon_age) * 12 };
+  if (!p?.retire.simplified.time.target_month || !p.retire.basic || !date) return null;
+  return { now: monthIndex(date.slice(0, 7)), target: monthIndex(p.retire.simplified.time.target_month) };
 }
 
 /** Evaluate with a handful of overridden fields; neither sources nor draft are mutated. */
@@ -69,11 +69,11 @@ export type MinWindow =
   | { status: 'not_applicable' | 'blocked'; message: string };
 const bad = (status: 'not_applicable' | 'blocked', message: string): MinWindow => ({ status, message });
 
-/** Exhaustive bounded monthly search. Stage costs and pension eligibility can break monotonicity.
+/** Exhaustive bounded monthly search. Stage costs and payment timing can break monotonicity.
  * Only the earliest feasible candidate is reported; later months are not implied to be feasible. */
 export function minWindow(sources: PlanningSources, draft: CareerDraft): MinWindow {
   const span = careerSpan(sources);
-  if (!span) return bad('blocked', '请先确认通用资料、出生年月和资金截至日。');
+  if (!span) return bad('blocked', '请先确认通用资料、目标月份和资金截至日。');
   if (!validCareerAmount(draft.recovery.monthly_cents, true)) return bad('blocked', '请先填关闭后每月能攒多少。');
   if (draft.gap_months === null || !Number.isInteger(draft.gap_months) || draft.gap_months < 0 || draft.gap_months > 1200) return bad('blocked', '请确认合法的空窗月数。');
   const hi = span.target - 1 - draft.gap_months;
@@ -95,7 +95,7 @@ export type MaxGap =
 /** Scan every gap length, including discontinuous feasible ranges; blocked is not a failed candidate. */
 export function maxGap(sources: PlanningSources, draft: CareerDraft): MaxGap {
   const span = careerSpan(sources);
-  if (!span) return { status: 'blocked', message: '请先确认通用资料、出生年月和资金截至日。' };
+  if (!span) return { status: 'blocked', message: '请先确认通用资料、目标月份和资金截至日。' };
   if (!validCareerMonth(draft.transition_month) || !validCareerAmount(draft.recovery.monthly_cents, true)) return { status: 'blocked', message: '请先填合法的变化月份和恢复后每月能攒多少。' };
   const close = monthIndex(draft.transition_month), cap = span.target - close - 1;
   if (close < span.now || cap < 0 || cap > 1200) return { status: 'blocked', message: '变化月须在起点至目标之前，搜索范围不超过 1200 个月。' };
@@ -116,96 +116,40 @@ export function maxGap(sources: PlanningSources, draft: CareerDraft): MaxGap {
   return { status: 'found', months: last.to, limit: last.to === cap ? 'end' : following ?? 'goal', ...(ranges.length > 1 || ranges[0].from > 0 ? { ranges } : {}) };
 }
 
-export type PensionChoice = { label: string; pension: CareerPension; /** Monthly cash the user pays for this choice (bill amount). null = not entered yet; it is never read as zero. */ cash_cents: string | null; included?: boolean; /** When set, the row is not evaluated and shows this reason (e.g. a custom base not entered yet). */ blocked?: string };
-export type PensionRow = {
-  label: string; cash_cents: string | null; judgement: Judgement;
-  /** Cash paid over the whole stage under this choice; null when the stage length is unknown. */
-  stage_cash_cents: number | null;
-  /** Estimated benefit at the target month, only when the Beijing pension is selected for retirement income. */
-  pension: { eligible: boolean; short_months: number; monthly_cents: number; lump_cents: number } | null;
-  assets_at_goal_cents: number | null;
-};
-/** The draft with one stage's contribution arrangement and its monthly cash cost replaced; nothing is mutated. */
-export function withChoice(draft: CareerDraft, stage: 'gap' | 'recovery', choice: PensionChoice): CareerDraft {
-  const d = structuredClone(draft);
-  d[stage].pension = choice.blocked ? null : structuredClone(choice.pension);
-  d[stage].insurance = { monthly_cents: choice.cash_cents, included: choice.included ?? false };
-  return d;
-}
-
-/** Same scenario, one stage's contribution arrangement swapped. Differences are the point: read rows against each other. */
-export function pensionOptions(sources: PlanningSources, draft: CareerDraft, stage: 'gap' | 'recovery', choices: PensionChoice[]): { stage_months: number | null; rows: PensionRow[] } {
-  const span = careerSpan(sources), basic = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile.retire.basic : null;
-  const start = draft.transition_month ? monthIndex(draft.transition_month) : null, gap = draft.gap_months;
-  const months = !span || start === null ? null : stage === 'gap' ? gap : gap === null ? null : Math.max(0, span.target - (start + gap));
-  const rows = choices.map((c): PensionRow => {
-    if (c.blocked) return { label: c.label, cash_cents: c.cash_cents, judgement: { verdict: 'blocked', reason: null, shortfall_cents: null, issues: [c.blocked] }, stage_cash_cents: null, pension: null, assets_at_goal_cents: null };
-    if (!validCareerAmount(c.cash_cents)) return { label: c.label, cash_cents: c.cash_cents, judgement: { verdict: 'blocked', reason: null, shortfall_cents: null, issues: ['请填每月现金社保；没有也要明确填 0。'] }, stage_cash_cents: null, pension: null, assets_at_goal_cents: null };
-    const ev = evaluateCareerScenario(sources, withChoice(draft, stage, c)), ready = ev.prediction.status === 'ready' ? ev.prediction.value : null;
-    const p = ready && basic?.retirement_income.mode === 'employee' ? ready.plan.pension_at(ready.plan.target_months) : null;
-    return {
-      label: c.label, cash_cents: c.cash_cents, judgement: judge(ev),
-      stage_cash_cents: months === null ? null : months * Number(c.cash_cents),
-      pension: p ? { eligible: p.eligible !== false, short_months: p.short_months ?? 0, monthly_cents: Math.round(p.monthly_cents), lump_cents: Math.round(p.lump_cents) } : null,
-      assets_at_goal_cents: ready ? Math.round(ready.outcome.assets_at_goal) : null,
-    };
-  });
-  return { stage_months: months, rows };
-}
-
 export type DelayTarget =
-  | { status: 'found'; age: number; delay_years: number }
+  | { status: 'found'; month: string; delay_months: number }
   | { status: 'already_met' }
-  | { status: 'not_found'; up_to_age: number }
+  | { status: 'not_found'; up_to_month: string }
   | { status: 'blocked'; message: string };
-
-/** Earliest whole retirement age at which the draft's conditions meet the goal, scanning later and later targets.
- *  A concession shown beside the original target, never written back. Contributions keep following the confirmed schedule. */
-export function delayTarget(sources: PlanningSources, draft: CareerDraft, maxAge = 75): DelayTarget {
-  const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null, r = saved?.profile.retire;
-  if (!r?.basic) return { status: 'blocked', message: '请先确认通用资料。' };
-  const original = r.target_age ?? r.horizon_age, last = Math.min(r.horizon_age - 1, maxAge);
-  const at = (age: number) => {
+/** Explicit monthly target comparison. No stored age or policy inputs are reconstructed. */
+export function delayTarget(sources: PlanningSources, draft: CareerDraft, maxMonths = 1200): DelayTarget {
+  const r = profileOf(sources)?.retire, time = r?.simplified.time;
+  if (!r?.basic || !time?.target_month || !time.horizon_month || !Number.isInteger(maxMonths) || maxMonths < 0 || maxMonths > 1200) return { status: 'blocked', message: '请确认通用资料、目标与终点月份。' };
+  const original = monthIndex(time.target_month), last = Math.min(monthIndex(time.horizon_month) - 1, original + maxMonths);
+  const at = (m: number) => {
     const copy = structuredClone(sources);
-    if (copy.profile.status === 'ready' && copy.profile.value.saved) copy.profile.value.saved.profile.retire.target_age = age;
+    if (copy.profile.status === 'ready' && copy.profile.value.saved) copy.profile.value.saved.profile.retire.simplified.time.target_month = careerMonth(m);
     return judge(evaluateCareerScenario(copy, draft, { requirement: 'skip' }));
   };
-  const first = at(original);
-  if (first.verdict === 'blocked') return { status: 'blocked', message: first.issues.join(' ') || '条件未齐全。' };
-  if (first.verdict === 'meets') return { status: 'already_met' };
-  // Not a bisection: with a negative post-change contribution a later target can be worse.
-  for (let age = original + 1; age <= last; age++) { const j = at(age); if (j.verdict === 'meets') return { status: 'found', age, delay_years: age - original }; if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || '条件未齐全。' }; }
-  return { status: 'not_found', up_to_age: last };
+  for (let m = original; m <= last; m++) {
+    const j = at(m);
+    if (j.verdict === 'blocked') return { status: 'blocked', message: j.issues.join(' ') || '条件未齐全。' };
+    if (j.verdict === 'meets') return m === original ? { status: 'already_met' } : { status: 'found', month: careerMonth(m), delay_months: m - original };
+  }
+  return { status: 'not_found', up_to_month: careerMonth(last) };
 }
-
-/** Age in whole months at a YYYY-MM month, or null without a birth month. */
+/** Display only: an age exists solely after a new user confirmation. */
 export function ageMonthsAt(sources: PlanningSources, month: string): number | null {
-  const p = profileOf(sources);
-  return p?.birth_month ? monthIndex(month) - monthIndex(p.birth_month) : null;
+  const ref = profileOf(sources)?.retire.simplified.time.reference;
+  return ref && validCareerMonth(month) ? ref.age_months + monthIndex(month) - monthIndex(ref.month) : null;
 }
 function profileOf(sources: PlanningSources) { return sources.profile.status === 'ready' ? sources.profile.value.saved?.profile ?? null : null; }
-
-/** Fill only the still-unconfirmed contribution fields with the optimistic reading (contributions continue, nothing paid by the user),
- *  so an answer can be shown early. The caller must say so: this is a placeholder, replaced as soon as the real choices are filled. */
-export function assumeInsurance(draft: CareerDraft): { draft: CareerDraft; changed: boolean } {
-  const d = structuredClone(draft);
-  let changed = false;
-  for (const stage of [d.gap, d.recovery]) {
-    if (stage.pension === null) { stage.pension = 'unchanged'; changed = true; }
-    if (stage.insurance.monthly_cents === null) { stage.insurance = { monthly_cents: '0', included: true }; changed = true; }
-  }
-  return { draft: d, changed };
-}
-
-
-export type Missing = { label: string; /** true when the optional exploratory placeholder may stand in for it (contribution fields only). */ assumable: boolean };
-/** What is still unconfirmed for an answer. The estimate of savings after the change can never be assumed; an entered
- *  but invalid value is not "missing" here: it stays in the draft so the engine blocks it with its own message. */
+export type Missing = { label: string; assumable: false };
+/** Unknown cash expenses stay unknown. A missing answer never implies zero. */
 export function missingItems(draft: CareerDraft, needRecovery: boolean): Missing[] {
   const out: Missing[] = [];
   if (needRecovery && !validCareerAmount(draft.recovery.monthly_cents, true)) out.push({ label: '找到新工作后每月能攒多少', assumable: false });
-  const pending = (s: CareerDraft['gap'] | CareerDraft['recovery']) => s.pension === null || s.insurance.monthly_cents === null;
-  if (draft.gap_months !== 0 && pending(draft.gap)) out.push({ label: '不工作期间的社保（交法、每月缴费、是否已包含）', assumable: true });
-  if (pending(draft.recovery)) out.push({ label: '恢复工作后的社保（交法、每月缴费、是否已包含）', assumable: true });
+  if (draft.gap_months !== 0 && draft.gap.insurance.monthly_cents === null) out.push({ label: '空窗期间的现金费用及包含范围', assumable: false });
+  if (needRecovery && draft.recovery.insurance.monthly_cents === null) out.push({ label: '恢复后的现金费用及包含范围', assumable: false });
   return out;
 }

@@ -1,11 +1,9 @@
 import type { CostScope, PlanningContext, RequirementResult } from './plan-basic-contract.ts';
 import type { Outcome, Plan, Projection } from './plan-ledger.ts';
 
-export type CareerPension = 'unchanged' | 'pause' | { base_cents: string; hpf_monthly_cents: string };
 export type CareerStage = {
   costs: CostScope[] | null;
-  pension: CareerPension | null;
-  /** Confirmed cash insurance expense, independent of pension account credits. */
+  /** User-confirmed cash expense; no policy calculation or future account credit. */
   insurance: { monthly_cents: string | null; included: boolean };
 };
 /** User-entered after-tax inflows during the gap. A lump sum (severance, unused leave) lands at the end of the change month;

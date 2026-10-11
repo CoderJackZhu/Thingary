@@ -1,5 +1,4 @@
-import { contributionCostIssue } from './plan-contribution-cost.ts';
-import { pensionReferenceIssue } from './plan-params.ts';
+import { validateSimplifiedPlanningV1 } from './plan-simplified.ts';
 import type { PlanningSources } from './plan-basic-contract.ts';
 import { validateDebtRepayment } from './plan-debt.ts';
 
@@ -11,14 +10,19 @@ export function basicConstraintMessages(sources: PlanningSources): string[] {
   const p = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile : null;
   if (!p?.retire.basic) return [];
   const r = p.retire, b = r.basic!, errors: string[] = [], add = (s: string) => errors.push(s);
-  const referenceIssue = pensionReferenceIssue(p.overrides); if (referenceIssue) add(referenceIssue);
-  if (b.retirement_contribution_cost) { const issue = contributionCostIssue(b.retirement_contribution_cost); if (issue) add(issue);
-  }
-  if (p.birth_month !== null && (!month(p.birth_month) || p.birth_month >= sources.today.slice(0, 7))) add('出生年月须合法并早于本月。');
-  if (r.spend_cents !== null && !cents(r.spend_cents)) add('完整生活预算须为合法整数分。');
-  if (!Number.isInteger(r.horizon_age) || r.horizon_age < 70 || r.horizon_age > 110 || (r.target_age !== null && (!Number.isInteger(r.target_age) || r.target_age < 20 || r.target_age >= r.horizon_age))) add('目标年龄与规划终点约束冲突。');
+  errors.push(...validateSimplifiedPlanningV1(r.simplified).map(i => i.message));
+  if(errors.length)return errors;
+  if (r.spend_cents !== null && (!cents(r.spend_cents) || Number(r.spend_cents) > 99999999999)) add('完整预算金额无效');
   for (const v of [r.real_return_before_hundredths, r.real_return_after_hundredths]) if (!Number.isInteger(v) || v < -1000 || v > 2000) add('实际收益输入超出合法范围。');
   if (!Number.isInteger(p.assumptions.inflation_hundredths) || p.assumptions.inflation_hundredths < 0 || p.assumptions.inflation_hundredths > 2000) add('通胀输入超出合法范围。');
+  if (r.simplified.time.reference && r.simplified.time.reference.month > sources.today.slice(0, 7)) add('参考月份晚于今天');
+  for (const i of r.simplified.future_incomes) if (i.source_checked_on !== null && i.source_checked_on > sources.today) add('来源确认日期晚于今天');
+  const releaseIds = new Set<string>(), releaseAccounts = new Set<string>();
+  if ((r.core?.releases.length ?? 0) > 500) add('受限资金安排过多');
+  for (const x of r.core?.releases ?? []) {
+    if (!x.id.trim() || releaseIds.has(x.id) || releaseAccounts.has(x.account_id) || !x.account_id.trim() || !month(x.month) || (x.net_cents !== null && (!cents(x.net_cents) || Number(x.net_cents) > 99999999999)) || typeof x.estimated !== 'boolean' || typeof x.excludes_future_deposits !== 'boolean' || !r.core?.fund_rules.some(f => f.account_id === x.account_id && f.availability === 'restricted')) add('受限资金安排的身份、月份、金额或来源非法');
+    releaseIds.add(x.id); releaseAccounts.add(x.account_id);
+  }
   if (b.start.kind === 'simulation' && ((b.start.available_cents !== null && !cents(b.start.available_cents)) || (b.start.date !== null && !date(b.start.date)))) add('模拟起点金额或日期非法。');
   if (r.core && !date(r.core.monetary_basis_date)) add('金额基准日期非法。');
   const debtIds = new Set<string>();
@@ -38,10 +42,8 @@ export function basicConstraintMessages(sources: PlanningSources): string[] {
     for (const e of sources.snapshot.value.entries) if (e.counted && e.amount_cents !== null && !cents(e.amount_cents)) add('账户余额须为合法非负整数分。');
   }
   for (const c of [...b.contribution_costs, ...b.retirement_costs]) if (!['included', 'extra', 'excluded'].includes(c.treatment) || (c.reference_cents !== null && !cents(c.reference_cents))) add('费用包含关系或参考额非法。');
-  for (const i of [...r.spend_items, ...r.income_items]) if (!cents(i.monthly_cents)) add('费用或收入金额非法。');
-  for (const v of [r.rent_cents, r.keep_paying_monthly_cents, p.personal_pension_annual_cents]) if (v !== null && !cents(v)) add('房租、续缴费用或养老金年额非法。');
-  const pc = b.pension_contributions;
-  if ((pc.start_month !== null && !month(pc.start_month)) || (pc.stop_month !== null && !month(pc.stop_month)) || (pc.base_cents !== null && !cents(pc.base_cents)) || (pc.start_month !== null && pc.stop_month !== null && pc.start_month > pc.stop_month)) add('未来缴费排期或基数非法。');
+  for (const i of r.spend_items) if (!cents(i.monthly_cents) || (i.start_month !== null && !month(i.start_month)) || (i.end_month !== null && !month(i.end_month)) || (i.start_month !== null && i.end_month !== null && i.end_month < i.start_month) || typeof i.time_unconfirmed !== 'boolean') add('费用金额或时间非法。');
+  if (!cents(r.rent_cents)) add('房租金额非法');
   const eventIds = new Set<string>(), occurrenceIds = new Set<string>(), paymentIds = new Set<string>(), sourceIds = new Set<string>();
   for (const e of r.life_events) {
     if (eventIds.has(e.id) || !month(e.date)) add('大额计划身份重复或预计月份非法。');

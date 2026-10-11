@@ -24,8 +24,9 @@ test('fixed nominal vs purchasing power use explicit integer months, both endpoi
   assert.equal(incomeAtMonthV1({ ...i, growth:'constant_purchasing_power' }, '2028-01', '2026-01', 1000), 10000);
   assert.equal(incomeAtMonthV1(i, '2028-01', '2026-01', null), null);
 });
-test('validation uses stable IDs and rejects noncanonical/over-limit amounts', () => {
-  for (const n of ['-1','01','100000001']) assert.ok(validateSimplifiedPlanningV1({ ...simplifiedEmpty(), future_incomes:[{...income(),monthly_cents:n}] }).some(x=>x.path==='future_incomes.fictional-income.monthly_cents'));
+test('validation retains existing amount limit and rejects noncanonical/over-limit amounts', () => {
+  assert.deepEqual(validateSimplifiedPlanningV1({...simplifiedEmpty(),future_incomes:[{...income(),monthly_cents:'99999999999'}]}),[]);
+  for (const n of ['-1','01','100000000000']) assert.ok(validateSimplifiedPlanningV1({ ...simplifiedEmpty(), future_incomes:[{...income(),monthly_cents:n}] }).some(x=>x.path==='future_incomes.fictional-income.monthly_cents'));
 });
 test('partition/setup adapters delegate once, retain unresolved and propagate read failures', async () => {
   const calls=[]; const f=simplifiedEmpty(), c={request_id:'fictional-request',generation:'fictional-library',expected_revision:null};
@@ -34,4 +35,27 @@ test('partition/setup adapters delegate once, retain unresolved and propagate re
   assert.deepEqual(await port.save(f,c),{status:'unresolved',request_id:c.request_id});
   assert.equal(calls.length,1);
   assert.equal((await port.saveSetup({fields:f,setup:{}},c)).status,'saved'); assert.equal(calls.length,2);
+});
+
+test('malformed collections and missing/legacy DTO fields cannot pass validation',()=>{
+ const f=simplifiedEmpty();
+ for(const future_incomes of [null,{},''])assert.ok(validateSimplifiedPlanningV1({...f,future_incomes}).length);
+ const absent=structuredClone(f);delete absent.time.reference;assert.ok(validateSimplifiedPlanningV1(absent).length);
+ assert.ok(validateSimplifiedPlanningV1({...f,birth_month:'1990-01'}).length);
+});
+
+
+test('native port rejects a new request while preserving an unrelated unknown receipt', async () => {
+ const {nativeSimplifiedPlanningPortV1}=await import('../src/planning-simplified-port.ts');
+ const {pendingKey}=await import('../src/wealth.ts');
+ const old=globalThis.localStorage;
+ const pending=JSON.stringify({command:'plan_profile_update',input:{request_id:'original',generation:'library',section:'simplified',fields:simplifiedEmpty(),expected_revision:1},label:'规划分区'});
+ const stored=new Map([[pendingKey,pending]]);
+ globalThis.localStorage={getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)};
+ try {
+  const port=nativeSimplifiedPlanningPortV1(()=>({planning:true}));
+  const result=await port.save(simplifiedEmpty(),{request_id:'new',generation:'library',expected_revision:1});
+  assert.equal(result.status,'rejected');assert.equal(result.issues[0].code,'pending_request');
+  assert.equal(stored.get(pendingKey),pending);
+ } finally {if(old===undefined)delete globalThis.localStorage;else globalThis.localStorage=old;}
 });

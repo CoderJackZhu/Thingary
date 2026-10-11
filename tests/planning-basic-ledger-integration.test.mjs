@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBasicCapabilities } from '../src/plan-basic.ts';
 import { defaultRetire } from '../src/plan.ts';
-import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
+import { emptyCore } from '../src/plan-core.ts';
+import { fictionalFutureIncome } from './helpers/simplified-planning-fixtures.mjs';
 import { unknownBasicUpdate } from '../src/plan-basic-fixtures.ts';
 import { table, startPaymentsOf, project, outcome, required, requiredAt, coastAmount, glide } from '../src/plan-ledger.ts';
 import { monteCarlo } from '../src/plan-risk.ts';
@@ -12,16 +13,13 @@ function sources(pre, post, income, amount = '0', birth = '1956-09') {
   const f = structuredClone(unknownBasicUpdate.fields), b = f.basic;
   b.start = { kind: 'simulation', id: 'fictional-start', available_cents: '0', date: '2026-09-30', notes: 'isolated fictional review' };
   b.contribution.monthly_cents = amount;
-  b.retirement_income = { mode: 'manual', selected: [{ id: 'income', source_id: 'annuity', role: 'other' }] };
   b.contribution_costs = [{ source_id: 'event:car:holding', treatment: pre, reference_cents: null }];
   b.retirement_costs = [{ source_id: 'event:car:holding', treatment: post, reference_cents: null }];
   const profile = {
-    birth_month: birth, worker: null, region: null, paid_months: null, account_balance_cents: null, base_cents: null, past_index_hundredths: null, flex_months: null, personal_pension_annual_cents: null, marginal_tax_hundredths: null,
-    assumptions: { ...defaultAssumptions, inflation_hundredths: 0 }, overrides: noOverrides,
-    retire: { ...structuredClone(defaultRetire), spend_cents: '10000', target_age: 70, horizon_age: 71, mode: 'traditional', real_return_before_hundredths: 0, real_return_after_hundredths: 0, volatility_hundredths: 0, basic: b,
-      core: { contract_version: 1, monetary_basis_date: f.monetary_basis_date, fund_rules: [], hpf_monthly_cents: null, occurrences: [] },
-      income_items: [{ id: 'income', label: 'fictional retirement income', monthly_cents: String(income), start_age: 0, end_age: null, indexed: true }],
-      life_events: [{ id: 'car', label: 'fictional car', kind: 'car', date: '2026-10', included: true, price_cents: '0', down_cents: '0', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 1, holding_cents: '10000', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }],
+    assumptions:{inflation_hundredths:0},
+    retire: { ...structuredClone(defaultRetire), spend_cents: '10000', simplified:{contract_version:1,time:{reference:null,target_month:`${Number(birth.slice(0,4))+70}-${birth.slice(5)}`,horizon_month:`${Number(birth.slice(0,4))+71}-${String(Number(birth.slice(5))-1).padStart(2,'0')}`},income_mode:'manual',future_incomes:[fictionalFutureIncome({id:'income',monthly_cents:String(income),start_month:`${Number(birth.slice(0,4))+70}-${birth.slice(5)}`,growth:'constant_purchasing_power'})]}, mode: 'traditional', real_return_before_hundredths: 0, real_return_after_hundredths: 0, volatility_hundredths: 0, basic: b,
+      core: emptyCore(f.monetary_basis_date),
+      life_events: [{ id: 'car', label: 'fictional car', kind: 'car', date: '2026-10', included: true, price_cents: '0', down_cents: '0', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 1, holding_cents: '10000', rent_saved_cents: '0', cycle_years: null, until_month: null,time_unconfirmed:false, resale_cents: '0' }],
     },
   };
   return { generation: 'fictional', write_version: 1, today: '2026-10-07', modules: { planning: true, wealth: false }, profile: ready({ generation: 'fictional', saved: { revision: 1, updated_at: '2026-10-07', profile } }), snapshot: ready(null), accounts: ready([]), review: { status: 'error', value: { code: 'UNAVAILABLE', message: 'no fictional history' } }, incomes: ready([]) };
@@ -58,7 +56,7 @@ test('retirement-only month-start fees cannot be financed by month-end retiremen
 
 test('FIRE delay uses accumulation expense scope until actual retirement', async () => {
   const v = prediction(sources('excluded', 'extra', 20000, '5000', '1957-09'));
-  const p = { ...v.plan, mode: 'fire', assets_cents: 0, target_months: v.plan.now_months, horizon_months: v.plan.now_months + 4, first_month_fraction: 1, spend_flows: v.plan.spend_flows.map(f => ({ ...f, from_month: v.plan.now_months })) };
+  const p = { ...v.plan, mode: 'fire', assets_cents: 0, target_months: v.plan.now_months, horizon_months: v.plan.now_months + 4, first_month_fraction: 1, future_incomes: [fictionalFutureIncome({monthly_cents:'20000',start_month:'2026-11',growth:'constant_purchasing_power'})], spend_flows: v.plan.spend_flows.map(f => ({ ...f, from_month: v.plan.now_months })) };
   const proj = project(p, 2026), out = outcome(p, proj);
   assert.equal(proj.retire_month, p.now_months + 2);
   assert.deepEqual([...proj.assets], [0, 5000, 10000, 10000, 10000]);

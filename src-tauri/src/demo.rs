@@ -498,7 +498,7 @@ mod unified_tests {
         assert_eq!(s.plan_income_list().unwrap().rows.len(), 6);
         let saved = s.plan_profile().unwrap().saved.unwrap();
         assert_eq!(saved.profile.retire.life_events.len(), 1);
-        assert!(saved.profile.retire.saving_phases.is_empty());
+        assert!(saved.profile.retire.simplified.future_incomes.is_empty());
         assert_eq!(
             saved
                 .profile

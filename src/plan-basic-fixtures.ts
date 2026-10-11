@@ -1,30 +1,53 @@
-/** Strict fictional interface fixtures, never a production backend or calculator. */
-import type { ProfileUpdate, BasicCapabilities, BasicFields } from './plan-basic-contract.ts';
+/** Fictional current interface examples, using the actual pure domain calculator. */
+import { buildBasicCapabilities } from './plan-basic.ts';
+import { defaultRetire } from './plan.ts';
+import { emptyCore } from './plan-core.ts';
+import type { BasicFields, ProfileUpdate, PlanningSources, BasicCapabilities } from './plan-basic-contract.ts';
 export const unknownBasicUpdate = {
-  request_id: '10000000-0000-4000-8000-000000000001', generation: 'fictional-generation', expected_revision: null, section: 'basic',
-  fields: { birth_month: '1990-06', spend_cents: '400000', target_age: 60, horizon_age: 90, mode: 'traditional', real_return_before_hundredths: 0, real_return_after_hundredths: 0, volatility_hundredths: 500, emergency_months: 0, inflation_hundredths: 0, monetary_basis_date: '2026-10-07', confirm_legacy_replacement: false,
-    basic: { contract_version: 1, start: { kind: 'simulation', id: 'fictional-simulation', available_cents: '10000000', date: '2026-09-30', notes: '严格虚构契约夹具' }, contribution: { id: 'fictional-contribution', monthly_cents: null }, retirement_income: { mode: 'excluded', selected: [] }, pension_contributions: { start_month: null, stop_month: null, base_cents: null }, contribution_costs: [], retirement_costs: [] } },
+  "request_id": "10000000-0000-4000-8000-000000000001",
+  "generation": "fictional-generation",
+  "expected_revision": null,
+  "section": "basic",
+  "fields": {
+    "spend_cents": "400000",
+    "mode": "traditional",
+    "real_return_before_hundredths": 0,
+    "real_return_after_hundredths": 0,
+    "volatility_hundredths": 500,
+    "emergency_months": 0,
+    "inflation_hundredths": 0,
+    "monetary_basis_date": "2026-10-07",
+    "basic": {
+      "contract_version": 1,
+      "start": {
+        "kind": "simulation",
+        "id": "fictional-simulation",
+        "available_cents": "10000000",
+        "date": "2026-09-30",
+        "notes": "严格虚构契约夹具"
+      },
+      "contribution": {
+        "id": "fictional-contribution",
+        "monthly_cents": null
+      },
+      "contribution_costs": [],
+      "retirement_costs": []
+    }
+  }
 } satisfies ProfileUpdate;
 export const basicInputFixtures = {
-  unknown: unknownBasicUpdate.fields,
-  zero: { ...unknownBasicUpdate.fields, basic: { ...unknownBasicUpdate.fields.basic, contribution: { id: 'fictional-contribution', monthly_cents: '0' } } },
-  prediction: { ...unknownBasicUpdate.fields, basic: { ...unknownBasicUpdate.fields.basic, contribution: { id: 'fictional-contribution', monthly_cents: '500000' } } },
-  missingCosts: { ...unknownBasicUpdate.fields, basic: { ...unknownBasicUpdate.fields.basic, retirement_costs: [] } },
-  manual: { ...unknownBasicUpdate.fields, basic: { ...unknownBasicUpdate.fields.basic, retirement_income: { mode: 'manual', selected: [{ id: 'fictional-income', source_id: 'fictional-annuity', role: 'other' }] } } },
-  legacy: null,
+ unknown: unknownBasicUpdate.fields,
+ zero: { ...unknownBasicUpdate.fields, basic: { ...unknownBasicUpdate.fields.basic, contribution: { id: 'fictional-contribution', monthly_cents: '0' } } },
+ prediction: { ...unknownBasicUpdate.fields, basic: { ...unknownBasicUpdate.fields.basic, contribution: { id: 'fictional-contribution', monthly_cents: '500000' } } },
+ missingCosts: unknownBasicUpdate.fields, legacy: null,
 } satisfies Record<string, BasicFields | null>;
-export const localErrorFixture = { status: 'blocked', missing: [{ code: 'SOURCE_ERROR', capability: 'funds', owner: 'service', field: 'snapshot', kind: 'read_error', message: '虚构来源读取失败' }] } satisfies BasicCapabilities['funds'];
-
-import { project, outcome } from './plan-ledger.ts';
-import type { Plan } from './plan-ledger.ts';
-const fixturePlan = { now_months: 432, target_months: 720, horizon_months: 1080, search_cap_months: 840, mode: 'traditional', assets_cents: 10000000, saving_cents: 500000, saving_growth_hundredths: 0, r_before_hundredths: 0, r_after_hundredths: 0, inflation_hundredths: 0, volatility_hundredths: 500, items: [{ id: 'living', label: '虚构预算', monthly_cents: 400000, start_age: null, end_age: null, inflation_hundredths: null, essential: true }], incomes: [], pension_at: () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 1080 }), spends: [] } satisfies Plan;
-const fixtureProjection = project(fixturePlan, 2026);
-export const unknownCapabilityFixture = {
-  context: { generation: 'fictional-generation', revision: 1, today: '2026-10-07', model_version: 'basic-1', modules: { planning: true, wealth: false }, start: { kind: 'simulation', id: 'fictional-simulation', date: '2026-09-30' }, monetary_basis_date: '2026-10-07', source: 'saved', write_version: 1 },
-  funds: { status: 'ready', value: { available_cents: '10000000', restricted_cents: '0', debt_cents: '0', date: '2026-09-30', kind: 'simulation' } },
-  requirement: { status: 'ready', value: { set: { status: 'found', monthly_cents: '470000', before_hundredths: 0, after_hundredths: 0 }, lower: { status: 'found', monthly_cents: '650000', before_hundredths: -200, after_hundredths: -200 }, upper: { status: 'found', monthly_cents: '330000', before_hundredths: 200, after_hundredths: 200 }, target_month: '2050-06', horizon_month: '2080-06', budget_scope: 'complete' } },
-  prediction: { status: 'blocked', missing: [{ code: 'CONTRIBUTION_UNKNOWN', capability: 'prediction', owner: 'basic', field: 'basic.contribution.monthly_cents', message: '虚构夹具：预计投入未知', kind: 'assumption' }] },
-  pension: { status: 'ready', value: { included: false, start_month: null, monthly_cents: null } },
-} satisfies BasicCapabilities;
-export const predictionCapabilityFixture = { ...unknownCapabilityFixture, prediction: { status: 'ready', value: { source: 'saved', contribution_cents: '500000', plan: fixturePlan, plan0: fixturePlan, projection: fixtureProjection, outcome: outcome(fixturePlan, fixtureProjection), terminal: 'surplus' } } } satisfies BasicCapabilities;
-export const missingCostCapabilityFixture = { ...unknownCapabilityFixture, requirement: { status: 'blocked', missing: [{ code: 'COST_SCOPE_UNKNOWN', capability: 'requirement', owner: 'budget', field: 'basic.retirement_costs', message: '虚构房租作用域待核对', kind: 'assumption' }] } } satisfies BasicCapabilities;
+export function basicFixtureSources(fields: BasicFields = basicInputFixtures.unknown): PlanningSources {
+ const generation = 'fictional-generation', { inflation_hundredths, monetary_basis_date, ...general } = fields;
+ return { generation, write_version:1, today:'2026-10-12', modules:{planning:true,wealth:false},
+ profile:{status:'ready',value:{generation,saved:{revision:1,updated_at:'2026-10-12T00:00:00Z',profile:{assumptions:{inflation_hundredths},retire:{...structuredClone(defaultRetire),...structuredClone(general),setup_completed:true,core:emptyCore(monetary_basis_date),simplified:{contract_version:1,time:{reference:null,target_month:'2050-06',horizon_month:'2080-05'},income_mode:'excluded',future_incomes:[]}}}}}},
+ snapshot:{status:'ready',value:null},accounts:{status:'ready',value:[]},incomes:{status:'ready',value:[]},review:{status:'error',value:{code:'FICTIONAL',message:'虚构历史未知'}} };
+}
+export const unknownCapabilityFixture = buildBasicCapabilities(basicFixtureSources());
+export const predictionCapabilityFixture = buildBasicCapabilities(basicFixtureSources(basicInputFixtures.prediction));
+export const missingCostCapabilityFixture = buildBasicCapabilities(basicFixtureSources());
+export const localErrorFixture = {status:'blocked',missing:[{code:'SOURCE_ERROR',capability:'funds',owner:'service',field:'snapshot',kind:'read_error',message:'虚构读取失败'}]} satisfies BasicCapabilities['funds'];

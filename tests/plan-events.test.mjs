@@ -9,7 +9,7 @@ const plan = (over = {}) => ({
   r_before_hundredths: 0, r_after_hundredths: 0, inflation_hundredths: 200, volatility_hundredths: 0,
   items: [{ id: 'l', label: '生活', monthly_cents: 1000, start_age: null, end_age: null, inflation_hundredths: null, essential: true }], incomes: [], pension_at: none, spends: [], ...over,
 });
-const ev = (over = {}) => ({ id: 'e', label: '房', kind: 'house', date: '2033-10', included: true, price_cents: 450_000_000, down_cents: 150_000_000, extra_cents: 10_000_000, loan_rate_hundredths: 350, loan_years: 30, holding_cents: 150_000, rent_saved_cents: 270_000, cycle_years: null, until_age: null, resale_cents: 0, ...over });
+const ev = (over = {}) => ({ id: 'e', label: '房', kind: 'house', date: '2033-10', included: true, price_cents: 450_000_000, down_cents: 150_000_000, extra_cents: 10_000_000, loan_rate_hundredths: 350, loan_years: 30, holding_cents: 150_000, rent_saved_cents: 270_000, cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: 0, ...over });
 
 test('offset in months is calendar based and preserves overdue dates', () => {
   assert.equal(offsetOf('2033-10', '2026-10-06'), 84);
@@ -42,9 +42,9 @@ test('a house becomes a cash outlay now and, after purchase, a nominal mortgage,
   assert.equal(eventParts(P, ev({ down_cents: 450_000_000 }), 84).spend_flows.some(f => f.label.endsWith('月供')), false);
 });
 
-test('a car is bought once and replaced every cycle until the stop age, each time at the price minus the old car', () => {
-  const P = plan(), c = ev({ kind: 'car', label: '车', price_cents: 7_000_000, down_cents: 7_000_000, extra_cents: 0, holding_cents: 120_000, rent_saved_cents: 0, cycle_years: 5, until_age: 50, resale_cents: 2_000_000 });
-  // 现在 30 岁，24 个月后买；到 50 岁（600 月龄）：购买 384，换车 444、504、564。
+test('a car is bought once and replaced every cycle until the explicit stop month, each time at the price minus the old car', () => {
+  const P = plan({anchor_date:'2026-10-31'}), c = ev({ kind: 'car', label: '车', price_cents: 7_000_000, down_cents: 7_000_000, extra_cents: 0, holding_cents: 120_000, rent_saved_cents: 0, cycle_years: 5, until_month: '2046-09', resale_cents: 2_000_000 });
+  // 明确截至 2046-09；购买偏移 24，换车偏移 84、144、204。
   const x = eventParts(P, c, 24);
   assert.deepEqual(x.spends.map(s => [s.offset_months, s.cents]), [[24, 7_000_000], [84, 5_000_000], [144, 5_000_000], [204, 5_000_000]]);
   const hold = x.spend_flows[0];

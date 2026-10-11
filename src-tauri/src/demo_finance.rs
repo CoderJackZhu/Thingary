@@ -381,29 +381,10 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
             &date,
         )?;
     }
-    let profile: crate::plan_profile::Profile = serde_json::from_value(serde_json::json!({
-        "birth_month": "1990-06", "worker": "male", "region": "beijing",
-        "paid_months": 48, "account_balance_cents": "5000000", "base_cents": "2000000",
-        "past_index_hundredths": null, "flex_months": 0,
-        "personal_pension_annual_cents": "1200000", "marginal_tax_hundredths": 1000,
-        "assumptions": { "inflation_hundredths": 200, "wage_growth_hundredths": 200, "pp_return_hundredths": 200 },
-        "retire": {
-            "spend_cents": "500000", "real_return_before_hundredths": 300, "real_return_after_hundredths": 200,
-            "spend_items": [
-                { "id": "demo-health", "label": "医疗", "monthly_cents": "100000", "start_age": 65, "end_age": null, "inflation_hundredths": 400, "essential": true },
-                { "id": "demo-travel", "label": "旅行", "monthly_cents": "150000", "start_age": null, "end_age": 75, "inflation_hundredths": null, "essential": false }
-            ],
-            "income_items": [
-                { "id": "demo-annuity", "label": "企业年金", "monthly_cents": "120000", "start_age": 60, "end_age": null, "indexed": false }
-            ],
-            "life_events": [
-                { "id": "demo-car", "label": "换车", "kind": "car", "date": day(now.checked_add_months(Months::new(18)).expect("bounded sample date"))[..7], "included": true,
-                  "price_cents": "20000000", "down_cents": "6000000", "extra_cents": "1000000",
-                  "loan_rate_hundredths": 350, "loan_years": 3, "holding_cents": "100000",
-                  "rent_saved_cents": "0", "cycle_years": 8, "until_age": 70, "resale_cents": "3000000" }
-            ]
-        }
-    }))?;
+    let mut profile = crate::plan_basic::empty_profile();
+    profile.retire.life_events = serde_json::from_value(serde_json::json!([
+      {"id":"demo-car","label":"换车","kind":"car","date":day(now.checked_add_months(Months::new(18)).expect("bounded sample date"))[..7],"included":true,"price_cents":"20000000","down_cents":"6000000","extra_cents":"1000000","loan_rate_hundredths":350,"loan_years":3,"holding_cents":"100000","rent_saved_cents":"0","cycle_years":8,"until_month":null,"time_unconfirmed":false,"resale_cents":"3000000"}
+    ]))?;
     let sources = s.planning_sources(true, true, &date)?;
     let snapshot = match sources.snapshot {
         crate::review::Read::Ready(Some(snapshot)) => snapshot,
@@ -419,14 +400,12 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
     }).collect();
     let base = &profile.retire;
     let section = serde_json::from_value(serde_json::json!({
-        "section":"setup","fields":{
-            "basic": {"birth_month":profile.birth_month,"spend_cents":"750000","target_age":60,"horizon_age":90,"mode":"traditional",
-                "real_return_before_hundredths":300,"real_return_after_hundredths":200,"volatility_hundredths":500,"emergency_months":6,"inflation_hundredths":200,"monetary_basis_date":date,
-                "basic":{"contract_version":1,"start":{"kind":"live"},"contribution":{"id":"demo-contribution","monthly_cents":"800000"},"retirement_income":{"mode":"excluded","selected":[]},
-                    "pension_contributions":{"start_month":null,"stop_month":null,"base_cents":null},"contribution_costs":[],"retirement_costs":[]}},
-            "pension": {"birth_month":profile.birth_month,"worker":profile.worker,"region":profile.region,"paid_months":profile.paid_months,"account_balance_cents":profile.account_balance_cents,"base_cents":profile.base_cents,"past_index_hundredths":profile.past_index_hundredths,"flex_months":profile.flex_months,"personal_pension_annual_cents":profile.personal_pension_annual_cents,"marginal_tax_hundredths":profile.marginal_tax_hundredths,"wage_growth_hundredths":200,"pp_return_hundredths":200,"overrides":profile.overrides},
-            "budget": null,"funds":{"monetary_basis_date":date,"fund_rules":fund_rules,"hpf_monthly_cents":null,"personal_pension_account_id":null,"personal_pension_balance_confirmed":false}
-        }
+      "section":"setup","fields":{
+       "basic":{"spend_cents":"750000","mode":"traditional","real_return_before_hundredths":300,"real_return_after_hundredths":200,"volatility_hundredths":500,"emergency_months":6,"inflation_hundredths":200,"monetary_basis_date":date,
+        "basic":{"contract_version":1,"start":{"kind":"live"},"contribution":{"id":"demo-contribution","monthly_cents":"800000"},"contribution_costs":[],"retirement_costs":[]}},
+       "simplified":{"contract_version":1,"time":{"reference":null,"target_month":day(now.checked_add_months(Months::new(240)).expect("bounded sample date"))[..7],"horizon_month":day(now.checked_add_months(Months::new(600)).expect("bounded sample date"))[..7]},"income_mode":"excluded","future_incomes":[]},
+       "budget":null,"funds":{"monetary_basis_date":date,"fund_rules":fund_rules,"releases":[]}
+      }
     }))?;
     let saved = s.plan_profile_update(
         &crate::plan_basic::Update {
@@ -445,7 +424,6 @@ pub(crate) fn import_plan(s: &mut Store, today: &str) -> Result<()> {
             section: crate::plan_basic::Section::Events(crate::plan_basic::EventsFields {
                 life_events: base.life_events.clone(),
                 occurrences: vec![],
-                legacy_costs: None,
             }),
         },
         &date,

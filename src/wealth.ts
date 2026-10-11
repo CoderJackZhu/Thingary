@@ -93,7 +93,7 @@ export function storedPending(): Pending | null {
   try { const p = JSON.parse(localStorage.getItem(pendingKey) || 'null'); if (p && typeof p.command === 'string' && typeof p.input?.request_id === 'string') return p; } catch { /* unreadable receipt is ignored */ }
   return null;
 }
-const clearPending = () => { try { localStorage.removeItem(pendingKey); } catch { /* nothing to clear */ } };
+export const clearPending = () => { try { localStorage.removeItem(pendingKey); } catch { /* nothing to clear */ } };
 /** Tauri errors surface as `{code, message}`; the code drives fallback flows. */
 export const code = (e: unknown) => typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : '';
 
@@ -132,7 +132,7 @@ export async function resolvePending(pending: Pending): Promise<'saved' | 'unsav
     if (id) { clearPending(); return 'saved'; }
     clearPending(); return 'unsaved';
   } catch (e) {
-    if (code(e) === 'STALE_DATASET') { if (pending.command === 'financial_import_commit') throw new Unresolved('资料库已切换；金融导入原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
+    if (code(e) === 'STALE_DATASET') { if (pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
     throw e;
   }
 }

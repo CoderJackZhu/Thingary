@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBasicCapabilities, solveBasicRequirement, BASIC_SEARCH_LIMIT_CENTS } from '../src/plan-basic.ts';
 import { buildRetireCalc } from '../src/plan-retire-calc.ts';
-import { noOverrides } from '../src/plan-params.ts';
+import { fictionalFutureIncome } from './helpers/simplified-planning-fixtures.mjs';
 import { project, outcome, table, savingsOf, startPaymentsOf, oneOffsOf, required, requiredAt } from '../src/plan-ledger.ts';
 import { monteCarlo } from '../src/plan-risk.ts';
 import { verdict } from '../src/plan-view.ts';
@@ -18,29 +18,15 @@ const retire = s => profile(s).retire;
 const prediction = s => { const c = buildBasicCapabilities(s); assert.equal(c.prediction.status, 'ready', JSON.stringify(c.prediction)); return c.prediction.value; };
 const requirement = s => { const c = buildBasicCapabilities(s); assert.equal(c.requirement.status, 'ready', JSON.stringify(c.requirement)); return c.requirement.value; };
 const stream = (id, amount) => ({ id, label: id, monthly_cents: String(amount), start_age: 0, end_age: null, indexed: true });
-const item = (id, amount, essential = true) => ({ id, label: id, monthly_cents: String(amount), start_age: null, end_age: null, inflation_hundredths: null, essential });
-const ledgerItem = (id, amount, essential = true) => ({ ...item(id, amount, essential), monthly_cents: amount });
+const item = (id, amount, essential = true) => ({ id, label: id, monthly_cents: String(amount), start_month: null, end_month: null, time_unconfirmed: false, inflation_hundredths: null, essential });
+const ledgerItem = (id, amount, essential = true) => ({ ...item(id, amount, essential), monthly_cents: amount, start_age:null,end_age:null });
 const ledgerIncome = (id, amount) => ({ ...stream(id, amount), monthly_cents: amount });
 const scope = (id, treatment, reference = null) => ({ source_id: id, treatment, reference_cents: reference });
 
-test('basic requirements and predictions ignore legacy route and phase assumptions', () => {
-  const s = fictionalSources('1000000');
-  const before = buildBasicCapabilities(s);
-  const changed = structuredClone(s), r = retire(changed);
-  r.route_id = 'tech'; r.route_from_age = 20; r.gap_share_hundredths = 5000;
-  r.saving_phases = [{ id: 'old', label: '旧阶段', from_age_months: 0, monthly_cents: -10000000 }];
-  const after = buildBasicCapabilities(changed);
-  assert.deepEqual(after.requirement, before.requirement);
-  assert.deepEqual(after.funds, before.funds);
-  assert.equal(before.prediction.status, 'ready'); assert.equal(after.prediction.status, 'ready');
-  assert.deepEqual(after.prediction.value.projection, before.prediction.value.projection);
-  assert.deepEqual(after.prediction.value.outcome, before.prediction.value.outcome);
-});
-
-test('B01/B01a/B02/B03/D21/D29/D33 unknown pension facts and failed history do not block simulated fixed-target requirements', () => {
+test('B01/B01a/B02/B03/D21/D29/D33 excluded optional income and failed history do not block simulated fixed-target requirements', () => {
   const s = fictionalSources(), before = structuredClone(s), c = buildBasicCapabilities(s);
   assert.equal(c.funds.value.available_cents, '10000000');
-  assert.equal(c.pension.value.monthly_cents, null);
+  assert.equal(c.pension.value.included, false);
   assert.equal(c.prediction.status, 'blocked');
   assert.deepEqual(c.prediction.missing.map(m => m.code), ['CONTRIBUTION_UNKNOWN']);
   assert.equal(c.requirement.status, 'ready');
@@ -95,7 +81,7 @@ test('B06a/D28/D34 total budget normalizes included rent and detail once, keeps 
   assert.equal(table(prediction(s).plan).spend[300], 400000);
   r.basic.retirement_costs[0] = scope('rent', 'extra');
   assert.equal(table(prediction(s).plan).spend[300], 500000);
-  r.spend_items = [{ ...item('travel', 150000, false), start_age: 60, end_age: 61 }];
+  r.spend_items = [{ ...item('travel', 150000, false), start_month: '2050-06', end_month: '2051-05' }];
   r.basic.retirement_costs = [scope('rent', 'included', '100000'), scope('spend:travel', 'included', '150000')];
   const p = prediction(s).plan, t = table(p), idx = p.target_months - p.now_months;
   assert.equal(t.spend[idx], 400000); assert.equal(t.essential[idx], 250000);
@@ -114,37 +100,6 @@ test('B06/D31/D32 complete flexible budget and finite zero margin agree in deter
   const zero = { ...p, items: [ledgerItem('essential', 450000), ledgerItem('flex', 50000, false)] }, z = project(zero, 2026), o = outcome(zero, z);
   assert.equal(o.success, true); assert.equal(o.at_horizon, 0); assert.equal((await monteCarlo(zero, 8)).success_rate, 1);
   assert.match(verdict(zero, z, o, 0, 'today', String).guidance, /终点无余量/);
-});
-
-test('B07 legacy stages/routes/worker do not alter basic requirements; no 35-year reference', () => {
-  const s = fictionalSources('0'), baseline = requirement(s);
-  retire(s).saving_phases = [{ id: 'old-zero', label: '旧零', from_age_months: 0, monthly_cents: 0 }, { id: 'old-negative', label: '旧负', from_age_months: 500, monthly_cents: -1000000 }];
-  retire(s).route_id = 'technology'; profile(s).worker = 'female_worker';
-  assert.deepEqual(requirement(s), baseline);
-  assert.equal(prediction(s).plan.input_mode, 'basic');
-});
-
-function beijingSources(n) {
-  const s = fictionalSources(n), p = profile(s), r = p.retire;
-  Object.assign(p, { worker: 'male', region: 'beijing', paid_months: 200, account_balance_cents: '5000000', base_cents: '1500000', flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000 });
-  r.core.hpf_monthly_cents = '0'; r.basic.retirement_income.mode = 'employee'; r.basic.pension_contributions = { start_month: '2027-01', stop_month: '2050-06', base_cents: '1500000' };
-  return s;
-}
-
-test('B04/B06a/D20/D35 Beijing contributions independent of signed saving, other income selected once, excluded definitions retained', () => {
-  const pensions = [null, '-100000', '0', '100000'].map(n => buildBasicCapabilities(beijingSources(n)).pension);
-  assert.ok(pensions.every(p => p.status === 'ready')); pensions.forEach(p => assert.deepEqual(p, pensions[0]));
-  const s = beijingSources('0'), r = retire(s); r.income_items = [stream('other', 50000), stream('state', 200000)];
-  r.basic.retirement_income.selected = [{ id: 'other', source_id: 'annuity', role: 'other' }];
-  const c = prediction(s), idx = c.plan.pension_at(c.plan.now_months).unlock_age_months - c.plan.now_months;
-  assert.equal(table(c.plan).income[idx], 50000);
-  assert.ok(c.plan.pension_at(c.plan.now_months).monthly_cents > 0);
-  r.basic.retirement_income.selected.push({ id: 'state', source_id: 'state_pension_estimate', role: 'state_pension' });
-  assert.equal(buildBasicCapabilities(s).requirement.status, 'blocked');
-  r.basic.retirement_income = { mode: 'manual', selected: [{ id: 'state', source_id: 'state_pension_estimate', role: 'state_pension' }, { id: 'other', source_id: 'annuity', role: 'other' }] };
-  assert.equal(table(prediction(s).plan).income[idx], 250000);
-  r.basic.retirement_income = { mode: 'excluded', selected: [] };
-  assert.equal(table(prediction(s).plan).income[idx], 0); assert.equal(r.income_items.length, 2);
 });
 
 test('B11/B12 independent summary, temporary context, wishes require saved prediction; no mutation or cross-library response', async () => {
@@ -174,17 +129,8 @@ test('B01a/B10 real and simulated starts replace each other; raw unrelated snaps
 test('D34 partial first month keeps included ordinary rent within total budget; rent ends once after house', () => {
   const s = fictionalSources('1000000'), r = retire(s); r.basic.start.date='2026-09-15'; r.rent_cents='100000';r.basic.retirement_costs=[scope('rent','included','100000')];
   const p=prediction(s).plan;assert.equal(table(p).spend[0],400000*15/30);
-  r.life_events=[{id:'future-house',label:'虚构房',kind:'house',date:'2050-06',included:true,price_cents:'1000000',down_cents:'1000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'0',rent_saved_cents:'100000',cycle_years:null,until_age:null,resale_cents:'0'}];
+  r.life_events=[{id:'future-house',label:'虚构房',kind:'house',date:'2050-06',included:true,price_cents:'1000000',down_cents:'1000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'0',rent_saved_cents:'100000',cycle_years:null,until_month:null,time_unconfirmed:false,resale_cents:'0'}];
   const h=prediction(s).plan,idx=h.target_months-h.now_months;assert.equal(table(h).spend[idx],300000);assert.equal(table(h).spend[idx+1],300000);
-});
-
-test('D20 pension transfer interval stays fixed past early retirement and included contribution reference restores once', () => {
-  const s=beijingSources('-100000'),r=retire(s);profile(s).personal_pension_annual_cents='1200000';r.core.personal_pension_balance_confirmed=true;
-  r.target_age=50;r.basic.contribution_costs=[scope('personal_pension','included','100000')];r.basic.retirement_costs=[scope('personal_pension','extra')];
-  const p=prediction(s).plan,savings=savingsOf(p),t=table(p),start=(2027*12)-(1990*12+5)-p.now_months,goal=p.target_months-p.now_months;
-  assert.equal(savings[start],-100000);assert.equal(t.spend[goal],500000);
-  r.basic.contribution.monthly_cents='100000';const p2=prediction(s).plan;assert.deepEqual(p2.pension_at(p2.now_months),p.pension_at(p.now_months));
-  r.basic.retirement_costs=[scope('personal_pension','excluded')];assert.equal(buildBasicCapabilities(s).requirement.status,'blocked');
 });
 
 test('basic backwards requirement pass equals full independent required() at every month before/at/after pool unlock', () => {
@@ -192,101 +138,25 @@ test('basic backwards requirement pass equals full independent required() at eve
   const result=requiredAt(p);for(let t=0;t<result.length;t++)assert.ok(Math.abs(result[t]-required(p,p.now_months+t))<1e-7,`month ${t}: ${result[t]} vs ${required(p,p.now_months+t)}`);
 });
 
-test('B06a/D35 exact Beijing 2000 plus selected annuity 500 equals 2500; no hand-filled pension added', () => {
-  const s=beijingSources('0'),p=profile(s),r=p.retire;
-  p.paid_months=240;p.account_balance_cents='0';p.base_cents='1000000';p.past_index_hundredths=100;p.assumptions.wage_growth_hundredths=0;p.overrides={...noOverrides,avg_wage_cents:'1000000'};
-  r.basic.pension_contributions={start_month:'2027-01',stop_month:'2027-01',base_cents:'0'};
-  r.income_items=[stream('annuity',50000),stream('state-manual',200000)];r.basic.retirement_income.selected=[{id:'annuity',source_id:'annuity',role:'other'}];
-  const value=prediction(s),pen=value.plan.pension_at(value.plan.now_months),t=table(value.plan);assert.equal(pen.monthly_cents,200000);assert.equal(t.income[pen.unlock_age_months-value.plan.now_months]+pen.monthly_cents,250000);
-  const wholeYear=value.projection.rows.find(row=>row.start_month>=pen.income_start_age_months&&row.start_month+12<=value.plan.horizon_months);assert.equal(wholeYear.income,3000000);
-});
-
 test('B06/B12 finite no-margin prediction and source notes use confirmed simulation; temporary cannot enter wishes', () => {
-  const s=fictionalSources('0'),r=retire(s);r.basic.start.available_cents='0';r.spend_cents='500000';r.income_items=[stream('cover',500000)];r.basic.retirement_income={mode:'manual',selected:[{id:'cover',source_id:'cover',role:'other'}]};
+  const s=fictionalSources('0'),r=retire(s);r.basic.start.available_cents='0';r.spend_cents='500000';r.simplified.income_mode='manual';r.simplified.future_incomes=[fictionalFutureIncome({id:'cover',monthly_cents:'500000',start_month:'2050-06',growth:'constant_purchasing_power'})];
   assert.equal(prediction(s).terminal,'no_margin');const summary=summaryRetire({...s,snapshotId:null,snapshotDate:null},s.today);assert.equal(summary.kind,'ready');assert.equal(summary.headline.main,'有限期间预算已覆盖');
   const calc=summary.calc;calc.capabilities=buildBasicCapabilities(s,'100000');assert.equal(isReady(calc),false);assert.throws(()=>impactOf(calc,[]),/已保存/);
 });
 
 test('B11 missing target/budget and stale library block independently without turning unknown into zero', () => {
-  const s=fictionalSources();retire(s).target_age=null;retire(s).spend_cents=null;
-  const c=buildBasicCapabilities(s);assert.equal(c.funds.status,'ready');assert.equal(c.requirement.status,'blocked');assert.ok(c.requirement.missing.some(m=>m.code==='TARGET_UNKNOWN'));assert.ok(c.requirement.missing.some(m=>m.code==='BUDGET_UNKNOWN'));
+  const s=fictionalSources();retire(s).simplified.time.target_month=null;retire(s).spend_cents=null;
+  const c=buildBasicCapabilities(s);assert.equal(c.funds.status,'ready');assert.equal(c.requirement.status,'blocked');assert.ok(c.requirement.missing.some(m=>m.code==='TIME_UNCONFIRMED'));assert.ok(c.requirement.missing.some(m=>m.code==='BUDGET_UNKNOWN'));
   s.generation='new-library';assert.equal(buildBasicCapabilities(s).funds.status,'blocked');assert.ok(buildBasicCapabilities(s).requirement.missing.some(m=>m.code==='SOURCE_STALE'));
-});
-
-test('B10 restricted pools cannot be counted twice as starting cash and pension unlock; explicit scope requires confirmed live sources', () => {
-  const s=beijingSources('0'),r=retire(s);s.modules.wealth=true;r.basic.start={kind:'live'};r.core.personal_pension_account_id='pp';r.core.personal_pension_balance_confirmed=true;
-  s.snapshot=ready({id:'snapshot',revision:1,date:'2026-09-30',missing:[],entries:[{account_id:'cash',counted:true,side:'asset',kind:'cash',amount_cents:'20000000'},{account_id:'pp',counted:true,side:'asset',kind:'other_asset',amount_cents:'5000000'},{account_id:'hpf',counted:true,side:'asset',kind:'housing_fund',amount_cents:'7000000'}]});
-  r.core.fund_rules=[{account_id:'cash',availability:'available',share_hundredths:10000},{account_id:'pp',availability:'restricted',share_hundredths:10000},{account_id:'hpf',availability:'restricted',share_hundredths:10000}];
-  const c=buildBasicCapabilities(s);assert.equal(c.requirement.status,'ready');assert.equal(c.funds.value.available_cents,'20000000');assert.equal(c.funds.value.restricted_cents,'12000000');
-  r.core.fund_rules[1].availability='available';assert.ok(buildBasicCapabilities(s).requirement.missing.some(m=>m.code==='POOL_UNCONFIRMED'));
-  r.core.fund_rules[1].availability='restricted';r.core.fund_rules[2].availability='available';assert.equal(buildBasicCapabilities(s).prediction.status,'blocked');
 });
 
 test('B10/D28 actual absorbed payment and remaining loan continue once, even original price/down definition changed', () => {
   const s=fictionalSources('1000000'),r=retire(s);s.modules.wealth=true;r.basic.start={kind:'live'};
   s.snapshot=ready({id:'snapshot',revision:2,date:'2026-09-30',missing:[],entries:[{account_id:'cash',counted:true,side:'asset',kind:'cash',amount_cents:'20000000'},{account_id:'loan',counted:true,side:'liability',kind:'loan',amount_cents:'1200000'}]});
   r.core.fund_rules=[{account_id:'cash',availability:'available',share_hundredths:10000}];
-  r.life_events=[{id:'e',label:'虚构已购物品',kind:'other',date:'2026-01',included:false,price_cents:'1000000',down_cents:'1000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'10000',rent_saved_cents:'0',cycle_years:null,until_age:null,resale_cents:'0'}];
+  r.life_events=[{id:'e',label:'虚构已购物品',kind:'other',date:'2026-01',included:false,price_cents:'1000000',down_cents:'1000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'10000',rent_saved_cents:'0',cycle_years:null,until_month:null,time_unconfirmed:false,resale_cents:'0'}];
   r.core.occurrences=[{id:'o',event_id:'e',status:'occurred',actual_date:'2026-01-01',payments_complete:true,payments:[{id:'payment',date:'2026-01-01',amount_cents:'1000000',account_id:'cash',absorbed_snapshot_id:'snapshot',absorbed_revision:2,source_kind:null,source_id:null}],loan:{account_id:'loan',as_of:'2026-09-30',principal_cents:'1200000',remaining_months:12}}];
   r.basic.contribution_costs=[scope('event:e:loan','included','100000'),scope('event:e:holding','extra')];r.basic.retirement_costs=[scope('event:e:loan','extra'),scope('event:e:holding','extra')];
   const p=prediction(s).plan;assert.equal(p.assets_cents,20000000);assert.equal(oneOffsOf(p)[0],0);assert.equal(p.loans.length,1);assert.equal(p.loans[0].principal_cents,1200000);assert.equal(startPaymentsOf(p)[1],110000);assert.equal(savingsOf(p)[1],990000);
   r.basic.retirement_costs[0]=scope('event:e:loan','excluded');assert.equal(buildBasicCapabilities(s).requirement.status,'blocked');
-});
-
-
-test('ordinary pension begins after retirement; pools retain retirement timing and ineligible income has no start', () => {
-  const s = beijingSources('0');
-  const c = buildBasicCapabilities(s), P = c.prediction.value.plan, pen = P.pension_at(P.now_months);
-  assert.equal(pen.unlock_age_months, 756);
-  assert.equal(pen.income_start_age_months, 757);
-  assert.equal(c.pension.value.start_month, '2053-07');
-  const without = { ...P, pension_at: () => ({ ...pen, monthly_cents: 0 }) };
-  // Same pool and zero real returns: the bridge month needs the entire budget.
-  assert.equal(required(P, 756) - required(P, 757), 400000);
-  assert.equal(required(without, 756) - required(without, 757), 400000);
-  profile(s).paid_months = 0;
-  retire(s).basic.pension_contributions = { start_month: '2027-01', stop_month: '2027-01', base_cents: '0' };
-  const absent = buildBasicCapabilities(s);
-  assert.equal(absent.pension.value.start_month, null);
-  assert.equal(absent.prediction.value.plan.pension_at(720).income_start_age_months, null);
-});
-
-test('future pension contributions disclose omitted or insufficient retirement costs without inventing a rate', () => {
-  const s = beijingSources('0'), r = retire(s);
-  r.mode = 'fire'; // Earlier FI still needs cost coverage even if target-age work would not.
-  const note = () => buildBasicCapabilities(s).annotations.find(a => a.reason_code === 'PENSION_COST_UNCONFIRMED');
-  assert.equal(note().effect, 'requirement_lower');
-  assert.equal(note().actionable, true);
-  assert.equal(note().refinement.field, 'retirement_contribution_cost'); // Also covers FI earlier than target.
-  r.keep_paying_monthly_cents = '300000'; r.keep_paying_until_age = 59;
-  assert.ok(note());
-  r.keep_paying_until_age = 60;
-  assert.equal(note(), undefined);
-  r.basic.retirement_costs = [scope('social_insurance', 'included', '300000')];
-  assert.equal(note(), undefined);
-  r.basic.retirement_costs = [scope('social_insurance', 'excluded')];
-  assert.equal(note().actionable, false);
-  r.basic.pension_contributions.stop_month = r.basic.pension_contributions.start_month;
-  assert.equal(note(), undefined);
-  r.basic.retirement_income.mode = 'excluded';
-  assert.equal(note(), undefined);
-});
-
-test('fixed-age retirement only requests contribution costs when payment months extend past stopping work', () => {
-  const s = beijingSources('0'), r = retire(s);
-  r.mode = 'traditional';
-  r.target_age = 60;
-  r.basic.pension_contributions.stop_month = '2050-06';
-  const note = () => buildBasicCapabilities(s).annotations.find(a => a.reason_code === 'PENSION_COST_UNCONFIRMED');
-  assert.equal(note(), undefined);
-  r.target_age = 63;
-  assert.equal(note(), undefined);
-  r.target_age = 45;
-  assert.ok(note());
-  r.target_age = 60;
-  r.basic.pension_contributions.stop_month = '2050-07';
-  assert.ok(note());
-  r.mode = 'fire';
-  r.target_age = 63;
-  assert.ok(note());
 });

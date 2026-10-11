@@ -64,7 +64,7 @@ test('C07 unknown recovery preserves local check and does not invent return to w
 });
 
 test('C07 unknown gap inputs/scopes never become zero; necessary expenses only stay partial', () => {
-  for(const field of ['income_cents','spend_cents','costs','pension']) {
+  for(const field of ['income_cents','spend_cents','costs']) {
     const d=careerDraft();d.gap[field]=null;assert.equal(check(careerSources(),d).requirement.status,'blocked',field);
   }
   const d=careerDraft();d.gap.budget_scope='essential_only';const x=check(careerSources(),d);
@@ -100,7 +100,7 @@ function loanSources() {
     {account_id:'cash',counted:true,side:'asset',kind:'cash',amount_cents:'60000000'},
     {account_id:'loan',counted:true,side:'liability',kind:'loan',amount_cents:'1200000'}]}};
   ret.core.fund_rules=[{account_id:'cash',availability:'available',share_hundredths:10000}];
-  ret.life_events=[{id:'e',label:'虚构已付款',kind:'other',date:'2026-01',included:false,price_cents:'1000000',down_cents:'1000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'0',rent_saved_cents:'0',cycle_years:null,until_age:null,resale_cents:'0'}];
+  ret.life_events=[{id:'e',label:'虚构已付款',kind:'other',date:'2026-01',included:false,price_cents:'1000000',down_cents:'1000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'0',rent_saved_cents:'0',cycle_years:null,until_month:null,time_unconfirmed:false,resale_cents:'0'}];
   ret.core.occurrences=[{id:'o',event_id:'e',status:'occurred',actual_date:'2026-01-01',payments_complete:true,payments:[{id:'payment',date:'2026-01-01',amount_cents:'1000000',account_id:'cash',absorbed_snapshot_id:'snapshot',absorbed_revision:2,source_kind:null,source_id:null}],loan:{account_id:'loan',as_of:'2026-09-30',principal_cents:'1200000',remaining_months:12}}];
   ret.basic.contribution_costs=[{source_id:'event:e:loan',treatment:'included',reference_cents:'100000'}];
   ret.basic.retirement_costs=[{source_id:'event:e:loan',treatment:'extra',reference_cents:null}];
@@ -129,34 +129,14 @@ test('C03 excessive/invalid/unknown included costs are rejected instead of creat
 
 test('C03 dormant fee confirmations cannot create reference income in any stage', () => {
   const s=careerSources(),d=careerDraft(),before=check(s,d),basicBefore=buildBasicCapabilities(s);
-  r(s).life_events=[{id:'dormant',label:'虚构停用费用',kind:'other',date:'2028-10',included:false,price_cents:'0',down_cents:'0',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'100000',rent_saved_cents:'0',cycle_years:null,until_age:null,resale_cents:'0'}];
+  r(s).life_events=[{id:'dormant',label:'虚构停用费用',kind:'other',date:'2028-10',included:false,price_cents:'0',down_cents:'0',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'100000',rent_saved_cents:'0',cycle_years:null,until_month:null,time_unconfirmed:false,resale_cents:'0'}];
   const scopes=[{source_id:'event:dormant:holding',treatment:'included',reference_cents:'100000'}];
   r(s).basic.contribution_costs=structuredClone(scopes);d.gap.costs=structuredClone(scopes);d.recovery.costs=structuredClone(scopes);
   const after=check(s,d);assert.deepEqual(after.cash,before.cash);assert.deepEqual(after.requirement,before.requirement);
   assert.deepEqual(buildBasicCapabilities(s).requirement,basicBefore.requirement);
 });
 
-function pensionSources() {
-  const s=careerSources(),p=profile(s),ret=r(s);
-  Object.assign(p,{worker:'male',region:'beijing',paid_months:200,account_balance_cents:'5000000',base_cents:'1000000',past_index_hundredths:100,flex_months:0,personal_pension_annual_cents:'0',marginal_tax_hundredths:0});
-  p.assumptions.wage_growth_hundredths=0;ret.core.hpf_monthly_cents='100000';
-  ret.basic.retirement_income={mode:'employee',selected:[]};
-  ret.basic.pension_contributions={start_month:'2026-10',stop_month:'2030-10',base_cents:'1000000'};
-  return s;
-}
 
-test('C06 pension pause recompiles eligibility/pools alongside explicit cash insurance, without altering historical facts', () => {
-  const s=pensionSources(),d=careerDraft();d.recovery.monthly_cents='500000';
-  d.gap.insurance={monthly_cents:'200000',included:false};
-  const a=predicted(s,d),penA=a.plan.pension_at(a.plan.target_months);
-  assert.equal(penA.eligible,true);assert.equal(savingsOf(a.plan)[37],-1200000);
-  const snapshot=structuredClone(s);d.gap.pension='pause';d.gap.insurance.monthly_cents='0';
-  const b=predicted(s,d),penB=b.plan.pension_at(b.plan.target_months);
-  assert.equal(penB.eligible,false);assert.equal(penB.short_months,4);assert.equal(penB.monthly_cents,0);
-  assert.ok(penB.lump_cents<penA.lump_cents);assert.equal(savingsOf(b.plan)[37],-1000000);
-  assert.deepEqual(s,snapshot);
-  d.recovery.monthly_cents='-100000';assert.deepEqual(predicted(s,d).plan.pension_at(600),penB);
-});
 
 test('C06 insurance included versus extra is counted once, not inferred from pension credits', () => {
   const s=careerSources(),d=careerDraft();d.recovery.monthly_cents='500000';d.gap.insurance={monthly_cents:'200000',included:true};
@@ -167,29 +147,8 @@ test('C06 insurance included versus extra is counted once, not inferred from pen
   d.recovery.insurance.included=false;assert.equal(savingsOf(predicted(s,d).plan)[49],300000);
 });
 
-test('C06 invalid benefit base is not silently clamped to policy floor', () => {
-  const d=careerDraft();d.gap.pension={base_cents:'1',hpf_monthly_cents:'0'};
-  assert.equal(check(pensionSources(),d).requirement.status,'blocked');
-  d.gap.pension={base_cents:'0',hpf_monthly_cents:'100000'};
-  assert.equal(check(pensionSources(),d).requirement.status,'blocked');
-});
 
-test('C06 changed bases affect benefits, while an invalid recovery base only blocks later results', () => {
-  const s=pensionSources(),d=careerDraft();d.recovery.monthly_cents='500000';
-  const before=predicted(s,d).plan.pension_at(600);
-  d.gap.pension={base_cents:'800000',hpf_monthly_cents:'50000'};
-  const after=predicted(s,d).plan.pension_at(600);
-  assert.equal(after.eligible,before.eligible);assert.ok(after.monthly_cents<before.monthly_cents);assert.ok(after.lump_cents<before.lump_cents);
-  d.recovery.pension={base_cents:'1',hpf_monthly_cents:'0'};
-  const x=check(s,d);assert.equal(x.cash.status,'ready');assert.equal(x.requirement.status,'blocked');assert.equal(x.prediction.status,'blocked');
-});
 
-test('C06 restricted accumulated benefits cannot cover an earlier gap payment', () => {
-  const s=pensionSources(),d=careerDraft();r(s).basic.start.available_cents='500000';
-  d.transition_month='2026-10';d.gap_months=1;d.gap.income_cents='1000000';d.recovery.monthly_cents='500000';
-  const v=predicted(s,d);assert.ok(v.plan.pension_at(600).lump_cents>0);
-  const x=check(s,d);assert.equal(x.cash.value.first_shortfall_month,'2026-10');assert.equal(requirement(x).status,'prefix_payment_gap');
-});
 
 test('C08 half first month uses the common basis and cash ordering', () => {
   const s=careerSources(),d=careerDraft();r(s).basic.start.date='2026-09-15';
@@ -203,13 +162,13 @@ test('C08 nonzero inflation and real returns preserve candidate boundary and fix
   r(s).core.monetary_basis_date='2025-09-30';r(s).real_return_before_hundredths=100;r(s).real_return_after_hundredths=50;r(s).mode='fire';
   const req=requirement(check(s,d));assert.equal(req.status,'found');
   d.recovery.monthly_cents=req.monthly_cents;const v=predicted(s,d);
-  assert.equal(v.outcome.success,true);assert.equal(v.projection.retire_month,600);
+  assert.equal(v.outcome.success,true);assert.equal(v.projection.retire_month,217);
   d.recovery.monthly_cents=String(Number(req.monthly_cents)-1);assert.equal(predicted(s,d).outcome.success,false);
 });
 
 test('C05 first recovery-month known upfront obligation cannot use its candidate deposit', () => {
   const s=careerSources(),d=careerDraft();r(s).basic.start.available_cents='1000000';d.transition_month='2026-10';d.gap_months=1;d.gap.spend_cents='0';
-  r(s).life_events=[{id:'bill',label:'虚构付款',kind:'other',date:'2026-11',included:true,price_cents:'2000000',down_cents:'2000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'0',rent_saved_cents:'0',cycle_years:null,until_age:null,resale_cents:'0'}];
+  r(s).life_events=[{id:'bill',label:'虚构付款',kind:'other',date:'2026-11',included:true,price_cents:'2000000',down_cents:'2000000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'0',rent_saved_cents:'0',cycle_years:null,until_month:null,time_unconfirmed:false,resale_cents:'0'}];
   assert.equal(requirement(check(s,d)).status,'prefix_payment_gap');
 });
 
@@ -231,21 +190,12 @@ test('C08 observer sees shared month-start payment and does not change results',
   const plan=predicted(s,d).plan,plain=project(plan,2026),points=[];
   const observed=project(plan,2026,{onMonth:p=>points.push(p)});
   assert.deepEqual(plain,observed);assert.equal(points.length,plan.horizon_months-plan.now_months);
-  const firstGap=points.find(p=>p.month===420);assert.equal(firstGap.start_cents-firstGap.after_payments_cents,1000000);
+  const firstGap=points.find(p=>p.month===37);assert.equal(firstGap.start_cents-firstGap.after_payments_cents,1000000);
 });
 
-test('C07 missing retirement-only budget/target/income does not block known gap cash', () => {
-  for (const field of ['spend_cents','target_age','retirement_income']) {
-    const s=careerSources(),d=careerDraft();
-    if(field==='retirement_income')r(s).basic.retirement_income.mode=null;else r(s)[field]=null;
-    const x=check(s,d);assert.equal(x.cash.status,'ready',field);assert.equal(x.cash.value.minimum_cents,'102000000');
-    assert.equal(x.requirement.status,'blocked',field);
-    if(field==='spend_cents')assert.equal(x.requirement.issues.filter(i=>i.field==='spend_cents').length,1);
-  }
-  const s=careerSources();r(s).basic.retirement_income.mode='employee';
-  assert.equal(check(s).cash.status,'ready');assert.equal(check(s).requirement.status,'blocked');
+test('C07 unknown budget/income preserves known gap cash but blocks full target',()=>{
+ for(const field of ['spend_cents','income_mode']){const s=careerSources(),d=careerDraft();if(field==='spend_cents')r(s).spend_cents=null;else r(s).simplified.income_mode='unconfirmed';const x=check(s,d);assert.equal(x.cash.status,'ready');assert.equal(x.requirement.status,'blocked');}
 });
-
 import { resultText, comparisonText } from '../src/career-preview/result-text.ts';
 test('C11 output wording keeps missing inputs, payment scope and zero positive contribution distinct', () => {
   const s=careerSources(),d=careerDraft();d.liquid_funds_confirmed=false;

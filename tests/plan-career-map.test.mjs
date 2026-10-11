@@ -1,9 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { careerSources, careerDraft } from '../src/career-preview/fixtures.ts';
-import { windowMap, minWindow, maxGap, closeMonths, judge, pensionOptions, delayTarget, ageMonthsAt, withChoice, assumeInsurance, missingItems } from '../src/plan-career-map.ts';
+import { windowMap, minWindow, maxGap, closeMonths, judge, delayTarget, ageMonthsAt, missingItems } from '../src/plan-career-map.ts';
 import { evaluateCareerScenario } from '../src/plan-career.ts';
-import { careerPensionSources } from '../src/career-preview/pension-fixture.ts';
 
 // Fictional fixture: 600k at 2026-09-30, +15k/month, goal 50 (2044-10) with 3750/month for 480 months = 1.8M, zero returns.
 const direct = (l = '0') => { const d = careerDraft(); d.gap_months = 0; d.recovery.monthly_cents = l; return d; };
@@ -66,37 +65,6 @@ test('M07 severance and a limited benefit enter the gap once: 120k lump -> need 
   d.gap.extra_income = { lump_cents: '-1', benefit_monthly_cents: null, benefit_months: null }; assert.equal(evaluateCareerScenario(careerSources(), d).requirement.status, 'blocked');
 });
 
-function pensionSources() {
-  const s = careerSources(), p = s.profile.value.saved.profile, ret = p.retire;
-  Object.assign(p, { worker: 'male', region: 'beijing', paid_months: 200, account_balance_cents: '5000000', base_cents: '1000000', past_index_hundredths: 100, flex_months: 0, personal_pension_annual_cents: '0', marginal_tax_hundredths: 0 });
-  p.assumptions.wage_growth_hundredths = 0; ret.core.hpf_monthly_cents = '100000';
-  ret.basic.retirement_income = { mode: 'employee', selected: [] };
-  ret.basic.pension_contributions = { start_month: '2026-10', stop_month: '2030-10', base_cents: '1000000' };
-  return s;
-}
-test('M08 pension choices for the gap: pausing saves cash but loses eligibility; paying keeps it; rows are independent', () => {
-  const s = pensionSources(), d = careerDraft(); d.recovery.monthly_cents = '500000';
-  const frozen = structuredClone({ s, d });
-  const r = pensionOptions(s, d, 'gap', [
-    { label: '停缴', pension: 'pause', cash_cents: '0' },
-    { label: '下限自缴', pension: { base_cents: '727000', hpf_monthly_cents: '0' }, cash_cents: '200000' },
-    { label: '原基数', pension: 'unchanged', cash_cents: '200000' },
-  ]);
-  assert.equal(r.stage_months, 12);
-  const [pause, floor, same] = r.rows;
-  assert.equal(pause.stage_cash_cents, 0); assert.equal(floor.stage_cash_cents, 2_400_000);
-  assert.equal(pause.pension.eligible, false); assert.equal(pause.pension.monthly_cents, 0); assert.ok(pause.pension.short_months > 0);
-  assert.equal(floor.pension.eligible, true); assert.equal(same.pension.eligible, true);
-  assert.ok(floor.pension.monthly_cents <= same.pension.monthly_cents + 1);
-  assert.deepEqual({ s, d }, frozen);
-});
-
-test('M09 without the Beijing pension selected, choices still compare cash but report no pension', () => {
-  const d = careerDraft(); d.recovery.monthly_cents = '500000';
-  const r = pensionOptions(careerSources(), d, 'gap', [{ label: '停缴', pension: 'pause', cash_cents: '0' }, { label: '自缴', pension: { base_cents: '727000', hpf_monthly_cents: '0' }, cash_cents: '200000' }]);
-  assert.ok(r.rows.every(x => x.pension === null));
-  assert.ok(r.rows[0].assets_at_goal_cents > r.rows[1].assets_at_goal_cents, 'cash paid for insurance lowers assets when no pension is counted');
-});
 
 test('M10 a gap whose payment check cannot run is blocked, never a pass or a length limit', () => {
   const d = careerDraft(); d.recovery.monthly_cents = '464286';
@@ -121,13 +89,6 @@ test('M11 a lump sum counts with or without a gap; benefit duration must be conf
   e.gap.extra_income.benefit_months = 6; assert.equal(need(e).status, 'ready');
 });
 
-test('M12 contribution choices need an entered monthly cash amount; empty is not zero, explicit 0 is', () => {
-  const d = careerDraft(); d.recovery.monthly_cents = '500000';
-  const r = pensionOptions(careerSources(), d, 'gap', [{ label: '自缴', pension: { base_cents: '727000', hpf_monthly_cents: '0' }, cash_cents: null }, { label: '停缴', pension: 'pause', cash_cents: '0' }]);
-  assert.equal(r.rows[0].judgement.verdict, 'blocked'); assert.equal(r.rows[0].stage_cash_cents, null); assert.equal(r.rows[0].assets_at_goal_cents, null);
-  assert.notEqual(r.rows[1].judgement.verdict, 'blocked'); assert.equal(r.rows[1].stage_cash_cents, 0);
-});
-
 test('M13 when no pre-target change meets the goal, do not claim the unchanged baseline succeeds', () => {
   const s = careerSources(); s.profile.value.saved.profile.retire.spend_cents = '600000';
   const d = careerDraft(); d.gap_months = 0; d.recovery.monthly_cents = '-100000000';
@@ -135,10 +96,10 @@ test('M13 when no pre-target change meets the goal, do not claim the unchanged b
   assert.match(minWindow(s, d).message, /未据此判断/);
 });
 
-test('M14 retirement concession: with 3000/month after a 12 month gap the goal needs age 54 (81000A >= 4326000), and the original is untouched', () => {
+test('M14 explicit monthly target concession finds 2048-03, rejects the previous month, and leaves the original untouched', () => {
   const s = careerSources(), d = careerDraft(); d.recovery.monthly_cents = '300000';
   const frozen = structuredClone({ s, d });
-  assert.deepEqual(delayTarget(s, d), { status: 'found', age: 54, delay_years: 4 });
+  const x=delayTarget(s,d);assert.equal(x.status,'found');assert.equal(x.month,'2048-03');assert.equal(x.delay_months,41);const earlier=structuredClone(s);earlier.profile.value.saved.profile.retire.simplified.time.target_month='2048-02';assert.equal(judge(evaluateCareerScenario(earlier,d)).verdict,'short');
   assert.deepEqual({ s, d }, frozen);
   d.recovery.monthly_cents = '464286'; assert.deepEqual(delayTarget(s, d), { status: 'already_met' });
   d.recovery.monthly_cents = '0'; assert.equal(delayTarget(s, d, 55).status, 'not_found');
@@ -146,7 +107,7 @@ test('M14 retirement concession: with 3000/month after a 12 month gap the goal n
 });
 
 test('M15 age at a month', () => {
-  assert.equal(ageMonthsAt(careerSources(), '2033-06'), (2033 - 1994) * 12 + (6 - 10));
+  const s=careerSources();assert.equal(ageMonthsAt(s,'2033-06'),null);s.profile.value.saved.profile.retire.simplified.time.reference={month:'2026-10',age_months:384};assert.equal(ageMonthsAt(s,'2033-06'),(2033-1994)*12+(6-10));
 });
 
 test('M16 one-off inflows anywhere on the timeline count once: 120k in 2028-06 lowers the need to (1.8M-1.14M)/168 and closes the window 8 months earlier', () => {
@@ -159,23 +120,6 @@ test('M16 one-off inflows anywhere on the timeline count once: 120k in 2028-06 l
   }
   const g = careerDraft(); g.lumps = Array.from({ length: 25 }, () => ({ month: '2028-06', cents: '1' })); assert.equal(evaluateCareerScenario(careerSources(), g).requirement.status, 'blocked');
 });
-
-test('M17 the chosen contribution arrangement feeds the answers: free default 84 months, self-paying 2000/month 73; the helper changes nothing in place', () => {
-  const s = careerPensionSources(), d = careerDraft(); d.recovery.monthly_cents = '300000';
-  const frozen = structuredClone(d);
-  assert.deepEqual(maxGap(s, d), { status: 'found', months: 84, limit: 'goal' });
-  const picked = withChoice(d, 'gap', { label: '自己交', pension: { base_cents: '727000', hpf_monthly_cents: '0' }, cash_cents: '200000' });
-  assert.deepEqual(d, frozen);
-  assert.equal(picked.gap.insurance.monthly_cents, '200000'); assert.equal(picked.gap.insurance.included, false);
-  assert.deepEqual(maxGap(s, picked), { status: 'found', months: 73, limit: 'goal' });
-});
-
-test('M18 a blocked choice (custom base not entered) is shown with its reason and never evaluated', () => {
-  const d = careerDraft(); d.recovery.monthly_cents = '500000';
-  const r = pensionOptions(careerSources(), d, 'gap', [{ label: '自选', pension: { base_cents: '0', hpf_monthly_cents: '0' }, cash_cents: '100', blocked: '先填基数' }]);
-  assert.equal(r.rows[0].judgement.verdict, 'blocked'); assert.deepEqual(r.rows[0].judgement.issues, ['先填基数']); assert.equal(r.rows[0].assets_at_goal_cents, null);
-});
-
 
 test('R01 minimum window does not apply recovery insurance to the current working stage', () => {
   const s=careerSources(), d=direct(); s.profile.value.saved.profile.retire.spend_cents='750000';
@@ -199,10 +143,8 @@ test('R02 benefit cap participates in gap search, including feasible ranges that
 
 test('R03 explicitly included insurance is not deducted twice; extra cost changes the feasible gap', () => {
   const s=careerSources(),d=careerDraft();d.recovery.monthly_cents='600000';
-  const choice={label:'self',pension:{base_cents:'727000',hpf_monthly_cents:'0'},cash_cents:'200000',included:true};
-  assert.equal(maxGap(s,withChoice(d,'gap',choice)).months,26);
-  assert.equal(maxGap(s,withChoice(d,'gap',{...choice,included:false})).months,23);
-  assert.equal(maxGap(s,withChoice(d,'gap',{...choice,cash_cents:null})).status,'blocked');
+  const cost=(amount,included)=>({...structuredClone(d),gap:{...d.gap,insurance:{monthly_cents:amount,included}}});
+  assert.equal(maxGap(s,cost('200000',true)).months,26);assert.equal(maxGap(s,cost('200000',false)).months,23);assert.equal(maxGap(s,cost(null,false)).status,'blocked');
 });
 
 test('R04 money in a closed anchor month must not be silently accepted, while future money is counted', () => {
@@ -222,32 +164,11 @@ test('R05 search evaluation skips only requirement solving, preserving cash, pre
   }
 });
 
-test('R06 the placeholder fills only unconfirmed contribution fields, optimistically, and never mutates the draft', () => {
-  const d = careerDraft(); d.gap.pension = null; d.gap.insurance = { monthly_cents: null, included: false };
-  const frozen = structuredClone(d);
-  const a = assumeInsurance(d);
-  assert.deepEqual(d, frozen); assert.equal(a.changed, true);
-  assert.equal(a.draft.gap.pension, 'unchanged'); assert.deepEqual(a.draft.gap.insurance, { monthly_cents: '0', included: true });
-  assert.deepEqual(a.draft.recovery, d.recovery, 'confirmed fields stay as entered');
-  const full = careerDraft(); const b = assumeInsurance(full); assert.equal(b.changed, false); assert.deepEqual(b.draft, full);
-  // a confirmed bill is never replaced by the placeholder
-  const c = careerDraft(); c.gap.insurance = { monthly_cents: '200000', included: false };
-  assert.deepEqual(assumeInsurance(c).draft.gap.insurance, { monthly_cents: '200000', included: false });
-});
-
-test('R07 an entered but invalid contribution base is never replaced by the placeholder and blocks the answer', () => {
-  const s = careerPensionSources(), d = careerDraft(); d.recovery.monthly_cents = '300000';
-  d.gap.pension = { base_cents: '100', hpf_monthly_cents: '0' }; d.gap.insurance = { monthly_cents: '200000', included: false };
-  const a = assumeInsurance(d); assert.deepEqual(a.draft.gap.pension, { base_cents: '100', hpf_monthly_cents: '0' }, 'entered values are kept as entered');
-  assert.equal(maxGap(s, a.draft).status, 'blocked');
-  assert.equal(judge(evaluateCareerScenario(s, a.draft)).verdict, 'blocked');
-});
-
-test('R08 missing items: the savings estimate is never assumable, contribution fields are, a zero gap needs no gap insurance', () => {
-  const d = careerDraft(); d.gap.pension = null; d.gap.insurance = { monthly_cents: null, included: false }; d.recovery.pension = null; d.recovery.insurance = { monthly_cents: null, included: false }; d.recovery.monthly_cents = null;
-  assert.deepEqual(missingItems(d, true).map(m => m.assumable), [false, true, true]);
-  assert.deepEqual(missingItems(d, false).map(m => m.assumable), [true, true], 'the required-savings question does not need the estimate');
-  d.gap_months = 0; assert.equal(missingItems(d, false).length, 1);
+test('R08 missing items: the savings estimate is never assumable, cash expenses are never assumable, a zero gap needs no gap insurance', () => {
+  const d = careerDraft(); d.gap.insurance = { monthly_cents: null, included: false }; d.recovery.insurance = { monthly_cents: null, included: false }; d.recovery.monthly_cents = null;
+  assert.deepEqual(missingItems(d, true).map(m => m.assumable), [false, false, false]);
+  assert.deepEqual(missingItems(d, false).map(m => m.assumable), [false], 'only the relevant gap expense is asked when the recovery estimate is not needed');
+  d.gap_months = 0; assert.equal(missingItems(d, false).length, 0);
   const done = careerDraft(); assert.deepEqual(missingItems(done, true), [{ label: '找到新工作后每月能攒多少', assumable: false }]);
   done.recovery.monthly_cents = '300000'; assert.deepEqual(missingItems(done, true), []);
 });

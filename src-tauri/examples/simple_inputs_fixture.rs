@@ -1,9 +1,8 @@
 //! 隔离原生验收夹具（只允许路径含 local.thingary.simple.acceptance）：通过真实 Store
-//! 建立虚构的账户、盘点、收入与完整北京社保资料，不含目标设置；不触碰正式库。
+//! 建立虚构的账户、盘点与收入，不含目标设置；不触碰正式库。
 use std::path::PathBuf;
 use thingary_lib::{
     plan_income::{Fields, Save},
-    plan_profile::{Assumptions, Overrides, Profile, ProfileSave, Retire},
     storage::Store,
     wealth::{AccountFields, AccountSave, EntryInput, SnapshotSave},
 };
@@ -101,39 +100,5 @@ fn main() {
         )
         .unwrap();
     }
-    let profile = Profile {
-        birth_month: Some("1990-06".into()),
-        worker: Some("male".into()),
-        region: Some("beijing".into()),
-        paid_months: Some(96),
-        medical_paid_months: None,
-        medical_local_paid_months: None,
-        medical_local_required_months: None,
-        medical_required_months: None,
-        medical_topup_cents: None,
-        account_balance_cents: Some("20000000".into()),
-        base_cents: Some("2000000".into()),
-        past_index_hundredths: Some(100),
-        flex_months: Some(0),
-        personal_pension_annual_cents: Some("0".into()),
-        marginal_tax_hundredths: Some(1000),
-        assumptions: Assumptions {
-            inflation_hundredths: 200,
-            wage_growth_hundredths: 200,
-            pp_return_hundredths: 200,
-        },
-        overrides: Overrides::default(),
-        retire: Retire::default(),
-    };
-    s.plan_profile_save(
-        &ProfileSave {
-            request_id: rid(50),
-            generation: s.generation(),
-            expected_revision: None,
-            profile,
-        },
-        today,
-    )
-    .unwrap();
-    println!("Fictional fixture: 2 accounts, 5 check-ins, 4 incomes, complete Beijing pension profile, no goal");
+    println!("Fictional fixture: 2 accounts, 5 check-ins, 4 incomes, no configured plan");
 }

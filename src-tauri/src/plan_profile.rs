@@ -1,102 +1,34 @@
-//! Personal profile for the pension estimate (PLANNING_DESIGN §5.1). Holds
-//! inputs and the user's assumptions only; results are computed in the front
-//! end and never stored. Sensitive: never logged, fictional fixtures only.
+//! General planning inputs. No social-insurance policy state or results.
 use crate::{
     domain::{cents, date, Error, Result},
     storage::{digest, Store},
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Assumptions {
     pub inflation_hundredths: i32,
-    pub wage_growth_hundredths: i32,
-    pub pp_return_hundredths: i32,
 }
-
-/// The user's edits of the built-in regional table; absent means built-in.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Overrides {
-    pub avg_wage_cents: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub avg_wage_year: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub avg_wage_source: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub benefit_base: Option<BenefitBase>,
-    pub base_lower_cents: Option<String>,
-    pub base_upper_cents: Option<String>,
-    pub notional_rate_hundredths: Option<i32>,
-    pub hpf_rate_hundredths: Option<i32>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct BenefitBase {
-    pub cents: String,
-    pub year: i32,
-    pub source: String,
-}
-
-/// One retirement spending bucket besides the main budget in `Retire::spend_cents`.
-/// Amounts are monthly, in today's money; a missing start means "from retiring".
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SpendItem {
     pub id: String,
     pub label: String,
     pub monthly_cents: String,
-    pub start_age: Option<u32>,
-    pub end_age: Option<u32>,
-    /// Own yearly inflation; absent follows the general inflation assumption.
+    pub start_month: Option<String>,
+    pub end_month: Option<String>,
     pub inflation_hundredths: Option<i32>,
     pub essential: bool,
+    pub time_unconfirmed: bool,
 }
-
-/// One retirement income stream besides the state pension (which the pension
-/// calculator derives): after-tax, monthly, today's money.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct IncomeItem {
-    pub id: String,
-    pub label: String,
-    pub monthly_cents: String,
-    pub start_age: u32,
-    pub end_age: Option<u32>,
-    /// Rises with inflation; otherwise a fixed nominal amount that loses value.
-    pub indexed: bool,
-}
-
-/// One stretch of the saving timeline: from this age (in months) on, the user
-/// saves this much per month, in today's money. Negative means drawing down
-/// savings (a stretch without a job). Phases are ordered by start; the first one
-/// applies from today on.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SavingPhase {
-    pub id: String,
-    pub label: String,
-    pub from_age_months: u32,
-    pub monthly_cents: i64,
-}
-
-/// A big plan on the timeline (house, car, other): one purchase month, cash
-/// outlay, optional loan, running costs. All amounts are today's money in cents
-/// as strings; the front end turns them into one-off outlays and monthly flows
-/// inside the same retirement ledger.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LifeEvent {
     pub id: String,
     pub label: String,
-    /// `house`, `car` or `other`.
     pub kind: String,
-    /// Planned purchase month, `YYYY-MM`.
     pub date: String,
-    /// Counted in the plan; off keeps it for comparison.
     pub included: bool,
     pub price_cents: String,
     pub down_cents: String,
@@ -106,208 +38,90 @@ pub struct LifeEvent {
     pub holding_cents: String,
     pub rent_saved_cents: String,
     pub cycle_years: Option<u32>,
-    pub until_age: Option<u32>,
+    pub until_month: Option<String>,
+    pub time_unconfirmed: bool,
     pub resale_cents: String,
 }
-
-fn is_false(v: &bool) -> bool {
-    !*v
-}
-
-const MAX_ITEMS: usize = 20;
-const MAX_PHASES: usize = 30;
-const MAX_SAVING_CENTS: i64 = 100_000_000;
-
-/// Retirement / FIRE inputs (PLANNING_DESIGN §6). Every field has a default so
-/// a profile saved before a field existed still loads unchanged.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(default, deny_unknown_fields)]
+#[serde(deny_unknown_fields)]
 pub struct Retire {
-    /// Explicit first-use configuration; old records remain unconfirmed.
-    #[serde(skip_serializing_if = "is_false")]
     pub setup_completed: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub basic: Option<crate::plan_basic::Basic>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub legacy_definition: Option<crate::plan_basic::LegacyDefinition>,
+    pub simplified: crate::plan_simplified::Fields,
     pub core: Option<crate::plan_core::Core>,
-    /// Monthly spending after retiring, in today's money: the essential
-    /// "daily living" bucket. `None` means not filled in yet.
     pub spend_cents: Option<String>,
-    /// Real (after inflation) yearly return before and after retiring.
     pub real_return_before_hundredths: i32,
     pub real_return_after_hundredths: i32,
-    /// Planning horizon (age) and the emergency fund line in months of spending.
-    pub horizon_age: u32,
     pub emergency_months: u32,
-    /// `fire` finds the earliest sustainable age; `traditional` retires at `target_age`.
     pub mode: String,
-    /// Desired retirement / independence age.
-    pub target_age: Option<u32>,
-    /// Yearly volatility of the real return, for the market-path simulation.
     pub volatility_hundredths: i32,
     pub spend_items: Vec<SpendItem>,
-    pub income_items: Vec<IncomeItem>,
-    /// Saving timeline before retiring; empty uses the measured usual saving throughout.
-    pub saving_phases: Vec<SavingPhase>,
-    /// Average share of working time without income (job changes, layoffs), in
-    /// hundredths of a percent; the plan weighs positive phases by it.
-    pub gap_share_hundredths: i32,
-    /// Big plans: house, car, other.
     pub life_events: Vec<LifeEvent>,
-    /// The career route from `route_from_age` on (ids live in the front end); `None` keeps the saving phases as they are.
-    pub route_id: Option<String>,
-    pub route_from_age: u32,
-    /// After you stop working, keep paying social insurance yourself until this age; `None` stops paying when you stop.
-    pub keep_paying_until_age: Option<u32>,
-    /// What that costs per month (pension, medical and so on), today's money; `"0"` is none.
-    pub keep_paying_monthly_cents: String,
-    /// The base you pay on while paying yourself; `"0"` uses the base in the profile.
-    pub keep_paying_base_cents: String,
-    /// Gap months (negative saving phases, the average gap share) still count as contribution months when true.
-    pub gap_keeps_paying: bool,
-    /// Rent you pay each month while retired, until a planned house purchase takes it over; today's money, `"0"` is none.
     pub rent_cents: String,
 }
 impl Default for Retire {
     fn default() -> Self {
         Self {
-            core: None,
             setup_completed: false,
             basic: None,
-            legacy_definition: None,
+            simplified: crate::plan_simplified::Fields::default(),
+            core: None,
             spend_cents: None,
             real_return_before_hundredths: 0,
             real_return_after_hundredths: 0,
-            horizon_age: 90,
             emergency_months: 6,
             mode: "fire".into(),
-            target_age: None,
             volatility_hundredths: 500,
-            spend_items: Vec::new(),
-            income_items: Vec::new(),
-            saving_phases: Vec::new(),
-            gap_share_hundredths: 0,
-            life_events: Vec::new(),
-            route_id: None,
-            route_from_age: 35,
-            keep_paying_until_age: None,
-            keep_paying_monthly_cents: "0".into(),
-            keep_paying_base_cents: "0".into(),
-            gap_keeps_paying: false,
+            spend_items: vec![],
+            life_events: vec![],
             rent_cents: "0".into(),
         }
     }
 }
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
-    /// `YYYY-MM`.
-    pub birth_month: Option<String>,
-    /// `male`, `female_cadre` or `female_worker`.
-    pub worker: Option<String>,
-    pub region: Option<String>,
-    pub paid_months: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub medical_paid_months: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub medical_local_paid_months: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub medical_local_required_months: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub medical_required_months: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub medical_topup_cents: Option<String>,
-
-    pub account_balance_cents: Option<String>,
-    pub base_cents: Option<String>,
-    pub past_index_hundredths: Option<i32>,
-    pub flex_months: Option<i32>,
-    pub personal_pension_annual_cents: Option<String>,
-    pub marginal_tax_hundredths: Option<i32>,
     pub assumptions: Assumptions,
-    #[serde(default)]
-    pub overrides: Overrides,
-    #[serde(default)]
     pub retire: Retire,
 }
-
 #[derive(Clone, Debug, Serialize)]
 pub struct Saved {
     pub reference_issues: Vec<String>,
-    #[serde(serialize_with = "serialize_active_profile")]
     pub profile: Profile,
     pub revision: i64,
-    /// RFC 3339 time of the last save; the page uses it to remind the user to refresh the figures.
     pub updated_at: String,
 }
-
 #[derive(Clone, Debug, Serialize)]
 pub struct State {
     pub generation: String,
     pub saved: Option<Saved>,
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProfileSave {
     pub request_id: String,
     pub generation: String,
     pub expected_revision: Option<i64>,
     pub profile: Profile,
 }
-
-/// Personal pension deposits above the national yearly cap are refused here.
-const PENSION_CAP_CENTS: i64 = 1_200_000;
-
 fn bad(code: &'static str, message: &str) -> Error {
     Error::new(code, message)
 }
-
 fn rate(v: i32, lo: i32, hi: i32, label: &str) -> Result<()> {
     if !(lo..=hi).contains(&v) {
-        return Err(bad(
-            "PROFILE_RATE",
-            &format!(
-                "{label}须在 {:.2}% 到 {:.2}% 之间",
-                lo as f64 / 100.0,
-                hi as f64 / 100.0
-            ),
-        ));
+        return Err(bad("PROFILE_RATE", &format!("{label}超出范围")));
     }
     Ok(())
 }
-
-fn money(value: &str, positive: bool, label: &str) -> Result<i64> {
-    cents(Some(value))
-        .ok()
-        .flatten()
-        .filter(|v| !positive || *v > 0)
-        .ok_or_else(|| {
-            bad(
-                "PROFILE_AMOUNT",
-                &format!(
-                    "{label}须为{}金额",
-                    if positive {
-                        "大于 0 的"
-                    } else {
-                        "不小于 0 的"
-                    }
-                ),
-            )
-        })
+fn money(v: &str, positive: bool, label: &str) -> Result<i64> {
+    cents(Some(v))?
+        .filter(|n| v == n.to_string() && (!positive || *n > 0))
+        .ok_or_else(|| bad("PROFILE_AMOUNT", &format!("{label}金额无效")))
 }
-
 impl Retire {
     fn validate_items(&self) -> Result<()> {
-        if self.spend_items.len() > MAX_ITEMS || self.income_items.len() > MAX_ITEMS {
-            return Err(bad("PROFILE_RETIRE", "支出项与收入项各最多 20 个"));
-        }
-        if self.saving_phases.len() > MAX_PHASES {
-            return Err(bad("PROFILE_RETIRE", "储蓄阶段最多 30 段"));
-        }
-        if self.life_events.len() > MAX_ITEMS {
-            return Err(bad("PROFILE_RETIRE", "大额计划最多 20 个"));
+        if self.spend_items.len() > 20 || self.life_events.len() > 20 {
+            return Err(bad("PROFILE_RETIRE", "安排最多20项"));
         }
         let mut event_ids = std::collections::HashSet::new();
         for e in &self.life_events {
@@ -339,367 +153,67 @@ impl Retire {
             money(&e.holding_cents, false, "每月持有成本")?;
             money(&e.rent_saved_cents, false, "省下的月房租")?;
             money(&e.resale_cents, false, "卖旧车回收")?;
+            crate::plan_simplified::month(&e.until_month)?;
             rate(e.loan_rate_hundredths, 0, 2000, "贷款利率")?;
             if !(1..=40).contains(&e.loan_years)
                 || e.cycle_years.is_some_and(|y| !(1..=40).contains(&y))
-                || e.until_age.is_some_and(|a| a > 120)
             {
-                return Err(bad(
-                    "PROFILE_RETIRE",
-                    "贷款年限、换车周期须在 1 到 40 年，截止年龄不超过 120 岁",
-                ));
+                return Err(bad("PROFILE_RETIRE", "贷款年限、换车周期须在 1 到 40 年"));
             }
-        }
-        let mut phase_ids = std::collections::HashSet::new();
-        let mut previous: Option<u32> = None;
-        for p in &self.saving_phases {
-            if p.id.is_empty()
-                || p.id.len() > 40
-                || p.label.trim().is_empty()
-                || p.label.chars().count() > 40
-            {
-                return Err(bad("PROFILE_RETIRE", "储蓄阶段须有名称（不超过 40 字）"));
-            }
-            if !phase_ids.insert(p.id.as_str()) {
-                return Err(bad("PROFILE_RETIRE", "储蓄阶段的标识不能重复"));
-            }
-            if p.from_age_months > 1440 || previous.is_some_and(|q| p.from_age_months <= q) {
-                return Err(bad(
-                    "PROFILE_RETIRE",
-                    "储蓄阶段的起始年龄须按先后递增，且不超过 120 岁",
-                ));
-            }
-            if p.monthly_cents.abs() > MAX_SAVING_CENTS {
-                return Err(bad("PROFILE_AMOUNT", "储蓄阶段的月金额超出范围"));
-            }
-            previous = Some(p.from_age_months);
         }
         let mut ids = std::collections::HashSet::new();
-        let span = |start: Option<u32>, end: Option<u32>| {
-            let ok = start.is_none_or(|v| v <= 120)
-                && end.is_none_or(|v| v <= 120)
-                && match (start, end) {
-                    (Some(a), Some(b)) => a < b,
-                    _ => true,
-                };
-            if ok {
-                Ok(())
-            } else {
-                Err(bad(
-                    "PROFILE_RETIRE",
-                    "起止年龄须在 0 到 120 岁之间，且结束晚于开始",
-                ))
-            }
-        };
-        let label = |id: &str, name: &str| {
-            if id.is_empty() || id.len() > 40 || name.trim().is_empty() || name.chars().count() > 40
-            {
-                return Err(bad(
-                    "PROFILE_RETIRE",
-                    "支出项与收入项须有名称（不超过 40 字）",
-                ));
-            }
-            Ok(())
-        };
         for it in &self.spend_items {
-            label(&it.id, &it.label)?;
-            if !ids.insert(it.id.as_str()) {
-                return Err(bad("PROFILE_RETIRE", "支出项与收入项的标识不能重复"));
+            if it.id.is_empty()
+                || it.id.len() > 40
+                || !ids.insert(&it.id)
+                || it.label.trim().is_empty()
+                || it.label.chars().count() > 40
+            {
+                return Err(bad("PROFILE_RETIRE", "费用标识/名称无效"));
             }
-            money(&it.monthly_cents, true, "支出项月金额")?;
-            span(it.start_age, it.end_age)?;
+            money(&it.monthly_cents, true, "费用")?;
+            crate::plan_simplified::month(&it.start_month)?;
+            crate::plan_simplified::month(&it.end_month)?;
+            if matches!((&it.start_month,&it.end_month),(Some(a),Some(b)) if a>b) {
+                return Err(bad("PROFILE_RETIRE", "费用时间顺序无效"));
+            }
             if let Some(v) = it.inflation_hundredths {
-                rate(v, -1000, 2000, "支出项通胀率")?;
+                rate(v, -1000, 2000, "费用通胀")?;
             }
-        }
-        for it in &self.income_items {
-            label(&it.id, &it.label)?;
-            if !ids.insert(it.id.as_str()) {
-                return Err(bad("PROFILE_RETIRE", "支出项与收入项的标识不能重复"));
-            }
-            money(&it.monthly_cents, true, "收入项月金额")?;
-            span(Some(it.start_age), it.end_age)?;
         }
         Ok(())
     }
 }
-
-/// Old JSON is accepted only at the read/restore/request boundary. Predictions are not facts.
-impl Profile {
-    pub(crate) fn into_general(mut self) -> Self {
-        let r = &mut self.retire;
-        // Read-only compatibility. Request fingerprints retain their original bytes.
-        if let Some(b) = &mut r.basic {
-            if b.retirement_income.mode.as_deref() == Some("beijing") {
-                b.retirement_income.mode = Some("employee".into());
-            }
-            for s in &mut b.retirement_income.selected {
-                if s.source_id == "beijing_state_pension" {
-                    s.source_id = "state_pension_estimate".into();
-                }
-            }
-            for s in b
-                .contribution_costs
-                .iter_mut()
-                .chain(&mut b.retirement_costs)
-            {
-                if s.source_id == "beijing_state_pension" {
-                    s.source_id = "state_pension_estimate".into();
-                }
-            }
-        }
-        if r.basic.is_none() {
-            let old = std::mem::take(r);
-            let mut events = old.life_events;
-            for e in &mut events {
-                if !old.core.as_ref().is_some_and(|c| {
-                    c.occurrences
-                        .iter()
-                        .any(|o| o.event_id == e.id && o.status == "occurred")
-                }) {
-                    e.included = false;
-                }
-            }
-            *r = Retire {
-                core: old.core,
-                life_events: events,
-                target_age: None,
-                ..Retire::default()
-            };
-        }
-        r.saving_phases.clear();
-        r.route_id = None;
-        r.route_from_age = 35;
-        r.gap_share_hundredths = 0;
-        r.gap_keeps_paying = false;
-        r.legacy_definition = None;
-        if let Some(c) = &mut r.core {
-            c.costs.clear();
-        }
-        self
-    }
-}
-/// Active output/persistence omits obsolete fields. Profile's original wire serialization
-/// stays intact solely for verification of receipts written by older applications.
-fn active_profile_value(p: &Profile) -> Result<serde_json::Value> {
-    let mut value = serde_json::to_value(p)?;
-    if let Some(r) = value
-        .get_mut("retire")
-        .and_then(serde_json::Value::as_object_mut)
-    {
-        for key in [
-            "saving_phases",
-            "route_id",
-            "route_from_age",
-            "gap_share_hundredths",
-            "gap_keeps_paying",
-            "legacy_definition",
-        ] {
-            r.remove(key);
-        }
-        if let Some(core) = r.get_mut("core").and_then(serde_json::Value::as_object_mut) {
-            core.remove("costs");
-        }
-    }
-    Ok(value)
-}
-fn serialize_active_profile<S: serde::Serializer>(
-    p: &Profile,
-    serializer: S,
-) -> std::result::Result<S::Ok, S::Error> {
-    active_profile_value(p)
-        .map_err(serde::ser::Error::custom)?
-        .serialize(serializer)
-}
-
 impl Profile {
     pub fn validate(&self, today: &str) -> Result<()> {
-        if let Some(ym) = &self.birth_month {
-            let birth = date(&format!("{ym}-01"))
-                .map_err(|_| bad("PROFILE_BIRTH", "出生年月格式应为 YYYY-MM"))?;
-            if ym.len() != 7
-                || ym.as_str() >= &today[..7.min(today.len())]
-                || birth.format("%Y-%m").to_string() != *ym
-            {
-                return Err(bad("PROFILE_BIRTH", "出生年月须早于本月"));
-            }
-        }
-        if self
-            .worker
-            .as_ref()
-            .is_some_and(|v| !["male", "female_cadre", "female_worker"].contains(&v.as_str()))
-        {
-            return Err(bad("PROFILE_WORKER", "请选择性别与职工类型"));
-        }
-        if self
-            .region
-            .as_ref()
-            .is_some_and(|v| !["beijing", "custom"].contains(&v.as_str()))
-        {
-            return Err(bad("PROFILE_REGION", "参保地无效"));
-        }
-        if self.medical_paid_months.is_some_and(|v| v > 1200)
-            || self.medical_local_paid_months.is_some_and(|v| v > 1200)
-            || self.medical_required_months.is_some_and(|v| v > 600)
-            || self.medical_local_required_months.is_some_and(|v| v > 600)
-            || matches!((self.medical_local_paid_months, self.medical_paid_months), (Some(local), Some(total)) if local > total)
-        {
-            return Err(bad(
-                "PROFILE_MEDICAL",
-                "请核对医保缴费月数：累计最多 1200 月，要求最多 600 月，本地实际不能超过累计",
-            ));
-        }
-        if let Some(v) = &self.medical_topup_cents {
-            money(v, false, "医保补缴估算")?;
-        }
-        if self.paid_months.is_some_and(|v| v > 1200) {
-            return Err(bad("PROFILE_MONTHS", "累计缴费月数不能超过 1200"));
-        }
-        if let Some(v) = &self.account_balance_cents {
-            money(v, false, "个人账户余额")?;
-        }
-        if let Some(v) = &self.base_cents {
-            money(v, false, "缴费基数")?;
-        }
-        if self
-            .past_index_hundredths
-            .is_some_and(|v| !(1..=1000).contains(&v))
-        {
-            return Err(bad("PROFILE_INDEX", "历史平均缴费指数须在 0.01 到 10 之间"));
-        }
-        if self.flex_months.is_some_and(|v| !(-36..=36).contains(&v)) {
-            return Err(bad("PROFILE_FLEX", "弹性提前或延后最多 36 个月"));
-        }
-        if let Some(v) = &self.personal_pension_annual_cents {
-            if money(v, false, "个人养老金年缴额")? > PENSION_CAP_CENTS {
-                return Err(bad("PROFILE_PENSION", "个人养老金每年最多缴 12000 元"));
-            }
-        }
-        if let Some(v) = self.marginal_tax_hundredths {
-            rate(v, 0, 4500, "边际税率")?;
-        }
-        validate_retire(&self.retire, &self.assumptions, today)?;
-        let o = &self.overrides;
-        let source_valid = |s: &str| !s.trim().is_empty() && s.chars().count() <= 500;
-        if o.avg_wage_year
-            .is_some_and(|y| !(1900..=2199).contains(&y) || o.avg_wage_cents.is_none())
-            || o.avg_wage_source
-                .as_ref()
-                .is_some_and(|s| !source_valid(s) || o.avg_wage_cents.is_none())
-        {
-            return Err(bad(
-                "PROFILE_REFERENCE",
-                "工资参考年度或来源无效，或未填写工资金额",
-            ));
-        }
-        if let Some(b) = &o.benefit_base {
-            money(&b.cents, true, "养老金计发基数")?;
-            if b.cents.starts_with('0')
-                || !(1900..=2199).contains(&b.year)
-                || !source_valid(&b.source)
-            {
-                return Err(bad(
-                    "PROFILE_REFERENCE",
-                    "养老金计发基数须有有效适用年度和来源",
-                ));
-            }
-        }
-        for (value, label) in [
-            (&o.avg_wage_cents, "上年度月平均工资"),
-            (&o.base_lower_cents, "缴费基数下限"),
-            (&o.base_upper_cents, "缴费基数上限"),
-        ] {
-            if let Some(v) = value {
-                money(v, true, label)?;
-            }
-        }
-        for (value, label) in [
-            (o.notional_rate_hundredths, "记账利率"),
-            (o.hpf_rate_hundredths, "公积金利率"),
-        ] {
-            if let Some(v) = value {
-                rate(v, -1000, 3000, label)?;
-            }
-        }
-        if let (Some(lo), Some(hi)) = (&o.base_lower_cents, &o.base_upper_cents) {
-            if money(lo, true, "缴费基数下限")? > money(hi, true, "缴费基数上限")? {
-                return Err(bad("PROFILE_AMOUNT", "缴费基数下限不能高于上限"));
-            }
-        }
-        Ok(())
+        validate_retire(&self.retire, &self.assumptions, today)
     }
 }
-
 pub(crate) fn validate_retire(r: &Retire, a: &Assumptions, today: &str) -> Result<()> {
-    rate(a.inflation_hundredths, -1000, 2000, "通胀率")?;
-    rate(a.wage_growth_hundredths, -1000, 2000, "工资增长率")?;
-    rate(a.pp_return_hundredths, -1000, 3000, "个人养老金收益率")?;
-    if let Some(core) = &r.core {
-        core.validate(r, today)?;
+    rate(a.inflation_hundredths, 0, 2000, "通胀")?;
+    if let Some(c) = &r.core {
+        c.validate(r, today)?;
     }
     if let Some(v) = &r.spend_cents {
-        money(v, true, "退休后月支出")?;
+        money(v, false, "完整预算")?;
     }
-    rate(
-        r.real_return_before_hundredths,
-        -1000,
-        2000,
-        "退休前实际收益率",
-    )?;
-    rate(
-        r.real_return_after_hundredths,
-        -1000,
-        2000,
-        "退休后实际收益率",
-    )?;
-    if !(70..=110).contains(&r.horizon_age) || r.emergency_months > 36 {
-        return Err(bad(
-            "PROFILE_RETIRE",
-            "规划终点年龄须在 70 到 110 岁之间，应急金不超过 36 个月",
-        ));
+    rate(r.real_return_before_hundredths, -1000, 2000, "积累收益")?;
+    rate(r.real_return_after_hundredths, -1000, 2000, "动用资金收益")?;
+    rate(r.volatility_hundredths, 0, 6000, "波动")?;
+    if r.emergency_months > 36 || !["fire", "traditional"].contains(&r.mode.as_str()) {
+        return Err(bad("PROFILE_RETIRE", "规划条件无效"));
     }
-    if !["fire", "traditional"].contains(&r.mode.as_str()) {
-        return Err(bad("PROFILE_RETIRE", "计划类型须是 FIRE 或传统"));
-    }
-    if r.target_age
-        .is_some_and(|v| !(20..r.horizon_age).contains(&v))
-    {
-        return Err(bad(
-            "PROFILE_RETIRE",
-            "期望退休年龄须在 20 岁与规划终点之间",
-        ));
-    }
-    rate(r.volatility_hundredths, 0, 6000, "年度波动率")?;
-    rate(r.gap_share_hundredths, 0, 5000, "平均空窗比例")?;
-    if r.route_id
-        .as_ref()
-        .is_some_and(|id| id.is_empty() || id.len() > 40)
-        || !(20..=70).contains(&r.route_from_age)
-    {
-        return Err(bad("PROFILE_RETIRE", "路线换成的年龄须在 20 到 70 岁之间"));
-    }
-    for (value, label) in [
-        (&r.keep_paying_monthly_cents, "续缴社保每月花费"),
-        (&r.keep_paying_base_cents, "续缴缴费基数"),
-        (&r.rent_cents, "退休后月房租"),
-    ] {
-        money(value, false, label)?;
-    }
-    if r.keep_paying_until_age
-        .is_some_and(|age| !(20..=70).contains(&age))
-    {
-        return Err(bad(
-            "PROFILE_RETIRE",
-            "续缴社保到的年龄须在 20 到 70 岁之间",
-        ));
-    }
+    money(&r.rent_cents, false, "房租")?;
     r.validate_items()?;
+    r.simplified.validate(today)?;
     if let Some(b) = &r.basic {
         b.validate(r)?;
     }
     Ok(())
 }
-
+fn active_profile_value(p: &Profile) -> Result<serde_json::Value> {
+    Ok(serde_json::to_value(p)?)
+}
 fn read(c: &Connection) -> Result<Option<Saved>> {
     let row: Option<(String, i64, String)> = c
         .query_row(
@@ -711,7 +225,6 @@ fn read(c: &Connection) -> Result<Option<Saved>> {
     row.map(|(payload, revision, updated_at)| {
         let profile: Profile = serde_json::from_str(&payload)
             .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?;
-        let profile = profile.into_general();
         let reference_issues = profile
             .retire
             .core
@@ -736,51 +249,9 @@ impl Store {
             saved: read(self.conn()?)?,
         })
     }
-
-    pub fn plan_profile_save(&mut self, input: &ProfileSave, today: &str) -> Result<Saved> {
-        let bytes = serde_json::to_string(&("plan_profile", input))?;
-        let mut fingerprints = vec![digest(bytes.as_bytes())];
-        // The setup-fix build emitted false as the first retirement field.
-        // Accept only that exact alternate serialization of an otherwise legacy
-        // request. No field is removed; new basic/archive or true conditions
-        // cannot borrow an older receipt.
-        if !input.profile.retire.setup_completed
-            && input.profile.retire.basic.is_none()
-            && input.profile.retire.legacy_definition.is_none()
-        {
-            fingerprints.push(digest(
-                bytes
-                    .replacen("\"retire\":{", "\"retire\":{\"setup_completed\":false,", 1)
-                    .as_bytes(),
-            ));
-        }
-        self.save_profile_request(
-            &input.request_id,
-            &input.generation,
-            input.expected_revision,
-            today,
-            &fingerprints,
-            |old| {
-                if input.profile.retire.basic.is_some()
-                    || input.profile.retire.legacy_definition.is_some()
-                    || old.is_some()
-                {
-                    return Err(Error::new(
-                        "PLANNING_SCOPED",
-                        "请使用分区更新；旧完整请求不能覆盖当前资料",
-                    ));
-                }
-                // A first pension-only write may still come from an older client.
-                let mut profile = input.profile.clone();
-                if let Some(core) = &mut profile.retire.core {
-                    core.costs.clear();
-                }
-                profile.validate(today)?;
-                Ok(profile.into_general())
-            },
-        )
+    pub fn plan_profile_save(&mut self, _input: &ProfileSave, _today: &str) -> Result<Saved> {
+        Err(Error::new("PLANNING_SCOPED", "请使用通用规划分区保存"))
     }
-
     pub fn plan_profile_update(
         &mut self,
         input: &crate::plan_basic::Update,
@@ -830,7 +301,7 @@ impl Store {
                 "个人资料已变化，请重新读取",
             ));
         }
-        let profile = merge(old.as_ref().map(|s| &s.profile))?.into_general();
+        let profile = merge(old.as_ref().map(|s| &s.profile))?;
         profile.validate(today)?;
         if let Some(core) = &profile.retire.core {
             core.validate_references(&tx, true)?;

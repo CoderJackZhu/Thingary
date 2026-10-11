@@ -1,6 +1,5 @@
-import type { Overrides } from './plan-params.ts';
 import type { Occurrence, FundRule, DebtRepayment } from './plan-core.ts';
-import type { RetireInputs, StoredProfile, StoredLifeEvent, ProfileState } from './plan.ts';
+import type { RetireInputs, StoredLifeEvent, ProfileState } from './plan.ts';
 import type { Plan, Projection, Outcome } from './plan-ledger.ts';
 import type { Read } from './review.ts';
 import type { Snapshot, Account } from './wealth.ts';
@@ -9,45 +8,21 @@ import type { PlanReview, Income } from './plan.ts';
 /** B is a closing date. Simulation replaces live funds; it never creates a snapshot. */
 export type BasicStart = { kind: 'live' } | { kind: 'simulation'; id: string; available_cents: string | null; date: string | null; notes: string };
 export type CostScope = { source_id: string; treatment: 'included' | 'extra' | 'excluded'; reference_cents: string | null };
-export type IncomeSelection = { id: string; source_id: string; role: 'state_pension' | 'other' };
-export type RetirementContributionCost = {
-  treatment: 'unknown' | 'included' | 'extra' | 'external' | 'excluded';
-  monthly_cents: string | null;
-  /** Exclusive end; beginning follows pension_contributions.start_month, and only applies after retirement. */
-  stop_month: string | null;
-};
-export type BasicInputs = {
-  contract_version: 1;
-  start: BasicStart;
-  contribution: { id: string; monthly_cents: string | null };
-  retirement_income: { mode: null | 'excluded' | 'manual' | 'employee'; selected: IncomeSelection[] };
-  /** Explicit half-open contribution months, independent of contribution amount/sign and retirement trigger. */
-  pension_contributions: { start_month: string | null; stop_month: string | null; base_cents: string | null };
-  retirement_contribution_cost?: RetirementContributionCost | null;
-  contribution_costs: CostScope[];
-  retirement_costs: CostScope[];
-};
-export type BasicFields = Pick<StoredProfile, 'birth_month'> & Pick<RetireInputs, 'spend_cents' | 'target_age' | 'horizon_age' | 'mode' | 'real_return_before_hundredths' | 'real_return_after_hundredths' | 'volatility_hundredths' | 'emergency_months'> & {
-  inflation_hundredths: number; monetary_basis_date: string; basic: BasicInputs; /** Historical receipt input only; never emitted by new forms. */ confirm_legacy_replacement?: boolean;
-};
-export type PensionFields = Pick<StoredProfile, 'birth_month' | 'worker' | 'region' | 'paid_months' | 'account_balance_cents' | 'base_cents' | 'past_index_hundredths' | 'flex_months' | 'personal_pension_annual_cents' | 'marginal_tax_hundredths' | 'medical_paid_months' | 'medical_local_paid_months' | 'medical_local_required_months' | 'medical_required_months' | 'medical_topup_cents'> & {
-  wage_growth_hundredths: number; pp_return_hundredths: number; overrides: Overrides;
-};
-export type FundsFields = { monetary_basis_date: string; fund_rules: FundRule[]; hpf_monthly_cents: string | null; personal_pension_account_id: string | null; personal_pension_balance_confirmed: boolean };
+export type BasicInputs = { contract_version: 1; start: BasicStart; contribution: { id: string; monthly_cents: string | null }; contribution_costs: CostScope[]; retirement_costs: CostScope[] };
+export type BasicFields = Pick<RetireInputs, 'spend_cents' | 'mode' | 'real_return_before_hundredths' | 'real_return_after_hundredths' | 'volatility_hundredths' | 'emergency_months'> & { inflation_hundredths: number; monetary_basis_date: string; basic: BasicInputs };
+export type FundsFields = { monetary_basis_date: string; fund_rules: FundRule[]; releases: import('./plan-core.ts').FundRelease[] };
 export type EventsFields = { life_events: StoredLifeEvent[]; occurrences: Occurrence[] };
-export type BudgetFields = Pick<RetireInputs, 'spend_items' | 'income_items' | 'rent_cents' | 'keep_paying_until_age' | 'keep_paying_monthly_cents' | 'keep_paying_base_cents'>;
-export type SetupFields = { basic: BasicFields; budget: BudgetFields | null; funds: FundsFields | null; pension: PensionFields | null };
+export type BudgetFields = Pick<RetireInputs, 'spend_items' | 'rent_cents'>;
+export type SetupFields = { basic: BasicFields; budget: BudgetFields | null; funds: FundsFields | null; simplified: import('./plan-simplified-contract.ts').SimplifiedPlanningFieldsV1 };
 export type ProfileUpdate = { request_id: string; generation: string; expected_revision: number | null } & (
-  | { section: 'setup'; fields: SetupFields }
-  | { section: 'basic'; fields: BasicFields }
-  | { section: 'pension'; fields: PensionFields }
-  | { section: 'funds'; fields: FundsFields }
-  | { section: 'events'; fields: EventsFields }
-  | { section: 'budget'; fields: BudgetFields }
-  | { section: 'debt_repayments'; fields: { updates: DebtRepayment[]; remove: string[] } }
+ | { section: 'setup'; fields: SetupFields } | { section: 'basic'; fields: BasicFields }
+ | { section: 'simplified'; fields: import('./plan-simplified-contract.ts').SimplifiedPlanningFieldsV1 }
+ | { section: 'funds'; fields: FundsFields } | { section: 'events'; fields: EventsFields }
+ | { section: 'budget'; fields: BudgetFields }
+ | { section: 'debt_repayments'; fields: { updates: DebtRepayment[]; remove: string[] } }
 );
 export type CapabilityName = 'funds' | 'requirement' | 'prediction' | 'pension';
-export type MissingCode = 'INPUT_INVALID' | 'PROFILE_UNKNOWN' | 'BIRTH_UNKNOWN' | 'TARGET_UNKNOWN' | 'BUDGET_UNKNOWN' | 'START_UNKNOWN' | 'WEALTH_DISABLED' | 'SOURCE_ERROR' | 'SOURCE_STALE' | 'FUNDS_UNCONFIRMED' | 'OCCURRENCE_UNCONFIRMED' | 'COST_SCOPE_UNKNOWN' | 'COST_SCOPE_INVALID' | 'INCOME_MODE_UNKNOWN' | 'INCOME_SOURCE_UNKNOWN' | 'PENSION_FACTS_UNKNOWN' | 'PENSION_CONTRIBUTIONS_UNKNOWN' | 'POOL_UNCONFIRMED' | 'CONTRIBUTION_UNKNOWN' | 'HORIZON_INVALID';
+export type MissingCode = 'INPUT_INVALID' | 'PROFILE_UNKNOWN' | 'BUDGET_UNKNOWN' | 'START_UNKNOWN' | 'WEALTH_DISABLED' | 'SOURCE_ERROR' | 'SOURCE_STALE' | 'FUNDS_UNCONFIRMED' | 'OCCURRENCE_UNCONFIRMED' | 'COST_SCOPE_UNKNOWN' | 'COST_SCOPE_INVALID' | 'TIME_UNCONFIRMED' | 'INCOME_UNCONFIRMED' | 'CONTRIBUTION_UNKNOWN' | 'HORIZON_INVALID';
 export type PlanningMissing = { code: MissingCode; capability: CapabilityName; owner: 'basic' | 'pension' | 'funds' | 'events' | 'budget' | 'service'; field: string; message: string; kind: 'fact' | 'assumption' | 'read_error' | 'constraint' };
 export type Capability<T> = { status: 'ready'; value: T } | { status: 'blocked'; missing: PlanningMissing[] };
 export type RequirementResult = { before_hundredths: number; after_hundredths: number } & (
@@ -63,13 +38,13 @@ export type PredictionValue = { source: 'saved' | 'temporary'; contribution_cent
 export type AnnotationEffect = 'requirement_lower' | 'requirement_higher' | 'uncertain' | 'none';
 /** Read-only calculation coverage. Never part of ProfileUpdate or stored profile JSON. */
 export type PlanningAnnotation = {
-  id: string; reason_code: 'MEDICAL_YEARS_SHORT' | 'MEDICAL_FACTS_UNKNOWN' | 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'DEBT_EXCLUDED' | 'DEBT_BALANCE_CHANGED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'PENSION_COST_UNCONFIRMED' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
+  id: string; reason_code: 'INCOME_INCOMPLETE' | 'TIME_PENDING' | 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'DEBT_EXCLUDED' | 'DEBT_BALANCE_CHANGED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
   actionable?: boolean;
   message: string; effect: AnnotationEffect; treatment: 'omitted' | 'assumed_extra' | 'not_used' | 'included';
   source_ids: string[]; missing_fields: string[];
   refinement: { owner: PlanningMissing['owner']; field: string; event_id?: string };
 };
-export type PlanningContext = { generation: string; revision: number | null; today: string; model_version: 'basic-1' | 'basic-2'; modules: { planning: boolean; wealth: boolean }; start: { kind: 'live'; snapshot_id: string | null; revision: number | null; date: string | null } | { kind: 'simulation'; id: string; date: string | null }; monetary_basis_date: string | null; source: 'saved' | 'temporary'; write_version: number };
-export type BasicCapabilities = { annotations?: PlanningAnnotation[]; context: PlanningContext; funds: Capability<{ available_cents: string; restricted_cents: string; debt_cents: string; date: string; kind: 'live' | 'simulation' }>; requirement: Capability<RequirementValue>; prediction: Capability<PredictionValue>; pension: Capability<{ included: boolean; start_month: string | null; monthly_cents: string | null }> };
+export type PlanningContext = { generation: string; revision: number | null; today: string; model_version: 'simplified-1'; modules: { planning: boolean; wealth: boolean }; start: { kind: 'live'; snapshot_id: string | null; revision: number | null; date: string | null } | { kind: 'simulation'; id: string; date: string | null }; monetary_basis_date: string | null; source: 'saved' | 'temporary'; write_version: number };
+export type BasicCapabilities = { annotations?: PlanningAnnotation[]; context: PlanningContext; funds: Capability<{ available_cents: string; restricted_cents: string; debt_cents: string; date: string; kind: 'live' | 'simulation' }>; requirement: Capability<RequirementValue>; prediction: Capability<PredictionValue>; pension: Capability<{ included: boolean; start_month: string | null; monthly_cents: string | null; incomplete_ids?: string[] }>; reset_reasons?: import('./plan-simplified-contract.ts').ResetReasonV1[] };
 /** One native read transaction; disabled sources are represented without opening wealth readers. */
 export type PlanningSources = { generation: string; write_version: number; today: string; modules: { planning: boolean; wealth: boolean }; profile: Read<ProfileState>; snapshot: Read<Snapshot | null>; accounts: Read<Account[]>; review: Read<PlanReview>; incomes: Read<Income[]> };

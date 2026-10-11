@@ -13,23 +13,23 @@ export const yuan = (cents: string | number) => `¥${(Number(cents) / 100).toLoc
 export type Tone = 'good' | 'warn' | 'bad' | 'wait';
 export type Say = { tone: Tone; headline: string; sub: string };
 
-/** Example numbers to start from (clearly labelled in the page); social insurance is counted inside the spending figures. */
+/** Example numbers to start from (clearly labelled in the page); all entered cash expenses are counted inside the spending figures. */
 export function guidedDraft(): CareerDraft {
   const d = careerDraft();
-  for (const stage of [d.gap, d.recovery]) { stage.pension = 'unchanged'; stage.insurance = { monthly_cents: '0', included: true }; }
+  for (const stage of [d.gap, d.recovery]) { stage.insurance = { monthly_cents: '0', included: true }; }
   d.gap.costs = []; d.recovery.costs = [];
   d.recovery.monthly_cents = '600000';
   return d;
 }
-/** Conservative starting assumption, shown on the page and changeable: no state pension, no housing fund or personal pension. */
+/** Conservative starting assumption, shown on the page and changeable: no future income or restricted asset releases. */
 export const guidedIncome = (sources: PlanningSources): IncomeDraft => ({ ...incomeDraft(sources), mode: 'excluded', excludePools: true });
 
 const reasonPlain = (r: Reason | null, age: number | null): string =>
-  r === 'goal' ? `到${age ?? '目标'}岁退休时，钱就不够退休后花了` : r === 'cash' ? '不工作期间钱就先花光了' : r === 'prefix' ? '前面已经有一笔付不起，后面再多攒也补不回来' : '条件还没填完整';
+  r === 'goal' ? `到${age === null ? '目标月份' : `${age}岁`}退休时，钱就不够退休后花了` : r === 'cash' ? '不工作期间钱就先花光了' : r === 'prefix' ? '前面已经有一笔付不起，后面再多攒也补不回来' : '条件还没填完整';
 
 export function sayRest(x: MaxGap, age: number | null): Say {
-  if (x.status === 'found' && x.ranges) return { tone: 'warn', headline: `最长能撑 ${x.months} 个月，但不是越短越稳`, sub: `可行的长度只有：${x.ranges.map(r => r.from === r.to ? `${r.from} 个月` : `${r.from}–${r.to} 个月`).join('、')}。更短的反而不行，通常是补助、补偿金或缴费年限造成的。` };
-  if (x.status === 'found' && x.limit === 'end') return { tone: 'good', headline: '一直不工作到退休前，钱也够', sub: `在这些条件下，一直到你定的${age ?? ''}岁退休前都撑得住。` };
+  if (x.status === 'found' && x.ranges) return { tone: 'warn', headline: `最长能撑 ${x.months} 个月，但不是越短越稳`, sub: `可行的长度只有：${x.ranges.map(r => r.from === r.to ? `${r.from} 个月` : `${r.from}–${r.to} 个月`).join('、')}。更短的反而不行，通常是补助、补偿金或付款时间造成的。` };
+  if (x.status === 'found' && x.limit === 'end') return { tone: 'good', headline: '一直不工作到退休前，钱也够', sub: `在这些条件下，一直到你定的${age === null ? '目标月份' : `${age}岁`}退休前都撑得住。` };
   if (x.status === 'found') return { tone: x.months >= 12 ? 'good' : 'warn', headline: `最多能撑 ${x.months} 个月`, sub: `再长，${reasonPlain(x.limit as Reason, age)}。` };
   if (x.status === 'none') return { tone: 'bad', headline: '按这个条件，保不住原来的退休目标', sub: `就算不空窗也不行：${reasonPlain(x.reason, age)}。可以试试：找到工作后多攒一点、晚几年退休，或把退休后的花销降下来。` };
   return { tone: 'wait', headline: '还算不出来', sub: x.message };
@@ -71,7 +71,7 @@ export function restLevers(sources: PlanningSources, draft: CareerDraft): Lever[
   const up = structuredClone(draft); if (up.recovery.monthly_cents !== null) { up.recovery.monthly_cents = String(Number(up.recovery.monthly_cents) + 100_000); row('找到新工作后，每月多攒 ¥1,000', maxGap(sources, up)); }
   const less = structuredClone(draft); if (less.gap.spend_cents !== null && Number(less.gap.spend_cents) >= 100_000) { less.gap.spend_cents = String(Number(less.gap.spend_cents) - 100_000); row('不工作期间，每月少花 ¥1,000', maxGap(sources, less)); }
   const later = structuredClone(sources);
-  if (later.profile.status === 'ready' && later.profile.value.saved?.profile.retire.target_age != null) { later.profile.value.saved.profile.retire.target_age += 1; row('退休晚一年', maxGap(later, draft)); }
+  if (later.profile.status === 'ready' && later.profile.value.saved?.profile.retire.simplified.time.target_month != null) { const time = later.profile.value.saved.profile.retire.simplified.time; time.target_month = careerMonth(monthOf(time.target_month!) + 12); row('退休晚一年', maxGap(later, draft)); }
   return out;
 }
 
@@ -85,7 +85,8 @@ export function realGuidedDefaults(sources: PlanningSources, today: string): Gui
   const b = p?.retire.basic ?? null;
   const d = guidedDraft();
   d.transition_month = careerMonth(monthOf(today) + 1);
-  d.gap_months = 6; d.gap.income_cents = '0'; d.gap.spend_cents = null; d.recovery.monthly_cents = null;
+  d.gap_months = 6; d.gap.income_cents = null; d.gap.spend_cents = null; d.recovery.monthly_cents = null;
+  d.gap.insurance={monthly_cents:null,included:false};d.recovery.insurance={monthly_cents:null,included:false};
   const costs = structuredClone(b?.contribution_costs ?? []);
   d.gap.costs = structuredClone(costs); d.recovery.costs = structuredClone(costs);
   const from: GuidedDefaults['from'] = { recovery: null };

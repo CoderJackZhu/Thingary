@@ -1,11 +1,10 @@
 //! 职业变化试算的隔离原生验收夹具（只允许路径含 local.thingary.career.acceptance.*）：通过真实 Store
-//! 建立虚构的账户、盘点、收入、完整北京社保资料和一份已保存的基础退休计划（目标 55 岁、退休后每月 6000 元、
+//! 建立虚构的账户、盘点、收入、一份已保存的通用退休计划（目标 2049-10、退休后每月 6000 元、
 //! 每月能存 3000 元、不计退休收入）；不触碰正式库。
 use std::path::PathBuf;
 use thingary_lib::{
     plan_basic::Update,
     plan_income::{Fields, Save},
-    plan_profile::{Assumptions, Overrides, Profile, ProfileSave, Retire},
     storage::Store,
     wealth::{AccountFields, AccountSave, EntryInput, SnapshotSave},
 };
@@ -105,58 +104,21 @@ fn main() {
         )
         .unwrap();
     }
-    let profile = Profile {
-        birth_month: Some("1994-10".into()),
-        worker: Some("male".into()),
-        region: Some("beijing".into()),
-        paid_months: Some(96),
-        medical_paid_months: None,
-        medical_local_paid_months: None,
-        medical_local_required_months: None,
-        medical_required_months: None,
-        medical_topup_cents: None,
-        account_balance_cents: Some("20000000".into()),
-        base_cents: Some("2000000".into()),
-        past_index_hundredths: Some(100),
-        flex_months: Some(0),
-        personal_pension_annual_cents: Some("0".into()),
-        marginal_tax_hundredths: Some(1000),
-        assumptions: Assumptions {
-            inflation_hundredths: 200,
-            wage_growth_hundredths: 200,
-            pp_return_hundredths: 200,
-        },
-        overrides: Overrides::default(),
-        retire: Retire::default(),
-    };
-    let saved = s
-        .plan_profile_save(
-            &ProfileSave {
-                request_id: rid(50),
-                generation: s.generation(),
-                expected_revision: None,
-                profile,
-            },
-            today,
-        )
-        .unwrap();
-    // One saved basic plan: retire at 55, 6 000/month afterwards, 3 000/month saved now, no retirement income counted.
     let mut update: Update = serde_json::from_value(serde_json::json!({
-        "request_id": rid(51), "generation": s.generation(), "expected_revision": saved.revision, "section": "basic",
-        "fields": {
-            "birth_month": "1994-10", "spend_cents": "600000", "target_age": 55, "horizon_age": 90, "mode": "traditional",
+        "request_id": rid(51), "generation": s.generation(), "expected_revision": null, "section": "setup",
+        "fields": {"basic": {
+            "spend_cents": "600000", "mode": "traditional",
             "real_return_before_hundredths": 0, "real_return_after_hundredths": 0, "volatility_hundredths": 500,
-            "emergency_months": 0, "inflation_hundredths": 0, "monetary_basis_date": "2026-09-30", "confirm_legacy_replacement": false,
+            "emergency_months": 0, "inflation_hundredths": 0, "monetary_basis_date": "2026-09-30",
             "basic": { "contract_version": 1,
                 "start": { "kind": "simulation", "id": "career-trial-simulation", "available_cents": "31100000", "date": "2026-09-30", "notes": "虚构验收，不是真实资金" },
                 "contribution": { "id": "career-trial-contribution", "monthly_cents": "300000" },
-                "retirement_income": { "mode": "excluded", "selected": [] },
-                "pension_contributions": { "start_month": null, "stop_month": null, "base_cents": null },
-                "contribution_costs": [], "retirement_costs": [] }
+                "contribution_costs": [], "retirement_costs": [] }},
+            "budget":null,"funds":null,"simplified":{"contract_version":1,"time":{"reference":null,"target_month":"2049-10","horizon_month":"2084-09"},"income_mode":"excluded","future_incomes":[]}
         }
     }))
     .unwrap();
     update.generation = s.generation();
     s.plan_profile_update(&update, today).unwrap();
-    println!("Fictional fixture: 2 accounts, 5 check-ins, 4 incomes, Beijing pension profile, saved basic plan (55, 6000/month, saves 3000/month)");
+    println!("Fictional fixture: 2 accounts, 5 check-ins, 4 incomes, saved generic plan (2049-10, 6000/month, saves 3000/month)");
 }

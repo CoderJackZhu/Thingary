@@ -1,7 +1,7 @@
 // 退休风险实验室（纯函数）：市场路径模拟、压力测试、两张决策矩阵与崩盘路径。
 // 全程「今天的钱」（实际口径）：实际收益率取对数正态、中位数等于假设收益率；不建模通胀的随机波动。
 import { elapsedMonths } from './plan-core.ts';
-import { outcome, project, scaleSaving, scaleSpend, table } from './plan-ledger.ts';
+import { outcome, project, scaleSaving, scaleSpend, table, timeLabel, ageAt } from './plan-ledger.ts';
 import type { Outcome, Plan } from './plan-ledger.ts';
 
 const rate = (h: number) => h / 10000;
@@ -35,7 +35,9 @@ export type MonteCarlo = {
   /** 至少一半路径达成 FI 时的中位数 FI 月龄，否则为 null。 */
   median_fi_month: number | null;
   /** 各取样点的年龄（岁，可带小数）与各百分位的资产；最后一个取样点是规划终点。 */
-  ages: number[];
+  ages: (number | null)[];
+  months: number[];
+  calendar_months: string[];
   bands: Bands;
   final: { p10: number; p25: number; p50: number; p75: number; p90: number };
 };
@@ -98,7 +100,7 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; sign
   return {
     n, success_rate: covered / n,
     median_fi_month: reached.length >= Math.ceil(n / 2) ? reached[Math.floor(reached.length / 2)] : null,
-    ages: offsets.map(offset => (P.now_months + offset) / 12), bands,
+    ages: offsets.map(offset => ageAt(P, P.now_months + offset) === null ? null : ageAt(P, P.now_months + offset)! / 12), months: offsets.map(offset => P.now_months + offset), calendar_months: offsets.map(offset => timeLabel(P, P.now_months + offset)), bands,
     final: { p10: quantile(endings, 0.1), p25: quantile(endings, 0.25), p50: quantile(endings, 0.5), p75: quantile(endings, 0.75), p90: quantile(endings, 0.9) },
   };
 }
@@ -193,7 +195,7 @@ export function largestRisk(results: StressResult[]): StressResult | null {
 
 // ---- 决策矩阵 ----
 export type Cell = { fi_month: number | null; retire_month: number | null; funded_at_goal: boolean; shortfall_at_goal: number; at_horizon: number; failed: boolean };
-export type Matrix = { rows: number[]; cols: number[]; cells: Cell[][]; base_row: number | null; base_col: number | null };
+export type Matrix = { column_kind?: 'month' | 'age'; column_labels?: string[]; rows: number[]; cols: number[]; cells: Cell[][]; base_row: number | null; base_col: number | null };
 
 const cellOf = (P: Plan, year: number): Cell => { const o = evaluate(P, year); return { fi_month: o.fi_month, retire_month: o.retire_month, funded_at_goal: o.funded_at_goal, shortfall_at_goal: o.shortfall_at_goal, at_horizon: o.at_horizon, failed: o.failure_month !== null || o.shortfall_month !== null }; };
 /** Five equally spaced, nonnegative choices including the exact current amount.
@@ -220,6 +222,7 @@ export function contributionReturnMatrix(P: Plan, year: number): Matrix {
 
 /** A symmetric two-year age grid, bounded by the available planning years. */
 export function ageSpendingMatrix(P: Plan, year: number): Matrix {
+  if (P.age_reference !== undefined) return targetSpendingMatrix(P, year);
   const target = Math.round(P.target_months / 12);
   const first = Math.floor(P.now_months / 12) + 1, last = Math.floor(P.horizon_months / 12) - 1;
   const ages = [...new Set(Array.from({ length: 5 }, (_, i) => Math.max(first, Math.min(last, target + (i - 2) * 2))))].sort((a, b) => a - b);
@@ -232,9 +235,18 @@ export function ageSpendingMatrix(P: Plan, year: number): Matrix {
   }), year);
 }
 
+/** General plans vary an explicit target month, retaining its exact baseline month. */
+export function targetSpendingMatrix(P: Plan, year: number): Matrix {
+  const target = P.target_months, last = P.horizon_months - 1;
+  const months = [...new Set([-24, -12, 0, 12, 24].map(d => Math.max(P.now_months, Math.min(last, target + d))))].sort((a, b) => a - b);
+  const t = table({ ...P, spend_flows: undefined }), index = Math.max(0, Math.min(t.spend.length - 1, target - P.now_months)), budget = t.spend[index] ?? 0;
+  const result = matrixFor(amountWindow(budget, budget), months, budget, target, (spend, month) => ({ ...(budget ? scaleSpend(P, spend / budget) : { ...P, items: [{ id: 'matrix-budget', label: '比较预算', monthly_cents: spend, start_age: null, end_age: null, inflation_hundredths: null, essential: true }] }), target_months: month }), year);
+  return { ...result, column_kind: 'month', column_labels: months.map(m => timeLabel(P, m)) };
+}
+
 // ---- 崩盘路径 ----
 export type SorrId = 'base' | 'shock-first' | 'shock-last';
-export type SorrPath = { id: SorrId; label: string; years: number[]; path: number[]; final: number; survived: boolean; failure_age: number | null; shortfall_age: number | null };
+export type SorrPath = { id: SorrId; label: string; years: number[]; months: number[]; calendar_months: string[]; path: number[]; final: number; survived: boolean; failure_age: number | null; shortfall_age: number | null };
 
 /** Sequence risk isolates timing: both stress runs contain exactly one −30% year
  * and the same remaining returns. Move that year from the start to the end.
@@ -273,11 +285,11 @@ export function sorr(P: Plan, year: number): SorrPath[] | null {
     } });
     const result = outcome(P, projection);
     return {
-      id: run.id, label: run.label, years: offsets.map(offset => (retirement + offset) / 12),
+      id: run.id, label: run.label, months: offsets.map(o => retirement + o), calendar_months: offsets.map(o => timeLabel(P, retirement + o)), years: offsets.map(offset => (retirement + offset) / 12),
       path: offsets.map(offset => Math.max(0, projection.assets[retirement - P.now_months + offset])),
       final: Math.max(0, result.at_horizon), survived: result.success,
-      failure_age: result.failure_month === null ? null : Math.floor(result.failure_month / 12),
-      shortfall_age: result.shortfall_month === null ? null : Math.floor(result.shortfall_month / 12),
+      failure_age: result.failure_month === null ? null : ageAt(P, result.failure_month) === null ? null : Math.floor(ageAt(P, result.failure_month)! / 12),
+      shortfall_age: result.shortfall_month === null ? null : ageAt(P, result.shortfall_month) === null ? null : Math.floor(ageAt(P, result.shortfall_month)! / 12),
     };
   });
 }

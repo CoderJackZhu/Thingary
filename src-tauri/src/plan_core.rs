@@ -46,14 +46,6 @@ pub struct Occurrence {
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CostRule {
-    pub phase_id: String,
-    pub source_id: String,
-    pub included: bool,
-    pub reference_cents: String,
-}
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct DebtRepayment {
     pub account_id: String,
     pub recorded_on: String,
@@ -113,18 +105,21 @@ pub struct Core {
     pub contract_version: u32,
     pub monetary_basis_date: String,
     pub fund_rules: Vec<FundRule>,
-    pub hpf_monthly_cents: Option<String>,
-    #[serde(default)]
-    pub personal_pension_account_id: Option<String>,
-    #[serde(default)]
-    pub personal_pension_balance_confirmed: bool,
-    // Historical profile bytes only; never an active cost-input path.
-    #[serde(default)]
-    pub costs: Vec<CostRule>,
+    pub releases: Vec<FundRelease>,
     pub occurrences: Vec<Occurrence>,
-    // Omitted when absent: historical profile request serialization remains byte-for-byte compatible.
+    // Independently saved debt arrangements; absent means no declared arrangement.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub debt_repayments: Vec<DebtRepayment>,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FundRelease {
+    pub id: String,
+    pub account_id: String,
+    pub month: String,
+    pub net_cents: Option<String>,
+    pub estimated: bool,
+    pub excludes_future_deposits: bool,
 }
 impl Occurrence {
     /// Only a blank saved occurrence can be retracted. Zero amounts are actual facts.
@@ -155,7 +150,7 @@ impl Core {
             return Err(Error::new("PLANNING_VERSION", "不支持的规划契约版本"));
         }
         date(&self.monetary_basis_date)?;
-        if self.fund_rules.len() > 500 || self.occurrences.len() > 20 || !self.costs.is_empty() {
+        if self.fund_rules.len() > 500 || self.occurrences.len() > 20 {
             return Err(bad());
         }
         if self.debt_repayments.len() > 500 {
@@ -168,11 +163,37 @@ impl Core {
                 return Err(bad());
             }
         }
-        if let Some(v) = &self.hpf_monthly_cents {
-            amount(v)?;
+        if self.releases.len() > 500 {
+            return Err(bad());
         }
-        if let Some(v) = &self.personal_pension_account_id {
-            id(v)?;
+        let mut release_ids = HashSet::new();
+        let mut release_accounts = HashSet::new();
+        for release in &self.releases {
+            id(&release.account_id)?;
+            if release.id.is_empty()
+                || release.id.len() > 120
+                || !release_ids.insert(&release.id)
+                || !release_accounts.insert(&release.account_id)
+            {
+                return Err(bad());
+            }
+            crate::plan_simplified::month(&Some(release.month.clone()))?;
+            if let Some(v) = &release.net_cents {
+                amount(v)?;
+                if v.parse::<i64>()
+                    .map(|n| n.to_string() != *v)
+                    .unwrap_or(true)
+                {
+                    return Err(bad());
+                }
+            }
+            if !self.fund_rules.iter().any(|f| {
+                f.account_id == release.account_id
+                    && f.availability == "restricted"
+                    && f.share_hundredths > 0
+            }) {
+                return Err(bad());
+            }
         }
         let mut funds = HashSet::new();
         for f in &self.fund_rules {
@@ -255,8 +276,8 @@ impl Core {
         for d in &self.debt_repayments {
             refs.push(("account", d.account_id.as_str()));
         }
-        if let Some(v) = &self.personal_pension_account_id {
-            refs.push(("account", v.as_str()));
+        for release in &self.releases {
+            refs.push(("account", release.account_id.as_str()));
         }
         for f in &self.fund_rules {
             refs.push(("account", f.account_id.as_str()));
@@ -280,6 +301,16 @@ impl Core {
         refs
     }
     pub fn validate_references(&self, c: &Connection, live: bool) -> Result<()> {
+        for release in &self.releases {
+            let asset: bool = c.query_row(
+                "SELECT EXISTS(SELECT 1 FROM fin_accounts WHERE id=?1 AND side='asset')",
+                [&release.account_id],
+                |r| r.get(0),
+            )?;
+            if !asset {
+                return Err(bad());
+            }
+        }
         for d in &self.debt_repayments {
             let liability: bool = c.query_row(
                 "SELECT EXISTS(SELECT 1 FROM fin_accounts WHERE id=?1 AND side='liability')",

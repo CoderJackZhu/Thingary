@@ -3,6 +3,8 @@
 // FIRE／传统两种计划类型、所需资金下滑曲线、逐年快照与覆盖拆分。名义值只用于展示：实际值 × (1+通胀)^年数。
 import type { Pension, Spend } from './plan-fire.ts';
 import { pensionIncomeStart } from './plan-fire.ts';
+import { incomeAtMonthV1, monthTextV1, monthIndexV1 } from './plan-simplified.ts';
+import type { FutureIncomeV1, TimeInputV1 } from './plan-simplified-contract.ts';
 import { elapsedMonths } from './plan-core.ts';
 import type { PlanningAnnotation } from './plan-basic-contract.ts';
 import type { EventCoverage } from './plan-coverage.ts';
@@ -53,6 +55,9 @@ export type Plan = {
   volatility_hundredths: number;
   items: SpendItem[];
   incomes: IncomeItem[];
+  future_incomes?: FutureIncomeV1[];
+  transfers?: { id: string; account_id: string; month: number; cents: number; nominal_cents?: number }[];
+  age_reference?: TimeInputV1['reference'];
   /** 国家养老金：在某个辞职年龄（月）下的月养老金与一次性解锁额，由养老金计算器给出。 */
   pension_at: (ageMonths: number) => Pension;
   spends: Spend[];
@@ -89,6 +94,16 @@ export function table(P: Plan): Table {
     const from = Math.max(0, it.start_age * 12 - P.now_months);
     const to = it.end_age === null ? n : Math.min(n, it.end_age * 12 - P.now_months);
     for (let i = from; i < to; i++) income[i] += it.indexed ? it.monthly_cents : it.monthly_cents / nominalFactor(P, P.now_months + i);
+  }
+  if (P.future_incomes?.length && P.anchor_date && P.monetary_basis_date) {
+    for (let offset = 0; offset < n; offset++) {
+      const month = monthTextV1(monthIndexV1(P.anchor_date) + offset);
+      for (const item of P.future_incomes) {
+        const amount = incomeAtMonthV1(item, month, P.monetary_basis_date.slice(0, 7), P.inflation_hundredths);
+        if (amount === null) throw new Error('已编译收入仍缺少金额基准条件');
+        income[offset] += amount;
+      }
+    }
   }
   if (n && P.first_month_fraction !== undefined) {
     // Regular income/budget uses remaining days; known monthly flows remain due once.
@@ -151,6 +166,23 @@ export function oneOffsOf(P: Plan): Float64Array {
   return s;
 }
 
+export function transfersOf(P: Plan): Float64Array {
+  const n = Math.max(0, P.horizon_months - P.now_months), result = new Float64Array(n);
+  for (const t of P.transfers ?? []) if (t.month >= P.now_months && t.month < P.horizon_months) result[t.month - P.now_months] += t.nominal_cents === undefined ? t.cents : t.nominal_cents / (1 + P.inflation_hundredths / 10000) ** ((monthIndexV1(timeLabel(P, t.month)) - monthIndexV1(P.monetary_basis_date!)) / 12);
+  return result;
+}
+/** Calendar label for general plans; age is shown only after a new explicit reference. */
+export function timeLabel(P: Plan, month: number): string {
+  if (!P.anchor_date) return `${Math.floor(month / 12)} 岁`;
+  const m = monthIndexV1(P.anchor_date) + month - P.now_months;
+  return monthTextV1(m);
+}
+export function ageAt(P: Plan, month: number): number | null {
+  if (P.age_reference === undefined) return month;
+  if (!P.age_reference || !P.anchor_date) return null;
+  return P.age_reference.age_months + monthIndexV1(P.anchor_date) + month - P.now_months - monthIndexV1(P.age_reference.month);
+}
+
 /** Known plan payments happen before any month-end contribution or income.
  * Saving/spending totals already contain these amounts; use them only to order the same flows. */
 type PaymentPhase = 'accumulation' | 'retired';
@@ -190,7 +222,7 @@ export const brokeAfter = (a: number, gap: number) => a < 0 || (a <= 0 && gap > 
 export function required(P: Plan, from: number, retire: number = from, pension?: Pension): number {
   const n = P.horizon_months - from;
   if (n <= 0) return 0;
-  const T = table(P), pen = pension ?? P.pension_at(retire), out = oneOffsOf(P), due = startPaymentsOf(P, 'retired');
+  const T = table(P), pen = pension ?? P.pension_at(retire), out = oneOffsOf(P), due = startPaymentsOf(P, 'retired'), transfers = transfersOf(P);
   const base = from-P.now_months;
   const unlock = P.input_mode === 'basic' ? Math.max(P.now_months, pen.unlock_age_months) : pen.unlock_age_months;
   let need = 0;
@@ -199,7 +231,7 @@ export function required(P: Plan, from: number, retire: number = from, pension?:
     const upfront=due[i] ?? 0, fraction=i===0 ? P.first_month_fraction ?? 1 : 1;
     const income=T.income[i]+(m>=pensionIncomeStart(pen) ? pen.monthly_cents*fraction : 0);
     const receivesPool = P.input_mode === 'basic' ? m === unlock : (k === 0 && unlock <= from) || m === unlock;
-    const lump = receivesPool ? pen.lump_cents : 0;
+    const lump = (receivesPool ? pen.lump_cents : 0) + (transfers[i] ?? 0);
     const g=monthlyGrowth(P.r_after_hundredths)**fraction;
     // A month begins after its one-off; known payments precede unlock and income.
     need=Math.max(upfront,upfront-lump+(need+(out[i+1] ?? 0)+T.spend[i]-upfront-income)/g,0);
@@ -218,14 +250,14 @@ export function requiredAt(P: Plan): Float64Array {
       // Basic pension/pool conditions are fixed independently of retirement.
       // One backwards pass checks the same cash ordering as required(), while
       // an already unlocked pool is cash and never offsets requirements again.
-      const T = table(P), pen = P.pension_at(P.target_months), out = oneOffsOf(P), due = startPaymentsOf(P, 'retired');
+      const T = table(P), pen = P.pension_at(P.target_months), out = oneOffsOf(P), due = startPaymentsOf(P, 'retired'), transfers = transfersOf(P);
       const unlock = Math.max(P.now_months, pen.unlock_age_months);
       let next = 0;
       for (let t = n - 1; t >= 0; t--) {
         const m = P.now_months + t, fraction = t === 0 ? P.first_month_fraction ?? 1 : 1, upfront = due[t];
         const income = T.income[t] + (m >= pensionIncomeStart(pen) ? pen.monthly_cents * fraction : 0);
         const rest = (next + out[t + 1] + T.spend[t] - upfront - income) / monthlyGrowth(P.r_after_hundredths) ** fraction;
-        const lump = m === unlock ? pen.lump_cents : 0;
+        const lump = (m === unlock ? pen.lump_cents : 0) + (transfers[t] ?? 0);
         next = Math.max(upfront, upfront - lump + rest, 0);
         s[t] = next;
       }
@@ -238,7 +270,7 @@ export function requiredAt(P: Plan): Float64Array {
 export type Row = {
   k: number;
   /** 行首月龄、整岁标签、日历年份。 */
-  start_month: number; age: number; year: number;
+  start_month: number; age: number | null; year: number; calendar_month?: string;
   phase: 'accumulation' | 'retired';
   start: number; end: number;
   contribution: number;
@@ -292,11 +324,11 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
   const basicPension = P.input_mode === 'basic' ? P.pension_at(P.target_months) : null;
   const rows: Row[] = [];
   let row: Row | null = null;
-  const cap = Math.min(P.search_cap_months, P.horizon_months), reqArr = requiredAt(P), savings = savingsOf(P), due = startPaymentsOf(P), retiredDue = startPaymentsOf(P, 'retired');
+  const cap = Math.min(P.search_cap_months, P.horizon_months), reqArr = requiredAt(P), savings = savingsOf(P), due = startPaymentsOf(P), retiredDue = startPaymentsOf(P, 'retired'), transfers = transfersOf(P);
   for (let t = 0; t < N; t++) {
     const m = P.now_months + t;
     if (t % 12 === 0) {
-      row = { k: t / 12, start_month: m, age: Math.floor(P.now_months / 12) + t / 12, year: rowYear(todayYear, t / 12), phase: retire === null ? 'accumulation' : 'retired', start: a + (t === 0 ? oneOff[0] : 0), end: a, contribution: 0, income: 0, unlock: 0, spend: 0, essential: 0, oneoff: 0, withdrawal: 0, unfunded: 0, essential_unfunded: 0 };
+      row = { k: t / 12, start_month: m, age: ageAt(P, m) === null ? null : Math.floor(ageAt(P, m)! / 12), year: rowYear(todayYear, t / 12), calendar_month: P.anchor_date ? timeLabel(P, m) : undefined, phase: retire === null ? 'accumulation' : 'retired', start: a + (t === 0 ? oneOff[0] : 0), end: a, contribution: 0, income: 0, unlock: 0, spend: 0, essential: 0, oneoff: 0, withdrawal: 0, unfunded: 0, essential_unfunded: 0 };
       rows.push(row);
     }
     const r = row!;
@@ -320,14 +352,15 @@ export function project(P: Plan, todayYear: number, opts: ProjectOptions = {}): 
     // Known month-start payments precede unlock, and each pool enters cash only once.
     const pool = basicPension ?? pension;
     if (!unlocked && pool && pool.unlock_age_months <= m && (basicPension !== null || retire !== null)) { unlocked = true; a += pool.lump_cents; r.unlock += pool.lump_cents; }
+    a += transfers[t] ?? 0; r.unlock += transfers[t] ?? 0;
     const afterUnlock = a;
     if (retire === null) {
-      const c = savings[t];
+      const c = savings[t], generalIncome = P.future_incomes?.length ? T.income[t] : 0;
       // 现金不足照实保留，不因月底投入或后续月份恢复而抹去已发生的缺口。
       const growth = opts.annualReturnAt ? (1 + opts.annualReturnAt(t, 'accumulation')) ** (1 / 12) : gb;
-      a = (a > 0 ? a * growth ** (t === 0 ? P.first_month_fraction ?? 1 : 1) : a) + c + upfront;
+      a = (a > 0 ? a * growth ** (t === 0 ? P.first_month_fraction ?? 1 : 1) : a) + c + upfront + generalIncome;
       if (failure === null && a < 0) failure = m;
-      r.contribution += c;
+      r.contribution += c; r.income += generalIncome;
     } else {
       const spend = T.spend[t], essential = T.essential[t];
       const income = T.income[t] + (m >= pensionIncomeStart(pension!) ? pension!.monthly_cents * (t === 0 ? P.first_month_fraction ?? 1 : 1) : 0);
@@ -396,14 +429,14 @@ export function glide(P: Plan, proj: Projection): number[] {
 
 /** Coast：在 month 月龄手里至少有多少，从此一分不存也能在目标年龄达标。 */
 function accumulationNeed(P: Plan, from: number, goal: number, atGoal: number, saving: Float64Array): number {
-  const due = startPaymentsOf(P), out = oneOffsOf(P);
+  const due = startPaymentsOf(P), out = oneOffsOf(P), transfers = transfersOf(P), income = P.future_incomes?.length ? table(P).income : null;
   const pool = P.input_mode === 'basic' ? P.pension_at(P.target_months) : null;
   let need = atGoal;
   for (let m = goal - 1; m >= from; m--) {
     const t = m - P.now_months, upfront = due[t] ?? 0;
     const g = monthlyGrowth(P.r_before_hundredths) ** (t === 0 ? P.first_month_fraction ?? 1 : 1);
-    const lump = pool && m === Math.max(P.now_months, pool.unlock_age_months) ? pool.lump_cents : 0;
-    need = Math.max(upfront, upfront - lump + (need + (out[t + 1] ?? 0) - (saving[t] ?? 0) - upfront) / g, 0);
+    const lump = (pool && m === Math.max(P.now_months, pool.unlock_age_months) ? pool.lump_cents : 0) + (transfers[t] ?? 0);
+    need = Math.max(upfront, upfront - lump + (need + (out[t + 1] ?? 0) - (saving[t] ?? 0) - (income?.[t] ?? 0) - upfront) / g, 0);
   }
   return need;
 }
@@ -419,6 +452,10 @@ export function coverageAt(P: Plan, proj: Projection, month: number): Coverage {
     const active = month >= s.start_age * 12 && (s.end_age === null || month < s.end_age * 12);
     return { id: s.id, label: s.label, monthly: active ? (s.indexed ? s.monthly_cents : s.monthly_cents / nominalFactor(P, P.now_months + i)) : 0, active };
   });
+  if (P.future_incomes?.length && P.anchor_date && P.monetary_basis_date) for (const item of P.future_incomes) {
+    const amount = incomeAtMonthV1(item, timeLabel(P, month), P.monetary_basis_date.slice(0, 7), P.inflation_hundredths);
+    items.push({ id: item.id, label: item.name, monthly: (amount ?? 0) * (i === 0 ? P.first_month_fraction ?? 1 : 1), active: item.start_month !== null && timeLabel(P, month) >= item.start_month && (item.end_month === null || timeLabel(P, month) <= item.end_month) });
+  }
   const retired = proj.retire_month !== null && month >= proj.retire_month;
   const pension = retired && month >= pensionIncomeStart(proj.pension!) ? proj.pension!.monthly_cents : 0;
   const spend = T.spend[i] ?? 0, essential = T.essential[i] ?? 0;

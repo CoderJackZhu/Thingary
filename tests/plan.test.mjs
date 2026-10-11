@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hpfSummary, incomeHpfTotals, STALE_MONTHS, ageText, changeSentence, estimateAccountCents, latestHpf, computeReview, fundsFrom, hundredthsToPct, pctToHundredths, quitAges, rateText, staleMonths, yearBefore } from '../src/plan.ts';
+import { hpfSummary, incomeHpfTotals, STALE_MONTHS, ageText, changeSentence, latestHpf, computeReview, hundredthsToPct, pctToHundredths, rateText, staleMonths, yearBefore } from '../src/plan.ts';
 
 // 与 src-tauri/src/plan_savings.rs 的单元测试使用同一组数值：预览不得和 Rust 口径漂移。
 const point = (id, date, prev, change, extra = {}) => ({ snapshot_id: id, date, notes: '', assets_cents: '0', liabilities_cents: '0', net_cents: '0', complete: true, missing: 0, compared_to: prev, scope_changed: false, change_cents: change === null ? null : String(change), hpf_change_cents: null, change_rate_hundredths: null, ...extra });
@@ -96,37 +96,17 @@ test('percent inputs convert to hundredths of a percent and back', () => {
   assert.deepEqual([200, 250, -100, 5].map(hundredthsToPct), ['2', '2.5', '-1', '0.05']);
 });
 
-test('housing fund start: sum of housing fund accounts in the latest check-in, monthly deposit from the newest income row', () => {
-  const entries = [{ kind: 'housing_fund', amount_cents: '1000' }, { kind: 'housing_fund', amount_cents: '500' }, { kind: 'cash', amount_cents: '9999' }, { kind: 'housing_fund', amount_cents: null }];
-  const incomes = [{ fields: { date: '2026-01-15', hpf_cents: '100' } }, { fields: { date: '2026-03-15', hpf_cents: '300' } }, { fields: { date: '2026-02-15', hpf_cents: '200' } }];
-  const r = fundsFrom(entries, incomes);
-  assert.deepEqual(r.funds, { hpf_balance_cents: '1500', hpf_monthly_cents: '300' });
-  assert.deepEqual(r.notes, []);
-  // 缺什么就说明按 0 计算，不静默当成已知。
-  assert.equal(fundsFrom(null, []).notes.length, 2);
-  assert.deepEqual(fundsFrom([{ kind: 'cash', amount_cents: '1' }], incomes).notes, ['最近盘点里没有公积金类账户，公积金余额按 0 计算。']);
+test('housing fund facts retain unknown balances and actual deposit values',()=>{
+ const total=incomeHpfTotals([{fields:{hpf_cents:'1000'}},{fields:{hpf_cents:null}}]);assert.deepEqual(total,{total:null,known:'1000',unknown:1});assert.match(hpfSummary(total.total,total.known,total.unknown,String),/未知/);
+ assert.equal(latestHpf([{fields:{date:'2026-10-01',hpf_cents:null}}]),'');
 });
-
-test('age wording and quit-age choices', () => {
-  assert.deepEqual([756, 757, 721].map(ageText), ['63 岁', '63 岁 1 个月', '60 岁 1 个月']);
-  // 现在 36 岁 4 个月、63 岁领取：40、45、…、60 岁。
-  assert.deepEqual(quitAges(436, 756), [40, 45, 50, 55, 60]);
-  assert.deepEqual(quitAges(756, 756), []);
-});
+test('age wording is display only', () => { assert.equal(ageText(402), '33 岁 6 个月'); });
 
 test('stale profile reminder counts whole months since the last save', () => {
   assert.equal(STALE_MONTHS, 6);
   assert.deepEqual([['2026-10-02T01:00:00Z', '2026-10-06'], ['2026-04-30T23:00:00Z', '2026-10-06'], ['2026-01-02T00:00:00Z', '2026-10-06'], ['2025-10-06T00:00:00Z', '2026-10-06'], ['2027-01-01T00:00:00Z', '2026-10-06']].map(([u, t]) => staleMonths(u, t)), [0, 6, 9, 12, 0]);
 });
 
-test('account estimate is months x base x 8%, rounded; the income default is the newest row\'s deposit', () => {
-  // 14 个月、基数 32 592 元：约 8% 进个人账户。
-  assert.equal(estimateAccountCents(14, '3259200'), '3650304');
-  assert.deepEqual([estimateAccountCents(0, '3259200'), estimateAccountCents(12, ''), estimateAccountCents(1, '7270')], ['0', '0', '582']);
-  const row = (date, hpf) => ({ fields: { date, hpf_cents: hpf } });
-  assert.equal(latestHpf([row('2026-02-15', '100'), row('2026-04-15', '300'), row('2026-03-15', '200')]), '300');
-  assert.equal(latestHpf([]), '');
-});
 
 test('housing fund money withdrawn into cash counts as cash saving; without a counted fund account nothing is taken out', () => {
   const incomes = [pay('2026-02-15', 2_000_000, 300_000), pay('2026-03-15', 2_000_000, 300_000)];
@@ -152,7 +132,6 @@ test('I02: unknown deposits preserve arrival and saving; dependent figures alone
 });
 test('new income defaults only from the newest row; unknown never searches older history',()=>{
  const rows=[{fields:{date:'2026-08-01',hpf_cents:'20000'}},{fields:{date:'2026-09-01',hpf_cents:null}}];
- assert.equal(latestHpf(rows),'');assert.equal(fundsFrom(null,rows).funds.hpf_monthly_cents,null);rows[1].fields.hpf_cents='0';assert.equal(latestHpf(rows),'0');
 });
 test('spend typical values filter their own valid samples without changing saving or change stats',()=>{
  const points=[point('p0','2026-01-01',null,null),...['02','03','04','05'].map((m,n)=>point('p'+(n+1),`2026-${m}-01`,`2026-${String(n+1).padStart(2,'0')}-01`,100000,{hpf_change_cents:'0'}))];

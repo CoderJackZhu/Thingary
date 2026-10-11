@@ -7,7 +7,7 @@ export function referenceCareer({ start = 60_000_000, preMonths = 36, gap = 12, 
   lump = 0, benefit = 0, benefitMonths = 0, beforeRate = 0, afterRate = 0, inflation = 0,
   pension = 0, pensionStartsAfterRetirement = 156, pensionIndexed = true, floor = null,
   accumulationMonths = 216, retirementMonths = 480, firstFraction = 1, retirementSpend = 375_000,
-  loanPayment = 0, loanMonths = 0, loanIncluded = false, unlock = null, lumps = [], retirementIncomes = null,
+  calendarIncomeOffset = 0, loanPayment = 0, loanMonths = 0, loanIncluded = false, unlock = null, lumps = [], retirementIncomes = null,
 } = {}) {
   const growth = (1 + beforeRate) ** (1 / 12), retirementGrowth = (1 + afterRate) ** (1 / 12);
   const rows = []; let balance = start, minimum = Infinity, firstFailure = null, floorMonth = null;
@@ -30,7 +30,7 @@ export function referenceCareer({ start = 60_000_000, preMonths = 36, gap = 12, 
   // Explicit test schedule uses months relative to the goal, including negative starts.
   const incomeAt = k => (retirementIncomes ?? [{ monthly: pension, start: pensionStartsAfterRetirement, end: null, indexed: pensionIndexed }])
     .filter(x => k >= x.start && (x.end === null || k < x.end))
-    .reduce((sum, x) => sum + x.monthly / (x.indexed ? 1 : (1 + inflation) ** ((accumulationMonths - 1 + firstFraction + k) / 12)), 0);
+    .reduce((sum, x) => sum + x.monthly / (x.indexed ? 1 : (1 + inflation) ** ((accumulationMonths - 1 + firstFraction + k + calendarIncomeOffset) / 12)), 0);
   let required = 0;
   for (let k = retirementMonths - 1; k >= 0; k--) {
     const pensionIncome = incomeAt(k);

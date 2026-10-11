@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { careerSources } from '../src/career-preview/fixtures.ts';
-import { careerPensionSources } from '../src/career-preview/pension-fixture.ts';
+import { inputs } from './helpers/career-benchmark.mjs';
 import { prepareIncomeScope } from '../src/career-preview/income-scope.ts';
 import { guidedDraft, guidedIncome, restLevers, sayLower, sayRest, saySwitch, yuan } from '../src/career-preview/guided-model.ts';
 import { maxGap, minWindow, missingItems } from '../src/plan-career-map.ts';
@@ -18,7 +18,7 @@ test('G01 the guided defaults are complete and visible: nothing is missing, soci
 });
 
 test('G02 a source with housing fund and personal pension still works under the guided defaults', () => {
-  const s = careerPensionSources(); s.profile.value.saved.profile.personal_pension_annual_cents = '1200000';
+  const {s}=inputs({unlock:{month:372,cents:1200000}});
   const x = scoped(s), r = maxGap(x.sources, x.draft);
   assert.equal(r.status, 'found');
 });
@@ -51,10 +51,18 @@ test('G06 lower and switch sentences', () => {
   const x = scoped();
   const d = structuredClone(x.draft); d.gap_months = 0; d.recovery.monthly_cents = '0';
   const low = sayLower(minWindow(x.sources, d), x.sources);
-  assert.match(low.headline, /2033-06/); assert.match(low.headline, /38 岁/);
+  assert.match(low.headline, /2033-06/); assert.doesNotMatch(low.headline,/岁/);
   assert.equal(sayLower({ status: 'already_met' }, x.sources).headline, '现在就可以');
   const sw = saySwitch(evaluateCareerScenario(x.sources, x.draft), '300000');
   assert.equal(sw.headline, `每月至少要攒 ${yuan(464286)}`); assert.equal(sw.tone, 'bad'); assert.match(sw.sub, /还差/);
   assert.equal(saySwitch(evaluateCareerScenario(x.sources, x.draft), '600000').tone, 'good');
   assert.equal(saySwitch(evaluateCareerScenario(x.sources, x.draft), null).tone, 'warn');
+});
+
+test('real guidance never imports fictional zero cash assumptions or an unconfirmed age',async()=>{
+ const {realGuidedDefaults}=await import('../src/career-preview/guided-model.ts');
+ const x=realGuidedDefaults(careerSources(),'2026-10-01');
+ assert.equal(x.draft.gap.income_cents,null);assert.equal(x.draft.gap.spend_cents,null);
+ assert.equal(x.draft.gap.insurance.monthly_cents,null);assert.equal(x.draft.recovery.insurance.monthly_cents,null);
+ assert.doesNotMatch(sayRest({status:'found',months:2,limit:'goal'},null).sub,/岁/);
 });

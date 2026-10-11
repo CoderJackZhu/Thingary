@@ -175,27 +175,9 @@
       "generation": "fictional-nonblocking",
       "saved": {
         "profile": {
-          "account_balance_cents": "5000000",
           "assumptions": {
-            "inflation_hundredths": 200,
-            "pp_return_hundredths": 200,
-            "wage_growth_hundredths": 200
+            "inflation_hundredths": 200
           },
-          "base_cents": "2000000",
-          "birth_month": "1990-06",
-          "flex_months": 0,
-          "marginal_tax_hundredths": 1000,
-          "overrides": {
-            "avg_wage_cents": null,
-            "base_lower_cents": null,
-            "base_upper_cents": null,
-            "hpf_rate_hundredths": null,
-            "notional_rate_hundredths": null
-          },
-          "paid_months": 48,
-          "past_index_hundredths": null,
-          "personal_pension_annual_cents": "1200000",
-          "region": "beijing",
           "retire": {
             "basic": {
               "contract_version": 1,
@@ -204,16 +186,7 @@
                 "monthly_cents": "800000"
               },
               "contribution_costs": [],
-              "pension_contributions": {
-                "base_cents": null,
-                "start_month": null,
-                "stop_month": null
-              },
               "retirement_costs": [],
-              "retirement_income": {
-                "mode": "excluded",
-                "selected": []
-              },
               "start": {
                 "kind": "live"
               }
@@ -237,18 +210,11 @@
                   "share_hundredths": 10000
                 }
               ],
-              "hpf_monthly_cents": null,
               "monetary_basis_date": "2026-10-10",
               "occurrences": [],
-              "personal_pension_account_id": null,
-              "personal_pension_balance_confirmed": false
+              "releases": []
             },
             "emergency_months": 6,
-            "horizon_age": 90,
-            "income_items": [],
-            "keep_paying_base_cents": "0",
-            "keep_paying_monthly_cents": "0",
-            "keep_paying_until_age": null,
             "life_events": [
               {
                 "cycle_years": 8,
@@ -265,7 +231,8 @@
                 "price_cents": "20000000",
                 "rent_saved_cents": "0",
                 "resale_cents": "3000000",
-                "until_age": 70
+                "time_unconfirmed": false,
+                "until_month": null
               }
             ],
             "mode": "traditional",
@@ -273,12 +240,20 @@
             "real_return_before_hundredths": 300,
             "rent_cents": "0",
             "setup_completed": true,
+            "simplified": {
+              "contract_version": 1,
+              "future_incomes": [],
+              "income_mode": "excluded",
+              "time": {
+                "horizon_month": "2076-10",
+                "reference": null,
+                "target_month": "2046-10"
+              }
+            },
             "spend_cents": "750000",
             "spend_items": [],
-            "target_age": 60,
             "volatility_hundredths": 500
-          },
-          "worker": "male"
+          }
         },
         "reference_issues": [],
         "revision": 2,

@@ -10,7 +10,7 @@ for (const [name, o] of cases) test(`independent reference: ${name}`, () => {
   const { s, d } = inputs(o), expected = referenceCareer({ ...o, unlock: null }), result = evaluateCareerScenario(s, d);
   assert.equal(result.prediction.status, 'ready', JSON.stringify(result.prediction));
   const v = result.prediction.value;
-  if (o.unlock) { assert.equal(v.plan.pension_at(v.plan.target_months).lump_cents, 0); assert.ok(v.plan.annotations.some(n => n.reason_code === 'POOL_NOT_USED')); }
+  if (o.unlock) {assert.equal(v.plan.transfers.length,0);assert.equal(v.plan.assets_cents,o.start??60000000);assert.equal(s.snapshot.value.entries.length,2);}
   // Compare every accumulation month's start/end, not merely the final integer month.
   for (let m = 0; m < expected.rows.length; m++) {
     near(v.projection.assets[m + (o.firstFraction === undefined ? 1 : 0)], expected.rows[m].start, `month ${m} opening`);
@@ -65,7 +65,7 @@ test('independent closed-form required contribution and one-cent boundary', () =
 test('independent local reference preserves unknown recovery without manufacturing long-term answers', () => {
   const { s, d } = inputs({ preMonths: 0, gap: 6, gapInsurance: 200_000 });
   const ref = referenceCareer({ preMonths: 0, gap: 6, gapInsurance: 200_000 });
-  d.gap_months = null; d.check_until_month = '2027-04'; d.recovery.pension = null;
+  d.gap_months = null; d.check_until_month = '2027-04';
   const result = evaluateCareerScenario(s, d);
   assert.equal(result.cash.value.minimum_cents, String(Math.round(ref.minimum)));
   assert.equal(result.cash.value.until_month, '2027-04');

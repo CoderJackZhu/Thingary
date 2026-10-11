@@ -2,8 +2,6 @@
 // 事实由 Rust 只读命令 plan_review 计算；这里的 computeReview 只给浏览器预览用，
 // 规则与 plan_savings.rs 一致，并由 tests/plan.test.mjs 用同一组数值核对。
 import type { Line } from './expenses.ts';
-import type { Profile as PensionProfile, Funds } from './plan-pension.ts';
-import type { Overrides, Region } from './plan-params.ts';
 import type { Point } from './wealth.ts';
 import type { BasicInputs } from './plan-basic-contract.ts';
 export type * from './plan-basic-contract.ts';
@@ -172,35 +170,19 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
 /** 与 Rust plan_profile::Profile 同形：计算用的资料加地区与参数覆盖。 */
 /** 退休与 FIRE 输入；缺省字段由后端补默认值。 */
 /** 退休支出项与收入项（日常生活预算另存在 spend_cents）；金额是整数分字符串，每月，今天的钱。 */
-export type StoredSpendItem = { id: string; label: string; monthly_cents: string; start_age: number | null; end_age: number | null; inflation_hundredths: number | null; essential: boolean };
-export type StoredIncomeItem = { id: string; label: string; monthly_cents: string; start_age: number; end_age: number | null; indexed: boolean };
-/** 大额计划（买房、买车、其他）：金额是今天的钱（整数分字符串），date 是计划购买月份。 */
+export type StoredSpendItem = { id: string; label: string; monthly_cents: string; start_month: string | null; end_month: string | null; inflation_hundredths: number | null; essential: boolean; time_unconfirmed: boolean };
 export type StoredLifeEvent = {
-  id: string; label: string; kind: 'house' | 'car' | 'other'; date: string; included: boolean;
-  price_cents: string; down_cents: string; extra_cents: string; loan_rate_hundredths: number; loan_years: number;
-  holding_cents: string; rent_saved_cents: string; cycle_years: number | null; until_age: number | null; resale_cents: string;
+ id: string; label: string; kind: 'house' | 'car' | 'other'; date: string; included: boolean;
+ price_cents: string; down_cents: string; extra_cents: string; loan_rate_hundredths: number; loan_years: number;
+ holding_cents: string; rent_saved_cents: string; cycle_years: number | null; until_month: string | null; time_unconfirmed: boolean; resale_cents: string;
 };
 export type RetireInputs = {
-  basic?: BasicInputs;
-  setup_completed?: boolean;
-  core?: PlanningCore | null;
-  spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; horizon_age: number; emergency_months: number;
-  mode: 'fire' | 'traditional'; target_age: number | null; volatility_hundredths: number; spend_items: StoredSpendItem[]; income_items: StoredIncomeItem[];
-  life_events: StoredLifeEvent[];
-  /** 不再工作之后自己续缴社保到几岁（null 表示停工即停缴）、每月花费（含养老、医保等，分）、续缴所按的缴费基数（"0" 沿用个人资料）。 */
-  keep_paying_until_age: number | null; keep_paying_monthly_cents: string; keep_paying_base_cents: string;
-  /** 退休后每月房租（今天的钱，分，"0" 表示没有）；计划买房后由购房取代。 */
-  rent_cents: string;
+ basic?: BasicInputs; setup_completed: boolean; simplified: import('./plan-simplified-contract.ts').SimplifiedPlanningFieldsV1; core?: PlanningCore | null;
+ spend_cents: string | null; real_return_before_hundredths: number; real_return_after_hundredths: number; emergency_months: number;
+ mode: 'fire' | 'traditional'; volatility_hundredths: number; spend_items: StoredSpendItem[]; life_events: StoredLifeEvent[]; rent_cents: string;
 };
-export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: null, volatility_hundredths: 500, spend_items: [], income_items: [], life_events: [], keep_paying_until_age: null, keep_paying_monthly_cents: '0', keep_paying_base_cents: '0', rent_cents: '0' };
-type NullablePensionKey = 'birth_month' | 'worker' | 'paid_months' | 'account_balance_cents' | 'base_cents' | 'flex_months' | 'personal_pension_annual_cents' | 'marginal_tax_hundredths';
-export type MedicalFields = { medical_paid_months?: number | null; medical_local_paid_months?: number | null; medical_local_required_months?: number | null; medical_required_months?: number | null; medical_topup_cents?: string | null };
-export type StoredProfile = MedicalFields & Omit<PensionProfile, NullablePensionKey> & { [K in NullablePensionKey]: PensionProfile[K] | null } & { region: Region | null; overrides: Overrides; retire: RetireInputs };
-export type CompletePensionProfile = StoredProfile & PensionProfile & { region: Region };
-/** No defaults: only complete, validated pension inputs reach the estimator. */
-export function hasPensionProfile(p: StoredProfile): p is CompletePensionProfile {
-  return p.birth_month !== null && p.worker !== null && p.region !== null && p.paid_months !== null && p.account_balance_cents !== null && p.base_cents !== null && p.flex_months !== null && p.personal_pension_annual_cents !== null && p.marginal_tax_hundredths !== null;
-}
+export const defaultRetire: RetireInputs = { setup_completed: false, simplified: { contract_version: 1, time: { reference: null, target_month: null, horizon_month: null }, income_mode: 'unconfirmed', future_incomes: [] }, spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, emergency_months: 6, mode: 'fire', volatility_hundredths: 500, spend_items: [], life_events: [], rent_cents: '0' };
+export type StoredProfile = { assumptions: { inflation_hundredths: number }; retire: RetireInputs };
 export const planningMode = (p: StoredProfile) => p.retire.basic ? 'basic' as const : 'none' as const;
 export type ProfileState = { generation: string; saved: { profile: StoredProfile; revision: number; updated_at: string; reference_issues?: string[] } | null };
 
@@ -220,25 +202,6 @@ export function pctToHundredths(text: string): number | null {
 }
 export const hundredthsToPct = (v: number): string => String(v / 100);
 
-/** 公积金池的起点：最近完整盘点里公积金类账户余额之和，月缴存取最近一条收入记录。 */
-export function fundsFrom(entries: { kind: string; amount_cents: string | null }[] | null, incomes: { fields: { date: string; hpf_cents: string | null } }[]): { funds: Omit<Funds, 'hpf_monthly_cents'> & { hpf_monthly_cents: string | null }; notes: string[] } {
-  const notes: string[] = [];
-  let balance = 0n, found = false;
-  for (const e of entries ?? []) if (e.kind === 'housing_fund' && e.amount_cents !== null) { balance += BigInt(e.amount_cents); found = true; }
-  if (!entries) notes.push('还没有完整盘点，公积金余额按 0 计算。');
-  else if (!found) notes.push('最近盘点里没有公积金类账户，公积金余额按 0 计算。');
-  // 最新明确零保留；该历史字段不直接作为未来缴存假设。
-  const byDate = [...incomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date));
-  const latest = byDate[0];
-  if (!latest) notes.push('还没有月度收入记录，公积金月缴存未知。');
-  return { funds: { hpf_balance_cents: balance.toString(), hpf_monthly_cents: latest ? latest.fields.hpf_cents : null }, notes };
-}
-
-/** 按「累计缴费月数 × 当前缴费基数 × 8%」估算个人账户余额（分，四舍五入）；只是粗估，以京通为准。 */
-export function estimateAccountCents(paidMonths: number, baseCents: string): string {
-  return ((BigInt(Math.max(0, Math.trunc(paidMonths))) * BigInt(baseCents || '0') * 8n + 50n) / 100n).toString();
-}
-
 /** 新增收入时默认带上的公积金缴存：取日期最近的一条（同一天取先出现的）；没有记录返回空串。 */
 export function latestHpf(rows: { fields: { date: string; hpf_cents: string | null } }[]): string {
   let any: { date: string; hpf_cents: string | null } | null = null;
@@ -250,13 +213,6 @@ export function latestHpf(rows: { fields: { date: string; hpf_cents: string | nu
 
 /** 年龄（月）显示为「63 岁 1 个月」。 */
 export const ageText = (months: number) => `${Math.floor(months / 12)} 岁${months % 12 ? ` ${months % 12} 个月` : ''}`;
-
-/** 停缴年龄选项：从现在起每 5 岁一档，直到领取年龄。 */
-export function quitAges(nowMonths: number, startMonths: number): number[] {
-  const out: number[] = [];
-  for (let y = Math.ceil(nowMonths / 60) * 5; y * 12 < startMonths; y += 5) if (y * 12 > nowMonths) out.push(y);
-  return out;
-}
 
 /** 区间里的大额一次性支出：物品购入与重要支出，单笔不低于阈值（分）。只用来解释，不改变储蓄统计。 */
 export function largeOneOffs(lines: ReasonLine[], thresholdCents: number): { count: number; total: bigint } {

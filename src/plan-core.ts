@@ -7,10 +7,11 @@ export type DebtRepayment = { account_id: string; recorded_on: string; as_of: st
 export type FundRule = { account_id: string; availability: 'available' | 'restricted' | 'excluded'; share_hundredths: number };
 export type Payment = { id: string; date: string; amount_cents: string | null; account_id: string | null; absorbed_snapshot_id: string | null; absorbed_revision: number | null; source_kind: 'asset' | 'expense' | 'wish' | null; source_id: string | null };
 export type Occurrence = { id: string; event_id: string; status: 'occurred' | 'cancelled'; actual_date: string; payments_complete: boolean; payments: Payment[]; loan: { account_id: string; as_of: string; principal_cents: string; remaining_months: number } | null };
-export type PlanningCore = { contract_version: 1; monetary_basis_date: string; fund_rules: FundRule[]; hpf_monthly_cents: string | null; personal_pension_account_id?: string | null; personal_pension_balance_confirmed?: boolean; occurrences: Occurrence[]; debt_repayments?: DebtRepayment[] };
+export type FundRelease = { id: string; account_id: string; month: string; net_cents: string | null; estimated: boolean; excludes_future_deposits: boolean };
+export type PlanningCore = { contract_version: 1; monetary_basis_date: string; fund_rules: FundRule[]; releases: FundRelease[]; occurrences: Occurrence[]; debt_repayments?: DebtRepayment[] };
 /** Elapsed months at a period boundary after B closes partway through its month. */
 export const elapsedMonths = (offset: number, firstFraction = 1) => offset > 0 ? offset - 1 + firstFraction : offset;
-export const emptyCore = (date: string): PlanningCore => ({ contract_version: 1, monetary_basis_date: date, fund_rules: [], hpf_monthly_cents: null, occurrences: [] });
+export const emptyCore = (date: string): PlanningCore => ({ contract_version: 1, monetary_basis_date: date, fund_rules: [], releases: [], occurrences: [] });
 export function normalizeFunds(snapshot: Snapshot | null, core?: PlanningCore | null) {
   let available = 0n, restricted = 0n, housingFund = 0n, debt = 0n, net = 0n;
   const missing: string[] = [];
@@ -34,14 +35,13 @@ export function normalizeFunds(snapshot: Snapshot | null, core?: PlanningCore | 
 }
 export const eventSource = (id: string, kind: 'loan' | 'holding') => `event:${id}:${kind}`;
 /** Loan payments and personal-pension cash transfers are real outflows; they may not be excluded from the ledger. */
-export const mustStayInLedger = (sourceId: string) => sourceId.endsWith(':loan') || sourceId === 'personal_pension';
-export function costSources(events: StoredLifeEvent[], ppAnnual: string) {
+export const mustStayInLedger = (sourceId: string) => sourceId.endsWith(':loan');
+export function costSources(events: StoredLifeEvent[]) {
   const out: { id: string; label: string }[] = [];
   for (const e of events) {
     if (Number(e.price_cents) > Number(e.down_cents)) out.push({ id: eventSource(e.id, 'loan'), label: `${e.label}月供` });
     if (Number(e.holding_cents) > 0) out.push({ id: eventSource(e.id, 'holding'), label: `${e.label}持有费` });
   }
-  if (Number(ppAnnual) > 0) out.push({ id: 'personal_pension', label: '个人养老金现金转入' });
   return out;
 }
 export type OccurrenceIssueKind = 'overdue' | 'actual_date' | 'payments' | 'payment_source' | 'absorption' | 'loan' | 'unlinked_debt';

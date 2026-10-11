@@ -55,7 +55,7 @@ test('several wishes add up; unreachable and missing inputs are stated, not fake
   const both = impactOf(calc(), spends);
   const one = impactOf(calc(), [spends[0]]);
   assert.ok(both.delay_months > one.delay_months);
-  // 存得太慢，加上支出后 70 岁前达不到：with_offset 为 null，没有「推迟月数」。
+  // 存得太慢，加上支出后 规划终点前达不到：with_offset 为 null，没有「推迟月数」。
   const slow = impactOf({ ...calc(ledger({ search_cap_months: 730 })) }, classifyWishes([wish('a', '300000', '2027-10-06')], TODAY));
   assert.deepEqual([slow.base_offset, slow.with_offset, slow.delay_months], [360, null, null]);
   // 缺少输入时不可用。
@@ -83,5 +83,5 @@ test('the one-line sentence names the date, the assets, the delay and the emerge
   assert.equal(impactSentence(noPrice, impactOf(calc(), [noPrice]), 6, m), '');
   // 基线本来就达不到、或买下后达不到，都如实说。
   const never = impactOf(calc(ledger({ search_cap_months: 400 })), [dated]);
-  assert.match(impactSentence(dated, never, 6, m), /70 岁前本来就达不到 FIRE|买下后 FIRE 在 70 岁前达不到/);
+  assert.match(impactSentence(dated, never, 6, m), /规划终点前本来就达不到 FIRE|买下后 FIRE 在 规划终点前达不到/);
 });

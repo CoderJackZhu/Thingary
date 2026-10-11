@@ -1,13 +1,12 @@
 // 首页「规划」摘要与目标页共用的纯投影（OVERVIEW_PLANNING_DESIGN §4、§6.1）：
 // 结论文案、资产覆盖比例、历史常态储蓄与缺项判定都只在这里落字，两页不得各自取整或换口径。
 // 计算本身复用 buildRetireCalc 与账本 required，本文件不另写估算。
-import { ageText } from './plan.ts';
 import type { Income, PlanReview, ProfileState } from './plan.ts';
 import type { Read } from './review.ts';
 import type { Snapshot } from './wealth.ts';
 import { forecastMoney } from './plan-format.ts';
 import { progressHundredths, monthsLeftText } from './plan-fire.ts';
-import { required } from './plan-ledger.ts';
+import { required, timeLabel } from './plan-ledger.ts';
 import { buildRetireCalc } from './plan-retire-calc.ts';
 import type { BasicCapabilities, PlanningSources } from './plan-basic-contract.ts';
 import type { RetireCalc } from './plan-retire-calc.ts';
@@ -26,22 +25,22 @@ export function goalHeadline(calc: ReadyCalc, today: string): GoalHeadline {
   const target = P.target_months;
   // 目标页已有的资金耗尽／必需支出缺口诊断：摘要只转述最重要的一条，不新造风险等级。
   const warn = out.failure_month !== null || out.shortfall_month !== null ? '规划期内存在资金缺口，请查看目标' : null;
-  if (P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5) return { main: '有限期间预算已覆盖', sub: `至 ${Math.floor(P.horizon_months / 12)} 岁，终点无余量`, warn };
+  if (P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5) return { main: '有限期间预算已覆盖', sub: `至 ${timeLabel(P, P.horizon_months - 1)}，终点无余量`, warn };
   if (P.mode === 'traditional') {
     const funded = out.funded_at_goal;
     const amount = funded ? Math.max(0, out.assets_at_goal - out.required_at_goal) : out.shortfall_at_goal;
-    return { main: `${Math.floor(target / 12)} 岁退休`, sub: P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5 ? '有限期间预算已覆盖，终点无余量' : `${funded ? '预计盈余' : '预计缺口'} ${yuan(amount)}`, warn };
+    return { main: `${timeLabel(P, target)} 开始使用规划资金`, sub: P.input_mode === 'basic' && out.success && Math.abs(out.at_horizon) < 0.5 ? '有限期间预算已覆盖，终点无余量' : `${funded ? '预计盈余' : '预计缺口'} ${yuan(amount)}`, warn };
   }
   const fi = calc.proj.fi_month;
   if (fi === null) {
     // 搜索终点取所选期限，不写成永远不可能。
-    const capAge = Math.floor(Math.min(P.search_cap_months, P.horizon_months) / 12);
-    return { main: `当前假设下，${capAge} 岁前尚未达成`, sub: null, warn };
+    const capMonth = timeLabel(P, Math.min(P.search_cap_months, P.horizon_months - 1));
+    return { main: `当前假设下，${capMonth} 前尚未达成`, sub: null, warn };
   }
   if (fi <= P.now_months) return { main: '当前资产已覆盖退休所需', sub: '按当前假设估算', warn };
   const toFi = fi - P.now_months;
   // 月龄不截成整岁，避免与目标页给出相反的按期判断（§5.3）。
-  const sub = `约 ${yearOf(today, toFi)} 年 · ${ageText(fi)}${fi > target ? `，晚于期望的 ${Math.floor(target / 12)} 岁` : ''}`;
+  const sub = `约 ${yearOf(today, toFi)} 年 · ${timeLabel(P, fi)}${fi > target ? `，晚于期望的 ${timeLabel(P, target)}` : ''}`;
   return { main: `预计还需 ${monthsLeftText(toFi)}`, sub, warn };
 }
 
@@ -100,7 +99,7 @@ export function summaryRetire(sources: PlanSources, today: string): SummaryRetir
     return { kind: 'ready', mode: ready.plan.mode, headline: goalHeadline(ready, today), coverage: coverageNow(ready), snapshotDate: capabilities.context.start.date, hasEvents: ready.events.some(e => e.included), calc: ready };
   }
   if (sources.profile.status === 'error') return { kind: 'error', message: sources.profile.value.message };
-  return { kind: 'blocked', step: 'profile', main: sources.profile.value.saved ? '退休目标待重新设置' : '先设置退休目标', note: '请确认目标与完整预算；盘点、收入、社保、付款与欠款资料都会保留。' };
+  return { kind: 'blocked', step: 'profile', main: sources.profile.value.saved ? '退休目标待重新设置' : '先设置退休目标', note: '请确认目标与完整预算；盘点、收入、实际缴存、付款与欠款资料都会保留。' };
 }
 
 /** 依据说明：盘点日期、未来储蓄采用的口径、已计入的大额计划与「按当前假设估算」。 */

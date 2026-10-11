@@ -1,9 +1,6 @@
-// Defaults drawn from facts the person already has (盘点, 收入记录, 社保资料). Pure helpers; nothing is saved here.
-import { hasPensionProfile } from './plan.ts';
-import type { PlanReview, ProfileState } from './plan.ts';
-import type { Draft } from './planning-basic-forms.ts';
+// Facts from recorded income and inventory history. Pure helpers; nothing is saved here.
+import type { PlanReview } from './plan.ts';
 
-type Saved = ProfileState['saved'];
 export const HISTORY_MIN_INTERVALS = 3;
 export const SAVING_BASIS_CAVEAT = '估计存下只看现金、存款和负债：转进投资账户的钱会让它偏低、花销偏高；收入没记全会让花销偏低。';
 
@@ -20,30 +17,3 @@ export function historyHints(review: PlanReview | null | undefined): History {
 
 /** "到账 − 开销": both numbers are cents strings from the person; the difference may be negative. */
 export const savingFromFlow = (income: string, spend: string): string | null => (income === '' || spend === '' ? null : String(BigInt(income) - BigInt(spend)));
-
-const addMonths = (ym: string, n: number) => { const i = Number(ym.slice(0, 4)) * 12 + Number(ym.slice(5, 7)) - 1 + n; return `${Math.floor(i / 12)}-${String(i % 12 + 1).padStart(2, '0')}`; };
-
-/** The future pension-contribution plan, as one question: pay until retirement / stop paying / (existing explicit months). */
-export type PcPlan = '' | 'until' | 'stop' | 'custom';
-export function pcPlanOf(start: string, stop: string, birth: string, target: string): PcPlan {
-  if (start === '' && stop === '') return '';
-  if (start !== '' && start === stop) return 'stop';
-  return birth !== '' && target !== '' && stop === addMonths(birth.slice(0, 7), Number(target) * 12) ? 'until' : 'custom';
-}
-/** Start/stop/base the draft stands for. Unknown stays null; saved months are kept so re-saving other sections never shifts them. */
-export function pcValues(d: Draft, today: string): { start: string | null; stop: string | null; base: string | null } {
-  const now = today.slice(0, 7), raw = { start: d.pcStart || null, stop: d.pcStop || null, base: d.pcBase || null };
-  if (d.pcPlan === 'stop') { const m = d.pcStart !== '' && d.pcStart === d.pcStop ? d.pcStart : now; return { start: m, stop: m, base: raw.base ?? (d.pension.base || '0') }; }
-  if (d.pcPlan !== 'until') return raw;
-  const target = /^\d{4}-\d{2}/.test(d.birth) && /^\d+$/.test(d.target) ? addMonths(d.birth.slice(0, 7), Number(d.target) * 12) : null;
-  if (target === null) return { start: null, stop: null, base: raw.base ?? (d.pension.base || null) };
-  const start = d.pcStart || now;
-  return { start: start > target ? target : start, stop: target, base: raw.base ?? (d.pension.base || null) };
-}
-
-/** Preselect what the existing facts already imply, only for a plan that has never been set up in the basic way. */
-export function withDefaults(d: Draft, saved: Saved): Draft {
-  if (saved?.profile.retire.basic) return d;
-  const incomeMode = d.incomeMode !== '' ? d.incomeMode : saved && hasPensionProfile(saved.profile) ? 'employee' : 'excluded';
-  return { ...d, incomeMode, pcPlan: d.pcPlan !== '' ? d.pcPlan : incomeMode === 'employee' ? 'until' : '' };
-}

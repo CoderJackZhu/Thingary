@@ -16,7 +16,7 @@ export type LifeEvent = {
   price_cents: number; down_cents: number; extra_cents: number;
   loan_rate_hundredths: number; loan_years: number;
   holding_cents: number; rent_saved_cents: number;
-  cycle_years: number | null; until_age: number | null; resale_cents: number;
+  cycle_years: number | null; until_month?: string | null; time_unconfirmed?: boolean; resale_cents: number;
 };
 
 export const monthIndex = (d: string) => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - 1;
@@ -57,12 +57,12 @@ export function eventParts(c: Ctx, e: LifeEvent, offset: number): EventParts {
   const n = occurrence ? knownLoan ? knownLoan.remaining_months : needsLoan ? null : 0 : Math.round(e.loan_years * 12);
   const pay = principal === null || n === null ? null : monthlyPayment(principal, e.loan_rate_hundredths, n);
   if (pay !== null && n !== null && pay > 0) both(`event:${e.id}:loan`, `${e.label}月供`, loanFrom, loanFrom + n, pay, true, true);
-  const until = e.until_age === null ? null : e.until_age * 12;
-  if ((!coverage || coverage.holding) && e.holding_cents > 0) both(`event:${e.id}:holding`, `${e.label}${e.kind === 'car' ? '养车' : '持有成本'}`, m0, e.kind === 'car' ? until : null, e.holding_cents, false, e.kind === 'house');
+  const until = e.until_month && c.anchor_date ? c.now_months + offsetOf(e.until_month, c.anchor_date) + 1 : null;
+  if (!e.time_unconfirmed && (!coverage || coverage.holding) && e.holding_cents > 0) both(`event:${e.id}:holding`, `${e.label}${e.kind === 'car' ? '养车' : '持有成本'}`, m0, e.kind === 'car' ? until : null, e.holding_cents, false, e.kind === 'house');
   // 退休后的房租在计划里是一条持续的必需支出；买房之后不再付，取消额不超过房租本身。
   if ((!coverage || coverage.holding) && e.kind === 'house' && e.rent_saved_cents > 0 && (c.rent_cents ?? 0) > 0) spend_flows.push({ label: `${e.label}后不再付房租`, from_month: m0, to_month: null, cents: -Math.min(e.rent_saved_cents, c.rent_cents!), nominal: false, essential: true });
   if (!occurrence && e.rent_saved_cents > 0) saving_flows.push({ label: `${e.label}省下的房租`, from_month: m0, to_month: null, cents: e.rent_saved_cents, nominal: false, essential: false });
-  if ((!coverage || coverage.cycle) && e.cycle_years !== null && e.cycle_years > 0) {
+  if (!e.time_unconfirmed && (!coverage || coverage.cycle) && e.cycle_years !== null && e.cycle_years > 0) {
     const end = until ?? c.horizon_months, step = e.cycle_years * 12;
     for (let k = 1; c.now_months + originOffset + k * step < end; k++) if (originOffset + k * step > 0) spends.push({ offset_months: originOffset + k * step, cents: Math.max(0, e.price_cents - e.resale_cents) });
   }

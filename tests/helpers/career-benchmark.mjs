@@ -1,6 +1,6 @@
 // Fictional inputs shared by the comparison tests and reproducible benchmark export.
 import { careerSources, careerDraft } from '../../src/career-preview/fixtures.ts';
-import { careerPensionSources } from '../../src/career-preview/pension-fixture.ts';
+import { fictionalFutureIncome } from './simplified-planning-fixtures.mjs';
 export function inputs(o = {}) {
   const s = careerSources(), d = careerDraft(), p = s.profile.value.saved.profile, r = p.retire;
   const firstMonth = o.firstFraction === undefined ? 2026 * 12 + 9 : 2026 * 12 + 8;
@@ -22,16 +22,12 @@ export function inputs(o = {}) {
   if (o.retirementSpend !== undefined) r.spend_cents = String(o.retirementSpend);
   if (o.loanPayment) addLoan(s, d, o);
   if (o.unlock) {
-    const ps = careerPensionSources().profile.value.saved.profile;
-    Object.assign(p, { ...ps, retire: r, assumptions: p.assumptions, overrides: { ...p.overrides, hpf_rate_hundredths: 0 } });
-    p.assumptions.wage_growth_hundredths = 0;
-    r.core.hpf_monthly_cents = String(o.hpfMonthly ?? 100_000);
-    r.basic.pension_contributions = { ...ps.retire.basic.pension_contributions };
-    d.gap.pension = 'pause';
+    s.modules.wealth=true;r.basic.start={kind:'live'};
+    s.snapshot={status:'ready',value:{id:'pool-snapshot',revision:1,date:'2026-09-30',missing:[],entries:[{account_id:'cash',counted:true,side:'asset',kind:'cash',amount_cents:String(o.start??60000000)},{account_id:'hpf',counted:true,side:'asset',kind:'housing_fund',amount_cents:String(o.unlock.cents)}]}};
+    r.core.fund_rules=[{account_id:'cash',availability:'available',share_hundredths:10000},{account_id:'hpf',availability:'restricted',share_hundredths:10000}];
   }
   if (o.pension) {
-    r.income_items = [{ id: 'manual-pension', label: '虚构手填养老金', monthly_cents: String(o.pension), start_age: 63, end_age: null, indexed: o.pensionIndexed ?? true }];
-    r.basic.retirement_income = { mode: 'manual', selected: [{ id: 'manual-pension', source_id: 'manual-pension', role: 'state_pension' }] };
+    r.simplified.income_mode='manual';r.simplified.future_incomes=[fictionalFutureIncome({id:'manual-pension',role:'pension',monthly_cents:String(o.pension),start_month:'2057-10',basis:o.pensionIndexed===false?'start_month':'reference_month',basis_month:o.pensionIndexed===false?null:'2026-09',growth:o.pensionIndexed===false?'fixed_nominal':'constant_purchasing_power'})];
   }
   return { s, d };
 }
@@ -43,7 +39,7 @@ function addLoan(s, d, o) {
     { account_id: 'loan', counted: true, side: 'liability', kind: 'loan', amount_cents: String(o.loanPayment * o.loanMonths) },
   ] } };
   r.core.fund_rules = [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }];
-  r.life_events = [{ id: 'loan-origin', label: '虚构已付款', kind: 'other', date: '2026-01', included: false, price_cents: '1000000', down_cents: '1000000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }];
+  r.life_events = [{ id: 'loan-origin', label: '虚构已付款', kind: 'other', date: '2026-01', included: false, price_cents: '1000000', down_cents: '1000000', extra_cents: '0', loan_rate_hundredths: 0, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_month:null,time_unconfirmed:false, resale_cents: '0' }];
   r.core.occurrences = [{ id: 'occurred', event_id: 'loan-origin', status: 'occurred', actual_date: '2026-01-01', payments_complete: true, payments: [{ id: 'paid', date: '2026-01-01', amount_cents: '1000000', account_id: 'cash', absorbed_snapshot_id: 'ref-snapshot', absorbed_revision: 1, source_kind: null, source_id: null }], loan: { account_id: 'loan', as_of: '2026-09-30', principal_cents: String(o.loanPayment * o.loanMonths), remaining_months: o.loanMonths } }];
   const scope = [{ source_id: 'event:loan-origin:loan', treatment: o.loanIncluded ? 'included' : 'extra', reference_cents: o.loanIncluded ? String(o.loanPayment) : null }];
   r.basic.contribution_costs = structuredClone(scope); r.basic.retirement_costs = [{ ...scope[0], treatment: 'extra', reference_cents: null }];
@@ -67,5 +63,5 @@ export const cases = [
   ['different accumulation and retirement returns', { beforeRate: .02, afterRate: .01 }],
   ['inflation with fixed purchasing-power budgets', { inflation: .025, beforeRate: .01 }],
   ['manual pension starts at 63, not target 50', { pension: 100_000 }],
-  ['nominal pension loses purchasing power', { pension: 100_000, pensionIndexed: false, inflation: .025 }],
+  ['nominal pension loses purchasing power', { pension: 100_000, pensionIndexed: false, inflation: .025, calendarIncomeOffset: 1 }],
 ];

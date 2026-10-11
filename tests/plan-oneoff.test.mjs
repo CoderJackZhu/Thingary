@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fundsFrom, largeOneOffs, latestHpf, monthlyWithoutOneOffs } from '../src/plan.ts';
+import { largeOneOffs, latestHpf, monthlyWithoutOneOffs } from '../src/plan.ts';
 
 const line = (source, cents, id = source + cents) => ({ source, id, asset_id: null, title: id, category: null, date: '2026-01-01', amount_cents: cents === null ? null : String(cents) });
 const interval = (over = {}) => ({ snapshot_id: 's', from: '2025-06-25', to: '2026-10-04', days: 466, status: 'ok', saving_cents: '4867780', ...over });
@@ -21,12 +21,10 @@ test('the monthly saving without one-offs converts the same period by days, and 
   assert.equal(monthlyWithoutOneOffs(interval({ saving_cents: null }), total), null);
 });
 
-test('provident fund monthly uses the latest non-zero row so jobless months recorded as 0 do not erase it', () => {
+test('provident fund monthly uses the latest actual row, preserving an explicitly recorded zero', () => {
   const rows = [{ fields: { date: '2026-08-31', hpf_cents: '0' } }, { fields: { date: '2026-09-30', hpf_cents: '0' } }, { fields: { date: '2026-07-31', hpf_cents: '778600' } }, { fields: { date: '2026-06-30', hpf_cents: '700000' } }];
   assert.equal(latestHpf(rows), '0');
-  assert.equal(fundsFrom([], rows).funds.hpf_monthly_cents, '0');
   const zeros = [{ fields: { date: '2026-08-31', hpf_cents: '0' } }];
   assert.equal(latestHpf(zeros), '0');
-  assert.equal(fundsFrom([], zeros).funds.hpf_monthly_cents, '0');
   assert.equal(latestHpf([]), '');
 });
