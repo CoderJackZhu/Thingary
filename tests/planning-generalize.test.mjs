@@ -122,15 +122,15 @@ test('contribution verdict compares saved estimate with requirement; unknown is 
   assert.equal(contributionVerdict({ status: 'search_not_found', search_limit_cents: '1', before_hundredths: 0, after_hundredths: 0 }, '500000', fmt).text, '你估计每月能存 ¥500000');
 });
 
-test('goal page shows the verdict under the required amount and offers estimating when unknown', () => {
-  for (const [contribution, pattern] of [['900000000', /比所需多/], [null, /还没填/]]) {
+test('goal page compares saved contribution with required amount and exposes a scoped edit', () => {
+  for (const [contribution, pattern] of [['900000000', /每月余量约/], [null, /还没填/]]) {
     const s = sources(); saved(s).profile.retire.basic.contribution.monthly_cents = contribution;
     const caps = buildBasicCapabilities(s);
     assert.equal(caps.requirement.value?.set.status, 'found');
     const r = runtime('PlanningBasicGoals', { sources: s, saved: saved(s), openSetup() {}, onGoto() {} }, undefined, () => caps);
-    const node = r.find('p', p => String(p.className).startsWith('planning-contribution-verdict'));
+    const node = r.find('article', p => p['aria-label'] === '退休目标');
     assert.ok(node, `verdict for ${contribution}`);
     assert.match(r.text(node), pattern);
-    assert.equal(!!r.nodes().find(n => n.type === 'button' && r.text(n) === '估一估'), contribution === null);
+    assert.ok(r.button('调整每月能存的钱'));
   }
 });

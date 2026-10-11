@@ -1,6 +1,7 @@
 /** Rendering audit manifest. Independent policy/report/runway models do not consume basic results. */
 export const planningConsumers = [
-  { file: 'PlanningBasicGoals.tsx', render: 'PlanningBasicGoals', guard: 'CoverageNote' },
+  { file: 'PlanningBasicGoals.tsx', render: 'PlanningBasicGoals', guard: 'GoalOverview' },
+  { file: 'planning-goal/Overview.tsx', render: 'GoalOverview', guard: 'GoalCaution' },
   { file: 'PlanningRequirement.tsx', render: 'RequirementBody', guard: 'CoverageNote' },
   { file: 'PlanningRequirement.tsx', render: 'RequirementLine', guard: 'CoverageNote' },
   { file: 'PlanningBasicDetail.tsx', render: 'PlanningBasicDetail', guard: 'RequirementCard' },

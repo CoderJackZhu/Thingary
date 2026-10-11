@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { medicalCheck } from '../src/plan-medical.ts';
-import { medicalView } from '../src/planning-goal-preview/medical-view.ts';
+import { medicalView } from '../src/planning-goal/medical-view.ts';
 import { medicalInput, medicalFormOf } from '../src/planning-basic-forms.ts';
 import { fictionalSources } from './planning-basic.test.mjs';
 import { buildBasicCapabilities, prepareBasicPlan, solveBasicRequirement } from '../src/plan-basic.ts';

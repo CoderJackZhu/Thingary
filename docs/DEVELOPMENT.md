@@ -251,7 +251,9 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 
 ### 退休后续缴费用确认
 
-在 `?section=planning&plan-basic=beijing-complete&capabilities=real&plan-core=confirmed` 中，从精修卡或「查看或修改退休后续缴费用」打开独立窗口。覆盖本人额外支付、预算已含、他人承担、未知、明确不计、截止不足、超出预算、取消后重开；保存错误用 `&state=save-error`。金额未知保持null，停止月份不收费，修改其他基本条件后确认仍应保留。
+在 `?section=planning&plan-basic=beijing-complete&capabilities=real&plan-core=confirmed` 中，从核对卡或「不工作后自己缴社保」行的「调整」打开独立窗口。覆盖本人额外支付、预算已含、他人承担、未知、明确不计、截止不足、超出预算、取消后重开；保存错误用 `&state=save-error`。金额未知保持null，停止月份不收费，修改其他基本条件后确认仍应保留。
+
+当前目标页使用固定条件清单、并列月投入对比和单项编辑；四问仅负责首次设置。`tests/planning-goal-editors.test.mjs` 覆盖分区保全、未知投入、非法医保月数、失败留稿、结果未知锁定和缴费日期原子更新。浏览器以同尺寸核对清单、窄窗口、空白／未知／错误状态，医保 15／15／60 的虚构例应区分资料缺失与预计年限不足。独立 macOS 身份 `local.thingary.goal.acceptance20261012` 已验样例库单项保存、取消、金额步进、医保保存及重启后原值保留；原生故障注入、完整 VoiceOver 和所有窗口／主题组合仍未验。没有访问正式资料库，不代表发布或安装。
 
 `tests/planning-contribution-cost.test.mjs` 核对独立64.8万元差额、预算已含/额外等价、退休前不双扣、按月区间、首月比例、旧费用不重复、明确零/未知/他人承担、排期变更及取消式纯草稿。`src-tauri/tests/planning_basic.rs` 验证可选字段旧请求回放、新声明保存、重启和备份恢复、非法值及未知状态；这些Store测试不代表原生窗口已验。
 

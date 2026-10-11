@@ -6,7 +6,7 @@ import { pensionFixture } from '../src/planning-pension-fixture.ts';
 import { buildBasicCapabilities } from '../src/plan-basic.ts';
 const raw = JSON.parse(readFileSync(new URL('./fixtures/planning-basic/debt-loops.json', import.meta.url), 'utf8'));
 const fixture = () => pensionFixture(raw, 'normal');
-const dialogs = ['ProfileDialog', 'PlanningPensionRefinementDialog', 'PlanningDebtDialog', 'FundsDialog', 'CostsDialog', 'PlanningOccurrenceDialog'];
+const dialogs = ['GoalEditor', 'PlanningPensionRefinementDialog', 'PlanningDebtDialog', 'FundsDialog', 'CostsDialog', 'PlanningOccurrenceDialog'];
 const opened = r => r.nodes().filter(n => dialogs.includes(n.type));
 function goals(options = {}) {
   const sources = fixture(), edits = [], setup = [];
@@ -18,7 +18,7 @@ function goals(options = {}) {
 test('goal card dialogs are exclusive; each close restores its own trigger and clears completion options', () => {
   const { r, edits, action } = goals();
   const cases = [
-    [{ id:'medical', action:'pension' }, 'ProfileDialog'],
+    [{ id:'medical', action:'pension' }, 'GoalEditor'],
     [{ id:'transfer', action:'pension' }, 'PlanningPensionRefinementDialog'],
     [{ id:'income-switch', action:'pension' }, 'PlanningPensionRefinementDialog'],
     [{ id:'debt-review', action:'debts' }, 'PlanningDebtDialog'],
@@ -46,11 +46,11 @@ test('goal card dialogs are exclusive; each close restores its own trigger and c
   r.unmount(); assert.equal(edits.at(-1), false); assert.equal(r.calls.length, 0);
 });
 
-test('annotation and owner entries share dialog routing; missing trigger falls back and navigation opens no dialog', () => {
+test('condition rows and owner entries share routing; missing trigger restores fallback focus', () => {
   let focus = 0;
   const { r, action, setup } = goals({ document: { activeElement:{isConnected:true,focus(){focus++;}} } });
-  for (const [owner, field, type] of [['pension','medical_paid_months','ProfileDialog'],['pension','basic.pension_contributions','PlanningPensionRefinementDialog'],['basic','core.debt_repayments','PlanningDebtDialog'],['basic','basic.retirement_costs','CostsDialog']]) {
-    r.find('CoverageNote').props.onRefine({ refinement:{owner,field} }); r.render();
+  for (const [field, type] of [['medical','GoalEditor'],['income','PlanningPensionRefinementDialog'],['debt','PlanningDebtDialog'],['costs','CostsDialog']]) {
+    r.find('GoalOverview').props.onEdit(field, {isConnected:true,focus(){focus++;}}); r.render();
     assert.equal(opened(r).length, 1); assert.equal(opened(r)[0].type,type);
     opened(r)[0].props.onClose(); r.render();
   }
@@ -58,7 +58,7 @@ test('annotation and owner entries share dialog routing; missing trigger falls b
   action({id:'funds',action:'funds'}, {isConnected:false,focus(){throw Error('detached trigger');}});
   opened(r)[0].props.onClose(); r.render(); assert.ok(r.focuses.includes('plan-budget-entry'));
   action({id:'contribution',action:'contribution'}, null);
-  assert.equal(opened(r).length,0); assert.equal(setup.at(-1)[0],4);
+  assert.equal(opened(r)[0].type,'GoalEditor'); assert.equal(opened(r)[0].props.kind,'saving'); assert.equal(setup.length,0);
 });
 
 test('cancel and reopen use a fresh pension draft, keep one modal and send no save', () => {
@@ -82,7 +82,7 @@ test('goal loan editor retains input on save failure and locks replay when the r
       if(outcome==='unknown'){r.saver.stuck=true;return null;}
       throw Error('虚构保存失败');
     },buildBasicCapabilities(sources));
-    r.button('查看或修改贷款还款安排').props.onClick({currentTarget:{isConnected:true,focus(){}}});r.render();
+    r.button('贷款还款安排').props.onClick({currentTarget:{isConnected:true,focus(){}}});r.render();
     const option=r.nodes().find(n=>n.type==='input'&&n.props['aria-label']?.endsWith('：这次先不考虑'));
     assert.ok(option);const label=option.props['aria-label'];option.props.onChange();r.render();
     r.find('form').props.onSubmit({preventDefault(){}});await r.settle();

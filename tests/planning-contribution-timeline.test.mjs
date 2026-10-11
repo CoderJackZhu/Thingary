@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { contributionTimeline, ageAtMonth, shiftMonth } from '../src/planning-goal-preview/contribution-timeline.ts';
+import { contributionTimeline, ageAtMonth, shiftMonth } from '../src/planning-goal/contribution-timeline.ts';
 import { fictionalSources } from './helpers/planning-fixtures.mjs';
 
 test('contribution guide separates work-stop age, statutory retirement and exclusive payment end', () => {

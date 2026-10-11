@@ -31,3 +31,15 @@ export function contributionCostInput(d: ContributionCostDraft, saved: Saved): S
   };
   return { section: 'basic', fields };
 }
+
+/** Explicit schedule edit is atomic with its funding declaration; ordinary cost saves stay scoped. */
+export function contributionScheduleInput(d: ContributionCostDraft, saved: Saved, changeSchedule: boolean): SectionInput {
+  const input = contributionCostInput(d, saved);
+  if (!changeSchedule || input.section !== 'basic') return input;
+  if (!d.stop || !/^\d{4}-(0[1-9]|1[0-2])$/.test(d.stop)) throw new Error('请选择最后缴费月份。');
+  const start = input.fields.basic.pension_contributions.start_month;
+  if (!start) throw new Error('请先在退休收入中确认未来缴费开始月份。');
+  if (d.stop < start) throw new Error('停止缴费月份不能早于开始月份。');
+  input.fields.basic.pension_contributions = { ...input.fields.basic.pension_contributions, stop_month: d.stop };
+  return input;
+}

@@ -36,7 +36,7 @@ test('loan card opens the direct editor; production partial save reduces pending
  let s=fixture();const before=buildBasicCapabilities(s),card=cards(s).find(c=>c.id==='debt-review');assert.equal(card.action,'debts');
  const goals=runtime('PlanningBasicGoals',{sources:s,saved:saved(s),snapshot:s.snapshot.value,accounts:s.accounts.value,onGoto(){throw Error('must not navigate');}},undefined,()=>buildBasicCapabilities(s));
  goals.find('PlanningRefinements',p=>p.cards.some(c=>c.id==='debt-review')).props.onAction(card,{isConnected:true,focus(){}});goals.render();assert.ok(goals.find('PlanningDebtDialog'));
- const note=runtime('PlanningBasicGoals',{sources:s,onGoto(){throw Error('loan note must not navigate');}},undefined,()=>buildBasicCapabilities(s));note.find('CoverageNote').props.onRefine(before.annotations.find(a=>a.reason_code==='DEBT_UNLINKED'));note.render();assert.ok(note.find('PlanningDebtDialog'));
+ const note=runtime('PlanningBasicGoals',{sources:s,onGoto(){throw Error('loan note must not navigate');}},undefined,()=>buildBasicCapabilities(s));note.find('GoalOverview').props.onEdit('debt',{isConnected:true,focus(){}});note.render();assert.ok(note.find('PlanningDebtDialog'));
  const r=dialog(s,async input=>{s=update(s,input.fields.updates,input.fields.remove);return saved(s);});
  choose(r,'虚构信用卡','每月还一笔固定金额，单独算上');r.find('CentInput',p=>p.label==='虚构信用卡每月还款').props.onChange('200000');r.render();
  r.find('MonthInput',p=>p.label==='虚构信用卡最后一期').props.onChange('2028-10');r.render();await submit(r);

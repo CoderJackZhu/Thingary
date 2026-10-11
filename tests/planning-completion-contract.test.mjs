@@ -73,8 +73,8 @@ test('link choice requires a real eligible account; existing unknown account nev
  const account=s.snapshot.value.entries.find(v=>v.kind==='mixed');select(r,'关联个人养老金账户',account.account_id);await submit(r);assert.equal(r.calls.length,1);assert.equal(saved(e.source).profile.retire.core.personal_pension_account_id,account.account_id);assert.ok(!cards(e.source).some(c=>c.id==='funds'));
 });
 
-test('detail action is a keyboard-native primary button before chips, with any ready result in 2 or 2b',()=>{
- const s=completionFixture(batch,'costs');for(const state of ['2','2b']){const c=caps(s);if(state==='2b')c.pension={status:'blocked',missing:[]};const r=runtime('PlanningBasicGoals',{sources:s,realSummary:true,goalStateOverride:state},undefined,c);assert.equal(r.find('div',p=>p['data-goal-state']).props['data-goal-state'],state);const button=r.button('查看计算详情与图表');assert.equal(button.props.type,'button');assert.equal(button.props.className,'primary');assert.equal(button.props.tabIndex,undefined);const nodes=r.nodes();assert.ok(nodes.indexOf(button)<nodes.indexOf(r.find('div',p=>p['aria-label']==='计算条件')));}
+test('detail action stays keyboard-native beside any ready result in 2 or 2b',()=>{
+ const s=completionFixture(batch,'costs');for(const state of ['2','2b']){const c=caps(s);if(state==='2b')c.pension={status:'blocked',missing:[]};const r=runtime('PlanningBasicGoals',{sources:s,realSummary:true,goalStateOverride:state},undefined,c);assert.equal(r.find('div',p=>p['data-goal-state']).props['data-goal-state'],state);const button=r.button('查看计算详情与图表');assert.equal(button.props.type,'button');assert.equal(button.props.className,'ui-link');assert.equal(button.props.tabIndex,undefined);assert.ok(children(r.find('article',p=>p['aria-label']==='退休目标')).includes(button));}
 });
 
 for(const action of ['blank','exclude'])test(`income-switch: ${action} completion`,async()=>{
@@ -84,7 +84,6 @@ for(const action of ['blank','exclude'])test(`income-switch: ${action} completio
  else{assert.equal(r.find('dialog'),undefined);assert.ok(!cards(e.source).some(c=>c.id==='income-switch'));assert.equal(caps(e.source).requirement.status,'ready');assert.equal(saved(e.source).profile.personal_pension_annual_cents,'1200000');}
 });
 for(const [scenario,step,label,minimum] of [
- ['contribution',4,'每月大约能存下多少钱',r=>fill(r,'CentInput','每月大约能存下多少钱','500000')],
  ['income',3,'退休收入计入方式',r=>radio(r,'先不算（推荐先这样）')],
  ['assumptions',5,'规划到几岁',r=>fill(r,'input','规划到几岁','90')],
 ])for(const action of ['blank','minimum'])test(`${scenario} setup card: ${action} save`,async()=>{

@@ -2,6 +2,7 @@ import { runtime as sharedRuntime } from './planning-component-runtime.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import * as basicView from '../src/planning-basic-view.ts';
 import * as flow from '../src/planning-first-run.ts';
 import { buildBasicCapabilities } from '../src/plan-basic.ts';
 import { defaultRetire } from '../src/plan.ts';
@@ -25,8 +26,8 @@ const sourcesOf = saved => ({ generation: 'fictional-fourq', write_version: 1, t
 // Run the production TSX component and handlers. Controlled hook state persists between
 // renders; only leaf controls and IPC are substituted, without implementing a second wizard.
 function runtime(file, props, save, caps = unknownCapabilityFixture) {
-  return sharedRuntime(file, { today, ...props }, save, caps, { components: ['PlanningRetirementIncome'],
-    modules: { './planning-basic-view': { needsContribution: () => true, contributionVerdict: () => null, requirementLine: () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' } },
+  return sharedRuntime(file, { today, ...props }, save, caps, { components: ['planning-goal/Overview', 'PlanningRetirementIncome'],
+    modules: { './planning-basic-view': { ...basicView, needsContribution: () => true, contributionVerdict: () => null, requirementLine: () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' } },
   });
 }
 
@@ -95,16 +96,16 @@ test('goal tools are absent in 0/1, default closed in 2/2b, and badges count per
   for (const [saved, state] of [[null, '0'], [(() => { const p = savedPlan(); p.profile.retire.spend_cents = null; return p; })(), '1'], [p, '2']]) {
     const r = runtime('PlanningBasicGoals', { sources: sourcesOf(saved) });
     assert.equal(r.find('div', p => p['data-goal-state']).props['data-goal-state'], state);
-    if (state !== '2') assert.equal(r.find('details'), undefined);
-    else { assert.equal(r.find('details').props.open, false); r.find('details').props.onToggle({ currentTarget: { open: true } }); r.render(); assert.equal(r.find('details').props.open, true); }
+    if (state !== '2') assert.equal(r.find('details', p => p.className?.includes('planning-more-tools')), undefined);
+    else { assert.equal(r.find('details', p => p.className?.includes('planning-more-tools')).props.open, false); r.find('details', p => p.className?.includes('planning-more-tools')).props.onToggle({ currentTarget: { open: true } }); r.render(); assert.equal(r.find('details', p => p.className?.includes('planning-more-tools')).props.open, true); }
   }
   p.profile.retire.life_events = [{ id: 'a', included: true }, { id: 'b', included: false }];
-  const blocked = { ...unknownCapabilityFixture, requirement: { status: 'blocked', missing: [{ code: 'COST_SCOPE_UNKNOWN' }] } };
+  const blocked = { ...unknownCapabilityFixture, requirement: { status: 'blocked', missing: [{ code: 'COST_SCOPE_UNKNOWN', field: 'basic.retirement_costs', message: '费用待确认' }] } };
   const r = runtime('PlanningBasicGoals', { sources: sourcesOf(p) }, undefined, blocked);
   assert.equal(r.find('div', p => p['data-goal-state']).props['data-goal-state'], '2b');
-  assert.equal(r.find('details').props.open, false);
-  assert.match(r.text(r.find('summary')), /大额计划 2 项/);
-  assert.doesNotMatch(r.text(r.find('summary')), /职业试算 \d/);
+  assert.equal(r.find('details', p => p.className?.includes('planning-more-tools')).props.open, false);
+  assert.match(r.text(r.find('details', p => p.className?.includes('planning-more-tools'))), /大额计划 2 项/);
+  assert.doesNotMatch(r.text(r.find('details', p => p.className?.includes('planning-more-tools'))), /职业试算 \d/);
 });
 
 
@@ -154,7 +155,7 @@ test('every first-run question offers early save; Q2 save yields persisted state
   assert.deepEqual(flow.questionProgress(stored, caps), { answered: [true, true, false, true], remaining: 1, first: 2 });
   const goal = runtime('PlanningBasicGoals', { sources }, undefined, caps);
   assert.equal(goal.find('div', p => p['data-goal-state']).props['data-goal-state'], '1');
-  assert.match(goal.text(goal.render()), /还差 1 个问题/);
+  assert.match(goal.text(goal.render()), /资金待确认/); assert.ok(goal.button('调整现在可用的钱')); assert.ok(goal.button('调整退休生活费'));
 });
 
 test('save validation from an earlier question returns to its screen and focuses the affected field', async () => {
