@@ -157,7 +157,10 @@ export function project(profile: Profile, region: RegionParams, today: string, q
 
   const totalMonths = Math.max(0, profile.paid_months) + Math.round(effective);
   const kNow = clamp(base / wage, 0.6, 3);
-  const kPast = clamp(profile.past_index_hundredths === null ? kNow : profile.past_index_hundredths / 100, 0.6, 3);
+  // A supplied historical average is not a current contribution-base ratio.
+  // Historical low bases/gaps can produce an index below today's 60% floor;
+  // preserve the validated user value rather than silently changing it.
+  const kPast = profile.past_index_hundredths === null ? kNow : profile.past_index_hundredths / 100;
   const kAvg = totalMonths === 0 ? 0 : (Math.max(0, profile.paid_months) * kPast + (employment.length ? indexSum : effective * kNow)) / totalMonths;
   const wageAtStart = wage * (1 + g) ** Math.max(0, retireYear - 1 - region.avg_wage_year);
   const basePension = ((wageAtStart + wageAtStart * kAvg) / 2) * (totalMonths / 12) * 0.01;

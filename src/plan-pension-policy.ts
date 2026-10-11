@@ -81,7 +81,10 @@ export function calculateBeijingBenefit(input: BeijingBenefitInput): BeijingBene
   // Exactly round years to 2 decimals before amount calculation; qualification
   // above retains integer months. Integer ratios avoid cent-level tie drift.
   const yearsHundredths = roundRatio(BigInt(paid) * 100n, 12n);
-  const basic = roundRatio(BigInt(base.cents) * (10000n + BigInt(index.ten_thousandths)) * BigInt(yearsHundredths), 200000000n);
+  // Official amount calculator rounds the averaged assessment base to cents
+  // before applying the contribution-year percentage (initjcylj).
+  const assessmentBase = (BigInt(base.cents) * (10000n + BigInt(index.ten_thousandths)) + 10000n) / 20000n;
+  const basic = roundRatio(assessmentBase * BigInt(yearsHundredths), 10000n);
   const individual = Number.isInteger(disbursement.months)
     ? roundRatio(BigInt(account.cents), BigInt(disbursement.months))
     : Math.round(Number(account.cents) / disbursement.months);

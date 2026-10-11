@@ -122,8 +122,8 @@ test('a past contribution index different from today changes the average index',
   const same = project(profile(), flat, TODAY, 756, funds).base_pension_nominal_cents;
   const lower = project(profile({ past_index_hundredths: 80 }), flat, TODAY, 756, funds).base_pension_nominal_cents;
   assert.ok(lower < same);
-  // 历史指数低于 0.6 时按 0.6 计。
-  assert.equal(project(profile({ past_index_hundredths: 10 }), flat, TODAY, 756, funds).base_pension_nominal_cents, project(profile({ past_index_hundredths: 60 }), flat, TODAY, 756, funds).base_pension_nominal_cents);
+  // 已填写的历史指数保留原值，不套用当前缴费基数的下限。
+  assert.ok(project(profile({ past_index_hundredths: 10 }), flat, TODAY, 756, funds).base_pension_nominal_cents < project(profile({ past_index_hundredths: 60 }), flat, TODAY, 756, funds).base_pension_nominal_cents);
 });
 
 test('default assumptions are rates in hundredths of a percent', () => {

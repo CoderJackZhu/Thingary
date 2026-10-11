@@ -1,0 +1,86 @@
+{
+  "source": "https://fuwu.rsj.beijing.gov.cn/bjdkhy/static/file/oldjbylbxdy/oldjbylbxdy/index7.html",
+  "checked_on": "2026-10-12",
+  "sha256": "b6772d033481e1356d7aed9dfc45999566baa06508c7502e1c7846f627beb8ee",
+  "method": "Fictional amounts evaluated with the public page functions initjcylj/initgrzh/inithj in an isolated VM with minimal field adapters; no official entitlement or current eligibility validation. Cent-valued base variants are synthetic rounding probes, not published policy bases.",
+  "cases": [
+    {
+      "id": "whole-years",
+      "index": 1,
+      "paid": 240,
+      "base": "12049.00",
+      "account": "139000.00",
+      "expected": {
+        "base_cents": 240980,
+        "account_cents": 100000,
+        "total_cents": 340980,
+        "assessment_base_cents": 1204900
+      }
+    },
+    {
+      "id": "partial-paid-year",
+      "index": 1,
+      "paid": 241,
+      "base": "12049.00",
+      "account": "139000.00",
+      "expected": {
+        "base_cents": 241944,
+        "account_cents": 100000,
+        "total_cents": 341944,
+        "assessment_base_cents": 1204900
+      }
+    },
+    {
+      "id": "low-confirmed-index",
+      "index": 0.1,
+      "paid": 240,
+      "base": "12049.00",
+      "account": "139000.00",
+      "expected": {
+        "base_cents": 132539,
+        "account_cents": 100000,
+        "total_cents": 232539,
+        "assessment_base_cents": 662695
+      }
+    },
+    {
+      "id": "high-confirmed-index",
+      "index": 3.5,
+      "paid": 240,
+      "base": "12049.00",
+      "account": "139000.00",
+      "expected": {
+        "base_cents": 542205,
+        "account_cents": 100000,
+        "total_cents": 642205,
+        "assessment_base_cents": 2711025
+      }
+    },
+    {
+      "id": "four-decimal-index",
+      "index": 0.6667,
+      "paid": 259,
+      "base": "12049.01",
+      "account": "139000.01",
+      "expected": {
+        "base_cents": 216686,
+        "account_cents": 100000,
+        "total_cents": 316686,
+        "assessment_base_cents": 1004104
+      }
+    },
+    {
+      "id": "round-intermediate-base",
+      "index": 0.1234,
+      "paid": 228,
+      "base": "12049.00",
+      "account": "139000.01",
+      "expected": {
+        "base_cents": 128590,
+        "account_cents": 100000,
+        "total_cents": 228590,
+        "assessment_base_cents": 676792
+      }
+    }
+  ]
+}
