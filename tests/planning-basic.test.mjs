@@ -253,6 +253,7 @@ test('ordinary pension begins after retirement; pools retain retirement timing a
 
 test('future pension contributions disclose omitted or insufficient retirement costs without inventing a rate', () => {
   const s = beijingSources('0'), r = retire(s);
+  r.mode = 'fire'; // Earlier FI still needs cost coverage even if target-age work would not.
   const note = () => buildBasicCapabilities(s).annotations.find(a => a.reason_code === 'PENSION_COST_UNCONFIRMED');
   assert.equal(note().effect, 'requirement_lower');
   assert.equal(note().actionable, true);
@@ -269,4 +270,23 @@ test('future pension contributions disclose omitted or insufficient retirement c
   assert.equal(note(), undefined);
   r.basic.retirement_income.mode = 'excluded';
   assert.equal(note(), undefined);
+});
+
+test('fixed-age retirement only requests contribution costs when payment months extend past stopping work', () => {
+  const s = beijingSources('0'), r = retire(s);
+  r.mode = 'traditional';
+  r.target_age = 60;
+  r.basic.pension_contributions.stop_month = '2050-06';
+  const note = () => buildBasicCapabilities(s).annotations.find(a => a.reason_code === 'PENSION_COST_UNCONFIRMED');
+  assert.equal(note(), undefined);
+  r.target_age = 63;
+  assert.equal(note(), undefined);
+  r.target_age = 45;
+  assert.ok(note());
+  r.target_age = 60;
+  r.basic.pension_contributions.stop_month = '2050-07';
+  assert.ok(note());
+  r.mode = 'fire';
+  r.target_age = 63;
+  assert.ok(note());
 });

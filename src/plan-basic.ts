@@ -227,7 +227,10 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   }
   // Benefit eligibility is conditional on sustaining the independently chosen payment path.
   const futureStop = pc.stop_month ? monthIndex(pc.stop_month) - monthIndex(birth) : now;
-  const hasFuture = pc.start_month && pc.stop_month && pc.start_month < pc.stop_month && futureStop > now;
+  // FIRE can stop work before the target. A fixed-age plan only needs this
+  // coverage warning when contributions overlap its post-work interval.
+  const costStart = r.mode === 'traditional' ? Math.max(now, (r.target_age ?? r.horizon_age) * 12) : now;
+  const hasFuture = pc.start_month && pc.stop_month && pc.start_month < pc.stop_month && futureStop > costStart;
   const modern = contributionCost.cost;
   const legacyCovered = Number(r.keep_paying_monthly_cents) > 0 && r.keep_paying_until_age !== null && r.keep_paying_until_age * 12 >= futureStop && allowed('social_insurance', b.retirement_costs);
   if (scope === 'complete' && (hasFuture || (modern && (!pc.start_month || !pc.stop_month))) && (mode === 'employee' || modern) && !(modern ? contributionCost.covers : legacyCovered)) {

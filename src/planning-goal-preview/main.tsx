@@ -4,6 +4,7 @@ import { buildBasicCapabilities } from '../plan-basic';
 import type { PlanningSources } from '../plan-basic-contract';
 import type { StoredProfile } from '../plan';
 import { forecastMoney } from '../plan-format';
+import { contributionTimeline, shiftMonth, ageAtMonth } from './contribution-timeline';
 import { medicalCheck } from '../plan-medical';
 import { medicalView } from './medical-view';
 import { requirementLine, missingText } from '../planning-basic-view';
@@ -20,8 +21,10 @@ function profile(s: PlanningSources): StoredProfile {
   if (s.profile.status !== 'ready' || !s.profile.value.saved) throw new Error('原型样例缺少资料');
   return s.profile.value.saved.profile;
 }
+// This prototype asks for a fixed work-stop age, never an earlier FIRE trigger.
+profile(initial).retire.mode = 'traditional';
 type Section = 'time' | 'spend' | 'funds' | 'saving' | 'income' | 'cost' | 'assumptions' | 'medical';
-const names: Record<Section, string> = { time: '退休时间', spend: '退休生活费', funds: '现在可用的钱', saving: '退休前每月存钱', income: '退休后收入', cost: '退休后继续缴社保', assumptions: '计算假设', medical: '退休医保' };
+const names: Record<Section, string> = { time: '停止工作时间', spend: '退休生活费', funds: '现在可用的钱', saving: '退休前每月存钱', income: '退休后收入', cost: '不工作后自己缴社保', assumptions: '计算假设', medical: '退休医保' };
 const exactMoney = (n: string | null | undefined) => n == null ? '还没填' : `¥${(Number(n) / 100).toLocaleString('zh-CN', { maximumFractionDigits: 2 })}`;
 const yuan = (n: string | null | undefined) => n == null ? '' : String(Number(n) / 100);
 const cents = (v: FormDataEntryValue | null) => v === null || String(v).trim() === '' ? null : String(Math.round(Number(v) * 100));
@@ -31,6 +34,7 @@ function App() {
   const [editing, setEditing] = useState<Section | null>(null);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [stopDraft, setStopDraft] = useState<string | null>(null);
   const [scenario, setScenario] = useState('normal');
   useEffect(() => { if (editing) document.querySelector<HTMLInputElement | HTMLSelectElement>(`#row-${editing} form input, #row-${editing} form select`)?.focus(); }, [editing]);
   const p = profile(sources), r = p.retire, b = r.basic!;
@@ -39,15 +43,19 @@ function App() {
   const annotations = (cap.annotations ?? []).filter(a => a.actionable !== false && a.effect !== 'none');
   const difference = req && 'monthly_cents' in req && b.contribution.monthly_cents !== null && Number(b.contribution.monthly_cents) >= 0 ? Number(b.contribution.monthly_cents) - Number(req.monthly_cents) : null;
   const pension = cap.pension.status === 'ready' ? cap.pension.value : null;
+  const pensionPayable = pension?.included && pension.start_month !== null;
+  const pensionIneligible = b.retirement_income.mode === 'employee' && pension?.included && pension.start_month === null;
   const funds = cap.funds.status === 'ready' ? cap.funds.value : null;
   const cost = b.retirement_contribution_cost;
+  const timeline = contributionTimeline(p, b.pension_contributions.stop_month, sources.today);
+  const draftTimeline = contributionTimeline(p, stopDraft, sources.today);
   const missing = cap.requirement.status === 'blocked' ? cap.requirement.missing : [];
   const medical = medicalCheck(p, b, sources.today);
   const medicalSummary = medicalView(medical, p.medical_topup_cents);
   const medicalPending = medicalSummary.pending;
-  const next: Section = missing.length ? (!p.birth_month || r.target_age === null ? 'time' : r.spend_cents === null ? 'spend' : !funds ? 'funds' : 'income') : annotations.some(a => a.reason_code === 'PENSION_COST_UNCONFIRMED') ? 'cost' : medicalPending ? 'medical' : b.contribution.monthly_cents === null ? 'saving' : 'assumptions';
-  const nextCopy = next === 'cost' ? '确认退休后交社保的钱从哪来' : next === 'medical' && medicalPending && !missing.length ? medicalSummary.next : next === 'saving' ? '填一下你估计每月能存多少钱' : missing.length ? `先补充${names[next]}` : '比较一组不同的计算假设';
-  function open(id: Section) { setEditing(id); setError(''); setNotice(''); requestAnimationFrame(() => document.querySelector(`#row-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); }
+  const next: Section = missing.length ? (!p.birth_month || r.target_age === null ? 'time' : r.spend_cents === null ? 'spend' : !funds ? 'funds' : 'income') : pensionIneligible || annotations.some(a => a.reason_code === 'PENSION_COST_UNCONFIRMED') ? 'cost' : medicalPending ? 'medical' : b.contribution.monthly_cents === null ? 'saving' : 'assumptions';
+  const nextCopy = next === 'cost' ? pensionIneligible ? '调整养老金缴费安排' : '确认不工作后的缴费安排' : next === 'medical' && medicalPending && !missing.length ? medicalSummary.next : next === 'saving' ? '填一下你估计每月能存多少钱' : missing.length ? `先补充${names[next]}` : '比较一组不同的计算假设';
+  function open(id: Section) { if (id === 'cost') setStopDraft(b.pension_contributions.stop_month); setEditing(id); setError(''); setNotice(''); requestAnimationFrame(() => document.querySelector(`#row-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })); }
   function reset(value: string) {
     const s = structuredClone(initial), x = profile(s);
     if (value === 'unknown') x.retire.basic!.contribution.monthly_cents = null;
@@ -70,9 +78,12 @@ function App() {
       if (x.medical_paid_months != null && x.medical_local_paid_months != null && x.medical_local_paid_months > x.medical_paid_months) { setError('在北京实际缴费的月数不能多于累计缴费月数。'); return; }
     }
     if (id === 'cost') {
-      base.retirement_contribution_cost = { treatment: data.get('treatment') as 'extra' | 'included' | 'excluded' | 'unknown', monthly_cents: cents(data.get('amount')), stop_month: String(data.get('stop')) || null };
+      base.retirement_contribution_cost = { treatment: data.get('treatment') as 'extra' | 'included' | 'excluded' | 'unknown', monthly_cents: cents(data.get('amount')), stop_month: stopDraft };
       const c = base.retirement_contribution_cost;
-      if (['extra', 'included'].includes(c.treatment) && (c.monthly_cents === null || !c.stop_month)) { setError('请填写每月自己承担的金额和结束月份；不知道时可以选“还不确定”。'); return; }
+      if (!stopDraft || !base.pension_contributions.start_month || stopDraft < base.pension_contributions.start_month) { setError('请选择不早于缴费开始月份的停缴月份。'); return; }
+      base.pension_contributions.stop_month = stopDraft;
+      if (c.treatment === 'excluded') c.monthly_cents = null;
+      if (draftTimeline.months !== 0 && ['extra', 'included'].includes(c.treatment) && (c.monthly_cents === null || !c.stop_month)) { setError('请填写每月自己承担的金额和结束月份；不知道时可以选“还不确定”。'); return; }
     }
     if (id === 'assumptions') { t.real_return_before_hundredths = Math.round(Number(data.get('before')) * 100); t.real_return_after_hundredths = Math.round(Number(data.get('after')) * 100); x.assumptions.inflation_hundredths = Math.round(Number(data.get('inflation')) * 100); }
     const result = buildBasicCapabilities(s);
@@ -119,7 +130,18 @@ function App() {
             <p>北京办事指南列有部分户籍进京人员 5 年（60 个月）、外埠户籍人员 10 年（120 个月）的要求。请先核实适用条件；只有确认没有单独本地要求时才填 0。<a href="https://banshi.beijing.gov.cn/pubtask/task/1/110113000000/53193448-1617-4fb5-94f0-09d133fce9d0_cjwt.html" target="_blank" rel="noreferrer">查看官方适用条件</a>（2026-10-12 核对）。</p>
           </details>
         </>}
-        {id === 'cost' && <><label>缴费怎么安排<select name="treatment" defaultValue={cost?.treatment ?? 'unknown'}><option value="unknown">还不确定，暂未计入</option><option value="extra">生活费之外另外支付</option><option value="included">已包含在每月生活费里</option><option value="excluded">这次明确不计入</option></select></label>{numberField('每月自己承担的费用（元）', 'amount', yuan(cost?.monthly_cents), 0, 1000000, true)}<label>缴费结束月份（该月起不再支付）<input type="month" name="stop" defaultValue={cost?.stop_month ?? b.pension_contributions.stop_month ?? ''}/></label><p>从不工作后开始计算。费用结束时间与养老金缴费安排需要一致；“已包含”不会再加一次。</p></>}
+        {id === 'cost' && <>
+          <p>这里的“不工作”是你设定的生活计划，不等于已经办理退休。只有不工作后仍继续缴费的那一段，才在这里安排自己承担的支出。</p>
+          <div className="caution"><strong>先看三个时间</strong><p>停止工作：{timeline.work ?? '待填写'}（{ageAtMonth(p.birth_month, timeline.work)}）</p><p>法定退休：{timeline.statutory ?? '资料不足'}；按当前弹性选择预计办理退休：{timeline.retirement ?? '资料不足'}</p><p>当前预计开始领养老金：{pension?.start_month ?? '条件尚未满足或未计入'}。办理退休／领取还须满足缴费条件。</p></div>
+          <p>你计划交到什么时候？以下是试算选项，不会自动认定你已满足养老或医保条件。</p>
+          <div className="actions"><button type="button" disabled={!timeline.work} onClick={() => setStopDraft(timeline.work)}>停止工作时就停缴</button><button type="button" disabled={!timeline.retirement} onClick={() => setStopDraft(timeline.retirement ? shiftMonth(timeline.retirement, 1) : null)}>缴至预计办理退休当月</button></div>
+          <label>最后一个缴费月份<input type="month" value={stopDraft ? shiftMonth(stopDraft, -1) : ''} onChange={e => setStopDraft(e.target.value ? shiftMonth(e.target.value, 1) : null)}/></label>
+          <p>{draftTimeline.last ? `最后缴费 ${draftTimeline.last}（${ageAtMonth(p.birth_month, draftTimeline.last)}），从 ${stopDraft}（${ageAtMonth(p.birth_month, stopDraft)}）起不再缴费。` : '请选择月份。'}{draftTimeline.months === null ? '' : draftTimeline.months === 0 ? '按这份安排，没有不工作后继续缴费的区间。' : `不工作后需要安排约 ${draftTimeline.months} 个月的缴费支出。`}</p>
+          {draftTimeline.months !== 0 && <><label>这段费用怎么安排<select name="treatment" defaultValue={cost?.treatment ?? 'unknown'}><option value="unknown">还不确定，暂未计入</option><option value="extra">生活费之外另外支付</option><option value="included">已包含在每月生活费里</option><option value="excluded">这次明确不计入</option></select></label>{numberField('每月自己承担的费用（元）', 'amount', yuan(cost?.monthly_cents), 0, 1000000, true)}</>}
+          {draftTimeline.months === 0 && <input type="hidden" name="treatment" value="unknown"/>}
+          <p>应用后会同步更新用于养老金、医保预测的缴费截止时间，并重算结果。改“停止工作年龄”不会擅自改掉你选好的停缴时间；改完年龄后可在这里重新选择。当前模型把养老和医保续缴期放在一起估算；若两者计划不同，不能把这个结果当作精确方案。</p>
+          <details><summary>到退休年龄后还要交吗？</summary><p>达到年龄并满足领取条件、办妥退休后，通常不再按在职方式缴职工养老保险。年限不够时，需按规定延长缴费或办理符合条件的补缴。医保还要单独满足退休医保条件；不足的费用看“退休医保”一项，不能因为选了 63 岁就自动视为无需缴费。</p><a href="https://www.gov.cn/zhengce/202409/content_6974508.htm" target="_blank" rel="noreferrer">官方延迟退休政策解读</a></details>
+        </>}
         {id === 'assumptions' && <>{numberField('退休前实际年收益（%）', 'before', r.real_return_before_hundredths / 100, -8, 18)}{numberField('退休后实际年收益（%）', 'after', r.real_return_after_hundredths / 100, -8, 18)}{numberField('年通胀（%）', 'inflation', p.assumptions.inflation_hundredths / 100, 0, 10)}<p>实际收益已扣除通胀。0% 表示购买力不变，并不是银行利息为零；这是假设，不是收益承诺。</p></>}
       </div>
       {error && <p role="alert" className="error">{error}</p>}
@@ -131,8 +153,8 @@ function App() {
     { id: 'spend', value: `${exactMoney(r.spend_cents)}${r.spend_cents === null ? '' : ' / 月'}`, description: '按现在物价填写退休后的日常生活费；社保缴费是否包含，见下方单独一项。', state: r.spend_cents === null ? '待填写' : '你估计的预算' },
     { id: 'funds', value: funds ? exactMoney(funds.available_cents) : '还不能确定', description: funds ? `${funds.date} 截至金额。另有受限资金 ${exactMoney(funds.restricted_cents)}，不作为现在可用的钱。` : '选择能用于退休生活的钱，或填写一个模拟金额。', state: b.start.kind === 'live' ? '来自虚构盘点' : '模拟金额' },
     { id: 'saving', value: b.contribution.monthly_cents === null ? '还没估计' : `${exactMoney(b.contribution.monthly_cents)} / 月`, description: '从现在到不工作之前，扣除日常开支和缴费后，预计每月净存入多少。', state: b.contribution.monthly_cents === null ? '可稍后填' : '你估计的投入' },
-    { id: 'income', value: pension?.included ? `养老金约 ${forecastMoney(pension.monthly_cents)} / 月` : b.retirement_income.mode === 'excluded' ? '暂不计退休收入' : '养老金资料待补充', description: pension?.included ? `${pension.start_month} 起领取。预计缴费至 ${b.pension_contributions.stop_month} 前，领钱前的生活仍靠存款。` : '养老金属于退休后的收入，不会从停止工作那天自动到账。', state: pension?.included ? '已计入 · 估算' : '未计入' },
-    { id: 'cost', value: !cost || cost.treatment === 'unknown' ? '还没确认费用' : cost.treatment === 'excluded' ? '本次不计入' : `${exactMoney(cost.monthly_cents)} / 月 · ${cost.treatment === 'extra' ? '另外支付' : '生活费已包含'}`, description: '提前不工作后，若继续自己交社保，这笔钱会影响需要准备的存款。', state: !cost || ['unknown', 'excluded'].includes(cost.treatment) ? '未计入费用' : '已安排' },
+    { id: 'income', value: pensionIneligible ? '按当前缴费计划，暂不能按月领取养老金' : pensionPayable ? `养老金约 ${forecastMoney(pension.monthly_cents)} / 月` : b.retirement_income.mode === 'excluded' ? '暂不计退休收入' : '养老金资料待补充', description: pensionIneligible ? '当前停缴时间下，养老缴费年限不足；本次资金需求未计按月养老金。可在“不工作后自己缴社保”调整缴费截止。' : pensionPayable ? `${pension.start_month} 起领取。预计缴费至 ${b.pension_contributions.stop_month} 前，领钱前的生活仍靠存款。` : '养老金属于退休后的收入，不会从停止工作那天自动到账。', state: pensionPayable ? '已计入 · 估算' : '未计入' },
+    { id: 'cost', value: timeline.months === 0 ? '按当前计划，无需安排停工后的续缴费用' : !cost || cost.treatment === 'unknown' ? '续缴费用还没确认' : cost.treatment === 'excluded' ? '本次不计入费用' : `${exactMoney(cost.monthly_cents)} / 月`, description: `停止工作 ${timeline.work ?? '待填写'}；最后缴费 ${timeline.last ?? '待填写'}（${ageAtMonth(p.birth_month, timeline.last)}）。${timeline.months === null ? '缴费区间待确认。' : `不工作后的续缴区间约 ${timeline.months} 个月。`} 这不代表养老或医保资格已满足。`, state: timeline.months === 0 ? '无续缴区间' : '缴费计划与费用' },
     { id: 'medical', value: medicalSummary.title, description: `${medicalSummary.explanation} 已填记录：累计 ${p.medical_paid_months ?? '未知'} 个月，北京实缴 ${p.medical_local_paid_months ?? '未知'} 个月；本地门槛 ${p.medical_local_required_months ?? '未知'} 个月。${medical.status === 'short' ? p.medical_topup_cents == null ? '补缴金额未知，费用尚未计入。' : `已计入一次性补缴估算 ${exactMoney(p.medical_topup_cents)}。` : ''}`, state: medical.status === 'unknown' ? '待补资料' : medical.status === 'not_needed' ? '尚未核算' : '资料已填全 · 模型估算' },
     { id: 'assumptions', value: `实际收益 ${r.real_return_before_hundredths / 100}% / ${r.real_return_after_hundredths / 100}%`, description: `依次为退休前 / 后的年收益，已扣除通胀。通胀假设 ${p.assumptions.inflation_hundredths / 100}%。`, state: '计算假设' },
   ];
@@ -143,7 +165,7 @@ function App() {
       <aside><section className="panel result"><p className="eyebrow">{missing.length ? '还不能算出结果' : annotations.length ? '当前暂算结果' : '按当前条件估算'}</p><h2>{r.target_age === null ? '先定一个退休目标' : `${r.target_age} 岁起不工作`}</h2><div className="amounts"><div><span>目标需要每月存</span><strong>{req && 'monthly_cents' in req ? forecastMoney(req.monthly_cents) : '待计算'}</strong></div><div><span>你估计每月能存</span><strong>{exactMoney(b.contribution.monthly_cents)}</strong></div></div><p>{req ? req.status === 'no_positive_contribution' && annotations.length ? '只看目前已计入的条件，暂不要求额外存钱。请先核对下面的遗漏。' : requirementLine(req, forecastMoney).text : missing.map(missingText).filter((v, i, all) => all.indexOf(v) === i).join(' ')}</p>
       {difference !== null && req?.status === 'found' && <p className={difference < 0 ? 'error' : ''}>按已计入的条件，{difference < 0 ? '每月还差约 ' : '每月余量约 '}{forecastMoney(Math.abs(difference))}。</p>}
       {annotations.length > 0 && <div className="caution"><strong>这些情况还会影响结果</strong><ul>{annotations.map(a => <li key={a.id}>{a.reason_code === 'MEDICAL_FACTS_UNKNOWN' ? '医保年限尚未核对；是否需要额外补缴还不确定。' : a.reason_code === 'PENSION_COST_UNCONFIRMED' ? '养老金按继续缴费估算，但退休后自己承担的缴费支出还没有完整计入。' : a.message}</li>)}</ul></div>}<p className="footnote">金额按当前条件估算；未来收入、支出和政策变化后需要重算。</p></section>
-      <section className="panel next"><p className="eyebrow">建议下一步</p><h2>{nextCopy}</h2><p>{next === 'cost' ? '养老金已按继续缴费估算，但自己承担的费用还需要你确认。' : next === 'medical' && medicalPending ? medicalSummary.guidance : next === 'saving' ? '填后才能比较目标所需与实际存钱能力。' : '先完成这一项，其余已填内容都会保留。'}</p><button className="primary" onClick={() => open(next)}>{next === 'cost' ? '确认缴费支出' : next === 'medical' && medicalPending ? medicalSummary.action : `调整${names[next]}`}</button></section>
+      <section className="panel next"><p className="eyebrow">建议下一步</p><h2>{nextCopy}</h2><p>{next === 'cost' ? pensionIneligible ? '目前停缴时间下，养老缴费年限不足，未计按月养老金；停工时间与停缴时间可以分别安排。' : '养老金已按继续缴费估算，但自己承担的费用还需要你确认。' : next === 'medical' && medicalPending ? medicalSummary.guidance : next === 'saving' ? '填后才能比较目标所需与实际存钱能力。' : '先完成这一项，其余已填内容都会保留。'}</p><button className="primary" onClick={() => open(next)}>{next === 'cost' ? pensionIneligible ? '调整缴费截止时间' : '确认缴费支出' : next === 'medical' && medicalPending ? medicalSummary.action : `调整${names[next]}`}</button></section>
       <details className="panel details"><summary>其他计划与计算范围</summary><p>本例没有另加买房、买车计划。医保是否需要补缴，以当前资料核对结果为准。</p><p>原型使用现有月度计算模型。社保事实、贷款和大额计划的完整编辑继续使用现有页面；这次先验证主页面顺序和单项调整。</p></details></aside></div></>}
     </main></>;
 }
