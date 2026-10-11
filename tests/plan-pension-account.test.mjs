@@ -39,7 +39,7 @@ test('monthly entry and total year interest each round to cents at the declared 
 test('unknown and unsupported premises never become projected balances',()=>{
   const edits=[p=>p.method=null,p=>p.method='monthly-compound',p=>p.scope='other',p=>p.opening.cents=null,
     p=>p.opening.interest_settled=null,p=>p.opening.interest_settled=false,p=>p.opening.month='2025-11',
-    p=>p.end_month='2025-12',p=>p.end_month='2026-13',p=>p.months.splice(1,1),p=>p.months.push(p.months[0]),
+    p=>p.end_month='2200-01',p=>p.opening.cents='01',p=>p.opening.cents=100,p=>p.opening.source='  ',p=>p.end_month='2025-12',p=>p.end_month='2026-13',p=>p.months.splice(1,1),p=>p.months.push(p.months[0]),
     p=>p.months[0].base_cents='0',p=>p.months[0].kind='unknown',p=>p.months[0].source='',p=>p.months[0]=null,
     p=>p.rates=[],p=>p.rates.push(p.rates[0]),p=>p.rates[0].ten_thousandths=null,p=>p.rates[0].ten_thousandths=-1,
     p=>p.rates[0].basis='unknown',p=>p.rates[0]=null,p=>p.months[0].base_cents='9007199254740992'];

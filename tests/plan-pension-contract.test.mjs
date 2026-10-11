@@ -57,12 +57,14 @@ test('each missing input blocks without leaking a zero answer', () => {
 
 test('invalid values and contradictory dated policy data are rejected, not clamped', () => {
   const invalid = [
-    { birth_month: '1990-13' }, { worker: 'programmer' }, { flex_months: 37 }, { flex_months: .5 },
+    { birth_month: '1990-13' }, { birth_month: '2200-01' }, { birth_month: 199001 }, { worker: 'programmer' }, { flex_months: 37 }, { flex_months: .5 },
     { paid_months_at_retirement: -1 }, { paid_months_at_retirement: 240.5 }, { paid_months_at_retirement: NaN },
     { paid_months_at_retirement: 900 },
     { average_index: { ten_thousandths: -1, ...source } }, { average_index: { ten_thousandths: 9200.5, ...source } },
     { benefit_base: { cents: '12049.00', year: 2053, ...source } }, { benefit_base: { cents: '0', year: 2053, ...source } },
     { benefit_base: { cents: '1204900', year: 2025, ...source } }, { account_at_retirement: { cents: '-1', ...source } },
+    ...['01', '1e3', '9007199254740992', 100].map(cents => ({ account_at_retirement: { cents, ...source } })),
+    { average_index: { ten_thousandths: 9200, basis: 'assumption', source: '  ' } },
     { disbursement: { months: 139, basis: 'verified', source: '不符63岁' } },
     { disbursement: { months: 0, ...source } }, { disbursement: { months: Infinity, ...source } },
     { average_index: { ten_thousandths: 9200, basis: 'verified', source: '' } },

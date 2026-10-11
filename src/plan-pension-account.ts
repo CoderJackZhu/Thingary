@@ -1,5 +1,6 @@
 // Explicit scenario arithmetic, not an official account settlement or forecast.
-import type { PolicySource } from './plan-pension-policy.ts';
+import { validMonth, money, validSource, sourceCopy, monthIndex } from './plan-pension-input.ts';
+import type { PolicySource } from './plan-pension-input.ts';
 
 export type PensionAccountMonth = PolicySource & {
   month: string; kind: 'paid' | 'unpaid' | 'unemployment_benefit'; base_cents?: string | null;
@@ -19,11 +20,6 @@ export type PensionAccountResult = { status: 'blocked'; issues: Issue[] } | { st
     deposits_cents: number; interest_cents: number; closing_cents: number; rate_ten_thousandths: number;
     months: { month: string; deposit_cents: number }[]; sources: PolicySource[] }[];
 } };
-const validMonth = (v: unknown): v is string => typeof v === 'string' && /^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/.test(v);
-const monthIndex = (v: string) => Number(v.slice(0,4))*12+Number(v.slice(5))-1;
-const money = (v: unknown): v is string => typeof v === 'string' && /^(0|[1-9]\d*)$/.test(v) && Number.isSafeInteger(Number(v));
-const validSource = (v: PolicySource | null | undefined) => !!v && ['verified','assumption'].includes(v.basis) && typeof v.source === 'string' && !!v.source.trim();
-const sourceCopy = (v: PolicySource): PolicySource => ({ basis:v.basis,source:v.source });
 const round = (n: bigint,d: bigint) => (n*2n+d)/(d*2n);
 
 /** Requires a settled December balance and explicit rates. Monthly deposits

@@ -41,7 +41,7 @@ test('partial start, partial retirement and partial benefit exclusions block rat
 test('missing month/wage/source, duplicate rows, zero paid base and illegal dates cannot become answers',()=>{
   const edits=[p=>p.months.splice(3,1),p=>p.months.push(p.months[0]),p=>p.wages.pop(),p=>p.wages.push(p.wages[0]),
     p=>p.months[0].base_cents=null,p=>p.months[0].base_cents='0',p=>p.months[0].kind='unknown',p=>p.months[0].source='',
-    p=>p.required_start_month='2020-13',p=>p.scope='other',p=>p.wages[0].cents='0'];
+    p=>p.required_start_month='2200-01',p=>p.months[0].base_cents='01',p=>p.months[0].base_cents=100,p=>p.months[0].source='  ',p=>p.required_start_month='2020-13',p=>p.scope='other',p=>p.wages[0].cents='0'];
   for(const edit of edits){const p=input();edit(p);const r=prepareBeijingIndex(p);assert.equal(r.status,'blocked');assert.equal('value' in r,false);}
 });
 test('explicit unpaid zero is valid; all excluded index has no denominator',()=>{

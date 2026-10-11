@@ -167,6 +167,8 @@ npm run tauri -- build --bundles app
 
 基础规划的操作层可用 `?section=planning&plan-basic=beijing-complete` 查看已保存北京选择与隐藏缴费资料保全；`plan-basic=blank|unknown|negative|saved` 分别检查空白、预计投入未知、负值与已保存。`state=save-error` 检查保存失败保留输入。`section=virtual` 的虚构创作服务可查看关联订阅的结束确认窗；`section=expenses` 检查年度柱图进入月度回顾及金额待补提示。合并共用控件时，`tests/cent-input-interactions.test.mjs` 验证真实输入处理保持负整数分、零、未知与字段说明关联。
 
+养老金模块职责见[架构说明](ARCHITECTURE.md#养老金计算模块边界)。整理共用校验时，保留各阶段的缺项／非法／不适用输出及来源复制隔离；运行以下测试，并比较 `node scripts/pension-policy-audit.mjs` 修改前后输出完全一致。此项只证明现有情景行为未变，不是政策校准。
+
 北京养老金政策专项用例运行 `node --test tests/plan-pension-policy.test.mjs`；`node --test tests/plan-pension-contract.test.mjs` 验证独立的显式输入金额核心（缺项／不适用门控、年份、计发月数、金额舍入和次月起领）。`node --test tests/plan-pension-index.test.mjs tests/plan-pension-timing.test.mjs` 验证完整日历年指数与独立账本起领适配器，覆盖普通停缴、整年待遇扣除、精确舍入、缺项和部分年份阻断，以及退休月、跨年、月中起点、池解锁和展示一致性。适配器仅支持显式购买力转换与领取后随通胀增长假设，未被普通入口或预览调用。
 
 `node --test tests/plan-pension-account.test.mjs tests/plan-pension-candidate.test.mjs` 验证已结息年末余额后的账户情景外推与完整年度候选串联；覆盖停缴继续计息、8%入账、逐年利率、年度与末年假设、整数分舍入、缺项／非法／不适用、退休月一致性及资格不足不退款。新候选位于 `plan-pension-candidate.ts`，既有 `plan-pension-path.ts` 的缴费区间编译保持不变，不能以新候选替换普通入口。

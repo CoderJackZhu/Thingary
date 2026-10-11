@@ -1,6 +1,7 @@
 // Audited complete-calendar-year subset only. No historical reconstruction,
 // wage defaults, partial-year approximation, account projection or storage.
-import type { PolicySource } from './plan-pension-policy.ts';
+import { validMonth, money, validSource, sourceCopy, monthIndex as monthNumber } from './plan-pension-input.ts';
+import type { PolicySource } from './plan-pension-input.ts';
 
 type Month = PolicySource & { month: string; kind: 'paid' | 'unpaid' | 'unemployment_benefit'; base_cents?: string | null };
 type Wage = PolicySource & { year: number; cents: string };
@@ -15,11 +16,6 @@ export type BeijingIndexResult = { status: 'blocked'; issues: Issue[] } | { stat
   paid_months: number; required_months: number; unpaid_months: number; excluded_months: number;
   rows: { year: number; annual_base_cents: string; wage_year: number; wage_cents: string | null; included: boolean; paid_months: number; sources: PolicySource[] }[];
 } };
-const validMonth = (s: unknown): s is string => typeof s === 'string' && /^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/.test(s);
-const monthNumber = (s: string) => Number(s.slice(0,4))*12+Number(s.slice(5))-1;
-const money = (s: unknown): s is string => typeof s === 'string' && /^(0|[1-9]\d*)$/.test(s) && Number.isSafeInteger(Number(s));
-const validSource = (s: PolicySource | null | undefined) => !!s && ['verified','assumption'].includes(s.basis) && typeof s.source === 'string' && !!s.source.trim();
-const sourceCopy = (s: PolicySource): PolicySource => ({ basis:s.basis,source:s.source });
 const gcd = (a: bigint,b: bigint): bigint => { while(b){const next=a%b;a=b;b=next;}return a; };
 
 /** 北京2007年21号附件/29号§16–18, restricted to complete calendar years.

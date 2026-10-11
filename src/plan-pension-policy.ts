@@ -1,10 +1,12 @@
 // Explicit-input Beijing benefit kernel. No storage, projection of past facts,
 // career defaults, account growth, or restricted-asset unlocking here.
+import { validMonth, money, validSource, sourceCopy, monthIndex } from './plan-pension-input.ts';
 import { startAgeMonths, statutoryAgeMonths, requiredContributionMonths } from './plan-pension.ts';
 import type { Worker } from './plan-pension.ts';
 import { pensionMonths } from './plan-params.ts';
 
-export type PolicySource = { basis: 'verified' | 'assumption'; source: string };
+import type { PolicySource } from './plan-pension-input.ts';
+export type { PolicySource } from './plan-pension-input.ts';
 type Amount = PolicySource & { cents: string };
 export type BeijingBenefitInput = {
   scope: 'beijing-enterprise-post-1998' | 'other' | null;
@@ -31,11 +33,8 @@ export type BeijingBenefitResult = { status: 'blocked'; issues: PolicyIssue[] } 
     sources: Record<'average_index' | 'benefit_base' | 'account_at_retirement' | 'disbursement', PolicySource>;
   };
 };
-const monthIndex = (ym: string) => Number(ym.slice(0, 4)) * 12 + Number(ym.slice(5)) - 1;
 const monthText = (m: number) => `${Math.floor(m / 12)}-${String(m % 12 + 1).padStart(2, '0')}`;
-const money = (v: string) => typeof v === 'string' && /^(0|[1-9]\d*)$/.test(v) && Number.isSafeInteger(Number(v));
 const roundRatio = (n: bigint, d: bigint) => Number((n * 2n + d) / (d * 2n));
-const sourceCopy = (v: PolicySource): PolicySource => ({ basis: v.basis, source: v.source });
 
 /** Ready means calculable under supplied premises, not approved entitlement.
  * 年限/指数精度：北京官方测算表公式说明；资格年份/起领：人社部发〔2024〕94号§7/9。
@@ -48,13 +47,13 @@ export function calculateBeijingBenefit(input: BeijingBenefitInput): BeijingBene
   if (issues.length) return { status: 'blocked', issues };
 
   if (input.scope !== 'beijing-enterprise-post-1998') issue('unsupported', 'scope', '仅支持已确认的北京企业职工1998年7月以后参保、无过渡性养老金等特殊情形。');
-  if (typeof input.birth_month !== 'string' || !/^(19|20|21)\d{2}-(0[1-9]|1[0-2])$/.test(input.birth_month)) issue('invalid', 'birth_month', '出生月须为1900至2199年的合法年月。');
+  if (!validMonth(input.birth_month)) issue('invalid', 'birth_month', '出生月须为1900至2199年的合法年月。');
   if (!['male', 'female_cadre', 'female_worker'].includes(input.worker!)) issue('invalid', 'worker', '职工类别须独立核对，不能按职业名称推定。');
   if (!Number.isInteger(input.flex_months) || Math.abs(input.flex_months!) > 36) issue('invalid', 'flex_months', '弹性月数须为−36至36的整数。');
   if (!Number.isInteger(input.paid_months_at_retirement) || input.paid_months_at_retirement! < 0 || input.paid_months_at_retirement! > 1200) issue('invalid', 'paid_months_at_retirement', '实缴月数须为0至1200的整数，不按天数折算。');
   for (const field of ['average_index', 'benefit_base', 'account_at_retirement', 'disbursement'] as const) {
     const v = input[field]!;
-    if (!['verified', 'assumption'].includes(v.basis) || typeof v.source !== 'string' || !v.source.trim()) issue('invalid', field, '须给出来源并区分已核对数值与明确假设。');
+    if (!validSource(v)) issue('invalid', field, '须给出来源并区分已核对数值与明确假设。');
   }
   const index = input.average_index!, base = input.benefit_base!, account = input.account_at_retirement!, disbursement = input.disbursement!;
   if (!Number.isSafeInteger(index.ten_thousandths) || index.ten_thousandths < 0) issue('invalid', 'average_index', '指数须为非负万分位整数，不自动截断或夹到0.6。');
