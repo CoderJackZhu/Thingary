@@ -6,7 +6,6 @@ import { careerDraft } from './fixtures.ts';
 import { incomeDraft } from './income-scope.ts';
 import type { IncomeDraft } from './income-scope.ts';
 import { ageMonthsAt, maxGap } from '../plan-career-map.ts';
-import { historyHints } from '../planning-basic-defaults.ts';
 import { careerMonth } from '../plan-career-contract.ts';
 import type { MaxGap, MinWindow, Reason } from '../plan-career-map.ts';
 
@@ -76,12 +75,11 @@ export function restLevers(sources: PlanningSources, draft: CareerDraft): Lever[
   return out;
 }
 
-export type GuidedDefaults = { draft: CareerDraft; income: IncomeDraft; /** Where the starting figures came from, for the on-page note. */ from: { spend: 'history' | null; recovery: 'current' | null } };
+export type GuidedDefaults = { draft: CareerDraft; income: IncomeDraft; /** Where the starting figures came from, for the on-page note. */ from: { recovery: 'current' | null } };
 const monthOf = (d: string) => Number(d.slice(0, 4)) * 12 + Number(d.slice(5, 7)) - 1;
 
-/** Starting values for real facts. Nothing is invented: the monthly spend comes from past inventories only when there are enough of them,
- *  "savings after the change" starts equal to today's savings (so an answer shows and can be lowered), the stage costs follow the
- *  treatment already confirmed in the plan, and pension / pools start as the visible conservative "not counted". */
+/** Reuse explicit saved contribution/cost choices; future spending stays unknown.
+ * Historical balance changes cannot supply a future living-cost assumption. */
 export function realGuidedDefaults(sources: PlanningSources, today: string): GuidedDefaults {
   const p = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile ?? null : null;
   const b = p?.retire.basic ?? null;
@@ -90,9 +88,7 @@ export function realGuidedDefaults(sources: PlanningSources, today: string): Gui
   d.gap_months = 6; d.gap.income_cents = '0'; d.gap.spend_cents = null; d.recovery.monthly_cents = null;
   const costs = structuredClone(b?.contribution_costs ?? []);
   d.gap.costs = structuredClone(costs); d.recovery.costs = structuredClone(costs);
-  const hist = historyHints(sources.review.status === 'ready' ? sources.review.value : null);
-  const from: GuidedDefaults['from'] = { spend: null, recovery: null };
-  if (hist.spend !== null) { d.gap.spend_cents = hist.spend; from.spend = 'history'; }
+  const from: GuidedDefaults['from'] = { recovery: null };
   const cur = b?.contribution.monthly_cents ?? null;
   if (cur !== null && /^-?\d+$/.test(cur) && Number(cur) >= 0) { d.recovery.monthly_cents = cur; from.recovery = 'current'; }
   return { draft: d, income: guidedIncome(sources), from };

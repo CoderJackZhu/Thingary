@@ -222,3 +222,33 @@ test('future occurrence defaults pending; empty withdrawal is enabled but saved 
     assert.equal(factual.button('撤回为尚未发生').props.disabled, true);
   }
 });
+
+test('historical estimates cannot fill budget or contribution; explicit cash-flow helper remains usable', () => {
+  const sources=sourcesOf(savedPlan());
+  sources.review.value={intervals:[],stats:{count:4,spend_count:4,median_monthly_saving_cents:'300000',median_monthly_cash_saving_cents:'200000',median_monthly_cash_spend_cents:'800000',median_monthly_market_change_cents:'100000'}};
+  sources.profile.value.saved.profile.retire.spend_cents=null;
+  const q2=runtime('PlanningSetup',{sources,editMode:true,initialStep:1});
+  assert.equal(q2.find('CentInput').props.value,'');assert.equal(q2.button('采用'),undefined);
+  const r=sharedRuntime('PlanningSetup',{sources,editMode:true,initialStep:4},undefined,unknownCapabilityFixture,{components:['PlanningContributionHelper']});
+  assert.equal(r.button('采用'),undefined);
+  assert.equal(r.find('CentInput',p=>p.label==='每月大约能存下多少钱').props.value,'');
+  r.find('CentInput',p=>p.label==='每月到账').props.onChange('1000000');
+  r.find('CentInput',p=>p.label==='每月全部开销').props.onChange('1100000');r.render();
+  r.button('采用').props.onClick();r.render();
+  assert.equal(r.find('CentInput',p=>p.label==='每月大约能存下多少钱').props.value,'-100000');
+  assert.equal(r.calls.length,0); // Picking explicit inputs still requires a separate save.
+});
+
+test('detail never substitutes historical savings for an unknown contribution, but explicit trial works',()=>{
+  const saved=savedPlan(),sources=sourcesOf(saved),inputs=[];
+  sources.review.value={intervals:[],stats:{count:4,median_monthly_saving_cents:'300000',median_monthly_cash_saving_cents:'200000'}};
+  const r=sharedRuntime('PlanningBasicDetail',{sources,saved},undefined,unknownCapabilityFixture,{components:[],modules:{
+    './plan-summary':{usualSaving:()=>null},
+    './planning-basic-data':{useSectionSaver:()=>({busy:false,stuck:false,notice:''}),useCapabilities:(_s,options)=>{inputs.push(options.contribution);return {status:'ready',caps:unknownCapabilityFixture};}},
+  }});
+  assert.ok(inputs.every(x=>x===null));assert.equal(r.button('采用并保存'),undefined);
+  r.find('CentInput',p=>p.label==='试算每月能存下的钱').props.onChange('500000');r.render();r.button('试算').props.onClick();r.render();
+  assert.equal(inputs.at(-1),'500000');
+  r.button('清除试算').props.onClick();r.render();assert.equal(inputs.at(-1),null);
+  assert.equal(saved.profile.retire.basic.contribution.monthly_cents,null);
+});

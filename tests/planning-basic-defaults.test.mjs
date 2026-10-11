@@ -92,7 +92,7 @@ test('with the defaults, a Beijing plan needs only age, budget, funds, social-in
   assert.deepEqual(caps.requirement.status === 'blocked' ? caps.requirement.missing.map(m => m.code) : [], []);
   assert.equal(caps.requirement.status, 'ready');
   assert.equal(caps.prediction.status, 'blocked'); // contribution still unknown until a number is chosen
-  // The history number only makes a temporary, labelled prediction; the saved value is unchanged.
+  // An explicitly entered trial only makes a temporary prediction; the saved value is unchanged.
   const shown = buildBasicCapabilities(overlayPlanningDrafts(sources, drafts), '300000');
   assert.equal(shown.prediction.value.source, 'temporary');
   assert.equal(drafts[0].fields.basic.contribution.monthly_cents, null);

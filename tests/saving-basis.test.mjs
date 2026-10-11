@@ -59,7 +59,7 @@ test('preview rejects unknown net-asset change exactly as Rust; first/incomparab
   }
 });
 
-test('review, setup, contribution helper and detail share cash-field values and the exact caveat', () => {
+test('review and read-only planning references share cash-field values; detail never adopts them', () => {
   const r = review(), i = r.intervals[0], h = defaults.historyHints(r);
   assert.equal(h.saving, i.monthly_cash_saving_cents);
   assert.equal(h.spend, i.monthly_cash_spend_cents);
@@ -67,12 +67,13 @@ test('review, setup, contribution helper and detail share cash-field values and 
   const helper = render(ContributionHelper, { history: h, onPick() {} });
   const detail = render(Trial, { auto: h, trial: null, notice: '' });
   const wizard = setup(r), suggestion = wizard.find('p', p => p.className?.includes('plan-suggest'));
-  for (const s of [usual, steps, helper, detail]) assert.ok(s.includes(money(i.monthly_cash_saving_cents)), s);
+  for (const s of [usual, steps, helper]) assert.ok(s.includes(money(i.monthly_cash_saving_cents)), s);
   for (const s of [usual, steps, wizard.text(suggestion)]) assert.ok(s.includes(money(i.monthly_cash_spend_cents)), s);
-  for (const s of [usual, steps, helper, detail, wizard.text(suggestion)]) assert.ok(s.includes(defaults.SAVING_BASIS_CAVEAT), s);
+  for (const s of [usual, steps, helper, wizard.text(suggestion)]) assert.ok(s.includes(defaults.SAVING_BASIS_CAVEAT), s);
   assert.equal(wizard.find('CentInput', p => p.label === '退休后每月生活预算').props.value, '');
-  wizard.button('采用').props.onClick(); wizard.render();
-  assert.equal(wizard.find('CentInput', p => p.label === '退休后每月生活预算').props.value, h.spend);
+  assert.equal(wizard.button('采用'), undefined);
+  assert.ok(!detail.includes('采用并保存'));
+  assert.ok(!detail.includes(money(h.saving)));
   assert.equal(wizard.calls.length, 0);
 });
 
@@ -129,7 +130,7 @@ test('nonzero investment change stays separate, never added to estimated saving'
   let adopted;
   const n = expand(ContributionHelper({ history: h, onPick: v => { adopted = v; } }));
   function click(node) { if (Array.isArray(node)) return node.forEach(click); if (node && typeof node === 'object') { if (node.type === 'button' && text(node) === '采用') node.props.onClick(); else click(node.props?.children); } }
-  click(n); assert.equal(adopted, i.monthly_cash_saving_cents);
+  click(n); assert.equal(adopted, undefined);
 });
 
 test('zero and negative saving remain numbers; missing cash amounts never become zero in review', () => {

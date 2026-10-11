@@ -90,7 +90,7 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
 
   const note = example
     ? <>现在填的是<strong>示例数字</strong>，请改成你自己的。<button type="button" onClick={example}>恢复示例数字</button></>
-    : <>起点按你的资料填好了{defaults.from.spend ? '（每月花销取自过去的盘点）' : ''}{defaults.from.recovery ? '（找到新工作后每月能攒，先按和现在一样）' : ''}，<strong>请改成你自己的估计</strong>。这里的数字只在这次试算里，关闭就丢弃，不会改你的计划。</>;
+    : <>已复用你确认过的计划条件；不工作期间的花销需要填写{defaults.from.recovery ? '（找到新工作后每月能攒，先按和现在一样）' : ''}，<strong>请改成你自己的估计</strong>。这里的数字只在这次试算里，关闭就丢弃，不会改你的计划。</>;
   const Root = embedded ? 'div' : 'main';
   return <Root className={`guided${embedded ? ' guided-embedded' : ''}`}><CoverageNote sources={sources} compact/>
     {embedded ? <p className="guided-note">{note}</p> : <header><p className="eyebrow">物谱 · 职业变化试算（虚构预览）</p><h1>歇一阵或换工作，退休目标还保得住吗？</h1>

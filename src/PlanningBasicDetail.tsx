@@ -15,9 +15,9 @@ import { usualSaving } from './plan-summary';
 import type { BasicCapabilities, PlanningMissing, PlanningSources, ProfileState } from './plan';
 import { toEvent } from './plan-retire-calc';
 import { contributionSection } from './planning-basic-forms';
-import { SAVING_BASIS_CAVEAT, historyHints } from './planning-basic-defaults';
+import { historyHints } from './planning-basic-defaults';
 import type { History } from './planning-basic-defaults';
-import { ContributionHelper, MarketNote } from './PlanningContributionHelper';
+import { ContributionHelper } from './PlanningContributionHelper';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
 import { amountState, SAVE_CONTRIBUTION_HINT } from './planning-basic-view';
 import './retire.css';
@@ -34,9 +34,8 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const [trial, setTrial] = useState<string | null>(null), [tab, setTab] = useState<'overview' | 'lab'>('overview'), [mode, setMode] = useValueMode();
   const hist = useMemo(() => historyHints(ready(sources.review)), [sources.review]);
   const savedContribution = saved.profile.retire.basic?.contribution.monthly_cents ?? null;
-  // Past 盘点 stand in for an unknown contribution as a labelled, unsaved source; the saved value stays unknown.
-  const auto = trial === null && savedContribution === null && hist.saving !== null;
-  const result = useCapabilities(sources, { contribution: trial ?? (auto ? hist.saving : null) });
+  // Unknown future contributions stay unknown even when historical estimates exist.
+  const result = useCapabilities(sources, { contribution: trial });
   const saver = useSectionSaver(sources, reload, onPending);
   const retire = saved.profile.retire;
   // Pension facts are completed in place with the same shared dialog as the goals page.
@@ -62,12 +61,12 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
     <p className="muted small" role="note">预测取决于你填写的生活费、收入和收益假设，实际结果可能不同，不保证未来一定够用。</p>
     <div className="rd-grid">
       <div className="rd-main">
-        <Trial trial={trial} onTrial={setTrial} auto={auto ? hist : null} saved={savedContribution} busy={saver.busy || saver.stuck} onSave={() => void saveContribution(trial)} onAdopt={() => void saveContribution(hist.saving)} notice={saver.notice}/>
+        <Trial trial={trial} onTrial={setTrial} saved={savedContribution} busy={saver.busy || saver.stuck} onSave={() => void saveContribution(trial)} notice={saver.notice}/>
         {result.status !== 'ready' ? <CapabilityNotice result={result}/> : tab === 'lab'
-          ? (pred ? <RiskLab calc={{ plan: pred.plan, assets: pred.plan.assets_cents }} today={today} basic={{ temporary: pred.source === 'temporary', note: auto ? '按过去盘点推算，未保存' : undefined, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>)
+          ? (pred ? <RiskLab calc={{ plan: pred.plan, assets: pred.plan.assets_cents }} today={today} basic={{ temporary: pred.source === 'temporary', terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>)
           : <>
             <RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy}/>
-            {pred ? <RetireOverview calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', note: auto ? '按过去盘点推算，未保存' : undefined, contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}
+            {pred ? <RetireOverview calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}
           </>}
       </div>
       <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} onPension={openPension} contribution={<ContributionCard saved={saved} hist={hist} reference={reference} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={onEditingChange}/>}/>
@@ -85,13 +84,11 @@ function NeedContribution({ caps, onOwner }: { caps: BasicCapabilities; onOwner:
   </article>;
 }
 
-function Trial({ trial, onTrial, auto, saved, busy, onSave, onAdopt, notice }: { trial: string | null; onTrial: (v: string | null) => void; auto: History | null; saved: string | null; busy: boolean; onSave: () => void; onAdopt: () => void; notice: string }) {
+function Trial({ trial, onTrial, saved, busy, onSave, notice }: { trial: string | null; onTrial: (v: string | null) => void; saved: string | null; busy: boolean; onSave: () => void; notice: string }) {
   const [text, setText] = useState('');
   return <article className="ui-card ui-content plan-trial" aria-label="每月存钱的依据">
-    {auto && <><div className="ui-section-head"><h3>下面的预测按过去盘点推算<Info text="没有保存，也不会进入首页和心愿。"/></h3><span className="ui-tag warn">按过去盘点推算，未保存</span></div>
-      <p>按过去 {auto.count} 个盘点区间，你每月估计存下的中位数约 {money(auto.saving!)}（估计）。{SAVING_BASIS_CAVEAT}<MarketNote history={auto}/><button type="button" className="primary" disabled={busy} onClick={onAdopt}>采用并保存</button></p></>}
-    {!auto && trial !== null && <div className="ui-section-head"><h3>临时试算<Info text="只在这个页面里预览：不保存、不改变首页、心愿或已保存的投入。想保留请明确保存。"/></h3><span className="ui-tag warn">临时试算，未保存</span></div>}
-    <details open={trial !== null}><summary>{auto ? '想用别的金额看看？' : '试试每月存不同的金额'}</summary>
+    {trial !== null && <div className="ui-section-head"><h3>临时试算<Info text="只在这个页面里预览：不保存、不改变首页、心愿或已保存的投入。想保留请明确保存。"/></h3><span className="ui-tag warn">临时试算，未保存</span></div>}
+    <details open={trial !== null}><summary>试试每月存不同的金额</summary>
       <div className="plan-trial-row"><CentInput label="试算每月能存下的钱" signed value={text} placeholder={saved === null ? '填一个金额试试' : money(saved)} onChange={setText}/>
         <button type="button" className="primary" disabled={text === ''} onClick={() => onTrial(text)}>试算</button>
         <button type="button" className="ui-btn" onClick={() => onTrial('0')}>按每月存 0 元试算</button>
