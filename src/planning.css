@@ -200,7 +200,7 @@ dialog.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[ope
 .plan-review-checklist button, .plan-review-events button { flex: 0 0 auto; white-space: normal; }
 .plan-review-observations { padding-left: 22px; margin: 18px 0; }
 .plan-review-observations li { padding: 4px 0; overflow-wrap: anywhere; }
-.plan-review-next, .wealth-review-entry { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.wealth-review-entry { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .wealth-review-entry .close-button { margin-left: auto; }
 @media (max-width: 900px) {
   .plan-review-checklist > li, .plan-review-events > li { align-items: start; gap: 10px; }
