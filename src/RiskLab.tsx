@@ -66,10 +66,11 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
       <p className="muted small">我们根据你的假设模拟不同市场路径。阴影显示各年龄的第 10 至第 90 百分位区间；线条显示各路径的中位数，并非单一路径。收益取扣除通胀后的实际收益，围绕假设值按波动率 {rateText(P.volatility_hundredths)} 随机，每年一次，固定种子，同一计划每次结果一致。</p>
       <p className="muted small">「资金充足」表示{fire ? '计划实现财务独立，' : '计划'}按完整预算覆盖到 {horizonAge} 岁，期间没有无法支付的月份；终点恰好为 0 也算充足，但没有余量。这些是模型结果，不是现实概率。</p>
       <p className="muted small">打开本页自动计算 1,000 条路径，先看资金在波动下是否够用；需要更多路径时可运行下方分析。修改条件后自动重新计算。</p>
-      <div className="rl-actions"><button type="button" className="ui-btn" disabled={running !== null} onClick={() => run(1000)}>重新计算 1,000 条</button><button type="button" className="primary" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? `正在运行… ${done}` : '运行 1 万条路径'}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(100000)}>{running === 100000 ? `正在运行… ${done.toLocaleString('zh-CN')}` : '运行 10 万条路径'}</button>
+      <div className="rl-actions"><button type="button" className="ui-btn" disabled={running !== null} onClick={() => run(1000)}>重新计算 1,000 条</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? `正在运行… ${done}` : '运行 1 万条路径'}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(100000)}>{running === 100000 ? `正在运行… ${done.toLocaleString('zh-CN')}` : '运行 10 万条路径'}</button>
         {running !== null && <span className="muted small" role="status">正在计算 {done.toLocaleString('zh-CN')} / {running.toLocaleString('zh-CN')} 条路径，可随时切回概览。</span>}</div>
       {error && <p role="alert">{error}</p>}
       {mc ? <>
+        <p role="status"><strong>当前结果：{mc.n.toLocaleString('zh-CN')} 条路径</strong></p>
         <div className="rl-mc-stats">
           <div><span>资金充足</span><strong className={`rl-pct ${pctTone}`}>{Math.round(mc.success_rate * 100)}%</strong></div>
           <div><span>提取开始</span><strong>{base.proj.retire_month === null ? '—' : ageText(base.proj.retire_month)}</strong></div>
