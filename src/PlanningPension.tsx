@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
 import { Info } from './FormControls';
+import { FundsDialog } from './PlanningFunds';
 import { PlanningProfileFields } from './PlanningProfileFields';
+import type { Account } from './wealth';
 import { pensionFormOf, pensionInput } from './planning-basic-forms';
 import type { PensionForm } from './planning-basic-forms';
 import { useSectionSaver } from './planning-basic-data';
@@ -19,9 +21,10 @@ const yuan = (c: number) => money(String(c));
 
 /** 个人资料与养老金估算。资料只含输入与假设；结果每次打开重算，不存库。只问养老金自己的事实，不要求目标或未来投入。 */
 export function PlanningPension({ focus = false, onFocusDone, today, sources, reload, onEditingChange, onPending }: { focus?: boolean; onFocusDone: () => void; today: string; sources: PlanningSources; reload: () => void; onEditingChange: (v: boolean) => void; onPending: () => void }) {
-  const [editing, setEditing] = useState(false), [quit, setQuit] = useState<number | 'start'>('start');
+  const [editing, setEditing] = useState(false), [fundsOpen, setFundsOpen] = useState(false), [quit, setQuit] = useState<number | 'start'>('start');
   const state = sources.profile.status === 'ready' ? sources.profile.value : null;
   const snapshot = sources.snapshot.status === 'ready' ? sources.snapshot.value : null;
+  const accounts: Account[] = sources.accounts.status === 'ready' ? sources.accounts.value : [];
   const entry = useRef<HTMLButtonElement | null>(null);
   // Wait for the real entry to render; navigation away drops the parent's intent.
   useEffect(() => {
@@ -29,7 +32,7 @@ export function PlanningPension({ focus = false, onFocusDone, today, sources, re
     const el = document.getElementById('plan-profile-edit');
     if (el) { el.focus(); onFocusDone(); }
   }, [focus, state, onFocusDone]);
-  useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
+  useEffect(() => { onEditingChange(editing || fundsOpen); return () => onEditingChange(false); }, [editing, fundsOpen, onEditingChange]);
 
   const saved = state?.saved ?? null;
   const calc = useMemo(() => {
@@ -44,11 +47,10 @@ export function PlanningPension({ focus = false, onFocusDone, today, sources, re
     const funds = { hpf_balance_cents: String(normalized.housingFund), hpf_monthly_cents: String(Math.round(Number(core?.hpf_monthly_cents ?? 0) * basisFactor)), personal_pension_balance_cents: snapshot?.entries.find(e => e.account_id === core?.personal_pension_account_id && restricted(e.account_id) && e.kind !== 'housing_fund')?.amount_cents ?? '0', first_month_fraction: snapshot ? (new Date(Date.UTC(+anchor.slice(0,4),+anchor.slice(5,7),0)).getUTCDate() - +anchor.slice(8,10)) / new Date(Date.UTC(+anchor.slice(0,4),+anchor.slice(5,7),0)).getUTCDate() : 1, hpf_growth_hundredths: p.assumptions.inflation_hundredths };
     const notes = [...normalized.missing, ...(saved.reference_issues ?? []), `从 ${anchor} 的盘点开始算，本页金额按那天的物价。`];
     if ((Number(p.personal_pension_annual_cents) > 0 || !!core?.personal_pension_account_id) && !core?.personal_pension_balance_confirmed) notes.push('已有的个人养老金余额还没核对，这部分只是粗略估算。');
-    if (core?.hpf_monthly_cents == null) notes.push('未来公积金待确认，当前只是未计未来缴存的部分估算；请到目标页核对资金。');
     const now = ageMonthsAt(p.birth_month, anchor), start = startAgeMonths(p);
     const ages = quitAges(now, start);
     const chosen = quit === 'start' || !ages.includes(quit) ? start : quit * 12;
-    return { p, region, funds, notes, now, start, ages, main: project(p, region, anchor, chosen, funds), rows: byQuitAge(p, region, anchor, ages, funds).concat(project(p, region, anchor, start, funds)) };
+    return { p, region, funds, notes, hpfUnknown: core?.hpf_monthly_cents == null, now, start, ages, main: project(p, region, anchor, chosen, funds), rows: byQuitAge(p, region, anchor, ages, funds).concat(project(p, region, anchor, start, funds)) };
   }, [saved, snapshot, today, quit]);
 
   const missing = saved ? missingFacts(saved.profile) : [];
@@ -56,20 +58,21 @@ export function PlanningPension({ focus = false, onFocusDone, today, sources, re
     {sources.profile.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>个人资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>
       : !saved || !calc ? <div className="empty"><span className="empty-mark">¥</span><h2>{saved ? '养老金估算还缺一些资料' : '还没有个人资料'}</h2><p>填写出生年月、缴费情况和个人账户余额（社保 App 里可查），就能估算法定退休年龄和退休时的养老金。不需要先设置退休目标；资料只存在本机，估算结果不会保存。</p>{missing.length > 0 && <p className="muted small">还缺：{missing.join('、')}。留空的项目保持未知，不会按 0 计算。</p>}<button id="plan-profile-edit" ref={entry} className="primary" onClick={() => setEditing(true)}>{saved ? '补全个人资料' : '填写个人资料'}</button></div>
       : <>
-        <Result calc={calc} quit={quit} onQuit={setQuit} onEdit={() => setEditing(true)} updatedAt={saved.updated_at} today={today}/>
+        <Result calc={calc} quit={quit} onQuit={setQuit} onEdit={() => setEditing(true)} onConfirmHpf={() => setFundsOpen(true)} updatedAt={saved.updated_at} today={today}/>
         <Table calc={calc}/>
         <Params overrides={calc.p.overrides} region={calc.region}/>
       </>}
     {editing && sources.profile.status === 'ready' && <ProfileDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={() => { setEditing(false); requestAnimationFrame(() => document.getElementById('plan-profile-edit')?.focus()); }}/>}
+    {fundsOpen && saved && <FundsDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={() => { setFundsOpen(false); requestAnimationFrame(() => (document.getElementById('plan-hpf-confirm') ?? document.getElementById('plan-profile-edit'))?.focus()); }}/>}
   </>;
 }
 
 const factLabels: [keyof StoredProfile, string][] = [['region', '参保地'], ['birth_month', '出生年月'], ['worker', '职工类型'], ['paid_months', '累计缴费月数'], ['account_balance_cents', '个人账户余额'], ['base_cents', '当前缴费基数'], ['flex_months', '弹性领取月数'], ['personal_pension_annual_cents', '个人养老金年缴'], ['marginal_tax_hundredths', '个税边际税率']];
 const missingFacts = (p: StoredProfile) => factLabels.filter(([k]) => p[k] === null).map(([, l]) => l).concat(p.region === 'custom' && !p.overrides.avg_wage_cents ? ['当地养老金计发基数'] : []);
 
-type Calc = { p: CompletePensionProfile; region: NonNullable<ReturnType<typeof paramsFor>>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
+type Calc = { p: CompletePensionProfile; region: NonNullable<ReturnType<typeof paramsFor>>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; hpfUnknown: boolean; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
 
-function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; quit: number | 'start'; onQuit: (v: number | 'start') => void; onEdit: () => void; updatedAt: string; today: string }) {
+function Result({ calc, quit, onQuit, onEdit, onConfirmHpf, updatedAt, today }: { calc: Calc; quit: number | 'start'; onQuit: (v: number | 'start') => void; onEdit: () => void; onConfirmHpf: () => void; updatedAt: string; today: string }) {
   const r = calc.main;
   const stale = staleMonths(updatedAt, today);
   return <article className="ui-card ui-content plan-steps" aria-label="养老金估算">
@@ -101,6 +104,7 @@ function Result({ calc, quit, onQuit, onEdit, updatedAt, today }: { calc: Calc; 
         {calc.p.personal_pension_annual_cents !== '0' && <div><dt>个人养老金每年省税</dt><dd>{yuan(r.personal_pension_tax_saved_cents)}</dd><small className="muted">按边际税率 {rateText(calc.p.marginal_tax_hundredths)}</small></div>}
       </dl>
       {calc.notes.map(n => <p key={n} className="muted small">{n}</p>)}
+      {calc.hpfUnknown && <p className="muted small">未来公积金每月缴存还没确认，这里只按已有余额估算。<button type="button" id="plan-hpf-confirm" className="ui-link" onClick={onConfirmHpf}>确认公积金缴存</button></p>}
     </section>
   </article>;
 }

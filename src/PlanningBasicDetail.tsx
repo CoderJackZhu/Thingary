@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { money } from './asset';
 import { CentInput, Info } from './FormControls';
 import { CapabilityNotice, MissingList, RequirementCard } from './PlanningRequirement';
+import { PlanningPensionRefinementDialog, PensionComparisonNote } from './PlanningPensionRefinement';
+import type { PensionComparison } from './planning-pension-refinement';
 import { RetireOverview, useValueMode } from './RetireOverview';
 import { RiskLab } from './RiskLab';
 import { rateText } from './plan';
@@ -26,8 +28,8 @@ const contributionText = (cents: string | null) => { const s = amountState(cents
 
 /** Basic-plan detail: the requirement stays visible; prediction and risk tools open only for an explicit saved or trial contribution. */
 export function PlanningBasicDetail({ sources, saved, today, reload, onPending, onEditingChange, openSetup, onGoto, onEvents, onBack }: { sources: PlanningSources; saved: Saved; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; openSetup: (step: number, from?: HTMLElement | null) => void; onGoto: (tab: 'savings' | 'pension') => void; onEvents: () => void; onBack: () => void }) {
-  const [costsOpen, setCostsOpen] = useState(false);
-  useEffect(() => { onEditingChange(costsOpen); return () => onEditingChange(false); }, [costsOpen, onEditingChange]);
+  const [costsOpen, setCostsOpen] = useState(false), [pensionOpen, setPensionOpen] = useState(false), [comparison, setComparison] = useState<PensionComparison | null>(null), pensionTrigger = useRef<HTMLElement | null>(null);
+  useEffect(() => { onEditingChange(costsOpen || pensionOpen); return () => onEditingChange(false); }, [costsOpen, pensionOpen, onEditingChange]);
   const [trial, setTrial] = useState<string | null>(null), [tab, setTab] = useState<'overview' | 'lab'>('overview'), [mode, setMode] = useValueMode();
   const hist = useMemo(() => historyHints(ready(sources.review)), [sources.review]);
   const savedContribution = saved.profile.retire.basic?.contribution.monthly_cents ?? null;
@@ -36,7 +38,10 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const result = useCapabilities(sources, { contribution: trial ?? (auto ? hist.saving : null) });
   const saver = useSectionSaver(sources, reload, onPending);
   const retire = saved.profile.retire;
-  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'basic' || o === 'funds' || o === 'budget') openSetup(o === 'funds' || field?.startsWith('basic.start') ? 2 : field?.startsWith('basic.retirement_income') ? 3 : field === 'spend_cents' ? 1 : 0); else if (o === 'pension') onGoto('pension'); else if (o === 'events') onEvents(); else if (o === 'service') reload(); };
+  // Pension facts are completed in place with the same shared dialog as the goals page; onGoto stays available for the sidebar tabs.
+  const openPension = (from?: HTMLElement | null) => { pensionTrigger.current = from ?? (document.activeElement as HTMLElement | null); setPensionOpen(true); };
+  const closePension = () => { setPensionOpen(false); requestAnimationFrame(() => { if (pensionTrigger.current?.isConnected) pensionTrigger.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
+  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'basic' || o === 'funds' || o === 'budget') openSetup(o === 'funds' || field?.startsWith('basic.start') ? 2 : field?.startsWith('basic.retirement_income') ? 3 : field === 'spend_cents' ? 1 : 0); else if (o === 'pension') openPension(); else if (o === 'events') onEvents(); else if (o === 'service') reload(); };
 
   async function saveContribution(value: string | null) {
     const input = contributionSection(saved, value, today); if (!input) return false;
@@ -49,7 +54,9 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const reference = usual?.kind === 'known' ? `盘点参考区间 ${usual.window_from ?? "起点未记录"} 至 ${usual.latest_date ?? "终点未记录"}：月均净资产变化约 ${money(usual.monthly_cents)}（含估值，共 ${usual.count} 个可比区间${usual.low_sample ? "，样本较少" : ""}）。` : null;
   return <div className="rd-detail">
     {costsOpen && <CostsDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={() => { setCostsOpen(false); requestAnimationFrame(() => document.getElementById('plan-budget-entry')?.focus()); }}/>}
+    {pensionOpen && <PlanningPensionRefinementDialog sources={sources} today={today} reload={reload} onPending={onPending} onSaved={setComparison} onClose={closePension}/>}
     <p><button type="button" className="ui-link" onClick={onBack}>{trial !== null ? '← 返回目标（临时试算不会保存）' : '← 返回目标'}</button></p>
+    {comparison && <PensionComparisonNote comparison={comparison}/>}
     <div className="rd-tabs" role="group" aria-label="退休页签"><button type="button" aria-pressed={tab === 'overview'} onClick={() => setTab('overview')}>概览</button><button type="button" aria-pressed={tab === 'lab'} onClick={() => setTab('lab')}>假设分析</button></div>
     <div className="rd-grid">
       <div className="rd-main">
@@ -61,7 +68,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
             {pred ? <RetireOverview calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', note: auto ? '按过去盘点推算，未保存' : undefined, contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}
           </>}
       </div>
-      <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} onGoto={onGoto} contribution={<ContributionCard saved={saved} hist={hist} reference={reference} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={onEditingChange}/>}/>
+      <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} onPension={openPension} contribution={<ContributionCard saved={saved} hist={hist} reference={reference} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={onEditingChange}/>}/>
     </div>
   </div>;
 }
@@ -100,7 +107,7 @@ function Card({ title, onEdit, children, tip }: { title: string; onEdit?: (el: H
 const Rows = ({ rows }: { rows: [string, ReactNode][] }) => <dl className="rs-rows">{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>;
 
 /** Basic groups only: goal, budget and income, funds, optional contribution, more assumptions. No phases, routes or careers. */
-function BasicSidebar({ saved, caps, openSetup, onGoto, contribution }: { saved: Saved; caps: BasicCapabilities | null; openSetup: (step: number, from?: HTMLElement | null) => void; onGoto: (tab: 'savings' | 'pension') => void; contribution: ReactNode }) {
+function BasicSidebar({ saved, caps, openSetup, onPension, contribution }: { saved: Saved; caps: BasicCapabilities | null; openSetup: (step: number, from?: HTMLElement | null) => void; onPension: (from?: HTMLElement | null) => void; contribution: ReactNode }) {
   const p = saved.profile, r = p.retire, b = r.basic!;
   const funds = caps?.funds, pension = caps?.pension;
   const scope = (id: string) => { const c = b.retirement_costs.find(x => x.source_id === id); return c ? treatmentText[c.treatment] : '这笔钱是否已含在生活费里，待确认'; };
@@ -117,7 +124,7 @@ function BasicSidebar({ saved, caps, openSetup, onGoto, contribution }: { saved:
     <Card title="退休收入" onEdit={el => openSetup(3, el)} tip="未选择、本次不计、手填、职工养老金估算含义不同；本次不计不会删除原有收入资料。">
       <p>{b.retirement_income.mode === null ? '还没选择（选好后才能算需求）' : incomeModeText[b.retirement_income.mode]}</p>
       {b.retirement_income.selected.length > 0 && <ul className="rs-list">{b.retirement_income.selected.map(s => { const i = r.income_items.find(x => x.id === s.id); return <li key={s.id}><span>{i?.label ?? '已删除的收入'}<small>{s.role === 'state_pension' ? '国家养老金' : '其他收入'}</small></span><b>{i ? `${money(i.monthly_cents)}/月` : '—'}</b></li>; })}</ul>}
-      {b.retirement_income.mode === 'employee' && (pension?.status === 'ready' ? <p className="muted small">{pension.value.included ? `政策养老金 ${pension.value.monthly_cents === null ? '' : money(pension.value.monthly_cents) + '/月，'}${pension.value.start_month ? `${pension.value.start_month} 起领` : ''}` : '政策估算未计入'}</p> : pension ? <><ul className="plan-missing-list">{pension.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul><div className="rs-actions"><button type="button" className="ui-btn" onClick={() => onGoto('pension')}>填写养老金事实</button><button type="button" className="ui-btn" onClick={() => openSetup(3)}>改为手填或本次不计</button></div></> : null)}
+      {b.retirement_income.mode === 'employee' && (pension?.status === 'ready' ? <p className="muted small">{pension.value.included ? `政策养老金 ${pension.value.monthly_cents === null ? '' : money(pension.value.monthly_cents) + '/月，'}${pension.value.start_month ? `${pension.value.start_month} 起领` : ''}` : '政策估算未计入'}</p> : pension ? <><ul className="plan-missing-list">{pension.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul><div className="rs-actions"><button type="button" className="ui-btn" onClick={e => onPension(e.currentTarget)}>填写养老金事实</button><button type="button" className="ui-btn" onClick={() => openSetup(3)}>改为手填或本次不计</button></div></> : null)}
     </Card>
     {contribution}
     <Card title="更多假设" onEdit={el => openSetup(5, el)} tip="全部是假设，不是事实。收益按扣除通胀后的实际收益填写。">

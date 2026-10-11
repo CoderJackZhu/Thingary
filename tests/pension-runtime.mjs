@@ -17,6 +17,8 @@ import * as costReview from '../src/planning-cost-review.ts';
 import * as view from '../src/planning-basic-view.ts';
 import * as planExports from '../src/plan.ts';
 import * as params from '../src/plan-params.ts';
+import * as planPension from '../src/plan-pension.ts';
+import * as planSummary from '../src/plan-summary.ts';
 import { unknownCapabilityFixture } from '../src/plan-basic-fixtures.ts';
 const ts = createRequire(import.meta.url)('typescript');
 export function runtime(file, props, save = async () => ({ revision: 5 }), caps = unknownCapabilityFixture) {
@@ -42,11 +44,12 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
   const modules = {
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     './planning-basic-forms': forms, './plan-basic': basic, './plan-core': core, './plan-coverage': coverage, './planning-cost-review': costReview, './plan-debt': debt, './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
-    './planning-draft': overlay, './plan-basic-validation': validation, './planning-pension-refinement': pension, './plan': planExports, './plan-params': params,
+    './planning-draft': overlay, './plan-basic-validation': validation, './planning-pension-refinement': pension, './plan': planExports, './plan-params': params, './plan-pension': planPension, './plan-summary': planSummary,
+    './RetireOverview': { RetireOverview: () => null, useValueMode: () => [null, () => {}] },
     './planning-first-run': props.goalStateOverride ? { ...flow, goalState: () => props.goalStateOverride } : flow, './planning-basic-defaults': defaults,
     './planning-basic-data': { useSectionSaver: () => saver, useCapabilities: () => ({ status: 'ready', caps: typeof caps === 'function' ? caps() : caps }) },
-    './planning-basic-view': { needsContribution: () => true, contributionVerdict: view.contributionVerdict, requirementLine: props.realSummary ? view.requirementLine : () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
-    './plan-retire-calc': { buildRetireCalc: () => null },
+    './planning-basic-view': { needsContribution: () => true, contributionVerdict: view.contributionVerdict, amountState: view.amountState, requirementLine: props.realSummary ? view.requirementLine : () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
+    './plan-retire-calc': { buildRetireCalc: () => null, toEvent: e => e },
   };
   function load(file) {
     const m = { exports: {} };
@@ -60,7 +63,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   vm.runInNewContext(script, { module, exports: module.exports, require: id => modules[id] ?? leaf, crypto: globalThis.crypto, structuredClone, Error, console, document: {getElementById:()=>({isConnected:true,focus(){}})}, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn() });
-  const component = module.exports[file === 'PlanningPensionRefinement' ? 'PlanningPensionRefinementDialog' : file === 'PlanningFunds' ? 'FundsDialog' : file === 'PlanningCosts' ? 'CostsDialog' : file === 'CoverageNote' ? 'CoverageNote' : file === 'PlanningDebtDialog' ? 'PlanningDebtDialog' : file === 'PlanningSetup' ? 'PlanningSetupDialog' : file === 'PlanningOccurrenceDialog' ? 'PlanningOccurrenceDialog' : 'PlanningBasicGoals'];
+  const component = module.exports[file === 'PlanningPensionRefinement' ? 'PlanningPensionRefinementDialog' : file === 'PlanningFunds' ? 'FundsDialog' : file === 'PlanningCosts' ? 'CostsDialog' : file === 'CoverageNote' ? 'CoverageNote' : file === 'PlanningDebtDialog' ? 'PlanningDebtDialog' : file === 'PlanningSetup' ? 'PlanningSetupDialog' : file === 'PlanningOccurrenceDialog' ? 'PlanningOccurrenceDialog' : file];
   const finalProps = { today: props.sources.today, snapshot: null, accounts: [], reload() {}, onPending() {}, onPension() {}, onEditingChange() {}, onFocusDone() {}, onClose: v => closes.push(v), ...props };
   let tree;
   function expand(node, key) {
