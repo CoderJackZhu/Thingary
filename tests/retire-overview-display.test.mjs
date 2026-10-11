@@ -1,3 +1,4 @@
+import * as forecast from '../src/plan-format.ts';
 // 详情概览的展示收敛：Coast 与 FI 相等时合并里程碑卡；逐年快照默认收起。
 // 渲染方式与 pension-runtime.mjs 相同（真实纯计算模块 + 内存 React 替身），数据全部虚构。
 import test from 'node:test';
@@ -46,6 +47,7 @@ function overview(calc) {
   };
   const leaf = new Proxy({}, { get: (_, key) => String(key) });
   const modules = {
+    './plan-format': forecast,
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     './plan': planExports, './plan-events': planEvents, './planning-basic-view': basicView, './plan-view': view, './asset': { money },
   };

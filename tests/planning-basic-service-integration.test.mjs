@@ -9,7 +9,7 @@ const today='2026-10-07';
 const ready=value=>({status:'ready',value});
 const unavailable={status:'error',value:{code:'DISABLED',message:'虚构来源关闭'}};
 const blank=()=>({generation:'fictional',today,write_version:0,modules:{planning:true,wealth:false},profile:ready({generation:'fictional',saved:null}),snapshot:unavailable,accounts:unavailable,review:unavailable,incomes:unavailable});
-const fill=()=>({...draftOf(null,null,today),birth:'1990-06-01',infl:'0',target:'60',budget:'400000',start:'simulation',simAmount:'10000000',simDate:'2026-09-30',incomeMode:'manual',incomeItems:[{id:'annuity',label:'虚构年金',monthly_cents:'100000',start_age:60,end_age:null,indexed:true}],picks:{annuity:{on:true,role:'other'}}});
+const fill=()=>({...draftOf(null,null),birth:'1990-06-01',infl:'0',target:'60',budget:'400000',start:'simulation',simAmount:'10000000',simDate:'2026-09-30',incomeMode:'manual',incomeItems:[{id:'annuity',label:'虚构年金',monthly_cents:'100000',start_age:60,end_age:null,indexed:true}],picks:{annuity:{on:true,role:'other'}}});
 test('production provider computes a fresh unsaved manual-income draft without writing sources or contribution',()=>{
  const source=blank(), d=fill(), base=basicInput(d,null,today);
  const budget=budgetInput(d,overlayPlanningDrafts(source,[base]).profile.value.saved.profile.retire);
@@ -28,7 +28,7 @@ test('editing contribution or simulated funds retains unavailable-account rules 
  r.life_events=[{id:'car',label:'虚构车',kind:'car',date:'2027-01',included:true,price_cents:'100000',down_cents:'100000',extra_cents:'0',loan_rate_hundredths:0,loan_years:1,holding_cents:'10000',rent_saved_cents:'0',cycle_years:null,until_age:null,resale_cents:'0'}];
  r.basic.contribution_costs=[{source_id:'event:car:holding',treatment:'extra',reference_cents:null}];
  r.basic.retirement_costs=[{source_id:'event:car:holding',treatment:'included',reference_cents:'10000'}];
- const d=draftOf(saved,null,today);d.contribution='100';
+ const d=draftOf(saved,null);d.contribution='100';
  assert.deepEqual(fundsInput(d,saved,today).fields.fund_rules,r.core.fund_rules);
  assert.deepEqual(basicInput(d,saved,today).fields.basic.retirement_costs,r.basic.retirement_costs);
  assert.ok(retirementSources(r).some(s=>s.id==='event:car:holding'));

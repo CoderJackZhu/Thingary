@@ -22,7 +22,7 @@ import { RentPlanForm } from './RentPlanForm';
 import { blankRent, fieldsToRent, rentToFields } from './rent-plan';
 import type { RentForm } from './rent-plan';
 import { blankPlan, shiftDays, suggestedFinalDay } from './recurring-model';
-import { billingModes, billingOf, billingText, cumulativeCost, matchesFilter, paymentScheduleText, planAssociationText, renewalPayload, saveReminderWithPermission, topupSpendText, validityText, virtualFilters, virtualStatusText, virtualKindText } from './virtual';
+import { billingModes, billingOf, billingText, cumulativeCost, matchesFilter, paymentScheduleText, planAssociationText, renewalPayload, topupSpendText, validityText, virtualFilters, virtualStatusText, virtualKindText } from './virtual';
 import type { TopupFields, TopupRecord, VirtualAsset, VirtualFields, VirtualFilter, VirtualOverview, VirtualSave, BillingMode } from './virtual';
 import { EndSubscriptionDialog, LinkDeleteDialog, LinkRepairDialog, LinkReviewDialog, SharedReminderRow, UnifyNameDialog } from './LinkDialogs';
 import { undoLinkDelete } from './LinkDialogs';
@@ -30,7 +30,7 @@ import './wealth.css';
 import { offerUndo, useRestored } from './undo';
 import type { Modules } from './modules';
 
-export function VirtualPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, modules, onOpenSource }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void; modules: Modules; onOpenSource: (target: import('./source').SourceTarget) => void }) {
+export function VirtualPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, modules }: SourceProps & { today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void; modules: Modules }) {
   const [data, setData] = useState<VirtualOverview | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const [backfill, setBackfill] = useState(false);
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
@@ -167,7 +167,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
       onGroupDelete={(_, name) => { closeDetail(); setGroupDelete({ id: linkedDetail.id, name }); }} onEnd={() => { closeDetail(); setEnding(linkedDetail); }} onReview={() => { closeDetail(); setReviewing(linkedDetail); }}
       onUnify={() => { closeDetail(); setUnifying(linkedDetail); }} onCandidates={() => { closeDetail(); setRepairing(linkedDetail.id); }} />}
     {paying && data && <PaymentDialog target={paying} generation={data.generation} today={today} onClose={closed} />}
-    {editing && data && <VirtualDialog item={editing === 'new' ? null : editing} data={data} today={today} backfill={backfill} modules={modules} onOpenSource={onOpenSource} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={item => { setEditing(null); setUnifying(item); }} onClose={closed} />}
+    {editing && data && <VirtualDialog item={editing === 'new' ? null : editing} data={data} today={today} backfill={backfill} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={item => { setEditing(null); setUnifying(item); }} onClose={closed} />}
     {repairing && <LinkRepairDialog side="virtual" id={repairing} onClose={closed} onDone={m => setMutationError(m)} />}
     {ending && data && <EndSubscriptionDialog assetId={ending.id} planId={ending.plan!.id} assetName={ending.fields.name} assetRevision={ending.revision} planRevision={ending.plan!.revision} fields={ending.plan!.fields} suggestion={suggestedEndDay(ending)} today={today} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
     {reviewing && data && <LinkReviewDialog assetId={reviewing.id} planId={reviewing.fields.plan_id!} assetName={reviewing.fields.name} assetRevision={reviewing.revision} planRevision={reviewing.plan!.revision} stoppedOn={reviewing.fields.stopped_on} today={today} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
@@ -313,7 +313,7 @@ function TopupMaintenance({ data, item, today, disabled, focus, onSaved, onError
 const blank = (): VirtualFields => ({ name: '', kind: 'general', billing: 'subscription', label_id: null, provider: '', purchase_date: null, price_cents: null, expires: null, plan_id: null, url: '', notes: '', stopped_on: null });
 const providerLabel: Record<string, string> = { license: '软件商', domain: '注册商', subscription: '平台', general: '提供方' };
 
-function VirtualDialog({ item, data, today, onClose, backfill, modules, onOpenSource, onGroupDelete, onUnify }: { backfill: boolean; item: VirtualAsset | null; data: VirtualOverview; today: string; onClose: (saved: boolean, warning?: string | null) => void; modules: Modules; onOpenSource: (target: import('./source').SourceTarget) => void; onGroupDelete: (id: string, name: string) => void; onUnify: (item: VirtualAsset) => void }) {
+function VirtualDialog({ item, data, today, onClose, backfill, onGroupDelete, onUnify }: { backfill: boolean; item: VirtualAsset | null; data: VirtualOverview; today: string; onClose: (saved: boolean, warning?: string | null) => void; onGroupDelete: (id: string, name: string) => void; onUnify: (item: VirtualAsset) => void }) {
   // 旧记录两页名称可能不同：仅原本统一（或新建）时才一起改计划名（设计 §4）。
   const namesUnified = !item?.plan || item.plan.fields.name === item.fields.name;
   const dialog = useRef<HTMLDialogElement>(null);

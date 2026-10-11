@@ -14,7 +14,6 @@ import { CentInput, FormRow, Info, Segments, Switch } from './FormControls';
 import { RentPlanForm } from './RentPlanForm';
 import { blankRent, fieldsToRent, rentPreview, rentToFields } from './rent-plan';
 import type { RentForm } from './rent-plan';
-import { Icon } from './AssetViews';
 import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
 import { intervalUnit, planStatus, recurringCategories, recurringCategoryText } from './recurring';
@@ -25,7 +24,7 @@ import { blankPlan, periodLabel, planScheduleDates, shiftDays, suggestedFinalDay
 import { offerUndo, useRestored } from './undo';
 import { linkView } from './link';
 import type { LinkView } from './link';
-import { EndSubscriptionDialog, LinkRepairDialog, LinkCreateDialog, LinkDeleteDialog, LinkReviewDialog, SharedReminderRow, UnifyNameDialog, relationNotice, undoLinkDelete } from './LinkDialogs';
+import { EndSubscriptionDialog, LinkRepairDialog, LinkCreateDialog, LinkDeleteDialog, LinkReviewDialog, SharedReminderRow, UnifyNameDialog, undoLinkDelete } from './LinkDialogs';
 import { renewalPayload } from './virtual';
 import { SubscriptionDetail } from './SubscriptionDetail';
 import { MergeNotice } from './MergeOldSubscriptions';
@@ -140,14 +139,14 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
               <td>{p.plan_name}</td><td>{p.state === 'paid' ? '已付' : '本期不付'}</td><td>{p.paid_date ?? '—'}</td><td className="amount">{p.amount_cents === null ? '—' : money(p.amount_cents)}</td></tr>)}
           </tbody></table></article>)}
       </>}
-    {editing && data && <PlanDialog plan={editing === 'new' ? null : editing} generation={data.generation} today={today} onClose={closed} modules={modules} onOpenSource={onOpenSource} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={p => { setEditing(null); setUnifying(p); }} onEnd={p => { setEditing(null); setEnding(p); }} onReview={p => { setEditing(null); setReviewing(p); }} />}
+    {editing && data && <PlanDialog plan={editing === 'new' ? null : editing} generation={data.generation} today={today} onClose={closed} modules={modules} onOpenSource={onOpenSource} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={p => { setEditing(null); setUnifying(p); }} onReview={p => { setEditing(null); setReviewing(p); }} />}
     {paying && data && <PaymentDialog target={paying} generation={data.generation} today={today} onClose={closed}/>}
     {detail && data && <SubscriptionDetail plan={detail} today={today} modules={modules} sourcePayment={detailPayment} onCorrectPayment={payment => { setDetail(null); setDetailPayment(null); setPaying({ plan_id: payment.plan_id, plan_name: payment.plan_name, due_date: payment.due_date, plan_amount: detail.fields.amount_cents, record: payment }); }} onClose={() => closed(false)}
       onEdit={() => { const p = detail; setDetail(null); setEditing(p); }} onBackfill={() => { const p = detail; setDetail(null); setEditing(p); }}
       onPay={() => { const p = detail; setDetail(null); setPaying({ plan_id: p.id, plan_name: p.fields.name, due_date: p.next_due ?? p.fields.first_due, plan_amount: p.fields.amount_cents, record: null }); }}
       onCreate={p => { setDetail(null); setCreating(p); }} onGroupDelete={(id, name) => { setDetail(null); setGroupDelete({ id, name }); }} onEnd={p => { setDetail(null); setEnding(p); }} onReview={p => { setDetail(null); setReviewing(p); }}
       onUnify={p => { setDetail(null); setUnifying(p); }} onCandidates={(p, list) => { setDetail(null); setCandidates({ plan: p, list, partnerId: null }); }} />}
-    {creating && data && <LinkCreateDialog planId={creating.id} planName={creating.fields.name} planRevision={creating.revision} today={today} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
+    {creating && data && <LinkCreateDialog planId={creating.id} planName={creating.fields.name} planRevision={creating.revision} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
     {ending && data && <EndSubscriptionDialog assetId={ending.link.asset!.id} planId={ending.plan.id} assetName={ending.link.asset!.name} assetRevision={ending.link.asset!.revision} planRevision={ending.plan.revision} fields={ending.plan.fields} suggestion={ending.plan.fields.end_date ?? ending.plan.current_coverage?.[1] ?? null} today={today} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
     {reviewing && data && <LinkReviewDialog assetId={reviewing.link.asset!.id} planId={reviewing.plan.id} assetName={reviewing.link.asset!.name} assetRevision={reviewing.link.asset!.revision} planRevision={reviewing.plan.revision} stoppedOn={reviewing.link.asset!.stopped_on} today={today} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
     {unifying && data && <UnifyNameDialog assetId={unifying.link.asset!.id} planId={unifying.plan.id} assetName={unifying.link.asset!.name} planName={unifying.plan.fields.name} assetRevision={unifying.link.asset!.revision} planRevision={unifying.plan.revision} fields={unifying.plan.fields} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
@@ -163,7 +162,7 @@ function SkipButton({ disabled, onSkip }: { disabled: boolean; onSkip: () => voi
 
 
 
-function PlanDialog({ plan, generation, today, onClose, modules, onOpenSource, onGroupDelete, onUnify, onEnd, onReview }: { plan: Plan | null; generation: string; today: string; onClose: (saved: boolean, warning?: string | null) => void; modules: Modules; onOpenSource: (target: import('./source').SourceTarget) => void; onGroupDelete: (id: string, name: string) => void; onUnify: (p: { plan: Plan; link: LinkView }) => void; onEnd: (p: { plan: Plan; link: LinkView }) => void; onReview: (p: { plan: Plan; link: LinkView }) => void }) {
+function PlanDialog({ plan, generation, today, onClose, modules, onOpenSource, onGroupDelete, onUnify, onReview }: { plan: Plan | null; generation: string; today: string; onClose: (saved: boolean, warning?: string | null) => void; modules: Modules; onOpenSource: (target: import('./source').SourceTarget) => void; onGroupDelete: (id: string, name: string) => void; onUnify: (p: { plan: Plan; link: LinkView }) => void; onReview: (p: { plan: Plan; link: LinkView }) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [f, setF] = useState<PlanFields>(plan?.fields ?? blankPlan(today));
   // 关联订阅：打开时读取双方快照；已关联的计费编辑走 link_save（双方修订）。

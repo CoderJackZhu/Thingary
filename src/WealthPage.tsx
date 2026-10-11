@@ -123,7 +123,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     onAutoNewDone?.();
     setEditing('new');
   }, [autoNew]);
-  if (snapshotDetail) return <SnapshotDetail id={snapshotDetail} today={today} onCorrect={id => { const date = summary?.points.find(p => p.snapshot_id === id)?.date; setSnapshotDetail(null); if (date) { setCheckInPin(id); setCheckIn(date); } }} onClose={() => { setSnapshotDetail(null); reload(); refocusHeading(); }}/>;
+  if (snapshotDetail) return <SnapshotDetail id={snapshotDetail} onCorrect={id => { const date = summary?.points.find(p => p.snapshot_id === id)?.date; setSnapshotDetail(null); if (date) { setCheckInPin(id); setCheckIn(date); } }} onClose={() => { setSnapshotDetail(null); reload(); refocusHeading(); }}/>;
   if (checkIn) return <CheckIn expectedId={checkInPin ?? sourceSnapshot} date={checkIn} today={today} onClose={(saved, snapshot) => { setCheckIn(null); setCheckInPin(undefined); setSourceSnapshot(undefined); setPending(storedPending()); if (saved) { setSavedSnapshot(snapshot?.missing.length === 0 ? snapshot : null); setTab('history'); reload(); } refocusHeading(); }}/>;
   const points = summary?.points ?? [], latest = points.at(-1), lastComplete = [...points].reverse().find(p => p.complete);
   const closeAccount = (saved: boolean) => {
@@ -310,8 +310,8 @@ export function DeleteButton({ label, disabled, kind, id, revision, generation, 
 
 type Row = { state: EntryState | null; cents: string; edited?: boolean };
 /** 只读盘点详情（§5.2）：按稳定 snapshot ID 读取，浏览不写任何资料。 */
-function SnapshotDetail({ id, today, onCorrect, onClose }: { id: string; today: string; onClose: () => void; onCorrect: (id: string) => void }) {
-  const [snapshot, setSnapshot] = useState<Snapshot | null>(null), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+function SnapshotDetail({ id, onCorrect, onClose }: { id: string; onClose: () => void; onCorrect: (id: string) => void }) {
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null), [error, setError] = useState('');
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   useEffect(() => {
     let live = true; setError(''); setSnapshot(null);
@@ -325,10 +325,10 @@ function SnapshotDetail({ id, today, onCorrect, onClose }: { id: string; today: 
   if (!snapshot || !accounts) return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading"><header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> 返回财富</button><div><h2 id="snapshot-detail-heading">盘点详情</h2></div></header><p role="status" className="muted">正在读取盘点…</p></section>;
   const stateText = (state: string, amount: string | null) => amount === null ? '未知' : state === 'unchanged' ? '未变' : '录入';
   return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading">
-    <header className="check-in-header"><button className="back" disabled={busy} onClick={onClose}><Icon name="back"/> 返回财富</button><div><h2 id="snapshot-detail-heading">盘点详情</h2><p className="muted">只读查看，不改动任何资料。</p></div><div className="field check-in-date"><label>盘点日期</label><output>{snapshot.date}</output></div></header>
+    <header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> 返回财富</button><div><h2 id="snapshot-detail-heading">盘点详情</h2><p className="muted">只读查看，不改动任何资料。</p></div><div className="field check-in-date"><label>盘点日期</label><output>{snapshot.date}</output></div></header>
     <table className="ui-table check-in-table"><thead><tr><th>账户</th><th>记录金额</th><th>状态</th><th>计入</th></tr></thead><tbody>{snapshot.entries.map(e => { const a = accounts.find(x => x.id === e.account_id); return <tr key={e.account_id}><td><strong>{a?.fields.name ?? e.account_id}</strong><small className="muted">{e.side === 'liability' ? '负债' : kindLabel(e.kind)}</small></td><td>{e.amount_cents === null ? <span className="muted">未知</span> : money(e.amount_cents)}</td><td>{stateText(e.state, e.amount_cents)}</td><td>{e.counted ? '计入' : '不计入'}</td></tr>; })}</tbody></table>
     <footer className="check-in-footer"><div><span>完整性</span><strong>{snapshot.missing.length === 0 ? '完整' : `缺 ${snapshot.missing.length} 个账户`}</strong></div>
-      <div className="check-in-submit"><button className="primary" disabled={busy} onClick={() => onCorrect(snapshot.id)}>更正这次盘点</button></div></footer>
+      <div className="check-in-submit"><button className="primary" onClick={() => onCorrect(snapshot.id)}>更正这次盘点</button></div></footer>
     <section className="form-block form-notes snapshot-notes"><h3>备注</h3>{snapshot.notes.trim() ? <p className="notes" style={{whiteSpace:'pre-wrap'}}>{snapshot.notes}</p> : <p className="muted">未填写备注</p>}</section>
   </section>;
 }

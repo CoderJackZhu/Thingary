@@ -37,7 +37,7 @@ test('Q4 default excludes only absent choices; saved manual/excluded/Beijing cho
     p.profile.retire.basic.retirement_income.mode = mode;
     const before = structuredClone(p);
     p.profile.retire.basic.pension_contributions = { start_month: '2020-01', stop_month: '2050-06', base_cents: '800000' };
-    const d = setupDraft(p, null, today, false); d.target = '61';
+    const d = setupDraft(p, null, false); d.target = '61';
     assert.equal(d.incomeMode, mode);
     const fields = setupFields(d, p, today, false);
     assert.equal(fields.pension, null);
@@ -107,7 +107,7 @@ test('editing a Beijing plan emits no pension facts/overrides and preserves hidd
   r.basic.pension_contributions = { start_month: '2023-01', stop_month: '2053-06', base_cents: '765432' };
   r.rent_cents = '100000';
   r.basic.retirement_costs = [{ source_id: 'rent', treatment: 'extra', reference_cents: null }];
-  const before = structuredClone(p), d = setupDraft(p, null, today, false);
+  const before = structuredClone(p), d = setupDraft(p, null, false);
   d.budget = '450000'; d.target = '62';
   const fields = setupFields(d, p, today, false);
   assert.equal(fields.pension, null); assert.equal(fields.budget, null); assert.equal(fields.funds, null);
@@ -119,10 +119,10 @@ test('editing a Beijing plan emits no pension facts/overrides and preserves hidd
 
 test('all saved income choices survive initialization; facts alone never select Beijing', () => {
   const p = make(); delete p.profile.retire.basic;
-  assert.equal(setupDraft(p, null, today, false).incomeMode, 'excluded');
+  assert.equal(setupDraft(p, null, false).incomeMode, 'excluded');
   for (const mode of ['manual', 'employee', 'excluded']) {
     const p = make(); p.profile.retire.basic.retirement_income.mode = mode;
-    assert.equal(setupDraft(p, null, today, false).incomeMode, mode);
+    assert.equal(setupDraft(p, null, false).incomeMode, mode);
   }
 });
 
@@ -178,7 +178,7 @@ test('setup validation locations follow actual basicInput errors and only unambi
     ['after', 'abc', 5, '退休后实际年收益'], ['infl', 'abc', 5, '通胀'],
     ['emergency', '37', 5, '应急金月数'], ['emergency', '', 5, '应急金月数'],
   ]) {
-    const d = setupDraft(null, null, today, false); d[key] = value;
+    const d = setupDraft(null, null, false); d[key] = value;
     assert.throws(() => setupFields(d, null, today, false), error => {
       assert.deepEqual(setupErrorLocation(error.message), { step, label }); return true;
     });

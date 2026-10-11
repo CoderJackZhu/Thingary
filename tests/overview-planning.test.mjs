@@ -147,7 +147,7 @@ test('the summary mounts only behind module gating and degrades to a dependency 
 test('the goals page shares the projection instead of rounding ages differently', () => {
   const goals = read('../src/PlanningBasicGoals.tsx');
   assert.match(goals, /useCapabilities\(sources\)/);
-  assert.match(goals, /buildRetireCalc/);
+  assert.match(goals, /retireCalcFromCapabilities/);
   assert.ok(!goals.includes('const ageOf'), 'no second age formatter that would truncate months');
   assert.doesNotMatch(goals, /储蓄阶段|路线/);
 });

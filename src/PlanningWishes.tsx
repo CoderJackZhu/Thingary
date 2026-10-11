@@ -25,7 +25,7 @@ export function PlanningWishes({ calc, today, hint = '退休资料待补齐', on
   if (error) return <article className="ui-card ui-content" role="alert"><p>心愿读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>;
   if (!view) return <article className="ui-card ui-content plan-goal" role="status">正在读取购买计划…</article>;
   if (!view.spends.length) return <article className="ui-card ui-content plan-goal" aria-label="大额支出"><div className="ui-section-head"><h3>大额购买计划</h3><span>来自心愿清单</span></div><p className="muted">还没有考虑中的心愿。在心愿清单记录打算买的东西、预计价格与计划日期，就能在这里查看。</p></article>;
-  const delayText = (d: number | null, base: number | null, withSpend: number | null) => base === null ? '本来就达不到' : withSpend === null ? '70 岁前达不到' : d === 0 ? '几乎无影响' : `推迟约 ${d} 个月`;
+  const delayText = (d: number | null, base: number | null, withSpend: number | null) => base === null ? '本来就达不到' : withSpend === null ? '所选规划终点前达不到' : d === 0 ? '几乎无影响' : `推迟约 ${d} 个月`;
   return <article className="ui-card ui-content plan-goal" aria-label="大额支出">
     <div className="ui-section-head"><h3>大额购买计划</h3><span>来自「考虑中」的心愿</span></div>
     <CoverageNote annotations={calc?.annotations} compact/><div className="plan-table-scroll" tabIndex={0} role="region" aria-label="购买计划列表"><table className="ui-table plan-wish-table"><thead><tr><th>心愿</th><th className="amount">预计价格</th><th>计划日期</th><th>对退休计划的影响</th></tr></thead>

@@ -1,3 +1,4 @@
+import { forecastMoney } from './plan-format';
 import { CoverageNote } from './CoverageNote';
 import { useMemo, useState } from 'react';
 import { money } from './asset';
@@ -8,12 +9,12 @@ import type { LifeEvent } from './plan-events';
 import type { Outcome, Plan, Projection } from './plan-ledger';
 import { eventImpact, offsetOf } from './plan-events';
 import { terminalText } from './planning-basic-view';
-import { compactYuan, coverage, coverageSeries, durationText, milestones, progress, scaleAt, snapshotRows, trajectory, verdict } from './plan-view';
+import { compactYuan, coverage, coverageSeries, milestones, progress, scaleAt, snapshotRows, trajectory, verdict } from './plan-view';
 import type { Seg, ValueMode } from './plan-view';
 import { CoverageChart, TrajectoryChart } from './RetireCharts';
 import './retire.css';
 
-export const yuan = (c: number) => money(String(Math.round(c)));
+export const yuan = forecastMoney;
 
 const storeKey = 'thingary.retire.valueMode';
 export function useValueMode(): [ValueMode, (v: ValueMode) => void] {
@@ -55,7 +56,7 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
       {v.sub.length > 0 && <p className="rd-sub">{text(v.sub)}</p>}
       <p className="rd-summary">{text(v.summary)}</p>
       <div className="rd-progress">
-        <div className="rd-progress-row"><span>当前投资组合<b>{fmt(pr.now)}</b></span><span className="rd-right">{pr.goal_age} 岁时{P.mode === 'fire' ? '目标' : '所需'}<b>{fmt(pr.target)}</b><Info text={`根据计划的支出、收入、收益率与养老金假设，估算目标退休年龄所需的资金。以${valueModeLabel[mode]}显示。`}/></span></div>
+        <div className="rd-progress-row"><span>当前投资组合<b>{money(String(Math.round(pr.now)))}</b></span><span className="rd-right">{pr.goal_age} 岁时{P.mode === 'fire' ? '目标' : '所需'}<b>{fmt(pr.target)}</b><Info text={`根据计划的支出、收入、收益率与养老金假设，估算目标退休年龄所需的资金。以${valueModeLabel[mode]}显示。`}/></span></div>
         {pr.pct !== null ? <div className="rd-bar" role="img" aria-label={`已达标 ${Math.round(pr.pct)}%`}><div className={`rd-bar-fill ${v.tone}`} style={{ width: `${pr.pct}%` }}/>{pr.coast_pct !== null && pr.coast_pct > 0 && pr.coast_pct < 100 && <i className="rd-bar-coast" style={{ left: `${pr.coast_pct}%` }} title="Coast FIRE"/>}</div> : <p className="muted small">当前假设下无需额外资金。</p>}
         {pr.pct !== null && <p className="rd-progress-note">已达标 {Math.round(pr.pct)}%</p>}
       </div>

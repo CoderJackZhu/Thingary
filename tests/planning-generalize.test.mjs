@@ -93,7 +93,7 @@ test('spend item add/remove keeps its extra scope in step; saving sends budget i
 });
 
 test('extra spend item only raises retirement-month spending and removal drops its scope', () => {
-  const s = sources(), base = saved(s), d = draftOf(base, s.snapshot.value, s.today);
+  const s = sources(), base = saved(s), d = draftOf(base, s.snapshot.value);
   const item = { id: 'fx-care', label: '医疗与护理', monthly_cents: '100000', start_age: null, end_age: null, inflation_hundredths: null, essential: true };
   const added = withSpendItem(d, item);
   assert.equal(added.retScopes['spend:fx-care'].treatment, 'extra');

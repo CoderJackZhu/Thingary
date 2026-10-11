@@ -7,7 +7,7 @@ import { debtFixture } from './planning-debt-fixture';
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
 // proves nothing about native storage or calculation.
 import { financialImportPreview } from './financial-import-preview';
-import type { Account, AccountSave, Compare, CompareCell, CompareEnd, CompareRow, Draft, Entry, HistoryRow, Point, Share, Snapshot, SnapshotSave, StructurePair, Summary } from './wealth';
+import type { Account, AccountSave, CompareCell, CompareEnd, CompareRow, Draft, Entry, HistoryRow, Point, Share, Snapshot, SnapshotSave, StructurePair, Summary } from './wealth';
 import { assetKinds, kindLabel } from './wealth';
 import { expenseCategories } from './expenses';
 import { recurringCategories } from './recurring';

@@ -62,7 +62,7 @@ export type Tone = 'good' | 'warn' | 'plain';
 /** Wording for each real requirement status. Candidates are never contributions; `null` is never shown as 0. */
 export function requirementLine(r: RequirementResult, fmt: (cents: string) => string): { text: string; tone: Tone } {
   switch (r.status) {
-    case 'found': return { text: `每月 ${fmt(r.monthly_cents)}`, tone: 'plain' };
+    case 'found': return { text: `每月约 ${fmt(r.monthly_cents)}`, tone: 'plain' };
     case 'no_positive_contribution': return { text: '按这些条件，不用再额外存钱', tone: 'good' };
     case 'search_not_found': return { text: `在每月 ${fmt(r.search_limit_cents)} 的搜索上限内没有找到可行金额`, tone: 'warn' };
     case 'payment_constraint': return { text: `当前付款安排下无法满足：${r.message}`, tone: 'warn' };
@@ -72,12 +72,12 @@ export function requirementLine(r: RequirementResult, fmt: (cents: string) => st
 }
 
 /** 目标页把「需要存」和「你估计能存」并排：所需额是最小恒定月投入，预计投入不少于它即够用。未知不当零，也不下结论。 */
-export function contributionVerdict(r: RequirementResult, contribution: string | null, fmt: (cents: string) => string): { text: string; tone: Tone; unknown: boolean } {
+export function contributionVerdict(r: RequirementResult, contribution: string | null, fmt: (cents: string) => string, estimate: (cents: string) => string = fmt): { text: string; tone: Tone; unknown: boolean } {
   if (contribution === null) return { text: '你估计每月能存多少：还没填', tone: 'plain', unknown: true };
   const c = BigInt(contribution), own = c < 0n ? `你估计每月要取用 ${fmt(String(-c))}` : `你估计每月能存 ${fmt(String(c))}`;
   if (r.status === 'found') {
     const diff = c - BigInt(r.monthly_cents);
-    return diff === 0n ? { text: `${own}，正好够`, tone: 'good', unknown: false } : diff > 0n ? { text: `${own}，比所需多 ${fmt(String(diff))}`, tone: 'good', unknown: false } : { text: `${own}，每月还差 ${fmt(String(-diff))}`, tone: 'warn', unknown: false };
+    return diff === 0n ? { text: `${own}，正好够`, tone: 'good', unknown: false } : diff > 0n ? { text: `${own}，比所需多 ${estimate(String(diff))}`, tone: 'good', unknown: false } : { text: `${own}，每月还差 ${estimate(String(-diff))}`, tone: 'warn', unknown: false };
   }
   if (r.status === 'no_positive_contribution') return c >= 0n ? { text: `${own}，按这些条件已经够用`, tone: 'good', unknown: false } : { text: `${own}；是否够用见计算详情`, tone: 'plain', unknown: false };
   return { text: own, tone: 'plain', unknown: false };

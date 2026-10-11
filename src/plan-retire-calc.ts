@@ -6,15 +6,19 @@ import { emergency } from './plan-fire.ts';
 import { ageMonthsAt } from './plan-pension.ts';
 import { table } from './plan-ledger.ts';
 import { buildBasicCapabilities } from './plan-basic.ts';
-import type { PlanningSources } from './plan-basic-contract.ts';
+import type { BasicCapabilities, PlanningSources } from './plan-basic-contract.ts';
 import type { LifeEvent } from './plan-events.ts';
 export { buildBasicCapabilities };
 export const disposable = (snapshot: Snapshot | null): number | null => normalizeFunds(snapshot).available;
 
 export function buildRetireCalc(saved: NonNullable<ProfileState['saved']>, snapshot: Snapshot | null, review: PlanReview | null, incomes: Income[], today: string, nativeSources?: PlanningSources) {
-  const p = saved.profile, r = p.retire;
   const sources = nativeSources ?? { generation: 'adapter', write_version: saved.revision, today, modules: { planning: true, wealth: snapshot !== null }, profile: { status: 'ready', value: { generation: 'adapter', saved } }, snapshot: { status: 'ready', value: snapshot }, accounts: { status: 'ready', value: [] }, review: review ? { status: 'ready', value: review } : { status: 'error', value: { code: 'UNAVAILABLE', message: '历史统计未提供' } }, incomes: { status: 'ready', value: incomes } } satisfies PlanningSources;
-  const capabilities = buildBasicCapabilities(sources);
+  return retireCalcFromCapabilities(saved, buildBasicCapabilities(sources), today);
+}
+
+/** Adapt this batch's existing result without another requirement search or projection. */
+export function retireCalcFromCapabilities(saved: NonNullable<ProfileState['saved']>, capabilities: BasicCapabilities, today: string) {
+  const p = saved.profile, r = p.retire;
   const pred = capabilities.prediction.status === 'ready' ? capabilities.prediction.value : undefined;
   const assets = capabilities.funds.status === 'ready' ? Number(capabilities.funds.value.available_cents) / (pred?.plan.basis_factor ?? 1) : null;
   const now = p.birth_month === null ? 0 : ageMonthsAt(p.birth_month, capabilities.context.start.date ?? today);

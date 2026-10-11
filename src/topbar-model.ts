@@ -1,4 +1,3 @@
-import type { Section } from './library-mode';
 
 /** Pages whose topbar search box is backed by the App's session search words. */
 export const searchSections = ['assets', 'wealth', 'expenses', 'recurring', 'virtual', 'wishlist', 'timeline', 'materials', 'trash'] as const;

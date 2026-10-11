@@ -109,7 +109,7 @@ test('switching an event off and on retains fees and confirmed live account purp
     const c = buildBasicCapabilities(s);
     assert.equal(c.funds.status, 'ready');
     assert.equal(c.requirement.status, 'ready', JSON.stringify(c.requirement));
-    const d = draftOf(s.profile.value.saved, s.snapshot.value, s.today);
+    const d = draftOf(s.profile.value.saved, s.snapshot.value);
     r.basic = basicInput(d, s.profile.value.saved, s.today).fields.basic;
     assert.deepEqual(r.basic.contribution_costs, original.contribution_costs);
     assert.deepEqual(r.basic.retirement_costs, original.retirement_costs);
@@ -137,7 +137,7 @@ test('dedicated cost review preserves all saved non-cost basic inputs exactly', 
   const saved = s.profile.value.saved, before = structuredClone(saved.profile.retire.basic);
   before.pension_contributions = { start_month: '2025-01', stop_month: '2050-06', base_cents: '1234567' };
   saved.profile.retire.basic = before;
-  const d = draftOf(saved, null, '2026-10-08'); d.retScopes['event:car:holding'] = { treatment: 'excluded', ref: '' };
+  const d = draftOf(saved, null); d.retScopes['event:car:holding'] = { treatment: 'excluded', ref: '' };
   const after = costsInput(d, saved).fields.basic;
   assert.deepEqual({ ...after, contribution_costs: before.contribution_costs, retirement_costs: before.retirement_costs }, before);
   assert.equal(after.retirement_costs[0].treatment, 'excluded');

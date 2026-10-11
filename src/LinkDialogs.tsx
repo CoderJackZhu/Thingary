@@ -6,7 +6,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
 import { DateInput } from './DateInput';
-import { CentInput, FormRow, Info, Segments, Switch } from './FormControls';
+import { FormRow, Info, Segments, Switch } from './FormControls';
 import { submit, Unresolved } from './wealth';
 import { saveReminderWithPermission } from './virtual';
 import type { ReminderState } from './virtual';
@@ -228,8 +228,8 @@ export function UnifyNameDialog({ assetId, planId, assetName, planName, assetRev
 }
 
 /** 周期页给已有订阅计划建立服务档案（设计 §4.1）：仅新增档案，不动付款。 */
-export function LinkCreateDialog({ planId, planName, planRevision, today, generation, onClose, onDone }: {
-  planId: string; planName: string; planRevision: number; today: string; generation: string; onClose: Close; onDone: (message: string) => void;
+export function LinkCreateDialog({ planId, planName, planRevision, generation, onClose, onDone }: {
+  planId: string; planName: string; planRevision: number; generation: string; onClose: Close; onDone: (message: string) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(planName);

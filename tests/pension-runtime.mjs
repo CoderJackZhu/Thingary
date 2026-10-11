@@ -1,3 +1,4 @@
+import * as forecast from '../src/plan-format.ts';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import vm from 'node:vm';
@@ -43,6 +44,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
   } };
   const leaf = new Proxy({}, { get: (_, key) => String(key) });
   const modules = {
+    './plan-format': forecast,
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     './planning-basic-forms': forms, './plan-basic': basic, './plan-core': core, './plan-coverage': coverage, './planning-cost-review': costReview, './plan-debt': debt, './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
     './planning-draft': overlay, './plan-basic-validation': validation, './planning-pension-refinement': pension, './plan': planExports, './plan-params': params, './plan-medical': medical, './plan-pension': planPension, './plan-summary': planSummary,
@@ -50,7 +52,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     './planning-first-run': props.goalStateOverride ? { ...flow, goalState: () => props.goalStateOverride } : flow, './planning-basic-defaults': defaults,
     './planning-basic-data': { useSectionSaver: () => saver, useCapabilities: () => ({ status: 'ready', caps: typeof caps === 'function' ? caps() : caps }) },
     './planning-basic-view': { needsContribution: () => true, contributionVerdict: view.contributionVerdict, amountState: view.amountState, requirementLine: props.realSummary ? view.requirementLine : () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
-    './plan-retire-calc': { buildRetireCalc: () => null, toEvent: e => e },
+    './plan-retire-calc': { retireCalcFromCapabilities: () => null, buildRetireCalc: () => null, toEvent: e => e },
   };
   function load(file) {
     const m = { exports: {} };

@@ -41,7 +41,7 @@ test('check-in UI carries notes through one save request and guards date switche
   assert.match(page, /setNotes\(d\.existing\?\.notes \?\? ''\)/);
   assert.match(page, /切换日期将丢弃当前备注修改/);
   // 只读详情：按稳定 ID 读取，浏览不写资料；无备注显示“未填写备注”。
-  assert.match(page, /function SnapshotDetail\(\{ id, today, onCorrect, onClose \}/);
+  assert.match(page, /function SnapshotDetail\(\{ id, onCorrect, onClose \}/);
   assert.match(page, /'wealth_snapshot', \{ id \}/);
   assert.match(page, /未填写备注/);
   assert.match(page, /更正这次盘点/);

@@ -1,3 +1,4 @@
+import { forecastMoney } from './plan-format';
 import { useEffect, useRef, useState } from 'react';
 import { ConfirmationField } from './PlanningConfirmation';
 import type { ConfirmationIssue } from './PlanningConfirmation';
@@ -24,7 +25,7 @@ export function PlanningPensionRefinementDialog({ sources, today, reload, onPend
 }) {
   const [captured] = useState(() => structuredClone({ ...sources, today }));
   const saved = captured.profile.status === 'ready' ? captured.profile.value.saved : null;
-  const [d, setD] = useState(() => structuredClone(initialDraft ?? setupDraft(saved, captured.snapshot.status === 'ready' ? captured.snapshot.value : null, today, captured.modules.wealth)));
+  const [d, setD] = useState(() => structuredClone(initialDraft ?? setupDraft(saved, captured.snapshot.status === 'ready' ? captured.snapshot.value : null, captured.modules.wealth)));
   const [step, setStep] = useState(() => completion && !switchIncome && (d.incomeMode === 'employee' || reviewContributions) ? (missingPensionFields(d).length && d.incomeMode === 'employee' ? 2 : 1) : startStep), [notice, setNotice] = useState('');
   const [issue, setIssue] = useState<ConfirmationIssue | null>(null);
   const [factKeys] = useState(() => missingPensionFields(d));
@@ -81,8 +82,27 @@ export function PlanningPensionRefinementDialog({ sources, today, reload, onPend
 }
 
 export function PensionComparisonNote({ comparison }: { comparison: PensionComparison }) {
-  const amount = (r: PensionComparison['before']) => r?.status === 'found' || r?.status === 'no_positive_contribution' ? money(r.monthly_cents) : null;
-  const a = amount(comparison.before), b = amount(comparison.after);
+  const amount = (r: PensionComparison['before']) =>
+    r?.status === 'found' || r?.status === 'no_positive_contribution' ? r.monthly_cents : null;
+  const before = amount(comparison.before), after = amount(comparison.after);
+  const a = before === null ? null : forecastMoney(before);
+  const b = after === null ? null : forecastMoney(after);
+  let change: string;
+  if (before !== null && after !== null) {
+    const difference = BigInt(after) - BigInt(before);
+    change = difference === 0n
+      ? `每月要存约 ${b}，结果不变。`
+      : `每月要存约 ${a} → ${b}${a === b ? `，每月${difference < 0n ? '减少' : '增加'} ${forecastMoney(String(difference < 0n ? -difference : difference))}` : ''}`;
+  } else if (b !== null) {
+    change = `${comparison.reason || '原结果暂不可计算'} → 每月要存约 ${b}`;
+  } else {
+    change = `${a !== null ? `原来每月要存约 ${a}` : comparison.reason || '原结果暂不可计算'}；保存后暂不可计算，请补齐必要资料。`;
+  }
   const label = comparison.mode === 'employee' ? '纳入职工养老金估算及本次缴费安排' : comparison.mode === 'manual' ? '手填退休收入及本次缴存安排' : '先不算退休收入及本次缴存安排';
-  return <aside className="ui-card ui-content planning-pension-comparison" role="status" aria-label="退休收入调整前后对比"><p><strong>{label}的变化</strong></p><p>{a !== null && b !== null ? a === b ? `每月要存 ${b}，结果不变。` : `每月要存 ${a} → ${b}` : b !== null ? `${comparison.reason || '原结果暂不可计算'} → 每月要存 ${b}` : `${a !== null ? `原来每月要存 ${a}；` : `${comparison.reason || '原结果暂不可计算'}；`}保存后暂不可计算，请补齐必要资料。`}</p>{comparison.statePensionMonthlyCents !== null && <p>估算的国家养老金每月约 {money(comparison.statePensionMonthlyCents)}<span className="muted small">，不代表待遇核定结果。</span></p>}<p className="muted small">两边使用同一盘点{comparison.snapshotDate ? `（${comparison.snapshotDate}）` : ''}、同一日期（{comparison.today}）与这次的其他条件。</p></aside>;
+  return <aside className="ui-card ui-content planning-pension-comparison" role="status" aria-label="退休收入调整前后对比">
+    <p><strong>{label}的变化</strong></p>
+    <p>{change}</p>
+    {comparison.statePensionMonthlyCents !== null && <p>估算的国家养老金每月约 {forecastMoney(comparison.statePensionMonthlyCents)}<span className="muted small">，不代表待遇核定结果。</span></p>}
+    <p className="muted small">两边使用同一盘点{comparison.snapshotDate ? `（${comparison.snapshotDate}）` : ''}、同一日期（{comparison.today}）与这次的其他条件。</p>
+  </aside>;
 }

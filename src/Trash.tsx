@@ -6,7 +6,7 @@ import type { AssetRecord } from './asset';
 import type { CloseIntent } from './AssetEditor';
 import { usePageBar } from './topbar';
 import { Info } from './FormControls';
-import { contentsText, entryDisplay, recordKindLabel, recordPendingKey, restoresAsGroup, restoresViaWealth, stateText, storedRecordTrash, trashFilters } from './unified-trash';
+import { contentsText, entryDisplay, recordKindLabel, recordPendingKey, restoresAsGroup, restoresViaWealth, stateText, trashFilters } from './unified-trash';
 import { LinkPurgeDialog, LinkRepairDialog, LinkRestoreDialog, PurgeAllDialog } from './LinkDialogs';
 import { linkView } from './link';
 import type { RecordTrashAction, RecordTrashChange, TrashEntry, TrashPage } from './unified-trash';

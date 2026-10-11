@@ -53,8 +53,8 @@ export function goalState(saved: Saved, caps: BasicCapabilities | null): GoalSta
   return caps?.requirement.status === 'ready' ? '2' : '2b';
 }
 
-export function setupDraft(saved: Saved, snapshot: Snapshot | null, today: string, wealthOn: boolean): Draft {
-  const d = draftOf(saved, wealthOn ? snapshot : null, today);
+export function setupDraft(saved: Saved, snapshot: Snapshot | null, wealthOn: boolean): Draft {
+  const d = draftOf(saved, wealthOn ? snapshot : null);
   return { ...d, pension: { ...d.pension, flex: saved?.profile.flex_months == null ? '' : d.pension.flex, tax: saved?.profile.marginal_tax_hundredths == null ? '' : d.pension.tax }, incomeMode: defaultIncomeMode(saved), start: !saved?.profile.retire.basic && (!wealthOn || !snapshot) ? 'simulation' : d.start };
 }
 
@@ -87,9 +87,9 @@ export function conditionChips(saved: NonNullable<Saved>, caps: BasicCapabilitie
 }
 
 export type Refinement = { id: string; title: string; benefit: string; duration: string; action: 'pension' | 'costs' | 'event' | 'contribution' | 'setup' | 'reload' | 'events' | 'funds' | 'debts'; event?: StoredLifeEvent; step?: number; required: boolean; impacts?: boolean; condition?: boolean };
-function pendingCostsText(saved: NonNullable<Saved>, today: string) {
+function pendingCostsText(saved: NonNullable<Saved>) {
   const r = saved.profile.retire;
-  const { pre, post, pendingRows } = costReviewRows(draftOf(saved, null, today), r, saved.profile.personal_pension_annual_cents);
+  const { pre, post, pendingRows } = costReviewRows(draftOf(saved, null), r, saved.profile.personal_pension_annual_cents);
   // A fee needing review both before and after retirement is still one named project.
   const pending = new Map(pendingRows.map(s => [s.id, s.label]));
   // Invalid/duplicate saved rows are also reviewed by CostsDialog, then removed by its existing save.
@@ -113,7 +113,7 @@ export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabiliti
   const medical = medicalCheck(saved.profile, b, today);
   if (medical.status === 'unknown' || medical.status === 'short') cards.push({ id: 'medical', title: '核对医保缴费年限', benefit: '查看退休时年限是否足够；补缴金额不清楚可以留空。', duration: '约 2 分钟', action: 'pension', required: false });
   if (b?.retirement_income.mode !== 'employee' || has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN')) cards.push({ id: 'pension', title: b?.retirement_income.mode === 'employee' ? '核对职工养老金资料' : '算上国家养老金', benefit: b?.retirement_income.mode === 'employee' ? (has('PENSION_FACTS_UNKNOWN') && has('PENSION_CONTRIBUTIONS_UNKNOWN') ? '还缺一些社保资料和未来缴费安排。补齐后，就能把职工养老金估算算进每月要存的钱里。' : has('PENSION_FACTS_UNKNOWN') ? `还缺：${[['参保地', saved.profile.region], ['当地养老金计发基数', saved.profile.region === 'custom' ? saved.profile.overrides.avg_wage_cents : '内置'], ['职工类型', saved.profile.worker], ['累计缴费月数', saved.profile.paid_months], ['个人账户余额', saved.profile.account_balance_cents], ['当前缴费基数', saved.profile.base_cents], ['弹性领取月数', saved.profile.flex_months], ['个人养老金年额', saved.profile.personal_pension_annual_cents], ['个税税率', saved.profile.marginal_tax_hundredths]].filter(([, value]) => value == null).map(([label]) => label).join('、') || '社保资料'}。只补缺项，已有数字保留。` : '确认未来缴费开始、停止月份、缴费基数与公积金月缴存（没有也请填 0）。') : b?.retirement_income.mode === 'manual' ? '当前只计入所选手填收入，国家养老金没有另算；可随时修改计入方式。' : '当前先不算国家养老金；这是你选择的计算条件，可以随时添加职工养老金估算。', duration: b?.retirement_income.mode === 'excluded' ? '你选择了先不算' : b?.retirement_income.mode === 'manual' ? '你选择了手填收入' : b?.retirement_income.mode === 'employee' ? '职工养老金估算待补齐' : '尚未选择计入方式', action: 'pension', condition: b?.retirement_income.mode === 'excluded' || b?.retirement_income.mode === 'manual', required: has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN') });
-  if (has('COST_SCOPE_UNKNOWN', 'COST_SCOPE_INVALID')) cards.push({ id: 'costs', title: '核对有没有重复费用', benefit: pendingCostsText(saved, today), duration: '约 1 分钟', action: 'costs', required: true });
+  if (has('COST_SCOPE_UNKNOWN', 'COST_SCOPE_INVALID')) cards.push({ id: 'costs', title: '核对有没有重复费用', benefit: pendingCostsText(saved), duration: '约 1 分钟', action: 'costs', required: true });
   if (has('OCCURRENCE_UNCONFIRMED')) {
     const pending = r.life_events.filter(e => {
       const o = r.core?.occurrences.find(o => o.event_id === e.id);

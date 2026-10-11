@@ -215,7 +215,7 @@ export function coverageSeries(P: Plan, proj: Projection, mode: ValueMode): Cove
 
 /** 结果区间：基准与几种收入变化情形的 FI 年龄（FIRE）或目标年龄时的盈亏（传统）并排。 */
 export type RangeRow = { id: string; label: string; fi_month: number | null; late_months: number | null; surplus: number; failed: boolean };
-export function rangeRows(P: Plan, stress: { id: string; label: string; stressed: Outcome }[], base: Outcome): RangeRow[] {
+export function rangeRows(stress: { id: string; label: string; stressed: Outcome }[], base: Outcome): RangeRow[] {
   const row = (id: string, label: string, o: Outcome): RangeRow => ({ id, label, fi_month: o.fi_month, late_months: o.fi_month !== null && base.fi_month !== null ? o.fi_month - base.fi_month : null, surplus: o.assets_at_goal - o.required_at_goal, failed: o.failure_month !== null || o.shortfall_month !== null });
   const pick = ['return-drag', 'inflation-shock', 'spending-shock', 'save-less'];
   return [row('base', '基准', base), ...pick.flatMap(id => { const r = stress.find(s => s.id === id); return r ? [row(id, r.label, r.stressed)] : []; })];

@@ -17,7 +17,7 @@ import { defaultWishPreferences } from './preferences';
 import { PhotoPreview, PhotoView } from './Photos';
 import { DefaultAssetIcon } from './IconPicker';
 import { Icon } from './AssetViews';
-import { emptyWishlistFields, storedWishlistChange, storedWishlistDraft, validateWishlist, wishlistAbandonKey, wishlistBlocksApp, wishlistChange, wishlistDecisionKey, wishlistDraftKey, wishDecisionLabel, wishHeaderSummary } from './wishlist';
+import { emptyWishlistFields, storedWishlistChange, storedWishlistDraft, wishlistAbandonKey, wishlistBlocksApp, wishlistDecisionKey, wishlistDraftKey, wishDecisionLabel, wishHeaderSummary } from './wishlist';
 import type { WishlistChange, WishlistDraft, WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 
 const initialQuery: WishlistQuery = { search: '', filter: 'all', sort: 'created', descending: true, offset: 0 };

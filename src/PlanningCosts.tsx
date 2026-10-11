@@ -38,9 +38,9 @@ export function CostsEditor({ d, patch, frozen, retire, annualPension, completio
   </>;
 }
 
-export function CostsDialog({ sources, saved, today, reload, onPending, onClose, completion = false }: { sources: PlanningSources; saved: NonNullable<ProfileState['saved']>; today: string; reload: () => void; onPending: () => void; onClose: () => void; completion?: boolean }) {
+export function CostsDialog({ sources, saved, reload, onPending, onClose, completion = false }: { sources: PlanningSources; saved: NonNullable<ProfileState['saved']>; reload: () => void; onPending: () => void; onClose: () => void; completion?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null), saver = useSectionSaver(sources, reload, onPending);
-  const [d, setD] = useState(() => draftOf(saved, null, today)), [error, setError] = useState('');
+  const [d, setD] = useState(() => draftOf(saved, null)), [error, setError] = useState('');
   const [issue, setIssue] = useState<ConfirmationIssue | null>(null);
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   const r = saved.profile.retire, b = r.basic!;

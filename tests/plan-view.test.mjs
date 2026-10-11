@@ -95,7 +95,7 @@ test('snapshot rows scale by the inflation at the start of each row', () => {
 
 test('range rows compare general assumptions beside the base case', () => {
   const P = plan({ saving_cents: 1500, now_months: 436, target_months: 760, mode: 'fire' });
-  const proj = project(P, 2026), base = outcome(P, proj), rows = rangeRows(P, stressTests(P, 2026), base);
+  const proj = project(P, 2026), base = outcome(P, proj), rows = rangeRows(stressTests(P, 2026), base);
   assert.deepEqual(rows.map(r => r.id), ['base', 'return-drag', 'inflation-shock', 'spending-shock', 'save-less']);
   assert.ok(rows.slice(1).every(r => r.late_months === null || r.late_months >= 0));
 });

@@ -1,3 +1,4 @@
+import { money } from './asset';
 import { CoverageNote } from './CoverageNote';
 import { retractOccurrence } from './plan-occurrence-actions';
 import { MonthInput } from './DateInput';
@@ -20,7 +21,7 @@ import './retire.css';
 type Kind = StoredLifeEvent['kind'];
 const kindText: Record<Kind, string> = { house: '买房', car: '买车', other: '其他' };
 const monthLabel = (today: string, offset: number) => { const i = monthIndex(today) + offset; return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`; };
-const delayText = (d: number | null, base: number | null, w: number | null) => base === null ? '本来就达不到' : w === null ? '70 岁前达不到' : d === 0 ? '几乎无影响' : `推迟约 ${d! >= 12 ? `${Math.floor(d! / 12)} 年${d! % 12 ? ` ${d! % 12} 个月` : ''}` : `${d} 个月`}`;
+const delayText = (d: number | null, base: number | null, w: number | null) => base === null ? '本来就达不到' : w === null ? '所选规划终点前达不到' : d === 0 ? '几乎无影响' : `推迟约 ${d! >= 12 ? `${Math.floor(d! / 12)} 年${d! % 12 ? ` ${d! % 12} 个月` : ''}` : `${d} 个月`}`;
 const cents = (yuanAmount: number) => String(Math.round(yuanAmount * 100));
 
 /** 示例预设：金额只是占位，按自己的情况改。日期按「几年后」放在当月。 */
@@ -66,8 +67,8 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
       <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="大额计划列表"><table className="ui-table plan-event-table"><thead><tr><th>计划</th><th className="amount">总价 / 首付</th><th>买后每月</th><th>首付付得起吗</th><th>对退休的影响（只算这一件）</th><th>计入</th><th/></tr></thead>
         <tbody>{events.map(s => { const i = rows?.items.find(x => x.e.id === s.id)?.impact; return <tr key={s.id} className={s.included || retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred') ? undefined : 'closed'}>
           <td><b>{s.label}</b><small className="muted">{retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'occurred' ? '已标发生 · 后续资料见核对清单' : retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'cancelled' ? '已取消' : s.date < today.slice(0, 7) ? '日期已过，待核对' : '尚未发生 · 按预计排期'}</small><small className="muted">{kindText[s.kind]} · {s.date}{s.kind === 'car' && s.cycle_years ? ` · 每 ${s.cycle_years} 年换` : ''}</small></td>
-          <td className="amount">{yuan(Number(s.price_cents))}<small className="muted">首付 {yuan(Number(s.down_cents))}</small></td>
-          <td>{i && i.payment_nominal > 0 ? <>月供 {yuan(i.payment_nominal)}<small className="muted">固定名义金额</small></> : <span className="muted">{retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0) ? '剩余欠款按核对过的剩余期数继续还' : '待测算'}</span>}{Number(s.holding_cents) > 0 && <small className="muted">{s.kind === 'car' ? '养车' : '持有'} {yuan(Number(s.holding_cents))}</small>}
+          <td className="amount">{money(s.price_cents)}<small className="muted">首付 {money(s.down_cents)}</small></td>
+          <td>{i && i.payment_nominal > 0 ? <>月供 {yuan(i.payment_nominal)}<small className="muted">固定名义金额</small></> : <span className="muted">{retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0) ? '剩余欠款按核对过的剩余期数继续还' : '待测算'}</span>}{Number(s.holding_cents) > 0 && <small className="muted">{s.kind === 'car' ? '养车' : '持有'} {money(s.holding_cents)}</small>}
             {i && (i.payment_nominal > 0 || Number(s.holding_cents) > 0) && <small className={i.saving_not_positive ? 'warn' : 'muted'}>买后每月储蓄约 {yuan(i.saving_after)}{i.saving_not_positive ? '，要靠当时的收入支撑' : ''}</small>}</td>
           <td>{!i ? <span className="muted">{retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred') ? '按实际付款继续计算' : store.blocked}{store.onContribution && !retire.core?.occurrences.some(o => o.event_id === s.id) && <button type="button" className="ui-link" onClick={store.onContribution}>估计每月能存多少钱</button>}</span> : i.short === 0 ? <>够：{s.date} 时可支配资产约 {yuan(i.assets_at_date)}<small className="muted">需 {yuan(i.cash_needed)}（含应急金线）</small></> : <><span className="warn">差 {yuan(i.short)}</span><small className="muted">需 {yuan(i.cash_needed)}；{i.earliest_offset === null ? '按当前储蓄不会够' : `最早约 ${monthLabel(ready?.plan.anchor_date ?? today, i.earliest_offset)} 够`}</small></>}</td>
           <td>{i ? <>{delayText(i.delay_months, i.base_fi, i.with_fi)}{s.kind === 'house' && <small className="muted">{i.sweep.map(w => `${w.years} 年后买：${w.delay_months === null ? '达不到' : w.delay_months === 0 ? '无影响' : `+${w.delay_months} 个月`}`).join('；')}</small>}</> : <span className="muted">—</span>}</td>
@@ -79,11 +80,11 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
     </>}
     <details className="plan-explanation"><summary>怎么算的</summary><p className="muted small">首付、杂费在计划月份一次性扣；贷款本金按买房那天的名义价格算，等额本息、固定名义月供，到期结束，所以实际购买力逐年下降；月供与持有成本在退休前压低每月储蓄，退休后算进支出；省租先核对是否已经算入生活费或每月能存的钱，省下的房租不会自动加到每月能存的钱里；买车可设换车周期、截止年龄和每次卖旧车回收，每次实际花的是「价格减回收」。「首付付得起吗」按当前储蓄推演到计划月份的可支配资产，对照首付、杂费与应急金线。价格按今天的钱，默认实际不涨价，想保守就填高一点。公积金贷款与提取暂未单独建模。</p></details>
     {occurring && <PlanningOccurrenceDialog event={occurring} existing={retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={store.snapshot} accounts={store.accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={() => setOccurring(null)} onSave={o => void saveOccurrence(o)}/>}
-    {editing && <EventDialog basic={!!retire.basic} draft={editing.draft} isNew={editing.isNew} today={today} events={events} busy={saver.busy} onClose={() => setEditing(null)} onSave={async ev => { const next = editing.isNew ? [...events, ev] : events.map(x => (x.id === ev.id ? ev : x)); if (await write(next)) setEditing(null); }} notice={saver.notice}/>}
+    {editing && <EventDialog basic={!!retire.basic} draft={editing.draft} isNew={editing.isNew} busy={saver.busy} onClose={() => setEditing(null)} onSave={async ev => { const next = editing.isNew ? [...events, ev] : events.map(x => (x.id === ev.id ? ev : x)); if (await write(next)) setEditing(null); }} notice={saver.notice}/>}
   </article>;
 }
 
-function EventDialog({ basic, draft, isNew, today, busy, notice, onClose, onSave }: { basic: boolean; draft: StoredLifeEvent; isNew: boolean; today: string; events: StoredLifeEvent[]; busy: boolean; notice: string; onClose: () => void; onSave: (e: StoredLifeEvent) => void }) {
+function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { basic: boolean; draft: StoredLifeEvent; isNew: boolean; busy: boolean; notice: string; onClose: () => void; onSave: (e: StoredLifeEvent) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [kind, setKind] = useState<Kind>(draft.kind), [label, setLabel] = useState(draft.label), [date, setDate] = useState(draft.date);
   const [price, setPrice] = useState(draft.price_cents), [down, setDown] = useState(draft.down_cents), [extra, setExtra] = useState(draft.extra_cents);

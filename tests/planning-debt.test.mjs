@@ -1,3 +1,4 @@
+import * as forecast from '../src/plan-format.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -50,7 +51,8 @@ function runtime(file, props, save = async () => ({ revision: 5 }), caps = unkno
     './planning-first-run': flow, './planning-basic-defaults': defaults,
     './planning-basic-data': { useSectionSaver: () => saver, useCapabilities: () => ({ status: 'ready', caps: typeof caps === 'function' ? caps() : caps }) },
     './planning-basic-view': { needsContribution: () => true, contributionVerdict: () => null, requirementLine: () => ({ text: '每月 ¥4700', tone: '' }), SAVE_CONTRIBUTION_HINT: '待估计' },
-    './plan-retire-calc': { buildRetireCalc: () => null },
+    './plan-format': forecast,
+    './plan-retire-calc': { buildRetireCalc: () => null, retireCalcFromCapabilities: () => null },
   };
   const module = { exports: {} };
   const script = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), {

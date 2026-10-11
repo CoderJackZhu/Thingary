@@ -1,3 +1,4 @@
+import {forecastMoney} from '../src/plan-format.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -45,7 +46,7 @@ for(const [scenario,id,focus,minimum] of cases){
   const initial=completionFixture(batch,scenario),e=open(initial,id),r=e.r;
   minimum(r); await reachSave(r); await submit(r);
   assert.equal(r.calls.length,1);assert.equal(r.find('dialog'),undefined);assert.ok(!cards(e.source).some(c=>c.id===id));assert.equal(caps(e.source).requirement.status,'ready');
-  const amount=caps(e.source).requirement.value.set.monthly_cents;assert.match(r.text(r.find('article',p=>p['aria-label']==='退休目标')),new RegExp('¥'+amount));assert.ok(r.button('查看计算详情与图表'));
+  const amount=caps(e.source).requirement.value.set.monthly_cents;assert.match(r.text(r.find('article',p=>p['aria-label']==='退休目标')),new RegExp(forecastMoney(amount)));assert.ok(r.button('查看计算详情与图表'));
   if(['transfer','debts','costs'].includes(scenario))assert.notEqual(amount,caps(initial).requirement.value.set.monthly_cents);
  });
 }
@@ -57,7 +58,7 @@ test('sample + Beijing + annual personal pension: unknown stays hard-blocked unt
  assert.equal(r.find('details',p=>children(p.children).some(n=>n.type==='summary'&&r.text(n)==='已有个人养老金余额')).props.open,true);
  assert.equal(r.find('input',p=>p['aria-label']==='我没有已有的个人养老金余额').props.checked,false);assert.equal(r.find('input',p=>p['aria-label']==='关联到下面的账户').props.checked,false);
  await submit(r);assert.equal(r.calls.length,0);radio(r,'我没有已有的个人养老金余额');await submit(r);
- assert.equal(saved(e.source).profile.retire.core.personal_pension_account_id,null);assert.equal(saved(e.source).profile.retire.core.personal_pension_balance_confirmed,true);assert.equal(saved(e.source).profile.personal_pension_annual_cents,'1200000');assert.equal(goalState(saved(e.source),caps(e.source)),'2');assert.match(r.text(r.find('article',p=>p['aria-label']==='退休目标')),new RegExp('¥'+caps(e.source).requirement.value.set.monthly_cents));
+ assert.equal(saved(e.source).profile.retire.core.personal_pension_account_id,null);assert.equal(saved(e.source).profile.retire.core.personal_pension_balance_confirmed,true);assert.equal(saved(e.source).profile.personal_pension_annual_cents,'1200000');assert.equal(goalState(saved(e.source),caps(e.source)),'2');assert.match(r.text(r.find('article',p=>p['aria-label']==='退休目标')),new RegExp(forecastMoney(caps(e.source).requirement.value.set.monthly_cents)));
 });
 
 test('funds card retains its general title and copy for other necessary confirmations',()=>{

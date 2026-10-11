@@ -101,13 +101,6 @@ const INITIAL_CONFIRM: ConfirmDialog = {
   busy: false,
 };
 
-function totalReferences(entry: TaxonomyEntry): number {
-  return entry.references.activeAssets
-    + entry.references.deletedAssets
-    + (entry.references.ongoingWishlist ?? 0)
-    + (entry.references.abandonedWishlist ?? 0);
-}
-
 function blankDraft(): DraftState {
   return { name: "", icon: "box" };
 }
@@ -213,7 +206,6 @@ function ListRow({
     }
   }, [mode]);
 
-  const total = totalReferences(entry);
   const iconDescriptor = entry.icon ? findCategoryIcon(entry.icon) : null;
 
   async function saveDraft() {
@@ -517,7 +509,6 @@ export default function TaxonomyManager({
   // 切换页签直接丢弃未提交输入；已发出的请求须先核对。
   function changeKind(next: TaxonomyKind) {
     if (next === kind) return;
-    const hasDraft = normalizeName(draft.name) !== "" || editingRows.current.size > 0;
     if (inFlight.current) {
       setNotice({
         text: "请等待当前提交完成，再切换页签。",

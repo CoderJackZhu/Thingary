@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { Section } from './library-mode';
-import { emptySearches, searchSections } from './topbar-model';
 import type { BarMenu, BarSearch, PageBar } from './topbar-model';
 
 export { buildNewMenu, emptySearches, searchSections } from './topbar-model';

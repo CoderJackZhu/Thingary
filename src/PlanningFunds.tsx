@@ -57,7 +57,7 @@ export function FundsCard({ caps, sources, saved, snapshot, accounts, today, rel
 
 export function FundsDialog({ sources, saved, snapshot, accounts, today, reload, onPending, onClose, completion = false }: { sources: PlanningSources; saved: NonNullable<ProfileState['saved']>; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: (saved: boolean) => void; completion?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null), saver = useSectionSaver(sources, reload, onPending);
-  const [d, setD] = useState(() => draftOf(saved, snapshot, today)), [error, setError] = useState('');
+  const [d, setD] = useState(() => draftOf(saved, snapshot)), [error, setError] = useState('');
   const [showAll, setShowAll] = useState(false), [issue, setIssue] = useState<ConfirmationIssue | null>(null);
   const [confirmPension] = useState(() => completion && (() => { const c = buildBasicCapabilities(sources); return c.requirement.status === 'blocked' && c.requirement.missing.some(m => m.field.includes('personal_pension')); })());
   const unconfirmed = new Set(snapshot?.entries.filter(e => e.counted && e.side === 'asset' && !saved.profile.retire.core?.fund_rules.some(f => f.account_id === e.account_id)).map(e => e.account_id));

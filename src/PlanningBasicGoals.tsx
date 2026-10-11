@@ -1,3 +1,4 @@
+import { forecastMoney } from './plan-format';
 import { ProfileDialog as MedicalProfileDialog } from './PlanningPension';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { money } from './asset';
@@ -21,7 +22,7 @@ import { PlanningOccurrenceDialog } from './PlanningOccurrenceDialog';
 import { CostsDialog } from './PlanningCosts';
 import { FundsDialog } from './PlanningFunds';
 import { PlanningRefinements } from './PlanningRefinements';
-import { buildRetireCalc } from './plan-retire-calc';
+import { retireCalcFromCapabilities } from './plan-retire-calc';
 import { ready } from './review';
 import { eventsInput } from './planning-basic-forms';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
@@ -50,7 +51,9 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const cards = saved && caps ? refinementCards(saved, caps, today, debtLabels) : [];
   const goEvents = () => { setDetail(false); setToolsOpen(true); requestAnimationFrame(() => { const el = document.getElementById('plan-events-section'); el?.scrollIntoView({ block: 'start' }); el?.focus(); }); };
   useEffect(() => { if (focus) { const entry = document.getElementById('plan-budget-entry'); if (entry) { entry.focus(); onFocusDone(); } } }, [focus, onFocusDone, saved]);
-  const wishCalc = useMemo(() => saved && pred?.source === 'saved' ? buildRetireCalc(saved, snapshot, ready(sources.review) ?? null, ready(sources.incomes) ?? [], today, sources) : null, [saved, pred, snapshot, sources, today]);
+  const wishCalc = useMemo(() => saved && caps && pred?.source === 'saved'
+    ? retireCalcFromCapabilities(saved, caps, today)
+    : null, [saved, caps, pred, today]);
   const events: EventsStore | null = saved && caps ? { retire: saved.profile.retire, snapshot, accounts, busy: saver.busy, stuck: saver.stuck, notice: saver.notice,
     ready: pred?.source === 'saved' ? { plan: pred.plan, plan0: pred.plan0 } : null, blocked: needsContribution(caps) ? SAVE_CONTRIBUTION_HINT : '资料待补齐',
     onContribution: needsContribution(caps) ? () => openSetup(4, null, true) : undefined,
@@ -86,17 +89,17 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     if (await saver.save(eventsInput({ life_events: r.life_events, occurrences: o ? [...r.core!.occurrences.filter(x => x.event_id !== o.event_id), o] : retractOccurrence(r.core!.occurrences, r.core!.occurrences.find(x => x.event_id === occurring?.id)?.id ?? '') }))) closeRefinement();
   }
   if (sources.profile.status === 'error') return <article className="ui-card ui-content" role="alert"><p>规划资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>;
-  if (detail && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openSetup={(step, from) => openSetup(step, from, true)} onGoto={onGoto} onEvents={goEvents} onBack={() => { setDetail(false); requestAnimationFrame(() => document.getElementById('plan-detail-entry')?.focus()); }}/>;
+  if (detail && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openSetup={(step, from) => openSetup(step, from, true)} onEvents={goEvents} onBack={() => { setDetail(false); requestAnimationFrame(() => document.getElementById('plan-detail-entry')?.focus()); }}/>;
   const req = caps?.requirement.status === 'ready' ? caps.requirement.value : null;
-  const line = req ? requirementLine(req.set, money) : null;
-  const verdict = req && saved?.profile.retire.basic ? contributionVerdict(req.set, saved.profile.retire.basic.contribution.monthly_cents, money) : null;
+  const line = req ? requirementLine(req.set, forecastMoney) : null;
+  const verdict = req && saved?.profile.retire.basic ? contributionVerdict(req.set, saved.profile.retire.basic.contribution.monthly_cents, money, forecastMoney) : null;
   return <div className="plan-goals" data-goal-state={state}>
     {medicalOpen && saved && <MedicalProfileDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {pensionOpen && saved && <PlanningPensionRefinementDialog switchIncome={completionCard?.id === 'income-switch'} completion={!!completionCard} reviewContributions={pensionContributions} sources={sources} today={today} reload={reload} onPending={onPending} onSaved={onPensionComparison} onClose={closeRefinement}/>}
     {comparison && <PensionComparisonNote comparison={comparison}/>}
     {debtOpen && saved && <PlanningDebtDialog completion={!!completionCard} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {fundsOpen && saved && <FundsDialog completion={!!completionCard} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={() => closeRefinement()}/>}
-    {costsOpen && saved && <CostsDialog completion={!!completionCard} sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
+    {costsOpen && saved && <CostsDialog completion={!!completionCard} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {occurring && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={!!completionCard} event={occurring} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
     <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
       {state === '0' ? <>

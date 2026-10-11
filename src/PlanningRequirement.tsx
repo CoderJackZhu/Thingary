@@ -1,12 +1,12 @@
 import { CoverageNote } from './CoverageNote';
-import { money } from './asset';
+import { forecastMoney } from './plan-format';
 import { Info } from './FormControls';
 import type { BasicCapabilities, PlanningMissing } from './plan';
 import type { CapabilityResult } from './planning-basic-port';
 import { missingOwners, missingAction, missingText, requirementLine, returnDropText, returnRiseText, returnBasisText } from './planning-basic-view';
 
 const monthText = (m: string) => `${m.slice(0, 4)} 年 ${Number(m.slice(5, 7))} 月`;
-const yuanOf = (c: string) => money(c);
+const yuanOf = forecastMoney;
 
 /** Each missing item says what is unknown and which owner fixes it; one action per owner, never a UUID list. */
 export function MissingList({ missing, onOwner, disabled }: { missing: PlanningMissing[]; onOwner: (owner: PlanningMissing['owner'], field?: string) => void; disabled?: boolean }) {

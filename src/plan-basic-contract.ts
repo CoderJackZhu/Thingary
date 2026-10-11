@@ -1,6 +1,6 @@
 import type { Overrides } from './plan-params.ts';
 import type { Occurrence, FundRule, DebtRepayment } from './plan-core.ts';
-import type { RetireInputs, StoredProfile, StoredSpendItem, StoredIncomeItem, StoredLifeEvent, ProfileState } from './plan.ts';
+import type { RetireInputs, StoredProfile, StoredLifeEvent, ProfileState } from './plan.ts';
 import type { Plan, Projection, Outcome } from './plan-ledger.ts';
 import type { Read } from './review.ts';
 import type { Snapshot, Account } from './wealth.ts';

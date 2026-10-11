@@ -164,7 +164,7 @@ export function InsuranceSection({ sources, draft, patch }: Props) {
 }
 
 /** Question 1: how long can the user rest. */
-export function RestQuestion({ sources, draft, patch }: Props) {
+export function RestQuestion({ draft, patch }: Props) {
   const extra = draft.gap.extra_income ?? { lump_cents: null, benefit_monthly_cents: null, benefit_months: null };
   const setExtra = (v: Partial<typeof extra>) => patch({ gap: { ...draft.gap, extra_income: { ...extra, ...v } } });
   return <>

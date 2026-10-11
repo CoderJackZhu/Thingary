@@ -52,7 +52,7 @@ test('custom benefit base missing blocks pension and requirement; complete equal
 
 test('refinement lists/locates region and custom base independently, retains changed region in setup DTO', () => {
   for (const [region, key, label] of [['', 'region', '参保地'], ['custom', 'oWage', '当地养老金计发基数']]) {
-    const s = sources('normal'), d = draftOf(saved(s), s.snapshot.value, s.today);
+    const s = sources('normal'), d = draftOf(saved(s), s.snapshot.value);
     d.incomeMode = 'employee'; d.pension.region = region; d.pension.oWage = '';
     assert.deepEqual(missingPensionFields(d), [key]);
     const r = runtime('PlanningPensionRefinement', { sources: s, initialDraft: d, completion: true });
@@ -79,7 +79,7 @@ test('manual conversion uses month-precise age and rounds once to integer cents'
 const click = (r, name) => { r.button(name).props.onClick(); r.render(); };
 const enter = (r, type, label, value) => { const n = r.find(type, p => p.label === label || p['aria-label'] === label); n.props.onChange(type === 'input' ? { target: { value } } : value); r.render(); };
 function manualEditor(overrides = {}) {
-  const s = sources('normal'), d = draftOf(saved(s), s.snapshot.value, s.today);
+  const s = sources('normal'), d = draftOf(saved(s), s.snapshot.value);
   Object.assign(d, { incomeMode: 'manual', ...overrides });
   saved(s).profile.retire.basic.retirement_income.mode = 'manual';
   if (overrides.birth === '') saved(s).profile.birth_month = null;

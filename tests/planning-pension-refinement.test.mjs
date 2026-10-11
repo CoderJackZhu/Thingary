@@ -1,3 +1,4 @@
+import {forecastMoney} from '../src/plan-format.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {savingsOf,nominalFactor} from '../src/plan-ledger.ts';
@@ -49,7 +50,7 @@ test('Beijing skips keep null and block calculation; 改选先不算 resolves ga
 });
 
 test('manual/excluded downgrade to condition; Beijing never double counts a selected manual state pension',()=>{
- const s=fixture(),p=saved(s),d=setupDraft(p,s.snapshot.value,s.today,true);p.profile.retire.income_items=[{id:'fictional-pension',label:'虚构手填养老金',monthly_cents:'200000',start_age:60,end_age:null,indexed:true}];d.incomeItems=structuredClone(p.profile.retire.income_items);d.picks={'fictional-pension':{on:true,role:'state_pension'}};
+ const s=fixture(),p=saved(s),d=setupDraft(p,s.snapshot.value,true);p.profile.retire.income_items=[{id:'fictional-pension',label:'虚构手填养老金',monthly_cents:'200000',start_age:60,end_age:null,indexed:true}];d.incomeItems=structuredClone(p.profile.retire.income_items);d.picks={'fictional-pension':{on:true,role:'state_pension'}};
  for(const mode of ['manual','excluded','employee']){Object.assign(d,{incomeMode:mode,pcPlan:'custom',pcStart:'2026-10',pcStop:'2050-06',pcBase:'2000000',hpf:'0'});const f=pensionRefinementFields(d,p,s.today),next=overlayPlanningDrafts(s,[{section:'setup',fields:f}]);assert.equal(f.basic.basic.retirement_income.selected.length,mode==='manual'?1:0);assert.equal(saved(next).profile.retire.income_items.length,1);if(mode!=='employee')assert.equal(cards(next).find(c=>c.id==='pension').condition,true);else assert.ok(!cards(next).some(c=>c.id==='pension'));assert.equal(caps(next).requirement.status,'ready');}
 });
 
@@ -57,12 +58,12 @@ test('comparison freezes snapshot/date/all other conditions even if sources chan
  const original=fixture(),baseline=structuredClone(original),e=editor(original),r=e.r;choose(r,'职工养老金估算');next(r);contrib(r);next(r);
  original.today='2026-12-31';original.snapshot.value.date='2026-12-31';original.snapshot.value.entries[0].amount_cents='990000000';saved(original).profile.retire.spend_cents='990000';original.review.value=null;await submit(r);
  assert.deepEqual(e.comparison,comparePensionRefinement(baseline,r.calls[0].fields));assert.equal(e.comparison.today,'2026-10-10');assert.equal(e.comparison.snapshotDate,'2026-10-10');assert.notDeepEqual(e.comparison,comparePensionRefinement(original,r.calls[0].fields));
- const d=setupDraft(saved(baseline),baseline.snapshot.value,baseline.today,true);Object.assign(d,{budget:'900000',target:'62',incomeMode:'employee',pcPlan:'custom',pcStart:'2026-10',pcStop:'2052-06',pcBase:'2000000',hpf:'0'});const f=withPensionRefinement(setupFields(d,saved(baseline),baseline.today,true),d,saved(baseline),baseline.today),c=comparePensionRefinement(baseline,f);const other=structuredClone(f);other.basic.basic.retirement_income=structuredClone(saved(baseline).profile.retire.basic.retirement_income);other.basic.basic.pension_contributions=structuredClone(saved(baseline).profile.retire.basic.pension_contributions);if(other.funds)other.funds.hpf_monthly_cents=saved(baseline).profile.retire.core.hpf_monthly_cents;assert.deepEqual(c.before,caps(overlayPlanningDrafts(baseline,[{section:'setup',fields:other}])).requirement.value.set);
+ const d=setupDraft(saved(baseline),baseline.snapshot.value,true);Object.assign(d,{budget:'900000',target:'62',incomeMode:'employee',pcPlan:'custom',pcStart:'2026-10',pcStop:'2052-06',pcBase:'2000000',hpf:'0'});const f=withPensionRefinement(setupFields(d,saved(baseline),baseline.today,true),d,saved(baseline),baseline.today),c=comparePensionRefinement(baseline,f);const other=structuredClone(f);other.basic.basic.retirement_income=structuredClone(saved(baseline).profile.retire.basic.retirement_income);other.basic.basic.pension_contributions=structuredClone(saved(baseline).profile.retire.basic.pension_contributions);if(other.funds)other.funds.hpf_monthly_cents=saved(baseline).profile.retire.core.hpf_monthly_cents;assert.deepEqual(c.before,caps(overlayPlanningDrafts(baseline,[{section:'setup',fields:other}])).requirement.value.set);
 });
 
 test('no original, unchanged and uncomputable comparisons remain honest; closing/Esc sends no write',()=>{
- const s=fixture(),d=setupDraft(saved(s),s.snapshot.value,s.today,true),same=comparePensionRefinement(s,pensionRefinementFields(d,saved(s),s.today));assert.deepEqual(same.before,same.after);
- const blank=fixture('empty'),newD=setupDraft(null,blank.snapshot.value,blank.today,true),fields=setupFields(newD,null,blank.today,true);assert.equal(comparePensionRefinement(blank,fields).before,null);assert.match(comparePensionRefinement(blank,fields).reason,/尚无原结果/);
+ const s=fixture(),d=setupDraft(saved(s),s.snapshot.value,true),same=comparePensionRefinement(s,pensionRefinementFields(d,saved(s),s.today));assert.deepEqual(same.before,same.after);
+ const blank=fixture('empty'),newD=setupDraft(null,blank.snapshot.value,true),fields=setupFields(newD,null,blank.today,true);assert.equal(comparePensionRefinement(blank,fields).before,null);assert.match(comparePensionRefinement(blank,fields).reason,/尚无原结果/);
  for(const exit of ['取消','escape']){const r=editor(s).r;choose(r,'职工养老金估算');if(exit==='escape')r.find('dialog').props.onCancel(event());else r.button(exit).props.onClick();assert.equal(r.calls.length,0);}
 });
 
@@ -73,11 +74,11 @@ test('failed/unresolved saves preserve edits and lock replay; illegal future sch
 
 test('explicit no-future choice never manufactures base or HPF zero; saved hidden pension fields remain exact',()=>{
  const s=fixture(),r=runtime('PlanningPensionRefinement',{sources:s});choose(r,'职工养老金估算');next(r);select(r,'以后还继续交社保吗','stop');assert.equal(r.find('CentInput',p=>p.label==='未来月缴费基数').props.value,'');assert.equal(r.find('CentInput',p=>p.label==='未来公积金每月缴存').props.value,'');assert.equal(r.find('MonthInput',p=>p.label==='未来缴费开始月份').props.value,'2026-10');assert.equal(r.find('MonthInput',p=>p.label==='未来缴费停止月份').props.value,'2026-10');
- const d=setupDraft(saved(s),s.snapshot.value,s.today,true);saved(s).profile.overrides.notional_rate_hundredths=345;d.pension.oNotional='3.45'; const f=pensionRefinementFields(d,saved(s),s.today);assert.equal(f.pension,null);assert.deepEqual(f.basic.basic.pension_contributions,saved(s).profile.retire.basic.pension_contributions);
+ const d=setupDraft(saved(s),s.snapshot.value,true);saved(s).profile.overrides.notional_rate_hundredths=345;d.pension.oNotional='3.45'; const f=pensionRefinementFields(d,saved(s),s.today);assert.equal(f.pension,null);assert.deepEqual(f.basic.basic.pension_contributions,saved(s).profile.retire.basic.pension_contributions);
 });
 
 test('Q4 with no previous calculable result does not invent an original number from newly filled other answers',()=>{
- const s=fixture();saved(s).profile.retire.spend_cents=null;const d=setupDraft(saved(s),s.snapshot.value,s.today,true);d.budget='750000'; const f=withPensionRefinement(setupFields(d,saved(s),s.today,true),d,saved(s),s.today),c=comparePensionRefinement(s,f);assert.equal(c.before,null);assert.match(c.reason,/原结果暂不可计算/);assert.ok(c.after);
+ const s=fixture();saved(s).profile.retire.spend_cents=null;const d=setupDraft(saved(s),s.snapshot.value,true);d.budget='750000'; const f=withPensionRefinement(setupFields(d,saved(s),s.today,true),d,saved(s),s.today),c=comparePensionRefinement(s,f);assert.equal(c.before,null);assert.match(c.reason,/原结果暂不可计算/);assert.ok(c.after);
 });
 
 test('Beijing with complete social facts but skipped future conditions also has a real 改选先不算 entry and a named reason',()=>{
@@ -92,7 +93,17 @@ test('future-transfer card exception closes in excluded/manual without changing 
 test('comparison shows the state pension from the same captured calculation, omits unknowns and labels income choices accurately',async()=>{
  const initial=fixture(),e=editor(initial),r=e.r;assert.equal(cards(initial).find(c=>c.id==='pension').duration,'你选择了先不算');choose(r,'职工养老金估算');next(r);contrib(r);next(r);await submit(r);
  const expected=caps(e.source).pension;assert.equal(expected.status,'ready');assert.equal(e.comparison.statePensionMonthlyCents,expected.value.monthly_cents);assert.ok(Number(e.comparison.statePensionMonthlyCents)>0);
- const note=runtime('PlanningBasicGoals',{sources:e.source,comparison:e.comparison},undefined,caps(e.source));assert.match(note.text(note.find('aside')),new RegExp('估算的国家养老金每月约 ¥'+expected.value.monthly_cents));assert.match(note.text(note.find('aside')),/不代表待遇核定结果/);
- for(const state of [fixture(),fixture('unknown')]){const d=setupDraft(saved(state),state.snapshot.value,state.today,true),c=comparePensionRefinement(state,pensionRefinementFields(d,saved(state),state.today));assert.equal(c.statePensionMonthlyCents,null);const view=runtime('PlanningBasicGoals',{sources:state,comparison:c},undefined,caps(state));assert.doesNotMatch(view.text(view.find('aside')),/估算的国家养老金每月约/);}
+ const note=runtime('PlanningBasicGoals',{sources:e.source,comparison:e.comparison},undefined,caps(e.source));assert.match(note.text(note.find('aside')),new RegExp('估算的国家养老金每月约 '+forecastMoney(expected.value.monthly_cents)));assert.match(note.text(note.find('aside')),/不代表待遇核定结果/);
+ for(const state of [fixture(),fixture('unknown')]){const d=setupDraft(saved(state),state.snapshot.value,true),c=comparePensionRefinement(state,pensionRefinementFields(d,saved(state),state.today));assert.equal(c.statePensionMonthlyCents,null);const view=runtime('PlanningBasicGoals',{sources:state,comparison:c},undefined,caps(state));assert.doesNotMatch(view.text(view.find('aside')),/估算的国家养老金每月约/);}
  const manual=fixture('transfer-manual');assert.equal(cards(manual).find(c=>c.id==='pension').duration,'你选择了手填收入');assert.equal(cards(fixture('unknown')).find(c=>c.id==='pension').duration,'职工养老金估算待补齐');
+});
+
+test('rounded-equal pension comparisons still show sub-yuan changes and only raw equality says unchanged',()=>{
+ const s=fixture(),d=setupDraft(saved(s),s.snapshot.value,true),base=comparePensionRefinement(s,pensionRefinementFields(d,saved(s),s.today));
+ for(const [after,word] of [['470001','增加 不足 ¥1'],['469999','减少 不足 ¥1'],['470000','结果不变']]){
+  const comparison={...base,before:{...base.before,status:'found',monthly_cents:'470000'},after:{...base.after,status:'found',monthly_cents:after}};
+  const r=runtime('PlanningBasicGoals',{sources:s,comparison},undefined,caps(s));
+  assert.ok(r.text(r.find('aside')).includes(word));
+  if(after!=='470000')assert.doesNotMatch(r.text(r.find('aside')),/结果不变/);
+ }
 });

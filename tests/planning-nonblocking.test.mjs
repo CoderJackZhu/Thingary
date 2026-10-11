@@ -18,7 +18,7 @@ const car = s => profile(s).retire.life_events[0];
 function fixture() {
   const s = structuredClone(raw);
   // Only the user's Q3 confirmation is derived; all source balances, debt and event data are retained.
-  profile(s).retire.core.fund_rules = draftOf(s.profile.value.saved, s.snapshot.value, s.today).funds;
+  profile(s).retire.core.fund_rules = draftOf(s.profile.value.saved, s.snapshot.value).funds;
   return s;
 }
 const cash = s => s.snapshot.value.entries.find(e => e.kind === 'cash').account_id;

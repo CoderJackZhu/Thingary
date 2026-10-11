@@ -29,7 +29,7 @@ test('contribution: unknown, explicit zero and negatives are distinct; never a t
 
 test('requirement wording follows each real DTO status and never shows null as zero', () => {
   const fmt = c => `¥${c}`;
-  assert.match(requirementLine({ status: 'found', monthly_cents: '470000', before_hundredths: 0, after_hundredths: 0 }, fmt).text, /每月 ¥470000/);
+  assert.match(requirementLine({ status: 'found', monthly_cents: '470000', before_hundredths: 0, after_hundredths: 0 }, fmt).text, /每月约 ¥470000/);
   assert.equal(requirementLine({ status: 'no_positive_contribution', monthly_cents: '0', before_hundredths: 0, after_hundredths: 0 }, fmt).text, '按这些条件，不用再额外存钱');
   assert.match(requirementLine({ status: 'search_not_found', search_limit_cents: '9', before_hundredths: 0, after_hundredths: 0 }, fmt).text, /搜索上限/);
   assert.match(requirementLine({ status: 'payment_constraint', message: 'm', before_hundredths: 0, after_hundredths: 0 }, fmt).text, /付款/);
@@ -48,7 +48,7 @@ test('gating: unknown contribution keeps the requirement and hides prediction; o
 });
 
 test('new setup starts blank: no age, no budget, unknown contribution, 90-year end; candidates never enter the request', () => {
-  const d = draftOf(null, null, today);
+  const d = draftOf(null, null);
   assert.equal(d.target, ''); assert.equal(d.budget, ''); assert.equal(d.contribution, ''); assert.equal(d.horizon, '90');
   const input = basicInput(d, null, today);
   assert.equal(input.fields.target_age, null); assert.equal(input.fields.spend_cents, null);
@@ -60,24 +60,24 @@ test('new setup starts blank: no age, no budget, unknown contribution, 90-year e
 });
 
 test('explicit zero and negative contributions are saved as values; blank stays null', () => {
-  const d = draftOf(null, null, today);
+  const d = draftOf(null, null);
   assert.equal(basicInput({ ...d, contribution: '0' }, null, today).fields.basic.contribution.monthly_cents, '0');
   assert.equal(basicInput({ ...d, contribution: '-200000' }, null, today).fields.basic.contribution.monthly_cents, '-200000');
 });
 
 test('original plan reset: old estimates are discarded and contribution stays blank, no extra confirmation', () => {
-  const d = draftOf(legacy, null, today);
+  const d = draftOf(legacy, null);
   assert.equal(d.target, ''); assert.equal(d.budget, ''); assert.equal(d.contribution, '');
   assert.equal(basicInput(d, legacy, today).fields.confirm_legacy_replacement, undefined);
   assert.equal(basicInput({ ...d, confirmLegacy: true }, legacy, today).fields.confirm_legacy_replacement, undefined);
   const again = profile({ ...defaultRetire, basic: basicInputFixtures.unknown.basic, spend_cents: '400000', target_age: 60 });
-  assert.equal(basicInput(draftOf(again, null, today), again, today).fields.confirm_legacy_replacement, undefined);
+  assert.equal(basicInput(draftOf(again, null), again, today).fields.confirm_legacy_replacement, undefined);
 });
 
 test('cost scopes: included needs an explicit amount, extra/excluded carry none, unchosen sources are not guessed', () => {
   const r = { ...defaultRetire, rent_cents: '100000', spend_items: [{ id: 'h', label: '医疗', monthly_cents: '50000', start_age: null, end_age: null, inflation_hundredths: null, essential: true }] };
   const p = profile(r); assert.deepEqual(retirementSources(r).map(s => s.id), ['spend:h', 'rent']);
-  const d = draftOf(p, null, today);
+  const d = draftOf(p, null);
   assert.deepEqual(basicInput(d, p, today).fields.basic.retirement_costs, []);
   assert.throws(() => basicInput({ ...d, retScopes: { rent: { treatment: 'included', ref: '' } } }, p, today), /含多少/);
   const ok = basicInput({ ...d, retScopes: { rent: { treatment: 'included', ref: '100000' }, 'spend:h': { treatment: 'extra', ref: '999' } } }, p, today).fields.basic.retirement_costs;
@@ -86,7 +86,7 @@ test('cost scopes: included needs an explicit amount, extra/excluded carry none,
 
 test('retirement income: excluded keeps facts out of the request; beijing never carries a state-pension role', () => {
   const r = { ...defaultRetire, income_items: [{ id: 'a', label: '年金', monthly_cents: '1', start_age: 60, end_age: null, indexed: false }, { id: 'b', label: '养老', monthly_cents: '2', start_age: 60, end_age: null, indexed: false }] };
-  const p = profile(r), d = draftOf(p, null, today);
+  const p = profile(r), d = draftOf(p, null);
   const picks = { a: { on: true, role: 'other' }, b: { on: true, role: 'state_pension' } };
   assert.deepEqual(basicInput({ ...d, incomeMode: 'excluded', picks }, p, today).fields.basic.retirement_income, { mode: 'excluded', selected: [] });
   assert.deepEqual(basicInput({ ...d, incomeMode: 'employee', picks }, p, today).fields.basic.retirement_income.selected.map(s => s.id), ['a']);

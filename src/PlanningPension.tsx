@@ -1,8 +1,8 @@
+import { forecastMoney } from './plan-format';
 import { MedicalCard } from './PlanningMedical';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
-import { Info } from './FormControls';
 import { FundsDialog } from './PlanningFunds';
 import { PlanningProfileFields } from './PlanningProfileFields';
 import type { Account } from './wealth';
@@ -18,7 +18,7 @@ import type { Projection } from './plan-pension';
 import { normalizeFunds } from './plan-core';
 import './planning.css';
 
-const yuan = (c: number) => money(String(c));
+const yuan = forecastMoney;
 
 /** 个人资料与养老金估算。资料只含输入与假设；结果每次打开重算，不存库。只问养老金自己的事实，不要求目标或未来投入。 */
 export function PlanningPension({ focus = false, onFocusDone, today, sources, reload, onEditingChange, onPending }: { focus?: boolean; onFocusDone: () => void; today: string; sources: PlanningSources; reload: () => void; onEditingChange: (v: boolean) => void; onPending: () => void }) {

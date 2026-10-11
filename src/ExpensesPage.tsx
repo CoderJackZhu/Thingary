@@ -12,7 +12,6 @@ import { errorMessage, money } from './asset';
 import type { Page } from './asset';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info, Switch } from './FormControls';
-import { Icon } from './AssetViews';
 import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
 import { categoryText, countsAsSpending, expenseCategories, expenseSourceTarget, sourceLabel, spendDisplay } from './expenses';

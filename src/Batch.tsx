@@ -66,7 +66,6 @@ export function BatchDialog({ kind, ids, generation, today, onClose, onDone }: {
   }, [kind]);
   useEffect(() => {
     if (!rows) return;
-    const action = kind === 'activate' ? 'activate' : 'retire';
     setValues(Object.fromEntries(rows.map(r => { const w = warrantyDefault(r, today); return [r.id, { category: KEEP, channel: KEEP, label: KEEP, on: kind === 'warranty' || ((kind === 'retire' || kind === 'activate' || kind === 'sell') && !blocked(r)), date: today, exclude: { ...r.exclude }, kind: 'manufacturer', start: w.start, end: w.end, price: '', platform: '' }]; })));
   }, [rows]);
   // Any edit after a failed save starts a new request; an unchanged retry

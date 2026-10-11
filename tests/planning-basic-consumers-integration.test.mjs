@@ -1,3 +1,4 @@
+import * as forecast from '../src/plan-format.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -31,6 +32,7 @@ function component(file, dependencies) {
   }).outputText;
   const exports = {};
   vm.runInNewContext(code, { exports, require(name) {
+    if (name === './plan-format') return forecast;
     if (name === 'react/jsx-runtime') return jsx;
     if (name === './CoverageNote' || name === '../CoverageNote') return coverage;
     if (name === './plan-annotations') return annotations;
@@ -95,7 +97,7 @@ const settled = () => new Promise(resolve => setImmediate(resolve));
 test('home renders requirements from its current batch, without a second read or unknown-contribution prediction', () => {
   const s = sources(), before = structuredClone(s), first = renderHome(s);
   const required = buildBasicCapabilities(s).requirement.value.set.monthly_cents;
-  assert.ok(first.includes(asset.money(required)));
+  assert.ok(first.includes(forecast.forecastMoney(required)));
   assert.ok(first.includes('2050 年 6 月'));
   assert.ok(first.includes('还没估计每月能存多少钱'));
   assert.ok(!first.includes('预计还需'));
@@ -104,7 +106,7 @@ test('home renders requirements from its current batch, without a second read or
   const newRequired = buildBasicCapabilities(next).requirement.value.set.monthly_cents;
   assert.notEqual(newRequired, required);
   const refreshed = renderHome(next);
-  assert.ok(refreshed.includes(asset.money(newRequired)));
+  assert.ok(refreshed.includes(forecast.forecastMoney(newRequired)));
   assert.ok(!refreshed.includes(asset.money(required)));
   assert.deepEqual(s, before);
 });
@@ -123,23 +125,26 @@ test('home uses the saved prediction headline and stays unchanged after a tempor
 });
 
 test('goals pass a real saved calculation to wishes, and no calculation while contribution is unknown', () => {
-  let received;
+  let received, sharedCaps, builds = 0;
   const leaf = () => null;
   const goals = component('PlanningBasicGoals.tsx', { react: React, './asset': asset,
     './PlanningOccurrenceDialog': { PlanningOccurrenceDialog: leaf }, './PlanningRefinements': { PlanningRefinements: leaf }, './planning-first-run': firstRun,
     './PlanningRequirement': requirement, './PlanningRunway': { RunwayCard: leaf }, './PlanningCareerCard': { PlanningCareerCard: leaf }, './PlanningDebtDialog': { PlanningDebtDialog: () => null }, './PlanningFunds': { FundsCard: leaf, FundsDialog: leaf }, './PlanningBasicDetail': { PlanningBasicDetail: leaf },
     './PlanningEvents': { PlanningEvents: leaf }, './PlanningWishes': { PlanningWishes: ({ calc }) => { received = calc; return null; } },
     './plan-retire-calc': calc, './review': review, './planning-basic-forms': {}, './planning-basic-defaults': defaults, './PlanningContributionHelper': { MarketNote: () => null }, './planning-basic-view': view,
-    './planning-basic-data': { useCapabilities: s => ({ status: 'ready', caps: buildBasicCapabilities(s) }),
+    './planning-basic-data': { useCapabilities: s => ({ status: 'ready', caps: (builds++, sharedCaps = buildBasicCapabilities(s)) }),
       useSectionSaver: () => ({ busy: false, stuck: false, notice: '', save: noOp }) }, './planning.css': {},
   });
   for (const contribution of [null, '0', '1000000', '-100000']) {
     const s = sources(contribution), before = structuredClone(s);
+    builds = 0;
     renderToStaticMarkup(React.createElement(goals.PlanningBasicGoals, { sources: s, mode: 'basic', today: s.today,
       reload: noOp, onPending: noOp, onEditingChange: noOp, onGoto: noOp, openSetup: noOp, onFocusDone: noOp }));
     if (contribution === null) assert.equal(received, null);
     else {
       assert.equal(wishes.isReady(received), true);
+      assert.strictEqual(received.capabilities, sharedCaps);
+      assert.equal(builds, 1);
       assert.equal(received.capabilities.prediction.value.source, 'saved');
       assert.equal(received.capabilities.prediction.value.contribution_cents, contribution);
       assert.equal(received.capabilities.context.generation, s.generation);

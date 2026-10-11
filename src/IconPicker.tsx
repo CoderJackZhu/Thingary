@@ -5,7 +5,7 @@ import { errorMessage, type Photo } from './asset';
 import { Icon } from './AssetViews';
 import { PhotoView } from './Photos';
 import { MaterialThumb } from './MaterialLibrary';
-import { filterMaterials, materialArt, materialCategories, materialOf, readRecentMaterials, rememberMaterial, type MaterialEntry, type MaterialSource } from './materials';
+import { filterMaterials, materialArt, materialCategories, readRecentMaterials, rememberMaterial, type MaterialEntry, type MaterialSource } from './materials';
 import './icon-picker.css';
 
 export type IconChoice = { kind: 'default' } | { kind: 'material'; entry: MaterialEntry } | { kind: 'photo'; photo: Photo };
@@ -23,7 +23,7 @@ export function IconPicker({ generation, photos, cover, onClose, onUse }: { gene
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const current = photos.find(p => p.id === cover);
-  const [choice, setChoice] = useState<IconChoice>(current ? { kind: 'photo', photo: current } : { kind: 'default' });
+  const [choice] = useState<IconChoice>(current ? { kind: 'photo', photo: current } : { kind: 'default' });
   const [recent] = useState(() => readRecentMaterials(localStorage, generation));
   const [reload, setReload] = useState(0);
   useEffect(() => { dialog.current?.querySelector<HTMLInputElement>('input')?.focus(); }, []);
@@ -62,11 +62,6 @@ export function IconPicker({ generation, photos, cover, onClose, onUse }: { gene
   const visible = filterMaterials(entries, source, category, search, recent);
   const ownPhotos = source === 'custom' ? photos.filter(p => p.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())) : [];
   const imported = choice.kind === 'photo' && !photos.some(p => p.id === choice.photo.id) ? choice.photo : null;
-  const label = choice.kind === 'default' ? '默认箱子' : choice.kind === 'material' ? choice.entry.name : choice.photo.name;
-  function preview() {
-    if (choice.kind === 'default') return <DefaultAssetIcon/>;
-    return choice.kind === 'photo' ? <PhotoView photo={choice.photo} generation={generation}/> : choice.entry.builtin ? <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(materialArt(choice.entry.id))} alt={choice.entry.name}/> : <MaterialThumb id={choice.entry.id} generation={generation} alt={choice.entry.name}/>;
-  }
   return <section ref={dialog} className={'icon-picker embedded' + (dragging ? ' is-dragging' : '')} aria-labelledby="icon-picker-title" onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!lock.current) onClose(); } }} onDragOver={e => { e.preventDefault(); if (!busy) setDragging(true); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false); }} onDrop={e => { e.preventDefault(); setDragging(false); void importFile(e.dataTransfer.files[0]); }} onPaste={e => { const file = e.clipboardData.files[0]; if (file) { e.preventDefault(); void importFile(file); } }}>
     <header className="picker-header"><div><h2 id="icon-picker-title">选择物品图标</h2><p>给它一个一眼就能认出的样子</p></div><CloseButton aria-label="关闭图标选择器" disabled={busy} onClick={onClose}/></header>
     <div className="picker-sources" role="group" aria-label="图片来源">{([['icon','图标','grid'],['dimensional','立体图标','items'],['recent','最近','clock'],['custom','我的图片','image']] as const).map(([id,name,icon]) => <button type="button" key={id} aria-pressed={source === id} disabled={busy} onClick={() => { setSource(id); setCategory('全部'); setSearch(''); }}><Icon name={icon}/>{name}</button>)}</div>

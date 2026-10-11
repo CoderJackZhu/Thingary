@@ -5,7 +5,7 @@ import { ageText } from './plan.ts';
 import type { Income, PlanReview, ProfileState } from './plan.ts';
 import type { Read } from './review.ts';
 import type { Snapshot } from './wealth.ts';
-import { money } from './asset.ts';
+import { forecastMoney } from './plan-format.ts';
 import { progressHundredths, monthsLeftText } from './plan-fire.ts';
 import { required } from './plan-ledger.ts';
 import { buildRetireCalc } from './plan-retire-calc.ts';
@@ -14,7 +14,7 @@ import type { RetireCalc } from './plan-retire-calc.ts';
 
 export type ReadyCalc = RetireCalc & { plan: NonNullable<RetireCalc['plan']>; proj: NonNullable<RetireCalc['proj']>; out: NonNullable<RetireCalc['out']>; assets: number };
 
-export const yuan = (cents: number) => money(String(Math.round(cents)));
+export const yuan = forecastMoney;
 /** 距今 offset 个月对应的估算年份（与目标页同一取整）。 */
 export const yearOf = (today: string, offset: number) => Math.floor((Number(today.slice(0, 4)) * 12 + Number(today.slice(5, 7)) - 1 + offset) / 12);
 

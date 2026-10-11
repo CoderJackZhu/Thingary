@@ -1,5 +1,4 @@
 import { usePendingReceipt } from './WealthPage';
-import { storedPending } from './wealth';
 import { CloseButton } from './CloseButton';
 import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
@@ -20,7 +19,7 @@ const decisionKey='thingary.wishlist-decision.v1';
 const linkKey='thingary.wish-link-pending.v1';
 const verifyKey='thingary.wish-verify-pending.v1';
 type Saving={request_id:string;generation:string;id:string;expected_revision:number;mode:'add'|'total';cents:string};
-import { loadAssetCandidates as linkCandidates, assetStateLabel, type AssetCandidate as LinkCandidate, type AssetCandidatePage as LinkPage } from './asset-picker';
+import { loadAssetCandidates as linkCandidates, assetStateLabel, type AssetCandidate as LinkCandidate } from './asset-picker';
 
 export function WishDetail({onBusyChange,initial,generation,onClose,onEdit,onChange,onConvert,closeIntent,onKeepClose,onFinishClose,onOpenAsset,onOpenTrash,taxonomy}:{onBusyChange:(busy:boolean)=>void;onOpenAsset:(id:string)=>void;onOpenTrash:()=>void;onFinishClose:(intent:CloseIntent)=>void;taxonomy:TaxonomySnapshot|null;closeIntent:CloseIntent|null;onKeepClose:()=>void;initial:WishlistItem;generation:string;onClose:()=>void;onEdit:(i:WishlistItem)=>void;onChange:(i:WishlistItem)=>void;onConvert:(i:WishlistItem)=>void}){
  const lock=useRef(false);
@@ -59,7 +58,6 @@ export function WishDetail({onBusyChange,initial,generation,onClose,onEdit,onCha
  const purchased=item.decision_state==='purchased';
  const dropped=item.decision_state==='dropped';
  function storePending(key:string,input:unknown){try{localStorage.setItem(key,JSON.stringify(input));return true}catch{setNotice('暂时无法记录保存请求，请重试。');return false}}
- function clearPending(key:string){localStorage.removeItem(key);setDecisionPending(null);setLinkPending(null);setVerifyPending(null);setOldSaving(null)}
  // 决策写（不再考虑／重新考虑）走 change_wishlist 的回执核对路径。
  async function sendDecision(input:WishlistChange,done:(i:WishlistItem)=>void){
    if(lock.current)return;lock.current=true;setBusy(true);
@@ -153,7 +151,6 @@ export function WishDetail({onBusyChange,initial,generation,onClose,onEdit,onCha
  }
  useEffect(()=>{if(closeIntent){if(busy||!!pending||!!receipt.pending||receipt.busy){setNotice('正在核对这次操作，请稍候。');onKeepClose()}else{onClose();onFinishClose(closeIntent)}}},[closeIntent]);
  const blocked=busy||!!pending||!!receipt.pending||receipt.busy;
- const stateLine=`${taxonomy?.categories.find(c=>c.id===item.fields.category_id)?.name||'未分类'} · ${wishDecisionLabel(item.decision_state)}${p.pinned?' · 置顶':''}`;
  return <aside className="ui-inspector wish-inspector" aria-labelledby="wish-detail-title"><header><CloseButton type="button" className="icon-button" disabled={blocked} aria-label="关闭心愿详情" onClick={onClose}/><div className="wish-detail-identity">{item.cover?<PhotoView photo={item.cover} generation={generation}/>:<DefaultAssetIcon/>}<div><p className="eyebrow">{wishDecisionLabel(item.decision_state)}</p><h2 id="wish-detail-title">{item.fields.name}</h2></div></div><button type="button" className="wish-edit" disabled={blocked} onClick={()=>onEdit(item)}>编辑</button></header>
  <div className="wish-detail-body">{receipt.pending&&<div className="notice">删除结果待确认。<button disabled={receipt.busy} onClick={()=>void receipt.verify()}>核对结果</button></div>}
  {oldSaving&&<div className="notice" role="status">有一笔升级前的攒钱提交结果待核对。<button disabled={busy} onClick={()=>void checkOldSaving()}>核对旧请求</button></div>}

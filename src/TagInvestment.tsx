@@ -4,7 +4,7 @@
 // 纯展示组件，供渲染测试直接以内存 DTO 夹具断言（Review R1）。
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage, money } from './asset';
+import { money } from './asset';
 import { HeaderSlot } from './HeaderSlot';
 import { Info } from './FormControls';
 import { maintenanceCellText, maintenanceSummaryText, missingNotice, percentBar, percentText, purchaseSummaryText, requestTagView, visibleItems } from './tag-investment';

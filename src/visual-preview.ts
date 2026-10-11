@@ -12,7 +12,7 @@ import { lifecycleError, revokeError } from './lifecycle';
 import type { LifecycleChange } from './lifecycle';
 import type { Maintenance, MaintenanceChange } from './maintenance';
 import type { Warranty, WarrantyChange } from './warranty';
-import { deriveStatus, summarizeWarranties } from './warranty';
+import { summarizeWarranties } from './warranty';
 import { fixtureArt } from './visual-fixtures';
 import { MATERIALS, materialOf, materialPhotoName, materialArt } from './materials';
 import { previewRecord } from './preview-costs';

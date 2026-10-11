@@ -144,28 +144,6 @@ function isSameTarget(a: CategoryFilterValue, b: CategoryFilterValue): boolean {
   return true;
 }
 
-interface SegmentButtonProps {
-  pressed: boolean;
-  onSelect: () => void;
-  label: string;
-  ariaLabel: string;
-  disabled?: boolean;
-}
-
-function SegmentButton({ pressed, onSelect, label, ariaLabel, disabled }: SegmentButtonProps) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      aria-pressed={pressed}
-      onClick={onSelect}
-      aria-label={ariaLabel}
-    >
-      {label}
-    </button>
-  );
-}
-
 // U18：溢出菜单内容（portal 到 body，避免被列表/检视器的 overflow 裁切）。
 // 固定「全部分类／未分类」＋全部可筛选分类；搜索只过滤具体分类；打开即清空上次搜索。
 function CategoryMenuPortal({

@@ -22,7 +22,8 @@ npm run build && npm run test:ui && npm run check && npm test
 ## 代码约定
 
 - 技术栈：Tauri 2、React、TypeScript、Rust、SQLite。写法请贴近周围代码的命名、注释密度和风格。
-- 金额用整数分，不用浮点数；日期用 `YYYY-MM-DD` 字符串。
+- 已记录金额用整数分；预测计算与显示精度见业务规则，不把显示约数写回事实。日期用 `YYYY-MM-DD` 字符串。
+- `npm run build` 包含 TypeScript 未使用局部变量和参数检查；删除无用接口及调用参数，不以改名或关闭检查规避。
 - 未知值保持为空（界面显示「待补充」），不要当作 0。
 - 普通表单直接关闭、不保存草稿；已提交但结果未知的请求要保留并核对。
 - 故障注入 feature（`fault-injection`）只用于测试。

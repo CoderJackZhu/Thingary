@@ -39,7 +39,6 @@ const spendSources = (r: RetireInputs): CostSource[] => [
 export const retirementSources = (r: RetireInputs, annualPension: string | null = null): CostSource[] => [
   ...contributionSources(r, annualPension), ...spendSources(r),
 ];
-const occurred = (r: RetireInputs, id: string) => !!r.core?.occurrences.some(o => o.event_id === id && o.status === 'occurred');
 export const contributionSources = (r: RetireInputs, annualPension: string | null): CostSource[] =>
   [...new Map([...costSources(r.life_events, annualPension ?? '0').map(s => ({ ...s, cents: null })), ...(r.core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => ({ id: `event:${o.event_id}:loan`, label: '已发生计划的剩余欠款', cents: null }))].map(s => [s.id, s])).values()];
 
@@ -57,7 +56,7 @@ const scopeDraft = (list: CostScope[] | undefined, sources: CostSource[]): Recor
   Object.fromEntries(sources.map(s => { const c = list?.find(x => x.source_id === s.id); return [s.id, { treatment: (c?.treatment ?? '') as Treatment, ref: c?.reference_cents ?? '' }]; }));
 
 /** New plans start blank: no age, no budget, no contribution. Saved values (including the old 90-year end) are kept as saved. */
-export function draftOf(saved: Saved, snapshot: Snapshot | null, today: string): Draft {
+export function draftOf(saved: Saved, snapshot: Snapshot | null): Draft {
   const p = saved?.profile, r: RetireInputs = p?.retire ?? defaultRetire, b = r.basic, fresh = !b;
   const entries = snapshot?.entries.filter(e => e.counted && e.side === 'asset') ?? [];
   const known = r.core?.fund_rules ?? [];
@@ -134,7 +133,7 @@ export const eventsInput = (fields: EventsFields): SectionInput => ({ section: '
 
 /** Saving a contribution alone (adopt a suggestion, save a trial): rebuilds the basic section from the saved plan. */
 export function contributionSection(saved: NonNullable<Saved>, value: string | null, today: string): SectionInput | null {
-  const d = draftOf(saved, null, today); d.contribution = value ?? '';
+  const d = draftOf(saved, null); d.contribution = value ?? '';
   try { return basicInput(d, saved, today); } catch { return null; }
 }
 

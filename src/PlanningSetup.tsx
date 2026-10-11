@@ -36,7 +36,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   const dialog = useRef<HTMLDialogElement>(null), heading = useRef<HTMLHeadingElement>(null);
   const steps = editMode ? [...questions, '每月能存多少（选填）', '更多假设'] : [...questions];
   const [step, setStep] = useState(Math.min(initialStep, steps.length - 1));
-  const [d, setD] = useState(() => setupDraft(saved, snapshot, today, sources.modules.wealth));
+  const [d, setD] = useState(() => setupDraft(saved, snapshot, sources.modules.wealth));
   const [captured] = useState(() => structuredClone({ ...sources, today }));
   const [pensionOpen, setPensionOpen] = useState(false), [pensionTouched, setPensionTouched] = useState(false);
   const [confirmationIssue, setConfirmationIssue] = useState<ConfirmationIssue | null>(null);

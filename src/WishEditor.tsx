@@ -12,7 +12,7 @@ import {allowReminders,ReminderPermissionHelp} from './NotificationNotice';
 import {loadAssetCandidates,assetStateLabel,type AssetCandidate} from './asset-picker';
 import type {AssetRecord} from './asset';
 import {defaultWishPreferences} from './preferences';
-import {validateWishlist,wishlistDraftKey,type WishlistDraft,type WishlistItem,type WishPlanSave} from './wishlist';
+import { validateWishlist, wishlistDraftKey, type WishlistDraft, type WishlistItem } from './wishlist';
 import type {TaxonomySnapshot} from './taxonomy';
 import {DeleteButton} from './WealthPage';
 export function WishlistEditor({initial,closeIntent,onKeep,onClose,onSaved,onDeleted}:{initial:WishlistDraft;taxonomy:TaxonomySnapshot;closeIntent:CloseIntent|null;onKeep:()=>void;onClose:(intent:CloseIntent,keep:boolean)=>void;onSaved:(i:WishlistItem)=>void;onDeleted?:(i:WishlistItem)=>void}){

@@ -1,6 +1,6 @@
 import { CoverageNote } from './CoverageNote';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Info, Segments } from './FormControls';
+import { Segments } from './FormControls';
 import { rateText } from './plan';
 import { outcome, project } from './plan-ledger.ts';
 import type { Plan } from './plan-ledger.ts';
