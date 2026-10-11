@@ -1,10 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { medicalCheck } from '../src/plan-medical.ts';
+import { medicalView } from '../src/planning-goal-preview/medical-view.ts';
 import { medicalInput, medicalFormOf } from '../src/planning-basic-forms.ts';
 import { fictionalSources } from './planning-basic.test.mjs';
 import { buildBasicCapabilities, prepareBasicPlan, solveBasicRequirement } from '../src/plan-basic.ts';
 const today = '2026-10-11';
+test('prototype distinguishes complete 15/15/60 facts from projected shortfall and cost coverage', () => {
+  const { p, b } = fixture();
+  Object.assign(p, { medical_paid_months: 15, medical_local_paid_months: 15, medical_local_required_months: 60 });
+  b.pension_contributions.stop_month = '2050-06';
+  const m = medicalCheck(p, b, '2026-10-12');
+  assert.deepEqual(m.missing, []);
+  assert.equal(m.projected_months, 298);
+  assert.equal(m.local_projected_months, 298);
+  assert.equal(m.required_months, 300);
+  assert.equal(m.short_months, 2);
+  const view = medicalView(m, null);
+  assert.equal(view.next, '处理医保缴费缺口');
+  assert.match(view.title, /还差 2 个月/);
+  assert.equal(view.pending, true);
+  assert.equal(medicalView(m, '100000').pending, false);
+  assert.match(medicalView(m, '100000').title, /还差 2 个月/);
+  p.medical_local_required_months = null;
+  assert.equal(medicalView(medicalCheck(p, b, today), null).next, '补充医保资料');
+  p.medical_local_required_months = 60; p.medical_paid_months = 17;
+  assert.match(medicalView(medicalCheck(p, b, today), null).title, /预计满足年限/);
+});
 function fixture() {
   const s = fictionalSources('1000000'), p = s.profile.value.saved.profile;
   Object.assign(p, { region: 'beijing', worker: 'male', birth_month: '1990-06', flex_months: 0, medical_paid_months: 100, medical_local_paid_months: 30, medical_local_required_months: 120 });
