@@ -77,7 +77,20 @@ function App() {
     setNotice(`${names[id]}已用于本页试算。更新后：${resultText}。`);
     requestAnimationFrame(() => document.getElementById(`edit-${id}`)?.focus());
   }
-  const numberField = (label: string, name: string, value: string | number, min: number, max: number, optional = false) => <label>{label}<input name={name} type="number" min={min} max={max} step={name === 'age' || name === 'horizon' || name.startsWith('medical_') ? '1' : '0.01'} defaultValue={value} required={!optional}/></label>;
+  const numberField = (label: string, name: string, value: string | number, min: number, max: number, optional = false) => {
+    const amount = name === 'amount', increment = editing === 'funds' ? 10000 : 100;
+    const adjust = (event: React.MouseEvent<HTMLButtonElement>, direction: number) => {
+      const input = event.currentTarget.parentElement!.querySelector('input')!;
+      const current = input.value === '' ? 0 : input.valueAsNumber;
+      if (!Number.isFinite(current)) return;
+      input.value = String(Math.round(Math.min(max, Math.max(min, current + direction * increment)) * 100) / 100);
+    };
+    return <label>{label}<span className={amount ? 'amount-input' : undefined}>
+      {amount && <button type="button" aria-label={`减少 ${increment} 元`} onClick={e => adjust(e, -1)}>−</button>}
+      <input name={name} type="number" inputMode={amount ? 'decimal' : undefined} min={min} max={max} step={amount ? 'any' : name === 'age' || name === 'horizon' || name.startsWith('medical_') ? '1' : '0.1'} defaultValue={value} required={!optional}/>
+      {amount && <button type="button" aria-label={`增加 ${increment} 元`} onClick={e => adjust(e, 1)}>＋</button>}
+    </span>{amount && <small>每次增减 {increment.toLocaleString('zh-CN')} 元，也可直接输入金额（保留到分）。</small>}</label>;
+  };
   function editor(id: Section) {
     return <form className="editor" onSubmit={e => save(e, id)} onKeyDown={e => { if (e.key === 'Escape') { setEditing(null); requestAnimationFrame(() => document.getElementById(`edit-${id}`)?.focus()); } }}>
       <div className="fields">
@@ -85,7 +98,19 @@ function App() {
         {(id === 'spend' || id === 'saving') && numberField(id === 'spend' ? '每月生活费（元，按现在物价）' : '每月能存（元，留空表示不知道；负数表示取用）', 'amount', yuan(id === 'spend' ? r.spend_cents : b.contribution.monthly_cents), id === 'spend' ? 1 : -1000000, 1000000, id === 'saving')}
         {id === 'funds' && <>{numberField('用于这次试算的金额（元）', 'amount', yuan(funds?.available_cents), 0, 1000000000)}<label>这笔钱的截至日期<input name="date" type="date" defaultValue={funds?.date ?? sources.today} required/></label><p>应用后改用模拟金额，不改账户盘点；公积金等受限资金不能直接加进来。</p></>}
         {id === 'income' && <><label>本次计算<select name="mode" defaultValue={b.retirement_income.mode ?? 'excluded'}><option value="employee">计入职工养老金估算</option><option value="excluded">暂不计退休收入</option></select></label><p>此原型复用北京虚构社保资料：已缴 {p.paid_months ?? '未知'} 个月，个人账户 {exactMoney(p.account_balance_cents)}，月缴费基数 {exactMoney(b.pension_contributions.base_cents)}。缴费从 {b.pension_contributions.start_month} 至 {b.pension_contributions.stop_month} 前。社保事实的完整编辑仍在现有养老金页。</p></>}
-        {id === 'medical' && <><p>医保年限与养老年限不同。以下按月填写，不知道可留空。</p>{numberField('医保累计缴费月数', 'medical_paid_months', p.medical_paid_months ?? '', 0, 1200, true)}{numberField('医保本地实际缴费月数', 'medical_local_paid_months', p.medical_local_paid_months ?? '', 0, 1200, true)}{numberField('本地要求实际缴费月数', 'medical_local_required_months', p.medical_local_required_months ?? '', 0, 1200, true)}</>}
+        {id === 'medical' && <>
+          <p>先填你查到的职工医保缴费记录。养老保险交了多久，不一定等于医保交了多久；不知道的项目可以留空，不影响继续试算。</p>
+          {numberField('职工医保一共交了多少个月', 'medical_paid_months', p.medical_paid_months ?? '', 0, 1200, true)}
+          <p>累计包括各地按规定认可的医保年限；有异地转入或视同缴费经历时，以医保经办机构认定为准。</p>
+          {numberField('其中，在北京实际交了多少个月', 'medical_local_paid_months', p.medical_local_paid_months ?? '', 0, 1200, true)}
+          <p>这是上面累计年限中的本地部分，不是再加一遍。如果你确认只交过 15 个月职工医保，而且全部在北京，两项都可以填 15；如果是在不同城市交的，不要直接照抄。</p>
+          <p>在哪里查：<a href="https://ybfw.ybj.beijing.gov.cn/" target="_blank" rel="noreferrer">北京医保公共服务平台</a>，或<a href="https://fuwu.rsj.beijing.gov.cn/bjdkhy/h5_msk/rights-interests/index" target="_blank" rel="noreferrer">官方权益查询（医保缴费信息）</a>。看不到累计／本地年限时，向参保地医保经办机构确认，不必自己猜。</p>
+          <details><summary>政策条件：北京要求至少在本地缴多久？（不知道可跳过）</summary>
+            <p>这不是你已经交了多久，而是享受退休医保时要满足的最低门槛。它可能因户籍、取得北京户籍时间等情况不同，不能直接填成你的已缴月数，也不能对所有人默认 10 年。</p>
+            {numberField('经核实，要求在北京实际缴费至少多少个月', 'medical_local_required_months', p.medical_local_required_months ?? '', 0, 1200, true)}
+            <p>北京办事指南列有部分户籍进京人员 5 年（60 个月）、外埠户籍人员 10 年（120 个月）的要求。请先核实适用条件；只有确认没有单独本地要求时才填 0。<a href="https://banshi.beijing.gov.cn/pubtask/task/1/110113000000/53193448-1617-4fb5-94f0-09d133fce9d0_cjwt.html" target="_blank" rel="noreferrer">查看官方适用条件</a>（2026-10-12 核对）。</p>
+          </details>
+        </>}
         {id === 'cost' && <><label>缴费怎么安排<select name="treatment" defaultValue={cost?.treatment ?? 'unknown'}><option value="unknown">还不确定，暂未计入</option><option value="extra">生活费之外另外支付</option><option value="included">已包含在每月生活费里</option><option value="excluded">这次明确不计入</option></select></label>{numberField('每月自己承担的费用（元）', 'amount', yuan(cost?.monthly_cents), 0, 1000000, true)}<label>缴费结束月份（该月起不再支付）<input type="month" name="stop" defaultValue={cost?.stop_month ?? b.pension_contributions.stop_month ?? ''}/></label><p>从不工作后开始计算。费用结束时间与养老金缴费安排需要一致；“已包含”不会再加一次。</p></>}
         {id === 'assumptions' && <>{numberField('退休前实际年收益（%）', 'before', r.real_return_before_hundredths / 100, -8, 18)}{numberField('退休后实际年收益（%）', 'after', r.real_return_after_hundredths / 100, -8, 18)}{numberField('年通胀（%）', 'inflation', p.assumptions.inflation_hundredths / 100, 0, 10)}<p>实际收益已扣除通胀。0% 表示购买力不变，并不是银行利息为零；这是假设，不是收益承诺。</p></>}
       </div>
@@ -100,7 +125,7 @@ function App() {
     { id: 'saving', value: b.contribution.monthly_cents === null ? '还没估计' : `${exactMoney(b.contribution.monthly_cents)} / 月`, description: '从现在到不工作之前，扣除日常开支和缴费后，预计每月净存入多少。', state: b.contribution.monthly_cents === null ? '可稍后填' : '你估计的投入' },
     { id: 'income', value: pension?.included ? `养老金约 ${forecastMoney(pension.monthly_cents)} / 月` : b.retirement_income.mode === 'excluded' ? '暂不计退休收入' : '养老金资料待补充', description: pension?.included ? `${pension.start_month} 起领取。预计缴费至 ${b.pension_contributions.stop_month} 前，领钱前的生活仍靠存款。` : '养老金属于退休后的收入，不会从停止工作那天自动到账。', state: pension?.included ? '已计入 · 估算' : '未计入' },
     { id: 'cost', value: !cost || cost.treatment === 'unknown' ? '还没确认费用' : cost.treatment === 'excluded' ? '本次不计入' : `${exactMoney(cost.monthly_cents)} / 月 · ${cost.treatment === 'extra' ? '另外支付' : '生活费已包含'}`, description: '提前不工作后，若继续自己交社保，这笔钱会影响需要准备的存款。', state: !cost || ['unknown', 'excluded'].includes(cost.treatment) ? '未计入费用' : '已安排' },
-    { id: 'medical', value: medicalPending || p.medical_paid_months == null || p.medical_local_paid_months == null || p.medical_local_required_months == null ? '医保条件待核对' : '医保年限已核对', description: `累计 ${p.medical_paid_months ?? '未填'} 个月 · 本地实缴 ${p.medical_local_paid_months ?? '未填'} 个月 · 本地要求 ${p.medical_local_required_months ?? '未填'} 个月。医保年限不足可能需要补缴。`, state: p.medical_paid_months == null ? '资料未填' : '你填写的资料' },
+    { id: 'medical', value: medicalPending || p.medical_paid_months == null || p.medical_local_paid_months == null || p.medical_local_required_months == null ? '医保条件待核对' : '医保年限已核对', description: `医保累计：${p.medical_paid_months == null ? '未填' : `${p.medical_paid_months} 个月`} · 北京实缴：${p.medical_local_paid_months == null ? '未填' : `${p.medical_local_paid_months} 个月`} · 本地最低门槛：${p.medical_local_required_months == null ? '待核实' : `${p.medical_local_required_months} 个月`}。医保年限不足可能需要补缴。`, state: p.medical_paid_months == null ? '资料未填' : '你填写的资料' },
     { id: 'assumptions', value: `实际收益 ${r.real_return_before_hundredths / 100}% / ${r.real_return_after_hundredths / 100}%`, description: `依次为退休前 / 后的年收益，已扣除通胀。通胀假设 ${p.assumptions.inflation_hundredths / 100}%。`, state: '计算假设' },
   ];
   return <><div className="prototype-bar"><span>交互原型 · 虚构资料 · 修改只在本页，刷新重置</span><label>查看状态 <select value={scenario} onChange={e => reset(e.target.value)}><option value="normal">已有规划</option><option value="unknown">储蓄未知</option><option value="empty">基础条件未填</option><option value="error">读取失败</option></select></label></div>
