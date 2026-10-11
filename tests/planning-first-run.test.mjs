@@ -70,7 +70,7 @@ test('retirement month is immediate, blank/invalid remains unknown', () => {
 
 test('refinements are applicable and do not inflate question count with optional contribution', () => {
   const p = make();
-  assert.deepEqual(refinementCards(p, unknownCapabilityFixture, today).map(c => c.action), ['pension', 'contribution']);
+  assert.deepEqual(refinementCards(p, unknownCapabilityFixture, today).map(c => c.action), ['pension', 'pension', 'contribution']);
   const caps = { ...unknownCapabilityFixture, requirement: { status: 'blocked', missing: [{ code: 'COST_SCOPE_UNKNOWN' }, { code: 'PENSION_FACTS_UNKNOWN' }] } };
   p.profile.retire.basic.retirement_income.mode = 'employee';
   assert.equal(refinementCards(p, caps, today).filter(c => c.required).length, 2);

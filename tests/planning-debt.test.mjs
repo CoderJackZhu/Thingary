@@ -14,6 +14,8 @@ import { debtFixture } from '../src/planning-debt-fixture.ts';
 import { savingsOf, startPaymentsOf, nominalFactor, project } from '../src/plan-ledger.ts';
 const ts = createRequire(import.meta.url)('typescript');
 const raw = JSON.parse(readFileSync(new URL('./fixtures/planning-basic/debt-loops.json',import.meta.url),'utf8'));
+// Keep these loan-specific coverage assertions independent of optional medical facts.
+raw.profile.value.saved.profile.worker = null;
 const today=raw.today, unknownCapabilityFixture=buildBasicCapabilities(raw);
 const fixture = (scenario='normal') => debtFixture(raw,scenario);
 const core = s => s.profile.value.saved.profile.retire.core;

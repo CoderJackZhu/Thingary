@@ -1,3 +1,4 @@
+import { ProfileDialog as MedicalProfileDialog } from './PlanningPension';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { money } from './asset';
 import type { Account, Snapshot } from './wealth';
@@ -36,9 +37,10 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const [completionCard, setCompletionCard] = useState<Refinement | null>(null);
   const [pensionContributions, setPensionContributions] = useState(false);
   const [pensionOpen, setPensionOpen] = useState(false);
+  const [medicalOpen, setMedicalOpen] = useState(false);
   const [debtOpen, setDebtOpen] = useState(false);
   const [detail, setDetail] = useState(false), [toolsOpen, setToolsOpen] = useState(false), opener = useRef<HTMLElement | null>(null);
-  useEffect(() => { onEditingChange(fundsOpen || costsOpen || debtOpen || pensionOpen || occurring !== null); return () => onEditingChange(false); }, [fundsOpen, costsOpen, debtOpen, pensionOpen, occurring, onEditingChange]);
+  useEffect(() => { onEditingChange(medicalOpen || fundsOpen || costsOpen || debtOpen || pensionOpen || occurring !== null); return () => onEditingChange(false); }, [medicalOpen, fundsOpen, costsOpen, debtOpen, pensionOpen, occurring, onEditingChange]);
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const snapshot: Snapshot | null = ready(sources.snapshot) ?? null, accounts: Account[] = ready(sources.accounts) ?? [];
   const result = useCapabilities(sources), saver = useSectionSaver(sources, reload, onPending);
@@ -55,10 +57,11 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     write: async (life_events, core) => !!core && !!(await saver.save(eventsInput({ life_events, occurrences: core.occurrences }))) } : null;
   const openPension = (contributions = false) => { setPensionContributions(contributions); setPensionOpen(true); };
   const owner = (o: PlanningMissing['owner'], field?: string) => { if (field === 'core.debt_repayments') setDebtOpen(true); else if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'pension' || field === 'basic.pension_contributions') openPension(field === 'basic.pension_contributions'); else if (o === 'events') goEvents(); else if (o === 'service') reload(); else openSetup(o === 'funds' ? 2 : 0, null, true); };
-  const closeRefinement = () => { setCompletionCard(null); setFundsOpen(false); setCostsOpen(false); setDebtOpen(false); setPensionOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
+  const closeRefinement = () => { setMedicalOpen(false); setCompletionCard(null); setFundsOpen(false); setCostsOpen(false); setDebtOpen(false); setPensionOpen(false); setOccurring(null); requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
   function action(card: Refinement, from: HTMLElement) {
     opener.current = from; setCompletionCard(card);
-    if (card.action === 'pension') openPension(card.id === 'transfer');
+    if (card.id === 'medical') setMedicalOpen(true);
+    else if (card.action === 'pension') openPension(card.id === 'transfer');
     else if (card.action === 'debts') setDebtOpen(true);
     else if (card.action === 'costs') setCostsOpen(true);
     else if (card.action === 'funds') setFundsOpen(true);
@@ -69,6 +72,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     else reload();
   }
   function refineAnnotation(annotation: PlanningAnnotation) {
+    if (annotation.refinement.field === 'medical_paid_months') { setMedicalOpen(true); return; }
     if (annotation.refinement.owner === 'pension' || annotation.refinement.field === 'basic.pension_contributions') { openPension(annotation.refinement.field === 'basic.pension_contributions'); return; }
     const card = annotation.refinement.field === 'core.debt_repayments'
       ? cards.find(c => c.action === 'debts')
@@ -87,6 +91,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const line = req ? requirementLine(req.set, money) : null;
   const verdict = req && saved?.profile.retire.basic ? contributionVerdict(req.set, saved.profile.retire.basic.contribution.monthly_cents, money) : null;
   return <div className="plan-goals" data-goal-state={state}>
+    {medicalOpen && saved && <MedicalProfileDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {pensionOpen && saved && <PlanningPensionRefinementDialog switchIncome={completionCard?.id === 'income-switch'} completion={!!completionCard} reviewContributions={pensionContributions} sources={sources} today={today} reload={reload} onPending={onPending} onSaved={onPensionComparison} onClose={closeRefinement}/>}
     {comparison && <PensionComparisonNote comparison={comparison}/>}
     {debtOpen && saved && <PlanningDebtDialog completion={!!completionCard} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}

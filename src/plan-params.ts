@@ -89,3 +89,12 @@ export function paramsFor(profile: { region: Region | null; overrides: Overrides
     notional_rate_hundredths: o.notional_rate_hundredths ?? beijing.notional_rate_hundredths,
     hpf_rate_hundredths: o.hpf_rate_hundredths ?? beijing.hpf_rate_hundredths };
 }
+
+/** 北京退休职工医保；不用于估算补缴比例或金额。 */
+export const BEIJING_MEDICAL_MONTHS = { male: 300, female_cadre: 240, female_worker: 240 } as const;
+export const BEIJING_MEDICAL_LOCAL_MONTHS = [0, 60, 120] as const;
+export const medicalSource = {
+  source: '基本医疗保险视同缴费年限认定', publisher: '北京市政务服务网（顺义区）',
+  url: 'https://banshi.beijing.gov.cn/pubtask/task/1/110113000000/53193448-1617-4fb5-94f0-09d133fce9d0_cjwt.html',
+  checked_on: '2026-10-11', verified: 'official',
+} as const;

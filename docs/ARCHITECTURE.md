@@ -144,3 +144,5 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 ## Excel 工作簿
 
 资料管理的导出保存一个工作簿：说明、物品、账户、完整盘点、月度收入及三张分析表（盘点记录、重要支出、周期费用）。明确字符串单元格防止公式执行、编号和日期自动转换及金额精度丢失；空单元格保留未知。先在内存完成再原子写入，文件替换由系统保存面板确认。物品导入只读取物品表，仍为新增事务及疑似重复预览；金融工作表仍按既有整批事务与回执提交。规范化文本的物理行到 Excel 行映射只用于界面定位，不改变已存回执、摘要或数据库 schema。完整恢复与换机继续使用 `.thingary`；Excel 不包含图片及全部配置与关系。
+
+医保年限沿用 `plan_profile` JSON 与 pension 分区，五个可空字段 `medical_paid_months`、`medical_local_paid_months`、`medical_local_required_months`、`medical_required_months`、`medical_topup_cents` 不升级 schema。Rust 默认 None，序列化省略 None 以保持旧请求回执指纹；含新字段资料不能由旧版读取。计算结果不持久化，医保未知只生成标注；用户填写的补缴估算在年限不足时加入计划一次性支出。

@@ -20,3 +20,18 @@ export function pensionFixture(raw: PlanningSources, scenario = 'normal'): Plann
   if (scenario === 'empty') s.profile.value.saved = null;
   return s;
 }
+
+export function medicalFixture(raw: PlanningSources, scenario: string): PlanningSources {
+  const s = pensionFixture(raw);
+  if (s.profile.status !== 'ready' || !s.profile.value.saved) return s;
+  const p = s.profile.value.saved.profile;
+  p.region = 'beijing'; p.worker = 'male'; p.birth_month = '1990-06'; p.flex_months = 0;
+  p.retire.target_age = 50;
+  p.medical_paid_months = scenario === 'ok' ? 300 : scenario === 'unknown' ? null : 100;
+  p.medical_local_paid_months = scenario === 'ok' ? 120 : 30;
+  p.medical_local_required_months = 120;
+  p.medical_required_months = null;
+  p.medical_topup_cents = scenario === 'topup' ? '6000000' : null;
+  p.retire.basic!.pension_contributions = { start_month: '2026-10', stop_month: '2030-06', base_cents: '2000000' };
+  return s;
+}

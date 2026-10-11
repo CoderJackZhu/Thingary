@@ -23,7 +23,7 @@ export type BasicInputs = {
 export type BasicFields = Pick<StoredProfile, 'birth_month'> & Pick<RetireInputs, 'spend_cents' | 'target_age' | 'horizon_age' | 'mode' | 'real_return_before_hundredths' | 'real_return_after_hundredths' | 'volatility_hundredths' | 'emergency_months'> & {
   inflation_hundredths: number; monetary_basis_date: string; basic: BasicInputs; /** Historical receipt input only; never emitted by new forms. */ confirm_legacy_replacement?: boolean;
 };
-export type PensionFields = Pick<StoredProfile, 'birth_month' | 'worker' | 'region' | 'paid_months' | 'account_balance_cents' | 'base_cents' | 'past_index_hundredths' | 'flex_months' | 'personal_pension_annual_cents' | 'marginal_tax_hundredths'> & {
+export type PensionFields = Pick<StoredProfile, 'birth_month' | 'worker' | 'region' | 'paid_months' | 'account_balance_cents' | 'base_cents' | 'past_index_hundredths' | 'flex_months' | 'personal_pension_annual_cents' | 'marginal_tax_hundredths' | 'medical_paid_months' | 'medical_local_paid_months' | 'medical_local_required_months' | 'medical_required_months' | 'medical_topup_cents'> & {
   wage_growth_hundredths: number; pp_return_hundredths: number; overrides: Overrides;
 };
 export type FundsFields = { monetary_basis_date: string; fund_rules: FundRule[]; hpf_monthly_cents: string | null; personal_pension_account_id: string | null; personal_pension_balance_confirmed: boolean };
@@ -56,9 +56,9 @@ export type PredictionValue = { source: 'saved' | 'temporary'; contribution_cent
 export type AnnotationEffect = 'requirement_lower' | 'requirement_higher' | 'uncertain' | 'none';
 /** Read-only calculation coverage. Never part of ProfileUpdate or stored profile JSON. */
 export type PlanningAnnotation = {
-  id: string; reason_code: 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'DEBT_EXCLUDED' | 'DEBT_BALANCE_CHANGED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
+  id: string; reason_code: 'MEDICAL_YEARS_SHORT' | 'MEDICAL_FACTS_UNKNOWN' | 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'DEBT_EXCLUDED' | 'DEBT_BALANCE_CHANGED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
   actionable?: boolean;
-  message: string; effect: AnnotationEffect; treatment: 'omitted' | 'assumed_extra' | 'not_used';
+  message: string; effect: AnnotationEffect; treatment: 'omitted' | 'assumed_extra' | 'not_used' | 'included';
   source_ids: string[]; missing_fields: string[];
   refinement: { owner: PlanningMissing['owner']; field: string; event_id?: string };
 };
