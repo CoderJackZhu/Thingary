@@ -57,7 +57,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
     {pensionOpen && <PlanningPensionRefinementDialog sources={sources} today={today} reload={reload} onPending={onPending} onSaved={setComparison} onClose={closePension}/>}
     <p><button type="button" className="ui-link" onClick={onBack}>{trial !== null ? '← 返回目标（临时试算不会保存）' : '← 返回目标'}</button></p>
     {comparison && <PensionComparisonNote comparison={comparison}/>}
-    <div className="rd-tabs" role="group" aria-label="退休页签"><button type="button" aria-pressed={tab === 'overview'} onClick={() => setTab('overview')}>概览</button><button type="button" aria-pressed={tab === 'lab'} onClick={() => setTab('lab')}>假设分析</button></div>
+    <div className="rd-tabs" role="group" aria-label="切换计算详情页面"><button type="button" aria-pressed={tab === 'overview'} onClick={() => setTab('overview')}><strong>概览</strong><span>查看结果与资金轨迹</span></button><button type="button" aria-pressed={tab === 'lab'} onClick={() => setTab('lab')}><strong>假设分析</strong><span>比较收益、支出变化的影响</span></button></div>
     <p className="muted small" role="note">预测取决于你填写的生活费、收入和收益假设，实际结果可能不同，不保证未来一定够用。</p>
     <div className="rd-grid">
       <div className="rd-main">
