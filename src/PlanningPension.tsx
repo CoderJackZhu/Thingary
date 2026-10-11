@@ -50,7 +50,7 @@ export function PlanningPension({ focus = false, onFocusDone, today, sources, re
     const now = ageMonthsAt(p.birth_month, anchor), start = startAgeMonths(p);
     const ages = quitAges(now, start);
     const chosen = quit === 'start' || !ages.includes(quit) ? start : quit * 12;
-    return { p, region, funds, notes, hpfUnknown: core?.hpf_monthly_cents == null, now, start, ages, main: project(p, region, anchor, chosen, funds), rows: byQuitAge(p, region, anchor, ages, funds).concat(project(p, region, anchor, start, funds)) };
+    return { p, region, funds, notes, hpfUnknown: core?.hpf_monthly_cents == null, hasGoal: !!p.retire.basic, now, start, ages, main: project(p, region, anchor, chosen, funds), rows: byQuitAge(p, region, anchor, ages, funds).concat(project(p, region, anchor, start, funds)) };
   }, [saved, snapshot, today, quit]);
 
   const missing = saved ? missingFacts(saved.profile) : [];
@@ -70,7 +70,7 @@ export function PlanningPension({ focus = false, onFocusDone, today, sources, re
 const factLabels: [keyof StoredProfile, string][] = [['region', '参保地'], ['birth_month', '出生年月'], ['worker', '职工类型'], ['paid_months', '累计缴费月数'], ['account_balance_cents', '个人账户余额'], ['base_cents', '当前缴费基数'], ['flex_months', '弹性领取月数'], ['personal_pension_annual_cents', '个人养老金年缴'], ['marginal_tax_hundredths', '个税边际税率']];
 const missingFacts = (p: StoredProfile) => factLabels.filter(([k]) => p[k] === null).map(([, l]) => l).concat(p.region === 'custom' && !p.overrides.avg_wage_cents ? ['当地养老金计发基数'] : []);
 
-type Calc = { p: CompletePensionProfile; region: NonNullable<ReturnType<typeof paramsFor>>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; hpfUnknown: boolean; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
+type Calc = { p: CompletePensionProfile; region: NonNullable<ReturnType<typeof paramsFor>>; funds: { hpf_balance_cents: string; hpf_monthly_cents: string }; notes: string[]; hpfUnknown: boolean; hasGoal: boolean; now: number; start: number; ages: number[]; main: Projection; rows: Projection[] };
 
 function Result({ calc, quit, onQuit, onEdit, onConfirmHpf, updatedAt, today }: { calc: Calc; quit: number | 'start'; onQuit: (v: number | 'start') => void; onEdit: () => void; onConfirmHpf: () => void; updatedAt: string; today: string }) {
   const r = calc.main;
@@ -104,7 +104,8 @@ function Result({ calc, quit, onQuit, onEdit, onConfirmHpf, updatedAt, today }: 
         {calc.p.personal_pension_annual_cents !== '0' && <div><dt>个人养老金每年省税</dt><dd>{yuan(r.personal_pension_tax_saved_cents)}</dd><small className="muted">按边际税率 {rateText(calc.p.marginal_tax_hundredths)}</small></div>}
       </dl>
       {calc.notes.map(n => <p key={n} className="muted small">{n}</p>)}
-      {calc.hpfUnknown && <p className="muted small">未来公积金每月缴存还没确认，这里只按已有余额估算。<button type="button" id="plan-hpf-confirm" className="ui-link" onClick={onConfirmHpf}>确认公积金缴存</button></p>}
+      {/* 资金核对会固定规划的金额基准日期并写入账户规则，只在已设置退休目标后提供。 */}
+      {calc.hpfUnknown && <p className="muted small">未来公积金每月缴存还没确认，这里只按已有余额估算。{calc.hasGoal ? <button type="button" id="plan-hpf-confirm" className="ui-link" onClick={onConfirmHpf}>确认公积金缴存</button> : '设置退休目标时可以一并确认。'}</p>}
     </section>
   </article>;
 }

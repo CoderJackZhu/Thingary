@@ -65,3 +65,12 @@ test('养老金页公积金提示：文案不再指向目标页，按钮原地�
   assert.doesNotMatch(text, /还没确认/);
   assert.equal(after.button('确认公积金缴存'), undefined);
 });
+
+test('养老金页：没有退休目标时不提供资金核对入口，避免顺带固定金额基准日期', () => {
+  const s = pensionFixture(raw, 'transfer');
+  s.profile.value.saved.profile.retire.basic = null;
+  const r = runtime('PlanningPension', { sources: s });
+  const body = r.text(r.render());
+  assert.match(body, /未来公积金每月缴存还没确认，这里只按已有余额估算。设置退休目标时可以一并确认。/);
+  assert.equal(r.button('确认公积金缴存'), undefined);
+});
