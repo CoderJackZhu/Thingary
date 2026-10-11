@@ -55,7 +55,7 @@ npm run dev -- --port 1429
 
 轻量复盘夹具在同一预览入口追加 `review-fixture=normal|no-income|scope|incomplete|no-plan|pending`：分别覆盖净资产增加60000元、无收入、计入范围变化、旧盘点缺金额、无计划和逾期安排。原因桩固定含一条 null 金额行；`plan=reasons-error` 检查原因局部失败，`plan-module=off` 检查保存后降级到账户变化，`plan-wealth=off` 检查隐藏财富不读取。主题用 `style=bento|native|olive`、`theme=light|dark`，宽窗1440×1000及窄窗900×720。夹具全部虚构、仅驻留内存。`review-fixture=history` 增加三段可比历史（含非零投资变化），用于核对复盘中位数、第二问与详情建议；`review-fixture=hpf-unknown` 使用同一历史但缴存未知，用于核对只撤下花销估计；`review-fixture=no-investment` 保留三段历史并不计入投资账户。
 
-`tests/review-observations.test.mjs` 覆盖观察顺序与上限、禁用词、无收入资产事实、退款／售出符号、未知与明确零、结构化待核对兼容及确认后余额不变；`src-tauri/tests/plan_income.rs` 回归区间原因的 null 金额、日期／模块过滤与排序。`plan_interval_reasons` 保留日期及模块范围内未知金额行，金额继续为 null。原生保存→提示→对应区间→核对→重启须使用独立验收身份另行登记；浏览器截图和 Store 测试不替代原生、备份恢复或文件选择验证。
+`tests/review-observations.test.mjs` 覆盖三项事实与待核对事项分离、禁用词、无收入资产事实、退款／售出符号、未知与明确零、结构化待核对兼容及确认后余额不变；`src-tauri/tests/plan_income.rs` 回归区间原因的 null 金额、日期／模块过滤与排序。`plan_interval_reasons` 保留日期及模块范围内未知金额行，金额继续为 null。原生保存→提示→对应区间→核对→重启须使用独立验收身份另行登记；浏览器截图和 Store 测试不替代原生、备份恢复或文件选择验证。
 
 关联订阅生命周期（组删除／恢复、共享保存双方修订、预览失效、历史归组与备份往返）在 `src-tauri/tests/link_groups.rs` 对临时 Store 验证（旧订阅合并发现在 `src-tauri/tests/link_merge.rs`）；其中 schema32→33 矩阵覆盖主分支的无组表版本与未发布订阅分支的完整组表版本，检查升级、旧备份恢复、规划载荷与稳定 ID 保持、非法结构拒绝及事务回滚。重要支出年度桶的固定金额样例在 `src-tauri/tests/expenses.rs`（`annual_buckets_match_design_example`），前端桶口径在 `tests/expense-annual.test.mjs`。`src-tauri/tests/plan_profile.rs` 对真实临时 Store 测试 core 保存、修订冲突、提交后回执丢失重放、重启、备份恢复、引用更正和 schema30→31 回滚。不得对正式资料库运行。
 
@@ -228,3 +228,5 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 ### 复盘摘要回归
 
 `tests/review-observations.test.mjs` 覆盖多项待核对同时存在仍保留三类事实、账户范围变化、零／未记录收入、付款读取不可用／空记录／未知金额及退款净额。`PlanningReviewSummary` 分区展示本期事实和待核对事项，保留原发生保存器与窗口；浏览器使用虚构收入与复盘页，检查补录／当前计划／发生核对入口、局部读取失败与窄窗口。
+
+规划资金起点文案须同时覆盖完整盘点与手填金额：通用详情与养老金调整对比使用“资金起点”，独立养老金页无完整盘点时明确说明估算日期，不声称存在盘点。

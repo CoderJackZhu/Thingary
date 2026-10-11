@@ -103,6 +103,6 @@ export function PensionComparisonNote({ comparison }: { comparison: PensionCompa
     <p><strong>{label}的变化</strong></p>
     <p>{change}</p>
     {comparison.statePensionMonthlyCents !== null && <p>估算的国家养老金每月约 {forecastMoney(comparison.statePensionMonthlyCents)}<span className="muted small">，不代表待遇核定结果。</span></p>}
-    <p className="muted small">两边使用同一盘点{comparison.snapshotDate ? `（${comparison.snapshotDate}）` : ''}、同一日期（{comparison.today}）与这次的其他条件。</p>
+    <p className="muted small">两边使用同一资金起点{comparison.snapshotDate ? `（盘点日期 ${comparison.snapshotDate}）` : ''}、同一日期（{comparison.today}）与这次的其他条件。</p>
   </aside>;
 }

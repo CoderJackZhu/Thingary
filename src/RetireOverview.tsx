@@ -64,7 +64,7 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
     </article>
 
     {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? '临时试算，未保存'}</span> : <span className="ui-tag">按已保存的预计投入</span>} 每月存入 {money(basic.contribution)}（不含投资收益）；{terminalText[basic.terminal]}。</p>}
-    <p className="muted small">从 {P.anchor_date ?? '当前'} 的盘点开始算，金额按 {P.monetary_basis_date ?? '当前'} 的物价。每月的付款按月初扣，存入按月末算。</p>
+    <p className="muted small">从 {P.anchor_date ?? '当前'} 的资金起点开始算，金额按 {P.monetary_basis_date ?? '当前'} 的物价。每月的付款按月初扣，存入按月末算。</p>
     <EventWarnings calc={calc}/>
 
     <article className="ui-card rd-card" aria-label="投资组合轨迹">
