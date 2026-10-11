@@ -22,10 +22,10 @@ export function useValueMode(): [ValueMode, (v: ValueMode) => void] {
   return [mode, v => { set(v); try { localStorage.setItem(storeKey, v); } catch { /* 偏好存不下也不影响使用 */ } }];
 }
 
-export const valueModeLabel: Record<ValueMode, string> = { today: '现值', nominal: '名义值' };
+export const valueModeLabel: Record<ValueMode, string> = { today: '按今天物价', nominal: '未来账面金额' };
 export function ValueToggle({ value, onChange }: { value: ValueMode; onChange: (v: ValueMode) => void }) {
-  return <span className="rd-toggle"><Segments label="金额显示方式" value={value} options={[{ value: 'today', label: '现值' }, { value: 'nominal', label: '名义值' }]} onChange={onChange}/>
-    <Info text={value === 'today' ? '将未来的金额换算回今天的购买力，使金额与你当前的预算具有可比性。' : '显示计入通胀后的未来名义金额，这是你在未来那一年将看到的数字。'}/></span>;
+  return <span className="rd-toggle"><Segments label="金额显示方式" value={value} options={[{ value: 'today', label: valueModeLabel.today }, { value: 'nominal', label: valueModeLabel.nominal }]} onChange={onChange}/>
+    <Info text={value === 'today' ? '将未来的金额换算回今天的购买力，使金额与你当前的预算具有可比性。' : '显示计入通胀后的金额，也就是未来那一年账面上的数字。'}/></span>;
 }
 
 const text = (segs: Seg[]) => segs.map((s, i) => s.strong ? <strong key={i}>{s.t}</strong> : <span key={i}>{s.t}</span>);
@@ -56,7 +56,7 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
       {v.sub.length > 0 && <p className="rd-sub">{text(v.sub)}</p>}
       <p className="rd-summary">{text(v.summary)}</p>
       <div className="rd-progress">
-        <div className="rd-progress-row"><span>当前投资组合<b>{money(String(Math.round(pr.now)))}</b></span><span className="rd-right">{pr.goal_age} 岁时{P.mode === 'fire' ? '目标' : '所需'}<b>{fmt(pr.target)}</b><Info text={`根据计划的支出、收入、收益率与养老金假设，估算目标退休年龄所需的资金。以${valueModeLabel[mode]}显示。`}/></span></div>
+        <div className="rd-progress-row"><span>当前投资组合<b>{money(String(Math.round(pr.now)))}</b></span><span className="rd-right">{pr.goal_age} 岁时{P.mode === 'fire' ? '目标' : '所需'}<b>{fmt(pr.target)}</b><Info text={`根据计划的支出、收入、收益率与养老金假设，估算目标退休年龄所需的资金。金额显示方式：${valueModeLabel[mode]}。`}/></span></div>
         {pr.pct !== null ? <div className="rd-bar" role="img" aria-label={`已达标 ${Math.round(pr.pct)}%`}><div className={`rd-bar-fill ${v.tone}`} style={{ width: `${pr.pct}%` }}/>{pr.coast_pct !== null && pr.coast_pct > 0 && pr.coast_pct < 100 && <i className="rd-bar-coast" style={{ left: `${pr.coast_pct}%` }} title="Coast FIRE"/>}</div> : <p className="muted small">当前假设下无需额外资金。</p>}
         {pr.pct !== null && <p className="rd-progress-note">已达标 {Math.round(pr.pct)}%</p>}
       </div>
@@ -70,12 +70,15 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
     <article className="ui-card rd-card" aria-label="投资组合轨迹">
       <div className="rd-head"><h3>投资组合轨迹<Info text={P.mode === 'fire' ? '财务独立标记显示首个可持续的年龄。「所需」是在计入剩余计划供款后，每个年龄段所需的最低余额；「预计」是预计的投资组合路径。' : '退休标记显示提取开始的时间。「所需」是每个年龄段维持计划退休支出至规划终点所需的最低余额。'}/></h3><span className="muted small">预测 · {Math.round(points[0].age)} → {endAge} 岁</span></div>
       <TrajectoryChart points={points} rows={rows} goalAge={P.target_months / 12} fiAge={fiAge} retireAge={retireAge} tone={v.tone} fmt={fmt} valueLabel={valueModeLabel[mode]}/>
+      <details className="rd-snapshot rd-milestone-details" aria-label="财务独立里程碑">
+        <summary><strong>财务独立里程碑</strong><span className="muted small">比较不同生活预算</span></summary>
       <div className={`rd-milestones${sameCoastFi ? ' merged' : ''}`}>{(sameCoastFi ? ms.filter(m => m.id !== 'coast') : ms).map(m => <div key={m.id} className={m.done ? 'done' : undefined}><span>{m.label}{m.done && <em>已完成</em>}</span><strong>{compactYuan(m.amount)}</strong><small>{m.hint}</small>{sameCoastFi && m.id === 'fi' && <small>收益假设为 0% 时，Coast FIRE 与 FI 相同</small>}</div>)}</div>
+      </details>
     </article>
 
     <Coverage calc={calc} mode={mode} basic={!!basic}/>
     <Snapshot mode={mode} rows={rows}/>
-    <aside className="rd-disclaimer"><strong>有一点需要记住</strong><p>预测取决于你的假设。实际结果可能不同。不构成财务建议。</p></aside>
+    {!basic && <aside className="rd-disclaimer"><p>预测取决于你的假设，实际结果可能不同，不保证未来一定够用。</p></aside>}
   </div>;
 }
 
@@ -107,7 +110,7 @@ function Coverage({ calc, mode, basic }: { calc: Ready; mode: ValueMode; basic: 
     <div className="rd-head"><div><p className="eyebrow">覆盖情况</p><h3>退休支出覆盖情况</h3></div>
       <Segments label="覆盖视图" value={view} options={[{ value: 'at', label: '退休时' }, { value: 'over', label: '随时间变化' }]} onChange={setView}/></div>
     {view === 'over' ? <>
-      <p className="muted small">各颜色表示收入或资产提款承担的预算部分；未覆盖部分单独显示。数值以{valueModeLabel[mode]}显示；堆叠区域显示支出的资金来源，虚线为计划退休支出。</p>
+      <p className="muted small">各颜色表示收入或资产提款承担的预算部分；未覆盖部分单独显示。金额显示方式：{valueModeLabel[mode]}；堆叠区域显示支出的资金来源，虚线为计划退休支出。</p>
       <CoverageChart series={series} fmt={fmt} valueLabel={valueModeLabel[mode]}/></> : <>
       <p className="rd-cov-caption">{c.age} 岁时的快照：计划 <strong>{fmt(c.spend)}/月</strong> 该时点的预算及各项资金贡献。</p>
       <label className="rd-slider"><span>查看年龄</span><input type="range" aria-label="覆盖快照年龄" min={Math.ceil(start / 12)} max={Math.floor(end / 12)} value={c.age} onChange={e => setPick(Number(e.target.value) * 12)}/><b>{c.age} 岁</b></label>
@@ -127,7 +130,7 @@ function Coverage({ calc, mode, basic }: { calc: Ready; mode: ValueMode; basic: 
 function Snapshot({ mode, rows }: { mode: ValueMode; rows: ReturnType<typeof snapshotRows> }) {
   const hasUnlock = rows.some(r => r.unlock > 0), hasOneoff = rows.some(r => r.oneoff > 0), hasPeriod = rows.some(r => r.period !== null);
   return <details className="ui-card rd-card rd-snapshot" aria-label="逐年快照">
-    <summary><strong>逐年快照（{rows.length} 行）</strong><span className="muted small">金额按{valueModeLabel[mode]}</span></summary>
+    <summary><strong>逐年快照（{rows.length} 行）</strong><span className="muted small">{valueModeLabel[mode]}</span></summary>
     <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="逐年快照表"><table className="ui-table rd-table"><thead><tr><th>年龄</th><th>{hasPeriod ? '期间' : '年份'}</th><th>阶段</th><th className="amount">期末投资组合</th><th className="amount">供款/年</th><th className="amount">退休收入/年</th>{hasUnlock && <th className="amount">一次性解锁</th>}{hasOneoff && <th className="amount">大额一次性</th>}<th className="amount">计划支出/年</th><th className="amount">投资组合提取/年</th></tr></thead>
       <tbody>{rows.map(r => <tr key={r.start_month} className={r.marks.length ? 'selected' : undefined}><td>{r.age}{r.marks.length > 0 && <span className="ui-tag">{r.marks.join(' · ')}</span>}</td><td>{r.period ?? r.year}</td><td>{r.retire_starts ? '积累 → 退休' : r.phase === 'retired' ? '退休' : '积累'}</td><td className="amount">{yuan(r.end)}</td><td className="amount">{r.contribution ? yuan(r.contribution) : '—'}</td><td className="amount">{r.income ? yuan(r.income) : '—'}</td>{hasUnlock && <td className="amount">{r.unlock ? yuan(r.unlock) : '—'}</td>}{hasOneoff && <td className="amount">{r.oneoff ? yuan(r.oneoff) : '—'}</td>}<td className="amount">{r.spend ? yuan(r.spend) : '—'}</td><td className="amount">{r.withdrawal ? yuan(r.withdrawal) : '—'}{r.unfunded > 0 && <small className="warn"> 缺 {yuan(r.unfunded)}</small>}</td></tr>)}</tbody></table></div>
     <p className="muted small">国家养老金和其他退休收入合并在「退休收入」；这次算进来的公积金和个人养老金在领取年龄一次性计入，单列一栏；没算进来的见目标页的计算依据。起点是当前盘点，逐月推演后每 12 个月汇总一行：期间从资金起点算起，不是日历年；年龄是这一行开始时的整岁，标签标在实际发生的那一行。</p>

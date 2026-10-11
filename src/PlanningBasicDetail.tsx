@@ -59,6 +59,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
     <p><button type="button" className="ui-link" onClick={onBack}>{trial !== null ? '← 返回目标（临时试算不会保存）' : '← 返回目标'}</button></p>
     {comparison && <PensionComparisonNote comparison={comparison}/>}
     <div className="rd-tabs" role="group" aria-label="退休页签"><button type="button" aria-pressed={tab === 'overview'} onClick={() => setTab('overview')}>概览</button><button type="button" aria-pressed={tab === 'lab'} onClick={() => setTab('lab')}>假设分析</button></div>
+    <p className="muted small" role="note">预测取决于你填写的生活费、收入和收益假设，实际结果可能不同，不保证未来一定够用。</p>
     <div className="rd-grid">
       <div className="rd-main">
         <Trial trial={trial} onTrial={setTrial} auto={auto ? hist : null} saved={savedContribution} busy={saver.busy || saver.stuck} onSave={() => void saveContribution(trial)} onAdopt={() => void saveContribution(hist.saving)} notice={saver.notice}/>

@@ -208,3 +208,5 @@
 .rs-route .rs-item-head { justify-content: flex-start; gap: 8px; }
 .rs-route .rs-item-head input { flex: 0 0 auto; width: auto; }
 .rs-route-result { color: var(--accent); font-weight: 600; }
+
+.rd-milestone-details { margin-top: 16px; }

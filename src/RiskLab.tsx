@@ -100,15 +100,16 @@ function Moves({ P, year, fire }: { P: Plan; year: number; fire: boolean }) {
   useEffect(() => { setBuilt(null); }, [P]);
   function build() { setBusy(true); setTimeout(() => { setBuilt({ a: contributionReturnMatrix(P, year), b: ageSpendingMatrix(P, year) }); setBusy(false); }, 0); }
   const ageLabel = fire ? '财务独立年龄' : '准备就绪年龄';
-  return <article className="ui-card rd-card" aria-label="决策矩阵">
-    <div className="rd-head"><div><p className="eyebrow">什么对计划影响最大？</p><h3>哪些因素影响计划？</h3></div>{built && <Segments label="矩阵数值" value={show} options={[{ value: 'money', label: '期末剩余资金' }, { value: 'age', label: ageLabel }]} onChange={setShow}/>}</div>
+  return <details className="ui-card rd-card rd-snapshot" aria-label="决策矩阵">
+    <summary><strong>哪些因素影响计划？</strong><span className="muted small">展开比较储蓄、收益和预算</span></summary>
+    <div className="rd-head">{built && <Segments label="矩阵数值" value={show} options={[{ value: 'money', label: '期末剩余资金' }, { value: 'age', label: ageLabel }]} onChange={setShow}/>}</div>
     <p className="muted small">比较储蓄、收益率、退休年龄和支出。绿色表示比基础计划更好，黄色表示更差。红色表示存在缺口或没有剩余资金；黑框是基础计划。</p>
     {!built ? <div className="empty"><h4>看看哪些改变最有帮助。</h4><p className="muted small">从当前条件出发，比较投入、收益、预算或目标时间的变化。</p><button type="button" className="primary" disabled={busy} onClick={build}>{busy ? '正在构建…' : '构建图表'}</button></div>
       : <div className="rl-matrices">
         <MatrixView title="供款 × 收益率" sub={show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel} m={built.a} show={show} rowText={d => rateText(P.r_before_hundredths + d)} colText={c => compactYuan(c)} rowHead="实际收益率" colHead="每月供款"/>
         <MatrixView title={`${fire ? '期望年龄' : '退休年龄'} × 生活预算`} sub={(show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel) + '；固定事件付款不调整'} m={built.b} show={show} rowText={c => compactYuan(c)} colText={a => `${a}`} rowHead="每月预算分项" colHead={fire ? '期望年龄' : '退休年龄'} flatHint={fire}/>
       </div>}
-  </article>;
+  </details>;
 }
 
 function tone(cell: Cell, base: Cell, show: Show): string {
@@ -129,13 +130,14 @@ function Crash({ P, year, fmt }: { P: Plan; year: number; fmt: (c: number) => st
   const [paths, setPaths] = useState<SorrPath[] | null | undefined>(undefined);
   useEffect(() => { setPaths(undefined); }, [P]);
   const baseFinal = paths?.[0]?.final ?? 0;
-  return <article className="ui-card rd-card" aria-label="崩盘路径">
-    <div className="rd-head"><div><p className="eyebrow">高级检查</p><h3>早期市场崩盘路径</h3></div><button type="button" className="primary" onClick={() => setPaths(sorr(P, year))}>运行路径</button></div>
+  return <details className="ui-card rd-card rd-snapshot" aria-label="收益顺序检查">
+    <summary><strong>收益顺序检查</strong><span className="muted small">同一次下跌，发生早晚有什么不同</span></summary>
+    <div className="rd-head"><button type="button" className="primary" onClick={() => setPaths(sorr(P, year))}>运行路径</button></div>
     <p className="muted small">比较一组相同收益的不同排列：年率 −30% 的下跌分别放在退休开头和末段，持续时间相同、最多一年，其余时间沿用所设收益。基准不含下跌；两条压力路径的差异来自发生时点。</p>
     {paths === undefined ? <p className="muted small">检查崩盘时点风险。将同一次下跌分别放到退休开始和规划末段，比较提款受到的影响。</p>
       : paths === null ? <p className="muted small">崩盘路径不可用。此检查需要退休开始时投资组合为正值，且规划期内已经达成退休。</p>
       : <><PathsChart paths={paths} fmt={fmt}/>
         <table className="rl-sorr"><thead><tr><th>情景</th><th>存续</th><th>最早缺口</th><th className="amount">{Math.floor(P.horizon_months / 12)} 岁余额</th></tr></thead>
           <tbody>{paths.map(p => <tr key={p.id}><td>{p.label}{p.id === 'base' && <span className="ui-tag">基准</span>}</td><td>{p.survived ? '资金够用' : <span className="warn">资金不足</span>}</td><td>{p.shortfall_age !== null ? `${p.shortfall_age} 岁` : p.failure_age !== null ? `${p.failure_age} 岁` : '无'}</td><td className="amount">{fmt(p.final)}{p.id !== 'base' && <small className="muted"> {p.final - baseFinal >= 0 ? '+' : '−'}{fmt(Math.abs(p.final - baseFinal))}</small>}</td></tr>)}</tbody></table></>}
-  </article>;
+  </details>;
 }

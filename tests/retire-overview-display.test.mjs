@@ -99,6 +99,17 @@ test('yearly snapshot collapses by default with a row count in its summary', () 
   const details = r.find('details', p => p['aria-label'] === '逐年快照');
   assert.ok(details, '逐年快照容器');
   assert.equal(details.props.open, undefined, '默认收起');
-  assert.match(r.text(r.find('summary')), new RegExp(`逐年快照（${rows.length} 行）`));
+  assert.match(r.text(details.props.children[0]), new RegExp(`逐年快照（${rows.length} 行）`));
   assert.ok(r.find('div', p => p['aria-label'] === '逐年快照表'), '表格区域与读屏标签保留');
+});
+
+
+test('milestones are optional while the conclusion and trajectory remain available', () => {
+  const calc = calcOf({}), r = overview(calc);
+  const details = r.find('details', p => p['aria-label'] === '财务独立里程碑');
+  assert.ok(details); assert.equal(details.props.open, undefined);
+  assert.ok(r.find('article', p => p['aria-label'] === '退休结论'));
+  assert.ok(r.find('TrajectoryChart'));
+  const toggle = r.find('Segments', p => p.label === '金额显示方式');
+  assert.deepEqual(Array.from(toggle.props.options, o => [o.value, o.label]), [['today','按今天物价'],['nominal','未来账面金额']]);
 });
