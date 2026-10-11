@@ -19,13 +19,13 @@ export function PlanningProfileFields({ f, setF, today, frozen, hideBirth = fals
   return <>
     <section className="form-block">
       {show('region') && <ConfirmationField label="参保地" attention={completion} issue={issue}><div role="radiogroup" aria-label="参保地">
-        {[{ value: 'beijing' as const, label: '北京（内置参数）', hint: '参数带官方来源与核对日期。' }, { value: 'custom' as const, label: '其他城市（自己填当地参数）', hint: '按全国统一公式，用你填的当地参数估算。' }].map(r => <label className="plan-choice" key={r.value}><input type="radio" name="pension-region" aria-label={r.label} checked={f.region === r.value} disabled={frozen} onChange={() => setF(x => x.region === r.value ? x : { ...x, region: r.value, oWage: '', oLower: '', oUpper: '' })}/><span><strong>{r.label}</strong><small>{r.hint}</small></span></label>)}
+        {[{ value: 'beijing' as const, label: '北京（内置参数）', hint: '参数带官方来源与核对日期。' }, { value: 'custom' as const, label: '其他城市（自己填当地参数）', hint: '按全国统一公式，用你填的当地参数估算。' }].map(r => <label className="plan-choice" key={r.value}><input type="radio" name="pension-region" aria-label={r.label} checked={f.region === r.value} disabled={frozen} onChange={() => setF(x => x.region === r.value ? x : { ...x, region: r.value, oWage: '', oWageYear: '', oWageSource: '', benefitCents: '', benefitYear: '', benefitSource: '', oLower: '', oUpper: '' })}/><span><strong>{r.label}</strong><small>{r.hint}</small></span></label>)}
       </div></ConfirmationField>}
-      {f.region === 'custom' && (show('oWage') || show('region')) && <ConfirmationField label="当地养老金计发基数" attention={completion} issue={issue}><FormRow label="当地养老金计发基数（月，必填）" hint={`一般是当地上年度职工月平均工资，可在当地人社局公告中查到；本次按 ${Number(today.slice(0, 4)) - 1} 年度作为假设`}><CentInput label="当地养老金计发基数" value={f.oWage} disabled={frozen} onChange={v => set('oWage', v)}/></FormRow></ConfirmationField>}
+      {f.region === 'custom' && (show('oWage') || show('region')) && <ConfirmationField label="当地养老金计发基数" attention={completion} issue={issue}><FormRow label="当地养老金计发基数（月，必填）" hint={`旧资料的合并参考值，同时用于指数和默认上下限；下方可单独填待遇基数。本次默认工资年度为 ${Number(today.slice(0, 4)) - 1} 年度作为假设`}><CentInput label="当地养老金计发基数" value={f.oWage} disabled={frozen} onChange={v => set('oWage', v)}/></FormRow></ConfirmationField>}
       {f.region === 'custom' && (show('oWage') || show('region')) && <details className="form-block"><summary>缴费基数上下限与利率（留空用默认）</summary>
-        <p className="muted small">上下限默认按计发基数的 60% / 300% 假设，四舍五入到分。全国统一利率沿用内置测算值，未来利率仍是假设。</p>
-        <FormRow label="缴费基数下限"><CentInput label="缴费基数下限" value={f.oLower} disabled={frozen} placeholder={defaults ? (Number(defaults.base_lower_cents) / 100).toFixed(2) : '计发基数的 60%'} onChange={v => set('oLower', v)}/></FormRow>
-        <FormRow label="缴费基数上限"><CentInput label="缴费基数上限" value={f.oUpper} disabled={frozen} placeholder={defaults ? (Number(defaults.base_upper_cents) / 100).toFixed(2) : '计发基数的 300%'} onChange={v => set('oUpper', v)}/></FormRow>
+        <p className="muted small">上下限默认按上方工资参考值的 60% / 300% 假设，四舍五入到分。全国统一利率沿用内置测算值，未来利率仍是假设。</p>
+        <FormRow label="缴费基数下限"><CentInput label="缴费基数下限" value={f.oLower} disabled={frozen} placeholder={defaults ? (Number(defaults.base_lower_cents) / 100).toFixed(2) : '工资参考值的 60%'} onChange={v => set('oLower', v)}/></FormRow>
+        <FormRow label="缴费基数上限"><CentInput label="缴费基数上限" value={f.oUpper} disabled={frozen} placeholder={defaults ? (Number(defaults.base_upper_cents) / 100).toFixed(2) : '工资参考值的 300%'} onChange={v => set('oUpper', v)}/></FormRow>
         <FormRow label="记账利率（%）"><input aria-label="记账利率" inputMode="decimal" value={f.oNotional} disabled={frozen} placeholder={hundredthsToPct(beijing.notional_rate_hundredths)} onChange={e => set('oNotional', e.target.value)}/></FormRow>
         <FormRow label="公积金利率（%）"><input aria-label="公积金利率" inputMode="decimal" value={f.oHpf} disabled={frozen} placeholder={hundredthsToPct(beijing.hpf_rate_hundredths)} onChange={e => set('oHpf', e.target.value)}/></FormRow>
       </details>}
@@ -59,11 +59,20 @@ export function PlanningProfileFields({ f, setF, today, frozen, hideBirth = fals
       <ConfirmationField label="个人养老金收益率" attention={completion} issue={issue}><FormRow label="个人养老金收益率（年，名义）" hint="这是假设"><input aria-label="个人养老金收益率" inputMode="decimal" value={f.ppReturn} disabled={frozen} onChange={e => set('ppReturn', e.target.value)}/></FormRow></ConfirmationField>
     </details>}
     {!missingKeys && f.region === 'beijing' && <details className="form-block"><summary>参数覆盖（留空使用内置值）</summary>
-      <ConfirmationField label="上年度月平均工资" attention={completion} issue={issue}><FormRow label="上年度月平均工资"><CentInput label="上年度月平均工资" value={f.oWage} disabled={frozen} placeholder={(Number(beijing.avg_wage_cents) / 100).toFixed(2)} onChange={v => set('oWage', v)}/></FormRow></ConfirmationField>
+      <ConfirmationField label="上年度月平均工资" attention={completion} issue={issue}><FormRow label="缴费指数用工资参考（月）"><CentInput label="上年度月平均工资" value={f.oWage} disabled={frozen} placeholder={(Number(beijing.avg_wage_cents) / 100).toFixed(2)} onChange={v => set('oWage', v)}/></FormRow></ConfirmationField>
       <ConfirmationField label="缴费基数下限" attention={completion} issue={issue}><FormRow label="缴费基数下限"><CentInput label="缴费基数下限" value={f.oLower} disabled={frozen} placeholder={(Number(beijing.base_lower_cents) / 100).toFixed(2)} onChange={v => set('oLower', v)}/></FormRow></ConfirmationField>
       <ConfirmationField label="缴费基数上限" attention={completion} issue={issue}><FormRow label="缴费基数上限"><CentInput label="缴费基数上限" value={f.oUpper} disabled={frozen} placeholder={(Number(beijing.base_upper_cents) / 100).toFixed(2)} onChange={v => set('oUpper', v)}/></FormRow></ConfirmationField>
       <ConfirmationField label="记账利率" attention={completion} issue={issue}><FormRow label="记账利率（%）"><input aria-label="记账利率" inputMode="decimal" value={f.oNotional} disabled={frozen} placeholder={hundredthsToPct(beijing.notional_rate_hundredths)} onChange={e => set('oNotional', e.target.value)}/></FormRow></ConfirmationField>
       <ConfirmationField label="公积金利率" attention={completion} issue={issue}><FormRow label="公积金利率（%）"><input aria-label="公积金利率" inputMode="decimal" value={f.oHpf} disabled={frozen} placeholder={hundredthsToPct(beijing.hpf_rate_hundredths)} onChange={e => set('oHpf', e.target.value)}/></FormRow></ConfirmationField>
+    </details>}
+    {!missingKeys && f.region !== '' && <details className="form-block planning-pension-references"><summary>分开核对工资参考与养老金计发基数</summary>
+      <p className="muted small">工资参考用于估算缴费指数；待遇计发基数用于计算基础养老金，两者可能不同。未单独填写时沿用原来的合并假设。</p>
+      <FormRow label="工资参考年度（选填）" hint="填写的是上方工资参考金额所属的统计年，不是退休年；需同时填工资金额"><input aria-label="工资参考年度" inputMode="numeric" value={f.oWageYear} disabled={frozen} onChange={e => set('oWageYear', e.target.value)}/></FormRow>
+      <FormRow label="工资参考来源（选填）"><input aria-label="工资参考来源" value={f.oWageSource} maxLength={500} disabled={frozen} onChange={e => set('oWageSource', e.target.value)}/></FormRow>
+      <FormRow label="养老金计发基数（月）" hint="金额、适用年度和来源须一起填写；三项全部清空则恢复原合并假设"><CentInput label="独立养老金计发基数" value={f.benefitCents} disabled={frozen} onChange={v => set('benefitCents', v)}/></FormRow>
+      <FormRow label="计发基数适用年度"><input aria-label="计发基数适用年度" inputMode="numeric" value={f.benefitYear} disabled={frozen} onChange={e => set('benefitYear', e.target.value)}/></FormRow>
+      <FormRow label="计发基数来源" hint="例如公告名称、网址或明确的自定假设；填写来源不等于官方核验"><input aria-label="计发基数来源" value={f.benefitSource} maxLength={500} disabled={frozen} onChange={e => set('benefitSource', e.target.value)}/></FormRow>
+      <p className="muted small">从填写的待遇适用年到退休年，按工资增长率假设换算；这不是未来已公布的待遇金额。不会改变缴费基数上下限或个人账户入账额。</p>
     </details>}
   </>;
 }

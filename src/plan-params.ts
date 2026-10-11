@@ -4,6 +4,7 @@
 
 export type Verified = 'official' | 'reported' | 'unchecked' | 'derived' | 'assumption';
 export type Region = 'beijing' | 'custom';
+export type BenefitBase = { cents: string; year: number; source: string };
 
 /** 利率与增长率一律用「万分比」整数：200 = 2.00%，与盘点比较的 rate_hundredths 同一约定。 */
 export type RegionParams = {
@@ -12,6 +13,9 @@ export type RegionParams = {
   /** 上年度全口径月平均工资（分）及其所属年度。 */
   avg_wage_cents: string;
   avg_wage_year: number;
+  avg_wage_source?: string;
+  /** 独立待遇计发基数，year 是待遇适用年，不是工资统计年。 */
+  benefit_base?: BenefitBase | null;
   /** 月缴费基数上下限（分），自 base_effective 起适用。 */
   base_lower_cents: string;
   base_upper_cents: string;
@@ -20,7 +24,7 @@ export type RegionParams = {
   notional_rate_hundredths: number;
   hpf_rate_hundredths: number;
 };
-export type ParamKey = Exclude<keyof RegionParams, 'region' | 'name' | 'avg_wage_year' | 'base_effective'>;
+export type ParamKey = 'avg_wage_cents' | 'base_lower_cents' | 'base_upper_cents' | 'notional_rate_hundredths' | 'hpf_rate_hundredths';
 export type ParamSource = { key: ParamKey; label: string; verified: Verified; source: string; effective: string; url: string; checked_on: string };
 
 export const beijing: RegionParams = {
@@ -63,11 +67,14 @@ export const pensionMonths: Record<number, number> = {
 };
 
 /** 用户在个人资料里覆盖的参数；缺省用内置值。 */
-export type Overrides = { avg_wage_cents: string | null; base_lower_cents: string | null; base_upper_cents: string | null; notional_rate_hundredths: number | null; hpf_rate_hundredths: number | null };
+export type Overrides = { avg_wage_cents: string | null; avg_wage_year?: number | null; avg_wage_source?: string | null; benefit_base?: BenefitBase | null; base_lower_cents: string | null; base_upper_cents: string | null; notional_rate_hundredths: number | null; hpf_rate_hundredths: number | null };
 export const noOverrides: Overrides = { avg_wage_cents: null, base_lower_cents: null, base_upper_cents: null, notional_rate_hundredths: null, hpf_rate_hundredths: null };
 export const effectiveParams = (base: RegionParams, o: Overrides): RegionParams => ({
   ...base,
   avg_wage_cents: o.avg_wage_cents ?? base.avg_wage_cents,
+  avg_wage_year: o.avg_wage_year ?? base.avg_wage_year,
+  avg_wage_source: o.avg_wage_source ?? (o.avg_wage_cents ? '用户填写；年度未填写时沿用内置参考年度' : '内置工资参考值，来源见参数表'),
+  benefit_base: o.benefit_base ?? null,
   base_lower_cents: o.base_lower_cents ?? base.base_lower_cents,
   base_upper_cents: o.base_upper_cents ?? base.base_upper_cents,
   notional_rate_hundredths: o.notional_rate_hundredths ?? base.notional_rate_hundredths,
@@ -83,11 +90,29 @@ export function paramsFor(profile: { region: Region | null; overrides: Overrides
   if (profile.region !== 'custom' || !o.avg_wage_cents) return null;
   const w = BigInt(o.avg_wage_cents);
   return { region: 'custom', name: '自填地区', avg_wage_cents: o.avg_wage_cents,
-    avg_wage_year: Number(today.slice(0, 4)) - 1, base_effective: '',
+    avg_wage_year: o.avg_wage_year ?? Number(today.slice(0, 4)) - 1,
+    avg_wage_source: o.avg_wage_source ?? '用户填写；年度未填写时假设为当前年份的上一年', benefit_base: o.benefit_base ?? null, base_effective: '',
     base_lower_cents: o.base_lower_cents ?? String((w * 60n + 50n) / 100n),
     base_upper_cents: o.base_upper_cents ?? String(w * 3n),
     notional_rate_hundredths: o.notional_rate_hundredths ?? beijing.notional_rate_hundredths,
     hpf_rate_hundredths: o.hpf_rate_hundredths ?? beijing.hpf_rate_hundredths };
+}
+
+/** Legacy fallback preserves amounts but is explicitly an unconfirmed premise. */
+export function benefitBaseFor(region: RegionParams) {
+  return region.benefit_base
+    ? { ...region.benefit_base, separate: true }
+    : { cents: region.avg_wage_cents, year: region.avg_wage_year + 1, source: '未单独确认；沿用工资参考值作待遇基数假设', separate: false };
+}
+
+export function pensionReferenceIssue(o: Overrides): string | null {
+  const year = (v: number) => Number.isInteger(v) && v >= 1900 && v <= 2199;
+  const source = (v: string) => typeof v === 'string' && v.trim().length > 0 && [...v].length <= 500;
+  if (o.avg_wage_year != null && (!year(o.avg_wage_year) || !o.avg_wage_cents)) return '工资参考年度须为1900至2199的整数，并填写工资金额。';
+  if (o.avg_wage_source != null && (!source(o.avg_wage_source) || !o.avg_wage_cents)) return '工资参考来源须为1至500字，并填写工资金额。';
+  const b = o.benefit_base;
+  if (b && (typeof b.cents !== 'string' || !/^[1-9]\d*$/.test(b.cents) || !Number.isSafeInteger(Number(b.cents)) || Number(b.cents) > 99999999999 || !year(b.year) || !source(b.source))) return '养老金计发基数须填写正整数分金额、1900至2199的适用年度和1至500字的来源。';
+  return null;
 }
 
 /** 北京退休职工医保；不用于估算补缴比例或金额。 */

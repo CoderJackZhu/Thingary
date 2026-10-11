@@ -51,3 +51,19 @@ test('separate fixed derived values or account paths are explicitly rejected',()
   }
   for(const field of ['months','end_month']){const p=input();p.account[field]=null;assert.equal(prepareBeijingPensionPath(p).status,'blocked');}
 });
+
+test('explicit partial-year premise flows through the same candidate without inflating paid service',()=>{
+  const p=input();p.index.retirement_month='2053-10';p.benefit.birth_month='1990-10';
+  p.index.months=p.index.months.filter(m=>m.month<=p.index.retirement_month);
+  p.index.partial_year_basis={...source,wage_months:[{year:2053,months:10}]};
+  const r=ready(p);
+  assert.deepEqual([r.index.average_index.ten_thousandths,r.index.paid_months,r.index.required_months],[10078,262,262]);
+  assert.equal(r.account.account_at_end.cents,'11760000'); // 100000 + 22 * 800 yuan
+  assert.equal(r.benefit.retirement_month,'2053-10');
+  // 12049 * (1 + 1.0078) / 2 -> 12095.99 yuan, * 21.83% -> 2640.55;
+  // 117600 / 117 -> 1005.13 yuan; components sum to 3645.68.
+  assert.equal(r.benefit.total_monthly_cents,364568);
+  assert.equal(r.benefit.scheduled_payment_month,'2053-11');
+  assert.equal(r.index.average_index.basis,'assumption');
+  delete p.index.partial_year_basis;assert.equal(prepareBeijingPensionPath(p).status,'blocked');
+});

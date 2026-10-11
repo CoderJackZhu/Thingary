@@ -1,4 +1,5 @@
 import { contributionCostIssue } from './plan-contribution-cost.ts';
+import { pensionReferenceIssue } from './plan-params.ts';
 import type { PlanningSources } from './plan-basic-contract.ts';
 import { validateDebtRepayment } from './plan-debt.ts';
 
@@ -10,6 +11,7 @@ export function basicConstraintMessages(sources: PlanningSources): string[] {
   const p = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile : null;
   if (!p?.retire.basic) return [];
   const r = p.retire, b = r.basic!, errors: string[] = [], add = (s: string) => errors.push(s);
+  const referenceIssue = pensionReferenceIssue(p.overrides); if (referenceIssue) add(referenceIssue);
   if (b.retirement_contribution_cost) { const issue = contributionCostIssue(b.retirement_contribution_cost); if (issue) add(issue);
   }
   if (p.birth_month !== null && (!month(p.birth_month) || p.birth_month >= sources.today.slice(0, 7))) add('出生年月须合法并早于本月。');

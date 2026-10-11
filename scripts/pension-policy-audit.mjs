@@ -113,6 +113,19 @@ const candidateCases = [
   return { kind: c.kind, input: pathInput, expected: c.expected, observed, matches,
     oracle: '22 versus 21 paid years; zero interest and settled 100000 yuan + future paid months * 800 yuan; cent-rounded benefit components' };
 });
+// Explicit premises expose, rather than resolve, the partial-year ambiguity.
+// 22 annual terms / 21.83 vs (21 + 10/12) / 21.83.
+const partialYearCases = [{ months: 10, expected: 10078 }, { months: 12, expected: 10002 }].map(c => {
+  const indexInput = { ...annualInput, retirement_month: '2053-10',
+    months: annualInput.months.filter(m => m.month <= '2053-10').map(m => ({ ...m, kind: 'paid', base_cents: '1000000' })),
+    partial_year_basis: { ...assumption, wage_months: [{ year: 2053, months: c.months }] } };
+  const result = prepareBeijingIndex(indexInput);
+  const matches = result.status === 'ready' && result.value.average_index.ten_thousandths === c.expected
+    && result.value.required_years_hundredths === 2183 && result.value.average_index.basis === 'assumption';
+  if (!matches) process.exitCode = 1;
+  return { input: indexInput, expected_index: c.expected, result, matches,
+    limitation: 'Conditional divisor sensitivity only; neither premise is selected as official policy.' };
+});
 console.log(JSON.stringify({ status: 'complete-year arithmetic checked; whole Beijing policy validation is incomplete', input,
   limitation: '110.85 yuan is a conditional index sensitivity, NOT a verified policy error for this birth month. Complete-year index and ledger adapter have isolated tests. Account projection and candidate chaining are now implemented only under an explicitly named scenario method, not officially calibrated settlement. Partial-year index rules and entitlement approval remain unverified. Career search remains blocked; the UI amount-check panel does not use the candidate chain.',
   sources: ['https://rsj.beijing.gov.cn/xxgk/2024zcwj/202407/t20240726_3759985.html',
@@ -121,4 +134,4 @@ console.log(JSON.stringify({ status: 'complete-year arithmetic checked; whole Be
   complete_year_audit: { annual_input: annualInput, annual_result: annual, ledger_input: ledgerInput, expected, observed, matches,
     oracle: '20 / 22, rounded to four decimals; cent-rounded base plus account; zero returns and one unpaid retirement month',
     limitation: 'Fictional frozen future base/account, explicit inflation-indexing assumption. Not a live official-calculator comparison or approved entitlement.' },
-  candidate_cases: candidateCases }, null, 2));
+  candidate_cases: candidateCases, partial_year_cases: partialYearCases }, null, 2));

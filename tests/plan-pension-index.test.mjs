@@ -60,3 +60,46 @@ test('exact half rounds up only after summing annual fractions; malformed record
   assert.equal(ready(two).average_index.ten_thousandths,0); // .00004: no rounding annual terms first
   for(const field of ['months','wages']) {const bad=input();bad[field][0]=null;assert.equal(prepareBeijingIndex(bad).status,'blocked');}
 });
+
+test('partial retirement uses explicit divisor and rounded required years, never row count',()=>{
+  const p=input(2020,2041);p.retirement_month='2041-10';p.months=p.months.filter(m=>m.month<=p.retirement_month);
+  p.partial_year_basis={...fact,wage_months:[{year:2041,months:10}]};
+  const r=ready(p);
+  // Literal conditional formula: 21 full ratios + 10/10, divided by 21.83 years.
+  assert.equal(r.average_index.ten_thousandths,10078);
+  assert.equal(r.required_years_hundredths,2183);assert.equal(r.required_months,262);
+  assert.equal(r.average_index.basis,'assumption');
+  assert.equal(r.rows.at(-1).wage_divisor_months,10);
+  assert.equal(r.rows.at(-1).required_months,10);
+  p.partial_year_basis.wage_months[0].months=12;
+  assert.equal(ready(p).average_index.ten_thousandths,10002); // 21 + 10/12, divided by 21.83
+});
+test('partial first year and benefit deduction retain separate paid, required and excluded months',()=>{
+  const p=input(2020,2021);p.required_start_month='2020-07';p.months=p.months.filter(m=>m.month>='2020-07');
+  p.months[0]={month:'2020-07',kind:'unemployment_benefit',...fact};
+  p.months[1]={month:'2020-08',kind:'unpaid',...fact};
+  p.partial_year_basis={...fact,wage_months:[{year:2020,months:12}]};
+  const r=ready(p);
+  assert.deepEqual([r.paid_months,r.required_months,r.unpaid_months,r.excluded_months],[16,17,1,1]);
+  assert.equal(r.required_years_hundredths,142);
+  assert.equal(r.average_index.ten_thousandths,9390); // (4/12 + 1) / 1.42
+  assert.deepEqual([r.rows[0].paid_months,r.rows[0].required_months,r.rows[0].excluded_months,r.rows[0].unpaid_months],[4,5,1,1]);
+});
+test('partial year with all months excluded needs no wage and cannot add paid service',()=>{
+  const p=input(2020,2021);p.required_start_month='2020-07';p.months=p.months.filter(m=>m.month>='2020-07');
+  p.months.filter(m=>m.month<'2021').forEach(m=>{m.kind='unemployment_benefit';m.base_cents=null;});
+  p.wages.shift();p.partial_year_basis={...fact,wage_months:[]};
+  const r=ready(p);assert.equal(r.average_index.ten_thousandths,10000);
+  assert.deepEqual([r.paid_months,r.required_months,r.excluded_months],[12,12,6]);
+  assert.equal(r.rows[0].wage_divisor_months,null);
+});
+test('explicit partial-year premises cannot hide unknown records or overwrite complete years',()=>{
+  const fixture=()=>{const p=input();p.retirement_month='2022-10';p.months=p.months.filter(m=>m.month<=p.retirement_month);p.partial_year_basis={...fact,wage_months:[{year:2022,months:10}]};return p;};
+  const edits=[p=>p.partial_year_basis=null,p=>p.partial_year_basis.source='',p=>p.partial_year_basis.wage_months=[],
+    p=>p.partial_year_basis.wage_months[0].months=0,p=>p.partial_year_basis.wage_months[0].months=13,
+    p=>p.partial_year_basis.wage_months[0].months=1.5,p=>p.partial_year_basis.wage_months.push({year:2020,months:6}),
+    p=>p.partial_year_basis.wage_months.push({year:2022,months:10}),p=>p.partial_year_basis.wage_months[0]=null,
+    p=>p.months.pop(),p=>p.wages.pop(),p=>p.partial_year_basis.wage_months[0].year=2023];
+  for(const edit of edits){const p=fixture();edit(p);assert.equal(prepareBeijingIndex(p).status,'blocked');}
+  const p=fixture(),before=structuredClone(p),r=ready(p);r.rows.at(-1).sources.at(-1).source='changed';assert.deepEqual(p,before);
+});

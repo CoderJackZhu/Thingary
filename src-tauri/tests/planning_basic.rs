@@ -1155,3 +1155,78 @@ fn contribution_cost_unknown_zero_and_invalid_values_keep_their_meanings() {
         assert_eq!(s.plan_profile().unwrap().saved.unwrap().revision, revision);
     }
 }
+
+#[test]
+fn pension_references_preserve_legacy_receipts_and_roundtrip() {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("source");
+    let mut s = Store::open(&root).unwrap();
+    let mut v = serde_json::to_value(input(&s)).unwrap();
+    v["section"] = "pension".into();
+    v["fields"] = serde_json::json!({"birth_month":"1990-06","worker":null,"region":"beijing","paid_months":12,"account_balance_cents":null,"base_cents":null,"past_index_hundredths":null,"flex_months":null,"personal_pension_annual_cents":null,"marginal_tax_hundredths":null,"wage_growth_hundredths":200,"pp_return_hundredths":0,"overrides":{}});
+    let old: Update = serde_json::from_value(v.clone()).unwrap();
+    let before = s.plan_profile_update(&old, "2026-10-12").unwrap();
+    let old_json = serde_json::to_value(&old).unwrap();
+    assert!(old_json["fields"]["overrides"]
+        .get("benefit_base")
+        .is_none());
+    assert!(old_json["fields"]["overrides"]
+        .get("avg_wage_year")
+        .is_none());
+    v["request_id"] = uuid::Uuid::new_v4().to_string().into();
+    v["expected_revision"] = before.revision.into();
+    v["fields"]["overrides"] = serde_json::json!({"avg_wage_cents":"1000000","avg_wage_year":2023,"avg_wage_source":"Fictional wage reference","benefit_base":{"cents":"1204900","year":2025,"source":"Fictional benefit reference"}});
+    let update: Update = serde_json::from_value(v.clone()).unwrap();
+    let after = s.plan_profile_update(&update, "2026-10-12").unwrap();
+    assert_eq!(
+        s.plan_profile_update(&old, "2026-10-12").unwrap().profile,
+        after.profile
+    );
+    assert_eq!(
+        s.plan_profile_update(&update, "2026-10-12")
+            .unwrap()
+            .revision,
+        after.revision
+    );
+    assert_eq!(after.profile.retire, before.profile.retire);
+    let mut conflict = v.clone();
+    conflict["fields"]["overrides"]["benefit_base"]["year"] = 2024.into();
+    assert!(s
+        .plan_profile_update(&serde_json::from_value(conflict).unwrap(), "2026-10-12")
+        .is_err());
+    for bad in [
+        serde_json::json!({"cents":"0","year":2025,"source":"test"}),
+        serde_json::json!({"cents":"01","year":2025,"source":"test"}),
+        serde_json::json!({"cents":"1204900","year":2200,"source":"test"}),
+        serde_json::json!({"cents":"1204900","year":2025,"source":" "}),
+    ] {
+        let mut invalid = v.clone();
+        invalid["request_id"] = uuid::Uuid::new_v4().to_string().into();
+        invalid["expected_revision"] = after.revision.into();
+        invalid["fields"]["overrides"]["benefit_base"] = bad;
+        assert!(s
+            .plan_profile_update(&serde_json::from_value(invalid).unwrap(), "2026-10-12")
+            .is_err());
+        assert_eq!(
+            s.plan_profile().unwrap().saved.unwrap().revision,
+            after.revision
+        );
+    }
+    drop(s);
+    let s = Store::open(&root).unwrap();
+    assert_eq!(
+        s.plan_profile().unwrap().saved.unwrap().profile,
+        after.profile
+    );
+    let backup = d.path().join("references.thingary");
+    s.backup(Some(&backup)).unwrap();
+    let mut restored = Store::open(&d.path().join("restored")).unwrap();
+    let info = restored.inspect_backup(&backup).unwrap();
+    restored
+        .restore(&backup, &info.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(
+        restored.plan_profile().unwrap().saved.unwrap().profile,
+        after.profile
+    );
+}

@@ -2,7 +2,7 @@
 // 输出是估算：内部用浮点，金额在出口取整到分；不得写回或冒充已记录事实。
 // 不处理北京 1998 年 7 月前参保等涉及的过渡性养老金。
 import { elapsedMonths } from './plan-core.ts';
-import { PERSONAL_PENSION_CAP_CENTS, PERSONAL_PENSION_TAX_HUNDREDTHS, pensionMonths } from './plan-params.ts';
+import { PERSONAL_PENSION_CAP_CENTS, PERSONAL_PENSION_TAX_HUNDREDTHS, pensionMonths, benefitBaseFor } from './plan-params.ts';
 import type { Assumptions, RegionParams } from './plan-params.ts';
 
 export type Worker = 'male' | 'female_cadre' | 'female_worker';
@@ -162,7 +162,9 @@ export function project(profile: Profile, region: RegionParams, today: string, q
   // preserve the validated user value rather than silently changing it.
   const kPast = profile.past_index_hundredths === null ? kNow : profile.past_index_hundredths / 100;
   const kAvg = totalMonths === 0 ? 0 : (Math.max(0, profile.paid_months) * kPast + (employment.length ? indexSum : effective * kNow)) / totalMonths;
-  const wageAtStart = wage * (1 + g) ** Math.max(0, retireYear - 1 - region.avg_wage_year);
+  const benefitBase = benefitBaseFor(region);
+  const benefitYears = retireYear - benefitBase.year;
+  const wageAtStart = cents(benefitBase.cents) * (1 + g) ** (benefitBase.separate ? benefitYears : Math.max(0, benefitYears));
   const basePension = ((wageAtStart + wageAtStart * kAvg) / 2) * (totalMonths / 12) * 0.01;
   const disbursement = disbursementMonths(start);
   const accountPension = account / disbursement;

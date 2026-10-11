@@ -16,7 +16,7 @@ export type BeijingPensionPathInput = {
 const blocked = (kind:'missing'|'invalid',field:string,message:string) => ({status:'blocked',issues:[{kind,field,message}]} as const);
 
 /** Derived amounts cannot be supplied separately. All future contribution and
- * interest premises stay explicit, and partial index years remain unsupported. */
+ * interest premises stay explicit; partial index years require divisor premises. */
 export function prepareBeijingPensionPath(input: BeijingPensionPathInput) {
   for(const field of ['index','account','benefit','ledger'] as const){
     if(input[field]==null)return blocked('missing',field,'请明确该组条件，未知不能自动填补。');

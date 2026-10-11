@@ -21,10 +21,24 @@ pub struct Assumptions {
 #[serde(default, deny_unknown_fields)]
 pub struct Overrides {
     pub avg_wage_cents: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_wage_year: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avg_wage_source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub benefit_base: Option<BenefitBase>,
     pub base_lower_cents: Option<String>,
     pub base_upper_cents: Option<String>,
     pub notional_rate_hundredths: Option<i32>,
     pub hpf_rate_hundredths: Option<i32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BenefitBase {
+    pub cents: String,
+    pub year: i32,
+    pub source: String,
 }
 
 /// One retirement spending bucket besides the main budget in `Retire::spend_cents`.
@@ -566,6 +580,30 @@ impl Profile {
         }
         validate_retire(&self.retire, &self.assumptions, today)?;
         let o = &self.overrides;
+        let source_valid = |s: &str| !s.trim().is_empty() && s.chars().count() <= 500;
+        if o.avg_wage_year
+            .is_some_and(|y| !(1900..=2199).contains(&y) || o.avg_wage_cents.is_none())
+            || o.avg_wage_source
+                .as_ref()
+                .is_some_and(|s| !source_valid(s) || o.avg_wage_cents.is_none())
+        {
+            return Err(bad(
+                "PROFILE_REFERENCE",
+                "工资参考年度或来源无效，或未填写工资金额",
+            ));
+        }
+        if let Some(b) = &o.benefit_base {
+            money(&b.cents, true, "养老金计发基数")?;
+            if b.cents.starts_with('0')
+                || !(1900..=2199).contains(&b.year)
+                || !source_valid(&b.source)
+            {
+                return Err(bad(
+                    "PROFILE_REFERENCE",
+                    "养老金计发基数须有有效适用年度和来源",
+                ));
+            }
+        }
         for (value, label) in [
             (&o.avg_wage_cents, "上年度月平均工资"),
             (&o.base_lower_cents, "缴费基数下限"),

@@ -11,7 +11,7 @@ import type { PensionForm } from './planning-basic-forms';
 import { useSectionSaver } from './planning-basic-data';
 import { hasPensionProfile, STALE_MONTHS, ageText, quitAges, rateText, staleMonths } from './plan';
 import type { PlanningSources, ProfileState, StoredProfile, CompletePensionProfile } from './plan';
-import { paramsFor, isOverridden, paramSources, verifiedText } from './plan-params';
+import { paramsFor, isOverridden, paramSources, verifiedText, benefitBaseFor } from './plan-params';
 import type { ParamKey, Overrides } from './plan-params';
 import { ageMonthsAt, byQuitAge, project, startAgeMonths } from './plan-pension';
 import type { Projection } from './plan-pension';
@@ -124,16 +124,22 @@ function Table({ calc }: { calc: Calc }) {
         <td>{r.eligible ? '满足' : <span className="ui-tag warn">不足 {Math.ceil(r.required_months / 12)} 年</span>}</td></tr>)}</tbody></table></article>;
 }
 
+function BenefitBasisRow({ region }: { region: NonNullable<ReturnType<typeof paramsFor>> }) {
+  const b = benefitBaseFor(region);
+  return <tr><td>养老金计发基数（{b.year} 年待遇口径）</td><td className="amount">{money(b.cents)}</td><td><span className={'ui-tag' + (b.separate ? '' : ' warn')}>{b.separate ? '单独填写，未作官方核验' : '沿用旧假设，待确认'}</span><small className="muted plan-source">{b.source}</small><small className="muted plan-source">按工资增长假设换算到退休年；不影响缴费上下限和个人账户。</small></td></tr>;
+}
+
 function Params({ overrides, region }: { overrides: Overrides; region: NonNullable<ReturnType<typeof paramsFor>> }) {
   if (region.region === 'custom') return <article className="ui-card ui-content"><div className="ui-section-head"><h3>参数表（自填地区）</h3><span>你填写的参数</span></div>
     <table className="ui-table plan-params"><thead><tr><th>参数</th><th className="amount">取值</th><th>依据与核对状态</th></tr></thead><tbody>
-      {([['avg_wage_cents', `养老金计发基数（${region.avg_wage_year} 年度，假设）`], ['base_lower_cents', '月缴费基数下限'], ['base_upper_cents', '月缴费基数上限'], ['notional_rate_hundredths', '个人账户未来记账利率'], ['hpf_rate_hundredths', '公积金账户存款利率']] as [ParamKey, string][]).map(([key, label]) => <tr key={key}><td>{label}</td><td className="amount">{key.endsWith('rate_hundredths') ? rateText(region[key] as number) : money(region[key] as string)}</td><td><span className="ui-tag">用户自定值</span><small className="muted plan-source">{isOverridden(key, overrides) ? '你填写的参数，未作官方核验。' : key === 'base_lower_cents' ? '按计发基数 60% 假设。' : key === 'base_upper_cents' ? '按计发基数 300% 假设。' : '全国统一利率沿用内置值；未来利率为测算假设。'}</small></td></tr>)}
-    </tbody></table><p className="muted small">计发基数按上一年度作为假设；默认上下限和未来利率均可在个人资料里覆盖。</p></article>;
+      {([['avg_wage_cents', `缴费指数用工资参考（${region.avg_wage_year} 年）`], ['base_lower_cents', '月缴费基数下限'], ['base_upper_cents', '月缴费基数上限'], ['notional_rate_hundredths', '个人账户未来记账利率'], ['hpf_rate_hundredths', '公积金账户存款利率']] as [ParamKey, string][]).map(([key, label]) => <tr key={key}><td>{label}</td><td className="amount">{key.endsWith('rate_hundredths') ? rateText(region[key] as number) : money(region[key] as string)}</td><td><span className="ui-tag">用户自定值</span><small className="muted plan-source">{isOverridden(key, overrides) ? '你填写的参数，未作官方核验。' : key === 'base_lower_cents' ? '按工资参考值 60% 假设。' : key === 'base_upper_cents' ? '按工资参考值 300% 假设。' : '全国统一利率沿用内置值；未来利率为测算假设。'}</small></td></tr>)}
+      <BenefitBasisRow region={region}/>
+    </tbody></table><p className="muted small">工资参考：{region.avg_wage_year} 年；{region.avg_wage_source}。未单独填待遇基数时沿用合并假设；默认上下限和未来利率可在个人资料里覆盖。</p></article>;
   const shown = (key: ParamKey) => key.endsWith('rate_hundredths') ? rateText(region[key] as number) : money(region[key] as string);
   return <article className="ui-card ui-content"><div className="ui-section-head"><h3>参数表（{region.name}）</h3><span>每年更新；可在个人资料里改</span></div>
     <table className="ui-table plan-params"><thead><tr><th>参数</th><th className="amount">取值</th><th>依据与核对状态</th></tr></thead>
-      <tbody>{paramSources.map(s => <tr key={s.key}><td>{s.label}</td><td className="amount">{shown(s.key)}{isOverridden(s.key, overrides) && <span className="ui-tag"> 自定</span>}</td>
-        <td><span className={'ui-tag' + (s.verified === 'official' ? '' : ' warn')}>{isOverridden(s.key, overrides) ? '用户自定值' : verifiedText[s.verified]}</span><small className="muted plan-source">{s.source}{s.effective ? `（${s.effective} 起）` : ''}</small><small className="muted plan-source"><a href={s.url} target="_blank" rel="noreferrer">{s.verified === 'derived' ? '查看推算依据' : s.verified === 'assumption' ? '查看利率公布规则' : '查看官方来源'}</a> · 核对 {s.checked_on}</small>{isOverridden(s.key, overrides) && <small className="muted plan-source">来源说明内置参考值；当前自定值未作官方核验。</small>}</td></tr>)}</tbody></table>
+      <tbody><BenefitBasisRow region={region}/>{paramSources.map(s => <tr key={s.key}><td>{s.key === 'avg_wage_cents' ? `缴费指数用工资参考（${region.avg_wage_year} 年）` : s.label}</td><td className="amount">{shown(s.key)}{isOverridden(s.key, overrides) && <span className="ui-tag"> 自定</span>}</td>
+        <td><span className={'ui-tag' + (s.verified === 'official' ? '' : ' warn')}>{isOverridden(s.key, overrides) ? '用户自定值' : verifiedText[s.verified]}</span><small className="muted plan-source">{s.source}{s.effective ? `（${s.effective} 起）` : ''}</small><small className="muted plan-source"><a href={s.url} target="_blank" rel="noreferrer">{s.verified === 'derived' ? '查看推算依据' : s.verified === 'assumption' ? '查看利率公布规则' : '查看官方来源'}</a> · 核对 {s.checked_on}</small>{isOverridden(s.key, overrides) && <small className="muted plan-source">来源说明内置参考值；当前自定值未作官方核验。{s.key === 'avg_wage_cents' ? ` 用户来源：${region.avg_wage_source}` : ''}</small>}</td></tr>)}</tbody></table>
     <p className="muted small">法定退休年龄按国务院《渐进式延迟法定退休年龄的办法》，计发月数按国发〔2005〕38 号附表，个人养老金年缴上限 12000 元、领取按 3% 计税。</p></article>;
 }
 

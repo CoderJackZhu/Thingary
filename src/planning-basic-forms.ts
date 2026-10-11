@@ -3,7 +3,7 @@ import { defaultRetire, pctToHundredths, hundredthsToPct } from './plan.ts';
 import type { BasicFields, BudgetFields, CostScope, EventsFields, FundsFields, IncomeSelection, PensionFields, ProfileState, RetireInputs, StoredIncomeItem, StoredSpendItem } from './plan.ts';
 import { costSources, mustStayInLedger } from './plan-core.ts';
 import type { FundRule } from './plan-core.ts';
-import { defaultAssumptions, noOverrides } from './plan-params.ts';
+import { defaultAssumptions, noOverrides, pensionReferenceIssue } from './plan-params.ts';
 import type { Worker } from './plan-pension.ts';
 import type { SectionInput } from './planning-basic-data.ts';
 import { pcPlanOf, pcValues } from './planning-basic-defaults.ts';
@@ -16,7 +16,7 @@ export type ScopeDraft = { treatment: Treatment; ref: string };
 export type CostSource = { id: string; label: string; cents: string | null };
 export type IncomeMode = '' | 'excluded' | 'manual' | 'employee';
 export type IncomePick = { on: boolean; role: 'state_pension' | 'other' };
-export type PensionForm = { medicalPaid: string; medicalLocal: string; medicalRequired: string; medicalLocalRequired: string; medicalTopup: string; region: '' | 'beijing' | 'custom'; birth: string; worker: Worker | ''; paid: string; balance: string; base: string; past: string; flex: string; pp: string; tax: string; wage: string; ppReturn: string; oWage: string; oLower: string; oUpper: string; oNotional: string; oHpf: string };
+export type PensionForm = { medicalPaid: string; medicalLocal: string; medicalRequired: string; medicalLocalRequired: string; medicalTopup: string; region: '' | 'beijing' | 'custom'; birth: string; worker: Worker | ''; paid: string; balance: string; base: string; past: string; flex: string; pp: string; tax: string; wage: string; ppReturn: string; oWage: string; oWageYear: string; oWageSource: string; benefitCents: string; benefitYear: string; benefitSource: string; oLower: string; oUpper: string; oNotional: string; oHpf: string };
 
 export type Draft = {
   mode: 'fire' | 'traditional'; birth: string; target: string; budget: string;
@@ -42,13 +42,14 @@ export const retirementSources = (r: RetireInputs, annualPension: string | null 
 export const contributionSources = (r: RetireInputs, annualPension: string | null): CostSource[] =>
   [...new Map([...costSources(r.life_events, annualPension ?? '0').map(s => ({ ...s, cents: null })), ...(r.core?.occurrences ?? []).filter(o => o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0).map(o => ({ id: `event:${o.event_id}:loan`, label: '已发生计划的剩余欠款', cents: null }))].map(s => [s.id, s])).values()];
 
-export const emptyPensionForm = (): PensionForm => ({ medicalPaid: '', medicalLocal: '', medicalRequired: '', medicalLocalRequired: '', medicalTopup: '', region: '', birth: '', worker: '', paid: '', balance: '', base: '', past: '', flex: '0', pp: '', tax: '1000', wage: hundredthsToPct(defaultAssumptions.wage_growth_hundredths), ppReturn: hundredthsToPct(defaultAssumptions.pp_return_hundredths), oWage: '', oLower: '', oUpper: '', oNotional: '', oHpf: '' });
+export const emptyPensionForm = (): PensionForm => ({ medicalPaid: '', medicalLocal: '', medicalRequired: '', medicalLocalRequired: '', medicalTopup: '', region: '', birth: '', worker: '', paid: '', balance: '', base: '', past: '', flex: '0', pp: '', tax: '1000', wage: hundredthsToPct(defaultAssumptions.wage_growth_hundredths), ppReturn: hundredthsToPct(defaultAssumptions.pp_return_hundredths), oWage: '', oWageYear: '', oWageSource: '', benefitCents: '', benefitYear: '', benefitSource: '', oLower: '', oUpper: '', oNotional: '', oHpf: '' });
 export function pensionFormOf(saved: Saved): PensionForm {
   const p = saved?.profile; if (!p) return emptyPensionForm();
   const o = p.overrides;
   return { ...medicalFormOf(p), region: p.region ?? '', birth: p.birth_month ? p.birth_month + '-01' : '', worker: p.worker ?? '', paid: p.paid_months == null ? '' : String(p.paid_months), balance: p.account_balance_cents ?? '', base: p.base_cents ?? '',
     past: p.past_index_hundredths == null ? '' : String(p.past_index_hundredths / 100), flex: p.flex_months == null ? '0' : String(p.flex_months), pp: p.personal_pension_annual_cents ?? '', tax: p.marginal_tax_hundredths == null ? '' : String(p.marginal_tax_hundredths),
     wage: hundredthsToPct(p.assumptions.wage_growth_hundredths), ppReturn: hundredthsToPct(p.assumptions.pp_return_hundredths),
+    oWageYear: o.avg_wage_year == null ? '' : String(o.avg_wage_year), oWageSource: o.avg_wage_source ?? '', benefitCents: o.benefit_base?.cents ?? '', benefitYear: o.benefit_base ? String(o.benefit_base.year) : '', benefitSource: o.benefit_base?.source ?? '',
     oWage: o.avg_wage_cents ?? '', oLower: o.base_lower_cents ?? '', oUpper: o.base_upper_cents ?? '', oNotional: o.notional_rate_hundredths == null ? '' : hundredthsToPct(o.notional_rate_hundredths), oHpf: o.hpf_rate_hundredths == null ? '' : hundredthsToPct(o.hpf_rate_hundredths) };
 }
 
@@ -128,6 +129,13 @@ export function pensionInput(f: PensionForm): SectionInput {
     wage_growth_hundredths: rate(f.wage, '工资增长率'), pp_return_hundredths: rate(f.ppReturn, '个人养老金收益率'),
     overrides: { ...noOverrides, avg_wage_cents: f.oWage || null, base_lower_cents: f.oLower || null, base_upper_cents: f.oUpper || null, notional_rate_hundredths: optPct(f.oNotional, '记账利率'), hpf_rate_hundredths: optPct(f.oHpf, '公积金利率') },
   };
+  if (f.oWageYear) fields.overrides.avg_wage_year = int(f.oWageYear, '工资参考年度', 1900, 2199);
+  if (f.oWageSource) fields.overrides.avg_wage_source = f.oWageSource.trim();
+  if (f.benefitCents || f.benefitYear || f.benefitSource) {
+    const year = int(f.benefitYear ?? '', '计发基数适用年度', 1900, 2199) ?? fail('请填写计发基数适用年度。');
+    fields.overrides.benefit_base = { cents: f.benefitCents ?? '', year, source: (f.benefitSource ?? '').trim() };
+  }
+  const issue = pensionReferenceIssue(fields.overrides); if (issue) fail(issue);
   return { section: 'pension', fields };
 }
 export const eventsInput = (fields: EventsFields): SectionInput => ({ section: 'events', fields });
