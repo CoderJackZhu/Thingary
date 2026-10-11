@@ -1,11 +1,11 @@
 import { CoverageNote } from './CoverageNote';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Segments } from './FormControls';
 import { rateText } from './plan';
 import { outcome, project } from './plan-ledger.ts';
 import type { Plan } from './plan-ledger.ts';
 import { ageSpendingMatrix, contributionReturnMatrix, largestRisk, monteCarlo, sorr, stressTests } from './plan-risk.ts';
-import type { Cell, Matrix, MonteCarlo, SorrPath, StressResult } from './plan-risk.ts';
+import type { Cell, Matrix, MonteCarlo, StressResult } from './plan-risk.ts';
 import { compactYuan, durationText, verdict } from './plan-view.ts';
 import { FanChart, PathsChart } from './RetireCharts';
 import { yuan } from './RetireOverview';
@@ -27,15 +27,23 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
   const top = largestRisk(stress);
   const fmt = (c: number) => yuan(c);
   const v = verdict(P, base.proj, base.out, calc.assets, 'today', fmt);
-  const [mc, setMc] = useState<MonteCarlo | null>(null), [running, setRunning] = useState<number | null>(null), [done, setDone] = useState(0);
-  const alive = useRef(true);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  useEffect(() => { setMc(null); }, [P]);
-  async function run(n: number) {
-    setRunning(n); setDone(0);
-    try { const r = await monteCarlo(P, n, { progress: d => { if (alive.current) setDone(d); } }); if (alive.current) setMc(r); }
-    finally { if (alive.current) setRunning(null); }
-  }
+  const [result, setResult] = useState<{ plan: Plan; value: MonteCarlo } | null>(null);
+  const [request, setRequest] = useState<{ plan: Plan; n: number } | null>(null);
+  const [running, setRunning] = useState<number | null>(1000), [done, setDone] = useState(0), [error, setError] = useState('');
+  const mc = result?.plan === P ? result.value : null;
+  const run = (n: number) => setRequest({ plan: P, n });
+  useEffect(() => {
+    const controller = new AbortController(), n = request?.plan === P ? request.n : 1000;
+    setResult(null); setRunning(n); setDone(0); setError('');
+    // Let the page paint before starting; changing the plan or leaving cancels obsolete work.
+    const timer = setTimeout(() => {
+      void monteCarlo(P, n, { signal: controller.signal, progress: d => { if (!controller.signal.aborted) setDone(d); } })
+        .then(value => { if (!controller.signal.aborted) setResult({ plan: P, value }); })
+        .catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : '模拟未完成，请重试。'); })
+        .finally(() => { if (!controller.signal.aborted) setRunning(null); });
+    }, 0);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [P, request]);
   const goalAge = Math.floor(P.target_months / 12), horizonAge = Math.floor(P.horizon_months / 12);
   const o = base.out, gap = o.shortfall_at_goal;
   const pctTone = mc ? (mc.success_rate >= 0.9 ? 'good' : mc.success_rate >= 0.75 ? 'watch' : 'bad') : '';
@@ -48,7 +56,7 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
       <div><span>预计余额</span><strong>{fmt(o.assets_at_goal)}</strong><small>在 {goalAge} 岁时</small></div>
       <div><span>{fire ? '基准财务独立年龄' : '准备就绪年龄'}</span><strong>{ageText(o.fi_month)}</strong><small>{o.fi_month !== null && o.fi_month > P.target_months ? `比期望晚 ${durationText(o.fi_month - P.target_months)}` : '不晚于目标'}</small></div>
       <div><span>缺口/盈余</span><strong>{gap > 0 ? fmt(gap) + ' 缺口' : fmt(Math.max(0, o.assets_at_goal - o.required_at_goal)) + ' 盈余'}</strong><small>目标年龄时</small></div>
-      <div><span>资金充足</span><strong className={`rl-pct ${pctTone}`}>{mc ? `${Math.round(mc.success_rate * 100)}%` : '未运行'}</strong><small>{mc ? `${mc.n.toLocaleString('zh-CN')} 条路径` : '见下方市场路径'}</small></div>
+      <div><span>资金充足</span><strong className={`rl-pct ${pctTone}`}>{mc ? `${Math.round(mc.success_rate * 100)}%` : running !== null ? '计算中…' : '未完成'}</strong><small>{mc ? `${mc.n.toLocaleString('zh-CN')} 条路径` : '见下方市场路径'}</small></div>
     </article>
 
     <Stress results={stress} fmt={fmt}/>
@@ -57,8 +65,10 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
       <div className="rd-head"><div><p className="eyebrow">市场路径</p><h3>收益有波动时，哪些路径仍能支付预算？</h3></div></div>
       <p className="muted small">我们根据你的假设模拟不同市场路径。阴影显示各年龄的第 10 至第 90 百分位区间；线条显示各路径的中位数，并非单一路径。收益取扣除通胀后的实际收益，围绕假设值按波动率 {rateText(P.volatility_hundredths)} 随机，每年一次，固定种子，同一计划每次结果一致。</p>
       <p className="muted small">「资金充足」表示{fire ? '计划实现财务独立，' : '计划'}按完整预算覆盖到 {horizonAge} 岁，期间没有无法支付的月份；终点恰好为 0 也算充足，但没有余量。这些是模型结果，不是现实概率。</p>
-      <div className="rl-actions"><button type="button" className="primary" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? `正在运行… ${done}` : '运行 1 万条路径'}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(100000)}>{running === 100000 ? `正在运行… ${done.toLocaleString('zh-CN')}` : '运行 10 万条路径'}</button>
-        {running !== null && <span className="muted small" role="status">正在逐月模拟每条市场路径。路径越多，所需时间越长。</span>}</div>
+      <p className="muted small">打开本页自动计算 1,000 条路径，先看资金在波动下是否够用；需要更多路径时可运行下方分析。修改条件后自动重新计算。</p>
+      <div className="rl-actions"><button type="button" className="ui-btn" disabled={running !== null} onClick={() => run(1000)}>重新计算 1,000 条</button><button type="button" className="primary" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? `正在运行… ${done}` : '运行 1 万条路径'}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(100000)}>{running === 100000 ? `正在运行… ${done.toLocaleString('zh-CN')}` : '运行 10 万条路径'}</button>
+        {running !== null && <span className="muted small" role="status">正在计算 {done.toLocaleString('zh-CN')} / {running.toLocaleString('zh-CN')} 条路径，可随时切回概览。</span>}</div>
+      {error && <p role="alert">{error}</p>}
       {mc ? <>
         <div className="rl-mc-stats">
           <div><span>资金充足</span><strong className={`rl-pct ${pctTone}`}>{Math.round(mc.success_rate * 100)}%</strong></div>
@@ -96,19 +106,17 @@ function Stress({ results, fmt }: { results: StressResult[]; fmt: (c: number) =>
 
 type Show = 'money' | 'age';
 function Moves({ P, year, fire }: { P: Plan; year: number; fire: boolean }) {
-  const [built, setBuilt] = useState<{ a: Matrix; b: Matrix } | null>(null), [busy, setBusy] = useState(false), [show, setShow] = useState<Show>('money');
-  useEffect(() => { setBuilt(null); }, [P]);
-  function build() { setBusy(true); setTimeout(() => { setBuilt({ a: contributionReturnMatrix(P, year), b: ageSpendingMatrix(P, year) }); setBusy(false); }, 0); }
+  const built = useMemo(() => ({ a: contributionReturnMatrix(P, year), b: ageSpendingMatrix(P, year) }), [P, year]);
+  const [show, setShow] = useState<Show>('money');
   const ageLabel = fire ? '财务独立年龄' : '准备就绪年龄';
-  return <details className="ui-card rd-card rd-snapshot" aria-label="决策矩阵">
-    <summary><strong>哪些因素影响计划？</strong><span className="muted small">展开比较储蓄、收益和预算</span></summary>
-    <div className="rd-head">{built && <Segments label="矩阵数值" value={show} options={[{ value: 'money', label: '期末剩余资金' }, { value: 'age', label: ageLabel }]} onChange={setShow}/>}</div>
+  return <details className="ui-card rd-card rd-snapshot" aria-label="决策矩阵" open>
+    <summary><strong>哪些因素影响计划？</strong><span className="muted small">比较储蓄、收益和预算</span></summary>
+    <div className="rd-head"><Segments label="矩阵数值" value={show} options={[{ value: 'money', label: '期末剩余资金' }, { value: 'age', label: ageLabel }]} onChange={setShow}/></div>
     <p className="muted small">比较储蓄、收益率、退休年龄和支出。绿色表示比基础计划更好，黄色表示更差。红色表示存在缺口或没有剩余资金；黑框是基础计划。</p>
-    {!built ? <div className="empty"><h4>看看哪些改变最有帮助。</h4><p className="muted small">从当前条件出发，比较投入、收益、预算或目标时间的变化。</p><button type="button" className="primary" disabled={busy} onClick={build}>{busy ? '正在构建…' : '构建图表'}</button></div>
-      : <div className="rl-matrices">
+    <div className="rl-matrices">
         <MatrixView title="供款 × 收益率" sub={show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel} m={built.a} show={show} rowText={d => rateText(P.r_before_hundredths + d)} colText={c => compactYuan(c)} rowHead="实际收益率" colHead="每月供款"/>
         <MatrixView title={`${fire ? '期望年龄' : '退休年龄'} × 生活预算`} sub={(show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel) + '；固定事件付款不调整'} m={built.b} show={show} rowText={c => compactYuan(c)} colText={a => `${a}`} rowHead="每月预算分项" colHead={fire ? '期望年龄' : '退休年龄'} flatHint={fire}/>
-      </div>}
+      </div>
   </details>;
 }
 
@@ -127,15 +135,12 @@ function MatrixView({ title, sub, m, show, rowText, colText, rowHead, colHead, f
 }
 
 function Crash({ P, year, fmt }: { P: Plan; year: number; fmt: (c: number) => string }) {
-  const [paths, setPaths] = useState<SorrPath[] | null | undefined>(undefined);
-  useEffect(() => { setPaths(undefined); }, [P]);
+  const paths = useMemo(() => sorr(P, year), [P, year]);
   const baseFinal = paths?.[0]?.final ?? 0;
-  return <details className="ui-card rd-card rd-snapshot" aria-label="收益顺序检查">
+  return <details className="ui-card rd-card rd-snapshot" aria-label="收益顺序检查" open>
     <summary><strong>收益顺序检查</strong><span className="muted small">同一次下跌，发生早晚有什么不同</span></summary>
-    <div className="rd-head"><button type="button" className="primary" onClick={() => setPaths(sorr(P, year))}>运行路径</button></div>
     <p className="muted small">比较一组相同收益的不同排列：年率 −30% 的下跌分别放在退休开头和末段，持续时间相同、最多一年，其余时间沿用所设收益。基准不含下跌；两条压力路径的差异来自发生时点。</p>
-    {paths === undefined ? <p className="muted small">检查崩盘时点风险。将同一次下跌分别放到退休开始和规划末段，比较提款受到的影响。</p>
-      : paths === null ? <p className="muted small">崩盘路径不可用。此检查需要退休开始时投资组合为正值，且规划期内已经达成退休。</p>
+    {paths === null ? <p className="muted small">崩盘路径不可用。此检查需要退休开始时投资组合为正值，且规划期内已经达成退休。</p>
       : <><PathsChart paths={paths} fmt={fmt}/>
         <table className="rl-sorr"><thead><tr><th>情景</th><th>存续</th><th>最早缺口</th><th className="amount">{Math.floor(P.horizon_months / 12)} 岁余额</th></tr></thead>
           <tbody>{paths.map(p => <tr key={p.id}><td>{p.label}{p.id === 'base' && <span className="ui-tag">基准</span>}</td><td>{p.survived ? '资金够用' : <span className="warn">资金不足</span>}</td><td>{p.shortfall_age !== null ? `${p.shortfall_age} 岁` : p.failure_age !== null ? `${p.failure_age} 岁` : '无'}</td><td className="amount">{fmt(p.final)}{p.id !== 'base' && <small className="muted"> {p.final - baseFinal >= 0 ? '+' : '−'}{fmt(Math.abs(p.final - baseFinal))}</small>}</td></tr>)}</tbody></table></>}

@@ -92,13 +92,13 @@ test('different coast and FI amounts keep all four milestone cards without the m
   assert.ok(!r.nodes().some(n => n.type === 'small' && /Coast FIRE 与 FI 相同/.test(r.text(n))));
 });
 
-test('yearly snapshot collapses by default with a row count in its summary', () => {
+test('yearly snapshot expands by default with a row count in its summary', () => {
   const calc = calcOf({});
   const r = overview(calc);
   const rows = view.snapshotRows(calc.plan, calc.proj, 'today');
   const details = r.find('details', p => p['aria-label'] === '逐年快照');
   assert.ok(details, '逐年快照容器');
-  assert.equal(details.props.open, undefined, '默认收起');
+  assert.equal(details.props.open, true, '默认展开');
   assert.match(r.text(details.props.children[0]), new RegExp(`逐年快照（${rows.length} 行）`));
   assert.ok(r.find('div', p => p['aria-label'] === '逐年快照表'), '表格区域与读屏标签保留');
 });

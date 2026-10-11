@@ -143,3 +143,11 @@ test('basic mode drops the preset career stress cases and keeps the neutral ones
   for (const id of careerStressIds) assert.equal(kept.some(r => r.id === id), false, id);
   for (const id of ['return-drag', 'inflation-shock', 'spending-shock', 'retire-earlier', 'save-less', 'early-crash']) assert.equal(kept.some(r => r.id === id), true, id);
 });
+
+test('market paths cancel obsolete automatic runs at a batch boundary', async () => {
+  const controller = new AbortController();
+  let completed = 0;
+  await assert.rejects(monteCarlo(plan(), 1000, { signal: controller.signal, progress: n => { completed = n; controller.abort(); } }), { name: 'AbortError' });
+  assert.equal(completed, 25);
+  await assert.rejects(monteCarlo(plan(), 1000, { signal: controller.signal }), { name: 'AbortError' });
+});

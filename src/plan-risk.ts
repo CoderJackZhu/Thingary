@@ -44,7 +44,8 @@ export type MonteCarlo = {
  * G = exp(log(1+r) + sZ). Given median m=1+r and standard deviation v,
  * u=exp(s²) solves m²u(u−1)=v². Annual draws share a market shock across phases.
  * No random inflation or career process is assumed. */
-export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; progress?: (done: number) => void } = {}): Promise<MonteCarlo> {
+export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; signal?: AbortSignal; progress?: (done: number) => void } = {}): Promise<MonteCarlo> {
+  opts.signal?.throwIfAborted();
   if (!Number.isInteger(n) || n < 1) throw new RangeError('路径数必须是正整数');
   const months = Math.max(0, P.horizon_months - P.now_months);
   const offsets = Array.from({ length: Math.ceil(months / 12) }, (_, i) => i * 12);
@@ -69,6 +70,7 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
   } };
   let covered = 0;
   for (let run = 0; run < n; run++) {
+    opts.signal?.throwIfAborted();
     const shocks = Array.from({ length: Math.ceil(months / 12) }, () => normal(random));
     const projection = project(simulated, 0, { annualReturnAt: (offset, phase) => {
       if (volatility === 0) return rate(phase === 'accumulation' ? P.r_before_hundredths : P.r_after_hundredths);
@@ -79,11 +81,12 @@ export async function monteCarlo(P: Plan, n: number, opts: { seed?: number; prog
     covered += Number(result.success);
     if (projection.fi_month !== null) reached.push(projection.fi_month);
     offsets.forEach((offset, sample) => { samples[sample][run] = Math.max(0, projection.assets[offset]); });
-    if ((run + 1) % 250 === 0 && opts.progress) {
-      opts.progress(run + 1);
+    if ((run + 1) % 25 === 0 && (opts.progress || opts.signal)) {
+      opts.progress?.(run + 1);
       await new Promise<void>(resolve => setTimeout(resolve, 0));
     }
   }
+  opts.signal?.throwIfAborted();
   const bands: Bands = { p10: [], p25: [], p50: [], p75: [], p90: [] };
   const levels = { p10: 0.1, p25: 0.25, p50: 0.5, p75: 0.75, p90: 0.9 } as const;
   for (const sample of samples) {

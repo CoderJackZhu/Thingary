@@ -29,7 +29,7 @@
 .rc-swatch-wide { background: color-mix(in srgb, var(--chart) 22%, transparent); height: 10px !important; }
 .rc-swatch-mid { background: color-mix(in srgb, var(--chart) 42%, transparent); height: 10px !important; }
 
-.rd-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); gap: 20px; align-items: start; }
+.rd-grid { display: grid; grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 440px); gap: 20px; align-items: start; }
 .rd-main, .rd-side { display: grid; gap: 16px; min-width: 0; }
 .rd-side { position: sticky; top: 64px; }
 /* Keep both destinations visible as one prominent page switcher. */
@@ -183,7 +183,6 @@
 
 /* 财富与规划页：不再卡在 1200px，宽屏时内容跟着变宽；概览／假设分析页签放大。 */
 .stats-section.wealth-section { max-width: none; }
-.rd-grid { grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 440px); }
 .rd-table th, .rd-table td { padding: 7px 10px; font-size: 13px; }
 /* 财富页的趋势图按宽度等比放大，不再被固定高度压成居中的一小块。 */
 .wealth-section .net-chart .trend-chart, .wealth-section .trend-chart { height: auto; max-height: 320px; }
