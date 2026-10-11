@@ -35,6 +35,16 @@ export function PlanningProfileFields({ f, setF, today, frozen, hideBirth = fals
       {show('balance') && <ConfirmationField label="个人账户余额" attention={completion} issue={issue}><FormRow label="个人账户余额" hint="以社保查询的当前余额为准；未知先留空，明确没有才填 0"><span className="account-estimate"><CentInput label="个人账户余额" value={f.balance} disabled={frozen} placeholder="0.00" onChange={v => set('balance', v)}/><button type="button" className="ui-btn" disabled={frozen || !/^\d+$/.test(f.paid) || f.base === ''} onClick={() => set('balance', estimateAccountCents(Number(f.paid), f.base))}>帮我估算</button></span></FormRow></ConfirmationField>}
       {show('base') && <ConfirmationField label="当前月缴费基数" attention={completion} issue={issue}><FormRow label="当前月缴费基数" hint="按当前社保查询记录填写；未来续缴的起止与基数在「未来缴费」里单独设置"><CentInput label="当前月缴费基数" value={f.base} disabled={frozen} placeholder="0.00" onChange={v => set('base', v)}/></FormRow></ConfirmationField>}
     </section>
+    {!missingKeys && <details className="form-block"><summary>医保缴费年限（提前退休建议填写）</summary>
+      <FormRow label="医保累计缴费月数（含视同）" hint="按医保查询记录填写；不清楚就留空，明确没有才填 0"><input aria-label="医保累计缴费月数" inputMode="numeric" value={f.medicalPaid} disabled={frozen} onChange={e => set('medicalPaid', e.target.value)}/></FormRow>
+      <FormRow label="其中本地实际缴费月数"><input aria-label="医保本地实际缴费月数" inputMode="numeric" value={f.medicalLocal} disabled={frozen} onChange={e => set('medicalLocal', e.target.value)}/></FormRow>
+      {f.region === 'beijing' ? <FormRow label="本地实际缴费要求"><select aria-label="本地实际缴费要求" value={f.medicalLocalRequired} disabled={frozen} onChange={e => set('medicalLocalRequired', e.target.value)}><option value="">未确认</option><option value="0">不需要：2005 年 4 月前已是京籍</option><option value="5">5 年：2005 年 4 月后取得京籍</option><option value="10">10 年：外埠户籍</option></select></FormRow> : <>
+        <FormRow label="所需累计年限（年）"><input aria-label="医保所需累计年限" inputMode="decimal" value={f.medicalRequired} disabled={frozen} onChange={e => set('medicalRequired', e.target.value)}/></FormRow>
+        <FormRow label="本地实际缴费要求（年，选填）" hint="当地没有单独要求时可留空"><input aria-label="医保本地要求年数" inputMode="decimal" value={f.medicalLocalRequired} disabled={frozen} onChange={e => set('medicalLocalRequired', e.target.value)}/></FormRow>
+      </>}
+      <FormRow label="补缴估算金额（选填）" hint="北京在办理退休时一次性补缴，比例以经办机构为准；不清楚就留空，不会计入"><CentInput label="医保补缴估算金额" value={f.medicalTopup} disabled={frozen} onChange={v => set('medicalTopup', v)}/></FormRow>
+      <p className="muted small">可通过国家医保服务平台 App 查询缴费记录，年限认定和补缴办法请向当地医保局核对。</p>
+    </details>}
     {(!missingKeys || show('flex')) && <details className="form-block" open={!!missingKeys || f.past !== '' || f.flex !== '0'}><summary>更多（一般不用填）</summary>
       {show('past') && <ConfirmationField label="历史平均缴费指数" attention={completion} issue={issue}><FormRow label="历史平均缴费指数" hint="过去各月缴费基数 ÷ 当年社平的平均；留空表示与当前基数相同"><input aria-label="历史平均缴费指数" inputMode="decimal" value={f.past} disabled={frozen} onChange={e => set('past', e.target.value)} placeholder="例如 2.5"/></FormRow></ConfirmationField>}
       {show('flex') && <ConfirmationField label="弹性领取月数" attention={completion} issue={issue}><FormRow label="弹性领取月数" hint="不调整领取月份请填 0，不清楚留空；提前为负、延后为正，最多 36 个月"><input aria-label="弹性领取月数" inputMode="numeric" value={f.flex} disabled={frozen} onChange={e => set('flex', e.target.value)}/></FormRow></ConfirmationField>}

@@ -1,3 +1,4 @@
+import { MedicalCard } from './PlanningMedical';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage, money } from './asset';
 import { CloseButton } from './CloseButton';
@@ -59,9 +60,11 @@ export function PlanningPension({ focus = false, onFocusDone, today, sources, re
       : !saved || !calc ? <div className="empty"><span className="empty-mark">¥</span><h2>{saved ? '养老金估算还缺一些资料' : '还没有个人资料'}</h2><p>填写出生年月、缴费情况和个人账户余额（社保 App 里可查），就能估算法定退休年龄和退休时的养老金。不需要先设置退休目标；资料只存在本机，估算结果不会保存。</p>{missing.length > 0 && <p className="muted small">还缺：{missing.join('、')}。留空的项目保持未知，不会按 0 计算。</p>}<button id="plan-profile-edit" ref={entry} className="primary" onClick={() => setEditing(true)}>{saved ? '补全个人资料' : '填写个人资料'}</button></div>
       : <>
         <Result calc={calc} quit={quit} onQuit={setQuit} onEdit={() => setEditing(true)} onConfirmHpf={() => setFundsOpen(true)} updatedAt={saved.updated_at} today={today}/>
+        <MedicalCard profile={saved.profile} today={today}/>
         <Table calc={calc}/>
         <Params overrides={calc.p.overrides} region={calc.region}/>
       </>}
+    {saved && !calc && <MedicalCard profile={saved.profile} today={today}/>}
     {editing && sources.profile.status === 'ready' && <ProfileDialog sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onClose={() => { setEditing(false); requestAnimationFrame(() => document.getElementById('plan-profile-edit')?.focus()); }}/>}
     {fundsOpen && saved && <FundsDialog sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={() => { setFundsOpen(false); requestAnimationFrame(() => (document.getElementById('plan-hpf-confirm') ?? document.getElementById('plan-profile-edit'))?.focus()); }}/>}
   </>;
@@ -133,7 +136,7 @@ function Params({ overrides, region }: { overrides: Overrides; region: NonNullab
 }
 
 
-function ProfileDialog({ sources, saved, today, reload, onPending, onClose }: { sources: PlanningSources; saved: ProfileState['saved']; today: string; reload: () => void; onPending: () => void; onClose: () => void }) {
+export function ProfileDialog({ sources, saved, today, reload, onPending, onClose }: { sources: PlanningSources; saved: ProfileState['saved']; today: string; reload: () => void; onPending: () => void; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null), saver = useSectionSaver(sources, reload, onPending);
   const [f, setF] = useState<PensionForm>(() => pensionFormOf(saved)), [notice, setNotice] = useState('');
   useEffect(() => { dialog.current?.showModal(); document.getElementById('profile-birth')?.focus(); return () => dialog.current?.close(); }, []);

@@ -210,3 +210,5 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 ### Excel 导入与导出
 
 当前源码使用 `.xlsx` 工作簿，外部 CSV 入口已替换；内部金融纯解析契约保留。`src-tauri/tests/spreadsheet.rs` 使用临时目录与虚构数据验证物品／账户／完整盘点／收入往返、未知与零、中文／前导零／字面公式文本、多行备注定位、同批回执重放、重启与完整备份，以及公式／异常 ZIP／稀疏范围拒绝、失败不覆盖目标。schema 25→35 升级保留事实与稳定 ID，Excel 改动不新增迁移。浏览器展示及自动测试不代表原生系统文件面板或其他表格软件交互已验。
+
+医保年限虚构预览追加 `plan-medical=short|ok|unknown|topup`（同时用 `section=planning&capabilities=real`），核对养老金与目标页，`state=save-error` 验证保存失败保留输入；均为内存数据。

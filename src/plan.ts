@@ -194,7 +194,8 @@ export type RetireInputs = {
 };
 export const defaultRetire: RetireInputs = { spend_cents: null, real_return_before_hundredths: 0, real_return_after_hundredths: 0, horizon_age: 90, emergency_months: 6, mode: 'fire', target_age: null, volatility_hundredths: 500, spend_items: [], income_items: [], life_events: [], keep_paying_until_age: null, keep_paying_monthly_cents: '0', keep_paying_base_cents: '0', rent_cents: '0' };
 type NullablePensionKey = 'birth_month' | 'worker' | 'paid_months' | 'account_balance_cents' | 'base_cents' | 'flex_months' | 'personal_pension_annual_cents' | 'marginal_tax_hundredths';
-export type StoredProfile = Omit<PensionProfile, NullablePensionKey> & { [K in NullablePensionKey]: PensionProfile[K] | null } & { region: Region | null; overrides: Overrides; retire: RetireInputs };
+export type MedicalFields = { medical_paid_months?: number | null; medical_local_paid_months?: number | null; medical_local_required_months?: number | null; medical_required_months?: number | null; medical_topup_cents?: string | null };
+export type StoredProfile = MedicalFields & Omit<PensionProfile, NullablePensionKey> & { [K in NullablePensionKey]: PensionProfile[K] | null } & { region: Region | null; overrides: Overrides; retire: RetireInputs };
 export type CompletePensionProfile = StoredProfile & PensionProfile & { region: Region };
 /** No defaults: only complete, validated pension inputs reach the estimator. */
 export function hasPensionProfile(p: StoredProfile): p is CompletePensionProfile {

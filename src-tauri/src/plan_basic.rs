@@ -268,6 +268,17 @@ pub struct PensionFields {
     pub worker: Option<String>,
     pub region: Option<String>,
     pub paid_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_paid_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_local_paid_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_local_required_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_required_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_topup_cents: Option<String>,
+
     pub account_balance_cents: Option<String>,
     pub base_cents: Option<String>,
     pub past_index_hundredths: Option<i32>,
@@ -362,6 +373,12 @@ pub fn empty_profile() -> Profile {
         worker: None,
         region: None,
         paid_months: None,
+        medical_paid_months: None,
+        medical_local_paid_months: None,
+        medical_local_required_months: None,
+        medical_required_months: None,
+        medical_topup_cents: None,
+
         account_balance_cents: None,
         base_cents: None,
         past_index_hundredths: None,
@@ -490,6 +507,12 @@ impl Update {
                 p.worker = f.worker.clone();
                 p.region = f.region.clone();
                 p.paid_months = f.paid_months;
+                p.medical_paid_months = f.medical_paid_months;
+                p.medical_local_paid_months = f.medical_local_paid_months;
+                p.medical_local_required_months = f.medical_local_required_months;
+                p.medical_required_months = f.medical_required_months;
+                p.medical_topup_cents = f.medical_topup_cents.clone();
+
                 p.account_balance_cents = f.account_balance_cents.clone();
                 p.base_cents = f.base_cents.clone();
                 p.past_index_hundredths = f.past_index_hundredths;

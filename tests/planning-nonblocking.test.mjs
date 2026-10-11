@@ -65,7 +65,7 @@ test('complete future unoccurred car retains April 2028 schedule, payment/loan/h
 
 test('accidental blank occurred row pauses unknown payments/loan/holding without fabricated zeros', () => {
   const s = fixture(), o = occurred(s), c = calc(s), p = parts(s, c);
-  assert.deepEqual(codes(c), ['DEBT_UNLINKED', 'LOAN_PENDING', 'PAYMENT_PENDING', 'POOL_NOT_USED']);
+  assert.deepEqual(codes(c), ['DEBT_UNLINKED', 'LOAN_PENDING', 'MEDICAL_FACTS_UNKNOWN', 'PAYMENT_PENDING', 'POOL_NOT_USED']);
   assert.deepEqual(p.spends, []); assert.deepEqual(p.loans, []);
   assert.deepEqual(p.saving_flows, []); assert.deepEqual(p.spend_flows, []);
   assert.equal(p.principal_cents, null); assert.equal(p.payment_cents, null); assert.equal(p.loan_months, null);

@@ -23,6 +23,12 @@ fn profile() -> Profile {
         worker: Some("male".into()),
         region: Some("beijing".into()),
         paid_months: Some(48),
+        medical_paid_months: None,
+        medical_local_paid_months: None,
+        medical_local_required_months: None,
+        medical_required_months: None,
+        medical_topup_cents: None,
+
         account_balance_cents: Some("5000000".into()),
         base_cents: Some("2000000".into()),
         past_index_hundredths: None,
@@ -1821,4 +1827,73 @@ fn custom_region_saves_partial_facts_restarts_and_round_trips_backup() {
     let info = t.inspect_backup(&file).unwrap();
     t.restore(&file, &info.hash, &t.generation()).unwrap();
     assert_facts(&t.plan_profile().unwrap().saved.unwrap().profile, &p);
+}
+
+#[test]
+fn medical_scoped_save_restart_backup_legacy_and_invalid_values() {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("medical");
+    let mut s = Store::open(&root).unwrap();
+    let old = profile();
+    let legacy = serde_json::to_value(&old).unwrap();
+    assert!(legacy.get("medical_paid_months").is_none());
+    let read: Profile = serde_json::from_value(legacy).unwrap();
+    assert!(read.medical_paid_months.is_none());
+    let request = save(&s, old, None);
+    let saved = s.plan_profile_save(&request, TODAY).unwrap();
+    // Existing receipt fingerprints survive the added optional fields.
+    s.plan_profile_save(&request, TODAY).unwrap();
+    let mut fields = serde_json::to_value(&saved.profile).unwrap();
+    let fields = fields.as_object_mut().unwrap();
+    fields.remove("retire");
+    fields.remove("assumptions");
+    fields.insert("wage_growth_hundredths".into(), serde_json::json!(300));
+    fields.insert("pp_return_hundredths".into(), serde_json::json!(200));
+    fields.insert("medical_paid_months".into(), serde_json::json!(100));
+    fields.insert("medical_local_paid_months".into(), serde_json::json!(30));
+    fields.insert(
+        "medical_local_required_months".into(),
+        serde_json::json!(120),
+    );
+    fields.insert("medical_required_months".into(), serde_json::json!(300));
+    fields.insert("medical_topup_cents".into(), serde_json::json!("6000000"));
+    let update: thingary_lib::plan_basic::Update = serde_json::from_value(serde_json::json!({
+        "request_id": rid(), "generation": s.generation(), "expected_revision": saved.revision,
+        "section": "pension", "fields": fields
+    }))
+    .unwrap();
+    let expected = s.plan_profile_update(&update, TODAY).unwrap().profile;
+    assert_eq!(expected.medical_paid_months, Some(100));
+    assert_eq!(
+        s.plan_profile_update(&update, TODAY).unwrap().profile,
+        expected
+    );
+    drop(s);
+    let s = Store::open(&root).unwrap();
+    assert_eq!(s.plan_profile().unwrap().saved.unwrap().profile, expected);
+    let file = d.path().join("medical.thingary");
+    s.backup(Some(&file)).unwrap();
+    let mut restored = Store::open(&d.path().join("restored")).unwrap();
+    let info = restored.inspect_backup(&file).unwrap();
+    restored
+        .restore(&file, &info.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(
+        restored.plan_profile().unwrap().saved.unwrap().profile,
+        expected
+    );
+    for (key, value) in [
+        ("medical_paid_months", serde_json::json!(1201)),
+        ("medical_local_paid_months", serde_json::json!(101)),
+        ("medical_local_paid_months", serde_json::json!(1201)),
+        ("medical_required_months", serde_json::json!(601)),
+        ("medical_local_required_months", serde_json::json!(601)),
+        ("medical_topup_cents", serde_json::json!("-1")),
+        ("medical_topup_cents", serde_json::json!("1.5")),
+    ] {
+        let mut value_profile = serde_json::to_value(&expected).unwrap();
+        value_profile[key] = value;
+        let invalid: Profile = serde_json::from_value(value_profile).unwrap();
+        assert!(invalid.validate(TODAY).is_err(), "{key}");
+    }
 }

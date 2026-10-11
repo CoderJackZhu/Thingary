@@ -1,7 +1,7 @@
 import nonblockingDemo from '../tests/fixtures/planning-basic/nonblocking-demo.json';
 import debtDemo from '../tests/fixtures/planning-basic/debt-loops.json';
 import { completionFixture } from './planning-completion-fixture';
-import { pensionFixture } from './planning-pension-fixture';
+import { medicalFixture, pensionFixture } from './planning-pension-fixture';
 import { debtFixture } from './planning-debt-fixture';
 // Development-only in-memory stand-in for the wealth commands used by
 // visual-preview. It mirrors the Rust rules loosely for demo purposes and
@@ -407,8 +407,9 @@ let planWriteVersion = 1;
 const debtScenario = params.get('plan-debt');
 const debtBatch = debtFixture(debtDemo as unknown as PlanningSources, debtScenario ?? 'normal');
 if (debtScenario && debtBatch.profile.status === 'ready') planProfile = debtBatch.profile.value.saved;
-const pensionScenario = params.get('plan-pension');
-const pensionBatch = pensionFixture(debtDemo as unknown as PlanningSources, pensionScenario ?? 'normal');
+const medicalScenario = params.get('plan-medical');
+const pensionScenario = params.get('plan-pension') ?? (medicalScenario ? 'normal' : null);
+const pensionBatch = medicalScenario ? medicalFixture(debtDemo as unknown as PlanningSources, medicalScenario) : pensionFixture(debtDemo as unknown as PlanningSources, pensionScenario ?? 'normal');
 if (pensionScenario && pensionBatch.profile.status === 'ready') planProfile = pensionBatch.profile.value.saved;
 const completionScenario = params.get('plan-completion');
 const completionBatch = completionFixture(debtDemo as unknown as PlanningSources, completionScenario ?? 'funds');

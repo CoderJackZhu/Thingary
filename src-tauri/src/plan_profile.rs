@@ -195,6 +195,17 @@ pub struct Profile {
     pub worker: Option<String>,
     pub region: Option<String>,
     pub paid_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_paid_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_local_paid_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_local_required_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_required_months: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub medical_topup_cents: Option<String>,
+
     pub account_balance_cents: Option<String>,
     pub base_cents: Option<String>,
     pub past_index_hundredths: Option<i32>,
@@ -512,6 +523,20 @@ impl Profile {
             .is_some_and(|v| !["beijing", "custom"].contains(&v.as_str()))
         {
             return Err(bad("PROFILE_REGION", "参保地无效"));
+        }
+        if self.medical_paid_months.is_some_and(|v| v > 1200)
+            || self.medical_local_paid_months.is_some_and(|v| v > 1200)
+            || self.medical_required_months.is_some_and(|v| v > 600)
+            || self.medical_local_required_months.is_some_and(|v| v > 600)
+            || matches!((self.medical_local_paid_months, self.medical_paid_months), (Some(local), Some(total)) if local > total)
+        {
+            return Err(bad(
+                "PROFILE_MEDICAL",
+                "请核对医保缴费月数：累计最多 1200 月，要求最多 600 月，本地实际不能超过累计",
+            ));
+        }
+        if let Some(v) = &self.medical_topup_cents {
+            money(v, false, "医保补缴估算")?;
         }
         if self.paid_months.is_some_and(|v| v > 1200) {
             return Err(bad("PROFILE_MONTHS", "累计缴费月数不能超过 1200"));

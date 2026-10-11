@@ -1,3 +1,4 @@
+import { medicalCheck, medicalMessage } from './plan-medical.ts';
 // Basic requirements and confirmed predictions share the existing full month ledger.
 import { hasPensionProfile } from './plan.ts';
 import type { StoredLifeEvent } from './plan.ts';
@@ -81,6 +82,14 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   if (state && state.generation !== sources.generation) baseMissing.push(missing('SOURCE_STALE', 'requirement', 'service', 'generation', '来源身份已变化，请重新读取。', 'read_error'));
   for (const message of basicConstraintMessages(sources)) baseMissing.push(missing('INPUT_INVALID', 'requirement', 'basic', 'inputs', message, 'constraint'));
   if (!p || !r || !b || baseMissing.length) return { context, annotations, funds: blocked(baseMissing.map(x => ({ ...x, capability: 'funds' }))), plan: blocked(baseMissing), predictionMissing: baseMissing.map(x => ({ ...x, capability: 'prediction' })), pension: blocked(baseMissing.map(x => ({ ...x, capability: 'pension' }))) };
+  const medical = medicalCheck(p, b, sources.today);
+  if (medical.status === 'unknown' || medical.status === 'short') annotations.push({
+    id: 'medical', reason_code: medical.status === 'unknown' ? 'MEDICAL_FACTS_UNKNOWN' : 'MEDICAL_YEARS_SHORT',
+    message: medicalMessage(medical, p.medical_topup_cents), effect: medical.status === 'unknown' ? 'uncertain' : p.medical_topup_cents == null ? 'requirement_lower' : 'none',
+    treatment: medical.status === 'short' && p.medical_topup_cents != null ? 'included' : 'omitted',
+    actionable: medical.status === 'unknown' || p.medical_topup_cents == null,
+    source_ids: ['medical'], missing_fields: medical.missing, refinement: { owner: 'pension', field: 'medical_paid_months' },
+  });
   const fundMissing: PlanningMissing[] = [];
   let available: number | null = null, restricted = 0, debt = 0, housing = 0;
   let anchor: string | null = null;
@@ -223,7 +232,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   }
   const preRefs = b.contribution_costs.filter(s => sourcesPre.includes(s.source_id) && s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
   const selectedIds = scope === 'complete' && (mode === 'manual' || mode === 'employee') ? selected.map(s => s.id) : [];
-  const skeleton: Plan = { input_mode: 'basic', now_months: now, target_months: target, horizon_months: horizon, search_cap_months: horizon, mode: r.mode, assets_cents: available / basisFactor, saving_cents: 0, saving_growth_hundredths: 0, r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths, inflation_hundredths: p.assumptions.inflation_hundredths, volatility_hundredths: r.volatility_hundredths, items, incomes: r.income_items.filter(i => selectedIds.includes(i.id)).map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })), pension_at: () => pen, spends: [], spend_flows: flows, saving_flows: savingFlows, rent_cents: allowed('rent', b.retirement_costs) ? Number(r.rent_cents) : 0, anchor_date: anchor, calculation_date: sources.today, monetary_basis_date: core.monetary_basis_date, basis_factor: basisFactor, first_month_fraction: fraction, core, annotations, event_coverage: eventReview.coverage };
+  const skeleton: Plan = { input_mode: 'basic', now_months: now, target_months: target, horizon_months: horizon, search_cap_months: horizon, mode: r.mode, assets_cents: available / basisFactor, saving_cents: 0, saving_growth_hundredths: 0, r_before_hundredths: r.real_return_before_hundredths, r_after_hundredths: r.real_return_after_hundredths, inflation_hundredths: p.assumptions.inflation_hundredths, volatility_hundredths: r.volatility_hundredths, items, incomes: r.income_items.filter(i => selectedIds.includes(i.id)).map(i => ({ ...i, monthly_cents: Number(i.monthly_cents) })), pension_at: () => pen, spends: medical.status === 'short' && p.medical_topup_cents != null && medical.at_month ? [{ offset_months: monthIndex(medical.at_month) - monthIndex(anchor), cents: Number(p.medical_topup_cents) }] : [], spend_flows: flows, saving_flows: savingFlows, rent_cents: allowed('rent', b.retirement_costs) ? Number(r.rent_cents) : 0, anchor_date: anchor, calculation_date: sources.today, monetary_basis_date: core.monetary_basis_date, basis_factor: basisFactor, first_month_fraction: fraction, core, annotations, event_coverage: eventReview.coverage };
   const events = active.map(eventValue);
   const compile = (amount: number, before: number, after: number, future = true): Plan => {
     const listed = events.filter(e => future || core.occurrences.some(o => o.event_id === e.id && o.status === 'occurred'));
