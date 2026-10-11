@@ -17,6 +17,7 @@ import * as costReview from '../src/planning-cost-review.ts';
 import * as view from '../src/planning-basic-view.ts';
 import * as planExports from '../src/plan.ts';
 import * as params from '../src/plan-params.ts';
+import * as medical from '../src/plan-medical.ts';
 import * as planPension from '../src/plan-pension.ts';
 import * as planSummary from '../src/plan-summary.ts';
 import { unknownCapabilityFixture } from '../src/plan-basic-fixtures.ts';
@@ -44,7 +45,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
   const modules = {
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     './planning-basic-forms': forms, './plan-basic': basic, './plan-core': core, './plan-coverage': coverage, './planning-cost-review': costReview, './plan-debt': debt, './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
-    './planning-draft': overlay, './plan-basic-validation': validation, './planning-pension-refinement': pension, './plan': planExports, './plan-params': params, './plan-pension': planPension, './plan-summary': planSummary,
+    './planning-draft': overlay, './plan-basic-validation': validation, './planning-pension-refinement': pension, './plan': planExports, './plan-params': params, './plan-medical': medical, './plan-pension': planPension, './plan-summary': planSummary,
     './RetireOverview': { RetireOverview: () => null, useValueMode: () => [null, () => {}] },
     './planning-first-run': props.goalStateOverride ? { ...flow, goalState: () => props.goalStateOverride } : flow, './planning-basic-defaults': defaults,
     './planning-basic-data': { useSectionSaver: () => saver, useCapabilities: () => ({ status: 'ready', caps: typeof caps === 'function' ? caps() : caps }) },
@@ -57,7 +58,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     vm.runInNewContext(js, { module: m, exports: m.exports, require: id => modules[id] ?? leaf, structuredClone, crypto: globalThis.crypto, console, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn() });
     modules[`./${file}`] = m.exports;
   }
-  for (const file of ['PlanningConfirmation', 'PlanningFunds', 'PlanningCosts', 'PlanningDebtDialog', 'PlanningOccurrenceDialog', 'PlanningRetirementIncome', 'PlanningSpendItems', 'PlanningPensionContributions', 'PlanningProfileFields', 'PlanningPensionRefinement', 'PlanningRefinements']) load(file);
+  for (const file of ['PlanningConfirmation', 'PlanningFunds', 'PlanningCosts', 'PlanningDebtDialog', 'PlanningOccurrenceDialog', 'PlanningRetirementIncome', 'PlanningSpendItems', 'PlanningPensionContributions', 'PlanningProfileFields', 'PlanningMedical', 'PlanningPensionRefinement', 'PlanningRefinements']) load(file);
   const module = { exports: {} };
   const script = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },

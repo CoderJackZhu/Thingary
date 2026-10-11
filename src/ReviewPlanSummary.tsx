@@ -57,7 +57,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
         {saving.kind === 'known' ? <b className={saving.negative ? 'neg' : undefined}>{money(saving.monthly_cents)}<small>／月</small></b> : null}
       </div>
       {saving.kind === 'known' ? <p className="review-plan-source">
-        {saving.low_sample ? `样本少 · ${saving.count} 个区间` : `近 12 个月按天数加权 · ${saving.count} 个区间`}{saving.window_from ? ` · ${saving.window_from} 起` : ''}{retire.kind !== 'ready' && saving.latest_date ? ` · 截至 ${saving.latest_date}` : ''}
+        {saving.low_sample ? `样本少 · ${saving.count} 个区间` : `按天数加权 · ${saving.count} 个区间`}{saving.window_from ? ` · 统计最近 12 个月（${saving.window_from.slice(0, 7)} 起）` : ''}{retire.kind !== 'ready' && saving.latest_date ? ` · 截至 ${saving.latest_date}` : ''}
         {saving.negative && ' · 近期净资产下降（含估值变化）'}
       </p> : saving.kind === 'unknown' ? <p className="review-plan-source">待补充 · {saving.reason}</p>
       : saving.kind === 'error' ? <p className="review-plan-source">历史资产参考暂时无法读取。</p>

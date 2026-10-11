@@ -74,3 +74,12 @@ test('养老金页：没有退休目标时不提供资金核对入口，避免�
   assert.match(body, /未来公积金每月缴存还没确认，这里只按已有余额估算。设置退休目标时可以一并确认。/);
   assert.equal(r.button('确认公积金缴存'), undefined);
 });
+
+import { medicalFixture } from '../src/planning-pension-fixture.ts';
+test('养老金页：停缴年龄下拉只用于对照；医保卡写明按目标里的缴费安排计算', () => {
+  const s = medicalFixture(raw, 'short');
+  const r = runtime('PlanningPension', { sources: s });
+  const body = r.text(r.render());
+  assert.match(body, /目标里确认的未来缴费安排是缴到 2030-06；上面的选择只用于这页对照/);
+  assert.match(body, /未来月数按目标里确认的缴费安排（缴到 2030-06）计算，不随上面“停止缴费的年龄”的选择变化/);
+});
