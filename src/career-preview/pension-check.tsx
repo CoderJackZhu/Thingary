@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { CentInput, FormRow } from '../FormControls.tsx';
 import { MonthInput } from '../DateInput.tsx';
-import { calculateBeijingBenefit } from '../plan-pension-policy.ts';
-import type { BeijingBenefitInput } from '../plan-pension-policy.ts';
+import { calculateBeijingBenefit } from '../pension-lab/benefit.ts';
+import type { BeijingBenefitInput } from '../pension-lab/benefit.ts';
 import type { PlanningSources } from '../plan-basic-contract.ts';
 import { checkAssumption, decimalIndex, fictionalPensionCheck, pensionCheckInput } from './pension-check.ts';
 import { money } from './result-text.ts';

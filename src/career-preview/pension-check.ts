@@ -4,7 +4,7 @@ import type { CareerDraft } from '../plan-career-contract.ts';
 import { compareCareerScenario } from '../plan-career-compare.ts';
 import type { CareerChange } from '../plan-career-compare.ts';
 import { maxGap, minWindow } from '../plan-career-map.ts';
-import type { BeijingBenefitInput } from '../plan-pension-policy.ts';
+import type { BeijingBenefitInput } from '../pension-lab/benefit.ts';
 import { evaluateCareerScenario } from '../plan-career.ts';
 import { incomeDraft, prepareIncomeScope } from './income-scope.ts';
 import type { IncomeDraft } from './income-scope.ts';

@@ -1,7 +1,7 @@
 // Complete years use the existing rule. Partial years require explicit annual
 // divisor premises; no historical reconstruction, wage defaults or storage.
-import { validMonth, money, validSource, sourceCopy, monthIndex as monthNumber } from './plan-pension-input.ts';
-import type { PolicySource } from './plan-pension-input.ts';
+import { validMonth, money, validSource, sourceCopy, monthIndex as monthNumber } from './input.ts';
+import type { PolicySource } from './input.ts';
 
 type Month = PolicySource & { month: string; kind: 'paid' | 'unpaid' | 'unemployment_benefit'; base_cents?: string | null };
 type Wage = PolicySource & { year: number; cents: string };

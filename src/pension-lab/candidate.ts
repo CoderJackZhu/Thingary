@@ -1,11 +1,11 @@
 // One explicit candidate path; not wired to career search or ordinary planning.
-import { prepareBeijingIndex } from './plan-pension-index.ts';
-import type { BeijingIndexInput } from './plan-pension-index.ts';
-import { projectPensionAccount } from './plan-pension-account.ts';
-import type { PensionAccountInput } from './plan-pension-account.ts';
-import { beijingBenefitForLedger } from './plan-pension-policy-ledger.ts';
-import type { PolicyLedgerInput } from './plan-pension-policy-ledger.ts';
-import type { BeijingBenefitInput } from './plan-pension-policy.ts';
+import { prepareBeijingIndex } from './contribution-index.ts';
+import type { BeijingIndexInput } from './contribution-index.ts';
+import { projectPensionAccount } from './account.ts';
+import type { PensionAccountInput } from './account.ts';
+import { beijingBenefitForLedger } from './ledger.ts';
+import type { PolicyLedgerInput } from './ledger.ts';
+import type { BeijingBenefitInput } from './benefit.ts';
 
 export type BeijingPensionPathInput = {
   index: BeijingIndexInput | null;

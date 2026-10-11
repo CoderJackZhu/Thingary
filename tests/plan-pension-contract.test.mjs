@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateBeijingBenefit } from '../src/plan-pension-policy.ts';
+import { calculateBeijingBenefit } from '../src/pension-lab/benefit.ts';
 
 const source = { basis: 'assumption', source: '明确虚构假设，不是个人资料' };
 const fixture = (over = {}) => ({

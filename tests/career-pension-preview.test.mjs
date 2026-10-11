@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { careerSources, careerDraft } from '../src/career-preview/fixtures.ts';
 import { careerPensionSources } from '../src/career-preview/pension-fixture.ts';
 import { previewAnswers, pensionCheckInput, fictionalPensionCheck, decimalIndex } from '../src/career-preview/pension-check.ts';
-import { calculateBeijingBenefit } from '../src/plan-pension-policy.ts';
+import { calculateBeijingBenefit } from '../src/pension-lab/benefit.ts';
 
 test('all Beijing career questions block even with complete insurance; no fallback results', () => {
   const sources = careerPensionSources(), draft = careerDraft();

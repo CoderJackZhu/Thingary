@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { project, required, requiredAt, coverageAt, glide, nominalFactor } from '../src/plan-ledger.ts';
-import { prepareBeijingIndex } from '../src/plan-pension-index.ts';
-import { beijingBenefitForLedger } from '../src/plan-pension-policy-ledger.ts';
+import { prepareBeijingIndex } from '../src/pension-lab/contribution-index.ts';
+import { beijingBenefitForLedger } from '../src/pension-lab/ledger.ts';
 import { coverage } from '../src/plan-view.ts';
 import { monteCarlo } from '../src/plan-risk.ts';
 

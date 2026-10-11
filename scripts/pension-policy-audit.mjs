@@ -2,11 +2,11 @@
 // Keep discrepancies visible until the model has the missing policy inputs.
 import { project } from '../src/plan-pension.ts';
 import { beijing } from '../src/plan-params.ts';
-import { calculateBeijingBenefit } from '../src/plan-pension-policy.ts';
-import { prepareBeijingIndex } from '../src/plan-pension-index.ts';
-import { beijingBenefitForLedger } from '../src/plan-pension-policy-ledger.ts';
+import { calculateBeijingBenefit } from '../src/pension-lab/benefit.ts';
+import { prepareBeijingIndex } from '../src/pension-lab/contribution-index.ts';
+import { beijingBenefitForLedger } from '../src/pension-lab/ledger.ts';
 import { project as projectLedger, required } from '../src/plan-ledger.ts';
-import { prepareBeijingPensionPath } from '../src/plan-pension-candidate.ts';
+import { prepareBeijingPensionPath } from '../src/pension-lab/candidate.ts';
 
 const input = {
   today: '2048-01-01', birth_month: '1990-01', paid_months: 240,

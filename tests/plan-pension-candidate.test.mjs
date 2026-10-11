@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareBeijingPensionPath } from '../src/plan-pension-candidate.ts';
+import { prepareBeijingPensionPath } from '../src/pension-lab/candidate.ts';
 import { project,required } from '../src/plan-ledger.ts';
 
 const source={basis:'assumption',source:'虚构职业候选，同一输入逐月改变'};

@@ -1,6 +1,6 @@
 // Explicit scenario arithmetic, not an official account settlement or forecast.
-import { validMonth, money, validSource, sourceCopy, monthIndex } from './plan-pension-input.ts';
-import type { PolicySource } from './plan-pension-input.ts';
+import { validMonth, money, validSource, sourceCopy, monthIndex } from './input.ts';
+import type { PolicySource } from './input.ts';
 
 export type PensionAccountMonth = PolicySource & {
   month: string; kind: 'paid' | 'unpaid' | 'unemployment_benefit'; base_cents?: string | null;

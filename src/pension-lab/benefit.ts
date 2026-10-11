@@ -1,12 +1,12 @@
 // Explicit-input Beijing benefit kernel. No storage, projection of past facts,
 // career defaults, account growth, or restricted-asset unlocking here.
-import { validMonth, money, validSource, sourceCopy, monthIndex } from './plan-pension-input.ts';
-import { startAgeMonths, statutoryAgeMonths, requiredContributionMonths } from './plan-pension.ts';
-import type { Worker } from './plan-pension.ts';
-import { pensionMonths } from './plan-params.ts';
+import { validMonth, money, validSource, sourceCopy, monthIndex } from './input.ts';
+import { startAgeMonths, statutoryAgeMonths, requiredContributionMonths } from '../plan-pension.ts';
+import type { Worker } from '../plan-pension.ts';
+import { pensionMonths } from '../plan-params.ts';
 
-import type { PolicySource } from './plan-pension-input.ts';
-export type { PolicySource } from './plan-pension-input.ts';
+import type { PolicySource } from './input.ts';
+export type { PolicySource } from './input.ts';
 type Amount = PolicySource & { cents: string };
 export type BeijingBenefitInput = {
   scope: 'beijing-enterprise-post-1998' | 'other' | null;

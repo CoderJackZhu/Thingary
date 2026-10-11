@@ -1,7 +1,7 @@
 // Explicit bridge to the existing ledger; no automatic career-path inference.
-import { calculateBeijingBenefit } from './plan-pension-policy.ts';
-import type { BeijingBenefitInput } from './plan-pension-policy.ts';
-import type { Pension } from './plan-fire.ts';
+import { calculateBeijingBenefit } from './benefit.ts';
+import type { BeijingBenefitInput } from './benefit.ts';
+import type { Pension } from '../plan-fire.ts';
 
 export type PolicyLedgerInput = {
   benefit: BeijingBenefitInput;

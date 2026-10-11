@@ -173,7 +173,7 @@ npm run tauri -- build --bundles app
 
 北京养老金政策专项用例运行 `node --test tests/plan-pension-policy.test.mjs`；`node --test tests/plan-pension-contract.test.mjs` 验证独立的显式输入金额核心（缺项／不适用门控、年份、计发月数、金额舍入和次月起领）。`node --test tests/plan-pension-index.test.mjs tests/plan-pension-timing.test.mjs` 验证完整日历年指数与独立账本起领适配器，覆盖普通停缴、整年待遇扣除、精确舍入、缺项和部分年份阻断，以及退休月、跨年、月中起点、池解锁和展示一致性。适配器仅支持显式购买力转换与领取后随通胀增长假设，未被普通入口或预览调用。
 
-`node --test tests/plan-pension-account.test.mjs tests/plan-pension-candidate.test.mjs` 验证已结息年末余额后的账户情景外推与完整年度候选串联；覆盖停缴继续计息、8%入账、逐年利率、年度与末年假设、整数分舍入、缺项／非法／不适用、退休月一致性及资格不足不退款。新候选位于 `plan-pension-candidate.ts`，既有 `plan-pension-path.ts` 的缴费区间编译保持不变，不能以新候选替换普通入口。
+`node --test tests/plan-pension-account.test.mjs tests/plan-pension-candidate.test.mjs` 验证已结息年末余额后的账户情景外推与完整年度候选串联；覆盖停缴继续计息、8%入账、逐年利率、年度与末年假设、整数分舍入、缺项／非法／不适用、退休月一致性及资格不足不退款。新候选位于 `src/pension-lab/candidate.ts`，既有 `plan-pension-path.ts` 的缴费区间编译保持不变，不能以新候选替换普通入口。
 
 `node scripts/pension-policy-audit.mjs` 并列旧模型、新金额核心及给定指数下的闭式金额，另输出完整年度指数→金额→逐月账本以及三种缴费候选的独立预期和实际，差异时退出码非0；原逐月加权指数仍是假设，不能称为官方待遇差额。首尾部分年份、官方账户结算校准和职业搜索接入尚未完成。职业预览的 `?state=pension` 已提供可展开的金额核对，初始条件未知，主动载入完整虚构假设后显示分项、资格和次月起领；清空、非法值和其他适用范围均撤销金额。三个职业主答案与所有对照暂时阻断，核对结果不进入搜索或账本。`tests/career-pension-preview.test.mjs` 验证预览门控、来源错误优先、历史事实不冒充未来输入及核心连接。范围与后续出口见 [职业情景设计](CAREER_SCENARIO_DESIGN.md#北京养老金政策核验与接入门槛)。
 
@@ -256,3 +256,5 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 养老金参数分离：`tests/pension-benefit-base.test.mjs` 覆盖仅改变基础养老金、待遇适用年与工资统计年分离、向前／向后年度换算、旧结果不变、表单保存／清空及非法输入。`src-tauri/tests/planning_basic.rs` 覆盖新字段重开、备份恢复、旧请求重放兼容、同请求不同参数冲突及无效资料不改变revision。虚构养老金页编辑“分开核对工资参考与养老金计发基数”，检查缺年度拦截、保存重开、取消、三项清空、地区切换及保存失败；原生界面与VoiceOver仍需单独验收。
 
 年度指数契约回归：`tests/plan-pension-index.test.mjs` 覆盖显式部分退休年、首年、部分待遇扣除、整段扣除、应缴年限两位舍入、分母敏感性、完整年度不允许覆盖、未知及非法条件阻断、来源不变性；`tests/plan-pension-candidate.test.mjs` 验证同一部分年度条件沿现有候选链传递，实缴资格与账户入账不被应缴年限替代。无新增界面或持久化，不能由这些纯函数测试推定普通入口、原生验收或政策核定已完成。
+
+`tests/pension-boundary.test.mjs` 从普通应用和独立预览的实际入口遍历静态、动态及类型导入，保护政策实验不进入普通业务。养老金实验文件集中在 `src/pension-lab/`，审计脚本和既有数值测试继续使用同一实现；本次目录隔离不改变界面或计算结果。

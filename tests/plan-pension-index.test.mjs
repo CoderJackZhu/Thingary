@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { prepareBeijingIndex } from '../src/plan-pension-index.ts';
+import { prepareBeijingIndex } from '../src/pension-lab/contribution-index.ts';
 
 const fact = { basis: 'verified', source: '虚构已核对记录' };
 const input = (start=2020, end=2022) => ({ scope: 'beijing-enterprise-post-1998', required_start_month: `${start}-01`, required_start_source:fact, retirement_month: `${end}-12`,

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { calculateBeijingBenefit } from '../src/plan-pension-policy.ts';
+import { calculateBeijingBenefit } from '../src/pension-lab/benefit.ts';
 import { project } from '../src/plan-pension.ts';
 import { beijing } from '../src/plan-params.ts';
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { projectPensionAccount } from '../src/plan-pension-account.ts';
+import { projectPensionAccount } from '../src/pension-lab/account.ts';
 
 const source={basis:'assumption',source:'虚构账户条件，不是官方结算'};
 const input=(end='2026-12')=>({scope:'beijing-enterprise-post-1998',method:'annual-simple-month-product-assumption',
