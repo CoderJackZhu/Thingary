@@ -23,7 +23,7 @@ test('prototype distinguishes complete 15/15/60 facts from projected shortfall a
   assert.equal(medicalView(m, '100000').pending, false);
   assert.match(medicalView(m, '100000').title, /还差 2 个月/);
   p.medical_local_required_months = null;
-  assert.equal(medicalView(medicalCheck(p, b, today), null).next, '补充医保资料');
+  assert.equal(medicalView(medicalCheck(p, b, today), null).next, '核对适用的医保政策门槛');
   p.medical_local_required_months = 60; p.medical_paid_months = 17;
   assert.match(medicalView(medicalCheck(p, b, today), null).title, /预计满足年限/);
 });
@@ -93,4 +93,16 @@ test('medical omission leaves required contribution unchanged; explicit topup eq
   assert.ok(Number(after.requirement.value.set.monthly_cents) > Number(base.requirement.value.set.monthly_cents));
   assert.deepEqual(solveBasicRequirement((amount, a, b) => ({ ...before.compile(amount, a, b), spends: [{ offset_months: offset, cents: 6000000 }] }), 0, 0), solveBasicRequirement(prepared.plan.value.compile, 0, 0));
   p.medical_paid_months = null; assert.equal(buildBasicCapabilities(s).requirement.status, 'ready');
+});
+
+test('missing policy is distinct from missing personal records and remains unknown', () => {
+  const { p, b } = fixture();
+  p.medical_local_required_months = null;
+  let result = medicalCheck(p, b, today);
+  assert.equal(result.status, 'unknown');
+  assert.equal(result.short_months, null);
+  assert.match(medicalView(result, null).title, /已缴记录已填/);
+  assert.match(medicalView(result, null).explanation, /留空仍可保存并继续试算/);
+  p.medical_paid_months = null;
+  assert.equal(medicalView(medicalCheck(p, b, today), null).next, '补充医保资料');
 });

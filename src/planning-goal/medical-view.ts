@@ -2,6 +2,14 @@ import type { MedicalCheck } from '../plan-medical.ts';
 
 /** Presentation only: incomplete facts and a projected shortfall need different actions. */
 export function medicalView(m: MedicalCheck, topup: string | null | undefined) {
+  const policyOnly = m.status === 'unknown' && m.missing.length > 0 && m.missing.every(item => ['本地实际缴费要求', '医保所需累计年限'].includes(item));
+  if (policyOnly) return {
+    pending: true,
+    title: '已缴记录已填，适用政策门槛待确认',
+    explanation: `待确认：${m.missing.join('、')}。这是政策要求，不是你的已缴记录；留空仍可保存并继续试算，但暂不能判断医保年限是否足够。`,
+    action: '查看待确认的政策门槛', next: '核对适用的医保政策门槛',
+    guidance: '无需重复填写已缴月数。确认适用的政策最低月数后再补充；暂不清楚可先查看计算详情，医保可能产生的额外支出仍待核对。',
+  };
   const short = m.status === 'short';
   const pending = m.status === 'unknown' || short && topup == null;
   const title = m.status === 'unknown' ? '医保资料尚未填全' : short ? `按当前缴费计划，医保预计还差 ${m.short_months} 个月` : m.status === 'ok' ? '按当前缴费计划，预计满足年限' : '尚未进行医保年限核算';
