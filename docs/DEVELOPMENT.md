@@ -201,7 +201,7 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 
 ### 养老金精修闭环验收
 
-当前源码已实现（尚未发布）。`?section=planning&plan-pension=normal|unknown|empty|error|transfer` 使用与自动化同批的虚构盘点：正常有完整社保资料、未知为已选北京缺两项资料、空白无计划、错误模拟保存失败、transfer 为个人养老金未来起止未齐。刷新重置，正常构建不导入预览夹具。
+已实现并纳入 0.0.3 Beta。`?section=planning&plan-pension=normal|unknown|empty|error|transfer` 使用与自动化同批的虚构盘点：正常有完整社保资料、未知为已选北京缺两项资料、空白无计划、错误模拟保存失败、transfer 为个人养老金未来起止未齐。刷新重置，正常构建不导入预览夹具。
 
 `tests/planning-pension-refinement.test.mjs` 运行生产对话框、Q4 和卡片处理器，覆盖五个入口、缺项硬阻塞与改选先不算、内存草稿与统一 setup 保存、隐藏值保全、未来缴存只扣一次，以及固定比较上下文、无原结果／不变／不可计算；原生临时 Store 的 setup 多段保存、null、原子性、重启、冲突和未知回执重放由 `src-tauri/tests/planning_basic.rs` 验证。浏览器可点通与截图不证明原生 UI 持久化；隔离原生 UI 的保存、重启、备份交互及辅助功能仍需另行验收。
 
@@ -209,6 +209,6 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 
 ### Excel 导入与导出
 
-当前源码使用 `.xlsx` 工作簿，外部 CSV 入口已替换；内部金融纯解析契约保留。`src-tauri/tests/spreadsheet.rs` 使用临时目录与虚构数据验证物品／账户／完整盘点／收入往返、未知与零、中文／前导零／字面公式文本、多行备注定位、同批回执重放、重启与完整备份，以及公式／异常 ZIP／稀疏范围拒绝、失败不覆盖目标。schema 25→35 升级保留事实与稳定 ID，Excel 改动不新增迁移。浏览器展示及自动测试不代表原生系统文件面板或其他表格软件交互已验。
+0.0.3 Beta 使用 `.xlsx` 工作簿，外部 CSV 入口已替换；内部金融纯解析契约保留。`src-tauri/tests/spreadsheet.rs` 使用临时目录与虚构数据验证物品／账户／完整盘点／收入往返、未知与零、中文／前导零／字面公式文本、多行备注定位、同批回执重放、重启与完整备份，以及公式／异常 ZIP／稀疏范围拒绝、失败不覆盖目标。schema 25→35 升级保留事实与稳定 ID，Excel 改动不新增迁移。浏览器展示及自动测试不代表原生系统文件面板或其他表格软件交互已验。
 
 医保年限虚构预览追加 `plan-medical=short|ok|unknown|topup`（同时用 `section=planning&capabilities=real`），核对养老金与目标页，`state=save-error` 验证保存失败保留输入；均为内存数据。

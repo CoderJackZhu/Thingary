@@ -4,9 +4,9 @@
 
 直接内置的外部内容不由包管理器发现，另见 [来源告知](SOURCE_NOTICES.md)；随包告知同时附上来源告知。
 
-## Rust（macOS 目标，279 个）
+## Rust（macOS 目标，292 个）
 
-许可证分布：MIT OR Apache-2.0（126）、MIT（46）、Apache-2.0 OR MIT（28）、MIT/Apache-2.0（19）、Unicode-3.0（18）、Zlib OR Apache-2.0 OR MIT（9）、Unlicense OR MIT（6）、MPL-2.0（5）、MIT OR Apache-2.0 OR Zlib（3）、BSD-3-Clause（2）、Zlib（2）、MIT OR Zlib OR Apache-2.0（2）、BSD-3-Clause OR Apache-2.0（2）、Unlicense/MIT（2）、0BSD OR MIT OR Apache-2.0（1）、BSD-3-Clause AND MIT（1）、BSD-3-Clause/MIT（1）、Apache-2.0 AND MIT（1）、CC0-1.0 OR MIT-0 OR Apache-2.0（1）、Apache-2.0 / MIT（1）、Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT（1）、Apache-2.0（1）、(MIT OR Apache-2.0) AND Unicode-3.0（1）
+许可证分布：MIT OR Apache-2.0（133）、MIT（48）、Apache-2.0 OR MIT（30）、MIT/Apache-2.0（19）、Unicode-3.0（18）、Zlib OR Apache-2.0 OR MIT（9）、Unlicense OR MIT（6）、MPL-2.0（5）、MIT OR Apache-2.0 OR Zlib（3）、BSD-3-Clause（2）、Zlib（2）、MIT OR Zlib OR Apache-2.0（2）、BSD-3-Clause OR Apache-2.0（2）、Unlicense/MIT（2）、Apache-2.0（2）、0BSD OR MIT OR Apache-2.0（1）、BSD-3-Clause AND MIT（1）、BSD-3-Clause/MIT（1）、Apache-2.0 AND MIT（1）、CC0-1.0 OR MIT-0 OR Apache-2.0（1）、(Apache-2.0 OR MIT) AND BSD-3-Clause（1）、Apache-2.0 / MIT（1）、Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT（1）、(MIT OR Apache-2.0) AND Unicode-3.0（1）
 
 | 名称 | 版本 | 许可证 | 来源 |
 |---|---|---|---|
@@ -15,6 +15,7 @@
 | alloc-no-stdlib | 2.0.4 | BSD-3-Clause | https://github.com/dropbox/rust-alloc-no-stdlib |
 | alloc-stdlib | 0.2.4 | BSD-3-Clause | https://github.com/dropbox/rust-alloc-no-stdlib |
 | anyhow | 1.0.104 | MIT OR Apache-2.0 | https://github.com/dtolnay/anyhow |
+| atoi_simd | 0.18.1 | MIT OR Apache-2.0 | https://github.com/RoDmitry/atoi_simd |
 | autocfg | 1.5.1 | Apache-2.0 OR MIT | https://github.com/cuviper/autocfg |
 | base64 | 0.21.7 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
 | base64 | 0.22.1 | MIT OR Apache-2.0 | https://github.com/marshallpierce/rust-base64 |
@@ -28,10 +29,12 @@
 | brotli | 8.0.4 | BSD-3-Clause AND MIT | https://github.com/dropbox/rust-brotli |
 | brotli-decompressor | 5.0.3 | BSD-3-Clause/MIT | https://github.com/dropbox/rust-brotli-decompressor |
 | bs58 | 0.5.1 | MIT/Apache-2.0 | https://github.com/Nullus157/bs58-rs |
+| bumpalo | 3.20.3 | MIT OR Apache-2.0 | https://github.com/fitzgen/bumpalo |
 | bytemuck | 1.25.2 | Zlib OR Apache-2.0 OR MIT | https://github.com/Lokathor/bytemuck |
 | byteorder | 1.5.0 | Unlicense OR MIT | https://github.com/BurntSushi/byteorder |
 | byteorder-lite | 0.1.0 | Unlicense OR MIT | https://github.com/image-rs/byteorder-lite |
 | bytes | 1.12.1 | MIT | https://github.com/tokio-rs/bytes |
+| calamine | 0.36.1 | MIT | https://github.com/tafia/calamine |
 | camino | 1.2.6 | MIT OR Apache-2.0 | https://github.com/camino-rs/camino |
 | cargo_metadata | 0.19.2 | MIT | https://github.com/oli-obk/cargo_metadata |
 | cargo_toml | 0.22.3 | Apache-2.0 OR MIT | https://gitlab.com/lib.rs/cargo_toml |
@@ -40,6 +43,7 @@
 | cfb | 0.7.3 | MIT | https://github.com/mdsteele/rust-cfb |
 | cfg-if | 1.0.5 | MIT OR Apache-2.0 | https://github.com/rust-lang/cfg-if |
 | chrono | 0.4.45 | MIT OR Apache-2.0 | https://github.com/chronotope/chrono |
+| codepage | 0.1.3 | Apache-2.0 OR MIT | https://github.com/hsivonen/codepage |
 | cookie | 0.18.2 | MIT OR Apache-2.0 | https://github.com/SergioBenitez/cookie-rs |
 | core-foundation | 0.10.1 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
 | core-foundation-sys | 0.8.7 | MIT OR Apache-2.0 | https://github.com/servo/core-foundation-rs |
@@ -57,6 +61,7 @@
 | darling | 0.24.1 | MIT | https://github.com/TedDriggs/darling |
 | darling_core | 0.24.1 | MIT | https://github.com/TedDriggs/darling |
 | darling_macro | 0.24.1 | MIT | https://github.com/TedDriggs/darling |
+| debug_unsafe | 0.1.4 | MIT OR Apache-2.0 | https://github.com/RoDmitry/debug_unsafe |
 | defmt | 1.1.1 | MIT OR Apache-2.0 | https://github.com/knurling-rs/defmt |
 | defmt-macros | 1.1.1 | MIT OR Apache-2.0 | https://github.com/knurling-rs/defmt |
 | defmt-parser | 1.0.0 | MIT OR Apache-2.0 | https://github.com/knurling-rs/defmt |
@@ -78,11 +83,13 @@
 | dyn-clone | 1.0.20 | MIT OR Apache-2.0 | https://github.com/dtolnay/dyn-clone |
 | embed_plist | 1.2.2 | MIT OR Apache-2.0 | https://github.com/nvzqz/embed-plist-rs |
 | embed-resource | 3.0.11 | MIT | https://github.com/nabijaczleweli/rust-embed-resource |
+| encoding_rs | 0.8.42 | (Apache-2.0 OR MIT) AND BSD-3-Clause | https://github.com/hsivonen/encoding_rs |
 | equivalent | 1.0.2 | Apache-2.0 OR MIT | https://github.com/indexmap-rs/equivalent |
 | erased-serde | 0.4.10 | MIT OR Apache-2.0 | https://github.com/dtolnay/erased-serde |
 | errno | 0.3.14 | MIT OR Apache-2.0 | https://github.com/lambda-fairy/rust-errno |
 | fallible-iterator | 0.3.0 | MIT/Apache-2.0 | https://github.com/sfackler/rust-fallible-iterator |
 | fallible-streaming-iterator | 0.1.9 | MIT/Apache-2.0 | https://github.com/sfackler/fallible-streaming-iterator |
+| fast-float2 | 0.2.4 | MIT OR Apache-2.0 | https://github.com/Alexhuszagh/fast-float-rust |
 | fastrand | 2.5.0 | Apache-2.0 OR MIT | https://github.com/smol-rs/fastrand |
 | fdeflate | 0.3.7 | MIT OR Apache-2.0 | https://github.com/image-rs/fdeflate |
 | find-msvc-tools | 0.1.13 | MIT OR Apache-2.0 | https://github.com/rust-lang/cc-rs |
@@ -141,6 +148,7 @@
 | mio | 1.2.3 | MIT | https://github.com/tokio-rs/mio |
 | moxcms | 0.8.1 | BSD-3-Clause OR Apache-2.0 | https://github.com/awxkee/moxcms.git |
 | muda | 0.19.3 | Apache-2.0 OR MIT | https://github.com/tauri-apps/muda |
+| multiversion_no_op | 1.0.0 | Apache-2.0 OR MIT | https://github.com/hsivonen/multiversion_no_op |
 | new_debug_unreachable | 1.0.6 | MIT | https://github.com/mbrubeck/rust-debug-unreachable |
 | num-conv | 0.2.2 | MIT OR Apache-2.0 | https://github.com/jhpratt/num-conv |
 | num-traits | 0.2.19 | MIT OR Apache-2.0 | https://github.com/rust-num/num-traits |
@@ -174,6 +182,7 @@
 | proc-macro2 | 1.0.107 | MIT OR Apache-2.0 | https://github.com/dtolnay/proc-macro2 |
 | pxfm | 0.1.30 | BSD-3-Clause OR Apache-2.0 | https://github.com/awxkee/pxfm |
 | quick-error | 2.0.1 | MIT/Apache-2.0 | http://github.com/tailhook/quick-error |
+| quick-xml | 0.41.0 | MIT | https://github.com/tafia/quick-xml |
 | quick-xml | 0.42.0 | MIT | https://github.com/tafia/quick-xml |
 | quote | 1.0.47 | MIT OR Apache-2.0 | https://github.com/dtolnay/quote |
 | raw-window-handle | 0.6.2 | MIT OR Apache-2.0 OR Zlib | https://github.com/rust-windowing/raw-window-handle |
@@ -183,9 +192,11 @@
 | regex-automata | 0.4.18 | MIT OR Apache-2.0 | https://github.com/rust-lang/regex |
 | regex-syntax | 0.8.11 | MIT OR Apache-2.0 | https://github.com/rust-lang/regex |
 | rusqlite | 0.40.2 | MIT | https://github.com/rusqlite/rusqlite |
+| rust_xlsxwriter | 0.99.1 | MIT OR Apache-2.0 | https://github.com/jmcnamara/rust_xlsxwriter |
 | rustc_version | 0.4.1 | MIT OR Apache-2.0 | https://github.com/djc/rustc-version-rs |
 | rustc-hash | 2.1.3 | Apache-2.0 OR MIT | https://github.com/rust-lang/rustc-hash |
 | rustix | 1.1.5 | Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT | https://github.com/bytecodealliance/rustix |
+| rustversion | 1.0.23 | MIT OR Apache-2.0 | https://github.com/dtolnay/rustversion |
 | same-file | 1.0.6 | Unlicense/MIT | https://github.com/BurntSushi/same-file |
 | schemars | 0.8.22 | MIT | https://github.com/GREsau/schemars |
 | schemars | 0.9.0 | MIT | https://github.com/GREsau/schemars |
@@ -210,6 +221,7 @@
 | sha2 | 0.10.9 | MIT OR Apache-2.0 | https://github.com/RustCrypto/hashes |
 | shlex | 2.0.1 | MIT OR Apache-2.0 | https://github.com/comex/rust-shlex |
 | simd-adler32 | 0.3.10 | MIT | https://github.com/mcountryman/simd-adler32 |
+| simdutf8 | 0.1.5 | MIT OR Apache-2.0 | https://github.com/rusticstuff/simdutf8 |
 | siphasher | 1.0.3 | MIT/Apache-2.0 | https://github.com/jedisct1/rust-siphash |
 | smallvec | 1.16.1 | MIT OR Apache-2.0 | https://github.com/servo/rust-smallvec |
 | socket2 | 0.6.5 | MIT OR Apache-2.0 | https://github.com/rust-lang/socket2 |
@@ -287,6 +299,7 @@
 | zip | 8.6.0 | MIT | https://github.com/zip-rs/zip2 |
 | zlib-rs | 0.6.8 | Zlib | https://github.com/trifectatechfoundation/zlib-rs |
 | zmij | 1.0.23 | MIT | https://github.com/dtolnay/zmij |
+| zopfli | 0.8.3 | Apache-2.0 | https://github.com/zopfli-rs/zopfli |
 | zune-core | 0.5.3 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image |
 | zune-jpeg | 0.5.15 | MIT OR Apache-2.0 OR Zlib | https://github.com/etemesi254/zune-image/tree/dev/crates/zune-jpeg |
 
