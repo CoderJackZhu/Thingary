@@ -1,0 +1,57 @@
+/* 投资区间复盘组件样式：只引用 theme.css 令牌，不另建颜色体系。 */
+.ivr-card{background:var(--card);border:var(--surface-border);border-radius:var(--surface-radius);box-shadow:var(--surface-shadow);padding:14px var(--surface-pad-x);min-width:0;display:grid;gap:12px;color:var(--text);font-size:13px}
+.ivr-head{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.ivr-eyebrow{margin:0;font-size:11px;color:var(--accent);letter-spacing:.04em}
+.ivr-head h3{margin:2px 0;font:600 15px/1.4 var(--head)}
+.ivr-meta{margin:0;font-size:12px;color:var(--muted)}
+.ivr-muted{color:var(--muted);font-size:12px}
+.ivr-table{border-collapse:collapse;width:100%;font-size:12.5px}
+.ivr-table th,.ivr-table td{border-bottom:1px solid var(--line-soft);padding:6px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.ivr-table th{color:var(--muted);font-weight:500}
+.ivr-table[role] tbody tr,.ivr-table tbody th[scope=row]{color:var(--text)}
+.ivr-num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.ivr-uncounted td{color:var(--muted)}
+.ivr-result{display:grid;gap:8px;border-top:1px solid var(--line-soft);padding-top:10px}
+.ivr-profit{margin:0;font-size:14px;line-height:1.7}
+.ivr-profit strong{font:600 16px/1.4 var(--num);font-variant-numeric:tabular-nums}
+.ivr-statusline{margin:0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;line-height:1.7}
+.ivr-badge{display:inline-block;border-radius:5px;padding:0 7px;font-size:11px;background:var(--soft);color:var(--muted)}
+.ivr-badge.ivr-warn{background:var(--warn-bg);color:var(--warn)}
+.ivr-badge.ivr-error{background:var(--danger-bg);color:var(--error)}
+.ivr-change{margin:0;font-size:12.5px;color:var(--text)}
+.ivr-reasons{margin:0;padding-left:20px;font-size:12.5px;color:var(--muted);display:grid;gap:4px}
+.ivr-btn{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:var(--ctl-radius);padding:5px 14px;font-size:12px;cursor:pointer;min-height:28px}
+.ivr-btn:hover:not(:disabled){border-color:var(--accent)}
+.ivr-btn:disabled{cursor:default;opacity:.55}
+.ivr-btn.ivr-primary{background:var(--button-bg);color:var(--button-text);border-color:var(--button-bg)}
+.ivr-basis summary{cursor:pointer;font-size:12.5px;color:var(--accent)}
+.ivr-basis .ivr-table{margin-top:8px}
+.ivr-basis th[scope=row]{white-space:nowrap}
+.ivr-flownote{margin:0}
+.ivr-state{padding:32px var(--surface-pad-x);background:var(--card);border:var(--surface-border);border-radius:var(--surface-radius);line-height:1.8;color:var(--text);font-size:13px}
+.ivr-state h3{margin:0 0 6px;font:600 15px var(--head)}
+.ivr-error h3{color:var(--error)}
+.ivr-state ul{margin:6px 0;padding-left:20px;font-size:12px;color:var(--muted)}
+.ivr-dialog{border:var(--surface-border);border-radius:var(--surface-radius);background:var(--card);color:var(--text);font-size:13px;padding:0;max-width:640px;width:min(640px,calc(100vw - 48px))}
+.ivr-dialog form{display:grid;gap:12px;padding:18px var(--surface-pad-x) 16px;min-width:0}
+.ivr-dialog::backdrop{background:#0008}
+.ivr-dialog-head{display:flex;gap:12px;align-items:flex-start}
+.ivr-dialog-head>div{min-width:0;flex:1}
+.ivr-dialog-head h3{margin:2px 0;font:600 16px/1.4 var(--head)}
+.ivr-close{border:0;background:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;min-width:28px;min-height:28px;border-radius:var(--ctl-radius)}
+.ivr-close:hover:not(:disabled){color:var(--text)}
+.ivr-close:disabled{opacity:.55;cursor:default}
+.ivr-dialog-accounts{max-height:180px;overflow:auto}
+.ivr-field{display:grid;gap:4px}
+.ivr-field-label{display:grid;gap:4px;font-size:12.5px;color:var(--text)}
+.ivr-amount,textarea{border:1px solid var(--line);border-radius:var(--ctl-radius);background:var(--bg);color:var(--text);padding:6px 10px;font:inherit;min-height:28px}
+.ivr-amount:disabled,textarea:disabled{opacity:.55}
+.ivr-amount{width:200px;font-variant-numeric:tabular-nums}
+textarea{resize:vertical;min-height:56px}
+.ivr-hint{margin:0;font-size:11.5px;color:var(--muted);line-height:1.6}
+.ivr-choice{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.6}
+.ivr-choice input{margin-top:3px}
+.ivr-choice:has(input:disabled) input:not(:disabled){cursor:default}
+.ivr-notice{border:1px solid var(--warn);background:var(--warn-bg);color:var(--warn);border-radius:var(--surface-radius);padding:8px 12px;font-size:12px;display:grid;gap:4px}
+.ivr-notice p{margin:0}
+.ivr-dialog-foot{display:flex;gap:8px;justify-content:flex-end}
