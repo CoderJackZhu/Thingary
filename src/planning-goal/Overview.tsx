@@ -45,8 +45,9 @@ export function GoalOverview({ saved, caps, today, cards, onEdit, onRefine, onDe
     <aside><article className="ui-card ui-content" aria-label="退休目标"><p className="eyebrow">{!req ? '还不能算出结果' : uncertain ? '当前暂算结果' : '按当前条件估算'}</p><h3>{r.target_age === null ? '先设置停止工作年龄' : `${r.target_age} 岁起不工作`}</h3><div className="goal-amounts"><div><span>目标需要每月存</span><strong>{req && 'monthly_cents' in req.set ? forecastMoney(req.set.monthly_cents) : '待计算'}</strong></div><div><span>你估计每月能存</span><strong>{b.contribution.monthly_cents === null ? '还没填' : money(b.contribution.monthly_cents)}</strong></div></div>
       {req ? <p>{uncertain && req.set.status === 'no_positive_contribution' ? '只看已计入的条件，暂不要求额外存钱。请先核对下方遗漏。' : requirementLine(req.set, forecastMoney).text}</p> : caps.requirement.status === 'blocked' && <p>{[...new Set(caps.requirement.missing.map(missingText))].join(' ')}</p>}
       {difference !== null && req?.set.status === 'found' && <p>{difference < 0 ? '每月还差约' : '每月余量约'} {forecastMoney(Math.abs(difference))}（按已计入的条件）。</p>}
+      {req && <button type="button" id="plan-detail-entry" className="primary goal-detail-entry" onClick={onDetail}>查看计算详情与图表</button>}
       <GoalCaution annotations={annotations}/>
-      <p className="muted small">按当前条件估算，不保证未来一定够用；收入、支出或政策变化后需要重算。</p>{req && <button type="button" id="plan-detail-entry" className="ui-link" onClick={onDetail}>查看计算详情与图表</button>}
+      <p className="muted small">按当前条件估算，不保证未来一定够用；收入、支出或政策变化后需要重算。</p>
     </article><article className="ui-card ui-content goal-next"><p className="eyebrow">建议下一步</p><h3>{nextTitle}</h3><p className="muted">{card?.benefit ?? (next === 'contributions' ? '已缴医保资料已保存；还缺未来缴费起止月份，补充后才能判断预计年限。' : next === 'medical' ? med.guidance : '只调整这一项，其余已填条件保留。')}</p><button className="primary" onClick={e => card ? onRefine(card, e.currentTarget) : onEdit(next, e.currentTarget)}>{card ? nextTitle : next === 'medical' ? med.action : nextTitle}</button></article></aside>
   </div>;
 }

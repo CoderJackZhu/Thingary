@@ -74,7 +74,7 @@ test('link choice requires a real eligible account; existing unknown account nev
 });
 
 test('detail action stays keyboard-native beside any ready result in 2 or 2b',()=>{
- const s=completionFixture(batch,'costs');for(const state of ['2','2b']){const c=caps(s);if(state==='2b')c.pension={status:'blocked',missing:[]};const r=runtime('PlanningBasicGoals',{sources:s,realSummary:true,goalStateOverride:state},undefined,c);assert.equal(r.find('div',p=>p['data-goal-state']).props['data-goal-state'],state);const button=r.button('查看计算详情与图表');assert.equal(button.props.type,'button');assert.equal(button.props.className,'ui-link');assert.equal(button.props.tabIndex,undefined);assert.ok(children(r.find('article',p=>p['aria-label']==='退休目标')).includes(button));}
+ const s=completionFixture(batch,'costs');for(const state of ['2','2b']){const c=caps(s);if(state==='2b')c.pension={status:'blocked',missing:[]};const r=runtime('PlanningBasicGoals',{sources:s,realSummary:true,goalStateOverride:state},undefined,c);assert.equal(r.find('div',p=>p['data-goal-state']).props['data-goal-state'],state);const button=r.button('查看计算详情与图表');assert.equal(button.props.type,'button');assert.equal(button.props.className,'primary goal-detail-entry');assert.equal(button.props.tabIndex,undefined);assert.ok(children(r.find('article',p=>p['aria-label']==='退休目标')).includes(button));}
 });
 
 for(const action of ['blank','exclude'])test(`income-switch: ${action} completion`,async()=>{

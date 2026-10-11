@@ -7,3 +7,5 @@ dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.
 .goal-editor-body{overflow:auto;min-height:0;padding:0 24px 16px}
 .goal-editor-body .form-block>p,.goal-editor-body .form-block>details{margin-inline:14px}
 @media(max-width:600px){.goal-editor-body{padding-inline:16px}dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>footer{padding-inline:16px}}
+
+.goal-detail-entry { width: 100%; min-height: 48px; margin-block: 12px; font-size: 15px; font-weight: 600; white-space: normal; }
