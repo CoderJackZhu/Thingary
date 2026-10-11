@@ -81,26 +81,27 @@ function Result({ calc, quit, onQuit, onEdit, onConfirmHpf, updatedAt, today }: 
   return <article className="ui-card ui-content plan-steps" aria-label="养老金估算">
     <div className="ui-section-head"><h3>养老金估算</h3><span><button type="button" id="plan-profile-edit" className="ui-btn" onClick={onEdit}>编辑个人资料</button></span></div>
     {stale >= STALE_MONTHS && <p className="notice" role="status">个人资料更新于 {updatedAt.slice(0, 10)}，已经 {stale} 个月没更新。累计缴费月数和个人账户余额会随缴费变化，请核对当地社保查询记录再改。</p>}
-    <section aria-labelledby="pension-start"><h4 id="pension-start">领取年龄</h4>
+    <section aria-labelledby="pension-start"><h4 id="pension-start">退休年龄</h4>
       <p><strong>{ageText(r.start_age_months)}</strong>（{r.start_month}）{calc.p.flex_months !== 0 && <span className="muted">，含弹性{calc.p.flex_months > 0 ? '延后' : '提前'} {Math.abs(calc.p.flex_months)} 个月</span>}</p>
+      <p className="muted small">按所选月份获批退休且满足缴费要求时，从 {r.payment_start_month} 起领基本养老金。</p>
       <label className="plan-quit">假设在这个年龄停止缴费：<select aria-label="停止缴费的年龄" value={quit === 'start' ? 'start' : String(quit)} onChange={e => onQuit(e.target.value === 'start' ? 'start' : Number(e.target.value))}>
-        <option value="start">缴到领取年龄</option>{calc.ages.map(a => <option key={a} value={a}>{a} 岁</option>)}</select></label>
-      <p className="muted small">缴费 {Math.floor(r.total_paid_months / 12)} 年 {r.total_paid_months % 12} 个月，其中今后还缴 {r.contribution_months} 个月。停缴不改变法定领取年龄，但缴费年限、个人账户和公积金都会变少。</p>
+        <option value="start">缴到退休年龄</option>{calc.ages.map(a => <option key={a} value={a}>{a} 岁</option>)}</select></label>
+      <p className="muted small">缴费 {Math.floor(r.total_paid_months / 12)} 年 {r.total_paid_months % 12} 个月，其中今后还缴 {r.contribution_months} 个月。停缴不改变法定退休年龄，但缴费年限、个人账户和公积金都会变少。</p>
       {calc.p.retire.basic?.pension_contributions.stop_month && <p className="muted small">目标里确认的未来缴费安排是缴到 {calc.p.retire.basic.pension_contributions.stop_month}；上面的选择只用于这页对照，不改变目标测算和医保年限。</p>}
       {!r.eligible && <p className="notice" role="status">本次按 {r.required_year} 年的最低缴费要求核对{calc.p.flex_months > 0 ? '（弹性延迟按法定退休年份）' : ''}：至少 {Math.floor(r.required_months / 12)} 年{r.required_months % 12 ? ` ${r.required_months % 12} 个月` : ''}，当前不足。能否续缴、转移或办理领取须按适用规定确认；下面仅展示公式金额，不代表已具备按月领取资格。</p>}
     </section>
-    <section aria-labelledby="pension-amount"><h4 id="pension-amount">退休首月养老金</h4>
+    <section aria-labelledby="pension-amount"><h4 id="pension-amount">首次领取月养老金</h4>
       <dl className="plan-facts">
         <div><dt>基础养老金</dt><dd>{yuan(r.base_pension_today_cents)}</dd><small className="muted">名义 {yuan(r.base_pension_nominal_cents)}</small></div>
         <div><dt>个人账户养老金</dt><dd>{yuan(r.account_pension_today_cents)}</dd><small className="muted">名义 {yuan(r.account_pension_nominal_cents)}</small></div>
         <div><dt>合计（今天的钱）</dt><dd>{yuan(r.total_today_cents)}</dd><small className="muted">名义 {yuan(r.total_nominal_cents)}</small></div>
         <div><dt>替代率</dt><dd>{rateText(r.replacement_hundredths)}</dd><small className="muted">养老金 ÷ 停缴时月缴费基数</small></div>
       </dl>
-      <p className="muted small">「今天的钱」按通胀假设折现；个人账户余额领取时约 {yuan(r.account_at_start_cents)}，计发月数 {r.disbursement_months.toFixed(1)}（非整岁按月插值，官方修订表出台前是近似）。这些都是估算，不是承诺。</p>
+      <p className="muted small">「今天的钱」按通胀假设折现；个人账户余额退休时约 {yuan(r.account_at_start_cents)}，计发月数 {r.disbursement_months.toFixed(1)}（非整岁按月插值，官方修订表出台前是近似）。这些都是估算，不是承诺。</p>
       <p className="muted small">按全国统一公式简化估算，未计过渡性养老金（视同缴费）等特殊情形，不能作为待遇核定结果。</p>
-      {calc.p.region === 'beijing' && <p className="muted small">北京断缴指数、待遇计发基数与起领月份尚未完整校准。</p>}
+      {calc.p.region === 'beijing' && <p className="muted small">北京断缴指数、待遇计发基数尚未完整校准。</p>}
     </section>
-    <section aria-labelledby="pension-pots"><h4 id="pension-pots">到领取年龄的锁定资金</h4>
+    <section aria-labelledby="pension-pots"><h4 id="pension-pots">到退休年龄的锁定资金</h4>
       <dl className="plan-facts">
         <div><dt>公积金</dt><dd>{yuan(r.hpf_at_start_cents)}</dd><small className="muted">当前余额 {money(calc.funds.hpf_balance_cents)}，月缴存 {money(calc.funds.hpf_monthly_cents)}</small></div>
         <div><dt>个人养老金（税后）</dt><dd>{yuan(r.personal_pension_after_tax_cents)}</dd><small className="muted">税前 {yuan(r.personal_pension_at_start_cents)}，领取时单独按 3% 缴个税</small></div>
@@ -118,7 +119,7 @@ function Table({ calc }: { calc: Calc }) {
   return <article className="ui-card ui-content"><div className="ui-section-head"><h3>不同停缴年龄</h3><span>用于判断提前退休的代价</span></div>
     <table className="ui-table plan-quits"><thead><tr><th>停止缴费</th><th className="amount">缴费年限</th><th className="amount">养老金（今天的钱）</th><th className="amount">锁定资金（今天的钱）</th><th>按月领取资格</th></tr></thead>
       <tbody>{calc.rows.map((r, i) => <tr key={r.quit_age_months + '-' + i} className={r.eligible ? undefined : 'closed'}>
-        <td>{i === calc.rows.length - 1 ? '缴到领取年龄' : ageText(r.quit_age_months)}</td>
+        <td>{i === calc.rows.length - 1 ? '缴到退休年龄' : ageText(r.quit_age_months)}</td>
         <td className="amount">{(r.total_paid_months / 12).toFixed(1)} 年</td><td className="amount">{yuan(r.total_today_cents)}</td><td className="amount">{yuan(r.pots_today_cents)}</td>
         <td>{r.eligible ? '满足' : <span className="ui-tag warn">不足 {Math.ceil(r.required_months / 12)} 年</span>}</td></tr>)}</tbody></table></article>;
 }

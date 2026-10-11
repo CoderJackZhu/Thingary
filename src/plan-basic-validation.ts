@@ -1,3 +1,4 @@
+import { contributionCostIssue } from './plan-contribution-cost.ts';
 import type { PlanningSources } from './plan-basic-contract.ts';
 import { validateDebtRepayment } from './plan-debt.ts';
 
@@ -9,6 +10,8 @@ export function basicConstraintMessages(sources: PlanningSources): string[] {
   const p = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile : null;
   if (!p?.retire.basic) return [];
   const r = p.retire, b = r.basic!, errors: string[] = [], add = (s: string) => errors.push(s);
+  if (b.retirement_contribution_cost) { const issue = contributionCostIssue(b.retirement_contribution_cost); if (issue) add(issue);
+  }
   if (p.birth_month !== null && (!month(p.birth_month) || p.birth_month >= sources.today.slice(0, 7))) add('出生年月须合法并早于本月。');
   if (r.spend_cents !== null && !cents(r.spend_cents)) add('完整生活预算须为合法整数分。');
   if (!Number.isInteger(r.horizon_age) || r.horizon_age < 70 || r.horizon_age > 110 || (r.target_age !== null && (!Number.isInteger(r.target_age) || r.target_age < 20 || r.target_age >= r.horizon_age))) add('目标年龄与规划终点约束冲突。');

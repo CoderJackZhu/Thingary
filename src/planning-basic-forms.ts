@@ -33,7 +33,7 @@ export type Draft = {
 const spendSources = (r: RetireInputs): CostSource[] => [
   ...r.spend_items.map(i => ({ id: `spend:${i.id}`, label: i.label, cents: i.monthly_cents })),
   ...(Number(r.rent_cents) > 0 ? [{ id: 'rent', label: '房租', cents: r.rent_cents }] : []),
-  ...(Number(r.keep_paying_monthly_cents) > 0 ? [{ id: 'social_insurance', label: '自缴社保', cents: r.keep_paying_monthly_cents }] : []),
+  ...(!r.basic?.retirement_contribution_cost && Number(r.keep_paying_monthly_cents) > 0 ? [{ id: 'social_insurance', label: '自缴社保', cents: r.keep_paying_monthly_cents }] : []),
 ];
 /** Retirement-side sources come from facts the person already has; there is nothing to ask when there are none. */
 export const retirementSources = (r: RetireInputs, annualPension: string | null = null): CostSource[] => [
@@ -99,6 +99,7 @@ export function basicInput(d: Draft, saved: Saved, today: string): SectionInput 
     monetary_basis_date: r.core?.monetary_basis_date ?? today,
     basic: {
       contract_version: 1,
+      ...(r.basic?.retirement_contribution_cost ? { retirement_contribution_cost: structuredClone(r.basic.retirement_contribution_cost) } : {}),
       start: d.start === 'live' ? { kind: 'live' } : { kind: 'simulation', id: d.simId, available_cents: d.simAmount === '' ? null : d.simAmount, date: d.simDate === '' ? null : d.simDate, notes: d.simNotes },
       contribution: { id: d.contributionId, monthly_cents: d.contribution === '' ? null : d.contribution },
       retirement_income: retirementIncomeOf(d),

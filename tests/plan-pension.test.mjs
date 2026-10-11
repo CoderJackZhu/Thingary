@@ -78,8 +78,8 @@ test('with growth, interest and inflation the result matches an independent refe
   assert.equal(r.base_pension_nominal_cents, 1_093_863);
   assert.equal(r.account_pension_nominal_cents, 858_665);
   assert.equal(r.total_nominal_cents, 1_952_529);
-  assert.equal(r.total_today_cents, 1_151_488);
-  assert.equal(r.replacement_hundredths, 4439);
+  assert.ok(Math.abs(r.total_today_cents - 1_151_488 / 1.02 ** (1 / 12)) < 1, 'first pension payment is discounted one month later');
+  assert.ok(Math.abs(r.replacement_hundredths - 4439 / 1.02 ** (1 / 12)) < 1);
   assert.equal(r.pots_today_cents, 135_732_899);
 });
 

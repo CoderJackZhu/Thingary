@@ -1039,3 +1039,119 @@ fn old_beijing_mode_and_source_ids_adapt_on_read_backup_and_receipt_only() {
     assert!(!current.contains("beijing_state_pension"));
     assert!(!current.contains("\"mode\":\"beijing\""));
 }
+
+#[test]
+fn retirement_contribution_cost_persists_replays_and_roundtrips_without_migrating_legacy_facts() {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("library");
+    let mut s = Store::open(&root).unwrap();
+    let original = input(&s);
+    let old = s.plan_profile_update(&original, "2026-10-07").unwrap();
+    assert!(old
+        .profile
+        .retire
+        .basic
+        .as_ref()
+        .unwrap()
+        .retirement_contribution_cost
+        .is_none());
+    let mut value = serde_json::to_value(input(&s)).unwrap();
+    value["request_id"] = uuid::Uuid::new_v4().to_string().into();
+    value["expected_revision"] = old.revision.into();
+    value["fields"]["basic"]["pension_contributions"] =
+        serde_json::json!({"start_month":"2027-01","stop_month":"2053-06","base_cents":"1500000"});
+    value["fields"]["basic"]["retirement_contribution_cost"] =
+        serde_json::json!({"treatment":"extra","monthly_cents":"300000","stop_month":"2053-06"});
+    let update: Update = serde_json::from_value(value.clone()).unwrap();
+    let next = s.plan_profile_update(&update, "2026-10-07").unwrap();
+    assert_eq!(
+        s.plan_profile_update(&update, "2026-10-07")
+            .unwrap()
+            .revision,
+        next.revision
+    );
+    assert_eq!(
+        next.profile.retire.keep_paying_monthly_cents,
+        old.profile.retire.keep_paying_monthly_cents
+    );
+    assert_eq!(
+        s.plan_profile_update(&original, "2026-10-07")
+            .unwrap()
+            .revision,
+        next.revision
+    );
+    value["fields"]["basic"]["retirement_contribution_cost"]["monthly_cents"] = "400000".into();
+    assert!(s
+        .plan_profile_update(&serde_json::from_value(value).unwrap(), "2026-10-07")
+        .is_err());
+    drop(s);
+    let s = Store::open(&root).unwrap();
+    assert_eq!(
+        s.plan_profile().unwrap().saved.unwrap().profile,
+        next.profile
+    );
+    let backup = d.path().join("cost.thingary");
+    s.backup(Some(&backup)).unwrap();
+    let mut restored = Store::open(&d.path().join("restored")).unwrap();
+    let info = restored.inspect_backup(&backup).unwrap();
+    restored
+        .restore(&backup, &info.hash, &restored.generation())
+        .unwrap();
+    assert_eq!(
+        restored.plan_profile().unwrap().saved.unwrap().profile,
+        next.profile
+    );
+}
+
+#[test]
+fn contribution_cost_unknown_zero_and_invalid_values_keep_their_meanings() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    for cost in [
+        serde_json::json!({"treatment":"extra","monthly_cents":null,"stop_month":"2053-06"}),
+        serde_json::json!({"treatment":"extra","monthly_cents":"0","stop_month":"2053-06"}),
+        serde_json::json!({"treatment":"external","monthly_cents":null,"stop_month":null}),
+        serde_json::json!({"treatment":"unknown","monthly_cents":"300000","stop_month":null}),
+        serde_json::json!({"treatment":"excluded","monthly_cents":null,"stop_month":null}),
+    ] {
+        let mut v = serde_json::to_value(input(&s)).unwrap();
+        v["request_id"] = uuid::Uuid::new_v4().to_string().into();
+        v["expected_revision"] =
+            serde_json::to_value(s.plan_profile().unwrap().saved.map(|x| x.revision)).unwrap();
+        v["fields"]["basic"]["retirement_contribution_cost"] = cost.clone();
+        let result = s
+            .plan_profile_update(&serde_json::from_value(v).unwrap(), "2026-10-07")
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(
+                result
+                    .profile
+                    .retire
+                    .basic
+                    .unwrap()
+                    .retirement_contribution_cost
+            )
+            .unwrap(),
+            cost
+        );
+    }
+    let revision = s.plan_profile().unwrap().saved.unwrap().revision;
+    for cost in [
+        serde_json::json!({"treatment":"extra","monthly_cents":"-1","stop_month":null}),
+        serde_json::json!({"treatment":"extra","monthly_cents":"01","stop_month":null}),
+        serde_json::json!({"treatment":"external","monthly_cents":"0","stop_month":null}),
+        serde_json::json!({"treatment":"bogus","monthly_cents":null,"stop_month":null}),
+        serde_json::json!({"treatment":"extra","monthly_cents":null,"stop_month":"2053-13"}),
+        serde_json::json!({"treatment":"included","monthly_cents":"500000","stop_month":"2053-06"}),
+    ] {
+        let mut v = serde_json::to_value(input(&s)).unwrap();
+        v["request_id"] = uuid::Uuid::new_v4().to_string().into();
+        v["expected_revision"] = revision.into();
+        v["fields"]["basic"]["pension_contributions"] = serde_json::json!({"start_month":"2027-01","stop_month":"2053-06","base_cents":"1500000"});
+        v["fields"]["basic"]["retirement_contribution_cost"] = cost;
+        assert!(s
+            .plan_profile_update(&serde_json::from_value(v).unwrap(), "2026-10-07")
+            .is_err());
+        assert_eq!(s.plan_profile().unwrap().saved.unwrap().revision, revision);
+    }
+}

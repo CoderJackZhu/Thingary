@@ -2,23 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBasicCapabilities, solveBasicRequirement, BASIC_SEARCH_LIMIT_CENTS } from '../src/plan-basic.ts';
 import { buildRetireCalc } from '../src/plan-retire-calc.ts';
-import { defaultRetire } from '../src/plan.ts';
-import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
-import { unknownBasicUpdate } from '../src/plan-basic-fixtures.ts';
+import { noOverrides } from '../src/plan-params.ts';
 import { project, outcome, table, savingsOf, startPaymentsOf, oneOffsOf, required, requiredAt } from '../src/plan-ledger.ts';
 import { monteCarlo } from '../src/plan-risk.ts';
 import { verdict } from '../src/plan-view.ts';
 import { summaryRetire } from '../src/plan-summary.ts';
 import { isReady, impactOf } from '../src/plan-wishes.ts';
 import { planningReadSession } from '../src/planning-service.ts';
+import { fictionalSources } from './helpers/planning-fixtures.mjs';
+export { fictionalSources };
 const ready = value => ({ status: 'ready', value });
 const error = { status: 'error', value: { code: 'FICTIONAL', message: '虚构独立来源故障' } };
-export function fictionalSources(contribution = null) {
-  const f = structuredClone(unknownBasicUpdate.fields);
-  f.basic.contribution.monthly_cents = contribution;
-  const profile = { birth_month: f.birth_month, worker: null, region: null, paid_months: null, account_balance_cents: null, base_cents: null, past_index_hundredths: null, flex_months: null, personal_pension_annual_cents: null, marginal_tax_hundredths: null, assumptions: { ...defaultAssumptions, inflation_hundredths: 0 }, overrides: noOverrides, retire: { ...structuredClone(defaultRetire), spend_cents: f.spend_cents, target_age: f.target_age, horizon_age: f.horizon_age, mode: f.mode, real_return_before_hundredths: f.real_return_before_hundredths, real_return_after_hundredths: f.real_return_after_hundredths, volatility_hundredths: f.volatility_hundredths, emergency_months: f.emergency_months, basic: f.basic, core: { contract_version: 1, monetary_basis_date: f.monetary_basis_date, fund_rules: [], hpf_monthly_cents: null, occurrences: [] } } };
-  return { generation: 'fictional', write_version: 1, today: '2026-10-07', modules: { planning: true, wealth: false }, profile: ready({ generation: 'fictional', saved: { revision: 1, updated_at: '2026-10-07', profile } }), snapshot: error, accounts: error, review: error, incomes: error };
-}
 const profile = s => s.profile.value.saved.profile;
 const retire = s => profile(s).retire;
 const prediction = s => { const c = buildBasicCapabilities(s); assert.equal(c.prediction.status, 'ready', JSON.stringify(c.prediction)); return c.prediction.value; };
@@ -204,7 +198,7 @@ test('B06a/D35 exact Beijing 2000 plus selected annuity 500 equals 2500; no hand
   r.basic.pension_contributions={start_month:'2027-01',stop_month:'2027-01',base_cents:'0'};
   r.income_items=[stream('annuity',50000),stream('state-manual',200000)];r.basic.retirement_income.selected=[{id:'annuity',source_id:'annuity',role:'other'}];
   const value=prediction(s),pen=value.plan.pension_at(value.plan.now_months),t=table(value.plan);assert.equal(pen.monthly_cents,200000);assert.equal(t.income[pen.unlock_age_months-value.plan.now_months]+pen.monthly_cents,250000);
-  const wholeYear=value.projection.rows.find(row=>row.start_month>=pen.unlock_age_months&&row.start_month+12<=value.plan.horizon_months);assert.equal(wholeYear.income,3000000);
+  const wholeYear=value.projection.rows.find(row=>row.start_month>=pen.income_start_age_months&&row.start_month+12<=value.plan.horizon_months);assert.equal(wholeYear.income,3000000);
 });
 
 test('B06/B12 finite no-margin prediction and source notes use confirmed simulation; temporary cannot enter wishes', () => {
@@ -237,4 +231,42 @@ test('B10/D28 actual absorbed payment and remaining loan continue once, even ori
   r.basic.contribution_costs=[scope('event:e:loan','included','100000'),scope('event:e:holding','extra')];r.basic.retirement_costs=[scope('event:e:loan','extra'),scope('event:e:holding','extra')];
   const p=prediction(s).plan;assert.equal(p.assets_cents,20000000);assert.equal(oneOffsOf(p)[0],0);assert.equal(p.loans.length,1);assert.equal(p.loans[0].principal_cents,1200000);assert.equal(startPaymentsOf(p)[1],110000);assert.equal(savingsOf(p)[1],990000);
   r.basic.retirement_costs[0]=scope('event:e:loan','excluded');assert.equal(buildBasicCapabilities(s).requirement.status,'blocked');
+});
+
+
+test('ordinary pension begins after retirement; pools retain retirement timing and ineligible income has no start', () => {
+  const s = beijingSources('0');
+  const c = buildBasicCapabilities(s), P = c.prediction.value.plan, pen = P.pension_at(P.now_months);
+  assert.equal(pen.unlock_age_months, 756);
+  assert.equal(pen.income_start_age_months, 757);
+  assert.equal(c.pension.value.start_month, '2053-07');
+  const without = { ...P, pension_at: () => ({ ...pen, monthly_cents: 0 }) };
+  // Same pool and zero real returns: the bridge month needs the entire budget.
+  assert.equal(required(P, 756) - required(P, 757), 400000);
+  assert.equal(required(without, 756) - required(without, 757), 400000);
+  profile(s).paid_months = 0;
+  retire(s).basic.pension_contributions = { start_month: '2027-01', stop_month: '2027-01', base_cents: '0' };
+  const absent = buildBasicCapabilities(s);
+  assert.equal(absent.pension.value.start_month, null);
+  assert.equal(absent.prediction.value.plan.pension_at(720).income_start_age_months, null);
+});
+
+test('future pension contributions disclose omitted or insufficient retirement costs without inventing a rate', () => {
+  const s = beijingSources('0'), r = retire(s);
+  const note = () => buildBasicCapabilities(s).annotations.find(a => a.reason_code === 'PENSION_COST_UNCONFIRMED');
+  assert.equal(note().effect, 'requirement_lower');
+  assert.equal(note().actionable, true);
+  assert.equal(note().refinement.field, 'retirement_contribution_cost'); // Also covers FI earlier than target.
+  r.keep_paying_monthly_cents = '300000'; r.keep_paying_until_age = 59;
+  assert.ok(note());
+  r.keep_paying_until_age = 60;
+  assert.equal(note(), undefined);
+  r.basic.retirement_costs = [scope('social_insurance', 'included', '300000')];
+  assert.equal(note(), undefined);
+  r.basic.retirement_costs = [scope('social_insurance', 'excluded')];
+  assert.equal(note().actionable, false);
+  r.basic.pension_contributions.stop_month = r.basic.pension_contributions.start_month;
+  assert.equal(note(), undefined);
+  r.basic.retirement_income.mode = 'excluded';
+  assert.equal(note(), undefined);
 });

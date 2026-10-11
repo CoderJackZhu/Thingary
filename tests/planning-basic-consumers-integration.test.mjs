@@ -39,6 +39,7 @@ function component(file, dependencies) {
     if (name === './plan-occurrence-actions') return occurrenceActions;
     if (name === './PlanningPensionRefinement') return { PlanningPensionRefinementDialog: () => null, PensionComparisonNote: () => null };
     if (name === './PlanningPension') return { ProfileDialog: () => null };
+    if (name === './PlanningContributionCost') return { PlanningContributionCost: () => null };
     if (name === './PlanningCosts') return { CostsDialog: () => null };
     if (Object.hasOwn(dependencies, name)) return dependencies[name];
     throw new Error(`Unexpected consumer dependency: ${name}`);

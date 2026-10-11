@@ -34,10 +34,13 @@ export type Funds = { hpf_balance_cents: string; hpf_monthly_cents: string; firs
 export type Employment = { from_age_months: number; base_cents: number; hpf_monthly_cents: number };
 
 export type Projection = {
-  /** 领取年龄（月）与领取月份 YYYY-MM。 */
+  /** 所选退休年龄（月）与退休月份 YYYY-MM；保留字段名兼容既有调用。 */
   start_age_months: number;
   start_month: string;
-  /** 假设在此年龄（月）停止缴费（不早于现在，不晚于领取年龄）。 */
+  /** 按所选退休月获批时，基本养老金从次月起领；不改变受限池解锁月。 */
+  payment_start_age_months: number;
+  payment_start_month: string;
+  /** 假设在此年龄（月）停止缴费（不早于现在，不晚于退休年龄）。 */
   quit_age_months: number;
   contribution_months: number;
   total_paid_months: number;
@@ -57,7 +60,7 @@ export type Projection = {
   /** 养老金（今天的钱）÷ 停缴时月缴费基数（今天的钱），万分比；基数为 0 时 null。 */
   replacement_hundredths: number | null;
   account_at_start_cents: number;
-  /** 到领取年龄的公积金与个人养老金（税后）余额，名义与今天的钱。 */
+  /** 到退休年龄的公积金与个人养老金（税后）余额，名义与今天的钱。 */
   hpf_at_start_cents: number;
   personal_pension_at_start_cents: number;
   personal_pension_after_tax_cents: number;
@@ -89,7 +92,7 @@ export function delayMonths(worker: Worker, birthMonth: string): number {
 /** 法定退休年龄（月）。 */
 export const statutoryAgeMonths = (worker: Worker, birthMonth: string) => ORIGINAL_AGE[worker] * 12 + delayMonths(worker, birthMonth);
 
-/** 实际领取年龄（月）：法定年龄加弹性（限 ±36 个月），提前不得早于原法定退休年龄。 */
+/** 所选退休年龄（月）：法定年龄加弹性（限 ±36 个月），提前不得早于原法定退休年龄。 */
 export function startAgeMonths(p: Pick<Profile, 'worker' | 'birth_month' | 'flex_months'>): number {
   const statutory = statutoryAgeMonths(p.worker, p.birth_month);
   return Math.max(ORIGINAL_AGE[p.worker] * 12, statutory + clamp(Math.trunc(p.flex_months), -36, 36));
@@ -162,6 +165,7 @@ export function project(profile: Profile, region: RegionParams, today: string, q
   const accountPension = account / disbursement;
 
   const deflate = (1 + inflation) ** (elapsedMonths(toStart, funds.first_month_fraction) / 12);
+  const incomeDeflate = (1 + inflation) ** (elapsedMonths(Math.max(0, start + 1 - nowAge), funds.first_month_fraction) / 12);
   // 人社部发〔2024〕94号第七条：延迟退休不提高其适用的最低缴费年限。
   // 仅修正年限门槛；计发工资外推等仍使用实际退休年。
   const requiredYear = Math.floor((monthIndex(profile.birth_month) + Math.min(start, statutoryAgeMonths(profile.worker, profile.birth_month))) / 12);
@@ -171,12 +175,12 @@ export function project(profile: Profile, region: RegionParams, today: string, q
   const ppAfterTax = pp * (1 - PERSONAL_PENSION_TAX_HUNDREDTHS / 10000);
   const round = Math.round;
   return {
-    start_age_months: start, start_month: monthText(retireIndex), quit_age_months: quit,
+    start_age_months: start, start_month: monthText(retireIndex), payment_start_age_months: start + 1, payment_start_month: monthText(retireIndex + 1), quit_age_months: quit,
     contribution_months: contribution, total_paid_months: totalMonths, required_year: requiredYear, required_months: required, eligible: totalMonths >= required,
     disbursement_months: disbursement,
     base_pension_nominal_cents: round(basePension), account_pension_nominal_cents: round(accountPension), total_nominal_cents: round(totalNominal),
-    base_pension_today_cents: round(basePension / deflate), account_pension_today_cents: round(accountPension / deflate), total_today_cents: round(totalNominal / deflate),
-    replacement_hundredths: stopWageToday > 0 ? round((totalNominal / deflate / stopWageToday) * 10000) : null,
+    base_pension_today_cents: round(basePension / incomeDeflate), account_pension_today_cents: round(accountPension / incomeDeflate), total_today_cents: round(totalNominal / incomeDeflate),
+    replacement_hundredths: stopWageToday > 0 ? round((totalNominal / incomeDeflate / stopWageToday) * 10000) : null,
     account_at_start_cents: round(account),
     hpf_at_start_cents: round(hpf), personal_pension_at_start_cents: round(pp), personal_pension_after_tax_cents: round(ppAfterTax),
     pots_today_cents: round((hpf + ppAfterTax) / deflate),

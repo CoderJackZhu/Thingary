@@ -245,3 +245,5 @@ dialog.editor.planning-pension-dialog:not(.asset-editor):not(.wishlist-editor)[o
 .planning-contribution-verdict { margin: -4px 0 12px; font-size: 15px; font-variant-numeric: tabular-nums; }
 .planning-contribution-verdict.good { color: var(--positive); }
 .planning-contribution-verdict.warn { color: var(--warn); }
+.editor.planning-contribution-dialog footer { display: flex; justify-content: flex-end; gap: 8px; margin-inline: -20px; padding-inline: 20px; }
+.planning-contribution-dialog .form-block > p, .planning-contribution-dialog .form-block > h3 { margin-inline: 14px; }

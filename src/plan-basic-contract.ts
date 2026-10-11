@@ -10,6 +10,12 @@ import type { PlanReview, Income } from './plan.ts';
 export type BasicStart = { kind: 'live' } | { kind: 'simulation'; id: string; available_cents: string | null; date: string | null; notes: string };
 export type CostScope = { source_id: string; treatment: 'included' | 'extra' | 'excluded'; reference_cents: string | null };
 export type IncomeSelection = { id: string; source_id: string; role: 'state_pension' | 'other' };
+export type RetirementContributionCost = {
+  treatment: 'unknown' | 'included' | 'extra' | 'external' | 'excluded';
+  monthly_cents: string | null;
+  /** Exclusive end; beginning follows pension_contributions.start_month, and only applies after retirement. */
+  stop_month: string | null;
+};
 export type BasicInputs = {
   contract_version: 1;
   start: BasicStart;
@@ -17,6 +23,7 @@ export type BasicInputs = {
   retirement_income: { mode: null | 'excluded' | 'manual' | 'employee'; selected: IncomeSelection[] };
   /** Explicit half-open contribution months, independent of contribution amount/sign and retirement trigger. */
   pension_contributions: { start_month: string | null; stop_month: string | null; base_cents: string | null };
+  retirement_contribution_cost?: RetirementContributionCost | null;
   contribution_costs: CostScope[];
   retirement_costs: CostScope[];
 };
@@ -56,7 +63,7 @@ export type PredictionValue = { source: 'saved' | 'temporary'; contribution_cent
 export type AnnotationEffect = 'requirement_lower' | 'requirement_higher' | 'uncertain' | 'none';
 /** Read-only calculation coverage. Never part of ProfileUpdate or stored profile JSON. */
 export type PlanningAnnotation = {
-  id: string; reason_code: 'MEDICAL_YEARS_SHORT' | 'MEDICAL_FACTS_UNKNOWN' | 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'DEBT_EXCLUDED' | 'DEBT_BALANCE_CHANGED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
+  id: string; reason_code: 'MEDICAL_YEARS_SHORT' | 'MEDICAL_FACTS_UNKNOWN' | 'EVENT_OVERDUE' | 'PAYMENT_PENDING' | 'LOAN_PENDING' | 'DEBT_UNLINKED' | 'DEBT_EXCLUDED' | 'DEBT_BALANCE_CHANGED' | 'REFERENCE_PENDING' | 'COST_ASSUMED_EXTRA' | 'COST_PERIOD_PENDING' | 'PENSION_COST_UNCONFIRMED' | 'POOL_NOT_USED' | 'TRANSFER_PENDING';
   actionable?: boolean;
   message: string; effect: AnnotationEffect; treatment: 'omitted' | 'assumed_extra' | 'not_used' | 'included';
   source_ids: string[]; missing_fields: string[];

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { coastAmount, coastAt, coverageAt, glide, nominalFactor, outcome, project, required, savingsOf, scaleSaving, scaleSpend } from '../src/plan-ledger.ts';
+import { coastAmount, coastAt, coverageAt, glide, nominalFactor, outcome, project, required, savingsOf, scaleSaving, scaleSpend, table } from '../src/plan-ledger.ts';
 import { findFire, requiredAssets, traditional } from './legacy-fire.ts';
 
 const none = () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 756 });
@@ -160,4 +160,17 @@ test('a one-off that cannot be paid leaves a debt that later deficits do not wip
   // 同样的亏空发生在手里有钱的时候：花到 0 为止。
   const poor = plan({ target_months: 2000, mode: 'traditional', assets_cents: 600, saving_cents: 0, saving_phases: [{ from_month: 360, cents: -400 }] });
   assert.deepEqual(Array.from(project(poor, 2026).assets.slice(0, 4)), [600, 200, -200, -600]);
+});
+
+
+test('first partial month prorates only expense buckets active in that month', () => {
+  for (const fraction of [0, 0.5, 1]) {
+    const P = plan({ now_months: 840, target_months: 840, first_month_fraction: fraction,
+      items: [living({ monthly_cents: 400000 }), living({ monthly_cents: 600000, end_age: 70 }),
+        living({ monthly_cents: 900000, end_age: 69 }), living({ monthly_cents: 800000, start_age: 71 })] });
+    assert.equal(table(P).spend[0], 400000 * fraction);
+    assert.equal(table(P).essential[0], 400000 * fraction);
+    assert.equal(table(P).spend[12], 1200000);
+    assert.equal(required(P, 840), 400000 * fraction + 400000 * 11 + 1200000 * 228);
+  }
 });

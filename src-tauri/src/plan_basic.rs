@@ -53,12 +53,21 @@ pub struct PensionContributions {
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct RetirementContributionCost {
+    pub treatment: String,
+    pub monthly_cents: Option<String>,
+    pub stop_month: Option<String>,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Basic {
     pub contract_version: u32,
     pub start: Start,
     pub contribution: Contribution,
     pub retirement_income: RetirementIncome,
     pub pension_contributions: PensionContributions,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retirement_contribution_cost: Option<RetirementContributionCost>,
     pub contribution_costs: Vec<CostScope>,
     pub retirement_costs: Vec<CostScope>,
 }
@@ -181,6 +190,19 @@ impl Basic {
         if matches!((&pc.start_month,&pc.stop_month),(Some(a),Some(b)) if a>b) {
             return Err(bad("缴费结束月份不能早于开始"));
         }
+        if let Some(c) = &self.retirement_contribution_cost {
+            if !["unknown", "included", "extra", "external", "excluded"]
+                .contains(&c.treatment.as_str())
+            {
+                return Err(bad("续缴费用处理方式非法"));
+            }
+            amount(&c.monthly_cents, false)?;
+            month(&c.stop_month)?;
+            if ["external", "excluded"].contains(&c.treatment.as_str()) && c.monthly_cents.is_some()
+            {
+                return Err(bad("无需本人支付或不计入时不保存支付金额"));
+            }
+        }
         for scopes in [&self.contribution_costs, &self.retirement_costs] {
             if scopes.len() > 100 {
                 return Err(bad("费用作用域过多"));
@@ -214,6 +236,8 @@ impl Basic {
                 .iter()
                 .filter(|c| {
                     c.treatment == "included"
+                        && !(c.source_id == "social_insurance"
+                            && self.retirement_contribution_cost.is_some())
                         && !r.life_events.iter().any(|e| {
                             c.source_id.starts_with(&format!("event:{}:", e.id))
                                 && (r.core.as_ref().is_some_and(|core| {
@@ -235,7 +259,20 @@ impl Basic {
                         .unwrap_or(0)
                 })
                 .sum();
-            if refs > s.parse::<i64>().unwrap_or(0) {
+            let contribution_ref = self
+                .retirement_contribution_cost
+                .as_ref()
+                .filter(|c| {
+                    c.treatment == "included"
+                        && c.stop_month.is_some()
+                        && self.pension_contributions.start_month.is_some()
+                        && self.pension_contributions.stop_month.is_some()
+                        && c.stop_month.as_ref() >= self.pension_contributions.start_month.as_ref()
+                })
+                .and_then(|c| c.monthly_cents.as_ref())
+                .and_then(|v| v.parse::<i64>().ok())
+                .unwrap_or(0);
+            if refs + contribution_ref > s.parse::<i64>().unwrap_or(0) {
                 return Err(bad("退休已含参考额不能超过总预算"));
             }
         }

@@ -65,10 +65,11 @@ export function RetireOverview({ calc, mode, onMode, basic }: { calc: Ready; mod
 
     {basic && <p className={`plan-basis ${basic.temporary ? 'temporary' : ''}`} role="status">{basic.temporary ? <span className="ui-tag warn">{basic.note ?? '临时试算，未保存'}</span> : <span className="ui-tag">按已保存的预计投入</span>} 每月存入 {money(basic.contribution)}（不含投资收益）；{terminalText[basic.terminal]}。</p>}
     <p className="muted small">从 {P.anchor_date ?? '当前'} 的资金起点开始算，金额按 {P.monetary_basis_date ?? '当前'} 的物价。每月的付款按月初扣，存入按月末算。</p>
+    <p className="muted small">本次只核对到 {endAge} 岁。{P.pension_at(P.target_months).monthly_cents > 0 && '职工养老金领取后按购买力不变估算，即假设能跟上通胀。'}</p>
     <EventWarnings calc={calc}/>
 
     <article className="ui-card rd-card" aria-label="投资组合轨迹">
-      <div className="rd-head"><h3>投资组合轨迹<Info text={P.mode === 'fire' ? '财务独立标记显示首个可持续的年龄。「所需」是在计入剩余计划供款后，每个年龄段所需的最低余额；「预计」是预计的投资组合路径。' : '退休标记显示提取开始的时间。「所需」是每个年龄段维持计划退休支出至规划终点所需的最低余额。'}/></h3><span className="muted small">预测 · {Math.round(points[0].age)} → {endAge} 岁</span></div>
+      <div className="rd-head"><h3>投资组合轨迹<Info text={P.mode === 'fire' ? '财务独立标记表示在所设缴费、收入及支出条件下，可覆盖到规划终点的首个年龄。「所需」是在计入剩余计划供款后，每个年龄段所需的最低余额；「预计」是预计的投资组合路径。' : '退休标记显示提取开始的时间。「所需」是每个年龄段维持计划退休支出至规划终点所需的最低余额。'}/></h3><span className="muted small">预测 · {Math.round(points[0].age)} → {endAge} 岁</span></div>
       <TrajectoryChart points={points} rows={rows} goalAge={P.target_months / 12} fiAge={fiAge} retireAge={retireAge} tone={v.tone} fmt={fmt} valueLabel={valueModeLabel[mode]}/>
       <details className="rd-snapshot rd-milestone-details" aria-label="财务独立里程碑">
         <summary><strong>财务独立里程碑</strong><span className="muted small">比较不同生活预算</span></summary>

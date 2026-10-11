@@ -1,3 +1,4 @@
+import { PlanningContributionCost } from './PlanningContributionCost';
 import { forecastMoney } from './plan-format';
 import { ProfileDialog as MedicalProfileDialog } from './PlanningPension';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -33,7 +34,7 @@ import type { Refinement } from './planning-first-run';
 import './planning.css';
 
 type GoalDialog =
-  | { kind: 'medical' }
+  | { kind: 'medical' | 'contribution-cost' }
   | { kind: 'pension'; completion: boolean; reviewContributions: boolean; switchIncome: boolean }
   | { kind: 'debt' | 'funds' | 'costs'; completion: boolean }
   | { kind: 'occurrence'; completion: boolean; event: StoredLifeEvent };
@@ -74,7 +75,8 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     });
   }
   function owner(o: PlanningMissing['owner'], field?: string) {
-    if (field === 'medical_paid_months') openDialog({ kind: 'medical' });
+    if (field === 'retirement_contribution_cost') openDialog({ kind: 'contribution-cost' });
+    else if (field === 'medical_paid_months') openDialog({ kind: 'medical' });
     else if (field === 'core.debt_repayments') openDialog({ kind: 'debt', completion: false });
     else if (field?.includes('_costs')) openDialog({ kind: 'costs', completion: false });
     else if (o === 'pension' || field === 'basic.pension_contributions') openDialog({ kind: 'pension', completion: false, reviewContributions: field === 'basic.pension_contributions', switchIncome: false });
@@ -83,7 +85,8 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     else openSetup(o === 'funds' ? 2 : 0, null, true);
   }
   function action(card: Refinement, from: HTMLElement | null) {
-    if (card.id === 'medical') openDialog({ kind: 'medical' }, from);
+    if (card.action === 'contribution-cost') openDialog({ kind: 'contribution-cost' }, from);
+    else if (card.id === 'medical') openDialog({ kind: 'medical' }, from);
     else if (card.action === 'pension') openDialog({ kind: 'pension', completion: true, reviewContributions: card.id === 'transfer', switchIncome: card.id === 'income-switch' }, from);
     else if (card.action === 'debts') openDialog({ kind: 'debt', completion: true }, from);
     else if (card.action === 'costs' || card.action === 'funds') openDialog({ kind: card.action, completion: true }, from);
@@ -120,6 +123,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     {comparison && <PensionComparisonNote comparison={comparison}/>}
     {dialog?.kind === 'debt' && saved && <PlanningDebtDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'funds' && saved && <FundsDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
+    {dialog?.kind === 'contribution-cost' && saved && <PlanningContributionCost sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'costs' && saved && <CostsDialog completion={dialog.completion} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'occurrence' && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={dialog.completion} event={dialog.event} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === dialog.event.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
     <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
@@ -144,6 +148,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
       <PlanningRefinements cards={cards.filter(c => c.required)} blocked busy={saver.busy || saver.stuck} onAction={action}/>
       <PlanningRefinements cards={cards.filter(c => !c.required && c.impacts)} title={`影响结果的待核对项（${new Set(actionableAnnotations(caps?.annotations).flatMap(a => a.source_ids)).size} 项）`} busy={saver.busy || saver.stuck} onAction={action}/>
       <PlanningRefinements cards={cards.filter(c => !c.required && !c.impacts)} busy={saver.busy || saver.stuck} onAction={action}/>
+      {saved?.profile.retire.basic && <p><button type="button" className="ui-link" disabled={saver.busy || saver.stuck} onClick={e => openDialog({ kind: 'contribution-cost' }, e.currentTarget)}>查看或修改退休后续缴费用</button></p>}
       {snapshot && sources.modules.wealth && (snapshot.entries.some(e => e.counted && e.side === 'liability') || saved?.profile.retire.core?.debt_repayments?.length) && <p><button type="button" className="ui-link" disabled={saver.busy || saver.stuck} onClick={e => openDialog({ kind: 'debt', completion: false }, e.currentTarget)}>查看或修改贷款还款安排</button></p>}
     </>}
     {(state === '2' || state === '2b') && <details className="ui-card ui-content planning-more-tools" open={toolsOpen} onToggle={e => setToolsOpen(e.currentTarget.open)}>

@@ -1,3 +1,4 @@
+import { contributionCostState } from './plan-contribution-cost.ts';
 import { medicalCheck, medicalMessage } from './plan-medical.ts';
 // Basic requirements and confirmed predictions share the existing full month ledger.
 import { hasPensionProfile } from './plan.ts';
@@ -159,8 +160,8 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
       const factor = (1 + p.assumptions.inflation_hundredths / 10000) ** ((Date.parse(anchor) - Date.parse(core?.monetary_basis_date ?? anchor)) / (86400000 * 365.25));
       const path = pensionPath(contributionPeriods, p.birth_month, now, from, stop, Number(pc.base_cents), Number(core?.hpf_monthly_cents), factor);
       const estimate = pensionProject(p, region, anchor, stop, { hpf_balance_cents: String(housing), hpf_monthly_cents: String(Math.round(Number(core?.hpf_monthly_cents) * factor)), personal_pension_balance_cents: pp?.amount_cents ?? '0', first_month_fraction: fraction, pp_quit_age_months: stop, pp_start_age_months: from, hpf_growth_hundredths: p.assumptions.inflation_hundredths }, path.employment, path.idle);
-      pen = { monthly_cents: mode === 'employee' && estimate.eligible ? estimate.total_today_cents / factor : 0, lump_cents: estimate.pots_today_cents / factor, unlock_age_months: estimate.start_age_months, eligible: estimate.eligible, short_months: Math.max(0, estimate.required_months - estimate.total_paid_months) };
-      pensionStart = estimate.start_month;
+      pen = { monthly_cents: mode === 'employee' && estimate.eligible ? estimate.total_today_cents / factor : 0, lump_cents: estimate.pots_today_cents / factor, unlock_age_months: estimate.start_age_months, income_start_age_months: estimate.eligible ? estimate.payment_start_age_months : null, eligible: estimate.eligible, short_months: Math.max(0, estimate.required_months - estimate.total_paid_months) };
+      pensionStart = estimate.eligible ? estimate.payment_start_month : null;
     }
   }
   if (mode === 'employee') for (const item of penMissing) if (!item.message.includes('改选')) item.message = item.message.replace(/。$/, '') + '；也可以改选“先不算”先看结果。';
@@ -177,7 +178,8 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
     return !review.paused && (s.id.endsWith(':loan') ? review.loan : review.holding);
   });
   const sourcesPre = [...new Set([...sourceRows.map(s => s.id), ...(core?.occurrences ?? []).filter(o => o.status === 'occurred' && eventReview.coverage[o.event_id]?.loan && o.loan && Number(o.loan.principal_cents) > 0).map(o => `event:${o.event_id}:loan`)])];
-  const sourcesPost = [...sourcesPre, ...r.spend_items.map(s => `spend:${s.id}`), ...(Number(r.rent_cents) > 0 ? ['rent'] : []), ...(Number(r.keep_paying_monthly_cents) > 0 && r.keep_paying_until_age !== null ? ['social_insurance'] : [])];
+  const contributionCost = contributionCostState(b);
+  const sourcesPost = [...sourcesPre, ...r.spend_items.map(s => `spend:${s.id}`), ...(Number(r.rent_cents) > 0 ? ['rent'] : []), ...(!contributionCost.cost && Number(r.keep_paying_monthly_cents) > 0 && r.keep_paying_until_age !== null ? ['social_insurance'] : [])];
   const knownPre = [...new Set([...sourcesPre, ...costSources(r.life_events, p.personal_pension_annual_cents ?? '0').map(s => s.id)])];
   const knownPost = [...knownPre, ...r.spend_items.map(s => `spend:${s.id}`), ...(Number(r.rent_cents) > 0 ? ['rent'] : []), ...(Number(r.keep_paying_monthly_cents) > 0 ? ['social_insurance'] : [])];
   const checkScope = (ids: string[], scopes: CostScope[], field: string, pre: boolean) => {
@@ -194,8 +196,9 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   };
   checkScope(sourcesPre, b.contribution_costs, 'basic.contribution_costs', true);
   if (scope === 'complete') checkScope(sourcesPost, b.retirement_costs, 'basic.retirement_costs', false);
-  const refs = (scope === 'complete' ? b.retirement_costs : []).filter(s => sourcesPost.includes(s.source_id) && s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
-  if (scope === 'complete' && r.spend_cents !== null && refs > Number(r.spend_cents)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', 'basic.retirement_costs', '退休已含参考额不能超过总预算。'));
+  const contributionRef = scope === 'complete' && contributionCost.ready && contributionCost.cost?.treatment === 'included' ? contributionCost.amount : 0;
+  const refs = contributionRef + (scope === 'complete' ? b.retirement_costs : []).filter(s => sourcesPost.includes(s.source_id) && s.treatment === 'included').reduce((sum, s) => sum + Number(s.reference_cents), 0);
+  if (scope === 'complete' && r.spend_cents !== null && refs > Number(r.spend_cents)) reqMissing.push(missing('COST_SCOPE_INVALID', 'requirement', 'budget', contributionRef > 0 ? 'retirement_contribution_cost' : 'basic.retirement_costs', '退休已含参考额不能超过总预算。'));
   if (anchor && p.birth_month !== null && r.horizon_age * 12 <= ageMonthsAt(p.birth_month, anchor)) reqMissing.push(missing('HORIZON_INVALID', 'requirement', 'basic', 'horizon_age', '规划终点须晚于资金起点。', 'constraint'));
   const contribution = temporaryContribution === undefined ? b.contribution.monthly_cents : temporaryContribution;
   const predictionMissing: PlanningMissing[] = reqMissing.map(x => ({ ...x, capability: 'prediction' }));
@@ -211,11 +214,29 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   const items: SpendItem[] = [{ id: 'living', label: '总预算其他部分', monthly_cents: budget - refs, start_age: null, end_age: null, inflation_hundredths: null, essential: true }, ...(scope === 'complete' ? r.spend_items : []).filter(s => allowed(`spend:${s.id}`, b.retirement_costs)).map(s => ({ ...s, monthly_cents: Number(s.monthly_cents) }))];
   const flows: Flow[] = [];
   if (scope === 'complete' && Number(r.rent_cents) > 0 && allowed('rent', b.retirement_costs)) flows.push({ source_id: 'rent', label: '房租', from_month: now, to_month: null, cents: Number(r.rent_cents), nominal: false, essential: true, prorate_first: true });
-  if (scope === 'complete' && Number(r.keep_paying_monthly_cents) > 0 && allowed('social_insurance', b.retirement_costs)) {
+  if (scope === 'complete' && !contributionCost.cost && Number(r.keep_paying_monthly_cents) > 0 && allowed('social_insurance', b.retirement_costs)) {
     if (r.keep_paying_until_age === null) {
       annotations.push({ id: 'social_insurance:period', reason_code: 'COST_PERIOD_PENDING', message: '续缴社保的截止年龄待核对，该费用未计入。', effect: 'requirement_lower', treatment: 'omitted', source_ids: ['social_insurance'], missing_fields: ['截止年龄'], refinement: { owner: 'budget', field: 'keep_paying_until_age' } });
     }
     else flows.push({ source_id: 'social_insurance', label: '续缴社保', from_month: now, to_month: r.keep_paying_until_age * 12, cents: Number(r.keep_paying_monthly_cents), nominal: false, essential: true, prorate_first: true });
+  }
+  if (scope === 'complete' && contributionCost.ready && contributionCost.cost?.treatment !== 'external') {
+    flows.push({ source_id: 'retirement_contribution_cost', label: '退休后自缴社保',
+      from_month: monthIndex(pc.start_month!) - monthIndex(birth), to_month: monthIndex(contributionCost.stop!) - monthIndex(birth),
+      cents: contributionCost.amount, nominal: false, essential: true, prorate_first: true });
+  }
+  // Benefit eligibility is conditional on sustaining the independently chosen payment path.
+  const futureStop = pc.stop_month ? monthIndex(pc.stop_month) - monthIndex(birth) : now;
+  const hasFuture = pc.start_month && pc.stop_month && pc.start_month < pc.stop_month && futureStop > now;
+  const modern = contributionCost.cost;
+  const legacyCovered = Number(r.keep_paying_monthly_cents) > 0 && r.keep_paying_until_age !== null && r.keep_paying_until_age * 12 >= futureStop && allowed('social_insurance', b.retirement_costs);
+  if (scope === 'complete' && (hasFuture || (modern && (!pc.start_month || !pc.stop_month))) && (mode === 'employee' || modern) && !(modern ? contributionCost.covers : legacyCovered)) {
+    const excluded = modern ? modern.treatment === 'excluded' : !allowed('social_insurance', b.retirement_costs);
+    annotations.push({ id: 'social_insurance:coverage', reason_code: 'PENSION_COST_UNCONFIRMED',
+      message: excluded ? '未来缴费安排保留，本次未计退休后的续缴费用，所需资金可能偏低。' : '未来缴费安排仍需退休后的资金支持；请确认本人支付金额、费用截止月以及是否已含在生活费中。未确认或未覆盖的部分尚未计入。',
+      effect: 'requirement_lower', treatment: 'omitted', actionable: !excluded, source_ids: ['social_insurance'],
+      missing_fields: excluded ? [] : ['退休后续缴费用'], refinement: { owner: 'budget', field: 'retirement_contribution_cost' },
+    });
   }
   const savingFlows: Flow[] = [];
   for (const row of debtRows) {

@@ -93,7 +93,7 @@ export function table(P: Plan): Table {
   if (n && P.first_month_fraction !== undefined) {
     // Regular income/budget uses remaining days; known monthly flows remain due once.
     const f = P.first_month_fraction;
-    for (const it of P.items) if (it.start_age === null || it.start_age * 12 <= P.now_months) { spend[0] -= it.monthly_cents * (1 - f); if (it.essential) essential[0] -= it.monthly_cents * (1 - f); }
+    for (const it of P.items) if ((it.start_age === null || it.start_age * 12 <= P.now_months) && (it.end_age === null || it.end_age * 12 > P.now_months)) { spend[0] -= it.monthly_cents * (1 - f); if (it.essential) essential[0] -= it.monthly_cents * (1 - f); }
     for (const flow of P.spend_flows ?? []) if (flow.prorate_first && flow.from_month <= P.now_months && (flow.to_month === null || flow.to_month > P.now_months)) {
       const amount = flow.nominal ? flow.cents / nominalFactor(P, P.now_months) : flow.cents;
       spend[0] -= amount * (1 - f); if (flow.essential) essential[0] -= amount * (1 - f);
