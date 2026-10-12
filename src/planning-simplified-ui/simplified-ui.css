@@ -1,0 +1,31 @@
+/* 简化规划界面局部样式（仅本目录组件；复用主题令牌，不新增颜色定义）。 */
+
+.simplified-body { display: grid; gap: 18px; padding: 4px 0 8px; overflow-y: auto; }
+
+.simplified-age-panel { display: grid; gap: 10px; padding: 12px; background: var(--soft); border-radius: 9px; }
+.simplified-age-inputs { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.simplified-age-inputs input { width: 5.5em; }
+
+.simplified-basis { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+
+.simplified-income-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: start; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.simplified-income-row .simplified-income-editor, .simplified-income-row .simplified-income-row { grid-column: 1 / -1; border-top: 1px dashed var(--line-soft); }
+.simplified-income-main { display: grid; gap: 3px; min-width: 0; }
+.simplified-income-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.simplified-income-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.simplified-income-add { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+.simplified-income-editor { display: grid; gap: 12px; padding: 14px; background: var(--soft); border-radius: 9px; }
+.simplified-age-start { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.simplified-age-start label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.simplified-more-body { display: grid; gap: 12px; padding: 12px 0 2px; }
+
+.simplified-official { display: grid; gap: 4px; padding: 10px 12px; background: var(--soft); border-radius: 9px; }
+.simplified-official-fallback { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--error); margin: 0; }
+.simplified-official-fallback code { font-family: var(--num); }
+.simplified-dialog .caution button { justify-self: start; }
+
+@media (max-width: 560px) {
+  .simplified-income-row { grid-template-columns: 1fr; }
+  .simplified-income-row .form-switch { justify-self: start; }
+}
