@@ -26,7 +26,7 @@ import type { PlanningFollowupPortV1 } from './planning-followup-contract';
 import './planning-followup-ui/planning-followup-ui.css';
 
 const stepLabels = ['时间安排', '每月生活费', '可用资金', '退休收入'];
-const hints = ['这是你的资金使用安排，可以直接填月份，也可以用年龄换算。', '按今天的物价，吃饭、住房、日常开销合计；按全家规划就填全家的。', '默认只动用现金类账户，确认后保存即可。不会改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
+const hints = ['填写出生年月和年龄，软件自动换算退休月份及规划终点。', '按今天的物价，吃饭、住房、日常开销合计；按全家规划就填全家的。', '确认可动用的现金和投资账户，保存后用于规划，不改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
 /** 第三问没有可用完整盘点（手填金额）时的副标题。 */
 const manualStartHint = '还没有完整盘点：先填现在能用来准备退休的钱和截至日期，不会创建盘点，也不会和账户余额相加。';
 
@@ -53,7 +53,11 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
     if (location && location.step < steps.length) { setErrorFocus(location); setStep(location.step); }
   }
   useEffect(() => {
-    if (errorFocus?.step === step) dialog.current?.querySelector<HTMLElement>(`[aria-label="${errorFocus.label}"]`)?.focus();
+    if (errorFocus?.step === step) {
+      const control = dialog.current?.querySelector<HTMLElement>(`[aria-label="${errorFocus.label}"]`);
+      const disclosure = control?.closest?.('details'); if (disclosure) disclosure.open = true;
+      control?.focus();
+    }
   }, [step, errorFocus]);
   // Native validation arrives via the existing saver notice; an unresolved receipt stays frozen.
   useEffect(() => { if (saver.notice && !frozen) locateError(saver.notice); }, [saver.notice, frozen]);
@@ -68,7 +72,7 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
       const nextSaved = after.profile.status === 'ready' ? after.profile.value.saved : null;
       const remaining = nextSaved && refinementCards(nextSaved, buildBasicCapabilities(after), today).some(c => c.id === completionId);
       if (remaining || completionId === 'income' && d.simplified.income_mode === 'unconfirmed') {
-        const target = completionId === 'contribution' ? { step: 4, label: '每月大约能存下多少钱' } : completionId === 'income' ? { step: 3, label: '未来收入计入方式' } : completionId === 'funds' ? { step: 2, label: d.start === 'live' ? '资金起点' : !d.simAmount ? '模拟起点可用资金' : '模拟起点截至日期' } : { step: 0, label: '希望什么时候开始用这笔钱' };
+        const target = completionId === 'contribution' ? { step: 4, label: '每月大约能存下多少钱' } : completionId === 'income' ? { step: 3, label: '未来收入计入方式' } : completionId === 'funds' ? { step: 2, label: d.start === 'live' ? '资金起点' : !d.simAmount ? '模拟起点可用资金' : '模拟起点截至日期' } : { step: 0, label: '出生年月' };
         setNotice('这一项还没确认，请补充后再保存。'); setStep(target.step); setConfirmationIssue(old => ({ label: target.label, attempt: (old?.attempt ?? 0) + 1 })); return;
       }
     }

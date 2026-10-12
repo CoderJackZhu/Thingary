@@ -6,6 +6,21 @@ import { basicFields, goalInput } from '../src/planning-goal/inputs.ts';
 import { overlayPlanningDrafts } from '../src/planning-draft.ts';
 const stored=s=>s.profile.value.saved;
 const submit=async r=>{r.find('form').props.onSubmit({preventDefault(){}});await r.settle();};
+test('birth and age edits save the existing time contract and reopen without changing other partitions', async () => {
+ const s=fixture(),saved=stored(s),original=structuredClone(saved);
+ const r=runtime('planning-goal/Editor',{kind:'time',sources:s,saved});
+ r.find('MonthInput',p=>p.label==='出生年月').props.onChange('1990-06');r.render();
+ r.find('input',p=>p['aria-label']==='退休年龄（岁）').props.onChange({target:{value:'60'}});r.render();
+ r.find('input',p=>p['aria-label']==='规划终点年龄（岁）').props.onChange({target:{value:'90'}});r.render();
+ await submit(r);assert.equal(r.calls.length,1);assert.equal(r.calls[0].section,'simplified');
+ assert.deepEqual(r.calls[0].fields.time,{reference:{month:'1990-06',age_months:0},target_month:'2050-06',horizon_month:'2080-06'});
+ const after=stored(overlayPlanningDrafts(s,r.calls));
+ assert.deepEqual(after.profile.retire.basic,original.profile.retire.basic);assert.deepEqual(saved,original);
+ const reopened=runtime('planning-goal/Editor',{kind:'time',sources:overlayPlanningDrafts(s,r.calls),saved:after});
+ assert.equal(reopened.find('MonthInput',p=>p.label==='出生年月').props.value,'1990-06');
+ assert.equal(reopened.find('input',p=>p['aria-label']==='退休年龄（岁）').props.value,'60');
+ assert.equal(reopened.find('input',p=>p['aria-label']==='规划终点年龄（岁）').props.value,'90');
+});
 test('time-only edit preserves basic settings and every future income field',()=>{
  const s=fixture(),saved=stored(s),original=structuredClone(saved),simple=structuredClone(saved.profile.retire.simplified);simple.time.target_month='2055-12';const input=goalInput('time',saved,basicFields(saved),simple);assert.equal(input.section,'simplified');const after=stored(overlayPlanningDrafts(s,[input]));assert.deepEqual(after.profile.retire.basic,saved.profile.retire.basic);assert.deepEqual(after.profile.retire.simplified.future_incomes,simple.future_incomes);assert.deepEqual(saved,original);
 });

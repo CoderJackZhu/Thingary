@@ -6,7 +6,7 @@ import type { Draft } from './planning-basic-forms.ts';
 import { costReviewRows } from './planning-cost-review.ts';
 
 type Saved = ProfileState['saved'];
-export const questions = ['希望什么时候开始用这笔钱？', '退休后每月大概花多少钱？', '现在有多少钱可以用来准备？', '以后还有哪些固定收入？'] as const;
+export const questions = ['希望多少岁退休，规划到多少岁？', '退休后每月大概花多少钱？', '现在有多少钱可以用来准备？', '以后还有哪些固定收入？'] as const;
 export type GoalState = '0' | '1' | '2' | '2b';
 
 export type SetupErrorLocation = { step: number; label: string };
@@ -14,8 +14,8 @@ export type SetupErrorLocation = { step: number; label: string };
  * errors can refer to hidden facts or several fields; deliberately leave them unmapped. */
 export function setupErrorLocation(message: string): SetupErrorLocation | null {
   const locations: [number, string, string[]][] = [
-    [0, '希望什么时候开始用这笔钱', ['目标月份格式不正确。']],
-    [0, '安排到什么时候', ['规划终点须晚于目标月份。']],
+    [0, '退休开始月份', ['目标月份格式不正确。']],
+    [0, '规划终点月份', ['规划终点须晚于目标月份。']],
     [1, '退休后每月生活预算', ['退休后月支出须为大于 0 的金额']],
     [5, '退休前实际年收益', ['退休前实际收益请填百分数，例如 2 或 2.5。', '退休前实际收益率须在 -10.00% 到 20.00% 之间']],
     [5, '退休后实际年收益', ['退休后实际收益请填百分数，例如 2 或 2.5。', '退休后实际收益率须在 -10.00% 到 20.00% 之间']],
@@ -26,12 +26,6 @@ export function setupErrorLocation(message: string): SetupErrorLocation | null {
   return match ? { step: match[0], label: match[1] } : null;
 }
 
-
-/** Counts persisted contents only. Career trials are currently unsaved and have no stored count. */
-export function moreToolsBadges(saved: Saved): string[] {
-  const count = saved?.profile.retire.life_events.length ?? 0;
-  return count ? [`大额计划 ${count} 项`] : [];
-}
 
 /** Saved choices win, including an explicit unconfirmed state. */
 export const defaultIncomeMode = (saved: Saved) => saved?.profile.retire.simplified.income_mode ?? 'excluded';
@@ -122,7 +116,8 @@ export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabiliti
     const rows = annotations.filter(a => a.refinement.event_id === event.id);
     if (!rows.length || cards.some(c => c.event?.id === event.id)) continue;
     const fields = [...new Set(rows.flatMap(a => a.missing_fields))];
-    cards.push({ id: `event:${event.id}`, title: event.date < today.slice(0, 7) && !r.core?.occurrences.some(o => o.event_id === event.id) ? '确认已过期的大额计划' : '核对大额计划的实际资料', benefit: `${event.label} · 预计 ${event.date}。${fields.length ? '还差：' + fields.join('、') : rows.map(a => a.message).join('；')}`, duration: '约 2 分钟', action: 'event', event, required: false, impacts: true });
+    const timeOnly = rows.every(a => a.reason_code === 'TIME_PENDING');
+    cards.push({ id: `event:${event.id}`, title: timeOnly ? '重设大额计划的终点月份' : event.date < today.slice(0, 7) && !r.core?.occurrences.some(o => o.event_id === event.id) ? '确认已过期的大额计划' : '核对大额计划的实际资料', benefit: `${event.label} · 预计 ${event.date}。${fields.length ? '还差：' + fields.join('、') : rows.map(a => a.message).join('；')}`, duration: '约 2 分钟', action: timeOnly ? 'events' : 'event', event, required: false, impacts: true });
   }
   const debtPending = annotations.filter(a => a.reason_code === 'DEBT_UNLINKED');
   const debtText = (a: NonNullable<BasicCapabilities['annotations']>[number]) => {

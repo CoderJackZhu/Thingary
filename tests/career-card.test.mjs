@@ -52,7 +52,7 @@ test('C4 the card is wired as an optional, closed, non-persistent entry', () => 
   const goals = readFileSync(new URL('../src/PlanningBasicGoals.tsx', import.meta.url), 'utf8');
   assert.match(goals, /import \{ PlanningCareerCard \} from '\.\/PlanningCareerCard'/);
   assert.match(goals, /caps && <PlanningCareerCard sources=\{sources\} today=\{today\}/);
-  assert.ok(goals.indexOf('<RunwayCard caps={caps}') < goals.indexOf('<PlanningCareerCard'), 'after the runway card, not before the goal');
+  assert.ok(goals.indexOf('<PlanningCareerCard') < goals.indexOf('<RunwayCard caps={caps}'), 'the low-frequency runway tool is last');
   const card = readFileSync(new URL('../src/PlanningCareerCard.tsx', import.meta.url), 'utf8');
   assert.match(card, /useState\(false\)/); assert.match(card, /aria-expanded/); assert.match(card, /\{defaults && <GuidedPanel/);
   for (const f of ['../src/PlanningCareerCard.tsx', '../src/career-preview/guided.tsx', '../src/career-preview/guided-model.ts']) {

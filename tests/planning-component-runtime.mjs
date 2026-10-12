@@ -14,6 +14,7 @@ import * as debt from '../src/plan-debt.ts';
 import * as overlay from '../src/planning-draft.ts';
 import * as validation from '../src/plan-basic-validation.ts';
 import * as forms from '../src/planning-basic-forms.ts';
+import * as fundScope from '../src/planning-fund-scope.ts';
 import * as basic from '../src/plan-basic.ts';
 import * as core from '../src/plan-core.ts';
 import * as coverage from '../src/plan-coverage.ts';
@@ -59,7 +60,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
   const modules = { './planning-simplified-ui/income-view': incomeView, './plan-simplified': simplified,
     './plan-format': forecast, './planning-goal/inputs': goalInputs,
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
-    './planning-basic-forms': forms, './plan-basic': basic, './plan-core': core, './plan-coverage': coverage, './planning-cost-review': costReview, './plan-debt': debt, './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
+    './planning-fund-scope': fundScope, './planning-basic-forms': forms, './plan-basic': basic, './plan-core': core, './plan-coverage': coverage, './planning-cost-review': costReview, './plan-debt': debt, './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
     './planning-draft': overlay, './plan-basic-validation': validation, './plan': planExports, './plan-summary': planSummary,
     './RetireOverview': { RetireOverview: () => null, useValueMode: () => [null, () => {}] },
     './planning-first-run': props.goalStateOverride ? { ...flow, goalState: () => props.goalStateOverride } : flow, './planning-basic-defaults': defaults,

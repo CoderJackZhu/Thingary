@@ -9,3 +9,12 @@ dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.
 @media(max-width:600px){.goal-editor-body{padding-inline:16px}dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>footer{padding-inline:16px}}
 
 .goal-detail-entry { width: 100%; min-height: 48px; margin-block: 12px; font-size: 15px; font-weight: 600; white-space: normal; }
+.goal-caution li>.ui-link { display: block; margin-top: 4px; color: inherit; text-align: left; }
+.goal-fund-exclusions { color: var(--muted); overflow-wrap: anywhere; }
+#plan-events-section { scroll-margin-top: 24px; }
+.goal-purchase-plans,.goal-more-conditions { grid-column: 1 / -1; min-width: 0; }
+.planning-purchase-plans { display: grid; gap: 16px; min-width: 0; }
+.goal-event-summary { margin-block: 16px; padding-block: 12px; border-block: 1px solid var(--line-soft); }
+.goal-event-summary h4 { margin: 0 0 8px; }
+.goal-event-summary ul { list-style: none; padding: 0; margin: 0 0 8px; }
+.goal-event-summary li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-block: 8px; }

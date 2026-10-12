@@ -2,73 +2,65 @@ import { useState } from 'react';
 import { MonthInput } from '../DateInput';
 import { FormRow } from '../FormControls';
 import type { FieldIssueV1, TimeInputV1 } from '../plan-simplified-contract.ts';
-import { ageToMonthV1, monthIndexV1, validMonthV1 } from '../plan-simplified.ts';
-import { ageMonthsOf, ageText } from './income-view';
+import { ageToMonthV1, validMonthV1 } from '../plan-simplified.ts';
+import { ageAtMonth, ageMonthsOf, ageText } from './income-view';
 
-/**
- * 通用时间输入：明确年月为主，年龄换算为可选辅助（设计 §12.1）。
- * 换算结果保存为明确月份；改年龄参考不悄悄改已保存时间，须看到将改变的月份再保存。
- */
+/** Birth month is a newly confirmed age-zero reference. Explicit months remain the calculation source. */
 export function TimeFields({ value, issues, busy, today, onChange }: { value: TimeInputV1; issues: FieldIssueV1[]; busy: boolean; today: string; onChange: (t: TimeInputV1) => void }) {
-  const [ageOpen, setAgeOpen] = useState(false);
-  const [refMonth, setRefMonth] = useState(value.reference?.month ?? today.slice(0, 7));
-  const [refY, setRefY] = useState(value.reference ? String(Math.floor(value.reference.age_months / 12)) : '');
-  const [refM, setRefM] = useState(value.reference && value.reference.age_months % 12 ? String(value.reference.age_months % 12) : '');
-  const [ageY, setAgeY] = useState('');
-  const [ageM, setAgeM] = useState('');
-  const [err, setErr] = useState('');
-  const parsedRef = ageMonthsOf(refY, refM);
-  const refValid = validMonthV1(refMonth) && parsedRef !== null;
-  const reference = refValid ? { month: refMonth, age_months: parsedRef } : null;
-  const parsedAge = ageMonthsOf(ageY, ageM);
-  const converted = reference && parsedAge !== null
-    ? (() => { try { return ageToMonthV1(reference, parsedAge); } catch { return null; } })()
-    : null;
-  const ageEcho = value.reference && validMonthV1(value.reference.month) && validMonthV1(value.target_month ?? '')
-    ? ageText(value.reference.age_months + monthIndexV1(value.target_month!) - monthIndexV1(value.reference.month))
-    : null;
-  function applyReference() {
-    // 只更新参考本身；已保存月份不随之改写，需要用户看到换算结果后自行确认。
-    if (reference) onChange({ ...value, reference });
+  const [birth, setBirth] = useState(value.reference?.age_months === 0 ? value.reference.month : '');
+  const parts = (month: string | null, reference = value.reference) => {
+    const age = ageAtMonth(reference, month);
+    return { years: age === null ? '' : String(Math.floor(age / 12)), months: age === null || age % 12 === 0 ? '' : String(age % 12) };
+  };
+  const [target, setTarget] = useState(() => parts(value.target_month));
+  const [horizon, setHorizon] = useState(() => parts(value.horizon_month));
+  const [error, setError] = useState('');
+  const reference = value.reference;
+  const targetAge = ageAtMonth(reference, value.target_month), horizonAge = ageAtMonth(reference, value.horizon_month);
+  const currentAge = ageAtMonth(reference, today.slice(0, 7));
+  function changeBirth(month: string) {
+    setBirth(month);
+    const nextReference = validMonthV1(month) && month <= today.slice(0, 7) ? { month, age_months: 0 } : null;
+    // A corrected reference updates the age display, never silently shifts existing dates.
+    setTarget(parts(value.target_month, nextReference)); setHorizon(parts(value.horizon_month, nextReference));
+    setError(month && !nextReference ? '请填写有效的出生年月，不能晚于当前月份。' : '');
+    onChange({ ...value, reference: nextReference });
   }
-  function changeTargetAge() {
-    if (parsedAge === null) return;
-    if (!reference) { setErr('先确认年龄参考（参考月和当时的年龄），或直接填写年月。'); return; }
-    if (converted === null) { setErr('换算月份超出范围，请直接填写年月。'); return; }
-    setErr('');
-    onChange({ ...value, reference, target_month: converted });
+  function changeAge(field: 'target_month' | 'horizon_month', next: typeof target) {
+    (field === 'target_month' ? setTarget : setHorizon)(next);
+    const age = ageMonthsOf(next.years, next.months);
+    let month: string | null = null;
+    try { if (age !== null && reference) month = ageToMonthV1(reference, age); } catch { /* Remains unknown. */ }
+    setError(next.years !== '' && month === null ? '年龄须为 0 到 120 岁，月份为 0 到 11；请先确认出生年月。' : '');
+    onChange({ ...value, [field]: month });
   }
-  const timeIssues = issues.filter(i => i.path === 'time.target_month' || i.path === 'time.horizon_month' || i.path === 'time.reference.month' || i.path === 'time.reference.age_months');
+  function changeMonth(field: 'target_month' | 'horizon_month', month: string) {
+    (field === 'target_month' ? setTarget : setHorizon)(parts(month || null));
+    setError(''); onChange({ ...value, [field]: month || null });
+  }
+  const ageInput = (label: string, field: 'target_month' | 'horizon_month', age: typeof target) => <input type="number" aria-label={label} min="0" max="120" step="1" inputMode="numeric" placeholder={field === 'target_month' ? '例如 60' : '例如 90'} value={age.years} disabled={busy || !reference} onChange={e => changeAge(field, { years: e.target.value, months: '' })}/>;
+  const timeIssues = issues.filter(i => i.path.startsWith('time.'));
   return <section className="form-block" aria-label="时间安排">
-    <FormRow label="希望什么时候开始用这笔钱" hint="直接填年月；目标时间是你自己的安排，不等于法定退休或养老金开始领取时间">
-      <MonthInput label="希望什么时候开始用这笔钱" value={value.target_month ?? ''} disabled={busy} allowClear onChange={v => onChange({ ...value, target_month: v === '' ? null : v })}/>
+    <FormRow label="出生年月" hint="用于显示退休年龄及自动换算月份；修改后会保留已有月份，请核对年龄">
+      <MonthInput label="出生年月" value={birth} max={today.slice(0, 7)} disabled={busy} allowClear onChange={changeBirth}/>
     </FormRow>
-    <button type="button" className="ui-link" aria-expanded={ageOpen} disabled={busy} onClick={() => setAgeOpen(o => !o)}>{ageOpen ? '收起年龄换算' : '习惯用年龄？用年龄换算'}</button>
-    {ageOpen && <div className="simplified-age-panel">
-      <FormRow label="年龄参考月" hint="截至这个月你多大；只用于换算，不是出生日期">
-        <MonthInput label="年龄参考月" value={refMonth} max={today.slice(0, 7)} disabled={busy} onChange={v => { setRefMonth(v); if (validMonthV1(v) && parsedRef !== null) onChange({ ...value, reference: { month: v, age_months: parsedRef } }); }}/>
-      </FormRow>
-      <FormRow label="当时的年龄" hint="只填整岁时，按参考月达到该整岁换算">
-        <span className="simplified-age-inputs">
-          <input aria-label="参考年龄：岁" inputMode="numeric" placeholder="例如 36" value={refY} disabled={busy} onChange={e => setRefY(e.target.value)} onBlur={applyReference}/> 岁
-          <input aria-label="参考年龄：月" inputMode="numeric" placeholder="0" value={refM} disabled={busy} onChange={e => setRefM(e.target.value)} onBlur={applyReference}/> 个月
-        </span>
-      </FormRow>
-      <p className="muted small" role="status">{refValid ? `截至 ${refMonth}，你 ${ageText(parsedRef!)}。` : '填好参考月和年龄后，才能用年龄换算。'}</p>
-      <FormRow label="想从几岁开始" hint="换算成月份后保存；下个月打开不会自动顺延">
-        <span className="simplified-age-inputs">
-          <input aria-label="目标年龄：岁" inputMode="numeric" placeholder="例如 63" value={ageY} disabled={busy} onChange={e => { setAgeY(e.target.value); }} onBlur={changeTargetAge}/> 岁
-          <input aria-label="目标年龄：月" inputMode="numeric" placeholder="0" value={ageM} disabled={busy} onChange={e => setAgeM(e.target.value)} onBlur={changeTargetAge}/> 个月
-        </span>
-      </FormRow>
-      {converted && <p className="muted small" role="status">换算为 <strong>{converted}</strong>；保存后按这个月份计算。</p>}
-      {converted && value.target_month !== converted && <button type="button" className="ui-btn" disabled={busy} onClick={() => { setErr(''); onChange({ ...value, reference, target_month: converted }); }}>把开始月份改为 {converted}</button>}
-      {ageEcho && <p className="muted small">按当前参考，{value.target_month} 时你约 {ageEcho}。</p>}
-      {err && <p className="error" role="alert">{err}</p>}
-    </div>}
-    <FormRow label="安排到什么时候" hint="规划的终点月份；留空表示还没定">
-      <MonthInput label="安排到什么时候" value={value.horizon_month ?? ''} disabled={busy} allowClear onChange={v => onChange({ ...value, horizon_month: v === '' ? null : v })}/>
+    {reference && reference.age_months !== 0 && <p className="muted small">已有年龄参考：{reference.month} 时 {ageText(reference.age_months)}，仍可用于换算；出生年月尚未填写。</p>}
+    {!reference && <p className="muted small">填好出生年月后，直接填写退休年龄和规划终点年龄；也可以在下方按月份填写。{(value.target_month || value.horizon_month) && `已有月份保留：退休 ${value.target_month ?? '未填'}，规划到 ${value.horizon_month ?? '未填'}。`}</p>}
+    <FormRow label="希望多少岁退休" hint="你希望停止工作的年龄，不等于养老金领取年龄">
+      {ageInput('退休年龄（岁）', 'target_month', target)}
     </FormRow>
+    <FormRow label="规划到多少岁" hint="预算准备到这个年龄，不是对寿命的预测">
+      {ageInput('规划终点年龄（岁）', 'horizon_month', horizon)}
+    </FormRow>
+    {reference && <p className="muted small" role="status">{currentAge !== null && `目前约 ${ageText(currentAge)}。`}退休：{targetAge === null ? value.target_month ?? '未填写' : `${ageText(targetAge)}（${value.target_month}）`}；规划到：{horizonAge === null ? value.horizon_month ?? '未填写' : `${ageText(horizonAge)}（${value.horizon_month}）`}。软件自动换算月份。</p>}
+    <details open={Number(target.months) > 0 || Number(horizon.months) > 0 ? true : undefined}><summary>精确到几岁几个月（选填）</summary>
+      {([{ field: 'target_month', age: target, label: '退休年龄：额外月份' }, { field: 'horizon_month', age: horizon, label: '规划终点年龄：额外月份' }] as const).map(({ field, age, label }) => <FormRow key={field} label={label}><input type="number" aria-label={label} min="0" max="11" step="1" placeholder="0" value={age.months} disabled={busy || !reference} onChange={e => changeAge(field, { ...age, months: e.target.value })}/></FormRow>)}
+    </details>
+    <details><summary>直接按月份填写</summary>
+      <FormRow label="退休开始月份"><MonthInput label="退休开始月份" value={value.target_month ?? ''} disabled={busy} allowClear onChange={month => changeMonth('target_month', month)}/></FormRow>
+      <FormRow label="规划终点月份" hint="留空表示还没定；结束月份须晚于退休开始月份"><MonthInput label="规划终点月份" value={value.horizon_month ?? ''} disabled={busy} allowClear onChange={month => changeMonth('horizon_month', month)}/></FormRow>
+    </details>
+    {error && <p className="error" role="alert">{error}</p>}
     {timeIssues.map(i => <p key={i.path} className="error" role="alert">{i.message}</p>)}
   </section>;
 }

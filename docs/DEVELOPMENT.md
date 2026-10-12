@@ -36,6 +36,7 @@ npm run dev -- --port 1429
 | `?merge=1` | 周期费用／虚拟资产页顶部的旧订阅合并提示与确认弹窗（一对虚构候选，确认后本次预览不再出现） |
 | `?link=error` | 关联订阅详情／整组删除预览的读取失败 |
 | `?section=planning&plan-basic=blank|unknown|negative|saved|manual`，数值验收另加 `&capabilities=real`；`&plan=error`、`&plan-profile=empty`、`&state=save-error`；旧载荷夹具 `&plan-phases=1&plan-route=soe&plan-budget=set` | 通用目标、投入未知／负值、已保存及手填未来收入、读取／保存错误；旧载荷应显示待重新设置，阶段／路线不是活动功能 |
+| `?section=planning&plan-basic=saved&capabilities=real&plan-core=confirmed&plan-usability=1`，另加 `&plan-event-time=pending` | 中部常驻房车与心愿购买计划、现金及投资分项、二手车终点提示与一键采用规划终点；追加 `&plan-time=age` 展示虚构 1990-06 出生、60 岁退休／90 岁终点。仅使用虚构内存资料 |
 | `?plan-fail=profile`、`?plan-fail=review`、`?plan-fail=income`、`?plan-fail=snapshot` | 首页规划来源局部读取失败；成功的历史储蓄可独立保留 |
 | `?section=recurring&recurring-fixture=layout` | 长名称、历史订阅费用与未设置服务覆盖期的计划，检查窄窗口换行 |
 | `?theme=dark`、`?no-photos` | 深色与缺少照片 |

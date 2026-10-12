@@ -1,5 +1,6 @@
 import * as forecast from '../src/plan-format.ts';
 import test from 'node:test';
+import * as fundScope from '../src/planning-fund-scope.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -125,11 +126,11 @@ test('home uses the saved prediction headline and stays unchanged after a tempor
 test('goals pass a real saved calculation to wishes, and no calculation while contribution is unknown', () => {
   let received, sharedCaps, builds = 0;
   const leaf = () => null;
-  const goals = component('PlanningBasicGoals.tsx', { './planning-followup-ui/AssumptionsSummary': { AssumptionsSummary: leaf }, './planning-goal/Overview': { GoalOverview: leaf }, './planning-goal/Editor': { GoalEditor: leaf }, './planning-goal/goal.css': {}, react: React, './asset': asset,
+  const goals = component('PlanningBasicGoals.tsx', { './planning-followup-ui/AssumptionsSummary': { AssumptionsSummary: leaf }, './planning-goal/Overview': { GoalOverview: ({ purchasePlans }) => React.createElement(React.Fragment, null, purchasePlans) }, './planning-goal/Editor': { GoalEditor: leaf }, './planning-goal/goal.css': {}, react: React, './asset': asset,
     './PlanningOccurrenceDialog': { PlanningOccurrenceDialog: leaf }, './PlanningRefinements': { PlanningRefinements: leaf }, './planning-first-run': firstRun,
     './PlanningRequirement': requirement, './PlanningRunway': { RunwayCard: leaf }, './PlanningCareerCard': { PlanningCareerCard: leaf }, './PlanningDebtDialog': { PlanningDebtDialog: () => null }, './PlanningFunds': { FundsCard: leaf, FundsDialog: leaf }, './PlanningBasicDetail': { PlanningBasicDetail: leaf },
     './PlanningEvents': { PlanningEvents: leaf }, './PlanningWishes': { PlanningWishes: ({ calc }) => { received = calc; return null; } },
-    './plan-retire-calc': calc, './review': review, './planning-basic-forms': {}, './planning-basic-defaults': defaults, './PlanningContributionHelper': { MarketNote: () => null }, './planning-basic-view': view,
+    './planning-fund-scope': fundScope, './plan-retire-calc': calc, './review': review, './planning-basic-forms': {}, './planning-basic-defaults': defaults, './PlanningContributionHelper': { MarketNote: () => null }, './planning-basic-view': view,
     './planning-basic-data': { useCapabilities: s => ({ status: 'ready', caps: (builds++, sharedCaps = buildBasicCapabilities(s)) }),
       useSectionSaver: () => ({ busy: false, stuck: false, notice: '', save: noOp }) }, './planning.css': {},
   });

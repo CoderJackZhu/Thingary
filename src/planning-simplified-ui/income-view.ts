@@ -2,6 +2,7 @@
 // （../plan-simplified-contract.ts）；这里不复制第二份模型，也不做业务校验，
 // 保存前的校验统一走领域 validateSimplifiedPlanningV1。
 import type { FieldIssueV1, FutureIncomeV1, ResetReasonV1, SimplifiedPlanningFieldsV1, TimeInputV1 } from '../plan-simplified-contract.ts';
+import { monthIndexV1, validMonthV1 } from '../plan-simplified.ts';
 
 /** 官方工具入口（产品边界设计 §4.2）。仅链接，不内嵌、不代填、不承诺结果精确。 */
 export const OFFICIAL_TOOL = { name: '国家社会保险公共服务平台', url: 'https://si.12333.gov.cn/' } as const;
@@ -83,9 +84,16 @@ export function ageText(months: number): string {
   return m === 0 ? `${y} 岁` : `${y} 岁 ${m} 个月`;
 }
 
+export function ageAtMonth(reference: TimeInputV1['reference'], month: string | null): number | null {
+  if (!reference || !validMonthV1(reference.month) || !validMonthV1(month)) return null;
+  const age = reference.age_months + monthIndexV1(month) - monthIndexV1(reference.month);
+  return Number.isInteger(age) && age >= 0 && age <= 1440 ? age : null;
+}
+
 /** 时间草稿的可读摘要（用于结果侧固定清单）。 */
 export function timeSummary(time: TimeInputV1): string {
-  const target = time.target_month ?? '未选';
-  const horizon = time.horizon_month ?? '未选';
+  const targetAge = ageAtMonth(time.reference, time.target_month), horizonAge = ageAtMonth(time.reference, time.horizon_month);
+  const target = targetAge === null ? time.target_month ?? '未选' : `${ageText(targetAge)}（${time.target_month}）`;
+  const horizon = horizonAge === null ? time.horizon_month ?? '未选' : `${ageText(horizonAge)}（${time.horizon_month}）`;
   return `从 ${target} 开始安排，规划到 ${horizon}。`;
 }

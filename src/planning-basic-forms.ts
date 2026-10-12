@@ -6,6 +6,7 @@ import type { FundRule, FundRelease } from './plan-core.ts';
 import type { SimplifiedPlanningFieldsV1 } from './plan-simplified-contract.ts';
 import type { SectionInput } from './planning-basic-data.ts';
 import type { Snapshot } from './wealth.ts';
+import { suggestedFundAvailability } from './planning-fund-scope.ts';
 
 type Saved = ProfileState['saved'];
 export type Treatment = '' | 'included' | 'extra' | 'excluded';
@@ -49,7 +50,7 @@ export function draftOf(saved: Saved, snapshot: Snapshot | null): Draft {
     spendItems: structuredClone(r.spend_items),
     contribution: b?.contribution.monthly_cents ?? '', contributionId: b?.contribution.id ?? crypto.randomUUID(),
     releases: structuredClone(r.core?.releases ?? []),
-    funds: [...known.map(f => ({ ...f })), ...entries.filter(e => !known.some(f => f.account_id === e.account_id)).map(e => ({ account_id: e.account_id, availability: e.kind === 'cash' ? 'available' as const : 'restricted' as const, share_hundredths: 10000 }))],
+    funds: [...known.map(f => ({ ...f })), ...entries.filter(e => !known.some(f => f.account_id === e.account_id)).map(e => ({ account_id: e.account_id, availability: suggestedFundAvailability(e.kind), share_hundredths: 10000 }))],
   };
 }
 

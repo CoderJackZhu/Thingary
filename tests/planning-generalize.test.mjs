@@ -36,10 +36,10 @@ test('zero real return chip says money only keeps pace with inflation', () => {
 });
 
 test('setup step 3 subtitle distinguishes real inventory from manual amounts', () => {
-  const subtitle = r => { const p = r.nodes().find(n => n.type === 'p' && n.props.className === 'muted' && /默认只动用现金类账户|还没有完整盘点/.test(r.text(n))); return p ? r.text(p) : ''; };
+  const subtitle = r => { const p = r.nodes().find(n => n.type === 'p' && n.props.className === 'muted' && /确认可动用的现金和投资账户|还没有完整盘点/.test(r.text(n))); return p ? r.text(p) : ''; };
   const withSnapshot = currentFixture(raw, 'empty');
   const inventory = runtime('PlanningSetup', { sources: withSnapshot, snapshot: withSnapshot.snapshot.value, initialStep: 2 });
-  assert.match(subtitle(inventory), /^默认只动用现金类账户，确认后保存即可。不会改变实际余额。$/);
+  assert.match(subtitle(inventory), /^确认可动用的现金和投资账户，保存后用于规划，不改变实际余额。$/);
   const manual = runtime('PlanningSetup', { sources: currentFixture(raw, 'empty'), initialStep: 2 });
   assert.match(subtitle(manual), /^还没有完整盘点：先填现在能用来准备退休的钱和截至日期，不会创建盘点，也不会和账户余额相加。$/);
   assert.notEqual(subtitle(inventory), subtitle(manual));

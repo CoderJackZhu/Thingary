@@ -367,6 +367,10 @@ if (params.get('plan-usability') === '1' && planProfile?.profile.retire.basic) {
   r.basic!.contribution_costs = scopes; r.basic!.retirement_costs = scopes;
   if (params.get('plan-costs') === 'missing') { r.basic!.contribution_costs = []; r.basic!.retirement_costs = []; }
   if (params.get('plan-funds') === 'missing-one' && r.core) r.core.fund_rules = r.core.fund_rules.slice(1);
+  if (params.get('plan-event-time') === 'pending') r.life_events[1].time_unconfirmed = true;
+}
+if (params.get('plan-time') === 'age' && planProfile?.profile.retire.basic) {
+  planProfile.profile.retire.simplified.time = { reference: { month: '1990-06', age_months: 0 }, target_month: '2050-06', horizon_month: '2080-06' };
 }
 // Historical JSON fixtures use the same read boundary as native storage: facts survive,
 // old goals/budgets are not defaults and unoccurred intentions require reconfirmation.

@@ -20,7 +20,7 @@ export function FundsEditor({ d, patch, frozen, snapshot, accounts, live, focusI
   const update = (id: string, v: Partial<Draft['funds'][number]>) => patch({ funds: d.funds.map(f => f.account_id === id ? { ...f, ...v } : f) });
   return <>
     {live && snapshot && <>
-      <p className="muted small">截至 {snapshot.date} 的完整盘点。这里只设资金是否参与规划，不改变实际余额；建议现金可动用、其他资产暂不能动用，请确认。</p>
+      <p className="muted small">截至 {snapshot.date} 的完整盘点。可用资金包括现金、存款和准备变现用于本计划的基金、证券等投资，按盘点价值及参与比例计入，不改变实际余额。新增现金及投资账户先建议可动用，请逐项确认；有锁定期、不能赎回或不准备动用的资产，改为暂不能动用或本计划不参与。</p>
       {assets.filter(e => !focusIds || focusIds.has(e.account_id)).map(e => { const rule = d.funds.find(f => f.account_id === e.account_id); if (!rule) return null; const label = name(e.account_id, e.kind); return <FormRow key={e.account_id} label={label} hint={`${kindLabel(e.kind)} · 已记录 ${money(e.amount_cents)}`}><span className="plan-fund-controls"><select aria-label={`${label}规划用途`} value={rule.availability} disabled={frozen} onChange={v => update(e.account_id, { availability: v.target.value as typeof rule.availability })}><option value="available" disabled={e.kind === 'housing_fund'}>可动用</option><option value="restricted">暂不能动用</option><option value="excluded">本计划不参与</option></select><input type="number" aria-label={`${label}参与比例`} min="0" max="100" value={rule.share_hundredths / 100} disabled={frozen} onChange={v => update(e.account_id, { share_hundredths: Math.round(Number(v.target.value) * 100) })}/> %</span></FormRow>; })}
     </>}
     {live && <details><summary>受限资金预计何时可用（选填）</summary><p className="muted small">仅安排已有账户资金的释放，不推算税费或未来缴存，不创建实际到账记录。不确定金额可以留空。</p>

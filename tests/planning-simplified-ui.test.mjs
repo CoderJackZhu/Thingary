@@ -148,44 +148,49 @@ test('official link verifies the target before opening and falls back to a copya
 test('direct month input stores an explicit month and blank stays null', () => {
   const seen = [];
   const r = runtime('planning-simplified-ui/TimeFields', { value: { reference: null, target_month: null, horizon_month: null }, issues: [], busy: false, today, onChange: v => seen.push(v) });
-  r.find('MonthInput', p => p.label === '希望什么时候开始用这笔钱').props.onChange('2050-01');
+  r.find('MonthInput', p => p.label === '退休开始月份').props.onChange('2050-01');
   assert.deepEqual(seen.at(-1).target_month, '2050-01');
-  r.find('MonthInput', p => p.label === '希望什么时候开始用这笔钱').props.onChange('');
+  r.find('MonthInput', p => p.label === '退休开始月份').props.onChange('');
   assert.equal(seen.at(-1).target_month, null);
 });
 
-test('age conversion writes an explicit month and echoes it for confirmation', () => {
-  const seen = [];
-  const r = runtime('planning-simplified-ui/TimeFields', { value: { reference: null, target_month: null, horizon_month: null }, issues: [], busy: false, today, onChange: v => seen.push(v) });
-  r.button('习惯用年龄？用年龄换算').props.onClick(); r.render();
-  r.find('input', p => p['aria-label'] === '参考年龄：岁').props.onChange(change('36')); r.render();
-  r.find('input', p => p['aria-label'] === '参考年龄：岁').props.onBlur();
-  assert.equal(seen.at(-1).reference.month, '2026-10');
-  assert.equal(seen.at(-1).reference.age_months, 432);
-  r.find('input', p => p['aria-label'] === '目标年龄：岁').props.onChange(change('63')); r.render();
-  r.find('input', p => p['aria-label'] === '目标年龄：岁').props.onBlur();
-  const applied = seen.at(-1);
-  assert.equal(applied.target_month, '2053-10');
-  assert.equal(applied.reference.month, '2026-10');
-  assert.equal(applied.reference.age_months, 432);
-  assert.match(r.text(r.find('section', p => p['aria-label'] === '时间安排')), /换算为/);
+test('birth month converts both retirement and horizon ages immediately into explicit months', () => {
+  const value = { reference: null, target_month: null, horizon_month: null }, seen = [];
+  const r = runtime('planning-simplified-ui/TimeFields', { value, issues: [], busy: false, today, onChange: v => { seen.push(structuredClone(v)); Object.assign(value, v); } });
+  assert.equal(r.find('MonthInput', p => p.label === '出生年月').props.value, '');
+  r.find('MonthInput', p => p.label === '出生年月').props.onChange('1990-06'); r.render();
+  r.find('input', p => p['aria-label'] === '退休年龄（岁）').props.onChange(change('60')); r.render();
+  r.find('input', p => p['aria-label'] === '规划终点年龄（岁）').props.onChange(change('90')); r.render();
+  assert.deepEqual(structuredClone(value.reference), { month: '1990-06', age_months: 0 });
+  assert.equal(value.target_month, '2050-06'); assert.equal(value.horizon_month, '2080-06');
+  assert.match(r.text(r.find('section')), /60 岁（2050-06）/);
+  assert.match(r.text(r.find('section')), /90 岁（2080-06）/);
+  r.find('input', p => p['aria-label'] === '退休年龄（岁）').props.onChange(change('')); r.render();
+  assert.equal(value.target_month, null); assert.equal(value.horizon_month, '2080-06');
 });
 
-test('changing the age reference never silently rewrites the saved month', () => {
-  const seen = [];
+test('correcting birth month preserves saved dates and recomputes the displayed ages including extra months', () => {
+  const value = { reference: { month: '1990-06', age_months: 0 }, target_month: '2053-10', horizon_month: '2086-10' };
+  const r = runtime('planning-simplified-ui/TimeFields', { value, issues: [], busy: false, today, onChange: v => Object.assign(value, v) });
+  assert.equal(r.find('input', p => p['aria-label'] === '退休年龄（岁）').props.value, '63');
+  assert.equal(r.find('input', p => p['aria-label'] === '退休年龄：额外月份').props.value, '4');
+  r.find('MonthInput', p => p.label === '出生年月').props.onChange('1991-07'); r.render();
+  assert.equal(value.target_month, '2053-10'); assert.equal(value.horizon_month, '2086-10');
+  assert.equal(r.find('input', p => p['aria-label'] === '退休年龄（岁）').props.value, '62');
+  assert.equal(r.find('input', p => p['aria-label'] === '退休年龄：额外月份').props.value, '3');
+  r.find('input', p => p['aria-label'] === '退休年龄（岁）').props.onChange(change('60')); r.render();
+  assert.equal(value.target_month, '2051-07');
+  assert.equal(r.find('input', p => p['aria-label'] === '退休年龄：额外月份').props.value, '');
+});
+
+test('an existing nonzero age reference remains usable without inventing a birth month', () => {
   const value = { reference: { month: '2026-10', age_months: 432 }, target_month: '2053-10', horizon_month: '2086-10' };
-  const r = runtime('planning-simplified-ui/TimeFields', { value, issues: [], busy: false, today, onChange: v => { seen.push(v); Object.assign(value, v); } });
-  r.button('习惯用年龄？用年龄换算').props.onClick(); r.render();
-  r.find('input', p => p['aria-label'] === '目标年龄：岁').props.onChange(change('63')); r.render();
-  // 改参考年龄：只更新参考，不动已保存月份。
-  r.find('input', p => p['aria-label'] === '参考年龄：岁').props.onChange(change('37')); r.render();
-  r.find('input', p => p['aria-label'] === '参考年龄：岁').props.onBlur();
-  assert.equal(seen.at(-1).reference.month, '2026-10');
-  assert.equal(seen.at(-1).reference.age_months, 444);
-  assert.equal(seen.at(-1).target_month, '2053-10');
-  assert.ok(r.button('把开始月份改为 2052-10'), '提供看到新月份后再保存的入口');
-  r.button('把开始月份改为 2052-10').props.onClick();
-  assert.equal(seen.at(-1).target_month, '2052-10');
+  const r = runtime('planning-simplified-ui/TimeFields', { value, issues: [], busy: false, today, onChange: v => Object.assign(value, v) });
+  assert.equal(r.find('MonthInput', p => p.label === '出生年月').props.value, '');
+  assert.equal(r.find('input', p => p['aria-label'] === '退休年龄（岁）').props.value, '63');
+  r.find('input', p => p['aria-label'] === '规划终点年龄（岁）').props.onChange(change('90')); r.render();
+  assert.equal(value.horizon_month, '2080-10');
+  assert.deepEqual(value.reference, { month: '2026-10', age_months: 432 });
 });
 
 test('time issues from the domain surface next to the fields', () => {
@@ -314,7 +319,7 @@ test('a rejected save keeps the draft and lists the issues; retry submits again'
   const port = fictionalPort('reject');
   const r = runtime('planning-simplified-ui/SimplifiedPlanningDialog', { port });
   await r.settle();
-  r.find('MonthInput', p => p.label === '希望什么时候开始用这笔钱').props.onChange('2049-10'); r.render();
+  r.find('MonthInput', p => p.label === '退休开始月份').props.onChange('2049-10'); r.render();
   r.button('保存').props.onClick();
   await r.settle();
   assert.deepEqual(r.closes, []);
