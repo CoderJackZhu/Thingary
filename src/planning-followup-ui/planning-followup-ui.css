@@ -75,8 +75,36 @@
 
 .pfu-dialog { color: var(--text); }
 .pfu-dialog-foot, .pfu-foot-group { flex-wrap: wrap; }
-.pfu-movements { overflow-x: auto; }
+.pfu-movements { min-width:0; }
 .pfu-segments button:disabled { opacity: .55; cursor: default; }
 
 .pfu-dialog { overflow: hidden; }
 .pfu-dialog form { box-sizing: border-box; }
+
+.pfu-records-card { gap:16px; }
+.pfu-records-card .pfu-section-head h4 { font-size:15px; margin-bottom:6px; }
+.pfu-records-card .pfu-filters { gap:16px; padding:12px 0; border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft); }
+.pfu-filters>div { display:flex; flex-direction:column; gap:2px; color:var(--muted); }
+.pfu-records-card .pfu-filters select { min-width:140px; max-width:100%; }
+.pfu-empty { padding:32px 16px; text-align:center; }
+.pfu-empty h4 { margin:0 0 8px; font-size:15px; }
+.pfu-empty p { margin:0; font-size:13px; line-height:1.7; }
+.pfu-table-scroll { overflow-x:auto; min-width:0; }
+.pfu-table { min-width:720px; }
+.pfu-table th { padding:10px 12px; color:var(--muted); background:var(--soft); font-size:12px; }
+.pfu-table td { padding:14px 12px; }
+.pfu-table td:first-child { white-space:nowrap; }
+.pfu-table td:last-child { min-width:110px; }
+.pfu-table .pfu-num { text-align:right; white-space:nowrap; }
+.pfu-table td.pfu-num { font-weight:600; }
+.pfu-transfer { min-width:160px; }
+.pfu-transfer span { display:block; overflow-wrap:anywhere; }
+.pfu-transfer .pfu-muted { margin:2px 0; }
+.pfu-table td small { display:block; margin-top:4px; max-width:220px; overflow-wrap:anywhere; }
+.pfu-records-help { border-top:1px solid var(--line-soft); padding-top:12px; font-size:12px; }
+.pfu-records-help summary { cursor:pointer; color:var(--muted); }
+.pfu-dialog .form-row { display:flex; flex-direction:column; gap:4px; align-items:stretch; }
+.pfu-dialog .form-row-label { font-size:13px; }
+.pfu-dialog .form-row-hint { font-size:12px; color:var(--muted); }
+.pfu-transfer-grid .pfu-endpoint { background:var(--soft); }
+@media(max-width:600px){.pfu-form-grid{grid-template-columns:minmax(0,1fr)}.pfu-records-card .pfu-filters{gap:12px}.pfu-records-card .pfu-filters label{flex:1 1 140px}}

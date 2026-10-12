@@ -9,10 +9,12 @@ import type { FinancePeriod } from '../finance-contract.ts';
 import { useSource } from '../useSource.ts';
 import type { SourceProps } from '../source.ts';
 import { MovementForm } from './MovementForm.tsx';
+import { DateInput } from '../DateInput';
 
-function MovementsListContent({ port, generation, writeVersion, today, blocked = false, onPending, onEditingChange, onSaved, period, accountIds, search = '', autoNew = false, onAutoNewDone, onNewAccount, receiptResolutionVersion = 0, source, onSourceDone }: SourceProps & {
+function MovementsListContent({ port, generation, writeVersion, today, blocked = false, onPending, onEditingChange, onSaved, period, accountIds, search = '', autoNew = false, onAutoNewDone, onNewAccount, receiptResolutionVersion = 0, source, onSourceDone, embedded = false }: SourceProps & {
   port: PlanningFollowupPortV1; generation: string; writeVersion: number; today: string; blocked?: boolean; onPending: () => void; onEditingChange: (v: boolean) => void; onSaved?: () => void; receiptResolutionVersion?: number;
   period?: FinancePeriod; accountIds?: string[]; search?: string; autoNew?: boolean; onAutoNewDone?: () => void; onNewAccount?: () => void;
+  embedded?: boolean;
 }) {
   const [accountsRead, setAccountsRead] = useState<FollowupRead<{ generation: string; accounts: MovementAccountV1[] }> | null>(null);
   const [page, setPage] = useState<MovementPageV1 | null>(null), [records, setRecords] = useState<MovementRecordV1[] | null>(null);
@@ -24,6 +26,7 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
   const [savedNotice, setSavedNotice] = useState(false);
   const [writeError, setWriteError] = useState(''), [retry, setRetry] = useState(0);
   const addButton = useRef<HTMLButtonElement>(null);
+  const formOpener = useRef<HTMLElement | null>(null);
   const lock = useRef(false), mounted = useRef(true), [busy, setBusy] = useState(false);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [uncertain, setUncertain] = useState(false);
@@ -97,7 +100,12 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
     if (!autoNew) { autoConsumed.current = false; return; }
     if (autoConsumed.current || openingRef.current || frozen || editing !== null || accountsRead?.status !== 'ready') return;
     autoConsumed.current = true;
-    if (selectable.length > 0) setEditing('new'); else onNewAccount?.();
+    if (selectable.length > 0) {
+      if (typeof document !== 'undefined') formOpener.current = embedded
+        ? document.querySelector<HTMLButtonElement>('.topbar-actions .primary')
+        : document.activeElement as HTMLElement | null;
+      setEditing('new');
+    } else onNewAccount?.();
     onAutoNewDone?.();
   }, [autoNew, frozen, editing, accountsRead, onAutoNewDone, onNewAccount]);
   const sourceError = useSource({ source, onSourceDone }, generation, async (target, alive) => {
@@ -124,10 +132,10 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
   });
   const text = search.trim().toLocaleLowerCase();
   const visible = records?.filter(r => !text || [r.fields.date, r.fields.notes, formatCents(r.fields.amount_cents), endpointText(r.fields.from, names), endpointText(r.fields.to, names), purposeLabel[r.fields.purpose], sourceStatusText[r.source_status]].join(' ').toLocaleLowerCase().includes(text));
-  return <section className="pfu-movements" aria-label="资金流动明细">
+  return <section className={`pfu-movements${embedded ? ' pfu-records-card ui-card ui-content' : ''}`} aria-label="资金流动明细">
     {sourceError && <p className="pfu-notice" role="alert">{sourceError}</p>}
-    <div className="pfu-section-head"><h4>资金流动明细</h4>
-      {accountsRead?.status === 'ready' && selectable.length > 0 && <button ref={addButton} type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => { if (frozen || openingRef.current || editing !== null) return; ++openTicket.current; setEditing('new'); }}>记一笔资金流动</button>}
+    <div className="pfu-section-head"><div><h4>资金流动明细</h4>{embedded && <p className="pfu-meta">账户转账、外部投入与取回；记录不会改变账户余额。</p>}</div>
+      {!embedded && accountsRead?.status === 'ready' && selectable.length > 0 && <button ref={addButton} type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => { if (frozen || openingRef.current || editing !== null) return; ++openTicket.current; setEditing('new'); }}>记一笔资金流动</button>}
     </div>
     {accountsRead === null ? <p className="pfu-muted" role="status">正在读取账户…</p>
       : accountsRead.status === 'disabled' ? <p className="pfu-state" role="status">{accountsRead.message}</p>
@@ -135,44 +143,44 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
       : accounts.length === 0 ? <p className="pfu-muted">还没有账户。资金流动至少一端要落在真实账户上，请先在「账户与盘点」创建账户，再记录外部投入或取回。{onNewAccount && <button type="button" className="pfu-btn" disabled={frozen} onClick={onNewAccount}>创建账户</button>}</p>
       : <>
         <div className="pfu-filters">
-          {!period && <><label>开始日期<input aria-label="明细开始日期" placeholder="YYYY-MM-DD（含）" disabled={frozen} value={from} onChange={e => setFrom(e.target.value)}/></label>
-          <label>结束日期<input aria-label="明细结束日期" placeholder="YYYY-MM-DD（含）" disabled={frozen} value={to} onChange={e => setTo(e.target.value)}/></label></>}
+          {!period && <><div><span>开始日期</span><DateInput label="明细开始日期" min="0001-01-01" allowClear disabled={frozen} value={from} onChange={setFrom}/></div>
+          <div><span>结束日期</span><DateInput label="明细结束日期" min="0001-01-01" allowClear disabled={frozen} value={to} onChange={setTo}/></div></>}
           {accountIds === undefined && <label>账户<select aria-label="筛选账户" disabled={frozen} value={account} onChange={e => setAccount(e.target.value)}>
             <option value="">全部账户</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select></label>}
-          <label>范围<select aria-label="显示范围" disabled={frozen} value={showDeleted} onChange={e => setShowDeleted(e.target.value as 'active' | 'all')}>
-            <option value="active">仅有效</option><option value="all">含已删除</option>
+          <label>记录状态<select aria-label="显示范围" disabled={frozen} value={showDeleted} onChange={e => setShowDeleted(e.target.value as 'active' | 'all')}>
+            <option value="active">有效记录</option><option value="all">含已删除</option>
           </select></label>
         </div>
         {accountIds !== undefined && <p className="pfu-muted small">账户范围：{accountIds.length ? accountIds.map(id => names[id] ?? `历史账户 ${id}`).join("、") : "未选择账户"}；按任一端属于所选账户筛选。</p>}
         {records !== null && <p className="pfu-muted small">{scoped ? "所选范围" : "已加载范围"} {records.length} 笔{text && ` · 搜索匹配 ${visible?.length ?? 0} 笔（搜索仅筛明细）`}{page?.next_cursor && " · 还有未加载记录"}</p>}
         {listLoading && records === null ? <p className="pfu-muted" role="status">正在读取明细…</p>
           : listError && records === null ? <p className="pfu-notice" role="alert">明细读取失败：{listError}<button type="button" className="pfu-btn" onClick={() => load(null)}>重试</button></p>
-          : records === null || visible?.length === 0 ? <p className="pfu-muted">这个筛选条件下还没有资金流动记录。空列表不等于本期间没有流动。</p>
-          : <table className="pfu-table"><thead><tr><th>日期</th><th className="pfu-num">金额</th><th>转出 → 转入</th><th>用途</th><th>来源</th><th>操作</th></tr></thead>
+          : records === null || visible?.length === 0 ? <div className="pfu-empty"><h4>{text ? '没有匹配的资金流动' : '当前范围尚无资金流动'}</h4><p className="pfu-muted">{text ? '试试其他关键词，或调整账户和期间。' : '用「记一笔资金流动」记录一次转账、投入或取回。'}空列表不等于本期间没有流动。</p></div>
+          : <div className="pfu-table-scroll"><table className="pfu-table"><thead><tr><th>日期</th><th>转出 → 转入</th><th className="pfu-num">金额</th><th>用途 / 备注</th><th>来源状态</th><th>操作</th></tr></thead>
             <tbody>{visible?.map(r => <tr key={r.id} className={r.deleted ? 'pfu-deleted' : undefined}>
               <td>{r.fields.date}</td>
+              <td className="pfu-transfer"><span>{endpointText(r.fields.from, names)}</span><span className="pfu-muted" aria-hidden="true">→</span><span>{endpointText(r.fields.to, names)}</span></td>
               <td className="pfu-num">{formatCents(r.fields.amount_cents)}</td>
-              <td>{endpointText(r.fields.from, names)} → {endpointText(r.fields.to, names)}</td>
               <td>{purposeLabel[r.fields.purpose]}{r.fields.notes && <small className="pfu-muted"> {r.fields.notes}</small>}</td>
               <td><span className={`pfu-tag ${r.source_status}`}>{sourceStatusText[r.source_status]}</span></td>
-              <td className="pfu-row-actions">
-                <button type="button" className="pfu-btn" disabled={frozen || editing !== null || r.deleted} onClick={() => { if (frozen || openingRef.current || editing !== null) return; ++openTicket.current; setEditing(r); }}>修改</button>
+              <td><div className="pfu-row-actions">
+                <button type="button" className="pfu-btn" disabled={frozen || editing !== null || r.deleted} onClick={() => { if (frozen || openingRef.current || editing !== null) return; if (typeof document !== 'undefined') formOpener.current = document.activeElement as HTMLElement | null; ++openTicket.current; setEditing(r); }}>修改</button>
                 {r.deleted && r.fields.source && <button type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => void trash(r, true)}>解除来源关联</button>}
                 {r.deleted
                   ? <button type="button" className="pfu-btn" disabled={frozen} onClick={() => void trash(r)}>恢复</button>
                   : deleting === r.id ? <><button type="button" className="pfu-btn pfu-danger" disabled={frozen} onClick={() => void trash(r)}>确认删除</button><button type="button" className="pfu-btn" disabled={busy} onClick={() => setDeleting(null)}>取消</button></>
                     : <button type="button" className="pfu-btn" disabled={frozen || editing !== null} onClick={() => setDeleting(r.id)}>删除</button>}
-              </td>
-            </tr>)}</tbody></table>}
+              </div></td>
+            </tr>)}</tbody></table></div>}
         {records !== null && page?.next_cursor && <div className="pfu-more"><button type="button" className="pfu-btn" disabled={frozen || moreLoading} onClick={() => { setMoreLoading(true); load(page.next_cursor); }}>{moreLoading ? '读取中…' : '加载更多'}</button><span className="pfu-muted small">区间核对会包含所有相关明细。</span></div>}
         {listError && records !== null && <p className="pfu-notice" role="alert">继续读取失败：{listError}<button type="button" className="pfu-btn" onClick={() => load(null)}>从第一页重读</button></p>}
         {writeError && <p className="pfu-notice" role="alert">{writeError}</p>}
-        <p className="pfu-muted small">一笔本人账户转账只存一条记录；金额、端点或用途无法确定时不要保存成虚构事实。记录资金流动不会改变账户余额。</p>
+        <details className="pfu-records-help"><summary>记录与核对说明</summary><p className="pfu-muted small">一笔本人账户转账只存一条记录；金额、端点或用途无法确定时不要保存成虚构事实。记录资金流动不会改变账户余额，也不会自动生成收入或支出。</p></details>
       </>}
     {savedNotice && <p className="pfu-notice" role="status">{listError ? "已保存，刷新失败。请重新读取，不要重复提交。" : listLoading ? "已保存，正在刷新明细…" : "已保存，明细已刷新。"}</p>}
     {editing !== null && accountsRead?.status === 'ready' && <MovementForm port={port} generation={generation} accounts={accounts} record={editing === 'new' ? null : editing} today={today} blocked={blocked} onPending={() => { uncertainVersion.current = receiptResolutionVersion; setUncertain(true); onPending(); }}
-      onClose={saved => { setEditing(null); if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => addButton.current?.focus()); if (saved) { setSavedNotice(true); load(null); onSaved?.(); } }}/>}
+      onClose={saved => { setEditing(null); if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => { if (formOpener.current?.isConnected && !formOpener.current.matches(':disabled')) formOpener.current.focus(); else if (addButton.current && !addButton.current.disabled) addButton.current.focus(); else document.getElementById('page-heading')?.focus(); }); if (saved) { setSavedNotice(true); load(null); onSaved?.(); } }}/>}
   </section>;
 }
 

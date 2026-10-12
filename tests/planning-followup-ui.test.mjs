@@ -29,6 +29,8 @@ function loadDirectory() {
   }
   function resolve(id, fromDir) {
     if (id === '../useSource.ts') return { useSource: () => '' }; // Legacy scenarios have no source focus; T06 exercises the actual source resolver separately.
+    if (id === '../DateInput') return { DateInput: props => jsxStub.jsx('input', { 'aria-label': props.label, value: props.value, disabled: props.disabled, min: props.min, max: props.max, onChange: e => props.onChange(e.target.value) }) };
+    if (id === '../FormControls') return { FormRow: props => jsxStub.jsx('div', { children: props.children }) };
     if (id === 'react') return reactStub;
     if (id === 'react/jsx-runtime') return jsxStub;
     if (id.startsWith('.')) {
@@ -547,7 +549,7 @@ test('host passes fictional account names through the domain endpoint ids only',
   const { port, calls } = scriptedFollowupPort();
   const h = mount('MovementsList.tsx', 'MovementsList', listProps({ port }));
   await h.settle();
-  assert.match(h.text(), /虚构券商投资账户 → 虚构现金账户/);
+  assert.match(h.text(), /虚构券商投资账户\s*→\s*虚构现金账户/);
   assert.match(h.text(), /外部：虚构房租/);
   assert.equal(saveCalls(calls, 'listAccounts').length, 1);
   assert.ok(uiAccounts.every(a => a.selectable !== undefined));
@@ -575,7 +577,7 @@ test('older movement query cannot replace newer filter results', async () => {
   await h.settle(); type(h, '明细开始日期', '2026-10-15');
   fresh.resolve({ status: 'ready', value: { generation: uiGeneration, records: [], next_cursor: null } }); await h.settle();
   old.resolve({ status: 'ready', value: { generation: uiGeneration, records: uiMovements, next_cursor: null } }); await h.settle();
-  assert.match(h.text(), /还没有资金流动记录/);
+  assert.match(h.text(), /当前范围尚无资金流动/);
   assert.doesNotMatch(h.text(), /虚构：取回资金/);
 });
 test('pending preview disables saving and older draft response cannot re-enable it', async () => {
@@ -776,4 +778,17 @@ test('disabled linked source is displayed distinctly from matched and deleted', 
   const h = mount('MovementsList.tsx', 'MovementsList', listProps({ port })); await h.settle();
   assert.match(h.text(), /来源模块已关闭/);
   assert.doesNotMatch(h.text(), /已关联来源|来源已删除/);
+});
+
+test('embedded records keep one host action and the date picker forwards settlement bounds', async () => {
+  const { port, calls } = scriptedFollowupPort();
+  const h = mount('MovementsList.tsx', 'MovementsList', listProps({ port, embedded: true, autoNew: true }));
+  await h.settle();
+  assert.equal(h.button('记一笔资金流动'), undefined);
+  assert.ok(h.find('dialog'));
+  assert.equal(h.input('发生日期').props.value, '2026-10-31');
+  assert.equal(h.input('发生日期').props.min, '0001-01-01');
+  assert.equal(h.input('发生日期').props.max, '2026-10-31');
+  h.button('取消（不保存）').props.onClick(); h.rerender();
+  assert.equal(saveCalls(calls, 'saveMovement').length, 0);
 });

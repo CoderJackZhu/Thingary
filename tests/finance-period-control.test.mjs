@@ -269,107 +269,78 @@ function dateProp(kind, label) {
 // vm 里产生的对象带有另一 realm 的原型，比较前复制成宿主普通对象。
 function committed(changes) { return changes.map(value => ({ ...value })); }
 
-test('all starts selected, applying 年度 reports the edited year and nothing is committed before 应用期间', () => {
+test('year and all selections refresh immediately; partial years keep the current results', () => {
   const changes = [];
   const h = new Harness({ value: { kind: 'all' }, onChange: value => changes.push(value), today });
   assert.equal(h.button('全部').props['aria-pressed'], true);
-  assert.equal(h.button('年度').props['aria-pressed'], false);
-  assert.match(h.text(), /全部期间/);
-  h.button('年度').props.onClick();
-  h.rerender();
-  assert.equal(h.button('年度').props['aria-pressed'], true);
+  assert.equal(h.button('应用期间'), undefined);
+  h.button('年度').props.onClick(); h.rerender();
+  assert.deepEqual(committed(changes), [{ kind: 'year', year: 2026 }]);
   const year = h.find(n => n.type === 'input' && n.props['aria-label'] === '年份')[0];
-  assert.equal(year.props.value, '2026');
-  year.props.onChange({ target: { value: '1999' } });
-  h.rerender();
-  assert.deepEqual(changes, []);
-  h.button('应用期间').props.onClick();
-  h.rerender();
-  assert.deepEqual(committed(changes), [{ kind: 'year', year: 1999 }]);
+  year.props.onChange({ target: { value: '199' } }); h.rerender();
+  assert.equal(changes.length, 1);
+  assert.match(h.text(), /仍显示/);
+  h.find(n => n.type === 'input' && n.props['aria-label'] === '年份')[0].props.onChange({ target: { value: '1999' } }); h.rerender();
+  assert.deepEqual(committed(changes).at(-1), { kind: 'year', year: 1999 });
+  h.set({ value: { kind: 'year', year: 1999 }, onChange: value => changes.push(value), today });
+  h.button('全部').props.onClick(); h.rerender();
+  assert.deepEqual(committed(changes).at(-1), { kind: 'all' });
 });
 
-test('every segment and the submit button are disabled when disabled, including DateInput bounds forwarding', () => {
+test('disabled controls cannot change the period, including date bounds forwarding', () => {
   const changes = [];
   const h = new Harness({ value: { kind: 'range', from: '2026-01-01', to: '2026-12-31', includeFrom: true }, onChange: value => changes.push(value), today, disabled: true });
-  for (const label of ['全部', '年度', '月度', '自选日期', '应用期间']) assert.equal(h.button(label).props.disabled, true, label);
+  for (const label of ['全部', '年度', '月度', '自选日期']) {
+    assert.equal(h.button(label).props.disabled, true);
+    h.button(label).props.onClick();
+  }
   assert.equal(dateProp('DateInput', '开始日期').disabled, true);
   assert.equal(dateProp('DateInput', '开始日期').min, '0001-01-01');
   assert.equal(dateProp('DateInput', '结束日期').min, '0001-01-01');
-  h.button('应用期间').props.onClick();
   assert.deepEqual(changes, []);
 });
 
-test('month kind forwards the contract minimum and commits a YYYY-MM month', () => {
+test('month selections forward the contract minimum and immediately refresh', () => {
   const changes = [];
   const h = new Harness({ value: { kind: 'all' }, onChange: value => changes.push(value), today });
-  h.button('月度').props.onClick();
-  h.rerender();
-  const month = h.find(n => n.type === 'input' && n.props['aria-label'] === '月份')[0];
-  assert.equal(month.props.value, '2026-10');
+  h.button('月度').props.onClick(); h.rerender();
   assert.equal(dateProp('MonthInput', '月份').min, '0001-01');
-  month.props.onChange({ target: { value: '2026-02' } });
-  h.rerender();
-  h.button('应用期间').props.onClick();
-  h.rerender();
-  assert.deepEqual(committed(changes), [{ kind: 'month', month: '2026-02' }]);
+  h.find(n => n.type === 'input' && n.props['aria-label'] === '月份')[0].props.onChange({ target: { value: '2026-02' } }); h.rerender();
+  assert.deepEqual(committed(changes), [{ kind: 'month', month: '2026-10' }, { kind: 'month', month: '2026-02' }]);
 });
 
-test('invalid range shows a Chinese alert and never calls onChange, then a fixed range commits', () => {
+test('invalid ranges keep results; fixing the end immediately refreshes both dates', () => {
   const changes = [];
-  const h = new Harness({ value: { kind: 'all' }, onChange: value => changes.push(value), today });
-  h.button('自选日期').props.onClick();
-  h.rerender();
-  const from = h.find(n => n.type === 'input' && n.props['aria-label'] === '开始日期')[0];
-  const to = h.find(n => n.type === 'input' && n.props['aria-label'] === '结束日期')[0];
-  from.props.onChange({ target: { value: '2026-10-20' } });
-  to.props.onChange({ target: { value: '2026-10-10' } });
-  h.rerender();
-  h.button('应用期间').props.onClick();
-  h.rerender();
+  const h = new Harness({ value: { kind: 'range', from: '2026-10-01', to: '2026-10-10', includeFrom: true }, onChange: value => changes.push(value), today });
+  h.find(n => n.type === 'input' && n.props['aria-label'] === '开始日期')[0].props.onChange({ target: { value: '2026-10-20' } }); h.rerender();
   assert.deepEqual(changes, []);
-  const alert = h.find(n => n.props && n.props.role === 'alert')[0];
-  assert.match(collects(alert), /开始日期不能晚于结束日期/);
-  to.props.onChange({ target: { value: '2026-10-25' } });
-  h.rerender();
-  h.button('应用期间').props.onClick();
-  h.rerender();
+  assert.match(h.text(), /开始日期不能晚于结束日期/);
+  h.find(n => n.type === 'input' && n.props['aria-label'] === '结束日期')[0].props.onChange({ target: { value: '2026-10-25' } }); h.rerender();
   assert.deepEqual(committed(changes), [{ kind: 'range', from: '2026-10-20', to: '2026-10-25', includeFrom: true }]);
-  assert.equal(h.find(n => n.props && n.props.role === 'alert').length, 0);
+  assert.equal(h.find(n => n.props?.role === 'alert').length, 0);
 });
 
-test('an external value change discards the unapplied draft and clears the previous error', () => {
-  const h = new Harness({ value: { kind: 'all' }, onChange: () => {}, today });
-  h.button('年度').props.onClick();
-  h.rerender();
-  h.find(n => n.type === 'input' && n.props['aria-label'] === '年份')[0].props.onChange({ target: { value: '2026' } });
-  h.rerender();
-  h.find(n => n.type === 'input' && n.props['aria-label'] === '年份')[0].props.onChange({ target: { value: '123' } });
-  h.rerender();
-  h.button('应用期间').props.onClick();
-  h.rerender();
-  assert.equal(h.find(n => n.props && n.props.role === 'alert').length, 1);
-  h.set({ value: { kind: 'month', month: '2026-05' }, onChange: () => {}, today });
+test('an external value change discards partial input and clears the error', () => {
+  const h = new Harness({ value: { kind: 'year', year: 2026 }, onChange() {}, today });
+  h.find(n => n.type === 'input' && n.props['aria-label'] === '年份')[0].props.onChange({ target: { value: '123' } }); h.rerender();
+  assert.equal(h.find(n => n.props?.role === 'alert').length, 1);
+  h.set({ value: { kind: 'month', month: '2026-05' }, onChange() {}, today });
   assert.equal(h.button('月度').props['aria-pressed'], true);
   assert.equal(h.find(n => n.type === 'input' && n.props['aria-label'] === '月份')[0].props.value, '2026-05');
-  assert.equal(h.find(n => n.props && n.props.role === 'alert').length, 0);
+  assert.equal(h.find(n => n.props?.role === 'alert').length, 0);
 });
 
-test('an exclusive boundary from the applied value is shown, kept while editing, and reset after switching kinds', () => {
+test('a parent echo preserves range edits and switching kinds restores the inclusive default', () => {
+  let props;
   const changes = [];
-  const h = new Harness({ value: { kind: 'range', from: '2026-09-30', to: '2026-10-31', includeFrom: false }, onChange: value => changes.push(value), today });
-  assert.match(h.text(), /不含起始日，含结束日/);
-  const to = h.find(n => n.type === 'input' && n.props['aria-label'] === '结束日期')[0];
-  to.props.onChange({ target: { value: '2026-11-30' } });
-  h.rerender();
-  h.button('应用期间').props.onClick();
-  h.rerender();
-  assert.deepEqual(committed(changes), [{ kind: 'range', from: '2026-09-30', to: '2026-11-30', includeFrom: false }]);
-  h.button('年度').props.onClick();
-  h.rerender();
-  h.button('自选日期').props.onClick();
-  h.rerender();
-  assert.match(h.text(), /含起始日，含结束日/);
-  h.button('应用期间').props.onClick();
-  h.rerender();
-  assert.equal(changes[1].includeFrom, true);
+  const onChange = value => { changes.push(value); props = { ...props, value }; };
+  props = { value: { kind: 'range', from: '2026-09-30', to: '2026-10-31', includeFrom: false }, onChange, today };
+  const h = new Harness(props);
+  h.find(n => n.type === 'input' && n.props['aria-label'] === '结束日期')[0].props.onChange({ target: { value: '2026-11-30' } }); h.set(props);
+  assert.equal(changes[0].includeFrom, false);
+  h.button('年度').props.onClick(); h.set(props);
+  h.button('自选日期').props.onClick(); h.set(props);
+  assert.deepEqual(committed(changes).at(-1), { kind: 'range', from: '2026-09-30', to: '2026-11-30', includeFrom: true });
+  h.button('自选日期').props.onClick(); h.rerender();
+  assert.equal(changes.length, 3, 'selecting the same valid period does not re-fetch');
 });

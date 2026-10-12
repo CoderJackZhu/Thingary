@@ -3,7 +3,7 @@ import { normalizeFinancePeriod, type FinancePeriod } from './finance-contract.t
 /** Editable period kinds; mirrors FinancePeriod without introducing new settlement semantics. */
 export type FinancePeriodKind = 'all' | 'year' | 'month' | 'range';
 
-/** Local-only draft: nothing here reaches onChange until「应用期间」validates it. */
+/** Local draft: only complete, valid selections become a browsing period. */
 export type FinancePeriodDraft = {
   kind: FinancePeriodKind;
   year: string;

@@ -3,6 +3,8 @@
 // 无法确定时不能保存成虚假事实。来源关联只用领域返回的稳定键，UI 不拼复合键。
 // 受控草稿由本组件持有，普通关闭即丢弃；提交意图交给注入端口，保存与回执由领域负责。
 import { useEffect, useRef, useState } from 'react';
+import { DateInput } from '../DateInput';
+import { FormRow } from '../FormControls';
 import type { FollowupIssue, MovementAccountV1, MovementRecordV1, MovementSourceOptionV1, MovementSourceV1, PlanningFollowupPortV1, SourceQueryV1 } from '../planning-followup-contract.ts';
 import { centsFromYuanText, draftFromMovement, draftToFields, formatCents, movementDraftIssues, purposeHint, purposeLabel, yuanTextFromCents } from './model.ts';
 import type { MovementFormDraft } from './model.ts';
@@ -93,7 +95,7 @@ function MovementFormContent({ port, generation, accounts, record, today, blocke
   blocked?: boolean; onClose: (saved: boolean) => void; onPending: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null), issueRef = useRef<HTMLDivElement>(null);
-  const [draft, setDraft] = useState<MovementFormDraft>(() => draftFromMovement(record));
+  const [draft, setDraft] = useState<MovementFormDraft>(() => ({ ...draftFromMovement(record), date: record?.fields.date ?? today }));
   const [issues, setIssues] = useState<FollowupIssue[]>([]);
   const [phase, setPhase] = useState<'idle' | 'saving' | 'unresolved'>('idle');
   const lock = useRef(false), mounted = useRef(true);
@@ -121,20 +123,18 @@ function MovementFormContent({ port, generation, accounts, record, today, blocke
     <form noValidate onSubmit={e => { e.preventDefault(); void submit(); }}>
       <header className="pfu-dialog-head">
         <div><p className="pfu-eyebrow">财富 · 资金流动</p><h3 id="pfu-movement-heading">{record ? '修改资金流动' : '记一笔资金流动'}</h3>
-          <p className="pfu-meta">只解释余额变化，不直接改变账户余额；余额事实仍以盘点为准。带手续费的转账请拆出本金与费用分别记录。</p></div>
+          <p className="pfu-meta">记录钱从哪里转出、转入哪里。账户余额以盘点为准。</p></div>
         <button type="button" className="pfu-close" aria-label="关闭资金流动表单" disabled={busy} onClick={() => onClose(false)}>×</button>
       </header>
       <div className="pfu-form-grid">
-        <label className="pfu-field-label">发生日期（按实际结算日）
-          <input aria-label="发生日期" placeholder="YYYY-MM-DD，例如 2026-10-15" disabled={frozen} max={today} value={draft.date} onChange={e => patch({ date: e.target.value })}/>
-          <small className="pfu-hint">跨期未到账的在途差异不当收益；记录后仍需按区间核对。</small>
-        </label>
+        <FormRow label="发生日期" hint="按实际结算日记录"><DateInput label="发生日期" min="0001-01-01" disabled={frozen} max={today} value={draft.date} onChange={date => patch({ date })}/></FormRow>
         <AmountInput label="金额（元）" value={draft.amount} disabled={frozen} onChange={v => patch({ amount: v })}/>
       </div>
-      <div className="pfu-form-grid">
+      <div className="pfu-form-grid pfu-transfer-grid">
         <EndpointField side="from" label="转出端" draft={draft} disabled={frozen} accounts={accounts} patch={patch}/>
         <EndpointField side="to" label="转入端" draft={draft} disabled={frozen} accounts={accounts} patch={patch}/>
       </div>
+      <p className="pfu-hint">本人账户互转只记一笔；有手续费时，将本金与费用分开记录。</p>
       <label className="pfu-field-label">用途
         <select aria-label="用途" value={draft.purpose} disabled={frozen} onChange={e => patch({ purpose: e.target.value as MovementFormDraft['purpose'] })}>
           {(Object.keys(purposeLabel) as (keyof typeof purposeLabel)[]).map(p => <option key={p} value={p}>{purposeLabel[p]}</option>)}

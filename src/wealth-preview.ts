@@ -701,7 +701,12 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'movement_list') {
     if (!previewModules.movements || !previewModules.wealth) throw {code:'MODULE_DISABLED',message:'资金流动已关闭'};
     if (params.get('movement') === 'error') throw {message:'虚构资金流动读取失败'};
-    return {value:{generation,records:[] as MovementRecordV1[],next_cursor:null}};
+    const records: MovementRecordV1[] = params.get('movement') === 'populated' ? [
+      { id:'preview-transfer', revision:1, deleted:false, fields:{date:todayIso,amount_cents:'100050',from:{kind:'account',account_id:'w-cash'},to:{kind:'account',account_id:'w-broker'},purpose:'own_transfer',source:null,notes:'虚构：本月投资转入'},source_status:'unlinked' },
+      { id:'preview-payment', revision:1, deleted:false, fields:{date:todayIso,amount_cents:'8800',from:{kind:'account',account_id:'w-cash'},to:{kind:'external',label:'虚构服务商'},purpose:'living_payment',source:{kind:'expense',key:'preview-expense-source'},notes:'虚构：来源更正后待核对'},source_status:'needs_review' },
+    ] : [];
+    const query = args.query as {from_date?:string;to_date?:string;account_id?:string;deleted?:string};
+    return {value:{generation,records:records.filter(r=>(!query.from_date||r.fields.date>=query.from_date)&&(!query.to_date||r.fields.date<=query.to_date)&&(!query.account_id||r.fields.from.kind==='account'&&r.fields.from.account_id===query.account_id||r.fields.to.kind==='account'&&r.fields.to.account_id===query.account_id)),next_cursor:null}};
   }
   if (command === 'movement_sources') return {value:{generation,options:[],next_cursor:null}};
   if (command === 'followup_review_list') return {value:{generation,records:[]}};

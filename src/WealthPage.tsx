@@ -10,7 +10,7 @@ import { useSource } from './useSource';
 import type { SourceProps } from './source';
 import { usePageBar } from './topbar';
 import { refocusHeading } from './topbar-model';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
@@ -134,21 +134,22 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   // account and never depends on the keyword (3.5.1/3.5.2).
   const keyword = search.trim().toLowerCase();
   const shownAccounts = accounts?.filter(a => accountVisible(a, accountView) && (!keyword || [a.fields.name, kindLabel(a.fields.kind), a.fields.institution, a.fields.notes].some(t => t.toLowerCase().includes(keyword)))) ?? [];
+  const accountScope = <div className="wealth-account-scope"><label className="account-filter">显示账户 <select aria-label="账户范围" value={accountView} disabled={!accounts || !!pending} onChange={e => setAccountView(e.target.value as AccountView)}><option value="active">在用账户（{open.length}）</option><option value="closed">已停用（{(accounts?.length ?? 0) - open.length}）</option><option value="all">全部账户</option></select></label><span className="muted small">仅筛选账户清单，不改变净资产汇总</span></div>;
   return <section className="stats-section wealth-section" aria-label="财富">
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对金融导入回执。</span> : <button disabled={busy} onClick={() => void verify()}>核对结果</button>}</div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
       <div className="segmented" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['changes', '变化'], ['history', '盘点记录']] as const).filter(([k]) => !onCompare || k !== 'changes').map(([k, l]) => <button key={k} aria-pressed={tab === k} onClick={() => { setChangesSeed(null); setTab(k); }}>{l}</button>)}</div>
-      {tab !== 'history' && <label className="account-filter">账户范围 <select aria-label="账户范围" value={accountView} onChange={e => setAccountView(e.target.value as AccountView)}><option value="active">在用账户（{open.length}）</option><option value="closed">已停用（{(accounts?.length ?? 0) - open.length}）</option><option value="all">全部账户</option></select></label>}
     </div></HeaderSlot>
+    {tab !== 'overview' && tab !== 'history' && accountScope}
     {tab === 'history' && savedSnapshot && !error && <div className="notice wealth-review-entry" role="status"><span>盘点已保存（{savedSnapshot.date}）。</span><button type="button" className="ui-link" disabled={!summary?.points.some(p => p.snapshot_id === savedSnapshot.id)} onClick={() => {
       if (onGotoPlanning) onGotoPlanning(savedSnapshot.id);
       else { const point = summary?.points.find(p => p.snapshot_id === savedSnapshot.id), from = summary?.points.find(p => p.complete && p.date === point?.compared_to); setChangesSeed(from ? { from: from.snapshot_id, to: savedSnapshot.id } : null); setTab('changes'); }
     }}>{onGotoPlanning ? '查看这一期的复盘 →' : '查看这一期的变化 →'}</button><CloseButton type="button" aria-label="关闭盘点后复盘提示" onClick={() => setSavedSnapshot(null)}/></div>}
     {error ? <article className="ui-card ui-content" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
-      : tab === 'overview' ? <Overview hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/>
+      : tab === 'overview' ? <Overview accountScope={accountScope} hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/>
       : tab === 'accounts' ? (keyword && !shownAccounts.length
         ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
         : <Accounts accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
@@ -158,7 +159,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   </section>;
 }
 
-function Overview({ summary, accounts, hasAccounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges }: { summary: Summary; accounts: Account[]; hasAccounts: boolean; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
+function Overview({ accountScope, summary, accounts, hasAccounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges }: { accountScope: ReactNode; summary: Summary; accounts: Account[]; hasAccounts: boolean; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
   if (!hasAccounts) return <div className="empty"><span className="empty-mark">¥</span><h2>先建立要定期核对的账户</h2><p>银行卡、证券、基金、公积金，以及信用卡和贷款。只需名称和类型，不需要卡号或登录信息。</p><button className="primary" onClick={onNewAccount}>新增账户</button></div>;
   if (!latest) return <div className="empty"><span className="empty-mark">¥</span><h2>开始第一次盘点</h2><p>对照各平台，把今天的余额和欠款逐行填进来。之后每次盘点都会成为趋势上的一个点。</p><button className="primary" onClick={() => onCheckIn(today)}>开始盘点</button></div>;
   const shown = lastComplete ?? latest;
@@ -180,7 +181,7 @@ function Overview({ summary, accounts, hasAccounts, latest, lastComplete, onNewA
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>资产结构</h3><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入范围` : '尚无完整盘点'}</span></div><ShareBars rows={summary.structure} empty="没有计入的资产。"/></article>
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>计入范围内负债</h3><Info text="按类型统计尚欠金额，不含标为不计入的负债。"/></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
     </div>
-    <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div>{!accounts.length && <p className="muted">当前范围没有账户，可切换上方账户范围查看其他账户。</p>}<ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{!a.fields.counted?' · 不计入净资产':''}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?(a.fields.side==='liability'&&a.latest.amount_cents!=='0'?'−':'')+money(a.latest.amount_cents):'尚未盘点'}</span></li>)}</ul></article>
+    <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div>{accountScope}{!accounts.length && <p className="muted">当前范围没有账户，可切换上方账户范围查看其他账户。</p>}<ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{!a.fields.counted?' · 不计入净资产':''}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?(a.fields.side==='liability'&&a.latest.amount_cents!=='0'?'−':'')+money(a.latest.amount_cents):'尚未盘点'}</span></li>)}</ul></article>
   </>;
 }
 
