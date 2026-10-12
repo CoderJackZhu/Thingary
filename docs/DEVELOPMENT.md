@@ -236,7 +236,7 @@ schema37 迁移同时建立收入来源字段和投资区间核对表。真实�
 
 ## 规划假设与资金流动界面
 
-普通 `PlanningPage` 使用 `nativePlanningFollowupPortV1()`；注入端口仅用于组件测试／预览。`FollowupInvestmentHost` 的实时结果、历史和删除恢复统一读取新端口，不能回退旧手填保存绕开依据校验。向导保留独立假设保存后的四个值，包括波动率；读取失败阻止旧草稿继续覆盖。
+普通 `PlanningPage` 使用 `nativePlanningFollowupPortV1()`；注入端口仅用于组件测试／预览。`FollowupInvestmentHost` 的实时结果、历史和删除恢复统一读取新端口，不能回退旧手填保存绕开依据校验。目标顶部、计算条件及建议下一步的假设入口使用同一四字段编辑器，不再进入旧三字段表单。向导保留独立假设保存后的四个值，包括波动率；读取失败阻止旧草稿继续覆盖。
 
 运行 `npm run dev -- --port 1437`，打开 `/src/planning-followup-ui/preview/index.html` 查看虚构组件。支持 normal、no-accounts、no-pair、disabled、read-error、needs-review、conflict、unresolved，另加 `theme=dark`。预览不进入普通构建、不执行真实计算或持久化；请勿把预览 saved 当成原生验收。
 

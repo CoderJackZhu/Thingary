@@ -75,7 +75,8 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     });
   }
   function editGoal(field: GoalAction, from: HTMLElement) {
-    if (field === 'income') openSetup(3, from, true);
+    if (field === 'assumptions') { if (assumptionsPort) setAssumptionEditing(true); else openSetup(5, from, true); }
+    else if (field === 'income') openSetup(3, from, true);
     else if (field === 'funds' || field === 'costs') openDialog({ kind: field, completion: false }, from);
     else if (field === 'debt') openDialog({ kind: 'debt', completion: false }, from);
     else if (field === 'events') goEvents();
@@ -105,7 +106,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   if (sources.profile.status === 'error') return <article className="ui-card ui-content" role="alert"><p>规划资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>;
   if (detail && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openSetup={(step, from) => openSetup(step, from, true)} onEvents={goEvents} onBack={() => { setDetail(false); requestAnimationFrame(() => document.getElementById('plan-detail-entry')?.focus()); }} assumptionsPort={assumptionsPort}/>;
   return <div className="plan-goals" data-goal-state={state}>
-    {saved && assumptionsPort && <AssumptionsSummary port={assumptionsPort} generation={sources.generation} writeVersion={sources.write_version} blocked={saver.busy || saver.stuck} reload={reload} onPending={onPending} onEditingChange={setAssumptionEditing}/>}
+    {saved && assumptionsPort && <AssumptionsSummary port={assumptionsPort} generation={sources.generation} writeVersion={sources.write_version} blocked={saver.busy || saver.stuck} reload={reload} onPending={onPending} open={assumptionEditing} onOpenChange={setAssumptionEditing}/>}
     {!!caps?.reset_reasons?.length && <article className="ui-card ui-content" role="status"><h3>规划条件需要重新确认</h3><p>规划已改为通用时间、资金和预计收入。请核对{caps.reset_reasons.map(r => ({ time_unconfirmed: '目标与终点月份', income_unconfirmed: '未来收入', funds_unconfirmed: '可用资金' })[r]).join('、')}；账户、盘点和实际记录不受影响。</p><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget, true)}>核对规划条件</button></article>}
     {dialog?.kind === 'debt' && saved && <PlanningDebtDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'funds' && saved && <FundsDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}

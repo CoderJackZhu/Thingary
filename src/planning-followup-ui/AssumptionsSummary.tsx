@@ -4,13 +4,14 @@ import { AssumptionsEditor } from './AssumptionsEditor';
 import { assumptionSummary, confirmationText } from './model';
 import './planning-followup-ui.css';
 
-export function AssumptionsSummary({ port, generation, writeVersion, blocked = false, reload, onPending, onEditingChange }: {
+export function AssumptionsSummary({ port, generation, writeVersion, blocked = false, reload, onPending, onEditingChange, open: controlledOpen, onOpenChange }: {
   port: PlanningFollowupPortV1; generation: string; writeVersion: number; blocked?: boolean;
-  reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void;
+  reload: () => void; onPending: () => void; onEditingChange?: (v: boolean) => void; open?: boolean; onOpenChange?: (v: boolean) => void;
 }) {
-  const [read, setRead] = useState<FollowupRead<AssumptionReadV1> | null>(null), [open, setOpen] = useState(false), [retry, setRetry] = useState(0);
+  const [read, setRead] = useState<FollowupRead<AssumptionReadV1> | null>(null), [localOpen, setLocalOpen] = useState(false), [retry, setRetry] = useState(0);
+  const open = controlledOpen ?? localOpen, setOpen = onOpenChange ?? setLocalOpen;
   const opener = useRef<HTMLButtonElement>(null);
-  useEffect(() => { onEditingChange(open); return () => onEditingChange(false); }, [open, onEditingChange]);
+  useEffect(() => { onEditingChange?.(open); return () => onEditingChange?.(false); }, [open, onEditingChange]);
   useEffect(() => {
     let live = true; setRead(null);
     port.readAssumptions(generation).then(v => { if (live) setRead(v.status === 'ready' && v.value.generation !== generation ? { status: 'error', code: 'GENERATION_MISMATCH', message: '资料库已变化，请重新读取。' } : v); }).catch(e => { if (live) setRead({ status: 'error', code: 'READ_ERROR', message: String(e) }); });
