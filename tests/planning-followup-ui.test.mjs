@@ -628,3 +628,44 @@ test('switching library unmounts an in-flight editor and ignores its late save r
   assert.deepEqual(closed, []);
   assert.equal(h.button('确认并保存').props.disabled, false);
 });
+
+
+test('only valid confirmed reviews retain completeness; stale and unconfirmed reviews require a new explicit check', async () => {
+  for (const confirmation of ['needs_review', 'unconfirmed', 'confirmed']) {
+    const draft = { ...reviewDraftFixtures.movementsUnconfirmed, confirmed_complete: true };
+    const { port, calls } = scriptedFollowupPort({
+      reviewRead: { status: 'ready', value: { draft, preview: uiPreviewOf(draft, { confirmation }) } },
+      previewResult: d => ({ status: 'ready', value: uiPreviewOf(d, {
+        result: d.confirmed_complete ? { status: 'ready', value: { profit_cents: '510000', change_cents: '-300000' } }
+          : { status: 'needs_review', reasons: ['incomplete_flow'], change_cents: '-300000' },
+      }) }),
+    });
+    const h = mount('ReviewModePanel.tsx', 'ReviewModeDialog', reviewProps({ port })); await h.settle();
+    const box = () => h.nodes().filter(n => n.type === 'input' && n.props.type === 'checkbox')[1];
+    assert.equal(box().props.checked, confirmation === 'confirmed');
+    assert.equal(saveCalls(calls, 'previewReview')[0].args[1].confirmed_complete, confirmation === 'confirmed');
+    if (confirmation !== 'confirmed') {
+      assert.match(h.text(), /流动金额或完整性待核对/);
+      assert.doesNotMatch(h.text(), /\+¥5,100/);
+      h.button('保存核对方式').props.onClick(); h.rerender(); await h.settle();
+      assert.equal(saveCalls(calls, 'saveReview')[0].args[1].confirmed_complete, false);
+      box().props.onChange({ target: { checked: true } }); h.rerender(); await h.settle();
+      assert.match(h.text(), /\+¥5,100/);
+      h.button('保存核对方式').props.onClick(); h.rerender(); await h.settle();
+      assert.equal(saveCalls(calls, 'saveReview').at(-1).args[1].confirmed_complete, true);
+      assert.equal(saveCalls(calls, 'saveReview').at(-1).args[3].expected_revision, 4);
+    }
+  }
+});
+
+test('investment card translates movement and source invalidation codes', async () => {
+  const preview = uiPreviewOf(uiManualDraft);
+  const h = new Harness('src/investment-review/InvestmentReviewCard.tsx', 'InvestmentReviewCard', {
+    outer: { status: 'ready', input: preview.input, result: { status: 'needs_review', reasons: ['stale_movements', 'source_mismatch', 'source_deleted'], change_cents: '-300000' } },
+  });
+  await h.settle();
+  assert.match(h.text(), /相关资金流动已被更正/);
+  assert.match(h.text(), /日期或金额与流动不一致/);
+  assert.match(h.text(), /关联来源已被删除/);
+  assert.doesNotMatch(h.text(), /stale_movements|source_mismatch|source_deleted/);
+});

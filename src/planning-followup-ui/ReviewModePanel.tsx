@@ -10,11 +10,11 @@ import { centsFromYuanText, followupReasonText, formatCents, formatSignedCents, 
 type UIMode = 'manual' | 'movements';
 type UIDraft = { mode: UIMode; inflow: string; outflow: string; confirmed: boolean; unsupported: boolean; notes: string };
 
-const draftOf = (draft: ReviewDraftV1): UIDraft => ({
+const draftOf = (draft: ReviewDraftV1, confirmation: ReviewPreviewV1['confirmation']): UIDraft => ({
   mode: draft.selection.mode,
   inflow: draft.selection.mode === 'manual' ? draft.selection.inflow_cents ?? '' : '',
   outflow: draft.selection.mode === 'manual' ? draft.selection.outflow_cents ?? '' : '',
-  confirmed: draft.confirmed_complete, unsupported: draft.unsupported_movements, notes: draft.notes,
+  confirmed: confirmation === 'confirmed' && draft.confirmed_complete, unsupported: draft.unsupported_movements, notes: draft.notes,
 });
 const toDraft = (d: UIDraft): ReviewDraftV1 => ({
   selection: d.mode === 'manual'
@@ -81,7 +81,7 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
     if (!mounted.current) return false;
     if (next.status === 'ready' && next.value.preview.generation !== generation) { setRead({ status: 'error', code: 'GENERATION_MISMATCH', message: '资料库已变化，请关闭后重新打开。' }); return false; }
     setRead(next);
-    if (next.status === 'ready') setDraft(draftOf(next.value.draft));
+    if (next.status === 'ready') setDraft(draftOf(next.value.draft, next.value.preview.confirmation));
     return next.status === 'ready';
   };
   useEffect(() => {
@@ -89,7 +89,7 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
     port.readReview(pair, generation).then(v => {
       if (!live) return;
       if (v.status === 'ready' && v.value.preview.generation !== generation) { setRead({ status: 'error', code: 'GENERATION_MISMATCH', message: '资料库已变化，请关闭后重新打开。' }); return; }
-      setRead(v); if (v.status === 'ready') setDraft(draftOf(v.value.draft));
+      setRead(v); if (v.status === 'ready') setDraft(draftOf(v.value.draft, v.value.preview.confirmation));
     }).catch(e => { if (live) setRead({ status: 'error', code: 'READ_ERROR', message: e instanceof Error ? e.message : String(e) }); });
     return () => { live = false; };
   }, [port, generation, pair.from_snapshot_id, pair.to_snapshot_id, retry]);

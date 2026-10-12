@@ -94,6 +94,9 @@ export const REVIEW_REASONS = [
 export const reasonLabel: Record<string, string> = {
   missing_flow: '未记录这一期间的投入与转出',
   incomplete_flow: '流动金额或完整性待核对',
+  stale_movements: '相关资金流动已被更正，原确认失效，请重新核对',
+  source_mismatch: '关联来源的日期或金额与流动不一致，请复核',
+  source_deleted: '关联来源已被删除，关联失效，请复核',
   stale_endpoints: '起止盘点被更正，原有确认失效，需要重新核对',
   scope_changed: '两次盘点的投资范围（账户、类型或计入状态）不一致',
   missing_balance: '投资范围内有账户缺少有效余额',
