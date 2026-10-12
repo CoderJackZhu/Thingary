@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 37;
+pub const SCHEMA_VERSION: i64 = 38;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -845,6 +845,13 @@ PRAGMA user_version=14;")?;
         tx.execute_batch("PRAGMA user_version=37;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
+        v = 37;
+    }
+    if v == 37 && target >= 38 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("plan_assumptions.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
     }
     Ok(())
 }
@@ -1226,5 +1233,39 @@ INSERT INTO maintenances VALUES('deleted','a',NULL,'other','原删除','',NULL,'
             )
             .unwrap();
         assert_eq!(warranties_exists, 1);
+    }
+}
+
+#[cfg(test)]
+mod assumption_migration_tests {
+    use super::*;
+    #[test]
+    fn schema38_failure_rolls_back_table_and_version() {
+        let c = Connection::open_in_memory().unwrap();
+        c.execute_batch(SCHEMA).unwrap();
+        migrate_to(&c, 37, &|_| Ok(())).unwrap();
+        let failed = migrate_to(&c, 38, &|p| {
+            if p == "migration.before_commit" {
+                Err(Error::new("INJECTED", "虚构迁移故障"))
+            } else {
+                Ok(())
+            }
+        });
+        assert!(failed.is_err());
+        assert_eq!(
+            c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap(),
+            37
+        );
+        assert_eq!(
+            c.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE name='plan_assumption_checks'",
+                [],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            0
+        );
+        migrate_to(&c, 38, &|_| Ok(())).unwrap();
     }
 }

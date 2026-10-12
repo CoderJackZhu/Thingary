@@ -88,7 +88,7 @@ export const pendingKey = 'thingary.wealth-pending.v1';
 export type TrashChange = { request_id: string; generation: string; kind: TrashKind; id: string; expected_revision: number; deleted: boolean };
 export type TrashKind = 'snapshot' | 'account' | 'expense' | 'income' | 'plan' | 'payment' | 'wish' | 'virtual' | 'topup' | 'balance';
 export type PurgeInput = { request_id: string; generation: string; kind: string | null; id: string; preview?: string };
-export type Pending = { command: 'investment_review_save' | 'investment_review_trash' | 'financial_import_commit' | 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'plan_profile_update' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save' | 'link_save' | 'link_create' | 'link_trash' | 'link_restore' | 'link_reconcile' | 'link_merge' | 'purge_trash'; input: InvestmentReviewSave | InvestmentReviewTrash | import('./plan.ts').ProfileUpdate | PurgeInput | AccountSave | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | LinkSaveInput | LinkCreateInput | LinkTrashInput | LinkRestoreInput | ReconcileInput | MergeInput | { request_id: string; generation: string }; label: string };
+export type Pending = { command: 'plan_assumptions_save' | 'investment_review_save' | 'investment_review_trash' | 'financial_import_commit' | 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'plan_profile_update' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save' | 'link_save' | 'link_create' | 'link_trash' | 'link_restore' | 'link_reconcile' | 'link_merge' | 'purge_trash'; input: (import('./planning-followup-contract.ts').FollowupWriteContext & { values: import('./planning-followup-contract.ts').AssumptionValuesV1; confirm: boolean }) | InvestmentReviewSave | InvestmentReviewTrash | import('./plan.ts').ProfileUpdate | PurgeInput | AccountSave | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | LinkSaveInput | LinkCreateInput | LinkTrashInput | LinkRestoreInput | ReconcileInput | MergeInput | { request_id: string; generation: string }; label: string };
 export function storedPending(): Pending | null {
   try { const p = JSON.parse(localStorage.getItem(pendingKey) || 'null'); if (p && typeof p.command === 'string' && typeof p.input?.request_id === 'string') return p; } catch { /* unreadable receipt is ignored */ }
   return null;
@@ -130,7 +130,7 @@ export async function resolvePending(pending: Pending): Promise<'saved' | 'unsav
   try {
     const id = await invoke<string | null>('wealth_request_result', { request: pending.input.request_id, generation: pending.input.generation });
     if (id) {
-      if (pending.command === 'plan_profile_save' || pending.command === 'plan_profile_update') {
+      if (pending.command === 'plan_assumptions_save' || pending.command === 'plan_profile_save' || pending.command === 'plan_profile_update') {
         if (id !== 'profile') throw new Unresolved('规划回执结果不匹配；原请求已保留。');
         // A receipt confirms a commit, but the current profile may still be
         // unreadable or belong to a newly selected library. Never replay legacy input.
@@ -143,7 +143,7 @@ export async function resolvePending(pending: Pending): Promise<'saved' | 'unsav
     }
     clearPending(); return 'unsaved';
   } catch (e) {
-    if (code(e) === 'STALE_DATASET') { if (pending.command === 'plan_income_save' || pending.command === 'investment_review_save' || pending.command === 'investment_review_trash' || pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update' || pending.command === 'plan_profile_save') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
+    if (code(e) === 'STALE_DATASET') { if (pending.command === 'plan_assumptions_save' || pending.command === 'plan_income_save' || pending.command === 'investment_review_save' || pending.command === 'investment_review_trash' || pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update' || pending.command === 'plan_profile_save') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
     throw e;
   }
 }

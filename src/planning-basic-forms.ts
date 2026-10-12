@@ -13,7 +13,7 @@ export type ScopeDraft = { treatment: Treatment; ref: string };
 export type CostSource = { id: string; label: string; cents: string | null };
 
 export type Draft = {
-  mode: 'fire' | 'traditional'; budget: string; before: string; after: string; infl: string; emergency: string;
+  mode: 'fire' | 'traditional'; budget: string; before: string; after: string; infl: string; emergency: string; volatility?: string;
   simplified: SimplifiedPlanningFieldsV1;
   retScopes: Record<string, ScopeDraft>; conScopes: Record<string, ScopeDraft>;
   start: 'live' | 'simulation'; simId: string; simAmount: string; simDate: string; simNotes: string;
@@ -43,7 +43,7 @@ export function draftOf(saved: Saved, snapshot: Snapshot | null): Draft {
   return {
     mode: fresh ? defaultRetire.mode : r.mode, budget: fresh ? '' : r.spend_cents ?? '',
     simplified: structuredClone(r.simplified),
-    before: hundredthsToPct(r.real_return_before_hundredths), after: hundredthsToPct(r.real_return_after_hundredths), infl: hundredthsToPct(p?.assumptions.inflation_hundredths ?? 200), emergency: String(r.emergency_months),
+    volatility: hundredthsToPct(r.volatility_hundredths), before: hundredthsToPct(r.real_return_before_hundredths), after: hundredthsToPct(r.real_return_after_hundredths), infl: hundredthsToPct(p?.assumptions.inflation_hundredths ?? 200), emergency: String(r.emergency_months),
     retScopes: scopeDraft(b?.retirement_costs, retirementSources(r)), conScopes: scopeDraft(b?.contribution_costs, contributionSources(r)),
     start: sim ? 'simulation' : 'live', simId: sim?.id ?? crypto.randomUUID(), simAmount: sim?.available_cents ?? '', simDate: sim?.date ?? '', simNotes: sim?.notes ?? '',
     spendItems: structuredClone(r.spend_items),
@@ -67,7 +67,7 @@ export function basicInput(d: Draft, saved: Saved, today: string): SectionInput 
   const r = saved?.profile.retire ?? defaultRetire;
   const fields: BasicFields = {
     spend_cents: d.budget === '' ? null : d.budget,
-    mode: d.mode, real_return_before_hundredths: rate(d.before, '退休前实际收益'), real_return_after_hundredths: rate(d.after, '退休后实际收益'), volatility_hundredths: r.volatility_hundredths,
+    mode: d.mode, real_return_before_hundredths: rate(d.before, '退休前实际收益'), real_return_after_hundredths: rate(d.after, '退休后实际收益'), volatility_hundredths: d.volatility === undefined ? r.volatility_hundredths : rate(d.volatility, '市场模拟年波动率'),
     emergency_months: int(d.emergency, '应急金月数', 0, 36) ?? fail('请填写应急金月数。'), inflation_hundredths: rate(d.infl, '通胀'),
     monetary_basis_date: r.core?.monetary_basis_date ?? today,
     basic: {

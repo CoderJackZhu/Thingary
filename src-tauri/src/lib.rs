@@ -25,6 +25,7 @@ pub mod materials;
 pub mod modules;
 pub mod native_images;
 pub mod photos;
+pub mod plan_assumptions;
 pub mod plan_basic;
 pub mod plan_core;
 pub mod plan_income;
@@ -32,6 +33,7 @@ mod plan_migration;
 pub mod plan_profile;
 pub mod plan_savings;
 pub mod plan_simplified;
+mod planning_followup_commands;
 pub mod preferences;
 pub mod purge;
 mod recovery;
@@ -228,6 +230,8 @@ pub fn run() {
             commands::plan_profile,
             commands::plan_profile_save,
             commands::plan_profile_update,
+            planning_followup_commands::plan_assumptions_read,
+            planning_followup_commands::plan_assumptions_save,
             commands::planning_sources,
             commands::plan_review,
             commands::plan_interval_reasons,

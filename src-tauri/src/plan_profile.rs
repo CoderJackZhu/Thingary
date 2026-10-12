@@ -264,18 +264,18 @@ impl Store {
             input.expected_revision,
             today,
             &[fingerprint],
-            |old| input.merge(old),
+            |old| input.merge(old).map(|p| (p, None)),
         )
     }
 
-    fn save_profile_request(
+    pub(crate) fn save_profile_request(
         &mut self,
         request_id: &str,
         generation: &str,
         expected_revision: Option<i64>,
         today: &str,
         fingerprints: &[String],
-        merge: impl FnOnce(Option<&Profile>) -> Result<Profile>,
+        merge: impl FnOnce(Option<&Profile>) -> Result<(Profile, Option<bool>)>,
     ) -> Result<Saved> {
         let fingerprint = &fingerprints[0];
         self.check_generation(generation)?;
@@ -301,7 +301,7 @@ impl Store {
                 "个人资料已变化，请重新读取",
             ));
         }
-        let profile = merge(old.as_ref().map(|s| &s.profile))?;
+        let (profile, confirmation) = merge(old.as_ref().map(|s| &s.profile))?;
         profile.validate(today)?;
         if let Some(core) = &profile.retire.core {
             core.validate_references(&tx, true)?;
@@ -347,6 +347,12 @@ impl Store {
                 params![payload, now],
             )?;
         }
+        crate::plan_assumptions::sync(
+            &tx,
+            old.as_ref().map(|s| &s.profile),
+            &profile,
+            confirmation,
+        )?;
         tx.execute(
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",
             params![request_id, fingerprint, "profile"],

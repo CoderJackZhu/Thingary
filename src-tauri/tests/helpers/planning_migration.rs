@@ -15,7 +15,7 @@ fn dataset(root: &Path) -> std::path::PathBuf {
     root.join("datasets").join(a["id"].as_str().unwrap())
 }
 fn manifest(c: &Connection, files: &Path) -> Value {
-    let names:Vec<String>=c.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('plan_profile','investment_flows') ORDER BY name").unwrap().query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
+    let names:Vec<String>=c.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('plan_profile','investment_flows','plan_assumption_checks') ORDER BY name").unwrap().query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
     let mut tables = BTreeMap::new();
     for name in names {
         let quoted = name.replace('"', "\"\"");
@@ -221,7 +221,7 @@ fn snapshot_db(s: &Store, dir: &Path, old: &Value, version: i64) {
     .unwrap();
     // Build a real pre-37 layout rather than only lowering its version marker.
     if version < 37 {
-        c.execute_batch("DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed;").unwrap();
+        c.execute_batch("DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed;").unwrap();
     }
     c.execute_batch(&format!("PRAGMA user_version={version}"))
         .unwrap();
@@ -536,7 +536,7 @@ fn live_upgrade_reopen_preserves_identity_then_scoped_unknown_commit_is_exactly_
         ["90000000-0000-4000-8000-000000000001"],
     )
     .unwrap();
-    c.execute_batch("DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=35;").unwrap();
+    c.execute_batch("DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=35;").unwrap();
     let before = manifest(c, &dataset(&root).join("files"));
     drop(s);
     let mut s = Store::open(&root).unwrap();
@@ -698,7 +698,7 @@ fn schema36_income_receipts_upgrade_and_backup_preserve_original_facts() {
     let data = dataset(&root);
     drop(s);
     let c = Connection::open(data.join("data.sqlite")).unwrap();
-    c.execute_batch("DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=36;").unwrap();
+    c.execute_batch("DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=36;").unwrap();
     drop(c);
     let mut upgraded = Store::open(&root).unwrap();
     let replay = upgraded.plan_income_save(&input, TODAY).unwrap();

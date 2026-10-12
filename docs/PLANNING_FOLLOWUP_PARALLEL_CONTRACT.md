@@ -1,6 +1,6 @@
 # 规划假设与资金流动：双任务接入契约 v1
 
-状态：**2026-10-12 前置契约已冻结，运行时实现尚未开始。** 源码基线为 `6332f874680e41a7f6c967493aad11706bc849c1`。目标以[边界设计第18节](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)为准；本文件维护领域与UI接缝，不是已上线功能说明。
+状态：**2026-10-12 前置契约已冻结；C1 假设原生端口已实现，UI 接入及 C2 资金流动端口待联合交付。** 源码基线为 `6332f874680e41a7f6c967493aad11706bc849c1`。目标以[边界设计第18节](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)为准；本文件维护领域与UI接缝，不是已上线功能说明。
 
 唯一类型定义：[planning-followup-contract.ts](../src/planning-followup-contract.ts)。该文件只有类型，没有保存、计算或运行时入口；其存在不表示原生端口可用。旧[投资核对v1](PLANNING_SIMPLIFICATION_CONTRACT.md)的输入输出继续作为计算核心边界，新契约在外层管理明细来源及确认失效，不向旧核心偷偷塞入未约定字段。
 

@@ -134,3 +134,9 @@ investment_review Store 从真实完整盘点构造 counted 投资范围，复�
 `window_size` 按应用身份在 app_config_dir 保存普通窗口逻辑尺寸，启动按显示器可用区域限界并居中；保存失败只影响偏好，不触及资料库。关闭及退出保存，全屏／最大化／最小化时跳过。本机偏好不参与备份恢复。
 
 PlanningPage 保留目标／收入与复盘导航；复盘／收入记录与月份筛选是页面内存状态，来源跳转选择复盘区间，提交未确认时保持写入守卫。IncomeRecords 的列表与汇总共用筛选集合。逐年快照复用 snapshotRows，在详情双栏外渲染，不另算预测。
+
+## 假设核对分区
+
+schema 38 在 `plan_assumption_checks` 单独保存后端拥有的已核对四项数值及待核对标记，原 profile DTO 与旧 basic/setup 请求序列化保持不变。`plan_assumptions_read/save` 经 Worker 沿用 profile 修订、generation、同一 `feature_requests` 和提交故障点；只有明确确认才写确认值。各 profile 保存路径比较实际收益、通胀及波动的变化并撤销有效确认，预算、费用、投入等无关保存保持状态。没有已保存 basic 的独立假设写入被拒绝，不建立空计划。旧资料迁移不改原值，新增核对表为空；规范 schema 与领域校验随完整备份恢复。
+
+`src/planning-followup-port.ts` 以现有 `wealth.submit` 和 pending 入口适配原生方法。C1 只提供假设读取、保存与回执核对；资金流动方法在 C2 交付前明确报未就绪。检查点是集成依赖，不能据此推定 UI 或原生验收完成。
