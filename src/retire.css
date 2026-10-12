@@ -212,3 +212,12 @@
 .rs-route-result { color: var(--accent); font-weight: 600; }
 
 .rd-milestone-details { margin-top: 16px; }
+
+.rd-detail > .rd-annual { margin-top: 20px; }
+.rd-annual .rd-table { width: 100%; min-width: 660px; table-layout: auto; }
+.rd-annual .rd-table th { white-space: normal; }
+.rd-annual .rd-table td { white-space: normal; overflow-wrap: anywhere; }
+.rd-annual .rd-table .amount { font-variant-numeric: tabular-nums; }
+.rd-year-detail td { padding-top: 0; color: var(--muted); }
+.rd-year-detail summary { cursor: pointer; font-size: 12px; }
+.rd-year-detail .plan-facts { padding: 12px 0; }

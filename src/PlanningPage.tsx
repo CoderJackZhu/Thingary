@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
-import { Info } from './FormControls';
+import { Info, Segments } from './FormControls';
 import { IncomeDialog } from './IncomeDialog';
-import { incomeCategories, incomeCategoryTotals } from './income-classification';
+import { IncomeRecords } from './IncomeRecords';
 import { HeaderSlot } from './HeaderSlot';
 import { PlanningReviewSummary } from './PlanningReviewSummary';
 import type { ReviewAction } from './review-observations';
@@ -19,7 +19,7 @@ import { cashTotals, monthly } from './plan';
 /** 结余超过已记录收入时，推算花销为负没有意义，通常是收入没记全或有一次性进账。 */
 const NEGATIVE_SPEND = '暂时算不出：存下的比记录的收入还多，收入可能没记全';
 import { FinancialImportDialog } from './FinancialImportDialog';
-import { latestHpf, hpfSummary, incomeHpfTotals, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
+import { latestHpf, hpfSummary, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeList, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
 import { refocusHeading } from './topbar-model';
@@ -39,6 +39,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
   const [editing, setEditing] = useState<Income | 'new' | null>(null), [setup, setSetup] = useState<{ step: number; editMode: boolean; completionId?: string } | null>(null);
   const [importing, setImporting] = useState(false);
   const [reviewEditing, setReviewEditing] = useState(false);
+  const [view, setView] = useState<'review' | 'income'>('review');
   const [selected, setSelected] = useState<string | null>(null);
   const [marking, setMarking] = useState(false), [markError, setMarkError] = useState('');
   const opener = useRef<HTMLElement | null>(null);
@@ -57,10 +58,10 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
 
   useEffect(() => {
     if (!reviewSnapshotId || !review) return;
-    setSelected(reviewSnapshotId); onReviewFocusDone?.();
+    setView('review'); setSelected(reviewSnapshotId); onReviewFocusDone?.();
   }, [reviewSnapshotId, review, onReviewFocusDone]);
   const action = (a: ReviewAction) => { if (a.kind === 'income') setEditing('new'); else if (a.kind === 'plan') onTab('goals'); else onGotoWealth?.(a); };
-  const openNew = { label: '记一笔收入', plus: true, disabled: !!pending || !incomes, run: () => { onTab('savings'); setEditing('new'); } };
+  const openNew = { label: '记一笔收入', plus: true, disabled: !!pending || !incomes, run: () => { onTab('savings'); setView('income'); setEditing('new'); } };
   usePageBar('planning', { primary: openNew, newRecord: openNew });
   // WebKit does not focus a button on click, so the caller passes the clicked element; the heading is the last resort.
   const openSetup = (step = 0, from?: HTMLElement | null, editMode = false, completionId?: string) => { opener.current = from ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null); setSetup({ step, completionId, editMode: editMode || step >= 4 }); };
@@ -81,21 +82,25 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
-      {tab === 'savings' && <button className="ui-btn" disabled={!incomes || !!pending} onClick={() => setImporting(true)}>导入收入历史…</button>}
+      {tab === 'savings' && view === 'income' && <button className="ui-btn" disabled={!incomes || !!pending} onClick={() => setImporting(true)}>导入收入历史…</button>}
       <Info text={tab === 'goals' ? '按你的条件，估算为目标月份每月需要准备多少资金。都是估算，条件随时可以改。' : '资产涨了，不一定都是存下来的钱，也可能是投资涨跌。收入只展示已记录的金额。'}/>
     </div></HeaderSlot>
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
       : !sources ? <p role="status" className="muted">正在读取规划…</p>
       : tab === 'goals' ? <PlanningBasicGoals key={sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone}/>
       : <>
-        {mode === 'none' && <article className="ui-card ui-content planning-setup-entry" aria-label="开始规划"><div className="ui-section-head"><div><h3>想知道要攒多少？</h3><p className="muted small">先说目标和预算，几分钟即可，也可以跳过。记录收入不需要先设置。</p></div><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget)}>开始规划</button></div></article>}
-        {review ? <>
-          {shown ? <ReviewPeriod key={shown.snapshot_id + ":" + sources.write_version} interval={shown} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setReviewEditing} onAction={action} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)}/>
-            : <div className="empty"><span className="empty-mark">¥</span><h2>还没有可比较的盘点区间</h2><p>需要至少两次完整且范围可比的盘点；收入缺项不抹去资产事实。{review.incomplete_count > 0 && `有 ${review.incomplete_count} 次不完整盘点，补齐后才能参与。`}</p></div>}
-          <details className="ui-card ui-content"><summary>历史参考：估计存下与推算花销</summary><Usual review={review}/><p className="muted small">这些旧口径估计只作参考，不等于已核实的收支。</p></details>
-          {newest.length > 0 && <Intervals intervals={newest} selected={shown?.snapshot_id ?? null} onSelect={setSelected}/>}</>
-          : <article className="ui-card ui-content" role="status"><p>{reviewError}</p>{!sources.modules.wealth ? null : <button onClick={reload}>重新读取</button>}</article>}
-        {incomes ? <IncomeTable incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/> : <article className="ui-card ui-content" role="alert"><p>收入记录读取失败。</p><button onClick={reload}>重新读取</button></article>}
+        <div className="review-navigation">
+          <Segments label="收入与复盘视图" value={view} options={[{ value: 'review', label: '复盘' }, { value: 'income', label: '收入记录' }]} disabled={!!pending || reviewEditing || marking} onChange={setView}/>
+          <p className="muted small">{view === 'review' ? '每次盘点后，看看钱发生了什么变化。' : '持续记录实际到账；预期的养老金等收入在目标中维护。'}</p>
+        </div>
+        {view === 'review' ? <>
+          {review ? <>
+            {newest.length > 0 && <label className="review-period-picker">盘点区间 <select aria-label="选择复盘区间" value={shown?.snapshot_id ?? ''} disabled={!!pending || reviewEditing || marking} onChange={e => setSelected(e.target.value)}>{!shown && <option value="">原区间已不可用，请重新选择</option>}{newest.map(i => <option key={i.snapshot_id} value={i.snapshot_id}>{dateRange(i)}</option>)}</select><span className="muted small">{shown ? `${shown.days} 天 · 两次完整盘点之间` : ''}</span></label>}
+            {shown ? <ReviewPeriod key={shown.snapshot_id + ":" + sources.write_version} interval={shown} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setReviewEditing} onAction={action} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)}/>
+              : <div className="empty"><h2>还没有可比较的盘点区间</h2><p>至少完成两次完整盘点后，就能查看这段时间的变化。现在也可以先记录收入。</p><button className="ui-btn" onClick={() => onGotoWealth?.({ kind: 'accounts' })}>去账户与盘点</button></div>}
+            <details className="plan-explanation"><summary>历史参考与全部区间</summary><Usual review={review}/>{newest.length > 0 && <Intervals intervals={newest} selected={shown?.snapshot_id ?? null} onSelect={setSelected}/>}</details>
+          </> : <article className="ui-card ui-content" role="status"><p>{reviewError || '正在读取复盘…'}</p>{sources.modules.wealth && <button onClick={reload}>重新读取</button>}</article>}
+        </> : incomes ? <IncomeRecords incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/> : <article className="ui-card ui-content" role="alert"><p>收入记录读取失败。</p><button onClick={reload}>重新读取</button></article>}
       </>}
     {setup && sources && <PlanningSetupDialog completionId={setup.completionId} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode}/>}
     {importing && incomes && <FinancialImportDialog mode="incomes" generation={incomes.generation} onClose={saved => { setImporting(false); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
@@ -127,7 +132,7 @@ function ReviewPeriod({ interval, sources, today, reload, onPending, onEditingCh
     invoke<Summary>('wealth_summary').then(r => { if (live) { if (r.generation !== sources.generation) setSummaryError('资料已变化，请重试。'); else setSummary(r); } }).catch(e => { if (live) setSummaryError(errorMessage(e)); });
     return () => { live = false; };
   }, [interval.snapshot_id, sources.generation, sources.write_version, sources.modules.wealth, retry]);
-  return <><PlanningReviewSummary interval={interval} reasons={reasons} reasonError={reasonError} summary={summary} summaryError={summaryError} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onAction={onAction} blocked={steps.busy} onRetry={() => setRetry(n => n + 1)}/><details className="ui-card ui-content"><summary>这一期的历史估计与付款依据</summary><Steps interval={interval} {...steps} reasons={reasons} reasonError={reasonError}/></details></>;
+  return <><PlanningReviewSummary interval={interval} reasons={reasons} reasonError={reasonError} summary={summary} summaryError={summaryError} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onAction={onAction} blocked={steps.busy} onRetry={() => setRetry(n => n + 1)}/><details className="ui-card ui-content"><summary>查看付款记录与历史估计</summary><Steps interval={interval} {...steps} reasons={reasons} reasonError={reasonError}/></details></>;
 }
 
 /** The observations and the existing reason table share one guarded read. */
@@ -181,14 +186,4 @@ function Intervals({ intervals, selected, onSelect }: { intervals: Interval[]; s
         <td className="amount">{money(i.delta_nw_cents)}</td><td>收入可能没记全</td>
         <td>{i.status !== 'ok' && <span className="ui-tag">{statusText[i.status]}</span>}{i.excluded && <span className="ui-tag">一次性变动</span>}{i.income_possibly_missing && i.status === 'ok' && <span className="ui-tag">可能漏记收入</span>}</td>
       </tr>)}</tbody></table></article>;
-}
-
-function IncomeTable({ incomes, onOpen, onNew, disabled }: { incomes: IncomeList; onOpen: (i: Income) => void; onNew: () => void; disabled: boolean }) {
-  const hpf = incomeHpfTotals(incomes.rows);
-  return <article className="ui-card ui-content"><div className="ui-section-head"><h3>实际收入</h3><span>{incomes.rows.length} 条 · 同日可多笔</span></div><p>已记录公积金缴存：{incomes.rows.length ? hpfSummary(hpf.total, hpf.known, hpf.unknown, money) : "尚未记录"}</p>
-    <p className="muted small">已记录收入仅说明到账构成，不再加到资产余额或投资损益。</p><dl className="plan-facts">{incomeCategoryTotals(incomes.rows).map(r => <div key={r.category}><dt>{incomeCategories[r.category]} · {r.count} 笔</dt><dd>{money(r.cents)}</dd></div>)}</dl>
-    {incomes.rows.length ? <table className="ui-table plan-income"><thead><tr><th>到账日期</th><th>来源分类</th><th className="amount">税后到账</th><th className="amount">公积金缴存</th><th>备注</th></tr></thead>
-      <tbody>{incomes.rows.map(r => <tr key={r.id}><td><button className="link-cell" onClick={() => onOpen(r)}>{r.fields.date}</button></td><td>{incomeCategories[r.fields.category ?? 'unclassified']}</td><td className="amount">{money(r.fields.net_cents)}</td><td className="amount">{r.fields.hpf_cents === null ? '未知' : money(r.fields.hpf_cents)}</td><td className="muted">{r.fields.notes}</td></tr>)}</tbody></table>
-      : <div className="empty"><span className="empty-mark">¥</span><h2>还没有收入记录</h2><p>可记录实际到账的税后收入和公积金缴存；无收入记录仍能查看资产变化。公积金提取是账户间转移，不用记。</p><button className="primary" disabled={disabled} onClick={onNew}>记一笔收入</button></div>}
-  </article>;
 }

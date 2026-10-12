@@ -14,8 +14,8 @@
       {
         "label": "main",
         "title": "物谱 · 开发预览",
-        "width": 1440,
-        "height": 940,
+        "width": 1600,
+        "height": 1000,
         "center": true,
         "minWidth": 800,
         "minHeight": 600,

@@ -50,6 +50,7 @@ pub mod trash;
 pub mod virtual_assets;
 pub mod warranty;
 pub mod wealth;
+mod window_size;
 pub mod wish_plan;
 pub mod wishlist;
 pub mod worker;
@@ -58,6 +59,7 @@ use tauri::{Emitter, Manager};
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            window_size::restore(app.handle());
             reminders::enable();
             app.manage(worker::Worker::start(
                 app.path().app_data_dir()?.join("library"),
@@ -359,6 +361,7 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                window_size::save(window.app_handle());
                 api.prevent_close();
                 if window
                     .state::<commands::EditGuard>()
@@ -375,6 +378,7 @@ pub fn run() {
         .expect("Cannot start Thingary preview")
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { ref api, .. } = event {
+                window_size::save(app);
                 if app.state::<commands::EditGuard>().0.load(Ordering::SeqCst) {
                     api.prevent_exit();
                     if let Some(w) = app.get_webview_window("main") {

@@ -149,14 +149,14 @@ export function InvestmentReviewCard({
     <section className="ivr-card" aria-label="投资账户区间核对">
       <header className="ivr-head">
         <div>
-          <p className="ivr-eyebrow">规划 · 收入与复盘</p>
-          <h3>投资账户：期初 → 期末</h3>
+
+          <h3>投资损益</h3>
           <p className="ivr-meta">
             区间 {intervalLabel(input.from.date, input.to.date)} · 投资范围 {input.from.members.length} 个账户
           </p>
         </div>
       </header>
-      <ScopeTable input={input} accountNames={accountNames} />
+
 
       <div className="ivr-result" aria-live="polite">
         {result.status === 'ready' && (
@@ -239,7 +239,7 @@ export function InvestmentReviewCard({
               本期投资范围不可比较，不计算区间损益，也不默认零收益。
             </p>
             <ReasonList reasons={result.reasons} />
-            <p className="ivr-muted">仍可查看上方逐账户余额事实；范围恢复一致后才能核对损益。</p>
+            <p className="ivr-muted">仍可展开查看逐账户余额事实；范围恢复一致后才能核对损益。</p>
           </>
         )}
 
@@ -270,6 +270,7 @@ export function InvestmentReviewCard({
         )}
       </div>
 
+      <details className="ivr-basis"><summary>查看账户余额与核对记录</summary><ScopeTable input={input} accountNames={accountNames} />
       {input.flow && (
         <p className="ivr-muted ivr-flownote">
           已有核对记录（{statusLabel[result.status]}
@@ -278,6 +279,7 @@ export function InvestmentReviewCard({
           {input.flow.confirmed_complete ? '，已确认完整' : '，尚未确认完整'}。
         </p>
       )}
+      </details>
     </section>
   );
 }

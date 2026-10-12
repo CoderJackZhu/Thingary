@@ -125,8 +125,9 @@ test('overview with no age reference uses calendar months and a month-based cove
   const slider = r.find('input', p => p['aria-label'] === '覆盖快照月份');
   assert.ok(Number.isFinite(slider.props.value));
   assert.ok(slider.props.max > slider.props.min);
-  const rows = r.nodes().filter(n => n.type === 'tr');
-  assert.ok(rows.some(n => r.text(n).includes('—')));
+  const headers = r.nodes().filter(n => n.type === 'th').map(n => r.text(n));
+  assert.ok(!headers.includes('年龄'), '没有年龄参考时不保留空年龄列');
+  for (const title of ['期间', '期末资产', '投入', '固定收入', '计划支出', '资产提取']) assert.ok(headers.includes(title));
   assert.ok(!r.nodes().some(n => /null 岁|NaN|0 岁时/.test(r.text(n))));
 });
 

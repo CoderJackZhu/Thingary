@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { money } from './asset';
 import { CentInput, Info } from './FormControls';
 import { CapabilityNotice, MissingList, RequirementCard } from './PlanningRequirement';
-import { RetireOverview, useValueMode } from './RetireOverview';
+import { RetireOverview, Snapshot, useValueMode } from './RetireOverview';
 import { RiskLab } from './RiskLab';
 import { rateText } from './plan';
 import { ready } from './review';
@@ -17,6 +17,7 @@ import type { History } from './planning-basic-defaults';
 import { ContributionHelper } from './PlanningContributionHelper';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
 import { amountState, SAVE_CONTRIBUTION_HINT } from './planning-basic-view';
+import { snapshotRows } from './plan-view';
 import './retire.css';
 
 type Saved = NonNullable<ProfileState['saved']>;
@@ -63,11 +64,12 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
           ? (pred ? <RiskLab calc={{ plan: pred.plan, assets: pred.plan.assets_cents }} today={today} basic={{ temporary: pred.source === 'temporary', terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>)
           : <>
             <RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy}/>
-            {pred ? <RetireOverview calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}
+            {pred ? <RetireOverview hideSnapshot calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}
           </>}
       </div>
       <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} contribution={<ContributionCard saved={saved} hist={hist} reference={reference} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={onEditingChange}/>}/>
     </div>
+    {tab === 'overview' && pred && <Snapshot mode={mode} rows={snapshotRows(pred.plan, pred.projection, mode)}/>}
   </div>;
 }
 

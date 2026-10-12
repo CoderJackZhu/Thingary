@@ -248,3 +248,20 @@ dialog.editor.planning-pension-dialog:not(.asset-editor):not(.wishlist-editor)[o
 .editor.planning-contribution-dialog footer { display: flex; justify-content: flex-end; gap: 8px; margin-inline: -20px; padding-inline: 20px; }
 .planning-contribution-dialog .form-block > p, .planning-contribution-dialog .form-block > h3 { margin-inline: 14px; }
 .planning-pension-references > p { margin-inline: 14px; }
+
+/* 持续维护：先选择任务和期间，再读结论，明细按需展开。 */
+.review-navigation { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+.review-navigation p { margin: 0; }
+.review-period-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 0 0 20px; }
+.review-period-picker select { max-width: 100%; padding: 8px 12px; }
+.review-key-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 20px 0; }
+.review-key-facts dt, .review-key-facts small { color: var(--muted); font-size: 13px; }
+.review-key-facts dd { font: 600 28px/1.4 var(--num); margin: 4px 0; overflow-wrap: anywhere; }
+.plan-review-summary > .plan-explanation { margin-bottom: 20px; }
+.plan-review-summary .ivr-card { box-shadow: none; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 20px 0; }
+.plan-review-summary .ivr-result { border-top: 0; padding-top: 0; }
+.plan-review-summary .ivr-btn { justify-self: start; }
+.plan-review-summary .plan-review-checklist:empty { display: none; }
+@media(max-width: 900px) { .review-key-facts { gap: 16px; } .review-key-facts dd { font-size: 22px; } }
+.review-navigation .form-segments { flex: 0 0 auto; min-width: 220px; }
+.plan-review-summary .ivr-profit strong { font-size: 24px; }
