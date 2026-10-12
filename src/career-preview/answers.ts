@@ -19,4 +19,3 @@ export function previewAnswers(sources: PlanningSources, draft: CareerDraft, que
     comparison: question === 'switch' ? compareCareerScenario(scope.sources, scope.draft, change) : null,
   } as const;
 }
-
