@@ -126,7 +126,7 @@ test('parseReviewResult: shape checks without recomputation', () => {
   assert.equal(parseReviewResult({ status: 'ready', value: { opening_cents: 100 } }).ok, false);
   assert.equal(parseReviewResult({ status: 'needs_review', reasons: 'missing_flow' }).ok, false);
   assert.equal(parseReviewResult({ status: 'not_recorded', reasons: ['missing_flow'], change_cents: '+1200' }).ok, false);
-  assert.equal(parseReviewResult({ status: 'not_comparable', reasons: [], change_cents: null }).ok, true);
+  assert.equal(parseReviewResult({ status: 'not_comparable', reasons: [], change_cents: null }).ok, false);
 });
 
 test('formatCents: BigInt grouping, no Number round-trip, negatives and huge values exact', () => {
@@ -221,4 +221,34 @@ test('contract version constant and fixture flow are self-consistent', () => {
   assert.ok(input.ok);
   // 流动引用与端点一致（内容键为与 Rust 相同格式的字面量）。
   assert.equal(flow.from_value_key, '["snap-2026-06-30","2026-06-30",[["acc-bond-03","bond",false,null],["acc-fund-02","fund",true,"4000000"],["acc-inv-01","investment",true,"6000000"]]]');
+});
+
+
+test('aggregate results may exceed a single account cap, but input amounts may not', () => {
+  const v = structuredClone(reviewFixtures['ready-profit'].result);
+  v.value.opening_cents = String(BigInt(MAX_CENTS) * 2n);
+  v.value.closing_cents = String(BigInt(MAX_CENTS) * 3n);
+  v.value.change_cents = String(MAX_CENTS);
+  v.value.profit_cents = String(BigInt(MAX_CENTS) * 2n);
+  assert.equal(parseReviewResult(v).ok, true);
+  assert.equal(validCents(v.value.opening_cents), false);
+  v.value.profit_cents = String(BigInt(MAX_CENTS) * 1002n);
+  assert.equal(parseReviewResult(v).ok, false);
+  assert.equal(validCents('-0', true), false);
+});
+
+test('required flow flags and renderable error messages cannot be absent or objects', () => {
+  for (const flag of ['confirmed_complete', 'unsupported_movements']) {
+    const input = base(); delete input.flow[flag];
+    assert.equal(parseReviewInput(input).ok, false);
+  }
+  assert.equal(parseReviewResult({status:'invalid',issues:[{path:'x',code:'x',message:{}}]}).ok, false);
+  assert.equal(parseReviewResult({status:'invalid',issues:[]}).ok, false);
+});
+
+test('Unicode note limits match Rust character counts', () => {
+  const input = base(); input.flow.notes = '😀'.repeat(500);
+  assert.equal(parseReviewInput(input).ok, true);
+  assert.deepEqual(draftIssues({...emptyFlowDraft(),notes:input.flow.notes}), []);
+  input.flow.notes += '😀'; assert.equal(parseReviewInput(input).ok, false);
 });

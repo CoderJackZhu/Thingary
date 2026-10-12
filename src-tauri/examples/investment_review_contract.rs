@@ -583,7 +583,7 @@ mod tests {
         assert_eq!(
             blocked(&input),
             (
-                BlockedStatus::NotRecorded,
+                BlockedStatus::NeedsReview,
                 vec!["missing_flow", "overlapping_flow"],
                 Some(12_000 * Y)
             )

@@ -136,16 +136,16 @@ export function validDate(d: string): boolean {
 }
 
 /** 规范非负整数分：无前导零、无符号、不超上限；未知用 null 不用 ''。 */
-export function validCents(v: unknown, signed = false): v is string {
-  if (typeof v !== 'string') return false;
+export function validCents(v: unknown, signed = false, limit = BigInt(MAX_CENTS)): v is string {
+  if (typeof v !== 'string' || v === '-0') return false;
   const body = signed && v.startsWith('-') ? v.slice(1) : v;
-  return (signed ? /^-?(0|[1-9][0-9]{0,17})$/ : CENTS_RE).test(v) && BigInt(body) <= BigInt(MAX_CENTS);
+  return (signed ? /^-?(0|[1-9][0-9]{0,17})$/ : CENTS_RE).test(v) && BigInt(body) <= limit;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const intAtLeast = (v: unknown, min: number) => typeof v === 'number' && Number.isSafeInteger(v) && v >= min;
 const checkId = (v: unknown, path: string, issues: FieldIssueV1[]) => {
-  if (typeof v !== 'string' || v.length === 0 || v.length > MAX_ID_CHARS)
+  if (typeof v !== 'string' || v.length === 0 || [...v].length > MAX_ID_CHARS)
     issues.push({ path, code: 'invalid_id', message: 'ID 必须是非空且不超过 100 字符的稳定字符串' });
 };
 const checkCentsField = (v: unknown, path: string, issues: FieldIssueV1[]) => {
@@ -217,9 +217,9 @@ function checkFlow(raw: unknown, issues: FieldIssueV1[]): void {
     issues.push({ path: 'flow.to_date', code: 'invalid_interval', message: '流动区间同样要求 (期初, 期末]，期末必须晚于期初' });
   checkCentsField(raw.inflow_cents, 'flow.inflow_cents', issues);
   checkCentsField(raw.outflow_cents, 'flow.outflow_cents', issues);
-  if (raw.confirmed_complete !== undefined && typeof raw.confirmed_complete !== 'boolean')
+  if (typeof raw.confirmed_complete !== 'boolean')
     issues.push({ path: 'flow.confirmed_complete', code: 'invalid_flag', message: '确认标记必须是布尔值' });
-  if (raw.unsupported_movements !== undefined && typeof raw.unsupported_movements !== 'boolean')
+  if (typeof raw.unsupported_movements !== 'boolean')
     issues.push({ path: 'flow.unsupported_movements', code: 'invalid_flag', message: '未支持情形标记必须是布尔值' });
   if (raw.confirmed_complete === true) {
     for (const [key, has] of [['inflow_cents', raw.inflow_cents !== null], ['outflow_cents', raw.outflow_cents !== null]] as const)
@@ -230,7 +230,7 @@ function checkFlow(raw: unknown, issues: FieldIssueV1[]): void {
           message: '已确认完整时金额必须明确：未知请先留空并取消确认，零必须显式填 0',
         });
   }
-  if (typeof raw.notes !== 'string' || raw.notes.length > MAX_FLOW_NOTE_CHARS)
+  if (typeof raw.notes !== 'string' || [...raw.notes].length > MAX_FLOW_NOTE_CHARS)
     issues.push({ path: 'flow.notes', code: 'invalid_notes', message: `备注必须是不超过 ${MAX_FLOW_NOTE_CHARS} 字的字符串` });
   if (!Array.isArray(raw.scope_account_ids)) {
     issues.push({ path: 'flow.scope_account_ids', code: 'invalid_array', message: 'scope_account_ids 必须是数组' });
@@ -248,7 +248,7 @@ function checkFlow(raw: unknown, issues: FieldIssueV1[]): void {
 
 /**
  * 严格校验投资复盘输入载荷（领域侧校验的镜像，可少不可代：UI 校验只为
- * 提前给出可读错误，后端验证不可省略）。通过时返回白名单深拷贝。
+ * 提前给出可读错误，后端验证不可省略）。通过时返回输入的深拷贝；不把本函数当作持久化白名单。
  */
 export function parseReviewInput(raw: unknown): ParseOk<InvestmentReviewInputV1> | ParseFail {
   if (!isObj(raw)) return { ok: false, issues: [{ path: '', code: 'not_an_object', message: '输入必须是对象' }] };
@@ -283,17 +283,17 @@ export function parseReviewResult(raw: unknown): ParseOk<InvestmentReviewResultV
       issues.push({ path: 'value', code: 'not_an_object', message: 'ready 结果必须带 value' });
     } else {
       for (const key of ['opening_cents', 'closing_cents', 'inflow_cents', 'outflow_cents'] as const)
-        if (!validCents(v[key])) issues.push({ path: `value.${key}`, code: 'invalid_cents', message: `${key} 必须是规范的非负整数分字符串` });
+        if (!validCents(v[key], false, BigInt(MAX_CENTS) * BigInt(key === 'opening_cents' || key === 'closing_cents' ? MAX_SCOPE_MEMBERS : 1))) issues.push({ path: `value.${key}`, code: 'invalid_cents', message: `${key} 必须是规范的非负整数分字符串` });
       for (const key of ['change_cents', 'profit_cents'] as const)
-        if (!validCents(v[key], true)) issues.push({ path: `value.${key}`, code: 'invalid_cents', message: `${key} 必须是规范的整数分字符串（可带负号）` });
+        if (!validCents(v[key], true, BigInt(MAX_CENTS) * BigInt(MAX_SCOPE_MEMBERS + (key === 'profit_cents' ? 1 : 0)))) issues.push({ path: `value.${key}`, code: 'invalid_cents', message: `${key} 必须是规范的整数分字符串（可带负号）` });
     }
   } else if (raw.status === 'not_recorded' || raw.status === 'needs_review' || raw.status === 'not_comparable') {
-    if (!Array.isArray(raw.reasons) || raw.reasons.some(r => typeof r !== 'string' || !r))
+    if (!Array.isArray(raw.reasons) || raw.reasons.length === 0 || raw.reasons.some(r => typeof r !== 'string' || !r))
       issues.push({ path: 'reasons', code: 'invalid_reasons', message: 'reasons 必须是非空字符串数组' });
-    if (raw.change_cents !== null && !validCents(raw.change_cents, true))
+    if (raw.change_cents !== null && !validCents(raw.change_cents, true, BigInt(MAX_CENTS) * BigInt(MAX_SCOPE_MEMBERS)))
       issues.push({ path: 'change_cents', code: 'invalid_cents', message: 'change_cents 必须是规范的整数分字符串（可带负号）或 null' });
   } else if (raw.status === 'invalid') {
-    if (!Array.isArray(raw.issues) || raw.issues.some(i => !isObj(i) || typeof i.path !== 'string' || typeof i.code !== 'string'))
+    if (!Array.isArray(raw.issues) || raw.issues.length === 0 || raw.issues.some(i => !isObj(i) || typeof i.path !== 'string' || typeof i.code !== 'string' || typeof i.message !== 'string'))
       issues.push({ path: 'issues', code: 'invalid_issues', message: 'invalid 结果必须带字段问题数组' });
   } else {
     issues.push({ path: 'status', code: 'invalid_status', message: `未知结果状态 ${String(raw.status)}` });
@@ -388,7 +388,7 @@ export function draftIssues(draft: FlowDraft): FieldIssueV1[] {
   for (const [key, value] of [['inflow', draft.inflow], ['outflow', draft.outflow]] as const)
     if (value !== '' && !validCents(value))
       issues.push({ path: key, code: 'invalid_cents', message: '金额必须是规范的非负整数分字符串' });
-  if (draft.notes.length > MAX_FLOW_NOTE_CHARS)
+  if ([...draft.notes].length > MAX_FLOW_NOTE_CHARS)
     issues.push({ path: 'notes', code: 'invalid_notes', message: `备注超过 ${MAX_FLOW_NOTE_CHARS} 字` });
   if (draft.confirmed && (draft.inflow === '' || draft.outflow === ''))
     issues.push({

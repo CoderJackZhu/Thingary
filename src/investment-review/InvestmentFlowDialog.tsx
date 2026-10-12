@@ -81,15 +81,17 @@ export function InvestmentFlowDialog({
   onCancel: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const issueRef = useRef<HTMLDivElement>(null);
   const [localIssues, setLocalIssues] = useState<FieldIssueV1[]>([]);
   useEffect(() => {
     dialogRef.current?.showModal();
     return () => dialogRef.current?.close();
   }, []);
+  useEffect(() => { if (localIssues.length || issues.length) issueRef.current?.focus(); }, [localIssues, issues]);
   const patch = (fields: Partial<FlowDraft>) => onDraftChange({ ...initial, ...fields });
 
   function submit() {
-    if (busy) return;
+    if (busy || !input) return;
     const local = draftIssues(initial);
     if (local.length) {
       setLocalIssues(local);
@@ -183,7 +185,7 @@ export function InvestmentFlowDialog({
             type="checkbox"
             disabled={busy}
             checked={initial.unsupported}
-            onChange={e => patch({ unsupported: e.target.checked })}
+            onChange={e => patch({ unsupported: e.target.checked, confirmed: false })}
           />
           <span>
             期间有证券实物转入转出、杠杆借款或未解释的余额调整
@@ -214,7 +216,7 @@ export function InvestmentFlowDialog({
         </label>
 
         {(localIssues.length > 0 || issues.length > 0) && (
-          <div className="ivr-notice" role="alert">
+          <div className="ivr-notice" role="alert" ref={issueRef} tabIndex={-1}>
             {(localIssues.length ? localIssues : issues).map(i => (
               <p key={i.path + i.code}>
                 {i.path ? `${i.path}：` : ''}
@@ -228,7 +230,7 @@ export function InvestmentFlowDialog({
           <button type="button" className="ivr-btn" disabled={busy} onClick={onCancel}>
             取消
           </button>
-          <button type="submit" className="ivr-btn ivr-primary" disabled={busy}>
+          <button type="submit" className="ivr-btn ivr-primary" disabled={busy || !input}>
             {busy ? '保存中…' : '保存核对结果'}
           </button>
         </footer>

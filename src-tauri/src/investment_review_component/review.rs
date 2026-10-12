@@ -59,7 +59,11 @@ pub fn review_interval(input: &ReviewInput) -> ReviewResult {
             reasons.push(REASON_OVERLAPPING_FLOW);
         }
         return ReviewResult::Blocked {
-            status: BlockedStatus::NotRecorded,
+            status: if input.overlapping_active_flow_ids.is_empty() {
+                BlockedStatus::NotRecorded
+            } else {
+                BlockedStatus::NeedsReview
+            },
             reasons,
             change_cents: Some(change),
         };

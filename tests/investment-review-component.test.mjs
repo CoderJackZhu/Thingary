@@ -478,3 +478,31 @@ test('dialog opens with the recorded draft when re-checking an existing flow', (
   // 金额输入框以元显示当前草稿。
   assert.equal(amountInput(h, '转入').props.value, '10000');
 });
+
+
+test('confirmed record remains editable', () => {
+  let called = 0;
+  const h = new Harness('InvestmentReviewCard', {outer:readyOuter('ready-profit'),onEditFlow:()=>called++});
+  h.buttonByText('修改资金流动核对')[0].props.onClick(); assert.equal(called,1);
+});
+
+test('closing-only accounts remain visible when scopes differ', () => {
+  const outer = readyOuter('scope-changed');
+  outer.input.to.members.push({account_id:'closing-only',kind:'fund',counted:true,amount_cents:'12345'});
+  const h = new Harness('InvestmentReviewCard',{outer});
+  assert.match(h.text(), /closing-only/); assert.match(h.text(), /¥123.45/);
+});
+
+test('missing interval cannot dispatch a save', () => {
+  const {h,state} = mountDialog(); h.set({...h.props,input:null});
+  assert.equal(h.buttonByText('保存核对结果')[0].props.disabled,true);
+  submitForm(h); assert.equal(state.submitted.length,0);
+});
+
+test('unsupported movement clears confirmation, permits notes, and never resurrects confirmation', () => {
+  const {h,state,sync}=mountDialog({draft:{inflow:'0',outflow:'0',confirmed:true,unsupported:false,notes:''}});
+  checkboxInLabel(h,'证券实物').props.onChange({target:{checked:true}});sync();
+  assert.equal(state.draft.confirmed,false);submitForm(h);assert.equal(state.submitted.length,1);
+  checkboxInLabel(h,'证券实物').props.onChange({target:{checked:false}});sync();
+  assert.equal(state.draft.confirmed,false);
+});

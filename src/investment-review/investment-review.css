@@ -44,10 +44,10 @@
 .ivr-dialog-accounts{max-height:180px;overflow:auto}
 .ivr-field{display:grid;gap:4px}
 .ivr-field-label{display:grid;gap:4px;font-size:12.5px;color:var(--text)}
-.ivr-amount,textarea{border:1px solid var(--line);border-radius:var(--ctl-radius);background:var(--bg);color:var(--text);padding:6px 10px;font:inherit;min-height:28px}
-.ivr-amount:disabled,textarea:disabled{opacity:.55}
+.ivr-amount,.ivr-dialog textarea{border:1px solid var(--line);border-radius:var(--ctl-radius);background:var(--bg);color:var(--text);padding:6px 10px;font:inherit;min-height:28px}
+.ivr-amount:disabled,.ivr-dialog textarea:disabled{opacity:.55}
 .ivr-amount{width:200px;font-variant-numeric:tabular-nums}
-textarea{resize:vertical;min-height:56px}
+.ivr-dialog textarea{resize:vertical;min-height:56px}
 .ivr-hint{margin:0;font-size:11.5px;color:var(--muted);line-height:1.6}
 .ivr-choice{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;line-height:1.6}
 .ivr-choice input{margin-top:3px}

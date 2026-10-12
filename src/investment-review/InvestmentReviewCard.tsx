@@ -22,6 +22,8 @@ export type ReviewOuter =
 
 function ScopeTable({ input }: { input: InvestmentReviewInputV1 }) {
   const toById = new Map(input.to.members.map(m => [m.account_id, m]));
+  const fromById = new Map(input.from.members.map(m => [m.account_id, m]));
+  const members = [...input.from.members, ...input.to.members.filter(m => !fromById.has(m.account_id))];
   return (
     <table className="ivr-table">
       <thead>
@@ -34,14 +36,15 @@ function ScopeTable({ input }: { input: InvestmentReviewInputV1 }) {
         </tr>
       </thead>
       <tbody>
-        {input.from.members.map(m => {
+        {members.map(m => {
           const to = toById.get(m.account_id);
+          const from = fromById.get(m.account_id);
           return (
             <tr key={m.account_id} className={m.counted ? undefined : 'ivr-uncounted'}>
               <td>{m.account_id}</td>
               <td>{kindLabel[m.kind]}</td>
               <td>{m.counted ? '计入' : '不计入'}</td>
-              <td className="ivr-num">{m.amount_cents === null ? '未知' : formatCents(m.amount_cents)}</td>
+              <td className="ivr-num">{!from ? '—' : from.amount_cents === null ? '未知' : formatCents(from.amount_cents)}</td>
               <td className="ivr-num">{!to ? '—' : to.amount_cents === null ? '未知' : formatCents(to.amount_cents)}</td>
             </tr>
           );
@@ -186,6 +189,7 @@ export function InvestmentReviewCard({
               </table>
               <p className="ivr-muted">已记录的分红／利息只作核对线索，不在总损益上再加一次。</p>
             </details>
+            {onEditFlow && <button type="button" className="ivr-btn" disabled={disabled} onClick={onEditFlow}>修改资金流动核对</button>}
           </>
         )}
 
