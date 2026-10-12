@@ -8,7 +8,8 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import { defaultRetire } from '../src/plan.ts';
 import { basicInputFixtures } from '../src/plan-basic-fixtures.ts';
-import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
+import { emptyCore } from '../src/plan-core.ts';
+import * as ledger from '../src/plan-ledger.ts';
 import { buildRetireCalc } from '../src/plan-retire-calc.ts';
 import * as view from '../src/plan-view.ts';
 import * as planExports from '../src/plan.ts';
@@ -19,10 +20,10 @@ const ts = createRequire(import.meta.url)('typescript');
 
 const today = '2026-10-06';
 const savedFixture = (retire) => ({ revision: 1, updated_at: today, profile: {
-  birth_month: '1990-06', worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0,
-  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides,
-  retire: { ...defaultRetire, target_age: 50, core: { contract_version: 1, monetary_basis_date: today, fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', costs: [], occurrences: [] },
-    basic: { ...structuredClone(basicInputFixtures.prediction.basic), start: { kind: 'live' }, contribution: { id: 'contribution', monthly_cents: '1000000' } }, ...retire },
+  assumptions: { inflation_hundredths: 0 },
+  retire: { ...structuredClone(defaultRetire), mode: 'fire', core: { ...emptyCore(today), fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }] },
+    basic: { ...structuredClone(basicInputFixtures.prediction.basic), start: { kind: 'live' }, contribution: { id: 'contribution', monthly_cents: retire.contribution_cents === undefined ? '1000000' : retire.contribution_cents } },
+    simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2080-05' }, income_mode: 'excluded', future_incomes: [] }, ...retire },
 } });
 const snap = cents => ({ id: 's1', date: today, revision: 1, entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: String(cents) }] });
 const reviewOf = median => ({ intervals: [], stats: { mean_monthly_change_cents: median, count: 4, low_sample: false, median_monthly_saving_cents: median, mean_monthly_saving_cents: median, median_monthly_spend_cents: null, window_from: '2025-10-06', latest_date: today }, incomplete_count: 0 });
@@ -49,7 +50,7 @@ function overview(calc) {
   const modules = {
     './plan-format': forecast,
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
-    './plan': planExports, './plan-events': planEvents, './planning-basic-view': basicView, './plan-view': view, './asset': { money },
+    './plan-ledger': ledger, './plan': planExports, './plan-events': planEvents, './planning-basic-view': basicView, './plan-view': view, './asset': { money },
   };
   const module = { exports: {} };
   const script = ts.transpileModule(readFileSync(new URL('../src/RetireOverview.tsx', import.meta.url), 'utf8'), {
@@ -112,4 +113,43 @@ test('milestones are optional while the conclusion and trajectory remain availab
   assert.ok(r.find('TrajectoryChart'));
   const toggle = r.find('Segments', p => p.label === '金额显示方式');
   assert.deepEqual(Array.from(toggle.props.options, o => [o.value, o.label]), [['today','按今天物价'],['nominal','未来账面金额']]);
+});
+
+test('overview with no age reference uses calendar months and a month-based coverage slider', () => {
+  const calc = calcOf({}), r = overview(calc);
+  assert.equal(calc.plan.age_reference, null);
+  const chart = r.find('TrajectoryChart');
+  assert.equal(chart.props.goalMonth, calc.plan.target_months);
+  assert.equal(chart.props.timeLabel(chart.props.goalMonth), '2040-06');
+  assert.ok(chart.props.points.every(p => p.age === null && Number.isFinite(p.month)));
+  const slider = r.find('input', p => p['aria-label'] === '覆盖快照月份');
+  assert.ok(Number.isFinite(slider.props.value));
+  assert.ok(slider.props.max > slider.props.min);
+  const rows = r.nodes().filter(n => n.type === 'tr');
+  assert.ok(rows.some(n => r.text(n).includes('—')));
+  assert.ok(!r.nodes().some(n => /null 岁|NaN|0 岁时/.test(r.text(n))));
+});
+
+test('trajectory geometry uses months even when every optional age is unknown', async () => {
+  const { spacedLabels } = await import('../src/chart-labels.ts');
+  const hooks = { useState: value => [value, () => {}], useRef: () => ({ current: null }) };
+  const modules = {
+    react: hooks,
+    'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
+    './plan-view': view, './chart-labels': { spacedLabels }, './chart-width': { useChartScale: () => 1 }, './retire.css': {},
+  };
+  const module = { exports: {} };
+  const code = ts.transpileModule(readFileSync(new URL('../src/RetireCharts.tsx', import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  vm.runInNewContext(code, { module, exports: module.exports, require: id => { assert.ok(id in modules, id); return modules[id]; } });
+  const calc = calcOf({}), points = view.trajectory(calc.plan, calc.proj, 'today');
+  const tree = module.exports.TrajectoryChart({ points, rows: view.snapshotRows(calc.plan, calc.proj, 'today'), goalMonth: calc.plan.target_months, fiMonth: calc.proj.fi_month, retireMonth: calc.proj.retire_month, timeLabel: m => ledger.timeLabel(calc.plan, m), tone: 'good', fmt: String, valueLabel: '今天的钱' });
+  const nodes = [];
+  const walk = n => { if (Array.isArray(n)) n.forEach(walk); else if (n && typeof n === 'object') { if (typeof n.type === 'function') walk(n.type(n.props)); else { nodes.push(n); walk(n.props?.children); } } };
+  walk(tree);
+  const svg = nodes.find(n => n.type === 'svg');
+  assert.match(svg.props['aria-label'], /2026-10.*2040-06/);
+  const path = nodes.find(n => n.type === 'path' && n.props.className === 'rc-line').props.d;
+  assert.doesNotMatch(path, /NaN|Infinity/);
+  assert.ok(new Set([...path.matchAll(/[ML]([\d.]+)/g)].map(m => m[1])).size > 2, 'unknown ages must not collapse the month axis');
+  assert.ok(nodes.some(n => n.type === 'text' && typeof n.props.children === 'string' && /^20\d{2}-\d{2}$/.test(n.props.children)));
 });

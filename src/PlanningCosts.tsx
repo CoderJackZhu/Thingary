@@ -19,9 +19,9 @@ function ScopeRow({ id, label, value, placeholderRef, disabled, onChange, allowI
 
 
 /** Both inclusion scopes are reviewed together, without reopening the complete setup. */
-export function CostsEditor({ d, patch, frozen, retire, annualPension, completion = false, issue }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; retire: RetireInputs; annualPension: string | null; completion?: boolean; issue?: ConfirmationIssue | null }) {
+export function CostsEditor({ d, patch, frozen, retire, completion = false, issue }: { d: Draft; patch: (v: Partial<Draft>) => void; frozen: boolean; retire: RetireInputs; completion?: boolean; issue?: ConfirmationIssue | null }) {
   const [all, setAll] = useState(false);
-  const { pre, post, active, included, overBudget, pendingRows, missingCount } = costReviewRows(d, retire, annualPension);
+  const { pre, post, active, included, overBudget, pendingRows, missingCount } = costReviewRows(d, retire);
   const [pending] = useState(() => new Set(pendingRows.map(s => s.key)));
   return <>
     <p role="status">{missingCount ? `还有 ${missingCount} 项费用关系需要确认。` : overBudget ? '已包含的费用金额超过生活费总预算，请核对下方金额。' : '费用关系已填齐，可以保存。'}已确认的设置会保留。</p>
@@ -44,17 +44,17 @@ export function CostsDialog({ sources, saved, reload, onPending, onClose, comple
   const [issue, setIssue] = useState<ConfirmationIssue | null>(null);
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   const r = saved.profile.retire, b = r.basic!;
-  const obsolete = ([['contribution_costs', contributionSources(r, saved.profile.personal_pension_annual_cents)], ['retirement_costs', retirementSources(r, saved.profile.personal_pension_annual_cents)]] as const).reduce((n, [key, list]) => { const seen = new Set<string>(); return n + b[key].filter(c => { const bad = !list.some(s => s.id === c.source_id) || seen.has(c.source_id); seen.add(c.source_id); return bad; }).length; }, 0);
+  const obsolete = ([['contribution_costs', contributionSources(r)], ['retirement_costs', retirementSources(r)]] as const).reduce((n, [key, list]) => { const seen = new Set<string>(); return n + b[key].filter(c => { const bad = !list.some(s => s.id === c.source_id) || seen.has(c.source_id); seen.add(c.source_id); return bad; }).length; }, 0);
   async function save() {
     if (saver.busy || saver.stuck) return;
-    const pending = costReviewRows(d, r, saved.profile.personal_pension_annual_cents).pendingRows[0];
+    const pending = costReviewRows(d, r).pendingRows[0];
     if (completion && pending) { setIssue(old => ({ label: pending.key, attempt: (old?.attempt ?? 0) + 1 })); return; }
     setIssue(null);
     try { if (await saver.save(costsInput(d, saved))) onClose(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="costs-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
     <header><div><p className="eyebrow">规划 · 费用核对</p><h2 id="costs-heading">核对有没有重复费用</h2></div><CloseButton type="button" aria-label="关闭费用核对" disabled={saver.busy} onClick={onClose}/><button className="primary" disabled={saver.busy || saver.stuck}>{saver.busy ? '保存中…' : '确认并保存'}</button></header>
     {obsolete > 0 && <p className="notice">有 {obsolete} 条失效或重复的旧费用关系。核对下面的有效费用后，确认保存会清理这些旧关系。</p>}
-    <CostsEditor completion={completion} issue={issue} d={d} patch={v => setD(x => ({ ...x, ...v }))} frozen={saver.busy || saver.stuck} retire={saved.profile.retire} annualPension={saved.profile.personal_pension_annual_cents}/>
+    <CostsEditor completion={completion} issue={issue} d={d} patch={v => setD(x => ({ ...x, ...v }))} frozen={saver.busy || saver.stuck} retire={saved.profile.retire}/>
     {(error || saver.notice) && <p role="alert" className="notice">{error || saver.notice}</p>}
   </form></dialog>;
 }

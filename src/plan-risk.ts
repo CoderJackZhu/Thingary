@@ -246,7 +246,7 @@ export function targetSpendingMatrix(P: Plan, year: number): Matrix {
 
 // ---- 崩盘路径 ----
 export type SorrId = 'base' | 'shock-first' | 'shock-last';
-export type SorrPath = { id: SorrId; label: string; years: number[]; months: number[]; calendar_months: string[]; path: number[]; final: number; survived: boolean; failure_age: number | null; shortfall_age: number | null };
+export type SorrPath = { id: SorrId; label: string; years: number[]; months: number[]; calendar_months: string[]; path: number[]; final: number; survived: boolean; /** Ledger month positions, on the same axis as months; use timeLabel(plan, month) for calendar display. */ failure_month: number | null; shortfall_month: number | null; failure_age: number | null; shortfall_age: number | null };
 
 /** Sequence risk isolates timing: both stress runs contain exactly one −30% year
  * and the same remaining returns. Move that year from the start to the end.
@@ -288,6 +288,7 @@ export function sorr(P: Plan, year: number): SorrPath[] | null {
       id: run.id, label: run.label, months: offsets.map(o => retirement + o), calendar_months: offsets.map(o => timeLabel(P, retirement + o)), years: offsets.map(offset => (retirement + offset) / 12),
       path: offsets.map(offset => Math.max(0, projection.assets[retirement - P.now_months + offset])),
       final: Math.max(0, result.at_horizon), survived: result.success,
+      failure_month: result.failure_month, shortfall_month: result.shortfall_month,
       failure_age: result.failure_month === null ? null : ageAt(P, result.failure_month) === null ? null : Math.floor(ageAt(P, result.failure_month)! / 12),
       shortfall_age: result.shortfall_month === null ? null : ageAt(P, result.shortfall_month) === null ? null : Math.floor(ageAt(P, result.shortfall_month)! / 12),
     };

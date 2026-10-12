@@ -113,12 +113,16 @@ impl Basic {
                 c.treatment == "included"
                     && !r.life_events.iter().any(|e| {
                         c.source_id.starts_with(&format!("event:{}:", e.id))
-                            && (!e.included
+                            && (r.core.as_ref().is_some_and(|core| {
+                                core.occurrences
+                                    .iter()
+                                    .any(|o| o.event_id == e.id && o.status == "cancelled")
+                            }) || (!e.included
                                 && !r.core.as_ref().is_some_and(|core| {
                                     core.occurrences
                                         .iter()
                                         .any(|o| o.event_id == e.id && o.status == "occurred")
-                                }))
+                                })))
                     })
             })
             .filter_map(|c| c.reference_cents.as_ref()?.parse::<i64>().ok())

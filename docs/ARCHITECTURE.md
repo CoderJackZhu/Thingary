@@ -81,8 +81,6 @@ schema 33（0.0.2，重要支出年度总览与关联订阅）为整组删除新
 
 数据库 schema 版本、备份格式和应用发布版本承担不同职责。迁移保持历史事实；应用版本号调整不代表可以重置 schema、资料目录或稳定 ID。不要承诺高版本备份可被低版本恢复。
 
-职工养老金地区扩展沿用 schema 35 的 `plan_profile` JSON，不增表或迁移。`region` 保留 `beijing` 并增加 `custom`；退休收入模式写入只接受 `employee`（以及原有 manual/excluded/null）。读取及备份领域校验先经 `Profile::into_general`，将旧收入模式 `beijing` 和收入选择／费用作用域的旧 `beijing_state_pension` 来源 ID 适配为 `employee`／`state_pension_estimate`。适配只产生当前资料投影；回执仍按原请求字节核对，命中时先返回当前资料，不重写载荷；新 Basic/Setup 请求中的旧模式被拒绝。手填退休年金额在加入列表前一次性折算为整数分，持久化沿用既有收入项和角色，不保存开关或额外计算结果。
-
 ## 界面与可访问性约束
 
 复用已有 SVG、组件与 `src/theme.css` 令牌，覆盖三种界面风格的浅／深组合。颜色表达不能替代文本，金额与日期格式统一，未知值不画成零。布局应覆盖正常、未知、空白、读取失败和保存失败；焦点、Tab 顺序、方向键、Esc 返回和中文输入组合需与操作语义一致。
@@ -105,90 +103,24 @@ Rust 故障注入验证事务、回执与恢复协议；前端逻辑检查验证
 
 [低频整理、盘点与心愿决策设计](LOW_FREQUENCY_REVIEW_DESIGN.md)维护目标行为与技术约束。A 阶段（心愿决策与盘点表达）、B 阶段（全局搜索）与 C 阶段（考虑替换的物品、逐账户金额盘点）已纳入 schema 27／28、搜索投影与各模块说明，完成 Review 修复、自动检查与隔离核心原生验收。原 C2 批量确认已按用户决定撤销；系统输入法组合、VoiceOver 与通知送达仍未原生验证。实施前核对最新 schema 与实际代码，不预占数据库或应用版本号。
 
-规划持久化沿用 `plan_income`（schema29）与单行 `plan_profile` JSON（schema30），写入采用 `feature_requests`、generation和expected_revision，该规划基础最初纳入 schema 33；0.0.3 当前数据库为 schema 35，后续可选字段的旧版读取边界见业务规则。旧JSON结构只在读取、备份校验与历史回执摘要边界解析；`Profile::into_general` 保留养老金资料、资金规则、已发生付款／余债及必要事件引用，缺basic时停用未发生设想并重置旧估算，包括未来收入、房租与续缴安排，`plan_income` 的实际收入记录保持。读操作不写库或增加修订。活动输出与新保存去掉职业阶段、路线、空窗、旧归档及 `core.costs` 字段，费用仅用 basic 的两个作用域。Events 不接收阶段费用的新写入；历史 Events 请求中的 costs 只为精确匹配回执保留序列化，匹配回执后返回当前资料，不重新应用。新整份旧式保存不能覆盖现有资料。`retire.core` 的事实严格校验与来源引用规则保持，备份恢复采用同一事实适配。账本内部的金额时间线保留供通用风险矩阵使用，不提供阶段或职业输入。`Saved.reference_issues` 是实时只读投影；更正来源保留关联并阻止完整结论，删除与purge拒绝仍被引用的来源。
+### 简化规划与一次性迁移
 
-`plan_savings.rs` 与浏览器 `plan.ts` 都保留资产事实并新增 `mean_monthly_change_cents`、`median_monthly_change_cents`、`change_count`；旧 saving/spend/rate 字段保留兼容计算；复盘与历史建议采用 `monthly_cash_saving_cents` / `monthly_cash_spend_cents`（中位数各需至少三个有效区间），投资账户变化独立显示，说明共用 `SAVING_BASIS_CAVEAT`。收入覆盖始终未确认。`plan-core.ts` 统一资金范围与现实发生缺项；`buildRetireCalc` 是摘要、目标、退休详情和心愿估算共同入口，所有路径通过 `plan-ledger.ts` 月账本，反求／风险路径复用同一本账。初始现金不扣债务本金，余额分池；B 收盘日与 T 金额基准独立，普通首期流按剩余天数折算，期初月供／持有费先支付，月底投入及收入不能掩盖期初不足。名义金额与养老金折现采用同一首期时间比例和 B/T 系数转换。`plan-events.ts` 保留过去月份偏移，逾期不重排；已发生首付按明确吸收关系跳过，B 后付款只扣一次，余债按余期延续，持有费独立。独立受限公积金／个人养老金只在领取时转回可用池；本金不会在两个池收益。
+当前 schema36 沿用 plan_profile JSON 和 plan_income 事实表。plan_migration 在现有 schema 事务内转换旧资料，通用事实与引用严格校验，政策字段不进入当前 DTO；有语义变化才增加修订，保留原更新时间。旧备份只读检查与恢复复用该转换。全部历史回执保留；旧规划请求只能按原 ID 核对，不重放旧载荷。
 
-界面复用现有规划页与表单组件：`PlanningSetup`／`PlanningBasicDetail` 核对资金／费用，`PlanningOccurrenceDialog` 核对一次性付款／余债；不自动创建物品或支出。浏览器 `wealth-preview.ts` 仅内存虚构夹具，刷新重置。该阶段不是统一规划目标规格全部实现：冻结基准、明细阶段、通用受限资产解锁、完整报告 DTO 和收入覆盖存储仍待后续集成。
-
-综合首页规划摘要：`review_overview` 以可选 `planning` 参数门控规划读取，在一个 worker job、一个 SQLite 只读事务中返回净资产和 `PlanSources`。明细直接采用该批财富摘要选出的完整盘点；各来源仍用 `Read<T>` 表达独立成败。`plan_review_in_transaction` 复用现有储蓄投影，避免嵌套事务；独立 `plan_review` 保持自己的只读事务。`ReviewPlanSummary` 只接受已提交的整批数据，复用 `plan-summary.ts` 与目标页的结论和比例，不运行压力测试或路线矩阵。`ReviewView` 统一处理请求票据、generation、日期、版本、模块与焦点／恢复刷新；同库刷新失败可保留整批上次结果并标明，身份或上下文变化丢弃旧响应。预算／资料定位意图仅存在 `main.tsx` 状态中，随库、页签与导航失效，读取完成后聚焦既有入口，不保存会话缓存或自动打开表单。
-
-金融 CSV 解析器 `financial_import_parser` 是无存储依赖的 Rust 纯组件；所有 error 级问题均阻止提交，坏行不能被丢弃后将盘点组标为完整。报告组件 `planning-report` 接收严格校验后的只读白名单快照，隐私输出先脱敏再渲染／复制／打印，不读取 Store 或重新计算缺失字段。解析器已由账户／完整盘点／收入导入入口使用；覆盖／总额参考仍只有解析能力。真实报告 DTO／产品入口和原生 PDF 流程尚未接入。
+plan-simplified-contract.ts 是时间与未来收入的唯一类型入口，Rust plan_simplified 严格拒绝旧字段。时间保存明确月份，年龄只是可选参考；plan-basic 编译未来收入与受限资金释放后，所有消费者共用 plan-ledger，不复制政策引擎。Core 仍维护用途、付款、余债与稳定来源引用，releases 仅是未来计划。
 
 ### 规划首次设置
 
-`PlanningPage` 按任务进入，`PlanningSetup` 每屏一个问题，只在内存持有输入，Q4 使用一次 `plan_profile_update` 的 setup 分区统一保存；编辑模式另有预计储蓄和更多假设屏。`planning-first-run.ts` 纯函数由保存资料与同批 capabilities 推出目标状态、未答问题和核对卡；2b 保留现行计算阻断语义。界面复用 setup 契约的 basic 与按需 budget/funds，本向导不写 pension 分区，保留已有事实与缴费安排。后端先捕获原假设，再合并所选分区，校验最终资料，同事务保存revision与回执。关闭不留草稿；未确认回执阻止新请求覆盖。独立养老金可以只保存已知事实，不伪造basic或目标。
+PlanningSetup 的四问复用 TimeFields 与 FutureIncomeSection，最终一次 setup 保存 basic、budget、funds 与 simplified。目标逐项编辑只更新对应分区。保存继续使用 generation、expected_revision、request_id、事务与回执；普通草稿关闭丢弃，未知结果冻结并保留原请求。planning-simplified-port 提供真实源读取、保存及旧回执只读核对。
 
-### 通用规划基础
+### 结果与分析消费者
 
-领域分支与界面分支已集成，实际检查范围见[开发文档](DEVELOPMENT.md#通用规划基础联合验收)。`plan_basic.rs` 与 `plan-basic-contract.ts` 区分可空持久资料和完整北京估算输入；唯一plan_profile、core、life_events与发生事实不复制。`plan_profile_update`在同一事务合并允许分区，保留共同revision及回执；明确重设同时保存原假设只读定义，不复制养老事实、付款或余债。basic存在即新模式，旧载荷启动不转换。
+首页、目标、心愿复用同批已保存来源和 buildBasicCapabilities；临时投入不影响其他入口。图表、市场模拟、敏感性与逐年快照使用月份，年龄可空。资金续航和职业试算是临时输入，不保存职业阶段。planning-consumers 维护显示缺漏说明的消费者清单。
 
-`plan-basic.ts`编译固定目标需求与明确投入预测。需求候选仅局部存在，退休后不接回积累额；北京缴费起止及基数独立于投入符号。预算两份费用作用域、收入选择与受限池均按稳定来源归一化。所设/两段实际收益各降低或提高200 bps分别求解。basic的requiredAt用一次倒推，逐月独立required核验等价，原阶段引擎保留。完整预算判定与固定收益模拟一致，零终点无缺口不要求额外余钱。
+已有贷款仍使用 Core.debt_repayments，按负债账户 ID、盘点余额及截至日期核对，复用修订与备份引用校验，不新建表。金融导入保留 schema35 已有的真实收入／缴存／账户／盘点与回执，schema36 只转换规划 payload。
 
-`planning_sources`在Worker同一任务读取模块状态，Store同一只读事务返回独立Read来源。财富关闭不会进入财富读函数；总览也采用实际开关。`planning-service.ts`共用写入未知核对并使旧读取票据失效；不缓存账户。`plan-summary.ts`、`plan-wishes.ts`、`plan-view.ts`按能力消费，未知预计投入不输出候选FI日期。接口与UI接入要求见[数据规格](PLANNING_DATA_SCENARIOS_DESIGN.md#第一批-core-数值与读取接入)。通用界面使用默认真实provider；虚构状态夹具仅在浏览器预览显式替换。首页与心愿使用同批已保存来源，临时投入只存在详情；后台消费按积累／退休区间选择月初费用，basic受限池在确认节点独立到账一次。旧模式仅保留历史载荷与回执兼容，不提供活动编辑入口。
-
-`plan-runway.ts`是固定当前收支的临时投影，复用`retiredMonth`分别处理月初支付及月底到账，在支付后检查底线，第一笔支付缺口即停止。不编译职业或退休路径，不生成profile更新。`PlanningRunway`在未设置目标时可手填资金及日期，已设置时默认复用已确认可用资金；以generation及父级读取生命周期隔离，关闭不保存。当前必要开销由用户填写包含月供／社保等的总额，不重复追加退休事件；完整贷款变化与一次性事件仍属于后续设计。
-
-职业变化有普通应用中的 `PlanningCareerCard` 与独立 `career-preview.html` 两个入口。普通入口位于已有通用计划的 `PlanningBasicGoals`，默认收起，主动打开才挂载共享 `GuidedPanel`；独立 HTML 不进入发布构建，但共享向导组件进入正常应用。`prepareBasicPlan` 从通用计算中提取只读来源编译，默认完整范围不变；积累范围仅供缺少退休条件时的局部检查，不能用于长期结论。`plan-career.ts` 编译当前／空窗／恢复三个区间与独立费用、临时缴费覆盖，再调用同一月账本及固定目标反求；月内审计回调不改变原账本输出。`plan-career-compare.ts` 只改一个条件，普通基础消费者不导入职业模块。未新增资料字段、数据库命令或后台消费者。卡片使用父级同批 `PlanningSources`，`PlanningPage` 以 `write_version` 为目标组件键，配合既有读取／切库生命周期使草稿失效；关闭和离页卸载临时输入，关闭后焦点回到入口。默认临时排除退休收入和受限池，已保存事实不改写，详见[实施契约](CAREER_SCENARIO_DESIGN.md#当前应用入口0-0-2)。
-
-月度收入导入与账户／完整盘点共用 `financial_import_preview/commit/receipt`。schema 35 的 `x11.sql` 将 `plan_income.hpf_cents` 变为可空并扩展 `import_external_key.object_kind` 为 income；事务替表保留旧数据和索引，提交前外键校验。`plan_income::write_tx` 与普通表单共用校验／修订写入；混合文件、稳定映射与回执在同一事务。旧 schema 34 回执收入计数默认零，备份按原版本 canonical 结构校验再迁移。
-
-通用规划的 plan-coverage 与 plan-annotations 生成只读覆盖，BasicCapabilities/Plan/CareerEvaluation 保留标注元数据。CoverageNote 统一呈现摘要与依据，planning-consumers 清单枚举独立渲染路径。用途声明、occurrences 和保存回执沿用既有分区；已有贷款 JSON 可选字段与新增分区见下文，不进行迁移。
-
-## 目标页弹窗
-
-`PlanningBasicGoals` 用一个可空的判别联合记录当前弹窗，养老金附带收入切换／缴存复核选项，发生核对附带事件；必填确认标记随本次弹窗一起创建和清除。卡片、结果标注和工具入口共用打开与关闭逻辑，关闭后回到本次触发元素，元素已移除时回到目标修改入口。标注只有明确关联事件 ID 才匹配事件卡，不把两处缺失 ID 当作同一事件。保存和提交结果未知仍由既有表单及回执服务处理。
-
-## 规划结果复用与显示
-
-目标主体由 `planning-goal/Overview` 展示同批计算能力与固定条件清单；`Editor` 仅保存本次所选字段，基于已保存 DTO 保留其余可空事实、稳定 ID、FIRE 模式与政策来源。basic 与 pension 仍采用既有分区更新、修订和回执；取消不保存，失败保留输入，结果未知禁止重放。较长表单固定操作栏，数字输入滚动失焦防误改。医保状态和缴费时间展示与独立原型共享纯函数，没有新增计算引擎。
-
-续缴费用默认只改费用；用户明确选择同步缴费截止时，在同一 basic 更新中保存费用与未来缴费停止月份。界面最后缴费月转换为次月的半开区间端点。没有新的 schema、数据库表或持久化字段。
-
-目标页的心愿影响通过 `retireCalcFromCapabilities` 适配同一批次已有的规划结果，复用需求、预测和注释；独立读取入口仍由 `buildRetireCalc` 构建。预测金额统一由 `plan-format.ts` 处理显示取整，比较使用原始金额。
-
-## 已有贷款直接还款安排
-
-新增可选 retire.core.debt_repayments JSON 数组：稳定负债账户 ID、填写／盘点日期与余额、固定起止月份、可空月付款、前后阶段声明。不建表、不迁移；debt_repayments 分区原子 upsert／remove，保留其它账户和资料。Store 校验日期、整数分、枚举、去重与负债引用；空数组省略，旧请求字节／指纹不变，新请求覆盖实际选择。复用 revision、generation、提交未知回执与备份引用校验；含字段数据不能由旧版读取。plan-debt 统一标注，plan-basic 按阶段编译固定名义流，事件优先、归零停流；不改写冻结结果／历史报告。
-
-养老金精修复用既有 `plan_profile_update` 的 setup DTO／事务，同时合并 basic、可选 funds／budget／pension；没有新增存储字段、SQL 表、迁移或请求指纹版本。目标页前后对比是打开时来源的内存快照，两边用同一盘点、日期与其他条件，不作为持久化结果。Q4 子窗口仅返回内存草稿，外层向导最终一次保存。原有回执、修订冲突、备份与旧字段读取规则保持适用；贷款字段的旧版兼容限制仍见现有说明。
+投资复盘是独立纯计算及界面组件，未注册实际保存 IPC；必须等第二批持久化、收入分类与导出备份接入后再开放正式入口。
 
 ## Excel 工作簿
 
 资料管理的导出保存一个工作簿：说明、物品、账户、完整盘点、月度收入及三张分析表（盘点记录、重要支出、周期费用）。明确字符串单元格防止公式执行、编号和日期自动转换及金额精度丢失；空单元格保留未知。先在内存完成再原子写入，文件替换由系统保存面板确认。物品导入只读取物品表，仍为新增事务及疑似重复预览；金融工作表仍按既有整批事务与回执提交。规范化文本的物理行到 Excel 行映射只用于界面定位，不改变已存回执、摘要或数据库 schema。完整恢复与换机继续使用 `.thingary`；Excel 不包含图片及全部配置与关系。
-
-医保年限沿用 `plan_profile` JSON 与 pension 分区，五个可空字段 `medical_paid_months`、`medical_local_paid_months`、`medical_local_required_months`、`medical_required_months`、`medical_topup_cents` 不升级 schema。Rust 默认 None，序列化省略 None 以保持旧请求回执指纹；含新字段资料不能由旧版读取。计算结果不持久化，医保未知只生成标注；用户填写的补缴估算在年限不足时加入计划一次性支出。
-
-## 养老金计算模块边界
-
-养老金的简化估算与显式政策计算链尚未统一接入。下表是当前调用职责，不表示新链已经替换普通规划：
-
-| 模块 | 职责与当前调用方 |
-|---|---|
-| `plan-pension.ts` | 普通规划、养老金页与风险分析使用的简化投影 `project`；同时提供退休年龄和最低缴费月份等共用规则 |
-| `plan-pension-path.ts` | 将临时缴费区间编译为简化投影需要的 employment/idle 条件；不是新的待遇金额引擎 |
-| `src/pension-lab/benefit.ts` | 显式最终指数、退休账户余额与计发基数的金额核心；独立职业预览的金额核对、账本适配器及审计脚本调用 |
-| `src/pension-lab/contribution-index.ts` | 从完整日历年的月记录及年度工资准备指数；由候选串联和审计脚本调用 |
-| `src/pension-lab/account.ts` | 已结息年末账户之后的显式情景外推；由候选串联调用，不等于官方账户结算 |
-| `src/pension-lab/ledger.ts` | 将政策金额适配为独立起领与受限池解锁的账本输入；由候选串联和审计脚本调用，普通入口未接入 |
-| `src/pension-lab/candidate.ts` | 串联指数、账户、金额与账本条件，检查退休月份一致；供隔离测试与审计脚本使用，未接入职业搜索 |
-| `src/pension-lab/input.ts` | 政策链共用的年月、非负安全整数分、来源校验及来源复制；不提供业务默认值、不拥有政策范围或舍入规则 |
-
-政策链各阶段保留自己的缺项顺序、错误字段与提示，以及适用年份、正数限制等业务约束。普通缴费区间校验允许的年份及金额上限不同，不能直接套用政策链校验。`PolicySource` 定义在输入模块，金额核心保留类型再导出，现有调用方无需迁移。
-
-保留候选与适配器是为了可复现的隔离审计；不能仅凭没有正式 UI 调用就删除，也不能把测试通过当作已完成政策校准。替换普通入口前，须另行完成同输入差异解释、首尾部分年份及账户结算校准。测试与审计命令见[开发说明](DEVELOPMENT.md)。
-
-
-### 退休后续缴费用声明
-
-通用基础载荷增加可选 `retirement_contribution_cost`，沿用 schema 35 的 JSON 资料，不增表。记录处理方式、本人月支付额（可为null）及停止月份（可为null）；缺少字段的旧资料不自动得到确认，原请求序列化省略该字段以保留旧回执指纹。新窗口只用既有 basic 分区一次提交费用声明与旧社保包含关系的替换，保留目标、其他费用、缴费排期和养老金事实；继续沿用 revision、未知结果回执与资料库身份校验。
-
-纯计算适配将已确认金额编成共享月账本的退休支出流；预算已含参考额只扣一次。新声明存在时旧 keep_paying 费用不再参与计算，旧原值仍留存；无新声明时沿用旧计算。其他基础表单保存须保留该可选声明，声明过期按覆盖缺项处理，不冒充本人零支出。无需本人支付与明确不计的月金额为空；新写入明确不计同时清空无效的停止月。
-
-### 养老金参考参数分离
-
-`overrides` 增加可选 `avg_wage_year`／`avg_wage_source` 与 `benefit_base { cents, year, source }`；沿用 pension/setup 分区和 schema 35 JSON，不新增资料副本。Rust 在缺省时省略新增字段，保留旧序列化与请求回执指纹；包含新字段的数据不能由旧版本读取。年份和来源在前后端校验，受同一 revision、备份及恢复约束。完整编辑、缺项精修和向导均经过同一表单适配，必须保留未展示的新资料。
-
-`paramsFor` 分别解析工资参考和独立待遇基数；`benefitBaseFor` 仅在新字段不存在时返回明确的兼容假设（工资金额、工资统计年加一），保持旧数值。普通 `project` 的指数／账户计算继续使用工资及缴费参数，只有基础养老金的待遇金额使用独立基数及其适用年。年度向退休年的换算仍采用同一个显式工资增长假设，不是未来官方参数。
-
-养老金政策核对链集中于 `src/pension-lab/`，普通 `main.tsx` 的传递依赖（含类型和动态导入）禁止进入该目录；独立预览、测试与审计脚本可以引用。普通简化估算和手填收入继续承担当前业务，不新增统一调度或实验回退。职责、冻结范围与接入退出条件见[实验边界](../src/pension-lab/README.md)。

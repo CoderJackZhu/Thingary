@@ -26,9 +26,9 @@ const cents = (yuanAmount: number) => String(Math.round(yuanAmount * 100));
 
 /** 示例预设：金额只是占位，按自己的情况改。日期按「几年后」放在当月。 */
 const presets: { key: string; label: string; years: number; make: (date: string) => Omit<StoredLifeEvent, 'id'> }[] = [
-  { key: 'house', label: '买房', years: 7, make: date => ({ label: '买房', kind: 'house', date, included: true, price_cents: cents(1_500_000), down_cents: cents(450_000), extra_cents: cents(50_000), loan_rate_hundredths: 350, loan_years: 30, holding_cents: cents(800), rent_saved_cents: cents(2000), cycle_years: null, until_age: null, resale_cents: '0' }) },
-  { key: 'car', label: '买车', years: 2, make: date => ({ label: '买车', kind: 'car', date, included: true, price_cents: cents(100_000), down_cents: cents(100_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 3, holding_cents: cents(1200), rent_saved_cents: '0', cycle_years: 8, until_age: 70, resale_cents: cents(20_000) }) },
-  { key: 'other', label: '其他大额', years: 3, make: date => ({ label: '其他大额支出', kind: 'other', date, included: true, price_cents: cents(50_000), down_cents: cents(50_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_age: null, resale_cents: '0' }) },
+  { key: 'house', label: '买房', years: 7, make: date => ({ label: '买房', kind: 'house', date, included: true, price_cents: cents(1_500_000), down_cents: cents(450_000), extra_cents: cents(50_000), loan_rate_hundredths: 350, loan_years: 30, holding_cents: cents(800), rent_saved_cents: cents(2000), cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }) },
+  { key: 'car', label: '买车', years: 2, make: date => ({ label: '买车', kind: 'car', date, included: true, price_cents: cents(100_000), down_cents: cents(100_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 3, holding_cents: cents(1200), rent_saved_cents: '0', cycle_years: 8, until_month: null, time_unconfirmed: false, resale_cents: cents(20_000) }) },
+  { key: 'other', label: '其他大额', years: 3, make: date => ({ label: '其他大额支出', kind: 'other', date, included: true, price_cents: cents(50_000), down_cents: cents(50_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }) },
 ];
 
 /** Where the plan card reads and writes: the original plan (whole profile) or the basic plan (events section). */
@@ -90,7 +90,7 @@ function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { b
   const [price, setPrice] = useState(draft.price_cents), [down, setDown] = useState(draft.down_cents), [extra, setExtra] = useState(draft.extra_cents);
   const [rate, setRate] = useState(hundredthsToPct(draft.loan_rate_hundredths)), [years, setYears] = useState(String(draft.loan_years));
   const [holding, setHolding] = useState(draft.holding_cents), [rent, setRent] = useState(draft.rent_saved_cents), [resale, setResale] = useState(draft.resale_cents);
-  const [cycle, setCycle] = useState(draft.cycle_years === null ? '' : String(draft.cycle_years)), [until, setUntil] = useState(draft.until_age === null ? '' : String(draft.until_age));
+  const [cycle, setCycle] = useState(draft.cycle_years === null ? '' : String(draft.cycle_years)), [until, setUntil] = useState(draft.until_month ?? '');
   const [included, setIncluded] = useState(draft.included), [err, setErr] = useState('');
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   const financed = Number(price || 0) > Number(down || 0);
@@ -103,11 +103,11 @@ function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { b
     const r = pctToHundredths(rate), y = Number(years);
     if (financed && (r === null || r < 0 || r > 2000)) return stop('贷款利率请填 0 到 20 之间的百分数。');
     if (financed && (!Number.isInteger(y) || y < 1 || y > 40)) return stop('贷款年限须是 1 到 40 的整数。');
-    const c = cycle.trim() === '' ? null : Number(cycle), u = until.trim() === '' ? null : Number(until);
+    const c = cycle.trim() === '' ? null : Number(cycle), u = until.trim() === '' ? null : until;
     if (c !== null && (!Number.isInteger(c) || c < 1 || c > 40)) return stop('换车周期须是 1 到 40 的整数年，留空表示只买一次。');
-    if (u !== null && (!Number.isInteger(u) || u < 0 || u > 120)) return stop('截止年龄须是 0 到 120 的整数。');
+    if (u !== null && (!/^\d{4}-(0[1-9]|1[0-2])$/.test(u) || u < date)) return stop('截止月份须不早于计划月份。');
     setErr('');
-    onSave({ ...draft, id: draft.id, label: label.trim(), kind, date, included, price_cents: price, down_cents: down || '0', extra_cents: extra || '0', loan_rate_hundredths: financed ? (r as number) : draft.loan_rate_hundredths, loan_years: financed ? y : draft.loan_years, holding_cents: holding || '0', rent_saved_cents: kind === 'house' ? rent || '0' : '0', cycle_years: kind === 'car' ? c : null, until_age: kind === 'car' ? u : null, resale_cents: kind === 'car' ? resale || '0' : '0' });
+    onSave({ ...draft, id: draft.id, label: label.trim(), kind, date, included, price_cents: price, down_cents: down || '0', extra_cents: extra || '0', loan_rate_hundredths: financed ? (r as number) : draft.loan_rate_hundredths, loan_years: financed ? y : draft.loan_years, holding_cents: holding || '0', rent_saved_cents: kind === 'house' ? rent || '0' : '0', cycle_years: kind === 'car' ? c : null, until_month: kind === 'car' ? u : null, time_unconfirmed: false, resale_cents: kind === 'car' ? resale || '0' : '0' });
   }
   return <dialog ref={dialog} className="editor asset-editor" aria-labelledby="event-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); save(); }}>
     <header><div><p className="eyebrow">规划 · 大额计划</p><h2 id="event-heading">{isNew ? '新增' : '编辑'}大额计划</h2><p className="muted">金额都按「今天的钱」；这些是设想，不是事实，不会扣你真实的资产。</p></div><CloseButton type="button" aria-label="关闭大额计划表单" disabled={busy} onClick={onClose}/><div className="editor-header-actions"><button className="primary" disabled={busy}>{busy ? '保存中…' : '保存'}</button></div></header>
@@ -124,7 +124,7 @@ function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { b
       {kind === 'house' && <FormRow label="买房后不再付的月房租" hint={basic ? "省下的房租不会自动加到每月能存的钱里；退休后只从预算里已含的房租中扣除，不超过这个金额" : "现在的房租已经算在你的每月储蓄里；买房后这部分补回来，只算退休前"}><CentInput label="省下的月房租" value={rent} disabled={busy} onChange={setRent}/></FormRow>}
       {kind === 'car' && <>
         <FormRow label="换车周期（年）" hint="留空表示只买这一辆；车是快消品，常见 4 到 6 年换一次"><input aria-label="换车周期" inputMode="numeric" value={cycle} placeholder="只买一次" disabled={busy} onChange={e => setCycle(e.target.value)}/></FormRow>
-        <FormRow label="用到几岁为止" hint="之后不再换车，养车费也停；留空到规划终点"><input aria-label="用车截止年龄" inputMode="numeric" value={until} placeholder="规划终点" disabled={busy} onChange={e => setUntil(e.target.value)}/></FormRow>
+        <FormRow label="用到哪个月份" hint="之后不再换车，养车费也停；留空到规划终点"><MonthInput label="用车截止月份" value={until} disabled={busy} allowClear onChange={setUntil}/></FormRow>
         <FormRow label="每次换车卖旧车回收" hint="每次换车实际花的是价格减去这笔"><CentInput label="卖旧车回收" value={resale} disabled={busy} onChange={setResale}/></FormRow></>}
       <FormRow label="计入退休估算" hint="关掉只保留这个设想，不影响退休结论"><Switch label="计入退休估算" value={included} disabled={busy} onChange={setIncluded}/></FormRow>
     </section>

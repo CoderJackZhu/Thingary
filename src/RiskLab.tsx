@@ -2,7 +2,7 @@ import { CoverageNote } from './CoverageNote';
 import { useEffect, useMemo, useState } from 'react';
 import { Segments } from './FormControls';
 import { rateText } from './plan';
-import { outcome, project } from './plan-ledger.ts';
+import { outcome, project, timeLabel } from './plan-ledger.ts';
 import type { Plan } from './plan-ledger.ts';
 import { ageSpendingMatrix, contributionReturnMatrix, largestRisk, monteCarlo, sorr, stressTests } from './plan-risk.ts';
 import type { Cell, Matrix, MonteCarlo, StressResult } from './plan-risk.ts';
@@ -16,7 +16,7 @@ type Ready = { plan: Plan; assets: number };
 /** Basic mode: an unsaved trial is labelled, and the terminal wording follows the complete-budget horizon. */
 export type BasicRisk = { temporary: boolean; note?: string; terminal: keyof typeof terminalText };
 
-const ageText = (months: number | null) => (months === null ? '无法达成' : `${Math.floor(months / 12)} 岁`);
+const resultTime = (P: Plan, months: number | null) => months === null ? '无法达成' : timeLabel(P, months);
 const sevText = { high: '高', medium: '中', low: '低' };
 
 /** 假设分析：基准情形、压力测试、市场路径、决策矩阵与崩盘路径。全部用「今天的钱」。 */
@@ -44,7 +44,7 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
     }, 0);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [P, request]);
-  const goalAge = Math.floor(P.target_months / 12), horizonAge = Math.floor(P.horizon_months / 12);
+  const goalMonth = timeLabel(P, P.target_months), horizonMonth = timeLabel(P, P.horizon_months - 1);
   const o = base.out, gap = o.shortfall_at_goal;
   const pctTone = mc ? (mc.success_rate >= 0.9 ? 'good' : mc.success_rate >= 0.75 ? 'watch' : 'bad') : '';
   return <div className="rl"><CoverageNote annotations={P.annotations} compact/>
@@ -52,19 +52,19 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
     <article className="ui-card rl-hero" aria-label="基准情形">
       <div className="rl-lead"><span>基准情形</span><strong>你的基础计划 <span className={`rd-badge ${v.tone}`}><i/>{v.badge}</span></strong>
         <small>{top ? `在这些测试中，${top.label}的影响最大${top.shortfall_delta > 0 ? `，退休缺口增加 ${fmt(top.shortfall_delta)}` : ''}${top.fi_delay_months ? `${top.shortfall_delta > 0 ? ' 和' : '，'}财务独立推迟 ${durationText(top.fi_delay_months)}` : ''}。` : '这些压力测试均未实质性改变你的基础计划。'}</small></div>
-      <div><span>{fire ? '期望年龄' : '退休年龄'}</span><strong>{goalAge} 岁</strong><small>你的目标</small></div>
-      <div><span>预计余额</span><strong>{fmt(o.assets_at_goal)}</strong><small>在 {goalAge} 岁时</small></div>
-      <div><span>{fire ? '基准财务独立年龄' : '准备就绪年龄'}</span><strong>{ageText(o.fi_month)}</strong><small>{o.fi_month !== null && o.fi_month > P.target_months ? `比期望晚 ${durationText(o.fi_month - P.target_months)}` : '不晚于目标'}</small></div>
-      <div><span>缺口/盈余</span><strong>{gap > 0 ? fmt(gap) + ' 缺口' : fmt(Math.max(0, o.assets_at_goal - o.required_at_goal)) + ' 盈余'}</strong><small>目标年龄时</small></div>
+      <div><span>{fire ? '期望月份' : '退休月份'}</span><strong>{goalMonth}</strong><small>你的目标</small></div>
+      <div><span>预计余额</span><strong>{fmt(o.assets_at_goal)}</strong><small>在 {goalMonth}时</small></div>
+      <div><span>{fire ? '基准财务独立月份' : '准备就绪月份'}</span><strong>{resultTime(P, o.fi_month)}</strong><small>{o.fi_month !== null && o.fi_month > P.target_months ? `比期望晚 ${durationText(o.fi_month - P.target_months)}` : '不晚于目标'}</small></div>
+      <div><span>缺口/盈余</span><strong>{gap > 0 ? fmt(gap) + ' 缺口' : fmt(Math.max(0, o.assets_at_goal - o.required_at_goal)) + ' 盈余'}</strong><small>目标月份时</small></div>
       <div><span>资金充足</span><strong className={`rl-pct ${pctTone}`}>{mc ? `${Math.round(mc.success_rate * 100)}%` : running !== null ? '计算中…' : '未完成'}</strong><small>{mc ? `${mc.n.toLocaleString('zh-CN')} 条路径` : '见下方市场路径'}</small></div>
     </article>
 
-    <Stress results={stress} fmt={fmt}/>
+    <Stress P={P} results={stress} fmt={fmt}/>
 
     <article className="ui-card rd-card" aria-label="市场路径">
       <div className="rd-head"><div><p className="eyebrow">市场路径</p><h3>收益有波动时，哪些路径仍能支付预算？</h3></div></div>
-      <p className="muted small">我们根据你的假设模拟不同市场路径。阴影显示各年龄的第 10 至第 90 百分位区间；线条显示各路径的中位数，并非单一路径。收益取扣除通胀后的实际收益，围绕假设值按波动率 {rateText(P.volatility_hundredths)} 随机，每年一次，固定种子，同一计划每次结果一致。</p>
-      <p className="muted small">「资金充足」表示{fire ? '计划实现财务独立，' : '计划'}按完整预算覆盖到 {horizonAge} 岁，期间没有无法支付的月份；终点恰好为 0 也算充足，但没有余量。这些是模型结果，不是现实概率。</p>
+      <p className="muted small">我们根据你的假设模拟不同市场路径。阴影显示各月份的第 10 至第 90 百分位区间；线条显示各路径的中位数，并非单一路径。收益取扣除通胀后的实际收益，围绕假设值按波动率 {rateText(P.volatility_hundredths)} 随机，每年一次，固定种子，同一计划每次结果一致。</p>
+      <p className="muted small">「资金充足」表示{fire ? '计划实现财务独立，' : '计划'}按完整预算覆盖到 {horizonMonth}，期间没有无法支付的月份；终点恰好为 0 也算充足，但没有余量。这些是模型结果，不是现实概率。</p>
       <p className="muted small">打开本页自动计算 1,000 条路径，先看资金在波动下是否够用；需要更多路径时可运行下方分析。修改条件后自动重新计算。</p>
       <div className="rl-actions"><button type="button" className="ui-btn" disabled={running !== null} onClick={() => run(1000)}>重新计算 1,000 条</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? `正在运行… ${done}` : '运行 1 万条路径'}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(100000)}>{running === 100000 ? `正在运行… ${done.toLocaleString('zh-CN')}` : '运行 10 万条路径'}</button>
         {running !== null && <span className="muted small" role="status">正在计算 {done.toLocaleString('zh-CN')} / {running.toLocaleString('zh-CN')} 条路径，可随时切回概览。</span>}</div>
@@ -73,14 +73,14 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
         <p role="status"><strong>当前结果：{mc.n.toLocaleString('zh-CN')} 条路径</strong></p>
         <div className="rl-mc-stats">
           <div><span>资金充足</span><strong className={`rl-pct ${pctTone}`}>{Math.round(mc.success_rate * 100)}%</strong></div>
-          <div><span>提取开始</span><strong>{base.proj.retire_month === null ? '—' : ageText(base.proj.retire_month)}</strong></div>
-          <div><span>中位数财务独立年龄</span><strong>{ageText(mc.median_fi_month)}</strong></div>
+          <div><span>提取开始</span><strong>{base.proj.retire_month === null ? '—' : resultTime(P, base.proj.retire_month)}</strong></div>
+          <div><span>中位数财务独立月份</span><strong>{resultTime(P, mc.median_fi_month)}</strong></div>
           <div><span>较低结果</span><strong>{fmt(mc.final.p10)}</strong></div>
           <div><span>中位数</span><strong>{fmt(mc.final.p50)}</strong></div>
           <div><span>较高结果</span><strong>{fmt(mc.final.p90)}</strong></div>
         </div>
-        <p className="muted small">较低结果、中位数、较高结果是 {horizonAge} 岁时剩余资金的第 10、50、90 百分位（今天的钱）。</p>
-        <FanChart ages={mc.ages} bands={mc.bands} goalAge={P.target_months / 12} retireAge={base.proj.retire_month === null ? null : base.proj.retire_month / 12} fiAge={mc.median_fi_month === null ? null : mc.median_fi_month / 12} fmt={fmt} count={mc.n}/>
+        <p className="muted small">较低结果、中位数、较高结果是 {horizonMonth}时剩余资金的第 10、50、90 百分位（今天的钱）。</p>
+        <FanChart months={mc.months} timeLabel={m => timeLabel(P, m)} bands={mc.bands} goalMonth={P.target_months} retireMonth={base.proj.retire_month === null ? null : base.proj.retire_month} fiMonth={mc.median_fi_month === null ? null : mc.median_fi_month} fmt={fmt} count={mc.n}/>
       </> : running === null && <p className="muted small">尚未运行市场路径。</p>}
     </article>
 
@@ -89,19 +89,19 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
   </div>;
 }
 
-function Stress({ results, fmt }: { results: StressResult[]; fmt: (c: number) => string }) {
+function Stress({ P, results, fmt }: { P: Plan; results: StressResult[]; fmt: (c: number) => string }) {
   return <article className="ui-card rd-card" aria-label="压力测试">
     <div className="rd-head"><div><p className="eyebrow">压力测试 · {results.length} 个情景</p><h3>什么可能破坏此计划？</h3></div></div>
-    <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="压力测试表"><table className="rl-stress"><thead><tr><th>情景</th><th>财务独立年龄</th><th className="amount">额外缺口</th><th className="amount">剩余资金</th><th>严重程度</th></tr></thead>
+    <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="压力测试表"><table className="rl-stress"><thead><tr><th>情景</th><th>财务独立月份</th><th className="amount">额外缺口</th><th className="amount">剩余资金</th><th>严重程度</th></tr></thead>
       <tbody>{results.map(r => {
         const noChange = r.fi_delay_months === 0 || r.fi_delay_months === null && r.stressed.fi_month === r.baseline.fi_month;
         return <tr key={r.id}><td><b>{r.label}</b><small>{r.description}</small></td>
-          <td>{r.stressed.fi_month === null ? <span className="muted">未达成</span> : <>{ageText(r.stressed.fi_month)}</>}<small>{r.fi_delay_months ? (r.fi_delay_months < 0 ? `早 ${durationText(-r.fi_delay_months)}` : `晚 ${durationText(r.fi_delay_months)}`) : noChange ? '无变化' : r.baseline.fi_month === null ? '' : '未达成'}</small></td>
-          <td className="amount">{r.shortfall_delta > 0 ? fmt(r.shortfall_delta) : '无变化'}{r.stressed.shortfall_month !== null && <small>缺口始于 {ageText(r.stressed.shortfall_month)}</small>}</td>
-          <td className="amount">{fmt(Math.max(0, r.stressed.at_horizon))}<small>{r.horizon_delta === 0 ? '无变化' : `${r.horizon_delta < 0 ? '减少' : '增加'} ${fmt(Math.abs(r.horizon_delta))}`}</small>{r.stressed.failure_month !== null && <small>{ageText(r.stressed.failure_month)}时资金不足</small>}</td>
+          <td>{r.stressed.fi_month === null ? <span className="muted">未达成</span> : <>{resultTime(P, r.stressed.fi_month)}</>}<small>{r.fi_delay_months ? (r.fi_delay_months < 0 ? `早 ${durationText(-r.fi_delay_months)}` : `晚 ${durationText(r.fi_delay_months)}`) : noChange ? '无变化' : r.baseline.fi_month === null ? '' : '未达成'}</small></td>
+          <td className="amount">{r.shortfall_delta > 0 ? fmt(r.shortfall_delta) : '无变化'}{r.stressed.shortfall_month !== null && <small>缺口始于 {resultTime(P, r.stressed.shortfall_month)}</small>}</td>
+          <td className="amount">{fmt(Math.max(0, r.stressed.at_horizon))}<small>{r.horizon_delta === 0 ? '无变化' : `${r.horizon_delta < 0 ? '减少' : '增加'} ${fmt(Math.abs(r.horizon_delta))}`}</small>{r.stressed.failure_month !== null && <small>{resultTime(P, r.stressed.failure_month)}时资金不足</small>}</td>
           <td><span className={`rl-sev ${r.severity}`}>{sevText[r.severity]}</span></td></tr>;
       })}</tbody></table></div>
-    <p className="muted small">每个情景只改一件事，其余假设不变，用同一套计算重新推演。期末剩余资金在 FIRE 下可能因推迟退休而更多，所以请和财务独立年龄一起看。</p>
+    <p className="muted small">每个情景只改一件事，其余假设不变，用同一套计算重新推演。期末剩余资金在 FIRE 下可能因推迟退休而更多，所以请和财务独立月份一起看。</p>
   </article>;
 }
 
@@ -109,14 +109,14 @@ type Show = 'money' | 'age';
 function Moves({ P, year, fire }: { P: Plan; year: number; fire: boolean }) {
   const built = useMemo(() => ({ a: contributionReturnMatrix(P, year), b: ageSpendingMatrix(P, year) }), [P, year]);
   const [show, setShow] = useState<Show>('money');
-  const ageLabel = fire ? '财务独立年龄' : '准备就绪年龄';
+  const ageLabel = fire ? '财务独立月份' : '准备就绪月份';
   return <details className="ui-card rd-card rd-snapshot" aria-label="决策矩阵" open>
     <summary><strong>哪些因素影响计划？</strong><span className="muted small">比较储蓄、收益和预算</span></summary>
     <div className="rd-head"><Segments label="矩阵数值" value={show} options={[{ value: 'money', label: '期末剩余资金' }, { value: 'age', label: ageLabel }]} onChange={setShow}/></div>
-    <p className="muted small">比较储蓄、收益率、退休年龄和支出。绿色表示比基础计划更好，黄色表示更差。红色表示存在缺口或没有剩余资金；黑框是基础计划。</p>
+    <p className="muted small">比较储蓄、收益率、退休月份和支出。绿色表示比基础计划更好，黄色表示更差。红色表示存在缺口或没有剩余资金；黑框是基础计划。</p>
     <div className="rl-matrices">
-        <MatrixView title="供款 × 收益率" sub={show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel} m={built.a} show={show} rowText={d => rateText(P.r_before_hundredths + d)} colText={c => compactYuan(c)} rowHead="实际收益率" colHead="每月供款"/>
-        <MatrixView title={`${fire ? '期望年龄' : '退休年龄'} × 生活预算`} sub={(show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel) + '；固定事件付款不调整'} m={built.b} show={show} rowText={c => compactYuan(c)} colText={a => `${a}`} rowHead="每月预算分项" colHead={fire ? '期望年龄' : '退休年龄'} flatHint={fire}/>
+        <MatrixView P={P} title="供款 × 收益率" sub={show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel} m={built.a} show={show} rowText={d => rateText(P.r_before_hundredths + d)} colText={c => compactYuan(c)} rowHead="实际收益率" colHead="每月供款"/>
+        <MatrixView P={P} title={`${fire ? '期望月份' : '退休月份'} × 生活预算`} sub={(show === 'money' ? '规划终点的余额（按当前购买力）' : ageLabel) + '；固定事件付款不调整'} m={built.b} show={show} rowText={c => compactYuan(c)} colText={a => `${a}`} rowHead="每月预算分项" colHead={fire ? '期望月份' : '退休月份'} flatHint={fire}/>
       </div>
   </details>;
 }
@@ -126,13 +126,13 @@ function tone(cell: Cell, base: Cell, show: Show): string {
   if (cell.failed || cell.at_horizon <= 0) return 'bad';
   return cell.at_horizon > base.at_horizon + 1 ? 'good' : cell.at_horizon < base.at_horizon - 1 ? 'watch' : '';
 }
-function MatrixView({ title, sub, m, show, rowText, colText, rowHead, colHead, flatHint }: { title: string; sub: string; m: Matrix; show: Show; rowText: (v: number) => string; colText: (v: number) => string; rowHead: string; colHead: string; flatHint?: boolean }) {
+function MatrixView({ P, title, sub, m, show, rowText, colText, rowHead, colHead, flatHint }: { P: Plan; title: string; sub: string; m: Matrix; show: Show; rowText: (v: number) => string; colText: (v: number) => string; rowHead: string; colHead: string; flatHint?: boolean }) {
   const base = m.cells[m.base_row ?? 0][m.base_col ?? 0];
   const flatCols = flatHint ? m.cols.map((_, j) => m.cells.every(r => r[j].fi_month === m.cells[0][j].fi_month)) : [];
   return <div><h4>{title}</h4><p className="muted small">{sub}</p>
-    <table className="rl-matrix"><thead><tr><th>{rowHead} ＼ {colHead}</th>{m.cols.map(c => <th key={c}>{colText(c)}</th>)}</tr></thead>
-      <tbody>{m.rows.map((r, i) => <tr key={r}><th scope="row">{rowText(r)}</th>{m.cells[i].map((c, j) => <td key={j} className={`${tone(c, base, show)}${i === m.base_row && j === m.base_col ? ' base' : ''}`}>{show === 'age' ? (c.fi_month === null ? '—' : ageText(c.fi_month).replace(' 岁', '')) : c.failed || c.at_horizon <= 0 ? '无' : compactYuan(c.at_horizon)}</td>)}</tr>)}</tbody></table>
-    {flatCols.some(Boolean) && show === 'age' && <p className="muted small">有些年龄列变化不大：FIRE 下支出在计划实现财务独立时才开始。</p>}</div>;
+    <table className="rl-matrix"><thead><tr><th>{rowHead} ＼ {colHead}</th>{m.cols.map((c, i) => <th key={c}>{m.column_labels?.[i] ?? colText(c)}</th>)}</tr></thead>
+      <tbody>{m.rows.map((r, i) => <tr key={r}><th scope="row">{rowText(r)}</th>{m.cells[i].map((c, j) => <td key={j} className={`${tone(c, base, show)}${i === m.base_row && j === m.base_col ? ' base' : ''}`}>{show === 'age' ? (c.fi_month === null ? '—' : resultTime(P, c.fi_month).replace(' 岁', '')) : c.failed || c.at_horizon <= 0 ? '无' : compactYuan(c.at_horizon)}</td>)}</tr>)}</tbody></table>
+    {flatCols.some(Boolean) && show === 'age' && <p className="muted small">有些月份列变化不大：FIRE 下支出在计划实现财务独立时才开始。</p>}</div>;
 }
 
 function Crash({ P, year, fmt }: { P: Plan; year: number; fmt: (c: number) => string }) {
@@ -143,7 +143,7 @@ function Crash({ P, year, fmt }: { P: Plan; year: number; fmt: (c: number) => st
     <p className="muted small">比较一组相同收益的不同排列：年率 −30% 的下跌分别放在退休开头和末段，持续时间相同、最多一年，其余时间沿用所设收益。基准不含下跌；两条压力路径的差异来自发生时点。</p>
     {paths === null ? <p className="muted small">崩盘路径不可用。此检查需要退休开始时投资组合为正值，且规划期内已经达成退休。</p>
       : <><PathsChart paths={paths} fmt={fmt}/>
-        <table className="rl-sorr"><thead><tr><th>情景</th><th>存续</th><th>最早缺口</th><th className="amount">{Math.floor(P.horizon_months / 12)} 岁余额</th></tr></thead>
-          <tbody>{paths.map(p => <tr key={p.id}><td>{p.label}{p.id === 'base' && <span className="ui-tag">基准</span>}</td><td>{p.survived ? '资金够用' : <span className="warn">资金不足</span>}</td><td>{p.shortfall_age !== null ? `${p.shortfall_age} 岁` : p.failure_age !== null ? `${p.failure_age} 岁` : '无'}</td><td className="amount">{fmt(p.final)}{p.id !== 'base' && <small className="muted"> {p.final - baseFinal >= 0 ? '+' : '−'}{fmt(Math.abs(p.final - baseFinal))}</small>}</td></tr>)}</tbody></table></>}
+        <table className="rl-sorr"><thead><tr><th>情景</th><th>存续</th><th>最早缺口</th><th className="amount">{timeLabel(P, P.horizon_months - 1)} 余额</th></tr></thead>
+          <tbody>{paths.map(p => <tr key={p.id}><td>{p.label}{p.id === 'base' && <span className="ui-tag">基准</span>}</td><td>{p.survived ? '资金够用' : <span className="warn">资金不足</span>}</td><td>{p.shortfall_month !== null ? timeLabel(P, p.shortfall_month) : p.failure_month !== null ? timeLabel(P, p.failure_month) : '无'}</td><td className="amount">{fmt(p.final)}{p.id !== 'base' && <small className="muted"> {p.final - baseFinal >= 0 ? '+' : '−'}{fmt(Math.abs(p.final - baseFinal))}</small>}</td></tr>)}</tbody></table></>}
   </details>;
 }

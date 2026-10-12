@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { outcome, project, required } from '../src/plan-ledger.ts';
+import { outcome, project, required, timeLabel } from '../src/plan-ledger.ts';
 import { ageSpendingMatrix, contributionReturnMatrix, crashReturns, largestRisk, monteCarlo, seedOf, sorr, stressTests, stressSeverity } from '../src/plan-risk.ts';
 
 const pension = () => ({ monthly_cents: 300, lump_cents: 20_000, unlock_age_months: 756 });
@@ -150,4 +150,27 @@ test('market paths cancel obsolete automatic runs at a batch boundary', async ()
   await assert.rejects(monteCarlo(plan(), 1000, { signal: controller.signal, progress: n => { completed = n; controller.abort(); } }), { name: 'AbortError' });
   assert.equal(completed, 25);
   await assert.rejects(monteCarlo(plan(), 1000, { signal: controller.signal }), { name: 'AbortError' });
+});
+
+
+test('sequence risk preserves the exact failure month without an age reference', () => {
+  const P = plan({ input_mode: 'basic', mode: 'traditional', now_months: 0, target_months: 0, horizon_months: 12, search_cap_months: 12,
+    anchor_date: '2026-10-01', monetary_basis_date: '2026-10-01', age_reference: null,
+    assets_cents: 2000, saving_cents: 0, r_before_hundredths: 0, r_after_hundredths: 0, inflation_hundredths: 0,
+    pension_at: () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 0 }),
+  });
+  const [base, early, late] = sorr(P, YEAR);
+  assert.equal(base.shortfall_month, 2);
+  assert.equal(base.failure_month, 2);
+  assert.equal(timeLabel(P, base.shortfall_month), '2026-12');
+  for (const row of [base, early, late]) {
+    assert.equal(row.shortfall_age, null);
+    assert.equal(row.failure_age, null);
+    assert.equal(row.survived, false);
+    assert.ok(Number.isInteger(row.failure_month));
+    assert.ok(Number.isInteger(row.shortfall_month));
+    assert.match(timeLabel(P, row.shortfall_month), /^2026-\d{2}$/);
+  }
+  const safe = sorr({ ...P, assets_cents: 100_000 }, YEAR);
+  assert.ok(safe.every(row => row.survived && row.failure_month === null && row.shortfall_month === null));
 });

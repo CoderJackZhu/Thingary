@@ -7,13 +7,11 @@ import { MonthInput } from '../DateInput.tsx';
 import type { PlanningSources } from '../plan-basic-contract.ts';
 import type { CareerDraft } from '../plan-career-contract.ts';
 import { careerSources } from './fixtures.ts';
-import { careerPensionSources, careerRetirementSources } from './pension-fixture.ts';
 import { prepareIncomeScope } from './income-scope.ts';
 import type { IncomeDraft } from './income-scope.ts';
 import { IncomeSection } from './income-section.tsx';
 import { LumpsSection } from './map.tsx';
-import { PensionMarginal } from './pension-marginal.tsx';
-import { maxGap, minWindow, missingItems } from '../plan-career-map.ts';
+import { ageMonthsAt, maxGap, minWindow, missingItems } from '../plan-career-map.ts';
 import { evaluateCareerScenario } from '../plan-career.ts';
 import { guidedDraft, guidedIncome, restLevers, sayLower, sayRest, saySwitch, yuan } from './guided-model.ts';
 import type { GuidedDefaults } from './guided-model.ts';
@@ -29,7 +27,7 @@ const questions: { id: Q; title: string; hint: string }[] = [
 ];
 
 function load(state: string) {
-  const sources: PlanningSources = state === 'pension' ? careerPensionSources() : state === 'retirement' ? careerRetirementSources() : careerSources();
+  const sources: PlanningSources = careerSources();
   if (state === 'empty' && sources.profile.status === 'ready') sources.profile.value.saved = null;
   if (state === 'error') sources.profile = { status: 'error', value: { code: 'UNAVAILABLE', message: '虚构来源读取失败' } };
   return { sources, defaults: { draft: guidedDraft(), income: guidedIncome(sources), from: { spend: null, recovery: null } } as GuidedDefaults };
@@ -57,7 +55,9 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
   const deferred = useDeferredValue(data), updating = deferred !== data;
   const scope = useMemo(() => prepareIncomeScope(sources, deferred.draft, deferred.income), [sources, deferred]);
   const profile = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile ?? null : null;
-  const targetAge = profile?.retire.target_age ?? null, current = profile?.retire.basic?.contribution.monthly_cents ?? null;
+  const target = profile?.retire.simplified.time.target_month;
+  const targetMonths = target ? ageMonthsAt(sources, target) : null;
+  const targetAge = targetMonths === null ? null : Math.floor(targetMonths / 12), current = profile?.retire.basic?.contribution.monthly_cents ?? null;
   const missing = useMemo(() => {
     if (scope.status !== 'ready') return [];
     const out = missingItems(scope.draft, q === 'rest');
@@ -116,7 +116,7 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
         </section>
 
         <details className="guided-card"><summary>更多假设（一般不用动）</summary>
-          <p className="guided-hint">现在的默认是偏保守的：不计退休后的养老金，也不计公积金和个人养老金。想算得更贴近，就在这里改。</p>
+          <p className="guided-hint">现在的默认是偏保守的：不计未来收入，也不计受限资金释放。想算得更贴近，就在这里改。</p>
           <IncomeSection value={income} onChange={setIncome}/>
           {q !== 'lower' && <section className="career-input"><h3>补偿金、失业金</h3>
             <FormRow label="一次性补偿金（元）" hint="比如 N+1，税后；没有就留空。记在开始那个月的月底。"><CentInput label="一次性补偿金" value={extra.lump_cents ?? ''} onChange={v => setExtra({ lump_cents: v || null })}/></FormRow>
@@ -135,20 +135,17 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
             : q === 'lower' && lowerRows ? <ul className="guided-rows">{lowerRows.map(r => <li key={r.level}><strong>之后每月只攒 {yuan(r.level)}</strong><span>{r.say.headline}</span><small>{r.say.sub}</small></li>)}</ul>
             : say && <><p className="guided-headline">{say.headline}</p><p className="guided-sub">{say.sub}</p></>}
           <ul className="guided-chips" aria-label="这次的假设">
-            <li>{income.mode === 'excluded' ? '不计退休后的养老金（偏保守）' : income.mode === 'manual' ? '按你手填的退休收入' : '沿用原计划的退休收入'}</li>
-            <li>{income.excludePools ? '不计公积金、个人养老金' : '计入公积金、个人养老金'}</li>
+            <li>{income.mode === 'excluded' ? '不计未来收入（偏保守）' : income.mode === 'manual' ? '按你手填的退休收入' : '沿用原计划的退休收入'}</li>
+            <li>{income.excludePools ? '不计受限资金释放' : '沿用已确认的受限资金释放'}</li>
             <li>社保算在花销里</li>
-            {targetAge !== null && <li>{targetAge} 岁退休</li>}
+            {target && <li>{target} 目标月份{targetAge !== null ? `（约 ${targetAge} 岁）` : ""}</li>}
           </ul>
           {q === 'rest' && say && !blockedMessage && <details onToggle={e => setLeversOpen(e.currentTarget.open)}><summary>怎样才能撑得更久？</summary>
             <ul className="guided-rows">{levers.map(l => <li key={l.label}><strong>{l.label}</strong><span>{l.text}</span></li>)}{!levers.length && <li>计算中…</li>}</ul></details>}
-          <details><summary>这个结果有哪些局限？</summary><p className="guided-hint">它是按你填的数字做的估算，不是预测：不会替你猜会不会被裁、多久找到工作、工资涨不涨。每月付款的先后只在不工作那一段检查过。养老金、公积金默认不计入，结果偏保守。</p></details>
+          <details><summary>这个结果有哪些局限？</summary><p className="guided-hint">它是按你填的数字做的估算，不是预测：不会替你猜会不会被裁、多久找到工作、工资涨不涨。每月付款的先后只在不工作那一段检查过。未来收入和受限资金释放默认不计入，结果偏保守。</p></details>
         </section>
       </aside>
     </div>
 
-    <section className="guided-card guided-after"><h2>社保要不要自己交？</h2>
-      <p className="guided-hint">上面把社保算在花销里。想看多交一段时间的社保，退休后每月能多拿多少，在这里粗估。</p>
-      <PensionMarginal sources={sources}/></section>
   </Root>;
 }

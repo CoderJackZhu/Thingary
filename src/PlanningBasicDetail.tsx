@@ -1,12 +1,9 @@
-import { forecastMoney } from './plan-format';
 import { CostsDialog } from './PlanningCosts';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { money } from './asset';
 import { CentInput, Info } from './FormControls';
 import { CapabilityNotice, MissingList, RequirementCard } from './PlanningRequirement';
-import { PlanningPensionRefinementDialog, PensionComparisonNote } from './PlanningPensionRefinement';
-import type { PensionComparison } from './planning-pension-refinement';
 import { RetireOverview, useValueMode } from './RetireOverview';
 import { RiskLab } from './RiskLab';
 import { rateText } from './plan';
@@ -23,14 +20,14 @@ import { amountState, SAVE_CONTRIBUTION_HINT } from './planning-basic-view';
 import './retire.css';
 
 type Saved = NonNullable<ProfileState['saved']>;
-const incomeModeText = { excluded: '本次不计任何退休收入', manual: '手填的收入', employee: '职工养老金估算' } as const;
+const incomeModeText = { unconfirmed: '还没确认收入计入方式', excluded: '本次不计未来收入', manual: '手填的未来收入' } as const;
 const treatmentText = { included: '已含在总预算', extra: '另外计入', excluded: '本次不计' } as const;
 const contributionText = (cents: string | null) => { const s = amountState(cents); return s === 'unknown' ? '以后再估计' : s === 'zero' ? '每月存 0 元（本次估计）' : `${money(cents!)}/月`; };
 
 /** Basic-plan detail: the requirement stays visible; prediction and risk tools open only for an explicit saved or trial contribution. */
 export function PlanningBasicDetail({ sources, saved, today, reload, onPending, onEditingChange, openSetup, onEvents, onBack }: { sources: PlanningSources; saved: Saved; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; openSetup: (step: number, from?: HTMLElement | null) => void; onEvents: () => void; onBack: () => void }) {
-  const [costsOpen, setCostsOpen] = useState(false), [pensionOpen, setPensionOpen] = useState(false), [comparison, setComparison] = useState<PensionComparison | null>(null), pensionTrigger = useRef<HTMLElement | null>(null);
-  useEffect(() => { onEditingChange(costsOpen || pensionOpen); return () => onEditingChange(false); }, [costsOpen, pensionOpen, onEditingChange]);
+  const [costsOpen, setCostsOpen] = useState(false);
+  useEffect(() => { onEditingChange(costsOpen); return () => onEditingChange(false); }, [costsOpen, onEditingChange]);
   const [trial, setTrial] = useState<string | null>(null), [tab, setTab] = useState<'overview' | 'lab'>('overview'), [mode, setMode] = useValueMode();
   const hist = useMemo(() => historyHints(ready(sources.review)), [sources.review]);
   const savedContribution = saved.profile.retire.basic?.contribution.monthly_cents ?? null;
@@ -38,10 +35,12 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const result = useCapabilities(sources, { contribution: trial });
   const saver = useSectionSaver(sources, reload, onPending);
   const retire = saved.profile.retire;
-  // Pension facts are completed in place with the same shared dialog as the goals page.
-  const openPension = (from?: HTMLElement | null) => { pensionTrigger.current = from ?? (document.activeElement as HTMLElement | null); setPensionOpen(true); };
-  const closePension = () => { setPensionOpen(false); requestAnimationFrame(() => { if (pensionTrigger.current?.isConnected) pensionTrigger.current.focus(); else document.getElementById('plan-budget-entry')?.focus(); }); };
-  const owner = (o: PlanningMissing['owner'], field?: string) => { if (field?.includes('_costs')) setCostsOpen(true); else if (o === 'basic' || o === 'funds' || o === 'budget') openSetup(o === 'funds' || field?.startsWith('basic.start') ? 2 : field?.startsWith('basic.retirement_income') ? 3 : field === 'spend_cents' ? 1 : 0); else if (o === 'pension') openPension(); else if (o === 'events') onEvents(); else if (o === 'service') reload(); };
+  const owner = (o: PlanningMissing['owner'], field?: string) => {
+    if (field?.includes('_costs')) setCostsOpen(true);
+    else if (o === 'events') onEvents();
+    else if (o === 'service') reload();
+    else openSetup(o === 'funds' || field?.startsWith('basic.start') ? 2 : field?.includes('income') ? 3 : field === 'spend_cents' ? 1 : 0);
+  };
 
   async function saveContribution(value: string | null) {
     const input = contributionSection(saved, value, today); if (!input) return false;
@@ -54,9 +53,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const reference = usual?.kind === 'known' ? `盘点参考区间 ${usual.window_from ?? "起点未记录"} 至 ${usual.latest_date ?? "终点未记录"}：月均净资产变化约 ${money(usual.monthly_cents)}（含估值，共 ${usual.count} 个可比区间${usual.low_sample ? "，样本较少" : ""}）。` : null;
   return <div className="rd-detail">
     {costsOpen && <CostsDialog sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={() => { setCostsOpen(false); requestAnimationFrame(() => document.getElementById('plan-budget-entry')?.focus()); }}/>}
-    {pensionOpen && <PlanningPensionRefinementDialog sources={sources} today={today} reload={reload} onPending={onPending} onSaved={setComparison} onClose={closePension}/>}
     <p><button type="button" className="ui-link" onClick={onBack}>{trial !== null ? '← 返回目标（临时试算不会保存）' : '← 返回目标'}</button></p>
-    {comparison && <PensionComparisonNote comparison={comparison}/>}
     <div className="rd-tabs" role="group" aria-label="切换计算详情页面"><button type="button" aria-pressed={tab === 'overview'} onClick={() => setTab('overview')}><strong>概览</strong><span>查看结果与资金轨迹</span></button><button type="button" aria-pressed={tab === 'lab'} onClick={() => setTab('lab')}><strong>假设分析</strong><span>比较收益、支出变化的影响</span></button></div>
     <p className="muted small" role="note">预测取决于你填写的生活费、收入和收益假设，实际结果可能不同，不保证未来一定够用。</p>
     <div className="rd-grid">
@@ -69,7 +66,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
             {pred ? <RetireOverview calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}
           </>}
       </div>
-      <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} onPension={openPension} contribution={<ContributionCard saved={saved} hist={hist} reference={reference} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={onEditingChange}/>}/>
+      <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} contribution={<ContributionCard saved={saved} hist={hist} reference={reference} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={onEditingChange}/>}/>
     </div>
   </div>;
 }
@@ -106,13 +103,13 @@ function Card({ title, onEdit, children, tip }: { title: string; onEdit?: (el: H
 const Rows = ({ rows }: { rows: [string, ReactNode][] }) => <dl className="rs-rows">{rows.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>;
 
 /** Basic groups only: goal, budget and income, funds, optional contribution, more assumptions. No phases, routes or careers. */
-function BasicSidebar({ saved, caps, openSetup, onPension, contribution }: { saved: Saved; caps: BasicCapabilities | null; openSetup: (step: number, from?: HTMLElement | null) => void; onPension: (from?: HTMLElement | null) => void; contribution: ReactNode }) {
+function BasicSidebar({ saved, caps, openSetup, contribution }: { saved: Saved; caps: BasicCapabilities | null; openSetup: (step: number, from?: HTMLElement | null) => void; contribution: ReactNode }) {
   const p = saved.profile, r = p.retire, b = r.basic!;
-  const funds = caps?.funds, pension = caps?.pension;
+  const funds = caps?.funds;
   const scope = (id: string) => { const c = b.retirement_costs.find(x => x.source_id === id); return c ? treatmentText[c.treatment] : '这笔钱是否已含在生活费里，待确认'; };
   return <div className="rd-side">
     <Card title="目标与预算" onEdit={el => openSetup(0, el)}>
-      <Rows rows={[['计划类型', r.mode === 'fire' ? '财务自由' : '按年龄退休'], ['目标年龄', r.target_age === null ? '未设定' : `${r.target_age} 岁`], ['出生年月', p.birth_month ?? '未填写'], ['退休后每月预算', r.spend_cents === null ? '未填写' : money(r.spend_cents)]]}/>
+      <Rows rows={[['计划类型', r.mode === 'fire' ? '财务自由' : '按月份退休'], ['目标月份', r.simplified.time.target_month ?? '未设定'], ['年龄参考', r.simplified.time.reference ? `${r.simplified.time.reference.month} · ${Math.floor(r.simplified.time.reference.age_months / 12)} 岁` : '未填写（可选）'], ['退休后每月预算', r.spend_cents === null ? '未填写' : money(r.spend_cents)]]}/>
       {(r.spend_items.length > 0 || Number(r.rent_cents) > 0) && <><p className="muted small">已有的支出明细（阶段性支出可在「每月生活费」一步增删）：</p>
         <ul className="rs-list">{r.spend_items.map(i => <li key={i.id}><span>{i.label}<small>{i.essential ? '必需' : '灵活'} · {scope(`spend:${i.id}`)}</small></span><b>{money(i.monthly_cents)}/月</b></li>)}
           {Number(r.rent_cents) > 0 && <li><span>房租<small>{scope('rent')}</small></span><b>{money(r.rent_cents)}/月</b></li>}</ul></>}
@@ -120,14 +117,13 @@ function BasicSidebar({ saved, caps, openSetup, onPension, contribution }: { sav
     <Card title="资金起点" onEdit={el => openSetup(2, el)}>
       {funds?.status === 'ready' ? <Rows rows={[['来源', funds.value.kind === 'simulation' ? '手填金额' : '实际盘点'], ['截至', funds.value.date], ['可以动用', money(funds.value.available_cents)], ['暂不能动用 / 欠款', `${money(funds.value.restricted_cents)} / ${money(funds.value.debt_cents)}`]]}/> : funds ? <ul className="plan-missing-list">{funds.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul> : <p className="muted small">读取中…</p>}
     </Card>
-    <Card title="退休收入" onEdit={el => openSetup(3, el)} tip="未选择、本次不计、手填、职工养老金估算含义不同；本次不计不会删除原有收入资料。">
-      <p>{b.retirement_income.mode === null ? '还没选择（选好后才能算需求）' : incomeModeText[b.retirement_income.mode]}</p>
-      {b.retirement_income.selected.length > 0 && <ul className="rs-list">{b.retirement_income.selected.map(s => { const i = r.income_items.find(x => x.id === s.id); return <li key={s.id}><span>{i?.label ?? '已删除的收入'}<small>{s.role === 'state_pension' ? '国家养老金' : '其他收入'}</small></span><b>{i ? `${money(i.monthly_cents)}/月` : '—'}</b></li>; })}</ul>}
-      {b.retirement_income.mode === 'employee' && (pension?.status === 'ready' ? <p className="muted small">{pension.value.included ? `政策养老金 ${pension.value.monthly_cents === null ? '' : forecastMoney(pension.value.monthly_cents) + '/月，'}${pension.value.start_month ? `${pension.value.start_month} 起领` : ''}` : '政策估算未计入'}</p> : pension ? <><ul className="plan-missing-list">{pension.missing.map(m => <li key={m.code + m.field}>{m.message}</li>)}</ul><div className="rs-actions"><button type="button" className="ui-btn" onClick={e => onPension(e.currentTarget)}>填写养老金事实</button><button type="button" className="ui-btn" onClick={() => openSetup(3)}>改为手填或本次不计</button></div></> : null)}
+    <Card title="未来收入" onEdit={el => openSetup(3, el)} tip="官方工具的测算结果或其他手填收入假设；不在本应用计算领取资格。">
+      <p>{incomeModeText[r.simplified.income_mode]}</p>
+      {r.simplified.income_mode === 'manual' && <ul className="rs-list">{r.simplified.future_incomes.filter(i => i.included).map(i => <li key={i.id}><span>{i.name || '未命名收入'}<small>{i.start_month ?? '开始月待填'} → {i.end_month ?? '规划终点'}</small></span><b>{i.monthly_cents === null ? '金额待填' : `${money(i.monthly_cents)}/月`}</b></li>)}</ul>}
     </Card>
     {contribution}
     <Card title="更多假设" onEdit={el => openSetup(5, el)} tip="全部是假设，不是事实。收益按扣除通胀后的实际收益填写。">
-      <Rows rows={[['退休前 / 后实际收益', `${rateText(r.real_return_before_hundredths)} / ${rateText(r.real_return_after_hundredths)}`], ['通胀', rateText(p.assumptions.inflation_hundredths)], ['规划终点', `${r.horizon_age} 岁`], ['应急金', `${r.emergency_months} 个月`]]}/>
+      <Rows rows={[['退休前 / 后实际收益', `${rateText(r.real_return_before_hundredths)} / ${rateText(r.real_return_after_hundredths)}`], ['通胀', rateText(p.assumptions.inflation_hundredths)], ['规划终点', r.simplified.time.horizon_month ?? '未设定'], ['应急金', `${r.emergency_months} 个月`]]}/>
     </Card>
 
   </div>;

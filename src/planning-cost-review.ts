@@ -4,8 +4,8 @@ import { contributionSources, retirementSources } from './planning-basic-forms.t
 import type { Draft, ScopeDraft } from './planning-basic-forms.ts';
 
 /** Presentation only: the same pending rows shown by the existing costs editor. */
-export function costReviewRows(d: Draft, retire: RetireInputs, annualPension: string | null) {
-  const pre = contributionSources(retire, annualPension), post = retirementSources(retire, annualPension);
+export function costReviewRows(d: Draft, retire: RetireInputs) {
+  const pre = contributionSources(retire), post = retirementSources(retire);
   const valid = (id: string, v: ScopeDraft | undefined, before: boolean) => !!v?.treatment && !(v.treatment === 'excluded' && mustStayInLedger(id)) && !(v.treatment === 'included' && (v.ref === '' || (before && id.startsWith('event:') && !retire.core?.occurrences.some(o => o.status === 'occurred' && id.startsWith(`event:${o.event_id}:`)))));
   const active = (id: string) => !id.startsWith('event:') || retire.life_events.some(e => id.startsWith(`event:${e.id}:`) && !retire.core?.occurrences.some(o => o.event_id === e.id && o.status === 'cancelled') && (e.included || retire.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')));
   const included = post.filter(s => active(s.id) && d.retScopes[s.id]?.treatment === 'included').reduce((sum, s) => sum + Number(d.retScopes[s.id].ref), 0);

@@ -86,3 +86,50 @@ test('legacy mixed planning receipt verifies only original metadata, retains pay
   }
  } finally {if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;if(oldStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=oldStorage;}
 });
+
+
+test('legacy whole-profile unresolved receipt survives switching datasets', async () => {
+ const {resolvePending,pendingKey,Unresolved}=await import('../src/wealth.ts');
+ const oldWindow=globalThis.window,oldStorage=globalThis.localStorage;
+ const pending={command:'plan_profile_save',input:{request_id:'legacy',generation:'original'},label:'旧规划'};
+ const raw=JSON.stringify(pending),stored=new Map([[pendingKey,raw]]);
+ try {
+  globalThis.localStorage={getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)};
+  globalThis.window={__TAURI_INTERNALS__:{invoke:async()=>{throw {code:'STALE_DATASET'};}}};
+  await assert.rejects(resolvePending(pending),Unresolved);
+  assert.equal(stored.get(pendingKey),raw);
+ } finally {if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;if(oldStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=oldStorage;}
+});
+
+
+test('global planning receipt resolution retains the original until the current profile is readable in the same library', async () => {
+ const {resolvePending,pendingKey}=await import('../src/wealth.ts');
+ const {simplifiedSources}=await import('./helpers/simplified-planning-fixtures.mjs');
+ const oldWindow=globalThis.window,oldStorage=globalThis.localStorage;
+ try {
+  for(const command of ['plan_profile_save','plan_profile_update']) {
+   const pending={command,input:{request_id:'original',generation:'fictional-simplified'},label:'原规划提交'};
+   const raw=JSON.stringify(pending),stored=new Map([[pendingKey,raw]]),calls=[];
+   const state=simplifiedSources().profile.value;
+   let read=async()=>{throw Error('profile read failed');},receipt='profile';
+   globalThis.localStorage={getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)};
+   globalThis.window={__TAURI_INTERNALS__:{invoke:async(cmd,args)=>{
+    calls.push({cmd,args});
+    if(cmd==='wealth_request_result')return receipt;
+    if(cmd==='plan_profile')return read();
+    throw Error('must not replay a planning write');
+   }}};
+   await assert.rejects(resolvePending(pending),/profile read failed/);
+   assert.equal(stored.get(pendingKey),raw);
+   read=async()=>({...state,generation:'different-library'});
+   await assert.rejects(resolvePending(pending),/无法核对/);assert.equal(stored.get(pendingKey),raw);
+   read=async()=>({...state,saved:null});
+   await assert.rejects(resolvePending(pending),/无法核对/);assert.equal(stored.get(pendingKey),raw);
+   read=async()=>state;receipt='unrelated-object';
+   await assert.rejects(resolvePending(pending),/不匹配/);assert.equal(stored.get(pendingKey),raw);
+   receipt='profile';assert.equal(await resolvePending(pending),'saved');assert.equal(stored.has(pendingKey),false);
+   assert.ok(calls.every(x=>['wealth_request_result','plan_profile'].includes(x.cmd)));
+   assert.ok(calls.filter(x=>x.cmd==='wealth_request_result').every(x=>x.args.request==='original'&&x.args.generation==='fictional-simplified'));
+  }
+ } finally {if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;if(oldStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=oldStorage;}
+});

@@ -613,3 +613,47 @@ fn damaged_current_profile_is_not_misrepresented_as_a_legacy_reset() {
         p.to_string()
     );
 }
+
+#[test]
+fn cancelled_event_references_do_not_block_migration_restore_or_current_save() {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("source");
+    let (s, pp) = seed(&root);
+    let mut old = old_profile(&s, &pp, json!("employee"));
+    let event = old["retire"]["life_events"][0]["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    old["retire"]["life_events"][0]["included"] = json!(true);
+    old["retire"]["spend_cents"] = json!("100");
+    old["retire"]["basic"]["retirement_costs"] = json!([{"source_id":format!("event:{event}:holding"),"treatment":"included","reference_cents":"1000"}]);
+    old["retire"]["core"]["occurrences"] = json!([{"id":uid(),"event_id":event,"status":"cancelled","actual_date":TODAY,"payments_complete":true,"payments":[],"loan":null}]);
+    let stage = d.path().join("old");
+    snapshot_db(&s, &stage, &old, 35);
+    let files = dataset(&root).join("files");
+    let path = d.path().join("cancelled.thingary");
+    archive(&stage, &files, &path, 35);
+    let c = Connection::open(stage.join("data.sqlite")).unwrap();
+    migrate_to(&c, 36, &|_| Ok(())).unwrap();
+    let raw: String = c
+        .query_row("SELECT payload FROM plan_profile", [], |r| r.get(0))
+        .unwrap();
+    let migrated: Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(
+        migrated["retire"]["core"]["occurrences"],
+        old["retire"]["core"]["occurrences"]
+    );
+    let mut restored = Store::open(&d.path().join("restore")).unwrap();
+    let info = restored.inspect_backup(&path).unwrap();
+    restored
+        .restore(&path, &info.hash, &restored.generation())
+        .unwrap();
+    let current = restored.plan_profile().unwrap().saved.unwrap();
+    let update = crate::plan_basic::Update {
+        request_id: uid(),
+        generation: restored.generation(),
+        expected_revision: Some(current.revision),
+        section: crate::plan_basic::Section::Simplified(current.profile.retire.simplified),
+    };
+    restored.plan_profile_update(&update, TODAY).unwrap();
+}

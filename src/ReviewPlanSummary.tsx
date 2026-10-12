@@ -26,7 +26,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
     { label: '收入与复盘 →', run: () => onGotoPlanning('savings') },
   ] : retire.kind === 'blocked' ? (
     retire.step === 'snapshot' ? [{ label: '查看账户与盘点 →', run: () => onNavigate('wealth') }] :
-    retire.step === 'profile' ? [{ label: '填写个人资料 →', run: () => onGotoPlanning('pension', 'profile') }] :
+    retire.step === 'profile' ? [{ label: '填写个人资料 →', run: () => onGotoPlanning('goals', 'profile') }] :
     retire.step === 'budget' ? [{ label: '补充退休预算 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '收入与复盘 →', run: () => onGotoPlanning('savings') }] :
     retire.step === 'saving' ? [{ label: '估一估每月能存多少 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '收入与复盘 →', run: () => onGotoPlanning('savings') }] :
     [{ label: '查看目标 →', run: () => onGotoPlanning('goals') }]
@@ -75,11 +75,11 @@ function BasicSummaryBody({ sources, retire, onGotoPlanning }: { sources: PlanSo
   if (!caps) return <p className="review-plan-main muted" role="status">{retire.kind === 'error' ? `规划结果读取失败：${retire.message}` : '正在读取规划…'}</p>;
   const pred = caps.prediction.status === 'ready' ? caps.prediction.value : null;
   return <>
-    <p className="review-plan-main">{retire.kind === 'ready' ? retire.headline.main : r?.target_age == null ? '目标年龄还没有设定' : `目标 ${r.target_age} 岁${r.mode === 'fire' ? ' 财务自由' : ' 退休'}`}</p>
+    <p className="review-plan-main">{retire.kind === 'ready' ? retire.headline.main : r?.simplified.time.target_month == null ? '目标月份还没有设定' : `目标 ${r.simplified.time.target_month}${r.mode === 'fire' ? ' 财务自由' : ' 退休'}`}</p>
     {retire.kind === 'ready' && retire.headline.sub && <p className="review-plan-sub">{retire.headline.sub}</p>}
     {caps.requirement.status === 'ready' ? <RequirementLine value={caps.requirement.value} annotations={caps.annotations}/> : <p className="review-plan-sub">需求还算不出：{caps.requirement.missing[0]?.message}</p>}
     {pred ? <p className="review-plan-sub">按你估计每月能存下的钱：{terminalText[pred.terminal]}。</p>
       : needsContribution(caps) ? <p className="review-plan-sub">还没估计每月能存多少钱，先看目标需要的钱即可。</p> : null}
-    <div className="review-plan-actions"><button className="review-action" onClick={() => onGotoPlanning('goals')}>查看目标 →</button>{caps.requirement.status === 'blocked' && <button className="review-action" onClick={() => onGotoPlanning(caps.requirement.status === 'blocked' && caps.requirement.missing.some(m => m.owner === 'pension') ? 'pension' : 'goals', caps.requirement.status === 'blocked' && caps.requirement.missing.some(m => m.owner === 'pension') ? 'profile' : 'budget')}>补充条件 →</button>}</div>
+    <div className="review-plan-actions"><button className="review-action" onClick={() => onGotoPlanning('goals')}>查看目标 →</button>{caps.requirement.status === 'blocked' && <button className="review-action" onClick={() => onGotoPlanning('goals', 'budget')}>补充条件 →</button>}</div>
   </>;
 }

@@ -5,7 +5,7 @@ import { buildBasicCapabilities, prepareBasicPlan } from '../src/plan-basic.ts';
 import { draftOf } from '../src/planning-basic-forms.ts';
 import { eventParts, offsetOf } from '../src/plan-events.ts';
 import { toEvent, buildRetireCalc } from '../src/plan-retire-calc.ts';
-import { table, oneOffsOf, startPaymentsOf, project, debtSeries, nominalFactor, savingsOf } from '../src/plan-ledger.ts';
+import { table, oneOffsOf, startPaymentsOf, project, debtSeries, nominalFactor } from '../src/plan-ledger.ts';
 import { annotationSummary } from '../src/plan-annotations.ts';
 import { canRetractOccurrence, retractOccurrence } from '../src/plan-occurrence-actions.ts';
 import { summaryRetire } from '../src/plan-summary.ts';
@@ -45,7 +45,7 @@ test('raw same-batch demo is ready; removing Q3 declarations preserves the hard 
   assert.ok(c.requirement.missing.some(m => m.code === 'FUNDS_UNCONFIRMED'));
   const s = fixture(), v = calc(s);
   assert.equal(car(s).date, '2028-04');
-  assert.equal(profile(s).personal_pension_annual_cents, '1200000');
+  assert.equal(profile(s).personal_pension_annual_cents, undefined);
   assert.equal(v.funds.value.available_cents, '10000000');
   assert.equal(v.funds.value.debt_cents, '500000');
   assert.equal(v.funds.value.restricted_cents, '25500000');
@@ -59,13 +59,13 @@ test('complete future unoccurred car retains April 2028 schedule, payment/loan/h
   assert.ok(p.loans[0].principal_cents > 14000000);
   assert.equal(p.loans[0].months, 36);
   assert.equal(p.saving_flows.filter(f => f.source_id.endsWith(':holding')).length, 1);
-  assert.equal(p.spends.length, 5);
+  assert.deepEqual(p.spends.map(x=>x.offset_months), [18,114,210,306,402,498,594], 'eight-year replacements through the explicit October 2076 horizon');
   assert.equal(oneOffsOf(c.prediction.value.plan)[18], 7000000);
 });
 
 test('accidental blank occurred row pauses unknown payments/loan/holding without fabricated zeros', () => {
   const s = fixture(), o = occurred(s), c = calc(s), p = parts(s, c);
-  assert.deepEqual(codes(c), ['DEBT_UNLINKED', 'LOAN_PENDING', 'MEDICAL_FACTS_UNKNOWN', 'PAYMENT_PENDING', 'POOL_NOT_USED']);
+  assert.deepEqual(codes(c), ['DEBT_UNLINKED', 'LOAN_PENDING', 'PAYMENT_PENDING']);
   assert.deepEqual(p.spends, []); assert.deepEqual(p.loans, []);
   assert.deepEqual(p.saving_flows, []); assert.deepEqual(p.spend_flows, []);
   assert.equal(p.principal_cents, null); assert.equal(p.payment_cents, null); assert.equal(p.loan_months, null);
@@ -78,24 +78,10 @@ test('accidental blank occurred row pauses unknown payments/loan/holding without
   assert.ok(summary.length <= 3);
 });
 
-for (const mode of ['excluded', 'manual']) test(`annual 12000 with ${mode} does not demand unrelated pension balances`, () => {
-  const s = fixture(); profile(s).retire.basic.retirement_income.mode = mode;
-  if (mode === 'manual') {
-    profile(s).retire.income_items = [{ id: 'fictional-income', label: '手填退休收入', monthly_cents: '100000', start_age: 60, end_age: null, indexed: true }];
-    profile(s).retire.basic.retirement_income.selected = [{ id: 'fictional-income', source_id: 'fictional-income', role: 'other' }];
-  }
-  const c = calc(s);
-  assert.equal(c.pension.status, 'ready'); assert.equal(c.pension.value.monthly_cents, null);
-  assert.equal(c.prediction.value.plan.pension_at(720).lump_cents, 0);
-  assert.equal(profile(s).retire.core.personal_pension_balance_confirmed, false);
-  assert.equal(c.prediction.value.plan.saving_flows.some(f => f.source_id === 'personal_pension'), false, 'historic annual amount alone is not a future cash instruction');
-  assert.equal(c.prediction.value.plan.incomes.length, mode === 'manual' ? 1 : 0);
-});
-
 test('extra-cost assumption is calculated once, never saved; confirmation removes its annotation', () => {
   const s = fixture(), c = calc(s), P = c.prediction.value.plan, x = parts(s, c);
   assert.equal(c.annotations.filter(a => a.reason_code === 'COST_ASSUMED_EXTRA').length, 4);
-  assert.ok(c.annotations.filter(a => a.reason_code === 'COST_ASSUMED_EXTRA').every(a => a.message.includes('暂按额外费用计入，可能重复包含')));
+  assert.ok(c.annotations.filter(a => a.reason_code === 'COST_ASSUMED_EXTRA').every(a => a.message.includes('暂按额外计入')));
   const expected = x.payment_cents / nominalFactor(P, P.now_months + 18) + 100000;
   near(startPaymentsOf(P)[18], expected);
   near(table(P).spend[18] - 750000, expected);
@@ -154,30 +140,8 @@ test('known existing loan continues only future amortization, never deducts prin
   near(audit[0].start_cents - audit[0].after_payments_cents, startPaymentsOf(P)[0]);
 });
 
-test('explicit pension cash deposits charged once with no receipt/unlock when pool unused', () => {
-  const s = fixture(); profile(s).retire.basic.pension_contributions = { start_month:'2026-11', stop_month:'2027-02', base_cents:null };
-  const c=calc(s), P=c.prediction.value.plan;
-  const flows=P.saving_flows.filter(f=>f.source_id==='personal_pension');
-  assert.equal(flows.length,1);assert.equal(flows[0].cents,-100000);
-  const P0={...P,saving_flows:P.saving_flows.filter(f=>f.source_id!=='personal_pension')};
-  for(const i of [1,2,3]) near(savingsOf(P0)[i]-savingsOf(P)[i],100000/nominalFactor(P,P.now_months+i));
-  near(savingsOf(P0)[4]-savingsOf(P)[4],0);
-  assert.equal(startPaymentsOf(P)[1],startPaymentsOf(P0)[1],'month-end transfer must not be charged a second time at month start');
-  assert.equal(P.pension_at(720).lump_cents,0);
-});
-
-test('chosen Beijing missing facts hard-blocks; explicit excluded switch permits annotated calculation', () => {
-  const s=fixture();profile(s).retire.basic.retirement_income.mode='employee';profile(s).worker=null;
-  const c=buildBasicCapabilities(s);assert.equal(c.requirement.status,'blocked');
-  assert.ok(c.requirement.missing.some(m=>m.code==='PENSION_FACTS_UNKNOWN' && m.message.includes('也可以改选“先不算”先看结果')));
-  assert.ok(c.requirement.missing.some(m=>m.code==='POOL_UNCONFIRMED'));
-  profile(s).retire.basic.retirement_income.mode='excluded'; calc(s);
-  const explicit=prepareBasicPlan(s,undefined,[],'complete',{includePools:true});
-  assert.equal(explicit.plan.status,'blocked','explicit pool reference must demand facts');
-});
-
 test('same-source conflicting inputs remain hard blockers and never enter the numerical ledger', () => {
-  for(const mutate of [s=>profile(s).retire.spend_cents='-1',s=>car(s).down_cents='30000000',s=>profile(s).birth_month='1990-99',s=>profile(s).retire.target_age=90,s=>{const o=occurred(s);o.actual_date='2026-11-01';}]) {
+  for(const mutate of [s=>profile(s).retire.spend_cents='-1',s=>car(s).down_cents='30000000',s=>profile(s).retire.simplified.time.target_month='2040-99',s=>profile(s).retire.simplified.time.horizon_month=profile(s).retire.simplified.time.target_month,s=>{const o=occurred(s);o.actual_date='2026-11-01';}]) {
     const s=fixture();mutate(s);const c=buildBasicCapabilities(s);assert.equal(c.requirement.status,'blocked');assert.ok(c.requirement.missing.some(m=>m.code==='INPUT_INVALID'));
   }
 });
@@ -205,14 +169,8 @@ test('goals/detail capabilities, overview summary, wish impacts, and compiler re
   const prep=prepareBasicPlan(s);assert.equal(prep.plan.status,'ready');assert.deepEqual(prep.plan.value.compile(100000,300,200).annotations,c.annotations);
 });
 
-test('partial explicit future pension transfer is omitted with its own low-side annotation; historic annual alone is not a cash instruction', () => {
-  const s=fixture();profile(s).retire.basic.pension_contributions.start_month='2026-11';const c=calc(s);
-  assert.ok(c.annotations.some(a=>a.reason_code==='TRANSFER_PENDING' && a.effect==='requirement_lower'));
-  assert.equal(c.prediction.value.plan.saving_flows.some(f=>f.source_id==='personal_pension'),false);
-});
-
 test('hard Q1-Q4 inputs and required read failures differ from optional history and forecast amount', () => {
-  const cases=[s=>profile(s).birth_month=null,s=>profile(s).retire.target_age=null,s=>profile(s).retire.spend_cents=null,s=>profile(s).retire.basic.retirement_income.mode=null,s=>s.snapshot={status:'error',value:{code:'UNAVAILABLE',message:'虚构读取失败'}}];
+  const cases=[s=>profile(s).retire.simplified.time.horizon_month=null,s=>profile(s).retire.simplified.time.target_month=null,s=>profile(s).retire.spend_cents=null,s=>profile(s).retire.simplified.income_mode='unconfirmed',s=>s.snapshot={status:'error',value:{code:'UNAVAILABLE',message:'虚构读取失败'}}];
   for(const mutate of cases){const s=fixture();mutate(s);assert.equal(buildBasicCapabilities(s).requirement.status,'blocked');}
   const s=fixture();profile(s).retire.basic.contribution.monthly_cents=null;const c=buildBasicCapabilities(s);
   assert.equal(c.requirement.status,'ready');assert.equal(c.prediction.status,'blocked');

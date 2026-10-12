@@ -1,8 +1,7 @@
+import * as incomeView from '../src/planning-simplified-ui/income-view.ts';
+import * as simplified from '../src/plan-simplified.ts';
 import { posix } from 'node:path';
 import * as goalInputs from '../src/planning-goal/inputs.ts';
-import * as medicalView from '../src/planning-goal/medical-view.ts';
-import * as timeline from '../src/planning-goal/contribution-timeline.ts';
-import * as contributionCost from '../src/planning-contribution-cost.ts';
 import * as forecast from '../src/plan-format.ts';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -14,7 +13,6 @@ import * as defaults from '../src/planning-basic-defaults.ts';
 import * as debt from '../src/plan-debt.ts';
 import * as overlay from '../src/planning-draft.ts';
 import * as validation from '../src/plan-basic-validation.ts';
-import * as pension from '../src/planning-pension-refinement.ts';
 import * as forms from '../src/planning-basic-forms.ts';
 import * as basic from '../src/plan-basic.ts';
 import * as core from '../src/plan-core.ts';
@@ -22,9 +20,6 @@ import * as coverage from '../src/plan-coverage.ts';
 import * as costReview from '../src/planning-cost-review.ts';
 import * as view from '../src/planning-basic-view.ts';
 import * as planExports from '../src/plan.ts';
-import * as params from '../src/plan-params.ts';
-import * as medical from '../src/plan-medical.ts';
-import * as planPension from '../src/plan-pension.ts';
 import * as planSummary from '../src/plan-summary.ts';
 import { unknownCapabilityFixture } from '../src/plan-basic-fixtures.ts';
 const ts = createRequire(import.meta.url)('typescript');
@@ -61,11 +56,11 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     try { return await save(input); } catch (e) { saver.notice = e.message; return null; }
   } };
   const leaf = new Proxy({}, { get: (_, key) => String(key) });
-  const modules = {
-    './plan-format': forecast, './planning-goal/inputs': goalInputs, './planning-goal/medical-view': medicalView, './planning-goal/contribution-timeline': timeline, './planning-contribution-cost': contributionCost,
+  const modules = { './planning-simplified-ui/income-view': incomeView, './plan-simplified': simplified,
+    './plan-format': forecast, './planning-goal/inputs': goalInputs,
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     './planning-basic-forms': forms, './plan-basic': basic, './plan-core': core, './plan-coverage': coverage, './planning-cost-review': costReview, './plan-debt': debt, './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },
-    './planning-draft': overlay, './plan-basic-validation': validation, './planning-pension-refinement': pension, './plan': planExports, './plan-params': params, './plan-medical': medical, './plan-pension': planPension, './plan-summary': planSummary,
+    './planning-draft': overlay, './plan-basic-validation': validation, './plan': planExports, './plan-summary': planSummary,
     './RetireOverview': { RetireOverview: () => null, useValueMode: () => [null, () => {}] },
     './planning-first-run': props.goalStateOverride ? { ...flow, goalState: () => props.goalStateOverride } : flow, './planning-basic-defaults': defaults,
     './planning-basic-data': { useSectionSaver: () => saver, useCapabilities: () => ({ status: 'ready', caps: typeof caps === 'function' ? caps() : caps }) },
@@ -76,15 +71,15 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
   function load(file) {
     const m = { exports: {} };
     const js = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-    vm.runInNewContext(js, { module: m, exports: m.exports, require: id => modules[id.startsWith('.') ? './' + posix.normalize(posix.join(posix.dirname(file), id)) : id] ?? leaf, structuredClone, crypto: globalThis.crypto, console, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn() });
+    vm.runInNewContext(js, { module: m, exports: m.exports, require: id => modules[(id.startsWith('.') ? './' + posix.normalize(posix.join(posix.dirname(file), id)) : id).replace(/\.ts$/, '')] ?? leaf, structuredClone, crypto: globalThis.crypto, console, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn() });
     modules[`./${file}`] = m.exports;
   }
-  for (const file of options.components ?? ['planning-goal/Overview', 'PlanningConfirmation', 'PlanningFunds', 'PlanningCosts', 'PlanningDebtDialog', 'PlanningOccurrenceDialog', 'PlanningRetirementIncome', 'PlanningSpendItems', 'PlanningPensionContributions', 'PlanningProfileFields', 'PlanningMedical', 'PlanningPensionRefinement', 'PlanningRefinements']) load(file);
+  for (const file of options.components ?? ['planning-goal/Overview', 'PlanningConfirmation', 'PlanningFunds', 'PlanningCosts', 'PlanningDebtDialog', 'PlanningOccurrenceDialog', 'PlanningSpendItems', 'planning-simplified-ui/FutureIncomeFields', 'planning-simplified-ui/FutureIncomeSection', 'planning-simplified-ui/TimeFields', 'PlanningRetirementIncome', 'PlanningRefinements']) load(file);
   const module = { exports: {} };
   const script = ts.transpileModule(readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8'), {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
-  vm.runInNewContext(script, { module, exports: module.exports, require: id => modules[id.startsWith('.') ? './' + posix.normalize(posix.join(posix.dirname(file), id)) : id] ?? leaf, crypto: globalThis.crypto, structuredClone, Error, console, document: { activeElement: null, getElementById: id => ({ isConnected: true, focus: () => focuses.push(id) }), ...options.document }, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn() });
+  vm.runInNewContext(script, { module, exports: module.exports, require: id => modules[(id.startsWith('.') ? './' + posix.normalize(posix.join(posix.dirname(file), id)) : id).replace(/\.ts$/, '')] ?? leaf, crypto: globalThis.crypto, structuredClone, Error, console, document: { activeElement: null, getElementById: id => ({ isConnected: true, focus: () => focuses.push(id) }), ...options.document }, HTMLDetailsElement: class {}, cancelAnimationFrame() {}, requestAnimationFrame: fn=>fn() });
   const component = module.exports[file === 'planning-goal/Editor' ? 'GoalEditor' : file === 'planning-goal/Overview' ? 'GoalOverview' : file === 'planning-goal/MoneyInput' ? 'GoalMoneyInput' : file === 'PlanningPensionRefinement' ? 'PlanningPensionRefinementDialog' : file === 'PlanningFunds' ? 'FundsDialog' : file === 'PlanningCosts' ? 'CostsDialog' : file === 'CoverageNote' ? 'CoverageNote' : file === 'PlanningDebtDialog' ? 'PlanningDebtDialog' : file === 'PlanningSetup' ? 'PlanningSetupDialog' : file === 'PlanningOccurrenceDialog' ? 'PlanningOccurrenceDialog' : file];
   const finalProps = { today: props.today ?? props.sources?.today, snapshot: null, accounts: [], reload() {}, onPending() {}, onPension() {}, onEditingChange() {}, onFocusDone() {}, onClose: v => closes.push(v), ...props };
   let tree;

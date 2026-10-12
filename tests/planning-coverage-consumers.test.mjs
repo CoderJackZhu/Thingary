@@ -16,13 +16,13 @@ vm.runInNewContext(code,{exports,require:id=>({'react':React,'react/jsx-runtime'
 const render=(annotations,compact=false)=>renderToStaticMarkup(React.createElement(exports.CoverageNote,{annotations,compact}));
 const batch=JSON.parse(readFileSync(new URL('./fixtures/planning-basic/nonblocking-demo.json',import.meta.url)));
 
-test('demo ready result renders adjacent explicit assumptions; unused pool only in expanded basis',()=>{
+test('demo ready result renders adjacent general cash-flow assumptions',()=>{
  const c=buildBasicCapabilities(batch);assert.equal(c.requirement.status,'ready');
- const html=render(c.annotations);assert.match(html,/暂按额外费用计入，可能重复包含/);assert.match(html,/本次未采用/);
+ const html=render(c.annotations);assert.match(html,/暂按额外费用计入，可能重复包含/);assert.doesNotMatch(html,/医保|养老金估算/);
  assert.ok(annotationSummary(c.annotations).length<=3);
  assert.ok(annotationSummary(c.annotations).every(x=>!x.includes('本次未采用')));
  assert.match(render(c.annotations,true),/带待核对假设，详见目标页/);
- assert.equal(render(c.annotations.filter(x=>x.reason_code==='POOL_NOT_USED'),true),'');
+ assert.equal(render([],true),'');
 });
 test('many mixed sources yield at most one summary per direction, source counts are deduplicated',()=>{
  const base=buildBasicCapabilities(batch).annotations.find(a=>a.reason_code==='DEBT_UNLINKED');
@@ -45,4 +45,4 @@ for(const consumer of planningConsumers)test(`coverage guard: ${consumer.file} �
  assert.ok(tags.includes(consumer.guard)||fn.body.getText(source).includes('详见目标页'),`naked numerical render path: ${consumer.render}`);
  if(consumer.guard==='RequirementLine')assert.match(fn.body.getText(source),/annotations=\{caps.annotations\}/);
 });
-test('independent policy, frozen report, temporary runway keep explicit model boundaries',()=>assert.equal(independentPlanningConsumers.length,3));
+test('independent consumers retain explicit model boundaries',()=>{assert.ok(independentPlanningConsumers.some(x=>x.includes('PlanningRunway')));assert.ok(independentPlanningConsumers.some(x=>x.includes('planning-report')));});

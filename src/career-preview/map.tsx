@@ -3,11 +3,8 @@ import { CoverageNote } from '../CoverageNote';
 import { useMemo, useState } from 'react';
 import { CentInput, FormRow } from '../FormControls.tsx';
 import { MonthInput } from '../DateInput.tsx';
-import { beijing, paramsFor } from '../plan-params.ts';
-import { blankInsuranceSelection, selectedPension } from './insurance.ts';
-import type { InsuranceSelection } from './insurance.ts';
-import { ageMonthsAt, careerSpan, closeMonths, delayTarget, pensionOptions, windowMap } from '../plan-career-map.ts';
-import type { DelayTarget, MaxGap, MinWindow, PensionChoice, Reason } from '../plan-career-map.ts';
+import { ageMonthsAt, careerSpan, closeMonths, delayTarget, windowMap } from '../plan-career-map.ts';
+import type { DelayTarget, MaxGap, MinWindow, Reason } from '../plan-career-map.ts';
 import type { PlanningSources } from '../plan-basic-contract.ts';
 import type { CareerDraft } from '../plan-career-contract.ts';
 import { money } from './result-text.ts';
@@ -57,111 +54,20 @@ export function gapText(x: MaxGap): string {
   return x.message;
 }
 function delayText(x: DelayTarget): string {
-  if (x.status === 'found') return `按这个条件原目标满足不了；逐岁检查中最早在 ${x.age} 岁满足（比原目标晚 ${x.delay_years} 年）`;
+  if (x.status === 'found') return `按这个条件原目标满足不了；逐月检查中最早在 ${x.month} 满足（比原目标晚 ${x.delay_months} 个月）`;
   if (x.status === 'already_met') return '原目标就能满足，不用推迟';
-  if (x.status === 'not_found') return `推迟到 ${x.up_to_age} 岁也满足不了`;
+  if (x.status === 'not_found') return `推迟到 ${x.up_to_month}也满足不了`;
   return x.message;
 }
 
 /** Retirement-age concession for the draft as filled in (needs the post-change savings estimate). */
 export function DelaySection({ sources, draft }: Props) {
   const r = useMemo(() => delayTarget(sources, draft), [sources, draft]);
-  return <><CoverageNote sources={sources} compact/><section className="career-input"><h3>推迟目标后的逐岁对照</h3><p className="career-line">{delayText(r)}</p>
-    <p className="career-footnote">只是和原目标并排看，不会改你的目标。每次检查相隔一年，不是精确到月的最早退休日。缴费仍限于原来确认的起止月份；这里没有延长缴费安排。</p></section></>;
+  return <><CoverageNote sources={sources} compact/><section className="career-input"><h3>推迟目标后的逐月对照</h3><p className="career-line">{delayText(r)}</p>
+    <p className="career-footnote">只是和原目标并排看，不会改你的目标。按明确月份逐月比较，保持其余收入和支出假设不变。</p></section></>;
 }
 
 type Stage = 'gap' | 'recovery';
-type Method = InsuranceSelection['method'];
-type Base = InsuranceSelection['base'];
-type Selection = InsuranceSelection;
-
-function InsuranceComparison({ sources, draft, stage }: { sources: PlanningSources; draft: CareerDraft; stage: Stage }) {
-  const [kind, setKind] = useState('pause'), [cash, setCash] = useState<string | null>(null);
-  const p = profileOf(sources), original = p?.retire.basic?.pension_contributions.base_cents;
-  const params = p ? (paramsFor(p, sources.today) ?? beijing) : beijing;
-  const active = draft[stage];
-  const choices: PensionChoice[] = [
-    { label: '当前填写', pension: active.pension ?? 'pause', cash_cents: active.insurance.monthly_cents, included: active.insurance.included, blocked: active.pension === null ? '请先填完整上面的缴费安排。' : undefined },
-    { label: '对照交法', pension: kind === 'pause' ? 'pause' : kind === 'employer' ? 'unchanged' : { base_cents: kind === 'original' ? original! : params.base_lower_cents, hpf_monthly_cents: '0' }, cash_cents: kind === 'pause' || kind === 'employer' ? '0' : cash, included: active.insurance.included },
-  ];
-  const result = useMemo(() => pensionOptions(sources, draft, stage, choices), [sources, draft, stage, kind, cash]);
-  return <><CoverageNote sources={sources} compact/><div>
-    <p className="career-footnote">这里只比较，不改变上面的填写和主答案。沿用“是否已包含”的选择；已包含时总开销或储蓄保持不变。</p>
-    <FormRow label="对照交法"><select aria-label="对照交法" value={kind} onChange={e => { setKind(e.target.value); setCash(null); }}><option value="pause">停缴养老及公积金</option><option value="floor">自己交，按下限</option>{original && <option value="original">自己交，按原基数</option>}{stage === 'recovery' && <option value="employer">单位缴纳，沿用原安排</option>}</select></FormRow>
-    {(kind === 'floor' || kind === 'original') && <FormRow label="对照交法：每月实际缴费（元）"><CentInput label="对照每月实际缴费" value={cash ?? ''} onChange={v => setCash(v || null)}/></FormRow>}
-    <div className="career-table-wrap"><table className="career-table"><caption>按变化月 {draft.transition_month ?? "待确认"}、固定空窗 {draft.gap_months ?? "未知"} 个月比较；不反求最长空窗。更换主方案请修改上方表单。</caption><thead><tr><th>条件</th><th>这段实际缴费合计</th><th>目标时月养老金</th><th>目标时资产</th></tr></thead><tbody>{result.rows.map(r => <tr key={r.label}><th>{r.label}</th><td>{r.stage_cash_cents === null ? '待填' : money(r.stage_cash_cents)}</td><td>{r.pension ? r.pension.eligible ? money(r.pension.monthly_cents) : `缴费资格还差 ${r.pension.short_months} 个月` : '—'}</td><td>{r.assets_at_goal_cents === null ? r.judgement.issues[0] ?? '本例未计入' : money(r.assets_at_goal_cents)}</td></tr>)}</tbody></table></div>
-  </div></>;
-}
-
-/** One active form, immediately reflected in the shared draft. Other choices are optional comparisons. */
-export function InsuranceSection({ sources, draft, patch }: Props) {
-  const [stage, setStage] = useState<Stage>('gap');
-  const [selection, setSelection] = useState<Record<Stage, Selection>>({ gap: blankInsuranceSelection(), recovery: blankInsuranceSelection() });
-  const [entry, setEntry] = useState<Record<Stage, { cash: string; inc: '' | 'included' | 'extra' }>>({ gap: { cash: '', inc: '' }, recovery: { cash: '', inc: '' } });
-  const form = selection[stage], active = draft[stage], p = profileOf(sources);
-  const params = p ? (paramsFor(p, sources.today) ?? beijing) : beijing;
-  const floor = params.base_lower_cents, original = p?.retire.basic?.pension_contributions.base_cents ?? null;
-  const originalHpf = p?.retire.core?.hpf_monthly_cents ?? null;
-  const customValid = /^\d+$/.test(form.custom) && Number(form.custom) >= Number(floor) && Number(form.custom) <= Number(params.base_upper_cents);
-  const setForm = (next: Selection, resetCash = false) => {
-    setSelection(x => ({ ...x, [stage]: next }));
-    const pension = selectedPension(next, floor, original, originalHpf);
-    if (resetCash) setEntry(x => ({ ...x, [stage]: { cash: '', inc: '' } }));
-    const insurance = resetCash ? { monthly_cents: next.method === 'pause' || next.method === 'employer' ? '0' : null, included: next.method === 'self' ? false : true } : active.insurance;
-    patch({ [stage]: { ...active, pension, insurance } } as Partial<CareerDraft>);
-  };
-  const setEntered = (next: { cash: string; inc: '' | 'included' | 'extra' }) => {
-    setEntry(x => ({ ...x, [stage]: next }));
-    // Not counted until both the bill amount and the included-or-extra reading are confirmed; never defaulted.
-    patch({ [stage]: { ...active, insurance: { monthly_cents: next.cash !== '' && next.inc !== '' ? next.cash : null, included: next.inc === 'included' } } } as Partial<CareerDraft>);
-  };
-  const summary = (s: Stage) => {
-    const x = draft[s], f = selection[s];
-    if (!x.pension || x.insurance.monthly_cents === null) return '待填完整';
-    if (f.method === 'pause') return '停缴，本项支出 0 元';
-    if (f.method === 'employer') return '单位缴纳，个人部分已从工资扣除';
-    return `自己交 ${money(x.insurance.monthly_cents)} / 月，${x.insurance.included ? '已含在开销或储蓄中' : '额外支付'}`;
-  };
-  return <section className="career-input career-insurance" id="career-insurance"><h2>社保怎么交</h2>
-    <p className="career-footnote">交法会计入下方唯一的试算结果。缴费基数用于估算养老金；每月实际缴费用于计算你花出去的钱。</p>
-    <FormRow label="设置哪段时间"><select aria-label="设置哪段时间" value={stage} onChange={e => setStage(e.target.value as Stage)}><option value="gap">不工作的这段时间</option><option value="recovery">恢复工作以后</option></select></FormRow>
-    <FormRow label="这段时间怎么交"><select aria-label="这段时间怎么交" value={form.method} onChange={e => { const method = e.target.value as Method; setForm({ ...blankInsuranceSelection(), method, base: method === 'employer' && original ? 'original' : 'floor', hpf: method === 'employer' ? 'original' : 'none' }, true); }}>
-      <option value="">请选择交法</option><option value="pause">停缴养老及公积金</option><option value="self">自己交（灵活就业）</option>{stage === 'recovery' && <option value="employer">单位缴纳</option>}
-    </select></FormRow>
-    {(form.method === 'self' || form.method === 'employer') && <>
-      <FormRow label="缴费基数" hint="这是计算养老缴费的基数，不是你每个月实际付的钱。"><select aria-label="缴费基数选择" value={form.base} onChange={e => setForm({ ...form, base: e.target.value as Base })}>
-        <option value="floor">按下限 {money(floor)}</option>{original && <option value="original">沿用基础计划基数 {money(original)}</option>}<option value="custom">自定义基数</option>
-      </select></FormRow>
-      {form.base === 'custom' && <FormRow label="自定义缴费基数（元/月）" hint={`本例范围 ${money(floor)}—${money(params.base_upper_cents)}`}><CentInput label="自定义缴费基数" value={form.custom} onChange={v => setForm({ ...form, custom: v })}/>{!customValid && <p className="career-footnote" role="status">请填写范围内的基数，填好后才能计算。</p>}</FormRow>}
-      {form.method === 'self' ? <>
-        <FormRow label="每月实际缴费（元）" hint="按缴费单填写养老、医疗等实际扣款总额；基数不会自动换算成这笔金额。"><CentInput label="每月实际缴费" value={entry[stage].cash} onChange={v => setEntered({ ...entry[stage], cash: v })}/></FormRow>
-        <FormRow label={stage === 'gap' ? '前面的每月总开销包含这笔缴费吗？' : '前面的每月能攒多少，已经扣掉这笔缴费了吗？'} hint="必须选一个：选错会少算或多算一次。"><select aria-label="缴费是否已包含" value={entry[stage].inc} onChange={e => setEntered({ ...entry[stage], inc: e.target.value as '' | 'included' | 'extra' })}><option value="">请选择</option><option value="extra">还没包含，另外扣除</option><option value="included">已经包含，只计算一次</option></select></FormRow>
-        <p className="career-footnote">{active.insurance.monthly_cents === null ? '实际缴费还没填，或还没选“是否已包含”，这一项暂不计算，不会按 0 元算。' : stage === 'gap' && draft.gap.spend_cents !== null ? `前面开销 ${money(draft.gap.spend_cents)} / 月${active.insurance.included ? ` 已含社保 ${money(active.insurance.monthly_cents)}，仍按 ${money(draft.gap.spend_cents)} 计算。` : ` + 社保 ${money(active.insurance.monthly_cents)}，合计 ${money(Number(draft.gap.spend_cents) + Number(active.insurance.monthly_cents))} / 月。`}` : active.insurance.included ? '沿用你填写的月储蓄，不再扣一次社保。' : `从你填写的月储蓄中另扣 ${money(active.insurance.monthly_cents)}。`}</p>
-      </> : <p className="career-footnote">按工资已经扣除个人社保、公积金后的结余填写“每月能攒多少”；这里不再额外扣费。养老基数与公积金分别设置，切换基数不会改变公积金。</p>}
-      <p className="career-footnote">公积金：{form.hpf === 'none' ? '本段不缴存' : form.hpf === 'original' ? originalHpf === null ? '基础计划尚未确认，请展开设置' : `沿用基础计划 ${money(originalHpf)} / 月` : form.hpfCustom === '' ? '自定义金额待填' : `${money(form.hpfCustom)} / 月`}。养老与公积金均只在基础计划已确认的缴费起止月份内生效，不自动延长；公积金入受限账户，解锁前不能支付空窗开销。</p>
-      <details><summary>调整本段公积金</summary>
-        <FormRow label="公积金缴存安排"><select aria-label="公积金缴存安排" value={form.hpf} onChange={e => setForm({ ...form, hpf: e.target.value as Selection['hpf'] })}>
-          <option value="original">沿用基础计划{originalHpf === null ? '（待确认）' : ` ${money(originalHpf)} / 月`}</option><option value="none">本段不缴存</option><option value="custom">填写新的每月缴存额</option>
-        </select></FormRow>
-        {form.hpf === 'custom' && <FormRow label="公积金每月入账合计（元）" hint="个人与单位合计。个人实际支出应已从每月能攒多少中扣除；自己交时也须计入前面的缴费单总额或总开销，避免只增加受限资产却漏掉现金支出。"><CentInput label="公积金每月入账合计" value={form.hpfCustom} onChange={v => setForm({ ...form, hpfCustom: v })}/></FormRow>}
-      </details>
-    </>}
-    {form.method === 'pause' && <p className="career-footnote">本次按养老、公积金停缴且本项支出为 0 元计算；若仍单独交医保，请把医保费用计入前面的总开销。已缴记录保留，未来缴费月数不再增加。</p>}
-    <div className="career-insurance-summary" aria-label="两段缴费摘要">
-      <h3>已填的缴费条件</h3>
-      <ul className="career-footnote"><li>不工作期间：{summary('gap')}</li><li>恢复工作以后：{summary('recovery')}</li></ul>
-      {(draft.recovery.pension === null || draft.recovery.insurance.monthly_cents === null) && stage === 'gap' && <button type="button" onClick={() => setStage('recovery')}>填写恢复工作后的社保</button>}
-      {(draft.gap.pension === null || draft.gap.insurance.monthly_cents === null) && stage === 'recovery' && <button type="button" onClick={() => setStage('gap')}>填写不工作期间的社保</button>}
-      <a href="#career-results">查看试算结果 ↓</a>
-    </div>
-    <details className="career-rules"><summary>已核实的社保规则（2026-10-08 查官方原文）</summary><ul>
-      <li>按月领取基本养老金的最低缴费年限：<strong>从 2030 年 1 月 1 日起由 15 年逐步提高到 20 年，每年提高 6 个月</strong>。<a href="https://www.mot.gov.cn/hudong/xiangguanziliao/202601/t20260114_4197321.html" target="_blank" rel="noreferrer">国务院办法（交通运输部转载）</a></li>
-      <li>北京灵活就业人员的职工医保：<strong>首次参保，缴费之月起 6 个月后才享受待遇；断缴 3 个月内足额补缴视为连续（欠缴期间的医疗费补支），超过 3 个月再交，视为初次参保、重新等 6 个月</strong>。<a href="https://www.beijing.gov.cn/fuwu/bmfw/bmzt/lhjyry/202507/t20250709_4145235.html" target="_blank" rel="noreferrer">首都之窗·北京市医疗保障局，2025-07-09</a></li>
-      <li>领失业保险金的条件包括“失业前用人单位和本人已缴纳失业保险费满一年”和“非因本人意愿中断就业”；<strong>领取期间的职工医保费由失业保险基金缴纳</strong>。<a href="https://rsj.beijing.gov.cn/xxgk/2024zcwj/202412/t20241227_3974931.html" target="_blank" rel="noreferrer">北京市失业保险金申领发放实施办法（试行）</a></li>
-      <li><strong>没有核实到：</strong>灵活就业自己缴的失业保险，能不能按同样条件领失业金——该办法没有专门说明，请向北京市人社部门确认；退休后医保的累计缴费年限要求也没有核实。</li>
-    </ul></details>
-  </section>;
-}
 
 /** Question 1: how long can the user rest. */
 export function RestQuestion({ draft, patch }: Props) {
@@ -192,7 +98,7 @@ export function LowerQuestion({ draft, patch }: Props) {
     <FormRow label="不工作期间，每月到账多少（元）"><CentInput label="不工作期间每月到账" value={draft.gap.income_cents ?? ''} onChange={v => patch({ gap: { ...draft.gap, income_cents: v || null } })}/></FormRow>
     <FormRow label="不工作期间，每月总共花多少（元）"><CentInput label="不工作期间每月花销" value={draft.gap.spend_cents ?? ''} onChange={v => patch({ gap: { ...draft.gap, spend_cents: v || null } })}/></FormRow>
     <FormRow label="之后每月能攒多少（元）"><CentInput label="之后每月能攒多少" signed value={draft.recovery.monthly_cents ?? ''} onChange={v => patch({ recovery: { ...draft.recovery, monthly_cents: v || null } })}/></FormRow>
-    <FormRow label="详细对照采用哪个变化月" hint="最早月份由试算搜索；此处仅用于推迟目标与社保交法的对照。"><MonthInput label="对照变化月" value={draft.transition_month ?? ''} onChange={v => patch({ transition_month: v || null })}/></FormRow>
+    <FormRow label="详细对照采用哪个变化月" hint="最早月份由试算搜索；此处仅用于推迟目标的对照。"><MonthInput label="对照变化月" value={draft.transition_month ?? ''} onChange={v => patch({ transition_month: v || null })}/></FormRow>
   </section>;
 }
 
@@ -216,34 +122,23 @@ export function LowerResult({ sources, draft, patch, answer }: Props & { answer:
   </></>;
 }
 
-export function InsuranceAlternatives({ sources, draft }: Pick<Props, 'sources' | 'draft'>) {
-  const [expanded, setExpanded] = useState(false);
-  const [stage, setStage] = useState<Stage>('gap');
-  return <details onToggle={e => setExpanded(e.currentTarget.open)}><summary>固定空窗长度，比较其他交法（选看）</summary>
-    {expanded && <>
-      <FormRow label="比较哪段时间"><select aria-label="比较哪段时间" value={stage} onChange={e => setStage(e.target.value as Stage)}><option value="gap">不工作期间</option><option value="recovery">恢复工作以后</option></select></FormRow>
-      <InsuranceComparison key={stage} sources={sources} draft={draft} stage={stage}/>
-    </>}
-  </details>;
-}
-
 /** External retirement income path: only actual cash bills matter, no contribution-base questions. */
 export function CashInsuranceSection({ draft, patch }: Pick<Props, 'draft' | 'patch'>) {
   const [stage, setStage] = useState<Stage>('gap');
   const [entry, setEntry] = useState<Record<Stage, { cash: string; inc: '' | 'included' | 'extra' }>>({ gap: { cash: '', inc: '' }, recovery: { cash: '', inc: '' } });
   const set = (next: { cash: string; inc: '' | 'included' | 'extra' }) => {
     setEntry(x => ({ ...x, [stage]: next }));
-    patch({ [stage]: { ...draft[stage], pension: 'unchanged', insurance: { monthly_cents: next.cash !== '' && next.inc !== '' ? next.cash : null, included: next.inc === 'included' } } } as Partial<CareerDraft>);
+    patch({ [stage]: { ...draft[stage], insurance: { monthly_cents: next.cash !== '' && next.inc !== '' ? next.cash : null, included: next.inc === 'included' } } } as Partial<CareerDraft>);
   };
   const active = draft[stage];
-  return <section className="career-input career-insurance" id="career-insurance"><h2>这两段社保实际花多少钱</h2>
-    <p className="career-footnote">本次只计算实际现金支出；手填退休收入不随缴费基数变化。没有自己额外支付的社保就主动填 0，医保等自己支付的费用一起计入。</p>
+  return <section className="career-input career-insurance" id="career-insurance"><h2>另外需要支付的费用</h2>
+    <p className="career-footnote">只记录用户确认的现金费用。没有额外费用时主动填 0；已含在总开销或净储蓄中时不要重复扣除。</p>
     <FormRow label="设置哪段时间"><select aria-label="设置哪段时间" value={stage} onChange={e => setStage(e.target.value as Stage)}><option value="gap">不工作的这段时间</option><option value="recovery">恢复工作以后</option></select></FormRow>
-    <FormRow label="每月自己实际支付的社保（元）" hint="按实际缴费单总额填写；工资已扣个人社保时不用再填一遍。"><CentInput label="每月实际缴费" value={entry[stage].cash} onChange={v => set({ ...entry[stage], cash: v })}/></FormRow>
+    <FormRow label="每月另外支付的费用（元）" hint="按你确认的费用填写；工资已经扣除的金额不用再填一遍。"><CentInput label="每月实际缴费" value={entry[stage].cash} onChange={v => set({ ...entry[stage], cash: v })}/></FormRow>
     <FormRow label={stage === 'gap' ? '前面的总开销已经包含这笔费用吗？' : '每月能攒多少已经扣掉这笔费用了吗？'}><select aria-label="缴费是否已包含" value={entry[stage].inc} onChange={e => set({ ...entry[stage], inc: e.target.value as '' | 'included' | 'extra' })}><option value="">请选择</option><option value="extra">还没包含，另外扣除</option><option value="included">已经包含，只计算一次</option></select></FormRow>
     <p className="career-footnote">{active.insurance.monthly_cents === null ? '还需确认金额与包含关系；未知不会按 0 计算。' : active.insurance.included ? '沿用前面的开销或储蓄，不再扣一次。' : stage === 'gap' ? `在前面的开销之外，每月另付 ${money(active.insurance.monthly_cents)}。` : `从填写的每月储蓄中另扣 ${money(active.insurance.monthly_cents)}。`}</p>
     <ul className="career-footnote" aria-label="两段缴费摘要">{(['gap', 'recovery'] as const).map(s => <li key={s}>{s === 'gap' ? '不工作期间' : '恢复工作以后'}：{draft[s].insurance.monthly_cents === null ? '待填完整' : `${money(draft[s].insurance.monthly_cents)} / 月，${draft[s].insurance.included ? '已含' : '另付'}`}</li>)}</ul>
-    <button type="button" onClick={() => setStage(stage === 'gap' ? 'recovery' : 'gap')}>{stage === 'gap' ? '填写恢复工作后的社保' : '填写不工作期间的社保'}</button>
+    <button type="button" onClick={() => setStage(stage === 'gap' ? 'recovery' : 'gap')}>{stage === 'gap' ? '填写恢复工作后的费用' : '填写不工作期间的费用'}</button>
     <a className="career-result-link" href="#career-results">查看试算结果 ↓</a>
   </section>;
 }

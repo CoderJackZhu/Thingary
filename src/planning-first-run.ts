@@ -1,13 +1,12 @@
-import { medicalCheck } from './plan-medical.ts';
 import type { BasicCapabilities, PlanningMissing, ProfileState, SetupFields, StoredLifeEvent } from './plan.ts';
 import type { Snapshot } from './wealth.ts';
 import { defaultRetire, hundredthsToPct } from './plan.ts';
 import { basicInput, budgetInput, draftOf, fundsInput, budgetItemsChanged } from './planning-basic-forms.ts';
-import type { Draft, IncomeMode } from './planning-basic-forms.ts';
+import type { Draft } from './planning-basic-forms.ts';
 import { costReviewRows } from './planning-cost-review.ts';
 
 type Saved = ProfileState['saved'];
-export const questions = ['你想在几岁退休？', '退休后每月大概花多少钱？', '现在有多少钱可以用来准备？', '退休后有哪些收入要算进去？'] as const;
+export const questions = ['希望什么时候开始用这笔钱？', '退休后每月大概花多少钱？', '现在有多少钱可以用来准备？', '以后还有哪些固定收入？'] as const;
 export type GoalState = '0' | '1' | '2' | '2b';
 
 export type SetupErrorLocation = { step: number; label: string };
@@ -15,10 +14,9 @@ export type SetupErrorLocation = { step: number; label: string };
  * errors can refer to hidden facts or several fields; deliberately leave them unmapped. */
 export function setupErrorLocation(message: string): SetupErrorLocation | null {
   const locations: [number, string, string[]][] = [
-    [0, '出生年月', ['出生年月格式应为 YYYY-MM', '出生年月须早于本月']],
-    [0, '想在几岁退休？', ['目标年龄须是 20 到 109 的整数。', '期望退休年龄须在 20 岁与规划终点之间']],
+    [0, '希望什么时候开始用这笔钱', ['目标月份格式不正确。']],
+    [0, '安排到什么时候', ['规划终点须晚于目标月份。']],
     [1, '退休后每月生活预算', ['退休后月支出须为大于 0 的金额']],
-    [5, '规划到几岁', ['规划终点须是 70 到 110 的整数。', '请填写规划终点。']],
     [5, '退休前实际年收益', ['退休前实际收益请填百分数，例如 2 或 2.5。', '退休前实际收益率须在 -10.00% 到 20.00% 之间']],
     [5, '退休后实际年收益', ['退休后实际收益请填百分数，例如 2 或 2.5。', '退休后实际收益率须在 -10.00% 到 20.00% 之间']],
     [5, '通胀', ['通胀请填百分数，例如 2 或 2.5。']],
@@ -35,13 +33,13 @@ export function moreToolsBadges(saved: Saved): string[] {
   return count ? [`大额计划 ${count} 项`] : [];
 }
 
-/** Saved choices win, including Beijing; having pension facts alone is not a choice. */
-export const defaultIncomeMode = (saved: Saved): IncomeMode => saved?.profile.retire.basic?.retirement_income.mode ?? 'excluded';
+/** Saved choices win, including an explicit unconfirmed state. */
+export const defaultIncomeMode = (saved: Saved) => saved?.profile.retire.simplified.income_mode ?? 'excluded';
 
 export function questionProgress(saved: Saved, caps: BasicCapabilities | null) {
   const p = saved?.profile, r = p?.retire, b = r?.basic;
-  const answered = [!!b && p?.birth_month != null && r?.target_age != null, !!b && r?.spend_cents != null,
-    !!b && (caps?.funds.status === 'ready' || b.start.kind === 'live' && !!caps?.context.start), !!b && b.retirement_income.mode !== null];
+  const answered = [!!b && r?.simplified.time.target_month != null && r?.simplified.time.horizon_month != null, !!b && r?.spend_cents != null,
+    !!b && (caps?.funds.status === 'ready' || b.start.kind === 'live' && !!caps?.context.start), !!b && r?.simplified.income_mode !== 'unconfirmed'];
   const remaining = answered.filter(v => !v).length;
   return { answered, remaining, first: Math.max(0, answered.findIndex(v => !v)) };
 }
@@ -55,41 +53,33 @@ export function goalState(saved: Saved, caps: BasicCapabilities | null): GoalSta
 
 export function setupDraft(saved: Saved, snapshot: Snapshot | null, wealthOn: boolean): Draft {
   const d = draftOf(saved, wealthOn ? snapshot : null);
-  return { ...d, pension: { ...d.pension, flex: saved?.profile.flex_months == null ? '' : d.pension.flex, tax: saved?.profile.marginal_tax_hundredths == null ? '' : d.pension.tax }, incomeMode: defaultIncomeMode(saved), start: !saved?.profile.retire.basic && (!wealthOn || !snapshot) ? 'simulation' : d.start };
+  return { ...d, simplified: { ...d.simplified, income_mode: defaultIncomeMode(saved) }, start: !saved?.profile.retire.basic && (!wealthOn || !snapshot) ? 'simulation' : d.start };
 }
 
-/** Use the existing setup transaction. Hidden pension facts and contribution dates are never rewritten. */
+/** Use the existing setup transaction: all four answers commit atomically. */
 export function setupFields(d: Draft, saved: Saved, today: string, liveAvailable: boolean): SetupFields {
   const r = saved?.profile.retire ?? defaultRetire;
   const input = basicInput(d, saved, today);
   if (input.section !== 'basic') throw new Error('规划设置格式不正确。');
-  if (r.basic) input.fields.basic.pension_contributions = { ...r.basic.pension_contributions };
   return { basic: input.fields, budget: budgetItemsChanged(d, r) ? (budgetInput(d, r) as Extract<ReturnType<typeof budgetInput>, { section: 'budget' }>).fields : null,
-    funds: d.start === 'live' && liveAvailable ? (fundsInput(d, saved, today) as Extract<ReturnType<typeof fundsInput>, { section: 'funds' }>).fields : null, pension: null };
-}
-
-export function retirementMonth(birth: string, age: string): string | null {
-  if (!/^\d{4}-\d{2}(?:-\d{2})?$/.test(birth) || !/^\d+$/.test(age)) return null;
-  const month = Number(birth.slice(5, 7)), years = Number(age);
-  if (month < 1 || month > 12 || years < 20 || years > 109) return null;
-  return `${Number(birth.slice(0, 4)) + years} 年 ${month} 月`;
+    funds: d.start === 'live' && liveAvailable ? (fundsInput(d, saved, today) as Extract<ReturnType<typeof fundsInput>, { section: 'funds' }>).fields : null, simplified: structuredClone(d.simplified) };
 }
 
 export function conditionChips(saved: NonNullable<Saved>, caps: BasicCapabilities, format: (c: string) => string) {
-  const p = saved.profile, r = p.retire, mode = r.basic?.retirement_income.mode;
+  const p = saved.profile, r = p.retire, mode = r.simplified.income_mode;
   return [
-    { text: r.target_age === null ? '退休年龄未填' : `${r.target_age} 岁退休`, step: 0 },
+    { text: r.simplified.time.target_month === null ? '目标月份未填' : `${r.simplified.time.target_month} 开始使用资金`, step: 0 },
     { text: r.spend_cents === null ? '每月生活费未填' : `每月生活费 ${format(r.spend_cents)}`, step: 1 },
     { text: caps.funds.status === 'ready' ? `可用资金 ${format(caps.funds.value.available_cents)}` : '可用资金待确认', step: 2 },
     { text: `收益 ${hundredthsToPct(r.real_return_before_hundredths)}% / ${hundredthsToPct(r.real_return_after_hundredths)}%${r.real_return_before_hundredths === 0 && r.real_return_after_hundredths === 0 ? '（只跑平通胀）' : ''} · 通胀 ${hundredthsToPct(p.assumptions.inflation_hundredths)}%`, step: 5 },
-    { text: mode === 'excluded' ? '暂不计退休收入' : mode === 'employee' ? '已选职工养老金估算' : mode === 'manual' ? '计入所选手填收入' : '退休收入未选择', step: 3, prominent: mode === 'excluded' },
+    { text: mode === 'excluded' ? '暂不计退休收入' : mode === 'manual' ? '计入所选手填收入' : '退休收入未选择', step: 3, prominent: mode === 'excluded' },
   ];
 }
 
-export type Refinement = { id: string; title: string; benefit: string; duration: string; action: 'contribution-cost' | 'pension' | 'costs' | 'event' | 'contribution' | 'setup' | 'reload' | 'events' | 'funds' | 'debts'; event?: StoredLifeEvent; step?: number; required: boolean; impacts?: boolean; condition?: boolean };
+export type Refinement = { id: string; title: string; benefit: string; duration: string; action: 'costs' | 'event' | 'contribution' | 'setup' | 'reload' | 'events' | 'funds' | 'debts'; event?: StoredLifeEvent; step?: number; required: boolean; impacts?: boolean; condition?: boolean };
 function pendingCostsText(saved: NonNullable<Saved>) {
   const r = saved.profile.retire;
-  const { pre, post, pendingRows } = costReviewRows(draftOf(saved, null), r, saved.profile.personal_pension_annual_cents);
+  const { pre, post, pendingRows } = costReviewRows(draftOf(saved, null), r);
   // A fee needing review both before and after retirement is still one named project.
   const pending = new Map(pendingRows.map(s => [s.id, s.label]));
   // Invalid/duplicate saved rows are also reviewed by CostsDialog, then removed by its existing save.
@@ -110,9 +100,6 @@ export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabiliti
   const missing = caps.requirement.status === 'blocked' ? caps.requirement.missing : [];
   const has = (...codes: PlanningMissing['code'][]) => missing.some(m => codes.includes(m.code));
   const cards: Refinement[] = [];
-  const medical = medicalCheck(saved.profile, b, today);
-  if (medical.status === 'unknown' || medical.status === 'short') cards.push({ id: 'medical', title: '核对医保缴费年限', benefit: '查看退休时年限是否足够；补缴金额不清楚可以留空。', duration: '约 2 分钟', action: 'pension', required: false });
-  if (b?.retirement_income.mode !== 'employee' || has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN')) cards.push({ id: 'pension', title: b?.retirement_income.mode === 'employee' ? '核对职工养老金资料' : '算上国家养老金', benefit: b?.retirement_income.mode === 'employee' ? (has('PENSION_FACTS_UNKNOWN') && has('PENSION_CONTRIBUTIONS_UNKNOWN') ? '还缺一些社保资料和未来缴费安排。补齐后，就能把职工养老金估算算进每月要存的钱里。' : has('PENSION_FACTS_UNKNOWN') ? `还缺：${[['参保地', saved.profile.region], ['当地养老金计发基数', saved.profile.region === 'custom' ? saved.profile.overrides.avg_wage_cents : '内置'], ['职工类型', saved.profile.worker], ['累计缴费月数', saved.profile.paid_months], ['个人账户余额', saved.profile.account_balance_cents], ['当前缴费基数', saved.profile.base_cents], ['弹性领取月数', saved.profile.flex_months], ['个人养老金年额', saved.profile.personal_pension_annual_cents], ['个税税率', saved.profile.marginal_tax_hundredths]].filter(([, value]) => value == null).map(([label]) => label).join('、') || '社保资料'}。只补缺项，已有数字保留。` : '确认未来缴费开始、停止月份、缴费基数与公积金月缴存（没有也请填 0）。') : b?.retirement_income.mode === 'manual' ? '当前只计入所选手填收入，国家养老金没有另算；可随时修改计入方式。' : '当前先不算国家养老金；这是你选择的计算条件，可以随时添加职工养老金估算。', duration: b?.retirement_income.mode === 'excluded' ? '你选择了先不算' : b?.retirement_income.mode === 'manual' ? '你选择了手填收入' : b?.retirement_income.mode === 'employee' ? '职工养老金估算待补齐' : '尚未选择计入方式', action: 'pension', condition: b?.retirement_income.mode === 'excluded' || b?.retirement_income.mode === 'manual', required: has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN') });
   if (missing.some(m => ['COST_SCOPE_UNKNOWN', 'COST_SCOPE_INVALID'].includes(m.code) && m.field !== 'retirement_contribution_cost')) cards.push({ id: 'costs', title: '核对有没有重复费用', benefit: pendingCostsText(saved), duration: '约 1 分钟', action: 'costs', required: true });
   if (has('OCCURRENCE_UNCONFIRMED')) {
     const pending = r.life_events.filter(e => {
@@ -124,14 +111,11 @@ export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabiliti
     for (const event of pending) cards.push({ id: `event:${event.id}`, title: '确认已过期的大额计划', benefit: `${event.label} · 预计 ${event.date}。核对是否发生、取消或改期，让计算采用正确的付款安排。`, duration: '每项约 2 分钟', action: 'event', event, required: true });
   }
   if (b?.contribution.monthly_cents == null) cards.push({ id: 'contribution', title: '估一估每月能存多少', benefit: '对比目标需要存的钱和你实际估计能存的钱，不影响先看需求。', duration: '约 1 分钟', action: 'contribution', required: false });
-  if (has('HORIZON_INVALID')) cards.push({ id: 'assumptions', title: '调整规划时间与假设', benefit: '确认退休时间、规划终点和收益，让计算条件可以成立。', duration: '约 1 分钟', action: 'setup', step: 5, required: true });
-  if (has('INCOME_SOURCE_UNKNOWN')) cards.push({ id: 'income', title: '核对退休后的收入', benefit: '重新选择仍有效的收入记录，保持已有资料。', duration: '约 1 分钟', action: 'setup', step: 3, required: true });
-  const pensionBalancePending = has('POOL_UNCONFIRMED', 'FUNDS_UNCONFIRMED') && missing.some(m => m.field.includes('personal_pension'));
-  if (has('POOL_UNCONFIRMED', 'FUNDS_UNCONFIRMED')) cards.push({ id: 'funds', title: pensionBalancePending ? '确认个人养老金余额' : '确认哪些钱可以动用', benefit: pensionBalancePending ? '确认个人养老金账户里已有多少钱（没有也请确认一下）。' : '确认这次盘点里哪些账户可以动用、哪些暂不能动用，以及各账户计入多少比例。', duration: '约 1 分钟', action: has('FUNDS_UNCONFIRMED') ? 'setup' : 'funds', step: 2, required: true });
+  if (has('HORIZON_INVALID', 'TIME_UNCONFIRMED')) cards.push({ id: 'assumptions', title: '调整规划时间与假设', benefit: '确认退休时间、规划终点和收益，让计算条件可以成立。', duration: '约 1 分钟', action: 'setup', step: 0, required: true });
+  if (has('INCOME_UNCONFIRMED')) cards.push({ id: 'income', title: '核对退休后的收入', benefit: '重新选择仍有效的收入记录，保持已有资料。', duration: '约 1 分钟', action: 'setup', step: 3, required: true });
+  if (has('FUNDS_UNCONFIRMED')) cards.push({ id: 'funds', title: '确认哪些钱可以动用', benefit: '确认这次盘点里哪些账户可以动用、哪些暂不能动用，以及各账户计入多少比例。', duration: '约 1 分钟', action: has('FUNDS_UNCONFIRMED') ? 'setup' : 'funds', step: 2, required: true });
   if (has('SOURCE_ERROR', 'SOURCE_STALE')) cards.push({ id: 'reload', title: '重新读取规划资料', benefit: '获取本次计算所需的当前资料，读取失败不会当成零。', duration: '约几秒', action: 'reload', required: true });
-  if (b?.retirement_income.mode === 'employee' && (has('PENSION_FACTS_UNKNOWN', 'PENSION_CONTRIBUTIONS_UNKNOWN') || missing.some(m => m.owner === 'pension' || m.code === 'POOL_UNCONFIRMED'))) cards.push({ id: 'income-switch', title: '改选“先不算”先看结果', benefit: '职工养老金估算还缺必要资料或缴费安排，也可以改选“先不算”先看结果。已有资料会保留。', duration: '约几秒', action: 'pension', required: false });
   const annotations = caps.annotations ?? [];
-  if (missing.some(m => m.field === 'retirement_contribution_cost') || annotations.some(a => a.reason_code === 'PENSION_COST_UNCONFIRMED' && a.actionable !== false)) cards.push({ id: 'contribution-cost', title: '确认退休后续缴费用', benefit: '确认谁承担费用、每月金额、截止月份，以及是否已含在生活费里。', duration: '约 1 分钟', action: 'contribution-cost', required: missing.some(m => m.field === 'retirement_contribution_cost'), impacts: true });
   const costs = annotations.filter(a => a.reason_code === 'COST_ASSUMED_EXTRA' || a.reason_code === 'COST_PERIOD_PENDING');
   if (costs.length && !cards.some(c => c.id === 'costs')) cards.push({ id: 'costs', title: '核对费用包含关系', benefit: `${[...new Set(costs.map(a => a.message.split('的')[0]))].join('、')}：待核对包含关系；暂按额外费用计入，可能重复包含。`, duration: '约 1 分钟', action: 'costs', required: false, impacts: true });
   for (const event of r.life_events) {
@@ -156,7 +140,6 @@ export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabiliti
   }
   if (annotations.some(a => a.reason_code === 'DEBT_BALANCE_CHANGED') && !debtPending.length) cards.push({ id: 'debt-balance', title: '贷款余额变了，复核原安排', benefit: annotations.filter(a => a.reason_code === 'DEBT_BALANCE_CHANGED').map(debtText).join('；'), duration: '约 1 分钟', action: 'debts', required: false });
   if (annotations.some(a => a.reason_code === 'REFERENCE_PENDING')) cards.push({ id: 'references', title: '核对已有付款的来源', benefit: annotations.filter(a => a.reason_code === 'REFERENCE_PENDING').map(a => a.message).join('；'), duration: '约 2 分钟', action: 'events', required: false, impacts: true });
-  if (annotations.some(a => a.reason_code === 'TRANSFER_PENDING')) cards.push({ id: 'transfer', title: '核对未来缴存安排', benefit: `确认个人养老金未来转入的${!b?.pension_contributions.start_month ? '开始月份' : ''}${!b?.pension_contributions.start_month && !b?.pension_contributions.stop_month ? '、' : ''}${!b?.pension_contributions.stop_month ? '停止月份' : ''}；这部分付款暂未计入。`, duration: '约 1 分钟', action: 'pension', required: false, impacts: true });
   if (has('INPUT_INVALID') && !cards.some(c => c.required)) cards.push({ id: 'invalid', title: '更正不成立的输入', benefit: missing.map(m => m.message).join('；'), duration: '约 1 分钟', action: 'setup', step: 5, required: true });
   return cards;
 }

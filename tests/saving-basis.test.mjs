@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import * as plan from '../src/plan.ts';
 import * as defaults from '../src/planning-basic-defaults.ts';
-import { pensionFixture } from '../src/planning-pension-fixture.ts';
+const currentFixture = raw => structuredClone(raw);
 import { runtime } from './planning-component-runtime.mjs';
 
 const ts = createRequire(import.meta.url)('typescript');
@@ -43,7 +43,7 @@ function review(count = 3, over = {}, payOver = {}) {
   return plan.computeReview(points, incomes, new Set(), 'fictional');
 }
 function setup(r) {
-  const sources = pensionFixture(JSON.parse(readFileSync(new URL('./fixtures/planning-basic/debt-loops.json', import.meta.url), 'utf8')));
+  const sources = currentFixture(JSON.parse(readFileSync(new URL('./fixtures/planning-basic/debt-loops.json', import.meta.url), 'utf8')));
   sources.profile.value.saved.profile.retire.spend_cents = null;
   sources.review = { status: 'ready', value: r };
   return runtime('PlanningSetup', { sources, initialStep: 1 });

@@ -129,10 +129,21 @@ export async function submit<T>(pending: Pending): Promise<T> {
 export async function resolvePending(pending: Pending): Promise<'saved' | 'unsaved' | 'stale'> {
   try {
     const id = await invoke<string | null>('wealth_request_result', { request: pending.input.request_id, generation: pending.input.generation });
-    if (id) { clearPending(); return 'saved'; }
+    if (id) {
+      if (pending.command === 'plan_profile_save' || pending.command === 'plan_profile_update') {
+        if (id !== 'profile') throw new Unresolved('规划回执结果不匹配；原请求已保留。');
+        // A receipt confirms a commit, but the current profile may still be
+        // unreadable or belong to a newly selected library. Never replay legacy input.
+        const state = await invoke<import('./plan.ts').ProfileState>('plan_profile');
+        if (state.generation !== pending.input.generation || !state.saved) {
+          throw new Unresolved('已保存但当前规划资料无法核对；原请求已保留。');
+        }
+      }
+      clearPending(); return 'saved';
+    }
     clearPending(); return 'unsaved';
   } catch (e) {
-    if (code(e) === 'STALE_DATASET') { if (pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
+    if (code(e) === 'STALE_DATASET') { if (pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update' || pending.command === 'plan_profile_save') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
     throw e;
   }
 }

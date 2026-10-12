@@ -6,7 +6,7 @@ import { AutoBackup } from './AutoBackup';
 import { pendingKey } from './wealth';
 import { preserveImportReceipt } from './financial-import';
 
-type Summary = { hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; accounts: number; snapshots: number; expenses: number; plans: number; payments: number; virtual_assets: number; import_mappings: number; import_receipts: number; files: number };
+type Summary = { planning_conditions_reset?: boolean; hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; accounts: number; snapshots: number; expenses: number; plans: number; payments: number; virtual_assets: number; import_mappings: number; import_receipts: number; files: number };
 type Inspected = { path: string; name: string; summary: Summary };
 type Note = { line: number; name: string; reason: string };
 type CsvPreview = { path: string; name: string; preview: { hash: string; valid: number; invalid: Note[]; duplicates: Note[]; new_categories: string[]; new_channels: string[] } };
@@ -108,6 +108,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       <p>备份时间 {new Date(candidate.summary.created_at).toLocaleString('zh-CN')} · 格式版本 {candidate.summary.schema}</p>
       <p>物品 {candidate.summary.assets} 件（其中最近删除 {candidate.summary.deleted_assets}）· 心愿 {candidate.summary.wishes} 条 · 维护 {candidate.summary.maintenances} 条 · 保障 {candidate.summary.warranties} 份 · 账户 {candidate.summary.accounts} 个 · 盘点 {candidate.summary.snapshots} 次 · 支出 {candidate.summary.expenses} 笔 · 周期计划 {candidate.summary.plans} 项 · 周期付款 {candidate.summary.payments} 条 · 虚拟资产 {candidate.summary.virtual_assets} 件 · 导入映射 {candidate.summary.import_mappings ?? 0} 条 · 导入回执 {candidate.summary.import_receipts ?? 0} 份 · 原图 {candidate.summary.files} 个</p>
       <p className="muted">检查已通过。当前资料会先保存保护副本，失败时保持原样。{pending > 0 && `本机还有 ${pending} 份属于当前资料的草稿或待核对操作，恢复后旧输入失效；结果未知的金融导入请求仍保留供核对。`}</p>
+      {candidate.summary.planning_conditions_reset && <p className="notice">恢复时会保留物品、账户、盘点及实际发生记录；旧退休政策资料会移除，规划时间和未来收入请重新确认。</p>}
       <div className="actions"><button disabled={busy} onClick={() => setCandidate(null)}>取消</button><button className="primary danger" disabled={busy} onClick={() => void restore()}>确认替换当前资料</button></div>
     </div>}
   </section>;

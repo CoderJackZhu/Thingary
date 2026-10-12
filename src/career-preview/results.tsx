@@ -34,7 +34,7 @@ export function RestResult({ sources, draft, answer }: { sources: PlanningSource
   return <><CoverageNote sources={sources} compact/>
     <h3>保持原退休目标，最长可空窗多久？</h3>
     <p className={answer.status === 'found' ? 'career-number' : 'career-message'}>{draft.recovery.monthly_cents === null ? '请先填写复工后每月能攒多少；若还不知道，可以切换到“每月至少要攒多少”。' : gapText(answer)}</p>
-    <p className="career-footnote">从 {draft.transition_month ?? '待确认月份'} 开始不工作；复工后每月攒 {draft.recovery.monthly_cents === null ? '待确认' : money(draft.recovery.monthly_cents)}，保持 {profile?.retire.target_age ?? '待确认'} 岁退休、检查到 {profile?.retire.horizon_age ?? '待确认'} 岁。两段社保均按上方填写计入。</p>
+    <p className="career-footnote">从 {draft.transition_month ?? '待确认月份'} 开始不工作；复工后每月攒 {draft.recovery.monthly_cents === null ? '待确认' : money(draft.recovery.monthly_cents)}，保持 {profile?.retire.simplified.time.target_month ?? '待确认'} 退休、检查到 {profile?.retire.simplified.time.horizon_month ?? '待确认'}。两段现金费用均按上方填写计入。</p>
     <p>这里同时检查空窗资金与退休目标。单看存款能花多久，可能得到另一个月数；本结果没有承诺你会在这段时间内找到工作。</p>
     {answer.status === 'found' && <details onToggle={e => setExpanded(e.currentTarget.open)}><summary>如果少攒一些或多花一些，会怎样？</summary>{expanded && <Sensitivity sources={sources} draft={draft} baseline={answer}/>}</details>}
   </>;

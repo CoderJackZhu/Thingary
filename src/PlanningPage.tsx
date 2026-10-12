@@ -9,9 +9,7 @@ import { PlanningReviewSummary } from './PlanningReviewSummary';
 import type { ReviewAction } from './review-observations';
 import type { PlanningSources } from './plan';
 import type { Summary } from './wealth';
-import { PlanningPension } from './PlanningPension';
 import { PlanningBasicGoals } from './PlanningBasicGoals';
-import type { PensionComparison } from './planning-pension-refinement';
 import { PlanningSetupDialog } from './PlanningSetup';
 import { usePlanningSources } from './planning-basic-data';
 import { modeOf } from './planning-basic-view';
@@ -33,13 +31,12 @@ import './planning.css';
 
 const dateRange = (i: Interval) => `${i.from} → ${i.to}`;
 
-export type PlanningTab = 'goals' | 'savings' | 'pension';
-export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['savings', '收入与复盘'], ['pension', '养老金']];
+export type PlanningTab = 'goals' | 'savings';
+export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['savings', '收入与复盘']];
 
 export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone, reviewSnapshotId, onReviewFocusDone, onGotoWealth }: { reviewSnapshotId?: string | null; onReviewFocusDone?: () => void; onGotoWealth?: (action: ReviewAction) => void; focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
   const { load, reload } = usePlanningSources(today);
   const [editing, setEditing] = useState<Income | 'new' | null>(null), [setup, setSetup] = useState<{ step: number; editMode: boolean; completionId?: string } | null>(null);
-  const [pensionComparison, setPensionComparison] = useState<PensionComparison | null>(null);
   const [importing, setImporting] = useState(false);
   const [reviewEditing, setReviewEditing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -85,12 +82,11 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
       {tab === 'savings' && <button className="ui-btn" disabled={!incomes || !!pending} onClick={() => setImporting(true)}>导入收入历史…</button>}
-      <Info text={tab === 'goals' ? '按你的条件，算出每月至少要存多少才能在目标年龄退休。都是估算，条件随时可以改。' : tab === 'pension' ? '按你填的社保资料估算养老金和锁定的钱，不是待遇核定结果。' : '资产涨了，不一定都是存下来的钱，也可能是投资涨跌。收入只展示已记录的金额。'}/>
+      <Info text={tab === 'goals' ? '按你的条件，估算为目标月份每月需要准备多少资金。都是估算，条件随时可以改。' : '资产涨了，不一定都是存下来的钱，也可能是投资涨跌。收入只展示已记录的金额。'}/>
     </div></HeaderSlot>
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
       : !sources ? <p role="status" className="muted">正在读取规划…</p>
-      : tab === 'goals' ? <PlanningBasicGoals comparison={pensionComparison} onPensionComparison={setPensionComparison} key={sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone}/>
-      : tab === 'pension' ? <PlanningPension key={sources.write_version} focus={focus === 'profile'} onFocusDone={onFocusDone} today={today} sources={sources} reload={reload} onEditingChange={onEditingChange} onPending={onPending}/>
+      : tab === 'goals' ? <PlanningBasicGoals key={sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone}/>
       : <>
         {mode === 'none' && <article className="ui-card ui-content planning-setup-entry" aria-label="开始规划"><div className="ui-section-head"><div><h3>想知道要攒多少？</h3><p className="muted small">先说目标和预算，几分钟即可，也可以跳过。记录收入不需要先设置。</p></div><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget)}>开始规划</button></div></article>}
         {review ? <><Usual review={review}/>
@@ -100,7 +96,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
           : <article className="ui-card ui-content" role="status"><p>{reviewError}</p>{!sources.modules.wealth ? null : <button onClick={reload}>重新读取</button>}</article>}
         {incomes ? <IncomeTable incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/> : <article className="ui-card ui-content" role="alert"><p>收入记录读取失败。</p><button onClick={reload}>重新读取</button></article>}
       </>}
-    {setup && sources && <PlanningSetupDialog completionId={setup.completionId} onComparison={setPensionComparison} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode}/>}
+    {setup && sources && <PlanningSetupDialog completionId={setup.completionId} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode}/>}
     {importing && incomes && <FinancialImportDialog mode="incomes" generation={incomes.generation} onClose={saved => { setImporting(false); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
     {editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} hpfDefault={latestHpf(incomes.rows)} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;

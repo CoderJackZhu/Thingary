@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { ageText, defaultRetire } from '../src/plan.ts';
+import { defaultRetire } from '../src/plan.ts';
 import { basicInputFixtures } from '../src/plan-basic-fixtures.ts';
-import { costSources } from '../src/plan-core.ts';
-import { defaultAssumptions, noOverrides } from '../src/plan-params.ts';
+import { emptyCore } from '../src/plan-core.ts';
+import * as ledger from '../src/plan-ledger.ts';
 import { buildRetireCalc, disposable } from '../src/plan-retire-calc.ts';
 import { coverageNow, goalHeadline, summaryBasis, summaryRetire, usualSaving } from '../src/plan-summary.ts';
 import { clearTrendRange, recallTrendRange, rememberTrendRange } from '../src/review.ts';
@@ -12,9 +12,11 @@ import { clearTrendRange, recallTrendRange, rememberTrendRange } from '../src/re
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const today = '2026-10-06';
 
-const saved = (retire, birth = '1990-06') => ({ revision: 1, updated_at: today, profile: {
-  birth_month: birth, worker: 'male', region: 'beijing', paid_months: 48, account_balance_cents: '5000000', base_cents: '2000000', past_index_hundredths: null, flex_months: 0,
-  personal_pension_annual_cents: '0', marginal_tax_hundredths: 1000, assumptions: defaultAssumptions, overrides: noOverrides, retire: { ...defaultRetire, target_age:50, core: { contract_version: 1, monetary_basis_date: '2026-10-06', fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }], hpf_monthly_cents: '0', costs: [], occurrences: [] }, basic:{...structuredClone(basicInputFixtures.prediction.basic),start:{kind:'live'},contribution:{id:'contribution',monthly_cents:retire.contribution_cents === undefined?'1000000':retire.contribution_cents}}, ...retire },
+const saved = (retire) => ({ revision: 1, updated_at: today, profile: {
+  assumptions: { inflation_hundredths: 0 },
+  retire: { ...structuredClone(defaultRetire), mode: 'fire', core: { ...emptyCore(today), fund_rules: [{ account_id: 'cash', availability: 'available', share_hundredths: 10000 }] },
+    basic: { ...structuredClone(basicInputFixtures.prediction.basic), start: { kind: 'live' }, contribution: { id: 'contribution', monthly_cents: retire.contribution_cents === undefined ? '1000000' : retire.contribution_cents } },
+    simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2080-05' }, income_mode: 'excluded', future_incomes: [] }, ...retire },
 } });
 const snap = cents => ({id:'s1',date:today,revision:1, entries: [{ account_id: 'cash', counted: true, side: 'asset', kind: 'cash', amount_cents: String(cents) }] });
 const stats = (median, extra = {}) => ({ mean_monthly_change_cents: median, count: 4, low_sample: false, median_monthly_saving_cents: median, mean_monthly_saving_cents: median, median_monthly_spend_cents: null, window_from: '2025-10-06', latest_date: today, ...extra });
@@ -24,12 +26,12 @@ const ready = calc => {
   return calc;
 };
 
-test('fire headline: waiting keeps month-level age, matching the goals page exactly', () => {
+test('fire headline: waiting keeps explicit month, matching the goals page exactly', () => {
   const calc = ready(buildRetireCalc(saved({ spend_cents: '500000' }), snap(20_000_000), reviewOf('1000000'), [], today));
   const h = goalHeadline(calc, today);
   assert.match(h.main, /^预计还需 \d+ 年( \d+ 个月)?$/);
   assert.ok(h.sub.includes(`约 ${Math.floor((2026 * 12 + 9 + (calc.proj.fi_month - calc.plan.now_months)) / 12)} 年`), h.sub);
-  assert.ok(h.sub.includes(ageText(calc.proj.fi_month)), 'goal page and summary share the same month-level age');
+  assert.ok(h.sub.includes(ledger.timeLabel(calc.plan, calc.proj.fi_month)), 'goal page and summary share the same explicit month');
   assert.equal(h.sub.includes('晚于期望'), calc.proj.fi_month > calc.plan.target_months);
 });
 
@@ -38,17 +40,17 @@ test('fire headline: reached and unreachable use the actual search cap, never "f
   assert.equal(reached.main, '当前资产已覆盖退休所需');
   assert.equal(reached.sub, '按当前假设估算');
   // 50 万元预算、零储蓄、20 万资产：搜索范围内不可达；horizon 70 早于 70 岁上限时按实际终点年龄。
-  const capped = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', horizon_age: 70, contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
-  assert.equal(capped.main, '当前假设下，70 岁前尚未达成');
+  const capped = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2060-05' }, income_mode: 'excluded', future_incomes: [] }, contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
+  assert.equal(capped.main, '当前假设下，2060-05 前尚未达成');
   const defaultCap = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
-  assert.equal(defaultCap.main, '当前假设下，90 岁前尚未达成');
+  assert.equal(defaultCap.main, '当前假设下，2080-05 前尚未达成');
 });
 
 test('traditional headline: surplus and shortfall are words, not just colors', () => {
-  const surplus = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '500000', mode: 'traditional', target_age: 60 }), snap(500_000_000), reviewOf('1000000'), [], today)), today);
-  assert.equal(surplus.main, '60 岁退休');
+  const surplus = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '500000', mode: 'traditional' }), snap(500_000_000), reviewOf('1000000'), [], today)), today);
+  assert.equal(surplus.main, '2040-06 开始使用规划资金');
   assert.match(surplus.sub, /^预计盈余 ¥[\d,.]+$/);
-  const shortfall = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '500000', mode: 'traditional', target_age: 60, contribution_cents:'0' }), snap(0), reviewOf('0'), [], today)), today);
+  const shortfall = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '500000', mode: 'traditional', contribution_cents:'0' }), snap(0), reviewOf('0'), [], today)), today);
   assert.match(shortfall.sub, /^预计缺口 ¥[\d,.]+$/);
 });
 

@@ -34,7 +34,7 @@ export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, 
     if (completion && pending && event.date < today.slice(0, 7)) return '是否已经发生';
     if (completion && !pending && (!o.actual_date || o.actual_date > today)) return '实际发生日期';
     if (completion && !pending && o.status === 'occurred') {
-      const core = { contract_version: 1 as const, monetary_basis_date: today, occurrences: [o], hpf_monthly_cents: null, fund_rules: fundRules };
+      const core = { contract_version: 1 as const, monetary_basis_date: today, occurrences: [o], releases: [], fund_rules: fundRules };
       const coverage = eventCoverage([event], core, snapshot ?? null, today).annotations.filter(a => a.refinement.event_id === event.id);
       if (coverage.length) {
         for (const [i, p] of o.payments.entries()) {

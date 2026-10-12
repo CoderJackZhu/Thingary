@@ -1,4 +1,4 @@
-/** Rendering audit manifest. Independent policy/report/runway models do not consume basic results. */
+/** Rendering audit manifest. Independent report/runway models do not consume basic results. */
 export const planningConsumers = [
   { file: 'PlanningBasicGoals.tsx', render: 'PlanningBasicGoals', guard: 'GoalOverview' },
   { file: 'planning-goal/Overview.tsx', render: 'GoalOverview', guard: 'GoalCaution' },
@@ -18,9 +18,7 @@ export const planningConsumers = [
   { file: 'career-preview/results.tsx', render: 'Sensitivity', guard: 'CoverageNote' },
   { file: 'career-preview/map.tsx', render: 'LowerResult', guard: 'CoverageNote' },
   { file: 'career-preview/map.tsx', render: 'DelaySection', guard: 'CoverageNote' },
-  { file: 'career-preview/map.tsx', render: 'InsuranceComparison', guard: 'CoverageNote' },
   { file: 'career-preview/preview.tsx', render: 'Result', guard: 'CoverageNote' },
   { file: 'career-preview/preview.tsx', render: 'Preview', guard: 'CoverageNote' },
-  { file: 'career-preview/pension-marginal.tsx', render: 'PensionMarginal', guard: 'CoverageNote' },
 ] as const;
-export const independentPlanningConsumers = ['PlanningPension (independent policy inputs)', 'PlanningRunway (independent temporary cash inputs)', 'planning-report (independent frozen ReportInput)'] as const;
+export const independentPlanningConsumers = ['PlanningRunway (independent temporary cash inputs)', 'planning-report (independent frozen ReportInput)'] as const;

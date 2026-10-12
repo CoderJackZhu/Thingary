@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { pensionFixture } from '../src/planning-pension-fixture.ts';
+const currentFixture = raw => structuredClone(raw);
 import { conditionChips } from '../src/planning-first-run.ts';
 import { unknownCapabilityFixture } from '../src/plan-basic-fixtures.ts';
 import { runtime } from './planning-component-runtime.mjs';
 const raw = JSON.parse(readFileSync(new URL('./fixtures/planning-basic/debt-loops.json', import.meta.url), 'utf8'));
-const sources = () => pensionFixture(raw, 'normal');
+const sources = () => currentFixture(raw, 'normal');
 const saved = s => s.profile.value.saved;
 const click = (r, name) => { r.button(name).props.onClick(); r.render(); };
 const enter = (r, type, label, value) => { r.find(type, p => p.label === label || p['aria-label'] === label).props.onChange(type === 'input' ? { target: { value } } : value); r.render(); };
@@ -37,64 +37,41 @@ test('zero real return chip says money only keeps pace with inflation', () => {
 
 test('setup step 3 subtitle distinguishes real inventory from manual amounts', () => {
   const subtitle = r => { const p = r.nodes().find(n => n.type === 'p' && n.props.className === 'muted' && /默认只动用现金类账户|还没有完整盘点/.test(r.text(n))); return p ? r.text(p) : ''; };
-  const withSnapshot = pensionFixture(raw, 'empty');
+  const withSnapshot = currentFixture(raw, 'empty');
   const inventory = runtime('PlanningSetup', { sources: withSnapshot, snapshot: withSnapshot.snapshot.value, initialStep: 2 });
   assert.match(subtitle(inventory), /^默认只动用现金类账户，确认后保存即可。不会改变实际余额。$/);
-  const manual = runtime('PlanningSetup', { sources: pensionFixture(raw, 'empty'), initialStep: 2 });
+  const manual = runtime('PlanningSetup', { sources: currentFixture(raw, 'empty'), initialStep: 2 });
   assert.match(subtitle(manual), /^还没有完整盘点：先填现在能用来准备退休的钱和截至日期，不会创建盘点，也不会和账户余额相加。$/);
   assert.notEqual(subtitle(inventory), subtitle(manual));
 });
 
-test('spouse income shortcut is an other-role income, available with the employee estimator', async () => {
-  const s = sources();
-  saved(s).profile.retire.basic.retirement_income.mode = 'employee';
-  const r = runtime('PlanningSetup', { sources: s, initialStep: 3 });
-  click(r, '+ 添加一笔退休收入');
-  click(r, '配偶养老金或收入');
-  assert.match(r.text(r.find('div', p => p['aria-label'] === '添加退休收入')), /按你自己的年龄填/);
-  enter(r, 'CentInput', '税后每月收入', '300000'); enter(r, 'input', '收入起始年龄', '62');
-  click(r, '加入列表');
-  r.find('form').props.onSubmit({ preventDefault() {} }); await r.settle();
-  const fields = r.calls[0].fields, item = fields.budget.income_items.find(i => i.label === '配偶养老金');
-  assert.equal(item.monthly_cents, '300000');
-  assert.deepEqual(fields.basic.basic.retirement_income.selected.find(x => x.id === item.id), { id: item.id, source_id: item.id, role: 'other' });
+test('other future income saves its explicit month and amount with the whole setup', async () => {
+ const r=runtime('PlanningSetup',{sources:sources(),initialStep:3});
+ r.find('input',p=>p['aria-label']==='填写预计收入').props.onChange();r.render();
+ click(r,'+ 其他收入');
+ enter(r,'input','收入名称','配偶养老金');enter(r,'CentInput','每月预计净到账金额','300000');enter(r,'MonthInput','开始领取时间','2052-06');
+ click(r,'完成');r.find('form').props.onSubmit({preventDefault(){}});await r.settle();
+ const i=r.calls[0].fields.simplified.future_incomes.find(i=>i.name==='配偶养老金');
+ assert.equal(i.role,'other');assert.equal(i.monthly_cents,'300000');assert.equal(i.start_month,'2052-06');
 });
 
-import { ownAgeWhenChild, withSpendItem, withoutSpendItem, draftOf } from '../src/planning-basic-forms.ts';
+import { withSpendItem, withoutSpendItem, draftOf } from '../src/planning-basic-forms.ts';
 import { prepareBasicPlan } from '../src/plan-basic.ts';
 import { table } from '../src/plan-ledger.ts';
 
-test('child age converts to own age; invalid or reversed input stays unknown', () => {
-  assert.equal(ownAgeWhenChild('1990-06-01', '2026-10-11', '8', '22'), 50); // own 36 + 14
-  assert.equal(ownAgeWhenChild('1990-11-01', '2026-10-11', '8', '22'), 49); // own 35 until November
-  for (const [birth, c, u] of [['', '8', '22'], ['1990-06-01', '', '22'], ['1990-06-01', '22', '18'], ['1990-06-01', '8.5', '22']]) assert.equal(ownAgeWhenChild(birth, '2026-10-11', c, u), null);
-});
-
-test('spend item add/remove keeps its extra scope in step; saving sends budget items and extra treatment', async () => {
-  const s = sources();
-  const r = runtime('PlanningSetup', { sources: s, editMode: true, initialStep: 1 });
-  click(r, '+ 添加一笔阶段性支出');
-  click(r, '子女教育');
-  enter(r, 'CentInput', '阶段性支出每月金额', '300000');
-  enter(r, 'input', '孩子现在几岁', '8');
-  const own = ownAgeWhenChild(saved(s).profile.birth_month + '-01', s.today, '8', '22');
-  assert.match(r.text(r.find('div', p => p['aria-label'] === '添加阶段性支出')), new RegExp(`结束于你约 ${own} 岁时`));
-  const target = saved(s).profile.retire.target_age;
-  assert.ok(own <= target);
-  assert.match(r.text(r.find('div', p => p['aria-label'] === '添加阶段性支出')), new RegExp(`在你 ${target} 岁退休前就结束了，不会影响结果`));
-  enter(r, 'input', '供到孩子几岁', String(22 + target - own + 1));
-  assert.doesNotMatch(r.text(r.find('div', p => p['aria-label'] === '添加阶段性支出')), /不会影响结果/);
-  enter(r, 'input', '供到孩子几岁', '22');
-  click(r, '加入列表');
-  r.button('保存，查看结果').props.onClick(); await r.settle();
-  const fields = r.calls.at(-1).fields, item = fields.budget.spend_items.find(i => i.label === '子女教育');
-  assert.deepEqual({ ...item, id: 'x' }, { id: 'x', label: '子女教育', monthly_cents: '300000', start_age: null, end_age: own, inflation_hundredths: null, essential: true });
-  assert.deepEqual(fields.basic.basic.retirement_costs.find(c => c.source_id === `spend:${item.id}`), { source_id: `spend:${item.id}`, treatment: 'extra', reference_cents: null });
+test('spend item saves explicit months and extra treatment atomically', async () => {
+ const r=runtime('PlanningSetup',{sources:sources(),editMode:true,initialStep:1});
+ click(r,'+ 添加一笔阶段性支出');click(r,'子女教育');
+ enter(r,'CentInput','阶段性支出每月金额','300000');enter(r,'MonthInput','支出开始月份','2051-01');enter(r,'MonthInput','支出结束月份','2055-01');
+ click(r,'加入列表');r.button('保存，查看结果').props.onClick();await r.settle();
+ const f=r.calls.at(-1).fields,i=f.budget.spend_items.find(i=>i.label==='子女教育');
+ assert.equal(i.start_month,'2051-01');assert.equal(i.end_month,'2055-01');assert.equal(i.time_unconfirmed,false);
+ assert.deepEqual(f.basic.basic.retirement_costs.find(c=>c.source_id===`spend:${i.id}`),{source_id:`spend:${i.id}`,treatment:'extra',reference_cents:null});
 });
 
 test('extra spend item only raises retirement-month spending and removal drops its scope', () => {
   const s = sources(), base = saved(s), d = draftOf(base, s.snapshot.value);
-  const item = { id: 'fx-care', label: '医疗与护理', monthly_cents: '100000', start_age: null, end_age: null, inflation_hundredths: null, essential: true };
+  const item = { id: 'fx-care', label: '医疗与护理', monthly_cents: '100000', start_month: null, end_month: null, time_unconfirmed: false, inflation_hundredths: null, essential: true };
   const added = withSpendItem(d, item);
   assert.equal(added.retScopes['spend:fx-care'].treatment, 'extra');
   assert.equal(withoutSpendItem(added, 'fx-care').retScopes['spend:fx-care'], undefined);
