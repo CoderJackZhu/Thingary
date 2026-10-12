@@ -25,6 +25,7 @@ pub mod photos;
 pub mod plan_basic;
 pub mod plan_core;
 pub mod plan_income;
+mod plan_migration;
 pub mod plan_profile;
 pub mod plan_savings;
 pub mod plan_simplified;
@@ -384,3 +385,7 @@ pub fn run() {
             }
         });
 }
+
+#[cfg(test)]
+#[path = "../tests/helpers/planning_migration.rs"]
+mod planning_migration_tests;

@@ -59,3 +59,30 @@ test('native port rejects a new request while preserving an unrelated unknown re
   assert.equal(stored.get(pendingKey),pending);
  } finally {if(old===undefined)delete globalThis.localStorage;else globalThis.localStorage=old;}
 });
+
+test('legacy mixed planning receipt verifies only original metadata, retains payload on read failure, and never replays', async()=>{
+ const {nativeSimplifiedPlanningPortV1}=await import('../src/planning-simplified-port.ts');
+ const {pendingKey}=await import('../src/wealth.ts');
+ const {simplifiedSources}=await import('./helpers/simplified-planning-fixtures.mjs');
+ const oldWindow=globalThis.window,oldStorage=globalThis.localStorage;
+ try {
+  for(const command of ['plan_profile_save','plan_profile_update']){
+   const sources=simplifiedSources('0');sources.profile.value.saved.revision=8;
+   const context={request_id:'original',generation:sources.generation,expected_revision:7};
+   const pending=JSON.stringify({command,input:{...context,profile:{birth_month:'1990-06',retire:{core:{occurrences:[{id:'factual-source'}]}}},section:'pension',fields:{region:'beijing'}},label:'旧混合提交'});
+   const stored=new Map([[pendingKey,pending]]),calls=[];let readFailed=true;
+   globalThis.localStorage={getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)};
+   globalThis.window={__TAURI_INTERNALS__:{invoke:async(cmd,args)=>{
+    calls.push({cmd,args});
+    if(cmd==='wealth_request_result')return 'profile';
+    if(cmd==='planning_sources'){if(readFailed)throw Error('read failed');return sources;}
+    throw Error('obsolete payload must never be replayed');
+   }}};
+   const port=nativeSimplifiedPlanningPortV1(()=>({planning:true,wealth:false}));
+   assert.deepEqual(await port.resolve(context),{status:'unresolved',request_id:'original'});assert.equal(stored.get(pendingKey),pending);
+   readFailed=false;assert.deepEqual(await port.resolve(context),{status:'saved',revision:8});assert.equal(stored.has(pendingKey),false);
+   assert.deepEqual(calls.filter(x=>x.cmd==='wealth_request_result'),Array(2).fill({cmd:'wealth_request_result',args:{request:'original',generation:context.generation}}));
+   assert.ok(calls.every(x=>['wealth_request_result','planning_sources'].includes(x.cmd)));
+  }
+ } finally {if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;if(oldStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=oldStorage;}
+});

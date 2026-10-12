@@ -51,7 +51,9 @@ export function nativeSimplifiedPlanningPortV1(modules: () => PlanningModules): 
     saveSetup: (draft, context) => write({ ...context, section: 'setup', fields: { ...draft.setup, simplified: draft.fields } }),
     resolve: async context => {
       const pending = storedPending();
-      if (!pending || pending.command !== 'plan_profile_update' || pending.input.request_id !== context.request_id || pending.input.generation !== context.generation) return { status: 'rejected', issues: [{ path: '', code: 'receipt_mismatch', message: '请核对原请求与资料库身份' }] };
+      // Old full-profile submissions are checked by metadata only. Never replay
+      // their policy/factual payload; clear it only after verifying the outcome.
+      if (!pending || !['plan_profile_update', 'plan_profile_save'].includes(pending.command) || pending.input.request_id !== context.request_id || pending.input.generation !== context.generation) return { status: 'rejected', issues: [{ path: '', code: 'receipt_mismatch', message: '请核对原请求与资料库身份' }] };
       return resolveSimplifiedReceiptV1(context, {
         lookup: () => invoke<string | null>('wealth_request_result', { request: context.request_id, generation: context.generation }),
         read, clear: clearPending,

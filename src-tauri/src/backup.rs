@@ -188,8 +188,10 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
         if v >= 29 {
             crate::plan_income::validate_dataset(&db)?;
         }
-        if v >= 30 {
+        if v >= 36 {
             crate::plan_profile::validate_dataset(&db)?;
+        } else if v >= 30 {
+            crate::plan_migration::validate_legacy(&db)?;
         }
     }
     if v >= 17 {
@@ -539,6 +541,8 @@ pub struct Summary {
     pub import_mappings: i64,
     pub import_receipts: i64,
     pub files: usize,
+    /// Facts are preserved; legacy planning time and future income require new confirmation.
+    pub planning_conditions_reset: bool,
 }
 
 impl Store {
@@ -629,6 +633,8 @@ impl Store {
             } else {
                 0
             },
+            planning_conditions_reset: (30..36).contains(&v)
+                && crate::plan_migration::requires_reset(&db)?,
             files: manifest
                 .entries
                 .keys()

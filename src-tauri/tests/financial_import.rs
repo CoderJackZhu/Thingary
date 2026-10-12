@@ -979,7 +979,7 @@ fn i02_i03_income_unknown_zero_same_day_same_amount_and_i11_roundtrip() {
             .skipped,
         2
     );
-    let archive = tmp.path().join("虚构35.thingary");
+    let archive = tmp.path().join("虚构-current.thingary");
     s.backup(Some(&archive)).unwrap();
     drop(s);
     let s = Store::open(&root).unwrap();
@@ -992,7 +992,7 @@ fn i02_i03_income_unknown_zero_same_day_same_amount_and_i11_roundtrip() {
             checked.import_mappings,
             checked.import_receipts
         ),
-        (35, 2, 2)
+        (thingary_lib::storage::SCHEMA_VERSION as u32, 2, 2)
     );
     t.restore(&archive, &checked.hash, &t.generation()).unwrap();
     assert_eq!(
@@ -1223,7 +1223,7 @@ fn mixed_batch_rolls_back_after_accounts_after_incomes_and_before_commit_i09_res
         r.request_id
     );
     assert_eq!(s.plan_income_list().unwrap().rows.len(), 2);
-    let archive = tmp.path().join("mixed35.thingary");
+    let archive = tmp.path().join("mixed-current.thingary");
     s.backup(Some(&archive)).unwrap();
     let mut restored = Store::open(&tmp.path().join("restored")).unwrap();
     let checked = restored.inspect_backup(&archive).unwrap();
@@ -1233,7 +1233,7 @@ fn mixed_batch_rolls_back_after_accounts_after_incomes_and_before_commit_i09_res
             checked.import_mappings,
             checked.import_receipts
         ),
-        (35, 4, 1)
+        (thingary_lib::storage::SCHEMA_VERSION as u32, 4, 1)
     );
     restored
         .restore(&archive, &checked.hash, &restored.generation())
@@ -1433,7 +1433,7 @@ fn x11_foreign_key_check_runs_before_commit_and_rolls_back() {
     assert_eq!(required, 1);
 }
 #[test]
-fn old34_backup_and_receipt_restore_into35_preserve_replay_zero_and_mappings() {
+fn old34_backup_and_receipt_restore_into_current_preserve_replay_zero_and_mappings() {
     use sha2::{Digest, Sha256};
     use std::io::Write;
     let tmp = tempfile::tempdir().unwrap();
@@ -1501,7 +1501,7 @@ fn old34_backup_and_receipt_restore_into35_preserve_replay_zero_and_mappings() {
             .unwrap()
             .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        35
+        thingary_lib::storage::SCHEMA_VERSION
     );
     let old = t
         .financial_import_receipt(&receipt.request_id, &t.generation())
@@ -1527,6 +1527,7 @@ fn old34_backup_and_receipt_restore_into35_preserve_replay_zero_and_mappings() {
             .request_id,
         receipt.request_id
     );
-    t.backup(Some(&tmp.path().join("new35.thingary"))).unwrap();
-    println!("old34 backup inspect/restore ->35: old receipt read and same-batch replay, 2 mappings, 1 receipt, zero and IDs preserved");
+    t.backup(Some(&tmp.path().join("current.thingary")))
+        .unwrap();
+    println!("old34 backup inspect/restore ->current: old receipt read and same-batch replay, 2 mappings, 1 receipt, zero and IDs preserved");
 }
