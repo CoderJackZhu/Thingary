@@ -9,6 +9,7 @@ import { PlanningReviewSummary } from './PlanningReviewSummary';
 import type { ReviewAction } from './review-observations';
 import type { PlanningSources } from './plan';
 import type { Summary } from './wealth';
+import { PlanningGoalOccurrences } from './PlanningGoalOccurrences';
 import { PlanningBasicGoals } from './PlanningBasicGoals';
 import { PlanningSetupDialog } from './PlanningSetup';
 import { FollowupSection } from './planning-followup-ui/FollowupSection';
@@ -22,7 +23,6 @@ import { HISTORY_MIN_INTERVALS, SAVING_BASIS_CAVEAT } from './planning-basic-def
 import { cashTotals, monthly } from './plan';
 /** 结余超过已记录收入时，推算花销为负没有意义，通常是收入没记全或有一次性进账。 */
 const NEGATIVE_SPEND = '暂时算不出：存下的比记录的收入还多，收入可能没记全';
-import { FinancialImportDialog } from './FinancialImportDialog';
 import { latestHpf, hpfSummary, reasonIsInflow, reasonSourceLabel, statusText } from './plan';
 import type { Income, IncomeList, Interval, Mark, PlanReview, Reasons } from './plan';
 import { usePageBar } from './topbar';
@@ -38,13 +38,14 @@ const dateRange = (i: Interval) => `${i.from} → ${i.to}`;
 export type PlanningTab = 'goals' | 'savings';
 export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['savings', '收入与复盘']];
 
-export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone, reviewSnapshotId, onReviewFocusDone, onGotoWealth, followupPort: injectedPort }: { reviewSnapshotId?: string | null; onReviewFocusDone?: () => void; onGotoWealth?: (action: ReviewAction) => void; focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void; followupPort?: PlanningFollowupPortV1 }) {
+export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone, reviewSnapshotId, onReviewFocusDone, onGotoWealth, followupPort: injectedPort, goalsOnly = false }: { goalsOnly?: boolean; reviewSnapshotId?: string | null; onReviewFocusDone?: () => void; onGotoWealth?: (action: ReviewAction) => void; focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void; followupPort?: PlanningFollowupPortV1 }) {
   const nativePort = useMemo(() => nativePlanningFollowupPortV1(), []);
   const followupPort = injectedPort ?? nativePort;
   const { load, reload } = usePlanningSources(today);
   const [editing, setEditing] = useState<Income | 'new' | null>(null), [setup, setSetup] = useState<{ step: number; editMode: boolean; completionId?: string } | null>(null);
-  const [importing, setImporting] = useState(false);
   const [goalEditing, setGoalEditing] = useState(false);
+  const [occurrenceEditing, setOccurrenceEditing] = useState(false);
+  const activeTab = goalsOnly ? 'goals' : tab;
   const [reviewEditing, setReviewEditing] = useState(false);
   const [view, setView] = useState<'review' | 'income'>('review');
   const [selected, setSelected] = useState<string | null>(null);
@@ -52,7 +53,13 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
   const opener = useRef<HTMLElement | null>(null);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking || !!setup || reviewEditing || goalEditing || importing); return () => onEditingChange(false); }, [editing, pending, busy, marking, setup, reviewEditing, goalEditing, importing, onEditingChange]);
+  const [receiptEpoch, setReceiptEpoch] = useState(0);
+  async function verifyOriginalReceipt() {
+    const request = storedPending()?.input.request_id;
+    await verify();
+    if (request && !storedPending()) setReceiptEpoch(n => n + 1);
+  }
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking || !!setup || reviewEditing || goalEditing || occurrenceEditing); return () => onEditingChange(false); }, [editing, pending, busy, marking, setup, reviewEditing, goalEditing, occurrenceEditing, onEditingChange]);
 
   const sources = load.status === 'ready' ? load.sources : null;
   const saved = sources && sources.profile.status === 'ready' ? sources.profile.value.saved : null;
@@ -69,7 +76,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
   }, [reviewSnapshotId, review, onReviewFocusDone]);
   const action = (a: ReviewAction) => { if (a.kind === 'income') setEditing('new'); else if (a.kind === 'plan') onTab('goals'); else onGotoWealth?.(a); };
   const openNew = { label: '记一笔收入', plus: true, disabled: !!pending || !incomes, run: () => { onTab('savings'); setView('income'); setEditing('new'); } };
-  usePageBar('planning', { primary: openNew, newRecord: openNew });
+  usePageBar('planning', activeTab === 'goals' ? { primary: { label: saved?.profile.retire.basic ? '调整条件' : '开始设置', disabled: !sources || sources.profile.status !== 'ready' || !!pending || busy || goalEditing || occurrenceEditing || !!setup, run: () => openSetup(0, undefined, !!saved?.profile.retire.basic) } } : { primary: openNew, newRecord: openNew });
   // WebKit does not focus a button on click, so the caller passes the clicked element; the heading is the last resort.
   const openSetup = (step = 0, from?: HTMLElement | null, editMode = false, completionId?: string) => { opener.current = from ?? (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null); setSetup({ step, completionId, editMode: editMode || step >= 4 }); };
   const closeSetup = (ok: boolean) => { setSetup(null); setPending(storedPending()); if (ok) reload(); requestAnimationFrame(() => { const back = opener.current?.isConnected ? opener.current : document.getElementById('plan-budget-entry'); if (back) back.focus(); else refocusHeading(); }); };
@@ -86,15 +93,14 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
   const reviewError = sources && sources.review.status === 'error' ? (sources.review.value.code === 'MODULE_DISABLED' ? '资产与盘点已关闭，历史复盘暂不可用；仍可记录实际收入。' : `历史复盘读取失败：${sources.review.value.message}`) : '';
 
   return <section className="stats-section wealth-section planning-section" aria-label="规划">
-    {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
+    {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对金融导入回执。</span> : <button disabled={busy} onClick={() => void verifyOriginalReceipt()}>核对结果</button>}</div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
-      {tab === 'savings' && view === 'income' && <button className="ui-btn" disabled={!incomes || !!pending} onClick={() => setImporting(true)}>导入收入历史…</button>}
-      <Info text={tab === 'goals' ? '按你的条件，估算为目标月份每月需要准备多少资金。都是估算，条件随时可以改。' : '资产涨了，不一定都是存下来的钱，也可能是投资涨跌。收入只展示已记录的金额。'}/>
+      <Info text={activeTab === 'goals' ? '按你的条件，估算为目标月份每月需要准备多少资金。都是估算，条件随时可以改。' : '资产涨了，不一定都是存下来的钱，也可能是投资涨跌。收入只展示已记录的金额。'}/>
     </div></HeaderSlot>
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
       : !sources ? <p role="status" className="muted">正在读取规划…</p>
-      : tab === 'goals' ? <PlanningBasicGoals key={sources.generation + ":" + sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={setGoalEditing} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone} assumptionsPort={followupPort}/>
+      : activeTab === 'goals' ? <><PlanningBasicGoals key={sources.generation + ":" + sources.write_version + ":" + receiptEpoch} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={setGoalEditing} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone} assumptionsPort={followupPort}/><PlanningGoalOccurrences key={sources.generation + ":occurrences:" + sources.write_version + ":" + receiptEpoch} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setOccurrenceEditing} blocked={!!pending || busy || goalEditing || !!setup}/></>
       : <>
         <div className="review-navigation">
           <Segments label="收入与复盘视图" value={view} options={[{ value: 'review', label: '复盘' }, { value: 'income', label: '收入记录' }]} disabled={!!pending || reviewEditing || marking} onChange={setView}/>
@@ -111,8 +117,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
         </> : incomes ? <IncomeRecords incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/> : <article className="ui-card ui-content" role="alert"><p>收入记录读取失败。</p><button onClick={reload}>重新读取</button></article>}
       </>}
     {setup && sources && <PlanningSetupDialog key={sources.generation} completionId={setup.completionId} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode} assumptionsPort={followupPort}/>}
-    {importing && incomes && <FinancialImportDialog mode="incomes" generation={incomes.generation} onClose={saved => { setImporting(false); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
-    {editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} accounts={sources ? ready(sources.accounts) ?? [] : []} hpfDefault={latestHpf(incomes.rows)} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
+    {!goalsOnly && editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} accounts={sources ? ready(sources.accounts) ?? [] : []} hpfDefault={latestHpf(incomes.rows)} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;
 }
 

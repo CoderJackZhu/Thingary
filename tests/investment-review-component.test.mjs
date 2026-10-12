@@ -506,3 +506,10 @@ test('unsupported movement clears confirmation, permits notes, and never resurre
   checkboxInLabel(h,'证券实物').props.onChange({target:{checked:false}});sync();
   assert.equal(state.draft.confirmed,false);
 });
+
+test('unavailable movement result renders a disabled reason without balance change or fake profit', () => {
+  const outer = { ...readyOuter('ready-profit'), result: { status: 'unavailable', reasons: ['movements_disabled'] } };
+  const h = new Harness('InvestmentReviewCard', { outer });
+  assert.match(h.text(), /资金流动记录已关闭/);
+  assert.doesNotMatch(h.text(), /结果无法识别|本期余额变化|¥0|已核对/);
+});

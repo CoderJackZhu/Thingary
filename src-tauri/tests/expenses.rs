@@ -769,3 +769,163 @@ fn month_counts_cover_zero_unknown_mixed_and_refund_sale() {
     assert_eq!(jan.refund_cents, "800");
     assert_eq!(v.sale_cents, "4000");
 }
+
+#[test]
+fn finance_period_boundaries_unknowns_and_cross_year_refunds() {
+    use thingary_lib::{expenses::Period, modules::Modules};
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    asset(
+        &mut s,
+        "虚构闰日",
+        Some("800000"),
+        Some("2024-02-29"),
+        false,
+    );
+    asset(&mut s, "虚构未知金额", None, Some("2024-02-28"), false);
+    asset(&mut s, "虚构未知日期", Some("30000"), None, false);
+    let mut f = fields("虚构跨年退款", "2023-12-31", "200000");
+    f.refund_cents = Some("100000".into());
+    f.refund_date = Some("2024-01-01".into());
+    s.expense_save(&new(&s, f), TODAY).unwrap();
+    let m = Modules::default();
+    let month = s
+        .expense_period_view(
+            &Period::Month {
+                month: "2024-02".into(),
+            },
+            &m,
+        )
+        .unwrap();
+    assert_eq!(month.spent_cents, "800000");
+    assert_eq!(month.unknown_amount_count, 1);
+    assert_eq!(month.undated_cents, "30000");
+    assert_eq!(month.years, vec![2024, 2023]);
+    assert!(month.months.is_empty() && month.annual_totals.is_empty());
+    let p = Period::Range {
+        from: "2024-02-28".into(),
+        to: "2024-02-29".into(),
+        include_from: false,
+    };
+    let range = s.expense_period_view(&p, &m).unwrap();
+    assert_eq!(range.lines.len(), 1);
+    assert_eq!(range.unknown_amount_count, 0);
+    assert_eq!(range.undated, month.undated);
+    let jan = s
+        .expense_period_view(
+            &Period::Month {
+                month: "2024-01".into(),
+            },
+            &m,
+        )
+        .unwrap();
+    assert_eq!(
+        (
+            jan.spent_cents.as_str(),
+            jan.refund_cents.as_str(),
+            jan.net_cents.as_str()
+        ),
+        ("0", "100000", "-100000")
+    );
+    assert_eq!(jan.lines[0].source, "refund");
+    for year in [1, 9999] {
+        assert!(s
+            .expense_period_view(&Period::Year { year }, &m)
+            .unwrap()
+            .lines
+            .is_empty());
+    }
+    for period in [
+        Period::Year { year: 0 },
+        Period::Year { year: 10000 },
+        Period::Month {
+            month: "2023-02-29".into(),
+        },
+        Period::Month {
+            month: "2024-2".into(),
+        },
+        Period::Month {
+            month: "2024-13".into(),
+        },
+        Period::Range {
+            from: "2023-02-29".into(),
+            to: "2023-03-01".into(),
+            include_from: true,
+        },
+        Period::Range {
+            from: "2024-03-01".into(),
+            to: "2024-02-29".into(),
+            include_from: true,
+        },
+        Period::Range {
+            from: "2024-02-29".into(),
+            to: "2024-02-29".into(),
+            include_from: false,
+        },
+    ] {
+        assert!(s.expense_period_view(&period, &m).is_err(), "{period:?}");
+    }
+    let inclusive = Period::Range {
+        from: "2024-02-29".into(),
+        to: "2024-02-29".into(),
+        include_from: true,
+    };
+    assert_eq!(
+        s.expense_period_view(&inclusive, &m).unwrap().lines,
+        range.lines
+    );
+    assert_eq!(
+        serde_json::to_value(&p).unwrap(),
+        serde_json::json!({"kind":"range","from":"2024-02-28","to":"2024-02-29","includeFrom":false})
+    );
+    let roundtrip: Period = serde_json::from_value(serde_json::to_value(&p).unwrap()).unwrap();
+    assert_eq!(roundtrip, p);
+    for year in [None, Some(2023), Some(2024)] {
+        let old = s.expense_view(year).unwrap();
+        let period = year.map_or(Period::All, |year| Period::Year { year });
+        let shared = s.expense_period_view(&period, &m).unwrap();
+        assert_eq!(
+            serde_json::to_value(old).unwrap(),
+            serde_json::to_value(shared).unwrap()
+        );
+    }
+}
+
+#[test]
+fn disabled_expense_sources_are_not_queried() {
+    use thingary_lib::{
+        expenses::Period,
+        modules::{self, Modules},
+    };
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("library");
+    let mut s = Store::open(&root).unwrap();
+    asset(
+        &mut s,
+        "虚构保留物品",
+        Some("12345"),
+        Some("2026-01-01"),
+        false,
+    );
+    let m = Modules {
+        expenses: false,
+        recurring: false,
+        virtual_assets: false,
+        ..Modules::default()
+    };
+    modules::write(&root, &m).unwrap();
+    let dataset = std::fs::read_dir(root.join("datasets"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let c = rusqlite::Connection::open(dataset.join("data.sqlite")).unwrap();
+    c.execute_batch("PRAGMA foreign_keys=OFF; DROP TABLE expenses; DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE virtual_topups; DROP TABLE virtual_assets;").unwrap();
+    let v = s.expense_period_view(&Period::All, &m).unwrap();
+    assert_eq!(v.spent_cents, "12345");
+    assert_eq!(s.expense_view(None).unwrap().lines, v.lines);
+    assert!(s
+        .expense_period_view(&Period::All, &Modules::default())
+        .is_err());
+}

@@ -1231,7 +1231,13 @@ impl Store {
     /// account that never appeared in any check-in may be deleted; others are
     /// closed instead. Restoring a check-in re-checks what may have changed
     /// while it was deleted: its date and the accounts' open periods.
+    /// Internal domain operation. IPC uses wealth_trash_with_incomes instead.
     pub fn wealth_trash(&mut self, input: &TrashChange) -> Result<()> {
+        self.wealth_trash_with_incomes(input, true)
+    }
+
+    /// Income delete/restore requires income capability; receipts remain readable.
+    pub fn wealth_trash_with_incomes(&mut self, input: &TrashChange, incomes: bool) -> Result<()> {
         self.check_generation(&input.generation)?;
         uuid::Uuid::parse_str(&input.request_id)
             .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
@@ -1239,6 +1245,9 @@ impl Store {
         let tx = self.conn()?.unchecked_transaction()?;
         if receipt(&tx, &input.request_id, &fingerprint)?.is_some() {
             return Ok(());
+        }
+        if input.kind == "income" {
+            crate::plan_income::require_enabled(incomes)?;
         }
         let table = match input.kind.as_str() {
             "snapshot" => "fin_snapshots",

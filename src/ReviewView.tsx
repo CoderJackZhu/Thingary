@@ -1,4 +1,4 @@
-import { allModules, hiddenKinds, type Modules } from './modules';
+import { allModules, hiddenKinds, type Modules, type RuntimeModules } from './modules';
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -10,6 +10,7 @@ import { eventDetail, eventIcon, eventLabel } from './Timeline';
 import { Icon } from './AssetViews';
 import type { ScrollRestore } from './Timeline';
 import type { SourceTarget } from './source';
+import type { FinanceRoute } from './finance-navigation';
 import type { PlanningTab } from './PlanningPage';
 import { useRestored } from './undo';
 import { ReviewPlanSummary } from './ReviewPlanSummary';
@@ -63,12 +64,13 @@ function StructureCard({ summary }: { summary: Summary }) {
   </article>;
 }
 
-export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onOpenSettings, restoreScroll, modules = allModules }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
+export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onOpenSettings, onFinance, restoreScroll, modules = allModules }: { modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
   const [amountsHidden, setAmountsHidden] = useState(() => { try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem('thingary.hide-financial-amounts.v1', amountsHidden ? '1' : '0'); } catch { /* Session state still works when preferences cannot be stored. */ } }, [amountsHidden]);
   const [data, setData] = useState<Review | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
   const gate = useRef(requestGate());
-  const context = useRef<{ generation: string; today: string; version: unknown; year: number | null } | null>(null);
+  const moduleKey = JSON.stringify(modules);
+  const context = useRef<{ generation: string; today: string; version: unknown; year: number | null; moduleKey: string } | null>(null);
   const [updating, setUpdating] = useState(false), [range, setRange] = useState<TrendRange>(() => recallTrendRange(generation));
   useEffect(() => { rememberTrendRange(generation, range); }, [generation, range]);
   useRestored(() => setRetry(n => n + 1));
@@ -80,15 +82,15 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   useEffect(() => {
     const ticket = gate.current.next();
     const prior = context.current;
-    if (!prior || prior.generation !== generation || prior.today !== today || prior.version !== version || prior.year !== year) setData(null);
-    context.current = { generation, today, version, year };
+    if (!prior || prior.generation !== generation || prior.today !== today || prior.version !== version || prior.year !== year || prior.moduleKey !== moduleKey) setData(null);
+    context.current = { generation, today, version, year, moduleKey };
     setUpdating(true); setError('');
     invoke<Review>('review_overview', { year, planning: modules.planning && modules.wealth }).then(result => {
       if (gate.current.accepts(ticket, generation, result.generation)) { setData(result); setUpdating(false); }
       else if (gate.current.accepts(ticket, generation, generation)) { setError('资料库已变化，请重新读取。'); setUpdating(false); }
     }).catch(e => { if (gate.current.accepts(ticket, generation, generation)) { setError(errorMessage(e)); setUpdating(false); } });
     return () => gate.current.invalidate();
-  }, [generation, today, version, year, retry, modules.planning, modules.wealth]);
+  }, [generation, today, version, year, retry, moduleKey]);
   // Restore only once the whole review has rendered, never against the loading stub.
   useEffect(() => { if (data) restoreScroll?.done(); }, [data, restoreScroll]);
   const reload = () => setRetry(n => n + 1);
@@ -125,6 +127,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
       <div><h3>从这里开始</h3><p>物谱记两件事：你持有的物品，和账户里的钱。每样只填一点也行，之后慢慢补。</p></div>
       <div className="review-start-actions"><button className="primary" onClick={() => onNavigate('assets')}>记录第一件物品</button>{modules.wealth && <button onClick={() => onNavigate('wealth')}>建立账户并盘点</button>}</div>
     </article>}
+    {onFinance && (modules.wealth || modules.incomes || modules.expenses) && <div className="review-plan-actions" aria-label="财务工作区">{modules.incomes && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'income', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>收入记录 →</button>}{modules.expenses && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'expenses', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>重要支出 →</button>}{modules.wealth && <button className="review-action" onClick={() => onFinance({ page: 'review', view: 'period' })}>财务复盘 →</button>}</div>}
     {(modules.wealth || modules.planning) && <div className={'review-top' + (modules.wealth && modules.planning ? ' duo' : '')}>
       {modules.wealth && <section className="review-nw" aria-label="金融净资产">
         <div className="ui-label">金融净资产<button type="button" className="icon-button privacy-toggle" aria-label={amountsHidden ? '显示金融金额' : '隐藏金融金额'} title={amountsHidden ? '显示金融金额' : '隐藏金融金额'} aria-pressed={amountsHidden} onClick={() => setAmountsHidden(v => !v)}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{amountsHidden && <path d="m3 3 18 18"/>}</svg></button>{latest && <Info text={`只统计计入范围的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
@@ -144,12 +147,12 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
         </>}
       </section>}
       {modules.planning && (modules.wealth
-        ? amountsHidden ? <article className="ui-card ui-content"><h3>规划摘要</h3><p className="muted">金融金额已隐藏</p></article> : <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
-        : <article className="ui-card ui-content review-plan-dep" aria-label="规划">
-          <div className="ui-section-head"><h3>规划</h3></div>
+        ? amountsHidden ? <article className="ui-card ui-content"><h3>目标摘要</h3><p className="muted">金融金额已隐藏</p></article> : <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
+        : <article className="ui-card ui-content review-plan-dep" aria-label="目标">
+          <div className="ui-section-head"><h3>目标</h3></div>
           <p className="review-plan-goal">退休与财务自由</p>
-          <p className="review-plan-main">开启「账户与盘点」后显示规划摘要</p>
-          <p className="review-plan-sub">规划摘要依据完整盘点推出储蓄与退休估算；不会自动开启模块，历史规划资料保持不变。</p>
+          <p className="review-plan-main">开启「账户与盘点」后显示目标摘要</p>
+          <p className="review-plan-sub">目标摘要结合完整盘点与已设置的未来条件进行估算；不会自动开启模块，历史规划资料保持不变。</p>
           <div className="review-plan-actions"><button className="review-action" onClick={onOpenSettings}>前往设置 →</button></div>
         </article>)}
     </div>}

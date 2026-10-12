@@ -55,8 +55,14 @@ import { TAG_PAGE_SIZE, analysisAfterScopeChange, labelFilterOptions, type TagSc
 import type { PageBar, BarAction, BarMenu, SearchSection } from './topbar';
 import { StatsPage } from './Stats';
 import { WealthPage } from './WealthPage';
-import { ExpensesPage } from './ExpensesPage';
-import { PlanningPage, planningTabs } from './PlanningPage';
+import { FinanceRecordsPage } from './FinanceRecordsPage';
+import { FinanceReviewPage } from './FinanceReviewPage';
+import { financeCapabilities } from './finance-contract';
+import { defaultFinanceRecordTab, financeRouteAvailable, legacyFinanceRoute, validFinanceReturn, financeSourceRoute } from './finance-navigation';
+import type { FinanceRoute, FinanceRecordTab } from './finance-navigation';
+import type { NewTarget } from './topbar-model';
+import { storedPending } from './wealth';
+import { PlanningPage } from './PlanningPage';
 import type { PlanningTab } from './PlanningPage';
 import { RecurringPage } from './RecurringPage';
 import { paymentReminders, type Overview as RecurringOverview } from './recurring';
@@ -68,7 +74,7 @@ import type { DemoStatus, Section } from './library-mode';
 import type { WishlistItem, WishlistQuery } from './wishlist';
 import { storedWishlistChange, storedWishlistDraft, wishlistAbandonKey } from './wishlist';
 import './taxonomy.css';
-import { allModules, type Modules } from './modules';
+import { allModules, type Modules, type RuntimeModules } from './modules';
 import { ModuleSettings } from './ModuleSettings';
 import './style.css';
 import './app-layout.css';
@@ -101,7 +107,6 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [featureEditing, setFeatureEditing] = useState(false), [dataBusy, setDataBusy] = useState(false), [modeBusy, setModeBusy] = useState(false);
   const [section, setSection] = useState<Section>(() => localStorage.getItem(resetKey) ? 'settings' : initialSection(sessionStorage));
   const [wishFocus, setWishFocus] = useState<Pick<WishlistQuery, 'search' | 'filter'> | null>(null);
-  const [reviewFocus, setReviewFocus] = useState<{ id: string; generation: string } | null>(null);
   const [wealthReviewFocus, setWealthReviewFocus] = useState<import('./WealthPage').WealthReviewFocus | null>(null);
   const [planningTab, setPlanningTab] = useState<PlanningTab>('goals');
   const [wishlistEditing, setWishlistEditing] = useState(() => !!storedWishlistDraft(localStorage) || !!storedWishlistChange(localStorage, wishlistAbandonKey));
@@ -156,9 +161,16 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [returnContext, setReturnContext] = useState<ReturnContext | null>(null);
   const [pendingReturn, setPendingReturn] = useState<ReturnContext | null>(null);
   const [timelineSelection, setTimelineSelection] = useState<TimelineSelection>(defaultTimeline);
-  const [modules, setModules] = useState<Modules>(allModules);
+  const [modulesLoaded, setModulesLoaded] = useState(false);
+  const [modules, setModules] = useState<RuntimeModules>({ ...allModules, incomes: false, movements: false, finance_status: 'read_error', finance_revision: 0 });
   // U18：设置分组与「素材库／最近删除」子页的来源记忆——返回时恢复来源页、
   // 详情 ID、设置分组、滚动与入口按钮的稳定 id；面包屑「设置」回设置分组本身。
+  const [recordsRoute, setRecordsRoute] = useState<Extract<FinanceRoute, { page: 'records' }>>({ page: 'records', tab: 'income', period: { kind: 'all' } });
+  const [financeReviewRoute, setFinanceReviewRoute] = useState<Extract<FinanceRoute, { page: 'review' }>>({ page: 'review', view: 'period' });
+  const [recordSearches, setRecordSearches] = useState<Record<FinanceRecordTab, string>>({ income: '', expenses: '', movements: '' });
+  const [reviewBrowse, setReviewBrowse] = useState<{ sort?: 'impact' | 'kind'; expandedIds?: string[]; accountView?: 'active' | 'closed' | 'all' }>({});
+  const [financeImportRequested, setFinanceImportRequested] = useState(false);
+  const capabilities = financeCapabilities(modules);
   const [settingsGroup, setSettingsGroup] = useState<SettingsCategory>('appearance');
   const [subpageReturn, setSubpageReturn] = useState<{ section: Section; detailId: string | null; scroll: number; group: SettingsCategory | null; focusId: string | null } | null>(null);
   const [tags, setTags] = useState<{ id: string; name: string; enabled: boolean }[]>([]);
@@ -168,7 +180,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [pageBars, setPageBars] = useState<Partial<Record<Section, () => PageBar | null>>>({});
   const [searchExpanded, setSearchExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [autoNew, setAutoNew] = useState<null | 'wishlist' | 'wealth' | 'expenses' | 'recurring' | 'virtual'>(null);
+  const [autoNew, setAutoNew] = useState<Exclude<NewTarget, 'asset'> | null>(null);
   const compactTopbar = useCompactTopbar();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -177,14 +189,27 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     void load(); window.addEventListener('thingary-choices-changed', load);
     return () => window.removeEventListener('thingary-choices-changed', load);
   }, [page?.generation]);
-  useEffect(() => { invoke<Modules>('modules_get').then(setModules).catch(() => { /* Everything stays on if the setting cannot be read. */ }); }, []);
+  useEffect(() => {
+    let live = true;
+    const load = () => { void invoke<RuntimeModules>('modules_get').then(value => { if (live) { setModules(value); setModulesLoaded(true); } }).catch(() => { if (live) { setModules(value => ({ ...value, incomes: false, movements: false, finance_status: 'read_error', finance_revision: 0 })); setModulesLoaded(true); } }); };
+    const restored = () => { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setRecordSearches({ income: '', expenses: '', movements: '' }); setReviewBrowse({}); setRecordsRoute({ page: 'records', tab: 'income', period: { kind: 'all' } }); setFinanceReviewRoute({ page: 'review', view: 'period' }); load(); };
+    load(); window.addEventListener('thingary-restored', restored);
+    return () => { live = false; window.removeEventListener('thingary-restored', restored); };
+  }, [page?.generation]);
   // Leave a page, or a timeline filter, whose module was just switched off.
   useEffect(() => {
     const owner = ({ wishlist: 'wishlist', timeline: 'timeline', stats: 'stats', wealth: 'wealth', expenses: 'expenses', recurring: 'recurring', virtual: 'virtual', planning: 'planning' } as Record<string, keyof Modules>)[section];
     if (owner && !modules[owner] && !wishlistEditing) setSection('overview');
+    if (section === 'expenses') { setRecordsRoute(legacyFinanceRoute({ kind: 'expenses' }) as Extract<FinanceRoute, { page: 'records' }>); setSection('finance-records'); }
+    if (section === 'finance-review' && !capabilities.review) setSection('overview');
+    if (modulesLoaded && section === 'finance-records' && !financeRouteAvailable(recordsRoute, capabilities)) {
+      if (recordsRoute.source || sourceFocus) { setNotice('这条来源所属功能已关闭，请启用后重新打开。'); setSourceFocus(null); }
+      const tab = defaultFinanceRecordTab(capabilities);
+      if (tab) setRecordsRoute({ ...recordsRoute, tab, source: undefined }); else setSection('overview');
+    }
     const spend = modules.expenses || modules.recurring || modules.virtual;
     setTimelineSelection(t => (t.domain === 'wish' && !modules.wishlist) || (t.domain === 'wealth' && !modules.wealth) || (t.domain === 'expense' && !spend) || (t.filter === 'wishlist' && !modules.wishlist) || (t.filter === 'snapshot' && !modules.wealth) || (t.filter === 'expense' && !spend) ? defaultTimeline : t);
-  }, [modules, section]);
+  }, [modules, section, modulesLoaded]);
   // A module switched off must not keep its search word or a pending new-record hand-off.
   useEffect(() => {
     setSearches(s => {
@@ -192,7 +217,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       for (const key of ['wishlist', 'timeline', 'wealth', 'expenses', 'recurring', 'virtual'] as const) if (!modules[key] && next[key]) next[key] = '';
       return next;
     });
-    setAutoNew(a => (a && !modules[a] ? null : a));
+    setAutoNew(a => a === 'income' ? modules.incomes ? a : null : a === 'movement' ? modules.movements && modules.wealth ? a : null : a && !modules[a] ? null : a);
   }, [modules]);
   // A new dataset (sample switch reloads; backup restore does not) invalidates
   // every session search word, an open menu and a pending hand-off.
@@ -207,7 +232,10 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       setMenuOpen(false);
       setAutoNew(null);
       setSearchExpanded(false);
-      expensesReturnYear.current = null;
+      ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null);
+      setRecordsRoute({ page: 'records', tab: defaultFinanceRecordTab(capabilities) ?? 'income', period: { kind: 'all' } });
+      setFinanceReviewRoute({ page: 'review', view: 'period' }); setReviewBrowse({});
+      setRecordSearches({ income: '', expenses: '', movements: '' }); setFinanceImportRequested(false);
       // 切库/恢复/重置使分析上下文失效：退回物品列表并清空标签范围。
       setAnalysis(null);
       if (query.search || query.label) adjust({ search: '', label: null });
@@ -215,7 +243,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     lastGeneration.current = generation;
   }, [page?.generation]);
   // A hand-off is consumed by the page it names; navigating elsewhere drops it.
-  useEffect(() => { if (autoNew && section !== autoNew) setAutoNew(null); }, [section, autoNew]);
+  useEffect(() => { if (autoNew && section !== (['income', 'movement', 'expenses'].includes(autoNew) ? 'finance-records' : autoNew)) setAutoNew(null); }, [section, autoNew]);
   useEffect(() => { setMenuOpen(false); if (section !== 'assets') setAnalysis(null); }, [section]);
   useEffect(() => { setSearchExpanded(false); }, [section]);
   // U16-D5 侧栏计数：只读查询，资料、列表或回收站变化与切页时重读；失败时不显示计数。
@@ -252,10 +280,6 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     document.addEventListener('pointerdown', close); document.addEventListener('keydown', close);
     return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); document.removeEventListener('keydown', menuKeys); document.removeEventListener('toggle', enterMenu, true); };
   }, []);
-  const [expensesYear, setExpensesYear] = useState<number | null | undefined>(undefined);
-  // 重要支出返回上下文：明细打开原记录后再返回，恢复所选期间（§2.1）。
-  // 期间不落库，仅会话内存；切换资料库即失效。
-  const expensesReturnYear = useRef<{ generation: string; year: number | null } | null>(null);
   const loadedDay = useRef(today);
   const maintenanceOpening = useRef(false);
   const [theme, setTheme] = useState<Mode>(readMode), [style, setStyle] = useState<Style>(readStyle);
@@ -270,13 +294,6 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const taxonomy = useTaxonomy(() => { void refresh(); if (selected) void select(selected.asset.id); setTrashVersion(v => v + 1); });
   // The library identity is also available when the physical list cannot load.
   const libraryGeneration = page?.generation ?? taxonomy.snapshot?.generation;
-  // 挂载时解析重要支出的初始期间：总览指定年 > 返回上下文恢复 > 普通「全部」。
-  const expensesInitialYear = (): number | null => {
-    if (expensesYear !== undefined) return expensesYear;
-    if (returnContext && returnContext.section === 'expenses' && libraryGeneration && returnContext.generation === libraryGeneration) return expensesReturnYear.current?.generation === libraryGeneration ? expensesReturnYear.current.year : null;
-    return null;
-  };
-  const rememberExpensesYear = (y: number | null) => { if (libraryGeneration) expensesReturnYear.current = { generation: libraryGeneration, year: y }; };
   async function changeDemoMode(demo: boolean, reset = false, thenNewAsset = false) {
     if (modeBusy) return;
     if (modeBlocked || pendingGenerations(localStorage).length || document.querySelector('dialog[open]')) {
@@ -298,7 +315,9 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }
   const taxonomyGuard = taxonomyDirty || taxonomy.busy || taxonomy.blocked;
   useEffect(() => { void invoke('set_editing', { editing: wishlistEditing || !!draft || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard }).catch(e => setNotice(errorMessage(e))); }, [wishlistEditing, draft, trashAction, trashRecovery, recordTrashAction, recordTrashRecovery, lifecycleDraft, lifecycleRecovery, saleDraft, saleRecovery, maintenanceDraft, maintenanceRecovery, warrantyDraft, warrantyRecovery, taxonomyGuard]);
-  const modeBlocked = featureEditing || dataBusy || wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
+  const durablePending = pendingGenerations(localStorage).length > 0 || !!storedPending();
+  const otherEditing = wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
+  const modeBlocked = durablePending || featureEditing || dataBusy || wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
   useEffect(() => { void invoke('set_library_busy', { busy: modeBlocked }).catch(e => setNotice(errorMessage(e))); }, [modeBlocked]);
   useEffect(() => {
     if (!modeBlocked) void invoke<DemoStatus>('demo_status').then(setDemoStatus).catch(e => setNotice(errorMessage(e)));
@@ -324,17 +343,26 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     document.getElementById('detail-heading')?.focus();
   }, [detailLoading, detailId, selected]);
   // The target page shows its own failure message; the App only clears the focus.
-  const onSourceDone = () => setSourceFocus(null);
+  const onSourceDone = (message?: string) => { if (message) setNotice(message); setSourceFocus(null); };
   function beginReturn() {
     if (!libraryGeneration) return;
-    setReturnContext({ section, generation: libraryGeneration, scroll: mainRef.current?.scrollTop ?? 0, reviewYear, timeline: timelineSelection });
+    setReturnContext({ section, generation: libraryGeneration, scroll: mainRef.current?.scrollTop ?? 0, reviewYear, timeline: timelineSelection, ...(section === 'finance-records' || section === 'finance-review' ? { finance: { generation: libraryGeneration, route: section === 'finance-records' ? recordsRoute : financeReviewRoute, scroll: mainRef.current?.scrollTop ?? 0, search: section === 'finance-records' ? recordSearches[recordsRoute.tab] : undefined, ...reviewBrowse } } : {}) });
   }
   /** Open a record from a stable target: validate first, then let the target
    * page locate it by ID. A failed source refreshes and explains; it never
    * lands on a same-named record or a fabricated new one. */
   function openSource(target: SourceTarget) {
     if (!libraryGeneration) return;
-    beginReturn();
+    if (modeBlocked) { setNotice('请先完成当前编辑或核对保存结果，再打开来源。'); return; }
+    const financeSource = financeSourceRoute(target, recordsRoute);
+    if (financeSource) {
+      if (!financeRouteAvailable(financeSource, capabilities)) { setNotice('这条来源所属功能已关闭，请启用后重新打开。'); return; }
+      beginReturn(); setRecordsRoute(financeSource);
+    } else {
+      const owner = ({ wish: 'wishlist', snapshot: 'wealth', account: 'wealth', payment: 'recurring', plan: 'recurring', virtual: 'virtual', topup: 'virtual' } as Partial<Record<SourceTarget['kind'], keyof Modules>>)[target.kind];
+      if (owner && !modules[owner]) { setNotice('这条来源所属功能已关闭，请启用后重新打开。'); return; }
+      beginReturn();
+    }
     // Synchronous like the other kinds: read_asset's own ticket drops a late
     // answer, and its not-found/deleted states explain an invalid source.
     if (target.kind === 'asset') { setDetailId(null); setSection('assets'); void select(target.id, true); return; }
@@ -346,15 +374,19 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }
   /** Module links from the review keep its year and view; returning restores them. */
   function navigateFromReview(target: ReviewPage) {
+    if (modeBlocked) return;
     beginReturn();
     if (target === 'assets') adjust({ filter: 'all', search: '' });
     if (target === 'timeline') setTimelineSelection(s => ({ ...s, year: reviewYear }));
-    if (target === 'expenses') setExpensesYear(reviewYear);
+    if (target === 'expenses') { gotoFinance(legacyFinanceRoute({ kind: 'expenses', year: reviewYear })); return; }
     setSection(target); setDetailId(null);
   }
   // 总览规划摘要的入口：进规划页签并沿用总览返回上下文；budget／profile 的定位意图
   // 由目标页／养老金页各消费一次，用户离开后迟到的意图不再跳转。
   function gotoPlanning(tab: PlanningTab, focus?: 'budget' | 'profile') {
+    if (modeBlocked) return;
+    if (tab !== 'savings' && !modules.planning) { setNotice('目标功能已关闭。'); return; }
+    if (tab === 'savings') { gotoFinance({ page: 'review', view: 'period' }); return; }
     beginReturn();
     setPlanFocus(focus && libraryGeneration ? { tab, focus, generation: libraryGeneration } : null);
     setPlanningTab(tab); setSection('planning'); setDetailId(null);
@@ -363,10 +395,21 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     if (planFocus && (section !== 'planning' || planningTab !== planFocus.tab || libraryGeneration !== planFocus.generation)) setPlanFocus(null);
   }, [section, planningTab, libraryGeneration, planFocus]);
   useEffect(() => {
-    if (reviewFocus && (section !== 'planning' || planningTab !== 'savings' || libraryGeneration !== reviewFocus.generation || !modules.wealth || !modules.planning)) setReviewFocus(null);
     if (wealthReviewFocus && (section !== 'wealth' || libraryGeneration !== wealthReviewFocus.generation || !modules.wealth)) setWealthReviewFocus(null);
-  }, [section, planningTab, libraryGeneration, modules.wealth, modules.planning, reviewFocus, wealthReviewFocus]);
-  const gotoReview = (id: string) => { gotoPlanning('savings'); if (libraryGeneration) setReviewFocus({ id, generation: libraryGeneration }); };
+  }, [section, planningTab, libraryGeneration, modules.wealth, modules.planning, wealthReviewFocus]);
+  function gotoFinance(route: FinanceRoute, fromDataManagement = false) {
+    const dataResultReady = fromDataManagement && !otherEditing && !featureEditing && !storedPending() && !pendingGenerations(localStorage).length;
+    if (modeBlocked && !dataResultReady) { setNotice('请先完成当前编辑或核对保存结果，再切换页面。'); return; }
+    if (!financeRouteAvailable(route, capabilities)) { setNotice('此功能已关闭，请启用后重新打开。'); return; }
+    const destination = route.page === 'records' ? 'finance-records' : route.page === 'review' ? 'finance-review' : route.page === 'goals' ? 'planning' : 'settings';
+    if (section !== destination) beginReturn();
+    setDetailId(null);
+    if (route.page === 'records') { setRecordsRoute(route); setSection('finance-records'); }
+    else if (route.page === 'review') { setFinanceReviewRoute(route); setSection('finance-review'); }
+    else if (route.page === 'goals') { setPlanningTab('goals'); setSection('planning'); }
+    else { setSettingsGroup('data'); setFinanceImportRequested(route.importKind === 'finance'); setSection('settings'); }
+  }
+  const gotoReview = (id: string) => gotoFinance({ page: 'review', view: 'period', toSnapshotId: id });
   const gotoReviewWealth = (a: import('./review-observations').ReviewAction) => {
     if (!libraryGeneration || !modules.wealth || (a.kind !== 'accounts' && a.kind !== 'snapshot')) return;
     beginReturn(); setWealthReviewFocus({ generation: libraryGeneration, kind: a.kind, ...(a.kind === 'snapshot' ? { id: a.id } : {}) }); setSection('wealth'); setDetailId(null);
@@ -386,17 +429,20 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   // Returning to the originating section restores its year/filter state; the
   // scroll follows once that page has rendered real data (restoreScroll).
   useEffect(() => {
-    if (!libraryGeneration || !returnContext || section !== returnContext.section) return;
+    if (!libraryGeneration || !returnContext || sourceFocus || section !== returnContext.section) return;
     const context = validReturn(returnContext, libraryGeneration);
     setReturnContext(null);
     if (!context) return;
     if (context.section === 'overview') setReviewYear(context.reviewYear);
     if (context.section === 'timeline') setTimelineSelection(context.timeline);
+    if (context.finance) {
+      const finance = validFinanceReturn(context.finance, libraryGeneration, capabilities);
+      if (!finance) { setNotice('原财务浏览上下文已失效，请重新选择。'); return; }
+      if (finance.route.page === 'records') { setRecordsRoute(finance.route); setRecordSearches(v => ({ ...v, [finance.route.page === 'records' ? finance.route.tab : 'income']: finance.search ?? '' })); }
+      else if (finance.route.page === 'review') { setFinanceReviewRoute(finance.route); setReviewBrowse({ sort: finance.sort as 'impact' | 'kind' | undefined, expandedIds: finance.expandedIds, accountView: finance.accountView }); }
+    }
     setPendingReturn(context);
-  }, [section, returnContext, libraryGeneration]);
-  // The carried year is consumed by the expenses page's mount; clear it so a
-  // later unrelated visit falls back to the default current year.
-  useEffect(() => { if (section === 'expenses') setExpensesYear(undefined); }, [section]);
+  }, [section, returnContext, libraryGeneration, sourceFocus]);
   const scrollRestore = (forSection: Section): ScrollRestore => pendingReturn && pendingReturn.section === forSection && section === forSection
     ? { top: pendingReturn.scroll, done: () => { if (mainRef.current) mainRef.current.scrollTop = pendingReturn.scroll; setPendingReturn(null); } }
     : null;
@@ -505,8 +551,14 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }
   /** Menu choices enter the target module and consume its own new-record flow;
    * cancelling stays there. */
-  function beginNewRecord(target: 'asset' | 'wishlist' | 'wealth' | 'expenses' | 'recurring' | 'virtual') {
+  function beginNewRecord(target: NewTarget) {
     setMenuOpen(false);
+    if (modeBlocked) { setNotice('请先完成当前编辑或核对保存结果，再新增记录。'); return; }
+    if (target === 'income' || target === 'movement' || target === 'expenses') {
+      const route: Extract<FinanceRoute, { page: 'records' }> = { page: 'records', tab: target === 'movement' ? 'movements' : target };
+      if (!financeRouteAvailable(route, capabilities)) return;
+      gotoFinance(route); setAutoNew(target); return;
+    }
     if (target === 'asset') { void openEditor(null); return; }
     setDetailId(null);
     setSection(target);
@@ -515,6 +567,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   function applySearch(key: SearchSection, value: string) {
     // 分析子视图的搜索只过滤明细，不写列表查询（汇总与分母不变）。
     if (key === 'assets' && analysis && !detailId) { analysisSearch(value); return; }
+    if (key === 'finance-records') setRecordSearches(s => ({ ...s, [recordsRoute.tab]: value }));
     setSearches(s => (s[key] === value ? s : { ...s, [key]: value }));
     // The asset list keeps its query as the single source of truth.
     if (key === 'assets') adjust({ search: value });
@@ -533,7 +586,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     return () => window.removeEventListener('keydown', onKey);
   });
   // Library switches and module toggles invalidate the session outright.
-  useEffect(() => { setSearchSession(emptySearchSession()); }, [libraryGeneration, modules.wishlist, modules.wealth, modules.expenses, modules.recurring, modules.virtual, modules.timeline, modules.stats]);
+  useEffect(() => { setSearchSession(emptySearchSession()); }, [libraryGeneration, modules.wishlist, modules.wealth, modules.expenses, modules.recurring, modules.virtual, modules.timeline, modules.stats, modules.incomes, modules.movements]);
   menuAction.current = action => {
     if (action === 'toggle-appearance') { setTheme(toggledMode(theme)); return; }
     if (action === 'global-search') { openGlobalSearch(); return; }
@@ -963,7 +1016,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const menuNew = topbarBar.menu ? `${topbarBar.menu.label}…` : topbarBar.newRecord?.label ?? null;
   const menuFind = topbarBar.search?.placeholder ?? null;
   useEffect(() => { void invoke('set_page_menu', { newLabel: menuNew, findLabel: menuFind }).catch(() => {}); }, [menuNew, menuFind]);
-  const topbarSearchValue = topbarSearch ? (topbarSearch.key === 'assets' ? (analysis && !detailId ? analysis?.search ?? '' : query.search) : searches[topbarSearch.key]) : '';
+  const topbarSearchValue = topbarSearch ? (topbarSearch.key === 'assets' ? (analysis && !detailId ? analysis?.search ?? '' : query.search) : topbarSearch.key === 'finance-records' ? recordSearches[recordsRoute.tab] : searches[topbarSearch.key]) : '';
   const topbarSearchOpen = !!topbarSearch && (!compactTopbar || searchExpanded || !!topbarSearchValue);
   const storedDraftClosing = closeIntent && !wishlistEditing && !draft && !trashAction && !recordTrashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && !warrantyDraft && !taxonomyGuard && (trashRecovery || recordTrashRecovery || lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery);
   const narrowed = query.filter !== 'all' || (query.category?.mode ?? 'all') !== 'all' || (query.warranty ?? 'all') !== 'all' || !!query.label;
@@ -974,18 +1027,23 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const collectionTitle = statusItems.find(([f, , , w]) => w + f === statusKey)?.[1] ?? '全部物品';
   function browseStatus(filter: string, warranty: string) { if (wishlistEditing) return; setSection('assets'); setDetailId(null); setAnalysis(null); adjust({ filter, warranty }); }
   function identity(record: AssetRecord) { return <><Cover record={record} generation={page?.generation || ''} /><span className="identity"><strong>{record.asset.name}</strong><small>{taxonomy.snapshot?.categories.find(c => c.id === record.classification?.category_id)?.name || '未分类'}{record.label_name && ` · ${record.label_name}`}</small></span></>; }
-  return <PageBarContext.Provider value={pageBarRegistrar}><div className="shell">{!demoStatus.active && <NotificationNotice/>}{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)} pendingOnly={!!(trashRecovery || recordTrashRecovery) && !(lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery)}/>}<aside className="sidebar"><div className="brand"><span className="brand-mark" aria-hidden="true"><LogoMark/></span><div><strong>物谱</strong><small>THINGARY</small></div></div>
+  return <PageBarContext.Provider value={pageBarRegistrar}><div className="shell">{!demoStatus.active && <NotificationNotice/>}{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)} pendingOnly={!!(trashRecovery || recordTrashRecovery) && !(lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery)}/>}<aside className="sidebar" onClickCapture={event => { if (!modeBlocked || !(event.target instanceof Element) || !event.target.closest('nav button')) return; const financeRecovery = storedPending()?.command === 'financial_import_commit' && !!event.target.closest('.settings-row'); if (financeRecovery && event.target.closest('button')?.textContent === '设置') { setSettingsGroup('data'); setFinanceImportRequested(true); return; } event.preventDefault(); event.stopPropagation(); setNotice('请先完成当前编辑或核对保存结果，再切换页面。'); }}><div className="brand"><span className="brand-mark" aria-hidden="true"><LogoMark/></span><div><strong>物谱</strong><small>THINGARY</small></div></div>
       <nav aria-label="主导航"><button className={section === 'overview' ? 'nav-active' : ''} aria-current={section === 'overview' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('overview'); setDetailId(null); }}><Icon name="overview"/><span>总览</span></button><p className="nav-caption">物品</p>
         {statusItems.map(([filter, label, icon, warranty]) => <button key={label} className={section === 'assets' && statusKey === warranty + filter ? 'nav-active' : ''} aria-current={section === 'assets' && statusKey === warranty + filter ? 'page' : undefined} disabled={wishlistEditing} onClick={() => browseStatus(filter, warranty)}><Icon name={icon}/><span>{label}</span>{sideCounts && <small className="nav-count">{sideCounts[filter === 'held' ? 'covered' : filter as 'all' | 'active' | 'retired' | 'sold']}</small>}</button>)}
         {modules.wishlist && <button className={section === 'wishlist' ? 'nav-active' : ''} aria-current={section === 'wishlist' ? 'page' : undefined} onClick={() => { setWishFocus(null); setSection('wishlist'); setDetailId(null); }}><Icon name="heart"/><span>心愿清单</span>{sideWishes !== null && sideWishes > 0 && <small className="nav-count">{sideWishes}</small>}</button>}
         {modules.stats && <button className={section === 'stats' ? 'nav-active' : ''} aria-current={section === 'stats' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('stats'); setDetailId(null); }}><Icon name="chart"/><span>物品统计</span></button>}
-        {(modules.wealth || modules.expenses || modules.recurring || modules.virtual) && <p className="nav-caption">财富</p>}{modules.wealth && <button className={section === 'wealth' ? 'nav-active' : ''} aria-current={section === 'wealth' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('wealth'); setDetailId(null); }}><Icon name="wallet"/><span>账户与盘点</span></button>}{modules.expenses && <button className={section === 'expenses' ? 'nav-active' : ''} aria-current={section === 'expenses' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('expenses'); setDetailId(null); }}><Icon name="receipt"/><span>重要支出</span></button>}{modules.recurring && <button className={section === 'recurring' ? 'nav-active' : ''} aria-current={section === 'recurring' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('recurring'); setDetailId(null); }}><Icon name="repeat"/><span>周期费用</span>{sideDue > 0 && <small className="nav-count warn" aria-label={`${sideDue} 期待确认`}>{sideDue}</small>}</button>}{modules.virtual && <button className={section === 'virtual' ? 'nav-active' : ''} aria-current={section === 'virtual' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('virtual'); setDetailId(null); }}><Icon name="cloud"/><span>虚拟资产</span></button>}
-      {modules.planning && <><p className="nav-caption">规划</p>{planningTabs.map(([key, label]) => <button key={key} className={section === 'planning' && planningTab === key ? 'nav-active' : ''} aria-current={section === 'planning' && planningTab === key ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setPlanningTab(key); setSection('planning'); setDetailId(null); }}><Icon name={key === 'goals' ? 'plan' : key === 'savings' ? 'chart' : 'pension'}/><span>{label}</span></button>)}</>}</nav><div className="sidebar-bottom"><nav aria-label="时间轴与设置">{modules.timeline && <div className="settings-row"><button className={section === 'timeline' ? 'nav-active' : ''} aria-current={section === 'timeline' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('timeline'); setDetailId(null); }}><Icon name="clock"/><span>时间轴</span></button></div>}<div className="settings-row"><button className={section === 'settings' || section === 'trash' ? 'nav-active' : ''} aria-current={section === 'settings' || section === 'trash' ? 'page' : undefined} disabled={wishlistEditing || !!(trashRecovery || recordTrashRecovery)} onClick={() => { setSection('settings'); void taxonomy.reload().catch(() => {}); }}><Icon name="settings"/><span>设置</span></button></div><div className="appearance-tri" role="group" aria-label="外观明暗">{([['light', '浅色外观', 'sun'], ['dark', '深色外观', 'moon'], ['system', '跟随系统外观', 'system']] as const).map(([mode, label, icon]) => <button key={mode} type="button" className="tri-mode" data-mode={mode} aria-pressed={theme === mode} aria-label={label} title={label + (mode === 'system' ? '' : '（⌘⇧D 可在浅色深色间切换）')} onClick={() => setTheme(mode)}><Icon name={icon}/></button>)}</div></nav><p className="local-status" title="本地档案 · 仅保存在这台 Mac"><span className="local-dot"/>本地档案 · 仅本机</p></div></aside>
-    <main ref={mainRef} className={section === 'assets' && !detailId ? 'browse-main' : undefined}><div className="app-topbar"><span className="breadcrumb"><Icon name={section === 'overview' ? 'overview' : section === 'stats' ? 'chart' : section === 'wealth' ? 'wallet' : section === 'expenses' ? 'receipt' : section === 'recurring' ? 'repeat' : section === 'virtual' ? 'cloud' : section === 'planning' ? 'plan' : section === 'wishlist' ? 'heart' : section === 'timeline' ? 'clock' : section === 'trash' ? 'trash' : section === 'settings' ? 'settings' : 'items'}/>{section === 'assets' && analysis ? analysisCrumb : section === 'trash' ? <><button type="button" className="ui-link" disabled={wishlistEditing} onClick={() => backFromSubpage('settings')}>设置</button><span> ／ </span><b>最近删除</b></> : <>{section === 'overview' || section === 'timeline' ? '物谱' : section === 'stats' ? '物品' : section === 'wealth' || section === 'expenses' || section === 'recurring' || section === 'virtual' ? '财富' : section === 'planning' ? '规划' : section === 'wishlist' ? '心愿清单' : section === 'settings' ? '物谱' : detailId ? <button type="button" className="ui-link" disabled={wishlistEditing} onClick={back}>{collectionTitle}</button> : '我的物品'} <span>／</span> {section === 'overview' ? '总览' : section === 'stats' ? '物品统计' : section === 'wealth' ? '账户与盘点' : section === 'expenses' ? '重要支出' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'planning' ? planningTabs.find(([k]) => k === planningTab)![1] : section === 'wishlist' ? '购买前记录' : section === 'timeline' ? '时间轴' : section === 'settings' ? '设置' : detailId ? '物品详情' : collectionTitle}</>}</span>{<div className="topbar-actions"><button type="button" className="global-search-open" aria-label="搜索全部资料" title="搜索全部资料（⌘⇧F）" onClick={openGlobalSearch}><svg className="ui-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-10 0 5 5 0 1 1 10 0M12 12l5 5"/></svg><span>搜索全部资料</span><kbd>⌘⇧F</kbd></button>{topbarSearch && <TopbarSearchBox search={topbarSearch} value={topbarSearchValue} inputRef={searchInputRef} expanded={topbarSearchOpen} disabled={wishlistEditing} onExpand={() => { setSearchExpanded(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }} onChange={v => applySearch(topbarSearch.key, v)}/>}{topbarBar.secondary && <button type="button" className="topbar-secondary" disabled={topbarBar.secondary.disabled} onClick={topbarBar.secondary.run}>{topbarBar.secondary.plus && <Icon name="plus"/>}<span>{topbarBar.secondary.label}</span>{topbarBar.secondary.label === menuNew && <kbd>⌘N</kbd>}</button>}{topbarBar.menu && <BarMenuButton menu={topbarBar.menu} kbd open={menuOpen} onOpen={setMenuOpen} buttonRef={menuButtonRef}/>}{topbarBar.primary && !topbarBar.menu && <button ref={newRef} className="primary" disabled={topbarBar.primary.disabled} onClick={topbarBar.primary.run}>{topbarBar.primary.plus && <Icon name="plus"/>}<span>{topbarBar.primary.label}</span>{topbarBar.primary.label === menuNew && <kbd>⌘N</kbd>}</button>}</div>}</div>
+        {(modules.wealth || modules.incomes || modules.expenses || modules.recurring || modules.virtual) && <p className="nav-caption">财富</p>}
+        {modules.wealth && <button className={section === 'wealth' ? 'nav-active' : ''} aria-current={section === 'wealth' ? 'page' : undefined} onClick={() => { setSection('wealth'); setDetailId(null); }}><Icon name="wallet"/><span>账户与盘点</span></button>}
+        {(capabilities.incomeRecords || capabilities.expenseRecords || capabilities.movementRecords) && <button className={section === 'finance-records' ? 'nav-active' : ''} aria-current={section === 'finance-records' ? 'page' : undefined} onClick={() => gotoFinance({ ...recordsRoute, source: undefined, tab: defaultFinanceRecordTab(capabilities, recordsRoute.tab)! })}><Icon name="receipt"/><span>收支记录</span></button>}
+        {modules.wealth && <button className={section === 'finance-review' ? 'nav-active' : ''} aria-current={section === 'finance-review' ? 'page' : undefined} onClick={() => gotoFinance(financeReviewRoute)}><Icon name="chart"/><span>财务复盘</span></button>}
+        {modules.recurring && <button className={section === 'recurring' ? 'nav-active' : ''} aria-current={section === 'recurring' ? 'page' : undefined} onClick={() => { setSection('recurring'); setDetailId(null); }}><Icon name="repeat"/><span>周期费用</span>{sideDue > 0 && <small className="nav-count warn">{sideDue}</small>}</button>}
+        {modules.virtual && <button className={section === 'virtual' ? 'nav-active' : ''} aria-current={section === 'virtual' ? 'page' : undefined} onClick={() => { setSection('virtual'); setDetailId(null); }}><Icon name="cloud"/><span>虚拟资产</span></button>}
+        {modules.planning && <><p className="nav-caption">规划</p><button className={section === 'planning' ? 'nav-active' : ''} aria-current={section === 'planning' ? 'page' : undefined} onClick={() => gotoPlanning('goals')}><Icon name="plan"/><span>目标</span></button></>}</nav><div className="sidebar-bottom"><nav aria-label="时间轴与设置">{modules.timeline && <div className="settings-row"><button className={section === 'timeline' ? 'nav-active' : ''} aria-current={section === 'timeline' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('timeline'); setDetailId(null); }}><Icon name="clock"/><span>时间轴</span></button></div>}<div className="settings-row"><button className={section === 'settings' || section === 'trash' ? 'nav-active' : ''} aria-current={section === 'settings' || section === 'trash' ? 'page' : undefined} disabled={wishlistEditing || !!(trashRecovery || recordTrashRecovery)} onClick={() => { setSection('settings'); void taxonomy.reload().catch(() => {}); }}><Icon name="settings"/><span>设置</span></button></div><div className="appearance-tri" role="group" aria-label="外观明暗">{([['light', '浅色外观', 'sun'], ['dark', '深色外观', 'moon'], ['system', '跟随系统外观', 'system']] as const).map(([mode, label, icon]) => <button key={mode} type="button" className="tri-mode" data-mode={mode} aria-pressed={theme === mode} aria-label={label} title={label + (mode === 'system' ? '' : '（⌘⇧D 可在浅色深色间切换）')} onClick={() => setTheme(mode)}><Icon name={icon}/></button>)}</div></nav><p className="local-status" title="本地档案 · 仅保存在这台 Mac"><span className="local-dot"/>本地档案 · 仅本机</p></div></aside>
+    <main ref={mainRef} className={section === 'assets' && !detailId ? 'browse-main' : undefined}><div className="app-topbar"><span className="breadcrumb"><Icon name={section === 'overview' ? 'overview' : section === 'stats' ? 'chart' : section === 'wealth' ? 'wallet' : section === 'finance-records' ? 'receipt' : section === 'finance-review' ? 'chart' : section === 'recurring' ? 'repeat' : section === 'virtual' ? 'cloud' : section === 'planning' ? 'plan' : section === 'wishlist' ? 'heart' : section === 'timeline' ? 'clock' : section === 'trash' ? 'trash' : section === 'settings' ? 'settings' : 'items'}/>{section === 'assets' && analysis ? analysisCrumb : section === 'trash' ? <><button type="button" className="ui-link" disabled={wishlistEditing} onClick={() => backFromSubpage('settings')}>设置</button><span> ／ </span><b>最近删除</b></> : <>{section === 'overview' || section === 'timeline' ? '物谱' : section === 'stats' ? '物品' : section === 'wealth' || section === 'finance-records' || section === 'finance-review' || section === 'recurring' || section === 'virtual' ? '财富' : section === 'planning' ? '规划' : section === 'wishlist' ? '心愿清单' : section === 'settings' ? '物谱' : detailId ? <button type="button" className="ui-link" disabled={wishlistEditing} onClick={back}>{collectionTitle}</button> : '我的物品'} <span>／</span> {section === 'overview' ? '总览' : section === 'stats' ? '物品统计' : section === 'wealth' ? '账户与盘点' : section === 'finance-records' ? '收支记录' : section === 'finance-review' ? '财务复盘' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'planning' ? '目标' : section === 'wishlist' ? '购买前记录' : section === 'timeline' ? '时间轴' : section === 'settings' ? '设置' : detailId ? '物品详情' : collectionTitle}</>}</span>{<div className="topbar-actions"><button type="button" className="global-search-open" aria-label="搜索全部资料" title="搜索全部资料（⌘⇧F）" onClick={openGlobalSearch}><svg className="ui-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" aria-hidden="true"><path d="M13 8a5 5 0 1 1-10 0 5 5 0 1 1 10 0M12 12l5 5"/></svg><span>搜索全部资料</span><kbd>⌘⇧F</kbd></button>{topbarSearch && <TopbarSearchBox search={topbarSearch} value={topbarSearchValue} inputRef={searchInputRef} expanded={topbarSearchOpen} disabled={wishlistEditing} onExpand={() => { setSearchExpanded(true); requestAnimationFrame(() => searchInputRef.current?.focus()); }} onChange={v => applySearch(topbarSearch.key, v)}/>}{topbarBar.secondary && <button type="button" className="topbar-secondary" disabled={topbarBar.secondary.disabled} onClick={topbarBar.secondary.run}>{topbarBar.secondary.plus && <Icon name="plus"/>}<span>{topbarBar.secondary.label}</span>{topbarBar.secondary.label === menuNew && <kbd>⌘N</kbd>}</button>}{topbarBar.menu && <BarMenuButton menu={topbarBar.menu} kbd open={menuOpen} onOpen={setMenuOpen} buttonRef={menuButtonRef}/>}{topbarBar.primary && !topbarBar.menu && <button ref={newRef} className="primary" disabled={topbarBar.primary.disabled} onClick={topbarBar.primary.run}>{topbarBar.primary.plus && <Icon name="plus"/>}<span>{topbarBar.primary.label}</span>{topbarBar.primary.label === menuNew && <kbd>⌘N</kbd>}</button>}</div>}</div>
       {(demoStatus.active || !demoStatus.started) && demoStatus.available && <div className="demo-banner" role="status"><strong>{demoStatus.active ? '样例体验' : '我的资料'}</strong><span>{demoStatus.active ? '正在使用独立虚构资料。编辑、删除和付款只留在样例中，不发送系统通知；样例不接受新增物品（含实现心愿），新增物品会回到我的资料。' : '从任意模块开始记录；保存第一条资料后，下次直接进入这里。'}</span><button type="button" disabled={modeBusy || modeBlocked || !!localStorage.getItem(resetKey)} onClick={() => void changeDemoMode(!demoStatus.active)}>{demoStatus.active ? demoStatus.started ? '返回我的资料' : '开始记录我的资料' : '查看样例'}</button></div>}
       {modeBusy && <p className="notice" role="status">正在准备资料，请稍候…</p>}
 
-      {!detailId || section !== 'assets' ? <header className="page-header"><div><h1 id="page-heading" tabIndex={-1}>{section === 'overview' ? '物谱' : section === 'stats' ? '物品统计' : section === 'wealth' ? '账户与盘点' : section === 'expenses' ? '重要支出' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'planning' ? planningTabs.find(([k]) => k === planningTab)![1] : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '时间轴' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : section === 'assets' && analysis ? (tags.find(t => t.id === analysis.labelId)?.name ?? analysis.labelName) : collectionTitle}</h1></div>{section === 'assets' && !analysis && !loading && !loadError && overviewPage && overviewPage.total > 0 && <AssetOverview page={overviewPage} filtered={narrowed}/>}{section === 'overview' && <span className="page-meta">{Number(today.slice(0, 4))} 年 {Number(today.slice(5, 7))} 月 {Number(today.slice(8))} 日</span>}{section === 'trash' && <button type="button" className="ui-btn" disabled={wishlistEditing || !!trashRecovery || !!recordTrashRecovery} onClick={() => backFromSubpage('origin')}>返回{subpageOriginLabel}</button>}<span id="page-header-meta" className="page-meta"/><div id="page-header-actions" className="page-header-actions"/></header> : null}
+      {!detailId || section !== 'assets' ? <header className="page-header"><div><h1 id="page-heading" tabIndex={-1}>{section === 'overview' ? '物谱' : section === 'stats' ? '物品统计' : section === 'wealth' ? '账户与盘点' : section === 'finance-records' ? '收支记录' : section === 'finance-review' ? '财务复盘' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'planning' ? '目标' : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '时间轴' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : section === 'assets' && analysis ? (tags.find(t => t.id === analysis.labelId)?.name ?? analysis.labelName) : collectionTitle}</h1></div>{section === 'assets' && !analysis && !loading && !loadError && overviewPage && overviewPage.total > 0 && <AssetOverview page={overviewPage} filtered={narrowed}/>}{section === 'overview' && <span className="page-meta">{Number(today.slice(0, 4))} 年 {Number(today.slice(5, 7))} 月 {Number(today.slice(8))} 日</span>}{section === 'trash' && <button type="button" className="ui-btn" disabled={wishlistEditing || !!trashRecovery || !!recordTrashRecovery} onClick={() => backFromSubpage('origin')}>返回{subpageOriginLabel}</button>}{returnContext && returnContext.section !== section && <button type="button" className="ui-btn" disabled={modeBlocked} onClick={() => { if (modeBlocked) return; ++sourceToken.current; setSourceFocus(null); setSection(returnContext.section); setDetailId(null); }}>返回来源页面</button>}<span id="page-header-meta" className="page-meta"/><div id="page-header-actions" className="page-header-actions"/></header> : null}
       {wishlistEditing && section !== 'wishlist' && <div className="notice">有一次心愿保存结果待确认，请先处理。<button onClick={() => { setSection('wishlist'); setDetailId(null); }}>前往心愿清单</button></div>}
       {saleRecovery && !saleDraft && <div className="notice">有一次售出操作结果待确认。<button disabled={wishlistEditing} onClick={() => void openSale(saleRecovery.record, saleRecovery.mode, saleRecovery)}>核对售出结果</button></div>}
       {maintenanceRecovery && !maintenanceDraft && <div className="notice">有一次维护操作结果待确认。<button disabled={wishlistEditing} onClick={() => void openMaintenance(maintenanceRecovery.record, maintenanceRecovery.maintenance_id, maintenanceRecovery)}>核对维护结果</button></div>}
@@ -999,18 +1057,19 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         materials: settingsGroup === 'materials' ? <MaterialLibrary onBusyChange={setDataBusy} generation={page?.generation || ''} onNotice={setNotice} search={searches.materials} onSearch={v => setSearches(s => (s.materials === v ? s : { ...s, materials: v }))}/> : null,
         options: <TaxonomyManager generation={taxonomy.snapshot?.generation} snapshot={taxonomy.snapshot} loading={taxonomy.loading} loadError={taxonomy.loadError} onReload={taxonomy.reload} onCommand={taxonomy.command} onDirtyChange={setTaxonomyDirty} validateName={(kind, name, id) => validateTaxonomyName(taxonomy.snapshot?.[kind === 'category' ? 'categories' : 'channels'] ?? [], kind, name, id)}/>,
         modules: <ModuleSettings modules={modules} onChange={setModules}/>,
-        data: <DataManagement onImported={() => { void refresh(); void taxonomy.reload().catch(() => {}); }} onBusyChange={setDataBusy} generation={page?.generation ?? null} demo={!!demoStatus?.active} blocked={wishlistEditing || taxonomyGuard || !!draft || !!(trashRecovery || recordTrashRecovery)} onTrash={() => openSubpage('trash', 'data')}/>,
+        data: <DataManagement onImported={() => { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setFinanceReviewRoute({ page: 'review', view: 'period' }); setReviewBrowse({}); void refresh(); void taxonomy.reload().catch(() => {}); }} onBusyChange={setDataBusy} generation={libraryGeneration ?? null} demo={!!demoStatus?.active} blocked={otherEditing || featureEditing || (durablePending && storedPending()?.command !== 'financial_import_commit')} financeImportRequested={financeImportRequested} onFinanceImportRequestDone={() => setFinanceImportRequested(false)} onViewFinance={target => { if (target !== 'income' && (!modules.wealth || storedPending() || pendingGenerations(localStorage).length || otherEditing)) { setNotice('账户功能已关闭或仍有结果待核对。'); return; } if (target === 'income') gotoFinance({ page: 'records', tab: 'income' }, true); else { beginReturn(); setWealthReviewFocus(libraryGeneration ? { generation: libraryGeneration, kind: target === 'snapshots' ? 'history' : 'accounts' } : null); setSection('wealth'); } }} onTrash={() => openSubpage('trash', 'data')}/>,
         demo: demoStatus.available ? <DemoSettings status={demoStatus} blocked={modeBusy || modeBlocked} onSwitch={() => void changeDemoMode(!demoStatus.active)} onReset={() => void changeDemoMode(true, true)}/> : <p className="muted">样例资料暂不可用。</p>,
       }}/>}
-      {section === 'wealth' && <WealthPage key={libraryGeneration} reviewFocus={wealthReviewFocus} onReviewFocusDone={() => setWealthReviewFocus(null)} onGotoPlanning={modules.planning ? gotoReview : undefined} today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
+      {section === 'wealth' && <WealthPage key={libraryGeneration} reviewFocus={wealthReviewFocus} onReviewFocusDone={() => setWealthReviewFocus(null)} onGotoPlanning={gotoReview} onCompare={pair => gotoFinance({ page: 'review', view: 'compare', ...(pair ? { pair } : {}) })} today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.recurring} onSearch={v => setSearches(s => (s.recurring === v ? s : { ...s, recurring: v }))} autoNew={autoNew === 'recurring'} onAutoNewDone={() => setAutoNew(null)} modules={modules} onOpenSource={openSource}/>}
       {section === 'virtual' && <VirtualPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.virtual} onSearch={v => setSearches(s => (s.virtual === v ? s : { ...s, virtual: v }))} autoNew={autoNew === 'virtual'} onAutoNewDone={() => setAutoNew(null)} modules={modules} />}
-      {section === 'planning' && <PlanningPage reviewSnapshotId={reviewFocus && reviewFocus.generation === libraryGeneration ? reviewFocus.id : null} onReviewFocusDone={() => setReviewFocus(null)} onGotoWealth={gotoReviewWealth} key={libraryGeneration} focus={planFocus && planFocus.generation === libraryGeneration ? planFocus.focus : null} onFocusDone={() => setPlanFocus(null)} today={today} tab={planningTab} onTab={setPlanningTab} onEditingChange={setFeatureEditing}/>}
-      {section === 'expenses' && <ExpensesPage onEditingChange={setFeatureEditing} today={today} initialYear={expensesInitialYear()} onOpenAsset={id => { beginReturn(); setSection('assets'); void select(id, true); }} onOpenSource={openSource} source={sourceFocus} onSourceDone={onSourceDone} search={searches.expenses} onSearch={v => setSearches(s => (s.expenses === v ? s : { ...s, expenses: v }))} autoNew={autoNew === 'expenses'} onAutoNewDone={() => setAutoNew(null)} restoreScroll={scrollRestore('expenses')} generation={libraryGeneration} onYearRemember={rememberExpensesYear}/>}
+      {section === 'planning' && <PlanningPage goalsOnly onGotoWealth={gotoReviewWealth} key={libraryGeneration} focus={planFocus && planFocus.generation === libraryGeneration ? planFocus.focus : null} onFocusDone={() => setPlanFocus(null)} today={today} tab="goals" onTab={tab => tab === 'savings' ? gotoFinance({ page: 'review', view: 'period' }) : setPlanningTab('goals')} onEditingChange={setFeatureEditing}/>}
+      {section === 'finance-records' && libraryGeneration && modulesLoaded && <FinanceRecordsPage key={libraryGeneration} generation={libraryGeneration} today={today} modules={modules} route={recordsRoute} onRouteChange={setRecordsRoute} search={recordSearches[recordsRoute.tab]} onSearch={value => setRecordSearches(s => ({ ...s, [recordsRoute.tab]: value }))} onEditingChange={setFeatureEditing} blocked={otherEditing || dataBusy} onOpenAsset={id => openSource({ kind: 'asset', id })} onOpenSource={openSource} onNewAccount={() => beginNewRecord('wealth')} source={sourceFocus} onSourceDone={onSourceDone} autoNew={autoNew === 'income' || autoNew === 'movement' || autoNew === 'expenses'} onAutoNewDone={() => setAutoNew(null)} restoreScroll={scrollRestore('finance-records')}/>}
+      {section === 'finance-review' && libraryGeneration && <FinanceReviewPage key={libraryGeneration} generation={libraryGeneration} today={today} modules={modules} route={financeReviewRoute} onRouteChange={setFinanceReviewRoute} onRecords={gotoFinance} onGoals={() => gotoPlanning('goals')} onNewAccount={() => beginNewRecord('wealth')} onCheckIn={date => { if (modeBlocked) return; beginReturn(); setWealthReviewFocus({ generation: libraryGeneration, kind: 'check-in', date }); setSection('wealth'); }} onOpenSource={openSource} onEditingChange={setFeatureEditing} blocked={otherEditing || dataBusy} restoreScroll={scrollRestore('finance-review')} browseState={reviewBrowse} onBrowseStateChange={setReviewBrowse}/>}
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
       {section === 'overview' && !modeBusy && <>
         {loadError && <div className="notice" role="alert"><strong>物品资料读取失败</strong><p>{loadError}</p><button disabled={loading} onClick={() => { void refresh(); void taxonomy.reload().catch(() => {}); }}>重新读取</button></div>}
-        {libraryGeneration ? <OverviewPage modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} onGotoPlanning={gotoPlanning} onOpenSettings={openModuleSettings} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
+        {libraryGeneration ? <OverviewPage modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} onGotoPlanning={gotoPlanning} onFinance={gotoFinance} onOpenSettings={openModuleSettings} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
           : !loadError && <p className="loading" role="status">正在读取总览…</p>}
       </>}
       {searchSession.open && libraryGeneration && <SearchPanel session={searchSession} onSessionChange={setSearchSession} onClose={() => setSearchSession(s => ({ ...s, open: false }))} generation={libraryGeneration} modulesOn={kind => { const owner = searchKindModule(kind); return owner == null || modules[owner]; }} onOpenSource={openSource}/>}

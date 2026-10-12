@@ -516,6 +516,18 @@ fn reasons_keep_unknown_amounts_without_changing_date_module_or_sort_filters() {
     )
     .unwrap();
     assert_eq!(s.plan_interval_reasons(&end).unwrap().lines.len(), 3);
+    let period = expenses::Period::Range {
+        from: "2026-01-31".into(),
+        to: "2026-03-31".into(),
+        include_from: false,
+    };
+    let shared = s
+        .expense_period_view(&period, &modules::read(&root))
+        .unwrap();
+    assert_eq!(s.plan_interval_reasons(&end).unwrap().lines, shared.lines);
+    // Disabled sources may be unavailable: even preparing their SQL would fail.
+    c.execute_batch("PRAGMA foreign_keys=OFF; DROP TABLE expenses; DROP TABLE plan_payments; DROP TABLE recurring_plans; DROP TABLE virtual_topups; DROP TABLE virtual_assets;").unwrap();
+    assert_eq!(s.plan_interval_reasons(&end).unwrap().lines, shared.lines);
 }
 
 #[test]
@@ -756,4 +768,248 @@ fn income_account_reference_survives_trash_and_blocks_permanent_account_removal(
             .as_deref(),
         Some(a.id.as_str())
     );
+}
+
+#[test]
+fn reasons_and_period_projection_share_refund_and_boundary_dates() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("lib")).unwrap();
+    let b = book(&mut s);
+    check_in(&mut s, "2026-01-31", &[(&b.cash, 100), (&b.fund, 100)]);
+    let end = check_in(&mut s, "2026-03-31", &[(&b.cash, 100), (&b.fund, 100)]);
+    for (day, amount, refund) in [
+        ("2026-01-31", "800000", Some(("100000", "2026-02-01"))),
+        ("2026-02-01", "200000", None),
+        ("2026-03-31", "300000", None),
+        ("2026-04-01", "400000", None),
+    ] {
+        s.expense_save(
+            &expenses::Save {
+                request_id: rid(),
+                generation: s.generation(),
+                id: None,
+                expected_revision: None,
+                fields: expenses::Fields {
+                    title: "虚构区间支出".into(),
+                    date: day.into(),
+                    amount_cents: amount.into(),
+                    category: "other".into(),
+                    notes: String::new(),
+                    asset_id: None,
+                    refund_cents: refund.map(|r| r.0.into()),
+                    refund_date: refund.map(|r| r.1.into()),
+                },
+            },
+            TODAY,
+        )
+        .unwrap();
+    }
+    let r = s.plan_interval_reasons(&end).unwrap();
+    let v = s
+        .expense_period_view(
+            &expenses::Period::Range {
+                from: r.from.clone(),
+                to: r.to.clone(),
+                include_from: false,
+            },
+            &Modules::default(),
+        )
+        .unwrap();
+    assert_eq!(r.lines, v.lines);
+    assert_eq!(v.lines.len(), 3);
+    assert_eq!(
+        (
+            v.spent_cents.as_str(),
+            v.refund_cents.as_str(),
+            v.net_cents.as_str()
+        ),
+        ("500000", "100000", "400000")
+    );
+    assert_eq!(v.lines[0].date.as_deref(), Some("2026-03-31"));
+    assert!(v
+        .lines
+        .iter()
+        .all(|l| l.date.as_deref() != Some("2026-01-31")));
+}
+
+fn income_worker() -> (tempfile::TempDir, thingary_lib::worker::Worker) {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("library");
+    // Seed fictional facts so this fixture starts in the personal temp library.
+    let mut store = Store::open(&root).unwrap();
+    store
+        .plan_income_save(&new(&store, fields("2026-02-15", 10, 0)), TODAY)
+        .unwrap();
+    drop(store);
+    let worker = thingary_lib::worker::Worker::start(root).unwrap();
+    (dir, worker)
+}
+fn income_switch(worker: &thingary_lib::worker::Worker, enabled: bool) {
+    worker
+        .set_modules_with_finance(
+            Modules {
+                planning: false,
+                wealth: false,
+                ..Modules::default()
+            },
+            modules::FinanceUpdate {
+                incomes: Some(enabled),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+}
+
+#[test]
+fn income_worker_is_independent_of_targets_and_gates_reads_before_table_access() {
+    let (dir, worker) = income_worker();
+    income_switch(&worker, true);
+    let input = worker
+        .call(|s| Ok(new(s, fields("2026-03-15", 20, 0))))
+        .unwrap();
+    let saved = worker.plan_income_save(input, TODAY.into()).unwrap();
+    assert_eq!(
+        worker.plan_income(saved.id.clone()).unwrap().unwrap().id,
+        saved.id
+    );
+    assert_eq!(worker.plan_income_list().unwrap().rows.len(), 2);
+    income_switch(&worker, false);
+    // A missing table proves disabled UI reads are stopped before SQL access.
+    let root = dir.path().join("library");
+    worker
+        .call(move |_s| {
+            let active: serde_json::Value =
+                serde_json::from_slice(&std::fs::read(root.join("active.json"))?)?;
+            let c = Connection::open(
+                root.join("datasets")
+                    .join(active["id"].as_str().unwrap())
+                    .join("data.sqlite"),
+            )?;
+            c.execute("ALTER TABLE plan_income RENAME TO inaccessible_income", [])?;
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(code(worker.plan_income_list()), "MODULE_DISABLED");
+    assert_eq!(code(worker.plan_income(saved.id)), "MODULE_DISABLED");
+}
+
+#[test]
+fn disabled_income_worker_reconciles_committed_requests_without_new_writes() {
+    let (_dir, worker) = income_worker();
+    income_switch(&worker, true);
+    let input = worker
+        .call(|s| Ok(new(s, fields("2026-03-15", 20, 0))))
+        .unwrap();
+    worker
+        .call(|s| {
+            s.set_hook(|p| {
+                if p == "plan_income.after_commit" {
+                    Err(Error::new("INJECTED", "reply lost"))
+                } else {
+                    Ok(())
+                }
+            });
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(
+        code(worker.plan_income_save(input.clone(), TODAY.into())),
+        "INJECTED"
+    );
+    worker
+        .call(|s| {
+            s.set_hook(|_| Ok(()));
+            Ok(())
+        })
+        .unwrap();
+    income_switch(&worker, false);
+    let request = input.request_id.clone();
+    let generation = input.generation.clone();
+    let committed = worker
+        .call(move |s| s.wealth_request_result(&request, &generation))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        worker
+            .plan_income_save(input.clone(), TODAY.into())
+            .unwrap()
+            .id,
+        committed
+    );
+    let mut conflicting = input.clone();
+    conflicting.fields.net_cents = "99".into();
+    assert_eq!(
+        code(worker.plan_income_save(conflicting, TODAY.into())),
+        "REQUEST_CONFLICT"
+    );
+    let mut fresh = input;
+    fresh.request_id = rid();
+    assert_eq!(
+        code(worker.plan_income_save(fresh.clone(), TODAY.into())),
+        "MODULE_DISABLED"
+    );
+    fresh.id = Some(committed);
+    fresh.expected_revision = Some(1);
+    assert_eq!(
+        code(worker.plan_income_save(fresh, TODAY.into())),
+        "MODULE_DISABLED"
+    );
+    assert_eq!(
+        worker
+            .call(|s| Ok(s.plan_income_list()?.rows.len()))
+            .unwrap(),
+        2
+    );
+}
+
+#[test]
+fn income_delete_restore_gates_new_requests_and_preserves_replays() {
+    let (_dir, worker) = income_worker();
+    income_switch(&worker, true);
+    let id = worker.plan_income_list().unwrap().rows[0].id.clone();
+    let del = worker
+        .call(move |s| Ok(trash(s, "income", &id, 1, true)))
+        .unwrap();
+    income_switch(&worker, false);
+    assert_eq!(code(worker.wealth_trash(del.clone())), "MODULE_DISABLED");
+    income_switch(&worker, true);
+    worker.wealth_trash(del.clone()).unwrap();
+    income_switch(&worker, false);
+    worker.wealth_trash(del.clone()).unwrap();
+    let mut restore = del.clone();
+    restore.request_id = rid();
+    restore.expected_revision = 2;
+    restore.deleted = false;
+    assert_eq!(
+        code(worker.wealth_trash(restore.clone())),
+        "MODULE_DISABLED"
+    );
+    income_switch(&worker, true);
+    worker.wealth_trash(restore.clone()).unwrap();
+    income_switch(&worker, false);
+    worker.wealth_trash(restore).unwrap();
+    assert_eq!(
+        worker
+            .call(|s| Ok(s.plan_income_list()?.rows[0].revision))
+            .unwrap(),
+        3
+    );
+}
+
+#[test]
+fn sample_income_commands_use_real_preferences() {
+    let dir = tempfile::tempdir().unwrap();
+    let worker = thingary_lib::worker::Worker::start(dir.path().join("library")).unwrap();
+    assert!(worker.demo_status().unwrap().active);
+    income_switch(&worker, false);
+    assert_eq!(code(worker.plan_income_list()), "MODULE_DISABLED");
+    let input = worker
+        .call(|s| Ok(new(s, fields("2026-02-15", 20, 0))))
+        .unwrap();
+    assert_eq!(
+        code(worker.plan_income_save(input, TODAY.into())),
+        "MODULE_DISABLED"
+    );
+    income_switch(&worker, true);
+    assert!(worker.plan_income_list().is_ok());
 }

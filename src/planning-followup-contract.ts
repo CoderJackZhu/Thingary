@@ -31,7 +31,7 @@ export type MovementFieldsV1 = {
 };
 export type MovementRecordV1 = {
   id: string; revision: number; deleted: boolean; fields: MovementFieldsV1;
-  source_status: 'unlinked' | 'matched' | 'needs_review' | 'deleted';
+  source_status: 'unlinked' | 'matched' | 'needs_review' | 'deleted' | 'disabled';
 };
 export type MovementAccountV1 = { id: string; name: string; kind: string; selectable: boolean };
 export type MovementSourceOptionV1 = {
@@ -59,10 +59,10 @@ export type ReviewPreviewV1 = {
   generation: string; pair: ReviewPairV1; review_id: string | null; revision: number | null;
   input: InvestmentReviewInputV1; result: InvestmentReviewResultV1;
   saved_mode: 'manual' | 'movements' | null; selected: ReviewSelectionV1;
-  previous_totals: ReviewTotalsV1 | null; selected_totals: ReviewTotalsV1;
+  previous_totals: ReviewTotalsV1 | null; selected_totals: ReviewTotalsV1 | null;
   /** Signed cents, selected minus previous; null where either side is unknown. */
-  difference: ReviewTotalsV1; movement_count: number;
-  confirmation: 'unconfirmed' | 'confirmed' | 'needs_review';
+  difference: ReviewTotalsV1; movement_count: number | null;
+  confirmation: 'unconfirmed' | 'confirmed' | 'needs_review' | 'unavailable';
   reasons: FollowupIssue[];
   /** Opaque, binds endpoints, relevant movements, links, mode and submitted draft. */
   basis_key: string;

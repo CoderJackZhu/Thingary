@@ -25,13 +25,17 @@ import { mergeDebtRepayments } from './plan-debt';
 import { simplifiedEmpty } from './plan-simplified';
 import type { PlanningSources, ProfileUpdate } from './plan';
 import { basicInputFixtures } from './plan-basic-fixtures';
-import { allModules } from './modules';
+import { allModules, type RuntimeModules } from './modules';
+import { financePeriodContains, type FinancePeriod } from './finance-contract';
+import type { FinanceRead, FinanceSources } from './finance-service';
+import type { MovementRecordV1, ReviewPreviewV1 } from './planning-followup-contract';
 import type { Income, IncomeSave, Mark, ProfileState, Reasons, StoredProfile } from './plan';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
 
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
+let previewModules: RuntimeModules = { ...allModules, planning: params.get('plan-module') !== 'off', wealth: params.get('plan-wealth') !== 'off', incomes: params.get('income-module') !== 'off', movements: params.get('movement-module') !== 'off', finance_status: 'ready', finance_revision: 1 };
 const now = new Date();
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const shifted = (months: number, offset = 0) => {
@@ -129,7 +133,7 @@ let expenses: Expense[] = (params.get('expenses') === 'empty' || params.get('sta
     notes: '虚构样例', refund_cents: e.refund_cents, refund_date: e.refund_days_ago === null ? null : shifted(0, -e.refund_days_ago), asset_id: e.asset_key },
   revision: 1, asset_name: demoAssets.find(a => a.key === e.asset_key)?.name ?? null, asset_deleted: false,
 }));
-function expenseView(year: number | null): ExpenseView {
+function expenseView(year: number | null, period: FinancePeriod = year === null ? { kind: 'all' } : { kind: 'year', year }): ExpenseView {
   const items: Line[] = (params.get('expenses') === 'empty' || params.get('state') === 'empty') ? [] : demoAssets.flatMap(a => [
     { source: 'purchase' as const, id: a.key, asset_id: a.key, title: a.name, category: a.category, date: a.purchase_date, amount_cents: a.price_cents, notes: null },
     ...(a.maintenance ? [{ source: 'maintenance' as const, id: 'm-' + a.key, asset_id: a.key, title: `${a.name} · ${a.maintenance.title}`, category: a.category, date: a.maintenance.date, amount_cents: a.maintenance.cost_cents, notes: null }] : []),
@@ -137,11 +141,11 @@ function expenseView(year: number | null): ExpenseView {
   ]);
   const paidLines: Line[] = payments.filter(p => p.state === 'paid').map(p => ({ source: 'payment', id: p.id, asset_id: null, plan_id: p.plan_id, title: p.plan_name, category: plans.find(x => x.id === p.plan_id)?.fields.category ?? null, date: p.paid_date, amount_cents: p.amount_cents, notes: null }));
   const virtualLines: Line[] = virtuals.filter(v => !v.fields.plan_id && v.fields.price_cents !== null).map(v => ({ source: 'virtual', id: v.id, asset_id: null, title: v.fields.name, category: 'digital', date: v.fields.purchase_date, amount_cents: v.fields.price_cents, notes: null }));
-  const all: Line[] = [...items, ...paidLines, ...virtualLines, ...expenses.flatMap(e => [
+  const all: Line[] = [...items, ...(previewModules.recurring ? paidLines : []), ...(previewModules.virtual ? virtualLines : []), ...(previewModules.expenses ? expenses : []).flatMap(e => [
     { source: e.fields.asset_id ? 'linked' as const : 'expense' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.date, amount_cents: e.fields.amount_cents, notes: e.fields.notes },
     ...(e.fields.refund_date ? [{ source: 'refund' as const, id: e.id, asset_id: e.fields.asset_id, title: e.fields.title, category: e.fields.category, date: e.fields.refund_date, amount_cents: e.fields.refund_cents, notes: e.fields.notes }] : []),
   ])];
-  const inYear = (l: Line) => l.date !== null && (year === null || l.date.startsWith(`${year}-`));
+  const inYear = (l: Line) => financePeriodContains(period, l.date);
   const lines = all.filter(inYear).sort((a, b) => b.date!.localeCompare(a.date!)), undated = all.filter(l => l.date === null);
   const sum = (ls: Line[]) => ls.reduce((t, l) => t + BigInt(l.amount_cents ?? '0'), 0n);
   const spendSource = (l: Line) => ['purchase', 'maintenance', 'expense', 'payment', 'virtual', 'topup'].includes(l.source);
@@ -150,9 +154,9 @@ function expenseView(year: number | null): ExpenseView {
   const yearKeys = [...new Set(all.flatMap(l => l.date ? [l.date.slice(0, 4)] : []))].sort();
   const bucket = (ls: Line[]) => { const spentB = sum(ls.filter(l => spendSource(l) && l.amount_cents !== null)); const count = ls.filter(l => spendSource(l)).length; const known = ls.filter(l => spendSource(l) && l.amount_cents !== null).length;
     return { spent: String(spentB), refund: String(sum(ls.filter(l => l.source === 'refund'))), sale: String(sum(ls.filter(l => l.source === 'sale'))), count, known_count: known, unknown_count: count - known }; };
-  const annual_totals = year === null ? yearKeys.map(k => { const b = bucket(all.filter(l => l.date?.startsWith(k + '-'))); return { year: Number(k), spent_cents: b.spent, refund_cents: b.refund, net_cents: String(BigInt(b.spent) - BigInt(b.refund)), sale_cents: b.sale, count: b.count, known_count: b.known_count, unknown_count: b.unknown_count }; }) : [];
+  const annual_totals = period.kind === 'all' ? yearKeys.map(k => { const b = bucket(all.filter(l => l.date?.startsWith(k + '-'))); return { year: Number(k), spent_cents: b.spent, refund_cents: b.refund, net_cents: String(BigInt(b.spent) - BigInt(b.refund)), sale_cents: b.sale, count: b.count, known_count: b.known_count, unknown_count: b.unknown_count }; }) : [];
   const monthBucket = (m: string) => { const b = bucket(all.filter(l => l.date?.startsWith(m))); return { month: m, spent_cents: b.spent, refund_cents: b.refund, count: b.count, known_count: b.known_count, unknown_count: b.unknown_count }; };
-  return { generation, year, years: yearKeys.map(Number).sort((a, b) => b - a), lines, undated,
+  return { generation, year, period, years: yearKeys.map(Number).sort((a, b) => b - a), lines, undated,
     months: year === null ? [] : Array.from({ length: 12 }, (_, i) => monthBucket(`${year}-${String(i + 1).padStart(2, '0')}`)),
     annual_totals,
     spent_cents: String(spent), refund_cents: String(refunds), net_cents: String(spent - refunds), sale_cents: String(sum(lines.filter(l => l.source === 'sale'))),
@@ -672,7 +676,46 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     receipts.set(input.request_id, id);
     return { value: next };
   }
-  if (command === 'modules_get') return { value: { ...allModules, planning: params.get('plan-module') !== 'off', wealth: params.get('plan-wealth') !== 'off' } };
+  if (command === 'modules_get') return { value: previewModules };
+  if (command === 'modules_set') { previewModules = { ...previewModules, ...(args.modules as Partial<RuntimeModules>), ...(typeof args.incomes === 'boolean' ? { incomes: args.incomes } : {}), ...(typeof args.movements === 'boolean' ? { movements: args.movements } : {}), finance_revision: previewModules.finance_revision + 1, finance_status: 'ready' }; return { value: previewModules }; }
+  if (command === 'finance_sources') {
+    if (params.get('finance') === 'error') throw { message: '虚构财务读取失败，用于验证重试。' };
+    const period = args.period as FinancePeriod;
+    const disabled = <T,>():FinanceRead<T> => ({ status:'disabled', reason:'功能已关闭，本次未读取' });
+    const read = <T,>(enabled:boolean, name:string, fn:()=>T):FinanceRead<T> => {
+      if (!enabled) return disabled();
+      try { if (params.get(name) === 'error' || name === 'income' && planFail('income')) throw Error('虚构来源读取失败'); return {status:'ready',value:fn()}; }
+      catch(e) { return {status:'error',code:'PREVIEW',message:String(e)}; }
+    };
+    const w = summary();
+    const value:FinanceSources = {
+      generation, today:todayIso,write_version:planWriteVersion,period,modules:previewModules,
+      wealth:read(previewModules.wealth,'wealth',()=>w), accounts:read(previewModules.wealth,'accounts',()=>accounts.map(withLatest)),
+      incomes:read(previewModules.incomes,'income',()=>planIncomes.filter(i=>financePeriodContains(period,i.fields.date))),
+      expenses:read(true,'expenses',()=>({...expenseView(period.kind==='year'?period.year:null,period),period})),
+      asset_review:read(previewModules.wealth,'wealth',()=>({generation,incomplete_count:w.points.filter(p=>!p.complete).length,intervals:w.points.filter(p=>p.complete&&p.compared_to).map(p=>({snapshot_id:p.snapshot_id,from:p.compared_to!,to:p.date,days:Math.round((Date.parse(p.date)-Date.parse(p.compared_to!))/86400000),status:p.scope_changed?'scope_changed' as const:'ok' as const,delta_nw_cents:p.change_cents,hpf_change_cents:p.hpf_change_cents,market_change_cents:p.market_change_cents??null}))})),
+      history:read(previewModules.wealth&&previewModules.incomes,'history',()=>computeReview(w.points,planIncomes,planMarks,generation)),
+    };return {value};
+  }
+  if (command === 'movement_accounts') return { value:{generation,accounts:accounts.map(a=>({id:a.id,name:a.fields.name,kind:a.fields.kind,selectable:!a.fields.closed_on}))} };
+  if (command === 'movement_list') {
+    if (!previewModules.movements || !previewModules.wealth) throw {code:'MODULE_DISABLED',message:'资金流动已关闭'};
+    if (params.get('movement') === 'error') throw {message:'虚构资金流动读取失败'};
+    return {value:{generation,records:[] as MovementRecordV1[],next_cursor:null}};
+  }
+  if (command === 'movement_sources') return {value:{generation,options:[],next_cursor:null}};
+  if (command === 'followup_review_list') return {value:{generation,records:[]}};
+  if (command === 'followup_review_read' || command === 'followup_review_preview') {
+    if (params.get('investment') === 'error') throw {message:'虚构投资复盘读取失败'};
+    const pair = args.pair as {from_snapshot_id:string,to_snapshot_id:string};
+    const from=snapshots.find(s=>s.id===pair.from_snapshot_id), to=snapshots.find(s=>s.id===pair.to_snapshot_id);
+    if (!from||!to) throw {code:'NOT_FOUND',message:'虚构盘点不存在'};
+    const endpoint=(s:Stored)=>({snapshot_id:s.id,revision:s.revision,date:s.date,members:s.entries.filter(e=>['investment','mixed','fund','bond'].includes(e.kind)).map(e=>({account_id:e.account_id,kind:e.kind as 'investment'|'mixed'|'fund'|'bond',counted:e.counted,amount_cents:e.amount_cents}))});
+    // Fixed unavailable result: this visual fixture intentionally performs no profit calculation.
+    const preview:ReviewPreviewV1={generation,pair,review_id:null,revision:null,input:{contract_version:1,from:endpoint(from),to:endpoint(to),flow:null,overlapping_active_flow_ids:[]},result:{status:'needs_review',reasons:['incomplete_flow'],change_cents:null},saved_mode:null,selected:{mode:'manual',inflow_cents:null,outflow_cents:null},previous_totals:null,selected_totals:{inflow_cents:null,outflow_cents:null},difference:{inflow_cents:null,outflow_cents:null},movement_count:0,confirmation:'unconfirmed',reasons:[],basis_key:'fictional-preview-only'};
+    return {value:command==='followup_review_read'?{draft:{selection:preview.selected,confirmed_complete:false,unsupported_movements:false,notes:''},preview}:preview};
+  }
+  if (['movement_save','movement_trash','followup_review_save','followup_review_trash'].includes(command)) throw {code:'PREVIEW_NATIVE_ONLY',message:'虚构浏览器预览不提交资金记录；原生保存另行验证。'};
   if (command === 'planning_sources') { if (params.get('plan') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: planningSources(args) }; }
   if (command === 'plan_profile_update') {
     const input = args.input as ProfileUpdate;
@@ -935,6 +978,7 @@ export function financialTimelineEvents(): PreviewEvent[] {
 }
 export function validatePreviewSource(target: SourceTarget): void {
   const fail = () => { throw { code: 'NOT_FOUND', message: '这条来源记录已删除或失效，请返回后重新读取。' }; };
+  if (target.kind === 'income') { if (!previewModules.incomes || !planIncomes.some(i=>i.id===target.id)) fail(); return; }
   if (target.kind === 'account') { if (!accounts.some(a => a.id === target.id)) fail(); return; }
   if (target.kind === 'topup') { if (!topups.some(t => t.id === target.id && t.asset_id === target.asset_id) || !virtuals.some(v => v.id === target.asset_id)) fail(); return; }
   if (target.kind === 'snapshot') { if (!snapshots.some(s => s.id === target.id)) fail(); return; }

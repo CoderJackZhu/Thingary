@@ -1160,7 +1160,9 @@ pub fn open_notification_settings() -> Result<()> {
     }
 }
 #[tauri::command]
-pub async fn modules_get(worker: tauri::State<'_, Worker>) -> Result<crate::modules::Modules> {
+pub async fn modules_get(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::modules::RuntimeModules> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || w.modules())
         .await
@@ -1168,14 +1170,19 @@ pub async fn modules_get(worker: tauri::State<'_, Worker>) -> Result<crate::modu
 }
 #[tauri::command]
 pub async fn modules_set(
-    modules: crate::modules::Modules,
+    modules: serde_json::Value,
+    incomes: Option<bool>,
+    movements: Option<bool>,
+    repair: Option<bool>,
     worker: tauri::State<'_, Worker>,
-) -> Result<crate::modules::Modules> {
+) -> Result<crate::modules::RuntimeModules> {
+    let (legacy, update) = crate::modules::parse_update(modules, incomes, movements, repair)?;
     let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || w.set_modules(modules))
+    tauri::async_runtime::spawn_blocking(move || w.set_modules_with_finance(legacy, update))
         .await
         .map_err(|_| Error::new("WORKER", "功能模块保存失败"))?
 }
+
 #[tauri::command]
 pub async fn notification_status(worker: tauri::State<'_, Worker>) -> Result<String> {
     let w = worker.inner().clone();
@@ -1305,7 +1312,7 @@ pub async fn wealth_trash(
     worker: tauri::State<'_, Worker>,
 ) -> Result<()> {
     let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.wealth_trash(&input)))
+    tauri::async_runtime::spawn_blocking(move || w.wealth_trash(input))
         .await
         .map_err(|_| Error::new("WORKER", "操作结果未返回，请核对本次请求"))?
 }
@@ -1399,7 +1406,7 @@ pub async fn plan_income_list(
     worker: tauri::State<'_, Worker>,
 ) -> Result<crate::plan_income::List> {
     let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.plan_income_list()))
+    tauri::async_runtime::spawn_blocking(move || w.plan_income_list())
         .await
         .map_err(|_| Error::new("WORKER", "暂时无法读取收入记录"))?
 }
@@ -1409,11 +1416,9 @@ pub async fn plan_income_save(
     worker: tauri::State<'_, Worker>,
 ) -> Result<crate::plan_income::Income> {
     let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        w.call(move |s| s.plan_income_save(&input, &today()))
-    })
-    .await
-    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+    tauri::async_runtime::spawn_blocking(move || w.plan_income_save(input, today()))
+        .await
+        .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
 pub async fn plan_profile(worker: tauri::State<'_, Worker>) -> Result<crate::plan_profile::State> {
@@ -1445,6 +1450,16 @@ pub async fn plan_profile_update(
     })
     .await
     .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn finance_sources(
+    period: crate::expenses::Period,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::finance_sources::FinanceSources> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.finance_sources(period))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取财务来源"))?
 }
 #[tauri::command]
 pub async fn planning_sources(
@@ -1625,7 +1640,9 @@ pub async fn validate_source(
 ) -> Result<()> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        w.call(move |s| s.validate_source(&target, &generation))
+        w.call_with_runtime_modules(move |s, m| {
+            s.validate_source_with_modules(&target, &generation, &m)
+        })
     })
     .await
     .map_err(|_| Error::new("WORKER", "来源读取失败"))?

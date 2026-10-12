@@ -18,3 +18,7 @@ test('receipts recover their originating library across business modules without
  ]);
  assert.deepEqual(pendingGenerations(s),['demo','personal']);assert.equal(s.getItem(resetKey),'reset-receipt');
 });
+
+test('old saved destinations map to the financial workspace and plain planning retains goals',()=>{
+ for(const [saved, expected] of [['expenses','finance-records'],['planning/savings','finance-review'],['planning/income','finance-records'],['planning','planning']]) assert.equal(initialSection(storage([[sectionKey,saved]])),expected);
+});

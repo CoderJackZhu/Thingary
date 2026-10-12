@@ -15,6 +15,22 @@ npm run tauri -- dev
 
 使用仓库锁文件，不随意升级依赖。开发窗口的标题为「物谱 · 开发预览」，身份是 `local.thingary.preview`；它和正式版的资料分开。开发、测试、验收一律使用虚构资料，不能打开或写入正式库 `local.thingary.main`。
 
+<a id="finance-workspace-validation"></a>
+
+## 财务工作区接入与联合验收
+
+2026-10-12 当前源码已接入账户与盘点、收支记录（收入／重要支出／资金流动）、财务复盘（本期／盘点比较）及设置数据管理；规划仅保留目标、发生核对与深入分析。核对基线为 `main` / `0fa0858ca5160063b071618ce6bf7a48ab2c4751`，本轮仍为未提交工作树，已完成代码复核与核心流程验收。设计验收项见[统一设计](FINANCE_WORKSPACE_DESIGN.md#acceptance)。本节不将切片实现、历史验收或已有发行版推定为本轮整体验收通过。
+
+针对性前端测试分布于 `finance-workspace-contract`、`finance-service`、`finance-records`、`finance-period-control`、`finance-expenses`、`finance-movements`、`finance-review`、`finance-navigation-integration`、`finance-data-management`、`finance-module-settings`、`finance-goal-boundary` 的 `tests/*.test.mjs`。原生临时 Store 回归位于 `src-tauri/tests/finance_sources.rs`、`plan_income.rs`、`expenses.rs`、`investment_review.rs`、`planning_flow.rs` 与 `financial_import.rs`。覆盖能力组合、同事务快照、关闭来源不读取、未知不补零、期间去重、原回执只读核对、投资模式互斥及导入预览失效；测试存在不等于本轮运行通过。
+
+联合检查使用 `npm run build`、`npm run test:ui`、`npm run check`、`npm test`。视觉使用同一组虚构数据覆盖 1440×1000 与 900×720、三主题明暗，以及正常／空白／未知／错误；来源跳转后返回、期间切换、全模块关闭和未知结果恢复分别核对。现有指南图片保留旧版内容参考，新导航对照截图已保存于私有验收记录，不能把旧图冒充本轮对照。
+
+本轮实际结果：构建、格式与 clippy 通过；前端 962 项通过；Rust 573 项通过，3 项保留原有容量测试忽略状态。浏览器已生成 1440×1000 与 900×720、三主题明暗的 48 张前后矩阵截图，页面均无横向溢出；另覆盖收入正常／空白／未知／错误、关闭目标与收入后的资产复盘，以及复盘至记录的区间传递和返回。
+
+隔离原生身份 `local.thingary.finance.acceptance20261012` 完成收入 1234.56 元、支出 88.88 元、账户转账 100 元的真实保存；明细投资核对显示余额变化 9000 元、损益 8900 元。关闭目标后复盘仍正常，退出重启后资料与偏好保留。直接调试二进制因 macOS 通知要求应用包而退出，临时应用包通过上述核心流程。系统文件选择、备份恢复／Excel 原生界面链路、完整键盘焦点、中文输入法和 VoiceOver 尚未逐项验收；备份和 Excel 有临时 Store 自动回归。未打开正式 `local.thingary.main`，未发布或安装正式版。
+
+文档检查执行 `git diff --check` 与 `node scripts/offline-guide.mjs <临时目录>`，并核对相对链接、锚点、术语及图片。完整自动检查和验收结果以实际执行记录为准。
+
 ## 浏览器预览
 
 ```sh
@@ -203,7 +219,7 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 
 ### 复盘摘要回归
 
-`tests/review-observations.test.mjs` 覆盖多项待核对同时存在仍保留三类事实、账户范围变化、零／未记录收入、付款读取不可用／空记录／未知金额及退款净额。`PlanningReviewSummary` 分区展示本期事实和待核对事项，保留原发生保存器与窗口；浏览器使用虚构收入与复盘页，检查补录／当前计划／发生核对入口、局部读取失败与窄窗口。
+`tests/review-observations.test.mjs` 覆盖多项待核对同时存在仍保留三类事实、账户范围变化、零／未记录收入、付款读取不可用／空记录／未知金额及退款净额。此前 `PlanningReviewSummary` 分区展示本期事实和待核对事项。当前财务摘要移入 FinanceReviewPage，发生保存器与窗口回到目标；本轮浏览器需重新检查补录、来源返回、目标发生核对、局部读取失败与窄窗口。
 
 
 
@@ -224,7 +240,7 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 
 schema37 迁移同时建立收入来源字段和投资区间核对表。真实临时 Store 回归覆盖旧schema36备份与请求重放、分类与公积金事实、Excel缺列更正和新字段往返、分类更正保护、核对保存／编辑／删除／恢复、端点变更失效、重叠、失联回执和事务回滚。标准四项检查之外，独立计算组件仍跑 `cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_contract`。
 
-浏览器 `/visual-preview.html?section=planning&investment=ready-profit` 中选择“收入与复盘”查看固定虚构输出；还可使用组件夹具中的其他状态。此预览不复算投资损益，投资保存明确拒绝，不能作为持久化证据。实际收入的浏览器保存仅在内存，刷新重置。前端 `income-classification.test.mjs` 验证来源分类、默认值、事实保全、同步提交锁及卸载后回调；`investment-review-host.test.mjs` 覆盖真实宿主端口、失效确认清除、原区间与失败状态。
+此前投资组件使用浏览器 `/visual-preview.html?section=planning&investment=ready-profit` 的固定虚构输出；旧“收入与复盘”入口已退出，当前应在财富的财务复盘核对真实宿主；还可使用组件夹具中的其他状态。此预览不复算投资损益，投资保存明确拒绝，不能作为持久化证据。实际收入的浏览器保存仅在内存，刷新重置。前端 `income-classification.test.mjs` 验证来源分类、默认值、事实保全、同步提交锁及卸载后回调；`investment-review-host.test.mjs` 覆盖真实宿主端口、失效确认清除、原区间与失败状态。
 
 隔离原生夹具 `investment_acceptance_fixture` 仅接受路径组件 `local.thingary.investment.acceptance.20261012`，且要求全新目录；不得用于正式库。以同一独立 bundle 标识构建验收包，原生核心保存与完整系统交互矩阵分别登记；未验证项不能从 Store 或浏览器测试推定通过。
 

@@ -1,3 +1,4 @@
+import type { FinancePeriod } from './finance-contract';
 import { FollowupInvestmentHost } from './planning-followup-ui/FollowupInvestmentHost';
 import { incomeCategories } from './income-classification';
 import { useEffect, useRef, useState } from 'react';
@@ -16,10 +17,11 @@ import './investment-review/investment-review.css';
 import './planning-followup-ui/planning-followup-ui.css';
 
 /** Real Store boundary. All balances, content keys and profit are native results. */
-function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, writeVersion, incomes, accountNames = {}, blocked, reload, onPending, onEditingChange, followupPort, today }: {
+function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, writeVersion, incomes, accountNames = {}, blocked, reload, onPending, onEditingChange, followupPort, today, movementPresentation = 'records', movementsEnabled = true, onViewAllMovements, receiptResolutionVersion = 0, onPreviewChange }: {
   generation: string; fromSnapshotId: string | null; toSnapshotId: string; writeVersion: number; incomes: Income[] | null;
   accountNames?: Record<string, string>; blocked: boolean; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void;
   followupPort?: PlanningFollowupPortV1; today?: string;
+  onPreviewChange?: (preview: { fromSnapshotId: string; toSnapshotId: string; result: import('./investment-review/model').InvestmentReviewResultV1 } | null) => void; receiptResolutionVersion?: number; movementPresentation?: 'records' | 'review'; movementsEnabled?: boolean; onViewAllMovements?: (period: FinancePeriod, accountIds: string[]) => void;
 }) {
   const [pair, setPair] = useState({ from: fromSnapshotId, to: toSnapshotId });
   const [outer, setOuter] = useState<ReviewOuter>({ status: 'loading' });
@@ -30,20 +32,21 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
   const lock = useRef(false), mounted = useRef(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  useEffect(() => { onEditingChange(draft !== null || busy); return () => onEditingChange(false); }, [draft !== null, busy, onEditingChange]);
+  useEffect(() => { onEditingChange(draft !== null || busy || uncertain); return () => onEditingChange(false); }, [draft !== null, busy, uncertain, onEditingChange]);
   useEffect(() => { setPair({ from: fromSnapshotId, to: toSnapshotId }); setDraft(null); }, [fromSnapshotId, toSnapshotId, generation]);
   useEffect(() => {
-    let live = true; setOuter({ status: 'loading' }); setRead(null); setListError(''); setListLoading(true);
+    let live = true; onPreviewChange?.(null); setOuter({ status: 'loading' }); setRead(null); setListError(''); setListLoading(true);
     listInvestmentReviews(generation).then(v => { if (!live) return; if (v.generation !== generation) throw Error('资料库已变化，请重新读取。'); setRecords(v.records); }).catch(e => { if (live) setListError(errorMessage(e)); }).finally(() => { if (live) setListLoading(false); });
     if (!pair.from) setOuter({ status: 'empty' });
     else readInvestmentReview(generation, pair.from, pair.to).then(v => {
       if (!live) return;
       if (v.generation !== generation || !parseReviewInput(v.input) || !parseReviewResult(v.result)) throw Error('投资核对资料格式不兼容或资料库已变化。');
-      setRead(v); setOuter({ status: 'ready', input: v.input, result: v.result });
+      onPreviewChange?.({ fromSnapshotId: pair.from!, toSnapshotId: pair.to, result: v.result }); setRead(v); setOuter({ status: 'ready', input: v.input, result: v.result });
     }).catch(e => { if (live) setOuter({ status: 'error', code: 'READ_ERROR', message: errorMessage(e) }); });
     return () => { live = false; };
-  }, [generation, pair.from, pair.to, writeVersion, retry]);
-  useEffect(() => { if (!busy && !storedPending()) setUncertain(false); }, [busy, blocked, writeVersion]);
+  }, [generation, pair.from, pair.to, writeVersion, retry, movementsEnabled]);
+  const uncertainVersion = useRef(receiptResolutionVersion);
+  useEffect(() => { if (uncertain && !busy && !storedPending() && receiptResolutionVersion > uncertainVersion.current) setUncertain(false); }, [busy, uncertain, receiptResolutionVersion]);
   const frozen = busy || uncertain || blocked;
   const edit = () => { if (!read || frozen || storedPending()) return; setIssues([]); setNotice(''); const next = draftFromFlow(read.input.flow); if (read.result.status !== 'ready') next.confirmed = false; setDraft(next); };
   async function save(next: FlowDraft) {
@@ -55,7 +58,7 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
         from_snapshot_id: read.input.from.snapshot_id, to_snapshot_id: read.input.to.snapshot_id,
         from_value_key: read.from_value_key, to_value_key: read.to_value_key, fields: draftToFlowPatch(next) });
       if (mounted.current) { setDraft(null); setRetry(n => n + 1); reload(); }
-    } catch (e) { if (mounted.current) { if (e instanceof Unresolved) setUncertain(true); setIssues([{ path: 'submission', code: 'SAVE_ERROR', message: errorMessage(e) }]); } }
+    } catch (e) { if (mounted.current) { if (e instanceof Unresolved) { uncertainVersion.current = receiptResolutionVersion; setUncertain(true); } setIssues([{ path: 'submission', code: 'SAVE_ERROR', message: errorMessage(e) }]); } }
     finally { lock.current = false; if (mounted.current) { setBusy(false); onPending(); } }
   }
   async function trash(record: InvestmentReviewRecord) {
@@ -64,7 +67,7 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
     try {
       await trashInvestmentReview({ request_id: crypto.randomUUID(), generation, id: record.flow.id, expected_revision: record.flow.revision, deleted: !record.deleted });
       if (mounted.current) { setDeleting(null); setRetry(n => n + 1); reload(); }
-    } catch (e) { if (mounted.current) { if (e instanceof Unresolved) setUncertain(true); setNotice(errorMessage(e)); } }
+    } catch (e) { if (mounted.current) { if (e instanceof Unresolved) { uncertainVersion.current = receiptResolutionVersion; setUncertain(true); } setNotice(errorMessage(e)); } }
     finally { lock.current = false; if (mounted.current) { setBusy(false); onPending(); } }
   }
   const hints = read && incomes ? incomes.filter(i => i.fields.date > read.input.from.date && i.fields.date <= read.input.to.date && ['interest','cash_dividend','other_investment'].includes(i.fields.category ?? 'unclassified')) : [];
@@ -74,7 +77,7 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
   return <section aria-label="投资区间复盘">
     <InvestmentReviewCard accountNames={accountNames} outer={outer} onCheckFlow={followupPort ? undefined : edit} onEditFlow={followupPort ? undefined : edit} disabled={frozen}/>
     {/* 注入端口后由 FollowupSection 提供核对方式（手填／明细）与资金流动入口，避免双核对窗。 */}
-    {followupPort && <FollowupSection port={followupPort} generation={generation} pair={pair.from ? { from_snapshot_id: pair.from, to_snapshot_id: pair.to } : null} writeVersion={writeVersion} today={today ?? ''} blocked={frozen} onPending={onPending} onEditingChange={onEditingChange}/>}
+    {followupPort && <FollowupSection port={followupPort} generation={generation} pair={pair.from ? { from_snapshot_id: pair.from, to_snapshot_id: pair.to } : null} writeVersion={writeVersion} today={today ?? ''} blocked={frozen} onPending={onPending} onEditingChange={onEditingChange} receiptResolutionVersion={receiptResolutionVersion} movementPresentation={movementPresentation} movementsEnabled={movementsEnabled} onViewAllMovements={onViewAllMovements} input={read?.input}/>}
     {outer.status === 'error' && <button className="ui-btn" disabled={busy} onClick={() => setRetry(n => n + 1)}>重新读取投资区间</button>}
     {(pair.from !== fromSnapshotId || pair.to !== toSnapshotId) && <button type="button" disabled={frozen || draft !== null} onClick={() => setPair({ from: fromSnapshotId, to: toSnapshotId })}>返回本期区间</button>}
     {read && hintsView}

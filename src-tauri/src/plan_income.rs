@@ -197,11 +197,32 @@ pub(crate) fn read(c: &Connection, id: &str) -> Result<Option<Income>> {
     .optional()?)
 }
 
+pub(crate) fn require_enabled(enabled: bool) -> Result<()> {
+    if enabled {
+        Ok(())
+    } else {
+        Err(Error::new("MODULE_DISABLED", "实际收入功能已关闭"))
+    }
+}
+
 impl Store {
+    /// UI read wrapper; checks capability before touching the income table.
+    pub fn plan_income_with_enabled(&self, id: &str, enabled: bool) -> Result<Option<Income>> {
+        require_enabled(enabled)?;
+        self.plan_income(id)
+    }
+
+    pub fn plan_income_list_with_enabled(&self, enabled: bool) -> Result<List> {
+        require_enabled(enabled)?;
+        self.plan_income_list()
+    }
+
+    /// Internal complete-data read for imports, backups and integrity validation.
     pub fn plan_income(&self, id: &str) -> Result<Option<Income>> {
         read(self.conn()?, id)
     }
 
+    /// Internal complete-data read; UI must use the capability wrapper.
     pub fn plan_income_list(&self) -> Result<List> {
         let c = self.conn()?;
         let mut q = c.prepare(&format!(
@@ -216,7 +237,18 @@ impl Store {
         })
     }
 
+    /// Internal domain write for imports/tests; UI must use the capability wrapper.
     pub fn plan_income_save(&mut self, input: &Save, today: &str) -> Result<Income> {
+        self.plan_income_save_with_enabled(input, today, true)
+    }
+
+    /// Existing request replay is read-only and remains available when disabled.
+    pub fn plan_income_save_with_enabled(
+        &mut self,
+        input: &Save,
+        today: &str,
+        enabled: bool,
+    ) -> Result<Income> {
         self.check_generation(&input.generation)?;
         uuid::Uuid::parse_str(&input.request_id)
             .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
@@ -235,6 +267,7 @@ impl Store {
             }
             return read(&tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这条收入记录"));
         }
+        require_enabled(enabled)?;
         let result = write_tx(&tx, input, today, None)?;
         let id = &result.id;
         tx.execute(

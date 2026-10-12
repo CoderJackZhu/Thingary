@@ -56,7 +56,9 @@ fn snapshot(s: &mut Store, date: &str, rows: &[(&Account, Option<&str>)]) -> Str
 }
 fn setup() -> (tempfile::TempDir, Store, Account, String, String) {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(&tmp.path().join("library")).unwrap();
+    let root = tmp.path().join("library");
+    thingary_lib::modules::initialize_runtime(&root);
+    let mut s = Store::open(&root).unwrap();
     let a = account(&mut s, "虚构基金", "fund", true);
     let from = snapshot(&mut s, "2026-09-30", &[(&a, Some("10000000"))]);
     let to = snapshot(&mut s, "2026-10-31", &[(&a, Some("11200000"))]);
@@ -341,6 +343,8 @@ fn invalid_inputs_disabled_module_and_backup_roundtrip() {
         err(s.investment_review_list(&s.generation())),
         "MODULE_DISABLED"
     );
+    assert_eq!(s.investment_review_save(&i).unwrap()["revision"], 1);
+    i.request_id = rid();
     assert_eq!(err(s.investment_review_save(&i)), "MODULE_DISABLED");
     assert_eq!(
         err(s.investment_review_read(&s.generation(), &from, &to)),
@@ -413,5 +417,129 @@ fn historic_account_type_change_is_not_silently_treated_as_profit() {
             .unwrap()
             .result["status"],
         "not_recorded"
+    );
+}
+
+#[test]
+fn legacy_manual_save_and_read_skip_disabled_movement_table_and_replay_after_wealth_off() {
+    let (tmp, mut s, _a, from, to) = setup();
+    thingary_lib::modules::write_runtime(
+        &tmp.path().join("library"),
+        thingary_lib::modules::Modules {
+            planning: false,
+            ..Default::default()
+        },
+        thingary_lib::modules::FinanceUpdate {
+            movements: Some(false),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    s.conn_for_test()
+        .unwrap()
+        .execute_batch("DROP TABLE cash_movements;")
+        .unwrap();
+    let request = input(&s, &from, &to);
+    let saved = s.investment_review_save(&request).unwrap();
+    assert_eq!(
+        s.investment_review_read(&s.generation(), &from, &to)
+            .unwrap()
+            .result["value"]["profit_cents"],
+        "200000"
+    );
+    thingary_lib::modules::write(
+        &tmp.path().join("library"),
+        &thingary_lib::modules::Modules {
+            wealth: false,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(s.investment_review_save(&request).unwrap(), saved);
+    let mut fresh = request;
+    fresh.request_id = rid();
+    assert_eq!(
+        s.investment_review_save(&fresh).unwrap_err().code,
+        "MODULE_DISABLED"
+    );
+}
+
+#[test]
+fn disabled_movements_do_not_hide_endpoint_balance_and_scope_changes() {
+    let (tmp, mut s, a, from, to) = setup();
+    let request = input(&s, &from, &to);
+    s.investment_review_save(&request).unwrap();
+    thingary_lib::modules::write_runtime(
+        &tmp.path().join("library"),
+        Default::default(),
+        thingary_lib::modules::FinanceUpdate {
+            movements: Some(false),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    edit_snapshot(&mut s, &to, "11300000", "虚构金额更正");
+    let view = s
+        .investment_review_read(&s.generation(), &from, &to)
+        .unwrap();
+    assert_eq!(view.result["status"], "needs_review");
+    assert!(view.result["value"].is_null());
+    let pair = thingary_lib::planning_flow_review::Pair {
+        from_snapshot_id: from.clone(),
+        to_snapshot_id: to.clone(),
+    };
+    assert_eq!(
+        s.followup_review_read(&pair, &s.generation()).unwrap()["preview"]["confirmation"],
+        "needs_review"
+    );
+    let mut added = account(&mut s, "虚构新增范围", "fund", true);
+    let mut fields = added.fields.clone();
+    fields.opened_on = "2026-10-01".into();
+    added = s
+        .wealth_account_save(
+            &AccountSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: Some(added.id),
+                expected_revision: Some(added.revision),
+                fields,
+            },
+            TODAY,
+        )
+        .unwrap();
+    let snap = s.wealth_snapshot(&to).unwrap().unwrap();
+    s.wealth_snapshot_save(
+        &SnapshotSave {
+            request_id: rid(),
+            generation: s.generation(),
+            id: Some(to.clone()),
+            expected_revision: Some(snap.revision),
+            date: snap.date,
+            notes: String::new(),
+            entries: vec![
+                EntryInput {
+                    account_id: a.id,
+                    state: "entered".into(),
+                    amount_cents: Some("11300000".into()),
+                },
+                EntryInput {
+                    account_id: added.id,
+                    state: "entered".into(),
+                    amount_cents: Some("100".into()),
+                },
+            ],
+        },
+        TODAY,
+    )
+    .unwrap();
+    assert_eq!(
+        s.investment_review_read(&s.generation(), &from, &to)
+            .unwrap()
+            .result["status"],
+        "not_comparable"
+    );
+    assert_eq!(
+        s.followup_review_read(&pair, &s.generation()).unwrap()["preview"]["confirmation"],
+        "needs_review"
     );
 }

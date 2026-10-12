@@ -139,6 +139,7 @@ fn compute(
     generation: &str,
     saved_result: bool,
     historical_flow: Option<&core::Flow>,
+    runtime: Option<&crate::modules::RuntimeModules>,
 ) -> Result<Computed> {
     let from = old::endpoint(c, &pair.from_snapshot_id)?;
     let to = old::endpoint(c, &pair.to_snapshot_id)?;
@@ -158,7 +159,13 @@ fn compute(
         .filter(|m| m.counted)
         .map(|m| m.account_id.clone())
         .collect();
-    let rows = movement::all(c)?;
+    let movements_enabled = runtime.is_none_or(|m| m.movements && m.modules.wealth);
+    let unavailable = !movements_enabled && matches!(draft.selection, Selection::Movements);
+    let rows = if movements_enabled {
+        movement::all_visible(c, runtime)?
+    } else {
+        vec![]
+    };
     let relevant_rows = rows
         .iter()
         .filter(|r| relevant(&r.record.fields, &from.date, &to.date, &scope))
@@ -212,6 +219,7 @@ fn compute(
             inflow_cents,
             outflow_cents,
         } => (amount(inflow_cents)?, amount(outflow_cents)?),
+        Selection::Movements if unavailable => (None, None),
         Selection::Movements => (Some(ins), Some(outs)),
     };
     let facts = relevant_rows
@@ -267,9 +275,12 @@ fn compute(
         unsupported_movements: draft.unsupported_movements,
         notes: draft.notes.clone(),
     };
+    // Endpoint value keys are independently checked by review_interval below.
+    // While movements are disabled, the saved basis includes unavailable movement
+    // facts and cannot be compared; persisted invalidation still remains binding.
     let stale = metadata
         .as_ref()
-        .is_some_and(|m| m.needs_review || m.basis_key != key)
+        .is_some_and(|m| m.needs_review || (movements_enabled && m.basis_key != key))
         || metadata.is_none() && saved.is_some() && !relevant_rows.is_empty();
     let source_bad = reasons
         .iter()
@@ -306,6 +317,9 @@ fn compute(
             result = json!({"status":"needs_review","change_cents":change,"reasons":codes});
         }
     }
+    if unavailable {
+        result = json!({"status":"unavailable","reasons":["movements_disabled"]});
+    }
     let previous = saved
         .as_ref()
         .map(|f| totals_json(f.inflow_cents, f.outflow_cents));
@@ -317,7 +331,9 @@ fn compute(
             .zip(saved.as_ref().and_then(|f| f.outflow_cents))
             .map(|(n, o)| n - o),
     );
-    let confirmation = if saved.as_ref().is_some_and(|f| f.confirmed_complete) {
+    let confirmation = if unavailable {
+        "unavailable"
+    } else if saved.as_ref().is_some_and(|f| f.confirmed_complete) {
         if stale || source_bad || (saved_result && result["status"] != "ready") {
             "needs_review"
         } else {
@@ -327,7 +343,7 @@ fn compute(
         "unconfirmed"
     };
     let input_json = json!({"contract_version":1,"from":old::endpoint_json(&input.from),"to":old::endpoint_json(&input.to),"flow":if saved.is_some(){input.flow.as_ref().map(old::flow_json)}else{None},"overlapping_active_flow_ids":input.overlapping_active_flow_ids});
-    let preview = json!({"generation":generation,"pair":pair,"review_id":saved.as_ref().map(|f|&f.id),"revision":saved.as_ref().map(|f|f.revision),"input":input_json,"result":result,"saved_mode":saved.as_ref().map(|_|metadata.as_ref().map_or("manual",|m|mode(&m.draft.selection))),"selected":draft.selection,"previous_totals":previous,"selected_totals":totals_json(inflow,outflow),"difference":difference,"movement_count":active.len(),"confirmation":confirmation,"reasons":reasons,"basis_key":key});
+    let preview = json!({"generation":generation,"pair":pair,"review_id":saved.as_ref().map(|f|&f.id),"revision":saved.as_ref().map(|f|f.revision),"input":input_json,"result":result,"saved_mode":saved.as_ref().map(|_|metadata.as_ref().map_or("manual",|m|mode(&m.draft.selection))),"selected":draft.selection,"previous_totals":previous,"selected_totals":totals_json(inflow,outflow),"difference":difference,"movement_count":if unavailable { Value::Null } else { json!(active.len()) },"confirmation":confirmation,"reasons":reasons,"basis_key":key});
     Ok(Computed {
         preview,
         flow: candidate,
@@ -384,6 +400,7 @@ pub(crate) fn saved_result(
     c: &Connection,
     input: &core::ReviewInput,
     result: Value,
+    runtime: &crate::modules::RuntimeModules,
 ) -> Result<Value> {
     let Some(flow) = &input.flow else {
         return Ok(result);
@@ -399,10 +416,26 @@ pub(crate) fn saved_result(
         "",
         true,
         Some(flow),
+        Some(runtime),
     )?;
     Ok(checked.preview["result"].clone())
 }
-pub(crate) fn guard_legacy(c: &Connection, flow: &core::Flow) -> Result<()> {
+pub(crate) fn require_saved_mode(
+    s: &Store,
+    c: &Connection,
+    id: &str,
+    generation: &str,
+) -> Result<()> {
+    if meta(c, id)?.is_some_and(|m| matches!(m.draft.selection, Selection::Movements)) {
+        movement::enabled(s, generation)?;
+    }
+    Ok(())
+}
+pub(crate) fn guard_legacy(
+    c: &Connection,
+    flow: &core::Flow,
+    runtime: &crate::modules::RuntimeModules,
+) -> Result<()> {
     if meta(c, &flow.id)?.is_some_and(|m| mode(&m.draft.selection) == "movements") {
         return Err(Error::new(
             "FOLLOWUP_REQUIRED",
@@ -410,8 +443,9 @@ pub(crate) fn guard_legacy(c: &Connection, flow: &core::Flow) -> Result<()> {
         ));
     }
     let scope = flow.scope_account_ids.iter().cloned().collect();
-    if flow.confirmed_complete
-        && movement::all(c)?
+    if runtime.movements
+        && flow.confirmed_complete
+        && movement::all_visible(c, Some(runtime))?
             .iter()
             .any(|r| relevant(&r.record.fields, &flow.from_date, &flow.to_date, &scope))
     {
@@ -422,18 +456,24 @@ pub(crate) fn guard_legacy(c: &Connection, flow: &core::Flow) -> Result<()> {
     }
     Ok(())
 }
-pub(crate) fn legacy_saved(c: &Connection, flow: &core::Flow) -> Result<()> {
+pub(crate) fn legacy_saved(
+    c: &Connection,
+    flow: &core::Flow,
+    runtime: &crate::modules::RuntimeModules,
+) -> Result<()> {
     let draft = draft_of(flow);
     let pair = Pair {
         from_snapshot_id: flow.from_snapshot_id.clone(),
         to_snapshot_id: flow.to_snapshot_id.clone(),
     };
-    let candidate = compute(c, &pair, &draft, "", false, None)?;
+    let candidate = compute(c, &pair, &draft, "", false, None, Some(runtime))?;
     persist(c, flow, &draft, &candidate.key)
 }
 impl Store {
     pub fn followup_review_read(&self, pair: &Pair, generation: &str) -> Result<Value> {
-        movement::enabled(self, generation)?;
+        self.check_generation(generation)?;
+        self.investment_review_enabled()?;
+        let runtime = crate::modules::read_runtime(&self.root);
         let tx = self.conn()?.unchecked_transaction()?;
         let f = current(&tx, pair)?;
         let draft = if let Some(f) = f {
@@ -449,7 +489,8 @@ impl Store {
                 notes: String::new(),
             }
         };
-        let mut preview = compute(&tx, pair, &draft, generation, true, None)?.preview;
+        let mut preview =
+            compute(&tx, pair, &draft, generation, true, None, Some(&runtime))?.preview;
         if preview["review_id"].is_null() {
             let from = old::endpoint(&tx, &pair.from_snapshot_id)?;
             let to = old::endpoint(&tx, &pair.to_snapshot_id)?;
@@ -471,12 +512,16 @@ impl Store {
         draft: &Draft,
         generation: &str,
     ) -> Result<Value> {
-        movement::enabled(self, generation)?;
+        self.check_generation(generation)?;
+        self.investment_review_enabled()?;
+        let runtime = crate::modules::read_runtime(&self.root);
         let tx = self.conn()?.unchecked_transaction()?;
-        Ok(compute(&tx, pair, draft, generation, false, None)?.preview)
+        Ok(compute(&tx, pair, draft, generation, false, None, Some(&runtime))?.preview)
     }
     pub fn followup_review_list(&self, generation: &str) -> Result<Value> {
-        movement::enabled(self, generation)?;
+        self.check_generation(generation)?;
+        self.investment_review_enabled()?;
+        let runtime = crate::modules::read_runtime(&self.root);
         let tx = self.conn()?.unchecked_transaction()?;
         let mut rows = vec![];
         for record in old::records(&tx)? {
@@ -490,7 +535,15 @@ impl Store {
                 to_snapshot_id: f.to_snapshot_id.clone(),
             };
             let draft = m.as_ref().map_or_else(|| draft_of(&f), |m| m.draft.clone());
-            let confirmation = match compute(&tx, &pair, &draft, generation, true, Some(&f)) {
+            let confirmation = match compute(
+                &tx,
+                &pair,
+                &draft,
+                generation,
+                true,
+                Some(&f),
+                Some(&runtime),
+            ) {
                 Ok(v) => v.preview["confirmation"].clone(),
                 Err(e)
                     if ["ENDPOINT_MISSING", "ENDPOINT_INCOMPLETE"].contains(&e.code.as_str()) =>
@@ -508,7 +561,8 @@ impl Store {
         Ok(json!({"generation":generation,"records":rows}))
     }
     pub fn followup_review_save(&mut self, input: &Save) -> Result<movement::Saved> {
-        movement::enabled(self, &input.generation)?;
+        self.check_generation(&input.generation)?;
+        let runtime = crate::modules::read_runtime(&self.root);
         let fingerprint = digest(&serde_json::to_vec(&("followup_review_save", input))?);
         let tx = self.conn()?.unchecked_transaction()?;
         if let Some(id) = movement::receipt(&tx, &input.request_id, &fingerprint)? {
@@ -518,6 +572,10 @@ impl Store {
                 id,
                 revision: f.revision,
             });
+        }
+        self.investment_review_enabled()?;
+        if matches!(input.draft.selection, Selection::Movements) {
+            movement::enabled(self, &input.generation)?;
         }
         let previous = current(&tx, &input.pair)?;
         if previous.as_ref().map(|f| f.revision) != input.expected_revision {
@@ -533,6 +591,7 @@ impl Store {
             &input.generation,
             false,
             None,
+            Some(&runtime),
         )?;
         if computed.key != input.basis_key {
             return Err(Error::new(
@@ -585,7 +644,7 @@ impl Store {
         })
     }
     pub fn followup_review_trash(&mut self, input: &movement::Trash) -> Result<movement::Saved> {
-        movement::enabled(self, &input.generation)?;
+        self.check_generation(&input.generation)?;
         let revision = input
             .expected_revision
             .ok_or_else(|| Error::new("INVALID_INPUT", "删除或恢复需记录修订"))?;
@@ -645,7 +704,7 @@ pub(crate) fn export_metadata(c: &Connection, id: &str) -> Result<Value> {
         from_snapshot_id: f.from_snapshot_id.clone(),
         to_snapshot_id: f.to_snapshot_id.clone(),
     };
-    let confirmation = match compute(c, &pair, &draft, "", true, Some(&f)) {
+    let confirmation = match compute(c, &pair, &draft, "", true, Some(&f), None) {
         Ok(v) => v.preview["confirmation"].clone(),
         Err(e) if ["ENDPOINT_MISSING", "ENDPOINT_INCOMPLETE"].contains(&e.code.as_str()) => {
             json!(if f.confirmed_complete {

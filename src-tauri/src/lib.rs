@@ -12,6 +12,7 @@ mod demo_finance;
 pub mod domain;
 pub mod expenses;
 pub mod files;
+pub mod finance_sources;
 pub mod financial_import;
 pub mod financial_import_parser;
 pub mod insights;
@@ -246,6 +247,7 @@ pub fn run() {
             planning_followup_commands::followup_review_trash,
             planning_followup_commands::followup_receipt,
             commands::planning_sources,
+            commands::finance_sources,
             commands::plan_review,
             commands::plan_interval_reasons,
             commands::plan_baseline_mark,

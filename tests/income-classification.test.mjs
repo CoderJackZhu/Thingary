@@ -50,3 +50,23 @@ test('one submit is in flight and late completion cannot close a replacement dia
   r.unmount(); complete({}); await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(r.closes, []);
 });
+
+test('disabled accounts keep original account references through category edits and save', async () => {
+  const saved = [], original = { id: 'i', revision: 2, fields: { ...fields, category: 'interest', source_account_id: 'historical-a', destination: 'transferred', receiving_account_id: 'historical-b' } };
+  const r = runtime('IncomeDialog', { income: original, generation: 'g', today: '2026-10-12', hpfDefault: '', accountsEnabled: false, accounts: [] }, undefined, undefined, {
+    components: [], modules: { './income-classification': classification, './wealth': { submit: async p => { saved.push(p); return original; }, Unresolved: class extends Error {} } }, document: { querySelector: () => ({ focus() {} }) },
+  });
+  assert.equal(r.find('select', p => p['aria-label'] === '来源账户').props.disabled, true);
+  assert.equal(r.find('select', p => p['aria-label'] === '接收账户').props.disabled, true);
+  assert.equal(r.find('select', p => p['aria-label'] === '收入去向').props.disabled, true);
+  select(r, 'non_investment');assert.equal(r.find('select', p => p['aria-label'] === '来源分类').props.value,'interest');assert.match(r.text(r.nodes()[0]),/先启用账户模块/);select(r, 'cash_dividend');r.find('form').props.onSubmit({ preventDefault() {} });await r.settle();
+  assert.equal(saved[0].input.fields.source_account_id,'historical-a');assert.equal(saved[0].input.fields.receiving_account_id,'historical-b');assert.equal(saved[0].input.fields.destination,'transferred');
+});
+test('saved-income callback carries the native receipt and unknown submission retains inputs', async () => {
+  const record={id:'receipt-i',revision:3,fields}, callbacks=[];
+  const r=runtime('IncomeDialog',{income:record,generation:'g',today:'2026-10-12',hpfDefault:'',onSavedIncome:i=>callbacks.push(i)},undefined,undefined,{components:[],modules:{'./income-classification':classification,'./wealth':{submit:async()=>record,Unresolved:class extends Error {}}}});
+  r.find('form').props.onSubmit({preventDefault(){}});await r.settle();assert.equal(callbacks[0].id,'receipt-i');assert.deepEqual(r.closes,[true]);
+  class Unresolved extends Error {} let attempts=0;
+  const stuck=runtime('IncomeDialog',{income:record,generation:'g',today:'2026-10-12',hpfDefault:''},undefined,undefined,{components:[],modules:{'./income-classification':classification,'./wealth':{submit:async()=>{attempts++;throw new Unresolved('unknown receipt');},Unresolved}}});
+  stuck.find('form').props.onSubmit({preventDefault(){}});await stuck.settle();assert.equal(stuck.find('CentInput',p=>p.label==='税后到账').props.value,'10000');assert.equal(stuck.find('CentInput',p=>p.label==='税后到账').props.disabled,true);stuck.find('form').props.onSubmit({preventDefault(){}});await stuck.settle();assert.equal(attempts,1);assert.deepEqual(stuck.closes,[]);
+});

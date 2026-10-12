@@ -78,6 +78,7 @@ export const purposeHint: Record<MovementPurposeV1, string> = {
   investment_cost: '账户向外部支付的投资费用／税费；已扣在投资余额内的费用属于净损益，不要另记取回。',
 };
 export const sourceStatusText: Record<MovementRecordV1['source_status'], string> = {
+  disabled: '来源模块已关闭',
   unlinked: '未关联来源',
   matched: '已关联来源',
   needs_review: '来源待复核',
@@ -85,6 +86,7 @@ export const sourceStatusText: Record<MovementRecordV1['source_status'], string>
 };
 /** 契约 §4 在 FollowupIssue 上扩展的失效码；旧投资核对理由沿用 investment-review 的文案。 */
 export const followupReasonText: Record<string, string> = {
+  movements_disabled: '资金流动记录已关闭，明细核对暂不可用；手填合计仍可使用',
   stale_movements: '相关资金流动已被更正，原确认失效，请重新核对',
   source_mismatch: '关联来源的日期或金额与流动不一致，请复核',
   source_deleted: '关联来源已被删除，关联失效，请复核',

@@ -140,6 +140,9 @@ impl Worker {
             .spawn(move || {
                 match (|| -> Result<Libraries> {
                     let real = Store::open(&root)?;
+                    // App-level preferences are initialized from the real identity,
+                    // before any queued consumer can read a runtime snapshot.
+                    crate::modules::initialize_runtime(&real.root);
                     let has_records = has_personal_records(&real)?;
                     let started = root.join("personal-started").exists() || has_records;
                     // The sample is the default for every empty personal
@@ -216,15 +219,14 @@ impl Worker {
             }
         })
     }
-    /// Module switches and active library are sampled in the same worker turn.
-    pub fn planning_overview(
+    /// Samples real app preferences and active library in one queued operation.
+    /// The sample library never supplies app-level capability preferences.
+    pub fn call_with_runtime_modules<T: Send + 'static>(
         &self,
-        year: Option<i32>,
-        planning: bool,
-        today: String,
-    ) -> Result<crate::review::Overview> {
+        f: impl FnOnce(&mut Store, crate::modules::RuntimeModules) -> Result<T> + Send + 'static,
+    ) -> Result<T> {
         self.with_state(move |state| {
-            let modules = crate::modules::read(&state.real.root);
+            let modules = crate::modules::read_runtime(&state.real.root);
             let store = if state.demo_mode {
                 state
                     .demo
@@ -233,12 +235,51 @@ impl Worker {
             } else {
                 &mut state.real
             };
-            store.review_overview_with_modules(
-                year,
-                &today,
-                planning && modules.planning,
-                modules.wealth,
-            )
+            f(store, modules)
+        })
+    }
+
+    pub fn plan_income_list(&self) -> Result<crate::plan_income::List> {
+        self.call_with_runtime_modules(|s, m| s.plan_income_list_with_enabled(m.incomes))
+    }
+
+    pub fn plan_income(&self, id: String) -> Result<Option<crate::plan_income::Income>> {
+        self.call_with_runtime_modules(move |s, m| s.plan_income_with_enabled(&id, m.incomes))
+    }
+
+    pub fn plan_income_save(
+        &self,
+        input: crate::plan_income::Save,
+        today: String,
+    ) -> Result<crate::plan_income::Income> {
+        self.call_with_runtime_modules(move |s, m| {
+            s.plan_income_save_with_enabled(&input, &today, m.incomes)
+        })
+    }
+
+    pub fn wealth_trash(&self, input: crate::wealth::TrashChange) -> Result<()> {
+        self.call_with_runtime_modules(move |s, m| s.wealth_trash_with_incomes(&input, m.incomes))
+    }
+
+    /// Module switches and active library are sampled in the same worker turn.
+    pub fn planning_overview(
+        &self,
+        year: Option<i32>,
+        planning: bool,
+        today: String,
+    ) -> Result<crate::review::Overview> {
+        self.call_with_runtime_modules(move |store, mut modules| {
+            modules.modules.planning &= planning;
+            store.review_overview_with_runtime_modules(year, &today, &modules)
+        })
+    }
+    pub fn finance_sources(
+        &self,
+        period: crate::expenses::Period,
+    ) -> Result<crate::finance_sources::FinanceSources> {
+        self.call_with_runtime_modules(move |store, modules| {
+            let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+            store.finance_sources(&period, &modules, &today)
         })
     }
     pub fn planning_sources(
@@ -247,21 +288,10 @@ impl Worker {
         wealth: bool,
         today: String,
     ) -> Result<crate::review::PlanningSources> {
-        self.with_state(move |state| {
-            let modules = crate::modules::read(&state.real.root);
-            let store = if state.demo_mode {
-                state
-                    .demo
-                    .as_mut()
-                    .ok_or_else(|| Error::new("DEMO", "样例库尚未准备好"))?
-            } else {
-                &mut state.real
-            };
-            store.planning_sources(
-                planning && modules.planning,
-                wealth && modules.wealth,
-                &today,
-            )
+        self.call_with_runtime_modules(move |store, mut modules| {
+            modules.modules.planning &= planning;
+            modules.modules.wealth &= wealth;
+            store.planning_sources_with_runtime_modules(&modules, &today)
         })
     }
     pub fn call_personal<T: Send + 'static>(
@@ -323,15 +353,25 @@ impl Worker {
             })
         })
     }
-    pub fn modules(&self) -> Result<crate::modules::Modules> {
-        self.with_state(|state| Ok(crate::modules::read(&state.real.root)))
+    pub fn modules(&self) -> Result<crate::modules::RuntimeModules> {
+        self.with_state(|state| Ok(crate::modules::initialize_runtime(&state.real.root)))
     }
     /// Saving forgets the last reminder plan so the switch takes effect at once.
-    pub fn set_modules(&self, modules: crate::modules::Modules) -> Result<crate::modules::Modules> {
+    pub fn set_modules(
+        &self,
+        modules: crate::modules::Modules,
+    ) -> Result<crate::modules::RuntimeModules> {
+        self.set_modules_with_finance(modules, crate::modules::FinanceUpdate::default())
+    }
+    pub fn set_modules_with_finance(
+        &self,
+        modules: crate::modules::Modules,
+        update: crate::modules::FinanceUpdate,
+    ) -> Result<crate::modules::RuntimeModules> {
         self.with_state(move |state| {
-            crate::modules::write(&state.real.root, &modules)?;
+            let result = crate::modules::write_runtime(&state.real.root, modules, update);
             state.reminder_key = None;
-            Ok(modules)
+            result
         })
     }
     pub fn reminder_snapshot(&self) -> Result<crate::reminders::Snapshot> {

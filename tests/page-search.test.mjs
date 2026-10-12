@@ -21,7 +21,7 @@ test('every module page binds its topbar search to the App session words', () =>
 test('search filters the list only; KPI summaries come straight from the backend view', () => {
   const expenses = src('ExpensesPage.tsx');
   // The four KPI cards read the view's own aggregates...
-  for (const field of ['view.spent_cents', 'view.refund_cents', 'view.net_cents', 'view.sale_cents']) {
+  for (const field of ['visibleView.spent_cents', 'visibleView.refund_cents', 'visibleView.net_cents', 'visibleView.sale_cents']) {
     assert.ok(expenses.includes(field), `KPI keeps ${field}`);
   }
   // ...while only the table receives the filtered rows.

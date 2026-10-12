@@ -1233,32 +1233,64 @@ impl Store {
         b: &BatchInput,
         cancel: &dyn Fn() -> bool,
     ) -> Result<String> {
-        let stamp = std::fs::metadata(self.root.with_file_name("modules.json"))
-            .ok()
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|t| (t.as_secs(), t.subsec_nanos()));
+        // Content catches edits that preserve timestamps; file identity and metadata
+        // catch a deleted/recreated preference file whose revision starts at one.
+        let preference = |name: &str| -> Result<Value> {
+            let path = self.root.with_file_name(name);
+            match std::fs::read(&path) {
+                Ok(bytes) => {
+                    let metadata = std::fs::metadata(&path)?;
+                    let modified = metadata
+                        .modified()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|t| (t.as_secs(), t.subsec_nanos()));
+                    #[cfg(unix)]
+                    let identity = {
+                        use std::os::unix::fs::MetadataExt;
+                        (
+                            metadata.dev(),
+                            metadata.ino(),
+                            metadata.ctime(),
+                            metadata.ctime_nsec(),
+                        )
+                    };
+                    #[cfg(not(unix))]
+                    let identity = metadata
+                        .created()
+                        .ok()
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|t| (t.as_secs(), t.subsec_nanos()));
+                    Ok(json!((digest(&bytes), metadata.len(), modified, identity)))
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Value::Null),
+                Err(error) => Err(error.into()),
+            }
+        };
         Ok(digest(&serde_json::to_vec(&(
             context_digest(c, b, cancel)?,
-            stamp,
+            preference("modules.json")?,
+            preference("finance-modules.json")?,
+            crate::modules::read_runtime(&self.root),
         ))?))
     }
+
     fn import_context(&self, b: &BatchInput) -> Result<()> {
         self.check_generation(&b.generation)?;
         if self.sample {
             return Err(Error::new("SAMPLE_READ_ONLY", "历史导入只可用于个人资料"));
         }
-        let modules = crate::modules::read(&self.root);
-        if has_wealth(b) && !modules.wealth {
+        let modules = crate::modules::read_runtime(&self.root);
+        if has_wealth(b) && !modules.modules.wealth {
             return Err(Error::new(
                 "MODULE_DISABLED",
                 "账户与盘点模块已关闭，请重新启用并预览",
             ));
         }
-        if b.files.iter().any(|f| f.kind == "incomes") && !modules.planning {
+        if b.files.iter().any(|f| f.kind == "incomes") && !modules.incomes {
             return Err(Error::new(
                 "MODULE_DISABLED",
-                "规划模块已关闭，请重新启用并预览",
+                "收入模块已关闭或设置不可用，请重新启用并预览",
             ));
         }
         namespace(b)
@@ -1355,7 +1387,12 @@ impl Store {
         })
     }
     pub fn financial_import_commit(&mut self, input: &CommitInput, today: &str) -> Result<Receipt> {
-        self.import_context(&input.batch)?;
+        // Resolve the original request before testing new-write capabilities.
+        // Dataset identity still applies to every receipt lookup.
+        self.check_generation(&input.batch.generation)?;
+        if self.sample {
+            return Err(Error::new("SAMPLE_READ_ONLY", "历史导入只可用于个人资料"));
+        }
         uuid::Uuid::parse_str(&input.request_id)
             .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
         let request_fp = digest(&serde_json::to_vec(&("financial_import", input))?);
@@ -1391,6 +1428,7 @@ impl Store {
             tx.commit()?;
             return Ok(receipt);
         }
+        self.import_context(&input.batch)?;
         if self.import_context_digest(&tx, &input.batch, &|| false)? != input.context_digest {
             return Err(Error::new(
                 "REVISION_CONFLICT",

@@ -8,7 +8,7 @@ import { changeLine } from './Sparkline';
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
-import { usePageBar, BarMenuButton } from './topbar';
+import { usePageBar } from './topbar';
 import { refocusHeading } from './topbar-model';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -18,12 +18,11 @@ import { CentInput, FormRow, Info, Switch } from './FormControls';
 import { Icon } from './AssetViews';
 import { assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, rateText, noteSummary, snapshotEntryInput, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
 import type { Account, AccountFields, AccountSave, Draft, EntryState, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
-import { FinancialImportDialog } from './FinancialImportDialog';
 import { WealthChanges } from './WealthChanges';
 import { offerUndo, useRestored } from './undo';
 import './wealth.css';
 
-export type WealthReviewFocus = { generation: string; kind: 'accounts' | 'snapshot'; id?: string };
+export type WealthReviewFocus = { generation: string; kind: 'accounts' | 'snapshot' | 'history' | 'check-in'; id?: string; date?: string };
 type Tab = 'overview' | 'accounts' | 'changes' | 'history';
 
 /** Shared by wealth and expense pages: one stored receipt, checked by request id. */
@@ -43,7 +42,7 @@ export function usePendingReceipt(reload: () => void) {
 }
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
-export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, onGotoPlanning, reviewFocus, onReviewFocusDone }: SourceProps & { onGotoPlanning?: (snapshotId: string) => void; reviewFocus?: WealthReviewFocus | null; onReviewFocusDone?: () => void; today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
+export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, onGotoPlanning, onCompare, reviewFocus, onReviewFocusDone }: SourceProps & { onGotoPlanning?: (snapshotId: string) => void; onCompare?: (pair?: { fromSnapshotId: string; toSnapshotId: string }) => void; reviewFocus?: WealthReviewFocus | null; onReviewFocusDone?: () => void; today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [accountView, setAccountView] = useState<AccountView>('active');
   // 概览链接带来的比较区间：只在点「变化」分段时清空，进入时消费一次（U20 §2.1）。
@@ -58,9 +57,6 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const [checkInPin, setCheckInPin] = useState<string | undefined>();
   const [savedSnapshot, setSavedSnapshot] = useState<Snapshot | null>(null);
   const [snapshotDetail, setSnapshotDetail] = useState<string | null>(null);
-  const [importMenuOpen, setImportMenuOpen] = useState(false);
-  const importMenuRef = useRef<HTMLButtonElement>(null);
-  const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
   useEffect(() => {
     let live = true; setError('');
@@ -72,7 +68,10 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   useEffect(() => {
     if (!reviewFocus || !summary) return;
     if (reviewFocus.generation !== summary.generation) { onReviewFocusDone?.(); return; }
-    if (reviewFocus.kind === 'accounts') { setTab('accounts'); setAccountView('all'); onSearch(''); }
+    if (storedPending()) return;
+    if (reviewFocus.kind === 'history') setTab('history');
+    else if (reviewFocus.kind === 'check-in') setCheckIn(reviewFocus.date ?? today);
+    else if (reviewFocus.kind === 'accounts') { setTab('accounts'); setAccountView('all'); onSearch(''); }
     else {
       const p = summary.points.find(p => p.snapshot_id === reviewFocus.id);
       if (p) { setCheckInPin(p.snapshot_id); setCheckIn(p.date); }
@@ -83,7 +82,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(importing || !!editing || !!pending || busy || !!checkIn || !!snapshotDetail); return () => onEditingChange(false); }, [importing, editing, pending, busy, checkIn, snapshotDetail, onEditingChange]);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!checkIn || !!snapshotDetail); return () => onEditingChange(false); }, [editing, pending, busy, checkIn, snapshotDetail, onEditingChange]);
   const sourceError = useSource({source,onSourceDone}, summary?.generation, async (target, alive) => {
     // 账户来源：按稳定 ID 打开账户资料表单；未保存的输入不写入（§6.2）。
     if (target.kind === 'account') {
@@ -111,7 +110,6 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   // Hooks must run on every render: the check-in view is an early return below.
   const open = accounts?.filter(a => !a.fields.closed_on) ?? [];
   const newAccount = { label: '新增账户', plus: true, disabled: !!pending || !accounts, run: () => setEditing('new') };
-  const importMenu = tab === 'accounts' ? { label: '更多', items: [{ key: 'history-import', label: '导入历史', run: () => { if (!pending && summary) setImporting(true); } }] } : undefined;
   usePageBar('wealth', checkIn ? {} : open.length
     ? { primary: { label: '开始盘点', disabled: !!pending || !open.length, run: () => setCheckIn(today) }, secondary: newAccount, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } }
     : { primary: newAccount, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } });
@@ -138,12 +136,11 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const shownAccounts = accounts?.filter(a => accountVisible(a, accountView) && (!keyword || [a.fields.name, kindLabel(a.fields.kind), a.fields.institution, a.fields.notes].some(t => t.toLowerCase().includes(keyword)))) ?? [];
   return <section className="stats-section wealth-section" aria-label="财富">
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
-    {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => pending.command === 'financial_import_commit' ? setImporting(true) : void verify()}>核对结果</button></div>}
+    {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对金融导入回执。</span> : <button disabled={busy} onClick={() => void verify()}>核对结果</button>}</div>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
-      <div className="segmented" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['changes', '变化'], ['history', '盘点记录']] as const).map(([k, l]) => <button key={k} aria-pressed={tab === k} onClick={() => { setChangesSeed(null); setTab(k); }}>{l}</button>)}</div>
+      <div className="segmented" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['changes', '变化'], ['history', '盘点记录']] as const).filter(([k]) => !onCompare || k !== 'changes').map(([k, l]) => <button key={k} aria-pressed={tab === k} onClick={() => { setChangesSeed(null); setTab(k); }}>{l}</button>)}</div>
       {tab !== 'history' && <label className="account-filter">账户范围 <select aria-label="账户范围" value={accountView} onChange={e => setAccountView(e.target.value as AccountView)}><option value="active">在用账户（{open.length}）</option><option value="closed">已停用（{(accounts?.length ?? 0) - open.length}）</option><option value="all">全部账户</option></select></label>}
-      {importMenu && <BarMenuButton menu={importMenu} open={importMenuOpen} onOpen={setImportMenuOpen} buttonRef={importMenuRef} disabled={!!pending || !summary}/>}
     </div></HeaderSlot>
     {tab === 'history' && savedSnapshot && !error && <div className="notice wealth-review-entry" role="status"><span>盘点已保存（{savedSnapshot.date}）。</span><button type="button" className="ui-link" disabled={!summary?.points.some(p => p.snapshot_id === savedSnapshot.id)} onClick={() => {
       if (onGotoPlanning) onGotoPlanning(savedSnapshot.id);
@@ -151,13 +148,12 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     }}>{onGotoPlanning ? '查看这一期的复盘 →' : '查看这一期的变化 →'}</button><CloseButton type="button" aria-label="关闭盘点后复盘提示" onClick={() => setSavedSnapshot(null)}/></div>}
     {error ? <article className="ui-card ui-content" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
-      : tab === 'overview' ? <Overview hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { setChangesSeed(seed); setTab('changes'); }}/>
+      : tab === 'overview' ? <Overview hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/>
       : tab === 'accounts' ? (keyword && !shownAccounts.length
         ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
         : <Accounts accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
       : tab === 'changes' ? <WealthChanges accountView={accountView} summary={summary} accounts={accounts} today={today} initial={changesSeed} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn}/>
       : <History points={points} onOpen={setSnapshotDetail} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
-    {importing && summary && <FinancialImportDialog generation={summary.generation} onClose={saved => { setImporting(false); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
     {editing && summary && <AccountDialog account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onClose={closeAccount}/>}
   </section>;
 }

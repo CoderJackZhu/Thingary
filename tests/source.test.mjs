@@ -73,7 +73,7 @@ test('targets route to their owning page', () => {
   assert.equal(sourcePage({ kind: 'asset', id: 'a' }), 'assets');
   assert.equal(sourcePage({ kind: 'wish', id: 'w' }), 'wishlist');
   assert.equal(sourcePage({ kind: 'snapshot', id: 's' }), 'wealth');
-  assert.equal(sourcePage({ kind: 'expense', id: 'x' }), 'expenses');
+  assert.equal(sourcePage({ kind: 'expense', id: 'x' }), 'finance-records');
   assert.equal(sourcePage({ kind: 'payment', id: 'p', plan_id: 'pl' }), 'recurring');
   assert.equal(sourcePage({ kind: 'plan', id: 'pl' }), 'recurring');
   assert.equal(sourcePage({ kind: 'virtual', id: 'v' }), 'virtual');

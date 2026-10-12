@@ -139,7 +139,7 @@ test('the summary mounts only behind module gating and degrades to a dependency 
   const view = read('../src/ReviewView.tsx');
   assert.match(view, /modules\.planning && \(modules\.wealth/);
   assert.match(view, /: <ReviewPlanSummary/);
-  assert.match(view, /开启「账户与盘点」后显示规划摘要/);
+  assert.match(view, /开启「账户与盘点」后显示目标摘要/);
   assert.match(view, /planning: modules\.planning && modules\.wealth/);
   assert.match(view, /data=\{data\.planning \?\? null\}/);
   const overview = read('../src/Overview.tsx');

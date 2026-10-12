@@ -39,9 +39,19 @@ flowchart TD
 
 用户主动关闭普通表单时不保存草稿；明确失败时保留当前输入以便修正。错误转换为可读提示，必要时关联字段与重试入口；日志避免记录完整表单、序列号、账户资料或图片内容。
 
+<a id="finance-workspace"></a>
+
+## 财务工作区的读取与能力
+
+当前源码已接入财务工作区，仍待联合验收与主审，见[开发说明](DEVELOPMENT.md#finance-workspace-validation)。`finance-contract.ts`／`finance-navigation.ts` 定义期间、能力与业务意图；`finance-service.ts` 显式适配原生 `finance_sources`，`finance-data.ts` 管理读取票据及过期响应。`finance_sources.rs` 在同一只读事务中取得期间、账户／盘点、收入、支出、投资核对及历史参考；Worker 同轮采样当前资料库与 RuntimeModules，不能把多个旧来源请求拼成一份本期结论。局部 disabled／error／empty／partial 状态保留区别，未知整数分不补零；用于选区间的全量启动读取不冒充期间事实。
+
+RuntimeModules 增加独立 `incomes` 和 `movements`，前者不依赖目标，后者还要求 `wealth`；`planning` 只控制目标及目标来源。可信旧配置只继承一次，不能随着后续目标开关反复改变收入与流动偏好；坏配置与未知版本不默认全开，失败保全原文件。展示、候选、写入、导入预览与提交分别门控；完整导出／备份不删隐藏模块事实。模块开关不改 schema、历史请求指纹或带 plan_ 前缀的现有事实表。
+
+手填与流动明细仍为互斥的投资核对来源。流动关闭后，手填核对只读已存事实且不查询流动，明细模式显式 unavailable，不自动改模式或通过旧读取端口绕过。目标关闭不影响收入、流动及财务聚合。结果未知的回执核对属于只读恢复，沿用原 request_id／generation；不能因模块关闭或宿主迁移而生成新请求重放。全局保存锁保留设置与原恢复入口的可达性。
+
 ## 账户、完整盘点与月度收入历史导入
 
-`FinancialImportDialog.tsx` 在“账户”页更多菜单提供四步界面；`financial-import.ts` 负责列头、动作、分页与请求元数据纯逻辑，金额仍为整数分字符串。`financial_import.rs` 组合纯解析器、真实账户目录与 `wealth.rs` 的 `write_account_tx` / `write_snapshot_tx`，预览只在 SQLite 内存备份的事务副本模拟，提交在个人 Store 的单一事务重新验证后写入。原命令保留 generation、UUID、原指纹、回执和故障点；导入专用历史覆盖与整批最终状态校验不改变普通保存语义。
+`DataManagement.tsx` 在设置的数据管理统一托管物品导入、金融历史导入、Excel 导出与完整备份／恢复；`FinancialImportDialog.tsx` 提供金融历史四步界面；`financial-import.ts` 负责列头、动作、分页与请求元数据纯逻辑，金额仍为整数分字符串。`financial_import.rs` 组合纯解析器、真实账户目录与 `wealth.rs` 的 `write_account_tx` / `write_snapshot_tx`，预览只在 SQLite 内存备份的事务副本模拟，提交在个人 Store 的单一事务重新验证后写入。原命令保留 generation、UUID、原指纹、回执和故障点；导入专用历史覆盖与整批最终状态校验不改变普通保存语义。
 
 `financial_import_preview` / `financial_import_commit` 与文件读取、模板、进度、取消、回执查询命令在 `lib.rs` 登记。`spreadsheet.rs` 使用 calamine / rust_xlsxwriter 读写 `.xlsx`。原生受控选择器仅接受 xlsx；一个工作簿提取账户／完整盘点／收入工作表（空表忽略），规范化为内部 CSV 文本再复用原校验和事务。外部不再提供 CSV 入口。ZIP 实际解压总量、XML 坐标／范围先限界，再解码单元格；拒绝公式、宏、错误值和数值型外部编号。工作簿与规范化内容分别最多 20 MiB，所选数据合计最多 50000 行，解压最多 64 MiB，每表 32 列；不接收任意前端路径。取消与进度直接读取独立任务注册表，不进入串行 Worker，目录扫描、SQLite 复制及解析检查点均可取消；提交阶段不允许半途取消。
 
@@ -121,7 +131,7 @@ PlanningSetup 的四问复用 TimeFields 与 FutureIncomeSection，最终一次 
 
 schema37 在单次迁移中扩展 plan_income 分类／账户引用／去向及分类更正标记，新增 investment_flows 区间核对。旧缺省字段省略序列化，保护旧收入请求指纹。旧文件缺少分类列时更正不清除已有分类；分类更正保护标记只可置位，避免 Excel 往返恢复不安全的旧估计。
 
-investment_review Store 从真实完整盘点构造 counted 投资范围，复用独立纯计算核心；read/list/save/trash IPC 经过串行 Worker。保存重读端点内容键，校验 generation、revision、重叠并在同一事务保存输入与回执，结果不持久化。原端点键留作核对依据，盘点更正时动态标为失效；原核对删除后仍支持恢复及冲突检查。InvestmentReviewHost 负责原请求保留、冻结和重新读取，界面不另算损益。模块关闭不开放读写。
+investment_review Store 从真实完整盘点构造 counted 投资范围，复用独立纯计算核心；read/list/save/trash IPC 经过串行 Worker。保存重读端点内容键，校验 generation、revision、重叠并在同一事务保存输入与回执，结果不持久化。原端点键留作核对依据，盘点更正时动态标为失效；原核对删除后仍支持恢复及冲突检查。InvestmentReviewHost 负责原请求保留、冻结和重新读取，界面不另算损益。账户关闭不开放新业务读写；流动关闭按手填／明细模式门控，原请求只读回执核对仍可达。
 
 收入来源通过稳定账户 ID 关联；软删除后保留原事实，仍被收入引用的账户拒绝永久清除。投资核对的历史端点在删除后保留原始快照依据；不以当前引用失效抹掉已记录的资金流动。
 
@@ -133,13 +143,13 @@ investment_review Store 从真实完整盘点构造 counted 投资范围，复�
 
 `window_size` 按应用身份在 app_config_dir 保存普通窗口逻辑尺寸，启动按显示器可用区域限界并居中；保存失败只影响偏好，不触及资料库。关闭及退出保存，全屏／最大化／最小化时跳过。本机偏好不参与备份恢复。
 
-PlanningPage 保留目标／收入与复盘导航；复盘／收入记录与月份筛选是页面内存状态，来源跳转选择复盘区间，提交未确认时保持写入守卫。IncomeRecords 的列表与汇总共用筛选集合。逐年快照复用 snapshotRows，在详情双栏外渲染，不另算预测。
+PlanningPage 仅托管目标及其发生确认／撤回，保留四问与逐年快照；快照复用 snapshotRows，在详情双栏外渲染，不另算预测。财富下 FinanceRecordsPage 承载收入／重要支出／资金流动，FinanceReviewPage 承载本期复盘／盘点比较。期间、搜索、排序、展开项与滚动仅是会话内存状态，不进入资料库或备份。IncomeRecords 的列表与汇总共用期间集合，搜索只过滤明细；从复盘带入闭开区间时仍排除起点。来源跳转由稳定 ID 及 generation 验证，返回上下文只有一层，最近跳转覆盖更早上下文；切库、恢复和能力失效清理上下文，迟到响应不能重新定位。
 
 ## 假设核对分区
 
 schema 38 在 `plan_assumption_checks` 单独保存后端拥有的已核对四项数值及待核对标记，原 profile DTO 与旧 basic/setup 请求序列化保持不变。`plan_assumptions_read/save` 经 Worker 沿用 profile 修订、generation、同一 `feature_requests` 和提交故障点；只有明确确认才写确认值。各 profile 保存路径比较实际收益、通胀及波动的变化并撤销有效确认，预算、费用、投入等无关保存保持状态。没有已保存 basic 的独立假设写入被拒绝，不建立空计划。旧资料迁移不改原值，新增核对表为空；规范 schema 与领域校验随完整备份恢复。
 
-`src/planning-followup-port.ts` 以现有 `wealth.submit` 和 pending 入口适配原生方法。C1 提供假设读取、保存与回执核对，C2 补齐资金流动和来源核对全部方法，C3 在目标与收入复盘页面接入同一适配器。独立四字段编辑器统一假设入口；失效区间重新打开时不沿用原完整性确认。
+`src/planning-followup-port.ts` 以现有 `wealth.submit` 和 pending 入口适配原生方法。C1 提供假设读取、保存与回执核对，C2 补齐资金流动和来源核对全部方法，UI 在目标、收支记录和财务复盘页面接入同一适配器。独立四字段编辑器统一假设入口；失效区间重新打开时不沿用原完整性确认。
 
 ## 可选资金流动与区间来源
 

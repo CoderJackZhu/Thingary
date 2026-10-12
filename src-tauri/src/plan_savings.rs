@@ -12,7 +12,7 @@
 //! change, i.e. everything that was actually consumed.
 use crate::{
     domain::{date, Error, Result},
-    expenses::{Line, LINES},
+    expenses::{Line, Period},
     modules,
     storage::{digest, Store},
     wealth::Point,
@@ -109,6 +109,59 @@ pub struct Review {
     pub stats: Stats,
     /// Check-ins that could not end an interval because they are incomplete.
     pub incomplete_count: usize,
+}
+
+/// Asset facts only, independent of income, goals and baseline marks.
+#[derive(Debug, Clone, Serialize)]
+pub struct AssetInterval {
+    pub snapshot_id: String,
+    pub from: String,
+    pub to: String,
+    pub days: i64,
+    /// `ok` or `scope_changed`; changed scope carries no comparable amounts.
+    pub status: &'static str,
+    pub delta_nw_cents: Option<String>,
+    pub hpf_change_cents: Option<String>,
+    pub market_change_cents: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AssetReview {
+    pub generation: String,
+    pub intervals: Vec<AssetInterval>,
+    pub incomplete_count: usize,
+}
+
+fn asset_intervals(points: &[Point]) -> Result<Vec<AssetInterval>> {
+    points
+        .iter()
+        .filter(|p| p.complete && p.compared_to.is_some())
+        .map(|p| {
+            let from = p.compared_to.as_ref().expect("filtered comparison");
+            let days = (date(&p.date)? - date(from)?).num_days();
+            if days < 1 {
+                return Err(Error::new("FORMAT", "资料格式不兼容或损坏"));
+            }
+            Ok(AssetInterval {
+                snapshot_id: p.snapshot_id.clone(),
+                from: from.clone(),
+                to: p.date.clone(),
+                days,
+                status: if p.scope_changed {
+                    "scope_changed"
+                } else {
+                    "ok"
+                },
+                delta_nw_cents: (!p.scope_changed).then(|| p.change_cents.clone()).flatten(),
+                hpf_change_cents: (!p.scope_changed)
+                    .then(|| p.hpf_change_cents.clone())
+                    .flatten(),
+                market_change_cents: (!p.scope_changed)
+                    .then(|| p.market_change_cents.clone())
+                    .flatten(),
+            })
+        })
+        .collect()
 }
 
 /// Division rounded half away from zero.
@@ -394,6 +447,17 @@ impl Store {
         result
     }
 
+    /// Caller must hold an already pinned read transaction; this never starts one.
+    /// Reads only wealth facts, without querying income, profile or baseline marks.
+    pub(crate) fn asset_review_in_transaction(&self) -> Result<AssetReview> {
+        let summary = self.wealth_summary()?;
+        Ok(AssetReview {
+            generation: self.generation(),
+            intervals: asset_intervals(&summary.points)?,
+            incomplete_count: summary.points.iter().filter(|p| !p.complete).count(),
+        })
+    }
+
     /// Called only inside an already pinned read transaction (including the homepage).
     pub(crate) fn plan_review_in_transaction(&self) -> Result<Review> {
         let conn = self.conn()?;
@@ -425,42 +489,12 @@ impl Store {
             .clone()
             .ok_or_else(|| Error::new("NOT_FOUND", "这次盘点没有可比较的上一次完整盘点"))?;
         let m = modules::read(&self.root);
-        let c = self.conn()?;
-        let mut q = c.prepare(LINES)?;
-        let mut lines = q
-            .query_map([], |r| {
-                Ok(Line {
-                    source: r.get(0)?,
-                    id: r.get(1)?,
-                    asset_id: r.get(2)?,
-                    title: r.get(3)?,
-                    category: r.get(4)?,
-                    date: r.get(5)?,
-                    amount_cents: r.get::<_, Option<i64>>(6)?.map(|v| v.to_string()),
-                    notes: r.get(7)?,
-                    plan_id: r.get(8)?,
-                })
-            })?
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-        lines.retain(|l| {
-            let in_range = l
-                .date
-                .as_deref()
-                .is_some_and(|d| d > from.as_str() && d <= point.date.as_str());
-            let enabled = match l.source.as_str() {
-                "expense" | "linked" | "refund" => m.expenses,
-                "payment" => m.recurring,
-                "virtual" | "topup" => m.virtual_assets,
-                _ => true,
-            };
-            in_range && enabled
-        });
-        lines.sort_by(|a, b| {
-            b.date
-                .cmp(&a.date)
-                .then_with(|| a.source.cmp(&b.source))
-                .then_with(|| a.id.cmp(&b.id))
-        });
+        let period = Period::Range {
+            from: from.clone(),
+            to: point.date.clone(),
+            include_from: false,
+        };
+        let lines = self.expense_period_view(&period, &m)?.lines;
         Ok(Reasons {
             generation: self.generation(),
             snapshot_id: snapshot_id.to_owned(),
@@ -560,6 +594,37 @@ mod tests {
             change_rate_hundredths: None,
         }
     }
+    #[test]
+    fn asset_review_preserves_unknown_scope_and_incomplete_facts() {
+        let mut incomplete = point("gap", "2026-01-15", None, None);
+        incomplete.complete = false;
+        let mut comparable = point("b", "2026-02-01", Some("2026-01-01"), Some(100));
+        comparable.hpf_change_cents = Some("-10".into());
+        comparable.market_change_cents = Some("80".into());
+        let mut changed = point("c", "2026-03-01", Some("2026-02-01"), Some(900));
+        changed.scope_changed = true;
+        let unknown = point("d", "2026-04-01", Some("2026-03-01"), None);
+        let intervals = asset_intervals(&[
+            point("a", "2026-01-01", None, None),
+            incomplete,
+            comparable,
+            changed,
+            unknown,
+        ])
+        .unwrap();
+        assert_eq!(intervals.len(), 3);
+        assert_eq!(intervals[0].days, 31);
+        assert_eq!(intervals[0].delta_nw_cents.as_deref(), Some("100"));
+        assert_eq!(intervals[0].hpf_change_cents.as_deref(), Some("-10"));
+        assert_eq!(intervals[0].market_change_cents.as_deref(), Some("80"));
+        assert_eq!(intervals[1].status, "scope_changed");
+        assert!(intervals[1].delta_nw_cents.is_none());
+        assert!(intervals[2].delta_nw_cents.is_none());
+        assert!(
+            asset_intervals(&[point("bad", "2026-01-01", Some("2026-01-01"), Some(0))]).is_err()
+        );
+    }
+
     /// The same point with the housing fund balance change known (tracked account).
     fn tracked(mut p: Point, hpf_change: i64) -> Point {
         p.hpf_change_cents = Some(hpf_change.to_string());

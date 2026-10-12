@@ -28,6 +28,7 @@ function loadDirectory() {
     return m.exports;
   }
   function resolve(id, fromDir) {
+    if (id === '../useSource.ts') return { useSource: () => '' }; // Legacy scenarios have no source focus; T06 exercises the actual source resolver separately.
     if (id === 'react') return reactStub;
     if (id === 'react/jsx-runtime') return jsxStub;
     if (id.startsWith('.')) {
@@ -668,4 +669,111 @@ test('investment card translates movement and source invalidation codes', async 
   assert.match(h.text(), /日期或金额与流动不一致/);
   assert.match(h.text(), /关联来源已被删除/);
   assert.doesNotMatch(h.text(), /stale_movements|source_mismatch|source_deleted/);
+});
+
+test('controlled review period excludes opening day across pages and filters every selected account', async () => {
+  const { port } = scriptedFollowupPort();
+  const queries = [];
+  const row = (id, date, account) => ({ ...uiMovements[0], id, fields: { ...uiMovements[0].fields, date, notes: id, from: { kind: 'account', account_id: account }, to: { kind: 'external', label: '虚构外部' } } });
+  port.listMovements = async query => {
+    queries.push(query);
+    return { status: 'ready', value: { generation: uiGeneration, records: query.cursor ? [row('closing-row', '2026-10-31', 'ui-cash'), row('outside-row', '2026-10-31', 'ui-old')] : [row('opening-row', '2026-10-01', 'ui-inv'), row('next-day-row', '2026-10-02', 'ui-inv')], next_cursor: query.cursor ? null : 'page-2' } };
+  };
+  const h = mount('MovementsList.tsx', 'MovementsList', listProps({ port, period: { kind: 'range', from: '2026-10-01', to: '2026-10-31', includeFrom: false }, accountIds: ['ui-inv', 'ui-cash'] }));
+  await h.settle();
+  assert.equal(queries.length, 2);
+  assert.equal(queries[0].account_id, null);
+  assert.equal(queries[0].from_date, '2026-10-01');
+  assert.equal(h.input('明细开始日期'), undefined);
+  assert.equal(h.select('筛选账户'), undefined);
+  assert.match(h.text(), /next-day-row/);
+  assert.match(h.text(), /closing-row/);
+  assert.doesNotMatch(h.text(), /opening-row|outside-row/);
+  assert.match(h.text(), /所选范围 2 笔/);
+  h.set({ ...h.props, search: 'closing-row' });
+  await h.settle();
+  assert.equal(queries.length, 2);
+  assert.match(h.text(), /所选范围 2 笔 · 搜索匹配 1 笔/);
+  assert.doesNotMatch(h.text(), /next-day-row/);
+});
+
+test('auto new is consumed once and no account exposes explicit creation', async () => {
+  const { port } = scriptedFollowupPort(); let done = 0;
+  const h = mount('MovementsList.tsx', 'MovementsList', listProps({ port, autoNew: true, onAutoNewDone: () => done++ }));
+  await h.settle();
+  assert.equal(done, 1);
+  assert.ok(h.find('dialog'));
+  const empty = scriptedFollowupPort({ accountsRead: { status: 'ready', value: { generation: uiGeneration, accounts: [] } } }); let created = 0;
+  const h2 = mount('MovementsList.tsx', 'MovementsList', listProps({ port: empty.port, onNewAccount: () => created++ }));
+  await h2.settle(); h2.button('创建账户').props.onClick();
+  assert.equal(created, 1);
+});
+
+test('review presentation reads no list until details opens and navigation carries exact scope', async () => {
+  const { port, calls } = scriptedFollowupPort();
+  const input = uiPreviewOf(uiManualDraft).input;
+  const h = mount('FollowupSection.tsx', 'FollowupSection', sectionProps({ port, pair: uiPair, input, movementPresentation: 'review' }));
+  await h.settle();
+  assert.equal(saveCalls(calls, 'listMovements').length, 0);
+  h.find('details').props.onToggle({ currentTarget: { open: true } }); h.rerender(); await h.settle();
+  assert.equal(saveCalls(calls, 'listMovements').length, 1);
+  const query = saveCalls(calls, 'listMovements')[0].args[0];
+  assert.equal(query.from_date, input.from.date);
+  assert.equal(query.to_date, input.to.date);
+  let selection;
+  const h2 = mount('FollowupSection.tsx', 'FollowupSection', sectionProps({ port, pair: uiPair, input, movementPresentation: 'review', onViewAllMovements: (...v) => selection = v }));
+  await h2.settle(); h2.button('查看所选区间').props.onClick();
+  assert.deepEqual(JSON.parse(JSON.stringify(selection)), [{ kind: 'range', from: input.from.date, to: input.to.date, includeFrom: false }, [...new Set([...input.from.members, ...input.to.members].filter(m => m.counted).map(m => m.account_id))]]);
+});
+
+test('disabled movement presentation never mounts movement readers but retains manual check entry', async () => {
+  const { port, calls } = scriptedFollowupPort();
+  const h = mount('FollowupSection.tsx', 'FollowupSection', sectionProps({ port, pair: uiPair, movementPresentation: 'review', movementsEnabled: false }));
+  await h.settle();
+  assert.equal(saveCalls(calls, 'listAccounts').length, 0);
+  assert.equal(saveCalls(calls, 'listMovements').length, 0);
+  assert.match(h.text(), /手填合计仍可使用/);
+  h.button('核对方式与完整性').props.onClick(); h.rerender(); await h.settle();
+  assert.equal(h.button('由资金流动明细汇总').props.disabled, true);
+  assert.equal(h.button('手填合计').props.disabled, false);
+});
+
+test('saved movements stay unavailable without fabricated totals and explicit manual switch remains usable', async () => {
+  const draft = reviewDraftFixtures.movementsUnconfirmed;
+  const unavailable = d => uiPreviewOf(d, { saved_mode: 'movements', selected_totals: null, movement_count: null, confirmation: 'unavailable', result: { status: 'unavailable', reasons: ['movements_disabled'] } });
+  const { port, calls } = scriptedFollowupPort({ reviewRead: { status: 'ready', value: { draft, preview: unavailable(draft) } }, previewResult: d => ({ status: 'ready', value: d.selection.mode === 'movements' ? unavailable(d) : uiPreviewOf(d) }) });
+  const h = mount('ReviewModePanel.tsx', 'ReviewModeDialog', { port, generation: uiGeneration, pair: uiPair, movementsEnabled: false, onClose() {}, onPending() {} });
+  await h.settle();
+  assert.equal(h.button('由资金流动明细汇总').props['aria-pressed'], true);
+  assert.match(h.text(), /暂不可用（未读取合计）/);
+  assert.match(h.text(), /暂不可用（未读取明细）/);
+  assert.doesNotMatch(h.text(), /null 条|0 条/);
+  assert.equal(h.button('保存核对方式').props.disabled, true);
+  h.button('手填合计').props.onClick(); h.rerender(); await h.settle();
+  h.button('确认切换').props.onClick(); h.rerender(); await h.settle();
+  assert.equal(h.button('手填合计').props['aria-pressed'], true);
+  assert.equal(h.button('保存核对方式').props.disabled, false);
+  assert.equal(saveCalls(calls, 'saveReview').length, 0);
+});
+
+test('unresolved movement freezes navigation until explicit receipt resolution, unrelated writes cannot release it', async () => {
+  const { port } = scriptedFollowupPort({ movementWrite: { status: 'unresolved', request_id: 'original-request' } });
+  const locks = [];
+  const h = mount('MovementsList.tsx', 'MovementsList', listProps({ port, receiptResolutionVersion: 0, onEditingChange: v => locks.push(v) }));
+  await h.settle();
+  h.button('删除').props.onClick(); h.rerender(); h.button('确认删除').props.onClick(); await h.settle();
+  assert.equal(locks.at(-1), true);
+  h.set({ ...h.props, writeVersion: 2 }); await h.settle();
+  assert.equal(h.button('记一笔资金流动').props.disabled, true);
+  assert.equal(locks.at(-1), true);
+  h.set({ ...h.props, receiptResolutionVersion: 1 }); await h.settle();
+  assert.equal(h.button('记一笔资金流动').props.disabled, false);
+  assert.equal(locks.at(-1), false);
+});
+
+test('disabled linked source is displayed distinctly from matched and deleted', async () => {
+  const { port } = scriptedFollowupPort({ movementsRead: { status: 'ready', value: { generation: uiGeneration, next_cursor: null, records: [{ ...uiMovements[2], source_status: 'disabled' }] } } });
+  const h = mount('MovementsList.tsx', 'MovementsList', listProps({ port })); await h.settle();
+  assert.match(h.text(), /来源模块已关闭/);
+  assert.doesNotMatch(h.text(), /已关联来源|来源已删除/);
 });

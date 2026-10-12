@@ -64,3 +64,24 @@ test('cellText renders amounts, liabilities and the three textual states', () =>
   assert.equal(cellText(cell({ state: 'missing', amount_cents: null }), 'asset'), '未知');
   assert.equal(cellText(cell({ amount_cents: null }), 'asset'), '未知');
 });
+
+import { runtime } from './planning-component-runtime.mjs';
+import * as wealth from '../src/wealth.ts';
+import * as display from '../src/wealth-display.ts';
+const accounts=[{id:'a',fields:{name:'虚构账户',side:'asset',kind:'cash',institution:'',closed_on:null}}];
+const comparison = (from='a',to='b') => ({generation:'g',from:{snapshot_id:from,date:'2026-01-01',notes:'期初备注',complete:true,missing:0},to:{snapshot_id:to,date:'2026-02-01',notes:'期末备注',complete:true,missing:0},rows:[row()],structure:[],reconciled:true,net_change_cents:'150',assets_change_cents:'150',liabilities_change_cents:'0',net_rate_hundredths:15000,known_effect_cents:'150',missing_names:[]});
+function compareRuntime(over={},invoke=async()=>comparison()) {
+ return runtime('WealthChanges',{summary:{generation:'g',points:[point('a','2026-01-01'),point('b','2026-02-01'),point('c','2026-03-01',{complete:false})]},accounts,accountView:'all',today:'2026-03-01',onNewAccount(){},onCheckIn(){},...over},undefined,undefined,{components:[],modules:{'@tauri-apps/api/core':{invoke},'./wealth':wealth,'./wealth-display':display,'./asset':{money:v=>String(v),errorMessage:e=>e.message},'./WealthPage':{NetChart:()=>null}}});
+}
+test('embedded comparison uses exactly the host pair and hides endpoint selectors',async()=>{
+ const calls=[];const r=compareRuntime({controlledRange:{from:'a',to:'c'},hideControls:true},async(command,args)=>{calls.push({command,args});return comparison('a','c');});await r.settle();
+ assert.equal(calls[0].args.from,'a');assert.equal(calls[0].args.to,'c');assert.equal(r.nodes().filter(n=>n.type==='select').length,0);assert.ok(r.nodes().some(n=>n.type==='p'&&r.text(n).includes('期初备注')));
+});
+test('endpoint removal immediately masks old amounts and leaves an explicit retry',async()=>{
+ const r=compareRuntime({controlledRange:{from:'a',to:'b'}});await r.settle();assert.ok(r.nodes().some(n=>n.type==='table'));
+ r.props.summary={generation:'g',points:[point('a','2026-01-01')]};r.render();assert.equal(r.nodes().filter(n=>n.type==='table').length,0);assert.ok(r.button('重新读取'));assert.match(r.text(r.render()),/所选盘点已删除或失效/);
+});
+test('arbitrary incomplete comparison preserves chosen endpoints and browse state',async()=>{
+ const changes=[],browse=[];const r=compareRuntime({initial:{from:'a',to:'c'},initialSort:'kind',onRangeChange:v=>changes.push(v),onBrowseStateChange:v=>browse.push(v)},async()=>comparison('a','c'));await r.settle();
+ const to=r.find('select',p=>p['aria-label']==='终点盘点');assert.equal(to.props.value,'c');to.props.onChange({target:{value:'b'}});await r.settle();assert.equal(changes[0].to,'b');assert.equal(browse[0].sort,'kind');
+});

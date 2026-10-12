@@ -9,6 +9,12 @@ use thingary_lib::{
     storage::Store,
 };
 const TODAY: &str = "2026-10-10";
+// Mirror Worker startup: the independent finance preferences are initialized once.
+fn open_store(root: &std::path::Path) -> thingary_lib::domain::Result<Store> {
+    let store = Store::open(root)?;
+    thingary_lib::modules::initialize_runtime(root);
+    Ok(store)
+}
 fn id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
@@ -56,7 +62,7 @@ fn commit(s: &mut Store, b: BatchInput) -> thingary_lib::financial_import::Recei
 #[test]
 fn item_workbook_preserves_text_unknown_zero_multiline_and_detects_edits() {
     let t = tempfile::tempdir().unwrap();
-    let mut source = Store::open(&t.path().join("source")).unwrap();
+    let mut source = open_store(&t.path().join("source")).unwrap();
     for (name, price) in [
         ("=SUM(1,2)", None),
         ("'=字面单引号", Some("0")),
@@ -120,7 +126,7 @@ fn item_workbook_preserves_text_unknown_zero_multiline_and_detects_edits() {
         .skip(1)
         .any(|r| r[5] == Data::String("0.00".into())));
     let csv = spreadsheet::read_items(&bytes).unwrap();
-    let mut dest = Store::open(&t.path().join("dest")).unwrap();
+    let mut dest = open_store(&t.path().join("dest")).unwrap();
     let p = dest.preview_item_sheet(&csv, TODAY).unwrap();
     assert_eq!(p.valid, 3);
     assert!(p.invalid.is_empty());
@@ -155,7 +161,7 @@ fn financial_sample_excel_transaction_replay_export_import_restart_backup() {
     let t = tempfile::tempdir().unwrap();
     let file = t.path().join("样例.xlsx");
     spreadsheet::write_template(&file, true).unwrap();
-    let mut s = Store::open(&t.path().join("source")).unwrap();
+    let mut s = open_store(&t.path().join("source")).unwrap();
     let b = batch(&s, &std::fs::read(&file).unwrap());
     assert_eq!(b.files.len(), 3);
     let r = commit(&mut s, b.clone());
@@ -190,7 +196,7 @@ fn financial_sample_excel_transaction_replay_export_import_restart_backup() {
     .unwrap();
     let export = t.path().join("导出.xlsx");
     s.export_workbook(&export).unwrap();
-    let mut dest = Store::open(&t.path().join("dest")).unwrap();
+    let mut dest = open_store(&t.path().join("dest")).unwrap();
     let b = batch(&dest, &std::fs::read(&export).unwrap());
     let copied = commit(&mut dest, b);
     assert_eq!(copied.counts.created_accounts, 6);
@@ -227,7 +233,7 @@ fn financial_sample_excel_transaction_replay_export_import_restart_backup() {
     let archive = t.path().join("完整.thingary");
     dest.backup(Some(&archive)).unwrap();
     drop(dest);
-    let mut dest = Store::open(&t.path().join("dest")).unwrap();
+    let mut dest = open_store(&t.path().join("dest")).unwrap();
     let generation = dest.generation();
     dest.restore(
         &archive,
@@ -272,7 +278,7 @@ fn empty_sheets_are_optional_and_multiline_errors_keep_excel_coordinates() {
         .remove(0);
     assert_eq!(f.row_numbers, vec![0, 1, 2, 2, 3]);
     assert!(f.csv_text.contains("000001"));
-    let mut s = Store::open(&t.path().join("s")).unwrap();
+    let mut s = open_store(&t.path().join("s")).unwrap();
     let b = batch(&s, &std::fs::read(&p).unwrap());
     let r = commit(&mut s, b);
     assert_eq!(r.counts.created_incomes, 2);
@@ -354,7 +360,7 @@ fn installed_0_0_1_schema25_upgrades_in_place_without_excel_or_id_changes() {
     db.execute("INSERT INTO fin_snapshots(id,date,notes,revision,created_at,updated_at) VALUES(?1,'2026-09-30','旧未知盘点',1,'2026-09-30T00:00:00Z','2026-09-30T00:00:00Z')",[&snap]).unwrap();
     db.execute("INSERT INTO fin_snapshot_entries(snapshot_id,account_id,state,amount_cents,side,kind,counted) VALUES(?1,?2,'missing',NULL,'asset','cash',1)",[&snap,&account]).unwrap();
     drop(db);
-    let s = Store::open(&root).unwrap();
+    let s = open_store(&root).unwrap();
     assert_eq!(s.generation(), generation);
     assert_eq!(
         s.conn_for_test()
@@ -378,7 +384,7 @@ fn installed_0_0_1_schema25_upgrades_in_place_without_excel_or_id_changes() {
     let archive = t.path().join("升级后备份.thingary");
     s.backup(Some(&archive)).unwrap();
     drop(s);
-    let mut s = Store::open(&root).unwrap();
+    let mut s = open_store(&root).unwrap();
     let gen = s.generation();
     s.restore(
         &archive,
@@ -419,7 +425,7 @@ fn numeric_amount_dates_and_error_cells_are_handled_without_silent_key_conversio
     let f = spreadsheet::read_finance(&bytes).unwrap();
     assert!(f[0].csv_text.contains("2026-09-10"));
     assert!(f[0].csv_text.contains("100.01"));
-    let mut s = Store::open(&t.path().join("s")).unwrap();
+    let mut s = open_store(&t.path().join("s")).unwrap();
     let b = batch(&s, &bytes);
     assert_eq!(commit(&mut s, b).counts.created_incomes, 1);
     sheet_test_numeric_key(&path);

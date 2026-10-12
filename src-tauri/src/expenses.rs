@@ -3,6 +3,7 @@
 //! so a correction there shows up here and nothing is counted twice.
 use crate::{
     domain::{cents, date, Error, Result},
+    modules::{self, Modules},
     storage::{digest, uid, Store},
 };
 use rusqlite::{params, Connection, OptionalExtension};
@@ -95,10 +96,96 @@ pub struct AnnualTotal {
     pub unknown_count: usize,
 }
 
+/// Natural-day period shared by records and snapshot interval explanations.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum Period {
+    All,
+    Year {
+        year: i32,
+    },
+    Month {
+        month: String,
+    },
+    Range {
+        from: String,
+        to: String,
+        #[serde(rename = "includeFrom")]
+        include_from: bool,
+    },
+}
+
+/// Validated bounds; comparison uses canonical natural dates, never UTC time.
+#[derive(Debug, Clone)]
+pub(crate) struct DateRange {
+    from: String,
+    to: String,
+    include_from: bool,
+}
+fn period_date(value: &str) -> Result<chrono::NaiveDate> {
+    use chrono::Datelike;
+    let day = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| Error::new("DATE", "日期格式应为 YYYY-MM-DD"))?;
+    if !(1..=9999).contains(&day.year()) || day.format("%Y-%m-%d").to_string() != value {
+        return Err(Error::new("DATE", "日期超出范围或格式错误"));
+    }
+    Ok(day)
+}
+impl DateRange {
+    fn new(from: String, to: String, include_from: bool) -> Result<Self> {
+        period_date(&from)?;
+        period_date(&to)?;
+        if from > to || (!include_from && from == to) {
+            return Err(Error::new("DATE_ORDER", "日期范围为空或结束早于开始"));
+        }
+        Ok(Self {
+            from,
+            to,
+            include_from,
+        })
+    }
+    pub(crate) fn contains(&self, day: &str) -> bool {
+        (if self.include_from {
+            day >= self.from.as_str()
+        } else {
+            day > self.from.as_str()
+        }) && day <= self.to.as_str()
+    }
+}
+impl Period {
+    pub(crate) fn date_range(&self) -> Result<Option<DateRange>> {
+        Ok(match self {
+            Self::All => None,
+            Self::Year { year } => Some(DateRange::new(
+                format!("{year:04}-01-01"),
+                format!("{year:04}-12-31"),
+                true,
+            )?),
+            Self::Month { month } => {
+                // Validate the first day before computing the final day. This
+                // also rejects noncanonical months and out-of-range years.
+                period_date(&format!("{month}-01"))?;
+                let last = (28..=31)
+                    .rev()
+                    .map(|d| format!("{month}-{d:02}"))
+                    .find(|d| period_date(d).is_ok())
+                    .expect("validated month has 28 days");
+                Some(DateRange::new(format!("{month}-01"), last, true)?)
+            }
+            Self::Range {
+                from,
+                to,
+                include_from,
+            } => Some(DateRange::new(from.clone(), to.clone(), *include_from)?),
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct View {
     pub generation: String,
     pub year: Option<i32>,
+    pub period: Period,
     /// Years that have at least one dated line, newest first.
     pub years: Vec<i32>,
     /// Dated lines in the chosen period, newest first.
@@ -193,35 +280,74 @@ fn read(c: &Connection, id: &str) -> Result<Option<Expense>> {
 // Every branch reads only effective rows, mirroring the timeline projection.
 // Items excluded from the statistics page stay out of expenses too (X-D05).
 // The trailing notes column carries the standalone expense's notes for search.
-pub(crate) const LINES: &str = "
-SELECT 'purchase',a.id,a.id,a.name,c.name,a.purchase_date,a.price_cents,NULL,NULL
+macro_rules! expense_sources {
+    ($first_name:ident => $first:literal $(, $name:ident => $sql:literal)+ $(,)?) => {
+        const $first_name: &str = $first;
+        $(const $name: &str = $sql;)+
+        pub(crate) const LINES: &str = concat!($first, $(" UNION ALL ", $sql),+);
+    };
+}
+expense_sources! {
+PURCHASE_SQL => "SELECT 'purchase',a.id,a.id,a.name,c.name,a.purchase_date,a.price_cents,NULL,NULL
   FROM assets a LEFT JOIN categories c ON c.id=a.category_id
-  WHERE a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)
-UNION ALL
-SELECT 'maintenance',m.id,a.id,a.name||CASE WHEN trim(m.title)='' THEN '' ELSE ' · '||m.title END,c.name,m.date,m.cost_cents,NULL,NULL
+  WHERE a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)",
+MAINTENANCE_SQL => "SELECT 'maintenance',m.id,a.id,a.name||CASE WHEN trim(m.title)='' THEN '' ELSE ' · '||m.title END,c.name,m.date,m.cost_cents,NULL,NULL
   FROM maintenances m JOIN assets a ON a.id=m.asset_id LEFT JOIN categories c ON c.id=a.category_id
-  WHERE m.deleted_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)
-UNION ALL
-SELECT CASE WHEN e.asset_id IS NULL THEN 'expense' ELSE 'linked' END,e.id,e.asset_id,e.title,e.category,e.date,e.amount_cents,e.notes,NULL
-  FROM expenses e WHERE e.deleted_at IS NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))
-UNION ALL
-SELECT 'refund',e.id,e.asset_id,e.title,e.category,e.refund_date,e.refund_cents,e.notes,NULL
-  FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))
-UNION ALL
-SELECT 'payment',p.id,NULL,r.name,r.category,p.paid_date,p.amount_cents,NULL,p.plan_id
+  WHERE m.deleted_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)",
+EXPENSE_SQL => "SELECT CASE WHEN e.asset_id IS NULL THEN 'expense' ELSE 'linked' END,e.id,e.asset_id,e.title,e.category,e.date,e.amount_cents,e.notes,NULL
+  FROM expenses e WHERE e.deleted_at IS NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))",
+REFUND_SQL => "SELECT 'refund',e.id,e.asset_id,e.title,e.category,e.refund_date,e.refund_cents,e.notes,NULL
+  FROM expenses e WHERE e.deleted_at IS NULL AND e.refund_cents IS NOT NULL AND (e.asset_id IS NULL OR EXISTS(SELECT 1 FROM assets x WHERE x.id=e.asset_id AND x.deleted_at IS NULL))",
+PAYMENT_SQL => "SELECT 'payment',p.id,NULL,r.name,r.category,p.paid_date,p.amount_cents,NULL,p.plan_id
   FROM plan_payments p JOIN recurring_plans r ON r.id=p.plan_id
-  WHERE p.deleted_at IS NULL AND r.deleted_at IS NULL AND p.state='paid'
-UNION ALL
-SELECT 'virtual',v.id,NULL,v.name,'digital',v.purchase_date,v.price_cents,NULL,NULL
-  FROM virtual_assets v WHERE v.deleted_at IS NULL AND v.plan_id IS NULL AND v.price_cents IS NOT NULL
-UNION ALL
-SELECT 'topup',t.id,v.id,v.name,'digital',t.topup_date,t.paid_cents,NULL,NULL
+  WHERE p.deleted_at IS NULL AND r.deleted_at IS NULL AND p.state='paid'",
+VIRTUAL_SQL => "SELECT 'virtual',v.id,NULL,v.name,'digital',v.purchase_date,v.price_cents,NULL,NULL
+  FROM virtual_assets v WHERE v.deleted_at IS NULL AND v.plan_id IS NULL AND v.price_cents IS NOT NULL",
+TOPUP_SQL => "SELECT 'topup',t.id,v.id,v.name,'digital',t.topup_date,t.paid_cents,NULL,NULL
   FROM virtual_topups t JOIN virtual_assets v ON v.id=t.asset_id
-  WHERE t.deleted_at IS NULL AND v.deleted_at IS NULL AND t.paid_cents IS NOT NULL
-UNION ALL
-SELECT 'sale',s.id,a.id,a.name,c.name,s.date,s.price_cents,NULL,NULL
+  WHERE t.deleted_at IS NULL AND v.deleted_at IS NULL AND t.paid_cents IS NOT NULL",
+SALE_SQL => "SELECT 'sale',s.id,a.id,a.name,c.name,s.date,s.price_cents,NULL,NULL
   FROM sales s JOIN assets a ON a.id=s.asset_id LEFT JOIN categories c ON c.id=a.category_id
-  WHERE s.revoked_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)";
+  WHERE s.revoked_at IS NULL AND a.deleted_at IS NULL AND NOT EXISTS(SELECT 1 FROM asset_preferences p WHERE p.asset_id=a.id AND json_extract(p.payload,'$.exclude.statistics')=1)",
+}
+
+/// Prepare only enabled source branches. The complete LINES projection above
+/// remains the export contract, independent of display preferences.
+pub(crate) fn lines_for_modules(c: &Connection, m: &Modules) -> Result<Vec<Line>> {
+    let mut branches = vec![PURCHASE_SQL, MAINTENANCE_SQL, SALE_SQL];
+    if m.expenses {
+        branches.extend([EXPENSE_SQL, REFUND_SQL]);
+    }
+    if m.recurring {
+        branches.push(PAYMENT_SQL);
+    }
+    if m.virtual_assets {
+        branches.extend([VIRTUAL_SQL, TOPUP_SQL]);
+    }
+    let sql = branches.join(" UNION ALL ");
+    let query = if m.expenses && m.recurring && m.virtual_assets {
+        LINES
+    } else {
+        &sql
+    };
+    let mut q = c.prepare(query)?;
+    let rows = q
+        .query_map([], |r| {
+            Ok(Line {
+                source: r.get(0)?,
+                id: r.get(1)?,
+                asset_id: r.get(2)?,
+                title: r.get(3)?,
+                category: r.get(4)?,
+                date: r.get(5)?,
+                amount_cents: r.get::<_, Option<i64>>(6)?.map(|v| v.to_string()),
+                notes: r.get(7)?,
+                plan_id: r.get(8)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
 
 fn add(total: &mut i64, v: i64) -> Result<()> {
     *total = total
@@ -306,28 +432,24 @@ impl Store {
     }
 
     pub fn expense_view(&self, year: Option<i32>) -> Result<View> {
-        let c = self.conn()?;
-        let mut q = c.prepare(LINES)?;
-        let all = q
-            .query_map([], |r| {
-                Ok(Line {
-                    source: r.get(0)?,
-                    id: r.get(1)?,
-                    asset_id: r.get(2)?,
-                    title: r.get(3)?,
-                    category: r.get(4)?,
-                    date: r.get(5)?,
-                    amount_cents: r.get::<_, Option<i64>>(6)?.map(|v| v.to_string()),
-                    notes: r.get(7)?,
-                    plan_id: r.get(8)?,
-                })
-            })?
-            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let period = year.map_or(Period::All, |year| Period::Year { year });
+        self.expense_period_view(&period, &modules::read(&self.root))
+    }
+
+    /// Read-only projection. May run within an outer read transaction; it
+    /// deliberately does not begin a nested transaction.
+    pub fn expense_period_view(&self, period: &Period, modules: &Modules) -> Result<View> {
+        let range = period.date_range()?;
+        let year = match period {
+            Period::Year { year } => Some(*year),
+            _ => None,
+        };
+        let all = lines_for_modules(self.conn()?, modules)?;
         let years: BTreeSet<i32> = all
             .iter()
             .filter_map(|l| l.date.as_deref()?.get(..4)?.parse().ok())
             .collect();
-        let in_period = |d: &str| year.is_none_or(|y| d.starts_with(&format!("{y:04}-")));
+        let in_period = |d: &str| range.as_ref().is_none_or(|r| r.contains(d));
         let (mut spent, mut refunds, mut sales, mut undated_total) = (0i64, 0i64, 0i64, 0i64);
         let mut unknown = 0;
         let mut months: BTreeMap<String, MonthAcc> = BTreeMap::new();
@@ -370,7 +492,7 @@ impl Store {
                 l.source.as_str(),
                 "purchase" | "maintenance" | "expense" | "payment" | "virtual" | "topup"
             );
-            if year.is_none() {
+            if matches!(period, Period::All) {
                 let a = annual.entry(y).or_default();
                 match (l.source.as_str(), amount) {
                     (_, Some(v)) if spend => {
@@ -447,6 +569,7 @@ impl Store {
         Ok(View {
             generation: self.generation(),
             year,
+            period: period.clone(),
             years: years.into_iter().rev().collect(),
             lines,
             undated,
@@ -464,7 +587,10 @@ impl Store {
             annual_totals,
             spent_cents: spent.to_string(),
             refund_cents: refunds.to_string(),
-            net_cents: (spent - refunds).to_string(),
+            net_cents: spent
+                .checked_sub(refunds)
+                .ok_or_else(|| Error::new("EXPENSE_OVERFLOW", "金额合计超出范围"))?
+                .to_string(),
             sale_cents: sales.to_string(),
             undated_cents: undated_total.to_string(),
             unknown_amount_count: unknown,
@@ -518,4 +644,21 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod period_tests {
+    use super::*;
+    #[test]
+    fn projection_can_use_an_existing_read_transaction() {
+        let dir = tempfile::tempdir().unwrap();
+        let s = Store::open(dir.path()).unwrap();
+        let tx = s.conn().unwrap().unchecked_transaction().unwrap();
+        assert!(s
+            .expense_period_view(&Period::All, &Modules::default())
+            .unwrap()
+            .lines
+            .is_empty());
+        tx.commit().unwrap();
+    }
 }

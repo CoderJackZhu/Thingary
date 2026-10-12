@@ -6,12 +6,14 @@ import { FollowupSection } from './FollowupSection';
 import { followupReasonText } from './model';
 import type { Income } from '../plan';
 import { incomeCategories } from '../income-classification';
+import type { FinancePeriod } from '../finance-contract';
 import { money } from '../asset';
 
 /** Port-backed host: current result and history share the same mode-aware native reader. */
-export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSnapshotId, writeVersion, accountNames = {}, blocked, reload, onPending, onEditingChange, today = '', incomes }: {
+export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSnapshotId, writeVersion, accountNames = {}, blocked, reload, onPending, onEditingChange, today = '', incomes, movementPresentation = 'records', movementsEnabled = true, onViewAllMovements, receiptResolutionVersion = 0, onPreviewChange }: {
   port: PlanningFollowupPortV1; generation: string; fromSnapshotId: string | null; toSnapshotId: string; writeVersion: number;
   accountNames?: Record<string, string>; blocked: boolean; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; today?: string; incomes: Income[] | null;
+  onPreviewChange?: (preview: { fromSnapshotId: string; toSnapshotId: string; result: import('../investment-review/model').InvestmentReviewResultV1 } | null) => void; receiptResolutionVersion?: number; movementPresentation?: 'records' | 'review'; movementsEnabled?: boolean; onViewAllMovements?: (period: FinancePeriod, accountIds: string[]) => void;
 }) {
   const [pair, setPair] = useState({ from: fromSnapshotId, to: toSnapshotId });
   const [outer, setOuter] = useState<ReviewOuter>({ status: 'loading' });
@@ -22,19 +24,22 @@ export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSna
   const [editing, setEditing] = useState(false);
   const lock = useRef(false), mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
-  useEffect(() => { onEditingChange(editing || busy); return () => onEditingChange(false); }, [editing, busy, onEditingChange]);
+  useEffect(() => { onEditingChange(editing || busy || uncertain); return () => onEditingChange(false); }, [editing, busy, uncertain, onEditingChange]);
   useEffect(() => { setPair({ from: fromSnapshotId, to: toSnapshotId }); }, [generation, fromSnapshotId, toSnapshotId]);
   useEffect(() => {
-    let live = true; setPreview(null); setRecords(null); setListError(''); setOuter(pair.from ? { status: 'loading' } : { status: 'empty' });
+    let live = true; onPreviewChange?.(null); setPreview(null); setRecords(null); setListError(''); setOuter(pair.from ? { status: 'loading' } : { status: 'empty' });
     port.listReviews(generation).then(v => { if (!live) return; if (v.status !== 'ready') throw Error(v.message); if (v.value.generation !== generation) throw Error('资料库已变化，请重新读取。'); setRecords(v.value.records); }).catch(e => { if (live) setListError(String(e)); });
     if (pair.from) port.readReview({ from_snapshot_id: pair.from, to_snapshot_id: pair.to }, generation).then(v => {
       if (!live) return;
       if (v.status !== 'ready') throw Error(v.message);
       if (v.value.preview.generation !== generation) throw Error('资料库已变化，请重新读取。');
-      const p = v.value.preview; setPreview(p); setOuter({ status: 'ready', input: p.input, result: p.result });
+      const p = v.value.preview; onPreviewChange?.({ fromSnapshotId: pair.from!, toSnapshotId: pair.to, result: p.result }); setPreview(p); setOuter({ status: 'ready', input: p.input, result: p.result });
     }).catch(e => { if (live) setOuter({ status: 'error', code: 'READ_ERROR', message: String(e) }); });
     return () => { live = false; };
-  }, [port, generation, pair.from, pair.to, writeVersion, retry]);
+  }, [port, generation, pair.from, pair.to, writeVersion, retry, movementsEnabled]);
+  // Only increment this signal after verifying the original request and clearing its pending receipt.
+  const uncertainVersion = useRef(receiptResolutionVersion);
+  useEffect(() => { if (uncertain && !blocked && receiptResolutionVersion > uncertainVersion.current) setUncertain(false); }, [receiptResolutionVersion, blocked, uncertain]);
   const frozen = blocked || busy || uncertain;
   const saved = () => { setRetry(n => n + 1); reload(); };
   async function trash(r: ReviewRecordV1) {
@@ -44,7 +49,7 @@ export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSna
       const result = await port.setReviewDeleted(r.id, !r.deleted, { generation, request_id: crypto.randomUUID(), expected_revision: r.revision });
       if (!mounted.current) return;
       if (result.status === 'rejected') setNotice(result.issues.map(i => i.message).join('；'));
-      else if (result.status === 'unresolved') { setUncertain(true); onPending(); setNotice('提交结果未知，原请求已保留；请通过页面顶部核对结果。'); }
+      else if (result.status === 'unresolved') { uncertainVersion.current = receiptResolutionVersion; setUncertain(true); onPending(); setNotice('提交结果未知，原请求已保留；请通过页面顶部核对结果。'); }
       else { setDeleting(null); saved(); }
     } catch (e) { if (mounted.current) setNotice(String(e)); }
     finally { lock.current = false; if (mounted.current) setBusy(false); }
@@ -52,9 +57,9 @@ export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSna
   const hints = preview && incomes?.filter(i => i.fields.date > preview.input.from.date && i.fields.date <= preview.input.to.date && ['interest', 'cash_dividend', 'other_investment'].includes(i.fields.category ?? ''));
   return <section aria-label="投资区间复盘">
     <InvestmentReviewCard accountNames={accountNames} outer={outer} disabled={frozen}/>
-    {preview && <p className="muted small">核对方式：{preview.saved_mode === 'movements' ? '资金流动明细汇总' : preview.saved_mode === 'manual' ? '手填合计' : '尚未保存'}。{preview.confirmation === 'confirmed' ? '已核对' : preview.confirmation === 'needs_review' ? '待重新核对' : '尚未核对'}。</p>}
+    {preview && <p className="muted small">核对方式：{preview.saved_mode === 'movements' ? '资金流动明细汇总' : preview.saved_mode === 'manual' ? '手填合计' : '尚未保存'}。{preview.confirmation === 'confirmed' ? '已核对' : preview.confirmation === 'needs_review' ? '待重新核对' : preview.confirmation === 'unavailable' ? '暂不可用' : '尚未核对'}。</p>}
     {!!preview?.reasons.length && <ul className="pfu-reasons">{preview.reasons.map(i => <li key={i.code + i.path}>{followupReasonText[i.code] ?? i.message}</li>)}</ul>}
-    <FollowupSection port={port} generation={generation} pair={pair.from ? { from_snapshot_id: pair.from, to_snapshot_id: pair.to } : null} writeVersion={writeVersion + retry} today={today} blocked={frozen} onPending={onPending} onEditingChange={setEditing} onSaved={saved}/>
+    <FollowupSection port={port} generation={generation} pair={pair.from ? { from_snapshot_id: pair.from, to_snapshot_id: pair.to } : null} writeVersion={writeVersion + retry} today={today} blocked={frozen} onPending={onPending} onEditingChange={setEditing} onSaved={saved} receiptResolutionVersion={receiptResolutionVersion} movementPresentation={movementPresentation} movementsEnabled={movementsEnabled} onViewAllMovements={onViewAllMovements} input={preview?.input}/>
     {outer.status === 'error' && <button className="ui-btn" disabled={busy} onClick={() => setRetry(n => n + 1)}>重新读取投资区间</button>}
     {(pair.from !== fromSnapshotId || pair.to !== toSnapshotId) && <button className="ui-btn" disabled={frozen || editing} onClick={() => setPair({ from: fromSnapshotId, to: toSnapshotId })}>返回本期区间</button>}
     {preview && <details><summary>已记录投资现金收入（仅供核对）</summary><p className="muted small">转到范围外的分红已包含在转出合计中，不再加进总损益。记录存在不代表资金流动已核对完整。</p>{incomes === null ? <p role="alert">收入明细读取失败。</p> : !hints?.length ? <p>这一期间没有已记录的投资现金收入。</p> : <ul>{hints.map(i => <li key={i.id}>{i.fields.date} · {incomeCategories[i.fields.category ?? 'unclassified']} · {money(i.fields.net_cents)}{i.fields.notes && ` · ${i.fields.notes}`}</li>)}</ul>}</details>}

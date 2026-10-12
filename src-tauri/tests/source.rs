@@ -589,6 +589,9 @@ fn timeline_view_partitions_domains_and_carries_targets() {
             Target::Plan { .. } => panic!("no plan-only event exists"),
             // Accounts have no timeline events; only search results open them.
             Target::Account { .. } => panic!("no account event exists"),
+            Target::Income { .. } | Target::Movement { .. } => {
+                panic!("no finance record event exists")
+            }
         }
     }
     assert_eq!(virtual_targets.len(), 2);

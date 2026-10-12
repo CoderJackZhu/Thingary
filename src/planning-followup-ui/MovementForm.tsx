@@ -120,7 +120,7 @@ function MovementFormContent({ port, generation, accounts, record, today, blocke
   return <dialog ref={dialogRef} className="pfu-dialog" aria-labelledby="pfu-movement-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}>
     <form noValidate onSubmit={e => { e.preventDefault(); void submit(); }}>
       <header className="pfu-dialog-head">
-        <div><p className="pfu-eyebrow">规划 · 资金流动</p><h3 id="pfu-movement-heading">{record ? '修改资金流动' : '记一笔资金流动'}</h3>
+        <div><p className="pfu-eyebrow">财富 · 资金流动</p><h3 id="pfu-movement-heading">{record ? '修改资金流动' : '记一笔资金流动'}</h3>
           <p className="pfu-meta">只解释余额变化，不直接改变账户余额；余额事实仍以盘点为准。带手续费的转账请拆出本金与费用分别记录。</p></div>
         <button type="button" className="pfu-close" aria-label="关闭资金流动表单" disabled={busy} onClick={() => onClose(false)}>×</button>
       </header>

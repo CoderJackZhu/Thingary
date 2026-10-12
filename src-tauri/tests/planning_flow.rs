@@ -58,7 +58,9 @@ fn snapshot(s: &mut Store, date: &str, accounts: &[(&Account, &str)]) -> String 
 }
 fn setup(close: &str) -> (tempfile::TempDir, Store, Account, Account, Pair) {
     let d = tempfile::tempdir().unwrap();
-    let mut s = Store::open(&d.path().join("library")).unwrap();
+    let root = d.path().join("library");
+    thingary_lib::modules::initialize_runtime(&root);
+    let mut s = Store::open(&root).unwrap();
     let inv = account(&mut s, "虚构投资", "fund");
     let cash = account(&mut s, "虚构现金", "cash");
     let from = snapshot(
@@ -799,10 +801,14 @@ fn validation_module_gates_receipts_faults_and_cursor_expires_instead_of_droppin
     assert!(s.followup_review_save(&i).is_err());
     s.set_hook(|_| Ok(()));
     assert_eq!(s.followup_review_save(&i).unwrap().revision, 1);
-    thingary_lib::modules::write(
+    thingary_lib::modules::write_runtime(
         &d.path().join("library"),
-        &thingary_lib::modules::Modules {
+        thingary_lib::modules::Modules {
             planning: false,
+            ..Default::default()
+        },
+        thingary_lib::modules::FinanceUpdate {
+            movements: Some(false),
             ..Default::default()
         },
     )
@@ -812,11 +818,10 @@ fn validation_module_gates_receipts_faults_and_cursor_expires_instead_of_droppin
         "MODULE_DISABLED"
     );
     assert_eq!(
-        s.followup_review_read(&p, &s.generation())
-            .unwrap_err()
-            .code,
-        "MODULE_DISABLED"
+        s.followup_review_read(&p, &s.generation()).unwrap()["preview"]["result"]["status"],
+        "unavailable"
     );
+    assert_eq!(s.followup_review_save(&i).unwrap().revision, 1);
 }
 #[test]
 fn full_backup_restart_and_excel_include_facts_modes_confirmation_and_audit() {
@@ -955,7 +960,9 @@ fn schema38_migration_is_empty_old_manual_and_original_receipt_survive_and_rollb
     let flow = s.investment_review_save(&input).unwrap();
     s.conn_for_test().unwrap().execute_batch("DROP TABLE cash_movements;DROP TABLE investment_flow_sources;DROP TABLE planning_flow_audit;PRAGMA user_version=38;").unwrap();
     drop(s);
-    let mut s = Store::open(&d.path().join("library")).unwrap();
+    let root = d.path().join("library");
+    thingary_lib::modules::initialize_runtime(&root);
+    let mut s = Store::open(&root).unwrap();
     assert_eq!(
         s.followup_review_read(&p, &s.generation()).unwrap()["preview"]["saved_mode"],
         "manual"
@@ -967,7 +974,9 @@ fn schema38_migration_is_empty_old_manual_and_original_receipt_survive_and_rollb
 fn movements_work_without_a_profile_or_two_snapshots_and_dates_have_distinct_list_review_boundaries(
 ) {
     let d = tempfile::tempdir().unwrap();
-    let mut empty = Store::open(&d.path().join("library")).unwrap();
+    let root = d.path().join("library");
+    thingary_lib::modules::initialize_runtime(&root);
+    let mut empty = Store::open(&root).unwrap();
     let a = account(&mut empty, "虚构独立现金", "cash");
     movement(
         &mut empty,
@@ -1146,4 +1155,214 @@ fn deleted_movements_can_explicitly_unlink_a_source_without_restoring_or_losing_
     })
     .unwrap();
     assert_eq!(list(&s, "deleted")["records"].as_array().unwrap().len(), 1);
+}
+
+fn finance_modules(
+    d: &tempfile::TempDir,
+    wealth: bool,
+    incomes: bool,
+    movements: bool,
+    expenses: bool,
+) {
+    thingary_lib::modules::write_runtime(
+        &d.path().join("library"),
+        thingary_lib::modules::Modules {
+            planning: false,
+            wealth,
+            expenses,
+            ..Default::default()
+        },
+        thingary_lib::modules::FinanceUpdate {
+            incomes: Some(incomes),
+            movements: Some(movements),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+}
+
+#[test]
+fn facts_survive_target_disabled_and_replay_is_read_only_after_finance_disabled() {
+    let (d, mut s, inv, cash, p) = setup("9700000");
+    finance_modules(&d, true, true, true, true);
+    let request = Save {
+        request_id: rid(),
+        generation: s.generation(),
+        expected_revision: None,
+        id: None,
+        fields: fields(ep(&inv), ep(&cash), "800000", "own_transfer"),
+    };
+    s.set_hook(|p| {
+        if p == "movement.after_commit" {
+            Err(Error::new("INJECTED", "虚构失联"))
+        } else {
+            Ok(())
+        }
+    });
+    assert!(s.movement_save(&request, TODAY).is_err());
+    s.set_hook(|_| Ok(()));
+    let receipt = s
+        .followup_receipt(&request.request_id, &s.generation())
+        .unwrap()
+        .unwrap();
+    assert_eq!(list(&s, "active")["records"].as_array().unwrap().len(), 1);
+    let review = review_input(&s, &p, &draft(true));
+    let saved = s.followup_review_save(&review).unwrap();
+    assert_eq!(profit(&s, &p)["value"]["profit_cents"], "500000");
+    finance_modules(&d, false, false, false, false);
+    assert_eq!(s.movement_save(&request, TODAY).unwrap().id, receipt.id);
+    assert_eq!(s.followup_review_save(&review).unwrap().id, saved.id);
+    assert_eq!(
+        s.followup_receipt(&review.request_id, &s.generation())
+            .unwrap()
+            .unwrap()
+            .revision,
+        1
+    );
+    let mut new_request = request.clone();
+    new_request.request_id = rid();
+    assert_eq!(
+        s.movement_save(&new_request, TODAY).unwrap_err().code,
+        "MODULE_DISABLED"
+    );
+    assert_eq!(
+        s.followup_review_list(&s.generation()).unwrap_err().code,
+        "MODULE_DISABLED"
+    );
+    assert_eq!(
+        s.conn_for_test()
+            .unwrap()
+            .query_row("SELECT count(*) FROM cash_movements", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
+}
+
+#[test]
+fn manual_reads_and_saves_skip_missing_movement_table_when_movements_disabled() {
+    let (d, mut s, _inv, _cash, p) = setup("11000000");
+    finance_modules(&d, true, true, false, true);
+    s.conn_for_test()
+        .unwrap()
+        .execute_batch("DROP TABLE cash_movements;")
+        .unwrap();
+    let manual = Draft {
+        selection: Selection::Manual {
+            inflow_cents: Some("1000000".into()),
+            outflow_cents: Some("0".into()),
+        },
+        confirmed_complete: true,
+        unsupported_movements: false,
+        notes: String::new(),
+    };
+    let request = review_input(&s, &p, &manual);
+    s.followup_review_save(&request).unwrap();
+    assert_eq!(profit(&s, &p)["value"]["profit_cents"], "0");
+    assert_eq!(
+        s.investment_review_read(&s.generation(), &p.from_snapshot_id, &p.to_snapshot_id)
+            .unwrap()
+            .result["status"],
+        "ready"
+    );
+    assert_eq!(
+        s.followup_review_list(&s.generation()).unwrap()["records"][0]["confirmation"],
+        "confirmed"
+    );
+    assert_eq!(
+        preview(&s, &p, &draft(true))["result"]["status"],
+        "unavailable"
+    );
+    let movement_request = review_input(&s, &p, &draft(true));
+    assert_eq!(
+        s.followup_review_save(&movement_request).unwrap_err().code,
+        "MODULE_DISABLED"
+    );
+}
+
+#[test]
+fn detailed_mode_disabled_is_unavailable_without_query_or_mutation() {
+    let (d, mut s, _inv, _cash, p) = setup("10000000");
+    let saved = confirm(&mut s, &p);
+    let before: String = s
+        .conn_for_test()
+        .unwrap()
+        .query_row(
+            "SELECT payload FROM investment_flows WHERE id=?1",
+            [&saved.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    finance_modules(&d, true, true, false, true);
+    s.conn_for_test()
+        .unwrap()
+        .execute_batch("DROP TABLE cash_movements;")
+        .unwrap();
+    assert_eq!(profit(&s, &p)["status"], "unavailable");
+    assert_eq!(
+        s.investment_review_read(&s.generation(), &p.from_snapshot_id, &p.to_snapshot_id)
+            .unwrap()
+            .result["status"],
+        "unavailable"
+    );
+    assert_eq!(
+        s.followup_review_read(&p, &s.generation()).unwrap()["draft"]["selection"]["mode"],
+        "movements"
+    );
+    assert_eq!(
+        s.followup_review_trash(&Trash {
+            request_id: rid(),
+            generation: s.generation(),
+            expected_revision: Some(1),
+            id: saved.id.clone(),
+            deleted: true
+        })
+        .unwrap_err()
+        .code,
+        "MODULE_DISABLED"
+    );
+    let after: String = s
+        .conn_for_test()
+        .unwrap()
+        .query_row(
+            "SELECT payload FROM investment_flows WHERE id=?1",
+            [&saved.id],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(before, after);
+}
+
+#[test]
+fn disabled_source_candidates_and_linked_display_skip_unreadable_source_tables() {
+    let (d, mut s, inv, _cash, _p) = setup("10000000");
+    expense(&mut s, "100");
+    let mut f = fields(ep(&inv), external(), "100", "living_payment");
+    f.source = Some(source(&s, "expense"));
+    movement(&mut s, f);
+    finance_modules(&d, true, false, true, false);
+    s.conn_for_test()
+        .unwrap()
+        .execute_batch("DROP TABLE expenses; DROP TABLE plan_income;")
+        .unwrap();
+    for kind in ["income", "expense"] {
+        assert_eq!(
+            s.movement_sources(
+                &SourceQuery {
+                    kind: kind.into(),
+                    text: String::new(),
+                    cursor: None,
+                    movement_id: None
+                },
+                &s.generation()
+            )
+            .unwrap_err()
+            .code,
+            "MODULE_DISABLED"
+        );
+    }
+    assert_eq!(
+        list(&s, "active")["records"][0]["source_status"],
+        "disabled"
+    );
 }

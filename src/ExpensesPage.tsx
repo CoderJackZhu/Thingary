@@ -15,25 +15,43 @@ import { CentInput, FormRow, Info, Switch } from './FormControls';
 import { storedPending, submit, Unresolved } from './wealth';
 import { DeleteButton, usePendingReceipt } from './WealthPage';
 import { categoryText, countsAsSpending, expenseCategories, expenseSourceTarget, sourceLabel, spendDisplay } from './expenses';
+import type { FinancePeriod } from './finance-contract';
+import { expensePeriodLabel } from './expenses';
+import type { BarAction } from './topbar';
 import type { AnnualTotal, Expense, ExpenseFields, ExpenseSave, ExpenseView, Line, Month } from './expenses';
 import './wealth.css';
 import { useRestored } from './undo';
 
 export type ScrollRestore = { top: number; done: () => void } | null;
 
-export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange, source, onSourceDone, initialYear, search, onSearch, autoNew, onAutoNewDone, restoreScroll, generation, onYearRemember }: SourceProps & { initialYear?: number | null; onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void; onOpenSource: (target: SourceTarget) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void; restoreScroll?: ScrollRestore; generation?: string | null; onYearRemember?: (year: number | null) => void }) {
+export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange, source, onSourceDone, initialYear, search, onSearch, autoNew, onAutoNewDone, restoreScroll, generation, onYearRemember, embedded = false, period: controlledPeriod, onPeriodChange, controlledView, controlledError, onRefresh, blocked = false }: SourceProps & { initialYear?: number | null; onEditingChange: (value: boolean) => void; today: string; onOpenAsset: (id: string) => void; onOpenSource: (target: SourceTarget) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void; restoreScroll?: ScrollRestore; generation?: string | null; onYearRemember?: (year: number | null) => void; embedded?: boolean; period?: FinancePeriod; onPeriodChange?: (period: FinancePeriod) => void; controlledView?: ExpenseView | null; controlledError?: string; onRefresh?: () => void; blocked?: boolean }) {
   const thisYear = Number(today.slice(0, 4));
   // 普通进入默认「全部」；总览指定年份与来源跳转传入明确期间（设计 §2.1）。
   const [year, setYear] = useState<number | null>(initialYear === undefined ? null : initialYear);
-  const [view, setView] = useState<ExpenseView | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  const [legacyView, setView] = useState<ExpenseView | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  const [opening, setOpening] = useState(false);
+  const openingRef = useRef(false);
   const [editing, setEditing] = useState<Expense | 'new' | null>(null);
   // 从钻取的年份返回「全部」时，恢复那一根年度柱的焦点与图表滚动（§2.3）。
   const [drilledFrom, setDrilledFrom] = useState<number | null>(null);
-  const reload = () => setRetry(n => n + 1);
+  const reload = () => { if (embedded) onRefresh?.(); else setRetry(n => n + 1); };
+  const selectedPeriod: FinancePeriod = embedded ? controlledPeriod ?? controlledView?.period ?? { kind: 'all' } : year === null ? { kind: 'all' } : { kind: 'year', year };
+  const view = embedded ? controlledView ?? null : legacyView;
+  const visibleView = view && (!generation || view.generation === generation) ? view : null;
+  const editingGeneration = useRef(generation ?? view?.generation);
+  useEffect(() => {
+    const current = generation ?? view?.generation;
+    if (current && editingGeneration.current && current !== editingGeneration.current) setEditing(null);
+    if (current) editingGeneration.current = current;
+  }, [generation, view?.generation]);
+  const selectYear = (value: number) => {
+    setDrilledFrom(value);
+    if (embedded) onPeriodChange?.({ kind: 'year', year: value }); else setYear(value);
+  };
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!pending || busy); return () => onEditingChange(false); }, [editing, pending, busy, onEditingChange]);
-  useEffect(() => { onYearRemember?.(year); }, [year, onYearRemember]);
+  useEffect(() => { onEditingChange(!!editing || opening || !!pending || busy); return () => onEditingChange(false); }, [editing, opening, pending, busy, onEditingChange]);
+  useEffect(() => { if (!embedded) onYearRemember?.(year); }, [year, onYearRemember, embedded]);
   // 请求序号守卫：切换年份／资料库后，旧期间的迟到响应与错误不再落地（§3.1）。
   const ticket = useRef(0);
   // restoreScroll 在挂载时还是 null（返回上下文在副作用里才就位），
@@ -43,6 +61,7 @@ export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     const t = ++ticket.current;
+    if (embedded) return;
     setError(''); setLoaded(false);
     invoke<ExpenseView>('expense_view', { year }).then(v => {
       if (t !== ticket.current) return;
@@ -50,93 +69,118 @@ export function ExpensesPage({ today, onOpenAsset, onOpenSource, onEditingChange
       requestAnimationFrame(() => restoreRef.current?.done());
     }).catch(e => { if (t === ticket.current) setError(errorMessage(e)); });
     return () => { ++ticket.current; };
-  }, [year, retry]);
+  }, [year, retry, embedded]);
   // 资料库切换后，旧 generation 的整页读取不再展示。
-  useEffect(() => { if (view && generation && view.generation !== generation) reload(); }, [view, generation]);
+  useEffect(() => { if (!embedded && legacyView && generation && legacyView.generation !== generation) reload(); }, [legacyView, generation, embedded]);
+  useEffect(() => { if (embedded && visibleView && !controlledError) requestAnimationFrame(() => restoreRef.current?.done()); }, [embedded, visibleView, controlledError]);
+  const openTicket = useRef(0);
+  const readBlockedRef = useRef(false); readBlockedRef.current = blocked || !!pending || busy;
+  useEffect(() => { ++openTicket.current; openingRef.current = false; setOpening(false); return () => { ++openTicket.current; }; }, [generation, embedded, controlledView, year]);
+  useEffect(() => { if (embedded) setError(''); }, [embedded, controlledView, controlledPeriod, generation]);
   async function open(line: Line) {
+    if (blocked || pending || busy || editing || openingRef.current || !visibleView) return;
     if (line.source === 'expense' || line.source === 'linked' || line.source === 'refund') {
-      try { const e = await invoke<Expense | null>('expense', { id: line.id }); if (e) setEditing(e); else reload(); }
-      catch (e) { setError(errorMessage(e)); }
+      const t = ++openTicket.current;
+      openingRef.current = true; setOpening(true);
+      try {
+        const e = await invoke<Expense | null>('expense', { id: line.id });
+        if (t !== openTicket.current || readBlockedRef.current) return;
+        if (e) setEditing(e); else reload();
+      } catch (e) { if (t === openTicket.current) setError(errorMessage(e)); } finally { if (t === openTicket.current) { openingRef.current = false; setOpening(false); } }
     } else {
       const target = expenseSourceTarget(line);
       if (target?.kind === 'asset') onOpenAsset(target.id);
       else if (target) onOpenSource(target);
     }
   }
-  const sourceError = useSource({source,onSourceDone}, view?.generation, async (target, alive) => {
+  const sourceError = useSource({source,onSourceDone}, visibleView?.generation, async (target, alive) => {
     if (target.kind !== 'expense') return false;
-    if (pending || busy) throw new Error('请先核对上次保存结果，再打开来源支出。');
-    const item = await invoke<Expense | null>('expense',{id:target.id});
-    if (!alive()) return false;
-    if (!item || item.asset_deleted) return false;
-    // The list behind the editor shows the expense's own year, not the caller's.
-    setYear(item.fields.date ? Number(item.fields.date.slice(0, 4)) : null);
-    setEditing(item); return true;
+    if (blocked || pending || busy || editing || openingRef.current) throw new Error('请先核对上次保存结果，再打开来源支出。');
+    const t = ++openTicket.current;
+    openingRef.current = true; setOpening(true);
+    try {
+      const item = await invoke<Expense | null>('expense',{id:target.id});
+      if (!alive() || t !== openTicket.current || readBlockedRef.current) return false;
+      if (!item || item.asset_deleted) return false;
+      // Standalone follows the source year; embedded keeps the host's period.
+      if (!embedded) setYear(item.fields.date ? Number(item.fields.date.slice(0, 4)) : null);
+      setEditing(item); return true;
+    } finally { if (t === openTicket.current) { openingRef.current = false; setOpening(false); } }
   });
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
-  const years = [...new Set([thisYear, ...(view?.years ?? [])])].sort((a, b) => b - a);
-  const period = year === null ? '全部' : `${year} 年`;
+  const years = [...new Set([thisYear, ...(visibleView?.years ?? [])])].sort((a, b) => b - a);
+  const periodLabel = expensePeriodLabel(selectedPeriod);
+  const readError = embedded ? controlledError || error : error;
   // The keyword filters the result list only; every KPI keeps the period's own
   // figures (search never turns into a subtotal; 3.5.2).
   const keyword = search.trim().toLowerCase();
   const lineMatches = (l: Line) => !keyword || [l.title, categoryText(l), l.notes ?? '', sourceLabel[l.source]].some(t => t.toLowerCase().includes(keyword));
-  const shownLines = view?.lines.filter(lineMatches) ?? [];
-  const shownUndated = view?.undated.filter(lineMatches) ?? [];
+  const shownLines = visibleView?.lines.filter(lineMatches) ?? [];
+  const shownUndated = visibleView?.undated.filter(lineMatches) ?? [];
   const foundCount = shownLines.length + shownUndated.length;
   // 期间摘要的已知／未知口径：只数进入期间支出投影的带日期记录（§3.1）。
-  const periodCount = view?.lines.filter(countsAsSpending).length ?? 0;
-  const periodKnown = view?.lines.filter(l => countsAsSpending(l) && l.amount_cents !== null).length ?? 0;
-  const spentDisplay = spendDisplay({ count: periodCount, known_count: periodKnown, unknown_count: periodCount - periodKnown, spent_cents: view?.spent_cents });
+  const periodCount = visibleView?.lines.filter(countsAsSpending).length ?? 0;
+  const periodKnown = visibleView?.lines.filter(l => countsAsSpending(l) && l.amount_cents !== null).length ?? 0;
+  const spentDisplay = spendDisplay({ count: periodCount, known_count: periodKnown, unknown_count: periodCount - periodKnown, spent_cents: visibleView?.spent_cents });
   const netUnknown = periodCount > periodKnown;
-  const openNew = { label: '记一笔支出', plus: true, disabled: !!pending || !view, run: () => setEditing('new') };
-  usePageBar('expenses', { primary: openNew, newRecord: openNew, search: { key: 'expenses', placeholder: '搜索支出' } });
+  const newBlocked = blocked || !!editing || opening || !!pending || busy || !visibleView || !!readError;
+  const openNew = { label: '记一笔支出', plus: true, disabled: newBlocked, run: () => { if (!newBlocked && !openingRef.current) { ++openTicket.current; setEditing('new'); } } };
   // The menu hand-off opens the same editor as this page's own buttons.
   const consumedAutoNew = useRef(false);
   useEffect(() => {
-    if (!autoNew || consumedAutoNew.current) return;
+    if (!autoNew) { consumedAutoNew.current = false; return; }
+    if (consumedAutoNew.current) return;
+    if (!visibleView && !blocked && !pending && !busy && !readError) return;
     consumedAutoNew.current = true;
     onAutoNewDone?.();
-    setEditing('new');
-  }, [autoNew]);
+    if (!newBlocked && !openingRef.current) { ++openTicket.current; setEditing('new'); }
+  }, [autoNew, newBlocked, onAutoNewDone, visibleView, blocked, pending, busy, readError]);
   return <section className="stats-section wealth-section" aria-label="重要支出">
+    {!embedded && <LegacyExpenseBar action={openNew}/>}
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
-    {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
-    {notice && <p className="notice" role="status">{notice}</p>}
-    <HeaderSlot><div className="wealth-toolbar">
+    {!embedded && pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。<button disabled={busy} onClick={() => void verify()}>核对结果</button></div>}
+    {!embedded && notice && <p className="notice" role="status">{notice}</p>}
+    {!embedded && <HeaderSlot><div className="wealth-toolbar">
       <div className="segmented" role="group" aria-label="支出期间"><button aria-pressed={year === null} onClick={() => { if (year !== null) setDrilledFrom(year); setYear(null); }}>全部</button>{years.map(y => <button key={y} aria-pressed={year === y} onClick={() => { if (year === null) setDrilledFrom(null); setYear(y); }}>{y}</button>)}</div>
       <Info text="仅已记录支出；退款按发生日期；售出回收单列；搜索只筛选明细。"/>
-    </div></HeaderSlot>
-    {error ? <article className="ui-card ui-content" role="alert"><p>重要支出读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
-      : !loaded || !view ? <p role="status" className="muted">正在读取重要支出…</p>
+    </div></HeaderSlot>}
+    <p className="muted small">{periodLabel} · 期间合计；搜索只筛选明细。仅包含已启用来源。</p>
+    {readError ? <article className="ui-card ui-content" role="alert"><p>重要支出读取失败：{readError}</p><button onClick={reload}>重新读取</button></article>
+      : (!embedded && !loaded) || !visibleView ? <p role="status" className="muted">正在读取重要支出…</p>
       : <>
         <div className="ui-metrics ui-card">
-          <article><span>{period}支出</span><strong>{spentDisplay.value != null ? money(view.spent_cents) : <span className="muted">{spentDisplay.note}</span>}</strong>{spentDisplay.note && spentDisplay.value != null && <em>{spentDisplay.note}</em>}{year === thisYear && <em>截至今天已记录</em>}</article>
-          <article><span>退款</span><strong>{money(view.refund_cents)}</strong></article>
-          <article><span>净支出</span><strong>{netUnknown ? <><span className="muted">仅已知部分</span> {money(view.net_cents)}</> : money(view.net_cents)}</strong><em>支出 − 退款；可为负</em></article>
-          <article><span>售出回收</span><strong>{money(view.sale_cents)}</strong></article>
+          <article><span>{periodLabel}期间合计 · 已记录支出</span><strong>{spentDisplay.value != null ? money(visibleView.spent_cents) : <span className="muted">{spentDisplay.note}</span>}</strong>{spentDisplay.note && spentDisplay.value != null && <em>{spentDisplay.note}</em>}{selectedPeriod.kind === 'year' && selectedPeriod.year === thisYear && <em>截至今天已记录</em>}</article>
+          <article><span>退款</span><strong>{money(visibleView.refund_cents)}</strong></article>
+          <article><span>净支出</span><strong>{netUnknown ? <><span className="muted">仅已知部分</span> {money(visibleView.net_cents)}</> : money(visibleView.net_cents)}</strong><em>支出 − 退款；可为负</em></article>
+          <article><span>售出回收</span><strong>{money(visibleView.sale_cents)}</strong></article>
         </div>
-        {(view.undated.length > 0 || view.unknown_amount_count > 0) && <p className="muted small">{view.undated.length > 0 && `日期待补 ${view.undated.length} 条（已知 ${money(view.undated_cents)}），不归入任何期间。`}{view.unknown_amount_count > 0 && `${view.unknown_amount_count} 条购入或维护金额未知，未计入。`}</p>}
-        {view.annual_totals.length > 0 && <article className="ui-card ui-content"><div className="ui-section-head"><h3>各年支出</h3><span>仅列有记录的年份 · 柱高为已知支出<Info text="点击年度柱或按 Enter 进入该年；悬浮或聚焦查看精确支出、退款、净支出、售出回收与金额待补笔数。所有年份都不保证记录完整。"/></span></div><YearBars totals={view.annual_totals} thisYear={thisYear} focusYear={year === null ? drilledFrom : null} onOpen={y => setYear(y)}/></article>}
-        {view.months.length > 0 && <article className="ui-card ui-content"><div className="ui-section-head"><h3>各月支出</h3><span>{year} 年 · 不含日期待补{periodCount > periodKnown ? ` · 仅已知部分 · ${periodCount - periodKnown} 笔金额待补` : ''}</span></div><MonthBars months={view.months}/></article>}
-        {!view.lines.length && !view.undated.length ? <div className="empty"><span className="empty-mark">¥</span><h2>{year === null ? '还没有重要支出' : `${year} 年没有记录`}</h2><p>物品的购入和维护会自动出现在这里；旅行、培训等没有对应物品的大额花费，可以单独记一笔。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>记一笔支出</button></div>
+        {(visibleView.undated.length > 0 || visibleView.unknown_amount_count > 0) && <p className="muted small">{visibleView.undated.length > 0 && `日期待补 ${visibleView.undated.length} 条（所有可见但无法归期的记录）（已知 ${money(visibleView.undated_cents)}），不归入任何期间。`}{visibleView.unknown_amount_count > 0 && `${visibleView.unknown_amount_count} 条购入或维护金额未知，未计入。`}</p>}
+        {selectedPeriod.kind === 'all' && visibleView.annual_totals.length > 0 && <article className="ui-card ui-content"><div className="ui-section-head"><h3>各年支出</h3><span>仅列有记录的年份 · 柱高为已知支出<Info text="点击年度柱或按 Enter 进入该年；悬浮或聚焦查看精确支出、退款、净支出、售出回收与金额待补笔数。所有年份都不保证记录完整。"/></span></div><YearBars totals={visibleView.annual_totals} thisYear={thisYear} focusYear={drilledFrom} onOpen={selectYear}/></article>}
+        {selectedPeriod.kind === 'year' && visibleView.months.length > 0 && <article className="ui-card ui-content"><div className="ui-section-head"><h3>各月支出</h3><span>{selectedPeriod.kind === 'year' ? selectedPeriod.year : ''} 年 · 不含日期待补{periodCount > periodKnown ? ` · 仅已知部分 · ${periodCount - periodKnown} 笔金额待补` : ''}</span></div><MonthBars months={visibleView.months}/></article>}
+        {!visibleView.lines.length && !visibleView.undated.length ? <div className="empty"><span className="empty-mark">¥</span><h2>{selectedPeriod.kind === 'all' ? '还没有重要支出' : `${periodLabel}没有记录`}</h2><p>物品的购入和维护会自动出现在这里；旅行、培训等没有对应物品的大额花费，可以单独记一笔。</p><button className="primary" disabled={newBlocked} onClick={openNew.run}>记一笔支出</button></div>
           : keyword && !foundCount ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
-          : <LineTable lines={shownLines} undated={shownUndated} found={keyword ? foundCount : null} onOpen={line => void open(line)}/>}
+          : <LineTable lines={shownLines} undated={shownUndated} found={keyword ? foundCount : null} disabled={blocked || !!editing || opening || !!pending || busy} onOpen={line => void open(line)}/>}
       </>}
-    {editing && view && <ExpenseDialog expense={editing === 'new' ? null : editing} generation={view.generation} today={today} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
+    {editing && visibleView && <ExpenseDialog expense={editing === 'new' ? null : editing} generation={visibleView.generation} today={today} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;
 }
 
-function LineTable({ lines, undated, found, onOpen }: { lines: Line[]; undated: Line[]; found: number | null; onOpen: (l: Line) => void }) {
+function LegacyExpenseBar({ action }: { action: BarAction }) {
+  usePageBar('expenses', { primary: action, newRecord: action, search: { key: 'expenses', placeholder: '搜索支出' } });
+  return null;
+}
+
+function LineTable({ lines, undated, found, onOpen, disabled }: { lines: Line[]; undated: Line[]; found: number | null; disabled: boolean; onOpen: (l: Line) => void }) {
   const [sort, setSort] = useState<ListSort>({ key: 'date', descending: true });
   const sorted = sortRecords([...lines, ...undated], sort, (l, key) => key === 'date' ? l.date : key === 'name' ? l.title : key === 'source' ? sourceLabel[l.source] : key === 'category' ? categoryText(l) : l.amount_cents === null ? null : moneySortValue(l.source === 'refund' || l.source === 'sale' ? '-' + l.amount_cents : l.amount_cents), l => l.source + l.id);
   const row = (l: Line) => <tr key={l.source + l.id} className={countsAsSpending(l) ? undefined : 'closed'}>
     <td>{l.date ?? <span className="muted">日期待补</span>}</td>
-    <td>{expenseSourceTarget(l) ? <button className="link-cell" aria-label={`查看 ${l.title} 来源`} onClick={() => onOpen(l)}>{l.title}</button> : l.title}</td>
+    <td>{expenseSourceTarget(l) ? <button className="link-cell" aria-label={`查看 ${l.title} 来源`} disabled={disabled} onClick={() => onOpen(l)}>{l.title}</button> : l.title}</td>
     <td><span className="ui-tag">{sourceLabel[l.source]}</span></td><td>{categoryText(l)}</td>
     <td className="amount">{l.amount_cents === null ? <span className="muted">金额未知</span> : money(l.source === 'refund' || l.source === 'sale' ? '-' + l.amount_cents : l.amount_cents)}</td>
   </tr>;
   return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table expense-lines"><thead><tr><SortHeader field="date" label="日期" sort={sort} onSort={setSort}/><SortHeader field="name" label="名称" sort={sort} onSort={setSort}/><SortHeader field="source" label="来源" sort={sort} onSort={setSort}/><SortHeader field="category" label="分类" sort={sort} onSort={setSort}/><SortHeader field="amount" label="金额" sort={sort} onSort={setSort}/></tr></thead>
-    <tbody>{sorted.map(row)}</tbody></table></>;
+    <tbody>{sorted.filter(l => l.date !== null).map(row)}</tbody>{undated.length > 0 && <tbody aria-label="日期待补"><tr><th colSpan={5}>日期待补 · 所有可见但无法归期的记录，不计期间合计</th></tr>{sorted.filter(l => l.date === null).map(row)}</tbody>}</table></>;
 }
 
 /** 柱状图共用的纵轴刻度与金额标签。 */

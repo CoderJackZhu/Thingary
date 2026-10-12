@@ -213,8 +213,8 @@ pub(crate) fn require_no_overlap(c: &Connection, flow: &core::Flow, scope: &str)
     Ok(())
 }
 impl Store {
-    fn investment_review_enabled(&self) -> Result<()> {
-        if !crate::modules::read(&self.root).wealth {
+    pub(crate) fn investment_review_enabled(&self) -> Result<()> {
+        if !crate::modules::read_runtime(&self.root).modules.wealth {
             return Err(Error::new(
                 "MODULE_DISABLED",
                 "账户与盘点模块已关闭，本次未读取或写入",
@@ -266,13 +266,13 @@ impl Store {
                 c,
                 &input,
                 result_json(core::review_interval(&input)),
+                &crate::modules::read_runtime(&self.root),
             )?,
             records: records(c)?,
         })
     }
     pub fn investment_review_save(&mut self, input: &Save) -> Result<Value> {
         self.check_generation(&input.generation)?;
-        self.investment_review_enabled()?;
         let fingerprint = digest(&serde_json::to_vec(&("investment_review_save", input))?);
         let tx = self.conn()?.unchecked_transaction()?;
         if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
@@ -280,6 +280,8 @@ impl Store {
                 .map(|(f, _)| flow_json(&f))
                 .ok_or_else(|| bad("回执记录不存在"));
         }
+        self.investment_review_enabled()?;
+        let runtime = crate::modules::read_runtime(&self.root);
         let old = input
             .id
             .as_deref()
@@ -357,7 +359,7 @@ impl Store {
             _ => {}
         }
         require_no_overlap(&tx, &flow, &scope)?;
-        crate::planning_flow_review::guard_legacy(&tx, &flow)?;
+        crate::planning_flow_review::guard_legacy(&tx, &flow, &runtime)?;
         let now = chrono::Utc::now().to_rfc3339();
         let payload = serde_json::to_string(&flow)?;
         tx.execute("INSERT INTO investment_flows(id,revision,from_snapshot_id,to_snapshot_id,from_date,to_date,scope_key,payload,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?9) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,from_date=excluded.from_date,to_date=excluded.to_date,scope_key=excluded.scope_key,payload=excluded.payload,updated_at=excluded.updated_at",params![flow.id,flow.revision,flow.from_snapshot_id,flow.to_snapshot_id,flow.from_date,flow.to_date,scope,payload,now])?;
@@ -365,7 +367,7 @@ impl Store {
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",
             params![input.request_id, fingerprint, flow.id],
         )?;
-        crate::planning_flow_review::legacy_saved(&tx, &flow)?;
+        crate::planning_flow_review::legacy_saved(&tx, &flow, &runtime)?;
         crate::cash_movement::audit(
             &tx,
             "review",
@@ -382,12 +384,12 @@ impl Store {
     }
     pub fn investment_review_trash(&mut self, input: &Trash) -> Result<()> {
         self.check_generation(&input.generation)?;
-        self.investment_review_enabled()?;
         let fingerprint = digest(&serde_json::to_vec(&("investment_review_trash", input))?);
         let tx = self.conn()?.unchecked_transaction()?;
         if receipt(&tx, &input.request_id, &fingerprint)?.is_some() {
             return Ok(());
         }
+        self.investment_review_enabled()?;
         let (mut flow, deleted) =
             get(&tx, &input.id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到核对记录"))?;
         if flow.revision != input.expected_revision || deleted == input.deleted {
@@ -401,6 +403,7 @@ impl Store {
             ids.sort();
             require_no_overlap(&tx, &flow, &serde_json::to_string(&ids)?)?;
         }
+        crate::planning_flow_review::require_saved_mode(self, &tx, &flow.id, &input.generation)?;
         let before = serde_json::to_value(&flow)?;
         flow.revision += 1;
         let now = chrono::Utc::now().to_rfc3339();

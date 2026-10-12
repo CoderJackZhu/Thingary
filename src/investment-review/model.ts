@@ -76,6 +76,7 @@ export type InvestmentReviewResultV1 =
       reasons: string[];
       change_cents: Cents | null;
     }
+  | { status: 'unavailable'; reasons: string[] }
   | { status: 'invalid'; issues: FieldIssueV1[] };
 
 // ---------------------------------------------------------------- 状态理由
@@ -92,6 +93,7 @@ export const REVIEW_REASONS = [
 ] as const;
 
 export const reasonLabel: Record<string, string> = {
+  movements_disabled: '资金流动记录已关闭，明细核对暂不可用；已保存的核对方式保留',
   missing_flow: '未记录这一期间的投入与转出',
   incomplete_flow: '流动金额或完整性待核对',
   stale_movements: '相关资金流动已被更正，原确认失效，请重新核对',
@@ -111,6 +113,7 @@ export const statusLabel: Record<InvestmentReviewResultV1['status'], string> = {
   needs_review: '待复核',
   not_comparable: '不可比较',
   invalid: '输入无效',
+  unavailable: '暂不可用',
 };
 
 export const kindLabel: Record<AccountKind, string> = {
@@ -295,6 +298,10 @@ export function parseReviewResult(raw: unknown): ParseOk<InvestmentReviewResultV
       issues.push({ path: 'reasons', code: 'invalid_reasons', message: 'reasons 必须是非空字符串数组' });
     if (raw.change_cents !== null && !validCents(raw.change_cents, true, BigInt(MAX_CENTS) * BigInt(MAX_SCOPE_MEMBERS)))
       issues.push({ path: 'change_cents', code: 'invalid_cents', message: 'change_cents 必须是规范的整数分字符串（可带负号）或 null' });
+  } else if (raw.status === 'unavailable') {
+    if (!Array.isArray(raw.reasons) || raw.reasons.length === 0 || raw.reasons.some(r => typeof r !== 'string' || !r))
+      issues.push({ path: 'reasons', code: 'invalid_reasons', message: 'reasons 必须是非空字符串数组' });
+    if ('change_cents' in raw || 'value' in raw) issues.push({ path: '', code: 'unavailable_amount', message: '不可用结果不得带金额' });
   } else if (raw.status === 'invalid') {
     if (!Array.isArray(raw.issues) || raw.issues.length === 0 || raw.issues.some(i => !isObj(i) || typeof i.path !== 'string' || typeof i.code !== 'string' || typeof i.message !== 'string'))
       issues.push({ path: 'issues', code: 'invalid_issues', message: 'invalid 结果必须带字段问题数组' });

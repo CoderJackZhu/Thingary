@@ -56,7 +56,7 @@ test('menu and account routing reach the native layer', () => {
   assert.match(lib, /CmdOrCtrl\+Shift\+F/);
   assert.match(lib, /\| "global-search"/);
   const source = readFileSync(new URL('../src/source.ts', import.meta.url), 'utf8');
-  assert.match(source, /'plan' \| 'account'; id: string \}/);
+  assert.match(source, /'plan' \| 'account' \| 'income' \| 'movement'; id: string \}/);
   assert.match(source, /account: 'wealth'/);
   const rust = readFileSync(new URL('../src-tauri/src/source.rs', import.meta.url), 'utf8');
   assert.match(rust, /Account \{\s*id: String,/);

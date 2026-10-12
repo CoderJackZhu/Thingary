@@ -115,7 +115,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     }
   }
   async function saveOccurrence(o: Occurrence | null) {
-    if (!saved?.profile.retire.core || dialog?.kind !== 'occurrence') return;
+    if (!saved?.profile.retire.core || dialog?.kind !== 'occurrence' || sources.accounts.status !== 'ready' || sources.snapshot.status !== 'ready' || !snapshot) return;
     const r = saved.profile.retire;
     if (await saver.save(eventsInput({ life_events: r.life_events, occurrences: o ? [...r.core!.occurrences.filter(x => x.event_id !== o.event_id), o] : retractOccurrence(r.core!.occurrences, r.core!.occurrences.find(x => x.event_id === dialog.event.id)?.id ?? '') }))) closeRefinement();
   }
@@ -127,13 +127,13 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     {dialog?.kind === 'debt' && saved && <PlanningDebtDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'funds' && saved && <FundsDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'costs' && saved && <CostsDialog completion={dialog.completion} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
-    {dialog?.kind === 'occurrence' && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={dialog.completion} event={dialog.event} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === dialog.event.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
+    {dialog?.kind === 'occurrence' && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={dialog.completion} event={dialog.event} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === dialog.event.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} saveDisabled={sources.accounts.status !== 'ready' || sources.snapshot.status !== 'ready' || !snapshot} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
     {dialog?.kind === 'single' && saved && <GoalEditor kind={dialog.field} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {saved?.profile.retire.basic && caps ? <GoalOverview saved={saved} caps={caps} today={today} cards={cards} purchasePlans={purchasePlans} accountFunds={fundScopeSummary(snapshot, saved.profile.retire.core?.fund_rules ?? [], accounts)} onAnnotation={annotationAction} onEdit={editGoal} onRefine={action} onDetail={() => setDetail(true)}/> : <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
       {!saved?.profile.retire.basic ? <>
         <h3>想知道：要攒多少钱才够？</h3>
         <p className="planning-first-promise">回答 4 个问题，算出“从目标月份起使用资金，每月大约要存多少钱”。</p><p className="muted">可以只算自己，也可以按全家算：生活费、资金和收入按同一范围填。没想好的可以先留空，随时退出，不保存草稿。</p>
-        <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始（约 2 分钟）</button><button type="button" className="ui-link" onClick={() => onGoto('savings')}>先看收入与复盘</button></div>
+        <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始（约 2 分钟）</button><button type="button" className="ui-link" onClick={() => onGoto('savings')}>查看财务复盘</button></div>
       </> : <p>正在读取你的规划条件…</p>}
     </article>}
     {result.status !== 'ready' && <><CapabilityNotice result={result}/><button className="ui-btn" onClick={reload}>重新读取</button></>}

@@ -3,7 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import {Icon} from './AssetViews';
 import { AutoBackup } from './AutoBackup';
-import { pendingKey } from './wealth';
+import { pendingKey, storedPending } from './wealth';
+import { FinancialImportDialog } from './FinancialImportDialog';
 import { preserveImportReceipt } from './financial-import';
 
 type Summary = { planning_conditions_reset?: boolean; hash: string; created_at: string; schema: number; assets: number; deleted_assets: number; wishes: number; maintenances: number; warranties: number; accounts: number; snapshots: number; expenses: number; plans: number; payments: number; virtual_assets: number; import_mappings: number; import_receipts: number; files: number };
@@ -19,12 +20,39 @@ export function localWorkKeys() {
   return keys;
 }
 
-export function DataManagement({ generation, blocked, demo, onTrash, onBusyChange, onImported }: { generation: string | null; blocked: boolean; demo: boolean; onTrash: () => void; onBusyChange: (busy: boolean) => void; onImported: () => void }) {
+export function DataManagement({ generation, blocked, demo, onTrash, onBusyChange, onImported, onViewFinance, financeImportRequested, onFinanceImportRequestDone }: { generation: string | null; blocked: boolean; demo: boolean; onTrash: () => void; onBusyChange: (busy: boolean) => void; onImported: () => void; onViewFinance?: (target: 'income' | 'accounts' | 'snapshots') => void; financeImportRequested?: boolean; onFinanceImportRequestDone?: () => void }) {
   const [task, setTask] = useState<Task>({ kind: 'idle' }), [candidate, setCandidate] = useState<Inspected | null>(null);
   const [sheet, setSheet] = useState<CsvPreview | null>(null), [withDuplicates, setWithDuplicates] = useState(false), [importId, setImportId] = useState('');
+  const [financeImport, setFinanceImport] = useState<{ generation: string; recoveryOnly: boolean } | null>(null);
+  // Pending receipt metadata is a separate global lock, not an open settings operation.
+  const [, refreshPending] = useState(0);
+  const savedPending = storedPending();
+  const financePending = savedPending?.command === 'financial_import_commit' ? savedPending : null;
   const busy = task.kind === 'running';
-  useEffect(() => { onBusyChange(busy || !!candidate || !!sheet); return () => onBusyChange(false); }, [busy, candidate, sheet, onBusyChange]);
+  const operationLocked = busy || !!candidate || !!sheet || !!financeImport || !!savedPending;
+  function canStart() { return !busy && !candidate && !sheet && !financeImport && !blocked && !demo && !!generation && !storedPending(); }
+  function openFinance() {
+    if (busy || candidate || sheet || financeImport) return;
+    const pending = storedPending();
+    if (pending?.command === 'financial_import_commit') {
+      // Recovery must keep the original dataset identity even after a restore.
+      setFinanceImport({ generation: pending.input.generation, recoveryOnly: true });
+    } else if (canStart()) setFinanceImport({ generation: generation!, recoveryOnly: false });
+  }
+  useEffect(() => {
+    const refresh = () => refreshPending(n => n + 1);
+    window.addEventListener('thingary-restored', refresh);
+    window.addEventListener('storage', refresh);
+    return () => { window.removeEventListener('thingary-restored', refresh); window.removeEventListener('storage', refresh); };
+  }, []);
+  useEffect(() => {
+    if (!financeImportRequested) return;
+    openFinance();
+    onFinanceImportRequestDone?.();
+  }, [financeImportRequested]);
+  useEffect(() => { onBusyChange(busy || !!candidate || !!sheet || !!financeImport); return () => onBusyChange(false); }, [busy, candidate, sheet, financeImport, onBusyChange]);
   async function saveTemplate() {
+    if (!canStart()) return;
     setTask({ kind: 'running', label: '正在保存导入模板…' });
     try {
       const path = await invoke<string | null>('save_spreadsheet_template');
@@ -32,6 +60,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     } catch (e) { setTask({ kind: 'error', text: '模板未保存：' + errorMessage(e) }); }
   }
   async function inspectCsv() {
+    if (!canStart()) return;
     setCandidate(null); setSheet(null); setTask({ kind: 'running', label: '正在检查表格，当前资料不会改变…' });
     try {
       const found = await invoke<CsvPreview | null>('inspect_item_workbook');
@@ -39,7 +68,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     } catch (e) { setTask({ kind: 'error', text: '这个表格不能导入，当前资料未改变：' + errorMessage(e) }); }
   }
   async function commitCsv() {
-    if (!sheet || !generation) return;
+    if (!sheet || !generation || busy || demo || financeImport || candidate || storedPending()) return;
     setTask({ kind: 'running', label: '正在导入…' });
     try {
       const done = await invoke<{ imported: number; skipped_duplicates: number; invalid: number }>('commit_item_workbook', { path: sheet.path, input: { request_id: importId, generation, hash: sheet.preview.hash, include_duplicates: withDuplicates } });
@@ -49,6 +78,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     } catch (e) { setTask({ kind: 'error', text: '导入未完成，当前资料保持原样：' + errorMessage(e) }); }
   }
   async function backup() {
+    if (!canStart()) return;
     setCandidate(null); setTask({ kind: 'running', label: '正在生成并校验完整备份…' });
     try {
       const done = await invoke<{ name: string; folder: string } | null>('create_backup');
@@ -56,6 +86,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     } catch (e) { setTask({ kind: 'error', text: '备份未完成，当前资料未改变：' + errorMessage(e) }); }
   }
   async function exportAll() {
+    if (!canStart()) return;
     setCandidate(null); setTask({ kind: 'running', label: '正在导出全部表格…' });
     try {
       const done = await invoke<{ path: string; files: { name: string; rows: number }[] } | null>('export_workbook');
@@ -63,6 +94,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     } catch (e) { setTask({ kind: 'error', text: '导出未完成：' + errorMessage(e) }); }
   }
   async function inspect() {
+    if (!canStart()) return;
     setCandidate(null); setTask({ kind: 'running', label: '正在检查备份，当前资料不会改变…' });
     try {
       const found = await invoke<Inspected | null>('inspect_backup');
@@ -70,13 +102,14 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     } catch (e) { setTask({ kind: 'error', text: '这个备份不能用于恢复，当前资料未改变：' + errorMessage(e) }); }
   }
   async function inspectAuto(name: string) {
+    if (!canStart()) return;
     setCandidate(null); setTask({ kind: 'running', label: '正在检查自动备份，当前资料不会改变…' });
     try {
       setCandidate(await invoke<Inspected>('inspect_auto_backup', { name })); setTask({ kind: 'idle' });
     } catch (e) { setTask({ kind: 'error', text: '这个备份不能用于恢复，当前资料未改变：' + errorMessage(e) }); }
   }
   async function restore() {
-    if (!candidate || !generation) return;
+    if (!candidate || !generation || busy || demo || financeImport || sheet || storedPending()) return;
     setTask({ kind: 'running', label: '正在恢复：先保护当前资料，再整体切换…' });
     try {
       await invoke<string>('restore_backup', { path: candidate.path, hash: candidate.summary.hash, generation });
@@ -87,21 +120,23 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
   // Ordinary drafts are cleared; unknown financial import request metadata remains for read-only receipt verification.
   const pending = localWorkKeys().filter(k => /draft|request|abandon|upload/.test(k)).length;
   return <section className="ui-card ui-content data-management" aria-labelledby="data-heading">
-    <div className="data-heading"><div><p className="eyebrow">本地资料</p><h2 id="data-heading">资料管理</h2></div><span>主资料保存在本机</span></div>
+    <div className="data-heading"><div><p className="eyebrow">本地资料</p><h2 id="data-heading">数据管理</h2></div><span>主资料保存在本机</span></div>
     <p className="data-intro">{demo ? '当前是独立样例库。切换到“我的资料”后可备份、恢复与导出。' : '给资料留一份完整备份，也可导出表格或找回误删记录。'}</p>
     <div className="data-actions">
-      <div className="data-action"><span className="data-action-icon"><Icon name="archive"/></span><div className="data-action-copy"><h3>完整备份</h3><p>保存物品、财富记录和图片等全部资料。</p></div><button disabled={busy || blocked || demo} onClick={() => void backup()}>备份…</button></div>
-      <div className="data-action"><span className="data-action-icon"><Icon name="back"/></span><div className="data-action-copy"><h3>从备份恢复</h3><p>先检查文件，再确认是否替换当前资料。</p></div><button disabled={busy || blocked || demo || !generation} onClick={() => void inspect()}>选择…</button></div>
-      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出全部表格（Excel）</h3><p>一个 Excel 文件，多张工作表：物品、账户、盘点、支出、周期费用和收入；不能用于恢复。</p></div><button disabled={busy || blocked || demo} onClick={() => void exportAll()}>导出…</button></div>
-      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导入物品表（Excel）</h3><p>把已有表格搬进来，只新增、不覆盖；导入前先预览。</p></div><span className="data-action-buttons"><button disabled={busy || demo} onClick={() => void saveTemplate()}>下载模板…</button><button disabled={busy || blocked || demo || !generation} onClick={() => void inspectCsv()}>选择表格…</button></span></div>
-      <div className="data-action"><span className="data-action-icon"><Icon name="trash"/></span><div className="data-action-copy"><h3>最近删除</h3><p>找回误删的物品、心愿、维护、保障、账户、盘点、支出、周期费用与虚拟资产。</p></div><button id="settings-open-trash" disabled={busy || blocked} onClick={onTrash}>打开</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="archive"/></span><div className="data-action-copy"><h3>完整备份</h3><p>保存物品、财富记录和图片等全部资料。</p></div><button disabled={operationLocked || blocked || demo} onClick={() => void backup()}>备份…</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="back"/></span><div className="data-action-copy"><h3>从备份恢复</h3><p>先检查文件，再确认是否替换当前资料。</p></div><button disabled={operationLocked || blocked || demo || !generation} onClick={() => void inspect()}>选择…</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出全部表格（Excel）</h3><p>一个 Excel 文件，多张工作表：物品、账户、盘点、支出、周期费用和收入；不能用于恢复。</p></div><button disabled={operationLocked || blocked || demo} onClick={() => void exportAll()}>导出…</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导入物品表（Excel）</h3><p>把已有表格搬进来，只新增、不覆盖；导入前先预览。</p></div><span className="data-action-buttons"><button disabled={operationLocked || blocked || demo} onClick={() => void saveTemplate()}>下载模板…</button><button disabled={operationLocked || blocked || demo || !generation} onClick={() => void inspectCsv()}>选择表格…</button></span></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导入金融历史（Excel）</h3><p>账户、完整盘点与月度收入共用导入向导；模板与虚构样例在向导内。日常记收入请到收支记录。</p></div><button disabled={financePending ? busy || !!candidate || !!sheet || !!financeImport : operationLocked || blocked || demo || !generation} onClick={openFinance}>{financePending ? '核对金融导入回执' : '选择金融历史…'}</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="trash"/></span><div className="data-action-copy"><h3>最近删除</h3><p>找回误删的物品、心愿、维护、保障、账户、盘点、支出、周期费用与虚拟资产。</p></div><button id="settings-open-trash" disabled={operationLocked || blocked} onClick={onTrash}>打开</button></div>
     </div>
-    <AutoBackup generation={generation} demo={demo} blocked={blocked} busy={busy} candidateOpen={!!candidate} onInspect={name => void inspectAuto(name)}/>
+    <AutoBackup generation={generation} demo={demo} blocked={blocked || !!savedPending} busy={busy || !!sheet || !!financeImport} candidateOpen={!!candidate} onInspect={name => void inspectAuto(name)}/>
     <details className="data-explainer"><summary>备份、导出导入和最近删除有什么区别？</summary><p>完整备份包含物品、维护、保障、心愿、账户与盘点、重要支出与退款、周期计划与付款、虚拟资产、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p><p>自动备份在资料有改动后自动生成，保留最近 7 份，放在本机资料目录旁；与手动备份格式相同，都可用于恢复。额外备份位置由你选择，可保存副本到云盘或外接盘。</p><p>导出全部表格保存为一个 .xlsx 文件，各类数据分工作表；物品、账户、完整盘点与月度收入可在对应入口预览导入，盘点记录、重要支出与周期费用供分析。文字、编号、日期和金额按文本保存，空金额仍为未知。Excel 不能用于恢复全部资料。最近删除仅用于找回误删记录。</p><p>导入物品表只新增物品，不修改或合并已有物品；只有名称必填，状态为已退役须填退役日期，已售出须填售出日期与售价。导出工作簿的「物品」工作表也可以直接导入；金融历史入口读取「账户」「完整盘点」「月度收入」。整体搬家或回到以前请用完整备份。</p></details>
     {blocked && <p className="notice">请先处理正在编辑或待核对的内容，再进行备份或恢复。</p>}
     {task.kind === 'running' && <p role="status" className="notice">{task.label}</p>}
     {task.kind === 'done' && <p role="status" className="notice">{task.text}</p>}
     {task.kind === 'error' && <p role="alert" className="notice error">{task.text}</p>}
+    {financeImport && <FinancialImportDialog generation={financeImport.generation} currentGeneration={generation} recoveryOnly={financeImport.recoveryOnly} onViewFinance={onViewFinance} onClose={saved => { setFinanceImport(null); refreshPending(n => n + 1); if (saved) onImported(); }}/>}
     {sheet && <CsvConfirm sheet={sheet} busy={busy} withDuplicates={withDuplicates} onDuplicates={setWithDuplicates} onCancel={() => setSheet(null)} onConfirm={() => void commitCsv()}/>}
     {candidate && <div className="confirm" role="alert">
       <strong>用「{candidate.name}」替换当前全部资料？</strong>

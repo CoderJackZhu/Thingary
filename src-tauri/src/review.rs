@@ -67,6 +67,22 @@ impl Store {
         planning: bool,
         wealth_enabled: bool,
     ) -> Result<Overview> {
+        self.review_overview_with_runtime_modules(
+            year,
+            today,
+            &legacy_modules(planning, wealth_enabled),
+        )
+    }
+
+    /// Capabilities are sampled by the caller before opening this read transaction.
+    pub fn review_overview_with_runtime_modules(
+        &self,
+        year: Option<i32>,
+        today: &str,
+        modules: &crate::modules::RuntimeModules,
+    ) -> Result<Overview> {
+        let planning = modules.modules.planning;
+        let wealth_enabled = modules.modules.wealth;
         crate::domain::date(today)?;
         if year.is_some_and(|y| !(1..=9999).contains(&y)) {
             return Err(Error::new("QUERY", "年份无效"));
@@ -97,12 +113,16 @@ impl Store {
                 Read::Error(e) => (None, None, Read::Error(Error::new(&e.code, &e.message))),
             };
             PlanSources {
-                review: if wealth_enabled {
+                review: if wealth_enabled && modules.incomes {
                     self.plan_review_in_transaction().into()
                 } else {
                     disabled()
                 },
-                incomes: self.plan_income_list().map(|list| list.rows).into(),
+                incomes: if modules.incomes {
+                    self.plan_income_list().map(|list| list.rows).into()
+                } else {
+                    disabled()
+                },
                 profile: self.plan_profile().into(),
                 snapshot,
                 snapshot_id,
@@ -122,40 +142,59 @@ impl Store {
             physical,
             wealth,
             planning,
-            expenses: self.expense_view(year).into(),
-            recurring: self.recurring_overview(today).into(),
-            virtual_assets: self.virtual_overview(today).into(),
-            recent: (if wealth_enabled {
-                self.timeline_with_snapshots(
-                    &crate::timeline::Query {
-                        filter: "all".into(),
-                        asset_id: None,
-                    },
-                    today,
+            expenses: self
+                .expense_period_view(
+                    &year.map_or(crate::expenses::Period::All, |year| {
+                        crate::expenses::Period::Year { year }
+                    }),
+                    &modules.modules,
                 )
+                .into(),
+            recurring: if modules.modules.recurring {
+                self.recurring_overview(today).into()
             } else {
-                self.timeline(
-                    &crate::timeline::Query {
-                        filter: "all".into(),
-                        asset_id: None,
-                    },
-                    today,
-                )
-            })
-            .map(|p| {
-                p.dated
-                    .into_iter()
-                    .filter(|e| {
-                        year.is_none_or(|y| {
-                            e.date
-                                .as_ref()
-                                .is_some_and(|d| d.starts_with(&format!("{y:04}-")))
+                disabled()
+            },
+            virtual_assets: if modules.modules.virtual_assets {
+                self.virtual_overview(today).into()
+            } else {
+                disabled()
+            },
+            recent: if !modules.modules.timeline {
+                disabled()
+            } else {
+                (if wealth_enabled {
+                    self.timeline_with_snapshots(
+                        &crate::timeline::Query {
+                            filter: "all".into(),
+                            asset_id: None,
+                        },
+                        today,
+                    )
+                } else {
+                    self.timeline(
+                        &crate::timeline::Query {
+                            filter: "all".into(),
+                            asset_id: None,
+                        },
+                        today,
+                    )
+                })
+                .map(|p| {
+                    p.dated
+                        .into_iter()
+                        .filter(|e| {
+                            year.is_none_or(|y| {
+                                e.date
+                                    .as_ref()
+                                    .is_some_and(|d| d.starts_with(&format!("{y:04}-")))
+                            })
                         })
-                    })
-                    .take(8)
-                    .collect()
-            })
-            .into(),
+                        .take(8)
+                        .collect()
+                })
+                .into()
+            },
         };
         tx.commit()?;
         Ok(result)
@@ -370,22 +409,38 @@ impl Store {
         wealth_enabled: bool,
         today: &str,
     ) -> Result<PlanningSources> {
+        self.planning_sources_with_runtime_modules(
+            &legacy_modules(planning_enabled, wealth_enabled),
+            today,
+        )
+    }
+
+    /// Uses the supplied capability snapshot and a single SQLite read transaction.
+    pub fn planning_sources_with_runtime_modules(
+        &self,
+        modules: &crate::modules::RuntimeModules,
+        today: &str,
+    ) -> Result<PlanningSources> {
         crate::domain::date(today)?;
+        let planning_enabled = modules.modules.planning;
+        let wealth_enabled = modules.modules.wealth;
         let tx = self.conn()?.unchecked_transaction()?;
-        let (profile, incomes, review) = if planning_enabled {
-            (
-                self.plan_profile().into(),
-                self.plan_income_list().map(|r| r.rows).into(),
-                if wealth_enabled {
-                    self.plan_review_in_transaction().into()
-                } else {
-                    disabled()
-                },
-            )
+        let profile = if planning_enabled {
+            self.plan_profile().into()
         } else {
-            (disabled(), disabled(), disabled())
+            disabled()
         };
-        let (snapshot, accounts) = if planning_enabled && wealth_enabled {
+        let incomes = if modules.incomes {
+            self.plan_income_list().map(|r| r.rows).into()
+        } else {
+            disabled()
+        };
+        let review = if modules.incomes && wealth_enabled {
+            self.plan_review_in_transaction().into()
+        } else {
+            disabled()
+        };
+        let (snapshot, accounts) = if wealth_enabled {
             let snapshot = self
                 .wealth_summary()
                 .and_then(|s| match s.points.iter().rev().find(|p| p.complete) {
@@ -413,5 +468,177 @@ impl Store {
         };
         tx.commit()?;
         Ok(result)
+    }
+}
+
+/// Compatibility for direct legacy Store consumers; production Worker passes the
+/// actual runtime snapshot and never reconstructs income capability from goals.
+fn legacy_modules(planning: bool, wealth: bool) -> crate::modules::RuntimeModules {
+    crate::modules::RuntimeModules {
+        modules: crate::modules::Modules {
+            planning,
+            wealth,
+            ..Default::default()
+        },
+        incomes: planning,
+        movements: planning && wealth,
+        finance_status: crate::modules::FinanceStatus::Ready,
+        finance_revision: 0,
+    }
+}
+
+#[cfg(test)]
+mod asset_review_tests {
+    use super::*;
+    const TODAY: &str = "2026-09-28";
+
+    fn ready<T>(value: Read<T>) -> T {
+        match value {
+            Read::Ready(v) => v,
+            Read::Error(e) => panic!("{e}"),
+        }
+    }
+    fn is_disabled<T>(value: &Read<T>) -> bool {
+        matches!(value, Read::Error(e) if e.code == "MODULE_DISABLED")
+    }
+
+    #[test]
+    fn asset_review_ignores_broken_income_profile_and_marks_without_writes() {
+        let root = tempfile::tempdir().unwrap();
+        let store = crate::demo::open(&root.path().join("library"), TODAY).unwrap();
+        let read = || {
+            let tx = store.conn().unwrap().unchecked_transaction().unwrap();
+            let result = store.asset_review_in_transaction().unwrap();
+            tx.commit().unwrap();
+            serde_json::to_value(result).unwrap()
+        };
+        let expected = read();
+        assert!(!expected["intervals"].as_array().unwrap().is_empty());
+        store
+            .conn()
+            .unwrap()
+            .execute_batch(
+                "DROP TABLE plan_income; DROP TABLE plan_profile; DROP TABLE plan_baseline_marks",
+            )
+            .unwrap();
+        let changes = store.conn().unwrap().total_changes();
+        assert_eq!(read(), expected);
+        assert_eq!(store.conn().unwrap().total_changes(), changes);
+        assert!(store.conn().unwrap().is_autocommit());
+    }
+
+    #[test]
+    fn runtime_income_off_never_queries_bad_table_or_leaks_overview_income() {
+        let root = tempfile::tempdir().unwrap();
+        let store = crate::demo::open(&root.path().join("library"), TODAY).unwrap();
+        store
+            .conn()
+            .unwrap()
+            .execute_batch("DROP TABLE plan_income; DROP TABLE plan_baseline_marks")
+            .unwrap();
+        let mut modules = legacy_modules(true, true);
+        modules.incomes = false;
+        let changes = store.conn().unwrap().total_changes();
+        let sources = store
+            .planning_sources_with_runtime_modules(&modules, TODAY)
+            .unwrap();
+        assert!(is_disabled(&sources.incomes));
+        assert!(is_disabled(&sources.review));
+        ready(sources.profile);
+        assert!(ready(sources.snapshot).is_some());
+        assert!(!ready(sources.accounts).is_empty());
+        let overview = store
+            .review_overview_with_runtime_modules(None, TODAY, &modules)
+            .unwrap();
+        let planning = overview.planning.unwrap();
+        assert!(is_disabled(&planning.incomes));
+        assert!(is_disabled(&planning.review));
+        assert_eq!(store.conn().unwrap().total_changes(), changes);
+    }
+
+    #[test]
+    fn runtime_overview_skips_disabled_broken_auxiliary_tables() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::open(root.path()).unwrap();
+        store
+            .conn()
+            .unwrap()
+            .execute_batch(
+                "DROP TABLE expenses; DROP TABLE recurring_plans; DROP TABLE virtual_assets",
+            )
+            .unwrap();
+        let mut modules = legacy_modules(false, true);
+        modules.modules.expenses = false;
+        modules.modules.recurring = false;
+        modules.modules.virtual_assets = false;
+        modules.modules.timeline = false;
+        let changes = store.conn().unwrap().total_changes();
+        let overview = store
+            .review_overview_with_runtime_modules(Some(2026), TODAY, &modules)
+            .unwrap();
+        assert!(is_disabled(&overview.recurring));
+        assert!(is_disabled(&overview.virtual_assets));
+        assert!(is_disabled(&overview.recent));
+        assert!(ready(overview.expenses).lines.is_empty());
+        ready(overview.wealth);
+        assert_eq!(store.conn().unwrap().total_changes(), changes);
+    }
+
+    #[test]
+    fn overview_expenses_use_sampled_modules_instead_of_rereading_preferences() {
+        let root = tempfile::tempdir().unwrap();
+        let store = crate::demo::open(&root.path().join("library"), TODAY).unwrap();
+        let mut modules = legacy_modules(false, true);
+        modules.modules.expenses = false;
+        modules.modules.recurring = false;
+        modules.modules.virtual_assets = false;
+        let expected = store
+            .expense_period_view(&crate::expenses::Period::All, &modules.modules)
+            .unwrap();
+        let overview = store
+            .review_overview_with_runtime_modules(None, TODAY, &modules)
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(ready(overview.expenses)).unwrap(),
+            serde_json::to_value(expected).unwrap()
+        );
+    }
+
+    #[test]
+    fn planning_off_keeps_income_history_and_wealth_readable_without_profile() {
+        let root = tempfile::tempdir().unwrap();
+        let store = crate::demo::open(&root.path().join("library"), TODAY).unwrap();
+        let expected = serde_json::to_value(store.plan_review().unwrap()).unwrap();
+        store
+            .conn()
+            .unwrap()
+            .execute_batch("DROP TABLE plan_profile")
+            .unwrap();
+        let mut modules = legacy_modules(false, true);
+        modules.incomes = true;
+        let sources = store
+            .planning_sources_with_runtime_modules(&modules, TODAY)
+            .unwrap();
+        assert!(is_disabled(&sources.profile));
+        assert!(!ready(sources.incomes).is_empty());
+        assert_eq!(
+            serde_json::to_value(ready(sources.review)).unwrap(),
+            expected
+        );
+        assert!(ready(sources.snapshot).is_some());
+        assert!(!ready(sources.accounts).is_empty());
+        assert!(store
+            .review_overview_with_runtime_modules(None, TODAY, &modules)
+            .unwrap()
+            .planning
+            .is_none());
+        modules.modules.wealth = false;
+        let sources = store
+            .planning_sources_with_runtime_modules(&modules, TODAY)
+            .unwrap();
+        assert!(is_disabled(&sources.review));
+        assert!(is_disabled(&sources.snapshot));
+        assert!(is_disabled(&sources.accounts));
+        assert!(!ready(sources.incomes).is_empty());
     }
 }

@@ -126,11 +126,18 @@ fn bad(message: &str) -> Error {
 }
 pub(crate) fn enabled(s: &Store, generation: &str) -> Result<()> {
     s.check_generation(generation)?;
-    let m = crate::modules::read(&s.root);
-    if !m.planning || !m.wealth {
-        return Err(Error::new("MODULE_DISABLED", "规划或账户模块已关闭"));
+    let m = crate::modules::read_runtime(&s.root);
+    if !m.movements || !m.modules.wealth {
+        return Err(Error::new("MODULE_DISABLED", "资金流动或账户模块已关闭"));
     }
     Ok(())
+}
+fn source_enabled(m: &crate::modules::RuntimeModules, kind: &str) -> bool {
+    match kind {
+        "income" => m.incomes,
+        "expense" => m.modules.expenses,
+        _ => true,
+    }
 }
 fn key(kind: &str, id: &str) -> String {
     digest(&serde_json::to_vec(&("movement-source-v1", kind, id)).expect("plain strings"))
@@ -201,6 +208,12 @@ pub(crate) fn source_changed(c: &Connection, kind: &str, id: &str) -> Result<()>
     crate::planning_flow_review::invalidate_source(c, kind, &key)
 }
 pub(crate) fn all(c: &Connection) -> Result<Vec<Stored>> {
+    all_visible(c, None)
+}
+pub(crate) fn all_visible(
+    c: &Connection,
+    runtime: Option<&crate::modules::RuntimeModules>,
+) -> Result<Vec<Stored>> {
     let mut q=c.prepare("SELECT id,revision,deleted_at IS NOT NULL,payload,source_basis,fact_revision FROM cash_movements ORDER BY date DESC,id")?;
     let raw = q
         .query_map([], |r| {
@@ -233,6 +246,9 @@ pub(crate) fn all(c: &Connection) -> Result<Vec<Stored>> {
         .filter_map(|(_, _, _, f, _, _)| f.source.as_ref().map(|s| s.kind.clone()))
         .collect::<std::collections::BTreeSet<_>>();
     for kind in kinds {
+        if runtime.is_some_and(|m| !source_enabled(m, &kind)) {
+            continue;
+        }
         for fact in source_facts(c, &kind)? {
             catalog.insert(
                 (fact.reference.kind.clone(), fact.reference.key.clone()),
@@ -247,7 +263,13 @@ pub(crate) fn all(c: &Connection) -> Result<Vec<Stored>> {
                 .source
                 .as_ref()
                 .and_then(|s| catalog.get(&(s.kind.clone(), s.key.clone())));
-            let live_source_basis = if fields.source.is_none() {
+            let hidden = fields
+                .source
+                .as_ref()
+                .is_some_and(|s| runtime.is_some_and(|m| !source_enabled(m, &s.kind)));
+            let live_source_basis = if hidden {
+                basis.clone()
+            } else if fields.source.is_none() {
                 None
             } else {
                 Some(
@@ -256,7 +278,9 @@ pub(crate) fn all(c: &Connection) -> Result<Vec<Stored>> {
                         .unwrap_or_else(|| "missing".into()),
                 )
             };
-            let status = if fields.source.is_none() {
+            let status = if hidden {
+                "disabled"
+            } else if fields.source.is_none() {
                 "unlinked"
             } else {
                 match live {
@@ -470,7 +494,8 @@ impl Store {
             return Err(bad("筛选条件无效"));
         }
         let tx = self.conn()?.unchecked_transaction()?;
-        let records = all(&tx)?
+        let runtime = crate::modules::read_runtime(&self.root);
+        let records = all_visible(&tx, Some(&runtime))?
             .into_iter()
             .map(|r| r.record)
             .filter(|r| {
@@ -502,8 +527,8 @@ impl Store {
         if query.text.chars().count() > 200 {
             return Err(bad("搜索条件过长"));
         }
-        if query.kind == "expense" && !crate::modules::read(&self.root).expenses {
-            return Err(Error::new("MODULE_DISABLED", "重要支出模块已关闭"));
+        if !source_enabled(&crate::modules::read_runtime(&self.root), &query.kind) {
+            return Err(Error::new("MODULE_DISABLED", "来源模块已关闭"));
         }
         let tx = self.conn()?.unchecked_transaction()?;
         let mut options = vec![];
@@ -545,16 +570,18 @@ impl Store {
         Ok(json!({"generation":generation,"options":options,"next_cursor":next_cursor}))
     }
     pub fn movement_save(&mut self, input: &Save, today: &str) -> Result<Saved> {
-        enabled(self, &input.generation)?;
+        self.check_generation(&input.generation)?;
         let fingerprint = digest(&serde_json::to_vec(&("movement_save", input))?);
         let tx = self.conn()?.unchecked_transaction()?;
         if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
-            let r = get(&tx, &id)?.record;
-            return Ok(Saved {
-                id: r.id,
-                revision: r.revision,
-            });
+            let revision = tx.query_row(
+                "SELECT revision FROM cash_movements WHERE id=?1",
+                [&id],
+                |r| r.get(0),
+            )?;
+            return Ok(Saved { id, revision });
         }
+        enabled(self, &input.generation)?;
         let old = input.id.as_deref().map(|id| get(&tx, id)).transpose()?;
         let deleted_unlink = old.as_ref().is_some_and(|r| {
             let mut original = r.record.fields.clone();
@@ -577,8 +604,8 @@ impl Store {
         let source_basis = if unchanged {
             old.as_ref().and_then(|r| r.source_basis.clone())
         } else if let Some(reference) = &f.source {
-            if reference.kind == "expense" && !crate::modules::read(&self.root).expenses {
-                return Err(Error::new("MODULE_DISABLED", "重要支出模块已关闭"));
+            if !source_enabled(&crate::modules::read_runtime(&self.root), &reference.kind) {
+                return Err(Error::new("MODULE_DISABLED", "来源模块已关闭"));
             }
             source_unique(&tx, reference, &id)?;
             let s = source_fact(&tx, reference)?;
@@ -626,16 +653,18 @@ impl Store {
         Ok(Saved { id, revision })
     }
     pub fn movement_trash(&mut self, input: &Trash) -> Result<Saved> {
-        enabled(self, &input.generation)?;
+        self.check_generation(&input.generation)?;
         let fingerprint = digest(&serde_json::to_vec(&("movement_trash", input))?);
         let tx = self.conn()?.unchecked_transaction()?;
         if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
-            let r = get(&tx, &id)?.record;
-            return Ok(Saved {
-                id: r.id,
-                revision: r.revision,
-            });
+            let revision = tx.query_row(
+                "SELECT revision FROM cash_movements WHERE id=?1",
+                [&id],
+                |r| r.get(0),
+            )?;
+            return Ok(Saved { id, revision });
         }
+        enabled(self, &input.generation)?;
         let old = get(&tx, &input.id)?;
         let r = &old.record;
         if Some(r.revision) != input.expected_revision || r.deleted == input.deleted {

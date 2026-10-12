@@ -1,5 +1,10 @@
 use std::collections::BTreeMap;
 use thingary_lib::{financial_import::*, storage::Store};
+fn open_store(root: &std::path::Path) -> thingary_lib::domain::Result<Store> {
+    let store = Store::open(root)?;
+    thingary_lib::modules::initialize_runtime(root);
+    Ok(store)
+}
 fn batch(s: &Store) -> BatchInput {
     BatchInput {
         generation: s.generation(),
@@ -42,7 +47,7 @@ fn commit_input(s: &Store, batch: BatchInput) -> CommitInput {
 #[test]
 fn sample_24_months_atomic_replay_and_backup_roundtrip() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let b = batch(&s);
     let input = commit_input(&s, b);
     assert!(s.wealth_accounts().unwrap().is_empty());
@@ -67,7 +72,7 @@ fn sample_24_months_atomic_replay_and_backup_roundtrip() {
     let archive = tmp.path().join("虚构完整备份.thingary");
     s.backup(Some(&archive)).unwrap();
     drop(s);
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     assert_eq!(
         s.financial_import_receipt(&input.request_id, &s.generation())
             .unwrap()
@@ -91,7 +96,7 @@ fn sample_24_months_atomic_replay_and_backup_roundtrip() {
 #[test]
 fn closing_balance_and_missing_rows_cannot_be_bypassed() {
     let tmp = tempfile::tempdir().unwrap();
-    let s = Store::open(tmp.path()).unwrap();
+    let s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = batch(&s);
     b.files[1].csv_text = b.files[1]
         .csv_text
@@ -116,7 +121,7 @@ fn closing_balance_and_missing_rows_cannot_be_bypassed() {
 #[test]
 fn failed_snapshot_rolls_back_accounts_mapping_receipt_and_can_retry() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let input = commit_input(&s, batch(&s));
     s.set_hook(|p| {
         if p == "financial_import.after_accounts" {
@@ -172,7 +177,7 @@ fn simple(s: &Store) -> BatchInput {
 #[test]
 fn explicit_history_overrides_direction_and_ordinary_correction() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let input = commit_input(&s, simple(&s));
     let receipt = s.financial_import_commit(&input, "2026-10-09").unwrap();
     let sid = &receipt
@@ -218,7 +223,7 @@ fn explicit_history_overrides_direction_and_ordinary_correction() {
 #[test]
 fn conflict_is_whole_group_and_preview_revisions_include_skipped_accounts() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let initial = commit_input(&s, simple(&s));
     s.financial_import_commit(&initial, "2026-10-09").unwrap();
     let mut b = simple(&s);
@@ -268,7 +273,7 @@ fn conflict_is_whole_group_and_preview_revisions_include_skipped_accounts() {
 #[test]
 fn real_unkeyed_catalog_blank_zero_and_explicit_group_exclusion() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let b = simple(&s);
     let p = s
         .financial_import_preview(&b, "2026-10-09", &|| false)
@@ -303,7 +308,7 @@ fn real_unkeyed_catalog_blank_zero_and_explicit_group_exclusion() {
         .iter()
         .any(|i| i.code == "SNAPSHOT_MISSING_ACCOUNT" || i.code == "SNAPSHOT_INCOMPLETE_ROWS"));
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = simple(&s);
     b.files[1].csv_text = b.files[1].csv_text.replace("123.45", "");
     let p = s
@@ -328,7 +333,7 @@ fn real_unkeyed_catalog_blank_zero_and_explicit_group_exclusion() {
 #[test]
 fn lost_reply_restart_preserves_original_receipt_and_no_duplicates() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let input = commit_input(&s, simple(&s));
     s.set_hook(|p| {
         if p == "financial_import.after_commit" {
@@ -344,7 +349,7 @@ fn lost_reply_restart_preserves_original_receipt_and_no_duplicates() {
         "INJECTED"
     );
     drop(s);
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let r = s
         .financial_import_receipt(&input.request_id, &s.generation())
         .unwrap()
@@ -369,7 +374,7 @@ fn lost_reply_restart_preserves_original_receipt_and_no_duplicates() {
 #[test]
 fn dataset_and_module_changes_refuse_outstanding_preview() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(&tmp.path().join("library")).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let input = commit_input(&s, simple(&s));
     let archive = tmp.path().join("旧预览.thingary");
     s.backup(Some(&archive)).unwrap();
@@ -453,7 +458,7 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
     use sha2::{Digest, Sha256};
     use std::io::Write;
     let tmp = tempfile::tempdir().unwrap();
-    let mut source = Store::open(&tmp.path().join("source")).unwrap();
+    let mut source = open_store(&tmp.path().join("source")).unwrap();
     let b = simple(&source);
     let input = commit_input(&source, b);
     let r = source
@@ -520,7 +525,7 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
     zip.start_file("data.sqlite", options).unwrap();
     zip.write_all(&bytes).unwrap();
     zip.finish().unwrap();
-    let mut target = Store::open(&tmp.path().join("target")).unwrap();
+    let mut target = open_store(&tmp.path().join("target")).unwrap();
     let inspected = target.inspect_backup(&archive).unwrap();
     assert_eq!(inspected.schema, 33);
     assert_eq!(
@@ -544,7 +549,7 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
         thingary_lib::storage::SCHEMA_VERSION
     );
     drop(target);
-    let target = Store::open(&tmp.path().join("target")).unwrap();
+    let target = open_store(&tmp.path().join("target")).unwrap();
     assert_eq!(
         target.wealth_snapshot(&sid).unwrap().unwrap().entries[0].amount_cents,
         None
@@ -553,7 +558,7 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
 #[test]
 fn permanent_purge_tombstones_keys_and_preserves_receipt_without_name_rebinding() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = simple(&s);
     b.files.retain(|f| f.kind == "accounts");
     let input = commit_input(&s, b.clone());
@@ -607,7 +612,7 @@ fn permanent_purge_tombstones_keys_and_preserves_receipt_without_name_rebinding(
 #[test]
 fn limits_are_aggregate_and_cancel_does_not_write() {
     let tmp = tempfile::tempdir().unwrap();
-    let s = Store::open(tmp.path()).unwrap();
+    let s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = simple(&s);
     b.files[0].csv_text = " ".repeat(10 * 1024 * 1024 + 1);
     b.files[1].csv_text = " ".repeat(10 * 1024 * 1024);
@@ -636,7 +641,7 @@ fn maximum_20_mib_50000_rows_and_cancellation_latency() {
         time::{Duration, Instant},
     };
     let tmp = tempfile::tempdir().unwrap();
-    let s = Store::open(tmp.path()).unwrap();
+    let s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = simple(&s);
     b.files[0].csv_text="account_key,name,kind,enabled_from,disabled_from,counted,platform,note\na,虚构甲,cash,1900-01-01,,true,,\nb,虚构乙,cash,1900-01-01,,true,,\n".into();
     b.files[1].csv_text =
@@ -694,7 +699,7 @@ fn maximum_20_mib_50000_rows_and_cancellation_latency() {
 #[test]
 fn snapshots_only_exposes_unmapped_keys_for_explicit_selection() {
     let tmp = tempfile::tempdir().unwrap();
-    let s = Store::open(tmp.path()).unwrap();
+    let s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = simple(&s);
     b.files.retain(|f| f.kind == "snapshots");
     let p = s
@@ -707,7 +712,7 @@ fn snapshots_only_exposes_unmapped_keys_for_explicit_selection() {
 #[ignore = "capacity measurement: run separately with /usr/bin/time -l"]
 fn maximum_50000_accounts_capacity() {
     let tmp = tempfile::tempdir().unwrap();
-    let s = Store::open(tmp.path()).unwrap();
+    let s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = simple(&s);
     b.files.retain(|f| f.kind == "accounts");
     let mut csv = "account_key,name,kind,enabled_from,disabled_from,counted,platform,note,extra\n"
@@ -738,7 +743,7 @@ fn maximum_50000_accounts_capacity() {
 #[ignore = "capacity measurement: populated directory and repeat import"]
 fn maximum_populated_accounts_reimport_and_cancel() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = simple(&s);
     b.files.retain(|f| f.kind == "accounts");
     b.files[0].csv_text =
@@ -777,7 +782,7 @@ fn maximum_populated_accounts_reimport_and_cancel() {
 fn deleted_receipt_reimport_behavior() {
     for purged in [false, true] {
         let tmp = tempfile::tempdir().unwrap();
-        let mut s = Store::open(tmp.path()).unwrap();
+        let mut s = open_store(&tmp.path().join("library")).unwrap();
         let mut b = simple(&s);
         b.files.retain(|f| f.kind == "accounts");
         let input = commit_input(&s, b.clone());
@@ -838,7 +843,7 @@ fn deleted_receipt_reimport_behavior() {
         assert_eq!(result.request_id, r.request_id);
         assert!(s.wealth_accounts().unwrap().is_empty());
         drop(s);
-        let mut s = Store::open(tmp.path()).unwrap();
+        let mut s = open_store(&tmp.path().join("library")).unwrap();
         assert_eq!(
             s.financial_import_receipt(&retry.request_id, &s.generation())
                 .unwrap()
@@ -882,7 +887,7 @@ fn deleted_receipt_reimport_behavior() {
 #[test]
 fn snapshot_receipt_availability_is_current_after_delete_and_purge() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let input = commit_input(&s, simple(&s));
     let r = s.financial_import_commit(&input, "2026-10-09").unwrap();
     let id = r
@@ -947,7 +952,7 @@ const INCOME_CSV: &str = "\u{feff}income_key,date,net_income,hpf_deposit,note\r\
 fn i02_i03_income_unknown_zero_same_day_same_amount_and_i11_roundtrip() {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("source");
-    let mut s = Store::open(&root).unwrap();
+    let mut s = open_store(&root).unwrap();
     let b = income_batch(&s, INCOME_CSV);
     let input = commit_input(&s, b.clone());
     let r = s.financial_import_commit(&input, "2026-10-09").unwrap();
@@ -985,9 +990,9 @@ fn i02_i03_income_unknown_zero_same_day_same_amount_and_i11_roundtrip() {
     let archive = tmp.path().join("虚构-current.thingary");
     s.backup(Some(&archive)).unwrap();
     drop(s);
-    let s = Store::open(&root).unwrap();
+    let s = open_store(&root).unwrap();
     assert_eq!(s.plan_income_list().unwrap().rows.len(), 2);
-    let mut t = Store::open(&tmp.path().join("restored")).unwrap();
+    let mut t = open_store(&tmp.path().join("restored")).unwrap();
     let checked = t.inspect_backup(&archive).unwrap();
     assert_eq!(
         (
@@ -1021,7 +1026,7 @@ fn i02_i03_income_unknown_zero_same_day_same_amount_and_i11_roundtrip() {
 #[test]
 fn income_conflicts_stale_revisions_and_deleted_receipts_preserve_identity() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let input = commit_input(&s, income_batch(&s, INCOME_CSV));
     let receipt = s.financial_import_commit(&input, "2026-10-09").unwrap();
     let mut b = income_batch(&s, &INCOME_CSV.replace("100.01,,", "100.01,0,"));
@@ -1112,7 +1117,7 @@ fn income_conflicts_stale_revisions_and_deleted_receipts_preserve_identity() {
 #[test]
 fn i07_income_invalid_row_blocks_all_writes_and_cancel_is_read_only() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     for bad in [
         "bad,2026-02-30,2,0,x",
         "bad,2026-08-10,1e3,0,x",
@@ -1154,7 +1159,7 @@ fn i07_income_invalid_row_blocks_all_writes_and_cancel_is_read_only() {
 #[test]
 fn mixed_batch_rolls_back_after_accounts_after_incomes_and_before_commit_i09_restart() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let mut b = simple(&s);
     b.files.extend(income_batch(&s, INCOME_CSV).files);
     let input = commit_input(&s, b);
@@ -1206,7 +1211,7 @@ fn mixed_batch_rolls_back_after_accounts_after_incomes_and_before_commit_i09_res
         "INJECTED"
     );
     drop(s);
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let r = s
         .financial_import_receipt(&input.request_id, &s.generation())
         .unwrap()
@@ -1228,7 +1233,7 @@ fn mixed_batch_rolls_back_after_accounts_after_incomes_and_before_commit_i09_res
     assert_eq!(s.plan_income_list().unwrap().rows.len(), 2);
     let archive = tmp.path().join("mixed-current.thingary");
     s.backup(Some(&archive)).unwrap();
-    let mut restored = Store::open(&tmp.path().join("restored")).unwrap();
+    let mut restored = open_store(&tmp.path().join("restored")).unwrap();
     let checked = restored.inspect_backup(&archive).unwrap();
     assert_eq!(
         (
@@ -1265,26 +1270,32 @@ fn mixed_batch_rolls_back_after_accounts_after_incomes_and_before_commit_i09_res
     assert_eq!(kinds, 3);
 }
 #[test]
-fn income_only_import_with_wealth_disabled_and_planning_switch_invalidates_preview() {
-    use thingary_lib::modules::{self, Modules};
+fn income_only_import_with_wealth_disabled_and_independent_income_switch() {
+    use thingary_lib::modules::{self, FinanceUpdate, Modules};
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("library");
-    let mut s = Store::open(&root).unwrap();
-    modules::write(
+    let mut s = open_store(&root).unwrap();
+    let choices = Modules {
+        wealth: false,
+        planning: false,
+        ..Modules::default()
+    };
+    modules::write_runtime(
         &root,
-        &Modules {
-            wealth: false,
-            ..Modules::default()
+        choices,
+        FinanceUpdate {
+            incomes: Some(true),
+            ..FinanceUpdate::default()
         },
     )
     .unwrap();
     let input = commit_input(&s, income_batch(&s, INCOME_CSV));
-    modules::write(
+    modules::write_runtime(
         &root,
-        &Modules {
-            wealth: false,
-            planning: false,
-            ..Modules::default()
+        choices,
+        FinanceUpdate {
+            incomes: Some(false),
+            ..FinanceUpdate::default()
         },
     )
     .unwrap();
@@ -1295,14 +1306,21 @@ fn income_only_import_with_wealth_disabled_and_planning_switch_invalidates_previ
         "MODULE_DISABLED"
     );
     assert!(s.plan_income_list().unwrap().rows.is_empty());
-    modules::write(
+    modules::write_runtime(
         &root,
-        &Modules {
-            wealth: false,
-            ..Modules::default()
+        choices,
+        FinanceUpdate {
+            incomes: Some(true),
+            ..FinanceUpdate::default()
         },
     )
     .unwrap();
+    assert_eq!(
+        s.financial_import_commit(&input, "2026-10-09")
+            .unwrap_err()
+            .code,
+        "REVISION_CONFLICT"
+    );
     let input = commit_input(&s, income_batch(&s, INCOME_CSV));
     s.financial_import_commit(&input, "2026-10-09").unwrap();
 }
@@ -1440,7 +1458,7 @@ fn old34_backup_and_receipt_restore_into_current_preserve_replay_zero_and_mappin
     use sha2::{Digest, Sha256};
     use std::io::Write;
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(&tmp.path().join("source")).unwrap();
+    let mut s = open_store(&tmp.path().join("source")).unwrap();
     let input = commit_input(&s, simple(&s));
     let receipt = s.financial_import_commit(&input, "2026-10-09").unwrap();
     let income = s
@@ -1492,7 +1510,7 @@ fn old34_backup_and_receipt_restore_into_current_preserve_replay_zero_and_mappin
     zip.start_file("data.sqlite", opt).unwrap();
     zip.write_all(&bytes).unwrap();
     zip.finish().unwrap();
-    let mut t = Store::open(&tmp.path().join("target")).unwrap();
+    let mut t = open_store(&tmp.path().join("target")).unwrap();
     let checked = t.inspect_backup(&archive).unwrap();
     assert_eq!(
         (
@@ -1542,7 +1560,7 @@ fn old34_backup_and_receipt_restore_into_current_preserve_replay_zero_and_mappin
 #[test]
 fn optional_income_classification_survives_older_file_corrections() {
     let tmp = tempfile::tempdir().unwrap();
-    let mut s = Store::open(tmp.path()).unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
     let classified="income_key,date,net_income,hpf_deposit,note,category,destination,legacy_estimate_unavailable\ni1,2026-09-30,100,,original,interest,unknown,true\n";
     let b = income_batch(&s, classified);
     let input = commit_input(&s, b);
@@ -1572,4 +1590,213 @@ fn optional_income_classification_survives_older_file_corrections() {
     assert_eq!(updated.fields.notes, "corrected");
     assert_eq!(updated.fields.category, "interest");
     assert!(updated.classification_changed);
+}
+
+#[test]
+fn mixed_import_rejects_disabled_participant_without_partial_writes() {
+    use thingary_lib::modules::{self, FinanceUpdate, Modules};
+    for disable_income in [true, false] {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("library");
+        let mut store = open_store(&root).unwrap();
+        let mut batch = simple(&store);
+        batch.files.extend(income_batch(&store, INCOME_CSV).files);
+        let input = commit_input(&store, batch.clone());
+        modules::write_runtime(
+            &root,
+            Modules {
+                wealth: disable_income,
+                planning: false,
+                ..Modules::default()
+            },
+            FinanceUpdate {
+                incomes: Some(!disable_income),
+                ..FinanceUpdate::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            store
+                .financial_import_preview(&batch, "2026-10-09", &|| false)
+                .unwrap_err()
+                .code,
+            "MODULE_DISABLED"
+        );
+        assert_eq!(
+            store
+                .financial_import_commit(&input, "2026-10-09")
+                .unwrap_err()
+                .code,
+            "MODULE_DISABLED"
+        );
+        for table in [
+            "fin_accounts",
+            "fin_snapshots",
+            "plan_income",
+            "import_receipt",
+            "import_external_key",
+            "feature_requests",
+        ] {
+            assert_eq!(
+                store
+                    .conn_for_test()
+                    .unwrap()
+                    .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| row
+                        .get::<_, i64>(0))
+                    .unwrap(),
+                0
+            );
+        }
+        modules::write_runtime(
+            &root,
+            Modules::default(),
+            FinanceUpdate {
+                incomes: Some(true),
+                ..FinanceUpdate::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            store
+                .financial_import_commit(&input, "2026-10-09")
+                .unwrap_err()
+                .code,
+            "REVISION_CONFLICT"
+        );
+        let fresh = commit_input(&store, batch);
+        let receipt = store.financial_import_commit(&fresh, "2026-10-09").unwrap();
+        assert_eq!(receipt.counts.created_accounts, 1);
+        assert_eq!(receipt.counts.created_snapshots, 1);
+        assert_eq!(receipt.counts.created_incomes, 2);
+    }
+}
+
+#[test]
+fn preference_recreation_invalidates_same_revision_and_contents() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("library");
+    let mut store = open_store(&root).unwrap();
+    let input = commit_input(&store, income_batch(&store, INCOME_CSV));
+    let path = tmp.path().join("finance-modules.json");
+    let original = std::fs::read(&path).unwrap();
+    let original_modified = std::fs::metadata(&path).unwrap().modified().unwrap();
+    // Keep the original inode alive to ensure replacement has a different identity.
+    std::fs::rename(&path, tmp.path().join("old-finance-modules.json")).unwrap();
+    assert_eq!(
+        thingary_lib::modules::initialize_runtime(&root).finance_revision,
+        1
+    );
+    std::fs::File::options()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_times(std::fs::FileTimes::new().set_modified(original_modified))
+        .unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+    assert_eq!(
+        store
+            .financial_import_commit(&input, "2026-10-09")
+            .unwrap_err()
+            .code,
+        "REVISION_CONFLICT"
+    );
+    assert_eq!(
+        store
+            .conn_for_test()
+            .unwrap()
+            .query_row("SELECT count(*) FROM plan_income", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    let fresh = commit_input(&store, income_batch(&store, INCOME_CSV));
+    store.financial_import_commit(&fresh, "2026-10-09").unwrap();
+}
+
+#[cfg(feature = "fault-injection")]
+#[test]
+fn unknown_import_receipt_survives_closed_modules_restart_and_generation_guard() {
+    use thingary_lib::modules::{self, FinanceUpdate, Modules};
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("library");
+    let mut store = open_store(&root).unwrap();
+    let mut batch = simple(&store);
+    batch.files.extend(income_batch(&store, INCOME_CSV).files);
+    let input = commit_input(&store, batch);
+    store.set_hook(|point| {
+        if point == "financial_import.after_commit" {
+            Err(thingary_lib::domain::Error::new("INJECTED", "回执丢失"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(
+        store
+            .financial_import_commit(&input, "2026-10-09")
+            .unwrap_err()
+            .code,
+        "INJECTED"
+    );
+    modules::write_runtime(
+        &root,
+        Modules {
+            wealth: false,
+            planning: false,
+            ..Modules::default()
+        },
+        FinanceUpdate {
+            incomes: Some(false),
+            ..FinanceUpdate::default()
+        },
+    )
+    .unwrap();
+    drop(store);
+    let mut store = open_store(&root).unwrap();
+    let receipt = store
+        .financial_import_receipt(&input.request_id, &store.generation())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        store
+            .financial_import_commit(&input, "2026-10-09")
+            .unwrap()
+            .request_id,
+        receipt.request_id
+    );
+    let mut changed = input.clone();
+    changed.batch.source_name = "不同请求内容".into();
+    assert_eq!(
+        store
+            .financial_import_commit(&changed, "2026-10-09")
+            .unwrap_err()
+            .code,
+        "REQUEST_CONFLICT"
+    );
+    changed = input.clone();
+    changed.batch.generation = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        store
+            .financial_import_commit(&changed, "2026-10-09")
+            .unwrap_err()
+            .code,
+        "STALE_DATASET"
+    );
+    assert_eq!(
+        store
+            .conn_for_test()
+            .unwrap()
+            .query_row("SELECT count(*) FROM plan_income", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    assert_eq!(
+        store
+            .conn_for_test()
+            .unwrap()
+            .query_row("SELECT count(*) FROM import_receipt", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        1
+    );
 }

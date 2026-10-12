@@ -21,6 +21,13 @@ test('switched-off modules never appear in the menu, so no shortcut can reach th
   assert.deepEqual(menu.items.map(i => i.key), ['asset']);
 });
 
+test('income is independent of goals while movements require accounts', () => {
+  const modules = { wishlist: false, wealth: false, expenses: false, recurring: false, virtual: false, incomes: true, movements: true, planning: false };
+  assert.deepEqual(buildNewMenu(modules, () => {}).items.map(i => i.key), ['asset', 'income']);
+  assert.deepEqual(buildNewMenu({ ...modules, wealth: true }, () => {}).items.map(i => i.key), ['asset', 'wealth', 'income', 'movement']);
+  assert.deepEqual(buildNewMenu({ ...modules, incomes: false }, () => {}).items.map(i => i.key), ['asset']);
+});
+
 test('every searchable page has a session search slot and clearing resets all of them', () => {
   assert.deepEqual(Object.keys(emptySearches).sort(), [...searchSections].sort());
   for (const value of Object.values(emptySearches)) assert.equal(value, '');

@@ -1,6 +1,6 @@
 import { HeaderSlot } from './HeaderSlot';
 import { DailyCostMetric, type DailyCostSummary } from './DailyCostMetric';
-import { allModules, financeOff, type Modules } from './modules';
+import { allModules, financeOff, type Modules, type RuntimeModules } from './modules';
 import { useEffect } from 'react';
 import { useState, type CSSProperties } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -9,6 +9,7 @@ import { Info } from './FormControls';
 import { eventDetail, eventLabel } from './Timeline';
 import type { TimelineEvent, ScrollRestore } from './Timeline';
 import type { SourceTarget } from './source';
+import type { FinanceRoute } from './finance-navigation';
 import type { PlanningTab } from './PlanningPage';
 import { useRestored } from './undo';
 import { ReviewView } from './ReviewView';
@@ -80,7 +81,7 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   </section>;
 }
 
-export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, onGotoPlanning, onOpenSettings, restoreScroll, modules = allModules, newMenu, onOpenNewMenu }: { modules?: Modules; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void }) {
+export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, onGotoPlanning, onOpenSettings, onFinance, restoreScroll, modules = allModules, newMenu, onOpenNewMenu }: { modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void }) {
   const [view, setView] = useState(() => { try { return overviewView(localStorage.getItem('thingary.overview-view.v1')); } catch { return 'combined'; } });
   const changeView = (value: 'combined' | 'physical') => { setView(value); try { localStorage.setItem('thingary.overview-view.v1', value); } catch { /* The current choice remains usable without persistence. */ } };
   const shared = { generation, today, version, onOpenSource, onBrowse, restoreScroll };
@@ -92,5 +93,5 @@ export function OverviewPage({ generation, today, version, year, onYear, onNavig
   // With every finance module off the combined review would only repeat the
   // physical one — except that planning still owns a summary there.
   if (financeOff(modules) && !modules.planning) return <PhysicalOverview {...shared}/>;
-  return <><HeaderSlot><div className="ui-seg" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>只看物品</button></div></HeaderSlot>{view === 'combined' ? <ReviewView {...shared} modules={modules} year={year} onYear={onYear} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning} onOpenSettings={onOpenSettings}/> : <PhysicalOverview {...shared}/>}</>;
+  return <><HeaderSlot><div className="ui-seg" role="group" aria-label="总览视图"><button aria-pressed={view === 'combined'} onClick={() => changeView('combined')}>综合</button><button aria-pressed={view === 'physical'} onClick={() => changeView('physical')}>只看物品</button></div></HeaderSlot>{view === 'combined' ? <ReviewView {...shared} modules={modules} year={year} onYear={onYear} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning} onOpenSettings={onOpenSettings} onFinance={onFinance}/> : <PhysicalOverview {...shared}/>}</>;
 }

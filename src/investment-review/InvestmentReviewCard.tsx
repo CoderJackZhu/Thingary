@@ -195,6 +195,7 @@ export function InvestmentReviewCard({
           </>
         )}
 
+        {result.status === 'unavailable' && <div role="status"><p className="ivr-statusline"><span className="ivr-badge ivr-warn">暂不可用</span></p><ReasonList reasons={result.reasons}/></div>}
         {result.status === 'not_recorded' && (
           <>
             <p className="ivr-statusline">
@@ -271,7 +272,7 @@ export function InvestmentReviewCard({
       </div>
 
       <details className="ivr-basis"><summary>查看账户余额与核对记录</summary><ScopeTable input={input} accountNames={accountNames} />
-      {input.flow && (
+      {input.flow && result.status !== 'unavailable' && (
         <p className="ivr-muted ivr-flownote">
           已有核对记录（{statusLabel[result.status]}
           ）：期间外部转入 {input.flow.inflow_cents === null ? '未知' : formatCents(input.flow.inflow_cents)}、对外转出{' '}

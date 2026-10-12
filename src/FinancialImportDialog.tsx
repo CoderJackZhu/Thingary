@@ -9,12 +9,12 @@ import { columns, csvHeaders, selectAction, receiptMetadata, importMoney, previe
 import type { ImportFile, ImportBatch, ImportCommit, ImportPreview, ImportReceipt, ImportObject, ImportAction } from './financial-import';
 import './financial-import.css';
 
-export function FinancialImportDialog({ generation, onClose, mode = 'accounts' }: { mode?:'accounts'|'incomes'; generation:string; onClose:(saved:boolean)=>void }) {
+export function FinancialImportDialog({ generation, onClose, mode = 'accounts', recoveryOnly = false, currentGeneration = generation, onViewFinance }: { mode?:'accounts'|'incomes'; generation:string; currentGeneration?:string|null; recoveryOnly?:boolean; onViewFinance?:(target:'income'|'accounts'|'snapshots')=>void; onClose:(saved:boolean)=>void }) {
  const dialog=useRef<HTMLDialogElement>(null),alive=useRef(true),job=useRef<string|null>(null),sequence=useRef(0),lastCommit=useRef<ImportCommit|null>(null);
  const initial=storedPending();
  const [issuePage,setIssuePage]=useState(0),[mappingPage,setMappingPage]=useState(0),[mappingSearch,setMappingSearch]=useState(''),[receiptPageIndex,setReceiptPageIndex]=useState(0);
  const [batch,setBatch]=useState<ImportBatch>({generation,source_name:'历史表格',mapping_set_id:mode==='incomes'?'收入映射':'账户映射',files:[],mappings:{},actions:{},page:0});
- const [step,setStep]=useState(initial?.command==='financial_import_commit'?4:1),[preview,setPreview]=useState<ImportPreview|null>(null),[dirty,setDirty]=useState(true);
+ const [step,setStep]=useState(recoveryOnly||initial?.command==='financial_import_commit'?4:1),[preview,setPreview]=useState<ImportPreview|null>(null),[dirty,setDirty]=useState(true);
  const [busy,setBusy]=useState(''),[progress,setProgress]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[receipt,setReceipt]=useState<ImportReceipt|null>(null);
  const [unresolved,setUnresolved]=useState(initial?.command==='financial_import_commit'?initial:null);
  const [backup,setBackup]=useState<string|null>(null),[withoutBackup,setWithoutBackup]=useState(false);
@@ -22,6 +22,7 @@ export function FinancialImportDialog({ generation, onClose, mode = 'accounts' }
  useEffect(()=>{if(!busy||!job.current)return;const timer=window.setInterval(()=>{const id=job.current;if(id)void invoke<{phase:string}|null>('financial_import_progress',{jobId:id}).then(p=>{if(alive.current&&job.current===id)setProgress(p?.phase??'');}).catch(()=>{});},250);return()=>window.clearInterval(timer);},[busy]);
  function update(next:ImportBatch){sequence.current++;if(job.current)void invoke('financial_import_cancel',{jobId:job.current}).catch(()=>{});job.current=null;setBusy('');setBatch(next);setDirty(true);setError('');setWithoutBackup(false);lastCommit.current=null;}
  async function readPreview(next:ImportBatch,target:number){
+  if(recoveryOnly||storedPending())return;
   const old=job.current;if(old)void invoke('financial_import_cancel',{jobId:old}).catch(()=>{});
   const id=crypto.randomUUID(),ticket=++sequence.current;job.current=id;setBusy('正在解析并核对整批资料');setProgress('');setError('');
   try{const result=await invoke<ImportPreview>('financial_import_preview',{input:next,jobId:id});if(!alive.current||ticket!==sequence.current)return;setPreview(result);setIssuePage(0);setDirty(false);setStep(target);setBatch({...next,page:result.page});if(result.prior_receipt)setNotice(receiptAvailability(result.prior_receipt)||'这批内容已完成导入，可以查看原回执。');else setNotice('');}
@@ -29,24 +30,26 @@ export function FinancialImportDialog({ generation, onClose, mode = 'accounts' }
   finally{if(alive.current&&ticket===sequence.current){job.current=null;setBusy('');}}
  }
  async function choose(){
+  if(recoveryOnly||storedPending())return;
   const ticket=++sequence.current;setBusy('正在读取 Excel 工作簿');setError('');
   try{const file=await invoke<{name:string;files:ImportFile[]}|null>('financial_import_read_workbook');if(!alive.current||ticket!==sequence.current)return;if(!file){setBusy('');return;}
    const next={...batch,files:file.files.map(f=>({...f,name:`${file.name} · ${f.name}`})),actions:{},mappings:{},page:0};setBatch(next);setDirty(true);setBackup(null);setWithoutBackup(false);lastCommit.current=null;await readPreview(next,1);
   }catch(e){if(alive.current&&ticket===sequence.current){setError(errorMessage(e));setBusy('');}}
  }
- async function template(sample:boolean){setBusy('正在保存模板');try{const path=await invoke<string|null>('financial_import_template',{sample});if(alive.current)setNotice(path?'Excel 已保存。':'已取消保存。');}catch(e){if(alive.current)setError(errorMessage(e));}finally{if(alive.current)setBusy('');}}
- async function protect(){setBusy('正在建立完整备份');setError('');setBackup(null);setWithoutBackup(false);try{const done=await invoke<{name:string;folder:string}|null>('create_backup');if(alive.current){if(done)setBackup(`${done.folder}/${done.name}`);else setError('备份已取消，本次尚未建立保护备份。');}}catch(e){if(alive.current)setError('备份失败，本次尚未建立保护备份。'+errorMessage(e));}finally{if(alive.current)setBusy('');}}
+ async function template(sample:boolean){if(recoveryOnly||storedPending())return;setBusy('正在保存模板');try{const path=await invoke<string|null>('financial_import_template',{sample});if(alive.current)setNotice(path?'Excel 已保存。':'已取消保存。');}catch(e){if(alive.current)setError(errorMessage(e));}finally{if(alive.current)setBusy('');}}
+ async function protect(){if(recoveryOnly||storedPending())return;setBusy('正在建立完整备份');setError('');setBackup(null);setWithoutBackup(false);try{const done=await invoke<{name:string;folder:string}|null>('create_backup');if(alive.current){if(done)setBackup(`${done.folder}/${done.name}`);else setError('备份已取消，本次尚未建立保护备份。');}}catch(e){if(alive.current)setError('备份失败，本次尚未建立保护备份。'+errorMessage(e));}finally{if(alive.current)setBusy('');}}
+ // currentGeneration is only a read-only lookup target; the stored request is never rewritten.
  async function verify(currentDataset=false){
-  if(!unresolved)return;setBusy('正在按原请求核对回执');setError('');
-  try{const saved=await invoke<ImportReceipt|null>('financial_import_receipt',{request:unresolved.input.request_id,generation:currentDataset?generation:unresolved.input.generation});
-   if(!saved&&currentDataset&&unresolved.input.generation!==generation){if(alive.current)setNotice('当前资料库没有该回执，不能据此判断原资料库是否提交。原请求元数据仍保留，请回到原资料库核对。');return;}
-   localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setNotice(receiptAvailability(saved)||'已确认整批提交成功。');}}else if(alive.current){setNotice('查询无回执：本次未提交。可以重新选择文件和预览。');}
+  if(!unresolved||(currentDataset&&!currentGeneration))return;setBusy('正在按原请求核对回执');setError('');
+  try{const saved=await invoke<ImportReceipt|null>('financial_import_receipt',{request:unresolved.input.request_id,generation:currentDataset?currentGeneration:unresolved.input.generation});
+   if(!saved&&currentDataset&&unresolved.input.generation!==currentGeneration){if(alive.current)setNotice('当前资料库没有该回执，不能据此判断原资料库是否提交。原请求元数据仍保留，请回到原资料库核对。');return;}
+   localStorage.removeItem(pendingKey);if(saved){window.dispatchEvent(new Event('thingary-restored'));if(alive.current){setReceipt(saved);setNotice(receiptAvailability(saved)||'已确认整批提交成功。');}}else if(alive.current){setNotice('查询无回执：本次未提交。关闭后可从设置重新导入。');}
    if(alive.current)setUnresolved(null);
   }catch(e){if(alive.current){if(code(e)==='STALE_DATASET'){setNotice('资料库已切换；原请求元数据仍保留，请回到原资料库核对，或只读检查当前库是否已恢复同一回执；不能在新库重提。');}else setError('暂时无法核对，原请求元数据已保留。'+errorMessage(e));}}
   finally{if(alive.current)setBusy('');}
  }
  async function commit(){
-  if(!preview||dirty||!preview.can_commit||(!backup&&!withoutBackup)||storedPending())return;
+  if(recoveryOnly||!preview||dirty||!preview.can_commit||(!backup&&!withoutBackup)||storedPending())return;
   const input=lastCommit.current??{request_id:crypto.randomUUID(),batch:{...batch,page:0},context_digest:preview.context_digest,normalized_digest:preview.normalized_digest,file_fingerprints:preview.file_fingerprints};lastCommit.current=input;
   const metadata=receiptMetadata(input);
   try{localStorage.setItem(pendingKey,JSON.stringify(metadata));}catch{setError('无法保留请求元数据，尚未提交，请检查可用空间后重试。');return;}
@@ -59,7 +62,7 @@ export function FinancialImportDialog({ generation, onClose, mode = 'accounts' }
  }
  function close(){sequence.current++;if(job.current)void invoke('financial_import_cancel',{jobId:job.current}).catch(()=>{});onClose(!!receipt);}
  function action(o:ImportObject,value:ImportAction['action']){const next={...batch,actions:selectAction(batch.actions,o,value),page:batch.page};setBatch(next);setDirty(true);lastCommit.current=null;void readPreview(next,3);}
- const disabled=!!busy||!!unresolved;
+ const disabled=recoveryOnly||!!busy||!!unresolved;
  return <dialog ref={dialog} className="editor financial-import-editor" aria-labelledby="financial-import-title" onCancel={e=>{e.preventDefault();close();}}>
   <form onSubmit={e=>e.preventDefault()}>
    <header><div><p className="eyebrow">{mode==='incomes'?'月度收入':'账户与盘点'} · 金融历史</p><h2 id="financial-import-title">导入历史</h2><p className="muted">导入账户、完整盘点与月度收入，可一起原子提交。金额单位元；负债填正数；不会修改规划假设或冻结基准。</p></div><CloseButton type="button" aria-label="关闭历史导入" onClick={close}/></header>
@@ -95,8 +98,9 @@ export function FinancialImportDialog({ generation, onClose, mode = 'accounts' }
     {backup?<p className="notice">已建立备份：{backup}</p>:<label className="import-check"><input type="checkbox" checked={withoutBackup} disabled={disabled} onChange={e=>setWithoutBackup(e.target.checked)}/>我确认本次尚未建立保护备份，仍继续导入</label>}
    </section>}
    {step===4&&<section className="form-block">
-    {unresolved&&<><h3>提交结果待核对</h3><p>原请求：{unresolved.input.request_id}</p><p>未保留原始 Excel。先查询原请求回执，不换新编号重提。</p><button type="button" disabled={!!busy} onClick={()=>void verify()}>按原请求核对回执</button>{unresolved.input.generation!==generation&&<button type="button" disabled={!!busy} onClick={()=>void verify(true)}>在当前资料库只读核对同一回执</button>}</>}
+    {unresolved&&<><h3>提交结果待核对</h3><p>原请求：{unresolved.input.request_id}</p><p>未保留原始 Excel。先查询原请求回执，不换新编号重提。</p><button type="button" disabled={!!busy} onClick={()=>void verify()}>按原请求核对回执</button>{currentGeneration&&unresolved.input.generation!==currentGeneration&&<button type="button" disabled={!!busy} onClick={()=>void verify(true)}>在当前资料库只读核对同一回执</button>}</>}
     {receipt&&<><h3>整批导入回执</h3>{receiptAvailability(receipt)&&<p className="notice" role="status">{receiptAvailability(receipt)}</p>}<p>{receipt.unavailable_objects?'原导入记录：':''}账户新增 {receipt.counts.created_accounts} 个 · 盘点新增 {receipt.counts.created_snapshots} 次 · 收入新增 {receipt.counts.created_incomes??0} 条 · 更正 {receipt.counts.corrected} 项 · 跳过 {receipt.counts.skipped} 项</p><p>{receipt.origin_changed?'起点盘点已改变，请复核当前计划来源。':'起点盘点没有改变。'}未来净投入、规划假设和冻结基准均未自动改变。</p><p className="muted">{receipt.source_name} · {receipt.mapping_set_id} · {receipt.created_at}<br/>回执编号：{receipt.request_id}</p><details><summary>查看对象身份与修订（{receipt.objects.length} 项）</summary><div className="import-receipt-list">{receiptPage(receipt.objects,receiptPageIndex).map((r,i)=><p key={i}>{r.kind==='account'?'账户':r.kind==='income'?'收入':'盘点'} · {r.external_key} · {r.action==='create'?'新增':r.action==='correct'?'更正':'跳过'} · 修订 {r.revision_before??'新建'} → {r.revision_after??'未知'}<br/><small>{r.id}</small></p>)}</div><nav className="import-pagination" aria-label="回执分页"><button type="button" disabled={receiptPageIndex===0} onClick={()=>setReceiptPageIndex(p=>p-1)}>上一批回执</button><span>第 {receiptPageIndex+1} / {previewPageCount(receipt.objects.length)} 页</span><button type="button" disabled={receiptPageIndex+1>=previewPageCount(receipt.objects.length)} onClick={()=>setReceiptPageIndex(p=>p+1)}>下一批回执</button></nav></details></>}
+    {receipt&&onViewFinance&&<div className="actions">{(['income','accounts','snapshots'] as const).map(target=>{const kind=target==='income'?'income':target==='accounts'?'account':'snapshot';return receipt.objects.some(o=>o.kind===kind&&(o.action==='create'||o.action==='correct'))&&<button key={target} type="button" onClick={()=>{close();onViewFinance(target);}}>查看{target==='income'?'收入':target==='accounts'?'账户':'盘点'}</button>;})}</div>}
     {!unresolved&&!receipt&&<p>尚无已完成回执。可以关闭后重新选择文件。</p>}
    </section>}
    <footer><button type="button" onClick={close}>{receipt?'完成':'关闭'}</button>{step>1&&step<4&&<button type="button" disabled={disabled} onClick={()=>setStep(step-1)}>上一步</button>}

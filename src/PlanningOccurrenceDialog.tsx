@@ -11,7 +11,7 @@ import type { Account, Snapshot } from './wealth';
 import type { StoredLifeEvent } from './plan';
 import type { Occurrence, OccurrenceIssueKind, Payment } from './plan-core';
 const blankPayment = (date: string): Payment => ({ id: crypto.randomUUID(), date, amount_cents: null, account_id: null, absorbed_snapshot_id: null, absorbed_revision: null, source_kind: null, source_id: null });
-export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, today, busy, stuck, notice, initialIssue, onClose, onSave, completion = false, fundRules = [] }: { event: StoredLifeEvent; existing?: Occurrence; snapshot: Snapshot | null | undefined; accounts: Account[]; today: string; busy: boolean; stuck: boolean; notice: string; initialIssue?: OccurrenceIssueKind; onClose: () => void; onSave: (o: Occurrence | null) => void; completion?: boolean; fundRules?: import('./plan-core').FundRule[] }) {
+export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, today, busy, stuck, notice, initialIssue, onClose, onSave, completion = false, fundRules = [], saveDisabled = false }: { event: StoredLifeEvent; existing?: Occurrence; snapshot: Snapshot | null | undefined; accounts: Account[]; today: string; busy: boolean; stuck: boolean; notice: string; initialIssue?: OccurrenceIssueKind; onClose: () => void; onSave: (o: Occurrence | null) => void; saveDisabled?: boolean; completion?: boolean; fundRules?: import('./plan-core').FundRule[] }) {
   const name = (id: string, kind: string) => accounts.find(a => a.id === id)?.fields.name ?? `${kindLabel(kind)}（历史账户）`;
   const dialog = useRef<HTMLDialogElement>(null);
   const [o, setO] = useState<Occurrence>(() => structuredClone(existing ?? { id: crypto.randomUUID(), event_id: event.id, status: 'occurred', actual_date: today, payments_complete: false, payments: [blankPayment(today)], loan: null }));
@@ -50,7 +50,7 @@ export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, 
   }
   const [attention] = useState(() => requiredConfirmation());
   const save = () => {
-    if (busy || stuck) return;
+    if (busy || stuck || saveDisabled) return;
     const missing = requiredConfirmation();
     if (missing) { reject(missing); return; }
     setIssue(null);
@@ -60,7 +60,7 @@ export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, 
     onSave(o.status === 'cancelled' ? { ...o, payments: [], loan: null, payments_complete: false } : o);
   };
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="occurrence-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); save(); }}>
-    <header><div><p className="eyebrow">规划 · 现实核对</p><h2 id="occurrence-heading">{!existing && event.date < today.slice(0, 7) ? "确认已过期的大额计划" : "核对大额计划"} · {event.label}</h2><p className="muted">保存发生及来源关系，不改账户余额，不创建物品或复制支出。</p></div><CloseButton type="button" aria-label="关闭发生核对" disabled={busy} onClick={onClose}/><button className="primary" disabled={busy || stuck}>{busy ? '保存中…' : '保存核对'}</button></header>
+    <header><div><p className="eyebrow">规划 · 现实核对</p><h2 id="occurrence-heading">{!existing && event.date < today.slice(0, 7) ? "确认已过期的大额计划" : "核对大额计划"} · {event.label}</h2><p className="muted">保存发生及来源关系，不改账户余额，不创建物品或复制支出。</p></div><CloseButton type="button" aria-label="关闭发生核对" disabled={busy} onClick={onClose}/><button className="primary" disabled={busy || stuck || saveDisabled}>{busy ? '保存中…' : '保存核对'}</button></header>
     <section className="form-block"><ConfirmationField label="是否已经发生" attention={attention === '是否已经发生'} focus={attention === '是否已经发生'} issue={issue}><FormRow label="是否已经发生"><select aria-label="是否已经发生" value={pending ? "pending" : o.status} disabled={busy || existing?.status === 'occurred'} onChange={e => { setPending(e.target.value === "pending"); if (e.target.value !== "pending") patch({ status: e.target.value as Occurrence['status'] }); }}><option value="pending">还没发生</option><option value="occurred">已发生，核对实际资料</option><option value="cancelled">已取消</option></select></FormRow></ConfirmationField>
       {pending ? <p className="muted">尚未发生。信息完整的未来计划继续按预计排期；保存不会新增发生记录。</p> : <ConfirmationField label="实际发生日期" attention={attention === '实际发生日期'} focus={attention === '实际发生日期'} issue={issue}><FormRow label={o.status === 'occurred' ? '实际发生日期' : '取消日期'}><DateInput label="实际发生日期" max={today} value={o.actual_date} disabled={busy} onChange={value => patch({ actual_date: value })}/></FormRow></ConfirmationField>}
       {!pending && o.status === 'occurred' && <><h3>实际付款分项</h3>{o.payments.map((p, i) => <div key={p.id} className="form-block"><h4>付款 {i + 1}</h4>
@@ -76,6 +76,6 @@ export function PlanningOccurrenceDialog({ event, existing, snapshot, accounts, 
       {o.loan && <><ConfirmationField label="剩余欠款截至日" attention={attention === '剩余欠款截至日'} focus={attention === '剩余欠款截至日'} issue={issue}><FormRow label="剩余欠款截至日"><DateInput label="剩余欠款截至日" value={o.loan.as_of} disabled={busy} onChange={value => patch({ loan: { ...o.loan!, as_of: value } })}/></FormRow></ConfirmationField><ConfirmationField label="剩余本金" attention={attention === '剩余本金'} focus={attention === '剩余本金'} issue={issue}><FormRow label="剩余本金"><CentInput label="剩余本金" value={o.loan.principal_cents} disabled={busy} onChange={v => patch({ loan: { ...o.loan!, principal_cents: v } })}/></FormRow></ConfirmationField><ConfirmationField label="剩余期数" attention={attention === '剩余期数'} focus={attention === '剩余期数'} issue={issue}><FormRow label="剩余期数（月）"><input aria-label="剩余期数" type="number" min="0" max="480" value={o.loan.remaining_months} disabled={busy} onChange={e => patch({ loan: { ...o.loan!, remaining_months: Number(e.target.value) } })}/></FormRow></ConfirmationField></>}
       </>}
       </>}
-    </section>{existing?.status === "occurred" && <section className="form-block"><button type="button" className="ui-btn" disabled={busy || stuck || !retractable} onClick={() => { if (retractable) onSave(null); }}>撤回为尚未发生</button><p className="muted small">{retractable ? "这条记录没有实际付款、来源或贷款事实。撤回只去掉发生记录，保留计划资料。" : "这条记录已有实际事实，不可撤回；请核对更正付款或贷款资料。"}</p></section>}{(error || notice) && <p role="status" className="notice">{error || notice}</p>}
+    </section>{existing?.status === "occurred" && <section className="form-block"><button type="button" className="ui-btn" disabled={busy || stuck || saveDisabled || !retractable} onClick={() => { if (retractable) onSave(null); }}>撤回为尚未发生</button><p className="muted small">{retractable ? "这条记录没有实际付款、来源或贷款事实。撤回只去掉发生记录，保留计划资料。" : "这条记录已有实际事实，不可撤回；请核对更正付款或贷款资料。"}</p></section>}{(error || notice) && <p role="status" className="notice">{error || notice}</p>}
   </form></dialog>;
 }

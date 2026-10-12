@@ -23,15 +23,15 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
 
   const actions: { label: string; run: () => void }[] = retire.kind === 'ready' ? [
     { label: '查看目标 →', run: () => onGotoPlanning('goals') },
-    { label: '收入与复盘 →', run: () => onGotoPlanning('savings') },
+    { label: '财务复盘 →', run: () => onGotoPlanning('savings') },
   ] : retire.kind === 'blocked' ? (
     retire.step === 'snapshot' ? [{ label: '查看账户与盘点 →', run: () => onNavigate('wealth') }] :
     retire.step === 'profile' ? [{ label: '填写个人资料 →', run: () => onGotoPlanning('goals', 'profile') }] :
-    retire.step === 'budget' ? [{ label: '补充退休预算 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '收入与复盘 →', run: () => onGotoPlanning('savings') }] :
-    retire.step === 'saving' ? [{ label: '估一估每月能存多少 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '收入与复盘 →', run: () => onGotoPlanning('savings') }] :
+    retire.step === 'budget' ? [{ label: '补充退休预算 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '财务复盘 →', run: () => onGotoPlanning('savings') }] :
+    retire.step === 'saving' ? [{ label: '估一估每月能存多少 →', run: () => onGotoPlanning('goals', 'budget') }, { label: '财务复盘 →', run: () => onGotoPlanning('savings') }] :
     [{ label: '查看目标 →', run: () => onGotoPlanning('goals') }]
   ) : [];
-  return <article className="ui-card review-plan" aria-label="规划摘要">
+  return <article className="ui-card review-plan" aria-label="目标摘要">
     <div className="ui-section-head"><h3>规划</h3>{retire.kind === 'ready' && <span className="ui-aside">按当前假设估算</span>}</div>
     <p className="review-plan-goal">退休与财务自由{retire.kind === 'ready' && <small> · {retire.mode === 'fire' ? 'FIRE' : '传统'}</small>}</p>
     {basicPlan ? <BasicSummaryBody sources={data!} retire={retire} onGotoPlanning={onGotoPlanning}/> : retire.kind === 'ready' ? <>
@@ -45,7 +45,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
         </div>
         <div className="review-plan-bar" role="img" aria-label={`当前可支配资产约为今天退休所需的 ${rateText(retire.coverage.percent)}`}><div style={{ width: `${retire.coverage.percent / 100}%` }}/></div>
       </div>
-    </> : retire.kind === 'loading' ? <p className="review-plan-main muted" role="status">正在读取规划…</p>
+    </> : retire.kind === 'loading' ? <p className="review-plan-main muted" role="status">正在读取目标…</p>
       : retire.kind === 'error' ? <div className="review-error" role="alert"><p>退休估算暂时无法读取：{retire.message}</p><button onClick={reload}>重新读取</button></div>
       : <>
         <p className="review-plan-main">{retire.main}</p>
@@ -72,7 +72,7 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
 function BasicSummaryBody({ sources, retire, onGotoPlanning }: { sources: PlanSources; retire: SummaryRetire; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void }) {
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null, r = saved?.profile.retire;
   const caps = retire.kind === 'ready' ? retire.calc.capabilities : retire.kind === 'blocked' ? retire.capabilities : null;
-  if (!caps) return <p className="review-plan-main muted" role="status">{retire.kind === 'error' ? `规划结果读取失败：${retire.message}` : '正在读取规划…'}</p>;
+  if (!caps) return <p className="review-plan-main muted" role="status">{retire.kind === 'error' ? `目标结果读取失败：${retire.message}` : '正在读取目标…'}</p>;
   const pred = caps.prediction.status === 'ready' ? caps.prediction.value : null;
   return <>
     <p className="review-plan-main">{retire.kind === 'ready' ? retire.headline.main : r?.simplified.time.target_month == null ? '目标月份还没有设定' : `目标 ${r.simplified.time.target_month}${r.mode === 'fire' ? ' 财务自由' : ' 退休'}`}</p>

@@ -2,55 +2,60 @@ import { accountVisible, changeVisible } from './wealth-display';
 import type { AccountView } from './wealth-display';
 // U20「变化」分段：两次盘点的逐账户比较、按类型的结构比较与单账户历史。
 // 规则由只读命令 wealth_compare / wealth_account_history 计算，前端只展示、排序与展开（产品设计 17.14）。
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset.ts';
 import { Info } from './FormControls';
 import { NetChart } from './WealthPage';
-import { cellText, changeText, code, defaultRange, kindLabel, rateText, sortRows, noteSummary } from './wealth';
+import { cellText, changeText, defaultRange, kindLabel, rateText, sortRows, noteSummary } from './wealth';
 import type { Account, AccountHistory, Compare, CompareRow, Point, Summary } from './wealth';
 
-type Range = { from: string; to: string };
+export type WealthCompareRange = { from: string; to: string };
 type HistoryState = { status: 'loading' } | { status: 'ok'; data: AccountHistory } | { status: 'error'; message: string };
 const NOTE = '变化含存取、转账、消费与估值，不等于投资收益；按盘点当时的类型和计入设置计算';
 const stateLabel = (state: string) => state === 'entered' ? '录入' : state === 'unchanged' ? '未变' : state === 'missing' ? '未知' : state;
 
-export function WealthChanges({ summary, accounts, accountView, initial, today, onNewAccount, onCheckIn }: {
-  summary: Summary; accounts: Account[]; accountView: AccountView; initial?: Range | null; today: string; onNewAccount: () => void; onCheckIn: (date: string) => void;
+export function WealthChanges({ summary, accounts, accountView, initial, today, onNewAccount, onCheckIn, controlledRange, onRangeChange, hideControls = false, initialSort = 'impact', initialExpanded = [], onBrowseStateChange }: {
+  summary: Summary; accounts: Account[]; accountView: AccountView; initial?: WealthCompareRange | null; controlledRange?: WealthCompareRange | null; onRangeChange?: (range: WealthCompareRange) => void; hideControls?: boolean; initialSort?: 'impact' | 'kind'; initialExpanded?: string[]; onBrowseStateChange?: (state: {sort: 'impact' | 'kind'; expandedIds: string[]}) => void; today: string; onNewAccount: () => void; onCheckIn: (date: string) => void;
 }) {
   const points = summary.points;
-  const [range, setRange] = useState<Range | null>(() => initial ?? defaultRange(points));
-  const [sort, setSort] = useState<'impact' | 'kind'>('impact');
-  const [loaded, setLoaded] = useState<{ range: Range; data: Compare } | null>(null);
-  const [error, setError] = useState(''), [notice, setNotice] = useState(''), [retry, setRetry] = useState(0);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [localRange, setLocalRange] = useState<WealthCompareRange | null>(() => initial ?? defaultRange(points));
+  const range = controlledRange === undefined ? localRange : controlledRange;
+  const setRange = (next: WealthCompareRange) => { if (controlledRange === undefined) setLocalRange(next); onRangeChange?.(next); };
+  const validRange = !!range && points.findIndex(p => p.snapshot_id === range.from) >= 0 && points.findIndex(p => p.snapshot_id === range.to) > points.findIndex(p => p.snapshot_id === range.from);
+  const [sort, setSort] = useState<'impact' | 'kind'>(initialSort);
+  const [loaded, setLoaded] = useState<{ generation: string; points: Point[]; range: WealthCompareRange; data: Compare } | null>(null);
+  const [error, setError] = useState(''), [retry, setRetry] = useState(0);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(initialExpanded));
   const [history, setHistory] = useState<Map<string, HistoryState>>(new Map());
   // Stale replies never render: only the compare for the current range does.
-  const compare = loaded && range && loaded.range.from === range.from && loaded.range.to === range.to ? loaded.data : null;
-  useEffect(() => { setHistory(new Map()); setExpanded(new Set()); }, [summary.generation]);
+  const compare = loaded && loaded.generation === summary.generation && loaded.points === points && validRange && range && loaded.range.from === range.from && loaded.range.to === range.to ? loaded.data : null;
+  const historyEpoch = useRef(0);
+  useEffect(() => { ++historyEpoch.current; setHistory(new Map()); }, [summary.generation]);
+  const browseCallback = useRef(onBrowseStateChange); browseCallback.current = onBrowseStateChange;
+  useEffect(() => { browseCallback.current?.({ sort, expandedIds: [...expanded] }); }, [sort, expanded]);
   useEffect(() => {
     if (!range) return;
+    setLoaded(null);
+    if (!validRange) { setError('所选盘点已删除或失效，请重新选择区间。'); return; }
     let live = true; setError('');
     invoke<Compare>('wealth_compare', { from: range.from, to: range.to })
-      .then(c => { if (live) setLoaded({ range, data: c }); })
+      .then(c => { if (c.generation !== summary.generation) throw Error('资料库已变化，请重新读取。'); if (live) setLoaded({ generation: summary.generation, points, range, data: c }); })
       .catch(e => {
         if (!live) return;
-        // 正在查看的盘点被删除或变化：回到默认区间并提示（17.14.5）。
-        if (code(e) === 'NOT_FOUND') {
-          const fresh = defaultRange(points);
-          if (fresh && (fresh.from !== range.from || fresh.to !== range.to)) { setRange(fresh); setNotice('所选盘点已删除或变化，已回到默认区间。'); return; }
-        }
         setError(errorMessage(e));
       });
     return () => { live = false; };
-  }, [range, summary.generation, points, retry]);
+  }, [range?.from, range?.to, summary.generation, points, retry]);
   const loadHistory = (id: string) => {
     if (history.get(id)?.status === 'ok') return;
+    const epoch = historyEpoch.current;
     setHistory(m => new Map(m).set(id, { status: 'loading' }));
     invoke<AccountHistory>('wealth_account_history', { account: id })
-      .then(data => setHistory(m => new Map(m).set(id, { status: 'ok', data })))
-      .catch(e => setHistory(m => new Map(m).set(id, { status: 'error', message: errorMessage(e) })));
+      .then(data => { if (epoch === historyEpoch.current) setHistory(m => new Map(m).set(id, { status: 'ok', data })); })
+      .catch(e => { if (epoch === historyEpoch.current) setHistory(m => new Map(m).set(id, { status: 'error', message: errorMessage(e) })); });
   };
+  useEffect(() => { for (const id of initialExpanded) loadHistory(id); return () => { ++historyEpoch.current; }; }, [summary.generation]);
   const toggle = (id: string) => {
     setExpanded(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
     if (!expanded.has(id)) loadHistory(id);
@@ -67,6 +72,7 @@ export function WealthChanges({ summary, accounts, accountView, initial, today, 
   // 起点必须早于终点：不满足时自动把另一端调到相邻的合法日期，不弹错误（17.14.4.1）。
   const idx = (id: string) => points.findIndex(p => p.snapshot_id === id);
   const setFrom = (id: string) => {
+    if (points.length < 2) return;
     const i = idx(id), t = idx(range.to);
     if (i < 0) return;
     if (i < t) setRange({ from: id, to: range.to });
@@ -74,6 +80,7 @@ export function WealthChanges({ summary, accounts, accountView, initial, today, 
     else setRange({ from: points[points.length - 2].snapshot_id, to: points[points.length - 1].snapshot_id });
   };
   const setTo = (id: string) => {
+    if (points.length < 2) return;
     const i = idx(id), f = idx(range.from);
     if (i < 0) return;
     if (i > f) setRange({ from: range.from, to: id });
@@ -86,8 +93,7 @@ export function WealthChanges({ summary, accounts, accountView, initial, today, 
   const uncounted = compare ? sortRows(compare.rows.filter(r => r.group === 'uncounted' && changeVisible(r, accounts, accountView)), sort) : [];
   const reason = compare ? [compare.from.missing ? `起点盘点缺 ${compare.from.missing} 个账户` : '', compare.to.missing ? `终点盘点缺 ${compare.to.missing} 个账户` : '', compare.rows.some(r => r.group === 'scope_changed') ? '有账户改变了计入设置' : ''].filter(Boolean).join('；') : '';
   return <>
-    {notice && <p className="notice" role="status">{notice}</p>}
-    <article className="ui-card ui-content changes-controls">
+    {!hideControls && <article className="ui-card ui-content changes-controls">
       <label>从 {dateSelect('起点盘点', range.from, setFrom)}</label>
       <label>到 {dateSelect('终点盘点', range.to, setTo)}</label>
       <button onClick={() => { const fresh = defaultRange(points); if (fresh) setRange(fresh); }}>与上次</button>
@@ -95,15 +101,16 @@ export function WealthChanges({ summary, accounts, accountView, initial, today, 
       {compare && <div className="compare-endpoint-notes">
         {([['起点', compare.from], ['终点', compare.to]] as const).map(([label, end]) => <details key={label} className="endpoint-note"><summary>{label} {end.date} 的备注{noteSummary(end.notes) ? '' : '（未填写）'}</summary><p className="notes" style={{whiteSpace:'pre-wrap'}}>{end.notes.trim() || '未填写备注'}</p></details>)}
       </div>}
-    </article>
+    </article>}
+    {hideControls && compare && <p className="muted small">{NOTE}。{reason} · 起点备注：{compare.from.notes || '未填写'} · 终点备注：{compare.to.notes || '未填写'}</p>}
     {error ? <article className="ui-card ui-content" role="alert"><p>变化读取失败：{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></article>
       : !compare ? <p role="status" className="muted">正在读取账户变化…</p>
       : <>
-        <div className="ui-metrics ui-card">
+        {!hideControls && <div className="ui-metrics ui-card">
           <article><span>金融净资产变化</span><strong>{compare.reconciled ? changeText(compare.net_change_cents!) : '—'}</strong><em>{compare.reconciled && compare.net_rate_hundredths !== null ? rateText(compare.net_rate_hundredths) : ''}</em></article>
           <article><span>资产变化</span><strong>{compare.reconciled ? changeText(compare.assets_change_cents!) : '—'}</strong><em>计入范围</em></article>
           <article><span>负债变化</span><strong>{compare.reconciled ? changeText(compare.liabilities_change_cents!) : '—'}</strong><em>计入范围</em></article>
-        </div>
+        </div>}
         {!compare.reconciled && reason && <p className="muted">{reason}</p>}
         <article className="ui-card ui-content">
           <div className="ui-section-head"><h3>账户变化</h3>
