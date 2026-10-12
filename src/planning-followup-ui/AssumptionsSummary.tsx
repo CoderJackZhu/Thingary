@@ -23,6 +23,6 @@ export function AssumptionsSummary({ port, generation, writeVersion, blocked = f
       <p className="muted small">收益已扣通胀与费用；0% 表示只跑平通胀。波动率仅用于市场模拟，默认 5% 是程序试算值。</p>
       <button ref={opener} className="ui-btn" disabled={blocked || open} onClick={() => setOpen(true)}>核对收益与波动假设</button>
     </>}
-    {open && <AssumptionsEditor port={port} generation={generation} onPending={onPending} onClose={saved => { setOpen(false); if (saved) { setRetry(n => n + 1); reload(); } requestAnimationFrame(() => opener.current?.focus()); }}/>} 
+    {open && <AssumptionsEditor port={port} generation={generation} onPending={onPending} onClose={saved => { setOpen(false); if (saved) { setRetry(n => n + 1); reload(); } requestAnimationFrame(() => opener.current?.focus()); }}/>}
   </aside>;
 }
