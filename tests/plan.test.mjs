@@ -7,6 +7,19 @@ const point = (id, date, prev, change, extra = {}) => ({ snapshot_id: id, date, 
 const pay = (date, net, hpf = 0) => ({ id: date + net, revision: 1, fields: { date, net_cents: String(net), hpf_cents: String(hpf), notes: '' } });
 const review = (points, incomes, marks = []) => computeReview(points, incomes, new Set(marks), 'g');
 
+test('investment income preserves asset facts but disables the old savings estimate', () => {
+  const interest = { ...pay('2026-01-20', 500), fields: { ...pay('2026-01-20', 500).fields, category: 'interest', hpf_cents: null } };
+  const r = review([point('a', '2026-01-01', null, null), point('b', '2026-02-01', '2026-01-01', 500)], [interest]);
+  const i = r.intervals[0];
+  assert.equal(i.delta_nw_cents, '500'); assert.equal(i.income_cents, '500');
+  assert.equal(i.legacy_estimate_unavailable, true);
+  assert.equal(i.monthly_cash_saving_cents, null); assert.equal(i.spend_cents, null);
+  assert.equal(i.hpf_unknown_records, 0); assert.equal(r.stats.count, 0);
+  assert.equal(r.stats.change_count, 1);
+  assert.equal(latestHpf([interest, pay('2026-01-15', 10000, 300)]), '300');
+  assert.deepEqual(incomeHpfTotals([interest]), { total: '0', known: null, unknown: 0 });
+});
+
 test('saving removes housing fund deposits; spending is what is left of income and deposits', () => {
   const r = review([point('a', '2026-01-31', null, null), point('b', '2026-03-31', '2026-01-31', 2_500_000, { hpf_change_cents: '600000' })], [pay('2026-02-15', 2_000_000, 300_000), pay('2026-03-15', 2_000_000, 300_000)]);
   const i = r.intervals[0];

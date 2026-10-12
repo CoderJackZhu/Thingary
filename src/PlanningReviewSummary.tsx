@@ -1,3 +1,6 @@
+import { incomeCategories, incomeCategoryTotals } from './income-classification';
+import { money } from './asset';
+import { InvestmentReviewHost } from './InvestmentReviewHost';
 import { retractOccurrence } from './plan-occurrence-actions';
 import { useEffect, useState } from 'react';
 import { PlanningOccurrenceDialog } from './PlanningOccurrenceDialog';
@@ -16,8 +19,9 @@ export function PlanningReviewSummary({ interval, reasons, reasonError, summary,
   sources: PlanningSources; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onAction: (a: ReviewAction) => void; onRetry: () => void;
 }) {
   const [occurring, setOccurring] = useState<{ event: StoredLifeEvent; issue?: OccurrenceIssueKind } | null>(null);
+  const [investmentEditing, setInvestmentEditing] = useState(false);
   const saver = useSectionSaver(sources, reload, onPending);
-  useEffect(() => { onEditingChange(!!occurring || saver.busy || saver.stuck); return () => onEditingChange(false); }, [occurring, saver.busy, saver.stuck, onEditingChange]);
+  useEffect(() => { onEditingChange(!!occurring || investmentEditing || saver.busy || saver.stuck); return () => onEditingChange(false); }, [occurring, investmentEditing, saver.busy, saver.stuck, onEditingChange]);
   const saved = ready(sources.profile)?.saved, retire = saved?.profile.retire;
   const hasPlan = !!retire?.basic;
   const snapshot = ready(sources.snapshot);
@@ -40,8 +44,10 @@ export function PlanningReviewSummary({ interval, reasons, reasonError, summary,
   return <article className="ui-card ui-content plan-review-summary" aria-label="本期复盘">
     <div className="ui-section-head"><div><h3>本期复盘</h3><p className="muted small">{interval.from} → {interval.to}</p></div></div>
     <ul className="plan-review-observations" aria-label="本期事实">{observations.items.map(item => <li key={item.id}>{item.text}</li>)}</ul>
+    <dl className="plan-facts" aria-label="本期已记录收入分类">{incomeCategoryTotals((ready(sources.incomes) ?? []).filter(i => i.fields.date > interval.from && i.fields.date <= interval.to)).map(row => <div key={row.category}><dt>{incomeCategories[row.category]}</dt><dd>{money(row.cents)} · {row.count} 笔</dd></div>)}</dl>
     <p className="muted small">这些记录是核对资产变化的线索，尚未逐笔对应；估值变化、转账与未记录收支仍可能影响差额，不能据此反推消费或真实储蓄。</p>
     {reasonError && <p role="alert" className="error">付款记录读取失败：{reasonError} <button type="button" disabled={blocked} onClick={onRetry}>重试</button></p>}
+    {summary && <InvestmentReviewHost key={generationKey(sources.generation, interval.snapshot_id)} generation={sources.generation} fromSnapshotId={summary.points.find(p => p.date === interval.from && p.complete)?.snapshot_id ?? null} toSnapshotId={interval.snapshot_id} writeVersion={sources.write_version} incomes={ready(sources.incomes) ?? null} accountNames={Object.fromEntries((ready(sources.accounts) ?? []).map(a => [a.id, a.fields.name]))} blocked={blocked || saver.busy || saver.stuck || !!occurring} reload={reload} onPending={onPending} onEditingChange={setInvestmentEditing}/>}
     <h4>待核对事项</h4>
     <ul className="plan-review-checklist">
       {(accountError || !summary) && <li><div><strong>账户与盘点</strong><span>{accountError ? '读取失败，已读取的本期事实仍可查看。' : '正在读取…'}</span></div>{accountError && <button type="button" disabled={blocked} onClick={() => summaryError ? onRetry() : reload()}>重试</button>}</li>}
@@ -53,3 +59,5 @@ export function PlanningReviewSummary({ interval, reasons, reasonError, summary,
     {occurring && <PlanningOccurrenceDialog event={occurring.event} existing={retire?.core?.occurrences.find(o => o.event_id === occurring.event.id)} snapshot={snapshot} accounts={ready(sources.accounts) ?? []} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} initialIssue={occurring.issue} onClose={() => { setOccurring(null); onPending(); }} onSave={o => void saveOccurrence(o)}/>}
   </article>;
 }
+
+const generationKey = (generation: string, snapshot: string) => `${generation}:${snapshot}`;

@@ -1,3 +1,5 @@
+import { reviewFixtures } from './investment-review/fixtures';
+import type { InvestmentReviewRead } from './wealth';
 import nonblockingDemo from '../tests/fixtures/planning-basic/nonblocking-demo.json';
 import debtDemo from '../tests/fixtures/planning-basic/debt-loops.json';
 import { completionFixture } from './planning-completion-fixture';
@@ -490,6 +492,14 @@ const previewGroups = new Map<string, { assetId: string; planId: string; assetNa
 export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
   const imported = financialImportPreview(command, args, generation); if (imported) return imported;
+  // Explicit injected output only: preview never reimplements native investment profit.
+  if (command === 'investment_review_list') return { value: { generation, records: [] } };
+  if (command === 'investment_review_read') {
+    const fixture = reviewFixtures[params.get('investment') as keyof typeof reviewFixtures];
+    if (fixture) return { value: { generation, ...structuredClone(fixture), from_value_key: 'fictional-preview-only', to_value_key: 'fictional-preview-only', records: [] } satisfies InvestmentReviewRead };
+    throw { code: 'PREVIEW_NATIVE_ONLY', message: '浏览器预览不执行原生投资计算。可用 investment=ready-profit 等显式虚构夹具查看状态；实际资料请在原生应用核对。' };
+  }
+  if (command === 'investment_review_save' || command === 'investment_review_trash') throw { code: 'PREVIEW_NATIVE_ONLY', message: '此处为固定虚构输出，未保存。真实投资核对须在原生应用中进行。' };
   if (command === 'notification_permission') return { value: null };
   // ---- 关联订阅命令的内存桩（EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN）----
   if (command === 'link_view') {
@@ -685,7 +695,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (command === 'plan_income_save') {
       if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
       const input = args.input as IncomeSave, id = input.id ?? crypto.randomUUID(), old = planIncomes.find(i => i.id === id);
-      const next: Income = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1 };
+      const next: Income = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, classification_changed: old?.classification_changed === true || !!old && (old.fields.category ?? 'unclassified') !== (input.fields.category ?? 'unclassified') };
       planIncomes = old ? planIncomes.map(i => i.id === id ? next : i) : [...planIncomes, next];
       receipts.set(input.request_id, id);
       return { value: next };

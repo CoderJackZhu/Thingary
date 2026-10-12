@@ -273,7 +273,7 @@ impl Store {
     }
     pub(crate) fn income_table(&self, guarded: bool) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
-            "SELECT date,net_cents,hpf_cents,notes FROM plan_income WHERE deleted_at IS NULL ORDER BY date,id",
+            "SELECT date,net_cents,hpf_cents,notes,category,source_account_id,destination,receiving_account_id,classification_changed FROM plan_income WHERE deleted_at IS NULL ORDER BY date,id",
         )?;
         let rows = stmt
             .query_map([], |r| {
@@ -282,10 +282,25 @@ impl Store {
                     yuan(r.get(1)?),
                     yuan(r.get::<_, Option<i64>>(2)?),
                     text(&r.get::<_, String>(3)?, guarded),
+                    r.get::<_, String>(4)?,
+                    text(&r.get::<_, Option<String>>(5)?.unwrap_or_default(), guarded),
+                    r.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                    text(&r.get::<_, Option<String>>(7)?.unwrap_or_default(), guarded),
+                    r.get::<_, bool>(8)?.to_string(),
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        let header = ["到账日期", "税后到账（元）", "公积金缴存（元）", "备注"];
+        let header = [
+            "到账日期",
+            "税后到账（元）",
+            "公积金缴存（元）",
+            "备注",
+            "收入分类",
+            "来源账户ID",
+            "去向",
+            "接收账户ID",
+            "旧口径估计停用",
+        ];
         Ok((table(&header, &rows), rows.len() as i64))
     }
 
@@ -317,6 +332,7 @@ impl Store {
                 ("重要支出.csv", self.expenses_csv()?),
                 ("周期费用.csv", self.recurring_csv()?),
                 ("月度收入.csv", self.income_csv()?),
+                ("投资区间核对.csv", self.investment_review_table(true)?),
             ] {
                 atomic_write(&folder.join(name), csv.0.as_bytes())?;
                 done.push((name, csv.1));
@@ -327,6 +343,65 @@ impl Store {
             let _ = std::fs::remove_dir_all(folder);
         }
         result
+    }
+
+    /// Exact saved flow inputs, including deleted records and original endpoint
+    /// keys. Analysis only; the full database backup remains the restore format.
+    pub(crate) fn investment_review_table(&self, guarded: bool) -> Result<(String, i64)> {
+        let records = crate::investment_review::records(self.conn()?)?;
+        let mut rows = Vec::new();
+        for record in records {
+            let f = record.flow;
+            let cell = |key: &str| {
+                f[key].as_str().map(str::to_owned).unwrap_or_else(|| {
+                    if f[key].is_null() {
+                        String::new()
+                    } else {
+                        f[key].to_string()
+                    }
+                })
+            };
+            rows.push(vec![
+                cell("id"),
+                cell("revision"),
+                cell("from_snapshot_id"),
+                cell("to_snapshot_id"),
+                cell("from_date"),
+                cell("to_date"),
+                cell("scope_account_ids"),
+                cell("inflow_cents"),
+                cell("outflow_cents"),
+                cell("confirmed_complete"),
+                cell("unsupported_movements"),
+                text(&cell("notes"), guarded),
+                record.deleted.to_string(),
+                text(&cell("from_value_key"), guarded),
+                text(&cell("to_value_key"), guarded),
+            ]);
+        }
+        Ok((
+            table(
+                &[
+                    "编号",
+                    "修订",
+                    "期初盘点编号",
+                    "期末盘点编号",
+                    "期初日期",
+                    "期末日期",
+                    "账户范围编号",
+                    "转入（分）",
+                    "转出（分）",
+                    "已确认完整",
+                    "含未支持流动",
+                    "备注",
+                    "已删除",
+                    "原期初内容键",
+                    "原期末内容键",
+                ],
+                &rows,
+            ),
+            rows.len() as i64,
+        ))
     }
 
     pub fn export_finance_csv(&self, kind: &str, destination: &Path) -> Result<i64> {

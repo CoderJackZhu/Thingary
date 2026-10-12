@@ -1,10 +1,10 @@
 # 长期维护优先：产品边界与政策测算退出
 
-状态：**维护者已确认范围并要求细化产品与实施设计；页面、数据、计算、分批工作和验收契约已补齐，尚未修改应用行为。** 决定日期：2026-10-12。核对基线：`codex/planning-first-cleanup`，`177061e180c1651d1c57f66ae830297ecdfc755e`，工作树包含本设计及入口文档的未提交改动。当前实际行为仍见 [PRODUCT_RULES](PRODUCT_RULES.md)。
+状态：**范围已批准；第一批通用规划及第二批收入分类、投资区间存储与页面已接入当前源码，验收范围见开发说明。未发布。** 决定日期：2026-10-12。设计原始核对基线为 `codex/planning-first-cleanup` 的 `177061e180c1651d1c57f66ae830297ecdfc755e`；当前行为以 [PRODUCT_RULES](PRODUCT_RULES.md) 为准。
 
 阅读顺序：§1—9 为取舍与语义；[页面流程](#screens)、[逻辑数据](#data)、[时间与金额](#calculation)、[金融复盘](#investment-review)、[事实保全](#migration)、[代码接缝](#implementation)、[分批交付与验收](#delivery)为实施规格。各节不预占数据库版本、发布版本或实际命令名。
 
-本文件是本次收缩的唯一规格，优先于旧设计中保留养老金专页、维护地区参数、扩展职业与养老金政策联动的安排。2026-10-12 追加决定：**不兼容旧社保、养老金待遇和医保测算资料，包括旧出生年月、基数、地区、缴费及资格输入；只保证客观事实资料保全。** 个人养老金与公积金金融账户属于资产事实，继续保留。未知语义和保留业务的请求回执约束继续有效。文档完成不代表功能已退出、数据已迁移或应用已发布。
+本文件是本次收缩的唯一规格，优先于旧设计中保留养老金专页、维护地区参数、扩展职业与养老金政策联动的安排。2026-10-12 追加决定：**不兼容旧社保、养老金待遇和医保测算资料，包括旧出生年月、基数、地区、缴费及资格输入；只保证客观事实资料保全。** 个人养老金与公积金金融账户属于资产事实，继续保留。未知语义和保留业务的请求回执约束继续有效。源码实现、已完成验收与发布状态分开记录。
 
 ## 1. 产品承诺
 
@@ -384,7 +384,7 @@
 | `src/plan-basic.ts` 的 `prepareBasicPlan`／`buildBasicCapabilities` | 需求／预测继续分开；以通用收入代替 `pension` 专项能力；重设状态由所有消费者一致处理 |
 | `src/plan-retire-calc.ts` 及月账本、市场模拟消费者 | 时间和金额统一编译，受限资金按明确安排，去掉隐含法定退休节点；保留分析能力 |
 | `src/plan-medical.ts`、`PlanningMedical.tsx`、`src/career-preview/` 政策部分 | 删除医保判断和待遇研究路径；通用职业现金试算保留，不再引用政策函数 |
-| `src/PlanningPage.tsx` 的 `IncomeDialog`／`IncomeTable`，`PlanningReviewSummary.tsx` | 第二批实际收入分类、两金额核对窗及本期优先布局；无重复入口 |
+| `src/IncomeDialog.tsx`、`PlanningPage.tsx` 的 `IncomeTable`，`PlanningReviewSummary.tsx` | 第二批实际收入分类、两金额核对窗及本期优先布局；无重复入口 |
 | `src-tauri/src/plan_income.rs`、`plan_savings.rs`、相关 TS 类型 | 收入事实扩展、投资汇总及能力状态；守住原估计降级边界，不把新增投资收入直接当工资 |
 | `src-tauri/src/plan_profile.rs`、`plan_basic.rs`、`plan_core.rs` | 拆除政策持久化依赖，保留通用计划与客观事实；新时间结构前后端一致 |
 | `src-tauri/src/financial_import.rs`、`financial_import_parser.rs`、`spreadsheet.rs` 及备份／迁移 | 事实导入兼容、新分类导出、区间备份校验、旧政策区段丢弃、原请求与映射防重 |

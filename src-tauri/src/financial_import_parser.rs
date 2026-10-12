@@ -204,7 +204,18 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
             "kind_at_date",
             "counted_at_date",
         ]),
-        "incomes" => Some(&["income_key", "date", "net_income", "hpf_deposit", "note"]),
+        "incomes" => Some(&[
+            "income_key",
+            "date",
+            "net_income",
+            "hpf_deposit",
+            "note",
+            "category",
+            "source_account_key",
+            "destination",
+            "receiving_account_key",
+            "legacy_estimate_unavailable",
+        ]),
         "income_coverage" => Some(&["from_date", "to_date", "state", "note"]),
         "net_worth_history" => Some(&["history_key", "date", "net_worth", "note"]),
         _ => None,
@@ -216,7 +227,15 @@ fn optional_columns(kind: &str) -> &'static [&'static str] {
     match kind {
         "accounts" => &["disabled_from", "platform", "note"],
         "snapshots" => &["note", "kind_at_date", "counted_at_date"],
-        "incomes" => &["hpf_deposit", "note"],
+        "incomes" => &[
+            "hpf_deposit",
+            "note",
+            "category",
+            "source_account_key",
+            "destination",
+            "receiving_account_key",
+            "legacy_estimate_unavailable",
+        ],
         "income_coverage" => &["note"],
         "net_worth_history" => &["note"],
         _ => &[],
@@ -483,6 +502,13 @@ pub struct IncomeRowV1 {
     pub net_income_cents: String,
     pub hpf_deposit_cents: Option<String>,
     pub note: Option<String>,
+    #[serde(skip)]
+    pub classification_columns: Vec<String>,
+    pub legacy_estimate_unavailable: bool,
+    pub category: String,
+    pub source_account_key: Option<String>,
+    pub destination: Option<String>,
+    pub receiving_account_key: Option<String>,
 }
 
 /// One income completeness declaration for the half-open interval
@@ -1684,6 +1710,53 @@ fn parse_income_row(
         MAX_INCOME_NOTE_CHARS,
         &mut issues,
     );
+    let optional = |name| {
+        h.cell(record, name)
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_owned)
+    };
+    let category = optional("category").unwrap_or_else(|| "unclassified".into());
+    let destination = optional("destination");
+    let source_account_key = optional("source_account_key");
+    let receiving_account_key = optional("receiving_account_key");
+    if ![
+        "unclassified",
+        "non_investment",
+        "interest",
+        "cash_dividend",
+        "other_investment",
+    ]
+    .contains(&category.as_str())
+        || destination
+            .as_ref()
+            .is_some_and(|v| !["retained", "transferred", "unknown"].contains(&v.as_str()))
+        || (!["interest", "cash_dividend", "other_investment"].contains(&category.as_str())
+            && destination.is_some())
+        || (receiving_account_key.is_some() && destination.as_deref() != Some("transferred"))
+    {
+        issues.push(row_issue(
+            "INCOME_CLASSIFICATION",
+            row,
+            h.column_label("category"),
+            None,
+            "收入分类或去向无效".into(),
+        ));
+    }
+    let guard = optional("legacy_estimate_unavailable");
+    let legacy_estimate_unavailable = guard.as_deref() == Some("true");
+    if guard
+        .as_ref()
+        .is_some_and(|v| !["true", "false"].contains(&v.as_str()))
+    {
+        issues.push(row_issue(
+            "INCOME_CLASSIFICATION",
+            row,
+            h.column_label("legacy_estimate_unavailable"),
+            None,
+            "旧口径估计保护须为true或false".into(),
+        ));
+    }
     if issues.iter().any(|i| i.severity == SeverityV1::Error) {
         return Err(RowRejection {
             issues,
@@ -1697,6 +1770,21 @@ fn parse_income_row(
         net_income_cents: net_income.expect("validated"),
         hpf_deposit_cents: hpf_deposit.flatten(),
         note: note.flatten(),
+        classification_columns: [
+            "category",
+            "source_account_key",
+            "destination",
+            "receiving_account_key",
+        ]
+        .into_iter()
+        .filter(|k| h.index.contains_key(k))
+        .map(str::to_owned)
+        .collect(),
+        legacy_estimate_unavailable,
+        category,
+        source_account_key,
+        destination,
+        receiving_account_key,
     }))
 }
 

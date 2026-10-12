@@ -11,7 +11,7 @@ export type ImportPreview = { generation:string;context_digest:string;normalized
 export type ImportCommit = { request_id:string;batch:ImportBatch;context_digest:string;normalized_digest:string;file_fingerprints:Record<string,string> };
 export const columns:Record<FileKind,string[]> = {
  accounts:['account_key','name','kind','enabled_from','disabled_from','counted','platform','note'],
- incomes:['income_key','date','net_income','hpf_deposit','note'],
+ incomes:['income_key','date','net_income','hpf_deposit','note','category','source_account_key','destination','receiving_account_key','legacy_estimate_unavailable'],
  snapshots:['snapshot_key','date','account_key','amount','note','kind_at_date','counted_at_date'],
 };
 /** Read only the first logical record for the mapping UI; all data validation remains Rust-owned. */

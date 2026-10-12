@@ -20,7 +20,7 @@ export type ReviewOuter =
   | { status: 'empty' }
   | { status: 'ready'; input: unknown; result: unknown };
 
-function ScopeTable({ input }: { input: InvestmentReviewInputV1 }) {
+function ScopeTable({ input, accountNames }: { input: InvestmentReviewInputV1; accountNames: Record<string, string> }) {
   const toById = new Map(input.to.members.map(m => [m.account_id, m]));
   const fromById = new Map(input.from.members.map(m => [m.account_id, m]));
   const members = [...input.from.members, ...input.to.members.filter(m => !fromById.has(m.account_id))];
@@ -41,7 +41,7 @@ function ScopeTable({ input }: { input: InvestmentReviewInputV1 }) {
           const from = fromById.get(m.account_id);
           return (
             <tr key={m.account_id} className={m.counted ? undefined : 'ivr-uncounted'}>
-              <td>{m.account_id}</td>
+              <td>{accountNames[m.account_id] || '历史账户'}{!accountNames[m.account_id] && <details><summary>账户标识</summary><code>{m.account_id}</code></details>}</td>
               <td>{kindLabel[m.kind]}</td>
               <td>{m.counted ? '计入' : '不计入'}</td>
               <td className="ivr-num">{!from ? '—' : from.amount_cents === null ? '未知' : formatCents(from.amount_cents)}</td>
@@ -76,11 +76,13 @@ function ChangeLine({ change }: { change: string | null }) {
 
 export function InvestmentReviewCard({
   outer,
+  accountNames = {},
   onCheckFlow,
   onEditFlow,
   disabled = false,
 }: {
   outer: ReviewOuter;
+  accountNames?: Record<string, string>;
   /** 尚无流动记录时打开核对窗口。 */
   onCheckFlow?: () => void;
   /** 已有记录但需复核时重新核对。 */
@@ -154,7 +156,7 @@ export function InvestmentReviewCard({
           </p>
         </div>
       </header>
-      <ScopeTable input={input} />
+      <ScopeTable input={input} accountNames={accountNames} />
 
       <div className="ivr-result" aria-live="polite">
         {result.status === 'ready' && (

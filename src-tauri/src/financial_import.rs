@@ -468,7 +468,7 @@ fn prepare(
     checkpoint(cancel)?;
     namespace(b)?;
     let mappings = keys(tx, b)?;
-    let live = if has_wealth(b) {
+    let live = if has_wealth(b) || b.files.iter().any(|f| f.kind == "incomes") {
         wealth::accounts_cancellable(tx, &|| checkpoint(cancel))?
     } else {
         Vec::new()
@@ -940,17 +940,62 @@ fn prepare(
             };
             let key = format!("income:{}", r.income_key);
             standard.push(serde_json::to_value(&r)?);
-            let f = plan_income::Fields {
+            let mut unresolved_reference = false;
+            let mut resolve_account = |external: &Option<String>| -> Option<String> {
+                external.as_ref().and_then(|key| {
+                    let value = bindings.get(key).cloned();
+                    if value.is_none() {
+                        unresolved_reference = true;
+                    }
+                    value
+                })
+            };
+            referenced_keys.extend(r.source_account_key.iter().cloned());
+            referenced_keys.extend(r.receiving_account_key.iter().cloned());
+            let source_account_id = resolve_account(&r.source_account_key);
+            let receiving_account_id = resolve_account(&r.receiving_account_key);
+            if unresolved_reference {
+                issue(
+                    &mut issues,
+                    &file.name,
+                    Some(&key),
+                    Some(r.source_row),
+                    Error::new("INCOME_ACCOUNT", "收入引用账户尚未映射"),
+                    b.actions.get(&key).is_none_or(|a| a.action != "exclude"),
+                );
+                continue;
+            }
+            let mut f = plan_income::Fields {
                 date: r.date,
                 net_cents: r.net_income_cents,
                 hpf_cents: r.hpf_deposit_cents,
                 notes: r.note.unwrap_or_default(),
+                category: r.category,
+                source_account_id,
+                destination: r.destination,
+                receiving_account_id,
             };
             let mapped = mappings.get(&("income".into(), r.income_key.clone()));
             let id = mapped
                 .map(|m| m.id.clone())
                 .unwrap_or_else(|| stable_id(b, "income", &r.income_key));
             let old = plan_income::read(tx, &id)?;
+            if let Some(previous) = &old {
+                let provided = |key: &str| r.classification_columns.iter().any(|c| c == key);
+                if !provided("category") {
+                    f.category = previous.fields.category.clone();
+                }
+                if !provided("source_account_key") {
+                    f.source_account_id = previous.fields.source_account_id.clone();
+                }
+                if !provided("destination") {
+                    f.destination = previous.fields.destination.clone();
+                }
+                if !provided("receiving_account_key") {
+                    f.receiving_account_id = previous.fields.receiving_account_id.clone();
+                }
+            }
+
             let before = old
                 .as_ref()
                 .map(|i| serde_json::to_value(&i.fields))
@@ -958,7 +1003,10 @@ fn prepare(
             let after = serde_json::to_value(&f)?;
             let mut status = if old.is_none() {
                 "new"
-            } else if before.as_ref() == Some(&after) {
+            } else if before.as_ref() == Some(&after)
+                && (!r.legacy_estimate_unavailable
+                    || old.as_ref().is_some_and(|i| i.classification_changed))
+            {
                 "same"
             } else {
                 "conflict"
@@ -994,7 +1042,15 @@ fn prepare(
                     today,
                     Some(&id),
                 ) {
-                    Ok(i) => revision_after = Some(i.revision),
+                    Ok(i) => {
+                        if r.legacy_estimate_unavailable {
+                            tx.execute(
+                                "UPDATE plan_income SET classification_changed=1 WHERE id=?1",
+                                [&i.id],
+                            )?;
+                        }
+                        revision_after = Some(i.revision);
+                    }
                     Err(e) => {
                         status = "error".into();
                         issue(

@@ -503,7 +503,8 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
             .unwrap(),
     )
     .unwrap();
-    db.execute_batch("PRAGMA user_version=33;").unwrap();
+    db.execute_batch("DROP TABLE investment_flows; PRAGMA user_version=33;")
+        .unwrap();
     drop(db);
     let bytes = std::fs::read(&old_db).unwrap();
     let manifest = serde_json::json!({"format":1,"schema":33,"created_at":"2026-10-09T08:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
@@ -1452,6 +1453,10 @@ fn old34_backup_and_receipt_restore_into_current_preserve_replay_zero_and_mappin
                     net_cents: "10001".into(),
                     hpf_cents: Some("0".into()),
                     notes: "虚构旧零".into(),
+                    category: "unclassified".into(),
+                    source_account_id: None,
+                    destination: None,
+                    receiving_account_id: None,
                 },
             },
             "2026-10-09",
@@ -1463,7 +1468,7 @@ fn old34_backup_and_receipt_restore_into_current_preserve_replay_zero_and_mappin
         .unwrap()
         .run_to_completion(128, std::time::Duration::from_millis(1), None)
         .unwrap();
-    db.execute_batch("CREATE TEMP TABLE old_income AS SELECT * FROM plan_income; CREATE TEMP TABLE old_keys AS SELECT * FROM import_external_key; CREATE TEMP TABLE old_receipts AS SELECT * FROM import_receipt; DROP TABLE plan_income; DROP TABLE import_external_key; DROP TABLE import_receipt;").unwrap();
+    db.execute_batch("DROP TABLE investment_flows; CREATE TEMP TABLE old_income AS SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,deleted_at FROM plan_income; CREATE TEMP TABLE old_keys AS SELECT * FROM import_external_key; CREATE TEMP TABLE old_receipts AS SELECT * FROM import_receipt; DROP TABLE plan_income; DROP TABLE import_external_key; DROP TABLE import_receipt;").unwrap();
     db.execute_batch(
         include_str!("../src/plan_income.sql")
             .split("-- A check-in")
@@ -1530,4 +1535,39 @@ fn old34_backup_and_receipt_restore_into_current_preserve_replay_zero_and_mappin
     t.backup(Some(&tmp.path().join("current.thingary")))
         .unwrap();
     println!("old34 backup inspect/restore ->current: old receipt read and same-batch replay, 2 mappings, 1 receipt, zero and IDs preserved");
+}
+
+#[test]
+fn optional_income_classification_survives_older_file_corrections() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut s = Store::open(tmp.path()).unwrap();
+    let classified="income_key,date,net_income,hpf_deposit,note,category,destination,legacy_estimate_unavailable\ni1,2026-09-30,100,,original,interest,unknown,true\n";
+    let b = income_batch(&s, classified);
+    let input = commit_input(&s, b);
+    s.financial_import_commit(&input, "2026-10-09").unwrap();
+    let old = s.plan_income_list().unwrap().rows[0].clone();
+    assert!(old.classification_changed);
+    let mut correction = income_batch(
+        &s,
+        "income_key,date,net_income,hpf_deposit,note\ni1,2026-09-30,100,,corrected\n",
+    );
+    let p = s
+        .financial_import_preview(&correction, "2026-10-09", &|| false)
+        .unwrap();
+    let row = p.objects.iter().find(|o| o.status == "conflict").unwrap();
+    assert_eq!(row.after["category"], "interest");
+    assert_eq!(row.after["destination"], "unknown");
+    correction.actions.insert(
+        row.key.clone(),
+        Action {
+            action: "correct".into(),
+            expected_revision: Some(old.revision),
+        },
+    );
+    let input = commit_input(&s, correction);
+    s.financial_import_commit(&input, "2026-10-09").unwrap();
+    let updated = s.plan_income(&old.id).unwrap().unwrap();
+    assert_eq!(updated.fields.notes, "corrected");
+    assert_eq!(updated.fields.category, "interest");
+    assert!(updated.classification_changed);
 }

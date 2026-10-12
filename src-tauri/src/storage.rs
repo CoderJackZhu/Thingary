@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 36;
+pub const SCHEMA_VERSION: i64 = 37;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -834,6 +834,15 @@ PRAGMA user_version=14;")?;
         let tx = c.unchecked_transaction()?;
         crate::plan_migration::migrate(&tx, hook)?;
         tx.execute_batch("PRAGMA user_version=36;")?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 36;
+    }
+    if v == 36 && target >= 37 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("income_sources.sql"))?;
+        tx.execute_batch(include_str!("investment_review.sql"))?;
+        tx.execute_batch("PRAGMA user_version=37;")?;
         hook("migration.before_commit")?;
         tx.commit()?;
     }

@@ -88,7 +88,7 @@ export const pendingKey = 'thingary.wealth-pending.v1';
 export type TrashChange = { request_id: string; generation: string; kind: TrashKind; id: string; expected_revision: number; deleted: boolean };
 export type TrashKind = 'snapshot' | 'account' | 'expense' | 'income' | 'plan' | 'payment' | 'wish' | 'virtual' | 'topup' | 'balance';
 export type PurgeInput = { request_id: string; generation: string; kind: string | null; id: string; preview?: string };
-export type Pending = { command: 'financial_import_commit' | 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'plan_profile_update' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save' | 'link_save' | 'link_create' | 'link_trash' | 'link_restore' | 'link_reconcile' | 'link_merge' | 'purge_trash'; input: import('./plan.ts').ProfileUpdate | PurgeInput | AccountSave | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | LinkSaveInput | LinkCreateInput | LinkTrashInput | LinkRestoreInput | ReconcileInput | MergeInput | { request_id: string; generation: string }; label: string };
+export type Pending = { command: 'investment_review_save' | 'investment_review_trash' | 'financial_import_commit' | 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'plan_profile_update' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save' | 'link_save' | 'link_create' | 'link_trash' | 'link_restore' | 'link_reconcile' | 'link_merge' | 'purge_trash'; input: InvestmentReviewSave | InvestmentReviewTrash | import('./plan.ts').ProfileUpdate | PurgeInput | AccountSave | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | LinkSaveInput | LinkCreateInput | LinkTrashInput | LinkRestoreInput | ReconcileInput | MergeInput | { request_id: string; generation: string }; label: string };
 export function storedPending(): Pending | null {
   try { const p = JSON.parse(localStorage.getItem(pendingKey) || 'null'); if (p && typeof p.command === 'string' && typeof p.input?.request_id === 'string') return p; } catch { /* unreadable receipt is ignored */ }
   return null;
@@ -143,7 +143,7 @@ export async function resolvePending(pending: Pending): Promise<'saved' | 'unsav
     }
     clearPending(); return 'unsaved';
   } catch (e) {
-    if (code(e) === 'STALE_DATASET') { if (pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update' || pending.command === 'plan_profile_save') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
+    if (code(e) === 'STALE_DATASET') { if (pending.command === 'plan_income_save' || pending.command === 'investment_review_save' || pending.command === 'investment_review_trash' || pending.command === 'financial_import_commit' || pending.command === 'plan_profile_update' || pending.command === 'plan_profile_save') throw new Unresolved('资料库已切换；原请求元数据仍保留，请回到原资料库核对。'); clearPending(); return 'stale'; }
     throw e;
   }
 }
@@ -158,3 +158,23 @@ export function previewTotals(rows: { side: Side; counted: boolean; cents: strin
   }
   return { assets: assets.toString(), liabilities: liabilities.toString(), net: (assets - liabilities).toString(), missing };
 }
+
+/** Native investment review contract. Endpoint keys are opaque domain values. */
+export type InvestmentReviewRecord = { flow: import('./investment-review/model.ts').InvestmentFlowV1; deleted: boolean };
+export type InvestmentReviewRead = {
+  generation: string;
+  input: import('./investment-review/model.ts').InvestmentReviewInputV1;
+  result: import('./investment-review/model.ts').InvestmentReviewResultV1;
+  from_value_key: string; to_value_key: string;
+  records: InvestmentReviewRecord[];
+};
+export type InvestmentReviewSave = {
+  request_id: string; generation: string; id: string | null; expected_revision: number | null;
+  from_snapshot_id: string; to_snapshot_id: string; from_value_key: string; to_value_key: string;
+  fields: ReturnType<typeof import('./investment-review/model.ts').draftToFlowPatch>;
+};
+export type InvestmentReviewTrash = { request_id: string; generation: string; id: string; expected_revision: number; deleted: boolean };
+export const readInvestmentReview = (generation: string, fromSnapshotId: string, toSnapshotId: string) => invoke<InvestmentReviewRead>('investment_review_read', { generation, fromSnapshotId, toSnapshotId });
+export const listInvestmentReviews = (generation: string) => invoke<{ generation: string; records: InvestmentReviewRecord[] }>('investment_review_list', { generation });
+export const saveInvestmentReview = (input: InvestmentReviewSave) => submit<import('./investment-review/model.ts').InvestmentFlowV1>({ command: 'investment_review_save', input, label: '投资资金流动核对' });
+export const trashInvestmentReview = (input: InvestmentReviewTrash) => submit<void>({ command: 'investment_review_trash', input, label: input.deleted ? '删除投资核对' : '恢复投资核对' });

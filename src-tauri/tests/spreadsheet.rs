@@ -102,7 +102,8 @@ fn item_workbook_preserves_text_unknown_zero_multiline_and_detects_edits() {
             "月度收入",
             "盘点记录",
             "重要支出",
-            "周期费用"
+            "周期费用",
+            "投资区间核对"
         ]
     );
     assert!(book.worksheet_formula("物品").unwrap().is_empty());
@@ -160,6 +161,30 @@ fn financial_sample_excel_transaction_replay_export_import_restart_backup() {
     assert_eq!(r.counts.created_incomes, 25);
     let replay = commit(&mut s, b);
     assert_eq!(replay.request_id, r.request_id);
+    let income = s.plan_income_list().unwrap().rows[0].clone();
+    let source = s
+        .wealth_accounts()
+        .unwrap()
+        .into_iter()
+        .find(|a| a.fields.side == "asset")
+        .unwrap();
+    let classified = thingary_lib::plan_income::Fields {
+        category: "cash_dividend".into(),
+        source_account_id: Some(source.id),
+        destination: Some("retained".into()),
+        ..income.fields.clone()
+    };
+    s.plan_income_save(
+        &thingary_lib::plan_income::Save {
+            request_id: uuid::Uuid::new_v4().to_string(),
+            generation: s.generation(),
+            id: Some(income.id),
+            expected_revision: Some(income.revision),
+            fields: classified,
+        },
+        "2026-10-09",
+    )
+    .unwrap();
     let export = t.path().join("导出.xlsx");
     s.export_workbook(&export).unwrap();
     let mut dest = Store::open(&t.path().join("dest")).unwrap();
@@ -168,6 +193,21 @@ fn financial_sample_excel_transaction_replay_export_import_restart_backup() {
     assert_eq!(copied.counts.created_accounts, 6);
     assert_eq!(copied.counts.created_snapshots, 24);
     assert_eq!(copied.counts.created_incomes, 25);
+    let classified = dest
+        .plan_income_list()
+        .unwrap()
+        .rows
+        .into_iter()
+        .find(|i| i.fields.category == "cash_dividend")
+        .unwrap();
+    assert_eq!(classified.fields.destination.as_deref(), Some("retained"));
+    assert_eq!(classified.fields.hpf_cents, income.fields.hpf_cents);
+    let target_id = classified.fields.source_account_id.as_ref().unwrap();
+    assert!(dest
+        .wealth_accounts()
+        .unwrap()
+        .iter()
+        .any(|a| &a.id == target_id));
     let normalize = |summary| {
         let mut v = serde_json::to_value(summary).unwrap();
         v.as_object_mut().unwrap().remove("generation");

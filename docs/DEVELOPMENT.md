@@ -175,10 +175,10 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 
 未关联事件的已有贷款显示「告诉我你的贷款怎么还」，直接打开逐账户还款安排；通用付款引用待核对仍显示「核对已有贷款与付款」，使用现有大额计划表入口。有明确事件的过期计划仍逐个打开核对窗口，不跳总表。
 
-2b 仅保留硬阻塞，非阻塞缺项显示带覆盖说明的状态 2；存储契约不变。测算详情保留 `PlanningBasicDetail.tsx` 概览 `RequirementCard` 和 `NeedContribution` 的非预计投入阻断分支旧按钮；它们涉及需求/预测/临时试算多路跳转，本任务未统一替换。原生验收必须使用独立 bundle 标识 `local.thingary.planning.fourq.acceptance20261009` 与虚构资料；验收包供独立运行，不代表安装、发布或生产库验收。
+2b 仅保留硬阻塞，非阻塞缺项显示带覆盖说明的状态 2。测算详情保留 `PlanningBasicDetail.tsx` 概览 `RequirementCard` 和 `NeedContribution` 的非预计投入阻断分支旧按钮；它们涉及需求/预测/临时试算多路跳转，本任务未统一替换。原生验收必须使用独立 bundle 标识 `local.thingary.planning.fourq.acceptance20261009` 与虚构资料；验收包供独立运行，不代表安装、发布或生产库验收。
 
 
-四问隔离原生已验：全新个人资料 0→Q1–Q4→结果；编辑模式六屏带值、保存并返回；关闭/Esc/跳过重新打开无草稿；原生文件选择器完整备份、修改、恢复后结果状态重建。北京保全使用精确旧 main 的真实 Store 写入虚构既有资料，再由当前原生向导修改生活费；整个 profile 对比仅生活费变化，含已选收入、养老金事实、缴费安排、隐藏参数、费用与稳定 ID 均保留。重启后状态由保存资料重新推出。尚未验：VoiceOver、真实中文输入法组合、原生三种外观浅深全尺寸矩阵、原生保存故障注入（浏览器/组件测试已覆盖失败与结果未知）。没有访问正式库，验收包未安装、发布。
+四问隔离原生已验：全新个人资料 0→Q1–Q4→结果；编辑模式六屏带值、保存并返回；关闭/Esc/跳过重新打开无草稿；原生文件选择器完整备份、修改、恢复后结果状态重建。历史政策版本的北京保全使用精确旧 main 的真实 Store 写入虚构既有资料，再由当前原生向导修改生活费；整个 profile 对比仅生活费变化，含已选收入、养老金事实、缴费安排、隐藏参数、费用与稳定 ID 均保留。重启后状态由保存资料重新推出。尚未验：VoiceOver、真实中文输入法组合、原生三种外观浅深全尺寸矩阵、原生保存故障注入（浏览器/组件测试已覆盖失败与结果未知）。没有访问正式库，验收包未安装、发布。
 
 非阻塞回归使用 tests/fixtures/planning-basic/nonblocking-demo.json，由 demo_finance::import_plan 同批真实导入并规范化虚构 ID 生成；原始样例 Q3 已声明每个计入资产的 available/restricted。planning-nonblocking 测月账本/事实保全，planning-fourq-components 测第三问保存 2b→2 与发生窗口，planning-coverage-consumers 遍历共享消费者并以真实 React 检验摘要。预览 ?section=planning&plan-nonblocking=normal|unknown|empty|error|funds|beijing 使用该批数据与真实纯计算。原生验收身份 local.thingary.nonblocking.acceptance20261010，与正式库隔离；缓存用 build-dir 或 /private/tmp/thingary-build-nonblocking，交付前删除。
 
@@ -200,26 +200,29 @@ P1-3B 收入回归覆盖 I02/I03/I07/I09/I11：空缴存与零、同日同额不
 
 0.0.3 Beta 使用 `.xlsx` 工作簿，外部 CSV 入口已替换；内部金融纯解析契约保留。`src-tauri/tests/spreadsheet.rs` 使用临时目录与虚构数据验证物品／账户／完整盘点／收入往返、未知与零、中文／前导零／字面公式文本、多行备注定位、同批回执重放、重启与完整备份，以及公式／异常 ZIP／稀疏范围拒绝、失败不覆盖目标。schema 25→35 升级保留事实与稳定 ID，Excel 改动不新增迁移。浏览器展示及自动测试不代表原生系统文件面板或其他表格软件交互已验。
 
-医保年限虚构预览追加 `plan-medical=short|ok|unknown|topup`（同时用 `section=planning&capabilities=real`），核对养老金与目标页，`state=save-error` 验证保存失败保留输入；均为内存数据。
-
 ### 复盘摘要回归
 
 `tests/review-observations.test.mjs` 覆盖多项待核对同时存在仍保留三类事实、账户范围变化、零／未记录收入、付款读取不可用／空记录／未知金额及退款净额。`PlanningReviewSummary` 分区展示本期事实和待核对事项，保留原发生保存器与窗口；浏览器使用虚构收入与复盘页，检查补录／当前计划／发生核对入口、局部读取失败与窄窗口。
-
-规划资金起点文案须同时覆盖完整盘点与手填金额：通用详情与养老金调整对比使用“资金起点”，独立养老金页无完整盘点时明确说明估算日期，不声称存在盘点。
-
-
-### 退休模型的决策有效性核验
 
 
 
 
 ## 简化规划集成验证
 
-当前源码使用 schema36：旧库／旧备份转换只移除政策输入，保全事实、附件与回执。`src-tauri/tests/helpers/planning_migration.rs` 覆盖迁移前后逐字段对比、取消事件费用、事务中断、恢复与损坏输入；不使用正式资料库。规划当前类型与保存见 [架构](ARCHITECTURE.md#简化规划与一次性迁移)。
+简化规划由 schema36 引入（当前为 schema37）：旧库／旧备份转换只移除政策输入，保全事实、附件与回执。`src-tauri/tests/helpers/planning_migration.rs` 覆盖迁移前后逐字段对比、取消事件费用、事务中断、恢复与损坏输入；不使用正式资料库。规划当前类型与保存见 [架构](ARCHITECTURE.md#简化规划与一次性迁移)。
 
 独立界面预览 `/planning-simplified-preview.html`，主页面虚构预览 `/visual-preview.html?section=planning&plan-basic=saved`；所有规划预览使用通用计算，不再注入政策估算结果。投资组件预览 `/src/investment-review/preview/index.html` 在第二批组件合入后可用，不代表真实保存已接入。
 
 标准检查为 `npm run build`、`npm run test:ui`、`npm run check`、`npm test`；投资组件另跑 `cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_contract`。旧政策专属测试退出；时间、未知金额、四问原子保存、失败／未知回执、贷款事实、月份图表、市场模拟和迁移保护继续回归。
 
 本次集成自动测试与浏览器验证独立登记。此前旧政策页面的原生验收不适用于新界面；新四问、恢复选择器、重启、VoiceOver 和同尺寸视觉对照必须分别验证，不得从自动测试推定原生通过。
+
+## 收入分类与投资区间接入验证
+
+schema37 迁移同时建立收入来源字段和投资区间核对表。真实临时 Store 回归覆盖旧schema36备份与请求重放、分类与公积金事实、Excel缺列更正和新字段往返、分类更正保护、核对保存／编辑／删除／恢复、端点变更失效、重叠、失联回执和事务回滚。标准四项检查之外，独立计算组件仍跑 `cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_contract`。
+
+浏览器 `/visual-preview.html?section=planning&investment=ready-profit` 中选择“收入与复盘”查看固定虚构输出；还可使用组件夹具中的其他状态。此预览不复算投资损益，投资保存明确拒绝，不能作为持久化证据。实际收入的浏览器保存仅在内存，刷新重置。前端 `income-classification.test.mjs` 验证来源分类、默认值、事实保全、同步提交锁及卸载后回调；`investment-review-host.test.mjs` 覆盖真实宿主端口、失效确认清除、原区间与失败状态。
+
+隔离原生夹具 `investment_acceptance_fixture` 仅接受路径组件 `local.thingary.investment.acceptance.20261012`，且要求全新目录；不得用于正式库。以同一独立 bundle 标识构建验收包，原生核心保存与完整系统交互矩阵分别登记；未验证项不能从 Store 或浏览器测试推定通过。
+
+2026-10-12 的独立原生包已验证：无退休目标时记录收入、零转入／转出完整核对、利息分类不重复增加投资损益、旧口径估计停用、核对删除／恢复及退出重启后保留。未记录与已确认画面以同一 1440×940 窗口检查。系统文件面板、VoiceOver、全键盘与完整明暗／窗口尺寸矩阵仍未验，不能据此标记全量原生验收完成。

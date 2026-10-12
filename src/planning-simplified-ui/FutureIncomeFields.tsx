@@ -41,6 +41,7 @@ export function FutureIncomeFields({ value, reference, issues, busy, today, onOp
         <option value="pension">养老金</option><option value="other">其他固定收入</option>
       </select>
     </FormRow>
+    {d.role === 'other' && <p className="muted small">已纳入规划的自有投资，其利息和分红包含在总回报假设里，不要在这里重复添加。这里只填养老金、租金等另外的净收入。</p>}
     <FormRow label="每月预计净到账金额" hint="留空表示还不知道；不知道不当作 0。官方测算结果由你自己填在这里">
       <CentInput label="每月预计净到账金额" value={d.monthly_cents ?? ''} disabled={busy} placeholder="例如 4000.00" onChange={v => patch({ monthly_cents: v === '' ? null : v })}/>
     </FormRow>

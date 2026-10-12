@@ -27,6 +27,10 @@ fn fields(day: &str, net: i64, hpf: i64) -> Fields {
         net_cents: yuan(net),
         hpf_cents: Some(yuan(hpf)),
         notes: String::new(),
+        category: "unclassified".into(),
+        source_account_id: None,
+        destination: None,
+        receiving_account_id: None,
     }
 }
 fn new(s: &Store, f: Fields) -> Save {
@@ -647,4 +651,109 @@ fn unknown_deposit_save_edit_restart_does_not_erase_arrival_or_asset_facts() {
         .fields
         .hpf_cents
         .is_none());
+}
+
+#[test]
+fn investment_income_is_explanatory_preserves_hpf_and_suppresses_old_estimates() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("fictional")).unwrap();
+    let b = book(&mut s);
+    check_in(&mut s, "2026-01-31", &[(&b.cash, 10000), (&b.fund, 20000)]);
+    check_in(&mut s, "2026-03-31", &[(&b.cash, 30000), (&b.fund, 26000)]);
+    let base = s.wealth_summary().unwrap();
+    s.plan_income_save(&new(&s, fields("2026-02-15", 20000, 3000)), TODAY)
+        .unwrap();
+    let f = Fields {
+        category: "cash_dividend".into(),
+        source_account_id: Some(b.cash.id.clone()),
+        destination: Some("retained".into()),
+        hpf_cents: None,
+        ..fields("2026-03-15", 100, 0)
+    };
+    let input = new(&s, f);
+    let row = s.plan_income_save(&input, TODAY).unwrap();
+    assert_eq!(s.plan_income_save(&input, TODAY).unwrap().id, row.id);
+    assert_eq!(
+        s.wealth_summary().unwrap().points[1].net_cents,
+        base.points[1].net_cents
+    );
+    let review = s.plan_review().unwrap();
+    let i = &review.intervals[0];
+    assert!(i.legacy_estimate_unavailable);
+    assert!(i.saving_cents.is_none() && i.spend_cents.is_none());
+    assert!(i.delta_nw_cents.is_some());
+    assert_eq!(i.hpf_cents.as_deref(), Some("300000"));
+    assert_eq!(i.hpf_unknown_records, 0);
+    assert_eq!(review.stats.count, 0);
+    let mut edit = input.clone();
+    edit.request_id = rid();
+    edit.id = Some(row.id.clone());
+    edit.expected_revision = Some(1);
+    edit.fields.category = "unclassified".into();
+    edit.fields.destination = None;
+    s.plan_income_save(&edit, TODAY).unwrap();
+    assert!(
+        s.plan_review().unwrap().intervals[0].legacy_estimate_unavailable,
+        "classification correction keeps legacy estimates unavailable"
+    );
+    let mut invalid = new(&s, fields("2026-02-15", 1, 0));
+    invalid.fields.source_account_id = Some(rid());
+    assert_eq!(code(s.plan_income_save(&invalid, TODAY)), "INCOME_ACCOUNT");
+    invalid.fields.source_account_id = Some(b.cash.id.clone());
+    invalid.fields.receiving_account_id = Some(b.cash.id.clone());
+    invalid.fields.category = "interest".into();
+    invalid.fields.destination = Some("transferred".into());
+    assert_eq!(
+        code(s.plan_income_save(&invalid, TODAY)),
+        "INCOME_DESTINATION"
+    );
+}
+
+#[test]
+fn old_income_request_serialization_is_identical_and_replay_survives_schema37() {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join("fictional");
+    let mut s = Store::open(&root).unwrap();
+    let raw = serde_json::json!({"request_id":rid(),"generation":s.generation(),"id":null,"expected_revision":null,"fields":{"date":"2026-02-15","net_cents":"100","hpf_cents":null,"notes":"虚构旧事实"}});
+    let input: Save = serde_json::from_value(raw.clone()).unwrap();
+    assert_eq!(serde_json::to_value(&input).unwrap(), raw);
+    assert_eq!(input.fields.category, "unclassified");
+    let saved = s.plan_income_save(&input, TODAY).unwrap();
+    drop(s);
+    let mut s = Store::open(&root).unwrap();
+    assert_eq!(s.plan_income_save(&input, TODAY).unwrap().id, saved.id);
+    assert_eq!(s.plan_income_list().unwrap().rows.len(), 1);
+}
+
+#[test]
+fn income_account_reference_survives_trash_and_blocks_permanent_account_removal() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&d.path().join("fictional")).unwrap();
+    let a = account(&mut s, "虚构分红账户", "investment");
+    let f = Fields {
+        category: "interest".into(),
+        source_account_id: Some(a.id.clone()),
+        destination: Some("retained".into()),
+        ..fields("2026-02-15", 1, 0)
+    };
+    let income = s.plan_income_save(&new(&s, f), TODAY).unwrap();
+    s.wealth_trash(&trash(&s, "income", &income.id, 1, true))
+        .unwrap();
+    s.wealth_trash(&trash(&s, "account", &a.id, 1, true))
+        .unwrap();
+    assert_eq!(
+        code(s.purge_trash(&purge(&s, "account", &a.id))),
+        "PLANNING_DEPENDENCY"
+    );
+    s.wealth_trash(&trash(&s, "income", &income.id, 2, false))
+        .unwrap();
+    assert_eq!(
+        s.plan_income(&income.id)
+            .unwrap()
+            .unwrap()
+            .fields
+            .source_account_id
+            .as_deref(),
+        Some(a.id.as_str())
+    );
 }

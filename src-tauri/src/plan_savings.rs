@@ -33,6 +33,8 @@ pub struct IncomeRow {
     pub date: String,
     pub net_cents: i64,
     pub hpf_cents: Option<i64>,
+    pub investment: bool,
+    pub classification_changed: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -45,6 +47,7 @@ pub struct Interval {
     /// `ok`, `scope_changed` or `no_income`; only `ok` carries figures.
     pub status: &'static str,
     pub income_cents: String,
+    pub legacy_estimate_unavailable: bool,
     pub hpf_cents: Option<String>,
     pub hpf_known_cents: Option<String>,
     pub hpf_unknown_records: usize,
@@ -177,7 +180,13 @@ pub fn compute(
             .filter_map(|i| i.hpf_cents)
             .map(i128::from)
             .sum();
-        let unknown = rows.iter().filter(|i| i.hpf_cents.is_none()).count();
+        let unknown = rows
+            .iter()
+            .filter(|i| !i.investment && i.hpf_cents.is_none())
+            .count();
+        let legacy_estimate_unavailable = rows
+            .iter()
+            .any(|i| i.investment || i.classification_changed);
         let hpf = (unknown == 0).then_some(known);
         let mut interval = Interval {
             snapshot_id: p.snapshot_id.clone(),
@@ -186,8 +195,12 @@ pub fn compute(
             days,
             status: "ok",
             income_cents: income.to_string(),
+            legacy_estimate_unavailable,
             hpf_cents: hpf.map(|v| v.to_string()),
-            hpf_known_cents: (rows.len() > unknown).then(|| known.to_string()),
+            hpf_known_cents: rows
+                .iter()
+                .any(|i| i.hpf_cents.is_some())
+                .then(|| known.to_string()),
             hpf_unknown_records: unknown,
             hpf_change_cents: None,
             hpf_out_cents: None,
@@ -212,7 +225,7 @@ pub fn compute(
             interval.status = "scope_changed";
         } else if rows.is_empty() {
             interval.status = "no_income";
-        } else {
+        } else if !legacy_estimate_unavailable {
             let delta: i128 = p
                 .change_cents
                 .as_deref()
@@ -270,7 +283,12 @@ pub fn compute(
 
     // The usual figures: comparable, unmarked, inside the 12-month window.
     let usual: Vec<usize> = (0..out.len())
-        .filter(|&i| out[i].status == "ok" && !out[i].excluded && out[i].in_window)
+        .filter(|&i| {
+            out[i].status == "ok"
+                && !out[i].legacy_estimate_unavailable
+                && !out[i].excluded
+                && out[i].in_window
+        })
         .collect();
     let num = |s: &Option<String>| -> Result<i128> {
         s.as_deref()
@@ -504,7 +522,7 @@ impl Store {
 
 fn incomes(c: &rusqlite::Connection) -> Result<Vec<IncomeRow>> {
     let mut q = c.prepare(
-        "SELECT date,net_cents,hpf_cents FROM plan_income WHERE deleted_at IS NULL ORDER BY date,id",
+        "SELECT date,net_cents,hpf_cents,category,classification_changed FROM plan_income WHERE deleted_at IS NULL ORDER BY date,id",
     )?;
     let rows = q
         .query_map([], |r| {
@@ -512,6 +530,8 @@ fn incomes(c: &rusqlite::Connection) -> Result<Vec<IncomeRow>> {
                 date: r.get(0)?,
                 net_cents: r.get(1)?,
                 hpf_cents: r.get(2)?,
+                investment: crate::plan_income::investment_category(&r.get::<_, String>(3)?),
+                classification_changed: r.get(4)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -555,6 +575,8 @@ mod tests {
             date: day.into(),
             net_cents: net,
             hpf_cents: Some(hpf),
+            investment: false,
+            classification_changed: false,
         }
     }
     fn none() -> BTreeSet<String> {

@@ -1,6 +1,6 @@
 //! Monthly income records for the planning module (PLANNING_DESIGN §3): the
 //! after-tax amount and the housing fund deposit that actually arrived. A
-//! monthly summary, not a ledger and not classified by source.
+//! monthly summary, not a ledger and classified by explicit source; never added to asset balances.
 use crate::{
     domain::{cents, date, Error, Result},
     storage::{digest, uid, Store},
@@ -14,6 +14,104 @@ pub struct Fields {
     pub net_cents: String,
     pub hpf_cents: Option<String>,
     pub notes: String,
+    #[serde(default = "unclassified", skip_serializing_if = "is_unclassified")]
+    pub category: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_account_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receiving_account_id: Option<String>,
+}
+impl Default for Fields {
+    fn default() -> Self {
+        Self {
+            date: String::new(),
+            net_cents: String::new(),
+            hpf_cents: None,
+            notes: String::new(),
+            category: "unclassified".into(),
+            source_account_id: None,
+            destination: None,
+            receiving_account_id: None,
+        }
+    }
+}
+fn unclassified() -> String {
+    "unclassified".into()
+}
+fn is_unclassified(s: &str) -> bool {
+    s == "unclassified"
+}
+pub fn investment_category(s: &str) -> bool {
+    ["interest", "cash_dividend", "other_investment"].contains(&s)
+}
+pub(crate) fn validate_classification(f: &Fields) -> Result<()> {
+    if ![
+        "unclassified",
+        "non_investment",
+        "interest",
+        "cash_dividend",
+        "other_investment",
+    ]
+    .contains(&f.category.as_str())
+    {
+        return Err(Error::new("INCOME_CATEGORY", "收入分类无效"));
+    }
+    if f.destination
+        .as_ref()
+        .is_some_and(|v| !["retained", "transferred", "unknown"].contains(&v.as_str()))
+        || (!investment_category(&f.category) && f.destination.is_some())
+        || (f.receiving_account_id.is_some() && f.destination.as_deref() != Some("transferred"))
+        || (f.source_account_id.is_some() && f.source_account_id == f.receiving_account_id)
+    {
+        return Err(Error::new("INCOME_DESTINATION", "收入去向与账户不一致"));
+    }
+    for id in [&f.source_account_id, &f.receiving_account_id]
+        .into_iter()
+        .flatten()
+    {
+        uuid::Uuid::parse_str(id).map_err(|_| Error::new("INCOME_ACCOUNT", "收入账户标识无效"))?;
+    }
+    Ok(())
+}
+fn validate_references(
+    c: &Connection,
+    f: &Fields,
+    old: Option<&Fields>,
+    historical: bool,
+) -> Result<()> {
+    for (id, prior) in [
+        (
+            &f.source_account_id,
+            old.and_then(|o| o.source_account_id.as_ref()),
+        ),
+        (
+            &f.receiving_account_id,
+            old.and_then(|o| o.receiving_account_id.as_ref()),
+        ),
+    ] {
+        if let Some(id) = id {
+            let account: Option<(String, String, Option<String>, Option<String>)> = c
+                .query_row(
+                    "SELECT side,opened_on,closed_on,deleted_at FROM fin_accounts WHERE id=?1",
+                    [id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                )
+                .optional()?;
+            let Some((side, opened, closed, deleted)) = account else {
+                return Err(Error::new("INCOME_ACCOUNT", "收入引用账户不存在"));
+            };
+            if side != "asset"
+                || (!historical
+                    && prior != Some(id)
+                    && (deleted.is_some() || opened > f.date || closed.is_some_and(|d| d < f.date)))
+            {
+                return Err(Error::new("INCOME_ACCOUNT", "请选择到账时有效的资产账户"));
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +128,7 @@ pub struct Income {
     pub id: String,
     pub fields: Fields,
     pub revision: i64,
+    pub classification_changed: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -49,6 +148,7 @@ fn amount(value: &str, code: &'static str, label: &str) -> Result<i64> {
 }
 
 fn validate(f: &Fields, today: &str) -> Result<(i64, Option<i64>)> {
+    validate_classification(f)?;
     date(&f.date)?;
     if f.date.as_str() > today {
         return Err(Error::new("INCOME_DATE", "到账日期不能晚于今天"));
@@ -68,7 +168,7 @@ fn validate(f: &Fields, today: &str) -> Result<(i64, Option<i64>)> {
     ))
 }
 
-const COLUMNS: &str = "id,date,net_cents,hpf_cents,notes,revision";
+const COLUMNS: &str = "id,date,net_cents,hpf_cents,notes,revision,category,source_account_id,destination,receiving_account_id,classification_changed";
 
 fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Income> {
     Ok(Income {
@@ -78,8 +178,13 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Income> {
             net_cents: r.get::<_, i64>(2)?.to_string(),
             hpf_cents: r.get::<_, Option<i64>>(3)?.map(|v| v.to_string()),
             notes: r.get(4)?,
+            category: r.get(6)?,
+            source_account_id: r.get(7)?,
+            destination: r.get(8)?,
+            receiving_account_id: r.get(9)?,
         },
         revision: r.get(5)?,
+        classification_changed: r.get(10)?,
     })
 }
 
@@ -156,6 +261,7 @@ pub(crate) fn write_tx(
         .as_deref()
         .map(|id| read(tx, id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这条收入记录")))
         .transpose()?;
+    validate_references(tx, f, old.as_ref().map(|o| &o.fields), false)?;
     if old.as_ref().map(|e| e.revision) != input.expected_revision {
         return Err(Error::new(
             "REVISION_CONFLICT",
@@ -170,13 +276,13 @@ pub(crate) fn write_tx(
     let now = chrono::Utc::now().to_rfc3339();
     if old.is_some() {
         tx.execute(
-                "UPDATE plan_income SET date=?2,net_cents=?3,hpf_cents=?4,notes=?5,revision=revision+1,updated_at=?6 WHERE id=?1",
-                params![id, f.date, net, hpf, f.notes, now],
+                "UPDATE plan_income SET date=?2,net_cents=?3,hpf_cents=?4,notes=?5,revision=revision+1,updated_at=?6,category=?7,source_account_id=?8,destination=?9,receiving_account_id=?10,classification_changed=CASE WHEN category!=?7 THEN 1 ELSE classification_changed END WHERE id=?1",
+                params![id, f.date, net, hpf, f.notes, now, f.category, f.source_account_id, f.destination, f.receiving_account_id],
             )?;
     } else {
         tx.execute(
-                "INSERT INTO plan_income(id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,1,?6,?6)",
-                params![id, f.date, net, hpf, f.notes, now],
+                "INSERT INTO plan_income(id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,category,source_account_id,destination,receiving_account_id) VALUES(?1,?2,?3,?4,?5,1,?6,?6,?7,?8,?9,?10)",
+                params![id, f.date, net, hpf, f.notes, now, f.category, f.source_account_id, f.destination, f.receiving_account_id],
             )?;
     }
     read(tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这条收入记录"))
@@ -185,9 +291,17 @@ pub(crate) fn write_tx(
 /// Backup validation beyond what the SQL CHECKs cover.
 pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
     let bad = || Error::new("DATA_CONSTRAINT", "备份含非法收入记录");
-    let mut q = c.prepare(
-        "SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at FROM plan_income",
+    let current: bool = c.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('plan_income') WHERE name='category')",
+        [],
+        |r| r.get(0),
     )?;
+    let sql = if current {
+        "SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,category,source_account_id,destination,receiving_account_id,classification_changed FROM plan_income"
+    } else {
+        "SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,'unclassified',NULL,NULL,NULL,0 FROM plan_income"
+    };
+    let mut q = c.prepare(sql)?;
     let mut rows = q.query([])?;
     while let Some(r) = rows.next()? {
         let id: String = r.get(0)?;
@@ -196,11 +310,19 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
             net_cents: r.get::<_, i64>(2)?.to_string(),
             hpf_cents: r.get::<_, Option<i64>>(3)?.map(|v| v.to_string()),
             notes: r.get(4)?,
+            category: r.get(8)?,
+            source_account_id: r.get(9)?,
+            destination: r.get(10)?,
+            receiving_account_id: r.get(11)?,
         };
         if uuid::Uuid::parse_str(&id).is_err() || r.get::<_, i64>(5)? < 1 {
             return Err(bad());
         }
         validate(&f, "9999-12-31").map_err(|_| bad())?;
+        validate_references(c, &f, None, true).map_err(|_| bad())?;
+        if ![0, 1].contains(&r.get::<_, i64>(12)?) {
+            return Err(bad());
+        }
         for i in [6, 7] {
             chrono::DateTime::parse_from_rfc3339(&r.get::<_, String>(i)?).map_err(|_| bad())?;
         }

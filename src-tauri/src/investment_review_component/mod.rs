@@ -5,15 +5,9 @@
 //! already-assembled [`ReviewInput`] and computes the interval profit in
 //! memory. It never touches the database, the file system or IPC.
 //!
-//! Everything the product still owes lives outside this module: overlap
-//! queries, reading current facts, transactions/receipts and persistence all
-//! belong to a future Store adapter. A review computed here is a draft view
-//! over caller-provided endpoints; it is not a saved record.
-//!
-//! The module is intentionally not registered in `lib.rs`. The contract
-//! example `src-tauri/examples/investment_review_contract.rs` includes it via
-//! `#[path]`; first-batch integration decides how (and whether) to wire it
-//! into the IPC surface.
+//! Persistence, real endpoint reads and overlap checks are implemented by the
+//! `investment_review` Store adapter. This core stays independently testable
+//! through the `investment_review_contract` example and performs no I/O.
 //!
 //! Money rules: amounts are integer cents (`i64`). Input amounts are
 //! non-negative and capped at [`MAX_CENTS`], matching the live domain layer.
@@ -26,6 +20,7 @@ mod validate;
 
 pub use review::{review_interval, BlockedStatus};
 
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 /// Wire contract version accepted by this module (`contract_version = 1`).
@@ -74,7 +69,8 @@ impl FieldIssue {
 }
 
 /// One account inside an endpoint snapshot, as picked by the fact adapter.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ScopeMember {
     pub account_id: String,
     pub kind: String,
@@ -84,7 +80,8 @@ pub struct ScopeMember {
 }
 
 /// One endpoint snapshot of the reviewed interval.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Endpoint {
     pub snapshot_id: String,
     pub revision: i64,
@@ -94,7 +91,8 @@ pub struct Endpoint {
 }
 
 /// User-confirmed external flow totals for the interval `(from_date, to_date]`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Flow {
     pub id: String,
     pub revision: i64,

@@ -248,6 +248,10 @@ fn all_tables_go_into_one_new_folder_and_nothing_is_overwritten() {
                 net_cents: "2000000".into(),
                 hpf_cents: Some("300000".into()),
                 notes: "=虚构备注".into(),
+                category: "unclassified".into(),
+                source_account_id: None,
+                destination: None,
+                receiving_account_id: None,
             },
         },
         TODAY,
@@ -262,13 +266,14 @@ fn all_tables_go_into_one_new_folder_and_nothing_is_overwritten() {
             ("盘点记录.csv", 0),
             ("重要支出.csv", 0),
             ("周期费用.csv", 0),
-            ("月度收入.csv", 1)
+            ("月度收入.csv", 1),
+            ("投资区间核对.csv", 0)
         ]
     );
     let income = std::fs::read_to_string(target.join("月度收入.csv")).unwrap();
     assert_eq!(
         income,
-        "\u{feff}到账日期,税后到账（元）,公积金缴存（元）,备注\r\n2026-02-15,20000.00,3000.00,'=虚构备注\r\n"
+        "\u{feff}到账日期,税后到账（元）,公积金缴存（元）,备注,收入分类,来源账户ID,去向,接收账户ID,旧口径估计停用\r\n2026-02-15,20000.00,3000.00,'=虚构备注,unclassified,,,,false\r\n"
     );
     for name in ["物品.csv", "盘点记录.csv", "重要支出.csv", "周期费用.csv"] {
         assert!(target.join(name).is_file(), "{name}");
@@ -299,6 +304,10 @@ fn income_export_unknown_is_empty_and_explicit_zero_is_0_00() {
                     net_cents: "10001".into(),
                     hpf_cents: hpf,
                     notes: String::new(),
+                    category: "unclassified".into(),
+                    source_account_id: None,
+                    destination: None,
+                    receiving_account_id: None,
                 },
             },
             TODAY,

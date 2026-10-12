@@ -70,7 +70,14 @@ export function InvestmentFlowDialog({
   onDraftChange,
   onSubmit,
   onCancel,
+  children,
+  canClose,
+  accountNames = {},
 }: {
+  children?: React.ReactNode;
+  /** Host may allow closing after an unresolved request is durably retained. */
+  canClose?: boolean;
+  accountNames?: Record<string, string>;
   input: InvestmentReviewInputV1 | null;
   initial: FlowDraft;
   /** 上次提交被领域端口拒绝时返回的字段问题。 */
@@ -109,7 +116,7 @@ export function InvestmentFlowDialog({
       aria-labelledby="ivr-flow-heading"
       onCancel={e => {
         e.preventDefault();
-        if (!busy) onCancel();
+        if (canClose ?? !busy) onCancel();
       }}
     >
       <form
@@ -132,7 +139,7 @@ export function InvestmentFlowDialog({
               <p className="ivr-meta">区间资料不可用，请从复盘页重新打开。</p>
             )}
           </div>
-          <button type="button" className="ivr-close" aria-label="关闭资金流动核对" disabled={busy} onClick={onCancel}>
+          <button type="button" className="ivr-close" aria-label="关闭资金流动核对" disabled={!(canClose ?? !busy)} onClick={onCancel}>
             ×
           </button>
         </header>
@@ -153,7 +160,7 @@ export function InvestmentFlowDialog({
                 const to = toById.get(m.account_id);
                 return (
                   <tr key={m.account_id} className={m.counted ? undefined : 'ivr-uncounted'}>
-                    <td>{m.account_id}</td>
+                    <td>{accountNames[m.account_id] || '历史账户'}{!accountNames[m.account_id] && <details><summary>账户标识</summary><code>{m.account_id}</code></details>}</td>
                     <td>{kindLabel[m.kind]}</td>
                     <td>{m.counted ? '计入' : '不计入'}</td>
                     <td className="ivr-num">{m.amount_cents === null ? '未知' : formatCents(m.amount_cents)}</td>
@@ -226,8 +233,9 @@ export function InvestmentFlowDialog({
           </div>
         )}
 
+        {children}
         <footer className="ivr-dialog-foot">
-          <button type="button" className="ivr-btn" disabled={busy} onClick={onCancel}>
+          <button type="button" className="ivr-btn" disabled={!(canClose ?? !busy)} onClick={onCancel}>
             取消
           </button>
           <button type="submit" className="ivr-btn ivr-primary" disabled={busy || !input}>

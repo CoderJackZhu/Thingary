@@ -257,6 +257,9 @@ fn purge_one(
             ));
         }
     }
+    if kind == "account" && tx.query_row("SELECT EXISTS(SELECT 1 FROM plan_income WHERE source_account_id=?1 OR receiving_account_id=?1)", [id], |r| r.get::<_, bool>(0))? {
+        return Err(Error::new("PLANNING_DEPENDENCY", "账户仍被收入事实引用；请先核对并更正来源或接收账户"));
+    }
     crate::plan_core::protect_reference(tx, kind, id)?;
     match kind {
         "asset" => {

@@ -1,3 +1,4 @@
+import { incomeCategories } from './income-classification';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { CloseButton } from './CloseButton';
@@ -109,7 +110,7 @@ export function FinancialImportDialog({ generation, onClose, mode = 'accounts' }
 function ObjectDetails({object:o,accounts,names}:{object:ImportObject;names:Record<string,string>;accounts:ImportPreview['accounts']}){
  const [rowPage,setRowPage]=useState(0);
  if(o.kind==='account')return <details><summary>查看账户字段{o.before?'差异':''}</summary><dl className="import-fields">{Object.entries(o.after).map(([key,value])=><div key={key}><dt>{({name:'名称',institution:'平台',side:'方向',kind:'类型',counted:'计入净资产',opened_on:'启用日期',closed_on:'停用日期',notes:'备注'} as Record<string,string>)[key]??key}</dt><dd>{o.before&&<span>现有：{accountField(key,o.before[key])} → </span>}导入：{accountField(key,value)}</dd></div>)}</dl></details>;
- if(o.kind==='income')return <details><summary>查看收入字段{o.before?'差异':''}</summary><dl className="import-fields">{Object.entries(o.after).map(([key,value])=><div key={key}><dt>{({date:'到账日期',net_cents:'税后到账',hpf_cents:'公积金缴存',notes:'备注'} as Record<string,string>)[key]??key}</dt><dd>{o.before&&<span>现有：{incomeField(key,o.before[key])} → </span>}导入：{incomeField(key,value)}</dd></div>)}</dl></details>;
+ if(o.kind==='income')return <details><summary>查看收入字段{o.before?'差异':''}</summary><dl className="import-fields">{Object.entries(o.after).map(([key,value])=><div key={key}><dt>{({date:'到账日期',net_cents:'税后到账',hpf_cents:'公积金缴存',notes:'备注',category:'来源分类',source_account_id:'来源账户',destination:'收入去向',receiving_account_id:'接收账户',legacy_estimate_unavailable:'停用旧口径估计',classification_changed:'分类已更正'} as Record<string,string>)[key]??key}</dt><dd>{o.before&&<span>现有：{incomeField(key,o.before[key],names,accounts)} → </span>}导入：{incomeField(key,value,names,accounts)}</dd></div>)}</dl></details>;
  const rows=o.after.entries as {account_id:string;amount_cents:string|null;kind:string;counted:boolean;side:string}[];
  const before=(o.before?.entries??[]) as typeof rows;
  return <details><summary>完整组余额与历史含义（{rows.length} 个账户）</summary><div className="import-table-wrap"><table className="ui-table"><thead><tr><th>账户</th>{o.before&&<th>现有</th>}<th>导入余额</th><th>历史类型 / 范围</th></tr></thead><tbody>{rows.slice(rowPage*50,rowPage*50+50).map(r=>{const old=before.find(e=>e.account_id===r.account_id);return <tr key={r.account_id}><td>{names[r.account_id]??accounts.find(a=>a.id===r.account_id)?.fields.name??'历史账户'}</td>{o.before&&<td>{old?`${importMoney(old.amount_cents)} · ${kindLabel(old.kind)} · ${old.counted?'计入':'不计入'}`:'现有无此行'}</td>}<td>{r.side==='liability'?'欠 ':''}{importMoney(r.amount_cents)}</td><td>{kindLabel(r.kind)} · {r.counted?'计入':'不计入'}</td></tr>;})}</tbody></table></div>{rows.length>50&&<nav className="import-pagination" aria-label="组内账户分页"><button type="button" disabled={rowPage===0} onClick={()=>setRowPage(p=>p-1)}>上一批组内账户</button><span>第 {rowPage+1} / {previewPageCount(rows.length)} 页</span><button type="button" disabled={rowPage+1>=previewPageCount(rows.length)} onClick={()=>setRowPage(p=>p+1)}>下一批组内账户</button></nav>}<p>导入备注：{String(o.after.notes||'未填')}{o.before&&<> · 现有备注：{String(o.before.notes||'未填')}</>}</p></details>;
@@ -123,6 +124,10 @@ function accountField(key:string,value:unknown):string {
  return String(value);
 }
 
-function incomeField(key:string,value:unknown):string {
+function incomeField(key:string,value:unknown,names:Record<string,string>,accounts:ImportPreview['accounts']):string {
+ if(key==='source_account_id'||key==='receiving_account_id')return value ? names[String(value)]??accounts.find(a=>a.id===value)?.fields.name??'历史账户（当前不可用）' : '未指定';
+ if(key==='legacy_estimate_unavailable'||key==='classification_changed')return value===true?'是':'否';
+ if(key==='category')return incomeCategories[String(value) as keyof typeof incomeCategories]??'未分类';
+ if(key==='destination')return ({retained:'留在来源账户',transferred:'转到其他账户',unknown:'去向未确认'} as Record<string,string>)[String(value)]??'未指定';
  return key==='net_cents'||key==='hpf_cents'?importMoney(value===null?null:String(value)):String(value||'未填');
 }

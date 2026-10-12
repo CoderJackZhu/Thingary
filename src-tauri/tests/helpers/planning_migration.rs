@@ -15,11 +15,16 @@ fn dataset(root: &Path) -> std::path::PathBuf {
     root.join("datasets").join(a["id"].as_str().unwrap())
 }
 fn manifest(c: &Connection, files: &Path) -> Value {
-    let names:Vec<String>=c.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name!='plan_profile' ORDER BY name").unwrap().query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
+    let names:Vec<String>=c.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('plan_profile','investment_flows') ORDER BY name").unwrap().query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
     let mut tables = BTreeMap::new();
     for name in names {
         let quoted = name.replace('"', "\"\"");
-        let mut q = c.prepare(&format!("SELECT * FROM \"{quoted}\"")).unwrap();
+        let sql = if name == "plan_income" {
+            "SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,deleted_at FROM plan_income".to_owned()
+        } else {
+            format!("SELECT * FROM \"{quoted}\"")
+        };
+        let mut q = c.prepare(&sql).unwrap();
         let columns = q
             .column_names()
             .iter()
@@ -214,6 +219,10 @@ fn snapshot_db(s: &Store, dir: &Path, old: &Value, version: i64) {
         [old.to_string()],
     )
     .unwrap();
+    // Build a real pre-37 layout rather than only lowering its version marker.
+    if version < 37 {
+        c.execute_batch("DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed;").unwrap();
+    }
     c.execute_batch(&format!("PRAGMA user_version={version}"))
         .unwrap();
     c.execute(
@@ -320,7 +329,7 @@ fn every_factual_table_file_and_mixed_receipt_survives_each_policy_mode() {
         if old["retire"]["basic"]["retirement_income"]["mode"] == "employee" {
             if let Ok(dir) = std::env::var("THINGARY_MIGRATION_EVIDENCE_DIR") {
                 fs::create_dir_all(&dir).unwrap();
-                fs::write(Path::new(&dir).join("fictional-preservation.json"),serde_json::to_vec_pretty(&json!({"description":"虚构旧库§16.2，全部事实表及托管附件摘要；不含旧政策载荷","schema_before":35,"schema_after":36,"facts_before":before,"facts_after":manifest(&c,&files),"occurrences_before":old["retire"]["core"]["occurrences"],"occurrences_after":core.occurrences,"debt_repayments_before":old["retire"]["core"]["debt_repayments"],"debt_repayments_after":core.debt_repayments})).unwrap()).unwrap();
+                fs::write(Path::new(&dir).join("fictional-preservation.json"),serde_json::to_vec_pretty(&json!({"description":"虚构旧库§16.2，全部事实表及托管附件摘要；不含旧政策载荷","schema_before":35,"schema_after":SCHEMA_VERSION,"facts_before":before,"facts_after":manifest(&c,&files),"occurrences_before":old["retire"]["core"]["occurrences"],"occurrences_after":core.occurrences,"debt_repayments_before":old["retire"]["core"]["debt_repayments"],"debt_repayments_after":core.debt_repayments})).unwrap()).unwrap();
             }
         }
         let once = raw;
@@ -527,7 +536,7 @@ fn live_upgrade_reopen_preserves_identity_then_scoped_unknown_commit_is_exactly_
         ["90000000-0000-4000-8000-000000000001"],
     )
     .unwrap();
-    c.execute_batch("PRAGMA user_version=35").unwrap();
+    c.execute_batch("DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=35;").unwrap();
     let before = manifest(c, &dataset(&root).join("files"));
     drop(s);
     let mut s = Store::open(&root).unwrap();
@@ -656,4 +665,44 @@ fn cancelled_event_references_do_not_block_migration_restore_or_current_save() {
         section: crate::plan_basic::Section::Simplified(current.profile.retire.simplified),
     };
     restored.plan_profile_update(&update, TODAY).unwrap();
+}
+
+#[test]
+fn schema36_income_receipts_upgrade_and_backup_preserve_original_facts() {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("source");
+    let (mut s, _) = seed(&root);
+    let input:crate::plan_income::Save=serde_json::from_value(json!({"request_id":uid(),"generation":s.generation(),"id":null,"expected_revision":null,"fields":{"date":TODAY,"net_cents":"100","hpf_cents":null,"notes":"虚构旧到账"}})).unwrap();
+    let row = s.plan_income_save(&input, TODAY).unwrap();
+    let profile = serde_json::to_value(s.plan_profile().unwrap().saved.unwrap().profile).unwrap();
+    let old = d.path().join("schema36");
+    snapshot_db(&s, &old, &profile, 36);
+    let path = d.path().join("schema36.thingary");
+    archive(&old, &dataset(&root).join("files"), &path, 36);
+    let mut restored = Store::open(&d.path().join("restored")).unwrap();
+    let info = restored.inspect_backup(&path).unwrap();
+    restored
+        .restore(&path, &info.hash, &restored.generation())
+        .unwrap();
+    let copied = restored.plan_income(&row.id).unwrap().unwrap();
+    assert_eq!(copied.fields.category, "unclassified");
+    assert_eq!(copied.fields.net_cents, "100");
+    assert!(copied.fields.hpf_cents.is_none());
+    assert_eq!(
+        restored
+            .wealth_request_result(&input.request_id, &restored.generation())
+            .unwrap()
+            .as_deref(),
+        Some(row.id.as_str())
+    );
+    let data = dataset(&root);
+    drop(s);
+    let c = Connection::open(data.join("data.sqlite")).unwrap();
+    c.execute_batch("DROP TABLE investment_flows; ALTER TABLE plan_income DROP COLUMN source_account_id; ALTER TABLE plan_income DROP COLUMN receiving_account_id; ALTER TABLE plan_income DROP COLUMN category; ALTER TABLE plan_income DROP COLUMN destination; ALTER TABLE plan_income DROP COLUMN classification_changed; PRAGMA user_version=36;").unwrap();
+    drop(c);
+    let mut upgraded = Store::open(&root).unwrap();
+    let replay = upgraded.plan_income_save(&input, TODAY).unwrap();
+    assert_eq!(replay.id, row.id);
+    assert_eq!(replay.revision, row.revision);
+    assert!(!replay.classification_changed);
 }

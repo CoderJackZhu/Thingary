@@ -96,7 +96,7 @@ fn instructions() -> Vec<Vec<String>> {
         vec!["工作表", "用途"],
         vec!["物品", "通过物品导入，只新增、不覆盖；只有名称必填。"],
         vec!["账户／完整盘点／月度收入", "通过金融历史导入一起预览和提交；保留编号。同名账户须明确映射。空白工作表不参加导入。"],
-        vec!["盘点记录／重要支出／周期费用", "分析用，不参加导入。"],
+        vec!["盘点记录／重要支出／周期费用／投资区间核对", "分析用，不参加导入；投资区间转入和转出金额单位分，以列名为准。"],
         vec!["填写规则", "编号、日期、金额按文本保存；金额单位元、最多两位小数；日期 YYYY-MM-DD；空白表示未知，0 表示明确零。不要填写公式。"],
         vec!["金额分析", "金额列是精确十进制文本；计算时可在副本中转换为数值。"],
         vec!["账户字段", "kind：cash/investment/mixed/fund/bond/housing_fund/other_asset/credit_card/loan/other_liability；counted：true/false。"],
@@ -434,7 +434,7 @@ impl Store {
             .iter()
             .map(|s| s.to_string())
             .collect()];
-        let mut stmt=self.conn()?.prepare("SELECT id,date,net_cents,hpf_cents,notes FROM plan_income WHERE deleted_at IS NULL ORDER BY date,id")?;
+        let mut stmt=self.conn()?.prepare("SELECT id,date,net_cents,hpf_cents,notes,category,source_account_id,destination,receiving_account_id,classification_changed FROM plan_income WHERE deleted_at IS NULL ORDER BY date,id")?;
         for row in stmt.query_map([], |r| {
             Ok(vec![
                 r.get(0)?,
@@ -442,6 +442,11 @@ impl Store {
                 decimal(r.get(2)?),
                 decimal(r.get(3)?),
                 r.get(4)?,
+                r.get(5)?,
+                r.get::<_, Option<String>>(6)?.unwrap_or_default(),
+                r.get::<_, Option<String>>(7)?.unwrap_or_default(),
+                r.get::<_, Option<String>>(8)?.unwrap_or_default(),
+                r.get::<_, bool>(9)?.to_string(),
             ])
         })? {
             incomes.push(row?);
@@ -451,6 +456,7 @@ impl Store {
             ("盘点记录", self.wealth_table(false)?),
             ("重要支出", self.expenses_table(false)?),
             ("周期费用", self.recurring_table(false)?),
+            ("投资区间核对", self.investment_review_table(false)?),
         ] {
             sheets.push((name, csv_rows(&csv.0)?));
         }

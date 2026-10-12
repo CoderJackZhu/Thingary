@@ -88,7 +88,7 @@ test('legacy mixed planning receipt verifies only original metadata, retains pay
 });
 
 
-test('legacy whole-profile unresolved receipt survives switching datasets', async () => {
+test('income and legacy whole-profile unresolved receipts survive switching datasets', async () => {
  const {resolvePending,pendingKey,Unresolved}=await import('../src/wealth.ts');
  const oldWindow=globalThis.window,oldStorage=globalThis.localStorage;
  const pending={command:'plan_profile_save',input:{request_id:'legacy',generation:'original'},label:'旧规划'};
@@ -96,8 +96,10 @@ test('legacy whole-profile unresolved receipt survives switching datasets', asyn
  try {
   globalThis.localStorage={getItem:k=>stored.get(k)??null,setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)};
   globalThis.window={__TAURI_INTERNALS__:{invoke:async()=>{throw {code:'STALE_DATASET'};}}};
-  await assert.rejects(resolvePending(pending),Unresolved);
-  assert.equal(stored.get(pendingKey),raw);
+  for(const command of ['plan_profile_save','plan_income_save','investment_review_save','investment_review_trash']) {
+   const current={...pending,command};const text=JSON.stringify(current);stored.set(pendingKey,text);
+   await assert.rejects(resolvePending(current),Unresolved);assert.equal(stored.get(pendingKey),text);
+  }
  } finally {if(oldWindow===undefined)delete globalThis.window;else globalThis.window=oldWindow;if(oldStorage===undefined)delete globalThis.localStorage;else globalThis.localStorage=oldStorage;}
 });
 

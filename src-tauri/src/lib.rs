@@ -14,6 +14,9 @@ pub mod files;
 pub mod financial_import;
 pub mod financial_import_parser;
 pub mod insights;
+pub mod investment_review;
+mod investment_review_commands;
+pub mod investment_review_component;
 pub mod lifecycle;
 pub mod link;
 pub mod link_merge;
@@ -216,6 +219,10 @@ pub fn run() {
             commands::link_view,
             commands::plan_income_list,
             commands::plan_income_save,
+            investment_review_commands::investment_review_read,
+            investment_review_commands::investment_review_list,
+            investment_review_commands::investment_review_save,
+            investment_review_commands::investment_review_trash,
             commands::plan_profile,
             commands::plan_profile_save,
             commands::plan_profile_update,

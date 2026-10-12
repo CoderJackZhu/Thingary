@@ -2,7 +2,7 @@
 
 契约：`docs/PLANNING_SIMPLIFICATION_CONTRACT.md` §4；设计：`docs/PRODUCT_BOUNDARIES_DESIGN.md` §13（金额样例 §13.5）。
 
-**状态：独立组件完成，尚未接入真实复盘。** 本目录是第二批 B2 的已备组件：不读数据库、不查询重叠、不做事务／回执、不持久化；输入与结果全部来自注入端口，测试与预览用虚构夹具。真实 Store、页面接入（`PlanningPage.tsx`／`IncomeDialog`）、schema 与导入导出由后续集成阶段完成（B1 收入分类 → B2 接入 → B3 全验）。
+**状态：组件已由 `InvestmentReviewHost.tsx` 接入本期复盘。** 本目录继续保持无数据库和无损益复算的展示边界；宿主通过 `wealth.ts` 的 `investment_review_read/list/save/trash` 使用原生 Store，使用相同的待核对回执机制。保存时原样传回读取到的两端内容键，领域层再次比对；原区间列表保留删除和恢复入口。全部测试与浏览器预览使用虚构资料，原生验收需单独记录。
 
 ## 边界
 
@@ -37,7 +37,7 @@
 
 `onSubmit` 只表达提交意图：调用方把 `draftToFlowPatch(draft)` 交给领域端口（未来 IPC / Store），收到 `rejected` 时把 `FieldIssueV1[]` 传回 `issues` 并保留草稿；`unresolved` 时冻结重复提交。组件不自行生成 request_id 或 revision。
 
-Rust 侧入口（示例引入，未注册 IPC）：
+Rust 纯计算入口（由 Store 与契约测试复用）：
 
 ```rust
 use investment_review_component::{review_interval, endpoint_value_key, ReviewInput, ReviewResult};
@@ -50,7 +50,7 @@ let key = endpoint_value_key(&endpoint);            // 确认时内容键
 - Rust 契约示例：`cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_contract`（§13.5 全部样例、重复 ID、顺序、类型／counted 变化、空范围、缺余额、过期内容键、只改备注、重叠、端点顺序、数值边界）。
 - 前端：`tests/investment-review-model.test.mjs`（载荷校验／格式化／草稿工具）、`tests/investment-review-component.test.mjs`（卡片与核对窗的真实处理器交互），由 `npm run test:ui` 执行。
 
-## 后续接入需求（本目录不实现）
+## 宿主与领域职责（本目录不实现）
 
 1. **事实适配**：Store 从两次完整盘点挑选同一投资范围的 counted 成员构造 `InvestmentEndpointV1`（账户 ID／类型来自财富模块，不可凭名称猜测）；金额未知传 null，不补零。
 2. **区间确认与失效**：保存核对记录时由领域生成两端 `value_key` 一并保存；起止盘点更正、类型／集合变化或端点删除时撤销就绪状态（核心已按内容键复核，Store 负责触发重查并提示）。
@@ -67,3 +67,7 @@ let key = endpoint_value_key(&endpoint);            // 确认时内容键
 组合结果金额校验按最多 1000 个账户的合计上界处理，转入／转出及单账户输入仍沿用原上限，不能用单账户上限拒绝合法组合结果。重叠即使尚无本期记录也先标为待复核。核对窗在区间不可用时不提交，勾选未支持情形会撤销完整确认；解除该选项后必须重新确认。已就绪结果仍提供修改入口；范围变化时保留期末新增账户的余额事实，缺失的期初显示“—”。
 
 宿主须将 busy 用于提交进行中及结果未知的冻结状态，保留原请求并提供核对入口；本组件仍不持有回执、不查询 Store，也不实现跨窗口或重启恢复。宿主切换资料库或区间应重建窗口并丢弃普通未提交草稿。所有新核对／修改提交仍须领域验证、冲突检查和事务保存。
+
+宿主显示本期分类事实，将旧口径估计折叠在历史参考中；收入分类使旧口径不安全时明确暂不提供估计。核对窗内的现金分红等明细只作线索，不参与损益计算。结果未知可关闭弹窗，原请求保存在页面共用回执中，核对前禁止重复写入。
+
+整页浏览器预览可用 `investment=ready-profit` 等同名夹具注入固定领域输出；该预览明确拒绝保存，不用另写一份前端损益计算伪装原生持久化。独立组件预览保持虚构内存交互。

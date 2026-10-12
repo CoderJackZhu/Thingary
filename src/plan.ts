@@ -1,14 +1,16 @@
 // 规划模块第一阶段（PLANNING_DESIGN §3–§4）：月度收入与盘点区间储蓄。
 // 事实由 Rust 只读命令 plan_review 计算；这里的 computeReview 只给浏览器预览用，
 // 规则与 plan_savings.rs 一致，并由 tests/plan.test.mjs 用同一组数值核对。
+import { isInvestmentIncome } from './income-classification.ts';
 import type { Line } from './expenses.ts';
 import type { Point } from './wealth.ts';
 import type { BasicInputs } from './plan-basic-contract.ts';
 export type * from './plan-basic-contract.ts';
 import type { PlanningCore } from './plan-core.ts';
 
-export type IncomeFields = { date: string; net_cents: string; hpf_cents: string | null; notes: string };
-export type Income = { id: string; fields: IncomeFields; revision: number };
+export type IncomeCategory = 'unclassified' | 'non_investment' | 'interest' | 'cash_dividend' | 'other_investment';
+export type IncomeFields = { date: string; net_cents: string; hpf_cents: string | null; notes: string; category?: IncomeCategory; source_account_id?: string | null; destination?: 'retained' | 'transferred' | 'unknown' | null; receiving_account_id?: string | null };
+export type Income = { id: string; fields: IncomeFields; revision: number; classification_changed?: boolean };
 export type IncomeList = { generation: string; rows: Income[] };
 export type IncomeSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: IncomeFields };
 
@@ -24,7 +26,7 @@ export type Interval = {
   monthly_saving_cents: string | null; monthly_spend_cents: string | null; rate_hundredths: number | null;
   /** 只含现金、存款与负债：不含投资类账户的变化。转进投资的钱在这里像花销，涨跌不会像储蓄。 */
   monthly_cash_saving_cents?: string | null; monthly_cash_spend_cents?: string | null;
-  income_possibly_missing: boolean; excluded: boolean; in_window: boolean; anomaly: boolean;
+  legacy_estimate_unavailable?: boolean; income_possibly_missing: boolean; excluded: boolean; in_window: boolean; anomaly: boolean;
 };
 export type Stats = {
   count: number; spend_count?: number; low_sample: boolean;
@@ -107,9 +109,10 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
     const from = p.compared_to, days = dayNumber(p.date) - dayNumber(from);
     const rows = incomes.filter(i => i.fields.date > from && i.fields.date <= p.date);
     const income = rows.reduce((s, i) => s + BigInt(i.fields.net_cents), 0n);
-    const knownRows = rows.filter(i => i.fields.hpf_cents !== null);
+    const depositRows = rows.filter(i => !isInvestmentIncome(i.fields) || i.fields.hpf_cents !== null);
+    const knownRows = depositRows.filter(i => i.fields.hpf_cents !== null);
     const known = knownRows.reduce((s, i) => s + BigInt(i.fields.hpf_cents!), 0n);
-    const unknown = rows.length - knownRows.length, hpf = unknown ? null : known;
+    const unknown = depositRows.length - knownRows.length, hpf = unknown ? null : known;
     const iv: Interval = {
       snapshot_id: p.snapshot_id, from, to: p.date, days, status: 'ok',
       income_cents: income.toString(), hpf_cents: hpf?.toString() ?? null, hpf_known_cents: knownRows.length ? known.toString() : null, hpf_unknown_records: unknown, income_records: rows.length, hpf_change_cents: null, hpf_out_cents: null,
@@ -134,9 +137,14 @@ export function computeReview(points: Point[], incomes: Income[], marks: Set<str
       if (base > 0n && (dh === null || out !== null)) iv.rate_hundredths = Number(roundDiv(saving * 10000n, base));
     }
     if (!p.scope_changed) { iv.delta_nw_cents = p.change_cents; iv.hpf_change_cents = p.hpf_change_cents; iv.market_change_cents = p.market_change_cents ?? null; }
+    iv.legacy_estimate_unavailable = rows.some(i => isInvestmentIncome(i.fields) || i.classification_changed);
+    if (iv.legacy_estimate_unavailable) {
+      iv.saving_cents = null; iv.spend_cents = null; iv.monthly_saving_cents = null; iv.monthly_spend_cents = null;
+      iv.monthly_cash_saving_cents = null; iv.monthly_cash_spend_cents = null; iv.rate_hundredths = null;
+    }
     intervals.push(iv);
   }
-  const usual = intervals.filter(i => i.status === 'ok' && !i.excluded && i.in_window);
+  const usual = intervals.filter(i => i.status === 'ok' && !i.legacy_estimate_unavailable && !i.excluded && i.in_window);
   const spendRows = usual.filter(i => i.monthly_spend_cents !== null);
   const stats: Stats = { spend_count: spendRows.length, count: usual.length, low_sample: usual.length < 3, median_monthly_saving_cents: null, mean_monthly_saving_cents: null, median_monthly_spend_cents: null, window_from: cutoff, latest_date: latest };
   const savings = usual.map(i => BigInt(i.monthly_saving_cents!));
@@ -203,9 +211,10 @@ export function pctToHundredths(text: string): number | null {
 export const hundredthsToPct = (v: number): string => String(v / 100);
 
 /** 新增收入时默认带上的公积金缴存：取日期最近的一条（同一天取先出现的）；没有记录返回空串。 */
-export function latestHpf(rows: { fields: { date: string; hpf_cents: string | null } }[]): string {
+export function latestHpf(rows: { fields: { date: string; hpf_cents: string | null; category?: IncomeCategory } }[]): string {
   let any: { date: string; hpf_cents: string | null } | null = null;
   for (const r of rows) {
+    if (isInvestmentIncome(r.fields)) continue;
     if (!any || r.fields.date > any.date) any = r.fields;
   }
   return any?.hpf_cents ?? '';
@@ -232,7 +241,8 @@ export function hpfSummary(total: string | null, known: string | null, unknown: 
 }
 
 export function incomeHpfTotals(rows: Pick<Income, 'fields'>[]): { total: string | null; known: string | null; unknown: number } {
-  const known = rows.filter(r => r.fields.hpf_cents !== null), unknown = rows.length - known.length;
+  const depositRows = rows.filter(r => !isInvestmentIncome(r.fields) || r.fields.hpf_cents !== null);
+  const known = depositRows.filter(r => r.fields.hpf_cents !== null), unknown = depositRows.length - known.length;
   const sum = known.reduce((s, r) => s + BigInt(r.fields.hpf_cents!), 0n).toString();
   return { total: unknown ? null : sum, known: known.length ? sum : null, unknown };
 }
