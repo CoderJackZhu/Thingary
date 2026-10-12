@@ -54,11 +54,11 @@ test('unavailable accounts and snapshots preserve existing occurrence while disa
   assert.equal(dialog.props.existing.id, occurred.id); assert.equal(dialog.props.saveDisabled, true); dialog.props.onSave(null); assert.equal(writes, 0);
 });
 
-test('goalsOnly forces goal content and topbar setup, without income newRecord', () => {
+test('planning page exposes goal content and topbar setup, without income newRecord', () => {
   const s = source(); let bar;
   const Goal = () => null, Occurrences = () => null, Income = () => null;
   const r = runtime('PlanningPage.tsx', { './review': { ready }, './planning-basic-view': { modeOf: () => 'basic' }, './planning-basic-data': { usePlanningSources: () => ({ load: { status: 'ready', sources: s }, reload: noop }) }, './topbar': { usePageBar: (_, value) => { bar = value; } }, './WealthPage': { usePendingReceipt: () => ({ pending: null, busy: false }) }, './PlanningBasicGoals': { PlanningBasicGoals: Goal }, './PlanningGoalOccurrences': { PlanningGoalOccurrences: Occurrences }, './IncomeRecords': { IncomeRecords: Income } });
-  const tree = r.render('PlanningPage', { today: '2026-10-12', tab: 'savings', goalsOnly: true, onTab: noop, onEditingChange: noop, onFocusDone: noop });
+  const tree = r.render('PlanningPage', { today: '2026-10-12', onTab: noop, onEditingChange: noop, onFocusDone: noop });
   assert.equal(bar.primary.label, '调整条件'); assert.equal(bar.newRecord, undefined);
   assert.ok(all(tree).some(n => n.type === Goal)); assert.ok(all(tree).some(n => n.type === Occurrences)); assert.ok(!all(tree).some(n => n.type === Income));
   assert.doesNotMatch(text(tree), /收入与复盘视图|选择复盘区间/);

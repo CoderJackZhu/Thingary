@@ -282,6 +282,16 @@ fn compute(
         .as_ref()
         .is_some_and(|m| m.needs_review || (movements_enabled && m.basis_key != key))
         || metadata.is_none() && saved.is_some() && !relevant_rows.is_empty();
+    // The combined basis also includes endpoints. A changed endpoint alone
+    // must not claim that movements were edited; the core reports its own
+    // endpoint/scope reason. Movement/source writes persist needs_review, so
+    // simultaneous endpoint and movement changes still disclose both causes.
+    let endpoint_change_without_movement_invalidation = metadata
+        .as_ref()
+        .is_some_and(|m| !m.needs_review)
+        && saved.as_ref().is_some_and(|f| {
+            f.from_value_key != candidate.from_value_key || f.to_value_key != candidate.to_value_key
+        });
     let source_bad = reasons
         .iter()
         .any(|r| r["code"] == "source_mismatch" || r["code"] == "source_deleted");
@@ -298,7 +308,7 @@ fn compute(
     };
     let mut result = old::result_json(core::review_interval(&input));
     if (saved_result && stale) || source_bad {
-        if saved_result && stale {
+        if saved_result && stale && !endpoint_change_without_movement_invalidation {
             reasons.push(reason("stale_movements", "资金流动依据已变化，请重新核对"));
         }
         // Preserve the core's invalid / not-comparable precedence. Never expose a stale ready amount.

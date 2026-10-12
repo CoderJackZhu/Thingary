@@ -28,4 +28,6 @@ npx vite --port 1431 --strictPort
 
 测试：`npm run test:ui`（`tests/planning-report.test.mjs`）。
 
-未接入：真实 DTO 适配、产品入口（更多菜单/基准详情/比较入口）、原生 PDF 与文件对话框——由集成任务完成。
+当前源码已接入 `current-adapter.ts` 与目标页 `PlanningCurrentReportDialog`：同批真实来源和领域能力映射为独立快照，默认隐私，提供完整切换与摘要复制。只展示资金、结构化条件、需求及可准确表达的结论；series/goals/differences 留空并披露未覆盖范围。影响计算的待核对项限制主结论，首次领取月金额基准与账户局部别名保持一致。普通读取刷新不改快照，切库／恢复／规划关闭丢弃。真实入口关闭打印，复制失败明确提示。
+
+未接入：逐月趋势及逐项购买结果、命名方案、基准／比较入口、原生 PDF 与文件对话框。自动、浏览器与原生验收分别见 `docs/DEVELOPMENT.md#current-report-validation`，源码接入不代表已公开发布。

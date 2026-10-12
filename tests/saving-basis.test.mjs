@@ -23,7 +23,6 @@ function components(file, names) {
   vm.runInNewContext(`${js}\nObject.assign(module.exports, {${names.join(',')}});`, { module, exports: module.exports, require: id => modules[id] ?? leaf, Error });
   return module.exports;
 }
-const { Usual, Steps } = components('PlanningPage', ['Usual', 'Steps']);
 const { ContributionHelper } = components('PlanningContributionHelper', ['ContributionHelper']);
 const { Trial } = components('PlanningBasicDetail', ['Trial']);
 function expand(n) {
@@ -33,7 +32,6 @@ function expand(n) {
   return { ...n, props: { ...n.props, children: expand(n.props?.children) } };
 }
 const render = (component, props) => text(expand(component(props)));
-const stepProps = interval => ({ interval, busy: false, markError: '', onMark() {}, reasons: { notes: '', lines: [] }, reasonError: '' });
 const point = (id, from, to, over = {}) => ({ snapshot_id: id, date: to, notes: '', assets_cents: '0', liabilities_cents: '0', net_cents: '0', complete: true, missing: 0, compared_to: from, scope_changed: false, change_cents: '1000000', hpf_change_cents: '100000', market_change_cents: '600000', change_rate_hundredths: null, ...over });
 const income = date => ({ id: `fictional-${date}`, revision: 1, fields: { date, net_cents: '1500000', hpf_cents: '100000', notes: '' } });
 function review(count = 3, over = {}, payOver = {}) {
@@ -59,18 +57,14 @@ test('preview rejects unknown net-asset change exactly as Rust; first/incomparab
   }
 });
 
-test('historical estimates remain only in review and never fill planning forms', () => {
+test('historical estimates never fill active planning forms or offer automatic adoption', () => {
   const r = review(), i = r.intervals[0], h = defaults.historyHints(r);
   assert.equal(h.saving, i.monthly_cash_saving_cents);
   assert.equal(h.spend, i.monthly_cash_spend_cents);
-  const usual = render(Usual, { review: r }), steps = render(Steps, stepProps(i));
   const helper = render(ContributionHelper, { history: h, onPick() {} });
   const detail = render(Trial, { auto: h, trial: null, notice: '' });
-  const wizard = setup(r), suggestion = wizard.find('p', p => p.className?.includes('plan-suggest'));
-  for (const s of [usual, steps]) assert.ok(s.includes(money(i.monthly_cash_saving_cents)), s);
-  for (const s of [usual, steps]) assert.ok(s.includes(money(i.monthly_cash_spend_cents)), s);
-  for (const s of [usual, steps]) assert.ok(s.includes(defaults.SAVING_BASIS_CAVEAT), s);
-  assert.equal(suggestion, undefined);
+  const wizard = setup(r);
+  assert.equal(wizard.find('p', p => p.className?.includes('plan-suggest')), undefined);
   assert.ok(!helper.includes(money(h.saving)));
   assert.equal(wizard.find('CentInput', p => p.label === '退休后每月生活预算').props.value, '');
   assert.equal(wizard.button('采用'), undefined);
@@ -79,87 +73,73 @@ test('historical estimates remain only in review and never fill planning forms',
   assert.equal(wizard.calls.length, 0);
 });
 
-test('fewer than three intervals hide the two cash medians and all history suggestions', () => {
+test('fewer than three intervals withhold cash history hints and active planning suggestions', () => {
   for (const count of [0, 1, 2]) {
-    const r = review(count), h = defaults.historyHints(r), s = render(Usual, { review: r });
+    const r = review(count), h = defaults.historyHints(r);
     assert.equal(h.saving, null); assert.equal(h.spend, null);
-    assert.equal(s.split('区间太少，暂不给出').length - 1, 2);
     assert.equal(setup(r).find('p', p => p.className?.includes('plan-suggest')), undefined);
     assert.ok(!render(ContributionHelper, { history: h }).includes('估计存下的中位数'));
     assert.ok(!render(Trial, { auto: null, trial: null, notice: '' }).includes('估计存下的中位数'));
   }
 });
 
-test('spend sample count gates spend independently; net-asset history and cash saving survive', () => {
+test('spend sample count gates spend independently while cash saving survives', () => {
   const r = review(); r.stats.spend_count = 2;
-  const s = render(Usual, { review: r });
-  assert.equal(s.split('区间太少，暂不给出').length - 1, 1);
-  assert.ok(s.includes(money(r.stats.median_monthly_cash_saving_cents)));
-  assert.equal(defaults.historyHints(r).spend, null);
+  const h = defaults.historyHints(r);
+  assert.equal(h.saving, r.stats.median_monthly_cash_saving_cents);
+  assert.equal(h.spend, null);
   assert.equal(setup(r).find('p', p => p.className?.includes('plan-suggest')), undefined);
 });
 
-test('scope changes and no income withhold all three interval estimates with the specific reason', () => {
-  for (const [status, reason] of [['scope_changed', '账户范围变化'], ['no_income', '这一期没有收入记录']]) {
-    const r = review(), i = { ...r.intervals[0], status };
-    const s = render(Steps, stepProps(i));
-    assert.equal(s.split(`暂时算不出：${reason}`).length - 1, 3);
-    assert.ok(!s.includes('约每月'));
-    assert.ok(s.includes(defaults.SAVING_BASIS_CAVEAT));
+test('scope changes and absent income withhold estimates instead of producing zero', () => {
+  const scope = review(3, { scope_changed: true });
+  for (const i of scope.intervals) {
+    assert.equal(i.status, 'scope_changed');
+    assert.ok(i.monthly_cash_saving_cents == null);
+    assert.ok(i.monthly_cash_spend_cents == null);
   }
+  const points = [point('fictional-none', '2026-01-01', '2026-02-01')];
+  const absent = plan.computeReview(points, [], new Set(), 'fictional');
+  assert.equal(absent.intervals[0].status, 'no_income');
+  assert.ok(absent.intervals[0].monthly_cash_saving_cents == null);
 });
 
-test('unknown deposits withdraw only spending; no investment account is explicit', () => {
+test('unknown deposits preserve cash saving but withhold inferred spending', () => {
   const r = review(3, {}, { hpf_cents: null }), i = r.intervals[0];
-  const s = render(Steps, stepProps(i));
-  assert.equal(s.split('暂时算不出').length - 1, 1);
-  assert.ok(s.includes('暂时算不出：有缴存金额未知'));
-  assert.ok(s.includes(money(i.monthly_cash_saving_cents)));
-  assert.ok(s.includes(money(i.market_change_cents)));
-  const without = render(Steps, stepProps(review(3, { market_change_cents: null }).intervals[0]));
-  assert.ok(without.includes('没有投资账户'));
-  assert.ok(!without.includes('暂时算不出'));
+  assert.notEqual(i.monthly_cash_saving_cents, null);
+  assert.ok(i.monthly_cash_spend_cents == null);
+  assert.equal(defaults.historyHints(r).spend, null);
 });
 
-test('nonzero investment change stays separate, never added to estimated saving', () => {
+test('nonzero investment change stays separate and cannot be automatically adopted', () => {
   const r = review(), i = r.intervals[0], h = defaults.historyHints(r);
   assert.notEqual(i.market_change_cents, '0');
   assert.equal(h.saving, i.monthly_cash_saving_cents);
   assert.notEqual(h.saving, i.monthly_saving_cents);
-  const s = render(Steps, stepProps(i));
-  assert.ok(s.replace(/\s/g, '').includes('估计存下¥300000·约每月' + money(i.monthly_cash_saving_cents)), s);
-  assert.ok(s.includes('投资账户变化 含转入和涨跌¥600000'));
+  assert.equal(plan.cashTotals(i).saving, '300000');
   let adopted;
   const n = expand(ContributionHelper({ history: h, onPick: v => { adopted = v; } }));
   function click(node) { if (Array.isArray(node)) return node.forEach(click); if (node && typeof node === 'object') { if (node.type === 'button' && text(node) === '采用') node.props.onClick(); else click(node.props?.children); } }
   click(n); assert.equal(adopted, undefined);
 });
 
-test('zero and negative saving remain numbers; missing cash amounts never become zero in review', () => {
-  for (const change of ['700000', '600000']) {
-    const r = review(3, { change_cents: change }), i = r.intervals[0];
-    assert.ok(render(Usual, { review: r }).includes(money(i.monthly_cash_saving_cents)));
-    assert.ok(render(Steps, stepProps(i)).includes(money(i.monthly_cash_saving_cents)));
+test('zero and negative cash saving remain numerical historical values', () => {
+  for (const [change, expected] of [['700000', '0'], ['600000', '-100000']]) {
+    const r = review(3, { change_cents: change });
+    assert.equal(plan.cashTotals(r.intervals[0]).saving, expected);
+    assert.notEqual(r.intervals[0].monthly_cash_saving_cents, null);
   }
-  const r = review(); r.stats.median_monthly_cash_saving_cents = null;
-  assert.ok(render(Usual, { review: r }).includes('暂时算不出：缺少可用的区间金额'));
-  const i = { ...r.intervals[0], monthly_cash_saving_cents: null };
-  assert.ok(render(Steps, stepProps(i)).includes('暂时算不出：缺少可用的区间金额'));
 });
 
-import { cashTotals as cashTotalsOf } from '../src/plan.ts';
-test('cash totals drop the investment change and keep unknown as null', () => {
-  assert.deepEqual(cashTotalsOf({ saving_cents: '50000', spend_cents: '250000', market_change_cents: '10000' }), { saving: '40000', spend: '260000' });
-  assert.deepEqual(cashTotalsOf({ saving_cents: '50000', spend_cents: null, market_change_cents: null }), { saving: '50000', spend: null });
-  assert.deepEqual(cashTotalsOf({ saving_cents: null, spend_cents: null, market_change_cents: '1' }), { saving: null, spend: null });
+test('cash totals drop investment change and keep unknown as null', () => {
+  assert.deepEqual(plan.cashTotals({ saving_cents: '50000', spend_cents: '250000', market_change_cents: '10000' }), { saving: '40000', spend: '260000' });
+  assert.deepEqual(plan.cashTotals({ saving_cents: '50000', spend_cents: null, market_change_cents: null }), { saving: '50000', spend: null });
+  assert.deepEqual(plan.cashTotals({ saving_cents: null, spend_cents: null, market_change_cents: '1' }), { saving: null, spend: null });
 });
 
-test('negative inferred spending is never shown as an amount, per period or as the median', () => {
+test('negative inferred spending is withheld from planning suggestions', () => {
   const r = review(3, { change_cents: '5000000' });
   assert.ok(BigInt(r.intervals[0].spend_cents) < 0n);
-  const step = render(Steps, stepProps(r.intervals[0]));
-  assert.match(step, /存下的比记录的收入还多，收入可能没记全/);
   assert.ok(BigInt(r.stats.median_monthly_cash_spend_cents) < 0n);
-  const usual = render(Usual, { review: r });
-  assert.match(usual, /每月推算花销（中位数）暂时算不出：存下的比记录的收入还多/);
+  assert.equal(defaults.historyHints(r).spend, null);
 });

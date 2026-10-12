@@ -1,7 +1,7 @@
 // 决策报告只读展示组件（契约 docs/PLANNING_COMPONENT_CONTRACTS.md §3）。
 // 完整与隐私输出都从同一份校验后的快照生成：隐私模式先 redactReport 脱敏，渲染只接触视图。
 // 不读取数据库、不调用规划算法补字段；金额/比例只经 Money/Ratio 通道显示。
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReportInputV1, SeriesPoint, TrendModel } from './model.ts';
 import {
   parseReportInput, redactReport, formatMoney, formatValue, headlineSentence, goalResultText,
@@ -55,12 +55,15 @@ function TrendChart({ trend, privacy }: { trend: TrendModel; privacy: boolean })
   </>;
 }
 
-export function PlanningReport({ outer, privacy, onPrivacyChange }: { outer: ReportOuter; privacy: boolean; onPrivacyChange?: (p: boolean) => void }) {
+export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = true, incompleteHeadlineLabel }: { outer: ReportOuter; privacy: boolean; onPrivacyChange?: (p: boolean) => void; allowPrint?: boolean; incompleteHeadlineLabel?: '本报告保留部分结果，请结合缺项与未覆盖内容核对。' }) {
   const parsed = useMemo(() => outer.status === 'ready' ? parseReportInput(outer.input) : null, [outer]);
   const report: ReportInputV1 | null = parsed?.ok ? parsed.report : null;
   const view = useMemo(() => report ? (privacy ? redactReport(report) : report) : null, [report, privacy]);
   const [showTable, setShowTable] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [copyError, setCopyError] = useState('');
+  useEffect(() => { setCopied(false); setCopyError(''); }, [privacy, outer]);
 
   if (outer.status === 'loading') return <div className="pr-state" aria-busy="true" role="status">报告读取中…</div>;
   if (outer.status === 'empty') return <div className="pr-state" role="status"><h3>尚未选择报告内容</h3><p className="pr-muted">从当前方案、某份基准或两份比较生成报告后，在此预览。</p></div>;
@@ -70,9 +73,13 @@ export function PlanningReport({ outer, privacy, onPrivacyChange }: { outer: Rep
 
   const trend = trendModel(view.series);
   const doCopy = async () => {
-    const text = copyText(report!, privacy);
-    try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }
-    catch { window.prompt('复制以下内容', text); }
+    if (copying) return;
+    const summary = copyText(report!, privacy);
+    const text = report!.headline.status === 'incomplete' && incompleteHeadlineLabel ? summary.replace('关键资料缺失，无法给出完整结论。', incompleteHeadlineLabel) : summary;
+    setCopying(true); setCopied(false); setCopyError('');
+    try { await navigator.clipboard.writeText(text); setCopied(true); }
+    catch { setCopyError('复制失败，请重试。'); }
+    finally { setCopying(false); }
   };
   const doPrint = () => {
     const win = window.open('', '_blank');
@@ -88,23 +95,25 @@ export function PlanningReport({ outer, privacy, onPrivacyChange }: { outer: Rep
         <h2 className="pr-title">{view.subject_name}{view.other_name ? ` vs ${view.other_name}` : ''}</h2>
         <p className="pr-meta">
           起点日 {dateLabel(view.source_date)} · 生成日 {dateLabel(view.generated_on)} · 金额基准 {dateLabel(view.monetary_basis_date)}
-          {' '}· 方案修订 {view.scenario_revision ?? '未知'} · 模型版本 {view.model_version ?? '未知'}
+          {view.scenario_revision !== null && <> · {view.kind === 'current' ? '规划' : '方案'}修订 {view.scenario_revision}</>} · 模型版本 {view.model_version ?? '未知'}
         </p>
       </div>
       <div className="pr-actions">
         {onPrivacyChange && <div className="pr-segmented" role="group" aria-label="报告版本">
-          <button type="button" className={seg(!privacy)} aria-pressed={!privacy} onClick={() => onPrivacyChange(false)}>完整</button>
-          <button type="button" className={seg(privacy)} aria-pressed={privacy} onClick={() => onPrivacyChange(true)}>隐私</button>
+          <button type="button" className={seg(!privacy)} aria-pressed={!privacy} disabled={copying} onClick={() => onPrivacyChange(false)}>完整</button>
+          <button type="button" className={seg(privacy)} aria-pressed={privacy} disabled={copying} onClick={() => onPrivacyChange(true)}>隐私</button>
         </div>}
-        <button type="button" className="pr-btn" onClick={doCopy}>{copied ? '已复制' : '复制摘要'}</button>
-        <button type="button" className="pr-btn" onClick={doPrint}>打印版</button>
+        <button type="button" className="pr-btn" disabled={copying} onClick={doCopy}>{copying ? '复制中…' : copied ? '已复制' : '复制摘要'}</button>
+        {allowPrint && <button type="button" className="pr-btn" onClick={doPrint}>打印版</button>}
       </div>
     </header>
+    {copyError && <p className="pr-error" role="alert">{copyError}</p>}
+    {copied && <p className="pr-muted" role="status">摘要已复制。</p>}
 
-    {view.status === 'partial' && <p className="pr-banner" role="status">本报告输入不完整，部分结果保留缺项；未知不等于零，不能用 0 补齐。</p>}
+    {view.status === 'partial' && <p className="pr-banner" role="status">本报告输入不完整或展示范围有限；未知不等于零，未覆盖内容见下方说明。</p>}
 
     <section className="pr-card pr-conclusion" aria-label="结论">
-      <p className="pr-headline">{headlineSentence(view)}</p>
+      <p className="pr-headline">{view.headline.status === 'incomplete' && incompleteHeadlineLabel ? incompleteHeadlineLabel : headlineSentence(view)}</p>
       <p className="pr-muted">下一步：{view.next_step.label}{view.next_step.detail ? `（${view.next_step.detail}）` : ''}</p>
     </section>
 
@@ -120,7 +129,7 @@ export function PlanningReport({ outer, privacy, onPrivacyChange }: { outer: Rep
       </table>
     </section>
 
-    <section className="pr-card" aria-label="目标结果">
+    {view.goals.length > 0 && <section className="pr-card" aria-label="目标结果">
       <h3 className="pr-h">目标结果</h3>
       <table className="pr-table">
         <thead><tr><th>目标</th><th>类型</th><th>日期</th><th>结果</th><th>缺项</th></tr></thead>
@@ -130,7 +139,7 @@ export function PlanningReport({ outer, privacy, onPrivacyChange }: { outer: Rep
           <td>{g.missing.length ? g.missing.join('；') : <span className="pr-muted">—</span>}</td>
         </tr>)}</tbody>
       </table>
-    </section>
+    </section>}
 
     <section className="pr-card" aria-label="资金趋势">
       <h3 className="pr-h">资金趋势

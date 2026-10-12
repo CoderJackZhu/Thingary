@@ -17,6 +17,8 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a,b) 
 /** Real page, aggregate hook/session, and source orchestration with deterministic IPC and leaf controls. */
 function harness(options = {}) {
   const calls = [], bars = [], routes = [], searches = [], sourceDone = [], editingChanges = [];
+  let headingFocuses = 0;
+  const focusTarget = options.focusTarget ?? { isConnected: true, matches: () => false, focus() {} };
   const receipt = { pending: null, busy: false, notice: '', ...options.receipt };
   let cursor = 0, path = 'root', tree, dirty = false, effects = [], destroyed = false;
   const slots = new Map(), cleanups = new Map(), touched = new Set();
@@ -32,7 +34,7 @@ function harness(options = {}) {
     'finance-contract': periods, 'finance-navigation': navigation, plan,
     'WealthPage': { usePendingReceipt: reload => ({ ...receipt, setPending: p => { receipt.pending=p; }, verify: async () => { if (options.verify) await options.verify(receipt); else receipt.pending=null; reload(); } }) },
     wealth: { storedPending: () => receipt.pending }, undo: { useRestored() {} },
-    topbar: { usePageBar: (owner,bar) => bars.push({owner,bar}) }, 'topbar-model': { refocusHeading() {} },
+    topbar: { usePageBar: (owner,bar) => bars.push({owner,bar}) }, 'topbar-model': { refocusHeading() { headingFocuses++; } },
     'planning-followup-port': { nativePlanningFollowupPortV1: () => options.port ?? {} },
     'planning-followup-ui/model': { formatCents: c => c, endpointText: e => e.label ?? e.account_id, purposeLabel: {}, sourceStatusText: {} },
     '@tauri-apps/api/core': { invoke: async (command,args) => { calls.push({ command,args }); if (options.invoke) return options.invoke(command,args); if (command === 'finance_sources') return snapshot(args.period, props.modules, options.extra); if (command === 'plan_income_list') return { generation: 'g', rows: [income('latest','2026-10-12','999')] }; if (command === 'validate_source') return true; throw Error(command); } },
@@ -42,7 +44,7 @@ function harness(options = {}) {
     if (cache.has(file)) return cache.get(file);
     const exports = {}; cache.set(file,exports);
     const js = ts.transpileModule(readFileSync(new URL(`../src/${file}`,import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText;
-    vm.runInNewContext(js,{ exports, module:{exports}, crypto:globalThis.crypto, Error, console, document:{ activeElement:{isConnected:true,focus(){}}, getElementById:()=>null, querySelector:()=>null }, requestAnimationFrame: fn=>fn(), require: id => {
+    vm.runInNewContext(js,{ exports, module:{exports}, crypto:globalThis.crypto, Error, console, document:{ activeElement:focusTarget, getElementById:()=>null, querySelector:()=>null }, requestAnimationFrame: fn=>fn(), require: id => {
       if (id.endsWith('.css')) return {};
       if (!id.startsWith('.')) return stub[id] ?? leaves;
       const rel = posix.normalize(posix.join(posix.dirname(file),id)).replace(/\.(tsx?|jsx?)$/,'');
@@ -70,8 +72,22 @@ function harness(options = {}) {
   const find=(type,p=()=>true)=>nodes().find(n=>n.type===type&&p(n.props));
   const settle=async()=>{for(let i=0;i<4;i++){await new Promise(r=>setImmediate(r));render();}};
   render();
-  return {props,calls,bars,routes,searches,sourceDone,editingChanges,receipt,render,settle,find,nodes,text,unmount(){destroyed=true;for(const cleanup of cleanups.values())cleanup?.();},bar:()=>bars.at(-1).bar};
+  return {props,calls,bars,routes,searches,sourceDone,editingChanges,receipt,render,settle,find,nodes,text,get headingFocuses(){return headingFocuses;},unmount(){destroyed=true;for(const cleanup of cleanups.values())cleanup?.();},bar:()=>bars.at(-1).bar};
 }
+
+test('income save returns focus to the heading while reload disables the opener; cancel restores an enabled opener',async()=>{
+  let focused = 0;
+  const opener = { isConnected: true, disabled: false, matches: () => opener.disabled, focus() { focused++; } };
+  const r = harness({ focusTarget: opener }); await r.settle();
+  await r.bar().primary.run(); await r.settle();
+  r.find('IncomeDialog').props.onClose(false); r.render();
+  assert.equal(focused, 1); assert.equal(r.headingFocuses, 0);
+  await r.bar().primary.run(); await r.settle();
+  opener.disabled = true;
+  r.find('IncomeDialog').props.onClose(true); r.render();
+  assert.equal(focused, 1); assert.equal(r.headingFocuses, 1);
+  assert.equal(r.find('IncomeDialog'), undefined);
+});
 
 test('independent income needs no goal or wealth, with one bar and no import/export',async()=>{
   const r=harness({props:{modules:{...modules,wealth:false,movements:false,expenses:false}}});await r.settle();

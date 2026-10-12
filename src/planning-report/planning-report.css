@@ -56,3 +56,13 @@
 .pr-preview-bar select,.pr-preview-bar button{font-size:12px;padding:4px 8px;min-height:26px}
 .pr-preview-bar .pr-fictional{color:var(--warn);font-weight:600}
 @media(max-width:900px){.pr-head{flex-direction:column}.pr-actions{width:100%}}
+
+dialog.editor.planning-current-report-dialog[open]{width:min(1000px,calc(100vw - 32px));max-height:calc(100dvh - 32px);padding:0;overflow:hidden}
+.planning-current-report-frame{display:flex;flex-direction:column;max-height:calc(100dvh - 34px);min-width:0}
+.editor.planning-current-report-dialog .planning-current-report-frame>header,.editor.planning-current-report-dialog .planning-current-report-frame>footer{display:flex;gap:16px;justify-content:space-between;align-items:flex-start;flex-shrink:0;margin:0;padding:16px 24px}
+.planning-current-report-frame>header>div{min-width:0}
+.planning-current-report-body{min-height:0;overflow:auto;padding:0 24px;overscroll-behavior:contain}
+.planning-current-report-frame>footer{align-items:center;flex-wrap:wrap;border-top:1px solid var(--line)}
+.planning-current-report-frame>footer p{margin:0}
+.planning-current-report-dialog .pr-table{display:block;overflow-x:auto}
+@media(max-width:600px){.editor.planning-current-report-dialog .planning-current-report-frame>header,.editor.planning-current-report-dialog .planning-current-report-frame>footer{padding:12px 16px}.planning-current-report-body{padding-inline:16px}}

@@ -489,6 +489,95 @@ fn f09_insert_change_delete_restore_invalidate_manual_and_details_but_notes_do_n
     );
 }
 #[test]
+fn endpoint_and_movement_corrections_disclose_only_their_actual_causes() {
+    for (correct_endpoint, correct_movement) in [(true, false), (false, true), (true, true)] {
+        let (_d, mut s, inv, cash, p) = setup("11000000");
+        let original = fields(external(), ep(&inv), "10000", "external_funding");
+        let m = movement(&mut s, original.clone());
+        confirm(&mut s, &p);
+        assert_eq!(profit(&s, &p)["value"]["profit_cents"], "990000");
+        let stale_save = review_input(&s, &p, &draft(true));
+        if correct_endpoint {
+            let end = s.wealth_snapshot(&p.to_snapshot_id).unwrap().unwrap();
+            s.wealth_snapshot_save(
+                &SnapshotSave {
+                    request_id: rid(),
+                    generation: s.generation(),
+                    id: Some(end.id),
+                    expected_revision: Some(end.revision),
+                    date: "2026-10-31".into(),
+                    notes: String::new(),
+                    entries: vec![
+                        EntryInput {
+                            account_id: inv.id.clone(),
+                            state: "entered".into(),
+                            amount_cents: Some("11000100".into()),
+                        },
+                        EntryInput {
+                            account_id: cash.id.clone(),
+                            state: "entered".into(),
+                            amount_cents: Some("5000000".into()),
+                        },
+                    ],
+                },
+                TODAY,
+            )
+            .unwrap();
+        }
+        if correct_movement {
+            s.movement_save(
+                &Save {
+                    request_id: rid(),
+                    generation: s.generation(),
+                    id: Some(m.id),
+                    expected_revision: Some(m.revision),
+                    fields: Fields {
+                        amount_cents: "20000".into(),
+                        ..original
+                    },
+                },
+                TODAY,
+            )
+            .unwrap();
+        }
+        let read = s.followup_review_read(&p, &s.generation()).unwrap();
+        let preview = &read["preview"];
+        assert_eq!(preview["confirmation"], "needs_review");
+        let result = &preview["result"];
+        assert_eq!(result["status"], "needs_review");
+        assert!(result.get("value").is_none());
+        let codes = result["reasons"].as_array().unwrap();
+        assert_eq!(codes.contains(&json!("stale_endpoints")), correct_endpoint);
+        assert_eq!(codes.contains(&json!("stale_movements")), correct_movement);
+        assert_eq!(
+            preview["reasons"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|r| r["code"] == "stale_movements"),
+            correct_movement
+        );
+        assert_eq!(
+            s.followup_review_save(&stale_save).unwrap_err().code,
+            "STALE_BASIS"
+        );
+        assert_eq!(
+            s.investment_review_read(&s.generation(), &p.from_snapshot_id, &p.to_snapshot_id)
+                .unwrap()
+                .result,
+            *result
+        );
+        confirm(&mut s, &p);
+        let expected = match (correct_endpoint, correct_movement) {
+            (true, false) => "990100",
+            (false, true) => "980000",
+            (true, true) => "980100",
+            _ => unreachable!(),
+        };
+        assert_eq!(profit(&s, &p)["value"]["profit_cents"], expected);
+    }
+}
+#[test]
 fn f10_intermediate_snapshot_overlap_delete_restore_and_endpoint_correction_do_not_split() {
     let (_d, mut s, inv, cash, p) = setup("10000000");
     let review = confirm(&mut s, &p);

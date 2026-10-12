@@ -2,7 +2,7 @@
 
 物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，运行于 macOS。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
 
-下一阶段逻辑对象、方案/事实分离、事件与贷款接续、基准和导入事务的目标契约见 [统一规划设计](PLANNING_LIFECYCLE_DESIGN.md)及其专项规格，**分阶段实施中**；当前已接入的资金／事件核对和月账本见下文。命名方案、冻结基准及真实报告 DTO 尚未接入，其物理表、命令与迁移版本仍在实施前确定，不能从设计对象推定数据库已变更。
+下一阶段逻辑对象、方案/事实分离、事件与贷款接续、基准和导入事务的目标契约见 [统一规划设计](PLANNING_LIFECYCLE_DESIGN.md)及其专项规格，**分阶段实施中**；当前已接入的资金／事件核对和月账本见下文。当前规划报告通过只读适配器接入真实来源，不新增持久对象；命名方案、冻结基准及基准／比较报告尚未接入，其物理表、命令与迁移版本仍在实施前确定，不能从设计对象推定数据库已变更。
 
 ## 分层与入口
 
@@ -43,11 +43,17 @@ flowchart TD
 
 ## 财务工作区的读取与能力
 
-当前源码已接入财务工作区，仍待联合验收与主审，见[开发说明](DEVELOPMENT.md#finance-workspace-validation)。`finance-contract.ts`／`finance-navigation.ts` 定义期间、能力与业务意图；`finance-service.ts` 显式适配原生 `finance_sources`，`finance-data.ts` 管理读取票据及过期响应。`finance_sources.rs` 在同一只读事务中取得期间、账户／盘点、收入、支出、投资核对及历史参考；Worker 同轮采样当前资料库与 RuntimeModules，不能把多个旧来源请求拼成一份本期结论。局部 disabled／error／empty／partial 状态保留区别，未知整数分不补零；用于选区间的全量启动读取不冒充期间事实。
+当前源码已接入财务工作区，已完成代码复核、自动检查、浏览器矩阵及隔离原生核心流程验收，见[开发说明](DEVELOPMENT.md#finance-workspace-validation)。`finance-contract.ts`／`finance-navigation.ts` 定义期间、能力与业务意图；`finance-service.ts` 显式适配原生 `finance_sources`，`finance-data.ts` 管理读取票据及过期响应。`finance_sources.rs` 在同一只读事务中取得期间、账户／盘点、收入、支出、投资核对及历史参考；Worker 同轮采样当前资料库与 RuntimeModules，不能把多个旧来源请求拼成一份本期结论。局部 disabled／error／empty／partial 状态保留区别，未知整数分不补零；用于选区间的全量启动读取不冒充期间事实。
 
 RuntimeModules 增加独立 `incomes` 和 `movements`，前者不依赖目标，后者还要求 `wealth`；`planning` 只控制目标及目标来源。可信旧配置只继承一次，不能随着后续目标开关反复改变收入与流动偏好；坏配置与未知版本不默认全开，失败保全原文件。展示、候选、写入、导入预览与提交分别门控；完整导出／备份不删隐藏模块事实。模块开关不改 schema、历史请求指纹或带 plan_ 前缀的现有事实表。
 
 手填与流动明细仍为互斥的投资核对来源。流动关闭后，手填核对只读已存事实且不查询流动，明细模式显式 unavailable，不自动改模式或通过旧读取端口绕过。目标关闭不影响收入、流动及财务聚合。结果未知的回执核对属于只读恢复，沿用原 request_id／generation；不能因模块关闭或宿主迁移而生成新请求重放。全局保存锁保留设置与原恢复入口的可达性。
+
+## 当前规划报告
+
+`PlanningPage` 使用同一批 `PlanningSources` 与 `buildBasicCapabilities`，经 `planning-report/current-adapter.ts` 和 `parseReportInput` 生成脱离来源引用的白名单快照。`PlanningCurrentReportDialog` 只持有内存快照；普通来源刷新不替换正文，切库、恢复、关闭规划或离开目标使其失效。报告不写账户、规划或回执，未知净投入不补零生成预测；影响计算的待核对项限制主结论。实际资金与模拟起点分别标注，账户在完整／隐私视图共用稳定局部别名。
+
+真实入口默认隐私，只提供完整切换与摘要复制，复制失败明确提示。当前展示资金、计算条件、需求与可准确表达的结论；逐月曲线、购买结果、历史差异和原生打印／PDF未由这一步接入。显示缺项不改变领域模型的预算覆盖与终点余量判据。
 
 ## 账户、完整盘点与月度收入历史导入
 

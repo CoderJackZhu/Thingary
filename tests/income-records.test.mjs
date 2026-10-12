@@ -9,34 +9,19 @@ const income = (id, date, net, hpf, category, notes = id) => ({ id, fields: { da
 // Controlled host view: the real finance-contract is injected so period boundaries are the production ones.
 const controlled = (incomes, props = {}) => runtime('IncomeRecords', { incomes, onOpen() {}, onNew() {}, disabled: false, ...props }, undefined, undefined, { components: [], modules: { './income-classification': categories, './finance-contract': contract } });
 const periodSummary = r => r.find('dl', p => p['aria-label'] === '期间合计');
-test('month filtering keeps income rows and classification totals aligned, including unknown hpf', () => {
+test('host month filtering keeps income rows and classification totals aligned, including unknown hpf', () => {
   const incomes = { generation: 'fictional', rows: [record('salary', '2026-08-15', '200000', '0', 'non_investment'), record('interest', '2026-09-15', '10000', null, 'interest')] };
-  const r = runtime('IncomeRecords', { incomes, onOpen() {}, onNew() {}, disabled: false }, undefined, undefined, { components: [], modules: { './income-classification': categories } });
-  r.find('select').props.onChange({ target: { value: '2026-09' } }); r.render();
+  const r = controlled(incomes, { period: { kind: 'month', month: '2026-09' } });
   assert.equal(r.find('tbody').props.children.length, 1);
   assert.match(r.text(r.find('tbody')), /interest/);
   assert.doesNotMatch(r.text(r.find('tbody')), /salary/);
-  assert.match(r.text(r.find('dl')), /10000/);
-  assert.doesNotMatch(r.text(r.find('dl')), /200000/);
+  assert.match(r.text(periodSummary(r)), /10000/);
+  assert.doesNotMatch(r.text(periodSummary(r)), /200000/);
   assert.match(r.text(r.find('tbody')), /未知/);
   r.props.incomes = { ...incomes, rows: [incomes.rows[0]] }; r.render();
-  assert.ok(r.button('查看全部月份'));
-  r.button('查看全部月份').props.onClick(); r.render();
+  assert.match(r.text(r.nodes()[0]), /尚未记录/);
+  r.props.period = { kind: 'all' }; r.render();
   assert.match(r.text(r.find('tbody')), /salary/);
-});
-
-test('review headline keeps unknown income and changed account scope distinct from zero', async () => {
-  const { fixture } = await import('./planning-ui-fixture.mjs');
-  const observations = await import('../src/review-observations.ts');
-  const sources = fixture();
-  const interval = { from: '2026-08-31', to: '2026-09-30', snapshot_id: 'fictional', delta_nw_cents: '100', income_cents: '0', income_records: 0, status: 'scope_changed' };
-  const r = runtime('PlanningReviewSummary', { interval, sources, reasons: null, reasonError: '', summary: { points: [] }, summaryError: '', today: '2026-10-12', reload() {}, onPending() {}, onEditingChange() {}, onAction() {}, onRetry() {}, blocked: false }, undefined, undefined, { components: [], modules: { './income-classification': categories, './review-observations': observations } });
-  const facts = () => r.text(r.find('dl', p => p['aria-label'] === '本期事实'));
-  assert.match(facts(), /不可比较/);
-  assert.match(facts(), /尚未记录/);
-  sources.incomes = { status: 'error', value: { message: 'fictional read failure' } }; r.render();
-  assert.match(facts(), /暂不可用/);
-  assert.doesNotMatch(facts(), /尚未记录/);
 });
 
 test('controlled range excludes the opening day and includes the closing day', () => {

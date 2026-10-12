@@ -673,7 +673,7 @@ fn maximum_20_mib_50000_rows_and_cancellation_latency() {
         other.store(true, Ordering::Release);
         Instant::now()
     });
-    let start = Instant::now();
+    let cancel_start = Instant::now();
     let err = s
         .financial_import_preview(&b, "2026-10-09", &|| flag.load(Ordering::Acquire))
         .unwrap_err();
@@ -682,6 +682,12 @@ fn maximum_20_mib_50000_rows_and_cancellation_latency() {
     assert_eq!(err.code, "CANCELLED");
     let latency = completed.saturating_duration_since(cancelled_at);
     assert!(latency < Duration::from_millis(250), "{latency:?}");
+    println!(
+        "capacity cancellation_elapsed={:?} cancellation={:?}",
+        completed.duration_since(cancel_start),
+        latency
+    );
+    let start = Instant::now();
     let p = s
         .financial_import_preview(&b, "2026-10-09", &|| false)
         .unwrap();
@@ -690,7 +696,7 @@ fn maximum_20_mib_50000_rows_and_cancellation_latency() {
     assert_eq!(p.objects.len(), 50);
     assert_eq!(p.counts.new_snapshots, 24999);
     println!(
-        "capacity bytes=20971520 rows=50000 elapsed={:?} cancellation={:?}",
+        "capacity bytes=20971520 rows=50000 preview_elapsed={:?} cancellation={:?}",
         start.elapsed(),
         latency
     );
@@ -726,6 +732,7 @@ fn maximum_50000_accounts_capacity() {
     csv.push_str(&"z".repeat(pad));
     csv.push('\n');
     b.files[0].csv_text = csv;
+    assert_eq!(b.files[0].csv_text.len(), 20 * 1024 * 1024);
     let start = std::time::Instant::now();
     let p = s
         .financial_import_preview(&b, "2026-10-09", &|| false)
@@ -734,7 +741,7 @@ fn maximum_50000_accounts_capacity() {
     assert_eq!(p.total, 50000);
     assert_eq!(p.objects.len(), 50);
     println!(
-        "50000 accounts bytes=20971520 elapsed={:?}",
+        "50000 accounts bytes=20971520 preview_elapsed={:?}",
         start.elapsed()
     );
 }
@@ -753,8 +760,18 @@ fn maximum_populated_accounts_reimport_and_cancel() {
             .csv_text
             .push_str(&format!("a{i},虚构{i},cash,2024-01-01,,true,,\n"));
     }
+    let setup_start = std::time::Instant::now();
     let input = commit_input(&s, b.clone());
+    println!(
+        "populated 50000 setup_preview_elapsed={:?}",
+        setup_start.elapsed()
+    );
+    let commit_start = std::time::Instant::now();
     s.financial_import_commit(&input, "2026-10-09").unwrap();
+    println!(
+        "populated 50000 commit_elapsed={:?}",
+        commit_start.elapsed()
+    );
     let start = std::time::Instant::now();
     let p = s
         .financial_import_preview(&b, "2026-10-09", &|| false)
@@ -772,7 +789,8 @@ fn maximum_populated_accounts_reimport_and_cancel() {
     let result = s.financial_import_preview(&b, "2026-10-09", &|| {
         flag.load(std::sync::atomic::Ordering::Acquire)
     });
-    let latency = timer.join().unwrap().elapsed();
+    let completed = std::time::Instant::now();
+    let latency = completed.saturating_duration_since(timer.join().unwrap());
     assert_eq!(result.unwrap_err().code, "CANCELLED");
     println!("populated 50000 cancellation latency={latency:?}");
     assert!(latency < std::time::Duration::from_secs(1));
