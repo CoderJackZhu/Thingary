@@ -1,5 +1,7 @@
 # 收入复盘、历史基准、金额打码与决策报告设计
 
+2026-10-12 后续收敛：近期收入分类、本期优先布局与投资区间损益的唯一实施规格见[产品边界设计 §10—16](PRODUCT_BOUNDARIES_DESIGN.md#screens)。先以完整盘点及两项资金流动合计区分余额变化和损益，不新增精确消费反推或通用估值归因。旧政策输入不兼容；本文中社保缴费核对和旧养老金门控不再作为后续目标。冻结基准、命名方案和完整报告仍是独立后续范围，未纳入此次两批交付，现有实现以 PRODUCT_RULES 为准。
+
 2026-10 起由 [PRODUCT_RULES](PRODUCT_RULES.md#规划收入与复盘) 的估计口径取代此前不得反推消费／储蓄的显示约束；以下历史内容保留。
 
 状态：**范围已批准，待实施、待验收。** 基线：`7eaff7c612e51875cdc9f299ecef2951abfd8f87`。入口见 [整体设计](PLANNING_LIFECYCLE_DESIGN.md)，持久化与统一计算见 [资金与方案](PLANNING_DATA_SCENARIOS_DESIGN.md)，迁入见 [CSV 设计](FINANCIAL_HISTORY_IMPORT_DESIGN.md)。
