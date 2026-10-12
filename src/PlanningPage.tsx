@@ -24,7 +24,7 @@ import './planning.css';
 
 export type PlanningTab = 'goals' | 'savings';
 
-export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFocusDone, followupPort: injectedPort }: { focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void; followupPort?: PlanningFollowupPortV1 }) {
+export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFocusDone, onDetailChange, followupPort: injectedPort }: { focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void; followupPort?: PlanningFollowupPortV1; onDetailChange?: (open: boolean) => void }) {
   const nativePort = useMemo(() => nativePlanningFollowupPortV1(), []);
   const followupPort = injectedPort ?? nativePort;
   const { load, reload } = usePlanningSources(today);
@@ -74,12 +74,11 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot><div className="wealth-toolbar">
       <Info text="按你的条件，估算为目标月份每月需要准备多少资金。都是估算，条件随时可以改。"/>
-      <button type="button" className="ui-btn" disabled={reportBlocked} onClick={event => openCurrentReport(event.currentTarget)}>查看当前报告</button>
     </div></HeaderSlot>
     {reportError && <p className="notice" role="alert">{reportError}</p>}
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
       : !sources ? <p role="status" className="muted">正在读取规划…</p>
-      : <><PlanningBasicGoals key={sources.generation + ":" + sources.write_version + ":" + receiptEpoch} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={setGoalEditing} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone} assumptionsPort={followupPort} onReport={openCurrentReport} reportDisabled={reportBlocked}/><PlanningGoalOccurrences key={sources.generation + ":occurrences:" + sources.write_version + ":" + receiptEpoch} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setOccurrenceEditing} blocked={!!pending || busy || goalEditing || !!setup || !!currentReport}/></>}
+      : <><PlanningBasicGoals key={sources.generation + ":" + sources.write_version + ":" + receiptEpoch} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={setGoalEditing} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone} assumptionsPort={followupPort} onReport={openCurrentReport} reportDisabled={reportBlocked} onDetailChange={onDetailChange}/><PlanningGoalOccurrences key={sources.generation + ":occurrences:" + sources.write_version + ":" + receiptEpoch} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setOccurrenceEditing} blocked={!!pending || busy || goalEditing || !!setup || !!currentReport}/></>}
 
     {setup && sources && <PlanningSetupDialog key={sources.generation} completionId={setup.completionId} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode} assumptionsPort={followupPort}/>}
     {currentReport && (!sources || sources.modules.planning && sources.generation === currentReport.generation) && <PlanningCurrentReportDialog report={currentReport.report} onClose={closeCurrentReport}/>}

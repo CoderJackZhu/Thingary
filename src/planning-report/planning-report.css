@@ -6,13 +6,14 @@
 .pr-title{margin:2px 0;font:600 18px/1.4 var(--head);overflow-wrap:anywhere}
 .pr-meta{margin:0;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .pr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
-.pr-segmented{display:inline-flex;border:1px solid var(--line);border-radius:var(--ctl-radius);overflow:hidden}
-.pr-seg{border:0;background:var(--card);color:var(--muted);padding:5px 14px;font-size:12px;cursor:pointer;min-height:28px}
+.pr-segmented{box-sizing:border-box;height:44px;display:inline-flex;border:1px solid var(--line);border-radius:var(--ctl-radius);overflow:hidden}
+.pr-seg{border:0;background:var(--card);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box;padding:8px 14px;font-size:13px;cursor:pointer;min-height:44px}
+.pr-seg{min-height:42px}
 .pr-seg.on{background:var(--accent);color:var(--button-text)}
-.pr-btn{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:var(--ctl-radius);padding:5px 14px;font-size:12px;cursor:pointer;min-height:28px}
+.pr-btn{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:var(--ctl-radius);display:inline-flex;align-items:center;justify-content:center;text-align:center;box-sizing:border-box;padding:8px 14px;font-size:13px;cursor:pointer;min-height:44px}
 .pr-btn:hover{border-color:var(--accent)}
 /* 当前报告明显金额开关：触控目标至少 44px。 */
-.pr-toggle-amount{border:1px solid var(--accent);background:var(--accent);color:var(--button-text);border-radius:var(--ctl-radius);padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer;min-height:44px;min-width:44px}
+.pr-toggle-amount{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-align:center;border:1px solid var(--accent);background:var(--accent);color:var(--button-text);border-radius:var(--ctl-radius);padding:6px 16px;font-size:13px;font-weight:600;cursor:pointer;min-height:44px;min-width:44px}
 .pr-toggle-amount[aria-pressed="true"]{background:var(--card);color:var(--accent)}
 .pr-outcome{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:12px;color:var(--muted)}
 .pr-outcome-label{display:inline-block;border:1px solid var(--accent);color:var(--accent);border-radius:5px;padding:0 7px;font-size:11px}

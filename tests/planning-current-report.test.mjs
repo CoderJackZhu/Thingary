@@ -46,8 +46,8 @@ function page() {
 }
 
 test('current report generation freezes one saved result through normal reload and source edits', () => {
-  const r = page(); const trigger = { isConnected: true, matches: () => false, focus: noop };
-  r.button('查看当前报告').props.onClick({ currentTarget: trigger }); r.render();
+  const r = page(); assert.equal(r.button('查看当前报告'), undefined); const trigger = { isConnected: true, matches: () => false, focus: noop };
+  r.nodes().find(row => row.type === 'Goals').props.onReport(trigger); r.render();
   const first = r.nodes().find(row => row.type === 'ReportDialog').props.report, original = JSON.stringify(first);
   assert.equal(r.bar.primary.disabled, true); assert.equal(r.nodes().find(row => row.type === 'Occurrences').props.blocked, true);
   r.setLoad({ status: 'loading' }); assert.equal(r.nodes().find(row => row.type === 'ReportDialog').props.report, first);
@@ -57,20 +57,20 @@ test('current report generation freezes one saved result through normal reload a
 
 test('trusted library/module/restore changes discard the report; close handles disabled opener', () => {
   for (const mode of ['generation', 'module', 'restore']) {
-    const r = page(); r.button('查看当前报告').props.onClick({ currentTarget: { isConnected: true, matches: () => true, focus() { throw Error('disabled focus'); } } }); r.render();
+    const r = page(); r.nodes().find(row => row.type === 'Goals').props.onReport({ isConnected: true, matches: () => true, focus() { throw Error('disabled focus'); } }); r.render();
     if (mode === 'restore') { r.restore(); assert.equal(r.reloads, 1); }
     else { const s = structuredClone(r.load.sources); if (mode === 'generation') s.generation = 'new-library'; else s.modules.planning = false; r.setLoad({ status: 'ready', sources: s }); }
     assert.equal(r.nodes().some(row => row.type === 'ReportDialog'), false);
   }
-  const r = page(); r.button('查看当前报告').props.onClick({ currentTarget: { isConnected: true, matches: () => true, focus() { throw Error('disabled focus'); } } }); r.render();
+  const r = page(); r.nodes().find(row => row.type === 'Goals').props.onReport({ isConnected: true, matches: () => true, focus() { throw Error('disabled focus'); } }); r.render();
   r.nodes().find(row => row.type === 'ReportDialog').props.onClose(); r.render(); assert.equal(r.focuses, 1);
 });
 
 test('unsaved sources, errors and pending receipts cannot generate a report', () => {
-  const r = page(); r.setPending({ label: 'pending' }); assert.equal(r.button('查看当前报告').props.disabled, true);
-  r.button('查看当前报告').props.onClick({ currentTarget: {} }); r.render(); assert.equal(r.nodes().some(row => row.type === 'ReportDialog'), false);
-  r.setPending(null); const s = structuredClone(r.load.sources); s.profile.value.saved = null; r.setLoad({ status: 'ready', sources: s }); assert.equal(r.button('查看当前报告').props.disabled, true);
-  r.setLoad({ status: 'error', message: '虚构读取失败' }); assert.equal(r.button('查看当前报告').props.disabled, true);
+  const r = page(); r.setPending({ label: 'pending' }); assert.equal(r.nodes().find(row => row.type === 'Goals').props.reportDisabled, true);
+  r.nodes().find(row => row.type === 'Goals').props.onReport({}); r.render(); assert.equal(r.nodes().some(row => row.type === 'ReportDialog'), false);
+  r.setPending(null); const s = structuredClone(r.load.sources); s.profile.value.saved = null; r.setLoad({ status: 'ready', sources: s }); assert.equal(r.nodes().find(row => row.type === 'Goals').props.reportDisabled, true);
+  r.setLoad({ status: 'error', message: '虚构读取失败' }); assert.equal(r.nodes().some(row => row.type === 'Goals'), false);
 });
 
 test('actual dialog starts private, disables unverified printing and closes without a write', () => {

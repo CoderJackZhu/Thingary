@@ -40,12 +40,13 @@ type GoalDialog =
   | { kind: 'occurrence'; completion: boolean; event: StoredLifeEvent };
 
 /** Goal states are a presentation projection; current calculation gates remain unchanged. */
-export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone, assumptionsPort, onReport, reportDisabled }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean, completionId?: string) => void; focus?: boolean; onFocusDone: () => void; assumptionsPort?: PlanningFollowupPortV1; onReport?: (from: HTMLElement) => void; reportDisabled?: boolean }) {
+export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone, assumptionsPort, onReport, reportDisabled, onDetailChange }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean, completionId?: string) => void; focus?: boolean; onFocusDone: () => void; assumptionsPort?: PlanningFollowupPortV1; onReport?: (from: HTMLElement) => void; reportDisabled?: boolean; onDetailChange?: (open: boolean) => void }) {
   const [dialog, setDialog] = useState<GoalDialog | null>(null);
   const [assumptionRead, setAssumptionRead] = useState<FollowupRead<AssumptionReadV1> | null>(null);
   const [assumptionReadEpoch, setAssumptionReadEpoch] = useState(0);
   const [detail, setDetail] = useState(false), opener = useRef<HTMLElement | null>(null);
   const [assumptionEditing, setAssumptionEditing] = useState(false);
+  useEffect(() => { onDetailChange?.(detail); return () => onDetailChange?.(false); }, [detail, onDetailChange]);
   const editing = dialog !== null || assumptionEditing;
   useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;

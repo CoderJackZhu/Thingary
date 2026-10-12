@@ -124,7 +124,7 @@ function Coverage({ calc, mode, basic }: { calc: Ready; mode: ValueMode; basic: 
 
       <div className="rd-schedules">
         <section><h4>支出计划表</h4><ul>{[...c.spend_items, ...c.flow_items].map(i => <li key={i.id} className={i.active ? undefined : 'inactive'}><span>{i.label}<small>{i.start} → {i.end}{i.active ? '' : ' · 未生效'}</small></span><i className="ui-tag">{i.essential ? '必需' : '灵活'}</i><b>{fmt(i.monthly)}/月</b></li>)}</ul></section>
-        <section><h4>收入计划表</h4>{c.income_items.length === 0 ? <p className="muted small">{basic ? '这次没有计入退休收入；可在右侧「退休收入」里选择。' : '未配置未来收入，可在目标页填写官方测算结果或其他收入假设。'}</p> : <ul>{c.income_items.map(i => <li key={i.id} className={i.active ? undefined : 'inactive'}><span>{i.label}<small>{i.start} → {i.end}{i.active ? '' : ' · 未生效'}</small></span><b>{fmt(i.monthly)}/月</b></li>)}</ul>}</section>
+        <section><h4>收入计划表</h4>{c.income_items.length === 0 ? <p className="muted small">{basic ? '这次没有计入退休收入；可在右侧「未来收入」里选择。' : '未配置未来收入，可在目标页填写官方测算结果或其他收入假设。'}</p> : <ul>{c.income_items.map(i => <li key={i.id} className={i.active ? undefined : 'inactive'}><span>{i.label}<small>{i.start} → {i.end}{i.active ? '' : ' · 未生效'}</small></span><b>{fmt(i.monthly)}/月</b></li>)}</ul>}</section>
       </div></>}
   </article>;
 }

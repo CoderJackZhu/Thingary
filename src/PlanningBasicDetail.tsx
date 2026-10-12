@@ -7,6 +7,7 @@ import { CapabilityNotice, MissingList, RequirementCard } from './PlanningRequir
 import { RetireOverview, Snapshot, useValueMode } from './RetireOverview';
 import { RiskLab } from './RiskLab';
 import { rateText } from './plan';
+import { ageText } from './planning-simplified-ui/income-view';
 
 
 import type { BasicCapabilities, PlanningMissing, PlanningSources, ProfileState } from './plan';
@@ -112,7 +113,7 @@ function BasicSidebar({ saved, caps, openSetup, contribution }: { saved: Saved; 
   const scope = (id: string) => { const c = b.retirement_costs.find(x => x.source_id === id); return c ? treatmentText[c.treatment] : '这笔钱是否已含在生活费里，待确认'; };
   return <div className="rd-side">
     <Card title="目标与预算" onEdit={el => openSetup(0, el)}>
-      <Rows rows={[['计划类型', r.mode === 'fire' ? '财务自由' : '按月份退休'], ['目标月份', r.simplified.time.target_month ?? '未设定'], ['年龄参考', r.simplified.time.reference ? `${r.simplified.time.reference.month} · ${Math.floor(r.simplified.time.reference.age_months / 12)} 岁` : '未填写（可选）'], ['退休后每月预算', r.spend_cents === null ? '未填写' : money(r.spend_cents)]]}/>
+      <Rows rows={[['计划类型', r.mode === 'fire' ? '财务自由' : '按月份退休'], ['目标月份', r.simplified.time.target_month ?? '未设定'], [r.simplified.time.reference?.age_months === 0 ? '出生年月' : '年龄参考', r.simplified.time.reference ? r.simplified.time.reference.age_months === 0 ? r.simplified.time.reference.month : `${r.simplified.time.reference.month} 时 ${ageText(r.simplified.time.reference.age_months)}` : '未填写（可选）'], ['退休后每月预算', r.spend_cents === null ? '未填写' : money(r.spend_cents)], ['应急金参考线', `${r.emergency_months} 个月`]]}/>
       {(r.spend_items.length > 0 || Number(r.rent_cents) > 0) && <><p className="muted small">已有的支出明细（阶段性支出可在「每月生活费」一步增删）：</p>
         <ul className="rs-list">{r.spend_items.map(i => <li key={i.id}><span>{i.label}<small>{i.essential ? '必需' : '灵活'} · {scope(`spend:${i.id}`)}</small></span><b>{money(i.monthly_cents)}/月</b></li>)}
           {Number(r.rent_cents) > 0 && <li><span>房租<small>{scope('rent')}</small></span><b>{money(r.rent_cents)}/月</b></li>}</ul></>}
@@ -126,7 +127,7 @@ function BasicSidebar({ saved, caps, openSetup, contribution }: { saved: Saved; 
     </Card>
     {contribution}
     <Card title="更多假设" onEdit={el => openSetup(5, el)} tip="全部是假设，不是事实。收益按扣除通胀后的实际收益填写。">
-      <Rows rows={[['退休前 / 后实际收益', `${rateText(r.real_return_before_hundredths)} / ${rateText(r.real_return_after_hundredths)}`], ['通胀', rateText(p.assumptions.inflation_hundredths)], ['规划终点', r.simplified.time.horizon_month ?? '未设定'], ['应急金', `${r.emergency_months} 个月`]]}/>
+      <Rows rows={[['退休前 / 后实际收益', `${rateText(r.real_return_before_hundredths)} / ${rateText(r.real_return_after_hundredths)}`], ['通胀', rateText(p.assumptions.inflation_hundredths)], ['规划终点', r.simplified.time.horizon_month ?? '未设定']]}/>
     </Card>
 
   </div>;
