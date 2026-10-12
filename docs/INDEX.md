@@ -33,7 +33,7 @@
 
 ## 已批准的设计
 
-- [规划假设与可选资金流动后续设计](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)：**2026-10-12 已批准，C1 假设与 C2 资金流动领域端口已交付，UI 与联合验收待集成。** [双任务接入契约](PLANNING_FOLLOWUP_PARALLEL_CONTRACT.md)及类型已实现真实领域适配，UI 按端口检查点集成。分三批完善假设核对、移除规划中的历史估计推荐、可选转账明细与区间来源互斥；继续使用盘点余额及现有损益公式，不新增证券账本或收益率。
+- [规划假设与可选资金流动后续设计](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)：**2026-10-12 C1 假设、C2 资金流动与 C3 UI 已整合，自动检查及隔离核心原生闭环通过；完整键盘、输入法与 VoiceOver 等未验范围见开发说明。** [双任务接入契约](PLANNING_FOLLOWUP_PARALLEL_CONTRACT.md)及类型已实现真实领域适配与 UI 接入。分三批完善假设核对、移除规划中的历史估计推荐、可选转账明细与区间来源互斥；继续使用盘点余额及现有损益公式，不新增证券账本或收益率。
 
 - [简化规划与投资复盘接口 v1](PLANNING_SIMPLIFICATION_CONTRACT.md)：现行组件输入输出与保存边界，供领域、界面及投资复盘组件分工使用；领域、界面、收入分类与投资区间持久化均已接入当前源码；原生验收范围见开发说明，产品范围以长期维护优先设计为准。
 

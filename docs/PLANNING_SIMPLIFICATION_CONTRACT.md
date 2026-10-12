@@ -166,6 +166,6 @@ endpoint 由事实适配器挑选同一投资范围，核心仍复核唯一 ID�
 
 ## 6. 后续契约边界
 
-[规划假设与可选资金流动设计](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)已批准，尚未改变本文v1运行时契约。[双任务接入契约](PLANNING_FOLLOWUP_PARALLEL_CONTRACT.md)已冻结并实现假设核对状态、资金流动逻辑DTO、区间来源模式、流动依据内容键及关联失效规则，UI 接入待联合交付；现有手填InvestmentFlowV1不冒充逐笔转账，不把明细合计叠加到手填合计。旧区间与回执兼容、迁移和完整备份必须与新写入能力同时交付。
+[规划假设与可选资金流动设计](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)已批准，尚未改变本文v1运行时契约。[双任务接入契约](PLANNING_FOLLOWUP_PARALLEL_CONTRACT.md)已冻结并实现假设核对状态、资金流动逻辑DTO、区间来源模式、流动依据内容键及关联失效规则，UI 已通过同一端口接入；现有手填InvestmentFlowV1不冒充逐笔转账，不把明细合计叠加到手填合计。旧区间与回执兼容、迁移和完整备份必须与新写入能力同时交付。
 
-双任务的后续类型、注入端口与检查点已在[接入契约v1](PLANNING_FOLLOWUP_PARALLEL_CONTRACT.md)冻结；这是开发前置，原生实现仍未开始。
+双任务的后续类型、注入端口与检查点已在[接入契约v1](PLANNING_FOLLOWUP_PARALLEL_CONTRACT.md)冻结；C1/C2 真实原生端口、C3 页面及完整携带能力均已实现并整合，验收边界见开发说明。

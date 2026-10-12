@@ -1,6 +1,6 @@
 # 规划假设与资金流动：双任务接入契约 v1
 
-状态：**2026-10-12 前置契约已冻结；C1 假设及 C2 资金流动原生端口已实现；UI 接入和联合验收待交付。** 源码基线为 `6332f874680e41a7f6c967493aad11706bc849c1`。目标以[边界设计第18节](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)为准；本文件维护领域与UI接缝，不是已上线功能说明。
+状态：**2026-10-12 前置契约已冻结；C1 假设、C2 资金流动原生端口与 C3 UI 已整合；自动检查及隔离核心原生闭环通过，验收边界见开发说明。** 源码基线为 `6332f874680e41a7f6c967493aad11706bc849c1`。目标以[边界设计第18节](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)为准；本文件维护领域与UI接缝，不是已上线功能说明。
 
 唯一类型定义：[planning-followup-contract.ts](../src/planning-followup-contract.ts)。该文件只有类型，没有保存、计算或运行时入口；其存在不表示原生端口可用。旧[投资核对v1](PLANNING_SIMPLIFICATION_CONTRACT.md)的输入输出继续作为计算核心边界，新契约在外层管理明细来源及确认失效，不向旧核心偷偷塞入未约定字段。
 
@@ -67,4 +67,4 @@ saved表示事务已确认，宿主重新读取真实来源后关闭／展示；
 
 真实错误包括 `PROFILE_REQUIRED`、`REVISION_CONFLICT`、`STALE_BASIS`、`OVERLAPPING_FLOW`、`SOURCE_CONFLICT`、`SOURCE_MISMATCH`、`INVALID_INPUT`、`STALE_CURSOR`、`MODULE_DISABLED` 及 `STALE_DATASET`；写端口提供小写 issue.code，读端口保留原错误码。无回执且原 generation 仍有效时可判定 `not_committed`；跨 generation 或无法读取回执保持 unresolved。假设、流动、核对均保留原 pending 入口，不创建第二份请求日志。
 
-F01—F12 的 Rust Store 与端口错误／回执自动测试使用虚构临时资料。它们验证真实事务、重启、备份恢复及 Excel 内容，尚不证明 C3 页面、原生键盘、输入法和系统文件面板已验。运行阶段与联合边界由 UI 交付后的现行开发说明维护。
+F01—F12 的 Rust Store 与端口错误／回执自动测试使用虚构临时资料。它们验证真实事务、重启、备份恢复及 Excel 内容。C3 页面另完成隔离身份的保存、更正、删除恢复、来源关联、重启及系统备份／Excel 面板闭环；完整键盘、输入法与 VoiceOver 未验，范围由现行开发说明维护。
