@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { careerSources } from '../src/career-preview/fixtures.ts';
-import { realGuidedDefaults } from '../src/career-preview/guided-model.ts';
+import { confirmGuidedCashCosts, realGuidedDefaults } from '../src/career-preview/guided-model.ts';
 import { prepareIncomeScope } from '../src/career-preview/income-scope.ts';
 import { maxGap, missingItems } from '../src/plan-career-map.ts';
 
@@ -59,4 +59,19 @@ test('C4 the card is wired as an optional, closed, non-persistent entry', () => 
     const t = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.doesNotMatch(t, /invoke\(|localStorage|sessionStorage|indexedDB|fetch\(/, f + ' must not store or call anything');
   }
+});
+
+test('C5 explicit guided cash-cost confirmation unblocks real defaults without changing facts', () => {
+  const s = careerSources(), original = structuredClone(s);
+  const x = realGuidedDefaults(s, '2026-10-09');
+  x.draft.gap.spend_cents = '600000'; x.draft.gap.income_cents = '0'; x.draft.recovery.monthly_cents = '500000';
+  const before = structuredClone(x.draft);
+  assert.equal(missingItems(before, true).length, 2);
+  const d = confirmGuidedCashCosts(before, true);
+  assert.deepEqual(missingItems(d, true), []);
+  const scope = prepareIncomeScope(s, d, x.income);
+  assert.equal(scope.status, 'ready');
+  assert.notEqual(maxGap(scope.sources, scope.draft).status, 'blocked');
+  assert.equal(missingItems(confirmGuidedCashCosts(d, false), true).length, 2);
+  assert.deepEqual(x.draft, before); assert.deepEqual(s, original);
 });

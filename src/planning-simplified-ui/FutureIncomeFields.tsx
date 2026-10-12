@@ -28,6 +28,7 @@ export function FutureIncomeFields({ value, reference, issues, busy, today, onOp
   };
   function done() {
     if (!d.name.trim()) { setErr('请填写名称。'); return; }
+    if (d.monthly_cents !== null && (!/^(0|[1-9]\d*)$/.test(d.monthly_cents) || BigInt(d.monthly_cents) > 99999999999n)) { setErr('每月预计净到账金额须为非负金额，最多两位小数。未知请留空。'); return; }
     if (d.basis === 'reference_month' && !validMonthV1(d.basis_month ?? '')) { setErr('请确认购买力基准月，或改用「领取时的金额」。'); return; }
     setErr('');
     onMerge({ ...d, name: d.name.trim() });
@@ -43,7 +44,7 @@ export function FutureIncomeFields({ value, reference, issues, busy, today, onOp
     </FormRow>
     {d.role === 'other' && <p className="muted small">已纳入规划的自有投资，其利息和分红包含在总回报假设里，不要在这里重复添加。这里只填养老金、租金等另外的净收入。</p>}
     <FormRow label="每月预计净到账金额" hint="留空表示还不知道；不知道不当作 0。官方测算结果由你自己填在这里">
-      <CentInput label="每月预计净到账金额" value={d.monthly_cents ?? ''} disabled={busy} placeholder="例如 4000.00" onChange={v => patch({ monthly_cents: v === '' ? null : v })}/>
+      <CentInput signed label="每月预计净到账金额" value={d.monthly_cents ?? ''} disabled={busy} placeholder="例如 4000.00" onChange={v => patch({ monthly_cents: v === '' ? null : v })}/>
     </FormRow>
     <FormRow label="开始领取时间" hint="留空表示还没定；开始月在停止工作之前也只向前续算，不补发">
       <MonthInput label="开始领取时间" value={d.start_month ?? ''} disabled={busy} allowClear onChange={v => patch({ start_month: v === '' ? null : v })}/>

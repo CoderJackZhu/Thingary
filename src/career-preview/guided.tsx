@@ -13,7 +13,7 @@ import { IncomeSection } from './income-section.tsx';
 import { LumpsSection } from './map.tsx';
 import { ageMonthsAt, maxGap, minWindow, missingItems } from '../plan-career-map.ts';
 import { evaluateCareerScenario } from '../plan-career.ts';
-import { guidedDraft, guidedIncome, restLevers, sayLower, sayRest, saySwitch, yuan } from './guided-model.ts';
+import { confirmGuidedCashCosts, guidedDraft, guidedIncome, restLevers, sayLower, sayRest, saySwitch, yuan } from './guided-model.ts';
 import type { GuidedDefaults } from './guided-model.ts';
 import type { Say } from './guided-model.ts';
 import './guided.css';
@@ -112,6 +112,7 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
             <FormRow label="不工作期间，每月还有多少收入？（元）" hint="零活、兼职、家人补贴等；一分都没有就填 0。失业金在“更多假设”里填。"><CentInput label="不工作期间每月到账" value={draft.gap.income_cents ?? ''} onChange={v => setGap({ income_cents: v || null })}/></FormRow>
           </>}
           {q !== 'lower' && <FormRow label={q === 'switch' ? '你估计找到新工作后，每月能攒多少？（元，选填）' : '你估计找到新工作后，每月能攒多少？（元）'} hint="到手工资扣掉所有花销、社保之后，每月剩下能存下来的钱，可以是 0 或负数。填了才能对比。"><CentInput label="找到新工作后每月能攒多少" signed value={draft.recovery.monthly_cents ?? ''} onChange={v => patch({ recovery: { ...draft.recovery, monthly_cents: v || null } })}/></FormRow>}
+          <label className="check-line"><input type="checkbox" aria-label="上述金额已包含全部自付费用" checked={draft.gap.insurance.monthly_cents === '0' && draft.gap.insurance.included && draft.recovery.insurance.monthly_cents === '0' && draft.recovery.insurance.included} onChange={e => patch(confirmGuidedCashCosts(draft, e.target.checked))}/>上述开销和每月净存入已包含社保、医保等全部自付费用，不再另扣</label>
           {q === 'lower' && <p className="guided-hint">下面的答案会按“你现在每月攒的钱”的 0%、25%、50%、75% 各算一遍，所以这里不用再填每月能攒多少。</p>}
         </section>
 

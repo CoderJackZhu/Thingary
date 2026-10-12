@@ -94,3 +94,11 @@ export function realGuidedDefaults(sources: PlanningSources, today: string): Gui
   if (cur !== null && /^-?\d+$/.test(cur) && Number(cur) >= 0) { d.recovery.monthly_cents = cur; from.recovery = 'current'; }
   return { draft: d, income: guidedIncome(sources), from };
 }
+
+/** The guided totals already include self-paid cash expenses only after explicit confirmation.
+ * Zero here means no additional deduction, not zero actual social-insurance expense. */
+export function confirmGuidedCashCosts(draft: CareerDraft, confirmed: boolean): CareerDraft {
+  const d = structuredClone(draft);
+  for (const stage of [d.gap, d.recovery]) stage.insurance = { monthly_cents: confirmed ? '0' : null, included: confirmed };
+  return d;
+}

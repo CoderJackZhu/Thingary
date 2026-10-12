@@ -505,3 +505,18 @@ test('late save completion after unmount cannot clear a host receipt from anothe
   assert.equal(retained, original);
   assert.deepEqual(r.closes, []);
 });
+
+
+test('negative future income cannot silently become an unknown amount', () => {
+  const merged = [];
+  const r = incomeEditor({ onMerge: v => merged.push(v) });
+  assert.equal(r.find('CentInput', p => p.label === '每月预计净到账金额').props.signed, true);
+  r.find('CentInput', p => p.label === '每月预计净到账金额').props.onChange('-100'); r.render();
+  r.button('完成').props.onClick(); r.render();
+  assert.equal(merged.length, 0);
+  assert.match(r.text(r.find('div', p => p['aria-label'] === '编辑未来收入')), /须为非负金额/);
+  assert.equal(r.find('CentInput', p => p.label === '每月预计净到账金额').props.value, '-100');
+  r.find('CentInput', p => p.label === '每月预计净到账金额').props.onChange('0'); r.render();
+  r.button('完成').props.onClick();
+  assert.equal(merged[0].monthly_cents, '0');
+});
