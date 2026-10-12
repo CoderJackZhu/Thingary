@@ -149,6 +149,7 @@ function resolve(id, fromDir) {
   if (id.startsWith('.')) {
     const rel = posix.normalize(posix.join(fromDir, id));
     if (rel === 'src/DateInput') return dateInputStub;
+    if (rel === 'src/YearSelect') return { YearSelect: props => ({type:'select',props:{'aria-label':'年份',value:props.value === null ? '' : String(props.value).padStart(4,'0'),disabled:props.disabled,onChange:e=>props.onChange(Number(e.target.value)),recorded:props.recorded}}) };
     if (rel === 'src/FormControls') return formStub;
     return load(resolveFile(rel));
   }

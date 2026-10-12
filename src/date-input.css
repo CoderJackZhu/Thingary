@@ -26,3 +26,13 @@
 .month-calendar .date-calendar-grid button{height:40px}
 
 .editor .date-input .date-input-row input:focus-visible{outline:none}
+
+.year-select{position:relative;min-width:0}
+.year-select>select,.year-select-trigger{width:100%;min-height:var(--control-height);font-size:13px}
+.date-calendar-heading>.year-select{flex:1}
+.date-calendar .date-calendar-heading .year-select>select,.date-calendar .date-calendar-heading .year-select-trigger{width:100%;height:32px;min-height:32px;background:var(--soft);border:0;border-radius:6px;padding:4px 6px;text-align:left;color:var(--text)}
+.date-calendar .date-calendar-heading .year-select-trigger{display:flex;align-items:center;justify-content:space-between;width:100%}
+.year-calendar{z-index:31}
+.year-calendar .date-calendar-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.year-calendar .date-calendar-grid button{height:40px}
+.year-calendar .date-calendar-heading strong{flex:1;text-align:center;font-size:13px}

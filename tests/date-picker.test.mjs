@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calendarDate, calendarValue, parseCalendar, moveCalendar, clampCalendar, placeCalendar } from '../src/date-picker.ts';
+import { calendarDate, calendarValue, parseCalendar, moveCalendar, clampCalendar, placeCalendar, commonYears, yearPage, moveYear } from '../src/date-picker.ts';
 
 test('calendar validates leap days and preserves month precision and local years', () => {
   assert.equal(parseCalendar('2025-02-29', 'day'), null);
@@ -24,4 +24,20 @@ test('popover flips at the bottom and clamps to viewport on both axes', () => {
   assert.deepEqual(placeCalendar({left: 720, right: 890, top: 650, bottom: 688}, {width: 304, height: 340}, {width: 900, height: 720}), {left: 584, top: 302, maxHeight: 696});
   assert.equal(placeCalendar({left: 0, right: 24, top: 10, bottom: 48}, {width: 304, height: 340}, {width: 320, height: 200}).left, 12);
   assert.equal(placeCalendar({left: 0, right: 320, top: 0, bottom: 38}, {width: 304, height: 340}, {width: 320, height: 200}).top, 12);
+});
+
+test('frequent years stay short, include an old selection and respect original bounds', () => {
+  assert.deepEqual(commonYears(2026, null, 'past'), [2026,2025,2024,2023,2022,2021,2020,2019,2018,2017]);
+  assert.deepEqual(commonYears(2026, 1980, 'past', 1900, 2026).slice(-1), [1980]);
+  assert.equal(commonYears(2026, 2080, 'near').length, 12);
+  assert.deepEqual(commonYears(2026, 1, 'records', 1, 9999, [2020,2020,2024,NaN,0,10000]), [2026,2024,2020,1]);
+  assert.deepEqual(commonYears(2026, null, 'records'), [2026]);
+  assert.deepEqual(commonYears(2026, 1980, 'past', 2025, 2026), [2026,2025]);
+});
+test('year grid pages and keyboard navigation retain distant years within format bounds', () => {
+  assert.equal(yearPage(1), 1); assert.equal(yearPage(2026), 2017); assert.equal(yearPage(9999), 9997);
+  assert.equal(moveYear(2026,'PageDown'), 2038); assert.equal(moveYear(2026,'ArrowUp'), 2023);
+  assert.equal(moveYear(2026,'Home'),2017); assert.equal(moveYear(2026,'End'),2028);
+  assert.equal(moveYear(1,'ArrowLeft'),1); assert.equal(moveYear(9999,'End'),9999);
+  assert.equal(moveYear(2026,'ArrowRight',1900,2026),2026); assert.equal(moveYear(2026,'Enter'),null);
 });

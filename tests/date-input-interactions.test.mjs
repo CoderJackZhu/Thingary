@@ -21,6 +21,7 @@ function runtime(kind = 'DateInput', initial = '', extra = {}) {
     if (name === 'react-dom') return {createPortal: node => node};
     if (name === './asset') return {localDay: () => '2026-10-07'};
     if (name === './date-picker') return arithmetic;
+    if (name === './YearSelect') return {YearSelect: props => jsx('select', {'aria-label':'年份', ...props})};
     if (name === './form-hint') return {useFormHint: help => help, useFormLabel: label => label};
     if (name === './date-input.css') return {};
     throw new Error(name);
@@ -75,4 +76,17 @@ test('an incomplete related date does not disable every calendar day', () => {
   const ui = runtime('DateInput', '', {min: '2026-1', max: 'invalid'}); ui.toggle();
   assert.equal(ui.state[1], '2026-10-07');
   assert.equal(ui.find(n => n.props['data-value'] === '2026-10-07').props.disabled, false);
+});
+
+test('changing year preserves the month and clamps a leap day without committing', () => {
+  const ui = runtime('DateInput', '2024-02-29', {yearIntent:'past'}); ui.toggle();
+  const selector = ui.find(n => n.props.todayYear === 2026);
+  assert.equal(selector.props.intent,'past'); selector.props.onChange(2025);
+  assert.equal(ui.state[1],'2025-02-28'); assert.deepEqual(ui.changes,[]);
+});
+test('format boundary stops both month buttons and keyboard at year 9999', () => {
+  const ui = runtime('MonthInput', '9999-12', {yearIntent:'long'}); ui.toggle();
+  assert.equal(ui.find(n => n.props['aria-label']==='下一年').props.disabled,true);
+  ui.find(n => n.props.className==='date-calendar-grid').props.onKeyDown(key('ArrowRight'));
+  assert.equal(ui.state[1],'9999-12'); assert.deepEqual(ui.changes,[]);
 });

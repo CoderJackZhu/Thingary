@@ -1,7 +1,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { localDay } from './asset';
-import { calendarDate, calendarValue, clampCalendar, moveCalendar, parseCalendar, placeCalendar, type Precision } from './date-picker';
+import { calendarDate, calendarValue, clampCalendar, moveCalendar, parseCalendar, placeCalendar, type Precision, type YearIntent } from './date-picker';
+import { YearSelect } from './YearSelect';
 import { useFormHint, useFormLabel } from './form-hint';
 import './date-input.css';
 
@@ -9,17 +10,18 @@ type Props = {
   id?: string; label?: string; value: string; onChange: (value: string) => void;
   disabled?: boolean; min?: string; max?: string; allowClear?: boolean;
   invalid?: boolean; describedBy?: string;
+  yearIntent?: YearIntent;
 };
 export function DateInput(props: Props) { return <CalendarInput {...props} precision="day"/>; }
 export function MonthInput(props: Props) { return <CalendarInput {...props} precision="month"/>; }
 
 /** The portal stays in the owning native dialog so it remains in that dialog's top layer. */
-function CalendarInput({ id, label: suppliedLabel, value, onChange, disabled = false, min: minimum, max: maximum, allowClear = false, invalid, describedBy, precision }: Props & { precision: Precision }) {
+function CalendarInput({ id, label: suppliedLabel, value, onChange, disabled = false, min: minimum, max: maximum, allowClear = false, invalid, describedBy, precision, yearIntent = 'near' }: Props & { precision: Precision }) {
   const label = useFormLabel(suppliedLabel);
   const help = useFormHint(describedBy);
   // A related text field may contain a partial edit; it is not a usable calendar bound yet.
   const min = parseCalendar(minimum ?? '', precision) ? minimum! : precision === 'day' ? '1900-01-01' : '1900-01';
-  const max = parseCalendar(maximum ?? '', precision) ? maximum : undefined;
+  const max = parseCalendar(maximum ?? '', precision) ? maximum! : precision === 'day' ? '9999-12-31' : '9999-12';
   const today = localDay().slice(0, precision === 'day' ? 10 : 7);
   const initial = () => clampCalendar(parseCalendar(value, precision) ? value : today, min, max);
   const [open, setOpen] = useState(false), [cursor, setCursor] = useState(initial);
@@ -85,8 +87,11 @@ function CalendarInput({ id, label: suppliedLabel, value, onChange, disabled = f
       close(); (next ?? trigger.current)?.focus();
     }
   }
-  const changeMonth = (y: number, m: number) => setCursor(clampCalendar(calendarValue(calendarDate(y, m), precision), min, max));
-  const firstYear = Number(min.slice(0, 4)), lastYear = max ? Number(max.slice(0, 4)) : Math.max(2110, year);
+  const changeMonth = (y: number, m: number) => {
+    const day = precision === 'day' ? Math.min(date.getDate(), calendarDate(y, m + 1, 0).getDate()) : 1;
+    setCursor(clampCalendar(calendarValue(calendarDate(y, m, day), precision), min, max));
+  };
+  const firstYear = Number(min.slice(0, 4)), lastYear = max ? Number(max.slice(0, 4)) : 9999;
   const previous = precision === 'month' ? calendarValue(calendarDate(year - 1, 11), precision) : calendarValue(calendarDate(year, month, 0));
   const next = precision === 'month' ? calendarValue(calendarDate(year + 1, 0), precision) : calendarValue(calendarDate(year, month + 1));
   const blanks = (calendarDate(year, month).getDay() + 6) % 7;
@@ -94,9 +99,9 @@ function CalendarInput({ id, label: suppliedLabel, value, onChange, disabled = f
   const picker = open && !disabled && <div ref={panel} id={panelId} className={'date-calendar' + (precision === 'month' ? ' month-calendar' : '')} style={position} role="dialog" aria-label={label ? `选择${label}` : '选择日期'} onKeyDown={panelKeys}>
     <div className="date-calendar-heading">
       <button type="button" aria-label={precision === 'day' ? '上个月' : '上一年'} disabled={previous < min} onClick={() => changeMonth(precision === 'day' ? year : year - 1, precision === 'day' ? month - 1 : month)}><Chevron direction="left"/></button>
-      <select aria-label="年份" value={year} onChange={e => changeMonth(Number(e.target.value), month)}>{Array.from({length: Math.max(1, lastYear - firstYear + 1)}, (_, i) => firstYear + i).map(y => <option key={y} value={y}>{y} 年</option>)}</select>
+      <YearSelect value={year} todayYear={Number(today.slice(0, 4))} intent={yearIntent} min={firstYear} max={lastYear} onChange={y => changeMonth(y, month)} disabled={disabled}/>
       {precision === 'day' && <select aria-label="月份" value={month} onChange={e => changeMonth(year, Number(e.target.value))}>{Array.from({length: 12}, (_, m) => <option key={m} value={m} disabled={calendarValue(calendarDate(year, m + 1, 0)) < min || !!max && calendarValue(calendarDate(year, m)) > max}>{m + 1} 月</option>)}</select>}
-      <button type="button" aria-label={precision === 'day' ? '下个月' : '下一年'} disabled={!!max && next > max} onClick={() => changeMonth(precision === 'day' ? year : year + 1, precision === 'day' ? month + 1 : month)}><Chevron direction="right"/></button>
+      <button type="button" aria-label={precision === 'day' ? '下个月' : '下一年'} disabled={year === 9999 && (precision === 'month' || month === 11) || !!max && next > max} onClick={() => changeMonth(precision === 'day' ? year : year + 1, precision === 'day' ? month + 1 : month)}><Chevron direction="right"/></button>
     </div>
     <div className="date-calendar-grid" role="group" aria-label={precision === 'day' ? `${year} 年 ${month + 1} 月` : `${year} 年`} onKeyDown={gridKeys}>
       {precision === 'day' && <>{['一','二','三','四','五','六','日'].map(day => <span className="weekday" key={day}>{day}</span>)}{Array.from({length: blanks}, (_, i) => <span aria-hidden="true" key={'blank'+i}/>)}</>}

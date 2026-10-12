@@ -115,7 +115,7 @@ function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { b
     <div className="editor-body"><section className="form-block">
       <FormRow label="类型"><Segments label="类型" value={kind} options={[{ value: 'house', label: '买房' }, { value: 'car', label: '买车' }, { value: 'other', label: '其他' }]} onChange={setKind} disabled={busy}/></FormRow>
       <FormRow label="名称" hint="例如「买房」「换车」「装修」"><input aria-label="名称" value={label} disabled={busy} onChange={e => setLabel(e.target.value)}/></FormRow>
-      <FormRow label="计划购买月份" hint="还不确定就填大概的月份，也可以在列表里看 5、7、10 年后买的差别"><MonthInput label="计划购买月份" value={date} disabled={busy} onChange={setDate}/></FormRow>
+      <FormRow label="计划购买月份" hint="还不确定就填大概的月份，也可以在列表里看 5、7、10 年后买的差别"><MonthInput yearIntent="long" label="计划购买月份" value={date} disabled={busy} onChange={setDate}/></FormRow>
       <FormRow label="总价"><CentInput label="总价" value={price} disabled={busy} onChange={setPrice}/></FormRow>
       <FormRow label="首付 / 一次付清的现金" hint="等于总价就是全款，没有贷款"><CentInput label="首付" value={down} disabled={busy} onChange={setDown}/></FormRow>
       <FormRow label={kind === 'house' ? '一次性杂费（税费、中介、装修等）' : '一次性杂费'}><CentInput label="杂费" value={extra} disabled={busy} onChange={setExtra}/></FormRow>
@@ -125,7 +125,7 @@ function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { b
       {kind === 'house' && <FormRow label="买房后不再付的月房租" hint={basic ? "省下的房租不会自动加到每月能存的钱里；退休后只从预算里已含的房租中扣除，不超过这个金额" : "现在的房租已经算在你的每月储蓄里；买房后这部分补回来，只算退休前"}><CentInput label="省下的月房租" value={rent} disabled={busy} onChange={setRent}/></FormRow>}
       {kind === 'car' && <>
         <FormRow label="换车周期（年）" hint="留空表示只买这一辆；车是快消品，常见 4 到 6 年换一次"><input aria-label="换车周期" inputMode="numeric" value={cycle} placeholder="只买一次" disabled={busy} onChange={e => setCycle(e.target.value)}/></FormRow>
-        <FormRow label="用到哪个月份" hint="之后不再换车，养车费也停；留空到规划终点"><MonthInput label="用车截止月份" value={until} disabled={busy} allowClear onChange={setUntil}/></FormRow>
+        <FormRow label="用到哪个月份" hint="之后不再换车，养车费也停；留空到规划终点"><MonthInput yearIntent="long" label="用车截止月份" value={until} disabled={busy} allowClear onChange={setUntil}/></FormRow>
         <FormRow label="每次换车卖旧车回收" hint="每次换车实际花的是价格减去这笔"><CentInput label="卖旧车回收" value={resale} disabled={busy} onChange={setResale}/></FormRow></>}
       <FormRow label="计入退休估算" hint="关掉只保留这个设想，不影响退休结论"><Switch label="计入退休估算" value={included} disabled={busy} onChange={setIncluded}/></FormRow>
     </section>

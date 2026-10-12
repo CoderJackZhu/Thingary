@@ -131,7 +131,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
   }
   function field(key: keyof Fields, label: string, hint?: string, type = 'text') {
     if (key === 'date') return <div className="field" key={key}>
-      <label htmlFor="field-date">{label}</label><DateInput id="field-date" value={draft.fields.date} onChange={value => change('date', value)} disabled={busy || !!draft.pending} max={localDay()} allowClear invalid={!!errors.date} describedBy="help-date"/>
+      <label htmlFor="field-date">{label}</label><DateInput yearIntent="past" id="field-date" value={draft.fields.date} onChange={value => change('date', value)} disabled={busy || !!draft.pending} max={localDay()} allowClear invalid={!!errors.date} describedBy="help-date"/>
       <small id="help-date" className={errors.date ? 'error' : ''}>{errors.date || hint}</small>
     </div>;
     return <label className={'field ' + (key === 'name' || key === 'notes' ? 'wide' : '')} htmlFor={'field-' + key} key={key}>

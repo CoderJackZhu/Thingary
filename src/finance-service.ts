@@ -20,6 +20,7 @@ export type AssetReview = { generation: string; intervals: AssetInterval[]; inco
 export type FinanceSources = {
   generation: string; write_version: number; today: string;
   period: FinancePeriod; modules: RuntimeModules;
+  record_years: FinanceRead<number[]>;
   wealth: FinanceRead<Summary>; accounts: FinanceRead<Account[]>; incomes: FinanceRead<Income[]>;
   expenses: FinanceRead<ExpenseView & { period: FinancePeriod }>;
   asset_review: FinanceRead<AssetReview>; history: FinanceRead<PlanReview>;

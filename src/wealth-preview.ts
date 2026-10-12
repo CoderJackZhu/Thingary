@@ -688,8 +688,17 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       catch(e) { return {status:'error',code:'PREVIEW',message:String(e)}; }
     };
     const w = summary();
+    const allIncome = read(previewModules.incomes,'income',()=>planIncomes);
+    const allExpenses = read(true,'expenses',()=>expenseView(null));
+    const movementYears = read(previewModules.movements && previewModules.wealth,'movement',()=>params.get('movement') === 'populated' ? [Number(todayIso.slice(0,4))] : []);
+    const yearError = [allIncome,allExpenses,movementYears].find(r=>r.status==='error');
+    const recordYears:FinanceRead<number[]> = yearError?.status === 'error' ? yearError : {status:'ready',value:[...new Set([
+      ...(allIncome.status==='ready'?allIncome.value.map(i=>Number(i.fields.date.slice(0,4))):[]),
+      ...(allExpenses.status==='ready'?allExpenses.value.years:[]),
+      ...(movementYears.status==='ready'?movementYears.value:[]),
+    ])].sort((a,b)=>a-b)};
     const value:FinanceSources = {
-      generation, today:todayIso,write_version:planWriteVersion,period,modules:previewModules,
+      generation, today:todayIso,write_version:planWriteVersion,period,modules:previewModules,record_years:recordYears,
       wealth:read(previewModules.wealth,'wealth',()=>w), accounts:read(previewModules.wealth,'accounts',()=>accounts.map(withLatest)),
       incomes:read(previewModules.incomes,'income',()=>planIncomes.filter(i=>financePeriodContains(period,i.fields.date))),
       expenses:read(true,'expenses',()=>({...expenseView(period.kind==='year'?period.year:null,period),period})),

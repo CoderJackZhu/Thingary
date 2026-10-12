@@ -32,7 +32,7 @@ export function RunwayCard({ caps, today, onOwner }: { caps: BasicCapabilities |
       {funds && <div className="plan-runway-switch"><Switch label="改用手填模拟资金" value={manual} onChange={setManual}/><span>改用手填模拟资金</span></div>}
       {useManual ? <div className="plan-runway-fields">
         <label className="rs-field"><span>当前可动用资金（元）</span><CentInput label="当前可动用资金" value={start} placeholder="只填能用于支付的资金" onChange={setStart}/></label>
-        <div className="rs-field"><span>资金截至日</span><DateInput label="资金截至日" value={date} max={today} onChange={setDate}/></div>
+        <div className="rs-field"><span>资金截至日</span><DateInput yearIntent="past" label="资金截至日" value={date} max={today} onChange={setDate}/></div>
       </div> : funds?.status === 'blocked' ? <>
         <p className="muted">可用资金尚未确认。可以回答准备资金的问题，或改用手填金额独立试算。</p><button type="button" className="ui-btn" onClick={() => onOwner('funds')}>确认现在可用的钱</button>
       </> : funds?.status === 'ready' ? <p className="muted small">起点：{funds.value.kind === 'simulation' ? '手填金额' : '实际盘点'}，截至 {funds.value.date} 可以动用的资金 {money(funds.value.available_cents)}。</p> : null}

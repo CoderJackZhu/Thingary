@@ -47,7 +47,7 @@ export function FutureIncomeFields({ value, reference, issues, busy, today, onOp
       <CentInput signed label="每月预计净到账金额" value={d.monthly_cents ?? ''} disabled={busy} placeholder="例如 4000.00" onChange={v => patch({ monthly_cents: v === '' ? null : v })}/>
     </FormRow>
     <FormRow label="开始领取时间" hint="留空表示还没定；开始月在停止工作之前也只向前续算，不补发">
-      <MonthInput label="开始领取时间" value={d.start_month ?? ''} disabled={busy} allowClear onChange={v => patch({ start_month: v === '' ? null : v })}/>
+      <MonthInput yearIntent="long" label="开始领取时间" value={d.start_month ?? ''} disabled={busy} allowClear onChange={v => patch({ start_month: v === '' ? null : v })}/>
     </FormRow>
     {reference
       ? <div className="simplified-age-start">
@@ -63,7 +63,7 @@ export function FutureIncomeFields({ value, reference, issues, busy, today, onOp
       <summary>更多条件（结束时间、金额口径、来源）</summary>
       <div className="simplified-more-body">
         <FormRow label="结束时间" hint="留空：持续到规划终点">
-          <MonthInput label="结束时间" value={d.end_month ?? ''} disabled={busy} allowClear onChange={v => patch({ end_month: v === '' ? null : v })}/>
+          <MonthInput yearIntent="long" label="结束时间" value={d.end_month ?? ''} disabled={busy} allowClear onChange={v => patch({ end_month: v === '' ? null : v })}/>
         </FormRow>
         <FormRow label="金额按什么填写" hint="默认按领取时的金额，与官方测算数字更容易对应">
           <Segments label="金额按什么填写" value={d.basis} disabled={busy}
@@ -71,7 +71,7 @@ export function FutureIncomeFields({ value, reference, issues, busy, today, onOp
             onChange={v => patch({ basis: v, basis_month: v === 'start_month' ? null : d.basis_month ?? today.slice(0, 7) })}/>
         </FormRow>
         {d.basis === 'reference_month' && <FormRow label="购买力基准月" hint="金额按这个月的购买力填写；保存后不随打开页面移动">
-          <MonthInput label="购买力基准月" value={d.basis_month ?? ''} max={today.slice(0, 7)} disabled={busy} onChange={v => patch({ basis_month: v === '' ? null : v })}/>
+          <MonthInput yearIntent="past" label="购买力基准月" value={d.basis_month ?? ''} max={today.slice(0, 7)} disabled={busy} onChange={v => patch({ basis_month: v === '' ? null : v })}/>
         </FormRow>}
         <FormRow label="领取后的增长" hint="这是通用假设，不代表实际待遇调整">
           <Segments label="领取后的增长" value={d.growth} disabled={busy}
@@ -82,7 +82,7 @@ export function FutureIncomeFields({ value, reference, issues, busy, today, onOp
           <input aria-label="收入来源" value={d.source ?? ''} disabled={busy} placeholder="例如 国家社会保险公共服务平台测算" onChange={e => patch({ source: e.target.value === '' ? null : e.target.value })}/>
         </FormRow>
         <FormRow label="来源核对日期（选填）">
-          <DateInput label="来源核对日期" value={d.source_checked_on ?? ''} max={today} disabled={busy} allowClear onChange={v => patch({ source_checked_on: v === '' ? null : v })}/>
+          <DateInput yearIntent="past" label="来源核对日期" value={d.source_checked_on ?? ''} max={today} disabled={busy} allowClear onChange={v => patch({ source_checked_on: v === '' ? null : v })}/>
         </FormRow>
         <FormRow label="备注（选填）">
           <textarea aria-label="收入备注" value={d.notes} disabled={busy} rows={2} onChange={e => patch({ notes: e.target.value })}/>

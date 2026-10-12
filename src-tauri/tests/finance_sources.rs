@@ -164,6 +164,7 @@ fn period_boundaries_wire_identity_and_read_only() {
         assert_eq!(result.write_version, changes);
         assert_eq!(result.period, period);
         assert_eq!(result.modules, modules());
+        assert_eq!(ready(result.record_years), vec![2025, 2026]);
         let rows = ready(result.incomes);
         assert_eq!(rows.len(), count);
         assert!(rows.iter().all(|r| r.fields.hpf_cents.is_none()));
@@ -224,6 +225,7 @@ fn broken_wealth_or_expenses_are_local_errors_and_top_level_failure_releases_tra
     assert!(matches!(result.asset_review, Read::Error { .. }));
     assert!(matches!(result.history, Read::Error { .. }));
     assert!(matches!(result.expenses, Read::Error { .. }));
+    assert!(matches!(result.record_years, Read::Error { .. }));
     assert_eq!(ready(result.incomes).len(), 1);
     assert!(store.conn_for_test().unwrap().is_autocommit());
     store.set_hook(|point| {
@@ -253,6 +255,7 @@ fn disabled_bad_tables_are_skipped_and_item_facts_survive_all_finance_switches()
     store.conn_for_test().unwrap().execute_batch("PRAGMA foreign_keys=OFF; DROP TABLE plan_profile; DROP TABLE plan_income; DROP TABLE plan_baseline_marks; DROP TABLE fin_accounts; DROP TABLE fin_snapshots; DROP TABLE expenses; DROP TABLE recurring_plans; DROP TABLE virtual_assets;").unwrap();
     let mut m = modules();
     m.incomes = false;
+    m.movements = false;
     m.modules.wealth = false;
     m.modules.expenses = false;
     m.modules.recurring = false;
@@ -263,12 +266,111 @@ fn disabled_bad_tables_are_skipped_and_item_facts_survive_all_finance_switches()
     assert!(matches!(result.incomes, Read::Disabled { .. }));
     assert!(matches!(result.asset_review, Read::Disabled { .. }));
     assert!(matches!(result.history, Read::Disabled { .. }));
+    assert_eq!(ready(result.record_years), vec![2026]);
     let expenses = ready(result.expenses);
     assert!(!expenses.lines.is_empty());
     assert!(expenses
         .lines
         .iter()
         .all(|r| matches!(r.source.as_str(), "purchase" | "maintenance" | "sale")));
+}
+
+#[test]
+fn record_years_merge_visible_facts_without_period_or_optional_source_leaks() {
+    let root = tempfile::tempdir().unwrap();
+    let mut store = fictional_store(root.path());
+    income(&mut store, "1980-01-01");
+    income(&mut store, "1970-01-01");
+    let c = store.conn_for_test().unwrap();
+    c.execute_batch("UPDATE plan_income SET deleted_at='2026-12-31' WHERE date='1970-01-01'; UPDATE assets SET purchase_date='1960-01-01'; INSERT INTO expenses(id,title,date,amount_cents,category,notes,revision,created_at,updated_at) VALUES('year-expense','虚构支出','1990-01-01',100,'other','',1,'2026-12-31','2026-12-31')").unwrap();
+    let account = ready(
+        store
+            .finance_sources(&Period::All, &modules(), TODAY)
+            .unwrap()
+            .accounts,
+    )[0]
+    .id
+    .clone();
+    for (id, day, deleted, source) in [
+        ("active-movement", "2000-01-01", false, None),
+        ("deleted-movement", "1950-01-01", true, None),
+        ("linked-movement", "2001-01-01", false, Some("expense")),
+    ] {
+        let fields = serde_json::json!({
+            "date": day, "amount_cents":"100", "from":{"kind":"external","label":"虚构来源"},
+            "to":{"kind":"account","account_id":account}, "purpose":"other", "notes":"",
+            "source":source.map(|kind| serde_json::json!({"kind":kind,"key":"missing-fictional-key"}))
+        });
+        c.execute("INSERT INTO cash_movements(id,revision,date,to_account_id,source_kind,source_key,source_basis,payload,created_at,updated_at,deleted_at) VALUES(?1,1,?2,?3,?4,?5,?6,?7,'2026-12-31','2026-12-31',?8)",rusqlite::params![id,day,account,source,source.map(|_|"missing-fictional-key"),source.map(|_|"missing"),fields.to_string(),deleted.then_some(TODAY)]).unwrap();
+    }
+    let mut m = modules();
+    for period in [
+        Period::All,
+        Period::Year { year: 2026 },
+        Period::Year { year: 1999 },
+    ] {
+        assert_eq!(
+            ready(
+                store
+                    .finance_sources(&period, &m, TODAY)
+                    .unwrap()
+                    .record_years
+            ),
+            vec![1960, 1980, 1990, 2000, 2001, 2026]
+        );
+    }
+    // An active movement remains visible when its linked source module is off.
+    m.incomes = false;
+    m.modules.expenses = false;
+    c.execute_batch("DROP TABLE plan_income; DROP TABLE expenses")
+        .unwrap();
+    assert_eq!(
+        ready(
+            store
+                .finance_sources(&Period::All, &m, TODAY)
+                .unwrap()
+                .record_years
+        ),
+        vec![1960, 2000, 2001]
+    );
+    m.movements = false;
+    c.execute_batch("DROP TABLE cash_movements").unwrap();
+    assert_eq!(
+        ready(
+            store
+                .finance_sources(&Period::All, &m, TODAY)
+                .unwrap()
+                .record_years
+        ),
+        vec![1960]
+    );
+    m.movements = true;
+    assert!(matches!(
+        store
+            .finance_sources(&Period::All, &m, TODAY)
+            .unwrap()
+            .record_years,
+        Read::Error { .. }
+    ));
+    m.modules.wealth = false;
+    assert_eq!(
+        ready(
+            store
+                .finance_sources(&Period::All, &m, TODAY)
+                .unwrap()
+                .record_years
+        ),
+        vec![1960]
+    );
+    c.execute_batch("UPDATE assets SET deleted_at='2026-12-31'")
+        .unwrap();
+    assert!(ready(
+        store
+            .finance_sources(&Period::All, &m, TODAY)
+            .unwrap()
+            .record_years
+    )
+    .is_empty());
 }
 
 #[test]
@@ -306,6 +408,7 @@ fn goals_never_read_and_bad_income_does_not_break_asset_facts() {
         .unwrap();
     let result = store.finance_sources(&Period::All, &m, TODAY).unwrap();
     assert!(matches!(result.incomes, Read::Error { .. }));
+    assert!(matches!(result.record_years, Read::Error { .. }));
     assert!(matches!(result.history, Read::Error { .. }));
     assert!(!ready(result.wealth).points.is_empty());
     assert!(!ready(result.asset_review).intervals.is_empty());
@@ -334,7 +437,7 @@ fn external_write_mid_read_cannot_split_sources() {
     store.set_hook(move |point| {
         if point == "finance_sources.after_wealth" {
             let connection = rusqlite::Connection::open(&db)?;
-            connection.execute_batch("UPDATE plan_income SET net_cents=1; UPDATE fin_snapshot_entries SET amount_cents=1 WHERE amount_cents IS NOT NULL; UPDATE assets SET price_cents=1 WHERE price_cents IS NOT NULL")?;
+            connection.execute_batch("UPDATE plan_income SET net_cents=1,date='2025-09-20'; UPDATE fin_snapshot_entries SET amount_cents=1 WHERE amount_cents IS NOT NULL; UPDATE assets SET price_cents=1,purchase_date='2024-09-20' WHERE price_cents IS NOT NULL")?;
         }
         Ok(())
     });
@@ -352,7 +455,14 @@ fn external_write_mid_read_cannot_split_sources() {
             .unwrap(),
     )
     .unwrap();
-    for key in ["wealth", "incomes", "expenses", "asset_review", "history"] {
+    for key in [
+        "wealth",
+        "incomes",
+        "expenses",
+        "record_years",
+        "asset_review",
+        "history",
+    ] {
         assert_ne!(
             after[key], before[key],
             "{key} must observe external writes on the next read"

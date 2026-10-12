@@ -1,5 +1,23 @@
 /** Local calendar arithmetic: no UTC conversion and no invented day for month values. */
 export type Precision = 'day' | 'month';
+export type YearIntent = 'past' | 'near' | 'long' | 'records';
+
+/** Frequent choices are a display convenience, never the allowed date boundary. */
+export function commonYears(today: number, selected: number | null, intent: YearIntent, min = 1, max = 9999, recorded: readonly number[] = []): number[] {
+  const candidates = intent === 'records' ? [today, ...recorded]
+    : Array.from({ length: intent === 'past' ? 10 : 11 }, (_, i) => today + (intent === 'past' ? -i : i - 5));
+  return [...new Set([...candidates, ...(selected === null ? [] : [selected])])]
+    .filter(y => Number.isInteger(y) && y >= min && y <= max).sort((a, b) => b - a);
+}
+export function yearPage(year: number): number {
+  return Math.floor((Math.max(1, Math.min(9999, year)) - 1) / 12) * 12 + 1;
+}
+export function moveYear(year: number, key: string, min = 1, max = 9999): number | null {
+  const start = yearPage(year);
+  const next = key === 'Home' ? start : key === 'End' ? start + 11
+    : year + (({ ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3, ArrowDown: 3, PageUp: -12, PageDown: 12 } as Record<string, number>)[key] ?? NaN);
+  return Number.isFinite(next) ? Math.max(min, Math.min(max, next)) : null;
+}
 export function calendarDate(year: number, month: number, day = 1): Date {
   const date = new Date(2000, 0, 1);
   date.setFullYear(year, month, day);
@@ -21,20 +39,21 @@ export function clampCalendar(value: string, min: string, max?: string): string 
 export function moveCalendar(value: string, key: string, precision: Precision): string | null {
   const date = parseCalendar(value, precision);
   if (!date) return null;
+  const boundedValue = (next: Date) => next.getFullYear() > 9999 ? (precision === 'day' ? '9999-12-31' : '9999-12') : next.getFullYear() < 1 ? (precision === 'day' ? '0001-01-01' : '0001-01') : calendarValue(next, precision);
   const year = date.getFullYear(), month = date.getMonth(), day = date.getDate();
   if (key === 'PageUp' || key === 'PageDown') {
     const next = calendarDate(year, month + (key === 'PageUp' ? -1 : 1));
     if (precision === 'day') next.setDate(Math.min(day, calendarDate(next.getFullYear(), next.getMonth() + 1, 0).getDate()));
-    return calendarValue(next, precision);
+    return boundedValue(next);
   }
   if (precision === 'month') {
     const delta = ({ ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3, ArrowDown: 3 } as Record<string, number>)[key];
-    if (delta !== undefined) return calendarValue(calendarDate(year, month + delta), precision);
-    if (key === 'Home' || key === 'End') return calendarValue(calendarDate(year, key === 'Home' ? 0 : 11), precision);
+    if (delta !== undefined) return boundedValue(calendarDate(year, month + delta));
+    if (key === 'Home' || key === 'End') return boundedValue(calendarDate(year, key === 'Home' ? 0 : 11));
   } else {
     const weekday = (date.getDay() + 6) % 7;
     const delta = ({ ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7, Home: -weekday, End: 6 - weekday } as Record<string, number>)[key];
-    if (delta !== undefined) return calendarValue(calendarDate(year, month, day + delta));
+    if (delta !== undefined) return boundedValue(calendarDate(year, month, day + delta));
   }
   return null;
 }

@@ -150,7 +150,7 @@ export function LinkReviewDialog({ assetId, planId, assetName, assetRevision, pl
     <p className="muted">档案停用{stoppedOn ? `于 ${stoppedOn}` : ''}，但关联的付款计划仍在进行。请明确处理：确认已结束会同时设置计划最后使用日并关闭续费；撤回误记停用则恢复按原排期继续。</p>
     {stuck ? <p className="notice" role="status">保存结果未确认，请先核对上一次请求。</p> : <>
       <FormRow label="确认已结束" hint="同一事务设置计划最终结束日、关闭自动续费，并清除停用标记">
-        <div className="form-inline"><DateInput label="最后使用日" value={lastUsed} max={today} disabled={busy} onChange={v => v && setLastUsed(v)} /><button type="button" disabled={busy} onClick={() => void run('confirm_ended')}>确认已结束</button></div>
+        <div className="form-inline"><DateInput yearIntent="past" label="最后使用日" value={lastUsed} max={today} disabled={busy} onChange={v => v && setLastUsed(v)} /><button type="button" disabled={busy} onClick={() => void run('confirm_ended')}>确认已结束</button></div>
       </FormRow>
       <FormRow label="撤回误记停用" hint="只清除停用标记；计划期限、暂停与自动续费值保持不变">
         <button type="button" disabled={busy} onClick={() => void run('withdraw_stop')}>撤回误记停用</button>
@@ -183,7 +183,7 @@ export function EndSubscriptionDialog({ assetId, planId, assetName, assetRevisio
     <h2 id="end-subscription-title">结束「{assetName}」？</h2>
     <p className="muted">确认最后使用日：到这一天为止仍在服务期，次日显示已结束。历史付款与估算依据保留，不再安排后续续费。这只维护记录，不代表已取消平台扣款。</p>
     {stuck ? <p className="notice" role="status">保存结果未确认，请先核对上一次请求。</p> : <FormRow label="最后使用日" hint={suggestion ? `建议为当前服务期末 ${suggestion}；可修改` : '不能早于服务开始'}>
-      <DateInput label="最后使用日" value={lastUsed} disabled={busy} onChange={v => v && setLastUsed(v)} />
+      <DateInput yearIntent="past" label="最后使用日" value={lastUsed} disabled={busy} onChange={v => v && setLastUsed(v)} />
     </FormRow>}
     {notice && <p className="notice" role="status">{notice}</p>}
     <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>取消</button><button type="button" className="primary danger" disabled={busy || stuck} onClick={() => void run()}>{busy ? '保存中…' : '确认结束订阅'}</button></div>

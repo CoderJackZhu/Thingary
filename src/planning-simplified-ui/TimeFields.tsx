@@ -42,7 +42,7 @@ export function TimeFields({ value, issues, busy, today, onChange }: { value: Ti
   const timeIssues = issues.filter(i => i.path.startsWith('time.'));
   return <section className="form-block" aria-label="时间安排">
     <FormRow label="出生年月" hint="用于显示退休年龄及自动换算月份；修改后会保留已有月份，请核对年龄">
-      <MonthInput label="出生年月" value={birth} max={today.slice(0, 7)} disabled={busy} allowClear onChange={changeBirth}/>
+      <MonthInput yearIntent="long" label="出生年月" value={birth} max={today.slice(0, 7)} disabled={busy} allowClear onChange={changeBirth}/>
     </FormRow>
     {reference && reference.age_months !== 0 && <p className="muted small">已有年龄参考：{reference.month} 时 {ageText(reference.age_months)}，仍可用于换算；出生年月尚未填写。</p>}
     {!reference && <p className="muted small">填好出生年月后，直接填写退休年龄和规划终点年龄；也可以在下方按月份填写。{(value.target_month || value.horizon_month) && `已有月份保留：退休 ${value.target_month ?? '未填'}，规划到 ${value.horizon_month ?? '未填'}。`}</p>}
@@ -57,8 +57,8 @@ export function TimeFields({ value, issues, busy, today, onChange }: { value: Ti
       {([{ field: 'target_month', age: target, label: '退休年龄：额外月份' }, { field: 'horizon_month', age: horizon, label: '规划终点年龄：额外月份' }] as const).map(({ field, age, label }) => <FormRow key={field} label={label}><input type="number" aria-label={label} min="0" max="11" step="1" placeholder="0" value={age.months} disabled={busy || !reference} onChange={e => changeAge(field, { ...age, months: e.target.value })}/></FormRow>)}
     </details>
     <details><summary>直接按月份填写</summary>
-      <FormRow label="退休开始月份"><MonthInput label="退休开始月份" value={value.target_month ?? ''} disabled={busy} allowClear onChange={month => changeMonth('target_month', month)}/></FormRow>
-      <FormRow label="规划终点月份" hint="留空表示还没定；结束月份须晚于退休开始月份"><MonthInput label="规划终点月份" value={value.horizon_month ?? ''} disabled={busy} allowClear onChange={month => changeMonth('horizon_month', month)}/></FormRow>
+      <FormRow label="退休开始月份"><MonthInput yearIntent="long" label="退休开始月份" value={value.target_month ?? ''} disabled={busy} allowClear onChange={month => changeMonth('target_month', month)}/></FormRow>
+      <FormRow label="规划终点月份" hint="留空表示还没定；结束月份须晚于退休开始月份"><MonthInput yearIntent="long" label="规划终点月份" value={value.horizon_month ?? ''} disabled={busy} allowClear onChange={month => changeMonth('horizon_month', month)}/></FormRow>
     </details>
     {error && <p className="error" role="alert">{error}</p>}
     {timeIssues.map(i => <p key={i.path} className="error" role="alert">{i.message}</p>)}

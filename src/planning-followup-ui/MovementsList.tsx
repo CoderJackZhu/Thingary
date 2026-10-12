@@ -143,8 +143,8 @@ function MovementsListContent({ port, generation, writeVersion, today, blocked =
       : accounts.length === 0 ? <p className="pfu-muted">还没有账户。资金流动至少一端要落在真实账户上，请先在「账户与盘点」创建账户，再记录外部投入或取回。{onNewAccount && <button type="button" className="pfu-btn" disabled={frozen} onClick={onNewAccount}>创建账户</button>}</p>
       : <>
         <div className="pfu-filters">
-          {!period && <><div><span>开始日期</span><DateInput label="明细开始日期" min="0001-01-01" allowClear disabled={frozen} value={from} onChange={setFrom}/></div>
-          <div><span>结束日期</span><DateInput label="明细结束日期" min="0001-01-01" allowClear disabled={frozen} value={to} onChange={setTo}/></div></>}
+          {!period && <><div><span>开始日期</span><DateInput yearIntent="past" label="明细开始日期" min="0001-01-01" allowClear disabled={frozen} value={from} onChange={setFrom}/></div>
+          <div><span>结束日期</span><DateInput yearIntent="past" label="明细结束日期" min="0001-01-01" allowClear disabled={frozen} value={to} onChange={setTo}/></div></>}
           {accountIds === undefined && <label>账户<select aria-label="筛选账户" disabled={frozen} value={account} onChange={e => setAccount(e.target.value)}>
             <option value="">全部账户</option>{accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select></label>}

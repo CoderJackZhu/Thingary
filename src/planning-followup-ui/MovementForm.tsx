@@ -127,7 +127,7 @@ function MovementFormContent({ port, generation, accounts, record, today, blocke
         <button type="button" className="pfu-close" aria-label="关闭资金流动表单" disabled={busy} onClick={() => onClose(false)}>×</button>
       </header>
       <div className="pfu-form-grid">
-        <FormRow label="发生日期" hint="按实际结算日记录"><DateInput label="发生日期" min="0001-01-01" disabled={frozen} max={today} value={draft.date} onChange={date => patch({ date })}/></FormRow>
+        <FormRow label="发生日期" hint="按实际结算日记录"><DateInput yearIntent="past" label="发生日期" min="0001-01-01" disabled={frozen} max={today} value={draft.date} onChange={date => patch({ date })}/></FormRow>
         <AmountInput label="金额（元）" value={draft.amount} disabled={frozen} onChange={v => patch({ amount: v })}/>
       </div>
       <div className="pfu-form-grid pfu-transfer-grid">

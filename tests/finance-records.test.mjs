@@ -12,7 +12,7 @@ const ts = createRequire(import.meta.url)('typescript');
 const modules = { ...allModules, incomes: true, movements: true, planning: false, finance_status: 'ready', finance_revision: 1 };
 const income = (id, date = '2026-10-12', hpf = null) => ({ id, revision: 1, fields: { date, net_cents: '1000', hpf_cents: hpf, notes: id } });
 const ready = value => ({ status: 'ready', value });
-const snapshot = (period = { kind: 'all' }, prefs = modules, extra = {}) => ({ generation: 'g', write_version: 1, today: '2026-10-12', period, modules: prefs, incomes: ready([income('i')]), accounts: ready([]), expenses: ready({ generation: 'g', period, lines: [], undated: [] }), ...extra });
+const snapshot = (period = { kind: 'all' }, prefs = modules, extra = {}) => ({ generation: 'g', write_version: 1, today: '2026-10-12', period, modules: prefs, record_years: ready([2026]), incomes: ready([income('i')]), accounts: ready([]), expenses: ready({ generation: 'g', period, lines: [], undated: [] }), ...extra });
 const deferred = () => { let resolve, reject; const promise = new Promise((a,b) => { resolve=a; reject=b; }); return { promise, resolve, reject }; };
 /** Real page, aggregate hook/session, and source orchestration with deterministic IPC and leaf controls. */
 function harness(options = {}) {

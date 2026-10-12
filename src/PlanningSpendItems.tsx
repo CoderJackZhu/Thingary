@@ -47,8 +47,8 @@ function NewSpend({ target, today: _today, frozen, onAdd, onCancel }: { target: 
     {template && <p className="muted small">{template.hint}</p>}
     <FormRow label="名称"><input aria-label="支出名称" value={label} disabled={frozen} onChange={e => setLabel(e.target.value)}/></FormRow>
     <FormRow label="每月金额" hint="今天的钱"><CentInput label="阶段性支出每月金额" value={cents} disabled={frozen} onChange={setCents}/></FormRow>
-    <FormRow label="开始月份" hint="留空：从目标月份起"><MonthInput label="支出开始月份" value={start} disabled={frozen} allowClear onChange={setStart}/></FormRow>
-    <FormRow label="结束月份" hint="留空：到规划终点"><MonthInput label="支出结束月份" value={end} disabled={frozen} allowClear onChange={setEnd}/></FormRow>
+    <FormRow label="开始月份" hint="留空：从目标月份起"><MonthInput yearIntent="long" label="支出开始月份" value={start} disabled={frozen} allowClear onChange={setStart}/></FormRow>
+    <FormRow label="结束月份" hint="留空：到规划终点"><MonthInput yearIntent="long" label="支出结束月份" value={end} disabled={frozen} allowClear onChange={setEnd}/></FormRow>
     <FormRow label="每年上涨（%）" hint="留空跟随通胀；这是假设"><input aria-label="支出每年上涨" inputMode="decimal" value={infl} disabled={frozen} onChange={e => setInfl(e.target.value)}/></FormRow>
     <FormRow label="必需支出" hint="关掉表示可以压缩的灵活支出"><Switch label="必需支出" value={essential} disabled={frozen} onChange={setEssential}/></FormRow>
     {beforeRetire && <p className="notice" role="status">这笔支出在目标月份 {target} 前就结束了，不会影响结果：退休前的花费请算进每月能存多少里。</p>}
