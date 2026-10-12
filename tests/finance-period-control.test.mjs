@@ -269,18 +269,17 @@ function dateProp(kind, label) {
 // vm 里产生的对象带有另一 realm 的原型，比较前复制成宿主普通对象。
 function committed(changes) { return changes.map(value => ({ ...value })); }
 
-test('year and all selections refresh immediately; partial years keep the current results', () => {
+test('year dropdown and all selections refresh immediately', () => {
   const changes = [];
   const h = new Harness({ value: { kind: 'all' }, onChange: value => changes.push(value), today });
   assert.equal(h.button('全部').props['aria-pressed'], true);
   assert.equal(h.button('应用期间'), undefined);
   h.button('年度').props.onClick(); h.rerender();
   assert.deepEqual(committed(changes), [{ kind: 'year', year: 2026 }]);
-  const year = h.find(n => n.type === 'input' && n.props['aria-label'] === '年份')[0];
-  year.props.onChange({ target: { value: '199' } }); h.rerender();
-  assert.equal(changes.length, 1);
-  assert.match(h.text(), /仍显示/);
-  h.find(n => n.type === 'input' && n.props['aria-label'] === '年份')[0].props.onChange({ target: { value: '1999' } }); h.rerender();
+  const year = h.find(n => n.type === 'select' && n.props['aria-label'] === '年份')[0];
+  assert.equal(year.props.value, '2026');
+  assert.equal(h.find(n => n.type === 'input' && n.props['aria-label'] === '年份').length, 0);
+  h.find(n => n.type === 'select' && n.props['aria-label'] === '年份')[0].props.onChange({ target: { value: '1999' } }); h.rerender();
   assert.deepEqual(committed(changes).at(-1), { kind: 'year', year: 1999 });
   h.set({ value: { kind: 'year', year: 1999 }, onChange: value => changes.push(value), today });
   h.button('全部').props.onClick(); h.rerender();
@@ -321,8 +320,8 @@ test('invalid ranges keep results; fixing the end immediately refreshes both dat
 });
 
 test('an external value change discards partial input and clears the error', () => {
-  const h = new Harness({ value: { kind: 'year', year: 2026 }, onChange() {}, today });
-  h.find(n => n.type === 'input' && n.props['aria-label'] === '年份')[0].props.onChange({ target: { value: '123' } }); h.rerender();
+  const h = new Harness({ value: { kind: 'range', from: '2026-10-01', to: '2026-10-12', includeFrom: true }, onChange() {}, today });
+  h.find(n => n.type === 'input' && n.props['aria-label'] === '开始日期')[0].props.onChange({ target: { value: '2026-10-20' } }); h.rerender();
   assert.equal(h.find(n => n.props?.role === 'alert').length, 1);
   h.set({ value: { kind: 'month', month: '2026-05' }, onChange() {}, today });
   assert.equal(h.button('月度').props['aria-pressed'], true);
@@ -343,4 +342,14 @@ test('a parent echo preserves range edits and switching kinds restores the inclu
   assert.deepEqual(committed(changes).at(-1), { kind: 'range', from: '2026-09-30', to: '2026-11-30', includeFrom: true });
   h.button('自选日期').props.onClick(); h.rerender();
   assert.equal(changes.length, 3, 'selecting the same valid period does not re-fetch');
+});
+
+test('year dropdown preserves low-year selection and its disabled guard', () => {
+  const changes = [];
+  const h = new Harness({ value: { kind: 'year', year: 1 }, onChange: v => changes.push(v), today, disabled: true });
+  const year = h.find(n => n.type === 'select' && n.props['aria-label'] === '年份')[0];
+  assert.equal(year.props.value, '0001');
+  assert.equal(year.props.disabled, true);
+  year.props.onChange({ target: { value: '2025' } }); h.rerender();
+  assert.equal(changes.length, 0);
 });
