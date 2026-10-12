@@ -120,7 +120,8 @@ fn has_personal_records(store: &Store) -> Result<bool> {
          OR EXISTS(SELECT 1 FROM fin_accounts) OR EXISTS(SELECT 1 FROM fin_snapshots)
          OR EXISTS(SELECT 1 FROM expenses) OR EXISTS(SELECT 1 FROM recurring_plans)
          OR EXISTS(SELECT 1 FROM plan_payments) OR EXISTS(SELECT 1 FROM virtual_assets)
-         OR EXISTS(SELECT 1 FROM plan_profile) OR EXISTS(SELECT 1 FROM plan_income)",
+         OR EXISTS(SELECT 1 FROM plan_profile) OR EXISTS(SELECT 1 FROM plan_income)
+         OR EXISTS(SELECT 1 FROM cash_movements)",
         [],
         |r| r.get(0),
     )?)

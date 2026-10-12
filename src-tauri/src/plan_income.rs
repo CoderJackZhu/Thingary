@@ -285,6 +285,16 @@ pub(crate) fn write_tx(
                 params![id, f.date, net, hpf, f.notes, now, f.category, f.source_account_id, f.destination, f.receiving_account_id],
             )?;
     }
+    if old.as_ref().is_some_and(|o| {
+        o.fields.date != f.date
+            || o.fields.net_cents != f.net_cents
+            || o.fields.category != f.category
+            || o.fields.source_account_id != f.source_account_id
+            || o.fields.receiving_account_id != f.receiving_account_id
+            || o.fields.destination != f.destination
+    }) {
+        crate::cash_movement::source_changed(tx, "income", &id)?;
+    }
     read(tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这条收入记录"))
 }
 

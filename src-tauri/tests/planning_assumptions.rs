@@ -210,7 +210,7 @@ fn schema37_migrates_unconfirmed_preserves_payload_and_receipt() {
     let before = s.plan_profile().unwrap().saved.unwrap().profile;
     let dbpath = {
         let conn = s.conn_for_test().unwrap();
-        conn.execute_batch("DROP TABLE plan_assumption_checks;PRAGMA user_version=37;")
+        conn.execute_batch("DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks;PRAGMA user_version=37;")
             .unwrap();
         conn.path().unwrap().to_owned()
     };
@@ -230,7 +230,7 @@ fn schema37_migrates_unconfirmed_preserves_payload_and_receipt() {
     );
     drop(s);
     let c = rusqlite::Connection::open(dbpath).unwrap();
-    c.execute_batch("DROP TABLE plan_assumption_checks;PRAGMA user_version=37;")
+    c.execute_batch("DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks;PRAGMA user_version=37;")
         .unwrap();
     // Store startup migrates atomically. A schema downgrade contains no invented checks.
     drop(c);

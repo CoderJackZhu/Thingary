@@ -214,7 +214,7 @@ pub(crate) fn validate_retire(r: &Retire, a: &Assumptions, today: &str) -> Resul
 fn active_profile_value(p: &Profile) -> Result<serde_json::Value> {
     Ok(serde_json::to_value(p)?)
 }
-fn read(c: &Connection) -> Result<Option<Saved>> {
+pub(crate) fn read(c: &Connection) -> Result<Option<Saved>> {
     let row: Option<(String, i64, String)> = c
         .query_row(
             "SELECT payload,revision,updated_at FROM plan_profile WHERE id=1",

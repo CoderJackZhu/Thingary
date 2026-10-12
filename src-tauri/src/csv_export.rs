@@ -333,6 +333,9 @@ impl Store {
                 ("周期费用.csv", self.recurring_csv()?),
                 ("月度收入.csv", self.income_csv()?),
                 ("投资区间核对.csv", self.investment_review_table(true)?),
+                ("资金流动.csv", self.movement_table(true)?),
+                ("规划假设.csv", self.assumption_table(true)?),
+                ("规划核对审计.csv", self.planning_flow_audit_table(true)?),
             ] {
                 atomic_write(&folder.join(name), csv.0.as_bytes())?;
                 done.push((name, csv.1));
@@ -352,6 +355,10 @@ impl Store {
         let mut rows = Vec::new();
         for record in records {
             let f = record.flow;
+            let id = f["id"]
+                .as_str()
+                .ok_or_else(|| crate::domain::Error::new("FORMAT", "核对标识无效"))?;
+            let source = crate::planning_flow_review::export_metadata(self.conn()?, id)?;
             let cell = |key: &str| {
                 f[key].as_str().map(str::to_owned).unwrap_or_else(|| {
                     if f[key].is_null() {
@@ -377,6 +384,13 @@ impl Store {
                 record.deleted.to_string(),
                 text(&cell("from_value_key"), guarded),
                 text(&cell("to_value_key"), guarded),
+                source["mode"].as_str().unwrap_or("manual").to_owned(),
+                source["confirmation"]
+                    .as_str()
+                    .unwrap_or("unconfirmed")
+                    .to_owned(),
+                text(&source["draft"].to_string(), guarded),
+                text(source["basis_key"].as_str().unwrap_or(""), guarded),
             ]);
         }
         Ok((
@@ -397,6 +411,118 @@ impl Store {
                     "已删除",
                     "原期初内容键",
                     "原期末内容键",
+                    "来源模式",
+                    "当前确认状态",
+                    "原权威来源草稿",
+                    "流动依据内容键",
+                ],
+                &rows,
+            ),
+            rows.len() as i64,
+        ))
+    }
+
+    pub(crate) fn movement_table(&self, guarded: bool) -> Result<(String, i64)> {
+        let rows = crate::cash_movement::all(self.conn()?)?
+            .into_iter()
+            .map(|r| {
+                let f = r.record.fields;
+                vec![
+                    r.record.id,
+                    r.record.revision.to_string(),
+                    r.record.deleted.to_string(),
+                    f.date,
+                    f.amount_cents,
+                    text(&serde_json::to_string(&f.from).expect("endpoint"), guarded),
+                    text(&serde_json::to_string(&f.to).expect("endpoint"), guarded),
+                    f.purpose,
+                    f.source.as_ref().map_or(String::new(), |s| s.kind.clone()),
+                    f.source.map_or(String::new(), |s| s.key),
+                    r.record.source_status,
+                    text(&f.notes, guarded),
+                ]
+            })
+            .collect::<Vec<_>>();
+        Ok((
+            table(
+                &[
+                    "编号",
+                    "修订",
+                    "已删除",
+                    "结算日期",
+                    "金额（分）",
+                    "转出端",
+                    "转入端",
+                    "用途",
+                    "来源类型",
+                    "来源稳定键",
+                    "来源状态",
+                    "备注",
+                ],
+                &rows,
+            ),
+            rows.len() as i64,
+        ))
+    }
+    pub(crate) fn assumption_table(&self, guarded: bool) -> Result<(String, i64)> {
+        let value = crate::plan_assumptions::export_value(self.conn()?)?;
+        let rows = if let Some(v) = value {
+            vec![vec![
+                v["revision"].to_string(),
+                v["values"]["real_return_before_hundredths"].to_string(),
+                v["values"]["real_return_after_hundredths"].to_string(),
+                v["values"]["inflation_hundredths"].to_string(),
+                v["values"]["volatility_hundredths"].to_string(),
+                v["confirmation"]
+                    .as_str()
+                    .unwrap_or("unconfirmed")
+                    .to_string(),
+                text(&v["confirmed_values"].to_string(), guarded),
+            ]]
+        } else {
+            vec![]
+        };
+        Ok((
+            table(
+                &[
+                    "资料修订",
+                    "退休前实际收益（万分比）",
+                    "退休后实际收益（万分比）",
+                    "通胀（万分比）",
+                    "模拟波动（万分比）",
+                    "确认状态",
+                    "曾确认值",
+                ],
+                &rows,
+            ),
+            rows.len() as i64,
+        ))
+    }
+    pub(crate) fn planning_flow_audit_table(&self, guarded: bool) -> Result<(String, i64)> {
+        let mut q=self.conn()?.prepare("SELECT id,entity_kind,entity_id,request_id,before_value,after_value,created_at FROM planning_flow_audit ORDER BY id")?;
+        let rows = q
+            .query_map([], |r| {
+                Ok(vec![
+                    r.get::<_, i64>(0)?.to_string(),
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    text(&r.get::<_, String>(4)?, guarded),
+                    text(&r.get::<_, String>(5)?, guarded),
+                    r.get(6)?,
+                ])
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok((
+            table(
+                &[
+                    "审计序号",
+                    "类型",
+                    "记录编号",
+                    "请求编号",
+                    "更正前",
+                    "更正后",
+                    "时间",
                 ],
                 &rows,
             ),

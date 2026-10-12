@@ -267,7 +267,10 @@ fn all_tables_go_into_one_new_folder_and_nothing_is_overwritten() {
             ("重要支出.csv", 0),
             ("周期费用.csv", 0),
             ("月度收入.csv", 1),
-            ("投资区间核对.csv", 0)
+            ("投资区间核对.csv", 0),
+            ("资金流动.csv", 0),
+            ("规划假设.csv", 0),
+            ("规划核对审计.csv", 0)
         ]
     );
     let income = std::fs::read_to_string(target.join("月度收入.csv")).unwrap();

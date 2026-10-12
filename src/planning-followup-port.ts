@@ -17,24 +17,28 @@ async function write(pending: Pending, request: FollowupWriteContext): Promise<F
     return { status: 'saved', id: result.id ?? 'profile', revision: result.revision };
   } catch (e) { return e instanceof Unresolved ? { status: 'unresolved', request_id: request.request_id } : issue(code(e) || 'save_failed', errorMessage(e)); }
 }
-const unavailableRead = async <T>(): Promise<FollowupRead<T>> => ({ status: 'error', code: 'PORT_NOT_READY', message: '资金流动端口尚未交付，请勿接入保存入口。' });
-const unavailableWrite = async (): Promise<FollowupWriteResult> => issue('port_not_ready', '资金流动端口尚未交付。');
 export function nativePlanningFollowupPortV1(): PlanningFollowupPortV1 {
   return {
     readAssumptions: generation => read<AssumptionReadV1>('plan_assumptions_read', { generation }),
-    saveAssumptions: (values: AssumptionValuesV1, confirm, context) => write({ command: 'plan_assumptions_save', input: { ...context, values, confirm }, label: '规划假设' } as Pending, context),
-    listAccounts: unavailableRead, listMovements: unavailableRead, listSources: unavailableRead,
-    saveMovement: unavailableWrite, setMovementDeleted: unavailableWrite, readReview: unavailableRead, listReviews: unavailableRead,
-    setReviewDeleted: unavailableWrite, previewReview: unavailableRead, saveReview: unavailableWrite,
+    saveAssumptions: (values: AssumptionValuesV1, confirm, context) => write({ command: 'plan_assumptions_save', input: { ...context, values, confirm }, label: '规划假设' }, context),
+    listAccounts: generation => read('movement_accounts', { generation }),
+    listMovements: (query, generation) => read('movement_list', { query, generation }),
+    listSources: (query, generation) => read('movement_sources', { query, generation }),
+    saveMovement: (id, fields, context) => write({ command: 'movement_save', input: { ...context, id, fields }, label: '资金流动' }, context),
+    setMovementDeleted: (id, deleted, context) => write({ command: 'movement_trash', input: { ...context, id, deleted }, label: '资金流动删除恢复' }, context),
+    readReview: (pair, generation) => read('followup_review_read', { pair, generation }),
+    listReviews: generation => read('followup_review_list', { generation }),
+    previewReview: (pair, draft, generation) => read('followup_review_preview', { pair, draft, generation }),
+    saveReview: (pair, draft, basis_key, context) => write({ command: 'followup_review_save', input: { ...context, pair, draft, basis_key }, label: '投资区间来源核对' }, context),
+    setReviewDeleted: (id, deleted, context) => write({ command: 'followup_review_trash', input: { ...context, id, deleted }, label: '投资区间删除恢复' }, context),
     resolve: async context => {
       const pending = storedPending();
-      if (!pending || pending.command !== 'plan_assumptions_save' || pending.input.request_id !== context.request_id || pending.input.generation !== context.generation) return issue('receipt_mismatch', '请核对原请求与资料库身份。');
+      if (!pending || !['plan_assumptions_save', 'movement_save', 'movement_trash', 'followup_review_save', 'followup_review_trash'].includes(pending.command) || pending.input.request_id !== context.request_id || pending.input.generation !== context.generation) return issue('receipt_mismatch', '请核对原请求与资料库身份。');
       try {
-        const id = await invoke<string | null>('wealth_request_result', { request: context.request_id, generation: context.generation });
-        if (id === null) { clearPending(); return issue('not_committed', '原请求未保存。'); }
-        const result = await read<AssumptionReadV1>('plan_assumptions_read', { generation: context.generation });
-        if (id !== 'profile' || result.status !== 'ready' || result.value.revision === null || result.value.generation !== context.generation) throw new Error('无法核对已保存资料');
-        clearPending(); return { status: 'saved', id, revision: result.value.revision };
+        const result = await invoke<{ id: string; revision: number } | null>('followup_receipt', { request: context.request_id, generation: context.generation });
+        if (result === null) { clearPending(); return issue('not_committed', '原请求未保存。'); }
+        if (!result.id || !Number.isInteger(result.revision) || result.revision < 1) throw new Error('无法核对已保存资料');
+        clearPending(); return { status: 'saved', ...result };
       } catch { return { status: 'unresolved', request_id: context.request_id }; }
     },
   };

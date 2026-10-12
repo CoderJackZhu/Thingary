@@ -194,6 +194,10 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
             crate::plan_migration::validate_legacy(&db)?;
         }
     }
+    if v >= 39 {
+        crate::cash_movement::validate_dataset(&db)?;
+        crate::planning_flow_review::validate_dataset(&db)?;
+    }
     if v >= 38 {
         crate::plan_assumptions::validate_dataset(&db)?;
     }
@@ -544,6 +548,9 @@ pub struct Summary {
     pub virtual_topups: i64,
     /// Linked-subscription trash groups (schema 33, or the unpublished 32).
     pub link_groups: i64,
+    pub cash_movements: i64,
+    pub investment_reviews: i64,
+    pub assumption_checks: i64,
     pub import_mappings: i64,
     pub import_receipts: i64,
     pub files: usize,
@@ -631,6 +638,23 @@ impl Store {
             },
             import_receipts: if v >= 34 {
                 count("SELECT count(*) FROM import_receipt")?
+            } else {
+                0
+            },
+            cash_movements: if v >= 39 {
+                db.query_row("SELECT COUNT(*) FROM cash_movements", [], |r| r.get(0))?
+            } else {
+                0
+            },
+            investment_reviews: if v >= 37 {
+                db.query_row("SELECT COUNT(*) FROM investment_flows", [], |r| r.get(0))?
+            } else {
+                0
+            },
+            assumption_checks: if v >= 38 {
+                db.query_row("SELECT COUNT(*) FROM plan_assumption_checks", [], |r| {
+                    r.get(0)
+                })?
             } else {
                 0
             },

@@ -1428,6 +1428,9 @@ impl Store {
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",
             params![input.request_id, fingerprint, input.id],
         )?;
+        if ["income", "expense"].contains(&input.kind.as_str()) {
+            crate::cash_movement::source_changed(&tx, &input.kind, &input.id)?;
+        }
         self.hit("wealth_trash.before_commit")?;
         tx.commit()?;
         Ok(())

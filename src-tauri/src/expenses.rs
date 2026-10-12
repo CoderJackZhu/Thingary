@@ -291,6 +291,14 @@ impl Store {
             params![input.request_id, fingerprint, id],
         )?;
         let result = read(&tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这笔支出"))?;
+        if old.as_ref().is_some_and(|o| {
+            o.fields.date != f.date
+                || o.fields.amount_cents != f.amount_cents
+                || o.fields.category != f.category
+                || o.fields.asset_id != f.asset_id
+        }) {
+            crate::cash_movement::source_changed(&tx, "expense", &id)?;
+        }
         self.hit("expense.before_commit")?;
         tx.commit()?;
         self.hit("expense.after_commit")?;

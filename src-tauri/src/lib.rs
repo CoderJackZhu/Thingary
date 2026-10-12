@@ -1,6 +1,7 @@
 pub mod auto_backup;
 pub mod backup;
 pub mod batch;
+pub mod cash_movement;
 pub mod catalog;
 pub mod choices;
 mod commands;
@@ -33,6 +34,7 @@ mod plan_migration;
 pub mod plan_profile;
 pub mod plan_savings;
 pub mod plan_simplified;
+pub mod planning_flow_review;
 mod planning_followup_commands;
 pub mod preferences;
 pub mod purge;
@@ -232,6 +234,17 @@ pub fn run() {
             commands::plan_profile_update,
             planning_followup_commands::plan_assumptions_read,
             planning_followup_commands::plan_assumptions_save,
+            planning_followup_commands::movement_accounts,
+            planning_followup_commands::movement_list,
+            planning_followup_commands::movement_sources,
+            planning_followup_commands::movement_save,
+            planning_followup_commands::movement_trash,
+            planning_followup_commands::followup_review_read,
+            planning_followup_commands::followup_review_preview,
+            planning_followup_commands::followup_review_list,
+            planning_followup_commands::followup_review_save,
+            planning_followup_commands::followup_review_trash,
+            planning_followup_commands::followup_receipt,
             commands::planning_sources,
             commands::plan_review,
             commands::plan_interval_reasons,

@@ -103,7 +103,10 @@ fn item_workbook_preserves_text_unknown_zero_multiline_and_detects_edits() {
             "盘点记录",
             "重要支出",
             "周期费用",
-            "投资区间核对"
+            "投资区间核对",
+            "资金流动",
+            "规划假设",
+            "规划核对审计"
         ]
     );
     assert!(book.worksheet_formula("物品").unwrap().is_empty());

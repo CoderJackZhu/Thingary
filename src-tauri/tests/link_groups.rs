@@ -1591,7 +1591,7 @@ fn schema32_variants_upgrade_and_restore_without_losing_planning_or_groups() {
         db.execute_batch("DROP INDEX import_external_object; DROP TABLE import_external_key; DROP TABLE import_receipt; PRAGMA journal_mode=DELETE; PRAGMA user_version=32;")
             .unwrap();
         db.execute_batch(
-            "DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; CREATE TEMP TABLE old_income AS SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,deleted_at FROM plan_income; DROP TABLE plan_income;",
+            "DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; CREATE TEMP TABLE old_income AS SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,deleted_at FROM plan_income; DROP TABLE plan_income;",
         )
         .unwrap();
         db.execute_batch(

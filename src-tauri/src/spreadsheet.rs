@@ -457,6 +457,9 @@ impl Store {
             ("重要支出", self.expenses_table(false)?),
             ("周期费用", self.recurring_table(false)?),
             ("投资区间核对", self.investment_review_table(false)?),
+            ("资金流动", self.movement_table(false)?),
+            ("规划假设", self.assumption_table(false)?),
+            ("规划核对审计", self.planning_flow_audit_table(false)?),
         ] {
             sheets.push((name, csv_rows(&csv.0)?));
         }

@@ -149,3 +149,19 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
     }
     Ok(())
 }
+
+pub(crate) fn export_value(c: &Connection) -> Result<Option<serde_json::Value>> {
+    let Some(saved) = crate::plan_profile::read(c)? else {
+        return Ok(None);
+    };
+    let values = Values::of(&saved.profile);
+    let checks = check(c)?;
+    let confirmation = match &checks {
+        None => "unconfirmed",
+        Some((v, false)) if *v == values => "confirmed",
+        Some(_) => "needs_review",
+    };
+    Ok(Some(
+        serde_json::json!({"revision":saved.revision,"values":values,"confirmation":confirmation,"confirmed_values":checks.map(|(v,_)|v)}),
+    ))
+}

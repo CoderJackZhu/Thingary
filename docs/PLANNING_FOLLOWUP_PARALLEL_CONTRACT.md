@@ -1,6 +1,6 @@
 # 规划假设与资金流动：双任务接入契约 v1
 
-状态：**2026-10-12 前置契约已冻结；C1 假设原生端口已实现，UI 接入及 C2 资金流动端口待联合交付。** 源码基线为 `6332f874680e41a7f6c967493aad11706bc849c1`。目标以[边界设计第18节](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)为准；本文件维护领域与UI接缝，不是已上线功能说明。
+状态：**2026-10-12 前置契约已冻结；C1 假设及 C2 资金流动原生端口已实现；UI 接入和联合验收待交付。** 源码基线为 `6332f874680e41a7f6c967493aad11706bc849c1`。目标以[边界设计第18节](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)为准；本文件维护领域与UI接缝，不是已上线功能说明。
 
 唯一类型定义：[planning-followup-contract.ts](../src/planning-followup-contract.ts)。该文件只有类型，没有保存、计算或运行时入口；其存在不表示原生端口可用。旧[投资核对v1](PLANNING_SIMPLIFICATION_CONTRACT.md)的输入输出继续作为计算核心边界，新契约在外层管理明细来源及确认失效，不向旧核心偷偷塞入未约定字段。
 
@@ -30,7 +30,7 @@ UI组件不直接invoke，不计算损益、区间流量、内容键或完整性
 
 `MovementSourceV1.key`是领域提供的稳定、不透明来源键。收入和重要支出/其他可稳定定位的已发生支出通过listSources返回，UI不得使用列表序号或自行拼出复合键。首版关联整笔同额同日记录，不能关联已删除或已有其他有效流动关联的来源；历史来源变更保留流动且标needs_review。没有可靠稳定键的来源暂不提供候选，用户仍可记未关联流动；适配覆盖必须列入交付说明，不扩建消费账本。
 
-listSources返回的候选身份由后端保存时重新校验。source_status为展示状态，不接受客户端写入；删除来源不能级联删除流动。关联解除通过保存source=null完成，使用流动修订校验；永久清理来源须遵守显式解除及审计规则。
+listSources返回的候选身份由后端保存时重新校验。source_status为展示状态，不接受客户端写入；删除来源不能级联删除流动。关联解除通过保存source=null完成，使用流动修订校验；已删除流动也可按原字段仅解除来源而保持删除状态，其他编辑先恢复；永久清理来源须遵守显式解除及审计规则。
 
 listMovements的from_date/to_date均为包含边界，null表示不限；区间汇总仍使用(B0,B1]，不得混用。空列表与读取失败分开。cursor由领域生成、校验查询及generation；过期游标返回错误并让UI重新从第一页读取，不能悄悄丢行。明细分页不能截断用于计算的全集。
 
@@ -60,3 +60,11 @@ saved表示事务已确认，宿主重新读取真实来源后关闭／展示；
 领域先交可编译适配器、逐方法状态说明、保存及故障测试、真实文件清单与完整提交SHA；不得交永远返回saved的占位端口。UI在此之前完成纯展示／交互、空白／未知／错误／提交未知和模拟端口测试，不把准备状态写成已经接通原生。
 
 真实接入完成后四项仓库检查以及[第18节验收](PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)联合执行。UI提供同尺寸对照，原生保存、重启、备份恢复、文件选择和键盘分别记录；仅使用虚构预览或隔离身份。契约版本、数据库schema和应用版本彼此独立。
+
+## 7. 已实现的原生适配
+
+`nativePlanningFollowupPortV1()` 已提供本契约全部方法，无未就绪或占位保存分支。假设使用 schema 38 的独立核对表；资金流动与区间来源使用 schema 39，所有写入共用原请求引擎。端点候选首版限现金／投资／混合投资／基金／债券资产账户；来源候选覆盖月度收入和未关联物品的独立重要支出，其他派生支出暂不提供稳定候选。独立流动无需退休目标或两次盘点。
+
+真实错误包括 `PROFILE_REQUIRED`、`REVISION_CONFLICT`、`STALE_BASIS`、`OVERLAPPING_FLOW`、`SOURCE_CONFLICT`、`SOURCE_MISMATCH`、`INVALID_INPUT`、`STALE_CURSOR`、`MODULE_DISABLED` 及 `STALE_DATASET`；写端口提供小写 issue.code，读端口保留原错误码。无回执且原 generation 仍有效时可判定 `not_committed`；跨 generation 或无法读取回执保持 unresolved。假设、流动、核对均保留原 pending 入口，不创建第二份请求日志。
+
+F01—F12 的 Rust Store 与端口错误／回执自动测试使用虚构临时资料。它们验证真实事务、重启、备份恢复及 Excel 内容，尚不证明 C3 页面、原生键盘、输入法和系统文件面板已验。运行阶段与联合边界由 UI 交付后的现行开发说明维护。

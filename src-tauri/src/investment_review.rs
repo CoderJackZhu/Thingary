@@ -69,16 +69,16 @@ fn money(value: &Option<String>) -> Result<Option<i64>> {
         .map(|v| core::parse_cents(v).map_err(|_| bad("金额必须为合法的非负整数分")))
         .transpose()
 }
-fn flow_json(flow: &core::Flow) -> Value {
+pub(crate) fn flow_json(flow: &core::Flow) -> Value {
     let mut value = serde_json::to_value(flow).expect("plain flow is serializable");
     value["inflow_cents"] = json!(flow.inflow_cents.map(|v| v.to_string()));
     value["outflow_cents"] = json!(flow.outflow_cents.map(|v| v.to_string()));
     value
 }
-fn endpoint_json(e: &core::Endpoint) -> Value {
+pub(crate) fn endpoint_json(e: &core::Endpoint) -> Value {
     json!({"snapshot_id":e.snapshot_id,"date":e.date,"revision":e.revision,"members":e.members.iter().map(|m| json!({"account_id":m.account_id,"kind":m.kind,"counted":m.counted,"amount_cents":m.amount_cents.map(|v|v.to_string())})).collect::<Vec<_>>()})
 }
-fn result_json(r: core::ReviewResult) -> Value {
+pub(crate) fn result_json(r: core::ReviewResult) -> Value {
     match r {
         core::ReviewResult::Ready { value: v } => {
             json!({"status":"ready","value":{"opening_cents":v.opening_cents.to_string(),"closing_cents":v.closing_cents.to_string(),"change_cents":v.change_cents.to_string(),"inflow_cents":v.inflow_cents.to_string(),"outflow_cents":v.outflow_cents.to_string(),"profit_cents":v.profit_cents.to_string()}})
@@ -95,7 +95,7 @@ fn result_json(r: core::ReviewResult) -> Value {
         }
     }
 }
-fn endpoint(c: &Connection, id: &str) -> Result<core::Endpoint> {
+pub(crate) fn endpoint(c: &Connection, id: &str) -> Result<core::Endpoint> {
     let accounts = crate::wealth::accounts(c)?;
     let snap = crate::wealth::snapshot(c, id, &accounts)?.ok_or_else(|| {
         Error::new(
@@ -131,7 +131,7 @@ fn endpoint(c: &Connection, id: &str) -> Result<core::Endpoint> {
         members,
     })
 }
-fn scope_key(e: &core::Endpoint) -> String {
+pub(crate) fn scope_key(e: &core::Endpoint) -> String {
     let mut ids = e
         .members
         .iter()
@@ -140,7 +140,7 @@ fn scope_key(e: &core::Endpoint) -> String {
     ids.sort();
     serde_json::to_string(&ids).expect("string list serializable")
 }
-fn get(c: &Connection, id: &str) -> Result<Option<(core::Flow, bool)>> {
+pub(crate) fn get(c: &Connection, id: &str) -> Result<Option<(core::Flow, bool)>> {
     let raw: Option<(String, bool)> = c
         .query_row(
             "SELECT payload,deleted_at IS NOT NULL FROM investment_flows WHERE id=?1",
@@ -166,7 +166,7 @@ pub(crate) fn records(c: &Connection) -> Result<Vec<Record>> {
         .collect();
     rows
 }
-fn overlaps(
+pub(crate) fn overlaps(
     c: &Connection,
     from: &str,
     to: &str,
@@ -196,7 +196,7 @@ fn receipt(c: &Connection, request: &str, fingerprint: &str) -> Result<Option<St
         None => Ok(None),
     }
 }
-fn require_no_overlap(c: &Connection, flow: &core::Flow, scope: &str) -> Result<()> {
+pub(crate) fn require_no_overlap(c: &Connection, flow: &core::Flow, scope: &str) -> Result<()> {
     let pair:bool=c.query_row("SELECT EXISTS(SELECT 1 FROM investment_flows WHERE deleted_at IS NULL AND from_snapshot_id=?1 AND to_snapshot_id=?2 AND id<>?3)",params![flow.from_snapshot_id,flow.to_snapshot_id,flow.id],|r|r.get(0))?;
     if pair {
         return Err(Error::new(
@@ -262,7 +262,11 @@ impl Store {
             from_value_key: core::endpoint_value_key(&input.from),
             to_value_key: core::endpoint_value_key(&input.to),
             input: json!({"contract_version":1,"from":endpoint_json(&input.from),"to":endpoint_json(&input.to),"flow":input.flow.as_ref().map(flow_json),"overlapping_active_flow_ids":input.overlapping_active_flow_ids}),
-            result: result_json(core::review_interval(&input)),
+            result: crate::planning_flow_review::saved_result(
+                c,
+                &input,
+                result_json(core::review_interval(&input)),
+            )?,
             records: records(c)?,
         })
     }
@@ -353,12 +357,23 @@ impl Store {
             _ => {}
         }
         require_no_overlap(&tx, &flow, &scope)?;
+        crate::planning_flow_review::guard_legacy(&tx, &flow)?;
         let now = chrono::Utc::now().to_rfc3339();
         let payload = serde_json::to_string(&flow)?;
         tx.execute("INSERT INTO investment_flows(id,revision,from_snapshot_id,to_snapshot_id,from_date,to_date,scope_key,payload,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?9) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,from_date=excluded.from_date,to_date=excluded.to_date,scope_key=excluded.scope_key,payload=excluded.payload,updated_at=excluded.updated_at",params![flow.id,flow.revision,flow.from_snapshot_id,flow.to_snapshot_id,flow.from_date,flow.to_date,scope,payload,now])?;
         tx.execute(
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",
             params![input.request_id, fingerprint, flow.id],
+        )?;
+        crate::planning_flow_review::legacy_saved(&tx, &flow)?;
+        crate::cash_movement::audit(
+            &tx,
+            "review",
+            &flow.id,
+            &input.request_id,
+            old.as_ref()
+                .map_or(Value::Null, |(f, _)| serde_json::to_value(f).unwrap()),
+            serde_json::to_value(&flow)?,
         )?;
         self.hit("investment_review.before_commit")?;
         tx.commit()?;
@@ -386,12 +401,21 @@ impl Store {
             ids.sort();
             require_no_overlap(&tx, &flow, &serde_json::to_string(&ids)?)?;
         }
+        let before = serde_json::to_value(&flow)?;
         flow.revision += 1;
         let now = chrono::Utc::now().to_rfc3339();
         tx.execute("UPDATE investment_flows SET revision=?2,payload=?3,updated_at=?4,deleted_at=?5 WHERE id=?1",params![input.id,flow.revision,serde_json::to_string(&flow)?,now,if input.deleted{Some(now.clone())}else{None}])?;
         tx.execute(
             "INSERT INTO feature_requests VALUES(?1,?2,?3)",
             params![input.request_id, fingerprint, input.id],
+        )?;
+        crate::cash_movement::audit(
+            &tx,
+            "review",
+            &flow.id,
+            &input.request_id,
+            before,
+            serde_json::to_value(&flow)?,
         )?;
         self.hit("investment_review.before_commit")?;
         tx.commit()?;
