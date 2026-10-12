@@ -1,5 +1,5 @@
 import { CostsDialog } from './PlanningCosts';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { money } from './asset';
 import { CentInput, Info } from './FormControls';
@@ -7,30 +7,31 @@ import { CapabilityNotice, MissingList, RequirementCard } from './PlanningRequir
 import { RetireOverview, Snapshot, useValueMode } from './RetireOverview';
 import { RiskLab } from './RiskLab';
 import { rateText } from './plan';
-import { ready } from './review';
-import { usualSaving } from './plan-summary';
+
+
 import type { BasicCapabilities, PlanningMissing, PlanningSources, ProfileState } from './plan';
 import { toEvent } from './plan-retire-calc';
 import { contributionSection } from './planning-basic-forms';
-import { historyHints } from './planning-basic-defaults';
-import type { History } from './planning-basic-defaults';
 import { ContributionHelper } from './PlanningContributionHelper';
 import { useCapabilities, useSectionSaver } from './planning-basic-data';
 import { amountState, SAVE_CONTRIBUTION_HINT } from './planning-basic-view';
 import { snapshotRows } from './plan-view';
+import { AssumptionsSummary } from './planning-followup-ui/AssumptionsSummary';
+import type { PlanningFollowupPortV1 } from './planning-followup-contract';
 import './retire.css';
 
-type Saved = NonNullable<ProfileState['saved']>;
+type Saved = NonNullable<ProfileState['saved']>
 const incomeModeText = { unconfirmed: '还没确认收入计入方式', excluded: '本次不计未来收入', manual: '手填的未来收入' } as const;
 const treatmentText = { included: '已含在总预算', extra: '另外计入', excluded: '本次不计' } as const;
 const contributionText = (cents: string | null) => { const s = amountState(cents); return s === 'unknown' ? '以后再估计' : s === 'zero' ? '每月存 0 元（本次估计）' : `${money(cents!)}/月`; };
 
 /** Basic-plan detail: the requirement stays visible; prediction and risk tools open only for an explicit saved or trial contribution. */
-export function PlanningBasicDetail({ sources, saved, today, reload, onPending, onEditingChange, openSetup, onEvents, onBack }: { sources: PlanningSources; saved: Saved; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; openSetup: (step: number, from?: HTMLElement | null) => void; onEvents: () => void; onBack: () => void }) {
+export function PlanningBasicDetail({ sources, saved, today, reload, onPending, onEditingChange, openSetup, onEvents, onBack, assumptionsPort }: { sources: PlanningSources; saved: Saved; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; openSetup: (step: number, from?: HTMLElement | null) => void; onEvents: () => void; onBack: () => void; assumptionsPort?: PlanningFollowupPortV1 }) {
   const [costsOpen, setCostsOpen] = useState(false);
-  useEffect(() => { onEditingChange(costsOpen); return () => onEditingChange(false); }, [costsOpen, onEditingChange]);
+  const [assumptionsOpen, setAssumptionsOpen] = useState(false);
+  const [contributionEditing, setContributionEditing] = useState(false);
+  useEffect(() => { onEditingChange(costsOpen || assumptionsOpen || contributionEditing); return () => onEditingChange(false); }, [costsOpen, assumptionsOpen, contributionEditing, onEditingChange]);
   const [trial, setTrial] = useState<string | null>(null), [tab, setTab] = useState<'overview' | 'lab'>('overview'), [mode, setMode] = useValueMode();
-  const hist = useMemo(() => historyHints(ready(sources.review)), [sources.review]);
   const savedContribution = saved.profile.retire.basic?.contribution.monthly_cents ?? null;
   // Unknown future contributions stay unknown even when historical estimates exist.
   const result = useCapabilities(sources, { contribution: trial });
@@ -50,11 +51,11 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
   const caps = result.status === 'ready' ? result.caps : null;
   const pred = caps?.prediction.status === 'ready' ? caps.prediction.value : null;
   const events = retire.life_events.map(toEvent);
-  const review = ready(sources.review), usual = review ? usualSaving(review) : null;
-  const reference = usual?.kind === 'known' ? `盘点参考区间 ${usual.window_from ?? "起点未记录"} 至 ${usual.latest_date ?? "终点未记录"}：月均净资产变化约 ${money(usual.monthly_cents)}（含估值，共 ${usual.count} 个可比区间${usual.low_sample ? "，样本较少" : ""}）。` : null;
   return <div className="rd-detail">
     {costsOpen && <CostsDialog sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={() => { setCostsOpen(false); requestAnimationFrame(() => document.getElementById('plan-budget-entry')?.focus()); }}/>}
     <p><button type="button" className="ui-link" onClick={onBack}>{trial !== null ? '← 返回目标（临时试算不会保存）' : '← 返回目标'}</button></p>
+    {assumptionsPort && <AssumptionsSummary port={assumptionsPort} generation={sources.generation} writeVersion={sources.write_version} blocked={saver.busy || saver.stuck} reload={reload} onPending={onPending} onEditingChange={setAssumptionsOpen}/>}
+
     <div className="rd-tabs" role="group" aria-label="切换计算详情页面"><button type="button" aria-pressed={tab === 'overview'} onClick={() => setTab('overview')}><strong>概览</strong><span>查看结果与资金轨迹</span></button><button type="button" aria-pressed={tab === 'lab'} onClick={() => setTab('lab')}><strong>假设分析</strong><span>比较收益、支出变化的影响</span></button></div>
     <p className="muted small" role="note">预测取决于你填写的生活费、收入和收益假设，实际结果可能不同，不保证未来一定够用。</p>
     <div className="rd-grid">
@@ -67,7 +68,7 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
             {pred ? <RetireOverview hideSnapshot calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}
           </>}
       </div>
-      <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} contribution={<ContributionCard saved={saved} hist={hist} reference={reference} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={onEditingChange}/>}/>
+      <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} contribution={<ContributionCard saved={saved} reference={null} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={setContributionEditing}/>}/>
     </div>
     {tab === 'overview' && pred && <Snapshot mode={mode} rows={snapshotRows(pred.plan, pred.projection, mode)}/>}
   </div>;
@@ -132,7 +133,7 @@ function BasicSidebar({ saved, caps, openSetup, contribution }: { saved: Saved; 
 }
 
 /** The only place a contribution is saved from the detail. Blank is unknown; 0 and negatives are explicit values. */
-function ContributionCard({ saved, hist, reference, busy, notice, onSave, onEditingChange }: { saved: Saved; hist: History; reference: string | null; busy: boolean; notice: string; onSave: (v: string | null) => Promise<boolean>; onEditingChange: (v: boolean) => void }) {
+function ContributionCard({ saved, reference, busy, notice, onSave, onEditingChange }: { saved: Saved; reference: string | null; busy: boolean; notice: string; onSave: (v: string | null) => Promise<boolean>; onEditingChange: (v: boolean) => void }) {
   const current = saved.profile.retire.basic?.contribution.monthly_cents ?? null;
   const [editing, setEditing] = useState(false), [text, setText] = useState(current ?? ''), button = useRef<HTMLButtonElement>(null);
   useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
@@ -140,7 +141,7 @@ function ContributionCard({ saved, hist, reference, busy, notice, onSave, onEdit
   return <article className="ui-card rs-card" id="plan-contribution-card" aria-label="每月能存的钱"><header><div><h3>每月能存的钱（选填）<Info text="例如每月到账 10000 元、全部开销 6000 元，就填 4000 元。包括买基金等留下的钱，不包含投资涨跌。没想好可以不填，以后再修改。"/></h3></div>
     {editing ? <span className="rs-actions"><button type="button" className="ui-btn" disabled={busy} onClick={() => { setText(current ?? ''); close(); }}>取消</button><button type="button" className="primary" disabled={busy} onClick={async () => { if (await onSave(text === '' ? null : text)) close(); }}>{busy ? '保存中…' : '保存'}</button></span>
       : <button ref={button} type="button" className="ui-btn" aria-label="编辑每月能存的钱" onClick={() => { setText(current ?? ''); setEditing(true); }}>编辑</button>}</header>
-    {editing ? <div className="rs-form"><label className="rs-field"><span>每月大约能存下多少钱？</span><CentInput label="每月大约能存下多少钱" signed value={text} disabled={busy} placeholder="没想好可以留空" onChange={setText}/><small>每月到账减去全部开销后剩下的钱。取用存款填负数；填 0 只表示本次按每月不存钱计算。</small>{reference && <small className="plan-reference">仅供参考：{reference}资产增减混有估值涨跌，不等于日常收支留下的钱，不会自动填入。</small>}</label><ContributionHelper history={hist} disabled={busy} onPick={setText}/>{notice && <p className="notice" role="status">{notice}</p>}</div>
+    {editing ? <div className="rs-form"><label className="rs-field"><span>每月大约能存下多少钱？</span><CentInput label="每月大约能存下多少钱" signed value={text} disabled={busy} placeholder="没想好可以留空" onChange={setText}/><small>每月到账减去全部开销后剩下的钱。取用存款填负数；填 0 只表示本次按每月不存钱计算。</small>{reference && <small className="plan-reference">仅供参考：{reference}资产增减混有估值涨跌，不等于日常收支留下的钱，不会自动填入。</small>}</label><ContributionHelper disabled={busy} onPick={setText}/>{notice && <p className="notice" role="status">{notice}</p>}</div>
       : <><p>{contributionText(current)}</p>{current === null && <p className="muted small">{SAVE_CONTRIBUTION_HINT}：关联的心愿与大额计划会在保存后显示影响。</p>}</>}
   </article>;
 }

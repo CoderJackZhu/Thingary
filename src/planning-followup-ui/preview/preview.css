@@ -1,0 +1,6 @@
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 system-ui}
+.pfu-preview{max-width:1080px;margin:auto;padding:24px}
+.pfu-preview h1{font-size:20px}
+.pfu-preview nav{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.pfu-preview a{color:var(--accent)}
+.pfu-preview .pfu-toolbar{display:flex;gap:10px;align-items:center;margin:16px 0;flex-wrap:wrap}

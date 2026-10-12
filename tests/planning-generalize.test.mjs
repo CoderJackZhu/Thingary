@@ -11,20 +11,20 @@ const saved = s => s.profile.value.saved;
 const click = (r, name) => { r.button(name).props.onClick(); r.render(); };
 const enter = (r, type, label, value) => { r.find(type, p => p.label === label || p['aria-label'] === label).props.onChange(type === 'input' ? { target: { value } } : value); r.render(); };
 
-test('return presets fill both real returns, mark the active tier and save as hundredths', async () => {
-  const r = runtime('PlanningSetup', { sources: sources(), editMode: true, initialStep: 5 });
-  const tier = label => r.nodes().find(n => n.type === 'button' && r.text(n).startsWith(label));
-  click(r, '含股票基金（3% / 2%）');
-  assert.equal(r.find('input', p => p['aria-label'] === '退休前实际年收益').props.value, '3');
-  assert.equal(r.find('input', p => p['aria-label'] === '退休后实际年收益').props.value, '2');
-  assert.equal(tier('含股票基金').props['aria-pressed'], true);
-  assert.equal(tier('存款为主').props['aria-pressed'], false);
-  enter(r, 'input', '退休前实际年收益', '3.00');
-  assert.equal(tier('含股票基金').props['aria-pressed'], true);
+test('more assumptions preserves existing values and removes unsupported allocation presets', async () => {
+  const source = sources();
+  source.profile.value.saved.profile.retire.real_return_before_hundredths = 150;
+  source.profile.value.saved.profile.retire.real_return_after_hundredths = 100;
+  source.profile.value.saved.profile.retire.volatility_hundredths = 750;
+  const r = runtime('PlanningSetup', { sources: source, editMode: true, initialStep: 5 });
+  assert.equal(r.button('含股票基金（3% / 2%）'), undefined);
+  assert.equal(r.find('input', p => p['aria-label'] === '退休前实际年收益'), undefined);
+  assert.match(r.text(r.render()), /市场模拟年波动率/);
   r.find('form').props.onSubmit({ preventDefault() {} }); await r.settle();
   const basic = r.calls.at(-1).fields.basic;
-  assert.equal(basic.real_return_before_hundredths, 300);
-  assert.equal(basic.real_return_after_hundredths, 200);
+  assert.equal(basic.real_return_before_hundredths, 150);
+  assert.equal(basic.real_return_after_hundredths, 100);
+  assert.equal(basic.volatility_hundredths, 750);
 });
 
 test('zero real return chip says money only keeps pace with inflation', () => {

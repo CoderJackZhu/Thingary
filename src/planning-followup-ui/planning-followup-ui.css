@@ -1,0 +1,82 @@
+/* planning-followup-ui：规划假设与资金流动界面样式。只引用 theme.css 令牌，不新增颜色字面量。 */
+.pfu-dialog { border: none; border-radius: var(--dialog-radius); padding: 0; max-width: 640px; width: min(92vw, 640px); max-height: 86vh; background: var(--card); color: inherit; box-shadow: var(--dialog-shadow); }
+.pfu-dialog::backdrop { background: var(--backdrop); }
+.pfu-dialog form { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; max-height: 86vh; overflow: auto; }
+.pfu-dialog-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.pfu-eyebrow { margin: 0; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.pfu-dialog-head h3, .pfu-state h4 { margin: 2px 0 4px; font-size: 17px; }
+.pfu-meta { margin: 0; color: var(--muted); font-size: 13px; }
+.pfu-close { border: none; background: none; font-size: 20px; line-height: 1; cursor: pointer; color: inherit; padding: 4px 8px; }
+.pfu-field-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.pfu-field-label input, .pfu-field-label select, .pfu-field-label textarea, .pfu-source-search input, .pfu-filters input, .pfu-filters select {
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: inherit; font: inherit; }
+.pfu-rate { max-width: 200px; }
+.pfu-hint { color: var(--muted); font-size: 12px; }
+.pfu-muted { color: var(--muted); }
+.pfu-muted.small, .pfu-hint { font-size: 12px; }
+.pfu-actions-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pfu-confirm { margin: 0; padding: 6px 10px; border-radius: 8px; background: var(--soft); font-size: 13px; }
+.pfu-confirm.confirmed { border-left: 3px solid var(--positive); }
+.pfu-confirm.needs_review, .pfu-confirm.unconfirmed { border-left: 3px solid var(--warn); }
+.pfu-btn { border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: inherit; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+.pfu-btn:disabled { opacity: 0.55; cursor: default; }
+.pfu-primary { background: var(--button-bg); border-color: var(--button-bg); color: var(--button-text); }
+.pfu-danger { border-color: var(--error); color: var(--error); }
+.pfu-dialog-foot { display: flex; justify-content: space-between; gap: 10px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }
+.pfu-foot-group { display: flex; gap: 8px; }
+.pfu-notice { margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); font-size: 13px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pfu-state { margin: 0; font-size: 14px; }
+.pfu-error { color: var(--error); }
+.pfu-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.pfu-endpoint { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.pfu-endpoint legend { font-size: 13px; padding: 0 4px; }
+.pfu-endpoint select, .pfu-endpoint input { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: var(--bg); color: inherit; font: inherit; }
+.pfu-segments { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.pfu-segments button { border: none; background: none; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; color: inherit; }
+.pfu-segments button[aria-pressed="true"] { background: var(--accent-soft); font-weight: 600; }
+.pfu-source-block summary { cursor: pointer; font-size: 13px; }
+.pfu-source { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.pfu-source-search { display: flex; gap: 8px; }
+.pfu-source-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow: auto; }
+.pfu-source-list button { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: inherit; padding: 6px 10px; cursor: pointer; font: inherit; }
+.pfu-source-list button[aria-pressed="true"] { border-color: var(--accent); }
+.pfu-source-list button:disabled { opacity: 0.55; cursor: default; }
+.pfu-source-list small { color: var(--muted); font-size: 12px; }
+.pfu-choice { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.pfu-followup { display: flex; flex-direction: column; gap: 10px; }
+.pfu-entry-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pfu-movements { display: flex; flex-direction: column; gap: 8px; }
+.pfu-section-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.pfu-section-head h4 { margin: 0; font-size: 14px; }
+.pfu-filters { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.pfu-filters label { display: flex; flex-direction: column; gap: 2px; color: var(--muted); }
+.pfu-filters input, .pfu-filters select { max-width: 160px; }
+.pfu-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.pfu-table th { text-align: left; font-weight: 600; border-bottom: 1px solid var(--line); padding: 4px 8px; }
+.pfu-table td { border-bottom: 1px solid var(--line-soft); padding: 6px 8px; vertical-align: top; }
+.pfu-table tr.pfu-deleted td { opacity: 0.6; text-decoration: line-through; }
+.pfu-table tr.pfu-deleted td:last-child { text-decoration: none; }
+.pfu-num { text-align: right; font-variant-numeric: tabular-nums; }
+.pfu-row-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+.pfu-tag { display: inline-block; border: 1px solid var(--line); border-radius: 999px; font-size: 11px; padding: 1px 8px; white-space: nowrap; }
+.pfu-tag.needs_review, .pfu-tag.warn { border-color: var(--warn); color: var(--warn); }
+.pfu-tag.deleted { border-style: dashed; }
+.pfu-more { display: flex; align-items: center; gap: 10px; }
+.pfu-mode { border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 10px; margin: 0; }
+.pfu-mode legend { font-size: 13px; padding: 0 4px; }
+.pfu-totals { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0; }
+.pfu-totals div { display: flex; flex-direction: column; gap: 2px; }
+.pfu-totals dt { font-size: 12px; color: var(--muted); }
+.pfu-totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+.pfu-switch-preview { border: 1px solid var(--warn); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.pfu-switch-preview h4 { margin: 0; font-size: 14px; }
+.pfu-result summary { cursor: pointer; font-size: 13px; }
+.pfu-reasons { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+
+.pfu-dialog { color: var(--text); }
+.pfu-dialog-foot, .pfu-foot-group { flex-wrap: wrap; }
+.pfu-movements { overflow-x: auto; }
+.pfu-segments button:disabled { opacity: .55; cursor: default; }
+
+.pfu-dialog { overflow: hidden; }
+.pfu-dialog form { box-sizing: border-box; }

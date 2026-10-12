@@ -16,7 +16,7 @@ function components(file, names) {
   const leaf = new Proxy({}, { get: (_, k) => String(k) });
   const module = { exports: {} };
   const modules = { react: { useState: init => [typeof init === 'function' ? init() : init, () => {}] }, 'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) }, './asset': { money }, './plan': plan, './planning-basic-defaults': defaults };
-  const helper = () => components('PlanningContributionHelper', ['ContributionHelper', 'MarketNote']);
+  const helper = () => components('PlanningContributionHelper', ['ContributionHelper']);
   if (file === 'PlanningBasicDetail') modules['./PlanningContributionHelper'] = helper();
   const source = readFileSync(new URL(`../src/${file}.tsx`, import.meta.url), 'utf8');
   const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
@@ -59,7 +59,7 @@ test('preview rejects unknown net-asset change exactly as Rust; first/incomparab
   }
 });
 
-test('review and read-only planning references share cash-field values; detail never adopts them', () => {
+test('historical estimates remain only in review and never fill planning forms', () => {
   const r = review(), i = r.intervals[0], h = defaults.historyHints(r);
   assert.equal(h.saving, i.monthly_cash_saving_cents);
   assert.equal(h.spend, i.monthly_cash_spend_cents);
@@ -67,9 +67,11 @@ test('review and read-only planning references share cash-field values; detail n
   const helper = render(ContributionHelper, { history: h, onPick() {} });
   const detail = render(Trial, { auto: h, trial: null, notice: '' });
   const wizard = setup(r), suggestion = wizard.find('p', p => p.className?.includes('plan-suggest'));
-  for (const s of [usual, steps, helper]) assert.ok(s.includes(money(i.monthly_cash_saving_cents)), s);
-  for (const s of [usual, steps, wizard.text(suggestion)]) assert.ok(s.includes(money(i.monthly_cash_spend_cents)), s);
-  for (const s of [usual, steps, helper, wizard.text(suggestion)]) assert.ok(s.includes(defaults.SAVING_BASIS_CAVEAT), s);
+  for (const s of [usual, steps]) assert.ok(s.includes(money(i.monthly_cash_saving_cents)), s);
+  for (const s of [usual, steps]) assert.ok(s.includes(money(i.monthly_cash_spend_cents)), s);
+  for (const s of [usual, steps]) assert.ok(s.includes(defaults.SAVING_BASIS_CAVEAT), s);
+  assert.equal(suggestion, undefined);
+  assert.ok(!helper.includes(money(h.saving)));
   assert.equal(wizard.find('CentInput', p => p.label === '退休后每月生活预算').props.value, '');
   assert.equal(wizard.button('采用'), undefined);
   assert.ok(!detail.includes('采用并保存'));

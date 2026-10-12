@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
 import { Info, Segments } from './FormControls';
@@ -11,6 +11,10 @@ import type { PlanningSources } from './plan';
 import type { Summary } from './wealth';
 import { PlanningBasicGoals } from './PlanningBasicGoals';
 import { PlanningSetupDialog } from './PlanningSetup';
+import { FollowupSection } from './planning-followup-ui/FollowupSection';
+import { nativePlanningFollowupPortV1 } from './planning-followup-port';
+import type { PlanningFollowupPortV1 } from './planning-followup-contract';
+import './planning-followup-ui/planning-followup-ui.css';
 import { usePlanningSources } from './planning-basic-data';
 import { modeOf } from './planning-basic-view';
 import { ready } from './review';
@@ -34,10 +38,13 @@ const dateRange = (i: Interval) => `${i.from} → ${i.to}`;
 export type PlanningTab = 'goals' | 'savings';
 export const planningTabs: [PlanningTab, string][] = [['goals', '目标'], ['savings', '收入与复盘']];
 
-export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone, reviewSnapshotId, onReviewFocusDone, onGotoWealth }: { reviewSnapshotId?: string | null; onReviewFocusDone?: () => void; onGotoWealth?: (action: ReviewAction) => void; focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void }) {
+export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null, onFocusDone, reviewSnapshotId, onReviewFocusDone, onGotoWealth, followupPort: injectedPort }: { reviewSnapshotId?: string | null; onReviewFocusDone?: () => void; onGotoWealth?: (action: ReviewAction) => void; focus?: 'budget' | 'profile' | null; onFocusDone: () => void; today: string; tab: PlanningTab; onTab: (tab: PlanningTab) => void; onEditingChange: (value: boolean) => void; followupPort?: PlanningFollowupPortV1 }) {
+  const nativePort = useMemo(() => nativePlanningFollowupPortV1(), []);
+  const followupPort = injectedPort ?? nativePort;
   const { load, reload } = usePlanningSources(today);
   const [editing, setEditing] = useState<Income | 'new' | null>(null), [setup, setSetup] = useState<{ step: number; editMode: boolean; completionId?: string } | null>(null);
   const [importing, setImporting] = useState(false);
+  const [goalEditing, setGoalEditing] = useState(false);
   const [reviewEditing, setReviewEditing] = useState(false);
   const [view, setView] = useState<'review' | 'income'>('review');
   const [selected, setSelected] = useState<string | null>(null);
@@ -45,7 +52,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
   const opener = useRef<HTMLElement | null>(null);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking || !!setup || reviewEditing || importing); return () => onEditingChange(false); }, [editing, pending, busy, marking, setup, reviewEditing, importing, onEditingChange]);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || marking || !!setup || reviewEditing || goalEditing || importing); return () => onEditingChange(false); }, [editing, pending, busy, marking, setup, reviewEditing, goalEditing, importing, onEditingChange]);
 
   const sources = load.status === 'ready' ? load.sources : null;
   const saved = sources && sources.profile.status === 'ready' ? sources.profile.value.saved : null;
@@ -75,7 +82,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     catch (e) { setMarkError(e instanceof Error ? e.message : errorMessage(e)); setPending(storedPending()); }
     finally { setMarking(false); }
   }
-  const onPending = () => setPending(storedPending());
+  const onPending = useCallback(() => setPending(storedPending()), [setPending]);
   const reviewError = sources && sources.review.status === 'error' ? (sources.review.value.code === 'MODULE_DISABLED' ? '资产与盘点已关闭，历史复盘暂不可用；仍可记录实际收入。' : `历史复盘读取失败：${sources.review.value.message}`) : '';
 
   return <section className="stats-section wealth-section planning-section" aria-label="规划">
@@ -87,7 +94,7 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
     </div></HeaderSlot>
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
       : !sources ? <p role="status" className="muted">正在读取规划…</p>
-      : tab === 'goals' ? <PlanningBasicGoals key={sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone}/>
+      : tab === 'goals' ? <PlanningBasicGoals key={sources.generation + ":" + sources.write_version} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={setGoalEditing} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone} assumptionsPort={followupPort}/>
       : <>
         <div className="review-navigation">
           <Segments label="收入与复盘视图" value={view} options={[{ value: 'review', label: '复盘' }, { value: 'income', label: '收入记录' }]} disabled={!!pending || reviewEditing || marking} onChange={setView}/>
@@ -96,13 +103,14 @@ export function PlanningPage({ today, tab, onTab, onEditingChange, focus = null,
         {view === 'review' ? <>
           {review ? <>
             {newest.length > 0 && <label className="review-period-picker">盘点区间 <select aria-label="选择复盘区间" value={shown?.snapshot_id ?? ''} disabled={!!pending || reviewEditing || marking} onChange={e => setSelected(e.target.value)}>{!shown && <option value="">原区间已不可用，请重新选择</option>}{newest.map(i => <option key={i.snapshot_id} value={i.snapshot_id}>{dateRange(i)}</option>)}</select><span className="muted small">{shown ? `${shown.days} 天 · 两次完整盘点之间` : ''}</span></label>}
-            {shown ? <ReviewPeriod key={shown.snapshot_id + ":" + sources.write_version} interval={shown} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setReviewEditing} onAction={action} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)}/>
-              : <div className="empty"><h2>还没有可比较的盘点区间</h2><p>至少完成两次完整盘点后，就能查看这段时间的变化。现在也可以先记录收入。</p><button className="ui-btn" onClick={() => onGotoWealth?.({ kind: 'accounts' })}>去账户与盘点</button></div>}
+            {shown ? <ReviewPeriod key={sources.generation + ":" + shown.snapshot_id + ":" + sources.write_version} interval={shown} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setReviewEditing} onAction={action} busy={marking || !!pending} markError={markError} onMark={() => void mark(shown)} followupPort={followupPort}/>
+                  : <div className="empty"><h2>还没有可比较的盘点区间</h2><p>至少完成两次完整盘点后，就能查看这段时间的变化。现在也可以先记录收入。</p><button className="ui-btn" onClick={() => onGotoWealth?.({ kind: 'accounts' })}>去账户与盘点</button>
+                    {followupPort && sources && <FollowupSection port={followupPort} generation={sources.generation} pair={null} writeVersion={sources.write_version} today={today} blocked={!!pending || marking} onPending={onPending} onEditingChange={setReviewEditing} onSaved={reload}/>}</div>}
             <details className="plan-explanation"><summary>历史参考与全部区间</summary><Usual review={review}/>{newest.length > 0 && <Intervals intervals={newest} selected={shown?.snapshot_id ?? null} onSelect={setSelected}/>}</details>
           </> : <article className="ui-card ui-content" role="status"><p>{reviewError || '正在读取复盘…'}</p>{sources.modules.wealth && <button onClick={reload}>重新读取</button>}</article>}
         </> : incomes ? <IncomeRecords incomes={incomes} onOpen={setEditing} onNew={() => setEditing('new')} disabled={!!pending}/> : <article className="ui-card ui-content" role="alert"><p>收入记录读取失败。</p><button onClick={reload}>重新读取</button></article>}
       </>}
-    {setup && sources && <PlanningSetupDialog completionId={setup.completionId} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode}/>}
+    {setup && sources && <PlanningSetupDialog key={sources.generation} completionId={setup.completionId} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode} assumptionsPort={followupPort}/>}
     {importing && incomes && <FinancialImportDialog mode="incomes" generation={incomes.generation} onClose={saved => { setImporting(false); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
     {editing && incomes && <IncomeDialog income={editing === 'new' ? null : editing} generation={incomes.generation} today={today} accounts={sources ? ready(sources.accounts) ?? [] : []} hpfDefault={latestHpf(incomes.rows)} onClose={saved => { (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); }}/>}
   </section>;
@@ -120,7 +128,7 @@ function Usual({ review }: { review: PlanReview }) {
   </div><p className="muted small">取近 12 个月里前后都是完整盘点的区间：平均值按天数加权，中位数每个区间算一次。{SAVING_BASIS_CAVEAT}</p></>;
 }
 
-function ReviewPeriod({ interval, sources, today, reload, onPending, onEditingChange, onAction, ...steps }: { interval: Interval; sources: PlanningSources; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onAction: (a: ReviewAction) => void; busy: boolean; markError: string; onMark: () => void }) {
+function ReviewPeriod({ interval, sources, today, reload, onPending, onEditingChange, onAction, followupPort, ...steps }: { interval: Interval; sources: PlanningSources; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onAction: (a: ReviewAction) => void; followupPort?: PlanningFollowupPortV1; busy: boolean; markError: string; onMark: () => void }) {
   const [reasons, setReasons] = useState<Reasons | null>(null), [reasonError, setReasonError] = useState('');
   const [summary, setSummary] = useState<Summary | null>(null), [summaryError, setSummaryError] = useState('');
   const [retry, setRetry] = useState(0);
@@ -132,7 +140,7 @@ function ReviewPeriod({ interval, sources, today, reload, onPending, onEditingCh
     invoke<Summary>('wealth_summary').then(r => { if (live) { if (r.generation !== sources.generation) setSummaryError('资料已变化，请重试。'); else setSummary(r); } }).catch(e => { if (live) setSummaryError(errorMessage(e)); });
     return () => { live = false; };
   }, [interval.snapshot_id, sources.generation, sources.write_version, sources.modules.wealth, retry]);
-  return <><PlanningReviewSummary interval={interval} reasons={reasons} reasonError={reasonError} summary={summary} summaryError={summaryError} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onAction={onAction} blocked={steps.busy} onRetry={() => setRetry(n => n + 1)}/><details className="ui-card ui-content"><summary>查看付款记录与历史估计</summary><Steps interval={interval} {...steps} reasons={reasons} reasonError={reasonError}/></details></>;
+  return <><PlanningReviewSummary interval={interval} reasons={reasons} reasonError={reasonError} summary={summary} summaryError={summaryError} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} onAction={onAction} blocked={steps.busy} onRetry={() => setRetry(n => n + 1)} followupPort={followupPort}/><details className="ui-card ui-content"><summary>查看付款记录与历史估计</summary><Steps interval={interval} {...steps} reasons={reasons} reasonError={reasonError}/></details></>;
 }
 
 /** The observations and the existing reason table share one guarded read. */

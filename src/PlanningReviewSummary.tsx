@@ -9,14 +9,15 @@ import { eventsInput } from './planning-basic-forms';
 import { occurrenceIssues } from './plan-core';
 import type { Occurrence, OccurrenceIssueKind } from './plan-core';
 import type { Interval, PlanningSources, Reasons, StoredLifeEvent } from './plan';
+import type { PlanningFollowupPortV1 } from './planning-followup-contract';
 import { ready } from './review';
 import { buildReviewObservations, reviewActionLabel } from './review-observations';
 import type { ReviewAction } from './review-observations';
 import type { Summary } from './wealth';
 
-export function PlanningReviewSummary({ interval, reasons, reasonError, summary, summaryError, sources, today, reload, onPending, onEditingChange, onAction, onRetry, blocked }: {
+export function PlanningReviewSummary({ interval, reasons, reasonError, summary, summaryError, sources, today, reload, onPending, onEditingChange, onAction, onRetry, blocked, followupPort }: {
   blocked: boolean; interval: Interval; reasons: Reasons | null; reasonError: string; summary: Summary | null; summaryError: string;
-  sources: PlanningSources; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onAction: (a: ReviewAction) => void; onRetry: () => void;
+  sources: PlanningSources; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onAction: (a: ReviewAction) => void; onRetry: () => void; followupPort?: PlanningFollowupPortV1;
 }) {
   const [occurring, setOccurring] = useState<{ event: StoredLifeEvent; issue?: OccurrenceIssueKind } | null>(null);
   const [investmentEditing, setInvestmentEditing] = useState(false);
@@ -53,7 +54,7 @@ export function PlanningReviewSummary({ interval, reasons, reasonError, summary,
       <p className="muted small">记录尚未逐笔对应，不能据此反推消费或真实储蓄。</p>
     </details>
     {reasonError && <p role="alert" className="error">付款记录读取失败：{reasonError} <button type="button" disabled={blocked} onClick={onRetry}>重试</button></p>}
-    {summary && <InvestmentReviewHost key={generationKey(sources.generation, interval.snapshot_id)} generation={sources.generation} fromSnapshotId={summary.points.find(p => p.date === interval.from && p.complete)?.snapshot_id ?? null} toSnapshotId={interval.snapshot_id} writeVersion={sources.write_version} incomes={ready(sources.incomes) ?? null} accountNames={Object.fromEntries((ready(sources.accounts) ?? []).map(a => [a.id, a.fields.name]))} blocked={blocked || saver.busy || saver.stuck || !!occurring} reload={reload} onPending={onPending} onEditingChange={setInvestmentEditing}/>}
+    {summary && <InvestmentReviewHost key={generationKey(sources.generation, interval.snapshot_id)} generation={sources.generation} fromSnapshotId={summary.points.find(p => p.date === interval.from && p.complete)?.snapshot_id ?? null} toSnapshotId={interval.snapshot_id} writeVersion={sources.write_version} incomes={ready(sources.incomes) ?? null} accountNames={Object.fromEntries((ready(sources.accounts) ?? []).map(a => [a.id, a.fields.name]))} blocked={blocked || saver.busy || saver.stuck || !!occurring} reload={reload} onPending={onPending} onEditingChange={setInvestmentEditing} followupPort={followupPort} today={today}/>}
     {(observations.checks.length > 0 || eventIds.length > 0 || accountError || !summary || profileError || snapshotError) && <h4>待核对事项</h4>}
     <ul className="plan-review-checklist">
       {(accountError || !summary) && <li><div><strong>账户与盘点</strong><span>{accountError ? '读取失败，已读取的本期事实仍可查看。' : '正在读取…'}</span></div>{accountError && <button type="button" disabled={blocked} onClick={() => summaryError ? onRetry() : reload()}>重试</button>}</li>}

@@ -125,7 +125,7 @@ test('home uses the saved prediction headline and stays unchanged after a tempor
 test('goals pass a real saved calculation to wishes, and no calculation while contribution is unknown', () => {
   let received, sharedCaps, builds = 0;
   const leaf = () => null;
-  const goals = component('PlanningBasicGoals.tsx', { './planning-goal/Overview': { GoalOverview: leaf }, './planning-goal/Editor': { GoalEditor: leaf }, './planning-goal/goal.css': {}, react: React, './asset': asset,
+  const goals = component('PlanningBasicGoals.tsx', { './planning-followup-ui/AssumptionsSummary': { AssumptionsSummary: leaf }, './planning-goal/Overview': { GoalOverview: leaf }, './planning-goal/Editor': { GoalEditor: leaf }, './planning-goal/goal.css': {}, react: React, './asset': asset,
     './PlanningOccurrenceDialog': { PlanningOccurrenceDialog: leaf }, './PlanningRefinements': { PlanningRefinements: leaf }, './planning-first-run': firstRun,
     './PlanningRequirement': requirement, './PlanningRunway': { RunwayCard: leaf }, './PlanningCareerCard': { PlanningCareerCard: leaf }, './PlanningDebtDialog': { PlanningDebtDialog: () => null }, './PlanningFunds': { FundsCard: leaf, FundsDialog: leaf }, './PlanningBasicDetail': { PlanningBasicDetail: leaf },
     './PlanningEvents': { PlanningEvents: leaf }, './PlanningWishes': { PlanningWishes: ({ calc }) => { received = calc; return null; } },
