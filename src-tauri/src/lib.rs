@@ -225,6 +225,7 @@ pub fn run() {
             commands::link_trash,
             commands::link_view,
             commands::plan_income_list,
+            commands::plan_income_defaults,
             commands::plan_income_save,
             investment_review_commands::investment_review_read,
             investment_review_commands::investment_review_list,

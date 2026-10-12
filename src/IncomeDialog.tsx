@@ -11,7 +11,7 @@ import { classifyIncome, incomeCategories, incomeClassificationIssue, isInvestme
 
 const blank = (today: string): IncomeFields => ({ date: today, net_cents: '', hpf_cents: null, notes: '', category: 'unclassified', source_account_id: null, destination: null, receiving_account_id: null });
 
-export function IncomeDialog({ income, generation, today, hpfDefault, accounts = [], accountsEnabled = true, onSavedIncome, onClose }: { income: Income | null; generation: string; today: string; hpfDefault: string; accounts?: Account[]; accountsEnabled?: boolean; onSavedIncome?: (income: Income) => void; onClose: (saved: boolean) => void }) {
+export function IncomeDialog({ income, generation, today, hpfDefault, hpfDefaultNotice, accounts = [], accountsEnabled = true, onSavedIncome, onClose }: { income: Income | null; generation: string; today: string; hpfDefault: string; hpfDefaultNotice?: string; accounts?: Account[]; accountsEnabled?: boolean; onSavedIncome?: (income: Income) => void; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const saving = useRef(false), alive = useRef(true);
   // 新增只带入最新记录的已知缴存；最新未知时留空，不回溯。
@@ -44,6 +44,7 @@ export function IncomeDialog({ income, generation, today, hpfDefault, accounts =
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="income-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
     <header><div><p className="eyebrow">收支记录 · 实际收入</p><h2 id="income-heading">{income ? '编辑收入' : '记一笔收入'}</h2><p className="muted">记录实际到账的税后收入和公积金缴存，同日可多笔。缴存留空表示未知，填 0 表示明确没有。</p></div><CloseButton type="button" aria-label="关闭收入表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{income && !stuck && <DeleteButton label="删除" disabled={busy} kind="income" id={income.id} revision={income.revision} generation={generation} name={`收入 ${income.fields.date}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存收入'}</button>}</div></header>
+    {hpfDefaultNotice && <p className="notice" role="status">{hpfDefaultNotice}</p>}
     <section className="form-block">
       <FormRow label="到账日期" hint="同一天可以有多行，例如工资与奖金分开发放"><DateInput yearIntent="past" id="income-date" value={f.date} max={today} disabled={frozen} onChange={v => set('date', v)}/></FormRow>
       <FormRow label="来源分类" hint="旧记录保留未分类，不自动判断为工资"><select aria-label="来源分类" value={f.category ?? 'unclassified'} disabled={frozen} onChange={e => {

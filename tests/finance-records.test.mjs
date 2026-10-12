@@ -33,11 +33,11 @@ function harness(options = {}) {
     'asset': { errorMessage: e => e.message ?? String(e), money: value => value },
     'finance-contract': periods, 'finance-navigation': navigation, plan,
     'WealthPage': { usePendingReceipt: reload => ({ ...receipt, setPending: p => { receipt.pending=p; }, verify: async () => { if (options.verify) await options.verify(receipt); else receipt.pending=null; reload(); } }) },
-    wealth: { storedPending: () => receipt.pending }, undo: { useRestored() {} },
+    wealth: { storedPending: () => receipt.pending, code: e => e?.code }, undo: { useRestored() {} },
     topbar: { usePageBar: (owner,bar) => bars.push({owner,bar}) }, 'topbar-model': { refocusHeading() { headingFocuses++; } },
     'planning-followup-port': { nativePlanningFollowupPortV1: () => options.port ?? {} },
     'planning-followup-ui/model': { formatCents: c => c, endpointText: e => e.label ?? e.account_id, purposeLabel: {}, sourceStatusText: {} },
-    '@tauri-apps/api/core': { invoke: async (command,args) => { calls.push({ command,args }); if (options.invoke) return options.invoke(command,args); if (command === 'finance_sources') return snapshot(args.period, props.modules, options.extra); if (command === 'plan_income_list') return { generation: 'g', rows: [income('latest','2026-10-12','999')] }; if (command === 'validate_source') return true; throw Error(command); } },
+    '@tauri-apps/api/core': { invoke: async (command,args) => { calls.push({ command,args }); if (options.invoke) return options.invoke(command,args); if (command === 'finance_sources') return snapshot(args.period, props.modules, options.extra); if (command === 'plan_income_defaults') return { generation: 'g', hpf_cents: '999' }; if (command === 'plan_income_list') return { generation: 'g', rows: [income('latest','2026-10-12','999')] }; if (command === 'validate_source') return true; throw Error(command); } },
   };
   const cache = new Map();
   function load(file) {
@@ -109,9 +109,29 @@ test('reload hides the old aggregate and errors remain local to their source',as
   const r=harness({extra:{incomes:{status:'error',code:'READ',message:'income failure'}}});await r.settle();assert.match(r.text(r.nodes()[0]),/income failure/);assert.equal(r.find('IncomeRecords'),undefined);
   r.props.route={page:'records',tab:'expenses'};r.render();await r.settle();assert.equal(r.find('ExpensesPage').props.controlledView.generation,'g');assert.equal(r.find('ExpensesPage').props.embedded,true);
 });
-test('new default comes from all incomes, save keeps period and offers explicit outside viewing',async()=>{
+test('new default comes from lightweight global lookup, save keeps period and offers explicit outside viewing',async()=>{
   const r=harness({props:{route:{page:'records',tab:'income',period:{kind:'month',month:'2026-09'}}}});await r.settle();await r.bar().primary.run();await r.settle();
   const dialog=r.find('IncomeDialog');assert.equal(dialog.props.hpfDefault,'999');dialog.props.onSavedIncome(income('saved'));dialog.props.onClose(true);r.render();assert.equal(r.routes.length,0);assert.match(r.text(r.nodes()[0]),/不在当前期间/);const button=r.nodes().find(n=>n.type==='button'&&r.text(n)==='查看全部收入');button.props.onClick();assert.equal(r.routes.at(-1).period.kind,'all');
+});
+test('income preparation is visible, reads no full list, and a failed optional default opens an unknown deposit', async () => {
+  const defaults = deferred();
+  const r = harness({invoke:(c,a)=>c==='finance_sources'?snapshot(a.period):c==='plan_income_defaults'?defaults.promise:Promise.reject(Error('unexpected full read'))});
+  await r.settle(); const opening = r.bar().primary.run(); await r.settle();
+  assert.equal(r.bar().primary.label, '正在准备收入…'); assert.equal(r.bar().primary.disabled, true);
+  defaults.reject(Error('fictional default unavailable')); await opening; await r.settle();
+  const dialog = r.find('IncomeDialog'); assert.equal(dialog.props.hpfDefault, '');
+  assert.match(dialog.props.hpfDefaultNotice, /留空表示未知/);
+  assert.equal(r.calls.some(c=>c.command==='plan_income_list'), false);
+});
+test('a stale or disabled default lookup cannot open an income in another context', async () => {
+  for (const response of [{generation:'another',hpf_cents:'55'}, {code:'MODULE_DISABLED',message:'功能已关闭'}]) {
+    const r = harness({invoke:(c,a)=>c==='finance_sources'?snapshot(a.period):c==='plan_income_defaults'?('code' in response?Promise.reject(response):response):true});
+    await r.settle(); await r.bar().primary.run(); await r.settle(); assert.equal(r.find('IncomeDialog'), undefined);
+  }
+  const late=deferred();const r=harness({invoke:(c,a)=>c==='finance_sources'?snapshot(a.period,r.props.modules):late.promise});
+  await r.settle(); const opening = r.bar().primary.run(); await r.settle();
+  r.props.modules={...modules,incomes:false};r.render();late.resolve({generation:'g',hpf_cents:'55'});
+  await opening;await r.settle();assert.equal(r.find('IncomeDialog'),undefined);
 });
 test('tab switch preserves period and delegates tab search memory to its controlled host',async()=>{
   const r=harness({props:{search:'salary',route:{page:'records',tab:'income',period:{kind:'year',year:2026}}}});await r.settle();const tab=r.nodes().find(n=>n.type==='button'&&r.text(n)==='重要支出');tab.props.onClick();assert.equal(r.routes.at(-1).period.year,2026);assert.equal(r.searches.length,0);

@@ -116,6 +116,61 @@ fn rows(s: &Store) -> Vec<(String, String, Option<String>)> {
 }
 
 #[test]
+fn new_income_defaults_preserve_global_latest_unknown_zero_and_classification() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(&dir.path().join("lib")).unwrap();
+    let defaults = s.plan_income_defaults_with_enabled(true).unwrap();
+    assert_eq!(defaults.generation, s.generation());
+    assert_eq!(defaults.hpf_cents, None);
+    let old = new(&s, fields("2026-02-15", 20000, 3000));
+    s.plan_income_save(&old, TODAY).unwrap();
+    assert_eq!(
+        s.plan_income_defaults_with_enabled(true).unwrap().hpf_cents,
+        Some("300000".into())
+    );
+    let mut unknown = fields("2026-03-15", 20000, 0);
+    unknown.hpf_cents = None;
+    s.plan_income_save(&new(&s, unknown), TODAY).unwrap();
+    assert_eq!(
+        s.plan_income_defaults_with_enabled(true).unwrap().hpf_cents,
+        None
+    );
+    let mut investment = fields("2026-04-15", 400, 100);
+    investment.category = "interest".into();
+    s.plan_income_save(&new(&s, investment), TODAY).unwrap();
+    assert_eq!(
+        s.plan_income_defaults_with_enabled(true).unwrap().hpf_cents,
+        None
+    );
+    s.plan_income_save(&new(&s, fields("2026-05-15", 20000, 0)), TODAY)
+        .unwrap();
+    assert_eq!(
+        s.plan_income_defaults_with_enabled(true).unwrap().hpf_cents,
+        Some("0".into())
+    );
+    let mut deleted = fields("2026-06-15", 20000, 999);
+    deleted.category = "non_investment".into();
+    let record = s.plan_income_save(&new(&s, deleted), TODAY).unwrap();
+    s.wealth_trash(&TrashChange {
+        request_id: rid(),
+        generation: s.generation(),
+        kind: "income".into(),
+        id: record.id,
+        expected_revision: record.revision,
+        deleted: true,
+    })
+    .unwrap();
+    assert_eq!(
+        s.plan_income_defaults_with_enabled(true).unwrap().hpf_cents,
+        Some("0".into())
+    );
+    assert_eq!(
+        code(s.plan_income_defaults_with_enabled(false)),
+        "MODULE_DISABLED"
+    );
+}
+
+#[test]
 fn income_saves_validates_orders_and_replays_requests() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(&dir.path().join("lib")).unwrap();
@@ -873,6 +928,10 @@ fn income_worker_is_independent_of_targets_and_gates_reads_before_table_access()
         saved.id
     );
     assert_eq!(worker.plan_income_list().unwrap().rows.len(), 2);
+    assert_eq!(
+        worker.plan_income_defaults().unwrap().hpf_cents.as_deref(),
+        Some("0")
+    );
     income_switch(&worker, false);
     // A missing table proves disabled UI reads are stopped before SQL access.
     let root = dir.path().join("library");
@@ -890,6 +949,7 @@ fn income_worker_is_independent_of_targets_and_gates_reads_before_table_access()
         })
         .unwrap();
     assert_eq!(code(worker.plan_income_list()), "MODULE_DISABLED");
+    assert_eq!(code(worker.plan_income_defaults()), "MODULE_DISABLED");
     assert_eq!(code(worker.plan_income(saved.id)), "MODULE_DISABLED");
 }
 

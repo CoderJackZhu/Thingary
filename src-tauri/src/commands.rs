@@ -1411,6 +1411,15 @@ pub async fn plan_income_list(
         .map_err(|_| Error::new("WORKER", "暂时无法读取收入记录"))?
 }
 #[tauri::command]
+pub async fn plan_income_defaults(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::plan_income::Defaults> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.plan_income_defaults())
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取收入默认金额"))?
+}
+#[tauri::command]
 pub async fn plan_income_save(
     input: crate::plan_income::Save,
     worker: tauri::State<'_, Worker>,

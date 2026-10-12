@@ -75,7 +75,7 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
       </article>
       <article className="ui-card">
         <div className="ui-section-head"><h3>最近事件</h3><span className="ui-aside">来自时间轴</span></div>
-        {!data.recent.length ? <p className="ui-empty">还没有带日期的事件。</p> : <ul className="ui-rows">{data.recent.map(e => <li key={e.id} className={'ui-row' + (e.target ? ' clickable' : '')} onClick={() => e.target && onOpenSource(e.target)}><div className="ui-main"><div>{eventLabel(e)} · {e.title}</div><small>{e.date}{eventDetail(e) && ' · ' + eventDetail(e)}</small></div>{e.target && <span className="ui-link" aria-hidden="true">›</span>}</li>)}</ul>}
+        {!data.recent.length ? <p className="ui-empty">还没有带日期的事件。</p> : <ul className="ui-rows">{data.recent.map(e => <li key={e.id} className="ui-row">{e.target ? <button className="overview-event-button" onClick={() => onOpenSource(e.target!)}><span className="ui-main"><span>{eventLabel(e)} · {e.title}</span><small>{e.date}{eventDetail(e) && ' · ' + eventDetail(e)}</small></span><span className="ui-link" aria-hidden="true">›</span></button> : <span className="overview-event-button"><span className="ui-main"><span>{eventLabel(e)} · {e.title}</span><small>{e.date}{eventDetail(e) && ' · ' + eventDetail(e)}</small></span></span>}</li>)}</ul>}
       </article>
     </div>
   </section>;

@@ -64,6 +64,8 @@ npm run dev -- --port 1429
 | `?import-kind=incomes&import=normal|unknown|empty|error` | 收入导入展示状态 |
 | `?state=components&style=bento&theme=light` | 共用表单、菜单、日期／月份控件 |
 | `style=native|olive|bento`、`theme=light|dark` | 三种外观的浅／深组合 |
+| `?section=overview&receipt-recovery=account`（可加 `state=unresolved` 或 `plan-wealth=off`） | 重启总览的虚构回执核对、失败保留与模块关闭恢复 |
+| `?section=finance-records&income-default-error` | 收入默认值读取失败仍可填写，缴存未知不补零 |
 
 ### 规划核算与实际发生预览
 

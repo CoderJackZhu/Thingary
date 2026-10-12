@@ -243,6 +243,10 @@ impl Worker {
         self.call_with_runtime_modules(|s, m| s.plan_income_list_with_enabled(m.incomes))
     }
 
+    pub fn plan_income_defaults(&self) -> Result<crate::plan_income::Defaults> {
+        self.call_with_runtime_modules(|s, m| s.plan_income_defaults_with_enabled(m.incomes))
+    }
+
     pub fn plan_income(&self, id: String) -> Result<Option<crate::plan_income::Income>> {
         self.call_with_runtime_modules(move |s, m| s.plan_income_with_enabled(&id, m.incomes))
     }

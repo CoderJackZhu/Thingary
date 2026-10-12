@@ -802,6 +802,8 @@ window.addEventListener('keydown',event=>{
   const action:Record<string,string>={n:'new-asset',f:'find-asset',e:'edit-asset',a:'select-all',z:'undo'};
   if(action[event.key.toLowerCase()]){event.preventDefault();void emit('asset-action',action[event.key.toLowerCase()]);}
 });
+// Explicit fictional receipts reproduce restart recovery, including disabled modules.
+if (params.get('receipt-recovery') === 'account') localStorage.setItem('thingary.wealth-pending.v1', JSON.stringify({ command: 'wealth_account_save', input: { request_id: 'fictional-recovery-request', generation: 'visual-fixture-only' }, label: '虚构账户保存' }));
 if (params.get('section')) sessionStorage.setItem('thingary.library-section.v1', params.get('section')!);
 // 截图入口：自动进入指定标签的分析子视图（仅浏览器预览；?enter-tag=<labelId>&analysis-search=<词>）。
 if (params.get('enter-tag')) {

@@ -49,7 +49,7 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
   }
   async function restoreWealth(entry: TrashEntry, generation: string) {
     if (entry.kind === 'asset' || entry.kind === 'maintenance' || entry.kind === 'warranty' || entry.kind === 'link_group') return;
-    if (storedPending()) { setWealthNotice('财富页有一次保存结果待核对，请先到“账户与盘点”处理。'); return; }
+    if (storedPending()) { setWealthNotice('上次保存结果待核对，请使用页面上方的核对入口后再恢复。'); return; }
     setWealthBusy(true); setWealthNotice('');
     try {
       if (entry.kind === 'virtual' || entry.kind === 'plan') {

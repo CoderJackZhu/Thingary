@@ -12,8 +12,8 @@ import { useFinanceSources } from './finance-data';
 import { financeCapabilities, financePeriodContains, type FinancePeriod } from './finance-contract';
 import { availableFinanceRecordTabs, defaultFinanceRecordTab, type FinanceRoute, type FinanceRecordTab } from './finance-navigation';
 import type { RuntimeModules } from './modules';
-import { latestHpf, type Income, type IncomeList } from './plan';
-import { storedPending } from './wealth';
+import { type Income, type IncomeList } from './plan';
+import { storedPending, code } from './wealth';
 import { usePendingReceipt } from './WealthPage';
 import { useSource } from './useSource';
 import type { SourceProps, SourceTarget, SourceFocus } from './source';
@@ -53,6 +53,7 @@ function RecordsContent({ generation, today, modules, route, onRouteChange, sear
   const [childEditing, setChildEditing] = useState(false);
   const [newForChild, setNewForChild] = useState(false);
   const [defaultHpf, setDefaultHpf] = useState('');
+  const [defaultNotice, setDefaultNotice] = useState('');
   const [outside, setOutside] = useState<Income | null>(null);
   const [openError, setOpenError] = useState('');
   const [opening, setOpening] = useState(false);
@@ -77,18 +78,24 @@ function RecordsContent({ generation, today, modules, route, onRouteChange, sear
     if (sources?.incomes.status !== 'ready') return;
     rememberOpener();
     const ticket = ++openTicket.current;
-    openingRef.current = true; setOpening(true); setOpenError('');
+    openingRef.current = true; setOpening(true); setOpenError(''); setDefaultNotice('');
     // Default depends on the latest non-investment record globally, never the period-filtered rows.
     try {
-      const all = await invoke<IncomeList>('plan_income_list');
+      const defaults = await invoke<{ generation: string; hpf_cents: string | null }>('plan_income_defaults');
       if (ticket !== openTicket.current || frozenRef.current) return;
-      if (all.generation !== generation) throw new Error('资料库已变化，请重新读取。');
-      setDefaultHpf(latestHpf(all.rows)); setEditing('new');
-    } catch (error) { if (ticket === openTicket.current) setOpenError(errorMessage(error)); }
+      if (defaults.generation !== generation) { setOpenError('资料库已变化，请重新读取。'); return; }
+      setDefaultHpf(defaults.hpf_cents ?? ''); setEditing('new');
+    } catch (error) {
+      if (ticket === openTicket.current && !frozenRef.current) {
+        if (code(error) === 'MODULE_DISABLED' || code(error) === 'STALE_DATASET') { setOpenError(errorMessage(error)); return; }
+        setDefaultHpf(''); setEditing('new');
+        setDefaultNotice('公积金默认金额未读取，已留空；请按实际金额填写，留空表示未知。');
+      }
+    }
     finally { if (ticket === openTicket.current) { openingRef.current = false; setOpening(false); } }
   }
   const newDisabled = frozen || !!editing || childEditing || opening || !tab || !sources || (tab === 'income' ? sources.incomes.status !== 'ready' : tab === 'expenses' ? sources.expenses.status !== 'ready' : false);
-  const action = tab ? { label: tab === 'income' ? '记一笔收入' : tab === 'expenses' ? '记一笔支出' : '记一笔资金流动', plus: true, disabled: newDisabled, run: () => void openNew() } : undefined;
+  const action = tab ? { label: tab === 'income' ? opening ? '正在准备收入…' : '记一笔收入' : tab === 'expenses' ? '记一笔支出' : '记一笔资金流动', plus: true, disabled: newDisabled, run: () => void openNew() } : undefined;
   usePageBar('finance-records', { primary: action, newRecord: action, search: tab ? { key: 'finance-records', placeholder: `搜索${labels[tab]}` } : undefined });
   const autoConsumed = useRef(false);
   useEffect(() => {
@@ -132,7 +139,7 @@ function RecordsContent({ generation, today, modules, route, onRouteChange, sear
       {tab === 'movements' && <MovementsList embedded port={port} generation={generation} writeVersion={sources?.write_version ?? 0} today={today} period={period} accountIds={route.movementAccountIds} search={search} blocked={frozen} onPending={onPendingRef.current} onEditingChange={childEditingRef.current} onSaved={reload} autoNew={newForChild} onAutoNewDone={childNewDoneRef.current} onNewAccount={onNewAccount} receiptResolutionVersion={receiptResolutionVersion} source={activeSource} onSourceDone={onSourceDone}/>}
     </>}
     {outside && <p className="notice" role="status">已保存收入（{outside.fields.date}），不在当前期间内。<button disabled={frozen} onClick={() => { setPeriod({ kind: 'all' }); setOutside(null); onSearch(''); }}>查看全部收入</button></p>}
-    {editing && <IncomeDialog key={editing === 'new' ? 'new' : editing.id} income={editing === 'new' ? null : editing} generation={generation} today={today} hpfDefault={defaultHpf} accountsEnabled={modules.wealth} accounts={sources?.accounts.status === 'ready' ? sources.accounts.value : []} onSavedIncome={saved => { if (!financePeriodContains(period, saved.fields.date)) setOutside(saved); }} onClose={saved => { setEditing(null); setPending(storedPending()); if (saved) reload(); requestAnimationFrame(() => { if (opener.current?.isConnected && !opener.current.matches(':disabled')) opener.current.focus(); else refocusHeading(); }); }}/ >}
+    {editing && <IncomeDialog key={editing === 'new' ? 'new' : editing.id} income={editing === 'new' ? null : editing} generation={generation} today={today} hpfDefault={defaultHpf} hpfDefaultNotice={editing === 'new' ? defaultNotice : undefined} accountsEnabled={modules.wealth} accounts={sources?.accounts.status === 'ready' ? sources.accounts.value : []} onSavedIncome={saved => { if (!financePeriodContains(period, saved.fields.date)) setOutside(saved); }} onClose={saved => { setEditing(null); setPending(storedPending()); if (saved) reload(); requestAnimationFrame(() => { if (opener.current?.isConnected && !opener.current.matches(':disabled')) opener.current.focus(); else refocusHeading(); }); }}/ >}
   </section>;
 }
 /** Dataset replacement unmounts every editor and invalidates its asynchronous work. */

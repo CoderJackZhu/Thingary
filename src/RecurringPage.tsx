@@ -1,4 +1,5 @@
 import { PaymentRangeForm } from './PaymentRangeForm';
+import { PageControls, pageSize } from './ListPagination';
 import { SortHeader } from './SortHeader';
 import { sortRecords, moneySortValue, type ListSort } from './list-sort';
 import { CloseButton } from './CloseButton';
@@ -54,6 +55,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
   const [candidates, setCandidates] = useState<{ plan: Plan; list: LinkView['candidates']; partnerId: string | null } | null>(null);
   const [planSort, setPlanSort] = useState<ListSort>({ key: 'next', descending: false });
   const [paymentSort, setPaymentSort] = useState<ListSort>({ key: 'due', descending: true });
+  const [paymentPage, setPaymentPage] = useState(0);
   const [dueSort, setDueSort] = useState<ListSort>({ key: 'due', descending: false });
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
@@ -103,6 +105,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
   const matchingPlans = data?.plans.filter(p => !keyword || [p.fields.name, recurringCategoryText(p.fields.category), p.fields.notes].some(t => t.toLowerCase().includes(keyword))) ?? [];
   const shownPlans = sortRecords(matchingPlans, planSort, (p, key) => key === 'name' ? p.fields.name : key === 'category' ? recurringCategoryText(p.fields.category) : key === 'interval' ? p.fields.interval_months : key === 'amount' ? moneySortValue(p.fields.amount_cents) : key === 'status' ? planStatus(p, today) : key === 'spent' ? moneySortValue(p.estimated_cents ?? p.paid_cents ?? null) : p.fields.paused ? null : p.next_due, p => p.id);
   const shownPayments = sortRecords(data?.payments ?? [], paymentSort, (p, key) => key === 'due' ? p.due_date : key === 'name' ? p.plan_name : key === 'state' ? p.state === 'paid' ? '已付' : '本期不付' : key === 'paid' ? p.paid_date : moneySortValue(p.amount_cents), p => p.id);
+  const currentPaymentPage = Math.min(paymentPage, Math.max(0, Math.ceil(shownPayments.length / pageSize) - 1));
   const shownDues = sortRecords([...(data?.due ?? []).map(d => ({d, overdue:true})), ...(data?.upcoming ?? []).map(d => ({d, overdue:false}))], dueSort, ({d}, key) => key === 'due' ? d.due_date : key === 'name' ? d.plan_name : key === 'category' ? recurringCategoryText(d.category) : moneySortValue(d.amount_cents), ({d}) => d.plan_id + d.due_date);
   return <section className="stats-section wealth-section recurring-section" aria-label="周期费用">
     {sourceError && <p role="alert" className="notice">{sourceError}</p>}
@@ -133,11 +136,11 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
               <td><button className="link-cell" onClick={e => { e.stopPropagation(); setDetail(p); }} aria-label={'查看 ' + p.fields.name + ' 详情'}>{p.fields.name}</button></td><td>{recurringCategoryText(p.fields.category)}</td>              <td className="amount">{money(p.fields.amount_cents)}<span className="muted">／{intervalUnit(p.fields)}</span>{!p.fields.interval_days && p.fields.interval_months > 1 && p.monthly_cents && <small className="muted">月均 {money(p.monthly_cents)}</small>}</td><td>{p.fields.paused ? '—' : p.next_due ?? '—'}{p.current_coverage && <small className="muted">当前服务：{periodLabel(...p.current_coverage)}</small>}</td><td>{planStatus(p, today)}{p.contract_cents && <small className="muted">租期／期限预计 {money(p.contract_cents)}</small>}</td><td className="amount">{p.estimated_cents ? <>{money(p.estimated_cents)}<small className="muted">估算</small></> : money(p.paid_cents ?? '0')}</td></tr>)}
           </tbody></table>}</article>}
         {tab === 'payments' && (!data.payments.length ? <p className="muted">还没有付款记录。到期后点「确认已付」或「本期不付」就会记在这里。</p> : <article className="ui-card ui-content"><div className="ui-section-head"><h3>付款记录</h3><span>点期次更正；实付金额可与计划不同</span></div>
-          <table className="ui-table recurring-payments"><thead><tr><SortHeader field="due" label="期次" sort={paymentSort} onSort={setPaymentSort}/><SortHeader field="name" label="计划" sort={paymentSort} onSort={setPaymentSort}/><SortHeader field="state" label="状态" sort={paymentSort} onSort={setPaymentSort}/><SortHeader field="paid" label="实付日期" sort={paymentSort} onSort={setPaymentSort}/><SortHeader field="amount" label="实付金额" sort={paymentSort} onSort={setPaymentSort}/></tr></thead><tbody>
-            {shownPayments.map(p => <tr key={p.id} className={p.state === 'skipped' ? 'closed' : undefined}>
+          <table className="ui-table recurring-payments"><thead><tr><SortHeader field="due" label="期次" sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/><SortHeader field="name" label="计划" sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/><SortHeader field="state" label="状态" sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/><SortHeader field="paid" label="实付日期" sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/><SortHeader field="amount" label="实付金额" sort={paymentSort} onSort={s => { setPaymentSort(s); setPaymentPage(0); }}/></tr></thead><tbody>
+            {shownPayments.slice(currentPaymentPage * pageSize, (currentPaymentPage + 1) * pageSize).map(p => <tr key={p.id} className={p.state === 'skipped' ? 'closed' : undefined}>
               <td><button className="link-cell" onClick={() => { const plan = data.plans.find(x => x.id === p.plan_id); setPaying({ plan_id: p.plan_id, plan_name: p.plan_name, due_date: p.due_date, plan_amount: plan?.fields.amount_cents ?? '', record: p }); }}>{p.due_date}</button>{p.coverage_start && <small className="muted">服务：{periodLabel(p.coverage_start,p.coverage_end)}</small>}{p.off_schedule && <small className="muted"> 计划外</small>}</td>
               <td>{p.plan_name}</td><td>{p.state === 'paid' ? '已付' : '本期不付'}</td><td>{p.paid_date ?? '—'}</td><td className="amount">{p.amount_cents === null ? '—' : money(p.amount_cents)}</td></tr>)}
-          </tbody></table></article>)}
+          </tbody></table><PageControls page={currentPaymentPage} total={shownPayments.length} label="付款记录" onPage={setPaymentPage}/></article>)}
       </>}
     {editing && data && <PlanDialog plan={editing === 'new' ? null : editing} generation={data.generation} today={today} onClose={closed} modules={modules} onOpenSource={onOpenSource} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={p => { setEditing(null); setUnifying(p); }} onReview={p => { setEditing(null); setReviewing(p); }} />}
     {paying && data && <PaymentDialog target={paying} generation={data.generation} today={today} onClose={closed}/>}

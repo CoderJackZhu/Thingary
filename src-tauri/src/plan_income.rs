@@ -8,6 +8,12 @@ use crate::{
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Serialize)]
+pub struct Defaults {
+    pub generation: String,
+    pub hpf_cents: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fields {
     pub date: String,
@@ -206,6 +212,24 @@ pub(crate) fn require_enabled(enabled: bool) -> Result<()> {
 }
 
 impl Store {
+    /// Only the latest eligible deposit is needed to prepare a new income form.
+    pub fn plan_income_defaults_with_enabled(&self, enabled: bool) -> Result<Defaults> {
+        require_enabled(enabled)?;
+        let deposit: Option<Option<i64>> = self
+            .conn()?
+            .query_row(
+                "SELECT hpf_cents FROM plan_income WHERE deleted_at IS NULL
+             AND category IN ('unclassified','non_investment') ORDER BY date DESC,id LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(Defaults {
+            generation: self.generation(),
+            hpf_cents: deposit.flatten().map(|value| value.to_string()),
+        })
+    }
+
     /// UI read wrapper; checks capability before touching the income table.
     pub fn plan_income_with_enabled(&self, id: &str, enabled: bool) -> Result<Option<Income>> {
         require_enabled(enabled)?;

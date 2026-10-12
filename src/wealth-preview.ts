@@ -752,6 +752,11 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (command === 'plan_profile_save') {
       throw { code: 'PLANNING_SCOPED', message: '请使用分区更新；旧完整请求不能覆盖当前资料。' };
     }
+    if (command === 'plan_income_defaults') {
+      if (params.has('income-default-error')) throw { message: '虚构默认金额读取失败。' };
+      const latest = [...planIncomes].filter(row => !['interest', 'cash_dividend', 'other_investment'].includes(row.fields.category ?? 'unclassified')).sort((a, b) => b.fields.date.localeCompare(a.fields.date) || a.id.localeCompare(b.id))[0];
+      return { value: { generation, hpf_cents: latest?.fields.hpf_cents ?? null } };
+    }
     if (command === 'plan_income_list') return { value: { generation, rows: [...planIncomes].sort((a, b) => b.fields.date.localeCompare(a.fields.date) || a.id.localeCompare(b.id)) } };
     if (command === 'plan_income_save') {
       if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };

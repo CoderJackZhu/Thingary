@@ -4,7 +4,7 @@
 
 ## 1. 确认版本和范围
 
-本次准备 **0.0.3、Apple Silicon Mac、本地临时签名、未公证**，支持边界与 0.0.2 相同；在维护者公开草稿前，当前公开版本仍为 0.0.2。GitHub 必须标记为 Pre-release。后续发布先确定版本与支持范围；制作 DMG 本身不要求注册 Apple Developer。最低系统配置为 macOS 14，但只在 macOS 27 实测，不承诺其他系统或 Intel 可用。
+每次公开发布前由维护者确认版本、支持平台、签名及公证范围；公开状态以对应 GitHub Release 与附件为准，不由本机安装推定。当前路线为 Apple Silicon Mac、本地临时签名、未公证，测试版本标记为 Pre-release。制作 DMG 本身不要求注册 Apple Developer。最低系统配置为 macOS 14，但目前只在 macOS 27 实测，不承诺其他系统或 Intel 可用。
 
 版本号保持一致：`package.json`、`package-lock.json`（开头两处）、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json`。发布配置不重复版本号，身份必须是 `local.thingary.main`，预览和验收身份不得作为正式安装包。
 

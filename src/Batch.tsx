@@ -15,23 +15,24 @@ const exclusionLabels = [['total', '总价'], ['daily', '日均'], ['statistics'
 export const batchVerb: Record<BatchKind, string> = { classify: '设置分类与渠道', label: '设置标签', retire: '退役', activate: '重新启用', exclude: '设置统计口径', delete: '删除', warranty: '添加保障', sell: '售出' };
 
 function useRows(ids: string[], version: number) {
-  const [rows, setRows] = useState<BatchRow[] | null>(null), [error, setError] = useState('');
+  const [loaded, setLoaded] = useState<{ key: string; rows: BatchRow[] } | null>(null), [failure, setFailure] = useState<{ key: string; message: string } | null>(null), [retry, setRetry] = useState(0);
+  const key = JSON.stringify([ids, version, retry]);
   useEffect(() => {
-    let live = true; setError('');
-    invoke<BatchRow[]>('batch_rows', { ids }).then(r => { if (live) setRows(r); }).catch(e => { if (live) setError(errorMessage(e)); });
+    let live = true; setLoaded(null); setFailure(null);
+    invoke<BatchRow[]>('batch_rows', { ids }).then(r => { if (live) setLoaded({ key, rows: r }); }).catch(e => { if (live) setFailure({ key, message: errorMessage(e) }); });
     return () => { live = false; };
-  }, [ids.join(','), version]);
-  return { rows, error };
+  }, [key]);
+  return { rows: loaded?.key === key ? loaded.rows : null, error: failure?.key === key ? failure.message : '', reload: () => setRetry(n => n + 1) };
 }
 
 export function BatchPanel({ ids, version, onClear, onOpen }: { ids: string[]; version: number; onClear: () => void; onOpen: (kind: BatchKind) => void }) {
-  const { rows, error } = useRows(ids, version);
+  const { rows, error, reload } = useRows(ids, version);
   const s = rows ? batchSummary(rows) : null;
   const states = s ? [['active', s.states.active], ['retired', s.states.retired], ['sold', s.states.sold]].filter(([, n]) => n).map(([k, n]) => `${stateText[k as keyof typeof stateText]} ${n}`).join(' · ') : '';
   return <div className="summary-body batch-panel">
     <div className="panel-top"><span>批量操作</span><button aria-label="取消选择" onClick={onClear}>×</button></div>
     <h2 className="batch-count">已选 {ids.length} 件</h2>
-    {error ? <p role="alert">{error}</p> : !s ? <p className="muted small" role="status">正在读取…</p> : <>
+    {error ? <p role="alert">{error} <button onClick={reload}>重新读取</button></p> : !s ? <p className="muted small" role="status">正在读取…</p> : <>
       <p className="muted small">{states}</p>
       <dl className="facts"><dt>购入合计</dt><dd>{money(s.total)}</dd><dt>金额未知</dt><dd>{s.unknown} 件</dd></dl>
       <div className="batch-actions">
@@ -54,19 +55,29 @@ const KEEP = 'keep';
 
 export function BatchDialog({ kind, ids, generation, today, onClose, onDone }: { kind: BatchKind; ids: string[]; generation: string; today: string; onClose: () => void; onDone: (input: BatchInput, changed: number) => void }) {
   const dialog = useRef<HTMLDialogElement>(null), request = useRef<string | null>(null);
-  const { rows, error } = useRows(ids, 0);
+  const { rows, error, reload } = useRows(ids, 0);
+  const previousRows = useRef<BatchRow[] | null>(null);
+  const [reviewRevisions, setReviewRevisions] = useState(false);
   const [choices, setChoices] = useState<Record<string, Choice[]>>({});
+  const [choiceError, setChoiceError] = useState(''), [choiceRetry, setChoiceRetry] = useState(0), [choicesReady, setChoicesReady] = useState(false);
   const [values, setValues] = useState<Record<string, RowValue>>({});
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState('');
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   useEffect(() => {
     const kinds = kind === 'classify' ? ['category', 'channel'] : kind === 'label' ? ['label'] : kind === 'sell' ? ['sale_channel'] : [];
+    let live = true; setChoiceError(''); setChoicesReady(false); setChoices({});
     void Promise.all(kinds.map(k => invoke<{ items: Choice[] }>('choice_list', { kind: k }).then(r => [k, r.items.filter(i => i.enabled)] as const)))
-      .then(list => setChoices(Object.fromEntries(list))).catch(e => setNotice(errorMessage(e)));
-  }, [kind]);
+      .then(list => { if (live) { setChoices(Object.fromEntries(list)); setChoicesReady(true); } }).catch(e => { if (live) setChoiceError(errorMessage(e)); });
+    return () => { live = false; };
+  }, [kind, choiceRetry]);
   useEffect(() => {
     if (!rows) return;
-    setValues(Object.fromEntries(rows.map(r => { const w = warrantyDefault(r, today); return [r.id, { category: KEEP, channel: KEEP, label: KEEP, on: kind === 'warranty' || ((kind === 'retire' || kind === 'activate' || kind === 'sell') && !blocked(r)), date: today, exclude: { ...r.exclude }, kind: 'manufacturer', start: w.start, end: w.end, price: '', platform: '' }]; })));
+    const prior = previousRows.current;
+    const revised = !!prior && rows.some(r => prior.find(old => old.id === r.id)?.revision !== r.revision);
+    if (revised) request.current = null;
+    setReviewRevisions(revised);
+    previousRows.current = rows;
+    setValues(previous => Object.fromEntries(rows.map(r => { const w = warrantyDefault(r, today); return [r.id, previous[r.id] ?? { category: KEEP, channel: KEEP, label: KEEP, on: kind === 'warranty' || ((kind === 'retire' || kind === 'activate' || kind === 'sell') && !blocked(r)), date: today, exclude: { ...r.exclude }, kind: 'manufacturer', start: w.start, end: w.end, price: '', platform: '' }]; })));
   }, [rows]);
   // Any edit after a failed save starts a new request; an unchanged retry
   // reuses the id, so a reply lost after commit cannot apply twice.
@@ -102,7 +113,7 @@ export function BatchDialog({ kind, ids, generation, today, onClose, onDone }: {
   }
   const invalid = !!rows?.some(r => rowError(r));
   async function save() {
-    if (busy || !items.length || invalid) return;
+    if (busy || !rows || !!error || !choicesReady || reviewRevisions || !items.length || invalid) return;
     setBusy(true); setNotice('');
     request.current ??= crypto.randomUUID();
     const input: BatchInput = { request_id: request.current, generation, action: kind, items };
@@ -117,9 +128,11 @@ export function BatchDialog({ kind, ids, generation, today, onClose, onDone }: {
   const note = { classify: '每行默认保持不变；在“全部设为”选择可一次填满整列，再单独改个别行。', label: '每行默认保持不变；在“全部设为”选择可一次填满整列。', exclude: '勾选表示不计入对应口径；表头可整列勾选或取消。', retire: '日期默认今天，不早于购入与上一条状态记录；不适用的行不参与保存。', activate: '日期默认今天，不早于上一条状态记录；不适用的行不参与保存。', warranty: '每件各添加一份保障：默认从购入日期起一年，购入日期未知时从今天起；表头可统一类型与年限。', sell: '售价逐件填写（必填，可为 0）；日期与渠道可在“全部设为”统一。已售出的行不参与保存。', delete: '删除用于录错或重复的记录。这些物品及它们的维护、保障、关联支出会从各处隐藏，可从“最近删除”逐件恢复。已经不用、送人或丢失了？请改用“退役”；卖掉了请用“售出”。' }[kind];
   return <dialog ref={dialog} className="editor batch-editor" aria-labelledby="batch-title" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}>
     <header><div><p className="eyebrow">物品 · 批量操作</p><h2 id="batch-title">{title}</h2><p className="muted">{note}</p></div>
-      <div className="editor-header-actions"><button disabled={busy} onClick={onClose}>取消</button><button className={kind === 'delete' ? 'primary danger' : 'primary'} disabled={busy || !items.length || invalid} onClick={() => void save()}>{busy ? '正在保存…' : kind === 'delete' ? `移入最近删除` : `保存 ${items.length} 项更改`}</button></div></header>
+      <div className="editor-header-actions"><button disabled={busy} onClick={onClose}>取消</button><button className={kind === 'delete' ? 'primary danger' : 'primary'} disabled={busy || !rows || !!error || !choicesReady || reviewRevisions || !items.length || invalid} onClick={() => void save()}>{busy ? '正在保存…' : kind === 'delete' ? `移入最近删除` : `保存 ${items.length} 项更改`}</button></div></header>
     {notice && <p className="notice" role="alert">{notice}</p>}
-    {error ? <p role="alert">{error}</p> : !rows ? <p className="muted" role="status">正在读取…</p> : kind === 'delete'
+    {choiceError && <p role="alert">选项读取失败：{choiceError} <button onClick={() => setChoiceRetry(n => n + 1)}>重新读取选项</button></p>}
+    {reviewRevisions && rows && <p role="alert">物品资料已更新，请核对下方填写内容与最新状态。<button onClick={() => setReviewRevisions(false)}>已核对，继续保存</button></p>}
+    {error ? <p role="alert">{error} <button onClick={reload}>重新读取</button></p> : !rows ? <p className="muted" role="status">正在读取…</p> : kind === 'delete'
       ? <ul className="batch-names">{rows.slice(0, 8).map(r => <li key={r.id}>{r.name}</li>)}{rows.length > 8 && <li className="muted">等共 {rows.length} 件</li>}</ul>
       : <table className="distribution-table check-in-table"><thead>{kind === 'classify' ? <tr><th>物品</th><th>当前分类</th><th>新分类</th><th>当前渠道</th><th>新渠道</th></tr>
         : kind === 'label' ? <tr><th>物品</th><th>当前标签</th><th>新标签</th></tr>

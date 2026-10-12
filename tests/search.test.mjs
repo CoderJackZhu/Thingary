@@ -46,7 +46,7 @@ test('app shell wiring keeps ⌘F/⌘N meanings and isolates the session (B01/B0
   // Library switch / module toggles clear the session.
   assert.match(main, /useEffect\(\(\) => \{ setSearchSession\(emptySearchSession\(\)\); \}, \[libraryGeneration, modules\.wishlist/);
   // Blocked flows are not bypassed by search (B09).
-  assert.match(main, /modeBlocked \|\| document\.querySelector\('dialog\[open\]'\)\) \{ setNotice\('请先完成当前编辑或核对保存结果，再打开搜索。'\)/);
+  assert.match(main, /modeBlocked \|\| document\.querySelector\('dialog\[open\]'\)\) \{ setNotice\(blockedNotice\('打开搜索'\)\)/);
 });
 
 test('menu and account routing reach the native layer', () => {

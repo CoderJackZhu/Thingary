@@ -62,6 +62,7 @@ import { defaultFinanceRecordTab, financeRouteAvailable, legacyFinanceRoute, val
 import type { FinanceRoute, FinanceRecordTab } from './finance-navigation';
 import type { NewTarget } from './topbar-model';
 import { storedPending } from './wealth';
+import { PendingReceiptRecovery } from './PendingReceiptRecovery';
 import { PlanningPage } from './PlanningPage';
 import type { PlanningTab } from './PlanningPage';
 import { RecurringPage } from './RecurringPage';
@@ -103,6 +104,7 @@ function TaxonomyCloseNotice({ onKeep }: { onKeep: () => void }) {
   return <dialog ref={dialog} className="editor" aria-labelledby="taxonomy-close-heading" onCancel={e => { e.preventDefault(); onKeep(); }}><h2 id="taxonomy-close-heading">分类资料尚未处理完</h2><p>当前操作尚未完成，请返回设置核对保存结果。</p><button autoFocus onClick={onKeep}>返回设置继续处理</button></dialog>;
 }
 function App({ initialDemo }: { initialDemo: DemoStatus }) {
+  const [receiptRecoveryVersion, setReceiptRecoveryVersion] = useState(0);
   const [demoStatus, setDemoStatus] = useState<DemoStatus>(initialDemo);
   const [featureEditing, setFeatureEditing] = useState(false), [dataBusy, setDataBusy] = useState(false), [modeBusy, setModeBusy] = useState(false);
   const [section, setSection] = useState<Section>(() => localStorage.getItem(resetKey) ? 'settings' : initialSection(sessionStorage));
@@ -297,7 +299,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   async function changeDemoMode(demo: boolean, reset = false, thenNewAsset = false) {
     if (modeBusy) return;
     if (modeBlocked || pendingGenerations(localStorage).length || document.querySelector('dialog[open]')) {
-      setNotice('请先完成当前编辑或核对保存结果，再切换或重置样例。'); return;
+      setNotice(blockedNotice('切换或重置样例')); return;
     }
     if (!reset && localStorage.getItem(resetKey)) { setNotice('请在设置中先核对样例重置结果。'); return; }
     setModeBusy(true);
@@ -315,9 +317,15 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }
   const taxonomyGuard = taxonomyDirty || taxonomy.busy || taxonomy.blocked;
   useEffect(() => { void invoke('set_editing', { editing: wishlistEditing || !!draft || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard }).catch(e => setNotice(errorMessage(e))); }, [wishlistEditing, draft, trashAction, trashRecovery, recordTrashAction, recordTrashRecovery, lifecycleDraft, lifecycleRecovery, saleDraft, saleRecovery, maintenanceDraft, maintenanceRecovery, warrantyDraft, warrantyRecovery, taxonomyGuard]);
-  const durablePending = pendingGenerations(localStorage).length > 0 || !!storedPending();
+  const pendingReceipt = storedPending();
+  const durablePending = pendingGenerations(localStorage).length > 0 || !!pendingReceipt;
   const otherEditing = wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
   const modeBlocked = durablePending || featureEditing || dataBusy || wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
+  const sectionLabel = ({ overview: '总览', assets: '物品', wealth: '账户与盘点', 'finance-records': '收支记录', 'finance-review': '财务复盘', recurring: '周期费用', virtual: '虚拟资产', planning: '目标', wishlist: '心愿清单', settings: '设置', trash: '最近删除', timeline: '时间轴', stats: '物品统计', expenses: '重要支出' } as Record<Section, string>)[section];
+  const blockedNotice = (next: string) => pendingReceipt
+    ? `上次「${pendingReceipt.label}」的保存结果未确认，请使用页面上方的核对入口后再${next}。`
+    : dataBusy ? `数据管理操作尚未完成，请返回数据管理处理后再${next}。`
+      : `「${sectionLabel}」中的编辑或待确认操作尚未完成，请先关闭表单或处理本页提示，再${next}。`;
   useEffect(() => { void invoke('set_library_busy', { busy: modeBlocked }).catch(e => setNotice(errorMessage(e))); }, [modeBlocked]);
   useEffect(() => {
     if (!modeBlocked) void invoke<DemoStatus>('demo_status').then(setDemoStatus).catch(e => setNotice(errorMessage(e)));
@@ -353,7 +361,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
    * lands on a same-named record or a fabricated new one. */
   function openSource(target: SourceTarget) {
     if (!libraryGeneration) return;
-    if (modeBlocked) { setNotice('请先完成当前编辑或核对保存结果，再打开来源。'); return; }
+    if (modeBlocked) { setNotice(blockedNotice('打开来源')); return; }
     const financeSource = financeSourceRoute(target, recordsRoute);
     if (financeSource) {
       if (!financeRouteAvailable(financeSource, capabilities)) { setNotice('这条来源所属功能已关闭，请启用后重新打开。'); return; }
@@ -399,7 +407,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }, [section, planningTab, libraryGeneration, modules.wealth, modules.planning, wealthReviewFocus]);
   function gotoFinance(route: FinanceRoute, fromDataManagement = false, rememberOrigin = true) {
     const dataResultReady = fromDataManagement && !otherEditing && !featureEditing && !storedPending() && !pendingGenerations(localStorage).length;
-    if (modeBlocked && !dataResultReady) { setNotice('请先完成当前编辑或核对保存结果，再切换页面。'); return; }
+    if (modeBlocked && !dataResultReady) { setNotice(blockedNotice('切换页面')); return; }
     if (!financeRouteAvailable(route, capabilities)) { setNotice('此功能已关闭，请启用后重新打开。'); return; }
     const destination = route.page === 'records' ? 'finance-records' : route.page === 'review' ? 'finance-review' : route.page === 'goals' ? 'planning' : 'settings';
     if (section !== destination && rememberOrigin) beginReturn();
@@ -412,6 +420,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }
   const gotoReview = (id: string) => gotoFinance({ page: 'review', view: 'period', toSnapshotId: id });
   function openModuleSettings() {
+    if (modeBlocked) { setNotice(blockedNotice('切换页面')); return; }
     beginReturn();
     setSettingsGroup('modules');
     setSection('settings'); setDetailId(null);
@@ -550,7 +559,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
    * cancelling stays there. */
   function beginNewRecord(target: NewTarget) {
     setMenuOpen(false);
-    if (modeBlocked) { setNotice('请先完成当前编辑或核对保存结果，再新增记录。'); return; }
+    if (modeBlocked) { setNotice(blockedNotice('新增记录')); return; }
     if (target === 'income' || target === 'movement' || target === 'expenses') {
       const route: Extract<FinanceRoute, { page: 'records' }> = { page: 'records', tab: target === 'movement' ? 'movements' : target };
       if (!financeRouteAvailable(route, capabilities)) return;
@@ -571,7 +580,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }
   function openGlobalSearch() {
     // 编辑或回执核对未结束时不绕过现有阻塞流程（§6.1）。
-    if (modeBlocked || document.querySelector('dialog[open]')) { setNotice('请先完成当前编辑或核对保存结果，再打开搜索。'); return; }
+    if (modeBlocked || document.querySelector('dialog[open]')) { setNotice(blockedNotice('打开搜索')); return; }
     setSearchSession(s => ({ ...s, open: true }));
   }
   // ⌘⇧F opens the global search; ⌘F keeps focusing the page search (B01).
@@ -706,6 +715,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     finally { if (ticket === detailTicket.current) setDetailLoading(false); }
   }
   async function openEditor(record: AssetRecord | null, resume = false, wish?: WishlistItem) {
+    if (!resume && (durablePending || featureEditing || dataBusy)) { setNotice(blockedNotice('编辑物品')); return; }
     if ((wishlistEditing && !wish) || !demoStatus || !page || !eventsReady || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
     if (taxonomyGuard || taxonomy.loading || taxonomy.loadError || !taxonomy.snapshot || taxonomy.snapshot.generation !== page.generation) { setSection('settings'); setNotice('请先核对分类操作结果，并完成分类资料读取。'); return; }
     if (trashRecovery || recordTrashRecovery) { setNotice('请先核对上次删除或恢复的结果。'); return; }
@@ -1024,7 +1034,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const collectionTitle = statusItems.find(([f, , , w]) => w + f === statusKey)?.[1] ?? '全部物品';
   function browseStatus(filter: string, warranty: string) { if (wishlistEditing) return; setSection('assets'); setDetailId(null); setAnalysis(null); adjust({ filter, warranty }); }
   function identity(record: AssetRecord) { return <><Cover record={record} generation={page?.generation || ''} /><span className="identity"><strong>{record.asset.name}</strong><small>{taxonomy.snapshot?.categories.find(c => c.id === record.classification?.category_id)?.name || '未分类'}{record.label_name && ` · ${record.label_name}`}</small></span></>; }
-  return <PageBarContext.Provider value={pageBarRegistrar}><div className="shell">{!demoStatus.active && <NotificationNotice/>}{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)} pendingOnly={!!(trashRecovery || recordTrashRecovery) && !(lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery)}/>}<aside className="sidebar" onClickCapture={event => { if (!modeBlocked || !(event.target instanceof Element) || !event.target.closest('nav button')) return; const financeRecovery = storedPending()?.command === 'financial_import_commit' && !!event.target.closest('.settings-row'); if (financeRecovery && event.target.closest('button')?.textContent === '设置') { setSettingsGroup('data'); setFinanceImportRequested(true); return; } event.preventDefault(); event.stopPropagation(); setNotice('请先完成当前编辑或核对保存结果，再切换页面。'); }}><div className="brand"><span className="brand-mark" aria-hidden="true"><LogoMark/></span><div><strong>物谱</strong><small>THINGARY</small></div></div>
+  return <PageBarContext.Provider value={pageBarRegistrar}><div className="shell">{!demoStatus.active && <NotificationNotice/>}{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)} pendingOnly={!!(trashRecovery || recordTrashRecovery) && !(lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery)}/>}<aside className="sidebar" onClickCapture={event => { if (!modeBlocked || !(event.target instanceof Element) || !event.target.closest('nav button')) return; const financeRecovery = storedPending()?.command === 'financial_import_commit' && !!event.target.closest('.settings-row'); if (financeRecovery && event.target.closest('button')?.textContent === '设置') { setSettingsGroup('data'); setFinanceImportRequested(true); return; } event.preventDefault(); event.stopPropagation(); setNotice(blockedNotice('切换页面')); }}><div className="brand"><span className="brand-mark" aria-hidden="true"><LogoMark/></span><div><strong>物谱</strong><small>THINGARY</small></div></div>
       <nav aria-label="主导航"><button className={section === 'overview' ? 'nav-active' : ''} aria-current={section === 'overview' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('overview'); setDetailId(null); }}><Icon name="overview"/><span>总览</span></button><p className="nav-caption">物品</p>
         {statusItems.map(([filter, label, icon, warranty]) => <button key={label} className={section === 'assets' && statusKey === warranty + filter ? 'nav-active' : ''} aria-current={section === 'assets' && statusKey === warranty + filter ? 'page' : undefined} disabled={wishlistEditing} onClick={() => browseStatus(filter, warranty)}><Icon name={icon}/><span>{label}</span>{sideCounts && <small className="nav-count">{sideCounts[filter === 'held' ? 'covered' : filter as 'all' | 'active' | 'retired' | 'sold']}</small>}</button>)}
         {modules.wishlist && <button className={section === 'wishlist' ? 'nav-active' : ''} aria-current={section === 'wishlist' ? 'page' : undefined} onClick={() => { setWishFocus(null); setSection('wishlist'); setDetailId(null); }}><Icon name="heart"/><span>心愿清单</span>{sideWishes !== null && sideWishes > 0 && <small className="nav-count">{sideWishes}</small>}</button>}
@@ -1040,6 +1050,11 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       {(demoStatus.active || !demoStatus.started) && demoStatus.available && <div className="demo-banner" role="status"><strong>{demoStatus.active ? '样例体验' : '我的资料'}</strong><span>{demoStatus.active ? '正在使用独立虚构资料。编辑、删除和付款只留在样例中，不发送系统通知；样例不接受新增物品（含实现心愿），新增物品会回到我的资料。' : '从任意模块开始记录；保存第一条资料后，下次直接进入这里。'}</span><button type="button" disabled={modeBusy || modeBlocked || !!localStorage.getItem(resetKey)} onClick={() => void changeDemoMode(!demoStatus.active)}>{demoStatus.active ? demoStatus.started ? '返回我的资料' : '开始记录我的资料' : '查看样例'}</button></div>}
       {modeBusy && <p className="notice" role="status">正在准备资料，请稍候…</p>}
 
+      {pendingReceipt && <PendingReceiptRecovery key={receiptRecoveryVersion} pending={pendingReceipt} disabled={featureEditing || otherEditing || dataBusy || modeBusy} onImport={() => { setSettingsGroup('data'); setFinanceImportRequested(true); setSection('settings'); setDetailId(null); }} onResolved={outcome => {
+        setReceiptRecoveryVersion(value => value + 1); setTrashVersion(value => value + 1);
+        setNotice(outcome === 'saved' ? `已确认「${pendingReceipt.label}」保存成功。` : outcome === 'unsaved' ? `「${pendingReceipt.label}」没有保存，可重新录入。` : '上次请求不属于当前资料，已结束核对。');
+        void refresh(); requestAnimationFrame(() => document.getElementById('page-heading')?.focus());
+      }}/>}
       {!detailId || section !== 'assets' ? <header className="page-header"><div>{returnContext && returnContext.section !== section && <button type="button" className="ui-link page-source-return" disabled={modeBlocked} onClick={() => { if (modeBlocked) return; ++sourceToken.current; setSourceFocus(null); setSection(returnContext.section); setDetailId(null); }}>← 返回{({ overview: '总览', assets: '物品', stats: '物品统计', wealth: '账户与盘点', 'finance-records': '收支记录', 'finance-review': '财务复盘', recurring: '周期费用', virtual: '虚拟资产', planning: '目标', wishlist: '心愿清单', timeline: '时间轴', settings: '设置', trash: '最近删除' } as Record<Section, string>)[returnContext.section]}</button>}<h1 id="page-heading" tabIndex={-1}>{section === 'overview' ? '物谱' : section === 'stats' ? '物品统计' : section === 'wealth' ? '账户与盘点' : section === 'finance-records' ? '收支记录' : section === 'finance-review' ? '财务复盘' : section === 'recurring' ? '周期费用' : section === 'virtual' ? '虚拟资产' : section === 'planning' ? '目标' : section === 'wishlist' ? '心愿清单' : section === 'timeline' ? '时间轴' : section === 'trash' ? '最近删除' : section === 'settings' ? '设置' : section === 'assets' && analysis ? (tags.find(t => t.id === analysis.labelId)?.name ?? analysis.labelName) : collectionTitle}</h1></div>{section === 'assets' && !analysis && !loading && !loadError && overviewPage && overviewPage.total > 0 && <AssetOverview page={overviewPage} filtered={narrowed}/>}{section === 'overview' && <span className="page-meta">{Number(today.slice(0, 4))} 年 {Number(today.slice(5, 7))} 月 {Number(today.slice(8))} 日</span>}{section === 'trash' && <button type="button" className="ui-btn" disabled={wishlistEditing || !!trashRecovery || !!recordTrashRecovery} onClick={() => backFromSubpage('origin')}>返回{subpageOriginLabel}</button>}<span id="page-header-meta" className="page-meta"/><div id="page-header-actions" className="page-header-actions"/></header> : null}
       {wishlistEditing && section !== 'wishlist' && <div className="notice">有一次心愿保存结果待确认，请先处理。<button onClick={() => { setSection('wishlist'); setDetailId(null); }}>前往心愿清单</button></div>}
       {saleRecovery && !saleDraft && <div className="notice">有一次售出操作结果待确认。<button disabled={wishlistEditing} onClick={() => void openSale(saleRecovery.record, saleRecovery.mode, saleRecovery)}>核对售出结果</button></div>}
@@ -1066,7 +1081,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
       {section === 'overview' && !modeBusy && <>
         {loadError && <div className="notice" role="alert"><strong>物品资料读取失败</strong><p>{loadError}</p><button disabled={loading} onClick={() => { void refresh(); void taxonomy.reload().catch(() => {}); }}>重新读取</button></div>}
-        {libraryGeneration ? <OverviewPage modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} onGotoPlanning={gotoPlanning} onFinance={gotoFinance} onOpenSettings={openModuleSettings} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
+        {libraryGeneration ? <OverviewPage modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} onGotoPlanning={gotoPlanning} onFinance={gotoFinance} onOpenSettings={openModuleSettings} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { if (modeBlocked) { setNotice(blockedNotice('切换页面')); return; } setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
           : !loadError && <p className="loading" role="status">正在读取总览…</p>}
       </>}
       {searchSession.open && libraryGeneration && <SearchPanel session={searchSession} onSessionChange={setSearchSession} onClose={() => setSearchSession(s => ({ ...s, open: false }))} generation={libraryGeneration} modulesOn={kind => { const owner = searchKindModule(kind); return owner == null || modules[owner]; }} onOpenSource={openSource}/>}

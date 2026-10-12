@@ -81,6 +81,7 @@ function harness(options = {}) {
       const rel = posix.normalize(posix.join(posix.dirname(file),id)).replace(/\.(tsx?|jsx?)$/,'');
       if (stub[rel]) return stub[rel];
       if (['finance-data','finance-service','useSource','source'].includes(rel)) return load(`${rel}.ts`);
+      if (rel === 'ListPagination') return load('ListPagination.tsx');
       if (rel === 'planning-followup-ui/MovementsList' && options.realMovements) return load(`${rel}.tsx`);
       return leaves;
     }});
@@ -155,4 +156,20 @@ test('period facts use their own aggregate even when bootstrap has the same writ
 test('changed period dates cannot keep old amounts and child false cannot unlock a pending original request',async()=>{
  const r=harness({invoke:async(command,args)=>{const facts=snapshot(args.period,modules);if(args.period.kind==='range') facts.asset_review.value.intervals[1].from='2026-10-02';return facts;}});await r.settle();assert.equal(r.find('InvestmentReviewHost'),undefined);assert.doesNotMatch(r.text(r.nodes()[0]),/signed 500/);assert.match(r.text(r.nodes()[0]),/盘点区间已变化/);
  const pending=harness({receipt:{pending:{request_id:'original',label:'核对',command:'review_save'}}});await pending.settle();pending.find('InvestmentReviewHost').props.onEditingChange(false);pending.render();assert.equal(pending.editingChanges.at(-1),true);
+});
+
+test('long period sources render fifty rows per list and changing interval starts at page one',async()=>{
+ const manyIncomes=Array.from({length:125},(_,n)=>({...income(`income-${n}`),fields:{...income(`income-${n}`).fields,net_cents:String(1000+n)}}));
+ const manyExpenses=Array.from({length:125},(_,n)=>({id:`expense-${n}`,source:'expense',date:'2026-10-11',title:`虚构支出 ${n}`,amount_cents:'100'}));
+ const r=harness({extra:{incomes:ready(manyIncomes),expenses:ready({lines:manyExpenses,undated:[],spent_cents:'12500',refund_cents:'0',sale_cents:'0'})}});
+ await r.settle();
+ const visible=()=>r.nodes().filter(n=>n.type==='li');
+ assert.equal(visible().length,100);
+ const incomeNav=r.find('nav',p=>p['aria-label']==='本期收入分页');
+ assert.ok(incomeNav);assert.match(r.text(incomeNav),/共 125 条/);
+ r.nodes().find(n=>n.type==='button'&&r.text(n)==='下一页'&&n.props.disabled===false).props.onClick();r.render();
+ assert.match(r.text(r.nodes()[0]),/1050/);
+ r.props.route={page:'review',view:'period',toSnapshotId:'b'};r.render();await r.settle();
+ assert.match(r.text(r.nodes()[0]),/1000/);
+ assert.doesNotMatch(r.text(r.find('nav',p=>p['aria-label']==='本期收入分页')),/第 2/);
 });
