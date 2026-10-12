@@ -25,16 +25,17 @@ import { hundredthsToPctText } from './planning-followup-ui/model';
 import type { PlanningFollowupPortV1 } from './planning-followup-contract';
 import './planning-followup-ui/planning-followup-ui.css';
 
-const stepLabels = ['时间安排', '每月生活费', '可用资金', '退休收入'];
+const setupQuestions = [...questions, '每月大约能存下多少钱？'];
+const stepLabels = ['目标与时间', '每月生活费', '可用资金', '退休收入', '每月净投入'];
 const hints = ['填写出生年月和年龄，软件自动换算退休月份及规划终点。', '按今天的物价，吃饭、住房、日常开销合计；按全家规划就填全家的。', '确认可动用的现金和投资账户，保存后用于规划，不改变实际余额。', '先看只靠自己准备需要多少，之后可以随时加上。', '这是你自己的估计；没想好可以留空。', '这些是假设，随时可以修改。'];
 /** 第三问没有可用完整盘点（手填金额）时的副标题。 */
 const manualStartHint = '还没有完整盘点：先填现在能用来准备退休的钱和截至日期，不会创建盘点，也不会和账户余额相加。';
 
-/** Four questions and one existing setup transaction. Close, Esc and skip discard unsaved input. */
+/** Five visible steps and one existing setup transaction. Net contribution remains optional. */
 export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload, onPending, onClose, initialStep = 0, editMode = false, completionId, assumptionsPort }: { sources: PlanningSources; snapshot: Snapshot | null; accounts: Account[]; today: string; reload: () => void; onPending: () => void; onClose: (saved: boolean) => void; initialStep?: number; editMode?: boolean; completionId?: string; assumptionsPort?: PlanningFollowupPortV1 }) {
   const saved = sources.profile.status === 'ready' ? sources.profile.value.saved : null;
   const dialog = useRef<HTMLDialogElement>(null), heading = useRef<HTMLHeadingElement>(null);
-  const steps = editMode ? [...questions, '每月能存多少（选填）', '更多假设'] : [...questions];
+  const steps = editMode ? [...setupQuestions, '收益与其他假设'] : [...setupQuestions];
   const [step, setStep] = useState(Math.min(initialStep, steps.length - 1));
   const [d, setD] = useState(() => setupDraft(saved, snapshot, sources.modules.wealth));
   const [incomeEditing, setIncomeEditing] = useState(false);
@@ -86,14 +87,15 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
   }
   const live = d.start === 'live' && wealthOn;
   const available = live && !snapshot!.entries.some(e => e.counted && e.side === 'asset' && e.amount_cents === null) ? snapshot!.entries.filter(e => e.counted && e.side === 'asset').reduce((sum, e) => { const f = d.funds.find(f => f.account_id === e.account_id); return e.amount_cents !== null && f?.availability === 'available' ? sum + (BigInt(e.amount_cents) * BigInt(f.share_hundredths) ) / 10000n : sum; }, 0n) : null;
-  return <><dialog ref={dialog} className="editor wealth-account-editor planning-setup-dialog" aria-labelledby="setup-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); if (step === 3 || step === 5) void save(); else next(); }}>
-    <header><div><p className="eyebrow">{editMode ? '修改规划' : '开始规划'} · {step < 4 ? `问题 ${step + 1} / 4` : '选填'}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 2 && !live ? manualStartHint : hints[step]}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
-    <nav className="planning-question-progress" aria-label="四个问题">{questions.map((q, i) => <button type="button" key={q} aria-label={`${i + 1}. ${q}`} aria-current={i === step ? 'step' : undefined} disabled={frozen || incomeEditing} onClick={() => setStep(i)}>{i + 1}. {stepLabels[i]}</button>)}</nav>
-    {editMode && <nav className="planning-edit-extras" aria-label="选填设置"><button type="button" className="ui-link" disabled={frozen || incomeEditing} onClick={() => setStep(4)}>每月能存多少（选填）</button><button type="button" className="ui-link" disabled={frozen || incomeEditing} onClick={() => setStep(5)}>更多假设</button></nav>}
+  return <><dialog ref={dialog} className="editor wealth-account-editor planning-setup-dialog" aria-labelledby="setup-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); if (step === 4 || step === 5 || (editMode && step === 3)) void save(); else next(); }}>
+    <header><div><p className="eyebrow">{editMode ? '修改规划' : '开始规划'} · {step < 5 ? `步骤 ${step + 1} / 5${step === 4 ? ' · 可暂不填写' : ''}` : '计算假设'}</p><h2 id="setup-heading" ref={heading} tabIndex={-1}>{steps[step]}</h2><p className="muted">{step === 2 && !live ? manualStartHint : hints[step]}</p></div><CloseButton type="button" aria-label="关闭规划设置" disabled={saver.busy} onClick={() => onClose(false)}/></header>
+    <nav className="planning-question-progress" aria-label="规划主要条件">{setupQuestions.map((q, i) => <button type="button" key={q} aria-label={`${i + 1}. ${q}`} aria-current={i === step ? 'step' : undefined} disabled={frozen || incomeEditing} onClick={() => setStep(i)}>{i + 1}. {stepLabels[i]}</button>)}</nav>
+    {editMode && <nav className="planning-edit-extras" aria-label="计算假设"><button type="button" className="ui-btn" disabled={frozen || incomeEditing} onClick={() => setStep(5)}>收益与波动假设</button></nav>}
     <div className="planning-setup-body">
-      {step === 0 && <TimeFields value={d.simplified.time} issues={[]} busy={frozen} today={today} onChange={time => patch({ simplified: { ...d.simplified, time } })}/>}
+      {step === 0 && <><section className="form-block"><FormRow label="你想怎样退休？"><Segments label="生活目标" value={d.mode} disabled={frozen} options={[{ value: 'fire', label: '财务自由' }, { value: 'traditional', label: '按计划退休' }]} onChange={mode => patch({ mode })}/></FormRow><p className="muted">财务自由：从希望的时间起，资金够用后停止工作。按计划退休：按指定时间停止工作，检查资金是否够用。</p></section><TimeFields value={d.simplified.time} issues={[]} busy={frozen} today={today} onChange={time => patch({ simplified: { ...d.simplified, time } })}/></>}
       {step === 1 && <section className="form-block"><ConfirmationField label="退休后每月生活预算" issue={confirmationIssue}><FormRow label="每月生活费总额" hint="没想好可以留空；留空不会当作 0"><CentInput label="退休后每月生活预算" value={d.budget} disabled={frozen} placeholder="例如 4000.00" onChange={v => patch({ budget: v })}/></FormRow></ConfirmationField>
         <SpendItems d={d} setD={setD} frozen={frozen} today={today}/>
+        <ConfirmationField label="应急金月数" issue={confirmationIssue}><FormRow label="应急金准备几个月？" hint="用于应急金参考，不从本次退休测算的可用资金中另行扣除"><input type="number" min="0" max="36" aria-label="应急金月数" inputMode="numeric" value={d.emergency} disabled={frozen} onChange={e => patch({ emergency: e.target.value })}/></FormRow></ConfirmationField>
       </section>}
       {step === 2 && <section className="form-block">
         {live && <p className="planning-selected-funds"><strong>用最近一次盘点（截至 {snapshot!.date}）：可动用 {available === null ? '待确认' : money(String(available))}</strong><span className="ui-tag">已选择</span></p>}
@@ -106,9 +108,8 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
         </details>
       </section>}
       {step === 3 && <IncomeQuestion today={today} d={d} patch={patch} frozen={frozen} onEditingChange={setIncomeEditing}/>}
-      {editMode && step === 4 && <section className="form-block"><ConfirmationField label="每月大约能存下多少钱" issue={confirmationIssue} attention={completionId === 'contribution'}><FormRow label="每月大约能存下多少钱？" hint="每月到账减去全部开销后剩下的钱；买基金等投入也算，每月取用存款则填负数。没想好可以不填"><span className="plan-contribution"><CentInput label="每月大约能存下多少钱" signed value={d.contribution} disabled={frozen} placeholder="暂不填写" onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>按每月存 0 元试算</button></span></FormRow></ConfirmationField><ContributionHelper disabled={frozen} onPick={v => patch({ contribution: v })}/></section>}
+      {step === 4 && <section className="form-block"><p>填写后可以判断按当前投入能否达成目标。暂不填写也能估算目标要求每月存多少，但不能预测你目前的投入能力。</p><ConfirmationField label="每月大约能存下多少钱" issue={confirmationIssue} attention={completionId === 'contribution'}><FormRow label="每月大约能存下多少钱？" hint="每月到账减去全部开销后剩下的钱；买基金等投入也算，每月取用存款则填负数。没想好可以不填"><span className="plan-contribution"><CentInput label="每月大约能存下多少钱" signed value={d.contribution} disabled={frozen} placeholder="暂不填写" onChange={v => patch({ contribution: v })}/><button type="button" className="ui-btn" disabled={frozen} onClick={() => patch({ contribution: '0' })}>按每月存 0 元试算</button></span></FormRow></ConfirmationField><ContributionHelper disabled={frozen} onPick={v => patch({ contribution: v })}/></section>}
       {editMode && step === 5 && <section className="form-block">
-        <ConfirmationField label="生活目标" issue={confirmationIssue}><FormRow label="生活目标"><select aria-label="生活目标" value={d.mode} disabled={frozen} onChange={e => patch({ mode: e.target.value as Draft['mode'] })}><option value="fire">财务自由：资金够用后退休</option><option value="traditional">按计划月份退休：检查是否够用</option></select></FormRow></ConfirmationField>
       <div className="plan-assumption-summary">
         <p className="muted small">实际收益默认 0%，表示钱只跑平通胀；默认波动率 5% 是程序试算值，不是资产配置的风险估计。收益、通胀和波动率在独立的「假设核对」编辑器里修改和确认；编辑预算、投入等其他分区只会原样携带这些值，不会顺带确认。</p>
         <dl className="plan-assumption-rows"><div><dt>退休前／后实际收益</dt><dd>{rateText(saved?.profile.retire.real_return_before_hundredths ?? 0)} / {rateText(saved?.profile.retire.real_return_after_hundredths ?? 0)}</dd></div>
@@ -116,13 +117,12 @@ export function PlanningSetupDialog({ sources, snapshot, accounts, today, reload
           <div><dt>市场模拟年波动率</dt><dd>{rateText(saved?.profile.retire.volatility_hundredths ?? 500)}</dd></div></dl>
         {assumptionsPort && <button type="button" className="ui-btn" disabled={frozen || !saved} onClick={() => { setNotice(''); setAssumptionsOpen(true); }}>核对收益与波动假设…</button>}
       </div>
-      <ConfirmationField label="应急金月数" issue={confirmationIssue}><FormRow label="应急金月数"><input aria-label="应急金月数" inputMode="numeric" value={d.emergency} disabled={frozen} onChange={e => patch({ emergency: e.target.value })}/></FormRow></ConfirmationField>
 
       </section>}
       <p className="muted small setup-draft-note">没想好的可以先留空，随时退出，不保存草稿。</p>
     </div>
     {(notice || saver.notice) && <p className="notice setup-notice" role="alert">{[notice, saver.notice].filter(Boolean).join(' ')}</p>}
-    <footer className="planning-setup-footer"><div className="planning-setup-exit"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : editMode ? '取消本次修改' : '暂时跳过'}</button>{!editMode && !saver.stuck && <small className="muted">不保存本次填写。</small>}</div><span>{step > 0 && <button type="button" disabled={frozen || incomeEditing} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}{(!editMode || (step !== 3 && step !== 5)) && <button type="button" disabled={frozen || incomeEditing} onClick={() => void save()}>{editMode ? '保存，查看结果' : '先保存，稍后继续'}</button>}<button className="primary" disabled={frozen || incomeEditing}>{saver.busy ? '保存中…' : step === 3 || step === 5 ? '保存，查看结果' : '下一步'}</button></span></footer>
+    <footer className="planning-setup-footer"><div className="planning-setup-exit"><button type="button" disabled={saver.busy} onClick={() => onClose(false)}>{saver.stuck ? '关闭，稍后核对保存结果' : editMode ? '取消本次修改' : '暂时跳过'}</button>{!editMode && !saver.stuck && <small className="muted">不保存本次填写。</small>}</div><span>{step > 0 && <button type="button" disabled={frozen || incomeEditing} onClick={() => { setNotice(''); setStep(n => n - 1); }}>上一步</button>}{(step < 4 && !(editMode && step === 3)) && <button type="button" disabled={frozen || incomeEditing} onClick={() => void save()}>{editMode ? '保存，查看结果' : '先保存，稍后继续'}</button>}<button className="primary" disabled={frozen || incomeEditing}>{saver.busy ? '保存中…' : step >= 4 || (editMode && step === 3) ? '保存，查看结果' : '下一步'}</button></span></footer>
   </form></dialog>
   {assumptionsOpen && assumptionsPort && <AssumptionsEditor port={assumptionsPort} generation={sources.generation} onPending={onPending} onClose={(savedNow, read) => {
     setAssumptionsOpen(false);

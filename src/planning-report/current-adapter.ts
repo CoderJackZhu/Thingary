@@ -1,6 +1,7 @@
 import type { BasicCapabilities, PlanningAnnotation, PlanningSources, RequirementResult } from '../plan-basic-contract.ts';
-import type { Assumption, FundRow, MissingItem, Money, ReportInputV1 } from './model.ts';
-import { parseReportInput, validDate } from './model.ts';
+import { timeLabel } from '../plan-ledger.ts';
+import type { Assumption, ContributionDirection, CurrentSummary, CurrentSummaryMode, CurrentSummaryOutcome, FundRow, MissingItem, Money, ReportInputV1 } from './model.ts';
+import { parseReportInput, validDate, validMonth } from './model.ts';
 
 const money = (cents: string | null, basis: Money['basis'] = 'estimated'): Money => ({ kind: 'money', cents, basis: cents === null ? 'unknown' : basis });
 const requirementAmount = (result: RequirementResult): string | null => result.status === 'found' || result.status === 'no_positive_contribution' ? result.monthly_cents : null;
@@ -79,7 +80,47 @@ export function currentReportInput(sources: PlanningSources, caps: BasicCapabili
     else if (prediction.terminal === 'no_margin') addMissing('terminal-no-margin', '所选有限期间预算可覆盖，但终点没有余量，不代表终点以后安全。', 'blocks_headline');
     else if (!prediction.outcome.success) addMissing('target-not-covered', '按已保存净投入，所选条件未满足完整目标。', 'blocks_headline', '本预览不把月度缺口伪装为某个具体日期或单一缺口金额。');
   }
-  const input: ReportInputV1 = { contract_version: 1, kind: 'current', status: 'partial', subject_name: '当前规划', other_name: null, generated_on: generatedOn, source_date: caps.context.start.date, monetary_basis_date: caps.context.monetary_basis_date, scenario_revision: null, model_version: caps.context.model_version, headline, next_step: { label: '核对当前目标的条件与结果', detail: '需求金额和未来净投入是不同条件；报告仅保留生成时的只读快照。' }, funds, goals: [], assumptions, series: [], differences: [], missing };
+  // 当前报告受控结论与关键结果：只投影同一批已保存 caps，不改变算法、不计算新模型。
+  const requiredCents = caps.requirement.status === 'ready' ? requirementAmount(caps.requirement.value.set) : null;
+  const estimatedCents = b.contribution.monthly_cents;
+  let contributionDirection: ContributionDirection = 'unknown';
+  if (estimatedCents !== null && /^-?\d+$/.test(estimatedCents)) {
+    const amount = BigInt(estimatedCents);
+    contributionDirection = amount < 0n ? 'withdrawal' : amount === 0n ? 'none' : 'contribution';
+  }
+  // 负数投入是取用，不当作储蓄余量，因此不给能力减需求。
+  const differenceCents = (contributionDirection === 'contribution' || contributionDirection === 'none') && requiredCents !== null && /^-?\d+$/.test(requiredCents)
+    ? (BigInt(estimatedCents as string) - BigInt(requiredCents)).toString() : null;
+  let terminalCents: string | null = null;
+  const mode: CurrentSummaryMode = r.mode === 'fire' ? 'fire' : 'traditional';
+  let outcome: CurrentSummaryOutcome = 'incomplete';
+  let expectedRetirementMonth: string | null = null;
+  if (caps.prediction.status === 'ready') {
+    const prediction = caps.prediction.value;
+    terminalCents = Number.isSafeInteger(Math.round(prediction.outcome.at_horizon)) ? String(Math.round(prediction.outcome.at_horizon)) : null;
+    const monthOf = (index: number | null): string | null => index === null ? null : timeLabel(prediction.plan, index);
+    expectedRetirementMonth = mode === 'fire' ? monthOf(prediction.projection.fi_month) : monthOf(prediction.outcome.retire_month);
+    if (!prediction.outcome.success) outcome = 'not_covered';
+    else if (prediction.terminal === 'no_margin') outcome = 'no_margin';
+    else if (limitedCoverage) outcome = 'provisional';
+    else outcome = 'covered';
+  }
+  const currentSummary: CurrentSummary = {
+    outcome, mode,
+    target_month: r.simplified.time.target_month !== null && validMonth(r.simplified.time.target_month) ? r.simplified.time.target_month : null,
+    horizon_month: r.simplified.time.horizon_month !== null && validMonth(r.simplified.time.horizon_month) ? r.simplified.time.horizon_month : null,
+    expected_retirement_month: expectedRetirementMonth,
+    required_contribution: money(requiredCents),
+    estimated_contribution: money(estimatedCents),
+    contribution_direction: contributionDirection,
+    difference: money(differenceCents),
+    terminal_available: money(terminalCents),
+    available_funds: money(caps.funds.status === 'ready' ? caps.funds.value.available_cents : null, b.start.kind === 'simulation' ? 'estimated' : 'known'),
+    budget: money(r.spend_cents),
+    before_return: { kind: 'ratio', hundredths: r.real_return_before_hundredths },
+    after_return: { kind: 'ratio', hundredths: r.real_return_after_hundredths },
+  };
+  const input: ReportInputV1 = { contract_version: 1, kind: 'current', status: 'partial', subject_name: '当前规划', other_name: null, generated_on: generatedOn, source_date: caps.context.start.date, monetary_basis_date: caps.context.monetary_basis_date, scenario_revision: null, model_version: caps.context.model_version, headline, next_step: { label: '核对当前目标的条件与结果', detail: '需求金额和未来净投入是不同条件；报告仅保留生成时的只读快照。' }, current_summary: currentSummary, funds, goals: [], assumptions, series: [], differences: [], missing };
   const parsed = parseReportInput(input);
   if (!parsed.ok) throw new Error('当前报告数据无法识别，请重新读取规划。');
   return parsed.report;

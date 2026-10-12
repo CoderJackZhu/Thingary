@@ -21,6 +21,44 @@ export type ReportKind = 'current' | 'baseline' | 'comparison';
 export type ReportStatus = 'complete' | 'partial';
 export type ResultStatus = 'ok' | 'shortfall' | 'incomplete';
 
+/** 当前报告受控结论：真实可覆盖 / 终点无余量 / 真实未达成 / 缺输入 / 影响结果待核对。 */
+export type CurrentSummaryOutcome = 'covered' | 'no_margin' | 'not_covered' | 'incomplete' | 'provisional';
+export type CurrentSummaryMode = 'fire' | 'traditional';
+/** 预计投入方向：负数明确是取用，不当作储蓄余量。 */
+export type ContributionDirection = 'contribution' | 'withdrawal' | 'none' | 'unknown';
+
+/**
+ * 当前报告的结构化结论与关键结果，只用于 kind='current'。
+ * 只承载受控 enum、月份字符串、Money/Ratio，不含任何自由文本；
+ * 组件读取本结构而不是按 assumptions 的 id 找值（隐私投影会重命名 id）。
+ */
+export type CurrentSummary = {
+  outcome: CurrentSummaryOutcome;
+  mode: CurrentSummaryMode;
+  /** 目标月 YYYY-MM；未知保留 null。月份不能伪装成具体某日。 */
+  target_month: string | null;
+  /** 所选预测终点月 YYYY-MM。 */
+  horizon_month: string | null;
+  /** 预计达成／退休月 YYYY-MM；FIRE 未达成为 null。 */
+  expected_retirement_month: string | null;
+  /** 需求：所选条件下所需月投入。 */
+  required_contribution: Money;
+  /** 能力：已保存的未来每月净投入。 */
+  estimated_contribution: Money;
+  contribution_direction: ContributionDirection;
+  /** 能力 − 需求；仅在预计投入真实已知且非负时的 BigInt 差额，否则未知。 */
+  difference: Money;
+  /** 所选终点预计可用资金。 */
+  terminal_available: Money;
+  /** 起点可用资金。 */
+  available_funds: Money;
+  /** 完整生活预算／月。 */
+  budget: Money;
+  /** 目标前／后的实际年收益关键条件。 */
+  before_return: Ratio | null;
+  after_return: Ratio | null;
+};
+
 export type FundRow = {
   id: string;
   /** 自由文本，可能含姓名/账号；隐私投影别名化 */
@@ -94,6 +132,8 @@ export type ReportInputV1 = {
   model_version: string | null;
   headline: { status: ResultStatus; amount: Money; date: string | null };
   next_step: { label: string; detail: string | null };
+  /** 当前报告的结构化结论；基线／比较报告必须省略。旧 v1 载荷没有此字段仍可解析。 */
+  current_summary?: CurrentSummary | null;
   funds: FundRow[];
   goals: GoalRow[];
   assumptions: Assumption[];
@@ -108,7 +148,13 @@ export type ParseResult = { ok: true; report: ReportInputV1 } | { ok: false; cod
 // ---------------------------------------------------------------- 校验
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const CENTS_RE = /^-?\d{1,24}$/;
+
+/** 月份 YYYY-MM；不接受具体某日，避免把日伪装成月。 */
+export function validMonth(m: string): boolean {
+  return MONTH_RE.test(m);
+}
 
 /** 真实日历日检查（拒绝 2026-02-30）。 */
 export function validDate(d: string): boolean {
@@ -153,6 +199,27 @@ const reqString = (v: unknown, path: string, issues: ReportIssue[]) => {
 const optString = (v: unknown, path: string, issues: ReportIssue[]) => {
   if (v !== null && typeof v !== 'string') issues.push({ path, code: 'invalid_string', message: '必须是字符串或 null' });
 };
+const optMonth = (v: unknown, path: string, issues: ReportIssue[]) => {
+  if (v !== null && !(typeof v === 'string' && validMonth(v))) issues.push({ path, code: 'invalid_month', message: '月份必须是 YYYY-MM 或 null（不能是具体某日）' });
+};
+
+/** 当前报告 summary 的严格校验；字段缺失与非法值都明确报错。 */
+function checkCurrentSummary(v: unknown, path: string, issues: ReportIssue[]): void {
+  if (!isObj(v)) { issues.push({ path, code: 'invalid_summary', message: 'current_summary 必须是对象' }); return; }
+  if (!oneOf(v.outcome, ['covered', 'no_margin', 'not_covered', 'incomplete', 'provisional']))
+    issues.push({ path: path + '.outcome', code: 'invalid_summary_outcome', message: '结论状态必须是 covered/no_margin/not_covered/incomplete/provisional' });
+  if (!oneOf(v.mode, ['fire', 'traditional']))
+    issues.push({ path: path + '.mode', code: 'invalid_summary_mode', message: '模式必须是 fire/traditional' });
+  optMonth(v.target_month, path + '.target_month', issues);
+  optMonth(v.horizon_month, path + '.horizon_month', issues);
+  optMonth(v.expected_retirement_month, path + '.expected_retirement_month', issues);
+  if (!oneOf(v.contribution_direction, ['contribution', 'withdrawal', 'none', 'unknown']))
+    issues.push({ path: path + '.contribution_direction', code: 'invalid_contribution_direction', message: '投入方向必须是 contribution/withdrawal/none/unknown' });
+  for (const key of ['required_contribution', 'estimated_contribution', 'difference', 'terminal_available', 'available_funds', 'budget'] as const)
+    checkMoney(v[key], `${path}.${key}`, issues);
+  if (v.before_return !== null) checkRatio(v.before_return, path + '.before_return', issues);
+  if (v.after_return !== null) checkRatio(v.after_return, path + '.after_return', issues);
+}
 
 /** 严格校验边界输入。未知 contract_version 明确报错，不默认按 v1 读取。 */
 export function parseReportInput(raw: unknown): ParseResult {
@@ -170,6 +237,10 @@ export function parseReportInput(raw: unknown): ParseResult {
   if (raw.scenario_revision !== null && !(typeof raw.scenario_revision === 'number' && Number.isSafeInteger(raw.scenario_revision)))
     issues.push({ path: 'scenario_revision', code: 'invalid_revision', message: '修订号必须是整数或 null' });
   optString(raw.model_version, 'model_version', issues);
+  if (raw.current_summary !== undefined && raw.current_summary !== null) {
+    if (raw.kind !== 'current') issues.push({ path: 'current_summary', code: 'invalid_summary_scope', message: 'current_summary 只用于 current 报告' });
+    else checkCurrentSummary(raw.current_summary, 'current_summary', issues);
+  }
   if (!isObj(raw.headline) || !oneOf(raw.headline.status, ['ok', 'shortfall', 'incomplete']))
     issues.push({ path: 'headline', code: 'invalid_headline', message: 'headline.status 必须是 ok/shortfall/incomplete' });
   else { checkMoney(raw.headline.amount, 'headline.amount', issues); optDate(raw.headline.date, 'headline.date', issues); }
@@ -244,6 +315,15 @@ function projectReport(r: ReportInputV1, privacy: boolean): ReportInputV1 {
       case 'unknown': return { kind: 'unknown' };
     }
   };
+  const summary = (s: CurrentSummary): CurrentSummary => ({
+    outcome: s.outcome, mode: s.mode,
+    target_month: s.target_month, horizon_month: s.horizon_month, expected_retirement_month: s.expected_retirement_month,
+    required_contribution: money(s.required_contribution), estimated_contribution: money(s.estimated_contribution),
+    contribution_direction: s.contribution_direction, difference: money(s.difference),
+    terminal_available: money(s.terminal_available), available_funds: money(s.available_funds), budget: money(s.budget),
+    before_return: s.before_return === null ? null : ratio(s.before_return),
+    after_return: s.after_return === null ? null : ratio(s.after_return),
+  });
   return {
     contract_version: 1, kind: r.kind, status: r.status,
     subject_name: privacy ? (r.kind === 'comparison' ? '方案 A' : r.kind === 'baseline' ? '基准 A' : '当前方案') : r.subject_name,
@@ -252,6 +332,7 @@ function projectReport(r: ReportInputV1, privacy: boolean): ReportInputV1 {
     scenario_revision: r.scenario_revision, model_version: privacy ? null : r.model_version,
     headline: { status: r.headline.status, amount: money(r.headline.amount), date: r.headline.date },
     next_step: { label: privacy ? '核对计算依据与缺项' : r.next_step.label, detail: privacy ? null : r.next_step.detail },
+    current_summary: r.current_summary ? summary(r.current_summary) : null,
     funds: r.funds.map((f, i) => ({ id: privacy ? `f${i + 1}` : f.id, name: privacy ? `账户 ${i + 1}` : f.name,
       availability: f.availability, amount: money(f.amount), note: privacy ? null : f.note })),
     goals: r.goals.map((g, i) => ({ id: privacy ? `g${i + 1}` : g.id, name: privacy ? `目标 ${i + 1}` : g.name,
@@ -324,6 +405,34 @@ export function headlineSentence(report: ReportInputV1): string {
   return '关键资料缺失，无法给出完整结论。';
 }
 
+export const currentOutcomeLabel = (o: CurrentSummaryOutcome): string =>
+  o === 'covered' ? '资金可覆盖' : o === 'no_margin' ? '终点无余量' : o === 'not_covered' ? '目标未达成' : o === 'provisional' ? '待核对' : '缺输入';
+export const currentModeLabel = (m: CurrentSummaryMode): string => m === 'fire' ? '财务自由（FIRE）' : '按计划退休';
+export const contributionDirectionLabel = (d: ContributionDirection): string =>
+  d === 'contribution' ? '储蓄投入' : d === 'withdrawal' ? '取用' : d === 'none' ? '零投入' : '未知';
+
+export function currentNextStep(s: CurrentSummary): string {
+  if (s.outcome === 'covered') return '需要比较其他条件时，可返回目标修改。';
+  if (s.outcome === 'no_margin') return '核对终点后的安排，或调整投入与生活预算。';
+  if (s.outcome === 'not_covered') return '返回目标，调整退休时间、每月投入或生活预算。';
+  if (s.outcome === 'provisional') return '先核对下方影响结论的事项，再重新生成报告。';
+  return '补充下方缺项后，重新生成报告。';
+}
+
+/** 当前报告的受控结论句；不读 assumptions id，也不包含任何金额。 */
+export function currentSummaryConclusion(s: CurrentSummary): string {
+  if (s.outcome === 'covered') return '按已保存条件与所选期间，完整预算可覆盖，终点仍有余量。';
+  if (s.outcome === 'no_margin') return '所选期间预算可覆盖，但终点没有余量，不能据此判断终点以后安全。';
+  if (s.outcome === 'not_covered') return '按已保存净投入，所选条件未满足完整目标。';
+  if (s.outcome === 'provisional') return '结果已按当前条件计算，但存在影响结论的待核对项，核对后可能变化。';
+  return '关键资料缺失，无法给出完整结论。';
+}
+
+/** 结论文本：当前报告 summary 优先，否则回退通用 headline；复制、打印与屏幕使用同一句。 */
+export function reportConclusion(report: ReportInputV1): string {
+  return report.current_summary ? currentSummaryConclusion(report.current_summary) : headlineSentence(report);
+}
+
 /** 目标结果短语：状态 + 结构化金额/比例，不读自由备注。 */
 export function goalResultText(g: GoalRow): string {
   const parts: string[] = [];
@@ -387,8 +496,21 @@ export function copyText(report: ReportInputV1, privacy: boolean): string {
   lines.push(`名称：${view.subject_name}${view.other_name ? ` / ${view.other_name}` : ''}`);
   lines.push(`起点日：${dateLabel(view.source_date)} · 生成日：${dateLabel(view.generated_on)} · 金额基准：${dateLabel(view.monetary_basis_date)}`);
   lines.push(`模型版本：${view.model_version ?? '未知'} · 方案修订：${view.scenario_revision ?? '未知'}`);
-  lines.push(`结论：${headlineSentence(view)}`);
-  if (view.next_step.label) lines.push(`下一步：${view.next_step.label}${view.next_step.detail ? `（${view.next_step.detail}）` : ''}`);
+  lines.push(`结论：${reportConclusion(view)}`);
+  if (view.current_summary) lines.push(`下一步：${currentNextStep(view.current_summary)}`);
+  else if (view.next_step.label) lines.push(`下一步：${view.next_step.label}${view.next_step.detail ? `（${view.next_step.detail}）` : ''}`);
+  if (view.current_summary) {
+    const s = view.current_summary;
+    lines.push(`关键结果（${currentOutcomeLabel(s.outcome)} · ${currentModeLabel(s.mode)}）：`);
+    lines.push(`- 所需月投入：${formatMoney(s.required_contribution)}`);
+    lines.push(`- 预计月投入（${contributionDirectionLabel(s.contribution_direction)}）：${formatMoney(s.estimated_contribution)}`);
+    lines.push(`- 差额（预计 − 所需）：${s.contribution_direction === 'withdrawal' ? '取用不计差额' : formatMoney(s.difference)}`);
+    lines.push(`- 终点预计可用资金：${formatMoney(s.terminal_available)}`);
+    lines.push('主要条件：');
+    lines.push(`- 目标月：${dateLabel(s.target_month)} · 预测终点：${dateLabel(s.horizon_month)} · ${s.mode === 'fire' ? '预计达成月' : '预计退休月'}：${dateLabel(s.expected_retirement_month)}`);
+    lines.push(`- 可用资金：${formatMoney(s.available_funds)} · 完整生活预算／月：${formatMoney(s.budget)}`);
+    lines.push(`- 目标前／后实际年收益：${s.before_return ? formatRatio(s.before_return) : '未知'} / ${s.after_return ? formatRatio(s.after_return) : '未知'}`);
+  }
   lines.push('资金范围：');
   for (const f of view.funds) lines.push(`- ${f.name}（${availabilityLabel(f.availability)}）：${formatMoney(f.amount)}${f.note ? ` · ${f.note}` : ''}`);
   lines.push('目标结果：');
@@ -476,9 +598,26 @@ export function printableHtml(report: ReportInputV1, opts: { privacy: boolean })
   out.push(`<span>金额基准：${h(dateLabel(view.monetary_basis_date))}</span>`);
   out.push(`<span>方案修订：${view.scenario_revision ?? '未知'}</span><span>模型版本：${h(view.model_version ?? '未知')}</span>`);
   out.push('</div></header>');
-  if (view.status === 'partial') out.push(`<p class="banner">本报告输入不完整（partial），部分结果保留缺项，未知不等于零。</p>`);
-  out.push(`<section><p class="conclusion">${h(headlineSentence(view))}</p>`);
-  out.push(`<p class="muted">下一步：${h(view.next_step.label)}${view.next_step.detail ? `（${h(view.next_step.detail)}）` : ''}</p></section>`);
+  if (view.status === 'partial') out.push(`<p class="banner">${view.current_summary ? '本报告展示范围有限；逐月趋势、逐项购买结果与历史实际对照不在本报告中，输入缺项另行列明。' : '本报告输入不完整（partial），部分结果保留缺项，未知不等于零。'}</p>`);
+  out.push(`<section><p class="conclusion">${h(reportConclusion(view))}</p>`);
+  out.push(`<p class="muted">下一步：${view.current_summary ? h(currentNextStep(view.current_summary)) : h(view.next_step.label) + (view.next_step.detail ? `（${h(view.next_step.detail)}）` : '')}</p></section>`);
+  if (view.current_summary) {
+    const s = view.current_summary;
+    out.push('<section><h2>关键结果</h2><table><tbody>');
+    out.push(tableRow([`所需月投入`, `<span class="num">${h(formatMoney(s.required_contribution))}</span>`]));
+    out.push(tableRow([`预计月投入（${contributionDirectionLabel(s.contribution_direction)}）`, `<span class="num">${h(formatMoney(s.estimated_contribution))}</span>`]));
+    out.push(tableRow(['差额（预计 − 所需）', `<span class="num">${h(s.contribution_direction === 'withdrawal' ? '取用不计差额' : formatMoney(s.difference))}</span>`]));
+    out.push(tableRow(['终点预计可用资金', `<span class="num">${h(formatMoney(s.terminal_available))}</span>`]));
+    out.push('</tbody></table></section>');
+    out.push(`<section><h2>主要条件摘要</h2><p class="muted">${h(currentOutcomeLabel(s.outcome))} · ${h(currentModeLabel(s.mode))}</p><table><tbody>`);
+    out.push(tableRow(['目标月', h(dateLabel(s.target_month))]));
+    out.push(tableRow(['预测终点', h(dateLabel(s.horizon_month))]));
+    out.push(tableRow([s.mode === 'fire' ? '预计达成月' : '预计退休月', h(dateLabel(s.expected_retirement_month))]));
+    out.push(tableRow(['可用资金', `<span class="num">${h(formatMoney(s.available_funds))}</span>`]));
+    out.push(tableRow(['完整生活预算／月', `<span class="num">${h(formatMoney(s.budget))}</span>`]));
+    out.push(tableRow(['目标前／后实际年收益', `${h(s.before_return ? formatRatio(s.before_return) : '未知')} / ${h(s.after_return ? formatRatio(s.after_return) : '未知')}`]));
+    out.push('</tbody></table></section>');
+  }
   // 资金范围
   out.push('<section><h2>资金范围</h2><table><thead><tr><th>名称</th><th>可用性</th><th>金额</th><th>依据</th><th>备注</th></tr></thead><tbody>');
   for (const f of view.funds) out.push(tableRow([h(f.name), availabilityLabel(f.availability), `<span class="num">${h(formatMoney(f.amount))}</span>`, basisLabel(f.amount.basis), f.note ? h(f.note) : '<span class="muted">—</span>']));

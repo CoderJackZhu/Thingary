@@ -32,3 +32,29 @@ for(const outcome of ['saved','failed','unknown'])test(`single saving editor: ${
  r.find('GoalMoneyInput').props.onChange('520025');r.render();await submit(r);assert.equal(r.calls.length,1);assert.equal(r.calls[0].fields.basic.contribution.monthly_cents,'520025');assert.equal(r.closes.length,outcome==='saved'?1:0);if(outcome==='unknown'){await submit(r);assert.equal(r.calls.length,1);assert.equal(r.button('保存并更新结果').props.disabled,true);}if(outcome==='failed')assert.equal(r.find('GoalMoneyInput').props.value,'520025');
 });
 test('money controls retain integer cents and signed withdrawals',()=>{for(const [value,signed,step,expected] of [['520025',false,10000,'530025'],['-20000',true,10000,'-10000'],['',false,1000000,'1000000']]){let result;const r=runtime('planning-goal/MoneyInput',{value,signed,step,label:'虚构金额',onChange:v=>result=v});r.button(`虚构金额增加${step/100}元`).props.onClick();assert.equal(result,expected);}});
+test('mode and emergency single-item editors change only their own field through the component handler', async () => {
+ const s=fixture(),saved=stored(s),original=structuredClone(saved);
+ const mode=runtime('planning-goal/Editor',{kind:'mode',sources:s,saved});
+ mode.find('select',p=>p['aria-label']==='目标类型').props.onChange({target:{value:'fire'}});mode.render();
+ await submit(mode);assert.equal(mode.calls.length,1);assert.equal(mode.calls[0].section,'basic');
+ assert.equal(mode.calls[0].fields.mode,'fire');
+ assert.equal(mode.calls[0].fields.emergency_months,original.profile.retire.emergency_months);
+ assert.equal(mode.calls[0].fields.spend_cents,original.profile.retire.spend_cents);
+ assert.deepEqual(mode.calls[0].fields.basic,original.profile.retire.basic);
+ const emergency=runtime('planning-goal/Editor',{kind:'emergency',sources:s,saved});
+ emergency.find('input',p=>p['aria-label']==='应急金月数').props.onChange({target:{value:'12'}});emergency.render();
+ await submit(emergency);assert.equal(emergency.calls.length,1);assert.equal(emergency.calls[0].fields.emergency_months,12);
+ assert.equal(emergency.calls[0].fields.mode,original.profile.retire.mode);
+ assert.equal(emergency.calls[0].fields.spend_cents,original.profile.retire.spend_cents);
+ assert.deepEqual(emergency.calls[0].fields.basic,original.profile.retire.basic);
+ assert.deepEqual(saved,original);
+});
+test('goalInput for mode and emergency touches only the corresponding field', () => {
+ const saved=stored(fixture()),base=basicFields(saved);
+ const nextMode=goalInput('mode',saved,{...structuredClone(base),mode:'fire'});
+ assert.equal(nextMode.section,'basic');assert.equal(nextMode.fields.mode,'fire');
+ assert.equal(nextMode.fields.emergency_months,base.emergency_months);assert.equal(nextMode.fields.spend_cents,base.spend_cents);
+ const nextEmergency=goalInput('emergency',saved,{...structuredClone(base),emergency_months:0});
+ assert.equal(nextEmergency.fields.emergency_months,0);assert.equal(nextEmergency.fields.mode,base.mode);
+ assert.equal(nextEmergency.fields.spend_cents,base.spend_cents);
+});

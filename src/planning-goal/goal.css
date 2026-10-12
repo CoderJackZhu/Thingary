@@ -9,6 +9,17 @@ dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.
 @media(max-width:600px){.goal-editor-body{padding-inline:16px}dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>footer{padding-inline:16px}}
 
 .goal-detail-entry { width: 100%; min-height: 48px; margin-block: 12px; font-size: 15px; font-weight: 600; white-space: normal; }
+.goal-verdict { font-size: 19px; font-weight: 600; line-height: 1.6; }
+.goal-result-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; margin-block: 12px; }
+.goal-result-actions > button { flex: 1 1 180px; min-height: 48px; margin: 0; font-size: 15px; font-weight: 600; white-space: normal; }
+.goal-result { margin-block: 16px; padding: 12px 16px; background: var(--soft); border-radius: 8px; }
+.goal-result h4 { margin: 0 0 8px; }
+.goal-result dl { margin: 0; }
+.goal-result dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-block: 6px; }
+.goal-result dt { color: var(--muted); font-size: 12px; }
+.goal-result dd { margin: 0; font-weight: 600; }
+.goal-amounts small { display: block; margin-top: 4px; }
+.goal-amounts .ui-link { margin-top: 6px; padding: 0; font-size: 12px; }
 .goal-caution li>.ui-link { display: block; margin-top: 4px; color: inherit; text-align: left; }
 .goal-fund-exclusions { color: var(--muted); overflow-wrap: anywhere; }
 #plan-events-section { scroll-margin-top: 24px; }

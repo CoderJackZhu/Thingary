@@ -26,6 +26,7 @@ export function GoalEditor({ kind, sources, saved, reload, onPending, onClose }:
     if (frozen) return;
     try {
       const input = goalInput(kind, saved, draft, simplified);
+      if (kind === 'emergency' && (!Number.isInteger(draft.emergency_months) || draft.emergency_months < 0 || draft.emergency_months > 36)) throw new Error('应急金月数须是 0 到 36 的整数。');
       const c = buildBasicCapabilities(overlayPlanningDrafts(sources, [input]));
       const invalid = c.requirement.status === 'blocked' && c.requirement.missing.find(m => m.kind === 'constraint' || m.code === 'INPUT_INVALID');
       if (invalid) throw new Error(invalid.message);
@@ -36,10 +37,12 @@ export function GoalEditor({ kind, sources, saved, reload, onPending, onClose }:
   return <dialog ref={dialog} className="editor wealth-account-editor goal-editor" aria-labelledby="goal-editor-heading" onCancel={e => { e.preventDefault(); if (!saver.busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
     <header><h2 id="goal-editor-heading">{editTitles[kind]}</h2><CloseButton disabled={saver.busy} onClick={onClose} type="button" aria-label={`关闭${editTitles[kind]}`}/></header>
     <div className="goal-editor-body"><section className="form-block">
+      {kind === 'mode' && <><FormRow label="目标类型"><select aria-label="目标类型" disabled={frozen} value={draft.mode} onChange={e => patch({ mode: e.target.value as 'fire' | 'traditional' })}><option value="fire">财务自由：资金够用后退休</option><option value="traditional">按计划月份退休：检查是否够用</option></select></FormRow><p>财务自由按资金是否够用来决定退休时间；按计划月份退休固定到目标月份，再检查是否够用。需求反求始终按固定目标月份计算。</p></>}
       {kind === 'time' && <TimeFields value={simplified.time} issues={[]} busy={frozen} today={sources.today} onChange={time => setSimplified(v => ({ ...v, time }))}/>}
       {kind === 'spend' && <>{amount('每月生活费（元，按现在物价）', draft.spend_cents, v => patch({ spend_cents: v }))}<p>填写生活费总额。社保、租金等是否包含，在对应费用安排中核对，避免重复计算。</p></>}
       {kind === 'saving' && <>{amount('每月能存多少钱（元）', draft.basic.contribution.monthly_cents, v => patch({ basic: { ...draft.basic, contribution: { ...draft.basic.contribution, monthly_cents: v } } }), true)}<p>扣除日常开支和缴费后的净存入；不知道留空，负数表示每月需要取用已有资金。</p></>}
       {kind === 'assumptions' && <>{number('退休前实际年收益（%）', draft.real_return_before_hundredths / 100, v => patch({ real_return_before_hundredths: v === null ? NaN : Math.round(v * 100) }), -8, 18, .1)}{number('退休后实际年收益（%）', draft.real_return_after_hundredths / 100, v => patch({ real_return_after_hundredths: v === null ? NaN : Math.round(v * 100) }), -8, 18, .1)}{number('年通胀（%）', draft.inflation_hundredths / 100, v => patch({ inflation_hundredths: v === null ? NaN : Math.round(v * 100) }), 0, 10, .1)}<p>实际收益已扣除通胀。0% 表示购买力不变，不是银行利息为零；未来收益属于假设。</p></>}
+      {kind === 'emergency' && <>{number('应急金月数', draft.emergency_months, v => patch({ emergency_months: v === null ? NaN : v }), 0, 36)}<p>按退休后每月必需支出计算的参考月数，用于心愿与大额计划的“低于应急金线”提示；不会从退休月账本另外扣除。</p></>}
       {kind === 'start' && <><FormRow label="资金来源"><select aria-label="资金来源" disabled={frozen} value={draft.basic.start.kind} onChange={e => patch({ basic: { ...draft.basic, start: e.target.value === 'live' ? { kind: 'live' } : { kind: 'simulation', id: crypto.randomUUID(), available_cents: null, date: null, notes: '' } } })}><option value="live">按账户盘点与已确认的用途</option><option value="simulation">手填一个模拟金额</option></select></FormRow>{sim && <>{amount('用于规划的模拟金额（元）', sim.available_cents, v => patch({ basic: { ...draft.basic, start: { ...sim, available_cents: v } } }), false, 1000000)}<FormRow label="金额截至日期"><DateInput yearIntent="past" label="金额截至日期" value={sim.date ?? ''} allowClear disabled={frozen} onChange={v => patch({ basic: { ...draft.basic, start: { ...sim, date: v || null } } })}/></FormRow></>}<p>模拟金额替代盘点起点，不修改实际账户余额。使用盘点时，可在目标页单独核对账户用途。</p></>}
     </section>
     <section className="form-block"><h3>本次修改试算</h3><p>{preview}</p><p className="muted small">尚未保存。请点击下方“保存并更新结果”；其他已填条件保持不变。</p></section>

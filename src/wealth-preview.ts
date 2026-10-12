@@ -28,7 +28,7 @@ import { basicInputFixtures } from './plan-basic-fixtures';
 import { allModules, type RuntimeModules } from './modules';
 import { financePeriodContains, type FinancePeriod } from './finance-contract';
 import type { FinanceRead, FinanceSources } from './finance-service';
-import type { MovementRecordV1, ReviewPreviewV1 } from './planning-followup-contract';
+import type { AssumptionReadV1, MovementRecordV1, ReviewPreviewV1 } from './planning-followup-contract';
 import type { Income, IncomeSave, Mark, ProfileState, Reasons, StoredProfile } from './plan';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
@@ -730,6 +730,16 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     return {value:command==='followup_review_read'?{draft:{selection:preview.selected,confirmed_complete:false,unsupported_movements:false,notes:''},preview}:preview};
   }
   if (['movement_save','movement_trash','followup_review_save','followup_review_trash'].includes(command)) throw {code:'PREVIEW_NATIVE_ONLY',message:'虚构浏览器预览不提交资金记录；原生保存另行验证。'};
+  // Development-only read fixture. It never confirms or writes a native profile.
+  if (command === 'plan_assumptions_read') {
+    if (params.get('assumptions') === 'error') throw { code: 'PREVIEW_READ_ERROR', message: '虚构假设读取失败，请重试。' };
+    if (!previewModules.planning) throw { code: 'MODULE_DISABLED', message: '目标模块已关闭。' };
+    const p = planProfile?.profile;
+    const values = { real_return_before_hundredths: p?.retire.real_return_before_hundredths ?? 0, real_return_after_hundredths: p?.retire.real_return_after_hundredths ?? 0, inflation_hundredths: p?.assumptions.inflation_hundredths ?? 200, volatility_hundredths: p?.retire.volatility_hundredths ?? 500 };
+    const confirmation = params.get('assumptions') === 'confirmed' ? 'confirmed' : params.get('assumptions') === 'needs_review' ? 'needs_review' : 'unconfirmed';
+    return { value: { generation, revision: planProfile?.revision ?? null, values, confirmation, confirmed_values: confirmation === 'unconfirmed' ? null : { ...values } } satisfies AssumptionReadV1 };
+  }
+  if (command === 'plan_assumptions_save') throw { code: 'PREVIEW_NATIVE_ONLY', message: '虚构浏览器预览不提交假设核对；原生保存另行验证。' };
   if (command === 'planning_sources') { if (params.get('plan') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: planningSources(args) }; }
   if (command === 'plan_profile_update') {
     const input = args.input as ProfileUpdate;

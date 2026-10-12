@@ -3,10 +3,55 @@ import assert from 'node:assert/strict';
 import { currentReportInput } from '../src/planning-report/current-adapter.ts';
 import { basicFixtureSources, basicInputFixtures } from '../src/plan-basic-fixtures.ts';
 import { buildBasicCapabilities } from '../src/plan-basic.ts';
-import { copyText, parseReportInput, redactReport } from '../src/planning-report/model.ts';
+import { copyText, parseReportInput, redactReport, printableHtml, reportConclusion } from '../src/planning-report/model.ts';
 import { fixture } from './planning-ui-fixture.mjs';
 
 const report = sources => currentReportInput(sources, buildBasicCapabilities(sources), sources.today);
+
+test('current summary exposes known requirements while preserving unknown, zero and withdrawal inputs',()=>{
+ for(const cents of [null,'0','-12500','500000']){
+  const s=basicFixtureSources(basicInputFixtures.prediction);s.profile.value.saved.profile.retire.basic.contribution.monthly_cents=cents;
+  const caps=buildBasicCapabilities(s),r=currentReportInput(s,caps,s.today),summary=r.current_summary;
+  assert.equal(summary.estimated_contribution.cents,cents);
+  assert.equal(summary.required_contribution.cents,caps.requirement.value.set.monthly_cents);
+  assert.equal(summary.contribution_direction,cents===null?'unknown':cents==='0'?'none':cents.startsWith('-')?'withdrawal':'contribution');
+  if(cents===null){assert.equal(summary.outcome,'incomplete');assert.equal(summary.expected_retirement_month,null);}
+  if(cents===null||cents.startsWith('-'))assert.equal(summary.difference.cents,null);
+  else assert.equal(summary.difference.cents,(BigInt(cents)-BigInt(summary.required_contribution.cents)).toString());
+ }
+});
+test('summary states distinguish failed prediction, no margin, pending coverage and successful coverage',()=>{
+ const s=basicFixtureSources(basicInputFixtures.prediction),caps=buildBasicCapabilities(s);
+ for(const [success,terminal,limited,expected] of [[false,'gap',false,'not_covered'],[true,'no_margin',false,'no_margin'],[true,'surplus',true,'provisional'],[true,'surplus',false,'covered']]){
+  const changed=structuredClone({...caps,prediction:undefined});changed.prediction={status:'ready',value:{...caps.prediction.value,terminal,outcome:{...caps.prediction.value.outcome,success}}};
+  changed.annotations=limited?[{id:'unknown-fee',reason_code:'COST_PERIOD_PENDING',effect:'uncertain',treatment:'omitted',source_ids:[],missing_fields:[],refinement:{owner:'budget',field:'spend_items'}}]:[];
+  const r=currentReportInput(s,changed,s.today);assert.equal(r.current_summary.outcome,expected);
+  assert.equal(reportConclusion(r),reportConclusion(redactReport(r)));assert.equal(r.status,'partial');
+ }
+});
+test('FIRE summary preserves the real month offset rather than inventing a calendar day',()=>{
+ const s=basicFixtureSources(basicInputFixtures.prediction);s.profile.value.saved.profile.retire.mode='fire';
+ const caps=buildBasicCapabilities(s),index=27;
+ const changed={...caps,prediction:{status:'ready',value:{...caps.prediction.value,projection:{...caps.prediction.value.projection,fi_month:index}}}};
+ const r=currentReportInput(s,changed,s.today);
+ const anchor=caps.prediction.value.plan.anchor_date;const base=Number(anchor.slice(0,4))*12+Number(anchor.slice(5,7))-1+index;
+ assert.equal(r.current_summary.expected_retirement_month,`${Math.floor(base/12)}-${String(base%12+1).padStart(2,'0')}`);
+});
+test('summary validation rejects malformed fields and private render/copy/print erase every financial value',()=>{
+ const s=basicFixtureSources(basicInputFixtures.prediction),r=report(s);
+ for(const patch of [{target_month:'2030-01-01'},{outcome:'safe_forever'},{required_contribution:{kind:'money',cents:123,basis:'known'}},{before_return:undefined}]){
+  assert.equal(parseReportInput({...r,current_summary:{...r.current_summary,...patch}}).ok,false);
+ }
+ assert.equal(parseReportInput({...r,kind:'baseline'}).ok,false);
+ const enriched=structuredClone(r);enriched.current_summary.secret='秘密987654321';
+ const privateReport=redactReport(enriched);assert.equal(privateReport.current_summary.secret,undefined);
+ for(const key of ['required_contribution','estimated_contribution','difference','terminal_available','available_funds','budget'])assert.equal(privateReport.current_summary[key].cents,null);
+ for(const out of [JSON.stringify(privateReport),copyText(enriched,true),printableHtml(enriched,{privacy:true})]){
+  assert.ok(!out.includes('秘密987654321'));assert.ok(!out.includes('¥'));
+ }
+ assert.ok(copyText(enriched,true).includes('金额已隐藏'));assert.ok(printableHtml(enriched,{privacy:true}).includes('金额已隐藏'));
+ const legacy={...r};delete legacy.current_summary;assert.equal(parseReportInput(legacy).ok,true);
+});
 
 test('current report uses saved domain metadata and a detached, valid v1 snapshot', () => {
   const s = basicFixtureSources(basicInputFixtures.prediction), caps = buildBasicCapabilities(s);

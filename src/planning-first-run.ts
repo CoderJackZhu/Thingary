@@ -20,7 +20,7 @@ export function setupErrorLocation(message: string): SetupErrorLocation | null {
     [5, '退休前实际年收益', ['退休前实际收益请填百分数，例如 2 或 2.5。', '退休前实际收益率须在 -10.00% 到 20.00% 之间']],
     [5, '退休后实际年收益', ['退休后实际收益请填百分数，例如 2 或 2.5。', '退休后实际收益率须在 -10.00% 到 20.00% 之间']],
     [5, '通胀', ['通胀请填百分数，例如 2 或 2.5。']],
-    [5, '应急金月数', ['应急金月数须是 0 到 36 的整数。', '请填写应急金月数。']],
+    [1, '应急金月数', ['应急金月数须是 0 到 36 的整数。', '请填写应急金月数。']],
   ];
   const match = locations.find(([, , messages]) => messages.includes(message));
   return match ? { step: match[0], label: match[1] } : null;
@@ -50,7 +50,7 @@ export function setupDraft(saved: Saved, snapshot: Snapshot | null, wealthOn: bo
   return { ...d, simplified: { ...d.simplified, income_mode: defaultIncomeMode(saved) }, start: !saved?.profile.retire.basic && (!wealthOn || !snapshot) ? 'simulation' : d.start };
 }
 
-/** Use the existing setup transaction: all four answers commit atomically. */
+/** Use the existing setup transaction: major conditions and optional contribution commit atomically. */
 export function setupFields(d: Draft, saved: Saved, today: string, liveAvailable: boolean): SetupFields {
   const r = saved?.profile.retire ?? defaultRetire;
   const input = basicInput(d, saved, today);

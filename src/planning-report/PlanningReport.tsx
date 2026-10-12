@@ -2,11 +2,12 @@
 // 完整与隐私输出都从同一份校验后的快照生成：隐私模式先 redactReport 脱敏，渲染只接触视图。
 // 不读取数据库、不调用规划算法补字段；金额/比例只经 Money/Ratio 通道显示。
 import { useEffect, useMemo, useState } from 'react';
-import type { ReportInputV1, SeriesPoint, TrendModel } from './model.ts';
+import type { CurrentSummary, ReportInputV1, SeriesPoint, TrendModel } from './model.ts';
 import {
-  parseReportInput, redactReport, formatMoney, formatValue, headlineSentence, goalResultText,
+  parseReportInput, redactReport, formatMoney, formatValue, formatRatio, goalResultText,
   basisLabel, sourceLabel, availabilityLabel, templateLabel, kindLabel, impactLabel, seriesKindLabel,
-  dateLabel, trendModel, trendAriaLabel, copyText, printableHtml,
+  dateLabel, trendModel, trendAriaLabel, copyText, printableHtml, reportConclusion,
+  currentOutcomeLabel, currentModeLabel, currentNextStep,
 } from './model.ts';
 
 export type ReportOuter =
@@ -72,10 +73,19 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
   if (!view) return null;
 
   const trend = trendModel(view.series);
+  const summary: CurrentSummary | null = view.current_summary ?? null;
+  const incomplete = summary ? summary.outcome === 'incomplete' : report!.headline.status === 'incomplete';
+  const shownConclusion = !summary && incomplete && incompleteHeadlineLabel ? incompleteHeadlineLabel : reportConclusion(view);
+  const hasTrend = trend.projected.length + trend.actual.length + trend.reference.length > 0;
+  // 当前报告没有接入逐月数据时不占空区；基线／比较保持原兼容。
+  const showTrend = hasTrend || view.kind !== 'current';
+  const impactItems = summary ? view.missing.filter(m => m.impact === 'blocks_headline') : [];
+  const estimatedText = (s: CurrentSummary) => s.contribution_direction === 'withdrawal' ? `${formatMoney(s.estimated_contribution)}（取用，不计为储蓄）` : formatMoney(s.estimated_contribution);
+  const differenceText = (s: CurrentSummary) => s.contribution_direction === 'withdrawal' ? '取用不计差额' : formatMoney(s.difference);
   const doCopy = async () => {
     if (copying) return;
-    const summary = copyText(report!, privacy);
-    const text = report!.headline.status === 'incomplete' && incompleteHeadlineLabel ? summary.replace('关键资料缺失，无法给出完整结论。', incompleteHeadlineLabel) : summary;
+    const copiedText = copyText(report!, privacy);
+    const text = !summary && incomplete && incompleteHeadlineLabel ? copiedText.replace('关键资料缺失，无法给出完整结论。', incompleteHeadlineLabel) : copiedText;
     setCopying(true); setCopied(false); setCopyError('');
     try { await navigator.clipboard.writeText(text); setCopied(true); }
     catch { setCopyError('复制失败，请重试。'); }
@@ -99,6 +109,7 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
         </p>
       </div>
       <div className="pr-actions">
+        {onPrivacyChange && <button type="button" className="pr-toggle-amount" aria-pressed={!privacy} disabled={copying} onClick={() => onPrivacyChange(!privacy)}>{privacy ? '显示金额' : '隐藏金额'}</button>}
         {onPrivacyChange && <div className="pr-segmented" role="group" aria-label="报告版本">
           <button type="button" className={seg(!privacy)} aria-pressed={!privacy} disabled={copying} onClick={() => onPrivacyChange(false)}>完整</button>
           <button type="button" className={seg(privacy)} aria-pressed={privacy} disabled={copying} onClick={() => onPrivacyChange(true)}>隐私</button>
@@ -110,13 +121,46 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
     {copyError && <p className="pr-error" role="alert">{copyError}</p>}
     {copied && <p className="pr-muted" role="status">摘要已复制。</p>}
 
-    {view.status === 'partial' && <p className="pr-banner" role="status">本报告输入不完整或展示范围有限；未知不等于零，未覆盖内容见下方说明。</p>}
+    {view.status === 'partial' && !summary && <p className="pr-banner" role="status">本报告输入不完整或展示范围有限；未知不等于零，未覆盖内容见下方说明。</p>}
 
     <section className="pr-card pr-conclusion" aria-label="结论">
-      <p className="pr-headline">{view.headline.status === 'incomplete' && incompleteHeadlineLabel ? incompleteHeadlineLabel : headlineSentence(view)}</p>
-      <p className="pr-muted">下一步：{view.next_step.label}{view.next_step.detail ? `（${view.next_step.detail}）` : ''}</p>
+      {summary && <p className="pr-outcome"><span className="pr-outcome-label">当前结论</span>{currentOutcomeLabel(summary.outcome)} · {currentModeLabel(summary.mode)}</p>}
+      <p className="pr-headline">{shownConclusion}</p>
+      <p className="pr-muted">{summary ? currentNextStep(summary) : <>下一步：{view.next_step.label}{view.next_step.detail ? `（${view.next_step.detail}）` : ''}</>}</p>
     </section>
 
+    {summary && <section className="pr-card" aria-label="关键结果">
+      <h3 className="pr-h">关键结果</h3>
+      <div className="pr-results">
+        <div className="pr-result"><span className="pr-result-label">所需月投入</span><span className="pr-result-value pr-num">{formatMoney(summary.required_contribution)}</span></div>
+        <div className="pr-result"><span className="pr-result-label">预计月投入</span><span className="pr-result-value pr-num">{estimatedText(summary)}</span></div>
+        <div className="pr-result"><span className="pr-result-label">差额（预计 − 所需）</span><span className="pr-result-value pr-num">{differenceText(summary)}</span></div>
+        <div className="pr-result"><span className="pr-result-label">终点预计可用资金</span><span className="pr-result-value pr-num">{formatMoney(summary.terminal_available)}</span></div>
+      </div>
+    </section>}
+
+    {summary && impactItems.length > 0 && <section className="pr-card" aria-label="影响结论的事项">
+      <h3 className="pr-h">影响结论的事项</h3>
+      <ul className="pr-missing">{impactItems.map(m => <li key={m.id}>
+        <span className={'pr-impact ' + m.impact}>{impactLabel(m.impact)}</span>{m.label}
+        {m.hint && <span className="pr-muted"> · {m.hint}</span>}
+      </li>)}</ul>
+    </section>}
+
+    {summary && <section className="pr-card" aria-label="主要条件摘要">
+      <h3 className="pr-h">主要条件摘要</h3>
+      <table className="pr-table"><tbody>
+        <tr><th>目标月</th><td>{dateLabel(summary.target_month)}</td></tr>
+        <tr><th>预测终点</th><td>{dateLabel(summary.horizon_month)}</td></tr>
+        <tr><th>{summary.mode === 'fire' ? '预计达成月' : '预计退休月'}</th><td>{dateLabel(summary.expected_retirement_month)}</td></tr>
+        <tr><th>可用资金</th><td className="pr-num">{formatMoney(summary.available_funds)}</td></tr>
+        <tr><th>完整生活预算／月</th><td className="pr-num">{formatMoney(summary.budget)}</td></tr>
+        <tr><th>目标前实际年收益</th><td>{summary.before_return ? formatRatio(summary.before_return) : '未知'}</td></tr>
+        <tr><th>目标后实际年收益</th><td>{summary.after_return ? formatRatio(summary.after_return) : '未知'}</td></tr>
+      </tbody></table>
+    </section>}
+
+    {summary && view.status === 'partial' && <p className="pr-muted pr-scope-note">本报告展示当前已保存条件的结果；逐月趋势、逐项购买结果与历史实际对照请到计算详情查看。</p>}
     <section className="pr-card" aria-label="资金范围">
       <h3 className="pr-h">资金范围</h3>
       <table className="pr-table">
@@ -141,7 +185,7 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
       </table>
     </section>}
 
-    <section className="pr-card" aria-label="资金趋势">
+    {showTrend && <section className="pr-card" aria-label="资金趋势">
       <h3 className="pr-h">资金趋势
         {!privacy && (trend.projected.length + trend.actual.length + trend.reference.length > 0) &&
           <button type="button" className="pr-link" aria-expanded={showTable} onClick={() => setShowTable(v => !v)}>{showTable ? '收起数据表' : '查看数据表'}</button>}
@@ -156,7 +200,7 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
           <td className="pr-num">{s.debt ? formatMoney(s.debt) : '—'}</td>
         </tr>)}</tbody>
       </table>}
-    </section>
+    </section>}
 
     <details className="pr-card pr-details">
       <summary>计算依据（{view.assumptions.length} 项）</summary>

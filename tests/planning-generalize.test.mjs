@@ -51,6 +51,8 @@ test('other future income saves its explicit month and amount with the whole set
  click(r,'+ 其他收入');
  enter(r,'input','收入名称','配偶养老金');enter(r,'CentInput','每月预计净到账金额','300000');enter(r,'MonthInput','开始领取时间','2052-06');
  click(r,'完成');r.find('form').props.onSubmit({preventDefault(){}});await r.settle();
+ assert.equal(r.calls.length,0);assert.ok(r.find('CentInput',p=>p.label==='每月大约能存下多少钱'));
+ r.find('form').props.onSubmit({preventDefault(){}});await r.settle();
  const i=r.calls[0].fields.simplified.future_incomes.find(i=>i.name==='配偶养老金');
  assert.equal(i.role,'other');assert.equal(i.monthly_cents,'300000');assert.equal(i.start_month,'2052-06');
 });

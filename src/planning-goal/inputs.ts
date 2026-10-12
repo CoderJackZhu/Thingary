@@ -1,8 +1,8 @@
 import type { BasicFields, ProfileState } from '../plan.ts';
 import type { SectionInput } from '../planning-basic-data.ts';
 export type Saved = NonNullable<ProfileState['saved']>;
-export type GoalEdit = 'time' | 'spend' | 'saving' | 'assumptions' | 'start';
-export const editTitles: Record<GoalEdit, string> = { time: '停止工作时间', spend: '退休生活费', saving: '每月能存的钱', assumptions: '计算假设', start: '现在可用的钱' };
+export type GoalEdit = 'mode' | 'time' | 'spend' | 'saving' | 'assumptions' | 'start' | 'emergency';
+export const editTitles: Record<GoalEdit, string> = { mode: '目标类型', time: '停止工作时间', spend: '退休生活费', saving: '每月能存的钱', assumptions: '计算假设', start: '现在可用的钱', emergency: '应急金' };
 
 /** Scoped editors copy untouched values verbatim; they never normalize unrelated drafts. */
 export function basicFields(saved: Saved): BasicFields {
@@ -15,9 +15,11 @@ export function basicFields(saved: Saved): BasicFields {
 export function goalInput(kind: GoalEdit, saved: Saved, draft: BasicFields, simplified: import('../plan-simplified-contract.ts').SimplifiedPlanningFieldsV1 = saved.profile.retire.simplified): SectionInput {
   if (kind === 'time') return { section: 'simplified', fields: structuredClone(simplified) };
   const f = basicFields(saved);
+  if (kind === 'mode') f.mode = draft.mode;
   if (kind === 'spend') f.spend_cents = draft.spend_cents;
   if (kind === 'saving') f.basic.contribution.monthly_cents = draft.basic.contribution.monthly_cents;
   if (kind === 'start') f.basic.start = structuredClone(draft.basic.start);
   if (kind === 'assumptions') { f.real_return_before_hundredths = draft.real_return_before_hundredths; f.real_return_after_hundredths = draft.real_return_after_hundredths; f.inflation_hundredths = draft.inflation_hundredths; }
+  if (kind === 'emergency') f.emergency_months = draft.emergency_months;
   return { section: 'basic', fields: f };
 }

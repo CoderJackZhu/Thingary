@@ -11,3 +11,27 @@ test('failed save retains fields and can retry the same draft',async()=>{let fai
 test('unknown receipt freezes replay and navigation while allowing close for later verification',async()=>{let r;r=open(async()=>{r.saver.stuck=true;return null;});await submit(r);await submit(r);assert.equal(r.calls.length,1);assert.equal(r.button('保存，查看结果').props.disabled,true);assert.equal(r.button('关闭，稍后核对保存结果').props.disabled,false);});
 test('nested income draft blocks parent save and navigation until finished or cancelled',async()=>{const r=open();r.find('input',p=>p['aria-label']==='填写预计收入').props.onChange();r.render();r.button('+ 养老金').props.onClick();r.render();assert.equal(r.button('保存，查看结果').props.disabled,true);await submit(r);assert.equal(r.calls.length,0);assert.ok(r.nodes().filter(n=>n.type==='button'&&n.props['aria-current']).every(n=>n.props.disabled));});
 test('time question leads with birth month, retirement age and horizon age, with direct months retained',()=>{const r=open(undefined,{initialStep:0});assert.ok(r.find('MonthInput',p=>p.label==='出生年月'));assert.ok(r.find('input',p=>p['aria-label']==='退休年龄（岁）'));assert.ok(r.find('input',p=>p['aria-label']==='规划终点年龄（岁）'));assert.ok(r.find('MonthInput',p=>p.label==='退休开始月份'));assert.ok(r.find('MonthInput',p=>p.label==='规划终点月份'));});
+
+test('first setup exposes goal type and an optional fifth contribution step in the main navigation', async () => {
+ const r=open(undefined,{initialStep:0,editMode:false});
+ const mode=r.find('Segments',p=>p.label==='生活目标');
+ mode.props.onChange('fire');r.render();
+ r.find('button',p=>p['aria-label']==='5. 每月大约能存下多少钱？').props.onClick();r.render();
+ assert.ok(r.find('CentInput',p=>p.label==='每月大约能存下多少钱'));
+ r.find('CentInput',p=>p.label==='每月大约能存下多少钱').props.onChange('');r.render();
+ await submit(r);assert.equal(r.calls.length,1);assert.equal(r.calls[0].section,'setup');
+ assert.equal(r.calls[0].fields.basic.mode,'fire');assert.equal(r.calls[0].fields.basic.basic.contribution.monthly_cents,null);
+ assert.deepEqual(r.closes,[true]);
+});
+test('first setup income step continues to contribution before final save',async()=>{
+ const r=open(undefined,{editMode:false});await submit(r);assert.equal(r.calls.length,0);
+ assert.ok(r.find('CentInput',p=>p.label==='每月大约能存下多少钱'));
+ r.find('CentInput',p=>p.label==='每月大约能存下多少钱').props.onChange('-12500');r.render();
+ await submit(r);assert.equal(r.calls.length,1);assert.equal(r.calls[0].fields.basic.basic.contribution.monthly_cents,'-12500');
+});
+test('emergency reserve is visible alongside budget and validation returns there',async()=>{
+ const r=open(undefined,{initialStep:1});
+ r.find('input',p=>p['aria-label']==='应急金月数').props.onChange({target:{value:'37'}});r.render();
+ await submit(r);assert.equal(r.calls.length,0);assert.match(r.text(r.find('dialog')),/应急金月数/);
+ assert.ok(r.find('input',p=>p['aria-label']==='应急金月数'));
+});

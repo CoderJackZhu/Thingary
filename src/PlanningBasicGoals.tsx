@@ -15,7 +15,7 @@ import { CapabilityNotice } from './PlanningRequirement';
 import { RunwayCard } from './PlanningRunway';
 import { PlanningCareerCard } from './PlanningCareerCard';
 import { PlanningBasicDetail } from './PlanningBasicDetail';
-import type { PlanningFollowupPortV1 } from './planning-followup-contract';
+import type { PlanningFollowupPortV1, AssumptionReadV1, FollowupRead } from './planning-followup-contract';
 import { PlanningEvents } from './PlanningEvents';
 import type { EventsStore } from './PlanningEvents';
 import { PlanningWishes } from './PlanningWishes';
@@ -40,8 +40,10 @@ type GoalDialog =
   | { kind: 'occurrence'; completion: boolean; event: StoredLifeEvent };
 
 /** Goal states are a presentation projection; current calculation gates remain unchanged. */
-export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone, assumptionsPort }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean, completionId?: string) => void; focus?: boolean; onFocusDone: () => void; assumptionsPort?: PlanningFollowupPortV1 }) {
+export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPending, onEditingChange, onGoto, openSetup, focus = false, onFocusDone, assumptionsPort, onReport, reportDisabled }: { sources: PlanningSources; mode: PlanMode; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; onGoto: (tab: 'savings') => void; openSetup: (step?: number, from?: HTMLElement | null, editMode?: boolean, completionId?: string) => void; focus?: boolean; onFocusDone: () => void; assumptionsPort?: PlanningFollowupPortV1; onReport?: (from: HTMLElement) => void; reportDisabled?: boolean }) {
   const [dialog, setDialog] = useState<GoalDialog | null>(null);
+  const [assumptionRead, setAssumptionRead] = useState<FollowupRead<AssumptionReadV1> | null>(null);
+  const [assumptionReadEpoch, setAssumptionReadEpoch] = useState(0);
   const [detail, setDetail] = useState(false), opener = useRef<HTMLElement | null>(null);
   const [assumptionEditing, setAssumptionEditing] = useState(false);
   const editing = dialog !== null || assumptionEditing;
@@ -80,7 +82,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     });
   }
   function editGoal(field: GoalAction, from: HTMLElement) {
-    if (field === 'assumptions') { if (assumptionsPort) setAssumptionEditing(true); else openSetup(5, from, true); }
+    if (field === 'assumptions') { if (assumptionsPort) { opener.current = from; setAssumptionEditing(true); } else openSetup(5, from, true); }
     else if (field === 'income') openSetup(3, from, true);
     else if (field === 'funds' || field === 'costs') openDialog({ kind: field, completion: false }, from);
     else if (field === 'debt') openDialog({ kind: 'debt', completion: false }, from);
@@ -95,6 +97,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     else openSetup(o === 'funds' ? 2 : 0, null, true);
   }
   function action(card: Refinement, from: HTMLElement | null) {
+    if (card.id === 'assumptions-read') { setAssumptionReadEpoch(n => n + 1); return; }
     if (card.action === 'debts') openDialog({ kind: 'debt', completion: true }, from);
     else if (card.action === 'costs' || card.action === 'funds') openDialog({ kind: card.action, completion: true }, from);
     else if (card.action === 'event' && card.event) openDialog({ kind: 'occurrence', completion: true, event: card.event }, from);
@@ -122,17 +125,17 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   if (sources.profile.status === 'error') return <article className="ui-card ui-content" role="alert"><p>规划资料读取失败：{sources.profile.value.message}</p><button onClick={reload}>重新读取</button></article>;
   if (detail && saved?.profile.retire.basic) return <PlanningBasicDetail sources={sources} saved={saved} today={today} reload={reload} onPending={onPending} onEditingChange={onEditingChange} openSetup={(step, from) => openSetup(step, from, true)} onEvents={() => goEvents()} onBack={() => { setDetail(false); requestAnimationFrame(() => document.getElementById('plan-detail-entry')?.focus()); }} assumptionsPort={assumptionsPort}/>;
   return <div className="plan-goals" data-goal-state={state}>
-    {saved && assumptionsPort && <AssumptionsSummary port={assumptionsPort} generation={sources.generation} writeVersion={sources.write_version} blocked={saver.busy || saver.stuck} reload={reload} onPending={onPending} open={assumptionEditing} onOpenChange={setAssumptionEditing}/>}
+    {saved && assumptionsPort && <AssumptionsSummary embedded readEpoch={assumptionReadEpoch} port={assumptionsPort} generation={sources.generation} writeVersion={sources.write_version} blocked={saver.busy || saver.stuck} reload={reload} onPending={onPending} open={assumptionEditing} onOpenChange={value => { setAssumptionEditing(value); if (!value) requestAnimationFrame(() => opener.current?.focus()); }} onReadChange={setAssumptionRead}/>}
     {!!caps?.reset_reasons?.length && <article className="ui-card ui-content" role="status"><h3>规划条件需要重新确认</h3><p>规划已改为通用时间、资金和预计收入。请核对{caps.reset_reasons.map(r => ({ time_unconfirmed: '目标与终点月份', income_unconfirmed: '未来收入', funds_unconfirmed: '可用资金' })[r]).join('、')}；账户、盘点和实际记录不受影响。</p><button className="ui-btn" onClick={e => openSetup(0, e.currentTarget, true)}>核对规划条件</button></article>}
     {dialog?.kind === 'debt' && saved && <PlanningDebtDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'funds' && saved && <FundsDialog completion={dialog.completion} sources={sources} saved={saved} snapshot={snapshot} accounts={accounts} today={today} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'costs' && saved && <CostsDialog completion={dialog.completion} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'occurrence' && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={dialog.completion} event={dialog.event} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === dialog.event.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} saveDisabled={sources.accounts.status !== 'ready' || sources.snapshot.status !== 'ready' || !snapshot} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
     {dialog?.kind === 'single' && saved && <GoalEditor kind={dialog.field} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
-    {saved?.profile.retire.basic && caps ? <GoalOverview saved={saved} caps={caps} today={today} cards={cards} purchasePlans={purchasePlans} accountFunds={fundScopeSummary(snapshot, saved.profile.retire.core?.fund_rules ?? [], accounts)} onAnnotation={annotationAction} onEdit={editGoal} onRefine={action} onDetail={() => setDetail(true)}/> : <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
+    {saved?.profile.retire.basic && caps ? <GoalOverview saved={saved} caps={caps} today={today} cards={cards} purchasePlans={purchasePlans} accountFunds={fundScopeSummary(snapshot, saved.profile.retire.core?.fund_rules ?? [], accounts)} onAnnotation={annotationAction} onEdit={editGoal} onRefine={action} onDetail={() => setDetail(true)} onReport={onReport} reportDisabled={reportDisabled} assumptionRead={assumptionsPort ? assumptionRead : undefined}/> : <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
       {!saved?.profile.retire.basic ? <>
         <h3>想知道：要攒多少钱才够？</h3>
-        <p className="planning-first-promise">回答 4 个问题，算出“从目标月份起使用资金，每月大约要存多少钱”。</p><p className="muted">可以只算自己，也可以按全家算：生活费、资金和收入按同一范围填。没想好的可以先留空，随时退出，不保存草稿。</p>
+        <p className="planning-first-promise">回答 5 个问题，算出“从目标月份起使用资金，每月大约要存多少钱”。</p><p className="muted">可以只算自己，也可以按全家算：生活费、资金和收入按同一范围填。没想好的可以先留空，随时退出，不保存草稿。</p>
         <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始（约 2 分钟）</button><button type="button" className="ui-link" onClick={() => onGoto('savings')}>查看财务复盘</button></div>
       </> : <p>正在读取你的规划条件…</p>}
     </article>}

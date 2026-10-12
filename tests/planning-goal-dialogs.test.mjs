@@ -85,12 +85,16 @@ test('condition and next-step assumption actions open the shared four-value edit
     p.retire.basic.contribution.monthly_cents = '200000';
     const caps = buildBasicCapabilities(sources);
     caps.funds = { status: 'ready', value: { available_cents: '1000000', restricted_cents: '0', date: '2026-10-12' } };
-    const port = {}, r = runtime('PlanningBasicGoals', { sources, assumptionsPort: port }, undefined, caps, {
-      modules: { './planning-first-run': { ...firstRun, refinementCards: () => [] } },
+    const port = {};
+    // The shared runtime does not load the follow-up UI; report a real unconfirmed read so the host can gate its next step.
+    const read = { status: 'ready', value: { generation: sources.generation, revision: null, values: { real_return_before_hundredths: 0, real_return_after_hundredths: 0, inflation_hundredths: 200, volatility_hundredths: 500 }, confirmation: 'unconfirmed', confirmed_values: null } };
+    const StubSummary = props => { props.onReadChange?.(read); return { type: 'AssumptionsSummary', props, key: null }; };
+    const r = runtime('PlanningBasicGoals', { sources, assumptionsPort: port }, undefined, caps, {
+      modules: { './planning-first-run': { ...firstRun, refinementCards: () => [] }, './planning-followup-ui/AssumptionsSummary': { AssumptionsSummary: StubSummary } },
     });
     const button = entry === 'condition'
       ? r.find('button', p => p['aria-label'] === '调整计算假设')
-      : r.nodes().find(n => n.type === 'button' && !n.props['aria-label'] && r.text(n) === '调整计算假设');
+      : r.nodes().find(n => n.type === 'button' && !n.props['aria-label'] && r.text(n) === '核对计算假设');
     assert.ok(button, entry);
     button.props.onClick({ currentTarget: { isConnected: true, focus() {} } }); r.render();
     const shared = r.find('AssumptionsSummary');

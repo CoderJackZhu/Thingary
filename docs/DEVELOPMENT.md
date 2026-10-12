@@ -107,7 +107,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --tes
 
 ### 通用规划基础联合验收
 
-四问在内存编辑，最终 setup 一次事务保存；后续分区修改只改对应条件。回归 `planning-basic-ui`、`planning-basic-service-integration`、`planning-fourq-components`、`planning-debt` 与 `planning-component-runtime`；Rust 重点为 `plan_profile.rs`、`planning_basic.rs` 和 `tests/helpers/planning_migration.rs`。旧政策输入退出，真实资产、收入、付款、附件、稳定 ID 和历史回执继续保全。
+五步主要条件在内存编辑（净投入可跳过），最终 setup 一次事务保存；后续分区修改只改对应条件。回归 `planning-basic-ui`、`planning-basic-service-integration`、`planning-fourq-components`、`planning-debt` 与 `planning-component-runtime`；Rust 重点为 `plan_profile.rs`、`planning_basic.rs` 和 `tests/helpers/planning_migration.rs`。旧政策输入退出，真实资产、收入、付款、附件、稳定 ID 和历史回执继续保全。
 
 需求与预测门控独立，完整预算／零终点判据、收益上下调 200 bps、月初付款顺序、引用去重与模型标注共用现行账本。风险与来源回归见 `tests/plan-risk.test.mjs` 和 `source-provenance.test.mjs`；来源与许可另见 [SOURCE_NOTICES](../SOURCE_NOTICES.md)。
 
@@ -124,6 +124,8 @@ cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_cont
 <a id="current-report-validation"></a>
 
 ### 当前规划报告预览与验证边界
+
+2026-10-13 目标首页与当前报告可读性更新已通过构建、1,020 项 UI 测试、Rust 格式／Clippy 和 576 项 Rust 测试（3 项容量测试按原规则忽略）。虚构浏览器核对了五步设置、正常／未知／空白／假设读取失败、隐私／完整报告和 1280×720／820×720 布局。本轮未做原生保存重启、完整键盘／输入法或 VoiceOver 验收；旧原生通过记录不替代这次界面改动的验收。假设只读预览参数 `assumptions=confirmed|unconfirmed|needs_review|error` 是虚构展示，预览仍拒绝原生假设确认写入。
 
 “查看当前报告”使用同一批已保存来源与领域能力，经 v1 校验生成独立只读快照。普通刷新不替换正文；切库、恢复、规划关闭或离开目标使其失效。未知投入不补零；影响计算的遗漏或未确认假设限制结论。只展示列明的账户资金、结构化条件、需求与已有确定性输出，不造逐月趋势、逐项购买结果或历史比较。
 

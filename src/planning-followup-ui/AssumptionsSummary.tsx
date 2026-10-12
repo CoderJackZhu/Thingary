@@ -4,19 +4,24 @@ import { AssumptionsEditor } from './AssumptionsEditor';
 import { assumptionSummary, confirmationText } from './model';
 import './planning-followup-ui.css';
 
-export function AssumptionsSummary({ port, generation, writeVersion, blocked = false, reload, onPending, onEditingChange, open: controlledOpen, onOpenChange }: {
+export function AssumptionsSummary({ port, generation, writeVersion, blocked = false, reload, onPending, onEditingChange, open: controlledOpen, onOpenChange, onReadChange, embedded = false, readEpoch = 0 }: {
   port: PlanningFollowupPortV1; generation: string; writeVersion: number; blocked?: boolean;
   reload: () => void; onPending: () => void; onEditingChange?: (v: boolean) => void; open?: boolean; onOpenChange?: (v: boolean) => void;
+  onReadChange?: (read: FollowupRead<AssumptionReadV1> | null) => void;
+  embedded?: boolean; readEpoch?: number;
 }) {
   const [read, setRead] = useState<FollowupRead<AssumptionReadV1> | null>(null), [localOpen, setLocalOpen] = useState(false), [retry, setRetry] = useState(0);
   const open = controlledOpen ?? localOpen, setOpen = onOpenChange ?? setLocalOpen;
   const opener = useRef<HTMLButtonElement>(null);
   useEffect(() => { onEditingChange?.(open); return () => onEditingChange?.(false); }, [open, onEditingChange]);
+  // Report the real read state, including the loading null and generation-filtered error, so hosts never infer confirmation from default values.
+  useEffect(() => { onReadChange?.(read); }, [read, onReadChange]);
   useEffect(() => {
     let live = true; setRead(null);
     port.readAssumptions(generation).then(v => { if (live) setRead(v.status === 'ready' && v.value.generation !== generation ? { status: 'error', code: 'GENERATION_MISMATCH', message: '资料库已变化，请重新读取。' } : v); }).catch(e => { if (live) setRead({ status: 'error', code: 'READ_ERROR', message: String(e) }); });
     return () => { live = false; };
-  }, [port, generation, writeVersion, retry]);
+  }, [port, generation, writeVersion, retry, readEpoch]);
+  if (embedded) return open ? <AssumptionsEditor port={port} generation={generation} onPending={onPending} onClose={saved => { setOpen(false); if (saved) { setRetry(n => n + 1); reload(); } }}/> : null;
   return <aside className="ui-card ui-content" aria-label="规划试算假设">
     {!read ? <p role="status">正在读取试算假设…</p> : read.status !== 'ready' ? <p role="alert">{read.message}<button className="ui-btn" onClick={() => setRetry(n => n + 1)}>重新读取</button></p> : <>
       <p className={`pfu-confirm ${read.value.confirmation}`}>{confirmationText[read.value.confirmation]}</p>

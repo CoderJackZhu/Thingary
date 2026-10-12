@@ -46,6 +46,7 @@
 | source_date、scenario_revision、model_version | 来源元数据，不从当前日期猜 |
 | status | complete/partial；读取失败是组件外单独状态 |
 | headline | 语义状态 ok/shortfall/incomplete，金额使用结构化 money 值 |
+| current_summary（可选） | 仅 current 报告；受控 outcome、退休模式、目标／终点／预计达成月份与结构化月需求／投入／差额／终点余额、主要条件。旧 v1 缺省仍可读取；本字段严格校验与白名单脱敏，结论优先于通用 headline，不改变领域计算 |
 | funds | 稳定局部ID、名称、可用性、金额/依据状态 |
 | goals | ID、名称、模板类型、日期、结构化结果、缺项 |
 | assumptions | 有标签的 text/date/money/ratio/unknown 值与来源状态 |

@@ -94,11 +94,16 @@ test('real copy handler reports failure, retries identical private text and has 
   props.privacy = false; r.render(); assert.ok(r.button('复制摘要')); await r.button('复制摘要').props.onClick(); r.render(); assert.ok(copied[2].includes('¥'));
 });
 
-test('limited current results show and copy controlled wording instead of claiming unknown facts', async () => {
+test('structured current conclusion is not replaced by the generic limited-coverage label', async () => {
   const s = basicFixtureSources(), report = currentReportInput(s, buildBasicCapabilities(s), s.today);
-  const label = '本报告保留部分结果，请结合缺项与未覆盖内容核对。'; let copied;
-  const r = harness('planning-report/PlanningReport.tsx', 'PlanningReport', { outer: { status: 'ready', input: report }, privacy: true, allowPrint: false, incompleteHeadlineLabel: label }, { './model.ts': model }, { navigator: { clipboard: { async writeText(text) { copied = text; } } } });
-  assert.ok(r.nodes().some(row => row.props?.className === 'pr-headline' && r.text(row) === label));
+  const label = '本报告保留部分结果，请结合缺项与未覆盖内容核对。'; let copied, selectedPrivacy;
+  const r = harness('planning-report/PlanningReport.tsx', 'PlanningReport', { outer: { status: 'ready', input: report }, privacy: true, allowPrint: false, incompleteHeadlineLabel: label, onPrivacyChange: v => selectedPrivacy = v }, { './model.ts': model }, { navigator: { clipboard: { async writeText(text) { copied = text; } } } });
+  assert.ok(r.nodes().some(row => row.props?.className === 'pr-headline' && r.text(row) === model.reportConclusion(report)));
+  assert.ok(r.nodes().some(row => row.props?.['aria-label'] === '关键结果'));
+  assert.ok(r.nodes().some(row => row.props?.['aria-label'] === '主要条件摘要'));
+  assert.equal(r.nodes().some(row => row.props?.['aria-label'] === '资金趋势'), false);
   assert.equal(r.nodes().some(row => row.props?.['aria-label'] === '目标结果'), false);
-  await r.button('复制摘要').props.onClick(); r.render(); assert.ok(copied.includes(label)); assert.ok(!copied.includes('关键资料缺失'));
+  await r.button('复制摘要').props.onClick(); r.render(); assert.ok(copied.includes(model.reportConclusion(report))); assert.ok(!copied.includes(label));
+  r.button('显示金额').props.onClick();
+  assert.equal(selectedPrivacy,false);assert.ok(!r.text(r.nodes()).includes('¥'));
 });
