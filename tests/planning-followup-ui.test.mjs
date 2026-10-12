@@ -468,6 +468,7 @@ test('switching mode previews the difference first; cancel writes nothing, confi
   assert.match(h.text(), /切换核对方式前请核对差额/);
   assert.match(h.text(), /原合计/);
   assert.match(h.text(), /新合计/);
+  assert.match(h.text(), /切换后结果/);
   assert.match(h.text(), /\+¥500/);
   h.button('取消（不切换）').props.onClick(); h.rerender();
   assert.equal(saveCalls(calls, 'saveReview').length, 0);

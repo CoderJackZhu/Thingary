@@ -176,6 +176,7 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
               <div><dt>差额（新 − 旧）</dt><dd>{intent.preview.difference.inflow_cents === null || intent.preview.difference.outflow_cents === null ? '未知（存在未知合计）' : `转入 ${formatSignedCents(intent.preview.difference.inflow_cents)} · 转出 ${formatSignedCents(intent.preview.difference.outflow_cents)}`}</dd></div>
               <div><dt>纳入流动条数</dt><dd>{intent.preview.movement_count} 条</dd></div>
             </dl>
+            <p role="status">切换后结果：{intent.preview.result.status === 'ready' ? formatSignedCents(intent.preview.result.value.profit_cents) : statusLabel[intent.preview.result.status]}</p>
             <p className="pfu-muted small">切换后完整性确认会重置，需要重新确认；受影响结果以预览为准，保存时会检查依据是否变化。</p>
             <div className="pfu-actions-row">
               <button type="button" className="pfu-btn" disabled={busy} onClick={() => setIntent(null)}>取消（不切换）</button>
