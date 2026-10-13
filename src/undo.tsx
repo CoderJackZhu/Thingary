@@ -1,3 +1,4 @@
+import { modKey } from './undo-shortcut';
 import { useEffect, useRef, useState } from 'react';
 import { errorMessage } from './asset';
 import { listen } from '@tauri-apps/api/event';
@@ -54,6 +55,6 @@ export function UndoBar() {
   if (!offer) return null;
   return <div className="undo-bar" role="status">
     <span>{message || offer.label}</span>
-    {!message && <button type="button" disabled={busy} onClick={() => void undo()}>{busy ? '正在撤销…' : <>撤销<kbd>⌘Z</kbd></>}</button>}
+    {!message && <button type="button" disabled={busy} onClick={() => void undo()}>{busy ? '正在撤销…' : <>撤销<kbd>{modKey()}Z</kbd></>}</button>}
   </div>;
 }

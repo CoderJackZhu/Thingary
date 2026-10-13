@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { desktopShortcutAction } from '../src/undo-shortcut.ts';
 import { emptySearchSession, searchDebounceMs, searchFilterList, searchKindLabel, searchKindModule, searchKindOrder, searchPageSize } from '../src/search.ts';
 
 test('filter list follows the fixed kind order and module gating', () => {
@@ -36,7 +37,11 @@ test('labels and constants match the design', () => {
 test('app shell wiring keeps ⌘F/⌘N meanings and isolates the session (B01/B05/B07)', () => {
   const main = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
   // ⌘⇧F only opens the global search; ⌘F keeps its page meaning.
-  assert.match(main, /e\.shiftKey && \(e\.key === 'F' \|\| e\.key === 'f'\)\) \{ e\.preventDefault\(\); openGlobalSearch\(\); \}/);
+  const command = { key: 'f', metaKey: true, ctrlKey: false, shiftKey: false, altKey: false, preventDefault() {} };
+  assert.equal(desktopShortcutAction({ ...command, shiftKey: true }, true), 'global-search');
+  assert.equal(desktopShortcutAction(command, true), 'find-asset');
+  assert.equal(desktopShortcutAction({ ...command, key: 'n' }, true), 'new-asset');
+  assert.match(main, /handleDesktopShortcut\(event,[\s\S]{0,450}emit\('asset-action', action\)/);
   assert.match(main, /action === 'global-search'\) \{ openGlobalSearch\(\); return; \}/);
   assert.match(main, /action === 'find-asset'/);
   assert.match(main, /action === 'new-asset'/);

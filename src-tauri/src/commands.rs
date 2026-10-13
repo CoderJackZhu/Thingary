@@ -45,10 +45,24 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[derive(Default)]
 pub struct EditGuard(pub AtomicBool);
 #[derive(Default)]
-pub struct LibraryGuard(pub AtomicBool);
+pub struct LibraryGuard(
+    pub AtomicBool,
+    // Separate from library switching: Windows must keep active forms/tasks open.
+    #[cfg(target_os = "windows")] pub AtomicBool,
+);
 #[tauri::command]
-pub fn set_library_busy(busy: bool, guard: tauri::State<'_, LibraryGuard>) {
+pub fn set_library_busy(
+    busy: bool,
+    close_blocked: Option<bool>,
+    guard: tauri::State<'_, LibraryGuard>,
+) {
     guard.0.store(busy, Ordering::SeqCst);
+    #[cfg(target_os = "windows")]
+    guard
+        .1
+        .store(close_blocked.unwrap_or(busy), Ordering::SeqCst);
+    #[cfg(not(target_os = "windows"))]
+    let _ = close_blocked;
 }
 #[tauri::command]
 pub async fn demo_status(
@@ -1145,22 +1159,38 @@ pub async fn notification_permission(worker: tauri::State<'_, Worker>) -> Result
 
 #[tauri::command]
 pub fn open_notification_settings() -> Result<()> {
-    let status = std::process::Command::new("open")
-        .arg("x-apple.systempreferences:com.apple.preference.notifications")
-        .status()
-        .map_err(|_| {
-            Error::new(
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer.exe")
+            .arg("ms-settings:notifications")
+            .spawn()
+            .map(|_| ())
+            .map_err(|_| {
+                Error::new(
+                    "REMINDER",
+                    "无法打开 Windows 设置；请手动打开“设置 › 系统 › 通知 › 物谱”",
+                )
+            })
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.notifications")
+            .status()
+            .map_err(|_| {
+                Error::new(
+                    "REMINDER",
+                    "无法打开系统设置；请手动打开“系统设置 › 通知 › 物谱”",
+                )
+            })?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(Error::new(
                 "REMINDER",
                 "无法打开系统设置；请手动打开“系统设置 › 通知 › 物谱”",
-            )
-        })?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(Error::new(
-            "REMINDER",
-            "无法打开系统设置；请手动打开“系统设置 › 通知 › 物谱”",
-        ))
+            ))
+        }
     }
 }
 #[tauri::command]

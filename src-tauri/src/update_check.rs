@@ -238,17 +238,29 @@ pub fn check() -> Result<Outcome> {
 pub fn open_release_page(version: &str, source: &str) -> Result<()> {
     parse_version(version).ok_or_else(|| Error::new("UPDATE_CHECK", "版本号无效"))?;
     let source = Source::parse(source).ok_or_else(|| Error::new("UPDATE_CHECK", "下载来源无效"))?;
-    let status = Command::new("open")
-        .arg(format!("{}{version}", source.page()))
-        .status()
-        .map_err(|_| Error::new("UPDATE_CHECK", "无法打开浏览器，请手动访问发布页"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(Error::new(
-            "UPDATE_CHECK",
-            "无法打开浏览器，请手动访问发布页",
-        ))
+    let url = format!("{}{version}", source.page());
+    #[cfg(windows)]
+    {
+        Command::new("explorer.exe")
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|_| Error::new("UPDATE_CHECK", "无法打开浏览器，请手动访问发布页"))
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let status = Command::new("open")
+            .arg(url)
+            .status()
+            .map_err(|_| Error::new("UPDATE_CHECK", "无法打开浏览器，请手动访问发布页"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(Error::new(
+                "UPDATE_CHECK",
+                "无法打开浏览器，请手动访问发布页",
+            ))
+        }
     }
 }
 

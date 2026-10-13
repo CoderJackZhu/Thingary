@@ -3898,7 +3898,7 @@ dependencies = [
 
 [[package]]
 name = "thingary"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "calamine",
  "cc",
@@ -3918,6 +3918,9 @@ dependencies = [
  "tempfile",
  "unicode-normalization",
  "uuid",
+ "webview2-com",
+ "windows",
+ "windows-core 0.61.2",
  "zip",
 ]
 

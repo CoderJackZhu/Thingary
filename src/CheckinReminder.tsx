@@ -24,7 +24,7 @@ export function CheckinReminder({ wealthOn, today }: { wealthOn: boolean; today:
   }
   return <section className="ui-card ui-content checkin-reminder" aria-labelledby="checkin-reminder-heading">
     <div className="data-heading"><div><p className="eyebrow">提醒</p><h2 id="checkin-reminder-heading">盘点提醒</h2></div></div>
-    <p className="data-intro">每月盘一次钱最容易忘。开启后用系统通知提醒你；提醒只保存在这台 Mac，不进入资料与备份。</p>
+    <p className="data-intro">每月盘一次钱最容易忘。开启后用系统通知提醒你；提醒只保存在这台电脑，不进入资料与备份。</p>
     {status && <Segments label="盘点提醒间隔" value={String(status.months)} options={checkinIntervals} disabled={busy} onChange={v => void choose(v)}/>}
     {status && <p className="muted checkin-reminder-summary" role="status">{checkinReminderSummary(status, wealthOn, today)}</p>}
     {warning && <p className="notice" role="alert">{warning}</p>}

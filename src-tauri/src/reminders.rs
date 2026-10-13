@@ -2,7 +2,7 @@ use crate::{
     domain::{Error, Result},
     storage::Store,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 #[cfg(target_os = "macos")]
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::sync::{
@@ -17,7 +17,7 @@ extern "C" {
     fn thingary_notifications(json: *const c_char, ask: i32) -> *mut c_char;
     fn thingary_free(ptr: *mut c_void);
 }
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Plan {
     pub id: String,
     pub date: String,
@@ -123,11 +123,319 @@ fn native(json: &str, ask: bool) -> Result<()> {
     }
     #[cfg(windows)]
     {
-        let _ = (json, ask);
-        // W4 替换为 ScheduledToastNotification
-        Err(Error::new("REMINDER", "Windows 通知尚未接入"))
+        let identifier = APP_IDENTIFIER
+            .get()
+            .ok_or_else(|| Error::new("REMINDER", "当前应用身份无法使用系统通知"))?;
+        windows_native(identifier, json, ask)
     }
 }
+#[cfg(windows)]
+static APP_IDENTIFIER: OnceLock<String> = OnceLock::new();
+/// The installed Start menu shortcut and the notifier must share this identity.
+/// Set from the actual Tauri configuration before enabling the reminder worker.
+#[cfg(windows)]
+pub fn set_app_identifier(identifier: &str) -> Result<()> {
+    if identifier.is_empty()
+        || identifier.encode_utf16().count() > 128
+        || identifier.chars().any(char::is_whitespace)
+        || identifier.contains('\0')
+    {
+        return Err(Error::new("REMINDER", "当前应用身份无法使用系统通知"));
+    }
+    if let Some(current) = APP_IDENTIFIER.get() {
+        if current == identifier {
+            return Ok(());
+        }
+        return Err(Error::new("REMINDER", "通知应用身份已经设置"));
+    }
+    APP_IDENTIFIER
+        .set(identifier.to_owned())
+        .map_err(|_| Error::new("REMINDER", "通知应用身份已经设置"))
+}
+
+#[cfg(any(windows, test))]
+fn scheduled_key(id: &str) -> Result<String> {
+    use sha2::{Digest, Sha256};
+    if !id.starts_with("thingary-") || id.len() <= "thingary-".len() || id.contains('\0') {
+        return Err(Error::new("REMINDER", "提醒标识无效"));
+    }
+    // ScheduledToastNotification.Id is limited to 16 characters. The full
+    // business ID also remains in the XML; never truncate the business ID.
+    let hash = Sha256::digest(id.as_bytes());
+    Ok(format!(
+        "tg{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6]
+    ))
+}
+
+#[cfg(any(windows, test))]
+fn xml_text(text: &str) -> Result<String> {
+    let mut result = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '&' => result.push_str("&amp;"),
+            '<' => result.push_str("&lt;"),
+            '>' => result.push_str("&gt;"),
+            '\"' => result.push_str("&quot;"),
+            '\'' => result.push_str("&apos;"),
+            '\t' | '\n' | '\r' => result.push(c),
+            c if c >= '\u{20}' && c != '\u{fffe}' && c != '\u{ffff}' => result.push(c),
+            _ => return Err(Error::new("REMINDER", "提醒内容含有无效字符")),
+        }
+    }
+    Ok(result)
+}
+
+#[cfg(any(windows, test))]
+fn toast_xml(plan: &Plan) -> Result<String> {
+    Ok(format!(
+        "<toast launch=\"{}\"><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text></binding></visual></toast>",
+        xml_text(&plan.id)?, xml_text(&plan.title)?, xml_text(&plan.body)?
+    ))
+}
+
+#[cfg(any(windows, test))]
+fn filetime(utc: chrono::DateTime<chrono::Utc>) -> Result<i64> {
+    // WinRT DateTime uses signed 100 ns intervals since 1601-01-01 UTC.
+    utc.timestamp()
+        .checked_add(11_644_473_600)
+        .and_then(|seconds| seconds.checked_mul(10_000_000))
+        .and_then(|ticks| ticks.checked_add(i64::from(utc.timestamp_subsec_nanos() / 100)))
+        .filter(|ticks| *ticks >= 0)
+        .ok_or_else(|| Error::new("REMINDER", "提醒日期超出系统范围"))
+}
+
+#[cfg(any(windows, test))]
+fn local_nine<T: chrono::TimeZone>(date: &str, timezone: &T) -> Result<i64> {
+    use chrono::Datelike;
+    let day = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+        .ok()
+        .filter(|day| {
+            day.format("%Y-%m-%d").to_string() == date && (1601..=9999).contains(&day.year())
+        })
+        .ok_or_else(|| Error::new("REMINDER", "提醒日期无效"))?;
+    // Resolve the local calendar time for this date, so the date's DST offset
+    // is used instead of today's offset. Reject nonexistent/ambiguous times.
+    let utc = timezone
+        .from_local_datetime(&day.and_hms_opt(9, 0, 0).unwrap())
+        .single()
+        .ok_or_else(|| Error::new("REMINDER", "提醒日期在本地时区无效或存在歧义"))?
+        .with_timezone(&chrono::Utc);
+    filetime(utc)
+}
+
+#[cfg(any(windows, test))]
+fn reminder_keys(plans: &[Plan]) -> Result<std::collections::BTreeMap<String, &Plan>> {
+    let mut keys = std::collections::BTreeMap::new();
+    for plan in plans {
+        let key = scheduled_key(&plan.id)?;
+        if keys.insert(key, plan).is_some() {
+            return Err(Error::new("REMINDER", "提醒标识重复或系统短标识冲突"));
+        }
+    }
+    Ok(keys)
+}
+
+#[cfg(any(windows, test))]
+fn keep_scheduled(
+    group: &str,
+    id: &str,
+    time: i64,
+    xml: &str,
+    wanted: &std::collections::BTreeMap<String, (i64, String)>,
+    kept: &mut std::collections::BTreeSet<String>,
+) -> bool {
+    group != "thingary"
+        || (wanted.get(id).is_some_and(|(t, x)| *t == time && x == xml)
+            && kept.insert(id.to_owned()))
+}
+
+#[cfg(windows)]
+struct NotificationApartment;
+#[cfg(windows)]
+impl NotificationApartment {
+    fn new() -> Result<Self> {
+        unsafe {
+            windows::Win32::System::WinRT::RoInitialize(
+                windows::Win32::System::WinRT::RO_INIT_MULTITHREADED,
+            )
+        }
+        .map_err(|_| Error::new("REMINDER", "无法初始化 Windows 通知服务"))?;
+        Ok(Self)
+    }
+}
+#[cfg(windows)]
+impl Drop for NotificationApartment {
+    fn drop(&mut self) {
+        unsafe { windows::Win32::System::WinRT::RoUninitialize() };
+    }
+}
+
+#[cfg(windows)]
+fn notification_error(error: windows::core::Error) -> Error {
+    Error::new(
+        "REMINDER",
+        &format!(
+            "提醒尚未安排成功（Windows {:08X}）；请确认已安装物谱并重试",
+            error.code().0 as u32
+        ),
+    )
+}
+
+#[cfg(windows)]
+fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
+    use windows::{
+        core::HSTRING,
+        Data::Xml::Dom::XmlDocument,
+        Foundation::DateTime,
+        UI::Notifications::{
+            NotificationSetting, ScheduledToastNotification, ToastNotificationManager,
+        },
+    };
+    let _apartment = NotificationApartment::new()?;
+    let notifier = ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(identifier))
+        .map_err(notification_error)?;
+    let enabled = notifier.Setting().map_err(notification_error)? == NotificationSetting::Enabled;
+    let disabled = || {
+        Error::new(
+            "REMINDER",
+            "通知未开启；提醒日期已保存，请在 Windows 设置 › 系统 › 通知 中允许物谱通知",
+        )
+    };
+    if ask {
+        return if enabled { Ok(()) } else { Err(disabled()) };
+    }
+    let plans: Vec<Plan> =
+        serde_json::from_str(json).map_err(|_| Error::new("REMINDER", "提醒计划无效"))?;
+    let keys = reminder_keys(&plans)?;
+    let now = chrono::Utc::now();
+    let now_ticks = filetime(now)?;
+    let mut wanted = std::collections::BTreeMap::new();
+    for (key, plan) in keys {
+        let ticks = local_nine(&plan.date, &chrono::Local)?;
+        #[cfg(feature = "fault-injection")]
+        let ticks = if identifier == "local.thingary.win.acceptance" {
+            match std::env::var("THINGARY_REMINDER_TEST_SECONDS") {
+                Ok(seconds) => {
+                    let seconds: i64 = seconds
+                        .parse()
+                        .ok()
+                        .filter(|s| (10..=600).contains(s))
+                        .ok_or_else(|| {
+                            Error::new("REMINDER", "验收提醒秒数必须在 10 至 600 之间")
+                        })?;
+                    filetime(now + chrono::Duration::seconds(seconds))?
+                }
+                Err(_) => ticks,
+            }
+        } else {
+            ticks
+        };
+        if ticks <= now_ticks {
+            continue;
+        }
+        let document = XmlDocument::new().map_err(notification_error)?;
+        document
+            .LoadXml(&HSTRING::from(toast_xml(plan)?))
+            .map_err(notification_error)?;
+        // Compare the DOM's canonical serialization on both sides.
+        wanted.insert(
+            key,
+            (
+                ticks,
+                document.GetXml().map_err(notification_error)?.to_string(),
+            ),
+        );
+    }
+    let mut kept = std::collections::BTreeSet::new();
+    let existing = notifier
+        .GetScheduledToastNotifications()
+        .map_err(notification_error)?;
+    for item in existing {
+        let group = item.Group().map_err(notification_error)?.to_string();
+        if group != "thingary" {
+            continue;
+        }
+        let id = item.Id().map_err(notification_error)?.to_string();
+        let time = item
+            .DeliveryTime()
+            .map_err(notification_error)?
+            .UniversalTime;
+        let xml = item
+            .Content()
+            .map_err(notification_error)?
+            .GetXml()
+            .map_err(notification_error)?
+            .to_string();
+        if !keep_scheduled(&group, &id, time, &xml, &wanted, &mut kept) {
+            notifier
+                .RemoveFromSchedule(&item)
+                .map_err(notification_error)?;
+        }
+    }
+    // Reconciliation still removes cancelled/changed/past entries when
+    // notifications are disabled. The stored dates are never modified.
+    if !enabled && !plans.is_empty() {
+        return Err(disabled());
+    }
+    for (id, (ticks, xml)) in wanted {
+        if kept.contains(&id) {
+            continue;
+        }
+        let document = XmlDocument::new().map_err(notification_error)?;
+        document
+            .LoadXml(&HSTRING::from(xml))
+            .map_err(notification_error)?;
+        let notification = ScheduledToastNotification::CreateScheduledToastNotification(
+            &document,
+            DateTime {
+                UniversalTime: ticks,
+            },
+        )
+        .map_err(notification_error)?;
+        notification
+            .SetId(&HSTRING::from(id))
+            .map_err(notification_error)?;
+        notification
+            .SetGroup(&HSTRING::from("thingary"))
+            .map_err(notification_error)?;
+        notifier
+            .AddToSchedule(&notification)
+            .map_err(notification_error)?;
+    }
+    Ok(())
+}
+
+/// A narrow isolated-identity driver for installed Windows acceptance builds.
+/// Ordinary builds expose neither this API nor the short-delay override.
+#[cfg(all(windows, feature = "fault-injection"))]
+pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<String> {
+    use windows::{core::HSTRING, UI::Notifications::ToastNotificationManager};
+    const ID: &str = "local.thingary.win.acceptance";
+    match action {
+        "reconcile" => windows_native(ID, json, false)?,
+        "permission" => windows_native(ID, "[]", true)?,
+        "clear" => windows_native(ID, "[]", false)?,
+        "inspect" => {}
+        _ => return Err(Error::new("REMINDER", "未知的通知验收动作")),
+    }
+    let _apartment = NotificationApartment::new()?;
+    let notifier = ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(ID))
+        .map_err(notification_error)?;
+    let mut items = Vec::new();
+    for item in notifier
+        .GetScheduledToastNotifications()
+        .map_err(notification_error)?
+    {
+        items.push(serde_json::json!({
+            "id": item.Id().map_err(notification_error)?.to_string(),
+            "group": item.Group().map_err(notification_error)?.to_string(),
+            "ticks": item.DeliveryTime().map_err(notification_error)?.UniversalTime,
+        }));
+    }
+    Ok(serde_json::json!({"identifier": ID, "scheduled": items}).to_string())
+}
+
 pub fn request_permission() -> Result<()> {
     AUTH_PENDING.fetch_add(1, Ordering::AcqRel);
     let result = native("[]", true);
@@ -228,7 +536,7 @@ pub fn refresh(snapshot: Snapshot) {
         let _ = finished.recv();
     }
 }
-/// Synchronises macOS pending notifications with `json`. Unchanged plans are
+/// Synchronises system pending notifications with `json`. Unchanged plans are
 /// skipped unless `force`. Runs only on the reminder thread.
 fn apply(json: &str, force: bool) {
     let Ok(mut last) = LAST.lock() else {
@@ -275,5 +583,230 @@ mod tests {
         assert!(!calls.is_empty());
         assert!(!calls.iter().any(|c| c == stale_json));
         assert_eq!(LAST.lock().unwrap().0, "[]");
+    }
+    fn plan(id: &str) -> Plan {
+        Plan {
+            id: id.into(),
+            date: "2099-01-01".into(),
+            title: "提醒 & <物谱>".into(),
+            body: "\"余额\" '未知' 🧾".into(),
+        }
+    }
+
+    #[test]
+    fn scheduled_ids_are_stable_short_and_unique_for_business_ids() {
+        let ids = [
+            "thingary-00000000-0000-0000-0000-000000000000",
+            "thingary-00000000-0000-0000-0000-000000000000-2099-01-01",
+            "thingary-checkin-2099-01-01",
+        ];
+        let plans: Vec<_> = ids.iter().map(|id| plan(id)).collect();
+        assert_eq!(reminder_keys(&plans).unwrap().len(), 3);
+        for p in plans {
+            let key = scheduled_key(&p.id).unwrap();
+            assert_eq!(key.len(), 16);
+            assert!(key.starts_with("tg"));
+            assert_eq!(scheduled_key(&p.id).unwrap(), key);
+        }
+        assert!(reminder_keys(&[plan(ids[0]), plan(ids[0])]).is_err());
+        assert!(scheduled_key("unowned").is_err());
+        assert_eq!(
+            scheduled_key(&format!("thingary-{}", "x".repeat(129)))
+                .unwrap()
+                .len(),
+            16
+        );
+        assert!(scheduled_key("thingary-").is_err());
+    }
+
+    #[test]
+    fn toast_text_is_xml_escaped_and_invalid_controls_are_rejected() {
+        let p = plan("thingary-test");
+        let xml = toast_xml(&p).unwrap();
+        assert!(xml.contains("提醒 &amp; &lt;物谱&gt;"));
+        assert!(xml.contains("&quot;余额&quot; &apos;未知&apos; 🧾"));
+        assert!(xml.contains("launch=\"thingary-test\""));
+        assert!(xml_text("bad\0text").is_err());
+        assert!(xml_text("bad\u{b}text").is_err());
+        assert!(xml_text("bad\u{fffe}text").is_err());
+        assert_eq!(xml_text("\t\n\r").unwrap(), "\t\n\r");
+    }
+
+    #[test]
+    fn calendar_dates_and_filetime_use_local_nine_and_validate_range() {
+        use chrono::{FixedOffset, TimeZone, Utc};
+        let zone = FixedOffset::east_opt(8 * 3600).unwrap();
+        let expected = Utc.with_ymd_and_hms(2028, 2, 29, 1, 0, 0).unwrap();
+        assert_eq!(
+            local_nine("2028-02-29", &zone).unwrap(),
+            filetime(expected).unwrap()
+        );
+        for day in [
+            "2027-02-29",
+            "2028-13-01",
+            "2028-02-30",
+            "2028-2-29",
+            "2028-02-29junk",
+            "1600-01-01",
+            "10000-01-01",
+        ] {
+            assert!(local_nine(day, &zone).is_err(), "{day}");
+        }
+        assert_eq!(
+            filetime(Utc.with_ymd_and_hms(1601, 1, 1, 0, 0, 0).unwrap()).unwrap(),
+            0
+        );
+        assert_eq!(
+            filetime(Utc.with_ymd_and_hms(1970, 1, 1, 0, 0, 0).unwrap()).unwrap(),
+            116_444_736_000_000_000
+        );
+        assert!(filetime(Utc.with_ymd_and_hms(1600, 12, 31, 23, 59, 59).unwrap()).is_err());
+    }
+
+    #[test]
+    fn local_calendar_conversion_observes_date_offsets_and_rejects_dst_gaps_or_overlap() {
+        use chrono::{Datelike, FixedOffset, LocalResult, NaiveDate, NaiveDateTime, TimeZone};
+        #[derive(Clone)]
+        struct SeasonalZone;
+        impl TimeZone for SeasonalZone {
+            type Offset = FixedOffset;
+            fn from_offset(_: &Self::Offset) -> Self {
+                Self
+            }
+            fn offset_from_local_date(&self, day: &NaiveDate) -> LocalResult<Self::Offset> {
+                let winter = FixedOffset::west_opt(5 * 3600).unwrap();
+                let summer = FixedOffset::west_opt(4 * 3600).unwrap();
+                match day.month() {
+                    3 => LocalResult::None,
+                    11 => LocalResult::Ambiguous(summer, winter),
+                    4..=10 => LocalResult::Single(summer),
+                    _ => LocalResult::Single(winter),
+                }
+            }
+            fn offset_from_local_datetime(
+                &self,
+                date: &NaiveDateTime,
+            ) -> LocalResult<Self::Offset> {
+                self.offset_from_local_date(&date.date())
+            }
+            fn offset_from_utc_date(&self, _: &NaiveDate) -> Self::Offset {
+                FixedOffset::west_opt(5 * 3600).unwrap()
+            }
+            fn offset_from_utc_datetime(&self, _: &NaiveDateTime) -> Self::Offset {
+                FixedOffset::west_opt(5 * 3600).unwrap()
+            }
+        }
+        let winter = local_nine("2028-01-01", &SeasonalZone).unwrap();
+        let summer = local_nine("2028-07-01", &SeasonalZone).unwrap();
+        let utc = chrono::Utc;
+        assert_eq!(
+            winter - local_nine("2028-01-01", &utc).unwrap(),
+            5 * 3600 * 10_000_000
+        );
+        assert_eq!(
+            summer - local_nine("2028-07-01", &utc).unwrap(),
+            4 * 3600 * 10_000_000
+        );
+        assert!(local_nine("2028-03-01", &SeasonalZone).is_err());
+        assert!(local_nine("2028-11-01", &SeasonalZone).is_err());
+    }
+
+    #[test]
+    fn reconciliation_keeps_one_matching_item_and_removes_stale_changed_or_duplicate_items() {
+        let wanted =
+            std::collections::BTreeMap::from([("tg00000000000000".into(), (123, "xml".into()))]);
+        let mut kept = std::collections::BTreeSet::new();
+        assert!(keep_scheduled(
+            "another-app",
+            "anything",
+            1,
+            "",
+            &wanted,
+            &mut kept
+        ));
+        assert!(kept.is_empty());
+        assert!(!keep_scheduled(
+            "thingary", "stale", 1, "", &wanted, &mut kept
+        ));
+        assert!(!keep_scheduled(
+            "thingary",
+            "tg00000000000000",
+            122,
+            "xml",
+            &wanted,
+            &mut kept
+        ));
+        assert!(!keep_scheduled(
+            "thingary",
+            "tg00000000000000",
+            123,
+            "changed",
+            &wanted,
+            &mut kept
+        ));
+        assert!(keep_scheduled(
+            "thingary",
+            "tg00000000000000",
+            123,
+            "xml",
+            &wanted,
+            &mut kept
+        ));
+        assert!(!keep_scheduled(
+            "thingary",
+            "tg00000000000000",
+            123,
+            "xml",
+            &wanted,
+            &mut kept
+        ));
+    }
+
+    #[cfg(all(windows, feature = "fault-injection"))]
+    #[test]
+    #[ignore = "requires the installed local.thingary.win.acceptance shortcut; uses its real system schedule"]
+    fn installed_windows_identity_reconciles_system_schedule() {
+        struct Cleanup;
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = windows_notification_acceptance("clear", "[]");
+            }
+        }
+        windows_notification_acceptance("permission", "[]").unwrap();
+        windows_notification_acceptance("clear", "[]").unwrap();
+        let _cleanup = Cleanup;
+        let day = chrono::Local::now()
+            .date_naive()
+            .checked_add_days(chrono::Days::new(1))
+            .unwrap();
+        let mut fixture = plan("thingary-windows-acceptance-test");
+        fixture.date = day.to_string();
+        let json = serde_json::to_string(&vec![fixture]).unwrap();
+        let count = |result: String| {
+            let value: serde_json::Value = serde_json::from_str(&result).unwrap();
+            assert_eq!(value["identifier"], "local.thingary.win.acceptance");
+            value["scheduled"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|item| item["group"] == "thingary")
+                .count()
+        };
+        assert_eq!(
+            count(windows_notification_acceptance("reconcile", &json).unwrap()),
+            1
+        );
+        assert_eq!(
+            count(windows_notification_acceptance("reconcile", &json).unwrap()),
+            1
+        );
+        assert_eq!(
+            count(windows_notification_acceptance("inspect", "[]").unwrap()),
+            1
+        );
+        assert_eq!(
+            count(windows_notification_acceptance("clear", "[]").unwrap()),
+            0
+        );
     }
 }

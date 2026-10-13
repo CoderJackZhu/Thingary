@@ -39,7 +39,7 @@ export function AutoBackup({ generation, demo, blocked, busy, candidateOpen, onI
   const restoreDisabled = busy || candidateOpen || blocked || demo || !generation;
   return <div className="auto-backup" aria-labelledby="auto-backup-heading">
     <div className="auto-backup-head">
-      <div><h3 id="auto-backup-heading">自动备份</h3><p>有改动时自动保存在这台 Mac，保留最近 7 份。</p></div>
+      <div><h3 id="auto-backup-heading">自动备份</h3><p>有改动时自动保存在这台电脑，保留最近 7 份。</p></div>
       {status && <Switch label="自动备份" value={status.enabled} disabled={busyButton === 'toggle'} onChange={on => void toggle(on)}/>}
     </div>
     {status && <p className="auto-backup-status">{autoBackupSummary(status)}<button disabled={busyButton !== null} onClick={() => void openFolder()}>打开备份文件夹</button></p>}

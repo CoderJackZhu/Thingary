@@ -1,3 +1,4 @@
+import { desktopShortcutAction, isMac } from './undo-shortcut';
 // Development-only entry. Renders the production App with an in-memory IPC
 // adapter; index.html and the production build never import this module.
 import { mockIPC } from '@tauri-apps/api/mocks';
@@ -830,9 +831,9 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
 }
 mockIPC(handle,{shouldMockEvents:true});
 window.addEventListener('keydown',event=>{
-  if(!(event.metaKey||event.ctrlKey))return;
-  const action:Record<string,string>={n:'new-asset',f:'find-asset',e:'edit-asset',a:'select-all',z:'undo'};
-  if(action[event.key.toLowerCase()]){event.preventDefault();void emit('asset-action',action[event.key.toLowerCase()]);}
+  if (!isMac) return;
+  const action = desktopShortcutAction(event);
+  if (action) { event.preventDefault(); void emit('asset-action', action); }
 });
 // Explicit fictional receipts reproduce restart recovery, including disabled modules.
 if (params.get('receipt-recovery') === 'account') localStorage.setItem('thingary.wealth-pending.v1', JSON.stringify({ command: 'wealth_account_save', input: { request_id: 'fictional-recovery-request', generation: 'visual-fixture-only' }, label: '虚构账户保存' }));

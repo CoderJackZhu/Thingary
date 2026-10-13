@@ -1,3 +1,4 @@
+import { isMac } from './undo-shortcut';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
@@ -101,7 +102,7 @@ export function MaterialLibrary({ generation, onNotice, onBusyChange, search, on
       <h2 id="materials-heading">素材库</h2>
       <p className="muted">新增或编辑物品时，点击物品名称旁的图标即可选择。内置素材为示意图，非实物照片；也可以上传自己的图片作为素材。</p>
       <div className="material-library-actions">
-        <span className="muted small">JPEG、PNG、HEIC、WebP · 每张 20 MiB。上传后随档案保存在本机。</span>
+        <span className="muted small">{isMac ? 'JPEG、PNG、HEIC、WebP' : 'JPEG、PNG、WebP'} · 每张 20 MiB。上传后随档案保存在本机。</span>
       </div>
       <div className="picker-sources" role="group" aria-label="素材类型">{([['icon','图标'],['dimensional','立体图标'],['custom','我的图片']] as const).map(([id,label]) => <button type="button" key={id} aria-pressed={source === id} onClick={() => { setSource(id); setCategory('全部'); }}>{label}</button>)}</div>
       <div className="picker-filters">{source !== 'custom' && <div className="picker-categories" role="group" aria-label="素材分类">{materialCategories.map(name => <button key={name} type="button" aria-pressed={category === name} onClick={() => setCategory(name)}>{name}</button>)}</div>}</div>

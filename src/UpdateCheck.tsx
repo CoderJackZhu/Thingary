@@ -29,7 +29,7 @@ export function UpdateCheck() {
     {outcome && <p className="update-check-result" role="status">{updateSummary(outcome)}</p>}
     {latest && <>
       <details><summary>发布说明</summary><pre className="update-check-notes">{latest.notes || '这个版本没有填写发布说明。'}</pre></details>
-      <p className="notice">更新前请先在本页做一次<strong>完整备份并异地保存</strong>：新版如果升级资料格式，旧版将不能打开升级后的资料。安装步骤见使用指南的「更新、换 Mac 与卸载」。</p>
+      <p className="notice">更新前请先在本页做一次<strong>完整备份并异地保存</strong>：新版如果升级资料格式，旧版将不能打开升级后的资料。安装步骤见使用指南的「更新、换机与卸载」。</p>
       <p className="update-check-pages">{latest.sources.map((source, i) => <button key={source} type="button" className={i === 0 ? 'primary' : 'ui-btn'} onClick={() => void openPage(latest.version, source)}>在浏览器中打开 {sourceLabel[source]} 下载页</button>)}</p>
     </>}
     {error && <p className="error" role="alert">{error}</p>}
