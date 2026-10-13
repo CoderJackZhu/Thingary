@@ -105,6 +105,7 @@ $InstalledDir = $null
 $NotifyReady = $false
 $NotificationDriver = $null
 $NotificationFailure = $null
+$OwnedWebViewProcesses = @{}
 $WindowsTarget = 'x86_64-pc-windows-msvc'
 function Save-Summary { $Summary | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $Output 'summary.json') -Encoding utf8 }
 function Assert-Exit([string]$Name) { if ($LASTEXITCODE -ne 0) { throw "$Name failed with exit code $LASTEXITCODE" } }
@@ -117,6 +118,32 @@ function Wait-Condition([scriptblock]$Condition, [string]$Label, [int]$Seconds=3
   while ((Get-Date) -lt $end) { if (& $Condition) { return }; Start-Sleep -Milliseconds 200 }
   throw "$Label timed out"
 }
+# PID + creation time identifies only this acceptance instance's WebView2.
+# Profile ownership also finds an orphaned browser after the app has exited.
+function Get-OwnWebViewProcesses {
+  $processes=@(Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe'")
+  $parents=@{}
+  if ($null -ne $AppProcess) {
+    $AppProcess.Refresh()
+    if (-not $AppProcess.HasExited) { $parents[$AppProcess.Id]=$true }
+  }
+  $acceptanceProfilePattern=[Regex]::Escape($DataRoot)
+  $profileArgument='(?i)(?:^|\s)--user-data-dir=(?:"'+$acceptanceProfilePattern+'[\\/][^"]*"|'+$acceptanceProfilePattern+'[\\/]\S*(?=\s|$))'
+  do {
+    $previousCount=$parents.Count
+    foreach ($process in $processes) {
+      $key="$($process.ProcessId):$($process.CreationDate.ToUniversalTime().Ticks)"
+      if ($OwnedWebViewProcesses.ContainsKey($key) -or $parents.ContainsKey([int]$process.ParentProcessId) -or $process.CommandLine -match $profileArgument) {
+        $parents[[int]$process.ProcessId]=$true
+        $OwnedWebViewProcesses[$key]=$true
+      }
+    }
+  } while ($parents.Count -ne $previousCount)
+  return @($processes | Where-Object { $OwnedWebViewProcesses.ContainsKey("$($_.ProcessId):$($_.CreationDate.ToUniversalTime().Ticks)") })
+}
+function Wait-OwnWebViewExit {
+  Wait-Condition { @(Get-OwnWebViewProcesses).Count -eq 0 } 'own acceptance WebView2 process exit' 30
+}
 function Start-Acceptance {
   # Identity was read from installed BUILD_INFO and shortcut before any launch.
   $script:AppProcess=Start-Process -FilePath $InstalledExe -PassThru
@@ -127,14 +154,17 @@ function Start-Acceptance {
   } 'visible installed window with exact acceptance title' 45
   $state=Window-State $AppProcess.Id 'inspect' 0 0
   $Summary.window=$state
+  [void](Get-OwnWebViewProcesses)
 }
 function Stop-Acceptance {
   if ($null -eq $AppProcess) { return }
+  [void](Get-OwnWebViewProcesses)
   $AppProcess.Refresh()
   if (-not $AppProcess.HasExited) {
     [void](Window-State $AppProcess.Id 'close' 0 0)
-    Wait-Condition { $script:AppProcess.Refresh(); $script:AppProcess.HasExited } 'native clean close' 20
+    Wait-Condition { [void](Get-OwnWebViewProcesses); $script:AppProcess.Refresh(); $script:AppProcess.HasExited } 'native clean close' 20
   }
+  Wait-OwnWebViewExit
   $script:AppProcess=$null
 }
 function UI([string]$Mode, [string]$Label='result') {
@@ -170,12 +200,38 @@ function Install-Acceptance {
   $Summary.installed=@{ executable=$InstalledExe; shortcut=$matches[0].FullName; aumid=$aumid; installerSha256=(Get-FileHash $Installer -Algorithm SHA256).Hash.ToLowerInvariant() }
   $script:NotifyReady=$true
 }
-function Data-Hashes {
-  $files=@(Get-ChildItem -LiteralPath $DataRoot -File -Recurse | Sort-Object FullName)
-  if (-not $files.Count) { throw 'Acceptance app data missing.' }
-  $hashes=[ordered]@{}
-  foreach ($file in $files) { $hashes[$file.FullName.Substring($DataRoot.Length)]=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash }
-  return $hashes
+function Data-Hashes([string]$Label='data') {
+  Wait-OwnWebViewExit
+  $deadline=(Get-Date).AddSeconds(30)
+  $previous=$null; $stable=0; $attempts=0; $transientErrors=0
+  while ((Get-Date) -lt $deadline) {
+    $attempts++
+    try {
+      if (@(Get-OwnWebViewProcesses).Count) { $stable=0; $previous=$null; Start-Sleep -Milliseconds 500; continue }
+      # Always re-enumerate and hash every file, including the WebView2 profile.
+      $files=@(Get-ChildItem -LiteralPath $DataRoot -File -Recurse | Sort-Object FullName)
+      if (-not $files.Count) { throw 'Acceptance app data missing.' }
+      $hashes=[ordered]@{}
+      foreach ($file in $files) { $hashes[$file.FullName.Substring($DataRoot.Length)]=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash }
+      $manifest=$hashes | ConvertTo-Json -Compress
+      if ($manifest -eq $previous) { $stable++ } else { $stable=1; $previous=$manifest }
+      if ($stable -ge 3) {
+        if (-not $Summary.Contains('dataHashQuiescence')) { $Summary.dataHashQuiescence=@() }
+        $Summary.dataHashQuiescence+=@{ label=$Label; files=$files.Count; trackedOwnWebViewProcesses=$OwnedWebViewProcesses.Count; attempts=$attempts; transientErrors=$transientErrors; identicalCompleteManifests=$stable; intervalMilliseconds=500; observedAt=(Get-Date).ToUniversalTime().ToString('o') }
+        return $hashes
+      }
+    } catch {
+      $exception=$_.Exception; $retry=$false
+      while ($null -ne $exception) {
+        if ($exception -is [IO.IOException] -and (($exception.HResult -band 0xffff) -in @(2,3,32,33))) { $retry=$true; break }
+        $exception=$exception.InnerException
+      }
+      if (-not $retry) { throw }
+      $transientErrors++; $stable=0; $previous=$null
+    }
+    Start-Sleep -Milliseconds 500
+  }
+  throw "Complete acceptance data hashes did not become stable within 30 seconds ($Label; $transientErrors transient IO errors)."
 }
 function Notify([string]$Action) {
   if (-not $NotifyReady) { throw 'Installed acceptance AUMID has not been verified.' }
@@ -280,16 +336,17 @@ try {
   if ($main.Count -ne 1) { throw 'Installed app has duplicate primary processes.' }
   $Summary.verified+=@('single instance','UI save/cancel and restart persistence')
   Stop-Acceptance
-  $before=Data-Hashes; $before | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $Output 'before-uninstall-hashes.json') -Encoding utf8
+  $before=Data-Hashes 'before-uninstall'; $before | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $Output 'before-uninstall-hashes.json') -Encoding utf8
   $uninstallers=@(Get-ChildItem -LiteralPath $InstalledDir -Filter '*uninstall*.exe')
   if ($uninstallers.Count -ne 1) { throw 'Installed uninstaller missing or ambiguous.' }
   $uninstall=Start-Process $uninstallers[0].FullName -ArgumentList '/S' -PassThru -Wait
   if ($uninstall.ExitCode -ne 0) { throw "Uninstall exit $($uninstall.ExitCode)" }
   Wait-Condition { -not (Test-Path -LiteralPath $InstalledExe) } 'silent uninstall' 30
-  $after=Data-Hashes
+  $after=Data-Hashes 'after-uninstall'
   if (($before | ConvertTo-Json -Compress) -ne ($after | ConvertTo-Json -Compress)) { throw 'Default uninstall changed/deleted acceptance data.' }
   Install-Acceptance; Start-Acceptance; UI 'persistence' 'reinstall'; Stop-Acceptance
   $Summary.verified+=@('default silent uninstall retains every data byte','same package reinstall opens persisted assets')
+  [void](Data-Hashes 'before-fixture-library-replacement')
   # Move only this run's fictional smoke library into artifacts; never follow reparse points.
   $library=Join-Path $DataRoot 'library'
   if ((Get-Item $DataRoot).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Acceptance root is a link.' }
