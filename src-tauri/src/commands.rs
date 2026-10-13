@@ -1218,10 +1218,12 @@ pub async fn update_check() -> Result<crate::update_check::Outcome> {
 }
 
 #[tauri::command]
-pub async fn update_open_release(version: String) -> Result<()> {
-    tauri::async_runtime::spawn_blocking(move || crate::update_check::open_release_page(&version))
-        .await
-        .map_err(|_| Error::new("UPDATE_CHECK", "无法打开下载页"))?
+pub async fn update_open_release(version: String, source: String) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::update_check::open_release_page(&version, &source)
+    })
+    .await
+    .map_err(|_| Error::new("UPDATE_CHECK", "无法打开下载页"))?
 }
 
 #[tauri::command]

@@ -59,6 +59,8 @@ DMG 内含「物谱.app」、Applications 快捷方式、`开始使用.html`、�
 
 ## 4. Release 草稿与公开
 
+**国内镜像**：GitHub 在国内常常打不开，每个公开版本同步发布到 [Gitee 仓库](https://gitee.com/CoderJackZhu/thingary)：把代码与标签推到 `gitee` 远程（`git remote add gitee https://gitee.com/CoderJackZhu/thingary.git`，`git push gitee main --tags`），在 Gitee「发行版」用同一标签创建发行版，正文用同一份 `docs/releases/v<版本>.md`，上传同一个 DMG 与 `SHA256SUMS.txt`，并核对 Gitee 上的文件散列与 GitHub 一致。应用内检查更新会读取两处，所以 Gitee 发行版的标签必须是 `v<版本>`、不要勾选草稿。
+
 每次发布在 `docs/releases/v<版本>.md` 维护正文，现有示例为[0.0.2 发布说明](releases/v0.0.2.md)。先推送最终源代码提交，在该提交创建 `v<版本>` 标签和 **draft Release**，上传 DMG 与 SHA256SUMS；公开测试版设置 Pre-release（即使版本号不带 beta 后缀），README 直接链接对应版本，不能依赖只返回正式版的 latest 入口。不要移动已经发布的标签或覆盖现有附件。自动生成的 Source code 归档应对应这个标签，保留锁文件、构建脚本、文档和依赖源码获取入口。
 
 草稿不等于已公开。发布前核对源代码、完整许可材料和支持边界，确保 [Private vulnerability reporting](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository) 可用。取得本次发布授权后发布草稿，以未登录方式检查说明、附件和下载入口；不要把仅本机安装或只有源码附件写成“普通用户可下载”。把最终源码 SHA、标签、附件散列和验证边界登记到私有笔记。

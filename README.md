@@ -8,7 +8,7 @@
 
 物谱是一个本地使用的 macOS 应用。物品档案与账户盘点是两个并列起点，只用其中一个也完整成立：给重要物品留档，或每月核对资产与负债。规划在盘点之上回答未来问题，用已保存的目标、可核对的测算详情和临时试算分别呈现。无需注册账号，也无需编程或联网使用。
 
-**[0.0.5 公开测试版 · Mac（Apple Silicon 与 Intel）](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.5)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.5) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
+**[0.0.5 公开测试版 · Mac（Apple Silicon 与 Intel）](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.5)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.5) · [国内镜像（Gitee）](https://gitee.com/CoderJackZhu/thingary/releases) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
 
 > 0.0.5 公开测试版提供 Apple Silicon 与 Intel 通用 DMG，下载以 Release 的公开附件为准。从 0.0.3 或更早版本更新会升级资料格式，请先做完整备份，见[更新步骤](docs/USER_GUIDE.md#update)。
 
@@ -38,7 +38,7 @@
 
 ## 资料与隐私
 
-资料只在你的电脑上：没有账号，应用平时不联网（只有你在「设置 › 数据管理」点「检查更新」时，才会向 GitHub 查询一次公开的版本列表，不发送任何资料），代码公开可查。**资料与备份没有应用级加密**；若主动选用云盘作为额外备份位置，副本由该云盘软件同步。自动备份和主资料同盘，仍应额外保留异地完整备份。
+资料只在你的电脑上：没有账号，应用平时不联网（只有你在「设置 › 数据管理」点「检查更新」时，才会向 Gitee 和 GitHub 各查询一次公开的版本列表，不发送任何资料），代码公开可查。**资料与备份没有应用级加密**；若主动选用云盘作为额外备份位置，副本由该云盘软件同步。自动备份和主资料同盘，仍应额外保留异地完整备份。
 
 删除应用不会删除资料。更新、换 Mac、资料位置、恢复与当前限制统一见[使用指南](docs/USER_GUIDE.md#update)。反馈时请遮住真实资料，不上传数据库或备份；漏洞请按[安全政策](SECURITY.md)私下报告。
 
