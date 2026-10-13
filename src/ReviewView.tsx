@@ -49,7 +49,7 @@ function StructureCard({ summary }: { summary: Summary }) {
     : `变化为较 ${latest.compared_to} 完整盘点；含存取与估值，不等于投资收益。`;
   const known = rows.reduce((sum, r) => sum + Math.max(0, Number(r.amount_cents)), 0);
   return <article className="ui-card review-structure">
-    <div className="ui-section-head"><h3>资产结构</h3><span className="ui-aside">{summary.structure_date} 完整盘点 · 参与比较的账户</span></div>
+    <div className="ui-section-head"><h3>资产结构</h3><span className="ui-aside">{summary.structure_date} 完整盘点 · 计入净资产的账户</span></div>
     {!rows.length ? <p className="ui-empty">没有计入的资产。</p> : <>
       <div className="ui-share-bar" role="img" aria-label="计入资产按类型的金额占比">{known > 0 && rows.map((r, i) => Number(r.amount_cents) > 0 && <span key={r.kind} style={{ width: `${Number(r.amount_cents) / known * 100}%`, background: series(i) }}/>)}</div>
       <table className="ui-table review-structure-table"><thead><tr><th>类别</th><th>占比</th><th>金额</th><th>较上次</th></tr></thead>
