@@ -17,6 +17,11 @@ assert.ok(pid > 0);
 mkdirSync(output, { recursive: true });
 const report = { mode, transport: "installed native WebView2 CDP loopback", verified: [], screenshots: [], unverified: ["Chinese IME composition", "screen reader", "native file picker interaction", "physical keyboard", "visible desktop toast"] };
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+// Negative assertions must never succeed in the blank document during reload.
+const appRendered = `document.readyState==='complete' && !!window.__TAURI_INTERNALS__ && !!document.querySelector('.shell main') && !!document.querySelector('nav[aria-label="主导航"]')?.getClientRects().length && ['native','olive','bento'].includes(document.documentElement.dataset.style) && ['light','dark'].includes(document.documentElement.dataset.mode)`;
+const mainNavigation = 'nav[aria-label="主导航"]';
+const assetList = `!!document.querySelector('main .items[aria-label="物品列表"]') || [...document.querySelectorAll('main .empty h2')].some(e=>e.textContent==='从第一件物品开始')`;
+
 async function until(fn, label, ms = 20000) {
   let last;
   const end = Date.now() + ms;
@@ -62,10 +67,10 @@ async function click(selector, modifiers = 0) {
   for (const type of ["mousePressed", "mouseReleased"])
     await cdp("Input.dispatchMouseEvent", { type, button: "left", clickCount: 1, ...point, modifiers });
 }
-async function button(text) {
-  await observe("before button " + text);
-  const index = await js(`(()=>{const all=[...document.querySelectorAll('button')];const found=all.filter(e=>e.getClientRects().length&&(e.getAttribute('aria-label')===${JSON.stringify(text)}||e.textContent.trim()===${JSON.stringify(text)}||e.querySelector(':scope > span')?.textContent.trim()===${JSON.stringify(text)}));if(found.length!==1)throw Error('Button count '+found.length+': '+${JSON.stringify(text)});return all.indexOf(found[0]);})()`);
-  const selector = await js(`(()=>{const e=[...document.querySelectorAll('button')][${index}];e.dataset.acceptanceTarget='current';return '[data-acceptance-target="current"]';})()`);
+async function button(text, scope = '') {
+  await observe("before button " + text + (scope ? " in " + scope : ""));
+  const candidates = scope ? `${scope} button` : 'button';
+  const selector = await js(`(()=>{const found=[...document.querySelectorAll(${JSON.stringify(candidates)})].filter(e=>e.getClientRects().length&&(e.getAttribute('aria-label')===${JSON.stringify(text)}||e.textContent.trim()===${JSON.stringify(text)}||e.querySelector(':scope > span')?.textContent.trim()===${JSON.stringify(text)}));if(found.length!==1)throw Error('Button count '+found.length+': '+${JSON.stringify(text)});found[0].dataset.acceptanceTarget='current';return '[data-acceptance-target="current"]';})()`);
   try {
     await click(selector);
   } finally {
@@ -78,7 +83,7 @@ async function key(key, code, modifiers = 0, vk = 0) {
     await cdp("Input.dispatchKeyEvent", { type, key, code, modifiers, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk });
 }
 async function wait(expression, label) {
-  await until(() => js(expression), label);
+  await until(() => js(`(${appRendered}) && (${expression})`), label);
   return observe(label);
 }
 async function fill(selector, text) {
@@ -93,15 +98,21 @@ async function fill(selector, text) {
 function native(action, width = 0, height = 0) {
   return JSON.parse(execFileSync("pwsh", ["-NoProfile", "-File", resolve(dirname(fileURLToPath(import.meta.url)), "windows-native-acceptance.ps1"), "-WindowOnly", action, "-ApplicationPid", String(pid), "-Width", String(width), "-Height", String(height)], { encoding: "utf8" }).trim());
 }
-async function shot(label) {
+async function shot(label, settle = true) {
+  let renderReadiness;
+  if (settle) {
+    await wait(`document.fonts.status==='loaded' && [...document.images].filter(e=>{const r=e.getBoundingClientRect();return e.getClientRects().length&&r.bottom>0&&r.top<innerHeight&&r.right>0&&r.left<innerWidth&&e.getAttribute('src');}).every(e=>e.complete&&e.naturalWidth>0)`, 'fonts and visible images ready for ' + label);
+    renderReadiness = await js(`(async()=>{await document.fonts.ready;const images=[...document.images].filter(e=>{const r=e.getBoundingClientRect();return e.getClientRects().length&&r.bottom>0&&r.top<innerHeight&&r.right>0&&r.left<innerWidth&&e.getAttribute('src');});await Promise.all(images.map(e=>e.decode()));await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));return {fonts:document.fonts.status,visibleImages:images.map(e=>({width:e.naturalWidth,height:e.naturalHeight})),paintFrames:2};})()`);
+  }
   const state = await observe(label), r = await cdp("Page.captureScreenshot", { format: "png", captureBeyondViewport: false }), path = resolve(output, label + ".png");
   writeFileSync(path, Buffer.from(r.data, "base64"));
-  report.screenshots.push({ label, path, viewport: state.viewport, appearance: state.appearance, capture: "installed native WebView2 content; OS chrome excluded" });
+  report.screenshots.push({ label, path, viewport: state.viewport, appearance: state.appearance, renderReadiness, capture: "installed native WebView2 content; OS chrome excluded" });
 }
 async function assets() {
-  if (!await js("!!document.querySelector('.asset-row')||document.body.innerText.includes('从第一件物品开始')"))
-    await button("全部物品");
-  await wait("!!document.querySelector('.items')||document.body.innerText.includes('从第一件物品开始')", "asset list");
+  await wait('true', 'rendered application before asset navigation');
+  if (!await js(assetList))
+    await button("全部物品", mainNavigation);
+  await wait(assetList, "asset list");
 }
 const blur = () => js("document.activeElement?.blur()");
 async function create(name, price = "") {
@@ -147,11 +158,12 @@ try {
     if (first.text.includes("样例体验")) {
       await shot("first-launch-sample");
       await button(first.text.includes("开始记录我的资料") ? "开始记录我的资料" : "返回我的资料");
-      await wait("!document.body.innerText.includes('样例体验')", "leave fictitious sample");
-      report.verified.push("first-launch fictional sample and switch to blank personal acceptance library");
+      await wait("document.querySelector('.demo-banner strong')?.textContent==='我的资料' && !document.body.innerText.includes('样例体验')", "rendered personal library after leaving fictitious sample");
     }
     await assets();
-    await wait("document.body.innerText.includes('从第一件物品开始')", "fresh blank");
+    await wait("document.body.innerText.includes('从第一件物品开始') && document.querySelectorAll('.asset-row').length===0 && !document.body.innerText.includes('样例体验')", "fresh blank personal library");
+    if (first.text.includes("样例体验"))
+      report.verified.push("first-launch fictional sample and switch to confirmed blank personal acceptance library");
     await shot("blank");
     await blur();
     await key("n", "KeyN", 2, 78);
@@ -220,7 +232,7 @@ try {
     await wait("[...document.querySelectorAll('h1')].some(e=>e.textContent==='设置')", "Ctrl+, settings");
     const priorMode=await js("document.documentElement.dataset.mode");
     await key("d", "KeyD", 10, 68);
-    await wait(`document.documentElement.dataset.mode!==${JSON.stringify(priorMode)}`, "Ctrl+Shift+D appearance");
+    await wait(`['light','dark'].includes(document.documentElement.dataset.mode) && document.documentElement.dataset.mode!==${JSON.stringify(priorMode)}`, "Ctrl+Shift+D appearance");
     report.verified.push("Ctrl+, settings", "Ctrl+Shift+D appearance");
     report.unverified.push("planning form WM_CLOSE");
   } else if (mode === "persistence") {
@@ -243,9 +255,10 @@ try {
       await wait(`innerWidth===${width}&&innerHeight===${height}`, "native viewport size");
       for (const style of ["native", "olive", "bento"])
         for (const theme of ["light", "dark"]) {
+          const previousDocument = await js('performance.timeOrigin');
           await js(`localStorage.setItem('thingary.style',${JSON.stringify(style)});localStorage.setItem('thingary.theme',${JSON.stringify(theme)});`);
           await cdp('Page.reload');
-          await wait(`document.documentElement.dataset.style===${JSON.stringify(style)}&&document.documentElement.dataset.mode===${JSON.stringify(theme)}&&!!document.querySelector('.asset-row')`, "appearance");
+          await wait(`performance.timeOrigin!==${JSON.stringify(previousDocument)}&&document.documentElement.dataset.style===${JSON.stringify(style)}&&document.documentElement.dataset.mode===${JSON.stringify(theme)}&&!!document.querySelector('.asset-row')`, "appearance in reloaded document");
           await shot(`fixture-${style}-${theme}-${width}x${height}`);
         }
     }
@@ -258,7 +271,7 @@ try {
   report.error = e.stack;
   try {
     if (ws?.readyState === WebSocket.OPEN)
-      await shot("failure-" + mode);
+      await shot("failure-" + mode, false);
   } catch {}
   process.exitCode = 1;
 } finally {
