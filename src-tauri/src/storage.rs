@@ -62,6 +62,15 @@ pub(crate) fn sync_dir(path: &Path) -> Result<()> {
     File::open(path)?.sync_all()?;
     Ok(())
 }
+pub(crate) fn sync_file(path: &Path) -> Result<()> {
+    // Windows FlushFileBuffers requires a writable handle, unlike macOS fsync.
+    #[cfg(windows)]
+    let file = OpenOptions::new().read(true).write(true).open(path)?;
+    #[cfg(not(windows))]
+    let file = File::open(path)?;
+    file.sync_all()?;
+    Ok(())
+}
 pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path
         .parent()
@@ -119,7 +128,7 @@ fn snapshot_before_migration(db: &Connection, root: &Path) -> Result<()> {
             None,
         )?;
     }
-    File::open(&partial)?.sync_all()?;
+    sync_file(&partial)?;
     fs::rename(&partial, dir.join(&name))?;
     sync_dir(&dir)?;
     let mut old: Vec<String> = fs::read_dir(&dir)?
@@ -165,7 +174,7 @@ impl Store {
             let db = Connection::open(dir.join("data.sqlite"))?;
             db.execute_batch(SCHEMA)?;
             drop(db);
-            File::open(dir.join("data.sqlite"))?.sync_all()?;
+            sync_file(&dir.join("data.sqlite"))?;
             sync_dir(&dir)?;
             sync_dir(&datasets)?;
             atomic_write(&active_path, &serde_json::to_vec(&a)?)?;

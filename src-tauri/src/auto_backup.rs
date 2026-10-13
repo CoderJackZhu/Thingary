@@ -186,7 +186,7 @@ pub fn copy_extra(source: &Path, extra_dir: &Path) -> Result<()> {
     // fs::copy keeps the archive's owner-only permissions.
     let copy = |target: &Path| -> Result<()> {
         fs::copy(source, target)?;
-        fs::File::open(target)?.sync_all()?;
+        crate::storage::sync_file(target)?;
         Ok(())
     };
     match copy(&partial) {
