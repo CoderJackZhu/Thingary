@@ -20,7 +20,8 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 // Negative assertions must never succeed in the blank document during reload.
 const appRendered = `document.readyState==='complete' && !!window.__TAURI_INTERNALS__ && !!document.querySelector('.shell main') && !!document.querySelector('nav[aria-label="主导航"]')?.getClientRects().length && ['native','olive','bento'].includes(document.documentElement.dataset.style) && ['light','dark'].includes(document.documentElement.dataset.mode)`;
 const mainNavigation = 'nav[aria-label="主导航"]';
-const assetList = `!!document.querySelector('main .items[aria-label="物品列表"]') || [...document.querySelectorAll('main .empty h2')].some(e=>e.textContent==='从第一件物品开始')`;
+const assetList = `(()=>{const visible=e=>!!e&&e.getClientRects().length>0&&!e.closest('[hidden]');return [...document.querySelectorAll('main h1')].some(e=>visible(e)&&e.textContent==='全部物品')&&([...document.querySelectorAll('main .items[aria-label="物品列表"]')].some(visible)||[...document.querySelectorAll('main .empty h2')].some(e=>visible(e)&&e.textContent==='从第一件物品开始'));})()`;
+const visibleAssetRows = `[...document.querySelectorAll('main .asset-row')].filter(e=>e.getClientRects().length>0&&!e.closest('[hidden]'))`;
 
 async function until(fn, label, ms = 20000) {
   let last;
@@ -125,7 +126,7 @@ async function create(name, price = "") {
   await button("保存物品");
   await wait("!document.querySelector('dialog[open].asset-editor')", "save");
   await assets();
-  await wait(`!![...document.querySelectorAll('.asset-row')].find(e=>e.textContent.includes(${JSON.stringify(name)}))`, "saved row");
+  await wait(`!!${visibleAssetRows}.find(e=>e.textContent.includes(${JSON.stringify(name)}))`, "saved row");
 }
 try {
   const page = await until(async () => {
@@ -182,10 +183,10 @@ try {
     await wait("!document.querySelector('dialog[open]')", "cancel");
     assert.ok(!(await observe("cancel result")).text.includes("取消的虚构物品"));
     await create("Windows 验收未知物品");
-    await wait("[...document.querySelectorAll('.asset-row')].find(e=>e.textContent.includes('Windows 验收未知物品'))?.textContent.includes('待补充')", "unknown remains unknown");
+    await wait(`${visibleAssetRows}.find(e=>e.textContent.includes('Windows 验收未知物品'))?.textContent.includes('待补充')`, "unknown remains unknown");
     await shot("unknown");
     await create("Windows 验收已知物品", "123.45");
-    await wait("[...document.querySelectorAll('.asset-row')].find(e=>e.textContent.includes('Windows 验收已知物品'))?.textContent.includes('123.45')", "saved exact amount");
+    await wait(`${visibleAssetRows}.find(e=>e.textContent.includes('Windows 验收已知物品'))?.textContent.includes('123.45')`, "saved exact amount");
     await shot("normal");
     await blur();
     await key("f", "KeyF", 2, 70);
@@ -195,26 +196,26 @@ try {
     await wait("!!document.querySelector('dialog[open]')", "Ctrl+Shift+F");
     await key("Escape", "Escape", 0, 27);
     await wait("!document.querySelector('dialog[open]')", "Esc search");
-    const rows = await js("[...document.querySelectorAll('.asset-row')].map(e=>'#'+e.id)");
+    const rows = await js(`${visibleAssetRows}.map(e=>'#'+e.id)`);
     assert.ok(rows.length >= 2);
     await click(rows[0]);
     await click(rows[1], 2);
-    await wait(`document.querySelectorAll('.asset-row[aria-pressed="true"]').length===2`, "Ctrl click multiselect");
+    await wait(`${visibleAssetRows}.filter(e=>e.getAttribute('aria-pressed')==='true').length===2`, "Ctrl click multiselect");
     await click(rows[0]);
     await click(rows[1], 8);
-    await wait(`document.querySelectorAll('.asset-row[aria-pressed="true"]').length===2`, "Shift range selection");
+    await wait(`${visibleAssetRows}.filter(e=>e.getAttribute('aria-pressed')==='true').length===2`, "Shift range selection");
     await blur();
     await key("a", "KeyA", 2, 65);
-    await wait(`document.querySelectorAll('.asset-row[aria-pressed="true"]').length===2`, "Ctrl+A selects rows");
+    await wait(`${visibleAssetRows}.filter(e=>e.getAttribute('aria-pressed')==='true').length===2`, "Ctrl+A selects rows");
     await click(rows[0]);
     await blur();
     await key("e", "KeyE", 2, 69);
-    await wait("!!document.querySelector('#detail-heading')", "Ctrl+E");
+    await wait("!!document.querySelector('#detail-heading')?.getClientRects().length", "Ctrl+E");
     report.verified.push("blank startup", "required name failure", "cancel discards ordinary input", "known/unknown save", "Ctrl+N/F/Shift+F/E", "editing guard", "Ctrl click multiselect");
     report.verified.push("Shift range selection", "Ctrl+A list selection");
     report.unverified.push("app undo", "pending-result close confirmation");
     await button("账户与盘点");
-    await wait("!!document.querySelector('.wealth-section')", "wealth page");
+    await wait("!!document.querySelector('.wealth-section')?.getClientRects().length", "wealth page");
     await blur();
     await key("n", "KeyN", 2, 78);
     await wait("!!document.querySelector('#wealth-account-name')", "new account");
@@ -229,7 +230,7 @@ try {
     report.verified.push("WM_CLOSE preserves unsaved feature account input until explicit cancel");
     await blur();
     await key(",", "Comma", 2, 188);
-    await wait("[...document.querySelectorAll('h1')].some(e=>e.textContent==='设置')", "Ctrl+, settings");
+    await wait("[...document.querySelectorAll('h1')].some(e=>e.getClientRects().length>0&&!e.closest('[hidden]')&&e.textContent==='设置')", "Ctrl+, settings");
     const priorMode=await js("document.documentElement.dataset.mode");
     await key("d", "KeyD", 10, 68);
     await wait(`['light','dark'].includes(document.documentElement.dataset.mode) && document.documentElement.dataset.mode!==${JSON.stringify(priorMode)}`, "Ctrl+Shift+D appearance");
@@ -245,7 +246,7 @@ try {
     report.verified.push("saved assets persist", "cancelled asset absent");
   } else if (mode === "fixture") {
     await assets();
-    assert.ok(await js("document.querySelectorAll('.asset-row').length>0"));
+    assert.ok(await js(`${visibleAssetRows}.length>0`));
     assert.ok(!(await observe("restored fixture")).text.includes("Windows 验收未知物品"));
     for (const [width, height] of [[1600, 1000], [800, 600]]) {
       const actual = native("resize", width, height);
@@ -258,7 +259,10 @@ try {
           const previousDocument = await js('performance.timeOrigin');
           await js(`localStorage.setItem('thingary.style',${JSON.stringify(style)});localStorage.setItem('thingary.theme',${JSON.stringify(theme)});`);
           await cdp('Page.reload');
-          await wait(`performance.timeOrigin!==${JSON.stringify(previousDocument)}&&document.documentElement.dataset.style===${JSON.stringify(style)}&&document.documentElement.dataset.mode===${JSON.stringify(theme)}&&!!document.querySelector('.asset-row')`, "appearance in reloaded document");
+          await wait(`performance.timeOrigin!==${JSON.stringify(previousDocument)}&&document.documentElement.dataset.style===${JSON.stringify(style)}&&document.documentElement.dataset.mode===${JSON.stringify(theme)}`, "appearance in reloaded document");
+          // Reload starts on overview; navigate the real UI back to the asset list.
+          await assets();
+          await wait(`${visibleAssetRows}.length>0`, 'visible restored fixture rows');
           await shot(`fixture-${style}-${theme}-${width}x${height}`);
         }
     }
