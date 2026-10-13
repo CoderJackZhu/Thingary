@@ -1047,7 +1047,7 @@ fn schema38_migration_is_empty_old_manual_and_original_receipt_survive_and_rollb
         },
     };
     let flow = s.investment_review_save(&input).unwrap();
-    s.conn_for_test().unwrap().execute_batch("DROP TABLE cash_movements;DROP TABLE investment_flow_sources;DROP TABLE planning_flow_audit;PRAGMA user_version=38;").unwrap();
+    s.conn_for_test().unwrap().execute_batch("DROP TABLE goal_progress;DROP TABLE cash_movements;DROP TABLE investment_flow_sources;DROP TABLE planning_flow_audit;PRAGMA user_version=38;").unwrap();
     drop(s);
     let root = d.path().join("library");
     thingary_lib::modules::initialize_runtime(&root);

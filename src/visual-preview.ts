@@ -317,6 +317,12 @@ function autoBackupPreview(command: string, args: Record<string, unknown>): unkn
   throw { message: '此操作需在原生 App 验证：' + command };
 }
 // Fictional machine-local check-in reminder: counts from today's complete check-in, like the sample.
+// Fictional goal history: two earlier check-ins whose conclusions were recorded on their own day.
+const progressDay = (monthsAgo: number) => { const d = new Date(); d.setMonth(d.getMonth() - monthsAgo); return d.toLocaleDateString('sv'); };
+let previewProgress: { snapshot_id: string; date: string; recorded_on: string; point: Record<string, unknown> }[] = [
+  { snapshot_id: 'preview-progress-1', date: progressDay(3), recorded_on: progressDay(3), point: { mode: 'traditional', target_month: '2046-01', available_cents: '9100000', required_monthly_cents: '640000', entered_monthly_cents: '500000', success: false, shortfall_at_goal_cents: '24100000', predicted_retire_month: null, has_open_items: true } },
+  { snapshot_id: 'preview-progress-2', date: progressDay(2), recorded_on: progressDay(2), point: { mode: 'traditional', target_month: '2046-01', available_cents: '9500000', required_monthly_cents: '610000', entered_monthly_cents: '500000', success: false, shortfall_at_goal_cents: '21800000', predicted_retire_month: null, has_open_items: false } },
+];
 let checkinMonths = 0;
 function checkinStatus() {
   const last = new Date().toLocaleDateString('sv');
@@ -325,6 +331,12 @@ function checkinStatus() {
 }
 async function handle(command: string, payload: unknown): Promise<unknown> {
   if (command === 'notification_status') return '';
+  if (command === 'goal_progress_list') return previewProgress;
+  if (command === 'goal_progress_record') {
+    const input = (payload as { input: { snapshot_id: string; point: Record<string, unknown> } }).input;
+    if (!previewProgress.some(e => e.snapshot_id === input.snapshot_id)) previewProgress = [...previewProgress, { snapshot_id: input.snapshot_id, date: new Date().toLocaleDateString('sv'), recorded_on: new Date().toLocaleDateString('sv'), point: input.point }];
+    return null;
+  }
   if (command === 'checkin_reminder_status') return checkinStatus();
   const args = payload as Record<string,unknown>;
   if (command === 'checkin_reminder_set') { checkinMonths = Number(args.months); return checkinStatus(); }

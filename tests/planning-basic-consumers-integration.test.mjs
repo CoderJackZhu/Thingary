@@ -25,6 +25,7 @@ import { buildBasicCapabilities } from '../src/plan-basic.ts';
 
 import { unknownBasicUpdate } from '../src/plan-basic-fixtures.ts';
 import * as savingHint from '../src/plan-saving-hint.ts';
+import * as goalProgress from '../src/goal-progress.ts';
 
 // Execute the production TSX with real React rendering and real pure calculation.
 // UI-only leaves are replaced; any unexpected IPC/read dependency fails the test.
@@ -39,6 +40,9 @@ function component(file, dependencies) {
     if (name === './CoverageNote' || name === '../CoverageNote') return coverage;
     if (name === './plan-annotations') return annotations;
     if (name === './plan-saving-hint') return savingHint;
+    if (name === './goal-progress') return goalProgress;
+    if (name === './GoalProgress') return { GoalProgress: () => null };
+    if (name === '@tauri-apps/api/core') return { invoke: async () => [] };
     if (name === './plan-occurrence-actions') return occurrenceActions;
     if (name === './PlanningPensionRefinement') return { PlanningPensionRefinementDialog: () => null, PensionComparisonNote: () => null };
     if (name === './PlanningPension') return { ProfileDialog: () => null };

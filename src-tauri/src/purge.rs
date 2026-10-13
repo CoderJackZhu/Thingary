@@ -74,6 +74,7 @@ fn all_digest(c: &Connection, generation: &str) -> Result<String> {
         "virtual_balances",
         "cash_movements",
         "investment_flow_sources",
+        "goal_progress",
     ]) {
         facts.push((
             table,
@@ -387,6 +388,7 @@ fn purge_one(
             &[
                 "DELETE FROM fin_snapshot_entries WHERE snapshot_id=?1",
                 "DELETE FROM plan_baseline_marks WHERE snapshot_id=?1",
+                "DELETE FROM goal_progress WHERE snapshot_id=?1",
                 "DELETE FROM fin_snapshots WHERE id=?1",
             ],
         )?,

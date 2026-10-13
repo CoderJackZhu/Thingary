@@ -509,7 +509,7 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
     )
     .unwrap();
     db.execute_batch(
-        "DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; PRAGMA user_version=33;",
+        "DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; PRAGMA user_version=33;",
     )
     .unwrap();
     drop(db);
@@ -1506,7 +1506,7 @@ fn old34_backup_and_receipt_restore_into_current_preserve_replay_zero_and_mappin
         .unwrap()
         .run_to_completion(128, std::time::Duration::from_millis(1), None)
         .unwrap();
-    db.execute_batch("DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; CREATE TEMP TABLE old_income AS SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,deleted_at FROM plan_income; CREATE TEMP TABLE old_keys AS SELECT * FROM import_external_key; CREATE TEMP TABLE old_receipts AS SELECT * FROM import_receipt; DROP TABLE plan_income; DROP TABLE import_external_key; DROP TABLE import_receipt;").unwrap();
+    db.execute_batch("DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; CREATE TEMP TABLE old_income AS SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,deleted_at FROM plan_income; CREATE TEMP TABLE old_keys AS SELECT * FROM import_external_key; CREATE TEMP TABLE old_receipts AS SELECT * FROM import_receipt; DROP TABLE plan_income; DROP TABLE import_external_key; DROP TABLE import_receipt;").unwrap();
     db.execute_batch(
         include_str!("../src/plan_income.sql")
             .split("-- A check-in")

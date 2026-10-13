@@ -2,6 +2,9 @@ import { AssumptionsSummary } from './planning-followup-ui/AssumptionsSummary';
 import { GoalOverview } from './planning-goal/Overview';
 import type { GoalAction, SavingHintAction } from './planning-goal/Overview';
 import { dismissSavingHint, savingHint, savingHintDismissed } from './plan-saving-hint';
+import { invoke } from '@tauri-apps/api/core';
+import { goalProgressPoint, type GoalProgressEntry } from './goal-progress';
+import { GoalProgress } from './GoalProgress';
 import { GoalEditor } from './planning-goal/Editor';
 import type { GoalEdit } from './planning-goal/inputs';
 import './planning-goal/goal.css';
@@ -48,6 +51,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const [assumptionReadEpoch, setAssumptionReadEpoch] = useState(0);
   const opener = useRef<HTMLElement | null>(null);
   const [hintDismissals, setHintDismissals] = useState(0);
+  const [progress, setProgress] = useState<GoalProgressEntry[]>([]);
   const hintStorage = (() => { try { return localStorage; } catch { return null; } })();
   const hintValue = sources.review.status === 'ready' && sources.modules.wealth ? savingHint(sources.review.value, sources.profile.status === 'ready' ? sources.profile.value.saved?.profile.retire.basic?.contribution.monthly_cents ?? null : null) : null;
   void hintDismissals;
@@ -63,6 +67,24 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const editing = dialog !== null || assumptionEditing || eventEditing || detailEditing || saver.busy || saver.stuck;
   useEffect(() => { onEditingChange(editing); return () => onEditingChange(false); }, [editing, onEditingChange]);
   const caps = result.status === 'ready' ? result.caps : null, pred = caps?.prediction.status === 'ready' ? caps.prediction.value : null;
+  // Keep today's conclusion once per check-in revision, then read the history. Best effort:
+  // a failed write only means the point is tried again the next time the goal page opens.
+  const progressPoint = saved?.profile.retire.basic && caps ? goalProgressPoint(caps, saved.profile.retire.mode, saved.profile.retire.simplified.time.target_month, saved.profile.retire.basic.contribution.monthly_cents) : null;
+  const progressKey = JSON.stringify([sources.generation, sources.write_version, snapshot?.id, snapshot?.revision, progressPoint]);
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        let list = await invoke<GoalProgressEntry[]>('goal_progress_list');
+        if (snapshot && progressPoint && !list.some(e => e.snapshot_id === snapshot.id)) {
+          await invoke('goal_progress_record', { input: { generation: sources.generation, snapshot_id: snapshot.id, snapshot_revision: snapshot.revision, point: progressPoint } });
+          list = await invoke<GoalProgressEntry[]>('goal_progress_list');
+        }
+        if (live) setProgress(list);
+      } catch { /* the history is a convenience and never blocks the goal page */ }
+    })();
+    return () => { live = false; };
+  }, [progressKey]);
   const state = goalState(saved, caps);
   const debtLabels = Object.fromEntries((snapshot?.entries ?? []).filter(e => e.side === 'liability').map(e => [`debt:${e.account_id}`, { name: accounts.find(a => a.id === e.account_id)?.fields.name ?? '负债账户', balance: e.amount_cents === null ? '未知' : money(e.amount_cents) }]));
   const cards = saved && caps ? refinementCards(saved, caps, today, debtLabels) : [];
@@ -159,6 +181,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
         <div className="plan-goal-actions"><button type="button" id="plan-budget-entry" className="primary" onClick={e => openSetup(0, e.currentTarget)}>开始（约 2 分钟）</button><button type="button" className="ui-link" onClick={() => onGoto('savings')}>查看财务复盘</button></div>
       </> : <p>正在读取你的规划条件…</p>}
     </article>}
+    <GoalProgress entries={progress}/>
     {result.status !== 'ready' && <><CapabilityNotice result={result}/><button className="ui-btn" onClick={reload}>重新读取</button></>}
     {saved?.profile.retire.basic && caps && <PlanningRefinements title="核算注意事项" cards={cards.filter(c => c.required || c.impacts || c.condition)} busy={saver.busy || saver.stuck} onAction={action}/>}
   </div>;

@@ -16,6 +16,7 @@ pub mod files;
 pub mod finance_sources;
 pub mod financial_import;
 pub mod financial_import_parser;
+pub mod goal_progress;
 pub mod insights;
 pub mod investment_review;
 mod investment_review_commands;
@@ -265,6 +266,8 @@ pub fn run() {
             commands::open_notification_settings,
             commands::notification_status,
             commands::checkin_reminder_status,
+            commands::goal_progress_list,
+            commands::goal_progress_record,
             commands::checkin_reminder_set,
             commands::choice_list,
             commands::choice_change,

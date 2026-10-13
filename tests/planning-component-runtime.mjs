@@ -1,5 +1,6 @@
 import * as incomeView from '../src/planning-simplified-ui/income-view.ts';
 import * as simplified from '../src/plan-simplified.ts';
+import * as goalProgress from '../src/goal-progress.ts';
 import { posix } from 'node:path';
 import * as goalInputs from '../src/planning-goal/inputs.ts';
 import * as forecast from '../src/plan-format.ts';
@@ -57,7 +58,7 @@ export function runtime(file, props, save = async () => ({ revision: 5 }), caps 
     try { return await save(input); } catch (e) { saver.notice = e.message; return null; }
   } };
   const leaf = new Proxy({}, { get: (_, key) => String(key) });
-  const modules = { './planning-simplified-ui/income-view': incomeView, './plan-simplified': simplified,
+  const modules = { './goal-progress': goalProgress, '@tauri-apps/api/core': { invoke: async () => [] }, './planning-simplified-ui/income-view': incomeView, './plan-simplified': simplified,
     './plan-format': forecast, './planning-goal/inputs': goalInputs,
     react: hooks, 'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     './topbar-model': { refocusHeading: () => focuses.push('page-heading') }, './planning-fund-scope': fundScope, './planning-basic-forms': forms, './plan-basic': basic, './plan-core': core, './plan-coverage': coverage, './planning-cost-review': costReview, './plan-debt': debt, './plan-annotations': annotations, './plan-occurrence-actions': actions, './wealth': { kindLabel: v => v }, './asset': { money: c => `¥${c}` }, './review': { ready: r => r?.status === 'ready' ? r.value : null },

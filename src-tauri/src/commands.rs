@@ -1285,6 +1285,27 @@ pub async fn wealth_snapshot_save(
     .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn goal_progress_list(
+    worker: tauri::State<'_, Worker>,
+) -> Result<Vec<crate::goal_progress::Entry>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.goal_progress_list()))
+        .await
+        .map_err(|_| Error::new("WORKER", "暂时无法读取目标进度"))?
+}
+#[tauri::command]
+pub async fn goal_progress_record(
+    input: crate::goal_progress::Record,
+    worker: tauri::State<'_, Worker>,
+) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.goal_progress_record(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "目标进度未记录，下次打开目标页会重试"))?
+}
+#[tauri::command]
 pub async fn wealth_request_result(
     request: String,
     generation: String,
