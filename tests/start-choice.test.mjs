@@ -58,7 +58,7 @@ test('both start choices save exact module payload, invoke their path, and dismi
 test('skip and hidden/sample/started states never write settings or navigate', async () => {
   const skip = runtime(); await skip.click('跳过'); assert.equal(skip.render(), null); assert.deepEqual(skip.calls, []); assert.deepEqual(skip.starts, []);
   for (const props of [{ active: true }, { started: true }]) { const ui = runtime(props); assert.equal(ui.render(), null); assert.deepEqual(ui.calls, []); }
-  const unavailable = runtime({}, undefined, { getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); } }); await unavailable.click('跳过'); assert.ok(unavailable.render());
+  const unavailable = runtime({}, undefined, { getItem() { throw Error('blocked'); }, setItem() { throw Error('blocked'); } }); await unavailable.click('跳过'); assert.equal(unavailable.render(), null);
 });
 test('write failure rereads switches, reports an error after navigation, and retains the card', async () => {
   const ui = runtime({}, async command => { if (command === 'modules_set') throw Error('fictional write failure'); return { ...modules, recurring: false }; });
@@ -68,9 +68,9 @@ test('write failure rereads switches, reports an error after navigation, and ret
     const stale = runtime(props); await stale.click('先整理物品'); assert.deepEqual(stale.calls, []); assert.deepEqual(stale.starts, ['physical']); assert.ok(stale.render()); assert.match(stale.notices.at(-1), /尚未可靠读取/);
   }
 });
-test('storage failures allow primary actions and leave the card present', async () => {
+test('storage failures allow primary actions and hide the card for this session', async () => {
   const ui = runtime({}, undefined, { getItem() { throw Error('unavailable'); }, setItem() { throw Error('unavailable'); } }); await ui.click('先整理物品');
-  assert.deepEqual(ui.starts, ['physical']); assert.ok(ui.render());
+  assert.deepEqual(ui.starts, ['physical']); assert.equal(ui.render(), null);
 });
 test('empty accounts put the existing data-management import before manual creation', () => {
   const calls = [];

@@ -15,7 +15,8 @@ export function StartChoice({ generation, active, started, modules, modulesLoade
   const [dismissed, setDismissed] = useState<string | null>(null);
   if (active || started || dismissed === generation && generation !== null || startChoiceDismissed(choiceStorage(), generation)) return null;
   function failure(message: string) { lastFailure.current = message; setError(message); onNotice?.(message); }
-  function dismiss() { if (dismissStartChoice(choiceStorage(), generation)) setDismissed(generation); }
+  // Storage failure only loses persistence; skipping still hides the card for this session.
+  function dismiss() { dismissStartChoice(choiceStorage(), generation); setDismissed(generation); }
   async function start(choice: Choice) {
     if (lock.current || busy || disabled) return;
     lock.current = true;

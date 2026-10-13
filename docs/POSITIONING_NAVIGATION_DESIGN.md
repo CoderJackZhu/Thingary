@@ -118,7 +118,7 @@
 - “先整理物品”：总览视图设为 `physical`（写 `thingary.overview-view.v1`），打开新增物品表单。
 - “先盘点账户”：总览视图设为 `combined`，进入“账户与盘点”空白页（见 5.2）。
 - 复选框默认勾选；勾选时通过现有 `modules_set` 写入 `recurring: false, virtual: false`，其余模块保持当前值，`incomes`／`movements` 原样传回。写入失败显示错误并保留卡片，不影响主操作继续。
-- “跳过”只隐藏卡片，不改任何设置。卡片的已关闭状态存 `localStorage`（键 `thingary.start-choice.v1`，按资料库 generation 区分），读写异常时卡片照常显示、不阻断使用。
+- “跳过”只隐藏卡片，不改任何设置。卡片的已关闭状态存 `localStorage`（键 `thingary.start-choice.v1`，按资料库 generation 区分），本机存储读写异常时，本次会话内仍按选择隐藏卡片，只是下次启动可能再次出现。旧的总览空白起步卡片在本卡片显示期间隐藏，避免重复询问。
 - 保存第一条资料（`started` 变为 true）后卡片不再出现。
 - 样例模式下不显示该卡片。
 
