@@ -81,6 +81,7 @@ import { storedWishlistChange, storedWishlistDraft, wishlistAbandonKey } from '.
 import './taxonomy.css';
 import { allModules, type Modules, type RuntimeModules } from './modules';
 import { ModuleSettings } from './ModuleSettings';
+import { CheckinReminder } from './CheckinReminder';
 import './style.css';
 import './app-layout.css';
 import './desktop-polish.css';
@@ -1088,7 +1089,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         appearance: <AppearanceSettings style={style} onStyle={setStyle}/>,
         materials: settingsGroup === 'materials' ? <MaterialLibrary onBusyChange={setDataBusy} generation={page?.generation || ''} onNotice={setNotice} search={searches.materials} onSearch={v => setSearches(s => (s.materials === v ? s : { ...s, materials: v }))}/> : null,
         options: <TaxonomyManager generation={taxonomy.snapshot?.generation} snapshot={taxonomy.snapshot} loading={taxonomy.loading} loadError={taxonomy.loadError} onReload={taxonomy.reload} onCommand={taxonomy.command} onDirtyChange={setTaxonomyDirty} validateName={(kind, name, id) => validateTaxonomyName(taxonomy.snapshot?.[kind === 'category' ? 'categories' : 'channels'] ?? [], kind, name, id)}/>,
-        modules: <ModuleSettings modules={modules} onChange={setModules}/>,
+        modules: <><ModuleSettings modules={modules} onChange={setModules}/><CheckinReminder wealthOn={modules.wealth} today={today}/></>,
         data: <DataManagement onImported={() => { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setFinanceReviewRoute({ page: 'review', view: 'period' }); setReviewBrowse({}); void refresh(); void taxonomy.reload().catch(() => {}); }} onBusyChange={setDataBusy} generation={libraryGeneration ?? null} demo={!!demoStatus?.active} blocked={otherEditing || featureEditing || (durablePending && storedPending()?.command !== 'financial_import_commit')} financeImportRequested={financeImportRequested} onFinanceImportRequestDone={() => setFinanceImportRequested(false)} onViewFinance={target => { if (target !== 'income' && (!modules.wealth || storedPending() || pendingGenerations(localStorage).length || otherEditing)) { setNotice('账户功能已关闭或仍有结果待核对。'); return; } if (target === 'income') gotoFinance({ page: 'records', tab: 'income' }, true); else { beginReturn(); setWealthReviewFocus(libraryGeneration ? { generation: libraryGeneration, kind: target === 'snapshots' ? 'history' : 'accounts' } : null); setSection('wealth'); } }} onTrash={() => openSubpage('trash', 'data')}/>,
         demo: demoStatus.available ? <DemoSettings status={demoStatus} blocked={modeBusy || modeBlocked} onSwitch={() => void changeDemoMode(!demoStatus.active)} onReset={() => void changeDemoMode(true, true)}/> : <p className="muted">样例资料暂不可用。</p>,
       }}/>}

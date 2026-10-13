@@ -60,6 +60,10 @@ RuntimeModules 增加独立 `incomes` 和 `movements`，前者不依赖目标，
 - 修复由用户在设置中明确选择两项后重建，重建前保留损坏文件的诊断副本，副本失败则不覆盖；较新的未知版本不自动降级。
 - 新偏好带单调修订，导入预览绑定有效能力与两份偏好的变化。旧应用忽略新文件；偏好属于本机身份，不进入资料库备份，样例与个人资料共用。
 
+### 盘点提醒
+
+盘点提醒是本机偏好 `checkin-reminder.json`（`{"months": 0|1|2|3}`，缺失或损坏读作关闭），与 `auto-backup.json` 一样不进入资料库与备份。提醒计划不单独存储：`reminder_plans_for` 在账户与盘点开启且偏好开启时，读取 `wealth_summary` 中最近一个完整盘点，推出到期日及一周后的跟进日，生成稳定 ID `thingary-checkin-<日期>` 的两条计划，与保障、续费提醒一起交给同一个提醒线程；日期变化后旧 ID 不再被需要而由原生层移除。偏好保存会清除提醒缓存键，使计划立即重算；已过去的日期由原生层丢弃。
+
 ## 当前规划报告
 
 `PlanningPage` 使用同一批 `PlanningSources` 与 `buildBasicCapabilities`，经 `planning-report/current-adapter.ts` 和 `parseReportInput` 生成脱离来源引用的白名单快照。`PlanningCurrentReportDialog` 只持有内存快照；普通来源刷新不替换正文，切库、恢复、关闭规划或离开目标使其失效。报告不写账户、规划或回执，未知净投入不补零生成预测；影响计算的待核对项限制主结论。实际资金与模拟起点分别标注，账户在完整／隐私视图共用稳定局部别名。

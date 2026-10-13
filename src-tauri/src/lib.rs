@@ -3,6 +3,7 @@ pub mod backup;
 pub mod batch;
 pub mod cash_movement;
 pub mod catalog;
+pub mod checkin_reminder;
 pub mod choices;
 mod commands;
 pub mod csv_export;
@@ -263,6 +264,8 @@ pub fn run() {
             commands::virtual_reminder_save,
             commands::open_notification_settings,
             commands::notification_status,
+            commands::checkin_reminder_status,
+            commands::checkin_reminder_set,
             commands::choice_list,
             commands::choice_change,
             commands::saved_wish_feature,

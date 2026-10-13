@@ -1184,6 +1184,27 @@ pub async fn modules_set(
 }
 
 #[tauri::command]
+pub async fn checkin_reminder_status(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::checkin_reminder::Status> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.checkin_reminder_status())
+        .await
+        .map_err(|_| Error::new("WORKER", "盘点提醒读取失败"))?
+}
+
+#[tauri::command]
+pub async fn checkin_reminder_set(
+    months: u32,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::checkin_reminder::Status> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.checkin_reminder_set(months))
+        .await
+        .map_err(|_| Error::new("WORKER", "盘点提醒未保存，请重试"))?
+}
+
+#[tauri::command]
 pub async fn notification_status(worker: tauri::State<'_, Worker>) -> Result<String> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {

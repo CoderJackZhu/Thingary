@@ -2,6 +2,10 @@
 
 用户下载见 [Releases](https://github.com/CoderJackZhu/Thingary/releases)，操作和更新见[使用指南](docs/USER_GUIDE.md)。这里记录用户可感知的变化，开发执行流水另存维护者档案。
 
+## 当前源码 — 尚未发布
+
+- 新增可选的盘点提醒：在「设置 › 功能模块」选择每 1、2 或 3 个月，距上次完整盘点满间隔时用系统通知提醒，一周后再提醒一次；保存新的完整盘点自动重新计时。默认关闭，只保存在本机。
+
 ## 0.0.5 Beta — 2026-10-13
 
 GitHub Pre-release。从本版起提供 Apple Silicon 与 Intel 通用安装包；无数据库格式变化。验证与限制见[0.0.5 发布说明](docs/releases/v0.0.5.md)。

@@ -85,6 +85,9 @@ impl Store {
                 }
             }
         }
+        if modules.wealth {
+            plans.extend(self.checkin_reminder_plans()?);
+        }
         plans.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(plans)
     }

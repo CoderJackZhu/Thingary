@@ -378,6 +378,17 @@ impl Worker {
             result
         })
     }
+    pub fn checkin_reminder_status(&self) -> Result<crate::checkin_reminder::Status> {
+        self.with_state(|state| state.real.checkin_reminder_status())
+    }
+    /// Saving forgets the last reminder plan so the change takes effect at once.
+    pub fn checkin_reminder_set(&self, months: u32) -> Result<crate::checkin_reminder::Status> {
+        self.with_state(move |state| {
+            crate::checkin_reminder::Settings { months }.save(&state.real.root)?;
+            state.reminder_key = None;
+            state.real.checkin_reminder_status()
+        })
+    }
     pub fn reminder_snapshot(&self) -> Result<crate::reminders::Snapshot> {
         self.with_state(|state| crate::reminders::snapshot(&state.real))
     }

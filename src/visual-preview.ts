@@ -316,9 +316,18 @@ function autoBackupPreview(command: string, args: Record<string, unknown>): unkn
   }
   throw { message: '此操作需在原生 App 验证：' + command };
 }
+// Fictional machine-local check-in reminder: counts from today's complete check-in, like the sample.
+let checkinMonths = 0;
+function checkinStatus() {
+  const last = new Date().toLocaleDateString('sv');
+  const next = new Date(); next.setMonth(next.getMonth() + checkinMonths);
+  return { months: checkinMonths, last_check_in: last, next_date: checkinMonths ? next.toLocaleDateString('sv') : null };
+}
 async function handle(command: string, payload: unknown): Promise<unknown> {
   if (command === 'notification_status') return '';
+  if (command === 'checkin_reminder_status') return checkinStatus();
   const args = payload as Record<string,unknown>;
+  if (command === 'checkin_reminder_set') { checkinMonths = Number(args.months); return checkinStatus(); }
   if(command==='wealth_request_result' && choiceReceipts.has(String(args.request)))return 'choices';
   if(command==='choice_list')return choiceSnapshot(String(args.kind));
   if(command==='choice_change'){
