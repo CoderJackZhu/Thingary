@@ -37,8 +37,8 @@ export function PlanningGoalOccurrences({ sources, today, reload, onPending, onE
       requestAnimationFrame(() => { if (opener.current?.isConnected) opener.current.focus(); });
     }
   }
-  return <article className="ui-card ui-content" aria-label="安排发生核对">
-    <h3>安排发生核对</h3>
+  return <article className="ui-card ui-content" aria-label="这笔计划实际发生了吗">
+    <h3>这笔计划实际发生了吗</h3>
     <p className="muted small">核对实际发生、付款是否已计入起点盘点及剩余欠款。保存只维护来源关系，不改变账户余额或复制支出。</p>
     {sources.profile.status !== 'ready' ? <p role="alert">目标资料暂不可用。<button disabled={locked} onClick={reload}>重新读取</button></p>
       : !retire?.life_events.length ? <p className="muted">尚无购买安排，可在目标条件中添加。</p>

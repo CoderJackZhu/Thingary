@@ -37,7 +37,7 @@ export function goalHeadline(calc: ReadyCalc, today: string): GoalHeadline {
     const capMonth = timeLabel(P, Math.min(P.search_cap_months, P.horizon_months - 1));
     return { main: `当前假设下，${capMonth} 前尚未达成`, sub: null, warn };
   }
-  if (fi <= P.now_months) return { main: '当前资产已覆盖退休所需', sub: '按当前假设估算', warn };
+  if (fi <= P.now_months) return { main: '当前资产已覆盖退休所需', sub: '估算', warn };
   const toFi = fi - P.now_months;
   // 月龄不截成整岁，避免与目标页给出相反的按期判断（§5.3）。
   const sub = `约 ${yearOf(today, toFi)} 年 · ${timeLabel(P, fi)}${fi > target ? `，晚于期望的 ${timeLabel(P, target)}` : ''}`;
@@ -68,7 +68,7 @@ export function usualSaving(review: PlanReview): UsualSaving {
   else if (!current.length) reason = '近 12 个月内没有可比区间。';
   else if (!usable.length) {
     if (current.some(i => !i.excluded && i.status === 'no_income')) reason = '这段时间还没有记录月度收入。';
-    else if (current.some(i => !i.excluded && i.status === 'scope_changed')) reason = '账户计入范围变化，暂无可比区间。';
+    else if (current.some(i => !i.excluded && i.status === 'scope_changed')) reason = '参与比较的账户有变化，暂无可比区间。';
     else reason = '可比区间都已标记为一次性变动。';
   } else reason = '可比区间不足。';
   return { kind: 'unknown', reason };
@@ -108,10 +108,10 @@ export function basisNotes(calc: ReadyCalc, snapshotDate: string | null): string
     snapshotDate ? `依据 ${snapshotDate} ${calc.r.basic?.start.kind === 'simulation' ? '手填金额' : '完整盘点'}` : null,
     '预测采用已保存的单一预计投入',
     calc.events.some(e => e.included || calc.r.core?.occurrences.some(o => o.event_id === e.id && o.status === 'occurred')) ? '已计入大额计划' : null,
-    '按当前假设估算',
+    '估算',
   ].filter((x): x is string => x !== null);
 }
 
 export function summaryBasis(retire: Extract<SummaryRetire, { kind: 'ready' }>): string[] {
-  return basisNotes(retire.calc, retire.snapshotDate);
+  return basisNotes(retire.calc, retire.snapshotDate).filter(note => note !== '估算');
 }

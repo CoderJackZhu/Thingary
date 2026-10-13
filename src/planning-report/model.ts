@@ -387,7 +387,7 @@ export function formatValue(v: Value): string {
 }
 export const basisLabel = (b: Basis) => b === 'known' ? '实际值' : b === 'estimated' ? '估算' : '未知';
 export const sourceLabel = (s: Assumption['source']) => s === 'confirmed' ? '已确认' : s === 'estimated' ? '估算' : s === 'excluded' ? '本次排除' : '未知';
-export const availabilityLabel = (a: FundRow['availability']) => a === 'available' ? '可用资金' : a === 'restricted' ? '受限资金' : '债务';
+export const availabilityLabel = (a: FundRow['availability']) => a === 'available' ? '可用资金' : a === 'restricted' ? '暂时取不出的钱' : '债务';
 export const templateLabel = (t: GoalRow['template']) => t === 'expense' ? '一笔支出' : t === 'milestone' ? '余额目标' : t === 'income_break' ? '暂停工作' : '退休';
 export const kindLabel = (k: ReportKind) => k === 'current' ? '当前方案' : k === 'baseline' ? '历史基准' : '方案比较';
 export const impactLabel = (i: MissingItem['impact']) => i === 'blocks_headline' ? '影响主结论' : i === 'degrades' ? '部分结果缺失' : '提示';
@@ -631,7 +631,7 @@ export function printableHtml(report: ReportInputV1, opts: { privacy: boolean })
   if (svg) {
     out.push(svg);
     out.push('<p class="muted">实线为预计，虚线为参考，绿色圆点为实际（仅完整盘点，不插值）。</p>');
-    out.push('<table><thead><tr><th>日期</th><th>种类</th><th>可用资金</th><th>受限资金</th><th>债务</th></tr></thead><tbody>');
+    out.push('<table><thead><tr><th>日期</th><th>种类</th><th>可用资金</th><th>暂时取不出的钱</th><th>债务</th></tr></thead><tbody>');
     for (const s of trend.all) out.push(tableRow([h(s.date), seriesKindLabel(s.kind), `<span class="num">${h(s.available ? formatMoney(s.available) : '—')}</span>`, `<span class="num">${h(s.restricted ? formatMoney(s.restricted) : '—')}</span>`, `<span class="num">${h(s.debt ? formatMoney(s.debt) : '—')}</span>`]));
     out.push('</tbody></table>');
   } else {

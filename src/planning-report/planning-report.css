@@ -26,6 +26,7 @@
 .pr-card{background:var(--card);border:var(--surface-border);border-radius:var(--surface-radius);box-shadow:var(--surface-shadow);padding:14px var(--surface-pad-x);min-width:0}
 .pr-conclusion .pr-headline{margin:0 0 8px;font:600 21px/1.6 var(--head)}
 .pr-conclusion .pr-muted{margin:0}
+.pr-conclusion-impact{margin:0 0 8px;padding:8px 10px;background:var(--danger-bg);color:var(--error);border-radius:var(--surface-radius);line-height:1.7}
 .pr-h{margin:0 0 8px;font:600 14px/1.4 var(--head);display:flex;align-items:baseline;gap:10px}
 .pr-h .pr-link{margin-left:auto}
 .pr-muted{color:var(--muted);font-size:12px}

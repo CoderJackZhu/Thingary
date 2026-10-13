@@ -21,7 +21,7 @@ test('demo ready result renders adjacent general cash-flow assumptions',()=>{
  const html=render(c.annotations);assert.match(html,/暂按额外费用计入，可能重复包含/);assert.doesNotMatch(html,/医保|养老金估算/);
  assert.ok(annotationSummary(c.annotations).length<=3);
  assert.ok(annotationSummary(c.annotations).every(x=>!x.includes('本次未采用')));
- assert.match(render(c.annotations,true),/带待核对假设，详见目标页/);
+ assert.match(render(c.annotations,true),/有 \d+ 项条件待确认，详见目标页/);
  assert.equal(render([],true),'');
 });
 test('many mixed sources yield at most one summary per direction, source counts are deduplicated',()=>{
@@ -46,3 +46,12 @@ for(const consumer of planningConsumers)test(`coverage guard: ${consumer.file} �
  if(consumer.guard==='RequirementLine')assert.match(fn.body.getText(source),/annotations=\{caps.annotations\}/);
 });
 test('independent consumers retain explicit model boundaries',()=>{assert.ok(independentPlanningConsumers.some(x=>x.includes('PlanningRunway')));assert.ok(independentPlanningConsumers.some(x=>x.includes('planning-report')));});
+
+
+test('compact coverage counts actual actionable rows and preserves explanation-only omissions', () => {
+ const base = buildBasicCapabilities(batch).annotations.find(a => a.reason_code === 'DEBT_UNLINKED');
+ const rows = [{...base,id:'first'}, {...base,id:'second'}, {...base,id:'explanation',actionable:false}];
+ assert.match(render(rows,true), /有 2 项条件待确认，详见目标页/);
+ assert.match(render([{...base,id:'omitted',reason_code:'POOL_NOT_USED',effect:'none',treatment:'not_used',actionable:false}],true), /有安排未计入，详见目标页/);
+ assert.equal(render([],true), '');
+});

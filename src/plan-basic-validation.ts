@@ -18,9 +18,9 @@ export function basicConstraintMessages(sources: PlanningSources): string[] {
   if (r.simplified.time.reference && r.simplified.time.reference.month > sources.today.slice(0, 7)) add('参考月份晚于今天');
   for (const i of r.simplified.future_incomes) if (i.source_checked_on !== null && i.source_checked_on > sources.today) add('来源确认日期晚于今天');
   const releaseIds = new Set<string>(), releaseAccounts = new Set<string>();
-  if ((r.core?.releases.length ?? 0) > 500) add('受限资金安排过多');
+  if ((r.core?.releases.length ?? 0) > 500) add('暂时取不出的钱的可用安排过多');
   for (const x of r.core?.releases ?? []) {
-    if (!x.id.trim() || releaseIds.has(x.id) || releaseAccounts.has(x.account_id) || !x.account_id.trim() || !month(x.month) || (x.net_cents !== null && (!cents(x.net_cents) || Number(x.net_cents) > 99999999999)) || typeof x.estimated !== 'boolean' || typeof x.excludes_future_deposits !== 'boolean' || !r.core?.fund_rules.some(f => f.account_id === x.account_id && f.availability === 'restricted')) add('受限资金安排的身份、月份、金额或来源非法');
+    if (!x.id.trim() || releaseIds.has(x.id) || releaseAccounts.has(x.account_id) || !x.account_id.trim() || !month(x.month) || (x.net_cents !== null && (!cents(x.net_cents) || Number(x.net_cents) > 99999999999)) || typeof x.estimated !== 'boolean' || typeof x.excludes_future_deposits !== 'boolean' || !r.core?.fund_rules.some(f => f.account_id === x.account_id && f.availability === 'restricted')) add('暂时取不出的钱的可用安排中，身份、月份、金额或来源无效');
     releaseIds.add(x.id); releaseAccounts.add(x.account_id);
   }
   if (b.start.kind === 'simulation' && ((b.start.available_cents !== null && !cents(b.start.available_cents)) || (b.start.date !== null && !date(b.start.date)))) add('模拟起点金额或日期非法。');

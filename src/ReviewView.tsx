@@ -43,13 +43,13 @@ function StructureCard({ summary }: { summary: Summary }) {
   const settled = span && pairs?.key === key ? pairs : null;
   const rows = structureRows(summary.structure, settled?.value ?? null);
   const note = !latest?.compared_to ? '第一份完整盘点，暂无可比变化。'
-    : latest.scope_changed ? `较 ${latest.compared_to}：账户计入范围有变化，暂不能逐类比较。`
+    : latest.scope_changed ? `较 ${latest.compared_to}：参与比较的账户有变化，暂不能逐类比较。`
     : !settled ? '正在读取变化…'
     : settled.value === null ? '变化暂时无法读取。'
     : `变化为较 ${latest.compared_to} 完整盘点；含存取与估值，不等于投资收益。`;
   const known = rows.reduce((sum, r) => sum + Math.max(0, Number(r.amount_cents)), 0);
   return <article className="ui-card review-structure">
-    <div className="ui-section-head"><h3>资产结构</h3><span className="ui-aside">{summary.structure_date} 完整盘点 · 计入范围</span></div>
+    <div className="ui-section-head"><h3>资产结构</h3><span className="ui-aside">{summary.structure_date} 完整盘点 · 参与比较的账户</span></div>
     {!rows.length ? <p className="ui-empty">没有计入的资产。</p> : <>
       <div className="ui-share-bar" role="img" aria-label="计入资产按类型的金额占比">{known > 0 && rows.map((r, i) => Number(r.amount_cents) > 0 && <span key={r.kind} style={{ width: `${Number(r.amount_cents) / known * 100}%`, background: series(i) }}/>)}</div>
       <table className="ui-table review-structure-table"><thead><tr><th>类别</th><th>占比</th><th>金额</th><th>较上次</th></tr></thead>
@@ -130,7 +130,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     {onFinance && (modules.wealth || modules.incomes || modules.expenses) && <div className="review-plan-actions" aria-label="财务工作区">{modules.incomes && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'income', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>收入记录 →</button>}{modules.expenses && <button className="review-action" onClick={() => onFinance({ page: 'records', tab: 'expenses', period: year === null ? { kind: 'all' } : { kind: 'year', year } })}>重要支出 →</button>}{modules.wealth && <button className="review-action" onClick={() => onFinance({ page: 'review', view: 'period' })}>财务复盘 →</button>}</div>}
     {(modules.wealth || modules.planning) && <div className={'review-top' + (modules.wealth && modules.planning ? ' duo' : '')}>
       {modules.wealth && <section className="review-nw" aria-label="金融净资产">
-        <div className="ui-label">金融净资产<button type="button" className="icon-button privacy-toggle" aria-label={amountsHidden ? '显示金融金额' : '隐藏金融金额'} title={amountsHidden ? '显示金融金额' : '隐藏金融金额'} aria-pressed={amountsHidden} onClick={() => setAmountsHidden(v => !v)}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{amountsHidden && <path d="m3 3 18 18"/>}</svg></button>{latest && <Info text={`只统计计入范围的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
+        <div className="ui-label">金融净资产<button type="button" className="icon-button privacy-toggle" aria-label={amountsHidden ? '显示金融金额' : '隐藏金融金额'} title={amountsHidden ? '显示金融金额' : '隐藏金融金额'} aria-pressed={amountsHidden} onClick={() => setAmountsHidden(v => !v)}><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>{amountsHidden && <path d="m3 3 18 18"/>}</svg></button>{latest && <Info text={`只统计参与比较的账户，不含实物。最近一次完整盘点 ${latest.date}，距今 ${daysSince} 天。`}/>}</div>
         {failure(data.wealth)}
         {w && <>
           <div className="review-nw-big">{amountsHidden ? '******' : latest ? signedMoney(latest.net_cents) : '—'}</div>

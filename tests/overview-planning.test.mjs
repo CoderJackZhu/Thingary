@@ -38,7 +38,7 @@ test('fire headline: waiting keeps explicit month, matching the goals page exact
 test('fire headline: reached and unreachable use the actual search cap, never "forever"', () => {
   const reached = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '500000' }), snap(500_000_000), reviewOf('1000000'), [], today)), today);
   assert.equal(reached.main, '当前资产已覆盖退休所需');
-  assert.equal(reached.sub, '按当前假设估算');
+  assert.equal(reached.sub, '估算');
   // 50 万元预算、零储蓄、20 万资产：搜索范围内不可达；horizon 70 早于 70 岁上限时按实际终点年龄。
   const capped = goalHeadline(ready(buildRetireCalc(saved({ spend_cents: '50000000', simplified: { contract_version: 1, time: { reference: null, target_month: '2040-06', horizon_month: '2060-05' }, income_mode: 'excluded', future_incomes: [] }, contribution_cents:'0' }), snap(20_000_000), reviewOf('0'), [], today)), today);
   assert.equal(capped.main, '当前假设下，2060-05 前尚未达成');
@@ -100,7 +100,7 @@ test('usual saving keeps known values (zero and negative) and explains unknowns 
   assert.match(usualSaving(noComplete).reason, /还没有完整盘点/);
   assert.match(usualSaving({ intervals: [], stats: stats(null), incomplete_count: 0 }).reason, /至少两次完整盘点/);
   assert.match(usualSaving({ intervals: [iv({ status: 'no_income' })], stats: stats(null), incomplete_count: 0 }).reason, /月度收入/);
-  assert.match(usualSaving({ intervals: [iv({ status: 'scope_changed' })], stats: stats(null), incomplete_count: 0 }).reason, /计入范围/);
+  assert.match(usualSaving({ intervals: [iv({ status: 'scope_changed' })], stats: stats(null), incomplete_count: 0 }).reason, /参与比较的账户/);
   assert.match(usualSaving({ intervals: [iv({ excluded: true })], stats: stats(null), incomplete_count: 0 }).reason, /一次性变动/);
   assert.match(usualSaving({ intervals: [iv({ in_window: false })], stats: stats(null), incomplete_count: 0 }).reason, /近 12 个月内没有可比区间/);
   // 样本少时保留数字，只加标注。
@@ -113,7 +113,7 @@ test('basis notes separate historical median from the saved single contribution'
   const notes = summaryBasis(plain);
   assert.ok(notes.includes(`依据 ${today} 完整盘点`));
   assert.ok(notes.includes('预测采用已保存的单一预计投入'));
-  assert.ok(notes.includes('按当前假设估算'));
+  assert.ok(!notes.includes('估算'));
 
 });
 

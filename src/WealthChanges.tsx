@@ -108,8 +108,8 @@ export function WealthChanges({ summary, accounts, accountView, initial, today, 
       : <>
         {!hideControls && <div className="ui-metrics ui-card">
           <article><span>金融净资产变化</span><strong>{compare.reconciled ? changeText(compare.net_change_cents!) : '—'}</strong><em>{compare.reconciled && compare.net_rate_hundredths !== null ? rateText(compare.net_rate_hundredths) : ''}</em></article>
-          <article><span>资产变化</span><strong>{compare.reconciled ? changeText(compare.assets_change_cents!) : '—'}</strong><em>计入范围</em></article>
-          <article><span>负债变化</span><strong>{compare.reconciled ? changeText(compare.liabilities_change_cents!) : '—'}</strong><em>计入范围</em></article>
+          <article><span>资产变化</span><strong>{compare.reconciled ? changeText(compare.assets_change_cents!) : '—'}</strong><em>参与比较的账户</em></article>
+          <article><span>负债变化</span><strong>{compare.reconciled ? changeText(compare.liabilities_change_cents!) : '—'}</strong><em>参与比较的账户</em></article>
         </div>}
         {!compare.reconciled && reason && <p className="muted">{reason}</p>}
         <article className="ui-card ui-content">
@@ -136,7 +136,7 @@ export function WealthChanges({ summary, accounts, accountView, initial, today, 
           </table>
         </article>}
         <article className="ui-card ui-content">
-          <div className="ui-section-head"><h3>结构变化</h3><span className="muted">计入范围 · 资产按类型{compare.from.complete && compare.to.complete ? '' : ' · 仅已知部分'}</span></div>
+          <div className="ui-section-head"><h3>结构变化</h3><span className="muted">参与比较的账户 · 资产按类型{compare.from.complete && compare.to.complete ? '' : ' · 仅已知部分'}</span></div>
           {compare.structure.length ? <table className="ui-table changes-structure"><thead><tr><th>类型</th><th>起点</th><th>终点</th><th>占比变化（百分点）</th></tr></thead>
             <tbody>{compare.structure.map(s => {
               const delta = s.from_share !== null && s.to_share !== null ? s.to_share - s.from_share : null;
@@ -171,7 +171,7 @@ function ChangesRow({ r, open, onToggle, history, onRetry }: {
       <td><strong>{r.name}</strong>{r.institution && <small className="muted"> · {r.institution}</small>}
         {r.tag === 'new' && <small className="row-tag">新增账户</small>}
         {r.tag === 'closed' && <small className="row-tag">已停用</small>}
-        {r.group === 'scope_changed' && <small className="row-tag">计入范围变化</small>}
+        {r.group === 'scope_changed' && <small className="row-tag">参与比较的账户变化</small>}
       </td>
       <td className="col-kind">{kindLabel(r.kind)}</td>
       <td>{cellText(r.from, r.side)}</td>

@@ -122,7 +122,7 @@ test('live accounts are stable aliases in complete and privacy copies; notes and
 test('unconfirmed account purposes are not presented as invented available or restricted funds', () => {
   const s = fixture(); const id = s.snapshot.value.entries.find(row => row.side === 'asset').account_id;
   s.profile.value.saved.profile.retire.core.fund_rules = s.profile.value.saved.profile.retire.core.fund_rules.filter(row => row.account_id !== id);
-  const r = report(s); assert.ok(r.missing.some(row => row.label.includes('本预览未将其列为可用或受限资金')));
+  const r = report(s); assert.ok(r.missing.some(row => row.label.includes('本预览未将其列为可用资金或暂时取不出的钱')));
 });
 
 test('temporary, stale, disabled and unsaved contexts cannot masquerade as current saved reports', () => {

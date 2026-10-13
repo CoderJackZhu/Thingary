@@ -24,7 +24,7 @@ export function buildReviewObservations({ interval: i, reasons, pending, snapsho
   if (i.delta_nw_cents !== null && i.status !== 'scope_changed') {
     const delta = BigInt(i.delta_nw_cents);
     items.push({ id: 'change', text: delta === 0n ? '金融净资产没有变化，含估值变化。' : `金融净资产${delta < 0n ? '减少' : '增加'}了 ${money((delta < 0n ? -delta : delta).toString())}，含估值变化。` });
-  } else items.push({ id: 'change', text: i.status === 'scope_changed' ? '账户计入范围已变，本期金融净资产变化不可直接比较。' : '这期暂无可比较的资产变化。' });
+  } else items.push({ id: 'change', text: i.status === 'scope_changed' ? '参与比较的账户已变，本期金融净资产变化不可直接比较。' : '这期暂无可比较的资产变化。' });
   items.push({ id: 'income', text: (i.status === 'no_income' || i.income_records === 0) ? '这期尚无已记录收入，不代表实际收入为零。' : `这期已记录税后收入 ${money(i.income_cents)}；不代表收入已记全。` });
   if (reasons?.lines.length) {
     let total = 0n, unknown = 0, known = 0;

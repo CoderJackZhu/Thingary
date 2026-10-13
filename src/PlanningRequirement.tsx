@@ -47,7 +47,7 @@ function RequirementBody({ value, annotations }: { annotations?: BasicCapabiliti
 }
 
 /** One line for compact places (home): the same wording as the card, without the comparison row. */
-export function RequirementLine({ value, annotations }: { annotations?: BasicCapabilities['annotations']; value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
+export function RequirementLine({ value, annotations, showCoverage = true }: { showCoverage?: boolean; annotations?: BasicCapabilities['annotations']; value: Extract<BasicCapabilities['requirement'], { status: 'ready' }>['value'] }) {
   const set = requirementLine(value.set, yuanOf);
-  return <><p className={`review-plan-sub plan-req-line ${set.tone}`}>按这些条件，想在 {monthText(value.target_month)} 退休，每月需要存：<strong>{set.text}</strong></p><CoverageNote annotations={annotations} compact/></>;
+  return <><p className={`review-plan-sub plan-req-line ${set.tone}`}>按这些条件，想在 {monthText(value.target_month)} 退休，每月需要存：<strong>{set.text}</strong></p>{showCoverage && <CoverageNote annotations={annotations} compact/>}</>;
 }

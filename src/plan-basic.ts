@@ -149,7 +149,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
     const rule=core.fund_rules.find(f=>f.account_id===release.account_id);
     const amount=release.net_cents===null?null:Number(release.net_cents), balance=entry?.amount_cents==null?null:Number(entry.amount_cents)*(rule?.share_hundredths??0)/10000;
     if(!entry || rule?.availability!=='restricted' || amount===null || balance===null || release.month<anchor.slice(0,7) || !release.excludes_future_deposits || (amount>balance && !release.estimated)) {
-      annotations.push({id:`release:${release.id}`,reason_code:'TRANSFER_PENDING',message:'受限资金的金额、时间、现有余额或资金来源待确认，该转移未计入。',effect:'uncertain',treatment:'omitted',source_ids:[release.account_id],missing_fields:['通用可用安排'],refinement:{owner:'funds',field:`core.releases.${release.id}`}});continue;
+      annotations.push({id:`release:${release.id}`,reason_code:'TRANSFER_PENDING',message:'暂时取不出的钱的金额、时间、现有余额或资金来源待确认，该转移未计入。',effect:'uncertain',treatment:'omitted',source_ids:[release.account_id],missing_fields:['通用可用安排'],refinement:{owner:'funds',field:`core.releases.${release.id}`}});continue;
     }
     transfers.push({id:release.id,account_id:release.account_id,month:monthIndex(release.month)-monthIndex(anchor),cents:amount,nominal_cents:amount});
   }

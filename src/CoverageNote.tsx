@@ -7,7 +7,10 @@ import { prepareBasicPlan } from './plan-basic';
 export function CoverageNote({ annotations, sources, compact = false, onRefine }: { annotations?: readonly PlanningAnnotation[]; sources?: PlanningSources; compact?: boolean; onRefine?: (item: PlanningAnnotation) => void }) {
   const rows = useMemo(() => annotations ?? (sources ? prepareBasicPlan(sources).annotations : []) ?? [], [annotations, sources]);
   const lines = annotationSummary(rows);
-  if (compact) return lines.length ? <p className="coverage-note muted small" role="note">{actionableAnnotations(rows).length ? '带待核对假设' : '有未计入安排的说明'}，详见目标页</p> : null;
+  if (compact) {
+    const count = actionableAnnotations(rows).length;
+    return rows.length ? <p className="coverage-note muted small" role="note">{count ? `有 ${count} 项条件待确认，详见目标页` : '有安排未计入，详见目标页'}</p> : null;
+  }
   if (!rows.length) return null;
   return <div className="coverage-note" role="note" aria-label="计算覆盖与待核对依据">
     {lines.map(line => <p className="coverage-summary" key={line}>{line}</p>)}

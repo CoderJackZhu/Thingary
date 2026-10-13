@@ -11,7 +11,7 @@ const annotationLabels: Record<PlanningAnnotation['reason_code'], string> = {
   EVENT_OVERDUE: '计划日期已过，实际发生状态待核对。', PAYMENT_PENDING: '实际付款资料待核对。', LOAN_PENDING: '计划贷款资料待核对。',
   DEBT_UNLINKED: '已有负债的还款安排待核对。', DEBT_EXCLUDED: '已有负债的还款按选择未计入。', DEBT_BALANCE_CHANGED: '已有负债的盘点余额已变化，还款安排待核对。',
   REFERENCE_PENDING: '计划的实际来源引用待核对。', COST_ASSUMED_EXTRA: '费用包含关系待核对，暂按额外计入。', COST_PERIOD_PENDING: '费用适用期间待核对。',
-  POOL_NOT_USED: '受限资金未计入本次可用资金。', TRANSFER_PENDING: '受限资金释放条件待核对，该转移未计入。',
+  POOL_NOT_USED: '暂时取不出的钱未计入本次可用资金。', TRANSFER_PENDING: '暂时取不出的钱的可用条件待核对，该转移未计入。',
 };
 
 /** Pure projection of one saved calculation context. No reads, writes or invented historical results. */
@@ -62,7 +62,7 @@ export function currentReportInput(sources: PlanningSources, caps: BasicCapabili
     for (const [index, row] of entries.entries()) {
       const rule = r.core?.fund_rules.find(rule => rule.account_id === row.account_id);
       if (row.side === 'asset' && rule?.availability === 'excluded') continue;
-      if (row.side === 'asset' && !rule) { addMissing(`unconfirmed-${index + 1}-purpose`, `待核对来源 ${index + 1}的规划用途未确认，本预览未将其列为可用或受限资金。`); continue; }
+      if (row.side === 'asset' && !rule) { addMissing(`unconfirmed-${index + 1}-purpose`, `待核对来源 ${index + 1}的规划用途未确认，本预览未将其列为可用资金或暂时取不出的钱。`); continue; }
       const cents = row.amount_cents === null ? null : row.side === 'liability' ? row.amount_cents : (BigInt(row.amount_cents) * BigInt(rule?.share_hundredths ?? 10000) / 10000n).toString();
       const alias = funds.length + 1;
       funds.push({ id: `account-${alias}`, name: `账户 ${alias}`, availability: row.side === 'liability' ? 'debt' : rule?.availability === 'available' ? 'available' : 'restricted', amount: money(cents, 'known'), note: `截至 ${snapshot.date}的盘点名义金额${row.side === 'asset' ? `；采用份额 ${(rule?.share_hundredths ?? 10000) / 100}%` : '；本金不再从可用现金重复扣除'}。` });

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { money } from './asset';
 import { Info } from './FormControls';
 import { rateText } from './plan';
-import { summaryBasis, summaryRetire, usualSaving, yuan } from './plan-summary';
+import { summaryBasis, summaryRetire, usualSaving } from './plan-summary';
 import type { PlanSources, SummaryRetire } from './plan-summary';
 import type { ReviewPage } from './review';
 import type { PlanningTab } from './PlanningPage';
@@ -20,6 +20,8 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
   const saving = useMemo(() => (data ? (data.review.status === 'ready' ? usualSaving(data.review.value) : { kind: 'error' } as const) : { kind: 'loading' } as const), [data]);
   const basis = retire.kind === 'ready' ? summaryBasis(retire) : null;
   const basicPlan = !!(data && data.profile.status === 'ready' && data.profile.value.saved?.profile.retire.basic);
+  const summaryAnnotations = retire.kind === 'ready' ? retire.calc.annotations : retire.kind === 'blocked' ? retire.capabilities?.annotations : undefined;
+  const estimateInfo = ['按已保存条件估算，不保证未来一定够用；条件、遗漏或待确认事项会影响结果。', ...(basis ?? []), ...(!basicPlan && retire.kind === 'ready' ? ['当前可支配资产与今天退休所需的比例只表示资产覆盖，不是时间进度或成功概率。'] : [])].join(' ');
 
   const actions: { label: string; run: () => void }[] = retire.kind === 'ready' ? [
     { label: '查看目标 →', run: () => onGotoPlanning('goals') },
@@ -32,15 +34,16 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
     [{ label: '查看目标 →', run: () => onGotoPlanning('goals') }]
   ) : [];
   return <article className="ui-card review-plan" aria-label="目标摘要">
-    <div className="ui-section-head"><h3>规划</h3>{retire.kind === 'ready' && <span className="ui-aside">按当前假设估算</span>}</div>
+    <div className="ui-section-head"><h3>规划<Info text={estimateInfo}/></h3></div>
+    <CoverageNote annotations={summaryAnnotations} compact/>
     <p className="review-plan-goal">退休与财务自由{retire.kind === 'ready' && <small> · {retire.mode === 'fire' ? 'FIRE' : '传统'}</small>}</p>
     {basicPlan ? <BasicSummaryBody sources={data!} retire={retire} onGotoPlanning={onGotoPlanning}/> : retire.kind === 'ready' ? <>
-      <p className="review-plan-main">{retire.headline.main}</p><CoverageNote annotations={retire.calc.annotations} compact/>
-      {retire.headline.sub && <p className="review-plan-sub">{retire.headline.sub}</p>}
+      <p className="review-plan-main">{retire.headline.main}</p>
+      {retire.headline.sub && retire.headline.sub !== '估算' && <p className="review-plan-sub">{retire.headline.sub}</p>}
       {retire.headline.warn && <p className="review-plan-warn" role="status">{retire.headline.warn}</p>}
       <div className="review-plan-cov">
         <div className="review-plan-cov-head">
-          <span>当前可支配资产／今天退休所需<Info text={`当前可支配资产 ${yuan(retire.coverage.assets)}（只算确认可以动用的部分；暂不能动用的钱和欠款另列），今天退休所需 ${yuan(retire.coverage.requiredNow)}。这是资产比例，不是时间进度或成功概率。`}/></span>
+          <span>当前可支配资产／今天退休所需</span>
           <b>{rateText(retire.coverage.percent)}</b>
         </div>
         <div className="review-plan-bar" role="img" aria-label={`当前可支配资产约为今天退休所需的 ${rateText(retire.coverage.percent)}`}><div style={{ width: `${retire.coverage.percent / 100}%` }}/></div>
@@ -63,7 +66,6 @@ export function ReviewPlanSummary({ data, today, onReload: reload, onNavigate, o
       : saving.kind === 'error' ? <p className="review-plan-source">历史资产参考暂时无法读取。</p>
       : <p className="review-plan-source" role="status">正在读取…</p>}
     </div>
-    {!basicPlan && basis && <p className="review-plan-source">{basis.join(' · ')}</p>}
     {!basicPlan && actions.length > 0 && <div className="review-plan-actions">{actions.map(a => <button key={a.label} className="review-action" onClick={a.run}>{a.label}</button>)}</div>}
   </article>;
 }
@@ -76,8 +78,8 @@ function BasicSummaryBody({ sources, retire, onGotoPlanning }: { sources: PlanSo
   const pred = caps.prediction.status === 'ready' ? caps.prediction.value : null;
   return <>
     <p className="review-plan-main">{retire.kind === 'ready' ? retire.headline.main : r?.simplified.time.target_month == null ? '目标月份还没有设定' : `目标 ${r.simplified.time.target_month}${r.mode === 'fire' ? ' 财务自由' : ' 退休'}`}</p>
-    {retire.kind === 'ready' && retire.headline.sub && <p className="review-plan-sub">{retire.headline.sub}</p>}
-    {caps.requirement.status === 'ready' ? <RequirementLine value={caps.requirement.value} annotations={caps.annotations}/> : <p className="review-plan-sub">需求还算不出：{caps.requirement.missing[0]?.message}</p>}
+    {retire.kind === 'ready' && retire.headline.sub && retire.headline.sub !== '估算' && <p className="review-plan-sub">{retire.headline.sub}</p>}
+    {caps.requirement.status === 'ready' ? <RequirementLine value={caps.requirement.value} annotations={caps.annotations} showCoverage={false}/> : <p className="review-plan-sub">需求还算不出：{caps.requirement.missing[0]?.message}</p>}
     {pred ? <p className="review-plan-sub">按你估计每月能存下的钱：{terminalText[pred.terminal]}。</p>
       : needsContribution(caps) ? <p className="review-plan-sub">还没估计每月能存多少钱，先看目标需要的钱即可。</p> : null}
     <div className="review-plan-actions"><button className="review-action" onClick={() => onGotoPlanning('goals')}>查看目标 →</button>{caps.requirement.status === 'blocked' && <button className="review-action" onClick={() => onGotoPlanning('goals', 'budget')}>补充条件 →</button>}</div>

@@ -80,6 +80,7 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
   // 当前报告没有接入逐月数据时不占空区；基线／比较保持原兼容。
   const showTrend = hasTrend || view.kind !== 'current';
   const impactItems = summary ? view.missing.filter(m => m.impact === 'blocks_headline') : [];
+  const firstRestricted = view.funds.findIndex(f => f.availability === 'restricted');
   const estimatedText = (s: CurrentSummary) => s.contribution_direction === 'withdrawal' ? `${formatMoney(s.estimated_contribution)}（取用，不计为储蓄）` : formatMoney(s.estimated_contribution);
   const differenceText = (s: CurrentSummary) => s.contribution_direction === 'withdrawal' ? '取用不计差额' : formatMoney(s.difference);
   const doCopy = async () => {
@@ -126,6 +127,7 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
     <section className="pr-card pr-conclusion" aria-label="结论">
       {summary && <p className="pr-outcome"><span className="pr-outcome-label">当前结论</span>{currentOutcomeLabel(summary.outcome)} · {currentModeLabel(summary.mode)}</p>}
       <p className="pr-headline">{shownConclusion}</p>
+      {impactItems.length > 0 && <p className="pr-conclusion-impact" role="note">另有 {impactItems.length} 项事项会影响这个结论，见下方“影响结论的事项”。</p>}
       <p className="pr-muted">{summary ? currentNextStep(summary) : <>下一步：{view.next_step.label}{view.next_step.detail ? `（${view.next_step.detail}）` : ''}</>}</p>
     </section>
 
@@ -165,8 +167,8 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
       <h3 className="pr-h">资金范围</h3>
       <table className="pr-table">
         <thead><tr><th>名称</th><th>可用性</th><th>金额</th><th>依据</th><th>备注</th></tr></thead>
-        <tbody>{view.funds.map(f => <tr key={f.id}>
-          <td>{f.name}</td><td>{availabilityLabel(f.availability)}</td>
+        <tbody>{view.funds.map((f, index) => <tr key={f.id}>
+          <td>{f.name}</td><td>{availabilityLabel(f.availability)}{index === firstRestricted && <span className="pr-muted">（公积金、个人养老金等）</span>}</td>
           <td className="pr-num">{formatMoney(f.amount)}</td><td>{basisLabel(f.amount.basis)}</td>
           <td>{f.note ?? <span className="pr-muted">—</span>}</td>
         </tr>)}</tbody>
@@ -192,7 +194,7 @@ export function PlanningReport({ outer, privacy, onPrivacyChange, allowPrint = t
       </h3>
       <TrendChart trend={trend} privacy={privacy} />
       {showTable && !privacy && <table className="pr-table">
-        <thead><tr><th>日期</th><th>种类</th><th>可用资金</th><th>受限资金</th><th>债务</th></tr></thead>
+        <thead><tr><th>日期</th><th>种类</th><th>可用资金</th><th>暂时取不出的钱</th><th>债务</th></tr></thead>
         <tbody>{trend.all.map(s => <tr key={s.kind + s.date}>
           <td>{s.date}</td><td>{seriesKindLabel(s.kind)}</td>
           <td className="pr-num">{s.available ? formatMoney(s.available) : '—'}</td>

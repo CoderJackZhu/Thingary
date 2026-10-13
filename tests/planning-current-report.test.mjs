@@ -157,3 +157,22 @@ test('an unset goal disables details but keeps trial reachable; restore, generat
   }
   r.unmount(); assert.equal(page().button('目标').props['aria-pressed'], true);
 });
+
+test('conclusion impact count precedes next steps, preserves privacy, and disappears when no impact remains', () => {
+ const s=basicFixtureSources(basicInputFixtures.prediction),report=currentReportInput(s,buildBasicCapabilities(s),s.today);
+ report.missing=[{id:'impact-1',label:'虚构敏感事项987654321',hint:'虚构金额¥888',impact:'blocks_headline'},{id:'info-1',label:'范围说明',hint:null,impact:'info'}];
+ for(const privacy of [false,true]) {
+  const r=harness('planning-report/PlanningReport.tsx','PlanningReport',{outer:{status:'ready',input:report},privacy,allowPrint:false},{'./model.ts':model});
+  const conclusion=r.nodes().find(row=>row.props?.['aria-label']==='结论');
+  const children=conclusion.props.children.filter(Boolean);
+  assert.equal(children[1].props.className,'pr-headline');
+  assert.equal(children[2].props.className,'pr-conclusion-impact');
+  assert.equal(r.text(children[2]),'另有 1 项事项会影响这个结论，见下方“影响结论的事项”。');
+  assert.equal(children[3].props.className,'pr-muted');
+  assert.ok(!r.text(children[2]).includes('987654321'));assert.ok(!r.text(children[2]).includes('¥'));
+  if(privacy)assert.ok(!r.text(r.nodes()).includes('987654321'));
+ }
+ const clean={...report,missing:[]};
+ const r=harness('planning-report/PlanningReport.tsx','PlanningReport',{outer:{status:'ready',input:clean},privacy:true,allowPrint:false},{'./model.ts':model});
+ assert.equal(r.nodes().some(row=>row.props?.className==='pr-conclusion-impact'),false);
+});

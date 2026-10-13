@@ -199,3 +199,27 @@ test('runway is accessible without retirement settings and does not turn blanks 
   const withFunds = renderToStaticMarkup(React.createElement(comp.RunwayCard, { caps: buildBasicCapabilities(sources()), today: '2026-10-07', onOwner: noOp }));
   assert.match(withFunds, /请填写每月可靠到账/); assert.match(withFunds, /截至 2026-09-30/);
 });
+
+
+test('overview consolidates estimation and coverage at the title for both basic and retained legacy branches', () => {
+  const s = sources('1000000');
+  const annotations = [{ id:'missing-fee', reason_code:'COST_EXTRA_ASSUMED', message:'虚构费用待确认', effect:'requirement_higher', treatment:'temporary_extra', source_ids:['fee'], missing_fields:[], refinement:{ owner:'budget' } }];
+  const info = { Info: ({ text }) => React.createElement('span', { 'data-info':true }, text) };
+  for (const legacy of [false,true]) {
+    const savedResult = summary.summaryRetire(homeSources(s),s.today);
+    assert.equal(savedResult.kind,'ready');
+    const projected = {...savedResult,calc:{...savedResult.calc,annotations,capabilities:{...savedResult.calc.capabilities,annotations}}};
+    const comp = component('ReviewPlanSummary.tsx', { react:React,'./asset':asset,'./FormControls':info,'./plan':plan,
+      './plan-summary':{...summary,summaryRetire:()=>projected},'./PlanningRequirement':requirement,'./planning-basic-view':view });
+    const input = structuredClone(homeSources(s)); if(legacy) delete input.profile.value.saved.profile.retire.basic;
+    const html = renderToStaticMarkup(React.createElement(comp.ReviewPlanSummary,{data:input,today:s.today,onReload:noOp,onNavigate:noOp,onGotoPlanning:noOp}));
+    assert.equal((html.match(/有 1 项条件待确认，详见目标页/g)||[]).length,1,legacy?'legacy':'basic');
+    assert.equal((html.match(/class="coverage-note/g)||[]).length,1);
+    assert.match(html,/<h3>规划<span data-info="true">按已保存条件估算/);
+    assert.ok(!html.includes('按当前假设估算'));
+  }
+  const caps=buildBasicCapabilities(s);
+  const normal=renderToStaticMarkup(React.createElement(requirement.RequirementLine,{value:caps.requirement.value,annotations}));
+  const suppressed=renderToStaticMarkup(React.createElement(requirement.RequirementLine,{value:caps.requirement.value,annotations,showCoverage:false}));
+  assert.match(normal,/有 1 项条件待确认/);assert.ok(!suppressed.includes('coverage-note'));
+});

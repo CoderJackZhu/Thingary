@@ -79,7 +79,7 @@ export function FinanceReviewPage({ generation, today, modules, route, onRouteCh
             <article className="ui-card ui-content"><label>本期区间 <select disabled={frozen || childEditing} value={selected.pair.toSnapshotId} onChange={e=>onRouteChange({page:'review',view:'period',toSnapshotId:e.target.value})}>{sources.asset_review.value.intervals.map(i=><option key={i.snapshot_id} value={i.snapshot_id}>{i.from} → {i.to}</option>)}</select></label><p className="muted small">本期记录不含期初盘点日，包含期末当日。</p></article>
             {!periodReady ? <p role={current.load.status === 'loading' ? 'status' : 'alert'}>{current.load.status === 'loading' ? '正在读取同一区间的财务事实…' : current.load.status === 'error' ? current.load.message : '盘点区间已变化，请重新读取本期。'}<button onClick={reload}>重新读取</button></p> : <>
             <div className="ui-metrics ui-card">
-              {metric('金融净资产变化',selected.interval.delta_nw_cents,selected.interval.status === 'scope_changed' ? '计入范围变化；保留领域说明' : '来自两次完整盘点',true)}
+              {metric('金融净资产变化',selected.interval.delta_nw_cents,selected.interval.status === 'scope_changed' ? '参与比较的账户有变化，本期暂不可比' : '来自两次完整盘点',true)}
               {metric('已记录收入',periodSources ? incomeMetric(periodSources.incomes).cents : null,periodSources ? incomeMetric(periodSources.incomes).note : '正在读取本期收入')}
               {metric('已记录重要支出（退款前）',periodSources ? expenseMetric(periodSources.expenses).cents : null,periodSources ? expenseMetric(periodSources.expenses).note : '正在读取本期支出')}
               {metric('投资损益',investment?.status === 'ready' ? investment.value.profit_cents : null,investment?.status === 'ready' ? '原生核对结果；现金收入不重复计入' : '须同一区间、同一投资范围完成核对',true)}

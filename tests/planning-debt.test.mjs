@@ -107,7 +107,7 @@ test('illegal persisted loan assumptions block calculation; unknown valid values
 
 test('ignored loans keep an explanation across compact consumers without a pending label or refine button',()=>{
  const s=fixture(),next=update(s,rows(s).map(r=>record(s,r.entry.account_id,'excluded'))),a=buildBasicCapabilities(next).annotations;
- const compact=runtime('CoverageNote',{annotations:a,compact:true});assert.match(compact.text(compact.render()),/未计入安排的说明/);assert.doesNotMatch(compact.text(compact.render()),/待核对/);
+ const compact=runtime('CoverageNote',{annotations:a,compact:true});assert.match(compact.text(compact.render()),/有安排未计入，详见目标页/);assert.doesNotMatch(compact.text(compact.render()),/待核对/);
  const full=runtime('CoverageNote',{annotations:a,onRefine(){throw Error('ignored loans cannot prompt action');}});assert.equal(full.nodes().filter(n=>n.type==='button').length,0);assert.match(full.text(full.render()),/可能偏低/);
 });
 
