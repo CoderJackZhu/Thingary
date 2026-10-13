@@ -251,27 +251,50 @@ fn keep_scheduled(
 }
 
 #[cfg(windows)]
-struct NotificationApartment<'a>(&'a str);
+struct NotificationApartment(String);
 #[cfg(windows)]
-impl<'a> NotificationApartment<'a> {
-    fn new(identifier: &'a str) -> Result<Self> {
-        notification_trace(identifier, "RoInitialize begin");
-        unsafe {
-            windows::Win32::System::WinRT::RoInitialize(
-                windows::Win32::System::WinRT::RO_INIT_MULTITHREADED,
-            )
-        }
-        .map_err(|_| Error::new("REMINDER", "无法初始化 Windows 通知服务"))?;
-        notification_trace(identifier, "RoInitialize complete");
-        Ok(Self(identifier))
+thread_local! {
+    // Activation factories cached by windows-core outlive an individual call.
+    // Keep WinRT initialized for the actual notification worker, CLI or test
+    // thread, balancing initialization only when that thread terminates.
+    static NOTIFICATION_APARTMENT: std::cell::RefCell<Option<NotificationApartment>> = const {
+        std::cell::RefCell::new(None)
+    };
+}
+#[cfg(windows)]
+impl NotificationApartment {
+    fn ensure(identifier: &str) -> Result<()> {
+        NOTIFICATION_APARTMENT.with(|slot| {
+            let mut apartment = slot.borrow_mut();
+            if apartment.is_some() {
+                notification_trace(identifier, "RoInitialize reuse thread apartment");
+                return Ok(());
+            }
+            notification_trace(identifier, "RoInitialize begin");
+            unsafe {
+                windows::Win32::System::WinRT::RoInitialize(
+                    windows::Win32::System::WinRT::RO_INIT_MULTITHREADED,
+                )
+            }
+            .map_err(|_| Error::new("REMINDER", "无法初始化 Windows 通知服务"))?;
+            *apartment = Some(Self(identifier.to_owned()));
+            notification_trace(
+                identifier,
+                "RoInitialize complete; retained for thread lifetime",
+            );
+            Ok(())
+        })
     }
 }
 #[cfg(windows)]
-impl Drop for NotificationApartment<'_> {
+impl Drop for NotificationApartment {
     fn drop(&mut self) {
-        notification_trace(self.0, "RoUninitialize begin");
+        // RoUninitialize unloads thread DLLs and closes RPC connections. Never
+        // perform it between uses of a cached WinRT activation factory.
+        // https://learn.microsoft.com/windows/win32/api/roapi/nf-roapi-rouninitialize
+        notification_trace(&self.0, "thread ending; RoUninitialize begin");
         unsafe { windows::Win32::System::WinRT::RoUninitialize() };
-        notification_trace(self.0, "RoUninitialize complete");
+        notification_trace(&self.0, "thread ending; RoUninitialize complete");
     }
 }
 
@@ -432,7 +455,7 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
         Foundation::DateTime,
         UI::Notifications::{NotificationSetting, ScheduledToastNotification},
     };
-    let _apartment = NotificationApartment::new(identifier)?;
+    NotificationApartment::ensure(identifier)?;
     let (notifier, setting) = windows_notifier(identifier)?;
     let enabled = setting == NotificationSetting::Enabled;
     let disabled = || {
@@ -591,7 +614,7 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
         "inspect" => {}
         _ => return Err(Error::new("REMINDER", "未知的通知验收动作")),
     }
-    let _apartment = NotificationApartment::new(ID)?;
+    NotificationApartment::ensure(ID)?;
     let application_id = HSTRING::from(ID);
     let (notifier, _) = windows_notifier(ID)?;
     notification_trace(ID, "acceptance History begin");

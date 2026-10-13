@@ -104,6 +104,7 @@ $InstalledExe = $null
 $InstalledDir = $null
 $NotifyReady = $false
 $NotificationDriver = $null
+$NotificationFailure = $null
 $WindowsTarget = 'x86_64-pc-windows-msvc'
 function Save-Summary { $Summary | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $Output 'summary.json') -Encoding utf8 }
 function Assert-Exit([string]$Name) { if ($LASTEXITCODE -ne 0) { throw "$Name failed with exit code $LASTEXITCODE" } }
@@ -214,54 +215,63 @@ try {
   $restored=Join-Path $Output 'fixture-restored'
   Run-Tool 'cargo' @('run','--manifest-path','src-tauri/Cargo.toml','--target',$WindowsTarget,'--features','fault-injection','--example','cross_platform_backup','--','restore',(Join-Path $fixture 'fixture.thingary'),$restored) 'fixture-roundtrip.log'
   if ((Get-Content (Join-Path $fixture 'snapshot.json') -Raw) -ne (Get-Content (Join-Path $restored 'snapshot.json') -Raw)) { throw 'Restored fixture tables/payload hashes differ.' }
-  Run-Tool 'cargo' @('build','--manifest-path','src-tauri/Cargo.toml','--target',$WindowsTarget,'--features','fault-injection','--example','windows_notifications') 'notification-driver-build.log'
-  $NotificationDriver=Join-Path $RepoRoot "src-tauri/target/$WindowsTarget/debug/examples/windows_notifications.exe"
-  if (-not (Test-Path -LiteralPath $NotificationDriver)) { throw 'Compiled FI notification driver missing.' }
   Install-Acceptance
   $Summary.verified+=@('NSIS current user installed','installed shortcut identity/source/version/notices','fictional backup restore table counts and payload hashes')
-  Run-Tool 'cargo' @('test','--manifest-path','src-tauri/Cargo.toml','--target',$WindowsTarget,'--features','fault-injection','--lib','installed_windows_identity_reconciles_system_schedule','--','--ignored','--test-threads=1','--nocapture') 'installed-notifications-test.log'
-  if ((Get-Content (Join-Path $Output 'installed-notifications-test.log') -Raw) -notmatch '1 passed') { throw 'Installed notification test did not execute exactly one passing test.' }
-  if ($null -ne $AppProcess) { throw 'Application must be closed before scheduled delivery acceptance.' }
-  $appName=[IO.Path]::GetFileNameWithoutExtension($InstalledExe)
-  $remaining=@(Get-Process -Name $appName -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $InstalledExe })
-  if ($remaining.Count) { throw 'Installed app still running before delivery acceptance.' }
-  $closedAt=(Get-Date).ToUniversalTime().ToString('o')
-  $env:THINGARY_REMINDER_TEST_SECONDS='20'
-  [void](Notify 'permission')
-  $baseline=Notify 'clear'
-  if (@($baseline.history).Count -ne 0 -or @($baseline.scheduled).Count -ne 0) { throw 'Fixture notification baseline is not empty.' }
-  $queued=Notify 'reconcile'
-  if (@($queued.scheduled).Count -ne 1) { throw 'Actual scheduled toast missing.' }
-  $plan=@($queued.scheduled)[0]
-  if ($plan.tag -ne $queued.fixture_tag -or $plan.group -ne $queued.fixture_group) { throw 'Queued fixture Group/Tag mismatch.' }
-  if (@($queued.history).Count -ne 0) { throw 'Fixture history existed before the new scheduled delivery.' }
-  $inspection=Notify 'inspect'
-  if (@($inspection.scheduled).Count -ne 1) { throw 'Scheduled toast did not persist after driver exit.' }
-  $retained=@($inspection.scheduled)[0]
-  if ($retained.id -ne $plan.id -or $retained.tag -ne $plan.tag -or $retained.ticks -ne $plan.ticks) { throw 'Scheduled fixture changed between driver processes.' }
-  $deliveryTime=[DateTime]::FromFileTimeUtc([long]$plan.ticks)
-  $pollDeadline=(Get-Date).ToUniversalTime().AddSeconds(60)
-  $delivered=$null
-  while ((Get-Date).ToUniversalTime() -lt $pollDeadline) {
-    $state=Notify 'inspect'
-    $matching=@($state.history | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag })
-    if ($matching.Count -gt 1) { throw 'Duplicate fixture history entries after scheduled delivery.' }
-    if ($matching.Count -eq 1) {
-      if ((Get-Date).ToUniversalTime() -lt $deliveryTime) { throw 'Fixture history appeared before its scheduled deadline.' }
-      if ($matching[0].xml -notmatch '物谱隔离验收提醒' -or $matching[0].xml -notmatch 'thingary-windows-acceptance') { throw 'Delivered history content does not match the fictional fixture.' }
-      if (@($state.scheduled | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag }).Count -ne 0) { throw 'Delivered fixture remains in the pending schedule.' }
-      $delivered=$state
-      break
+  # Collect independent UI evidence even when notifications fail; all stages must pass.
+  try {
+    Run-Tool 'cargo' @('build','--manifest-path','src-tauri/Cargo.toml','--target',$WindowsTarget,'--features','fault-injection','--example','windows_notifications') 'notification-driver-build.log'
+    $NotificationDriver=Join-Path $RepoRoot "src-tauri/target/$WindowsTarget/debug/examples/windows_notifications.exe"
+    if (-not (Test-Path -LiteralPath $NotificationDriver)) { throw 'Compiled FI notification driver missing.' }
+    Run-Tool 'cargo' @('test','--manifest-path','src-tauri/Cargo.toml','--target',$WindowsTarget,'--features','fault-injection','--lib','installed_windows_identity_reconciles_system_schedule','--','--ignored','--test-threads=1','--nocapture') 'installed-notifications-test.log'
+    if ((Get-Content (Join-Path $Output 'installed-notifications-test.log') -Raw) -notmatch '1 passed') { throw 'Installed notification test did not execute exactly one passing test.' }
+    if ($null -ne $AppProcess) { throw 'Application must be closed before scheduled delivery acceptance.' }
+    $appName=[IO.Path]::GetFileNameWithoutExtension($InstalledExe)
+    $remaining=@(Get-Process -Name $appName -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $InstalledExe })
+    if ($remaining.Count) { throw 'Installed app still running before delivery acceptance.' }
+    $closedAt=(Get-Date).ToUniversalTime().ToString('o')
+    $env:THINGARY_REMINDER_TEST_SECONDS='20'
+    [void](Notify 'permission')
+    $baseline=Notify 'clear'
+    if (@($baseline.history).Count -ne 0 -or @($baseline.scheduled).Count -ne 0) { throw 'Fixture notification baseline is not empty.' }
+    $queued=Notify 'reconcile'
+    if (@($queued.scheduled).Count -ne 1) { throw 'Actual scheduled toast missing.' }
+    $plan=@($queued.scheduled)[0]
+    if ($plan.tag -ne $queued.fixture_tag -or $plan.group -ne $queued.fixture_group) { throw 'Queued fixture Group/Tag mismatch.' }
+    if (@($queued.history).Count -ne 0) { throw 'Fixture history existed before the new scheduled delivery.' }
+    $inspection=Notify 'inspect'
+    if (@($inspection.scheduled).Count -ne 1) { throw 'Scheduled toast did not persist after driver exit.' }
+    $retained=@($inspection.scheduled)[0]
+    if ($retained.id -ne $plan.id -or $retained.tag -ne $plan.tag -or $retained.ticks -ne $plan.ticks) { throw 'Scheduled fixture changed between driver processes.' }
+    $deliveryTime=[DateTime]::FromFileTimeUtc([long]$plan.ticks)
+    $pollDeadline=(Get-Date).ToUniversalTime().AddSeconds(60)
+    $delivered=$null
+    while ((Get-Date).ToUniversalTime() -lt $pollDeadline) {
+      $state=Notify 'inspect'
+      $matching=@($state.history | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag })
+      if ($matching.Count -gt 1) { throw 'Duplicate fixture history entries after scheduled delivery.' }
+      if ($matching.Count -eq 1) {
+        if ((Get-Date).ToUniversalTime() -lt $deliveryTime) { throw 'Fixture history appeared before its scheduled deadline.' }
+        if ($matching[0].xml -notmatch '物谱隔离验收提醒' -or $matching[0].xml -notmatch 'thingary-windows-acceptance') { throw 'Delivered history content does not match the fictional fixture.' }
+        if (@($state.scheduled | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag }).Count -ne 0) { throw 'Delivered fixture remains in the pending schedule.' }
+        $delivered=$state
+        break
+      }
+      Start-Sleep -Milliseconds 500
     }
-    Start-Sleep -Milliseconds 500
+    if ($null -eq $delivered) { throw 'Windows scheduled notification was not delivered into system history within 60 seconds.' }
+    $delivered | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $Output 'notification-delivered.json') -Encoding utf8
+    $Summary.notificationDelivery=@{ appClosedAt=$closedAt; scheduled=$plan; deadline=$deliveryTime.ToString('o'); observedAt=$delivered.observed_at; source='WinRT ToastNotificationManager.History.GetHistoryWithId'; history=$delivered.history; visibleDesktopToastVerified=$false }
+    $cleared=Notify 'clear'
+    if (@($cleared.scheduled).Count -ne 0 -or @($cleared.history).Count -ne 0) { throw 'Fixture scheduled/history notification was not cleared.' }
+    $Summary.verified+=@('Windows actual AddToSchedule','same queue entry survives driver process exit','scheduled delivery into system history while application is closed','exact fixture Group/Tag history cleanup')
+  } catch {
+    $NotificationFailure=$_
+    $Summary.notificationError=$_.Exception.ToString()
+    Write-Warning "Notification acceptance failed; collecting independent UI evidence. $($Summary.notificationError)"
+    try { [void](Notify 'clear') } catch { $Summary.notificationStageCleanupError=$_.Exception.ToString() }
+  } finally {
+    if ($env:THINGARY_REMINDER_TEST_SECONDS) { Remove-Item Env:THINGARY_REMINDER_TEST_SECONDS }
   }
-  if ($null -eq $delivered) { throw 'Windows scheduled notification was not delivered into system history within 60 seconds.' }
-  $delivered | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $Output 'notification-delivered.json') -Encoding utf8
-  $Summary.notificationDelivery=@{ appClosedAt=$closedAt; scheduled=$plan; deadline=$deliveryTime.ToString('o'); observedAt=$delivered.observed_at; source='WinRT ToastNotificationManager.History.GetHistoryWithId'; history=$delivered.history; visibleDesktopToastVerified=$false }
-  $cleared=Notify 'clear'
-  if (@($cleared.scheduled).Count -ne 0 -or @($cleared.history).Count -ne 0) { throw 'Fixture scheduled/history notification was not cleared.' }
-  $Summary.verified+=@('Windows actual AddToSchedule','same queue entry survives driver process exit','scheduled delivery into system history while application is closed','exact fixture Group/Tag history cleanup')
-  Remove-Item Env:THINGARY_REMINDER_TEST_SECONDS
   Start-Acceptance; UI 'smoke'; Stop-Acceptance
   Start-Acceptance; UI 'persistence' 'restart'
   $second=Start-Process -FilePath $InstalledExe -PassThru
@@ -293,6 +303,7 @@ try {
   Copy-Item -LiteralPath (Join-Path $restored 'fictional-library') -Destination $library -Recurse
   Start-Acceptance; UI 'fixture'; Stop-Acceptance
   $Summary.verified+=@('restored backup in installed UI','native window screenshot matrix')
+  if ($null -ne $NotificationFailure) { throw $NotificationFailure }
   $Summary.status='passed'
 } catch {
   $Summary.status='failed'; $Summary.error=$_.Exception.ToString(); Write-Warning $Summary.error
@@ -303,5 +314,5 @@ try {
   if ($env:THINGARY_REMINDER_TEST_SECONDS) { Remove-Item Env:THINGARY_REMINDER_TEST_SECONDS }
   if ($null -ne $AppProcess) { try { Stop-Acceptance } catch { $Summary.forcedProcessCleanup=$_.Exception.Message; Stop-Process -Id $AppProcess.Id -Force -ErrorAction SilentlyContinue } }
   $Summary.finished=(Get-Date).ToUniversalTime().ToString('o'); Save-Summary
-  if ($null -ne $cleanupFailure) { throw $cleanupFailure }
+  if ($null -ne $cleanupFailure -and $null -eq $NotificationFailure) { throw $cleanupFailure }
 }
