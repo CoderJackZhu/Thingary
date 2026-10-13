@@ -13,6 +13,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 if ($env:OS -ne 'Windows_NT') { throw 'Installed native acceptance requires Windows.' }
 $Identity = 'local.thingary.win.acceptance'
+$ExpectedWindowTitle = '物谱 · Windows 验收'
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -25,16 +26,50 @@ public static class AcceptanceWindow {
  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h,uint m,IntPtr w,IntPtr l);
  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int state);
+ [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+ [return: MarshalAs(UnmanagedType.Bool)]
+ public delegate bool EnumWindowsProc(IntPtr h,IntPtr parameter);
+ [DllImport("user32.dll")]
+ [return: MarshalAs(UnmanagedType.Bool)]
+ private static extern bool EnumWindows(EnumWindowsProc callback,IntPtr parameter);
+ [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr h,out uint processId);
+ [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr h);
+ public static IntPtr FindVisibleWindow(int processId,string exactTitle) {
+   IntPtr found=IntPtr.Zero;
+   int matches=0;
+   // Process.MainWindowHandle may identify Tauri's hidden single-instance
+   // coordination window. Inspect titles only on this PID's visible windows.
+   EnumWindowsProc callback=delegate(IntPtr h,IntPtr parameter) {
+     uint owner;
+     GetWindowThreadProcessId(h,out owner);
+     if (owner==(uint)processId && IsWindowVisible(h)) {
+       var title=new System.Text.StringBuilder(512);
+       GetWindowText(h,title,title.Capacity);
+       if (String.Equals(title.ToString(),exactTitle,StringComparison.Ordinal)) {
+         found=h;
+         matches++;
+       }
+     }
+     return true;
+   };
+   if (!EnumWindows(callback,IntPtr.Zero)) {
+     throw new InvalidOperationException("Unable to enumerate native windows.");
+   }
+   if (matches>1) {
+     throw new InvalidOperationException("Multiple visible acceptance windows for the same process.");
+   }
+   return found;
+ }
 }
 '@
 function Window-State([int]$ProcessId, [string]$Action, [int]$W, [int]$H) {
   $process = Get-Process -Id $ProcessId
   $process.Refresh()
-  $handle = $process.MainWindowHandle
-  if ($handle -eq [IntPtr]::Zero) { throw "Process $ProcessId has no native main window." }
+  $handle = [AcceptanceWindow]::FindVisibleWindow($ProcessId, $ExpectedWindowTitle)
+  if ($handle -eq [IntPtr]::Zero) { throw "Refuse unrelated windows: process $ProcessId has no visible window with exact title '$ExpectedWindowTitle'." }
   $title = New-Object System.Text.StringBuilder 512
   [void][AcceptanceWindow]::GetWindowText($handle, $title, $title.Capacity)
-  if ($title.ToString() -ne '物谱 · Windows 验收') { throw "Refuse unrelated window: $title" }
+  if ($title.ToString() -cne $ExpectedWindowTitle) { throw "Refuse unrelated window: $title" }
   $scale=[AcceptanceWindow]::GetDpiForWindow($handle)/96.0
   if ($scale -le 0) { $scale=1.0 }
   if ($Action -eq 'close') {
@@ -84,7 +119,11 @@ function Wait-Condition([scriptblock]$Condition, [string]$Label, [int]$Seconds=3
 function Start-Acceptance {
   # Identity was read from installed BUILD_INFO and shortcut before any launch.
   $script:AppProcess=Start-Process -FilePath $InstalledExe -PassThru
-  Wait-Condition { $script:AppProcess.Refresh(); $script:AppProcess.MainWindowHandle -ne [IntPtr]::Zero } 'installed native window' 45
+  Wait-Condition {
+    $script:AppProcess.Refresh()
+    if ($script:AppProcess.HasExited) { throw 'Installed acceptance process exited before its visible window appeared.' }
+    [AcceptanceWindow]::FindVisibleWindow($script:AppProcess.Id, $ExpectedWindowTitle) -ne [IntPtr]::Zero
+  } 'visible installed window with exact acceptance title' 45
   $state=Window-State $AppProcess.Id 'inspect' 0 0
   $Summary.window=$state
 }

@@ -62,6 +62,7 @@ jobs:
         with:
           workspaces: src-tauri
           shared-key: windows-package-${{ matrix.flavor }}
+          cache-on-failure: true
       - shell: bash
         run: npm ci
       - name: Prepare locked package archives for offline license collection
