@@ -42,7 +42,7 @@ sh scripts/make-dmg.sh
 - `Thingary-<版本>-arm64.dmg`
 - `SHA256SUMS.txt`，仅记录 DMG 的 SHA-256，不是来源认证签名
 
-DMG 内含「物谱.app」、Applications 快捷方式、`开始使用.html`、使用说明图片和 `许可/`（GPL 全文、第三方声明与全文、来源和散列清单、直接内置内容告知、名称图标使用边界、对应源码入口）。离线 HTML 由唯一权威 `docs/USER_GUIDE.md` 生成，不另行维护手抄说明；图片全部为虚构演示。
+DMG 内含「物谱.app」、Applications 快捷方式、`开始使用.html`、使用说明图片和 `许可/`（AGPL 全文、第三方声明与全文、来源和散列清单、直接内置内容告知、名称图标使用边界、对应源码入口）。离线 HTML 由唯一权威 `docs/USER_GUIDE.md` 生成，不另行维护手抄说明；图片全部为虚构演示。
 
 `make-dmg.sh` 检查身份、arm64 架构、版本和严格签名；`distribution-notices.mjs` 从锁定依赖和 `license-overrides/manifest.json` 收集全文，缺失或散列错误即失败。后者离线运行，不在打包时下载许可证。先安装锁定 npm 依赖并准备 Cargo 缓存；补充文本来源与升级办法见 [说明](../scripts/license-overrides/README.md)。Rust 清单保守包含构建依赖，不能把清单数量当成二进制中实际链接数量。
 

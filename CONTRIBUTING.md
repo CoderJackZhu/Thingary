@@ -37,4 +37,4 @@ npm run build && npm run test:ui && npm run check && npm test
 
 ## 许可
 
-你的贡献按本项目的许可证 [GPL-3.0-or-later](LICENSE) 授权。名称「物谱」「Thingary」与应用图标不在 GPL 授权范围内，贡献代码不涉及这些标志。
+你的贡献按本项目的许可证 [AGPL-3.0-or-later](LICENSE) 授权。提交贡献即表示你确认有权提供这些内容，并同意维护者可以按其他许可证（包括商业或应用商店分发所需的许可）再授权你的贡献；你的贡献在 AGPL 下的可用性不受影响。名称「物谱」「Thingary」与应用图标不在 AGPL 授权范围内，贡献代码不涉及这些标志。

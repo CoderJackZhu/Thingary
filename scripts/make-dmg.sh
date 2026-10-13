@@ -29,7 +29,7 @@ cp SOURCE_NOTICES.md "$STAGE/许可/"
 cat > "$STAGE/许可/许可与源码.txt" <<EOF
 物谱 Thingary $VERSION
 
-程序代码按 GPL-3.0-or-later 授权。完整许可证见 LICENSE。
+程序代码按 AGPL-3.0-or-later 授权。完整许可证见 LICENSE。
 本版本对应源码（含构建说明及锁定依赖）在同一 GitHub Release 的 Source code 附件：
 https://github.com/CoderJackZhu/Thingary/releases/tag/v$VERSION
 https://github.com/CoderJackZhu/Thingary/tree/v$VERSION
@@ -37,7 +37,7 @@ https://github.com/CoderJackZhu/Thingary/tree/v$VERSION
 逐份许可证的来源与 SHA-256 见 license-inventory.json。
 直接内置内容的来源告知见 SOURCE_NOTICES.md。
 
-名称「物谱」「Thingary」及应用图标的使用权保留，不在 GPL 授权范围内。
+名称「物谱」「Thingary」及应用图标的使用权保留，不在 AGPL 授权范围内。
 再发布修改版请换用自己的名称与图标，避免与官方版本混淆。
 第三方许可证文本遵循其原有许可。
 

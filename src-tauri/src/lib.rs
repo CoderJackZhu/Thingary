@@ -105,7 +105,7 @@ pub fn run() {
                         Some(
                             tauri::menu::AboutMetadataBuilder::new()
                                 .name(Some("物谱 Thingary"))
-                                .credits(Some("物品档案与净资产盘点\nYour things and your net worth, over time.\n许可证 GPL-3.0-or-later"))
+                                .credits(Some("物品档案与净资产盘点\nYour things and your net worth, over time.\n许可证 AGPL-3.0-or-later"))
                                 .build(),
                         ),
                     )?,
