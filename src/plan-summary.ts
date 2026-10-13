@@ -1,4 +1,4 @@
-// 首页「规划」摘要与目标页共用的纯投影（OVERVIEW_PLANNING_DESIGN §4、§6.1）：
+// 首页「规划」摘要与目标页共用的纯投影：
 // 结论文案、资产覆盖比例、历史常态储蓄与缺项判定都只在这里落字，两页不得各自取整或换口径。
 // 计算本身复用 buildRetireCalc 与账本 required，本文件不另写估算。
 import type { Income, PlanReview, ProfileState } from './plan.ts';

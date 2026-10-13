@@ -1,5 +1,4 @@
-//! Linked-subscription lifecycle acceptance (EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN §11,
-//! conditions L01–L12 and the storage halves of D01/D02). Every scenario runs
+//! Linked-subscription lifecycle acceptance (conditions L01–L12 and the storage halves of D01/D02). Every scenario runs
 //! on fictional data in a temporary directory; the amounts follow the
 //! design's fixed examples where one exists.
 

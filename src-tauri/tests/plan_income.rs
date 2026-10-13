@@ -1,4 +1,4 @@
-//! Planning stage 1 (PLANNING_DESIGN §3–§4): monthly income records and the
+//! Planning stage 1: monthly income records and the
 //! savings review built from real check-ins. Fictional data only.
 use rusqlite::Connection;
 use thingary_lib::{

@@ -1,7 +1,6 @@
 //! Investment interval review: pure validation and profit computation.
 //!
-//! Contract: `docs/PLANNING_SIMPLIFICATION_CONTRACT.md` §4; product design:
-//! `docs/PRODUCT_BOUNDARIES_DESIGN.md` §13. This module only validates an
+//! Rules: `docs/PRODUCT_RULES.md` (实际收入分类与投资区间核对). This module only validates an
 //! already-assembled [`ReviewInput`] and computes the interval profit in
 //! memory. It never touches the database, the file system or IPC.
 //!

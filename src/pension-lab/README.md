@@ -4,4 +4,4 @@
 
 历史实验的实现背景保留在 Git 历史中；本说明不再承诺旧模块、普通入口或校准脚本可用。真实个人养老金与公积金账户仍按客观账户和盘点事实维护。
 
-现行边界见[产品规则](../../docs/PRODUCT_RULES.md)与[长期维护设计](../../docs/PRODUCT_BOUNDARIES_DESIGN.md#planning-flow-followup)。
+现行边界见[产品规则](../../docs/PRODUCT_RULES.md)。

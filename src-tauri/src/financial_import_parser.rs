@@ -1,4 +1,4 @@
-//! Financial history CSV import parser (PLANNING_COMPONENT_CONTRACTS §2).
+//! Financial history CSV import parser (boundary: README.md beside this module).
 //!
 //! Standalone component: turns one UTF-8 CSV document into a contract
 //! version 1 preview — standard rows, per-group validation for check-ins,

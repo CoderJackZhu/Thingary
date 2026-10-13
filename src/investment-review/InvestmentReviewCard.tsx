@@ -1,4 +1,4 @@
-// 投资区间复盘展示卡（契约 docs/PLANNING_SIMPLIFICATION_CONTRACT.md §4；设计 §10.5/§13.3）。
+// 投资区间复盘展示卡（规则见 docs/PRODUCT_RULES.md）。
 // 只渲染注入端口给出的 Input/Result：本组件不计算损益、不汇总两端余额、
 // 不拼接内容键；余额变化与损益一律来自端口返回的领域结果。
 import { useMemo } from 'react';

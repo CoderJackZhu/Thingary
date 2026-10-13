@@ -76,7 +76,7 @@ button.review-action{border:0;background:transparent;color:var(--accent);padding
 :root[data-style=olive] .review-ev .ui-icon{width:24px;height:24px;padding:5px;border-radius:7px;stroke-width:1.9;color:var(--ic,#8e8e93);background:color-mix(in srgb,var(--ic,#8e8e93) 12%,transparent);border:1px solid color-mix(in srgb,var(--ic,#8e8e93) 38%,transparent)}
 :root[data-style=olive][data-mode=dark] .review-ev .ui-icon{background:color-mix(in srgb,var(--ic,#8e8e93) 16%,transparent)}
 
-/* 首页顶部（OVERVIEW_PLANNING_DESIGN §2.2）：约 2:1，金融净资产与曲线居左、规划摘要居右。
+/* 首页顶部：约 2:1，金融净资产与曲线居左、规划摘要居右。
  * 按容器内容宽度 W 判断（已扣侧栏与页面留白），不套用窗口断点；两模块其一关闭时自然恢复单列满宽。 */
 .review-top{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}
 .review-top.duo{align-items:start}

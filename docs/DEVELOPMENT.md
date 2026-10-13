@@ -42,7 +42,7 @@ npm test
 
 ### 定位、导航与首次使用验证
 
-[定位与导航设计](POSITIONING_NAVIGATION_DESIGN.md)的七步已在当前源码实施，不改变 schema、备份／Excel、模块默认值或计算口径。物品状态分段与标题回归在 `collection-navigation`；规划视图、修正聚焦与阻断在 `planning-detail-navigation`／`planning-current-report`；起步载荷、存储失败及总览视图意图消费在 `start-choice`；表单折叠与默认空日期在 `asset-editor-layout`；来源返回在 `planning-source-navigation`。每步分别运行构建、UI、格式／Clippy 与 Rust 检查；最终 UI 1,057 项通过，Rust 576 项通过、3 项容量测试按原规则忽略。
+定位、导航与首次使用调整（物品状态并入列表、规划页内三标签、起步选择、表单与术语简化）已在当前源码实施，不改变 schema、备份／Excel、模块默认值或计算口径。物品状态分段与标题回归在 `collection-navigation`；规划视图、修正聚焦与阻断在 `planning-detail-navigation`／`planning-current-report`；起步载荷、存储失败及总览视图意图消费在 `start-choice`；表单折叠与默认空日期在 `asset-editor-layout`；来源返回在 `planning-source-navigation`。每步分别运行构建、UI、格式／Clippy 与 Rust 检查；最终 UI 1,057 项通过，Rust 576 项通过、3 项容量测试按原规则忽略。
 
 浏览器使用内存虚构资料，核对同尺寸前后、物品正常／空白／筛选无结果／读取失败、规划未设置／已设置／投入未知／读取失败／待确认回执、1280／820 明暗布局、报告限制数量、起步模块失败与两条主路径、职业确认项键盘焦点。公开媒体来源见[截图清单](images/README.md)。统计来源经全局搜索打开物品时保留真实返回；显式侧栏目标入口清除它。基线与当前均未复现旧“目标返回物品统计”的报告，原操作路径未知，不按推测改变导航。
 
@@ -116,7 +116,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --tes
 
 ### 财务工作区接入与联合验收
 
-当前源码的财富入口为账户与盘点、收支记录和财务复盘，规划仅保留目标。`finance_sources` 在同一读取事务中返回期间事实，关闭来源不读取；收入、资金流动和目标分别门控，旧配置继承只执行一次。具体接入与验收清单见[统一设计](FINANCE_WORKSPACE_DESIGN.md#acceptance)。
+当前源码的财富入口为账户与盘点、收支记录和财务复盘，规划仅保留目标。`finance_sources` 在同一读取事务中返回期间事实，关闭来源不读取；收入、资金流动和目标分别门控，旧配置继承只执行一次。模块偏好规则见[架构说明](ARCHITECTURE.md#module-preferences)。
 
 前端回归入口为 `tests/finance-*.test.mjs`；Store 回归在 `src-tauri/tests/finance_sources.rs`、`plan_income.rs`、`expenses.rs`、`investment_review.rs`、`planning_flow.rs` 与 `financial_import.rs`。核对完整盘点、收入分类、区间端点、互斥流动来源、切库、迟到响应、来源返回和未知回执；不要把独立切片测试当联合验证。
 
@@ -154,7 +154,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_cont
 
 ## 样例与原生验收
 
-`npm run demo:import` 只用于独立开发预览。`src-tauri/examples/` 的夹具有各自身份保护，调用前检查；不得把正式包或真实备份复制成夹具。人类任务反馈可用[规划任务测试](PLANNING_TASK_TEST.md)，代理操作不能代替真实用户的理解与完成度。
+`npm run demo:import` 只用于独立开发预览。`src-tauri/examples/` 的夹具有各自身份保护，调用前检查；不得把正式包或真实备份复制成夹具。代理操作不能代替真实用户的理解与完成度。
 
 界面变更核对 1440×1000 与 900×720、三主题明暗、正常／未知／空白／错误，以及保存、取消、焦点和键盘。涉及原生文件、持久化或通知时，另用隔离身份验证相应边界。全矩阵在阶段集成或发布前集中执行，小改动按影响范围复验，未验范围明确登记。
 

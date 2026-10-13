@@ -1,4 +1,4 @@
--- Schema 29: planning module, stage 1 (PLANNING_DESIGN §3, §4.3).
+-- Schema 29: planning module, stage 1.
 -- One row per month's actual arrival: after-tax pay and housing fund deposit.
 -- Not a ledger and not classified by source.
 CREATE TABLE plan_income(id TEXT PRIMARY KEY,date TEXT NOT NULL,net_cents INTEGER NOT NULL CHECK(net_cents BETWEEN 0 AND 99999999999),hpf_cents INTEGER NOT NULL CHECK(hpf_cents BETWEEN 0 AND 99999999999),notes TEXT NOT NULL,revision INTEGER NOT NULL CHECK(revision>0),created_at TEXT NOT NULL,updated_at TEXT NOT NULL,deleted_at TEXT);

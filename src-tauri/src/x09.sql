@@ -1,4 +1,4 @@
--- 关联订阅整组删除（EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN §7/§8）。
+-- 关联订阅整组删除。
 -- 组记录删除归属与恢复集合；成员是虚拟档案与周期计划，member_id 不设外键，
 -- 因为永久清除后组仅保留操作归属记录。迁移只建结构，不修复任何历史关系。
 CREATE TABLE link_trash_groups(

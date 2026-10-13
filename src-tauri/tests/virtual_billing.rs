@@ -1,4 +1,4 @@
-//! Virtual asset labels & billing acceptance (VIRTUAL_ASSET_BILLING_DESIGN §12).
+//! Virtual asset labels & billing acceptance.
 //! Every example of the design's reproducible-example table, the schema-22
 //! migration contract and the label scope lifecycle run against fictional
 //! data in temporary directories.

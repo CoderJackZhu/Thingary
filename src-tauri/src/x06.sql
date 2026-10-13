@@ -1,4 +1,4 @@
--- Schema 22: virtual asset labels & billing (VIRTUAL_ASSET_BILLING_DESIGN).
+-- Schema 22: virtual asset labels & billing.
 -- Additive where possible; virtual_assets and reminders rebuild only to widen
 -- their kind CHECK. Old values, IDs and references are carried over verbatim.
 -- Label scope: which domains may pick the label. Existing labels stay physical.

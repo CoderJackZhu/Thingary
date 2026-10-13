@@ -1,4 +1,4 @@
-// 决策报告只读展示组件的纯函数层（契约 docs/PLANNING_COMPONENT_CONTRACTS.md §3）。
+// 决策报告只读展示组件的纯函数层（边界见同目录 README.md）。
 // 输入为只读 ReportInputV1：本模块不读取数据库、不调用退休算法补字段、不建立事实存储。
 // 协议金额始终是十进制分字符串或 null，从不经过 Number 存回；显示格式化用 BigInt，Number 只用于绘图坐标。
 // 隐私报告先从同一快照生成脱敏载荷（redactReport），渲染/打印/复制/文件名只接触脱敏后的视图。

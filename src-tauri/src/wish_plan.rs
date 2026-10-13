@@ -1,5 +1,5 @@
 //! Wishlist plans. Savings amounts are read-only history since the purchase
-//! decision redesign (LOW_FREQUENCY_REVIEW_DESIGN §3.6): the write command
+//! decision redesign: the write command
 //! answers with a clear feature-retired error, while old receipts stay
 //! readable and are never re-executed.
 use crate::{

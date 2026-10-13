@@ -1,5 +1,5 @@
 -- Schema 27: wishes become purchase considerations and decisions
--- (LOW_FREQUENCY_REVIEW_DESIGN §3, §8). decision_state is the single
+-- decision_state is the single
 -- authority; the old status column stays only as a compatibility
 -- projection (ongoing/achieved/abandoned) so pre-27 triggers and readers
 -- keep their invariants. Old savings fields are never dropped.

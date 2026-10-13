@@ -1,4 +1,4 @@
-// 规划模块第一阶段（PLANNING_DESIGN §3–§4）：月度收入与盘点区间储蓄。
+// 规划模块第一阶段：月度收入与盘点区间储蓄。
 // 事实由 Rust 只读命令 plan_review 计算；这里的 computeReview 只给浏览器预览用，
 // 规则与 plan_savings.rs 一致，并由 tests/plan.test.mjs 用同一组数值核对。
 import { isInvestmentIncome } from './income-classification.ts';

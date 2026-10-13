@@ -1,6 +1,6 @@
 # planning-report：决策报告只读展示组件
 
-契约：`docs/PLANNING_COMPONENT_CONTRACTS.md` §3；设计：`docs/PLANNING_REVIEW_REPORT_DESIGN.md` §8。
+现行规则：`docs/PRODUCT_RULES.md`（当前报告）；组件边界以本文为准。
 
 - 输入：只读 `ReportInputV1`（`contract_version = 1`），边界用 `parseReportInput` 严格校验；未知版本返回明确错误。所有必需可空字段必须显式传 null；校验后重新构造白名单快照，丢弃额外字段并脱离原输入引用。金额为十进制分字符串/null，比例为万分位整数/null，未知保留，不以 0 补齐。
 - 组件不读数据库、不调用退休算法补字段、不建立事实存储。

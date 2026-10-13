@@ -1,4 +1,4 @@
-// 决策报告只读展示组件（契约 docs/PLANNING_COMPONENT_CONTRACTS.md §3）。
+// 决策报告只读展示组件（边界见同目录 README.md）。
 // 完整与隐私输出都从同一份校验后的快照生成：隐私模式先 redactReport 脱敏，渲染只接触视图。
 // 不读取数据库、不调用规划算法补字段；金额/比例只经 Money/Ratio 通道显示。
 import { useEffect, useMemo, useState } from 'react';

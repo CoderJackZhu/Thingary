@@ -1,4 +1,4 @@
-//! Financial history import parser tests (PLANNING_COMPONENT_CONTRACTS §2).
+//! Financial history import parser tests.
 //! The standalone module is compiled here via #[path] so the real source is
 //! exercised without touching lib.rs, commands or Store. All data is fictional.
 #![allow(dead_code)]

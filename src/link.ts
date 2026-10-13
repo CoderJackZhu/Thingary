@@ -1,4 +1,4 @@
-// Linked-subscription types and helpers (EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN).
+// Linked-subscription types and helpers.
 // The backend owns every transaction; the UI only reads previews and submits
 // one command per operation.
 import { invoke } from '@tauri-apps/api/core';

@@ -1,4 +1,4 @@
-//! Savings per check-in interval (PLANNING_DESIGN §4). Facts only: everything
+//! Savings per check-in interval. Facts only: everything
 //! here is integer cents and integer arithmetic; assumptions and projections
 //! belong to the front end.
 //!

@@ -1,4 +1,4 @@
-// 投资区间复盘组件的纯函数层（契约 docs/PLANNING_SIMPLIFICATION_CONTRACT.md §4；设计 docs/PRODUCT_BOUNDARIES_DESIGN.md §13）。
+// 投资区间复盘组件的纯函数层（规则见 docs/PRODUCT_RULES.md）。
 // 本模块只做载荷边界校验与展示格式化：不读取数据库、不查询重叠、不持久化，
 // 也不实现损益公式——损益与余额变化永远来自注入端口返回的领域结果。
 // 金额为十进制分字符串或 null；未知不是零，永不用 0 补齐。

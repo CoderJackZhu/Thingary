@@ -1,4 +1,4 @@
-//! Virtual assets (ADR-001 §21 + VIRTUAL_ASSET_BILLING_DESIGN): licenses,
+//! Virtual assets (ADR-001 §21; rules: docs/PRODUCT_RULES.md): licenses,
 //! domains, subscriptions and stored-value accounts. Status and validity are
 //! derived on read (X-D14). A linked recurring plan is the source of confirmed
 //! cost, service arrangement and paid coverage; topup facts are the only spend

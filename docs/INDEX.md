@@ -26,26 +26,8 @@
 | [截图清单](images/README.md) | 虚构截图来源、尺寸、基线与复现 |
 | [安全政策](../SECURITY.md) · [品牌使用](brand/README.md) | 漏洞与名称图标边界 |
 
-## 已批准设计与当前阶段
+## 当前阶段
 
 当前源码的财富入口为账户与盘点、收支记录、财务复盘；物品状态收在列表工具栏；规划以目标为单入口，页内分为目标、测算详情与试算。首次使用可从物品档案或账户盘点开始。五步设置（净投入可跳过）、明确净投入、资金／费用核对、实际发生接续、收入分类、投资区间核对、假设确认与资金流动已接入。当前报告是固定快照的只读预览，默认隐私、可复制摘要；不含基准／比较或原生 PDF。当前验证只维护在[开发说明](DEVELOPMENT.md#finance-workspace-validation)与[报告验证](DEVELOPMENT.md#current-report-validation)。
 
-收入覆盖声明、历史总额参考、普通金额目标、命名方案、冻结基准及完整决策报告仍待实施。以下设计含分阶段规格或历史背景，不能把文件存在视为全部功能可用；政策退出与财务工作区的较新决定优先于旧政策页、旧导航和职业阶段条款。
-
-| 唯一设计入口 | 范围与状态 |
-|---|---|
-| [定位、导航与首次使用调整](POSITIONING_NAVIGATION_DESIGN.md) | 已实施：物品状态并入列表、规划页内三标签、起步选择、表单与术语简化；当前验证边界见开发说明 |
-| [财富记录、财务复盘与目标规划](FINANCE_WORKSPACE_DESIGN.md) | 当前导航、能力与设置接入；核心验证已完成，完整验收边界见开发说明 |
-| [长期维护优先与政策退出](PRODUCT_BOUNDARIES_DESIGN.md) | 政策模型退出已实施；保留事实、通用未来收入、市场分析与损益金额，不做政策资格或收益率 |
-| [简化规划接口](PLANNING_SIMPLIFICATION_CONTRACT.md) · [假设／流动接入契约](PLANNING_FOLLOWUP_PARALLEL_CONTRACT.md) | 当前领域、保存、假设与资金流动边界 |
-| [规划生命周期](PLANNING_LIFECYCLE_DESIGN.md) | 通用基础与发生接续已接入；普通目标、方案与基准分阶段后续 |
-| [资金、事件与方案](PLANNING_DATA_SCENARIOS_DESIGN.md) | 统一月账本、事实／假设分离、费用去重与后续持久对象契约 |
-| [金融历史导入](FINANCIAL_HISTORY_IMPORT_DESIGN.md) | 账户／完整盘点／收入已接入 Excel；覆盖声明与总额参考尚未接入 |
-| [复盘、基准与报告](PLANNING_REVIEW_REPORT_DESIGN.md) · [组件契约](PLANNING_COMPONENT_CONTRACTS.md) | 轻量复盘、纯解析器和当前报告预览已接入；冻结基准及完整报告仍后续 |
-| [可选职业变化情景](CAREER_SCENARIO_DESIGN.md) | 当前临时试算；不保存职业路线、不预测政策待遇 |
-| [综合总览](OVERVIEW_PLANNING_DESIGN.md) | 净资产事实与规划摘要并排，窄窗上下排列 |
-| [低频整理与心愿决策](LOW_FREQUENCY_REVIEW_DESIGN.md) | 心愿决定、盘点、全局搜索及替换关系已接入 |
-| [共用界面操作](VISUAL_SYSTEM_DESIGN.md) | 表单、菜单、图片与日期／月份组件；更广图表与目标细化分阶段实施 |
-| [年度支出与订阅关联](EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN.md) · [虚拟标签与计费](VIRTUAL_ASSET_BILLING_DESIGN.md) | 当前计费、付款、关联删除恢复及历史迁移规格；通知实际送达未验证 |
-
-原[规划模块设计](PLANNING_DESIGN.md)保留历史实现背景，不再授权旧养老金、医保、地区参数或职业阶段行为。纯解析器与报告组件的工程入口见[解析器说明](../src-tauri/src/financial_import_parser/README.md)和[报告说明](../src/planning-report/README.md)。
+收入覆盖声明、历史总额参考、普通金额目标、命名方案、冻结基准及完整决策报告尚未实施。现行行为以[业务规则](PRODUCT_RULES.md)、[架构说明](ARCHITECTURE.md)与[共用界面操作](VISUAL_SYSTEM_DESIGN.md)为准；分阶段设计与执行记录保存在维护者档案，不作为贡献或构建的前提。纯解析器与报告组件的工程入口见[解析器说明](../src-tauri/src/financial_import_parser/README.md)和[报告说明](../src/planning-report/README.md)。

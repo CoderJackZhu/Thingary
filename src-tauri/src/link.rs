@@ -1,4 +1,4 @@
-//! Linked subscriptions (EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN). A live
+//! Linked subscriptions (rules: docs/PRODUCT_RULES.md). A live
 //! virtual asset and its linked recurring plan form one unit: shared billing
 //! edits keep both revisions in one transaction, and deletes register a group
 //! whose restore set covers exactly the recorded members. Derivation and

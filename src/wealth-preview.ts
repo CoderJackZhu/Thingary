@@ -509,7 +509,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   if (command === 'investment_review_save' || command === 'investment_review_trash') throw { code: 'PREVIEW_NATIVE_ONLY', message: '此处为固定虚构输出，未保存。真实投资核对须在原生应用中进行。' };
   if (command === 'notification_permission') return { value: null };
-  // ---- 关联订阅命令的内存桩（EXPENSE_OVERVIEW_SUBSCRIPTION_LINKS_DESIGN）----
+  // ---- 关联订阅命令的内存桩----
   if (command === 'link_view') {
     const kind = args.kind as 'virtual' | 'plan', id = args.id as string;
     if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };

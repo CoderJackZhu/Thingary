@@ -1,4 +1,4 @@
-// 规划假设与资金流动的界面纯函数层（契约 docs/PLANNING_FOLLOWUP_PARALLEL_CONTRACT.md；设计 §18）。
+// 规划假设与资金流动的界面纯函数层（规则见 docs/PRODUCT_RULES.md）。
 // 本目录组件只做展示与格式转换：不计算损益、不汇总区间流量、不生成内容依据键、
 // 不推断来源关联；严格校验、分类、去重与状态优先级一律由注入端口背后的领域负责。
 // 金额为十进制分字符串；未知用 null／''，永不用 0 补齐。全部端口来自 src/planning-followup-contract.ts。

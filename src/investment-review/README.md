@@ -1,6 +1,6 @@
 # investment-review：投资区间复盘独立组件
 
-契约：`docs/PLANNING_SIMPLIFICATION_CONTRACT.md` §4；设计：`docs/PRODUCT_BOUNDARIES_DESIGN.md` §13（金额样例 §13.5）。
+现行规则：`docs/PRODUCT_RULES.md`「实际收入分类与投资区间核对」。
 
 **状态：组件已由 `InvestmentReviewHost.tsx` 接入本期复盘。** 本目录继续保持无数据库和无损益复算的展示边界；宿主通过 `wealth.ts` 的 `investment_review_read/list/save/trash` 使用原生 Store，使用相同的待核对回执机制。保存时原样传回读取到的两端内容键，领域层再次比对；原区间列表保留删除和恢复入口。全部测试与浏览器预览使用虚构资料，原生验收需单独记录。
 

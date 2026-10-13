@@ -1,4 +1,4 @@
-// 心愿接入（PLANNING_DESIGN §7）：「考虑中」且有预计价格的心愿作为带日期的一次性支出进入退休账本，
+// 心愿接入：「考虑中」且有预计价格的心愿作为带日期的一次性支出进入退休账本，
 // 回答两个问题：到那天钱够不够；买下后 FIRE 日期推迟多久。纯函数，不改变心愿状态。
 import { project, table } from './plan-ledger.ts';
 import type { PlanningAnnotation } from './plan-basic-contract.ts';

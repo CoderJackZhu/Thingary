@@ -1,4 +1,4 @@
-//! Monthly income records for the planning module (PLANNING_DESIGN §3): the
+//! Monthly income records for the planning module (rules: docs/PRODUCT_RULES.md): the
 //! after-tax amount and the housing fund deposit that actually arrived. A
 //! monthly summary, not a ledger and classified by explicit source; never added to asset balances.
 use crate::{
