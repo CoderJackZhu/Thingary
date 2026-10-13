@@ -29,8 +29,8 @@ test('confirmed assumptions do not hide a missing optional contribution or turn 
  assert.ok(r.button('填写每月能存的钱'));assert.match(r.text(r.nodes()),/可暂不填写/);
  const known=fixture(),knownSaved=known.profile.value.saved,knownCaps=buildBasicCapabilities(known);
  knownCaps.prediction.value.outcome.success=false;knownCaps.prediction.value.terminal='surplus';
- const failed=runtime('planning-goal/Overview',{saved:knownSaved,caps:knownCaps,today:known.today,cards:[],onEdit(){},onRefine(){},onDetail(){},assumptionRead:readOf(known.generation,'confirmed')});
- assert.match(failed.text(failed.nodes().find(n=>n.props?.['aria-label']==='预测结果')),/尚未满足完整目标/);
+ let trials=0;const failed=runtime('planning-goal/Overview',{saved:knownSaved,caps:knownCaps,today:known.today,cards:[],onEdit(){},onRefine(){},onDetail(){},onTrial(){trials++;},assumptionRead:readOf(known.generation,'confirmed')});
+ assert.match(failed.text(goalArticle(failed)),/尚未满足完整目标/); failed.button('试算：歇一阵或换工作会怎样 →').props.onClick();assert.equal(trials,1); assert.doesNotMatch(failed.text(failed.nodes().find(n=>n.props?.['aria-label']==='预测结果')),/全程结论/);
 });
 
 test('embedded assumption read retry issues a fresh request even when profile write version stays unchanged',async()=>{
@@ -81,7 +81,7 @@ test('the result shows the saved prediction instead of reading the requirement g
   assert.ok(result, 'saved prediction renders');
   const text = r.text(result);
   assert.match(text, /按已保存投入的预测/);
-  assert.match(text, /全程结论/);
+  assert.doesNotMatch(text, /全程结论/);
   assert.match(text, /终点资产/);
   const article = r.text(goalArticle(r));
   assert.match(article, /固定目标需要每月存/);

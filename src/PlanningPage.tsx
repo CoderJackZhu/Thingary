@@ -98,12 +98,12 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
   return <section className="stats-section wealth-section planning-section" aria-label="规划">
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对金融导入回执。</span> : <button disabled={busy} onClick={() => void verifyOriginalReceipt()}>核对结果</button>}</div>}
     {notice && <p className="notice" role="status">{notice}</p>}
+    <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label="规划视图">
+      <button type="button" aria-pressed={view === 'goals'} onClick={() => changeView('goals')}>目标</button>
+      <button type="button" aria-pressed={view === 'detail'} disabled={!saved?.profile.retire.basic} title={!saved?.profile.retire.basic ? '完成目标设置后可查看' : undefined} onClick={() => changeView('detail')}>测算详情</button>
+      <button type="button" aria-pressed={view === 'trial'} onClick={() => changeView('trial')}>试算</button>
+    </div></HeaderSlot>
     <HeaderSlot><div className="wealth-toolbar">
-      <div className="ui-seg" role="group" aria-label="规划视图">
-        <button type="button" aria-pressed={view === 'goals'} onClick={() => changeView('goals')}>目标</button>
-        <button type="button" aria-pressed={view === 'detail'} disabled={!saved?.profile.retire.basic} title={!saved?.profile.retire.basic ? '完成目标设置后可查看' : undefined} onClick={() => changeView('detail')}>测算详情</button>
-        <button type="button" aria-pressed={view === 'trial'} onClick={() => changeView('trial')}>试算</button>
-      </div>
       <Info text="按你的条件，估算为目标月份每月需要准备多少资金。都是估算，条件随时可以改。"/>
     </div></HeaderSlot>
     {viewNotice && <p className="notice" role="status">{viewNotice}</p>}

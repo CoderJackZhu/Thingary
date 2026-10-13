@@ -363,3 +363,12 @@ button.overview-event-button:focus-visible{outline:2px solid var(--accent);outli
 :root[data-style=native] .timeline-kind{background:none}
 :root[data-style=native] .review-ev .ui-icon path,:root[data-style=native] .timeline-kind .ui-icon path{fill:color-mix(in srgb,currentColor 18%,transparent)}
 :root[data-style=native] .review-ev .ui-icon:is([data-icon=arrow],[data-icon=chart],[data-icon=settings],[data-icon=repeat]) path,:root[data-style=native] .timeline-kind .ui-icon:is([data-icon=arrow],[data-icon=chart],[data-icon=settings],[data-icon=repeat]) path{fill:none}
+
+/* Page-level view tabs under the page title; in-content filters keep .ui-seg. */
+.page-tabs-host:empty{display:none}
+.page-tabs-host{margin:-6px 0 18px;padding-inline:14px;border-bottom:1px solid var(--line)}
+.page-tabs{display:flex;flex-wrap:wrap;gap:4px}
+.page-tabs>button{height:38px;margin-bottom:-1px;padding:0 14px;border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--muted);font-size:15px;font-weight:500;white-space:nowrap;cursor:pointer}
+.page-tabs>button:hover:not(:disabled){color:var(--text)}
+.page-tabs>button[aria-pressed=true]{color:var(--text);font-weight:600;border-bottom-color:var(--accent)}
+.page-tabs>button:disabled{opacity:.4;cursor:not-allowed}

@@ -4,7 +4,7 @@ import { ageAtMonth, ageText } from '../planning-simplified-ui/income-view';
 import { forecastMoney } from '../plan-format';
 import { monthIndexV1, monthTextV1 } from '../plan-simplified';
 import type { BasicCapabilities, PlanningAnnotation } from '../plan';
-import { missingText, requirementLine, terminalText } from '../planning-basic-view';
+import { missingText, requirementLine } from '../planning-basic-view';
 import type { Refinement } from '../planning-first-run';
 import type { AssumptionReadV1, FollowupRead } from '../planning-followup-contract';
 import type { GoalEdit, Saved } from './inputs';
@@ -15,9 +15,9 @@ const conditionOrder: GoalAction[] = ['mode', 'time', 'saving', 'spend', 'start'
 
 const assumptionTagText: Record<AssumptionReadV1['confirmation'], string> = { unconfirmed: '未核对', confirmed: '已核对', needs_review: '待核对' };
 
-export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onDetail, onReport, reportDisabled = false, assumptionRead }: {
+export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onDetail, onTrial, onReport, reportDisabled = false, assumptionRead }: {
   saved: Saved; caps: BasicCapabilities; today: string; cards: Refinement[]; accountFunds?: ReturnType<typeof fundScopeSummary>; purchasePlans?: ReactNode;
-  onAnnotation?: (annotation: PlanningAnnotation, from: HTMLElement) => void; onEdit: (action: GoalAction, from: HTMLElement) => void; onRefine: (card: Refinement, from: HTMLElement) => void; onDetail?: () => void;
+  onAnnotation?: (annotation: PlanningAnnotation, from: HTMLElement) => void; onEdit: (action: GoalAction, from: HTMLElement) => void; onRefine: (card: Refinement, from: HTMLElement) => void; onDetail?: () => void; onTrial?: () => void;
   onReport?: (from: HTMLElement) => void; reportDisabled?: boolean; assumptionRead?: FollowupRead<AssumptionReadV1> | null;
 }) {
   const p = saved.profile, r = p.retire, b = r.basic!;
@@ -73,7 +73,7 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
       predictionLines.push({ label: '资金预计够用', text: fiMonth === null ? '规划终点前未见资金够用' : predictedMonth(fiMonth)! });
       predictionLines.push({ label: '预计退休月份', text: predictedRetire === null ? `${capMonth ?? '规划终点'} 前尚未达成` : predictedMonth(predictedRetire)! });
     } else predictionLines.push({ label: '目标年龄时资金', text: outcome.funded_at_goal ? '已够用' : `还差 ${forecastMoney(String(Math.round(outcome.shortfall_at_goal)))}` });
-    predictionLines.push({ label: '全程结论', text: !outcome.success ? '按当前投入，尚未满足完整目标' : uncertain ? `已计入的条件：${terminalText[pred.terminal]}，仍需核对遗漏` : terminalText[pred.terminal] });
+    // The verdict line above the amounts already states the overall conclusion.
     predictionLines.push({ label: '终点资产', text: forecastMoney(String(Math.round(outcome.at_horizon))) });
   }
   const renderCondition = (row: (typeof rows)[number], index: number) => <article key={row.id} className="goal-condition" data-condition={row.id}><span className="goal-step">{index + 1}</span><div><h4>{row.title} <span className="ui-tag">{row.state}</span></h4><strong>{row.value}</strong><p className="muted small">{row.description}</p>{row.id === 'start' && b.start.kind === 'live' && <>
@@ -91,7 +91,8 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
         {req && onDetail && <button type="button" id="plan-detail-entry" className="primary goal-detail-entry" onClick={onDetail}>查看测算详情与图表</button>}
         {onReport && <button type="button" className="ui-btn goal-report-entry" disabled={reportDisabled} onClick={e => onReport(e.currentTarget)}>查看当前报告</button>}
       </div>
-      {req ? <p>{uncertain && req.set.status === 'no_positive_contribution' ? '只看已计入的条件，暂不要求额外存钱。请先核对下方遗漏。' : requirementLine(req.set, forecastMoney).text}</p> : caps.requirement.status === 'blocked' && <p>{[...new Set(caps.requirement.missing.map(missingText))].join(' ')}</p>}
+      {onTrial && (pred ? !pred.outcome.success : difference !== null && difference < 0) && <button type="button" className="ui-link goal-trial-entry" onClick={onTrial}>试算：歇一阵或换工作会怎样 →</button>}
+      {req ? req.set.status !== 'found' && <p>{uncertain && req.set.status === 'no_positive_contribution' ? '只看已计入的条件，暂不要求额外存钱。请先核对下方遗漏。' : requirementLine(req.set, forecastMoney).text}</p> : caps.requirement.status === 'blocked' && <p>{[...new Set(caps.requirement.missing.map(missingText))].join(' ')}</p>}
       {difference !== null && req?.set.status === 'found' && <p>{difference < 0 ? '每月还差约' : '每月余量约'} {forecastMoney(Math.abs(difference))}（按已计入的条件）。</p>}
       {pred && predictionLines.length > 0 && <div className="goal-result" aria-label="预测结果"><h4>按已保存投入的预测</h4><dl>{predictionLines.map(line => <div key={line.label}><dt>{line.label}</dt><dd>{line.text}</dd></div>)}</dl></div>}
       {req && pred && <p className="muted small">上面“需要每月存”按固定目标月份反求；预测按已保存的每月投入推演，两者口径不同，不能只看差额下结论。</p>}
