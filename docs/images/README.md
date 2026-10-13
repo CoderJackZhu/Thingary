@@ -53,3 +53,9 @@
 5. 执行 `node scripts/offline-guide.mjs <临时输出目录>`，核对图片引用、来源清单哈希和内部链接。
 
 维护职责见[文档维护](../MAINTAINING.md)，运行与验收边界见[开发说明](../DEVELOPMENT.md)。
+
+## 0.0.6 规划详情补图
+
+planning-monthly.jpg、planning-fi-goals.jpg、planning-trajectory.jpg、planning-fi-trajectory.jpg、planning-stress.jpg、planning-market.jpg、planning-matrix.jpg、planning-sequence.jpg 和 update-check-006.jpg 来自 0.0.6 同源码的独立身份 local.thingary.release006.accept20261013，只含复制的虚构样例。原生窗口 1440×933，裁去 32 像素系统标题栏，内容为 1440×901；没有修改应用界面的文字、金额或曲线。
+
+固定月份退休的轨迹、压力／市场／矩阵／收益顺序图使用每月投入 8,000、生活费 7,500、可用资金 100,000、2046-10 目标和 2076-10 终点，3%／2% 实际收益、2% 通胀、5% 波动为未核对的虚构条件，结果存在缺口。财务自由图仅将目标类型改为资金够用后退休，同条件预计 2052-05，仍保留待核对事项；两种模式不混作一个预测。市场图展示 1,000 条模型路径及其说明，不表示现实概率。更新图为点击后真实显示 0.0.6 已是最新版本。
