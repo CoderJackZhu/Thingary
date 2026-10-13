@@ -54,6 +54,7 @@ pub mod tag_investment;
 pub mod taxonomy;
 pub mod timeline;
 pub mod trash;
+pub mod update_check;
 pub mod virtual_assets;
 pub mod warranty;
 pub mod wealth;
@@ -266,6 +267,9 @@ pub fn run() {
             commands::open_notification_settings,
             commands::notification_status,
             commands::checkin_reminder_status,
+            commands::app_version,
+            commands::update_check,
+            commands::update_open_release,
             commands::goal_progress_list,
             commands::goal_progress_record,
             commands::checkin_reminder_set,

@@ -27,6 +27,10 @@ flowchart TD
 
 前端不直接访问 SQLite。阻塞的数据库与文件工作通过后端工作线程处理；写操作串行化并在事务中维护业务事实与引用。界面刷新和缓存失效必须随业务提交结果更新。
 
+## 网络
+
+webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界面不能直接联网。应用唯一的联网路径是后端命令 `update_check`：用户点击时通过系统 `curl`（`/usr/bin/curl`，限定 `--proto =https`、10 秒超时、响应上限 2 MB）读取 `api.github.com/repos/CoderJackZhu/Thingary/releases`，不引入 HTTP 客户端依赖。响应只被当作版本号与展示文本：仅接受已发布、标签为严格 `vX.Y.Z` 的条目，按数值比较版本，发布说明截断为纯文本；`update_open_release` 只接受严格版本号并自行拼出固定前缀的 Releases 页面再用 `open` 打开，不采用响应里的任何链接。不下载、不安装、不写任何本机设置。
+
 ## 身份与资料隔离
 
 正式身份为 `local.thingary.main`，开发预览为 `local.thingary.preview`。它们使用不同资料目录；验收夹具还应有独立身份。浏览器预览只用内存虚构数据，刷新即重置。

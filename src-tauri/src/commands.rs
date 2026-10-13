@@ -1205,6 +1205,26 @@ pub async fn checkin_reminder_set(
 }
 
 #[tauri::command]
+pub fn app_version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
+/// The app's only network request, made when the user presses 检查更新.
+#[tauri::command]
+pub async fn update_check() -> Result<crate::update_check::Outcome> {
+    tauri::async_runtime::spawn_blocking(crate::update_check::check)
+        .await
+        .map_err(|_| Error::new("UPDATE_CHECK", "更新检查未完成，请重试"))?
+}
+
+#[tauri::command]
+pub async fn update_open_release(version: String) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || crate::update_check::open_release_page(&version))
+        .await
+        .map_err(|_| Error::new("UPDATE_CHECK", "无法打开下载页"))?
+}
+
+#[tauri::command]
 pub async fn notification_status(worker: tauri::State<'_, Worker>) -> Result<String> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {

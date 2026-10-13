@@ -337,6 +337,14 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     if (!previewProgress.some(e => e.snapshot_id === input.snapshot_id)) previewProgress = [...previewProgress, { snapshot_id: input.snapshot_id, date: new Date().toLocaleDateString('sv'), recorded_on: new Date().toLocaleDateString('sv'), point: input.point }];
     return null;
   }
+  if (command === 'app_version') return '0.0.5';
+  if (command === 'update_check') {
+    const mode = params.get('update') ?? 'available';
+    if (mode === 'error') throw { message: '无法连接到 GitHub，请检查网络后重试' };
+    const release = { version: mode === 'available' ? '0.0.6' : mode === 'ahead' ? '0.0.4' : '0.0.5', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：盘点提醒与目标进度。\n- 数据库升级到 schema 40，更新前请先备份。' };
+    return { current: '0.0.5', latest: mode === 'none' ? null : release, update_available: mode === 'available' };
+  }
+  if (command === 'update_open_release') throw { message: '预览中不能打开浏览器' };
   if (command === 'checkin_reminder_status') return checkinStatus();
   const args = payload as Record<string,unknown>;
   if (command === 'checkin_reminder_set') { checkinMonths = Number(args.months); return checkinStatus(); }
