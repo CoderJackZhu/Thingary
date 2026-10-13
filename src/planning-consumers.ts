@@ -12,7 +12,7 @@ export const planningConsumers = [
   { file: 'PlanningWishes.tsx', render: 'PlanningWishes', guard: 'CoverageNote' },
   { file: 'WishPlanLine.tsx', render: 'WishPlanLine', guard: 'CoverageNote' },
   { file: 'PlanningEvents.tsx', render: 'PlanningEvents', guard: 'CoverageNote' },
-  { file: 'PlanningCareerCard.tsx', render: 'PlanningCareerCard', guard: 'CoverageNote' },
+  { file: 'PlanningCareerCard.tsx', render: 'PlanningCareerCard', guard: 'GuidedPanel' },
   { file: 'career-preview/guided.tsx', render: 'GuidedPanel', guard: 'CoverageNote' },
   { file: 'career-preview/results.tsx', render: 'RestResult', guard: 'CoverageNote' },
   { file: 'career-preview/results.tsx', render: 'Sensitivity', guard: 'CoverageNote' },

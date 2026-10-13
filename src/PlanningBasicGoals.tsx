@@ -142,12 +142,12 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     </article>}
     {result.status !== 'ready' && <><CapabilityNotice result={result}/><button className="ui-btn" onClick={reload}>重新读取</button></>}
     {saved?.profile.retire.basic && caps && <PlanningRefinements title="核算注意事项" cards={cards.filter(c => c.required || c.impacts || c.condition)} busy={saver.busy || saver.stuck} onAction={action}/>}
-    {(state === '2' || state === '2b') && <details className="ui-card ui-content planning-more-tools">
-      <summary><strong>更多工具与试算</strong><span className="planning-more-tools-hint muted small">职业变化后的收入与开销。</span></summary>
+    {(state === '2' || state === '2b') && <section className="ui-card ui-content planning-more-tools" aria-label="更多工具与试算">
+      <h3>更多工具与试算</h3><p className="muted small">职业试算检查退休目标；资金续航检查当前收支下的短期支付能力。</p>
       <div className="planning-more-tools-body">
         {saved?.profile.retire.basic && caps && <PlanningCareerCard sources={sources} today={today}/>}
       </div>
-    </details>}
+    </section>}
     <RunwayCard caps={caps} today={today} onOwner={owner}/>
   </div>;
 }

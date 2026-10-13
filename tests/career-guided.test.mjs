@@ -66,3 +66,35 @@ test('real guidance never imports fictional zero cash assumptions or an unconfir
  assert.equal(x.draft.gap.insurance.monthly_cents,null);assert.equal(x.draft.recovery.insurance.monthly_cents,null);
  assert.doesNotMatch(sayRest({status:'found',months:2,limit:'goal'},null).sub,/岁/);
 });
+
+
+test('zero required saving does not bless a failing negative recovery estimate', () => {
+  const { s, d } = inputs({ start: 500_000_000, recovery: -10_000_000 });
+  const ev = evaluateCareerScenario(s, d);
+  assert.equal(ev.requirement.value.status, 'no_positive_contribution');
+  assert.equal(ev.prediction.value.outcome.success, false);
+  const say = saySwitch(ev, d.recovery.monthly_cents);
+  assert.equal(say.tone, 'bad');
+  assert.match(say.headline, /取用方案保不住/);
+});
+
+test('bounded searches never promise an untested lifetime or unlimited contribution', () => {
+  const rest = sayRest({ status: 'found', months: 11, limit: 'end' }, null);
+  assert.match(rest.headline, /11/);
+  assert.match(rest.sub, /没有验证一直不工作/);
+  const say = saySwitch({ requirement: { status: 'ready', value: { status: 'search_not_found', search_limit_cents: '100000000' } } }, null);
+  assert.match(say.sub, /¥1,000,000/);
+  assert.doesNotMatch(say.headline, /怎么攒都不够/);
+});
+
+test('real career defaults preserve saved future income and release assumptions', async () => {
+  const { realGuidedDefaults } = await import('../src/career-preview/guided-model.ts');
+  const { s } = inputs({ pension: 100_000 });
+  const before = structuredClone(s);
+  const defaults = realGuidedDefaults(s, '2026-10-13');
+  assert.equal(defaults.income.mode, 'saved');
+  assert.equal(defaults.income.excludePools, false);
+  const scope = prepareIncomeScope(s, defaults.draft, defaults.income);
+  assert.equal(scope.sources.profile.value.saved.profile.retire.simplified.future_incomes[0].monthly_cents, '100000');
+  assert.deepEqual(s, before);
+});

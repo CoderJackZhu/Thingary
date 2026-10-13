@@ -18,7 +18,7 @@ test('C1 real defaults come from the user facts only: unknown spend, current sav
   assert.equal(x.draft.recovery.monthly_cents, '1500000');
   assert.deepEqual(x.draft.gap.costs, s.profile.value.saved.profile.retire.basic.contribution_costs);
   assert.deepEqual(x.draft.recovery.costs, x.draft.gap.costs);
-  assert.equal(x.income.mode, 'excluded'); assert.equal(x.income.excludePools, true);
+  assert.equal(x.income.mode, 'saved'); assert.equal(x.income.excludePools, false);
 });
 
 test('C2 without enough history the spend is left empty, never guessed or zero; December rolls into the next year', () => {
@@ -34,7 +34,9 @@ test('C3 defaults preserve source income, and unknown future cash costs require 
   s.profile.value.saved.profile.retire.simplified.income_mode = 'unconfirmed';
   const before = structuredClone(s);
   const x = realGuidedDefaults(s, '2026-10-09');
-  const scope = prepareIncomeScope(s, x.draft, x.income);
+  assert.equal(x.income.mode, 'saved');
+  assert.equal(prepareIncomeScope(s, x.draft, x.income).status, 'income_blocked');
+  const scope = prepareIncomeScope(s, x.draft, { ...x.income, mode: 'excluded' });
   assert.equal(scope.status, 'ready');
   assert.equal(scope.draft.gap.spend_cents, null);
   assert.notEqual(maxGap(scope.sources, scope.draft).status, 'found');

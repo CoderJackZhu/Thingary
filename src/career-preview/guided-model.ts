@@ -25,11 +25,11 @@ export function guidedDraft(): CareerDraft {
 export const guidedIncome = (sources: PlanningSources): IncomeDraft => ({ ...incomeDraft(sources), mode: 'excluded', excludePools: true });
 
 const reasonPlain = (r: Reason | null, age: number | null): string =>
-  r === 'goal' ? `到${age === null ? '目标月份' : `${age}岁`}退休时，钱就不够退休后花了` : r === 'cash' ? '不工作期间钱就先花光了' : r === 'prefix' ? '前面已经有一笔付不起，后面再多攒也补不回来' : '条件还没填完整';
+  r === 'goal' ? `到${age === null ? '目标月份' : `${age}岁`}退休时，钱就不够退休后花了` : r === 'cash' ? '不工作期间会有付款不足，或触及你设定的资金底线' : r === 'prefix' ? '前面已经有一笔付不起，后面再多攒也补不回来' : '条件还没填完整';
 
 export function sayRest(x: MaxGap, age: number | null): Say {
   if (x.status === 'found' && x.ranges) return { tone: 'warn', headline: `最长能撑 ${x.months} 个月，但不是越短越稳`, sub: `可行的长度只有：${x.ranges.map(r => r.from === r.to ? `${r.from} 个月` : `${r.from}–${r.to} 个月`).join('、')}。更短的反而不行，通常是补助、补偿金或付款时间造成的。` };
-  if (x.status === 'found' && x.limit === 'end') return { tone: 'good', headline: '一直不工作到退休前，钱也够', sub: `在这些条件下，一直到你定的${age === null ? '目标月份' : `${age}岁`}退休前都撑得住。` };
+  if (x.status === 'found' && x.limit === 'end') return { tone: 'good', headline: `最多已验证 ${x.months} 个月空窗`, sub: '这是目标前仍留有复工月份的搜索上限；没有验证一直不工作到退休。' };
   if (x.status === 'found') return { tone: x.months >= 12 ? 'good' : 'warn', headline: `最多能撑 ${x.months} 个月`, sub: `再长，${reasonPlain(x.limit as Reason, age)}。` };
   if (x.status === 'none') return { tone: 'bad', headline: '按这个条件，保不住原来的退休目标', sub: `就算不空窗也不行：${reasonPlain(x.reason, age)}。可以试试：找到工作后多攒一点、晚几年退休，或把退休后的花销降下来。` };
   return { tone: 'wait', headline: '还算不出来', sub: x.message };
@@ -41,7 +41,7 @@ export function sayLower(x: MinWindow, sources: PlanningSources): Say {
     return { tone: 'good', headline: `至少做到 ${x.close_month}${m === null ? '' : `（${Math.floor(m / 12)} 岁）`}之前`, sub: `再高收入地做约 ${Math.floor(x.months / 12)} 年 ${x.months % 12} 个月，之后每月只攒这么多也不影响退休目标。` };
   }
   if (x.status === 'already_met') return { tone: 'good', headline: '现在就可以', sub: '按这个“之后每月能攒多少”，现在降下来，退休目标也保得住。' };
-  if (x.status === 'not_reachable') return { tone: 'bad', headline: '做多久都不够', sub: x.message };
+  if (x.status === 'not_reachable') return { tone: 'bad', headline: '已检查的变化月份内没有可行方案', sub: x.message };
   return { tone: 'wait', headline: '还算不出来', sub: x.message };
 }
 
@@ -55,8 +55,15 @@ export function saySwitch(ev: CareerEvaluation, estimate: string | null): Say {
     const cmp = have === null ? '你还没填估计每月能攒多少，填了就能对比。' : have >= need ? `你估计每月能攒 ${yuan(have)}，够。` : `你估计每月能攒 ${yuan(have)}，每月还差 ${yuan(need - have)}。`;
     return { tone: have === null ? 'warn' : have >= need ? 'good' : 'bad', headline: `每月至少要攒 ${yuan(need)}`, sub: `从找到新工作那个月起，一直攒到退休年龄，才能保住原来的退休目标。${cmp}` };
   }
-  if (v.status === 'no_positive_contribution') return { tone: 'good', headline: '不用再攒，现有的钱就够', sub: '按这些条件，找到新工作后即使不攒，退休目标也保得住。' };
-  if (v.status === 'search_not_found') return { tone: 'bad', headline: '怎么攒都不够', sub: '在合理的月储蓄范围内也达不到，需要晚退休或降低退休后的花销。' };
+  if (v.status === 'no_positive_contribution') {
+    if (estimate !== null && /^-\d+$/.test(estimate)) {
+      if (ev.prediction.status !== 'ready') return { tone: 'wait', headline: '不再存钱可覆盖，取用方案还算不出来', sub: ev.prediction.issues.map(i => i.message).join(' ') };
+      const fits = ev.prediction.value.outcome.success && ev.prediction.value.outcome.funded_at_goal;
+      return { tone: fits ? 'good' : 'bad', headline: fits ? '按你预计的取用金额，目标仍可覆盖' : '不再存钱可覆盖，但你的取用方案保不住目标', sub: `你估计每月取用 ${yuan(-Number(estimate))}；零投入够用不代表持续取用也够用。` };
+    }
+    return { tone: 'good', headline: '不用再攒，现有的钱就够', sub: '按这些条件，找到新工作后即使不攒，退休目标也保得住。' };
+  }
+  if (v.status === 'search_not_found') return { tone: 'bad', headline: '搜索上限内没有找到可行投入', sub: `已检查到每月 ${yuan(v.search_limit_cents)}；这不表示任意投入都不够，可调整目标或预算后重算。` };
   return { tone: 'bad', headline: '这个条件下后面补不回来', sub: 'message' in v ? v.message : '空窗期间已经有付不起的月份，之后再多攒也补不回来。' };
 }
 
@@ -92,7 +99,7 @@ export function realGuidedDefaults(sources: PlanningSources, today: string): Gui
   const from: GuidedDefaults['from'] = { recovery: null };
   const cur = b?.contribution.monthly_cents ?? null;
   if (cur !== null && /^-?\d+$/.test(cur) && Number(cur) >= 0) { d.recovery.monthly_cents = cur; from.recovery = 'current'; }
-  return { draft: d, income: guidedIncome(sources), from };
+  return { draft: d, income: { ...incomeDraft(sources), excludePools: false }, from };
 }
 
 /** The guided totals already include self-paid cash expenses only after explicit confirmation.

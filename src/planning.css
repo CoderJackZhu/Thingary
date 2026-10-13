@@ -163,10 +163,7 @@ dialog.editor.planning-setup-dialog:not(.asset-editor):not(.wishlist-editor)[ope
 .planning-refinement-card h4, .planning-refinement-card p { margin: 0; line-height: 1.7; }
 .planning-refinement-card > div { margin-top: auto; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
 .planning-refinement-card button { white-space: normal; }
-.planning-more-tools > summary { cursor: pointer; line-height: 1.8; }
-.planning-more-tools > summary strong { margin-right: 12px; }
-.planning-more-tools > summary .ui-tag { display: inline-block; white-space: normal; }
-.planning-more-tools-hint { display: block; margin-top: 8px; }
+.planning-more-tools > h3 { margin: 0 0 8px; }
 .planning-more-tools-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-top: 16px; }
 .planning-more-tools-body > * { min-width: 0; }
 .planning-question-progress { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding: 12px 24px 20px; }

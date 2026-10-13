@@ -27,7 +27,7 @@ export function RunwayCard({ caps, today, onOwner }: { caps: BasicCapabilities |
   const lines = out && runwayLines(out, { set: floorCents !== null, cents: String(floorCents ?? 0) }, money);
   const stale = validDate(anchor) && daysBetween(anchor, today) > STALE_DAYS;
   return <article className="ui-card ui-content plan-runway" aria-label="资金能撑多久">
-    <details><summary>资金能撑多久 · 当前收支临时计算</summary>
+    <h3>资金能撑多久</h3><p className="eyebrow">当前收支 · 临时计算</p>
       <p className="muted small">无需退休目标或养老金资料。只看当前收支持续时能付几个月，不预测复工；输入不保存，也不改变长期计划。</p>
       {funds && <div className="plan-runway-switch"><Switch label="改用手填模拟资金" value={manual} onChange={setManual}/><span>改用手填模拟资金</span></div>}
       {useManual ? <div className="plan-runway-fields">
@@ -44,7 +44,7 @@ export function RunwayCard({ caps, today, onOwner }: { caps: BasicCapabilities |
         <label className="rs-field"><span>检查期间</span><select aria-label="资金检查期间" value={months} onChange={e => setMonths(Number(e.target.value))}>{[12, 24, 60, 120].map(n => <option key={n} value={n}>{n} 个月</option>)}</select></label>
       </div>
       <div className="plan-runway-switch"><Switch label="目前没有可靠到账" value={none} onChange={setNone}/><span>目前没有可靠到账</span></div>
-      <p className="muted small">留空表示未知，没有到账请明确打开。必要开销应包含当前房租、月供、社保等；这些费用不从退休预算或大额计划自动添加，避免重复。</p>
+      <p className="muted small">公积金缴存不能填入可靠到账；定期提取仅在余额足够且能持续整个检查期间时计入，已包含在起点的余额不能再次当作收入。留空表示未知，没有到账请明确打开。必要开销应包含当前房租、月供、社保等；这些费用不从退休预算或大额计划自动添加，避免重复。</p>
       {!out && <p className="muted small" role="status">{dateError ?? (balance === null ? '请提供可用资金起点。' : incomeCents === null ? '请填写每月可靠到账，或打开「目前没有可靠到账」。' : '请填写每月必要开销。')}</p>}
       {lines && <div role="status">
         <p className={`plan-req-main ${lines.tone}`}><strong>{lines.main}</strong></p>
@@ -52,6 +52,5 @@ export function RunwayCard({ caps, today, onOwner }: { caps: BasicCapabilities |
       </div>}
       <p className="muted small">从截至日后按完整月检查：月初先付开销，月底再到账。底线检查付款后的最低余额。资金不足以付整月不等于余额已耗尽。</p>
       <p className="muted small">固定当前收支，不计投资收益、通胀、未来大额事件及月供结束；不是完整未来现金流预测。<Info text="这与退休所需投入是独立问题；本次临时输入关闭页面后丢弃，不保存到预计投入或其他页面。"/></p>
-    </details>
   </article>;
 }

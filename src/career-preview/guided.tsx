@@ -13,6 +13,7 @@ import { IncomeSection } from './income-section.tsx';
 import { LumpsSection } from './map.tsx';
 import { ageMonthsAt, maxGap, minWindow, missingItems } from '../plan-career-map.ts';
 import { evaluateCareerScenario } from '../plan-career.ts';
+import { prepareBasicPlan } from '../plan-basic.ts';
 import { confirmGuidedCashCosts, guidedDraft, guidedIncome, restLevers, sayLower, sayRest, saySwitch, yuan } from './guided-model.ts';
 import type { GuidedDefaults } from './guided-model.ts';
 import type { Say } from './guided-model.ts';
@@ -56,17 +57,19 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
   const scope = useMemo(() => prepareIncomeScope(sources, deferred.draft, deferred.income), [sources, deferred]);
   const profile = sources.profile.status === 'ready' ? sources.profile.value.saved?.profile ?? null : null;
   const target = profile?.retire.simplified.time.target_month;
+  const basis = useMemo(() => prepareBasicPlan(sources, '0'), [sources]);
   const targetMonths = target ? ageMonthsAt(sources, target) : null;
   const targetAge = targetMonths === null ? null : Math.floor(targetMonths / 12), current = profile?.retire.basic?.contribution.monthly_cents ?? null;
   const missing = useMemo(() => {
     if (scope.status !== 'ready') return [];
-    const out = missingItems(scope.draft, q === 'rest');
-    if (q === 'rest' || (q === 'switch' && scope.draft.gap_months !== 0)) {
+    const checkedDraft = q === 'lower' ? { ...scope.draft, gap_months: lowerGap } : scope.draft;
+    const out = missingItems(checkedDraft, q === 'rest');
+    if (q === 'rest' || (q === 'switch' && scope.draft.gap_months !== 0) || (q === 'lower' && lowerGap > 0)) {
       if (scope.draft.gap.spend_cents === null || scope.draft.gap.spend_cents === '') out.unshift({ label: '不工作期间每月总共花多少', assumable: false });
       if (scope.draft.gap.income_cents === null || scope.draft.gap.income_cents === '') out.unshift({ label: '不工作期间每月还有多少收入', assumable: false });
     }
     return out;
-  }, [scope, q]);
+  }, [scope, q, lowerGap]);
   const levels = useMemo(() => (current !== null && /^-?\d+$/.test(current) ? [0, .25, .5, .75].map(f => String(Math.round(Number(current) * f))) : ['0']), [current]);
 
   const say: Say | null = useMemo(() => {
@@ -86,7 +89,7 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
     : scope.status !== 'ready' ? scope.issues.join(' ') : missing.length ? `还差：${missing.map(m => m.label).join('、')}。` : null;
   const extra = draft.gap.extra_income ?? { lump_cents: null, benefit_monthly_cents: null, benefit_months: null };
   const setExtra = (v: Partial<typeof extra>) => setGap({ extra_income: { ...extra, ...v } });
-  const tone = say?.tone ?? 'wait';
+  const tone = updating ? 'wait' : say?.tone ?? 'wait';
 
   const note = example
     ? <>现在填的是<strong>示例数字</strong>，请改成你自己的。<button type="button" onClick={example}>恢复示例数字</button></>
@@ -96,6 +99,8 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
     {embedded ? <p className="guided-note">{note}</p> : <header><p className="eyebrow">物谱 · 职业变化试算（虚构预览）</p><h1>歇一阵或换工作，退休目标还保得住吗？</h1>
       <p className="guided-lead">选一个问题，填几个数，答案马上出来。数字只在这个页面里，关掉就没了，不会改你的计划。</p>
       <p className="guided-note">{note}</p></header>}
+    {basis.funds.status === 'ready' && <p className="guided-hint">资金起点：截至 {basis.funds.value.date} 可用 {yuan(basis.funds.value.available_cents)}；当前每月净存入 {current === null ? '未知' : yuan(current)}。{basis.funds.value.date < sources.today && '起点之后的实际收支未自动补入，请先确认盘点仍适用。'}</p>}
+    {profile && <p className="guided-hint">退休后每月生活费 {profile.retire.spend_cents === null ? '未知' : yuan(profile.retire.spend_cents)}，覆盖到 {profile.retire.simplified.time.horizon_month ?? '尚未确认的终点'}；沿用计划的收益与费用安排。金额按资金起点日购买力填写，固定到账金额未来可能随通胀贬值。</p>}
     <section aria-label="想知道什么"><div role="radiogroup" aria-label="想知道什么" className="guided-questions">
       {questions.map(x => <label key={x.id} className={`guided-question${q === x.id ? ' on' : ''}`}><input type="radio" name="guided-question" checked={q === x.id} onChange={() => setQ(x.id)}/><strong>{x.title}</strong><small>{x.hint}</small></label>)}
     </div></section>
@@ -107,17 +112,17 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
           {q === 'lower'
             ? <FormRow label="高收入停下来后，先空窗几个月？" hint="直接转成每月攒得少的工作，就填 0。"><input aria-label="先空窗几个月" type="number" min="0" step="1" value={lowerGap} onChange={e => setLowerGap(Math.max(0, Math.floor(Number(e.target.value) || 0)))}/></FormRow>
             : q === 'switch' && <FormRow label="中间空窗几个月？" hint="直接换工作、没有空窗，就填 0。"><input aria-label="空窗月数" type="number" min="0" max="1200" step="1" value={draft.gap_months ?? ''} onChange={e => patch({ gap_months: e.target.value === '' ? null : Number(e.target.value) })}/></FormRow>}
-          {q !== 'lower' && (q === 'rest' || draft.gap_months !== 0) && <>
+          {(q === 'rest' || (q === 'switch' && draft.gap_months !== 0) || (q === 'lower' && lowerGap > 0)) && <>
             <FormRow label="不工作期间，每月总共花多少？（元）" hint="房租、吃饭、通勤、家人开销，再加上你自己交的社保和医保。拿不准就看最近几个月的平均支出。"><CentInput label="不工作期间每月花销" value={draft.gap.spend_cents ?? ''} onChange={v => setGap({ spend_cents: v || null })}/></FormRow>
-            <FormRow label="不工作期间，每月还有多少收入？（元）" hint="零活、兼职、家人补贴等；一分都没有就填 0。失业金在“更多假设”里填。"><CentInput label="不工作期间每月到账" value={draft.gap.income_cents ?? ''} onChange={v => setGap({ income_cents: v || null })}/></FormRow>
+            <FormRow label="不工作期间，每月还有多少收入？（元）" hint="零活、兼职、家人补贴等；一分都没有就填 0。失业金在“本次收入与资金假设”里填。"><CentInput label="不工作期间每月到账" value={draft.gap.income_cents ?? ''} onChange={v => setGap({ income_cents: v || null })}/></FormRow>
           </>}
-          {q !== 'lower' && <FormRow label={q === 'switch' ? '你估计找到新工作后，每月能攒多少？（元，选填）' : '你估计找到新工作后，每月能攒多少？（元）'} hint="到手工资扣掉所有花销、社保之后，每月剩下能存下来的钱，可以是 0 或负数。填了才能对比。"><CentInput label="找到新工作后每月能攒多少" signed value={draft.recovery.monthly_cents ?? ''} onChange={v => patch({ recovery: { ...draft.recovery, monthly_cents: v || null } })}/></FormRow>}
+          {q !== 'lower' && <FormRow label={q === 'switch' ? '你估计找到新工作后，每月能攒多少？（元，选填）' : '你估计找到新工作后，每月能攒多少？（元）'} hint="到手工资扣掉所有花销、社保之后，每月剩下能存下来的钱，可以是 0 或负数。不计尚不能提取的公积金缴存；稳定提取若已算在净存入中，不要再填作未来收入。填了才能对比。"><CentInput label="找到新工作后每月能攒多少" signed value={draft.recovery.monthly_cents ?? ''} onChange={v => patch({ recovery: { ...draft.recovery, monthly_cents: v || null } })}/></FormRow>}
           <label className="check-line"><input type="checkbox" aria-label="上述金额已包含全部自付费用" checked={draft.gap.insurance.monthly_cents === '0' && draft.gap.insurance.included && draft.recovery.insurance.monthly_cents === '0' && draft.recovery.insurance.included} onChange={e => patch(confirmGuidedCashCosts(draft, e.target.checked))}/>上述开销和每月净存入已包含社保、医保等全部自付费用，不再另扣</label>
           {q === 'lower' && <p className="guided-hint">下面的答案会按“你现在每月攒的钱”的 0%、25%、50%、75% 各算一遍，所以这里不用再填每月能攒多少。</p>}
         </section>
 
-        <details className="guided-card"><summary>更多假设（一般不用动）</summary>
-          <p className="guided-hint">现在的默认是偏保守的：不计未来收入，也不计受限资金释放。想算得更贴近，就在这里改。</p>
+        <details className="guided-card"><summary>本次收入与资金假设</summary>
+          <p className="guided-hint">应用中默认沿用原计划的未来收入与已确认资金释放；若换工作会改变它们，请在这里调整本次条件。定期公积金缴存与提取尚未单独推演，不要把缴存当现金收入。</p>
           <IncomeSection value={income} onChange={setIncome}/>
           {q !== 'lower' && <section className="career-input"><h3>补偿金、失业金</h3>
             <FormRow label="一次性补偿金（元）" hint="比如 N+1，税后；没有就留空。记在开始那个月的月底。"><CentInput label="一次性补偿金" value={extra.lump_cents ?? ''} onChange={v => setExtra({ lump_cents: v || null })}/></FormRow>
@@ -132,18 +137,18 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
       <aside className="guided-answer" aria-label="答案">
         <section className={`guided-card guided-result tone-${tone}`} aria-live="polite" id="guided-answer">
           <p className="guided-kicker">{questions.find(x => x.id === q)!.title}{updating && <span> · 更新中…</span>}</p>
-          {blockedMessage ? <><p className="guided-headline">还算不出来</p><p className="guided-sub">{blockedMessage}</p></>
+          {updating ? <><p className="guided-headline">正在重算…</p><p className="guided-sub">条件已改变，等待本次结果。</p></> : blockedMessage ? <><p className="guided-headline">还算不出来</p><p className="guided-sub">{blockedMessage}</p></>
             : q === 'lower' && lowerRows ? <ul className="guided-rows">{lowerRows.map(r => <li key={r.level}><strong>之后每月只攒 {yuan(r.level)}</strong><span>{r.say.headline}</span><small>{r.say.sub}</small></li>)}</ul>
             : say && <><p className="guided-headline">{say.headline}</p><p className="guided-sub">{say.sub}</p></>}
           <ul className="guided-chips" aria-label="这次的假设">
             <li>{income.mode === 'excluded' ? '不计未来收入（偏保守）' : income.mode === 'manual' ? '按你手填的退休收入' : '沿用原计划的退休收入'}</li>
             <li>{income.excludePools ? '不计受限资金释放' : '沿用已确认的受限资金释放'}</li>
-            <li>社保算在花销里</li>
+            <li>{draft.gap.insurance.included && draft.recovery.insurance.included ? '已确认自付费用包含在填写金额内' : '自付费用尚待确认'}</li>
             {target && <li>{target} 目标月份{targetAge !== null ? `（约 ${targetAge} 岁）` : ""}</li>}
           </ul>
-          {q === 'rest' && say && !blockedMessage && <details onToggle={e => setLeversOpen(e.currentTarget.open)}><summary>怎样才能撑得更久？</summary>
+          {q === 'rest' && say && !blockedMessage && !updating && <details onToggle={e => setLeversOpen(e.currentTarget.open)}><summary>怎样才能撑得更久？</summary>
             <ul className="guided-rows">{levers.map(l => <li key={l.label}><strong>{l.label}</strong><span>{l.text}</span></li>)}{!levers.length && <li>计算中…</li>}</ul></details>}
-          <details><summary>这个结果有哪些局限？</summary><p className="guided-hint">它是按你填的数字做的估算，不是预测：不会替你猜会不会被裁、多久找到工作、工资涨不涨。每月付款的先后只在不工作那一段检查过。未来收入和受限资金释放默认不计入，结果偏保守。</p></details>
+          <details><summary>这个结果有哪些局限？</summary><p className="guided-hint">它是按你填的数字做的估算，不是预测：不会替你猜会不会被裁、多久找到工作、工资涨不涨。每月付款的先后只在不工作那一段检查过。未来收入与受限资金是否计入，以答案旁的本次假设为准；公积金周期缴存、提取与余额耗尽尚未推演。</p></details>
         </section>
       </aside>
     </div>
