@@ -6,9 +6,9 @@
 
 本页描述当前主分支的操作。财务工作区、政策测算退出与当前报告预览已接入源码并完成对应核心验证；公开安装包的内容以其版本说明为准。截图来自虚构资料，来源与更新范围见[截图维护清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/images/README.md)，不表示全部原生功能已验收。
 
-本说明的下载与安装步骤对应 **0.0.5 公开测试版**，用于收集使用与兼容性反馈。安装包与版本说明见 [0.0.5 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.5)。若某个版本没有 DMG 附件，说明该版本尚未提供安装包；维护者的本机安装状态不代表已公开发布。
+本说明的下载与安装步骤对应 **0.0.6 公开测试版**，用于收集使用与兼容性反馈。安装包与版本说明见 [0.0.6 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.6)。若某个版本没有 DMG 附件，说明该版本尚未提供安装包；维护者的本机安装状态不代表已公开发布。
 
-本页操作对应 0.0.5；0.0.3 及更早的包不含这些新界面。更新兼容性与验证范围见[0.0.5 发布说明](https://github.com/CoderJackZhu/Thingary/blob/v0.0.5/docs/releases/v0.0.5.md)。
+本页操作对应 0.0.6；主要页面截图为 0.0.5 虚构样例，新增提醒、目标进度和检查更新以文字说明为准。0.0.3 及更早的包不含这些新界面。更新兼容性与验证范围见[0.0.6 发布说明](https://github.com/CoderJackZhu/Thingary/blob/v0.0.6/docs/releases/v0.0.6.md)。
 
 <a id="download"></a>
 
@@ -18,7 +18,7 @@
 
 从 0.0.5 起提供 **通用安装包**，Apple Silicon（M 系列）与 Intel Mac 都下载同一个 `universal.dmg`。当前只在 Apple Silicon、macOS 27 验证，尚未实测 macOS 14 和 Intel Mac；暂不提供 Windows 或 Linux 安装包。
 
-1. 在 [GitHub 上的 0.0.5 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.5) 打开对应公开测试版（标有 Pre-release）。**GitHub 打不开时，改用国内镜像 [Gitee 发行版](https://gitee.com/CoderJackZhu/thingary/releases)**，两处的安装包内容相同，可用 `SHA256SUMS.txt` 核对。
+1. 在 [GitHub 上的 0.0.6 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.6) 打开对应公开测试版（标有 Pre-release）。**GitHub 打不开时，改用国内镜像 [Gitee 发行版](https://gitee.com/CoderJackZhu/thingary/releases)**，两处的安装包内容相同，可用 `SHA256SUMS.txt` 核对。
 2. 在附件（Assets）中下载 `Thingary-<版本>-universal.dmg`（0.0.4 及更早版本为 `arm64.dmg`）。`Source code.zip` 与 `Source code.tar.gz` 是源码，不是安装包。
 3. 双击下载好的 DMG，将「物谱」拖到同一窗口里的「Applications／应用程序」文件夹。
 4. 等待复制完成，在 Finder 的「应用程序」中双击「物谱」。安装后可推出 DMG；无需一直保留挂载窗口。不要直接从 DMG 运行应用。
@@ -488,7 +488,7 @@
 
 ### 从此前 2.6.1 更换为公开测试系列
 
-此前 2.6.1 安装包已撤下，公开版本曾按维护者决定重新编号为 `0.0.1`（前一个测试版为 `0.1.0-beta.1`），本节旧版本更换说明对应公开测试版 `0.0.5`。编号重排本身不改变应用资料身份、备份格式或数据库 schema；公开版本的功能迁移以对应版本说明为准；当前源码继续沿现有迁移链升级资料。**仍先做完整备份并异地保存**，退出旧应用，再按上面的安装更新步骤手动替换；核对资料后继续使用。当前没有自动更新，较低的公开版本号不是数据格式降级；以后真正降级仍须确认兼容性，不要据此假定所有旧版都可读新资料。
+此前 2.6.1 安装包已撤下，公开版本曾按维护者决定重新编号为 `0.0.1`（前一个测试版为 `0.1.0-beta.1`），本节旧版本更换说明对应公开测试版 `0.0.6`。编号重排本身不改变应用资料身份、备份格式或数据库 schema；公开版本的功能迁移以对应版本说明为准；当前源码继续沿现有迁移链升级资料。0.0.6 将 schema 39 升级为 40，新增空的目标进度表，不补造旧盘点历史；旧版不能直接打开升级后的资料及备份。**仍先做完整备份并异地保存**，退出旧应用，再按上面的安装更新步骤手动替换；核对资料后继续使用。当前没有自动更新，较低的公开版本号不是数据格式降级；以后真正降级仍须确认兼容性，不要据此假定所有旧版都可读新资料。
 
 <a id="legacy-upgrade"></a>
 
