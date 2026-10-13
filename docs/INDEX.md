@@ -9,7 +9,7 @@
 | 下载、安装、首次打开 | [安装步骤](USER_GUIDE.md#download) · [GitHub Releases](https://github.com/CoderJackZhu/Thingary/releases) |
 | 物品档案与首次账户盘点 | [第一件物品](USER_GUIDE.md#first-record) · [第一次盘点](USER_GUIDE.md#first-snapshot) |
 | 记录收入、支出与资金流动 | [收支记录与财务复盘](USER_GUIDE.md#finance-review) |
-| 目标、计算详情与当前报告 | [规划入门](USER_GUIDE.md#planning) |
+| 目标、测算详情、试算与当前报告 | [规划入门](USER_GUIDE.md#planning) |
 | 临时现金与工作变化条件 | [资金续航](USER_GUIDE.md#runway) · [职业试算](USER_GUIDE.md#career-trial) |
 | 备份、恢复、Excel 与换机 | [资料保护](USER_GUIDE.md#backup) · [更新与换机](USER_GUIDE.md#update) |
 | 疑问、支持范围与数值口径 | [常见问题](USER_GUIDE.md#faq) · [当前限制](USER_GUIDE.md#limits) · [业务规则](PRODUCT_RULES.md) |
@@ -28,12 +28,13 @@
 
 ## 已批准设计与当前阶段
 
-当前源码的财富入口为账户与盘点、收支记录、财务复盘；规划保留目标。五步设置（净投入可跳过）、明确净投入、资金／费用核对、实际发生接续、收入分类、投资区间核对、假设确认与资金流动已接入。当前报告是固定快照的只读预览，默认隐私、可复制摘要；不含基准／比较或原生 PDF。当前验证只维护在[开发说明](DEVELOPMENT.md#finance-workspace-validation)与[报告验证](DEVELOPMENT.md#current-report-validation)。
+当前源码的财富入口为账户与盘点、收支记录、财务复盘；物品状态收在列表工具栏；规划以目标为单入口，页内分为目标、测算详情与试算。首次使用可从物品档案或账户盘点开始。五步设置（净投入可跳过）、明确净投入、资金／费用核对、实际发生接续、收入分类、投资区间核对、假设确认与资金流动已接入。当前报告是固定快照的只读预览，默认隐私、可复制摘要；不含基准／比较或原生 PDF。当前验证只维护在[开发说明](DEVELOPMENT.md#finance-workspace-validation)与[报告验证](DEVELOPMENT.md#current-report-validation)。
 
 收入覆盖声明、历史总额参考、普通金额目标、命名方案、冻结基准及完整决策报告仍待实施。以下设计含分阶段规格或历史背景，不能把文件存在视为全部功能可用；政策退出与财务工作区的较新决定优先于旧政策页、旧导航和职业阶段条款。
 
 | 唯一设计入口 | 范围与状态 |
 |---|---|
+| [定位、导航与首次使用调整](POSITIONING_NAVIGATION_DESIGN.md) | 已实施：物品状态并入列表、规划页内三标签、起步选择、表单与术语简化；当前验证边界见开发说明 |
 | [财富记录、财务复盘与目标规划](FINANCE_WORKSPACE_DESIGN.md) | 当前导航、能力与设置接入；核心验证已完成，完整验收边界见开发说明 |
 | [长期维护优先与政策退出](PRODUCT_BOUNDARIES_DESIGN.md) | 政策模型退出已实施；保留事实、通用未来收入、市场分析与损益金额，不做政策资格或收益率 |
 | [简化规划接口](PLANNING_SIMPLIFICATION_CONTRACT.md) · [假设／流动接入契约](PLANNING_FOLLOWUP_PARALLEL_CONTRACT.md) | 当前领域、保存、假设与资金流动边界 |
