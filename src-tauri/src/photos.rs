@@ -7,12 +7,12 @@ use crate::{
 use rusqlite::{params, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs, io::Read, path::Path};
-fn stamp(meta: &fs::Metadata) -> crate::storage::FileStamp {
-    (
+fn stamp(meta: &fs::Metadata, path: &Path) -> Result<crate::storage::FileStamp> {
+    Ok((
         meta.len(),
         meta.modified().ok(),
-        crate::storage::file_id(meta),
-    )
+        crate::storage::file_id(meta, path)?,
+    ))
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Photo {
@@ -190,15 +190,15 @@ impl Store {
         }
     }
     /// True when `path` was hashed this session and still has the same
-    /// length, modification time and inode.
-    fn already_verified(&self, path: &Path, meta: &fs::Metadata) -> bool {
+    /// length, modification time and platform file identity.
+    fn already_verified(&self, path: &Path, stamp: &crate::storage::FileStamp) -> bool {
         self.verified
             .lock()
-            .is_ok_and(|v| v.get(path) == Some(&stamp(meta)))
+            .is_ok_and(|v| v.get(path) == Some(stamp))
     }
-    fn mark_verified(&self, path: &Path, meta: &fs::Metadata) {
+    fn mark_verified(&self, path: &Path, stamp: crate::storage::FileStamp) {
         if let Ok(mut v) = self.verified.lock() {
-            v.insert(path.to_owned(), stamp(meta));
+            v.insert(path.to_owned(), stamp);
         }
     }
     /// Confirms the original is present and intact. Its full SHA-256 is
@@ -209,9 +209,11 @@ impl Store {
         let path = self.dataset().join("files").join(hash);
         let meta = fs::metadata(&path)
             .map_err(|_| Error::new("IMAGE_MISSING", "原图缺失，请重新选择原文件修复"))?;
-        if !self.already_verified(&path, &meta) {
+        let stamp = stamp(&meta, &path)?;
+        if !self.already_verified(&path, &stamp) {
             self.original(hash)?;
-            self.mark_verified(&path, &meta);
+            // Remember the pre-hash identity, even if the path was replaced while reading.
+            self.mark_verified(&path, stamp);
         }
         Ok(())
     }

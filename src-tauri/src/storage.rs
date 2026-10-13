@@ -21,7 +21,11 @@ pub(crate) struct Active {
 }
 type FaultHook = Box<dyn Fn(&str) -> Result<()> + Send>;
 /// Length, modification time and platform identity of a file whose content was hashed.
-pub(crate) type FileStamp = (u64, Option<std::time::SystemTime>, u64);
+pub(crate) type FileStamp = (u64, Option<std::time::SystemTime>, FileIdentity);
+#[cfg(target_os = "macos")]
+pub(crate) type FileIdentity = u64;
+#[cfg(windows)]
+pub(crate) type FileIdentity = (u32, u64);
 pub struct Store {
     pub(crate) root: PathBuf,
     pub(crate) active: Active,
@@ -42,15 +46,55 @@ pub(crate) fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 #[cfg(target_os = "macos")]
-pub(crate) fn file_id(meta: &fs::Metadata) -> u64 {
+pub(crate) fn file_id(meta: &fs::Metadata, _path: &Path) -> Result<FileIdentity> {
     use std::os::unix::fs::MetadataExt;
-    meta.ino()
+    Ok(meta.ino())
 }
 #[cfg(windows)]
-pub(crate) fn file_id(meta: &fs::Metadata) -> u64 {
-    use std::os::windows::fs::MetadataExt;
-    // ponytail: Creation time is weaker than inode; GetFileInformationByHandle can supply a stronger file number.
-    meta.creation_time()
+pub(crate) fn file_id(_meta: &fs::Metadata, path: &Path) -> Result<FileIdentity> {
+    use std::{ffi::c_void, mem::MaybeUninit, os::windows::io::AsRawHandle};
+
+    // BY_HANDLE_FILE_INFORMATION: FILETIME is two DWORDs, not an aligned u64.
+    #[repr(C)]
+    struct FileInformation {
+        _attributes: u32,
+        _creation_time: [u32; 2],
+        _last_access_time: [u32; 2],
+        _last_write_time: [u32; 2],
+        volume_serial_number: u32,
+        _size_high: u32,
+        _size_low: u32,
+        _number_of_links: u32,
+        index_high: u32,
+        index_low: u32,
+    }
+    const _: () = {
+        assert!(std::mem::size_of::<FileInformation>() == 52);
+        assert!(std::mem::align_of::<FileInformation>() == 4);
+    };
+    #[link(name = "kernel32")]
+    extern "system" {
+        #[link_name = "GetFileInformationByHandle"]
+        fn get_file_information_by_handle(
+            file: *mut c_void,
+            information: *mut FileInformation,
+        ) -> i32;
+    }
+
+    let file = File::open(path)?;
+    let mut information = MaybeUninit::<FileInformation>::uninit();
+    // The File keeps its HANDLE alive; the API writes the C-layout buffer on success.
+    if unsafe { get_file_information_by_handle(file.as_raw_handle(), information.as_mut_ptr()) }
+        == 0
+    {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // A nonzero return guarantees the output buffer was initialized by the API.
+    let information = unsafe { information.assume_init() };
+    Ok((
+        information.volume_serial_number,
+        (u64::from(information.index_high) << 32) | u64::from(information.index_low),
+    ))
 }
 #[cfg(windows)]
 pub(crate) fn sync_dir(_path: &Path) -> Result<()> {
@@ -1307,5 +1351,27 @@ mod assumption_migration_tests {
             0
         );
         migrate_to(&c, 38, &|_| Ok(())).unwrap();
+    }
+    #[test]
+    fn file_identity_is_stable_and_replacement_changes_it_despite_matching_metadata() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("fictional-preference.json");
+        std::fs::write(&path, b"fictional content").unwrap();
+        let before = std::fs::metadata(&path).unwrap();
+        let identity = super::file_id(&before, &path).unwrap();
+        assert_eq!(identity, super::file_id(&before, &path).unwrap());
+        // Keep the original file alive so its inode/file number cannot be reused.
+        std::fs::rename(&path, tmp.path().join("original-preference.json")).unwrap();
+        std::fs::write(&path, b"fictional content").unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(std::fs::FileTimes::new().set_modified(before.modified().unwrap()))
+            .unwrap();
+        let after = std::fs::metadata(&path).unwrap();
+        assert_eq!(before.len(), after.len());
+        assert_eq!(before.modified().unwrap(), after.modified().unwrap());
+        assert_ne!(identity, super::file_id(&after, &path).unwrap());
     }
 }
