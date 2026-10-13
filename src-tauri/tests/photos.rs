@@ -9,6 +9,25 @@ use thingary_lib::{
 };
 const PNG: &[u8] = include_bytes!("fixtures/camera.png");
 const HEIC: &[u8] = include_bytes!("fixtures/camera.heic");
+#[cfg(target_os = "macos")]
+const ORIGINAL_EXTENSION: &str = "heic";
+#[cfg(windows)]
+const ORIGINAL_EXTENSION: &str = "jpg";
+#[cfg(target_os = "macos")]
+fn original_image() -> Vec<u8> {
+    HEIC.to_vec()
+}
+#[cfg(windows)]
+fn original_image() -> Vec<u8> {
+    // Keep this original distinct from the second PNG and the wrong repair image.
+    let mut out = Cursor::new(Vec::new());
+    image::load_from_memory(PNG)
+        .unwrap()
+        .write_to(&mut out, image::ImageFormat::Jpeg)
+        .unwrap();
+    out.into_inner()
+}
+
 fn input(s: &Store, ids: Vec<String>) -> SaveAsset {
     SaveAsset {
         options: None,
@@ -35,10 +54,12 @@ fn dataset(root: &Path) -> std::path::PathBuf {
     root.join("datasets").join(active["id"].as_str().unwrap())
 }
 #[test]
-fn all_four_formats_and_invalid_images() {
+fn supported_formats_and_invalid_images() {
     let root = tempfile::tempdir().unwrap();
     let s = Store::open(root.path()).unwrap();
-    let mut formats = vec![PNG.to_vec(), HEIC.to_vec()];
+    let mut formats = vec![PNG.to_vec()];
+    #[cfg(target_os = "macos")]
+    formats.push(HEIC.to_vec());
     for format in [image::ImageFormat::Jpeg, image::ImageFormat::WebP] {
         let mut out = Cursor::new(Vec::new());
         image::load_from_memory(PNG)
@@ -55,6 +76,13 @@ fn all_four_formats_and_invalid_images() {
         let decoded = image::load_from_memory(&preview).unwrap();
         assert_eq!((decoded.width(), decoded.height()), (480, 320));
     }
+    #[cfg(windows)]
+    assert_eq!(
+        s.stage_photo("不支持.heic", HEIC, &s.generation(), None)
+            .unwrap_err()
+            .code,
+        "IMAGE_FORMAT"
+    );
     assert!(s
         .stage_photo("伪装.heic", b"not an image", &s.generation(), None)
         .is_err());
@@ -78,18 +106,23 @@ fn all_four_formats_and_invalid_images() {
 fn originals_survive_move_cover_change_trash_and_restore() {
     let root = tempfile::tempdir().unwrap();
     let mut s = Store::open(root.path()).unwrap();
-    let source = root.path().join("camera.heic");
-    fs::write(&source, HEIC).unwrap();
+    let original = original_image();
+    let source = root.path().join(format!("camera.{ORIGINAL_EXTENSION}"));
+    fs::write(&source, &original).unwrap();
     let p = s.stage_photo_path(&source, &s.generation(), None).unwrap();
     let q = s
         .stage_photo("second.png", PNG, &s.generation(), None)
         .unwrap();
-    fs::rename(&source, root.path().join("moved.heic")).unwrap();
+    fs::rename(
+        &source,
+        root.path().join(format!("moved.{ORIGINAL_EXTENSION}")),
+    )
+    .unwrap();
     let mut request = input(&s, vec![p.id.clone(), q.id.clone()]);
     let a = s.save_asset(&request, "2026-09-24").unwrap();
     assert_eq!(a.photos.len(), 2);
     assert_eq!(a.cover_id, Some(p.id.clone()));
-    assert_eq!(s.image_bytes(&p.id).unwrap(), HEIC);
+    assert_eq!(s.image_bytes(&p.id).unwrap(), original);
     request.base.request_id = uuid::Uuid::new_v4().to_string();
     request.base.asset_id = Some(a.asset.id.clone());
     request.base.expected_revision = Some(1);
@@ -99,7 +132,7 @@ fn originals_survive_move_cover_change_trash_and_restore() {
     });
     let b = s.save_asset(&request, "2026-09-24").unwrap();
     assert_eq!(b.cover_id, Some(q.id.clone()));
-    assert_eq!(s.image_bytes(&p.id).unwrap(), HEIC);
+    assert_eq!(s.image_bytes(&p.id).unwrap(), original);
     for (deleted, revision) in [(true, 2), (false, 3)] {
         let r = s
             .change_trash(&TrashChange {
@@ -128,7 +161,7 @@ fn originals_survive_move_cover_change_trash_and_restore() {
         restored.record(&a.asset.id).unwrap().unwrap().photos,
         b.photos
     );
-    assert_eq!(restored.image_bytes(&p.id).unwrap(), HEIC);
+    assert_eq!(restored.image_bytes(&p.id).unwrap(), original);
     assert!(restored
         .photo_preview(&q.id, &restored.generation())
         .is_ok());
@@ -137,8 +170,14 @@ fn originals_survive_move_cover_change_trash_and_restore() {
 fn missing_original_repair_and_atomic_rejection() {
     let root = tempfile::tempdir().unwrap();
     let mut s = Store::open(root.path()).unwrap();
+    let original = original_image();
     let p = s
-        .stage_photo("camera.heic", HEIC, &s.generation(), None)
+        .stage_photo(
+            &format!("camera.{ORIGINAL_EXTENSION}"),
+            &original,
+            &s.generation(),
+            None,
+        )
         .unwrap();
     let request = input(&s, vec![p.id.clone()]);
     for entry in fs::read_dir(dataset(root.path()).join("files")).unwrap() {
@@ -156,8 +195,13 @@ fn missing_original_repair_and_atomic_rejection() {
             .code,
         "REPAIR_MISMATCH"
     );
-    s.stage_photo("repaired.heic", HEIC, &s.generation(), Some(&p.id))
-        .unwrap();
+    s.stage_photo(
+        &format!("repaired.{ORIGINAL_EXTENSION}"),
+        &original,
+        &s.generation(),
+        Some(&p.id),
+    )
+    .unwrap();
     let a = s.save_asset(&request, "2026-09-24").unwrap();
     let foreign = input(&s, vec![p.id.clone()]);
     assert_eq!(
@@ -199,7 +243,7 @@ fn failed_staging_and_commit_retry_are_complete() {
         let root = tempfile::tempdir().unwrap();
         let mut s = Store::open(root.path()).unwrap();
         let p = s
-            .stage_photo("camera", HEIC, &s.generation(), None)
+            .stage_photo("camera", &original_image(), &s.generation(), None)
             .unwrap();
         let request = input(&s, vec![p.id.clone()]);
         s.set_hook(move |p| {

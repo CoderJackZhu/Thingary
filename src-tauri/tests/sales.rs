@@ -7,6 +7,15 @@ use thingary_lib::{
     storage::Store,
     trash::TrashChange,
 };
+#[cfg(target_os = "macos")]
+const PHOTO_BYTES: &[u8] = include_bytes!("fixtures/camera.heic");
+#[cfg(windows)]
+const PHOTO_BYTES: &[u8] = include_bytes!("fixtures/camera.png");
+#[cfg(target_os = "macos")]
+const PHOTO_EXTENSION: &str = "heic";
+#[cfg(windows)]
+const PHOTO_EXTENSION: &str = "png";
+
 fn id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
@@ -354,8 +363,8 @@ fn atomic_failure_receipts_photos_trash_backup_and_reopen() {
     let mut a = create(&mut s, Some("100000"));
     let photo = s
         .stage_photo(
-            "camera.heic",
-            include_bytes!("fixtures/camera.heic"),
+            &format!("camera.{PHOTO_EXTENSION}"),
+            PHOTO_BYTES,
             &s.generation(),
             None,
         )
