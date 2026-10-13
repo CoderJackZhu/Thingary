@@ -10,7 +10,7 @@
 
 **[0.0.3 公开测试版 · Apple Silicon Mac](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.3)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.3) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
 
-> 0.0.3 已公开提供 Apple Silicon 测试版 DMG。下载以 Release 的公开附件为准。主分支文档描述当前源码，后续接入的财务工作区、简化规划与报告预览不代表既有安装包已经更新。
+> 0.0.3 已公开提供 Apple Silicon 测试版 DMG。下载以 Release 的公开附件为准。0.0.4 准备为草稿测试版，尚未公开；主分支的财务工作区、简化规划与报告预览不代表 0.0.3 安装包已经更新。维护者确认后再开放新版本下载。
 
 ![物谱总览：净资产趋势、退休目标与物品档案](docs/images/overview-light.jpg)
 

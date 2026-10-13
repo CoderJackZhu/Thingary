@@ -706,3 +706,124 @@ fn schema36_income_receipts_upgrade_and_backup_preserve_original_facts() {
     assert_eq!(replay.revision, row.revision);
     assert!(!replay.classification_changed);
 }
+
+fn assert_incremental_migration_rolls_back_then_retries(version: i64) {
+    let d = tempfile::tempdir().unwrap();
+    let root = d.path().join("fictional");
+    let (s, _) = seed(&root);
+    let profile = serde_json::to_value(s.plan_profile().unwrap().saved.unwrap().profile).unwrap();
+    let stage = d.path().join("old");
+    snapshot_db(&s, &stage, &profile, 36);
+    let c = Connection::open(stage.join("data.sqlite")).unwrap();
+    migrate_to(&c, version, &|_| Ok(())).unwrap();
+    let files = dataset(&root).join("files");
+    let before = manifest(&c, &files);
+    let profile_before: (String, i64, String) = c
+        .query_row(
+            "SELECT payload,revision,updated_at FROM plan_profile",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .unwrap();
+    let schema = |c: &Connection| {
+        c.prepare("SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name")
+            .unwrap()
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, Option<String>>(3)?,
+                ))
+            })
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+    };
+    let schema_before = schema(&c);
+    assert!(migrate_to(&c, version + 1, &|point| {
+        if point == "migration.before_commit" {
+            Err(Error::new("INJECTED", "虚构迁移提交前中断"))
+        } else {
+            Ok(())
+        }
+    })
+    .is_err());
+    assert_eq!(
+        c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        version
+    );
+    // Exact DDL equality includes rollback of every new table, index and income column.
+    assert_eq!(schema(&c), schema_before);
+    assert_eq!(manifest(&c, &files), before);
+    assert_eq!(
+        c.query_row(
+            "SELECT payload,revision,updated_at FROM plan_profile",
+            [],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, String>(2)?,
+                ))
+            }
+        )
+        .unwrap(),
+        profile_before
+    );
+    migrate_to(&c, version + 1, &|_| Ok(())).unwrap();
+    assert_eq!(
+        c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        version + 1
+    );
+    assert_eq!(manifest(&c, &files), before);
+    assert_eq!(
+        c.query_row(
+            "SELECT payload,revision,updated_at FROM plan_profile",
+            [],
+            |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, i64>(1)?,
+                    r.get::<_, String>(2)?,
+                ))
+            }
+        )
+        .unwrap(),
+        profile_before
+    );
+    let new_table = if version == 36 {
+        "investment_flows"
+    } else {
+        "plan_assumption_checks"
+    };
+    assert_eq!(
+        c.query_row(&format!("SELECT COUNT(*) FROM {new_table}"), [], |r| {
+            r.get::<_, i64>(0)
+        })
+        .unwrap(),
+        0
+    );
+    if version == 36 {
+        let invalid_defaults: i64 = c
+            .query_row(
+                "SELECT COUNT(*) FROM plan_income WHERE category!='unclassified' OR source_account_id IS NOT NULL OR destination IS NOT NULL OR receiving_account_id IS NOT NULL OR classification_changed!=0",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(invalid_defaults, 0);
+    }
+}
+
+#[test]
+fn schema36_to37_before_commit_rolls_back_all_facts_and_schema_then_retries() {
+    assert_incremental_migration_rolls_back_then_retries(36);
+}
+
+#[test]
+fn schema37_to38_before_commit_rolls_back_all_facts_and_schema_then_retries() {
+    assert_incremental_migration_rolls_back_then_retries(37);
+}

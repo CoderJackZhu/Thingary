@@ -1,9 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { attention, latestComplete, monthsBefore, overviewView, rangePoints, rangeUsable, requestGate, structureCompareRange, structureRows } from '../src/review.ts';
+import { attention, attentionSourcesReady, latestComplete, monthsBefore, overviewView, rangePoints, rangeUsable, requestGate, structureCompareRange, structureRows } from '../src/review.ts';
+import { allModules } from '../src/modules.ts';
 const ok = value => ({ status: 'ready', value });
 const review = { wealth: ok({ points: [] }), recurring: ok({ due: [], upcoming: [] }), virtual_assets: ok({ items: [] }) };
+test('first-use hidden auxiliaries do not report unread sources as failures', () => {
+  const disabled = { status: 'error', value: { code: 'MODULE_DISABLED', message: '模块已关闭，本次未读取' } };
+  const input = { ...review, recurring: disabled, virtual_assets: disabled };
+  const before = structuredClone(input);
+  assert.equal(attentionSourcesReady(input, { ...allModules, recurring: false, virtual: false }), true);
+  assert.equal(attentionSourcesReady(input, { ...allModules, recurring: true, virtual: false }), false);
+  assert.deepEqual(input, before);
+});
+test('enabled attention read failures remain visible even when other modules are hidden', () => {
+  const failed = { status: 'error', value: { code: 'READ', message: '虚构读取失败' } };
+  assert.equal(attentionSourcesReady({ ...review, wealth: failed }, { ...allModules, recurring: false, virtual: false }), false);
+  assert.equal(attentionSourcesReady({ ...review, virtual_assets: failed }), false);
+  assert.equal(attentionSourcesReady({ ...review, wealth: failed }, { ...allModules, wealth: false }), true);
+});
 test('latest incomplete subtotal never replaces complete net worth', () => {
   const complete = { complete: true, net_cents: '33000000', date: '2026-08-31' };
   assert.equal(latestComplete([complete, { complete: false, net_cents: '999', date: '2026-09-28' }]), complete);

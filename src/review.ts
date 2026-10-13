@@ -12,6 +12,12 @@ export type Read<T> = { status: 'ready'; value: T } | { status: 'error'; value: 
 export type Review = { generation: string; today: string; year: number | null; physical: Read<OverviewData>; wealth: Read<Summary>; expenses: Read<ExpenseView>; recurring: Read<Recurring>; virtual_assets: Read<VirtualOverview>; recent: Read<TimelineEvent[]>; planning?: PlanSources | null };
 export type ReviewPage = 'wealth' | 'assets' | 'expenses' | 'recurring' | 'virtual' | 'timeline';
 export const ready = <T,>(r: Read<T> | undefined): T | undefined => r?.status === 'ready' ? r.value : undefined;
+/** Disabled modules are intentionally unread; only enabled attention sources can fail. */
+export function attentionSourcesReady(review: Review, modules: Modules = allModules): boolean {
+  return (!modules.wealth || review.wealth.status === 'ready')
+    && (!modules.recurring || review.recurring.status === 'ready')
+    && (!modules.virtual || review.virtual_assets.status === 'ready');
+}
 export const overviewView = (value: string | null) => value === 'physical' ? 'physical' : 'combined';
 export function latestComplete(points: Point[]) { return points.filter(p => p.complete).at(-1); }
 

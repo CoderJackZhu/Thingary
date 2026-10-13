@@ -8,6 +8,8 @@
 
 本说明的下载与安装步骤对应 **0.0.3 公开测试版**，用于收集使用与兼容性反馈。安装包与版本说明见 [0.0.3 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.3)。若某个版本没有 DMG 附件，说明该版本尚未提供安装包；维护者的本机安装状态不代表已公开发布。
 
+0.0.4 已准备为草稿测试版，尚未公开下载；本页当前操作及新原生截图对应 0.0.4 源码，不能据此推定 0.0.3 包含新功能。更新兼容性与验证范围见[0.0.4 发布说明](https://github.com/CoderJackZhu/Thingary/blob/v0.0.4/docs/releases/v0.0.4.md)，待维护者确认后再开放新版。
+
 <a id="download"></a>
 
 ## 下载、安装与首次打开

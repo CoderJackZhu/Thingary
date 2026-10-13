@@ -2,25 +2,25 @@
 
 ## 当前定位与导航截图
 
-2026-10-13 按[定位、导航与首次使用设计](../POSITIONING_NAVIGATION_DESIGN.md)更新下表图片。源码基线为 `main / 9de8af2`（第 1–6 步交互已提交，第 7 步只同步文档与媒体），没有推送或发布新包。
+2026-10-13 为 0.0.4 草稿测试版重新拍摄下表全部 8 张 JPEG、报告 PNG 与 GIF。界面基线为 `3fb3f8c2550cc9c8298b54d1867dd91f510b2f2b` 加本版样例说明图标与关闭模块错误提示修正；对应源码以 `v0.0.4` 标签为准。草稿尚未公开。
 
-这些图片来自 **Codex 内置浏览器的内存虚构预览**，不读取任何原生资料库，不证明原生保存、系统文件或完整无障碍验收。Ego Lite 页面操作可用，但其截图及备用 Chrome CDP 截图接口超时，因此截图改用内置浏览器。JPEG 为实际 **1440×1000 CSS 像素**视口捕获后直接转换，未拼改界面、文字或数字；浅色／深色使用 Bento。报告 PNG 为 1280×720。
+这些图片来自 **真实 macOS 原生 WebView**，用电脑操控工具捕获。全新身份为 `local.thingary.release004.screens20261013`，不使用 `local.thingary.main` 或已有个人资料。样例由应用内置虚构样例库生成：10 件物品、5 个在用账户，2026-10-13 完整盘点金融净资产 350,000 元。保留 2 件金额未知、5 项规划条件待确认，以及报告的 6 项影响事项，不伪造确认或计算结果。
 
-公共复现入口为 `npm run dev -- --port 1429` 后的 `/visual-preview.html`；以下列出全部查询参数。总览视图在页面上明确选择“综合”。所有金额、日期和未知均保留夹具的真实展示与纯计算结果。
+采用柔和卡片（Bento）主题。仅临时验收配置固定窗口尺寸及截图窗口标签，应用源码相同；原始 Retina 捕获为 **2880×2064**，对应 1440×1032 逻辑点。去除 32 点系统标题栏后按 2:1 转为 **1440×1000 内容区**，未拼改界面、文字或数字。原始可执行文件 SHA-256：`74041e9b1a2c55d6ea56abc5b42746bd1392c57f61a440e00505cde3b1416aac`。这不是正式身份安装包，原生升级与备份验收使用另外的全新隔离身份；截图不证明完整无障碍或所有功能验收。
 
-| 当前文件 | 查询参数／实际状态 |
+| 当前文件 | 实际原生状态／操作 |
 |---|---|
-| `overview-light.jpg`、`overview-dark.jpg` | `section=overview&plan-basic=saved&capabilities=real&plan-core=confirmed&style=bento&theme=light|dark`；综合总览、已保存目标与单一紧凑说明 |
-| `assets-light.jpg` | `section=assets&style=bento&theme=light`；全部物品，侧栏三入口、列表状态分段，价格／日期未知保留 |
-| `first-item-form.jpg` | 同上，点新增物品；填虚构“我的笔记本电脑”、价格 5000，日期留空、补充更多收起；拍后关闭不保存 |
-| `planning-goals.jpg` | `section=planning&plan-basic=saved&capabilities=real&plan-core=confirmed&style=bento&theme=light`；目标标签、已保存条件与结论、大额计划 |
-| `planning-detail.jpg` | 同上，切到测算详情；需求、轨迹与详情内容，不去除缺项或假设提示 |
-| `planning-trial.jpg` | 同上，切到试算；心愿影响、职业入口和临时资金续航 |
-| `start-choice.jpg` | `section=overview&started=first-use&state=empty&wealth=empty&style=bento&theme=light`；未开始虚构资料，辅助模块复选框默认勾选 |
-| `planning-report-current.png` | `section=planning&plan-basic=saved&capabilities=real&plan-core=partial&style=bento&theme=light`；打开当前报告，默认隐私，结论旁保留 1 项影响事项提示 |
-| `overview-to-goals.gif` | 与浅色总览相同的一次页面操作：总览 → 侧栏账户与盘点 → 侧栏目标。三张实际截图各停留 4 秒，总长 **12 秒**；是内存虚构页面演示，不是原生盘点保存录像 |
+| `overview-light.jpg`、`overview-dark.jpg` | 内置样例、综合总览；依次选浅色／深色，单一紧凑说明与圆形说明图标 |
+| `assets-light.jpg` | 样例全部物品；侧栏三入口、列表状态分段、价格／日期未知保留 |
+| `first-item-form.jpg` | 切到同身份全新空个人库，点“先整理物品”；虚构“我的笔记本电脑”、价格 5000，日期留空、补充更多收起；拍后关闭不保存 |
+| `planning-goals.jpg` | 内置样例的目标标签，已保存条件、暂算结论及大额计划，未核对条件保留 |
+| `planning-detail.jpg` | 同样例切到测算详情；需求与轨迹，保留假设及待核对提示 |
+| `planning-trial.jpg` | 同样例切到试算；心愿影响、职业入口、临时资金续航 |
+| `start-choice.jpg` | 切到同身份全新空个人库；两条起步路径，辅助模块复选框默认勾选；在首次表单前拍摄 |
+| `planning-report-current.png` | 同样例打开当前报告，默认隐私；结论旁实际显示 6 项影响事项 |
+| `overview-to-goals.gif` | 同一原生样例中操作：综合总览 → 账户与盘点 → 目标。三张实际截图各停留 4 秒，总长 **12 秒**；是真实页面操作三帧演示，不是盘点保存录像 |
 
-同尺寸前后对照及物品正常／空白／筛选无结果／读取失败、规划未设置／已设置／投入未知／读取失败／待确认回执、宽窄明暗和复选框键盘焦点的完整证据另存维护者档案。公开目录仅保留使用指南需要的图片。
+原图、逐张界面状态、文件散列和发布验收记录另存维护者档案。公开目录只保留使用指南需要的图片。下列历史原生图未在本次重拍，涉及旧入口时以当前正文与上表为准。
 
 ## 保留的原生截图
 
