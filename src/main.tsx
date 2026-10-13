@@ -390,7 +390,8 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   /** Module links from the review keep its year and view; returning restores them. */
   function navigateFromReview(target: ReviewPage) {
     if (modeBlocked) return;
-    beginReturn();
+    // Module links from the overview are one sidebar click from home; no return link.
+    setReturnContext(null);
     if (target === 'assets') adjust({ filter: 'all', search: '' });
     if (target === 'timeline') setTimelineSelection(s => ({ ...s, year: reviewYear }));
     if (target === 'expenses') { gotoFinance(legacyFinanceRoute({ kind: 'expenses', year: reviewYear })); return; }
@@ -399,12 +400,12 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   useEffect(() => { if (section !== 'planning' || !modules.planning) setPlanningView('goals'); }, [section, libraryGeneration, modules.planning]);
   // 总览规划摘要的入口：进规划页签并沿用总览返回上下文；budget／profile 的定位意图
   // 由目标页／养老金页各消费一次，用户离开后迟到的意图不再跳转。
-  function gotoPlanning(tab: PlanningTab, focus?: 'budget' | 'profile', rememberOrigin = true) {
+  function gotoPlanning(tab: PlanningTab, focus?: 'budget' | 'profile', _rememberOrigin = true) {
     if (modeBlocked) return;
     if (tab !== 'savings' && !modules.planning) { setNotice('目标功能已关闭。'); return; }
     if (tab === 'savings') { gotoFinance({ page: 'review', view: 'period' }); return; }
-    if (!rememberOrigin) setReturnContext(null);
-    else if (section !== 'planning') beginReturn();
+    // Goals is a top-level page: entering it never offers a return link.
+    if (section !== 'planning') setReturnContext(null);
     setPlanFocus(focus && libraryGeneration ? { tab, focus, generation: libraryGeneration } : null);
     setPlanningView('goals'); setPlanningTab(tab); setSection('planning'); setDetailId(null);
   }
@@ -433,7 +434,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     persistOverviewChoice(choiceStorage(), choice);
     setOverviewChoice(previous => ({ generation: libraryGeneration, view: choice, version: (previous?.version ?? 0) + 1 }));
     if (choice === 'physical') return await openEditor(null) === true;
-    else { beginReturn(); setWealthReviewFocus(null); setSection('wealth'); setDetailId(null); }
+    else { setReturnContext(null); setWealthReviewFocus(null); setSection('wealth'); setDetailId(null); }
     return true;
   }
   const gotoReview = (id: string) => gotoFinance({ page: 'review', view: 'period', toSnapshotId: id });
@@ -1099,7 +1100,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       {section === 'stats' && <StatsPage onOpenAsset={id => { setSection('assets'); void select(id, true); }}/>}
       {section === 'overview' && !modeBusy && <>
         {loadError && <div className="notice" role="alert"><strong>物品资料读取失败</strong><p>{loadError}</p><button disabled={loading} onClick={() => { void refresh(); void taxonomy.reload().catch(() => {}); }}>重新读取</button></div>}
-        {libraryGeneration ? <OverviewPage viewChoice={overviewChoice} onViewChoiceDone={() => setOverviewChoice(null)} modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} onGotoPlanning={gotoPlanning} onFinance={gotoFinance} onOpenSettings={openModuleSettings} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { if (modeBlocked) { setNotice(blockedNotice('切换页面')); return; } setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
+        {libraryGeneration ? <OverviewPage viewChoice={overviewChoice} onViewChoiceDone={() => setOverviewChoice(null)} modules={modules} key={libraryGeneration} generation={libraryGeneration} today={today} version={page ?? taxonomy.snapshot} year={reviewYear} onYear={setReviewYear} onNavigate={navigateFromReview} onOpenSource={openSource} onGotoPlanning={gotoPlanning} onFinance={route => gotoFinance(route, false, false)} onOpenSettings={openModuleSettings} restoreScroll={scrollRestore('overview')} newMenu={newRecordMenu()} onOpenNewMenu={() => setMenuOpen(true)} onBrowse={() => { if (modeBlocked) { setNotice(blockedNotice('切换页面')); return; } setSection('assets'); setDetailId(null); adjust({ filter: 'all', search: '' }); }}/>
           : !loadError && <p className="loading" role="status">正在读取总览…</p>}
       </>}
       {searchSession.open && libraryGeneration && <SearchPanel session={searchSession} onSessionChange={setSearchSession} onClose={() => setSearchSession(s => ({ ...s, open: false }))} generation={libraryGeneration} modulesOn={kind => { const owner = searchKindModule(kind); return owner == null || modules[owner]; }} onOpenSource={openSource}/>}

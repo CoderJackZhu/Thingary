@@ -47,11 +47,10 @@ test('a legitimate statistics search source keeps its origin, but an explicit si
   r.context.setSection('overview'); r.sidebarGoal();
   assert.equal(r.context.returnContext, null); assert.equal(r.context.section, 'planning');
 });
-test('contextual goal links preserve their real overview or financial review origin', () => {
+test('goal links from the overview or financial review open goals without a return link', () => {
   for (const origin of ['overview', 'finance-review']) {
     const r = runtime(origin); r.gotoPlanning('goals', 'budget');
-    assert.equal(r.context.section, 'planning'); assert.equal(r.context.returnContext.section, origin); assert.equal(r.context.returnContext.reviewYear, 2025);
-    if (origin === 'finance-review') assert.equal(r.context.returnContext.finance.route.view, 'period');
+    assert.equal(r.context.section, 'planning'); assert.equal(r.context.returnContext, null);
     assert.equal(r.calls.find(([kind]) => kind === 'focus')[1].focus, 'budget');
   }
 });

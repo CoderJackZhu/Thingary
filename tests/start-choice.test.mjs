@@ -93,7 +93,7 @@ test('the real start handler updates the current overview choice and routes even
       blockedNotice: () => 'blocked', setNotice: value => calls.push(['notice', value]),
       choiceStorage: () => ({ setItem() { throw Error('unavailable'); } }), persistOverviewChoice: choice.persistOverviewChoice,
       setOverviewChoice: update => calls.push(['view', update(null)]), openEditor: async value => { calls.push(['editor', value]); return true; },
-      beginReturn: () => calls.push(['origin']), setWealthReviewFocus: value => calls.push(['focus', value]), setSection: value => calls.push(['page', value]), setDetailId: value => calls.push(['detail', value]),
+      beginReturn: () => calls.push(['origin']), setReturnContext: value => calls.push(['return', value]), setWealthReviewFocus: value => calls.push(['focus', value]), setSection: value => calls.push(['page', value]), setDetailId: value => calls.push(['detail', value]),
     };
     vm.runInNewContext(code, context); assert.equal(await context.module.exports(selected), true);
     assert.equal(calls.find(([kind]) => kind === 'view')[1].view, selected);
