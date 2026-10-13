@@ -155,3 +155,22 @@ test('an explicitly excluded debt stays a caution without a nag action', () => {
   const countAfter = after.nodes().filter(n => n.type === 'button' && after.text(n) === '去核对').length;
   assert.equal(countAfter, countBefore);
 });
+
+test('a saving hint sits under the monthly saving row, offers the review and a dismissal, and never edits the plan', () => {
+  const sources = fixture(), saved = sources.profile.value.saved, caps = buildBasicCapabilities(sources);
+  const clicks = [];
+  const hint = { count: 5, historical_cents: '350000', entered_cents: '500000', direction: 'lower', window_from: '2025-11-01', latest_date: '2026-10-13' };
+  const r = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() { clicks.push('edit'); }, onRefine() {}, onDetail() {}, savingHint: { hint, onReview: () => clicks.push('review'), onDismiss: () => clicks.push('dismiss') }, assumptionRead: readOf(sources.generation, 'confirmed') });
+  const row = r.nodes().find(n => n.props?.['data-condition'] === 'saving');
+  const text = r.text(row);
+  assert.match(text, /近 5 个盘点区间（2025-11 起）/);
+  assert.match(text, /每月存下约 ¥3,500（低于你填的 ¥500000）/); // the harness prints entered cents raw
+  assert.match(text, /只看现金、存款和负债，是估计，不会自动改你的数字/);
+  r.button('去财务复盘查看依据').props.onClick();
+  r.button('先不提醒').props.onClick();
+  assert.deepEqual(clicks, ['review', 'dismiss']);
+  const other = r.nodes().find(n => n.props?.['data-condition'] === 'spend');
+  assert.doesNotMatch(r.text(other), /去财务复盘/);
+  const quiet = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, assumptionRead: readOf(sources.generation, 'confirmed') });
+  assert.equal(quiet.button('去财务复盘查看依据'), undefined);
+});

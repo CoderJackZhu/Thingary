@@ -9,15 +9,18 @@ import type { Refinement } from '../planning-first-run';
 import type { AssumptionReadV1, FollowupRead } from '../planning-followup-contract';
 import type { GoalEdit, Saved } from './inputs';
 import type { fundScopeSummary } from '../planning-fund-scope';
+import type { SavingHint } from '../plan-saving-hint';
+
+export type SavingHintAction = { hint: SavingHint; onReview: () => void; onDismiss: () => void };
 export type GoalAction = GoalEdit | 'income' | 'funds' | 'costs' | 'debt' | 'events';
 
 const conditionOrder: GoalAction[] = ['mode', 'time', 'saving', 'spend', 'start', 'income', 'assumptions', 'emergency'];
 
 const assumptionTagText: Record<AssumptionReadV1['confirmation'], string> = { unconfirmed: '未核对', confirmed: '已核对', needs_review: '待核对' };
 
-export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onDetail, onTrial, onReport, reportDisabled = false, assumptionRead }: {
+export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onDetail, onTrial, savingHint, onReport, reportDisabled = false, assumptionRead }: {
   saved: Saved; caps: BasicCapabilities; today: string; cards: Refinement[]; accountFunds?: ReturnType<typeof fundScopeSummary>; purchasePlans?: ReactNode;
-  onAnnotation?: (annotation: PlanningAnnotation, from: HTMLElement) => void; onEdit: (action: GoalAction, from: HTMLElement) => void; onRefine: (card: Refinement, from: HTMLElement) => void; onDetail?: () => void; onTrial?: () => void;
+  onAnnotation?: (annotation: PlanningAnnotation, from: HTMLElement) => void; onEdit: (action: GoalAction, from: HTMLElement) => void; onRefine: (card: Refinement, from: HTMLElement) => void; onDetail?: () => void; onTrial?: () => void; savingHint?: SavingHintAction | null;
   onReport?: (from: HTMLElement) => void; reportDisabled?: boolean; assumptionRead?: FollowupRead<AssumptionReadV1> | null;
 }) {
   const p = saved.profile, r = p.retire, b = r.basic!;
@@ -76,7 +79,8 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
     // The verdict line above the amounts already states the overall conclusion.
     predictionLines.push({ label: '终点资产', text: forecastMoney(String(Math.round(outcome.at_horizon))) });
   }
-  const renderCondition = (row: (typeof rows)[number], index: number) => <article key={row.id} className="goal-condition" data-condition={row.id}><span className="goal-step">{index + 1}</span><div><h4>{row.title} <span className="ui-tag">{row.state}</span></h4><strong>{row.value}</strong><p className="muted small">{row.description}</p>{row.id === 'start' && b.start.kind === 'live' && <>
+  const renderCondition = (row: (typeof rows)[number], index: number) => <article key={row.id} className="goal-condition" data-condition={row.id}><span className="goal-step">{index + 1}</span><div><h4>{row.title} <span className="ui-tag">{row.state}</span></h4><strong>{row.value}</strong><p className="muted small">{row.description}</p>{row.id === 'saving' && savingHint && <div className="goal-saving-hint" role="note"><p className="small">近 {savingHint.hint.count} 个盘点区间{savingHint.hint.window_from ? `（${savingHint.hint.window_from.slice(0, 7)} 起）` : ''}，按已记录的收入估计每月存下约 {forecastMoney(savingHint.hint.historical_cents)}（{savingHint.hint.direction === 'higher' ? '高于' : '低于'}你填的 {money(savingHint.hint.entered_cents)}）。这只看现金、存款和负债，是估计，不会自动改你的数字。</p><button className="ui-link" onClick={savingHint.onReview}>去财务复盘查看依据</button><button className="ui-link" onClick={savingHint.onDismiss}>先不提醒</button></div>}
+        {row.id === 'start' && b.start.kind === 'live' && <>
         {funds && accountFunds && <p className="muted small">按参与比例计入：现金与存款 {money(accountFunds.totals.cash)} · 投资 {money(accountFunds.totals.investment)}{accountFunds.totals.other !== '0' && ` · 其他 ${money(accountFunds.totals.other)}`}</p>}
         {!!accountFunds?.unavailable.length && <p className="goal-fund-exclusions small">未作可用资金：{accountFunds.unavailable.join('、')}。</p>}
         <button className="ui-link" onClick={e => onEdit('funds', e.currentTarget)}>核对账户用途与投资计入</button>

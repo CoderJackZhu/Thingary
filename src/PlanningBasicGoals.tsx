@@ -1,6 +1,7 @@
 import { AssumptionsSummary } from './planning-followup-ui/AssumptionsSummary';
 import { GoalOverview } from './planning-goal/Overview';
-import type { GoalAction } from './planning-goal/Overview';
+import type { GoalAction, SavingHintAction } from './planning-goal/Overview';
+import { dismissSavingHint, savingHint, savingHintDismissed } from './plan-saving-hint';
 import { GoalEditor } from './planning-goal/Editor';
 import type { GoalEdit } from './planning-goal/inputs';
 import './planning-goal/goal.css';
@@ -46,6 +47,13 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
   const [assumptionRead, setAssumptionRead] = useState<FollowupRead<AssumptionReadV1> | null>(null);
   const [assumptionReadEpoch, setAssumptionReadEpoch] = useState(0);
   const opener = useRef<HTMLElement | null>(null);
+  const [hintDismissals, setHintDismissals] = useState(0);
+  const hintStorage = (() => { try { return localStorage; } catch { return null; } })();
+  const hintValue = sources.review.status === 'ready' && sources.modules.wealth ? savingHint(sources.review.value, sources.profile.status === 'ready' ? sources.profile.value.saved?.profile.retire.basic?.contribution.monthly_cents ?? null : null) : null;
+  void hintDismissals;
+  const hintAction: SavingHintAction | null = hintValue && !savingHintDismissed(hintStorage, sources.generation, hintValue)
+    ? { hint: hintValue, onReview: () => onGoto('savings'), onDismiss: () => { dismissSavingHint(hintStorage, sources.generation, hintValue); setHintDismissals(n => n + 1); } }
+    : null;
   const [eventEditing, setEventEditing] = useState(false), [detailEditing, setDetailEditing] = useState(false);
   const [assumptionEditing, setAssumptionEditing] = useState(false);
 
@@ -144,7 +152,7 @@ export function PlanningBasicGoals({ sources, mode: _mode, today, reload, onPend
     {dialog?.kind === 'costs' && saved && <CostsDialog completion={dialog.completion} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
     {dialog?.kind === 'occurrence' && saved && <PlanningOccurrenceDialog fundRules={saved.profile.retire.core?.fund_rules} completion={dialog.completion} event={dialog.event} existing={saved.profile.retire.core?.occurrences.find(o => o.event_id === dialog.event.id)} snapshot={snapshot} accounts={accounts} today={today} busy={saver.busy} stuck={saver.stuck} saveDisabled={sources.accounts.status !== 'ready' || sources.snapshot.status !== 'ready' || !snapshot} notice={saver.notice} onClose={closeRefinement} onSave={o => void saveOccurrence(o)}/>}
     {dialog?.kind === 'single' && saved && <GoalEditor kind={dialog.field} sources={sources} saved={saved} reload={reload} onPending={onPending} onClose={closeRefinement}/>}
-    {saved?.profile.retire.basic && caps ? <GoalOverview saved={saved} caps={caps} today={today} cards={cards} purchasePlans={purchasePlans} accountFunds={fundScopeSummary(snapshot, saved.profile.retire.core?.fund_rules ?? [], accounts)} onAnnotation={annotationAction} onEdit={editGoal} onRefine={action} onDetail={() => { onViewChange?.('detail'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} onTrial={() => { onViewChange?.('trial'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} onReport={onReport} reportDisabled={reportDisabled} assumptionRead={assumptionsPort ? assumptionRead : undefined}/> : <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
+    {saved?.profile.retire.basic && caps ? <GoalOverview saved={saved} caps={caps} today={today} cards={cards} purchasePlans={purchasePlans} accountFunds={fundScopeSummary(snapshot, saved.profile.retire.core?.fund_rules ?? [], accounts)} onAnnotation={annotationAction} onEdit={editGoal} onRefine={action} savingHint={hintAction} onDetail={() => { onViewChange?.('detail'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} onTrial={() => { onViewChange?.('trial'); requestAnimationFrame(() => document.getElementById('page-heading')?.focus()); }} onReport={onReport} reportDisabled={reportDisabled} assumptionRead={assumptionsPort ? assumptionRead : undefined}/> : <article className="ui-card ui-content plan-goal planning-first-result" aria-label="退休目标">
       {!saved?.profile.retire.basic ? <>
         <h3>想知道：要攒多少钱才够？</h3>
         <p className="planning-first-promise">回答 5 个问题，算出“从目标月份起使用资金，每月大约要存多少钱”。</p><p className="muted">可以只算自己，也可以按全家算：生活费、资金和收入按同一范围填。没想好的可以先留空，随时退出，不保存草稿。</p>

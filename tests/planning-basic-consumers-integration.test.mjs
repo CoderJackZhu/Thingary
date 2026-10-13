@@ -24,6 +24,7 @@ import * as basic from '../src/plan-basic.ts';
 import { buildBasicCapabilities } from '../src/plan-basic.ts';
 
 import { unknownBasicUpdate } from '../src/plan-basic-fixtures.ts';
+import * as savingHint from '../src/plan-saving-hint.ts';
 
 // Execute the production TSX with real React rendering and real pure calculation.
 // UI-only leaves are replaced; any unexpected IPC/read dependency fails the test.
@@ -37,6 +38,7 @@ function component(file, dependencies) {
     if (name === 'react/jsx-runtime') return jsx;
     if (name === './CoverageNote' || name === '../CoverageNote') return coverage;
     if (name === './plan-annotations') return annotations;
+    if (name === './plan-saving-hint') return savingHint;
     if (name === './plan-occurrence-actions') return occurrenceActions;
     if (name === './PlanningPensionRefinement') return { PlanningPensionRefinementDialog: () => null, PensionComparisonNote: () => null };
     if (name === './PlanningPension') return { ProfileDialog: () => null };
