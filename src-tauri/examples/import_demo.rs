@@ -167,9 +167,14 @@ mod tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(&other, &root).unwrap();
         #[cfg(windows)]
-        if let Err(error) = std::os::windows::fs::symlink_dir(&other, &root) {
-            eprintln!("SKIPPED Windows symlink assertion (W2): {error}");
-            return;
+        {
+            let output = std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(&root)
+                .arg(&other)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "junction creation failed");
         }
         assert!(!allowed_root(&home, &root).unwrap());
     }

@@ -1,7 +1,10 @@
 use crate::{
     backup::{archive_hash, freeze, unpack, validate_dataset},
     domain::{Error, Result},
-    storage::{atomic_write, connection, migrate, sync_dir, uid, Active, Store},
+    storage::{
+        atomic_write, connection, migrate, reject_links, remove_file_retry, rename_retry, sync_dir,
+        temp_dir_in, uid, Active, Store,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
@@ -38,7 +41,7 @@ pub(crate) fn recover_root(root: &Path) -> Result<()> {
     };
     validate_dataset(&root.join("datasets").join(&selected.id), true)?;
     atomic_write(&root.join("active.json"), &serde_json::to_vec(&selected)?)?;
-    fs::remove_file(journal_path)?;
+    remove_file_retry(journal_path)?;
     sync_dir(root)?;
     Ok(())
 }
@@ -57,7 +60,7 @@ impl Store {
         if archive_hash(frozen.path())? != expected_hash {
             return Err(Error::new("BACKUP_CHANGED", "备份已经变化，请重新检查"));
         }
-        let stage = tempfile::tempdir_in(self.root.join("datasets"))?;
+        let stage = temp_dir_in(self.root.join("datasets"))?;
         unpack(frozen.path(), stage.path())?;
         self.hit("restore.after_extract")?;
         let db = connection(&stage.path().join("data.sqlite"))?;
@@ -66,6 +69,7 @@ impl Store {
         db.close().map_err(|(_, e)| e)?;
         validate_dataset(stage.path(), false)?;
         self.hit("restore.after_validate")?;
+        reject_links(&self.root.join("protection"))?;
         fs::create_dir_all(self.root.join("protection"))?;
         self.hit("restore.before_protection")?;
         self.backup(Some(
@@ -84,7 +88,7 @@ impl Store {
             sync_dir(&stage.path().join("files"))?;
         }
         sync_dir(stage.path())?;
-        fs::rename(stage.path(), &final_dir)?;
+        rename_retry(stage.path(), &final_dir)?;
         sync_dir(&self.root.join("datasets"))?;
         self.hit("restore.after_dataset")?;
         self.conn()?
@@ -111,7 +115,7 @@ impl Store {
         self.active = next;
         validate_dataset(&final_dir, false)?;
         self.hit("restore.after_open")?;
-        fs::remove_file(self.root.join("restore-journal.json"))?;
+        remove_file_retry(self.root.join("restore-journal.json"))?;
         sync_dir(&self.root)?;
         Ok(self.generation())
     }

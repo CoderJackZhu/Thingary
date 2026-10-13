@@ -343,7 +343,7 @@ impl Store {
             Ok(done)
         })();
         if result.is_err() {
-            let _ = std::fs::remove_dir_all(folder);
+            let _ = crate::storage::remove_dir_all_retry(folder);
         }
         result
     }

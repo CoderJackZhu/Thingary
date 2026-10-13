@@ -398,6 +398,12 @@ pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
     crate::demo_finance::import_plan(s, today)
 }
 
+/// Full fictional acceptance fixture, unavailable in ordinary application builds.
+#[cfg(feature = "fault-injection")]
+pub fn prepare_fixture(s: &mut Store, today: &str) -> Result<()> {
+    prepare(s, today)
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 struct Pointer {
     directory: String,
@@ -422,7 +428,7 @@ fn selected_root(real_root: &std::path::Path) -> Result<std::path::PathBuf> {
         "demo-library".into()
     };
     let root = real_root.with_file_name(name);
-    if std::fs::symlink_metadata(&root).is_ok_and(|m| m.file_type().is_symlink()) {
+    if std::fs::symlink_metadata(&root).is_ok_and(|m| crate::storage::is_link(&m)) {
         return Err(Error::new("DEMO_PATH", "样例目录不能是符号链接"));
     }
     Ok(root)
@@ -448,11 +454,11 @@ pub(crate) fn reset(real: &Store, today: &str, request_id: &str) -> Result<Optio
     let candidate = tempfile::Builder::new()
         .prefix(&directory)
         .rand_bytes(0)
-        .tempdir_in(
+        .tempdir_in(crate::storage::directory_for_io(
             real.root
                 .parent()
                 .ok_or_else(|| Error::new("DEMO_PATH", "缺少样例父目录"))?,
-        )?;
+        )?)?;
     let mut next = Store::open(&root)?;
     prepare(&mut next, today)?;
     crate::storage::check_db(next.conn()?)?;
@@ -746,11 +752,14 @@ mod unified_tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink(&root, tmp.path().join("demo-library")).unwrap();
         #[cfg(windows)]
-        if let Err(error) =
-            std::os::windows::fs::symlink_dir(&root, tmp.path().join("demo-library"))
         {
-            eprintln!("SKIPPED Windows symlink assertion (W2): {error}");
-            return;
+            let output = std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(tmp.path().join("demo-library"))
+                .arg(&root)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "junction creation failed");
         }
         assert_eq!(open(&root, TODAY).err().unwrap().code, "DEMO_PATH");
     }

@@ -493,13 +493,13 @@ impl Worker {
                 return Ok(TickOutcome::Backoff);
             }
             if !has_personal_records(&state.real)? {
-                let _ = std::fs::remove_file(&marker);
+                let _ = crate::storage::remove_file_retry(&marker);
                 return Ok(TickOutcome::EmptyLibrary);
             }
             let dir = crate::auto_backup::backup_dir(&root);
             match crate::auto_backup::run(&state.real, &dir, &policy.today) {
                 Ok(published) => {
-                    let _ = std::fs::remove_file(&marker);
+                    let _ = crate::storage::remove_file_retry(&marker);
                     state.backup_failed_at = None;
                     settings.last_success_at = Some(crate::auto_backup::now_local());
                     settings.last_error = None;

@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   check:
     strategy:
@@ -24,6 +27,9 @@ jobs:
         if: runner.os == 'Windows'
         run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -43,3 +49,67 @@ jobs:
         run: npm run check
       - name: Rust 测试
         run: npm test
+      - name: Create a complete fictional cross-platform archive
+        run: cargo run --locked --manifest-path src-tauri/Cargo.toml --features fault-injection --example cross_platform_backup -- create .local/cross-created
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fictional-backup-${{ matrix.os }}
+          path: |
+            .local/cross-created/fixture.thingary
+            .local/cross-created/snapshot.json
+          include-hidden-files: true
+          retention-days: 7
+          if-no-files-found: error
+
+  cross_restore:
+    name: restore on ${{ matrix.os }} from ${{ matrix.source }}
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            source: windows-latest
+          - os: windows-latest
+            source: macos-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      npm_config_script_shell: bash
+    steps:
+      - name: Preserve LF
+        if: runner.os == 'Windows'
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - uses: actions/download-artifact@v4
+        with:
+          name: fictional-backup-${{ matrix.source }}
+          path: .local/cross-incoming
+      - run: npm ci
+      - run: npm run build
+      - name: Restore the other platform's fictional archive
+        run: cargo run --locked --manifest-path src-tauri/Cargo.toml --features fault-injection --example cross_platform_backup -- restore .local/cross-incoming/fixture.thingary .local/cross-restored
+      - name: Compare every table count and managed image SHA-256
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          import assert from 'node:assert/strict';
+          const expected = JSON.parse(readFileSync('.local/cross-incoming/snapshot.json'));
+          const actual = JSON.parse(readFileSync('.local/cross-restored/snapshot.json'));
+          assert.deepEqual(actual, expected);
+          console.log(JSON.stringify({ schema: actual.schema, tables: Object.keys(actual.tables).length, files: Object.keys(actual.files).length, match: true }));
+          JS

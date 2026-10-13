@@ -666,9 +666,12 @@ impl Store {
             {
                 continue;
             }
-            let _ = std::fs::remove_file(dir.join("files").join(hash));
-            let _ = std::fs::remove_file(dir.join("cache").join(format!("{hash}.png")));
-            let _ = std::fs::remove_file(dir.join("cache").join(format!("{hash}.png.sha256")));
+            let _ = crate::storage::remove_file_retry(dir.join("files").join(hash));
+            let _ =
+                crate::storage::remove_file_retry(dir.join("cache").join(format!("{hash}.png")));
+            let _ = crate::storage::remove_file_retry(
+                dir.join("cache").join(format!("{hash}.png.sha256")),
+            );
         }
     }
 }
