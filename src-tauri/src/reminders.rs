@@ -251,23 +251,38 @@ fn keep_scheduled(
 }
 
 #[cfg(windows)]
-struct NotificationApartment;
+struct NotificationApartment<'a>(&'a str);
 #[cfg(windows)]
-impl NotificationApartment {
-    fn new() -> Result<Self> {
+impl<'a> NotificationApartment<'a> {
+    fn new(identifier: &'a str) -> Result<Self> {
+        notification_trace(identifier, "RoInitialize begin");
         unsafe {
             windows::Win32::System::WinRT::RoInitialize(
                 windows::Win32::System::WinRT::RO_INIT_MULTITHREADED,
             )
         }
         .map_err(|_| Error::new("REMINDER", "无法初始化 Windows 通知服务"))?;
-        Ok(Self)
+        notification_trace(identifier, "RoInitialize complete");
+        Ok(Self(identifier))
     }
 }
 #[cfg(windows)]
-impl Drop for NotificationApartment {
+impl Drop for NotificationApartment<'_> {
     fn drop(&mut self) {
+        notification_trace(self.0, "RoUninitialize begin");
         unsafe { windows::Win32::System::WinRT::RoUninitialize() };
+        notification_trace(self.0, "RoUninitialize complete");
+    }
+}
+
+#[cfg(windows)]
+fn notification_trace(_identifier: &str, _stage: &str) {
+    #[cfg(feature = "fault-injection")]
+    if _identifier == "local.thingary.win.acceptance" {
+        // Only fictional acceptance emits API boundaries. In particular, this
+        // leaves the last completed call visible when the OS terminates the
+        // process with a native exception instead of returning an HRESULT.
+        eprintln!("[thingary notification acceptance] {_stage}");
     }
 }
 
@@ -298,8 +313,13 @@ fn windows_notifier(
     windows::UI::Notifications::NotificationSetting,
 )> {
     use windows::{core::HSTRING, UI::Notifications::ToastNotificationManager};
+    notification_trace(identifier, "CreateToastNotifierWithId begin");
     let notifier = ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(identifier))
         .map_err(|error| notification_stage("CreateToastNotifierWithId", error))?;
+    notification_trace(
+        identifier,
+        "CreateToastNotifierWithId complete; Setting begin",
+    );
     let setting = match notifier.Setting() {
         Ok(setting) => setting,
         Err(error) if error.code().0 as u32 == 0x80070490 => {
@@ -314,6 +334,7 @@ fn windows_notifier(
         }
         Err(error) => return Err(notification_stage("Setting", error)),
     };
+    notification_trace(identifier, "Setting complete");
     Ok((notifier, setting))
 }
 
@@ -322,6 +343,7 @@ fn windows_scheduled(
     identifier: &str,
     notifier: &windows::UI::Notifications::ToastNotifier,
 ) -> Result<Vec<windows::UI::Notifications::ScheduledToastNotification>> {
+    notification_trace(identifier, "GetScheduledToastNotifications begin");
     let items = match notifier.GetScheduledToastNotifications() {
         Ok(items) => items,
         Err(error) if error.code().0 as u32 == 0x80070490 => {
@@ -336,7 +358,13 @@ fn windows_scheduled(
             return Err(notification_stage("GetScheduledToastNotifications", error));
         }
     };
-    Ok(items.into_iter().collect())
+    notification_trace(
+        identifier,
+        "GetScheduledToastNotifications complete; enumerate begin",
+    );
+    let result = items.into_iter().collect();
+    notification_trace(identifier, "schedule enumerate complete");
+    Ok(result)
 }
 
 #[cfg(windows)]
@@ -350,6 +378,7 @@ fn initialize_notification_identity(
         Foundation::{DateTime, IReference, PropertyValue},
         UI::Notifications::{ToastNotification, ToastNotificationManager},
     };
+    notification_trace(identifier, "bootstrap begin");
     const TAG: &str = "tgbootstrap";
     const GROUP: &str = "thingary-init";
     let document =
@@ -378,9 +407,11 @@ fn initialize_notification_identity(
     toast
         .SetExpirationTime(&expiry)
         .map_err(|error| notification_stage("bootstrap SetExpirationTime", error))?;
+    notification_trace(identifier, "bootstrap Show begin");
     notifier
         .Show(&toast)
         .map_err(|error| notification_stage("bootstrap Show", error))?;
+    notification_trace(identifier, "bootstrap Show complete; history cleanup begin");
     // Delete only this short-lived bootstrap entry, never any user's reminders.
     ToastNotificationManager::History()
         .map_err(|error| notification_stage("bootstrap History", error))?
@@ -401,7 +432,7 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
         Foundation::DateTime,
         UI::Notifications::{NotificationSetting, ScheduledToastNotification},
     };
-    let _apartment = NotificationApartment::new()?;
+    let _apartment = NotificationApartment::new(identifier)?;
     let (notifier, setting) = windows_notifier(identifier)?;
     let enabled = setting == NotificationSetting::Enabled;
     let disabled = || {
@@ -420,7 +451,9 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
     let now_ticks = filetime(now)?;
     let mut wanted = std::collections::BTreeMap::new();
     for (key, plan) in keys {
+        notification_trace(identifier, "local_nine begin");
         let ticks = local_nine(&plan.date, &chrono::Local)?;
+        notification_trace(identifier, "local_nine complete");
         #[cfg(feature = "fault-injection")]
         let ticks = if identifier == "local.thingary.win.acceptance" {
             match std::env::var("THINGARY_REMINDER_TEST_SECONDS") {
@@ -442,10 +475,13 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
         if ticks <= now_ticks {
             continue;
         }
+        notification_trace(identifier, "plan XmlDocument begin");
         let document = XmlDocument::new().map_err(notification_error)?;
+        notification_trace(identifier, "plan XmlDocument complete; LoadXml begin");
         document
             .LoadXml(&HSTRING::from(toast_xml(plan)?))
             .map_err(notification_error)?;
+        notification_trace(identifier, "plan LoadXml complete; GetXml begin");
         // Compare the DOM's canonical serialization on both sides.
         wanted.insert(
             key,
@@ -455,9 +491,11 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
             ),
         );
     }
+    notification_trace(identifier, "wanted plans serialized");
     let mut kept = std::collections::BTreeSet::new();
     let existing = windows_scheduled(identifier, &notifier)?;
     for item in existing {
+        notification_trace(identifier, "existing schedule properties begin");
         let group = item.Group().map_err(notification_error)?.to_string();
         if group != "thingary" {
             continue;
@@ -473,7 +511,9 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
             .GetXml()
             .map_err(notification_error)?
             .to_string();
+        notification_trace(identifier, "existing schedule properties complete");
         if !keep_scheduled(&group, &id, time, &xml, &wanted, &mut kept) {
+            notification_trace(identifier, "RemoveFromSchedule begin");
             notifier
                 .RemoveFromSchedule(&item)
                 .map_err(notification_error)?;
@@ -488,10 +528,16 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
         if kept.contains(&id) {
             continue;
         }
+        notification_trace(identifier, "scheduled XmlDocument begin");
         let document = XmlDocument::new().map_err(notification_error)?;
+        notification_trace(identifier, "scheduled XmlDocument complete; LoadXml begin");
         document
             .LoadXml(&HSTRING::from(xml))
             .map_err(notification_error)?;
+        notification_trace(
+            identifier,
+            "scheduled LoadXml complete; CreateScheduledToastNotification begin",
+        );
         let notification = ScheduledToastNotification::CreateScheduledToastNotification(
             &document,
             DateTime {
@@ -499,21 +545,33 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
             },
         )
         .map_err(notification_error)?;
+        notification_trace(
+            identifier,
+            "CreateScheduledToastNotification complete; SetId begin",
+        );
         notification
             .SetId(&HSTRING::from(id.as_str()))
             .map_err(notification_error)?;
+        notification_trace(identifier, "SetId complete; SetGroup begin");
         notification
             .SetGroup(&HSTRING::from("thingary"))
             .map_err(notification_error)?;
+        notification_trace(identifier, "SetGroup complete; SetTag begin");
         // Use the same stable identity for pending and delivered notifications.
         // Acceptance exercises this exact production scheduling path.
         notification
             .SetTag(&HSTRING::from(id))
             .map_err(notification_error)?;
+        notification_trace(identifier, "SetTag complete; AddToSchedule begin");
         notifier
             .AddToSchedule(&notification)
             .map_err(|error| notification_stage("AddToSchedule", error))?;
+        notification_trace(
+            identifier,
+            "AddToSchedule complete; scheduled objects drop next",
+        );
     }
+    notification_trace(identifier, "reconciliation complete; COM objects drop next");
     Ok(())
 }
 
@@ -524,6 +582,7 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
     use windows::{core::HSTRING, UI::Notifications::ToastNotificationManager};
     const ID: &str = "local.thingary.win.acceptance";
     const GROUP: &str = "thingary";
+    notification_trace(ID, &format!("acceptance action {action} begin"));
     let fixture_tag = scheduled_key("thingary-windows-acceptance")?;
     match action {
         "reconcile" => windows_native(ID, json, false)?,
@@ -532,9 +591,10 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
         "inspect" => {}
         _ => return Err(Error::new("REMINDER", "未知的通知验收动作")),
     }
-    let _apartment = NotificationApartment::new()?;
+    let _apartment = NotificationApartment::new(ID)?;
     let application_id = HSTRING::from(ID);
     let (notifier, _) = windows_notifier(ID)?;
+    notification_trace(ID, "acceptance History begin");
     let history = ToastNotificationManager::History()
         .map_err(|error| notification_stage("acceptance History", error))?;
     if action == "clear" {
@@ -562,6 +622,7 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
             "ticks": item.DeliveryTime().map_err(notification_error)?.UniversalTime,
         }));
     }
+    notification_trace(ID, "acceptance schedule inspected; GetHistoryWithId begin");
     let mut delivered = Vec::new();
     for item in history
         .GetHistoryWithId(&application_id)
@@ -578,6 +639,7 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
             }));
         }
     }
+    notification_trace(ID, "acceptance history inspected; COM objects drop next");
     Ok(serde_json::json!({
         "identifier": ID,
         "fixture_group": GROUP,

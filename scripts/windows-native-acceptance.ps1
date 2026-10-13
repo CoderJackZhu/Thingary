@@ -219,7 +219,7 @@ try {
   if (-not (Test-Path -LiteralPath $NotificationDriver)) { throw 'Compiled FI notification driver missing.' }
   Install-Acceptance
   $Summary.verified+=@('NSIS current user installed','installed shortcut identity/source/version/notices','fictional backup restore table counts and payload hashes')
-  Run-Tool 'cargo' @('test','--manifest-path','src-tauri/Cargo.toml','--target',$WindowsTarget,'--features','fault-injection','--lib','installed_windows_identity_reconciles_system_schedule','--','--ignored','--test-threads=1') 'installed-notifications-test.log'
+  Run-Tool 'cargo' @('test','--manifest-path','src-tauri/Cargo.toml','--target',$WindowsTarget,'--features','fault-injection','--lib','installed_windows_identity_reconciles_system_schedule','--','--ignored','--test-threads=1','--nocapture') 'installed-notifications-test.log'
   if ((Get-Content (Join-Path $Output 'installed-notifications-test.log') -Raw) -notmatch '1 passed') { throw 'Installed notification test did not execute exactly one passing test.' }
   if ($null -ne $AppProcess) { throw 'Application must be closed before scheduled delivery acceptance.' }
   $appName=[IO.Path]::GetFileNameWithoutExtension($InstalledExe)
