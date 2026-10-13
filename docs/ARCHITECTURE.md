@@ -1,6 +1,6 @@
 # 架构说明
 
-物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，运行于 macOS。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
+物谱采用 Tauri 2、React／TypeScript、Rust 和 SQLite，公开版运行于 macOS，Windows x64 实现处于候选验收。前端是本地打包资源，持久化操作经 Tauri 命令进入 Rust；无服务端、Node sidecar、账号系统或网络同步。业务语义见[业务规则](PRODUCT_RULES.md)，开发入口见[开发与测试](DEVELOPMENT.md)。
 
 当前已接入的资金／事件核对和月账本见下文。当前规划报告通过只读适配器接入真实来源，不新增持久对象；命名方案、冻结基准及基准／比较报告尚未接入，其物理表、命令与迁移版本在实施前确定，不能从规划推定数据库已变更。
 
@@ -29,11 +29,13 @@ flowchart TD
 
 ## 网络
 
-webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界面不能直接联网。应用唯一的联网路径是后端命令 `update_check`：用户点击时依次通过系统 `curl`（`/usr/bin/curl`，限定 `--proto =https`，Gitee 8 秒、GitHub 6 秒超时，响应上限 2 MB）读取 Gitee（`gitee.com/api/v5/repos/CoderJackZhu/thingary/releases`，国内通常可达）与 GitHub（`api.github.com/repos/CoderJackZhu/Thingary/releases`）的发布列表，不引入 HTTP 客户端依赖。两处结果合并后取最高版本并记录哪些来源列出了它，只有一处可达时返回其结果并标出不可达来源，两处都失败才报错。响应只被当作版本号与展示文本：仅接受未标为草稿、标签为严格 `vX.Y.Z` 的条目（GitHub 的 `published_at` 与 Gitee 的 `created_at` 都只作展示），按数值比较版本，发布说明截断为纯文本；`update_open_release` 只接受严格版本号与已知来源名，自行拼出固定前缀的 Releases 页面再用 `open` 打开，不采用响应里的任何链接。不下载、不安装、不写任何本机设置。
+webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界面不能直接联网。应用唯一的联网路径是后端命令 `update_check`：用户点击时依次通过系统 `curl`（macOS 为 `/usr/bin/curl`、Windows 为 `curl.exe`，限定 `--proto =https`，Gitee 8 秒、GitHub 6 秒超时，响应上限 2 MB）读取 Gitee（`gitee.com/api/v5/repos/CoderJackZhu/thingary/releases`，国内通常可达）与 GitHub（`api.github.com/repos/CoderJackZhu/Thingary/releases`）的发布列表，不引入 HTTP 客户端依赖。两处结果合并后取最高版本并记录哪些来源列出了它，只有一处可达时返回其结果并标出不可达来源，两处都失败才报错。响应只被当作版本号与展示文本：仅接受未标为草稿、标签为严格 `vX.Y.Z` 的条目（GitHub 的 `published_at` 与 Gitee 的 `created_at` 都只作展示），按数值比较版本，发布说明截断为纯文本；`update_open_release` 只接受严格版本号与已知来源名，自行拼出固定前缀的 Releases 页面再用平台打开方式（macOS `open`／Windows `explorer.exe`）打开，不采用响应里的任何链接。不下载、不安装、不写任何本机设置。
 
 ## 身份与资料隔离
 
 正式身份为 `local.thingary.main`，开发预览为 `local.thingary.preview`。它们使用不同资料目录；验收夹具还应有独立身份。浏览器预览只用内存虚构数据，刷新即重置。
+
+主资料采用 `app_local_data_dir`：macOS 保持 `~/Library/Application Support/<identifier>/`，Windows 为 `%LOCALAPPDATA%\<identifier>\`。窗口尺寸等配置采用 `app_config_dir`，Windows 在 Roaming；资料不放在 Roaming。Windows 安装验收固定使用 `local.thingary.win.acceptance`，正式身份候选包仅构建与静态核验，开发／验收不得启动它。
 
 恢复和切换资料库时使用资料库身份／generation 约束；旧表单、旧异步响应和旧请求不能落到新资料库。正式目录不是测试夹具，也不能靠修改版本号自动隔离资料。
 
@@ -68,6 +70,12 @@ RuntimeModules 增加独立 `incomes` 和 `movements`，前者不依赖目标，
 
 盘点提醒是本机偏好 `checkin-reminder.json`（`{"months": 0|1|2|3}`，缺失或损坏读作关闭），与 `auto-backup.json` 一样不进入资料库与备份。提醒计划不单独存储：`reminder_plans_for` 在账户与盘点开启且偏好开启时，读取 `wealth_summary` 中最近一个完整盘点，推出到期日及一周后的跟进日，生成稳定 ID `thingary-checkin-<日期>` 的两条计划，与保障、续费提醒一起交给同一个提醒线程；日期变化后旧 ID 不再被需要而由原生层移除。偏好保存会清除提醒缓存键，使计划立即重算；已过去的日期由原生层丢弃。
 
+### 原生通知的平台边界
+
+macOS 使用系统通知调度；Windows 使用 WinRT `ScheduledToastNotification`。通知标识取自实际 Tauri 配置的 identifier，与 NSIS 开始菜单快捷方式的 AUMID 一致，不硬编码正式身份。业务提醒 ID 经哈希成为 16 字符 `Scheduled.Id`，Group 为 `thingary`；对账只增删本应用管理的计划，撤销不再需要的排队项。每条日历日期分别转换为当地上午 9 点，对应日期的时区与夏令时规则参与换算；过去日期跳过，不用当前 UTC 偏移推算所有未来日期。
+
+Windows 读取系统通知状态；关闭时返回可读提示，不删除已保存的业务提醒日期。提醒队列由系统管理，应用退出后不依赖后台进程；排队成功与实际可见送达分别验收。未安装的开发进程没有匹配 AUMID，通知验证必须使用已安装的隔离身份。开发与人工验收边界见[Windows 验收](WINDOWS_ACCEPTANCE.md)。
+
 ## 当前规划报告
 
 `PlanningPage` 使用同一批 `PlanningSources` 与 `buildBasicCapabilities`，经 `planning-report/current-adapter.ts` 和 `parseReportInput` 生成脱离来源引用的白名单快照。`PlanningCurrentReportDialog` 只持有内存快照；普通来源刷新不替换正文，切库、恢复、关闭规划或离开目标使其失效。报告不写账户、规划或回执，未知净投入不补零生成预测；影响计算的待核对项限制主结论。实际资金与模拟起点分别标注，账户在完整／隐私视图共用稳定局部别名。
@@ -88,11 +96,17 @@ RuntimeModules 增加独立 `incomes` 和 `movements`，前者不依赖目标，
 
 用户选中的图片经受控读取、暂存、校验和托管后与记录关联；失败不能静默跳过图片，也不能清理其他记录引用的文件。内置素材使用受控 ID 与随包资源，不接收任意前端资源路径作为可信来源。
 
+macOS 使用系统 ImageIO；Windows 用受限 Rust 解码，只接受 JPEG／PNG／WebP，按图片方向生成缩略预览，尺寸与解码内存先限界，不附带 HEIC／HEIF 解码器。Windows 文件身份戳使用长度、修改时间与创建时间；它弱于 inode，不能承诺检测所有刻意保留这三项属性的替换。
+
 删除资料先维护最近删除及其引用。恢复保留对象身份和关联；不能把照片当普通缓存随意清空。未引用原图与恢复保护副本目前不会自动清理，保持这一限制的说明。
 
 ## 备份、恢复与迁移
 
 完整备份记录 SQLite 数据及托管文件，并校验格式、版本和内容。恢复先检查、再明确确认，准备新资料集、保护原资料并切换；恢复是整体替换。中断后的恢复不能仅凭 UI 状态推断成功，更不能自动创建空库掩盖损坏。
+
+Windows 原子写入、改名与目录删除仅对原生错误 5／32／33（访问拒绝／共享冲突／锁冲突）进行有界重试，间隔为 25、50、100、200、400、400、400 毫秒；其余错误立即返回，耗尽后沿现有失败与恢复路径处理。文件同步继续执行，Windows 不以目录 fsync 成功作为 POSIX 等价持久性承诺。先规范化父目录的长路径，再创建临时文件；应用清单开启 `longPathAware`，不更改全机长路径设置。受控资料与备份遍历拒绝 reparse point，包括 junction，不沿它进入外部目录。
+
+恢复仍采用新资料集、原资料保护及指针切换，不原地覆盖；旧 SQLite 连接关闭后才尝试清理旧数据集，清理受阻不丢弃已经验证的数据。Windows 接入不改资料身份、schema 40、备份格式、稳定 ID 与原图内容。跨平台恢复通过虚构备份逐表计数及托管文件 SHA-256 比对，实际通过范围维护在[开发说明](DEVELOPMENT.md#windows-validation)。
 
 订阅简化使用 schema 21 的增量迁移：计划增加可空服务起点与覆盖锚点，付款增加可空覆盖区间，并保存之后的价格变化。旧字段不改值，空的新字段继续采用旧排期语义。权益与关联计划在同一事务、同一请求回执中保存，双方修订冲突使整个事务失败。付款确认时固定覆盖期，改计划不重写付款事实。范围补记也使用事务、计划修订和回执防重。
 
@@ -167,6 +181,10 @@ investment_review Store 从真实完整盘点构造 counted 投资范围，复�
 ### 窗口尺寸与持续维护视图
 
 `window_size` 按应用身份在 app_config_dir 保存普通窗口逻辑尺寸，启动按显示器可用区域限界并居中；保存失败只影响偏好，不触及资料库。关闭及退出保存，全屏／最大化／最小化时跳过。本机偏好不参与备份恢复。
+
+macOS 关窗隐藏、原生菜单照常工作；Windows 空闲关窗退出，由前端 Ctrl 快捷键派发与菜单相同的业务意图并遵守 `PageMenu` 能力。文本编辑及 IME 组合不被业务快捷键抢占。Windows 主窗口关闭时，应用拥有的物品编辑沿用原确认；页面拥有的表单、设置及数据任务由公共操作锁阻止退出并提示先完成或取消。进行中的写入先等待；已持久保留的未知回执不作为永久退出锁，重启只读核对原请求。
+
+Windows 关闭 WebView2 浏览器快捷键，文本输入保留默认右键编辑菜单，其余区域阻止浏览器菜单。字体与滚动条使用共用令牌和稳定 gutter，不另建平台页面。NSIS 当前用户简体中文安装，缺 WebView2 时下载 bootstrapper；默认卸载保留资料，用户主动选择“删除应用数据”会改变这一行为。正式候选包不带故障注入或验收调试入口。
 
 PlanningPage 仅托管目标及其发生确认／撤回，保留四问与逐年快照；快照复用 snapshotRows，在详情双栏外渲染，不另算预测。财富下 FinanceRecordsPage 承载收入／重要支出／资金流动，FinanceReviewPage 承载本期复盘／盘点比较。期间、搜索、排序、展开项与滚动仅是会话内存状态，不进入资料库或备份。IncomeRecords 的列表与汇总共用期间集合，搜索只过滤明细；从复盘带入闭开区间时仍排除起点。来源跳转由稳定 ID 及 generation 验证，返回上下文只有一层，最近跳转覆盖更早上下文；切库、恢复和能力失效清理上下文，迟到响应不能重新定位。
 

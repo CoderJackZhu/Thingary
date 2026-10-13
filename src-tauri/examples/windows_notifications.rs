@@ -1,7 +1,7 @@
 //! Run only against the installed isolated acceptance AUMID, never the formal app.
 //! cargo run --features fault-injection --example windows_notifications -- inspect
-//! THINGARY_REMINDER_TEST_SECONDS=120 ... -- reconcile
-//! Exit this process after reconcile, observe delivery, then run clear.
+//! THINGARY_REMINDER_TEST_SECONDS=20 ... -- reconcile
+//! Exit this process after reconcile; inspect reads system delivery history, then clear.
 #[cfg(all(windows, feature = "fault-injection"))]
 fn main() {
     let action = std::env::args().nth(1).unwrap_or_else(|| "inspect".into());

@@ -243,7 +243,8 @@ try {
       await wait(`innerWidth===${width}&&innerHeight===${height}`, "native viewport size");
       for (const style of ["native", "olive", "bento"])
         for (const theme of ["light", "dark"]) {
-          await js(`localStorage.setItem('thingary.style',${JSON.stringify(style)});localStorage.setItem('thingary.theme',${JSON.stringify(theme)});location.reload()`);
+          await js(`localStorage.setItem('thingary.style',${JSON.stringify(style)});localStorage.setItem('thingary.theme',${JSON.stringify(theme)});`);
+          await cdp('Page.reload');
           await wait(`document.documentElement.dataset.style===${JSON.stringify(style)}&&document.documentElement.dataset.mode===${JSON.stringify(theme)}&&!!document.querySelector('.asset-row')`, "appearance");
           await shot(`fixture-${style}-${theme}-${width}x${height}`);
         }

@@ -2,6 +2,16 @@
 
 用户下载见 [Releases](https://github.com/CoderJackZhu/Thingary/releases)，操作和更新见[使用指南](docs/USER_GUIDE.md)。这里记录用户可感知的变化，开发执行流水另存维护者档案。
 
+## 未发布 — 0.0.7 候选
+
+Windows x64 候选实现，目标 Windows 10 1809+／11；尚未创建公开 Release，Mac 当前公开版仍为 0.0.6。原生验收与系统限制见[Windows 验收清单](docs/WINDOWS_ACCEPTANCE.md)和[开发说明](docs/DEVELOPMENT.md#windows-validation)。资料身份、schema 40 与 `.thingary` 备份格式不变。
+
+- Windows 接入系统文件选择、JPEG／PNG／WebP 图片预览，不支持新增 HEIC／HEIF；完善文件短暂占用重试、长路径与目录联接拒绝，沿用原资料保护和中断恢复。
+- Windows 空闲关窗退出，进行中的编辑／数据操作受保护；使用 Ctrl 搜索、新增、编辑、设置、多选与撤销，文字编辑和输入法组合保持自己的操作。调整 Windows 字体与滚动条空间，共用页面和业务语义。
+- Windows 提醒按当地日期上午 9 点交给系统定时通知队列；通知关闭时提示且保留已保存日期。实际送达、系统设置及完整输入法验收仍须单独验证。
+- 增加未签名、当前用户、简体中文 NSIS 候选包，缺少 WebView2 时在线安装运行时，随包提供完整许可与源码提交信息。卸载默认保留资料，若要保留记录不要勾选“删除应用数据”。
+- 增加 Mac／Windows CI、虚构备份双向恢复核对、独立身份安装验收与候选包核验；构建及脚本存在不代表所有原生步骤已通过，不自动创建标签或发布。
+
 ## 0.0.6 Beta — 2026-10-13
 
 GitHub Pre-release，并同步 Gitee。提供 Apple Silicon 与 Intel 通用安装包；资料升级至 schema 40，更新前请完整备份。验证与限制见[0.0.6 发布说明](docs/releases/v0.0.6.md)。

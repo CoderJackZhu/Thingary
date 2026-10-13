@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyNsisPayload } from './windows-package-payload.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const acceptance = process.argv.includes('--acceptance');
@@ -53,11 +54,11 @@ for (const name of ['rfd', 'windows', 'webview2-com']) {
 assert.ok(inventory.some(entry => entry.ecosystem === 'SDK' && entry.name === 'Microsoft.Web.WebView2 loader'));
 const embeddedExecutables = contents.filter(path => basename(path) === 'thingary.exe');
 assert.equal(embeddedExecutables.length, 1);
-assert.equal(sha(embeddedExecutables[0]), sha(payload), 'Installer payload differs from built application.');
+const payloadVerification = verifyNsisPayload(binary, readFileSync(embeddedExecutables[0]));
 assert.ok(!contents.some(path => /\.(thingary|sqlite|sqlite3|db)$/i.test(path)), 'Installer must not contain data fixtures or databases.');
 const summary = {
   ...info, architecture: 'AMD64', installer: basename(installer),
-  installer_sha256: sha(installer), payload_sha256: sha(payload),
+  installer_sha256: sha(installer), ...payloadVerification,
   license_rust_count: inventory.filter(entry => entry.ecosystem === 'Rust').length,
   license_missing: 0, static_verification: true,
 };

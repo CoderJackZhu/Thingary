@@ -394,11 +394,19 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
         )
         .map_err(notification_error)?;
         notification
-            .SetId(&HSTRING::from(id))
+            .SetId(&HSTRING::from(id.as_str()))
             .map_err(notification_error)?;
         notification
             .SetGroup(&HSTRING::from("thingary"))
             .map_err(notification_error)?;
+        // Only the isolated FI build assigns a history tag, allowing acceptance
+        // to correlate OS delivery with this exact scheduled notification.
+        #[cfg(feature = "fault-injection")]
+        if identifier == "local.thingary.win.acceptance" {
+            notification
+                .SetTag(&HSTRING::from(id))
+                .map_err(notification_error)?;
+        }
         notifier
             .AddToSchedule(&notification)
             .map_err(notification_error)?;
@@ -412,6 +420,8 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
 pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<String> {
     use windows::{core::HSTRING, UI::Notifications::ToastNotificationManager};
     const ID: &str = "local.thingary.win.acceptance";
+    const GROUP: &str = "thingary";
+    let fixture_tag = scheduled_key("thingary-windows-acceptance")?;
     match action {
         "reconcile" => windows_native(ID, json, false)?,
         "permission" => windows_native(ID, "[]", true)?,
@@ -420,8 +430,26 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
         _ => return Err(Error::new("REMINDER", "未知的通知验收动作")),
     }
     let _apartment = NotificationApartment::new()?;
-    let notifier = ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(ID))
+    let application_id = HSTRING::from(ID);
+    let notifier = ToastNotificationManager::CreateToastNotifierWithId(&application_id)
         .map_err(notification_error)?;
+    let history = ToastNotificationManager::History().map_err(notification_error)?;
+    if action == "clear" {
+        // Never clear all notification history or another application's group.
+        // These are the driver and ignored test's two fixed fictional fixtures.
+        for fixture in [
+            "thingary-windows-acceptance",
+            "thingary-windows-acceptance-test",
+        ] {
+            history
+                .RemoveGroupedTagWithId(
+                    &HSTRING::from(scheduled_key(fixture)?),
+                    &HSTRING::from(GROUP),
+                    &application_id,
+                )
+                .map_err(notification_error)?;
+        }
+    }
     let mut items = Vec::new();
     for item in notifier
         .GetScheduledToastNotifications()
@@ -429,11 +457,36 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
     {
         items.push(serde_json::json!({
             "id": item.Id().map_err(notification_error)?.to_string(),
+            "tag": item.Tag().map_err(notification_error)?.to_string(),
             "group": item.Group().map_err(notification_error)?.to_string(),
             "ticks": item.DeliveryTime().map_err(notification_error)?.UniversalTime,
         }));
     }
-    Ok(serde_json::json!({"identifier": ID, "scheduled": items}).to_string())
+    let mut delivered = Vec::new();
+    for item in history
+        .GetHistoryWithId(&application_id)
+        .map_err(notification_error)?
+    {
+        let group = item.Group().map_err(notification_error)?.to_string();
+        let tag = item.Tag().map_err(notification_error)?.to_string();
+        if group == GROUP && tag == fixture_tag {
+            delivered.push(serde_json::json!({
+                "tag": tag,
+                "group": group,
+                "xml": item.Content().map_err(notification_error)?
+                    .GetXml().map_err(notification_error)?.to_string(),
+            }));
+        }
+    }
+    Ok(serde_json::json!({
+        "identifier": ID,
+        "fixture_group": GROUP,
+        "fixture_tag": fixture_tag,
+        "observed_at": chrono::Utc::now().to_rfc3339(),
+        "scheduled": items,
+        "history": delivered,
+    })
+    .to_string())
 }
 
 pub fn request_permission() -> Result<()> {
@@ -785,12 +838,16 @@ mod tests {
         let count = |result: String| {
             let value: serde_json::Value = serde_json::from_str(&result).unwrap();
             assert_eq!(value["identifier"], "local.thingary.win.acceptance");
-            value["scheduled"]
+            let owned: Vec<_> = value["scheduled"]
                 .as_array()
                 .unwrap()
                 .iter()
                 .filter(|item| item["group"] == "thingary")
-                .count()
+                .collect();
+            for item in &owned {
+                assert_eq!(item["tag"], item["id"], "FI schedule/history correlation");
+            }
+            owned.len()
         };
         assert_eq!(
             count(windows_notification_acceptance("reconcile", &json).unwrap()),

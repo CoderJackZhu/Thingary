@@ -4,7 +4,9 @@
 
 ## 准备环境
 
-需要 Mac、Xcode 命令行工具、Node.js 与 npm、Rust 稳定版工具链。CI 在 macOS 与 Windows x64 上使用 Node.js 22 与 Rust stable，运行同样的四项自动检查；使用仓库锁文件，不随意升级依赖。macOS 构建链接原生框架，Windows 使用平台文件对话框与 Rust 图片预览。前端构建不能代替完整应用构建或原生验收，Windows 交互、通知与安装包仍待后续接入及验证。
+Mac 需要 Xcode 命令行工具、Node.js 22 与 npm、Rust stable。Windows 需要 Node.js 22、Rust stable 的 MSVC 工具链与 `x86_64-pc-windows-msvc` 目标、Visual Studio Build Tools 的“使用 C++ 的桌面开发”工作负载（MSVC 编译器与 Windows SDK），以及 Microsoft Edge WebView2 Runtime。Windows 原生验收脚本另外需要 PowerShell 7（`pwsh`）。使用仓库锁文件，不随意升级依赖。
+
+CI 在 `macos-latest` 与 `windows-latest` 运行同样的四项自动检查，Windows 使用 Git Bash 作为 npm 脚本 shell，保证通配符行为一致。macOS 构建链接原生框架，Windows 使用原生文件对话框、Rust 图片预览与 WinRT 通知；两平台共用业务与资料格式。前端构建不能代替完整应用构建或原生验收。Windows 目前是 0.0.7 候选实现，目标 Windows 10 1809+／11 x64，运行与发布边界见[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。
 
 ```sh
 npm ci
@@ -33,6 +35,20 @@ npm test
 | `npm run test:demo` | 独立样例导入工具 |
 
 故障注入 feature 只用于测试，不进入普通应用。检查结果按本次实际执行登记；测试文件存在、历史通过或源码提交不代表当前工作树已通过。文案／样式核对受影响页面与断点；表单验证保存、取消、未知与失败；计算运行对应数值和调用链回归。纯文档检查链接、锚点、术语和离线交付依赖。
+
+<a id="windows-validation"></a>
+
+### Windows 候选实现与验证
+
+当前 0.0.7 候选源码已接入 Windows 图片／文件选择、文件占用重试与长路径、窗口／Ctrl 交互、WinRT 定时提醒和 NSIS 打包。schema 仍为 40，`.thingary` 格式不变。Windows 界面与数据语义复用 Mac；当前公开 Mac 包仍为 0.0.6，尚未创建 0.0.7 标签或 Windows Release。
+
+本轮本地 Mac 的构建、1,114 项 UI 测试、格式／Clippy 和 620 项 Rust 测试通过，3 项既有容量测试按规则忽略。这是本地检查，不能代替远程 CI、Windows 运行或 Mac 原生回归。新增 Windows CI 与候选包工作流仍待核对实际结果；不能把工作流配置和验收脚本存在写成通过。
+
+`ci.yml` 的两平台检查分别生成虚构完整备份；后续 `cross_restore` 互换备份并严格比较恢复前后的 JSON，含 schema、57 张表的计数及 8 个托管原图 SHA-256。此检查不使用正式资料，不改变备份格式；只有实际任务成功才算该次往返通过，表计数与散列也不能代替界面操作、文件对话框或用户内容逐项核对。
+
+[Windows 候选包工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)分别构建正式身份 release 候选包与隔离 debug 验收包。release 任务使用 `windows-latest` x64，正式身份只构建和静态检查，不启动；验收任务使用标准托管 `windows-11-arm`，运行 x64 应用的系统模拟，不能据此声称真实 x64 硬件已验。运行器范围见 [GitHub 托管运行器说明](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)。工作流 artifact 保留 30 天，下载需登录 GitHub，不自动发布 Release。
+
+原生验收从已安装的 `local.thingary.win.acceptance` 开始，核对安装目录 `许可/BUILD_INFO.json`、源码 SHA、版本、许可散列与快捷方式 AUMID 后才启动。`scripts/windows-native-acceptance.ps1` 和 `scripts/windows-native-ui.mjs` 自动检查窗口、保存／取消／重启、单实例、恢复夹具、实际通知排队／移除与应用退出后的系统历史送达、默认静默卸载保留及重装，并生成结果和同尺寸截图。排队与系统历史送达检查不证明通知已在桌面可见；完整手工安装对话框、原生文件对话框、微软拼音、讲述人、缩放、Windows 10 与真实 x64 仍需分别验收。完整步骤与证据要求唯一维护于[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。
 
 ### 0.0.6 发布验证
 
@@ -168,9 +184,9 @@ cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_cont
 
 界面变更核对 1440×1000 与 900×720、三主题明暗、正常／未知／空白／错误，以及保存、取消、焦点和键盘。涉及原生文件、持久化或通知时，另用隔离身份验证相应边界。全矩阵在阶段集成或发布前集中执行，小改动按影响范围复验，未验范围明确登记。
 
-盘点提醒（`checkin_reminder`）、目标页差距提醒和目标进度记录（`goal_progress`，schema 40）只经自动检查与浏览器内存预览，系统通知实际送达、原生升级 39→40、重启保留和完整备份往返尚未做原生验收；Rust 回归在 `src-tauri/tests/checkin_reminder.rs`、`goal_progress.rs`，前端在 `tests/checkin-reminder.test.mjs`、`plan-saving-hint.test.mjs`、`goal-progress*.test.mjs`。
+盘点提醒（`checkin_reminder`）、目标页差距提醒和目标进度记录（`goal_progress`，schema 40）的 Mac 发布验证与后补的隔离升级结果见上方“0.0.6 发布验证”；系统通知实际送达及这些新增功能的完整原生保存／重启／备份矩阵仍未闭环。Windows 按本页独立验证边界记录，不沿用 Mac 结果；Rust 回归在 `src-tauri/tests/checkin_reminder.rs`、`goal_progress.rs`，前端在 `tests/checkin-reminder.test.mjs`、`plan-saving-hint.test.mjs`、`goal-progress*.test.mjs`。
 
-当前只在 Apple Silicon、macOS 27 实测；正式包为 Apple Silicon 与 Intel 通用包，Intel 部分只经构建与架构检查。macOS 14 最低打包目标不是兼容验收；Intel、VoiceOver、显示缩放、完整键盘、全部输入法组合与通知送达仍不能宣称完成。豆包拼音仅在支出名称验证组合、Space 提交和 Escape 顺序，不推广为所有表单通过。
+Mac 当前只在 Apple Silicon、macOS 27 实测；Mac 正式包为 Apple Silicon 与 Intel 通用包，Intel 部分只经构建与架构检查。Windows 候选源码的自动与原生验证边界另见[Windows 验证](#windows-validation)，不沿用 Mac 的通过记录。macOS 14 最低打包目标不是兼容验收；Intel、VoiceOver、显示缩放、完整键盘、全部输入法组合与通知送达仍不能宣称完成。豆包拼音仅在支出名称验证组合、Space 提交和 Escape 顺序，不推广为所有表单通过。
 
 ### README 与使用指南截图
 
@@ -186,6 +202,16 @@ node scripts/offline-guide.mjs <临时输出目录>
 npm run tauri -- build --bundles app
 ```
 
-默认产物 `src-tauri/target/release/bundle/macos/Thingary Preview.app` 使用开发预览身份。正式包由维护者运行 `npm run release`；版本、签名、公证、支持平台和公开附件按[发布流程](RELEASING.md)核验，不由源码检查推定。
+上述 `--bundles app` 用于 Mac，默认产物 `src-tauri/target/release/bundle/macos/Thingary Preview.app` 使用开发预览身份。Windows 默认开发运行可使用上方 `npm run tauri -- dev`；安装验收包在 Windows 上运行以下命令：
+
+```sh
+npm run build:win:acceptance
+node scripts/verify-windows-package.mjs --acceptance
+pwsh -NoProfile -File scripts/windows-native-acceptance.ps1
+```
+
+构建前需先 `npm ci` 和 `cargo fetch --locked --manifest-path src-tauri/Cargo.toml`，供离线许可收集。验收脚本要求验收身份的 Local／Roaming 目录不存在，输出也必须是新目录；不自动清除已有资料，重跑请先保全本次虚构证据并按清单重新准备。验收配置使用 debug／fault-injection，只在 loopback 开启 CDP 9227，供脚本读取安装后的 WebView；这不是正式包，不可用于个人资料或作为公开安装包。Windows 系统通知须使用安装后匹配 AUMID 的包，不能用 `tauri dev` 证明有效。
+
+正式候选包由维护者在 Mac 运行 `npm run release`、Windows 运行 `npm run release:win`；版本、签名、公证、支持平台和公开附件按[发布流程](RELEASING.md)核验，不由源码检查推定。
 
 源码与现行文档只在本仓库维护。修改行为同步 PRODUCT_RULES，修改操作同步 USER_GUIDE，修改实现取舍同步 ARCHITECTURE；设计状态由 INDEX 导向唯一规格。外部贡献者无需访问私有过程记录即可构建、测试或理解约束。
