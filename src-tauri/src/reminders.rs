@@ -3,16 +3,16 @@ use crate::{
     storage::Store,
 };
 use serde::Serialize;
-use std::{
-    ffi::{c_char, c_void, CStr, CString},
-    sync::{
-        atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
-        mpsc, Mutex, OnceLock,
-    },
+#[cfg(target_os = "macos")]
+use std::ffi::{c_char, c_void, CStr, CString};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
+    mpsc, Mutex, OnceLock,
 };
 static ENABLED: AtomicBool = AtomicBool::new(false);
 static AUTH_PENDING: AtomicUsize = AtomicUsize::new(0);
 static LAST: Mutex<(String, String)> = Mutex::new((String::new(), String::new()));
+#[cfg(target_os = "macos")]
 extern "C" {
     fn thingary_notifications(json: *const c_char, ask: i32) -> *mut c_char;
     fn thingary_free(ptr: *mut c_void);
@@ -104,19 +104,28 @@ fn native(json: &str, ask: bool) -> Result<()> {
         NATIVE_CALLS.lock().unwrap().push(json.to_owned());
         return Ok(());
     }
-    let json = CString::new(json).map_err(|_| Error::new("REMINDER", "提醒内容无效"))?;
-    let ptr = unsafe { thingary_notifications(json.as_ptr(), i32::from(ask)) };
-    if ptr.is_null() {
-        return Err(Error::new("REMINDER", "通知服务不可用"));
+    #[cfg(target_os = "macos")]
+    {
+        let json = CString::new(json).map_err(|_| Error::new("REMINDER", "提醒内容无效"))?;
+        let ptr = unsafe { thingary_notifications(json.as_ptr(), i32::from(ask)) };
+        if ptr.is_null() {
+            return Err(Error::new("REMINDER", "通知服务不可用"));
+        }
+        let message = unsafe { CStr::from_ptr(ptr) }
+            .to_string_lossy()
+            .into_owned();
+        unsafe { thingary_free(ptr.cast()) };
+        if message.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::new("REMINDER", &message))
+        }
     }
-    let message = unsafe { CStr::from_ptr(ptr) }
-        .to_string_lossy()
-        .into_owned();
-    unsafe { thingary_free(ptr.cast()) };
-    if message.is_empty() {
-        Ok(())
-    } else {
-        Err(Error::new("REMINDER", &message))
+    #[cfg(windows)]
+    {
+        let _ = (json, ask);
+        // W4 替换为 ScheduledToastNotification
+        Err(Error::new("REMINDER", "Windows 通知尚未接入"))
     }
 }
 pub fn request_permission() -> Result<()> {

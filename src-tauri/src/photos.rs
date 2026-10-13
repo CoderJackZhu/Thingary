@@ -8,8 +8,11 @@ use rusqlite::{params, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs, io::Read, path::Path};
 fn stamp(meta: &fs::Metadata) -> crate::storage::FileStamp {
-    use std::os::unix::fs::MetadataExt;
-    (meta.len(), meta.modified().ok(), meta.ino())
+    (
+        meta.len(),
+        meta.modified().ok(),
+        crate::storage::file_id(meta),
+    )
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Photo {

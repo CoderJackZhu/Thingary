@@ -907,7 +907,11 @@ pub async fn auto_backup_open_folder(worker: tauri::State<'_, Worker>) -> Result
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let folder = w.auto_backup_folder()?;
-        std::process::Command::new("/usr/bin/open")
+        #[cfg(target_os = "macos")]
+        let opener = "/usr/bin/open";
+        #[cfg(windows)]
+        let opener = "explorer";
+        std::process::Command::new(opener)
             .arg(&folder)
             .spawn()
             .map_err(|_| Error::new("OPEN", "未能打开备份文件夹"))?;

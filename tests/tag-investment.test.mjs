@@ -7,6 +7,7 @@ import { percentText, percentBar, itemMatches, visibleItems, restoredShown, miss
   purchaseSummaryText, maintenanceSummaryText, maintenanceCellText, analysisAfterScopeChange,
   labelFilterOptions, requestTagView } from '../src/tag-investment.ts';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { readFileSync as fsRead, writeFileSync, readdirSync } from 'node:fs';
 
 const src = name => readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8');
@@ -143,15 +144,15 @@ test('R1 明细维护单元格与窄窗副行共用同一文案（三处一致�
 let renderBodyCache;
 async function renderBody() {
   if (renderBodyCache) return renderBodyCache;
-  const { root } = { root: new URL('..', import.meta.url).pathname };
+  const { root } = { root: fileURLToPath(new URL('..', import.meta.url)) };
   // 项目源码用 .ts 扩展名导入（TS5097 使 tsc 退出非零，但产物正常输出）。
   try {
-    execFileSync('npx', ['tsc', 'src/TagInvestment.tsx', '--jsx', 'react-jsx', '--module', 'commonjs',
+    execFileSync(process.execPath, [fileURLToPath(new URL('../node_modules/typescript/lib/tsc.js', import.meta.url)), 'src/TagInvestment.tsx', '--jsx', 'react-jsx', '--module', 'commonjs',
       '--target', 'es2022', '--moduleResolution', 'node', '--esModuleInterop', '--skipLibCheck',
       '--outDir', 'node_modules/.cache/u17-render'], { cwd: root, stdio: 'pipe' });
   } catch { /* 产物存在性由下方导入校验 */ }
   // tsc 不重写扩展名：把产物中的 require("./x.ts") 归一为 require("./x")。
-  const outDir = new URL('../node_modules/.cache/u17-render/', import.meta.url).pathname;
+  const outDir = fileURLToPath(new URL('../node_modules/.cache/u17-render/', import.meta.url));
   for (const file of readdirSync(outDir)) {
     if (!file.endsWith('.js')) continue;
     const path = outDir + file;

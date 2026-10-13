@@ -34,6 +34,9 @@ calamine = { version = "0.36.1", features = ["chrono"] }
 rust_xlsxwriter = "0.99.1"
 quick-xml = "0.41.0"
 
+[target.'cfg(windows)'.dependencies]
+rfd = "0.17.2"
+
 [features]
 fault-injection = []
 

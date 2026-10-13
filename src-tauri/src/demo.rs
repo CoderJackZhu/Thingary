@@ -743,7 +743,15 @@ mod unified_tests {
         .unwrap();
         assert_eq!(open(&root, TODAY).err().unwrap().code, "DEMO_PATH");
         std::fs::remove_file(pointer_path(&root)).unwrap();
+        #[cfg(unix)]
         std::os::unix::fs::symlink(&root, tmp.path().join("demo-library")).unwrap();
+        #[cfg(windows)]
+        if let Err(error) =
+            std::os::windows::fs::symlink_dir(&root, tmp.path().join("demo-library"))
+        {
+            eprintln!("SKIPPED Windows symlink assertion (W2): {error}");
+            return;
+        }
         assert_eq!(open(&root, TODAY).err().unwrap().code, "DEMO_PATH");
     }
 }

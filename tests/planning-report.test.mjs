@@ -253,13 +253,13 @@ test('required nullable money/ratio fields reject missing values and accept expl
 
 test('actual component DOM/ARIA is private in ready and error states; malformed inputs render an alert', async () => {
   const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
-  const { pathToFileURL } = await import('node:url');
+  const { fileURLToPath, pathToFileURL } = await import('node:url');
   const ts = (await import('typescript')).default;
   const React = (await import('react')).default;
   const { renderToStaticMarkup } = await import('react-dom/server');
   const cache = new URL('../node_modules/.cache/', import.meta.url);
   mkdirSync(cache, { recursive: true });
-  const dir = mkdtempSync(cache.pathname + 'planning-report-render-');
+  const dir = mkdtempSync(fileURLToPath(cache) + 'planning-report-render-');
   try {
     const source = read('../src/planning-report/PlanningReport.tsx').replaceAll("'./model.ts'", JSON.stringify(new URL('../src/planning-report/model.ts', import.meta.url).href));
     writeFileSync(dir + '/component.mjs', ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);

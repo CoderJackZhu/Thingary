@@ -4,7 +4,7 @@
 
 ## 准备环境
 
-需要 Mac、Xcode 命令行工具、Node.js 与 npm、Rust 稳定版工具链。CI 使用 Node.js 22 与 Rust stable；使用仓库锁文件，不随意升级依赖。Rust 链接 macOS 原生框架，其他系统上的前端构建不能代替完整应用构建。
+需要 Mac、Xcode 命令行工具、Node.js 与 npm、Rust 稳定版工具链。CI 在 macOS 与 Windows x64 上使用 Node.js 22 与 Rust stable，运行同样的四项自动检查；使用仓库锁文件，不随意升级依赖。macOS 构建链接原生框架，Windows 使用平台文件对话框与 Rust 图片预览。前端构建不能代替完整应用构建或原生验收，Windows 交互、通知与安装包仍待后续接入及验证。
 
 ```sh
 npm ci

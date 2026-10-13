@@ -164,7 +164,13 @@ mod tests {
         std::fs::remove_dir(&root).unwrap();
         let other = home.join("other");
         std::fs::create_dir(&other).unwrap();
+        #[cfg(unix)]
         std::os::unix::fs::symlink(&other, &root).unwrap();
+        #[cfg(windows)]
+        if let Err(error) = std::os::windows::fs::symlink_dir(&other, &root) {
+            eprintln!("SKIPPED Windows symlink assertion (W2): {error}");
+            return;
+        }
         assert!(!allowed_root(&home, &root).unwrap());
     }
 }

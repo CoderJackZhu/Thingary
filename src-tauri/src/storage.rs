@@ -20,7 +20,7 @@ pub(crate) struct Active {
     pub generation: String,
 }
 type FaultHook = Box<dyn Fn(&str) -> Result<()> + Send>;
-/// Length, modification time and inode of a file whose content was hashed.
+/// Length, modification time and platform identity of a file whose content was hashed.
 pub(crate) type FileStamp = (u64, Option<std::time::SystemTime>, u64);
 pub struct Store {
     pub(crate) root: PathBuf,
@@ -41,6 +41,23 @@ pub(crate) fn uid() -> String {
 pub(crate) fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
+#[cfg(target_os = "macos")]
+pub(crate) fn file_id(meta: &fs::Metadata) -> u64 {
+    use std::os::unix::fs::MetadataExt;
+    meta.ino()
+}
+#[cfg(windows)]
+pub(crate) fn file_id(meta: &fs::Metadata) -> u64 {
+    use std::os::windows::fs::MetadataExt;
+    // ponytail: Creation time is weaker than inode; GetFileInformationByHandle can supply a stronger file number.
+    meta.creation_time()
+}
+#[cfg(windows)]
+pub(crate) fn sync_dir(_path: &Path) -> Result<()> {
+    // Windows cannot open directories with ordinary File::open; MoveFileEx ensures rename durability.
+    Ok(())
+}
+#[cfg(not(windows))]
 pub(crate) fn sync_dir(path: &Path) -> Result<()> {
     File::open(path)?.sync_all()?;
     Ok(())

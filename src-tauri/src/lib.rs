@@ -70,7 +70,7 @@ pub fn run() {
             window_size::restore(app.handle());
             reminders::enable();
             app.manage(worker::Worker::start(
-                app.path().app_data_dir()?.join("library"),
+                app.path().app_local_data_dir()?.join("library"),
             )?);
             // Periodic automatic backups (D20): a plain thread that ends with
             // the process. Quitting never waits for or triggers a backup, and
@@ -418,6 +418,7 @@ pub fn run() {
                     }
                 }
             }
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
