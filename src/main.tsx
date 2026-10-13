@@ -300,6 +300,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const menuAction = useRef<(action: string) => void>(() => {});
   const newRef = useRef<HTMLButtonElement>(null);
   const queryTicket = useRef(0), detailTicket = useRef(0), focusDetail = useRef(false);
+  const pendingSelection = useRef<{ id: string; ticket: number } | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const mainRef = useRef<HTMLElement>(null), collectionRef = useRef<HTMLDivElement>(null), listScroll = useRef(0);
   const [taxonomyDirty, setTaxonomyDirty] = useState(false);
@@ -727,11 +728,11 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }, [section, subpageReturn, wishlistEditing, menuOpen]);
   async function select(id: string, full = false) {
     if (wishlistEditing) return;
-    const ticket = ++detailTicket.current; setDetailLoading(true); setDetailError('');
+    const ticket = ++detailTicket.current; pendingSelection.current = { id, ticket }; setDetailLoading(true); setDetailError('');
     if (full) { focusDetail.current = true; if (!detailId) listScroll.current = collectionRef.current?.scrollTop ?? 0; setDetailId(id); requestAnimationFrame(() => { if (mainRef.current) mainRef.current.scrollTop = 0; }); }
     try { const r = await invoke<AssetRecord | null>('read_asset', { id }); if (ticket === detailTicket.current) { setSelected(r); if (!r) setDetailError('找不到这件物品。'); else if (r.deleted) setDetailError('这件物品已移入最近删除。'); } }
     catch (e) { if (ticket === detailTicket.current) { setSelected(null); setDetailError(errorMessage(e)); } }
-    finally { if (ticket === detailTicket.current) setDetailLoading(false); }
+    finally { if (ticket === detailTicket.current) { pendingSelection.current = null; setDetailLoading(false); } }
   }
   async function openEditor(record: AssetRecord | null, resume = false, wish?: WishlistItem) {
     if (!resume && (durablePending || featureEditing || dataBusy)) { setNotice(blockedNotice('编辑物品')); return; }
@@ -824,11 +825,12 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     }).catch(e => setNotice(errorMessage(e)));
   }, [recordDeleteAfterEdit, maintenanceDraft, warrantyDraft]);
   useRestored(() => { setNotice(''); setTrashVersion(v => v + 1); setBatchVersion(v => v + 1); void refresh(); if (detailId) void select(detailId, true); });
-  function clearSelection() { setMulti([]); setAnchor(null); setSelecting(false); }
+  function clearSelection() { pendingSelection.current = null; setMulti([]); setAnchor(null); setSelecting(false); }
   function rowClick(e: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean }, id: string) {
     const additive = selectionModifier(e);
     if (!additive && !e.shiftKey && !selecting) { setMulti([]); setAnchor(id); void select(id); return; }
-    const next = nextSelection(multi, anchor, id, page?.items.map(r => r.asset.id) ?? [], { meta: additive, shift: e.shiftKey, toggle: selecting }, active?.asset.id ?? null);
+    const current = detailLoading && pendingSelection.current?.ticket === detailTicket.current ? pendingSelection.current.id : active?.asset.id ?? null;
+    const next = nextSelection(multi, anchor, id, page?.items.map(r => r.asset.id) ?? [], { meta: additive, shift: e.shiftKey, toggle: selecting }, current);
     setAnchor(next.anchor);
     if (next.ids.length === 1 && !selecting) { setMulti([]); void select(next.ids[0]); return; }
     setMulti(next.ids);

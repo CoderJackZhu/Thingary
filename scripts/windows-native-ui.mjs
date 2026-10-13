@@ -115,6 +115,14 @@ async function assets() {
     await button("全部物品", mainNavigation);
   await wait(assetList, "asset list");
 }
+// Selection reads the record asynchronously; wait for its actual loaded summary.
+async function singleAsset(selector, label) {
+  const name = await js(`document.querySelector(${JSON.stringify(selector)})?.getAttribute('aria-label')?.replace(/^查看 /,'')`);
+  assert.ok(name, 'Observed asset row name is required');
+  await click(selector);
+  await wait(`document.querySelector(${JSON.stringify(selector)})?.getAttribute('aria-pressed')==='true' && document.querySelector(${JSON.stringify(selector)})?.classList.contains('selected') && ${visibleAssetRows}.filter(e=>e.getAttribute('aria-pressed')==='true').length===1 && [...document.querySelectorAll('aside[aria-label="物品摘要"] .summary-body h2')].some(e=>e.getClientRects().length&&!e.closest('[hidden]')&&e.textContent===${JSON.stringify(name)})`, label);
+  return name;
+}
 const blur = () => js("document.activeElement?.blur()");
 async function create(name, price = "") {
   await blur();
@@ -198,34 +206,38 @@ try {
     await wait("!document.querySelector('dialog[open]')", "Esc search");
     const rows = await js(`${visibleAssetRows}.map(e=>'#'+e.id)`);
     assert.ok(rows.length >= 2);
-    await click(rows[0]);
+    await singleAsset(rows[0], "loaded initial single selection");
     await click(rows[1], 2);
     await wait(`${visibleAssetRows}.filter(e=>e.getAttribute('aria-pressed')==='true').length===2`, "Ctrl click multiselect");
-    await click(rows[0]);
+    await singleAsset(rows[0], "loaded Shift range anchor");
     await click(rows[1], 8);
     await wait(`${visibleAssetRows}.filter(e=>e.getAttribute('aria-pressed')==='true').length===2`, "Shift range selection");
     await blur();
+    await singleAsset(rows[0], "single selection before Ctrl+A");
+    await blur();
     await key("a", "KeyA", 2, 65);
     await wait(`${visibleAssetRows}.filter(e=>e.getAttribute('aria-pressed')==='true').length===2`, "Ctrl+A selects rows");
-    await click(rows[0]);
+    const detailName = await singleAsset(rows[0], "loaded selection before Ctrl+E");
     await blur();
     await key("e", "KeyE", 2, 69);
-    await wait("!!document.querySelector('#detail-heading')?.getClientRects().length", "Ctrl+E");
+    await wait(`!!document.querySelector('#detail-heading')?.getClientRects().length && document.querySelector('#detail-heading')?.textContent===${JSON.stringify(detailName)}`, "Ctrl+E");
     report.verified.push("blank startup", "required name failure", "cancel discards ordinary input", "known/unknown save", "Ctrl+N/F/Shift+F/E", "editing guard", "Ctrl click multiselect");
     report.verified.push("Shift range selection", "Ctrl+A list selection");
     report.unverified.push("app undo", "pending-result close confirmation");
-    await button("账户与盘点");
+    await button("账户与盘点", mainNavigation);
     await wait("!!document.querySelector('.wealth-section')?.getClientRects().length", "wealth page");
+    await wait("[...document.querySelectorAll('main .topbar-actions button')].some(e=>e.getClientRects().length&&!e.disabled&&e.querySelector(':scope > span')?.textContent==='新增账户')", "enabled account action after accounts load");
     await blur();
     await key("n", "KeyN", 2, 78);
-    await wait("!!document.querySelector('#wealth-account-name')", "new account");
+    await wait("!!document.querySelector('dialog[open].wealth-account-editor #wealth-account-name')?.getClientRects().length", "new account");
     await fill("#wealth-account-name", "未保存的虚构账户");
     native("close");
     await wait("document.body.innerText.includes('当前操作尚未完成')", "WM_CLOSE blocked");
     assert.equal(await js("document.querySelector('#wealth-account-name')?.value"), "未保存的虚构账户");
     await shot("native-close-blocked");
-    await button("返回继续处理");
-    await button("关闭账户表单");
+    await button("返回继续处理", 'dialog[open][aria-labelledby="taxonomy-close-heading"]');
+    await wait(`!document.querySelector('dialog[open][aria-labelledby="taxonomy-close-heading"]') && !!document.querySelector('dialog[open].wealth-account-editor')?.getClientRects().length`, 'returned to account editor');
+    await button("关闭账户表单", 'dialog[open].wealth-account-editor');
     await wait("!document.querySelector('dialog[open]')", "cancel unsaved account");
     report.verified.push("WM_CLOSE preserves unsaved feature account input until explicit cancel");
     await blur();

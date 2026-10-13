@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import vm from 'node:vm';
 import { desktopShortcutAction, handleDesktopShortcut, handleContextMenu, modKey, selectionModifier, shiftModKey } from '../src/undo-shortcut.ts';
 import { nextSelection } from '../src/batch-select.ts';
 
@@ -106,4 +108,98 @@ test('production and fictional-preview routes share asset-action without a dupli
   assert.match(preview, /if \(!isMac\) return;/);
   const lib = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
   assert.match(lib, /#\[cfg\(not\(target_os = "macos"\)\)\][\s\S]{0,160}MenuItem::with_id\(app, "new-asset", "新增物品", true, None::<&str>\)/);
+});
+
+
+// Exercise the production handlers with delayed IPC, including their ticket checks.
+function delayedSelection(initialId = null) {
+  const ts = createRequire(import.meta.url)('typescript');
+  const source = ts.createSourceFile('main.tsx', readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const handlers = [];
+  const visit = node => {
+    if (ts.isFunctionDeclaration(node) && ['select', 'rowClick', 'clearSelection'].includes(node.name?.text)) handlers.push(node.getText(source));
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  assert.equal(handlers.length, 3);
+  const requests = [];
+  const record = id => ({ asset: { id }, deleted: false });
+  const context = {
+    module: { exports: {} }, wishlistEditing: false, selecting: false, multi: [], anchor: null,
+    active: initialId ? record(initialId) : null, selected: null, detailLoading: false,
+    detailTicket: { current: 0 }, pendingSelection: { current: null },
+    page: { items: ['a', 'b', 'c', 'd'].map(id => record(id)) },
+    selectionModifier: event => selectionModifier(event, false), nextSelection,
+    setMulti: value => { context.multi = value; }, setAnchor: value => { context.anchor = value; },
+    setSelecting: value => { context.selecting = value; },
+    setDetailLoading: value => { context.detailLoading = value; }, setDetailError: () => {},
+    setSelected: value => { context.selected = value; context.active = value && !value.deleted ? value : null; },
+    errorMessage: error => error.message,
+    invoke: (command, { id }) => {
+      assert.equal(command, 'read_asset');
+      return new Promise((resolve, reject) => requests.push({ id, resolve: () => resolve(record(id)), reject }));
+    },
+  };
+  const code = ts.transpileModule(`${handlers.join('\n')}\nmodule.exports = { rowClick, clearSelection };`, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  vm.runInNewContext(code, context);
+  const click = (id, ctrl = false) => context.module.exports.rowClick({ metaKey: false, ctrlKey: ctrl, shiftKey: false }, id);
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+  return { context, requests, click, flush, clear: context.module.exports.clearSelection };
+}
+
+test('rapid Ctrl-click seeds selection from the pending row, with blank or previously loaded summaries', async () => {
+  for (const initialId of [null, 'd']) {
+    const { context, requests, click, flush } = delayedSelection(initialId);
+    click('a'); click('b', true);
+    assert.deepEqual(Array.from(context.multi), ['a', 'b']);
+    requests[0].resolve(); await flush();
+    assert.equal(context.selected.asset.id, 'a');
+    assert.deepEqual(Array.from(context.multi), ['a', 'b'], 'late summary must not replace multiselection');
+    assert.equal(context.pendingSelection.current, null);
+  }
+});
+
+test('rapid Ctrl-click after collapsing multiselection uses the remaining row rather than the removed anchor', async () => {
+  const { context, requests, click, flush } = delayedSelection();
+  click('a'); click('b', true); click('b', true);
+  assert.equal(context.anchor, 'b');
+  assert.equal(requests[1].id, 'a');
+  click('c', true);
+  assert.deepEqual(Array.from(context.multi), ['a', 'c']);
+  requests[1].resolve(); await flush();
+  requests[0].resolve(); await flush();
+  assert.deepEqual(Array.from(context.multi), ['a', 'c']);
+  assert.equal(context.selected.asset.id, 'a');
+});
+
+test('older reads cannot clear a newer pending selection or overwrite its eventual summary', async () => {
+  const { context, requests, click, flush } = delayedSelection();
+  click('a'); click('c');
+  requests[0].resolve(); await flush();
+  assert.equal(context.detailLoading, true);
+  assert.equal(context.pendingSelection.current.id, 'c');
+  assert.equal(context.selected, null);
+  click('b', true);
+  assert.deepEqual(Array.from(context.multi), ['c', 'b']);
+  requests[1].resolve(); await flush();
+  assert.equal(context.selected.asset.id, 'c');
+  assert.deepEqual(Array.from(context.multi), ['c', 'b']);
+});
+
+test('finished, failed and cleared reads do not leave a stale row for later additive selection', async () => {
+  for (const outcome of ['finished', 'failed', 'cleared']) {
+    const { context, requests, click, flush, clear } = delayedSelection();
+    click('a');
+    if (outcome === 'finished') requests[0].resolve();
+    else if (outcome === 'failed') requests[0].reject(new Error('read failed'));
+    else {
+      // clearSelection ends batch selection; it does not cancel the current summary read.
+      clear(); requests[0].resolve();
+    }
+    await flush();
+    assert.equal(context.pendingSelection.current, null);
+    context.setSelected({ asset: { id: 'd' }, deleted: false });
+    click('b', true);
+    assert.deepEqual(Array.from(context.multi), ['d', 'b'], 'non-select updates use the actual active record');
+  }
 });
