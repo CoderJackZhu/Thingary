@@ -20,7 +20,7 @@ function harness(file, name, props, deps = {}, globals = {}) {
   const exports = {};
   const source = readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
   const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
-  vm.runInNewContext(code, { exports, require: id => id === 'react' ? hooks : id === 'react/jsx-runtime' ? { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) } : deps[id] ?? new Proxy({}, { get: (_, key) => String(key) }), requestAnimationFrame: fn => fn(), document: { activeElement: null }, ...globals });
+  vm.runInNewContext(code, { exports, require: id => id === 'react' ? hooks : id === 'react/jsx-runtime' ? { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) } : deps[id] ?? new Proxy({}, { get: (_, key) => String(key) }), requestAnimationFrame: fn => fn(), HTMLElement: class {}, document: { activeElement: null }, ...globals });
   const render = () => { for (let round = 0; round < 8; round++) { dirty = false; cursor = 0; effects.length = 0; tree = exports[name](props); effects.splice(0).forEach(fn => fn()); if (!dirty) return tree; } throw Error('render did not settle'); };
   const nodes = () => { const out = []; const visit = value => { if (Array.isArray(value)) value.forEach(visit); else if (value && typeof value === 'object') { out.push(value); visit(value.props?.children); } }; visit(tree); return out; };
   const text = value => Array.isArray(value) ? value.map(text).join('') : value && typeof value === 'object' ? text(value.props?.children) : value == null || typeof value === 'boolean' ? '' : String(value);
@@ -36,13 +36,13 @@ function page() {
     './planning-basic-view': { modeOf: () => 'basic' }, './review': { ready: r => r.status === 'ready' ? r.value : null },
     './planning-followup-port': { nativePlanningFollowupPortV1: () => null },
     './plan-basic': { buildBasicCapabilities }, './planning-report/current-adapter': { currentReportInput },
-    './WealthPage': { usePendingReceipt: () => ({ pending, busy: false }) },
+    './WealthPage': { usePendingReceipt: () => ({ pending, busy: false, setPending: noop }) },
     './undo': { useRestored: cb => { restored = cb; } },
     './topbar': { usePageBar: (_, value) => { bar = value; } }, './topbar-model': { refocusHeading: () => focuses++ },
     './PlanningCurrentReportDialog': { PlanningCurrentReportDialog: 'ReportDialog' },
     './PlanningBasicGoals': { PlanningBasicGoals: 'Goals' }, './PlanningGoalOccurrences': { PlanningGoalOccurrences: 'Occurrences' },
-  });
-  return { ...r, setLoad(value) { load = value; r.render(); }, get load() { return load; }, restore() { restored(); r.render(); }, setPending(value) { pending = value; r.render(); }, get bar() { return bar; }, get focuses() { return focuses; }, get reloads() { return reloads; } };
+  }, { document: { activeElement: { tagName: 'BUTTON' }, getElementById: id => id === 'page-heading' ? { focus: () => focuses++ } : null } });
+  return { ...r, props, setLoad(value) { load = value; r.render(); }, get load() { return load; }, restore() { restored(); r.render(); }, setPending(value) { pending = value; r.render(); }, get bar() { return bar; }, get focuses() { return focuses; }, get reloads() { return reloads; } };
 }
 
 test('current report generation freezes one saved result through normal reload and source edits', () => {
@@ -106,4 +106,54 @@ test('structured current conclusion is not replaced by the generic limited-cover
   await r.button('复制摘要').props.onClick(); r.render(); assert.ok(copied.includes(model.reportConclusion(report))); assert.ok(!copied.includes(label));
   r.button('显示金额').props.onClick();
   assert.equal(selectedPrivacy,false);assert.ok(!r.text(r.nodes()).includes('¥'));
+});
+
+
+test('planning view selector switches all three views, focuses the title, and limits occurrence controls to goals', () => {
+  const r = page();
+  assert.equal(r.button('目标').props['aria-pressed'], true);
+  assert.equal(r.button('测算详情').props.disabled, false);
+  for (const [label, view] of [['测算详情', 'detail'], ['试算', 'trial'], ['目标', 'goals']]) {
+    r.button(label).props.onClick(); r.render();
+    assert.equal(r.button(label).props['aria-pressed'], true);
+    assert.equal(r.nodes().find(row => row.type === 'Goals').props.view, view);
+    assert.equal(r.nodes().some(row => row.type === 'Occurrences'), view === 'goals');
+  }
+  assert.equal(r.focuses, 3);
+});
+
+test('pending receipt, goal editing, occurrence editing, setup, report, and global navigation gates block view switches', () => {
+  for (const gate of ['pending', 'goal', 'occurrence', 'setup', 'report', 'global']) {
+    const r = page();
+    if (gate === 'pending') r.setPending({ label: '虚构保存' });
+    else if (gate === 'goal') r.nodes().find(row => row.type === 'Goals').props.onEditingChange(true);
+    else if (gate === 'occurrence') r.nodes().find(row => row.type === 'Occurrences').props.onEditingChange(true);
+    else if (gate === 'setup') r.nodes().find(row => row.type === 'Goals').props.openSetup(0, {});
+    else if (gate === 'report') r.nodes().find(row => row.type === 'Goals').props.onReport({});
+    else r.props.navigationBlocked = true;
+    r.render();
+    r.button('试算').props.onClick(); r.render();
+    assert.equal(r.button('目标').props['aria-pressed'], true, gate);
+    assert.equal(r.focuses, 0, gate);
+    assert.match(r.text(r.nodes()), gate === 'pending' ? /虚构保存.*保存结果未确认.*切换规划视图/ : /编辑或待确认操作尚未完成.*切换规划视图/, gate);
+  }
+  const r = page(); let blocked = 0;
+  r.props.navigationBlocked = true; r.props.onNavigationBlocked = () => blocked++; r.render();
+  r.button('试算').props.onClick(); r.render(); assert.equal(blocked, 1);
+});
+
+test('an unset goal disables details but keeps trial reachable; restore, generation, and module changes reset the view', () => {
+  const r = page(), blank = structuredClone(r.load.sources); blank.profile.value.saved = null;
+  r.setLoad({ status: 'ready', sources: blank });
+  assert.equal(r.button('测算详情').props.disabled, true);
+  assert.equal(r.button('测算详情').props.title, '完成目标设置后可查看');
+  r.button('测算详情').props.onClick(); r.render(); assert.equal(r.button('目标').props['aria-pressed'], true);
+  r.button('试算').props.onClick(); r.render(); assert.equal(r.button('试算').props['aria-pressed'], true);
+  for (const reset of ['restore', 'generation', 'module']) {
+    const x = page(); x.button('试算').props.onClick(); x.render();
+    if (reset === 'restore') x.restore();
+    else { const sources = structuredClone(x.load.sources); if (reset === 'generation') sources.generation = 'fictional-other'; else sources.modules.planning = false; x.setLoad({ status: 'ready', sources }); }
+    assert.equal(x.button('目标').props['aria-pressed'], true, reset);
+  }
+  r.unmount(); assert.equal(page().button('目标').props['aria-pressed'], true);
 });

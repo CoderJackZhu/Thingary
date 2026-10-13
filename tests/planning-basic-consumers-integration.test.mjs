@@ -123,21 +123,21 @@ test('home uses the saved prediction headline and stays unchanged after a tempor
   assert.equal(profile(unknown).retire.basic.contribution.monthly_cents, null);
 });
 
-test('goals pass a real saved calculation to wishes, and no calculation while contribution is unknown', () => {
+test('trial passes a real saved calculation to wishes, and no calculation while contribution is unknown', () => {
   let received, sharedCaps, builds = 0;
   const leaf = () => null;
   const goals = component('PlanningBasicGoals.tsx', { './planning-followup-ui/AssumptionsSummary': { AssumptionsSummary: leaf }, './planning-goal/Overview': { GoalOverview: ({ purchasePlans }) => React.createElement(React.Fragment, null, purchasePlans) }, './planning-goal/Editor': { GoalEditor: leaf }, './planning-goal/goal.css': {}, react: React, './asset': asset,
     './PlanningOccurrenceDialog': { PlanningOccurrenceDialog: leaf }, './PlanningRefinements': { PlanningRefinements: leaf }, './planning-first-run': firstRun,
     './PlanningRequirement': requirement, './PlanningRunway': { RunwayCard: leaf }, './PlanningCareerCard': { PlanningCareerCard: leaf }, './PlanningDebtDialog': { PlanningDebtDialog: () => null }, './PlanningFunds': { FundsCard: leaf, FundsDialog: leaf }, './PlanningBasicDetail': { PlanningBasicDetail: leaf },
     './PlanningEvents': { PlanningEvents: leaf }, './PlanningWishes': { PlanningWishes: ({ calc }) => { received = calc; return null; } },
-    './planning-fund-scope': fundScope, './plan-retire-calc': calc, './review': review, './planning-basic-forms': {}, './planning-basic-defaults': defaults, './PlanningContributionHelper': { MarketNote: () => null }, './planning-basic-view': view,
+    './topbar-model': { refocusHeading: noOp }, './planning-fund-scope': fundScope, './plan-retire-calc': calc, './review': review, './planning-basic-forms': {}, './planning-basic-defaults': defaults, './PlanningContributionHelper': { MarketNote: () => null }, './planning-basic-view': view,
     './planning-basic-data': { useCapabilities: s => ({ status: 'ready', caps: (builds++, sharedCaps = buildBasicCapabilities(s)) }),
       useSectionSaver: () => ({ busy: false, stuck: false, notice: '', save: noOp }) }, './planning.css': {},
   });
   for (const contribution of [null, '0', '1000000', '-100000']) {
     const s = sources(contribution), before = structuredClone(s);
     builds = 0;
-    renderToStaticMarkup(React.createElement(goals.PlanningBasicGoals, { sources: s, mode: 'basic', today: s.today,
+    renderToStaticMarkup(React.createElement(goals.PlanningBasicGoals, { sources: s, mode: 'basic', view: 'trial', today: s.today,
       reload: noOp, onPending: noOp, onEditingChange: noOp, onGoto: noOp, openSetup: noOp, onFocusDone: noOp }));
     if (contribution === null) assert.equal(received, null);
     else {

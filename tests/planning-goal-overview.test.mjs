@@ -59,14 +59,14 @@ test('the monthly contribution edit entry sits in the result area and only asks 
   assert.deepEqual(edits.at(-1), ['saving', from]);
 });
 
-test('the report entry lives beside the chart entry and honors the disabled gate', () => {
+test('the report remains in goals while detail moves to the view selector', () => {
   const { sources, saved, caps } = render();
   const calls = [];
   const blocked = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, onReport: from => calls.push(from), reportDisabled: true, realSummary: true });
   const blockedButton = blocked.button('查看当前报告');
   assert.ok(blockedButton);
   assert.equal(blockedButton.props.disabled, true);
-  assert.ok(blocked.button('查看计算详情与图表'), 'the report entry is并列 with the chart entry');
+  assert.equal(blocked.button('查看计算详情与图表'), undefined);
   const open = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, onReport: from => calls.push(from), reportDisabled: false, realSummary: true });
   const from = { tag: 'report' };
   open.button('查看当前报告').props.onClick({ currentTarget: from });

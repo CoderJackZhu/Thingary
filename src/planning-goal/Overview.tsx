@@ -15,9 +15,9 @@ const conditionOrder: GoalAction[] = ['mode', 'time', 'saving', 'spend', 'start'
 
 const assumptionTagText: Record<AssumptionReadV1['confirmation'], string> = { unconfirmed: '未核对', confirmed: '已核对', needs_review: '待核对' };
 
-export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onDetail, onReport, reportDisabled = false, assumptionRead }: {
+export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onReport, reportDisabled = false, assumptionRead }: {
   saved: Saved; caps: BasicCapabilities; today: string; cards: Refinement[]; accountFunds?: ReturnType<typeof fundScopeSummary>; purchasePlans?: ReactNode;
-  onAnnotation?: (annotation: PlanningAnnotation, from: HTMLElement) => void; onEdit: (action: GoalAction, from: HTMLElement) => void; onRefine: (card: Refinement, from: HTMLElement) => void; onDetail: () => void;
+  onAnnotation?: (annotation: PlanningAnnotation, from: HTMLElement) => void; onEdit: (action: GoalAction, from: HTMLElement) => void; onRefine: (card: Refinement, from: HTMLElement) => void;
   onReport?: (from: HTMLElement) => void; reportDisabled?: boolean; assumptionRead?: FollowupRead<AssumptionReadV1> | null;
 }) {
   const p = saved.profile, r = p.retire, b = r.basic!;
@@ -88,7 +88,6 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
     </section>
     <aside><article className="ui-card ui-content" aria-label="退休目标"><p className="eyebrow">{!req && !pred ? '还不能算出结果' : uncertain ? '当前暂算结果' : '按当前条件估算'}</p><h3>{headline}</h3><p className="muted small">{r.mode === 'fire' && time.target_month ? `你希望 ${retirementText}；规划到 ${horizonText}` : `规划到 ${horizonText}`}</p><p className="goal-verdict">{pred ? !pred.outcome.success ? '按当前投入，尚未满足完整目标' : uncertain ? '已计入条件可覆盖，仍有事项待核对' : pred.terminal === 'no_margin' ? '所选期间可覆盖，终点没有余量' : '按当前投入，所选期间可覆盖' : '先看目标需求，补充投入后判断能否达成'}</p><div className="goal-amounts"><div><span>固定目标需要每月存</span><strong>{req && 'monthly_cents' in req.set ? forecastMoney(req.set.monthly_cents) : '待计算'}</strong><small className="muted">按固定目标月份反求，不是未来预测</small></div><div><span>你估计每月能存</span><strong>{b.contribution.monthly_cents === null ? '还没填' : money(b.contribution.monthly_cents)}</strong><button type="button" className="ui-link" onClick={e => onEdit('saving', e.currentTarget)}>{b.contribution.monthly_cents === null ? '填写每月能存的钱' : '修改每月能存的钱'}</button></div></div>
       <div className="goal-result-actions">
-        {req && <button type="button" id="plan-detail-entry" className="primary goal-detail-entry" onClick={onDetail}>查看计算详情与图表</button>}
         {onReport && <button type="button" className="ui-btn goal-report-entry" disabled={reportDisabled} onClick={e => onReport(e.currentTarget)}>查看当前报告</button>}
       </div>
       {req ? <p>{uncertain && req.set.status === 'no_positive_contribution' ? '只看已计入的条件，暂不要求额外存钱。请先核对下方遗漏。' : requirementLine(req.set, forecastMoney).text}</p> : caps.requirement.status === 'blocked' && <p>{[...new Set(caps.requirement.missing.map(missingText))].join(' ')}</p>}
