@@ -4,7 +4,7 @@
 
 ## 1. 确认版本和范围
 
-每次公开发布前由维护者确认版本、支持平台、签名及公证范围；公开状态以对应 GitHub Release 与附件为准，不由本机安装推定。当前路线为 Apple Silicon Mac、本地临时签名、未公证，测试版本标记为 Pre-release。制作 DMG 本身不要求注册 Apple Developer。最低系统配置为 macOS 14，但目前只在 macOS 27 实测，不承诺其他系统或 Intel 可用。
+每次公开发布前由维护者确认版本、支持平台、签名及公证范围；公开状态以对应 GitHub Release 与附件为准，不由本机安装推定。当前路线为 Apple Silicon 与 Intel 通用安装包、本地临时签名、未公证，测试版本标记为 Pre-release。制作 DMG 本身不要求注册 Apple Developer。最低系统配置为 macOS 14，但目前只在 macOS 27 实测，不承诺其他系统或 Intel 可用（Intel 部分只经构建与架构检查）。
 
 版本号保持一致：`package.json`、`package-lock.json`（开头两处）、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`、`src-tauri/tauri.conf.json`。发布配置不重复版本号，身份必须是 `local.thingary.main`，预览和验收身份不得作为正式安装包。
 
@@ -37,14 +37,14 @@ npm run release
 sh scripts/make-dmg.sh
 ```
 
-产物位于 `src-tauri/target/release/bundle/dmg/`：
+`npm run release` 以 `universal-apple-darwin` 目标构建，需先 `rustup target add x86_64-apple-darwin`。产物位于 `src-tauri/target/universal-apple-darwin/release/bundle/dmg/`：
 
-- `Thingary-<版本>-arm64.dmg`
+- `Thingary-<版本>-universal.dmg`（0.0.4 及更早为 `arm64.dmg`）
 - `SHA256SUMS.txt`，仅记录 DMG 的 SHA-256，不是来源认证签名
 
 DMG 内含「物谱.app」、Applications 快捷方式、`开始使用.html`、使用说明图片和 `许可/`（AGPL 全文、第三方声明与全文、来源和散列清单、直接内置内容告知、名称图标使用边界、对应源码入口）。离线 HTML 由唯一权威 `docs/USER_GUIDE.md` 生成，不另行维护手抄说明；图片全部为虚构演示。
 
-`make-dmg.sh` 检查身份、arm64 架构、版本和严格签名；`distribution-notices.mjs` 从锁定依赖和 `license-overrides/manifest.json` 收集全文，缺失或散列错误即失败。后者离线运行，不在打包时下载许可证。先安装锁定 npm 依赖并准备 Cargo 缓存；补充文本来源与升级办法见 [说明](../scripts/license-overrides/README.md)。Rust 清单保守包含构建依赖，不能把清单数量当成二进制中实际链接数量。
+`make-dmg.sh` 检查身份、x86_64 与 arm64 双架构、版本和严格签名；`distribution-notices.mjs` 从锁定依赖和 `license-overrides/manifest.json` 收集全文，缺失或散列错误即失败。后者离线运行，不在打包时下载许可证。先安装锁定 npm 依赖并准备 Cargo 缓存；补充文本来源与升级办法见 [说明](../scripts/license-overrides/README.md)。Rust 清单保守包含构建依赖，不能把清单数量当成二进制中实际链接数量。
 
 本地临时签名能检验包的完整性，**不等于 Developer ID，也不保证 Gatekeeper 放行**。安装步骤采用 [Apple 官方的单应用允许打开方法](https://support.apple.com/zh-cn/102445)，无需全局关闭安全保护或让普通用户运行终端命令。若以后采用 Developer ID 与公证，单独依据 [Tauri 官方说明](https://v2.tauri.app/distribute/sign/macos/) 配置证书与凭据、重建包并重新验收；不沿用本路线的未公证声明。凭据不入库。
 

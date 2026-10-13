@@ -158,7 +158,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_cont
 
 界面变更核对 1440×1000 与 900×720、三主题明暗、正常／未知／空白／错误，以及保存、取消、焦点和键盘。涉及原生文件、持久化或通知时，另用隔离身份验证相应边界。全矩阵在阶段集成或发布前集中执行，小改动按影响范围复验，未验范围明确登记。
 
-当前只在 Apple Silicon、macOS 27 实测。macOS 14 最低打包目标不是兼容验收；Intel、VoiceOver、显示缩放、完整键盘、全部输入法组合与通知送达仍不能宣称完成。豆包拼音仅在支出名称验证组合、Space 提交和 Escape 顺序，不推广为所有表单通过。
+当前只在 Apple Silicon、macOS 27 实测；正式包为 Apple Silicon 与 Intel 通用包，Intel 部分只经构建与架构检查。macOS 14 最低打包目标不是兼容验收；Intel、VoiceOver、显示缩放、完整键盘、全部输入法组合与通知送达仍不能宣称完成。豆包拼音仅在支出名称验证组合、Space 提交和 Escape 顺序，不推广为所有表单通过。
 
 ### README 与使用指南截图
 

@@ -8,9 +8,9 @@
 
 物谱是一个本地使用的 macOS 应用。物品档案与账户盘点是两个并列起点，只用其中一个也完整成立：给重要物品留档，或每月核对资产与负债。规划在盘点之上回答未来问题，用已保存的目标、可核对的测算详情和临时试算分别呈现。无需注册账号，也无需编程或联网使用。
 
-**[0.0.4 公开测试版 · Apple Silicon Mac](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.4)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.4) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
+**[0.0.5 公开测试版 · Mac（Apple Silicon 与 Intel）](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.5)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.5) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
 
-> 0.0.4 公开测试版提供 Apple Silicon DMG，下载以 Release 的公开附件为准。从 0.0.3 更新会升级资料格式，请先做完整备份，见[更新步骤](docs/USER_GUIDE.md#update)。
+> 0.0.5 公开测试版提供 Apple Silicon 与 Intel 通用 DMG，下载以 Release 的公开附件为准。从 0.0.3 或更早版本更新会升级资料格式，请先做完整备份，见[更新步骤](docs/USER_GUIDE.md#update)。
 
 ![物谱总览：净资产趋势、退休目标与物品档案](docs/images/overview-light.jpg)
 
@@ -27,18 +27,18 @@
 3. 点「开始记录我的资料」，选择[先整理物品](docs/USER_GUIDE.md#first-record)或[先盘点账户](docs/USER_GUIDE.md#first-snapshot)；另一条路径随时再开始。
 4. 录入自己的资料后，[做一次完整备份并异地保存](docs/USER_GUIDE.md#backup)。
 
-本次 **0.0.4 公开测试版** 使用本地临时签名，未经过 Developer ID 签名和 Apple 公证。首次打开可能需要在「系统设置 › 隐私与安全性」选择「仍要打开」；请按[安装与故障排查指南](docs/USER_GUIDE.md#download)操作，无需编译或使用终端。下载页中的 Source code 是源码，不是安装包。
+本次 **0.0.5 公开测试版** 使用本地临时签名，未经过 Developer ID 签名和 Apple 公证。首次打开可能需要在「系统设置 › 隐私与安全性」选择「仍要打开」；请按[安装与故障排查指南](docs/USER_GUIDE.md#download)操作，无需编译或使用终端。下载页中的 Source code 是源码，不是安装包。
 
 | 支持范围 | 当前情况 |
 |---|---|
-| 芯片 | 提供 Apple Silicon（M 系列）安装包；暂无 Intel 包 |
+| 芯片 | 通用安装包，同时支持 Apple Silicon 与 Intel；Intel Mac 尚未实机验证 |
 | 系统 | 已在 macOS 27 验证；打包最低目标为 macOS 14，其他版本尚未实测 |
 | 语言与更新 | 界面为中文；目前需手动下载安装更新 |
 | 其他平台 | 暂无 Windows、Linux、手机客户端或跨设备同步 |
 
 本系列处于公开测试阶段。更新前请先完整备份，再按[更新步骤](docs/USER_GUIDE.md#update)手动替换应用；较低的公开版本号不表示资料格式可以降级。
 
-本版内容见[0.0.4 发布说明](docs/releases/v0.0.4.md)。当前版本已将财富分为账户与盘点、收支记录和财务复盘；规划以「目标」为单入口，页内分为「目标／测算详情／试算」，退出社保、医保和养老金政策测算，未来养老金可作为手填收入条件维护。
+本版内容见[0.0.5 发布说明](docs/releases/v0.0.5.md)。当前版本已将财富分为账户与盘点、收支记录和财务复盘；规划以「目标」为单入口，页内分为「目标／测算详情／试算」，退出社保、医保和养老金政策测算，未来养老金可作为手填收入条件维护。
 
 ## 资料与隐私
 
