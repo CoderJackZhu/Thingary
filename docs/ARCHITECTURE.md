@@ -72,7 +72,7 @@ RuntimeModules 增加独立 `incomes` 和 `movements`，前者不依赖目标，
 
 ### 原生通知的平台边界
 
-macOS 使用系统通知调度；Windows 使用 WinRT `ScheduledToastNotification`。通知标识取自实际 Tauri 配置的 identifier，与 NSIS 开始菜单快捷方式的 AUMID 一致，不硬编码正式身份。业务提醒 ID 经哈希成为 16 字符 `Scheduled.Id`，Group 为 `thingary`；对账只增删本应用管理的计划，撤销不再需要的排队项。每条日历日期分别转换为当地上午 9 点，对应日期的时区与夏令时规则参与换算；过去日期跳过，不用当前 UTC 偏移推算所有未来日期。
+macOS 使用系统通知调度；Windows 使用 WinRT `ScheduledToastNotification`，同一调用线程保留 WinRT 初始化至线程退出，再平衡清理；不会在多次通知调用之间卸载仍被缓存工厂使用的运行环境。通知标识取自实际 Tauri 配置的 identifier，与 NSIS 开始菜单快捷方式的 AUMID 一致，不硬编码正式身份。业务提醒 ID 经哈希成为 15 字符 `Scheduled.Id`，Group 为 `thingary`；对账只增删本应用管理的计划，撤销不再需要的排队项。每条日历日期分别转换为当地上午 9 点，对应日期的时区与夏令时规则参与换算；过去日期跳过，不用当前 UTC 偏移推算所有未来日期。
 
 Windows 读取系统通知状态；关闭时返回可读提示，不删除已保存的业务提醒日期。提醒队列由系统管理，应用退出后不依赖后台进程；排队成功与实际可见送达分别验收。未安装的开发进程没有匹配 AUMID，通知验证必须使用已安装的隔离身份。开发与人工验收边界见[Windows 验收](WINDOWS_ACCEPTANCE.md)。
 

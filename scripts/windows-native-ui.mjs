@@ -83,6 +83,17 @@ async function key(key, code, modifiers = 0, vk = 0) {
   for (const type of ["keyDown", "keyUp"])
     await cdp("Input.dispatchKeyEvent", { type, key, code, modifiers, windowsVirtualKeyCode: vk, nativeVirtualKeyCode: vk });
 }
+// Record the actual native keydown without synthesizing or replaying an app action.
+async function observedKey(keyName, code, modifiers, vk) {
+  await js(`(()=>{const state={event:null};state.listener=e=>{state.event=e;};window.__thingaryAcceptanceKey=state;window.addEventListener('keydown',state.listener,{once:true,capture:true});})()`);
+  try {
+    await key(keyName, code, modifiers, vk);
+  } finally {
+    const event = await js(`(()=>{const state=window.__thingaryAcceptanceKey;window.removeEventListener('keydown',state.listener,true);delete window.__thingaryAcceptanceKey;const e=state.event;return e?{key:e.key,code:e.code,ctrlKey:e.ctrlKey,shiftKey:e.shiftKey,metaKey:e.metaKey,defaultPrevented:e.defaultPrevented,target:{tag:e.target?.tagName,id:e.target?.id}}:null;})()`);
+    (report.shortcutEvents ??= []).push({ requested: { key: keyName, code, modifiers, vk }, observed: event });
+    appendFileSync(resolve(output, mode + '-observations.jsonl'), JSON.stringify({ label: 'actual native shortcut keydown', requested: { key: keyName, code, modifiers, vk }, observed: event }) + '\n');
+  }
+}
 async function wait(expression, label) {
   await until(() => js(`(${appRendered}) && (${expression})`), label);
   return observe(label);
@@ -238,10 +249,14 @@ try {
     await button("返回继续处理", 'dialog[open][aria-labelledby="taxonomy-close-heading"]');
     await wait(`!document.querySelector('dialog[open][aria-labelledby="taxonomy-close-heading"]') && !!document.querySelector('dialog[open].wealth-account-editor')?.getClientRects().length`, 'returned to account editor');
     await button("关闭账户表单", 'dialog[open].wealth-account-editor');
-    await wait("!document.querySelector('dialog[open]')", "cancel unsaved account");
+    // closeAccount closes the native dialog before React clears editing in the
+    // child effect and updates the parent's shortcut guard. Wait for unmount
+    // and the same two-frame return used by refocusHeading before a new chord.
+    await wait("!document.querySelector('dialog[open]') && !document.querySelector('.wealth-account-editor') && document.querySelector('#page-heading')?.textContent==='账户与盘点'", "cancel unsaved account");
+    await js("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
     report.verified.push("WM_CLOSE preserves unsaved feature account input until explicit cancel");
     await blur();
-    await key(",", "Comma", 2, 188);
+    await observedKey(",", "Comma", 2, 188);
     await wait("[...document.querySelectorAll('h1')].some(e=>e.getClientRects().length>0&&!e.closest('[hidden]')&&e.textContent==='设置')", "Ctrl+, settings");
     const priorMode=await js("document.documentElement.dataset.mode");
     await key("d", "KeyD", 10, 68);

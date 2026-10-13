@@ -159,11 +159,13 @@ fn scheduled_key(id: &str) -> Result<String> {
     if !id.starts_with("thingary-") || id.len() <= "thingary-".len() || id.contains('\0') {
         return Err(Error::new("REMINDER", "提醒标识无效"));
     }
-    // ScheduledToastNotification.Id is limited to 16 characters. The full
-    // business ID also remains in the XML; never truncate the business ID.
+    // Stay below the documented 16-character Id ceiling: Windows 11 build
+    // 26200 rejected a 16-character ASCII Id with WPN_E_DEV_ID_SIZE. Keep all
+    // 56 digest bits and retain the complete business ID in the toast XML.
+    // https://learn.microsoft.com/uwp/api/windows.ui.notifications.scheduledtoastnotification.id
     let hash = Sha256::digest(id.as_bytes());
     Ok(format!(
-        "tg{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        "t{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
         hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6]
     ))
 }
@@ -842,8 +844,9 @@ mod tests {
         assert_eq!(reminder_keys(&plans).unwrap().len(), 3);
         for p in plans {
             let key = scheduled_key(&p.id).unwrap();
-            assert_eq!(key.len(), 16);
-            assert!(key.starts_with("tg"));
+            assert_eq!(key.len(), 15);
+            assert!(key.starts_with('t'));
+            assert!(key.bytes().all(|byte| byte.is_ascii_alphanumeric()));
             assert_eq!(scheduled_key(&p.id).unwrap(), key);
         }
         assert!(reminder_keys(&[plan(ids[0]), plan(ids[0])]).is_err());
@@ -852,7 +855,7 @@ mod tests {
             scheduled_key(&format!("thingary-{}", "x".repeat(129)))
                 .unwrap()
                 .len(),
-            16
+            15
         );
         assert!(scheduled_key("thingary-").is_err());
     }
@@ -1019,6 +1022,33 @@ mod tests {
             .unwrap();
         let mut fixture = plan("thingary-windows-acceptance-test");
         fixture.date = day.to_string();
+        // Observe the actual setter boundary without scheduling probe toasts.
+        // Do not require 16 to fail: a later Windows build may fix its ceiling.
+        {
+            use windows::{
+                core::HSTRING, Data::Xml::Dom::XmlDocument, Foundation::DateTime,
+                UI::Notifications::ScheduledToastNotification,
+            };
+            let document = XmlDocument::new().unwrap();
+            document
+                .LoadXml(&HSTRING::from(toast_xml(&fixture).unwrap()))
+                .unwrap();
+            for length in [15, 16] {
+                let notification = ScheduledToastNotification::CreateScheduledToastNotification(
+                    &document,
+                    DateTime {
+                        UniversalTime: local_nine(&fixture.date, &chrono::Local).unwrap(),
+                    },
+                )
+                .unwrap();
+                let result = notification.SetId(&HSTRING::from("t".repeat(length)));
+                eprintln!("[thingary notification acceptance] SetId ASCII boundary length={length} HRESULT={:08X}",
+                    result.as_ref().err().map_or(0, |error| error.code().0 as u32));
+                if length == 15 {
+                    result.unwrap();
+                }
+            }
+        }
         let json = serde_json::to_string(&vec![fixture]).unwrap();
         let count = |result: String| {
             let value: serde_json::Value = serde_json::from_str(&result).unwrap();
