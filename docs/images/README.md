@@ -59,3 +59,5 @@
 planning-monthly.jpg、planning-fi-goals.jpg、planning-trajectory.jpg、planning-fi-trajectory.jpg、planning-stress.jpg、planning-market.jpg、planning-matrix.jpg、planning-sequence.jpg 和 update-check-006.jpg 来自 0.0.6 同源码的独立身份 local.thingary.release006.accept20261013，只含复制的虚构样例。原生窗口 1440×933，裁去 32 像素系统标题栏，内容为 1440×901；没有修改应用界面的文字、金额或曲线。
 
 固定月份退休的轨迹、压力／市场／矩阵／收益顺序图使用每月投入 8,000、生活费 7,500、可用资金 100,000、2046-10 目标和 2076-10 终点，3%／2% 实际收益、2% 通胀、5% 波动为未核对的虚构条件，结果存在缺口。财务自由图仅将目标类型改为资金够用后退休，同条件预计 2052-05，仍保留待核对事项；两种模式不混作一个预测。市场图展示 1,000 条模型路径及其说明，不表示现实概率。更新图为点击后真实显示 0.0.6 已是最新版本。
+
+本轮再更新 overview-light.jpg、assets-light.jpg、wealth-light.jpg、planning-goals.jpg、first-item-form.jpg 与 planning-trial.jpg，均为上述 0.0.6 独立身份、1440×901 原生内容图。首次新增转到隔离空个人库，表单取消没有创建记录；随后回到虚构样例。walkthrough.gif 改为这版六张原生截图的21秒顺序预览（每帧3.5秒，宽960），不声称是连续操作录像；历史0.0.5维护条目保留为当时记录。
