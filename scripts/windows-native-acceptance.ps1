@@ -125,16 +125,18 @@ function Get-OwnWebViewProcesses {
   $parents=@{}
   if ($null -ne $AppProcess) {
     $AppProcess.Refresh()
-    if (-not $AppProcess.HasExited) { $parents[$AppProcess.Id]=$true }
+    if (-not $AppProcess.HasExited) { $parents[$AppProcess.Id]=$AppProcess.StartTime.ToUniversalTime().Ticks }
   }
   $acceptanceProfilePattern=[Regex]::Escape($DataRoot)
   $profileArgument='(?i)(?:^|\s)--user-data-dir=(?:"'+$acceptanceProfilePattern+'[\\/][^"]*"|'+$acceptanceProfilePattern+'[\\/]\S*(?=\s|$))'
   do {
     $previousCount=$parents.Count
     foreach ($process in $processes) {
-      $key="$($process.ProcessId):$($process.CreationDate.ToUniversalTime().Ticks)"
-      if ($OwnedWebViewProcesses.ContainsKey($key) -or $parents.ContainsKey([int]$process.ParentProcessId) -or $process.CommandLine -match $profileArgument) {
-        $parents[[int]$process.ProcessId]=$true
+      $created=$process.CreationDate.ToUniversalTime().Ticks
+      $key="$($process.ProcessId):$created"
+      $ownChild=$parents.ContainsKey([int]$process.ParentProcessId) -and $created -ge $parents[[int]$process.ParentProcessId]
+      if ($OwnedWebViewProcesses.ContainsKey($key) -or $ownChild -or $process.CommandLine -match $profileArgument) {
+        $parents[[int]$process.ProcessId]=$created
         $OwnedWebViewProcesses[$key]=$true
       }
     }
