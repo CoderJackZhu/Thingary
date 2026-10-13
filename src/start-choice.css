@@ -1,0 +1,5 @@
+.start-choice{margin:16px 24px}
+.start-choice h2{font-size:16px;color:var(--text)}
+.start-choice>p{line-height:1.6}
+.start-choice-extras{display:flex;align-items:center;gap:8px;margin:14px 0;line-height:1.6}
+.start-choice-extras input{flex:0 0 16px;width:16px;height:16px;padding:0;accent-color:var(--accent)}

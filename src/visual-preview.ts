@@ -71,6 +71,7 @@ const deletedMaintenances: { id: string; assetId: string; deleted_at: string; sn
 const deletedWarranties: { id: string; assetId: string; deleted_at: string; snapshot: Warranty }[] = [];
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
+let previewStarted = params.get('started') !== 'first-use';
 
 if (params.get('state') === 'empty') records = [];
 // U18 分类夹具：30 个虚构分类（长中文/英文名、无物品分类），并把两件样例
@@ -449,9 +450,11 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     const result: Review = { generation, today: localDay(), year: args.year as number | null, physical: { status: 'ready', value: physicalPreview('held') }, wealth, planning, expenses, recurring: read('recurring_overview'), virtual_assets: read('virtual_overview'), recent };
     return result;
   }
-  const wealth = wealthPreview(command,args); if (wealth) return wealth.value;
+  if (command === 'modules_set' && params.has('module-write-error')) throw { message: '虚构模块写入失败，用于起步卡重试验证。' };
+  if (command === 'modules_get' && params.has('module-read-error')) throw { message: '虚构模块读取失败，用于保留当前偏好验证。' };
+  const wealth = wealthPreview(command,args); if (wealth) { if (command.endsWith('_save')) previewStarted = true; return wealth.value; }
   const search = searchPreview(command,args); if (search) return search.value;
-  if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:true};
+  if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:previewStarted};
   if (command === 'switch_demo' || command === 'reset_demo') throw {message:'浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。'};
   if (command.startsWith('auto_backup_') || command === 'inspect_auto_backup') return autoBackupPreview(command, args);
   if (command === 'taxonomy_snapshot') { if (params.has('taxonomy-error')) throw { message: '虚构分类读取失败，用于验证错误与重试。' }; return taxonomySnapshot(); }
@@ -579,7 +582,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     if(old && input.base.purchase_date && old.lifecycle?.events.some(e=>e.date<input.base.purchase_date!)) throw {code:'DATE_CONFLICT',message:'购入日期晚于已有状态记录，请先更正相关动作日期。'};
     const id=old?.asset.id ?? crypto.randomUUID();
     const record:AssetRecord={preferences:input.options?.preferences??old?.preferences,sale:old?.sale??null,maintenances:old?.maintenances??[],warranties:old?.warranties??[],warranty_summary:old?.warranty_summary??{...emptyWarrantySummary},costs:old?.costs??{...emptyCosts,total_investment_cents:input.base.price_cents},lifecycle:old?.lifecycle??{state:'active',events:[]},classification:input.classification??old?.classification??{category_id:null,channel_id:null},asset:{id,name:input.base.name,price_cents:input.base.price_cents,purchase_date:input.base.purchase_date,revision:(old?.asset.revision??0)+1},details:input.details,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted:false,deleted_at:null,photos:(input.photos?.ids??[]).map(photoId=>({id:photoId,name:previewPhotoName(photoId)})),cover_id:input.photos?.cover_id??null};
-    taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); return previewRecord(record);
+    taxonomyRevision++; records=records.filter(r=>r.asset.id!==id).concat(record); requests.set(input.base.request_id,record); previewStarted = true; return previewRecord(record);
   }
   // Exercise production delete/restore UI, without touching the native library.
   if (command === 'change_trash') {

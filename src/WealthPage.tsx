@@ -42,7 +42,7 @@ export function usePendingReceipt(reload: () => void) {
 }
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
-export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, onGotoPlanning, onCompare, reviewFocus, onReviewFocusDone }: SourceProps & { onGotoPlanning?: (snapshotId: string) => void; onCompare?: (pair?: { fromSnapshotId: string; toSnapshotId: string }) => void; reviewFocus?: WealthReviewFocus | null; onReviewFocusDone?: () => void; today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
+export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, onGotoPlanning, onCompare, reviewFocus, onReviewFocusDone, onFinancialImport }: SourceProps & { onGotoPlanning?: (snapshotId: string) => void; onCompare?: (pair?: { fromSnapshotId: string; toSnapshotId: string }) => void; reviewFocus?: WealthReviewFocus | null; onReviewFocusDone?: () => void; onFinancialImport?: () => void; today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
   const [accountView, setAccountView] = useState<AccountView>('active');
   // 概览链接带来的比较区间：只在点「变化」分段时清空，进入时消费一次（U20 §2.1）。
@@ -112,7 +112,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const newAccount = { label: '新增账户', plus: true, disabled: !!pending || !accounts, run: () => setEditing('new') };
   usePageBar('wealth', checkIn ? {} : open.length
     ? { primary: { label: '开始盘点', disabled: !!pending || !open.length, run: () => setCheckIn(today) }, secondary: newAccount, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } }
-    : { primary: newAccount, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } });
+    : { primary: accounts?.length === 0 && onFinancialImport ? { label: '导入已有的资产表格', disabled: !!pending || busy, run: onFinancialImport } : newAccount, secondary: accounts?.length === 0 && onFinancialImport ? newAccount : undefined, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } });
   // The menu hand-off opens the same editor the page's own buttons use.
   const consumedAutoNew = useRef(false);
   useEffect(() => {
@@ -149,7 +149,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     }}>{onGotoPlanning ? '查看这一期的复盘 →' : '查看这一期的变化 →'}</button><CloseButton type="button" aria-label="关闭盘点后复盘提示" onClick={() => setSavedSnapshot(null)}/></div>}
     {error ? <article className="ui-card ui-content" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
-      : tab === 'overview' ? <Overview accountScope={accountScope} hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/>
+      : tab === 'overview' ? <Overview onFinancialImport={onFinancialImport} importDisabled={!!pending || busy} accountScope={accountScope} hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/>
       : tab === 'accounts' ? (keyword && !shownAccounts.length
         ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
         : <Accounts accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
@@ -159,8 +159,8 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   </section>;
 }
 
-function Overview({ accountScope, summary, accounts, hasAccounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges }: { accountScope: ReactNode; summary: Summary; accounts: Account[]; hasAccounts: boolean; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
-  if (!hasAccounts) return <div className="empty"><span className="empty-mark">¥</span><h2>先建立要定期核对的账户</h2><p>银行卡、证券、基金、公积金，以及信用卡和贷款。只需名称和类型，不需要卡号或登录信息。</p><button className="primary" onClick={onNewAccount}>新增账户</button></div>;
+function Overview({ accountScope, summary, accounts, hasAccounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges, onFinancialImport, importDisabled }: { onFinancialImport?: () => void; importDisabled?: boolean; accountScope: ReactNode; summary: Summary; accounts: Account[]; hasAccounts: boolean; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
+  if (!hasAccounts) return <div className="empty"><span className="empty-mark">¥</span><h2>先建立要定期核对的账户</h2><p>银行卡、证券、基金、公积金，以及信用卡和贷款。只需名称和类型，不需要卡号或登录信息。</p><div className="review-start-actions" style={{ justifyContent: 'center' }}>{onFinancialImport && <button type="button" className="primary" disabled={importDisabled} onClick={onFinancialImport}>导入已有的资产表格</button>}<button type="button" className={onFinancialImport ? 'ui-btn' : 'primary'} disabled={importDisabled} onClick={onNewAccount}>手动添加第一个账户</button></div></div>;
   if (!latest) return <div className="empty"><span className="empty-mark">¥</span><h2>开始第一次盘点</h2><p>对照各平台，把今天的余额和欠款逐行填进来。之后每次盘点都会成为趋势上的一个点。</p><button className="primary" onClick={() => onCheckIn(today)}>开始盘点</button></div>;
   const shown = lastComplete ?? latest;
   const comparedPoint = lastComplete?.compared_to ? summary.points.find(p => p.date === lastComplete.compared_to) : undefined;

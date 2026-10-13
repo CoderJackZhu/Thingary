@@ -14,6 +14,7 @@ import type { PlanningTab } from './PlanningPage';
 import { useRestored } from './undo';
 import { ReviewView } from './ReviewView';
 import { overviewView } from './review';
+import type { OverviewViewChoice } from './start-choice';
 import { usePageBar } from './topbar';
 import type { BarMenu } from './topbar';
 import type { ReviewPage } from './review';
@@ -81,9 +82,10 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   </section>;
 }
 
-export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, onGotoPlanning, onOpenSettings, onFinance, restoreScroll, modules = allModules, newMenu, onOpenNewMenu }: { modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void }) {
-  const [view, setView] = useState(() => { try { return overviewView(localStorage.getItem('thingary.overview-view.v1')); } catch { return 'combined'; } });
+export function OverviewPage({ generation, today, version, year, onYear, onNavigate, onOpenSource, onBrowse, onGotoPlanning, onOpenSettings, onFinance, restoreScroll, modules = allModules, newMenu, onOpenNewMenu, viewChoice, onViewChoiceDone }: { modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onBrowse: () => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore; newMenu?: BarMenu; onOpenNewMenu?: () => void; viewChoice?: OverviewViewChoice | null; onViewChoiceDone?: () => void }) {
+  const [view, setView] = useState(() => { if (viewChoice?.generation === generation) return viewChoice.view; try { return overviewView(localStorage.getItem('thingary.overview-view.v1')); } catch { return 'combined'; } });
   const changeView = (value: 'combined' | 'physical') => { setView(value); try { localStorage.setItem('thingary.overview-view.v1', value); } catch { /* The current choice remains usable without persistence. */ } };
+  useEffect(() => { if (viewChoice?.generation === generation) { changeView(viewChoice.view); onViewChoiceDone?.(); } }, [viewChoice, generation, onViewChoiceDone]);
   const shared = { generation, today, version, onOpenSource, onBrowse, restoreScroll };
   // 综合回顾's main action is the 新增记录 menu; the physical view falls back
   // to the App default (新增物品) by publishing null.

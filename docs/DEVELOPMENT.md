@@ -55,6 +55,7 @@ npm run dev -- --port 1429
 |---|---|
 | `?state=empty`、`?state=error`、`?state=save-error` | 空白、读取失败、保存失败 |
 | `?wealth=empty|first|error` | 账户与盘点状态 |
+| `?section=overview&started=first-use&state=empty` | 未开始的虚构资料与起步卡；可加 `module-write-error`／`module-read-error` 注入模块写入／读取失败，模块仅在预览内存中更新 |
 | `?section=planning&plan-basic=saved|unknown|negative|blank&capabilities=real` | 已保存通用规划、投入未知／负值、基础未填；真实纯计算 |
 | `?section=planning&plan-basic=saved&capabilities=real&plan-core=confirmed` | 当前目标、大额计划、计算详情与真实报告入口 |
 | `?plan=error`、`?plan-profile=empty` | 规划读取失败／没有已保存规划 |
