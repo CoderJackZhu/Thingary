@@ -313,8 +313,9 @@ pub async fn pick_photo(
     worker: tauri::State<'_, Worker>,
 ) -> Result<Option<crate::photos::Photo>> {
     let (send, receive) = std::sync::mpsc::channel();
+    let dialog_app = app.clone();
     app.run_on_main_thread(move || {
-        let _ = send.send(crate::native_images::pick());
+        let _ = send.send(crate::native_images::pick(&dialog_app));
     })
     .map_err(|_| Error::new("PICKER", "无法打开图片选择器"))?;
     let w = worker.inner().clone();
@@ -400,8 +401,9 @@ pub async fn add_material(
         return Ok(entry);
     }
     let (send, receive) = std::sync::mpsc::channel();
+    let dialog_app = app.clone();
     app.run_on_main_thread(move || {
-        let _ = send.send(crate::native_images::pick());
+        let _ = send.send(crate::native_images::pick(&dialog_app));
     })
     .map_err(|_| Error::new("PICKER", "无法打开图片选择器"))?;
     let w = worker.inner().clone();
@@ -751,11 +753,12 @@ pub async fn holding(
 
 fn on_main<T: Send + 'static>(
     app: &tauri::AppHandle,
-    f: impl FnOnce() -> T + Send + 'static,
+    f: impl FnOnce(&tauri::AppHandle) -> T + Send + 'static,
 ) -> Result<std::sync::mpsc::Receiver<T>> {
     let (send, receive) = std::sync::mpsc::channel();
+    let dialog_app = app.clone();
     app.run_on_main_thread(move || {
-        let _ = send.send(f());
+        let _ = send.send(f(&dialog_app));
     })
     .map_err(|_| Error::new("PICKER", "无法打开文件面板"))?;
     Ok(receive)
@@ -776,8 +779,8 @@ pub async fn create_backup(
     worker.require_personal()?;
     // The panel appends ".thingary" itself; a suggested extension would be doubled.
     let suggested = format!("物谱备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
-    let receive = on_main(&app, move || {
-        crate::native_images::pick_save("保存完整备份", "保存备份", &suggested, "thingary")
+    let receive = on_main(&app, move |app| {
+        crate::native_images::pick_save(app, "保存完整备份", "保存备份", &suggested, "thingary")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -973,8 +976,8 @@ pub struct WorkbookDone {
 /// Saves the header-only import template; cancelling writes nothing.
 #[tauri::command]
 pub async fn save_spreadsheet_template(app: tauri::AppHandle) -> Result<Option<String>> {
-    let receive = on_main(&app, || {
-        crate::native_images::pick_save("下载导入模板", "保存", "物谱导入模板", "xlsx")
+    let receive = on_main(&app, |app| {
+        crate::native_images::pick_save(app, "下载导入模板", "保存", "物谱导入模板", "xlsx")
     })?;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
@@ -1070,8 +1073,8 @@ pub async fn export_workbook(
 ) -> Result<Option<WorkbookDone>> {
     worker.require_personal()?;
     let suggested = format!("物谱表格-{}", chrono::Local::now().format("%Y%m%d"));
-    let receive = on_main(&app, move || {
-        crate::native_images::pick_save("导出全部表格", "导出", &suggested, "xlsx")
+    let receive = on_main(&app, move |app| {
+        crate::native_images::pick_save(app, "导出全部表格", "导出", &suggested, "xlsx")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -2070,8 +2073,8 @@ pub async fn financial_import_template(
     } else {
         "物谱导入模板"
     };
-    let receive = on_main(&app, move || {
-        crate::native_images::pick_save("保存 Excel 导入模板", "保存", name, "xlsx")
+    let receive = on_main(&app, move |app| {
+        crate::native_images::pick_save(app, "保存 Excel 导入模板", "保存", name, "xlsx")
     })?;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive

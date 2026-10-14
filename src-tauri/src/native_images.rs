@@ -55,12 +55,13 @@ fn take_path(value: *mut c_char) -> Option<std::path::PathBuf> {
 
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn pick() -> Option<std::path::PathBuf> {
+pub(crate) fn pick(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     take_path(unsafe { thingary_pick_image() })
 }
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
 pub(crate) fn pick_save(
+    _app: &tauri::AppHandle,
     title: &str,
     prompt: &str,
     suggested: &str,
@@ -72,17 +73,17 @@ pub(crate) fn pick_save(
 }
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn pick_backup_open() -> Option<std::path::PathBuf> {
+pub(crate) fn pick_backup_open(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     take_path(unsafe { thingary_pick_backup_open() })
 }
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn pick_spreadsheet_open() -> Option<std::path::PathBuf> {
+pub(crate) fn pick_spreadsheet_open(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     take_path(unsafe { thingary_pick_spreadsheet_open() })
 }
 /// On macOS, the caller must dispatch to the AppKit main thread.
 #[cfg(target_os = "macos")]
-pub(crate) fn pick_folder() -> Option<std::path::PathBuf> {
+pub(crate) fn pick_folder(_app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     take_path(unsafe { thingary_pick_folder() })
 }
 
@@ -216,8 +217,15 @@ fn jpeg_is_complete(bytes: &[u8]) -> bool {
 
 // rfd has no button-label setter; Windows supplies its localized confirmation label.
 #[cfg(windows)]
-pub(crate) fn pick() -> Option<std::path::PathBuf> {
-    rfd::FileDialog::new()
+fn dialog(app: &tauri::AppHandle) -> Option<rfd::FileDialog> {
+    use tauri::Manager;
+    let window = app.get_webview_window("main")?;
+    Some(rfd::FileDialog::new().set_parent(&window))
+}
+
+#[cfg(windows)]
+pub(crate) fn pick(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    dialog(app)?
         .set_title("选择物品图片")
         .add_filter("图片", &["jpg", "jpeg", "png", "webp"])
         .pick_file()
@@ -225,13 +233,14 @@ pub(crate) fn pick() -> Option<std::path::PathBuf> {
 
 #[cfg(windows)]
 pub(crate) fn pick_save(
+    app: &tauri::AppHandle,
     title: &str,
     prompt: &str,
     suggested: &str,
     extension: &str,
 ) -> Option<std::path::PathBuf> {
     let _ = prompt; // rfd uses the Windows confirmation label.
-    rfd::FileDialog::new()
+    dialog(app)?
         .set_title(title)
         .set_file_name(suggested)
         .add_filter(extension, &[extension])
@@ -239,26 +248,24 @@ pub(crate) fn pick_save(
 }
 
 #[cfg(windows)]
-pub(crate) fn pick_backup_open() -> Option<std::path::PathBuf> {
-    rfd::FileDialog::new()
+pub(crate) fn pick_backup_open(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    dialog(app)?
         .set_title("选择要恢复的备份")
         .add_filter("物谱备份", &["thingary"])
         .pick_file()
 }
 
 #[cfg(windows)]
-pub(crate) fn pick_spreadsheet_open() -> Option<std::path::PathBuf> {
-    rfd::FileDialog::new()
+pub(crate) fn pick_spreadsheet_open(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    dialog(app)?
         .set_title("选择要导入的 Excel 工作簿")
         .add_filter("Excel 工作簿", &["xlsx"])
         .pick_file()
 }
 
 #[cfg(windows)]
-pub(crate) fn pick_folder() -> Option<std::path::PathBuf> {
-    rfd::FileDialog::new()
-        .set_title("选择额外备份位置")
-        .pick_folder()
+pub(crate) fn pick_folder(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    dialog(app)?.set_title("选择额外备份位置").pick_folder()
 }
 
 #[cfg(test)]
