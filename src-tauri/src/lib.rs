@@ -54,6 +54,7 @@ mod support;
 pub mod tag_investment;
 pub mod taxonomy;
 pub mod timeline;
+mod toast_activation;
 pub mod trash;
 pub mod update_check;
 pub mod virtual_assets;
@@ -104,6 +105,10 @@ pub fn run() {
             #[cfg(target_os = "windows")]
             reminders::set_app_identifier(&app.config().identifier)?;
             reminders::enable();
+            // A toast click cannot open an unpackaged app until the COM
+            // activator is registered; this only restores basic wake-up.
+            #[cfg(target_os = "windows")]
+            toast_activation::enable(app.handle());
             app.manage(worker::Worker::start(
                 app.path().app_local_data_dir()?.join("library"),
             )?);
