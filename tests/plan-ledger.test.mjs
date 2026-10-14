@@ -109,7 +109,7 @@ test('lean and fat scale the requirement; nominal factor is compound inflation',
 });
 
 test('coverage splits a month into income, pension, portfolio withdrawal and the unfunded part', () => {
-  const P = plan({ assets_cents: 100_000, target_months: 360, pension_at: () => ({ monthly_cents: 300, lump_cents: 0, unlock_age_months: 756 }), incomes: [{ id: 's', label: '年金', monthly_cents: 200, start_age: 60, end_age: null, indexed: true }] });
+  const P = plan({ mode: 'traditional', assets_cents: 1_000_000, target_months: 360, pension_at: () => ({ monthly_cents: 300, lump_cents: 0, unlock_age_months: 756 }), incomes: [{ id: 's', label: '年金', monthly_cents: 200, start_age: 60, end_age: null, indexed: true }] });
   const proj = project(P, 2026);
   const early = coverageAt(P, proj, 400), late = coverageAt(P, proj, 800);
   assert.deepEqual([early.spend, early.pension, early.items[0].active], [1000, 0, false]);
@@ -117,7 +117,7 @@ test('coverage splits a month into income, pension, portfolio withdrawal and the
 });
 
 test('saving phases: each month follows its phase; negative phases retain their funding deficit; scaling spares the negatives', () => {
-  const P = plan({ target_months: 2000, mode: 'traditional', assets_cents: 3000, saving_cents: 0, saving_phases: [{ from_month: 360, cents: -1000 }, { from_month: 364, cents: 500 }, { from_month: 372, cents: 800 }] });
+  const P = plan({ target_months: 1080, mode: 'traditional', assets_cents: 3000, saving_cents: 0, saving_phases: [{ from_month: 360, cents: -1000 }, { from_month: 364, cents: 500 }, { from_month: 372, cents: 800 }] });
   const s = savingsOf(P);
   assert.deepEqual([s[0], s[3], s[4], s[11], s[12], s[100]], [-1000, -1000, 500, 500, 800, 800]);
   const proj = project(P, 2026);
@@ -130,7 +130,7 @@ test('coast checkpoint: the balance needed at a month grows into the goal requir
   const P = plan({ r_before_hundredths: 300, target_months: 600 });
   assert.ok(Math.abs(coastAt(P, 480) * (1.03) ** ((600 - 480) / 12) - required(P, 600)) < 1e-4);
   assert.equal(coastAt(P, 360), coastAmount(P));
-  assert.equal(coastAt(P, 700), required(P, 600));
+  assert.equal(coastAt(P, 700), required(P, 700));
 });
 
 test('flows: spending flows raise the need only while active; nominal flows lose value with inflation; saving flows add to or take from the monthly saving', () => {
@@ -146,7 +146,7 @@ test('flows: spending flows raise the need only while active; nominal flows lose
 });
 
 test('one-off spends appear in their year row and rows still conserve money', () => {
-  const P = plan({ target_months: 2000, mode: 'traditional', assets_cents: 50_000, spends: [{ offset_months: 0, cents: 1000 }, { offset_months: 14, cents: 7000 }] });
+  const P = plan({ target_months: 1080, mode: 'traditional', assets_cents: 50_000, spends: [{ offset_months: 0, cents: 1000 }, { offset_months: 14, cents: 7000 }] });
   const proj = project(P, 2026);
   assert.deepEqual([proj.rows[0].oneoff, proj.rows[1].oneoff], [1000, 7000]);
   for (const r of proj.rows) assert.ok(Math.abs(r.end - (r.start + r.contribution + r.unlock + r.income - r.spend + r.unfunded - r.oneoff)) < 1e-6, `row ${r.k}`);
@@ -154,11 +154,11 @@ test('one-off spends appear in their year row and rows still conserve money', ()
 });
 
 test('a one-off that cannot be paid leaves a debt that later deficits do not wipe out', () => {
-  const P = plan({ target_months: 2000, mode: 'traditional', assets_cents: 3000, saving_cents: 0, saving_phases: [{ from_month: 360, cents: 500 }, { from_month: 366, cents: -400 }], spends: [{ offset_months: 4, cents: 10_000 }] });
+  const P = plan({ target_months: 1080, mode: 'traditional', assets_cents: 3000, saving_cents: 0, saving_phases: [{ from_month: 360, cents: 500 }, { from_month: 366, cents: -400 }], spends: [{ offset_months: 4, cents: 10_000 }] });
   const a = project(P, 2026).assets;
   assert.deepEqual([a[3], a[4], a[5], a[6], a[7]], [4500, -5000, -4500, -4000, -4400]);
   // 同样的亏空发生在手里有钱的时候：花到 0 为止。
-  const poor = plan({ target_months: 2000, mode: 'traditional', assets_cents: 600, saving_cents: 0, saving_phases: [{ from_month: 360, cents: -400 }] });
+  const poor = plan({ target_months: 1080, mode: 'traditional', assets_cents: 600, saving_cents: 0, saving_phases: [{ from_month: 360, cents: -400 }] });
   assert.deepEqual(Array.from(project(poor, 2026).assets.slice(0, 4)), [600, 200, -200, -600]);
 });
 
@@ -166,8 +166,8 @@ test('a one-off that cannot be paid leaves a debt that later deficits do not wip
 test('first partial month prorates only expense buckets active in that month', () => {
   for (const fraction of [0, 0.5, 1]) {
     const P = plan({ now_months: 840, target_months: 840, first_month_fraction: fraction,
-      items: [living({ monthly_cents: 400000 }), living({ monthly_cents: 600000, end_age: 70 }),
-        living({ monthly_cents: 900000, end_age: 69 }), living({ monthly_cents: 800000, start_age: 71 })] });
+      items: [living({ monthly_cents: 400000 }), living({ id: 'ended-now', monthly_cents: 600000, end_age: 70 }),
+        living({ id: 'ended-before', monthly_cents: 900000, end_age: 69 }), living({ id: 'starts-later', monthly_cents: 800000, start_age: 71 })] });
     assert.equal(table(P).spend[0], 400000 * fraction);
     assert.equal(table(P).essential[0], 400000 * fraction);
     assert.equal(table(P).spend[12], 1200000);

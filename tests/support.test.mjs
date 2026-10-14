@@ -14,16 +14,41 @@ const modules = {
 test('help opens without a network check and keeps the local information when version is unavailable', async () => {
   const calls = [], destinations = [];
   const r = runtime('SupportPanel', { blocked: false, onData: target => destinations.push(target) }, undefined, undefined, {
-    components: ['SupportLink', 'LogoMark'], modules: { ...modules, '@tauri-apps/api/core': { invoke: async name => { calls.push(name); throw Error('Unavailable'); } } },
+    components: ['SupportLink', 'LogoMark', 'UpdateCheck'], modules: { ...modules, '@tauri-apps/api/core': { invoke: async name => { calls.push(name); throw Error('Unavailable'); } } },
   });
   await r.settle();
   assert.deepEqual(calls, ['app_version']);
-  assert.match(r.text(r.nodes()[0]), /版本暂不可用.*开发与维护：CoderJackZhu/);
+  assert.match(r.text(r.nodes()[0]), /开发与维护：CoderJackZhu.*版本暂不可用/);
   assert.match(r.text(r.nodes()[0]), /资料与备份没有应用级加密/);
-  r.button('版本与更新').props.onClick();
+  assert.ok(r.button('检查更新'));
+  assert.equal(r.button('关于物谱'), undefined);
   r.button('备份与恢复').props.onClick();
-  assert.deepEqual(destinations, ['update', 'backup']);
+  assert.deepEqual(destinations, ['backup']);
   assert.deepEqual(calls, ['app_version']);
+});
+
+test('about and help expose the real update action directly without navigation or an automatic network request', async () => {
+  const calls = [];
+  const r = runtime('SupportPanel', { blocked: false, onData() { throw Error('Unexpected navigation'); } }, undefined, undefined, {
+    components: ['LogoMark', 'SupportLink', 'UpdateCheck'],
+    modules: { ...modules, './update-check': { updateSummary: () => '已是最新版本（0.0.6）。', sourceLabel: {} }, '@tauri-apps/api/core': { invoke: async name => { calls.push(name); return name === 'app_version' ? '0.0.6' : { update_available: false }; } } },
+  });
+  await r.settle();
+  assert.deepEqual(calls, ['app_version']);
+  assert.equal(r.button('关于物谱'), undefined);
+  assert.equal(r.button('版本与更新'), undefined);
+  assert.ok(r.button('检查更新'));
+  r.button('检查更新').props.onClick();
+  await r.settle();
+  assert.deepEqual(calls, ['app_version', 'update_check']);
+  assert.match(r.text(r.nodes()[0]), /已是最新版本/);
+});
+
+test('about and update menu commands share one destination while backup stays in data management', () => {
+  assert.equal(support.supportMenuDestination('open-about'), 'support');
+  assert.equal(support.supportMenuDestination('open-updates'), 'support');
+  assert.equal(support.supportMenuDestination('open-backup'), 'backup');
+  assert.equal(support.supportMenuDestination('open-help'), 'support');
 });
 
 test('external help passes only an ID and leaves a copyable address after opening fails', async () => {

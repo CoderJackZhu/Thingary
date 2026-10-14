@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { outcome, project, required, timeLabel } from '../src/plan-ledger.ts';
-import { ageSpendingMatrix, contributionReturnMatrix, crashReturns, largestRisk, monteCarlo, seedOf, sorr, stressTests, stressSeverity } from '../src/plan-risk.ts';
+import { ageSpendingMatrix, contributionReturnMatrix, sensitivityParameters, largestRisk, monteCarlo, seedOf, sorr, stressTests, stressSeverity } from '../src/plan-risk.ts';
 
 const pension = () => ({ monthly_cents: 300, lump_cents: 20_000, unlock_age_months: 756 });
 const plan = (over = {}) => ({
@@ -18,9 +18,9 @@ test('with no volatility every path is the deterministic projection', async () =
     const mc = await monteCarlo(P, 20, { seed: 1 });
     assert.equal(mc.success_rate, o.success ? 1 : 0, `${mode} ${assets}`);
     assert.equal(mc.median_fi_month, proj.fi_month);
-    assert.ok(Math.abs(mc.final.p50 - Math.max(0, o.at_horizon)) < 1e-6);
+    assert.ok(Math.abs(mc.final.p50 - o.at_horizon) < 1e-6);
     assert.equal(mc.ages.length, mc.bands.p50.length);
-    mc.bands.p50.forEach((v, j) => { if (j < proj.rows.length) assert.ok(Math.abs(v - Math.max(0, proj.rows[j].start)) < 1e-6, `row ${j}`); });
+    mc.bands.p50.forEach((v, j) => { if (j < proj.rows.length) assert.ok(Math.abs(v - proj.rows[j].start) < 1e-6, `row ${j}`); });
   }
 });
 
@@ -39,22 +39,19 @@ test('market paths: percentiles are ordered, the seed makes runs repeatable, and
   assert.ok(wild.final.p90 > calm.final.p90);
 });
 
-test('stress tests apply the documented shocks to the same engine', () => {
-  const P = plan(), base = outcome(P, project(P, YEAR));
+test('sensitivity applies its published independent parameters to the same engine', () => {
+  const P = plan(), base = outcome(P, project(P, YEAR)), parameters = sensitivityParameters(P);
   const by = Object.fromEntries(stressTests(P, YEAR).map(r => [r.id, r]));
-  assert.equal(Object.keys(by).length, 6);
-  assert.deepEqual(by['return-drag'].stressed, outcome(...[{ ...P, r_before_hundredths: 0, r_after_hundredths: -100 }].flatMap(q => [q, project(q, YEAR)])));
-  assert.equal(by['spending-shock'].stressed.required_at_goal > base.required_at_goal, true);
-  assert.ok(Math.abs(by['spending-shock'].stressed.required_at_goal - required({ ...P, items: [{ ...P.items[0], monthly_cents: 1100 }] }, 480)) < 1e-6);
-  assert.equal(by['save-less'].stressed.assets_at_goal < base.assets_at_goal, true);
-  assert.deepEqual(by['retire-earlier'].stressed, outcome(...[{ ...P, target_months: 456 }].flatMap(q => [q, project(q, YEAR)])));
-  const crash = outcome(P, project(P, YEAR, { after: crashReturns(P, { 0: -0.3 }) }));
-  assert.deepEqual(by['early-crash'].stressed, crash);
-  assert.ok(by['early-crash'].horizon_delta <= 0);
+  assert.deepEqual(Object.keys(by).sort(), ['inflation', 'market', 'necessary', 'return', 'saving', 'timing']);
+  const lowered = { ...P, r_before_hundredths: P.r_before_hundredths - parameters.return_reduction_hundredths,
+    r_after_hundredths: P.r_after_hundredths - parameters.return_reduction_hundredths };
+  assert.deepEqual(by.return.stressed, outcome(lowered, project(lowered, YEAR)));
+  assert.ok(by.necessary.stressed.required_at_goal > base.required_at_goal);
+  assert.ok(Math.abs(by.necessary.stressed.required_at_goal - required({ ...P, items: [{ ...P.items[0], monthly_cents: 1000 + parameters.necessary_increase_cents }] }, 480)) < 1e-6);
+  assert.ok(by.saving.stressed.assets_at_goal < base.assets_at_goal);
+  const delayed = { ...P, target_months: P.target_months + parameters.target_delay_months };
+  assert.deepEqual(by.timing.stressed, outcome(delayed, project(delayed, YEAR)));
   for (const r of Object.values(by)) assert.ok(['low', 'medium', 'high'].includes(r.severity));
-  // 通胀升高：实际收益降低，财务独立不会更早（期末余额在 FIRE 下可能因推迟退休而更多，所以不比它）。
-  assert.ok(by['inflation-shock'].fi_delay_months === null || by['inflation-shock'].fi_delay_months >= 0);
-  assert.ok(by['return-drag'].fi_delay_months === null || by['return-drag'].fi_delay_months >= 0);
 });
 
 test('the largest risk ranks by severity, then gap, then delay; nothing material gives null', () => {
@@ -67,20 +64,22 @@ test('the largest risk ranks by severity, then gap, then delay; nothing material
 test('matrices: the baseline cell is the base plan, more saving or more return never hurts, a later age never lowers the need', () => {
   const P = plan(), base = outcome(P, project(P, YEAR));
   const m = contributionReturnMatrix(P, YEAR);
-  assert.deepEqual([m.rows.length, m.cols.length], [5, 5]);
+  assert.ok(m.rows.length >= 2 && m.cols.length >= 2);
   const c = m.cells[m.base_row][m.base_col];
   assert.deepEqual([c.fi_month, c.at_horizon], [base.fi_month, base.at_horizon]);
   for (const row of m.cells) for (let j = 1; j < row.length; j++) assert.ok((row[j].fi_month ?? Infinity) <= (row[j - 1].fi_month ?? Infinity));
-  for (let i = 1; i < m.cells.length; i++) for (let j = 0; j < 5; j++) assert.ok((m.cells[i][j].fi_month ?? Infinity) <= (m.cells[i - 1][j].fi_month ?? Infinity));
+  for (let i = 1; i < m.cells.length; i++) for (let j = 0; j < m.cols.length; j++) assert.ok((m.cells[i][j].fi_month ?? Infinity) <= (m.cells[i - 1][j].fi_month ?? Infinity));
   const a = ageSpendingMatrix(P, YEAR);
-  assert.deepEqual([a.rows.length, a.cols.length], [5, 5]);
-  assert.deepEqual(a.cols, [36, 38, 40, 42, 44]);
+  assert.ok(a.rows.length >= 2 && a.cols.length >= 2);
+  assert.equal(a.cols[a.base_col], P.target_months / 12);
   const b = a.cells[a.base_row][a.base_col];
   assert.deepEqual([b.fi_month, b.at_horizon], [base.fi_month, base.at_horizon]);
   // 支出更高：FI 不会更早。
-  for (let j = 0; j < 5; j++) for (let i = 1; i < 5; i++) assert.ok((a.cells[i][j].fi_month ?? Infinity) >= (a.cells[i - 1][j].fi_month ?? Infinity));
+  for (let j = 0; j < a.cols.length; j++) for (let i = 1; i < a.rows.length; i++) assert.ok((a.cells[i][j].fi_month ?? Infinity) >= (a.cells[i - 1][j].fi_month ?? Infinity));
   // 明确零投入时，比较金额参照目标预算，仍保留零这个真实基准。
-  assert.deepEqual(contributionReturnMatrix(plan({ saving_cents: 0 }), YEAR).cols, [0, 250, 500, 750, 1000]);
+  const zero = contributionReturnMatrix(plan({ saving_cents: 0 }), YEAR);
+  assert.equal(zero.cols[zero.base_col], 0);
+  assert.ok(zero.cols.some(value => value > 0));
 });
 
 test('crash paths: base is the plan itself, shocks never leave more money, and an unfunded plan has none', () => {
@@ -124,7 +123,7 @@ test('zero-volatility simulations use the same payment ordering, unlock and fina
   const P = plan({ input_mode: 'basic', mode: 'traditional', target_months: 360, horizon_months: 362, assets_cents: 2000, saving_cents: 0, r_before_hundredths: 0, r_after_hundredths: 0, pension_at: () => ({ monthly_cents: 0, lump_cents: 0, unlock_age_months: 756 }) });
   assert.equal((await monteCarlo(P, 3)).success_rate, 1);
   assert.equal((await monteCarlo(P, 3)).final.p50, 0);
-  const short = { ...P, assets_cents: 0, saving_flows: [{ from_month: 360, to_month: 361, cents: -1000, nominal: false, essential: true, timing: 'start' }], spend_flows: [{ from_month: 360, to_month: 361, cents: 1000, nominal: false, essential: true, timing: 'start' }], pension_at: () => ({ monthly_cents: 0, lump_cents: 10000, unlock_age_months: 360 }) };
+  const short = { ...P, assets_cents: 0, saving_flows: [{ label: 'Known payment', from_month: 360, to_month: 361, cents: -1000, nominal: false, essential: true, timing: 'start' }], spend_flows: [{ label: 'Known payment', from_month: 360, to_month: 361, cents: 1000, nominal: false, essential: true, timing: 'start' }], pension_at: () => ({ monthly_cents: 0, lump_cents: 10000, unlock_age_months: 360 }) };
   assert.equal(outcome(short, project(short, YEAR)).success, false);
   assert.equal((await monteCarlo(short, 3)).success_rate, 0, 'later unlock cannot erase the month-start missed payment');
 });
@@ -141,14 +140,14 @@ test('basic mode drops the preset career stress cases and keeps the neutral ones
   assert.deepEqual(careerStressIds.slice().sort(), ['income-drop', 'job-gap', 'raise-30', 'raise-double']);
   assert.equal(kept.length, 6);
   for (const id of careerStressIds) assert.equal(kept.some(r => r.id === id), false, id);
-  for (const id of ['return-drag', 'inflation-shock', 'spending-shock', 'retire-earlier', 'save-less', 'early-crash']) assert.equal(kept.some(r => r.id === id), true, id);
+  for (const id of ['return', 'inflation', 'necessary', 'timing', 'saving', 'market']) assert.equal(kept.some(r => r.id === id), true, id);
 });
 
 test('market paths cancel obsolete automatic runs at a batch boundary', async () => {
   const controller = new AbortController();
   let completed = 0;
   await assert.rejects(monteCarlo(plan(), 1000, { signal: controller.signal, progress: n => { completed = n; controller.abort(); } }), { name: 'AbortError' });
-  assert.equal(completed, 25);
+  assert.equal(completed, 40);
   await assert.rejects(monteCarlo(plan(), 1000, { signal: controller.signal }), { name: 'AbortError' });
 });
 

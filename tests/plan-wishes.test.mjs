@@ -33,7 +33,7 @@ test('a one-time spend moves the FIRE date by the extra months of saving it need
 });
 
 test('the projection reports assets after each month, including one-time spends', () => {
-  const p = project({ ...ledger({ assets_cents: 5000, horizon_months: 364, mode: 'traditional', target_months: 2000 }), spends: [{ offset_months: 2, cents: 1500 }] }, 2026);
+  const p = project({ ...ledger({ assets_cents: 5000, horizon_months: 364, mode: 'traditional', target_months: 364 }), spends: [{ offset_months: 2, cents: 1500 }] }, 2026);
   assert.deepEqual(Array.from(p.assets), [5000, 6000, 5500, 6500, 7500]);
 });
 

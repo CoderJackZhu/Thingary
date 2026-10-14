@@ -2,6 +2,7 @@ import { desktopShortcutAction, isMac } from './undo-shortcut';
 // Development-only entry. Renders the production App with an in-memory IPC
 // adapter; index.html and the production build never import this module.
 import { mockIPC } from '@tauri-apps/api/mocks';
+import { engineRequest } from './planning-engine.ts';
 import { emit } from '@tauri-apps/api/event';
 import type { AssetRecord, Page, Query, SaveAsset } from './asset';
 import { localDay } from './asset';
@@ -331,6 +332,7 @@ function checkinStatus() {
   return { months: checkinMonths, last_check_in: last, next_date: checkinMonths ? next.toLocaleDateString('sv') : null };
 }
 async function handle(command: string, payload: unknown): Promise<unknown> {
+  if (command === 'planning_engine_evaluate') return engineRequest((payload as { request: Record<string, unknown> }).request);
   if (command === 'notification_status') return '';
   if (command === 'goal_progress_list') return previewProgress;
   if (command === 'goal_progress_record') {
@@ -347,9 +349,12 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     const mode = params.get('update') ?? 'available';
     if (mode === 'error') throw { message: '无法连接到 Gitee 和 GitHub，请检查网络后重试。也可以直接访问 https://gitee.com/CoderJackZhu/thingary/releases 查看新版本。' };
     const release = { version: mode === 'available' || mode === 'partial' ? '0.0.7' : mode === 'ahead' ? '0.0.5' : '0.0.6', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：盘点提醒与目标进度。\n- 更新前请先备份。' };
-    return { current: '0.0.6', latest: mode === 'none' ? null : { ...release, sources: mode === 'partial' ? ['gitee'] : ['gitee', 'github'] }, update_available: mode === 'available' || mode === 'partial', unreachable: mode === 'partial' ? ['github'] : [] };
+    const sources = mode === 'partial' ? ['gitee'] : ['gitee', 'github'];
+    const windows = params.get('update-platform') === 'windows';
+    const available = { ...release, sources, downloads: sources.map(source => ({source, name: windows ? `物谱_${release.version}_x64-setup.exe` : `Thingary-${release.version}-universal.dmg`, label: windows ? 'Windows 安装包（x64）' : 'Mac 通用安装包（Apple Silicon 与 Intel）', size: source === 'gitee' ? null : 30000000})) };
+    return { current: '0.0.6', latest: mode === 'none' ? null : available, update_available: mode === 'available' || mode === 'partial', unreachable: mode === 'partial' ? ['github'] : [], platform: windows ? 'Windows x64' : 'Mac · Apple Silicon', newer_unavailable: mode === 'unavailable' ? { ...release, version:'0.0.7', sources, downloads:[] } : null };
   }
-  if (command === 'update_open_release') throw { message: '预览中不能打开浏览器' };
+  if (command === 'update_open_release' || command === 'update_open_download') throw { message: '预览中不能打开浏览器' };
   if (command === 'checkin_reminder_status') return checkinStatus();
   const args = payload as Record<string,unknown>;
   if (command === 'checkin_reminder_set') { checkinMonths = Number(args.months); return checkinStatus(); }

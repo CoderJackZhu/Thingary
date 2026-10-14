@@ -4,7 +4,8 @@ import type { BasicCapabilities, PlanningSources, PlanningMissing, Capability, R
 import { normalizeFunds, costSources, mustStayInLedger } from './plan-core.ts';
 import { applyEvents, monthIndex, offsetOf } from './plan-events.ts';
 import type { LifeEvent } from './plan-events.ts';
-import { project, outcome, required, startPaymentsOf, oneOffsOf } from './plan-ledger.ts';
+import { project, outcome } from './plan-ledger.ts';
+import { enginePlan, engineRequest, planningModelVersion } from './planning-engine.ts';
 import type { Plan, Flow, SpendItem } from './plan-ledger.ts';
 import { basicConstraintMessages } from './plan-basic-validation.ts';
 import { eventCoverage } from './plan-coverage.ts';
@@ -18,29 +19,18 @@ const eventValue = (e: StoredLifeEvent): LifeEvent => ({ ...e, price_cents: Numb
 const validSigned = (s: string) => /^-?(0|[1-9]\d*)$/.test(s) && Number.isSafeInteger(Number(s)) && Math.abs(Number(s)) <= BASIC_SEARCH_LIMIT_CENTS && String(Number(s)) === s;
 
 /** Candidates are computation variables, never profile patches or prediction outputs. Dates/pension/fees are fixed. */
-export function solveBasicRequirement(compile: (cents: number, before: number, after: number) => Plan, before: number, after: number): RequirementResult {
+export function solveBasicRequirement(compile: (cents: number, before: number, after: number) => Plan, before: number, after: number, contributionFrom?: number): RequirementResult {
   const rates = { before_hundredths: before, after_hundredths: after };
-  if (before < -1000 || before > 2000 || after < -1000 || after > 2000) return { ...rates, status: 'out_of_bounds', message: '两段实际收益调整 200 bps 后超出合法范围，本条件未应用。' };
-  const zero = compile(0, before, after);
-  const run = (n: number) => {
-    const p = n === 0 ? zero : compile(n, before, after);
-    // Fixed target. A FIRE trigger must never move the candidate retirement month.
-    const fixed = { ...p, mode: 'traditional' as const };
-    const proj = project(fixed, Number(p.anchor_date?.slice(0, 4) ?? 2000));
-    const out = outcome(fixed, proj);
-    return out.success && out.funded_at_goal;
-  };
-  const due = startPaymentsOf(zero, zero.target_months <= zero.now_months ? 'retired' : 'accumulation')[0] ?? 0, upfront = oneOffsOf(zero)[0] ?? 0;
-  if (zero.assets_cents - upfront < due) return { ...rates, status: 'payment_constraint', message: '起点已有资金不足以支付首月付款；月底投入不能补月初支付，请补现有资金或调整付款时间。' };
-  if (run(0)) return { ...rates, status: 'no_positive_contribution', monthly_cents: '0' };
-  if (zero.target_months <= zero.now_months) return { ...rates, status: 'not_applicable', message: `没有目标前积累区间；当前退休所需 ${Math.ceil(required(zero, zero.now_months))} 分，需核对现有资金。` };
-  if (!run(BASIC_SEARCH_LIMIT_CENTS)) return { ...rates, status: 'search_not_found', search_limit_cents: String(BASIC_SEARCH_LIMIT_CENTS) };
-  // With fixed flows, retirement, contributions and positive monthly growth, every
-  // extra cent only increases pre-target assets. Each rounded boundary is verified.
-  let lo = 0, hi = BASIC_SEARCH_LIMIT_CENTS;
-  while (hi - lo > 1) { const mid = Math.floor((lo + hi) / 2); if (run(mid)) hi = mid; else lo = mid; }
-  if (!run(hi)) return { ...rates, status: 'search_not_found', search_limit_cents: String(BASIC_SEARCH_LIMIT_CENTS) };
-  return { ...rates, status: 'found', monthly_cents: String(hi) };
+  if (before < -1000 || before > 2000 || after < -1000 || after > 2000) return { ...rates, status: 'out_of_bounds', message: '调整后的实际收益超出允许范围，本条件未应用。' };
+  type Solved = { status: 'payment_constraint' } | { status: 'not_applicable'; required_now: number }
+    | { status: 'no_positive_contribution'; monthly_cents: '0' } | { status: 'found'; monthly_cents: string }
+    | { status: 'search_not_found'; search_limit_cents: string };
+  const solved = engineRequest<Solved>({ op: 'solve_contribution', plan: enginePlan(compile(0, before, after)), contribution_from_month: contributionFrom, search_limit_cents: BASIC_SEARCH_LIMIT_CENTS });
+  if (solved.status === 'payment_constraint') return { ...rates, status: solved.status, message: contributionFrom === undefined
+    ? '起点已有资金不足以支付首月付款；月底投入不能补月初支付，请补现有资金或调整付款时间。'
+    : '开始这段投入前的已知付款不足；之后的投入不能补救，请核对现有资金和付款时间。' };
+  if (solved.status === 'not_applicable') return { ...rates, status: solved.status, message: '没有目标前积累区间；当前退休所需 ' + Math.ceil(solved.required_now) + ' 分，需核对现有资金。' };
+  return { ...rates, ...solved };
 }
 
 export type BasicPlanCompiler = {
@@ -65,7 +55,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   const saved = state?.saved ?? null, p = saved?.profile, r = p?.retire, b = r?.basic;
   const snap = sources.modules.wealth && sources.snapshot.status === 'ready' ? sources.snapshot.value : null;
   const start: PlanningContext['start'] = b?.start.kind === 'simulation' ? { kind: 'simulation', id: b.start.id, date: b.start.date } : { kind: 'live', snapshot_id: snap?.id ?? null, revision: snap?.revision ?? null, date: snap?.date ?? null };
-  const context: PlanningContext = { generation: sources.generation, revision: saved?.revision ?? null, today: sources.today, model_version: 'simplified-1', modules: { ...sources.modules }, start, monetary_basis_date: r?.core?.monetary_basis_date ?? null, source: temporaryContribution === undefined ? 'saved' : 'temporary', write_version: sources.write_version };
+  const context: PlanningContext = { generation: sources.generation, revision: saved?.revision ?? null, today: sources.today, model_version: planningModelVersion, modules: { ...sources.modules }, start, monetary_basis_date: r?.core?.monetary_basis_date ?? null, source: temporaryContribution === undefined ? 'saved' : 'temporary', write_version: sources.write_version };
   const annotations: PlanningAnnotation[] = [], baseMissing: PlanningMissing[] = [];
   if (!sources.modules.planning) baseMissing.push(missing('SOURCE_ERROR', 'requirement', 'service', 'modules.planning', '规划模块已关闭。', 'read_error'));
   if (sources.profile.status === 'error') baseMissing.push(missing('SOURCE_ERROR', 'requirement', 'service', 'profile', sources.profile.value.message, 'read_error'));
@@ -128,6 +118,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   const refs=scope==='complete'?b.retirement_costs.filter(s=>sourcesPost.includes(s.source_id)&&s.treatment==='included').reduce((sum,s)=>sum+Number(s.reference_cents),0):0;
   if(r.spend_cents!==null && refs>Number(r.spend_cents)) reqMissing.push(missing('COST_SCOPE_INVALID','requirement','budget','basic.retirement_costs','已含参考额超过预算。'));
   if(anchor && f.time.horizon_month && monthIndex(f.time.horizon_month)<monthIndex(anchor)) reqMissing.push(missing('HORIZON_INVALID','requirement','basic','time.horizon_month','终点早于资金起点。','constraint'));
+  if(anchor && f.time.horizon_month && monthIndex(f.time.horizon_month)-monthIndex(anchor)+1>1440) reqMissing.push(missing('HORIZON_INVALID','requirement','basic','time.horizon_month','规划最多覆盖 1440 个月（包含起点月与终点月），请调整终点月份。','constraint'));
   const contribution=temporaryContribution===undefined?b.contribution.monthly_cents:temporaryContribution;
   const predictionMissing:PlanningMissing[]=reqMissing.map(x=>({...x,capability:'prediction' as const}));
   if(contribution===null || !validSigned(contribution)) predictionMissing.push(missing('CONTRIBUTION_UNKNOWN','prediction','basic','basic.contribution.monthly_cents','预计投入未知或非法；需求仍可计算。'));
@@ -158,7 +149,13 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   const compile=(amount:number,before:number,after:number,future=true):Plan=>{
     const listed=active.filter(e=>future || core.occurrences.some(o=>o.event_id===e.id&&o.status==='occurred'));
     const withEvents=applyEvents({...skeleton,saving_cents:amount,r_before_hundredths:before,r_after_hundredths:after},listed.map(e=>({e:eventValue(e),offset:offsetOf(e.date,anchor)})));
-    return {...withEvents,saving_flows:[...(withEvents.saving_flows??[]).filter(f=>!f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id,b.contribution_costs)),{label:'投入里已含费用',from_month:now,to_month:null,cents:preRefs,nominal:false,essential:false,prorate_first:true}],spend_flows:(withEvents.spend_flows??[]).filter(f=>!f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id,b.retirement_costs))};
+    // Expired factual schedules have no future cash flow. Keep malformed future
+    // intervals for kernel validation instead of silently hiding them.
+    const remaining = (flow: Flow) => {
+      if (!Number.isFinite(flow.from_month) || (flow.to_month !== null && !Number.isFinite(flow.to_month))) return true;
+      return flow.to_month === null || (flow.to_month > now && flow.to_month !== flow.from_month);
+    };
+    return {...withEvents,saving_flows:[...(withEvents.saving_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPre.includes(f.source_id) || allowed(f.source_id,b.contribution_costs))),{label:'投入里已含费用',from_month:now,to_month:null,cents:preRefs,nominal:false,essential:false,prorate_first:true}],spend_flows:(withEvents.spend_flows??[]).filter(f=>remaining(f) && (!f.source_id || !sourcesPost.includes(f.source_id) || allowed(f.source_id,b.retirement_costs)))};
   };
   return {context,annotations,funds,pension,predictionMissing,plan:{status:'ready',value:{compile,contribution,included_reference_cents:preRefs,target_month:f.time.target_month,horizon_month:f.time.horizon_month,before:r.real_return_before_hundredths,after:r.real_return_after_hundredths}}};
 }

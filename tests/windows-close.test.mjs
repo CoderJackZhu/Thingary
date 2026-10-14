@@ -47,7 +47,7 @@ test('Windows X and process exit consult the distinct guard while aggregate busy
   const exit = lib.slice(lib.indexOf('RunEvent::ExitRequested'), lib.indexOf('RunEvent::Reopen'));
   for (const body of [windowClose, exit]) {
     assert.match(body, /#\[cfg\(target_os = "windows"\)\]/);
-    assert.match(body, /LibraryGuard>\(\)\.1\.load/);
+    assert.match(body.replace(/\s+/g, ''), /LibraryGuard>\(\)\.1\.load/);
     assert.match(body, /windows_close_event/);
   }
   assert.match(windowClose, /api\.prevent_close\(\)/);

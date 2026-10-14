@@ -6,15 +6,17 @@
 
 ## 关于与帮助入口
 
-`SupportPanel` 在设置末尾汇总帮助，复用现有组件和外观令牌；许可全文与第三方依赖清单直接来自仓库当前文件并随前端打包。原生关于窗口明确取 Cargo 应用版本，维护者信息通过 credits 展示；macOS 不支持的 authors／website 字段不作为界面入口。
+`SupportPanel` 在设置「关于与帮助」直接展示版本、检查更新、帮助与许可，复用现有组件和外观令牌；许可全文与第三方依赖清单来自仓库当前文件并随前端打包。版本从 Cargo 的 `app_version` 读取。`UpdateCheck` 紧接版本与简介显示，打开页面只读取本地版本，用户点击检查按钮后才联网，结果在原处展示。没有单独的关于弹窗或第二层关于按钮。更新组件在此使用紧凑版本行，没有内嵌卡片或重复标题；完整联网说明位于隐私折叠项。维护者主页沿用固定目标白名单，Star 提示复用项目链接，不调用 GitHub 点赞接口。
 
-原生帮助菜单通过现有 `asset-action` 进入前端导航；备份／更新只切换到已有设置分组并滚动、聚焦相应标题，仍受编辑和回执保护。`SupportLink` 只传固定目标 ID 给 `support_open`；Rust `support` 模块白名单映射公开 HTTPS 地址，再调用系统浏览器，不读取 Worker／资料库，不接受任意 URL、路径或参数。更新检查继续由原按钮显式触发。
+原生「关于物谱」「检查更新…」「物谱帮助」通过 `asset-action` 进入同一设置页面；更新菜单额外滚动并聚焦版本行，不自动联网。备份入口切换到数据管理并聚焦标题，仍受编辑和回执保护；更新不进入数据管理。已有编辑弹窗不会被菜单替换。`SupportLink` 只传固定目标 ID 给 `support_open`；Rust 白名单映射公开 HTTPS 地址并调用系统浏览器，不读取资料库，不接受任意 URL、路径或参数。
 
 ## 分层与入口
 
 ```mermaid
 flowchart TD
     UI[React 页面、表单与交互状态] --> IPC[Tauri 业务命令]
+    UI --> WASM[Rust 规划核心的 WASM]
+    IPC --> CALC[无 Store 的 Rust 计算工作线程]
     IPC --> STORE[Rust 领域服务与数据库工作线程]
     STORE --> SQL[(SQLite)]
     STORE --> FILE[图片、素材与资料文件]
@@ -24,6 +26,7 @@ flowchart TD
 | 位置 | 职责 |
 |---|---|
 | `src/` | 页面、组件、命令类型、展示格式、样例预览；外观令牌在 `src/theme.css` |
+| `crates/planning-engine/` | 共用的规划纯计算、校验与独立数学用例 |
 | `src-tauri/src/` | 应用入口、业务命令、数据存储、领域计算、工作线程与恢复协议 |
 | `src-tauri/tests/` | 存储／领域集成测试、事务与故障注入、迁移、备份恢复 |
 | `src-tauri/examples/` | 隔离的虚构样例导入与验收夹具，不用于正式资料 |
@@ -33,9 +36,19 @@ flowchart TD
 
 前端不直接访问 SQLite。阻塞的数据库与文件工作通过后端工作线程处理；写操作串行化并在事务中维护业务事实与引用。界面刷新和缓存失效必须随业务提交结果更新。
 
+## 规划计算核心
+
+`crates/planning-engine` 是无存储、文件和网络访问的 Rust 计算库。`plan-ledger.ts` 与 `plan-risk.ts` 保留数据接口、展示适配和取消控制；逐月账本、资金需求、投入额反求、覆盖、市场模拟、敏感性与收益顺序由同一 Rust 实现承担。`plan-basic` 仍负责资料读取、来源核对、未知值门控与输入编译；年龄参考只影响基本模式的展示，不移动日历现金流。
+
+原生批量模拟通过 `planning_engine_evaluate` 在阻塞工作线程上执行，命令不持有 Store；同步计算及浏览器虚构预览使用同一 crate 的 WASM 构建。不存在另一套 TypeScript 账本回退。前端每批 40 条路径，取消后停止后续批次并丢弃迟到结果；已开始的一批不承诺强制中断。每次最多 20000 条路径，计划最多 1440 个逐月区间，传输上限 64 MiB。
+
+`build-planning-engine.mjs` 生成随源码保存的 WASM 模块及源码／二进制散列；基本规划能力的 context 与新生成的当前报告包含源码散列前缀；职业试算保留其产品协议版本，核心散列在 context 中。既有目标进度点未记录核心版本，历史点按原值保留，不能把全部历史结果称作已有模型版本。开发启动前自动构建核心；CI 在重建前用 `check:engine-source` 核对提交产物的源码与二进制散列，避免构建覆盖掩盖过期产物。`check:engine` 另在相同工具链下核对重建字节；原生／WASM 对照使用 `dispatch_stdio` 和虚构输入。CSP 仅增加 WASM 编译所需的 `wasm-unsafe-eval`。规格和来源范围见[核心说明](../crates/planning-engine/README.md)与[来源告知](../SOURCE_NOTICES.md)；独立重建的范围是计算库，不扩展为全部 UI 或历史版本。
+
 ## 网络
 
-webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界面不能直接联网。应用唯一的联网路径是后端命令 `update_check`：用户点击时依次通过系统 `curl`（macOS 为 `/usr/bin/curl`、Windows 为 `curl.exe`，限定 `--proto =https`，Gitee 8 秒、GitHub 6 秒超时，响应上限 2 MB）读取 Gitee（`gitee.com/api/v5/repos/CoderJackZhu/thingary/releases`，国内通常可达）与 GitHub（`api.github.com/repos/CoderJackZhu/Thingary/releases`）的发布列表，不引入 HTTP 客户端依赖。两处结果合并后取最高版本并记录哪些来源列出了它，只有一处可达时返回其结果并标出不可达来源，两处都失败才报错。响应只被当作版本号与展示文本：仅接受未标为草稿、标签为严格 `vX.Y.Z` 的条目（GitHub 的 `published_at` 与 Gitee 的 `created_at` 都只作展示），按数值比较版本，发布说明截断为纯文本；`update_open_release` 只接受严格版本号与已知来源名，自行拼出固定前缀的 Releases 页面再用平台打开方式（macOS `open`／Windows `explorer.exe`）打开，不采用响应里的任何链接。不下载、不安装、不写任何本机设置。
+webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界面不能直接联网。应用唯一的联网路径是后端命令 `update_check`：用户点击时依次通过系统 `curl`（macOS 为 `/usr/bin/curl`、Windows 为 `curl.exe`，限定 `--proto =https`，Gitee 8 秒、GitHub 6 秒超时，响应上限 2 MB）读取 Gitee（`gitee.com/api/v5/repos/CoderJackZhu/thingary/releases`，国内通常可达）与 GitHub（`api.github.com/repos/CoderJackZhu/Thingary/releases`）的发布列表，不引入 HTTP 客户端依赖。两处结果按版本合并，取含当前应用平台兼容附件的最高版本；发布列表每源最多读取最近 30 条，不把未找到兼容包说成全部历史不存在，只有一处可达时返回其结果并标出不可达来源，两处都失败才报错。响应只用于版本、安装附件匹配与纯文本展示：仅接受未标为草稿、标签为严格 `vX.Y.Z` 的条目（GitHub 的 `published_at` 与 Gitee 的 `created_at` 都只作展示），按数值比较版本，发布说明截断为纯文本；`update_open_release` 只接受严格版本号与已知来源名，自行拼出固定前缀的 Releases 页面再用平台打开方式（macOS `open`／Windows `explorer.exe`）打开，不采用响应里的任意链接。`update_open_download` 接受严格版本、已知来源与约定安装文件名，重新验证当前平台并从固定仓库前缀重建下载地址；附件解析要求响应地址与该地址完全一致，拒绝空文件、未完成附件、其他架构及不同版本。Gitee 附件数组和 links 结构均适配；同版本下载源只包含拥有兼容附件的来源，Mac 通用包优先，Windows NSIS 优先于 MSI。下载由浏览器执行，应用不保存文件、不启动安装、不写任何本机设置。更高版本没有兼容附件时独立返回 newer_unavailable，不冒充可用更新。
+
+帮助链接的 `support_open` 只接受固定目的地 ID，macOS 用 `/usr/bin/open`、Windows 用 `explorer.exe` 打开系统默认浏览器；维护者、项目、指南与反馈共用这条路径。失败保留可复制地址，不把任意 IPC 字符串作为地址执行。
 
 ## 身份与资料隔离
 

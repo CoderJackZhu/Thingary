@@ -82,7 +82,6 @@ import './taxonomy.css';
 import { allModules, type Modules, type RuntimeModules } from './modules';
 import { ModuleSettings } from './ModuleSettings';
 import { CheckinReminder } from './CheckinReminder';
-import { UpdateCheck } from './UpdateCheck';
 import { SupportPanel } from './SupportPanel';
 import { supportMenuDestination, type DataHelpTarget } from './support';
 import './style.css';
@@ -201,11 +200,21 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [financeImportRequested, setFinanceImportRequested] = useState(false);
   const capabilities = financeCapabilities(modules);
   const [settingsGroup, setSettingsGroup] = useState<SettingsCategory>('appearance');
+  const [supportUpdateRequested, setSupportUpdateRequested] = useState(false);
+  useEffect(() => {
+    if (section !== 'settings' || settingsGroup !== 'support' || !supportUpdateRequested) return;
+    const frame = requestAnimationFrame(() => {
+      const heading = document.getElementById('update-check-heading');
+      heading?.scrollIntoView({ block: 'nearest' }); heading?.focus();
+      setSupportUpdateRequested(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [section, settingsGroup, supportUpdateRequested]);
   const [dataHelpTarget, setDataHelpTarget] = useState<DataHelpTarget | null>(null);
   useEffect(() => {
     if (section !== 'settings' || settingsGroup !== 'data' || !dataHelpTarget) return;
     const frame = requestAnimationFrame(() => {
-      const heading = document.getElementById(dataHelpTarget === 'backup' ? 'data-heading' : 'update-check-heading');
+      const heading = document.getElementById('data-heading');
       heading?.scrollIntoView({ block: 'start' }); heading?.focus();
       setDataHelpTarget(null);
     });
@@ -651,7 +660,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     const help = supportMenuDestination(action);
     if (help) {
       if (modeBlocked || modeBusy || document.querySelector('dialog[open]')) { setNotice(blockedNotice('打开帮助')); return; }
-      if (help === 'support') { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setSettingsGroup('support'); setSection('settings'); setDetailId(null); }
+      if (help === 'support') { setSupportUpdateRequested(action === 'open-updates'); ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setSettingsGroup('support'); setSection('settings'); setDetailId(null); }
       else openDataHelp(help);
       return;
     }
@@ -677,7 +686,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       return;
     }
     if (action === 'edit-asset' && section === 'assets' && selected && !selected.deleted) { if (detailId) void openEditor(selected); else void select(selected.asset.id, true); }
-    if (action === 'open-settings' && !trashRecovery && !recordTrashRecovery) { setSection('settings'); setDetailId(null); void taxonomy.reload().catch(() => {}); }
+    if (action === 'open-settings' && !trashRecovery && !recordTrashRecovery && !document.querySelector('dialog[open]')) { setSection('settings'); setDetailId(null); void taxonomy.reload().catch(() => {}); }
   };
   function adjust(part: Partial<Query>) {
     if (part.search !== undefined || part.filter !== undefined || part.category !== undefined || part.warranty !== undefined) {
@@ -1142,7 +1151,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         materials: settingsGroup === 'materials' ? <MaterialLibrary onBusyChange={setDataBusy} generation={page?.generation || ''} onNotice={setNotice} search={searches.materials} onSearch={v => setSearches(s => (s.materials === v ? s : { ...s, materials: v }))}/> : null,
         options: <TaxonomyManager generation={taxonomy.snapshot?.generation} snapshot={taxonomy.snapshot} loading={taxonomy.loading} loadError={taxonomy.loadError} onReload={taxonomy.reload} onCommand={taxonomy.command} onDirtyChange={setTaxonomyDirty} validateName={(kind, name, id) => validateTaxonomyName(taxonomy.snapshot?.[kind === 'category' ? 'categories' : 'channels'] ?? [], kind, name, id)}/>,
         modules: <><ModuleSettings modules={modules} onChange={setModules}/><CheckinReminder wealthOn={modules.wealth} today={today}/></>,
-        data: <><DataManagement onImported={() => { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setFinanceReviewRoute({ page: 'review', view: 'period' }); setReviewBrowse({}); void refresh(); void taxonomy.reload().catch(() => {}); }} onBusyChange={setDataBusy} generation={libraryGeneration ?? null} demo={!!demoStatus?.active} blocked={otherEditing || featureEditing || (durablePending && storedPending()?.command !== 'financial_import_commit')} financeImportRequested={financeImportRequested} onFinanceImportRequestDone={() => setFinanceImportRequested(false)} onViewFinance={target => { if (target !== 'income' && (!modules.wealth || storedPending() || pendingGenerations(localStorage).length || otherEditing)) { setNotice('账户功能已关闭或仍有结果待核对。'); return; } if (target === 'income') gotoFinance({ page: 'records', tab: 'income' }, true); else { beginReturn(); setWealthReviewFocus(libraryGeneration ? { generation: libraryGeneration, kind: target === 'snapshots' ? 'history' : 'accounts' } : null); setSection('wealth'); } }} onTrash={() => openSubpage('trash', 'data')}/><UpdateCheck/></>,
+        data: <><DataManagement onImported={() => { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setFinanceReviewRoute({ page: 'review', view: 'period' }); setReviewBrowse({}); void refresh(); void taxonomy.reload().catch(() => {}); }} onBusyChange={setDataBusy} generation={libraryGeneration ?? null} demo={!!demoStatus?.active} blocked={otherEditing || featureEditing || (durablePending && storedPending()?.command !== 'financial_import_commit')} financeImportRequested={financeImportRequested} onFinanceImportRequestDone={() => setFinanceImportRequested(false)} onViewFinance={target => { if (target !== 'income' && (!modules.wealth || storedPending() || pendingGenerations(localStorage).length || otherEditing)) { setNotice('账户功能已关闭或仍有结果待核对。'); return; } if (target === 'income') gotoFinance({ page: 'records', tab: 'income' }, true); else { beginReturn(); setWealthReviewFocus(libraryGeneration ? { generation: libraryGeneration, kind: target === 'snapshots' ? 'history' : 'accounts' } : null); setSection('wealth'); } }} onTrash={() => openSubpage('trash', 'data')}/></>,
         demo: demoStatus.available ? <DemoSettings status={demoStatus} blocked={modeBusy || modeBlocked} onSwitch={() => void changeDemoMode(!demoStatus.active)} onReset={() => void changeDemoMode(true, true)}/> : <p className="muted">样例资料暂不可用。</p>,
         support: <SupportPanel onData={openDataHelp} blocked={modeBlocked || modeBusy}/>,
       }}/>}

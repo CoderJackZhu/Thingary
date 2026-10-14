@@ -114,8 +114,12 @@ export function evaluateCareerScenario(sources: PlanningSources, draft: CareerDr
     // A lump sum (severance) arrives with the change itself, with or without a gap.
     if (extra?.lump_cents && Number(extra.lump_cents) > 0) flow.push({ label: '变化时一次性到账', from_month: transition, to_month: transition + 1, cents: Number(extra.lump_cents), nominal: false, essential: false });
     if (postCompiler && recovery !== null && recovery < target) append(postCompiler, recovery, target, draft.recovery);
+    const phases = [{ from_month: now, cents: Number(current ?? 0) }, { from_month: transition, cents: hasGap ? Number(draft.gap.income_cents) - Number(draft.gap.spend_cents) : candidate }, ...(hasGap ? [{ from_month: gapEnd, cents: candidate }] : [])];
+    // A change at the origin replaces the prior stage at that same boundary.
+    // Keep distinct month boundaries and all independently scheduled cash flows.
+    const saving_phases = [...new Map(phases.map(phase => [phase.from_month, phase])).values()];
     return { ...skeleton, mode: 'traditional', r_before_hundredths: rb, r_after_hundredths: ra, saving_cents: 0, saving_flows: flow,
-      saving_phases: [{ from_month: now, cents: Number(current ?? 0) }, { from_month: transition, cents: hasGap ? Number(draft.gap.income_cents) - Number(draft.gap.spend_cents) : candidate }, ...(hasGap ? [{ from_month: gapEnd, cents: candidate }] : [])] };
+      saving_phases };
   };
   return finishCareer(basic.context, draft, notes, origin, transition, gapEnd, recovery, target, compile, recoveryErrors, options.requirement !== 'skip');
 }
@@ -159,7 +163,7 @@ function finishCareer(context: CareerEvaluation['context'], draft: CareerDraft, 
     if (prefix) requirement = { status: 'ready', value: { status: 'prefix_payment_gap', message: `${ym(origin + prefix.month)}的已知付款不足不能用之后的月投入补救。` } };
     else if (cashValue?.floor_month && Number(cashValue.minimum_cents) < Number(draft.floor_cents)) requirement = { status: 'ready', value: { status: 'prefix_floor_breach', message: '空窗资金已低于本次设定底线；后续投入不能改变这段条件。' } };
     else if (!calculateRequirement) requirement = blocked([issue('requirement', '本次候选只检查给定投入，不执行需求反求。')]);
-    else requirement = { status: 'ready', value: solveBasicRequirement(compile, zero.r_before_hundredths, zero.r_after_hundredths) };
+    else requirement = { status: 'ready', value: solveBasicRequirement(compile, zero.r_before_hundredths, zero.r_after_hundredths, recovery!) };
   }
   const predictionIssue = recovery !== null && recovery >= target
     ? issue('gap_months', '原目标前没有恢复后的积累区间，不计算这段投入预测。')

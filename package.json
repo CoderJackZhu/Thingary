@@ -10,13 +10,20 @@
     "build": "tsc --noEmit && vite build",
     "release": "tauri build --config src-tauri/tauri.release.conf.json --bundles app --target universal-apple-darwin",
     "tauri": "tauri",
-    "test": "cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --lib --tests",
-    "check": "cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --features fault-injection --all-targets -- -D warnings",
+    "test": "npm run test:engine && cargo test --manifest-path src-tauri/Cargo.toml --features fault-injection --lib --tests",
+    "check": "cargo fmt --manifest-path crates/planning-engine/Cargo.toml --check && cargo clippy --locked --manifest-path crates/planning-engine/Cargo.toml --target-dir src-tauri/target/planning-engine --all-targets -- -D warnings && cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --features fault-injection --all-targets -- -D warnings",
     "test:ui": "node --test tests/*.test.mjs",
     "demo:import": "cargo run --manifest-path src-tauri/Cargo.toml --example import_demo -- --isolated-preview",
     "test:demo": "cargo test --manifest-path src-tauri/Cargo.toml --example import_demo",
     "release:win": "tauri build --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.windows.release.conf.json --bundles nsis --target x86_64-pc-windows-msvc --ci",
-    "build:win:acceptance": "tauri build --config src-tauri/tauri.windows.acceptance.conf.json --bundles nsis --target x86_64-pc-windows-msvc --debug --features fault-injection --ci"
+    "build:win:acceptance": "tauri build --config src-tauri/tauri.windows.acceptance.conf.json --bundles nsis --target x86_64-pc-windows-msvc --debug --features fault-injection --ci",
+    "build:engine": "node scripts/build-planning-engine.mjs",
+    "check:engine": "node scripts/build-planning-engine.mjs --check",
+    "prebuild": "npm run build:engine",
+    "test:engine": "cargo test --locked --manifest-path crates/planning-engine/Cargo.toml --target-dir src-tauri/target/planning-engine",
+    "test:engine-parity": "node scripts/planning-engine-parity.mjs",
+    "predev": "npm run build:engine",
+    "check:engine-source": "node scripts/build-planning-engine.mjs --check-source"
   },
   "dependencies": {
     "react": "19.3.0",

@@ -37,6 +37,7 @@ mod plan_migration;
 pub mod plan_profile;
 pub mod plan_savings;
 pub mod plan_simplified;
+mod planning_engine_commands;
 pub mod planning_flow_review;
 mod planning_followup_commands;
 pub mod preferences;
@@ -92,10 +93,14 @@ pub fn run() {
                     use windows_core::Interface;
                     // The controller and settings belong to this WebView UI thread.
                     let result = unsafe {
-                        webview.controller().CoreWebView2()
+                        webview
+                            .controller()
+                            .CoreWebView2()
                             .and_then(|view| view.Settings())
                             .and_then(|settings| settings.cast::<ICoreWebView2Settings3>())
-                            .and_then(|settings| settings.SetAreBrowserAcceleratorKeysEnabled(false))
+                            .and_then(|settings| {
+                                settings.SetAreBrowserAcceleratorKeysEnabled(false)
+                            })
                     };
                     if let Err(error) = result {
                         eprintln!("无法关闭浏览器快捷键：{error}");
@@ -156,107 +161,117 @@ pub fn run() {
             });
             #[cfg(target_os = "macos")]
             {
-            let quit =
-                MenuItem::with_id(app, "quit-thingary", "退出物谱", true, Some("CmdOrCtrl+Q"))?;
-            let app_menu = Submenu::with_items(
-                app,
-                "物谱",
-                true,
-                &[
-                    &Item::about(
-                        app,
-                        Some("关于物谱"),
-                        Some(
-                            tauri::menu::AboutMetadataBuilder::new()
-                                .name(Some("物谱 Thingary"))
-                                .version(Some(env!("CARGO_PKG_VERSION")))
-                                .credits(Some("物品档案与净资产盘点\n开发与维护：CoderJackZhu\n许可证 AGPL-3.0-or-later\n项目主页与帮助：设置 › 关于与帮助"))
-                                .build(),
-                        ),
-                    )?,
-                    &Item::separator(app)?,
-                    &MenuItem::with_id(app, "open-settings", "设置…", true, Some("CmdOrCtrl+,"))?,
-                    &Item::separator(app)?,
-                    &Item::hide(app, Some("隐藏物谱"))?,
-                    &Item::hide_others(app, Some("隐藏其他"))?,
-                    &Item::show_all(app, Some("显示全部"))?,
-                    &Item::separator(app)?,
-                    &quit,
-                ],
-            )?;
-            let global_search_item = MenuItem::with_id(
-                app,
-                "global-search",
-                "搜索全部资料",
-                true,
-                Some("CmdOrCtrl+Shift+F"),
-            )?;
-            let file_menu = Submenu::with_items(
-                app,
-                "文件",
-                true,
-                &[&new_item, &Item::close_window(app, Some("关闭窗口"))?],
-            )?;
-            let edit_menu = Submenu::with_items(
-                app,
-                "编辑",
-                true,
-                &[
-                    // The page decides: text undo in a field, else the deletion undo bar.
-                    &MenuItem::with_id(app, "undo", "撤销", true, Some("CmdOrCtrl+Z"))?,
-                    &Item::redo(app, Some("重做"))?,
-                    &Item::separator(app)?,
-                    &Item::cut(app, Some("剪切"))?,
-                    &Item::copy(app, Some("复制"))?,
-                    &Item::paste(app, Some("粘贴"))?,
-                    // Like 撤销: the page selects text in a field, else every matching item.
-                    &MenuItem::with_id(app, "select-all", "全选", true, Some("CmdOrCtrl+A"))?,
-                    &Item::separator(app)?,
-                    &find_item,
-                    &global_search_item,
-                    &MenuItem::with_id(app, "edit-asset", "编辑资料", true, Some("CmdOrCtrl+E"))?,
-                ],
-            )?;
-            let view_menu = Submenu::with_items(
-                app,
-                "显示",
-                true,
-                &[&MenuItem::with_id(
+                let quit =
+                    MenuItem::with_id(app, "quit-thingary", "退出物谱", true, Some("CmdOrCtrl+Q"))?;
+                let app_menu = Submenu::with_items(
                     app,
-                    "toggle-appearance",
-                    "切换浅色／深色",
+                    "物谱",
                     true,
-                    Some("CmdOrCtrl+Shift+D"),
-                )?],
-            )?;
-            let window_menu = Submenu::with_items(
-                app,
-                "窗口",
-                true,
-                &[
-                    &Item::minimize(app, Some("最小化"))?,
-                    &Item::maximize(app, Some("缩放"))?,
-                ],
-            )?;
-            let help_menu = Submenu::with_items(
-                app,
-                "帮助",
-                true,
-                &[
-                    &MenuItem::with_id(app, "open-help", "物谱帮助", true, None::<&str>)?,
-                    &Item::separator(app)?,
-                    &MenuItem::with_id(app, "open-backup", "备份与恢复…", true, None::<&str>)?,
-                    &MenuItem::with_id(app, "open-updates", "版本与更新…", true, None::<&str>)?,
-                ],
-            )?;
-            app.set_menu(Menu::with_items(
-                app,
-                &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu],
-            )?)?;
+                    &[
+                        &MenuItem::with_id(app, "open-about", "关于物谱", true, None::<&str>)?,
+                        &MenuItem::with_id(app, "open-updates", "检查更新…", true, None::<&str>)?,
+                        &Item::separator(app)?,
+                        &MenuItem::with_id(
+                            app,
+                            "open-settings",
+                            "设置…",
+                            true,
+                            Some("CmdOrCtrl+,"),
+                        )?,
+                        &Item::separator(app)?,
+                        &Item::hide(app, Some("隐藏物谱"))?,
+                        &Item::hide_others(app, Some("隐藏其他"))?,
+                        &Item::show_all(app, Some("显示全部"))?,
+                        &Item::separator(app)?,
+                        &quit,
+                    ],
+                )?;
+                let global_search_item = MenuItem::with_id(
+                    app,
+                    "global-search",
+                    "搜索全部资料",
+                    true,
+                    Some("CmdOrCtrl+Shift+F"),
+                )?;
+                let file_menu = Submenu::with_items(
+                    app,
+                    "文件",
+                    true,
+                    &[&new_item, &Item::close_window(app, Some("关闭窗口"))?],
+                )?;
+                let edit_menu = Submenu::with_items(
+                    app,
+                    "编辑",
+                    true,
+                    &[
+                        // The page decides: text undo in a field, else the deletion undo bar.
+                        &MenuItem::with_id(app, "undo", "撤销", true, Some("CmdOrCtrl+Z"))?,
+                        &Item::redo(app, Some("重做"))?,
+                        &Item::separator(app)?,
+                        &Item::cut(app, Some("剪切"))?,
+                        &Item::copy(app, Some("复制"))?,
+                        &Item::paste(app, Some("粘贴"))?,
+                        // Like 撤销: the page selects text in a field, else every matching item.
+                        &MenuItem::with_id(app, "select-all", "全选", true, Some("CmdOrCtrl+A"))?,
+                        &Item::separator(app)?,
+                        &find_item,
+                        &global_search_item,
+                        &MenuItem::with_id(
+                            app,
+                            "edit-asset",
+                            "编辑资料",
+                            true,
+                            Some("CmdOrCtrl+E"),
+                        )?,
+                    ],
+                )?;
+                let view_menu = Submenu::with_items(
+                    app,
+                    "显示",
+                    true,
+                    &[&MenuItem::with_id(
+                        app,
+                        "toggle-appearance",
+                        "切换浅色／深色",
+                        true,
+                        Some("CmdOrCtrl+Shift+D"),
+                    )?],
+                )?;
+                let window_menu = Submenu::with_items(
+                    app,
+                    "窗口",
+                    true,
+                    &[
+                        &Item::minimize(app, Some("最小化"))?,
+                        &Item::maximize(app, Some("缩放"))?,
+                    ],
+                )?;
+                let help_menu = Submenu::with_items(
+                    app,
+                    "帮助",
+                    true,
+                    &[
+                        &MenuItem::with_id(app, "open-help", "物谱帮助", true, None::<&str>)?,
+                        &Item::separator(app)?,
+                        &MenuItem::with_id(app, "open-backup", "备份与恢复…", true, None::<&str>)?,
+                    ],
+                )?;
+                app.set_menu(Menu::with_items(
+                    app,
+                    &[
+                        &app_menu,
+                        &file_menu,
+                        &edit_menu,
+                        &view_menu,
+                        &window_menu,
+                        &help_menu,
+                    ],
+                )?)?;
             }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            planning_engine_commands::planning_engine_evaluate,
             commands::notification_permission,
             commands::modules_get,
             commands::modules_set,
@@ -336,6 +351,7 @@ pub fn run() {
             commands::support_open,
             commands::update_check,
             commands::update_open_release,
+            commands::update_open_download,
             commands::goal_progress_list,
             commands::goal_progress_record,
             commands::checkin_reminder_set,
@@ -434,6 +450,7 @@ pub fn run() {
                     | "global-search"
                     | "edit-asset"
                     | "open-settings"
+                    | "open-about"
                     | "open-help"
                     | "open-backup"
                     | "open-updates"
@@ -465,8 +482,14 @@ pub fn run() {
                 api.prevent_close();
                 #[cfg(target_os = "windows")]
                 {
-                    let editing = window.state::<commands::EditGuard>().0.load(Ordering::SeqCst);
-                    let busy = window.state::<commands::LibraryGuard>().1.load(Ordering::SeqCst);
+                    let editing = window
+                        .state::<commands::EditGuard>()
+                        .0
+                        .load(Ordering::SeqCst);
+                    let busy = window
+                        .state::<commands::LibraryGuard>()
+                        .1
+                        .load(Ordering::SeqCst);
                     if let Some(event) = windows_close_event(editing, busy) {
                         let _ = window.emit(event, true);
                     } else {
@@ -493,7 +516,9 @@ pub fn run() {
                 #[cfg(target_os = "windows")]
                 if let Some(event) = windows_close_event(
                     app.state::<commands::EditGuard>().0.load(Ordering::SeqCst),
-                    app.state::<commands::LibraryGuard>().1.load(Ordering::SeqCst),
+                    app.state::<commands::LibraryGuard>()
+                        .1
+                        .load(Ordering::SeqCst),
                 ) {
                     api.prevent_exit();
                     windows_exit::cancel(app);

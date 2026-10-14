@@ -13,7 +13,7 @@ export function GoalProgress({ entries }: { entries: GoalProgressEntry[] }) {
   return <section className="ui-card ui-content goal-progress" aria-labelledby="goal-progress-heading">
     <h3 id="goal-progress-heading">盘点以来的变化</h3>
     <p>{goalProgressChange(previous, latest, forecastMoney)}</p>
-    <p className="muted small">每次完整盘点后第一次打开目标页时，记下当时的结论。按当时的条件计算，之后修改目标不会改写这里；带 * 的是当时仍有待核对项。</p>
+    <p className="muted small">每次完整盘点后第一次打开目标页时，记下当时的结论。按当时的条件计算，之后修改目标不会改写这里；带 * 的是当时仍有待核对项。历史数字也保留当时的计算方法，跨版本差额不保证直接可比。</p>
     <table><thead><tr><th>盘点日期</th><th>可用资金</th><th>需要每月存</th><th>当时估计每月存</th><th>当时结论</th></tr></thead>
       <tbody>{shown.map(e => <tr key={e.snapshot_id}>
         <td>{e.date}{e.point.has_open_items && <span title="当时仍有待核对项"> *</span>}</td>

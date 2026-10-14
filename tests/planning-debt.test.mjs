@@ -18,7 +18,7 @@ const core = s => s.profile.value.saved.profile.retire.core;
 const saved = s => s.profile.value.saved;
 const rows = s => debt.debtReview(s.snapshot.value, core(s), saved(s).profile.retire.life_events).rows;
 const cards = s => flow.refinementCards(saved(s),buildBasicCapabilities(s),s.today);
-const plan = s => {const p=prepareBasicPlan(s);assert.equal(p.plan.status,'ready');return p.plan.value.compile(100000);};
+const plan = s => {const p=prepareBasicPlan(s);assert.equal(p.plan.status,'ready');const compiler=p.plan.value;return compiler.compile(100000,compiler.before,compiler.after);};
 const record=(s,id,mode='scheduled')=>({account_id:id,recorded_on:s.today,as_of:s.snapshot.value.date,balance_cents:rows(s).find(r=>r.entry.account_id===id).entry.amount_cents,start_month:debt.debtFirstMonth(s.snapshot.value.date),last_month:'2028-10',monthly_cents:'200000',before:mode,after:mode});
 const update = (s,updates,remove=[]) => overlayPlanningDrafts(s,[{section:'debt_repayments',fields:{updates,remove}}]);
 function runtime(file, props, save, caps = unknownCapabilityFixture) {

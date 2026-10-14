@@ -30,10 +30,13 @@ export function parseNoticeArguments(args) {
   return { target, output };
 }
 
-export function reachableRustPackages(meta) {
+export function reachableRustPackages(meta, root = projectRoot) {
   if (!meta.resolve) throw new Error('Cargo metadata must include the resolved dependency graph');
   const nodes = new Map(meta.resolve.nodes.map(node => [node.id, node]));
-  const own = new Set(meta.workspace_members), visited = new Set();
+  const roots = new Set(meta.workspace_members);
+  // Exclude only the reviewed first-party core, while still walking its deps.
+  const own = new Set([...roots, ...meta.packages.filter(pkg => pkg.manifest_path === resolve(root, 'crates/planning-engine/Cargo.toml')).map(pkg => pkg.id)]);
+  const visited = new Set();
   function visit(id) {
     if (visited.has(id)) return;
     visited.add(id);
@@ -45,7 +48,7 @@ export function reachableRustPackages(meta) {
       if (dep.dep_kinds.some(kind => kind.kind !== 'dev')) visit(dep.pkg);
     }
   }
-  for (const id of own) visit(id);
+  for (const id of roots) visit(id);
   return meta.packages.filter(pkg => visited.has(pkg.id) && !own.has(pkg.id));
 }
 
@@ -55,7 +58,7 @@ export function rustPackagesForTarget(target, root = projectRoot) {
     'metadata', '--offline', '--locked', '--format-version', '1',
     '--manifest-path', 'src-tauri/Cargo.toml', '--filter-platform', target,
   ], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 }));
-  return reachableRustPackages(metadata);
+  return reachableRustPackages(metadata, root);
 }
 
 function insideRoot(root, path) {

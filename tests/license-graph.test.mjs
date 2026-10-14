@@ -68,3 +68,22 @@ test('duplicate npm package versions still traverse each location and its resolv
     assert.deepEqual(productionNpmPackages(root).map(pkg => `${pkg.name}@${pkg.version}`), ['app@1', 'shared@1', 'shared@2', 'wrapper@1']);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('first-party planning core is excluded but its dependencies and other local crates retain notices', () => {
+  const root = resolve(tmpdir(), 'thingary-license-first-party');
+  const meta = {
+    workspace_members: ['app'],
+    packages: [
+      { id: 'app' },
+      { id: 'core', manifest_path: resolve(root, 'crates/planning-engine/Cargo.toml') },
+      { id: 'vendor', manifest_path: resolve(root, 'vendor/Cargo.toml') },
+      { id: 'nested' },
+    ],
+    resolve: { nodes: [
+      { id: 'app', deps: [edge('core', null), edge('vendor', null)] },
+      { id: 'core', deps: [edge('nested', null)] },
+      { id: 'vendor', deps: [] }, { id: 'nested', deps: [] },
+    ] },
+  };
+  assert.deepEqual(reachableRustPackages(meta, root).map(pkg => pkg.id), ['vendor', 'nested']);
+});
