@@ -348,9 +348,11 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     const mode = params.get('update') ?? 'available';
     if (mode === 'error') throw { message: '无法连接到 Gitee 和 GitHub，请检查网络后重试。也可以直接访问 https://gitee.com/CoderJackZhu/thingary/releases 查看新版本。' };
     const release = { version: mode === 'available' || mode === 'partial' ? '0.0.7' : mode === 'ahead' ? '0.0.5' : '0.0.6', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：盘点提醒与目标进度。\n- 更新前请先备份。' };
-    return { current: '0.0.6', latest: mode === 'none' ? null : { ...release, sources: mode === 'partial' ? ['gitee'] : ['gitee', 'github'] }, update_available: mode === 'available' || mode === 'partial', unreachable: mode === 'partial' ? ['github'] : [] };
+    const sources = mode === 'partial' ? ['gitee'] : ['gitee', 'github'];
+    const available = { ...release, sources, downloads: sources.map(source => ({source, name: `Thingary-${release.version}-universal.dmg`, label: 'Mac 通用安装包（Apple Silicon 与 Intel）', size: source === 'gitee' ? null : 30000000})) };
+    return { current: '0.0.6', latest: mode === 'none' ? null : available, update_available: mode === 'available' || mode === 'partial', unreachable: mode === 'partial' ? ['github'] : [], platform: 'Mac · Apple Silicon', newer_unavailable: mode === 'unavailable' ? { ...release, version:'0.0.7', sources, downloads:[] } : null };
   }
-  if (command === 'update_open_release') throw { message: '预览中不能打开浏览器' };
+  if (command === 'update_open_release' || command === 'update_open_download') throw { message: '预览中不能打开浏览器' };
   if (command === 'checkin_reminder_status') return checkinStatus();
   const args = payload as Record<string,unknown>;
   if (command === 'checkin_reminder_set') { checkinMonths = Number(args.months); return checkinStatus(); }

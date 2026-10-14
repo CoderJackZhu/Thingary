@@ -46,7 +46,7 @@ flowchart TD
 
 ## 网络
 
-webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界面不能直接联网。应用唯一的联网路径是后端命令 `update_check`：用户点击时依次通过系统 `curl`（`/usr/bin/curl`，限定 `--proto =https`，Gitee 8 秒、GitHub 6 秒超时，响应上限 2 MB）读取 Gitee（`gitee.com/api/v5/repos/CoderJackZhu/thingary/releases`，国内通常可达）与 GitHub（`api.github.com/repos/CoderJackZhu/Thingary/releases`）的发布列表，不引入 HTTP 客户端依赖。两处结果合并后取最高版本并记录哪些来源列出了它，只有一处可达时返回其结果并标出不可达来源，两处都失败才报错。响应只被当作版本号与展示文本：仅接受未标为草稿、标签为严格 `vX.Y.Z` 的条目（GitHub 的 `published_at` 与 Gitee 的 `created_at` 都只作展示），按数值比较版本，发布说明截断为纯文本；`update_open_release` 只接受严格版本号与已知来源名，自行拼出固定前缀的 Releases 页面再用 `open` 打开，不采用响应里的任何链接。不下载、不安装、不写任何本机设置。
+webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界面不能直接联网。应用唯一的联网路径是后端命令 `update_check`：用户点击时依次通过系统 `curl`（`/usr/bin/curl`，限定 `--proto =https`，Gitee 8 秒、GitHub 6 秒超时，响应上限 2 MB）读取 Gitee（`gitee.com/api/v5/repos/CoderJackZhu/thingary/releases`，国内通常可达）与 GitHub（`api.github.com/repos/CoderJackZhu/Thingary/releases`）的发布列表，不引入 HTTP 客户端依赖。两处结果按版本合并，取含当前应用平台兼容附件的最高版本；发布列表每源最多读取最近 30 条，不把未找到兼容包说成全部历史不存在，只有一处可达时返回其结果并标出不可达来源，两处都失败才报错。响应只用于版本、安装附件匹配与纯文本展示：仅接受未标为草稿、标签为严格 `vX.Y.Z` 的条目（GitHub 的 `published_at` 与 Gitee 的 `created_at` 都只作展示），按数值比较版本，发布说明截断为纯文本；`update_open_release` 只接受严格版本号与已知来源名，自行拼出固定前缀的 Releases 页面再用 `open` 打开，不采用响应里的任意链接。`update_open_download` 接受严格版本、已知来源与约定安装文件名，重新验证当前平台并从固定仓库前缀重建下载地址；附件解析要求响应地址与该地址完全一致，拒绝空文件、未完成附件、其他架构及不同版本。Gitee 附件数组和 links 结构均适配；同版本下载源只包含拥有兼容附件的来源，Mac 通用包优先，Windows NSIS 优先于 MSI。下载由浏览器执行，应用不保存文件、不启动安装、不写任何本机设置。更高版本没有兼容附件时独立返回 newer_unavailable，不冒充可用更新。
 
 ## 身份与资料隔离
 

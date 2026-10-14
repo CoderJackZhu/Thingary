@@ -1234,6 +1234,15 @@ pub async fn update_open_release(version: String, source: String) -> Result<()> 
 }
 
 #[tauri::command]
+pub async fn update_open_download(version: String, source: String, name: String) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::update_check::open_download(&version, &source, &name)
+    })
+    .await
+    .map_err(|_| Error::new("UPDATE_CHECK", "无法打开安装包下载"))?
+}
+
+#[tauri::command]
 pub async fn notification_status(worker: tauri::State<'_, Worker>) -> Result<String> {
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {

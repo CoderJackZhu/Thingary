@@ -283,6 +283,7 @@ pub fn run() {
             commands::support_open,
             commands::update_check,
             commands::update_open_release,
+            commands::update_open_download,
             commands::goal_progress_list,
             commands::goal_progress_record,
             commands::checkin_reminder_set,
