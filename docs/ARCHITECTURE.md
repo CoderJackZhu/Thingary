@@ -95,7 +95,7 @@ macOS 使用系统通知调度；Windows 使用 WinRT `ScheduledToastNotificatio
 
 Windows 读取系统通知状态；关闭时返回可读提示，不删除已保存的业务提醒日期。提醒队列由系统管理，应用退出后不依赖后台进程；排队成功与实际可见送达分别验收。未安装的开发进程没有匹配 AUMID，通知验证必须使用已安装的隔离身份。开发与人工验收边界见[Windows 验收](WINDOWS_ACCEPTANCE.md)。
 
-Windows 的 toast 点击激活需要 unpackaged 应用自行登记 COM 通道：应用启动时按当前 identifier 派生稳定激活 CLSID，写入 `HKCU\Software\Classes\AppUserModelId\{AUMID}` 的 `CustomActivator`／`DisplayName`、`CLSID\{CLSID}\LocalServer32` 指向本进程，并把开始菜单快捷方式的 `System.AppUserModel.ToastActivatorCLSID` 属性补写到同一 CLSID；进程生命周期内 `CoRegisterClassObject` 注册 `INotificationActivationCallback`。激活回调只显示并聚焦主窗口（复用单实例唤起语义），不解析 payload、不新增 deep link 或后台服务；注册失败仅记录，不影响通知显示。该模式与 Microsoft.Toolkit.Uwp.Notifications 的桌面实现一致。注意这些 HKCU 注册键由运行时写入，卸载器当前不清理，卸载后旧通知的点击无法再唤起。
+Windows 的 toast 点击激活需要 unpackaged 应用自行登记 COM 通道：应用启动时按当前 identifier 派生稳定激活 CLSID，写入 `HKCU\Software\Classes\AppUserModelId\{AUMID}` 的 `CustomActivator`／`DisplayName`、`CLSID\{CLSID}\LocalServer32` 指向本进程，并把开始菜单快捷方式的 `System.AppUserModel.ToastActivatorCLSID` 属性补写到同一 CLSID；进程生命周期内 `CoRegisterClassObject` 注册 `INotificationActivationCallback`。激活回调只显示并聚焦主窗口（复用单实例唤起语义），不解析 payload、不新增 deep link 或后台服务；注册失败仅记录，不影响通知显示。该模式与 Microsoft.Toolkit.Uwp.Notifications 的桌面实现一致。这些 HKCU 注册键由运行时写入，因此 NSIS 卸载钩子（`src-tauri/windows/nsis-hooks.nsh`）在真正卸载时按 `CustomActivator` 记录的 CLSID 删除 `CLSID` 键与 `AppUserModelId` 键；更新安装（`/UPDATE`）保留注册，应用下次启动也会重新登记。钩子不触碰资料目录，“删除应用数据”仍只由卸载器自己的选项决定；卸载后旧通知的点击无法再唤起应用。
 
 Windows 的正常 `ExitRequested` 在编辑／任务保护之后，先从串行 Worker 取得最新个人库提醒快照，再在独立通知线程确认该批执行结果。整个等待约 5 秒，包含取得快照的时间；不在 UI 或存储线程等待 WinRT，也不把通知失败变成资料保存失败。退出状态机限制一个未完成任务，取消／超时废弃自动退出许可，迟到回调不能退出；成功或用户明确继续退出时仍再次检查编辑保护。macOS 退出行为不变。
 

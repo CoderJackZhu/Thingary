@@ -6,7 +6,8 @@
         "languages": [
           "SimpChinese"
         ],
-        "displayLanguageSelector": false
+        "displayLanguageSelector": false,
+        "installerHooks": "windows/nsis-hooks.nsh"
       },
       "webviewInstallMode": {
         "type": "downloadBootstrapper",
