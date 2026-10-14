@@ -43,7 +43,9 @@ npm test
 
 ### Windows 候选实现与验证
 
-整合 Rust 规划核心及关于页更新入口后的本地 macOS 检查：构建、1,145 项 UI、格式／Clippy、747 项 Rust 通过（核心 106、应用 641），3 项既有容量测试忽略；15 类原生／WASM 运算和 5 类缺字段拒绝一致，提交核心源码与产物散列匹配。Windows 目标离线许可包含 301 项 Rust、4 项 npm 与独立 SDK 告知，无缺失。虚构浏览器核对 Windows 下载、空列表、缺包、单源及错误提示；截图接口超时，未取得本轮同尺寸图片对照。最终整合提交的 Windows CI、安装包、关于页链接和新核心原生路径仍待复验，不能沿用旧候选的 CI 代替。复验范围见 [Windows 清单](WINDOWS_ACCEPTANCE.md#主分支整合后的复验)。
+整合 Rust 规划核心及关于页更新入口的受测源码为 `fb94e192dd1c4e3766e59574b21c8c41d19a26ec`（0.0.7 候选）。[核心 CI](https://github.com/CoderJackZhu/Thingary/actions/runs/38597178419) 四任务与 [Windows 包及原生自动流程](https://github.com/CoderJackZhu/Thingary/actions/runs/38597178389) 两任务均成功：两平台构建、UI 各 1,145 项、格式／Clippy、Rust Mac 747 项／Windows 754 项通过，分别忽略 3／4 项测试；15 类原生／WASM 运算、5 类缺字段拒绝及产物散列校验通过。双向恢复的 schema 40、57 张表计数和 8 个原图 SHA-256 完全一致。Windows 目标离线告知包含 301 项 Rust、4 项 npm 与独立 SDK 告知，无缺失。隔离安装后的保存重启、关窗保护、通知排期／系统历史、卸载重装和物品外观矩阵通过；环境为 Windows 11 ARM64 下的 x64 模拟。
+
+虚构浏览器已核对 Windows 下载、空列表、缺包、单源及错误提示；截图接口超时，未取得关于页本轮同尺寸图片对照。关于页真实外部链接／查询、新核心整页交互与取消，以及整合版本的通知点击和实体关窗抽查仍待真实 Windows 补验。此前实体验收与自动脚本结果分别保留，不能以旧包或 CDP 合成按键替代新版本实体证据。步骤与判定见 [Windows 清单](WINDOWS_ACCEPTANCE.md#主分支整合后的复验)。
 
 当前 0.0.7 候选源码已接入 Windows 图片／文件选择、文件占用重试与长路径、窗口／Ctrl 交互、WinRT 定时提醒和 NSIS 打包。schema 仍为 40，`.thingary` 格式不变。Windows 界面与数据语义复用 Mac；当前公开 Mac 包仍为 0.0.6，尚未创建 0.0.7 标签或 Windows Release。
 
