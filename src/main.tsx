@@ -111,6 +111,20 @@ function TaxonomyCloseNotice({ onKeep, title = '分类资料尚未处理完', me
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   return <dialog ref={dialog} className="editor" aria-labelledby="taxonomy-close-heading" onCancel={e => { e.preventDefault(); onKeep(); }}><h2 id="taxonomy-close-heading">{title}</h2><p>{message}</p><button autoFocus onClick={onKeep}>{actionLabel}</button></dialog>;
 }
+type WindowsExitStatus = { pending: boolean; message: string };
+function WindowsExitNotice({ status, onChoice }: { status: WindowsExitStatus; onChoice: (exit: boolean) => Promise<void> }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [error, setError] = useState('');
+  const choosing = useRef(false);
+  useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
+  async function choose(exit: boolean) {
+    if (choosing.current) return;
+    choosing.current = true;
+    try { await onChoice(exit); } catch (e) { setError(errorMessage(e)); }
+    finally { choosing.current = false; }
+  }
+  return <dialog ref={dialog} className="editor" aria-labelledby="windows-exit-heading" onCancel={event => { event.preventDefault(); void choose(false); }}><h2 id="windows-exit-heading">{status.pending ? '正在确认提醒排期' : '提醒尚未确认排期'}</h2><p>{status.pending ? '正在等待系统确认提醒排期。你可以返回应用继续使用。' : '尚未确认系统提醒排期。现在退出，可能无法收到本次提醒。'}</p>{status.message && <p role="status">{status.message}</p>}{error && <p role="alert">{error}</p>}<div className="editor-header-actions"><button autoFocus onClick={() => void choose(false)}>返回应用</button>{!status.pending && <button onClick={() => void choose(true)}>仍然退出</button>}</div></dialog>;
+}
 function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [receiptRecoveryVersion, setReceiptRecoveryVersion] = useState(0);
   const [demoStatus, setDemoStatus] = useState<DemoStatus>(initialDemo);
@@ -161,6 +175,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [recovered, setRecovered] = useState<Draft | null>(storedDraft);
   const [closeIntent, setCloseIntent] = useState<CloseIntent | null>(null);
   const [closeBlocked, setCloseBlocked] = useState(false);
+  const [windowsExit, setWindowsExit] = useState<WindowsExitStatus | null>(null);
   const [today, setToday] = useState(localDay);
   const [reviewYear, setReviewYear] = useState<number | null>(() => Number(localDay().slice(0, 4)));
   // Q03 source navigation: one focus at a time, its return context, and the
@@ -551,9 +566,10 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
     const subscription = listen<boolean>('close-intent', event => setCloseIntent(event.payload ? 'quit' : 'window'));
     const actions = listen<string>('asset-action', event => menuAction.current(event.payload));
     const blocked = listen('close-blocked', () => setCloseBlocked(true));
-    void Promise.all([subscription, actions, blocked]).then(() => setEventsReady(true)).catch(e => setNotice(errorMessage(e)));
+    const exiting = listen<WindowsExitStatus | null>('windows-exit-reminders', event => setWindowsExit(event.payload));
+    void Promise.all([subscription, actions, blocked, exiting]).then(() => setEventsReady(true)).catch(e => setNotice(errorMessage(e)));
     const timer = window.setInterval(() => setToday(localDay()), 60000);
-    return () => { void subscription.then(off => off()); void actions.then(off => off()); void blocked.then(off => off()); clearInterval(timer); };
+    return () => { void subscription.then(off => off()); void actions.then(off => off()); void blocked.then(off => off()); void exiting.then(off => off()); clearInterval(timer); };
   }, []);
   useEffect(() => {
     if (loadedDay.current === today) return;
@@ -1089,7 +1105,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const { title: collectionTitle, selected: collectionStatus } = collectionNavigation(query);
   function browseStatus(filter: string, warranty: string) { if (wishlistEditing) return; setSection('assets'); setDetailId(null); setAnalysis(null); adjust({ filter, warranty }); }
   function identity(record: AssetRecord) { return <><Cover record={record} generation={page?.generation || ''} /><span className="identity"><strong>{record.asset.name}</strong><small>{taxonomy.snapshot?.categories.find(c => c.id === record.classification?.category_id)?.name || '未分类'}{record.label_name && ` · ${record.label_name}`}</small></span></>; }
-  return <PageBarContext.Provider value={pageBarRegistrar}><div className="shell">{!demoStatus.active && <NotificationNotice/>}{closeBlocked && <TaxonomyCloseNotice title="当前操作尚未完成" message="请先完成或取消当前表单或处理中任务，再退出物谱。保存结果待确认时，请先核对结果。" actionLabel="返回继续处理" onKeep={() => setCloseBlocked(false)}/>}{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)} pendingOnly={!!(trashRecovery || recordTrashRecovery) && !(lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery)}/>}<aside className="sidebar" onClickCapture={event => { if (!modeBlocked || !(event.target instanceof Element) || !event.target.closest('nav button')) return; const financeRecovery = storedPending()?.command === 'financial_import_commit' && !!event.target.closest('.settings-row'); if (financeRecovery && event.target.closest('button')?.textContent === '设置') { setSettingsGroup('data'); setFinanceImportRequested(true); return; } event.preventDefault(); event.stopPropagation(); setNotice(blockedNotice('切换页面')); }}><div className="brand"><span className="brand-mark" aria-hidden="true"><LogoMark/></span><div><strong>物谱</strong><small>THINGARY</small></div></div>
+  return <PageBarContext.Provider value={pageBarRegistrar}><div className="shell">{windowsExit && <WindowsExitNotice status={windowsExit} onChoice={exit => invoke('windows_exit_reminders_choice', { exit })}/>} {!demoStatus.active && <NotificationNotice/>}{closeBlocked && <TaxonomyCloseNotice title="当前操作尚未完成" message="请先完成或取消当前表单或处理中任务，再退出物谱。保存结果待确认时，请先核对结果。" actionLabel="返回继续处理" onKeep={() => setCloseBlocked(false)}/>}{storedDraftClosing && <StoredDraftClose intent={closeIntent!} onKeep={() => setCloseIntent(null)} pendingOnly={!!(trashRecovery || recordTrashRecovery) && !(lifecycleRecovery || saleRecovery || maintenanceRecovery || warrantyRecovery)}/>}<aside className="sidebar" onClickCapture={event => { if (!modeBlocked || !(event.target instanceof Element) || !event.target.closest('nav button')) return; const financeRecovery = storedPending()?.command === 'financial_import_commit' && !!event.target.closest('.settings-row'); if (financeRecovery && event.target.closest('button')?.textContent === '设置') { setSettingsGroup('data'); setFinanceImportRequested(true); return; } event.preventDefault(); event.stopPropagation(); setNotice(blockedNotice('切换页面')); }}><div className="brand"><span className="brand-mark" aria-hidden="true"><LogoMark/></span><div><strong>物谱</strong><small>THINGARY</small></div></div>
       <nav aria-label="主导航"><button className={section === 'overview' ? 'nav-active' : ''} aria-current={section === 'overview' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => { setSection('overview'); setDetailId(null); }}><Icon name="overview"/><span>总览</span></button><p className="nav-caption">物品</p>
         <button className={section === 'assets' ? 'nav-active' : ''} aria-current={section === 'assets' ? 'page' : undefined} disabled={wishlistEditing} onClick={() => browseStatus('all', 'all')}><Icon name="items"/><span>全部物品</span>{sideCounts?.all != null && <small className="nav-count">{sideCounts.all}</small>}</button>
         {modules.wishlist && <button className={section === 'wishlist' ? 'nav-active' : ''} aria-current={section === 'wishlist' ? 'page' : undefined} onClick={() => { setWishFocus(null); setSection('wishlist'); setDetailId(null); }}><Icon name="heart"/><span>心愿清单</span>{sideWishes !== null && sideWishes > 0 && <small className="nav-count">{sideWishes}</small>}</button>}

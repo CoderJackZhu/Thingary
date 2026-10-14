@@ -775,7 +775,7 @@ pub fn snapshot(store: &Store) -> Result<Snapshot> {
 struct Request {
     snapshot: Snapshot,
     force: bool,
-    done: Option<mpsc::SyncSender<()>>,
+    done: Option<mpsc::SyncSender<std::result::Result<(), String>>>,
 }
 /// Every plan reaches the notification center through this one thread. The
 /// center can take seconds to answer, so it never runs on the storage worker,
@@ -802,11 +802,11 @@ fn enqueue(request: Request) -> bool {
                     while AUTH_PENDING.load(Ordering::Acquire) != 0 {
                         std::thread::sleep(std::time::Duration::from_millis(200));
                     }
-                    if let Some(plan) = &latest {
-                        apply(&plan.json, force);
-                    }
+                    let result = latest
+                        .as_ref()
+                        .map_or(Ok(()), |plan| apply(&plan.json, force));
                     for done in waiting {
-                        let _ = done.send(());
+                        let _ = done.send(result.clone());
                     }
                 }
             });
@@ -844,26 +844,49 @@ pub fn refresh(snapshot: Snapshot) {
         let _ = finished.recv();
     }
 }
-/// Synchronises system pending notifications with `json`. Unchanged plans are
-/// skipped unless `force`. Runs only on the reminder thread.
-fn apply(json: &str, force: bool) {
-    let Ok(mut last) = LAST.lock() else {
-        return;
-    };
-    if !force && last.0 == json {
-        return;
+/// Waits outside the storage/UI threads for this request's actual result.
+/// The exit coordinator owns the bounded wait and cancellation policy.
+#[cfg(any(windows, test))]
+pub fn flush_for_exit(snapshot: Snapshot) -> Result<()> {
+    let (done, finished) = mpsc::sync_channel(1);
+    if !enqueue(Request {
+        snapshot,
+        force: true,
+        done: Some(done),
+    }) {
+        return Err(Error::new("REMINDER", "提醒服务未能接收退出检查"));
     }
-    // A failed call is not remembered: the next queued plan is applied, not skipped as unchanged.
-    last.1 = match native(json, false) {
+    finished
+        .recv()
+        .map_err(|_| Error::new("REMINDER", "提醒检查未完成"))?
+        .map_err(|message| Error::new("REMINDER", &message))
+}
+/// The returned result belongs to this batch, never to a later global status read.
+fn apply(json: &str, force: bool) -> std::result::Result<(), String> {
+    let mut last = LAST.lock().map_err(|_| "提醒状态不可用".to_owned())?;
+    apply_result(&mut last, json, force, |json| native(json, false))
+}
+fn apply_result(
+    last: &mut (String, String),
+    json: &str,
+    force: bool,
+    native: impl FnOnce(&str) -> Result<()>,
+) -> std::result::Result<(), String> {
+    if !force && last.0 == json {
+        return Ok(());
+    }
+    match native(json) {
         Ok(()) => {
             last.0 = json.to_owned();
-            String::new()
+            last.1.clear();
+            Ok(())
         }
-        Err(e) => {
+        Err(error) => {
             last.0.clear();
-            e.message
+            last.1 = error.message.clone();
+            Err(error.message)
         }
-    };
+    }
 }
 pub fn status() -> String {
     LAST.lock()
@@ -887,10 +910,38 @@ mod tests {
         let newer = Snapshot::new("[]".into());
         schedule(newer);
         refresh(stale);
+        flush_for_exit(Snapshot::new("[]".into())).unwrap();
         let calls = NATIVE_CALLS.lock().unwrap();
         assert!(!calls.is_empty());
         assert!(!calls.iter().any(|c| c == stale_json));
         assert_eq!(LAST.lock().unwrap().0, "[]");
+    }
+    #[test]
+    fn exit_ack_preserves_native_failure_and_unchanged_success_does_not_call_native() {
+        let mut last = (String::new(), String::new());
+        let result = apply_result(&mut last, "new", false, |_| {
+            Err(Error::new("REMINDER", "disabled"))
+        });
+        assert_eq!(result, Err("disabled".into()));
+        assert!(last.0.is_empty());
+        assert_eq!(apply_result(&mut last, "new", false, |_| Ok(())), Ok(()));
+        assert_eq!(
+            apply_result(&mut last, "new", false, |_| panic!("already scheduled")),
+            Ok(())
+        );
+        assert_eq!(
+            result,
+            Err("disabled".into()),
+            "later success cannot overwrite earlier ack"
+        );
+        assert_eq!(
+            apply_result(&mut last, "new", true, |_| Err(Error::new(
+                "REMINDER",
+                "permission changed"
+            ))),
+            Err("permission changed".into()),
+            "exit flush must check even unchanged plans"
+        );
     }
     fn plan(id: &str) -> Plan {
         Plan {

@@ -170,7 +170,7 @@ function Stop-Acceptance {
   $script:AppProcess=$null
 }
 function UI([string]$Mode, [string]$Label='result') {
-  Run-Tool 'node' @('scripts/windows-native-ui.mjs','--mode',$Mode,'--output',$Output,'--pid',"$($AppProcess.Id)",'--label',$Label) "ui-$Mode-$Label.log"
+  Run-Tool 'node' @('scripts/windows-native-ui.mjs','--mode',$Mode,'--output',$Output,'--pid',"$($AppProcess.Id)",'--label',$Label,'--notification-driver',"$NotificationDriver") "ui-$Mode-$Label.log"
   $result=Get-Content (Join-Path $Output "ui-$Mode-$Label.json") -Raw | ConvertFrom-Json
   $Summary.nativeUI+=@{ mode=$Mode; label=$Label; status=$result.status; runtime=$result.runtime; verified=$result.verified; unverified=$result.unverified; screenshots=$result.screenshots }
 }
@@ -348,6 +348,50 @@ try {
   if (($before | ConvertTo-Json -Compress) -ne ($after | ConvertTo-Json -Compress)) { throw 'Default uninstall changed/deleted acceptance data.' }
   Install-Acceptance; Start-Acceptance; UI 'persistence' 'reinstall'; Stop-Acceptance
   $Summary.verified+=@('default silent uninstall retains every data byte','same package reinstall opens persisted assets')
+  # Exercise a saved business reminder through the running GUI and its real 60s timer.
+  if ($null -eq $NotificationFailure) {
+    try {
+      $env:THINGARY_REMINDER_TEST_SECONDS='120'
+      Start-Acceptance; UI 'business-reminder'
+      $business=(Get-Content (Join-Path $Output 'ui-business-reminder-result.json') -Raw | ConvertFrom-Json).businessReminder
+      $plan=$business.scheduled
+      $deliveryTime=[DateTime]::FromFileTimeUtc([long]$plan.ticks)
+      if ((Get-Date).ToUniversalTime() -ge $deliveryTime) { throw 'Business reminder deadline elapsed before clean app close.' }
+      Stop-Acceptance
+      $businessClosedAt=(Get-Date).ToUniversalTime()
+      if ($businessClosedAt -ge $deliveryTime) { throw 'Business reminder app did not close before original deadline.' }
+      $delivered=$null
+      while ((Get-Date).ToUniversalTime() -lt $deliveryTime.AddSeconds(60)) {
+        $state=Notify 'inspect'
+        $matching=@($state.owned_history | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag })
+        if ($matching.Count -gt 1) { throw 'Duplicate delivered business reminder.' }
+        if ($matching.Count -eq 1) {
+          if ((Get-Date).ToUniversalTime() -lt $deliveryTime -or $matching[0].xml -ne $plan.xml) { throw 'Business reminder history deadline/content mismatch.' }
+          if (@($state.scheduled | Where-Object { $_.group -eq $plan.group -and $_.tag -eq $plan.tag }).Count) { throw 'Delivered business reminder remains scheduled.' }
+          $delivered=$state; break
+        }
+        Start-Sleep -Milliseconds 500
+      }
+      if ($null -eq $delivered) { throw 'Saved business reminder did not reach system history after clean GUI exit.' }
+      $delivered | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $Output 'business-notification-delivered.json') -Encoding utf8
+      $Summary.businessNotificationDelivery=@{ saved=$business.saved; businessId=$business.businessId; scheduled=$plan; polls=$business.polls; appClosedAt=$businessClosedAt.ToString('o'); observedAt=$delivered.observed_at; visibleDesktopToastVerified=$false }
+      $Summary.verified+=@('real saved wishlist reminder keeps deadline across GUI status poll','saved business reminder reaches system history after GUI exit')
+      # Close immediately after the next real save; do not pre-inspect or wait for scheduling.
+      Start-Acceptance; UI 'immediate-reminder'; Stop-Acceptance
+      $immediate=(Get-Content (Join-Path $Output 'ui-immediate-reminder-result.json') -Raw | ConvertFrom-Json).businessReminder.saved
+      $state=Notify 'inspect'
+      $newPlan=@($state.scheduled | Where-Object { $_.group -eq 'thingary' -and $_.xml.Contains($immediate.name) })
+      if ($newPlan.Count -ne 1) { throw 'Immediately saved business reminder is absent or duplicated after graceful exit.' }
+      if ($newPlan[0].tag -ne $newPlan[0].id -or [DateTime]::FromFileTimeUtc([long]$newPlan[0].ticks) -le (Get-Date).ToUniversalTime()) { throw 'Immediately saved reminder identity/deadline invalid after exit.' }
+      if (@($state.owned_history | Where-Object { $_.group -eq $newPlan[0].group -and $_.tag -eq $newPlan[0].tag }).Count) { throw 'New immediate reminder unexpectedly already in history.' }
+      $state | ConvertTo-Json -Depth 10 | Set-Content (Join-Path $Output 'immediate-exit-notification.json') -Encoding utf8
+      $Summary.immediateExitNotification=@{ saved=$immediate; scheduled=$newPlan[0]; source='installed app save followed by graceful exit flush'; inspectedAfterExitAt=$state.observed_at; visibleDesktopToastVerified=$false }
+      $Summary.verified+=@('immediate save then graceful exit retains business reminder in real system schedule')
+    } finally {
+      if ($null -ne $AppProcess) { Stop-Acceptance }
+      Remove-Item Env:THINGARY_REMINDER_TEST_SECONDS -ErrorAction SilentlyContinue
+    }
+  }
   [void](Data-Hashes 'before-fixture-library-replacement')
   # Move only this run's fictional smoke library into artifacts; never follow reparse points.
   $library=Join-Path $DataRoot 'library'

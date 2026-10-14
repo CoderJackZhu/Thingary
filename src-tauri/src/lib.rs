@@ -60,6 +60,8 @@ pub mod virtual_assets;
 pub mod warranty;
 pub mod wealth;
 mod window_size;
+#[cfg(any(windows, test))]
+mod windows_exit;
 pub mod wish_plan;
 pub mod wishlist;
 pub mod worker;
@@ -124,6 +126,8 @@ pub fn run() {
                         }
                     })?;
             }
+            #[cfg(windows)]
+            app.manage(windows_exit::ExitState::default());
             app.manage(commands::EditGuard::default());
             app.manage(commands::LibraryGuard::default());
             app.manage(commands::FinancialImportJobs::default());
@@ -397,6 +401,7 @@ pub fn run() {
             commands::set_editing,
             commands::set_library_busy,
             commands::finish_close,
+            commands::windows_exit_reminders_choice,
             commands::set_appearance,
             commands::set_page_menu,
             commands::pick_photo,
@@ -486,11 +491,15 @@ pub fn run() {
                     app.state::<commands::LibraryGuard>().1.load(Ordering::SeqCst),
                 ) {
                     api.prevent_exit();
+                    windows_exit::cancel(app);
                     if let Some(w) = app.get_webview_window("main") {
                         let _ = w.show();
                         let _ = w.set_focus();
                         let _ = w.emit(event, true);
                     }
+                } else if !windows_exit::take_permit(app) {
+                    api.prevent_exit();
+                    windows_exit::begin(app);
                 }
                 #[cfg(target_os = "macos")]
                 if app.state::<commands::EditGuard>().0.load(Ordering::SeqCst) {

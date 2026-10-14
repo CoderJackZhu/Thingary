@@ -279,6 +279,70 @@ try {
     assert.ok(!state.text.includes("取消的虚构物品"));
     await shot("persisted-" + option("--label", "restart"));
     report.verified.push("saved assets persist", "cancelled asset absent");
+  } else if ((mode === "business-reminder" || mode === "immediate-reminder")) {
+    // Real installed-app command/worker/database path; no direct DB or driver scheduling.
+    const driver = option("--notification-driver", "");
+    assert.ok(driver.endsWith("windows_notifications.exe"));
+    const inspect = () => {
+      const state = JSON.parse(execFileSync(driver, ["inspect"], { encoding: "utf8", timeout: 15000 }));
+      assert.equal(state.identifier, "local.thingary.win.acceptance");
+      return state;
+    };
+    const saved = await js(`(async()=>{
+      const api=window.__TAURI_INTERNALS__, original=api.invoke;
+      const call=(command,args)=>original.call(api,command,args);
+      if ((await call('demo_status')).active) throw Error('Business reminder requires personal acceptance library');
+      if (!(await call('modules_get')).wishlist) throw Error('Wishlist module unavailable');
+      const query={search:'',filter:'all',sort:'created',descending:true,offset:0};
+      const page=await call('list_wishlist',{query});
+      const name='Windows business reminder '+crypto.randomUUID();
+      const tomorrow=new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+      const day=[tomorrow.getFullYear(),String(tomorrow.getMonth()+1).padStart(2,'0'),String(tomorrow.getDate()).padStart(2,'0')].join('-');
+      await call('notification_permission');
+      window.__acceptanceNotificationPolls=[];
+      // Tauri's invoke is read-only. Observe its HTTP transport without replacing
+      // commands, timers, callback IDs, headers or the response consumed by Tauri.
+      const originalFetch=window.fetch, statusUrl=api.convertFileSrc('notification_status','ipc');
+      window.fetch=function(...args){
+        const result=originalFetch.apply(this,args);
+        if(String(args[0])===statusUrl) result.then(async response=>{
+          const value=await response.clone().json();
+          window.__acceptanceNotificationPolls.push({at:Date.now(),value,ok:response.headers.get('Tauri-Response')==='ok'});
+        }).catch(error=>window.__acceptanceNotificationPolls.push({at:Date.now(),error:String(error)}));
+        return result;
+      };
+      const item=await call('save_wish_plan',{input:{request_id:crypto.randomUUID(),generation:page.generation,id:null,expected_revision:null,
+        fields:{name,category_id:null,estimated_price_cents:null,priority:null,target_date:day,external_link:'',notes:'Fictional native notification acceptance'},
+        preferences:{added_date:null,channel_id:null,mode:null,saved_cents:'0',achievement_source:null,pinned:false,reminder:true},photos:{ids:[],cover_id:null},replacement_asset_id:null}});
+      const persisted=await call('list_wishlist',{query:{...query,search:name}});
+      if(!persisted.items.some(row=>row.id===item.id&&row.preferences?.reminder&&row.fields.target_date===day)) throw Error('Saved business reminder missing');
+      return {id:item.id,name,generation:page.generation,date:day,savedAt:Date.now()};
+    })()`);
+    if (mode === 'immediate-reminder') {
+      report.businessReminder = { saved, visibleDesktopToastVerified: false };
+      report.verified.push('fictional reminder saved and read back without polling or waiting for scheduling');
+    } else {
+    let first;
+    await until(() => {
+      const state = inspect();
+      const matching = state.scheduled.filter(item => item.group === 'thingary' && item.xml.includes(saved.name));
+      assert.ok(matching.length <= 1, 'duplicate business reminder');
+      if (matching.length === 1) first = matching[0];
+      return !!first;
+    }, 'business reminder from app worker in system queue');
+    assert.equal(first.tag, first.id);
+    const businessId = first.xml.match(/<toast[^>]* launch="([^"]+)"/)[1];
+    assert.ok(businessId.startsWith('thingary-'));
+    assert.ok(!businessId.includes('windows-acceptance'), 'must be real database reminder identity');
+    await until(async () => Date.now() - saved.savedAt >= 65000 && (await js('window.__acceptanceNotificationPolls')).some(p => p.at > saved.savedAt && !p.error && p.ok && p.value === ''), 'real sixty-second GUI notification status poll', 100000);
+    const after = inspect();
+    const retained = after.scheduled.filter(item => item.group === first.group && item.id === first.id);
+    assert.equal(retained.length, 1, 'business reminder still scheduled before original deadline');
+    for (const field of ['ticks', 'tag', 'xml']) assert.equal(retained[0][field], first[field], field + ' unchanged by status polling');
+    assert.equal(after.owned_history.filter(item => item.group === first.group && item.tag === first.tag).length, 0);
+    report.businessReminder = { saved, businessId, scheduled: first, afterPoll: retained[0], polls: await js('window.__acceptanceNotificationPolls'), visibleDesktopToastVerified: false };
+    report.verified.push('fictional wishlist reminder saved through installed app IPC', 'real GUI sixty-second status poll leaves original system deadline intact');
+    }
   } else if (mode === "fixture") {
     await assets();
     assert.ok(await js(`${visibleAssetRows}.length>0`));

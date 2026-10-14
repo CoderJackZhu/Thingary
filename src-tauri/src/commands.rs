@@ -212,6 +212,14 @@ pub fn finish_close(
     Ok(())
 }
 
+#[tauri::command]
+pub fn windows_exit_reminders_choice(app: tauri::AppHandle, exit: bool) {
+    #[cfg(windows)]
+    crate::windows_exit::choose(&app, exit);
+    #[cfg(not(windows))]
+    let _ = (app, exit);
+}
+
 /// The native ⌘N/⌘F items, renamed to what the current page will do.
 pub struct PageMenu {
     pub new: tauri::menu::MenuItem<tauri::Wry>,

@@ -82,6 +82,8 @@ macOS 使用系统通知调度；Windows 使用 WinRT `ScheduledToastNotificatio
 
 Windows 读取系统通知状态；关闭时返回可读提示，不删除已保存的业务提醒日期。提醒队列由系统管理，应用退出后不依赖后台进程；排队成功与实际可见送达分别验收。未安装的开发进程没有匹配 AUMID，通知验证必须使用已安装的隔离身份。开发与人工验收边界见[Windows 验收](WINDOWS_ACCEPTANCE.md)。
 
+Windows 的正常 `ExitRequested` 在编辑／任务保护之后，先从串行 Worker 取得最新个人库提醒快照，再在独立通知线程确认该批执行结果。整个等待约 5 秒，包含取得快照的时间；不在 UI 或存储线程等待 WinRT，也不把通知失败变成资料保存失败。退出状态机限制一个未完成任务，取消／超时废弃自动退出许可，迟到回调不能退出；成功或用户明确继续退出时仍再次检查编辑保护。macOS 退出行为不变。
+
 ## 当前规划报告
 
 `PlanningPage` 使用同一批 `PlanningSources` 与 `buildBasicCapabilities`，经 `planning-report/current-adapter.ts` 和 `parseReportInput` 生成脱离来源引用的白名单快照。`PlanningCurrentReportDialog` 只持有内存快照；普通来源刷新不替换正文，切库、恢复、关闭规划或离开目标使其失效。报告不写账户、规划或回执，未知净投入不补零生成预测；影响计算的待核对项限制主结论。实际资金与模拟起点分别标注，账户在完整／隐私视图共用稳定局部别名。
