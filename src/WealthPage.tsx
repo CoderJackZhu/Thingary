@@ -1,3 +1,4 @@
+import { CheckinReminder } from './CheckinReminder';
 import { spacedLabels } from './chart-labels';
 import { accountVisible } from './wealth-display';
 import type { AccountView } from './wealth-display';
@@ -153,6 +154,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
         : <Accounts accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
       : tab === 'changes' ? <WealthChanges accountView={accountView} summary={summary} accounts={accounts} today={today} initial={changesSeed} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn}/>
       : <History points={points} onOpen={setSnapshotDetail} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
+    {tab === 'history' && summary && !error && <CheckinReminder wealthOn today={today}/>}
     {editing && summary && <AccountDialog account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onClose={closeAccount}/>}
   </section>;
 }
