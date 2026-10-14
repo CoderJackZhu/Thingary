@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { commonYears, moveYear, placeCalendar, yearPage, type YearIntent } from './date-picker';
+import { commonYears, moveYear, outsideCalendar, placeCalendar, yearPage, type YearIntent } from './date-picker';
 import { useFormHint } from './form-hint';
 import './date-input.css';
 
@@ -23,7 +23,7 @@ export function YearSelect({ label = '年份', value, todayYear, onChange, inten
   useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
   useEffect(() => {
     if (!open) return;
-    const outside = (e: Event) => { if (!root.current?.contains(e.target as Node) && !panel.current?.contains(e.target as Node)) close(); };
+    const outside = (e: Event) => { if (outsideCalendar(root.current, panel.current, e.target as Node)) close(); };
     document.addEventListener('pointerdown', outside); document.addEventListener('focusin', outside);
     return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('focusin', outside); };
   }, [open]);

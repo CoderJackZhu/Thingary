@@ -57,6 +57,25 @@ export function moveCalendar(value: string, key: string, precision: Precision): 
   }
   return null;
 }
+/**
+ * Outside test for an open calendar. Pressing an arrow glyph makes WebKit focus the hosting
+ * element rather than the button, so that host still counts as inside while every other element
+ * around the panel stays outside and dismisses it as usual.
+ */
+export function outsideCalendar(root: Node | null, panel: Node | null, target: Node | null): boolean {
+  if (!target) return false;
+  if (root?.contains(target) || panel?.contains(target)) return false;
+  return !isCalendarHost(panel, target);
+}
+/** The portal host the panel was rendered into: the owning dialog, or the body outside one. */
+function isCalendarHost(panel: Node | null, target: Node): boolean {
+  for (let host = panel?.parentElement ?? null; host; host = host.parentElement) {
+    if (host === target) return true;
+    if (host.tagName === 'DIALOG') return false;
+    if (host === host.ownerDocument.body) return false;
+  }
+  return false;
+}
 type Anchor = { left: number; right: number; top: number; bottom: number };
 export function placeCalendar(anchor: Anchor, size: { width: number; height: number }, viewport: { width: number; height: number }) {
   const pad = 12, gap = 8;

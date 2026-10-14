@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { localDay } from './asset';
-import { calendarDate, calendarValue, clampCalendar, moveCalendar, parseCalendar, placeCalendar, type Precision, type YearIntent } from './date-picker';
+import { calendarDate, calendarValue, clampCalendar, moveCalendar, outsideCalendar, parseCalendar, placeCalendar, type Precision, type YearIntent } from './date-picker';
 import { YearSelect } from './YearSelect';
 import { useFormHint, useFormLabel } from './form-hint';
 import './date-input.css';
@@ -58,7 +58,7 @@ function CalendarInput({ id, label: suppliedLabel, value, onChange, disabled = f
   useEffect(() => {
     if (!open) return;
     const outside = (event: Event) => {
-      if (!root.current?.contains(event.target as Node) && !panel.current?.contains(event.target as Node)) setOpen(false);
+      if (outsideCalendar(root.current, panel.current, event.target as Node)) setOpen(false);
     };
     document.addEventListener('pointerdown', outside);
     document.addEventListener('focusin', outside);

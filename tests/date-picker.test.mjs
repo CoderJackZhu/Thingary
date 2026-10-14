@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calendarDate, calendarValue, parseCalendar, moveCalendar, clampCalendar, placeCalendar, commonYears, yearPage, moveYear } from '../src/date-picker.ts';
+import { calendarDate, calendarValue, parseCalendar, moveCalendar, clampCalendar, placeCalendar, commonYears, yearPage, moveYear, outsideCalendar } from '../src/date-picker.ts';
+
+/** Minimal node graph standing in for a portaled panel inside a native dialog. */
+function dom({ dialog = true } = {}) {
+  const body = {tagName: 'BODY', ownerDocument: null, parentElement: null};
+  body.ownerDocument = {body};
+  const host = dialog ? {tagName: 'DIALOG', parentElement: body, ownerDocument: body.ownerDocument} : body;
+  const panel = {tagName: 'DIV', parentElement: host, ownerDocument: body.ownerDocument};
+  const arrow = {tagName: 'BUTTON', parentElement: panel, ownerDocument: body.ownerDocument};
+  const sibling = {tagName: 'H3', parentElement: host, ownerDocument: body.ownerDocument};
+  // contains() answers for the node itself and for anything below it.
+  panel.contains = target => target === panel || target === arrow;
+  const root = {tagName: 'DIV', parentElement: host, ownerDocument: body.ownerDocument, contains: () => false};
+  return {root, panel, arrow, sibling, host, body};
+}
 
 test('calendar validates leap days and preserves month precision and local years', () => {
   assert.equal(parseCalendar('2025-02-29', 'day'), null);
@@ -40,4 +54,21 @@ test('year grid pages and keyboard navigation retain distant years within format
   assert.equal(moveYear(2026,'Home'),2017); assert.equal(moveYear(2026,'End'),2028);
   assert.equal(moveYear(1,'ArrowLeft'),1); assert.equal(moveYear(9999,'End'),9999);
   assert.equal(moveYear(2026,'ArrowRight',1900,2026),2026); assert.equal(moveYear(2026,'Enter'),null);
+});
+
+test('the hosting element that WebKit focuses instead of a nav arrow stays inside the calendar', () => {
+  const {root, panel, arrow, sibling, host} = dom();
+  // Pressing an arrow focuses the dialog rather than the button; the panel must survive it.
+  assert.equal(outsideCalendar(root, panel, host), false);
+  assert.equal(outsideCalendar(root, panel, arrow), false);
+  // Genuine surroundings still dismiss, so the panel can never become undismissable.
+  assert.equal(outsideCalendar(root, panel, sibling), true);
+  assert.equal(outsideCalendar(root, panel, {tagName: 'DIV'}), true);
+  assert.equal(outsideCalendar(root, panel, null), false);
+});
+test('a panel portaled into the body keeps only the body as its focus host', () => {
+  const {root, panel, host, body} = dom({dialog: false});
+  assert.equal(outsideCalendar(root, panel, body), false);
+  assert.equal(outsideCalendar(root, panel, host), false);
+  assert.equal(outsideCalendar(root, panel, {tagName: 'H3'}), true);
 });
