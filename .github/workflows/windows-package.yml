@@ -55,7 +55,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install native and planning WASM build targets
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc, wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
