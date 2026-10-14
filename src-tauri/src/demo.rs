@@ -428,8 +428,10 @@ fn selected_root(real_root: &std::path::Path) -> Result<std::path::PathBuf> {
         "demo-library".into()
     };
     let root = real_root.with_file_name(name);
-    if std::fs::symlink_metadata(&root).is_ok_and(|m| crate::storage::is_link(&m)) {
-        return Err(Error::new("DEMO_PATH", "样例目录不能是符号链接"));
+    if let Ok(meta) = std::fs::symlink_metadata(&root) {
+        if crate::storage::is_link(&meta, &root)? {
+            return Err(Error::new("DEMO_PATH", "样例目录不能是符号链接"));
+        }
     }
     Ok(root)
 }

@@ -46,7 +46,7 @@ impl From<zip::result::ZipError> for Error {
 pub(crate) fn file_digest(path: &Path, max: u64) -> Result<(u64, String)> {
     reject_links(path)?;
     let meta = fs::symlink_metadata(path)?;
-    if is_link(&meta) || !meta.is_file() || meta.len() > max {
+    if is_link(&meta, path)? || !meta.is_file() || meta.len() > max {
         return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
     }
     let mut hasher = Sha256::new();
@@ -352,7 +352,7 @@ impl Store {
                 let limit = entry_limit(&entry);
                 reject_links(source)?;
                 let meta = fs::symlink_metadata(source)?;
-                if is_link(&meta) || !meta.is_file() || meta.len() > limit {
+                if is_link(&meta, source)? || !meta.is_file() || meta.len() > limit {
                     return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
                 }
                 zip.start_file(
@@ -454,7 +454,7 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
     reject_links(dir)?;
     reject_links(path)?;
     let meta = fs::symlink_metadata(path)?;
-    if is_link(&meta) || !meta.is_file() || meta.len() > MAX_ARCHIVE_FILE {
+    if is_link(&meta, path)? || !meta.is_file() || meta.len() > MAX_ARCHIVE_FILE {
         return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
     }
     let mut archive = zip::ZipArchive::new(File::open(path)?)?;

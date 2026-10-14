@@ -103,7 +103,8 @@ pub fn run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf> {
         let name = entry.file_name();
         let name = name.to_string_lossy();
         if name.starts_with('.')
-            && fs::symlink_metadata(entry.path()).is_ok_and(|m| !is_link(&m) && m.is_file())
+            && fs::symlink_metadata(entry.path())
+                .is_ok_and(|m| m.is_file() && is_link(&m, &entry.path()).is_ok_and(|link| !link))
         {
             remove_file_retry(entry.path())?;
         }
@@ -137,7 +138,7 @@ pub fn prune(dir: &Path) -> Result<()> {
             let name = entry.file_name().into_string().ok()?;
             (is_auto_backup_name(&name) && {
                 let m = fs::symlink_metadata(entry.path()).ok()?;
-                !is_link(&m) && m.is_file()
+                !is_link(&m, &entry.path()).ok()? && m.is_file()
             })
             .then_some(name)
         })
@@ -166,7 +167,7 @@ pub fn list(dir: &Path) -> Vec<Item> {
             let name = entry.file_name().into_string().ok()?;
             let date = date_of(&name)?.to_string();
             let meta = fs::symlink_metadata(entry.path()).ok()?;
-            if is_link(&meta) || !meta.is_file() {
+            if is_link(&meta, &entry.path()).ok()? || !meta.is_file() {
                 return None;
             }
             let size = meta.len();

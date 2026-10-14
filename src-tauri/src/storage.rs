@@ -131,16 +131,51 @@ fn retry_io<T>(mut operation: impl FnMut() -> std::io::Result<T>) -> std::io::Re
     }
     operation()
 }
-/// A junction is a reparse point but is not necessarily reported as a symlink.
-pub(crate) fn is_link(meta: &fs::Metadata) -> bool {
+/// IsReparseTagNameSurrogate: only tags redirecting names represent links.
+#[cfg(any(windows, test))]
+fn is_name_surrogate_reparse_tag(tag: u32) -> bool {
+    tag & 0x2000_0000 != 0
+}
+
+/// Cloud placeholders carry reparse tags too, but do not redirect names.
+pub(crate) fn is_link(meta: &fs::Metadata, _path: &Path) -> std::io::Result<bool> {
     #[cfg(windows)]
     {
-        use std::os::windows::fs::MetadataExt;
-        meta.file_attributes() & 0x400 != 0
+        use std::os::windows::{fs::MetadataExt, fs::OpenOptionsExt, io::AsRawHandle};
+        use windows::Win32::{
+            Foundation::HANDLE,
+            Storage::FileSystem::{
+                FileAttributeTagInfo, GetFileInformationByHandleEx, FILE_ATTRIBUTE_REPARSE_POINT,
+                FILE_ATTRIBUTE_TAG_INFO, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+            },
+        };
+
+        if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 == 0 {
+            return Ok(false);
+        }
+        // Zero desired access and OPEN_REPARSE_POINT inspect the placeholder
+        // itself. Do not read content or hydrate an online-only cloud file.
+        let file = OpenOptions::new()
+            .access_mode(0)
+            .custom_flags((FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS).0)
+            .open(_path)?;
+        let mut info = FILE_ATTRIBUTE_TAG_INFO::default();
+        // The File owns the handle; the API writes exactly this C-layout buffer.
+        unsafe {
+            GetFileInformationByHandleEx(
+                HANDLE(file.as_raw_handle()),
+                FileAttributeTagInfo,
+                (&mut info as *mut FILE_ATTRIBUTE_TAG_INFO).cast(),
+                std::mem::size_of::<FILE_ATTRIBUTE_TAG_INFO>() as u32,
+            )
+        }
+        .map_err(std::io::Error::from)?;
+        Ok(info.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+            && is_name_surrogate_reparse_tag(info.ReparseTag))
     }
     #[cfg(not(windows))]
     {
-        meta.file_type().is_symlink()
+        Ok(meta.file_type().is_symlink())
     }
 }
 /// Check an existing path and its managed ancestors without following links.
@@ -154,13 +189,14 @@ pub(crate) fn reject_links(path: &Path) -> std::io::Result<()> {
     let paths = std::iter::once(path);
     for path in paths {
         match fs::symlink_metadata(path) {
-            Ok(meta) if is_link(&meta) => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "资料路径不能含链接或目录联接",
-                ));
+            Ok(meta) => {
+                if is_link(&meta, path)? {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "资料路径不能含链接或目录联接",
+                    ));
+                }
             }
-            Ok(_) => {}
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(error),
         }
@@ -1567,6 +1603,33 @@ mod assumption_migration_tests {
 #[cfg(test)]
 mod filesystem_tests {
     use super::*;
+
+    #[test]
+    fn symbolic_link_tag_redirects_names() {
+        assert!(super::is_name_surrogate_reparse_tag(0xa000_000c));
+    }
+
+    #[test]
+    fn junction_and_volume_mount_tag_redirects_names() {
+        assert!(super::is_name_surrogate_reparse_tag(0xa000_0003));
+        assert!(super::is_name_surrogate_reparse_tag(0x2000_0001));
+    }
+
+    #[test]
+    fn cloud_tags_do_not_redirect_names() {
+        for variant in 0..=15 {
+            assert!(!super::is_name_surrogate_reparse_tag(
+                0x9000_001a | (variant << 12)
+            ));
+        }
+        assert!(!super::is_name_surrogate_reparse_tag(0x8000_0021));
+    }
+
+    #[test]
+    fn ordinary_file_and_non_surrogate_tags_do_not_redirect_names() {
+        assert!(!super::is_name_surrogate_reparse_tag(0));
+        assert!(!super::is_name_surrogate_reparse_tag(0x8000_0017));
+    }
 
     #[test]
     fn atomic_publication_and_noclobber_preserve_existing_destination() {
