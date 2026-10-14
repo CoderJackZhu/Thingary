@@ -1,9 +1,9 @@
 [package]
 name = "thingary"
-version = "0.0.6"
+version = "0.0.7"
 edition = "2021"
 license = "AGPL-3.0-or-later"
-description = "物谱 Thingary: a local-first macOS archive for possessions and financial net worth"
+description = "物谱 Thingary: a local-first desktop archive for possessions and financial net worth"
 default-run = "thingary"
 
 [lib]
@@ -34,6 +34,12 @@ zip = { version = "8.6.0", default-features = false }
 calamine = { version = "0.36.1", features = ["chrono"] }
 rust_xlsxwriter = "0.99.1"
 quick-xml = "0.41.0"
+
+[target.'cfg(windows)'.dependencies]
+rfd = "0.17.2"
+webview2-com = "=0.38.2"
+windows-core = "=0.61.2"
+windows = { version = "=0.61.3", features = ["UI_Notifications", "Data_Xml_Dom", "Foundation", "Win32_System_WinRT", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Com_StructuredStorage", "Win32_System_Registry", "Win32_System_Variant", "Win32_Security", "Win32_UI_Notifications", "Win32_UI_Shell", "Win32_UI_Shell_PropertiesSystem"] }
 
 [features]
 fault-injection = []

@@ -1,7 +1,10 @@
 use crate::{
     domain::{Error, Result},
     files::validate_file_name,
-    storage::{check_db, sync_dir, Store, SCHEMA, SCHEMA_VERSION},
+    storage::{
+        check_db, is_link, persist_retry, reject_links, sync_dir, temp_dir_in, temp_file_in, Store,
+        SCHEMA, SCHEMA_VERSION,
+    },
 };
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -41,8 +44,9 @@ impl From<zip::result::ZipError> for Error {
 }
 /// Streams one regular (non-link) file through SHA-256 without buffering it.
 pub(crate) fn file_digest(path: &Path, max: u64) -> Result<(u64, String)> {
+    reject_links(path)?;
     let meta = fs::symlink_metadata(path)?;
-    if !meta.is_file() || meta.len() > max {
+    if is_link(&meta, path)? || !meta.is_file() || meta.len() > max {
         return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
     }
     let mut hasher = Sha256::new();
@@ -92,6 +96,10 @@ fn definitions(db: &Connection) -> Result<Vec<(String, String, String)>> {
     Ok(rows)
 }
 pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
+    reject_links(dir)?;
+    for name in ["files", "data.sqlite", "data.sqlite-wal", "data.sqlite-shm"] {
+        reject_links(&dir.join(name))?;
+    }
     let db = Connection::open_with_flags(
         dir.join("data.sqlite"),
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
@@ -303,7 +311,10 @@ impl Store {
         let parent = destination
             .parent()
             .ok_or_else(|| Error::new("PATH", "备份位置无效"))?;
-        let stage = tempfile::tempdir_in(&self.root)?;
+        reject_links(parent)?;
+        reject_links(&self.dataset())?;
+        reject_links(&self.dataset().join("files"))?;
+        let stage = temp_dir_in(&self.root)?;
         self.hit("backup.before_snapshot")?;
         {
             let mut target = Connection::open(stage.path().join("data.sqlite"))?;
@@ -330,7 +341,7 @@ impl Store {
         // Originals are content-addressed and never rewritten with other bytes,
         // so they stream straight from the library; each hash is checked against
         // its name while writing, and the finished archive is re-validated below.
-        let mut archive = tempfile::NamedTempFile::new_in(parent)?;
+        let mut archive = temp_file_in(parent)?;
         let mut entries = BTreeMap::new();
         let mut total = 0u64;
         {
@@ -339,8 +350,9 @@ impl Store {
                 .compression_method(zip::CompressionMethod::Stored);
             let mut add = |zip: &mut zip::ZipWriter<&mut File>, entry: String, source: &Path| {
                 let limit = entry_limit(&entry);
+                reject_links(source)?;
                 let meta = fs::symlink_metadata(source)?;
-                if !meta.is_file() || meta.len() > limit {
+                if is_link(&meta, source)? || !meta.is_file() || meta.len() > limit {
                     return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
                 }
                 zip.start_file(
@@ -404,13 +416,11 @@ impl Store {
         archive.as_file().sync_all()?;
         drop(stage);
         // Validate the actual archive, not only the pre-archive snapshot.
-        let verify = tempfile::tempdir_in(&self.root)?;
+        let verify = temp_dir_in(&self.root)?;
         unpack(archive.path(), verify.path())?;
         drop(verify);
         self.hit("backup.before_publish")?;
-        archive
-            .persist_noclobber(destination)
-            .map_err(|e| e.error)?;
+        persist_retry(archive, destination, true)?;
         sync_dir(parent)?;
         Ok(Some(
             destination
@@ -427,7 +437,9 @@ pub fn archive_hash(path: &Path) -> Result<String> {
 /// Copies an archive into `root` so later checks and restore read bytes that
 /// cannot change underneath them.
 pub(crate) fn freeze(archive: &Path, root: &Path) -> Result<tempfile::NamedTempFile> {
-    let frozen = tempfile::NamedTempFile::new_in(root)?;
+    reject_links(archive)?;
+    reject_links(root)?;
+    let frozen = temp_file_in(root)?;
     let copied = std::io::copy(
         &mut File::open(archive)?.take(MAX_ARCHIVE_FILE + 1),
         &mut frozen.as_file(),
@@ -439,8 +451,10 @@ pub(crate) fn freeze(archive: &Path, root: &Path) -> Result<tempfile::NamedTempF
     Ok(frozen)
 }
 pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
+    reject_links(dir)?;
+    reject_links(path)?;
     let meta = fs::symlink_metadata(path)?;
-    if !meta.is_file() || meta.len() > MAX_ARCHIVE_FILE {
+    if is_link(&meta, path)? || !meta.is_file() || meta.len() > MAX_ARCHIVE_FILE {
         return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
     }
     let mut archive = zip::ZipArchive::new(File::open(path)?)?;
@@ -477,6 +491,8 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
             (got, hash)
         } else {
             let dest = dir.join(&name);
+            reject_links(dest.parent().unwrap())?;
+            reject_links(&dest)?;
             fs::create_dir_all(dest.parent().unwrap())?;
             let mut tee = Tee {
                 inner: File::create(&dest)?,
@@ -563,7 +579,7 @@ impl Store {
     pub fn inspect_backup(&self, archive: &Path) -> Result<Summary> {
         let frozen = freeze(archive, &self.root)?;
         let hash = archive_hash(frozen.path())?;
-        let stage = tempfile::tempdir_in(&self.root)?;
+        let stage = temp_dir_in(&self.root)?;
         let manifest = unpack(frozen.path(), stage.path())?;
         let db = Connection::open_with_flags(
             stage.path().join("data.sqlite"),

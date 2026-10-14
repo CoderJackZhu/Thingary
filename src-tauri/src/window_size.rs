@@ -77,10 +77,7 @@ pub fn save(app: &AppHandle) {
     };
     if let Ok(bytes) = serde_json::to_vec(&value) {
         if std::fs::create_dir_all(&dir).is_ok() {
-            let staging = dir.join("window-size.json.tmp");
-            if std::fs::write(&staging, bytes).is_ok() {
-                let _ = std::fs::rename(staging, dir.join("window-size.json"));
-            }
+            let _ = crate::storage::atomic_write(&dir.join("window-size.json"), &bytes);
         }
     }
 }

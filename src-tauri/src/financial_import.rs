@@ -1250,17 +1250,13 @@ impl Store {
                         use std::os::unix::fs::MetadataExt;
                         (
                             metadata.dev(),
-                            metadata.ino(),
+                            crate::storage::file_id(&metadata, &path)?,
                             metadata.ctime(),
                             metadata.ctime_nsec(),
                         )
                     };
-                    #[cfg(not(unix))]
-                    let identity = metadata
-                        .created()
-                        .ok()
-                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                        .map(|t| (t.as_secs(), t.subsec_nanos()));
+                    #[cfg(windows)]
+                    let identity = crate::storage::file_id(&metadata, &path)?;
                     Ok(json!((digest(&bytes), metadata.len(), modified, identity)))
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Value::Null),

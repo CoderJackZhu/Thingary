@@ -1,3 +1,4 @@
+import { isMac } from './undo-shortcut';
 import { CloseButton } from './CloseButton';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
@@ -67,7 +68,7 @@ export function IconPicker({ generation, photos, cover, onClose, onUse }: { gene
     <div className="picker-sources" role="group" aria-label="图片来源">{([['icon','图标','grid'],['dimensional','立体图标','items'],['recent','最近','clock'],['custom','我的图片','image']] as const).map(([id,name,icon]) => <button type="button" key={id} aria-pressed={source === id} disabled={busy} onClick={() => { setSource(id); setCategory('全部'); setSearch(''); }}><Icon name={icon}/>{name}</button>)}</div>
     <div className="picker-filters"><label className="picker-search"><Icon name="search"/><input autoFocus aria-label="搜索图标" placeholder={source === 'custom' ? '搜索我的图片' : '搜索图标，如手机、笔记本、耳机'} value={search} disabled={busy} onChange={e => setSearch(e.target.value)}/>{search && <button type="button" aria-label="清除图标搜索" onClick={() => setSearch('')}><Icon name="close"/></button>}</label>{source !== 'custom' && <div className="picker-categories" role="group" aria-label="图标分类">{materialCategories.map(name => <button type="button" key={name} aria-pressed={category === name} disabled={busy} onClick={() => setCategory(name)}>{name}</button>)}</div>}</div>
     <div className="picker-results">
-      {source === 'custom' && <div className="picker-upload"><button type="button" disabled={busy} onClick={() => void chooseFile()}><Icon name="plus"/>从 Mac 选择图片</button><p>也可拖入或粘贴一张图片 · JPEG、PNG、HEIC、WebP · 20 MiB</p></div>}
+      {source === 'custom' && <div className="picker-upload"><button type="button" disabled={busy} onClick={() => void chooseFile()}><Icon name="plus"/>从电脑选择图片</button><p>也可拖入或粘贴一张图片 · {isMac ? 'JPEG、PNG、HEIC、WebP' : 'JPEG、PNG、WebP'} · 20 MiB</p></div>}
       {loadError && <p role="alert" className="picker-error">{loadError} <button type="button" disabled={busy} onClick={() => setReload(n => n + 1)}>重新读取素材</button></p>}
       {loading ? <p role="status" className="picker-empty">正在读取素材…</p> : <div className="picker-grid">
         {source === 'icon' && category === '全部' && !search && <button type="button" className="picker-tile" aria-label="选择默认箱子图标" aria-pressed={choice.kind === 'default'} disabled={busy} onClick={() => void apply({kind:'default'})}><DefaultAssetIcon/><span>默认图标</span><i aria-hidden="true">✓</i></button>}

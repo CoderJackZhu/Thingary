@@ -1,6 +1,6 @@
 use crate::{
     domain::{Error, Result},
-    storage::{sync_dir, Store},
+    storage::{is_link, reject_links, remove_file_retry, rename_retry, sync_dir, Store},
 };
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path, path::PathBuf};
@@ -94,6 +94,7 @@ pub fn resolve(root: &Path, name: &str) -> Result<PathBuf> {
 /// copy, so disk use grows to roughly library size × 7. Split snapshot/pack or
 /// deduplicate photos only if that ever hurts in practice.
 pub fn run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf> {
+    reject_links(dir)?;
     fs::create_dir_all(dir)?;
     // A force-quit can only leave dot-prefixed temporaries behind; they are
     // worthless and are cleared before anything new is written.
@@ -101,25 +102,28 @@ pub fn run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf> {
         let entry = entry?;
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if name.starts_with('.') && entry.metadata().is_ok_and(|m| m.is_file()) {
-            fs::remove_file(entry.path())?;
+        if name.starts_with('.')
+            && fs::symlink_metadata(entry.path())
+                .is_ok_and(|m| m.is_file() && is_link(&m, &entry.path()).is_ok_and(|link| !link))
+        {
+            remove_file_retry(entry.path())?;
         }
     }
     let final_path = dir.join(format!("物谱自动备份-{date}{EXT}"));
     let partial = dir.join(format!(".物谱自动备份-{date}.partial"));
     if partial.exists() {
-        fs::remove_file(&partial)?;
+        remove_file_retry(&partial)?;
     }
     match store.backup(Some(&partial)) {
         Ok(_) => {
-            fs::rename(&partial, &final_path)?;
+            rename_retry(&partial, &final_path)?;
             sync_dir(dir)?;
             Ok(final_path)
         }
         Err(error) => {
             // The old dated archive, if any, was never touched.
             if partial.exists() {
-                let _ = fs::remove_file(&partial);
+                let _ = remove_file_retry(&partial);
             }
             Err(error)
         }
@@ -127,16 +131,21 @@ pub fn run(store: &Store, dir: &Path, date: &str) -> Result<PathBuf> {
 }
 /// Keeps the newest `KEEP` dated archives; every other file stays untouched.
 pub fn prune(dir: &Path) -> Result<()> {
+    reject_links(dir)?;
     let mut names: Vec<String> = fs::read_dir(dir)?
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let name = entry.file_name().into_string().ok()?;
-            (is_auto_backup_name(&name) && entry.metadata().ok()?.is_file()).then_some(name)
+            (is_auto_backup_name(&name) && {
+                let m = fs::symlink_metadata(entry.path()).ok()?;
+                !is_link(&m, &entry.path()).ok()? && m.is_file()
+            })
+            .then_some(name)
         })
         .collect();
     names.sort_unstable();
     for name in names.into_iter().rev().skip(KEEP) {
-        fs::remove_file(dir.join(name))?;
+        remove_file_retry(dir.join(name))?;
     }
     Ok(())
 }
@@ -147,6 +156,9 @@ pub struct Item {
     pub size: u64,
 }
 pub fn list(dir: &Path) -> Vec<Item> {
+    if reject_links(dir).is_err() {
+        return Vec::new();
+    }
     let mut items: Vec<Item> = fs::read_dir(dir)
         .into_iter()
         .flatten()
@@ -154,7 +166,11 @@ pub fn list(dir: &Path) -> Vec<Item> {
             let entry = entry.ok()?;
             let name = entry.file_name().into_string().ok()?;
             let date = date_of(&name)?.to_string();
-            let size = entry.metadata().ok()?.len();
+            let meta = fs::symlink_metadata(entry.path()).ok()?;
+            if is_link(&meta, &entry.path()).ok()? || !meta.is_file() {
+                return None;
+            }
+            let size = meta.len();
             Some(Item { name, date, size })
         })
         .collect();
@@ -166,6 +182,8 @@ pub fn list(dir: &Path) -> Vec<Item> {
 /// only reads a finished archive and must never block the interface. A
 /// vanished location (unmounted disk) is an error, never recreated here.
 pub fn copy_extra(source: &Path, extra_dir: &Path) -> Result<()> {
+    reject_links(source)?;
+    reject_links(extra_dir)?;
     let name = source
         .file_name()
         .and_then(|n| n.to_str())
@@ -181,25 +199,26 @@ pub fn copy_extra(source: &Path, extra_dir: &Path) -> Result<()> {
     }
     let partial = extra_dir.join(format!(".{name}.partial"));
     if partial.exists() {
-        fs::remove_file(&partial)?;
+        remove_file_retry(&partial)?;
     }
+    reject_links(&partial)?;
     // fs::copy keeps the archive's owner-only permissions.
     let copy = |target: &Path| -> Result<()> {
         fs::copy(source, target)?;
-        fs::File::open(target)?.sync_all()?;
+        crate::storage::sync_file(target)?;
         Ok(())
     };
     match copy(&partial) {
         Ok(()) => {
             let final_path = extra_dir.join(name);
-            fs::rename(&partial, &final_path)?;
+            rename_retry(&partial, &final_path)?;
             sync_dir(extra_dir)?;
             prune(extra_dir)?;
             Ok(())
         }
         Err(error) => {
             if partial.exists() {
-                let _ = fs::remove_file(&partial);
+                let _ = remove_file_retry(&partial);
             }
             Err(error)
         }

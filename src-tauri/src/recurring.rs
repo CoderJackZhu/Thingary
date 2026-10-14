@@ -1488,7 +1488,7 @@ impl Store {
             };
             p.next_due = schedule_for(c, f, &pid, &ends, now.max(date(&p.active_from)?), far)?
                 .into_iter()
-                .find(|d| free(d))
+                .find(&free)
                 .map(|d| d.format("%Y-%m-%d").to_string());
             enrich_plan(c, p, today)?;
             if f.paused {
@@ -1500,7 +1500,7 @@ impl Store {
             due.extend(
                 schedule_for(c, f, &pid, &ends, from, now)?
                     .into_iter()
-                    .filter(|d| free(d))
+                    .filter(&free)
                     .map(item),
             );
             // Yearly plans open their payment window a month ahead, like the virtual list.
@@ -1515,7 +1515,7 @@ impl Store {
             upcoming.extend(
                 schedule_for(c, f, &pid, &ends, now.succ_opt().unwrap_or(now), soon)?
                     .into_iter()
-                    .filter(|d| free(d))
+                    .filter(&free)
                     .map(item),
             );
             // 未来 12 个月预测逐期按实际日期与生效价格累计（设计 §5）。

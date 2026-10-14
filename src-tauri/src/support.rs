@@ -21,14 +21,27 @@ pub fn destination(target: &str) -> Result<&'static str> {
 
 pub fn open(target: &str) -> Result<()> {
     let url = destination(target)?;
-    let status = std::process::Command::new("/usr/bin/open")
-        .arg(url)
-        .status()
-        .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(Error::new("SUPPORT", "无法打开浏览器。"))
+    // Windows Explorer launches the user's default browser asynchronously;
+    // its exit status is not a browser-launch success signal.
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer.exe")
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))
+    }
+    #[cfg(not(windows))]
+    {
+        let status = std::process::Command::new("/usr/bin/open")
+            .arg(url)
+            .status()
+            .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(Error::new("SUPPORT", "无法打开浏览器。"))
+        }
     }
 }
 

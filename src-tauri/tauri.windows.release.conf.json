@@ -1,0 +1,10 @@
+{
+  "build": {
+    "beforeBuildCommand": "npm run build && node scripts/prepare-windows.mjs --identity local.thingary.main"
+  },
+  "bundle": {
+    "resources": {
+      "../.local/distribution/windows-notices/": "许可/"
+    }
+  }
+}

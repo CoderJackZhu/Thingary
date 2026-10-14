@@ -20,8 +20,12 @@ pub(crate) struct Active {
     pub generation: String,
 }
 type FaultHook = Box<dyn Fn(&str) -> Result<()> + Send>;
-/// Length, modification time and inode of a file whose content was hashed.
-pub(crate) type FileStamp = (u64, Option<std::time::SystemTime>, u64);
+/// Length, modification time and platform identity of a file whose content was hashed.
+pub(crate) type FileStamp = (u64, Option<std::time::SystemTime>, FileIdentity);
+#[cfg(target_os = "macos")]
+pub(crate) type FileIdentity = u64;
+#[cfg(windows)]
+pub(crate) type FileIdentity = (u32, u64);
 pub struct Store {
     pub(crate) root: PathBuf,
     pub(crate) active: Active,
@@ -41,21 +45,274 @@ pub(crate) fn uid() -> String {
 pub(crate) fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
+#[cfg(target_os = "macos")]
+pub(crate) fn file_id(meta: &fs::Metadata, _path: &Path) -> Result<FileIdentity> {
+    use std::os::unix::fs::MetadataExt;
+    Ok(meta.ino())
+}
+#[cfg(windows)]
+pub(crate) fn file_id(_meta: &fs::Metadata, path: &Path) -> Result<FileIdentity> {
+    use std::{ffi::c_void, mem::MaybeUninit, os::windows::io::AsRawHandle};
+
+    // BY_HANDLE_FILE_INFORMATION: FILETIME is two DWORDs, not an aligned u64.
+    #[repr(C)]
+    struct FileInformation {
+        _attributes: u32,
+        _creation_time: [u32; 2],
+        _last_access_time: [u32; 2],
+        _last_write_time: [u32; 2],
+        volume_serial_number: u32,
+        _size_high: u32,
+        _size_low: u32,
+        _number_of_links: u32,
+        index_high: u32,
+        index_low: u32,
+    }
+    const _: () = {
+        assert!(std::mem::size_of::<FileInformation>() == 52);
+        assert!(std::mem::align_of::<FileInformation>() == 4);
+    };
+    #[link(name = "kernel32")]
+    extern "system" {
+        #[link_name = "GetFileInformationByHandle"]
+        fn get_file_information_by_handle(
+            file: *mut c_void,
+            information: *mut FileInformation,
+        ) -> i32;
+    }
+
+    let file = File::open(path)?;
+    let mut information = MaybeUninit::<FileInformation>::uninit();
+    // The File keeps its HANDLE alive; the API writes the C-layout buffer on success.
+    if unsafe { get_file_information_by_handle(file.as_raw_handle(), information.as_mut_ptr()) }
+        == 0
+    {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // A nonzero return guarantees the output buffer was initialized by the API.
+    let information = unsafe { information.assume_init() };
+    Ok((
+        information.volume_serial_number,
+        (u64::from(information.index_high) << 32) | u64::from(information.index_low),
+    ))
+}
+#[cfg(windows)]
+pub(crate) fn sync_dir(_path: &Path) -> Result<()> {
+    // Windows cannot open directories with ordinary File::open; MoveFileEx ensures rename durability.
+    Ok(())
+}
+#[cfg(not(windows))]
 pub(crate) fn sync_dir(path: &Path) -> Result<()> {
     File::open(path)?.sync_all()?;
     Ok(())
+}
+pub(crate) fn sync_file(path: &Path) -> Result<()> {
+    // Windows FlushFileBuffers requires a writable handle, unlike macOS fsync.
+    #[cfg(windows)]
+    let file = OpenOptions::new().read(true).write(true).open(path)?;
+    #[cfg(not(windows))]
+    let file = File::open(path)?;
+    file.sync_all()?;
+    Ok(())
+}
+/// Only transient Windows sharing/access failures are retried. The 1.575 s
+/// budget covers scanners that hold a new file for about a second.
+fn retry_io<T>(mut operation: impl FnMut() -> std::io::Result<T>) -> std::io::Result<T> {
+    #[cfg(windows)]
+    {
+        for delay in [25, 50, 100, 200, 400, 400, 400] {
+            match operation() {
+                Err(error) if matches!(error.raw_os_error(), Some(5 | 32 | 33)) => {
+                    std::thread::sleep(Duration::from_millis(delay));
+                }
+                outcome => return outcome,
+            }
+        }
+    }
+    operation()
+}
+/// IsReparseTagNameSurrogate: only tags redirecting names represent links.
+#[cfg(any(windows, test))]
+fn is_name_surrogate_reparse_tag(tag: u32) -> bool {
+    tag & 0x2000_0000 != 0
+}
+
+/// Cloud placeholders carry reparse tags too, but do not redirect names.
+pub(crate) fn is_link(meta: &fs::Metadata, _path: &Path) -> std::io::Result<bool> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::{fs::MetadataExt, fs::OpenOptionsExt, io::AsRawHandle};
+        use windows::Win32::{
+            Foundation::HANDLE,
+            Storage::FileSystem::{
+                FileAttributeTagInfo, GetFileInformationByHandleEx, FILE_ATTRIBUTE_REPARSE_POINT,
+                FILE_ATTRIBUTE_TAG_INFO, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+            },
+        };
+
+        if meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT.0 == 0 {
+            return Ok(false);
+        }
+        // Zero desired access and OPEN_REPARSE_POINT inspect the placeholder
+        // itself. Do not read content or hydrate an online-only cloud file.
+        let file = OpenOptions::new()
+            .access_mode(0)
+            .custom_flags((FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS).0)
+            .open(_path)?;
+        let mut info = FILE_ATTRIBUTE_TAG_INFO::default();
+        // The File owns the handle; the API writes exactly this C-layout buffer.
+        unsafe {
+            GetFileInformationByHandleEx(
+                HANDLE(file.as_raw_handle()),
+                FileAttributeTagInfo,
+                (&mut info as *mut FILE_ATTRIBUTE_TAG_INFO).cast(),
+                std::mem::size_of::<FILE_ATTRIBUTE_TAG_INFO>() as u32,
+            )
+        }
+        .map_err(std::io::Error::from)?;
+        Ok(info.FileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+            && is_name_surrogate_reparse_tag(info.ReparseTag))
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(meta.file_type().is_symlink())
+    }
+}
+/// Check an existing path and its managed ancestors without following links.
+/// Windows also checks all ancestors because directory junctions redirect any
+/// descendant, including an otherwise ordinary file. macOS system ancestors
+/// such as /var are symlinks, so callers check each managed directory there.
+pub(crate) fn reject_links(path: &Path) -> std::io::Result<()> {
+    #[cfg(windows)]
+    let paths = path.ancestors();
+    #[cfg(not(windows))]
+    let paths = std::iter::once(path);
+    for path in paths {
+        match fs::symlink_metadata(path) {
+            Ok(meta) => {
+                if is_link(&meta, path)? {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "资料路径不能含链接或目录联接",
+                    ));
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
+}
+/// tempfile calls Win32 APIs directly, so both its source directory and the
+/// publication destination must carry the verbatim prefix, independently of
+/// LongPathsEnabled. Check links before canonicalization can resolve them.
+pub(crate) fn directory_for_io(path: &Path) -> std::io::Result<PathBuf> {
+    reject_links(path)?;
+    #[cfg(windows)]
+    {
+        let directory = if path.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            path
+        };
+        directory.canonicalize()
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(path.to_owned())
+    }
+}
+pub(crate) fn temp_file_in(parent: impl AsRef<Path>) -> std::io::Result<tempfile::NamedTempFile> {
+    retry_io(|| tempfile::NamedTempFile::new_in(directory_for_io(parent.as_ref())?))
+}
+pub(crate) fn temp_dir_in(parent: impl AsRef<Path>) -> std::io::Result<tempfile::TempDir> {
+    retry_io(|| tempfile::tempdir_in(directory_for_io(parent.as_ref())?))
+}
+pub(crate) fn rename_retry(from: &Path, to: &Path) -> std::io::Result<()> {
+    retry_io(|| {
+        reject_links(from)?;
+        reject_links(to)?;
+        fs::rename(from, to)
+    })
+}
+pub(crate) fn remove_file_retry(path: impl AsRef<Path>) -> std::io::Result<()> {
+    let path = path.as_ref();
+    retry_io(|| {
+        reject_links(path)?;
+        fs::remove_file(path)
+    })
+}
+/// Reject redirected descendants before a recursive cleanup. Never traverse a
+/// junction to an external tree, even if the platform delete API changes.
+pub(crate) fn remove_dir_all_retry(path: &Path) -> std::io::Result<()> {
+    fn check_tree(path: &Path) -> std::io::Result<()> {
+        reject_links(path)?;
+        if fs::symlink_metadata(path)?.is_dir() {
+            for entry in fs::read_dir(path)? {
+                check_tree(&entry?.path())?;
+            }
+        }
+        Ok(())
+    }
+    retry_io(|| {
+        check_tree(path)?;
+        fs::remove_dir_all(path)
+    })
+}
+/// Preserve the temporary and the original destination on every failed atomic
+/// publication. Never emulate replacement by deleting the destination first.
+pub(crate) fn persist_retry(
+    file: tempfile::NamedTempFile,
+    path: &Path,
+    noclobber: bool,
+) -> std::io::Result<File> {
+    let mut pending = Some(file);
+    retry_io(|| {
+        reject_links(
+            pending
+                .as_ref()
+                .expect("temporary retained after failure")
+                .path(),
+        )?;
+        reject_links(path)?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "无效目录"))?;
+        let name = path
+            .file_name()
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "无效文件名"))?;
+        let destination = directory_for_io(parent)?.join(name);
+        let file = pending.take().expect("temporary retained after failure");
+        let outcome = if noclobber {
+            file.persist_noclobber(&destination)
+        } else {
+            file.persist(&destination)
+        };
+        match outcome {
+            Ok(file) => Ok(file),
+            Err(error) => {
+                pending = Some(error.file);
+                Err(error.error)
+            }
+        }
+    })
 }
 pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
     let parent = path
         .parent()
         .ok_or_else(|| Error::new("PATH", "无效目录"))?;
-    let mut f = tempfile::NamedTempFile::new_in(parent)?;
+    retry_io(|| {
+        reject_links(parent)?;
+        reject_links(path)
+    })?;
+    let mut f = temp_file_in(parent)?;
     f.write_all(bytes)?;
     f.as_file().sync_all()?;
-    f.persist(path).map_err(|e| e.error)?;
+    persist_retry(f, path, false)?;
     sync_dir(parent)
 }
 pub(crate) fn connection(path: &Path) -> Result<Connection> {
+    reject_links(path)?;
     let c = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)?;
     c.busy_timeout(Duration::from_secs(3))?;
     c.execute_batch("PRAGMA foreign_keys=ON; PRAGMA trusted_schema=OFF; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;")?;
@@ -87,13 +344,15 @@ fn snapshot_before_migration(db: &Connection, root: &Path) -> Result<()> {
         return Ok(());
     }
     let dir = root.join("pre-migration");
+    reject_links(&dir)?;
     fs::create_dir_all(&dir)?;
     let name = format!(
         "schema-{v}-{}.sqlite",
         chrono::Utc::now().format("%Y%m%dT%H%M%SZ")
     );
     let partial = dir.join(format!(".{name}.partial"));
-    let _ = fs::remove_file(&partial);
+    let _ = remove_file_retry(&partial);
+    reject_links(&partial)?;
     {
         let mut target = Connection::open(&partial)?;
         rusqlite::backup::Backup::new(db, &mut target)?.run_to_completion(
@@ -102,8 +361,8 @@ fn snapshot_before_migration(db: &Connection, root: &Path) -> Result<()> {
             None,
         )?;
     }
-    File::open(&partial)?.sync_all()?;
-    fs::rename(&partial, dir.join(&name))?;
+    sync_file(&partial)?;
+    rename_retry(&partial, &dir.join(&name))?;
     sync_dir(&dir)?;
     let mut old: Vec<String> = fs::read_dir(&dir)?
         .filter_map(|e| e.ok()?.file_name().into_string().ok())
@@ -112,13 +371,36 @@ fn snapshot_before_migration(db: &Connection, root: &Path) -> Result<()> {
     // Names end in a UTC timestamp, so that part orders them by age.
     old.sort_unstable_by_key(|n| n.rsplit('-').next().map(str::to_owned));
     for stale in old.iter().rev().skip(KEEP_PRE_MIGRATION) {
-        let _ = fs::remove_file(dir.join(stale));
+        let _ = remove_file_retry(dir.join(stale));
     }
     Ok(())
 }
 impl Store {
     pub fn open(root: &Path) -> Result<Self> {
+        reject_links(root)?;
+        reject_links(&root.join("lock"))?;
+        reject_links(&root.join("active.json"))?;
+        reject_links(&root.join("restore-journal.json"))?;
+        reject_links(&root.join("datasets"))?;
         fs::create_dir_all(root)?;
+        // SQLite's Win32 calls need the verbatim prefix for a long managed
+        // path. Canonicalize only that case; normal displayed paths stay as-is.
+        #[cfg(windows)]
+        let extended_root = if root
+            .join("datasets")
+            .join("0".repeat(36))
+            .join("files")
+            .join("0".repeat(64))
+            .as_os_str()
+            .len()
+            >= 248
+        {
+            Some(root.canonicalize()?)
+        } else {
+            None
+        };
+        #[cfg(windows)]
+        let root = extended_root.as_deref().unwrap_or(root);
         let lock = OpenOptions::new()
             .read(true)
             .write(true)
@@ -148,13 +430,25 @@ impl Store {
             let db = Connection::open(dir.join("data.sqlite"))?;
             db.execute_batch(SCHEMA)?;
             drop(db);
-            File::open(dir.join("data.sqlite"))?.sync_all()?;
+            sync_file(&dir.join("data.sqlite"))?;
             sync_dir(&dir)?;
             sync_dir(&datasets)?;
             atomic_write(&active_path, &serde_json::to_vec(&a)?)?;
             a
         };
-        let db = connection(&root.join("datasets").join(&active.id).join("data.sqlite"))?;
+        let dataset = root.join("datasets").join(&active.id);
+        reject_links(&dataset)?;
+        for name in [
+            "files",
+            "cache",
+            "staging",
+            "data.sqlite",
+            "data.sqlite-wal",
+            "data.sqlite-shm",
+        ] {
+            reject_links(&dataset.join(name))?;
+        }
+        let db = connection(&dataset.join("data.sqlite"))?;
         snapshot_before_migration(&db, root)?;
         migrate(&db, &|_| Ok(()))?;
         check_db(&db)?;
@@ -1281,5 +1575,326 @@ mod assumption_migration_tests {
             0
         );
         migrate_to(&c, 38, &|_| Ok(())).unwrap();
+    }
+    #[test]
+    fn file_identity_is_stable_and_replacement_changes_it_despite_matching_metadata() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("fictional-preference.json");
+        std::fs::write(&path, b"fictional content").unwrap();
+        let before = std::fs::metadata(&path).unwrap();
+        let identity = super::file_id(&before, &path).unwrap();
+        assert_eq!(identity, super::file_id(&before, &path).unwrap());
+        // Keep the original file alive so its inode/file number cannot be reused.
+        std::fs::rename(&path, tmp.path().join("original-preference.json")).unwrap();
+        std::fs::write(&path, b"fictional content").unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_times(std::fs::FileTimes::new().set_modified(before.modified().unwrap()))
+            .unwrap();
+        let after = std::fs::metadata(&path).unwrap();
+        assert_eq!(before.len(), after.len());
+        assert_eq!(before.modified().unwrap(), after.modified().unwrap());
+        assert_ne!(identity, super::file_id(&after, &path).unwrap());
+    }
+}
+
+#[cfg(test)]
+mod filesystem_tests {
+    use super::*;
+
+    #[test]
+    fn symbolic_link_tag_redirects_names() {
+        assert!(super::is_name_surrogate_reparse_tag(0xa000_000c));
+    }
+
+    #[test]
+    fn junction_and_volume_mount_tag_redirects_names() {
+        assert!(super::is_name_surrogate_reparse_tag(0xa000_0003));
+        assert!(super::is_name_surrogate_reparse_tag(0x2000_0001));
+    }
+
+    #[test]
+    fn cloud_tags_do_not_redirect_names() {
+        for variant in 0..=15 {
+            assert!(!super::is_name_surrogate_reparse_tag(
+                0x9000_001a | (variant << 12)
+            ));
+        }
+        assert!(!super::is_name_surrogate_reparse_tag(0x8000_0021));
+    }
+
+    #[test]
+    fn ordinary_file_and_non_surrogate_tags_do_not_redirect_names() {
+        assert!(!super::is_name_surrogate_reparse_tag(0));
+        assert!(!super::is_name_surrogate_reparse_tag(0x8000_0017));
+    }
+
+    #[test]
+    fn atomic_publication_and_noclobber_preserve_existing_destination() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("fictional.json");
+        atomic_write(&path, b"before").unwrap();
+        atomic_write(&path, b"after").unwrap();
+        let mut staging = tempfile::NamedTempFile::new_in(root.path()).unwrap();
+        staging.write_all(b"unpublished").unwrap();
+        assert!(persist_retry(staging, &path, true).is_err());
+        assert_eq!(fs::read(&path).unwrap(), b"after");
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlink_cleanup_and_backup_never_touch_external_tree() {
+        let root = tempfile::tempdir().unwrap();
+        let external = tempfile::tempdir().unwrap();
+        let marker = external.path().join("fictional-outsider");
+        fs::write(&marker, b"keep").unwrap();
+        let managed = root.path().join("managed");
+        fs::create_dir(&managed).unwrap();
+        let link = managed.join("files");
+        std::os::unix::fs::symlink(external.path(), &link).unwrap();
+        assert!(directory_for_io(&link).is_err());
+        assert!(temp_file_in(&link).is_err());
+        assert!(temp_dir_in(&link).is_err());
+        assert!(atomic_write(&link.join("must-not-exist"), b"outside").is_err());
+        assert_eq!(fs::read_dir(external.path()).unwrap().count(), 1);
+        assert!(remove_dir_all_retry(&managed).is_err());
+        assert_eq!(fs::read(&marker).unwrap(), b"keep");
+        fs::remove_file(&link).unwrap();
+        remove_dir_all_retry(&managed).unwrap();
+        let store = Store::open(&root.path().join("library")).unwrap();
+        let files = store.dataset().join("files");
+        std::os::unix::fs::symlink(external.path(), &files).unwrap();
+        assert!(store
+            .backup(Some(&root.path().join("fictional.thingary")))
+            .is_err());
+        assert_eq!(fs::read(&marker).unwrap(), b"keep");
+        fs::remove_file(&files).unwrap();
+    }
+
+    #[cfg(windows)]
+    fn locked_file(path: &Path) -> File {
+        use std::os::windows::fs::OpenOptionsExt;
+        OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(path)
+            .unwrap()
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn sharing_lock_released_after_one_second_allows_atomic_write() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("fictional.json");
+        fs::write(&path, b"original").unwrap();
+        let lock = locked_file(&path);
+        let release = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(1));
+            drop(lock);
+        });
+        atomic_write(&path, b"replacement").unwrap();
+        release.join().unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"replacement");
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn persistent_sharing_lock_preserves_original_and_removes_temporary() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("fictional.json");
+        fs::write(&path, b"original").unwrap();
+        let lock = locked_file(&path);
+        assert!(atomic_write(&path, b"replacement").is_err());
+        drop(lock);
+        assert_eq!(fs::read(&path).unwrap(), b"original");
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    }
+
+    #[cfg(windows)]
+    fn junction(target: &Path, link: &Path) {
+        let output = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "junction creation failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn junction_source_and_cleanup_never_touch_external_tree() {
+        let root = tempfile::tempdir().unwrap();
+        let external = tempfile::tempdir().unwrap();
+        let marker = external.path().join("fictional-outsider");
+        fs::write(&marker, b"keep").unwrap();
+        let managed = root.path().join("managed");
+        fs::create_dir(&managed).unwrap();
+        let link = managed.join("files");
+        junction(external.path(), &link);
+        assert!(directory_for_io(&link).is_err());
+        assert!(temp_file_in(&link).is_err());
+        assert!(temp_dir_in(&link).is_err());
+        assert!(atomic_write(&link.join("must-not-exist"), b"outside").is_err());
+        assert_eq!(fs::read_dir(external.path()).unwrap().count(), 1);
+        assert!(crate::backup::file_digest(&link.join("fictional-outsider"), 100).is_err());
+        assert!(remove_dir_all_retry(&managed).is_err());
+        assert_eq!(fs::read(&marker).unwrap(), b"keep");
+        fs::remove_dir(&link).unwrap();
+        remove_dir_all_retry(&managed).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn redirected_library_and_backup_files_are_rejected() {
+        let root = tempfile::tempdir().unwrap();
+        let external = tempfile::tempdir().unwrap();
+        let link = root.path().join("library");
+        junction(external.path(), &link);
+        assert!(Store::open(&link).is_err());
+        assert_eq!(fs::read_dir(external.path()).unwrap().count(), 0);
+        fs::remove_dir(&link).unwrap();
+        let store = Store::open(&link).unwrap();
+        let files = store.dataset().join("files");
+        junction(external.path(), &files);
+        assert!(store
+            .backup(Some(&root.path().join("fictional.thingary")))
+            .is_err());
+        fs::remove_dir(&files).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn restore_releases_old_sqlite_and_keeps_locked_previous_dataset() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let root = tempfile::tempdir().unwrap();
+        let mut store = Store::open(&root.path().join("library")).unwrap();
+        let archive = root.path().join("fictional.thingary");
+        store.backup(Some(&archive)).unwrap();
+        let hash = crate::backup::archive_hash(&archive).unwrap();
+        let old = store.dataset();
+        // Permit SQLite reads/writes but deny deletion, as an indexer would.
+        let lock = OpenOptions::new()
+            .read(true)
+            .share_mode(3)
+            .open(old.join("data.sqlite"))
+            .unwrap();
+        let generation = store.generation();
+        store.restore(&archive, &hash, &generation).unwrap();
+        assert_ne!(store.dataset(), old);
+        assert!(old.join("data.sqlite").exists());
+        assert!(!old.join("data.sqlite-wal").exists());
+        assert!(!old.join("data.sqlite-shm").exists());
+        assert!(remove_dir_all_retry(&old).is_err());
+        assert!(old.join("data.sqlite").exists());
+        drop(lock);
+        remove_dir_all_retry(&old).unwrap();
+        assert!(!old.exists());
+        drop(store);
+        Store::open(&root.path().join("library")).unwrap();
+    }
+
+    #[cfg(windows)]
+    fn ordinary_long_directory(base: &Path) -> PathBuf {
+        let directory = base
+            .join("fictional-user".repeat(8))
+            .join("fictional-configuration".repeat(6));
+        assert!(directory.as_os_str().len() > 260);
+        assert!(!directory.to_string_lossy().starts_with(r"\\?\"));
+        fs::create_dir_all(&directory).unwrap();
+        directory
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn ordinary_long_atomic_write_and_publication_keep_verbatim_temporary_paths() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = ordinary_long_directory(root.path());
+        let path = directory.join("fictional-window-size.json");
+        atomic_write(&path, b"original").unwrap();
+        atomic_write(&path, b"replacement").unwrap();
+        assert_eq!(fs::read(&path).unwrap(), b"replacement");
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
+        let mut staging = temp_file_in(&directory).unwrap();
+        assert!(staging.path().to_string_lossy().starts_with(r"\\?\"));
+        staging.write_all(b"collision").unwrap();
+        assert!(persist_retry(staging, &path, true).is_err());
+        assert_eq!(fs::read(&path).unwrap(), b"replacement");
+        // Source and destination may be in different directories on the same
+        // volume: only the existing destination parent is canonicalized.
+        let target = directory.join("fictional-export.csv");
+        let mut staging = temp_file_in(root.path()).unwrap();
+        staging.write_all(b"export").unwrap();
+        persist_retry(staging, &target, true).unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"export");
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 2);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn ordinary_long_backup_destination_publishes_inspects_and_restores() {
+        let root = tempfile::tempdir().unwrap();
+        let directory = ordinary_long_directory(root.path());
+        // The library itself is short; its normalization cannot help the
+        // independently chosen ordinary long backup destination.
+        let mut store = Store::open(&root.path().join("library")).unwrap();
+        crate::demo::prepare(&mut store, "2026-10-13").unwrap();
+        let archive = directory.join("fictional.thingary");
+        store.backup(Some(&archive)).unwrap();
+        let summary = store.inspect_backup(&archive).unwrap();
+        assert_eq!(summary.assets, 10);
+        let original = fs::read(&archive).unwrap();
+        assert_eq!(store.backup(Some(&archive)).unwrap_err().code, "EXISTS");
+        assert_eq!(fs::read(&archive).unwrap(), original);
+        let generation = store.generation();
+        store.restore(&archive, &summary.hash, &generation).unwrap();
+        let after: i64 = store
+            .conn()
+            .unwrap()
+            .query_row("SELECT count(*) FROM assets", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(after, 10);
+        assert_eq!(fs::read_dir(&directory).unwrap().count(), 1);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn long_local_data_path_creates_backs_up_and_restores_without_system_changes() {
+        let root = tempfile::tempdir().unwrap();
+        // Start with an ordinary path, as app_local_data_dir provides. The
+        // storage layer handles the verbatim prefix without system changes.
+        let base = root.path().to_owned();
+        let library = base
+            .join("fictional-user".repeat(8))
+            .join("fictional-profile".repeat(8))
+            .join("local.thingary.win.acceptance/library");
+        assert!(library.as_os_str().len() > 260);
+        let mut store = Store::open(&library).unwrap();
+        crate::demo::prepare(&mut store, "2026-10-13").unwrap();
+        let before: i64 = store
+            .conn()
+            .unwrap()
+            .query_row("SELECT count(*) FROM assets", [], |r| r.get(0))
+            .unwrap();
+        let archive = base.join("fictional.thingary");
+        store.backup(Some(&archive)).unwrap();
+        let hash = crate::backup::archive_hash(&archive).unwrap();
+        let generation = store.generation();
+        store.restore(&archive, &hash, &generation).unwrap();
+        let after: i64 = store
+            .conn()
+            .unwrap()
+            .query_row("SELECT count(*) FROM assets", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(before, after);
+        assert!(after > 0);
     }
 }

@@ -1,3 +1,4 @@
+import { desktopShortcutAction, isMac } from './undo-shortcut';
 // Development-only entry. Renders the production App with an in-memory IPC
 // adapter; index.html and the production build never import this module.
 import { mockIPC } from '@tauri-apps/api/mocks';
@@ -349,8 +350,9 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     if (mode === 'error') throw { message: '无法连接到 Gitee 和 GitHub，请检查网络后重试。也可以直接访问 https://gitee.com/CoderJackZhu/thingary/releases 查看新版本。' };
     const release = { version: mode === 'available' || mode === 'partial' ? '0.0.7' : mode === 'ahead' ? '0.0.5' : '0.0.6', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：盘点提醒与目标进度。\n- 更新前请先备份。' };
     const sources = mode === 'partial' ? ['gitee'] : ['gitee', 'github'];
-    const available = { ...release, sources, downloads: sources.map(source => ({source, name: `Thingary-${release.version}-universal.dmg`, label: 'Mac 通用安装包（Apple Silicon 与 Intel）', size: source === 'gitee' ? null : 30000000})) };
-    return { current: '0.0.6', latest: mode === 'none' ? null : available, update_available: mode === 'available' || mode === 'partial', unreachable: mode === 'partial' ? ['github'] : [], platform: 'Mac · Apple Silicon', newer_unavailable: mode === 'unavailable' ? { ...release, version:'0.0.7', sources, downloads:[] } : null };
+    const windows = params.get('update-platform') === 'windows';
+    const available = { ...release, sources, downloads: sources.map(source => ({source, name: windows ? `物谱_${release.version}_x64-setup.exe` : `Thingary-${release.version}-universal.dmg`, label: windows ? 'Windows 安装包（x64）' : 'Mac 通用安装包（Apple Silicon 与 Intel）', size: source === 'gitee' ? null : 30000000})) };
+    return { current: '0.0.6', latest: mode === 'none' ? null : available, update_available: mode === 'available' || mode === 'partial', unreachable: mode === 'partial' ? ['github'] : [], platform: windows ? 'Windows x64' : 'Mac · Apple Silicon', newer_unavailable: mode === 'unavailable' ? { ...release, version:'0.0.7', sources, downloads:[] } : null };
   }
   if (command === 'update_open_release' || command === 'update_open_download') throw { message: '预览中不能打开浏览器' };
   if (command === 'checkin_reminder_status') return checkinStatus();
@@ -838,9 +840,9 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
 }
 mockIPC(handle,{shouldMockEvents:true});
 window.addEventListener('keydown',event=>{
-  if(!(event.metaKey||event.ctrlKey))return;
-  const action:Record<string,string>={n:'new-asset',f:'find-asset',e:'edit-asset',a:'select-all',z:'undo'};
-  if(action[event.key.toLowerCase()]){event.preventDefault();void emit('asset-action',action[event.key.toLowerCase()]);}
+  if (!isMac) return;
+  const action = desktopShortcutAction(event);
+  if (action) { event.preventDefault(); void emit('asset-action', action); }
 });
 // Explicit fictional receipts reproduce restart recovery, including disabled modules.
 if (params.get('receipt-recovery') === 'account') localStorage.setItem('thingary.wealth-pending.v1', JSON.stringify({ command: 'wealth_account_save', input: { request_id: 'fictional-recovery-request', generation: 'visual-fixture-only' }, label: '虚构账户保存' }));

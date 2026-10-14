@@ -130,12 +130,14 @@ type Job = Box<dyn FnOnce(&mut Libraries) + Send>;
 #[derive(Clone)]
 pub struct Worker {
     sender: SyncSender<Job>,
+    #[cfg(test)]
+    thread: std::sync::Arc<thread::JoinHandle<()>>,
 }
 impl Worker {
     pub fn start(root: PathBuf) -> Result<Self> {
         let (tx, rx) = mpsc::sync_channel::<Job>(32);
         let (ready_tx, ready_rx) = mpsc::sync_channel(1);
-        thread::Builder::new()
+        let storage_thread = thread::Builder::new()
             .name("thingary-storage".into())
             .spawn(move || {
                 match (|| -> Result<Libraries> {
@@ -202,7 +204,24 @@ impl Worker {
         ready_rx
             .recv()
             .map_err(|_| Error::new("WORKER", "存储未能启动"))??;
-        Ok(Self { sender: tx })
+        #[cfg(not(test))]
+        drop(storage_thread);
+        Ok(Self {
+            sender: tx,
+            #[cfg(test)]
+            thread: std::sync::Arc::new(storage_thread),
+        })
+    }
+    /// Restart tests must wait for both libraries and all thread-local resources
+    /// to be dropped, rather than assuming a detached worker exits in two seconds.
+    #[cfg(test)]
+    pub(crate) fn stop_and_join(self) {
+        let Self { sender, thread } = self;
+        // No remaining Worker clone may keep the job channel connected.
+        let thread = std::sync::Arc::try_unwrap(thread)
+            .expect("stop_and_join requires the last Worker clone");
+        drop(sender);
+        thread.join().expect("storage worker exits without panic");
     }
     pub fn call<T: Send + 'static>(
         &self,
@@ -493,13 +512,13 @@ impl Worker {
                 return Ok(TickOutcome::Backoff);
             }
             if !has_personal_records(&state.real)? {
-                let _ = std::fs::remove_file(&marker);
+                let _ = crate::storage::remove_file_retry(&marker);
                 return Ok(TickOutcome::EmptyLibrary);
             }
             let dir = crate::auto_backup::backup_dir(&root);
             match crate::auto_backup::run(&state.real, &dir, &policy.today) {
                 Ok(published) => {
-                    let _ = std::fs::remove_file(&marker);
+                    let _ = crate::storage::remove_file_retry(&marker);
                     state.backup_failed_at = None;
                     settings.last_success_at = Some(crate::auto_backup::now_local());
                     settings.last_error = None;
@@ -752,32 +771,10 @@ mod tests {
             })
             .unwrap();
         let real_generation = worker.call(|s| Ok(s.generation())).unwrap();
-        drop(worker);
-        let restarted = (0..100)
-            .find_map(|_| match Worker::start(root.clone()) {
-                Ok(worker) => Some(worker),
-                Err(error) if error.code == "LOCKED" => {
-                    std::thread::sleep(std::time::Duration::from_millis(20));
-                    None
-                }
-                Err(error) => panic!("unexpected restart failure: {error}"),
-            })
-            .expect("old worker released library lock");
+        worker.stop_and_join();
+        let restarted = Worker::start(root.clone()).unwrap();
         assert!(!restarted.demo_status().unwrap().active);
-        // The dying worker thread may still hold the sample lock when the
-        // library lock is already free; retry the resume briefly.
-        (0..100)
-            .find_map(
-                |_| match restarted.resume_library(demo_generation.clone()) {
-                    Ok(()) => Some(()),
-                    Err(error) if error.code == "LOCKED" => {
-                        std::thread::sleep(std::time::Duration::from_millis(20));
-                        None
-                    }
-                    Err(error) => panic!("unexpected resume failure: {error}"),
-                },
-            )
-            .expect("sample library lock released");
+        restarted.resume_library(demo_generation.clone()).unwrap();
         assert!(restarted.demo_status().unwrap().active);
         assert_eq!(
             restarted.call(|s| Ok(s.generation())).unwrap(),
@@ -790,6 +787,7 @@ mod tests {
             restarted.call(|s| Ok(s.generation())).unwrap(),
             real_generation
         );
+        restarted.stop_and_join();
     }
 
     #[test]

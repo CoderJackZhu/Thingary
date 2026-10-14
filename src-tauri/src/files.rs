@@ -94,13 +94,16 @@ impl Store {
         }
         validate_image(bytes)?;
         let dir = self.dataset();
+        for path in [&dir, &dir.join("staging"), &dir.join("files")] {
+            crate::storage::reject_links(path)?;
+        }
         fs::create_dir_all(dir.join("staging"))?;
         fs::create_dir_all(dir.join("files"))?;
         let pending = dir
             .join("staging")
             .join(format!("{}.json", input.request_id));
         atomic_write(&pending, &serde_json::to_vec(&(input, &hash))?)?;
-        let mut staged = tempfile::NamedTempFile::new_in(dir.join("staging"))?;
+        let mut staged = crate::storage::temp_file_in(dir.join("staging"))?;
         self.hit("image.before_write")?;
         staged.write_all(bytes)?;
         staged.as_file().sync_all()?;
@@ -111,7 +114,7 @@ impl Store {
                 return Err(Error::new("IMAGE_CORRUPT", "已托管图片损坏，停止提交"));
             }
         } else {
-            staged.persist_noclobber(&target).map_err(|e| e.error)?;
+            crate::storage::persist_retry(staged, &target, true)?;
             sync_dir(&dir.join("files"))?;
         }
         self.hit("image.after_place")?;

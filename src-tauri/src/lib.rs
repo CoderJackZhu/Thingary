@@ -55,24 +55,67 @@ mod support;
 pub mod tag_investment;
 pub mod taxonomy;
 pub mod timeline;
+mod toast_activation;
 pub mod trash;
 pub mod update_check;
 pub mod virtual_assets;
 pub mod warranty;
 pub mod wealth;
 mod window_size;
+#[cfg(any(windows, test))]
+mod windows_exit;
 pub mod wish_plan;
 pub mod wishlist;
 pub mod worker;
 use std::sync::atomic::Ordering;
 use tauri::{Emitter, Manager};
+// Windows exits when the window closes, so page-owned work must also be
+// protected. It has no generic discard path; App-owned editing keeps its own.
+#[cfg(any(target_os = "windows", test))]
+fn windows_close_event(editing: bool, close_blocked: bool) -> Option<&'static str> {
+    if close_blocked {
+        Some("close-blocked")
+    } else if editing {
+        Some("close-intent")
+    } else {
+        None
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             window_size::restore(app.handle());
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main") {
+                window.with_webview(|webview| {
+                    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Settings3;
+                    use windows_core::Interface;
+                    // The controller and settings belong to this WebView UI thread.
+                    let result = unsafe {
+                        webview
+                            .controller()
+                            .CoreWebView2()
+                            .and_then(|view| view.Settings())
+                            .and_then(|settings| settings.cast::<ICoreWebView2Settings3>())
+                            .and_then(|settings| {
+                                settings.SetAreBrowserAcceleratorKeysEnabled(false)
+                            })
+                    };
+                    if let Err(error) = result {
+                        eprintln!("无法关闭浏览器快捷键：{error}");
+                    }
+                })?;
+            }
+            #[cfg(target_os = "windows")]
+            reminders::set_app_identifier(&app.config().identifier)?;
             reminders::enable();
+            // A toast click cannot open an unpackaged app until the COM
+            // activator is registered; this only restores basic wake-up.
+            #[cfg(target_os = "windows")]
+            toast_activation::enable(app.handle());
             app.manage(worker::Worker::start(
-                app.path().app_data_dir()?.join("library"),
+                app.path().app_local_data_dir()?.join("library"),
             )?);
             // Periodic automatic backups (D20): a plain thread that ends with
             // the process. Quitting never waits for or triggers a backup, and
@@ -93,113 +136,138 @@ pub fn run() {
                         }
                     })?;
             }
+            #[cfg(windows)]
+            app.manage(windows_exit::ExitState::default());
             app.manage(commands::EditGuard::default());
             app.manage(commands::LibraryGuard::default());
             app.manage(commands::FinancialImportJobs::default());
-            use tauri::menu::{Menu, MenuItem, PredefinedMenuItem as Item, Submenu};
-            let quit =
-                MenuItem::with_id(app, "quit-thingary", "退出物谱", true, Some("CmdOrCtrl+Q"))?;
-            let app_menu = Submenu::with_items(
-                app,
-                "物谱",
-                true,
-                &[
-                    &MenuItem::with_id(app, "open-about", "关于物谱", true, None::<&str>)?,
-                    &MenuItem::with_id(app, "open-updates", "检查更新…", true, None::<&str>)?,
-                    &Item::separator(app)?,
-                    &MenuItem::with_id(app, "open-settings", "设置…", true, Some("CmdOrCtrl+,"))?,
-                    &Item::separator(app)?,
-                    &Item::hide(app, Some("隐藏物谱"))?,
-                    &Item::hide_others(app, Some("隐藏其他"))?,
-                    &Item::show_all(app, Some("显示全部"))?,
-                    &Item::separator(app)?,
-                    &quit,
-                ],
-            )?;
+            use tauri::menu::MenuItem;
+            #[cfg(target_os = "macos")]
+            use tauri::menu::{Menu, PredefinedMenuItem as Item, Submenu};
             // ⌘N/⌘F are dispatched by the current page; the page renames them (U12).
+            #[cfg(target_os = "macos")]
             let new_item =
                 MenuItem::with_id(app, "new-asset", "新增物品", true, Some("CmdOrCtrl+N"))?;
+            #[cfg(target_os = "macos")]
             let find_item =
                 MenuItem::with_id(app, "find-asset", "搜索物品", true, Some("CmdOrCtrl+F"))?;
-            let global_search_item = MenuItem::with_id(
-                app,
-                "global-search",
-                "搜索全部资料",
-                true,
-                Some("CmdOrCtrl+Shift+F"),
-            )?;
+            #[cfg(not(target_os = "macos"))]
+            let new_item = MenuItem::with_id(app, "new-asset", "新增物品", true, None::<&str>)?;
+            #[cfg(not(target_os = "macos"))]
+            let find_item = MenuItem::with_id(app, "find-asset", "搜索物品", true, None::<&str>)?;
             app.manage(commands::PageMenu {
                 new: new_item.clone(),
                 find: find_item.clone(),
             });
-            let file_menu = Submenu::with_items(
-                app,
-                "文件",
-                true,
-                &[&new_item, &Item::close_window(app, Some("关闭窗口"))?],
-            )?;
-            let edit_menu = Submenu::with_items(
-                app,
-                "编辑",
-                true,
-                &[
-                    // The page decides: text undo in a field, else the deletion undo bar.
-                    &MenuItem::with_id(app, "undo", "撤销", true, Some("CmdOrCtrl+Z"))?,
-                    &Item::redo(app, Some("重做"))?,
-                    &Item::separator(app)?,
-                    &Item::cut(app, Some("剪切"))?,
-                    &Item::copy(app, Some("复制"))?,
-                    &Item::paste(app, Some("粘贴"))?,
-                    // Like 撤销: the page selects text in a field, else every matching item.
-                    &MenuItem::with_id(app, "select-all", "全选", true, Some("CmdOrCtrl+A"))?,
-                    &Item::separator(app)?,
-                    &find_item,
-                    &global_search_item,
-                    &MenuItem::with_id(app, "edit-asset", "编辑资料", true, Some("CmdOrCtrl+E"))?,
-                ],
-            )?;
-            let view_menu = Submenu::with_items(
-                app,
-                "显示",
-                true,
-                &[&MenuItem::with_id(
+            #[cfg(target_os = "macos")]
+            {
+                let quit =
+                    MenuItem::with_id(app, "quit-thingary", "退出物谱", true, Some("CmdOrCtrl+Q"))?;
+                let app_menu = Submenu::with_items(
                     app,
-                    "toggle-appearance",
-                    "切换浅色／深色",
+                    "物谱",
                     true,
-                    Some("CmdOrCtrl+Shift+D"),
-                )?],
-            )?;
-            let window_menu = Submenu::with_items(
-                app,
-                "窗口",
-                true,
-                &[
-                    &Item::minimize(app, Some("最小化"))?,
-                    &Item::maximize(app, Some("缩放"))?,
-                ],
-            )?;
-            let help_menu = Submenu::with_items(
-                app,
-                "帮助",
-                true,
-                &[
-                    &MenuItem::with_id(app, "open-help", "物谱帮助", true, None::<&str>)?,
-                    &Item::separator(app)?,
-                    &MenuItem::with_id(app, "open-backup", "备份与恢复…", true, None::<&str>)?,
-                ],
-            )?;
-            app.set_menu(Menu::with_items(
-                app,
-                &[
-                    &app_menu,
-                    &file_menu,
-                    &edit_menu,
-                    &view_menu,
-                    &window_menu,
-                    &help_menu,
-                ],
-            )?)?;
+                    &[
+                        &MenuItem::with_id(app, "open-about", "关于物谱", true, None::<&str>)?,
+                        &MenuItem::with_id(app, "open-updates", "检查更新…", true, None::<&str>)?,
+                        &Item::separator(app)?,
+                        &MenuItem::with_id(
+                            app,
+                            "open-settings",
+                            "设置…",
+                            true,
+                            Some("CmdOrCtrl+,"),
+                        )?,
+                        &Item::separator(app)?,
+                        &Item::hide(app, Some("隐藏物谱"))?,
+                        &Item::hide_others(app, Some("隐藏其他"))?,
+                        &Item::show_all(app, Some("显示全部"))?,
+                        &Item::separator(app)?,
+                        &quit,
+                    ],
+                )?;
+                let global_search_item = MenuItem::with_id(
+                    app,
+                    "global-search",
+                    "搜索全部资料",
+                    true,
+                    Some("CmdOrCtrl+Shift+F"),
+                )?;
+                let file_menu = Submenu::with_items(
+                    app,
+                    "文件",
+                    true,
+                    &[&new_item, &Item::close_window(app, Some("关闭窗口"))?],
+                )?;
+                let edit_menu = Submenu::with_items(
+                    app,
+                    "编辑",
+                    true,
+                    &[
+                        // The page decides: text undo in a field, else the deletion undo bar.
+                        &MenuItem::with_id(app, "undo", "撤销", true, Some("CmdOrCtrl+Z"))?,
+                        &Item::redo(app, Some("重做"))?,
+                        &Item::separator(app)?,
+                        &Item::cut(app, Some("剪切"))?,
+                        &Item::copy(app, Some("复制"))?,
+                        &Item::paste(app, Some("粘贴"))?,
+                        // Like 撤销: the page selects text in a field, else every matching item.
+                        &MenuItem::with_id(app, "select-all", "全选", true, Some("CmdOrCtrl+A"))?,
+                        &Item::separator(app)?,
+                        &find_item,
+                        &global_search_item,
+                        &MenuItem::with_id(
+                            app,
+                            "edit-asset",
+                            "编辑资料",
+                            true,
+                            Some("CmdOrCtrl+E"),
+                        )?,
+                    ],
+                )?;
+                let view_menu = Submenu::with_items(
+                    app,
+                    "显示",
+                    true,
+                    &[&MenuItem::with_id(
+                        app,
+                        "toggle-appearance",
+                        "切换浅色／深色",
+                        true,
+                        Some("CmdOrCtrl+Shift+D"),
+                    )?],
+                )?;
+                let window_menu = Submenu::with_items(
+                    app,
+                    "窗口",
+                    true,
+                    &[
+                        &Item::minimize(app, Some("最小化"))?,
+                        &Item::maximize(app, Some("缩放"))?,
+                    ],
+                )?;
+                let help_menu = Submenu::with_items(
+                    app,
+                    "帮助",
+                    true,
+                    &[
+                        &MenuItem::with_id(app, "open-help", "物谱帮助", true, None::<&str>)?,
+                        &Item::separator(app)?,
+                        &MenuItem::with_id(app, "open-backup", "备份与恢复…", true, None::<&str>)?,
+                    ],
+                )?;
+                app.set_menu(Menu::with_items(
+                    app,
+                    &[
+                        &app_menu,
+                        &file_menu,
+                        &edit_menu,
+                        &view_menu,
+                        &window_menu,
+                        &help_menu,
+                    ],
+                )?)?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -354,6 +422,7 @@ pub fn run() {
             commands::set_editing,
             commands::set_library_busy,
             commands::finish_close,
+            commands::windows_exit_reminders_choice,
             commands::set_appearance,
             commands::set_page_menu,
             commands::pick_photo,
@@ -411,12 +480,29 @@ pub fn run() {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 window_size::save(window.app_handle());
                 api.prevent_close();
+                #[cfg(target_os = "windows")]
+                {
+                    let editing = window
+                        .state::<commands::EditGuard>()
+                        .0
+                        .load(Ordering::SeqCst);
+                    let busy = window
+                        .state::<commands::LibraryGuard>()
+                        .1
+                        .load(Ordering::SeqCst);
+                    if let Some(event) = windows_close_event(editing, busy) {
+                        let _ = window.emit(event, true);
+                    } else {
+                        window.app_handle().exit(0);
+                    }
+                }
+                #[cfg(target_os = "macos")]
                 if window
                     .state::<commands::EditGuard>()
                     .0
                     .load(Ordering::SeqCst)
                 {
-                    let _ = window.emit("close-intent", false);
+                    let _ = window.emit("close-intent", cfg!(target_os = "windows"));
                 } else {
                     let _ = window.hide();
                 }
@@ -427,6 +513,25 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::ExitRequested { ref api, .. } = event {
                 window_size::save(app);
+                #[cfg(target_os = "windows")]
+                if let Some(event) = windows_close_event(
+                    app.state::<commands::EditGuard>().0.load(Ordering::SeqCst),
+                    app.state::<commands::LibraryGuard>()
+                        .1
+                        .load(Ordering::SeqCst),
+                ) {
+                    api.prevent_exit();
+                    windows_exit::cancel(app);
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                        let _ = w.emit(event, true);
+                    }
+                } else if !windows_exit::take_permit(app) {
+                    api.prevent_exit();
+                    windows_exit::begin(app);
+                }
+                #[cfg(target_os = "macos")]
                 if app.state::<commands::EditGuard>().0.load(Ordering::SeqCst) {
                     api.prevent_exit();
                     if let Some(w) = app.get_webview_window("main") {
@@ -436,6 +541,7 @@ pub fn run() {
                     }
                 }
             }
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
@@ -448,3 +554,21 @@ pub fn run() {
 #[cfg(test)]
 #[path = "../tests/helpers/planning_migration.rs"]
 mod planning_migration_tests;
+
+#[cfg(test)]
+mod windows_close_tests {
+    use super::windows_close_event;
+
+    #[test]
+    fn page_owned_editing_and_tasks_block_exit_without_discard() {
+        assert_eq!(windows_close_event(false, true), Some("close-blocked"));
+        assert_eq!(windows_close_event(true, true), Some("close-blocked"));
+        assert_eq!(windows_close_event(false, false), None);
+    }
+
+    #[test]
+    fn app_owned_editor_keeps_confirmation_and_can_exit_after_confirming() {
+        assert_eq!(windows_close_event(true, false), Some("close-intent"));
+        assert_eq!(windows_close_event(false, false), None);
+    }
+}

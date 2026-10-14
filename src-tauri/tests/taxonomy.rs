@@ -6,6 +6,15 @@ use thingary_lib::{
     taxonomy::{CategoryFilter, Change, Classification, Command, Direction, Icon, Kind},
     trash::TrashChange,
 };
+#[cfg(target_os = "macos")]
+const PHOTO_BYTES: &[u8] = include_bytes!("fixtures/camera.heic");
+#[cfg(windows)]
+const PHOTO_BYTES: &[u8] = include_bytes!("fixtures/camera.png");
+#[cfg(target_os = "macos")]
+const PHOTO_EXTENSION: &str = "heic";
+#[cfg(windows)]
+const PHOTO_EXTENSION: &str = "png";
+
 fn change(s: &Store, command: Command) -> Change {
     Change {
         request_id: uuid::Uuid::new_v4().to_string(),
@@ -373,9 +382,14 @@ fn channel_migration_survives_edit_photos_trash_restore_and_reopen() {
     let category = snapshot.categories[0].id.clone();
     let source = snapshot.channels[0].id.clone();
     let target = snapshot.channels[1].id.clone();
-    let bytes = include_bytes!("fixtures/camera.heic");
+    let bytes = PHOTO_BYTES;
     let photo = s
-        .stage_photo("虚构.heic", bytes, &s.generation(), None)
+        .stage_photo(
+            &format!("虚构.{PHOTO_EXTENSION}"),
+            bytes,
+            &s.generation(),
+            None,
+        )
         .unwrap();
     let mut input = save(&s, Some(&category), Some(&source));
     input.photos = Some(thingary_lib::photos::Selection {

@@ -1,3 +1,4 @@
+import { shiftModKey } from './undo-shortcut';
 import type { CSSProperties } from 'react';
 import { styles, type Style } from './appearance';
 // 主题卡片里的小示意：侧栏、标题条、一张卡片和一个强调色块，颜色取自该主题浅色版。
@@ -23,6 +24,6 @@ export function AppearanceSettings({ style, onStyle }: { style: Style; onStyle: 
       </span>
       <span className="theme-name"><strong>{s.label}</strong><small>{s.note}</small></span>
     </button>; })}</div>
-    <p className="data-intro">浅色、深色或跟随系统请在侧栏底部切换，与上面的主题风格分开保存；⌘⇧D 在浅色与深色间切换。</p>
+    <p className="data-intro">浅色、深色或跟随系统请在侧栏底部切换，与上面的主题风格分开保存；{shiftModKey()}D 在浅色与深色间切换。</p>
   </section>;
 }

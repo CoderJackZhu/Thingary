@@ -45,10 +45,24 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[derive(Default)]
 pub struct EditGuard(pub AtomicBool);
 #[derive(Default)]
-pub struct LibraryGuard(pub AtomicBool);
+pub struct LibraryGuard(
+    pub AtomicBool,
+    // Separate from library switching: Windows must keep active forms/tasks open.
+    #[cfg(target_os = "windows")] pub AtomicBool,
+);
 #[tauri::command]
-pub fn set_library_busy(busy: bool, guard: tauri::State<'_, LibraryGuard>) {
+pub fn set_library_busy(
+    busy: bool,
+    close_blocked: Option<bool>,
+    guard: tauri::State<'_, LibraryGuard>,
+) {
     guard.0.store(busy, Ordering::SeqCst);
+    #[cfg(target_os = "windows")]
+    guard
+        .1
+        .store(close_blocked.unwrap_or(busy), Ordering::SeqCst);
+    #[cfg(not(target_os = "windows"))]
+    let _ = close_blocked;
 }
 #[tauri::command]
 pub async fn demo_status(
@@ -198,6 +212,14 @@ pub fn finish_close(
     Ok(())
 }
 
+#[tauri::command]
+pub fn windows_exit_reminders_choice(app: tauri::AppHandle, exit: bool) {
+    #[cfg(windows)]
+    crate::windows_exit::choose(&app, exit);
+    #[cfg(not(windows))]
+    let _ = (app, exit);
+}
+
 /// The native ⌘N/⌘F items, renamed to what the current page will do.
 pub struct PageMenu {
     pub new: tauri::menu::MenuItem<tauri::Wry>,
@@ -299,8 +321,9 @@ pub async fn pick_photo(
     worker: tauri::State<'_, Worker>,
 ) -> Result<Option<crate::photos::Photo>> {
     let (send, receive) = std::sync::mpsc::channel();
+    let dialog_app = app.clone();
     app.run_on_main_thread(move || {
-        let _ = send.send(crate::native_images::pick());
+        let _ = send.send(crate::native_images::pick(&dialog_app));
     })
     .map_err(|_| Error::new("PICKER", "无法打开图片选择器"))?;
     let w = worker.inner().clone();
@@ -386,8 +409,9 @@ pub async fn add_material(
         return Ok(entry);
     }
     let (send, receive) = std::sync::mpsc::channel();
+    let dialog_app = app.clone();
     app.run_on_main_thread(move || {
-        let _ = send.send(crate::native_images::pick());
+        let _ = send.send(crate::native_images::pick(&dialog_app));
     })
     .map_err(|_| Error::new("PICKER", "无法打开图片选择器"))?;
     let w = worker.inner().clone();
@@ -737,11 +761,12 @@ pub async fn holding(
 
 fn on_main<T: Send + 'static>(
     app: &tauri::AppHandle,
-    f: impl FnOnce() -> T + Send + 'static,
+    f: impl FnOnce(&tauri::AppHandle) -> T + Send + 'static,
 ) -> Result<std::sync::mpsc::Receiver<T>> {
     let (send, receive) = std::sync::mpsc::channel();
+    let dialog_app = app.clone();
     app.run_on_main_thread(move || {
-        let _ = send.send(f());
+        let _ = send.send(f(&dialog_app));
     })
     .map_err(|_| Error::new("PICKER", "无法打开文件面板"))?;
     Ok(receive)
@@ -762,8 +787,8 @@ pub async fn create_backup(
     worker.require_personal()?;
     // The panel appends ".thingary" itself; a suggested extension would be doubled.
     let suggested = format!("物谱备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
-    let receive = on_main(&app, move || {
-        crate::native_images::pick_save("保存完整备份", "保存备份", &suggested, "thingary")
+    let receive = on_main(&app, move |app| {
+        crate::native_images::pick_save(app, "保存完整备份", "保存备份", &suggested, "thingary")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -907,7 +932,11 @@ pub async fn auto_backup_open_folder(worker: tauri::State<'_, Worker>) -> Result
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let folder = w.auto_backup_folder()?;
-        std::process::Command::new("/usr/bin/open")
+        #[cfg(target_os = "macos")]
+        let opener = "/usr/bin/open";
+        #[cfg(windows)]
+        let opener = "explorer";
+        std::process::Command::new(opener)
             .arg(&folder)
             .spawn()
             .map_err(|_| Error::new("OPEN", "未能打开备份文件夹"))?;
@@ -955,8 +984,8 @@ pub struct WorkbookDone {
 /// Saves the header-only import template; cancelling writes nothing.
 #[tauri::command]
 pub async fn save_spreadsheet_template(app: tauri::AppHandle) -> Result<Option<String>> {
-    let receive = on_main(&app, || {
-        crate::native_images::pick_save("下载导入模板", "保存", "物谱导入模板", "xlsx")
+    let receive = on_main(&app, |app| {
+        crate::native_images::pick_save(app, "下载导入模板", "保存", "物谱导入模板", "xlsx")
     })?;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive
@@ -1052,8 +1081,8 @@ pub async fn export_workbook(
 ) -> Result<Option<WorkbookDone>> {
     worker.require_personal()?;
     let suggested = format!("物谱表格-{}", chrono::Local::now().format("%Y%m%d"));
-    let receive = on_main(&app, move || {
-        crate::native_images::pick_save("导出全部表格", "导出", &suggested, "xlsx")
+    let receive = on_main(&app, move |app| {
+        crate::native_images::pick_save(app, "导出全部表格", "导出", &suggested, "xlsx")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -1141,22 +1170,38 @@ pub async fn notification_permission(worker: tauri::State<'_, Worker>) -> Result
 
 #[tauri::command]
 pub fn open_notification_settings() -> Result<()> {
-    let status = std::process::Command::new("open")
-        .arg("x-apple.systempreferences:com.apple.preference.notifications")
-        .status()
-        .map_err(|_| {
-            Error::new(
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer.exe")
+            .arg("ms-settings:notifications")
+            .spawn()
+            .map(|_| ())
+            .map_err(|_| {
+                Error::new(
+                    "REMINDER",
+                    "无法打开 Windows 设置；请手动打开“设置 › 系统 › 通知 › 物谱”",
+                )
+            })
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.notifications")
+            .status()
+            .map_err(|_| {
+                Error::new(
+                    "REMINDER",
+                    "无法打开系统设置；请手动打开“系统设置 › 通知 › 物谱”",
+                )
+            })?;
+        if status.success() {
+            Ok(())
+        } else {
+            Err(Error::new(
                 "REMINDER",
                 "无法打开系统设置；请手动打开“系统设置 › 通知 › 物谱”",
-            )
-        })?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(Error::new(
-            "REMINDER",
-            "无法打开系统设置；请手动打开“系统设置 › 通知 › 物谱”",
-        ))
+            ))
+        }
     }
 }
 #[tauri::command]
@@ -2052,8 +2097,8 @@ pub async fn financial_import_template(
     } else {
         "物谱导入模板"
     };
-    let receive = on_main(&app, move || {
-        crate::native_images::pick_save("保存 Excel 导入模板", "保存", name, "xlsx")
+    let receive = on_main(&app, move |app| {
+        crate::native_images::pick_save(app, "保存 Excel 导入模板", "保存", name, "xlsx")
     })?;
     tauri::async_runtime::spawn_blocking(move || {
         let Some(path) = receive

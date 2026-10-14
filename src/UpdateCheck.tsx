@@ -40,7 +40,7 @@ export function UpdateCheck({ showVersion = true, compact = false, versionLabel 
     </>}
     {outcome && <p className="update-check-result" role="status">{updateSummary(outcome)}</p>}
     {latest && <>
-      <p className="notice">更新前请先到「设置 › 数据管理」做一次<strong>完整备份并异地保存</strong>：新版如果升级资料格式，旧版将不能打开升级后的资料。安装步骤见使用指南的「更新、换 Mac 与卸载」。</p>
+      <p className="notice">更新前请先到「设置 › 数据管理」做一次<strong>完整备份并异地保存</strong>：新版如果升级资料格式，旧版将不能打开升级后的资料。安装步骤见使用指南的「更新、换机与卸载」。</p>
       {latest.downloads.length > 0 && <div className="support-download">
         <p>{latest.downloads[0].label}{latest.downloads[0].size ? ` · 约 ${Math.ceil(latest.downloads[0].size / 1048576)} MB` : ''}</p>
         <button type="button" className="primary" onClick={() => void download(latest.version, latest.downloads[0])}>下载{outcome?.platform.startsWith('Mac') ? ' Mac' : ' Windows'} 安装包</button>

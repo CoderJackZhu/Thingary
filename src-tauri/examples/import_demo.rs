@@ -164,7 +164,18 @@ mod tests {
         std::fs::remove_dir(&root).unwrap();
         let other = home.join("other");
         std::fs::create_dir(&other).unwrap();
+        #[cfg(unix)]
         std::os::unix::fs::symlink(&other, &root).unwrap();
+        #[cfg(windows)]
+        {
+            let output = std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(&root)
+                .arg(&other)
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "junction creation failed");
+        }
         assert!(!allowed_root(&home, &root).unwrap());
     }
 }

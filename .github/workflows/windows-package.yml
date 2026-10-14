@@ -1,0 +1,121 @@
+name: Windows candidate packages
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'src-tauri/**'
+      - 'scripts/**'
+      - 'package*.json'
+      - '*NOTICES.md'
+      - 'THIRD_PARTY_LICENSES.md'
+      - '.github/workflows/windows-package.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-candidate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: NSIS ${{ matrix.flavor }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - flavor: release
+            os: windows-latest
+          - flavor: acceptance
+            os: windows-11-arm
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    env:
+      npm_config_script_shell: bash
+    steps:
+      - name: Preserve LF
+        shell: bash
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Parse native acceptance PowerShell
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/windows-native-acceptance.ps1'), [ref]$tokens, [ref]$errors)
+          if ($errors.Count) { $errors | Format-List; throw 'PowerShell syntax validation failed' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install native and planning WASM build targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc, wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: windows-package-${{ matrix.flavor }}
+          cache-on-failure: true
+      - shell: bash
+        run: npm ci
+      - name: Prepare locked package archives for offline license collection
+        shell: bash
+        run: cargo fetch --locked --manifest-path src-tauri/Cargo.toml
+      - name: Build unsigned release candidate without fault injection
+        if: matrix.flavor == 'release'
+        shell: bash
+        run: npm run release:win
+      - name: Build isolated acceptance installer
+        if: matrix.flavor == 'acceptance'
+        shell: bash
+        run: npm run build:win:acceptance
+      - name: Verify release installer contents and x64 payload
+        if: matrix.flavor == 'release'
+        shell: bash
+        run: node scripts/verify-windows-package.mjs
+      - name: Verify isolated installer contents and x64 payload
+        if: matrix.flavor == 'acceptance'
+        shell: bash
+        run: node scripts/verify-windows-package.mjs --acceptance
+      - name: Verify embedded long-path manifest, version and unsigned state
+        shell: pwsh
+        run: |
+          $profile = if ('${{ matrix.flavor }}' -eq 'acceptance') { 'debug' } else { 'release' }
+          $payload = Join-Path $PWD "src-tauri/target/x86_64-pc-windows-msvc/$profile/thingary.exe"
+          $output = Join-Path $PWD ".local/windows-package/${{ matrix.flavor }}"
+          $mt = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\mt.exe' | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $mt) { throw 'Windows SDK manifest inspector missing' }
+          & $mt.FullName "-inputresource:$payload;#1" "-out:$output/app.manifest"
+          if ($LASTEXITCODE -ne 0) { throw 'Embedded manifest extraction failed' }
+          [xml]$manifest = Get-Content "$output/app.manifest"
+          if ($manifest.SelectSingleNode("//*[local-name()='longPathAware']").InnerText -ne 'true') { throw 'Long-path manifest missing' }
+          if ($manifest.SelectSingleNode("//*[local-name()='requestedExecutionLevel']").GetAttribute('level') -ne 'asInvoker') { throw 'Unexpected elevation level' }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ((Get-Item $payload).VersionInfo.ProductVersion -ne $version) { throw 'Windows payload version mismatch' }
+          if ((Get-AuthenticodeSignature $payload).Status -ne 'NotSigned') { throw 'Unsigned route unexpectedly changed' }
+      - name: Installed native acceptance, AUMID, scheduling and uninstall/reinstall
+        if: matrix.flavor == 'acceptance'
+        shell: pwsh
+        run: pwsh -NoProfile -File scripts/windows-native-acceptance.ps1
+      - name: Save candidate installers and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.flavor }}-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            src-tauri/target/x86_64-pc-windows-msvc/*/bundle/nsis/*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/*/bundle/nsis/SHA256SUMS.txt
+            .local/windows-package/*/package-verification.json
+            .local/windows-package/*/app.manifest
+            .local/windows-native-acceptance/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

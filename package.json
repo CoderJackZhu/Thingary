@@ -1,9 +1,9 @@
 {
   "name": "thingary",
   "private": true,
-  "description": "物谱 Thingary：物品档案与净资产盘点，本地优先的 macOS 应用",
+  "description": "物谱 Thingary：物品档案与净资产盘点，本地优先的桌面应用",
   "license": "AGPL-3.0-or-later",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -15,6 +15,8 @@
     "test:ui": "node --test tests/*.test.mjs",
     "demo:import": "cargo run --manifest-path src-tauri/Cargo.toml --example import_demo -- --isolated-preview",
     "test:demo": "cargo test --manifest-path src-tauri/Cargo.toml --example import_demo",
+    "release:win": "tauri build --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.windows.release.conf.json --bundles nsis --target x86_64-pc-windows-msvc --ci",
+    "build:win:acceptance": "tauri build --config src-tauri/tauri.windows.acceptance.conf.json --bundles nsis --target x86_64-pc-windows-msvc --debug --features fault-injection --ci",
     "build:engine": "node scripts/build-planning-engine.mjs",
     "check:engine": "node scripts/build-planning-engine.mjs --check",
     "prebuild": "npm run build:engine",

@@ -1,3 +1,4 @@
+import { modKey } from './undo-shortcut';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, inputMoney, money } from './asset';
@@ -46,7 +47,7 @@ export function BatchPanel({ ids, version, onClear, onOpen }: { ids: string[]; v
         <button className="danger" onClick={() => onOpen('delete')}>删除 {ids.length} 件…</button>
       </div>
     </>}
-    <p className="muted batch-hint">⌘ 点击加选 · ⇧ 点击连选 · ⌘A 全选当前筛选结果 · Esc 取消</p>
+    <p className="muted batch-hint">{modKey().replace(/\+$/, '')} 点击加选 · Shift 点击连选 · {modKey()}A 全选当前筛选结果 · Esc 取消</p>
   </div>;
 }
 

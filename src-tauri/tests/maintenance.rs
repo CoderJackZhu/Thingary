@@ -8,6 +8,14 @@ use thingary_lib::{
     storage::Store,
     trash::TrashChange,
 };
+#[cfg(target_os = "macos")]
+const PHOTO_BYTES: &[u8] = include_bytes!("fixtures/camera.heic");
+#[cfg(windows)]
+const PHOTO_BYTES: &[u8] = include_bytes!("fixtures/camera.png");
+#[cfg(target_os = "macos")]
+const PHOTO_EXTENSION: &str = "heic";
+#[cfg(windows)]
+const PHOTO_EXTENSION: &str = "png";
 
 const TODAY: &str = "2026-09-10";
 fn id() -> String {
@@ -393,8 +401,8 @@ fn photos_parent_trash_backup_restore_and_reopen_preserve_children() {
     let a = create(&mut s);
     let photo = s
         .stage_photo(
-            "camera.heic",
-            include_bytes!("fixtures/camera.heic"),
+            &format!("camera.{PHOTO_EXTENSION}"),
+            PHOTO_BYTES,
             &s.generation(),
             None,
         )
@@ -466,8 +474,8 @@ fn accessory_cost_and_photo_survive_backup_restore() {
     let a = create(&mut s);
     let photo = s
         .stage_photo(
-            "accessory.heic",
-            include_bytes!("fixtures/camera.heic"),
+            &format!("accessory.{PHOTO_EXTENSION}"),
+            PHOTO_BYTES,
             &s.generation(),
             None,
         )

@@ -1,3 +1,4 @@
+import { modKey } from './undo-shortcut';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { Section } from './library-mode';
@@ -72,7 +73,7 @@ export function BarMenuButton({ menu, open, onOpen, buttonRef, kbd = false, disa
     <button ref={buttonRef} disabled={disabled} className="primary topbar-menu-trigger" aria-haspopup="menu" aria-expanded={open} onClick={() => onOpen(!open)} onKeyDown={triggerKeys}>
       <svg className="ui-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg>
       <span>{menu.label}</span>
-      {kbd && <kbd>⌘N</kbd>}
+      {kbd && <kbd>{modKey()}N</kbd>}
       <svg className="ui-icon chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 8l3 3 3-3"/></svg>
     </button>
     {open && <div ref={listRef} role="menu" aria-label={menu.label} className="topbar-menu-list" onKeyDown={move}>

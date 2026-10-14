@@ -327,8 +327,11 @@ fn copy_extra_errors_on_a_missing_target_and_keeps_the_source() {
     assert!(!vanished.exists());
     assert!(source.is_file());
     // The copy keeps the archive's owner-only permissions.
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o600)).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o600)).unwrap();
+    }
     // A healthy location receives the copy and prunes to its own seven.
     let extra = tmp.path().join("extra");
     std::fs::create_dir_all(&extra).unwrap();
@@ -340,11 +343,15 @@ fn copy_extra_errors_on_a_missing_target_and_keeps_the_source() {
         std::fs::read(extra.join(dated_name(&real_today()))).unwrap(),
         b"archive"
     );
-    let mode = std::fs::metadata(extra.join(dated_name(&real_today())))
-        .unwrap()
-        .permissions()
-        .mode();
-    assert_eq!(mode & 0o777, 0o600);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(extra.join(dated_name(&real_today())))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+    }
     assert_eq!(auto_backup::list(&extra).len(), 7);
 }
 
