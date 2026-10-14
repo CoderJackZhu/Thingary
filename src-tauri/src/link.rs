@@ -831,12 +831,10 @@ impl Store {
                 "group_deleted"
             } else if candidates.is_empty() {
                 "unlinked"
+            } else if plan.deleted {
+                "both_trashed"
             } else {
-                if plan.deleted {
-                    "both_trashed"
-                } else {
-                    "asset_trashed"
-                }
+                "asset_trashed"
             };
             let asset = match &live {
                 Some((aid, _, _)) => asset_ref(c, aid)?,
