@@ -340,7 +340,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   // Switching libraries still uses the aggregate mode guard. Windows closing
   // separately protects active page forms/tasks; durable receipt metadata stays
   // available after restart and does not itself prevent exiting.
-  const pageCloseBlocked = startChoiceBusy || featureEditing || dataBusy || modeBusy || !!batch;
+  const pageCloseBlocked = startChoiceBusy || featureEditing || dataBusy || modeBusy || !!batch || wishlistEditing || !!draft || !!trashAction || !!recordTrashAction || !!lifecycleDraft || !!saleDraft || !!maintenanceDraft || !!warrantyDraft;
   useEffect(() => { void invoke('set_library_busy', { busy: modeBlocked, closeBlocked: pageCloseBlocked }).catch(e => setNotice(errorMessage(e))); }, [modeBlocked, pageCloseBlocked]);
   useEffect(() => {
     if (!modeBlocked) void invoke<DemoStatus>('demo_status').then(setDemoStatus).catch(e => setNotice(errorMessage(e)));
@@ -613,10 +613,11 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }
   // Library switches and module toggles invalidate the session outright.
   useEffect(() => { setSearchSession(emptySearchSession()); }, [libraryGeneration, modules.wishlist, modules.wealth, modules.expenses, modules.recurring, modules.virtual, modules.timeline, modules.stats, modules.incomes, modules.movements]);
+  const menuActionBlocked = !!(wishlistEditing || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery);
   menuAction.current = action => {
     if (action === 'toggle-appearance') { setTheme(toggledMode(theme)); return; }
     if (action === 'global-search') { openGlobalSearch(); return; }
-    if (wishlistEditing || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
+    if (menuActionBlocked) return;
     if (action === 'new-asset') {
       // A modal (any editor or dialog) owns the keyboard; no background new.
       if (document.querySelector('dialog[open]')) return;
@@ -1049,7 +1050,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => handleDesktopShortcut(event, {
       newLabel: topbarBar.menu || !topbarBar.newRecord?.disabled ? menuNew : null,
-      findLabel: menuFind, blocked: !!(wishlistEditing || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery), dialogOpen: !!document.querySelector('dialog[open]'),
+      findLabel: menuFind, blocked: menuActionBlocked, dialogOpen: !!document.querySelector('dialog[open]'),
     }, action => { void emit('asset-action', action).catch(e => setNotice(errorMessage(e))); });
     window.addEventListener('keydown', onKey);
     document.addEventListener('contextmenu', handleContextMenu);

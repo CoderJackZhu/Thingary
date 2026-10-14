@@ -198,6 +198,14 @@ try {
     await fill("#field-name", "取消的虚构物品");
     await key("n", "KeyN", 2, 78);
     assert.equal(await js("document.querySelectorAll('dialog[open].asset-editor').length"), 1);
+    native("close");
+    await wait("document.body.innerText.includes('当前操作尚未完成')", "asset WM_CLOSE blocked");
+    assert.equal(await js("document.querySelector('#field-name').value"), "取消的虚构物品");
+    await shot("asset-native-close-blocked");
+    await button("返回继续处理", 'dialog[open][aria-labelledby="taxonomy-close-heading"]');
+    await wait("!document.querySelector('dialog[open][aria-labelledby=taxonomy-close-heading]') && !!document.querySelector('dialog[open].asset-editor')", "returned to unsaved asset");
+    assert.equal(await js("document.querySelector('#field-name').value"), "取消的虚构物品");
+    report.verified.push("WM_CLOSE preserves unsaved asset input until explicit cancel");
     await button("关闭表单");
     await wait("!document.querySelector('dialog[open]')", "cancel");
     assert.ok(!(await observe("cancel result")).text.includes("取消的虚构物品"));

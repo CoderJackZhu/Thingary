@@ -660,20 +660,12 @@ mod tests {
         worker.set_modules(Modules::default()).unwrap();
         assert_eq!(read_runtime(&root).finance_revision, 3);
         assert!(!initialize_runtime(&root).incomes && !initialize_runtime(&root).movements);
-        drop(worker);
-        let restarted = (0..100)
-            .find_map(|_| match crate::worker::Worker::start(root.clone()) {
-                Ok(worker) => Some(worker),
-                Err(error) if error.code == "LOCKED" => {
-                    std::thread::sleep(std::time::Duration::from_millis(20));
-                    None
-                }
-                Err(error) => panic!("restart failed: {error}"),
-            })
-            .expect("worker releases its library");
+        worker.stop_and_join();
+        let restarted = crate::worker::Worker::start(root.clone()).unwrap();
         let snapshot = restarted.modules().unwrap();
         assert_eq!(snapshot.finance_revision, 3);
         assert!(!snapshot.incomes && !snapshot.movements);
+        restarted.stop_and_join();
     }
     #[test]
     fn missing_or_broken_file_keeps_everything_on_and_writes_round_trip() {

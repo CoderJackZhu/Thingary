@@ -7,7 +7,7 @@ const main = readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8');
 const lib = readFileSync(new URL('../src-tauri/src/lib.rs', import.meta.url), 'utf8');
 const commands = readFileSync(new URL('../src-tauri/src/commands.rs', import.meta.url), 'utf8');
 const closeExpression = main.match(/const pageCloseBlocked = ([^;]+);/)[1];
-const idle = { startChoiceBusy: false, featureEditing: false, dataBusy: false, modeBusy: false, batch: null };
+const idle = { startChoiceBusy: false, featureEditing: false, dataBusy: false, modeBusy: false, batch: null, wishlistEditing: false, draft: null, trashAction: null, recordTrashAction: null, lifecycleDraft: null, saleDraft: null, maintenanceDraft: null, warrantyDraft: null };
 const blocked = state => vm.runInNewContext(closeExpression, { ...idle, ...state });
 
 test('Windows close guard covers account/planning/recurring/virtual forms and foreground tasks', () => {
@@ -16,6 +16,23 @@ test('Windows close guard covers account/planning/recurring/virtual forms and fo
     { featureEditing: true }, { dataBusy: true }, { startChoiceBusy: true },
     { modeBusy: true }, { batch: { action: 'classify' } },
   ]) assert.equal(blocked(state), true, 'active input or foreground work stays open');
+});
+
+test('Windows close protects every open ordinary form until explicit save or cancel', () => {
+  for (const name of ['wishlistEditing', 'draft', 'trashAction', 'recordTrashAction', 'lifecycleDraft', 'saleDraft', 'maintenanceDraft', 'warrantyDraft']) {
+    // Empty/new and populated/failed forms both remain foreground work.
+    for (const value of name === 'wishlistEditing' ? [true] : [{}, { name: 'fictional input', error: 'save failed' }]) {
+      assert.equal(blocked({ [name]: value }), true, name);
+      assert.equal(blocked({ [name]: value, durablePending: true }), true, name + ' with pending receipt');
+    }
+    assert.equal(blocked({ [name]: idle[name] }), false, name + ' explicitly finished');
+  }
+});
+
+test('inactive recovery metadata alone never becomes a Windows foreground form', () => {
+  for (const name of ['recovered', 'trashRecovery', 'recordTrashRecovery', 'lifecycleRecovery', 'saleRecovery', 'maintenanceRecovery', 'warrantyRecovery', 'pendingReceipt']) {
+    assert.equal(blocked({ [name]: { request_id: 'fictional' }, durablePending: true }), false, name);
+  }
 });
 
 test('persistent unknown receipts retain library isolation without trapping exit or clearing metadata', () => {

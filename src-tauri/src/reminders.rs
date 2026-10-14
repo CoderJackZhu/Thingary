@@ -170,6 +170,51 @@ fn scheduled_key(id: &str) -> Result<String> {
     ))
 }
 
+/// Short-delay acceptance reminders keep their first deadline throughout this
+/// process, including after delivery. Status polling must not postpone or rearm
+/// an unchanged plan. A new process starts a new explicit acceptance session;
+/// the read-only driver `inspect` never calls this clock or changes the queue.
+#[cfg(any(test, all(windows, feature = "fault-injection")))]
+#[derive(Default)]
+struct AcceptanceDeadlines {
+    plans: std::collections::BTreeMap<String, (String, i64, i64)>,
+}
+#[cfg(any(test, all(windows, feature = "fault-injection")))]
+impl AcceptanceDeadlines {
+    fn reconcile(
+        &mut self,
+        plans: &[Plan],
+        seconds: i64,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<std::collections::BTreeMap<String, i64>> {
+        if !(10..=600).contains(&seconds) {
+            return Err(Error::new("REMINDER", "验收提醒秒数必须在 10 至 600 之间"));
+        }
+        let mut next = std::collections::BTreeMap::new();
+        let mut deadlines = std::collections::BTreeMap::new();
+        for plan in plans {
+            let fingerprint = serde_json::to_string(plan)?;
+            let deadline = match self.plans.get(&plan.id) {
+                Some((previous, delay, deadline))
+                    if previous == &fingerprint && *delay == seconds =>
+                {
+                    *deadline
+                }
+                _ => filetime(now + chrono::Duration::seconds(seconds))?,
+            };
+            deadlines.insert(plan.id.clone(), deadline);
+            next.insert(plan.id.clone(), (fingerprint, seconds, deadline));
+        }
+        // Removing a reminder also removes its deadline, so a later re-add is new.
+        self.plans = next;
+        Ok(deadlines)
+    }
+}
+#[cfg(all(windows, feature = "fault-injection"))]
+static ACCEPTANCE_DEADLINES: Mutex<AcceptanceDeadlines> = Mutex::new(AcceptanceDeadlines {
+    plans: std::collections::BTreeMap::new(),
+});
+
 #[cfg(any(windows, test))]
 fn xml_text(text: &str) -> Result<String> {
     let mut result = String::with_capacity(text.len());
@@ -474,29 +519,40 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
     let keys = reminder_keys(&plans)?;
     let now = chrono::Utc::now();
     let now_ticks = filetime(now)?;
+    #[cfg(feature = "fault-injection")]
+    let acceptance_deadlines = if identifier == "local.thingary.win.acceptance" {
+        match std::env::var("THINGARY_REMINDER_TEST_SECONDS") {
+            Ok(seconds) => {
+                let seconds = seconds
+                    .parse::<i64>()
+                    .ok()
+                    .filter(|s| (10..=600).contains(s))
+                    .ok_or_else(|| Error::new("REMINDER", "验收提醒秒数必须在 10 至 600 之间"))?;
+                Some(
+                    ACCEPTANCE_DEADLINES
+                        .lock()
+                        .map_err(|_| {
+                            Error::new("REMINDER", "Acceptance reminder clock unavailable")
+                        })?
+                        .reconcile(&plans, seconds, now)?,
+                )
+            }
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
     let mut wanted = std::collections::BTreeMap::new();
     for (key, plan) in keys {
         notification_trace(identifier, "local_nine begin");
         let ticks = local_nine(&plan.date, &chrono::Local)?;
         notification_trace(identifier, "local_nine complete");
         #[cfg(feature = "fault-injection")]
-        let ticks = if identifier == "local.thingary.win.acceptance" {
-            match std::env::var("THINGARY_REMINDER_TEST_SECONDS") {
-                Ok(seconds) => {
-                    let seconds: i64 = seconds
-                        .parse()
-                        .ok()
-                        .filter(|s| (10..=600).contains(s))
-                        .ok_or_else(|| {
-                            Error::new("REMINDER", "验收提醒秒数必须在 10 至 600 之间")
-                        })?;
-                    filetime(now + chrono::Duration::seconds(seconds))?
-                }
-                Err(_) => ticks,
-            }
-        } else {
-            ticks
-        };
+        let ticks = acceptance_deadlines
+            .as_ref()
+            .and_then(|deadlines| deadlines.get(&plan.id))
+            .copied()
+            .unwrap_or(ticks);
         if ticks <= now_ticks {
             continue;
         }
@@ -645,23 +701,33 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
             "tag": item.Tag().map_err(notification_error)?.to_string(),
             "group": item.Group().map_err(notification_error)?.to_string(),
             "ticks": item.DeliveryTime().map_err(notification_error)?.UniversalTime,
+            "delivery_utc": chrono::DateTime::from_timestamp(
+                item.DeliveryTime().map_err(notification_error)?.UniversalTime.div_euclid(10_000_000) - 11_644_473_600,
+                (item.DeliveryTime().map_err(notification_error)?.UniversalTime.rem_euclid(10_000_000) * 100) as u32,
+            ).map(|time| time.to_rfc3339()),
+            "xml": item.Content().map_err(notification_error)?.GetXml().map_err(notification_error)?.to_string(),
         }));
     }
     notification_trace(ID, "acceptance schedule inspected; GetHistoryWithId begin");
     let mut delivered = Vec::new();
+    let mut owned_history = Vec::new();
     for item in history
         .GetHistoryWithId(&application_id)
         .map_err(|error| notification_stage("acceptance GetHistoryWithId", error))?
     {
         let group = item.Group().map_err(notification_error)?.to_string();
         let tag = item.Tag().map_err(notification_error)?.to_string();
-        if group == GROUP && tag == fixture_tag {
-            delivered.push(serde_json::json!({
+        if group == GROUP {
+            let entry = serde_json::json!({
                 "tag": tag,
                 "group": group,
                 "xml": item.Content().map_err(notification_error)?
                     .GetXml().map_err(notification_error)?.to_string(),
-            }));
+            });
+            if tag == fixture_tag {
+                delivered.push(entry.clone());
+            }
+            owned_history.push(entry);
         }
     }
     notification_trace(ID, "acceptance history inspected; COM objects drop next");
@@ -672,6 +738,8 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
         "observed_at": chrono::Utc::now().to_rfc3339(),
         "scheduled": items,
         "history": delivered,
+        "owned_history": owned_history,
+        "visible_desktop_toast_verified": false,
     })
     .to_string())
 }
@@ -831,6 +899,63 @@ mod tests {
             title: "提醒 & <物谱>".into(),
             body: "\"余额\" '未知' 🧾".into(),
         }
+    }
+
+    #[test]
+    fn acceptance_status_polls_preserve_deadline_even_after_delivery() {
+        let now = chrono::DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        let mut clock = AcceptanceDeadlines::default();
+        let plans = [plan("thingary-poll")];
+        let deadline = filetime(now + chrono::Duration::seconds(120)).unwrap();
+        for elapsed in [0, 60, 119, 121, 180, 600] {
+            let observation = now + chrono::Duration::seconds(elapsed);
+            let deadlines = clock.reconcile(&plans, 120, observation).unwrap();
+            assert_eq!(deadlines[&plans[0].id], deadline);
+            // windows_native schedules only deadlines strictly after now.
+            assert_eq!(deadline > filetime(observation).unwrap(), elapsed < 120);
+        }
+    }
+
+    #[test]
+    fn acceptance_edits_reset_only_changed_plans_and_cancellation_removes_deadline() {
+        let now = chrono::DateTime::from_timestamp(1_800_000_000, 0).unwrap();
+        let later = now + chrono::Duration::seconds(60);
+        let mut clock = AcceptanceDeadlines::default();
+        let mut plans = [plan("thingary-edit"), plan("thingary-unchanged")];
+        let first = clock.reconcile(&plans, 120, now).unwrap();
+        plans[0].body.push_str(" changed");
+        let second = clock.reconcile(&plans, 120, later).unwrap();
+        assert_eq!(
+            second[&plans[0].id],
+            filetime(later + chrono::Duration::seconds(120)).unwrap()
+        );
+        assert_eq!(second[&plans[1].id], first[&plans[1].id]);
+        plans[0].date = "2099-01-02".into();
+        let latest = later + chrono::Duration::seconds(60);
+        let third = clock.reconcile(&plans, 120, latest).unwrap();
+        assert_eq!(
+            third[&plans[0].id],
+            filetime(latest + chrono::Duration::seconds(120)).unwrap()
+        );
+        assert_eq!(third[&plans[1].id], first[&plans[1].id]);
+        clock.reconcile(&plans[1..], 120, latest).unwrap();
+        assert!(!clock.plans.contains_key(&plans[0].id));
+        let readded_at = latest + chrono::Duration::seconds(30);
+        let readded = clock.reconcile(&plans, 120, readded_at).unwrap();
+        assert_eq!(
+            readded[&plans[0].id],
+            filetime(readded_at + chrono::Duration::seconds(120)).unwrap()
+        );
+        assert_eq!(readded[&plans[1].id], first[&plans[1].id]);
+        let changed_delay = clock.reconcile(&plans, 20, latest).unwrap();
+        assert_eq!(
+            changed_delay[&plans[0].id],
+            filetime(latest + chrono::Duration::seconds(20)).unwrap()
+        );
+        assert!(clock.reconcile(&plans, 9, latest).is_err());
+        assert!(clock.reconcile(&plans, 601, latest).is_err());
+        assert!(clock.reconcile(&[], 120, latest).unwrap().is_empty());
+        assert!(clock.plans.is_empty());
     }
 
     #[test]
@@ -1064,13 +1189,46 @@ mod tests {
             }
             owned.len()
         };
+        struct DelayEnvironment(Option<std::ffi::OsString>);
+        impl Drop for DelayEnvironment {
+            fn drop(&mut self) {
+                match &self.0 {
+                    Some(value) => std::env::set_var("THINGARY_REMINDER_TEST_SECONDS", value),
+                    None => std::env::remove_var("THINGARY_REMINDER_TEST_SECONDS"),
+                }
+            }
+        }
+        let _delay = DelayEnvironment(std::env::var_os("THINGARY_REMINDER_TEST_SECONDS"));
+        std::env::set_var("THINGARY_REMINDER_TEST_SECONDS", "120");
+        let first = windows_notification_acceptance("reconcile", &json).unwrap();
+        let repeated = windows_notification_acceptance("reconcile", &json).unwrap();
+        assert_eq!(count(first.clone()), 1);
+        assert_eq!(count(repeated.clone()), 1);
+        let first: serde_json::Value = serde_json::from_str(&first).unwrap();
+        let repeated: serde_json::Value = serde_json::from_str(&repeated).unwrap();
+        let fixture_key = scheduled_key("thingary-windows-acceptance-test").unwrap();
+        let fixture_deadline = |value: &serde_json::Value| {
+            let matching: Vec<_> = value["scheduled"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|item| {
+                    item["group"] == "thingary"
+                        && item["id"] == fixture_key
+                        && item["tag"] == fixture_key
+                })
+                .collect();
+            assert_eq!(
+                matching.len(),
+                1,
+                "exact installed fixture must be present once"
+            );
+            matching[0]["ticks"].as_i64().unwrap()
+        };
         assert_eq!(
-            count(windows_notification_acceptance("reconcile", &json).unwrap()),
-            1
-        );
-        assert_eq!(
-            count(windows_notification_acceptance("reconcile", &json).unwrap()),
-            1
+            fixture_deadline(&first),
+            fixture_deadline(&repeated),
+            "status refresh must not postpone the short-delay reminder"
         );
         assert_eq!(
             count(windows_notification_acceptance("inspect", "[]").unwrap()),

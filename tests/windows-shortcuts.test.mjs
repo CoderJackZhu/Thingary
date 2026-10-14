@@ -52,14 +52,15 @@ test('editing and dialogs block app actions while appearance retains its menu be
 test('an unknown durable receipt still allows production Ctrl+F and the native find action', () => {
   const ts = createRequire(import.meta.url)('typescript');
   const source = ts.createSourceFile('main.tsx', readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  let shortcut, menuAction;
+  let shortcut, menuAction, menuBlocked;
   const visit = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'menuActionBlocked') menuBlocked = node.initializer.getText(source);
     if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'onKey') shortcut = node.initializer.getText(source);
     if (ts.isBinaryExpression(node) && node.left.getText(source) === 'menuAction.current') menuAction = node.right.getText(source);
     ts.forEachChild(node, visit);
   };
   visit(source);
-  assert.ok(shortcut && menuAction);
+  assert.ok(shortcut && menuAction && menuBlocked);
   const dispatched = [];
   let expanded = false, focused = false;
   const context = {
@@ -74,6 +75,7 @@ test('an unknown durable receipt still allows production Ctrl+F and the native f
     requestAnimationFrame: callback => callback(), searchInputRef: { current: { focus: () => { focused = true; } } },
   };
   const compile = expression => vm.runInNewContext(ts.transpileModule(`(${expression})`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+  context.menuActionBlocked = compile(menuBlocked);
   const event = keyEvent('f');
   compile(shortcut)(event);
   assert.deepEqual(dispatched, ['find-asset']);
@@ -81,6 +83,22 @@ test('an unknown durable receipt still allows production Ctrl+F and the native f
   compile(menuAction)('find-asset');
   assert.equal(expanded, true);
   assert.equal(focused, true);
+  const guarded = ['wishlistEditing', 'draft', 'trashAction', 'recordTrashAction', 'lifecycleDraft', 'lifecycleRecovery', 'saleDraft', 'saleRecovery', 'maintenanceDraft', 'maintenanceRecovery', 'warrantyDraft', 'warrantyRecovery'];
+  for (const name of guarded) {
+    const previous = context[name];
+    context[name] = name === 'wishlistEditing' ? true : { request_id: 'fictional' };
+    context.menuActionBlocked = compile(menuBlocked);
+    assert.equal(context.menuActionBlocked, true, name);
+    dispatched.length = 0; expanded = false; focused = false;
+    const event = keyEvent('f');
+    compile(shortcut)(event);
+    compile(menuAction)('find-asset');
+    assert.deepEqual(dispatched, [], name + ' blocks Windows shortcut');
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(expanded, false, name + ' blocks native menu');
+    assert.equal(focused, false);
+    context[name] = previous;
+  }
 });
 
 test('text inputs, textareas and editable descendants retain native text editing and app selection is untouched', () => {
