@@ -4,6 +4,7 @@ use crate::domain::{Error, Result};
 /// a URL from records, device metadata, free text, or arbitrary IPC input.
 pub fn destination(target: &str) -> Result<&'static str> {
     match target {
+        "author" => Ok("https://github.com/CoderJackZhu"),
         "project" => Ok("https://github.com/CoderJackZhu/Thingary"),
         "guide" => Ok("https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md"),
         "feedback" => Ok("https://github.com/CoderJackZhu/Thingary/issues"),

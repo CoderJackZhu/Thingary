@@ -82,3 +82,22 @@ test('up to date offers no download; a failed check reports and can be retried',
   assert.doesNotMatch(text, /无法连接到 Gitee 和 GitHub/);
   assert.equal(r.button('在浏览器中打开 GitHub 下载页'), undefined);
 });
+
+test('compact version row preserves busy and new-release details without a nested card', async () => {
+  let resolveCheck, calls = [];
+  const r = runtime('UpdateCheck', { compact: true, showVersion: false, versionLabel: '版本暂不可用' }, undefined, undefined, {
+    components: [], modules: { './update-check': model, './asset': { errorMessage: e => e.message }, '@tauri-apps/api/core': { invoke: async name => { calls.push(name); return new Promise(resolve => { resolveCheck = resolve; }); } } },
+  });
+  await r.settle();
+  assert.deepEqual(calls, []);
+  assert.equal(r.nodes()[0].props.className, 'update-check update-check-inline');
+  assert.match(r.text(r.nodes()[0]), /版本暂不可用检查更新手动检查/);
+  r.button('检查更新').props.onClick();
+  await r.settle();
+  assert.equal(r.button('正在检查…').props.disabled, true);
+  resolveCheck(outcome({ current: '0.0.5', latest: release('0.0.6'), update_available: true }));
+  await r.settle();
+  assert.match(r.text(r.nodes()[0]), /发现新版本.*完整备份并异地保存/);
+  assert.ok(r.button('在浏览器中打开 GitHub 下载页'));
+  assert.deepEqual(calls, ['update_check']);
+});

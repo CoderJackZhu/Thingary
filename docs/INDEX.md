@@ -26,6 +26,7 @@
 | [发布流程](RELEASING.md) | 版本、签名、安装包及公开交付核验 |
 | [截图清单](images/README.md) | 虚构截图来源、尺寸、基线与复现 |
 | [安全政策](../SECURITY.md) · [品牌使用](brand/README.md) | 漏洞与名称图标边界 |
+| [来源告知](../SOURCE_NOTICES.md) · [规划核心说明](../crates/planning-engine/README.md) | 当前隔离实现范围、历史来源与核心接口 |
 
 ## 当前阶段
 

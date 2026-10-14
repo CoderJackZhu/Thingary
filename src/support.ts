@@ -1,4 +1,5 @@
 export const supportUrls = {
+  author: 'https://github.com/CoderJackZhu',
   project: 'https://github.com/CoderJackZhu/Thingary',
   guide: 'https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md',
   feedback: 'https://github.com/CoderJackZhu/Thingary/issues',

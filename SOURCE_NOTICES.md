@@ -24,4 +24,4 @@
 
 ## 历史实现：规划模块
 
-早期参考来源：[Wealthfolio](https://github.com/wealthfolio/wealthfolio/tree/51cdbf92e2738c6e8c58fa9f04ae630125549043)，[上游许可 AGPL-3.0](https://github.com/wealthfolio/wealthfolio/blob/51cdbf92e2738c6e8c58fa9f04ae630125549043/LICENSE)。此前曾重写已定位的复用内容，该次重写不是洁净室实现；为与上游许可保持一致，本项目自 2026-10-13 起整体按 AGPL-3.0-or-later 授权。0.0.4 及更早版本发布时标注为 GPL-3.0-or-later，重新分发这些旧版本时同样按上游 AGPL-3.0 处理相关部分。
+早期参考来源：[Wealthfolio](https://github.com/wealthfolio/wealthfolio/tree/51cdbf92e2738c6e8c58fa9f04ae630125549043)，[上游许可 AGPL-3.0](https://github.com/wealthfolio/wealthfolio/blob/51cdbf92e2738c6e8c58fa9f04ae630125549043/LICENSE)。在本次 Rust 核心隔离重建之前，曾重写已定位的复用内容；那次历史重写不是洁净室实现，与上文的新核心隔离实现是两次不同的工作。为与上游许可保持一致，本项目自 2026-10-13 起整体按 AGPL-3.0-or-later 授权。0.0.4 及更早版本发布时标注为 GPL-3.0-or-later，重新分发这些旧版本时同样按上游 AGPL-3.0 处理相关部分。

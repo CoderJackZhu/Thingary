@@ -2,6 +2,13 @@
 
 用户下载见 [Releases](https://github.com/CoderJackZhu/Thingary/releases)，操作和更新见[使用指南](docs/USER_GUIDE.md)。这里记录用户可感知的变化，开发执行流水另存维护者档案。
 
+## 未发布
+
+- 规划纯计算替换为隔离实现的 Rust 核心，同步计算使用其 WASM，桌面市场模拟批次使用原生 Rust；TypeScript 保留资料编译、来源核对与展示。随机序列改用 SplitMix64，历史目标进度仍按原值保留，跨核心版本的数值不保证可直接比较。来源范围与历史许可见[来源告知](SOURCE_NOTICES.md)。
+- 「检查更新」移至「设置 › 关于与帮助」直接显示，版本与按钮同行；原生关于、帮助和更新菜单进入同一页面，更新菜单定位版本行。打开页面不自动联网。维护者名字链接到 GitHub 主页，底部新增轻量 Star 提示。
+
+以下为已公开安装包的历史记录；上述源码变更未替换已发布的 0.0.6 安装包。
+
 ## 0.0.6 Beta — 2026-10-13
 
 GitHub Pre-release，并同步 Gitee。提供 Apple Silicon 与 Intel 通用安装包；资料升级至 schema 40，更新前请完整备份。验证与限制见[0.0.6 发布说明](docs/releases/v0.0.6.md)。

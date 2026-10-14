@@ -128,4 +128,6 @@
 
 ## 许可
 
+当前规划纯计算由独立 Rust 核心承担，在隔离实现环境中依据冻结的行为规格编写；界面与数据适配仍由 TypeScript 承担，不属于此次隔离重建范围。当前核心与历史参考的区别见[来源告知](SOURCE_NOTICES.md)，接口与构建见[核心说明](crates/planning-engine/README.md)。
+
 代码按 [AGPL-3.0-or-later](LICENSE) 授权（0.0.4 及更早版本发布时标注为 GPL-3.0-or-later），第三方依赖许可见 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES.md)。名称「物谱」「Thingary」与应用图标不在 AGPL 授权范围内；修改版再发布请采用自己的名称与图标，详见[品牌使用说明](docs/brand/README.md)。

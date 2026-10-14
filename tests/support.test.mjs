@@ -18,7 +18,7 @@ test('help opens without a network check and keeps the local information when ve
   });
   await r.settle();
   assert.deepEqual(calls, ['app_version']);
-  assert.match(r.text(r.nodes()[0]), /版本暂不可用.*开发与维护：CoderJackZhu/);
+  assert.match(r.text(r.nodes()[0]), /开发与维护：CoderJackZhu.*版本暂不可用/);
   assert.match(r.text(r.nodes()[0]), /资料与备份没有应用级加密/);
   assert.ok(r.button('检查更新'));
   assert.equal(r.button('关于物谱'), undefined);
