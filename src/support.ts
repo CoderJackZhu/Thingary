@@ -9,9 +9,9 @@ export const supportUrls = {
 export type SupportTarget = keyof typeof supportUrls;
 export type DataHelpTarget = 'backup';
 
-export function supportMenuDestination(action: string): 'support' | 'about' | DataHelpTarget | null {
+export function supportMenuDestination(action: string): 'support' | DataHelpTarget | null {
   if (action === 'open-help') return 'support';
   if (action === 'open-backup') return 'backup';
-  if (action === 'open-about' || action === 'open-updates') return 'about';
+  if (action === 'open-about' || action === 'open-updates') return 'support';
   return null;
 }

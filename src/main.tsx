@@ -82,7 +82,6 @@ import './taxonomy.css';
 import { allModules, type Modules, type RuntimeModules } from './modules';
 import { ModuleSettings } from './ModuleSettings';
 import { CheckinReminder } from './CheckinReminder';
-import { AboutDialog } from './AboutDialog';
 import { SupportPanel } from './SupportPanel';
 import { supportMenuDestination, type DataHelpTarget } from './support';
 import './style.css';
@@ -185,7 +184,16 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [financeImportRequested, setFinanceImportRequested] = useState(false);
   const capabilities = financeCapabilities(modules);
   const [settingsGroup, setSettingsGroup] = useState<SettingsCategory>('appearance');
-  const [aboutOpen, setAboutOpen] = useState(false);
+  const [supportUpdateRequested, setSupportUpdateRequested] = useState(false);
+  useEffect(() => {
+    if (section !== 'settings' || settingsGroup !== 'support' || !supportUpdateRequested) return;
+    const frame = requestAnimationFrame(() => {
+      const heading = document.getElementById('update-check-heading');
+      heading?.scrollIntoView({ block: 'nearest' }); heading?.focus();
+      setSupportUpdateRequested(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [section, settingsGroup, supportUpdateRequested]);
   const [dataHelpTarget, setDataHelpTarget] = useState<DataHelpTarget | null>(null);
   useEffect(() => {
     if (section !== 'settings' || settingsGroup !== 'data' || !dataHelpTarget) return;
@@ -627,11 +635,6 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   });
   // Library switches and module toggles invalidate the session outright.
   useEffect(() => { setSearchSession(emptySearchSession()); }, [libraryGeneration, modules.wishlist, modules.wealth, modules.expenses, modules.recurring, modules.virtual, modules.timeline, modules.stats, modules.incomes, modules.movements]);
-  function openAbout() {
-    if (aboutOpen) return;
-    if (document.querySelector('dialog[open]')) { setNotice('先关闭当前窗口，再打开关于物谱。'); return; }
-    setAboutOpen(true);
-  }
   function openDataHelp(target: DataHelpTarget) {
     if (modeBlocked || modeBusy || document.querySelector('dialog[open]')) { setNotice(blockedNotice('打开数据管理')); return; }
     ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null);
@@ -639,10 +642,9 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }
   menuAction.current = action => {
     const help = supportMenuDestination(action);
-    if (help === 'about') { openAbout(); return; }
     if (help) {
       if (modeBlocked || modeBusy || document.querySelector('dialog[open]')) { setNotice(blockedNotice('打开帮助')); return; }
-      if (help === 'support') { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setSettingsGroup('support'); setSection('settings'); setDetailId(null); }
+      if (help === 'support') { setSupportUpdateRequested(action === 'open-updates'); ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setSettingsGroup('support'); setSection('settings'); setDetailId(null); }
       else openDataHelp(help);
       return;
     }
@@ -1124,7 +1126,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         modules: <><ModuleSettings modules={modules} onChange={setModules}/><CheckinReminder wealthOn={modules.wealth} today={today}/></>,
         data: <><DataManagement onImported={() => { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setFinanceReviewRoute({ page: 'review', view: 'period' }); setReviewBrowse({}); void refresh(); void taxonomy.reload().catch(() => {}); }} onBusyChange={setDataBusy} generation={libraryGeneration ?? null} demo={!!demoStatus?.active} blocked={otherEditing || featureEditing || (durablePending && storedPending()?.command !== 'financial_import_commit')} financeImportRequested={financeImportRequested} onFinanceImportRequestDone={() => setFinanceImportRequested(false)} onViewFinance={target => { if (target !== 'income' && (!modules.wealth || storedPending() || pendingGenerations(localStorage).length || otherEditing)) { setNotice('账户功能已关闭或仍有结果待核对。'); return; } if (target === 'income') gotoFinance({ page: 'records', tab: 'income' }, true); else { beginReturn(); setWealthReviewFocus(libraryGeneration ? { generation: libraryGeneration, kind: target === 'snapshots' ? 'history' : 'accounts' } : null); setSection('wealth'); } }} onTrash={() => openSubpage('trash', 'data')}/></>,
         demo: demoStatus.available ? <DemoSettings status={demoStatus} blocked={modeBusy || modeBlocked} onSwitch={() => void changeDemoMode(!demoStatus.active)} onReset={() => void changeDemoMode(true, true)}/> : <p className="muted">样例资料暂不可用。</p>,
-        support: <SupportPanel onData={openDataHelp} onAbout={openAbout} blocked={modeBlocked || modeBusy}/>,
+        support: <SupportPanel onData={openDataHelp} blocked={modeBlocked || modeBusy}/>,
       }}/>}
       {section === 'wealth' && <WealthPage onFinancialImport={() => gotoFinance({ page: 'data-management', importKind: 'finance' })} key={libraryGeneration} reviewFocus={wealthReviewFocus} onReviewFocusDone={() => setWealthReviewFocus(null)} onGotoPlanning={gotoReview} onCompare={pair => gotoFinance({ page: 'review', view: 'compare', ...(pair ? { pair } : {}) })} today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.recurring} onSearch={v => setSearches(s => (s.recurring === v ? s : { ...s, recurring: v }))} autoNew={autoNew === 'recurring'} onAutoNewDone={() => setAutoNew(null)} modules={modules} onOpenSource={openSource}/>}
@@ -1184,7 +1186,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         </div>
       </section>
       {section === 'assets' && detailId && <section className="detail">{detailLoading ? <p role="status">正在读取档案…</p> : detailError || !active ? <div className="empty" role="alert"><h2>{detailError || '找不到这件物品'}</h2>{selected?.deleted && <button disabled={wishlistEditing} onClick={() => openSubpage('trash', null)}>前往最近删除</button>}<button disabled={wishlistEditing} onClick={() => void select(detailId, true)}>重新读取</button></div> : <AssetDetail onOpenWish={!modules.wishlist ? undefined : () => { setWishFocus(active.origin_wishlist ? { search: active.origin_wishlist.name, filter: 'purchased' } : null); setSection('wishlist'); setDetailId(null); }} onMaintenance={id => void openMaintenance(active, id)} onWarranty={id => void openWarranty(active, id)} onSale={mode => void openSale(active, mode)} onLifecycle={action => void openLifecycle(active, action)} taxonomy={taxonomy.snapshot} record={active} generation={page?.generation || ''} today={today} onEdit={() => void openEditor(active)} onDelete={() => setDeleteAfterEdit(active.asset.id)}/> }</section>}
-    </main>{aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)}/>} {maintenanceDraft && <MaintenanceEditor initial={maintenanceDraft} today={today} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={(intent, keepDraft) => { void closeMaintenance(intent, keepDraft).catch(e => setNotice(errorMessage(e))); }} onSaved={maintenanceSaved} onDelete={id => { const assetId = maintenanceDraft.state.record.asset.id; void closeMaintenance('form').then(() => setRecordDeleteAfterEdit({ kind: 'maintenance', id, assetId })).catch(e => setNotice(errorMessage(e))); }}/>} {warrantyDraft && <WarrantyEditor initial={warrantyDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={(intent, keepDraft) => { void closeWarranty(intent, keepDraft).catch(e => setNotice(errorMessage(e))); }} onSaved={warrantySaved} onDelete={id => { const assetId = warrantyDraft.state.record.asset.id; void closeWarranty('form').then(() => setRecordDeleteAfterEdit({ kind: 'warranty', id, assetId })).catch(e => setNotice(errorMessage(e))); }}/>} {saleDraft && <SaleEditor initial={saleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeSale(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saleSaved}/>} {lifecycleDraft && <LifecycleEditor initial={lifecycleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeLifecycle(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={lifecycleSaved}/>} {closeIntent && !draft && !trashAction && !recordTrashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && !warrantyDraft && taxonomyGuard && <TaxonomyCloseNotice onKeep={() => { setCloseIntent(null); setSection('settings'); }}/>}{trashAction && <TrashDialog initial={trashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={trashDone}/>}{recordTrashAction && <RecordTrashDialog initial={recordTrashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeRecordTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={recordTrashDone}/>} {draft && <AssetEditor taxonomy={taxonomy.snapshot} initial={draft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeEditor(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saved} onDelete={() => { const id = draft.id; void closeEditor('form').then(() => setDeleteAfterEdit(id)).catch(e => setNotice(errorMessage(e))); }}/>}{batch && page && <BatchDialog kind={batch} ids={multi} generation={page.generation} today={today} onClose={() => setBatch(null)} onDone={batchDone}/>}<UndoBar/></div></PageBarContext.Provider>;
+    </main>{maintenanceDraft && <MaintenanceEditor initial={maintenanceDraft} today={today} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={(intent, keepDraft) => { void closeMaintenance(intent, keepDraft).catch(e => setNotice(errorMessage(e))); }} onSaved={maintenanceSaved} onDelete={id => { const assetId = maintenanceDraft.state.record.asset.id; void closeMaintenance('form').then(() => setRecordDeleteAfterEdit({ kind: 'maintenance', id, assetId })).catch(e => setNotice(errorMessage(e))); }}/>} {warrantyDraft && <WarrantyEditor initial={warrantyDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={(intent, keepDraft) => { void closeWarranty(intent, keepDraft).catch(e => setNotice(errorMessage(e))); }} onSaved={warrantySaved} onDelete={id => { const assetId = warrantyDraft.state.record.asset.id; void closeWarranty('form').then(() => setRecordDeleteAfterEdit({ kind: 'warranty', id, assetId })).catch(e => setNotice(errorMessage(e))); }}/>} {saleDraft && <SaleEditor initial={saleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeSale(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saleSaved}/>} {lifecycleDraft && <LifecycleEditor initial={lifecycleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeLifecycle(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={lifecycleSaved}/>} {closeIntent && !draft && !trashAction && !recordTrashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && !warrantyDraft && taxonomyGuard && <TaxonomyCloseNotice onKeep={() => { setCloseIntent(null); setSection('settings'); }}/>}{trashAction && <TrashDialog initial={trashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={trashDone}/>}{recordTrashAction && <RecordTrashDialog initial={recordTrashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeRecordTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={recordTrashDone}/>} {draft && <AssetEditor taxonomy={taxonomy.snapshot} initial={draft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeEditor(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saved} onDelete={() => { const id = draft.id; void closeEditor('form').then(() => setDeleteAfterEdit(id)).catch(e => setNotice(errorMessage(e))); }}/>}{batch && page && <BatchDialog kind={batch} ids={multi} generation={page.generation} today={today} onClose={() => setBatch(null)} onDone={batchDone}/>}<UndoBar/></div></PageBarContext.Provider>;
 }
 const root = createRoot(document.getElementById('root')!);
 async function start() {
