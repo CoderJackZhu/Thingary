@@ -4,7 +4,7 @@ import { Segments } from './FormControls';
 import { rateText } from './plan';
 import { outcome, project, timeLabel } from './plan-ledger.ts';
 import type { Plan } from './plan-ledger.ts';
-import { ageSpendingMatrix, contributionReturnMatrix, largestRisk, monteCarlo, sorr, stressTests } from './plan-risk.ts';
+import { ageSpendingMatrix, contributionReturnMatrix, largestRisk, monteCarlo, sensitivityParameters, sorr, stressTests } from './plan-risk.ts';
 import type { Cell, Matrix, MonteCarlo, StressResult } from './plan-risk.ts';
 import { compactYuan, durationText, verdict } from './plan-view.ts';
 import { FanChart, PathsChart } from './RetireCharts';
@@ -66,7 +66,7 @@ export function RiskLab({ calc, today, basic }: { calc: Ready; today: string; ba
       <p className="muted small">我们根据你的假设模拟不同市场路径。阴影显示各月份的第 10 至第 90 百分位区间；线条显示各路径的中位数，并非单一路径。收益取扣除通胀后的实际收益，围绕假设值按波动率 {rateText(P.volatility_hundredths)} 随机，每年一次，固定种子，同一计划每次结果一致。</p>
       <p className="muted small">「资金充足」表示{fire ? '计划实现财务独立，' : '计划'}按完整预算覆盖到 {horizonMonth}，期间没有无法支付的月份；终点恰好为 0 也算充足，但没有余量。这些是模型结果，不是现实概率。</p>
       <p className="muted small">打开本页自动计算 1,000 条路径，先看资金在波动下是否够用；需要更多路径时可运行下方分析。修改条件后自动重新计算。</p>
-      <div className="rl-actions"><button type="button" className="ui-btn" disabled={running !== null} onClick={() => run(1000)}>重新计算 1,000 条</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? `正在运行… ${done}` : '运行 1 万条路径'}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(100000)}>{running === 100000 ? `正在运行… ${done.toLocaleString('zh-CN')}` : '运行 10 万条路径'}</button>
+      <div className="rl-actions"><button type="button" className="ui-btn" disabled={running !== null} onClick={() => run(1000)}>重新计算 1,000 条</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(10000)}>{running === 10000 ? `正在运行… ${done}` : '运行 1 万条路径'}</button><button type="button" className="ui-btn" disabled={running !== null} onClick={() => void run(20000)}>{running === 20000 ? `正在运行… ${done.toLocaleString('zh-CN')}` : '运行 2 万条路径'}</button>
         {running !== null && <span className="muted small" role="status">正在计算 {done.toLocaleString('zh-CN')} / {running.toLocaleString('zh-CN')} 条路径，可随时切回概览。</span>}</div>
       {error && <p role="alert">{error}</p>}
       {mc ? <>
@@ -98,7 +98,7 @@ function Stress({ P, results, fmt }: { P: Plan; results: StressResult[]; fmt: (c
         return <tr key={r.id}><td><b>{r.label}</b><small>{r.description}</small></td>
           <td>{r.stressed.fi_month === null ? <span className="muted">未达成</span> : <>{resultTime(P, r.stressed.fi_month)}</>}<small>{r.fi_delay_months ? (r.fi_delay_months < 0 ? `早 ${durationText(-r.fi_delay_months)}` : `晚 ${durationText(r.fi_delay_months)}`) : noChange ? '无变化' : r.baseline.fi_month === null ? '' : '未达成'}</small></td>
           <td className="amount">{r.shortfall_delta > 0 ? fmt(r.shortfall_delta) : '无变化'}{r.stressed.shortfall_month !== null && <small>缺口始于 {resultTime(P, r.stressed.shortfall_month)}</small>}</td>
-          <td className="amount">{fmt(Math.max(0, r.stressed.at_horizon))}<small>{r.horizon_delta === 0 ? '无变化' : `${r.horizon_delta < 0 ? '减少' : '增加'} ${fmt(Math.abs(r.horizon_delta))}`}</small>{r.stressed.failure_month !== null && <small>{resultTime(P, r.stressed.failure_month)}时资金不足</small>}</td>
+          <td className="amount">{fmt(r.stressed.at_horizon)}<small>{r.horizon_delta === 0 ? '无变化' : `${r.horizon_delta < 0 ? '减少' : '增加'} ${fmt(Math.abs(r.horizon_delta))}`}</small>{r.stressed.failure_month !== null && <small>{resultTime(P, r.stressed.failure_month)}时资金不足</small>}</td>
           <td><span className={`rl-sev ${r.severity}`}>{sevText[r.severity]}</span></td></tr>;
       })}</tbody></table></div>
     <p className="muted small">每个情景只改一件事，其余假设不变，用同一套计算重新推演。期末剩余资金在 FIRE 下可能因推迟退休而更多，所以请和财务独立月份一起看。</p>
@@ -136,11 +136,12 @@ function MatrixView({ P, title, sub, m, show, rowText, colText, rowHead, colHead
 }
 
 function Crash({ P, year, fmt }: { P: Plan; year: number; fmt: (c: number) => string }) {
-  const paths = useMemo(() => sorr(P, year), [P, year]);
+  const shock = useMemo(() => sensitivityParameters(P).adverse_return, [P]);
+  const paths = useMemo(() => sorr(P, year, shock), [P, year, shock]);
   const baseFinal = paths?.[0]?.final ?? 0;
   return <details className="ui-card rd-card rd-snapshot" aria-label="收益顺序检查" open>
     <summary><strong>收益顺序检查</strong><span className="muted small">同一次下跌，发生早晚有什么不同</span></summary>
-    <p className="muted small">比较一组相同收益的不同排列：年率 −30% 的下跌分别放在退休开头和末段，持续时间相同、最多一年，其余时间沿用所设收益。基准不含下跌；两条压力路径的差异来自发生时点。</p>
+    <p className="muted small">比较一组相同收益的不同排列：年率 {rateText(Math.round(shock * 10000))} 的下跌分别放在退休开头和末段，持续时间相同、最多一年，其余时间沿用所设收益。基准不含下跌；两条压力路径的差异来自发生时点。</p>
     {paths === null ? <p className="muted small">崩盘路径不可用。此检查需要退休开始时投资组合为正值，且规划期内已经达成退休。</p>
       : <><PathsChart paths={paths} fmt={fmt}/>
         <table className="rl-sorr"><thead><tr><th>情景</th><th>存续</th><th>最早缺口</th><th className="amount">{timeLabel(P, P.horizon_months - 1)} 余额</th></tr></thead>

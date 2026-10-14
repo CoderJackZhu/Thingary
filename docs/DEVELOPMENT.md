@@ -7,6 +7,7 @@
 需要 Mac、Xcode 命令行工具、Node.js 与 npm、Rust 稳定版工具链。CI 使用 Node.js 22 与 Rust stable；使用仓库锁文件，不随意升级依赖。Rust 链接 macOS 原生框架，其他系统上的前端构建不能代替完整应用构建。
 
 ```sh
+rustup target add wasm32-unknown-unknown
 npm ci
 npm run tauri -- dev
 ```
@@ -26,10 +27,12 @@ npm test
 
 | 命令 | 覆盖范围 |
 |---|---|
-| `npm run build` | TypeScript 类型检查与 Vite 前端构建 |
+| `npm run build` | Rust 核心 WASM 构建、TypeScript 类型检查与 Vite 前端构建 |
 | `npm run test:ui` | 前端纯逻辑、真实组件处理器及部分渲染／布局约束；不是原生 UI 自动化 |
 | `npm run check` | cargo fmt 与启用测试故障注入的 clippy |
-| `npm test` | Rust 领域、存储、迁移、回执与恢复测试；临时虚构资料 |
+| `npm test` | 独立计算核心及 Rust 领域、存储、迁移、回执与恢复测试；临时虚构资料 |
+| `npm run check:engine-source` | 不重建，核对已提交 WASM 的源码／锁文件散列、二进制散列和接口 |
+| `npm run test:engine-parity` | 同一虚构输入的原生 / WASM 结果及 ABI 所有权检查 |
 | `npm run test:demo` | 独立样例导入工具 |
 
 故障注入 feature 只用于测试，不进入普通应用。检查结果按本次实际执行登记；测试文件存在、历史通过或源码提交不代表当前工作树已通过。文案／样式核对受影响页面与断点；表单验证保存、取消、未知与失败；计算运行对应数值和调用链回归。纯文档检查链接、锚点、术语和离线交付依赖。
@@ -185,6 +188,29 @@ cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_cont
 ```sh
 node scripts/offline-guide.mjs <临时输出目录>
 ```
+
+<a id="planning-engine-validation"></a>
+
+### 当前规划核心接入验收（未发布源码）
+
+2026-10-14 当前工作树的构建、1,098 项 UI 测试、格式／Clippy 和 705 项 Rust 测试通过，3 项既有容量测试仍按原配置忽略。其中独立核心 debug／release 各 106 项通过；15 类原生／WASM 运算与 5 类必填字段缺失拒绝对照通过。源码／锁文件与产物散列、ABI 所有权、分批路径一致性及取消／迟到结果另有回归。开发启动自动生成核心；CI 在生成前检查已提交产物，防止过期 WASM 被构建覆盖后误判通过。
+
+本次用独立身份、全新目录与虚构资料，在真实 macOS WKWebView 验证同步 WASM、异步原生命令、81 路径按 40／40／1 分批汇总、必填字段拒绝、明确零和迟到取消。实际产品页验证投入修改取消、未知保存及预测阻断、已知投入保存与重启、1,000 条市场路径完成、2 万条运行时切回概览、压力参数与收益顺序说明。默认隐私报告保留当前公开核心版本标识，金额继续隐藏；任意自由文本版本仍脱敏。Escape 关闭只读报告后返回触发入口。隐私报告版本修复前后使用同一虚构计划、外观和原生窗口，截图实际均为 3200×1866；此对照只验证本次修复，不代表规划 UI 已完成独立设计。
+
+重建范围只覆盖 Rust 计算核心，TypeScript 仍承担资料编译、产品门控与展示。历史目标进度未记录核心版本，不能保证跨版本数值可直接比较。历史来源、旧版本及整个产品的 AGPL 记录保留，详见[来源告知](../SOURCE_NOTICES.md)。本轮没有验收系统通知、原生 PDF、完整键盘／输入法、VoiceOver、Intel、最低系统兼容、签名公证或真实下载首开；源码验收不代表正式包已发布或安装。
+
+## Rust 规划核心
+
+修改计算库后运行 `npm run build:engine`；首次需要 `rustup target add wasm32-unknown-unknown`。`npm run build` 与 `npm run dev` 都会先构建 WASM；`tauri dev` 的前置开发命令同样触发此构建。生成的 `src/planning-engine-wasm.ts` 随源码保存，不手工编辑；原生应用通过 path dependency 编译同一库。
+
+```sh
+npm run test:engine
+npm run test:engine-parity
+npm run check:engine-source
+npm run check:engine
+```
+
+`test:engine-parity` 使用虚构数据比较原生 dispatch 与真实 WASM 输出，并验证内存所有权与拒绝路径；它不等同于 macOS WebView／IPC 的完整交互验收。CI 在重建前执行 `check:engine-source`，核对已提交产物的源码与二进制散列；此检查不调用 Cargo、不覆盖产物，不要求 Rust 编译器版本相同。`check:engine` 则需要与生成产物一致的 Rust 工具链。模块设计及来源边界见[核心说明](../crates/planning-engine/README.md)。
 
 ## 构建应用
 

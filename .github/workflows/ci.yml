@@ -19,14 +19,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
       - run: npm ci
+      - name: 校验已提交的规划核心产物
+        run: npm run check:engine-source
       - name: 类型检查与前端构建
         run: npm run build
       - name: 前端纯逻辑检查
         run: npm run test:ui
+      - name: 规划核心原生与 WASM 一致性
+        run: npm run test:engine-parity
       - name: cargo fmt 与 clippy
         run: npm run check
       - name: Rust 测试

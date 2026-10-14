@@ -35,12 +35,17 @@ export function runway(i: RunwayInput): RunwayResult {
   if (!Number.isInteger(months) || months < 1 || months > RUNWAY_MAX_MONTHS) return { status: 'invalid', message: '检查期间必须为 1 至 1200 个整月。' };
   let a = b, floor_month = f !== null && b <= f ? 0 : null;
   const floor_gap_cents = floor_month === 0 ? f! - b : null;
-  for (let m = 1; m <= months; m++) {
-    const paid = retiredMonth(a, 1, 0, s, 0);
-    if (paid.gap > 0) return { status: 'payment_gap', covered_months: m - 1, checked_months: months, remaining_cents: a, floor_month, floor_gap_cents };
-    if (f !== null && floor_month === null && paid.a <= f) floor_month = m;
-    a = retiredMonth(paid.a, 1, 0, 0, inc).a;
-    if (!Number.isSafeInteger(a)) return { status: 'invalid', message: '推演金额超出可计算范围，请缩短期间或核对金额。' };
+  try {
+    for (let m = 1; m <= months; m++) {
+      const paid = retiredMonth(a, 1, 0, s, 0);
+      if (paid.gap > 0) return { status: 'payment_gap', covered_months: m - 1, checked_months: months, remaining_cents: a, floor_month, floor_gap_cents };
+      if (f !== null && floor_month === null && paid.a <= f) floor_month = m;
+      a = retiredMonth(paid.a, 1, 0, 0, inc).a;
+      if (!Number.isSafeInteger(a)) return { status: 'invalid', message: '推演金额超出可计算范围，请缩短期间或核对金额。' };
+    }
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
+    return { status: 'invalid', message: '推演金额超出可计算范围，请缩短期间或核对金额。' };
   }
   return { status: 'not_reached', checked_months: months, remaining_cents: a, floor_month, floor_gap_cents };
 }

@@ -15,6 +15,7 @@ cc = "=1.4.7"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+thingary_planning_engine = { path = "../crates/planning-engine" }
 tauri = { version = "2", features = [] }
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }

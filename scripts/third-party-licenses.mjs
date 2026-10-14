@@ -8,7 +8,8 @@ const root = new URL('..', import.meta.url).pathname;
 const run = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 });
 
 const meta = JSON.parse(run('cargo', ['metadata', '--offline', '--locked', '--format-version', '1', '--manifest-path', 'src-tauri/Cargo.toml', '--filter-platform', 'aarch64-apple-darwin']));
-const self = new Set(meta.workspace_members);
+// The standalone calculation crate is first-party, though it has its own lockfile.
+const self = new Set([...meta.workspace_members, ...meta.packages.filter(p => p.manifest_path === `${root}crates/planning-engine/Cargo.toml`).map(p => p.id)]);
 const rust = meta.packages.filter(p => !self.has(p.id)).map(p => ({ name: p.name, version: p.version, license: p.license ?? (p.license_file ? `见 ${p.license_file}` : '未声明'), url: p.repository ?? p.homepage ?? '' }));
 
 const tree = JSON.parse(run('npm', ['ls', '--omit=dev', '--all', '--json']));

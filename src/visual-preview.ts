@@ -1,6 +1,7 @@
 // Development-only entry. Renders the production App with an in-memory IPC
 // adapter; index.html and the production build never import this module.
 import { mockIPC } from '@tauri-apps/api/mocks';
+import { engineRequest } from './planning-engine.ts';
 import { emit } from '@tauri-apps/api/event';
 import type { AssetRecord, Page, Query, SaveAsset } from './asset';
 import { localDay } from './asset';
@@ -330,6 +331,7 @@ function checkinStatus() {
   return { months: checkinMonths, last_check_in: last, next_date: checkinMonths ? next.toLocaleDateString('sv') : null };
 }
 async function handle(command: string, payload: unknown): Promise<unknown> {
+  if (command === 'planning_engine_evaluate') return engineRequest((payload as { request: Record<string, unknown> }).request);
   if (command === 'notification_status') return '';
   if (command === 'goal_progress_list') return previewProgress;
   if (command === 'goal_progress_record') {

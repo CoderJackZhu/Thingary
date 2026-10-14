@@ -10,7 +10,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(process.argv[2] ?? `${root}/.local/distribution/notices`);
 const run = (command, args) => execFileSync(command, args, { cwd: root, encoding: 'utf8', maxBuffer: 1 << 28 });
 const meta = JSON.parse(run('cargo', ['metadata', '--offline', '--locked', '--format-version', '1', '--manifest-path', 'src-tauri/Cargo.toml', '--filter-platform', 'aarch64-apple-darwin']));
-const own = new Set(meta.workspace_members);
+// Explicit first-party path; other local/vendor dependencies still need notices.
+const own = new Set([...meta.workspace_members, ...meta.packages.filter(p => p.manifest_path === resolve(root, 'crates/planning-engine/Cargo.toml')).map(p => p.id)]);
 const overridesRoot = `${root}/scripts/license-overrides`;
 const overrides = JSON.parse(readFileSync(`${overridesRoot}/manifest.json`, 'utf8'));
 const sha = data => createHash('sha256').update(data).digest('hex');

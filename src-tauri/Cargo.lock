@@ -3861,9 +3861,18 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-single-instance",
  "tempfile",
+ "thingary_planning_engine",
  "unicode-normalization",
  "uuid",
  "zip",
+]
+
+[[package]]
+name = "thingary_planning_engine"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

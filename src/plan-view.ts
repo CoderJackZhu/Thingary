@@ -156,22 +156,20 @@ export function coverage(P: Plan, proj: Projection, month: number, mode: ValueMo
   const row = proj.rows.find(r => month >= r.start_month && month < r.start_month + 12);
   const value = row ? row.start : 0;
   const ageOf = (a: number | null) => (a === null ? P.age_reference === undefined ? '终身' : '未设结束月' : timeLabel(P, a * 12));
-  const retireAge = proj.retire_month !== null ? ageInt(proj.retire_month) : ageInt(P.target_months);
   const pensionStart = proj.pension ? pensionIncomeStart(proj.pension) : Infinity;
   const hasPension = !!proj.pension && proj.pension.monthly_cents > 0 && Number.isFinite(pensionStart);
   const pensionStartText = `${ageInt(pensionStart)} 岁${pensionStart % 12 ? ` ${pensionStart % 12} 个月` : ''}`;
   const nextIncome = P.incomes.filter(s => s.start_age * 12 > month).map(s => s.start_age).sort((a, b) => a - b)[0] ?? (hasPension && pensionStart > month ? ageInt(pensionStart) : null);
-  const infl = 1 + P.inflation_hundredths / 10000;
   return {
     month, calendar_month: timeLabel(P, month), age: ageAt(P, month) === null ? null : ageInt(ageAt(P, month)!), spend, essential: c.essential * k,
     segments, pct: { income: pct(income), portfolio: pct(c.withdrawal * k), unfunded: pct(c.unfunded * k) },
     draw_rate: value > 0 && c.withdrawal > 0 ? (c.withdrawal * 12) / value : null,
     spend_items: P.items.map(it => {
-      const start = it.start_age ?? retireAge, active = month >= start * 12 && (it.end_age === null || month < it.end_age * 12);
-      const real = (1 + (it.inflation_hundredths ?? P.inflation_hundredths) / 10000) / infl;
-      return { id: it.id, label: it.label, monthly: active ? it.monthly_cents * real ** ((month - P.now_months) / 12) * k : 0, start: it.start_age === null ? P.age_reference === undefined ? '退休' : timeLabel(P, proj.retire_month ?? P.target_months) : timeLabel(P, it.start_age * 12), end: ageOf(it.end_age), essential: it.essential, active };
+      const detail = c.expense_items.find(item => item.id === it.id);
+      const active = detail?.active ?? false;
+      return { id: it.id, label: it.label, monthly: (detail?.monthly ?? 0) * k, start: it.start_age === null ? P.age_reference === undefined ? '退休' : timeLabel(P, proj.retire_month ?? P.target_months) : timeLabel(P, it.start_age * 12), end: ageOf(it.end_age), essential: it.essential, active };
     }),
-    flow_items: (P.spend_flows ?? []).map(f => { const active = month >= f.from_month && (f.to_month === null || month < f.to_month); return { id: f.label + f.from_month, label: f.label, monthly: active ? (f.nominal ? f.cents / nominalFactor(P, month) : f.cents) * k : 0, start: timeLabel(P, f.from_month), end: f.to_month === null ? '未设结束月' : timeLabel(P, f.to_month), essential: f.essential, active }; }),
+    flow_items: (P.spend_flows ?? []).map((f, index) => { const detail = c.flow_items[index], active = detail?.active ?? false; return { id: f.label + f.from_month, label: f.label, monthly: (detail?.monthly ?? 0) * k, start: timeLabel(P, f.from_month), end: f.to_month === null ? '未设结束月' : timeLabel(P, f.to_month), essential: f.essential, active }; }),
     income_items: [
       ...P.incomes.map(s => ({ id: s.id, label: s.label, monthly: c.items.find(x => x.id === s.id)!.monthly * k, start: timeLabel(P, s.start_age * 12), end: ageOf(s.end_age), active: c.items.find(x => x.id === s.id)!.active })),
       ...(P.future_incomes ?? []).map(s => ({ id: s.id, label: s.name, monthly: (c.items.find(x => x.id === s.id)?.monthly ?? 0) * k, start: s.start_month ?? '待确认', end: s.end_month ?? '未设结束月', active: c.items.find(x => x.id === s.id)?.active ?? false })),
@@ -218,8 +216,7 @@ export function coverageSeries(P: Plan, proj: Projection, mode: ValueMode): Cove
 export type RangeRow = { id: string; label: string; fi_month: number | null; late_months: number | null; surplus: number; failed: boolean };
 export function rangeRows(stress: { id: string; label: string; stressed: Outcome }[], base: Outcome): RangeRow[] {
   const row = (id: string, label: string, o: Outcome): RangeRow => ({ id, label, fi_month: o.fi_month, late_months: o.fi_month !== null && base.fi_month !== null ? o.fi_month - base.fi_month : null, surplus: o.assets_at_goal - o.required_at_goal, failed: o.failure_month !== null || o.shortfall_month !== null });
-  const pick = ['return-drag', 'inflation-shock', 'spending-shock', 'save-less'];
-  return [row('base', '基准', base), ...pick.flatMap(id => { const r = stress.find(s => s.id === id); return r ? [row(id, r.label, r.stressed)] : []; })];
+  return [row('base', '基准', base), ...stress.map(r => row(r.id, r.label, r.stressed))];
 }
 
 /** 图顶竖线标签分行：同一行放不下（会盖住前一个）就挪到第二行；贴右边界时改为向左伸展。 */

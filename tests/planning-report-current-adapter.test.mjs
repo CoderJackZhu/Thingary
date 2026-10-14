@@ -65,6 +65,25 @@ test('current report uses saved domain metadata and a detached, valid v1 snapsho
   assert.equal(JSON.stringify(r), before);
 });
 
+test('private current report preserves the actual public kernel version without exposing arbitrary metadata or unknown amounts', () => {
+  const sources = basicFixtureSources(), caps = buildBasicCapabilities(sources);
+  const input = currentReportInput(sources, caps, sources.today);
+  const privateReport = redactReport(input);
+  assert.match(input.model_version, /^rust-[a-f0-9]{12}$/);
+  assert.equal(privateReport.model_version, caps.context.model_version);
+  assert.equal(privateReport.current_summary.estimated_contribution.cents, null);
+  assert.equal(privateReport.current_summary.estimated_contribution.hidden, false);
+  assert.equal(privateReport.current_summary.estimated_contribution.basis, 'unknown');
+  for (const text of [copyText(input, true), printableHtml(input, { privacy: true })]) {
+    assert.ok(text.includes(caps.context.model_version));
+  }
+  const other = { ...input, model_version: '私人版本-余额123456789' };
+  assert.equal(redactReport(other).model_version, null);
+  for (const text of [copyText(other, true), printableHtml(other, { privacy: true })]) {
+    assert.ok(!text.includes(other.model_version));
+  }
+});
+
 test('unknown contribution preserves requirements without inventing a prediction or series', () => {
   const s = basicFixtureSources(), caps = buildBasicCapabilities(s), r = report(s);
   assert.equal(caps.requirement.status, 'ready'); assert.equal(caps.prediction.status, 'blocked');

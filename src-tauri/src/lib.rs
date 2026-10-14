@@ -37,6 +37,7 @@ mod plan_migration;
 pub mod plan_profile;
 pub mod plan_savings;
 pub mod plan_simplified;
+mod planning_engine_commands;
 pub mod planning_flow_review;
 mod planning_followup_commands;
 pub mod preferences;
@@ -205,6 +206,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            planning_engine_commands::planning_engine_evaluate,
             commands::notification_permission,
             commands::modules_get,
             commands::modules_set,

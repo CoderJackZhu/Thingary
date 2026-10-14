@@ -2,6 +2,7 @@
 // 输入为只读 ReportInputV1：本模块不读取数据库、不调用退休算法补字段、不建立事实存储。
 // 协议金额始终是十进制分字符串或 null，从不经过 Number 存回；显示格式化用 BigInt，Number 只用于绘图坐标。
 // 隐私报告先从同一快照生成脱敏载荷（redactReport），渲染/打印/复制/文件名只接触脱敏后的视图。
+import { planningModelVersion } from '../planning-engine.ts';
 
 export const CONTRACT_VERSION = 1;
 
@@ -329,7 +330,10 @@ function projectReport(r: ReportInputV1, privacy: boolean): ReportInputV1 {
     subject_name: privacy ? (r.kind === 'comparison' ? '方案 A' : r.kind === 'baseline' ? '基准 A' : '当前方案') : r.subject_name,
     other_name: privacy && r.other_name !== null ? '方案 B' : r.other_name,
     generated_on: r.generated_on, source_date: r.source_date, monetary_basis_date: r.monetary_basis_date,
-    scenario_revision: r.scenario_revision, model_version: privacy ? null : r.model_version,
+    scenario_revision: r.scenario_revision,
+    // Only the app's own public kernel identifier is non-private metadata.
+    // Arbitrary report version strings remain subject to redaction.
+    model_version: !privacy || (r.kind === 'current' && r.model_version === planningModelVersion) ? r.model_version : null,
     headline: { status: r.headline.status, amount: money(r.headline.amount), date: r.headline.date },
     next_step: { label: privacy ? '核对计算依据与缺项' : r.next_step.label, detail: privacy ? null : r.next_step.detail },
     current_summary: r.current_summary ? summary(r.current_summary) : null,

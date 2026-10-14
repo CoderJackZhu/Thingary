@@ -15,6 +15,8 @@
 ```mermaid
 flowchart TD
     UI[React 页面、表单与交互状态] --> IPC[Tauri 业务命令]
+    UI --> WASM[Rust 规划核心的 WASM]
+    IPC --> CALC[无 Store 的 Rust 计算工作线程]
     IPC --> STORE[Rust 领域服务与数据库工作线程]
     STORE --> SQL[(SQLite)]
     STORE --> FILE[图片、素材与资料文件]
@@ -24,6 +26,7 @@ flowchart TD
 | 位置 | 职责 |
 |---|---|
 | `src/` | 页面、组件、命令类型、展示格式、样例预览；外观令牌在 `src/theme.css` |
+| `crates/planning-engine/` | 共用的规划纯计算、校验与独立数学用例 |
 | `src-tauri/src/` | 应用入口、业务命令、数据存储、领域计算、工作线程与恢复协议 |
 | `src-tauri/tests/` | 存储／领域集成测试、事务与故障注入、迁移、备份恢复 |
 | `src-tauri/examples/` | 隔离的虚构样例导入与验收夹具，不用于正式资料 |
@@ -32,6 +35,14 @@ flowchart TD
 | `scripts/` | 素材生成、离线指南、许可清单、打包与辅助验收 |
 
 前端不直接访问 SQLite。阻塞的数据库与文件工作通过后端工作线程处理；写操作串行化并在事务中维护业务事实与引用。界面刷新和缓存失效必须随业务提交结果更新。
+
+## 规划计算核心
+
+`crates/planning-engine` 是无存储、文件和网络访问的 Rust 计算库。`plan-ledger.ts` 与 `plan-risk.ts` 保留数据接口、展示适配和取消控制；逐月账本、资金需求、投入额反求、覆盖、市场模拟、敏感性与收益顺序由同一 Rust 实现承担。`plan-basic` 仍负责资料读取、来源核对、未知值门控与输入编译；年龄参考只影响基本模式的展示，不移动日历现金流。
+
+原生批量模拟通过 `planning_engine_evaluate` 在阻塞工作线程上执行，命令不持有 Store；同步计算及浏览器虚构预览使用同一 crate 的 WASM 构建。不存在另一套 TypeScript 账本回退。前端每批 40 条路径，取消后停止后续批次并丢弃迟到结果；已开始的一批不承诺强制中断。每次最多 20000 条路径，计划最多 1440 个逐月区间，传输上限 64 MiB。
+
+`build-planning-engine.mjs` 生成随源码保存的 WASM 模块及源码／二进制散列；基本规划能力的 context 与新生成的当前报告包含源码散列前缀；职业试算保留其产品协议版本，核心散列在 context 中。既有目标进度点未记录核心版本，历史点按原值保留，不能把全部历史结果称作已有模型版本。开发启动前自动构建核心；CI 在重建前用 `check:engine-source` 核对提交产物的源码与二进制散列，避免构建覆盖掩盖过期产物。`check:engine` 另在相同工具链下核对重建字节；原生／WASM 对照使用 `dispatch_stdio` 和虚构输入。CSP 仅增加 WASM 编译所需的 `wasm-unsafe-eval`。规格和来源范围见[核心说明](../crates/planning-engine/README.md)与[来源告知](../SOURCE_NOTICES.md)；独立重建的范围是计算库，不扩展为全部 UI 或历史版本。
 
 ## 网络
 
