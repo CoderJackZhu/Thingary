@@ -83,6 +83,8 @@ import { allModules, type Modules, type RuntimeModules } from './modules';
 import { ModuleSettings } from './ModuleSettings';
 import { CheckinReminder } from './CheckinReminder';
 import { UpdateCheck } from './UpdateCheck';
+import { SupportPanel } from './SupportPanel';
+import { supportMenuDestination, type DataHelpTarget } from './support';
 import './style.css';
 import './app-layout.css';
 import './desktop-polish.css';
@@ -184,6 +186,16 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const [financeImportRequested, setFinanceImportRequested] = useState(false);
   const capabilities = financeCapabilities(modules);
   const [settingsGroup, setSettingsGroup] = useState<SettingsCategory>('appearance');
+  const [dataHelpTarget, setDataHelpTarget] = useState<DataHelpTarget | null>(null);
+  useEffect(() => {
+    if (section !== 'settings' || settingsGroup !== 'data' || !dataHelpTarget) return;
+    const frame = requestAnimationFrame(() => {
+      const heading = document.getElementById(dataHelpTarget === 'backup' ? 'data-heading' : 'update-check-heading');
+      heading?.scrollIntoView({ block: 'start' }); heading?.focus();
+      setDataHelpTarget(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [section, settingsGroup, dataHelpTarget]);
   const [subpageReturn, setSubpageReturn] = useState<{ section: Section; detailId: string | null; scroll: number; group: SettingsCategory | null; focusId: string | null } | null>(null);
   const [tags, setTags] = useState<{ id: string; name: string; enabled: boolean }[]>([]);
   // U12: per-page session search words (kept across navigation, cleared when
@@ -614,7 +626,19 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   // Library switches and module toggles invalidate the session outright.
   useEffect(() => { setSearchSession(emptySearchSession()); }, [libraryGeneration, modules.wishlist, modules.wealth, modules.expenses, modules.recurring, modules.virtual, modules.timeline, modules.stats, modules.incomes, modules.movements]);
   const menuActionBlocked = !!(wishlistEditing || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery);
+  function openDataHelp(target: DataHelpTarget) {
+    if (modeBlocked || modeBusy || document.querySelector('dialog[open]')) { setNotice(blockedNotice('打开数据管理')); return; }
+    ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null);
+    setSettingsGroup('data'); setDataHelpTarget(target); setSection('settings'); setDetailId(null);
+  }
   menuAction.current = action => {
+    const help = supportMenuDestination(action);
+    if (help) {
+      if (modeBlocked || modeBusy || document.querySelector('dialog[open]')) { setNotice(blockedNotice('打开帮助')); return; }
+      if (help === 'support') { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setSettingsGroup('support'); setSection('settings'); setDetailId(null); }
+      else openDataHelp(help);
+      return;
+    }
     if (action === 'toggle-appearance') { setTheme(toggledMode(theme)); return; }
     if (action === 'global-search') { openGlobalSearch(); return; }
     if (menuActionBlocked) return;
@@ -1104,6 +1128,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
         modules: <><ModuleSettings modules={modules} onChange={setModules}/><CheckinReminder wealthOn={modules.wealth} today={today}/></>,
         data: <><DataManagement onImported={() => { ++sourceToken.current; setSourceFocus(null); setReturnContext(null); setPendingReturn(null); setFinanceReviewRoute({ page: 'review', view: 'period' }); setReviewBrowse({}); void refresh(); void taxonomy.reload().catch(() => {}); }} onBusyChange={setDataBusy} generation={libraryGeneration ?? null} demo={!!demoStatus?.active} blocked={otherEditing || featureEditing || (durablePending && storedPending()?.command !== 'financial_import_commit')} financeImportRequested={financeImportRequested} onFinanceImportRequestDone={() => setFinanceImportRequested(false)} onViewFinance={target => { if (target !== 'income' && (!modules.wealth || storedPending() || pendingGenerations(localStorage).length || otherEditing)) { setNotice('账户功能已关闭或仍有结果待核对。'); return; } if (target === 'income') gotoFinance({ page: 'records', tab: 'income' }, true); else { beginReturn(); setWealthReviewFocus(libraryGeneration ? { generation: libraryGeneration, kind: target === 'snapshots' ? 'history' : 'accounts' } : null); setSection('wealth'); } }} onTrash={() => openSubpage('trash', 'data')}/><UpdateCheck/></>,
         demo: demoStatus.available ? <DemoSettings status={demoStatus} blocked={modeBusy || modeBlocked} onSwitch={() => void changeDemoMode(!demoStatus.active)} onReset={() => void changeDemoMode(true, true)}/> : <p className="muted">样例资料暂不可用。</p>,
+        support: <SupportPanel onData={openDataHelp} blocked={modeBlocked || modeBusy}/>,
       }}/>}
       {section === 'wealth' && <WealthPage onFinancialImport={() => gotoFinance({ page: 'data-management', importKind: 'finance' })} key={libraryGeneration} reviewFocus={wealthReviewFocus} onReviewFocusDone={() => setWealthReviewFocus(null)} onGotoPlanning={gotoReview} onCompare={pair => gotoFinance({ page: 'review', view: 'compare', ...(pair ? { pair } : {}) })} today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.wealth} onSearch={v => setSearches(s => (s.wealth === v ? s : { ...s, wealth: v }))} autoNew={autoNew === 'wealth'} onAutoNewDone={() => setAutoNew(null)}/>}
       {section === 'recurring' && <RecurringPage today={today} onEditingChange={setFeatureEditing} source={sourceFocus} onSourceDone={onSourceDone} search={searches.recurring} onSearch={v => setSearches(s => (s.recurring === v ? s : { ...s, recurring: v }))} autoNew={autoNew === 'recurring'} onAutoNewDone={() => setAutoNew(null)} modules={modules} onOpenSource={openSource}/>}

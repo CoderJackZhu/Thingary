@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import {Icon} from './AssetViews';
 import { AutoBackup } from './AutoBackup';
+import { SupportLink } from './SupportLink';
 import { pendingKey, storedPending } from './wealth';
 import { FinancialImportDialog } from './FinancialImportDialog';
 import { preserveImportReceipt } from './financial-import';
@@ -120,8 +121,8 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
   // Ordinary drafts are cleared; unknown financial import request metadata remains for read-only receipt verification.
   const pending = localWorkKeys().filter(k => /draft|request|abandon|upload/.test(k)).length;
   return <section className="ui-card ui-content data-management" aria-labelledby="data-heading">
-    <div className="data-heading"><div><p className="eyebrow">本地资料</p><h2 id="data-heading">数据管理</h2></div><span>主资料保存在本机</span></div>
-    <p className="data-intro">{demo ? '当前是独立样例库。切换到“我的资料”后可备份、恢复与导出。' : '给资料留一份完整备份，也可导出表格或找回误删记录。'}</p>
+    <div className="data-heading"><div><p className="eyebrow">本地资料</p><h2 id="data-heading" tabIndex={-1}>数据管理</h2></div><span>主资料保存在本机</span></div>
+    <p className="data-intro">{demo ? '当前是独立样例库。切换到“我的资料”后可备份、恢复与导出。' : '给资料留一份完整备份，也可导出表格或找回误删记录。'} <SupportLink target="backup">备份与恢复说明</SupportLink></p>
     <div className="data-actions">
       <div className="data-action"><span className="data-action-icon"><Icon name="archive"/></span><div className="data-action-copy"><h3>完整备份</h3><p>保存物品、财富记录和图片等全部资料。</p></div><button disabled={operationLocked || blocked || demo} onClick={() => void backup()}>备份…</button></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="back"/></span><div className="data-action-copy"><h3>从备份恢复</h3><p>先检查文件，再确认是否替换当前资料。</p></div><button disabled={operationLocked || blocked || demo || !generation} onClick={() => void inspect()}>选择…</button></div>

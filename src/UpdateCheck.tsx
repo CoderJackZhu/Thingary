@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import { sourceLabel, updateSummary, type UpdateOutcome, type UpdateSource } from './update-check';
+import { SupportLink } from './SupportLink';
 
 /** The app's only network request, made when the button is pressed: one read of
  * the public release list. It never sends library data and never installs
@@ -23,9 +24,9 @@ export function UpdateCheck() {
   }
   const latest = outcome?.update_available ? outcome.latest : null;
   return <section className="ui-card ui-content update-check" aria-labelledby="update-check-heading">
-    <div className="data-heading"><div><p className="eyebrow">版本</p><h2 id="update-check-heading">检查更新</h2></div>{version && <span>当前版本 {version}</span>}</div>
+    <div className="data-heading"><div><p className="eyebrow">版本</p><h2 id="update-check-heading" tabIndex={-1}>检查更新</h2></div>{version && <span>当前版本 {version}</span>}</div>
     <p className="data-intro">物谱平时不联网。只有点下面的按钮，才会向 Gitee 和 GitHub 各查询一次公开的版本列表，只读取版本号和发布说明，不发送你的资料或设备信息。物谱不会自动下载或替换应用，更新要你自己确认。</p>
-    <p><button type="button" className="ui-btn" disabled={busy} onClick={() => void check()}>{busy ? '正在检查…' : '检查更新'}</button></p>
+    <p className="support-actions"><button type="button" className="ui-btn" disabled={busy} onClick={() => void check()}>{busy ? '正在检查…' : '检查更新'}</button><SupportLink target="update">更新与换机说明</SupportLink></p>
     {outcome && <p className="update-check-result" role="status">{updateSummary(outcome)}</p>}
     {latest && <>
       <details><summary>发布说明</summary><pre className="update-check-notes">{latest.notes || '这个版本没有填写发布说明。'}</pre></details>

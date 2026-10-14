@@ -50,6 +50,7 @@ pub mod search;
 pub mod source;
 pub mod spreadsheet;
 pub mod storage;
+mod support;
 pub mod tag_investment;
 pub mod taxonomy;
 pub mod timeline;
@@ -159,7 +160,8 @@ pub fn run() {
                         Some(
                             tauri::menu::AboutMetadataBuilder::new()
                                 .name(Some("物谱 Thingary"))
-                                .credits(Some("物品档案与净资产盘点\nYour things and your net worth, over time.\n许可证 AGPL-3.0-or-later"))
+                                .version(Some(env!("CARGO_PKG_VERSION")))
+                                .credits(Some("物品档案与净资产盘点\n开发与维护：CoderJackZhu\n许可证 AGPL-3.0-or-later\n项目主页与帮助：设置 › 关于与帮助"))
                                 .build(),
                         ),
                     )?,
@@ -227,9 +229,20 @@ pub fn run() {
                     &Item::maximize(app, Some("缩放"))?,
                 ],
             )?;
+            let help_menu = Submenu::with_items(
+                app,
+                "帮助",
+                true,
+                &[
+                    &MenuItem::with_id(app, "open-help", "物谱帮助", true, None::<&str>)?,
+                    &Item::separator(app)?,
+                    &MenuItem::with_id(app, "open-backup", "备份与恢复…", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "open-updates", "版本与更新…", true, None::<&str>)?,
+                ],
+            )?;
             app.set_menu(Menu::with_items(
                 app,
-                &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu],
+                &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu],
             )?)?;
             }
             Ok(())
@@ -311,6 +324,7 @@ pub fn run() {
             commands::notification_status,
             commands::checkin_reminder_status,
             commands::app_version,
+            commands::support_open,
             commands::update_check,
             commands::update_open_release,
             commands::goal_progress_list,
@@ -410,6 +424,9 @@ pub fn run() {
                     | "global-search"
                     | "edit-asset"
                     | "open-settings"
+                    | "open-help"
+                    | "open-backup"
+                    | "open-updates"
                     | "undo"
                     | "select-all"
                     | "toggle-appearance"

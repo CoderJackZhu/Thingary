@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import { desktopShortcutAction, handleDesktopShortcut, handleContextMenu, modKey, selectionModifier, shiftModKey } from '../src/undo-shortcut.ts';
 import { nextSelection } from '../src/batch-select.ts';
+import { supportMenuDestination } from '../src/support.ts';
 
 const ready = { newLabel: '新增物品', findLabel: '搜索物品', blocked: false, dialogOpen: false };
 function keyEvent(key, extra = {}) {
@@ -64,6 +65,7 @@ test('an unknown durable receipt still allows production Ctrl+F and the native f
   const dispatched = [];
   let expanded = false, focused = false;
   const context = {
+    supportMenuDestination,
     durablePending: true, modeBlocked: true, startChoiceBusy: false, featureEditing: false, dataBusy: false, taxonomyGuard: false,
     wishlistEditing: false, draft: null, trashAction: null, recordTrashAction: null,
     lifecycleDraft: null, lifecycleRecovery: null, saleDraft: null, saleRecovery: null,

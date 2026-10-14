@@ -338,12 +338,16 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     if (!previewProgress.some(e => e.snapshot_id === input.snapshot_id)) previewProgress = [...previewProgress, { snapshot_id: input.snapshot_id, date: new Date().toLocaleDateString('sv'), recorded_on: new Date().toLocaleDateString('sv'), point: input.point }];
     return null;
   }
-  if (command === 'app_version') return '0.0.5';
+  if (command === 'app_version') {
+    if (params.get('support-version') === 'error') throw { message: '版本读取失败' };
+    return '0.0.6';
+  }
+  if (command === 'support_open') throw { message: '虚构预览不打开外部浏览器。' };
   if (command === 'update_check') {
     const mode = params.get('update') ?? 'available';
     if (mode === 'error') throw { message: '无法连接到 Gitee 和 GitHub，请检查网络后重试。也可以直接访问 https://gitee.com/CoderJackZhu/thingary/releases 查看新版本。' };
-    const release = { version: mode === 'available' ? '0.0.6' : mode === 'ahead' ? '0.0.4' : '0.0.5', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：盘点提醒与目标进度。\n- 数据库升级到 schema 40，更新前请先备份。' };
-    return { current: '0.0.5', latest: mode === 'none' ? null : { ...release, sources: mode === 'partial' ? ['gitee'] : ['gitee', 'github'] }, update_available: mode === 'available' || mode === 'partial', unreachable: mode === 'partial' ? ['github'] : [] };
+    const release = { version: mode === 'available' || mode === 'partial' ? '0.0.7' : mode === 'ahead' ? '0.0.5' : '0.0.6', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：盘点提醒与目标进度。\n- 更新前请先备份。' };
+    return { current: '0.0.6', latest: mode === 'none' ? null : { ...release, sources: mode === 'partial' ? ['gitee'] : ['gitee', 'github'] }, update_available: mode === 'available' || mode === 'partial', unreachable: mode === 'partial' ? ['github'] : [] };
   }
   if (command === 'update_open_release') throw { message: '预览中不能打开浏览器' };
   if (command === 'checkin_reminder_status') return checkinStatus();
