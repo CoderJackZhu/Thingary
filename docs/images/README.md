@@ -61,3 +61,9 @@ planning-monthly.jpg、planning-fi-goals.jpg、planning-trajectory.jpg、plannin
 固定月份退休的轨迹、压力／市场／矩阵／收益顺序图使用每月投入 8,000、生活费 7,500、可用资金 100,000、2046-10 目标和 2076-10 终点，3%／2% 实际收益、2% 通胀、5% 波动为未核对的虚构条件，结果存在缺口。财务自由图仅将目标类型改为资金够用后退休，同条件预计 2052-05，仍保留待核对事项；两种模式不混作一个预测。市场图展示 1,000 条模型路径及其说明，不表示现实概率。更新图为点击后真实显示 0.0.6 已是最新版本。
 
 本轮再更新 overview-light.jpg、assets-light.jpg、wealth-light.jpg、planning-goals.jpg、first-item-form.jpg 与 planning-trial.jpg，均为上述 0.0.6 独立身份、1440×901 原生内容图。首次新增转到隔离空个人库，表单取消没有创建记录；随后回到虚构样例。walkthrough.gif 改为这版六张原生截图的21秒顺序预览（每帧3.5秒，宽960），不声称是连续操作录像；历史0.0.5维护条目保留为当时记录。
+
+### GIF 尺寸与重建
+
+README 当前 GIF 使用 `overview-light.jpg`、`assets-light.jpg`、`wealth-light.jpg`、`planning-goals.jpg`、`planning-fi-trajectory.jpg`、`planning-market.jpg`，顺序与正文一致；保留原 GIF 中财务自由目标与对应轨迹的状态。前四张实际文件为 2880×1834 的 Retina 截图，仍有 32 物理像素（16 逻辑点）的系统标题栏残留；后两张为 1440×901。上文的逻辑内容尺寸不能直接作为原图的物理裁切尺寸，否则 Retina 帧只剩左上角局部。
+
+用 `node scripts/build-walkthrough.mjs` 重建（需本机 `ffmpeg`、`ffprobe`）。脚本先读取每张图片的真实尺寸，按像素倍率去除标题栏残留，保留完整的 1440×901 逻辑内容，再统一缩放到 960×601；不重新裁切页面主体。输出为 6 张完整画面、每帧 3.5 秒、21 秒循环预览，约 0.67 MB。输入尺寸不符合已登记截图时停止生成，避免沿用错误裁切参数。此修复仅重新编码现有虚构原生截图，逐帧核对过完整侧栏、页面右侧与底部；不更新应用功能或公开安装包。
