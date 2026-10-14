@@ -7,10 +7,10 @@ import { SupportLink } from './SupportLink';
 /** The app's only network request, made when the button is pressed: one read of
  * the public release list. It never sends library data and never installs
  * anything; updating stays a manual, backup-first step. */
-export function UpdateCheck() {
+export function UpdateCheck({ showVersion = true }: { showVersion?: boolean }) {
   const [version, setVersion] = useState(''), [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<UpdateOutcome | null>(null), [error, setError] = useState('');
-  useEffect(() => { void invoke<string>('app_version').then(setVersion).catch(() => {}); }, []);
+  useEffect(() => { if (showVersion) void invoke<string>('app_version').then(setVersion).catch(() => {}); }, [showVersion]);
   async function check() {
     setBusy(true); setError('');
     try { setOutcome(await invoke<UpdateOutcome>('update_check')); }
@@ -30,7 +30,7 @@ export function UpdateCheck() {
     {outcome && <p className="update-check-result" role="status">{updateSummary(outcome)}</p>}
     {latest && <>
       <details><summary>发布说明</summary><pre className="update-check-notes">{latest.notes || '这个版本没有填写发布说明。'}</pre></details>
-      <p className="notice">更新前请先在本页做一次<strong>完整备份并异地保存</strong>：新版如果升级资料格式，旧版将不能打开升级后的资料。安装步骤见使用指南的「更新、换 Mac 与卸载」。</p>
+      <p className="notice">更新前请先到「设置 › 数据管理」做一次<strong>完整备份并异地保存</strong>：新版如果升级资料格式，旧版将不能打开升级后的资料。安装步骤见使用指南的「更新、换 Mac 与卸载」。</p>
       <p className="update-check-pages">{latest.sources.map((source, i) => <button key={source} type="button" className={i === 0 ? 'primary' : 'ui-btn'} onClick={() => void openPage(latest.version, source)}>在浏览器中打开 {sourceLabel[source]} 下载页</button>)}</p>
     </>}
     {error && <p className="error" role="alert">{error}</p>}

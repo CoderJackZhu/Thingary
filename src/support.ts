@@ -7,11 +7,11 @@ export const supportUrls = {
   sources: 'https://github.com/CoderJackZhu/Thingary/blob/main/SOURCE_NOTICES.md',
 } as const;
 export type SupportTarget = keyof typeof supportUrls;
-export type DataHelpTarget = 'backup' | 'update';
+export type DataHelpTarget = 'backup';
 
-export function supportMenuDestination(action: string): 'support' | DataHelpTarget | null {
+export function supportMenuDestination(action: string): 'support' | 'about' | DataHelpTarget | null {
   if (action === 'open-help') return 'support';
   if (action === 'open-backup') return 'backup';
-  if (action === 'open-updates') return 'update';
+  if (action === 'open-about' || action === 'open-updates') return 'about';
   return null;
 }
