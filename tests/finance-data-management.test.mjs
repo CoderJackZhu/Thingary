@@ -31,6 +31,7 @@ function runtime(file, props, initialPending = null, invoke = async () => null) 
     if (name === './income-classification') return { incomeCategories: {} };
     if (name === './AssetViews') return { Icon: () => null };
     if (name === './AutoBackup') return { AutoBackup: () => null };
+    if (name === './SupportLink') return { SupportLink: 'a' };
     if (name === './CloseButton') return { CloseButton: 'button' };
     if (name === './FormControls') return { FormRow: 'section' };
     if (name.endsWith('.css')) return {};

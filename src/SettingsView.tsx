@@ -5,7 +5,7 @@ import './settings.css';
 
 const categories = [
   ['appearance', '外观', 'sun'], ['materials', '素材库', 'image'], ['options', '选项管理', 'list'], ['modules', '功能模块', 'grid'],
-  ['data', '数据管理', 'archive'], ['demo', '样例', 'items'],
+  ['data', '数据管理', 'archive'], ['demo', '样例', 'items'], ['support', '关于与帮助', 'circle'],
 ] as const;
 export type SettingsCategory = typeof categories[number][0];
 

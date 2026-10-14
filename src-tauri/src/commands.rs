@@ -1209,6 +1209,13 @@ pub fn app_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
+#[tauri::command]
+pub async fn support_open(target: String) -> Result<()> {
+    tauri::async_runtime::spawn_blocking(move || crate::support::open(&target))
+        .await
+        .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
+}
+
 /// The app's only network request, made when the user presses 检查更新.
 #[tauri::command]
 pub async fn update_check() -> Result<crate::update_check::Outcome> {
