@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useState, type CSSProperties } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset';
+import { sortByShare } from './distribution';
 import { Info } from './FormControls';
 import { eventDetail, eventLabel } from './Timeline';
 import type { TimelineEvent, ScrollRestore } from './Timeline';
@@ -52,7 +53,7 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
   useEffect(() => { if (data) restoreScroll?.done(); }, [data, restoreScroll]);
   if (error) return <div className="empty error" role="alert"><h2>总览读取失败</h2><p>{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div>;
   if (!data) return <p role="status" className="loading">正在读取总览…</p>;
-  const rows = data.categories, count = rows.reduce((n, c) => n + c.count, 0), amount = rows.reduce((n, c) => n + Number(c.known_cents), 0), unknown = rows.reduce((n, c) => n + c.unknown_price_count, 0);
+  const rows = sortByShare(data.categories, metric), count = rows.reduce((n, c) => n + c.count, 0), amount = rows.reduce((n, c) => n + Number(c.known_cents), 0), unknown = rows.reduce((n, c) => n + c.unknown_price_count, 0);
   const value = (c: CategoryShare) => metric === 'count' ? c.count : Number(c.known_cents);
   const total = metric === 'count' ? count : amount;
   return <section className="overview-section" aria-label="总览">
@@ -69,7 +70,7 @@ function PhysicalOverview({ onOpenSource, onBrowse, today, version, restoreScrol
         <div className="overview-controls ui-pad"><div className="ui-seg" role="group" aria-label="统计范围">{([['held', '当前持有'], ['history', '历史全部']] as const).map(([k, l]) => <button key={k} aria-pressed={scope === k} onClick={() => setScope(k)}>{l}</button>)}</div><div className="ui-seg" role="group" aria-label="占比口径">{([['count', '按数量'], ['amount', '按购入金额']] as const).map(([k, l]) => <button key={k} aria-pressed={metric === k} onClick={() => setMetric(k)}>{l}</button>)}</div></div>
         {!rows.length ? <p className="ui-empty">这个范围里还没有物品。</p> : <div className="distribution">
           <div className="donut-wrap"><Donut rows={rows} value={value} total={total} label={`分类分布，${metric === 'count' ? '按数量' : '按购入金额'}`}/><div className="donut-center"><strong>{metric === 'count' ? count : money(String(amount))}</strong><span>{metric === 'count' ? '件' : '已知金额'}</span></div></div>
-          <table className="ui-table distribution-table"><thead><tr><th>分类</th><th>数量</th><th>购入金额</th><th>{metric === 'count' ? '数量占比' : '金额占比'}</th></tr></thead><tbody>{rows.map(c => <tr key={c.id ?? 'none'}><td><span className="swatch" style={{ background: color(c) }}/>{c.name}</td><td>{c.count}</td><td>{money(c.known_cents)}{c.unknown_price_count > 0 && <small> · {c.unknown_price_count} 件未知</small>}</td><td>{percent(value(c), total)}</td></tr>)}</tbody></table>
+          <table className="ui-table distribution-table"><thead><tr><th>分类</th><th aria-sort={metric === 'count' ? 'descending' : 'none'}>数量{metric === 'count' && <span className="sort-mark" aria-hidden="true">↓</span>}</th><th aria-sort={metric === 'amount' ? 'descending' : 'none'}>购入金额{metric === 'amount' && <span className="sort-mark" aria-hidden="true">↓</span>}</th><th>{metric === 'count' ? '数量占比' : '金额占比'}</th></tr></thead><tbody>{rows.map(c => <tr key={c.id ?? 'none'}><td><span className="swatch" style={{ background: color(c) }}/>{c.name}</td><td>{c.count}</td><td>{money(c.known_cents)}{c.unknown_price_count > 0 && <small> · {c.unknown_price_count} 件未知</small>}</td><td>{percent(value(c), total)}</td></tr>)}</tbody></table>
         </div>}
         {metric === 'amount' && unknown > 0 && <p className="muted small ui-pad">{unknown} 件金额未知，不计入金额占比。</p>}
         <div className="ui-card-foot"><button className="ui-link" onClick={onBrowse}>在物品列表中核对 →</button></div>
