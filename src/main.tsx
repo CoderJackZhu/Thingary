@@ -616,7 +616,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   menuAction.current = action => {
     if (action === 'toggle-appearance') { setTheme(toggledMode(theme)); return; }
     if (action === 'global-search') { openGlobalSearch(); return; }
-    if (modeBlocked || document.querySelector('dialog[open]')) return;
+    if (wishlistEditing || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery) return;
     if (action === 'new-asset') {
       // A modal (any editor or dialog) owns the keyboard; no background new.
       if (document.querySelector('dialog[open]')) return;
@@ -1049,7 +1049,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => handleDesktopShortcut(event, {
       newLabel: topbarBar.menu || !topbarBar.newRecord?.disabled ? menuNew : null,
-      findLabel: menuFind, blocked: modeBlocked, dialogOpen: !!document.querySelector('dialog[open]'),
+      findLabel: menuFind, blocked: !!(wishlistEditing || draft || trashAction || recordTrashAction || lifecycleDraft || lifecycleRecovery || saleDraft || saleRecovery || maintenanceDraft || maintenanceRecovery || warrantyDraft || warrantyRecovery), dialogOpen: !!document.querySelector('dialog[open]'),
     }, action => { void emit('asset-action', action).catch(e => setNotice(errorMessage(e))); });
     window.addEventListener('keydown', onKey);
     document.addEventListener('contextmenu', handleContextMenu);

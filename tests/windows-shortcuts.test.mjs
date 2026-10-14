@@ -38,7 +38,7 @@ test('PageMenu availability prevents background new/find on pages without those 
   assert.equal(press(keyEvent('n'), { ...ready, newLabel: '新增记录…' }).handled, true, 'combined pages open their existing menu');
 });
 
-test('editing, pending results and dialogs block app actions while appearance retains its menu behavior', () => {
+test('editing and dialogs block app actions while appearance retains its menu behavior', () => {
   for (const state of [{ blocked: true }, { dialogOpen: true }]) {
     for (const key of ['n', 'f', 'e', ',', 'a', 'z']) {
       const result = press(keyEvent(key), { ...ready, ...state });
@@ -47,6 +47,40 @@ test('editing, pending results and dialogs block app actions while appearance re
     assert.deepEqual(press(keyEvent('f', { shiftKey: true }), { ...ready, ...state }).dispatched, []);
     assert.deepEqual(press(keyEvent('d', { shiftKey: true }), { ...ready, ...state }).dispatched, ['toggle-appearance']);
   }
+});
+
+test('an unknown durable receipt still allows production Ctrl+F and the native find action', () => {
+  const ts = createRequire(import.meta.url)('typescript');
+  const source = ts.createSourceFile('main.tsx', readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let shortcut, menuAction;
+  const visit = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(source) === 'onKey') shortcut = node.initializer.getText(source);
+    if (ts.isBinaryExpression(node) && node.left.getText(source) === 'menuAction.current') menuAction = node.right.getText(source);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  assert.ok(shortcut && menuAction);
+  const dispatched = [];
+  let expanded = false, focused = false;
+  const context = {
+    durablePending: true, modeBlocked: true, startChoiceBusy: false, featureEditing: false, dataBusy: false, taxonomyGuard: false,
+    wishlistEditing: false, draft: null, trashAction: null, recordTrashAction: null,
+    lifecycleDraft: null, lifecycleRecovery: null, saleDraft: null, saleRecovery: null,
+    maintenanceDraft: null, maintenanceRecovery: null, warrantyDraft: null, warrantyRecovery: null,
+    document: { querySelector: () => null }, topbarBar: { search: {} }, menuNew: null, menuFind: '搜索物品',
+    handleDesktopShortcut: (event, menu, dispatch) => handleDesktopShortcut(event, menu, dispatch, false),
+    emit: async (_, action) => { dispatched.push(action); },
+    topbarFor: () => ({ search: {} }), section: 'assets', setSearchExpanded: value => { expanded = value; },
+    requestAnimationFrame: callback => callback(), searchInputRef: { current: { focus: () => { focused = true; } } },
+  };
+  const compile = expression => vm.runInNewContext(ts.transpileModule(`(${expression})`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+  const event = keyEvent('f');
+  compile(shortcut)(event);
+  assert.deepEqual(dispatched, ['find-asset']);
+  assert.equal(event.defaultPrevented, true);
+  compile(menuAction)('find-asset');
+  assert.equal(expanded, true);
+  assert.equal(focused, true);
 });
 
 test('text inputs, textareas and editable descendants retain native text editing and app selection is untouched', () => {
