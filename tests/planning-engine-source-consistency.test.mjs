@@ -22,6 +22,20 @@ test('source check rejects stale or corrupted packaged WASM without building or 
     assert.match(check().toString(), /matches Rust inputs/);
     assert.equal(readFileSync(packagedPath, 'utf8'), packaged);
 
+    // Exercise Windows path spelling on every host without altering file bytes.
+    const scriptPath = join(root, 'scripts/build-planning-engine.mjs');
+    const script = readFileSync(scriptPath, 'utf8');
+    const windowsSpelling = script.replace(
+      "import { dirname, join, relative, resolve } from 'node:path';",
+      "import { dirname, join, relative as nativeRelative, resolve } from 'node:path';\n" +
+      "const relative = (...args) => nativeRelative(...args).replaceAll('/', '\\\\');",
+    );
+    assert.notEqual(windowsSpelling, script);
+    writeFileSync(scriptPath, windowsSpelling);
+    assert.match(check().toString(), /matches Rust inputs/);
+    assert.equal(readFileSync(packagedPath, 'utf8'), packaged);
+    writeFileSync(scriptPath, script);
+
     const sourcePath = join(root, 'crates/planning-engine/src/lib.rs');
     const source = readFileSync(sourcePath, 'utf8');
     writeFileSync(sourcePath, source + '\n// Fictional source change.\n');

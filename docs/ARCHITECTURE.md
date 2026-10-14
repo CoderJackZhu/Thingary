@@ -42,7 +42,7 @@ flowchart TD
 
 原生批量模拟通过 `planning_engine_evaluate` 在阻塞工作线程上执行，命令不持有 Store；同步计算及浏览器虚构预览使用同一 crate 的 WASM 构建。不存在另一套 TypeScript 账本回退。前端每批 40 条路径，取消后停止后续批次并丢弃迟到结果；已开始的一批不承诺强制中断。每次最多 20000 条路径，计划最多 1440 个逐月区间，传输上限 64 MiB。
 
-`build-planning-engine.mjs` 生成随源码保存的 WASM 模块及源码／二进制散列；基本规划能力的 context 与新生成的当前报告包含源码散列前缀；职业试算保留其产品协议版本，核心散列在 context 中。既有目标进度点未记录核心版本，历史点按原值保留，不能把全部历史结果称作已有模型版本。开发启动前自动构建核心；CI 在重建前用 `check:engine-source` 核对提交产物的源码与二进制散列，避免构建覆盖掩盖过期产物。`check:engine` 另在相同工具链下核对重建字节；原生／WASM 对照使用 `dispatch_stdio` 和虚构输入。CSP 仅增加 WASM 编译所需的 `wasm-unsafe-eval`。规格和来源范围见[核心说明](../crates/planning-engine/README.md)与[来源告知](../SOURCE_NOTICES.md)；独立重建的范围是计算库，不扩展为全部 UI 或历史版本。
+`build-planning-engine.mjs` 生成随源码保存的 WASM 模块及源码／二进制散列；源码散列统一使用 `/` 分隔的仓库相对路径排序，避免相同源码因 Windows 路径分隔符不同而误判过期；基本规划能力的 context 与新生成的当前报告包含源码散列前缀；职业试算保留其产品协议版本，核心散列在 context 中。既有目标进度点未记录核心版本，历史点按原值保留，不能把全部历史结果称作已有模型版本。开发启动前自动构建核心；CI 在重建前用 `check:engine-source` 核对提交产物的源码与二进制散列，避免构建覆盖掩盖过期产物。`check:engine` 另在相同工具链下核对重建字节；原生／WASM 对照使用 `dispatch_stdio` 和虚构输入。CSP 仅增加 WASM 编译所需的 `wasm-unsafe-eval`。规格和来源范围见[核心说明](../crates/planning-engine/README.md)与[来源告知](../SOURCE_NOTICES.md)；独立重建的范围是计算库，不扩展为全部 UI 或历史版本。
 
 ## 网络
 

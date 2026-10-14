@@ -9,9 +9,12 @@ const crate = join(root, 'crates/planning-engine');
 const target = join(root, 'src-tauri/target/planning-engine');
 const collect = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
   entry.isDirectory() ? collect(join(dir, entry.name)) : [join(dir, entry.name)]);
-const inputs = [join(crate, 'Cargo.toml'), join(crate, 'Cargo.lock'), ...collect(join(crate, 'src'))].sort();
+// Hash repository-relative names in one format on macOS and Windows.
+const inputs = [join(crate, 'Cargo.toml'), join(crate, 'Cargo.lock'), ...collect(join(crate, 'src'))]
+  .map(path => ({ path, name: relative(crate, path).replaceAll('\\', '/') }))
+  .sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 const hash = createHash('sha256');
-for (const path of inputs) hash.update(relative(crate, path)).update('\0').update(readFileSync(path)).update('\0');
+for (const { path, name } of inputs) hash.update(name).update('\0').update(readFileSync(path)).update('\0');
 const sourceHash = hash.digest('hex');
 const destination = join(root, 'src/planning-engine-wasm.ts');
 if (process.argv.includes('--check-source')) {
