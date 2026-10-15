@@ -21,7 +21,7 @@
 | `planning-report-current.png` | 样例当前报告，默认隐私；实际显示 6 项影响事项 |
 | `start-choice.jpg` | 同身份全新空个人库，两条起步路径，辅助模块复选框默认勾选 |
 | `first-item-form.jpg` | 点“先整理物品”，填虚构“我的笔记本电脑”、价格 5000，日期留空、补充更多收起；拍后关闭不保存 |
-| `walkthrough.gif` | README 首屏操作演示，约 21 秒、960 像素宽、12 帧／秒、约 3.6 MB。用 Playwright 驱动本机 Chrome 打开 `npm run dev -- --port 1429` 的 `/visual-preview.html?section=overview&plan-basic=saved&capabilities=real&style=bento&theme=light`（内存虚构样例，与应用内置样例同源），依次点击：全部物品 → 新增物品（名称“降噪耳机”、价格 1999，日期留空）→ 保存 → 账户与盘点 → 盘点记录 → 目标 → 查看测算详情与图表 → 试算。录制时注入演示用指针并隐藏预览角标，界面与数字未改；1440×1000 视口录制后 1.3 倍速、ffmpeg 调色板转码。这是浏览器预览，不是原生窗口录像。 |
+| `walkthrough.gif` | README 首屏的六张原生虚构截图顺序预览（总览 → 账户与盘点 → 目标 → 资金轨迹 → 市场模拟 → 物品），每帧 3.5 秒、21 秒循环，960×601。由 `node scripts/build-walkthrough.mjs` 从登记的截图重建，不是连续操作录像；重建与输入尺寸规则见下文「GIF 尺寸与重建」。 |
 
 截图与页面走查只证明所述展示和操作；不代表完整保存／重启、备份恢复、无障碍或其他平台验收。发布时的 0.0.4／0.0.5 工程与升级验证见开发说明和对应版本说明。
 
