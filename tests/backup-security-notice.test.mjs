@@ -68,3 +68,15 @@ test('the notice re-reads when the settings panel changes the policy', async () 
   await r.settle();
   assert.equal(r.nodes().length, 0);
 });
+
+test('a brand-new library stays quiet until its first record, but abnormal states always speak', async () => {
+  const quiet = mount(async () => status('unconfigured', true), { hidden: false, quietUntilStarted: true, onOpen: () => {} });
+  await quiet.settle();
+  assert.equal(quiet.nodes().length, 0);
+  const started = mount(async () => status('unconfigured', true), { hidden: false, quietUntilStarted: false, onOpen: () => {} });
+  await started.settle();
+  assert.match(started.text(started.nodes()[0]), /自动备份已暂停/);
+  const broken = mount(async () => status('needs_attention', true), { hidden: false, quietUntilStarted: true, onOpen: () => {} });
+  await broken.settle();
+  assert.match(broken.text(broken.nodes()[0]), /配置异常/);
+});
