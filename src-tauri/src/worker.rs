@@ -244,7 +244,14 @@ impl Worker {
                     // missing afterwards is never mistaken for it: that case
                     // still reads as unconfigured and pauses backups. If the
                     // write fails, the file stays missing and backups stay paused.
-                    if !backup_security::policy_path(&real.root).exists() {
+                    // The default applies only to a library that has never produced
+                    // an encrypted backup: a policy file lost while the app was
+                    // closed must not turn existing encryption into plaintext.
+                    let had_encrypted =
+                        crate::auto_backup::list(&crate::auto_backup::backup_dir(&real.root))
+                            .iter()
+                            .any(|item| item.name.ends_with(crate::auto_backup::EXT_AGE));
+                    if !backup_security::policy_path(&real.root).exists() && !had_encrypted {
                         let initial = backup_security::Policy {
                             state: backup_security::STATE_DISABLED.into(),
                             ..backup_security::Policy::default()

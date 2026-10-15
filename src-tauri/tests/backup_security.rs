@@ -612,3 +612,29 @@ fn unique_names_parse_and_random_files_do_not() {
         assert!(!ab::is_auto_backup_name(bad), "{bad}");
     }
 }
+
+/// A policy file lost while the app is closed must not be taken for a first
+/// run: with encrypted backups already on disk, backups stay paused until the
+/// user chooses again.
+#[test]
+fn a_policy_file_lost_while_closed_does_not_downgrade_to_plaintext() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("library");
+    let worker = Worker::start(root.clone()).unwrap();
+    save_asset(&worker, "虚构相机");
+    enable_encryption(&worker);
+    assert!(auto_backup::list(&auto_backup::backup_dir(&root))
+        .iter()
+        .any(|item| item.name.ends_with(auto_backup::EXT_AGE)));
+    drop(worker);
+    std::fs::remove_file(backup_security::policy_path(&root)).unwrap();
+    let restarted = restart_worker(&root);
+    let status = restarted.backup_security_status().unwrap();
+    assert_eq!(status.state, backup_security::STATE_UNCONFIGURED);
+    assert!(status.paused);
+    assert!(!backup_security::policy_path(&root).exists());
+    assert!(matches!(
+        restarted.auto_backup_tick(&immediate()).unwrap(),
+        TickOutcome::Paused(_)
+    ));
+}
