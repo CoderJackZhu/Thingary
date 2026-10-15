@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { errorMessage } from './asset';
+import { errorMessage, localDay } from './asset';
 import { submit as submitWealth, storedPending } from './wealth';
 import { writeSavingsGoal } from './savings-goals-port';
 import type { AssetRecord } from './asset';
@@ -11,6 +11,12 @@ import { contentsText, entryDisplay, recordKindLabel, recordPendingKey, restores
 import { LinkPurgeDialog, LinkRepairDialog, LinkRestoreDialog, PurgeAllDialog } from './LinkDialogs';
 import { linkView } from './link';
 import type { RecordTrashAction, RecordTrashChange, TrashEntry, TrashPage } from './unified-trash';
+/** Deletion stamps are stored in UTC; the page shows the local calendar day (a UTC prefix is a day early east of UTC). */
+export function deletedDay(stamp: string): string {
+  const at = new Date(stamp);
+  return Number.isNaN(at.getTime()) ? stamp.slice(0, 10) : localDay(at);
+}
+
 export type { RecordKind, RecordTrashAction, RecordTrashChange, TrashEntry, TrashPage } from './unified-trash';
 export { entryDisplay, recordKindLabel, storedRecordTrash, trashFilters } from './unified-trash';
 export type TrashChange = { request_id: string; generation: string; asset_id: string; expected_revision: number; deleted: boolean };
@@ -93,7 +99,7 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
             {display.facts.map(fact => <p className="small" key={fact}>{fact}</p>)}
             {contentsText(entry.contents) && <p className="small">{contentsText(entry.contents)}，恢复时一起回来</p>}
             {display.parentBlocked && <p className="small" role="note">所属物品仍在最近删除中，请先恢复所属物品。</p>}
-            </div></td><td><span className="ui-tag">{display.typeLabel}</span></td><td className="trash-date">{entry.deleted_at ? entry.deleted_at.slice(0,10) : '时间待补充'}</td>
+            </div></td><td><span className="ui-tag">{display.typeLabel}</span></td><td className="trash-date">{entry.deleted_at ? deletedDay(entry.deleted_at) : '时间待补充'}</td>
           <td><div className="trash-actions">{display.parentBlocked
             ? <button onClick={() => entry.asset_id && onRestoreAsset(entry.asset_id, page.generation)} aria-label={'恢复所属物品 ' + (entry.asset_name ?? '')}>先恢复所属物品</button>
             : restoresAsGroup(entry.kind)
