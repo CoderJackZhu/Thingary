@@ -3,6 +3,8 @@
 // 口径切换只改大小和占比、不改顺序，就会让"按数量／按购入金额"看起来没有生效。
 // 颜色仍取自分类自身的 slot，不随排序改变，所以同一分类在两种口径下都是同一个颜色。
 
+const compareKey = (a: string, b: string): number => a < b ? -1 : a > b ? 1 : 0;
+
 export type ShareMetric = 'count' | 'amount';
 export type ShareRow = { id: string | null; name: string; count: number; known_cents: string };
 
@@ -17,5 +19,5 @@ export function sortByShare<T extends ShareRow>(rows: readonly T[], metric: Shar
   return rows.slice().sort((a, b) =>
     shareValue(b, metric) - shareValue(a, metric)
     || shareValue(b, other) - shareValue(a, other)
-    || (a.id ?? a.name).localeCompare(b.id ?? b.name));
+    || compareKey(a.id ?? a.name, b.id ?? b.name));
 }
