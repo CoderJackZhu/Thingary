@@ -65,12 +65,12 @@ export function usualSaving(review: PlanReview): UsualSaving {
   const usable = current.filter(i => i.status === 'ok' && !i.excluded);
   if (s.latest_date === null) reason = '还没有完整盘点。';
   else if (!review.intervals.length) reason = '需要至少两次完整盘点。';
-  else if (!current.length) reason = '近 12 个月内没有可比区间。';
+  else if (!current.length) reason = '近 12 个月没有可比较的两次盘点。';
   else if (!usable.length) {
     if (current.some(i => !i.excluded && i.status === 'no_income')) reason = '这段时间还没有记录月度收入。';
-    else if (current.some(i => !i.excluded && i.status === 'scope_changed')) reason = '参与比较的账户有变化，暂无可比区间。';
-    else reason = '可比区间都已标记为一次性变动。';
-  } else reason = '可比区间不足。';
+    else if (current.some(i => !i.excluded && i.status === 'scope_changed')) reason = '参与比较的账户有变化，暂时没有可直接比较的盘点区间。';
+    else reason = '可比较的盘点区间都已标记为一次性变动。';
+  } else reason = '可比较的盘点区间还不够。';
   return { kind: 'unknown', reason };
 }
 

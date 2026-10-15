@@ -492,7 +492,7 @@ test('stale movement reasons render with the followup codes and no ready profit'
   });
   const h = mount('ReviewModePanel.tsx', 'ReviewModeDialog', reviewProps({ port }));
   await h.settle();
-  assert.match(h.text(), /待核对/);
+  assert.match(h.text(), /原有确认已失效/);
   assert.match(h.text(), /相关资金流动已被更正/);
   assert.doesNotMatch(h.text(), /区间投资损益 \+/);
 });
@@ -648,7 +648,7 @@ test('only valid confirmed reviews retain completeness; stale and unconfirmed re
     assert.equal(box().props.checked, confirmation === 'confirmed');
     assert.equal(saveCalls(calls, 'previewReview')[0].args[1].confirmed_complete, confirmation === 'confirmed');
     if (confirmation !== 'confirmed') {
-      assert.match(h.text(), /流动金额或完整性待核对/);
+      assert.match(h.text(), /还需确认资金流动金额或是否记全/);
       assert.doesNotMatch(h.text(), /\+¥5,100/);
       h.button('保存核对方式').props.onClick(); h.rerender(); await h.settle();
       assert.equal(saveCalls(calls, 'saveReview')[0].args[1].confirmed_complete, false);

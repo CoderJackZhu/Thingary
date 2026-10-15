@@ -119,7 +119,7 @@ export function WealthChanges({ summary, accounts, accountView, initial, today, 
               <button aria-pressed={sort === 'kind'} onClick={() => setSort('kind')}>按类型</button>
             </div>
           </div>
-          <p className="muted small">按上方账户范围显示；合计始终包含整个比较区间。停用账户有余额变化或待核对金额时仍显示。</p>
+          <p className="muted small">按上方账户范围显示；合计始终包含整个比较区间。停用账户有余额变化或金额尚未确认时仍显示。</p>
           <table className="ui-table changes-table">
             <thead><tr><th>账户</th><th className="col-kind">类型</th><th>起点</th><th>终点</th><th>变化</th><th>对净资产</th><th className="col-rate">变化率</th><th><span className="visually-hidden">展开历史</span></th></tr></thead>
             <tbody>{counted.map(r => <ChangesRow key={r.account_id} r={r} open={expanded.has(r.account_id)} onToggle={toggle} history={history.get(r.account_id)} onRetry={loadHistory}/>)}</tbody>

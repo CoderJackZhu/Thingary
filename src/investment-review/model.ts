@@ -95,7 +95,7 @@ export const REVIEW_REASONS = [
 export const reasonLabel: Record<string, string> = {
   movements_disabled: '资金流动记录已关闭，明细核对暂不可用；已保存的核对方式保留',
   missing_flow: '未记录这一期间的投入与转出',
-  incomplete_flow: '流动金额或完整性待核对',
+  incomplete_flow: '还需确认资金流动金额或是否记全',
   stale_movements: '相关资金流动已被更正，原确认失效，请重新核对',
   source_mismatch: '关联来源的日期或金额与流动不一致，请复核',
   source_deleted: '关联来源已被删除，关联失效，请复核',

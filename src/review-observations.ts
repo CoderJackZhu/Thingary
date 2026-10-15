@@ -20,7 +20,7 @@ export function buildReviewObservations({ interval: i, reasons, pending, snapsho
   if (i.status === 'scope_changed') checks.push({ id: 'scope_changed', text: '这期有账户改变了计入设置，变化不能与上期直接比较。', action: { kind: 'accounts' } });
   if ((i.status === 'no_income' || i.income_records === 0)) checks.push({ id: 'no_income', text: '这期还没有收入记录；有收入时可补录。', action: { kind: 'income' } });
   const eventIds = [...new Set(pending.flatMap(p => p.event_id ? [p.event_id] : []))];
-  if (eventIds.length) checks.push({ id: 'pending_events', text: `有 ${eventIds.length} 项计划安排的日期已过或付款待核对，可展开逐项核对。`, action: { kind: 'occurrence', event_id: eventIds[0] } });
+  if (eventIds.length) checks.push({ id: 'pending_events', text: `有 ${eventIds.length} 项安排的日期已过或付款资料需确认，可展开逐项查看。`, action: { kind: 'occurrence', event_id: eventIds[0] } });
   if (i.delta_nw_cents !== null && i.status !== 'scope_changed') {
     const delta = BigInt(i.delta_nw_cents);
     items.push({ id: 'change', text: delta === 0n ? '金融净资产没有变化，含估值变化。' : `金融净资产${delta < 0n ? '减少' : '增加'}了 ${money((delta < 0n ? -delta : delta).toString())}，含估值变化。` });

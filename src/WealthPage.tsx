@@ -251,8 +251,8 @@ function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onE
 }
 
 function History({ points, onOpen, onNew, canStart }: { points: Point[]; onOpen: (id: string) => void; onNew: () => void; canStart: boolean }) {
-  if (!points.length) return <div className="empty"><h2>还没有盘点</h2><p>每次盘点记录一个日期上各账户的余额与欠款。</p><button className="primary" disabled={!canStart} onClick={onNew}>开始盘点</button></div>;
-  return <div className="table-scroll"><PointTable points={points} onOpen={onOpen}/></div>;
+  if (!points.length) return <div className="empty"><h2>还没有盘点</h2><p>每次盘点记录一个日期上各账户的余额与欠款。完整盘点指本次应盘的账户金额都已确认。</p><button className="primary" disabled={!canStart} onClick={onNew}>开始盘点</button></div>;
+  return <><p className="muted small">完整盘点：本次应盘的账户金额都已确认。</p><div className="table-scroll"><PointTable points={points} onOpen={onOpen}/></div></>;
 }
 
 const blankAccount = (today: string): AccountFields => ({ name: '', institution: '', side: 'asset', kind: 'cash', counted: true, opened_on: today, closed_on: null, notes: '' });

@@ -102,7 +102,7 @@ test('usual saving keeps known values (zero and negative) and explains unknowns 
   assert.match(usualSaving({ intervals: [iv({ status: 'no_income' })], stats: stats(null), incomplete_count: 0 }).reason, /月度收入/);
   assert.match(usualSaving({ intervals: [iv({ status: 'scope_changed' })], stats: stats(null), incomplete_count: 0 }).reason, /参与比较的账户/);
   assert.match(usualSaving({ intervals: [iv({ excluded: true })], stats: stats(null), incomplete_count: 0 }).reason, /一次性变动/);
-  assert.match(usualSaving({ intervals: [iv({ in_window: false })], stats: stats(null), incomplete_count: 0 }).reason, /近 12 个月内没有可比区间/);
+  assert.match(usualSaving({ intervals: [iv({ in_window: false })], stats: stats(null), incomplete_count: 0 }).reason, /近 12 个月没有可比较的两次盘点/);
   // 样本少时保留数字，只加标注。
   const low = usualSaving({ intervals: [], stats: stats('761920', { count: 2, low_sample: true }), incomplete_count: 0 });
   assert.deepEqual([low.kind, low.count, low.low_sample], ['known', 2, true]);
@@ -163,7 +163,7 @@ test('a disappeared snapshot is a missing baseline, never a numeric estimate', (
 test('unknown saving reasons describe the current statistical window', () => {
   const old = { status: 'no_income', excluded: false, in_window: false };
   const r = { intervals: [old], stats: stats(null), incomplete_count: 0 };
-  assert.equal(usualSaving(r).reason, '近 12 个月内没有可比区间。');
+  assert.equal(usualSaving(r).reason, '近 12 个月没有可比较的两次盘点。');
   r.intervals.push({ status: 'ok', excluded: true, in_window: true });
-  assert.equal(usualSaving(r).reason, '可比区间都已标记为一次性变动。');
+  assert.equal(usualSaving(r).reason, '可比较的盘点区间都已标记为一次性变动。');
 });

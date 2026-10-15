@@ -181,7 +181,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     <div className="review-lists">
       <article className="ui-card">
         <div className="ui-section-head"><h3>待关注</h3><span className="ui-aside">{groups.length ? `${groups.length} 项` : ''}<Info text="只列出需要你确认或即将到期的事项；不会自动付款。"/></span></div>
-        {!attentionSourcesReady(data, modules) && <div className="ui-error" role="alert">部分来源读取失败，事项可能不完整。<button onClick={reload}>重试</button></div>}
+        {!attentionSourcesReady(data, modules) && <div className="ui-error" role="alert">部分来源读取失败，当前事项只显示已读取部分。请重试。<button onClick={reload}>重试</button></div>}
         {!groups.length ? <p className="ui-empty">{attentionSourcesReady(data, modules) ? '暂时没有需要关注的事项。' : '可用来源中暂无事项。'}</p> : <ul className="ui-rows">{groups.slice(0, 5).map(g => <li key={g.id} className="ui-row"><span className={'ui-dot' + (g.priority <= 1 ? ' warn' : '')}/><div className="ui-main"><div>{g.title}</div>{g.details.map(d => <small key={d}>{d}</small>)}</div><span className="review-links">{g.entries.map((entry, i) => <button key={i} className="ui-link" onClick={() => onOpenSource(entry.target)}>{entry.action} →</button>)}</span></li>)}</ul>}
         {groups.length > 5 && <p className="ui-card-foot">还有 {groups.length - 5} 项，请在对应模块查看。</p>}
       </article>
