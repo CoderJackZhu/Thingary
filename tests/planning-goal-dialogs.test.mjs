@@ -76,33 +76,29 @@ test('goal loan editor retains input on save failure and locks replay when the r
 });
 
 import * as firstRun from '../src/planning-first-run.ts';
-test('condition and next-step assumption actions open the shared four-value editor', () => {
-  for (const entry of ['condition', 'next']) {
-    const sources = fixture(), p = sources.profile.value.saved.profile;
-    p.retire.simplified.time.target_month = '2050-06';
-    p.retire.simplified.income_mode = 'excluded';
-    p.retire.spend_cents = '500000';
-    p.retire.basic.contribution.monthly_cents = '200000';
-    const caps = buildBasicCapabilities(sources);
-    caps.funds = { status: 'ready', value: { available_cents: '1000000', restricted_cents: '0', date: '2026-10-12' } };
-    const port = {};
-    // The shared runtime does not load the follow-up UI; report a real unconfirmed read so the host can gate its next step.
-    const read = { status: 'ready', value: { generation: sources.generation, revision: null, values: { real_return_before_hundredths: 0, real_return_after_hundredths: 0, inflation_hundredths: 200, volatility_hundredths: 500 }, confirmation: 'unconfirmed', confirmed_values: null } };
-    const StubSummary = props => { props.onReadChange?.(read); return { type: 'AssumptionsSummary', props, key: null }; };
-    const r = runtime('PlanningBasicGoals', { sources, assumptionsPort: port }, undefined, caps, {
-      modules: { './planning-first-run': { ...firstRun, refinementCards: () => [] }, './planning-followup-ui/AssumptionsSummary': { AssumptionsSummary: StubSummary } },
-    });
-    const button = entry === 'condition'
-      ? r.find('button', p => p['aria-label'] === '调整计算假设')
-      : r.nodes().find(n => n.type === 'button' && !n.props['aria-label'] && r.text(n) === '核对计算假设');
-    assert.ok(button, entry);
-    button.props.onClick({ currentTarget: { isConnected: true, focus() {} } }); r.render();
-    const shared = r.find('AssumptionsSummary');
-    assert.equal(shared.props.open, true);
-    assert.equal(shared.props.port, port);
-    assert.equal(r.find('GoalEditor'), undefined);
-    shared.props.onOpenChange(false); r.render();
-    assert.equal(r.find('AssumptionsSummary').props.open, false);
-    assert.equal(r.calls.length, 0);
-  }
+test('the disclosed condition action opens the shared four-value editor', () => {
+  const sources = fixture(), p = sources.profile.value.saved.profile;
+  p.retire.simplified.time.target_month = '2050-06';
+  p.retire.simplified.income_mode = 'excluded';
+  p.retire.spend_cents = '500000';
+  p.retire.basic.contribution.monthly_cents = '200000';
+  const caps = buildBasicCapabilities(sources);
+  caps.funds = { status: 'ready', value: { available_cents: '1000000', restricted_cents: '0', date: '2026-10-12' } };
+  const port = {};
+  // The shared runtime does not load the follow-up UI; supply the actual unconfirmed state.
+  const read = { status: 'ready', value: { generation: sources.generation, revision: null, values: { real_return_before_hundredths: 0, real_return_after_hundredths: 0, inflation_hundredths: 200, volatility_hundredths: 500 }, confirmation: 'unconfirmed', confirmed_values: null } };
+  const StubSummary = props => { props.onReadChange?.(read); return { type: 'AssumptionsSummary', props, key: null }; };
+  const r = runtime('PlanningBasicGoals', { sources, assumptionsPort: port }, undefined, caps, {
+    modules: { './planning-first-run': { ...firstRun, refinementCards: () => [] }, './planning-followup-ui/AssumptionsSummary': { AssumptionsSummary: StubSummary } },
+  });
+  const button = r.find('button', p => p['aria-label'] === '调整计算假设');
+  assert.ok(button);
+  button.props.onClick({ currentTarget: { isConnected: true, focus() {} } }); r.render();
+  const shared = r.find('AssumptionsSummary');
+  assert.equal(shared.props.open, true);
+  assert.equal(shared.props.port, port);
+  assert.equal(r.find('GoalEditor'), undefined);
+  shared.props.onOpenChange(false); r.render();
+  assert.equal(r.find('AssumptionsSummary').props.open, false);
+  assert.equal(r.calls.length, 0);
 });

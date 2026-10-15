@@ -14,7 +14,7 @@ const templates: Template[] = [
   { key: 'parents', label: '赡养父母', hint: '按预计支出的月份填写；不确定结束时间可以留空，算到规划终点。' },
   { key: 'care', label: '医疗与护理', hint: '按预计需要支出的月份填写；医疗费用可能涨得比通胀快，可以填更高的每年上涨（这是假设）。', start: '' },
 ];
-const ageText = (i: StoredSpendItem) => `${i.start_month ?? '目标月份起'} → ${i.end_month ?? '规划终点'}${i.time_unconfirmed ? ' · 时间待核对' : ''}`;
+const ageText = (i: StoredSpendItem) => `${i.start_month ?? '目标月份起'} → ${i.end_month ?? '规划终点'}${i.time_unconfirmed ? ' · 请确认起止月份' : ''}`;
 
 /** 退休后的阶段性支出：只在退休后计入，按「额外」叠加在生活费总额之上；退休前的花费已在每月能存多少里。 */
 export function SpendItems({ d, setD, frozen, today }: { d: Draft; setD: React.Dispatch<React.SetStateAction<Draft>>; frozen: boolean; today: string }) {

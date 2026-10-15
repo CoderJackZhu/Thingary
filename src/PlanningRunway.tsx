@@ -27,7 +27,7 @@ export function RunwayCard({ caps, today, onOwner }: { caps: BasicCapabilities |
   const lines = out && runwayLines(out, { set: floorCents !== null, cents: String(floorCents ?? 0) }, money);
   const stale = validDate(anchor) && daysBetween(anchor, today) > STALE_DAYS;
   return <article className="ui-card ui-content plan-runway" aria-label="资金能撑多久">
-    <h3>资金能撑多久</h3><p className="eyebrow">当前收支 · 临时计算</p>
+    <h3 id="plan-runway-heading" tabIndex={-1}>资金能撑多久</h3><p className="eyebrow">当前收支 · 临时计算</p>
       <p className="muted small">无需退休目标或养老金资料。只看当前收支持续时能付几个月，不预测复工；输入不保存，也不改变长期计划。</p>
       {funds && <div className="plan-runway-switch"><Switch label="改用手填模拟资金" value={manual} onChange={setManual}/><span>改用手填模拟资金</span></div>}
       {useManual ? <div className="plan-runway-fields">

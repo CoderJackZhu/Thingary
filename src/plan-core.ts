@@ -51,21 +51,21 @@ export function occurrenceIssues(snapshot: Snapshot, core: PlanningCore | null |
   for (const e of events) {
     const add = (kind: OccurrenceIssueKind, message: string) => missing.push({ event_id: e.id, kind, message });
     const o = core?.occurrences.find(x => x.event_id === e.id);
-    if (!o) { if (e.included && e.date < today.slice(0, 7)) add('overdue', `${e.label}：日期已过，待核对。`); continue; }
+    if (!o) { if (e.included && e.date < today.slice(0, 7)) add('overdue', `${e.label}：日期已过，请确认是否发生。`); continue; }
     if (o.status === 'cancelled') continue;
     if (o.actual_date > today) add('actual_date', `${e.label}：实际日期不能晚于今天。`);
     if (!o.payments.length) add('payments', `${e.label}：实际付款分项待补充。`);
     for (const p of o.payments) {
       const rule = core?.fund_rules.find(x => x.account_id === p.account_id);
-      if (p.amount_cents === null || !p.account_id || rule?.availability !== 'available' || rule.share_hundredths !== 10000) add('payment_source', `${e.label}：付款金额／来源范围待核对。`);
-      if (p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision)) add('absorption', `${e.label}：付款是否已计入哪次盘点，待核对。`);
+      if (p.amount_cents === null || !p.account_id || rule?.availability !== 'available' || rule.share_hundredths !== 10000) add('payment_source', `${e.label}：请确认付款金额和付款账户范围。`);
+      if (p.date <= snapshot.date && (p.absorbed_snapshot_id !== snapshot.id || p.absorbed_revision !== snapshot.revision)) add('absorption', `${e.label}：请确认付款已反映在哪次盘点中。`);
       if (p.date > snapshot.date && p.absorbed_snapshot_id) add('absorption', `${e.label}：起点盘点之后的付款，不能标为已计入盘点。`);
     }
     const paid = o.payments.filter(p => p.amount_cents !== null).reduce((s, p) => s + BigInt(p.amount_cents!), 0n);
     if (!o.payments_complete || paid < 0n) add('payments', `${e.label}：仅部分付款已核对，剩余安排待补充。`);
     if (Number(e.price_cents) > Number(e.down_cents) || o.loan !== null) {
       const l = o.loan;
-      if (!l || l.as_of !== snapshot.date) add('loan', `${e.label}：截至资金起点的剩余欠款和剩余期数，待核对。`);
+      if (!l || l.as_of !== snapshot.date) add('loan', `${e.label}：请确认截至资金起点的剩余欠款与剩余期数。`);
       else {
         const entry = snapshot.entries.find(x => x.account_id === l.account_id && x.side === 'liability' && x.counted);
         if (!entry || entry.amount_cents !== l.principal_cents) add('loan', `${e.label}：剩余欠款与盘点里的负债不一致。`);

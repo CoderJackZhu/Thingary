@@ -1,4 +1,5 @@
 import { money } from '../asset';
+import { annotationSummary, annotationDirection } from '../plan-annotations';
 import type { ReactNode } from 'react';
 import { ageAtMonth, ageText } from '../planning-simplified-ui/income-view';
 import { forecastMoney } from '../plan-format';
@@ -16,7 +17,7 @@ export type GoalAction = GoalEdit | 'income' | 'funds' | 'costs' | 'debt' | 'eve
 
 const conditionOrder: GoalAction[] = ['mode', 'time', 'saving', 'spend', 'start', 'income', 'assumptions', 'emergency'];
 
-const assumptionTagText: Record<AssumptionReadV1['confirmation'], string> = { unconfirmed: '未核对', confirmed: '已核对', needs_review: '待核对' };
+const assumptionTagText: Record<AssumptionReadV1['confirmation'], string> = { unconfirmed: '试算值，未确认', confirmed: '已核对', needs_review: '条件已变，请确认' };
 
 export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, purchasePlans, onAnnotation, onEdit, onRefine, onDetail, onTrial, savingHint, onReport, reportDisabled = false, assumptionRead }: {
   saved: Saved; caps: BasicCapabilities; today: string; cards: Refinement[]; accountFunds?: ReturnType<typeof fundScopeSummary>; purchasePlans?: ReactNode;
@@ -59,12 +60,6 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
   let nextCard: { title: string; benefit: string; disabled?: boolean; run: (from: HTMLElement) => void } | null;
   if (card) nextCard = { title: card.title, benefit: card.benefit || '只调整这一项，其余已填条件保留。', run: from => onRefine(card, from) };
   else if (missingCondition) nextCard = { title: `填写${rows.find(row => row.id === missingCondition)!.title}`, benefit: missingCondition === 'saving' ? '可暂不填写；补充后可判断按当前投入能否达成目标。' : '补充这项计算条件，其余已填条件保留。', run: from => onEdit(missingCondition, from) };
-  else if (assumptionRead === undefined) nextCard = null;
-  else if (assumptionRead === null) nextCard = { title: '正在读取试算假设', benefit: '读取完成后，这里会提示是否需要核对。', disabled: true, run: () => {} };
-  else if (assumptionRead.status !== 'ready') nextCard = assumptionRead.status === 'disabled'
-    ? { title: '试算假设暂不可用', benefit: assumptionRead.message, disabled: true, run: () => {} }
-    : { title: reloadCard.title, benefit: assumptionRead.message, run: from => onRefine(reloadCard, from) };
-  else if (assumptionRead.value.confirmation !== 'confirmed') nextCard = { title: '核对计算假设', benefit: assumptionRead.value.confirmation === 'needs_review' ? '假设数值已变化，请重新核对并确认。' : '这些数值用于试算，请核对后确认。', run: from => onEdit('assumptions', from) };
   else nextCard = null;
   const headline = r.mode === 'fire' && projection
     ? predictedRetire !== null ? `预计 ${predictedMonth(predictedRetire)} 退休` : `按当前假设，${capMonth ?? '规划终点'} 前尚未达成`
@@ -79,18 +74,21 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
     // The verdict line above the amounts already states the overall conclusion.
     predictionLines.push({ label: '终点资产', text: forecastMoney(String(Math.round(outcome.at_horizon))) });
   }
-  const renderCondition = (row: (typeof rows)[number], index: number) => <article key={row.id} className="goal-condition" data-condition={row.id}><span className="goal-step">{index + 1}</span><div><h4>{row.title} <span className="ui-tag">{row.state}</span></h4><strong>{row.value}</strong><p className="muted small">{row.description}</p>{row.id === 'saving' && savingHint && <div className="goal-saving-hint" role="note"><p className="small">近 {savingHint.hint.count} 个盘点区间{savingHint.hint.window_from ? `（${savingHint.hint.window_from.slice(0, 7)} 起）` : ''}，按已记录的收入估计每月存下约 {forecastMoney(savingHint.hint.historical_cents)}（{savingHint.hint.direction === 'higher' ? '高于' : '低于'}你填的 {money(savingHint.hint.entered_cents)}）。这只看现金、存款和负债，是估计，不会自动改你的数字。</p><button className="ui-link" onClick={savingHint.onReview}>去财务复盘查看依据</button><button className="ui-link" onClick={savingHint.onDismiss}>先不提醒</button></div>}
+  const renderCondition = (row: (typeof rows)[number], index: number) => <article key={row.id} className="goal-condition" data-condition={row.id}><span className="goal-step">{index + 1}</span><div><h4>{row.title} {row.id !== 'assumptions' && <span className="ui-tag">{row.state}</span>}</h4><strong>{row.value}</strong><p className="muted small">{row.description}</p>{row.id === 'assumptions' && <>
+          <details><summary>条件与核对</summary><p className="muted small" role="status">{assumptionTag}</p><button type="button" className="ui-btn" aria-label="调整计算假设" onClick={e => onEdit('assumptions', e.currentTarget)}>查看与确认假设</button></details>
+          {assumptionRead && assumptionRead.status !== 'ready' && <p className="notice" role="alert">{assumptionRead.message}{assumptionRead.status === 'error' && <button type="button" className="ui-link" onClick={e => onRefine(reloadCard, e.currentTarget)}>重新读取试算假设</button>}</p>}
+        </>}{row.id === 'saving' && savingHint && <div className="goal-saving-hint" role="note"><p className="small">近 {savingHint.hint.count} 个盘点区间{savingHint.hint.window_from ? `（${savingHint.hint.window_from.slice(0, 7)} 起）` : ''}，按已记录的收入估计每月存下约 {forecastMoney(savingHint.hint.historical_cents)}（{savingHint.hint.direction === 'higher' ? '高于' : '低于'}你填的 {money(savingHint.hint.entered_cents)}）。这只看现金、存款和负债，是估计，不会自动改你的数字。</p><button className="ui-link" onClick={savingHint.onReview}>去财务复盘查看依据</button><button className="ui-link" onClick={savingHint.onDismiss}>先不提醒</button></div>}
         {row.id === 'start' && b.start.kind === 'live' && <>
         {funds && accountFunds && <p className="muted small">按参与比例计入：现金与存款 {money(accountFunds.totals.cash)} · 投资 {money(accountFunds.totals.investment)}{accountFunds.totals.other !== '0' && ` · 其他 ${money(accountFunds.totals.other)}`}</p>}
         {!!accountFunds?.unavailable.length && <p className="goal-fund-exclusions small">未作可用资金：{accountFunds.unavailable.join('、')}。</p>}
         <button className="ui-link" onClick={e => onEdit('funds', e.currentTarget)}>核对账户用途与投资计入</button>
-      </>}</div><button id={row.id === 'time' ? 'plan-budget-entry' : undefined} className="ui-btn" aria-label={`调整${row.title}`} onClick={e => onEdit(row.id, e.currentTarget)}>调整</button></article>;
+      </>}</div>{row.id !== 'assumptions' && <button id={row.id === 'time' ? 'plan-budget-entry' : undefined} className="ui-btn" aria-label={`调整${row.title}`} onClick={e => onEdit(row.id, e.currentTarget)}>调整</button>}</article>;
   return <div className="goal-layout">
     <section className="ui-card goal-conditions" aria-label="计算条件"><div className="ui-content"><h3>这次计算用了什么</h3><p className="muted small">已填条件一直保留，可单独调整。</p></div>
       {[...rows].sort((a, b) => conditionOrder.indexOf(a.id) - conditionOrder.indexOf(b.id)).map(renderCondition)}
       <div className="ui-content goal-secondary"><button className="ui-link" onClick={e => onEdit('costs', e.currentTarget)}>核对费用是否包含</button><button className="ui-link" onClick={e => onEdit('debt', e.currentTarget)}>贷款还款安排</button><button className="ui-link" onClick={e => onEdit('events', e.currentTarget)}>买房买车等大额计划</button></div>
     </section>
-    <aside><article className="ui-card ui-content" aria-label="退休目标"><p className="eyebrow">{!req && !pred ? '还不能算出结果' : uncertain ? '当前暂算结果' : '按当前条件估算'}</p><h3>{headline}</h3><p className="muted small">{r.mode === 'fire' && time.target_month ? `你希望 ${retirementText}；规划到 ${horizonText}` : `规划到 ${horizonText}`}</p><p className="goal-verdict">{pred ? !pred.outcome.success ? '按当前投入，尚未满足完整目标' : uncertain ? '已计入条件可覆盖，仍有事项待核对' : pred.terminal === 'no_margin' ? '所选期间可覆盖，终点没有余量' : '按当前投入，所选期间可覆盖' : '先看目标需求，补充投入后判断能否达成'}</p><div className="goal-amounts"><div><span>固定目标需要每月存</span><strong>{req && 'monthly_cents' in req.set ? forecastMoney(req.set.monthly_cents) : '待计算'}</strong><small className="muted">按固定目标月份反求，不是未来预测</small></div><div><span>你估计每月能存</span><strong>{b.contribution.monthly_cents === null ? '还没填' : money(b.contribution.monthly_cents)}</strong><button type="button" className="ui-link" onClick={e => onEdit('saving', e.currentTarget)}>{b.contribution.monthly_cents === null ? '填写每月能存的钱' : '修改每月能存的钱'}</button></div></div>
+    <aside><article className="ui-card ui-content" aria-label="退休目标"><p className="eyebrow">{!req && !pred ? '还不能算出结果' : uncertain ? '当前暂算结果' : '按当前条件估算'}</p><h3>{headline}</h3><p className="muted small">{r.mode === 'fire' && time.target_month ? `你希望 ${retirementText}；规划到 ${horizonText}` : `规划到 ${horizonText}`}</p><p className="goal-verdict">{pred ? !pred.outcome.success ? '按当前投入，尚未满足完整目标' : uncertain ? '已计入条件可覆盖，仍有事项需确认' : pred.terminal === 'no_margin' ? '所选期间可覆盖，终点没有余量' : '按当前投入，所选期间可覆盖' : '先看目标需求，补充投入后判断能否达成'}</p><div className="goal-amounts"><div><span>固定目标需要每月存</span><strong>{req && 'monthly_cents' in req.set ? forecastMoney(req.set.monthly_cents) : '待计算'}</strong><small className="muted">按固定目标月份反求，不是未来预测</small></div><div><span>你估计每月能存</span><strong>{b.contribution.monthly_cents === null ? '还没填' : money(b.contribution.monthly_cents)}</strong><button type="button" className="ui-link" onClick={e => onEdit('saving', e.currentTarget)}>{b.contribution.monthly_cents === null ? '填写每月能存的钱' : '修改每月能存的钱'}</button></div></div>
       <div className="goal-result-actions">
         {req && onDetail && <button type="button" id="plan-detail-entry" className="primary goal-detail-entry" onClick={onDetail}>查看测算详情与图表</button>}
         {onReport && <button type="button" className="ui-btn goal-report-entry" disabled={reportDisabled} onClick={e => onReport(e.currentTarget)}>查看当前报告</button>}
@@ -114,8 +112,10 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
 
 function GoalCaution({ annotations, saved, onAnnotation }: { annotations: PlanningAnnotation[]; saved: Saved; onAnnotation?: (annotation: PlanningAnnotation, from: HTMLElement) => void }) {
   const affecting = annotations.filter(a => a.effect !== 'none');
-  return affecting.length > 0 ? <div className="goal-caution"><strong>这些情况还会影响结果</strong><ul>{affecting.map(a => {
+  return affecting.length > 0 ? <div className="goal-caution"><strong>这些情况还会影响结果</strong>
+    {annotationSummary(affecting).map(line => <p className="coverage-summary" key={line}>{line}</p>)}
+    <details><summary>查看未计入的安排与需确认的条件</summary><ul>{affecting.map(a => {
     const event = saved.profile.retire.life_events.find(e => e.id === a.refinement.event_id);
-    return <li key={a.id}>{a.message}{onAnnotation && a.actionable !== false && <button type="button" className="ui-link" onClick={e => onAnnotation(a, e.currentTarget)}>{event ? `查看计划：${event.label}` : '去核对'}</button>}</li>;
-  })}</ul></div> : null;
+    return <li key={a.id}>{a.message}<small>{annotationDirection(a)}</small>{a.missing_fields.length > 0 && <small>还差：{a.missing_fields.join('、')}</small>}{onAnnotation && a.actionable !== false && <button type="button" className="ui-link" onClick={e => onAnnotation(a, e.currentTarget)}>{event ? `查看计划：${event.label}` : '去核对'}</button>}</li>;
+  })}</ul></details></div> : null;
 }

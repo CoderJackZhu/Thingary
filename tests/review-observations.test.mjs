@@ -39,7 +39,7 @@ test('V3/V4: shared occurrence rules, unique events, no writes on ignore; old me
  const event={id:'e',label:'虚构计划',date:'2026-08',included:true,price_cents:'10000',down_cents:'10000'};
  const c={...emptyCore(snapshot.date),fund_rules:[{account_id:'cash',availability:'available',share_hundredths:10000}]};
  const before=JSON.stringify({snapshot,c,event});
- const pending=occurrenceIssues(snapshot,c,[event],'2026-10-09');assert.deepEqual(pending,[{event_id:'e',kind:'overdue',message:'虚构计划：日期已过，待核对。'}]);
+ const pending=occurrenceIssues(snapshot,c,[event],'2026-10-09');assert.deepEqual(pending,[{event_id:'e',kind:'overdue',message:'虚构计划：日期已过，请确认是否发生。'}]);
  assert.deepEqual(occurrenceMissing(snapshot,c,[event],'2026-10-09'),pending.map(x=>x.message));
  assert.equal(build({pending}).checks[0].action.event_id,'e');assert.equal(JSON.stringify({snapshot,c,event}),before);
  c.occurrences=[{event_id:'e',status:'occurred',actual_date:'2026-09-01',payments_complete:true,payments:[{amount_cents:'10000',account_id:'cash',date:'2026-09-01',absorbed_snapshot_id:'end',absorbed_revision:1}],loan:null}];

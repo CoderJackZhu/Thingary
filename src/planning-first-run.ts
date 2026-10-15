@@ -111,7 +111,7 @@ export function refinementCards(saved: NonNullable<Saved>, caps: BasicCapabiliti
   if (has('SOURCE_ERROR', 'SOURCE_STALE')) cards.push({ id: 'reload', title: '重新读取规划资料', benefit: '获取本次计算所需的当前资料，读取失败不会当成零。', duration: '约几秒', action: 'reload', required: true });
   const annotations = caps.annotations ?? [];
   const costs = annotations.filter(a => a.reason_code === 'COST_ASSUMED_EXTRA' || a.reason_code === 'COST_PERIOD_PENDING');
-  if (costs.length && !cards.some(c => c.id === 'costs')) cards.push({ id: 'costs', title: '核对费用包含关系', benefit: `${[...new Set(costs.map(a => a.message.split('的')[0]))].join('、')}：待核对包含关系；暂按额外费用计入，可能重复包含。`, duration: '约 1 分钟', action: 'costs', required: false, impacts: true });
+  if (costs.length && !cards.some(c => c.id === 'costs')) cards.push({ id: 'costs', title: '核对费用包含关系', benefit: [...new Set(costs.map(a => a.message))].join('；'), duration: '约 1 分钟', action: 'costs', required: false, impacts: true });
   for (const event of r.life_events) {
     const rows = annotations.filter(a => a.refinement.event_id === event.id);
     if (!rows.length || cards.some(c => c.event?.id === event.id)) continue;

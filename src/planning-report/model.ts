@@ -341,14 +341,14 @@ function projectReport(r: ReportInputV1, privacy: boolean): ReportInputV1 {
       availability: f.availability, amount: money(f.amount), note: privacy ? null : f.note })),
     goals: r.goals.map((g, i) => ({ id: privacy ? `g${i + 1}` : g.id, name: privacy ? `目标 ${i + 1}` : g.name,
       template: g.template, date: g.date, result: g.result, amount: money(g.amount), ratio: g.ratio === null ? null : ratio(g.ratio),
-      note: privacy ? null : g.note, missing: privacy ? g.missing.map(() => '存在待核对资料') : [...g.missing] })),
+      note: privacy ? null : g.note, missing: privacy ? g.missing.map(() => '存在需确认资料') : [...g.missing] })),
     assumptions: r.assumptions.map((a, i) => ({ id: privacy ? `a${i + 1}` : a.id, label: privacy ? `依据 ${i + 1}` : a.label,
       value: value(a.value), source: a.source, confirmed_on: a.confirmed_on })),
     series: r.series.map(s => ({ date: s.date, kind: s.kind, available: s.available === null ? null : money(s.available),
       restricted: s.restricted === null ? null : money(s.restricted), debt: s.debt === null ? null : money(s.debt) })),
     differences: r.differences.map((d, i) => ({ id: privacy ? `d${i + 1}` : d.id, label: privacy ? `条件 ${i + 1}` : d.label,
       current: value(d.current), other: value(d.other), delta: d.delta === null ? null : money(d.delta), note: privacy ? null : d.note })),
-    missing: r.missing.map((m, i) => ({ id: privacy ? `m${i + 1}` : m.id, label: privacy ? `待核对项 ${i + 1}` : m.label,
+    missing: r.missing.map((m, i) => ({ id: privacy ? `m${i + 1}` : m.id, label: privacy ? `需确认事项 ${i + 1}` : m.label,
       impact: m.impact, hint: privacy ? null : m.hint })),
   };
 }
@@ -410,7 +410,7 @@ export function headlineSentence(report: ReportInputV1): string {
 }
 
 export const currentOutcomeLabel = (o: CurrentSummaryOutcome): string =>
-  o === 'covered' ? '资金可覆盖' : o === 'no_margin' ? '终点无余量' : o === 'not_covered' ? '目标未达成' : o === 'provisional' ? '待核对' : '缺输入';
+  o === 'covered' ? '资金可覆盖' : o === 'no_margin' ? '终点无余量' : o === 'not_covered' ? '目标未达成' : o === 'provisional' ? '结果仍需确认' : '缺输入';
 export const currentModeLabel = (m: CurrentSummaryMode): string => m === 'fire' ? '财务自由（FIRE）' : '按计划退休';
 export const contributionDirectionLabel = (d: ContributionDirection): string =>
   d === 'contribution' ? '储蓄投入' : d === 'withdrawal' ? '取用' : d === 'none' ? '零投入' : '未知';

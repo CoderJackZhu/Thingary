@@ -16,7 +16,7 @@ export function eventCoverage(events: readonly StoredLifeEvent[], core: Planning
     if (!o) {
       const paused = e.date < today.slice(0, 7) || (!!snapshot && e.date < snapshot.date.slice(0, 7));
       coverage[e.id] = { paused, payment_ids: [], loan: !paused, holding: !paused, cycle: !paused };
-      if (paused) add('EVENT_OVERDUE', '日期已过，待核对；未来付款和持有费未计入。', ['是否已经发生'], Number(e.rent_saved_cents) > 0 ? 'uncertain' : 'requirement_lower');
+      if (paused) add('EVENT_OVERDUE', '日期已过，请确认是否发生；未来付款和持有费尚未计入。', ['是否已经发生'], Number(e.rent_saved_cents) > 0 ? 'uncertain' : 'requirement_lower');
       continue;
     }
     if (o.status === 'cancelled') { coverage[e.id] = { paused: true, payment_ids: [], loan: false, holding: false, cycle: false }; continue; }
@@ -46,6 +46,6 @@ export function eventCoverage(events: readonly StoredLifeEvent[], core: Planning
     coverage[e.id] = { paused: false, payment_ids, loan, holding: hasFacts, cycle: hasFacts && fields.size === 0 && (!needsLoan || loan) };
   }
   annotations.push(...debtReview(snapshot, core, events, debtContext.targetMonth, debtContext.horizonMonth, debtContext.accounts).annotations);
-  if (referenceIssues.length) annotations.push({ id: 'references', reason_code: 'REFERENCE_PENDING', message: '实际来源待核对：' + referenceIssues.join('；'), effect: 'uncertain', treatment: 'omitted', source_ids: ['references'], missing_fields: ['实际来源引用'], refinement: { owner: 'events', field: 'reference_issues' } });
+  if (referenceIssues.length) annotations.push({ id: 'references', reason_code: 'REFERENCE_PENDING', message: '实际来源需重新确认：' + referenceIssues.join('；'), effect: 'uncertain', treatment: 'omitted', source_ids: ['references'], missing_fields: ['实际来源引用'], refinement: { owner: 'events', field: 'reference_issues' } });
   return { coverage, annotations };
 }

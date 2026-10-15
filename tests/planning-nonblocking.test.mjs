@@ -81,7 +81,7 @@ test('accidental blank occurred row pauses unknown payments/loan/holding without
 test('extra-cost assumption is calculated once, never saved; confirmation removes its annotation', () => {
   const s = fixture(), c = calc(s), P = c.prediction.value.plan, x = parts(s, c);
   assert.equal(c.annotations.filter(a => a.reason_code === 'COST_ASSUMED_EXTRA').length, 4);
-  assert.ok(c.annotations.filter(a => a.reason_code === 'COST_ASSUMED_EXTRA').every(a => a.message.includes('暂按额外计入')));
+  assert.ok(c.annotations.filter(a => a.reason_code === 'COST_ASSUMED_EXTRA').every(a => a.message.includes('暂按额外费用计入')));
   const expected = x.payment_cents / nominalFactor(P, P.now_months + 18) + 100000;
   near(startPaymentsOf(P)[18], expected);
   near(table(P).spend[18] - 750000, expected);

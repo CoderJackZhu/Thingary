@@ -80,7 +80,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
   for (const issue of validateSimplifiedPlanningV1(f)) reqMissing.push(missing('INPUT_INVALID', 'requirement', 'basic', issue.path, issue.message, 'constraint'));
   if (f.time.target_month === null || f.time.horizon_month === null) reqMissing.push(missing('TIME_UNCONFIRMED', 'requirement', 'basic', 'time.target_month', '规划条件已简化，请重新确认目标与终点月份。'));
   if (r.spend_cents === null && scope === 'complete') reqMissing.push(missing('BUDGET_UNKNOWN', 'requirement', 'budget', 'spend_cents', '请确认完整生活预算。'));
-  if (!core) reqMissing.push(missing('FUNDS_UNCONFIRMED', 'requirement', 'funds', 'core.monetary_basis_date', '请确认金额基准。'));
+  if (!core) reqMissing.push(missing('FUNDS_UNCONFIRMED', 'requirement', 'funds', 'core.monetary_basis_date', '请确认金额对应的日期（用于统一购买力）。'));
   if (f.income_mode === 'unconfirmed' && scope === 'complete') reqMissing.push(missing('INCOME_UNCONFIRMED', 'requirement', 'basic', 'income_mode', '请选择本次不计收入或填写预计收入。'));
   const selected = f.income_mode === 'manual' ? f.future_incomes.filter(i => i.included) : [];
   const incomplete = selected.filter(i => i.monthly_cents === null || i.start_month === null);
@@ -111,7 +111,7 @@ export function prepareBasicPlan(sources: PlanningSources, temporaryContribution
       if(c.treatment==='included' && (c.reference_cents===null || (pre && c.source_id.startsWith('event:') && !occurred))) reqMissing.push(missing('COST_SCOPE_INVALID','requirement','budget',field,'已含费用缺参考额或尚未发生。'));
       if(c.treatment==='excluded' && mustStayInLedger(c.source_id)) reqMissing.push(missing('COST_SCOPE_INVALID','requirement','events',field,'贷款必须计入。','constraint'));
     }
-    for(const id of ids) if(!scopes.some(c=>c.source_id===id)) annotations.push({id:`cost:${field}:${id}`,reason_code:'COST_ASSUMED_EXTRA',message:'费用包含关系待核对，暂按额外计入。',effect:'requirement_higher',treatment:'assumed_extra',source_ids:[id],missing_fields:['费用包含关系'],refinement:{owner:'budget',field}});
+    for(const id of ids) if(!scopes.some(c=>c.source_id===id)) annotations.push({id:`cost:${field}:${id}`,reason_code:'COST_ASSUMED_EXTRA',message:'请确认费用是否已包含；暂按额外费用计入，可能重复包含。',effect:'requirement_higher',treatment:'assumed_extra',source_ids:[id],missing_fields:['费用包含关系'],refinement:{owner:'budget',field}});
   };
   check(sourcesPre,b.contribution_costs,'basic.contribution_costs',true);
   if(scope==='complete') check(sourcesPost,b.retirement_costs,'basic.retirement_costs',false);

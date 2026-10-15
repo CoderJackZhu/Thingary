@@ -165,7 +165,7 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
             <label className="pfu-choice"><input type="checkbox" disabled={frozen} checked={draft.unsupported} onChange={e => patch({ unsupported: e.target.checked, confirmed: false })}/>
               <span>期间有证券实物转入转出、杠杆借款或未解释的余额调整<small className="pfu-muted">（勾选后不能确认简单损益完整）</small></span></label>
             <label className="pfu-choice"><input type="checkbox" disabled={frozen || draft.unsupported || draft.mode === 'movements' && !movementsEnabled} checked={draft.confirmed && !draft.unsupported} onChange={e => patch({ confirmed: e.target.checked })}/>
-              <span>已核对本区间相关资金流动全部记全<small className="pfu-muted">（0／0 也必须经此确认；未确认只显示余额变化与“损益待核对”）</small></span></label>
+              <span>已核对本区间相关资金流动全部记全<small className="pfu-muted">（0／0 也必须经此确认；未确认只显示余额变化，不显示投资损益）</small></span></label>
             <label className="pfu-field-label">备注（选填）<textarea aria-label="核对备注" rows={2} disabled={frozen} value={draft.notes} onChange={e => patch({ notes: e.target.value })}/></label>
           </fieldset>
           {intent && <div className="pfu-switch-preview" role="alert">
@@ -210,9 +210,9 @@ function ReviewModeDialogContent({ port, generation, pair, blocked = false, onCl
 /** 核对状态与假设确认分开：这里说明区间核对来源的确认情况。 */
 function confirmationChip(preview: ReviewPreviewV1): string {
   if (preview.confirmation === 'unavailable') return '明细核对暂不可用：资金流动记录已关闭，原方式保留；没有读取明细或确认完整性。';
-  if (preview.confirmation === 'confirmed') return '本区间已确认核对完整；相关流动或来源变化会使它回到待核对。';
-  if (preview.confirmation === 'needs_review') return '本区间待核对：相关流动、端点或来源已变化，原有确认失效。';
-  return '本区间尚未核对：损益未知，不显示就绪结果。';
+  if (preview.confirmation === 'confirmed') return '本区间已确认记全；相关流动或来源变化后需要重新确认。';
+  if (preview.confirmation === 'needs_review') return '相关流动、端点或来源已变化，请重新确认；原有确认已失效。';
+  return '本区间尚未确认；投资损益未知，不显示就绪结果。';
 }
 
 /** A changed library or interval starts a fresh editor; old async work stays unmounted. */

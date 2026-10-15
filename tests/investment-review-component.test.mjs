@@ -250,7 +250,7 @@ test('card needs_review: reasons as stable-code labels and re-check CTA', () => 
   });
   const text = h.text();
   assert.ok(text.includes('待复核'));
-  assert.ok(text.includes('流动金额或完整性待核对'));
+  assert.ok(text.includes('还需确认资金流动金额或是否记全'));
   assert.ok(text.includes('+¥12,000'));
   h.buttonByText('重新核对资金流动')[0].props.onClick();
   assert.equal(opened, 1);

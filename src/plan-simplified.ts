@@ -45,7 +45,7 @@ export function validateSimplifiedPlanningV1(f: SimplifiedPlanningFieldsV1): Fie
     if (i.monthly_cents !== null && (typeof i.monthly_cents !== 'string' || i.monthly_cents.length > 11 || !/^(0|[1-9]\d*)$/.test(i.monthly_cents) || BigInt(i.monthly_cents) > 99999999999n)) issue(`${p}.monthly_cents`, 'invalid_amount', '月金额须为 0—99999999999 的规范整数分');
     month(i.start_month, `${p}.start_month`); month(i.end_month, `${p}.end_month`); month(i.basis_month, `${p}.basis_month`);
     if (validMonthV1(i.start_month) && validMonthV1(i.end_month) && i.end_month < i.start_month) issue(`${p}.end_month`, 'invalid_order', '结束月不能早于开始月');
-    if (!['reference_month', 'start_month'].includes(i.basis)) issue(`${p}.basis`, 'invalid_basis', '金额基准无效');
+    if (!['reference_month', 'start_month'].includes(i.basis)) issue(`${p}.basis`, 'invalid_basis', '请选择有效的金额口径');
     if (i.basis === 'reference_month' && !validMonthV1(i.basis_month)) issue(`${p}.basis_month`, 'required', '请确认购买力基准月');
     if (i.basis === 'start_month' && i.basis_month !== null) issue(`${p}.basis_month`, 'invalid_basis', '领取时金额不携带独立基准月');
     if (!['fixed_nominal', 'constant_purchasing_power'].includes(i.growth)) issue(`${p}.growth`, 'invalid_growth', '增长假设无效');

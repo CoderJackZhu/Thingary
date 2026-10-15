@@ -35,6 +35,7 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
   const view = controlledView ?? localView;
   const setView = (next: PlanningView) => { setLocalView(next); onViewChange?.(next); };
   const [viewNotice, setViewNotice] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [setup, setSetup] = useState<{ step: number; editMode: boolean; completionId?: string } | null>(null);
   const [goalEditing, setGoalEditing] = useState(false);
   const [occurrenceEditing, setOccurrenceEditing] = useState(false);
@@ -42,7 +43,7 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
   const [reportError, setReportError] = useState('');
   const reportOpener = useRef<HTMLElement | null>(null);
   const opener = useRef<HTMLElement | null>(null);
-  useRestored(() => { setView('goals'); setViewNotice(''); setCurrentReport(null); setReportError(''); reload(); });
+  useRestored(() => { setView('goals'); setViewNotice(''); setAdvancedOpen(false); setCurrentReport(null); setReportError(''); reload(); });
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
   const [receiptEpoch, setReceiptEpoch] = useState(0);
   async function verifyOriginalReceipt() {
@@ -60,13 +61,13 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
   const viewGeneration = useRef(sources?.generation);
   useEffect(() => {
     if (sources && (viewGeneration.current !== sources.generation || !sources.modules.planning)) {
-      viewGeneration.current = sources.generation; setView('goals'); setViewNotice('');
+      viewGeneration.current = sources.generation; setView('goals'); setViewNotice(''); setAdvancedOpen(false);
     }
   }, [sources?.generation, sources?.modules.planning]);
   useEffect(() => () => onViewChange?.('goals'), [onViewChange]);
   useEffect(() => { if (focus) setView('goals'); }, [focus]);
   const viewBlocked = navigationBlocked || !!pending || busy || goalEditing || occurrenceEditing || !!setup || !!currentReport;
-  const changeView = (next: PlanningView) => {
+  const changeView = (next: PlanningView, focusId?: string) => {
     if (next === view) return;
     if (viewBlocked) {
       if (onNavigationBlocked) onNavigationBlocked();
@@ -74,7 +75,12 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
       return;
     }
     if (next === 'detail' && !saved?.profile.retire.basic) return;
-    setViewNotice(''); setView(next); requestAnimationFrame(() => document.getElementById('page-heading')?.focus());
+    setViewNotice(''); setView(next);
+    requestAnimationFrame(() => {
+      const target = document.getElementById(focusId ?? 'page-heading') ?? document.getElementById('page-heading');
+      if (focusId) target?.scrollIntoView({ block: 'start' });
+      target?.focus();
+    });
   };
   const reportBlocked = !sources || !saved?.profile.retire.basic || !sources.modules.planning || !!pending || busy || goalEditing || occurrenceEditing || !!setup || !!currentReport;
   const openCurrentReport = (from: HTMLElement) => {
@@ -110,7 +116,7 @@ export function PlanningPage({ today, onTab, onEditingChange, focus = null, onFo
     {reportError && <p className="notice" role="alert">{reportError}</p>}
     {load.status === 'error' ? <article className="ui-card ui-content" role="alert"><p>规划读取失败：{load.message}</p><button onClick={reload}>重新读取</button></article>
       : !sources ? <p role="status" className="muted">正在读取规划…</p>
-      : <><PlanningBasicGoals key={sources.generation + ":" + sources.write_version + ":" + receiptEpoch} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={setGoalEditing} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone} assumptionsPort={followupPort} onReport={openCurrentReport} reportDisabled={reportBlocked} view={view} onViewChange={changeView}/>{view === 'goals' && <PlanningGoalOccurrences key={sources.generation + ":occurrences:" + sources.write_version + ":" + receiptEpoch} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setOccurrenceEditing} blocked={!!pending || busy || goalEditing || !!setup || !!currentReport}/>}</>}
+      : <><PlanningBasicGoals key={sources.generation + ":" + sources.write_version + ":" + receiptEpoch} sources={sources} mode={mode} today={today} reload={reload} onPending={onPending} onEditingChange={setGoalEditing} onGoto={onTab} openSetup={openSetup} focus={focus === 'budget'} onFocusDone={onFocusDone} assumptionsPort={followupPort} onReport={openCurrentReport} reportDisabled={reportBlocked} view={view} onViewChange={changeView} entryBlocked={viewBlocked || sources.profile.status !== 'ready' || !sources.modules.planning} advancedOpen={advancedOpen} onAdvancedOpenChange={setAdvancedOpen}/>{view === 'goals' && <PlanningGoalOccurrences key={sources.generation + ":occurrences:" + sources.write_version + ":" + receiptEpoch} sources={sources} today={today} reload={reload} onPending={onPending} onEditingChange={setOccurrenceEditing} blocked={!!pending || busy || goalEditing || !!setup || !!currentReport}/>}</>}
 
     {setup && sources && <PlanningSetupDialog key={sources.generation} completionId={setup.completionId} sources={sources} snapshot={ready(sources.snapshot) ?? null} accounts={ready(sources.accounts) ?? []} today={today} reload={reload} onPending={onPending} onClose={ok => { closeSetup(ok); if (ok) onTab('goals'); }} initialStep={setup.step} editMode={setup.editMode} assumptionsPort={followupPort}/>}
     {currentReport && (!sources || sources.modules.planning && sources.generation === currentReport.generation) && <PlanningCurrentReportDialog report={currentReport.report} onClose={closeCurrentReport}/>}
