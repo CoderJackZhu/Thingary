@@ -1,3 +1,5 @@
+#[path = "helpers/legacy_account_schema.rs"]
+mod legacy_account_schema;
 use std::collections::BTreeMap;
 use thingary_lib::{financial_import::*, storage::Store};
 fn open_store(root: &std::path::Path) -> thingary_lib::domain::Result<Store> {
@@ -512,6 +514,7 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
         "DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks; DROP TABLE investment_flows; PRAGMA user_version=33;",
     )
     .unwrap();
+    legacy_account_schema::restore_pre41_account_schema(&db);
     drop(db);
     let bytes = std::fs::read(&old_db).unwrap();
     let manifest = serde_json::json!({"format":1,"schema":33,"created_at":"2026-10-09T08:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
@@ -1516,6 +1519,7 @@ fn old34_backup_and_receipt_restore_into_current_preserve_replay_zero_and_mappin
     .unwrap();
     db.execute_batch(include_str!("../src/x10.sql")).unwrap();
     db.execute_batch("INSERT INTO plan_income SELECT * FROM old_income; INSERT INTO import_external_key SELECT * FROM old_keys; INSERT INTO import_receipt SELECT * FROM old_receipts;").unwrap();
+    legacy_account_schema::restore_pre41_account_schema(&db);
     drop(db);
     let bytes = std::fs::read(path).unwrap();
     let manifest = serde_json::json!({"format":1,"schema":34,"created_at":"2026-10-09T08:00:00Z","entries":{"data.sqlite":{"size":bytes.len(),"hash":format!("{:x}",Sha256::digest(&bytes))}}});
@@ -1817,4 +1821,39 @@ fn unknown_import_receipt_survives_closed_modules_restart_and_generation_guard()
             .unwrap(),
         1
     );
+}
+
+#[test]
+fn new_account_kinds_import_and_historical_property_invariant() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut s = open_store(&tmp.path().join("library")).unwrap();
+    let mut b = batch(&s);
+    b.files[0].csv_text = "account_key,name,kind,enabled_from,disabled_from,counted,platform,note\np,虚构房产,property,2026-01-01,,false,,\nn,虚构养老金,pension,2026-01-01,,true,,\ni,虚构保险,insurance,2026-01-01,,false,,\ng,虚构黄金,precious_metal,2026-01-01,,true,,\n".into();
+    b.files[1].csv_text = "snapshot_key,date,account_key,amount,kind_at_date,counted_at_date,note\ns,2026-10-01,p,2000000,property,true,\ns,2026-10-01,n,50000,,,\ns,2026-10-01,i,30000,,,\ns,2026-10-01,g,20000,,,\n".into();
+    let bad = s
+        .financial_import_preview(&b, "2026-10-09", &|| false)
+        .unwrap();
+    assert!(!bad.can_commit);
+    // Both the standalone parser and commit's shared domain writer reject it.
+    assert!(bad.issues.iter().any(|i| i.message.contains("房产")));
+    b.files[1].csv_text = b.files[1]
+        .csv_text
+        .replace("property,true", "property,false");
+    let input = commit_input(&s, b);
+    let receipt = s.financial_import_commit(&input, "2026-10-09").unwrap();
+    assert_eq!(receipt.counts.created_accounts, 4);
+    assert_eq!(receipt.counts.created_snapshots, 1);
+    let summary = s.wealth_summary().unwrap();
+    assert_eq!(summary.points[0].net_cents, "7000000");
+    assert!(summary.points[0].complete);
+    assert!(!summary
+        .structure
+        .iter()
+        .any(|r| r.kind == "property" || r.kind == "insurance"));
+    let csv = tmp.path().join("虚构账户.csv");
+    s.export_finance_csv("wealth", &csv).unwrap();
+    let text = std::fs::read_to_string(csv).unwrap();
+    for label in ["房产", "个人养老金", "保险现金价值", "黄金与贵金属"] {
+        assert!(text.contains(label), "{label}");
+    }
 }

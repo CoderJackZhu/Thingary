@@ -10,7 +10,7 @@ use std::{
 };
 
 /// Current database schema; old libraries and backups migrate up to it.
-pub const SCHEMA_VERSION: i64 = 40;
+pub const SCHEMA_VERSION: i64 = 42;
 pub const SCHEMA: &str = "CREATE TABLE assets(id TEXT PRIMARY KEY,name TEXT NOT NULL,price_cents INTEGER,purchase_date TEXT,revision INTEGER NOT NULL CHECK(revision>0));
 CREATE TABLE requests(id TEXT PRIMARY KEY,fingerprint TEXT NOT NULL,result TEXT NOT NULL);
 PRAGMA user_version=1; PRAGMA application_id=1347375955;";
@@ -1158,6 +1158,109 @@ PRAGMA user_version=14;")?;
     if v == 39 && target >= 40 {
         let tx = c.unchecked_transaction()?;
         tx.execute_batch(include_str!("goal_progress.sql"))?;
+        hook("migration.before_commit")?;
+        tx.commit()?;
+        v = 40;
+    }
+    if v == 40 && target >= 41 {
+        if !c.is_autocommit() {
+            return Err(Error::new(
+                "DATABASE_FORMAT",
+                "账户类型迁移不能嵌套在事务中",
+            ));
+        }
+        let foreign_keys: bool = c.query_row("PRAGMA foreign_keys", [], |r| r.get(0))?;
+        c.execute_batch("PRAGMA foreign_keys=OFF")?;
+        let result = (|| -> Result<()> {
+            let tx = c.unchecked_transaction()?;
+            // These two tables have one explicit index and no baseline triggers/views.
+            // Refuse an unexpected extension instead of silently discarding it.
+            let unknown: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE (tbl_name IN ('fin_accounts','fin_snapshot_entries') AND (type='trigger' OR (type='index' AND sql IS NOT NULL AND name!='fin_entries_account'))) OR (type='view' AND (sql LIKE '%fin_accounts%' OR sql LIKE '%fin_snapshot_entries%')))",
+                [], |r| r.get(0),
+            )?;
+            if unknown {
+                return Err(Error::new(
+                    "DATABASE_FORMAT",
+                    "账户表包含未知结构，不能迁移",
+                ));
+            }
+            for (name, expected) in [
+                (
+                    "fin_accounts",
+                    include_str!("x01.sql")
+                        .lines()
+                        .find(|l| l.starts_with("CREATE TABLE fin_accounts("))
+                        .unwrap(),
+                ),
+                (
+                    "fin_snapshot_entries",
+                    include_str!("x01.sql")
+                        .lines()
+                        .find(|l| l.starts_with("CREATE TABLE fin_snapshot_entries("))
+                        .unwrap(),
+                ),
+                (
+                    "fin_entries_account",
+                    include_str!("x01.sql")
+                        .lines()
+                        .find(|l| l.starts_with("CREATE INDEX fin_entries_account "))
+                        .unwrap(),
+                ),
+            ] {
+                let actual: String =
+                    tx.query_row("SELECT sql FROM sqlite_schema WHERE name=?1", [name], |r| {
+                        r.get(0)
+                    })?;
+                if actual.trim_end_matches(';') != expected.trim_end_matches(';') {
+                    return Err(Error::new(
+                        "DATABASE_SCHEMA",
+                        "账户表结构与旧版规范不符，不能迁移",
+                    ));
+                }
+            }
+            tx.execute_batch(include_str!("account_kinds.sql"))?;
+            hook("migration.account_kinds.after_copy")?;
+            for (old, new, columns) in [
+                ("fin_accounts", "new_fin_accounts", "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at,deleted_at"),
+                ("fin_snapshot_entries", "new_fin_snapshot_entries", "snapshot_id,account_id,state,amount_cents,side,kind,counted"),
+            ] {
+                let changed: bool = tx.query_row(&format!(
+                    "SELECT (SELECT count(*) FROM {old}) != (SELECT count(*) FROM {new}) OR EXISTS(SELECT {columns} FROM {old} EXCEPT SELECT {columns} FROM {new}) OR EXISTS(SELECT {columns} FROM {new} EXCEPT SELECT {columns} FROM {old})"
+                ), [], |r| r.get(0))?;
+                if changed {
+                    return Err(Error::new("DATABASE_FORMAT", "账户类型迁移内容校验失败"));
+                }
+            }
+            tx.execute_batch(
+                "DROP TABLE fin_snapshot_entries;
+DROP TABLE fin_accounts;
+ALTER TABLE new_fin_accounts RENAME TO fin_accounts;
+ALTER TABLE new_fin_snapshot_entries RENAME TO fin_snapshot_entries;
+CREATE INDEX fin_entries_account ON fin_snapshot_entries(account_id);
+PRAGMA user_version=41;",
+            )?;
+            hook("migration.account_kinds.after_swap")?;
+            let mut check = tx.prepare("PRAGMA foreign_key_check")?;
+            if check.query([])?.next()?.is_some() {
+                return Err(Error::new("DATABASE_FORMAT", "账户类型迁移后引用校验失败"));
+            }
+            drop(check);
+            hook("migration.before_commit")?;
+            tx.commit()?;
+            Ok(())
+        })();
+        c.execute_batch(if foreign_keys {
+            "PRAGMA foreign_keys=ON"
+        } else {
+            "PRAGMA foreign_keys=OFF"
+        })?;
+        result?;
+        v = 41;
+    }
+    if v == 41 && target >= 42 {
+        let tx = c.unchecked_transaction()?;
+        tx.execute_batch(include_str!("savings_goals.sql"))?;
         hook("migration.before_commit")?;
         tx.commit()?;
     }

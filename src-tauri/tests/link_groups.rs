@@ -2,6 +2,9 @@
 //! on fictional data in a temporary directory; the amounts follow the
 //! design's fixed examples where one exists.
 
+#[path = "helpers/legacy_account_schema.rs"]
+mod legacy_account_schema;
+
 use thingary_lib::{
     domain::Error,
     link::{LinkCreateSave, LinkRestoreSave, LinkSave, LinkTrashSave, ReconcileSave},
@@ -1584,6 +1587,7 @@ fn schema32_variants_upgrade_and_restore_without_losing_planning_or_groups() {
         update.generation = s.generation();
         let profile = s.plan_profile_update(&update, "2026-10-07").unwrap();
         let group = with_groups.then(|| group_delete(&mut s, "virtual", &asset));
+        legacy_account_schema::restore_pre41_account_schema(s.conn_for_test().unwrap());
         // Simulate the exact main-32 or subscription-32 physical layout.
         let db = s.conn_for_test().unwrap();
         let database_path = std::path::PathBuf::from(db.path().unwrap());

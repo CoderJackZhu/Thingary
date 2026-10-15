@@ -1,5 +1,9 @@
 pub mod auto_backup;
 pub mod backup;
+pub mod backup_crypto;
+mod backup_jobs;
+pub mod backup_security;
+pub mod backup_task;
 pub mod batch;
 pub mod cash_movement;
 pub mod catalog;
@@ -47,6 +51,8 @@ pub mod recurring;
 pub mod reminders;
 pub mod review;
 pub mod sales;
+mod savings_goal_commands;
+pub mod savings_goals;
 pub mod search;
 pub mod source;
 pub mod spreadsheet;
@@ -128,7 +134,10 @@ pub fn run() {
                         std::thread::sleep(std::time::Duration::from_secs(30));
                         let policy = worker::Policy::production();
                         match worker.auto_backup_tick(&policy) {
-                            Ok(worker::TickOutcome::BackedUp(published)) => {
+                            Ok(
+                                worker::TickOutcome::BackedUp(published)
+                                | worker::TickOutcome::ExtraPending(published),
+                            ) => {
                                 worker.auto_backup_extra_now(&published);
                             }
                             Ok(_) => {}
@@ -281,6 +290,9 @@ pub fn run() {
             commands::wealth_snapshot_draft,
             commands::wealth_snapshot_save,
             commands::wealth_request_result,
+            savings_goal_commands::savings_goals_read,
+            savings_goal_commands::savings_goals_save,
+            savings_goal_commands::savings_goals_trash,
             commands::wealth_summary,
             commands::wealth_compare,
             commands::wealth_account_history,
@@ -398,9 +410,22 @@ pub fn run() {
             commands::purchase_trend,
             commands::holding,
             commands::resale_rate,
+            commands::backup_task_begin,
+            commands::backup_task_cancel,
             commands::create_backup,
             commands::inspect_backup,
-            commands::restore_backup,
+            commands::unlock_backup_session,
+            commands::cancel_backup_session,
+            commands::restore_backup_session,
+            commands::backup_session_result,
+            commands::backup_security_status,
+            commands::backup_security_choose_plaintext,
+            commands::backup_security_begin_setup,
+            commands::backup_security_cancel_setup,
+            commands::backup_security_export_key,
+            commands::backup_security_confirm_setup,
+            commands::backup_security_disable,
+            commands::backup_security_enable_from_key,
             commands::auto_backup_status,
             commands::auto_backup_set_enabled,
             commands::auto_backup_choose_extra,

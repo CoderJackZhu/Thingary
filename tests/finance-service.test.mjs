@@ -68,3 +68,34 @@ test('caller mutation cannot modify an outstanding scope', async () => {
   resolve(sources());
   assert.deepEqual(await result, sources());
 });
+
+test('annual projection is explicitly requested without changing standard callers', async () => {
+  globalThis.window = {};
+  const annualPeriod = { kind: 'year', year: 2026 };
+  const expected = sources({ period: annualPeriod, annual: { year: 2026 } });
+  mockIPC((command, args) => {
+    assert.equal(command, 'finance_sources');
+    assert.deepEqual(args, { period: annualPeriod, view: 'annual' });
+    return expected;
+  });
+  try { assert.deepEqual(await readFinanceSources(annualPeriod, 'annual'), expected); }
+  finally { clearMocks(); delete globalThis.window; }
+});
+
+test('annual reads reject standard or wrong-year projections and late results after changing view', async () => {
+  const annualPeriod = { kind: 'year', year: 2026 };
+  for (const annual of [undefined, { year: 2025 }]) {
+    const session = financeReadSession(async () => sources({ period: annualPeriod, annual }));
+    assert.equal(await session.load('fictional', annualPeriod, modules, 'annual'), null);
+  }
+  const pending = [];
+  const session = financeReadSession((request, view) => new Promise(resolve => pending.push({ request, view, resolve })));
+  const oldAnnual = session.load('fictional', annualPeriod, modules, 'annual');
+  const currentStandard = session.load('fictional', annualPeriod, modules);
+  assert.deepEqual(pending.map(p => p.view), ['annual', 'standard']);
+  const standard = sources({ period: annualPeriod });
+  pending[1].resolve(standard);
+  assert.deepEqual(await currentStandard, standard);
+  pending[0].resolve(sources({ period: annualPeriod, annual: { year: 2026 } }));
+  assert.equal(await oldAnnual, null);
+});

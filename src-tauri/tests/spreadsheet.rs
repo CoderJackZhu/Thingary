@@ -106,6 +106,8 @@ fn item_workbook_preserves_text_unknown_zero_multiline_and_detects_edits() {
             "账户",
             "完整盘点",
             "月度收入",
+            "存钱目标",
+            "目标关联账户",
             "盘点记录",
             "重要支出",
             "周期费用",

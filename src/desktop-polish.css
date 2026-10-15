@@ -188,3 +188,21 @@
 /* 时间轴筛选行：下拉框与左侧分段按钮同高、同字号，与其他页面的工具栏一致。 */
 .timeline-controls select{height:28px;padding:0 8px;font-size:13px}
 .timeline-controls .segmented button{height:28px;font-size:13px}
+.backup-security{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+.backup-security-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.backup-security-head h3{font-size:13px;margin:0 0 2px}
+.backup-security-head p{font-size:12px;line-height:1.4;margin:0;color:var(--muted)}
+.backup-security-state{font-size:12px;padding:3px 8px;border:1px solid var(--line);border-radius:999px;color:var(--muted);white-space:nowrap}
+.backup-security-state.enabled{color:var(--text);border-color:var(--selected)}
+.backup-security-state.needs_attention,.backup-security-state.restore_review_required,.backup-security-state.unconfigured{color:var(--error);border-color:var(--error)}
+.backup-security-summary{font-size:12px;line-height:1.5;color:var(--muted);margin:10px 0 0}
+.backup-security-choice{margin-top:10px}
+.backup-security-choice .notice{margin:0 0 8px;font-size:12px;line-height:1.55}
+.backup-security-choice-actions{display:flex;flex-wrap:wrap;gap:8px}
+.backup-security-choice-actions button{font-size:12px;padding:5px 9px;background:var(--card)}
+.backup-security-choice-actions button:hover:not(:disabled){background:var(--selected)}
+.backup-security .confirm{margin-top:12px}
+.backup-security-key{font-family:ui-monospace,monospace;font-size:12px;line-height:1.5;word-break:break-all;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:8px 0}
+.backup-security-key-input{display:grid;gap:6px;margin:8px 0}
+.backup-security-key-input textarea{font-family:ui-monospace,monospace;font-size:12px;line-height:1.5;word-break:break-all}
+.backup-security-key-input label{display:flex;align-items:center;gap:6px;font-size:12px}

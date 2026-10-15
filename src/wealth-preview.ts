@@ -32,6 +32,7 @@ import type { AssumptionReadV1, MovementRecordV1, ReviewPreviewV1 } from './plan
 import type { Income, IncomeSave, Mark, ProfileState, Reasons, StoredProfile } from './plan';
 import demoAssets from './demo-assets.json';
 import demoFinance from './demo-finance.json';
+import type { SavingsGoal, SavingsRead, SavingsObservation, SavingsSave, SavingsTrash } from './savings-goals';
 
 const generation = 'visual-fixture-only';
 const params = new URLSearchParams(location.search);
@@ -165,6 +166,22 @@ function expenseView(year: number | null, period: FinancePeriod = year === null 
 
 // Recurring plans share the native fixture definitions.
 const todayIso = iso(now);
+let savingsGoals: SavingsGoal[] = params.get('state') === 'empty' || params.get('savings') === 'empty' || !accounts.length ? [] : [{
+  id: 'preview-savings-goal', fields: { name: '虚构应急金', target_cents: '15000000', target_date: `${now.getFullYear()+1}-12-31`, notes: '' },
+  account_ids: accounts.filter(a=>a.fields.side==='asset' && a.fields.kind==='cash').slice(0,2).map(a=>a.id),
+  position:0,revision:1,created_on:shifted(6),created_at:`${shifted(6)}T08:00:00Z`,updated_at:`${todayIso}T08:00:00Z`,deleted_at:null,
+}];
+function savingsRead(year=now.getFullYear()): SavingsRead {
+  const w=summary(),latest=[...w.points].reverse().find(p=>p.complete),s=latest?snapshots.find(s=>s.id===latest.snapshot_id):null;
+  const basis=(s:Stored)=>({snapshot_id:s.id,date:s.date,revision:s.revision});
+  const observe=(g:SavingsGoal,s:Stored|null|undefined):SavingsObservation[]=>g.account_ids.map(id=>{
+    const a=accounts.find(a=>a.id===id),e=s?.entries.find(e=>e.account_id===id);
+    const known=params.get('savings')!=='unknown' && !!e && e.amount_cents!==null && e.kind!=='property';
+    return {account_id:id,name:a?.fields.name??'历史账户',kind:e?.kind??a?.fields.kind??'cash',status:known?'known':'missing',amount_cents:known?e!.amount_cents:null,reason:known?'':'该次盘点没有此账户已知余额'};
+  });
+  const active=savingsGoals.filter(g=>!g.deleted_at);
+  return {generation,write_version:planWriteVersion,today:todayIso,year,years:[...new Set([now.getFullYear(),...w.points.map(p=>Number(p.date.slice(0,4)))])],basis:s?basis(s):null,newer_incomplete:w.points.at(-1)?.complete===false,accounts:accounts.map(withLatest),goals:active.map(g=>({goal:g,observations:observe(g,s),shared_account_ids:g.account_ids.filter(id=>active.filter(g=>g.account_ids.includes(id)).length>1),planning_overlap:previewModules.planning?false:null,history:snapshots.filter(s=>s.date>=g.created_on && Number(s.date.slice(0,4))<=year && !view(s).missing.length).map(s=>({basis:basis(s),observations:observe(g,s)}))}))};
+}
 /** k-th scheduled date counted from the anchor, clamped to month end (preview mirror of Rust). */
 function nth(first: string, interval: number, k: number) {
   const [y, m, d] = first.split('-').map(Number), total = m - 1 + interval * k, yy = y + Math.floor(total / 12), mm = total % 12;
@@ -499,6 +516,22 @@ const previewGroups = new Map<string, { assetId: string; planId: string; assetNa
 /** 预览最近删除中的关联订阅组（内存桩）。 */
 export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  if(command==='savings_goals_read') {
+    if(params.get('savings')==='error') throw {message:'虚构目标读取失败'};
+    if(!previewModules.wealth) throw {code:'MODULE_DISABLED',message:'账户与盘点已关闭'};
+    return {value:savingsRead(typeof args.year==='number'?args.year:now.getFullYear())};
+  }
+  if(command==='savings_goals_save') {
+    if(params.get('state')==='save-error') throw {message:'虚构保存失败，输入保留'};
+    const input=args.input as SavingsSave,old=savingsGoals.find(g=>g.id===input.id),id=input.id??crypto.randomUUID();
+    const next:SavingsGoal={id,fields:input.fields,account_ids:input.account_ids,position:old?.position??savingsGoals.length,revision:(old?.revision??0)+1,created_on:old?.created_on??todayIso,created_at:old?.created_at??new Date().toISOString(),updated_at:new Date().toISOString(),deleted_at:null};
+    savingsGoals=old?savingsGoals.map(g=>g.id===id?next:g):[...savingsGoals,next];receipts.set(input.request_id,id);planWriteVersion++;
+    if(params.get('state')==='unresolved') throw {message:'虚构响应丢失'};
+    return {value:next};
+  }
+  if(command==='savings_goals_trash') {
+    const input=args.input as SavingsTrash;savingsGoals=savingsGoals.map(g=>g.id===input.id?{...g,revision:g.revision+1,deleted_at:input.deleted?new Date().toISOString():null}:g);receipts.set(input.request_id,input.id);planWriteVersion++;return {value:null};
+  }
   const imported = financialImportPreview(command, args, generation); if (imported) return imported;
   // Explicit injected output only: preview never reimplements native investment profit.
   if (command === 'investment_review_list') return { value: { generation, records: [] } };
@@ -704,7 +737,14 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       expenses:read(true,'expenses',()=>({...expenseView(period.kind==='year'?period.year:null,period),period})),
       asset_review:read(previewModules.wealth,'wealth',()=>({generation,incomplete_count:w.points.filter(p=>!p.complete).length,intervals:w.points.filter(p=>p.complete&&p.compared_to).map(p=>({snapshot_id:p.snapshot_id,from:p.compared_to!,to:p.date,days:Math.round((Date.parse(p.date)-Date.parse(p.compared_to!))/86400000),status:p.scope_changed?'scope_changed' as const:'ok' as const,delta_nw_cents:p.change_cents,hpf_change_cents:p.hpf_change_cents,market_change_cents:p.market_change_cents??null}))})),
       history:read(previewModules.wealth&&previewModules.incomes,'history',()=>computeReview(w.points,planIncomes,planMarks,generation)),
-    };return {value};
+    };
+    if(args.view==='annual' && period.kind==='year') {
+      const start=`${String(period.year).padStart(4,'0')}-01-01`,end=`${String(period.year).padStart(4,'0')}-12-31`;
+      const last=w.points.filter(p=>p.complete&&p.date>=start&&p.date<=end).at(-1);
+      const first=w.points.filter(p=>p.complete&&p.date<start).at(-1)??w.points.find(p=>p.complete&&p.date>=start&&p.date<=end);
+      value.annual={year:period.year,years:{status:'ready',value:[...new Set([now.getFullYear(),...(recordYears.status==='ready'?recordYears.value:[]),...w.points.map(p=>Number(p.date.slice(0,4)))])].sort((a,b)=>a-b)},comparison:read(previewModules.wealth,'wealth',()=>first&&last&&first.date<last.date?wealthPreview('wealth_compare',{from:first.snapshot_id,to:last.snapshot_id})!.value as import('./wealth').Compare:null),scope_changed:!!first&&!!last&&w.points.some(p=>p.complete&&p.date>first.date&&p.date<=last.date&&p.scope_changed),savings:read(previewModules.wealth,'savings',()=>savingsRead(period.year)),planning:read(previewModules.wealth&&previewModules.planning,'planning',()=>[])};
+    }
+    return {value};
   }
   if (command === 'movement_accounts') return { value:{generation,accounts:accounts.map(a=>({id:a.id,name:a.fields.name,kind:a.fields.kind,selectable:!a.fields.closed_on}))} };
   if (command === 'movement_list') {
@@ -885,6 +925,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'wealth_account_save') {
     const input = args.input as AccountSave;
     if (receipts.has(input.request_id)) return { value: withLatest(accounts.find(a => a.id === receipts.get(input.request_id))!) };
+    if (input.fields.kind === 'property' && input.fields.counted) throw { code: 'PROPERTY_COUNTED', message: '房产仅单独记录估值，不能计入金融净资产' };
     const id = input.id ?? crypto.randomUUID(), old = accounts.find(a => a.id === id);
     const next: Account = { id, fields: input.fields, position: old?.position ?? accounts.length, revision: (old?.revision ?? 0) + 1, latest: null };
     accounts = old ? accounts.map(a => a.id === id ? next : a) : [...accounts, next];

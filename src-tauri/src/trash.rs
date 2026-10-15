@@ -472,6 +472,7 @@ impl Store {
                 "AND id NOT IN (SELECT member_id FROM link_trash_members m JOIN link_trash_groups g ON g.id=m.group_id WHERE g.status='deleted')";
             entries.extend(query_entries(c, "SELECT id,date,NULL,date,deleted_at,revision FROM fin_snapshots WHERE deleted_at IS NOT NULL", wealth("snapshot"))?);
             entries.extend(query_entries(c, "SELECT id,name,kind,NULL,deleted_at,revision FROM fin_accounts WHERE deleted_at IS NOT NULL", wealth("account"))?);
+            entries.extend(query_entries(c, "SELECT id,name,NULL,target_date,deleted_at,revision FROM savings_goals WHERE deleted_at IS NOT NULL", wealth("savings_goal"))?);
             entries.extend(query_entries(c, "SELECT id,title,category,date,deleted_at,revision FROM expenses WHERE deleted_at IS NOT NULL", wealth("expense"))?);
             entries.extend(query_entries(c, "SELECT id,date,NULL,date,deleted_at,revision FROM plan_income WHERE deleted_at IS NOT NULL", wealth("income"))?);
             entries.extend(query_entries(c, &format!("SELECT id,name,category,NULL,deleted_at,revision FROM recurring_plans WHERE deleted_at IS NOT NULL {group_skip}"), wealth("plan"))?);
@@ -658,6 +659,7 @@ fn kind_label(kind: &str) -> String {
         "wish" => "心愿",
         "snapshot" => "盘点",
         "account" => "账户",
+        "savings_goal" => "存钱目标",
         "expense" => "支出",
         "income" => "收入记录",
         "plan" => "周期计划",

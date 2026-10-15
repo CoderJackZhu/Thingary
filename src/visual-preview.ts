@@ -305,6 +305,55 @@ function autoBackupFixture(): PreviewAutoBackup {
   };
 }
 let previewAutoBackup = autoBackupFixture();
+// V3 backup-security fixtures: ?security= picks the policy state; the key
+// setup dialog flows through an in-memory session and never touches disk.
+type PreviewSecurity = { state: string; reason: string | null; paused: boolean; recipient_id: string | null; recipient_short: string | null; verified_at: string | null; changed_at: string | null; first_backup: { state: string; at?: string; message?: string } | null; setup_active: boolean };
+function backupSecurityFixture(): PreviewSecurity {
+  const state = params.get('security') ?? (params.get('autobackup') ? 'disabled' : 'unconfigured');
+  const base = { reason: null as string | null, recipient_id: null as string | null, recipient_short: null as string | null, verified_at: null as string | null, changed_at: null as string | null, first_backup: null as PreviewSecurity['first_backup'], setup_active: false };
+  switch (state) {
+    case 'disabled': return { ...base, state, paused: false };
+    case 'enabled': return { ...base, state, paused: false, recipient_id: 'a1b2c3d4'.repeat(8), recipient_short: 'a1b2c3d4', verified_at: when(120), changed_at: when(120), first_backup: { state: 'success', at: when(118) } };
+    case 'needs_attention': return { ...base, state, paused: true, reason: '安全配置不是有效的格式' };
+    case 'restore_review_required': return { ...base, state, paused: true };
+    case 'enabled-waiting': return { ...base, state: 'enabled', paused: false, recipient_id: 'a1b2c3d4'.repeat(8), recipient_short: 'a1b2c3d4', verified_at: when(2), changed_at: when(2), first_backup: { state: 'waiting' } };
+    case 'enabled-failed': return { ...base, state: 'enabled', paused: false, recipient_id: 'a1b2c3d4'.repeat(8), recipient_short: 'a1b2c3d4', verified_at: when(30), changed_at: when(30), first_backup: { state: 'failed', at: when(28), message: '模拟首份加密备份失败：磁盘空间不足' } };
+    default: return { ...base, state: 'unconfigured', paused: true };
+  }
+}
+let previewSecurity = backupSecurityFixture();
+let previewSetupSession: { session_id: string; recipient: string; recipient_id: string; recovery_key: string } | null = null;
+function backupSecurityPreview(command: string, args: Record<string, unknown>): unknown {
+  if (command === 'backup_security_status') return previewSecurity;
+  if (command === 'backup_security_choose_plaintext' || command === 'backup_security_disable') {
+    previewSecurity = { ...backupSecurityFixture(), state: 'disabled', paused: false, recipient_id: null, recipient_short: null, first_backup: null };
+    return previewSecurity;
+  }
+  if (command === 'backup_security_begin_setup') {
+    previewSetupSession = { session_id: 'preview-session', recipient: 'age1previewrecipient0000000000000000000000000000000000000000000000', recipient_id: 'e5f6a7b8'.repeat(8), recovery_key: 'AGE-SECRET-KEY-1PREVIEWFICTIONALKEYDONOTUSE00000000000000000000000000' };
+    return previewSetupSession;
+  }
+  if (command === 'backup_security_cancel_setup') { previewSetupSession = null; return null; }
+  if (command === 'backup_security_export_key') throw { message: '恢复密钥文件保存请在原生 App 中验证，此页面仅展示界面状态。' };
+  if (command === 'backup_security_confirm_setup' || command === 'backup_security_enable_from_key') {
+    previewSetupSession = null;
+    const ok = command === 'backup_security_enable_from_key' || /AGE-SECRET-KEY-1PREVIEW/.test(String(args.keyText ?? ''));
+    if (!ok) throw { code: 'CRYPTO_KEY', message: '重新输入的恢复密钥与本次生成的公钥不匹配' };
+    previewSecurity = { ...backupSecurityFixture(), state: 'enabled', paused: false, recipient_id: 'e5f6a7b8'.repeat(8), recipient_short: 'e5f6a7b8', verified_at: when(0), changed_at: when(0), first_backup: { state: 'success', at: when(0) } };
+    return previewSecurity;
+  }
+  if (command === 'inspect_backup') {
+    if (params.get('backup-file') === 'encrypted') return { path: '/Users/虚构用户/备份/物谱备份-preview.thingary.age', name: '物谱备份-preview.thingary.age', encrypted: true, token: 'preview-token', summary: null };
+    return null;
+  }
+  if (command === 'unlock_backup_session') {
+    if (!/AGE-SECRET-KEY-1PREVIEW/.test(String(args.keyText ?? ''))) throw { code: 'CRYPTO_AUTH', message: '无法解密，请核对恢复密钥或备份完整性' };
+    return { token: 'preview-token', summary: { hash: 'preview-fixture', created_at: when(120), schema: 20, assets: 9, deleted_assets: 0, wishes: 2, maintenances: 3, warranties: 4, accounts: 2, snapshots: 6, expenses: 5, plans: 2, payments: 12, virtual_assets: 3, files: 11 } };
+  }
+  if (command === 'cancel_backup_session') return null;
+  if (command === 'restore_backup_session') throw { message: '恢复流程请在原生 App 中验证，此页面仅展示界面状态。' };
+  throw { message: '此操作需在原生 App 验证：' + command };
+}
 function autoBackupPreview(command: string, args: Record<string, unknown>): unknown {
   if (command === 'auto_backup_status') return previewAutoBackup;
   if (command === 'auto_backup_set_enabled') { previewAutoBackup = { ...previewAutoBackup, enabled: !!args.enabled }; return previewAutoBackup; }
@@ -313,8 +362,10 @@ function autoBackupPreview(command: string, args: Record<string, unknown>): unkn
   if (command === 'auto_backup_choose_extra') throw { message: '额外备份位置选择请在原生 App 中验证，此页面仅展示界面状态。' };
   if (command === 'inspect_auto_backup') {
     const name = String(args.name ?? '');
-    if (!/^物谱自动备份-\d{4}-\d{2}-\d{2}\.thingary$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
-    return { path: `${previewAutoBackup.folder}/${name}`, name, summary: { hash: 'preview-fixture', created_at: when(120), schema: 20, assets: 9, deleted_assets: 0, wishes: 2, maintenances: 3, warranties: 4, accounts: 2, snapshots: 6, expenses: 5, plans: 2, payments: 12, virtual_assets: 3, files: 11 } };
+    if (!/^物谱自动备份-\d{4}-\d{2}-\d{2}(-\d{4}-[0-9a-f]{6})?\.thingary(\.age)?$/.test(name)) throw { code: 'AUTO_BACKUP_NAME', message: '不是有效的自动备份文件名' };
+    const encrypted = name.endsWith('.age');
+    if (encrypted) return { path: `${previewAutoBackup.folder}/${name}`, name, encrypted, token: 'preview-token', summary: null };
+    return { path: `${previewAutoBackup.folder}/${name}`, name, encrypted, token: 'preview-token', summary: { hash: 'preview-fixture', created_at: when(120), schema: 20, assets: 9, deleted_assets: 0, wishes: 2, maintenances: 3, warranties: 4, accounts: 2, snapshots: 6, expenses: 5, plans: 2, payments: 12, virtual_assets: 3, files: 11 } };
   }
   throw { message: '此操作需在原生 App 验证：' + command };
 }
@@ -496,6 +547,10 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:previewStarted};
   if (command === 'switch_demo' || command === 'reset_demo') throw {message:'浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。'};
   if (command.startsWith('auto_backup_') || command === 'inspect_auto_backup') return autoBackupPreview(command, args);
+  if (command === 'backup_task_begin') return crypto.randomUUID();
+  if (command === 'backup_task_cancel') return true;
+  if (command === 'backup_session_result') return null;
+  if (command.startsWith('backup_security_') || command === 'inspect_backup' || command === 'unlock_backup_session' || command === 'cancel_backup_session' || command === 'restore_backup_session') return backupSecurityPreview(command, args);
   if (command === 'taxonomy_snapshot') { if (params.has('taxonomy-error')) throw { message: '虚构分类读取失败，用于验证错误与重试。' }; return taxonomySnapshot(); }
   if (command === 'taxonomy_request') return taxonomyReceipts.has(String(args.request));
   if (command === 'change_taxonomy') {

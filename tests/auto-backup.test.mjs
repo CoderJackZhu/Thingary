@@ -42,7 +42,7 @@ const autoBackup = readFileSync(new URL('../src/AutoBackup.tsx', import.meta.url
 
 test('automatic backups live inside data management and reuse the shared confirm flow', () => {
   assert.match(autoBackup, /invoke<AutoBackupStatus>\('auto_backup_status'\)/);
-  assert.match(dataManagement, /invoke<Inspected>\('inspect_auto_backup', \{ name \}\)/);
+  assert.match(dataManagement, /invoke<Inspected>\('inspect_auto_backup', \{ name, taskId \}\)/);
   assert.match(dataManagement, /<AutoBackup generation=\{generation\}/);
   // Restoring an automatic backup is the same replace flow as a manual one.
   assert.match(dataManagement, /确认替换当前资料/);

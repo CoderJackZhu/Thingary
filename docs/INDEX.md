@@ -31,8 +31,10 @@
 
 ## 当前阶段
 
+当前候选源码新增[账户类型与存钱目标](USER_GUIDE.md#savings-goals)、[年度回顾](USER_GUIDE.md#annual-review)，资料结构升至 schema 42。[加密备份](USER_GUIDE.md#backup)也已集成，当前候选待 review 与最终统一验收；开发验证及 Windows 等未验边界见开发说明，不代表已公开发布或界面冻结。
+
 当前源码的财富入口为账户与盘点、收支记录、财务复盘；物品状态收在列表工具栏；规划以目标为单入口，页内分为目标、测算详情与试算。首次使用可从物品档案或账户盘点开始。五步设置（净投入可跳过）、明确净投入、资金／费用核对、实际发生接续、收入分类、投资区间核对、假设确认与资金流动已接入。当前报告是固定快照的只读预览，默认隐私、可复制摘要；不含基准／比较或原生 PDF。当前验证只维护在[开发说明](DEVELOPMENT.md#finance-workspace-validation)、[报告验证](DEVELOPMENT.md#current-report-validation)与[规划核心接入验收](DEVELOPMENT.md#planning-engine-validation)。
 
 Mac 0.0.6 已公开；当前源码为 0.0.7 候选，Windows 图片／文件、资料可靠性、交互、定时通知与 NSIS 已接入，目标 Windows 10 1809+／11 x64，尚未公开发布。源码接入不代表原生验收完成，当前检查和未验项见[Windows 开发验证](DEVELOPMENT.md#windows-validation)与[固定验收清单](WINDOWS_ACCEPTANCE.md)，候选安装见[使用指南](USER_GUIDE.md#windows-install)。
 
-收入覆盖声明、历史总额参考、普通金额目标、命名方案、冻结基准及完整决策报告尚未实施。现行行为以[业务规则](PRODUCT_RULES.md)、[架构说明](ARCHITECTURE.md)与[共用界面操作](VISUAL_SYSTEM_DESIGN.md)为准；分阶段设计与执行记录保存在维护者档案，不作为贡献或构建的前提。纯解析器与报告组件的工程入口见[解析器说明](../src-tauri/src/financial_import_parser/README.md)和[报告说明](../src/planning-report/README.md)。
+收入覆盖声明、历史总额参考、命名方案、冻结基准及完整决策报告尚未实施。现行行为以[业务规则](PRODUCT_RULES.md)、[架构说明](ARCHITECTURE.md)与[共用界面操作](VISUAL_SYSTEM_DESIGN.md)为准；分阶段设计与执行记录保存在维护者档案，不作为贡献或构建的前提。纯解析器与报告组件的工程入口见[解析器说明](../src-tauri/src/financial_import_parser/README.md)和[报告说明](../src/planning-report/README.md)。

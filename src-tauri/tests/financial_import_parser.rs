@@ -1101,3 +1101,16 @@ fn a_fatal_first_data_row_is_counted_as_error_not_an_empty_file() {
     assert!(has_code(&p, CODE_CSV_FORMAT));
     assert!(!has_code(&p, CODE_NO_DATA_ROWS));
 }
+
+#[test]
+fn new_account_kinds_require_explicit_property_exclusion() {
+    let header = "account_key,name,kind,enabled_from,disabled_from,counted,platform,note\n";
+    let csv=format!("{header}p,虚构房产,property,2026-01-01,,false,,\nn,虚构养老金,pension,2026-01-01,,true,,\ni,虚构保险,insurance,2026-01-01,,false,,\ng,虚构贵金属,precious_metal,2026-01-01,,true,,\n");
+    let p = run_ok(&request("accounts", &csv));
+    assert_eq!(p.counts.rows_valid, 4);
+    assert_eq!(p.counts.rows_error, 0);
+    let bad = csv.replace("property,2026-01-01,,false", "property,2026-01-01,,true");
+    let p = run_ok(&request("accounts", &bad));
+    assert_eq!(p.counts.rows_error, 1);
+    assert!(p.issues.iter().any(|i| i.code == CODE_BOOL_INVALID));
+}

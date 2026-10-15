@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import { submit as submitWealth, storedPending } from './wealth';
+import { writeSavingsGoal } from './savings-goals-port';
 import type { AssetRecord } from './asset';
 import type { CloseIntent } from './AssetEditor';
 import { usePageBar } from './topbar';
@@ -57,7 +58,8 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
         if (link.group) { setGroupRestore({ id: link.group.id, name: entryDisplay(entry).title, generation }); return; }
         if ((link.asset && link.plan) || link.candidates.length) { setRepairing({ side: entry.kind, id: entry.id }); return; }
       }
-      await submitWealth({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind: entry.kind, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, label: '恢复' + entryDisplay(entry).title }); setWealthNotice(`已恢复「${entryDisplay(entry).title}」。`); setRetry(n => n + 1); }
+      if (entry.kind === 'savings_goal') await writeSavingsGoal('savings_goals_trash', { request_id: crypto.randomUUID(), generation, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, '恢复存钱目标');
+      else await submitWealth({ command: 'wealth_trash', input: { request_id: crypto.randomUUID(), generation, kind: entry.kind, id: entry.id, expected_revision: entry.asset_revision, deleted: false }, label: '恢复' + entryDisplay(entry).title }); setWealthNotice(`已恢复「${entryDisplay(entry).title}」。`); setRetry(n => n + 1); }
     catch (e) { setWealthNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setWealthBusy(false); }
   }
@@ -77,7 +79,7 @@ export function TrashPanel({ version, search, onSearch, onRestoreAsset, onRestor
   return <section className="trash-panel" aria-label="最近删除">
     <div className="trash-header"><div className="segmented trash-filter" role="group" aria-label="按类型筛选最近删除">
       {trashFilters.map(([key, label]) => <button key={key} aria-pressed={filter === key} onClick={() => { setFilter(key); setOffset(0); }}>{label}</button>)}
-    </div><Info text="误删的物品、维护、保障记录、心愿以及盘点、账户、支出和周期费用都会在这里，可以随时找回。资料与图片会保留，不会自动清空；只有永久删除才会真正移除。"/><span className="trash-spacer"/>
+    </div><Info text="误删的物品、维护、保障记录、心愿以及盘点、账户、存钱目标、支出和周期费用都会在这里，可以随时找回。资料与图片会保留，不会自动清空；只有永久删除才会真正移除。"/><span className="trash-spacer"/>
       {!!page?.total && filter === 'all' && (armed === 'all' ? <button className="primary danger" disabled={wealthBusy} onClick={() => { setArmed(null); setClearing(true); }}>确认永久删除全部 {page.total} 项</button> : <button disabled={wealthBusy} onClick={() => setArmed('all')}>清空最近删除…</button>)}</div>
     {wealthNotice && <p className="notice" role="status">{wealthNotice}</p>}
     {error ? <div className="empty" role="alert"><h2>最近删除读取失败</h2><p>{error}</p><button onClick={() => setRetry(n => n + 1)}>重新读取</button></div> : loading ? <p role="status">正在读取最近删除…</p> : !page?.items.length ? (search.trim() ? <div className="empty"><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button>{filter !== 'all' && <button onClick={() => { onSearch(''); setFilter('all'); setOffset(0); }}>重置筛选</button>}</div> : <div className="empty"><h2>最近删除是空的</h2><p>{filter === 'all' ? '删除的物品和记录会出现在这里。' : '这一类目前没有删除项。'}</p></div>) : <>

@@ -13,7 +13,7 @@ export type FinanceRoute =
   }
   | {
     page: 'review';
-    view: 'period' | 'compare';
+    view: 'period' | 'compare' | 'annual';
     pair?: FinanceSnapshotPair;
     toSnapshotId?: string;
     investmentAccountIds?: string[];
