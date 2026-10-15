@@ -309,7 +309,7 @@ let previewAutoBackup = autoBackupFixture();
 // setup dialog flows through an in-memory session and never touches disk.
 type PreviewSecurity = { state: string; reason: string | null; paused: boolean; recipient_id: string | null; recipient_short: string | null; verified_at: string | null; changed_at: string | null; first_backup: { state: string; at?: string; message?: string } | null; setup_active: boolean };
 function backupSecurityFixture(): PreviewSecurity {
-  const state = params.get('security') ?? (params.get('autobackup') ? 'disabled' : 'unconfigured');
+  const state = params.get('security') ?? 'disabled';
   const base = { reason: null as string | null, recipient_id: null as string | null, recipient_short: null as string | null, verified_at: null as string | null, changed_at: null as string | null, first_backup: null as PreviewSecurity['first_backup'], setup_active: false };
   switch (state) {
     case 'disabled': return { ...base, state, paused: false };

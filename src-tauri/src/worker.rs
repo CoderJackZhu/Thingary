@@ -238,6 +238,19 @@ impl Worker {
                     // Restart cleanup: staging holds at most interrupted
                     // plaintext builds; sessions themselves die with memory.
                     backup_security::clean_staging(&real.root);
+                    // A first run or an upgrade keeps plaintext automatic backups
+                    // running, as before; the user may turn encryption on later.
+                    // Writing the choice down means a policy file that goes
+                    // missing afterwards is never mistaken for it: that case
+                    // still reads as unconfigured and pauses backups. If the
+                    // write fails, the file stays missing and backups stay paused.
+                    if !backup_security::policy_path(&real.root).exists() {
+                        let initial = backup_security::Policy {
+                            state: backup_security::STATE_DISABLED.into(),
+                            ..backup_security::Policy::default()
+                        };
+                        let _ = initial.save(&real.root);
+                    }
                     Ok(Libraries {
                         real,
                         demo,

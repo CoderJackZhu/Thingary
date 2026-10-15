@@ -44,12 +44,15 @@ fn dated_name(date: &str) -> String {
     format!("物谱自动备份-{date}.thingary")
 }
 
-/// V3: a fresh machine has no backup-security policy and every automatic
-/// backup stays paused until the user explicitly chooses. Most of these
-/// tests exercise the chosen-plaintext behavior that V3 inherits.
+/// V3: a fresh machine starts on the plaintext default and automatic backups
+/// run; choosing plaintext again is a no-op that these tests keep as the
+/// explicit baseline.
 fn choose_plaintext(worker: &Worker) {
     let status = worker.backup_security_status().unwrap();
-    assert!(status.paused, "a fresh machine must start paused");
+    assert!(
+        !status.paused,
+        "a fresh machine starts on the plaintext default"
+    );
     worker.backup_security_choose_plaintext().unwrap();
 }
 fn only_backup_name(dir: &Path) -> String {
@@ -118,13 +121,32 @@ fn real_writes_mark_the_sample_never_does() {
     assert_eq!(auto_backup::list(&auto_backup::backup_dir(&root)).len(), 1);
 }
 
-/// C01: without an explicit choice, automatic backups stay paused and nothing
-/// is written, pruned or copied — even with pending changes.
+/// A first run keeps plaintext automatic backups running; encryption is opt-in.
+#[test]
+fn a_fresh_library_keeps_plaintext_automatic_backups_running() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path().join("library");
+    let worker = Worker::start(root.clone()).unwrap();
+    assert_eq!(
+        worker.backup_security_status().unwrap().state,
+        thingary_lib::backup_security::STATE_DISABLED
+    );
+    save_real_asset(&worker, "虚构相机");
+    assert!(matches!(
+        worker.auto_backup_tick(&immediate(&real_today())).unwrap(),
+        TickOutcome::BackedUp(_)
+    ));
+}
+
+/// C01: when the policy file has gone missing (never mistaken for the default),
+/// automatic backups stay paused and nothing is written, pruned or copied —
+/// even with pending changes.
 #[test]
 fn an_unconfigured_policy_pauses_every_automatic_backup() {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().join("library");
     let worker = Worker::start(root.clone()).unwrap();
+    std::fs::remove_file(thingary_lib::backup_security::policy_path(&root)).unwrap();
     save_real_asset(&worker, "虚构相机");
     assert!(auto_backup::marker_path(&root).exists());
     assert!(matches!(

@@ -47,7 +47,7 @@ fn schema42_goals_and_annual_facts_survive_standard_age_decryption_and_session_r
         .unwrap();
     assert_eq!(
         worker.backup_security_status().unwrap().state,
-        backup_security::STATE_UNCONFIGURED
+        backup_security::STATE_DISABLED
     );
     let key = worker.backup_security_begin_setup().unwrap();
     worker

@@ -93,13 +93,10 @@ fn key_setup_verification_gates_the_enabled_policy() {
         .backup_security_confirm_setup(started.session_id.clone(), other)
         .unwrap_err();
     assert_eq!(wrong.code, "CRYPTO_KEY");
+    // A fresh library starts on the plaintext default; a wrong key changes nothing.
     let status = worker.backup_security_status().unwrap();
-    assert_eq!(status.state, backup_security::STATE_UNCONFIGURED);
-    assert!(matches!(
-        worker.auto_backup_tick(&immediate()).unwrap(),
-        TickOutcome::Paused(_)
-    ));
-    assert!(auto_backup::list(&auto_backup::backup_dir(&root)).is_empty());
+    assert_eq!(status.state, backup_security::STATE_DISABLED);
+    assert!(status.recipient_id.is_none());
 
     // Cancel drops the session; its id can no longer be confirmed.
     worker
@@ -212,6 +209,8 @@ fn manual_export_follows_the_policy() {
     let root = tmp.path().join("library");
     let worker = Worker::start(root.clone()).unwrap();
     save_asset(&worker, "虚构相机");
+    // A missing policy file is not the plaintext default: it blocks until chosen.
+    std::fs::remove_file(backup_security::policy_path(&root)).unwrap();
     let blocked = worker.backup_export_plan(false).unwrap();
     assert!(blocked.blocked_reason.is_some());
     let err = worker
