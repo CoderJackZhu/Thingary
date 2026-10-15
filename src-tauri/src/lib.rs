@@ -418,6 +418,7 @@ pub fn run() {
             commands::financial_import_cancel,
             commands::financial_import_progress,
             commands::commit_item_workbook,
+            commands::item_import_receipt,
             commands::saved_request,
             commands::set_editing,
             commands::set_library_busy,

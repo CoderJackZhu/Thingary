@@ -4,7 +4,7 @@ import { errorMessage } from './asset';
 import {Icon} from './AssetViews';
 import { AutoBackup } from './AutoBackup';
 import { SupportLink } from './SupportLink';
-import { pendingKey, storedPending } from './wealth';
+import { pendingKey, storedPending, code } from './wealth';
 import { FinancialImportDialog } from './FinancialImportDialog';
 import { preserveImportReceipt } from './financial-import';
 
@@ -12,7 +12,21 @@ type Summary = { planning_conditions_reset?: boolean; hash: string; created_at: 
 type Inspected = { path: string; name: string; summary: Summary };
 type Note = { line: number; name: string; reason: string };
 type CsvPreview = { path: string; name: string; preview: { hash: string; valid: number; invalid: Note[]; duplicates: Note[]; new_categories: string[]; new_channels: string[] } };
+type ImportDone = { imported: number; skipped_duplicates: number; invalid: number };
 type Task = { kind: 'idle' } | { kind: 'running'; label: string } | { kind: 'done'; text: string } | { kind: 'error'; text: string };
+/** An item import whose reply was lost stays stored until its original request is checked. */
+const itemImportPendingKey = 'thingary.item-import-pending.v1';
+type ItemImportPending = { request_id: string; generation: string; hash: string; include_duplicates: boolean };
+export function storedItemImport(): ItemImportPending | null {
+  try { const p = JSON.parse(localStorage.getItem(itemImportPendingKey) || 'null'); if (p && typeof p.request_id === 'string' && typeof p.generation === 'string' && typeof p.hash === 'string' && typeof p.include_duplicates === 'boolean') return p; } catch { /* unreadable is ignored */ }
+  return null;
+}
+const clearItemImport = () => { try { localStorage.removeItem(itemImportPendingKey); } catch { /* nothing to clear */ } };
+const importSummary = (done: ImportDone) => `已导入 ${done.imported} 件物品` + (done.skipped_duplicates ? `，跳过疑似重复 ${done.skipped_duplicates} 行` : '') + (done.invalid ? `，${done.invalid} 行无效未导入` : '') + '。';
+/** Read-only: a stored reply confirms the write; null is a definite not-committed for this dataset. */
+async function itemReceipt(input: ItemImportPending): Promise<ImportDone | null> {
+  return invoke<ImportDone | null>('item_import_receipt', { input });
+}
 
 /** Local work belongs to one generation; restore cannot reapply an old preview. */
 export function localWorkKeys() {
@@ -29,9 +43,12 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
   const [, refreshPending] = useState(0);
   const savedPending = storedPending();
   const financePending = savedPending?.command === 'financial_import_commit' ? savedPending : null;
+  // Item imports keep the same rule: a lost reply is checked by its original request.
+  const [, refreshItemPending] = useState(0);
+  const itemPending = storedItemImport();
   const busy = task.kind === 'running';
-  const operationLocked = busy || !!candidate || !!sheet || !!financeImport || !!savedPending;
-  function canStart() { return !busy && !candidate && !sheet && !financeImport && !blocked && !demo && !!generation && !storedPending(); }
+  const operationLocked = busy || !!candidate || !!sheet || !!financeImport || !!savedPending || !!itemPending;
+  function canStart() { return !busy && !candidate && !sheet && !financeImport && !blocked && !demo && !!generation && !storedPending() && !storedItemImport(); }
   function openFinance() {
     if (busy || candidate || sheet || financeImport) return;
     const pending = storedPending();
@@ -41,7 +58,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     } else if (canStart()) setFinanceImport({ generation: generation!, recoveryOnly: false });
   }
   useEffect(() => {
-    const refresh = () => refreshPending(n => n + 1);
+    const refresh = () => { refreshPending(n => n + 1); refreshItemPending(n => n + 1); };
     window.addEventListener('thingary-restored', refresh);
     window.addEventListener('storage', refresh);
     return () => { window.removeEventListener('thingary-restored', refresh); window.removeEventListener('storage', refresh); };
@@ -69,14 +86,50 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     } catch (e) { setTask({ kind: 'error', text: '这个表格不能导入，当前资料未改变：' + errorMessage(e) }); }
   }
   async function commitCsv() {
-    if (!sheet || !generation || busy || demo || financeImport || candidate || storedPending()) return;
+    if (!sheet || !generation || busy || demo || financeImport || candidate || storedPending() || storedItemImport()) return;
+    const pending: ItemImportPending = { request_id: importId, generation, hash: sheet.preview.hash, include_duplicates: withDuplicates };
+    try { localStorage.setItem(itemImportPendingKey, JSON.stringify(pending)); }
+    catch { setTask({ kind: 'error', text: '无法记录本次请求，尚未导入，请检查可用空间后重试。' }); return; }
+    refreshItemPending(n => n + 1);
     setTask({ kind: 'running', label: '正在导入…' });
     try {
-      const done = await invoke<{ imported: number; skipped_duplicates: number; invalid: number }>('commit_item_workbook', { path: sheet.path, input: { request_id: importId, generation, hash: sheet.preview.hash, include_duplicates: withDuplicates } });
+      const done = await invoke<ImportDone>('commit_item_workbook', { path: sheet.path, input: pending });
+      clearItemImport(); refreshItemPending(n => n + 1);
       setSheet(null);
-      setTask({ kind: 'done', text: `已导入 ${done.imported} 件物品` + (done.skipped_duplicates ? `，跳过疑似重复 ${done.skipped_duplicates} 行` : '') + (done.invalid ? `，${done.invalid} 行无效未导入` : '') + '。' });
+      setTask({ kind: 'done', text: importSummary(done) });
       onImported();
-    } catch (e) { setTask({ kind: 'error', text: '导入未完成，当前资料保持原样：' + errorMessage(e) }); }
+    } catch (e) {
+      // A definite backend error wrote nothing; a lost reply is told apart by checking the original request.
+      const checked = await itemReceipt(pending).catch(() => undefined);
+      if (checked) {
+        clearItemImport(); refreshItemPending(n => n + 1);
+        setSheet(null);
+        setTask({ kind: 'done', text: `已按原请求核对：${importSummary(checked)}` });
+        onImported();
+      } else if (checked === null) {
+        clearItemImport(); refreshItemPending(n => n + 1); window.dispatchEvent(new Event('thingary-restored'));
+        setTask({ kind: 'error', text: '导入未提交，资料未改变：' + errorMessage(e) });
+      } else {
+        setTask({ kind: 'error', text: '导入结果未知：' + errorMessage(e) + ' 原请求已保留，请点「核对物品导入结果」，不要重新选择同一文件重导。' });
+      }
+    }
+  }
+  async function verifyItemImport() {
+    const pending = storedItemImport();
+    if (!pending || busy) return;
+    setTask({ kind: 'running', label: '正在按原请求核对上次物品导入…' });
+    try {
+      const checked = await itemReceipt(pending);
+      clearItemImport(); refreshItemPending(n => n + 1); window.dispatchEvent(new Event('thingary-restored'));
+      if (checked) {
+        setTask({ kind: 'done', text: `已按原请求核对：${importSummary(checked)}` });
+        onImported();
+      } else {
+        setTask({ kind: 'done', text: '核对完成：该请求未提交，资料未改变。可重新选择表格导入。' });
+      }
+    } catch (e) {
+      setTask({ kind: 'error', text: code(e) === 'STALE_DATASET' ? '资料已切换；原请求元数据仍保留，请回到原资料库核对，不能在新库重导同一文件。' : '暂时无法核对，原请求已保留：' + errorMessage(e) });
+    }
   }
   async function backup() {
     if (!canStart()) return;
@@ -88,7 +141,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
   }
   async function exportAll() {
     if (!canStart()) return;
-    setCandidate(null); setTask({ kind: 'running', label: '正在导出全部表格…' });
+    setCandidate(null); setTask({ kind: 'running', label: '正在导出资料表格…' });
     try {
       const done = await invoke<{ path: string; files: { name: string; rows: number }[] } | null>('export_workbook');
       setTask(done ? { kind: 'done', text: `已导出到 Excel「${done.path}」：${done.files.map(f => `${f.name} ${f.rows} 行`).join('、')}。` } : { kind: 'idle' });
@@ -114,11 +167,11 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     setTask({ kind: 'running', label: '正在恢复：先保护当前资料，再整体切换…' });
     try {
       await invoke<string>('restore_backup', { path: candidate.path, hash: candidate.summary.hash, generation });
-      for (const key of localWorkKeys()) { try { if (key === pendingKey && preserveImportReceipt(localStorage.getItem(key))) continue; localStorage.removeItem(key); } catch { /* reload still invalidates by generation */ } }
+      for (const key of localWorkKeys()) { try { if (key === pendingKey && preserveImportReceipt(localStorage.getItem(key))) continue; if (key === itemImportPendingKey) continue; localStorage.removeItem(key); } catch { /* reload still invalidates by generation */ } }
       location.reload();
     } catch (e) { setCandidate(null); setTask({ kind: 'error', text: '恢复未完成，当前资料保持原样：' + errorMessage(e) }); }
   }
-  // Ordinary drafts are cleared; unknown financial import request metadata remains for read-only receipt verification.
+  // Ordinary drafts are cleared; unknown import request metadata remains for read-only receipt verification.
   const pending = localWorkKeys().filter(k => /draft|request|abandon|upload/.test(k)).length;
   return <section className="ui-card ui-content data-management" aria-labelledby="data-heading">
     <div className="data-heading"><div><p className="eyebrow">本地资料</p><h2 id="data-heading" tabIndex={-1}>数据管理</h2></div><span>主资料保存在本机</span></div>
@@ -126,13 +179,13 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
     <div className="data-actions">
       <div className="data-action"><span className="data-action-icon"><Icon name="archive"/></span><div className="data-action-copy"><h3>完整备份</h3><p>保存物品、财富记录和图片等全部资料。</p></div><button disabled={operationLocked || blocked || demo} onClick={() => void backup()}>备份…</button></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="back"/></span><div className="data-action-copy"><h3>从备份恢复</h3><p>先检查文件，再确认是否替换当前资料。</p></div><button disabled={operationLocked || blocked || demo || !generation} onClick={() => void inspect()}>选择…</button></div>
-      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出全部表格（Excel）</h3><p>一个 Excel 文件，多张工作表：物品、账户、盘点、支出、周期费用和收入；不能用于恢复。</p></div><button disabled={operationLocked || blocked || demo} onClick={() => void exportAll()}>导出…</button></div>
-      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导入物品表（Excel）</h3><p>把已有表格搬进来，只新增、不覆盖；导入前先预览。</p></div><span className="data-action-buttons"><button disabled={operationLocked || blocked || demo} onClick={() => void saveTemplate()}>下载模板…</button><button disabled={operationLocked || blocked || demo || !generation} onClick={() => void inspectCsv()}>选择表格…</button></span></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导出资料表格（Excel）</h3><p>一个 Excel 文件，多张工作表。物品、账户、完整盘点与月度收入可在对应入口导入，其余仅供查看分析；不能用于恢复。</p></div><button disabled={operationLocked || blocked || demo} onClick={() => void exportAll()}>导出…</button></div>
+      <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导入物品表（Excel）</h3><p>把已有表格搬进来，只新增物品、不修改已有记录，不能用于批量修改；导入前先预览。</p></div>{itemPending ? <button disabled={busy} onClick={() => void verifyItemImport()}>核对物品导入结果</button> : <span className="data-action-buttons"><button disabled={operationLocked || blocked || demo} onClick={() => void saveTemplate()}>下载模板…</button><button disabled={operationLocked || blocked || demo || !generation} onClick={() => void inspectCsv()}>选择表格…</button></span>}</div>
       <div className="data-action"><span className="data-action-icon"><Icon name="list"/></span><div className="data-action-copy"><h3>导入金融历史（Excel）</h3><p>账户、完整盘点与月度收入共用导入向导；模板与虚构样例在向导内。日常记收入请到收支记录。</p></div><button disabled={financePending ? busy || !!candidate || !!sheet || !!financeImport : operationLocked || blocked || demo || !generation} onClick={openFinance}>{financePending ? '核对金融导入回执' : '选择金融历史…'}</button></div>
       <div className="data-action"><span className="data-action-icon"><Icon name="trash"/></span><div className="data-action-copy"><h3>最近删除</h3><p>找回误删的物品、心愿、维护、保障、账户、盘点、支出、周期费用与虚拟资产。</p></div><button id="settings-open-trash" disabled={operationLocked || blocked} onClick={onTrash}>打开</button></div>
     </div>
-    <AutoBackup generation={generation} demo={demo} blocked={blocked || !!savedPending} busy={busy || !!sheet || !!financeImport} candidateOpen={!!candidate} onInspect={name => void inspectAuto(name)}/>
-    <details className="data-explainer"><summary>备份、导出导入和最近删除有什么区别？</summary><p>完整备份包含物品、维护、保障、心愿、账户与盘点、重要支出与退款、周期计划与付款、虚拟资产、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p><p>自动备份在资料有改动后自动生成，保留最近 7 份，放在本机资料目录旁；与手动备份格式相同，都可用于恢复。额外备份位置由你选择，可保存副本到云盘或外接盘。</p><p>导出全部表格保存为一个 .xlsx 文件，各类数据分工作表；物品、账户、完整盘点与月度收入可在对应入口预览导入，盘点记录、重要支出与周期费用供分析。文字、编号、日期和金额按文本保存，空金额仍为未知。Excel 不能用于恢复全部资料。最近删除仅用于找回误删记录。</p><p>导入物品表只新增物品，不修改或合并已有物品；只有名称必填，状态为已退役须填退役日期，已售出须填售出日期与售价。导出工作簿的「物品」工作表也可以直接导入；金融历史入口读取「账户」「完整盘点」「月度收入」。整体搬家或回到以前请用完整备份。</p></details>
+    <AutoBackup generation={generation} demo={demo} blocked={blocked || !!savedPending || !!itemPending} busy={busy || !!sheet || !!financeImport} candidateOpen={!!candidate} onInspect={name => void inspectAuto(name)}/>
+    <details className="data-explainer"><summary>备份、导出导入和最近删除有什么区别？</summary><p>完整备份包含物品、维护、保障、心愿、账户与盘点、重要支出与退款、周期计划与付款、虚拟资产、分类渠道、素材、最近删除及托管原图，可用于恢复。恢复前会检查所选备份，并保护当前资料。</p><p>自动备份在资料有改动后自动生成，保留最近 7 份，放在本机资料目录旁；与手动备份格式相同，都可用于恢复。额外备份位置由你选择，可保存副本到云盘或外接盘。</p><p>导出资料表格保存为一个 .xlsx 文件，各类数据分工作表；其中物品、账户、完整盘点与月度收入可在对应入口预览导入，只有部分工作表支持导入，盘点记录、重要支出与周期费用等其余表仅供查看分析。文字、编号、日期和金额按文本保存，空金额仍为未知。Excel 不能用于恢复全部资料。最近删除仅用于找回误删记录。</p><p>导入物品表只新增物品，不修改或合并已有物品，不能用于批量修改；只有名称必填，状态为已退役须填退役日期，已售出须填售出日期与售价。名称、购入日期和购入价与已有物品或文件内其他行相同会判为疑似重复，默认跳过。导出工作簿的「物品」工作表也可以直接导入；金融历史入口读取「账户」「完整盘点」「月度收入」。物品或金融导入提交后结果未知时，原请求都会保留，点「核对物品导入结果」或「核对金融导入回执」只核对原请求，确认未提交后才重新导入。整体搬家或回到以前请用完整备份。</p></details>
     {blocked && <p className="notice">请先处理正在编辑或待核对的内容，再进行备份或恢复。</p>}
     {task.kind === 'running' && <p role="status" className="notice">{task.label}</p>}
     {task.kind === 'done' && <p role="status" className="notice">{task.text}</p>}
@@ -143,7 +196,7 @@ export function DataManagement({ generation, blocked, demo, onTrash, onBusyChang
       <strong>用「{candidate.name}」替换当前全部资料？</strong>
       <p>备份时间 {new Date(candidate.summary.created_at).toLocaleString('zh-CN')} · 格式版本 {candidate.summary.schema}</p>
       <p>物品 {candidate.summary.assets} 件（其中最近删除 {candidate.summary.deleted_assets}）· 心愿 {candidate.summary.wishes} 条 · 维护 {candidate.summary.maintenances} 条 · 保障 {candidate.summary.warranties} 份 · 账户 {candidate.summary.accounts} 个 · 盘点 {candidate.summary.snapshots} 次 · 支出 {candidate.summary.expenses} 笔 · 周期计划 {candidate.summary.plans} 项 · 周期付款 {candidate.summary.payments} 条 · 虚拟资产 {candidate.summary.virtual_assets} 件 · 导入映射 {candidate.summary.import_mappings ?? 0} 条 · 导入回执 {candidate.summary.import_receipts ?? 0} 份 · 原图 {candidate.summary.files} 个</p>
-      <p className="muted">检查已通过。当前资料会先保存保护副本，失败时保持原样。{pending > 0 && `本机还有 ${pending} 份属于当前资料的草稿或待核对操作，恢复后旧输入失效；结果未知的金融导入请求仍保留供核对。`}</p>
+      <p className="muted">检查已通过。当前资料会先保存保护副本，失败时保持原样。{pending > 0 && `本机还有 ${pending} 份属于当前资料的草稿或待核对操作，恢复后旧输入失效；结果未知的导入请求仍保留供核对。`}</p>
       {candidate.summary.planning_conditions_reset && <p className="notice">恢复时会保留物品、账户、盘点及实际发生记录；旧退休政策资料会移除，规划时间和未来收入请重新确认。</p>}
       <div className="actions"><button disabled={busy} onClick={() => setCandidate(null)}>取消</button><button className="primary danger" disabled={busy} onClick={() => void restore()}>确认替换当前资料</button></div>
     </div>}
@@ -163,9 +216,9 @@ function CsvConfirm({ sheet, busy, withDuplicates, onDuplicates, onCancel, onCon
     {p.new_categories.length > 0 && <p>将新建分类：{p.new_categories.join('、')}</p>}
     {p.new_channels.length > 0 && <p>将新建购买渠道：{p.new_channels.join('、')}</p>}
     <NoteList title="有问题的行" notes={p.invalid}/>
-    <NoteList title="疑似重复（名称、购入日期和购入价与已有物品相同）" notes={p.duplicates}/>
+    <NoteList title="疑似重复（名称、购入日期和购入价与已有物品或文件内其他行相同）" notes={p.duplicates}/>
     {p.duplicates.length > 0 && <label className="csv-duplicates"><input type="checkbox" checked={withDuplicates} disabled={busy} onChange={e => onDuplicates(e.target.checked)}/>疑似重复的行也导入</label>}
-    <p className="muted">全部成功才写入；失败时资料保持原样。</p>
+    <p className="muted">全部成功才写入；确定失败时资料不变，结果未知时按原请求核对。</p>
     <div className="actions"><button disabled={busy} onClick={onCancel}>取消</button><button className="primary" disabled={busy || count === 0} onClick={onConfirm}>{count === 0 ? '没有可导入的行' : `导入 ${count} 件`}</button></div>
   </div>;
 }

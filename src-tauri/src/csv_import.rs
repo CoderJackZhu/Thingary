@@ -11,7 +11,10 @@ use crate::{
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, path::Path};
+use std::{
+    collections::{BTreeSet, HashSet},
+    path::Path,
+};
 
 pub const MAX_BYTES: usize = 5 * 1024 * 1024;
 const MAX_ROWS: usize = 5000;
@@ -300,6 +303,9 @@ fn check(c: &Connection, bytes: &[u8], today: &str, guarded: bool) -> Result<Che
         },
     };
     let (mut cats, mut chans) = (BTreeSet::new(), BTreeSet::new());
+    // Dedup also covers repeats inside this file, so an empty library cannot
+    // import the same row twice.
+    let mut seen: HashSet<(String, Option<String>, Option<i64>)> = HashSet::new();
     for (line, cells) in data {
         let cell = |label: &str| {
             columns
@@ -321,16 +327,22 @@ fn check(c: &Connection, bytes: &[u8], today: &str, guarded: bool) -> Result<Che
                 reason,
             }),
             Ok(r) => {
-                let dup: bool = c.query_row(
-                    "SELECT EXISTS(SELECT 1 FROM assets WHERE deleted_at IS NULL AND name=?1 AND purchase_date IS ?2 AND price_cents IS ?3)",
-                    params![r.name, r.purchase, r.price],
-                    |x| x.get(0),
-                )?;
+                let in_file = !seen.insert((r.name.clone(), r.purchase.clone(), r.price));
+                let dup: bool = in_file
+                    || c.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM assets WHERE deleted_at IS NULL AND name=?1 AND purchase_date IS ?2 AND price_cents IS ?3)",
+                        params![r.name, r.purchase, r.price],
+                        |x| x.get(0),
+                    )?;
                 if dup {
                     out.preview.duplicates.push(RowNote {
                         line,
                         name: r.name.clone(),
-                        reason: "名称、购入日期和购入价与已有物品相同".into(),
+                        reason: if in_file {
+                            "名称、购入日期和购入价与文件内其他行相同".into()
+                        } else {
+                            "名称、购入日期和购入价与已有物品相同".into()
+                        },
                     });
                 }
                 for (set, kind, v) in [
@@ -442,6 +454,31 @@ impl Store {
     }
     pub fn import_csv(&mut self, bytes: &[u8], input: &Commit, today: &str) -> Result<Done> {
         self.import_table(bytes, input, today, true)
+    }
+    /// Read-only check for an item import whose reply was lost. The stored
+    /// reply is tied to this exact request by fingerprint; `None` means the
+    /// request never committed, which is a definite answer for this dataset.
+    pub fn item_import_receipt(&self, input: &Commit) -> Result<Option<Done>> {
+        self.check_generation(&input.generation)?;
+        uuid::Uuid::parse_str(&input.request_id)
+            .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
+        let fingerprint =
+            |kind: &str| -> Result<String> { Ok(digest(&serde_json::to_vec(&(kind, input))?)) };
+        let Some((prior, result)) = self
+            .conn()?
+            .query_row(
+                "SELECT fingerprint,result FROM requests WHERE id=?1",
+                [&input.request_id],
+                |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+            )
+            .optional()?
+        else {
+            return Ok(None);
+        };
+        if prior != fingerprint("csv-import")? && prior != fingerprint("xlsx-import")? {
+            return Err(Error::new("REQUEST_CONFLICT", "此请求标识已用于不同内容"));
+        }
+        Ok(Some(serde_json::from_str(&result)?))
     }
     fn import_table(
         &mut self,

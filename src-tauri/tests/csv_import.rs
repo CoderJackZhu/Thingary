@@ -159,6 +159,63 @@ fn d21_import_is_all_or_nothing_and_checks_the_file() {
 }
 
 #[test]
+fn duplicate_rows_inside_one_file_are_flagged_like_library_duplicates() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let csv = "名称,购入价（元）,购入日期\n台灯,100,2026-01-01\n台灯,100,2026-01-01\n台灯,,\n";
+    let p = s.preview_csv_import(csv.as_bytes(), TODAY).unwrap();
+    assert_eq!(p.valid, 3);
+    assert_eq!(
+        p.duplicates.len(),
+        1,
+        "only the repeated row, not the first"
+    );
+    assert_eq!(p.duplicates[0].line, 3);
+    assert!(p.duplicates[0].reason.contains("文件内"));
+    // Default skips the in-file repeat; forcing it imports both rows.
+    assert_eq!(import(&mut s, csv, false).unwrap().imported, 2);
+    assert_eq!(s.count().unwrap(), 2);
+    let csv = "名称,购入价（元）,购入日期\n台灯,100,2026-01-01\n台灯,100,2026-01-01\n";
+    let input = commit(&s, csv.as_bytes(), true);
+    assert_eq!(
+        s.import_csv(csv.as_bytes(), &input, TODAY)
+            .unwrap()
+            .imported,
+        2
+    );
+    assert_eq!(s.count().unwrap(), 4);
+}
+
+#[test]
+fn item_import_receipt_reports_only_the_original_request() {
+    let root = tempfile::tempdir().unwrap();
+    let mut s = Store::open(root.path()).unwrap();
+    let csv = "名称\n甲\n";
+    let input = commit(&s, csv.as_bytes(), false);
+    assert!(
+        s.item_import_receipt(&input).unwrap().is_none(),
+        "not committed yet"
+    );
+    let done = s.import_csv(csv.as_bytes(), &input, TODAY).unwrap();
+    assert_eq!(s.item_import_receipt(&input).unwrap().unwrap(), done);
+    let mut other = input.clone();
+    other.include_duplicates = true;
+    assert_eq!(
+        s.item_import_receipt(&other).unwrap_err().code,
+        "REQUEST_CONFLICT"
+    );
+    let mut stale = input.clone();
+    stale.generation = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        s.item_import_receipt(&stale).unwrap_err().code,
+        "STALE_DATASET"
+    );
+    let mut unknown = input.clone();
+    unknown.request_id = uuid::Uuid::new_v4().to_string();
+    assert!(s.item_import_receipt(&unknown).unwrap().is_none());
+}
+
+#[test]
 fn imported_sales_keep_backup_valid_and_old_libraries_are_repaired() {
     let root = tempfile::tempdir().unwrap();
     let mut s = Store::open(root.path()).unwrap();

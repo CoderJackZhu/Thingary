@@ -94,15 +94,15 @@ pub fn write_workbook(path: &Path, sheets: &[(&str, Vec<Vec<String>>)]) -> Resul
 fn instructions() -> Vec<Vec<String>> {
     [
         vec!["工作表", "用途"],
-        vec!["物品", "通过物品导入，只新增、不覆盖；只有名称必填。"],
+        vec!["物品", "通过物品导入，只新增、不覆盖，不能用于批量修改已有物品；只有名称必填。名称、购入日期和购入价与已有物品或文件内其他行相同会判为疑似重复，默认跳过。"],
         vec!["账户／完整盘点／月度收入", "通过金融历史导入一起预览和提交；保留编号。同名账户须明确映射。空白工作表不参加导入。"],
-        vec!["盘点记录／重要支出／周期费用／投资区间核对", "分析用，不参加导入；投资区间转入和转出金额单位分，以列名为准。"],
+        vec!["盘点记录／重要支出／周期费用／投资区间核对／资金流动／规划假设／规划核对审计", "分析用，不参加导入；投资区间转入和转出金额单位分，以列名为准。"],
         vec!["填写规则", "编号、日期、金额按文本保存；金额单位元、最多两位小数；日期 YYYY-MM-DD；空白表示未知，0 表示明确零。不要填写公式。"],
         vec!["金额分析", "金额列是精确十进制文本；计算时可在副本中转换为数值。"],
         vec!["账户字段", "kind：cash/investment/mixed/fund/bond/housing_fund/other_asset/credit_card/loan/other_liability；counted：true/false。"],
         vec!["账户日期", "enabled_from 为启用日；disabled_from 为停用生效日（当日不再盘点）。"],
         vec!["盘点字段", "snapshot_key 同一次盘点相同；account_key 引用账户表；amount 负债也填正数；kind_at_date/counted_at_date 可留空采用当前类型。"],
-        vec!["完整盘点", "每次盘点须包括当日全部有效账户；历史未知余额导出仍留空，补齐前不能作为完整盘点导入。"],
+        vec!["完整盘点", "本表导出的是全部盘点明细，并非每行都能直接导入：每次盘点须包括当日全部有效账户，历史未知余额导出仍留空，含空余额或当日缺账户的盘点补齐前不能导入，导入预览会指出。"],
         vec!["数据保护", "Excel 不包含图片及全部配置和关系，不能用于完整恢复或换机。请使用 .thingary 完整备份。"],
     ].into_iter().map(|r| r.into_iter().map(str::to_owned).collect()).collect()
 }
@@ -130,9 +130,89 @@ pub fn write_template(path: &Path, sample: bool) -> Result<()> {
     write_workbook(path, &sheets)
 }
 
+/// Maps wanted sheet titles to their XML parts through the workbook's
+/// relationships. `None` means the structure is not fully resolvable, so every
+/// worksheet part must be checked as before.
+fn wanted_sheet_parts(
+    parts: &[(String, Vec<u8>)],
+    wanted: &[&str],
+) -> Option<Vec<(String, String)>> {
+    let part = |name: &str| {
+        parts
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, data)| data.as_slice())
+    };
+    let attr = |e: &quick_xml::events::BytesStart, name: &str| -> Option<String> {
+        e.try_get_attribute(name)
+            .ok()
+            .flatten()
+            .map(|a| String::from_utf8_lossy(&a.value).into_owned())
+    };
+    let mut rid_target: Vec<(String, String)> = Vec::new();
+    let mut reader = quick_xml::Reader::from_reader(part("xl/_rels/workbook.xml.rels")?);
+    loop {
+        use quick_xml::events::Event;
+        match reader.read_event() {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
+                if e.local_name().as_ref() == b"Relationship"
+                    && attr(&e, "Type")?.ends_with("/worksheet")
+                {
+                    rid_target.push((attr(&e, "Id")?, attr(&e, "Target")?));
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => return None,
+            Ok(_) => {}
+        }
+    }
+    let mut out = Vec::new();
+    let mut reader = quick_xml::Reader::from_reader(part("xl/workbook.xml")?);
+    loop {
+        use quick_xml::events::Event;
+        match reader.read_event() {
+            Ok(Event::Start(e)) | Ok(Event::Empty(e)) => {
+                if e.local_name().as_ref() != b"sheet" {
+                    continue;
+                }
+                let title = attr(&e, "name")?;
+                if !wanted.contains(&title.as_str()) {
+                    continue;
+                }
+                let rid = e
+                    .attributes()
+                    .flatten()
+                    .find(|a| a.key.local_name().as_ref() == b"id")
+                    .map(|a| String::from_utf8_lossy(&a.value).into_owned())?;
+                let target = rid_target
+                    .iter()
+                    .find(|(id, _)| *id == rid)
+                    .map(|(_, t)| t.clone())?;
+                let mut path = target.trim_start_matches('/').to_owned();
+                if let Some(rest) = path.strip_prefix("./") {
+                    path = rest.to_owned();
+                }
+                if !path.starts_with("xl/") {
+                    path = format!("xl/{path}");
+                }
+                if !parts.iter().any(|(n, _)| *n == path) {
+                    return None;
+                }
+                out.push((path, title));
+            }
+            Ok(Event::Eof) => break,
+            Err(_) => return None,
+            Ok(_) => {}
+        }
+    }
+    Some(out)
+}
+
 /// Check actual expanded ZIP/XML before calamine can allocate a sparse range.
-/// Bound entries, cells and coordinates, disallow formulas and macros.
-fn preflight(bytes: &[u8]) -> Result<()> {
+/// Bound entries, cells and coordinates, disallow formulas and macros. Only
+/// worksheets that take part in the import are scanned for formulas and stray
+/// cells; scratch sums elsewhere in the workbook stay harmless.
+fn preflight(bytes: &[u8], wanted: &[&str]) -> Result<()> {
     if bytes.len() > MAX_BYTES {
         return Err(Error::new("LIMIT_SIZE", "Excel 文件最多 20 MiB"));
     }
@@ -141,6 +221,7 @@ fn preflight(bytes: &[u8]) -> Result<()> {
         return Err(invalid("Excel 文件包含过多内部文件"));
     }
     let mut expanded = 0u64;
+    let mut parts: Vec<(String, Vec<u8>)> = Vec::new();
     for i in 0..archive.len() {
         let mut part = archive.by_index(i).map_err(xerr)?;
         if part.name().ends_with("vbaProject.bin") {
@@ -160,7 +241,22 @@ fn preflight(bytes: &[u8]) -> Result<()> {
         if xml.len() as u64 != part.size() {
             return Err(invalid("Excel 内部文件大小不一致"));
         }
-        if !part.name().ends_with(".xml") {
+        parts.push((part.name().to_owned(), xml));
+    }
+    let targets = wanted_sheet_parts(&parts, wanted);
+    let is_wanted = |name: &str| {
+        targets
+            .as_ref()
+            .is_none_or(|list| list.iter().any(|(part, _)| part == name))
+    };
+    let title_of = |name: &str| -> Option<&str> {
+        targets
+            .as_ref()
+            .and_then(|list| list.iter().find(|(part, _)| part == name))
+            .map(|(_, title)| title.as_str())
+    };
+    for (name, xml) in &parts {
+        if !name.ends_with(".xml") {
             continue;
         }
         let mut reader = quick_xml::Reader::from_reader(xml.as_slice());
@@ -169,9 +265,6 @@ fn preflight(bytes: &[u8]) -> Result<()> {
             use quick_xml::events::Event;
             match reader.read_event().map_err(xerr)? {
                 Event::Start(e) | Event::Empty(e) => {
-                    if e.local_name().as_ref() == b"worksheet" {
-                        worksheet = true;
-                    }
                     if e.local_name().as_ref() == b"Relationship" {
                         let kind = e.try_get_attribute("Type").map_err(xerr)?;
                         if kind
@@ -187,13 +280,22 @@ fn preflight(bytes: &[u8]) -> Result<()> {
                             }
                         }
                     }
-                    if !worksheet {
+                    if e.local_name().as_ref() == b"worksheet" {
+                        worksheet = true;
+                    }
+                    if !worksheet || !is_wanted(name) {
                         continue;
                     }
                     if e.local_name().as_ref() == b"f" {
+                        let at = title_of(name);
                         return Err(Error::new(
                             "XLSX_FORMULA",
-                            "工作簿含公式，请将公式粘贴为值后再导入",
+                            &match at {
+                                Some(title) => {
+                                    format!("「{title}」工作表含公式，请将公式粘贴为值后再导入")
+                                }
+                                None => "工作簿含公式，请将公式粘贴为值后再导入".into(),
+                            },
                         ));
                     }
                     if e.local_name().as_ref() == b"dimension" {
@@ -322,7 +424,7 @@ fn input(kind: &str, name: &str, rows: Vec<Vec<String>>) -> SheetInput {
     }
 }
 pub fn read_finance(bytes: &[u8]) -> Result<Vec<SheetInput>> {
-    preflight(bytes)?;
+    preflight(bytes, &FINANCE_SHEETS.map(|(_, name)| name))?;
     let mut book = Xlsx::new(Cursor::new(bytes)).map_err(xerr)?;
     let mut files = Vec::new();
     for (kind, name) in FINANCE_SHEETS {
@@ -350,7 +452,7 @@ pub fn read_finance(bytes: &[u8]) -> Result<Vec<SheetInput>> {
     Ok(files)
 }
 pub fn read_item_input(bytes: &[u8]) -> Result<SheetInput> {
-    preflight(bytes)?;
+    preflight(bytes, &["物品"])?;
     let mut book = Xlsx::new(Cursor::new(bytes)).map_err(xerr)?;
     if !book.sheet_names().iter().any(|n| n == "物品") {
         return Err(invalid("缺少「物品」工作表，请使用 Excel 模板"));

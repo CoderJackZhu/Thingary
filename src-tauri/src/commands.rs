@@ -1073,6 +1073,20 @@ pub async fn commit_item_workbook(
     .map_err(|_| Error::new("WORKER", "未收到导入结果，请到物品列表核对"))?
 }
 
+/// Read-only replay check for an item import whose reply was lost.
+#[tauri::command]
+pub async fn item_import_receipt(
+    worker: tauri::State<'_, Worker>,
+    input: crate::csv_import::Commit,
+) -> Result<Option<crate::csv_import::Done>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call_personal(move |s| s.item_import_receipt(&input))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "回执暂时不可读，请稍后核对"))?
+}
+
 /// Save every readable table in one workbook, atomically after native confirmation.
 #[tauri::command]
 pub async fn export_workbook(
@@ -1082,7 +1096,7 @@ pub async fn export_workbook(
     worker.require_personal()?;
     let suggested = format!("物谱表格-{}", chrono::Local::now().format("%Y%m%d"));
     let receive = on_main(&app, move |app| {
-        crate::native_images::pick_save(app, "导出全部表格", "导出", &suggested, "xlsx")
+        crate::native_images::pick_save(app, "导出资料表格", "导出", &suggested, "xlsx")
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {

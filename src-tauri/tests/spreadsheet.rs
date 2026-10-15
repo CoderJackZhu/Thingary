@@ -335,6 +335,54 @@ fn formulas_errors_sparse_ranges_and_invalid_archives_are_rejected_without_write
 }
 
 #[test]
+fn formulas_and_stray_cells_outside_imported_sheets_do_not_block_import() {
+    let t = tempfile::tempdir().unwrap();
+    let path = t.path().join("周边.xlsx");
+    let mut book = rust_xlsxwriter::Workbook::new();
+    let items = book.add_worksheet();
+    items.set_name("物品").unwrap();
+    items.write_string(0, 0, "名称").unwrap();
+    items.write_string(1, 0, "台灯").unwrap();
+    let scratch = book.add_worksheet();
+    scratch.set_name("分析草稿").unwrap();
+    scratch.write_string(0, 0, "名称").unwrap();
+    scratch.write_formula(1, 0, "=1+1").unwrap();
+    scratch.write_string(1_048_575, 5, "越界").unwrap();
+    book.save(&path).unwrap();
+    let csv = spreadsheet::read_items(&std::fs::read(&path).unwrap()).unwrap();
+    assert!(String::from_utf8(csv).unwrap().contains("台灯"));
+
+    // A finance import equally ignores a formula left in the item sheet.
+    let mut book = rust_xlsxwriter::Workbook::new();
+    let incomes = book.add_worksheet();
+    incomes.set_name("月度收入").unwrap();
+    for (i, h) in ["income_key", "date", "net_income"].iter().enumerate() {
+        incomes.write_string(0, i as u16, *h).unwrap();
+    }
+    incomes.write_string(1, 0, "000123").unwrap();
+    incomes.write_string(1, 1, "2026-09-10").unwrap();
+    incomes.write_string(1, 2, "100.01").unwrap();
+    let items = book.add_worksheet();
+    items.set_name("物品").unwrap();
+    items.write_string(0, 0, "名称").unwrap();
+    items.write_formula(1, 0, "=1+1").unwrap();
+    book.save(&path).unwrap();
+    let files = spreadsheet::read_finance(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(files.len(), 1);
+
+    // Inside an imported sheet a formula is still named and rejected.
+    let mut book = rust_xlsxwriter::Workbook::new();
+    let items = book.add_worksheet();
+    items.set_name("物品").unwrap();
+    items.write_string(0, 0, "名称").unwrap();
+    items.write_formula(1, 0, "=1+1").unwrap();
+    book.save(&path).unwrap();
+    let err = spreadsheet::read_items(&std::fs::read(&path).unwrap()).unwrap_err();
+    assert_eq!(err.code, "XLSX_FORMULA");
+    assert!(err.message.contains("物品"), "{}", err.message);
+}
+
+#[test]
 fn installed_0_0_1_schema25_upgrades_in_place_without_excel_or_id_changes() {
     use thingary_lib::storage::{migrate_to, SCHEMA, SCHEMA_VERSION};
     let t = tempfile::tempdir().unwrap();
