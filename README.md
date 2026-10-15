@@ -4,25 +4,27 @@
 
 <h1 align="center">物谱 · Thingary</h1>
 
-<p align="center"><strong>给记账坚持不下来的人：不用每天记流水。重要的东西留个档，每月盘一次钱，需要时算算未来。</strong></p>
+<p align="center"><strong>不用记流水。每月盘一次家底，看看离不上班还有多远。</strong></p>
 
-物谱是一个本地使用的桌面应用。公开测试版提供 macOS 安装包，Windows 候选版正在验收。物品档案与账户盘点是两个并列起点，只用其中一个也完整成立：给重要物品留档，或每月核对资产与负债。规划在盘点之上回答未来问题，用已保存的目标、可核对的测算详情和临时试算分别呈现。无需注册账号，也无需编程或联网使用。
+钱分散在银行卡、余额宝、券商、基金平台、公积金和房贷里，很难看清全貌。物谱是一个本地使用的桌面应用：每月对照各平台录一次余额和欠款，就能看到净资产变化；目标测算随每次盘点更新，回答「每月要存多少」「什么时候能不靠工资」「歇一阵能撑多久」。公开测试版提供 macOS 安装包，Windows 候选版正在验收。无需注册账号，也无需编程或联网使用。
+
+重要物品的档案（价格、照片、维修与保障）作为可选功能保留，可以单独使用。
 
 **[0.0.6 公开测试版 · Mac（Apple Silicon 与 Intel）](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.6)** · [图文使用指南](docs/USER_GUIDE.md#download) · [版本说明](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.6) · [国内镜像（Gitee）](https://gitee.com/CoderJackZhu/thingary/releases) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
 
-> 0.0.6 公开测试版提供 Apple Silicon 与 Intel 通用 DMG，下载以 Release 的公开附件为准。本版将资料格式升级至 schema 40，旧版不能直接打开升级后的资料，请先做完整备份，见[更新步骤](docs/USER_GUIDE.md#update)。
+> 0.0.6 公开测试版提供 Apple Silicon 与 Intel 通用 DMG，下载以 Release 的公开附件为准。本版升级了资料格式，旧版不能直接打开升级后的资料，请先做完整备份，见[更新步骤](docs/USER_GUIDE.md#update)。
 
 > Windows 0.0.7 当前为未签名候选版，目标为 Windows 10 1809+／Windows 11 x64，尚未公开发布。可在 [Windows 候选包工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)查看成功运行的安装包附件（需登录 GitHub，保留 30 天）；安装与限制见[Windows 使用说明](docs/USER_GUIDE.md#windows-install)。Mac 公开版仍是 0.0.6。
 
-![21 秒 0.0.6 原生界面预览：总览、物品、账户、目标、资金轨迹与市场模拟](docs/images/walkthrough.gif)
+![21 秒 0.0.6 原生界面预览：总览、账户、目标、资金轨迹、市场模拟与物品](docs/images/walkthrough.gif)
 
-21 秒原生界面顺序预览：总览 → 物品 → 账户盘点 → 目标结论 → 资金轨迹 → 市场模拟。全部使用 0.0.6 隔离虚构样例，不是连续操作录像。
+21 秒原生界面顺序预览：总览 → 账户盘点 → 目标结论 → 资金轨迹 → 市场模拟 → 物品。全部使用 0.0.6 隔离虚构样例，不是连续操作录像。
 
 ## 开始使用
 
 1. 下载 `.dmg`，打开后将「物谱」拖入「应用程序」。
 2. 从「应用程序」打开物谱，先浏览独立的虚构样例。
-3. 点「开始记录我的资料」，选择[先整理物品](docs/USER_GUIDE.md#first-record)或[先盘点账户](docs/USER_GUIDE.md#first-snapshot)；另一条路径随时再开始。
+3. 点「开始记录我的资料」，从[先盘点账户](docs/USER_GUIDE.md#first-snapshot)开始；也可以[先整理物品](docs/USER_GUIDE.md#first-record)，另一条路径随时再开始。
 4. 录入自己的资料后，[做一次完整备份并异地保存](docs/USER_GUIDE.md#backup)。
 
 本次 **0.0.6 公开测试版** 使用本地临时签名，未经过 Developer ID 签名和 Apple 公证。首次打开可能需要在「系统设置 › 隐私与安全性」选择「仍要打开」；请按[安装与故障排查指南](docs/USER_GUIDE.md#download)操作，无需编译或使用终端。下载页中的 Source code 是源码，不是安装包。
@@ -43,7 +45,7 @@
 
 帮助入口与资料保护说明见[关于与帮助](docs/USER_GUIDE.md#help)和[隐私与资料安全](docs/USER_GUIDE.md#privacy)。
 
-资料只在你的电脑上：没有账号，应用平时不联网（只有你在「设置 › 数据管理」点「检查更新」时，才会向 Gitee 和 GitHub 各查询一次公开的版本列表，不发送任何资料），代码公开可查。**资料与备份没有应用级加密**；若主动选用云盘作为额外备份位置，副本由该云盘软件同步。自动备份和主资料同盘，仍应额外保留异地完整备份。
+资料只在你的电脑上：没有账号，应用平时不联网（只有你在「设置 › 关于与帮助」点「检查更新」时，才会向 Gitee 和 GitHub 各查询一次公开的版本列表，不发送任何资料），代码公开可查。**资料与备份没有应用级加密**；若主动选用云盘作为额外备份位置，副本由该云盘软件同步。自动备份和主资料同盘，仍应额外保留异地完整备份。
 
 Mac 删除应用保留资料；Windows 卸载默认保留资料，若要保留记录，不要勾选卸载器的“删除应用数据”。更新、换机、资料位置、恢复与当前限制统一见[使用指南](docs/USER_GUIDE.md#update)。反馈时请遮住真实资料，不上传数据库或备份；漏洞请按[安全政策](SECURITY.md)私下报告。
 
@@ -51,10 +53,10 @@ Mac 删除应用保留资料；Windows 卸载默认保留资料，若要保留�
 
 | 功能组 | 物谱提供的功能 |
 |---|---|
-| 物品档案 | 名称、购入金额与日期、照片、备注、品牌型号、维护与保障；使用中／退役／售出、日均与按次成本、心愿决定与明确购入记录 |
 | 账户盘点 | 定期核对账户资产与负债，查看金融净资产趋势与盘点变化；按需记录收入、重要支出和资金流动，核对同一投资范围的损益金额 |
-| 规划 | 反算每月需要存多少，估算财务独立时间；查看投资组合轨迹、市场路径模拟、压力情景、敏感性矩阵和收益顺序检查；临时比较购买、休息或换工作的影响 |
-| 辅助模块 | 周期费用及软件、域名等虚拟资产档案，可在设置中按需打开或隐藏 |
+| 目标与规划 | 反算每月需要存多少，估算财务独立时间；临时比较购买、休息或换工作的影响；查看投资组合轨迹、市场路径模拟、压力情景、敏感性矩阵和收益顺序检查 |
+| 物品档案（可选） | 名称、购入金额与日期、照片、备注、品牌型号、维护与保障；使用中／退役／售出、日均与按次成本、心愿决定与明确购入记录 |
+| 辅助模块（可选） | 周期费用及软件、域名等虚拟资产档案，可在设置中按需打开或隐藏 |
 
 资料支持最近删除恢复、完整备份与恢复、自动备份，以及统一 Excel 导入导出与金融历史导入。先备份，再换机或更新。
 
@@ -109,12 +111,12 @@ Mac 删除应用保留资料；Windows 卸载默认保留资料，若要保留�
 ![当前规划报告隐私预览：只读条件与缺项](docs/images/planning-report-current.png)
 
 <details>
-<summary>查看更多界面：物品、账户、年度支出与深色外观</summary>
+<summary>查看更多界面：账户、深色外观、物品与年度支出</summary>
 
-| 物品与支出 | 账户与总览 |
+| 账户与总览 | 物品与支出 |
 |---|---|
-| ![全部物品](docs/images/assets-light.jpg) | ![账户与盘点](docs/images/wealth-light.jpg) |
-| ![重要支出年度总览](docs/images/expenses-year.jpg) | ![深色总览](docs/images/overview-dark.jpg) |
+| ![账户与盘点](docs/images/wealth-light.jpg) | ![全部物品](docs/images/assets-light.jpg) |
+| ![深色总览](docs/images/overview-dark.jpg) | ![重要支出年度总览](docs/images/expenses-year.jpg) |
 
 </details>
 
@@ -131,6 +133,6 @@ Mac 删除应用保留资料；Windows 卸载默认保留资料，若要保留�
 
 ## 许可
 
-当前规划纯计算由独立 Rust 核心承担，在隔离实现环境中依据冻结的行为规格编写；界面与数据适配仍由 TypeScript 承担，不属于此次隔离重建范围。当前核心与历史参考的区别见[来源告知](SOURCE_NOTICES.md)，接口与构建见[核心说明](crates/planning-engine/README.md)。
+规划计算由独立的 Rust 核心实现，来源与许可说明见[来源告知](SOURCE_NOTICES.md)，接口与构建见[核心说明](crates/planning-engine/README.md)。
 
 代码按 [AGPL-3.0-or-later](LICENSE) 授权（0.0.4 及更早版本发布时标注为 GPL-3.0-or-later），第三方依赖许可见 [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES.md)。名称「物谱」「Thingary」与应用图标不在 AGPL 授权范围内；修改版再发布请采用自己的名称与图标，详见[品牌使用说明](docs/brand/README.md)。

@@ -46,9 +46,9 @@ export function StartChoice({ generation, active, started, modules, modulesLoade
     finally { if (lastFailure.current) onNotice?.(lastFailure.current); lock.current = false; }
   }
   return <section className="ui-card ui-content start-choice" aria-labelledby="start-choice-title">
-    <h2 id="start-choice-title">你想先做哪件事？</h2>
-    <p className="muted">只做其中一件也完全可以，另一件随时再开始。</p>
-    <div className="review-start-actions"><button type="button" className="ui-btn" disabled={disabled || busy} onClick={() => void start('physical')}>先整理物品</button><button type="button" className="ui-btn" disabled={disabled || busy} onClick={() => void start('combined')}>先盘点账户</button></div>
+    <h2 id="start-choice-title">从一次账户盘点开始</h2>
+    <p className="muted">把各平台的余额和欠款录一遍，就能看到净资产；之后每月盘一次，目标测算跟着更新。也可以先整理物品，另一件随时再开始。</p>
+    <div className="review-start-actions"><button type="button" className="ui-btn start-choice-primary" disabled={disabled || busy} onClick={() => void start('combined')}>先盘点账户</button><button type="button" className="ui-btn" disabled={disabled || busy} onClick={() => void start('physical')}>先整理物品</button></div>
     <label className="start-choice-extras"><input type="checkbox" checked={hideExtras} disabled={busy} onChange={e => setHideExtras(e.target.checked)}/>先隐藏周期费用和虚拟资产（可在设置 › 功能模块中打开）</label>
     {error && <p className="notice" role="alert">{error}</p>}
     <button type="button" className="ui-link" disabled={disabled || busy} onClick={dismiss}>跳过</button>

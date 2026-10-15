@@ -64,6 +64,6 @@ planning-monthly.jpg、planning-fi-goals.jpg、planning-trajectory.jpg、plannin
 
 ### GIF 尺寸与重建
 
-README 当前 GIF 使用 `overview-light.jpg`、`assets-light.jpg`、`wealth-light.jpg`、`planning-goals.jpg`、`planning-fi-trajectory.jpg`、`planning-market.jpg`，顺序与正文一致；保留原 GIF 中财务自由目标与对应轨迹的状态。前四张实际文件为 2880×1834 的 Retina 截图，仍有 32 物理像素（16 逻辑点）的系统标题栏残留；后两张为 1440×901。上文的逻辑内容尺寸不能直接作为原图的物理裁切尺寸，否则 Retina 帧只剩左上角局部。
+README 当前 GIF 使用 `overview-light.jpg`、`wealth-light.jpg`、`planning-goals.jpg`、`planning-fi-trajectory.jpg`、`planning-market.jpg`、`assets-light.jpg`，顺序与正文一致；保留原 GIF 中财务自由目标与对应轨迹的状态。前四张实际文件为 2880×1834 的 Retina 截图，仍有 32 物理像素（16 逻辑点）的系统标题栏残留；后两张为 1440×901。上文的逻辑内容尺寸不能直接作为原图的物理裁切尺寸，否则 Retina 帧只剩左上角局部。
 
 用 `node scripts/build-walkthrough.mjs` 重建（需本机 `ffmpeg`、`ffprobe`）。脚本先读取每张图片的真实尺寸，按像素倍率去除标题栏残留，保留完整的 1440×901 逻辑内容，再统一缩放到 960×601；不重新裁切页面主体。输出为 6 张完整画面、每帧 3.5 秒、21 秒循环预览，约 0.67 MB。输入尺寸不符合已登记截图时停止生成，避免沿用错误裁切参数。此修复仅重新编码现有虚构原生截图，逐帧核对过完整侧栏、页面右侧与底部；不更新应用功能或公开安装包。

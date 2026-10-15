@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(process.argv[2] ?? join(root, 'docs/images/walkthrough.gif'));
-const files = ['overview-light.jpg', 'assets-light.jpg', 'wealth-light.jpg', 'planning-goals.jpg', 'planning-fi-trajectory.jpg', 'planning-market.jpg'];
+const files = ['overview-light.jpg', 'wealth-light.jpg', 'planning-goals.jpg', 'planning-fi-trajectory.jpg', 'planning-market.jpg', 'assets-light.jpg'];
 const work = mkdtempSync(join(dirname(output), '.walkthrough-'));
 const run = args => execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', ...args], { stdio: 'inherit' });
 function probe(path) {

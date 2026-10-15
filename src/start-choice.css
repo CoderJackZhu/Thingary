@@ -5,3 +5,4 @@
 .start-choice-extras input{flex:0 0 16px;width:16px;height:16px;padding:0;accent-color:var(--accent)}
 /* The start choice already asks where to begin; hide the older empty-overview card meanwhile. */
 main:has(.start-choice) .review-start{display:none}
+.ui-btn.start-choice-primary{background:var(--button-bg);color:var(--button-text);border-color:transparent}
