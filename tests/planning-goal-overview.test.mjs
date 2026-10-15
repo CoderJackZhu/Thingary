@@ -100,20 +100,36 @@ test('FIRE separates the hoped month from the predicted retirement month', () =>
   assert.match(text, /希望时间|你希望/);
 });
 
-test('assumption confirmation stays in a closed condition disclosure, with real read failures visible', () => {
+test('unconfirmed and changed assumptions keep a light hint outside the closed disclosure, with read failures visible', () => {
   const { sources, saved, caps } = render();
   saved.profile.retire.real_return_before_hundredths = 175;
-  const show = assumptionRead => runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, realSummary: true, assumptionRead });
+  const edits = [];
+  const show = assumptionRead => runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit: (action, from) => edits.push([action, from]), onRefine() {}, onDetail() {}, realSummary: true, assumptionRead });
+  const outsideHint = r => r.nodes().find(n => n.type === 'p' && r.text(n).includes('展开「条件与核对」'));
   for (const [state, label] of [['unconfirmed', '试算值，未确认'], ['needs_review', '条件已变，请确认'], ['confirmed', '已核对']]) {
     const read = readOf(sources.generation, state); read.value.values.real_return_before_hundredths = 175;
     const r = show(read), row = assumptionsArticle(r);
     const disclosure = r.nodes().find(n => n.type === 'details' && r.text(n).includes('条件与核对'));
     assert.ok(disclosure); assert.ok(!disclosure.props.open);
     assert.ok(r.text(disclosure).includes(label));
+    const hint = outsideHint(r);
+    if (state === 'confirmed') assert.equal(hint, undefined);
+    else {
+      assert.equal(r.text(hint), `${label}；展开「条件与核对」可查看与确认。`);
+      assert.equal(hint.props.className, 'muted small');
+      assert.doesNotMatch(r.text(disclosure), /展开「条件与核对」/, 'the hint remains visible while details are closed');
+    }
     assert.match(r.text(row), /1.75%/);
     assert.doesNotMatch(r.text(row), /默认值/);
     assert.equal(r.nodes().find(n => n.props?.className === 'goal-next'), undefined, 'confirmation metadata does not create a first-screen task');
-    assert.ok(r.find('button', p => p['aria-label'] === '调整计算假设'));
+    const edit = r.find('button', p => p['aria-label'] === '调整计算假设');
+    assert.ok(edit);
+    const from = { tag: state };
+    edit.props.onClick({ currentTarget: from });
+    assert.deepEqual(edits.at(-1), ['assumptions', from]);
+  }
+  for (const read of [undefined, null, { status: 'disabled', message: '虚构：规划模块关闭' }, { status: 'error', code: 'READ_ERROR', message: '虚构读取失败' }]) {
+    assert.equal(outsideHint(show(read)), undefined, 'unavailable confirmation does not invent an assumption status');
   }
   const loading = show(null);
   assert.match(loading.text(assumptionsArticle(loading)), /读取中/);
