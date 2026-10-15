@@ -30,6 +30,7 @@ function harness(file, name, props, deps = {}, globals = {}) {
 
 function page() {
   let load = { status: 'ready', sources: basicFixtureSources(basicInputFixtures.prediction) }, restored, bar, pending = null, focuses = 0, reloads = 0;
+  const focusIds = [], scrolls = [];
   const props = { today: load.sources.today, onEditingChange: noop, onTab: noop, onFocusDone: noop };
   const r = harness('PlanningPage.tsx', 'PlanningPage', props, {
     './planning-basic-data': { usePlanningSources: () => ({ load, reload: () => reloads++ }) },
@@ -41,8 +42,8 @@ function page() {
     './topbar': { usePageBar: (_, value) => { bar = value; } }, './topbar-model': { refocusHeading: () => focuses++ },
     './PlanningCurrentReportDialog': { PlanningCurrentReportDialog: 'ReportDialog' },
     './PlanningBasicGoals': { PlanningBasicGoals: 'Goals' }, './PlanningGoalOccurrences': { PlanningGoalOccurrences: 'Occurrences' },
-  }, { document: { activeElement: { tagName: 'BUTTON' }, getElementById: id => id === 'page-heading' ? { focus: () => focuses++ } : null } });
-  return { ...r, props, setLoad(value) { load = value; r.render(); }, get load() { return load; }, restore() { restored(); r.render(); }, setPending(value) { pending = value; r.render(); }, get bar() { return bar; }, get focuses() { return focuses; }, get reloads() { return reloads; } };
+  }, { document: { activeElement: { tagName: 'BUTTON' }, getElementById: id => ['page-heading', 'plan-runway-heading', 'plan-requirement-result', 'plan-prediction-result'].includes(id) ? { focus: () => { focuses++; focusIds.push(id); }, scrollIntoView: () => scrolls.push(id) } : null } });
+  return { ...r, props, focusIds, scrolls, setLoad(value) { load = value; r.render(); }, get load() { return load; }, restore() { restored(); r.render(); }, setPending(value) { pending = value; r.render(); }, get bar() { return bar; }, get focuses() { return focuses; }, get reloads() { return reloads; } };
 }
 
 test('current report generation freezes one saved result through normal reload and source edits', () => {
@@ -175,4 +176,37 @@ test('conclusion impact count precedes next steps, preserves privacy, and disapp
  const clean={...report,missing:[]};
  const r=harness('planning-report/PlanningReport.tsx','PlanningReport',{outer:{status:'ready',input:clean},privacy:true,allowPrint:false},{'./model.ts':model});
  assert.equal(r.nodes().some(row=>row.props?.className==='pr-conclusion-impact'),false);
+});
+
+
+test('question navigation uses the protected page transition and focuses only its destination', () => {
+  const r = page();
+  r.nodes().find(n => n.type === 'Goals').props.onViewChange('trial', 'plan-runway-heading'); r.render();
+  assert.deepEqual(r.focusIds, ['plan-runway-heading']); assert.deepEqual(r.scrolls, ['plan-runway-heading']);
+  for (const gate of ['pending', 'goal', 'occurrence', 'setup', 'report', 'global']) {
+    const x = page(), goals = () => x.nodes().find(n => n.type === 'Goals');
+    if (gate === 'pending') x.setPending({ label: '虚构保存' });
+    else if (gate === 'goal') goals().props.onEditingChange(true);
+    else if (gate === 'occurrence') x.nodes().find(n => n.type === 'Occurrences').props.onEditingChange(true);
+    else if (gate === 'setup') goals().props.openSetup(0, {});
+    else if (gate === 'report') goals().props.onReport({});
+    else x.props.navigationBlocked = true;
+    x.render(); assert.equal(goals().props.entryBlocked, true);
+    goals().props.onViewChange('trial', 'plan-runway-heading'); x.render();
+    assert.equal(x.button('目标').props['aria-pressed'], true, gate); assert.deepEqual(x.focusIds, [], gate);
+  }
+});
+
+test('advanced disclosure is remembered across planning tabs and revisions, but restore/library/module/unmount clear it', () => {
+  const goals = r => r.nodes().find(n => n.type === 'Goals');
+  for (const reset of ['restore', 'generation', 'module', 'unmount']) {
+    const r = page(); assert.equal(goals(r).props.advancedOpen, false);
+    goals(r).props.onAdvancedOpenChange(true); r.render();
+    for (const label of ['测算详情', '试算', '目标']) { r.button(label).props.onClick(); r.render(); assert.equal(goals(r).props.advancedOpen, true); }
+    const revised = structuredClone(r.load.sources); revised.write_version++; r.setLoad({ status: 'ready', sources: revised }); assert.equal(goals(r).props.advancedOpen, true);
+    if (reset === 'restore') r.restore();
+    else if (reset === 'unmount') { r.unmount(); assert.equal(goals(page()).props.advancedOpen, false); continue; }
+    else { const s = structuredClone(r.load.sources); if (reset === 'generation') s.generation = 'fictional-other'; else s.modules.planning = false; r.setLoad({ status: 'ready', sources: s }); }
+    assert.equal(goals(r).props.advancedOpen, false, reset);
+  }
 });

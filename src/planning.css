@@ -262,3 +262,11 @@ dialog.editor.planning-pension-dialog:not(.asset-editor):not(.wishlist-editor)[o
 @media(max-width: 900px) { .review-key-facts { gap: 16px; } .review-key-facts dd { font-size: 22px; } }
 .review-navigation .form-segments { flex: 0 0 auto; min-width: 220px; }
 .plan-review-summary .ivr-profit strong { font-size: 24px; }
+
+.planning-questions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.planning-questions > article { display: flex; flex-direction: column; min-width: 0; }
+.planning-questions h3 { margin-top: 0; }
+.planning-questions > article > button { margin-top: auto; white-space: normal; }
+.plan-advanced-content { display: grid; gap: 16px; margin-top: 16px; min-width: 0; }
+#plan-runway-heading, #plan-requirement-result, #plan-prediction-result { scroll-margin-top: 24px; }
+@media (max-width: 850px) { .planning-questions { grid-template-columns: minmax(0, 1fr); } }

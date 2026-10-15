@@ -27,7 +27,7 @@ const treatmentText = { included: '已含在总预算', extra: '另外计入', e
 const contributionText = (cents: string | null) => { const s = amountState(cents); return s === 'unknown' ? '以后再估计' : s === 'zero' ? '每月存 0 元（本次估计）' : `${money(cents!)}/月`; };
 
 /** Basic-plan detail: the requirement stays visible; prediction and risk tools open only for an explicit saved or trial contribution. */
-export function PlanningBasicDetail({ sources, saved, today, reload, onPending, onEditingChange, openSetup, onEvents, onBack, assumptionsPort }: { sources: PlanningSources; saved: Saved; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; openSetup: (step: number, from?: HTMLElement | null) => void; onEvents: () => void; onBack: () => void; assumptionsPort?: PlanningFollowupPortV1 }) {
+export function PlanningBasicDetail({ sources, saved, today, reload, onPending, onEditingChange, openSetup, onEvents, onBack, assumptionsPort, advancedOpen = false, onAdvancedOpenChange }: { sources: PlanningSources; saved: Saved; today: string; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; openSetup: (step: number, from?: HTMLElement | null) => void; onEvents: () => void; onBack: () => void; assumptionsPort?: PlanningFollowupPortV1; advancedOpen?: boolean; onAdvancedOpenChange?: (open: boolean) => void }) {
   const [costsOpen, setCostsOpen] = useState(false);
   const [assumptionsOpen, setAssumptionsOpen] = useState(false);
   const [contributionEditing, setContributionEditing] = useState(false);
@@ -63,10 +63,10 @@ export function PlanningBasicDetail({ sources, saved, today, reload, onPending, 
       <div className="rd-main">
         <Trial trial={trial} onTrial={setTrial} saved={savedContribution} busy={saver.busy || saver.stuck} onSave={() => void saveContribution(trial)} notice={saver.notice}/>
         {result.status !== 'ready' ? <CapabilityNotice result={result}/> : tab === 'lab'
-          ? (pred ? <RiskLab calc={{ plan: pred.plan, assets: pred.plan.assets_cents }} today={today} basic={{ temporary: pred.source === 'temporary', terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>)
+          ? (pred ? <RiskLab advancedOpen={advancedOpen} onAdvancedOpenChange={onAdvancedOpenChange} calc={{ plan: pred.plan, assets: pred.plan.assets_cents }} today={today} basic={{ temporary: pred.source === 'temporary', terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>)
           : <>
-            <RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy}/>
-            {pred ? <RetireOverview hideSnapshot calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}
+            <div id="plan-requirement-result" tabIndex={-1}><RequirementCard caps={result.caps} onOwner={owner} busy={saver.busy}/></div>
+            <div id="plan-prediction-result" tabIndex={-1}>{pred ? <RetireOverview hideSnapshot calc={{ plan: pred.plan, proj: pred.projection, out: pred.outcome, assets: pred.plan.assets_cents, plan0: pred.plan0, events, r: retire }} mode={mode} onMode={setMode} basic={{ temporary: pred.source === 'temporary', contribution: pred.contribution_cents, terminal: pred.terminal }}/> : <NeedContribution caps={result.caps} onOwner={owner}/>}</div>
           </>}
       </div>
       <BasicSidebar saved={saved} caps={caps} openSetup={openSetup} contribution={<ContributionCard saved={saved} reference={null} busy={saver.busy || saver.stuck} notice={saver.notice} onSave={saveContribution} onEditingChange={setContributionEditing}/>}/>
