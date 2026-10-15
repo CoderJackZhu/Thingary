@@ -55,3 +55,11 @@
 .ivr-notice{border:1px solid var(--warn);background:var(--warn-bg);color:var(--warn);border-radius:var(--surface-radius);padding:8px 12px;font-size:12px;display:grid;gap:4px}
 .ivr-notice p{margin:0}
 .ivr-dialog-foot{display:flex;gap:8px;justify-content:flex-end}
+
+/* Advanced review keeps its warning outside the disclosure and its readers mounted. */
+.ivr-disclosure{display:grid;gap:8px}
+.ivr-advanced{border:var(--surface-border);border-radius:var(--surface-radius);background:var(--card);padding:12px var(--surface-pad-x);min-width:0}
+.ivr-advanced>summary{cursor:pointer;font-size:13px;color:var(--text)}
+.ivr-advanced-body{display:grid;gap:12px;margin-top:12px;min-width:0}
+.ivr-disclosure-notice{color:var(--warn);font-size:12px;line-height:1.6}
+.ivr-disclosure-notice p{margin:0}
