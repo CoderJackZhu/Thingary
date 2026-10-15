@@ -89,10 +89,10 @@ export function summaryRetire(sources: PlanSources, today: string): SummaryRetir
     const saved = sources.profile.value.saved;
     const native: PlanningSources = { generation: sources.generation ?? sources.profile.value.generation, write_version: sources.writeVersion ?? saved.revision, today, modules: sources.modules ?? { planning: true, wealth: sources.snapshot.status === 'ready' && sources.snapshot.value !== null }, profile: sources.profile, snapshot: sources.snapshot, accounts: { status: 'ready', value: [] }, review: sources.review, incomes: sources.incomes };
     const calc = buildRetireCalc(saved, null, null, [], today, native), capabilities = calc.capabilities!;
-    if (capabilities.requirement.status === 'blocked') return { kind: 'blocked', step: 'other', main: '需求输入待核对', note: capabilities.requirement.missing[0]?.message ?? '来源待核对', capabilities };
+    if (capabilities.requirement.status === 'blocked') return { kind: 'blocked', step: 'other', main: '补充以下资料后可计算', note: capabilities.requirement.missing[0]?.message ?? '还需确认计算来源', capabilities };
     if (!calc.plan || !calc.proj || !calc.out || calc.assets === null) {
       const n = capabilities.requirement.value.set;
-      const main = n.status === 'found' ? `目标所需月投入 ${yuan(Number(n.monthly_cents))}` : n.status === 'no_positive_contribution' ? '无需新增正投入' : '目标需求待核对';
+      const main = n.status === 'found' ? `目标所需月投入 ${yuan(Number(n.monthly_cents))}` : n.status === 'no_positive_contribution' ? '无需新增正投入' : '还需确认目标条件';
       return { kind: 'blocked', step: 'saving', main, note: '需求按固定目标计算；保存明确预计投入后可查看预测。', capabilities };
     }
     const ready = calc as ReadyCalc;

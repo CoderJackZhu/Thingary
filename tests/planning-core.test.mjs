@@ -70,7 +70,7 @@ test('D06: split payments only deduct the part after B; partial or stale absorpt
 test('D09: overdue is unresolved, never silently shifted to current month', () => {
   assert.equal(offsetOf('2026-09',B),-1);
   const p=profile(core(['cash','available']),{life_events:[event()]});
-  assert.match(calc(p,snap([entry('cash','asset','cash',70000000)])).annotations.map(a=>a.message).join(' '),/日期已过，待核对/);
+  assert.match(calc(p,snap([entry('cash','asset','cash',70000000)])).annotations.map(a=>a.message).join(' '),/日期已过，请确认是否发生/);
   assert.deepEqual(eventParts(base(),{...event(),price_cents:40000000,down_cents:30000000,holding_cents:10000},-1).spends,[]);
 });
 

@@ -100,7 +100,7 @@ export function contributionSection(saved: NonNullable<Saved>, value: string | n
 /** Fee review changes only the two scopes; saved timing, income, goal and contribution remain exact. */
 export function costsInput(d: Draft, saved: NonNullable<Saved>): SectionInput {
   const p = saved.profile, r = p.retire;
-  if (!r.basic || !r.core) return fail('请先设置目标与金额基准。');
+  if (!r.basic || !r.core) return fail('请先设置目标，并确认金额对应日期。');
   return { section: 'basic', fields: {
     spend_cents: r.spend_cents,
     mode: r.mode, real_return_before_hundredths: r.real_return_before_hundredths, real_return_after_hundredths: r.real_return_after_hundredths,

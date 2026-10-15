@@ -11,7 +11,7 @@ export function annotationSummary(annotations: readonly PlanningAnnotation[] = [
     const omitted = new Set(group.filter(a => a.treatment === 'omitted').flatMap(a => a.source_ids)).size;
     const extra = new Set(group.filter(a => a.treatment === 'assumed_extra').flatMap(a => a.source_ids)).size;
     const parts = [omitted ? `有 ${omitted} 项安排未计入` : '', extra ? `${extra} 项费用暂按额外费用计入，可能重复包含` : ''].filter(Boolean);
-    out.push(parts.join('；') + (effect === 'requirement_lower' ? '，所需月投入可能偏低' : effect === 'requirement_higher' ? '，所需月投入可能偏高' : '，影响方向待核对'));
+    out.push(parts.join('；') + (effect === 'requirement_lower' ? '，每月需要存的钱可能偏低' : effect === 'requirement_higher' ? '，每月需要存的钱可能偏高' : '，每月需要存的钱可能变化，方向尚不确定'));
   }
   return out;
 }
@@ -19,4 +19,4 @@ export function uniqueAnnotations(rows: readonly PlanningAnnotation[]): Planning
   return [...new Map(rows.map(a => [a.id, a])).values()];
 }
 
-export const annotationDirection = (a: PlanningAnnotation) => a.effect === 'requirement_lower' ? '所需月投入可能偏低' : a.effect === 'requirement_higher' ? '所需月投入可能偏高' : '影响方向待核对';
+export const annotationDirection = (a: PlanningAnnotation) => a.effect === 'requirement_lower' ? '每月需要存的钱可能偏低' : a.effect === 'requirement_higher' ? '每月需要存的钱可能偏高' : '每月需要存的钱可能变化，方向尚不确定';

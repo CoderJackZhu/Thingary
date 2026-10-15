@@ -24,7 +24,7 @@ export function basicConstraintMessages(sources: PlanningSources): string[] {
     releaseIds.add(x.id); releaseAccounts.add(x.account_id);
   }
   if (b.start.kind === 'simulation' && ((b.start.available_cents !== null && !cents(b.start.available_cents)) || (b.start.date !== null && !date(b.start.date)))) add('模拟起点金额或日期非法。');
-  if (r.core && !date(r.core.monetary_basis_date)) add('金额基准日期非法。');
+  if (r.core && !date(r.core.monetary_basis_date)) add('请填写有效的金额对应日期。');
   const debtIds = new Set<string>();
   if ((r.core?.debt_repayments?.length ?? 0) > 500) add('还款安排过多。');
   for (const d of r.core?.debt_repayments ?? []) {
