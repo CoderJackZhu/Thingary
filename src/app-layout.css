@@ -194,3 +194,7 @@ h1,h2,h3{font-family:var(--display)}
 
 /* Reserve scrollbar space in the main panes to keep toolbars and tables stable. */
 .sidebar,.shell>main,.collection,.summary-body,dialog{scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.backup-security-notice{position:fixed;bottom:18px;right:20px;z-index:30;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;max-width:420px;padding:12px 16px;border:1px solid var(--warn);border-radius:10px;background:var(--surface);color:var(--text);box-shadow:0 4px 20px #0002;font-size:13px;line-height:1.55}
+.backup-security-notice strong{color:var(--warn)}
+body:has(.notification-notice) .backup-security-notice{bottom:112px}
+

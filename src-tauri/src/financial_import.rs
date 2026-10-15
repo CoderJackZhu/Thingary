@@ -787,6 +787,17 @@ fn prepare(
                             b.actions.get(&key).is_none_or(|a| a.action != "exclude"),
                         );
                     }
+                    if let Err(error) = crate::wealth::validate_kind_counted(&kind, counted) {
+                        status = "error".into();
+                        issue(
+                            &mut issues,
+                            &file.name,
+                            Some(&key),
+                            Some(r.source_row),
+                            error,
+                            b.actions.get(&key).is_none_or(|a| a.action != "exclude"),
+                        );
+                    }
                     overrides.insert(account_id.clone(), (Some(kind.clone()), Some(counted)));
                     entries.push(EntryInput {
                         account_id: account_id.clone(),

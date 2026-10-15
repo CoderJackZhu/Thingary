@@ -83,8 +83,13 @@ char *thingary_pick_backup_open(void) {
         panel.canChooseFiles = YES;
         panel.canChooseDirectories = NO;
         panel.allowsMultipleSelection = NO;
-        UTType *type = [UTType typeWithFilenameExtension:@"thingary"];
-        if (type) panel.allowedContentTypes = @[type];
+        NSMutableArray<UTType *> *types = [NSMutableArray array];
+        UTType *plain = [UTType typeWithFilenameExtension:@"thingary"];
+        if (plain) [types addObject:plain];
+        // Encrypted backups (.thingary.age) end with the age extension.
+        UTType *sealed = [UTType typeWithFilenameExtension:@"age"];
+        if (sealed) [types addObject:sealed];
+        if (types.count > 0) panel.allowedContentTypes = types;
         if ([panel runModal] != NSModalResponseOK) return NULL;
         return strdup(panel.URL.fileSystemRepresentation);
     }

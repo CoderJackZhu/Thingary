@@ -779,16 +779,42 @@ pub struct BackupDone {
 }
 
 /// Cancelling the save panel returns `None` and starts no task (AC34).
+/// The persisted backup-security policy picks encrypted or plaintext output;
+/// `force_plaintext` is the explicit one-off unencrypted-copy exception.
 #[tauri::command]
 pub async fn create_backup(
     app: tauri::AppHandle,
     worker: tauri::State<'_, Worker>,
+    force_plaintext: Option<bool>,
+    task_id: Option<String>,
 ) -> Result<Option<BackupDone>> {
+    let _task_reservation = BackupTaskReservation {
+        worker: worker.inner().clone(),
+        id: task_id.clone(),
+    };
     worker.require_personal()?;
-    // The panel appends ".thingary" itself; a suggested extension would be doubled.
-    let suggested = format!("物谱备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"));
+    let force_plaintext = force_plaintext.unwrap_or(false);
+    let w0 = worker.inner().clone();
+    let plan = tauri::async_runtime::spawn_blocking(move || w0.backup_export_plan(force_plaintext))
+        .await
+        .map_err(|_| Error::new("WORKER", "备份设置读取失败"))??;
+    if let Some(reason) = plan.blocked_reason {
+        return Err(Error::new("SECURITY_POLICY", &reason));
+    }
+    // The panel appends the extension itself; the suggested name therefore
+    // carries none, but for encrypted exports it includes the inner ".thingary"
+    // so the panel's ".age" yields the documented ".thingary.age" suffix.
+    let suggested = if plan.encrypted {
+        format!(
+            "物谱备份-{}.thingary",
+            chrono::Local::now().format("%Y%m%d-%H%M")
+        )
+    } else {
+        format!("物谱备份-{}", chrono::Local::now().format("%Y%m%d-%H%M"))
+    };
+    let extension = if plan.encrypted { "age" } else { "thingary" };
     let receive = on_main(&app, move |app| {
-        crate::native_images::pick_save(app, "保存完整备份", "保存备份", &suggested, "thingary")
+        crate::native_images::pick_save(app, "保存完整备份", "保存备份", &suggested, extension)
     })?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
@@ -802,12 +828,11 @@ pub async fn create_backup(
             .parent()
             .map(|p| p.display().to_string())
             .unwrap_or_default();
-        let target = path.clone();
-        // The storage worker is serial: edits queued meanwhile wait for the snapshot.
-        let name = w
-            .call_personal(move |s| s.backup(Some(&target)))?
-            .unwrap_or_default();
-        Ok(Some(BackupDone { name, folder }))
+        let name = w.create_backup_file_task(path.clone(), force_plaintext, task_id)?;
+        Ok(Some(BackupDone {
+            name: name.unwrap_or_default(),
+            folder,
+        }))
     })
     .await
     .map_err(|_| Error::new("WORKER", "未收到备份结果，请到目标位置核对"))?
@@ -817,14 +842,24 @@ pub async fn create_backup(
 pub struct Inspected {
     pub path: String,
     pub name: String,
-    pub summary: crate::backup::Summary,
+    /// True when the file is age-encrypted and still needs its recovery key.
+    pub encrypted: bool,
+    /// Opaque session token consumed by unlock / cancel / restore.
+    pub token: Option<String>,
+    /// Absent until an encrypted session has been unlocked.
+    pub summary: Option<crate::backup::Summary>,
 }
 
 #[tauri::command]
 pub async fn inspect_backup(
     app: tauri::AppHandle,
     worker: tauri::State<'_, Worker>,
+    task_id: Option<String>,
 ) -> Result<Option<Inspected>> {
+    let _task_reservation = BackupTaskReservation {
+        worker: worker.inner().clone(),
+        id: task_id.clone(),
+    };
     worker.require_personal()?;
     let receive = on_main(&app, crate::native_images::pick_backup_open)?;
     let w = worker.inner().clone();
@@ -835,36 +870,210 @@ pub async fn inspect_backup(
         else {
             return Ok(None);
         };
-        let target = path.clone();
-        let summary = w.call_personal(move |s| s.inspect_backup(&target))?;
+        let started = w.backup_inspect_begin_task(path.clone(), task_id)?;
         Ok(Some(Inspected {
-            name: path
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into(),
+            name: started.name,
             path: path.to_string_lossy().into(),
-            summary,
+            encrypted: started.encrypted,
+            token: Some(started.token),
+            summary: started.summary,
         }))
     })
     .await
     .map_err(|_| Error::new("WORKER", "备份检查未完成，请重试"))?
 }
 
-/// Restores only the bytes whose hash the user confirmed; returns the new generation.
+/// Supplies the recovery key for an encrypted inspection session and runs the
+/// full content check on the now-authenticated plaintext.
 #[tauri::command]
-pub async fn restore_backup(
-    path: String,
-    hash: String,
-    generation: String,
+pub async fn unlock_backup_session(
+    token: String,
+    key_text: String,
+    worker: tauri::State<'_, Worker>,
+    task_id: Option<String>,
+) -> Result<Inspected> {
+    let _task_reservation = BackupTaskReservation {
+        worker: worker.inner().clone(),
+        id: task_id.clone(),
+    };
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let unlocked = w.backup_session_unlock_task(token.clone(), key_text, task_id)?;
+        Ok(Inspected {
+            name: String::new(),
+            path: String::new(),
+            encrypted: true,
+            token: Some(token),
+            summary: Some(unlocked.summary),
+        })
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "备份解锁未完成，请重试"))?
+}
+
+/// Drops the controlled inspection session and its staged files.
+#[tauri::command]
+pub async fn cancel_backup_session(token: String, worker: tauri::State<'_, Worker>) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.backup_session_cancel(token))
+        .await
+        .map_err(|_| Error::new("WORKER", "会话未取消，请重试"))?
+}
+
+/// Confirms replacement of the current library with the checked session
+/// bytes; returns the new generation.
+#[tauri::command]
+pub async fn restore_backup_session(
+    token: String,
     worker: tauri::State<'_, Worker>,
 ) -> Result<String> {
     let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.backup_session_restore(token))
+        .await
+        .map_err(|_| Error::new("WORKER", "未收到恢复结果，请重新启动后核对"))?
+}
+
+/// Reads only the original controlled restore session; never repeats replacement.
+#[tauri::command]
+pub async fn backup_session_result(
+    token: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<Option<String>> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.backup_session_result(token))
+        .await
+        .map_err(|_| Error::new("WORKER", "恢复结果仍无法确认，请保留原会话"))?
+}
+
+/// Backup-security policy for the settings page; readable in sample mode too.
+#[tauri::command]
+pub async fn backup_security_status(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::backup_security::SecurityStatus> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.backup_security_status())
+        .await
+        .map_err(|_| Error::new("WORKER", "备份安全状态读取失败，请重试"))?
+}
+
+/// The explicit "continue with plaintext" choice, also the only repair path
+/// out of needs_attention / restore_review_required.
+#[tauri::command]
+pub async fn backup_security_choose_plaintext(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::backup_security::SecurityStatus> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.backup_security_choose_plaintext())
+        .await
+        .map_err(|_| Error::new("WORKER", "备份安全设置未保存，请重试"))?
+}
+
+/// Starts key generation; the recovery key is returned exactly once.
+#[tauri::command]
+pub async fn backup_security_begin_setup(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::backup_security::KeySetupStarted> {
+    worker.require_personal()?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.backup_security_begin_setup())
+        .await
+        .map_err(|_| Error::new("WORKER", "未能生成恢复密钥，请重试"))?
+}
+
+/// Cancels (or lets expire) an in-progress key setup.
+#[tauri::command]
+pub async fn backup_security_cancel_setup(
+    session_id: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.backup_security_cancel_setup(session_id))
+        .await
+        .map_err(|_| Error::new("WORKER", "密钥设置未取消，请重试"))?
+}
+
+/// Saves the session's recovery key through a save panel; the key never
+/// round-trips through the frontend.
+#[tauri::command]
+pub async fn backup_security_export_key(
+    app: tauri::AppHandle,
+    worker: tauri::State<'_, Worker>,
+    session_id: String,
+) -> Result<Option<String>> {
+    let suggested = format!(
+        "物谱恢复密钥-{}.txt",
+        chrono::Local::now().format("%Y%m%d-%H%M")
+    );
+    let receive = on_main(&app, move |app| {
+        crate::native_images::pick_save(app, "保存恢复密钥", "保存", &suggested, "txt")
+    })?;
+    let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        w.call_personal(move |s| s.restore(std::path::Path::new(&path), &hash, &generation))
+        let Some(path) = receive
+            .recv()
+            .map_err(|_| Error::new("PICKER", "文件面板未返回结果"))?
+        else {
+            return Ok(None);
+        };
+        w.backup_security_write_key(session_id, path.clone())?;
+        Ok(Some(path.display().to_string()))
     })
     .await
-    .map_err(|_| Error::new("WORKER", "未收到恢复结果，请重新启动后核对"))?
+    .map_err(|_| Error::new("WORKER", "恢复密钥未保存，请重试"))?
+}
+
+/// Verifies the re-entered recovery key and commits the enabled policy; the
+/// first encrypted backup starts right away.
+#[tauri::command]
+pub async fn backup_security_confirm_setup(
+    session_id: String,
+    key_text: String,
+    worker: tauri::State<'_, Worker>,
+    task_id: Option<String>,
+) -> Result<crate::backup_security::SecurityStatus> {
+    let _task_reservation = BackupTaskReservation {
+        worker: worker.inner().clone(),
+        id: task_id.clone(),
+    };
+    worker.require_personal()?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.backup_security_confirm_setup_task(session_id, key_text, task_id)
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到密钥验证结果，请到设置中核对"))?
+}
+
+/// Turns encryption off; ciphertexts and recovery keys are left untouched.
+#[tauri::command]
+pub async fn backup_security_disable(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::backup_security::SecurityStatus> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.backup_security_disable())
+        .await
+        .map_err(|_| Error::new("WORKER", "备份安全设置未保存，请重试"))?
+}
+
+/// Enables encryption from a recovery key the user re-enters, for example
+/// right after an encrypted restore on this machine.
+#[tauri::command]
+pub async fn backup_security_enable_from_key(
+    key_text: String,
+    worker: tauri::State<'_, Worker>,
+    task_id: Option<String>,
+) -> Result<crate::backup_security::SecurityStatus> {
+    let _task_reservation = BackupTaskReservation {
+        worker: worker.inner().clone(),
+        id: task_id.clone(),
+    };
+    worker.require_personal()?;
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.backup_security_enable_from_key_task(key_text, task_id)
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "未收到密钥验证结果，请到设置中核对"))?
 }
 
 /// Automatic backup state for the settings page; readable in sample mode too.
@@ -905,10 +1114,16 @@ pub async fn auto_backup_choose_extra(
             return Ok(None);
         };
         w.auto_backup_set_extra(path.clone())?;
-        // Copy the newest archive right away, outside the worker thread.
-        let status = w.auto_backup_status()?;
-        if let Some(newest) = status.items.first() {
-            let source = std::path::Path::new(&status.folder).join(&newest.name);
+        // Directory changes require a fresh archive under the current policy;
+        // never relabel an arbitrary older plaintext/old-key file as current.
+        let policy = crate::worker::Policy {
+            idle: std::time::Duration::ZERO,
+            backoff: std::time::Duration::ZERO,
+            today: chrono::Local::now().format("%Y-%m-%d").to_string(),
+        };
+        if let crate::worker::TickOutcome::BackedUp(source)
+        | crate::worker::TickOutcome::ExtraPending(source) = w.auto_backup_tick(&policy)?
+        {
             w.auto_backup_extra_now(&source);
         }
         Ok(Some(w.auto_backup_status()?))
@@ -946,23 +1161,30 @@ pub async fn auto_backup_open_folder(worker: tauri::State<'_, Worker>) -> Result
     .map_err(|_| Error::new("WORKER", "未能打开备份文件夹"))?
 }
 
-/// Inspects one dated automatic backup by name; the restore itself reuses
-/// `restore_backup` with the confirmed hash.
+/// Inspects one dated automatic backup by name; the restore reuses the
+/// session flow with the confirmed bytes.
 #[tauri::command]
 pub async fn inspect_auto_backup(
     name: String,
     worker: tauri::State<'_, Worker>,
+    task_id: Option<String>,
 ) -> Result<Inspected> {
+    let _task_reservation = BackupTaskReservation {
+        worker: worker.inner().clone(),
+        id: task_id.clone(),
+    };
     worker.require_personal()?;
     let w = worker.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let target = w.auto_backup_resolve(&name)?;
         let path = target.display().to_string();
-        let summary = w.call_personal(move |s| s.inspect_backup(&target))?;
+        let started = w.backup_inspect_begin_task(target, task_id)?;
         Ok(Inspected {
             name,
             path,
-            summary,
+            encrypted: started.encrypted,
+            token: Some(started.token),
+            summary: started.summary,
         })
     })
     .await
@@ -1602,10 +1824,16 @@ pub async fn plan_profile_update(
 #[tauri::command]
 pub async fn finance_sources(
     period: crate::expenses::Period,
+    view: Option<String>,
     worker: tauri::State<'_, Worker>,
 ) -> Result<crate::finance_sources::FinanceSources> {
     let w = worker.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || w.finance_sources(period))
+    let annual = match view.as_deref() {
+        None | Some("standard") => false,
+        Some("annual") => true,
+        _ => return Err(Error::new("VIEW", "不支持的财务视图")),
+    };
+    tauri::async_runtime::spawn_blocking(move || w.finance_sources_view(period, annual))
         .await
         .map_err(|_| Error::new("WORKER", "暂时无法读取财务来源"))?
 }
@@ -2126,4 +2354,26 @@ pub async fn financial_import_template(
     })
     .await
     .map_err(|_| Error::new("WORKER", "模板未保存，请重试"))?
+}
+
+#[tauri::command]
+pub fn backup_task_begin(worker: tauri::State<'_, Worker>) -> Result<String> {
+    worker.backup_task_begin()
+}
+#[tauri::command]
+pub fn backup_task_cancel(task_id: String, worker: tauri::State<'_, Worker>) -> Result<bool> {
+    worker.backup_task_cancel(&task_id)
+}
+
+/// Releases an unclaimed reservation when a picker is cancelled or validation fails.
+struct BackupTaskReservation {
+    worker: Worker,
+    id: Option<String>,
+}
+impl Drop for BackupTaskReservation {
+    fn drop(&mut self) {
+        if let Some(id) = &self.id {
+            let _ = self.worker.backup_task_cancel(id);
+        }
+    }
 }

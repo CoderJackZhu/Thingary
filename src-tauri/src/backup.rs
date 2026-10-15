@@ -1,4 +1,5 @@
 use crate::{
+    backup_task::Cancellation,
     domain::{Error, Result},
     files::validate_file_name,
     storage::{
@@ -13,14 +14,14 @@ use std::{
     collections::BTreeMap,
     fs::{self, File},
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
     time::Duration,
 };
 /// Total payload a backup may carry. Archives are streamed, so this bounds
 /// disk use when restoring an untrusted file, not memory.
 pub(crate) const MAX_ARCHIVE: u64 = 32 * 1024 * 1024 * 1024;
 /// Payload plus zip headers and the manifest.
-const MAX_ARCHIVE_FILE: u64 = MAX_ARCHIVE + 256 * 1024 * 1024;
+pub(crate) const MAX_ARCHIVE_FILE: u64 = MAX_ARCHIVE + 256 * 1024 * 1024;
 const MAX_ENTRIES: usize = 100_000;
 const MAX_MANIFEST: u64 = 64 * 1024 * 1024;
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,13 +45,22 @@ impl From<zip::result::ZipError> for Error {
 }
 /// Streams one regular (non-link) file through SHA-256 without buffering it.
 pub(crate) fn file_digest(path: &Path, max: u64) -> Result<(u64, String)> {
+    file_digest_with_cancel(path, max, &Cancellation::default())
+}
+
+pub fn file_digest_with_cancel(
+    path: &Path,
+    max: u64,
+    cancel: &Cancellation,
+) -> Result<(u64, String)> {
+    cancel.check()?;
     reject_links(path)?;
     let meta = fs::symlink_metadata(path)?;
     if is_link(&meta, path)? || !meta.is_file() || meta.len() > max {
         return Err(Error::new("BACKUP_LIMIT", "备份文件类型或大小超出限制"));
     }
     let mut hasher = Sha256::new();
-    let size = std::io::copy(&mut File::open(path)?.take(max + 1), &mut hasher)?;
+    let size = cancel.copy(&mut File::open(path)?.take(max + 1), &mut hasher)?;
     if size > max {
         return Err(Error::new("BACKUP_LIMIT", "备份超出限制"));
     }
@@ -96,6 +106,15 @@ fn definitions(db: &Connection) -> Result<Vec<(String, String, String)>> {
     Ok(rows)
 }
 pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
+    validate_dataset_with_cancel(dir, allow_legacy, &Cancellation::default())
+}
+
+fn validate_dataset_with_cancel(
+    dir: &Path,
+    allow_legacy: bool,
+    cancel: &Cancellation,
+) -> Result<()> {
+    cancel.check()?;
     reject_links(dir)?;
     for name in ["files", "data.sqlite", "data.sqlite-wal", "data.sqlite-shm"] {
         reject_links(&dir.join(name))?;
@@ -138,6 +157,7 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
     let mut assets = db.prepare("SELECT id,name,price_cents,purchase_date,revision FROM assets")?;
     let mut rows = assets.query([])?;
     while let Some(r) = rows.next()? {
+        cancel.check()?;
         let id: String = r.get(0)?;
         let name: String = r.get(1)?;
         let price: Option<i64> = r.get(2)?;
@@ -161,6 +181,7 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
         )?;
         let mut rows = stmt.query([])?;
         while let Some(row) = rows.next()? {
+            cancel.check()?;
             crate::catalog::Details {
                 brand: row.get(0)?,
                 model: row.get(1)?,
@@ -206,6 +227,9 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
         crate::cash_movement::validate_dataset(&db)?;
         crate::planning_flow_review::validate_dataset(&db)?;
     }
+    if v >= 42 {
+        crate::savings_goals::validate_dataset(&db)?;
+    }
     if v >= 38 {
         crate::plan_assumptions::validate_dataset(&db)?;
     }
@@ -238,6 +262,7 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         for (id, name, hash, size, created_at) in rows {
+            cancel.check()?;
             if uuid::Uuid::parse_str(&id).is_err()
                 || name.trim().is_empty()
                 || name.chars().count() > 255
@@ -248,9 +273,10 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
                 return Err(Error::new("DATA_CONSTRAINT", "备份含非法素材资料"));
             }
             validate_file_name(&hash)?;
-            let (got_size, got_hash) = file_digest(
+            let (got_size, got_hash) = file_digest_with_cancel(
                 &dir.join("files").join(&hash),
                 crate::files::MAX_IMAGE_BYTES as u64,
+                cancel,
             )?;
             if got_size as i64 != size || got_hash != hash {
                 return Err(Error::new("ATTACHMENT", "素材文件缺失或校验失败"));
@@ -287,20 +313,126 @@ pub(crate) fn validate_dataset(dir: &Path, allow_legacy: bool) -> Result<()> {
             ))
         })?;
         for row in rows {
+            cancel.check()?;
             let (file, hash, size) = row?;
             validate_file_name(&file)?;
-            let (got_size, got_hash) = file_digest(
+            let (got_size, got_hash) = file_digest_with_cancel(
                 &dir.join("files").join(&file),
                 crate::files::MAX_IMAGE_BYTES as u64,
+                cancel,
             )?;
             if hash != file || got_size as i64 != size || got_hash != hash {
                 return Err(Error::new("ATTACHMENT", "备份附件缺失或校验失败"));
             }
         }
     }
+    cancel.check()?;
     Ok(())
 }
+/// Owns a frozen SQLite snapshot and hard-linked immutable images. No live
+/// Store or SQLite connection crosses into the packing thread.
+pub struct PreparedBackup {
+    stage: tempfile::TempDir,
+    output_parent: PathBuf,
+    names: Vec<String>,
+}
+
+fn private_temp_dir(parent: &Path) -> Result<tempfile::TempDir> {
+    reject_links(parent)?;
+    let dir = temp_dir_in(parent)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o700))?;
+    }
+    Ok(dir)
+}
+
 impl Store {
+    /// Freeze only the SQLite database and image references while serialized.
+    /// A failed hard link fails this attempt; live image paths are never used
+    /// by the later packing phase and large files are never copied here.
+    pub fn prepare_backup(&self, staging: &Path, cancel: &Cancellation) -> Result<PreparedBackup> {
+        cancel.check()?;
+        reject_links(staging)?;
+        reject_links(&self.dataset())?;
+        reject_links(&self.dataset().join("files"))?;
+        let stage = private_temp_dir(staging)?;
+        self.hit("backup.before_snapshot")?;
+        {
+            let mut target = Connection::open(stage.path().join("data.sqlite"))?;
+            let backup = rusqlite::backup::Backup::new(self.conn()?, &mut target)?;
+            loop {
+                cancel.check()?;
+                match backup.step(128)? {
+                    rusqlite::backup::StepResult::Done => break,
+                    rusqlite::backup::StepResult::More => {}
+                    _ => std::thread::sleep(Duration::from_millis(1)),
+                }
+            }
+        }
+        cancel.check()?;
+        self.hit("backup.after_snapshot")?;
+        let snapshot = Connection::open_with_flags(
+            stage.path().join("data.sqlite"),
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?;
+        let mut stmt = snapshot.prepare(
+            "SELECT DISTINCT file FROM attachments UNION SELECT hash FROM materials UNION SELECT file FROM wishlist_attachments ORDER BY file",
+        )?;
+        let names = stmt
+            .query_map([], |r| r.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        if names.len() + 1 > MAX_ENTRIES {
+            return Err(Error::new(
+                "BACKUP_LIMIT",
+                "图片数量超过备份上限（10 万个文件）",
+            ));
+        }
+        let files = stage.path().join("files");
+        fs::create_dir(&files)?;
+        for name in &names {
+            cancel.check()?;
+            validate_file_name(name)?;
+            let source = self.dataset().join("files").join(name);
+            reject_links(&source)?;
+            let meta = fs::symlink_metadata(&source)
+                .map_err(|_| Error::new("IMAGE_MISSING", "有图片原图缺失，无法完成完整备份"))?;
+            if is_link(&meta, &source)?
+                || !meta.is_file()
+                || meta.len() > crate::files::MAX_IMAGE_BYTES as u64
+            {
+                return Err(Error::new("BACKUP_LIMIT", "图片文件类型或大小超出限制"));
+            }
+            fs::hard_link(&source, files.join(name)).map_err(|_| {
+                Error::new(
+                    "BACKUP_PREPARE",
+                    "无法安全固定图片原图，请检查本机资料目录权限与文件系统后重试",
+                )
+            })?;
+        }
+        cancel.check()?;
+        Ok(PreparedBackup {
+            stage,
+            output_parent: staging.to_owned(),
+            names,
+        })
+    }
+
+    /// Compatibility wrapper for internal serialized restore protection and tests.
+    pub fn build_backup(&self, staging: &Path) -> Result<tempfile::NamedTempFile> {
+        let cancel = Cancellation::default();
+        self.prepare_backup(staging, &cancel)?.pack(&cancel)
+    }
+
+    fn publish_plaintext(&self, staged: &Path, destination: &Path) -> Result<()> {
+        let temp = stage_plaintext(staged, destination, &Cancellation::default())?;
+        self.hit("backup.before_publish")?;
+        publish_staged(temp, destination)
+    }
+
+    /// The plaintext export path: build and validate in private staging, then
+    /// publish. Kept for the pre-restore protection copy and tests.
     pub fn backup(&self, destination: Option<&Path>) -> Result<Option<String>> {
         let Some(destination) = destination else {
             return Ok(None);
@@ -308,40 +440,58 @@ impl Store {
         if destination.exists() {
             return Err(Error::new("EXISTS", "目标备份已存在，请另选文件名"));
         }
-        let parent = destination
-            .parent()
-            .ok_or_else(|| Error::new("PATH", "备份位置无效"))?;
-        reject_links(parent)?;
-        reject_links(&self.dataset())?;
-        reject_links(&self.dataset().join("files"))?;
-        let stage = temp_dir_in(&self.root)?;
-        self.hit("backup.before_snapshot")?;
-        {
-            let mut target = Connection::open(stage.path().join("data.sqlite"))?;
-            rusqlite::backup::Backup::new(self.conn()?, &mut target)?.run_to_completion(
-                128,
-                Duration::from_millis(1),
-                None,
-            )?;
+        let staging = crate::backup_security::ensure_staging(&self.root)?;
+        let session = crate::storage::temp_dir_in(&staging)?;
+        let result = (|| {
+            let archive = self.build_backup(session.path())?;
+            self.publish_plaintext(archive.path(), destination)?;
+            Ok(Some(
+                destination
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into(),
+            ))
+        })();
+        drop(session);
+        result
+    }
+
+    /// The encrypted export path: the plaintext ZIP exists only inside private
+    /// staging; the destination directory only ever sees ciphertext temporary
+    /// files and the finished `.age` artifact.
+    pub fn backup_encrypted(
+        &self,
+        recipient: &age::x25519::Recipient,
+        destination: &Path,
+    ) -> Result<Option<String>> {
+        if destination.exists() {
+            return Err(Error::new("EXISTS", "目标备份已存在，请另选文件名"));
         }
-        self.hit("backup.after_snapshot")?;
-        let mut stmt = self.conn()?.prepare(
-            "SELECT DISTINCT file FROM attachments UNION SELECT hash FROM materials UNION SELECT file FROM wishlist_attachments ORDER BY file",
-        )?;
-        let names = stmt
-            .query_map([], |r| r.get::<_, String>(0))?
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-        drop(stmt);
-        if names.len() + 1 > MAX_ENTRIES {
-            return Err(Error::new(
-                "BACKUP_LIMIT",
-                "图片数量超过备份上限（10 万个文件）",
-            ));
-        }
-        // Originals are content-addressed and never rewritten with other bytes,
-        // so they stream straight from the library; each hash is checked against
-        // its name while writing, and the finished archive is re-validated below.
-        let mut archive = temp_file_in(parent)?;
+        let staging = crate::backup_security::ensure_staging(&self.root)?;
+        let session = crate::storage::temp_dir_in(&staging)?;
+        let result = (|| {
+            let archive = self.build_backup(session.path())?;
+            self.hit("backup.before_publish")?;
+            crate::backup_crypto::encrypt_to(recipient, archive.path(), destination)?;
+            Ok(Some(
+                destination
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into(),
+            ))
+        })();
+        drop(session);
+        result
+    }
+}
+impl PreparedBackup {
+    /// May run on a blocking background thread; all inputs are independently pinned.
+    pub fn pack(self, cancel: &Cancellation) -> Result<tempfile::NamedTempFile> {
+        cancel.check()?;
+        let mut archive = temp_file_in(&self.output_parent)?;
+        let archive_path = archive.path().to_path_buf();
         let mut entries = BTreeMap::new();
         let mut total = 0u64;
         {
@@ -349,6 +499,7 @@ impl Store {
             let options = zip::write::SimpleFileOptions::default()
                 .compression_method(zip::CompressionMethod::Stored);
             let mut add = |zip: &mut zip::ZipWriter<&mut File>, entry: String, source: &Path| {
+                cancel.check()?;
                 let limit = entry_limit(&entry);
                 reject_links(source)?;
                 let meta = fs::symlink_metadata(source)?;
@@ -363,7 +514,7 @@ impl Store {
                     inner: &mut *zip,
                     hasher: Sha256::new(),
                 };
-                let size = std::io::copy(&mut File::open(source)?.take(limit + 1), &mut tee)?;
+                let size = cancel.copy(&mut File::open(source)?.take(limit + 1), &mut tee)?;
                 let hash = format!("{:x}", tee.hasher.finalize());
                 if size > limit {
                     return Err(Error::new("BACKUP_LIMIT", "备份文件大小超出限制"));
@@ -381,9 +532,10 @@ impl Store {
                 );
                 Ok(hash)
             };
-            for name in &names {
+            for name in &self.names {
+                cancel.check()?;
                 validate_file_name(name)?;
-                let source = self.dataset().join("files").join(name);
+                let source = self.stage.path().join("files").join(name);
                 if !source.exists() {
                     return Err(Error::new(
                         "IMAGE_MISSING",
@@ -400,7 +552,7 @@ impl Store {
             add(
                 &mut zip,
                 "data.sqlite".into(),
-                &stage.path().join("data.sqlite"),
+                &self.stage.path().join("data.sqlite"),
             )?;
             let manifest = Manifest {
                 format: 1,
@@ -411,46 +563,104 @@ impl Store {
             // Readers locate entries by name, so the manifest may come last.
             zip.start_file("manifest.json", options)?;
             zip.write_all(&serde_json::to_vec(&manifest)?)?;
+            cancel.check()?;
             zip.finish()?;
         }
+        cancel.check()?;
         archive.as_file().sync_all()?;
-        drop(stage);
         // Validate the actual archive, not only the pre-archive snapshot.
-        let verify = temp_dir_in(&self.root)?;
-        unpack(archive.path(), verify.path())?;
+        let verify = private_temp_dir(&self.output_parent)?;
+        unpack_with_cancel(&archive_path, verify.path(), cancel)?;
         drop(verify);
-        self.hit("backup.before_publish")?;
-        persist_retry(archive, destination, true)?;
-        sync_dir(parent)?;
-        Ok(Some(
-            destination
-                .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into(),
-        ))
+        Ok(archive)
     }
 }
+
+/// Write a same-directory temporary only; publication is a separate guarded step.
+pub fn stage_plaintext(
+    staged: &Path,
+    destination: &Path,
+    cancel: &Cancellation,
+) -> Result<tempfile::NamedTempFile> {
+    cancel.check()?;
+    reject_links(staged)?;
+    reject_links(destination)?;
+    let parent = destination
+        .parent()
+        .ok_or_else(|| Error::new("PATH", "备份位置无效"))?;
+    reject_links(parent)?;
+    if destination.exists() {
+        return Err(Error::new("EXISTS", "目标备份已存在，请另选文件名"));
+    }
+    let mut temp = temp_file_in(parent)?;
+    cancel.copy(&mut File::open(staged)?, temp.as_file_mut())?;
+    temp.as_file().sync_all()?;
+    cancel.check()?;
+    Ok(temp)
+}
+
+/// The caller linearizes cancellation and policy checks before this short step.
+pub fn publish_staged(temp: tempfile::NamedTempFile, destination: &Path) -> Result<()> {
+    reject_links(destination)?;
+    let parent = destination
+        .parent()
+        .ok_or_else(|| Error::new("PATH", "备份位置无效"))?;
+    reject_links(parent)?;
+    persist_retry(temp, destination, true)?;
+    sync_dir(parent)?;
+    Ok(())
+}
+
 pub fn archive_hash(path: &Path) -> Result<String> {
-    Ok(file_digest(path, MAX_ARCHIVE_FILE)?.1)
+    Ok(file_digest(
+        path,
+        MAX_ARCHIVE_FILE + crate::backup_crypto::MAX_CIPHER_OVERHEAD,
+    )?
+    .1)
 }
 /// Copies an archive into `root` so later checks and restore read bytes that
-/// cannot change underneath them.
-pub(crate) fn freeze(archive: &Path, root: &Path) -> Result<tempfile::NamedTempFile> {
+/// cannot change underneath them. `max` bounds the accepted size.
+pub(crate) fn freeze_with(
+    archive: &Path,
+    root: &Path,
+    max: u64,
+) -> Result<tempfile::NamedTempFile> {
+    freeze_with_cancel(archive, root, max, &Cancellation::default())
+}
+
+pub fn freeze_with_cancel(
+    archive: &Path,
+    root: &Path,
+    max: u64,
+    cancel: &Cancellation,
+) -> Result<tempfile::NamedTempFile> {
+    cancel.check()?;
     reject_links(archive)?;
     reject_links(root)?;
-    let frozen = temp_file_in(root)?;
-    let copied = std::io::copy(
-        &mut File::open(archive)?.take(MAX_ARCHIVE_FILE + 1),
+    let staging = crate::backup_security::ensure_staging(root)?;
+    let frozen = temp_file_in(&staging)?;
+    let copied = cancel.copy(
+        &mut File::open(archive)?.take(max + 1),
         &mut frozen.as_file(),
     )?;
-    if copied > MAX_ARCHIVE_FILE {
+    if copied > max {
         return Err(Error::new("BACKUP_LIMIT", "备份超出限制"));
     }
     frozen.as_file().sync_all()?;
+    cancel.check()?;
     Ok(frozen)
 }
+
+/// Freezes a plaintext archive with the standard ZIP limits.
+pub(crate) fn freeze(archive: &Path, root: &Path) -> Result<tempfile::NamedTempFile> {
+    freeze_with(archive, root, MAX_ARCHIVE_FILE)
+}
 pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
+    unpack_with_cancel(path, dir, &Cancellation::default())
+}
+
+fn unpack_with_cancel(path: &Path, dir: &Path, cancel: &Cancellation) -> Result<Manifest> {
+    cancel.check()?;
     reject_links(dir)?;
     reject_links(path)?;
     let meta = fs::symlink_metadata(path)?;
@@ -465,6 +675,7 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
     let mut total = 0u64;
     let mut manifest_bytes = None;
     for i in 0..archive.len() {
+        cancel.check()?;
         let mut f = archive.by_index(i)?;
         let name = f.name().to_owned();
         safe_entry(&name)?;
@@ -483,11 +694,13 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
             return Err(Error::new("BACKUP_LIMIT", "备份超出解压限制"));
         }
         let (got, hash) = if name == "manifest.json" {
-            let mut b = Vec::new();
-            f.by_ref().take(size + 1).read_to_end(&mut b)?;
-            let hash = format!("{:x}", Sha256::digest(&b));
-            let got = b.len() as u64;
-            manifest_bytes = Some(b);
+            let mut tee = Tee {
+                inner: Vec::new(),
+                hasher: Sha256::new(),
+            };
+            let got = cancel.copy(&mut f.by_ref().take(size + 1), &mut tee)?;
+            let hash = format!("{:x}", tee.hasher.finalize());
+            manifest_bytes = Some(tee.inner);
             (got, hash)
         } else {
             let dest = dir.join(&name);
@@ -498,7 +711,7 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
                 inner: File::create(&dest)?,
                 hasher: Sha256::new(),
             };
-            let got = std::io::copy(&mut f.by_ref().take(size + 1), &mut tee)?;
+            let got = cancel.copy(&mut f.by_ref().take(size + 1), &mut tee)?;
             tee.inner.sync_all()?;
             (got, format!("{:x}", tee.hasher.finalize()))
         };
@@ -529,7 +742,7 @@ pub(crate) fn unpack(path: &Path, dir: &Path) -> Result<Manifest> {
     if dir.join("files").exists() {
         sync_dir(&dir.join("files"))?;
     }
-    validate_dataset(dir, true)?;
+    validate_dataset_with_cancel(dir, true, cancel)?;
     let db = Connection::open_with_flags(
         dir.join("data.sqlite"),
         rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
@@ -555,6 +768,7 @@ pub struct Summary {
     pub maintenances: i64,
     pub warranties: i64,
     pub accounts: i64,
+    pub savings_goals: i64,
     pub snapshots: i64,
     pub expenses: i64,
     pub plans: i64,
@@ -578,114 +792,166 @@ impl Store {
     /// Fully unpacks and validates into a scratch folder; the current library is untouched.
     pub fn inspect_backup(&self, archive: &Path) -> Result<Summary> {
         let frozen = freeze(archive, &self.root)?;
-        let hash = archive_hash(frozen.path())?;
-        let stage = temp_dir_in(&self.root)?;
-        let manifest = unpack(frozen.path(), stage.path())?;
-        let db = Connection::open_with_flags(
-            stage.path().join("data.sqlite"),
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )?;
-        let count = |sql: &str| -> Result<i64> { Ok(db.query_row(sql, [], |r| r.get(0))?) };
-        let v = manifest.schema;
-        Ok(Summary {
-            hash,
-            created_at: manifest.created_at.clone(),
-            schema: v,
-            assets: count("SELECT count(*) FROM assets")?,
-            deleted_assets: if v >= 2 {
-                count("SELECT count(*) FROM assets WHERE deleted_at IS NOT NULL")?
-            } else {
-                0
-            },
-            wishes: if v >= 11 {
-                count("SELECT count(*) FROM wishlist_items")?
-            } else {
-                0
-            },
-            maintenances: if v >= 8 {
-                count("SELECT count(*) FROM maintenances")?
-            } else {
-                0
-            },
-            warranties: if v >= 10 {
-                count("SELECT count(*) FROM warranties")?
-            } else {
-                0
-            },
-            accounts: if v >= 15 {
-                count("SELECT count(*) FROM fin_accounts")?
-            } else {
-                0
-            },
-            snapshots: if v >= 15 {
-                count("SELECT count(*) FROM fin_snapshots")?
-            } else {
-                0
-            },
-            expenses: if v >= 16 {
-                count("SELECT count(*) FROM expenses")?
-            } else {
-                0
-            },
-            plans: if v >= 17 {
-                count("SELECT count(*) FROM recurring_plans")?
-            } else {
-                0
-            },
-            payments: if v >= 17 {
-                count("SELECT count(*) FROM plan_payments")?
-            } else {
-                0
-            },
-            virtual_assets: if v >= 19 {
-                count("SELECT count(*) FROM virtual_assets")?
-            } else {
-                0
-            },
-            virtual_topups: if v >= 22 {
-                count("SELECT count(*) FROM virtual_topups")?
-            } else {
-                0
-            },
-            import_mappings: if v >= 34 {
-                count("SELECT count(*) FROM import_external_key")?
-            } else {
-                0
-            },
-            import_receipts: if v >= 34 {
-                count("SELECT count(*) FROM import_receipt")?
-            } else {
-                0
-            },
-            cash_movements: if v >= 39 {
-                db.query_row("SELECT COUNT(*) FROM cash_movements", [], |r| r.get(0))?
-            } else {
-                0
-            },
-            investment_reviews: if v >= 37 {
-                db.query_row("SELECT COUNT(*) FROM investment_flows", [], |r| r.get(0))?
-            } else {
-                0
-            },
-            assumption_checks: if v >= 38 {
-                db.query_row("SELECT COUNT(*) FROM plan_assumption_checks", [], |r| {
-                    r.get(0)
-                })?
-            } else {
-                0
-            },
-            link_groups: if v >= 32 && crate::storage::has_link_trash_schema(&db)? {
-                count("SELECT count(*) FROM link_trash_groups")?
-            } else {
-                0
-            },
-            planning_conditions_reset: (30..36).contains(&v)
-                && crate::plan_migration::requires_reset(&db)?,
-            files: manifest
-                .entries
-                .keys()
-                .filter(|k| k.starts_with("files/"))
-                .count(),
-        })
+        self.inspect_frozen(frozen.path())
+    }
+
+    /// Inspects an already-frozen archive. The caller owns the frozen file and
+    /// its lifecycle; the hash binds later restore steps to these exact bytes.
+    pub fn inspect_frozen(&self, frozen: &Path) -> Result<Summary> {
+        inspect_frozen_with(frozen, &self.root, &Cancellation::default())
+    }
+}
+
+pub fn inspect_frozen_with(frozen: &Path, root: &Path, cancel: &Cancellation) -> Result<Summary> {
+    cancel.check()?;
+    let hash = file_digest_with_cancel(frozen, MAX_ARCHIVE_FILE, cancel)?.1;
+    let staging = crate::backup_security::ensure_staging(root)?;
+    let stage = private_temp_dir(&staging)?;
+    let manifest = unpack_with_cancel(frozen, stage.path(), cancel)?;
+    let db = Connection::open_with_flags(
+        stage.path().join("data.sqlite"),
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?;
+    let count = |sql: &str| -> Result<i64> {
+        cancel.check()?;
+        Ok(db.query_row(sql, [], |r| r.get(0))?)
+    };
+    let v = manifest.schema;
+    Ok(Summary {
+        hash,
+        created_at: manifest.created_at.clone(),
+        schema: v,
+        savings_goals: if v >= 42 {
+            count("SELECT count(*) FROM savings_goals")?
+        } else {
+            0
+        },
+        assets: count("SELECT count(*) FROM assets")?,
+        deleted_assets: if v >= 2 {
+            count("SELECT count(*) FROM assets WHERE deleted_at IS NOT NULL")?
+        } else {
+            0
+        },
+        wishes: if v >= 11 {
+            count("SELECT count(*) FROM wishlist_items")?
+        } else {
+            0
+        },
+        maintenances: if v >= 8 {
+            count("SELECT count(*) FROM maintenances")?
+        } else {
+            0
+        },
+        warranties: if v >= 10 {
+            count("SELECT count(*) FROM warranties")?
+        } else {
+            0
+        },
+        accounts: if v >= 15 {
+            count("SELECT count(*) FROM fin_accounts")?
+        } else {
+            0
+        },
+        snapshots: if v >= 15 {
+            count("SELECT count(*) FROM fin_snapshots")?
+        } else {
+            0
+        },
+        expenses: if v >= 16 {
+            count("SELECT count(*) FROM expenses")?
+        } else {
+            0
+        },
+        plans: if v >= 17 {
+            count("SELECT count(*) FROM recurring_plans")?
+        } else {
+            0
+        },
+        payments: if v >= 17 {
+            count("SELECT count(*) FROM plan_payments")?
+        } else {
+            0
+        },
+        virtual_assets: if v >= 19 {
+            count("SELECT count(*) FROM virtual_assets")?
+        } else {
+            0
+        },
+        virtual_topups: if v >= 22 {
+            count("SELECT count(*) FROM virtual_topups")?
+        } else {
+            0
+        },
+        import_mappings: if v >= 34 {
+            count("SELECT count(*) FROM import_external_key")?
+        } else {
+            0
+        },
+        import_receipts: if v >= 34 {
+            count("SELECT count(*) FROM import_receipt")?
+        } else {
+            0
+        },
+        cash_movements: if v >= 39 {
+            db.query_row("SELECT COUNT(*) FROM cash_movements", [], |r| r.get(0))?
+        } else {
+            0
+        },
+        investment_reviews: if v >= 37 {
+            db.query_row("SELECT COUNT(*) FROM investment_flows", [], |r| r.get(0))?
+        } else {
+            0
+        },
+        assumption_checks: if v >= 38 {
+            db.query_row("SELECT COUNT(*) FROM plan_assumption_checks", [], |r| {
+                r.get(0)
+            })?
+        } else {
+            0
+        },
+        link_groups: if v >= 32 && crate::storage::has_link_trash_schema(&db)? {
+            count("SELECT count(*) FROM link_trash_groups")?
+        } else {
+            0
+        },
+        planning_conditions_reset: (30..36).contains(&v)
+            && crate::plan_migration::requires_reset(&db)?,
+        files: manifest
+            .entries
+            .keys()
+            .filter(|k| k.starts_with("files/"))
+            .count(),
+    })
+}
+
+#[cfg(test)]
+mod v3_roundtrip_tests {
+    use super::*;
+    #[test]
+    fn staged_backup_inspect_and_restore_roundtrip() {
+        let root = tempfile::tempdir().unwrap();
+        let mut store = Store::open(root.path()).unwrap();
+        store
+            .save(
+                &crate::domain::Save {
+                    request_id: uuid::Uuid::new_v4().to_string(),
+                    generation: store.generation(),
+                    asset_id: None,
+                    expected_revision: None,
+                    name: "虚构物品".into(),
+                    price_cents: None,
+                    purchase_date: None,
+                },
+                "2026-10-15",
+            )
+            .unwrap();
+        let dest = root.path().join("out.thingary");
+        let name = store.backup(Some(&dest)).unwrap();
+        assert!(name.is_some());
+        assert!(dest.exists());
+        let info = store.inspect_backup(&dest).unwrap();
+        store
+            .restore(&dest, &info.hash, &store.generation())
+            .unwrap();
     }
 }

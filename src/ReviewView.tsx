@@ -1,3 +1,4 @@
+import { SavingsGoals } from './SavingsGoals';
 import { allModules, hiddenKinds, type Modules, type RuntimeModules } from './modules';
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
@@ -156,6 +157,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
           <div className="review-plan-actions"><button className="review-action" onClick={onOpenSettings}>前往设置 →</button></div>
         </article>)}
     </div>}
+    {modules.wealth && <SavingsGoals key={generation} generation={generation} today={today} version={version} compact hideAmounts={amountsHidden}/>}
     <div className={'review-heroes' + (modules.wealth && w?.structure_date ? '' : ' single')}>
       {modules.wealth && w?.structure_date && (amountsHidden ? <article className="ui-card ui-content"><h3>资产结构</h3><p className="muted">金融金额已隐藏</p></article> : <StructureCard summary={w}/>)}
       <article className="ui-card ui-hero tint-2">

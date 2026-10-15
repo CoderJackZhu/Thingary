@@ -75,6 +75,7 @@ fn all_digest(c: &Connection, generation: &str) -> Result<String> {
         "cash_movements",
         "investment_flow_sources",
         "goal_progress",
+        "savings_goal_accounts",
     ]) {
         facts.push((
             table,
@@ -88,7 +89,8 @@ fn all_digest(c: &Connection, generation: &str) -> Result<String> {
     ))?))
 }
 
-const KINDS: [(&str, &str); 11] = [
+const KINDS: [(&str, &str); 12] = [
+    ("savings_goal", "savings_goals"),
     ("wish", "wishlist_items"),
     ("payment", "plan_payments"),
     ("maintenance", "maintenances"),
@@ -264,6 +266,9 @@ fn purge_one(
         return Err(Error::new("PLANNING_DEPENDENCY", "账户仍被收入事实引用；请先核对并更正来源或接收账户"));
     }
     crate::cash_movement::protect_purge(tx, kind, id)?;
+    if kind == "account" {
+        crate::savings_goals::protect_purge(tx, id)?;
+    }
     crate::plan_core::protect_reference(tx, kind, id)?;
     match kind {
         "asset" => {
@@ -414,6 +419,14 @@ fn purge_one(
             )?
         }
         "account" => run(tx, id, &["DELETE FROM fin_accounts WHERE id=?1"])?,
+        "savings_goal" => run(
+            tx,
+            id,
+            &[
+                "DELETE FROM savings_goal_accounts WHERE goal_id=?1",
+                "DELETE FROM savings_goals WHERE id=?1",
+            ],
+        )?,
         "expense" => run(tx, id, &["DELETE FROM expenses WHERE id=?1"])?,
         "income" => run(tx, id, &["DELETE FROM plan_income WHERE id=?1"])?,
         "payment" => run(tx, id, &["DELETE FROM plan_payments WHERE id=?1"])?,
@@ -536,7 +549,11 @@ impl Store {
                     [],
                     |r| r.get(0),
                 )?;
-                if has_groups || input.preview.is_some() {
+                let has_goals: bool =
+                    tx.query_row("SELECT EXISTS(SELECT 1 FROM savings_goals)", [], |r| {
+                        r.get(0)
+                    })?;
+                if has_groups || has_goals || input.preview.is_some() {
                     let expected = input.preview.as_deref().ok_or_else(|| {
                         Error::new("PREVIEW_REQUIRED", "清空前请读取完整影响预览")
                     })?;

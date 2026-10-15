@@ -4,9 +4,12 @@ import { readFileSync } from 'node:fs';
 
 const src = readFileSync(new URL('../src/DataManagement.tsx', import.meta.url), 'utf8');
 
-test('restore is inspect-then-confirm and bound to the checked hash', () => {
-  assert.match(src, /invoke<Inspected \| null>\('inspect_backup'\)/);
-  assert.match(src, /invoke<string>\('restore_backup', \{ path: candidate\.path, hash: candidate\.summary\.hash, generation \}\)/);
+test('restore is inspect-then-confirm and bound to the checked session', () => {
+  assert.match(src, /invoke<Inspected \| null>\('inspect_backup', \{ taskId \}\)/);
+  // V3: the restore consumes the opaque token of the checked bytes, never a
+  // user path; encrypted candidates unlock first with the recovery key.
+  assert.match(src, /invoke<string>\('restore_backup_session', \{ token: candidate\.token \}\)/);
+  assert.match(src, /invoke<Inspected>\('unlock_backup_session', \{ token: candidate\.token, keyText: unlockKey, taskId \}\)/);
   assert.match(src, /确认替换当前资料/);
   assert.match(src, /当前资料会先保存保护副本/);
 });

@@ -11,19 +11,20 @@ const FinancialImportDialog = () => null;
 function runtime(file, props, initialPending = null, invoke = async () => null) {
   const slots = [], effects = [], calls = [], events = new Map(), storage = new Map();
   if (initialPending) storage.set(pendingKey, JSON.stringify(initialPending));
-  let at = 0;
+  let at = 0, reloads = 0;
   const localStorage = { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, v), removeItem: k => storage.delete(k), key: i => [...storage.keys()][i], get length() { return storage.size; } };
   const storedPending = () => JSON.parse(localStorage.getItem(pendingKey) ?? 'null');
   const hooks = {
+    useCallback(fn) { at++; return fn; },
     useState(value) { const i = at++; if (!(i in slots)) slots[i] = typeof value === 'function' ? value() : value; return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }]; },
     useRef(value) { const i = at++; return slots[i] ??= { current: value }; },
     useEffect(fn, deps) { const i = at++; if (!slots[i] || deps.some((v, n) => v !== slots[i].deps[n])) { effects.push(() => { slots[i]?.cleanup?.(); slots[i] = { deps, cleanup: fn() }; }); } },
   };
   const window = { addEventListener: (n, f) => events.set(n, f), removeEventListener: n => events.delete(n), dispatchEvent: e => events.get(e.type)?.(), setInterval: () => 1, clearInterval() {} };
-  const context = { exports: {}, localStorage, window, Event, crypto: { randomUUID: () => 'new-request' }, location: { reload() {} }, require(name) {
+  const context = { exports: {}, localStorage, window, Event, crypto: { randomUUID: () => 'new-request' }, location: { reload() { reloads++; } }, require(name) {
     if (name === 'react') return hooks;
     if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'fragment' };
-    if (name === '@tauri-apps/api/core') return { invoke: async (name, args) => { calls.push({ name, args }); return invoke(name, args); } };
+    if (name === '@tauri-apps/api/core') return { invoke: async (name, args) => { calls.push({ name, args }); const result = await invoke(name, args); return name === 'backup_task_begin' && typeof result !== 'string' ? `fictional-task-${calls.length}` : result; } };
     if (name === './wealth') return { pendingKey, storedPending, kindLabel: s => s, code: e => e?.code };
     if (name === './asset') return { errorMessage: e => e?.message ?? String(e) };
     if (name === './financial-import') return imports;
@@ -31,6 +32,8 @@ function runtime(file, props, initialPending = null, invoke = async () => null) 
     if (name === './income-classification') return { incomeCategories: {} };
     if (name === './AssetViews') return { Icon: () => null };
     if (name === './AutoBackup') return { AutoBackup: () => null };
+    if (name === './BackupSecurity') return { BackupSecurity: () => null };
+    if (name === './backup-security-format') return { looksLikeRecoveryKey: v => ({ ok: !!v }), RESTORE_DISCLOSURE: 'disclosure', securitySummary: () => 'summary', STATE_LABELS: { disabled: '未加密', unconfigured: '待设置', enabled: '已加密' } };
     if (name === './SupportLink') return { SupportLink: 'a' };
     if (name === './CloseButton') return { CloseButton: 'button' };
     if (name === './FormControls') return { FormRow: 'section' };
@@ -45,10 +48,10 @@ function runtime(file, props, initialPending = null, invoke = async () => null) 
   const find = predicate => all().find(predicate);
   const button = text => find(n => n.type === 'button' && [n.props.children].flat(Infinity).join('') === text);
   const click = text => { const b = button(text); assert.ok(b, text); assert.ok(!b.props.disabled, text); return b.props.onClick(); };
-  return { render, all, find, button, click, calls, storedPending, props, storage };
+  return { render, all, find, button, click, calls, storedPending, props, storage, get reloads() { return reloads; }, unmount() { for (const slot of slots) slot?.cleanup?.(); } };
 }
 const pending = { command: 'financial_import_commit', input: { request_id: 'original-request', generation: 'old-library' }, label: '金融历史导入' };
-const settle = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+const settle = async () => { for (let i = 0; i < 24; i++) await Promise.resolve(); };
 const settings = extra => ({ generation: 'current-library', blocked: false, demo: false, onTrash() {}, onBusyChange() {}, onImported() {}, ...extra });
 
 test('blocked/demo settings reopen original financial receipt using its generation and lock new operations', () => {
@@ -183,4 +186,137 @@ test('unknown commit preserves original request and reopening recovery never res
   recovery.click('按原请求核对回执'); await settle();
   assert.deepEqual(recovery.calls.map(c => c.name), ['financial_import_receipt']);
   assert.equal(recovery.calls[0].args.request, 'new-request');
+});
+
+
+const checkedBackup = { path: '/tmp/fictional.thingary', name: '虚构备份', encrypted: false, token: 'frozen-token', summary: { created_at: '2026-10-15', schema: 42 } };
+test('lost restore response preserves its token and only the read-only result command resolves it', async () => {
+  let receipt = 'unknown';
+  const ui = runtime('DataManagement', settings(), null, async name => {
+    if (name === 'inspect_backup') return checkedBackup;
+    if (name === 'restore_backup_session') throw new Error('reply lost');
+    if (name === 'backup_session_result') { if (receipt === 'unknown') throw new Error('temporarily unavailable'); return receipt; }
+  });
+  ui.click('选择…'); await settle(); ui.click('确认替换当前资料'); await settle();
+  assert.equal(ui.button('确认替换当前资料').props.disabled, true);
+  assert.equal(ui.button('取消').props.disabled, true);
+  assert.equal(ui.button('备份…').props.disabled, true);
+  ui.click('核对恢复结果'); await settle();
+  assert.ok(ui.button('核对恢复结果'));
+  receipt = 'restored-generation'; ui.click('核对恢复结果'); await settle();
+  assert.equal(ui.reloads, 1);
+  assert.equal(ui.calls.filter(c => c.name === 'restore_backup_session').length, 1);
+  assert.equal(ui.calls.filter(c => c.name === 'backup_session_result').length, 2);
+});
+test('read-only absence unlocks an explicit second confirmation without replaying the restore', async () => {
+  const ui = runtime('DataManagement', settings(), null, async name => {
+    if (name === 'inspect_backup') return checkedBackup;
+    if (name === 'restore_backup_session') throw new Error('not submitted');
+    if (name === 'backup_session_result') return null;
+  });
+  ui.click('选择…'); await settle(); ui.click('确认替换当前资料'); await settle();
+  ui.click('核对恢复结果'); await settle();
+  assert.equal(ui.button('确认替换当前资料').props.disabled, false);
+  assert.equal(ui.calls.filter(c => c.name === 'restore_backup_session').length, 1);
+});
+test('late inspection after dataset switch is cancelled and cannot become a new-library restore candidate', async () => {
+  let resolve;
+  const ui = runtime('DataManagement', settings(), null, name => name === 'inspect_backup' ? new Promise(r => { resolve = r; }) : Promise.resolve());
+  ui.click('选择…'); await settle(); ui.props.generation = 'new-library'; ui.render(); resolve(checkedBackup); await settle();
+  assert.equal(ui.button('确认替换当前资料'), undefined);
+  assert.equal(ui.calls.filter(c => c.name === 'cancel_backup_session')[0].args.token, 'frozen-token');
+});
+test('security wizard locks the parent page and its data operations', () => {
+  const busy = [], ui = runtime('DataManagement', settings({ onBusyChange: b => busy.push(b) }));
+  ui.find(n => n.props.onStatusChange && n.props.onBusyChange).props.onBusyChange(true); ui.render();
+  assert.equal(busy.at(-1), true);
+  for (const name of ['备份…', '导出…', '选择…', '选择表格…']) assert.equal(ui.button(name).props.disabled, true);
+  assert.equal(ui.find(n => n.type === 'fieldset').props.disabled, true);
+});
+test('closing the security panel cancels its generated session and ignores delayed begin replies', async () => {
+  for (const delayed of [false, true]) {
+    let resolve;
+    const busy = [];
+    const ui = runtime('BackupSecurity', { demo: false, blocked: false, onStatusChange() {}, onBusyChange: b => busy.push(b) }, null, name => {
+      if (name === 'backup_security_status') return Promise.resolve({ state: 'unconfigured' });
+      if (name === 'backup_security_begin_setup') return delayed ? new Promise(r => { resolve = r; }) : Promise.resolve({ session_id: 'fictional-key-session', recipient_id: 'public-id', recovery_key: 'fictional-unused-key' });
+      return Promise.resolve();
+    });
+    ui.render(); await settle(); ui.click('启用加密…');
+    if (!delayed) { await settle(); ui.render(); assert.equal(busy.at(-1), true); }
+    ui.unmount();
+    if (delayed) resolve({ session_id: 'fictional-key-session', recipient_id: 'public-id', recovery_key: 'fictional-unused-key' });
+    await settle();
+    assert.equal(ui.calls.filter(c => c.name === 'backup_security_cancel_setup').at(-1).args.sessionId, 'fictional-key-session');
+    assert.equal(ui.calls.filter(c => c.name === 'backup_security_confirm_setup').length, 0);
+  }
+});
+
+test('accepted task cancellation keeps all locks until the original operation rejects after cleanup', async () => {
+  let reject, cancels = 0;
+  const busy = [];
+  const ui = runtime('DataManagement', settings({ onBusyChange: value => busy.push(value) }), null, name => {
+    if (name === 'inspect_backup') return new Promise((_, no) => { reject = no; });
+    if (name === 'backup_task_cancel') { cancels++; return Promise.resolve(true); }
+    return Promise.resolve(null);
+  });
+  ui.click('选择…'); await settle();
+  ui.click('取消本次备份操作'); await settle();
+  assert.equal(cancels, 1);
+  assert.equal(ui.button('取消本次备份操作').props.disabled, true);
+  assert.equal(ui.button('备份…').props.disabled, true);
+  assert.equal(busy.at(-1), true);
+  assert.ok(ui.all().some(n => n.props.role === 'status' && n.props.children === '正在取消，请等待清理'));
+  reject({ code: 'CANCELLED', message: 'cleaned' }); await settle(); ui.render();
+  assert.equal(ui.button('取消本次备份操作'), undefined);
+  assert.equal(ui.button('备份…').props.disabled, false);
+  assert.equal(busy.at(-1), false);
+  assert.ok(ui.all().some(n => n.props.role === 'alert' && n.props.children === '已取消，原成品保留。'));
+  assert.equal(ui.storage.size, 0, 'task tokens and keys are never persisted');
+});
+test('late cancellation refusal waits for the original success and does not discard its candidate', async () => {
+  let resolve;
+  const ui = runtime('DataManagement', settings(), null, name => {
+    if (name === 'inspect_backup') return new Promise(done => { resolve = done; });
+    if (name === 'backup_task_cancel') return Promise.resolve(false);
+    return Promise.resolve(null);
+  });
+  ui.click('选择…'); await settle(); ui.click('取消本次备份操作'); await settle();
+  assert.ok(ui.all().some(n => n.props.children === '本次操作已发布或完成，请等待原结果'));
+  assert.equal(ui.button('备份…').props.disabled, true);
+  resolve(checkedBackup); await settle();
+  assert.ok(ui.button('确认替换当前资料'));
+  assert.equal(ui.calls.filter(c => c.name === 'restore_backup_session').length, 0);
+});
+test('a failed task allocation sends no long operation; an unmounted late allocation cancels only its own id', async () => {
+  const failed = runtime('DataManagement', settings(), null, async name => { if (name === 'backup_task_begin') throw new Error('allocation failed'); });
+  failed.click('选择…'); await settle();
+  assert.equal(failed.calls.filter(c => c.name === 'inspect_backup').length, 0);
+  let resolve;
+  const late = runtime('DataManagement', settings(), null, name => name === 'backup_task_begin' ? new Promise(done => { resolve = done; }) : Promise.resolve(true));
+  late.click('选择…'); late.unmount(); resolve('late-owned-task'); await settle();
+  assert.equal(late.calls.filter(c => c.name === 'inspect_backup').length, 0);
+  assert.equal(late.calls.filter(c => c.name === 'backup_task_cancel').at(-1).args.taskId, 'late-owned-task');
+});
+test('cancelling the first encrypted backup keeps the verified policy and refreshes its independent outcome', async () => {
+  let reject, enabled = false;
+  const busy = [];
+  const ui = runtime('BackupSecurity', { demo: false, blocked: false, onStatusChange() {}, onBusyChange: value => busy.push(value) }, null, name => {
+    if (name === 'backup_security_status') return Promise.resolve({ state: enabled ? 'enabled' : 'unconfigured', first_backup: enabled ? { state: 'failed', message: 'cancelled' } : null });
+    if (name === 'backup_security_begin_setup') return Promise.resolve({ session_id: 'fixture-session', recipient_id: 'public-only', recovery_key: 'fictional-key' });
+    if (name === 'backup_security_confirm_setup') { enabled = true; return new Promise((_, no) => { reject = no; }); }
+    if (name === 'backup_task_cancel') return Promise.resolve(true);
+    return Promise.resolve(null);
+  });
+  ui.render(); await settle(); ui.click('启用加密…'); await settle();
+  const input = ui.find(n => n.props.onChange && n.props.value === '' && n.props.busy !== undefined);
+  input.props.onChange('fictional-key'); ui.click('验证并开启加密'); await settle();
+  ui.click('取消本次加密备份'); await settle(); ui.render();
+  assert.equal(busy.at(-1), true);
+  reject({ code: 'CANCELLED', message: 'cleaned' }); await settle(); ui.render();
+  assert.equal(busy.at(-1), false);
+  assert.ok(ui.button('轮换密钥…'), 'committed encryption remains enabled');
+  assert.equal(ui.button('验证并开启加密'), undefined, 'secret setup inputs are cleared');
+  assert.equal(ui.calls.filter(c => c.name === 'backup_security_confirm_setup').length, 1);
+  assert.ok(ui.calls.some(c => c.name === 'backup_task_cancel'));
 });

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnnualReview } from './AnnualReview';
 import { HeaderSlot } from './HeaderSlot';
 import { ListPagination } from './ListPagination';
 import { usePageBar } from './topbar';
@@ -67,10 +68,10 @@ export function FinanceReviewPage({ generation, today, modules, route, onRouteCh
   const records = (tab:'income'|'expenses') => { if (selected) onRecords({page:'records',tab,period}); };
   const metric = (label:string,cents:string|null,note:string,signed=false) => <article><span>{label}</span><strong>{cents === null ? '还需补充资料' : signed ? changeText(cents) : money(cents)}</strong><em>{note}</em></article>;
   return <div ref={page} className="stats-section wealth-section planning-section finance-review" aria-label="财务复盘">
-    <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label="复盘视图">{([['period','本期复盘'],['compare','盘点比较']] as const).map(([v,l])=><button key={v} type="button" aria-pressed={route.view===v} disabled={frozen || childEditing} onClick={()=>{const view=v;onRouteChange(view === 'period' ? {page:'review',view:'period',toSnapshotId:route.toSnapshotId} : {...route,view:'compare'});}}>{l}</button>)}</div></HeaderSlot>
+    <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label="复盘视图">{([['period','本期复盘'],['compare','盘点比较'],['annual','年度回顾']] as const).map(([v,l])=><button key={v} type="button" aria-pressed={route.view===v} disabled={frozen || childEditing} onClick={()=>onRouteChange(v === 'period' ? {page:'review',view:'period',toSnapshotId:route.toSnapshotId} : {page:'review',view:v})}>{l}</button>)}</div></HeaderSlot>
     {pending && <div className="notice" role="status">上次「{pending.label}」的保存结果未确认。{pending.command === 'financial_import_commit' ? <span>请到设置的数据管理核对金融导入回执。</span> : <button disabled={busy} onClick={()=>void verifyOriginal()}>核对结果</button>}</div>}
     {notice && <p role="status">{notice}</p>}
-    {facts.load.status === 'loading' ? <p role="status">正在读取财务事实…</p> : facts.load.status === 'error' ? <p role="alert">{facts.load.message}<button onClick={facts.reload}>重新读取</button></p> : sources && <>
+    {route.view === 'annual' ? <AnnualReview key={generation} generation={generation} today={today} modules={modules}/> : facts.load.status === 'loading' ? <p role="status">正在读取财务事实…</p> : facts.load.status === 'error' ? <p role="alert">{facts.load.message}<button onClick={facts.reload}>重新读取</button></p> : sources && <>
       {sources.wealth.status !== 'ready' || sources.accounts.status !== 'ready' ? <article className="ui-card ui-content"><p>{sources.wealth.status === 'error' ? sources.wealth.message : sources.wealth.status === 'disabled' ? sources.wealth.reason : sources.accounts.status === 'error' ? sources.accounts.message : '账户与盘点暂不可用'}</p><button onClick={facts.reload}>重新读取</button></article> : <>
         <label>账户显示范围 <select value={browseState.accountView ?? 'active'} onChange={e=>onBrowseStateChange?.({...browseState,accountView:e.target.value as 'active'|'closed'|'all'})}><option value="active">使用中</option><option value="closed">已停用</option><option value="all">全部</option></select></label>
         {route.view === 'compare' ? <WealthChanges summary={sources.wealth.value} accounts={sources.accounts.value} accountView={browseState.accountView ?? 'active'} today={today} onNewAccount={onNewAccount} onCheckIn={onCheckIn} controlledRange={route.pair ? {from:route.pair.fromSnapshotId,to:route.pair.toSnapshotId}:undefined} onRangeChange={pair=>onRouteChange({...route,pair:{fromSnapshotId:pair.from,toSnapshotId:pair.to}})} initialSort={browseState.sort} initialExpanded={browseState.expandedIds} onBrowseStateChange={browse}/> : <>

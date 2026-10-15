@@ -89,6 +89,43 @@ impl Point {
 }
 
 impl Store {
+    /// Filter the year before selecting records; the recent-24 UI window must
+    /// never erase older years from an annual review.
+    pub(crate) fn goal_progress_year(&self, year: i32) -> Result<Vec<Entry>> {
+        if !(1..=9999).contains(&year) {
+            return Err(Error::new("YEAR", "年份须为1–9999"));
+        }
+        let c = self.conn()?;
+        let mut q = c.prepare("SELECT p.snapshot_id,s.date,p.recorded_on,p.payload FROM goal_progress p JOIN fin_snapshots s ON s.id=p.snapshot_id WHERE s.deleted_at IS NULL AND s.revision=p.snapshot_revision AND s.date>=?1 AND s.date<=?2 ORDER BY s.date,s.id")?;
+        let rows = q
+            .query_map(
+                [format!("{year:04}-01-01"), format!("{year:04}-12-31")],
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                    ))
+                },
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut out = Vec::new();
+        for (snapshot_id, date, recorded_on, payload) in rows {
+            if self
+                .wealth_snapshot(&snapshot_id)?
+                .is_some_and(|s| s.missing.is_empty())
+            {
+                out.push(Entry {
+                    snapshot_id,
+                    date,
+                    recorded_on,
+                    point: serde_json::from_str(&payload)?,
+                });
+            }
+        }
+        Ok(out)
+    }
     /// Keeps the first conclusion for a snapshot revision; a newer revision of a
     /// corrected check-in replaces the stale point. Incomplete, deleted or
     /// outdated check-ins are refused, so the history only holds comparable days.

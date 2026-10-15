@@ -251,7 +251,7 @@ pub(crate) fn pick_save(
 pub(crate) fn pick_backup_open(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
     dialog(app)?
         .set_title("选择要恢复的备份")
-        .add_filter("物谱备份", &["thingary"])
+        .add_filter("物谱备份", &["thingary", "age"])
         .pick_file()
 }
 

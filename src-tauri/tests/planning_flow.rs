@@ -1,4 +1,7 @@
 //! C2 business acceptance, always fictional isolated Store roots.
+#[path = "helpers/legacy_account_schema.rs"]
+mod legacy_account_schema;
+
 use serde_json::{json, Value};
 use thingary_lib::{
     cash_movement::{Endpoint, Fields, Query, Save, Source, SourceQuery, Trash},
@@ -1047,6 +1050,7 @@ fn schema38_migration_is_empty_old_manual_and_original_receipt_survive_and_rollb
         },
     };
     let flow = s.investment_review_save(&input).unwrap();
+    legacy_account_schema::restore_pre41_account_schema(s.conn_for_test().unwrap());
     s.conn_for_test().unwrap().execute_batch("DROP TABLE goal_progress;DROP TABLE cash_movements;DROP TABLE investment_flow_sources;DROP TABLE planning_flow_audit;PRAGMA user_version=38;").unwrap();
     drop(s);
     let root = d.path().join("library");

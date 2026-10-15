@@ -129,7 +129,7 @@ pub struct AccountKindInfo {
     pub side: &'static str,
 }
 /// The account kinds a template accepts, in stable display order.
-pub const ACCOUNT_KINDS: [AccountKindInfo; 10] = [
+pub const ACCOUNT_KINDS: [AccountKindInfo; 14] = [
     AccountKindInfo {
         key: "cash",
         label: "现金与存款",
@@ -163,6 +163,26 @@ pub const ACCOUNT_KINDS: [AccountKindInfo; 10] = [
     AccountKindInfo {
         key: "other_asset",
         label: "其他资产",
+        side: "asset",
+    },
+    AccountKindInfo {
+        key: "property",
+        label: "房产",
+        side: "asset",
+    },
+    AccountKindInfo {
+        key: "pension",
+        label: "个人养老金",
+        side: "asset",
+    },
+    AccountKindInfo {
+        key: "insurance",
+        label: "保险现金价值",
+        side: "asset",
+    },
+    AccountKindInfo {
+        key: "precious_metal",
+        label: "黄金与贵金属",
         side: "asset",
     },
     AccountKindInfo {
@@ -1517,6 +1537,15 @@ fn parse_account_row(
             None
         }
     };
+    if kind.as_deref() == Some("property") && counted == Some(true) {
+        issues.push(row_issue(
+            CODE_BOOL_INVALID,
+            row,
+            h.column_label("counted"),
+            None,
+            "房产仅单独记录估值，counted 必须明确为 false".into(),
+        ));
+    }
     let platform = match h.cell(record, "platform").map(str::trim) {
         None | Some("") => None,
         Some(v) if v.chars().count() > MAX_PLATFORM_CHARS => {
@@ -1649,6 +1678,15 @@ fn parse_snapshot_row(
             }
         },
     };
+    if kind_at_date.as_deref() == Some("property") && counted_at_date == Some(true) {
+        issues.push(row_issue(
+            CODE_BOOL_INVALID,
+            row,
+            h.column_label("counted_at_date"),
+            None,
+            "房产历史估值不能计入金融净资产，counted_at_date 必须为 false".into(),
+        ));
+    }
     let group_key = snapshot_key.clone();
     if issues.iter().any(|i| i.severity == SeverityV1::Error) {
         return Err(RowRejection { issues, group_key });

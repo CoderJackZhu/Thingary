@@ -10,7 +10,7 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-const ASSET_KINDS: [&str; 7] = [
+const ASSET_KINDS: [&str; 11] = [
     "cash",
     "investment",
     "mixed",
@@ -18,6 +18,10 @@ const ASSET_KINDS: [&str; 7] = [
     "bond",
     "housing_fund",
     "other_asset",
+    "property",
+    "pension",
+    "insurance",
+    "precious_metal",
 ];
 const LIABILITY_KINDS: [&str; 3] = ["credit_card", "loan", "other_liability"];
 
@@ -56,6 +60,7 @@ impl AccountFields {
         if !kinds.contains(&self.kind.as_str()) {
             return Err(Error::new("ACCOUNT_KIND", "分类与资产/负债方向不符"));
         }
+        validate_kind_counted(&self.kind, self.counted)?;
         date(&self.opened_on)?;
         if self.opened_on.as_str() > today {
             return Err(Error::new("ACCOUNT_DATE", "启用日期不能晚于今天"));
@@ -71,6 +76,17 @@ impl AccountFields {
         }
         Ok(())
     }
+}
+
+/// Shared invariant for current accounts and independently recorded historical entries.
+pub(crate) fn validate_kind_counted(kind: &str, counted: bool) -> Result<()> {
+    if kind == "property" && counted {
+        return Err(Error::new(
+            "PROPERTY_COUNTED",
+            "房产仅单独记录估值，不能计入金融净资产",
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -770,6 +786,7 @@ pub(crate) fn write_snapshot_tx(
                 counted = *c;
             }
         }
+        validate_kind_counted(&kind, counted)?;
         rows.push((e, value, side, kind, counted));
     }
     let now = chrono::Utc::now().to_rfc3339();
@@ -1478,6 +1495,21 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
             || r.get::<_, i64>(3)? < 1
         {
             return Err(bad("备份含非法盘点资料"));
+        }
+    }
+    let mut entries = c.prepare("SELECT side,kind,counted FROM fin_snapshot_entries")?;
+    let mut rows = entries.query([])?;
+    while let Some(r) = rows.next()? {
+        let side: String = r.get(0)?;
+        let kind: String = r.get(1)?;
+        let counted: bool = r.get(2)?;
+        let supported = match side.as_str() {
+            "asset" => ASSET_KINDS.contains(&kind.as_str()),
+            "liability" => LIABILITY_KINDS.contains(&kind.as_str()),
+            _ => false,
+        };
+        if !supported || validate_kind_counted(&kind, counted).is_err() {
+            return Err(bad("备份含非法盘点账户类型或计入设置"));
         }
     }
     let mismatch: bool = c.query_row(

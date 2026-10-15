@@ -2,7 +2,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { normalizeFinancePeriod } from './finance-contract.ts';
 import type { FinancePeriod, FinanceSourceState } from './finance-contract.ts';
 import type { RuntimeModules } from './modules.ts';
-import type { Account, Summary } from './wealth.ts';
+import type { Account, Summary, Compare } from './wealth.ts';
+import type { SavingsRead } from './savings-goals.ts';
+import type { GoalProgressEntry } from './goal-progress.ts';
 import type { Income, PlanReview } from './plan.ts';
 import type { ExpenseView } from './expenses.ts';
 
@@ -24,8 +26,13 @@ export type FinanceSources = {
   wealth: FinanceRead<Summary>; accounts: FinanceRead<Account[]>; incomes: FinanceRead<Income[]>;
   expenses: FinanceRead<ExpenseView & { period: FinancePeriod }>;
   asset_review: FinanceRead<AssetReview>; history: FinanceRead<PlanReview>;
+  annual?: {
+    year: number; years: FinanceRead<number[]>; comparison: FinanceRead<Compare | null>;
+    scope_changed: boolean; savings: FinanceRead<SavingsRead>; planning: FinanceRead<GoalProgressEntry[]>;
+  };
 };
-export const readFinanceSources = (period: FinancePeriod): Promise<FinanceSources> => invoke('finance_sources', { period });
+export type FinanceView = 'standard' | 'annual';
+export const readFinanceSources = (period: FinancePeriod, view: FinanceView = 'standard'): Promise<FinanceSources> => invoke('finance_sources', view === 'annual' ? { period, view } : { period });
 
 /** Ready views retain metadata unless the consumer explicitly chooses emptiness. */
 export function toFinanceSourceState<T>(source: FinanceRead<T>, emptyPredicate?: (value: T) => boolean): FinanceSourceState<T> {
@@ -46,18 +53,19 @@ function modulesKey(modules: RuntimeModules): string {
   ]);
 }
 /** Invalidate on library/restore/module changes, even when switches later return. */
-export function financeReadSession(read: (period: FinancePeriod) => Promise<FinanceSources> = readFinanceSources) {
+export function financeReadSession(read: (period: FinancePeriod, view?: FinanceView) => Promise<FinanceSources> = readFinanceSources) {
   let sequence = 0;
   return {
     invalidate() { ++sequence; },
-    async load(generation: string, period: FinancePeriod, modules: RuntimeModules): Promise<FinanceSources | null> {
+    async load(generation: string, period: FinancePeriod, modules: RuntimeModules, view: FinanceView = 'standard'): Promise<FinanceSources | null> {
       const expectedPeriod = periodKey(period);
       const expectedModules = modulesKey(modules);
       const ticket = ++sequence;
       // Copy the request before awaiting; mutation of UI state cannot change its scope.
       try {
-        const result = await read({ ...period });
-        return ticket === sequence && result.generation === generation && periodKey(result.period) === expectedPeriod && modulesKey(result.modules) === expectedModules ? result : null;
+        const result = await read({ ...period }, view);
+        const projectionMatches = view !== 'annual' || (period.kind === 'year' && result.annual?.year === period.year);
+        return ticket === sequence && projectionMatches && result.generation === generation && periodKey(result.period) === expectedPeriod && modulesKey(result.modules) === expectedModules ? result : null;
       } catch (error) {
         if (ticket !== sequence) return null;
         throw error;

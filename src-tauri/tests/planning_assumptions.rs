@@ -1,4 +1,7 @@
 //! C1 fixtures use only temporary libraries.
+#[path = "helpers/legacy_account_schema.rs"]
+mod legacy_account_schema;
+
 use thingary_lib::{
     plan_assumptions::{Save, Values},
     plan_basic::{BudgetFields, Section, Update},
@@ -210,6 +213,7 @@ fn schema37_migrates_unconfirmed_preserves_payload_and_receipt() {
     let before = s.plan_profile().unwrap().saved.unwrap().profile;
     let dbpath = {
         let conn = s.conn_for_test().unwrap();
+        legacy_account_schema::restore_pre41_account_schema(conn);
         conn.execute_batch("DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks;PRAGMA user_version=37;")
             .unwrap();
         conn.path().unwrap().to_owned()
@@ -230,6 +234,7 @@ fn schema37_migrates_unconfirmed_preserves_payload_and_receipt() {
     );
     drop(s);
     let c = rusqlite::Connection::open(dbpath).unwrap();
+    legacy_account_schema::restore_pre41_account_schema(&c);
     c.execute_batch("DROP TABLE goal_progress; DROP TABLE cash_movements; DROP TABLE investment_flow_sources; DROP TABLE planning_flow_audit; DROP TABLE plan_assumption_checks;PRAGMA user_version=37;")
         .unwrap();
     // Store startup migrates atomically. A schema downgrade contains no invented checks.

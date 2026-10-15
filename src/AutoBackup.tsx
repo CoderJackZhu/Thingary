@@ -7,12 +7,12 @@ import { autoBackupSummary, extraSummary, formatBytes, formatWhen, type AutoBack
 /** The automatic backup block inside 资料管理. Settings and the folder list
  * are machine-local, so they stay readable in sample mode; restoring follows
  * the shared inspect-then-confirm flow and needs 我的资料. */
-export function AutoBackup({ generation, demo, blocked, busy, candidateOpen, onInspect }: { generation: string | null; demo: boolean; blocked: boolean; busy: boolean; candidateOpen: boolean; onInspect: (name: string) => void }) {
+export function AutoBackup({ generation, demo, blocked, busy, candidateOpen, paused, securityRevision, onInspect }: { generation: string | null; demo: boolean; blocked: boolean; busy: boolean; candidateOpen: boolean; paused?: boolean; securityRevision?: unknown; onInspect: (name: string) => void }) {
   const [status, setStatus] = useState<AutoBackupStatus | null>(null), [loadError, setLoadError] = useState('');
   const [busyButton, setBusyButton] = useState<'toggle' | 'extra' | null>(null), [actionError, setActionError] = useState('');
   const reload = useCallback(() => invoke<AutoBackupStatus>('auto_backup_status').then(s => { setStatus(s); setLoadError(''); }).catch(e => setLoadError(errorMessage(e))), []);
   // Backups finish in the background, so re-read while the page stays open.
-  useEffect(() => { void reload(); const timer = setInterval(() => void reload(), 30_000); return () => clearInterval(timer); }, [reload]);
+  useEffect(() => { void reload(); const timer = setInterval(() => void reload(), 30_000); return () => clearInterval(timer); }, [reload, generation, securityRevision]);
   async function toggle(on: boolean) {
     setBusyButton('toggle'); setActionError('');
     try { setStatus(await invoke<AutoBackupStatus>('auto_backup_set_enabled', { enabled: on })); }
@@ -43,9 +43,10 @@ export function AutoBackup({ generation, demo, blocked, busy, candidateOpen, onI
       {status && <Switch label="自动备份" value={status.enabled} disabled={busyButton === 'toggle'} onChange={on => void toggle(on)}/>}
     </div>
     {status && <p className="auto-backup-status">{autoBackupSummary(status)}<button disabled={busyButton !== null} onClick={() => void openFolder()}>打开备份文件夹</button></p>}
+    {paused && <p className="notice" role="status">自动备份等待备份安全设置确认：确认前不生成新备份，也不复制到额外位置。请在上方「备份安全」中选择。</p>}
     {status?.last_error && <p className="notice error" role="alert">上次自动备份未完成（{formatWhen(status.last_error.at)}）：{status.last_error.message}。已有备份保留，稍后自动重试。</p>}
     {status && status.items.length > 0 && <ul className="auto-backup-list">
-      {status.items.map(item => <li key={item.name}><span>{item.date}</span><span className="muted">{formatBytes(item.size)}</span><button disabled={restoreDisabled} onClick={() => onInspect(item.name)}>恢复…</button></li>)}
+      {status.items.map(item => <li key={item.name}><span>{item.date}{item.name.endsWith('.thingary.age') ? ' · 已加密' : ''}</span><span className="muted">{formatBytes(item.size)}</span><button disabled={restoreDisabled} onClick={() => onInspect(item.name)}>恢复…</button></li>)}
     </ul>}
     <div className="auto-backup-extra">
       <h3>额外备份位置</h3>

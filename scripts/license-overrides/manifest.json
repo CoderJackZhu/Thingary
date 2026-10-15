@@ -276,5 +276,72 @@
       "sha256": "106423785c5b7eba0a8e61d1837f2132e9c828e20ad530f565d981c1df60dd90",
       "archive_sha256": "911a472128c82ac8baa0c486c23342cc9dd6e7dc50d754e676726642ca065c60"
     }
+  ],
+  "age@0.12.1": [
+    {
+      "file": "str4d--rage/v0.12.1/LICENSE-APACHE",
+      "source": "https://raw.githubusercontent.com/str4d/rage/v0.12.1/LICENSE-APACHE",
+      "sha256": "3708458dee7f359ac6c9c5558023ed481be87e5372c43ebd7f2ca7ad23c12026"
+    },
+    {
+      "file": "str4d--rage/v0.12.1/LICENSE-MIT",
+      "source": "https://raw.githubusercontent.com/str4d/rage/v0.12.1/LICENSE-MIT",
+      "sha256": "fe56c030c2d8c3404a37fe711cebb27ebea13d0aacf7e3524db4198335ad8cd1"
+    }
+  ],
+  "age-core@0.12.0": [
+    {
+      "file": "str4d--rage/v0.12.1/LICENSE-APACHE",
+      "source": "https://raw.githubusercontent.com/str4d/rage/v0.12.1/LICENSE-APACHE",
+      "sha256": "3708458dee7f359ac6c9c5558023ed481be87e5372c43ebd7f2ca7ad23c12026"
+    },
+    {
+      "file": "str4d--rage/v0.12.1/LICENSE-MIT",
+      "source": "https://raw.githubusercontent.com/str4d/rage/v0.12.1/LICENSE-MIT",
+      "sha256": "fe56c030c2d8c3404a37fe711cebb27ebea13d0aacf7e3524db4198335ad8cd1"
+    }
+  ],
+  "cookie-factory@0.3.3": [
+    {
+      "file": "rust-bakery--cookie-factory/0.3.3/LICENSE-MIT",
+      "source": "https://raw.githubusercontent.com/rust-bakery/cookie-factory/0.3.3/LICENSES/MIT.txt",
+      "sha256": "d09216dc1ea5f273997667935a8d6514d80f00b89fb6954ecc3a43e0a6e360de"
+    }
+  ],
+  "fluent-langneg@0.13.1": [
+    {
+      "file": "projectfluent--fluent-langneg-rs/fluent-langneg@0.13.1/LICENSE-APACHE",
+      "source": "https://raw.githubusercontent.com/projectfluent/fluent-langneg-rs/fluent-langneg@0.13.1/LICENSE-APACHE",
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+    },
+    {
+      "file": "projectfluent--fluent-langneg-rs/fluent-langneg@0.13.1/LICENSE-MIT",
+      "source": "https://raw.githubusercontent.com/projectfluent/fluent-langneg-rs/fluent-langneg@0.13.1/LICENSE-MIT",
+      "sha256": "016fcc02048817d628b04b140c54db290fd9d29a5e8a55b77871194e810716ac"
+    }
+  ],
+  "intl_pluralrules@7.0.2": [
+    {
+      "file": "standard/Apache-2.0.txt",
+      "source": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/Apache-2.0.txt",
+      "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+    },
+    {
+      "file": "standard/MIT.txt",
+      "source": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/MIT.txt",
+      "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+    }
+  ],
+  "io_tee@0.1.1": [
+    {
+      "file": "standard/Apache-2.0.txt",
+      "source": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/Apache-2.0.txt",
+      "sha256": "074e6e32c86a4c0ef8b3ed25b721ca23aca83df277cd88106ef7177c354615ff"
+    },
+    {
+      "file": "standard/MIT.txt",
+      "source": "https://raw.githubusercontent.com/spdx/license-list-data/main/text/MIT.txt",
+      "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+    }
   ]
 }

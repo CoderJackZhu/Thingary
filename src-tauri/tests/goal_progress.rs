@@ -1,5 +1,8 @@
 //! Goal-conclusion history: one point per complete check-in revision, never a
 //! balance or an asset fact. Fictional data only.
+#[path = "helpers/legacy_account_schema.rs"]
+mod legacy_account_schema;
+
 use thingary_lib::{
     goal_progress::{Point, Record},
     purge::Purge,
@@ -292,12 +295,13 @@ fn schema_40_adds_an_empty_table_and_a_failed_step_rolls_back() {
         domain::Error,
         storage::{migrate_to, SCHEMA_VERSION},
     };
-    assert_eq!(SCHEMA_VERSION, 40);
+    const { assert!(SCHEMA_VERSION >= 40) };
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(&dir.path().join("library")).unwrap();
     let cash = open(&mut s, "虚构储蓄卡");
     let (id, rev) = check_in(&mut s, None, "2026-09-30", &[(&cash, true, 1000)]);
     let c = s.conn_for_test().unwrap();
+    legacy_account_schema::restore_pre41_account_schema(c);
     c.execute_batch("DROP TABLE goal_progress; PRAGMA user_version=39;")
         .unwrap();
     let version = || {
@@ -319,13 +323,13 @@ fn schema_40_adds_an_empty_table_and_a_failed_step_rolls_back() {
             Ok(())
         }
     };
-    assert!(migrate_to(c, SCHEMA_VERSION, &fail).is_err());
+    assert!(migrate_to(c, 40, &fail).is_err());
     assert_eq!(
         (version(), table()),
         (39, 0),
         "the failed step leaves the old schema intact"
     );
-    migrate_to(c, SCHEMA_VERSION, &|_| Ok(())).unwrap();
+    migrate_to(c, 40, &|_| Ok(())).unwrap();
     assert_eq!((version(), table()), (40, 1));
     let rows: i64 = c
         .query_row("SELECT count(*) FROM goal_progress", [], |r| r.get(0))

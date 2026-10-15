@@ -96,10 +96,10 @@ fn instructions() -> Vec<Vec<String>> {
         vec!["工作表", "用途"],
         vec!["物品", "通过物品导入，只新增、不覆盖，不能用于批量修改已有物品；只有名称必填。名称、购入日期和购入价与已有物品或文件内其他行相同会判为疑似重复，默认跳过。"],
         vec!["账户／完整盘点／月度收入", "通过金融历史导入一起预览和提交；保留编号。同名账户须明确映射。空白工作表不参加导入。"],
-        vec!["盘点记录／重要支出／周期费用／投资区间核对／资金流动／规划假设／规划核对审计", "分析用，不参加导入；投资区间转入和转出金额单位分，以列名为准。"],
+        vec!["盘点记录／重要支出／周期费用／投资区间核对／资金流动／规划假设／规划核对审计／存钱目标／目标关联账户", "分析用，不参加导入；投资区间转入和转出金额单位分，以列名为准。"],
         vec!["填写规则", "编号、日期、金额按文本保存；金额单位元、最多两位小数；日期 YYYY-MM-DD；空白表示未知，0 表示明确零。不要填写公式。"],
         vec!["金额分析", "金额列是精确十进制文本；计算时可在副本中转换为数值。"],
-        vec!["账户字段", "kind：cash/investment/mixed/fund/bond/housing_fund/other_asset/credit_card/loan/other_liability；counted：true/false。"],
+        vec!["账户字段", "kind：cash/investment/mixed/fund/bond/housing_fund/other_asset/property/pension/insurance/precious_metal/credit_card/loan/other_liability；counted：true/false；property 必须为 false。"],
         vec!["账户日期", "enabled_from 为启用日；disabled_from 为停用生效日（当日不再盘点）。"],
         vec!["盘点字段", "snapshot_key 同一次盘点相同；account_key 引用账户表；amount 负债也填正数；kind_at_date/counted_at_date 可留空采用当前类型。"],
         vec!["完整盘点", "本表导出的是全部盘点明细，并非每行都能直接导入：每次盘点须包括当日全部有效账户，历史未知余额导出仍留空，含空余额或当日缺账户的盘点补齐前不能导入，导入预览会指出。"],
@@ -554,6 +554,9 @@ impl Store {
             incomes.push(row?);
         }
         sheets.push(("月度收入", incomes));
+        let (goals, goal_accounts) = crate::savings_goals::export_rows(self.conn()?)?;
+        sheets.push(("存钱目标", goals));
+        sheets.push(("目标关联账户", goal_accounts));
         for (name, csv) in [
             ("盘点记录", self.wealth_table(false)?),
             ("重要支出", self.expenses_table(false)?),
