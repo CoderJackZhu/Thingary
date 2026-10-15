@@ -9,6 +9,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[cfg(windows)]
+mod windows_staging;
+
 /// Machine-local encryption policy. Lives beside `auto-backup.json`, never in
 /// the library database and never inside a `.thingary` backup. Only public,
 /// non-secret material is persisted.
@@ -377,13 +380,24 @@ pub fn staging_root(root: &Path) -> PathBuf {
 pub fn ensure_staging(root: &Path) -> Result<PathBuf> {
     let dir = staging_root(root);
     crate::storage::reject_links(&dir)?;
+    #[cfg(windows)]
+    {
+        // Only staging gets a protected DACL; do not change the library's permissions.
+        fs::create_dir_all(root)?;
+        windows_staging::ensure(&dir).map_err(|_| {
+            crate::domain::Error::new("BACKUP_PRIVATE_DIR", "无法确认备份暂存目录的私有权限")
+        })?;
+    }
+    #[cfg(not(windows))]
     let mut builder = fs::DirBuilder::new();
+    #[cfg(not(windows))]
     builder.recursive(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::DirBuilderExt;
         builder.mode(0o700);
     }
+    #[cfg(not(windows))]
     builder.create(&dir)?;
     #[cfg(unix)]
     {
