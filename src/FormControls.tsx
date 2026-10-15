@@ -107,7 +107,7 @@ function ManageList({c,label,onRemap,scopeControl=false}:{c:Choices;label:string
 }
 export function ChoiceManager({kind,label,generation}:{kind:ChoiceKind;label:string;generation:string}){
  const c=useChoices(kind,generation);
- return <div className="choice-manager"><p className="muted small">拖动左侧手柄排序；键盘可用上下方向键。停用后不再出现在选择里，已有记录不受影响。{kind==='label'?'标签可设为实物、虚拟或通用；另一领域仍有引用时不能收窄范围。':''}</p><ManageList c={c} label={label} scopeControl={kind==='label'}/></div>;
+ return <div className="choice-manager"><p className="muted small">拖动左侧手柄排序；键盘可用上下方向键。停用后不再出现在选择里，已有记录不受影响。{kind==='label'?'标签可设为实物、虚拟或通用；另一领域仍有引用时不能收窄范围。':''}</p>{kind==='label'&&c.data&&c.data.items.length===0&&!c.notice&&!c.locked&&<p className="muted small">还没有标签。可按用途分组，例如「工作用」；也可按位置分组，例如「书房」。每件物品只能选一个标签，具体位置建议写在备注里。</p>}<ManageList c={c} label={label} scopeControl={kind==='label'}/></div>;
 }
 export function ChoiceField({kind,label,value,onChange,generation,disabled,byName=false,domain}:{kind:ChoiceKind;label:string;value:string|null;onChange:(v:string|null)=>void;generation:string;disabled?:boolean;byName?:boolean;domain?:'physical'|'virtual'}){
  const c=useChoices(kind,generation),{data,locked}=c,[open,setOpen]=useState(false),[manage,setManage]=useState(false);
