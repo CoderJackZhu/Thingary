@@ -94,6 +94,9 @@
 @media(max-width:1400px){.wealth-section .virtual-browser.has-inspector{grid-template-columns:minmax(0,1fr)}.wealth-section .virtual-browser .ui-inspector{border-left:0;border-top:1px solid var(--line)}}
 .table-scroll{overflow-x:auto}
 
+/* 首次完整盘点后的询问卡片：只做按钮行布局，颜色沿用全局卡片与按钮令牌。 */
+.checkin-reminder-ask-actions{display:flex;gap:8px;flex-wrap:wrap}
+
 .plan-advanced { border-top: 1px solid var(--line); padding-block: 12px; }
 .plan-advanced > summary, .plan-backfill > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 6px 0; }
 .plan-advanced[open] > summary, .plan-backfill[open] > summary { margin-bottom: 12px; }

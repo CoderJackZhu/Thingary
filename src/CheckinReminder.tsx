@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage } from './asset';
 import { Segments } from './FormControls';
-import { saveReminderWithPermission } from './virtual';
-import { checkinIntervals, checkinReminderSummary, type CheckinReminderStatus } from './checkin-reminder';
+import { applyCheckinReminderInterval, checkinIntervals, checkinReminderSummary, type CheckinReminderStatus } from './checkin-reminder';
 
 /** Optional reminder to repeat the check-in. The preference is machine-local;
  * it never changes library data and a saved check-in restarts the clock. */
@@ -12,13 +11,19 @@ export function CheckinReminder({ wealthOn, today }: { wealthOn: boolean; today:
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [warning, setWarning] = useState('');
   const reload = () => invoke<CheckinReminderStatus>('checkin_reminder_status').then(s => { setStatus(s); setLoadError(''); }).catch(e => setLoadError(errorMessage(e)));
   useEffect(() => { void reload(); }, [wealthOn]);
+  // 首次盘点后的询问卡片与通知横幅都会改提醒；事件到达时重读，两处状态保持一致。
+  useEffect(() => {
+    const refresh = () => { void reload(); };
+    window.addEventListener('thingary-reminders-changed', refresh);
+    return () => window.removeEventListener('thingary-reminders-changed', refresh);
+  }, []);
   async function choose(value: string) {
     const months = Number(value);
     setBusy(true); setError(''); setWarning('');
     try {
-      const note = await saveReminderWithPermission(months > 0, () => invoke('notification_permission'), async () => { setStatus(await invoke<CheckinReminderStatus>('checkin_reminder_set', { months })); });
+      const { status: saved, warning: note } = await applyCheckinReminderInterval(months, invoke, () => window.dispatchEvent(new Event('thingary-reminders-changed')));
+      setStatus(saved);
       if (note) setWarning(note);
-      window.dispatchEvent(new Event('thingary-reminders-changed'));
     } catch (e) { setError('盘点提醒未保存：' + errorMessage(e)); void reload(); }
     finally { setBusy(false); }
   }
