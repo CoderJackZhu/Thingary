@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { PlanningFollowupPortV1, ReviewRecordV1, ReviewPreviewV1 } from '../planning-followup-contract';
 import { InvestmentReviewCard } from '../investment-review/InvestmentReviewCard';
 import type { ReviewOuter } from '../investment-review/InvestmentReviewCard';
+import { InvestmentReviewDisclosure, reviewDisclosureState } from '../investment-review/InvestmentReviewDisclosure';
 import { FollowupSection } from './FollowupSection';
 import { followupReasonText } from './model';
 import type { Income } from '../plan';
@@ -10,9 +11,9 @@ import type { FinancePeriod } from '../finance-contract';
 import { money } from '../asset';
 
 /** Port-backed host: current result and history share the same mode-aware native reader. */
-export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSnapshotId, writeVersion, accountNames = {}, blocked, reload, onPending, onEditingChange, today = '', incomes, movementPresentation = 'records', movementsEnabled = true, onViewAllMovements, receiptResolutionVersion = 0, onPreviewChange }: {
+export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSnapshotId, writeVersion, accountNames = {}, blocked, reload, onPending, onEditingChange, today = '', incomes, movementPresentation = 'records', movementsEnabled = true, onViewAllMovements, receiptResolutionVersion = 0, onPreviewChange, pendingReceipt = false }: {
   port: PlanningFollowupPortV1; generation: string; fromSnapshotId: string | null; toSnapshotId: string; writeVersion: number;
-  accountNames?: Record<string, string>; blocked: boolean; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; today?: string; incomes: Income[] | null;
+  accountNames?: Record<string, string>; blocked: boolean; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void; today?: string; incomes: Income[] | null; pendingReceipt?: boolean;
   onPreviewChange?: (preview: { fromSnapshotId: string; toSnapshotId: string; result: import('../investment-review/model').InvestmentReviewResultV1 } | null) => void; receiptResolutionVersion?: number; movementPresentation?: 'records' | 'review'; movementsEnabled?: boolean; onViewAllMovements?: (period: FinancePeriod, accountIds: string[]) => void;
 }) {
   const [pair, setPair] = useState({ from: fromSnapshotId, to: toSnapshotId });
@@ -39,7 +40,7 @@ export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSna
   }, [port, generation, pair.from, pair.to, writeVersion, retry, movementsEnabled]);
   // Only increment this signal after verifying the original request and clearing its pending receipt.
   const uncertainVersion = useRef(receiptResolutionVersion);
-  useEffect(() => { if (uncertain && !blocked && receiptResolutionVersion > uncertainVersion.current) setUncertain(false); }, [receiptResolutionVersion, blocked, uncertain]);
+  useEffect(() => { if (uncertain && !blocked && receiptResolutionVersion > uncertainVersion.current) { setUncertain(false); setNotice(''); } }, [receiptResolutionVersion, blocked, uncertain]);
   const frozen = blocked || busy || uncertain;
   const saved = () => { setRetry(n => n + 1); reload(); };
   async function trash(r: ReviewRecordV1) {
@@ -55,7 +56,11 @@ export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSna
     finally { lock.current = false; if (mounted.current) setBusy(false); }
   }
   const hints = preview && incomes?.filter(i => i.fields.date > preview.input.from.date && i.fields.date <= preview.input.to.date && ['interest', 'cash_dividend', 'other_investment'].includes(i.fields.category ?? ''));
-  return <section aria-label="投资区间复盘">
+  const disclosure = reviewDisclosureState(outer);
+  const disclosureLabel = preview && preview.confirmation !== 'confirmed' ? { unconfirmed: '尚未确认', needs_review: '待重新确认', unavailable: '暂不可用' }[preview.confirmation] : disclosure.label;
+  const historyPending = records?.filter(r => !r.deleted && r.confirmation !== 'confirmed').length ?? 0;
+  const messages = [disclosure.attention, ...new Set(preview?.reasons.map(reason => followupReasonText[reason.code] ?? reason.message) ?? []), preview?.confirmation === 'needs_review' ? '需重新确认本区间资金流动，原有确认已失效。' : '', preview?.confirmation === 'unavailable' ? '本区间核对暂不可用，原核对方式保留。' : '', preview?.saved_mode && preview.confirmation === 'unconfirmed' ? '已保存的本区间资金流动尚未确认完整。' : '', listError && `已保存投资核对区间读取失败：${listError}`, historyPending ? `有 ${historyPending} 个已保存投资核对区间还需确认资金流动，请查看已保存区间。` : '', preview && incomes === null ? '投资现金收入明细读取失败，请展开查看。' : '', notice, pendingReceipt || uncertain ? '存在未确认的保存结果，请通过页面顶部“核对结果”确认。' : ''].filter((m): m is string => !!m);
+  return <section aria-label="投资区间复盘"><InvestmentReviewDisclosure label={disclosureLabel} messages={messages} editing={editing || busy || deleting !== null}>
     <InvestmentReviewCard accountNames={accountNames} outer={outer} disabled={frozen}/>
     {preview && <p className="muted small">核对方式：{preview.saved_mode === 'movements' ? '资金流动明细汇总' : preview.saved_mode === 'manual' ? '手填合计' : '尚未保存'}。{preview.confirmation === 'confirmed' ? '已核对' : preview.confirmation === 'needs_review' ? '需重新确认本区间资金流动' : preview.confirmation === 'unavailable' ? '暂不可用' : '还未确认本区间资金流动'}。</p>}
     {!!preview?.reasons.length && <ul className="pfu-reasons">{preview.reasons.map(i => <li key={i.code + i.path}>{followupReasonText[i.code] ?? i.message}</li>)}</ul>}
@@ -71,5 +76,5 @@ export function FollowupInvestmentHost({ port, generation, fromSnapshotId, toSna
       </li>)}</ul>}
     </details>
     {notice && <p role="alert" className="notice">{notice}</p>}
-  </section>;
+  </InvestmentReviewDisclosure></section>;
 }

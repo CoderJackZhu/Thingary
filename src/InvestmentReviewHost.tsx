@@ -8,6 +8,7 @@ import { readInvestmentReview, listInvestmentReviews, saveInvestmentReview, tras
 import type { InvestmentReviewRead, InvestmentReviewRecord } from './wealth';
 import { InvestmentReviewCard } from './investment-review/InvestmentReviewCard';
 import type { ReviewOuter } from './investment-review/InvestmentReviewCard';
+import { InvestmentReviewDisclosure, reviewDisclosureState } from './investment-review/InvestmentReviewDisclosure';
 import { InvestmentFlowDialog } from './investment-review/InvestmentFlowDialog';
 import { FollowupSection } from './planning-followup-ui/FollowupSection';
 import type { PlanningFollowupPortV1 } from './planning-followup-contract';
@@ -17,10 +18,10 @@ import './investment-review/investment-review.css';
 import './planning-followup-ui/planning-followup-ui.css';
 
 /** Real Store boundary. All balances, content keys and profit are native results. */
-function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, writeVersion, incomes, accountNames = {}, blocked, reload, onPending, onEditingChange, followupPort, today, movementPresentation = 'records', movementsEnabled = true, onViewAllMovements, receiptResolutionVersion = 0, onPreviewChange }: {
+function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, writeVersion, incomes, accountNames = {}, blocked, reload, onPending, onEditingChange, followupPort, today, movementPresentation = 'records', movementsEnabled = true, onViewAllMovements, receiptResolutionVersion = 0, onPreviewChange, pendingReceipt = false }: {
   generation: string; fromSnapshotId: string | null; toSnapshotId: string; writeVersion: number; incomes: Income[] | null;
   accountNames?: Record<string, string>; blocked: boolean; reload: () => void; onPending: () => void; onEditingChange: (v: boolean) => void;
-  followupPort?: PlanningFollowupPortV1; today?: string;
+  followupPort?: PlanningFollowupPortV1; today?: string; pendingReceipt?: boolean;
   onPreviewChange?: (preview: { fromSnapshotId: string; toSnapshotId: string; result: import('./investment-review/model').InvestmentReviewResultV1 } | null) => void; receiptResolutionVersion?: number; movementPresentation?: 'records' | 'review'; movementsEnabled?: boolean; onViewAllMovements?: (period: FinancePeriod, accountIds: string[]) => void;
 }) {
   const [pair, setPair] = useState({ from: fromSnapshotId, to: toSnapshotId });
@@ -46,7 +47,7 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
     return () => { live = false; };
   }, [generation, pair.from, pair.to, writeVersion, retry, movementsEnabled]);
   const uncertainVersion = useRef(receiptResolutionVersion);
-  useEffect(() => { if (uncertain && !busy && !storedPending() && receiptResolutionVersion > uncertainVersion.current) setUncertain(false); }, [busy, uncertain, receiptResolutionVersion]);
+  useEffect(() => { if (uncertain && !busy && !storedPending() && receiptResolutionVersion > uncertainVersion.current) { setUncertain(false); setNotice(''); } }, [busy, uncertain, receiptResolutionVersion]);
   const frozen = busy || uncertain || blocked;
   const edit = () => { if (!read || frozen || storedPending()) return; setIssues([]); setNotice(''); const next = draftFromFlow(read.input.flow); if (read.result.status !== 'ready') next.confirmed = false; setDraft(next); };
   async function save(next: FlowDraft) {
@@ -74,7 +75,10 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
   const scope = new Set(read?.input.from.members.filter(m => m.counted).map(m => m.account_id));
   const assigned = (i: Income) => !!i.fields.source_account_id && scope.has(i.fields.source_account_id) && (i.fields.destination === 'retained' || i.fields.destination === 'transferred' && !!i.fields.receiving_account_id);
   const hintsView = <details><summary>已记录投资现金收入（仅供核对）</summary><p className="muted small">转到范围外的分红已包含在转出合计中，不再加进总损益。记录存在不代表资金流动已核对完整。</p>{incomes === null ? <p role="alert">收入明细读取失败。</p> : !hints.length ? <p>这一期间没有已记录的投资现金收入。</p> : <ul>{hints.map(i => <li key={i.id}>{i.fields.date} · {incomeCategories[i.fields.category ?? 'unclassified']} · {money(i.fields.net_cents)} · {assigned(i) ? i.fields.destination === 'retained' ? '留在投资账户' : scope.has(i.fields.receiving_account_id!) ? '范围内转移' : '转到范围外' : '未归属明细'}{i.fields.notes && ` · ${i.fields.notes}`}</li>)}</ul>}</details>;
-  return <section aria-label="投资区间复盘">
+  const disclosure = reviewDisclosureState(outer);
+  const historyPending = records.filter(r => !r.deleted && !r.flow.confirmed_complete).length;
+  const messages = [disclosure.attention, listError && `已保存投资核对区间读取失败：${listError}`, historyPending ? `有 ${historyPending} 个已保存投资核对区间尚未确认完整，请查看已保存区间。` : '', read && incomes === null ? '投资现金收入明细读取失败，请展开查看。' : '', notice, pendingReceipt || uncertain ? '存在未确认的保存结果，请通过页面顶部“核对结果”确认。' : ''].filter((m): m is string => !!m);
+  return <section aria-label="投资区间复盘"><InvestmentReviewDisclosure label={disclosure.label} messages={messages} editing={draft !== null || busy || deleting !== null}>
     <InvestmentReviewCard accountNames={accountNames} outer={outer} onCheckFlow={followupPort ? undefined : edit} onEditFlow={followupPort ? undefined : edit} disabled={frozen}/>
     {/* 注入端口后由 FollowupSection 提供核对方式（手填／明细）与资金流动入口，避免双核对窗。 */}
     {followupPort && <FollowupSection port={followupPort} generation={generation} pair={pair.from ? { from_snapshot_id: pair.from, to_snapshot_id: pair.to } : null} writeVersion={writeVersion} today={today ?? ''} blocked={frozen} onPending={onPending} onEditingChange={onEditingChange} receiptResolutionVersion={receiptResolutionVersion} movementPresentation={movementPresentation} movementsEnabled={movementsEnabled} onViewAllMovements={onViewAllMovements} input={read?.input}/>}
@@ -92,7 +96,7 @@ function LegacyInvestmentReviewHost({ generation, fromSnapshotId, toSnapshotId, 
     {notice && <p role="alert" className="notice">{notice}</p>}
     {draft && read && !followupPort && <InvestmentFlowDialog accountNames={accountNames} input={read.input} initial={draft} issues={issues} busy={frozen} canClose={!busy} onDraftChange={setDraft} onSubmit={next => void save(next)} onCancel={() => { if (!busy) setDraft(null); }}>{hintsView}{uncertain && <p className="notice" role="status">原请求已保留，请回到页面顶部核对结果。<button type="button" onClick={() => setDraft(null)}>关闭，稍后核对</button></p>}</InvestmentFlowDialog>}
     {uncertain && <p className="notice" role="status">提交结果未知，原请求已保留。请通过页面顶部“核对结果”确认。{draft && <button type="button" onClick={() => setDraft(null)}>关闭，稍后核对</button>}</p>}
-  </section>;
+  </InvestmentReviewDisclosure></section>;
 }
 
 export function InvestmentReviewHost(props: Parameters<typeof LegacyInvestmentReviewHost>[0]) {

@@ -142,7 +142,7 @@ test('first complete snapshot review explains missing baseline while stale endpo
 });
 test('pending original request resolves only after actual verification clears stored pending',async()=>{
  const r=harness({receipt:{pending:{request_id:'original',label:'投资核对',command:'review_save'}},verify:async()=>{}});await r.settle();
- r.nodes().find(n=>n.type==='button'&&r.text(n)==='核对结果').props.onClick();await r.settle();assert.equal(r.find('InvestmentReviewHost').props.receiptResolutionVersion,0);
+ r.nodes().find(n=>n.type==='button'&&r.text(n)==='核对结果').props.onClick();await r.settle();assert.equal(r.find('InvestmentReviewHost').props.receiptResolutionVersion,0);assert.equal(r.find('InvestmentReviewHost').props.pendingReceipt,true);
  const ok=harness({receipt:{pending:{request_id:'original',label:'投资核对',command:'review_save'}}});await ok.settle();ok.nodes().find(n=>n.type==='button'&&ok.text(n)==='核对结果').props.onClick();await ok.settle();assert.equal(ok.find('InvestmentReviewHost').props.receiptResolutionVersion,1);
 });
 
