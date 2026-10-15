@@ -136,7 +136,7 @@ export function AssetEditor({ initial, taxonomy, closeIntent, onKeep, onClose, o
       <small id="help-date" className={errors.date ? 'error' : ''}>{errors.date || hint}</small>
     </div>;
     return <label className={'field ' + (key === 'name' || key === 'notes' ? 'wide' : '')} htmlFor={'field-' + key} key={key}>
-      <span>{label}</span>{key === 'notes' ? <textarea id={'field-' + key} rows={8} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key}/> : <input id={'field-' + key} autoFocus={key === 'name'} type={type} placeholder={key === 'name' ? '请输入物品名称' : key==='price'?'请输入物品价格':undefined} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key} autoComplete="off"/>}
+      <span>{label}</span>{key === 'notes' ? <textarea id={'field-' + key} placeholder="例如：存放在书房左侧柜；保修卡在抽屉" rows={8} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key}/> : <input id={'field-' + key} autoFocus={key === 'name'} type={type} placeholder={key === 'name' ? '请输入物品名称' : key==='price'?'请输入物品价格':undefined} value={draft.fields[key]} onChange={e => change(key, e.target.value)} disabled={busy || !!draft.pending} aria-invalid={!!errors[key]} aria-describedby={'help-' + key} autoComplete="off"/>}
       <small id={'help-' + key} className={errors[key] ? 'error' : ''}>{errors[key] || hint}</small>
     </label>;
   }
