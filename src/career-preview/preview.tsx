@@ -116,10 +116,10 @@ function Preview() {
         <h2>试算结果{updating&&<span className="career-updating"> · 更新中…</span>}</h2>
         {updating?<p className="career-message">正在更新条件，旧答案已撤下。</p>:<>
         {!gate&&<p className="career-banner">{financialSources?.profile.status==='ready'&&financialSources.profile.value.saved?.profile.retire.simplified.income_mode==='manual'?'本次按手填退休收入试算；按明确月份和金额计入。':'本次不计任何退休收入；不表示你实际没有养老金。'}</p>}
-        {!gate&&data.income.excludePools&&<p className="career-banner" role="status">本次不计受限资金释放（偏保守）：只用可动用的钱；如开销里有靠公积金付的部分，请按实际现金支出填写。</p>}
+        {!gate&&data.income.excludePools&&<p className="career-banner" role="status">本次不计暂时取不出的钱转为可用资金（偏保守）：只用可动用的钱；如开销里有靠公积金付的部分，请按实际现金支出填写。</p>}
         {gate&&gate!=='source_blocked'&&<div className="career-message" role="status">{scope.issues.map(x=><p key={x}>{x}</p>)}</div>}
         {answers?.cash&&(gate||blocked||restAnswer?.status==='blocked'||lowerAnswer?.status==='blocked')&&<section aria-label="仅检查已填写的空窗"><h3>仅检查已填写的空窗区间</h3><p>{answers.cash.status==='ready'?`${answers.cash.value.from_month} 至 ${answers.cash.value.until_month} 之前：${answers.cash.value.first_shortfall_month?answers.cash.value.first_shortfall_month+' 首次资金不足':'未发现资金不足'}，期间最低 ${money(answers.cash.value.minimum_cents)}。`:answers.cash.issues.map(x=>x.message).join(' ')}</p><p className="career-footnote">只检查所列开销与付款，不证明退休目标满足，不是最长空窗答案。</p></section>}
-        {blocked&&!gate&&<div className="career-message" role="status"><p>还差 {listed.length} 项，暂时算不出长期答案：</p><ul>{listed.map(m=><li key={m.label}>{m.label}</li>)}</ul><p className="career-footnote">缺项不按 0 补齐；已填但不合法的金额也会阻断。</p></div>}
+        {blocked&&!gate&&<div className="career-message" role="status"><p>还差 {listed.length} 项才能计算长期结果：</p><ul>{listed.map(m=><li key={m.label}>{m.label}</li>)}</ul><p className="career-footnote">缺项不按 0 补齐；已填但不合法的金额也会阻断。</p></div>}
         {sources.profile.status!=='ready' || !profile?.retire.basic
           ? <p role="status">{sources.profile.status==='error'?'通用资料读取失败，请重新载入资料。':'尚无通用目标与资金资料，请先补齐资料。'}</p>
           : !blocked&&financialSources&&<>
@@ -147,11 +147,11 @@ function Preview() {
         updating?'更新中…'
         :gate==='income_blocked'?'请确认本次退休收入条件'
         :gate==='source_blocked'?'资料尚未就绪，答案暂不可用'
-        :blocked?`还差 ${listed.length} 项，答案暂时算不出`
+        :blocked?`还差 ${listed.length} 项才能计算长期结果`
         :(()=>{
           const text=q==='rest'?(restAnswer?gapText(restAnswer):''):q==='lower'?(lowerAnswer?minText(sources,lowerAnswer):''):(result?resultText(result.baseline).requirement:'');
           const stuck=q==='rest'?restAnswer?.status==='blocked':q==='lower'?lowerAnswer?.status==='blocked':result?.baseline.requirement.status==='blocked';
-          return `${stuck?'暂时算不出':'当前答案'}：${text}`;
+          return `${stuck?'需要补充条件':'当前答案'}：${text}`;
         })()}</span><a href={blocked&&!gate?'#career-insurance':'#career-results'}>{blocked&&!gate?'去补填 ↑':'看详细结果 ↓'}</a></div>}
     </>}
   </main></>;

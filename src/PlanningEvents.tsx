@@ -67,7 +67,7 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
     {events.length === 0 ? <p className="muted">还没有大额计划。需要比较大额购买时，可以添加一个设想；预设金额仅作占位，请按自己的情况修改，只勾选本次要计入的安排。</p> : <>
       <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="大额计划列表"><table className="ui-table plan-event-table"><thead><tr><th>计划</th><th className="amount">总价 / 首付</th><th>买后每月</th><th>首付付得起吗</th><th>对退休的影响（只算这一件）</th><th>计入</th><th/></tr></thead>
         <tbody>{events.map(s => { const i = rows?.items.find(x => x.e.id === s.id)?.impact; return <tr key={s.id} className={s.included || retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred') ? undefined : 'closed'}>
-          <td><b>{s.label}</b><small className="muted">{retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'occurred' ? '已标发生 · 后续资料见核对清单' : retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'cancelled' ? '已取消' : s.date < today.slice(0, 7) ? '日期已过，待核对' : '尚未发生 · 按预计排期'}</small><small className="muted">{kindText[s.kind]} · {s.date}{s.kind === 'car' && s.cycle_years ? ` · 每 ${s.cycle_years} 年换` : ''}</small>{s.time_unconfirmed && <small className="warn">持有／循环终点待重设，该部分未计入。请编辑此计划。</small>}</td>
+          <td><b>{s.label}</b><small className="muted">{retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'occurred' ? '已标发生 · 后续资料见核对清单' : retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'cancelled' ? '已取消' : s.date < today.slice(0, 7) ? '日期已过，请确认是否发生' : '尚未发生 · 按预计排期'}</small><small className="muted">{kindText[s.kind]} · {s.date}{s.kind === 'car' && s.cycle_years ? ` · 每 ${s.cycle_years} 年换` : ''}</small>{s.time_unconfirmed && <small className="warn">持有／循环终点待重设，该部分未计入。请编辑此计划。</small>}</td>
           <td className="amount">{money(s.price_cents)}<small className="muted">首付 {money(s.down_cents)}</small></td>
           <td>{i && i.payment_nominal > 0 ? <>月供 {yuan(i.payment_nominal)}<small className="muted">固定名义金额</small></> : <span className="muted">{retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred' && o.loan && Number(o.loan.principal_cents) > 0) ? '剩余欠款按核对过的剩余期数继续还' : '待测算'}</span>}{Number(s.holding_cents) > 0 && <small className="muted">{s.kind === 'car' ? '养车' : '持有'} {money(s.holding_cents)}</small>}
             {i && (i.payment_nominal > 0 || Number(s.holding_cents) > 0) && <small className={i.saving_not_positive ? 'warn' : 'muted'}>买后每月储蓄约 {yuan(i.saving_after)}{i.saving_not_positive ? '，要靠当时的收入支撑' : ''}</small>}</td>
@@ -98,7 +98,7 @@ function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { b
   function save() {
     const stop = (m: string) => setErr(m);
     if (!label.trim()) return stop('请填写名称。');
-    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(date)) return stop('计划月份格式须是 YYYY-MM；过去日期将显示待核对。');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(date)) return stop('计划月份格式须是 YYYY-MM；过去日期需确认是否已经发生。');
     if (!price || price === '0') return stop('请填写总价。');
     if (Number(down || 0) > Number(price)) return stop('首付不能高于总价。');
     const r = pctToHundredths(rate), y = Number(years);

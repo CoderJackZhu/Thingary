@@ -142,13 +142,13 @@ export function GuidedPanel({ sources, defaults, example, embedded = false }: { 
             : say && <><p className="guided-headline">{say.headline}</p><p className="guided-sub">{say.sub}</p></>}
           <ul className="guided-chips" aria-label="这次的假设">
             <li>{income.mode === 'excluded' ? '不计未来收入（偏保守）' : income.mode === 'manual' ? '按你手填的退休收入' : '沿用原计划的退休收入'}</li>
-            <li>{income.excludePools ? '不计受限资金释放' : '沿用已确认的受限资金释放'}</li>
+            <li>{income.excludePools ? '不计暂时取不出的钱转为可用资金' : '沿用已确认的资金可用安排'}</li>
             <li>{draft.gap.insurance.included && draft.recovery.insurance.included ? '已确认自付费用包含在填写金额内' : '自付费用尚待确认'}</li>
             {target && <li>{target} 目标月份{targetAge !== null ? `（约 ${targetAge} 岁）` : ""}</li>}
           </ul>
           {q === 'rest' && say && !blockedMessage && !updating && <details onToggle={e => setLeversOpen(e.currentTarget.open)}><summary>怎样才能撑得更久？</summary>
             <ul className="guided-rows">{levers.map(l => <li key={l.label}><strong>{l.label}</strong><span>{l.text}</span></li>)}{!levers.length && <li>计算中…</li>}</ul></details>}
-          <details><summary>这个结果有哪些局限？</summary><p className="guided-hint">它是按你填的数字做的估算，不是预测：不会替你猜会不会被裁、多久找到工作、工资涨不涨。每月付款的先后只在不工作那一段检查过。未来收入与受限资金是否计入，以答案旁的本次假设为准；公积金周期缴存、提取与余额耗尽尚未推演。</p></details>
+          <details><summary>这个结果有哪些局限？</summary><p className="guided-hint">它是按你填的数字做的估算，不是预测：不会替你猜会不会被裁、多久找到工作、工资涨不涨。每月付款的先后只在不工作那一段检查过。未来收入与暂时取不出的钱是否计入，以答案旁的本次假设为准；公积金周期缴存、提取与余额耗尽尚未推演。</p></details>
         </section>
       </aside>
     </div>

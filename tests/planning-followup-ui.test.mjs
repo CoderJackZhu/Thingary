@@ -136,7 +136,7 @@ test('assumptions editor shows the four values, defaults note and confirmation s
   assert.equal(h.input('退休前实际年收益（%）').props.value, '0');
   assert.equal(h.input('通胀（%）').props.value, '2');
   assert.equal(h.input('市场模拟年波动率（%）').props.value, '5');
-  assert.match(h.text(), /未核对/);
+  assert.match(h.text(), /试算值，未确认/);
   assert.match(h.text(), /确认并保存/);
   assert.match(h.text(), /程序试算值/);
 });
@@ -231,7 +231,7 @@ test('needs_review shows confirmed values beside current ones', async () => {
   const { port } = scriptedFollowupPort({ assumptionRead: { status: 'ready', value: uiAssumptionReads.needsReview } });
   const h = mount('AssumptionsEditor.tsx', 'AssumptionsEditor', assumptionsProps({ port }));
   await h.settle();
-  assert.match(h.text(), /待核对/);
+  assert.match(h.text(), /条件已变，请确认/);
   assert.match(h.text(), /已核对过的值/);
   assert.equal(h.input('退休前实际年收益（%）').props.value, '1.5');
 });

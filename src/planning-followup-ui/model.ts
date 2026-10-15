@@ -50,9 +50,9 @@ export function assumptionValuesOf(draft: Record<AssumptionKey, string>): Assump
 }
 
 export const confirmationText: Record<AssumptionReadV1['confirmation'], string> = {
-  unconfirmed: '未核对：这些值只是试算假设，还没有经你确认。',
+  unconfirmed: '试算值，未确认：这些值只是试算假设，还没有经你确认。',
   confirmed: '已核对：当前保存的值与你确认过的假设一致。',
-  needs_review: '待核对：核对过的值后来被修改，需要重新确认。',
+  needs_review: '条件已变，请确认：之前确认的值后来被修改。',
 };
 
 /** 未核对／待核对不阻断试算，但界面不得把它们说成用户已确认的配置。 */

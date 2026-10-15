@@ -100,27 +100,27 @@ test('FIRE separates the hoped month from the predicted retirement month', () =>
   assert.match(text, /希望时间|你希望/);
 });
 
-test('the next step follows the real assumption read state and never fakes confirmation', () => {
+test('assumption confirmation stays in a closed condition disclosure, with real read failures visible', () => {
   const { sources, saved, caps } = render();
-  const articleOf = r => r.text(assumptionsArticle(r));
-  const unconfirmed = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, realSummary: true, assumptionRead: readOf(sources.generation, 'unconfirmed') });
-  assert.ok(unconfirmed.button('核对计算假设'), 'unconfirmed suggests review');
-  assert.match(articleOf(unconfirmed), /未核对/);
-  const needsReview = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, realSummary: true, assumptionRead: readOf(sources.generation, 'needs_review') });
-  assert.ok(needsReview.button('核对计算假设'), 'needs_review suggests review');
-  assert.match(articleOf(needsReview), /待核对/);
-  const confirmed = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, realSummary: true, assumptionRead: readOf(sources.generation, 'confirmed') });
-  assert.equal(confirmed.button('核对计算假设'), undefined, 'confirmed hides the suggestion');
-  assert.equal(confirmed.nodes().find(n => n.type === 'p' && n.props?.className === 'eyebrow' && confirmed.text(n) === '建议下一步'), undefined);
-  assert.match(articleOf(confirmed), /已核对/);
-  const loading = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, realSummary: true, assumptionRead: null });
-  const loadingButton = loading.button('正在读取试算假设');
-  assert.ok(loadingButton);
-  assert.equal(loadingButton.props.disabled, true);
-  assert.match(articleOf(loading), /读取中/);
-  const failed = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine: () => {}, onDetail() {}, realSummary: true, assumptionRead: { status: 'error', code: 'READ_ERROR', message: '虚构读取失败' } });
+  saved.profile.retire.real_return_before_hundredths = 175;
+  const show = assumptionRead => runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, realSummary: true, assumptionRead });
+  for (const [state, label] of [['unconfirmed', '试算值，未确认'], ['needs_review', '条件已变，请确认'], ['confirmed', '已核对']]) {
+    const read = readOf(sources.generation, state); read.value.values.real_return_before_hundredths = 175;
+    const r = show(read), row = assumptionsArticle(r);
+    const disclosure = r.nodes().find(n => n.type === 'details' && r.text(n).includes('条件与核对'));
+    assert.ok(disclosure); assert.ok(!disclosure.props.open);
+    assert.ok(r.text(disclosure).includes(label));
+    assert.match(r.text(row), /1.75%/);
+    assert.doesNotMatch(r.text(row), /默认值/);
+    assert.equal(r.nodes().find(n => n.props?.className === 'goal-next'), undefined, 'confirmation metadata does not create a first-screen task');
+    assert.ok(r.find('button', p => p['aria-label'] === '调整计算假设'));
+  }
+  const loading = show(null);
+  assert.match(loading.text(assumptionsArticle(loading)), /读取中/);
+  const failed = show({ status: 'error', code: 'READ_ERROR', message: '虚构读取失败' });
+  const alert = failed.nodes().find(n => n.props?.role === 'alert');
+  assert.match(failed.text(alert), /虚构读取失败/);
   assert.ok(failed.button('重新读取试算假设'));
-  assert.match(articleOf(failed), /读取失败/);
 });
 
 
@@ -135,7 +135,7 @@ test('a real required card outranks the assumption review, and the read error ke
   r.button('核对有没有重复费用').props.onClick({ currentTarget: from });
   assert.deepEqual(refined, [['costs', from]]);
   const retried = [];
-  const failed = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine: (c, from) => retried.push([c.action, from]), onDetail() {}, realSummary: true, assumptionRead: { status: 'error', code: 'READ_ERROR', message: '虚构读取失败' } });
+  const failed = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [card], onEdit() {}, onRefine: (c, from) => retried.push([c.action, from]), onDetail() {}, realSummary: true, assumptionRead: { status: 'error', code: 'READ_ERROR', message: '虚构读取失败' } });
   const retryFrom = { tag: 'retry' };
   failed.button('重新读取试算假设').props.onClick({ currentTarget: retryFrom });
   assert.deepEqual(retried, [['reload', retryFrom]]);
@@ -173,4 +173,21 @@ test('a saving hint sits under the monthly saving row, offers the review and a d
   assert.doesNotMatch(r.text(other), /去财务复盘/);
   const quiet = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, assumptionRead: readOf(sources.generation, 'confirmed') });
   assert.equal(quiet.button('去财务复盘查看依据'), undefined);
+});
+
+
+test('goal cautions keep all three impact directions visible while their actionable detail remains available', () => {
+  const { sources, saved, caps } = render();
+  const base = { reason_code: 'PAYMENT_PENDING', treatment: 'omitted', missing_fields: ['付款金额'], refinement: { owner: 'events', field: 'core.occurrences' } };
+  caps.annotations = ['requirement_lower', 'requirement_higher', 'uncertain'].map((effect, i) => ({ ...base, id: `fictional-${i}`, message: `虚构安排 ${i}未计入`, effect, source_ids: [`source-${i}`] }));
+  const r = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onAnnotation() {}, realSummary: true });
+  const summaries = r.nodes().filter(n => n.props?.className === 'coverage-summary');
+  assert.equal(summaries.length, 3);
+  assert.match(r.text(summaries), /可能偏低/); assert.match(r.text(summaries), /可能偏高/); assert.match(r.text(summaries), /方向尚不确定/);
+  assert.ok(summaries.every(n => /1 项安排未计入/.test(r.text(n))));
+  const details = r.nodes().find(n => n.type === 'details' && r.text(n).includes('查看未计入的安排与需确认的条件'));
+  assert.ok(details); assert.ok(!details.props.open);
+  assert.equal(r.nodes().filter(n => n.type === 'li' && /虚构安排/.test(r.text(n))).length, 3);
+  assert.match(r.text(details), /还差：付款金额/);
+  assert.equal(r.nodes().filter(n => n.type === 'button' && r.text(n) === '去核对').length, 3);
 });
