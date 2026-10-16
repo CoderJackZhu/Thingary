@@ -58,6 +58,8 @@ fn account(s: &mut Store, opened: &str) -> Account {
                 purchased_on: None,
                 group_id: None,
                 currency: "CNY".into(),
+                holding_mode: false,
+                holding_unit: None,
             },
         },
         TODAY,
@@ -86,6 +88,8 @@ fn snapshot(
                     amount_cents: Some((*amount).into()),
                     original_minor: None,
                     fx_rate_micro: None,
+                    quantity_e8: None,
+                    unit_price_e6: None,
                 })
                 .collect(),
         },

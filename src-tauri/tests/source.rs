@@ -130,6 +130,8 @@ fn account(s: &mut Store, name: &str, side: &str) -> Account {
                 purchased_on: None,
                 group_id: None,
                 currency: "CNY".into(),
+                holding_mode: false,
+                holding_unit: None,
             },
         },
         TODAY,
@@ -160,6 +162,8 @@ fn row(a: &Account, yuan: i64) -> EntryInput {
         amount_cents: Some((yuan * 100).to_string()),
         original_minor: None,
         fx_rate_micro: None,
+        quantity_e8: None,
+        unit_price_e6: None,
     }
 }
 fn plan(s: &mut Store, name: &str, first: &str) -> Plan {
@@ -795,6 +799,8 @@ fn incomplete_snapshot_events_show_missing_counts_and_reject_bad_queries() {
                     amount_cents: Some("1000000".into()),
                     original_minor: None,
                     fx_rate_micro: None,
+                    quantity_e8: None,
+                    unit_price_e6: None,
                 },
                 EntryInput {
                     account_id: unknown.id.clone(),
@@ -802,6 +808,8 @@ fn incomplete_snapshot_events_show_missing_counts_and_reject_bad_queries() {
                     amount_cents: None,
                     original_minor: None,
                     fx_rate_micro: None,
+                    quantity_e8: None,
+                    unit_price_e6: None,
                 },
             ],
         },

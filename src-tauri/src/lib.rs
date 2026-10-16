@@ -13,7 +13,7 @@ pub mod choices;
 mod commands;
 pub mod csv_export;
 pub mod csv_import;
-pub use financial_import_parser::currency;
+pub use financial_import_parser::{currency, holdings};
 pub mod demo;
 mod demo_finance;
 pub mod domain;

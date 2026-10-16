@@ -156,7 +156,7 @@ function HistoryTable({ accounts, expanded, toggle, history, retry }: {
     <tbody>{accounts.map(a => <Fragment key={a.id}>
       <tr>
         <td><strong>{a.fields.name}</strong>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}{a.fields.closed_on && <small className="muted"> · 已停用</small>}</td>
-        <td>{a.latest ? <CurrencyBalance code={a.fields.currency} fact={a.latest} date={a.latest.date}/> : <span className="muted">尚未盘点</span>}</td>
+        <td>{a.latest ? <CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??"份"):null} code={a.fields.currency} fact={a.latest} date={a.latest.date}/> : <span className="muted">尚未盘点</span>}</td>
         <td><button className="row-expand" aria-expanded={expanded.has(a.id)} aria-label={`${expanded.has(a.id) ? '收起' : '展开'}「${a.fields.name}」的盘点历史`} onClick={() => toggle(a.id)}>{expanded.has(a.id) ? '▾' : '▸'}</button></td>
       </tr>
       {expanded.has(a.id) && <tr className="history-row"><td colSpan={3}><HistoryBlock id={a.id} name={a.fields.name} side={a.fields.side} history={history.get(a.id)} onRetry={retry}/></td></tr>}
@@ -199,7 +199,7 @@ function HistoryBlock({ id, name, side, history, onRetry }: {
     <table className="ui-table"><thead><tr><th>日期</th><th>金额</th><th>与前次（人民币）</th><th>状态</th><th>计入</th></tr></thead>
       <tbody>{data.rows.map(row => <tr key={row.snapshot_id}>
         <td>{row.date}</td>
-        <td>{row.amount_cents !== null && side === 'liability' ? '欠 ' : ''}<CurrencyBalance code={data.account.fields.currency} fact={row} date={row.date}/></td>
+        <td>{row.amount_cents !== null && side === 'liability' ? '欠 ' : ''}<CurrencyBalance unit={data.account.fields.holding_mode?(data.account.fields.holding_unit??"份"):null} code={data.account.fields.currency} fact={row} date={row.date}/></td>
         <td>{row.change_cents === null ? <span className="muted">—</span> : side === 'liability' ? `欠款 ${changeText(row.change_cents)}` : changeText(row.change_cents)}</td>
         <td>{stateLabel(row.state)}</td>
         <td>{row.counted ? '计入' : '不计入'}</td>

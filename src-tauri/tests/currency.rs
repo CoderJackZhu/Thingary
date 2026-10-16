@@ -105,6 +105,8 @@ fn strict_fx_validation_and_any_history_locks_currency() {
         fields: thingary_lib::wealth::AccountFields {
             group_id: None,
             currency: "JPY".into(),
+            holding_mode: false,
+            holding_unit: None,
             ..a.fields
         },
     };
@@ -273,10 +275,10 @@ fn foreign_import_csv_excel_and_backup_roundtrip_and_row_errors() {
     let csv = t.path().join("虚构.csv");
     s.export_finance_csv("wealth", &csv).unwrap();
     let csv = std::fs::read_to_string(csv).unwrap();
-    assert!(csv.contains("币种,原币金额,汇率\r\n"));
-    assert!(csv.contains("USD,1234.56,7.123456\r\n"));
-    assert!(csv.contains("JPY,10000,0.050000\r\n"));
-    assert!(csv.contains("CNY,,\r\n"));
+    assert!(csv.contains("币种,原币金额,汇率,份额,单价\r\n"));
+    assert!(csv.contains("USD,1234.56,7.123456,,\r\n"));
+    assert!(csv.contains("JPY,10000,0.050000,,\r\n"));
+    assert!(csv.contains("CNY,,,,\r\n"));
     let xlsx = t.path().join("虚构.xlsx");
     s.export_workbook(&xlsx).unwrap();
     let bytes = std::fs::read(&xlsx).unwrap();

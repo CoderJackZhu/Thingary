@@ -353,6 +353,8 @@ fn account(s: &mut Store, name: &str, kind: &str, counted: bool) -> thingary_lib
                 purchased_on: None,
                 group_id: None,
                 currency: "CNY".into(),
+                holding_mode: false,
+                holding_unit: None,
             },
         },
         "2026-10-17",
@@ -386,6 +388,8 @@ fn receivable_and_vehicle_accounts_save_count_back_up_and_restore() {
                         amount_cents: Some(v.into()),
                         original_minor: None,
                         fx_rate_micro: None,
+                        quantity_e8: None,
+                        unit_price_e6: None,
                     })
                     .collect(),
             },

@@ -53,6 +53,8 @@ fn account(s: &mut Store, kind: &str, opened: &str) -> Account {
                 purchased_on: None,
                 group_id: None,
                 currency: "CNY".into(),
+                holding_mode: false,
+                holding_unit: None,
             },
         },
         TODAY,
@@ -94,6 +96,8 @@ fn snapshot(s: &mut Store, day: &str, entries: &[(&Account, Option<&str>)]) -> S
                     amount_cents: amount.map(str::to_owned),
                     original_minor: None,
                     fx_rate_micro: None,
+                    quantity_e8: None,
+                    unit_price_e6: None,
                 })
                 .collect(),
         },

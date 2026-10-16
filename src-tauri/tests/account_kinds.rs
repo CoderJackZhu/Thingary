@@ -191,6 +191,8 @@ fn save(s: &mut Store, kind: &str, counted: bool) -> thingary_lib::wealth::Accou
                 purchased_on: None,
                 group_id: None,
                 currency: "CNY".into(),
+                holding_mode: false,
+                holding_unit: None,
             },
         },
         "2026-10-15",
@@ -230,6 +232,8 @@ fn account_kinds_totals_unknown_history_search_and_backup() {
                 amount_cents: Some(n.to_string()),
                 original_minor: None,
                 fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
             })
             .collect(),
     };

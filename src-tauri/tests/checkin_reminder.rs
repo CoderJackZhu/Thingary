@@ -30,6 +30,8 @@ fn open(s: &mut Store, name: &str, kind: &str) -> Account {
                 purchased_on: None,
                 group_id: None,
                 currency: "CNY".into(),
+                holding_mode: false,
+                holding_unit: None,
             },
         },
         TODAY,
@@ -45,6 +47,8 @@ fn check_in(s: &mut Store, date: &str, rows: &[(&Account, bool)]) {
             amount_cents: known.then(|| "100000".into()),
             original_minor: None,
             fx_rate_micro: None,
+            quantity_e8: None,
+            unit_price_e6: None,
         })
         .collect();
     s.wealth_snapshot_save(
