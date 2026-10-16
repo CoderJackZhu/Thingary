@@ -396,7 +396,14 @@ fn fetch(source: Source) -> Result<String> {
     let curl = "/usr/bin/curl";
     #[cfg(windows)]
     let curl = "curl.exe";
-    let output = Command::new(curl)
+    let mut cmd = Command::new(curl);
+    // curl.exe is a console program; keep it from flashing a console window.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let output = cmd
         .args([
             "--silent",
             "--show-error",
