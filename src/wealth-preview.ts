@@ -80,7 +80,13 @@ if (params.get('wealth-fixture') === 'usability' && snapshots.length > 2) {
   accounts.splice(1, 0, retired[0]); accounts.splice(3, 0, retired[1]); accounts.push(retired[2]);
   snapshots = snapshots.map(s => ({ ...s, entries: [...s.entries, ...retired.filter(a => s.date < a.fields.closed_on!).map(a => entry(a, 0))] }));
 }
+// Explicit fictional fixture: leave today open for a new quick check-in.
+if (params.get('wealth-fixture') === 'quick-new-day') {
+  snapshots = snapshots.filter(snapshot => snapshot.date !== iso(now));
+}
 const receipts = new Map<string, string>();
+const quickFingerprints = new Map<string, string>();
+let quickStaleShown = false;
 
 const due = (a: Account, d: string) => a.fields.opened_on <= d && (!a.fields.closed_on || d < a.fields.closed_on);
 const known = (e: Entry) => e.amount_cents !== null;
@@ -88,7 +94,7 @@ function latestBefore(id: string, before?: string) {
   const hit = snapshots.filter(s => !before || s.date < before).sort((a, b) => b.date.localeCompare(a.date)).flatMap(s => s.entries.filter(e => e.account_id === id && known(e)).map(e => ({ amount_cents: e.amount_cents!, date: s.date })))[0];
   return hit ?? null;
 }
-const withLatest = (a: Account): Account => ({ ...a, latest: latestBefore(a.id) });
+const withLatest = (a: Account): Account => ({ ...a, latest: latestBefore(a.id), last_entered_on: snapshots.filter(s => s.entries.some(e => e.account_id === a.id && e.state === 'entered')).map(s => s.date).sort().at(-1) ?? null });
 function view(s: Stored): Snapshot {
   const have = new Set(s.entries.filter(known).map(e => e.account_id));
   return { ...s, missing: accounts.filter(a => due(a, s.date) && !have.has(a.id)).map(a => a.id) };
@@ -101,7 +107,7 @@ function summary(): Summary {
     const sum = (side: string) => s.entries.filter(e => e.counted && e.side === side && known(e)).reduce((t, e) => t + BigInt(e.amount_cents!), 0n);
     const assets = sum('asset'), liabilities = sum('liability'), net = assets - liabilities, complete = !s.missing.length;
     const balance = (kinds: string[]) => complete ? String(s.entries.filter(e => e.counted && e.side === 'asset' && kinds.includes(e.kind) && known(e)).reduce((t, e) => t + BigInt(e.amount_cents!), 0n)) : null;
-    const p: Point = { snapshot_id: s.id, date: s.date, notes: s.notes, assets_cents: String(assets), liabilities_cents: String(liabilities), net_cents: String(net), liquid_cents: balance(['cash']), invested_cents: balance(['investment', 'mixed', 'fund', 'bond', 'precious_metal']), complete, missing: s.missing.length, compared_to: null, scope_changed: false, change_cents: null, hpf_change_cents: null, change_rate_hundredths: null };
+    const p: Point = { snapshot_id: s.id, date: s.date, notes: s.notes, assets_cents: String(assets), liabilities_cents: String(liabilities), net_cents: String(net), liquid_cents: balance(['cash']), invested_cents: balance(['investment', 'mixed', 'fund', 'bond', 'precious_metal']), complete, has_unchanged: s.entries.some(e => e.state === 'unchanged'), missing: s.missing.length, compared_to: null, scope_changed: false, change_cents: null, hpf_change_cents: null, change_rate_hundredths: null };
     if (complete) {
       if (last) {
         p.compared_to = last.s.date;
@@ -848,7 +854,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: '虚构读取失败，用于验证错误状态。' };
   if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: '虚构盘点读取失败。' }; return { value: summary() }; }
   if (command === 'wealth_accounts') return { value: accounts.map(withLatest) };
-  if (command === 'wealth_request_result') { if (params.get('state') === 'unresolved') throw { message: '暂时无法核对。' }; return { value: receipts.get(String(args.request)) ?? null }; }
+  if (command === 'wealth_request_result') { if (params.get('state') === 'unresolved' || params.get('quick') === 'unknown') throw { message: '暂时无法核对。' }; return { value: receipts.get(String(args.request)) ?? null }; }
   // 只读详情：按稳定 ID 读取一次盘点（§5.2），浏览不写资料。
   if (command === 'wealth_snapshot') { if (planFail('snapshot')) throw { message: '虚构盘点明细读取失败，用于验证首页摘要的局部降级。' }; const found = snapshots.find(s => s.id === String(args.id)); return { value: found ? view(found) : null }; }
   if (command === 'wealth_snapshot_draft') {
@@ -945,6 +951,53 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     receipts.set(input.request_id, id);
     return { value: withLatest(next) };
   }
+  if (command === 'wealth_quick_update') {
+    const input = args.input as import('./wealth').QuickUpdate;
+    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已切换。' };
+    const fingerprint = JSON.stringify(input);
+    if (receipts.has(input.request_id)) {
+      if (quickFingerprints.get(input.request_id) !== fingerprint) throw { code: 'REQUEST_CONFLICT', message: '请求标识已用于不同内容。' };
+      return { value: view(snapshots.find(s => s.id === receipts.get(input.request_id))!) };
+    }
+    const fail = (code: string, message: string): never => { throw { code, message }; };
+    const today = iso(now), latest = snapshots.map(s => s.date).sort().at(-1);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date < '1900-01-01' || !Number.isFinite(Date.parse(input.date)) || new Date(input.date).toISOString().slice(0, 10) !== input.date) fail('DATE', '日期格式应为 YYYY-MM-DD');
+    if (input.date > today) fail('SNAPSHOT_DATE', '盘点日期不能晚于今天');
+    if (latest && input.date < latest) fail('QUICK_DATE', '历史金额请到盘点记录里更正');
+    if ([...input.note].length > 500 || input.note.includes('\0')) fail('QUICK_NOTE', '备注最多 500 字，且不能含空字符');
+    if (input.changes.length < 1 || input.changes.length > 2) fail('QUICK_CHANGES', '一次只能更新一个账户或一笔转账');
+    const existing = snapshots.find(s => s.date === input.date), active = accounts.filter(a => due(a, input.date));
+    const changed = new Map<string, string>(); let effect = 0n;
+    const parse = (value: string) => {
+      if (typeof value !== 'string' || !/^\d{1,11}$/.test(value) || BigInt(value) > 99999999999n) fail('WEALTH_AMOUNT', '金额须为非负整数分');
+      return BigInt(value);
+    };
+    for (const change of input.changes) {
+      const account = active.find(a => a.id === change.account_id);
+      if (!account || changed.has(change.account_id)) fail('SNAPSHOT_ACCOUNT', '这个账户不在该日期的盘点范围内，或重复填写');
+      const next = parse(change.amount_cents), kept = existing?.entries.find(e => e.account_id === change.account_id);
+      const previous = kept ? kept.amount_cents : latestBefore(change.account_id, input.date)?.amount_cents ?? null;
+      const expected = change.expected_previous == null ? null : parse(change.expected_previous);
+      if (input.changes.length === 2 && expected === null) fail('QUICK_TRANSFER', '转账须基于两个账户的已知金额');
+      if (expected !== null && (previous === null || BigInt(previous) !== expected)) fail('QUICK_STALE', '账户金额已经变化，请重新读取');
+      if (params.get('quick') === 'stale' && expected !== null && !quickStaleShown) { quickStaleShown = true; fail('QUICK_STALE', '虚构账户金额已经变化，请重新读取'); }
+      effect += (next - BigInt(previous ?? '0')) * (account!.fields.side === 'asset' ? 1n : -1n);
+      changed.set(change.account_id, next.toString());
+    }
+    if (input.changes.length === 2 && effect !== 0n) fail('QUICK_TRANSFER', '转账前后两个账户的变化须相互抵消');
+    const entries: Entry[] = active.map(account => {
+      const kept = existing?.entries.find(e => e.account_id === account.id), previous = latestBefore(account.id, input.date);
+      if (changed.has(account.id)) return { account_id: account.id, state: 'entered', amount_cents: changed.get(account.id)!, side: kept?.side ?? account.fields.side, kind: kept?.kind ?? account.fields.kind, counted: kept?.counted ?? account.fields.counted };
+      if (kept) return { ...kept };
+      return { account_id: account.id, state: previous ? 'unchanged' : 'missing', amount_cents: previous?.amount_cents ?? null, side: account.fields.side, kind: account.fields.kind, counted: account.fields.counted };
+    });
+    const extra = input.note.trim() ? input.changes.map(change => active.find(a => a.id === change.account_id)!.fields.name).join(' → ') + '：' + input.note.trim() : '';
+    const stored: Stored = { id: existing?.id ?? crypto.randomUUID(), date: input.date, notes: [existing?.notes ?? '', extra].filter(Boolean).join('\n'), revision: (existing?.revision ?? 0) + 1, entries };
+    snapshots = existing ? snapshots.map(s => s.id === stored.id ? stored : s) : [...snapshots, stored];
+    receipts.set(input.request_id, stored.id); quickFingerprints.set(input.request_id, fingerprint);
+    if (params.get('quick') === 'unknown') throw { message: '虚构保存响应丢失，原请求已保留。' };
+    return { value: view(stored) };
+  }
   if (command === 'wealth_snapshot_save') {
     const input = args.input as SnapshotSave;
     if (receipts.has(input.request_id)) return { value: view(snapshots.find(s => s.id === receipts.get(input.request_id))!) };
@@ -952,7 +1005,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const id = input.id ?? crypto.randomUUID(), old = snapshots.find(s => s.id === id);
     const entries = input.entries.map(e => {
       const a = accounts.find(x => x.id === e.account_id)!, kept = old?.entries.find(x => x.account_id === e.account_id);
-      const cents = e.state === 'missing' ? null : e.state === 'unchanged' ? latestBefore(a.id, input.date)?.amount_cents ?? null : e.amount_cents;
+      const cents = e.state === 'missing' ? null : e.state === 'unchanged' ? kept?.state === 'unchanged' && e.amount_cents === null ? kept.amount_cents : e.amount_cents ?? latestBefore(a.id, input.date)?.amount_cents ?? null : e.amount_cents;
       return { account_id: a.id, state: e.state, amount_cents: cents, side: kept?.side ?? a.fields.side, kind: kept?.kind ?? a.fields.kind, counted: kept?.counted ?? a.fields.counted };
     });
     const stored = { id, date: input.date, notes: input.notes, revision: (old?.revision ?? 0) + 1, entries };

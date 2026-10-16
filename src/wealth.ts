@@ -7,12 +7,12 @@ import { errorMessage, money } from './asset.ts';
 export type Side = 'asset' | 'liability';
 export type AccountFields = { name: string; institution: string; side: Side; kind: string; counted: boolean; opened_on: string; closed_on: string | null; notes: string; purchase_cents?: string | null; purchased_on?: string | null };
 export type Observation = { amount_cents: string; date: string };
-export type Account = { id: string; fields: AccountFields; position: number; revision: number; latest: Observation | null };
+export type Account = { id: string; fields: AccountFields; position: number; revision: number; latest: Observation | null; last_entered_on?: string | null };
 export type EntryState = 'entered' | 'unchanged' | 'missing';
 export type Entry = { account_id: string; state: EntryState; amount_cents: string | null; side: Side; kind: string; counted: boolean };
 export type Snapshot = { id: string; date: string; notes: string; revision: number; entries: Entry[]; missing: string[] };
 export type Draft = { generation: string; date: string; existing: Snapshot | null; rows: { account: Account; previous: Observation | null }[] };
-export type Point = { snapshot_id: string; date: string; notes: string; assets_cents: string; liabilities_cents: string; net_cents: string; liquid_cents: string | null; invested_cents: string | null; complete: boolean; missing: number; compared_to: string | null; scope_changed: boolean; change_cents: string | null; hpf_change_cents: string | null; market_change_cents?: string | null; change_rate_hundredths: number | null };
+export type Point = { snapshot_id: string; date: string; notes: string; assets_cents: string; liabilities_cents: string; net_cents: string; liquid_cents: string | null; invested_cents: string | null; complete: boolean; has_unchanged?: boolean; missing: number; compared_to: string | null; scope_changed: boolean; change_cents: string | null; hpf_change_cents: string | null; market_change_cents?: string | null; change_rate_hundredths: number | null };
 export type Share = { kind: string; amount_cents: string; share_hundredths: number | null };
 export type Summary = { generation: string; points: Point[]; structure_date: string | null; structure: Share[]; liabilities: Share[] };
 // U20 账户变化与盘点比较（产品设计 17.14）：一次比较的两个端点。
@@ -102,7 +102,7 @@ export const pendingKey = 'thingary.wealth-pending.v1';
 export type TrashChange = { request_id: string; generation: string; kind: TrashKind; id: string; expected_revision: number; deleted: boolean };
 export type TrashKind = 'snapshot' | 'account' | 'expense' | 'income' | 'plan' | 'payment' | 'wish' | 'virtual' | 'topup' | 'balance';
 export type PurgeInput = { request_id: string; generation: string; kind: string | null; id: string; preview?: string };
-export type Pending = { command: 'savings_goals_save' | 'savings_goals_trash' | 'movement_save' | 'movement_trash' | 'followup_review_save' | 'followup_review_trash' | 'plan_assumptions_save' | 'investment_review_save' | 'investment_review_trash' | 'financial_import_commit' | 'wealth_account_save' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'plan_profile_update' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save' | 'link_save' | 'link_create' | 'link_trash' | 'link_restore' | 'link_reconcile' | 'link_merge' | 'purge_trash'; input: (import('./planning-followup-contract.ts').FollowupWriteContext & ({ id: string | null; fields: import('./planning-followup-contract.ts').MovementFieldsV1 } | { id: string; deleted: boolean } | { pair: import('./planning-followup-contract.ts').ReviewPairV1; draft: import('./planning-followup-contract.ts').ReviewDraftV1; basis_key: string })) | (import('./planning-followup-contract.ts').FollowupWriteContext & { values: import('./planning-followup-contract.ts').AssumptionValuesV1; confirm: boolean }) | InvestmentReviewSave | InvestmentReviewTrash | import('./plan.ts').ProfileUpdate | PurgeInput | AccountSave | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | LinkSaveInput | LinkCreateInput | LinkTrashInput | LinkRestoreInput | ReconcileInput | MergeInput | { request_id: string; generation: string }; label: string };
+export type Pending = { command: 'savings_goals_save' | 'savings_goals_trash' | 'movement_save' | 'movement_trash' | 'followup_review_save' | 'followup_review_trash' | 'plan_assumptions_save' | 'investment_review_save' | 'investment_review_trash' | 'financial_import_commit' | 'wealth_account_save' | 'wealth_quick_update' | 'wealth_snapshot_save' | 'wealth_trash' | 'expense_save' | 'plan_income_save' | 'plan_baseline_mark' | 'plan_profile_save' | 'plan_profile_update' | 'recurring_plan_save' | 'recurring_payment_save' | 'virtual_save' | 'recurring_payment_range_save' | 'virtual_topup_save' | 'virtual_balance_save' | 'virtual_reminder_save' | 'link_save' | 'link_create' | 'link_trash' | 'link_restore' | 'link_reconcile' | 'link_merge' | 'purge_trash'; input: (import('./planning-followup-contract.ts').FollowupWriteContext & ({ id: string | null; fields: import('./planning-followup-contract.ts').MovementFieldsV1 } | { id: string; deleted: boolean } | { pair: import('./planning-followup-contract.ts').ReviewPairV1; draft: import('./planning-followup-contract.ts').ReviewDraftV1; basis_key: string })) | (import('./planning-followup-contract.ts').FollowupWriteContext & { values: import('./planning-followup-contract.ts').AssumptionValuesV1; confirm: boolean }) | InvestmentReviewSave | InvestmentReviewTrash | import('./plan.ts').ProfileUpdate | PurgeInput | AccountSave | QuickUpdate | SnapshotSave | TrashChange | IncomeSave | Mark | ProfileSave | TopupSave | BalanceSave | ReminderSave | LinkSaveInput | LinkCreateInput | LinkTrashInput | LinkRestoreInput | ReconcileInput | MergeInput | { request_id: string; generation: string }; label: string };
 export function storedPending(): Pending | null {
   try { const p = JSON.parse(localStorage.getItem(pendingKey) || 'null'); if (p && typeof p.command === 'string' && typeof p.input?.request_id === 'string') return p; } catch { /* unreadable receipt is ignored */ }
   return null;
@@ -192,3 +192,61 @@ export const readInvestmentReview = (generation: string, fromSnapshotId: string,
 export const listInvestmentReviews = (generation: string) => invoke<{ generation: string; records: InvestmentReviewRecord[] }>('investment_review_list', { generation });
 export const saveInvestmentReview = (input: InvestmentReviewSave) => submit<import('./investment-review/model.ts').InvestmentFlowV1>({ command: 'investment_review_save', input, label: '投资资金流动核对' });
 export const trashInvestmentReview = (input: InvestmentReviewTrash) => submit<void>({ command: 'investment_review_trash', input, label: input.deleted ? '删除投资核对' : '恢复投资核对' });
+
+
+/** Quick updates replace balances; all arithmetic stays in integer cents. */
+export type QuickChange = { account_id: string; amount_cents: string; expected_previous?: string | null };
+export type QuickUpdate = { request_id: string; generation: string; date: string; note: string; changes: QuickChange[] };
+export type QuickMode = 'balance' | 'delta' | 'transfer';
+export function quickDateMin(points: Pick<Point, 'date'>[]): string {
+  return points.reduce((latest, point) => point.date > latest ? point.date : latest, '1900-01-01');
+}
+export function quickPrevious(draft: Draft, id: string): string | null {
+  const recorded = draft.existing?.entries.find(e => e.account_id === id);
+  return recorded ? recorded.amount_cents : draft.rows.find(r => r.account.id === id)?.previous?.amount_cents ?? null;
+}
+export function quickCounted(draft: Draft, id: string): boolean {
+  const recorded = draft.existing?.entries.find(e => e.account_id === id);
+  return recorded ? recorded.counted : draft.rows.find(r => r.account.id === id)?.account.fields.counted ?? false;
+}
+function quickAmount(value: string, signed = false): bigint {
+  if (!(signed ? /^-?\d+$/ : /^\d+$/).test(value)) throw new Error('请填写金额。');
+  const cents = BigInt(value);
+  if (cents < -99999999999n || cents > 99999999999n) throw new Error('金额超出可记录范围。');
+  return cents;
+}
+export function quickBalance(previous: string | null, delta: string): string {
+  if (previous === null) throw new Error('还没有这个账户的金额，请用修改余额。');
+  const next = quickAmount(previous) + quickAmount(delta, true);
+  if (next < 0n) throw new Error('新的余额或欠款不能小于 0，请调整增减金额。');
+  return quickAmount(next.toString()).toString();
+}
+export function quickDeltaLabel(side: Side): string {
+  return side === 'liability' ? '增加欠款／减少欠款' : '增减金额';
+}
+export function quickTransferPairs(draft: Draft): { from: string; to: string }[] {
+  const known = draft.rows.filter(r => quickPrevious(draft, r.account.id) !== null);
+  return known.filter(r => r.account.fields.side === 'asset').flatMap(source => known
+    .filter(target => target.account.id !== source.account.id && quickCounted(draft, source.account.id) === quickCounted(draft, target.account.id))
+    .map(target => ({ from: source.account.id, to: target.account.id })));
+}
+export function quickTransfer(draft: Draft, from: string, to: string, amount: string): QuickChange[] {
+  if (!quickTransferPairs(draft).some(pair => pair.from === from && pair.to === to)) throw new Error('请选择金额已知、计入范围相同的转出和转入账户。');
+  const cents = quickAmount(amount);
+  if (cents <= 0n) throw new Error('转账金额须大于 0。');
+  const beforeFrom = quickPrevious(draft, from)!, beforeTo = quickPrevious(draft, to)!;
+  const target = draft.rows.find(r => r.account.id === to)!.account;
+  return [{ account_id: from, expected_previous: beforeFrom, amount_cents: quickBalance(beforeFrom, (-cents).toString()) },
+    { account_id: to, expected_previous: beforeTo, amount_cents: quickBalance(beforeTo, (target.fields.side === 'liability' ? -cents : cents).toString()) }];
+}
+export function quickChanges(draft: Draft, accountId: string, mode: QuickMode, value: string, from: string, to: string): QuickChange[] {
+  if (mode === 'transfer') return quickTransfer(draft, from, to, value);
+  if (!draft.rows.some(row => row.account.id === accountId)) throw new Error('这个账户不在所选日期的盘点范围内。');
+  return mode === 'balance' ? [{ account_id: accountId, amount_cents: quickAmount(value).toString() }]
+    : [{ account_id: accountId, amount_cents: quickBalance(quickPrevious(draft, accountId), value), expected_previous: quickPrevious(draft, accountId) }];
+}
+export function accountUpdateAge(day: string | null | undefined, today: string): { text: string; old: boolean } {
+  if (!day) return { text: '尚未填写金额', old: false };
+  const days = Math.max(0, Math.round((Date.parse(today) - Date.parse(day)) / 86400000));
+  return { text: `${days} 天前更新`, old: days > 90 };
+}

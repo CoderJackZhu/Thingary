@@ -136,6 +136,8 @@ pub struct Account {
     pub revision: i64,
     /// Latest known amount from a live check-in, with that check-in's date.
     pub latest: Option<Observation>,
+    /// Date of the latest explicitly entered balance in a live check-in.
+    pub last_entered_on: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -230,6 +232,8 @@ pub struct Point {
     /// market_change_cents this includes precious metals. Unknown if incomplete.
     pub invested_cents: Option<String>,
     pub complete: bool,
+    #[serde(default)]
+    pub has_unchanged: bool,
     pub missing: usize,
     /// Earlier complete check-in this point is compared with.
     pub compared_to: Option<String>,
@@ -375,6 +379,7 @@ fn account_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
         position: r.get(9)?,
         revision: r.get(10)?,
         latest: None,
+        last_entered_on: None,
     })
 }
 const ACCOUNT_COLUMNS: &str =
@@ -412,6 +417,7 @@ pub(crate) fn accounts_cancellable(
     for a in &mut list {
         check()?;
         a.latest = observation_before(c, &a.id, None)?;
+        a.last_entered_on = last_entered_on(c, &a.id)?;
     }
     Ok(list)
 }
@@ -428,9 +434,18 @@ pub(crate) fn account(c: &Connection, id: &str) -> Result<Option<Account>> {
     found
         .map(|mut a| {
             a.latest = observation_before(c, &a.id, None)?;
+            a.last_entered_on = last_entered_on(c, &a.id)?;
             Ok(a)
         })
         .transpose()
+}
+
+/// Latest explicit balance date; carried observations do not refresh it.
+fn last_entered_on(c: &Connection, account: &str) -> Result<Option<String>> {
+    Ok(c.query_row(
+        "SELECT max(s.date) FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE e.account_id=?1 AND e.state='entered' AND s.deleted_at IS NULL",
+        [account], |r| r.get(0),
+    )?)
 }
 
 /// Latest known amount in a live check-in strictly before `before` (or ever).
@@ -1198,6 +1213,7 @@ impl Store {
                 ))
             };
             let mut point = Point {
+                has_unchanged: s.entries.iter().any(|e| e.state == "unchanged"),
                 snapshot_id: s.id.clone(),
                 date: s.date.clone(),
                 notes: s.notes.clone(),
