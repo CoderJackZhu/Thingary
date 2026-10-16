@@ -351,6 +351,7 @@ fn account(s: &mut Store, name: &str, kind: &str, counted: bool) -> thingary_lib
                 notes: String::new(),
                 purchase_cents: None,
                 purchased_on: None,
+                currency: "CNY".into(),
             },
         },
         "2026-10-17",
@@ -382,6 +383,8 @@ fn receivable_and_vehicle_accounts_save_count_back_up_and_restore() {
                         account_id: a.id.clone(),
                         state: "entered".into(),
                         amount_cents: Some(v.into()),
+                        original_minor: None,
+                        fx_rate_micro: None,
                     })
                     .collect(),
             },

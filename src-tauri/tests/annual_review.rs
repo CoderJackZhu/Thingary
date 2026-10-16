@@ -56,6 +56,7 @@ fn account(s: &mut Store, opened: &str) -> Account {
                 notes: String::new(),
                 purchase_cents: None,
                 purchased_on: None,
+                currency: "CNY".into(),
             },
         },
         TODAY,
@@ -82,6 +83,8 @@ fn snapshot(
                     account_id: a.id.clone(),
                     state: "entered".into(),
                     amount_cents: Some((*amount).into()),
+                    original_minor: None,
+                    fx_rate_micro: None,
                 })
                 .collect(),
         },

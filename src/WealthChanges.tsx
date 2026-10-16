@@ -6,7 +6,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset.ts';
 import { Info } from './FormControls';
-import { NetChart } from './WealthPage';
+import { NetChart, CurrencyBalance } from './WealthPage';
 import { cellText, changeText, defaultRange, kindLabel, rateText, sortRows, noteSummary } from './wealth';
 import type { Account, AccountHistory, Compare, CompareRow, Point, Summary } from './wealth';
 
@@ -156,7 +156,7 @@ function HistoryTable({ accounts, expanded, toggle, history, retry }: {
     <tbody>{accounts.map(a => <Fragment key={a.id}>
       <tr>
         <td><strong>{a.fields.name}</strong>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}{a.fields.closed_on && <small className="muted"> · 已停用</small>}</td>
-        <td>{a.latest ? money(a.latest.amount_cents) : <span className="muted">尚未盘点</span>}</td>
+        <td>{a.latest ? <CurrencyBalance code={a.fields.currency} fact={a.latest} date={a.latest.date}/> : <span className="muted">尚未盘点</span>}</td>
         <td><button className="row-expand" aria-expanded={expanded.has(a.id)} aria-label={`${expanded.has(a.id) ? '收起' : '展开'}「${a.fields.name}」的盘点历史`} onClick={() => toggle(a.id)}>{expanded.has(a.id) ? '▾' : '▸'}</button></td>
       </tr>
       {expanded.has(a.id) && <tr className="history-row"><td colSpan={3}><HistoryBlock id={a.id} name={a.fields.name} side={a.fields.side} history={history.get(a.id)} onRetry={retry}/></td></tr>}
@@ -196,10 +196,10 @@ function HistoryBlock({ id, name, side, history, onRetry }: {
   const known = data.rows.filter(row => row.amount_cents !== null).length;
   return <div className="account-history">
     {known > 0 ? <NetChart points={points} label={`「${name}」的金额趋势，共 ${known} 次已知金额`}/> : <p className="muted">还没有已知金额。</p>}
-    <table className="ui-table"><thead><tr><th>日期</th><th>金额</th><th>与前次</th><th>状态</th><th>计入</th></tr></thead>
+    <table className="ui-table"><thead><tr><th>日期</th><th>金额</th><th>与前次（人民币）</th><th>状态</th><th>计入</th></tr></thead>
       <tbody>{data.rows.map(row => <tr key={row.snapshot_id}>
         <td>{row.date}</td>
-        <td>{row.amount_cents === null ? <span className="muted">未知</span> : side === 'liability' ? `欠 ${money(row.amount_cents)}` : money(row.amount_cents)}</td>
+        <td>{row.amount_cents !== null && side === 'liability' ? '欠 ' : ''}<CurrencyBalance code={data.account.fields.currency} fact={row} date={row.date}/></td>
         <td>{row.change_cents === null ? <span className="muted">—</span> : side === 'liability' ? `欠款 ${changeText(row.change_cents)}` : changeText(row.change_cents)}</td>
         <td>{stateLabel(row.state)}</td>
         <td>{row.counted ? '计入' : '不计入'}</td>

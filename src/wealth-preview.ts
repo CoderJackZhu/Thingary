@@ -1,3 +1,4 @@
+import { currencyCode, convertCurrency, validateCurrencyFact, validCurrency } from './currency';
 import { reviewFixtures } from './investment-review/fixtures';
 import type { InvestmentReviewRead } from './wealth';
 import nonblockingDemo from '../tests/fixtures/planning-basic/nonblocking-demo.json';
@@ -84,6 +85,28 @@ if (params.get('wealth-fixture') === 'usability' && snapshots.length > 2) {
 if (params.get('wealth-fixture') === 'quick-new-day') {
   snapshots = snapshots.filter(snapshot => snapshot.date !== iso(now));
 }
+// Explicit fictional foreign-currency fixture; ordinary sample amounts remain unchanged.
+if (params.get('wealth-fixture') === 'currency' || params.get('currency') === '1' || params.get('currency') === 'retired-rate') {
+  accounts = accounts.map((a,i) => i < 3 ? { ...a, fields: { ...a.fields, name: `虚构${i===2?'日元':'美元'}账户${i+1}`, currency: i===2?'JPY':'USD' } } : a);
+  snapshots = snapshots.map(s=>({...s,entries:s.entries.map(e=>{
+    const account=accounts.find(a=>a.id===e.account_id)!,code=currencyCode(account.fields.currency);
+    if(code==='CNY'||e.amount_cents===null)return e;
+    const original_minor=code==='JPY'?'10000':e.amount_cents,fx_rate_micro=code==='JPY'?'50000':'7000000';
+    return {...e,original_minor,fx_rate_micro,amount_cents:convertCurrency(code,original_minor,fx_rate_micro)};
+  })}));
+}
+// Fictional rate suggestion acceptance: a retired zero-balance account and a new account today.
+if (params.get('currency') === 'retired-rate' && accounts.length >= 2) {
+  const oldId=accounts[0].id, secondId=accounts[1].id;
+  accounts[0]={...accounts[0],fields:{...accounts[0].fields,name:'虚构已停用美元账户',closed_on:iso(now)}};
+  accounts[1]={...accounts[1],fields:{...accounts[1].fields,currency:'CNY'}};
+  snapshots=snapshots.filter(s=>s.date<iso(now)).map(s=>({...s,entries:s.entries.map(e=>{
+    if(e.account_id===oldId&&e.amount_cents!==null)return {...e,amount_cents:'0',original_minor:'0',fx_rate_micro:'7123456'};
+    if(e.account_id===secondId){const plain={...e};delete plain.original_minor;delete plain.fx_rate_micro;return plain;}
+    return e;
+  })}));
+  accounts.push({id:'fx-new-usd',position:accounts.length,revision:1,latest:null,has_entries:false,fields:{...accounts[0].fields,name:'虚构新美元账户（无记录）',opened_on:iso(now),closed_on:null,notes:'虚构：沿用已停用账户最近记录的汇率建议。'}});
+}
 const receipts = new Map<string, string>();
 const quickFingerprints = new Map<string, string>();
 let quickStaleShown = false;
@@ -91,10 +114,10 @@ let quickStaleShown = false;
 const due = (a: Account, d: string) => a.fields.opened_on <= d && (!a.fields.closed_on || d < a.fields.closed_on);
 const known = (e: Entry) => e.amount_cents !== null;
 function latestBefore(id: string, before?: string) {
-  const hit = snapshots.filter(s => !before || s.date < before).sort((a, b) => b.date.localeCompare(a.date)).flatMap(s => s.entries.filter(e => e.account_id === id && known(e)).map(e => ({ amount_cents: e.amount_cents!, date: s.date })))[0];
+  const hit = snapshots.filter(s => !before || s.date < before).sort((a, b) => b.date.localeCompare(a.date)).flatMap(s => s.entries.filter(e => e.account_id === id && known(e)).map(e => ({ amount_cents: e.amount_cents!, date: s.date, ...(e.original_minor!=null?{original_minor:e.original_minor,fx_rate_micro:e.fx_rate_micro}:{}) })))[0];
   return hit ?? null;
 }
-const withLatest = (a: Account): Account => ({ ...a, latest: latestBefore(a.id), last_entered_on: snapshots.filter(s => s.entries.some(e => e.account_id === a.id && e.state === 'entered')).map(s => s.date).sort().at(-1) ?? null });
+const withLatest = (a: Account): Account => ({ ...a, latest: latestBefore(a.id), has_entries: snapshots.some(s=>s.entries.some(e=>e.account_id===a.id)), last_entered_on: snapshots.filter(s => s.entries.some(e => e.account_id === a.id && e.state === 'entered')).map(s => s.date).sort().at(-1) ?? null });
 function view(s: Stored): Snapshot {
   const have = new Set(s.entries.filter(known).map(e => e.account_id));
   return { ...s, missing: accounts.filter(a => due(a, s.date) && !have.has(a.id)).map(a => a.id) };
@@ -132,7 +155,7 @@ function summary(): Summary {
     const total = [...by.values()].reduce((a, b) => a + b, 0n);
     return [...by].map(([kind, v]) => ({ kind, amount_cents: String(v), share_hundredths: total > 0n ? hundredths(v, total) : null }));
   };
-  return { generation, points, structure_date: last?.s.date ?? null, structure: shares('asset'), liabilities: shares('liability') };
+  return { generation, points, structure_date: last?.s.date ?? null, structure_entries: last?.s.entries ?? [], structure: shares('asset'), liabilities: shares('liability') };
 }
 
 // Standalone expenses for the preview; item purchases come from the demo assets.
@@ -860,7 +883,9 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   if (command === 'wealth_snapshot_draft') {
     const date = String(args.date), existing = snapshots.find(s => s.date === date);
     const draft: Draft = { generation, date, existing: existing ? view(existing) : null, rows: accounts.filter(a => due(a, date)).map(a => ({ account: withLatest(a), previous: latestBefore(a.id, date) })) };
-    return { value: draft };
+    const rate_suggestions: Record<string,{rate:string;date:string}> = {};
+    for(const a of accounts){const code=currencyCode(a.fields.currency);if(code==='CNY')continue;const saved=existing?.entries.find(e=>e.account_id===a.id&&e.fx_rate_micro!=null),previous=latestBefore(a.id,date);const source=saved?{...saved,date}:previous;if(source?.fx_rate_micro&&(!rate_suggestions[code]||source.date>rate_suggestions[code].date))rate_suggestions[code]={rate:source.fx_rate_micro,date:source.date};}
+    return { value: { ...draft, rate_suggestions } };
   }
   // U20 账户变化：预览模拟，规则与 Rust wealth_compare 一致（产品设计 17.14.4）。
   if (command === 'wealth_compare') {
@@ -929,7 +954,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (!a) throw { code: 'NOT_FOUND', message: '找不到账户' };
     const rows: HistoryRow[] = [...snapshots].filter(s => s.entries.some(e => e.account_id === a.id)).sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id)).map(s => {
       const e = s.entries.find(x => x.account_id === a.id)!;
-      return { snapshot_id: s.id, date: s.date, state: e.state, amount_cents: e.amount_cents, counted: e.counted, change_cents: null };
+      return { snapshot_id: s.id, date: s.date, state: e.state, amount_cents: e.amount_cents, ...(e.original_minor!=null?{original_minor:e.original_minor,fx_rate_micro:e.fx_rate_micro}:{}), counted: e.counted, change_cents: null };
     });
     // 与前次＝紧邻的前一行，两行都已知才有值，不跨过未知去找更早的值。
     for (let i = 1; i < rows.length; i++) { const p = rows[i - 1], c = rows[i]; if (p.amount_cents !== null && c.amount_cents !== null) c.change_cents = (BigInt(c.amount_cents) - BigInt(p.amount_cents)).toString(); }
@@ -942,6 +967,8 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (input.fields.kind === 'property' && input.fields.counted) throw { code: 'PROPERTY_COUNTED', message: '房产仅单独记录估值，不能计入金融净资产' };
     const id = input.id ?? crypto.randomUUID(), old = accounts.find(a => a.id === id);
     const f = input.fields;
+    if(!validCurrency(currencyCode(f.currency)))throw {code:'ACCOUNT_CURRENCY',message:'币种须为三位大写字母'};
+    if(old&&currencyCode(old.fields.currency)!==currencyCode(f.currency)&&snapshots.some(s=>s.entries.some(e=>e.account_id===old.id)))throw {code:'ACCOUNT_CURRENCY',message:'已有记录的账户不能更改币种，请新建一个外币账户，再停用旧账户。'};
     if (old && !['property','vehicle'].includes(f.kind) && (old.fields.purchase_cents != null || old.fields.purchased_on != null)) throw { code: 'ACCOUNT_PURCHASE', message: '请先清空并保存购入价和购入日期，再更改类型' };
     if ((f.purchase_cents != null || f.purchased_on != null) && !['property','vehicle'].includes(f.kind)) throw { code: 'ACCOUNT_PURCHASE', message: '只有房产和车辆可以填写购入价和购入日期' };
     if (f.purchase_cents != null && (!/^\d+$/.test(f.purchase_cents) || BigInt(f.purchase_cents) > 99999999999n)) throw { code: 'ACCOUNT_PURCHASE', message: '购入价超出可保存的金额范围' };
@@ -967,7 +994,8 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if ([...input.note].length > 500 || input.note.includes('\0')) fail('QUICK_NOTE', '备注最多 500 字，且不能含空字符');
     if (input.changes.length < 1 || input.changes.length > 2) fail('QUICK_CHANGES', '一次只能更新一个账户或一笔转账');
     const existing = snapshots.find(s => s.date === input.date), active = accounts.filter(a => due(a, input.date));
-    const changed = new Map<string, string>(); let effect = 0n;
+    const changed = new Map<string, import('./wealth').QuickChange>(); let effect = 0n;
+    if(input.changes.length===2){const [a,b]=input.changes,ac=accounts.find(x=>x.id===a.account_id),bc=accounts.find(x=>x.id===b.account_id);if(currencyCode(ac?.fields.currency)!==currencyCode(bc?.fields.currency)||(currencyCode(ac?.fields.currency)!=='CNY'&&a.fx_rate_micro!==b.fx_rate_micro))fail('QUICK_CURRENCY','转账须相同币种和汇率，请分别修改余额');}
     const parse = (value: string) => {
       if (typeof value !== 'string' || !/^\d{1,11}$/.test(value) || BigInt(value) > 99999999999n) fail('WEALTH_AMOUNT', '金额须为非负整数分');
       return BigInt(value);
@@ -977,19 +1005,23 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       if (!account || changed.has(change.account_id)) fail('SNAPSHOT_ACCOUNT', '这个账户不在该日期的盘点范围内，或重复填写');
       const next = parse(change.amount_cents), kept = existing?.entries.find(e => e.account_id === change.account_id);
       const previous = kept ? kept.amount_cents : latestBefore(change.account_id, input.date)?.amount_cents ?? null;
+      try { validateCurrencyFact(currencyCode(account!.fields.currency),change); } catch { fail('FX_MISMATCH','原币金额与汇率折算不一致'); }
+      const original=kept?kept.original_minor:latestBefore(change.account_id,input.date)?.original_minor;
+      if(currencyCode(account!.fields.currency)==='CNY'&&change.expected_original_minor!=null)fail('FX_MISMATCH','人民币账户不能填写原币金额');
+      if(currencyCode(account!.fields.currency)!=='CNY'&&change.expected_previous!=null&&(change.expected_original_minor==null||change.expected_original_minor!==original))fail('QUICK_STALE','原币金额已经变化，请重新读取');
       const expected = change.expected_previous == null ? null : parse(change.expected_previous);
       if (input.changes.length === 2 && expected === null) fail('QUICK_TRANSFER', '转账须基于两个账户的已知金额');
       if (expected !== null && (previous === null || BigInt(previous) !== expected)) fail('QUICK_STALE', '账户金额已经变化，请重新读取');
       if (params.get('quick') === 'stale' && expected !== null && !quickStaleShown) { quickStaleShown = true; fail('QUICK_STALE', '虚构账户金额已经变化，请重新读取'); }
       effect += (next - BigInt(previous ?? '0')) * (account!.fields.side === 'asset' ? 1n : -1n);
-      changed.set(change.account_id, next.toString());
+      changed.set(change.account_id,change);
     }
-    if (input.changes.length === 2 && effect !== 0n) fail('QUICK_TRANSFER', '转账前后两个账户的变化须相互抵消');
+    if (input.changes.length === 2 && effect !== 0n) fail('QUICK_TRANSFER', '折算或舍入使人民币变化无法抵消，请分别修改余额');
     const entries: Entry[] = active.map(account => {
       const kept = existing?.entries.find(e => e.account_id === account.id), previous = latestBefore(account.id, input.date);
-      if (changed.has(account.id)) return { account_id: account.id, state: 'entered', amount_cents: changed.get(account.id)!, side: kept?.side ?? account.fields.side, kind: kept?.kind ?? account.fields.kind, counted: kept?.counted ?? account.fields.counted };
+      if (changed.has(account.id)) return { ...(changed.get(account.id)!.original_minor!=null?{original_minor:changed.get(account.id)!.original_minor,fx_rate_micro:changed.get(account.id)!.fx_rate_micro}:{}), account_id: account.id, state: 'entered', amount_cents: changed.get(account.id)!.amount_cents, side: kept?.side ?? account.fields.side, kind: kept?.kind ?? account.fields.kind, counted: kept?.counted ?? account.fields.counted };
       if (kept) return { ...kept };
-      return { account_id: account.id, state: previous ? 'unchanged' : 'missing', amount_cents: previous?.amount_cents ?? null, side: account.fields.side, kind: account.fields.kind, counted: account.fields.counted };
+      return { account_id: account.id, state: previous ? 'unchanged' : 'missing', amount_cents: previous?.amount_cents ?? null, ...(previous?.original_minor!=null?{original_minor:previous.original_minor,fx_rate_micro:previous.fx_rate_micro}:{}), side: account.fields.side, kind: account.fields.kind, counted: account.fields.counted };
     });
     const extra = input.note.trim() ? input.changes.map(change => active.find(a => a.id === change.account_id)!.fields.name).join(' → ') + '：' + input.note.trim() : '';
     const stored: Stored = { id: existing?.id ?? crypto.randomUUID(), date: input.date, notes: [existing?.notes ?? '', extra].filter(Boolean).join('\n'), revision: (existing?.revision ?? 0) + 1, entries };
@@ -1006,7 +1038,11 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const entries = input.entries.map(e => {
       const a = accounts.find(x => x.id === e.account_id)!, kept = old?.entries.find(x => x.account_id === e.account_id);
       const cents = e.state === 'missing' ? null : e.state === 'unchanged' ? kept?.state === 'unchanged' && e.amount_cents === null ? kept.amount_cents : e.amount_cents ?? latestBefore(a.id, input.date)?.amount_cents ?? null : e.amount_cents;
-      return { account_id: a.id, state: e.state, amount_cents: cents, side: kept?.side ?? a.fields.side, kind: kept?.kind ?? a.fields.kind, counted: kept?.counted ?? a.fields.counted };
+      const source=e.state==='unchanged'?(kept?.state==='unchanged'&&e.amount_cents===null?kept:latestBefore(a.id,input.date)):e;
+      const fx=source?.original_minor!=null?{original_minor:source.original_minor,fx_rate_micro:source.fx_rate_micro}:{};
+      if(e.state==='unchanged'&&((e.original_minor!=null&&e.original_minor!==source?.original_minor)||(e.fx_rate_micro!=null&&e.fx_rate_micro!==source?.fx_rate_micro)))throw {code:'FX_MISMATCH',message:'沿用须保留原币金额和汇率'};
+      try { validateCurrencyFact(currencyCode(a.fields.currency),{amount_cents:cents,...fx}); } catch { throw {code:'FX_MISMATCH',message:'原币金额与汇率折算不一致'}; }
+      return { ...fx, account_id: a.id, state: e.state, amount_cents: cents, side: kept?.side ?? a.fields.side, kind: kept?.kind ?? a.fields.kind, counted: kept?.counted ?? a.fields.counted };
     });
     const stored = { id, date: input.date, notes: input.notes, revision: (old?.revision ?? 0) + 1, entries };
     snapshots = old ? snapshots.map(s => s.id === id ? stored : s) : [...snapshots, stored];

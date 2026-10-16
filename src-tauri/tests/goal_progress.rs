@@ -31,6 +31,7 @@ fn open(s: &mut Store, name: &str) -> Account {
                 notes: String::new(),
                 purchase_cents: None,
                 purchased_on: None,
+                currency: "CNY".into(),
             },
         },
         TODAY,
@@ -58,6 +59,8 @@ fn check_in(
                         account_id: a.id.clone(),
                         state: if *known { "entered" } else { "missing" }.into(),
                         amount_cents: known.then(|| (yuan * 100).to_string()),
+                        original_minor: None,
+                        fx_rate_micro: None,
                     })
                     .collect(),
             },

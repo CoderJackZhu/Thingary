@@ -219,9 +219,22 @@ fn financial_sample_excel_transaction_replay_export_import_restart_backup() {
         .unwrap()
         .iter()
         .any(|a| &a.id == target_id));
+    // The newly exposed read-only structure rows carry destination-local IDs.
+    // Canonicalize only that identity to the fictional account name; retain every fact.
+    let account_names: BTreeMap<_, _> = s
+        .wealth_accounts()
+        .unwrap()
+        .into_iter()
+        .chain(dest.wealth_accounts().unwrap())
+        .map(|a| (a.id, a.fields.name))
+        .collect();
     let normalize = |summary| {
         let mut v = serde_json::to_value(summary).unwrap();
         v.as_object_mut().unwrap().remove("generation");
+        for e in v["structure_entries"].as_array_mut().unwrap() {
+            let name = &account_names[e["account_id"].as_str().unwrap()];
+            e["account_id"] = serde_json::json!(name);
+        }
         for p in v["points"].as_array_mut().unwrap() {
             p.as_object_mut().unwrap().remove("snapshot_id");
             p.as_object_mut().unwrap().remove("compared_to");

@@ -157,6 +157,7 @@ fn seed(root: &Path) -> (Store, String) {
                     notes: "实际账户虚构事实，不是社保公式余额".into(),
                     purchase_cents: None,
                     purchased_on: None,
+                    currency: "CNY".into(),
                 },
             },
             TODAY,

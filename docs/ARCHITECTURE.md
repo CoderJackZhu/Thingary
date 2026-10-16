@@ -119,6 +119,14 @@ Windows 的正常 `ExitRequested` 在编辑／任务保护之后，先从串行 
 
 `Account.last_entered_on` 从未删除盘点的 `entered` 行只读派生；`Point.has_unchanged` 从读取到的盘点行派生，供记录表显示快速更新标记，不参与完整性或数值计算。两字段不持久化，不改变 schema 43、写入请求指纹或快速更新后端语义。历史来源日期没有持久化证据时只显示沿用，不用最新填写日期代替历史来源。浏览器模拟层保留同日旧行金额和历史分类／计入范围，测试采用虚构内存资料。
 
+## 外币录入与人民币事实
+
+纯 `currency.rs` / `currency.ts` 使用同一组测试向量和币种表，按币种最小单位与百万分率计算，Rust i128 checked / TS BigInt，半分远离零，结果受金额上限约束。账户currency与条目original_minor/fx_rate_micro使用既有schema43列，无新增迁移；旧schema读入口显式投影CNY/NULL，当前schema仍严格读取真实列。CNY和空可选字段跳过写DTO序列化，保持旧回执指纹与导入标准行摘要。
+
+`wealth.rs` 在删除重插之前校验整组事实；entered严格核对CNY折算，unchanged/A22与quick同日保留原币和汇率。样例固定资产补充复制同样保留元数据，不改冻结v1请求。只读Account.has_entries由所有盘点行EXISTS派生，包含未知及已删除盘点；币种锁在写事务检查，嵌套快速更新成功后账户编辑器只刷新只读metadata，保留普通草稿。Summary.structure_entries与structure_date取同一个last_complete Snapshot供外币结构小计，不另外异步读取。
+
+QuickChange可选expected_original_minor补充已有CNY expected_previous，防同CNY不同原币的陈旧增减或转账；缺省不序列化，替换余额无expected语义不变。同币种转账率相同仍需原CNY净变化为0校验，汇率差和舍入差不自动补偿。Draft.rate_suggestions从全部未删除账户（含停用账户）的目标日及更早观测聚合最近率，作为只读建议；只标记录日期，不将沿用日期或last_entered_on伪作汇率填写日。导入纯解析器通过显式path复用无Store依赖的currency源码，CSV/Excel同时保留原币与率。
+
 ## 账户、完整盘点与月度收入历史导入
 
 `DataManagement.tsx` 在设置的数据管理统一托管物品导入、金融历史导入、Excel 导出与完整备份／恢复；`FinancialImportDialog.tsx` 提供金融历史四步界面；`financial-import.ts` 负责列头、动作、分页与请求元数据纯逻辑，金额仍为整数分字符串。`financial_import.rs` 组合纯解析器、真实账户目录与 `wealth.rs` 的 `write_account_tx` / `write_snapshot_tx`，预览只在 SQLite 内存备份的事务副本模拟，提交在个人 Store 的单一事务重新验证后写入。原命令保留 generation、UUID、原指纹、回执和故障点；导入专用历史覆盖与整批最终状态校验不改变普通保存语义。

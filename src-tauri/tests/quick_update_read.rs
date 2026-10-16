@@ -28,6 +28,7 @@ fn account(store: &mut Store, name: &str) -> Account {
                     notes: String::new(),
                     purchase_cents: None,
                     purchased_on: None,
+                    currency: "CNY".into(),
                 },
             },
             TODAY,
@@ -66,6 +67,8 @@ fn carried_balances_keep_their_explicit_date_in_list_and_single_account_reads() 
                         } else {
                             Some("10000".into())
                         },
+                        original_minor: None,
+                        fx_rate_micro: None,
                     })
                     .collect(),
             },
@@ -83,6 +86,9 @@ fn carried_balances_keep_their_explicit_date_in_list_and_single_account_reads() 
                     account_id: second.id.clone(),
                     amount_cents: "12000".into(),
                     expected_previous: Some("10000".into()),
+                    original_minor: None,
+                    fx_rate_micro: None,
+                    expected_original_minor: None,
                 }],
             },
             TODAY,

@@ -94,6 +94,9 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 // module is compiled standalone via `#[path = "../src/financial_import_parser.rs"]`.
 #[path = "financial_import_parser/csv.rs"]
 mod csv;
+#[path = "currency.rs"]
+#[allow(dead_code)]
+pub mod currency;
 #[path = "financial_import_parser/fields.rs"]
 mod fields;
 
@@ -226,6 +229,7 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
             "note",
             "购入价",
             "购入日期",
+            "币种",
         ]),
         "snapshots" => Some(&[
             "snapshot_key",
@@ -235,6 +239,9 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
             "note",
             "kind_at_date",
             "counted_at_date",
+            "币种",
+            "原币金额",
+            "汇率",
         ]),
         "incomes" => Some(&[
             "income_key",
@@ -257,8 +264,22 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
 /// Columns that may be left empty; all other template columns are required.
 fn optional_columns(kind: &str) -> &'static [&'static str] {
     match kind {
-        "accounts" => &["disabled_from", "platform", "note", "购入价", "购入日期"],
-        "snapshots" => &["note", "kind_at_date", "counted_at_date"],
+        "accounts" => &[
+            "disabled_from",
+            "platform",
+            "note",
+            "购入价",
+            "购入日期",
+            "币种",
+        ],
+        "snapshots" => &[
+            "币种",
+            "原币金额",
+            "汇率",
+            "note",
+            "kind_at_date",
+            "counted_at_date",
+        ],
         "incomes" => &[
             "hpf_deposit",
             "note",
@@ -511,6 +532,8 @@ pub struct AccountRowV1 {
     pub purchase_cents: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub purchased_on: Option<String>,
+    #[serde(skip_serializing_if = "currency::is_cny")]
+    pub currency: String,
 }
 
 /// One account line of one check-in group. The group, not this row, is the
@@ -526,6 +549,12 @@ pub struct SnapshotRowV1 {
     pub note: Option<String>,
     pub kind_at_date: Option<String>,
     pub counted_at_date: Option<bool>,
+    #[serde(skip_serializing_if = "currency::is_cny")]
+    pub currency: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_minor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fx_rate_micro: Option<String>,
 }
 
 /// One income record. Empty `hpf_deposit` is null (unknown); an explicit `0`
@@ -1168,7 +1197,14 @@ impl Header {
             }
         }
         for column in template {
-            if !optional_columns(kind).contains(column) && !index.contains_key(column) {
+            let derived_fx_amount = kind == "snapshots"
+                && *column == "amount"
+                && index.contains_key("原币金额")
+                && index.contains_key("汇率");
+            if !derived_fx_amount
+                && !optional_columns(kind).contains(column)
+                && !index.contains_key(column)
+            {
                 issues.push(IssueV1 {
                     code: CODE_MISSING_COLUMN,
                     severity: SeverityV1::Error,
@@ -1433,6 +1469,25 @@ struct RowRejection {
     group_key: Option<String>,
 }
 
+fn currency_cell(
+    record: &csv::RawRecord,
+    h: &Header,
+    row: u32,
+    issues: &mut Vec<IssueV1>,
+) -> String {
+    let code = h.cell(record, "币种").unwrap_or("").trim();
+    let code = if code.is_empty() { "CNY" } else { code };
+    if !currency::valid(code) {
+        issues.push(row_issue(
+            "ACCOUNT_CURRENCY",
+            row,
+            h.column_label("币种"),
+            None,
+            "币种须为三位大写字母".into(),
+        ));
+    }
+    code.into()
+}
 fn parse_account_row(
     record: &csv::RawRecord,
     h: &Header,
@@ -1440,6 +1495,7 @@ fn parse_account_row(
 ) -> Result<StandardRowV1, RowRejection> {
     let row = record.start_line as u32;
     let mut issues = Vec::new();
+    let currency = currency_cell(record, h, row, &mut issues);
     let account_key = key_cell(
         h.cell(record, "account_key"),
         row,
@@ -1649,6 +1705,7 @@ fn parse_account_row(
         note: note.flatten(),
         purchase_cents,
         purchased_on,
+        currency,
     }))
 }
 
@@ -1681,14 +1738,75 @@ fn parse_snapshot_row(
         "account_key",
         &mut issues,
     );
-    let amount = required_amount(
-        h.cell(record, "amount"),
-        row,
-        &h.column_label("amount"),
-        "盘点金额",
-        false,
-        &mut issues,
-    );
+    let currency = currency_cell(record, h, row, &mut issues);
+    let original_text = h.cell(record, "原币金额").unwrap_or("").trim();
+    let rate_text = h.cell(record, "汇率").unwrap_or("").trim();
+    let mut original_minor = None;
+    let mut fx_rate_micro = None;
+    let amount = if currency == "CNY" {
+        if !original_text.is_empty() || !rate_text.is_empty() {
+            issues.push(row_issue(
+                "FX_MISMATCH",
+                row,
+                h.column_label("币种"),
+                None,
+                "人民币不能填写原币金额和汇率".into(),
+            ));
+        }
+        required_amount(
+            Some(h.cell(record, "amount").unwrap_or("")),
+            row,
+            &h.column_label("amount"),
+            "盘点金额",
+            false,
+            &mut issues,
+        )
+    } else {
+        let converted = currency::parse_decimal(original_text, currency::decimals(&currency))
+            .and_then(|original| {
+                currency::parse_decimal(rate_text, 6).and_then(|rate| {
+                    currency::convert(&currency, original, rate)
+                        .map(|value| (original, rate, value))
+                })
+            });
+        match converted {
+            Ok((original, rate, value)) => {
+                original_minor = Some(original.to_string());
+                fx_rate_micro = Some(rate.to_string());
+                let raw = h.cell(record, "amount").unwrap_or("").trim();
+                if !raw.is_empty() {
+                    let supplied = required_amount(
+                        Some(raw),
+                        row,
+                        &h.column_label("amount"),
+                        "人民币金额",
+                        false,
+                        &mut issues,
+                    );
+                    if supplied.as_deref() != Some(value.to_string().as_str()) {
+                        issues.push(row_issue(
+                            "FX_MISMATCH",
+                            row,
+                            h.column_label("amount"),
+                            None,
+                            "人民币金额与原币及汇率折算不一致".into(),
+                        ));
+                    }
+                }
+                Some(value.to_string())
+            }
+            Err(message) => {
+                issues.push(row_issue(
+                    "FX_MISMATCH",
+                    row,
+                    h.column_label("汇率"),
+                    None,
+                    message.into(),
+                ));
+                None
+            }
+        }
+    };
     let note = note_cell(
         h.cell(record, "note"),
         row,
@@ -1752,6 +1870,9 @@ fn parse_snapshot_row(
         snapshot_key: snapshot_key.expect("validated"),
         date: date.expect("validated"),
         account_key: account_key.expect("validated"),
+        currency,
+        original_minor,
+        fx_rate_micro,
         amount_cents: amount.expect("validated"),
         note: note.flatten(),
         kind_at_date,

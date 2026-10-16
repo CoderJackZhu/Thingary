@@ -25,6 +25,7 @@ fn account(s: &mut Store, kind: &str, counted: bool) -> Account {
                 notes: String::new(),
                 purchase_cents: None,
                 purchased_on: None,
+                currency: "CNY".into(),
             },
         },
         TODAY,
@@ -52,6 +53,8 @@ fn save(s: &mut Store, date: &str, accounts: &[Account], missing: Option<usize>)
                     }
                     .into(),
                     amount_cents: (missing != Some(i)).then(|| "10000".into()),
+                    original_minor: None,
+                    fx_rate_micro: None,
                 })
                 .collect(),
         },

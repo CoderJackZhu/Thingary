@@ -1,3 +1,5 @@
+import { currencyCode, convertCurrency } from './currency.ts';
+import type { CurrencyFact } from './currency.ts';
 import { invoke } from '@tauri-apps/api/core';
 import type { TopupSave, BalanceSave, ReminderSave } from './virtual';
 import type { LinkCreateInput, LinkRestoreInput, LinkSaveInput, LinkTrashInput, MergeInput, ReconcileInput } from './link';
@@ -5,31 +7,31 @@ import type { IncomeSave, Mark, ProfileSave } from './plan';
 import { errorMessage, money } from './asset.ts';
 
 export type Side = 'asset' | 'liability';
-export type AccountFields = { name: string; institution: string; side: Side; kind: string; counted: boolean; opened_on: string; closed_on: string | null; notes: string; purchase_cents?: string | null; purchased_on?: string | null };
-export type Observation = { amount_cents: string; date: string };
-export type Account = { id: string; fields: AccountFields; position: number; revision: number; latest: Observation | null; last_entered_on?: string | null };
+export type AccountFields = { name: string; institution: string; side: Side; kind: string; counted: boolean; opened_on: string; closed_on: string | null; notes: string; purchase_cents?: string | null; purchased_on?: string | null; currency?: string };
+export type Observation = CurrencyFact & { amount_cents: string; date: string };
+export type Account = { id: string; fields: AccountFields; position: number; revision: number; latest: Observation | null; last_entered_on?: string | null; has_entries?: boolean };
 export type EntryState = 'entered' | 'unchanged' | 'missing';
-export type Entry = { account_id: string; state: EntryState; amount_cents: string | null; side: Side; kind: string; counted: boolean };
+export type Entry = CurrencyFact & { account_id: string; state: EntryState; amount_cents: string | null; side: Side; kind: string; counted: boolean };
 export type Snapshot = { id: string; date: string; notes: string; revision: number; entries: Entry[]; missing: string[] };
-export type Draft = { generation: string; date: string; existing: Snapshot | null; rows: { account: Account; previous: Observation | null }[] };
+export type Draft = { rate_suggestions?: Record<string,{rate:string;date:string}>; generation: string; date: string; existing: Snapshot | null; rows: { account: Account; previous: Observation | null }[] };
 export type Point = { snapshot_id: string; date: string; notes: string; assets_cents: string; liabilities_cents: string; net_cents: string; liquid_cents: string | null; invested_cents: string | null; complete: boolean; has_unchanged?: boolean; missing: number; compared_to: string | null; scope_changed: boolean; change_cents: string | null; hpf_change_cents: string | null; market_change_cents?: string | null; change_rate_hundredths: number | null };
 export type Share = { kind: string; amount_cents: string; share_hundredths: number | null };
-export type Summary = { generation: string; points: Point[]; structure_date: string | null; structure: Share[]; liabilities: Share[] };
+export type Summary = { generation: string; points: Point[]; structure_date: string | null; structure_entries?: Entry[]; structure: Share[]; liabilities: Share[] };
 // U20 账户变化与盘点比较（产品设计 17.14）：一次比较的两个端点。
 export type CompareCell = { state: string; amount_cents: string | null; counted: boolean | null };
 export type CompareRow = { account_id: string; name: string; institution: string; side: Side; kind: string; from: CompareCell; to: CompareCell; change_cents: string | null; effect_cents: string | null; rate_hundredths: number | null; group: 'counted' | 'uncounted' | 'scope_changed'; tag: 'new' | 'closed' | null };
 export type CompareEnd = { snapshot_id: string; date: string; notes: string; complete: boolean; missing: number };
 export type StructurePair = { kind: string; from_cents: string | null; from_share: number | null; to_cents: string | null; to_share: number | null };
 export type Compare = { generation: string; from: CompareEnd; to: CompareEnd; reconciled: boolean; net_change_cents: string | null; assets_change_cents: string | null; liabilities_change_cents: string | null; net_rate_hundredths: number | null; known_effect_cents: string; missing_names: string[]; rows: CompareRow[]; structure: StructurePair[] };
-export type HistoryRow = { snapshot_id: string; date: string; state: string; amount_cents: string | null; counted: boolean; change_cents: string | null };
+export type HistoryRow = CurrencyFact & { snapshot_id: string; date: string; state: string; amount_cents: string | null; counted: boolean; change_cents: string | null };
 export type AccountHistory = { generation: string; account: Account; rows: HistoryRow[] };
 export type AccountSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: AccountFields };
-export type SnapshotSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; date: string; notes: string; entries: { account_id: string; state: EntryState; amount_cents: string | null }[] };
-export type CheckInRow = { state: EntryState | null; cents: string; edited?: boolean };
+export type SnapshotSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; date: string; notes: string; entries: (CurrencyFact & { account_id: string; state: EntryState; amount_cents: string | null })[] };
+export type CheckInRow = { state: EntryState | null; cents: string; edited?: boolean; original_minor?: string | null; fx_rate_micro?: string | null };
 /** Loaded unchanged rows keep history; explicitly reconfirmed rows carry the displayed amount. */
 export function snapshotEntryInput(accountId: string, row: CheckInRow): SnapshotSave['entries'][number] {
   if (!row.state) throw new Error('请先处理这个账户。');
-  return { account_id: accountId, state: row.state, amount_cents: row.state === 'entered' || (row.state === 'unchanged' && row.edited) ? row.cents : null };
+  return { account_id: accountId, state: row.state, amount_cents: row.state === 'entered' || (row.state === 'unchanged' && row.edited) ? row.cents : null, ...(row.state !== 'missing' && row.original_minor != null ? { original_minor: row.original_minor, fx_rate_micro: row.fx_rate_micro } : {}) };
 }
 
 export const assetKinds = [['cash', '现金与存款'], ['investment', '投资账户'], ['mixed', '混合投资'], ['fund', '基金'], ['bond', '债券'], ['housing_fund', '公积金'], ['property', '房产'], ['pension', '个人养老金'], ['insurance', '保险现金价值'], ['precious_metal', '黄金与贵金属'], ['receivable', '应收款'], ['vehicle', '车辆'], ['other_asset', '其他资产']] as const;
@@ -195,7 +197,7 @@ export const trashInvestmentReview = (input: InvestmentReviewTrash) => submit<vo
 
 
 /** Quick updates replace balances; all arithmetic stays in integer cents. */
-export type QuickChange = { account_id: string; amount_cents: string; expected_previous?: string | null };
+export type QuickChange = CurrencyFact & { account_id: string; amount_cents: string; expected_previous?: string | null; expected_original_minor?: string | null };
 export type QuickUpdate = { request_id: string; generation: string; date: string; note: string; changes: QuickChange[] };
 export type QuickMode = 'balance' | 'delta' | 'transfer';
 export function quickDateMin(points: Pick<Point, 'date'>[]): string {
@@ -227,7 +229,7 @@ export function quickDeltaLabel(side: Side): string {
 export function quickTransferPairs(draft: Draft): { from: string; to: string }[] {
   const known = draft.rows.filter(r => quickPrevious(draft, r.account.id) !== null);
   return known.filter(r => r.account.fields.side === 'asset').flatMap(source => known
-    .filter(target => target.account.id !== source.account.id && quickCounted(draft, source.account.id) === quickCounted(draft, target.account.id))
+    .filter(target => target.account.id !== source.account.id && quickCounted(draft, source.account.id) === quickCounted(draft, target.account.id) && currencyCode(source.account.fields.currency) === currencyCode(target.account.fields.currency))
     .map(target => ({ from: source.account.id, to: target.account.id })));
 }
 export function quickTransfer(draft: Draft, from: string, to: string, amount: string): QuickChange[] {
@@ -239,7 +241,31 @@ export function quickTransfer(draft: Draft, from: string, to: string, amount: st
   return [{ account_id: from, expected_previous: beforeFrom, amount_cents: quickBalance(beforeFrom, (-cents).toString()) },
     { account_id: to, expected_previous: beforeTo, amount_cents: quickBalance(beforeTo, (target.fields.side === 'liability' ? -cents : cents).toString()) }];
 }
-export function quickChanges(draft: Draft, accountId: string, mode: QuickMode, value: string, from: string, to: string): QuickChange[] {
+export function quickFact(draft: Draft, id: string): CurrencyFact | null {
+  return draft.existing?.entries.find(e => e.account_id === id) ?? draft.rows.find(r => r.account.id === id)?.previous ?? null;
+}
+function foreignChange(draft: Draft, id: string, minor: string, rate: string, expected: boolean): QuickChange {
+  const account = draft.rows.find(r => r.account.id === id)!.account, code = currencyCode(account.fields.currency), fact = quickFact(draft, id);
+  if (!/^\d+$/.test(minor)) throw new Error('新的原币余额不能小于0。');
+  return { account_id: id, amount_cents: convertCurrency(code, minor, rate), original_minor: minor, fx_rate_micro: rate, ...(expected ? { expected_previous: fact?.amount_cents, expected_original_minor: fact?.original_minor } : {}) };
+}
+export function quickChanges(draft: Draft, accountId: string, mode: QuickMode, value: string, from: string, to: string, rate = ''): QuickChange[] {
+  const code = currencyCode(draft.rows.find(r => r.account.id === (mode === 'transfer' ? from : accountId))?.account.fields.currency);
+  if (code !== 'CNY') {
+    if (!draft.rows.some(r => r.account.id === accountId)) throw new Error('账户不在所选日期范围内。');
+    if (mode === 'balance') return [foreignChange(draft, accountId, value, rate, false)];
+    const previous = quickFact(draft, mode === 'transfer' ? from : accountId)?.original_minor;
+    if (previous == null) throw new Error('没有已知原币金额，请用修改余额。');
+    if (!/^-?\d+$/.test(value)) throw new Error('请填写原币金额。');
+    if (mode === 'delta') return [foreignChange(draft, accountId, (BigInt(previous) + BigInt(value)).toString(), rate, true)];
+    if (!quickTransferPairs(draft).some(p => p.from === from && p.to === to) || BigInt(value) <= 0n) throw new Error('请选择相同币种、计入范围的账户和正转账金额。');
+    const target = draft.rows.find(r => r.account.id === to)!.account, before = quickFact(draft, to)?.original_minor;
+    if (before == null) throw new Error('转入账户没有已知原币金额。');
+    const result = [foreignChange(draft, from, (BigInt(previous) - BigInt(value)).toString(), rate, true), foreignChange(draft, to, (BigInt(before) + (target.fields.side === 'liability' ? -1n : 1n) * BigInt(value)).toString(), rate, true)];
+    const effect = result.reduce((sum, c) => sum + (BigInt(c.amount_cents) - BigInt(c.expected_previous!)) * (draft.rows.find(r => r.account.id === c.account_id)!.account.fields.side === 'asset' ? 1n : -1n), 0n);
+    if (effect !== 0n) throw new Error('折算或舍入使人民币变化无法抵消，请分别修改余额。');
+    return result;
+  }
   if (mode === 'transfer') return quickTransfer(draft, from, to, value);
   if (!draft.rows.some(row => row.account.id === accountId)) throw new Error('这个账户不在所选日期的盘点范围内。');
   return mode === 'balance' ? [{ account_id: accountId, amount_cents: quickAmount(value).toString() }]

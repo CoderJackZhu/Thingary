@@ -1,0 +1,74 @@
+[
+  {
+    "code": "USD",
+    "original": "123456",
+    "rate": "7123456",
+    "result": "879433"
+  },
+  {
+    "code": "JPY",
+    "original": "1",
+    "rate": "5000",
+    "result": "1"
+  },
+  {
+    "code": "JPY",
+    "original": "-1",
+    "rate": "5000",
+    "result": "-1"
+  },
+  {
+    "code": "USD",
+    "original": "1",
+    "rate": "500000",
+    "result": "1"
+  },
+  {
+    "code": "USD",
+    "original": "-1",
+    "rate": "500000",
+    "result": "-1"
+  },
+  {
+    "code": "HKD",
+    "original": "0",
+    "rate": "900000",
+    "result": "0"
+  },
+  {
+    "code": "ZZZ",
+    "original": "123",
+    "rate": "1000000",
+    "result": "123"
+  },
+  {
+    "code": "USD",
+    "original": "99999999999",
+    "rate": "1000000",
+    "result": "99999999999"
+  },
+  {
+    "code": "USD",
+    "original": "100000000000",
+    "rate": "1000000",
+    "result": null
+  },
+  {
+    "code": "JPY",
+    "original": "9223372036854775807",
+    "rate": "9223372036854775807",
+    "result": null
+  },
+  {
+    "code": "USD",
+    "original": "1",
+    "rate": "0",
+    "result": null
+  },
+  {
+    "code": "JPY",
+    "original": "9223372036854775766",
+    "rate": "184467440737095517",
+    "result": null
+  }
+]
