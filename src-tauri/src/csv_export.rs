@@ -572,6 +572,8 @@ fn account_kind(kind: &str) -> &str {
         "pension" => "个人养老金",
         "insurance" => "保险现金价值",
         "precious_metal" => "黄金与贵金属",
+        "receivable" => "应收款",
+        "vehicle" => "车辆",
         "credit_card" => "信用卡",
         "loan" => "贷款",
         "other_liability" => "其他负债",

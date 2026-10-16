@@ -129,7 +129,7 @@ pub struct AccountKindInfo {
     pub side: &'static str,
 }
 /// The account kinds a template accepts, in stable display order.
-pub const ACCOUNT_KINDS: [AccountKindInfo; 14] = [
+pub const ACCOUNT_KINDS: [AccountKindInfo; 16] = [
     AccountKindInfo {
         key: "cash",
         label: "现金与存款",
@@ -183,6 +183,16 @@ pub const ACCOUNT_KINDS: [AccountKindInfo; 14] = [
     AccountKindInfo {
         key: "precious_metal",
         label: "黄金与贵金属",
+        side: "asset",
+    },
+    AccountKindInfo {
+        key: "receivable",
+        label: "应收款",
+        side: "asset",
+    },
+    AccountKindInfo {
+        key: "vehicle",
+        label: "车辆",
         side: "asset",
     },
     AccountKindInfo {

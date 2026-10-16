@@ -24,10 +24,34 @@ pub fn restore_pre41_account_schema(c: &rusqlite::Connection) {
         tx.execute_batch("DROP TABLE savings_goal_accounts; DROP TABLE savings_goals;")
             .unwrap();
     }
+    // Schema 43 columns must still hold their defaults: a legacy fixture
+    // cannot silently discard groups, foreign currency, purchases or holdings.
+    let extended: bool = tx
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='fin_account_groups')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    if extended {
+        let kept: i64 = tx
+            .query_row(
+                "SELECT (SELECT count(*) FROM fin_account_groups)
+                 + (SELECT count(*) FROM fin_accounts WHERE currency<>'CNY' OR purchase_cents IS NOT NULL OR purchased_on IS NOT NULL OR group_id IS NOT NULL OR holding_mode<>0 OR kind IN ('receivable','vehicle'))
+                 + (SELECT count(*) FROM fin_snapshot_entries WHERE original_minor IS NOT NULL OR quantity_e8 IS NOT NULL)",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            kept, 0,
+            "a legacy fixture must not discard schema-43 account facts"
+        );
+    }
     tx.execute_batch(
-        "CREATE TEMP TABLE old_account_rows AS SELECT * FROM fin_accounts;
-CREATE TEMP TABLE old_entry_rows AS SELECT * FROM fin_snapshot_entries;
-DROP TABLE fin_snapshot_entries; DROP TABLE fin_accounts;",
+        "CREATE TEMP TABLE old_account_rows AS SELECT id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at,deleted_at FROM fin_accounts;
+CREATE TEMP TABLE old_entry_rows AS SELECT snapshot_id,account_id,state,amount_cents,side,kind,counted FROM fin_snapshot_entries;
+DROP TABLE fin_snapshot_entries; DROP TABLE fin_accounts; DROP TABLE IF EXISTS fin_account_groups;",
     )
     .unwrap();
     for statement in include_str!("../../src/x01.sql").lines().filter(|s| {

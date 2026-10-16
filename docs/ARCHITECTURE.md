@@ -241,6 +241,8 @@ schema 40 新增 `goal_progress`（主键 `snapshot_id` 引用 `fin_snapshots`�
 
 schema 41 重建 `fin_accounts` 和 `fin_snapshot_entries` 的 CHECK，新增 property、pension、insurance、precious_metal，房产强制 counted=false。迁移先核对旧表结构、索引及引用，拒绝未知扩展；外键关闭发生在事务外，事务内双向核对复制行、重建索引并检查引用，失败回滚后恢复外键。schema 1 引导与历史迁移保持原样，旧事实不改口径。
 
+schema 43（`schema43.sql` 与 `storage::migrate_schema43`）再次重建两表：新增 receivable、vehicle 类型（车辆不强制 counted=false）；`fin_accounts` 增加 `currency`（三位大写，默认 CNY）、`purchase_cents`／`purchased_on`（仅房产与车辆）、`group_id`（引用新表 `fin_account_groups`，名称唯一，硬删除）、`holding_mode`／`holding_unit`（仅投资类）；`fin_snapshot_entries` 增加 `original_minor`／`fx_rate_micro`（外币原币金额与汇率 ×1e6，成对出现）和 `quantity_e8`／`unit_price_e6`（份额 ×1e8、单价 ×1e6，成对出现），`missing` 条目不得携带。`amount_cents` 始终是人民币整数分，所有汇总与规划只读它；新增列是录入层，旧资料迁移后取默认值，行为不变。旧表定义由空库重放迁移链到 42 得到后逐字核对，不手抄；其余步骤与 schema 41 相同，注入点为 `migration.schema43.after_copy`、`migration.schema43.after_swap` 与 `migration.before_commit`。
+
 schema 42 新增 `savings_goals` 与 `savings_goal_accounts`，关联稳定账户 ID。目标用 revision 与同一 feature_requests 事务保存，创建日由后端本地自然日提供；删除恢复保留关联，永久清除账户前保护全部目标引用。保存结果未知时前端只持久化请求元数据，使用只读原回执核对，不保存表单或重放。完整备份验证表和关系，Excel 增加两张只读分析表。
 
 `savings_goals_read` 在同一事务读取最近完整盘点及目标，单次盘点缺项不能拼接其他日期余额。前端纯函数以 bigint 计算整数分、缺口及按自然月向上分摊，历史依当前配置回看且不早于创建日。当前失效账户保留原因，历史采用盘点当时类型。

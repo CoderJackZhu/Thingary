@@ -10,7 +10,7 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-const ASSET_KINDS: [&str; 11] = [
+const ASSET_KINDS: [&str; 13] = [
     "cash",
     "investment",
     "mixed",
@@ -22,6 +22,8 @@ const ASSET_KINDS: [&str; 11] = [
     "pension",
     "insurance",
     "precious_metal",
+    "receivable",
+    "vehicle",
 ];
 const LIABILITY_KINDS: [&str; 3] = ["credit_card", "loan", "other_liability"];
 
@@ -801,7 +803,7 @@ pub(crate) fn write_snapshot_tx(
     }
     for (e, value, side, kind, counted) in rows {
         tx.execute(
-            "INSERT INTO fin_snapshot_entries VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            "INSERT INTO fin_snapshot_entries(snapshot_id,account_id,state,amount_cents,side,kind,counted) VALUES(?1,?2,?3,?4,?5,?6,?7)",
             params![id, e.account_id, e.state, value, side, kind, counted],
         )?;
     }

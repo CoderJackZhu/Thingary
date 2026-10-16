@@ -17,12 +17,17 @@ fn dataset(root: &Path) -> std::path::PathBuf {
     root.join("datasets").join(a["id"].as_str().unwrap())
 }
 fn manifest(c: &Connection, files: &Path) -> Value {
-    let names:Vec<String>=c.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('plan_profile','goal_progress','investment_flows','plan_assumption_checks','cash_movements','investment_flow_sources','planning_flow_audit','savings_goals','savings_goal_accounts') ORDER BY name").unwrap().query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
+    let names:Vec<String>=c.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT IN ('plan_profile','goal_progress','investment_flows','plan_assumption_checks','cash_movements','investment_flow_sources','planning_flow_audit','savings_goals','savings_goal_accounts','fin_account_groups') ORDER BY name").unwrap().query_map([],|r|r.get(0)).unwrap().collect::<Result<_,_>>().unwrap();
     let mut tables = BTreeMap::new();
     for name in names {
         let quoted = name.replace('"', "\"\"");
         let sql = if name == "plan_income" {
             "SELECT id,date,net_cents,hpf_cents,notes,revision,created_at,updated_at,deleted_at FROM plan_income".to_owned()
+        } else if name == "fin_accounts" {
+            // Schema-43 additions are defaults on upgraded legacy rows; tests/schema43.rs checks them.
+            "SELECT id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at,deleted_at FROM fin_accounts".to_owned()
+        } else if name == "fin_snapshot_entries" {
+            "SELECT snapshot_id,account_id,state,amount_cents,side,kind,counted FROM fin_snapshot_entries".to_owned()
         } else {
             format!("SELECT * FROM \"{quoted}\"")
         };
@@ -172,7 +177,7 @@ fn seed(root: &Path) -> (Store, String) {
         .unwrap()
         .id;
     let c = s.conn_for_test().unwrap();
-    c.execute("INSERT INTO fin_snapshot_entries SELECT id,?1,'entered',0,'asset','other_asset',1 FROM fin_snapshots ORDER BY date DESC LIMIT 1",[&pp]).unwrap();
+    c.execute("INSERT INTO fin_snapshot_entries(snapshot_id,account_id,state,amount_cents,side,kind,counted) SELECT id,?1,'entered',0,'asset','other_asset',1 FROM fin_snapshots ORDER BY date DESC LIMIT 1",[&pp]).unwrap();
     // Exercise nullable factual income, explicit zero and soft deletion as exact stored values.
     c.execute("UPDATE plan_income SET hpf_cents=NULL,notes='虚构未知缴存\n保留备注' WHERE id=(SELECT id FROM plan_income LIMIT 1)",[]).unwrap();
     c.execute("UPDATE assets SET deleted_at='2026-10-11T00:00:00Z' WHERE id=(SELECT id FROM assets WHERE id!=?1 LIMIT 1)",[&zero_asset]).unwrap();

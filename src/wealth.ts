@@ -32,10 +32,10 @@ export function snapshotEntryInput(accountId: string, row: CheckInRow): Snapshot
   return { account_id: accountId, state: row.state, amount_cents: row.state === 'entered' || (row.state === 'unchanged' && row.edited) ? row.cents : null };
 }
 
-export const assetKinds = [['cash', '现金与存款'], ['investment', '投资账户'], ['mixed', '混合投资'], ['fund', '基金'], ['bond', '债券'], ['housing_fund', '公积金'], ['other_asset', '其他资产'], ['property', '房产'], ['pension', '个人养老金'], ['insurance', '保险现金价值'], ['precious_metal', '黄金与贵金属']] as const;
+export const assetKinds = [['cash', '现金与存款'], ['investment', '投资账户'], ['mixed', '混合投资'], ['fund', '基金'], ['bond', '债券'], ['housing_fund', '公积金'], ['property', '房产'], ['pension', '个人养老金'], ['insurance', '保险现金价值'], ['precious_metal', '黄金与贵金属'], ['receivable', '应收款'], ['vehicle', '车辆'], ['other_asset', '其他资产']] as const;
 export const liabilityKinds = [['credit_card', '信用卡'], ['loan', '贷款'], ['other_liability', '其他负债']] as const;
 /** New accounts use the category suggestion until the user chooses a scope explicitly. */
-export const defaultAccountCounted = (kind: string): boolean => kind !== 'property' && kind !== 'insurance';
+export const defaultAccountCounted = (kind: string): boolean => kind !== 'property' && kind !== 'insurance' && kind !== 'vehicle';
 export function selectAccountKind(fields: AccountFields, kind: string, explicitCounted: boolean | null): AccountFields {
   return { ...fields, kind, side: liabilityKinds.some(([k]) => k === kind) ? 'liability' : 'asset', counted: kind === 'property' ? false : explicitCounted ?? defaultAccountCounted(kind) };
 }
@@ -44,6 +44,8 @@ export function accountKindHint(kind: string): string | undefined {
   if (kind === 'insurance') return '记录当前现金价值，不是累计保费或保额。默认不计入；开启后仍不代表可用于退休规划。';
   if (kind === 'pension') return '记录个人养老金账户当前余额，不推算未来领取额。默认计入不代表已确认可用于规划。';
   if (kind === 'precious_metal') return '记录用户确认的人民币估值，不自动查询行情。默认计入不代表已确认可用于规划。';
+  if (kind === 'receivable') return '借给别人、还没收回的钱。对方还钱后把余额改小，全部收回后可以停用这个账户。默认计入不代表可用于规划。';
+  if (kind === 'vehicle') return '记录车辆当前估值。车辆不是金融资产，默认不计入金融净资产，可以手动开启。';
   return undefined;
 }
 export const kindLabel = (kind: string) => [...assetKinds, ...liabilityKinds].find(([k]) => k === kind)?.[1] ?? kind;

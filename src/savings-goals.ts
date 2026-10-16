@@ -46,7 +46,7 @@ export function savingsProgress(fields: SavingsGoalFields, rows: SavingsObservat
     monthly_cents: monthly?.toString() ?? null, months, deadline };
 }
 export const savingsAccountEligible = (a: Account, today: string) => a.fields.side === 'asset' && a.fields.kind !== 'property' && (!a.fields.closed_on || a.fields.closed_on > today);
-export const savingsRestricted = (kind: string) => ['pension', 'housing_fund', 'insurance', 'other_asset'].includes(kind);
+export const savingsRestricted = (kind: string) => ['pension', 'housing_fund', 'insurance', 'other_asset', 'receivable', 'vehicle'].includes(kind);
 
 /** Historical comparisons intentionally follow today's goal settings. */
 export function savingsYearEndpoints(view: SavingsGoalView, year: number) {
