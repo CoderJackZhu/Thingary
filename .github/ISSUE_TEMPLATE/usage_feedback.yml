@@ -1,0 +1,65 @@
+name: 使用反馈
+description: 用过之后的感受，不是 bug（卡在哪、哪里看不懂、有没有用）
+labels: [feedback]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢愿意说说使用感受。几个问题都可以简短回答，没有的写「没有」就行。
+        **请遮住或不要写真实金额、账户号、姓名；不要上传数据库或备份文件。** 遇到错误请用「缺陷报告」模板。
+  - type: dropdown
+    id: system
+    attributes:
+      label: 你用的系统
+      options:
+        - Mac（Apple Silicon）
+        - Mac（Intel）
+        - Windows 11
+        - Windows 10
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 在「设置 › 关于与帮助」里能看到。
+      placeholder: 0.0.7
+  - type: dropdown
+    id: snapshots
+    attributes:
+      label: 做了几次完整盘点
+      options:
+        - 还没开始
+        - 1 次
+        - 2～3 次
+        - 4 次及以上
+    validations:
+      required: true
+  - type: textarea
+    id: stuck
+    attributes:
+      label: 卡在哪一步
+      description: 安装、首次打开被系统拦住、录账户、盘点要填齐、术语、看不懂结论……哪一步最想放弃？
+  - type: textarea
+    id: decision
+    attributes:
+      label: 哪个结论改变了你的哪个决定
+      description: 例如「每月要存多少」让你调整了存款。没有也可以写「没有」，这同样有用。
+  - type: textarea
+    id: confusing
+    attributes:
+      label: 哪个词或界面让你看不懂
+  - type: checkboxes
+    id: follow-up
+    attributes:
+      label: 可以追问吗
+      options:
+        - label: 我愿意在这个 issue 下回答进一步的问题
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 隐私确认
+      options:
+        - label: 我没有在这里写真实金额、账户号，也没有上传数据库或备份文件
+          required: true
