@@ -579,6 +579,7 @@ mod tests {
     fn point(id: &str, day: &str, prev: Option<&str>, change: Option<i64>) -> Point {
         Point {
             snapshot_id: id.into(),
+            has_unchanged: false,
             date: day.into(),
             notes: String::new(),
             assets_cents: "0".into(),
