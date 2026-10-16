@@ -7,7 +7,9 @@ import {clearUnsubmittedEditors} from './editor-session';
 import {persistSubmission} from './editor-session';
 import {NotificationNotice} from './NotificationNotice';
 import { BackupSecurityNotice } from './BackupSecurityNotice';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { PrivacyBoundary } from './PrivacyLock';
+import { privacyMenuAllowed } from './privacy-lock';
 import { createRoot } from 'react-dom/client';
 import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
@@ -97,7 +99,7 @@ import { applyAppearance, readMode, readStyle, toggledMode, watchSystemMode, typ
 // 首帧前套用主题，避免深色用户先看到浅色闪一下。
 applyAppearance(readStyle(), readMode());
 const defaultQuery: Query = { search: '', filter: 'all', category: { mode: 'all' }, sort: 'date', descending: true, offset: 0, warranty: 'all' };
-clearUnsubmittedEditors(localStorage);
+
 function storedDraft(): Draft | null {
   try {
     const d = JSON.parse(localStorage.getItem(draftKey) || 'null');
@@ -124,7 +126,7 @@ function WindowsExitNotice({ status, onChoice }: { status: WindowsExitStatus; on
   }
   return <dialog ref={dialog} className="editor" aria-labelledby="windows-exit-heading" onCancel={event => { event.preventDefault(); void choose(false); }}><h2 id="windows-exit-heading">{status.pending ? '正在确认提醒排期' : '提醒尚未确认排期'}</h2><p>{status.pending ? '正在等待系统确认提醒排期。你可以返回应用继续使用。' : '尚未确认系统提醒排期。现在退出，可能无法收到本次提醒。'}</p>{status.message && <p role="status">{status.message}</p>}{error && <p role="alert">{error}</p>}<div className="editor-header-actions"><button autoFocus onClick={() => void choose(false)}>返回应用</button>{!status.pending && <button onClick={() => void choose(true)}>仍然退出</button>}</div></dialog>;
 }
-function App({ initialDemo }: { initialDemo: DemoStatus }) {
+function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; onPrivacyBusyChange: (busy: boolean) => void }) {
   const [receiptRecoveryVersion, setReceiptRecoveryVersion] = useState(0);
   const [demoStatus, setDemoStatus] = useState<DemoStatus>(initialDemo);
   const [featureEditing, setFeatureEditing] = useState(false), [dataBusy, setDataBusy] = useState(false), [modeBusy, setModeBusy] = useState(false);
@@ -369,6 +371,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   const durablePending = pendingGenerations(localStorage).length > 0 || !!pendingReceipt;
   const otherEditing = wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
   const modeBlocked = startChoiceBusy || durablePending || featureEditing || dataBusy || wishlistEditing || !!draft || !!recovered || !!trashAction || !!trashRecovery || !!recordTrashAction || !!recordTrashRecovery || !!lifecycleDraft || !!lifecycleRecovery || !!saleDraft || !!saleRecovery || !!maintenanceDraft || !!maintenanceRecovery || !!warrantyDraft || !!warrantyRecovery || taxonomyGuard;
+  useLayoutEffect(() => { onPrivacyBusyChange(modeBlocked || modeBusy || !!batch); }, [modeBlocked, modeBusy, batch, onPrivacyBusyChange]);
   const sectionLabel = ({ overview: '总览', assets: '物品', wealth: '账户与盘点', 'finance-records': '收支记录', 'finance-review': '财务复盘', recurring: '周期费用', virtual: '虚拟资产', planning: '目标', wishlist: '心愿清单', settings: '设置', trash: '最近删除', timeline: '时间轴', stats: '物品统计', expenses: '重要支出' } as Record<Section, string>)[section];
   const blockedNotice = (next: string) => pendingReceipt
     ? `上次「${pendingReceipt.label}」的保存结果未确认，请使用页面上方的核对入口后再${next}。`
@@ -575,7 +578,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   }, [page, eventsReady, taxonomy.snapshot, demoStatus.active]);
   useEffect(() => {
     const subscription = listen<boolean>('close-intent', event => setCloseIntent(event.payload ? 'quit' : 'window'));
-    const actions = listen<string>('asset-action', event => menuAction.current(event.payload));
+    const actions = listen<string>('asset-action', event => { if (privacyMenuAllowed()) menuAction.current(event.payload); });
     const blocked = listen('close-blocked', () => setCloseBlocked(true));
     const exiting = listen<WindowsExitStatus | null>('windows-exit-reminders', event => setWindowsExit(event.payload));
     void Promise.all([subscription, actions, blocked, exiting]).then(() => setEventsReady(true)).catch(e => setNotice(errorMessage(e)));
@@ -905,7 +908,7 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
   useEffect(() => {
     // ⌘A arrives from the native 全选 item: text fields keep selecting text.
     const off = listen<string>('asset-action', event => {
-      if (event.payload !== 'select-all') return;
+      if (!privacyMenuAllowed() || event.payload !== 'select-all') return;
       if (undoTarget(document.activeElement, false, false) === 'text') { document.execCommand('selectAll'); return; }
       if (!document.querySelector('dialog[open]')) selectAllRef.current();
     });
@@ -1217,16 +1220,20 @@ function App({ initialDemo }: { initialDemo: DemoStatus }) {
       {section === 'assets' && detailId && <section className="detail">{detailLoading ? <p role="status">正在读取档案…</p> : detailError || !active ? <div className="empty" role="alert"><h2>{detailError || '找不到这件物品'}</h2>{selected?.deleted && <button disabled={wishlistEditing} onClick={() => openSubpage('trash', null)}>前往最近删除</button>}<button disabled={wishlistEditing} onClick={() => void select(detailId, true)}>重新读取</button></div> : <AssetDetail onOpenWish={!modules.wishlist ? undefined : () => { setWishFocus(active.origin_wishlist ? { search: active.origin_wishlist.name, filter: 'purchased' } : null); setSection('wishlist'); setDetailId(null); }} onMaintenance={id => void openMaintenance(active, id)} onWarranty={id => void openWarranty(active, id)} onSale={mode => void openSale(active, mode)} onLifecycle={action => void openLifecycle(active, action)} taxonomy={taxonomy.snapshot} record={active} generation={page?.generation || ''} today={today} onEdit={() => void openEditor(active)} onDelete={() => setDeleteAfterEdit(active.asset.id)}/> }</section>}
     </main>{maintenanceDraft && <MaintenanceEditor initial={maintenanceDraft} today={today} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={(intent, keepDraft) => { void closeMaintenance(intent, keepDraft).catch(e => setNotice(errorMessage(e))); }} onSaved={maintenanceSaved} onDelete={id => { const assetId = maintenanceDraft.state.record.asset.id; void closeMaintenance('form').then(() => setRecordDeleteAfterEdit({ kind: 'maintenance', id, assetId })).catch(e => setNotice(errorMessage(e))); }}/>} {warrantyDraft && <WarrantyEditor initial={warrantyDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={(intent, keepDraft) => { void closeWarranty(intent, keepDraft).catch(e => setNotice(errorMessage(e))); }} onSaved={warrantySaved} onDelete={id => { const assetId = warrantyDraft.state.record.asset.id; void closeWarranty('form').then(() => setRecordDeleteAfterEdit({ kind: 'warranty', id, assetId })).catch(e => setNotice(errorMessage(e))); }}/>} {saleDraft && <SaleEditor initial={saleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeSale(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saleSaved}/>} {lifecycleDraft && <LifecycleEditor initial={lifecycleDraft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeLifecycle(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={lifecycleSaved}/>} {closeIntent && !draft && !trashAction && !recordTrashAction && !lifecycleDraft && !saleDraft && !maintenanceDraft && !warrantyDraft && taxonomyGuard && <TaxonomyCloseNotice onKeep={() => { setCloseIntent(null); setSection('settings'); }}/>}{trashAction && <TrashDialog initial={trashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={trashDone}/>}{recordTrashAction && <RecordTrashDialog initial={recordTrashAction} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeRecordTrash(intent).catch(e => setNotice(errorMessage(e))); }} onDone={recordTrashDone}/>} {draft && <AssetEditor taxonomy={taxonomy.snapshot} initial={draft} closeIntent={closeIntent} onKeep={() => setCloseIntent(null)} onClose={intent => { void closeEditor(intent).catch(e => setNotice(errorMessage(e))); }} onSaved={saved} onDelete={() => { const id = draft.id; void closeEditor('form').then(() => setDeleteAfterEdit(id)).catch(e => setNotice(errorMessage(e))); }}/>}{batch && page && <BatchDialog kind={batch} ids={multi} generation={page.generation} today={today} onClose={() => setBatch(null)} onDone={batchDone}/>}<UndoBar/></div></PageBarContext.Provider>;
 }
-const root = createRoot(document.getElementById('root')!);
-async function start() {
-  try {
-    const generations = pendingGenerations(localStorage);
-    if (generations.length > 1) throw new Error('发现属于不同资料的待核对请求，请保留资料并联系支持处理。');
-    const status = await invoke<DemoStatus>('demo_status', { pendingGeneration: generations[0] ?? null });
-    localStorage.removeItem('thingary.first-real-asset.v1');
-    root.render(<App initialDemo={status}/>);
-  } catch (e) {
-    root.render(<div className="empty" role="alert"><h2>资料暂未准备好</h2><p>{errorMessage(e)}</p><button onClick={() => void start()}>重新读取</button></div>);
+function Bootstrap({ onPrivacyBusyChange }: { onPrivacyBusyChange: (busy: boolean) => void }) {
+  const [status, setStatus] = useState<DemoStatus | null>(null), [error, setError] = useState('');
+  async function start() {
+    try {
+      clearUnsubmittedEditors(localStorage);
+      const generations = pendingGenerations(localStorage);
+      if (generations.length > 1) throw new Error('发现属于不同资料的待核对请求，请保留资料并联系支持处理。');
+      const next = await invoke<DemoStatus>('demo_status', { pendingGeneration: generations[0] ?? null });
+      localStorage.removeItem('thingary.first-real-asset.v1');
+      setStatus(next); setError('');
+    } catch (e) { setError(errorMessage(e)); }
   }
+  useEffect(() => { void start(); }, []);
+  return status ? <App initialDemo={status} onPrivacyBusyChange={onPrivacyBusyChange}/> : error ? <div className="empty" role="alert"><h2>资料暂未准备好</h2><p>{error}</p><button onClick={() => void start()}>重新读取</button></div> : <p role="status">正在准备本机资料…</p>;
 }
-void start();
+const root = createRoot(document.getElementById('root')!);
+root.render(<PrivacyBoundary>{onBusy => <Bootstrap onPrivacyBusyChange={onBusy}/>}</PrivacyBoundary>);
