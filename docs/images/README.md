@@ -90,3 +90,7 @@ planning-monthly.jpg、planning-fi-goals.jpg、planning-trajectory.jpg、plannin
 README 当前 GIF 使用 `overview-light.jpg`、`wealth-light.jpg`、`planning-goals.jpg`、`savings-goals.jpg`、`annual-review.jpg`、`assets-light.jpg`，顺序与本页当前主线截图表一致。区间回顾帧采用本次 1440×968 新图，其他五帧沿用该表登记的来源；上文 0.0.5／0.0.6 条目保留当时的文件组合与尺寸，不代表当前 GIF。
 
 用 `node scripts/build-walkthrough.mjs` 重建（需本机 `ffmpeg`、`ffprobe`）。脚本读取各图真实尺寸，仅对已登记的标题栏残留裁切，再统一缩放到 **960×645**，保留完整页面主体。输出为 6 张完整画面、每帧 3.5 秒、21 秒循环预览；输入尺寸或输出帧数、尺寸、时长不符时停止生成，避免沿用错误裁切参数。重建不改应用文字或数值，不替换已公开安装包。
+
+## 仓库社交预览图
+
+`social-preview.svg` 为 1280×640 的品牌介绍图，不是应用截图。图标原样嵌入自 `src-tauri/icons/icon.png`；品牌色与浅色背景取自 `src/theme.css` 的柔和卡片主题。SVG 自带图标数据，不依赖网络或相对图片路径。维护时编辑 SVG，导出 PNG 后由维护者手动上传 GitHub 社交预览设置；不把导出图另存成第二份源。图中曲线仅为装饰，不代表账户事实、收益或应用图表。名称与图标的授权边界见[品牌使用说明](../brand/README.md)。

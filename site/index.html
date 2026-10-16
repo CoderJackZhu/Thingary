@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="物谱 Thingary：每月盘一次家底，看清净资产与生活计划。中文界面，本地使用，无需账号。Mac 与 Windows 公开测试版。">
+  <meta name="color-scheme" content="light dark">
+  <meta property="og:title" content="物谱 · Thingary">
+  <meta property="og:description" content="每月盘一次家底，看看离不上班还有多远。">
+  <meta property="og:image" content="https://coderjackzhu.github.io/Thingary/docs/images/overview-light.jpg">
+  <meta property="og:url" content="https://coderjackzhu.github.io/Thingary/">
+  <title>物谱 Thingary · 每月盘一次家底</title>
+  <style>
+    /* Bento palette from src/theme.css; no remote fonts or assets. */
+    :root{color-scheme:light;--bg:#f2f2f7;--card:#fff;--soft:#ededf2;--text:#1c1c1e;--muted:#636366;--line:#e2e2e8;--accent:#5553d8;--selected:#ecebfd;--button-text:#fff}
+    @media(prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#000;--card:#1c1c1e;--soft:#2c2c2e;--text:#f5f5f7;--muted:#a1a1a8;--line:#2c2c2e;--accent:#8e8cff;--selected:#27264a;--button-text:#000}}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC","Segoe UI Variable Display","Microsoft YaHei UI",sans-serif;line-height:1.65}a{color:var(--accent);text-underline-offset:4px}a:hover{text-decoration-thickness:2px}a:focus-visible,label:focus-visible{outline:3px solid var(--accent);outline-offset:5px}
+    .site{width:min(1120px,calc(100% - 48px));margin:auto}header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:26px 0;border-bottom:1px solid var(--line)}.brand{color:var(--text);text-decoration:none;font-size:20px;font-weight:700;letter-spacing:-.5px}.language{display:flex;gap:4px;padding:4px;background:var(--soft);border-radius:12px}.language label{padding:5px 12px;border-radius:8px;cursor:pointer;font-size:14px}
+    .language-choice{position:absolute;width:1px;height:1px;padding:0;clip-path:inset(50%);overflow:hidden;white-space:nowrap}#language-zh:checked~.site label[for=language-zh],#language-en:checked~.site label[for=language-en]{background:var(--card);font-weight:600}#language-zh:focus-visible~.site label[for=language-zh],#language-en:focus-visible~.site label[for=language-en]{outline:3px solid var(--accent);outline-offset:2px}.en{display:none}#language-en:checked~.site .zh{display:none}#language-en:checked~.site .en{display:block}
+    .hero{padding:76px 0 40px;max-width:850px}.eyebrow{color:var(--accent);font-size:13px;font-weight:650;letter-spacing:.12em;text-transform:uppercase}.hero h1{font-size:clamp(34px,5.6vw,64px);line-height:1.2;letter-spacing:-.04em;margin:18px 0 24px;text-wrap:balance}.intro{font-size:19px;color:var(--muted);max-width:760px}.actions{display:flex;flex-wrap:wrap;gap:12px;margin:30px 0 16px}.button{display:inline-block;padding:12px 20px;border-radius:12px;font-weight:600;text-decoration:none;background:var(--accent);color:var(--button-text)}.button.secondary{background:var(--card);color:var(--text);border:1px solid var(--line)}.note{font-size:13px;color:var(--muted)}figure{margin:0}img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:16px;background:var(--card)}figcaption{color:var(--muted);font-size:13px;margin:12px 4px}.overview{margin:0 0 64px}section{margin:64px 0}h2{font-size:28px;line-height:1.35;letter-spacing:-.025em;margin:0 0 24px}h3{font-size:20px;margin:10px 0}p{margin:12px 0}.questions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.question{padding:24px;border-radius:16px;background:var(--card)}.number{font-size:13px;color:var(--accent);font-weight:650}.question p{color:var(--muted);font-size:15px}.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:26px}.gallery figcaption{font-size:15px}.privacy{padding:32px;border-radius:16px;background:var(--card)}.privacy p{max-width:850px;color:var(--muted)}.links{display:flex;flex-wrap:wrap;gap:12px 24px}footer{padding:32px 0 42px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}footer p{max-width:950px}main,section,article,figure{min-width:0}h1,h2,h3,p,a,figcaption{overflow-wrap:anywhere}
+    @media(max-width:700px){.site{width:calc(100% - 32px)}header{padding:20px 0;flex-wrap:wrap}.hero{padding:48px 0 28px}.intro{font-size:17px}.questions,.gallery{grid-template-columns:1fr}.question,.privacy{padding:22px}section{margin:44px 0}.overview{margin-bottom:44px}.actions .button{flex:1 1 200px;text-align:center}}
+  </style>
+</head>
+<body>
+  <input class="language-choice" type="radio" name="language" id="language-zh" aria-label="简体中文" checked>
+  <input class="language-choice" type="radio" name="language" id="language-en" aria-label="English">
+  <div class="site">
+    <header>
+      <a class="brand" href="https://github.com/CoderJackZhu/Thingary">物谱 · Thingary</a>
+      <nav class="language" aria-label="Language / 语言"><label for="language-zh" lang="zh-CN">简体中文</label><label for="language-en" lang="en">English</label></nav>
+    </header>
+    <main>
+      <div class="zh" lang="zh-CN">
+        <div class="hero">
+          <div class="eyebrow">本地使用 · 无需账号 · 开源</div>
+          <h1>每月盘一次家底，<br>看看离不上班还有多远。</h1>
+          <p class="intro">银行卡、余额宝、券商、公积金，还有房贷。把分散的余额和欠款放到一起，看清净资产，再为想过的生活做个计划。不用每天记流水，每月或每季回来一次就好。</p>
+          <div class="actions"><a class="button" href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7">下载 0.0.7 · GitHub</a><a class="button secondary" href="https://gitee.com/CoderJackZhu/thingary/releases">国内镜像 · Gitee</a></div>
+          <p class="note">Mac（Apple Silicon / Intel）与 Windows x64 · 中文界面 · 未签名公开测试版</p>
+        </div>
+        <figure class="overview"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/images/overview-dark.jpg"><img src="../docs/images/overview-light.jpg" width="1440" height="968" alt="物谱总览：净资产趋势、资产结构和目标摘要，全部为虚构样例"></picture><figcaption>真实应用界面，使用虚构样例资料。</figcaption></figure>
+        <section aria-labelledby="questions-zh"><h2 id="questions-zh">三个问题，从同一份家底出发。</h2><div class="questions">
+          <article class="question"><span class="number">01 / 每月要存多少</span><h3>把目标变成每月的数。</h3><p>填入目标时间与生活开销，反算需要的每月投入；已有余额继续复用，不用再抄一张表。</p></article>
+          <article class="question"><span class="number">02 / 什么时候能不靠工资</span><h3>给未来一个可核对的估算。</h3><p>用自己的投入和假设查看财务独立时间。条件没填齐就明确说明，不把未知当作零。</p></article>
+          <article class="question"><span class="number">03 / 歇一阵能撑多久</span><h3>先看看休息的余地。</h3><p>临时比较空窗、开销或换工作的影响。试算不改账户余额，结论也不是收益承诺。</p></article>
+        </div></section>
+        <section aria-labelledby="screens-zh"><h2 id="screens-zh">盘点留下事实，回顾看清变化。</h2><div class="gallery">
+          <figure><img src="../docs/images/wealth-light.jpg" width="1440" height="968" loading="lazy" alt="账户与盘点：资产负债和净资产趋势"><figcaption><strong>账户与盘点</strong> — 定期核对余额和欠款，追踪净资产。</figcaption></figure>
+          <figure><img src="../docs/images/planning-goals.jpg" width="1440" height="968" loading="lazy" alt="目标页：三个问题的估算与待确认条件"><figcaption><strong>目标与规划</strong> — 先看结论，再按需展开依据与假设。</figcaption></figure>
+          <figure><img src="../docs/images/annual-review.jpg" width="1440" height="968" loading="lazy" alt="区间回顾：近12个月的盘点变化、收入和重要支出"><figcaption><strong>区间回顾</strong> — 近 12 个月、自然年或自选日期；净资产变化不等于投资收益。</figcaption></figure>
+          <figure><img src="../docs/images/assets-light.jpg" width="1440" height="968" loading="lazy" alt="可选物品档案：虚构物品的照片、价格与持有成本"><figcaption><strong>物品档案，可选</strong> — 照片、购买成本、维修与保障放在一起。</figcaption></figure>
+        </div></section>
+        <section class="privacy" aria-labelledby="privacy-zh"><h2 id="privacy-zh">资料留在你的电脑上。</h2><p>没有账号、云同步、行情联网或 AI。平时不联网；只有你点击「检查更新」时，应用才查询公开发布列表。这张静态页面不加载外部脚本、字体或统计服务。</p><p>主资料库和图片未加密；完整备份可选用你保管的恢复密钥加密。自动备份与资料同盘，请另留一份异地备份。</p><p>当前金额以人民币记录，账户类型面向中国大陆，支持公积金、个人养老金等。房产不计入金融净资产。不提供日常流水、交易或自动付款。</p></section>
+        <section aria-labelledby="start-zh"><h2 id="start-zh">从第一次盘点开始。</h2><p>下载后选「先盘点账户」，录入各平台余额和欠款。目标可以之后再设，物品档案也可以独立使用。</p><p class="note">Mac 最低目标 macOS 14，已在 Apple Silicon / macOS 27 验证；Intel 与旧系统未实机验证。Windows 10 1809+ / 11 x64。首次运行可能遇到系统安全提示，安装方法与未验项见快速上手。</p><div class="links"><a href="https://github.com/CoderJackZhu/Thingary/blob/main/docs/QUICKSTART.md">快速上手</a><a href="https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md">完整使用指南</a><a href="https://github.com/CoderJackZhu/Thingary/issues">反馈问题</a></div></section>
+      </div>
+      <div class="en" lang="en">
+        <div class="hero"><div class="eyebrow">Local · No account · Open source</div><h1>A clearer view of your money.<br>More room for your life.</h1><p class="intro">Check your balances once a month or quarter. Bring assets and debts together, follow your net worth, and plan for life beyond a paycheck. No daily transaction logging required.</p><div class="actions"><a class="button" href="https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7">Download 0.0.7 · GitHub</a><a class="button secondary" href="https://gitee.com/CoderJackZhu/thingary/releases">Gitee mirror</a></div><p class="note">Mac (Apple Silicon / Intel) and Windows x64 · Chinese interface only · Unsigned public beta</p></div>
+        <figure class="overview"><picture><source media="(prefers-color-scheme: dark)" srcset="../docs/images/overview-dark.jpg"><img src="../docs/images/overview-light.jpg" width="1440" height="968" alt="Thingary overview with net-worth trend and planning summary, using fictional data"></picture><figcaption>Actual app interface with fictional sample records. The app currently has a Simplified Chinese interface only.</figcaption></figure>
+        <section aria-labelledby="questions-en"><h2 id="questions-en">Three questions, grounded in your balances.</h2><div class="questions"><article class="question"><span class="number">01 / Monthly saving</span><h3>How much should I save?</h3><p>Estimate the monthly contribution needed for your target date and living costs, using the balances you already recorded.</p></article><article class="question"><span class="number">02 / Financial independence</span><h3>When could I leave my paycheck?</h3><p>Explore a possible date with your own contributions and assumptions. Missing information stays visible.</p></article><article class="question"><span class="number">03 / Taking a break</span><h3>How long could I take off?</h3><p>Compare a work break, different expenses, or a job change without changing account balances. Estimates are not promised returns.</p></article></div></section>
+        <section aria-labelledby="screens-en"><h2 id="screens-en">Keep the facts. Understand the changes.</h2><div class="gallery"><figure><img src="../docs/images/wealth-light.jpg" width="1440" height="968" loading="lazy" alt="Account check-ins with assets, debts, and a net-worth trend"><figcaption><strong>Account check-ins</strong> — Update balances and debts periodically.</figcaption></figure><figure><img src="../docs/images/planning-goals.jpg" width="1440" height="968" loading="lazy" alt="Planning goals with estimates and assumptions awaiting confirmation"><figcaption><strong>Goals and planning</strong> — See the conclusion, then inspect its assumptions.</figcaption></figure><figure><img src="../docs/images/annual-review.jpg" width="1440" height="968" loading="lazy" alt="Period review with balance changes, income, and major expenses"><figcaption><strong>Period review</strong> — Last 12 months, a calendar year, or custom dates. Net-worth change is not investment profit.</figcaption></figure><figure><img src="../docs/images/assets-light.jpg" width="1440" height="968" loading="lazy" alt="Optional belongings catalog with fictional items and ownership costs"><figcaption><strong>Belongings, optional</strong> — Photos, purchase costs, repairs, and warranties together.</figcaption></figure></div></section>
+        <section class="privacy" aria-labelledby="privacy-en"><h2 id="privacy-en">Your records stay on your computer.</h2><p>No account, cloud sync, market feed, or AI. The app works offline and only queries public release lists when you click Check for updates. This static page loads no external scripts, fonts, or analytics.</p><p>The main database and photos are not encrypted. Full backups can be encrypted with a recovery key you keep. Automatic backups share the same disk as your data; keep an off-device copy too.</p><p>Amounts are recorded in CNY. Account types are designed for mainland China, including housing provident funds (公积金) and individual pensions (个人养老金). Property is excluded from financial net worth. No daily transaction ledger, trading, or automatic payments.</p></section>
+        <section aria-labelledby="start-en"><h2 id="start-en">Start with your first balance check.</h2><p>Add balances and debts from your accounts. Set a planning goal when useful, or use belongings records independently.</p><p class="note">Mac: minimum target macOS 14; tested on Apple Silicon / macOS 27. Intel and older macOS releases have not been verified on hardware. Windows: 10 1809+ / 11 x64. Both downloads are unsigned public betas; system security prompts may appear.</p><div class="links"><a href="https://github.com/CoderJackZhu/Thingary/blob/main/docs/QUICKSTART.md">Quick start (Chinese)</a><a href="https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md">User guide (Chinese)</a><a href="https://github.com/CoderJackZhu/Thingary/issues">Report an issue</a></div></section>
+      </div>
+    </main>
+    <footer>
+      <div class="links"><a href="https://github.com/CoderJackZhu/Thingary">GitHub</a><a href="https://github.com/CoderJackZhu/Thingary/blob/main/LICENSE">AGPL-3.0-or-later</a></div>
+      <p class="zh" lang="zh-CN">代码开源。名称「物谱」「Thingary」与图标不在 AGPL 授权范围内，修改版请使用自己的名称和图标。<a href="https://github.com/CoderJackZhu/Thingary/blob/main/docs/brand/README.md">品牌使用说明</a></p>
+      <p class="en" lang="en">Open-source code. The names “物谱” and “Thingary” and the app icon are outside the AGPL license. Use your own name and icon for modified distributions. <a href="https://github.com/CoderJackZhu/Thingary/blob/main/docs/brand/README.md">Brand usage (Chinese)</a></p>
+    </footer>
+  </div>
+</body>
+</html>

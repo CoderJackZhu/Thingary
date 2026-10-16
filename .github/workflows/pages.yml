@@ -1,0 +1,57 @@
+name: Product website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/images/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      pages: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/configure-pages@v5
+      - name: Prepare static website and local images
+        run: |
+          mkdir -p _site/docs/images
+          cp -R site/. _site/
+          # Source paths also work when opening site/index.html directly.
+          sed -i 's|\.\./docs/images/|docs/images/|g' _site/index.html
+          for image in overview-light.jpg overview-dark.jpg wealth-light.jpg planning-goals.jpg annual-review.jpg assets-light.jpg; do
+            cp "docs/images/$image" _site/docs/images/
+          done
+          touch _site/.nojekyll
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

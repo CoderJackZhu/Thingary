@@ -1,3 +1,5 @@
+[简体中文](README.md) | [English](README.en.md)
+
 <p align="center">
   <img src="src-tauri/icons/icon.png" alt="物谱应用图标：谱线与记录点" width="112" height="112">
 </p>
@@ -8,7 +10,7 @@
 
 钱分散在银行卡、余额宝、券商、基金平台、公积金和房贷里，很难看清全貌。物谱是本地使用的桌面应用：每月对照各平台录一次余额和欠款，就能看到净资产变化，并回答三个问题：**每月要存多少、什么时候能不靠工资、歇一阵能撑多久。** 无需账号，不联网也能用，资料只在你的电脑上。
 
-**[下载 0.0.7](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7)**（Mac：Apple Silicon 与 Intel；Windows 10/11 x64）· [快速上手](docs/QUICKSTART.md) · [国内镜像](https://gitee.com/CoderJackZhu/thingary/releases) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
+**[下载 0.0.7](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7)**（Mac：Apple Silicon 与 Intel；Windows 10/11 x64）· [产品主页](https://coderjackzhu.github.io/Thingary/) · [快速上手](docs/QUICKSTART.md) · [国内镜像](https://gitee.com/CoderJackZhu/thingary/releases) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
 
 ![21 秒界面预览：总览、账户盘点、目标、存钱目标、区间回顾与物品](docs/images/walkthrough.gif)
 
