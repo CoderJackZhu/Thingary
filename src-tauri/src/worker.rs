@@ -74,7 +74,7 @@ struct BackupWork {
 }
 enum BackupStart {
     Early(TickOutcome),
-    Ready(BackupWork),
+    Ready(Box<BackupWork>),
 }
 struct ExtraCopyGuard(Arc<AtomicUsize>);
 impl Drop for ExtraCopyGuard {
@@ -682,6 +682,10 @@ impl Worker {
                 crate::backup::publish_staged(task.take_staged()?, &destination)
             })?;
             if work.automatic {
+                crate::auto_backup::prune_after_publish(
+                    &crate::auto_backup::backup_dir(&state.real.root),
+                    &destination,
+                )?;
                 state.published = Some(PublishedBackup {
                     path: destination.clone(),
                     epoch: snapshot.epoch,
@@ -700,8 +704,6 @@ impl Worker {
                 settings.last_error = None;
                 let _ = settings.save(&state.real.root);
                 state.backup_failed_at = None;
-                let _ =
-                    crate::auto_backup::prune(&crate::auto_backup::backup_dir(&state.real.root));
                 if matches!(snapshot.mode, backup_security::Mode::Encrypted(_)) {
                     Self::record_first_backup(
                         &state.real.root,
@@ -825,18 +827,18 @@ impl Worker {
             }
             let encrypted = matches!(snapshot.mode, backup_security::Mode::Encrypted(_));
             let destination = dir.join(crate::auto_backup::unique_name(&policy.today, encrypted));
-            Ok(BackupStart::Ready(BackupWork {
+            Ok(BackupStart::Ready(Box::new(BackupWork {
                 running,
                 prepared,
                 snapshot,
                 destination,
                 automatic: true,
                 changes,
-            }))
+            })))
         })?;
         let work = match started {
             BackupStart::Early(outcome) => return Ok(outcome),
-            BackupStart::Ready(work) => work,
+            BackupStart::Ready(work) => *work,
         };
         let epoch = work.snapshot.epoch.clone();
         match self.finish_archive(work) {

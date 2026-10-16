@@ -167,7 +167,11 @@ fn startup_removes_orphan_inspection_staging_without_touching_valid_data() {
     // destructor runs, so only the next Worker's startup cleanup can remove it.
     let frozen =
         backup::freeze_with_cancel(&manual, &root, u64::MAX - 1, &Cancellation::default()).unwrap();
-    assert_eq!(frozen.path().parent().unwrap(), staging);
+    // Windows canonical paths may carry the extended-length prefix (\\?\).
+    assert_eq!(
+        frozen.path().parent().unwrap().canonicalize().unwrap(),
+        staging.canonicalize().unwrap()
+    );
     let (file, orphan_frozen) = frozen.keep().unwrap();
     drop(file);
     let orphan_dir = tempfile::tempdir_in(&staging).unwrap().keep();

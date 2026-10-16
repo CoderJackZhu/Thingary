@@ -16,7 +16,7 @@
     "demo:import": "cargo run --manifest-path src-tauri/Cargo.toml --example import_demo -- --isolated-preview",
     "test:demo": "cargo test --manifest-path src-tauri/Cargo.toml --example import_demo",
     "release:win": "tauri build --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.windows.release.conf.json --bundles nsis --target x86_64-pc-windows-msvc --ci",
-    "build:win:acceptance": "tauri build --config src-tauri/tauri.windows.acceptance.conf.json --bundles nsis --target x86_64-pc-windows-msvc --debug --features fault-injection --ci",
+    "build:win:acceptance": "node scripts/build-windows-acceptance.mjs",
     "build:engine": "node scripts/build-planning-engine.mjs",
     "check:engine": "node scripts/build-planning-engine.mjs --check",
     "prebuild": "npm run build:engine",

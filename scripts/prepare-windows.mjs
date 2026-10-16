@@ -5,10 +5,12 @@ import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { isAcceptanceIdentity } from './windows-acceptance-identity.mjs';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const identity = process.argv[process.argv.indexOf('--identity') + 1];
 if (process.platform !== 'win32') throw new Error('NSIS resources must be prepared on Windows.');
-if (!['local.thingary.main', 'local.thingary.win.acceptance'].includes(identity)) {
+if (identity !== 'local.thingary.main' && !isAcceptanceIdentity(identity)) {
   throw new Error('An explicit release or isolated acceptance identity is required.');
 }
 const run = (command, args) => execFileSync(command, args, {
@@ -42,7 +44,7 @@ const info = {
   version, identity, source_commit: sourceCommit,
   source_url: 'https://github.com/CoderJackZhu/Thingary/tree/' + sourceCommit,
   platform: 'windows-x64', signed: false, installer: 'NSIS currentUser',
-  acceptance: identity === 'local.thingary.win.acceptance',
+  acceptance: isAcceptanceIdentity(identity),
   third_party_notices_sha256: sha(resolve(output, 'THIRD_PARTY_NOTICES.txt')),
 };
 writeFileSync(resolve(output, 'BUILD_INFO.json'), JSON.stringify(info, null, 2) + '\n');
