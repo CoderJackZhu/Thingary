@@ -1,3 +1,4 @@
+pub mod account_groups;
 pub mod auto_backup;
 pub mod backup;
 pub mod backup_crypto;
@@ -289,6 +290,10 @@ pub fn run() {
             commands::modules_set,
             commands::wealth_accounts,
             commands::wealth_account_save,
+            commands::account_groups_list,
+            commands::account_group_save,
+            commands::account_group_delete,
+            commands::account_groups_reorder,
             commands::wealth_snapshot,
             commands::wealth_snapshot_draft,
             commands::wealth_snapshot_save,

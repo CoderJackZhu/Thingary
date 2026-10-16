@@ -87,6 +87,7 @@ fn main() {
                     notes: String::new(),
                     purchase_cents: None,
                     purchased_on: None,
+                    group_id: None,
                 },
             },
             TODAY,

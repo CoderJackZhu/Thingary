@@ -515,6 +515,20 @@ impl Store {
                     })
                     .unwrap_or_default(),
                 a.fields.purchased_on.unwrap_or_default(),
+                a.fields
+                    .group_id
+                    .as_deref()
+                    .map(|id| {
+                        self.conn()?
+                            .query_row(
+                                "SELECT name FROM fin_account_groups WHERE id=?1",
+                                [id],
+                                |r| r.get::<_, String>(0),
+                            )
+                            .map_err(crate::domain::Error::from)
+                    })
+                    .transpose()?
+                    .unwrap_or_default(),
             ]);
         }
         sheets.push(("账户", accounts));

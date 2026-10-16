@@ -272,3 +272,11 @@ schema 42 新增 `savings_goals` 与 `savings_goal_accounts`，关联稳定账�
 ### 固定资产购入字段
 
 账户接口按可选 `purchase_cents`（整数分字符串）与 `purchased_on` 读写 schema 43 已有列，仅房产／车辆可填。缺省与空值序列化时省略，保持旧请求指纹；现有购入信息须先清空保存再改其他类型。购入信息只用于展示，不进入汇总和规划。金融导入账户表以可选中文列“购入价”“购入日期”解析并逐行校验；Excel 账户表和财富 CSV 以空单元格保留未知，明确零导出为 0.00。样例导入保留原五账户 v1 请求载荷，固定资产按独立回执与完成标记补充；中断后先续完旧请求，再复制现有盘点事实并追加固定资产估值，不覆盖已有更正。
+
+### 账户分组的当前视图投影
+
+`account_groups` 复用 schema 43 的 `fin_account_groups` 与账户 `group_id`，不新增迁移。组写入使用同一 `feature_requests`、generation、修订与 before_commit 故障点；删除对全部引用账户清组并增加修订，排序核对完整唯一 ID 集合。账户字段 `group_id=None` 不序列化，保留旧请求指纹；旧 schema 账户读取统一补 NULL，新 schema 严格读取真实列。
+
+`wealth_summary.structure_entries` 与 structure_date 源于同一个最近完整 Snapshot，`latest_entries` 源于最近一次 Snapshot，均为只读事实投影，不进入写 DTO／请求指纹。前端 `accountGroupTotals` 用历史 side/counted/amount 与全账户 ID 映射分组，结构不受清单筛选影响；当前账户在最近盘点无行时标未涵盖，不推断历史计入与零金额。组管理与就地创建复用 wealth Pending 回执，遵守表单编辑聚合，快速更新关闭只刷新只读账户观测，保留分组草稿。
+
+金融导入的 group_name 可选且空值不序列化；新组使用稳定 ID，在预览内存事务和正式事务中按名称复用，预览披露新组；context_digest 纳入分组身份、名称、位置与修订。整批失败回滚组与账户，不给 import_external_key 扩充对象类型。CSV／Excel 追加分组名称。

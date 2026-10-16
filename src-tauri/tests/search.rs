@@ -101,6 +101,7 @@ fn account(s: &mut Store, name: &str, notes: &str) -> String {
                 notes: notes.into(),
                 purchase_cents: None,
                 purchased_on: None,
+                group_id: None,
             },
         },
         TODAY,

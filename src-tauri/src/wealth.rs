@@ -41,6 +41,8 @@ pub struct AccountFields {
     pub purchase_cents: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub purchased_on: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<String>,
 }
 impl AccountFields {
     fn validate(&self, today: &str) -> Result<()> {
@@ -264,6 +266,10 @@ pub struct Summary {
     pub points: Vec<Point>,
     /// Asset structure of the latest complete check-in, counted accounts only.
     pub structure_date: Option<String>,
+    #[serde(default)]
+    pub structure_entries: Vec<Entry>,
+    #[serde(default)]
+    pub latest_entries: Vec<Entry>,
     pub structure: Vec<Share>,
     pub liabilities: Vec<Share>,
 }
@@ -375,6 +381,7 @@ fn account_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
             notes: r.get(8)?,
             purchase_cents: r.get::<_, Option<i64>>(11)?.map(|v| v.to_string()),
             purchased_on: r.get(12)?,
+            group_id: r.get(13)?,
         },
         position: r.get(9)?,
         revision: r.get(10)?,
@@ -383,14 +390,14 @@ fn account_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
     })
 }
 const ACCOUNT_COLUMNS: &str =
-    "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,purchase_cents,purchased_on";
+    "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,purchase_cents,purchased_on,group_id";
 
 fn account_columns(c: &Connection) -> Result<&'static str> {
     // Old backup validation and historical planning reads can precede migration.
     // Schema 43+ always reads real columns, preserving strict structure checks.
     let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(if version < 43 {
-        "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,NULL,NULL"
+        "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,NULL,NULL,NULL"
     } else {
         ACCOUNT_COLUMNS
     })
@@ -668,6 +675,16 @@ pub(crate) fn write_account_tx(
         ));
     }
     f.validate(today)?;
+    if let Some(group) = &f.group_id {
+        let exists: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM fin_account_groups WHERE id=?1)",
+            [group],
+            |r| r.get(0),
+        )?;
+        if !exists {
+            return Err(Error::new("GROUP_NOT_FOUND", "分组已删除，请重新选择"));
+        }
+    }
     let id = input
         .id
         .clone()
@@ -680,8 +697,8 @@ pub(crate) fn write_account_tx(
     }
     let now = chrono::Utc::now().to_rfc3339();
     if old.is_some() {
-        tx.execute("UPDATE fin_accounts SET name=?2,institution=?3,kind=?4,counted=?5,opened_on=?6,closed_on=?7,notes=?8,purchase_cents=?10,purchased_on=?11,revision=revision+1,updated_at=?9 WHERE id=?1",
-                params![id, f.name.trim(), f.institution.trim(), f.kind, f.counted, f.opened_on, f.closed_on, f.notes, now, cents(f.purchase_cents.as_deref())?, f.purchased_on])?;
+        tx.execute("UPDATE fin_accounts SET name=?2,institution=?3,kind=?4,counted=?5,opened_on=?6,closed_on=?7,notes=?8,purchase_cents=?10,purchased_on=?11,group_id=?12,revision=revision+1,updated_at=?9 WHERE id=?1",
+                params![id, f.name.trim(), f.institution.trim(), f.kind, f.counted, f.opened_on, f.closed_on, f.notes, now, cents(f.purchase_cents.as_deref())?, f.purchased_on, f.group_id])?;
     } else {
         let position = match new_position {
             Some(p) => p,
@@ -691,8 +708,8 @@ pub(crate) fn write_account_tx(
                 |r| r.get::<_, i64>(0),
             )?,
         };
-        tx.execute("INSERT INTO fin_accounts(id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at,purchase_cents,purchased_on) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,?11,?11,?12,?13)",
-                params![id, f.name.trim(), f.institution.trim(), f.side, f.kind, f.counted, f.opened_on, f.closed_on, f.notes, position, now, cents(f.purchase_cents.as_deref())?, f.purchased_on])?;
+        tx.execute("INSERT INTO fin_accounts(id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at,purchase_cents,purchased_on,group_id) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,?11,?11,?12,?13,?14)",
+                params![id, f.name.trim(), f.institution.trim(), f.side, f.kind, f.counted, f.opened_on, f.closed_on, f.notes, position, now, cents(f.purchase_cents.as_deref())?, f.purchased_on, f.group_id])?;
     }
     account(tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到账户"))
 }
@@ -1190,10 +1207,12 @@ impl Store {
             .query_map([], |r| r.get::<_, String>(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let mut points: Vec<Point> = Vec::new();
+        let mut latest_entries = Vec::new();
         let mut last_complete: Option<(Snapshot, i64)> = None;
         for id in ids {
             let s = snapshot(c, &id, &live)?
                 .ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"))?;
+            latest_entries = s.entries.clone();
             let (assets, liabilities) = net_of(&s)?;
             let net = assets - liabilities;
             let complete = s.missing.is_empty();
@@ -1281,6 +1300,11 @@ impl Store {
             generation: self.generation(),
             points,
             structure_date,
+            latest_entries,
+            structure_entries: last_complete
+                .as_ref()
+                .map(|(s, _)| s.entries.clone())
+                .unwrap_or_default(),
             structure,
             liabilities,
         })
@@ -1765,6 +1789,16 @@ impl Store {
 /// Backup validation for schema 15 data beyond what SQL CHECKs cover.
 pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
     let bad = |m: &str| Error::new("DATA_CONSTRAINT", m);
+    let version: i64 = c.pragma_query_value(None, "user_version", |r| r.get(0))?;
+    if version >= 43 {
+        for group in crate::account_groups::list(c)? {
+            if uuid::Uuid::parse_str(&group.id).is_err()
+                || crate::account_groups::name(&group.name)? != group.name
+            {
+                return Err(bad("备份含非法分组资料"));
+            }
+        }
+    }
     let columns = account_columns(c)?;
     let mut q = c.prepare(&format!(
         "SELECT {columns},created_at,updated_at FROM fin_accounts"
@@ -1778,7 +1812,7 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
         a.fields
             .validate("9999-12-31")
             .map_err(|_| bad("备份含非法账户资料"))?;
-        for i in [13, 14] {
+        for i in [14, 15] {
             chrono::DateTime::parse_from_rfc3339(&r.get::<_, String>(i)?)
                 .map_err(|_| bad("账户建档或修改时间不合法"))?;
         }

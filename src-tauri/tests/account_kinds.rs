@@ -189,6 +189,7 @@ fn save(s: &mut Store, kind: &str, counted: bool) -> thingary_lib::wealth::Accou
                 notes: String::new(),
                 purchase_cents: None,
                 purchased_on: None,
+                group_id: None,
             },
         },
         "2026-10-15",

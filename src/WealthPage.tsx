@@ -1,3 +1,7 @@
+import { AccountGroupManager } from './AccountGroupManager';
+import { accountGroupTotals } from './wealth-display';
+import { groupNameError, recallGroupViews, rememberGroupView } from './account-groups';
+import type { AccountGroup, AccountGroupList } from './account-groups';
 import { QuickUpdateDialog } from './QuickUpdateDialog';
 import { accountUpdateAge } from './wealth';
 import { SavingsGoals } from './SavingsGoals';
@@ -58,6 +62,10 @@ function AccountUpdateAge({ account, today }: { account: Account; today: string 
   const age = accountUpdateAge(account.last_entered_on, today);
   return <small className="account-update-age" data-old={age.old}>{age.text}</small>;
 }
+function groupAmountsHidden(): boolean {
+  try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; }
+  catch { return false; }
+}
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
 export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, onGotoPlanning, onCompare, reviewFocus, onReviewFocusDone, onFinancialImport }: SourceProps & { onGotoPlanning?: (snapshotId: string) => void; onCompare?: (pair?: { fromSnapshotId: string; toSnapshotId: string }) => void; reviewFocus?: WealthReviewFocus | null; onReviewFocusDone?: () => void; onFinancialImport?: () => void; today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
@@ -78,10 +86,14 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
   const [quickAccount, setQuickAccount] = useState<Account | null>(null);
   const [goalEditing, setGoalEditing] = useState(false);
+  const [groups, setGroups] = useState<AccountGroup[]>([]), [manageGroups, setManageGroups] = useState(false);
+  const [groupView, setGroupView] = useState<'list' | 'group'>('list');
+  const groupMemoryLoaded = useRef(false);
+  useEffect(() => { if (summary && !groupMemoryLoaded.current) { groupMemoryLoaded.current = true; setGroupView(recallGroupViews(summary.generation).mode); } }, [summary]);
   useEffect(() => {
     let live = true; setError('');
-    Promise.all([invoke<Summary>('wealth_summary'), invoke<Account[]>('wealth_accounts')])
-      .then(([s, a]) => { if (live) { setSummary(s); setAccounts(a); } })
+    Promise.all([invoke<Summary>('wealth_summary'), invoke<Account[]>('wealth_accounts'), invoke<AccountGroupList>('account_groups_list')])
+      .then(([s, a, g]) => { if (live) { if (g.generation !== s.generation) throw new Error('资料库已切换，请重新读取。'); setSummary(s); setAccounts(a); setGroups(g.groups); } })
       .catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [retry]);
@@ -102,7 +114,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!quickAccount || goalEditing || !!editing || !!pending || busy || !!checkIn || !!snapshotDetail); return () => onEditingChange(false); }, [quickAccount, goalEditing, editing, pending, busy, checkIn, snapshotDetail, onEditingChange]);
+  useEffect(() => { onEditingChange(manageGroups || !!quickAccount || goalEditing || !!editing || !!pending || busy || !!checkIn || !!snapshotDetail); return () => onEditingChange(false); }, [manageGroups, quickAccount, goalEditing, editing, pending, busy, checkIn, snapshotDetail, onEditingChange]);
   const sourceError = useSource({source,onSourceDone}, summary?.generation, async (target, alive) => {
     // 账户来源：按稳定 ID 打开账户资料表单；未保存的输入不写入（§6.2）。
     if (target.kind === 'account') {
@@ -162,6 +174,8 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['changes', '变化'], ['history', '盘点记录']] as const).filter(([k]) => !onCompare || k !== 'changes').map(([k, l]) => <button key={k} type="button" aria-pressed={tab === k} onClick={() => { setChangesSeed(null); setTab(k); }}>{l}</button>)}</div></HeaderSlot>
     {tab !== 'overview' && tab !== 'history' && accountScope}
+    {tab === 'accounts' && <div className="account-group-toolbar"><label>分组方式<select aria-label="账户分组方式" value={groupView} onChange={e => { const mode = e.target.value as 'list' | 'group'; setGroupView(mode); if (summary) rememberGroupView(summary.generation, 'mode', mode); }}><option value="list">列表</option><option value="group">按分组</option></select></label><button type="button" disabled={!!pending || busy || !summary} onClick={() => setManageGroups(true)}>管理分组</button></div>}
+
     {tab === 'history' && savedSnapshot && !error && <div className="notice wealth-review-entry" role="status"><span>盘点已保存（{savedSnapshot.date}）。</span><button type="button" className="ui-link" disabled={!summary?.points.some(p => p.snapshot_id === savedSnapshot.id)} onClick={() => {
       if (onGotoPlanning) onGotoPlanning(savedSnapshot.id);
       else { const point = summary?.points.find(p => p.snapshot_id === savedSnapshot.id), from = summary?.points.find(p => p.complete && p.date === point?.compared_to); setChangesSeed(from ? { from: from.snapshot_id, to: savedSnapshot.id } : null); setTab('changes'); }
@@ -169,14 +183,15 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     {tab === 'history' && savedSnapshot && !error && summary && <CheckinReminderAsk savedComplete={summary.points.some(p => p.snapshot_id === savedSnapshot.id && p.complete)} completeCount={summary.points.filter(p => p.complete).length} wealthOn today={today}/>}
     {error ? <article className="ui-card ui-content" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
-      : tab === 'overview' ? <><Overview onQuick={openQuick} today={today} onFinancialImport={onFinancialImport} importDisabled={!!pending || busy} accountScope={accountScope} hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/><SavingsGoals key={summary.generation} generation={summary.generation} today={today} version={retry} blocked={!!pending || busy} onEditingChange={setGoalEditing} onPendingChange={() => setPending(storedPending())}/></>
+      : tab === 'overview' ? <><Overview groups={groups} allAccounts={accounts} onQuick={openQuick} today={today} onFinancialImport={onFinancialImport} importDisabled={!!pending || busy} accountScope={accountScope} hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/><SavingsGoals key={summary.generation} generation={summary.generation} today={today} version={retry} blocked={!!pending || busy} onEditingChange={setGoalEditing} onPendingChange={() => setPending(storedPending())}/></>
       : tab === 'accounts' ? (keyword && !shownAccounts.length
         ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
-        : <Accounts onQuick={openQuick} today={today} accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
+        : <AccountListing mode={groupView} groups={groups} allAccounts={accounts} summary={summary} onQuick={openQuick} today={today} accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
       : tab === 'changes' ? <WealthChanges accountView={accountView} summary={summary} accounts={accounts} today={today} initial={changesSeed} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn}/>
       : <History points={points} onOpen={setSnapshotDetail} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
     {tab === 'history' && summary && !error && <CheckinReminder wealthOn today={today}/>}
-    {editing && summary && <AccountDialog account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onQuick={openQuick} onClose={closeAccount}/>}
+    {manageGroups && summary && <AccountGroupManager generation={summary.generation} onClose={() => { setManageGroups(false); setPending(storedPending()); reload(); }} onChanged={() => { setPending(storedPending()); reload(); }}/>}
+    {editing && summary && <AccountDialog groups={groups} onGroupsChanged={reload} account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onQuick={openQuick} onClose={closeAccount}/>}
     {quickAccount && summary && <QuickUpdateDialog account={quickAccount} generation={summary.generation} today={today} points={summary.points} onClose={(saved) => {
       setQuickAccount(null); setPending(storedPending()); reload();
       if (saved) {
@@ -193,7 +208,9 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   </section>;
 }
 
-function Overview({ onQuick, accountScope, summary, accounts, hasAccounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges, onFinancialImport, importDisabled }: { onQuick: (account: Account) => void; onFinancialImport?: () => void; importDisabled?: boolean; accountScope: ReactNode; summary: Summary; accounts: Account[]; hasAccounts: boolean; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
+function Overview({ groups, allAccounts, onQuick, accountScope, summary, accounts, hasAccounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges, onFinancialImport, importDisabled }: { groups: AccountGroup[]; allAccounts: Account[]; onQuick: (account: Account) => void; onFinancialImport?: () => void; importDisabled?: boolean; accountScope: ReactNode; summary: Summary; accounts: Account[]; hasAccounts: boolean; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
+  const [structureView, setStructureView] = useState<'kind' | 'group'>(() => recallGroupViews(summary.generation).structure);
+  const groupTotals = accountGroupTotals(allAccounts, groups, summary.structure_entries ?? []);
   if (!hasAccounts) return <div className="empty"><span className="empty-mark">¥</span><h2>先建立要定期核对的账户</h2><p>银行卡、证券、基金、公积金，以及信用卡和贷款。只需名称和类型，不需要卡号或登录信息。</p><div className="review-start-actions" style={{ justifyContent: 'center' }}>{onFinancialImport && <button type="button" className="primary" disabled={importDisabled} onClick={onFinancialImport}>导入已有的资产表格</button>}<button type="button" className={onFinancialImport ? 'ui-btn' : 'primary'} disabled={importDisabled} onClick={onNewAccount}>手动添加第一个账户</button></div></div>;
   if (!latest) return <><div className="empty"><span className="empty-mark">¥</span><h2>开始第一次盘点</h2><p>对照各平台，把今天的余额和欠款逐行填进来。之后每次盘点都会成为趋势上的一个点。</p><button className="primary" onClick={() => onCheckIn(today)}>开始盘点</button></div><OverviewAccountList accounts={accounts} today={today} accountScope={accountScope} onQuick={onQuick} blocked={importDisabled}/></>;
   const shown = lastComplete ?? latest;
@@ -208,7 +225,7 @@ function Overview({ onQuick, accountScope, summary, accounts, hasAccounts, lates
     </div>
     <WealthTrendCards summary={summary} today={today}/>
     <div className="stats-pair">
-      <article className="ui-card ui-content"><div className="ui-section-head"><h3>资产结构</h3><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入净资产的账户` : '尚无完整盘点'}</span></div><ShareBars rows={summary.structure} empty="没有计入的资产。"/></article>
+      <article className="ui-card ui-content"><div className="ui-section-head"><h3>资产结构</h3><div className="ui-seg" role="group" aria-label="资产结构方式"><button type="button" aria-pressed={structureView === 'kind'} onClick={() => { setStructureView('kind'); rememberGroupView(summary.generation, 'structure', 'kind'); }}>按类型</button><button type="button" aria-pressed={structureView === 'group'} onClick={() => { setStructureView('group'); rememberGroupView(summary.generation, 'structure', 'group'); }}>按分组</button></div><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入净资产的账户` : '尚无完整盘点'}</span></div>{structureView === 'kind' ? <ShareBars rows={summary.structure} empty="没有计入的资产。"/> : <ShareBars rows={summary.structure_date ? groupTotals.map(g => ({ kind: g.id, amount_cents: g.assets_cents, share_hundredths: g.share_hundredths })) : []} labels={Object.fromEntries(groupTotals.map(g => [g.id, g.name]))} empty="没有计入的资产。"/>}</article>
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>计入净资产的负债</h3><Info text="按类型统计尚欠金额，不含标为不计入的负债。"/></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
     </div>
     <OverviewAccountList accounts={accounts} today={today} accountScope={accountScope} onQuick={onQuick} blocked={importDisabled}/>
@@ -236,9 +253,10 @@ function WealthTrendCards({ summary, today }: { summary: Summary; today: string 
   </>;
 }
 
-function ShareBars({ rows, empty }: { rows: Summary['structure']; empty: string }) {
+function ShareBars({ rows, empty, labels }: { rows: Summary['structure']; empty: string; labels?: Record<string, string> }) {
+  if (labels && groupAmountsHidden()) return <p className="muted">金融金额已隐藏</p>;
   if (!rows.length) return <p className="muted">{empty}</p>;
-  return <ul className="stats-category-bars">{rows.map((r, i) => <li key={r.kind}><span><i style={{ background: series(i) }}/>{kindLabel(r.kind)}</span><div className="stats-bar"><span style={{ width: r.share_hundredths === null ? 0 : `${r.share_hundredths / 100}%`, background: series(i) }}/></div><strong>{r.share_hundredths === null ? '—' : `${(r.share_hundredths / 100).toFixed(1)}%`}</strong><small>{money(r.amount_cents)}</small></li>)}</ul>;
+  return <ul className="stats-category-bars">{rows.map((r, i) => <li key={r.kind}><span><i style={{ background: series(i) }}/>{labels?.[r.kind] ?? kindLabel(r.kind)}</span><div className="stats-bar"><span style={{ width: r.share_hundredths === null ? 0 : `${r.share_hundredths / 100}%`, background: series(i) }}/></div><strong>{r.share_hundredths === null ? '—' : `${(r.share_hundredths / 100).toFixed(1)}%`}</strong><small>{money(r.amount_cents)}</small></li>)}</ul>;
 }
 
 function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (id: string) => void }) {
@@ -256,6 +274,16 @@ function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (id: string)
 /** Shared with the overview hero, including keyboard browsing and unknown markers. */
 export function NetChart({ points, label, generation }: { points: Point[]; label?: string; generation?: string }) {
   return <DualLineChart points={points} label={label} generation={generation} single={!!label}/>;
+}
+
+function AccountListing(props: Parameters<typeof Accounts>[0] & { mode: 'list' | 'group'; groups: AccountGroup[]; allAccounts: Account[]; summary: Summary }) {
+  if (props.mode === 'list') return <Accounts {...props}/>;
+  const totals = accountGroupTotals(props.allAccounts, props.groups, props.summary.latest_entries ?? [], true);
+  const partial = totals.some(g => g.partial), hidden = groupAmountsHidden();
+  return <><p className="muted small">小计按最近一次盘点 {props.summary.points.at(-1)?.date ?? '（暂无盘点）'}；归属用当前分组，不随搜索或账户筛选改变。下方账户金额仍标明各自日期。</p>{totals.map(group => {
+    const visible = props.accounts.filter(a => (props.groups.some(g => g.id === a.fields.group_id) ? a.fields.group_id : '') === group.id);
+    return <section key={group.id || 'ungrouped'} className="account-group-section"><header className="account-group-head"><h3>{group.name}</h3><p>{hidden ? '金融金额已隐藏' : props.summary.points.length && (group.known > 0 || (!group.partial && !group.accounts.length)) ? <>资产 {money(group.assets_cents)} · 负债 {money(group.liabilities_cents)} · 净额 {signedMoney(group.net_cents)} · 占{partial ? '已知计入资产' : '计入资产'} {group.share_hundredths === null ? '—' : `${(group.share_hundredths / 100).toFixed(2)}%`}{group.partial ? ' · 仅已知部分（含未知或本次未涵盖账户）' : ''}</> : '金额未知，本次未涵盖或尚无已知金额'}</p></header>{visible.length ? <Accounts {...props} accounts={visible} found={null}/> : <p className="muted small">{group.accounts.length ? '当前筛选条件下没有账户。' : '这个分组还没有账户。'}</p>}</section>;
+  })}</>;
 }
 
 function Accounts({ accounts, onEdit, onNew, found, onQuick, today }: { onQuick: (account: Account) => void; today: string; accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {
@@ -278,9 +306,31 @@ function History({ points, onOpen, onNew, canStart }: { points: Point[]; onOpen:
 
 const blankAccount = (today: string): AccountFields => ({ name: '', institution: '', side: 'asset', kind: 'cash', counted: true, opened_on: today, closed_on: null, notes: '' });
 
-function AccountDialog({ account, generation, today, onClose, onQuick }: { onQuick: (account: Account) => void; account: Account | null; generation: string; today: string; onClose: (saved: boolean) => void }) {
+function AccountDialog({ groups = [], onGroupsChanged, account, generation, today, onClose, onQuick }: { groups?: AccountGroup[]; onGroupsChanged?: () => void; onQuick: (account: Account) => void; account: Account | null; generation: string; today: string; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [fields, setFields] = useState<AccountFields>(account?.fields ?? blankAccount(today));
+  const [createGroup, setCreateGroup] = useState(false), [groupName, setGroupName] = useState(''), [createdGroup, setCreatedGroup] = useState<AccountGroup | null>(null);
+  const groupCreating = useRef(false);
+  const availableGroups = createdGroup && !groups.some(g => g.id === createdGroup.id) ? [...groups, createdGroup] : groups;
+  async function saveGroup() {
+    if (groupCreating.current || busy || stuck || storedPending()) return;
+    const problem = groupNameError(groupName); if (problem) { setNotice(problem); return; }
+    groupCreating.current = true; setBusy(true); setNotice('');
+    try { const g = await submit<AccountGroup>({ command: 'account_group_save', input: { request_id: crypto.randomUUID(), generation, id: null, expected_revision: null, name: groupName.trim() }, label: '新增账户分组' }); setCreatedGroup(g); setFields(f => ({ ...f, group_id: g.id })); setCreateGroup(false); setGroupName(''); onGroupsChanged?.(); }
+    catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
+    finally { groupCreating.current = false; setBusy(false); }
+  }
+  async function verifyGroup() {
+    const request = storedPending(); if (!request || request.command !== 'account_group_save' || groupCreating.current) return;
+    groupCreating.current = true; setBusy(true);
+    try {
+      const result = await resolvePending(request);
+      if (result === 'saved') { const g = await submit<AccountGroup>(request); setCreatedGroup(g); setFields(f => ({ ...f, group_id: g.id })); setCreateGroup(false); setNotice('已确认分组已保存，账户输入仍保留。'); }
+      else setNotice('分组没有保存，输入已保留，可以重新创建。');
+      setStuck(false); onGroupsChanged?.();
+    } catch (e) { setNotice(e instanceof Error ? e.message : errorMessage(e)); }
+    finally { groupCreating.current = false; setBusy(false); }
+  }
   const [countedChoice, setCountedChoice] = useState<boolean | null>(account?.fields.counted ?? null);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('wealth-account-name')?.focus(); return () => dialog.current?.close(); }, []);
@@ -305,6 +355,7 @@ function AccountDialog({ account, generation, today, onClose, onQuick }: { onQui
       {accountKindHint(fields.kind) && <p className="muted small">{accountKindHint(fields.kind)}</p>}
       {account && fields.kind === 'property' && account.fields.kind !== 'property' && <p className="notice">以后盘点不再计入金融净资产；既有盘点保持原记录。</p>}
       <FormRow label="计入金融净资产" hint={fields.kind === 'property' ? '房产固定不计入' : fields.side === 'liability' ? '房贷、车贷等可关闭' : `此类型新建建议：${defaultAccountCounted(fields.kind) ? '计入' : '不计入'}`}><Switch label="计入金融净资产" value={fields.counted} disabled={busy || stuck || fields.kind === 'property'} onChange={v => { setCountedChoice(v); set('counted', v); }}/></FormRow>
+      <FormRow label="分组" hint="只影响查看；未分组也可以正常盘点和规划"><select aria-label="账户分组" value={fields.group_id ?? ''} disabled={busy || stuck} onChange={e => { if (e.target.value === '__new__') setCreateGroup(true); else set('group_id', e.target.value || null); }}><option value="">未分组</option>{availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}<option value="__new__">新建分组…</option></select>{createGroup && <div className="account-group-create">{stuck && <button type="button" disabled={busy} onClick={() => void verifyGroup()}>核对分组结果</button>}<input aria-label="就地新建分组名称" value={groupName} maxLength={40} disabled={busy || stuck} onChange={e => setGroupName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveGroup(); } }}/><button type="button" disabled={busy || stuck || !groupName.trim()} onClick={() => void saveGroup()}>创建并选择</button><button type="button" disabled={busy || stuck} onClick={() => setCreateGroup(false)}>取消</button></div>}</FormRow>
       <FormRow label="启用日期" hint="此日之前的盘点不要求填写"><DateInput yearIntent="past" id="wealth-account-opened" value={fields.opened_on} max={today} disabled={busy || stuck} onChange={v => set('opened_on', v)}/></FormRow>
       {account && <FormRow label="停用日期" hint="停用前最后一次盘点须为 0"><DateInput yearIntent="past" id="wealth-account-closed" value={fields.closed_on ?? ''} max={today} allowClear disabled={busy || stuck} onChange={v => set('closed_on', v || null)}/></FormRow>}
       {['property', 'vehicle'].includes(fields.kind) && <>

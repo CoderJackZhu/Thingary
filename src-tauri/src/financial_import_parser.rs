@@ -226,6 +226,7 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
             "note",
             "购入价",
             "购入日期",
+            "分组",
         ]),
         "snapshots" => Some(&[
             "snapshot_key",
@@ -257,7 +258,14 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
 /// Columns that may be left empty; all other template columns are required.
 fn optional_columns(kind: &str) -> &'static [&'static str] {
     match kind {
-        "accounts" => &["disabled_from", "platform", "note", "购入价", "购入日期"],
+        "accounts" => &[
+            "disabled_from",
+            "platform",
+            "note",
+            "购入价",
+            "购入日期",
+            "分组",
+        ],
         "snapshots" => &["note", "kind_at_date", "counted_at_date"],
         "incomes" => &[
             "hpf_deposit",
@@ -511,6 +519,8 @@ pub struct AccountRowV1 {
     pub purchase_cents: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub purchased_on: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_name: Option<String>,
 }
 
 /// One account line of one check-in group. The group, not this row, is the
@@ -1600,6 +1610,23 @@ fn parse_account_row(
             "只有房产和车辆可以填写购入价和购入日期".into(),
         ));
     }
+    let group_name = h
+        .cell(record, "分组")
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned);
+    if group_name
+        .as_ref()
+        .is_some_and(|value| value.chars().count() > 40 || value.chars().any(char::is_control))
+    {
+        issues.push(row_issue(
+            "GROUP_NAME",
+            row,
+            h.column_label("分组"),
+            None,
+            "分组名称须为 1–40 字，不能含控制字符".into(),
+        ));
+    }
     let platform = match h.cell(record, "platform").map(str::trim) {
         None | Some("") => None,
         Some(v) if v.chars().count() > MAX_PLATFORM_CHARS => {
@@ -1649,6 +1676,7 @@ fn parse_account_row(
         note: note.flatten(),
         purchase_cents,
         purchased_on,
+        group_name,
     }))
 }
 

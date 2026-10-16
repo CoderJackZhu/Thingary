@@ -219,8 +219,27 @@ fn financial_sample_excel_transaction_replay_export_import_restart_backup() {
         .unwrap()
         .iter()
         .any(|a| &a.id == target_id));
-    let normalize = |summary| {
+    let normalize = |summary, accounts: Vec<thingary_lib::wealth::Account>| {
+        let names: BTreeMap<_, _> = accounts
+            .into_iter()
+            .map(|a| (a.id, a.fields.name))
+            .collect();
+        // Import allocates new stable IDs. Compare each new read projection by
+        // this fixture's unique account identity, while retaining every fact.
+        assert_eq!(
+            names
+                .values()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            names.len()
+        );
         let mut v = serde_json::to_value(summary).unwrap();
+        for projection in ["structure_entries", "latest_entries"] {
+            for entry in v[projection].as_array_mut().unwrap() {
+                let name = names.get(entry["account_id"].as_str().unwrap()).unwrap();
+                entry["account_id"] = serde_json::json!(name);
+            }
+        }
         v.as_object_mut().unwrap().remove("generation");
         for p in v["points"].as_array_mut().unwrap() {
             p.as_object_mut().unwrap().remove("snapshot_id");
@@ -229,8 +248,11 @@ fn financial_sample_excel_transaction_replay_export_import_restart_backup() {
         v
     };
     assert_eq!(
-        normalize(dest.wealth_summary().unwrap()),
-        normalize(s.wealth_summary().unwrap())
+        normalize(
+            dest.wealth_summary().unwrap(),
+            dest.wealth_accounts().unwrap()
+        ),
+        normalize(s.wealth_summary().unwrap(), s.wealth_accounts().unwrap())
     );
     let archive = t.path().join("完整.thingary");
     dest.backup(Some(&archive)).unwrap();

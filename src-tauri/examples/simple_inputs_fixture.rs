@@ -42,6 +42,7 @@ fn main() {
                     notes: "虚构验收，不是真实账户".into(),
                     purchase_cents: None,
                     purchased_on: None,
+                    group_id: None,
                 },
             },
             today,

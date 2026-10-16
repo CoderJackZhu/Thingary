@@ -1030,6 +1030,7 @@ fn review_p1_notes_only_correction_keeps_recorded_unchanged_amount() {
                     notes: String::new(),
                     purchase_cents: None,
                     purchased_on: None,
+                    group_id: None,
                 },
             },
             "2026-07-31",

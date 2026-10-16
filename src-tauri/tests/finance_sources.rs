@@ -77,6 +77,7 @@ fn fictional_store(root: &std::path::Path) -> Store {
                     notes: String::new(),
                     purchase_cents: None,
                     purchased_on: None,
+                    group_id: None,
                 },
             },
             TODAY,

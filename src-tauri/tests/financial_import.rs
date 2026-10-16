@@ -298,6 +298,7 @@ fn real_unkeyed_catalog_blank_zero_and_explicit_group_exclusion() {
                 notes: String::new(),
                 purchase_cents: None,
                 purchased_on: None,
+                group_id: None,
             },
         },
         "2026-10-09",

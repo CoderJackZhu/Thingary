@@ -109,6 +109,7 @@ pub struct Preview {
     pub issues: Vec<Issue>,
     pub counts: Counts,
     pub can_commit: bool,
+    pub new_groups: Vec<String>,
     pub accounts: Vec<Account>,
     pub external_keys: BTreeMap<String, String>,
     pub referenced_keys: Vec<String>,
@@ -147,6 +148,7 @@ struct Key {
     status: String,
 }
 struct Prepared {
+    new_groups: Vec<String>,
     objects: Vec<Object>,
     issues: Vec<Issue>,
     counts: Counts,
@@ -285,6 +287,11 @@ fn context_digest(c: &Connection, b: &BatchInput, cancel: &dyn Fn() -> bool) -> 
         })
         .collect::<Result<Vec<_>>>()?,
     );
+    if has_wealth(b) {
+        for g in crate::account_groups::list(c)? {
+            values.push(json!(["group", g.id, g.name, g.position, g.revision]));
+        }
+    }
     Ok(digest(&serde_json::to_vec(&values)?))
 }
 fn stable_id(b: &BatchInput, kind: &str, key: &str) -> String {
@@ -486,6 +493,7 @@ fn prepare(
     };
     let mut issues = Vec::new();
     let mut objects = Vec::new();
+    let mut new_groups = BTreeSet::new();
     let mut records = Vec::new();
     let mut standard = Vec::<Value>::new();
     let mut referenced_keys = BTreeSet::<String>::new();
@@ -537,6 +545,14 @@ fn prepare(
             referenced_keys.insert(r.account_key.clone());
             let key = format!("account:{}", r.account_key);
             standard.push(serde_json::to_value(&r)?);
+            let group_id = r
+                .group_name
+                .as_ref()
+                .map(|name| -> Result<String> {
+                    Ok(crate::account_groups::find_name(tx, name)?
+                        .unwrap_or_else(|| stable_id(b, "group", name)))
+                })
+                .transpose()?;
             let f = AccountFields {
                 name: r.name.clone(),
                 institution: r.platform.clone().unwrap_or_default(),
@@ -553,6 +569,7 @@ fn prepare(
                 notes: r.note.clone().unwrap_or_default(),
                 purchase_cents: r.purchase_cents.clone(),
                 purchased_on: r.purchased_on.clone(),
+                group_id: group_id.clone(),
             };
             let old_key = mappings.get(&("account".into(), r.account_key.clone()));
             let id = bindings
@@ -595,6 +612,12 @@ fn prepare(
             let action = object_action(b, &key, &status, rev)?;
             let mut revision_after = rev;
             if action == "create" || action == "correct" {
+                if let (Some(name), Some(id)) = (&r.group_name, &group_id) {
+                    if crate::account_groups::find_name(tx, name)?.is_none() {
+                        new_groups.insert(name.clone());
+                    }
+                    crate::account_groups::ensure(tx, name, id)?;
+                }
                 match wealth::write_account_tx(
                     tx,
                     &AccountSave {
@@ -646,6 +669,23 @@ fn prepare(
                     revision_after,
                 });
             }
+            let mut displayed_before = before.clone();
+            let mut displayed_after = after.clone();
+            if r.group_name.is_some() || old.as_ref().is_some_and(|a| a.fields.group_id.is_some()) {
+                displayed_after["group_name"] = json!(r.group_name);
+                if let Some(value) = &mut displayed_before {
+                    let group_name =
+                        if let Some(id) = old.as_ref().and_then(|a| a.fields.group_id.as_ref()) {
+                            crate::account_groups::list(tx)?
+                                .into_iter()
+                                .find(|g| &g.id == id)
+                                .map(|g| g.name)
+                        } else {
+                            None
+                        };
+                    value["group_name"] = json!(group_name);
+                }
+            }
             objects.push(Object {
                 key,
                 kind: "account".into(),
@@ -655,8 +695,8 @@ fn prepare(
                 status,
                 action,
                 expected_revision: rev,
-                before,
-                after,
+                before: displayed_before,
+                after: displayed_after,
             });
         }
     }
@@ -1179,6 +1219,7 @@ fn prepare(
     let referenced_keys = referenced_keys.into_iter().collect();
     let normalized_digest = digest(&serde_json::to_vec(&(standard, &b.mappings, &b.actions))?);
     Ok(Prepared {
+        new_groups: new_groups.into_iter().collect(),
         objects,
         issues,
         counts,
@@ -1387,6 +1428,7 @@ impl Store {
             issues: p.issues,
             counts: p.counts,
             can_commit,
+            new_groups: p.new_groups,
             accounts,
             external_keys: p.external_keys,
             referenced_keys: p.referenced_keys,
