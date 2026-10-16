@@ -7,6 +7,7 @@ import { errorMessage, money } from './asset';
 import { changeText, kindLabel, rateText, signedMoney } from './wealth';
 import type { Compare, Summary } from './wealth';
 import { Sparkline } from './Sparkline';
+import { TrendRangeControl, useTrendSelection } from './TrendRangeControl';
 import { eventDetail, eventIcon, eventLabel } from './Timeline';
 import { Icon } from './AssetViews';
 import type { ScrollRestore } from './Timeline';
@@ -15,8 +16,8 @@ import type { FinanceRoute } from './finance-navigation';
 import type { PlanningTab } from './PlanningPage';
 import { useRestored } from './undo';
 import { ReviewPlanSummary } from './ReviewPlanSummary';
-import { attention, attentionSourcesReady, latestComplete, rangePoints, rangeUsable, ready, recallTrendRange, rememberTrendRange, requestGate, structureCompareRange, structureRows, trendRanges } from './review';
-import type { Read, Review, ReviewPage, TrendRange } from './review';
+import { attention, attentionSourcesReady, latestComplete, ready, requestGate, structureCompareRange, structureRows } from './review';
+import type { Read, Review, ReviewPage } from './review';
 import { Info } from './FormControls';
 import { DailyCostMetric } from './DailyCostMetric';
 import './review.css';
@@ -72,8 +73,8 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   const gate = useRef(requestGate());
   const moduleKey = JSON.stringify(modules);
   const context = useRef<{ generation: string; today: string; version: unknown; year: number | null; moduleKey: string } | null>(null);
-  const [updating, setUpdating] = useState(false), [range, setRange] = useState<TrendRange>(() => recallTrendRange(generation));
-  useEffect(() => { rememberTrendRange(generation, range); }, [generation, range]);
+  const [updating, setUpdating] = useState(false);
+  const trend = useTrendSelection(generation, ready(data?.wealth)?.points ?? [], data?.today ?? today);
   useRestored(() => setRetry(n => n + 1));
   useEffect(() => {
     const refresh = () => setRetry(n => n + 1);
@@ -107,7 +108,6 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
   // event; merging wealth points here again would duplicate 盘点 rows.
   const hidden = hiddenKinds(modules);
   const recent = (ready(data.recent) ?? []).filter(ev => !hidden.has(ev.kind)).map(ev => ({ id: 'event:' + ev.id, icon: eventIcon(ev.kind), date: ev.date!, title: ev.kind === 'snapshot' ? eventLabel(ev) : eventLabel(ev) + ' · ' + ev.title, detail: amountsHidden && ev.kind === 'snapshot' ? '金融金额已隐藏' : eventDetail(ev), target: ev.target ?? null }));
-  const activeRange: TrendRange = w && rangeUsable(w.points, range, data.today) ? range : 'all';
   const daysSince = latest ? Math.max(0, Math.round((Date.parse(data.today) - Date.parse(latest.date)) / 86400000)) : 0;
   // 分类色条：金额未知的类别不占宽度；图例最多 4 行，其余合并（规范 4.6）。
   const cats = (p?.categories ?? []).filter(c => c.count > 0);
@@ -139,9 +139,9 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
             <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天</p>
             <p className={'ui-sub' + (amountsHidden ? '' : tone(latest.change_cents))}>{amountsHidden ? '变化金额已隐藏' : latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
             <p className="ui-sub">资产 {amountsHidden ? '******' : money(latest.assets_cents)} · 负债 {amountsHidden ? '******' : money(latest.liabilities_cents)}</p>
-            {amountsHidden ? <div className="privacy-chart" role="status">金融曲线已隐藏</div> : <Sparkline hero points={rangePoints(w.points, activeRange, data.today)}/>}
+            <Sparkline hero points={trend.points} generation={generation} hideAmounts={amountsHidden}/>
             <div className="review-nw-bar">
-              {rangeUsable(w.points, 'all', data.today) ? <div className="ui-seg" role="group" aria-label="曲线时间范围">{trendRanges.map(([k, label]) => { const usable = rangeUsable(w.points, k, data.today); return <button key={k} aria-pressed={activeRange === k} disabled={!usable} title={usable ? undefined : '这个范围内完整盘点不足两次'} onClick={() => setRange(k)}>{label}</button>; })}</div> : <span/>}
+              <TrendRangeControl selection={trend} points={w.points} today={data.today} hidden={amountsHidden}/>
               {link('wealth')}
             </div>
           </> : <p className="ui-sub">{w.points.length ? '—／尚无完整盘点：现有盘点均不完整，补全后显示净资产。' : '添加账户并完成盘点后，这里会显示金融净资产。'}</p>}

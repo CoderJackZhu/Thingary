@@ -100,7 +100,8 @@ function summary(): Summary {
     const s = view(stored);
     const sum = (side: string) => s.entries.filter(e => e.counted && e.side === side && known(e)).reduce((t, e) => t + BigInt(e.amount_cents!), 0n);
     const assets = sum('asset'), liabilities = sum('liability'), net = assets - liabilities, complete = !s.missing.length;
-    const p: Point = { snapshot_id: s.id, date: s.date, notes: s.notes, assets_cents: String(assets), liabilities_cents: String(liabilities), net_cents: String(net), complete, missing: s.missing.length, compared_to: null, scope_changed: false, change_cents: null, hpf_change_cents: null, change_rate_hundredths: null };
+    const balance = (kinds: string[]) => complete ? String(s.entries.filter(e => e.counted && e.side === 'asset' && kinds.includes(e.kind) && known(e)).reduce((t, e) => t + BigInt(e.amount_cents!), 0n)) : null;
+    const p: Point = { snapshot_id: s.id, date: s.date, notes: s.notes, assets_cents: String(assets), liabilities_cents: String(liabilities), net_cents: String(net), liquid_cents: balance(['cash']), invested_cents: balance(['investment', 'mixed', 'fund', 'bond', 'precious_metal']), complete, missing: s.missing.length, compared_to: null, scope_changed: false, change_cents: null, hpf_change_cents: null, change_rate_hundredths: null };
     if (complete) {
       if (last) {
         p.compared_to = last.s.date;

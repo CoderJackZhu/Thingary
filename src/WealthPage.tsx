@@ -1,13 +1,13 @@
 import { SavingsGoals } from './SavingsGoals';
 import { CheckinReminder } from './CheckinReminder';
 import { CheckinReminderAsk } from './CheckinReminderAsk';
-import { spacedLabels } from './chart-labels';
+import { DualLineChart } from './DualLineChart';
+import { TrendChange, TrendRangeControl, useTrendSelection } from './TrendRangeControl';
 import { accountVisible } from './wealth-display';
 import type { AccountView } from './wealth-display';
 import { SortHeader } from './SortHeader';
 import { sortRecords, moneySortValue, type ListSort } from './list-sort';
 import { HeaderSlot } from './HeaderSlot';
-import { changeLine } from './Sparkline';
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
@@ -176,16 +176,29 @@ function Overview({ accountScope, summary, accounts, hasAccounts, latest, lastCo
       <article><span>负债</span><strong>{money(shown.liabilities_cents)}</strong><em>{shown.complete ? '计入净资产的尚欠金额' : '计入净资产的账户，仅已知部分'}</em></article>
       <article><span>与上次比较</span><strong>{lastComplete?.change_cents ? changeText(lastComplete.change_cents) : '—'}</strong><em>{!lastComplete?.compared_to ? '至少两次完整盘点后显示' : lastComplete.scope_changed ? '有账户改变了计入设置，不直接比较' : `对比 ${lastComplete.compared_to}${lastComplete.change_rate_hundredths !== null ? ' · ' + rateText(lastComplete.change_rate_hundredths) : ''}`}</em>{comparedPoint && lastComplete && <button className="link-cell changes-link" onClick={() => onOpenChanges({ from: comparedPoint.snapshot_id, to: lastComplete.snapshot_id })}>看哪些账户带来变化 →</button>}</article>
     </div>
-    <article className="ui-card ui-content">
-      <div className="ui-section-head"><h3>净资产变化</h3><Info text="只连接完整盘点；虚线为不完整盘点。变化含存取、消费与估值，不等于投资收益。"/></div>
-      {summary.points.filter(p => p.complete).length < 2 ? <p className="muted">完整盘点少于两次，暂不显示趋势。</p> : <NetChart points={summary.points}/>}
-      <details className="trend-table"><summary>查看表格</summary><PointTable points={summary.points}/></details>
-    </article>
+    <WealthTrendCards summary={summary} today={today}/>
     <div className="stats-pair">
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>资产结构</h3><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入净资产的账户` : '尚无完整盘点'}</span></div><ShareBars rows={summary.structure} empty="没有计入的资产。"/></article>
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>计入净资产的负债</h3><Info text="按类型统计尚欠金额，不含标为不计入的负债。"/></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
     </div>
     <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div>{accountScope}{!accounts.length && <p className="muted">当前范围没有账户，可切换上方账户范围查看其他账户。</p>}<ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{!a.fields.counted?' · 不计入净资产':''}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?(a.fields.side==='liability'&&a.latest.amount_cents!=='0'?'−':'')+money(a.latest.amount_cents):'尚未盘点'}</span></li>)}</ul></article>
+  </>;
+}
+
+function WealthTrendCards({ summary, today }: { summary: Summary; today: string }) {
+  const trend = useTrendSelection(summary.generation, summary.points, today);
+  return <>
+    <article className="ui-card ui-content">
+      <div className="ui-section-head"><h3>净资产变化</h3><Info text="只连接完整盘点；虚线为不完整盘点。变化含存取、消费与估值，不等于投资收益。"/></div>
+      <TrendRangeControl selection={trend} points={summary.points} today={today}/>
+      <NetChart points={trend.points} generation={summary.generation}/>
+      <details className="trend-table"><summary>查看表格</summary><PointTable points={summary.points}/></details>
+    </article>
+    <article className="ui-card ui-content">
+      <div className="ui-section-head"><h3>流动资金与投资</h3><Info text="流动资金是计入净资产的现金与存款；投资是计入净资产的投资账户、混合投资、基金、债券和贵金属。公积金、个人养老金、保险、房产等不在这两条线里。变化含存取与估值，不等于收益。"/></div>
+      <p className="muted small">沿用上方时间范围 · 金融净资产<TrendChange points={trend.points}/></p>
+      <DualLineChart points={trend.points} kind="balances" generation={summary.generation}/>
+    </article>
   </>;
 }
 
@@ -206,37 +219,9 @@ function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (id: string)
   </tr>)}</tbody></table>;
 }
 
-const W = 640, H = 170, L = 64, B = 22, T = 12;
-const axis = (cents: number) => { const v = Math.abs(cents); const t = v >= 1_000_000 ? `¥${(v / 1_000_000).toFixed(v % 1_000_000 ? 1 : 0)}万` : `¥${Math.round(v / 100)}`; return cents < 0 ? '−' + t : t; };
-/**
- * Complete check-ins form the line on an axis fitted to them (not pinned to
- * zero, which would flatten real changes). An incomplete check-in has no
- * trustworthy total, so it is a dashed marker on its date, never a value.
- */
-export function NetChart({ points, label }: { points: Point[]; label?: string }) {
-  const [current,setCurrent]=useState<number|null>(null);
-  const svgRef=useRef<SVGSVGElement>(null), [plotWidth,setPlotWidth]=useState(0);
-  useEffect(()=>{const svg=svgRef.current;if(!svg)return;const observer=new ResizeObserver(()=>setPlotWidth(svg.getBoundingClientRect().width));observer.observe(svg);return()=>observer.disconnect()},[]);
-  const full = points.filter(p => p.complete), values = full.map(p => Number(p.net_cents));
-  const min = Math.min(...values), max = Math.max(...values), pad = (max - min) * 0.15 || Math.max(Math.abs(max) * 0.05, 10_000);
-  const span = max - min + 2 * pad, step = 10 ** Math.floor(Math.log10(span)), unit = [1, 2, 5, 10].map(n => n * step).find(n => span / n <= 4) ?? step * 10;
-  const bottom = Math.floor((min - pad) / unit) * unit, top = Math.ceil((max + pad) / unit) * unit;
-  const grid = Array.from({ length: Math.round((top - bottom) / unit) + 1 }, (_, i) => bottom + i * unit);
-  const t0 = Date.parse(points[0].date), t1 = Date.parse(points.at(-1)!.date), wide = t1 - t0 || 1;
-  const x = (d: string) => L + 12 + (W - L - 36) * (Date.parse(d) - t0) / wide, y = (v: number) => T + (H - T - B) * (1 - (v - bottom) / (top - bottom));
-  const scale = Math.min((plotWidth || W) / W, 170 / H);
-  const labels = spacedLabels(points, p => x(p.date) * scale, () => 62 * scale);
-  const shown = current===null?null:full[current];
-  // The SVG uses xMidYMid meet; account for its horizontal letterbox.
-  const plotScale=Math.min(plotWidth/W,170/H), plotLeft=(plotWidth-W*plotScale)/2, plotTop=(170-H*plotScale)/2;
-  return <><div className="net-chart" tabIndex={0} role="img" aria-label={label ?? `金融净资产趋势，共 ${full.length} 次完整盘点`} onFocus={()=>setCurrent(full.length-1)} onBlur={()=>setCurrent(null)} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setCurrent(null)}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setCurrent(n=>Math.max(0,Math.min(full.length-1,(n??full.length-1)+(e.key==='ArrowLeft'?-1:1))))}}}><svg ref={svgRef} className="trend-chart" onMouseMove={e=>{const svg=e.currentTarget,matrix=svg.getScreenCTM();if(!matrix)return;const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;const vx=point.matrixTransform(matrix.inverse()).x;let best=0;full.forEach((p,i)=>{if(Math.abs(x(p.date)-vx)<Math.abs(x(full[best].date)-vx))best=i});setCurrent(best)}} onMouseLeave={()=>setCurrent(null)} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={'净资产变化：' + points.map(p => p.complete ? `${p.date} ${signedMoney(p.net_cents)}` : `${p.date} 盘点不完整`).join('，')}>
-    {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className={v === 0 ? 'axis' : 'grid'}/><text x={L - 6} y={y(v) + 3} textAnchor="end">{axis(v)}</text></g>)}
-    {labels.map(p => <text key={p.date} x={x(p.date)} y={H - 6} textAnchor="middle">{p.date}</text>)}
-    {points.filter(p => !p.complete).map(p => <line key={p.snapshot_id} x1={x(p.date)} x2={x(p.date)} y1={T} y2={H - B} className="partial-mark"><title>{p.date}：缺 {p.missing} 个账户，总额未知，不画在曲线上</title></line>)}
-    {full.length > 1 && <polyline points={full.map(p => `${x(p.date)},${y(Number(p.net_cents))}`).join(' ')} className="trend-line"/>}
-    {shown&&<line x1={x(shown.date)} x2={x(shown.date)} y1={T} y2={H-B} className="partial-mark"/>}
-    {full.map((p,i) => <circle key={p.snapshot_id} cx={x(p.date)} cy={y(Number(p.net_cents))} r={i===current?5:3} className="trend-dot"/>)}
-  </svg>{shown&&<div className="ui-tip" style={{left:`clamp(100px, ${plotLeft+x(shown.date)*plotScale}px, calc(100% - 100px))`,top:`${plotTop+y(Number(shown.net_cents))*plotScale}px`}}>{shown.date}<b>{signedMoney(shown.net_cents)}</b><span>{changeLine(shown)}</span>{noteSummary(shown.notes)&&<span>备注：{noteSummary(shown.notes)}</span>}</div>}</div><span className="visually-hidden" aria-live="polite" aria-atomic="true">{shown?`${shown.date}，${signedMoney(shown.net_cents)}，${changeLine(shown)}`:''}</span></>;
+/** Shared with the overview hero, including keyboard browsing and unknown markers. */
+export function NetChart({ points, label, generation }: { points: Point[]; label?: string; generation?: string }) {
+  return <DualLineChart points={points} label={label} generation={generation} single={!!label}/>;
 }
 
 function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {

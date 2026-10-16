@@ -202,6 +202,11 @@ pub struct Point {
     pub assets_cents: String,
     pub liabilities_cents: String,
     pub net_cents: String,
+    /// Counted cash balance using entry-time kind/counting; unknown if incomplete.
+    pub liquid_cents: Option<String>,
+    /// Counted investment/mixed/fund/bond/precious-metal balance; unlike
+    /// market_change_cents this includes precious metals. Unknown if incomplete.
+    pub invested_cents: Option<String>,
     pub complete: bool,
     pub missing: usize,
     /// Earlier complete check-in this point is compared with.
@@ -1132,6 +1137,21 @@ impl Store {
             let (assets, liabilities) = net_of(&s)?;
             let net = assets - liabilities;
             let complete = s.missing.is_empty();
+            let balance = |kinds: &[&str]| -> Result<Option<String>> {
+                if !complete {
+                    return Ok(None);
+                }
+                Ok(Some(
+                    sum(s
+                        .entries
+                        .iter()
+                        .filter(|e| {
+                            e.counted && e.side == "asset" && kinds.contains(&e.kind.as_str())
+                        })
+                        .filter_map(|e| e.amount_cents.as_deref()?.parse::<i64>().ok()))?
+                    .to_string(),
+                ))
+            };
             let mut point = Point {
                 snapshot_id: s.id.clone(),
                 date: s.date.clone(),
@@ -1139,6 +1159,14 @@ impl Store {
                 assets_cents: assets.to_string(),
                 liabilities_cents: liabilities.to_string(),
                 net_cents: net.to_string(),
+                liquid_cents: balance(&["cash"])?,
+                invested_cents: balance(&[
+                    "investment",
+                    "mixed",
+                    "fund",
+                    "bond",
+                    "precious_metal",
+                ])?,
                 complete,
                 missing: s.missing.len(),
                 compared_to: None,
