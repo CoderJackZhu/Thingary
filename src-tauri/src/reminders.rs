@@ -348,7 +348,7 @@ impl Drop for NotificationApartment {
 #[cfg(windows)]
 fn notification_trace(_identifier: &str, _stage: &str) {
     #[cfg(feature = "fault-injection")]
-    if _identifier == "local.thingary.win.acceptance" {
+    if is_windows_acceptance_identity(_identifier) {
         // Only fictional acceptance emits API boundaries. In particular, this
         // leaves the last completed call visible when the OS terminates the
         // process with a native exception instead of returning an HRESULT.
@@ -520,7 +520,7 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
     let now = chrono::Utc::now();
     let now_ticks = filetime(now)?;
     #[cfg(feature = "fault-injection")]
-    let acceptance_deadlines = if identifier == "local.thingary.win.acceptance" {
+    let acceptance_deadlines = if is_windows_acceptance_identity(identifier) {
         match std::env::var("THINGARY_REMINDER_TEST_SECONDS") {
             Ok(seconds) => {
                 let seconds = seconds
@@ -656,26 +656,50 @@ fn windows_native(identifier: &str, json: &str, ask: bool) -> Result<()> {
     Ok(())
 }
 
+#[cfg(all(windows, feature = "fault-injection"))]
+fn is_windows_acceptance_identity(identifier: &str) -> bool {
+    const BASE: &str = "local.thingary.win.acceptance";
+    if identifier == BASE {
+        return true;
+    }
+    identifier
+        .strip_prefix(BASE)
+        .and_then(|s| s.strip_prefix('.'))
+        .is_some_and(|suffix| {
+            let first = suffix.as_bytes().first();
+            (1..=32).contains(&suffix.len())
+                && first.is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit())
+                && suffix
+                    .bytes()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+        })
+}
+
 /// A narrow isolated-identity driver for installed Windows acceptance builds.
 /// Ordinary builds expose neither this API nor the short-delay override.
 #[cfg(all(windows, feature = "fault-injection"))]
 pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<String> {
     use windows::{core::HSTRING, UI::Notifications::ToastNotificationManager};
-    const ID: &str = "local.thingary.win.acceptance";
+    let identity = std::env::var("THINGARY_WINDOWS_ACCEPTANCE_IDENTITY")
+        .unwrap_or_else(|_| "local.thingary.win.acceptance".to_owned());
+    if !is_windows_acceptance_identity(&identity) {
+        return Err(Error::new("REMINDER", "通知验收身份无效"));
+    }
+    let id = identity.as_str();
     const GROUP: &str = "thingary";
-    notification_trace(ID, &format!("acceptance action {action} begin"));
+    notification_trace(id, &format!("acceptance action {action} begin"));
     let fixture_tag = scheduled_key("thingary-windows-acceptance")?;
     match action {
-        "reconcile" => windows_native(ID, json, false)?,
-        "permission" => windows_native(ID, "[]", true)?,
-        "clear" => windows_native(ID, "[]", false)?,
+        "reconcile" => windows_native(id, json, false)?,
+        "permission" => windows_native(id, "[]", true)?,
+        "clear" => windows_native(id, "[]", false)?,
         "inspect" => {}
         _ => return Err(Error::new("REMINDER", "未知的通知验收动作")),
     }
-    NotificationApartment::ensure(ID)?;
-    let application_id = HSTRING::from(ID);
-    let (notifier, _) = windows_notifier(ID)?;
-    notification_trace(ID, "acceptance History begin");
+    NotificationApartment::ensure(id)?;
+    let application_id = HSTRING::from(id);
+    let (notifier, _) = windows_notifier(id)?;
+    notification_trace(id, "acceptance History begin");
     let history = ToastNotificationManager::History()
         .map_err(|error| notification_stage("acceptance History", error))?;
     if action == "clear" {
@@ -695,7 +719,7 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
         }
     }
     let mut items = Vec::new();
-    for item in windows_scheduled(ID, &notifier)? {
+    for item in windows_scheduled(id, &notifier)? {
         items.push(serde_json::json!({
             "id": item.Id().map_err(notification_error)?.to_string(),
             "tag": item.Tag().map_err(notification_error)?.to_string(),
@@ -708,7 +732,7 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
             "xml": item.Content().map_err(notification_error)?.GetXml().map_err(notification_error)?.to_string(),
         }));
     }
-    notification_trace(ID, "acceptance schedule inspected; GetHistoryWithId begin");
+    notification_trace(id, "acceptance schedule inspected; GetHistoryWithId begin");
     let mut delivered = Vec::new();
     let mut owned_history = Vec::new();
     for item in history
@@ -730,9 +754,9 @@ pub fn windows_notification_acceptance(action: &str, json: &str) -> Result<Strin
             owned_history.push(entry);
         }
     }
-    notification_trace(ID, "acceptance history inspected; COM objects drop next");
+    notification_trace(id, "acceptance history inspected; COM objects drop next");
     Ok(serde_json::json!({
-        "identifier": ID,
+        "identifier": id,
         "fixture_group": GROUP,
         "fixture_tag": fixture_tag,
         "observed_at": chrono::Utc::now().to_rfc3339(),
@@ -1228,7 +1252,11 @@ mod tests {
         let json = serde_json::to_string(&vec![fixture]).unwrap();
         let count = |result: String| {
             let value: serde_json::Value = serde_json::from_str(&result).unwrap();
-            assert_eq!(value["identifier"], "local.thingary.win.acceptance");
+            assert_eq!(
+                value["identifier"],
+                std::env::var("THINGARY_WINDOWS_ACCEPTANCE_IDENTITY")
+                    .unwrap_or_else(|_| "local.thingary.win.acceptance".to_owned())
+            );
             let owned: Vec<_> = value["scheduled"]
                 .as_array()
                 .unwrap()
@@ -1289,5 +1317,27 @@ mod tests {
             count(windows_notification_acceptance("clear", "[]").unwrap()),
             0
         );
+    }
+}
+
+#[cfg(all(test, windows, feature = "fault-injection"))]
+#[test]
+fn windows_acceptance_identity_rejects_nonisolated_and_malformed_ids() {
+    for id in [
+        "local.thingary.win.acceptance",
+        "local.thingary.win.acceptance.run-20261016a",
+    ] {
+        assert!(is_windows_acceptance_identity(id));
+    }
+    for id in [
+        "local.thingary.main",
+        "local.thingary.preview",
+        "local.thingary.win.acceptance.",
+        "local.thingary.win.acceptance.A",
+        "local.thingary.win.acceptance.a.b",
+        "local.thingary.win.acceptance.-a",
+        "local.thingary.win.acceptance.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ] {
+        assert!(!is_windows_acceptance_identity(id));
     }
 }

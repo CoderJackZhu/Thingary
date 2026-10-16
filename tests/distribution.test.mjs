@@ -72,3 +72,22 @@ test('空分布与单行分布不报错', () => {
   assert.deepEqual(sortByShare([], 'count'), []);
   assert.deepEqual(sortByShare([rows[0]], 'amount').map(r => r.name), ['相机']);
 });
+test('the same mixed-script category tie order survives different system collations', () => {
+  const mixed = [
+    { id: null, name: '未分类', count: 2, known_cents: '3000' },
+    { id: 'a', name: '甲', count: 2, known_cents: '3000' },
+    { id: 'A', name: '乙', count: 2, known_cents: '3000' },
+  ];
+  const original = String.prototype.localeCompare;
+  try {
+    for (const locale of ['zh-CN', 'en-US']) {
+      const collator = new Intl.Collator(locale);
+      String.prototype.localeCompare = function (other) { return collator.compare(String(this), other); };
+      for (const metric of ['count', 'amount']) {
+        assert.deepEqual(sortByShare(mixed, metric).map(row => row.id), ['A', 'a', null]);
+      }
+    }
+  } finally {
+    String.prototype.localeCompare = original;
+  }
+});
