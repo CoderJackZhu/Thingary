@@ -682,6 +682,10 @@ impl Worker {
                 crate::backup::publish_staged(task.take_staged()?, &destination)
             })?;
             if work.automatic {
+                crate::auto_backup::prune_after_publish(
+                    &crate::auto_backup::backup_dir(&state.real.root),
+                    &destination,
+                )?;
                 state.published = Some(PublishedBackup {
                     path: destination.clone(),
                     epoch: snapshot.epoch,
@@ -700,8 +704,6 @@ impl Worker {
                 settings.last_error = None;
                 let _ = settings.save(&state.real.root);
                 state.backup_failed_at = None;
-                let _ =
-                    crate::auto_backup::prune(&crate::auto_backup::backup_dir(&state.real.root));
                 if matches!(snapshot.mode, backup_security::Mode::Encrypted(_)) {
                     Self::record_first_backup(
                         &state.real.root,
