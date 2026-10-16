@@ -1,3 +1,4 @@
+import type { AccountGroup, GroupSave, GroupDelete, GroupReorder } from './account-groups';
 import { reviewFixtures } from './investment-review/fixtures';
 import type { InvestmentReviewRead } from './wealth';
 import nonblockingDemo from '../tests/fixtures/planning-basic/nonblocking-demo.json';
@@ -46,6 +47,14 @@ const shifted = (months: number, offset = 0) => {
 };
 let accounts: Account[] = demoFinance.accounts.map((a, position) => ({ id: 'w-' + a.key,
   fields: { name: a.name, institution: a.institution, side: a.side as 'asset' | 'liability', kind: a.kind, counted: a.counted, opened_on: shifted(6), closed_on: null, notes: '虚构样例', purchase_cents: 'purchase_cents' in a ? a.purchase_cents : null, purchased_on: 'purchased_on' in a ? a.purchased_on : null }, position, revision: 1, latest: null }));
+let accountGroups: AccountGroup[] = params.get('groups') === 'normal' ? [
+  { id: 'fictional-emergency', name: '虚构应急金', position: 0, revision: 1, accounts: 0 },
+  { id: 'fictional-long', name: '虚构长期投资', position: 1, revision: 1, accounts: 0 },
+  { id: 'fictional-empty', name: '虚构空分组', position: 2, revision: 1, accounts: 0 },
+] : [];
+if (accountGroups.length) accounts = accounts.map(a => ({ ...a, fields: { ...a.fields, group_id: a.fields.kind === 'cash' ? accountGroups[0].id : ['investment','mixed','fund','bond'].includes(a.fields.kind) ? accountGroups[1].id : null } }));
+const groupUnknownChecks = new Set<string>();
+const groupReceipts = new Map<string, { fingerprint: string; value: unknown }>();
 type Stored = { id: string; date: string; notes: string; revision: number; entries: Entry[] };
 const entry = (a: Account, yuan: number | null): Entry => ({ account_id: a.id, state: yuan === null ? 'missing' : 'entered', amount_cents: yuan === null ? null : String(yuan * 100), side: a.fields.side, kind: a.fields.kind, counted: a.fields.counted });
 let snapshots: Stored[] = demoFinance.snapshots.map((s, i) => ({ id: `w-snap-${i}`, date: shifted(s.months_ago), notes: '虚构盘点', revision: 1, entries: accounts.map((a, n) => entry(a, s.amounts_yuan[n])) }));
@@ -132,7 +141,7 @@ function summary(): Summary {
     const total = [...by.values()].reduce((a, b) => a + b, 0n);
     return [...by].map(([kind, v]) => ({ kind, amount_cents: String(v), share_hundredths: total > 0n ? hundredths(v, total) : null }));
   };
-  return { generation, points, structure_date: last?.s.date ?? null, structure: shares('asset'), liabilities: shares('liability') };
+  return { generation, points, structure_date: last?.s.date ?? null, structure_entries: last?.s.entries.map(e => ({ ...e })) ?? [], latest_entries: [...snapshots].sort((a,b) => a.date.localeCompare(b.date)).at(-1)?.entries.map(e => ({ ...e })) ?? [], structure: shares('asset'), liabilities: shares('liability') };
 }
 
 // Standalone expenses for the preview; item purchases come from the demo assets.
@@ -850,11 +859,44 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     }
     return null;
   }
-  if (!command.startsWith('wealth_')) return null;
+  if (!command.startsWith('wealth_') && !command.startsWith('account_group')) return null;
   if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: '虚构读取失败，用于验证错误状态。' };
   if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: '虚构盘点读取失败。' }; return { value: summary() }; }
+  if (command === 'account_groups_list') {
+    if (params.get('groups') === 'error') throw { message: '虚构分组读取失败，请重试' };
+    return { value: { generation, groups: accountGroups.map(g => ({ ...g, accounts: accounts.filter(a => a.fields.group_id === g.id).length })) } };
+  }
+  if (['account_group_save', 'account_group_delete', 'account_groups_reorder'].includes(command)) {
+    const input = args.input as GroupSave | GroupDelete | GroupReorder;
+    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已切换' };
+    const fingerprint = JSON.stringify([command, input]), oldReceipt = groupReceipts.get(input.request_id);
+    if (oldReceipt) { if (oldReceipt.fingerprint !== fingerprint) throw { code: 'REQUEST_CONFLICT', message: '请求标识已用于不同内容' }; return { value: oldReceipt.value }; }
+    if (params.get('state') === 'save-error') throw { message: '虚构分组保存失败，输入已保留' };
+    let value: unknown = null;
+    if (command === 'account_group_save') {
+      const request = input as GroupSave, name = request.name.trim(), old = accountGroups.find(g => g.id === request.id);
+      if (!name || [...name].length > 40 || /[\u0000-\u001f\u007f-\u009f]/.test(name)) throw { code: 'GROUP_NAME', message: '分组名称须为 1–40 字，不能含控制字符' };
+      if (accountGroups.some(g => g.name === name && g.id !== request.id)) throw { code: 'GROUP_NAME', message: '已有同名分组' };
+      if ((request.id !== null && !old) || (old?.revision ?? null) !== request.expected_revision) throw { code: 'REVISION_CONFLICT', message: '分组已变化，请重新读取' };
+      const next = { id: old?.id ?? crypto.randomUUID(), name, position: old?.position ?? (Math.max(-1, ...accountGroups.map(g => g.position)) + 1), revision: (old?.revision ?? 0) + 1, accounts: old ? accounts.filter(a => a.fields.group_id === old.id).length : 0 };
+      accountGroups = old ? accountGroups.map(g => g.id === old.id ? next : g) : [...accountGroups, next]; value = next;
+    } else if (command === 'account_group_delete') {
+      const request = input as GroupDelete, old = accountGroups.find(g => g.id === request.id), count = accounts.filter(a => a.fields.group_id === request.id).length;
+      if (!old || old.revision !== request.expected_revision || count !== request.expected_accounts) throw { code: 'REVISION_CONFLICT', message: '分组或关联账户已变化，请重新读取' };
+      accounts = accounts.map(a => a.fields.group_id === request.id ? { ...a, revision: a.revision + 1, fields: { ...a.fields, group_id: null } } : a);
+      accountGroups = accountGroups.filter(g => g.id !== request.id);
+    } else {
+      const request = input as GroupReorder;
+      if (new Set(request.ids).size !== request.ids.length || request.ids.length !== accountGroups.length || accountGroups.some(g => !request.ids.includes(g.id))) throw { code: 'GROUP_ORDER', message: '分组列表已变化，请重新读取后排序' };
+      accountGroups = request.ids.map((id, position) => { const g = accountGroups.find(g => g.id === id)!; return { ...g, position, revision: g.revision + 1 }; });
+    }
+    groupReceipts.set(input.request_id, { fingerprint, value }); receipts.set(input.request_id, 'account-groups');
+    if (params.get('group-write') === 'unknown') { groupUnknownChecks.add(input.request_id); throw { message: '虚构分组响应丢失，请核对结果' }; }
+    if (params.get('state') === 'unresolved') throw { message: '虚构分组响应丢失，请核对结果' };
+    return { value };
+  }
   if (command === 'wealth_accounts') return { value: accounts.map(withLatest) };
-  if (command === 'wealth_request_result') { if (params.get('state') === 'unresolved' || params.get('quick') === 'unknown') throw { message: '暂时无法核对。' }; return { value: receipts.get(String(args.request)) ?? null }; }
+  if (command === 'wealth_request_result') { const request = String(args.request); if (receipts.get(request) === 'account-groups' && groupUnknownChecks.has(request)) { groupUnknownChecks.delete(request); throw { message: '虚构首次分组回执查询暂不可用，原请求保留，请再次核对' }; } if (params.get('state') === 'unresolved' || params.get('quick') === 'unknown') throw { message: '暂时无法核对。' }; return { value: receipts.get(String(args.request)) ?? null }; }
   // 只读详情：按稳定 ID 读取一次盘点（§5.2），浏览不写资料。
   if (command === 'wealth_snapshot') { if (planFail('snapshot')) throw { message: '虚构盘点明细读取失败，用于验证首页摘要的局部降级。' }; const found = snapshots.find(s => s.id === String(args.id)); return { value: found ? view(found) : null }; }
   if (command === 'wealth_snapshot_draft') {
@@ -940,6 +982,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const input = args.input as AccountSave;
     if (receipts.has(input.request_id)) return { value: withLatest(accounts.find(a => a.id === receipts.get(input.request_id))!) };
     if (input.fields.kind === 'property' && input.fields.counted) throw { code: 'PROPERTY_COUNTED', message: '房产仅单独记录估值，不能计入金融净资产' };
+    if (input.fields.group_id && !accountGroups.some(g => g.id === input.fields.group_id)) throw { code: 'GROUP_NOT_FOUND', message: '分组已删除，请重新选择' };
     const id = input.id ?? crypto.randomUUID(), old = accounts.find(a => a.id === id);
     const f = input.fields;
     if (old && !['property','vehicle'].includes(f.kind) && (old.fields.purchase_cents != null || old.fields.purchased_on != null)) throw { code: 'ACCOUNT_PURCHASE', message: '请先清空并保存购入价和购入日期，再更改类型' };

@@ -1850,6 +1850,7 @@ mod tests {
                     notes: String::new(),
                     purchase_cents: None,
                     purchased_on: None,
+                    group_id: None,
                 },
             },
             "2026-09-28",

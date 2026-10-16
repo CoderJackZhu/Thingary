@@ -90,6 +90,7 @@ fn main() {
                         notes: "仅供隔离验收，不是真实资料".into(),
                         purchase_cents: None,
                         purchased_on: None,
+                        group_id: None,
                     },
                 },
                 TODAY,

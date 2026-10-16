@@ -34,6 +34,7 @@ fn open(s: &mut Store, name: &str, kind: &str, opened: &str) -> Account {
                 notes: String::new(),
                 purchase_cents: None,
                 purchased_on: None,
+                group_id: None,
             },
         },
         TODAY,
@@ -1120,6 +1121,7 @@ fn transaction_extraction_keeps_generation_uuid_fingerprint_receipt_and_faults()
             notes: String::new(),
             purchase_cents: None,
             purchased_on: None,
+            group_id: None,
         },
     };
     let mut bad = input.clone();

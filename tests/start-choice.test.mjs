@@ -74,9 +74,9 @@ test('storage failures allow primary actions and hide the card for this session'
 });
 test('empty accounts put the existing data-management import before manual creation', () => {
   const calls = [];
-  const context = { module: { exports: {} }, exports: {}, require: () => jsx };
+  const context = { module: { exports: {} }, exports: {}, require: () => jsx, useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}], recallGroupViews: () => ({ structure: 'kind' }), accountGroupTotals: () => [] };
   vm.runInNewContext(compileFunction('WealthPage.tsx', 'Overview'), context);
-  const tree = context.module.exports({ hasAccounts: false, onFinancialImport: () => calls.push('import'), onNewAccount: () => calls.push('manual') });
+  const tree = context.module.exports({ summary: { generation: 'fictional-generation' }, groups: [], allAccounts: [], hasAccounts: false, onFinancialImport: () => calls.push('import'), onNewAccount: () => calls.push('manual') });
   const buttons = all(tree).filter(n => n.type === 'button'); assert.deepEqual(buttons.map(text), ['导入已有的资产表格', '手动添加第一个账户']);
   buttons[0].props.onClick(); buttons[1].props.onClick(); assert.deepEqual(calls, ['import', 'manual']);
   const main = ts.createSourceFile('main.tsx', readFileSync(new URL('../src/main.tsx', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

@@ -27,6 +27,7 @@ fn account(s: &mut Store, name: &str, kind: &str, counted: bool) -> Account {
                 notes: String::new(),
                 purchase_cents: None,
                 purchased_on: None,
+                group_id: None,
             },
         },
         TODAY,
