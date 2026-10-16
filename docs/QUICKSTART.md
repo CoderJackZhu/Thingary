@@ -62,7 +62,7 @@
 
 ## 已知限制
 
-- **平台**：Mac 在 Apple Silicon、macOS 27 验证；Intel 与 macOS 14 尚未实机验证。Windows 0.0.7 为未签名候选版，尚未公开发布，首次运行可能出现 SmartScreen 提示。
+- **平台**：Mac 在 Apple Silicon、macOS 27 验证；Intel 与 macOS 14 尚未实机验证。Windows 0.0.7 为未签名候选版，尚未公开发布，首次运行可能出现 SmartScreen 提示（点「更多信息 › 仍要运行」）；若 Windows 11 开启了「智能应用控制」，未签名安装包可能被直接拦截且没有放行按钮，请见[Windows 安装](USER_GUIDE.md#windows-install)。
 - **未完整验证**：Mac 的通知送达、VoiceOver 与完整键盘路径、系统显示缩放；Windows 的无 WebView2 机器、Windows 10、多屏和 100%／125% 缩放、讲述人与输入法。
 - **恢复**：恢复页是「选择备份文件＋粘贴恢复密钥」，没有直接选密钥文件的入口。
 - **加密范围**：只加密导出的备份文件；主资料库、图片和恢复前保护副本未加密。
