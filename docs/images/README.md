@@ -10,7 +10,7 @@
 | `wealth-light.jpg` | 账户与盘点概览 |
 | `planning-goals.jpg` | 目标页：三个问题与当前结论 |
 | `savings-goals.jpg` | 总览中的存钱目标卡片 |
-| `finance-review.jpg` | 财务复盘 › 本期复盘 |
+| `finance-review.jpg` | 财务复盘 › 本期复盘；区间回顾改名后（`d4cd0ae`）重拍，页签显示「区间回顾」，身份 `local.thingary.shots.s20261017`，1× 捕获，同样 1440×968 |
 | `annual-review.jpg` | 财务复盘 › 区间回顾，默认近 12 个月；三次稀疏盘点，标题显示真实起止日期，存钱目标显示当前进度 |
 | `backup-security.jpg` | 设置 › 数据管理：备份安全（默认未加密）与自动备份 |
 | `start-choice.jpg` | 全新空个人库的起步卡片 |
