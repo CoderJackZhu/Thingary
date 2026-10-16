@@ -2,6 +2,7 @@
 [CmdletBinding()]
 param(
   [string]$Installer,
+  [string]$Identity = 'local.thingary.win.acceptance',
   [string]$ArtifactRoot = '.local/windows-native-acceptance',
   [string]$FixtureArchive,
   [ValidateSet('', 'inspect', 'resize', 'close')][string]$WindowOnly = '',
@@ -12,7 +13,10 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 if ($env:OS -ne 'Windows_NT') { throw 'Installed native acceptance requires Windows.' }
-$Identity = 'local.thingary.win.acceptance'
+if ($Identity -cnotmatch '^local\.thingary\.win\.acceptance(?:\.[a-z0-9][a-z0-9-]{0,31})?$') { throw 'Invalid isolated acceptance identity.' }
+$Suffix = $Identity.Substring('local.thingary.win.acceptance'.Length)
+$ProductName = 'Thingary Windows Acceptance' + $(if ($Suffix) { ' ' + $Suffix.Substring(1) } else { '' })
+$env:THINGARY_WINDOWS_ACCEPTANCE_IDENTITY = $Identity
 $ExpectedWindowTitle = '物谱 · Windows 验收'
 Add-Type -TypeDefinition @'
 using System;
@@ -170,7 +174,7 @@ function Stop-Acceptance {
   $script:AppProcess=$null
 }
 function UI([string]$Mode, [string]$Label='result') {
-  Run-Tool 'node' @('scripts/windows-native-ui.mjs','--mode',$Mode,'--output',$Output,'--pid',"$($AppProcess.Id)",'--label',$Label,'--notification-driver',"$NotificationDriver") "ui-$Mode-$Label.log"
+  Run-Tool 'node' @('scripts/windows-native-ui.mjs','--identity',$Identity,'--mode',$Mode,'--output',$Output,'--pid',"$($AppProcess.Id)",'--label',$Label,'--notification-driver',"$NotificationDriver") "ui-$Mode-$Label.log"
   $result=Get-Content (Join-Path $Output "ui-$Mode-$Label.json") -Raw | ConvertFrom-Json
   $Summary.nativeUI+=@{ mode=$Mode; label=$Label; status=$result.status; runtime=$result.runtime; verified=$result.verified; unverified=$result.unverified; screenshots=$result.screenshots }
 }
@@ -180,7 +184,7 @@ function Install-Acceptance {
   $startmenu=Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
   $shell=New-Object -ComObject WScript.Shell
   $namespace=New-Object -ComObject Shell.Application
-  $matches=@(Get-ChildItem -LiteralPath $startmenu -Recurse -Filter '*.lnk' | Where-Object { $_.BaseName -eq 'Thingary Windows Acceptance' })
+  $matches=@(Get-ChildItem -LiteralPath $startmenu -Recurse -Filter '*.lnk' | Where-Object { $_.BaseName -ceq $ProductName })
   if ($matches.Count -ne 1) { throw "Expected one isolated Start Menu shortcut; got $($matches.Count)" }
   $shortcut=$shell.CreateShortcut($matches[0].FullName)
   $item=$namespace.NameSpace($matches[0].DirectoryName).ParseName($matches[0].Name)
@@ -259,12 +263,12 @@ try {
   $Summary.node=(& node --version).Trim(); Assert-Exit 'node'
   if ([int]($Summary.node -replace '^v(\d+).*','$1') -lt 22) { throw 'Node 22 or newer required.' }
   if (-not $Installer) {
-    $candidates=@(Get-ChildItem 'src-tauri/target/x86_64-pc-windows-msvc/debug/bundle/nsis' -Filter '*.exe' | Where-Object { $_.Name -like '*Acceptance*' })
+    $candidates=@(Get-ChildItem 'src-tauri/target/x86_64-pc-windows-msvc/debug/bundle/nsis' -Filter '*.exe' | Where-Object { $_.Name.StartsWith($ProductName + '_', [StringComparison]::Ordinal) })
     if ($candidates.Count -ne 1) { throw "Expected one debug acceptance NSIS installer; got $($candidates.Count)" }
     $Installer=$candidates[0].FullName
   }
   $Installer=[IO.Path]::GetFullPath($Installer)
-  if ($Installer -notlike '*Acceptance*' -or $Installer -notlike '*debug*bundle*nsis*') { throw 'Pass the isolated debug acceptance NSIS installer.' }
+  if (-not [IO.Path]::GetFileName($Installer).StartsWith($ProductName + '_', [StringComparison]::Ordinal) -or $Installer -notlike '*debug*bundle*nsis*') { throw 'Pass the isolated debug acceptance NSIS installer.' }
   $fixture=Join-Path $Output 'fixture'
   if ($FixtureArchive) {
     $FixtureArchive=[IO.Path]::GetFullPath($FixtureArchive)

@@ -7,11 +7,13 @@ import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { acceptanceProfile, defaultAcceptanceIdentity } from './windows-acceptance-identity.mjs';
 const option = (n, d) => {
   const i = process.argv.indexOf(n);
   return i < 0 ? d : process.argv[i + 1];
 };
 const mode = option("--mode", "smoke"), output = resolve(option("--output", ".local/windows-native-acceptance")), pid = Number(option("--pid", "0"));
+const identity = acceptanceProfile(option("--identity", defaultAcceptanceIdentity)).identity;
 assert.equal(process.platform, "win32");
 assert.ok(pid > 0);
 mkdirSync(output, { recursive: true });
@@ -285,7 +287,7 @@ try {
     assert.ok(driver.endsWith("windows_notifications.exe"));
     const inspect = () => {
       const state = JSON.parse(execFileSync(driver, ["inspect"], { encoding: "utf8", timeout: 15000 }));
-      assert.equal(state.identifier, "local.thingary.win.acceptance");
+      assert.equal(state.identifier, identity);
       return state;
     };
     const saved = await js(`(async()=>{

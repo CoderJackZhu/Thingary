@@ -268,7 +268,17 @@ node scripts/verify-windows-package.mjs --acceptance
 pwsh -NoProfile -File scripts/windows-native-acceptance.ps1
 ```
 
-构建前需先 `npm ci` 和 `cargo fetch --locked --manifest-path src-tauri/Cargo.toml`，供离线许可收集。验收脚本要求验收身份的 Local／Roaming 目录不存在，输出也必须是新目录；不自动清除已有资料，重跑请先保全本次虚构证据并按清单重新准备。验收配置使用 debug／fault-injection，只在 loopback 开启 CDP 9227，供脚本读取安装后的 WebView；这不是正式包，不可用于个人资料或作为公开安装包。Windows 系统通知须使用安装后匹配 AUMID 的包，不能用 `tauri dev` 证明有效。
+构建前需先 `npm ci` 和 `cargo fetch --locked --manifest-path src-tauri/Cargo.toml`，供离线许可收集。验收脚本要求验收身份的 Local／Roaming 目录不存在，输出也必须是新目录；不自动清除已有资料。重跑使用新的验收身份及输出目录，保全原有虚构证据与资料。验收配置使用 debug／fault-injection，只在 loopback 开启 CDP 9227，供脚本读取安装后的 WebView；这不是正式包，不可用于个人资料或作为公开安装包。Windows 系统通知须使用安装后匹配 AUMID 的包，不能用 `tauri dev` 证明有效。
+
+若默认身份已有资料，三步使用同一个新身份（后缀 1–32 位小写字母、数字或连字符，首位须为字母或数字）：
+
+```sh
+npm run build:win:acceptance -- --identity local.thingary.win.acceptance.run-20261016a
+node scripts/verify-windows-package.mjs --acceptance --identity local.thingary.win.acceptance.run-20261016a
+pwsh -NoProfile -File scripts/windows-native-acceptance.ps1 -Identity local.thingary.win.acceptance.run-20261016a -ArtifactRoot .local/windows-native-acceptance-run-20261016a
+```
+
+后缀同步区分安装名称、开始菜单快捷方式、通知 AUMID、Local／Roaming 与静态核验目录；脚本仍拒绝已有资料及输出。CDP 端口保持 9227，同一时间只运行一个验收实例。通知诊断只接受这一隔离命名空间，仅 fault-injection 构建提供，不触及其他身份的通知。
 
 正式候选包由维护者在 Mac 运行 `npm run release`、Windows 运行 `npm run release:win`；版本、签名、公证、支持平台和公开附件按[发布流程](RELEASING.md)核验，不由源码检查推定。
 

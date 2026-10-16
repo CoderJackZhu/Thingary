@@ -4,7 +4,7 @@
 
 ## 当前范围
 
-源码版本为 **0.0.7 候选**，目标 Windows 10 1809+／Windows 11 x64，尚无公开 Windows Release。Mac 公开版仍为 0.0.6；Windows 接入不改变 schema 40、`.thingary` 格式、整数分、未知值、稳定 ID 或业务导航。
+源码版本为 **0.0.7 候选**，目标 Windows 10 1809+／Windows 11 x64，尚无公开 Windows Release。Mac 公开版仍为 0.0.6；Windows 接入基线为 schema 40；当前候选的账户类型与目标迁移已至 schema 42。`.thingary` 容器格式、整数分、未知值、稳定 ID 与业务导航保持既定语义。
 
 检查结果统一维护在[开发说明](DEVELOPMENT.md#windows-validation)。源码接入与 Mac 自动检查不代表 Windows 原生运行、可见通知、人工安装与文件对话框、微软拼音、讲述人、Windows 10 或真实 x64 通过；每次按实际结果登记，不从脚本存在推定完成。
 
@@ -15,7 +15,7 @@
 1. 检查分支、完整源码 SHA、工作树与候选版本。所有数据和图片均为虚构，不使用个人档案或真实备份，**不得打开或写入 `local.thingary.main`**。
 2. 在 Windows 准备 Node.js 22、Rust stable MSVC x64、C++ Build Tools／Windows SDK、WebView2 与 PowerShell 7。安装锁定依赖并准备 Cargo 缓存，许可收集必须能离线完成。
 3. 使用 `npm run build:win:acceptance` 构建 `local.thingary.win.acceptance` 的 debug NSIS。其标题为“物谱 · Windows 验收”，带 fault-injection 和仅 loopback 的 CDP 9227；只用于本次虚构验收，不是普通安装包。
-4. 核对 `%LOCALAPPDATA%\local.thingary.win.acceptance`、`%APPDATA%\local.thingary.win.acceptance` 均未存在。若已有结果先保全，不让脚本删除或覆盖它们；换干净用户／环境或在确认仅为本次虚构数据后另行准备。
+4. 核对 `%LOCALAPPDATA%\local.thingary.win.acceptance`、`%APPDATA%\local.thingary.win.acceptance` 均未存在。若已有结果先保全，不让脚本删除或覆盖它们；按开发说明给构建、静态核验和完整脚本传入同一新身份后缀，并使用新的输出目录；不清除旧资料。
 5. 安装后核对开始菜单 `Thingary Windows Acceptance` 快捷方式、AUMID、安装目录 `许可/BUILD_INFO.json` 的身份／源码 SHA／版本／许可散列一致，才启动。正式身份 release 候选包只构建与静态核验。
 
 ## 自动工程与包核验
