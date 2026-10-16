@@ -74,7 +74,7 @@ struct BackupWork {
 }
 enum BackupStart {
     Early(TickOutcome),
-    Ready(BackupWork),
+    Ready(Box<BackupWork>),
 }
 struct ExtraCopyGuard(Arc<AtomicUsize>);
 impl Drop for ExtraCopyGuard {
@@ -825,18 +825,18 @@ impl Worker {
             }
             let encrypted = matches!(snapshot.mode, backup_security::Mode::Encrypted(_));
             let destination = dir.join(crate::auto_backup::unique_name(&policy.today, encrypted));
-            Ok(BackupStart::Ready(BackupWork {
+            Ok(BackupStart::Ready(Box::new(BackupWork {
                 running,
                 prepared,
                 snapshot,
                 destination,
                 automatic: true,
                 changes,
-            }))
+            })))
         })?;
         let work = match started {
             BackupStart::Early(outcome) => return Ok(outcome),
-            BackupStart::Ready(work) => work,
+            BackupStart::Ready(work) => *work,
         };
         let epoch = work.snapshot.epoch.clone();
         match self.finish_archive(work) {
