@@ -1,11 +1,12 @@
 # 物谱文档
 
-使用软件请从[使用指南](USER_GUIDE.md#download)开始。主分支文档描述当前源码；公开安装包的功能与验收范围以对应[版本说明](../CHANGELOG.md)为准，不由设计批准、源码接入或本机安装推定。
+使用软件请先看一页的[快速上手](QUICKSTART.md)；需要细节时查[完整使用指南](USER_GUIDE.md#download)。主分支文档描述当前源码；公开安装包的功能与验收范围以对应[版本说明](../CHANGELOG.md)为准，不由设计批准、源码接入或本机安装推定。
 
 ## 使用软件
 
 | 你要找的内容 | 入口 |
 |---|---|
+| 十分钟上手 | [快速上手](QUICKSTART.md) |
 | 下载、安装、首次打开 | [安装步骤](USER_GUIDE.md#download) · [GitHub Releases](https://github.com/CoderJackZhu/Thingary/releases) |
 | 物品档案与首次账户盘点 | [第一件物品](USER_GUIDE.md#first-record) · [第一次盘点](USER_GUIDE.md#first-snapshot) |
 | 记录收入、支出与资金流动 | [收支记录与财务复盘](USER_GUIDE.md#finance-review) |
@@ -31,7 +32,7 @@
 
 ## 当前阶段
 
-当前候选源码新增[账户类型与存钱目标](USER_GUIDE.md#savings-goals)、[年度回顾](USER_GUIDE.md#annual-review)，资料结构升至 schema 42。[加密备份](USER_GUIDE.md#backup)也已集成，当前候选待 review 与最终统一验收；开发验证及 Windows 等未验边界见开发说明，不代表已公开发布或界面冻结。
+当前候选源码新增[账户类型与存钱目标](USER_GUIDE.md#savings-goals)、[年度回顾](USER_GUIDE.md#annual-review)与[加密备份](USER_GUIDE.md#backup)，资料结构升至 schema 42。界面已于 2026-10-16 冻结，此后只修缺陷；未完整验证的项目见[已知限制](QUICKSTART.md#limits)，开发验证见开发说明，尚未公开发布。
 
 当前源码的财富入口为账户与盘点、收支记录、财务复盘；物品状态收在列表工具栏；规划以目标为单入口，页内分为目标、测算详情与试算。首次使用可从物品档案或账户盘点开始。五步设置（净投入可跳过）、明确净投入、资金／费用核对、实际发生接续、收入分类、投资区间核对、假设确认与资金流动已接入。当前报告是固定快照的只读预览，默认隐私、可复制摘要；不含基准／比较或原生 PDF。当前验证只维护在[开发说明](DEVELOPMENT.md#finance-workspace-validation)、[报告验证](DEVELOPMENT.md#current-report-validation)与[规划核心接入验收](DEVELOPMENT.md#planning-engine-validation)。
 
