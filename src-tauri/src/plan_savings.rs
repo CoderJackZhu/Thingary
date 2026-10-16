@@ -584,6 +584,8 @@ mod tests {
             assets_cents: "0".into(),
             liabilities_cents: "0".into(),
             net_cents: "0".into(),
+            liquid_cents: Some("0".into()),
+            invested_cents: Some("0".into()),
             complete: true,
             missing: 0,
             compared_to: prev.map(Into::into),

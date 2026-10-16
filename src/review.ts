@@ -22,7 +22,7 @@ export const overviewView = (value: string | null) => value === 'physical' ? 'ph
 export function latestComplete(points: Point[]) { return points.filter(p => p.complete).at(-1); }
 
 /** 净资产曲线的时间范围：只裁剪显示的盘点点，大数字、变化额与结构表始终取最近完整盘点。 */
-export const trendRanges = [['6m', '近 6 个月', 6], ['1y', '近 1 年', 12], ['all', '全部', 0]] as const;
+export const trendRanges = [['30d', '近 30 天', 0], ['6m', '近 6 个月', 6], ['1y', '近 1 年', 12], ['ytd', '今年以来', 0], ['all', '全部', 0], ['custom', '自定义', 0]] as const;
 export type TrendRange = typeof trendRanges[number][0];
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 /** `today` 往前推 N 个月的自然日；目标月没有该日（如 8/31 → 2/28）取当月最后一天，不顺延到下月。 */
@@ -31,19 +31,46 @@ export function monthsBefore(today: string, months: number) {
   const ty = Math.floor(index / 12), tm = index % 12 + 1;
   return `${String(ty).padStart(4, '0')}-${String(tm).padStart(2, '0')}-${String(Math.min(d, daysIn(ty, tm))).padStart(2, '0')}`;
 }
-export function rangePoints(points: Point[], range: TrendRange, today: string) {
-  const months = trendRanges.find(r => r[0] === range)![2];
-  return months === 0 ? points : points.filter(p => p.date >= monthsBefore(today, months));
+export type CustomTrendRange = { from: string; to: string };
+export function customRangeError(custom: CustomTrendRange, today: string): string | null {
+  const valid = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && +v.slice(0, 4) > 0 && Number(v.slice(5, 7)) >= 1 && Number(v.slice(5, 7)) <= 12 && +v.slice(8) >= 1 && +v.slice(8) <= daysIn(+v.slice(0, 4), +v.slice(5, 7));
+  if (!valid(custom.from) || !valid(custom.to)) return '请填写有效的起止日期（YYYY-MM-DD）。';
+  if (custom.from > custom.to) return '开始日期不能晚于结束日期。';
+  if (custom.to > today) return '结束日期不能晚于今天。';
+  return null;
 }
-/** 范围内至少两次完整盘点才画得出走势；否则该范围置灰，不显示空图。 */
-export const rangeUsable = (points: Point[], range: TrendRange, today: string) => rangePoints(points, range, today).filter(p => p.complete).length >= 2;
-
-/** 曲线时间范围的同库页面记忆：跳去规划等页面再回总览时保留选择；只在当前会话与当前资料库内有效，
- *  切库／恢复由组件按 generation 重挂载自然清空，不持久化成跨库缓存。 */
-let trendRangeMemory: { generation: string; range: TrendRange } | null = null;
-export const recallTrendRange = (generation: string): TrendRange => (trendRangeMemory && trendRangeMemory.generation === generation ? trendRangeMemory.range : 'all');
+export function rangePoints(points: Point[], range: TrendRange, today: string, custom?: CustomTrendRange) {
+  if (range === 'all') return points;
+  if (range === 'custom') return custom && !customRangeError(custom, today) ? points.filter(p => p.date >= custom.from && p.date <= custom.to) : [];
+  // Today minus 30 natural days, inclusive: 31 calendar days including today.
+  const before = new Date(today + 'T00:00:00Z'); before.setUTCDate(before.getUTCDate() - 30);
+  const from = range === '30d' ? before.toISOString().slice(0, 10) : range === 'ytd' ? today.slice(0, 4) + '-01-01' : monthsBefore(today, range === '6m' ? 6 : 12);
+  return points.filter(p => p.date >= from && p.date <= today);
+}
+/** A range needs at least two complete check-ins; unknown points never become zero. */
+export const rangeUsable = (points: Point[], range: TrendRange, today: string, custom?: CustomTrendRange) => rangePoints(points, range, today, custom).filter(p => p.complete).length >= 2;
+export type TrendSelection = { range: TrendRange; custom?: CustomTrendRange };
+let trendRangeMemory: { generation: string; selection: TrendSelection; legends: Record<string, [boolean, boolean]> } | null = null;
+const memory = (generation: string) => {
+  if (trendRangeMemory?.generation !== generation) trendRangeMemory = { generation, selection: { range: 'all' }, legends: {} };
+  return trendRangeMemory!;
+};
+export const recallTrendSelection = (generation: string): TrendSelection => structuredClone(memory(generation).selection);
+export const recallTrendRange = (generation: string): TrendRange => recallTrendSelection(generation).range;
 export const clearTrendRange = (): void => { trendRangeMemory = null; };
-export const rememberTrendRange = (generation: string, range: TrendRange): void => { trendRangeMemory = { generation, range }; };
+export const rememberTrendRange = (generation: string, range: TrendRange, custom?: CustomTrendRange): void => { memory(generation).selection = { range, ...(custom ? { custom: { ...custom } } : {}) }; };
+export const recallTrendLegend = (generation: string, kind: string): [boolean, boolean] => [...(memory(generation).legends[kind] ?? [true, true])];
+export const rememberTrendLegend = (generation: string, kind: string, visible: [boolean, boolean]): void => { memory(generation).legends[kind] = [...visible]; };
+export type PeriodChange = { status: 'insufficient' } | { status: 'scope_changed' } | { status: 'ready'; from: string; to: string; cents: string; rate_hundredths: number | null };
+/** The first point's scope_changed refers outside the selected range. */
+export function periodChange(points: Point[]): PeriodChange {
+  const full = points.filter(p => p.complete), first = full[0], last = full.at(-1);
+  if (full.length < 2 || !last) return { status: 'insufficient' };
+  if (points.some(p => p.date > first.date && p.date <= last.date && p.scope_changed)) return { status: 'scope_changed' };
+  const start = BigInt(first.net_cents), delta = BigInt(last.net_cents) - start;
+  const rate = start > 0n ? Number((delta * 20000n / start + (delta >= 0n ? 1n : -1n)) / 2n) : null;
+  return { status: 'ready', from: first.date, to: last.date, cents: String(delta), rate_hundredths: rate };
+}
 
 /** 总览资产结构的“较上次变化”只比最近一次完整盘点与它的上一次完整盘点（账户计入范围变化时不可比）。 */
 export function structureCompareRange(points: Point[]): { from: string; to: string } | null {

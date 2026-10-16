@@ -1,22 +1,24 @@
+import { DualLineChart } from './DualLineChart';
 import { spacedLabels } from './chart-labels';
 import { useEffect, useRef, useState } from 'react';
 import type { Point } from './wealth';
-import { changeText, rateText, signedMoney } from './wealth';
+import { signedMoney } from './wealth';
 
 // U16-D3/D4（规范 4.5）：总览净资产卡里的小折线。只连完整盘点，不完整盘点画虚线竖标；
 // 不画纵轴。悬停或聚焦后方向键浏览，浮层即时显示日期、净资产与较上次变化。
 const W = 600, PAD = 8;
 const day = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)) / 86400000;
 
-export function changeLine(p: Point) {
-  if (!p.compared_to) return '第一份完整盘点';
-  if (p.change_cents === null) return '账户范围变化，暂不可比';
-  return `较上次 ${changeText(p.change_cents)}${p.change_rate_hundredths === null ? '' : `（${rateText(p.change_rate_hundredths)}）`}`;
-}
+export { changeLine } from './chart-change';
+import { changeLine } from './chart-change';
 
 /** 默认是总览卡里的小折线；hero 是总览顶部的满宽头图，数据、悬停与键盘操作完全一样，只是更高、标签更疏。
  *  标签密度跟随实际渲染宽度：双列较窄时至多约 6 个月份标签，一列更宽时可至多约 8 个；宽度变化只影响标签，不删数据点。 */
-export function Sparkline({ points, hero = false }: { points: Point[]; hero?: boolean }) {
+export function Sparkline({ points, hero = false, generation, hideAmounts = false }: { points: Point[]; hero?: boolean; generation?: string; hideAmounts?: boolean }) {
+  return hero ? <DualLineChart points={points} generation={generation} hideAmounts={hideAmounts}/> : <SmallSparkline points={points}/>;
+}
+function SmallSparkline({ points }: { points: Point[] }) {
+  const hero = false;
   const H = hero ? 190 : 78;
   const full = points.filter(p => p.complete);
   const [cur, setCur] = useState<number | null>(null);
