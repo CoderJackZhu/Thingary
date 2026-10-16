@@ -100,6 +100,7 @@ fn instructions() -> Vec<Vec<String>> {
         vec!["填写规则", "编号、日期、金额按文本保存；金额单位元、最多两位小数；日期 YYYY-MM-DD；空白表示未知，0 表示明确零。不要填写公式。"],
         vec!["金额分析", "金额列是精确十进制文本；计算时可在副本中转换为数值。"],
         vec!["账户字段", "kind：cash/investment/mixed/fund/bond/housing_fund/other_asset/property/pension/insurance/precious_metal/receivable/vehicle/credit_card/loan/other_liability；counted：true/false；property 必须为 false。"],
+        vec!["外币账户", "账户币种缺省为 CNY；原币金额按币种小数位填写，汇率为每单位原币兑换人民币、最多6位小数。完整盘点可只填原币和汇率，已填人民币金额须相符；未知不补零。"],
         vec!["固定资产", "购入价、购入日期为可选列，仅房产和车辆可填；购入价单位元，空白表示未知，0 是明确零，不参与净资产或规划计算。"],
         vec!["账户日期", "enabled_from 为启用日；disabled_from 为停用生效日（当日不再盘点）。"],
         vec!["盘点字段", "snapshot_key 同一次盘点相同；account_key 引用账户表；amount 负债也填正数；kind_at_date/counted_at_date 可留空采用当前类型。"],
@@ -529,6 +530,7 @@ impl Store {
                     })
                     .transpose()?
                     .unwrap_or_default(),
+                a.fields.currency,
             ]);
         }
         sheets.push(("账户", accounts));
@@ -539,7 +541,7 @@ impl Store {
                 .map(|s| s.to_string())
                 .collect(),
         ];
-        let mut stmt=self.conn()?.prepare("SELECT s.id,s.date,e.account_id,e.amount_cents,s.notes,e.kind,e.counted FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE s.deleted_at IS NULL ORDER BY s.date,s.id,e.account_id")?;
+        let mut stmt=self.conn()?.prepare("SELECT s.id,s.date,e.account_id,e.amount_cents,s.notes,e.kind,e.counted,a.currency,e.original_minor,e.fx_rate_micro FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id JOIN fin_accounts a ON a.id=e.account_id WHERE s.deleted_at IS NULL ORDER BY s.date,s.id,e.account_id")?;
         for row in stmt.query_map([], |r| {
             Ok(vec![
                 r.get(0)?,
@@ -549,6 +551,18 @@ impl Store {
                 r.get(4)?,
                 r.get(5)?,
                 r.get::<_, bool>(6)?.to_string(),
+                r.get::<_, String>(7)?,
+                r.get::<_, Option<i64>>(8)?
+                    .map(|v| {
+                        crate::currency::decimal(
+                            v,
+                            crate::currency::decimals(&r.get::<_, String>(7).unwrap_or_default()),
+                        )
+                    })
+                    .unwrap_or_default(),
+                r.get::<_, Option<i64>>(9)?
+                    .map(|v| crate::currency::decimal(v, 6))
+                    .unwrap_or_default(),
             ])
         })? {
             snapshots.push(row?);

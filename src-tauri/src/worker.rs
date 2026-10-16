@@ -1851,6 +1851,7 @@ mod tests {
                     purchase_cents: None,
                     purchased_on: None,
                     group_id: None,
+                    currency: crate::currency::cny(),
                 },
             },
             "2026-09-28",

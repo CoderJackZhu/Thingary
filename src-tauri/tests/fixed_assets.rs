@@ -144,6 +144,8 @@ fn purchase_import_commit_and_csv_excel_preserve_zero_and_unknown() {
                     account_id: a.id.clone(),
                     state: "entered".into(),
                     amount_cents: Some("12300".into()),
+                    original_minor: None,
+                    fx_rate_micro: None,
                 })
                 .collect(),
         },
@@ -153,9 +155,9 @@ fn purchase_import_commit_and_csv_excel_preserve_zero_and_unknown() {
     let csv = t.path().join("虚构.csv");
     s.export_finance_csv("wealth", &csv).unwrap();
     let csv = std::fs::read_to_string(csv).unwrap();
-    assert!(csv.starts_with("\u{feff}盘点日期,账户,平台,方向,类型,计入净资产,状态,金额（元）,盘点备注,购入价,购入日期,分组\r\n"));
-    assert!(csv.contains("虚构,0.00,2020-06-01,\r\n"));
-    assert!(csv.contains("虚构,,,\r\n"));
+    assert!(csv.starts_with("\u{feff}盘点日期,账户,平台,方向,类型,计入净资产,状态,金额（元）,盘点备注,购入价,购入日期,分组,币种,原币金额,汇率\r\n"));
+    assert!(csv.contains("虚构,0.00,2020-06-01,,CNY,,\r\n"));
+    assert!(csv.contains("虚构,,,,CNY,,\r\n"));
     let path = t.path().join("虚构.xlsx");
     s.export_workbook(&path).unwrap();
     let mut book: Xlsx<_> = Xlsx::new(Cursor::new(std::fs::read(path).unwrap())).unwrap();

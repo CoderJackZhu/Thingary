@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as currency from '../src/currency.ts';
 const source = readFileSync(new URL('../src/wealth-preview.ts', import.meta.url), 'utf8');
 const file = ts.createSourceFile('wealth-preview.ts', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 const names = ['latestBefore', 'view', 'summary', 'wealthPreview'];
@@ -12,7 +13,7 @@ function fixture(query = '', withToday = false) {
   const accounts = ['cash', 'fund', 'card', 'unknown'].map((id, i) => ({ id, fields: { name: `虚构${id}`, side: id === 'card' ? 'liability' : 'asset', kind: id === 'card' ? 'credit_card' : 'cash', counted: true, opened_on: '2026-01-01', closed_on: null } }));
   const snapshots = [{ id: 'before', date: '2026-10-01', notes: '虚构原备注', revision: 1, entries: accounts.slice(0, 3).map((a, i) => ({ account_id: a.id, amount_cents: ['10000', '5000', '3000'][i], state: 'entered', side: a.fields.side, kind: a.fields.kind, counted: true })) }];
   if (withToday) snapshots.push({ ...structuredClone(snapshots[0]), id: 'today-existing', date: '2026-10-17' });
-  const context = { accounts, snapshots, params: new URLSearchParams(query), generation: '虚构资料', now: new Date('2026-10-17T12:00:00Z'), iso: date => date.toISOString().slice(0, 10), receipts: new Map(), quickFingerprints: new Map(), quickStaleShown: false, crypto,
+  const context = { ...currency, accounts, snapshots, params: new URLSearchParams(query), generation: '虚构资料', now: new Date('2026-10-17T12:00:00Z'), iso: date => date.toISOString().slice(0, 10), receipts: new Map(), quickFingerprints: new Map(), quickStaleShown: false, crypto,
     due: (a, d) => a.fields.opened_on <= d && (!a.fields.closed_on || d < a.fields.closed_on), known: e => e.amount_cents !== null, financialImportPreview: () => null, planFail: () => false };
   const code = ts.transpileModule(picked + '\n' + initialization + '\nglobalThis.run=wealthPreview;', { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
   vm.runInNewContext(code, context);
@@ -76,4 +77,26 @@ test('虚构quick-new-day夹具：只移除今天快照，新日更新留下沿�
   assert.equal(accounts.find(a => a.id === 'cash').last_entered_on, '2026-10-01');
   assert.equal(accounts.find(a => a.id === 'fund').last_entered_on, '2026-10-17');
   assert.equal(f.call('wealth_summary', {}).points.at(-1).has_unchanged, true);
+});
+
+test('虚构外币预览：真实同CNY原币变化仍陈旧，重读后保存不夹带expected字段并保留其他原币',()=>{
+ const f=fixture();
+ for(const id of ['cash','fund'])f.context.accounts.find(a=>a.id===id).fields.currency='USD';
+ const cash=f.context.snapshots[0].entries[0],fund=f.context.snapshots[0].entries[1];
+ Object.assign(cash,{amount_cents:'1',original_minor:'1',fx_rate_micro:'500000'});Object.assign(fund,{amount_cents:'700',original_minor:'100',fx_rate_micro:'7000000'});
+ const old={account_id:'cash',amount_cents:'2',original_minor:'3',fx_rate_micro:'500000',expected_previous:'1',expected_original_minor:'1'};
+ cash.original_minor='2'; // A real fictional concurrent edit; rounded CNY remains one cent.
+ assert.throws(()=>f.update([old]),e=>e.code==='QUICK_STALE');assert.equal(f.context.snapshots.length,1);
+ const result=f.update([{...old,original_minor:'4',expected_original_minor:'2'}]);
+ const saved=result.entries.find(e=>e.account_id==='cash'),kept=result.entries.find(e=>e.account_id==='fund');
+ assert.equal(saved.original_minor,'4');assert.equal(saved.fx_rate_micro,'500000');assert.ok(!('expected_previous' in saved));assert.ok(!('expected_original_minor' in saved));
+ assert.equal(kept.state,'unchanged');assert.equal(kept.original_minor,'100');assert.equal(kept.fx_rate_micro,'7000000');
+ const history=f.call('wealth_account_history',{account:'cash'});assert.equal(history.rows.at(-1).original_minor,'4');assert.equal(history.rows.at(-1).fx_rate_micro,'500000');
+});
+test('虚构预览停用账户仍贡献最近汇率建议，过滤未来并纳入当天记录',()=>{
+ const f=fixture(),old=f.context.accounts[0];old.fields.currency='USD';old.fields.closed_on='2026-10-02';Object.assign(f.context.snapshots[0].entries[0],{amount_cents:'0',original_minor:'0',fx_rate_micro:'7000000'});
+ const next={id:'new-usd',fields:{...old.fields,name:'虚构新美元',opened_on:'2026-10-03',closed_on:null}};f.context.accounts.push(next);
+ f.context.snapshots.push({id:'future',date:'2026-10-09',notes:'虚构',revision:1,entries:[{account_id:next.id,state:'entered',amount_cents:'800',original_minor:'100',fx_rate_micro:'8000000',side:'asset',kind:'cash',counted:true}]});
+ const before=f.call('wealth_snapshot_draft',{date:'2026-10-05'});assert.ok(!before.rows.some(r=>r.account.id===old.id));assert.deepEqual(before.rate_suggestions.USD,{rate:'7000000',date:'2026-10-01'});
+ const same=f.call('wealth_snapshot_draft',{date:'2026-10-09'});assert.deepEqual(same.rate_suggestions.USD,{rate:'8000000',date:'2026-10-09'});
 });

@@ -112,7 +112,7 @@ impl Store {
     }
     pub(crate) fn wealth_table(&self, guarded: bool) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
-            "SELECT s.date,a.name,a.institution,e.side,e.kind,e.counted,e.state,e.amount_cents,s.notes,a.purchase_cents,a.purchased_on,(SELECT name FROM fin_account_groups g WHERE g.id=a.group_id)
+            "SELECT s.date,a.name,a.institution,e.side,e.kind,e.counted,e.state,e.amount_cents,s.notes,a.purchase_cents,a.purchased_on,(SELECT name FROM fin_account_groups g WHERE g.id=a.group_id),a.currency,e.original_minor,e.fx_rate_micro
              FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id
              JOIN fin_accounts a ON a.id=e.account_id
              WHERE s.deleted_at IS NULL ORDER BY s.date,a.position,a.id",
@@ -147,6 +147,20 @@ impl Store {
                         &r.get::<_, Option<String>>(11)?.unwrap_or_default(),
                         guarded,
                     ),
+                    r.get::<_, String>(12)?,
+                    r.get::<_, Option<i64>>(13)?
+                        .map(|v| {
+                            crate::currency::decimal(
+                                v,
+                                crate::currency::decimals(
+                                    &r.get::<_, String>(12).unwrap_or_default(),
+                                ),
+                            )
+                        })
+                        .unwrap_or_default(),
+                    r.get::<_, Option<i64>>(14)?
+                        .map(|v| crate::currency::decimal(v, 6))
+                        .unwrap_or_default(),
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -163,6 +177,9 @@ impl Store {
             "购入价",
             "购入日期",
             "分组",
+            "币种",
+            "原币金额",
+            "汇率",
         ];
         Ok((table(&header, &rows), rows.len() as i64))
     }

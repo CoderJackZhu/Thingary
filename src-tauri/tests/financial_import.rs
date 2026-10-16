@@ -206,6 +206,8 @@ fn explicit_history_overrides_direction_and_ordinary_correction() {
             account_id: a.id.clone(),
             state: "entered".into(),
             amount_cents: Some("12400".into()),
+            original_minor: None,
+            fx_rate_micro: None,
         }],
     };
     let corrected = s.wealth_snapshot_save(&ordinary, "2026-10-09").unwrap();
@@ -299,6 +301,7 @@ fn real_unkeyed_catalog_blank_zero_and_explicit_group_exclusion() {
                 purchase_cents: None,
                 purchased_on: None,
                 group_id: None,
+                currency: "CNY".into(),
             },
         },
         "2026-10-09",
@@ -491,6 +494,8 @@ fn old_schema_33_backup_restores_ids_unknowns_and_upgrades_import_tables() {
                     account_id: a.id.clone(),
                     state: "missing".into(),
                     amount_cents: None,
+                    original_minor: None,
+                    fx_rate_micro: None,
                 }],
             },
             "2026-10-09",

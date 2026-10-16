@@ -42,6 +42,7 @@ pub fn seed(store: &mut Store, today: &str) -> Result<()> {
                     purchase_cents: None,
                     purchased_on: None,
                     group_id: None,
+                    currency: "CNY".into(),
                 },
             },
             today,
@@ -70,6 +71,8 @@ pub fn seed(store: &mut Store, today: &str) -> Result<()> {
                             })
                             .to_string(),
                         ),
+                        original_minor: None,
+                        fx_rate_micro: None,
                     })
                     .collect(),
             },

@@ -129,6 +129,7 @@ fn account(s: &mut Store, name: &str, side: &str) -> Account {
                 purchase_cents: None,
                 purchased_on: None,
                 group_id: None,
+                currency: "CNY".into(),
             },
         },
         TODAY,
@@ -157,6 +158,8 @@ fn row(a: &Account, yuan: i64) -> EntryInput {
         account_id: a.id.clone(),
         state: "entered".into(),
         amount_cents: Some((yuan * 100).to_string()),
+        original_minor: None,
+        fx_rate_micro: None,
     }
 }
 fn plan(s: &mut Store, name: &str, first: &str) -> Plan {
@@ -790,11 +793,15 @@ fn incomplete_snapshot_events_show_missing_counts_and_reject_bad_queries() {
                     account_id: entered.id.clone(),
                     state: "entered".into(),
                     amount_cents: Some("1000000".into()),
+                    original_minor: None,
+                    fx_rate_micro: None,
                 },
                 EntryInput {
                     account_id: unknown.id.clone(),
                     state: "missing".into(),
                     amount_cents: None,
+                    original_minor: None,
+                    fx_rate_micro: None,
                 },
             ],
         },

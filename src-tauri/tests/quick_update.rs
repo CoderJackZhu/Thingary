@@ -37,6 +37,7 @@ fn open(s: &mut Store, name: &str, side: &str, kind: &str, opened: &str) -> Acco
                 purchase_cents: None,
                 purchased_on: None,
                 group_id: None,
+                currency: "CNY".into(),
             },
         },
         TODAY,
@@ -58,6 +59,8 @@ fn check_in(s: &mut Store, date: &str, rows: &[(&Account, Option<i64>)]) -> Snap
                     account_id: a.id.clone(),
                     state: if v.is_some() { "entered" } else { "missing" }.into(),
                     amount_cents: v.map(|v| v.to_string()),
+                    original_minor: None,
+                    fx_rate_micro: None,
                 })
                 .collect(),
         },
@@ -82,6 +85,9 @@ fn quick(
                 account_id: a.id.clone(),
                 amount_cents: v.to_string(),
                 expected_previous: prev.map(|p| p.to_string()),
+                original_minor: None,
+                fx_rate_micro: None,
+                expected_original_minor: None,
             })
             .collect(),
     }
@@ -175,6 +181,8 @@ fn the_same_day_changes_only_the_target_and_keeps_recorded_rows() {
                     account_id: a.id.clone(),
                     state: "entered".into(),
                     amount_cents: Some(v.to_string()),
+                    original_minor: None,
+                    fx_rate_micro: None,
                 })
                 .collect(),
         },

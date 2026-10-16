@@ -35,6 +35,7 @@ fn open(s: &mut Store, name: &str, kind: &str, opened: &str) -> Account {
                 purchase_cents: None,
                 purchased_on: None,
                 group_id: None,
+                currency: "CNY".into(),
             },
         },
         TODAY,
@@ -60,6 +61,8 @@ fn row(a: &Account, state: &str, yuan_amount: Option<i64>) -> EntryInput {
         account_id: a.id.clone(),
         state: state.into(),
         amount_cents: yuan_amount.map(yuan),
+        original_minor: None,
+        fx_rate_micro: None,
     }
 }
 fn check_in(s: &Store, date: &str, entries: Vec<EntryInput>) -> SnapshotSave {
@@ -1122,6 +1125,7 @@ fn transaction_extraction_keeps_generation_uuid_fingerprint_receipt_and_faults()
             purchase_cents: None,
             purchased_on: None,
             group_id: None,
+            currency: "CNY".into(),
         },
     };
     let mut bad = input.clone();

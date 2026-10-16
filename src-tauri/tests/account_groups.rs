@@ -40,6 +40,7 @@ fn account(s: &mut Store, group_id: Option<String>, closed: bool) -> Account {
                 purchase_cents: None,
                 purchased_on: None,
                 group_id,
+                currency: "CNY".into(),
             },
         },
         TODAY,
@@ -178,6 +179,7 @@ fn names_revisions_reorder_receipts_and_deleted_references_are_safe() {
         id: None,
         expected_revision: None,
         fields: AccountFields {
+            currency: "CNY".into(),
             group_id: Some(id()),
             ..s.wealth_accounts().unwrap()[0].fields.clone()
         },
@@ -305,6 +307,8 @@ fn import_preview_is_private_groups_reuse_and_exports_and_backup_roundtrip() {
                     account_id: a.id.clone(),
                     state: "entered".into(),
                     amount_cents: Some("12300".into()),
+                    original_minor: None,
+                    fx_rate_micro: None,
                 })
                 .collect(),
         },
@@ -314,7 +318,11 @@ fn import_preview_is_private_groups_reuse_and_exports_and_backup_roundtrip() {
     let csv = dir.path().join("虚构分组.csv");
     s.export_finance_csv("wealth", &csv).unwrap();
     let text = std::fs::read_to_string(csv).unwrap();
-    assert!(text.lines().next().unwrap().ends_with("购入日期,分组"));
+    assert!(text
+        .lines()
+        .next()
+        .unwrap()
+        .ends_with("购入日期,分组,币种,原币金额,汇率"));
     assert_eq!(text.matches("虚构导入组").count(), 2);
     let xlsx = dir.path().join("虚构分组.xlsx");
     s.export_workbook(&xlsx).unwrap();
@@ -445,6 +453,8 @@ fn readonly_entry_projections_use_distinct_snapshot_facts_without_last_known_fil
                         }
                         .into(),
                         amount_cents: value.map(str::to_owned),
+                        original_minor: None,
+                        fx_rate_micro: None,
                     })
                     .collect(),
             },
