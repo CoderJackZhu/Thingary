@@ -14,6 +14,7 @@ const acceptance = process.argv.includes('--acceptance');
 const profile = acceptance ? 'debug' : 'release';
 const identityIndex = process.argv.indexOf('--identity');
 assert.ok(identityIndex < 0 || acceptance, '--identity requires --acceptance');
+assert.ok(identityIndex < 0 || process.argv[identityIndex + 1], '--identity requires a value');
 const selected = acceptance ? acceptanceProfile(identityIndex < 0 ? defaultAcceptanceIdentity : process.argv[identityIndex + 1]) : null;
 const identity = selected?.identity ?? 'local.thingary.main';
 const target = resolve(root, 'src-tauri/target/x86_64-pc-windows-msvc', profile);

@@ -278,7 +278,7 @@ node scripts/verify-windows-package.mjs --acceptance --identity local.thingary.w
 pwsh -NoProfile -File scripts/windows-native-acceptance.ps1 -Identity local.thingary.win.acceptance.run-20261016a -ArtifactRoot .local/windows-native-acceptance-run-20261016a
 ```
 
-后缀同步区分安装名称、开始菜单快捷方式、通知 AUMID、Local／Roaming 与静态核验目录；脚本仍拒绝已有资料及输出。CDP 端口保持 9227，同一时间只运行一个验收实例。通知诊断只接受这一隔离命名空间，仅 fault-injection 构建提供，不触及其他身份的通知。
+后缀同步区分安装名称、开始菜单快捷方式、通知 AUMID、Local／Roaming 与静态核验目录；脚本仍拒绝已有资料及输出。CDP 端口保持 9227，同一时间只运行一个验收实例。原生窗口助手临时采用目标窗口的 DPI 上下文并恢复调用线程状态，避免 125%／150% 下重复缩放；矩阵仍须同时核对物理客户区和 WebView 的实际 CSS 尺寸，不用截图缩放代替。通知诊断只接受这一隔离命名空间，仅 fault-injection 构建提供，不触及其他身份的通知。
 
 正式候选包由维护者在 Mac 运行 `npm run release`、Windows 运行 `npm run release:win`；版本、签名、公证、支持平台和公开附件按[发布流程](RELEASING.md)核验，不由源码检查推定。
 

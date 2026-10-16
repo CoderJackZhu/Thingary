@@ -1,7 +1,7 @@
 export const defaultAcceptanceIdentity = 'local.thingary.win.acceptance';
 
 export function isAcceptanceIdentity(identity) {
-  return typeof identity === 'string' && /^local\.thingary\.win\.acceptance(?:\.[a-z0-9][a-z0-9-]{0,31})?$/.test(identity);
+  return typeof identity === 'string' && identity.trim() === identity && /^local\.thingary\.win\.acceptance(?:\.[a-z0-9][a-z0-9-]{0,31})?$/.test(identity);
 }
 
 export function acceptanceProfile(identity = defaultAcceptanceIdentity) {

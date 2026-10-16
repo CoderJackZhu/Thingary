@@ -13,7 +13,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 if ($env:OS -ne 'Windows_NT') { throw 'Installed native acceptance requires Windows.' }
-if ($Identity -cnotmatch '^local\.thingary\.win\.acceptance(?:\.[a-z0-9][a-z0-9-]{0,31})?$') { throw 'Invalid isolated acceptance identity.' }
+if ($Identity.Trim() -cne $Identity -or $Identity -cnotmatch '^local\.thingary\.win\.acceptance(?:\.[a-z0-9][a-z0-9-]{0,31})?$') { throw 'Invalid isolated acceptance identity.' }
 $Suffix = $Identity.Substring('local.thingary.win.acceptance'.Length)
 $ProductName = 'Thingary Windows Acceptance' + $(if ($Suffix) { ' ' + $Suffix.Substring(1) } else { '' })
 $env:THINGARY_WINDOWS_ACCEPTANCE_IDENTITY = $Identity
@@ -29,6 +29,8 @@ public static class AcceptanceWindow {
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr h,System.Text.StringBuilder s,int max);
  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h,uint m,IntPtr w,IntPtr l);
  [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr h);
+ [DllImport("user32.dll")] public static extern IntPtr GetWindowDpiAwarenessContext(IntPtr h);
+ [DllImport("user32.dll",SetLastError=true)] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int state);
  [UnmanagedFunctionPointer(CallingConvention.Winapi)]
  [return: MarshalAs(UnmanagedType.Bool)]
@@ -71,6 +73,11 @@ function Window-State([int]$ProcessId, [string]$Action, [int]$W, [int]$H) {
   $process.Refresh()
   $handle = [AcceptanceWindow]::FindVisibleWindow($ProcessId, $ExpectedWindowTitle)
   if ($handle -eq [IntPtr]::Zero) { throw "Refuse unrelated windows: process $ProcessId has no visible window with exact title '$ExpectedWindowTitle'." }
+  # SetWindowPos otherwise virtualizes physical coordinates for an unaware
+  # PowerShell thread, multiplying the intended size again above 100% scale.
+  $previousDpi = [AcceptanceWindow]::SetThreadDpiAwarenessContext([AcceptanceWindow]::GetWindowDpiAwarenessContext($handle))
+  if ($previousDpi -eq [IntPtr]::Zero) { throw 'Unable to match acceptance window DPI context.' }
+  try {
   $title = New-Object System.Text.StringBuilder 512
   [void][AcceptanceWindow]::GetWindowText($handle, $title, $title.Capacity)
   if ($title.ToString() -cne $ExpectedWindowTitle) { throw "Refuse unrelated window: $title" }
@@ -92,7 +99,8 @@ function Window-State([int]$ProcessId, [string]$Action, [int]$W, [int]$H) {
   $client = New-Object AcceptanceWindow+RECT
   [void][AcceptanceWindow]::GetWindowRect($handle, [ref]$outer)
   [void][AcceptanceWindow]::GetClientRect($handle, [ref]$client)
-  return @{ dpiScale=$scale; requestedLogicalClient=@{ width=$W; height=$H }; pid=$ProcessId; title=$title.ToString(); handle=$handle.ToInt64(); outer=@{ width=$outer.Right-$outer.Left; height=$outer.Bottom-$outer.Top }; client=@{ width=$client.Right-$client.Left; height=$client.Bottom-$client.Top } }
+  return @{ dpiContext='target-window'; dpiScale=$scale; requestedLogicalClient=@{ width=$W; height=$H }; pid=$ProcessId; title=$title.ToString(); handle=$handle.ToInt64(); outer=@{ width=$outer.Right-$outer.Left; height=$outer.Bottom-$outer.Top }; client=@{ width=$client.Right-$client.Left; height=$client.Bottom-$client.Top } }
+  } finally { [void][AcceptanceWindow]::SetThreadDpiAwarenessContext($previousDpi) }
 }
 if ($WindowOnly) { Window-State $ApplicationPid $WindowOnly $Width $Height | ConvertTo-Json -Depth 5 -Compress; return }
 $RepoRoot = Split-Path -Parent $PSScriptRoot
