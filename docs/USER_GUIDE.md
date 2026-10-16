@@ -16,9 +16,9 @@
 
 本页描述当前主分支的操作。财务工作区、政策测算退出与当前报告预览已接入源码并完成对应核心验证；公开安装包的内容以其版本说明为准。截图来自虚构资料，来源与更新范围见[截图维护清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/images/README.md)，不表示全部原生功能已验收。
 
-Mac 下载与安装步骤对应 **0.0.6 公开测试版**，用于收集使用与兼容性反馈。安装包与版本说明见 [0.0.6 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.6)。若某个 Mac 版本没有 DMG 附件，说明该版本尚未提供 Mac 安装包；维护者的本机安装状态不代表已公开发布。
+下载与安装步骤对应 **0.0.7 公开测试版**，用于收集使用与兼容性反馈。安装包与版本说明见 [0.0.7 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7)。若某个 Mac 版本没有 DMG 附件，说明该版本尚未提供 Mac 安装包；维护者的本机安装状态不代表已公开发布。
 
-共用功能说明与截图以 Mac 0.0.6 为基线；Windows 0.0.7 候选版的安装与平台差异见下文，尚未公开发布。总览、物品、账户、目标、试算、新增表单与规划详情采用 0.0.6 原生虚构图，其他历史功能截图的版本见截图清单。0.0.3 及更早的包不含这些新界面。更新兼容性与验证范围见[0.0.6 发布说明](https://github.com/CoderJackZhu/Thingary/blob/v0.0.6/docs/releases/v0.0.6.md)。
+共用功能说明以 0.0.7 为准；Windows 的安装与平台差异见下文。总览、物品、账户、目标、试算、新增表单与规划详情采用 0.0.6 原生虚构图，其他历史功能截图的版本见截图清单。0.0.3 及更早的包不含这些新界面。更新兼容性与验证范围见[0.0.7 发布说明](https://github.com/CoderJackZhu/Thingary/blob/v0.0.7/docs/releases/v0.0.7.md)。
 
 <a id="download"></a>
 
@@ -26,9 +26,9 @@ Mac 下载与安装步骤对应 **0.0.6 公开测试版**，用于收集使用�
 
 ### 选择正确的文件
 
-从 0.0.5 起提供 **通用安装包**，Apple Silicon（M 系列）与 Intel Mac 都下载同一个 `universal.dmg`。当前只在 Apple Silicon、macOS 27 验证，尚未实测 macOS 14 和 Intel Mac；Windows 0.0.7 仅有候选构建，见[Windows 安装](#windows-install)；暂无 Linux 客户端。
+从 0.0.5 起提供 **通用安装包**，Apple Silicon（M 系列）与 Intel Mac 都下载同一个 `universal.dmg`。当前只在 Apple Silicon、macOS 27 验证，尚未实测 macOS 14 和 Intel Mac；Windows 10 1809+／11 x64 见[Windows 安装](#windows-install)；暂无 Linux 客户端。
 
-1. 在 [GitHub 上的 0.0.6 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.6) 打开对应公开测试版（标有 Pre-release）。**GitHub 打不开时，改用国内镜像 [Gitee 发行版](https://gitee.com/CoderJackZhu/thingary/releases)**，两处的安装包内容相同，可用 `SHA256SUMS.txt` 核对。
+1. 在 [GitHub 上的 0.0.7 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7) 打开对应公开测试版（标有 Pre-release）。**GitHub 打不开时，改用国内镜像 [Gitee 发行版](https://gitee.com/CoderJackZhu/thingary/releases)**，两处的安装包内容相同，可用 `SHA256SUMS.txt` 核对。
 2. 在附件（Assets）中下载 `Thingary-<版本>-universal.dmg`（0.0.4 及更早版本为 `arm64.dmg`）。`Source code.zip` 与 `Source code.tar.gz` 是源码，不是安装包。
 3. 双击下载好的 DMG，将「物谱」拖到同一窗口里的「Applications／应用程序」文件夹。
 4. 等待复制完成，在 Finder 的「应用程序」中双击「物谱」。安装后可推出 DMG；无需一直保留挂载窗口。不要直接从 DMG 运行应用。
@@ -49,16 +49,16 @@ Mac 下载与安装步骤对应 **0.0.6 公开测试版**，用于收集使用�
 
 <a id="windows-install"></a>
 
-### Windows 候选版安装
+### Windows 安装
 
-Windows 0.0.7 尚未公开发布，目标为 **Windows 10 1809+／Windows 11 x64**。目前的安装、通知和界面验收未全部完成，详细范围见[Windows 验收清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/WINDOWS_ACCEPTANCE.md)。ARM 机器运行 x64 应用依赖系统模拟，不等同于原生 ARM 安装包。
+目标为 **Windows 10 1809+／Windows 11 x64**，安装包未签名。安装、通知和界面验收未全部完成，详细范围见[Windows 验收清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/WINDOWS_ACCEPTANCE.md)。ARM 机器运行 x64 应用依赖系统模拟，不等同于原生 ARM 安装包。
 
-1. 打开 [Windows 候选包工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)，选择对应源码的成功运行。登录 GitHub 后下载 `windows-release-<源码提交>` artifact，解压取得 `.exe` 安装包与 `SHA256SUMS.txt`。附件保留 30 天，过期后需要新构建；工作流附件不是公开 Release。
-2. 核对来源、版本与校验值后运行 `.exe`。安装器使用简体中文，只安装给当前用户；通常不需要管理员权限。缺少 Microsoft Edge WebView2 时会在线下载并安装运行时，这一步需要联网。
-3. 包尚未签名，首次下载可能出现 SmartScreen“Windows 已保护你的电脑”。确认来自本项目、文件与预期候选包一致后，可展开“更多信息”查看并选择“仍要运行”。若提示恶意软件、没有该选项或设备策略禁止运行，请保留完整提示并反馈，不要关闭系统保护。
-4. 从开始菜单打开物谱，先查看虚构样例。录入自己的资料前确认应用名称和资料身份：`Thingary Windows Acceptance` 是独立验收包，只可使用虚构数据；它不能替代正式身份的候选包。
+1. 在 [0.0.7 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7)（或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases)）的附件里下载 `x64-setup.exe` 与 `SHA256SUMS.txt`。
+2. 用 `SHA256SUMS.txt` 核对文件后运行 `.exe`。安装器使用简体中文，只安装给当前用户；通常不需要管理员权限。缺少 Microsoft Edge WebView2 时会在线下载并安装运行时，这一步需要联网。
+3. 包尚未签名，首次下载可能出现 SmartScreen“Windows 已保护你的电脑”。确认来自本项目、校验值一致后，可展开“更多信息”查看并选择“仍要运行”。若提示恶意软件、没有该选项或设备策略禁止运行（例如 Windows 11 开启了「智能应用控制」，它可能直接拦截未签名安装包且没有放行按钮），请保留完整提示并反馈，不要为此关闭整机的系统保护。
+4. 从开始菜单打开物谱，先查看虚构样例。录入自己的资料前确认应用名称为「物谱」：名为 `Thingary Windows Acceptance` 的是独立验收包，只可使用虚构数据，不能当作正式安装。
 
-应用安装目录中的 `许可/BUILD_INFO.json` 列出版本、完整源码提交、资料身份与第三方告知散列；未公开版本时，以它核对候选包来源，不把 0.0.7 版本号当作已经发布的标记。程序代码、第三方许可全文和源码入口同在 `许可/`。
+应用安装目录中的 `许可/BUILD_INFO.json` 列出版本、完整源码提交、资料身份与第三方告知散列；可用它核对安装包来源。程序代码、第三方许可全文和源码入口同在 `许可/`。
 
 Windows 选图仅接受 **JPEG、PNG、WebP**；HEIC／HEIF 请先另存为 JPEG 或 PNG，原图自行保留。Mac 继续使用系统支持的图片格式。应用正常使用无需联网；安装器下载 WebView2 与主动检查更新分别需要网络。
 
@@ -610,7 +610,7 @@ Mac 关闭主窗口会隐藏窗口，完整退出使用“物谱 › 退出物�
 
 1. 在当前版本中做完整备份，并保存一份到原机以外。
 2. Mac 使用「物谱 › 退出物谱」退出；Windows 完成或取消当前操作后关窗退出。
-3. Mac 下载新版通用 DMG，拖入「应用程序」并按 Finder 提示替换；Windows 仅使用已经核对来源的同身份兼容安装包，运行安装器更新。Windows 候选构建仍须核对其验收边界。
+3. Mac 下载新版通用 DMG，拖入「应用程序」并按 Finder 提示替换；Windows 下载新版 `x64-setup.exe` 运行安装器更新。更新前先做完整备份。
 4. 打开新版，Mac 在「物谱 › 关于物谱」、Windows 在设置中确认版本，再核对已有资料。
 
 卸载旧应用不是更新的必需步骤。更新通常保留资料，但不要跳过备份；不要直接降级打开较新版本修改过的资料。确需回退时，使用与旧版本兼容的升级前备份，并保留现有资料。
@@ -654,7 +654,7 @@ Mac 在 Finder 的「应用程序」中移除「物谱」只删除应用，**不
 
 | 遇到的问题 | 怎么处理 |
 |---|---|
-| 下载页只有 Source code | 这不是安装包。Mac 请在已发布版本的 Assets 中找 `.dmg`，Windows 候选包见[安装说明](#windows-install)；尚未发布或没有对应平台附件时，不要改后缀冒充安装包。 |
+| 下载页只有 Source code | 这不是安装包。Mac 请在 Release 的 Assets 中找 `.dmg`，Windows 找 `x64-setup.exe`（见[安装说明](#windows-install)）；没有对应平台附件时，不要改后缀冒充安装包。 |
 | 首次无法验证开发者 | 按上文「首次被 macOS 阻止打开」的步骤，仅为可信来源的物谱允许打开。 |
 | 提示应用已损坏、将损坏电脑，或没有「仍要打开」 | 停止打开；核对是否来自项目 Release，重新下载。如仍失败，报告系统版本与完整提示。不要关闭系统安全保护或运行来历不明的修复命令。 |
 | 看见不属于我的记录 | 确认顶部是否显示「样例体验」，点「开始记录我的资料」或「返回我的资料」。样例是独立的虚构库。 |
@@ -664,8 +664,8 @@ Mac 在 Finder 的「应用程序」中移除「物谱」只删除应用，**不
 | 误删了一条记录 | 立即用「撤销」，或进入「设置 › 数据管理 › 最近删除」恢复；永久删除后不能靠最近删除找回。 |
 | 关闭表单后输入没了 | 普通表单不会保存草稿。要保留记录请点保存；仅结果未知的提交会留待核对。 |
 | 卸载后记录还在 | 应用和资料分别保存，这是为了重装可继续使用。详见「卸载与重装」。 |
-| 能在手机、Windows 上用吗 | Mac 0.0.6 已公开；Windows 0.0.7 x64 处于候选验收，见[安装说明](#windows-install)，尚无公开 Release。没有手机客户端或跨设备同步。 |
-| Windows 安装或通知失败 | 安装缺少 WebView2 时需要联网；核对是否安装了同身份的开始菜单快捷方式、系统通知开关和候选包来源。保留错误文字，见[当前限制](#limits)。 |
+| 能在手机、Windows 上用吗 | Mac 与 Windows 10 1809+／11 x64 都有安装包，Windows 版未签名，见[安装说明](#windows-install)。没有手机客户端或跨设备同步。 |
+| Windows 安装或通知失败 | 安装缺少 WebView2 时需要联网；核对是否安装了开始菜单快捷方式、系统通知开关和安装包来源。保留错误文字，见[当前限制](#limits)。 |
 | Windows 无法添加 HEIC 图片 | 先将副本转换为 JPEG 或 PNG，再选图；保留原图。Windows 当前只接受 JPEG、PNG、WebP。 |
 | 文件上传或同步到哪里了 | 应用不上传资料，平时也不联网；只有你点「设置 › 关于与帮助 › 检查更新」时，才向 Gitee 和 GitHub 各查询一次公开的版本列表。你主动选择的额外备份位置若是云盘，其副本由该云盘软件同步；备份可选恢复密钥加密，主资料库、图片与恢复保护副本未加密。 |
 | Excel 无法导入 | 使用 `.xlsx` 模板，保留工作表名和 A1 表头；编号按文本填写，公式粘贴为值，修正错误单元格。旧 CSV 请自行整理到新模板，不能当作完整备份。 |

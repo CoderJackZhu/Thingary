@@ -6,9 +6,14 @@
 
 ## 1. 安装
 
-下载 [Mac 0.0.6 的 `.dmg`](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.6)（Apple Silicon 与 Intel 通用；下载页里的 Source code 是源码，不是安装包）。打开后把「物谱」拖进「应用程序」。
+到 [0.0.7 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7)（国内可用 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases)），在附件里选自己的平台；下载页里的 Source code 是源码，不是安装包。
 
-这个版本只做了本地临时签名，没有经过 Apple 公证，首次打开可能被拦住：到「系统设置 › 隐私与安全性」，在底部选「仍要打开」。更多排查见[安装与故障排查](USER_GUIDE.md#download)。Windows 候选版见[Windows 安装](USER_GUIDE.md#windows-install)。
+- **Mac**：下载 `Thingary-0.0.7-universal.dmg`（Apple Silicon 与 Intel 通用），打开后把「物谱」拖进「应用程序」。
+- **Windows**：下载 `x64-setup.exe`，运行安装器（简体中文，只安装给当前用户）；缺少 WebView2 时会在线安装，需要联网。
+
+**Mac**：安装包只做了本地临时签名，没有经过 Apple 公证，首次打开可能被拦住：到「系统设置 › 隐私与安全性」，在底部选「仍要打开」。更多排查见[安装与故障排查](USER_GUIDE.md#download)。
+
+**Windows**：安装包未签名，可能出现 SmartScreen「Windows 已保护你的电脑」：点「更多信息 › 仍要运行」。详见[Windows 安装](USER_GUIDE.md#windows-install)。
 
 首次打开先看到的是**虚构样例**，随便点，不影响你的资料。
 
@@ -62,7 +67,7 @@
 
 ## 已知限制
 
-- **平台**：Mac 在 Apple Silicon、macOS 27 验证；Intel 与 macOS 14 尚未实机验证。Windows 0.0.7 为未签名候选版，尚未公开发布，首次运行可能出现 SmartScreen 提示（点「更多信息 › 仍要运行」）；若 Windows 11 开启了「智能应用控制」，未签名安装包可能被直接拦截且没有放行按钮，请见[Windows 安装](USER_GUIDE.md#windows-install)。
+- **平台**：Mac 在 Apple Silicon、macOS 27 验证；Intel 与 macOS 14 尚未实机验证。Windows 10 1809+／11 x64 的安装包未签名，首次运行可能出现 SmartScreen 提示（点「更多信息 › 仍要运行」）；若 Windows 11 开启了「智能应用控制」，未签名安装包可能被直接拦截且没有放行按钮，请见[Windows 安装](USER_GUIDE.md#windows-install)。
 - **未完整验证**：Mac 的通知送达、VoiceOver 与完整键盘路径、系统显示缩放；Windows 的无 WebView2 机器、Windows 10、多屏和 100%／125% 缩放、讲述人与输入法。
 - **恢复**：恢复页是「选择备份文件＋粘贴恢复密钥」，没有直接选密钥文件的入口。
 - **加密范围**：只加密导出的备份文件；主资料库、图片和恢复前保护副本未加密。
