@@ -51,6 +51,10 @@ npm test
 
 ### Windows 候选实现与验证
 
+V1–V4 的 Windows 补验源码为 `68adfe77ba6720c1ce894a0046b754257521d4ed`（0.0.7，schema 42）。Windows 11 Pro 原生 x64、150% 缩放下，全新隔离身份的构建、包核验与完整安装验收脚本通过；Rust 许可文本缺失 0。构建、1,241 项 UI、格式／Clippy 与 865 项 Rust 回归通过，4 项按规则忽略。原生补验覆盖四类账户默认值、真实 schema 40 库正常升级及旧备份恢复、目标关联账户永久清除保护、策略缺失／损坏暂停、含明文暂存的受保护 ACL、八次密钥轮换后的最近七份保留、年度来源与隐私、首次完整盘点询问卡和提示不遮挡。三风格明暗两尺寸共 12 张原生图通过；心愿和盘点提醒在应用关闭后进入系统通知历史。Mac 端虚构明文与加密备份在该安装应用恢复后，账户／盘点／目标行内容及计数一致；该 Mac 夹具没有图片，不能据此证明非空图片跨平台恢复。
+
+OneDrive 虚构目录中的额外密文副本散列一致；Windows 生产后端实测目标文件被占用时保留旧成品、失败状态独立，释放后重试成功。云同步、原生文件／密钥保存对话框、OneDrive 文件恢复、磁盘不足、升级中强退及所有备份取消／强退时点仍未验证。Windows→Mac 当前候选恢复、Windows 10、真正缺少 WebView2 的联网／断网机器、多屏及 100%／125% 缩放、SmartScreen、通知拒绝／系统关闭、可见 toast、其他提醒类型、完整实体键盘／讲述人／输入法和 Excel 原生导入回执矩阵也未完成。以上是指定范围的阶段结果，不代表 V1–V4 全矩阵通过、界面冻结或可发布；详细过程证据另行保存。
+
 整合 Rust 规划核心及关于页更新入口的受测源码为 `fb94e192dd1c4e3766e59574b21c8c41d19a26ec`（0.0.7 候选）。[核心 CI](https://github.com/CoderJackZhu/Thingary/actions/runs/38597178419) 四任务与 [Windows 包及原生自动流程](https://github.com/CoderJackZhu/Thingary/actions/runs/38597178389) 两任务均成功：两平台构建、UI 各 1,145 项、格式／Clippy、Rust Mac 747 项／Windows 754 项通过，分别忽略 3／4 项测试；15 类原生／WASM 运算、5 类缺字段拒绝及产物散列校验通过。双向恢复的 schema 40、57 张表计数和 8 个原图 SHA-256 完全一致。Windows 目标离线告知包含 301 项 Rust、4 项 npm 与独立 SDK 告知，无缺失。隔离安装后的保存重启、关窗保护、通知排期／系统历史、卸载重装和物品外观矩阵通过；环境为 Windows 11 ARM64 下的 x64 模拟。
 
 虚构浏览器已核对 Windows 下载、空列表、缺包、单源及错误提示；截图接口超时，未取得关于页本轮同尺寸图片对照。关于页真实外部链接／查询、新核心整页交互与取消，以及整合版本的通知点击和实体关窗抽查仍待真实 Windows 补验。此前实体验收与自动脚本结果分别保留，不能以旧包或 CDP 合成按键替代新版本实体证据。步骤与判定见 [Windows 清单](WINDOWS_ACCEPTANCE.md#主分支整合后的复验)。
@@ -63,7 +67,7 @@ npm test
 
 [Windows 候选包工作流](https://github.com/CoderJackZhu/Thingary/actions/workflows/windows-package.yml)分别构建正式身份 release 候选包与隔离 debug 验收包。release 任务使用 `windows-latest` x64，正式身份只构建和静态检查，不启动；验收任务使用标准托管 `windows-11-arm`，运行 x64 应用的系统模拟，不能据此声称真实 x64 硬件已验。运行器范围见 [GitHub 托管运行器说明](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)。工作流 artifact 保留 30 天，下载需登录 GitHub，不自动发布 Release。
 
-原生验收从已安装的 `local.thingary.win.acceptance` 开始，核对安装目录 `许可/BUILD_INFO.json`、源码 SHA、版本、许可散列与快捷方式 AUMID 后才启动。`scripts/windows-native-acceptance.ps1` 和 `scripts/windows-native-ui.mjs` 自动检查窗口、保存／取消／重启、单实例、恢复夹具、实际通知排队／移除与应用退出后的系统历史送达、默认静默卸载保留及重装，并生成结果和同尺寸截图。排队与系统历史送达检查不证明通知已在桌面可见；完整手工安装对话框、原生文件对话框、微软拼音、讲述人、缩放、Windows 10 与真实 x64 仍需分别验收。完整步骤与证据要求唯一维护于[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。
+原生验收从已安装的 `local.thingary.win.acceptance` 开始，核对安装目录 `许可/BUILD_INFO.json`、源码 SHA、版本、许可散列与快捷方式 AUMID 后才启动。`scripts/windows-native-acceptance.ps1` 和 `scripts/windows-native-ui.mjs` 自动检查窗口、保存／取消／重启、单实例、恢复夹具、实际通知排队／移除与应用退出后的系统历史送达、默认静默卸载保留及重装，并生成结果和同尺寸截图。排队与系统历史送达检查不证明通知已在桌面可见；完整手工安装对话框、原生文件对话框、微软拼音、讲述人、其他缩放与 Windows 10 仍需分别验收；真实 x64 的已验范围见本节补验结论。完整步骤与证据要求唯一维护于[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。
 
 ### 0.0.6 发布验证
 
@@ -211,7 +215,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --example investment_review_cont
 
 Rust 入口包括 `src-tauri/tests/backup_security.rs`、`auto_backup.rs`、`backup_staging.rs`、`backup_copy_epoch.rs`、`backup_pipeline.rs` 和模块内嵌测试，覆盖策略选择与异常暂停、密钥验证／轮换、首备结果、目标目录无明文、冻结会话、代际发布及取消。`v1234_integration.rs` 用临时虚构资料核对 schema 42、新账户类型、目标关系和年度事实经标准 age 解密与恢复后的结果，以及只读恢复回执。`examples/v1234_acceptance_fixture.rs` 仅接受显式隔离根目录，拒绝非空目录重新创建，已有验收资料只读检查使用 `--inspect`。前端回归在 `tests/backup-security.test.mjs`、`finance-data-management.test.mjs` 和 `data-management.test.mjs`；运行中取消须等原 promise 清理后才解除互斥，恢复最终提交不提供取消。
 
-已有 Apple Silicon 隔离普通构建的开发验证记录覆盖账户／目标保存、未知盘点回退、删除恢复、重启持久化、年度隐私摘要复制、恢复密钥文件保存与验证、手动／自动／额外密文、标准 age CLI 双向互通及加密恢复。原生大文件读取取消和独立小型测试卷空间不足均保留旧好成品并清理临时文件；启动清理用孤儿夹具复验，不等于所有强退时点都已实测。Windows 双向恢复、ACL、MSVC 链接、占用／长路径，以及所有导出／恢复强退时点、真实容量上限、Intel、macOS 14、完整键盘／输入法和 VoiceOver 仍未验证，不以已实现或自动检查替代。上述记录保留为开发验证证据；最终统一验收等待本轮 review 与全部修复收口后执行。
+已有 Apple Silicon 隔离普通构建的开发验证记录覆盖账户／目标保存、未知盘点回退、删除恢复、重启持久化、年度隐私摘要复制、恢复密钥文件保存与验证、手动／自动／额外密文、标准 age CLI 双向互通及加密恢复。原生大文件读取取消和独立小型测试卷空间不足均保留旧好成品并清理临时文件；启动清理用孤儿夹具复验，不等于所有强退时点都已实测。该 Mac 记录不覆盖 Windows；Windows 单向恢复、ACL、MSVC 链接与占用重试的后补结果见[Windows 验证](#windows-validation)。当前候选双向恢复、Windows 长路径专项，以及所有导出／恢复强退时点、真实容量上限、Intel、macOS 14、完整键盘／输入法和 VoiceOver 仍未验证，不以已实现或自动检查替代。上述记录保留为开发验证证据；最终统一验收等待本轮 review 与全部修复收口后执行。
 
 ## 样例与原生验收
 
