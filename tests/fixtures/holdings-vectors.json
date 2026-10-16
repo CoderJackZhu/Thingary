@@ -1,0 +1,62 @@
+[
+  {
+    "quantity": "123456780000",
+    "price": "1234567",
+    "decimals": 2,
+    "result": "152416"
+  },
+  {
+    "quantity": "123456789",
+    "price": "1000000",
+    "decimals": 2,
+    "result": "123"
+  },
+  {
+    "quantity": "100000000",
+    "price": "4999",
+    "decimals": 2,
+    "result": "0"
+  },
+  {
+    "quantity": "100000000",
+    "price": "5000",
+    "decimals": 2,
+    "result": "1"
+  },
+  {
+    "quantity": "100000000",
+    "price": "5001",
+    "decimals": 2,
+    "result": "1"
+  },
+  {
+    "quantity": "100000000",
+    "price": "500000",
+    "decimals": 0,
+    "result": "1"
+  },
+  {
+    "quantity": "0",
+    "price": "9223372036854775807",
+    "decimals": 2,
+    "result": "0"
+  },
+  {
+    "quantity": "100000000",
+    "price": "0",
+    "decimals": 2,
+    "result": "0"
+  },
+  {
+    "quantity": "9223372036854775807",
+    "price": "1",
+    "decimals": 2,
+    "result": "9223372"
+  },
+  {
+    "quantity": "9223372036854775807",
+    "price": "9223372036854775807",
+    "decimals": 2,
+    "result": null
+  }
+]

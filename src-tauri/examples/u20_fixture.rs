@@ -48,6 +48,8 @@ fn account(
                 purchased_on: None,
                 group_id: None,
                 currency: "CNY".into(),
+                holding_mode: false,
+                holding_unit: None,
             },
         },
         TODAY,
@@ -78,6 +80,8 @@ fn entry(a: &thingary_lib::wealth::Account, state: &str, amount: Option<i64>) ->
         amount_cents: amount.map(yuan),
         original_minor: None,
         fx_rate_micro: None,
+        quantity_e8: None,
+        unit_price_e6: None,
     }
 }
 

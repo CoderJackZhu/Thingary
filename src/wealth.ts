@@ -1,3 +1,4 @@
+import { holdingFact } from "./holdings.ts";
 import { currencyCode, convertCurrency } from './currency.ts';
 import type { CurrencyFact } from './currency.ts';
 import { invoke } from '@tauri-apps/api/core';
@@ -7,7 +8,7 @@ import type { IncomeSave, Mark, ProfileSave } from './plan';
 import { errorMessage, money } from './asset.ts';
 
 export type Side = 'asset' | 'liability';
-export type AccountFields = { name: string; institution: string; side: Side; kind: string; counted: boolean; opened_on: string; closed_on: string | null; notes: string; purchase_cents?: string | null; purchased_on?: string | null; group_id?: string | null; currency?: string };
+export type AccountFields = { name: string; institution: string; side: Side; kind: string; counted: boolean; opened_on: string; closed_on: string | null; notes: string; purchase_cents?: string | null; purchased_on?: string | null; group_id?: string | null; currency?: string; holding_mode?: boolean; holding_unit?: string | null };
 export type Observation = CurrencyFact & { amount_cents: string; date: string };
 export type Account = { id: string; fields: AccountFields; position: number; revision: number; latest: Observation | null; last_entered_on?: string | null; has_entries?: boolean };
 export type EntryState = 'entered' | 'unchanged' | 'missing';
@@ -27,11 +28,11 @@ export type HistoryRow = CurrencyFact & { snapshot_id: string; date: string; sta
 export type AccountHistory = { generation: string; account: Account; rows: HistoryRow[] };
 export type AccountSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: AccountFields };
 export type SnapshotSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; date: string; notes: string; entries: (CurrencyFact & { account_id: string; state: EntryState; amount_cents: string | null })[] };
-export type CheckInRow = { state: EntryState | null; cents: string; edited?: boolean; original_minor?: string | null; fx_rate_micro?: string | null };
+export type CheckInRow = { state: EntryState | null; cents: string; edited?: boolean; quantity_e8?: string | null; unit_price_e6?: string | null; original_minor?: string | null; fx_rate_micro?: string | null };
 /** Loaded unchanged rows keep history; explicitly reconfirmed rows carry the displayed amount. */
 export function snapshotEntryInput(accountId: string, row: CheckInRow): SnapshotSave['entries'][number] {
   if (!row.state) throw new Error('请先处理这个账户。');
-  return { account_id: accountId, state: row.state, amount_cents: row.state === 'entered' || (row.state === 'unchanged' && row.edited) ? row.cents : null, ...(row.state !== 'missing' && row.original_minor != null ? { original_minor: row.original_minor, fx_rate_micro: row.fx_rate_micro } : {}) };
+  return { account_id: accountId, state: row.state, amount_cents: row.state === 'entered' || (row.state === 'unchanged' && row.edited) ? row.cents : null, ...(row.state !== 'missing' && row.quantity_e8 != null ? {quantity_e8:row.quantity_e8,unit_price_e6:row.unit_price_e6} : {}), ...(row.state !== 'missing' && row.original_minor != null ? { original_minor: row.original_minor, fx_rate_micro: row.fx_rate_micro } : {}) };
 }
 
 export const assetKinds = [['cash', '现金与存款'], ['investment', '投资账户'], ['mixed', '混合投资'], ['fund', '基金'], ['bond', '债券'], ['housing_fund', '公积金'], ['property', '房产'], ['pension', '个人养老金'], ['insurance', '保险现金价值'], ['precious_metal', '黄金与贵金属'], ['receivable', '应收款'], ['vehicle', '车辆'], ['other_asset', '其他资产']] as const;
@@ -197,7 +198,7 @@ export const trashInvestmentReview = (input: InvestmentReviewTrash) => submit<vo
 
 
 /** Quick updates replace balances; all arithmetic stays in integer cents. */
-export type QuickChange = CurrencyFact & { account_id: string; amount_cents: string; expected_previous?: string | null; expected_original_minor?: string | null };
+export type QuickChange = CurrencyFact & { account_id: string; amount_cents: string; expected_previous?: string | null; expected_original_minor?: string | null; expected_quantity_e8?: string | null };
 export type QuickUpdate = { request_id: string; generation: string; date: string; note: string; changes: QuickChange[] };
 export type QuickMode = 'balance' | 'delta' | 'transfer';
 export function quickDateMin(points: Pick<Point, 'date'>[]): string {
@@ -227,7 +228,7 @@ export function quickDeltaLabel(side: Side): string {
   return side === 'liability' ? '增加欠款／减少欠款' : '增减金额';
 }
 export function quickTransferPairs(draft: Draft): { from: string; to: string }[] {
-  const known = draft.rows.filter(r => quickPrevious(draft, r.account.id) !== null);
+  const known = draft.rows.filter(r => !r.account.fields.holding_mode && quickPrevious(draft, r.account.id) !== null);
   return known.filter(r => r.account.fields.side === 'asset').flatMap(source => known
     .filter(target => target.account.id !== source.account.id && quickCounted(draft, source.account.id) === quickCounted(draft, target.account.id) && currencyCode(source.account.fields.currency) === currencyCode(target.account.fields.currency))
     .map(target => ({ from: source.account.id, to: target.account.id })));
@@ -275,4 +276,18 @@ export function accountUpdateAge(day: string | null | undefined, today: string):
   if (!day) return { text: '尚未填写金额', old: false };
   const days = Math.max(0, Math.round((Date.parse(today) - Date.parse(day)) / 86400000));
   return { text: `${days} 天前更新`, old: days > 90 };
+}
+
+export type HoldingQuickMode = 'replace' | 'quantity' | 'price';
+export function holdingQuickChange(draft: Draft, id: string, mode: HoldingQuickMode, quantity: string, price: string, rate: string): QuickChange {
+  const account=draft.rows.find(r=>r.account.id===id)?.account;
+  if(!account?.fields.holding_mode)throw new Error('账户不在所选日期的持仓范围内。');
+  const prior=quickFact(draft,id);let next=quantity;
+  if(mode!=='replace'){
+    if(prior?.amount_cents==null||prior.quantity_e8==null)throw new Error('没有已知份额，请同时填写份额和单价。');
+    if(mode==='price')next=prior.quantity_e8;
+    else {if(!/^-?\d+$/.test(quantity))throw new Error('请填写份额变化。');next=(BigInt(prior.quantity_e8)+BigInt(quantity)).toString();}
+  }
+  const fact=holdingFact(currencyCode(account.fields.currency),next,price,rate);
+  return {account_id:id,...fact,amount_cents:fact.amount_cents!,...(mode==='replace'?{}:{expected_previous:prior!.amount_cents,expected_quantity_e8:prior!.quantity_e8,...(currencyCode(account.fields.currency)==='CNY'?{}:{expected_original_minor:prior!.original_minor})})};
 }

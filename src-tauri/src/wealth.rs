@@ -48,11 +48,26 @@ pub struct AccountFields {
         skip_serializing_if = "crate::currency::is_cny"
     )]
     pub currency: String,
+    #[serde(default, skip_serializing_if = "crate::holdings::is_false")]
+    pub holding_mode: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holding_unit: Option<String>,
 }
 impl AccountFields {
     fn validate(&self, today: &str) -> Result<()> {
         if !crate::currency::valid(&self.currency) {
             return Err(Error::new("ACCOUNT_CURRENCY", "币种须为三位大写字母"));
+        }
+        if (self.holding_mode && !crate::holdings::supported(&self.kind))
+            || (!self.holding_mode && self.holding_unit.is_some())
+            || self.holding_unit.as_ref().is_some_and(|u| {
+                u.trim().is_empty() || u.chars().count() > 8 || u.chars().any(char::is_control)
+            })
+        {
+            return Err(Error::new(
+                "ACCOUNT_HOLDING",
+                "仅投资类账户可按持仓记录；单位须为1–8字",
+            ));
         }
         let name = self.name.trim();
         if name.is_empty() || name.chars().count() > 80 || name.contains('\0') {
@@ -140,6 +155,10 @@ pub struct Observation {
     pub original_minor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fx_rate_micro: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quantity_e8: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit_price_e6: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -165,6 +184,10 @@ pub struct EntryInput {
     pub original_minor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fx_rate_micro: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quantity_e8: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit_price_e6: Option<String>,
 }
 
 /// One account's new balance in a quick update. `expected_previous` is the
@@ -181,7 +204,13 @@ pub struct QuickChange {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fx_rate_micro: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quantity_e8: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit_price_e6: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expected_original_minor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expected_quantity_e8: Option<String>,
 }
 
 /// Update one account (or two, for a transfer) without a full check-in. It is
@@ -220,6 +249,10 @@ pub struct Entry {
     pub original_minor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fx_rate_micro: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quantity_e8: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit_price_e6: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -398,6 +431,10 @@ pub struct HistoryRow {
     pub original_minor: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fx_rate_micro: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quantity_e8: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit_price_e6: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -423,6 +460,8 @@ fn account_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
             purchased_on: r.get(12)?,
             group_id: r.get(13)?,
             currency: r.get(14)?,
+            holding_mode: r.get(15)?,
+            holding_unit: r.get(16)?,
         },
         position: r.get(9)?,
         revision: r.get(10)?,
@@ -432,14 +471,14 @@ fn account_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
     })
 }
 const ACCOUNT_COLUMNS: &str =
-    "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,purchase_cents,purchased_on,group_id,currency";
+    "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,purchase_cents,purchased_on,group_id,currency,holding_mode,holding_unit";
 
 fn account_columns(c: &Connection) -> Result<&'static str> {
     // Old backup validation and historical planning reads can precede migration.
     // Schema 43+ always reads real columns, preserving strict structure checks.
     let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(if version < 43 {
-        "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,NULL,NULL,NULL,'CNY'"
+        "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,NULL,NULL,NULL,'CNY',0,NULL"
     } else {
         ACCOUNT_COLUMNS
     })
@@ -501,9 +540,9 @@ fn has_entries(c: &Connection, id: &str) -> Result<bool> {
 fn fx_columns(c: &Connection) -> Result<&'static str> {
     let v: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(if v < 43 {
-        "NULL,NULL"
+        "NULL,NULL,NULL,NULL"
     } else {
-        "e.original_minor,e.fx_rate_micro"
+        "e.original_minor,e.fx_rate_micro,e.quantity_e8,e.unit_price_e6"
     })
 }
 /// Latest explicit balance date; carried observations do not refresh it.
@@ -524,7 +563,7 @@ fn observation_before(
     Ok(c.query_row(
         &format!("SELECT e.amount_cents,s.date,{fx} FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE e.account_id=?1 AND s.deleted_at IS NULL AND e.amount_cents IS NOT NULL AND (?2 IS NULL OR s.date<?2) ORDER BY s.date DESC LIMIT 1"),
         params![account, before],
-        |r| Ok(Observation { amount_cents: r.get::<_, i64>(0)?.to_string(), date: r.get(1)?, original_minor: r.get::<_, Option<i64>>(2)?.map(|v|v.to_string()), fx_rate_micro: r.get::<_, Option<i64>>(3)?.map(|v|v.to_string()) }),
+        |r| Ok(Observation { amount_cents: r.get::<_, i64>(0)?.to_string(), date: r.get(1)?, original_minor: r.get::<_, Option<i64>>(2)?.map(|v|v.to_string()), fx_rate_micro: r.get::<_, Option<i64>>(3)?.map(|v|v.to_string()), quantity_e8: r.get::<_, Option<i64>>(4)?.map(|v|v.to_string()), unit_price_e6: r.get::<_, Option<i64>>(5)?.map(|v|v.to_string()) }),
     ).optional()?)
 }
 
@@ -562,6 +601,8 @@ pub(crate) fn snapshot(c: &Connection, id: &str, live: &[Account]) -> Result<Opt
                 counted: r.get(5)?,
                 original_minor: r.get::<_, Option<i64>>(6)?.map(|v| v.to_string()),
                 fx_rate_micro: r.get::<_, Option<i64>>(7)?.map(|v| v.to_string()),
+                quantity_e8: r.get::<_, Option<i64>>(8)?.map(|v| v.to_string()),
+                unit_price_e6: r.get::<_, Option<i64>>(9)?.map(|v| v.to_string()),
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -629,6 +670,32 @@ pub(crate) fn validate_fx(
         return Err(error("原币金额与汇率折算的人民币金额不一致"));
     }
     Ok((Some(original), Some(rate)))
+}
+
+/// Validate historical facts independently of the account's current input mode.
+pub(crate) fn validate_holding(
+    code: &str,
+    value: Option<i64>,
+    original: Option<i64>,
+    quantity: Option<&str>,
+    price: Option<&str>,
+) -> Result<(Option<i64>, Option<i64>)> {
+    let err = |m| Error::new("HOLDING_MISMATCH", m);
+    if quantity.is_none() && price.is_none() {
+        return Ok((None, None));
+    }
+    if value.is_none() {
+        return Err(err("未知金额不能填写份额和单价"));
+    }
+    let q = crate::currency::integer(quantity.ok_or_else(|| err("请同时填写份额和单价"))?)
+        .map_err(err)?;
+    let p =
+        crate::currency::integer(price.ok_or_else(|| err("请同时填写份额和单价"))?).map_err(err)?;
+    let minor = crate::holdings::minor(q, p, crate::currency::decimals(code)).map_err(err)?;
+    if Some(minor) != if code == "CNY" { value } else { original } {
+        return Err(err("份额与单价计算的金额不一致"));
+    }
+    Ok((Some(q), Some(p)))
 }
 
 /// `a * 10000 / b` rounded half away from zero, i.e. hundredths of a percent.
@@ -794,8 +861,8 @@ pub(crate) fn write_account_tx(
     }
     let now = chrono::Utc::now().to_rfc3339();
     if old.is_some() {
-        tx.execute("UPDATE fin_accounts SET name=?2,institution=?3,kind=?4,counted=?5,opened_on=?6,closed_on=?7,notes=?8,purchase_cents=?10,purchased_on=?11,group_id=?12,currency=?13,revision=revision+1,updated_at=?9 WHERE id=?1",
-                params![id, f.name.trim(), f.institution.trim(), f.kind, f.counted, f.opened_on, f.closed_on, f.notes, now, cents(f.purchase_cents.as_deref())?, f.purchased_on, f.group_id, f.currency])?;
+        tx.execute("UPDATE fin_accounts SET name=?2,institution=?3,kind=?4,counted=?5,opened_on=?6,closed_on=?7,notes=?8,purchase_cents=?10,purchased_on=?11,group_id=?12,currency=?13,holding_mode=?14,holding_unit=?15,revision=revision+1,updated_at=?9 WHERE id=?1",
+                params![id, f.name.trim(), f.institution.trim(), f.kind, f.counted, f.opened_on, f.closed_on, f.notes, now, cents(f.purchase_cents.as_deref())?, f.purchased_on, f.group_id, f.currency, f.holding_mode, f.holding_unit])?;
     } else {
         let position = match new_position {
             Some(p) => p,
@@ -805,8 +872,8 @@ pub(crate) fn write_account_tx(
                 |r| r.get::<_, i64>(0),
             )?,
         };
-        tx.execute("INSERT INTO fin_accounts(id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at,purchase_cents,purchased_on,group_id,currency) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,?11,?11,?12,?13,?14,?15)",
-                params![id, f.name.trim(), f.institution.trim(), f.side, f.kind, f.counted, f.opened_on, f.closed_on, f.notes, position, now, cents(f.purchase_cents.as_deref())?, f.purchased_on, f.group_id, f.currency])?;
+        tx.execute("INSERT INTO fin_accounts(id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at,purchase_cents,purchased_on,group_id,currency,holding_mode,holding_unit) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,?11,?11,?12,?13,?14,?15,?16,?17)",
+                params![id, f.name.trim(), f.institution.trim(), f.side, f.kind, f.counted, f.opened_on, f.closed_on, f.notes, position, now, cents(f.purchase_cents.as_deref())?, f.purchased_on, f.group_id, f.currency, f.holding_mode, f.holding_unit])?;
     }
     account(tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到账户"))
 }
@@ -897,6 +964,9 @@ fn quick_update_plan(
             due_accounts.get(first.account_id.as_str()),
             due_accounts.get(second.account_id.as_str()),
         ) {
+            if a.fields.holding_mode || b.fields.holding_mode {
+                return Err(Error::new("QUICK_HOLDING", "持仓账户请用增减持仓"));
+            }
             if a.fields.currency != b.fields.currency {
                 return Err(Error::new(
                     "QUICK_CURRENCY",
@@ -962,6 +1032,17 @@ fn quick_update_plan(
                 return Err(Error::new("QUICK_STALE", "原币金额已经变化，请重新读取"));
             }
         }
+        let quantity = match kept.get(change.account_id.as_str()) {
+            Some(e) => e.quantity_e8.clone(),
+            None => observation_before(tx, &change.account_id, Some(&input.date))?
+                .and_then(|o| o.quantity_e8),
+        };
+        if account.fields.holding_mode
+            && change.expected_previous.is_some()
+            && (change.expected_quantity_e8.is_none() || change.expected_quantity_e8 != quantity)
+        {
+            return Err(Error::new("QUICK_STALE", "份额已经变化，请重新读取"));
+        }
         let expected = amount(change.expected_previous.as_deref())?;
         if input.changes.len() == 2 && expected.is_none() {
             return Err(Error::new("QUICK_TRANSFER", "转账须基于两个账户的已知金额"));
@@ -999,6 +1080,8 @@ fn quick_update_plan(
                 amount_cents: Some(new.amount_cents.clone()),
                 original_minor: new.original_minor.clone(),
                 fx_rate_micro: new.fx_rate_micro.clone(),
+                quantity_e8: new.quantity_e8.clone(),
+                unit_price_e6: new.unit_price_e6.clone(),
             }
         } else if let Some(e) = kept.get(id) {
             // Same-day rows stay exactly as recorded; an unchanged row without
@@ -1008,6 +1091,8 @@ fn quick_update_plan(
                 state: e.state.clone(),
                 original_minor: e.original_minor.clone(),
                 fx_rate_micro: e.fx_rate_micro.clone(),
+                quantity_e8: e.quantity_e8.clone(),
+                unit_price_e6: e.unit_price_e6.clone(),
                 amount_cents: if e.state == "entered" {
                     e.amount_cents.clone()
                 } else {
@@ -1021,6 +1106,8 @@ fn quick_update_plan(
                 amount_cents: None,
                 original_minor: None,
                 fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
             }
         } else {
             EntryInput {
@@ -1029,6 +1116,8 @@ fn quick_update_plan(
                 amount_cents: None,
                 original_minor: None,
                 fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
             }
         };
         entries.push(entry);
@@ -1140,7 +1229,7 @@ pub(crate) fn write_snapshot_tx(
     for e in &input.entries {
         let given = amount(e.amount_cents.as_deref())?;
         let a = expected[e.account_id.as_str()];
-        let (value, original, rate) = match e.state.as_str() {
+        let (value, original, rate, quantity, price) = match e.state.as_str() {
             "entered" => {
                 let value = Some(
                     given.ok_or_else(|| Error::new("WEALTH_AMOUNT", "请填写金额，或标为未知"))?,
@@ -1151,7 +1240,31 @@ pub(crate) fn write_snapshot_tx(
                     e.original_minor.as_deref(),
                     e.fx_rate_micro.as_deref(),
                 )?;
-                (value, original, rate)
+                let historical = kept.get(e.account_id.as_str()).is_some_and(|k| {
+                    k.amount_cents == e.amount_cents
+                        && k.original_minor == e.original_minor
+                        && k.fx_rate_micro == e.fx_rate_micro
+                        && k.quantity_e8 == e.quantity_e8
+                        && k.unit_price_e6 == e.unit_price_e6
+                });
+                if !historical
+                    && overrides.is_none()
+                    && (a.fields.holding_mode != e.quantity_e8.is_some()
+                        || e.quantity_e8.is_some() != e.unit_price_e6.is_some())
+                {
+                    return Err(Error::new(
+                        "HOLDING_MISMATCH",
+                        "请按账户当前方式录入；持仓须同时填写份额和单价",
+                    ));
+                }
+                let (q, p) = validate_holding(
+                    &a.fields.currency,
+                    value,
+                    original,
+                    e.quantity_e8.as_deref(),
+                    e.unit_price_e6.as_deref(),
+                )?;
+                (value, original, rate, q, p)
             }
             "missing" => {
                 if given.is_some() {
@@ -1163,7 +1276,14 @@ pub(crate) fn write_snapshot_tx(
                     e.original_minor.as_deref(),
                     e.fx_rate_micro.as_deref(),
                 )?;
-                (None, None, None)
+                validate_holding(
+                    &a.fields.currency,
+                    None,
+                    None,
+                    e.quantity_e8.as_deref(),
+                    e.unit_price_e6.as_deref(),
+                )?;
+                (None, None, None, None, None)
             }
             "unchanged" => {
                 // A22: preserve this saved observation, even after earlier facts change.
@@ -1178,6 +1298,8 @@ pub(crate) fn write_snapshot_tx(
                         date: input.date.clone(),
                         original_minor: k.original_minor.clone(),
                         fx_rate_micro: k.fx_rate_micro.clone(),
+                        quantity_e8: k.quantity_e8.clone(),
+                        unit_price_e6: k.unit_price_e6.clone(),
                     }
                 } else {
                     observation_before(tx, &e.account_id, Some(&input.date))?.ok_or_else(|| {
@@ -1209,7 +1331,26 @@ pub(crate) fn write_snapshot_tx(
                     source.original_minor.as_deref(),
                     source.fx_rate_micro.as_deref(),
                 )?;
-                (value, original, rate)
+                if e.quantity_e8
+                    .as_ref()
+                    .is_some_and(|v| Some(v) != source.quantity_e8.as_ref())
+                    || e.unit_price_e6
+                        .as_ref()
+                        .is_some_and(|v| Some(v) != source.unit_price_e6.as_ref())
+                {
+                    return Err(Error::new(
+                        "HOLDING_MISMATCH",
+                        "沿用须保留原记录的份额和单价",
+                    ));
+                }
+                let (q, p) = validate_holding(
+                    &a.fields.currency,
+                    value,
+                    original,
+                    source.quantity_e8.as_deref(),
+                    source.unit_price_e6.as_deref(),
+                )?;
+                (value, original, rate, q, p)
             }
             _ => return Err(Error::new("SNAPSHOT_STATE", "请选择填写、未变或未知")),
         };
@@ -1241,7 +1382,9 @@ pub(crate) fn write_snapshot_tx(
             }
         }
         validate_kind_counted(&kind, counted)?;
-        rows.push((e, value, side, kind, counted, original, rate));
+        rows.push((
+            e, value, side, kind, counted, original, rate, quantity, price,
+        ));
     }
     let now = chrono::Utc::now().to_rfc3339();
     if old.is_some() {
@@ -1253,10 +1396,10 @@ pub(crate) fn write_snapshot_tx(
     } else {
         tx.execute("INSERT INTO fin_snapshots(id,date,notes,revision,created_at,updated_at) VALUES(?1,?2,?3,1,?4,?4)", params![id, input.date, input.notes, now])?;
     }
-    for (e, value, side, kind, counted, original, rate) in rows {
+    for (e, value, side, kind, counted, original, rate, quantity, price) in rows {
         tx.execute(
-            "INSERT INTO fin_snapshot_entries(snapshot_id,account_id,state,amount_cents,side,kind,counted,original_minor,fx_rate_micro) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-            params![id, e.account_id, e.state, value, side, kind, counted, original, rate],
+            "INSERT INTO fin_snapshot_entries(snapshot_id,account_id,state,amount_cents,side,kind,counted,original_minor,fx_rate_micro,quantity_e8,unit_price_e6) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+            params![id, e.account_id, e.state, value, side, kind, counted, original, rate, quantity, price],
         )?;
     }
     snapshot(tx, &id, live)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"))
@@ -1746,12 +1889,14 @@ impl Store {
                     r.get::<_, bool>(4)?,
                     r.get::<_, Option<i64>>(5)?,
                     r.get::<_, Option<i64>>(6)?,
+                    r.get::<_, Option<i64>>(7)?,
+                    r.get::<_, Option<i64>>(8)?,
                 ))
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let mut rows = Vec::new();
         let mut previous: Option<i64> = None;
-        for (snapshot_id, day, state, amount, counted, original, rate) in raw {
+        for (snapshot_id, day, state, amount, counted, original, rate, quantity, price) in raw {
             let change = match (amount, previous) {
                 (Some(v), Some(p)) => Some(v.checked_sub(p).ok_or_else(overflow_error)?),
                 _ => None,
@@ -1759,6 +1904,8 @@ impl Store {
             rows.push(HistoryRow {
                 original_minor: original.map(|v| v.to_string()),
                 fx_rate_micro: rate.map(|v| v.to_string()),
+                quantity_e8: quantity.map(|v| v.to_string()),
+                unit_price_e6: price.map(|v| v.to_string()),
                 snapshot_id,
                 date: day,
                 state,
@@ -2033,7 +2180,7 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
         a.fields
             .validate("9999-12-31")
             .map_err(|_| bad("备份含非法账户资料"))?;
-        for i in [15, 16] {
+        for i in [17, 18] {
             chrono::DateTime::parse_from_rfc3339(&r.get::<_, String>(i)?)
                 .map_err(|_| bad("账户建档或修改时间不合法"))?;
         }
@@ -2076,9 +2223,19 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
         let value: Option<i64> = r.get(0)?;
         let original = r.get::<_, Option<i64>>(1)?.map(|v| v.to_string());
         let rate = r.get::<_, Option<i64>>(2)?.map(|v| v.to_string());
-        let code: String = r.get(3)?;
+        let quantity = r.get::<_, Option<i64>>(3)?.map(|v| v.to_string());
+        let price = r.get::<_, Option<i64>>(4)?.map(|v| v.to_string());
+        let code: String = r.get(5)?;
         validate_fx(&code, value, original.as_deref(), rate.as_deref())
             .map_err(|_| bad("备份含不一致的原币金额或汇率"))?;
+        validate_holding(
+            &code,
+            value,
+            original.as_deref().and_then(|v| v.parse().ok()),
+            quantity.as_deref(),
+            price.as_deref(),
+        )
+        .map_err(|_| bad("备份含不一致的份额或单价"))?;
     }
     let mismatch: bool = c.query_row(
         "SELECT EXISTS(SELECT 1 FROM fin_snapshot_entries e JOIN fin_accounts a ON a.id=e.account_id JOIN fin_snapshots s ON s.id=e.snapshot_id WHERE e.side!=a.side OR (s.deleted_at IS NULL AND (s.date<a.opened_on OR (a.closed_on IS NOT NULL AND s.date>=a.closed_on))))",

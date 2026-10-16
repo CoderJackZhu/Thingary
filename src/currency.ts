@@ -3,7 +3,7 @@ export const currencies = [['CNY','人民币',2],['HKD','港币',2],['USD','美�
 export const currencyCode = (code?: string) => code ?? 'CNY';
 export const currencyDecimals = (code: string) => currencies.find(c=>c[0]===code)?.[2] ?? 2;
 export const validCurrency = (code: string) => /^[A-Z]{3}$/.test(code);
-export type CurrencyFact = { amount_cents: string | null; original_minor?: string | null; fx_rate_micro?: string | null };
+export type CurrencyFact = { quantity_e8?: string | null; unit_price_e6?: string | null; amount_cents: string | null; original_minor?: string | null; fx_rate_micro?: string | null };
 export function parseDecimal(text: string, places: number, signed=false): string {
   if (!(signed ? /^-?\d+(\.\d+)?$/ : /^\d+(\.\d+)?$/).test(text)) throw new Error('请填写数字。');
   const [whole,fraction='']=text.replace(/^-/,'').split('.');

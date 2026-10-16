@@ -38,6 +38,8 @@ fn open(s: &mut Store, name: &str, side: &str, kind: &str, opened: &str) -> Acco
                 purchased_on: None,
                 group_id: None,
                 currency: "CNY".into(),
+                holding_mode: false,
+                holding_unit: None,
             },
         },
         TODAY,
@@ -61,6 +63,8 @@ fn check_in(s: &mut Store, date: &str, rows: &[(&Account, Option<i64>)]) -> Snap
                     amount_cents: v.map(|v| v.to_string()),
                     original_minor: None,
                     fx_rate_micro: None,
+                    quantity_e8: None,
+                    unit_price_e6: None,
                 })
                 .collect(),
         },
@@ -87,7 +91,10 @@ fn quick(
                 expected_previous: prev.map(|p| p.to_string()),
                 original_minor: None,
                 fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
                 expected_original_minor: None,
+                expected_quantity_e8: None,
             })
             .collect(),
     }
@@ -183,6 +190,8 @@ fn the_same_day_changes_only_the_target_and_keeps_recorded_rows() {
                     amount_cents: Some(v.to_string()),
                     original_minor: None,
                     fx_rate_micro: None,
+                    quantity_e8: None,
+                    unit_price_e6: None,
                 })
                 .collect(),
         },

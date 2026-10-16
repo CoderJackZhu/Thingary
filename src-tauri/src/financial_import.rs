@@ -571,6 +571,8 @@ fn prepare(
                 purchased_on: r.purchased_on.clone(),
                 group_id: group_id.clone(),
                 currency: r.currency.clone(),
+                holding_mode: r.holding_mode,
+                holding_unit: r.holding_unit.clone(),
             };
             let old_key = mappings.get(&("account".into(), r.account_key.clone()));
             let id = bindings
@@ -859,6 +861,8 @@ fn prepare(
                         amount_cents: Some(r.amount_cents.clone()),
                         original_minor: r.original_minor.clone(),
                         fx_rate_micro: r.fx_rate_micro.clone(),
+                        quantity_e8: r.quantity_e8.clone(),
+                        unit_price_e6: r.unit_price_e6.clone(),
                     });
                     let mut recorded = json!({"account_id":account_id,"state":"entered","amount_cents":r.amount_cents,"side":a.fields.side,"kind":kind,"counted":counted});
                     if let Some(v) = &r.original_minor {
@@ -866,6 +870,12 @@ fn prepare(
                     }
                     if let Some(v) = &r.fx_rate_micro {
                         recorded["fx_rate_micro"] = json!(v);
+                    }
+                    if let Some(v) = &r.quantity_e8 {
+                        recorded["quantity_e8"] = json!(v);
+                    }
+                    if let Some(v) = &r.unit_price_e6 {
+                        recorded["unit_price_e6"] = json!(v);
                     }
                     historical.push(recorded);
                 } else {

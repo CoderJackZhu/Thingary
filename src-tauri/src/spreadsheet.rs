@@ -531,6 +531,8 @@ impl Store {
                     .transpose()?
                     .unwrap_or_default(),
                 a.fields.currency,
+                a.fields.holding_mode.to_string(),
+                a.fields.holding_unit.unwrap_or_default(),
             ]);
         }
         sheets.push(("账户", accounts));
@@ -541,7 +543,7 @@ impl Store {
                 .map(|s| s.to_string())
                 .collect(),
         ];
-        let mut stmt=self.conn()?.prepare("SELECT s.id,s.date,e.account_id,e.amount_cents,s.notes,e.kind,e.counted,a.currency,e.original_minor,e.fx_rate_micro FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id JOIN fin_accounts a ON a.id=e.account_id WHERE s.deleted_at IS NULL ORDER BY s.date,s.id,e.account_id")?;
+        let mut stmt=self.conn()?.prepare("SELECT s.id,s.date,e.account_id,e.amount_cents,s.notes,e.kind,e.counted,a.currency,e.original_minor,e.fx_rate_micro,e.quantity_e8,e.unit_price_e6 FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id JOIN fin_accounts a ON a.id=e.account_id WHERE s.deleted_at IS NULL ORDER BY s.date,s.id,e.account_id")?;
         for row in stmt.query_map([], |r| {
             Ok(vec![
                 r.get(0)?,
@@ -561,6 +563,12 @@ impl Store {
                     })
                     .unwrap_or_default(),
                 r.get::<_, Option<i64>>(9)?
+                    .map(|v| crate::currency::decimal(v, 6))
+                    .unwrap_or_default(),
+                r.get::<_, Option<i64>>(10)?
+                    .map(|v| crate::currency::decimal(v, 8))
+                    .unwrap_or_default(),
+                r.get::<_, Option<i64>>(11)?
                     .map(|v| crate::currency::decimal(v, 6))
                     .unwrap_or_default(),
             ])

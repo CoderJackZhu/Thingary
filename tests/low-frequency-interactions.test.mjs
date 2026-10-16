@@ -1,3 +1,4 @@
+import * as holdings from '../src/holdings.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -154,7 +155,7 @@ function checkInRuntime() {
   const draft = { generation: 'fictional-generation', existing: { id: 'fictional-snapshot', revision: 2, notes: 'saved', entries: [entry] }, rows: [{ account: { id: entry.account_id, fields: { name: 'Fictional', side: 'asset', kind: 'cash', counted: true } }, previous: { amount_cents: '20000', date: '2026-07-01' } }] };
   const states = ['2026-08-01', undefined, draft, '', 'saved', false, { [entry.account_id]: { state: 'unchanged', cents: '10000' } }, false, '', false, null];
   let cursor = 0, request;
-  const context = { ...currency, CurrencyInput() {}, CurrencyBalance() {}, module: { exports: {} }, exports: {}, require,
+  const context = { ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput() {}, CurrencyBalance() {}, module: { exports: {} }, exports: {}, require,
     useState() { const slot = cursor++; return [states[slot], v => { states[slot] = typeof v === 'function' ? v(states[slot]) : v; }]; },
     useEffect() {}, useRef: v => ({ current: v }),
     snapshotEntryInput, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),
@@ -248,7 +249,7 @@ function twoRowRuntime() {
   const draft = { generation: 'fictional-generation', existing: null, rows };
   const states = ['2026-08-01', undefined, draft, '', 'saved', false, {}, false, '', false, null];
   let cursor = 0, request;
-  const context = { ...currency, CurrencyInput() {}, CurrencyBalance() {}, module: { exports: {} }, exports: {}, require,
+  const context = { ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput() {}, CurrencyBalance() {}, module: { exports: {} }, exports: {}, require,
     useState() { const slot = cursor++; return [states[slot], v => { states[slot] = typeof v === 'function' ? v(states[slot]) : v; }]; },
     useEffect() {}, useRef: v => ({ current: v }),
     snapshotEntryInput, previewTotals: () => ({ assets: '0', liabilities: '0', net: '0', missing: 0 }),

@@ -1,3 +1,4 @@
+import * as holdings from '../src/holdings.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -13,7 +14,7 @@ function fixture(query = '', withToday = false) {
   const accounts = ['cash', 'fund', 'card', 'unknown'].map((id, i) => ({ id, fields: { name: `虚构${id}`, side: id === 'card' ? 'liability' : 'asset', kind: id === 'card' ? 'credit_card' : 'cash', counted: true, opened_on: '2026-01-01', closed_on: null } }));
   const snapshots = [{ id: 'before', date: '2026-10-01', notes: '虚构原备注', revision: 1, entries: accounts.slice(0, 3).map((a, i) => ({ account_id: a.id, amount_cents: ['10000', '5000', '3000'][i], state: 'entered', side: a.fields.side, kind: a.fields.kind, counted: true })) }];
   if (withToday) snapshots.push({ ...structuredClone(snapshots[0]), id: 'today-existing', date: '2026-10-17' });
-  const context = { ...currency, accounts, snapshots, params: new URLSearchParams(query), generation: '虚构资料', now: new Date('2026-10-17T12:00:00Z'), iso: date => date.toISOString().slice(0, 10), receipts: new Map(), quickFingerprints: new Map(), quickStaleShown: false, crypto,
+  const context = { ...holdings, ...currency, accounts, snapshots, params: new URLSearchParams(query), generation: '虚构资料', now: new Date('2026-10-17T12:00:00Z'), iso: date => date.toISOString().slice(0, 10), receipts: new Map(), quickFingerprints: new Map(), quickStaleShown: false, crypto,
     due: (a, d) => a.fields.opened_on <= d && (!a.fields.closed_on || d < a.fields.closed_on), known: e => e.amount_cents !== null, financialImportPreview: () => null, planFail: () => false };
   const code = ts.transpileModule(picked + '\n' + initialization + '\nglobalThis.run=wealthPreview;', { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
   vm.runInNewContext(code, context);
@@ -99,4 +100,33 @@ test('虚构预览停用账户仍贡献最近汇率建议，过滤未来并纳�
  f.context.snapshots.push({id:'future',date:'2026-10-09',notes:'虚构',revision:1,entries:[{account_id:next.id,state:'entered',amount_cents:'800',original_minor:'100',fx_rate_micro:'8000000',side:'asset',kind:'cash',counted:true}]});
  const before=f.call('wealth_snapshot_draft',{date:'2026-10-05'});assert.ok(!before.rows.some(r=>r.account.id===old.id));assert.deepEqual(before.rate_suggestions.USD,{rate:'7000000',date:'2026-10-01'});
  const same=f.call('wealth_snapshot_draft',{date:'2026-10-09'});assert.deepEqual(same.rate_suggestions.USD,{rate:'8000000',date:'2026-10-09'});
+});
+
+test('虚构预览持仓：新日沿用、A22、关闭模式后同日其他更新保留与真实数量陈旧',()=>{
+ const f=fixture(),a=f.context.accounts.find(a=>a.id==='fund');a.fields.kind='fund';a.fields.holding_mode=true;
+ const prior=f.context.snapshots[0].entries.find(e=>e.account_id==='fund');prior.quantity_e8='5000000000';prior.unit_price_e6='1000000';
+ const carried=f.update([{account_id:'cash',amount_cents:'9000'}]);assert.equal(carried.entries.find(e=>e.account_id==='fund').quantity_e8,'5000000000');
+ const changed=f.update([{account_id:'fund',amount_cents:'6000',quantity_e8:'6000000000',unit_price_e6:'1000000',expected_previous:'5000',expected_quantity_e8:'5000000000'}]);assert.equal(changed.entries.find(e=>e.account_id==='fund').unit_price_e6,'1000000');
+ assert.throws(()=>f.update([{account_id:'fund',amount_cents:'6000',quantity_e8:'12000000000',unit_price_e6:'500000',expected_previous:'6000',expected_quantity_e8:'5000000000'}]),e=>e.code==='QUICK_STALE');
+ a.fields.holding_mode=false;const kept=f.update([{account_id:'cash',amount_cents:'8000'}]);assert.equal(kept.entries.find(e=>e.account_id==='fund').quantity_e8,'6000000000');
+ const history=f.call('wealth_account_history',{account:'fund'});assert.equal(history.rows.at(-1).quantity_e8,'6000000000');
+});
+
+test('虚构外币持仓preview真实保存：双向模式切换后只改备注保留整条原事实',()=>{
+ for(const originalMode of [true,false]){const f=fixture(),a=f.context.accounts.find(a=>a.id==='fund');a.fields.kind='fund';a.fields.currency='USD';a.fields.holding_mode=originalMode;
+ const old=f.context.snapshots[0].entries.find(e=>e.account_id==='fund');old.original_minor='5000';old.fx_rate_micro='1000000';if(originalMode){old.quantity_e8='5000000000';old.unit_price_e6='1000000';}
+ const first=f.update([{account_id:'fund',amount_cents:'5000',original_minor:'5000',fx_rate_micro:'1000000',...(originalMode?{quantity_e8:'5000000000',unit_price_e6:'1000000'}:{})}]);a.fields.holding_mode=!originalMode;
+ const input={request_id:crypto.randomUUID(),generation:'虚构资料',id:first.id,expected_revision:first.revision,date:first.date,notes:'虚构模式切换只改备注',entries:first.entries.map(e=>({...e,amount_cents:e.state==='unchanged'?null:e.amount_cents}))};
+ const result=f.call('wealth_snapshot_save',{input}),saved=result.entries.find(e=>e.account_id==='fund');assert.equal(saved.original_minor,'5000');assert.equal(saved.fx_rate_micro,'1000000');assert.equal(saved.quantity_e8,originalMode?'5000000000':undefined);assert.equal(saved.unit_price_e6,originalMode?'1000000':undefined);assert.equal(result.notes,'虚构模式切换只改备注');
+ }
+});
+
+test('虚构外币持仓preview实际完整盘点：新录入、更正、仅备注都校验完整五事实',()=>{
+ const f=fixture(),a=f.context.accounts.find(a=>a.id==='fund');Object.assign(a.fields,{kind:'fund',currency:'USD',holding_mode:true});
+ const entries=f.context.snapshots[0].entries.map(e=>e.account_id==='fund'?{...e,amount_cents:'14000',original_minor:'7000',fx_rate_micro:'2000000',quantity_e8:'7000000000',unit_price_e6:'1000000'}:{...e});entries.push({account_id:'unknown',state:'missing',amount_cents:null});
+ const save=(old,entries,notes)=>f.call('wealth_snapshot_save',{input:{request_id:crypto.randomUUID(),generation:'虚构资料',id:old?.id??null,expected_revision:old?.revision??null,date:'2026-10-10',notes,entries}});
+ let snapshot=save(null,entries,'虚构新盘点');assert.equal(snapshot.entries.find(e=>e.account_id==='fund').amount_cents,'14000');
+ const corrected=snapshot.entries.map(e=>e.account_id==='fund'?{...e,amount_cents:'24000',original_minor:'12000',quantity_e8:'8000000000',unit_price_e6:'1500000'}:{...e});snapshot=save(snapshot,corrected,'虚构更正');assert.equal(snapshot.entries.find(e=>e.account_id==='fund').original_minor,'12000');
+ a.fields.holding_mode=false;snapshot=save(snapshot,snapshot.entries,'虚构关闭模式只改备注');assert.equal(snapshot.entries.find(e=>e.account_id==='fund').quantity_e8,'8000000000');
+ const invalid=snapshot.entries.map(e=>e.account_id==='fund'?{...e,original_minor:'24000',fx_rate_micro:'1000000',quantity_e8:'24000000000',unit_price_e6:'1000000'}:{...e});assert.throws(()=>save(snapshot,invalid,'虚构不能以同人民币绕过模式'),e=>e.code==='HOLDING_MISMATCH');
 });

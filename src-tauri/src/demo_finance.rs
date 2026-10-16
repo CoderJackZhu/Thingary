@@ -144,6 +144,8 @@ fn import_fixed_assets(s: &mut Store, today: &str) -> Result<()> {
                     group_id: None,
                     notes: "虚构样例；房贷单独展示，不计入金融净资产。".into(),
                     currency: crate::currency::cny(),
+                    holding_mode: false,
+                    holding_unit: None,
                 },
             },
             today,
@@ -178,6 +180,8 @@ fn import_fixed_assets(s: &mut Store, today: &str) -> Result<()> {
                 state: e.state,
                 original_minor: e.original_minor,
                 fx_rate_micro: e.fx_rate_micro,
+                quantity_e8: e.quantity_e8,
+                unit_price_e6: e.unit_price_e6,
             })
             .collect();
         for (index, account_id) in &added {
@@ -196,6 +200,8 @@ fn import_fixed_assets(s: &mut Store, today: &str) -> Result<()> {
                 amount_cents: amount.map(|v| (v * 100).to_string()),
                 original_minor: None,
                 fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
             });
         }
         // Accounts added while the sample was edited can be due but absent
@@ -208,6 +214,8 @@ fn import_fixed_assets(s: &mut Store, today: &str) -> Result<()> {
                     amount_cents: None,
                     original_minor: None,
                     fx_rate_micro: None,
+                    quantity_e8: None,
+                    unit_price_e6: None,
                 });
             }
         }
@@ -267,6 +275,8 @@ fn import_data(s: &mut Store, today: &str, data: Fixtures) -> Result<()> {
                     group_id: None,
                     notes: "虚构样例；房贷单独展示，不计入金融净资产。".into(),
                     currency: crate::currency::cny(),
+                    holding_mode: false,
+                    holding_unit: None,
                 },
             },
             &date,
@@ -298,6 +308,8 @@ fn import_data(s: &mut Store, today: &str, data: Fixtures) -> Result<()> {
                         amount_cents: amount.map(|v| (v * 100).to_string()),
                         original_minor: None,
                         fx_rate_micro: None,
+                        quantity_e8: None,
+                        unit_price_e6: None,
                     })
                     .collect(),
             },
@@ -875,6 +887,8 @@ mod fixed_asset_import_tests {
                 amount_cents: e.amount_cents,
                 original_minor: None,
                 fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
             })
             .collect();
         entries[0].state = "unchanged".into();
@@ -905,6 +919,8 @@ mod fixed_asset_import_tests {
                 amount_cents: e.amount_cents,
                 original_minor: None,
                 fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
             })
             .collect();
         entries[0].amount_cents = Some("8100000".into());
@@ -959,6 +975,8 @@ mod fixed_asset_import_tests {
                         purchased_on: None,
                         group_id: None,
                         currency: crate::currency::cny(),
+                        holding_mode: false,
+                        holding_unit: None,
                     },
                 },
                 TODAY,
@@ -1018,6 +1036,8 @@ mod fixed_asset_import_tests {
                 amount_cents: e.amount_cents,
                 original_minor: None,
                 fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
             })
             .collect();
         let edited_id = entries[0].account_id.clone();
@@ -1103,6 +1123,54 @@ mod fixed_asset_import_tests {
         assert_eq!(foreign.amount_cents.as_deref(), Some("879433"));
         assert_eq!(foreign.original_minor.as_deref(), Some("123456"));
         assert_eq!(foreign.fx_rate_micro.as_deref(), Some("7123456"));
+        assert_eq!(upgraded.entries.len(), 8);
+    }
+    #[test]
+    fn fixed_asset_extension_preserves_holding_fact_after_input_mode_is_disabled() {
+        use serde_json::json;
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::open(dir.path()).unwrap();
+        crate::demo::prepare_legacy_fixture(&mut s, TODAY).unwrap();
+        let account:wealth::AccountSave=serde_json::from_value(json!({"request_id":uuid::Uuid::new_v4().to_string(),"generation":s.generation(),"id":null,"expected_revision":null,"fields":{"name":"虚构样例持仓","institution":"","side":"asset","kind":"fund","holding_mode":true,"holding_unit":"克","counted":true,"currency":"USD","opened_on":"2020-01-01","closed_on":null,"notes":""}})).unwrap();
+        let account = s.wealth_account_save(&account, TODAY).unwrap();
+        let id = s
+            .wealth_request_result(&rid("snapshot-5"), &s.generation())
+            .unwrap()
+            .unwrap();
+        let old = s.wealth_snapshot(&id).unwrap().unwrap();
+        let mut value = serde_json::to_value(&old).unwrap();
+        value["request_id"] = json!(uuid::Uuid::new_v4().to_string());
+        value["generation"] = json!(s.generation());
+        value["expected_revision"] = json!(old.revision);
+        value["entries"].as_array_mut().unwrap().push(json!({"account_id":account.id,"state":"entered","amount_cents":"879433","original_minor":"123456","fx_rate_micro":"7123456","quantity_e8":"123456000000","unit_price_e6":"1000000"}));
+        let input: wealth::SnapshotSave = serde_json::from_value(value).unwrap();
+        s.wealth_snapshot_save(&input, TODAY).unwrap();
+        let mut fields = account.fields.clone();
+        fields.holding_mode = false;
+        fields.holding_unit = None;
+        s.wealth_account_save(
+            &wealth::AccountSave {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                id: Some(account.id.clone()),
+                expected_revision: Some(account.revision),
+                fields,
+            },
+            TODAY,
+        )
+        .unwrap();
+        crate::demo::prepare(&mut s, TODAY).unwrap();
+        let upgraded = s.wealth_snapshot(&id).unwrap().unwrap();
+        let foreign = upgraded
+            .entries
+            .iter()
+            .find(|e| e.account_id == account.id)
+            .unwrap();
+        assert_eq!(foreign.amount_cents.as_deref(), Some("879433"));
+        assert_eq!(foreign.original_minor.as_deref(), Some("123456"));
+        assert_eq!(foreign.fx_rate_micro.as_deref(), Some("7123456"));
+        assert_eq!(foreign.quantity_e8.as_deref(), Some("123456000000"));
+        assert_eq!(foreign.unit_price_e6.as_deref(), Some("1000000"));
         assert_eq!(upgraded.entries.len(), 8);
     }
 }

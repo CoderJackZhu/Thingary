@@ -288,3 +288,14 @@ schema 42 新增 `savings_goals` 与 `savings_goal_accounts`，关联稳定账�
 `wealth_summary.structure_entries` 与 structure_date 源于同一个最近完整 Snapshot，`latest_entries` 源于最近一次 Snapshot，均为只读事实投影，不进入写 DTO／请求指纹。前端 `accountGroupTotals` 用历史 side/counted/amount 与全账户 ID 映射分组，结构不受清单筛选影响；当前账户在最近盘点无行时标未涵盖，不推断历史计入与零金额。组管理与就地创建复用 wealth Pending 回执，遵守表单编辑聚合，快速更新关闭只刷新只读账户观测，保留分组草稿。
 
 金融导入的 group_name 可选且空值不序列化；新组使用稳定 ID，在预览内存事务和正式事务中按名称复用，预览披露新组；context_digest 纳入分组身份、名称、位置与修订。整批失败回滚组与账户，不给 import_external_key 扩充对象类型。CSV／Excel 追加分组名称。
+
+
+### 持仓录入与历史事实保留
+
+`holdings` 是供 Store 与独立金融解析器共用的纯整数模块，前端同名模块用 BigInt，测试共用 `holdings-vectors.json`。quantity_e8 × unit_price_e6 先约去币种小数位，再用 checked i128 乘法与商余数半入，结果为原币最小单位；外币复用 currency 换算人民币。现有 schema43、所有下游CNY计算及命令不变。
+
+账户新增 default/省略false的 holding_mode 与省略None的 holding_unit；EntryInput、QuickChange、Observation、Entry、HistoryRow 及只读Summary数组贯通数量价格。account_columns 17列（group13/currency14/holding15/16，timestamps17/18），<43明确0/NULL投影；43+严格真实列。更正DELETE重插显式保存全部11列，A22和same-day quick保留完整元数据，样例补充也复制原事实。
+
+普通新entered按当前模式校验；只有与旧行的CNY、original、fx、quantity、price完全相同才保留历史模式。unchanged和备份只验证历史事实自洽，不以当前mode重判；金融导入的明确HistoricalOverrides路径同样校验数量→原币→人民币，允许导出当前模式与历史行方式不同后往返，普通IPC不能提交该内部入口。Quick可选expected_quantity_e8（缺省省略）补充同CNY但份额已变的陈旧保护，不改变expected_previous/expected_original_minor及替换余额语义。
+
+`HoldingInput`保留原始输入及可见错误，父值在非法输入时清空以阻止保存；完整盘点不预填q/p，快速增减可建议旧价格，未知回执仍走原Pending。历史单位未持久化，关闭模式后只中性标数量/单价；当前单位只是显示标签，不换算历史。

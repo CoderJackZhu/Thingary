@@ -43,6 +43,8 @@ fn check_ins_export_one_row_per_account_with_unknown_left_empty() {
                     purchased_on: None,
                     group_id: None,
                     currency: "CNY".into(),
+                    holding_mode: false,
+                    holding_unit: None,
                 },
             },
             TODAY,
@@ -57,6 +59,8 @@ fn check_ins_export_one_row_per_account_with_unknown_left_empty() {
         amount_cents: cents.map(str::to_owned),
         original_minor: None,
         fx_rate_micro: None,
+        quantity_e8: None,
+        unit_price_e6: None,
     };
     for (date, note, entries) in [
         (
@@ -94,11 +98,11 @@ fn check_ins_export_one_row_per_account_with_unknown_left_empty() {
     assert_eq!(rows, 4);
     assert_eq!(
         csv,
-        "\u{feff}盘点日期,账户,平台,方向,类型,计入净资产,状态,金额（元）,盘点备注,购入价,购入日期,分组,币种,原币金额,汇率\r\n\
-         2026-08-31,虚构储蓄卡,虚构平台,资产,现金与存款,是,录入,50000.00,\"年终盘点，含奖金入账\n第二行说明\",,,,CNY,,\r\n\
-         2026-08-31,虚构房贷,虚构平台,负债,贷款,否,录入,900000.00,\"年终盘点，含奖金入账\n第二行说明\",,,,CNY,,\r\n\
-         2026-09-28,虚构储蓄卡,虚构平台,资产,现金与存款,是,未知,,,,,,CNY,,\r\n\
-         2026-09-28,虚构房贷,虚构平台,负债,贷款,否,录入,896000.00,,,,,CNY,,\r\n"
+        "\u{feff}盘点日期,账户,平台,方向,类型,计入净资产,状态,金额（元）,盘点备注,购入价,购入日期,分组,币种,原币金额,汇率,份额,单价\r\n\
+         2026-08-31,虚构储蓄卡,虚构平台,资产,现金与存款,是,录入,50000.00,\"年终盘点，含奖金入账\n第二行说明\",,,,CNY,,,,\r\n\
+         2026-08-31,虚构房贷,虚构平台,负债,贷款,否,录入,900000.00,\"年终盘点，含奖金入账\n第二行说明\",,,,CNY,,,,\r\n\
+         2026-09-28,虚构储蓄卡,虚构平台,资产,现金与存款,是,未知,,,,,,CNY,,,,\r\n\
+         2026-09-28,虚构房贷,虚构平台,负债,贷款,否,录入,896000.00,,,,,CNY,,,,\r\n"
     );
 }
 

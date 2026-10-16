@@ -422,6 +422,8 @@ fn general_arrangements_preserve_personal_pension_and_housing_account_facts() {
                         purchased_on: None,
                         group_id: None,
                         currency: "CNY".into(),
+                        holding_mode: false,
+                        holding_unit: None,
                     },
                 },
                 today,
@@ -447,6 +449,8 @@ fn general_arrangements_preserve_personal_pension_and_housing_account_facts() {
                         amount_cents: n.map(str::to_string),
                         original_minor: None,
                         fx_rate_micro: None,
+                        quantity_e8: None,
+                        unit_price_e6: None,
                     })
                     .collect(),
             },

@@ -159,6 +159,8 @@ fn seed(root: &Path) -> (Store, String) {
                     purchased_on: None,
                     group_id: None,
                     currency: "CNY".into(),
+                    holding_mode: false,
+                    holding_unit: None,
                 },
             },
             TODAY,
