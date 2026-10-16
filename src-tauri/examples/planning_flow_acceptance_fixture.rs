@@ -88,6 +88,8 @@ fn main() {
                         opened_on: "2026-01-01".into(),
                         closed_on: None,
                         notes: "仅供隔离验收，不是真实资料".into(),
+                        purchase_cents: None,
+                        purchased_on: None,
                     },
                 },
                 TODAY,

@@ -236,13 +236,27 @@ pub fn import(s: &mut Store, today: &str) -> Result<Vec<AssetRecord>> {
 
 /// App-only full sample; the explicit legacy importer above still imports eight originals.
 pub(crate) fn prepare(s: &mut Store, today: &str) -> Result<()> {
+    prepare_with_finance(s, today, crate::demo_finance::import)
+}
+
+#[cfg(test)]
+pub(crate) fn prepare_legacy_fixture(s: &mut Store, today: &str) -> Result<()> {
+    prepare_with_finance(s, today, crate::demo_finance::import_legacy_fixture)
+}
+
+fn prepare_with_finance(
+    s: &mut Store,
+    today: &str,
+    finance_import: fn(&mut Store, &str) -> Result<()>,
+) -> Result<()> {
     let done = s.root.join("unified-demo-details-v1.complete");
     if done.exists() {
+        finance_import(s, today)?;
         crate::demo_finance::import_virtual(s, today)?;
         return crate::demo_finance::import_plan(s, today);
     }
     import(s, today)?;
-    crate::demo_finance::import(s, today)?;
+    finance_import(s, today)?;
     let anchor = std::fs::read_to_string(s.root.join("unified-demo-v1.date"))?;
     let now = crate::domain::date(&anchor)?;
     let day = |offset: i64| {

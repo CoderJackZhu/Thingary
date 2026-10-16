@@ -2,7 +2,7 @@ import { SavingsGoals } from './SavingsGoals';
 import { CheckinReminder } from './CheckinReminder';
 import { CheckinReminderAsk } from './CheckinReminderAsk';
 import { spacedLabels } from './chart-labels';
-import { accountVisible } from './wealth-display';
+import { accountVisible, fixedAssetChange } from './wealth-display';
 import type { AccountView } from './wealth-display';
 import { SortHeader } from './SortHeader';
 import { sortRecords, moneySortValue, type ListSort } from './list-sort';
@@ -42,6 +42,15 @@ export function usePendingReceipt(reload: () => void) {
     finally { setBusy(false); }
   }
   return { pending, setPending, notice, setNotice, busy, verify };
+}
+function FixedAssetPurchase({ account }: { account: Account }) {
+  if (!['property', 'vehicle'].includes(account.fields.kind) || !account.latest) return null;
+  const purchase = account.fields.purchase_cents;
+  if (purchase == null) return null;
+  let hidden = false;
+  try { hidden = localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { /* Preference unavailable. */ }
+  const delta = fixedAssetChange(purchase, account.latest.amount_cents)!;
+  return <small className="muted" style={{ display: 'block', whiteSpace: 'normal' }}>{hidden ? '购入 •••• · 涨跌 ••••' : <>购入 {money(purchase)} · 涨跌 {changeText(delta.change_cents)}{delta.rate_hundredths !== null ? `（${rateText(delta.rate_hundredths)}）` : ''}</>}</small>;
 }
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
@@ -185,7 +194,7 @@ function Overview({ accountScope, summary, accounts, hasAccounts, latest, lastCo
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>资产结构</h3><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入净资产的账户` : '尚无完整盘点'}</span></div><ShareBars rows={summary.structure} empty="没有计入的资产。"/></article>
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>计入净资产的负债</h3><Info text="按类型统计尚欠金额，不含标为不计入的负债。"/></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
     </div>
-    <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div>{accountScope}{!accounts.length && <p className="muted">当前范围没有账户，可切换上方账户范围查看其他账户。</p>}<ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{!a.fields.counted?' · 不计入净资产':''}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?(a.fields.side==='liability'&&a.latest.amount_cents!=='0'?'−':'')+money(a.latest.amount_cents):'尚未盘点'}</span></li>)}</ul></article>
+    <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div>{accountScope}{!accounts.length && <p className="muted">当前范围没有账户，可切换上方账户范围查看其他账户。</p>}<ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{!a.fields.counted?' · 不计入净资产':''}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?(a.fields.side==='liability'&&a.latest.amount_cents!=='0'?'−':'')+money(a.latest.amount_cents):['property','vehicle'].includes(a.fields.kind)?'尚未估值':'尚未盘点'}<FixedAssetPurchase account={a}/></span></li>)}</ul></article>
   </>;
 }
 
@@ -247,7 +256,7 @@ function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onE
     <td><button className="link-cell" onClick={() => onEdit(a)}>{a.fields.name}</button>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}</td>
     <td>{a.fields.side === 'liability' ? '负债 · ' : ''}{kindLabel(a.fields.kind)}</td>
     <td>{a.fields.counted ? '计入' : '不计入'}</td>
-    <td>{a.latest ? <>{money(a.latest.amount_cents)}<small className="muted"> · {a.latest.date}</small></> : <span className="muted">尚未盘点</span>}</td>
+    <td>{a.latest ? <>{money(a.latest.amount_cents)}<small className="muted"> · {a.latest.date}</small></> : <span className="muted">{['property','vehicle'].includes(a.fields.kind) ? '尚未估值' : '尚未盘点'}</span>}<FixedAssetPurchase account={a}/></td>
     <td>{a.fields.closed_on ? `${a.fields.closed_on} 停用` : `${a.fields.opened_on} 起`}</td>
   </tr>)}</tbody></table></>;
 }
@@ -279,7 +288,7 @@ function AccountDialog({ account, generation, today, onClose }: { account: Accou
     <section className="form-block">
       <FormRow label="名称"><input id="wealth-account-name" aria-label="账户名称" maxLength={80} value={fields.name} disabled={busy || stuck} onChange={e => set('name', e.target.value)} placeholder="例如 招行储蓄卡"/></FormRow>
       <FormRow label="平台" hint="只用于分组"><input aria-label="平台" maxLength={80} value={fields.institution} disabled={busy || stuck} onChange={e => set('institution', e.target.value)} placeholder="可留空"/></FormRow>
-      <FormRow label="类型" hint={account ? '资产或负债建立后不能更改' : '选了类型就知道是资产还是负债：信用卡、贷款等是负债，盘点时填欠款金额'}><select aria-label="类型" value={fields.kind} disabled={busy || stuck} onChange={e => { const kind = e.target.value; setFields(f => selectAccountKind(f, kind, countedChoice)); }}>
+      <FormRow label="类型" hint={account ? '资产或负债建立后不能更改' : '选了类型就知道是资产还是负债：信用卡、贷款等是负债，盘点时填欠款金额'}><select aria-label="类型" value={fields.kind} disabled={busy || stuck} onChange={e => { const kind = e.target.value; if (!['property','vehicle'].includes(kind) && (fields.purchase_cents != null || fields.purchased_on)) { setNotice('请先清空购入价和购入日期'); return; } setNotice(''); setFields(f => selectAccountKind(f, kind, countedChoice)); }}>
         {(!account || fields.side === 'asset') && <optgroup label="资产">{assetKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
         {(!account || fields.side === 'liability') && <optgroup label="负债">{liabilityKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
       </select></FormRow>
@@ -288,6 +297,10 @@ function AccountDialog({ account, generation, today, onClose }: { account: Accou
       <FormRow label="计入金融净资产" hint={fields.kind === 'property' ? '房产固定不计入' : fields.side === 'liability' ? '房贷、车贷等可关闭' : `此类型新建建议：${defaultAccountCounted(fields.kind) ? '计入' : '不计入'}`}><Switch label="计入金融净资产" value={fields.counted} disabled={busy || stuck || fields.kind === 'property'} onChange={v => { setCountedChoice(v); set('counted', v); }}/></FormRow>
       <FormRow label="启用日期" hint="此日之前的盘点不要求填写"><DateInput yearIntent="past" id="wealth-account-opened" value={fields.opened_on} max={today} disabled={busy || stuck} onChange={v => set('opened_on', v)}/></FormRow>
       {account && <FormRow label="停用日期" hint="停用前最后一次盘点须为 0"><DateInput yearIntent="past" id="wealth-account-closed" value={fields.closed_on ?? ''} max={today} allowClear disabled={busy || stuck} onChange={v => set('closed_on', v || null)}/></FormRow>}
+      {['property', 'vehicle'].includes(fields.kind) && <>
+        <FormRow label="购入价" hint="可留空；仅用于显示估值涨跌，不参与净资产或规划计算"><CentInput label="购入价" value={fields.purchase_cents ?? ''} disabled={busy || stuck} onChange={v => set('purchase_cents', v || null)}/></FormRow>
+        <FormRow label="购入日期" hint="可留空"><DateInput yearIntent="past" id="wealth-account-purchased" value={fields.purchased_on ?? ''} min="1900-01-01" max={today} allowClear disabled={busy || stuck} onChange={v => set('purchased_on', v || null)}/></FormRow>
+      </>}
     </section>
     <section className="form-block form-notes"><label htmlFor="wealth-account-notes">备注</label><textarea id="wealth-account-notes" maxLength={10000} value={fields.notes} disabled={busy || stuck} onChange={e => set('notes', e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}

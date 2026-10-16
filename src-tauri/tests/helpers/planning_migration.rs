@@ -138,7 +138,7 @@ fn old_profile(s: &Store, pp: &str, mode: Value) -> Value {
 }
 fn seed(root: &Path) -> (Store, String) {
     let mut s = Store::open(root).unwrap();
-    crate::demo::prepare(&mut s, TODAY).unwrap();
+    crate::demo::prepare_legacy_fixture(&mut s, TODAY).unwrap();
     let pp = s
         .wealth_account_save(
             &crate::wealth::AccountSave {
@@ -155,6 +155,8 @@ fn seed(root: &Path) -> (Store, String) {
                     opened_on: "2020-01-01".into(),
                     closed_on: None,
                     notes: "实际账户虚构事实，不是社保公式余额".into(),
+                    purchase_cents: None,
+                    purchased_on: None,
                 },
             },
             TODAY,

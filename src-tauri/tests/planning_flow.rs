@@ -30,6 +30,8 @@ fn account(s: &mut Store, name: &str, kind: &str) -> Account {
                 opened_on: "2026-01-01".into(),
                 closed_on: None,
                 notes: String::new(),
+                purchase_cents: None,
+                purchased_on: None,
             },
         },
         TODAY,

@@ -44,6 +44,8 @@ fn account(
                 opened_on: opened.into(),
                 closed_on: None,
                 notes: "U20 隔离验收虚构样例".into(),
+                purchase_cents: None,
+                purchased_on: None,
             },
         },
         TODAY,

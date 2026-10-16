@@ -39,6 +39,8 @@ pub fn seed(store: &mut Store, today: &str) -> Result<()> {
                     opened_on: opened.clone(),
                     closed_on: None,
                     notes: "统一验收虚构资料，非真实资产".into(),
+                    purchase_cents: None,
+                    purchased_on: None,
                 },
             },
             today,

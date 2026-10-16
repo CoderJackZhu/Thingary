@@ -5,7 +5,7 @@ import type { IncomeSave, Mark, ProfileSave } from './plan';
 import { errorMessage, money } from './asset.ts';
 
 export type Side = 'asset' | 'liability';
-export type AccountFields = { name: string; institution: string; side: Side; kind: string; counted: boolean; opened_on: string; closed_on: string | null; notes: string };
+export type AccountFields = { name: string; institution: string; side: Side; kind: string; counted: boolean; opened_on: string; closed_on: string | null; notes: string; purchase_cents?: string | null; purchased_on?: string | null };
 export type Observation = { amount_cents: string; date: string };
 export type Account = { id: string; fields: AccountFields; position: number; revision: number; latest: Observation | null };
 export type EntryState = 'entered' | 'unchanged' | 'missing';
