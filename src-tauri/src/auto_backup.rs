@@ -126,13 +126,18 @@ pub fn unique_name(date: &str, encrypted: bool) -> String {
     let tick = chrono::Local::now()
         .timestamp_nanos_opt()
         .unwrap_or_default();
-    let previous = LAST_NANOS
-        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |last| {
-            Some(tick.max(last.saturating_add(1)))
-        })
-        .unwrap();
-    let instant = chrono::DateTime::from_timestamp_nanos(tick.max(previous.saturating_add(1)))
-        .with_timezone(&chrono::Local);
+    // A compare-exchange loop keeps this valid on toolchains that deprecate fetch_update.
+    let next = loop {
+        let last = LAST_NANOS.load(Ordering::Relaxed);
+        let next = tick.max(last.saturating_add(1));
+        if LAST_NANOS
+            .compare_exchange(last, next, Ordering::Relaxed, Ordering::Relaxed)
+            .is_ok()
+        {
+            break next;
+        }
+    };
+    let instant = chrono::DateTime::from_timestamp_nanos(next).with_timezone(&chrono::Local);
     let now = instant.format("%H%M%S%f");
     let suffix: String = (0..6)
         .map(|_| {
