@@ -516,6 +516,12 @@ const previewGroups = new Map<string, { assetId: string; planId: string; assetNa
 /** 预览最近删除中的关联订阅组（内存桩）。 */
 export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  // Fictional capability only; browser preview never calls device authentication.
+  if (command === 'privacy_auth_available') return { value: ['success', 'cancel'].includes(params.get('privacy-auth') ?? '') };
+  if (command === 'privacy_authenticate') {
+    if (params.get('privacy-auth') === 'success') return { value: null };
+    throw { code: 'AUTH_FAILED', message: '虚构身份验证已取消，请点解锁重试。' };
+  }
   if(command==='savings_goals_read') {
     if(params.get('savings')==='error') throw {message:'虚构目标读取失败'};
     if(!previewModules.wealth) throw {code:'MODULE_DISABLED',message:'账户与盘点已关闭'};

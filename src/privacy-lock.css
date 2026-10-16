@@ -1,0 +1,18 @@
+.privacy-app{display:contents}
+.privacy-app[aria-hidden=true]{visibility:hidden}
+dialog.privacy-screen{position:fixed;inset:0;width:100vw;height:100vh;max-width:none;max-height:none;margin:0;padding:24px;border:0;border-radius:0;box-shadow:none;box-sizing:border-box;background:var(--bg);color:var(--text);overflow:auto}
+dialog.privacy-screen[open]{display:grid;place-items:center}
+dialog.privacy-screen::backdrop{background:var(--bg)}
+.privacy-screen-content{text-align:center;max-width:480px;overflow-wrap:anywhere}
+.privacy-screen-content h1{font-size:24px;margin:24px 0 12px}
+.privacy-screen-content [role=alert]{color:var(--error);margin-top:20px}
+.privacy-mark{display:inline-grid;place-items:center;width:88px;height:88px;border-radius:var(--ctl-radius);background:var(--soft);color:var(--accent)}
+.privacy-mark svg{width:64px;height:56px}
+.privacy-settings{padding:12px 0}
+.privacy-settings .privacy-toggle{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--text)}
+.privacy-toggle input{flex:none}
+.privacy-idle{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:18px 0}
+.privacy-settings [role=alert]{color:var(--error)}
+
+/* Theme transitions can retain a full-page snapshot above the top layer. */
+:root[data-privacy-screen]::view-transition{display:none}

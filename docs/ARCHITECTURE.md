@@ -10,6 +10,14 @@
 
 原生「关于物谱」「检查更新…」「物谱帮助」通过 `asset-action` 进入同一设置页面；更新菜单额外滚动并聚焦版本行，不自动联网。备份入口切换到数据管理并聚焦标题，仍受编辑和回执保护；更新不进入数据管理。已有编辑弹窗不会被菜单替换。`SupportLink` 只传固定目标 ID 给 `support_open`；Rust 白名单映射公开 HTTPS 地址并调用系统浏览器，不读取资料库，不接受任意 URL、路径或参数。
 
+## 屏幕隐私与原生身份验证
+
+`src/privacy-lock.ts` 提供偏好解析和纯状态机；`PrivacyBoundary` 在 `main.tsx` 最外层控制 `Bootstrap` 挂载。启动锁定时只调用 `privacy_auth_available`／`privacy_authenticate`，能力检查或验证失败不会进入资料读取入口；能力不可用时按关闭处理。主应用挂载后的重新锁定保持同一 React 树，通过不透明全屏顶层 `dialog` 遮盖页面、设置背景 inert，避免已有表单对话框越过遮罩。编辑状态、资料操作、打开的对话框及待核对回执延后重锁；原生菜单与键盘快捷键使用同步锁定标记丢弃操作，不留队列。
+
+两个本机偏好键为 `thingary.privacy-cover.v1`（布尔值）和 `thingary.privacy-lock.v1`（JSON：`enabled`、`idleMinutes`，仅 0／5／15／60），读写失败不抛出到应用，损坏偏好按关闭处理。`wealth-preview.ts` 只模拟虚构认证能力和取消／成功，不调用设备身份验证。
+
+`src-tauri/native/auth.m` 链接系统 `LocalAuthentication`，采用 `LAPolicyDeviceOwnerAuthentication` 支持系统密码兜底；信号量最多等待 120 秒，超时使认证上下文失效。返回字符串由 `thingary_free` 释放。Rust `privacy_lock.rs` 的两个异步命令通过 `spawn_blocking` 调用原生同步函数，不借用 Store；非 macOS 能力返回 false，认证返回 `UNSUPPORTED`。锁屏只防旁观，不加密或阻止文件访问，原生 Worker 的既有启动初始化、提醒及备份生命周期保持不变。自动测试不触发生物识别，真实认证与窗口焦点行为需要隔离身份实机验收。
+
 ## 分层与入口
 
 ```mermaid

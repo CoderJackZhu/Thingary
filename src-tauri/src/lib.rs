@@ -45,6 +45,7 @@ mod planning_engine_commands;
 pub mod planning_flow_review;
 mod planning_followup_commands;
 pub mod preferences;
+pub mod privacy_lock;
 pub mod purge;
 mod recovery;
 pub mod recurring;
@@ -281,6 +282,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             planning_engine_commands::planning_engine_evaluate,
+            privacy_lock::privacy_auth_available,
+            privacy_lock::privacy_authenticate,
             commands::notification_permission,
             commands::modules_get,
             commands::modules_set,
