@@ -418,6 +418,8 @@ fn general_arrangements_preserve_personal_pension_and_housing_account_facts() {
                         opened_on: "2026-01-01".into(),
                         closed_on: None,
                         notes: "虚构客观事实，不是公式余额".into(),
+                        purchase_cents: None,
+                        purchased_on: None,
                     },
                 },
                 today,

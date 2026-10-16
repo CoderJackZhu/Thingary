@@ -551,6 +551,8 @@ fn prepare(
                 opened_on: r.enabled_from.clone(),
                 closed_on: r.disabled_from.clone(),
                 notes: r.note.clone().unwrap_or_default(),
+                purchase_cents: r.purchase_cents.clone(),
+                purchased_on: r.purchased_on.clone(),
             };
             let old_key = mappings.get(&("account".into(), r.account_key.clone()));
             let id = bindings

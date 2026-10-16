@@ -37,6 +37,10 @@ pub struct AccountFields {
     pub opened_on: String,
     pub closed_on: Option<String>,
     pub notes: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub purchase_cents: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub purchased_on: Option<String>,
 }
 impl AccountFields {
     fn validate(&self, today: &str) -> Result<()> {
@@ -63,6 +67,24 @@ impl AccountFields {
             return Err(Error::new("ACCOUNT_KIND", "分类与资产/负债方向不符"));
         }
         validate_kind_counted(&self.kind, self.counted)?;
+        if (self.purchase_cents.is_some() || self.purchased_on.is_some())
+            && !matches!(self.kind.as_str(), "property" | "vehicle")
+        {
+            return Err(Error::new(
+                "ACCOUNT_PURCHASE",
+                "只有房产和车辆可以填写购入价和购入日期",
+            ));
+        }
+        cents(self.purchase_cents.as_deref())?;
+        if let Some(day) = &self.purchased_on {
+            date(day)?;
+            if day.as_str() < "1900-01-01" || day.as_str() > today {
+                return Err(Error::new(
+                    "ACCOUNT_PURCHASE",
+                    "购入日期须在 1900-01-01 至今天之间",
+                ));
+            }
+        }
         date(&self.opened_on)?;
         if self.opened_on.as_str() > today {
             return Err(Error::new("ACCOUNT_DATE", "启用日期不能晚于今天"));
@@ -347,6 +369,8 @@ fn account_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
             opened_on: r.get(6)?,
             closed_on: r.get(7)?,
             notes: r.get(8)?,
+            purchase_cents: r.get::<_, Option<i64>>(11)?.map(|v| v.to_string()),
+            purchased_on: r.get(12)?,
         },
         position: r.get(9)?,
         revision: r.get(10)?,
@@ -354,7 +378,18 @@ fn account_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
     })
 }
 const ACCOUNT_COLUMNS: &str =
-    "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision";
+    "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,purchase_cents,purchased_on";
+
+fn account_columns(c: &Connection) -> Result<&'static str> {
+    // Old backup validation and historical planning reads can precede migration.
+    // Schema 43+ always reads real columns, preserving strict structure checks.
+    let version: i64 = c.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    Ok(if version < 43 {
+        "id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,NULL,NULL"
+    } else {
+        ACCOUNT_COLUMNS
+    })
+}
 
 pub(crate) fn accounts(c: &Connection) -> Result<Vec<Account>> {
     accounts_cancellable(c, &|| Ok(()))
@@ -365,8 +400,9 @@ pub(crate) fn accounts_cancellable(
     c: &Connection,
     check: &dyn Fn() -> Result<()>,
 ) -> Result<Vec<Account>> {
+    let columns = account_columns(c)?;
     let mut q = c.prepare(&format!(
-        "SELECT {ACCOUNT_COLUMNS} FROM fin_accounts WHERE deleted_at IS NULL ORDER BY position,id"
+        "SELECT {columns} FROM fin_accounts WHERE deleted_at IS NULL ORDER BY position,id"
     ))?;
     let mut list = Vec::new();
     for row in q.query_map([], account_row)? {
@@ -381,11 +417,10 @@ pub(crate) fn accounts_cancellable(
 }
 
 pub(crate) fn account(c: &Connection, id: &str) -> Result<Option<Account>> {
+    let columns = account_columns(c)?;
     let found = c
         .query_row(
-            &format!(
-                "SELECT {ACCOUNT_COLUMNS} FROM fin_accounts WHERE id=?1 AND deleted_at IS NULL"
-            ),
+            &format!("SELECT {columns} FROM fin_accounts WHERE id=?1 AND deleted_at IS NULL"),
             [id],
             account_row,
         )
@@ -599,7 +634,6 @@ pub(crate) fn write_account_tx(
     new_position: Option<i64>,
 ) -> Result<Account> {
     let f = &input.fields;
-    f.validate(today)?;
     let old = input
         .id
         .as_deref()
@@ -608,6 +642,17 @@ pub(crate) fn write_account_tx(
     if old.as_ref().map(|a| a.revision) != input.expected_revision {
         return Err(Error::new("REVISION_CONFLICT", "账户已变化，请重新读取"));
     }
+    if old.as_ref().is_some_and(|a| {
+        matches!(a.fields.kind.as_str(), "property" | "vehicle")
+            && !matches!(f.kind.as_str(), "property" | "vehicle")
+            && (a.fields.purchase_cents.is_some() || a.fields.purchased_on.is_some())
+    }) {
+        return Err(Error::new(
+            "ACCOUNT_PURCHASE",
+            "请先清空并保存购入价和购入日期，再更改类型",
+        ));
+    }
+    f.validate(today)?;
     let id = input
         .id
         .clone()
@@ -620,8 +665,8 @@ pub(crate) fn write_account_tx(
     }
     let now = chrono::Utc::now().to_rfc3339();
     if old.is_some() {
-        tx.execute("UPDATE fin_accounts SET name=?2,institution=?3,kind=?4,counted=?5,opened_on=?6,closed_on=?7,notes=?8,revision=revision+1,updated_at=?9 WHERE id=?1",
-                params![id, f.name.trim(), f.institution.trim(), f.kind, f.counted, f.opened_on, f.closed_on, f.notes, now])?;
+        tx.execute("UPDATE fin_accounts SET name=?2,institution=?3,kind=?4,counted=?5,opened_on=?6,closed_on=?7,notes=?8,purchase_cents=?10,purchased_on=?11,revision=revision+1,updated_at=?9 WHERE id=?1",
+                params![id, f.name.trim(), f.institution.trim(), f.kind, f.counted, f.opened_on, f.closed_on, f.notes, now, cents(f.purchase_cents.as_deref())?, f.purchased_on])?;
     } else {
         let position = match new_position {
             Some(p) => p,
@@ -631,8 +676,8 @@ pub(crate) fn write_account_tx(
                 |r| r.get::<_, i64>(0),
             )?,
         };
-        tx.execute("INSERT INTO fin_accounts(id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,?11,?11)",
-                params![id, f.name.trim(), f.institution.trim(), f.side, f.kind, f.counted, f.opened_on, f.closed_on, f.notes, position, now])?;
+        tx.execute("INSERT INTO fin_accounts(id,name,institution,side,kind,counted,opened_on,closed_on,notes,position,revision,created_at,updated_at,purchase_cents,purchased_on) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,1,?11,?11,?12,?13)",
+                params![id, f.name.trim(), f.institution.trim(), f.side, f.kind, f.counted, f.opened_on, f.closed_on, f.notes, position, now, cents(f.purchase_cents.as_deref())?, f.purchased_on])?;
     }
     account(tx, &id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到账户"))
 }
@@ -1704,8 +1749,9 @@ impl Store {
 /// Backup validation for schema 15 data beyond what SQL CHECKs cover.
 pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
     let bad = |m: &str| Error::new("DATA_CONSTRAINT", m);
+    let columns = account_columns(c)?;
     let mut q = c.prepare(&format!(
-        "SELECT {ACCOUNT_COLUMNS},created_at,updated_at FROM fin_accounts"
+        "SELECT {columns},created_at,updated_at FROM fin_accounts"
     ))?;
     let mut rows = q.query([])?;
     while let Some(r) = rows.next()? {
@@ -1716,7 +1762,7 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
         a.fields
             .validate("9999-12-31")
             .map_err(|_| bad("备份含非法账户资料"))?;
-        for i in [11, 12] {
+        for i in [13, 14] {
             chrono::DateTime::parse_from_rfc3339(&r.get::<_, String>(i)?)
                 .map_err(|_| bad("账户建档或修改时间不合法"))?;
         }

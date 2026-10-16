@@ -296,6 +296,8 @@ fn real_unkeyed_catalog_blank_zero_and_explicit_group_exclusion() {
                 opened_on: "2024-01-01".into(),
                 closed_on: None,
                 notes: String::new(),
+                purchase_cents: None,
+                purchased_on: None,
             },
         },
         "2026-10-09",

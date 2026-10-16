@@ -54,6 +54,8 @@ fn account(s: &mut Store, opened: &str) -> Account {
                 opened_on: opened.into(),
                 closed_on: None,
                 notes: String::new(),
+                purchase_cents: None,
+                purchased_on: None,
             },
         },
         TODAY,

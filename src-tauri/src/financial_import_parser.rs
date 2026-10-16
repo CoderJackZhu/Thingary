@@ -224,6 +224,8 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
             "counted",
             "platform",
             "note",
+            "购入价",
+            "购入日期",
         ]),
         "snapshots" => Some(&[
             "snapshot_key",
@@ -255,7 +257,7 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
 /// Columns that may be left empty; all other template columns are required.
 fn optional_columns(kind: &str) -> &'static [&'static str] {
     match kind {
-        "accounts" => &["disabled_from", "platform", "note"],
+        "accounts" => &["disabled_from", "platform", "note", "购入价", "购入日期"],
         "snapshots" => &["note", "kind_at_date", "counted_at_date"],
         "incomes" => &[
             "hpf_deposit",
@@ -505,6 +507,10 @@ pub struct AccountRowV1 {
     pub counted: bool,
     pub platform: Option<String>,
     pub note: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub purchase_cents: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub purchased_on: Option<String>,
 }
 
 /// One account line of one check-in group. The group, not this row, is the
@@ -1556,6 +1562,44 @@ fn parse_account_row(
             "房产仅单独记录估值，counted 必须明确为 false".into(),
         ));
     }
+    let purchase_cents = amount_cell(
+        h.cell(record, "购入价"),
+        row,
+        &h.column_label("购入价"),
+        "购入价",
+        false,
+        &mut issues,
+    )
+    .flatten();
+    let purchased_on = optional_date(
+        h.cell(record, "购入日期"),
+        row,
+        &h.column_label("购入日期"),
+        "购入日期",
+        today,
+        &mut issues,
+    )
+    .flatten();
+    if purchased_on.as_deref().is_some_and(|d| d < "1900-01-01") {
+        issues.push(row_issue(
+            "ACCOUNT_PURCHASE",
+            row,
+            h.column_label("购入日期"),
+            None,
+            "购入日期不能早于 1900-01-01".into(),
+        ));
+    }
+    if (purchase_cents.is_some() || purchased_on.is_some())
+        && !matches!(kind.as_deref(), Some("property" | "vehicle"))
+    {
+        issues.push(row_issue(
+            "ACCOUNT_PURCHASE",
+            row,
+            h.column_label("购入价"),
+            None,
+            "只有房产和车辆可以填写购入价和购入日期".into(),
+        ));
+    }
     let platform = match h.cell(record, "platform").map(str::trim) {
         None | Some("") => None,
         Some(v) if v.chars().count() > MAX_PLATFORM_CHARS => {
@@ -1603,6 +1647,8 @@ fn parse_account_row(
         counted: counted.expect("validated"),
         platform,
         note: note.flatten(),
+        purchase_cents,
+        purchased_on,
     }))
 }
 

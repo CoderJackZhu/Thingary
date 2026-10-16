@@ -75,6 +75,8 @@ fn fictional_store(root: &std::path::Path) -> Store {
                     opened_on: "2026-01-01".into(),
                     closed_on: None,
                     notes: String::new(),
+                    purchase_cents: None,
+                    purchased_on: None,
                 },
             },
             TODAY,

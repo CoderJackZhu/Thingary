@@ -45,7 +45,7 @@ const shifted = (months: number, offset = 0) => {
   return iso(new Date(target.getFullYear(), target.getMonth(), Math.min(base.getDate(), new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate())));
 };
 let accounts: Account[] = demoFinance.accounts.map((a, position) => ({ id: 'w-' + a.key,
-  fields: { name: a.name, institution: a.institution, side: a.side as 'asset' | 'liability', kind: a.kind, counted: a.counted, opened_on: shifted(6), closed_on: null, notes: '虚构样例' }, position, revision: 1, latest: null }));
+  fields: { name: a.name, institution: a.institution, side: a.side as 'asset' | 'liability', kind: a.kind, counted: a.counted, opened_on: shifted(6), closed_on: null, notes: '虚构样例', purchase_cents: 'purchase_cents' in a ? a.purchase_cents : null, purchased_on: 'purchased_on' in a ? a.purchased_on : null }, position, revision: 1, latest: null }));
 type Stored = { id: string; date: string; notes: string; revision: number; entries: Entry[] };
 const entry = (a: Account, yuan: number | null): Entry => ({ account_id: a.id, state: yuan === null ? 'missing' : 'entered', amount_cents: yuan === null ? null : String(yuan * 100), side: a.fields.side, kind: a.fields.kind, counted: a.fields.counted });
 let snapshots: Stored[] = demoFinance.snapshots.map((s, i) => ({ id: `w-snap-${i}`, date: shifted(s.months_ago), notes: '虚构盘点', revision: 1, entries: accounts.map((a, n) => entry(a, s.amounts_yuan[n])) }));
@@ -935,6 +935,11 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (receipts.has(input.request_id)) return { value: withLatest(accounts.find(a => a.id === receipts.get(input.request_id))!) };
     if (input.fields.kind === 'property' && input.fields.counted) throw { code: 'PROPERTY_COUNTED', message: '房产仅单独记录估值，不能计入金融净资产' };
     const id = input.id ?? crypto.randomUUID(), old = accounts.find(a => a.id === id);
+    const f = input.fields;
+    if (old && !['property','vehicle'].includes(f.kind) && (old.fields.purchase_cents != null || old.fields.purchased_on != null)) throw { code: 'ACCOUNT_PURCHASE', message: '请先清空并保存购入价和购入日期，再更改类型' };
+    if ((f.purchase_cents != null || f.purchased_on != null) && !['property','vehicle'].includes(f.kind)) throw { code: 'ACCOUNT_PURCHASE', message: '只有房产和车辆可以填写购入价和购入日期' };
+    if (f.purchase_cents != null && (!/^\d+$/.test(f.purchase_cents) || BigInt(f.purchase_cents) > 99999999999n)) throw { code: 'ACCOUNT_PURCHASE', message: '购入价超出可保存的金额范围' };
+    if (f.purchased_on != null && (!/^\d{4}-\d{2}-\d{2}$/.test(f.purchased_on) || Number.isNaN(Date.parse(f.purchased_on)) || new Date(f.purchased_on).toISOString().slice(0,10) !== f.purchased_on || f.purchased_on < '1900-01-01' || f.purchased_on > iso(now))) throw { code: 'ACCOUNT_PURCHASE', message: '购入日期须在 1900-01-01 至今天之间' };
     const next: Account = { id, fields: input.fields, position: old?.position ?? accounts.length, revision: (old?.revision ?? 0) + 1, latest: null };
     accounts = old ? accounts.map(a => a.id === id ? next : a) : [...accounts, next];
     receipts.set(input.request_id, id);
