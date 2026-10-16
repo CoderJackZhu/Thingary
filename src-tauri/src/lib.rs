@@ -289,6 +289,7 @@ pub fn run() {
             commands::wealth_snapshot,
             commands::wealth_snapshot_draft,
             commands::wealth_snapshot_save,
+            commands::wealth_quick_update,
             commands::wealth_request_result,
             savings_goal_commands::savings_goals_read,
             savings_goal_commands::savings_goals_save,

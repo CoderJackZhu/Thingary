@@ -1604,6 +1604,18 @@ pub async fn wealth_snapshot_save(
     .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn wealth_quick_update(
+    input: crate::wealth::QuickUpdate,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wealth::Snapshot> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.wealth_quick_update(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
 pub async fn goal_progress_list(
     worker: tauri::State<'_, Worker>,
 ) -> Result<Vec<crate::goal_progress::Entry>> {

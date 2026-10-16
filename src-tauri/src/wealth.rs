@@ -123,6 +123,30 @@ pub struct EntryInput {
     pub amount_cents: Option<String>,
 }
 
+/// One account's new balance in a quick update. `expected_previous` is the
+/// amount the user saw; it is required for adjustments and transfers so a
+/// stale screen cannot overwrite a newer balance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuickChange {
+    pub account_id: String,
+    pub amount_cents: String,
+    #[serde(default)]
+    pub expected_previous: Option<String>,
+}
+
+/// Update one account (or two, for a transfer) without a full check-in. It is
+/// saved as a check-in on `date`: other accounts carry their latest amount as
+/// `unchanged`, or keep their row when that day already has a check-in.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuickUpdate {
+    pub request_id: String,
+    pub generation: String,
+    pub date: String,
+    #[serde(default)]
+    pub note: String,
+    pub changes: Vec<QuickChange>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotSave {
     pub request_id: String,
@@ -636,6 +660,168 @@ pub(crate) fn validate_account_history_tx(
 }
 
 pub(crate) type HistoricalOverrides = BTreeMap<String, (Option<String>, Option<bool>)>;
+/// Translate a quick update into the full check-in that `write_snapshot_tx`
+/// validates and writes, so both paths share every invariant.
+fn quick_update_plan(
+    tx: &Transaction<'_>,
+    input: &QuickUpdate,
+    today: &str,
+    live: &[Account],
+) -> Result<SnapshotSave> {
+    date(&input.date)?;
+    if input.date.as_str() > today {
+        return Err(Error::new("SNAPSHOT_DATE", "盘点日期不能晚于今天"));
+    }
+    let latest: Option<String> = tx.query_row(
+        "SELECT max(date) FROM fin_snapshots WHERE deleted_at IS NULL",
+        [],
+        |r| r.get(0),
+    )?;
+    if latest.as_deref().is_some_and(|d| input.date.as_str() < d) {
+        return Err(Error::new("QUICK_DATE", "历史金额请到盘点记录里更正"));
+    }
+    if input.note.chars().count() > 500 || input.note.contains('\0') {
+        return Err(Error::new("QUICK_NOTE", "备注最多 500 字，且不能含空字符"));
+    }
+    if !(1..=2).contains(&input.changes.len()) {
+        return Err(Error::new(
+            "QUICK_CHANGES",
+            "一次只能更新一个账户或一笔转账",
+        ));
+    }
+    let due_accounts: BTreeMap<&str, &Account> = live
+        .iter()
+        .filter(|a| due(a, &input.date))
+        .map(|a| (a.id.as_str(), a))
+        .collect();
+    let existing: Option<Snapshot> = tx
+        .query_row(
+            "SELECT id FROM fin_snapshots WHERE date=?1 AND deleted_at IS NULL",
+            [&input.date],
+            |r| r.get::<_, String>(0),
+        )
+        .optional()?
+        .map(|id| snapshot(tx, &id, live))
+        .transpose()?
+        .flatten();
+    let kept: BTreeMap<&str, &Entry> = existing
+        .iter()
+        .flat_map(|s| s.entries.iter())
+        .map(|e| (e.account_id.as_str(), e))
+        .collect();
+    let mut changed: BTreeMap<&str, i64> = BTreeMap::new();
+    let mut effect: i128 = 0;
+    for change in &input.changes {
+        let account = due_accounts
+            .get(change.account_id.as_str())
+            .ok_or_else(|| Error::new("SNAPSHOT_ACCOUNT", "这个账户不在该日期的盘点范围内"))?;
+        let new = amount(Some(&change.amount_cents))?
+            .ok_or_else(|| Error::new("WEALTH_AMOUNT", "请填写金额"))?;
+        // The balance this day currently shows: the same-day row when there is
+        // one (an unchanged row already holds its carried amount), else the
+        // latest earlier amount.
+        let current: Option<i64> = match kept.get(change.account_id.as_str()) {
+            Some(e) => e
+                .amount_cents
+                .as_deref()
+                .map(str::parse)
+                .transpose()
+                .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?,
+            None => observation_before(tx, &change.account_id, Some(&input.date))?
+                .map(|o| o.amount_cents.parse())
+                .transpose()
+                .map_err(|_| Error::new("FORMAT", "资料格式不兼容或损坏"))?,
+        };
+        let expected = amount(change.expected_previous.as_deref())?;
+        if input.changes.len() == 2 && expected.is_none() {
+            return Err(Error::new("QUICK_TRANSFER", "转账须基于两个账户的已知金额"));
+        }
+        if let Some(expected) = expected {
+            if current != Some(expected) {
+                return Err(Error::new(
+                    "QUICK_STALE",
+                    "账户金额已经变化，请重新打开后再试",
+                ));
+            }
+        }
+        if changed.insert(account.id.as_str(), new).is_some() {
+            return Err(Error::new("SNAPSHOT_ACCOUNT", "同一账户只能填写一次"));
+        }
+        let delta = i128::from(new) - i128::from(current.unwrap_or(0));
+        effect += if account.fields.side == "asset" {
+            delta
+        } else {
+            -delta
+        };
+    }
+    if input.changes.len() == 2 && effect != 0 {
+        return Err(Error::new(
+            "QUICK_TRANSFER",
+            "转账前后两个账户的变化须相互抵消",
+        ));
+    }
+    let mut entries = Vec::new();
+    for id in due_accounts.keys() {
+        let entry = if let Some(new) = changed.get(id) {
+            EntryInput {
+                account_id: (*id).into(),
+                state: "entered".into(),
+                amount_cents: Some(new.to_string()),
+            }
+        } else if let Some(e) = kept.get(id) {
+            // Same-day rows stay exactly as recorded; an unchanged row without
+            // an amount keeps its recorded value (A22).
+            EntryInput {
+                account_id: (*id).into(),
+                state: e.state.clone(),
+                amount_cents: if e.state == "entered" {
+                    e.amount_cents.clone()
+                } else {
+                    None
+                },
+            }
+        } else if observation_before(tx, id, Some(&input.date))?.is_some() {
+            EntryInput {
+                account_id: (*id).into(),
+                state: "unchanged".into(),
+                amount_cents: None,
+            }
+        } else {
+            EntryInput {
+                account_id: (*id).into(),
+                state: "missing".into(),
+                amount_cents: None,
+            }
+        };
+        entries.push(entry);
+    }
+    let mut notes = existing
+        .as_ref()
+        .map(|s| s.notes.clone())
+        .unwrap_or_default();
+    let note = input.note.trim();
+    if !note.is_empty() {
+        let names: Vec<&str> = input
+            .changes
+            .iter()
+            .map(|c| due_accounts[c.account_id.as_str()].fields.name.as_str())
+            .collect();
+        if !notes.is_empty() {
+            notes.push('\n');
+        }
+        notes.push_str(&format!("{}：{note}", names.join(" → ")));
+    }
+    Ok(SnapshotSave {
+        request_id: input.request_id.clone(),
+        generation: input.generation.clone(),
+        id: existing.as_ref().map(|s| s.id.clone()),
+        expected_revision: existing.as_ref().map(|s| s.revision),
+        date: input.date.clone(),
+        notes,
+        entries,
+    })
+}
+
 pub(crate) fn write_snapshot_tx(
     tx: &Transaction<'_>,
     input: &SnapshotSave,
@@ -891,6 +1077,28 @@ impl Store {
         self.hit("wealth_snapshot.before_commit")?;
         tx.commit()?;
         self.hit("wealth_snapshot.after_commit")?;
+        Ok(result)
+    }
+
+    pub fn wealth_quick_update(&mut self, input: &QuickUpdate, today: &str) -> Result<Snapshot> {
+        self.check_generation(&input.generation)?;
+        uuid::Uuid::parse_str(&input.request_id)
+            .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
+        let fingerprint = digest(&serde_json::to_vec(&("wealth_quick_update", input))?);
+        let tx = self.conn()?.unchecked_transaction()?;
+        let live = accounts(&tx)?;
+        if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
+            return snapshot(&tx, &id, &live)?
+                .ok_or_else(|| Error::new("NOT_FOUND", "找不到这次盘点"));
+        }
+        let save = quick_update_plan(&tx, input, today, &live)?;
+        let result = write_snapshot_tx(&tx, &save, today, None, None, Some(&live))?;
+        tx.execute(
+            "INSERT INTO feature_requests VALUES(?1,?2,?3)",
+            params![input.request_id, fingerprint, result.id],
+        )?;
+        self.hit("wealth_quick_update.before_commit")?;
+        tx.commit()?;
         Ok(result)
     }
 
