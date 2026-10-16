@@ -270,6 +270,26 @@ function dateProp(kind, label) {
 // vm 里产生的对象带有另一 realm 的原型，比较前复制成宿主普通对象。
 function committed(changes) { return changes.map(value => ({ ...value })); }
 
+test('review presets reuse Range while custom dates and year clear the preset without changing other consumers', () => {
+  const recent = {kind:'range',from:'2025-10-12',to:today,includeFrom:true};
+  const changes = [], selections = [];
+  const props = {value:recent,today,onChange:value=>changes.push(value),
+    options:[{value:'year',label:'自然年'},{value:'range',label:'自选日期'}],
+    presets:[{id:'recent12',label:'近 12 个月',period:recent}],activePreset:'recent12',onPresetChange:id=>selections.push(id)};
+  const h = new Harness(props);
+  assert.equal(h.button('全部'),undefined);assert.equal(h.button('月度'),undefined);
+  assert.equal(h.button('近 12 个月').props['aria-pressed'],true);
+  assert.equal(h.find(n=>n.type==='input').length,0);
+  h.button('自选日期').props.onClick();h.set({...props,activePreset:null});
+  assert.equal(selections.at(-1),null);assert.equal(h.find(n=>n.type==='input').length,2);
+  h.button('自然年').props.onClick();h.rerender();
+  assert.deepEqual(committed(changes).at(-1),{kind:'year',year:2026});
+  h.set({...props,value:{kind:'year',year:2024},activePreset:null});
+  h.button('近 12 个月').props.onClick();h.rerender();
+  assert.equal(selections.at(-1),'recent12');assert.deepEqual(committed(changes).at(-1),recent);
+  const before=changes.length;h.set({...props,disabled:true});h.button('近 12 个月').props.onClick();h.button('自然年').props.onClick();assert.equal(changes.length,before);
+});
+
 test('year dropdown and all selections refresh immediately', () => {
   const changes = [];
   const h = new Harness({ value: { kind: 'all' }, onChange: value => changes.push(value), today });

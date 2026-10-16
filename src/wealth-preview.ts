@@ -26,7 +26,7 @@ import { simplifiedEmpty } from './plan-simplified';
 import type { PlanningSources, ProfileUpdate } from './plan';
 import { basicInputFixtures } from './plan-basic-fixtures';
 import { allModules, type RuntimeModules } from './modules';
-import { financePeriodContains, type FinancePeriod } from './finance-contract';
+import { normalizeFinancePeriod, financePeriodContains, type FinancePeriod } from './finance-contract';
 import type { FinanceRead, FinanceSources } from './finance-service';
 import type { AssumptionReadV1, MovementRecordV1, ReviewPreviewV1 } from './planning-followup-contract';
 import type { Income, IncomeSave, Mark, ProfileState, Reasons, StoredProfile } from './plan';
@@ -738,11 +738,12 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
       asset_review:read(previewModules.wealth,'wealth',()=>({generation,incomplete_count:w.points.filter(p=>!p.complete).length,intervals:w.points.filter(p=>p.complete&&p.compared_to).map(p=>({snapshot_id:p.snapshot_id,from:p.compared_to!,to:p.date,days:Math.round((Date.parse(p.date)-Date.parse(p.compared_to!))/86400000),status:p.scope_changed?'scope_changed' as const:'ok' as const,delta_nw_cents:p.change_cents,hpf_change_cents:p.hpf_change_cents,market_change_cents:p.market_change_cents??null}))})),
       history:read(previewModules.wealth&&previewModules.incomes,'history',()=>computeReview(w.points,planIncomes,planMarks,generation)),
     };
-    if(args.view==='annual' && period.kind==='year') {
-      const start=`${String(period.year).padStart(4,'0')}-01-01`,end=`${String(period.year).padStart(4,'0')}-12-31`;
-      const last=w.points.filter(p=>p.complete&&p.date>=start&&p.date<=end).at(-1);
-      const first=w.points.filter(p=>p.complete&&p.date<start).at(-1)??w.points.find(p=>p.complete&&p.date>=start&&p.date<=end);
-      value.annual={year:period.year,years:{status:'ready',value:[...new Set([now.getFullYear(),...(recordYears.status==='ready'?recordYears.value:[]),...w.points.map(p=>Number(p.date.slice(0,4)))])].sort((a,b)=>a-b)},comparison:read(previewModules.wealth,'wealth',()=>first&&last&&first.date<last.date?wealthPreview('wealth_compare',{from:first.snapshot_id,to:last.snapshot_id})!.value as import('./wealth').Compare:null),scope_changed:!!first&&!!last&&w.points.some(p=>p.complete&&p.date>first.date&&p.date<=last.date&&p.scope_changed),savings:read(previewModules.wealth,'savings',()=>savingsRead(period.year)),planning:read(previewModules.wealth&&previewModules.planning,'planning',()=>[])};
+    if(args.view==='annual' && (period.kind==='year' || period.kind==='range')) {
+      const range=normalizeFinancePeriod(period)!;
+      const start=range.from;
+      const last=w.points.filter(p=>p.complete&&p.date<=todayIso&&financePeriodContains(period,p.date)).at(-1);
+      const first=w.points.filter(p=>p.complete&&p.date<=start&&p.date<=todayIso).at(-1)??w.points.find(p=>p.complete&&p.date<=todayIso&&financePeriodContains(period,p.date));
+      value.annual={...(period.kind==='year'?{year:period.year}:{}),range,years:{status:'ready',value:[...new Set([now.getFullYear(),...(recordYears.status==='ready'?recordYears.value:[]),...w.points.map(p=>Number(p.date.slice(0,4)))])].sort((a,b)=>a-b)},comparison:read(previewModules.wealth,'wealth',()=>first&&last&&first.date<last.date?wealthPreview('wealth_compare',{from:first.snapshot_id,to:last.snapshot_id})!.value as import('./wealth').Compare:null),scope_changed:!!first&&!!last&&w.points.some(p=>p.complete&&p.date>first.date&&p.date<=last.date&&p.scope_changed),savings:read(previewModules.wealth,'savings',()=>savingsRead(Number(todayIso.slice(0,4)))),planning:read(previewModules.wealth&&previewModules.planning,'planning',()=>[])};
     }
     return {value};
   }

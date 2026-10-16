@@ -49,8 +49,18 @@ pub struct FinanceSources {
 }
 
 #[derive(Debug, Serialize)]
+pub struct AnnualRange {
+    pub from: String,
+    pub to: String,
+    #[serde(rename = "includeFrom")]
+    pub include_from: bool,
+}
+
+#[derive(Debug, Serialize)]
 pub struct Annual {
-    pub year: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub year: Option<i32>,
+    pub range: AnnualRange,
     pub years: Read<Vec<i32>>,
     pub comparison: Read<Option<crate::wealth::Compare>>,
     pub scope_changed: bool,
@@ -155,29 +165,49 @@ impl Store {
             disabled()
         };
         let annual = if annual_view {
-            let year = match period {
-                Period::Year { year } => *year,
-                _ => return Err(Error::new("PERIOD", "年度回顾须选择自然年")),
+            // Keep the Year wire entry compatible; a rolling or custom window
+            // uses the existing Range period without inventing a year.
+            let (year, bounds) = match period {
+                Period::Year { year } => (
+                    Some(*year),
+                    AnnualRange {
+                        from: format!("{year:04}-01-01"),
+                        to: format!("{year:04}-12-31"),
+                        include_from: true,
+                    },
+                ),
+                Period::Range {
+                    from,
+                    to,
+                    include_from,
+                } => (
+                    None,
+                    AnnualRange {
+                        from: from.clone(),
+                        to: to.clone(),
+                        include_from: *include_from,
+                    },
+                ),
+                _ => return Err(Error::new("PERIOD", "区间回顾须选择自然年或自选日期")),
             };
-            let start = format!("{year:04}-01-01");
-            let end = format!("{year:04}-12-31");
+            let window = range
+                .as_ref()
+                .expect("Year and Range have validated bounds");
             let mut scope_changed = false;
             let comparison = match &wealth {
                 Read::Ready { value: w } => (|| -> Result<Option<crate::wealth::Compare>> {
-                    let last = w
-                        .points
-                        .iter()
-                        .rev()
-                        .find(|p| p.complete && p.date >= start && p.date <= end);
+                    let last = w.points.iter().rev().find(|p| {
+                        p.complete && window.contains(&p.date) && p.date.as_str() <= today
+                    });
                     let first = w
                         .points
                         .iter()
                         .rev()
-                        .find(|p| p.complete && p.date < start)
+                        .find(|p| p.complete && p.date <= bounds.from && p.date.as_str() <= today)
                         .or_else(|| {
-                            w.points
-                                .iter()
-                                .find(|p| p.complete && p.date >= start && p.date <= end)
+                            w.points.iter().find(|p| {
+                                p.complete && window.contains(&p.date) && p.date.as_str() <= today
+                            })
                         });
                     match (first, last) {
                         (Some(b), Some(e)) if b.date < e.date => {
@@ -197,13 +227,26 @@ impl Store {
                 Read::Disabled { .. } => disabled(),
             };
             let savings = if modules.modules.wealth {
-                self.savings_goals_in_transaction(Some(year), today, modules)
+                self.savings_goals_in_transaction(None, today, modules)
                     .into()
             } else {
                 disabled()
             };
             let planning = if modules.modules.wealth && modules.modules.planning {
-                self.goal_progress_year(year).into()
+                // A late saved conclusion still belongs to its snapshot date.
+                // Future snapshot facts do not become review endpoints early.
+                if bounds.from.as_str() > today || (!bounds.include_from && bounds.from == today) {
+                    Read::Ready { value: Vec::new() }
+                } else if let Some(year) = year.filter(|_| bounds.to.as_str() <= today) {
+                    self.goal_progress_year(year).into()
+                } else {
+                    self.goal_progress_range(
+                        &bounds.from,
+                        bounds.to.as_str().min(today),
+                        bounds.include_from,
+                    )
+                    .into()
+                }
             } else {
                 disabled()
             };
@@ -220,6 +263,7 @@ impl Store {
             })().into();
             Some(Annual {
                 year,
+                range: bounds,
                 years,
                 comparison,
                 scope_changed,

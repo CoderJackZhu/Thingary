@@ -24,6 +24,14 @@ export type FinancePeriodDraftResult =
   | { ok: true; value: FinancePeriod }
   | { ok: false; error: string };
 
+/** Browsing preset only: uses the existing inclusive Range wire contract. */
+export function recentTwelveMonths(today: string): Extract<FinancePeriod, { kind: 'range' }> {
+  normalizeFinancePeriod({ kind: 'range', from: today, to: today, includeFrom: true });
+  const year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7)), day = Number(today.slice(8, 10));
+  const from = year === 1 ? '0001-01-01' : `${pad(year - 1, 4)}-${pad(month, 2)}-${pad(Math.min(day, daysInMonth(year - 1, month)), 2)}`;
+  return { kind: 'range', from, to: today, includeFrom: true };
+}
+
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MONTH = /^(\d{4})-(\d{2})$/;
 const YEAR = /^\d{4}$/;

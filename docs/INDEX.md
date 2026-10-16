@@ -32,7 +32,7 @@
 
 ## 当前阶段
 
-当前候选源码新增[账户类型与存钱目标](USER_GUIDE.md#savings-goals)、[年度回顾](USER_GUIDE.md#annual-review)与[加密备份](USER_GUIDE.md#backup)，资料结构升至 schema 42。界面已于 2026-10-16 冻结，此后只修缺陷；未完整验证的项目见[已知限制](QUICKSTART.md#limits)，开发验证见开发说明，尚未公开发布。
+当前候选源码新增[账户类型与存钱目标](USER_GUIDE.md#savings-goals)、[区间回顾](USER_GUIDE.md#annual-review)与[加密备份](USER_GUIDE.md#backup)，资料结构升至 schema 42。界面已于 2026-10-16 冻结，此后只修缺陷；未完整验证的项目见[已知限制](QUICKSTART.md#limits)，开发验证见开发说明，尚未公开发布。
 
 当前源码的财富入口为账户与盘点、收支记录、财务复盘；物品状态收在列表工具栏；规划以目标为单入口，页内分为目标、测算详情与试算。首次使用可从物品档案或账户盘点开始。五步设置（净投入可跳过）、明确净投入、资金／费用核对、实际发生接续、收入分类、投资区间核对、假设确认与资金流动已接入。当前报告是固定快照的只读预览，默认隐私、可复制摘要；不含基准／比较或原生 PDF。当前验证只维护在[开发说明](DEVELOPMENT.md#finance-workspace-validation)、[报告验证](DEVELOPMENT.md#current-report-validation)与[规划核心接入验收](DEVELOPMENT.md#planning-engine-validation)。
 

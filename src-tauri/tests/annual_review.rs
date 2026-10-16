@@ -257,6 +257,13 @@ fn middle_scope_change_is_retained_even_when_endpoint_settings_match() {
         )
         .unwrap();
     snapshot(&mut s, "2026-12-31", &[(&cash, "150000")], None);
+    let ranged = range_review(&s, "2026-01-01", "2026-12-31", true)
+        .annual
+        .unwrap();
+    assert!(
+        ranged.scope_changed,
+        "Range review must retain intervening scope changes"
+    );
     let a = annual(&s, 2026).annual.unwrap();
     assert!(
         a.scope_changed,
@@ -323,6 +330,13 @@ fn planning_filters_corrected_deleted_and_now_incomplete_points_without_recomput
     .unwrap();
     let b = account(&mut s, "2024-09-01");
     assert!(ready(annual(&s, 2024).annual.unwrap().planning).is_empty());
+    assert!(ready(
+        range_review(&s, "2024-01-01", "2024-12-31", true)
+            .annual
+            .unwrap()
+            .planning
+    )
+    .is_empty());
     let repaired = snapshot(
         &mut s,
         &incomplete.date,
@@ -338,6 +352,14 @@ fn planning_filters_corrected_deleted_and_now_incomplete_points_without_recomput
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].snapshot_id, repaired.id);
     assert_eq!(records[0].recorded_on, "2026-12-15");
+    let ranged = ready(
+        range_review(&s, "2024-01-01", "2024-12-31", true)
+            .annual
+            .unwrap()
+            .planning,
+    );
+    assert_eq!(ranged.len(), 1);
+    assert_eq!(ranged[0].snapshot_id, repaired.id);
 }
 
 #[test]
@@ -440,7 +462,7 @@ fn one_broken_source_does_not_remove_other_annual_facts() {
 }
 
 #[test]
-fn annual_projection_is_read_only_for_all_backup_facts_and_rejects_non_year_views() {
+fn review_projection_is_read_only_for_all_backup_facts_and_rejects_all_and_month_views() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(&dir.path().join("library")).unwrap();
     let a = account(&mut s, "2025-01-01");
@@ -456,6 +478,8 @@ fn annual_projection_is_read_only_for_all_backup_facts_and_rejects_non_year_view
     for year in [2024, 2025, 2026] {
         annual(&s, year);
     }
+    range_review(&s, "2025-12-31", "2026-06-30", true);
+    range_review(&s, "2025-12-31", "2026-06-30", false);
     for period in [
         Period::All,
         Period::Month {
@@ -512,4 +536,241 @@ fn external_write_between_sources_does_not_split_annual_goal_balance_and_compari
         before["annual"]["comparison"]
     );
     assert_ne!(after["annual"]["planning"], before["annual"]["planning"]);
+}
+
+fn range_review(s: &Store, from: &str, to: &str, include_from: bool) -> FinanceSources {
+    s.finance_sources_with_view(
+        &Period::Range {
+            from: from.into(),
+            to: to.into(),
+            include_from,
+        },
+        &modules(),
+        TODAY,
+        true,
+    )
+    .unwrap()
+}
+
+#[test]
+fn sparse_cross_year_range_uses_actual_endpoints_and_window_fact_boundaries() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let a = account(&mut s, "2024-01-01");
+    let prior = snapshot(&mut s, "2024-12-31", &[(&a, "100000")], None);
+    snapshot(&mut s, "2025-08-31", &[(&a, "125000")], None);
+    let last = snapshot(&mut s, "2026-06-30", &[(&a, "150000")], None);
+    for (date, amount) in [
+        ("2025-06-29", "100"),
+        ("2025-06-30", "200"),
+        ("2026-06-30", "300"),
+        ("2026-07-01", "400"),
+    ] {
+        income(&mut s, date, amount);
+        s.save(
+            &thingary_lib::domain::Save {
+                request_id: id(),
+                generation: s.generation(),
+                asset_id: None,
+                expected_revision: None,
+                name: "虚构期间物品".into(),
+                price_cents: Some(amount.into()),
+                purchase_date: Some(date.into()),
+            },
+            TODAY,
+        )
+        .unwrap();
+    }
+    let result = range_review(&s, "2025-06-30", "2026-06-30", true);
+    assert_eq!(
+        ready(result.incomes)
+            .iter()
+            .map(|r| r.fields.net_cents.parse::<i64>().unwrap())
+            .sum::<i64>(),
+        500
+    );
+    assert_eq!(ready(result.expenses).spent_cents, "500");
+    let comparison = ready(result.annual.unwrap().comparison).unwrap();
+    assert_eq!(comparison.from.snapshot_id, prior.id);
+    assert_eq!(comparison.to.snapshot_id, last.id);
+    assert_eq!(comparison.net_change_cents.as_deref(), Some("50000"));
+    let json = serde_json::to_value(range_review(&s, "2025-06-30", "2026-06-30", true)).unwrap();
+    assert_eq!(
+        json["annual"]["range"],
+        serde_json::json!({"from":"2025-06-30","to":"2026-06-30","includeFrom":true})
+    );
+    assert!(json["annual"].get("year").is_none());
+    let excluded = range_review(&s, "2025-06-30", "2026-06-30", false);
+    assert_eq!(ready(excluded.incomes).len(), 1);
+    assert_eq!(ready(excluded.expenses).spent_cents, "300");
+}
+
+#[test]
+fn start_on_window_boundary_supersedes_older_snapshot_for_year_and_range() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let a = account(&mut s, "2025-01-01");
+    snapshot(&mut s, "2025-12-31", &[(&a, "100000")], None);
+    let start = snapshot(&mut s, "2026-01-01", &[(&a, "110000")], None);
+    let end = snapshot(&mut s, "2026-12-31", &[(&a, "150000")], None);
+    let year = annual(&s, 2026);
+    let json = serde_json::to_value(&year).unwrap();
+    assert_eq!(json["annual"]["year"], 2026);
+    assert_eq!(
+        json["annual"]["range"],
+        serde_json::json!({"from":"2026-01-01","to":"2026-12-31","includeFrom":true})
+    );
+    let yc = ready(year.annual.unwrap().comparison).unwrap();
+    assert_eq!(
+        ready(
+            range_review(&s, "2026-01-01", "2026-12-31", false)
+                .annual
+                .unwrap()
+                .comparison
+        )
+        .unwrap()
+        .from
+        .snapshot_id,
+        start.id
+    );
+    assert_eq!(yc.from.snapshot_id, start.id);
+    assert_eq!(yc.to.snapshot_id, end.id);
+    let rc = ready(
+        range_review(&s, "2026-01-01", "2026-12-31", true)
+            .annual
+            .unwrap()
+            .comparison,
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(yc).unwrap(),
+        serde_json::to_value(rc).unwrap()
+    );
+}
+
+#[test]
+fn range_without_prior_uses_first_in_window_and_single_or_incomplete_is_not_a_change() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let a = account(&mut s, "2026-01-01");
+    let first = snapshot(&mut s, "2026-03-31", &[(&a, "100000")], None);
+    assert!(ready(
+        range_review(&s, "2026-01-01", "2026-03-31", true)
+            .annual
+            .unwrap()
+            .comparison
+    )
+    .is_none());
+    let last = snapshot(&mut s, "2026-06-30", &[(&a, "125000")], None);
+    let c = ready(
+        range_review(&s, "2026-01-01", "2026-06-30", true)
+            .annual
+            .unwrap()
+            .comparison,
+    )
+    .unwrap();
+    assert_eq!(c.from.snapshot_id, first.id);
+    assert_eq!(c.to.snapshot_id, last.id);
+    account(&mut s, "2026-06-30");
+    assert!(ready(
+        range_review(&s, "2026-04-01", "2026-06-30", true)
+            .annual
+            .unwrap()
+            .comparison
+    )
+    .is_none());
+    assert!(ready(
+        range_review(&s, "2025-01-01", "2025-12-31", true)
+            .annual
+            .unwrap()
+            .comparison
+    )
+    .is_none());
+}
+
+#[test]
+fn range_planning_uses_snapshot_dates_without_recent_24_cap_and_exclusive_boundary() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let a = account(&mut s, "2024-01-01");
+    let first = snapshot(&mut s, "2024-12-31", &[(&a, "100000")], None);
+    record(&s, &first, "2026-12-30");
+    let start = chrono::NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+    for i in 0..30 {
+        let day = (start + chrono::Duration::days(i))
+            .format("%Y-%m-%d")
+            .to_string();
+        let snap = snapshot(&mut s, &day, &[(&a, "150000")], None);
+        record(&s, &snap, "2026-12-31");
+    }
+    let inclusive = ready(
+        range_review(&s, "2024-12-31", "2025-01-30", true)
+            .annual
+            .unwrap()
+            .planning,
+    );
+    assert_eq!(inclusive.len(), 31);
+    assert_eq!(inclusive[0].snapshot_id, first.id);
+    assert_eq!(inclusive[0].recorded_on, "2026-12-30");
+    let exclusive = ready(
+        range_review(&s, "2024-12-31", "2025-01-30", false)
+            .annual
+            .unwrap()
+            .planning,
+    );
+    assert_eq!(exclusive.len(), 30);
+    assert!(exclusive.iter().all(|p| p.date.starts_with("2025")));
+}
+
+#[test]
+fn historical_window_keeps_current_savings_basis_and_current_read_contract() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let a = account(&mut s, "2024-01-01");
+    goal(&mut s, &a, "2024-01-01");
+    snapshot(&mut s, "2024-06-30", &[(&a, "100000")], None);
+    let latest = snapshot(&mut s, "2026-06-30", &[(&a, "150000")], None);
+    let expected = serde_json::to_value(
+        s.savings_goals_read(&s.generation(), None, TODAY, &modules())
+            .unwrap(),
+    )
+    .unwrap();
+    for view in [
+        annual(&s, 2024),
+        range_review(&s, "2024-01-01", "2024-12-31", true),
+    ] {
+        let actual = ready(view.annual.unwrap().savings);
+        assert_eq!(actual.basis.as_ref().unwrap().snapshot_id, latest.id);
+        assert_eq!(serde_json::to_value(actual).unwrap(), expected);
+    }
+}
+
+#[test]
+fn future_window_does_not_choose_or_emit_planning_endpoints_after_today() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let a = account(&mut s, "2025-01-01");
+    snapshot(&mut s, "2025-12-31", &[(&a, "100000")], None);
+    let current = snapshot(&mut s, "2026-06-30", &[(&a, "150000")], None);
+    let future = snapshot(&mut s, "2026-12-31", &[(&a, "200000")], None);
+    record(&s, &current, TODAY);
+    record(&s, &future, TODAY);
+    let result = s
+        .finance_sources_with_view(
+            &Period::Range {
+                from: "2026-01-01".into(),
+                to: "2026-12-31".into(),
+                include_from: true,
+            },
+            &modules(),
+            "2026-06-30",
+            true,
+        )
+        .unwrap()
+        .annual
+        .unwrap();
+    assert_eq!(ready(result.comparison).unwrap().to.snapshot_id, current.id);
+    let planning = ready(result.planning);
+    assert_eq!(planning.len(), 1);
+    assert_eq!(planning[0].snapshot_id, current.id);
 }

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mockIPC, clearMocks } from '@tauri-apps/api/mocks';
 import { financeReadSession, readFinanceSources, toFinanceSourceState } from '../src/finance-service.ts';
+import { normalizeFinancePeriod } from '../src/finance-contract.ts';
 import { allModules } from '../src/modules.ts';
 
 const modules = { ...allModules, planning: false, incomes: true, movements: true, finance_status: 'ready', finance_revision: 2 };
@@ -72,7 +73,7 @@ test('caller mutation cannot modify an outstanding scope', async () => {
 test('annual projection is explicitly requested without changing standard callers', async () => {
   globalThis.window = {};
   const annualPeriod = { kind: 'year', year: 2026 };
-  const expected = sources({ period: annualPeriod, annual: { year: 2026 } });
+  const expected = sources({ period: annualPeriod, annual: { year: 2026, range: normalizeFinancePeriod(annualPeriod) } });
   mockIPC((command, args) => {
     assert.equal(command, 'finance_sources');
     assert.deepEqual(args, { period: annualPeriod, view: 'annual' });
@@ -96,6 +97,6 @@ test('annual reads reject standard or wrong-year projections and late results af
   const standard = sources({ period: annualPeriod });
   pending[1].resolve(standard);
   assert.deepEqual(await currentStandard, standard);
-  pending[0].resolve(sources({ period: annualPeriod, annual: { year: 2026 } }));
+  pending[0].resolve(sources({ period: annualPeriod, annual: { year: 2026, range: normalizeFinancePeriod(annualPeriod) } }));
   assert.equal(await oldAnnual, null);
 });

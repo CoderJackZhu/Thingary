@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { normalizeFinancePeriod } from './finance-contract.ts';
-import type { FinancePeriod, FinanceSourceState } from './finance-contract.ts';
+import type { FinanceDateRange, FinancePeriod, FinanceSourceState } from './finance-contract.ts';
 import type { RuntimeModules } from './modules.ts';
 import type { Account, Summary, Compare } from './wealth.ts';
 import type { SavingsRead } from './savings-goals.ts';
@@ -27,7 +27,7 @@ export type FinanceSources = {
   expenses: FinanceRead<ExpenseView & { period: FinancePeriod }>;
   asset_review: FinanceRead<AssetReview>; history: FinanceRead<PlanReview>;
   annual?: {
-    year: number; years: FinanceRead<number[]>; comparison: FinanceRead<Compare | null>;
+    year?: number; range: FinanceDateRange; years: FinanceRead<number[]>; comparison: FinanceRead<Compare | null>;
     scope_changed: boolean; savings: FinanceRead<SavingsRead>; planning: FinanceRead<GoalProgressEntry[]>;
   };
 };
@@ -64,7 +64,9 @@ export function financeReadSession(read: (period: FinancePeriod, view?: FinanceV
       // Copy the request before awaiting; mutation of UI state cannot change its scope.
       try {
         const result = await read({ ...period }, view);
-        const projectionMatches = view !== 'annual' || (period.kind === 'year' && result.annual?.year === period.year);
+        const projectionMatches = view !== 'annual' || ((period.kind === 'year' || period.kind === 'range') &&
+          (period.kind !== 'year' || result.annual?.year === period.year) &&
+          result.annual?.range?.from === normalizeFinancePeriod(period)?.from && result.annual?.range?.to === normalizeFinancePeriod(period)?.to && result.annual?.range?.includeFrom === normalizeFinancePeriod(period)?.includeFrom);
         return ticket === sequence && projectionMatches && result.generation === generation && periodKey(result.period) === expectedPeriod && modulesKey(result.modules) === expectedModules ? result : null;
       } catch (error) {
         if (ticket !== sequence) return null;

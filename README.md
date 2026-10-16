@@ -10,7 +10,7 @@
 
 **[下载 Mac 版 0.0.6](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.6)**（Apple Silicon 与 Intel）· [快速上手](docs/QUICKSTART.md) · [国内镜像](https://gitee.com/CoderJackZhu/thingary/releases) · [反馈问题](https://github.com/CoderJackZhu/Thingary/issues)
 
-![21 秒界面预览：总览、账户盘点、目标、存钱目标、年度回顾与物品](docs/images/walkthrough.gif)
+![21 秒界面预览：总览、账户盘点、目标、存钱目标、区间回顾与物品](docs/images/walkthrough.gif)
 
 ## 三步开始
 
@@ -24,7 +24,7 @@
 |---|---|
 | **账户盘点** | 定期核对资产与负债，看净资产趋势；支持房产、个人养老金、保险、黄金等账户类型 |
 | **目标与规划** | 反算每月要存多少、估算财务独立时间；比较购买、休息或换工作的影响 |
-| **存钱目标与年度回顾** | 为一笔钱设目标并随盘点看进度；按年回看盘点、收入、重要支出 |
+| **存钱目标与区间回顾** | 为一笔钱设目标并随盘点看进度；默认回看近 12 个月的盘点、收入与重要支出，也可选自然年或自选日期 |
 | **物品档案（可选）** | 价格、照片、维修与保障，日均成本；周期费用与虚拟资产可按需打开 |
 | **资料保护** | 完整备份、自动备份、最近删除；备份可用你保管的恢复密钥加密 |
 

@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAnnualReview, annualCopyText, annualTrendSegments } from '../src/annual-review.ts';
+import { buildAnnualReview as buildReview, annualCopyText, annualTrendSegments } from '../src/annual-review.ts';
 import * as annual from '../src/annual-review.ts';
 import { money } from '../src/asset.ts';
+import * as periodControl from '../src/finance-period-control.ts';
+import { normalizeFinancePeriod } from '../src/finance-contract.ts';
+const buildAnnualReview = (s, y, today) => buildReview(s, typeof y === 'number' ? {kind:'year',year:y} : y, today);
 import { runtime } from './planning-component-runtime.mjs';
 const ready = value => ({ status: 'ready', value });
 const disabled = { status: 'disabled', reason: '关闭来源' };
@@ -14,20 +17,21 @@ const planning = (id, date, over = {}) => ({ snapshot_id:id,date,recorded_on:'20
 const observation = (over={}) => ({account_id:'a',name:'绝密账户',kind:'cash',status:'known',amount_cents:'25000',reason:'绝密来源理由',...over});
 const history = (date,over={}) => ({basis:{snapshot_id:date,date,revision:1},observations:[observation(over)]});
 const goal = (over={}) => ({goal:{id:'goal-id',fields:{name:'绝密首付目标',target_cents:'50000',target_date:'2027-10-01',notes:'绝密目标备注'},account_ids:['a'],position:0,revision:1,created_on:'2025-01-01',created_at:'2025-01-01T00:00:00Z',updated_at:'2026-01-01T00:00:00Z',deleted_at:null,...over},observations:[observation()],shared_account_ids:['a'],planning_overlap:true,history:[history('2025-12-31'),history('2026-09-30')]});
-function sources(year=2026) {
-  const period={kind:'year',year};
+function sources(selection=2026) {
+  const year=typeof selection==='number'?selection:Number(selection.to.slice(0,4));
+  const period=typeof selection==='number'?{kind:'year',year}:selection;
   return {generation:'g',write_version:7,today:'2026-10-15',period,modules,record_years:ready([2026,2025,2010]),
     wealth:ready({generation:'g',points:[base,end],structure:[],liabilities:[],structure_date:end.date}),accounts:ready([]),
     incomes:ready([{id:'i',fields:{date:`${year}-05-01`,net_cents:'12345678',hpf_cents:null,notes:'绝密收入备注'},revision:1}]),
     expenses:ready({generation:'g',period,year,years:[year],lines:[{source:'expense',id:'x',date:`${year}-06-01`,title:'绝密支出',amount_cents:'2345678'}, {source:'refund',id:'r',date:`${year}-08-01`,title:'绝密退款',amount_cents:'345678'}],undated:[{title:'绝密无日期支出'}],months:[],annual_totals:[],spent_cents:'2345678',refund_cents:'345678',net_cents:'2000000',sale_cents:'0',undated_cents:'123',unknown_amount_count:0}),
     asset_review:disabled,history:disabled,
-    annual:{year,years:ready([2026,2025,2010]),scope_changed:false,comparison:ready({from:{snapshot_id:base.snapshot_id,date:base.date,complete:true},to:{snapshot_id:end.snapshot_id,date:end.date,complete:true},reconciled:true,net_change_cents:'15000'}),savings:ready({generation:'g',write_version:7,today:'2026-10-15',year,years:[2025,2026],basis:history(end.date).basis,newer_incomplete:false,accounts:[],goals:[goal()]}),planning:ready([planning('p1','2026-01-31'),planning('p2','2026-09-30')])}};
+    annual:{year,range:normalizeFinancePeriod(period),years:ready([2026,2025,2010]),scope_changed:false,comparison:ready({from:{snapshot_id:base.snapshot_id,date:base.date,complete:true},to:{snapshot_id:end.snapshot_id,date:end.date,complete:true},reconciled:true,net_change_cents:'15000'}),savings:ready({generation:'g',write_version:7,today:'2026-10-15',year,years:[2025,2026],basis:history(end.date).basis,newer_incomplete:false,accounts:[],goals:[goal()]}),planning:ready([planning('p1','2026-01-31'),planning('p2','2026-09-30')])}};
 }
 test('a prior-year endpoint plus one current-year point is a real comparison, never a full-year claim',()=>{
   const m=buildAnnualReview(sources(),2026,'2026-10-15');
-  assert.equal(m.net.completeCount,1);assert.equal(m.net.from.date,'2025-12-31');assert.equal(m.net.delta_cents,'15000');assert.match(m.net.label,/截至 2026-09-30 的记录间变化/);
+  assert.equal(m.net.completeCount,1);assert.equal(m.net.from.date,'2025-12-31');assert.equal(m.net.delta_cents,'15000');assert.equal(m.net.label,'自本区间首次盘点以来 8 个月变化');
   const s=sources();s.wealth.value.points=[point('old','2023-08-01'),end];s.annual.comparison.value.from.snapshot_id='old';
-  const old=buildAnnualReview(s,2026,s.today);assert.equal(old.net.from.date,'2023-08-01');assert.match(old.net.note,/未覆盖完整自然年/);
+  const old=buildAnnualReview(s,2026,s.today);assert.equal(old.net.from.date,'2023-08-01');assert.doesNotMatch(old.net.note,/未覆盖完整自然年|不能作为/);
 });
 test('no complete snapshots still allows income, recorded zero, refunds and income-only years',()=>{
   const s=sources();s.wealth.value.points=[point('unknown','2026-09-30','0',{complete:false})];s.annual.comparison=ready(null);s.incomes.value[0].fields.net_cents='0';
@@ -43,9 +47,10 @@ test('scope changes and mismatched or failed comparisons never produce a full de
   const p=[base,end,point('gap','2026-10-01','0',{complete:false}),point('c','2026-10-02','26000',{compared_to:end.date,change_cents:'1000'}),point('d','2026-10-03','27000',{compared_to:'2026-10-02',change_cents:'1000'}),point('changed','2026-10-04','28000',{scope_changed:true})];
   assert.deepEqual(annualTrendSegments(p).map(s=>s.map(p=>p.snapshot_id)),[['b','e'],['c','d'],['changed']]);
 });
-test('midyear goals exclude creation-before snapshots, unknown relationships stay unknown and mismatched source versions are errors',()=>{
-  const s=sources();const g=s.annual.savings.value.goals[0];g.goal.created_on='2026-06-01';g.history=[history('2025-12-31'),history('2026-07-01'),history('2026-09-30',{status:'missing',amount_cents:null})];
-  let m=buildAnnualReview(s,2026,s.today);assert.equal(m.savings.goals[0].fromDate,'2026-07-01');assert.match(m.savings.goals[0].note,/年初目标尚未建立/);assert.equal(m.savings.goals[0].to.percent_hundredths,null);assert.equal(m.savings.goals[0].to.gap_cents,null);
+test('current goals use current observations regardless of selected year; unknown and version guards remain',()=>{
+  const s=sources();const g=s.annual.savings.value.goals[0];g.goal.created_on='2026-06-01';
+  let m=buildAnnualReview(s,2026,s.today);assert.equal(m.savings.goals[0].basisDate,'2026-09-30');assert.equal(m.savings.goals[0].progress.percent_hundredths,5000);
+  g.observations=[observation({status:'missing',amount_cents:null})];m=buildAnnualReview(s,2026,s.today);assert.equal(m.savings.goals[0].progress.percent_hundredths,null);assert.equal(m.savings.goals[0].progress.gap_cents,null);
   g.goal.created_on='2027-01-01';assert.equal(buildAnnualReview(s,2026,s.today).savings.goals.length,0);
   s.annual.savings.value.write_version=6;m=buildAnnualReview(s,2026,s.today);assert.equal(m.savings.status,'error');
 });
@@ -68,12 +73,12 @@ test('standard responses and stale years cannot build an annual copy model',()=>
   assert.equal(buildAnnualReview(sources(),2025,'2026-10-15'),null);
 });
 function mount(options={}) {
-  const store=new Map([['thingary.hide-financial-amounts.v1','1']]),writes=[],requests=[];let current=sources();
-  const ui=runtime('AnnualReview',{generation:'g',today:'2026-10-15',modules},undefined,undefined,{components:[],modules:{'./annual-review':annual,'./asset':{money},'./Sparkline':{Sparkline:()=>null},'./finance-data':{useFinanceSources:(g,p,m,view)=>{requests.push({g,p,m,view});return {load:current && current.generation===g && current.period.year===p.year?{status:'ready',sources:current}:{status:'loading'},reload(){}};} }},globals:{localStorage:{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v)},navigator:{clipboard:{writeText:async text=>{if(options.fail)throw new Error('no clipboard');writes.push(text);}}}}});
+  const store=new Map([['thingary.hide-financial-amounts.v1','1']]),writes=[],requests=[];let current=sources(periodControl.recentTwelveMonths('2026-10-15'));
+  const ui=runtime('AnnualReview',{generation:'g',today:'2026-10-15',modules},undefined,undefined,{components:[],modules:{'./finance-period-control':periodControl,'./annual-review':annual,'./asset':{money},'./Sparkline':{Sparkline:()=>null},'./finance-data':{useFinanceSources:(g,p,m,view)=>{requests.push({g,p,m,view});return {load:current && current.generation===g && JSON.stringify(current.period)===JSON.stringify(p)?{status:'ready',sources:current}:{status:'loading'},reload(){}};} }},globals:{localStorage:{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v)},navigator:{clipboard:{writeText:async text=>{if(options.fail)throw new Error('no clipboard');writes.push(text);}}}}});
   return {ui,writes,requests,setSource:s=>{current=s;ui.render();}};
 }
 test('actual component handler copies exactly its privacy preview and requires explicit amount disclosure',async()=>{
-  const {ui,writes,requests}=mount();assert.ok(requests.every(r=>r.view==='annual'&&r.p.kind==='year'));
+  const {ui,writes,requests}=mount();assert.ok(requests.every(r=>r.view==='annual'&&r.p.kind==='range'));assert.ok(ui.find('FinancePeriodControl'));
   const hidden=ui.text(ui.find('pre'));assert.doesNotMatch(hidden,/¥|2044-03/);
   ui.button('复制当前预览').props.onClick();await ui.settle();assert.equal(writes[0],hidden);assert.match(ui.text(ui.nodes()),/已复制预览中的摘要/);
   ui.button('在预览中显示金额').props.onClick();ui.render();const full=ui.text(ui.find('pre'));assert.match(full,/¥/);assert.doesNotMatch(full,/绝密/);
@@ -81,7 +86,7 @@ test('actual component handler copies exactly its privacy preview and requires e
 });
 test('year and library changes invalidate old disclosure and old copy handlers; failed clipboard never claims success',async()=>{
   const {ui,writes,setSource}=mount();ui.button('在预览中显示金额').props.onClick();ui.render();const oldCopy=ui.button('复制当前预览').props.onClick;
-  ui.find('select').props.onChange({target:{value:'2025'}});ui.render();oldCopy();await ui.settle();assert.equal(writes.length,0);assert.equal(ui.find('pre'),undefined);
+  ui.find('FinancePeriodControl').props.onPresetChange(null);ui.find('FinancePeriodControl').props.onChange({kind:'year',year:2025});ui.render();oldCopy();await ui.settle();assert.equal(writes.length,0);assert.equal(ui.find('pre'),undefined);
   setSource(sources(2025));assert.doesNotMatch(ui.text(ui.find('pre')),/¥/);
   ui.props.generation='other';ui.render();oldCopy();await ui.settle();assert.equal(writes.length,0);assert.equal(ui.find('pre'),undefined);
   const failed=mount({fail:true});failed.ui.button('复制当前预览').props.onClick();await failed.ui.settle();assert.match(failed.ui.text(failed.ui.nodes()),/复制失败/);assert.doesNotMatch(failed.ui.text(failed.ui.nodes()),/已复制/);
@@ -91,6 +96,6 @@ test('hidden page and partial read failures remain safe; changing modules revoke
   const {ui,writes,setSource}=mount();assert.doesNotMatch(ui.text(ui.nodes()),/绝密|2044-03|2045-08|¥/);
   ui.button('在预览中显示金额').props.onClick();ui.render();const oldCopy=ui.button('复制当前预览').props.onClick;
   ui.props.modules={...modules,planning:false,finance_revision:2};
-  const s=sources();s.modules=ui.props.modules;s.annual.planning=disabled;s.incomes={status:'error',code:'private',message:'绝密读取错误'};setSource(s);
+  const s=sources(periodControl.recentTwelveMonths('2026-10-15'));s.modules=ui.props.modules;s.annual.planning=disabled;s.incomes={status:'error',code:'private',message:'绝密读取错误'};setSource(s);
   oldCopy();await ui.settle();assert.equal(writes.length,0);assert.doesNotMatch(ui.text(ui.find('pre')),/¥|绝密|2044-03/);assert.match(ui.text(ui.nodes()),/收入读取失败/);assert.match(ui.text(ui.nodes()),/退休规划结论来源已关闭/);assert.ok(ui.button('复制当前预览'));
 });

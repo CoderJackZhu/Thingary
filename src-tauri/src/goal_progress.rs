@@ -89,32 +89,51 @@ impl Point {
 }
 
 impl Store {
-    /// Filter the year before selecting records; the recent-24 UI window must
-    /// never erase older years from an annual review.
+    /// Compatibility entry for callers that request a complete natural year.
     pub(crate) fn goal_progress_year(&self, year: i32) -> Result<Vec<Entry>> {
         if !(1..=9999).contains(&year) {
             return Err(Error::new("YEAR", "年份须为1–9999"));
         }
+        self.goal_progress_range(
+            &format!("{year:04}-01-01"),
+            &format!("{year:04}-12-31"),
+            true,
+        )
+    }
+
+    /// Filter by the associated snapshot's natural date before selecting records;
+    /// the recent-24 UI window must never erase older review conclusions.
+    pub(crate) fn goal_progress_range(
+        &self,
+        from: &str,
+        to: &str,
+        include_from: bool,
+    ) -> Result<Vec<Entry>> {
+        let range = crate::expenses::Period::Range {
+            from: from.into(),
+            to: to.into(),
+            include_from,
+        }
+        .date_range()?
+        .expect("Range always has bounds");
         let c = self.conn()?;
         let mut q = c.prepare("SELECT p.snapshot_id,s.date,p.recorded_on,p.payload FROM goal_progress p JOIN fin_snapshots s ON s.id=p.snapshot_id WHERE s.deleted_at IS NULL AND s.revision=p.snapshot_revision AND s.date>=?1 AND s.date<=?2 ORDER BY s.date,s.id")?;
         let rows = q
-            .query_map(
-                [format!("{year:04}-01-01"), format!("{year:04}-12-31")],
-                |r| {
-                    Ok((
-                        r.get::<_, String>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, String>(3)?,
-                    ))
-                },
-            )?
+            .query_map([from, to], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                ))
+            })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let mut out = Vec::new();
         for (snapshot_id, date, recorded_on, payload) in rows {
-            if self
-                .wealth_snapshot(&snapshot_id)?
-                .is_some_and(|s| s.missing.is_empty())
+            if range.contains(&date)
+                && self
+                    .wealth_snapshot(&snapshot_id)?
+                    .is_some_and(|s| s.missing.is_empty())
             {
                 out.push(Entry {
                     snapshot_id,

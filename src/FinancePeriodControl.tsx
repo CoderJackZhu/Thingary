@@ -14,7 +14,11 @@ import {
 } from './finance-period-control';
 
 /** Valid selections refresh immediately; partial or invalid edits keep the last valid period. */
-export function FinancePeriodControl({value,onChange,today,disabled,recordedYears}: {value: FinancePeriod; onChange:(value:FinancePeriod)=>void; today:string; disabled?:boolean; recordedYears?:readonly number[]}) {
+export function FinancePeriodControl({value,onChange,today,disabled,recordedYears,options=FINANCE_PERIOD_KINDS,presets=[],activePreset=null,onPresetChange}: {
+  value: FinancePeriod; onChange:(value:FinancePeriod)=>void; today:string; disabled?:boolean; recordedYears?:readonly number[];
+  options?:readonly {value:FinancePeriodKind;label:string}[];
+  presets?:readonly {id:string;label:string;period:FinancePeriod}[]; activePreset?:string|null; onPresetChange?:(id:string|null)=>void;
+}) {
   const [draft, setDraft] = useState<FinancePeriodDraft>(() => draftFromFinancePeriod(value, today));
   const [error, setError] = useState('');
   // Applied identity: an external value change discards the unapplied edit instead of keeping a stale draft.
@@ -36,15 +40,21 @@ export function FinancePeriodControl({value,onChange,today,disabled,recordedYear
     if (JSON.stringify(result.value) !== applied) onChange(result.value);
   };
   const patch = (part: Partial<FinancePeriodDraft>) => update({ ...draft, ...part });
-  const choose = (kind: FinancePeriodKind) => update(switchFinancePeriodKind(draft, kind));
+  const choose = (kind: FinancePeriodKind) => { if (off) return; onPresetChange?.(null); update(switchFinancePeriodKind(draft, kind)); };
+  const choosePreset = (preset: typeof presets[number]) => {
+    if (off) return;
+    setDraft(draftFromFinancePeriod(preset.period, today)); setError(''); onPresetChange?.(preset.id);
+    if (JSON.stringify(preset.period) !== applied) onChange({ ...preset.period });
+  };
   return (
     <div className="finance-period ui-card ui-content wealth-toolbar" role="group" aria-label="财务期间">
       <div className="segmented" role="group" aria-label="期间类型">
-        {FINANCE_PERIOD_KINDS.map(kind => <button type="button" key={kind.value} aria-pressed={draft.kind === kind.value} disabled={off} onClick={() => choose(kind.value)}>{kind.label}</button>)}
+        {presets.map(preset => <button type="button" key={preset.id} aria-pressed={activePreset === preset.id} disabled={off} onClick={() => choosePreset(preset)}>{preset.label}</button>)}
+        {options.map(kind => <button type="button" key={kind.value} aria-pressed={!activePreset && draft.kind === kind.value} disabled={off} onClick={() => choose(kind.value)}>{kind.label}</button>)}
       </div>
       {draft.kind === 'year' && <FormRow label="年份"><YearSelect value={draft.year ? Number(draft.year) : null} todayYear={Number(today.slice(0, 4))} intent="records" recorded={recordedYears} disabled={off} onChange={year => patch({ year: String(year).padStart(4, '0') })}/></FormRow>}
       {draft.kind === 'month' && <FormRow label="月份"><MonthInput yearIntent="past" label="月份" min="0001-01" value={draft.month} disabled={off} onChange={month => patch({ month })}/></FormRow>}
-      {draft.kind === 'range' && <><FormRow label="开始日期"><DateInput yearIntent="past" label="开始日期" min="0001-01-01" value={draft.from} disabled={off} onChange={from => patch({ from })}/></FormRow><FormRow label="结束日期"><DateInput yearIntent="past" label="结束日期" min="0001-01-01" value={draft.to} disabled={off} onChange={to => patch({ to })}/></FormRow><p className="muted small">{draft.includeFrom ? '含起始日，含结束日' : '不含起始日，含结束日'}</p></>}
+      {draft.kind === 'range' && !activePreset && <><FormRow label="开始日期"><DateInput yearIntent="past" label="开始日期" min="0001-01-01" value={draft.from} disabled={off} onChange={from => patch({ from })}/></FormRow><FormRow label="结束日期"><DateInput yearIntent="past" label="结束日期" min="0001-01-01" value={draft.to} disabled={off} onChange={to => patch({ to })}/></FormRow><p className="muted small">{draft.includeFrom ? '含起始日，含结束日' : '不含起始日，含结束日'}</p></>}
       {error && <p className="error" role="alert">{error}</p>}
       <p className="muted finance-period-applied" role="status">{error ? '仍显示：' : '当前期间：'}{describeFinancePeriod(value)}</p>
     </div>
