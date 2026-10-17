@@ -24,10 +24,22 @@ const monthLabel = (today: string, offset: number) => { const i = monthIndex(tod
 const delayText = (d: number | null, base: number | null, w: number | null) => base === null ? '本来就达不到' : w === null ? '所选规划终点前达不到' : d === 0 ? '几乎无影响' : `推迟约 ${d! >= 12 ? `${Math.floor(d! / 12)} 年${d! % 12 ? ` ${d! % 12} 个月` : ''}` : `${d} 个月`}`;
 const cents = (yuanAmount: number) => String(Math.round(yuanAmount * 100));
 
+/** 「其他」类型的预设：一次性支出 + 可选的每月持续支出与每隔几年重复；untilYears 是从计划月份起持续的年数。 */
+const other = (date: string, label: string, o: { price: number; down: number; holding?: number; cycle?: number; untilYears?: number }): Omit<StoredLifeEvent, 'id'> => ({
+  label, kind: 'other', date, included: true, price_cents: cents(o.price), down_cents: cents(o.down), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 1,
+  holding_cents: cents(o.holding ?? 0), rent_saved_cents: '0', cycle_years: o.cycle ?? null, until_month: o.untilYears ? addYears(date, o.untilYears) : null, time_unconfirmed: false, resale_cents: '0',
+});
+const addYears = (month: string, years: number) => `${Number(month.slice(0, 4)) + years}${month.slice(4)}`;
 /** 示例预设：金额只是占位，按自己的情况改。日期按「几年后」放在当月。 */
 const presets: { key: string; label: string; years: number; make: (date: string) => Omit<StoredLifeEvent, 'id'> }[] = [
   { key: 'house', label: '买房', years: 7, make: date => ({ label: '买房', kind: 'house', date, included: true, price_cents: cents(1_500_000), down_cents: cents(450_000), extra_cents: cents(50_000), loan_rate_hundredths: 350, loan_years: 30, holding_cents: cents(800), rent_saved_cents: cents(2000), cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }) },
   { key: 'car', label: '买车', years: 2, make: date => ({ label: '买车', kind: 'car', date, included: true, price_cents: cents(100_000), down_cents: cents(100_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 3, holding_cents: cents(1200), rent_saved_cents: '0', cycle_years: 8, until_month: null, time_unconfirmed: false, resale_cents: cents(20_000) }) },
+  // 常用模板：都是「其他」类型加预设字段（一次性支出、可选分期、每月持续支出、每隔几年重复、持续到哪个月），不另起计算。金额只是占位。
+  { key: 'reno', label: '装修', years: 2, make: date => other(date, '装修', { price: 200_000, down: 200_000 }) },
+  { key: 'wedding', label: '婚礼与彩礼', years: 2, make: date => other(date, '婚礼与彩礼', { price: 300_000, down: 300_000 }) },
+  { key: 'child', label: '生育与养孩子', years: 2, make: date => other(date, '生育与养孩子', { price: 30_000, down: 30_000, holding: 3_000, untilYears: 22 }) },
+  { key: 'edu', label: '子女教育', years: 5, make: date => other(date, '子女教育', { price: 40_000, down: 40_000, cycle: 1, untilYears: 11 }) },
+  { key: 'travel', label: '旅行', years: 1, make: date => other(date, '旅行', { price: 20_000, down: 20_000, cycle: 1, untilYears: 9 }) },
   { key: 'other', label: '其他大额', years: 3, make: date => ({ label: '其他大额支出', kind: 'other', date, included: true, price_cents: cents(50_000), down_cents: cents(50_000), extra_cents: '0', loan_rate_hundredths: 350, loan_years: 1, holding_cents: '0', rent_saved_cents: '0', cycle_years: null, until_month: null, time_unconfirmed: false, resale_cents: '0' }) },
 ];
 
@@ -61,10 +73,10 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
   // 已经有一套房计入时，新加的房默认不计入，避免两套房同时发生；想比较方案就只勾选其中一套。
   const add = (key: string) => { const p = presets.find(x => x.key === key)!, d = p.make(monthLabel(today, p.years * 12)); setEditing({ isNew: true, draft: { id: crypto.randomUUID(), ...d, included: d.kind === 'house' ? d.included && !events.some(x => x.kind === 'house' && x.included) : d.included } }); };
   return <article className="ui-card ui-content plan-goal plan-events" aria-label="大额计划"><CoverageNote annotations={store.ready?.plan.annotations} compact/>
-    <div className="ui-section-head"><div><p className="eyebrow">买房、买车与其他 · 影响目标结果</p><h3>大额计划<Info text={retire.basic ? "首付等一次性支出和月供等持续费用都算进退休测算。请核对这些费用是否已经含在生活费里，没含的另算一次。这里只估算，不扣实际资金。" : "把房和车算进来：每件拆成一次性现金支出（首付、杂费、换车净支出）和持续的月度收支（月供、持有成本、不再付的房租），并入同一个退休计算。「日常生活」预算请不要再含房租、房贷和车。这里只估算，不扣你真实的资产，也不划拨。"}/></h3><p className="muted small">未来设想填好购买月份和金额后，打开计入开关就会重算；不用填写实际付款或贷款余额。只有已经发生的购买才需要核对实际资料。</p></div>
+    <div className="ui-section-head"><div><p className="eyebrow">买房、买车、装修、婚礼、养孩子与更多 · 影响目标结果</p><h3>大额计划<Info text={retire.basic ? "首付等一次性支出和月供等持续费用都算进退休测算。请核对这些费用是否已经含在生活费里，没含的另算一次。这里只估算，不扣实际资金。" : "把房和车算进来：每件拆成一次性现金支出（首付、杂费、换车净支出）和持续的月度收支（月供、持有成本、不再付的房租），并入同一个退休计算。「日常生活」预算请不要再含房租、房贷和车。这里只估算，不扣你真实的资产，也不划拨。"}/></h3><p className="muted small">未来设想填好购买月份和金额后，打开计入开关就会重算；不用填写实际付款或贷款余额。只有已经发生的购买才需要核对实际资料。</p></div>
       <span className="rs-presets">{presets.map(p => <button key={p.key} type="button" className="ui-btn" disabled={saver.busy || events.length >= 20} onClick={() => add(p.key)}>+ {p.label}</button>)}</span></div>
     {saver.notice && <p className="notice" role="status">{saver.notice}</p>}
-    {events.length === 0 ? <p className="muted">还没有大额计划。需要比较大额购买时，可以添加一个设想；预设金额仅作占位，请按自己的情况修改，只勾选本次要计入的安排。</p> : <>
+    {events.length === 0 ? <p className="muted">还没有大额计划。需要比较大额支出时，可以从上面的模板添加一个设想（买房、买车、装修、婚礼与彩礼、生育与养孩子、子女教育、旅行，或其他）；预设金额与年限仅作占位，请按自己的情况修改，只勾选本次要计入的安排。</p> : <>
       <div className="plan-table-scroll" tabIndex={0} role="region" aria-label="大额计划列表"><table className="ui-table plan-event-table"><thead><tr><th>计划</th><th className="amount">总价 / 首付</th><th>买后每月</th><th>首付付得起吗</th><th>对退休的影响（只算这一件）</th><th>计入</th><th/></tr></thead>
         <tbody>{events.map(s => { const i = rows?.items.find(x => x.e.id === s.id)?.impact; return <tr key={s.id} className={s.included || retire.core?.occurrences.some(o => o.event_id === s.id && o.status === 'occurred') ? undefined : 'closed'}>
           <td><b>{s.label}</b><small className="muted">{retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'occurred' ? '已标发生 · 后续资料见核对清单' : retire.core?.occurrences.find(o => o.event_id === s.id)?.status === 'cancelled' ? '已取消' : s.date < today.slice(0, 7) ? '日期已过，请确认是否发生' : '尚未发生 · 按预计排期'}</small><small className="muted">{kindText[s.kind]} · {s.date}{s.kind === 'car' && s.cycle_years ? ` · 每 ${s.cycle_years} 年换` : ''}</small>{s.time_unconfirmed && <small className="warn">持有／循环终点待重设，该部分未计入。请编辑此计划。</small>}</td>
@@ -79,7 +91,7 @@ export function PlanningEvents({ store, today, onEditingChange }: { store: Event
       {rows && !retire.core?.occurrences.some(o => o.status === 'occurred') && rows.items.some(x => x.e.included) && <p>已计入的几件一起发生：<strong>{delayText(rows.total.delay_months, rows.total.base_fi, rows.total.with_fi)}</strong>（相对于都不发生）。已经含在上面的退休结论里。</p>}
       {rows && rows.items.filter(x => x.e.kind === 'house' && x.e.included).length > 1 && <p className="rs-note">有多套房同时计入，会按都买来算；比较方案时请只勾选一套。</p>}
     </>}
-    <details className="plan-explanation"><summary>怎么算的</summary><p className="muted small">首付、杂费在计划月份一次性扣；贷款本金按买房那天的名义价格算，等额本息、固定名义月供，到期结束，所以实际购买力逐年下降；月供与持有成本在退休前压低每月储蓄，退休后算进支出；省租先核对是否已经算入生活费或每月能存的钱，省下的房租不会自动加到每月能存的钱里；买车可设换车周期、截止年龄和每次卖旧车回收，每次实际花的是「价格减回收」。「首付付得起吗」按当前储蓄推演到计划月份的可支配资产，对照首付、杂费与应急金线。价格按今天的钱，默认实际不涨价，想保守就填高一点。公积金贷款与提取暂未单独建模。</p></details>
+    <details className="plan-explanation"><summary>怎么算的</summary><p className="muted small">首付、杂费在计划月份一次性扣；贷款本金按买房那天的名义价格算，等额本息、固定名义月供，到期结束，所以实际购买力逐年下降；月供与持有成本在退休前压低每月储蓄，退休后算进支出；省租先核对是否已经算入生活费或每月能存的钱，省下的房租不会自动加到每月能存的钱里；买车可设换车周期、截止年龄和每次卖旧车回收，每次实际花的是「价格减回收」；其他类的模板（装修、婚礼、养孩子、教育、旅行）都是同一套：一次性支出、可选分期，加上可选的每月持续支出和每隔几年重复，可设持续到哪个月；教育和旅行重复时每次花的是总价，没有回收。「首付付得起吗」按当前储蓄推演到计划月份的可支配资产，对照首付、杂费与应急金线。价格按今天的钱，默认实际不涨价，想保守就填高一点。公积金贷款与提取暂未单独建模。</p></details>
     {occurring && <PlanningOccurrenceDialog event={occurring} existing={retire.core?.occurrences.find(o => o.event_id === occurring.id)} snapshot={store.snapshot} accounts={store.accounts} today={today} busy={saver.busy} stuck={saver.stuck} notice={saver.notice} onClose={() => setOccurring(null)} onSave={o => void saveOccurrence(o)}/>}
     {editing && <EventDialog basic={!!retire.basic} draft={editing.draft} isNew={editing.isNew} busy={saver.busy} onClose={() => setEditing(null)} onSave={async ev => { const next = editing.isNew ? [...events, ev] : events.map(x => (x.id === ev.id ? ev : x)); if (await write(next)) setEditing(null); }} notice={saver.notice}/>}
   </article>;
@@ -105,10 +117,11 @@ function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { b
     if (financed && (r === null || r < 0 || r > 2000)) return stop('贷款利率请填 0 到 20 之间的百分数。');
     if (financed && (!Number.isInteger(y) || y < 1 || y > 40)) return stop('贷款年限须是 1 到 40 的整数。');
     const c = cycle.trim() === '' ? null : Number(cycle), u = until.trim() === '' ? null : until;
-    if (c !== null && (!Number.isInteger(c) || c < 1 || c > 40)) return stop('换车周期须是 1 到 40 的整数年，留空表示只买一次。');
+    const repeat = kind === 'car' ? '换车周期' : '重复周期';
+    if (c !== null && (!Number.isInteger(c) || c < 1 || c > 40)) return stop(`${repeat}须是 1 到 40 的整数年，留空表示只发生一次。`);
     if (u !== null && (!/^\d{4}-(0[1-9]|1[0-2])$/.test(u) || u < date)) return stop('截止月份须不早于计划月份。');
     setErr('');
-    onSave({ ...draft, id: draft.id, label: label.trim(), kind, date, included, price_cents: price, down_cents: down || '0', extra_cents: extra || '0', loan_rate_hundredths: financed ? (r as number) : draft.loan_rate_hundredths, loan_years: financed ? y : draft.loan_years, holding_cents: holding || '0', rent_saved_cents: kind === 'house' ? rent || '0' : '0', cycle_years: kind === 'car' ? c : null, until_month: kind === 'car' ? u : null, time_unconfirmed: false, resale_cents: kind === 'car' ? resale || '0' : '0' });
+    onSave({ ...draft, id: draft.id, label: label.trim(), kind, date, included, price_cents: price, down_cents: down || '0', extra_cents: extra || '0', loan_rate_hundredths: financed ? (r as number) : draft.loan_rate_hundredths, loan_years: financed ? y : draft.loan_years, holding_cents: holding || '0', rent_saved_cents: kind === 'house' ? rent || '0' : '0', cycle_years: kind === 'house' ? null : c, until_month: kind === 'house' ? null : u, time_unconfirmed: false, resale_cents: kind === 'car' ? resale || '0' : '0' });
   }
   return <dialog ref={dialog} className="editor asset-editor" aria-labelledby="event-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}><form noValidate onSubmit={e => { e.preventDefault(); save(); }}>
     <header><div><p className="eyebrow">规划 · 大额计划</p><h2 id="event-heading">{isNew ? '新增' : '编辑'}大额计划</h2><p className="muted">金额都按「今天的钱」；这些是设想，不是事实，不会扣你真实的资产。</p></div><CloseButton type="button" aria-label="关闭大额计划表单" disabled={busy} onClick={onClose}/><div className="editor-header-actions"><button className="primary" disabled={busy}>{busy ? '保存中…' : '保存'}</button></div></header>
@@ -121,12 +134,12 @@ function EventDialog({ basic, draft, isNew, busy, notice, onClose, onSave }: { b
       <FormRow label={kind === 'house' ? '一次性杂费（税费、中介、装修等）' : '一次性杂费'}><CentInput label="杂费" value={extra} disabled={busy} onChange={setExtra}/></FormRow>
       {financed && <><FormRow label="贷款年利率（%）" hint="这是假设；商贷与公积金贷款利率不同，公积金贷款暂未单独建模"><input aria-label="贷款年利率" inputMode="decimal" value={rate} disabled={busy} onChange={e => setRate(e.target.value)}/></FormRow>
         <FormRow label="贷款年限（年）" hint="等额本息，月供固定名义金额"><input aria-label="贷款年限" inputMode="numeric" value={years} disabled={busy} onChange={e => setYears(e.target.value)}/></FormRow></>}
-      {kind !== 'other' && <FormRow label={kind === 'house' ? '每月物业、取暖、维修等持有成本' : '每月养车费（保险、停车、充电或油费、保养）'}><CentInput label="每月持有成本" value={holding} disabled={busy} onChange={setHolding}/></FormRow>}
+      <FormRow label={kind === 'house' ? '每月物业、取暖、维修等持有成本' : kind === 'car' ? '每月养车费（保险、停车、充电或油费、保养）' : '每月持续支出（如养孩子、赡养；没有可留空）'}><CentInput label={kind === 'other' ? '每月持续支出' : '每月持有成本'} value={holding} disabled={busy} onChange={setHolding}/></FormRow>
       {kind === 'house' && <FormRow label="买房后不再付的月房租" hint={basic ? "省下的房租不会自动加到每月能存的钱里；退休后只从预算里已含的房租中扣除，不超过这个金额" : "现在的房租已经算在你的每月储蓄里；买房后这部分补回来，只算退休前"}><CentInput label="省下的月房租" value={rent} disabled={busy} onChange={setRent}/></FormRow>}
-      {kind === 'car' && <>
-        <FormRow label="换车周期（年）" hint="留空表示只买这一辆；车是快消品，常见 4 到 6 年换一次"><input aria-label="换车周期" inputMode="numeric" value={cycle} placeholder="只买一次" disabled={busy} onChange={e => setCycle(e.target.value)}/></FormRow>
-        <FormRow label="用到哪个月份" hint="之后不再换车，养车费也停；留空到规划终点"><MonthInput yearIntent="long" label="用车截止月份" value={until} disabled={busy} allowClear onChange={setUntil}/></FormRow>
-        <FormRow label="每次换车卖旧车回收" hint="每次换车实际花的是价格减去这笔"><CentInput label="卖旧车回收" value={resale} disabled={busy} onChange={setResale}/></FormRow></>}
+      {kind !== 'house' && <>
+        <FormRow label={kind === 'car' ? '换车周期（年）' : '每隔几年重复一次（年）'} hint={kind === 'car' ? '留空表示只买这一辆；车是快消品，常见 4 到 6 年换一次' : '留空表示只发生一次；旅行、每年的学费可填 1'}><input aria-label={kind === 'car' ? '换车周期' : '重复周期'} inputMode="numeric" value={cycle} placeholder={kind === 'car' ? '只买一次' : '只一次'} disabled={busy} onChange={e => setCycle(e.target.value)}/></FormRow>
+        <FormRow label={kind === 'car' ? '用到哪个月份' : '持续到哪个月份'} hint={kind === 'car' ? '之后不再换车，养车费也停；留空到规划终点' : '之后不再重复，每月持续支出也停；留空到规划终点'}><MonthInput yearIntent="long" label={kind === 'car' ? '用车截止月份' : '持续截止月份'} value={until} disabled={busy} allowClear onChange={setUntil}/></FormRow>
+        {kind === 'car' && <FormRow label="每次换车卖旧车回收" hint="每次换车实际花的是价格减去这笔"><CentInput label="卖旧车回收" value={resale} disabled={busy} onChange={setResale}/></FormRow>}</>}
       <FormRow label="计入退休估算" hint="关掉只保留这个设想，不影响退休结论"><Switch label="计入退休估算" value={included} disabled={busy} onChange={setIncluded}/></FormRow>
     </section>
     {(err || notice) && <p className="notice" role="status">{err || notice}</p>}

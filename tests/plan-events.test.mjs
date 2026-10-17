@@ -52,6 +52,22 @@ test('a car is bought once and replaced every cycle until the explicit stop mont
   assert.equal(eventParts(P, { ...c, cycle_years: null }, 24).spends.length, 1);
 });
 
+test('an "other" plan can carry a monthly cost that stops at an end month and repeat every N years, without touching house or car rules', () => {
+  const P = plan({anchor_date:'2026-10-31'});
+  // 养孩子：一次性 + 每月持续，到 2048-10 为止（含当月）；偏移 24 起，月份 m0=384。
+  const child = ev({ kind: 'other', label: '养孩子', price_cents: 3_000_000, down_cents: 3_000_000, extra_cents: 0, holding_cents: 300_000, rent_saved_cents: 0, until_month: '2048-10' });
+  const c = eventParts(P, child, 24);
+  assert.equal(c.spends.length, 1);
+  assert.deepEqual([c.spend_flows[0].label, c.spend_flows[0].from_month, c.spend_flows[0].to_month, c.spend_flows[0].essential], ['养孩子持续支出', 384, 625, false]);
+  // 没有截止月份：保持原样，持续到规划终点。
+  assert.equal(eventParts(P, { ...child, until_month: null }, 24).spend_flows[0].to_month, null);
+  // 旅行、教育：每年一次，截止月份（含）之前每次仍是总价（没有回收）。
+  const trip = ev({ kind: 'other', label: '旅行', price_cents: 2_000_000, down_cents: 2_000_000, extra_cents: 0, holding_cents: 0, rent_saved_cents: 0, cycle_years: 1, until_month: '2029-10' });
+  assert.deepEqual(eventParts(P, trip, 12).spends.map(x => [x.offset_months, x.cents]), [[12, 2_000_000], [24, 2_000_000], [36, 2_000_000]]);
+  // 买房的持有成本仍然不设截止，即使存了截止月份。
+  assert.equal(eventParts(P, ev({ until_month: '2040-01' }), 84).spend_flows.find(f => f.label.endsWith('持有成本')).to_month, null);
+});
+
 test('applying events leaves the base plan untouched and moves financial independence later', () => {
   const P = plan({ assets_cents: 100_000, saving_cents: 5000 }), e = ev({ price_cents: 200_000, down_cents: 200_000, extra_cents: 0, holding_cents: 0, rent_saved_cents: 0, date: '2028-10' });
   const with1 = applyEvents(P, [{ e, offset: 24 }]);
