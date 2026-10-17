@@ -395,7 +395,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   }
   if (command === 'app_version') {
     if (params.get('support-version') === 'error') throw { message: '版本读取失败' };
-    return '0.0.6';
+    return '0.0.7';
   }
   if (command === 'support_open') throw { message: '虚构预览不打开外部浏览器。' };
   if (command === 'update_state_get' || command === 'update_check_request' || command === 'update_consent_set' || command === 'update_mark_seen' || command === 'update_ignore_version') {
@@ -403,13 +403,13 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     const consent = params.get('update-consent') ?? 'unset';
     const damaged = consent === 'damaged' || consent === 'future';
     const windows = params.get('update-platform') === 'windows';
-    const release = { version: mode === 'available' || mode === 'partial' ? '0.0.7' : mode === 'ahead' ? '0.0.5' : '0.0.6', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：启动检查更新与盘点体验。\n- 更新前请先备份。' };
+    const release = { version: mode === 'available' || mode === 'partial' ? '0.0.8' : mode === 'ahead' ? '0.0.6' : '0.0.7', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：启动检查更新与盘点体验。\n- 更新前请先备份。' };
     const sources = mode === 'partial' ? ['gitee'] : ['gitee', 'github'];
     const downloads = sources.map(source => ({ source, name: windows ? `物谱_${release.version}_x64-setup.exe` : `Thingary-${release.version}-universal.dmg`, label: windows ? 'Windows 安装包（x64）' : 'Mac 通用安装包（Apple Silicon 与 Intel）', size: source === 'gitee' ? null : 30000000 }));
     const available = { ...release, sources, downloads, confirmed_at: '2026-10-21T08:00:00Z' };
     const updateAvailable = mode === 'available' || mode === 'partial';
     const state: UpdateDiscoveryState = previewUpdateState ?? {
-      current_version: '0.0.6',
+      current_version: '0.0.7',
       platform_label: windows ? 'Windows x64' : 'Mac · Apple Silicon',
       consent: damaged ? 'unset' : consent === 'enabled' ? 'enabled' : consent === 'disabled' ? 'disabled' : 'unset',
       preferences_status: damaged ? 'damaged' : 'ok',
@@ -421,7 +421,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
       last_attempt_at: '2026-10-21T08:00:00Z',
       last_success_at: mode === 'error' ? null : '2026-10-21T08:00:00Z',
       candidate: updateAvailable ? available : null,
-      newer_unavailable: mode === 'unavailable' ? { ...release, version: '0.0.7', sources, downloads: [], confirmed_at: '2026-10-21T08:00:00Z' } : null,
+      newer_unavailable: mode === 'unavailable' ? { ...release, version: '0.0.8', sources, downloads: [], confirmed_at: '2026-10-21T08:00:00Z' } : null,
       last_unreachable: mode === 'partial' ? ['github'] : mode === 'error' ? ['gitee', 'github'] : [],
       cache_applicable: true,
       cache_unsaved: params.get('update-unsaved') === '1',
