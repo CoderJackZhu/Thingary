@@ -87,7 +87,7 @@ export function buildAnnualReview(sources: AnnualSources, period: FinancePeriod,
     if (to) {
       model.net.status = 'ready';
       const months = from ? wholeReviewMonths(from.date, to.date) : 0;
-      model.net.label = !from || from.date === to.date ? '区间变化' : presetLabels[windowPreset] ?? (months < 11 ? `自本区间首次盘点以来 ${months} 个月变化` : '区间变化');
+      model.net.label = !from || from.date === to.date ? '区间变化' : (windowPreset === 'all' || from.date <= range.from ? presetLabels[windowPreset] : undefined) ?? (months < 1 ? '区间变化' : months < 11 ? `自本区间首次盘点以来 ${months} 个月变化` : '区间变化');
       model.net.note = !from || from.date === to.date ? '只有一个有效端点，暂无可比较变化' : `实际盘点 ${from.date} 至 ${to.date}；区间内完整盘点 ${complete.length} 次。`;
       if (from && from.date < to.date) {
         const c = annual.comparison;

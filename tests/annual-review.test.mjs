@@ -125,3 +125,10 @@ test('hidden page and partial read failures remain safe; changing modules revoke
   const s=sources(periodControl.recentTwelveMonths('2026-10-15'));s.modules=ui.props.modules;s.annual.planning=disabled;s.incomes={status:'error',code:'private',message:'绝密读取错误'};setSource(s);
   oldCopy();await ui.settle();assert.equal(writes.length,0);assert.doesNotMatch(ui.text(ui.find('pre')),/¥|绝密|2044-03/);assert.match(ui.text(ui.nodes()),/收入读取失败/);assert.match(ui.text(ui.nodes()),/退休规划结论来源已关闭/);assert.ok(ui.button('复制当前预览'));
 });
+test('a preset label is used only when the first endpoint reaches back to the window start',()=>{
+  const win={kind:'range',from:'2025-10-15',to:'2026-10-15',includeFrom:true};
+  const short=buildReview(sources(win),win,'2026-10-15','1y');
+  assert.match(short.net.label,/^自本区间首次盘点以来 \d+ 个月变化$/);
+  const wide={kind:'range',from:'2025-12-31',to:'2026-10-15',includeFrom:true};
+  assert.equal(buildReview(sources(wide),wide,'2026-10-15','1y').net.label,'近 1 年变化');
+});
