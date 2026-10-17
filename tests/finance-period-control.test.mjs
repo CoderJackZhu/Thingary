@@ -149,7 +149,7 @@ function resolve(id, fromDir) {
   if (id.startsWith('.')) {
     const rel = posix.normalize(posix.join(fromDir, id));
     if (rel === 'src/DateInput') return dateInputStub;
-    if (rel === 'src/YearSelect') return { YearSelect: props => ({type:'select',props:{'aria-label':'年份',value:props.value === null ? '' : String(props.value).padStart(4,'0'),disabled:props.disabled,onChange:e=>props.onChange(Number(e.target.value)),recorded:props.recorded}}) };
+    if (rel === 'src/YearSelect') return { YearSelect: props => ({type:'select',props:{'aria-label':props.label ?? '年份',value:props.value === null ? '' : String(props.value).padStart(4,'0'),disabled:props.disabled,onChange:e=>props.onChange(Number(e.target.value)),recorded:props.recorded}}) };
     if (rel === 'src/FormControls') return formStub;
     return load(resolveFile(rel));
   }
@@ -288,6 +288,22 @@ test('review presets reuse Range while custom dates and year clear the preset wi
   h.button('近 12 个月').props.onClick();h.rerender();
   assert.equal(selections.at(-1),'recent12');assert.deepEqual(committed(changes).at(-1),recent);
   const before=changes.length;h.set({...props,disabled:true});h.button('近 12 个月').props.onClick();h.button('自然年').props.onClick();assert.equal(changes.length,before);
+});
+
+test('year quick pick inside the custom panel fills a natural-year range and stops this year at today', () => {
+  const changes = [];
+  const base = {kind:'range',from:'2025-10-12',to:today,includeFrom:true};
+  const props = {value:base,onChange:v=>changes.push(v),today,options:[{value:'range',label:'自定义'}],activePreset:null,yearQuickPick:true};
+  const h = new Harness(props);
+  assert.equal(h.button('自定义').props['aria-pressed'],true);
+  const pick = h.find(n => n.type === 'select' && n.props['aria-label'] === '自然年')[0];
+  assert.equal(pick.props.value,'2025');
+  pick.props.onChange({ target: { value: '2024' } }); h.rerender();
+  assert.deepEqual(committed(changes).at(-1), {kind:'range',from:'2024-01-01',to:'2024-12-31',includeFrom:true});
+  h.find(n => n.type === 'select' && n.props['aria-label'] === '自然年')[0].props.onChange({ target: { value: '2026' } }); h.rerender();
+  assert.deepEqual(committed(changes).at(-1), {kind:'range',from:'2026-01-01',to:today,includeFrom:true});
+  const plain = new Harness({value:base,onChange(){},today});
+  assert.equal(plain.find(n => n.type === 'select' && n.props['aria-label'] === '自然年').length,0);
 });
 
 test('year dropdown and all selections refresh immediately', () => {

@@ -2,6 +2,7 @@ import { money } from './asset.ts';
 import { countsAsSpending } from './expenses.ts';
 import { incomeMetric, expenseMetric } from './finance-review-model.ts';
 import type { FinanceRead, FinanceSources } from './finance-service.ts';
+import type { ReviewPeriodPreset } from './finance-period-control.ts';
 import { goalProgressVerdict, type GoalProgressEntry } from './goal-progress.ts';
 import { savingsProgress, type SavingsProgress } from './savings-goals.ts';
 import { normalizeFinancePeriod, financePeriodContains, type FinanceDateRange, type FinancePeriod } from './finance-contract.ts';
@@ -10,6 +11,8 @@ import type { Point } from './wealth.ts';
 /** All review facts come from one finance_sources read transaction. */
 export type AnnualSources = FinanceSources;
 type Block = { status: 'ready' | 'empty' | 'disabled' | 'error'; note: string };
+/** 预设窗口的名称；自定义窗口按实际跨度描述，不假装覆盖了整段预设。 */
+const presetLabels: Partial<Record<ReviewPeriodPreset, string>> = { '30d': '近 30 天变化', '6m': '近 6 个月变化', '1y': '近 1 年变化', ytd: '今年以来变化', all: '全部期间变化' };
 export type AnnualSavingsGoal = {
   id: string; name: string; alias: string; created_on: string;
   basisDate: string | null; progress: SavingsProgress;
@@ -17,6 +20,9 @@ export type AnnualSavingsGoal = {
 };
 export type AnnualReviewModel = {
   period: FinancePeriod; range: FinanceDateRange; today: string; writeVersion: number; years: number[]; yearsNote: string | null;
+  preset: ReviewPeriodPreset;
+  /** 供标题与复制文本使用的窗口描述；「全部」不把内部起始日当成用户选择。 */
+  windowLabel: string;
   net: Block & { from: Point | null; to: Point | null; completeCount: number; incompleteCount: number;
     delta_cents: string | null; label: string; points: Point[]; segments: Point[][]; scopeChanged: boolean; comparisonFailed: boolean };
   income: Block & { count: number; cents: string | null; hpf_known_cents: string | null; hpf_unknown_count: number };
@@ -48,15 +54,19 @@ function sameRange(a: FinanceDateRange | undefined, b: FinanceDateRange): boolea
   return !!a && a.from === b.from && a.to === b.to && a.includeFrom === b.includeFrom;
 }
 /** A mismatched or standard-purpose response cannot create a copyable model. */
-export function buildAnnualReview(sources: AnnualSources, period: FinancePeriod, today: string, recent = false): AnnualReviewModel | null {
+export function buildAnnualReview(sources: AnnualSources, period: FinancePeriod, today: string, preset: ReviewPeriodPreset | boolean = 'custom'): AnnualReviewModel | null {
   if (period.kind !== 'year' && period.kind !== 'range') return null;
+  // 旧的布尔参数只表示“近 12 个月”，保留给已有调用方。
+  const windowPreset: ReviewPeriodPreset = preset === true ? '1y' : preset === false ? 'custom' : preset;
   const annual = sources.annual, range = normalizeFinancePeriod(period)!;
   if (!annual || !sameRange(annual.range, range) || !sameRange(normalizeFinancePeriod(sources.period) ?? undefined, range) || sources.period.kind !== period.kind || (period.kind === 'year' && annual.year !== period.year)) return null;
   const { from: start, to: end } = range;
+  const windowLabel = windowPreset === 'all' ? `全部期间（截至 ${range.to}）` : `${range.from} 至 ${range.to}${range.includeFrom ? '' : '（不含起始日）'}`;
   const insideWindow = (date: string) => date <= today && financePeriodContains(period, date);
   const years = annual.years.status === 'ready' ? annual.years.value : sources.record_years.status === 'ready' ? sources.record_years.value : [];
   const model: AnnualReviewModel = {
-    period, range, today, writeVersion: sources.write_version, years: [...new Set([Number(today.slice(0, 4)), ...(period.kind === 'year' ? [period.year] : []), ...years])].sort((a, b) => b - a),
+    period, range, today, writeVersion: sources.write_version, preset: windowPreset, windowLabel,
+    years: [...new Set([Number(today.slice(0, 4)), ...(period.kind === 'year' ? [period.year] : []), ...years])].sort((a, b) => b - a),
     yearsNote: annual.years.status === 'ready' ? null : '年份来源未完整读取；当前列表可能不全，可保留所选年份后重试。',
     net: { status: 'empty', note: '该区间没有完整盘点', from: null, to: null, completeCount: 0, incompleteCount: 0, delta_cents: null, label: '记录间变化', points: [], segments: [], scopeChanged: annual.scope_changed, comparisonFailed: false },
     income: { status: 'empty', note: '该区间没有收入记录，不代表没有收入', count: 0, cents: null, hpf_known_cents: null, hpf_unknown_count: 0 },
@@ -77,7 +87,7 @@ export function buildAnnualReview(sources: AnnualSources, period: FinancePeriod,
     if (to) {
       model.net.status = 'ready';
       const months = from ? wholeReviewMonths(from.date, to.date) : 0;
-      model.net.label = !from || from.date === to.date ? '区间变化' : months < 11 ? `自本区间首次盘点以来 ${months} 个月变化` : recent ? '近 12 个月变化' : '区间变化';
+      model.net.label = !from || from.date === to.date ? '区间变化' : presetLabels[windowPreset] ?? (months < 11 ? `自本区间首次盘点以来 ${months} 个月变化` : '区间变化');
       model.net.note = !from || from.date === to.date ? '只有一个有效端点，暂无可比较变化' : `实际盘点 ${from.date} 至 ${to.date}；区间内完整盘点 ${complete.length} 次。`;
       if (from && from.date < to.date) {
         const c = annual.comparison;
@@ -137,7 +147,7 @@ export function buildAnnualReview(sources: AnnualSources, period: FinancePeriod,
 /** Controlled text only: neither mode includes names, notes, IDs or source error strings. */
 export function annualCopyText(model: AnnualReviewModel, includeAmounts = false): string {
   const { net, income, expenses, savings, planning } = model;
-  const lines = [`区间记录摘要（${includeAmounts ? '含金额版' : '隐私版'}）· ${model.range.from} 至 ${model.range.to}${model.range.includeFrom ? '' : '（不含起始日）'}`];
+  const lines = [`区间记录摘要（${includeAmounts ? '含金额版' : '隐私版'}）· ${model.windowLabel}`];
   if (net.status === 'ready' || net.status === 'empty') {
     lines.push(`完整盘点 ${net.completeCount} 次；另有 ${net.incompleteCount} 次记录不完整。`);
     if (net.to) {

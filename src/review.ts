@@ -1,3 +1,4 @@
+import { monthsBeforeDay, REVIEW_PERIOD_PRESETS } from './finance-period-control.ts';
 import type { PlanSources } from './plan-summary';
 import { allModules, type Modules } from './modules.ts';
 import type { OverviewData } from './Overview';
@@ -21,16 +22,12 @@ export function attentionSourcesReady(review: Review, modules: Modules = allModu
 export const overviewView = (value: string | null) => value === 'physical' ? 'physical' : 'combined';
 export function latestComplete(points: Point[]) { return points.filter(p => p.complete).at(-1); }
 
-/** 净资产曲线的时间范围：只裁剪显示的盘点点，大数字、变化额与结构表始终取最近完整盘点。 */
-export const trendRanges = [['30d', '近 30 天', 0], ['6m', '近 6 个月', 6], ['1y', '近 1 年', 12], ['ytd', '今年以来', 0], ['all', '全部', 0], ['custom', '自定义', 0]] as const;
+/** 净资产曲线的时间范围：与首页总览、区间回顾共用同一组预设标签。 */
+export const trendRanges = REVIEW_PERIOD_PRESETS.map(({ value, label }) => [value, label, value === '6m' ? 6 : value === '1y' ? 12 : 0] as const);
 export type TrendRange = typeof trendRanges[number][0];
 const daysIn = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
 /** `today` 往前推 N 个月的自然日；目标月没有该日（如 8/31 → 2/28）取当月最后一天，不顺延到下月。 */
-export function monthsBefore(today: string, months: number) {
-  const y = +today.slice(0, 4), m = +today.slice(5, 7), d = +today.slice(8, 10), index = y * 12 + (m - 1) - months;
-  const ty = Math.floor(index / 12), tm = index % 12 + 1;
-  return `${String(ty).padStart(4, '0')}-${String(tm).padStart(2, '0')}-${String(Math.min(d, daysIn(ty, tm))).padStart(2, '0')}`;
-}
+export const monthsBefore = monthsBeforeDay;
 export type CustomTrendRange = { from: string; to: string };
 export function customRangeError(custom: CustomTrendRange, today: string): string | null {
   const valid = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v) && +v.slice(0, 4) > 0 && Number(v.slice(5, 7)) >= 1 && Number(v.slice(5, 7)) <= 12 && +v.slice(8) >= 1 && +v.slice(8) <= daysIn(+v.slice(0, 4), +v.slice(5, 7));

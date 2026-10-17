@@ -24,11 +24,26 @@ test('recent12 maps to a valid inclusive calendar range, including leap and low 
   assert.equal(periods.recentTwelveMonths('0001-02-28').from,'0001-01-01');
 });
 test('sparse cross-year review uses actual endpoints and window records without negating the whole result',()=>{
-  const m=review.buildAnnualReview(facts(),range,'2026-10-16',true);
+  const m=review.buildAnnualReview(facts(),range,'2026-10-16','1y');
   assert.ok(m);assert.equal(m.net.from.date,'2025-10-01');assert.equal(m.net.to.date,'2026-10-01');assert.equal(m.net.completeCount,2);
-  assert.equal(m.net.label,'近 12 个月变化');assert.equal(m.net.delta_cents,'2500');assert.equal(m.income.cents,'1200');assert.equal(m.income.hpf_unknown_count,1);
+  assert.equal(m.net.label,'近 1 年变化');assert.equal(m.windowLabel,'2025-10-16 至 2026-10-16');assert.equal(m.net.delta_cents,'2500');assert.equal(m.income.cents,'1200');assert.equal(m.income.hpf_unknown_count,1);
   assert.doesNotMatch(m.net.note,/不能作为|未覆盖完整自然年/);
   const text=review.annualCopyText(m);assert.match(text,/区间记录摘要（隐私版）· 2025-10-16 至 2026-10-16/);assert.doesNotMatch(text,/绝密|秘密|private-id|¥|%/);
+});
+test('overview presets map to inclusive ranges; all keeps the earliest legal start out of user-facing text',()=>{
+  assert.equal(periods.DEFAULT_REVIEW_PRESET,'1y');
+  assert.deepEqual(periods.reviewPeriodRange('30d','2026-10-16'),{kind:'range',from:'2026-09-16',to:'2026-10-16',includeFrom:true});
+  assert.deepEqual(periods.reviewPeriodRange('6m','2026-10-16'),{kind:'range',from:'2026-04-16',to:'2026-10-16',includeFrom:true});
+  assert.deepEqual(periods.reviewPeriodRange('1y','2026-10-16'),range);
+  assert.deepEqual(periods.reviewPeriodRange('ytd','2026-10-16'),{kind:'range',from:'2026-01-01',to:'2026-10-16',includeFrom:true});
+  assert.deepEqual(periods.reviewPeriodRange('all','2026-10-16'),{kind:'range',from:'0001-01-01',to:'2026-10-16',includeFrom:true});
+  assert.deepEqual(periods.reviewPeriodPresets('2026-10-16').map(p=>p.id),['30d','6m','1y','ytd','all']);
+  assert.equal(periods.reviewPeriodRange('30d','2026-10-16').from,periods.reviewPeriodRange('30d','2026-10-16').from);
+  assert.equal(periods.resolveReviewPreset(periods.reviewPeriodRange('6m','2026-10-16'),'2026-10-16'),'6m');
+  assert.equal(periods.resolveReviewPreset({kind:'range',from:'2025-01-01',to:'2025-12-31',includeFrom:true},'2026-10-16'),'custom');
+  const s=facts(periods.reviewPeriodRange('all','2026-10-16'));const m=review.buildAnnualReview(s,s.period,s.today,'all');
+  assert.equal(m.windowLabel,'全部期间（截至 2026-10-16）');assert.equal(m.net.label,'全部期间变化');assert.equal(m.net.delta_cents,'2500');
+  assert.match(review.annualCopyText(m),/区间记录摘要（隐私版）· 全部期间（截至 2026-10-16）/);assert.doesNotMatch(review.annualCopyText(m),/0001-01-01/);
 });
 test('start day wins over an older snapshot; single endpoint and no complete point stay unknown',()=>{
   const s=facts(range,[p('old','2025-09-01'),p('start',range.from),p('end','2026-10-01')]);s.annual.comparison.value.from.snapshot_id='start';
