@@ -11,6 +11,7 @@ import type { AssumptionReadV1, FollowupRead } from '../planning-followup-contra
 import type { GoalEdit, Saved } from './inputs';
 import type { fundScopeSummary } from '../planning-fund-scope';
 import type { SavingHint } from '../plan-saving-hint';
+import { GoalTrajectory } from './Trajectory';
 
 export type SavingHintAction = { hint: SavingHint; onReview: () => void; onDismiss: () => void };
 export type GoalAction = GoalEdit | 'income' | 'funds' | 'costs' | 'debt' | 'events';
@@ -84,8 +85,9 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
         {!!accountFunds?.unavailable.length && <p className="goal-fund-exclusions small">未作可用资金：{accountFunds.unavailable.join('、')}。</p>}
         <button className="ui-link" onClick={e => onEdit('funds', e.currentTarget)}>核对账户用途与投资计入</button>
       </>}</div>{row.id !== 'assumptions' && <button id={row.id === 'time' ? 'plan-budget-entry' : undefined} className="ui-btn" aria-label={`调整${row.title}`} onClick={e => onEdit(row.id, e.currentTarget)}>调整</button>}</article>;
+  const trajectoryInput = pred && plan && projection && outcome ? { plan, projection, outcome, assets: plan.assets_cents } : null;
   return <div className="goal-layout">
-    <aside className="goal-summary-first"><article className="ui-card ui-content" aria-label="退休目标"><p className="eyebrow">{!req && !pred ? '还不能算出结果' : uncertain ? '当前暂算结果' : '按当前条件估算'}</p><h3>{headline}</h3><p className="muted small">{r.mode === 'fire' && time.target_month ? `你希望 ${retirementText}；规划到 ${horizonText}` : `规划到 ${horizonText}`}</p><p className="goal-verdict">{pred ? !pred.outcome.success ? '按当前投入，尚未满足完整目标' : uncertain ? '已计入条件可覆盖，仍有事项需确认' : pred.terminal === 'no_margin' ? '所选期间可覆盖，终点没有余量' : '按当前投入，所选期间可覆盖' : '先看目标需求，补充投入后判断能否达成'}</p><div className="goal-amounts"><div><span>固定目标需要每月存</span><strong>{req && 'monthly_cents' in req.set ? forecastMoney(req.set.monthly_cents) : '待计算'}</strong><small className="muted">按固定目标月份反求，不是未来预测</small></div><div><span>你估计每月能存</span><strong>{b.contribution.monthly_cents === null ? '还没填' : money(b.contribution.monthly_cents)}</strong><button type="button" className="ui-link" onClick={e => onEdit('saving', e.currentTarget)}>{b.contribution.monthly_cents === null ? '填写每月能存的钱' : '修改每月能存的钱'}</button></div></div>
+    <div className="goal-side"><article className="ui-card ui-content goal-answer" aria-label="退休目标"><p className="eyebrow">{!req && !pred ? '还不能算出结果' : uncertain ? '当前暂算结果' : '按当前条件估算'}</p><h3>{headline}</h3><p className="muted small">{r.mode === 'fire' && time.target_month ? `你希望 ${retirementText}；规划到 ${horizonText}` : `规划到 ${horizonText}`}</p><p className="goal-verdict">{pred ? !pred.outcome.success ? '按当前投入，尚未满足完整目标' : uncertain ? '已计入条件可覆盖，仍有事项需确认' : pred.terminal === 'no_margin' ? '所选期间可覆盖，终点没有余量' : '按当前投入，所选期间可覆盖' : '先看目标需求，补充投入后判断能否达成'}</p><div className="goal-amounts"><div><span>固定目标需要每月存</span><strong>{req && 'monthly_cents' in req.set ? forecastMoney(req.set.monthly_cents) : '待计算'}</strong><small className="muted">按固定目标月份反求，不是未来预测</small></div><div><span>你估计每月能存</span><strong>{b.contribution.monthly_cents === null ? '还没填' : money(b.contribution.monthly_cents)}</strong><button type="button" className="ui-link" onClick={e => onEdit('saving', e.currentTarget)}>{b.contribution.monthly_cents === null ? '填写每月能存的钱' : '修改每月能存的钱'}</button></div></div>
       <div className="goal-result-actions">
         {req && onDetail && <button type="button" id="plan-detail-entry" className="primary goal-detail-entry" onClick={onDetail}>查看测算详情与图表</button>}
         {onReport && <button type="button" className="ui-btn goal-report-entry" disabled={reportDisabled} onClick={e => onReport(e.currentTarget)}>查看当前报告</button>}
@@ -93,18 +95,19 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
       {onTrial && (pred ? !pred.outcome.success : difference !== null && difference < 0) && <button type="button" className="ui-link goal-trial-entry" onClick={onTrial}>试算：歇一阵或换工作会怎样 →</button>}
       {req ? req.set.status !== 'found' && <p>{uncertain && req.set.status === 'no_positive_contribution' ? '只看已计入的条件，暂不要求额外存钱。请先核对下方遗漏。' : requirementLine(req.set, forecastMoney).text}</p> : caps.requirement.status === 'blocked' && <p>{[...new Set(caps.requirement.missing.map(missingText))].join(' ')}</p>}
       {difference !== null && req?.set.status === 'found' && <p>{difference < 0 ? '每月还差约' : '每月余量约'} {forecastMoney(Math.abs(difference))}（按已计入的条件）。</p>}
-      {pred && predictionLines.length > 0 && <div className="goal-result" aria-label="预测结果"><h4>按已保存投入的预测</h4><dl>{predictionLines.map(line => <div key={line.label}><dt>{line.label}</dt><dd>{line.text}</dd></div>)}</dl></div>}
       {req && pred && <p className="muted small">上面“需要每月存”按固定目标月份反求；预测按已保存的每月投入推演，两者口径不同，不能只看差额下结论。</p>}
       {!pred && caps.prediction.status === 'blocked' && <p className="muted small">{caps.prediction.missing.some(m => m.code === 'CONTRIBUTION_UNKNOWN') ? '填好每月能存的钱后，这里会显示预计退休时间与资金结论。' : [...new Set(caps.prediction.missing.map(missingText))].join(' ')}</p>}
-      {!!r.life_events.length && <div className="goal-event-summary"><h4>这次的大额计划</h4><ul>{r.life_events.map(event => {
+    </article><GoalTrajectory calc={trajectoryInput}/><article className="ui-card ui-content goal-evidence" aria-label="依据与提醒"><h3>依据与提醒</h3>
+      {pred && predictionLines.length > 0 && <div className="goal-result" aria-label="预测结果"><h4>按已保存投入的预测</h4><dl>{predictionLines.map(line => <div key={line.label}><dt>{line.label}</dt><dd>{line.text}</dd></div>)}</dl></div>}
+      <GoalCaution annotations={annotations} saved={saved} onAnnotation={onAnnotation}/>
+      <p className="muted small">按当前条件估算，不保证未来一定够用；收入、支出或政策变化后需要重算。</p>
+    </article>{nextCard && <article className="ui-card ui-content goal-next"><p className="eyebrow">{nextCard.disabled ? '假设核对状态' : '建议下一步'}</p><h3>{nextCard.title}</h3><p className="muted">{nextCard.benefit}</p><button className="primary" disabled={nextCard.disabled} onClick={e => nextCard!.run(e.currentTarget)}>{nextCard.title}</button></article>}</div>
+    <section className="ui-card goal-conditions" aria-label="计算条件"><div className="ui-content"><h3>这次计算用了什么</h3><p className="muted small">已填条件一直保留，可单独调整；先看上方结论，再按需要核对各项条件。</p></div>
+      {[...rows].sort((a, b) => conditionOrder.indexOf(a.id) - conditionOrder.indexOf(b.id)).map(renderCondition)}
+      {!!r.life_events.length && <div className="ui-content goal-event-summary"><h4>这次的大额计划</h4><ul>{r.life_events.map(event => {
         const occurred = r.core?.occurrences.find(o => o.event_id === event.id)?.status;
         return <li key={event.id}><strong>{event.label}</strong><span className="muted small">{occurred === 'cancelled' ? '已取消' : occurred === 'occurred' ? '已发生，计入后续安排' : event.included ? '计入目标' : '未计入'} · {event.date}</span></li>;
       })}</ul><button className="ui-link" onClick={e => onEdit('events', e.currentTarget)}>查看与调整大额计划</button></div>}
-      <GoalCaution annotations={annotations} saved={saved} onAnnotation={onAnnotation}/>
-      <p className="muted small">按当前条件估算，不保证未来一定够用；收入、支出或政策变化后需要重算。</p>
-    </article>{nextCard && <article className="ui-card ui-content goal-next"><p className="eyebrow">{nextCard.disabled ? '假设核对状态' : '建议下一步'}</p><h3>{nextCard.title}</h3><p className="muted">{nextCard.benefit}</p><button className="primary" disabled={nextCard.disabled} onClick={e => nextCard!.run(e.currentTarget)}>{nextCard.title}</button></article>}</aside>
-    <section className="ui-card goal-conditions" aria-label="计算条件"><div className="ui-content"><h3>这次计算用了什么</h3><p className="muted small">已填条件一直保留，可单独调整；先看上方结论，再按需要核对各项条件。</p></div>
-      {[...rows].sort((a, b) => conditionOrder.indexOf(a.id) - conditionOrder.indexOf(b.id)).map(renderCondition)}
       <div className="ui-content goal-secondary"><button className="ui-link" onClick={e => onEdit('costs', e.currentTarget)}>核对费用是否包含</button><button className="ui-link" onClick={e => onEdit('debt', e.currentTarget)}>贷款还款安排</button><button className="ui-link" onClick={e => onEdit('events', e.currentTarget)}>买房买车等大额计划</button></div>
     </section>
     {purchasePlans && <div className="goal-purchase-plans">{purchasePlans}</div>}
