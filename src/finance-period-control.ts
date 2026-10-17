@@ -24,12 +24,69 @@ export type FinancePeriodDraftResult =
   | { ok: true; value: FinancePeriod }
   | { ok: false; error: string };
 
+/**
+ * 首页总览的期间选择（近 30 天／近 6 个月／近 1 年／今年以来／全部／自定义）也用于区间回顾。
+ * 除「全部」用契约允许的最早自然日表示无起始边界外，其余预设都是含端点的闭区间。
+ */
+export type ReviewPeriodPreset = '30d' | '6m' | '1y' | 'ytd' | 'all' | 'custom';
+
+export const REVIEW_PERIOD_PRESETS: readonly { value: ReviewPeriodPreset; label: string }[] = [
+  { value: '30d', label: '近 30 天' },
+  { value: '6m', label: '近 6 个月' },
+  { value: '1y', label: '近 1 年' },
+  { value: 'ytd', label: '今年以来' },
+  { value: 'all', label: '全部' },
+  { value: 'custom', label: '自定义' },
+];
+
+export const DEFAULT_REVIEW_PRESET: Exclude<ReviewPeriodPreset, 'custom'> = '1y';
+
+/** `today` 往前推 N 个日历月的同日；目标月没有该日时截到当月最后一天。 */
+export function monthsBeforeDay(today: string, months: number): string {
+  const year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7)), day = Number(today.slice(8, 10));
+  const index = year * 12 + (month - 1) - months, targetYear = Math.floor(index / 12), targetMonth = index % 12 + 1;
+  if (targetYear < 1) return '0001-01-01';
+  return `${pad(targetYear, 4)}-${pad(targetMonth, 2)}-${pad(Math.min(day, daysInMonth(targetYear, targetMonth)), 2)}`;
+}
+
+/** `today` 往前推 N 个自然日；跨月按当月实际天数回退。 */
+function daysBefore(today: string, days: number): string {
+  let year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7)), day = Number(today.slice(8, 10)) - days;
+  while (day < 1) {
+    if (--month < 1) { month = 12; if (--year < 1) return '0001-01-01'; }
+    day += daysInMonth(year, month);
+  }
+  return `${pad(year, 4)}-${pad(month, 2)}-${pad(day, 2)}`;
+}
+
 /** Browsing preset only: uses the existing inclusive Range wire contract. */
 export function recentTwelveMonths(today: string): Extract<FinancePeriod, { kind: 'range' }> {
   normalizeFinancePeriod({ kind: 'range', from: today, to: today, includeFrom: true });
-  const year = Number(today.slice(0, 4)), month = Number(today.slice(5, 7)), day = Number(today.slice(8, 10));
-  const from = year === 1 ? '0001-01-01' : `${pad(year - 1, 4)}-${pad(month, 2)}-${pad(Math.min(day, daysInMonth(year - 1, month)), 2)}`;
-  return { kind: 'range', from, to: today, includeFrom: true };
+  return { kind: 'range', from: monthsBeforeDay(today, 12), to: today, includeFrom: true };
+}
+
+/** 预设映射为含端点的闭区间；「全部」用最早自然日表示无起点，终点仍取今天。 */
+export function reviewPeriodRange(preset: Exclude<ReviewPeriodPreset, 'custom'>, today: string): Extract<FinancePeriod, { kind: 'range' }> {
+  switch (preset) {
+    case '30d': return { kind: 'range', from: daysBefore(today, 30), to: today, includeFrom: true };
+    case '6m': return { kind: 'range', from: monthsBeforeDay(today, 6), to: today, includeFrom: true };
+    case '1y': return recentTwelveMonths(today);
+    case 'ytd': return { kind: 'range', from: `${today.slice(0, 4)}-01-01`, to: today, includeFrom: true };
+    case 'all': return { kind: 'range', from: '0001-01-01', to: today, includeFrom: true };
+  }
+}
+
+/** 区间回顾的五个滚动预设，供控件直接渲染；自定义单独作为一个期间类型。 */
+export function reviewPeriodPresets(today: string): { id: Exclude<ReviewPeriodPreset, 'custom'>; label: string; period: FinancePeriod }[] {
+  return REVIEW_PERIOD_PRESETS.filter((preset): preset is { value: Exclude<ReviewPeriodPreset, 'custom'>; label: string } => preset.value !== 'custom')
+    .map(preset => ({ id: preset.value, label: preset.label, period: reviewPeriodRange(preset.value, today) }));
+}
+
+/** 已应用的期间若能对上某个预设就显示该预设，否则按自定义处理；不改变期间本身。 */
+export function resolveReviewPreset(period: FinancePeriod, today: string): ReviewPeriodPreset {
+  const match = reviewPeriodPresets(today).find(preset => preset.period.kind === 'range' && period.kind === 'range'
+    && period.includeFrom && preset.period.from === period.from && preset.period.to === period.to);
+  return match ? match.id : 'custom';
 }
 
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;

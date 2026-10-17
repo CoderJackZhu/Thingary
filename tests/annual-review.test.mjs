@@ -74,7 +74,7 @@ test('standard responses and stale years cannot build an annual copy model',()=>
 });
 function mount(options={}) {
   const store=new Map([['thingary.hide-financial-amounts.v1','1']]),writes=[],requests=[];let current=sources(periodControl.recentTwelveMonths('2026-10-15'));
-  const ui=runtime('AnnualReview',{generation:'g',today:'2026-10-15',modules},undefined,undefined,{components:[],modules:{'./finance-period-control':periodControl,'./annual-review':annual,'./asset':{money},'./Sparkline':{Sparkline:()=>null},'./finance-data':{useFinanceSources:(g,p,m,view)=>{requests.push({g,p,m,view});return {load:current && current.generation===g && JSON.stringify(current.period)===JSON.stringify(p)?{status:'ready',sources:current}:{status:'loading'},reload(){}};} }},globals:{localStorage:{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v)},navigator:{clipboard:{writeText:async text=>{if(options.fail)throw new Error('no clipboard');writes.push(text);}}}}});
+  const ui=runtime('AnnualReview',{generation:'g',today:'2026-10-15',modules,...(options.props||{})},undefined,undefined,{components:[],modules:{'./finance-period-control':periodControl,'./annual-review':annual,'./asset':{money},'./finance-data':{useFinanceSources:(g,p,m,view)=>{requests.push({g,p,m,view});return {load:current && current.generation===g && JSON.stringify(current.period)===JSON.stringify(p)?{status:'ready',sources:current}:{status:'loading'},reload(){}};} }},globals:{localStorage:{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v)},navigator:{clipboard:{writeText:async text=>{if(options.fail)throw new Error('no clipboard');writes.push(text);}}}}});
   return {ui,writes,requests,setSource:s=>{current=s;ui.render();}};
 }
 test('actual component handler copies exactly its privacy preview and requires explicit amount disclosure',async()=>{
@@ -92,6 +92,32 @@ test('year and library changes invalidate old disclosure and old copy handlers; 
   const failed=mount({fail:true});failed.ui.button('复制当前预览').props.onClick();await failed.ui.settle();assert.match(failed.ui.text(failed.ui.nodes()),/复制失败/);assert.doesNotMatch(failed.ui.text(failed.ui.nodes()),/已复制/);
 });
 
+test('the page uses the overview presets with 近 1 年 by default and no inline curve',()=>{
+  const entry=[];const {ui,setSource}=mount({props:{onViewTrend:selection=>entry.push(selection)}});
+  const control=ui.find('FinancePeriodControl');
+  assert.equal(control.props.activePreset,'1y');
+  assert.deepEqual(control.props.presets.map(p=>p.label),['近 30 天','近 6 个月','近 1 年','今年以来','全部']);
+  assert.equal(JSON.stringify(control.props.options),JSON.stringify([{value:'range',label:'自定义'}]));
+  assert.equal(control.props.yearQuickPick,true);
+  assert.ok(control.props.presets.every(p=>p.period.kind==='range'&&p.period.includeFrom===true));
+  assert.ok(!ui.nodes().some(n=>n.type==='Sparkline'),'the default-expanded net-worth curve is gone');
+  ui.button('查看这段走势 →').props.onClick();
+  assert.equal(JSON.stringify(entry),JSON.stringify([{range:'1y'}]));
+  const custom={kind:'range',from:'2026-02-01',to:'2026-10-15',includeFrom:true};
+  control.props.onPresetChange(null);control.props.onChange(custom);setSource(sources(custom));ui.render();
+  ui.button('查看这段走势 →').props.onClick();
+  assert.equal(JSON.stringify(entry.at(-1)),JSON.stringify({range:'custom',custom:{from:'2026-02-01',to:'2026-10-15'}}));
+});
+test('a single endpoint keeps its date and amount but never renders a change amount',()=>{
+  const {ui,setSource}=mount();
+  const s=sources(periodControl.recentTwelveMonths('2026-10-15'));
+  s.wealth.value.points=[point('only','2026-08-01')];s.annual.comparison=ready(null);setSource(s);
+  const metrics=ui.nodes().filter(n=>n.props?.className==='ui-metrics')[0];
+  assert.ok(metrics);const text=ui.text(metrics);
+  assert.match(text,/实际盘点 2026-08-01/);
+  assert.equal(metrics.props.children.filter(child=>child&&child.type==='article').length,1,'只有端点，没有变化卡片');
+  assert.doesNotMatch(text,/区间变化|暂无完整金额/);
+});
 test('hidden page and partial read failures remain safe; changing modules revokes previous copy disclosure',async()=>{
   const {ui,writes,setSource}=mount();assert.doesNotMatch(ui.text(ui.nodes()),/绝密|2044-03|2045-08|¥/);
   ui.button('在预览中显示金额').props.onClick();ui.render();const oldCopy=ui.button('复制当前预览').props.onClick;

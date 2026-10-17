@@ -1,28 +1,30 @@
 import { FinancePeriodControl } from './FinancePeriodControl';
-import { recentTwelveMonths } from './finance-period-control';
+import { DEFAULT_REVIEW_PRESET, resolveReviewPreset, reviewPeriodPresets, reviewPeriodRange } from './finance-period-control';
 import type { FinancePeriod } from './finance-contract';
+import type { TrendRange } from './review';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFinanceSources } from './finance-data';
 import { buildAnnualReview, annualCopyText } from './annual-review';
 import { goalProgressVerdict } from './goal-progress';
 import { money } from './asset';
-import { Sparkline } from './Sparkline';
 import type { RuntimeModules } from './modules';
 import './review.css';
 
 const hiddenPreference = () => { try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { return false; } };
 /** One completed, identity-checked source read supplies both the screen and copy preview. */
-export function AnnualReview({ generation, today, modules }: { generation: string; today: string; modules: RuntimeModules }) {
-  const [period, setPeriod] = useState<FinancePeriod>(() => recentTwelveMonths(today));
-  const [preset, setPreset] = useState<string | null>('recent12');
-  const recentPeriod = useMemo(() => recentTwelveMonths(today), [today]);
+export function AnnualReview({ generation, today, modules, onViewTrend }: { generation: string; today: string; modules: RuntimeModules; onViewTrend?: (selection: { range: TrendRange; custom?: { from: string; to: string } }) => void }) {
+  const [period, setPeriod] = useState<FinancePeriod>(() => reviewPeriodRange(DEFAULT_REVIEW_PRESET, today));
+  const [preset, setPreset] = useState<string | null>(DEFAULT_REVIEW_PRESET);
+  // 预设来自首页总览的同一组选择；已应用的区间对不上任何预设时按自定义处理。
+  const appliedPreset = useMemo(() => resolveReviewPreset(period, today), [period, today]);
+  const presets = useMemo(() => reviewPeriodPresets(today), [today]);
   const [hidden, setHidden] = useState(hiddenPreference);
   const [disclosure, setDisclosure] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
   const [copying, setCopying] = useState(false);
   const facts = useFinanceSources(generation, period, modules, 'annual');
   const sources = facts.load.status === 'ready' ? facts.load.sources : null;
-  const model = sources ? buildAnnualReview(sources, period, sources.today, preset === 'recent12') : null;
+  const model = sources ? buildAnnualReview(sources, period, sources.today, appliedPreset) : null;
   const scope = JSON.stringify([generation, period, preset, modules]);
   const snapshot = model ? `${scope}:${model.writeVersion}` : `${scope}:loading`;
   const includeAmounts = disclosure === snapshot;
@@ -48,13 +50,19 @@ export function AnnualReview({ generation, today, modules }: { generation: strin
   const renderAmount = (cents: string | null) => cents === null ? '暂无完整金额' : hidden ? '金额已隐藏' : money(cents);
   const retry = <button type="button" onClick={facts.reload}>重新读取区间记录</button>;
   const changedPeriod = (value: FinancePeriod) => { setDisclosure(null); setNotice(''); setPeriod(value); };
+  // 入口只带走势所需的范围；金额、端点与口径仍由账户与盘点概览重新读取。
+  const viewTrend = () => {
+    if (!model || !onViewTrend) return;
+    onViewTrend({ range: appliedPreset, ...(appliedPreset === 'custom' ? { custom: { from: model.range.from, to: model.range.to } } : {}) });
+  };
+  const compareTwo = !!model?.net.from && !!model.net.to && model.net.from.date !== model.net.to.date;
   return <section className="stats-section wealth-section planning-section" aria-label="区间回顾">
     <FinancePeriodControl value={period} onChange={changedPeriod} today={today} recordedYears={years}
-      options={[{value:'year',label:'自然年'},{value:'range',label:'自选日期'}]}
-      presets={[{id:'recent12',label:'近 12 个月',period:recentPeriod}]} activePreset={preset} onPresetChange={setPreset}/>
+      options={[{value:'range',label:'自定义'}]}
+      presets={presets} activePreset={preset} onPresetChange={setPreset} yearQuickPick/>
     <div className="ui-section-head"><button type="button" aria-pressed={hidden} onClick={toggleHidden}>{hidden ? '显示金融金额' : '隐藏金融金额'}</button></div>
     {facts.load.status === 'loading' ? <p role="status">正在读取同一区间的记录…</p> : facts.load.status === 'error' ? <p role="alert">区间记录读取失败。{retry}</p> : !model ? <p role="alert">区间来源与所选期间不一致，请重新读取。{retry}</p> : <>
-      <p className="muted">回顾窗口 {model.range.from} 至 {model.range.to}；仅汇总已记录事实，记录数量不证明覆盖完整。</p>
+      <p className="muted">回顾窗口 {model.windowLabel}；仅汇总已记录事实，记录数量不证明覆盖完整。</p>
       {model.yearsNote && <p role="alert">{model.yearsNote}{retry}</p>}
       <article className="ui-card ui-content"><h3>金融净资产{model.net.to ? ` · ${model.net.from?.date ?? model.net.to.date}${model.net.from?.date !== model.net.to.date ? ` 至 ${model.net.to.date}` : ''}` : ''}</h3>
         {(model.net.status === 'ready' || model.net.status === 'empty') && <p>区间内完整盘点 {model.net.completeCount} 次；另有 {model.net.incompleteCount} 次记录不完整。</p>}
@@ -62,12 +70,13 @@ export function AnnualReview({ generation, today, modules }: { generation: strin
         {(model.net.status === 'error' || model.net.comparisonFailed) && retry}
         {model.net.to && <>
           <div className="ui-metrics">
-            <article><span>{model.net.from?.date === model.net.to.date ? '实际盘点' : '实际起点'} {model.net.from?.date}</span><strong>{renderAmount(model.net.from?.net_cents ?? null)}</strong></article>
-            {model.net.from?.date !== model.net.to.date && <article><span>实际终点 {model.net.to.date}</span><strong>{renderAmount(model.net.to.net_cents)}</strong></article>}
-            <article><span>{model.net.label}</span><strong>{renderAmount(model.net.delta_cents)}</strong></article>
+            <article><span>{compareTwo ? '实际起点' : '实际盘点'} {model.net.from?.date}</span><strong>{renderAmount(model.net.from?.net_cents ?? null)}</strong></article>
+            {compareTwo && <article><span>实际终点 {model.net.to.date}</span><strong>{renderAmount(model.net.to.net_cents)}</strong></article>}
+            {compareTwo && <article><span>{model.net.label}</span><strong>{renderAmount(model.net.delta_cents)}</strong></article>}
           </div>
-          {hidden ? <p className="muted">金融曲线已隐藏。</p> : model.net.scopeChanged ? <p>期间范围发生变化，仅列实际盘点，不连接成连续曲线。</p> : model.net.segments.filter(s => s.length >= 2).map((segment, index) => <div className="review-nw" key={segment[0].snapshot_id}><p className="muted small">连续可比记录 {segment[0].date} 至 {segment.at(-1)!.date}{index ? '（与前段断开）' : ''}</p><Sparkline hero points={segment}/></div>)}
-          <details><summary>实际盘点记录</summary><table className="ui-table"><thead><tr><th>日期</th><th>状态</th><th>金融净资产</th></tr></thead><tbody>{model.net.points.map(p => <tr key={p.snapshot_id}><td>{p.date}{p.date < model.range.from ? '（窗口前起点）' : ''}</td><td>{p.complete ? p.scope_changed ? '完整 · 范围变化' : '完整' : '不完整 · 不连线'}</td><td>{p.complete ? renderAmount(p.net_cents) : '未知'}</td></tr>)}</tbody></table></details>
+          {onViewTrend && <div className="ui-section-head"><span className="muted small">走势曲线在账户与盘点概览</span><button type="button" className="ui-link" onClick={viewTrend}>查看这段走势 →</button></div>}
+          {model.net.scopeChanged && <p>期间范围发生变化，不直接比较；下方仍列实际盘点。</p>}
+          <details><summary>实际盘点记录</summary><table className="ui-table"><thead><tr><th>日期</th><th>状态</th><th>金融净资产</th></tr></thead><tbody>{model.net.points.map(p => <tr key={p.snapshot_id}><td>{p.date}{p.date < model.range.from ? '（窗口前起点）' : ''}</td><td>{p.complete ? p.scope_changed ? '完整 · 范围变化' : '完整' : '不完整'}</td><td>{p.complete ? renderAmount(p.net_cents) : '未知'}</td></tr>)}</tbody></table></details>
         </>}
       </article>
       <div className="ui-metrics ui-card">
