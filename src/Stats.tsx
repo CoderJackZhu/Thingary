@@ -34,7 +34,7 @@ function StatsDashboard(){
  </div>
 }
 
-const W = 640, H = 180, L = 56, B = 22, T = 10;
+const W = 640, H = 220, L = 64, B = 26, T = 12;
 function ticks(max: number) {
   if (max <= 0) return [0];
   const step = 10 ** Math.floor(Math.log10(max)), unit = [1, 2, 5, 10].map(n => n * step).find(n => max / n <= 4) ?? step * 10;
@@ -51,7 +51,7 @@ function Chart({ buckets, value, kind, label }: { buckets: Bucket[]; value: (b: 
   useEffect(() => { setCurrent(null); setFixed(false); }, [buckets]);
   const max = Math.max(...buckets.map(value), 0), grid = ticks(max), top = grid.at(-1) || 1;
   const step = (W - L) / buckets.length, y = (v: number) => T + (H - T - B) * (1 - v / top);
-  const labels = spacedLabels(buckets.map((b,i) => ({ b,i })), v => (L + step * (v.i + 0.5)) * scale, v => v.b.key.length * 6 * scale);
+  const labels = spacedLabels(buckets.map((b,i) => ({ b,i })), v => (L + step * (v.i + 0.5)) * scale, v => v.b.key.length * 8 * scale);
   const points = buckets.map((b, i) => `${L + step * (i + 0.5)},${y(value(b))}`).join(' ');
   const shown = current === null ? null : buckets[current];
   const unknown = shown ? kind === 'bar' ? shown.unknown_price_count : buckets.slice(0, current! + 1).reduce((n, b) => n + b.unknown_price_count, 0) : 0;
@@ -77,7 +77,7 @@ function Chart({ buckets, value, kind, label }: { buckets: Bucket[]; value: (b: 
       onClick={e => { const selected = pick(e); if (selected !== null) { root.current?.focus({ preventScroll: true }); setCurrent(selected); setFixed(!(fixed && selected === current)); } }}>
     {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className="grid"/><text x={L - 6} y={y(v) + 3} textAnchor="end">{yuan(v)}</text></g>)}
     {labels.map(({b,i}) => <text key={b.key} x={L + step * (i + 0.5)} y={H - 6} textAnchor="middle">{b.key}</text>)}
-    {kind === 'line' && <polyline points={points} className="trend-line"/>}
+    {kind === 'line' && <><polygon points={`${L + step * 0.5},${H - B} ${points} ${L + step * (buckets.length - 0.5)},${H - B}`} className="trend-area"/><polyline points={points} className="trend-line"/></>}
     {buckets.map((b, i) => { const x = L + step * i, v = value(b);
       return <g key={b.key} className="trend-hit" data-selected={i === current || undefined}><rect x={x} y={T} width={step} height={H - T - B} className="hit"/>
         {kind === 'bar' ? v > 0 && <rect x={x + Math.max(step * 0.2, 1)} y={y(v)} width={Math.max(step * 0.6, 1)} height={Math.max(H - B - y(v), 1)} rx={Math.min(3, step * 0.2)} className="trend-bar"/> : <circle cx={x + step / 2} cy={y(v)} r={i === current ? 5 : buckets.length > 40 ? 0 : 3} className="trend-dot"/>}

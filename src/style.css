@@ -45,3 +45,4 @@ main{padding:28px 28px 0;overflow:auto;min-width:0}.page-header{display:flex;ali
 .link-cell{border:0;background:transparent;padding:0;color:var(--accent);font:inherit;text-align:left;cursor:pointer}.excluded-list{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:4px;font-size:13px}.excluded-list li{display:flex;gap:10px}
 .data-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:12px 0}.data-actions>div{border:1px solid var(--line);border-radius:10px;padding:12px}.data-actions h3{font-size:13px;margin:0 0 4px}.data-actions p{margin:0 0 10px}.data-management .notice.error{color:var(--error)}
 @media(max-width:800px){.data-actions{grid-template-columns:1fr}}
+.purchase-trend .trend-chart text{font-size:12px}.purchase-trend .trend-area{fill:var(--accent);opacity:.14;stroke:none}
