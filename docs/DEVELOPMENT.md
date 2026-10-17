@@ -4,7 +4,7 @@
 
 ## 准备环境
 
-Mac 需要 Xcode 命令行工具、Node.js 22 与 npm、Rust stable。Windows 需要 Node.js 22、Rust stable 的 MSVC 工具链与 `x86_64-pc-windows-msvc` 目标、Visual Studio Build Tools 的“使用 C++ 的桌面开发”工作负载（MSVC 编译器与 Windows SDK），以及 Microsoft Edge WebView2 Runtime。Windows 原生验收脚本另外需要 PowerShell 7（`pwsh`）。使用仓库锁文件，不随意升级依赖。
+Mac 需要 Xcode 命令行工具、Node.js 22.18 或更新（测试直接加载 `.ts`，更早的 22.x 会报 `ERR_UNKNOWN_FILE_EXTENSION`）与 npm、Rust stable。Windows 需要 Node.js 22.18 或更新、Rust stable 的 MSVC 工具链与 `x86_64-pc-windows-msvc` 目标、Visual Studio Build Tools 的“使用 C++ 的桌面开发”工作负载（MSVC 编译器与 Windows SDK），以及 Microsoft Edge WebView2 Runtime。Windows 原生验收脚本另外需要 PowerShell 7（`pwsh`）。使用仓库锁文件，不随意升级依赖。
 
 CI 在 `macos-latest` 与 `windows-latest` 运行同样的四项自动检查，Windows 使用 Git Bash 作为 npm 脚本 shell，保证通配符行为一致。macOS 构建链接原生框架，Windows 使用原生文件对话框、Rust 图片预览与 WinRT 通知；两平台共用业务与资料格式。前端构建不能代替完整应用构建或原生验收。当前源码包含 Windows 接入，目标 Windows 10 1809+／11 x64，运行与发布边界见[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。
 

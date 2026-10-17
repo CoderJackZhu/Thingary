@@ -13,7 +13,7 @@
 ## 数据隔离与准备
 
 1. 检查分支、完整源码 SHA、工作树与候选版本。所有数据和图片均为虚构，不使用个人档案或真实备份，**不得打开或写入 `local.thingary.main`**。
-2. 在 Windows 准备 Node.js 22、Rust stable MSVC x64、C++ Build Tools／Windows SDK、WebView2 与 PowerShell 7。安装锁定依赖并准备 Cargo 缓存，许可收集必须能离线完成。
+2. 在 Windows 准备 Node.js 22.18 或更新、Rust stable MSVC x64、C++ Build Tools／Windows SDK、WebView2 与 PowerShell 7。安装锁定依赖并准备 Cargo 缓存，许可收集必须能离线完成。
 3. 使用 `npm run build:win:acceptance` 构建 `local.thingary.win.acceptance` 的 debug NSIS。其标题为“物谱 · Windows 验收”，带 fault-injection 和仅 loopback 的 CDP 9227；只用于本次虚构验收，不是普通安装包。
 4. 核对 `%LOCALAPPDATA%\local.thingary.win.acceptance`、`%APPDATA%\local.thingary.win.acceptance` 均未存在。若已有结果先保全，不让脚本删除或覆盖它们；按开发说明给构建、静态核验和完整脚本传入同一新身份后缀，并使用新的输出目录；不清除旧资料。
 5. 安装后核对开始菜单 `Thingary Windows Acceptance` 快捷方式、AUMID、安装目录 `许可/BUILD_INFO.json` 的身份／源码 SHA／版本／许可散列一致，才启动。正式身份 release 候选包只构建与静态核验。

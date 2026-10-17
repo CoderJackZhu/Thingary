@@ -5,6 +5,9 @@
   "license": "AGPL-3.0-or-later",
   "version": "0.0.8",
   "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
