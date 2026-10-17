@@ -579,11 +579,14 @@ mod tests {
     fn point(id: &str, day: &str, prev: Option<&str>, change: Option<i64>) -> Point {
         Point {
             snapshot_id: id.into(),
+            has_unchanged: false,
             date: day.into(),
             notes: String::new(),
             assets_cents: "0".into(),
             liabilities_cents: "0".into(),
             net_cents: "0".into(),
+            liquid_cents: Some("0".into()),
+            invested_cents: Some("0".into()),
             complete: true,
             missing: 0,
             compared_to: prev.map(Into::into),

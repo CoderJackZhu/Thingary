@@ -13,7 +13,9 @@
           "opened_on": "2026-04-10",
           "side": "asset"
         },
-        "id": "00000000-0000-4000-8000-000000000002",
+        "has_entries": true,
+        "id": "00000000-0000-4000-8000-000000000003",
+        "last_entered_on": "2026-10-10",
         "latest": {
           "amount_cents": "10000000",
           "date": "2026-10-10"
@@ -32,7 +34,9 @@
           "opened_on": "2026-04-10",
           "side": "asset"
         },
-        "id": "00000000-0000-4000-8000-000000000005",
+        "has_entries": true,
+        "id": "00000000-0000-4000-8000-000000000007",
+        "last_entered_on": "2026-10-10",
         "latest": {
           "amount_cents": "20000000",
           "date": "2026-10-10"
@@ -51,7 +55,9 @@
           "opened_on": "2026-04-10",
           "side": "asset"
         },
-        "id": "00000000-0000-4000-8000-000000000003",
+        "has_entries": true,
+        "id": "00000000-0000-4000-8000-000000000004",
+        "last_entered_on": "2026-10-10",
         "latest": {
           "amount_cents": "5500000",
           "date": "2026-10-10"
@@ -70,7 +76,9 @@
           "opened_on": "2026-04-10",
           "side": "liability"
         },
-        "id": "00000000-0000-4000-8000-000000000001",
+        "has_entries": true,
+        "id": "00000000-0000-4000-8000-000000000002",
+        "last_entered_on": "2026-10-10",
         "latest": {
           "amount_cents": "500000",
           "date": "2026-10-10"
@@ -89,12 +97,60 @@
           "opened_on": "2026-04-10",
           "side": "liability"
         },
-        "id": "00000000-0000-4000-8000-000000000004",
+        "has_entries": true,
+        "id": "00000000-0000-4000-8000-000000000005",
+        "last_entered_on": "2026-10-10",
         "latest": {
           "amount_cents": "80000000",
           "date": "2026-10-10"
         },
         "position": 4,
+        "revision": 1
+      },
+      {
+        "fields": {
+          "closed_on": null,
+          "counted": false,
+          "institution": "虚构估值",
+          "kind": "property",
+          "name": "虚构住宅",
+          "notes": "虚构样例；房贷单独展示，不计入金融净资产。",
+          "opened_on": "2026-04-10",
+          "purchase_cents": "240000000",
+          "purchased_on": "2020-06-01",
+          "side": "asset"
+        },
+        "has_entries": true,
+        "id": "00000000-0000-4000-8000-000000000001",
+        "last_entered_on": "2026-10-10",
+        "latest": {
+          "amount_cents": "255000000",
+          "date": "2026-10-10"
+        },
+        "position": 5,
+        "revision": 1
+      },
+      {
+        "fields": {
+          "closed_on": null,
+          "counted": false,
+          "institution": "虚构估值",
+          "kind": "vehicle",
+          "name": "虚构汽车",
+          "notes": "虚构样例；房贷单独展示，不计入金融净资产。",
+          "opened_on": "2026-04-10",
+          "purchase_cents": "18000000",
+          "purchased_on": "2020-06-01",
+          "side": "asset"
+        },
+        "has_entries": true,
+        "id": "00000000-0000-4000-8000-000000000006",
+        "last_entered_on": "2026-10-10",
+        "latest": {
+          "amount_cents": "13500000",
+          "date": "2026-10-10"
+        },
+        "position": 6,
         "revision": 1
       }
     ]
@@ -201,17 +257,17 @@
               "contract_version": 1,
               "fund_rules": [
                 {
-                  "account_id": "00000000-0000-4000-8000-000000000002",
+                  "account_id": "00000000-0000-4000-8000-000000000003",
                   "availability": "available",
                   "share_hundredths": 10000
                 },
                 {
-                  "account_id": "00000000-0000-4000-8000-000000000005",
+                  "account_id": "00000000-0000-4000-8000-000000000007",
                   "availability": "restricted",
                   "share_hundredths": 10000
                 },
                 {
-                  "account_id": "00000000-0000-4000-8000-000000000003",
+                  "account_id": "00000000-0000-4000-8000-000000000004",
                   "availability": "restricted",
                   "share_hundredths": 10000
                 }
@@ -280,7 +336,7 @@
       "date": "2026-10-10",
       "entries": [
         {
-          "account_id": "00000000-0000-4000-8000-000000000002",
+          "account_id": "00000000-0000-4000-8000-000000000003",
           "amount_cents": "10000000",
           "counted": true,
           "kind": "cash",
@@ -288,7 +344,7 @@
           "state": "entered"
         },
         {
-          "account_id": "00000000-0000-4000-8000-000000000005",
+          "account_id": "00000000-0000-4000-8000-000000000007",
           "amount_cents": "20000000",
           "counted": true,
           "kind": "mixed",
@@ -296,7 +352,7 @@
           "state": "entered"
         },
         {
-          "account_id": "00000000-0000-4000-8000-000000000003",
+          "account_id": "00000000-0000-4000-8000-000000000004",
           "amount_cents": "5500000",
           "counted": true,
           "kind": "housing_fund",
@@ -304,7 +360,7 @@
           "state": "entered"
         },
         {
-          "account_id": "00000000-0000-4000-8000-000000000001",
+          "account_id": "00000000-0000-4000-8000-000000000002",
           "amount_cents": "500000",
           "counted": true,
           "kind": "credit_card",
@@ -312,18 +368,34 @@
           "state": "entered"
         },
         {
-          "account_id": "00000000-0000-4000-8000-000000000004",
+          "account_id": "00000000-0000-4000-8000-000000000005",
           "amount_cents": "80000000",
           "counted": false,
           "kind": "loan",
           "side": "liability",
+          "state": "entered"
+        },
+        {
+          "account_id": "00000000-0000-4000-8000-000000000001",
+          "amount_cents": "255000000",
+          "counted": false,
+          "kind": "property",
+          "side": "asset",
+          "state": "entered"
+        },
+        {
+          "account_id": "00000000-0000-4000-8000-000000000006",
+          "amount_cents": "13500000",
+          "counted": false,
+          "kind": "vehicle",
+          "side": "asset",
           "state": "entered"
         }
       ],
       "id": "00000000-0000-4000-8000-000000000100",
       "missing": [],
       "notes": "虚构盘点；缺失记录不当作零，不参与完整净资产比较。",
-      "revision": 1
+      "revision": 2
     }
   },
   "today": "2026-10-10",

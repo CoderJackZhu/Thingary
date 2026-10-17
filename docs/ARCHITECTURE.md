@@ -10,6 +10,14 @@
 
 原生「关于物谱」「检查更新…」「物谱帮助」通过 `asset-action` 进入同一设置页面；更新菜单额外滚动并聚焦版本行，不自动联网。备份入口切换到数据管理并聚焦标题，仍受编辑和回执保护；更新不进入数据管理。已有编辑弹窗不会被菜单替换。`SupportLink` 只传固定目标 ID 给 `support_open`；Rust 白名单映射公开 HTTPS 地址并调用系统浏览器，不读取资料库，不接受任意 URL、路径或参数。
 
+## 屏幕隐私与原生身份验证
+
+`src/privacy-lock.ts` 提供偏好解析和纯状态机；`PrivacyBoundary` 在 `main.tsx` 最外层控制 `Bootstrap` 挂载。启动锁定时只调用 `privacy_auth_available`／`privacy_authenticate`，能力检查或验证失败不会进入资料读取入口；能力不可用时按关闭处理。主应用挂载后的重新锁定保持同一 React 树，通过不透明全屏顶层 `dialog` 遮盖页面、设置背景 inert，避免已有表单对话框越过遮罩。编辑状态、资料操作、打开的对话框及待核对回执延后重锁；原生菜单与键盘快捷键使用同步锁定标记丢弃操作，不留队列。
+
+设置分类「屏幕隐私」直接提供开关与闲置验证说明，不再放在帮助折叠中。两个本机偏好键为 `thingary.privacy-cover.v1`（布尔值）和 `thingary.privacy-lock.v1`（JSON：`enabled`、`idleMinutes`，仅 0／5／15／60），读写失败不抛出到应用，损坏偏好按关闭处理。`wealth-preview.ts` 只模拟虚构认证能力和取消／成功，不调用设备身份验证。
+
+`src-tauri/native/auth.m` 链接系统 `LocalAuthentication`，采用 `LAPolicyDeviceOwnerAuthentication` 支持系统密码兜底；信号量最多等待 120 秒，超时使认证上下文失效。返回字符串由 `thingary_free` 释放。Rust `privacy_lock.rs` 的两个异步命令通过 `spawn_blocking` 调用原生同步函数，不借用 Store；非 macOS 能力返回 false，认证返回 `UNSUPPORTED`。锁屏只防旁观，不加密或阻止文件访问，原生 Worker 的既有启动初始化、提醒及备份生命周期保持不变。自动测试不触发生物识别，真实认证与窗口焦点行为需要隔离身份实机验收。
+
 ## 分层与入口
 
 ```mermaid
@@ -105,6 +113,20 @@ Windows 的正常 `ExitRequested` 在编辑／任务保护之后，先从串行 
 
 真实入口默认隐私，只提供完整切换与摘要复制，复制失败明确提示。当前展示资金、计算条件、需求与可准确表达的结论；逐月曲线、购买结果、历史差异和原生打印／PDF未由这一步接入。显示缺项不改变领域模型的预算覆盖与终点余量判据。
 
+## 单账户快速更新界面
+
+`QuickUpdateDialog` 复用 `wealth_snapshot_draft` 的当天原记录和更早观测，通过已有 `wealth_quick_update` 提交新余额；`wealth.ts` 的整数分纯函数处理增减、转账组合、历史计入范围与日期下限。当天原行金额为空时保留未知，不能回退历史金额。三个入口共用对话框，账户编辑表单保持挂载以保留草稿；快速更新纳入编辑聚合与原请求回执保护，陈旧金额重读不清空用户输入。
+
+`Account.last_entered_on` 从未删除盘点的 `entered` 行只读派生；`Point.has_unchanged` 从读取到的盘点行派生，供记录表显示快速更新标记，不参与完整性或数值计算。两字段不持久化，不改变 schema 43、写入请求指纹或快速更新后端语义。历史来源日期没有持久化证据时只显示沿用，不用最新填写日期代替历史来源。浏览器模拟层保留同日旧行金额和历史分类／计入范围，测试采用虚构内存资料。
+
+## 外币录入与人民币事实
+
+纯 `currency.rs` / `currency.ts` 使用同一组测试向量和币种表，按币种最小单位与百万分率计算，Rust i128 checked / TS BigInt，半分远离零，结果受金额上限约束。账户currency与条目original_minor/fx_rate_micro使用既有schema43列，无新增迁移；旧schema读入口显式投影CNY/NULL，当前schema仍严格读取真实列。CNY和空可选字段跳过写DTO序列化，保持旧回执指纹与导入标准行摘要。
+
+`wealth.rs` 在删除重插之前校验整组事实；entered严格核对CNY折算，unchanged/A22与quick同日保留原币和汇率。样例固定资产补充复制同样保留元数据，不改冻结v1请求。只读Account.has_entries由所有盘点行EXISTS派生，包含未知及已删除盘点；币种锁在写事务检查，嵌套快速更新成功后账户编辑器只刷新只读metadata，保留普通草稿。Summary.structure_entries与structure_date取同一个last_complete Snapshot供外币结构小计，不另外异步读取。
+
+QuickChange可选expected_original_minor补充已有CNY expected_previous，防同CNY不同原币的陈旧增减或转账；缺省不序列化，替换余额无expected语义不变。同币种转账率相同仍需原CNY净变化为0校验，汇率差和舍入差不自动补偿。Draft.rate_suggestions从全部未删除账户（含停用账户）的目标日及更早观测聚合最近率，作为只读建议；只标记录日期，不将沿用日期或last_entered_on伪作汇率填写日。导入纯解析器通过显式path复用无Store依赖的currency源码，CSV/Excel同时保留原币与率。
+
 ## 账户、完整盘点与月度收入历史导入
 
 `DataManagement.tsx` 在设置的数据管理统一托管物品导入、金融历史导入、Excel 导出与完整备份／恢复；`FinancialImportDialog.tsx` 提供金融历史四步界面；`financial-import.ts` 负责列头、动作、分页与请求元数据纯逻辑，金额仍为整数分字符串。`financial_import.rs` 组合纯解析器、真实账户目录与 `wealth.rs` 的 `write_account_tx` / `write_snapshot_tx`，预览只在 SQLite 内存备份的事务副本模拟，提交在个人 Store 的单一事务重新验证后写入。原命令保留 generation、UUID、原指纹、回执和故障点；导入专用历史覆盖与整批最终状态校验不改变普通保存语义。
@@ -137,7 +159,7 @@ macOS 使用系统 ImageIO；Windows 用受限 Rust 解码，只接受 JPEG／PN
 
 Windows 原子写入、改名与目录删除仅对原生错误 5／32／33（访问拒绝／共享冲突／锁冲突）进行有界重试，间隔为 25、50、100、200、400、400、400 毫秒；其余错误立即返回，耗尽后沿现有失败与恢复路径处理。文件同步继续执行，Windows 不以目录 fsync 成功作为 POSIX 等价持久性承诺。先规范化父目录的长路径，再创建临时文件；应用清单开启 `longPathAware`，不更改全机长路径设置。受控资料与备份遍历按 `IsReparseTagNameSurrogate`（标签 `& 0x20000000`）拒绝符号链接、junction 与卷挂载点，不沿它进入外部目录；OneDrive 云文件等非名称代理标签不作为链接。标签检查只用零访问权限与 `OPEN_REPARSE_POINT | BACKUP_SEMANTICS` 打开属性句柄，再读取 `FileAttributeTagInfo`，不读取内容或触发下载；查询失败保留错误，不按普通文件放行。Windows 仍检查资料根目录的所有上级，因此用目录联接迁移整个用户配置目录的环境不受支持。macOS 的符号链接规则不变。
 
-恢复仍采用新资料集、原资料保护及指针切换，不原地覆盖；旧 SQLite 连接关闭后才尝试清理旧数据集，清理受阻不丢弃已经验证的数据。Windows 接入时的历史基线为 schema 40；当前候选源码经账户扩充与存钱目标迁移至 schema 42。平台接入本身不改资料身份、内层备份格式、稳定 ID 与原图内容。跨平台恢复通过虚构备份逐表计数及托管文件 SHA-256 比对，实际通过范围维护在[开发说明](DEVELOPMENT.md#windows-validation)。
+恢复仍采用新资料集、原资料保护及指针切换，不原地覆盖；旧 SQLite 连接关闭后才尝试清理旧数据集，清理受阻不丢弃已经验证的数据。Windows 接入时的历史基线为 schema 40；账户扩充与存钱目标迁移至 schema 42，当前开发候选继续至 schema 43。平台接入本身不改资料身份、内层备份格式、稳定 ID 与原图内容。跨平台恢复通过虚构备份逐表计数及托管文件 SHA-256 比对，实际通过范围维护在[开发说明](DEVELOPMENT.md#windows-validation)。
 
 订阅简化使用 schema 21 的增量迁移：计划增加可空服务起点与覆盖锚点，付款增加可空覆盖区间，并保存之后的价格变化。旧字段不改值，空的新字段继续采用旧排期语义。权益与关联计划在同一事务、同一请求回执中保存，双方修订冲突使整个事务失败。付款确认时固定覆盖期，改计划不重写付款事实。范围补记也使用事务、计划修订和回执防重。
 
@@ -165,7 +187,7 @@ schema 33（0.0.2，重要支出年度总览与关联订阅）为整组删除新
 
 复用已有 SVG、组件与 `src/theme.css` 令牌，覆盖三种界面风格的浅／深组合。颜色表达不能替代文本，金额与日期格式统一，未知值不画成零。周期付款与复盘来源按 50 条分页渲染，完整合计与排序仍基于全量来源；分页不替代后端完整校验。布局应覆盖正常、未知、空白、读取失败和保存失败；焦点、Tab 顺序、方向键、Esc 返回和中文输入组合需与操作语义一致。
 
-`wealth-display.ts` 管理账户显示范围，与汇总计算分离；变化列表保留有历史影响或未知的停用账户。`chart-labels.ts` 按实际位置与文字宽度筛选横轴标签，`chart-width.ts` 观察 SVG 显示比例，数据与详情不抽样。总览金融金额显隐仅保存本机显示偏好，隐藏时不渲染金融图形和相关金额内容。`PlanningCosts` 共用费用编辑器，独立保存只替换 basic 中两组费用关系；完整设置仍按原事务统一保存。停用计划的来源 ID 保留，当前作用域只计算生效来源，重新开启无需抹去后重建费用关系。
+`wealth-display.ts` 管理账户显示范围，与汇总计算分离；变化列表保留有历史影响或未知的停用账户。`chart-labels.ts` 按实际位置与文字宽度筛选横轴标签，`chart-width.ts` 观察 SVG 显示比例，数据与详情不抽样。总览金融金额显隐仅保存本机显示偏好；头图保留线形，提示、播报与较期初金额／比例均遮蔽，其余相关金融金额内容隐藏。总览头图由 `Sparkline` 保持单线面积图；`DualLineChart` 用于账户概览的可选净资产／负债与折叠的流动资金／投资图，按容器宽度绘制，`history-chart.css` 统一历史图的渐变面积、轻图例与行式浮层；`trendPaths` 分隔未知段，面积不堆叠，不修改规划图表。浮层与播报只展示可见系列；单账户历史保留单线。`review.ts` 管理范围裁剪、较期初与同库会话范围／图例记忆，`TrendRangeControl` 的自定义草稿仅在日期合法且至少两次完整盘点时应用。`wealth_summary` 的 liquid_cents／invested_cents 按历史记录的 kind／counted 汇总，完整无类别为零、不完整为 null；后者与现金估算使用的 market_change_cents 都包含贵金属；独立投资区间核对范围仍保持不含贵金属。`PlanningCosts` 共用费用编辑器，独立保存只替换 basic 中两组费用关系；完整设置仍按原事务统一保存。停用计划的来源 ID 保留，当前作用域只计算生效来源，重新开启无需抹去后重建费用关系。
 
 共用操作外观由 `controls.css` 统一负责；页面布局继续留在各页面样式。`FormControls` 的字段标签与提示通过上下文供复合控件使用，直接原生控件合并原有说明 ID。`DateInput`／`MonthInput` 共用本地日历计算与定位模块 `date-picker.ts`：仍传 YYYY-MM-DD／YYYY-MM 字符串，日历门户留在所属原生 dialog 的顶层容器内，独立管理焦点与边界。`YearSelect` 按记录、近期或长期用途组织常用年份和分页网格，展示范围与业务 min／max 分离；嵌套年份门户留在所属日历内。`finance_sources.record_years` 在同一读取快照汇总启用来源的完整记录年份，独立于所选期间，错误与空集合分开。选择器不能提交表单或改变回执保存规则。规格见 [共用界面设计](VISUAL_SYSTEM_DESIGN.md)。
 
@@ -241,6 +263,10 @@ schema 40 新增 `goal_progress`（主键 `snapshot_id` 引用 `fin_snapshots`�
 
 schema 41 重建 `fin_accounts` 和 `fin_snapshot_entries` 的 CHECK，新增 property、pension、insurance、precious_metal，房产强制 counted=false。迁移先核对旧表结构、索引及引用，拒绝未知扩展；外键关闭发生在事务外，事务内双向核对复制行、重建索引并检查引用，失败回滚后恢复外键。schema 1 引导与历史迁移保持原样，旧事实不改口径。
 
+schema 43（`schema43.sql` 与 `storage::migrate_schema43`）再次重建两表：新增 receivable、vehicle 类型（车辆不强制 counted=false）；`fin_accounts` 增加 `currency`（三位大写，默认 CNY）、`purchase_cents`／`purchased_on`（仅房产与车辆）、`group_id`（引用新表 `fin_account_groups`，名称唯一，硬删除）、`holding_mode`／`holding_unit`（仅投资类）；`fin_snapshot_entries` 增加 `original_minor`／`fx_rate_micro`（外币原币金额与汇率 ×1e6，成对出现）和 `quantity_e8`／`unit_price_e6`（份额 ×1e8、单价 ×1e6，成对出现），`missing` 条目不得携带。`amount_cents` 始终是人民币整数分，所有汇总与规划只读它；新增列是录入层，旧资料迁移后取默认值，行为不变。旧表定义由空库重放迁移链到 42 得到后逐字核对，不手抄；其余步骤与 schema 41 相同，注入点为 `migration.schema43.after_copy`、`migration.schema43.after_swap` 与 `migration.before_commit`。
+
+`wealth_quick_update` 把单账户更新或转账翻译成一次盘点，再交给 `write_snapshot_tx` 写入，所以与完整盘点共用全部校验。日期不得早于最近一次未删除盘点；当天已有盘点时作为更正，只改目标账户，其他条目按原状态重新提交（`unchanged` 不带金额，沿用原记录金额）；当天没有盘点时，其他应盘账户有更早金额的记 `unchanged`，没有的记 `missing`。`expected_previous` 与当天显示的金额不符时报 `QUICK_STALE`；两条变化必须都带原金额，且按资产加、负债减计算的净资产影响为零，否则报 `QUICK_TRANSFER`。备注以“账户名：备注”追加。命令有独立请求指纹、回执和 `wealth_quick_update.before_commit` 注入点。
+
 schema 42 新增 `savings_goals` 与 `savings_goal_accounts`，关联稳定账户 ID。目标用 revision 与同一 feature_requests 事务保存，创建日由后端本地自然日提供；删除恢复保留关联，永久清除账户前保护全部目标引用。保存结果未知时前端只持久化请求元数据，使用只读原回执核对，不保存表单或重放。完整备份验证表和关系，Excel 增加两张只读分析表。
 
 `savings_goals_read` 在同一事务读取最近完整盘点及目标，单次盘点缺项不能拼接其他日期余额。前端纯函数以 bigint 计算整数分、缺口及按自然月向上分摊，历史依当前配置回看且不早于创建日。当前失效账户保留原因，历史采用盘点当时类型。
@@ -250,3 +276,26 @@ schema 42 新增 `savings_goals` 与 `savings_goal_accounts`，关联稳定账�
 同一 SQLite 读取事务提供明确窗口边界、账户端点比较、当前存钱目标和规划记录。Year 响应保留年份，Range 不伪造年份；只读投影字段变化不改变持久结构或写入请求指纹，普通 `finance_sources` 调用的请求与返回语义不变。终点取窗口内最近完整盘点，起点取开始日当天或之前最近完整盘点，缺失时回退到窗口内第一次；实际日期与整月跨度决定标题及标签，比较、缺项和范围变化守卫保留。收入与重要支出按窗口筛选，存钱目标复用最近完整盘点的当前进度并标明日期，不改其既有按年读取接口或独立目标页的历史口径。
 
 规划点按关联盘点日期先筛窗口，不按 `recorded_on` 筛选，没有 24 条截断，排除删除、不完整及修订不匹配，并披露实际记录日期与后来记录。区间回顾不新增 schema、命令或写入历史，前端按来源分别降级；generation、write_version、所选期间与模块能力共同约束响应，切库／切期间／模块变化拒绝迟到结果。隐私摘要独立默认隐藏金额、比例、名称与自由文本，含金额版仍使用局部别名。用户指南保留 `#annual-review` 锚点。
+
+### 固定资产购入字段
+
+账户接口按可选 `purchase_cents`（整数分字符串）与 `purchased_on` 读写 schema 43 已有列，仅房产／车辆可填。缺省与空值序列化时省略，保持旧请求指纹；现有购入信息须先清空保存再改其他类型。购入信息只用于展示，不进入汇总和规划。金融导入账户表以可选中文列“购入价”“购入日期”解析并逐行校验；Excel 账户表和财富 CSV 以空单元格保留未知，明确零导出为 0.00。样例导入保留原五账户 v1 请求载荷，固定资产按独立回执与完成标记补充；中断后先续完旧请求，再复制现有盘点事实并追加固定资产估值，不覆盖已有更正。
+
+### 账户分组的当前视图投影
+
+`account_groups` 复用 schema 43 的 `fin_account_groups` 与账户 `group_id`，不新增迁移。组写入使用同一 `feature_requests`、generation、修订与 before_commit 故障点；删除对全部引用账户清组并增加修订，排序核对完整唯一 ID 集合。账户字段 `group_id=None` 不序列化，保留旧请求指纹；旧 schema 账户读取统一补 NULL，新 schema 严格读取真实列。
+
+`wealth_summary.structure_entries` 与 structure_date 源于同一个最近完整 Snapshot，`latest_entries` 源于最近一次 Snapshot，均为只读事实投影，不进入写 DTO／请求指纹。前端 `accountGroupTotals` 用历史 side/counted/amount 与全账户 ID 映射分组，结构不受清单筛选影响；当前账户在最近盘点无行时标未涵盖，不推断历史计入与零金额。组管理与就地创建复用 wealth Pending 回执，遵守表单编辑聚合，快速更新关闭只刷新只读账户观测，保留分组草稿。
+
+金融导入的 group_name 可选且空值不序列化；新组使用稳定 ID，在预览内存事务和正式事务中按名称复用，预览披露新组；context_digest 纳入分组身份、名称、位置与修订。整批失败回滚组与账户，不给 import_external_key 扩充对象类型。CSV／Excel 追加分组名称。
+
+
+### 持仓录入与历史事实保留
+
+`holdings` 是供 Store 与独立金融解析器共用的纯整数模块，前端同名模块用 BigInt，测试共用 `holdings-vectors.json`。quantity_e8 × unit_price_e6 先约去币种小数位，再用 checked i128 乘法与商余数半入，结果为原币最小单位；外币复用 currency 换算人民币。现有 schema43、所有下游CNY计算及命令不变。
+
+账户新增 default/省略false的 holding_mode 与省略None的 holding_unit；EntryInput、QuickChange、Observation、Entry、HistoryRow 及只读Summary数组贯通数量价格。account_columns 17列（group13/currency14/holding15/16，timestamps17/18），<43明确0/NULL投影；43+严格真实列。更正DELETE重插显式保存全部11列，A22和same-day quick保留完整元数据，样例补充也复制原事实。
+
+普通新entered按当前模式校验；只有与旧行的CNY、original、fx、quantity、price完全相同才保留历史模式。unchanged和备份只验证历史事实自洽，不以当前mode重判；金融导入的明确HistoricalOverrides路径同样校验数量→原币→人民币，允许导出当前模式与历史行方式不同后往返，普通IPC不能提交该内部入口。Quick可选expected_quantity_e8（缺省省略）补充同CNY但份额已变的陈旧保护，不改变expected_previous/expected_original_minor及替换余额语义。
+
+`HoldingInput`保留原始输入及可见错误，父值在非法输入时清空以阻止保存；完整盘点不预填q/p，快速增减可建议旧价格，未知回执仍走原Pending。历史单位未持久化，关闭模式后只中性标数量/单价；当前单位只是显示标签，不换算历史。

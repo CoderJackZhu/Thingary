@@ -65,6 +65,8 @@
 
 <a id="limits"></a>
 
+外币账户可手填汇率，历史金额保持保存时的折算值；具体操作见[外币账户](USER_GUIDE.md#外币账户)。
+
 ## 已知限制
 
 - **平台**：Mac 在 Apple Silicon、macOS 27 验证；Intel 与 macOS 14 尚未实机验证。Windows 10 1809+／11 x64 的安装包未签名，首次运行可能出现 SmartScreen 提示（点「更多信息 › 仍要运行」）；若 Windows 11 开启了「智能应用控制」，未签名安装包可能被直接拦截且没有放行按钮，请见[Windows 安装](USER_GUIDE.md#windows-install)。

@@ -94,8 +94,14 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 // module is compiled standalone via `#[path = "../src/financial_import_parser.rs"]`.
 #[path = "financial_import_parser/csv.rs"]
 mod csv;
+#[path = "currency.rs"]
+#[allow(dead_code)]
+pub mod currency;
 #[path = "financial_import_parser/fields.rs"]
 mod fields;
+#[path = "holdings.rs"]
+#[allow(dead_code)]
+pub mod holdings;
 
 use fields::{
     parse_amount_cents, validate_date_strict, AmountError, MAX_ACCOUNT_NOTE_CHARS,
@@ -129,7 +135,7 @@ pub struct AccountKindInfo {
     pub side: &'static str,
 }
 /// The account kinds a template accepts, in stable display order.
-pub const ACCOUNT_KINDS: [AccountKindInfo; 14] = [
+pub const ACCOUNT_KINDS: [AccountKindInfo; 16] = [
     AccountKindInfo {
         key: "cash",
         label: "现金与存款",
@@ -186,6 +192,16 @@ pub const ACCOUNT_KINDS: [AccountKindInfo; 14] = [
         side: "asset",
     },
     AccountKindInfo {
+        key: "receivable",
+        label: "应收款",
+        side: "asset",
+    },
+    AccountKindInfo {
+        key: "vehicle",
+        label: "车辆",
+        side: "asset",
+    },
+    AccountKindInfo {
         key: "credit_card",
         label: "信用卡",
         side: "liability",
@@ -214,6 +230,12 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
             "counted",
             "platform",
             "note",
+            "购入价",
+            "购入日期",
+            "分组",
+            "币种",
+            "按持仓记录",
+            "持仓单位",
         ]),
         "snapshots" => Some(&[
             "snapshot_key",
@@ -223,6 +245,11 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
             "note",
             "kind_at_date",
             "counted_at_date",
+            "币种",
+            "原币金额",
+            "汇率",
+            "份额",
+            "单价",
         ]),
         "incomes" => Some(&[
             "income_key",
@@ -245,8 +272,27 @@ pub fn template_columns(kind: &str) -> Option<&'static [&'static str]> {
 /// Columns that may be left empty; all other template columns are required.
 fn optional_columns(kind: &str) -> &'static [&'static str] {
     match kind {
-        "accounts" => &["disabled_from", "platform", "note"],
-        "snapshots" => &["note", "kind_at_date", "counted_at_date"],
+        "accounts" => &[
+            "disabled_from",
+            "platform",
+            "note",
+            "购入价",
+            "购入日期",
+            "分组",
+            "币种",
+            "按持仓记录",
+            "持仓单位",
+        ],
+        "snapshots" => &[
+            "币种",
+            "原币金额",
+            "汇率",
+            "份额",
+            "单价",
+            "note",
+            "kind_at_date",
+            "counted_at_date",
+        ],
         "incomes" => &[
             "hpf_deposit",
             "note",
@@ -495,6 +541,18 @@ pub struct AccountRowV1 {
     pub counted: bool,
     pub platform: Option<String>,
     pub note: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub purchase_cents: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub purchased_on: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_name: Option<String>,
+    #[serde(skip_serializing_if = "currency::is_cny")]
+    pub currency: String,
+    #[serde(skip_serializing_if = "holdings::is_false")]
+    pub holding_mode: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub holding_unit: Option<String>,
 }
 
 /// One account line of one check-in group. The group, not this row, is the
@@ -510,6 +568,16 @@ pub struct SnapshotRowV1 {
     pub note: Option<String>,
     pub kind_at_date: Option<String>,
     pub counted_at_date: Option<bool>,
+    #[serde(skip_serializing_if = "currency::is_cny")]
+    pub currency: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_minor: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fx_rate_micro: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quantity_e8: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unit_price_e6: Option<String>,
 }
 
 /// One income record. Empty `hpf_deposit` is null (unknown); an explicit `0`
@@ -1152,7 +1220,14 @@ impl Header {
             }
         }
         for column in template {
-            if !optional_columns(kind).contains(column) && !index.contains_key(column) {
+            let derived_fx_amount = kind == "snapshots"
+                && *column == "amount"
+                && ((index.contains_key("原币金额") && index.contains_key("汇率"))
+                    || (index.contains_key("份额") && index.contains_key("单价")));
+            if !derived_fx_amount
+                && !optional_columns(kind).contains(column)
+                && !index.contains_key(column)
+            {
                 issues.push(IssueV1 {
                     code: CODE_MISSING_COLUMN,
                     severity: SeverityV1::Error,
@@ -1417,6 +1492,25 @@ struct RowRejection {
     group_key: Option<String>,
 }
 
+fn currency_cell(
+    record: &csv::RawRecord,
+    h: &Header,
+    row: u32,
+    issues: &mut Vec<IssueV1>,
+) -> String {
+    let code = h.cell(record, "币种").unwrap_or("").trim();
+    let code = if code.is_empty() { "CNY" } else { code };
+    if !currency::valid(code) {
+        issues.push(row_issue(
+            "ACCOUNT_CURRENCY",
+            row,
+            h.column_label("币种"),
+            None,
+            "币种须为三位大写字母".into(),
+        ));
+    }
+    code.into()
+}
 fn parse_account_row(
     record: &csv::RawRecord,
     h: &Header,
@@ -1424,6 +1518,7 @@ fn parse_account_row(
 ) -> Result<StandardRowV1, RowRejection> {
     let row = record.start_line as u32;
     let mut issues = Vec::new();
+    let currency = currency_cell(record, h, row, &mut issues);
     let account_key = key_cell(
         h.cell(record, "account_key"),
         row,
@@ -1546,6 +1641,93 @@ fn parse_account_row(
             "房产仅单独记录估值，counted 必须明确为 false".into(),
         ));
     }
+    let purchase_cents = amount_cell(
+        h.cell(record, "购入价"),
+        row,
+        &h.column_label("购入价"),
+        "购入价",
+        false,
+        &mut issues,
+    )
+    .flatten();
+    let purchased_on = optional_date(
+        h.cell(record, "购入日期"),
+        row,
+        &h.column_label("购入日期"),
+        "购入日期",
+        today,
+        &mut issues,
+    )
+    .flatten();
+    if purchased_on.as_deref().is_some_and(|d| d < "1900-01-01") {
+        issues.push(row_issue(
+            "ACCOUNT_PURCHASE",
+            row,
+            h.column_label("购入日期"),
+            None,
+            "购入日期不能早于 1900-01-01".into(),
+        ));
+    }
+    if (purchase_cents.is_some() || purchased_on.is_some())
+        && !matches!(kind.as_deref(), Some("property" | "vehicle"))
+    {
+        issues.push(row_issue(
+            "ACCOUNT_PURCHASE",
+            row,
+            h.column_label("购入价"),
+            None,
+            "只有房产和车辆可以填写购入价和购入日期".into(),
+        ));
+    }
+    let group_name = h
+        .cell(record, "分组")
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned);
+    if group_name
+        .as_ref()
+        .is_some_and(|value| value.chars().count() > 40 || value.chars().any(char::is_control))
+    {
+        issues.push(row_issue(
+            "GROUP_NAME",
+            row,
+            h.column_label("分组"),
+            None,
+            "分组名称须为 1–40 字，不能含控制字符".into(),
+        ));
+    }
+    let holding_mode = match h.cell(record, "按持仓记录").map(str::trim) {
+        None | Some("") => false,
+        Some(v) => fields::parse_bool(v).unwrap_or_else(|_| {
+            issues.push(row_issue(
+                "ACCOUNT_HOLDING",
+                row,
+                h.column_label("按持仓记录"),
+                None,
+                "按持仓记录须填true或false".into(),
+            ));
+            false
+        }),
+    };
+    let holding_unit = h
+        .cell(record, "持仓单位")
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .map(str::to_owned);
+    if (holding_mode && kind.as_ref().is_none_or(|v| !holdings::supported(v)))
+        || (!holding_mode && holding_unit.is_some())
+        || holding_unit
+            .as_ref()
+            .is_some_and(|v| v.chars().count() > 8 || v.chars().any(char::is_control))
+    {
+        issues.push(row_issue(
+            "ACCOUNT_HOLDING",
+            row,
+            h.column_label("按持仓记录"),
+            None,
+            "仅投资类账户可按持仓记录；单位须为1–8字".into(),
+        ));
+    }
     let platform = match h.cell(record, "platform").map(str::trim) {
         None | Some("") => None,
         Some(v) if v.chars().count() > MAX_PLATFORM_CHARS => {
@@ -1593,6 +1775,12 @@ fn parse_account_row(
         counted: counted.expect("validated"),
         platform,
         note: note.flatten(),
+        purchase_cents,
+        purchased_on,
+        group_name,
+        currency,
+        holding_mode,
+        holding_unit,
     }))
 }
 
@@ -1625,14 +1813,141 @@ fn parse_snapshot_row(
         "account_key",
         &mut issues,
     );
-    let amount = required_amount(
-        h.cell(record, "amount"),
-        row,
-        &h.column_label("amount"),
-        "盘点金额",
-        false,
-        &mut issues,
-    );
+    let currency = currency_cell(record, h, row, &mut issues);
+    let quantity_text = h.cell(record, "份额").unwrap_or("").trim();
+    let price_text = h.cell(record, "单价").unwrap_or("").trim();
+    let mut quantity_e8 = None;
+    let mut unit_price_e6 = None;
+    let holding_minor = if quantity_text.is_empty() && price_text.is_empty() {
+        None
+    } else {
+        match holdings::parse(quantity_text, 8).and_then(|q| {
+            holdings::parse(price_text, 6).and_then(|p| {
+                holdings::minor(q, p, currency::decimals(&currency)).map(|v| (q, p, v))
+            })
+        }) {
+            Ok((q, p, v)) => {
+                quantity_e8 = Some(q.to_string());
+                unit_price_e6 = Some(p.to_string());
+                Some(v)
+            }
+            Err(m) => {
+                issues.push(row_issue(
+                    "HOLDING_MISMATCH",
+                    row,
+                    h.column_label("份额"),
+                    None,
+                    m.into(),
+                ));
+                None
+            }
+        }
+    };
+    let supplied_original = h.cell(record, "原币金额").unwrap_or("").trim();
+    if let Some(minor) = holding_minor {
+        if !supplied_original.is_empty()
+            && currency::parse_decimal(supplied_original, currency::decimals(&currency)).ok()
+                != Some(minor)
+        {
+            issues.push(row_issue(
+                "HOLDING_MISMATCH",
+                row,
+                h.column_label("原币金额"),
+                None,
+                "份额和单价与原币金额不一致".into(),
+            ));
+        }
+    }
+    let derived_original =
+        holding_minor.map(|v| currency::decimal(v, currency::decimals(&currency)));
+    let original_text = if currency != "CNY" && supplied_original.is_empty() {
+        derived_original.as_deref().unwrap_or("")
+    } else {
+        supplied_original
+    };
+    let derived_amount = holding_minor.map(|v| currency::decimal(v, 2));
+    let rate_text = h.cell(record, "汇率").unwrap_or("").trim();
+    let mut original_minor = None;
+    let mut fx_rate_micro = None;
+    let amount = if currency == "CNY" {
+        if !original_text.is_empty() || !rate_text.is_empty() {
+            issues.push(row_issue(
+                "FX_MISMATCH",
+                row,
+                h.column_label("币种"),
+                None,
+                "人民币不能填写原币金额和汇率".into(),
+            ));
+        }
+        required_amount(
+            h.cell(record, "amount")
+                .filter(|v| !v.trim().is_empty())
+                .or(derived_amount.as_deref())
+                .or(Some("")),
+            row,
+            &h.column_label("amount"),
+            "盘点金额",
+            false,
+            &mut issues,
+        )
+    } else {
+        let converted = currency::parse_decimal(original_text, currency::decimals(&currency))
+            .and_then(|original| {
+                currency::parse_decimal(rate_text, 6).and_then(|rate| {
+                    currency::convert(&currency, original, rate)
+                        .map(|value| (original, rate, value))
+                })
+            });
+        match converted {
+            Ok((original, rate, value)) => {
+                original_minor = Some(original.to_string());
+                fx_rate_micro = Some(rate.to_string());
+                let raw = h.cell(record, "amount").unwrap_or("").trim();
+                if !raw.is_empty() {
+                    let supplied = required_amount(
+                        Some(raw),
+                        row,
+                        &h.column_label("amount"),
+                        "人民币金额",
+                        false,
+                        &mut issues,
+                    );
+                    if supplied.as_deref() != Some(value.to_string().as_str()) {
+                        issues.push(row_issue(
+                            "FX_MISMATCH",
+                            row,
+                            h.column_label("amount"),
+                            None,
+                            "人民币金额与原币及汇率折算不一致".into(),
+                        ));
+                    }
+                }
+                Some(value.to_string())
+            }
+            Err(message) => {
+                issues.push(row_issue(
+                    "FX_MISMATCH",
+                    row,
+                    h.column_label("汇率"),
+                    None,
+                    message.into(),
+                ));
+                None
+            }
+        }
+    };
+    if currency == "CNY"
+        && holding_minor.is_some()
+        && amount.as_deref().and_then(|v| v.parse::<i64>().ok()) != holding_minor
+    {
+        issues.push(row_issue(
+            "HOLDING_MISMATCH",
+            row,
+            h.column_label("amount"),
+            None,
+            "份额和单价与金额不一致".into(),
+        ));
+    }
     let note = note_cell(
         h.cell(record, "note"),
         row,
@@ -1696,6 +2011,11 @@ fn parse_snapshot_row(
         snapshot_key: snapshot_key.expect("validated"),
         date: date.expect("validated"),
         account_key: account_key.expect("validated"),
+        currency,
+        original_minor,
+        fx_rate_micro,
+        quantity_e8,
+        unit_price_e6,
         amount_cents: amount.expect("validated"),
         note: note.flatten(),
         kind_at_date,

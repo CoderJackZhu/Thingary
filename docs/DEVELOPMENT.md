@@ -6,7 +6,7 @@
 
 Mac 需要 Xcode 命令行工具、Node.js 22 与 npm、Rust stable。Windows 需要 Node.js 22、Rust stable 的 MSVC 工具链与 `x86_64-pc-windows-msvc` 目标、Visual Studio Build Tools 的“使用 C++ 的桌面开发”工作负载（MSVC 编译器与 Windows SDK），以及 Microsoft Edge WebView2 Runtime。Windows 原生验收脚本另外需要 PowerShell 7（`pwsh`）。使用仓库锁文件，不随意升级依赖。
 
-CI 在 `macos-latest` 与 `windows-latest` 运行同样的四项自动检查，Windows 使用 Git Bash 作为 npm 脚本 shell，保证通配符行为一致。macOS 构建链接原生框架，Windows 使用原生文件对话框、Rust 图片预览与 WinRT 通知；两平台共用业务与资料格式。前端构建不能代替完整应用构建或原生验收。Windows 目前是 0.0.7 候选实现，目标 Windows 10 1809+／11 x64，运行与发布边界见[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。
+CI 在 `macos-latest` 与 `windows-latest` 运行同样的四项自动检查，Windows 使用 Git Bash 作为 npm 脚本 shell，保证通配符行为一致。macOS 构建链接原生框架，Windows 使用原生文件对话框、Rust 图片预览与 WinRT 通知；两平台共用业务与资料格式。前端构建不能代替完整应用构建或原生验收。当前源码包含 Windows 接入，目标 Windows 10 1809+／11 x64，运行与发布边界见[Windows 验收清单](WINDOWS_ACCEPTANCE.md)。
 
 ```sh
 rustup target add wasm32-unknown-unknown
@@ -43,7 +43,7 @@ npm test
 
 ### 四项补充范围与统一验收
 
-当前候选源码已集成账户扩充、存钱目标、加密备份和区间回顾，资料结构经 schema 40→41→42 迁移。界面于 2026-10-16 冻结，此后只修缺陷；区间回顾修正原年度回顾的取数窗口与措辞，不新增资料结构或备份格式。已有开发验证与各平台阶段结果分别保留，未完整验证的项目仍按下述边界披露。使用隔离身份和虚构资料，禁止读取正式资料库。
+账户扩充、存钱目标、加密备份和区间回顾的历史整合使用 schema 42。当前开发候选继续至 schema 43，使用既有新列补充盘点与核算能力；功能与界面冻结已于 2026-10-17 解除，备份容器格式不变。下述原生阶段结果按各自受测提交与资料版本保留，不能替代当前候选验收。使用隔离身份和虚构资料，禁止读取正式资料库。
 
 专项入口：`src-tauri/tests/account_kinds.rs` 检查双表迁移、回滚与未知结构拒绝；`savings_goals.rs` 检查保存回执、来源缺项、恢复、永久删除和备份／表格；`annual_review.rs` 检查同一读取事务、模块关闭、范围变化、旧年份超过24条、修订失效与只读。前端口径与隐私回归见 `tests/account-kinds.test.mjs`、`savings-goals*.test.mjs` 和 `annual-review*.test.mjs`。当前集成候选按本页四项命令验证；较早独立功能检查的计数不能代替集成结果。虚构浏览器覆盖三种外观明暗、窄窗、正常／未知／空白／错误和隐私复制；它们不能替代四项集成后的统一原生验证。
 
@@ -69,7 +69,7 @@ OneDrive 虚构目录中的额外密文副本散列一致；Windows 生产后端
 
 虚构浏览器已核对 Windows 下载、空列表、缺包、单源及错误提示；截图接口超时，未取得关于页本轮同尺寸图片对照。关于页真实外部链接／查询、新核心整页交互与取消，以及整合版本的通知点击和实体关窗抽查仍待真实 Windows 补验。此前实体验收与自动脚本结果分别保留，不能以旧包或 CDP 合成按键替代新版本实体证据。步骤与判定见 [Windows 清单](WINDOWS_ACCEPTANCE.md#主分支整合后的复验)。
 
-当前 0.0.7 候选源码已接入 Windows 图片／文件选择、文件占用重试与长路径、窗口／Ctrl 交互、WinRT 定时提醒和 NSIS 打包。Windows 接入基线为 schema 40；当前候选的账户类型和存钱目标补充已升至 schema 42，备份容器格式不变，升级兼容性须按当前源码重新验证。Windows 界面与数据语义复用 Mac；当前公开 Mac 包仍为 0.0.6，尚未创建 0.0.7 标签或 Windows Release。
+Windows 接入阶段的 0.0.7 候选已包含图片／文件选择、文件占用重试与长路径、窗口／Ctrl 交互、WinRT 定时提醒和 NSIS 打包，接入基线为 schema 40，随后账户类型和存钱目标补充升至 schema 42。当前开发候选为 schema 43，备份容器格式不变，升级兼容性须按当前源码重新验证。Windows 界面与数据语义复用 Mac；公开安装包与附件以对应 Release 为准，本节历史结果不代表当前候选已完成原生验收。
 
 两平台 CI 分别执行构建、完整 UI 回归、格式／Clippy 与 Rust 回归；容量测试默认忽略，安装身份的通知集成测试由原生验收任务单独执行。每份候选包的通过状态、测试数量、运行器系统与源码 SHA 以对应工作流日志和 artifact 摘要为准；逐次证据另行保存。工作流配置、验收脚本存在或另一平台通过，不能推定该候选包已通过。
 

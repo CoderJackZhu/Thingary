@@ -11,6 +11,8 @@ struct Account {
     side: String,
     kind: String,
     counted: bool,
+    purchase_cents: Option<String>,
+    purchased_on: Option<String>,
 }
 #[derive(Deserialize)]
 struct Snapshot {
@@ -74,6 +76,167 @@ fn before(today: NaiveDate, days: u64) -> String {
 }
 
 pub(crate) fn import(s: &mut Store, today: &str) -> Result<()> {
+    // V1 requests are permanent: finish the original five-account payload first.
+    import_data(s, today, legacy_data()?)?;
+    import_fixed_assets(s, today)
+}
+
+/// Keep the original v1 request payloads stable when the shared demo expands.
+fn legacy_data() -> Result<Fixtures> {
+    let mut data: Fixtures = serde_json::from_str(include_str!("../../src/demo-finance.json"))?;
+    let keys = ["cash", "broker", "fund", "card", "loan"];
+    let indices: Vec<_> = data
+        .accounts
+        .iter()
+        .enumerate()
+        .filter_map(|(i, a)| keys.contains(&a.key.as_str()).then_some(i))
+        .collect();
+    for snapshot in &mut data.snapshots {
+        snapshot.amounts_yuan = indices.iter().map(|i| snapshot.amounts_yuan[*i]).collect();
+    }
+    data.accounts.retain(|a| keys.contains(&a.key.as_str()));
+    Ok(data)
+}
+
+/// Historical migration fixtures use the original five-account sample only.
+#[cfg(test)]
+pub(crate) fn import_legacy_fixture(s: &mut Store, today: &str) -> Result<()> {
+    import_data(s, today, legacy_data()?)
+}
+
+/// Fixed assets use independent receipts and a marker. Existing check-in rows
+/// are copied from the Store, so an edited sample is never reset to JSON values.
+fn import_fixed_assets(s: &mut Store, today: &str) -> Result<()> {
+    let complete = s.root.join("unified-demo-fixed-assets-v1.complete");
+    if complete.exists() {
+        return Ok(());
+    }
+    let date = std::fs::read_to_string(s.root.join("unified-demo-v1.date"))?;
+    let now = crate::domain::date(&date)?;
+    let data: Fixtures = serde_json::from_str(include_str!("../../src/demo-finance.json"))?;
+    let generation = s.generation();
+    let opened = day(now
+        .checked_sub_months(Months::new(6))
+        .expect("bounded sample date"));
+    let mut added = Vec::new();
+    for (index, a) in data
+        .accounts
+        .into_iter()
+        .enumerate()
+        .filter(|(_, a)| matches!(a.kind.as_str(), "property" | "vehicle"))
+    {
+        let record = s.wealth_account_save(
+            &wealth::AccountSave {
+                request_id: rid(&format!("fixed-assets-v1-account-{}", a.key)),
+                generation: generation.clone(),
+                id: None,
+                expected_revision: None,
+                fields: wealth::AccountFields {
+                    name: a.name,
+                    institution: a.institution,
+                    side: a.side,
+                    kind: a.kind,
+                    counted: a.counted,
+                    opened_on: opened.clone(),
+                    closed_on: None,
+                    purchase_cents: a.purchase_cents,
+                    purchased_on: a.purchased_on,
+                    group_id: None,
+                    notes: "虚构样例；房贷单独展示，不计入金融净资产。".into(),
+                    currency: crate::currency::cny(),
+                    holding_mode: false,
+                    holding_unit: None,
+                },
+            },
+            today,
+        )?;
+        added.push((index, record.id));
+    }
+    for fixture in data.snapshots {
+        let request_id = rid(&format!("fixed-assets-v1-snapshot-{}", fixture.months_ago));
+        if s.wealth_request_result(&request_id, &generation)?.is_some() {
+            continue;
+        }
+        let Some(id) = s.wealth_request_result(
+            &rid(&format!("snapshot-{}", fixture.months_ago)),
+            &generation,
+        )?
+        else {
+            continue;
+        };
+        let Some(old) = s.wealth_snapshot(&id)? else {
+            continue;
+        };
+        let mut entries: Vec<_> = old
+            .entries
+            .into_iter()
+            .map(|e| wealth::EntryInput {
+                account_id: e.account_id,
+                amount_cents: if e.state == "unchanged" {
+                    None
+                } else {
+                    e.amount_cents
+                },
+                state: e.state,
+                original_minor: e.original_minor,
+                fx_rate_micro: e.fx_rate_micro,
+                quantity_e8: e.quantity_e8,
+                unit_price_e6: e.unit_price_e6,
+            })
+            .collect();
+        for (index, account_id) in &added {
+            if entries.iter().any(|e| &e.account_id == account_id) {
+                continue;
+            }
+            let amount = fixture.amounts_yuan[*index];
+            entries.push(wealth::EntryInput {
+                account_id: account_id.clone(),
+                state: if amount.is_some() {
+                    "entered"
+                } else {
+                    "missing"
+                }
+                .into(),
+                amount_cents: amount.map(|v| (v * 100).to_string()),
+                original_minor: None,
+                fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
+            });
+        }
+        // Accounts added while the sample was edited can be due but absent
+        // from old rows. Preserve that unknown amount rather than filling zero.
+        for account_id in old.missing {
+            if !entries.iter().any(|e| e.account_id == account_id) {
+                entries.push(wealth::EntryInput {
+                    account_id,
+                    state: "missing".into(),
+                    amount_cents: None,
+                    original_minor: None,
+                    fx_rate_micro: None,
+                    quantity_e8: None,
+                    unit_price_e6: None,
+                });
+            }
+        }
+        s.wealth_snapshot_save(
+            &wealth::SnapshotSave {
+                request_id,
+                generation: generation.clone(),
+                id: Some(id),
+                expected_revision: Some(old.revision),
+                date: old.date,
+                notes: old.notes,
+                entries,
+            },
+            today,
+        )?;
+    }
+    crate::storage::atomic_write(&complete, b"1")?;
+    Ok(())
+}
+
+fn import_data(s: &mut Store, today: &str, data: Fixtures) -> Result<()> {
     let complete = s.root.join("unified-demo-v1.complete");
     if complete.exists() {
         return Ok(());
@@ -87,7 +250,6 @@ pub(crate) fn import(s: &mut Store, today: &str) -> Result<()> {
         today.to_owned()
     };
     let now = crate::domain::date(&date)?;
-    let data: Fixtures = serde_json::from_str(include_str!("../../src/demo-finance.json"))?;
     let generation = s.generation();
     let opened = day(now
         .checked_sub_months(Months::new(6))
@@ -108,7 +270,13 @@ pub(crate) fn import(s: &mut Store, today: &str) -> Result<()> {
                     counted: a.counted,
                     opened_on: opened.clone(),
                     closed_on: None,
+                    purchase_cents: a.purchase_cents,
+                    purchased_on: a.purchased_on,
+                    group_id: None,
                     notes: "虚构样例；房贷单独展示，不计入金融净资产。".into(),
+                    currency: crate::currency::cny(),
+                    holding_mode: false,
+                    holding_unit: None,
                 },
             },
             &date,
@@ -138,6 +306,10 @@ pub(crate) fn import(s: &mut Store, today: &str) -> Result<()> {
                         }
                         .into(),
                         amount_cents: amount.map(|v| (v * 100).to_string()),
+                        original_minor: None,
+                        fx_rate_micro: None,
+                        quantity_e8: None,
+                        unit_price_e6: None,
                     })
                     .collect(),
             },
@@ -620,5 +792,385 @@ mod nonblocking_tests {
             value, expected,
             "fixture must come from real demo_finance::import_plan"
         );
+    }
+}
+
+#[cfg(test)]
+mod fixed_asset_import_tests {
+    use super::*;
+    use crate::domain::Error;
+
+    const TODAY: &str = "2026-10-10";
+    fn fail_after_snapshot_commit(point: &str) -> Result<()> {
+        if point == "wealth_snapshot.after_commit" {
+            Err(Error::new("INJECTED", "虚构提交后中断"))
+        } else {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn interrupted_five_account_v1_resumes_before_fixed_asset_extension() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::open(dir.path()).unwrap();
+        s.set_hook(fail_after_snapshot_commit);
+        assert_eq!(
+            import_legacy_fixture(&mut s, TODAY).unwrap_err().code,
+            "INJECTED"
+        );
+        assert!(dir.path().join("unified-demo-v1.date").exists());
+        assert!(!dir.path().join("unified-demo-v1.complete").exists());
+        assert_eq!(s.wealth_accounts().unwrap().len(), 5);
+        let request_id = rid("snapshot-5");
+        let first_id = s
+            .wealth_request_result(&request_id, &s.generation())
+            .unwrap()
+            .unwrap();
+        let first = s.wealth_snapshot(&first_id).unwrap().unwrap();
+        assert_eq!(first.entries.len(), 5);
+        assert_eq!(s.wealth_summary().unwrap().points.len(), 1);
+        drop(s);
+
+        let mut s = Store::open(dir.path()).unwrap();
+        import(&mut s, "2026-10-11").unwrap();
+        assert_eq!(
+            s.wealth_request_result(&request_id, &s.generation())
+                .unwrap()
+                .as_deref(),
+            Some(first_id.as_str())
+        );
+        assert_eq!(s.wealth_accounts().unwrap().len(), 7);
+        assert_eq!(s.wealth_summary().unwrap().points.len(), 6);
+        let upgraded = s.wealth_snapshot(&first_id).unwrap().unwrap();
+        assert_eq!(upgraded.date, first.date);
+        assert_eq!(upgraded.notes, first.notes);
+        assert_eq!(upgraded.entries.len(), 7);
+        for old in first.entries {
+            let new = upgraded
+                .entries
+                .iter()
+                .find(|e| e.account_id == old.account_id)
+                .unwrap();
+            assert_eq!(
+                serde_json::to_value(new).unwrap(),
+                serde_json::to_value(old).unwrap()
+            );
+        }
+        assert!(dir.path().join("unified-demo-v1.complete").exists());
+        assert!(dir
+            .path()
+            .join("unified-demo-fixed-assets-v1.complete")
+            .exists());
+    }
+
+    #[test]
+    fn fixed_asset_extension_preserves_unchanged_after_an_earlier_correction() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::open(dir.path()).unwrap();
+        crate::demo::prepare_legacy_fixture(&mut s, TODAY).unwrap();
+        let first_id = s
+            .wealth_request_result(&rid("snapshot-5"), &s.generation())
+            .unwrap()
+            .unwrap();
+        let second_id = s
+            .wealth_request_result(&rid("snapshot-4"), &s.generation())
+            .unwrap()
+            .unwrap();
+        let second = s.wealth_snapshot(&second_id).unwrap().unwrap();
+        let account_id = second.entries[0].account_id.clone();
+        let mut entries: Vec<_> = second
+            .entries
+            .into_iter()
+            .map(|e| wealth::EntryInput {
+                account_id: e.account_id,
+                state: e.state,
+                amount_cents: e.amount_cents,
+                original_minor: None,
+                fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
+            })
+            .collect();
+        entries[0].state = "unchanged".into();
+        entries[0].amount_cents = None;
+        s.wealth_snapshot_save(
+            &wealth::SnapshotSave {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                id: Some(second_id.clone()),
+                expected_revision: Some(second.revision),
+                date: second.date,
+                notes: "虚构已确认未变".into(),
+                entries,
+            },
+            TODAY,
+        )
+        .unwrap();
+        let preserved = s.wealth_snapshot(&second_id).unwrap().unwrap().entries[0]
+            .amount_cents
+            .clone();
+        let first = s.wealth_snapshot(&first_id).unwrap().unwrap();
+        let mut entries: Vec<_> = first
+            .entries
+            .into_iter()
+            .map(|e| wealth::EntryInput {
+                account_id: e.account_id,
+                state: e.state,
+                amount_cents: e.amount_cents,
+                original_minor: None,
+                fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
+            })
+            .collect();
+        entries[0].amount_cents = Some("8100000".into());
+        assert_ne!(entries[0].amount_cents, preserved);
+        s.wealth_snapshot_save(
+            &wealth::SnapshotSave {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                id: Some(first_id),
+                expected_revision: Some(first.revision),
+                date: first.date,
+                notes: "虚构更正前期估值".into(),
+                entries,
+            },
+            TODAY,
+        )
+        .unwrap();
+        crate::demo::prepare(&mut s, TODAY).unwrap();
+        let second = s.wealth_snapshot(&second_id).unwrap().unwrap();
+        let old = second
+            .entries
+            .iter()
+            .find(|e| e.account_id == account_id)
+            .unwrap();
+        assert_eq!(old.state, "unchanged");
+        assert_eq!(old.amount_cents, preserved);
+        assert_eq!(second.entries.len(), 7);
+    }
+
+    #[test]
+    fn fixed_asset_extension_keeps_a_new_accounts_missing_historical_amounts_unknown() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::open(dir.path()).unwrap();
+        crate::demo::prepare_legacy_fixture(&mut s, TODAY).unwrap();
+        let extra = s
+            .wealth_account_save(
+                &wealth::AccountSave {
+                    request_id: uuid::Uuid::new_v4().to_string(),
+                    generation: s.generation(),
+                    id: None,
+                    expected_revision: None,
+                    fields: wealth::AccountFields {
+                        name: "虚构后来添加的现金账户".into(),
+                        institution: String::new(),
+                        side: "asset".into(),
+                        kind: "cash".into(),
+                        counted: true,
+                        opened_on: "2020-01-01".into(),
+                        closed_on: None,
+                        notes: "虚构历史金额仍未知".into(),
+                        purchase_cents: None,
+                        purchased_on: None,
+                        group_id: None,
+                        currency: crate::currency::cny(),
+                        holding_mode: false,
+                        holding_unit: None,
+                    },
+                },
+                TODAY,
+            )
+            .unwrap();
+        let first_id = s
+            .wealth_request_result(&rid("snapshot-5"), &s.generation())
+            .unwrap()
+            .unwrap();
+        let first = s.wealth_snapshot(&first_id).unwrap().unwrap();
+        assert_eq!(first.entries.len(), 5);
+        assert!(first.missing.contains(&extra.id));
+        crate::demo::prepare(&mut s, TODAY).unwrap();
+        let upgraded = s.wealth_snapshot(&first_id).unwrap().unwrap();
+        assert_eq!(upgraded.entries.len(), 8);
+        let unknown = upgraded
+            .entries
+            .iter()
+            .find(|e| e.account_id == extra.id)
+            .unwrap();
+        assert_eq!(unknown.state, "missing");
+        assert_eq!(unknown.amount_cents, None);
+        assert!(upgraded.missing.contains(&extra.id));
+        for old in first.entries {
+            let kept = upgraded
+                .entries
+                .iter()
+                .find(|e| e.account_id == old.account_id)
+                .unwrap();
+            assert_eq!(
+                serde_json::to_value(kept).unwrap(),
+                serde_json::to_value(old).unwrap()
+            );
+        }
+        assert!(dir
+            .path()
+            .join("unified-demo-fixed-assets-v1.complete")
+            .exists());
+    }
+
+    #[test]
+    fn fixed_asset_extension_replays_its_own_receipt_and_preserves_sample_edits() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::open(dir.path()).unwrap();
+        crate::demo::prepare_legacy_fixture(&mut s, TODAY).unwrap();
+        let first_id = s
+            .wealth_request_result(&rid("snapshot-5"), &s.generation())
+            .unwrap()
+            .unwrap();
+        let first = s.wealth_snapshot(&first_id).unwrap().unwrap();
+        let mut entries: Vec<_> = first
+            .entries
+            .into_iter()
+            .map(|e| wealth::EntryInput {
+                account_id: e.account_id,
+                state: e.state,
+                amount_cents: e.amount_cents,
+                original_minor: None,
+                fx_rate_micro: None,
+                quantity_e8: None,
+                unit_price_e6: None,
+            })
+            .collect();
+        let edited_id = entries[0].account_id.clone();
+        entries[0].amount_cents = Some("999999".into());
+        s.wealth_snapshot_save(
+            &wealth::SnapshotSave {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                id: Some(first_id.clone()),
+                expected_revision: Some(first.revision),
+                date: first.date,
+                notes: "虚构手动更正，不得覆盖".into(),
+                entries,
+            },
+            TODAY,
+        )
+        .unwrap();
+        s.set_hook(fail_after_snapshot_commit);
+        assert_eq!(
+            crate::demo::prepare(&mut s, TODAY).unwrap_err().code,
+            "INJECTED"
+        );
+        let committed = s.wealth_snapshot(&first_id).unwrap().unwrap();
+        assert_eq!(committed.entries.len(), 7);
+        assert!(!dir
+            .path()
+            .join("unified-demo-fixed-assets-v1.complete")
+            .exists());
+        drop(s);
+
+        let mut s = Store::open(dir.path()).unwrap();
+        crate::demo::prepare(&mut s, "2026-10-11").unwrap();
+        let replay = s.wealth_snapshot(&first_id).unwrap().unwrap();
+        assert_eq!(
+            serde_json::to_value(replay).unwrap(),
+            serde_json::to_value(committed).unwrap()
+        );
+        let first = s.wealth_snapshot(&first_id).unwrap().unwrap();
+        assert_eq!(first.notes, "虚构手动更正，不得覆盖");
+        assert_eq!(
+            first
+                .entries
+                .iter()
+                .find(|e| e.account_id == edited_id)
+                .unwrap()
+                .amount_cents
+                .as_deref(),
+            Some("999999")
+        );
+        assert_eq!(s.wealth_accounts().unwrap().len(), 7);
+        assert!(dir
+            .path()
+            .join("unified-demo-fixed-assets-v1.complete")
+            .exists());
+    }
+    #[test]
+    fn fixed_asset_extension_preserves_user_added_foreign_sample_fact() {
+        use serde_json::json;
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::open(dir.path()).unwrap();
+        crate::demo::prepare_legacy_fixture(&mut s, TODAY).unwrap();
+        let account:wealth::AccountSave=serde_json::from_value(json!({"request_id":uuid::Uuid::new_v4().to_string(),"generation":s.generation(),"id":null,"expected_revision":null,"fields":{"name":"虚构样例外币","institution":"","side":"asset","kind":"cash","counted":true,"currency":"USD","opened_on":"2020-01-01","closed_on":null,"notes":""}})).unwrap();
+        let account = s.wealth_account_save(&account, TODAY).unwrap();
+        let id = s
+            .wealth_request_result(&rid("snapshot-5"), &s.generation())
+            .unwrap()
+            .unwrap();
+        let old = s.wealth_snapshot(&id).unwrap().unwrap();
+        let mut value = serde_json::to_value(&old).unwrap();
+        value["request_id"] = json!(uuid::Uuid::new_v4().to_string());
+        value["generation"] = json!(s.generation());
+        value["expected_revision"] = json!(old.revision);
+        value["entries"].as_array_mut().unwrap().push(json!({"account_id":account.id,"state":"entered","amount_cents":"879433","original_minor":"123456","fx_rate_micro":"7123456"}));
+        let input: wealth::SnapshotSave = serde_json::from_value(value).unwrap();
+        s.wealth_snapshot_save(&input, TODAY).unwrap();
+        crate::demo::prepare(&mut s, TODAY).unwrap();
+        let upgraded = s.wealth_snapshot(&id).unwrap().unwrap();
+        let foreign = upgraded
+            .entries
+            .iter()
+            .find(|e| e.account_id == account.id)
+            .unwrap();
+        assert_eq!(foreign.amount_cents.as_deref(), Some("879433"));
+        assert_eq!(foreign.original_minor.as_deref(), Some("123456"));
+        assert_eq!(foreign.fx_rate_micro.as_deref(), Some("7123456"));
+        assert_eq!(upgraded.entries.len(), 8);
+    }
+    #[test]
+    fn fixed_asset_extension_preserves_holding_fact_after_input_mode_is_disabled() {
+        use serde_json::json;
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::open(dir.path()).unwrap();
+        crate::demo::prepare_legacy_fixture(&mut s, TODAY).unwrap();
+        let account:wealth::AccountSave=serde_json::from_value(json!({"request_id":uuid::Uuid::new_v4().to_string(),"generation":s.generation(),"id":null,"expected_revision":null,"fields":{"name":"虚构样例持仓","institution":"","side":"asset","kind":"fund","holding_mode":true,"holding_unit":"克","counted":true,"currency":"USD","opened_on":"2020-01-01","closed_on":null,"notes":""}})).unwrap();
+        let account = s.wealth_account_save(&account, TODAY).unwrap();
+        let id = s
+            .wealth_request_result(&rid("snapshot-5"), &s.generation())
+            .unwrap()
+            .unwrap();
+        let old = s.wealth_snapshot(&id).unwrap().unwrap();
+        let mut value = serde_json::to_value(&old).unwrap();
+        value["request_id"] = json!(uuid::Uuid::new_v4().to_string());
+        value["generation"] = json!(s.generation());
+        value["expected_revision"] = json!(old.revision);
+        value["entries"].as_array_mut().unwrap().push(json!({"account_id":account.id,"state":"entered","amount_cents":"879433","original_minor":"123456","fx_rate_micro":"7123456","quantity_e8":"123456000000","unit_price_e6":"1000000"}));
+        let input: wealth::SnapshotSave = serde_json::from_value(value).unwrap();
+        s.wealth_snapshot_save(&input, TODAY).unwrap();
+        let mut fields = account.fields.clone();
+        fields.holding_mode = false;
+        fields.holding_unit = None;
+        s.wealth_account_save(
+            &wealth::AccountSave {
+                request_id: uuid::Uuid::new_v4().to_string(),
+                generation: s.generation(),
+                id: Some(account.id.clone()),
+                expected_revision: Some(account.revision),
+                fields,
+            },
+            TODAY,
+        )
+        .unwrap();
+        crate::demo::prepare(&mut s, TODAY).unwrap();
+        let upgraded = s.wealth_snapshot(&id).unwrap().unwrap();
+        let foreign = upgraded
+            .entries
+            .iter()
+            .find(|e| e.account_id == account.id)
+            .unwrap();
+        assert_eq!(foreign.amount_cents.as_deref(), Some("879433"));
+        assert_eq!(foreign.original_minor.as_deref(), Some("123456"));
+        assert_eq!(foreign.fx_rate_micro.as_deref(), Some("7123456"));
+        assert_eq!(foreign.quantity_e8.as_deref(), Some("123456000000"));
+        assert_eq!(foreign.unit_price_e6.as_deref(), Some("1000000"));
+        assert_eq!(upgraded.entries.len(), 8);
     }
 }

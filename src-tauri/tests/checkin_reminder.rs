@@ -26,6 +26,12 @@ fn open(s: &mut Store, name: &str, kind: &str) -> Account {
                 opened_on: "2026-01-01".into(),
                 closed_on: None,
                 notes: String::new(),
+                purchase_cents: None,
+                purchased_on: None,
+                group_id: None,
+                currency: "CNY".into(),
+                holding_mode: false,
+                holding_unit: None,
             },
         },
         TODAY,
@@ -39,6 +45,10 @@ fn check_in(s: &mut Store, date: &str, rows: &[(&Account, bool)]) {
             account_id: a.id.clone(),
             state: if *known { "entered" } else { "missing" }.into(),
             amount_cents: known.then(|| "100000".into()),
+            original_minor: None,
+            fx_rate_micro: None,
+            quantity_e8: None,
+            unit_price_e6: None,
         })
         .collect();
     s.wealth_snapshot_save(

@@ -1,0 +1,9 @@
+/* Historical trends borrow the planning trajectory's presentation, without changing planning charts. */
+.history-chart-tip{position:absolute;top:8px;z-index:2;width:238px;max-width:calc(100% - 16px);padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);box-shadow:0 8px 24px #0002;font-size:12px;pointer-events:none;overflow-wrap:anywhere}
+.history-chart-tip>strong{display:block;margin-bottom:6px;font-size:12px}
+.history-chart-tip p{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:3px 0;color:var(--muted)}
+.history-chart-tip p>span{display:inline-flex;align-items:center;gap:6px}
+.history-chart-tip b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.history-chart-tip small{display:block;margin-top:6px;line-height:1.5;color:var(--muted)}
+.tip-swatch{width:6px;height:6px;border-radius:50%;background:var(--line-color)}
+.ui-spark .line{stroke-linecap:round;stroke-linejoin:round}

@@ -1,13 +1,24 @@
+import { HoldingInput } from "./HoldingInput";
+import { holdingFact, holdingText, holdingSupported } from "./holdings";
+import type { CurrencyFact } from "./currency";
+import { AccountGroupManager } from './AccountGroupManager';
+import { accountGroupTotals } from './wealth-display';
+import { groupNameError, recallGroupViews, rememberGroupView } from './account-groups';
+import type { AccountGroup, AccountGroupList } from './account-groups';
+import { QuickUpdateDialog } from './QuickUpdateDialog';
+import { CurrencyInput } from './CurrencyInput';
+import { currencies, currencyCode, currencyDecimals, currencyAmount, rateLabel, rateSuggestions, convertCurrency, validCurrency } from './currency';
+import { accountUpdateAge } from './wealth';
 import { SavingsGoals } from './SavingsGoals';
 import { CheckinReminder } from './CheckinReminder';
 import { CheckinReminderAsk } from './CheckinReminderAsk';
-import { spacedLabels } from './chart-labels';
-import { accountVisible } from './wealth-display';
+import { DualLineChart } from './DualLineChart';
+import { TrendRangeControl, useTrendSelection } from './TrendRangeControl';
+import { accountVisible, fixedAssetChange } from './wealth-display';
 import type { AccountView } from './wealth-display';
 import { SortHeader } from './SortHeader';
 import { sortRecords, moneySortValue, type ListSort } from './list-sort';
 import { HeaderSlot } from './HeaderSlot';
-import { changeLine } from './Sparkline';
 import { CloseButton } from './CloseButton';
 import { useSource } from './useSource';
 import type { SourceProps } from './source';
@@ -19,8 +30,8 @@ import { errorMessage, money } from './asset';
 import { DateInput } from './DateInput';
 import { CentInput, FormRow, Info, Switch } from './FormControls';
 import { Icon } from './AssetViews';
-import { selectAccountKind, defaultAccountCounted, accountKindHint, assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, rateText, noteSummary, snapshotEntryInput, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
-import type { Account, AccountFields, AccountSave, Draft, EntryState, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
+import { quickAvailable, selectAccountKind, defaultAccountCounted, accountKindHint, assetKinds, liabilityKinds, kindLabel, signedMoney, changeText, rateText, noteSummary, snapshotEntryInput, storedPending, resolvePending, submit, Unresolved, previewTotals } from './wealth';
+import type { Account, AccountFields, AccountSave, CheckInRow, Draft, Pending, Point, Snapshot, SnapshotSave, Summary, TrashKind } from './wealth';
 import { WealthChanges } from './WealthChanges';
 import { offerUndo, useRestored } from './undo';
 import './wealth.css';
@@ -43,6 +54,41 @@ export function usePendingReceipt(reload: () => void) {
   }
   return { pending, setPending, notice, setNotice, busy, verify };
 }
+function FixedAssetPurchase({ account }: { account: Account }) {
+  if (!['property', 'vehicle'].includes(account.fields.kind) || !account.latest) return null;
+  const purchase = account.fields.purchase_cents;
+  if (purchase == null) return null;
+  let hidden = false;
+  try { hidden = localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { /* Preference unavailable. */ }
+  const delta = fixedAssetChange(purchase, account.latest.amount_cents)!;
+  return <small className="muted" style={{ display: 'block', whiteSpace: 'normal' }}>{hidden ? '购入 •••• · 估值较购入价 ••••' : <>购入 {money(purchase)} · 估值较购入价 {changeText(delta.change_cents)}{delta.rate_hundredths !== null ? `（${rateText(delta.rate_hundredths)}）` : ''}</>}</small>;
+}
+function AccountUpdateAge({ account, today }: { account: Account; today: string }) {
+  const age = accountUpdateAge(account.last_entered_on, today);
+  return <small className="account-update-age" data-old={age.old}>{age.text}</small>;
+}
+function groupAmountsHidden(): boolean {
+  try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; }
+  catch { return false; }
+}
+export function CurrencyBalance({ code, fact, date, unit }: { code?: string; fact: CurrencyFact | null; date?: string; unit?: string | null }) {
+  if (!fact || fact.amount_cents === null) return <span className="muted">未知</span>;
+  let hidden = false;
+  try { hidden = localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { /* unavailable preference */ }
+  if (hidden) return <>••••</>;
+  const currency = currencyCode(code);
+  const holding = holdingText(fact, unit ?? null, currency);
+  if (currency === 'CNY') return <>{holding && <small className="holding-equation">{holding} = </small>}{money(fact.amount_cents)}{date && <small className="muted"> · {date}</small>}</>;
+  return <>{holding && <small className="holding-equation">{holding} = </small>}{fact.original_minor != null ? currencyAmount(currency, fact.original_minor) : '原币金额未知'}<small className="muted" style={{ display: 'block', whiteSpace: 'normal' }}>≈ {money(fact.amount_cents)} · 汇率 {fact.fx_rate_micro ? rateLabel(fact.fx_rate_micro) : '未知'}{date ? ` · ${date}` : ''}</small></>;
+}
+function ForeignStructure({ summary, accounts }: { summary: Summary; accounts: Account[] }) {
+  const ids = new Set(accounts.filter(a => currencyCode(a.fields.currency) !== 'CNY').map(a => a.id));
+  const entries = (summary.structure_entries ?? []).filter(e => ids.has(e.account_id) && e.side === 'asset' && e.counted && e.amount_cents !== null);
+  if (!entries.length) return null;
+  let hidden = false;
+  try { hidden = localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { /* unavailable preference */ }
+  return <p className="muted small">含外币资产 {hidden ? '••••' : money(entries.reduce((n, e) => n + BigInt(e.amount_cents!), 0n).toString())}，按各次盘点所填汇率折算</p>;
+}
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
 export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, onGotoPlanning, onCompare, reviewFocus, onReviewFocusDone, onFinancialImport }: SourceProps & { onGotoPlanning?: (snapshotId: string) => void; onCompare?: (pair?: { fromSnapshotId: string; toSnapshotId: string }) => void; reviewFocus?: WealthReviewFocus | null; onReviewFocusDone?: () => void; onFinancialImport?: () => void; today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
@@ -61,11 +107,16 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const [savedSnapshot, setSavedSnapshot] = useState<Snapshot | null>(null);
   const [snapshotDetail, setSnapshotDetail] = useState<string | null>(null);
   const [editing, setEditing] = useState<Account | 'new' | null>(null);
+  const [quickAccount, setQuickAccount] = useState<Account | null>(null);
   const [goalEditing, setGoalEditing] = useState(false);
+  const [groups, setGroups] = useState<AccountGroup[]>([]), [manageGroups, setManageGroups] = useState(false);
+  const [groupView, setGroupView] = useState<'list' | 'group'>('list');
+  const groupMemoryLoaded = useRef(false);
+  useEffect(() => { if (summary && !groupMemoryLoaded.current) { groupMemoryLoaded.current = true; setGroupView(recallGroupViews(summary.generation).mode); } }, [summary]);
   useEffect(() => {
     let live = true; setError('');
-    Promise.all([invoke<Summary>('wealth_summary'), invoke<Account[]>('wealth_accounts')])
-      .then(([s, a]) => { if (live) { setSummary(s); setAccounts(a); } })
+    Promise.all([invoke<Summary>('wealth_summary'), invoke<Account[]>('wealth_accounts'), invoke<AccountGroupList>('account_groups_list')])
+      .then(([s, a, g]) => { if (live) { if (g.generation !== s.generation) throw new Error('资料库已切换，请重新读取。'); setSummary(s); setAccounts(a); setGroups(g.groups); } })
       .catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
   }, [retry]);
@@ -86,7 +137,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(goalEditing || !!editing || !!pending || busy || !!checkIn || !!snapshotDetail); return () => onEditingChange(false); }, [goalEditing, editing, pending, busy, checkIn, snapshotDetail, onEditingChange]);
+  useEffect(() => { onEditingChange(manageGroups || !!quickAccount || goalEditing || !!editing || !!pending || busy || !!checkIn || !!snapshotDetail); return () => onEditingChange(false); }, [manageGroups, quickAccount, goalEditing, editing, pending, busy, checkIn, snapshotDetail, onEditingChange]);
   const sourceError = useSource({source,onSourceDone}, summary?.generation, async (target, alive) => {
     // 账户来源：按稳定 ID 打开账户资料表单；未保存的输入不写入（§6.2）。
     if (target.kind === 'account') {
@@ -113,6 +164,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
   // Hooks must run on every render: the check-in view is an early return below.
   const open = accounts?.filter(a => !a.fields.closed_on) ?? [];
+  const openQuick = (account: Account) => { if (!storedPending() && !busy && quickAvailable(account, summary?.points ?? [], today)) setQuickAccount(account); };
   const newAccount = { label: '新增账户', plus: true, disabled: !!pending || !accounts, run: () => setEditing('new') };
   usePageBar('wealth', checkIn ? {} : open.length
     ? { primary: { label: '开始盘点', disabled: !!pending || !open.length, run: () => setCheckIn(today) }, secondary: newAccount, newRecord: newAccount, search: { key: 'wealth', placeholder: '搜索账户' } }
@@ -145,27 +197,46 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     {notice && <p className="notice" role="status">{notice}</p>}
     <HeaderSlot target="page-header-tabs"><div className="page-tabs" role="group" aria-label="财富页面">{([['overview', '概览'], ['accounts', '账户'], ['changes', '变化'], ['history', '盘点记录']] as const).filter(([k]) => !onCompare || k !== 'changes').map(([k, l]) => <button key={k} type="button" aria-pressed={tab === k} onClick={() => { setChangesSeed(null); setTab(k); }}>{l}</button>)}</div></HeaderSlot>
     {tab !== 'overview' && tab !== 'history' && accountScope}
-    {tab === 'history' && savedSnapshot && !error && <div className="notice wealth-review-entry" role="status"><span>盘点已保存（{savedSnapshot.date}）。</span><button type="button" className="ui-link" disabled={!summary?.points.some(p => p.snapshot_id === savedSnapshot.id)} onClick={() => {
+    {tab === 'accounts' && <div className="account-group-toolbar"><label>分组方式<select aria-label="账户分组方式" value={groupView} onChange={e => { const mode = e.target.value as 'list' | 'group'; setGroupView(mode); if (summary) rememberGroupView(summary.generation, 'mode', mode); }}><option value="list">列表</option><option value="group">按分组</option></select></label><button type="button" disabled={!!pending || busy || !summary} onClick={() => setManageGroups(true)}>管理分组</button></div>}
+
+    {savedSnapshot && !error && <div className="notice wealth-review-entry" role="status"><span>盘点已保存（{savedSnapshot.date}）。</span><button type="button" className="ui-link" disabled={!summary?.points.some(p => p.snapshot_id === savedSnapshot.id)} onClick={() => {
       if (onGotoPlanning) onGotoPlanning(savedSnapshot.id);
       else { const point = summary?.points.find(p => p.snapshot_id === savedSnapshot.id), from = summary?.points.find(p => p.complete && p.date === point?.compared_to); setChangesSeed(from ? { from: from.snapshot_id, to: savedSnapshot.id } : null); setTab('changes'); }
     }}>{onGotoPlanning ? '查看这一期的复盘 →' : '查看这一期的变化 →'}</button><CloseButton type="button" aria-label="关闭盘点后复盘提示" onClick={() => setSavedSnapshot(null)}/></div>}
-    {tab === 'history' && savedSnapshot && !error && summary && <CheckinReminderAsk savedComplete={summary.points.some(p => p.snapshot_id === savedSnapshot.id && p.complete)} completeCount={summary.points.filter(p => p.complete).length} wealthOn today={today}/>}
+    {savedSnapshot && !error && summary && <CheckinReminderAsk savedComplete={summary.points.some(p => p.snapshot_id === savedSnapshot.id && p.complete)} completeCount={summary.points.filter(p => p.complete).length} wealthOn today={today}/>}
     {error ? <article className="ui-card ui-content" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
-      : tab === 'overview' ? <><Overview onFinancialImport={onFinancialImport} importDisabled={!!pending || busy} accountScope={accountScope} hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} today={today} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/><SavingsGoals key={summary.generation} generation={summary.generation} today={today} version={retry} blocked={!!pending || busy} onEditingChange={setGoalEditing} onPendingChange={() => setPending(storedPending())}/></>
+      : tab === 'overview' ? <><Overview groups={groups} allAccounts={accounts} onQuick={openQuick} today={today} onFinancialImport={onFinancialImport} importDisabled={!!pending || busy} accountScope={accountScope} hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/><SavingsGoals key={summary.generation} generation={summary.generation} today={today} version={retry} blocked={!!pending || busy} onEditingChange={setGoalEditing} onPendingChange={() => setPending(storedPending())}/></>
       : tab === 'accounts' ? (keyword && !shownAccounts.length
         ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
-        : <Accounts accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
+        : <AccountListing mode={groupView} groups={groups} allAccounts={accounts} summary={summary} onQuick={openQuick} today={today} accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
       : tab === 'changes' ? <WealthChanges accountView={accountView} summary={summary} accounts={accounts} today={today} initial={changesSeed} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn}/>
       : <History points={points} onOpen={setSnapshotDetail} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
     {tab === 'history' && summary && !error && <CheckinReminder wealthOn today={today}/>}
-    {editing && summary && <AccountDialog account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onClose={closeAccount}/>}
+    {manageGroups && summary && <AccountGroupManager generation={summary.generation} onClose={() => { setManageGroups(false); setPending(storedPending()); reload(); }} onChanged={() => { setPending(storedPending()); reload(); }}/>}
+    {editing && summary && <AccountDialog quickPoints={summary.points} groups={groups} onGroupsChanged={reload} account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onQuick={openQuick} onClose={closeAccount}/>}
+    {quickAccount && summary && <QuickUpdateDialog account={quickAccount} generation={summary.generation} today={today} points={summary.points} onClose={(saved, snapshot) => {
+      setQuickAccount(null); setPending(storedPending()); reload();
+      if (saved) {
+        setSavedSnapshot(snapshot?.missing.length === 0 ? snapshot : null);
+        if (editing && editing !== 'new') {
+          const editorId = editing.id;
+          void invoke<Account[]>('wealth_accounts').then(fresh => {
+            const account = fresh.find(a => a.id === editorId);
+            if (account) setEditing(current => current && current !== 'new' && current.id === editorId ? { ...current, latest: account.latest, last_entered_on: account.last_entered_on, has_entries: account.has_entries } : current);
+          }).catch(() => {});
+        }
+      }
+      if (!editing) refocusHeading();
+    }}/>}
   </section>;
 }
 
-function Overview({ accountScope, summary, accounts, hasAccounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges, onFinancialImport, importDisabled }: { onFinancialImport?: () => void; importDisabled?: boolean; accountScope: ReactNode; summary: Summary; accounts: Account[]; hasAccounts: boolean; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
+function Overview({ groups, allAccounts, onQuick, accountScope, summary, accounts, hasAccounts, latest, lastComplete, onNewAccount, onCheckIn, today, onOpenChanges, onFinancialImport, importDisabled }: { groups: AccountGroup[]; allAccounts: Account[]; onQuick: (account: Account) => void; onFinancialImport?: () => void; importDisabled?: boolean; accountScope: ReactNode; summary: Summary; accounts: Account[]; hasAccounts: boolean; latest?: Point; lastComplete?: Point; onNewAccount: () => void; onCheckIn: (date: string) => void; today: string; onOpenChanges: (range: { from: string; to: string }) => void }) {
+  const [structureView, setStructureView] = useState<'kind' | 'group'>(() => recallGroupViews(summary.generation).structure);
+  const groupTotals = accountGroupTotals(allAccounts, groups, summary.structure_entries ?? []);
   if (!hasAccounts) return <div className="empty"><span className="empty-mark">¥</span><h2>先建立要定期核对的账户</h2><p>银行卡、证券、基金、公积金，以及信用卡和贷款。只需名称和类型，不需要卡号或登录信息。</p><div className="review-start-actions" style={{ justifyContent: 'center' }}>{onFinancialImport && <button type="button" className="primary" disabled={importDisabled} onClick={onFinancialImport}>导入已有的资产表格</button>}<button type="button" className={onFinancialImport ? 'ui-btn' : 'primary'} disabled={importDisabled} onClick={onNewAccount}>手动添加第一个账户</button></div></div>;
-  if (!latest) return <div className="empty"><span className="empty-mark">¥</span><h2>开始第一次盘点</h2><p>对照各平台，把今天的余额和欠款逐行填进来。之后每次盘点都会成为趋势上的一个点。</p><button className="primary" onClick={() => onCheckIn(today)}>开始盘点</button></div>;
+  if (!latest) return <><div className="empty"><span className="empty-mark">¥</span><h2>开始第一次盘点</h2><p>对照各平台，把今天的余额和欠款逐行填进来。之后每次盘点都会成为趋势上的一个点。</p><button className="primary" onClick={() => onCheckIn(today)}>开始盘点</button></div><OverviewAccountList quickPoints={summary.points} accounts={accounts} today={today} accountScope={accountScope} onQuick={onQuick} blocked={importDisabled}/></>;
   const shown = lastComplete ?? latest;
   const comparedPoint = lastComplete?.compared_to ? summary.points.find(p => p.date === lastComplete.compared_to) : undefined;
   return <>
@@ -176,22 +247,40 @@ function Overview({ accountScope, summary, accounts, hasAccounts, latest, lastCo
       <article><span>负债</span><strong>{money(shown.liabilities_cents)}</strong><em>{shown.complete ? '计入净资产的尚欠金额' : '计入净资产的账户，仅已知部分'}</em></article>
       <article><span>与上次比较</span><strong>{lastComplete?.change_cents ? changeText(lastComplete.change_cents) : '—'}</strong><em>{!lastComplete?.compared_to ? '至少两次完整盘点后显示' : lastComplete.scope_changed ? '有账户改变了计入设置，不直接比较' : `对比 ${lastComplete.compared_to}${lastComplete.change_rate_hundredths !== null ? ' · ' + rateText(lastComplete.change_rate_hundredths) : ''}`}</em>{comparedPoint && lastComplete && <button className="link-cell changes-link" onClick={() => onOpenChanges({ from: comparedPoint.snapshot_id, to: lastComplete.snapshot_id })}>看哪些账户带来变化 →</button>}</article>
     </div>
-    <article className="ui-card ui-content">
-      <div className="ui-section-head"><h3>净资产变化</h3><Info text="只连接完整盘点；虚线为不完整盘点。变化含存取、消费与估值，不等于投资收益。"/></div>
-      {summary.points.filter(p => p.complete).length < 2 ? <p className="muted">完整盘点少于两次，暂不显示趋势。</p> : <NetChart points={summary.points}/>}
-      <details className="trend-table"><summary>查看表格</summary><PointTable points={summary.points}/></details>
-    </article>
+    {lastComplete?.has_unchanged && <p className="notice">这次完整盘点含沿用金额，并非所有账户都在当天重新核对。账户清单标明最近手动录入时间。</p>}
+    <WealthTrendCards summary={summary} today={today}/>
     <div className="stats-pair">
-      <article className="ui-card ui-content"><div className="ui-section-head"><h3>资产结构</h3><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入净资产的账户` : '尚无完整盘点'}</span></div><ShareBars rows={summary.structure} empty="没有计入的资产。"/></article>
+      <article className="ui-card ui-content"><div className="ui-section-head"><h3>资产结构</h3><div className="ui-seg" role="group" aria-label="资产结构方式"><button type="button" aria-pressed={structureView === 'kind'} onClick={() => { setStructureView('kind'); rememberGroupView(summary.generation, 'structure', 'kind'); }}>按类型</button><button type="button" aria-pressed={structureView === 'group'} onClick={() => { setStructureView('group'); rememberGroupView(summary.generation, 'structure', 'group'); }}>按分组</button></div><span>{summary.structure_date ? `${summary.structure_date} 完整盘点 · 计入净资产的账户` : '尚无完整盘点'}</span></div>{structureView === 'kind' ? <ShareBars rows={summary.structure} empty="没有计入的资产。"/> : <ShareBars rows={summary.structure_date ? groupTotals.map(g => ({ kind: g.id, amount_cents: g.assets_cents, share_hundredths: g.share_hundredths })) : []} labels={Object.fromEntries(groupTotals.map(g => [g.id, g.name]))} empty="没有计入的资产。"/>}<ForeignStructure summary={summary} accounts={allAccounts}/></article>
       <article className="ui-card ui-content"><div className="ui-section-head"><h3>计入净资产的负债</h3><Info text="按类型统计尚欠金额，不含标为不计入的负债。"/></div><ShareBars rows={summary.liabilities} empty="没有计入的负债。"/></article>
     </div>
-    <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div>{accountScope}{!accounts.length && <p className="muted">当前范围没有账户，可切换上方账户范围查看其他账户。</p>}<ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{!a.fields.counted?' · 不计入净资产':''}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?(a.fields.side==='liability'&&a.latest.amount_cents!=='0'?'−':'')+money(a.latest.amount_cents):'尚未盘点'}</span></li>)}</ul></article>
+    <OverviewAccountList quickPoints={summary.points} accounts={accounts} today={today} accountScope={accountScope} onQuick={onQuick} blocked={importDisabled}/>
   </>;
 }
 
-function ShareBars({ rows, empty }: { rows: Summary['structure']; empty: string }) {
+function OverviewAccountList({ quickPoints, accounts, today, accountScope, onQuick, blocked }: { quickPoints: Point[]; accounts: Account[]; today: string; accountScope: ReactNode; onQuick: (account: Account) => void; blocked?: boolean }) {
+  return <article className="ui-card"><div className="ui-section-head"><h3>账户清单</h3></div>{accountScope}{!accounts.length && <p className="muted">当前范围没有账户，可切换上方账户范围查看其他账户。</p>}<ul className="ui-rows">{accounts.map((a,i)=><li key={a.id} className="ui-row"><span className="ui-avatar" style={{background:series(i)}}>{a.fields.name.slice(0,1)}</span><div className="ui-main"><div>{a.fields.name}</div><small>{kindLabel(a.fields.kind)}{!a.fields.counted?' · 不计入净资产':''}{a.fields.closed_on?' · 已停用':''}</small></div><span className="ui-amount" style={a.fields.side==='liability'?{color:'var(--error)'}:undefined}>{a.latest?<CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??"份"):null} code={a.fields.currency} fact={a.latest} date={a.latest.date}/>:['property','vehicle'].includes(a.fields.kind)?'尚未估值':'尚未盘点'}<FixedAssetPurchase account={a}/><AccountUpdateAge account={a} today={today}/></span>{quickAvailable(a, quickPoints, today) && <button type="button" className="ui-btn wealth-quick-action" disabled={blocked} onClick={() => onQuick(a)}>快速更新</button>}</li>)}</ul></article>;
+}
+
+function WealthTrendCards({ summary, today }: { summary: Summary; today: string }) {
+  const trend = useTrendSelection(summary.generation, summary.points, today);
+  return <>
+    <article className="ui-card ui-content">
+      <div className="ui-section-head"><h3>净资产变化<Info text="只连接完整盘点；虚线为不完整盘点。变化含存取、消费与估值，不等于投资收益。"/></h3><span className="muted small">历史 · {trend.points[0]?.date ?? "暂无盘点"}{trend.points.length > 1 ? ` → ${trend.points.at(-1)!.date}` : ""}</span></div>
+      <TrendRangeControl selection={trend} points={summary.points} today={today}/>
+      <NetChart points={trend.points} generation={summary.generation}/>
+      <details className="trend-table"><summary>查看表格</summary><PointTable points={trend.points}/></details>
+    <details className="trend-secondary"><summary>查看流动资金与投资走势</summary>
+      <div className="ui-section-head"><h3>流动资金与投资<Info text="流动资金是计入净资产的现金与存款；投资是计入净资产的投资账户、混合投资、基金、债券和贵金属。公积金、个人养老金、保险、房产等不在这两条线里。面积独立显示，不相加；变化含存取与估值，不等于收益。"/></h3><span className="muted small">历史余额</span></div>
+      <p className="muted small">沿用上方时间范围；金额为账户余额，不代表投资收益。</p>
+      <DualLineChart points={trend.points} kind="balances" generation={summary.generation}/>
+    </details></article>
+  </>;
+}
+
+function ShareBars({ rows, empty, labels }: { rows: Summary['structure']; empty: string; labels?: Record<string, string> }) {
+  if (labels && groupAmountsHidden()) return <p className="muted">金融金额已隐藏</p>;
   if (!rows.length) return <p className="muted">{empty}</p>;
-  return <ul className="stats-category-bars">{rows.map((r, i) => <li key={r.kind}><span><i style={{ background: series(i) }}/>{kindLabel(r.kind)}</span><div className="stats-bar"><span style={{ width: r.share_hundredths === null ? 0 : `${r.share_hundredths / 100}%`, background: series(i) }}/></div><strong>{r.share_hundredths === null ? '—' : `${(r.share_hundredths / 100).toFixed(1)}%`}</strong><small>{money(r.amount_cents)}</small></li>)}</ul>;
+  return <ul className="stats-category-bars">{rows.map((r, i) => <li key={r.kind}><span><i style={{ background: series(i) }}/>{labels?.[r.kind] ?? kindLabel(r.kind)}</span><div className="stats-bar"><span style={{ width: r.share_hundredths === null ? 0 : `${r.share_hundredths / 100}%`, background: series(i) }}/></div><strong>{r.share_hundredths === null ? '—' : `${(r.share_hundredths / 100).toFixed(1)}%`}</strong><small>{money(r.amount_cents)}</small></li>)}</ul>;
 }
 
 function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (id: string) => void }) {
@@ -200,94 +289,109 @@ function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (id: string)
   return <table className="ui-table"><thead><tr><SortHeader field="date" label="盘点日期" sort={sort} onSort={setSort}/><SortHeader field="net" label="金融净资产" sort={sort} onSort={setSort}/><SortHeader field="assets" label="资产" sort={sort} onSort={setSort}/><SortHeader field="liabilities" label="负债" sort={sort} onSort={setSort}/><th>状态</th><th>备注</th><th>与上次比较</th></tr></thead><tbody>{sorted.map(p => <tr key={p.snapshot_id}>
     <td>{onOpen ? <button className="link-cell" onClick={() => onOpen(p.snapshot_id)}>{p.date}</button> : p.date}</td>
     <td>{p.complete ? signedMoney(p.net_cents) : <span className="muted" title="有账户金额未知，净资产无法确定">—</span>}</td><td>{money(p.assets_cents)}{!p.complete && <small className="muted"> 已知</small>}</td><td>{money(p.liabilities_cents)}{!p.complete && <small className="muted"> 已知</small>}</td>
-    <td>{p.complete ? '完整' : `缺 ${p.missing} 个账户`}</td>
+    <td>{p.complete ? '完整' : `缺 ${p.missing} 个账户`}{p.has_unchanged && <small className="muted"> · 快速更新</small>}</td>
     <td>{onOpen ? (noteSummary(p.notes) ? <button className="link-cell" title="查看完整备注" onClick={() => onOpen(p.snapshot_id)}>{noteSummary(p.notes)}</button> : <span className="muted">—</span>) : noteSummary(p.notes) ?? ''}</td>
     <td>{p.change_cents ? `${changeText(p.change_cents)}${p.change_rate_hundredths !== null ? ' · ' + rateText(p.change_rate_hundredths) : ''}` : p.scope_changed ? '参与比较的账户有变化' : '—'}{p.compared_to && <small className="muted"> 对比 {p.compared_to}</small>}</td>
   </tr>)}</tbody></table>;
 }
 
-const W = 640, H = 170, L = 64, B = 22, T = 12;
-const axis = (cents: number) => { const v = Math.abs(cents); const t = v >= 1_000_000 ? `¥${(v / 1_000_000).toFixed(v % 1_000_000 ? 1 : 0)}万` : `¥${Math.round(v / 100)}`; return cents < 0 ? '−' + t : t; };
-/**
- * Complete check-ins form the line on an axis fitted to them (not pinned to
- * zero, which would flatten real changes). An incomplete check-in has no
- * trustworthy total, so it is a dashed marker on its date, never a value.
- */
-export function NetChart({ points, label }: { points: Point[]; label?: string }) {
-  const [current,setCurrent]=useState<number|null>(null);
-  const svgRef=useRef<SVGSVGElement>(null), [plotWidth,setPlotWidth]=useState(0);
-  useEffect(()=>{const svg=svgRef.current;if(!svg)return;const observer=new ResizeObserver(()=>setPlotWidth(svg.getBoundingClientRect().width));observer.observe(svg);return()=>observer.disconnect()},[]);
-  const full = points.filter(p => p.complete), values = full.map(p => Number(p.net_cents));
-  const min = Math.min(...values), max = Math.max(...values), pad = (max - min) * 0.15 || Math.max(Math.abs(max) * 0.05, 10_000);
-  const span = max - min + 2 * pad, step = 10 ** Math.floor(Math.log10(span)), unit = [1, 2, 5, 10].map(n => n * step).find(n => span / n <= 4) ?? step * 10;
-  const bottom = Math.floor((min - pad) / unit) * unit, top = Math.ceil((max + pad) / unit) * unit;
-  const grid = Array.from({ length: Math.round((top - bottom) / unit) + 1 }, (_, i) => bottom + i * unit);
-  const t0 = Date.parse(points[0].date), t1 = Date.parse(points.at(-1)!.date), wide = t1 - t0 || 1;
-  const x = (d: string) => L + 12 + (W - L - 36) * (Date.parse(d) - t0) / wide, y = (v: number) => T + (H - T - B) * (1 - (v - bottom) / (top - bottom));
-  const scale = Math.min((plotWidth || W) / W, 170 / H);
-  const labels = spacedLabels(points, p => x(p.date) * scale, () => 62 * scale);
-  const shown = current===null?null:full[current];
-  // The SVG uses xMidYMid meet; account for its horizontal letterbox.
-  const plotScale=Math.min(plotWidth/W,170/H), plotLeft=(plotWidth-W*plotScale)/2, plotTop=(170-H*plotScale)/2;
-  return <><div className="net-chart" tabIndex={0} role="img" aria-label={label ?? `金融净资产趋势，共 ${full.length} 次完整盘点`} onFocus={()=>setCurrent(full.length-1)} onBlur={()=>setCurrent(null)} onKeyDown={e=>{if(e.key==='Escape'){e.preventDefault();setCurrent(null)}else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setCurrent(n=>Math.max(0,Math.min(full.length-1,(n??full.length-1)+(e.key==='ArrowLeft'?-1:1))))}}}><svg ref={svgRef} className="trend-chart" onMouseMove={e=>{const svg=e.currentTarget,matrix=svg.getScreenCTM();if(!matrix)return;const point=svg.createSVGPoint();point.x=e.clientX;point.y=e.clientY;const vx=point.matrixTransform(matrix.inverse()).x;let best=0;full.forEach((p,i)=>{if(Math.abs(x(p.date)-vx)<Math.abs(x(full[best].date)-vx))best=i});setCurrent(best)}} onMouseLeave={()=>setCurrent(null)} viewBox={`0 0 ${W} ${H}`} role="img" aria-label={'净资产变化：' + points.map(p => p.complete ? `${p.date} ${signedMoney(p.net_cents)}` : `${p.date} 盘点不完整`).join('，')}>
-    {grid.map(v => <g key={v}><line x1={L} x2={W} y1={y(v)} y2={y(v)} className={v === 0 ? 'axis' : 'grid'}/><text x={L - 6} y={y(v) + 3} textAnchor="end">{axis(v)}</text></g>)}
-    {labels.map(p => <text key={p.date} x={x(p.date)} y={H - 6} textAnchor="middle">{p.date}</text>)}
-    {points.filter(p => !p.complete).map(p => <line key={p.snapshot_id} x1={x(p.date)} x2={x(p.date)} y1={T} y2={H - B} className="partial-mark"><title>{p.date}：缺 {p.missing} 个账户，总额未知，不画在曲线上</title></line>)}
-    {full.length > 1 && <polyline points={full.map(p => `${x(p.date)},${y(Number(p.net_cents))}`).join(' ')} className="trend-line"/>}
-    {shown&&<line x1={x(shown.date)} x2={x(shown.date)} y1={T} y2={H-B} className="partial-mark"/>}
-    {full.map((p,i) => <circle key={p.snapshot_id} cx={x(p.date)} cy={y(Number(p.net_cents))} r={i===current?5:3} className="trend-dot"/>)}
-  </svg>{shown&&<div className="ui-tip" style={{left:`clamp(100px, ${plotLeft+x(shown.date)*plotScale}px, calc(100% - 100px))`,top:`${plotTop+y(Number(shown.net_cents))*plotScale}px`}}>{shown.date}<b>{signedMoney(shown.net_cents)}</b><span>{changeLine(shown)}</span>{noteSummary(shown.notes)&&<span>备注：{noteSummary(shown.notes)}</span>}</div>}</div><span className="visually-hidden" aria-live="polite" aria-atomic="true">{shown?`${shown.date}，${signedMoney(shown.net_cents)}，${changeLine(shown)}`:''}</span></>;
+/** Shared with the overview hero, including keyboard browsing and unknown markers. */
+export function NetChart({ points, label, generation }: { points: Point[]; label?: string; generation?: string }) {
+  return <DualLineChart points={points} label={label} generation={generation} single={!!label}/>;
 }
 
-function Accounts({ accounts, onEdit, onNew, found }: { accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {
+function AccountListing(props: Parameters<typeof Accounts>[0] & { mode: 'list' | 'group'; groups: AccountGroup[]; allAccounts: Account[]; summary: Summary }) {
+  if (props.mode === 'list') return <Accounts {...props} quickPoints={props.summary.points}/>;
+  const totals = accountGroupTotals(props.allAccounts, props.groups, props.summary.latest_entries ?? [], true);
+  const partial = totals.some(g => g.partial), hidden = groupAmountsHidden();
+  return <><p className="muted small">小计按最近一次盘点 {props.summary.points.at(-1)?.date ?? '（暂无盘点）'}；归属用当前分组，不随搜索或账户筛选改变。下方账户金额仍标明各自日期。</p>{totals.map(group => {
+    const visible = props.accounts.filter(a => (props.groups.some(g => g.id === a.fields.group_id) ? a.fields.group_id : '') === group.id);
+    return <section key={group.id || 'ungrouped'} className="account-group-section"><header className="account-group-head"><h3>{group.name}</h3><p>{hidden ? '金融金额已隐藏' : props.summary.points.length && (group.known > 0 || (!group.partial && !group.accounts.length)) ? <>资产 {money(group.assets_cents)} · 负债 {money(group.liabilities_cents)} · 净额 {signedMoney(group.net_cents)} · 占{partial ? '已知计入资产' : '计入资产'} {group.share_hundredths === null ? '—' : `${(group.share_hundredths / 100).toFixed(2)}%`}{group.partial ? ' · 仅已知部分（含未知或本次未涵盖账户）' : ''}</> : '金额未知，本次未涵盖或尚无已知金额'}</p></header>{visible.length ? <Accounts {...props} quickPoints={props.summary.points} accounts={visible} found={null}/> : <p className="muted small">{group.accounts.length ? '当前筛选条件下没有账户。' : '这个分组还没有账户。'}</p>}</section>;
+  })}</>;
+}
+
+function Accounts({ quickPoints = [], accounts, onEdit, onNew, found, onQuick, today }: { quickPoints?: Point[]; onQuick: (account: Account) => void; today: string; accounts: Account[]; onEdit: (a: Account) => void; onNew: () => void; found: number | null }) {
   const [sort, setSort] = useState<ListSort>({ key: 'name', descending: false });
   const sorted = sortRecords(accounts, sort, (a, key) => key === 'name' ? a.fields.name : key === 'kind' ? (a.fields.side === 'liability' ? '负债 · ' : '') + kindLabel(a.fields.kind) : key === 'counted' ? Number(a.fields.counted) : key === 'status' ? Number(!!a.fields.closed_on) : moneySortValue(a.latest?.amount_cents), a => a.id);
   if (!accounts.length) return <div className="empty"><h2>当前范围没有账户</h2><p>可以切换上方账户范围，或添加新的账户。</p><button className="primary" onClick={onNew}>新增账户</button></div>;
-  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<table className="ui-table wealth-accounts"><thead><tr><SortHeader field="name" label="账户" sort={sort} onSort={setSort}/><SortHeader field="kind" label="类型" sort={sort} onSort={setSort}/><SortHeader field="counted" label="计入净资产" sort={sort} onSort={setSort}/><SortHeader field="amount" label="最近金额" sort={sort} onSort={setSort}/><SortHeader field="status" label="状态" sort={sort} onSort={setSort}/></tr></thead><tbody>{(sort.key === 'status' ? sorted : [...sorted].sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))).map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
+  return <>{found !== null && <p className="muted small" role="status">找到 {found} 条</p>}<div className="table-scroll"><table className="ui-table wealth-accounts"><thead><tr><SortHeader field="name" label="账户" sort={sort} onSort={setSort}/><SortHeader field="kind" label="类型" sort={sort} onSort={setSort}/><SortHeader field="counted" label="计入净资产" sort={sort} onSort={setSort}/><SortHeader field="amount" label="最近金额" sort={sort} onSort={setSort}/><SortHeader field="status" label="状态" sort={sort} onSort={setSort}/><th>操作</th></tr></thead><tbody>{(sort.key === 'status' ? sorted : [...sorted].sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))).map(a => <tr key={a.id} className={a.fields.closed_on ? 'closed' : undefined}>
     <td><button className="link-cell" onClick={() => onEdit(a)}>{a.fields.name}</button>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}</td>
     <td>{a.fields.side === 'liability' ? '负债 · ' : ''}{kindLabel(a.fields.kind)}</td>
     <td>{a.fields.counted ? '计入' : '不计入'}</td>
-    <td>{a.latest ? <>{money(a.latest.amount_cents)}<small className="muted"> · {a.latest.date}</small></> : <span className="muted">尚未盘点</span>}</td>
-    <td>{a.fields.closed_on ? `${a.fields.closed_on} 停用` : `${a.fields.opened_on} 起`}</td>
-  </tr>)}</tbody></table></>;
+    <td>{a.latest ? <><CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??"份"):null} code={a.fields.currency} fact={a.latest} date={a.latest.date}/></> : <span className="muted">{['property','vehicle'].includes(a.fields.kind) ? '尚未估值' : '尚未盘点'}</span>}<FixedAssetPurchase account={a}/><AccountUpdateAge account={a} today={today}/></td>
+    <td>{a.fields.closed_on ? `${a.fields.closed_on} 停用` : `${a.fields.opened_on} 起`}</td><td>{quickAvailable(a, quickPoints, today) ? <button type="button" className="ui-btn" onClick={() => onQuick(a)}>快速更新</button> : <span className="muted">请到盘点记录更正</span>}</td>
+  </tr>)}</tbody></table></div></>;
 }
 
 function History({ points, onOpen, onNew, canStart }: { points: Point[]; onOpen: (id: string) => void; onNew: () => void; canStart: boolean }) {
-  if (!points.length) return <div className="empty"><h2>还没有盘点</h2><p>每次盘点记录一个日期上各账户的余额与欠款。完整盘点指本次应盘的账户金额都已确认。</p><button className="primary" disabled={!canStart} onClick={onNew}>开始盘点</button></div>;
-  return <><p className="muted small">完整盘点：本次应盘的账户金额都已确认。</p><div className="table-scroll"><PointTable points={points} onOpen={onOpen}/></div></>;
+  if (!points.length) return <div className="empty"><h2>还没有盘点</h2><p>每次盘点记录一个日期上各账户的余额与欠款。完整表示应盘账户都有金额；快速更新可能沿用旧值，不代表全部重新核对。</p><button className="primary" disabled={!canStart} onClick={onNew}>开始盘点</button></div>;
+  return <><p className="muted small">完整表示应盘账户都有金额；快速更新可能沿用旧值，不代表全部重新核对。</p><div className="table-scroll"><PointTable points={points} onOpen={onOpen}/></div></>;
 }
 
 const blankAccount = (today: string): AccountFields => ({ name: '', institution: '', side: 'asset', kind: 'cash', counted: true, opened_on: today, closed_on: null, notes: '' });
 
-function AccountDialog({ account, generation, today, onClose }: { account: Account | null; generation: string; today: string; onClose: (saved: boolean) => void }) {
+function AccountDialog({ quickPoints = [], groups = [], onGroupsChanged, account, generation, today, onClose, onQuick }: { quickPoints?: Point[]; groups?: AccountGroup[]; onGroupsChanged?: () => void; onQuick: (account: Account) => void; account: Account | null; generation: string; today: string; onClose: (saved: boolean) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [fields, setFields] = useState<AccountFields>(account?.fields ?? blankAccount(today));
+  const [createGroup, setCreateGroup] = useState(false), [groupName, setGroupName] = useState(''), [createdGroup, setCreatedGroup] = useState<AccountGroup | null>(null);
+  const groupCreating = useRef(false);
+  const availableGroups = createdGroup && !groups.some(g => g.id === createdGroup.id) ? [...groups, createdGroup] : groups;
+  async function saveGroup() {
+    if (groupCreating.current || busy || stuck || storedPending()) return;
+    const problem = groupNameError(groupName); if (problem) { setNotice(problem); return; }
+    groupCreating.current = true; setBusy(true); setNotice('');
+    try { const g = await submit<AccountGroup>({ command: 'account_group_save', input: { request_id: crypto.randomUUID(), generation, id: null, expected_revision: null, name: groupName.trim() }, label: '新增账户分组' }); setCreatedGroup(g); setFields(f => ({ ...f, group_id: g.id })); setCreateGroup(false); setGroupName(''); onGroupsChanged?.(); }
+    catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
+    finally { groupCreating.current = false; setBusy(false); }
+  }
+  async function verifyGroup() {
+    const request = storedPending(); if (!request || request.command !== 'account_group_save' || groupCreating.current) return;
+    groupCreating.current = true; setBusy(true);
+    try {
+      const result = await resolvePending(request);
+      if (result === 'saved') { const g = await submit<AccountGroup>(request); setCreatedGroup(g); setFields(f => ({ ...f, group_id: g.id })); setCreateGroup(false); setNotice('已确认分组已保存，账户输入仍保留。'); }
+      else setNotice('分组没有保存，输入已保留，可以重新创建。');
+      setStuck(false); onGroupsChanged?.();
+    } catch (e) { setNotice(e instanceof Error ? e.message : errorMessage(e)); }
+    finally { groupCreating.current = false; setBusy(false); }
+  }
   const [countedChoice, setCountedChoice] = useState<boolean | null>(account?.fields.counted ?? null);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   useEffect(() => { dialog.current?.showModal(); document.getElementById('wealth-account-name')?.focus(); return () => dialog.current?.close(); }, []);
   const set = <K extends keyof AccountFields>(k: K, v: AccountFields[K]) => setFields(f => ({ ...f, [k]: v }));
   async function save() {
     if (!fields.name.trim()) { setNotice('请填写账户名称。'); document.getElementById('wealth-account-name')?.focus(); return; }
-    const input: AccountSave = { request_id: crypto.randomUUID(), generation, id: account?.id ?? null, expected_revision: account?.revision ?? null, fields: { ...fields, name: fields.name.trim(), institution: fields.institution.trim() } };
+    if (!validCurrency(currencyCode(fields.currency))) { setNotice("币种须为三位大写字母。"); return; }
+    const normalized = { ...fields }; if (normalized.currency === "CNY") delete normalized.currency; if (!normalized.holding_mode) { delete normalized.holding_mode; delete normalized.holding_unit; } if(normalized.holding_unit==null)delete normalized.holding_unit;
+    const input: AccountSave = { request_id: crypto.randomUUID(), generation, id: account?.id ?? null, expected_revision: account?.revision ?? null, fields: { ...normalized, name: fields.name.trim(), institution: fields.institution.trim() } };
     setBusy(true); setNotice('');
     try { await submit({ command: 'wealth_account_save', input, label: `账户 ${input.fields.name}` }); onClose(true); }
     catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="wealth-account-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">财富 · 账户</p><h2 id="wealth-account-heading">{account ? '编辑账户' : '新增账户'}</h2><p className="muted">只记名称与类型，不需要卡号、密码或登录信息。{account?.latest ? '已有盘点记录的账户不能删除，可填写停用日期。' : ''}</p></div><CloseButton type="button" aria-label="关闭账户表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{account && !account.latest && !stuck && <DeleteButton label="删除误建账户" disabled={busy} kind="account" id={account.id} revision={account.revision} generation={generation} name={`账户 ${account.fields.name}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存账户'}</button>}</div></header>
+    <header><div><p className="eyebrow">财富 · 账户</p><h2 id="wealth-account-heading">{account ? '编辑账户' : '新增账户'}</h2><p className="muted">只记名称与类型，不需要卡号、密码或登录信息。{account?.latest ? '已有盘点记录的账户不能删除，可填写停用日期。' : ''}</p></div><CloseButton type="button" aria-label="关闭账户表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{account && quickAvailable(account, quickPoints, today) && <button type="button" disabled={busy || stuck || currencyCode(fields.currency) !== currencyCode(account.fields.currency) || !!fields.holding_mode !== !!account.fields.holding_mode} onClick={() => onQuick(account)}>快速更新</button>}{account && !account.latest && !stuck && <DeleteButton label="删除误建账户" disabled={busy} kind="account" id={account.id} revision={account.revision} generation={generation} name={`账户 ${account.fields.name}`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存账户'}</button>}</div></header>
+    {account && currencyCode(fields.currency) !== currencyCode(account.fields.currency) && <p className="notice">请先保存币种，再打开快速更新。</p>}
+    {account && !!fields.holding_mode !== !!account.fields.holding_mode && <p className="notice">请先保存录入方式，再打开快速更新。</p>}
     <section className="form-block">
       <FormRow label="名称"><input id="wealth-account-name" aria-label="账户名称" maxLength={80} value={fields.name} disabled={busy || stuck} onChange={e => set('name', e.target.value)} placeholder="例如 招行储蓄卡"/></FormRow>
-      <FormRow label="平台" hint="只用于分组"><input aria-label="平台" maxLength={80} value={fields.institution} disabled={busy || stuck} onChange={e => set('institution', e.target.value)} placeholder="可留空"/></FormRow>
-      <FormRow label="类型" hint={account ? '资产或负债建立后不能更改' : '选了类型就知道是资产还是负债：信用卡、贷款等是负债，盘点时填欠款金额'}><select aria-label="类型" value={fields.kind} disabled={busy || stuck} onChange={e => { const kind = e.target.value; setFields(f => selectAccountKind(f, kind, countedChoice)); }}>
+      <FormRow label="平台" hint="银行、券商等机构，可留空；不决定账户分组"><input aria-label="平台" maxLength={80} value={fields.institution} disabled={busy || stuck} onChange={e => set('institution', e.target.value)} placeholder="可留空"/></FormRow>
+      <FormRow label="币种" hint={account?.has_entries ? '已有记录的账户不能更改币种，请新建账户并停用旧账户。' : '汇率手填，不联网；未列出的币种按两位小数处理。'}><input aria-label="账户币种" list="wealth-currencies" maxLength={3} value={currencyCode(fields.currency)} disabled={busy || stuck || !!account?.has_entries} onChange={e => set('currency', e.target.value.toUpperCase())}/><datalist id="wealth-currencies">{currencies.map(([code,name])=><option key={code} value={code}>{name}</option>)}</datalist></FormRow>
+      <FormRow label="类型" hint={account ? '资产或负债建立后不能更改' : '选了类型就知道是资产还是负债：信用卡、贷款等是负债，盘点时填欠款金额'}><select aria-label="类型" value={fields.kind} disabled={busy || stuck} onChange={e => { const kind = e.target.value; if (!['property','vehicle'].includes(kind) && (fields.purchase_cents != null || fields.purchased_on || account?.fields.purchase_cents != null || account?.fields.purchased_on)) { setNotice('请先清空并保存购入价和购入日期，再更改类型'); return; } setNotice(''); setFields(f => ({...selectAccountKind(f, kind, countedChoice),...(!holdingSupported(kind)?{holding_mode:false,holding_unit:null}:{})})); }}>
         {(!account || fields.side === 'asset') && <optgroup label="资产">{assetKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
         {(!account || fields.side === 'liability') && <optgroup label="负债">{liabilityKinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</optgroup>}
       </select></FormRow>
       {accountKindHint(fields.kind) && <p className="muted small">{accountKindHint(fields.kind)}</p>}
       {account && fields.kind === 'property' && account.fields.kind !== 'property' && <p className="notice">以后盘点不再计入金融净资产；既有盘点保持原记录。</p>}
       <FormRow label="计入金融净资产" hint={fields.kind === 'property' ? '房产固定不计入' : fields.side === 'liability' ? '房贷、车贷等可关闭' : `此类型新建建议：${defaultAccountCounted(fields.kind) ? '计入' : '不计入'}`}><Switch label="计入金融净资产" value={fields.counted} disabled={busy || stuck || fields.kind === 'property'} onChange={v => { setCountedChoice(v); set('counted', v); }}/></FormRow>
+      {holdingSupported(fields.kind) && <><FormRow label="按持仓记录" hint="一个账户一个持仓，金额由份额与单价计算；不记录交易成本或收益。"><Switch label="按持仓记录" value={!!fields.holding_mode} disabled={busy || stuck} onChange={value=>setFields(f=>({...f,holding_mode:value,...(!value?{holding_unit:null}:{})}))}/></FormRow>{fields.holding_mode && <FormRow label="持仓单位" hint="可留空，默认显示份；最多8字"><input aria-label="持仓单位" maxLength={8} value={fields.holding_unit??''} disabled={busy||stuck} onChange={e=>set('holding_unit',e.target.value||null)}/></FormRow>}</>}
+      <FormRow label="分组" hint="只影响查看；未分组也可以正常盘点和规划"><select aria-label="账户分组" value={fields.group_id ?? ''} disabled={busy || stuck} onChange={e => { if (e.target.value === '__new__') setCreateGroup(true); else set('group_id', e.target.value || null); }}><option value="">未分组</option>{availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}<option value="__new__">新建分组…</option></select>{createGroup && <div className="account-group-create">{stuck && <button type="button" disabled={busy} onClick={() => void verifyGroup()}>核对分组结果</button>}<input aria-label="就地新建分组名称" value={groupName} maxLength={40} disabled={busy || stuck} onChange={e => setGroupName(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void saveGroup(); } }}/><button type="button" disabled={busy || stuck || !groupName.trim()} onClick={() => void saveGroup()}>创建并选择</button><button type="button" disabled={busy || stuck} onClick={() => setCreateGroup(false)}>取消</button></div>}</FormRow>
       <FormRow label="启用日期" hint="此日之前的盘点不要求填写"><DateInput yearIntent="past" id="wealth-account-opened" value={fields.opened_on} max={today} disabled={busy || stuck} onChange={v => set('opened_on', v)}/></FormRow>
       {account && <FormRow label="停用日期" hint="停用前最后一次盘点须为 0"><DateInput yearIntent="past" id="wealth-account-closed" value={fields.closed_on ?? ''} max={today} allowClear disabled={busy || stuck} onChange={v => set('closed_on', v || null)}/></FormRow>}
+      {['property', 'vehicle'].includes(fields.kind) && <>
+        <FormRow label="购入价" hint="可留空；仅用于显示估值涨跌，不参与净资产或规划计算"><CentInput label="购入价" value={fields.purchase_cents ?? ''} disabled={busy || stuck} onChange={v => set('purchase_cents', v || null)}/></FormRow>
+        <FormRow label="购入日期" hint="可留空"><DateInput yearIntent="past" id="wealth-account-purchased" value={fields.purchased_on ?? ''} min="1900-01-01" max={today} allowClear disabled={busy || stuck} onChange={v => set('purchased_on', v || null)}/></FormRow>
+      </>}
     </section>
     <section className="form-block form-notes"><label htmlFor="wealth-account-notes">备注</label><textarea id="wealth-account-notes" maxLength={10000} value={fields.notes} disabled={busy || stuck} onChange={e => set('notes', e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}
@@ -312,7 +416,7 @@ export function DeleteButton({ label, disabled, kind, id, revision, generation, 
     : <button type="button" disabled={disabled} onClick={() => setArmed(true)}>{label}</button>;
 }
 
-type Row = { state: EntryState | null; cents: string; edited?: boolean };
+type Row = CheckInRow;
 /** 只读盘点详情（§5.2）：按稳定 snapshot ID 读取，浏览不写任何资料。 */
 function SnapshotDetail({ id, onCorrect, onClose }: { id: string; onClose: () => void; onCorrect: (id: string) => void }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null), [error, setError] = useState('');
@@ -327,10 +431,15 @@ function SnapshotDetail({ id, onCorrect, onClose }: { id: string; onClose: () =>
   usePageBar('wealth', {});
   if (error) return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading"><header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> 返回财富</button><div><h2 id="snapshot-detail-heading">盘点详情</h2></div></header><div role="alert"><p>盘点读取失败：{error}</p><button onClick={() => onClose()}>返回</button></div></section>;
   if (!snapshot || !accounts) return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading"><header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> 返回财富</button><div><h2 id="snapshot-detail-heading">盘点详情</h2></div></header><p role="status" className="muted">正在读取盘点…</p></section>;
-  const stateText = (state: string, amount: string | null) => amount === null ? '未知' : state === 'unchanged' ? '未变' : '录入';
+  const stateText = (state: string, amount: string | null) => amount === null ? '未知' : state === 'unchanged' ? '沿用' : '录入';
   return <section className="stats-section wealth-section check-in" aria-labelledby="snapshot-detail-heading">
     <header className="check-in-header"><button className="back" onClick={onClose}><Icon name="back"/> 返回财富</button><div><h2 id="snapshot-detail-heading">盘点详情</h2><p className="muted">只读查看，不改动任何资料。</p></div><div className="field check-in-date"><label>盘点日期</label><output>{snapshot.date}</output></div></header>
-    <table className="ui-table check-in-table"><thead><tr><th>账户</th><th>记录金额</th><th>状态</th><th>计入</th></tr></thead><tbody>{snapshot.entries.map(e => { const a = accounts.find(x => x.id === e.account_id); return <tr key={e.account_id}><td><strong>{a?.fields.name ?? e.account_id}</strong><small className="muted">{e.side === 'liability' ? '负债' : kindLabel(e.kind)}</small></td><td>{e.amount_cents === null ? <span className="muted">未知</span> : money(e.amount_cents)}</td><td>{stateText(e.state, e.amount_cents)}</td><td>{e.counted ? '计入' : '不计入'}</td></tr>; })}</tbody></table>
+    {snapshot.entries.some(e => e.state === 'unchanged') && <p className="notice">快速更新 · 含沿用金额，没有未知账户时仍是完整盘点。</p>}
+    {(['entered', 'unchanged', 'missing'] as const).map(state => {
+      const entries = snapshot.entries.filter(entry => entry.state === state);
+      if (!entries.length) return null;
+      return <section key={state}><h3>{state === 'entered' ? '本次填写' : state === 'unchanged' ? '沿用' : '金额未知'}</h3><table className="ui-table check-in-table"><thead><tr><th>账户</th><th>记录金额</th><th>状态</th><th>计入</th></tr></thead><tbody>{entries.map(e => { const a = accounts.find(x => x.id === e.account_id); return <tr key={e.account_id}><td><strong>{a?.fields.name ?? e.account_id}</strong><small className="muted">{e.side === 'liability' ? '负债' : kindLabel(e.kind)}</small></td><td><CurrencyBalance unit={a?.fields.holding_mode?(a.fields.holding_unit??"份"):null} code={a?.fields.currency} fact={e} date={snapshot.date}/></td><td>{stateText(e.state, e.amount_cents)}</td><td>{e.counted ? '计入' : '不计入'}</td></tr>; })}</tbody></table></section>;
+    })}
     <footer className="check-in-footer"><div><span>完整性</span><strong>{snapshot.missing.length === 0 ? '完整' : `缺 ${snapshot.missing.length} 个账户`}</strong></div>
       <div className="check-in-submit"><button className="primary" onClick={() => onCorrect(snapshot.id)}>更正这次盘点</button></div></footer>
     <section className="form-block form-notes snapshot-notes"><h3>备注</h3>{snapshot.notes.trim() ? <p className="notes" style={{whiteSpace:'pre-wrap'}}>{snapshot.notes}</p> : <p className="muted">未填写备注</p>}</section>
@@ -346,6 +455,7 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [stuck, setStuck] = useState(false);
   const [switchTo, setSwitchTo] = useState<string | null>(null);
+  const [rates, setRates] = useState<Record<string,string>>({});
   const table = useRef<HTMLTableElement>(null);
   const fromSaved = useRef(false);
   useEffect(() => {
@@ -356,6 +466,7 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
       // or as a brand-new check-in; the user returns and re-reads instead.
       if (pin && d.existing?.id !== pin) { setError('这条盘点已删除或变化，请返回后重新读取。'); return; }
       setDraft(d);
+      setRates(Object.fromEntries(Object.entries(rateSuggestions(d)).map(([c,s])=>[c,s.rate])));
       // Notes belong to the snapshot of the viewed date; a new date starts empty.
       setNotes(d.existing?.notes ?? '');
       setNotesDirty(false);
@@ -366,7 +477,7 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
         fromSaved.current = !!d.existing;
         return Object.fromEntries(d.rows.map(r => {
           const saved = d.existing?.entries.find(e => e.account_id === r.account.id);
-          return [r.account.id, saved ? { state: saved.state, cents: saved.amount_cents ?? '' } : carry[r.account.id] ?? { state: null, cents: '' }];
+          return [r.account.id, saved ? { state: saved.state, cents: saved.amount_cents ?? '', original_minor: saved.original_minor, fx_rate_micro: saved.fx_rate_micro, quantity_e8:saved.quantity_e8,unit_price_e6:saved.unit_price_e6 } : carry[r.account.id] ?? { state: null, cents: '' }];
         }));
       });
     }).catch(e => { if (live) setError(errorMessage(e)); });
@@ -375,6 +486,18 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
   const set = (id: string, row: Row) => {
     setRows(r => ({ ...r, [id]: { ...row, edited: true } }));
     setNotice('');
+  };
+  const setForeign = (id: string, code: string, original: string, rate: string) => {
+    let cents = ''; try { if (original !== '') cents = convertCurrency(code, original, rate); } catch { /* missing/invalid rate blocks save */ }
+    set(id, { state: original === '' ? null : 'entered', cents, original_minor: original || null, fx_rate_micro: rate || null });
+  };
+  const setHolding = (id: string, code: string, q: string, p: string, rate: string) => {
+    let fact: CurrencyFact = {amount_cents:null}; try { fact=holdingFact(code,q,p,rate); } catch { /* component error or missing data blocks save */ }
+    set(id,{state:q!==''&&p!==''?'entered':null,cents:fact.amount_cents??'',quantity_e8:q||null,unit_price_e6:p||null,original_minor:fact.original_minor,fx_rate_micro:fact.fx_rate_micro});
+  };
+  const changeRate = (code: string, rate: string) => {
+    setRates(old => ({ ...old, [code]: rate }));
+    for (const r of draft?.rows ?? []) if (currencyCode(r.account.fields.currency) === code && rows[r.account.id]?.edited && rows[r.account.id]?.state === 'entered') { const row=rows[r.account.id]; if(r.account.fields.holding_mode)setHolding(r.account.id,code,row.quantity_e8??'',row.unit_price_e6??'',rate);else setForeign(r.account.id,code,row.original_minor??'',rate); }
   };
   const open = draft?.rows ?? [], existing = draft?.existing ?? null;
   const unfilled = open.filter(r => !rows[r.account.id]?.state || rows[r.account.id].state === 'missing' || rows[r.account.id].cents === '');
@@ -394,6 +517,7 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
     catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
+  let hidden = false; try { hidden = localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { /* unavailable preference */ }
   const frozen = busy || stuck;
   return <section className="stats-section wealth-section check-in" aria-labelledby="check-in-heading">
     <header className="check-in-header">
@@ -403,21 +527,22 @@ function CheckIn({ date: initial, today, onClose, expectedId }: { expectedId?: s
     </header>
     {existing && draft && <div className="notice">这一天已有盘点，保存会更正原记录，并影响它与前后两次盘点的比较。<DeleteButton label="删除这次盘点" disabled={frozen} kind="snapshot" id={existing.id} revision={existing.revision} generation={draft.generation} name={`${date} 盘点`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/></div>}
     {error ? <div role="alert"><p>盘点读取失败：{error}</p></div> : !draft ? <p role="status" className="muted">正在准备盘点…</p> : !open.length ? <p className="muted">这一天没有需要盘点的账户（账户启用日期都晚于此日或已停用）。</p> : <>
+      {open.some(r=>currencyCode(r.account.fields.currency)!=='CNY') && <section className="form-block"><h3>本次汇率</h3><p className="muted small">每单位原币兑换的人民币，只用于本次修改金额的账户；未改动的历史金额保留各自汇率。不联网取汇率。</p>{[...new Set(open.map(r=>currencyCode(r.account.fields.currency)).filter(c=>c!=='CNY'))].map(code=>{const suggestion=rateSuggestions(draft)[code];return <FormRow key={code} label={`${code} 汇率`} hint={suggestion?`${suggestion.date}记录的汇率；可修改。`:'没有历史汇率，请手动填写。'}><CurrencyInput label={`${code} 汇率`} places={6} value={rates[code]??''} disabled={frozen} onChange={v=>changeRate(code,v)}/></FormRow>;})}</section>}
       <table ref={table} className="ui-table check-in-table"><thead><tr><th>账户</th><th>上次金额</th><th>本次金额</th><th>差额</th></tr></thead><tbody>{open.map(({ account: a, previous }) => {
         const row = rows[a.id] ?? { state: null, cents: '' };
         const diff = row.state && row.state !== 'missing' && row.cents !== '' && previous ? (BigInt(row.cents) - BigInt(previous.amount_cents)).toString() : null;
         return <tr key={a.id} data-state={row.state ?? 'empty'}>
-          <td><strong>{a.fields.name}</strong><small className="muted">{a.fields.side === 'liability' ? '负债 · 尚欠' : kindLabel(a.fields.kind)}{a.fields.counted ? '' : ' · 不计入'}</small></td>
-          <td>{previous ? <>{money(previous.amount_cents)}<small className="muted">{previous.date}</small></> : <span className="muted">无</span>}</td>
+          <td><strong>{a.fields.name}</strong><small className="muted">{a.fields.side === 'liability' ? '负债 · 尚欠' : kindLabel(a.fields.kind)}{a.fields.counted ? '' : ' · 不计入'}</small>{(existing?.entries.find(e=>e.account_id===a.id)??previous)?.amount_cents!=null && !!a.fields.holding_mode !== ((existing?.entries.find(e=>e.account_id===a.id)??previous)?.quantity_e8!=null) && <small className="notice">从这次开始按{a.fields.holding_mode?'持仓':'余额'}记录；未改动的历史金额保持原样。</small>}</td>
+          <td>{previous ? <CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??"份"):null} code={a.fields.currency} fact={previous} date={previous.date}/> : <span className="muted">无</span>}</td>
           <td onKeyDown={e => { if (e.key === 'Enter' && e.target instanceof HTMLInputElement) { e.preventDefault(); focusNext(e.target); } }}>
-            <span data-amount-wrap><CentInput label={`${a.fields.name} 本次金额`} value={row.cents} disabled={frozen} placeholder="0.00" onChange={v => set(a.id, { state: v === '' ? null : 'entered', cents: v })}/></span>
+            <span data-amount-wrap>{a.fields.holding_mode ? <div className="holding-check-in"><label>份额<HoldingInput label={`${a.fields.name} 份额`} places={8} value={row.quantity_e8??''} disabled={frozen} onChange={q=>setHolding(a.id,currencyCode(a.fields.currency),q,row.unit_price_e6??'',rates[currencyCode(a.fields.currency)]??'')}/></label>{previous?.quantity_e8 != null && !row.quantity_e8 && <button type="button" className="ui-link" disabled={frozen} onClick={() => setHolding(a.id,currencyCode(a.fields.currency),previous.quantity_e8!,row.unit_price_e6??'',rates[currencyCode(a.fields.currency)]??'')}>沿用上次份额</button>}<label>单价（{currencyCode(a.fields.currency)}）<HoldingInput label={`${a.fields.name} 单价`} places={6} value={row.unit_price_e6??''} disabled={frozen} onChange={p=>setHolding(a.id,currencyCode(a.fields.currency),row.quantity_e8??'',p,rates[currencyCode(a.fields.currency)]??'')}/></label><small className="muted">{previous?.unit_price_e6!=null?(hidden?'上次单价 ••••':`上次单价 ${rateLabel(previous.unit_price_e6)} ${currencyCode(a.fields.currency)}，仅供参考`):'没有上次单价，手动填写。'}</small><output>{row.cents?(hidden?'••••':`= ${money(row.cents)}`):'请填写份额、单价及所需汇率'}</output></div> : currencyCode(a.fields.currency)==='CNY' ? <CentInput label={`${a.fields.name} 本次金额`} value={row.cents} disabled={frozen} placeholder="0.00" onChange={v => set(a.id, { state: v === '' ? null : 'entered', cents: v })}/> : <><label>{currencyCode(a.fields.currency)} 原币金额<CurrencyInput label={`${a.fields.name} 原币金额`} places={currencyDecimals(currencyCode(a.fields.currency))} value={row.original_minor??''} disabled={frozen} onChange={v=>setForeign(a.id,currencyCode(a.fields.currency),v,rates[currencyCode(a.fields.currency)]??'')}/></label><small className="muted">{hidden && row.cents ? '••••' : row.cents ? <>≈ {money(row.cents)} · 汇率 {row.fx_rate_micro ? rateLabel(row.fx_rate_micro) : '待填'}</> : '请填写原币金额与大于0的汇率'}</small></>}</span>
           </td>
           <td>{diff === null ? <span className="muted">—</span> : diff === '0' ? '持平' : changeText(diff)}</td>
         </tr>; })}</tbody></table>
       <section className="form-block form-notes check-in-notes"><label htmlFor="check-in-notes">本次盘点备注（可选）</label><textarea id="check-in-notes" rows={3} maxLength={10000} placeholder="记录这次盘点的背景，例如大额购买、账户调整；备注不参与金额计算" value={notes} disabled={frozen} onChange={e => { setNotes(e.target.value); setNotesDirty(true); }}/></section>
       <footer className="check-in-footer">
-        <div><span>金融资产</span><strong>{money(totals.assets)}</strong></div><div><span>负债</span><strong>{money(totals.liabilities)}</strong></div>
-        <div><span>金融净资产{totals.missing || unfilled.length ? '（待填写）' : ''}</span><strong>{signedMoney(totals.net)}</strong>{before && <small className="muted">原记录 {signedMoney(before.net)}</small>}</div>
+        <div><span>金融资产{totals.missing || unfilled.length ? "（已填小计）" : ""}</span><strong>{money(totals.assets)}</strong></div><div><span>负债{totals.missing || unfilled.length ? "（已填小计）" : ""}</span><strong>{money(totals.liabilities)}</strong></div>
+        <div><span>金融净资产{totals.missing || unfilled.length ? '（待填写）' : ''}</span><strong>{totals.missing || unfilled.length ? "—" : signedMoney(totals.net)}</strong>{before && <small className="muted">原记录 {signedMoney(before.net)}</small>}</div>
         <div className="check-in-submit">{unfilled.length > 0 && <span className="muted">还有 {unfilled.length} 个账户未填写</span>}{stuck ? <button type="button" onClick={() => onClose(false)}>返回，稍后核对</button> : <button className="primary" disabled={frozen} onClick={() => void save()}>{busy ? '保存中…' : existing ? '保存更正' : '保存盘点'}</button>}</div>
       </footer>
     </>}

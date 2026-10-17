@@ -1,4 +1,5 @@
 import { modKey } from './undo-shortcut';
+import { privacyMenuAllowed } from './privacy-lock';
 import { useEffect, useRef, useState } from 'react';
 import { errorMessage } from './asset';
 import { listen } from '@tauri-apps/api/event';
@@ -36,7 +37,7 @@ export function UndoBar() {
   const latest = useRef<{ offered: boolean; undo: () => void }>({ offered: false, undo: () => {} });
   useEffect(() => {
     const off = listen<string>('asset-action', event => {
-      if (event.payload !== 'undo') return;
+      if (!privacyMenuAllowed() || event.payload !== 'undo') return;
       const target = undoTarget(document.activeElement, !!document.querySelector('dialog[open]'), latest.current.offered);
       // execCommand is WebKit's route into the field's own undo stack.
       if (target === 'text') document.execCommand('undo');

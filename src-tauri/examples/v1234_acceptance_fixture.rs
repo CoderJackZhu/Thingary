@@ -39,6 +39,12 @@ pub fn seed(store: &mut Store, today: &str) -> Result<()> {
                     opened_on: opened.clone(),
                     closed_on: None,
                     notes: "统一验收虚构资料，非真实资产".into(),
+                    purchase_cents: None,
+                    purchased_on: None,
+                    group_id: None,
+                    currency: "CNY".into(),
+                    holding_mode: false,
+                    holding_unit: None,
                 },
             },
             today,
@@ -67,6 +73,10 @@ pub fn seed(store: &mut Store, today: &str) -> Result<()> {
                             })
                             .to_string(),
                         ),
+                        original_minor: None,
+                        fx_rate_micro: None,
+                        quantity_e8: None,
+                        unit_price_e6: None,
                     })
                     .collect(),
             },

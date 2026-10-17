@@ -1,0 +1,14 @@
+.quick-update-editor{width:min(680px,calc(100vw - 48px));overflow-wrap:anywhere}
+.quick-update-editor header h2{padding-right:32px}
+.quick-update-modes{flex-wrap:wrap;margin:20px 0}
+.quick-update-preview{padding:12px 16px;border-radius:var(--ctl-radius);background:var(--soft)}
+.quick-update-preview p{margin:4px 0;font-variant-numeric:tabular-nums}
+.quick-update-editor select{max-width:100%}
+.quick-update-editor footer{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-top:24px}
+.account-update-age{display:block;color:var(--muted);font-weight:normal}
+.account-update-age[data-old=true]{color:var(--warn)}
+.wealth-quick-action{flex:none}
+@media(max-width:900px){.wealth-section .ui-rows .ui-row{flex-wrap:wrap}.wealth-quick-action{margin-left:auto}}
+/* Generic editor footers bleed into the page padding. This modal keeps its
+   actions inside the form at every appearance and narrow window width. */
+.editor.quick-update-editor>form>footer.editor-header-actions{margin:24px 0 0;padding:16px;width:100%;max-width:100%;min-width:0;box-sizing:border-box}

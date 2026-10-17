@@ -1,3 +1,4 @@
+pub mod account_groups;
 pub mod auto_backup;
 pub mod backup;
 pub mod backup_crypto;
@@ -12,6 +13,7 @@ pub mod choices;
 mod commands;
 pub mod csv_export;
 pub mod csv_import;
+pub use financial_import_parser::{currency, holdings};
 pub mod demo;
 mod demo_finance;
 pub mod domain;
@@ -45,6 +47,7 @@ mod planning_engine_commands;
 pub mod planning_flow_review;
 mod planning_followup_commands;
 pub mod preferences;
+pub mod privacy_lock;
 pub mod purge;
 mod recovery;
 pub mod recurring;
@@ -281,14 +284,21 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             planning_engine_commands::planning_engine_evaluate,
+            privacy_lock::privacy_auth_available,
+            privacy_lock::privacy_authenticate,
             commands::notification_permission,
             commands::modules_get,
             commands::modules_set,
             commands::wealth_accounts,
             commands::wealth_account_save,
+            commands::account_groups_list,
+            commands::account_group_save,
+            commands::account_group_delete,
+            commands::account_groups_reorder,
             commands::wealth_snapshot,
             commands::wealth_snapshot_draft,
             commands::wealth_snapshot_save,
+            commands::wealth_quick_update,
             commands::wealth_request_result,
             savings_goal_commands::savings_goals_read,
             savings_goal_commands::savings_goals_save,

@@ -6,7 +6,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { errorMessage, money } from './asset.ts';
 import { Info } from './FormControls';
-import { NetChart } from './WealthPage';
+import { NetChart, CurrencyBalance } from './WealthPage';
 import { cellText, changeText, defaultRange, kindLabel, rateText, sortRows, noteSummary } from './wealth';
 import type { Account, AccountHistory, Compare, CompareRow, Point, Summary } from './wealth';
 
@@ -156,7 +156,7 @@ function HistoryTable({ accounts, expanded, toggle, history, retry }: {
     <tbody>{accounts.map(a => <Fragment key={a.id}>
       <tr>
         <td><strong>{a.fields.name}</strong>{a.fields.institution && <small className="muted"> · {a.fields.institution}</small>}{a.fields.closed_on && <small className="muted"> · 已停用</small>}</td>
-        <td>{a.latest ? money(a.latest.amount_cents) : <span className="muted">尚未盘点</span>}</td>
+        <td>{a.latest ? <CurrencyBalance unit={a.fields.holding_mode?(a.fields.holding_unit??"份"):null} code={a.fields.currency} fact={a.latest} date={a.latest.date}/> : <span className="muted">尚未盘点</span>}</td>
         <td><button className="row-expand" aria-expanded={expanded.has(a.id)} aria-label={`${expanded.has(a.id) ? '收起' : '展开'}「${a.fields.name}」的盘点历史`} onClick={() => toggle(a.id)}>{expanded.has(a.id) ? '▾' : '▸'}</button></td>
       </tr>
       {expanded.has(a.id) && <tr className="history-row"><td colSpan={3}><HistoryBlock id={a.id} name={a.fields.name} side={a.fields.side} history={history.get(a.id)} onRetry={retry}/></td></tr>}
@@ -192,14 +192,14 @@ function HistoryBlock({ id, name, side, history, onRetry }: {
   if (history.status === 'error') return <div role="alert"><p>历史读取失败：{history.message}</p><button onClick={() => onRetry(id)}>重新读取</button></div>;
   const data = history.data;
   // 未知金额不画 0：complete=false 让 NetChart 只留虚线标记（W-AC07）。
-  const points: Point[] = data.rows.map(row => ({ snapshot_id: row.snapshot_id, date: row.date, notes: '', assets_cents: row.amount_cents ?? '0', liabilities_cents: '0', net_cents: row.amount_cents ?? '0', complete: row.amount_cents !== null, missing: row.amount_cents === null ? 1 : 0, compared_to: null, scope_changed: false, change_cents: null, hpf_change_cents: null, change_rate_hundredths: null }));
+  const points: Point[] = data.rows.map(row => ({ snapshot_id: row.snapshot_id, date: row.date, notes: '', assets_cents: row.amount_cents ?? '0', liabilities_cents: '0', net_cents: row.amount_cents ?? '0', liquid_cents: null, invested_cents: null, complete: row.amount_cents !== null, missing: row.amount_cents === null ? 1 : 0, compared_to: null, scope_changed: false, change_cents: null, hpf_change_cents: null, change_rate_hundredths: null }));
   const known = data.rows.filter(row => row.amount_cents !== null).length;
   return <div className="account-history">
     {known > 0 ? <NetChart points={points} label={`「${name}」的金额趋势，共 ${known} 次已知金额`}/> : <p className="muted">还没有已知金额。</p>}
-    <table className="ui-table"><thead><tr><th>日期</th><th>金额</th><th>与前次</th><th>状态</th><th>计入</th></tr></thead>
+    <table className="ui-table"><thead><tr><th>日期</th><th>金额</th><th>与前次（人民币）</th><th>状态</th><th>计入</th></tr></thead>
       <tbody>{data.rows.map(row => <tr key={row.snapshot_id}>
         <td>{row.date}</td>
-        <td>{row.amount_cents === null ? <span className="muted">未知</span> : side === 'liability' ? `欠 ${money(row.amount_cents)}` : money(row.amount_cents)}</td>
+        <td>{row.amount_cents !== null && side === 'liability' ? '欠 ' : ''}<CurrencyBalance unit={data.account.fields.holding_mode?(data.account.fields.holding_unit??"份"):null} code={data.account.fields.currency} fact={row} date={row.date}/></td>
         <td>{row.change_cents === null ? <span className="muted">—</span> : side === 'liability' ? `欠款 ${changeText(row.change_cents)}` : changeText(row.change_cents)}</td>
         <td>{stateLabel(row.state)}</td>
         <td>{row.counted ? '计入' : '不计入'}</td>

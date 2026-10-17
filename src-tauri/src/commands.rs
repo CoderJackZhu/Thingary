@@ -1604,6 +1604,18 @@ pub async fn wealth_snapshot_save(
     .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn wealth_quick_update(
+    input: crate::wealth::QuickUpdate,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::wealth::Snapshot> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.wealth_quick_update(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
 pub async fn goal_progress_list(
     worker: tauri::State<'_, Worker>,
 ) -> Result<Vec<crate::goal_progress::Entry>> {
@@ -2376,4 +2388,44 @@ impl Drop for BackupTaskReservation {
             let _ = self.worker.backup_task_cancel(id);
         }
     }
+}
+
+#[tauri::command]
+pub async fn account_groups_list(
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::account_groups::List> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(|s| s.account_groups_list()))
+        .await
+        .map_err(|_| Error::new("WORKER", "分组读取失败，请重试"))?
+}
+#[tauri::command]
+pub async fn account_group_save(
+    input: crate::account_groups::Save,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::account_groups::Group> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.account_group_save(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn account_group_delete(
+    input: crate::account_groups::Delete,
+    worker: tauri::State<'_, Worker>,
+) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.account_group_delete(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "删除结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
+pub async fn account_groups_reorder(
+    input: crate::account_groups::Reorder,
+    worker: tauri::State<'_, Worker>,
+) -> Result<()> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || w.call(move |s| s.account_groups_reorder(&input)))
+        .await
+        .map_err(|_| Error::new("WORKER", "排序结果未返回，请核对本次请求"))?
 }

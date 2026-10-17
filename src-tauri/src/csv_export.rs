@@ -112,7 +112,7 @@ impl Store {
     }
     pub(crate) fn wealth_table(&self, guarded: bool) -> Result<(String, i64)> {
         let mut stmt = self.conn()?.prepare(
-            "SELECT s.date,a.name,a.institution,e.side,e.kind,e.counted,e.state,e.amount_cents,s.notes
+            "SELECT s.date,a.name,a.institution,e.side,e.kind,e.counted,e.state,e.amount_cents,s.notes,a.purchase_cents,a.purchased_on,(SELECT name FROM fin_account_groups g WHERE g.id=a.group_id),a.currency,e.original_minor,e.fx_rate_micro,e.quantity_e8,e.unit_price_e6
              FROM fin_snapshot_entries e JOIN fin_snapshots s ON s.id=e.snapshot_id
              JOIN fin_accounts a ON a.id=e.account_id
              WHERE s.deleted_at IS NULL ORDER BY s.date,a.position,a.id",
@@ -141,6 +141,32 @@ impl Store {
                     .into(),
                     yuan(r.get(7)?),
                     text(&r.get::<_, String>(8)?, guarded),
+                    yuan(r.get(9)?),
+                    r.get::<_, Option<String>>(10)?.unwrap_or_default(),
+                    text(
+                        &r.get::<_, Option<String>>(11)?.unwrap_or_default(),
+                        guarded,
+                    ),
+                    r.get::<_, String>(12)?,
+                    r.get::<_, Option<i64>>(13)?
+                        .map(|v| {
+                            crate::currency::decimal(
+                                v,
+                                crate::currency::decimals(
+                                    &r.get::<_, String>(12).unwrap_or_default(),
+                                ),
+                            )
+                        })
+                        .unwrap_or_default(),
+                    r.get::<_, Option<i64>>(14)?
+                        .map(|v| crate::currency::decimal(v, 6))
+                        .unwrap_or_default(),
+                    r.get::<_, Option<i64>>(15)?
+                        .map(|v| crate::currency::decimal(v, 8))
+                        .unwrap_or_default(),
+                    r.get::<_, Option<i64>>(16)?
+                        .map(|v| crate::currency::decimal(v, 6))
+                        .unwrap_or_default(),
                 ])
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -154,6 +180,14 @@ impl Store {
             "状态",
             "金额（元）",
             "盘点备注",
+            "购入价",
+            "购入日期",
+            "分组",
+            "币种",
+            "原币金额",
+            "汇率",
+            "份额",
+            "单价",
         ];
         Ok((table(&header, &rows), rows.len() as i64))
     }
@@ -572,6 +606,8 @@ fn account_kind(kind: &str) -> &str {
         "pension" => "个人养老金",
         "insurance" => "保险现金价值",
         "precious_metal" => "黄金与贵金属",
+        "receivable" => "应收款",
+        "vehicle" => "车辆",
         "credit_card" => "信用卡",
         "loan" => "贷款",
         "other_liability" => "其他负债",

@@ -1,3 +1,6 @@
+import { holdingSupported, validateHoldingFact, sameHoldingFact } from "./holdings";
+import type { AccountGroup, GroupSave, GroupDelete, GroupReorder } from './account-groups';
+import { currencyCode, convertCurrency, validateCurrencyFact, validCurrency } from './currency';
 import { reviewFixtures } from './investment-review/fixtures';
 import type { InvestmentReviewRead } from './wealth';
 import nonblockingDemo from '../tests/fixtures/planning-basic/nonblocking-demo.json';
@@ -45,7 +48,15 @@ const shifted = (months: number, offset = 0) => {
   return iso(new Date(target.getFullYear(), target.getMonth(), Math.min(base.getDate(), new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate())));
 };
 let accounts: Account[] = demoFinance.accounts.map((a, position) => ({ id: 'w-' + a.key,
-  fields: { name: a.name, institution: a.institution, side: a.side as 'asset' | 'liability', kind: a.kind, counted: a.counted, opened_on: shifted(6), closed_on: null, notes: '虚构样例' }, position, revision: 1, latest: null }));
+  fields: { name: a.name, institution: a.institution, side: a.side as 'asset' | 'liability', kind: a.kind, counted: a.counted, opened_on: shifted(6), closed_on: null, notes: '虚构样例', purchase_cents: 'purchase_cents' in a ? a.purchase_cents : null, purchased_on: 'purchased_on' in a ? a.purchased_on : null }, position, revision: 1, latest: null }));
+let accountGroups: AccountGroup[] = params.get('groups') === 'normal' ? [
+  { id: 'fictional-emergency', name: '虚构应急金', position: 0, revision: 1, accounts: 0 },
+  { id: 'fictional-long', name: '虚构长期投资', position: 1, revision: 1, accounts: 0 },
+  { id: 'fictional-empty', name: '虚构空分组', position: 2, revision: 1, accounts: 0 },
+] : [];
+if (accountGroups.length) accounts = accounts.map(a => ({ ...a, fields: { ...a.fields, group_id: a.fields.kind === 'cash' ? accountGroups[0].id : ['investment','mixed','fund','bond'].includes(a.fields.kind) ? accountGroups[1].id : null } }));
+const groupUnknownChecks = new Set<string>();
+const groupReceipts = new Map<string, { fingerprint: string; value: unknown }>();
 type Stored = { id: string; date: string; notes: string; revision: number; entries: Entry[] };
 const entry = (a: Account, yuan: number | null): Entry => ({ account_id: a.id, state: yuan === null ? 'missing' : 'entered', amount_cents: yuan === null ? null : String(yuan * 100), side: a.fields.side, kind: a.fields.kind, counted: a.fields.counted });
 let snapshots: Stored[] = demoFinance.snapshots.map((s, i) => ({ id: `w-snap-${i}`, date: shifted(s.months_ago), notes: '虚构盘点', revision: 1, entries: accounts.map((a, n) => entry(a, s.amounts_yuan[n])) }));
@@ -80,15 +91,58 @@ if (params.get('wealth-fixture') === 'usability' && snapshots.length > 2) {
   accounts.splice(1, 0, retired[0]); accounts.splice(3, 0, retired[1]); accounts.push(retired[2]);
   snapshots = snapshots.map(s => ({ ...s, entries: [...s.entries, ...retired.filter(a => s.date < a.fields.closed_on!).map(a => entry(a, 0))] }));
 }
+// Explicit fictional fixture: leave today open for a new quick check-in.
+if (params.get('wealth-fixture') === 'quick-new-day') {
+  snapshots = snapshots.filter(snapshot => snapshot.date !== iso(now));
+}
+// First complete quick update must offer the same reminder as a full check-in.
+// A single incomplete snapshot, with only the cash balance unknown.
+if (params.get('wealth-fixture') === 'quick-first-complete' && snapshots.length) {
+  snapshots = snapshots.slice(-1).map(s => ({ ...s, entries: s.entries.map((e, i) => i === 0 ? { ...e, state: 'missing' as const, amount_cents: null } : e) }));
+}
+// Explicit fictional foreign-currency fixture; ordinary sample amounts remain unchanged.
+if (params.get('wealth-fixture') === 'currency' || params.get('currency') === '1' || params.get('currency') === 'retired-rate') {
+  accounts = accounts.map((a,i) => i < 3 ? { ...a, fields: { ...a.fields, name: `虚构${i===2?'日元':'美元'}账户${i+1}`, currency: i===2?'JPY':'USD' } } : a);
+  snapshots = snapshots.map(s=>({...s,entries:s.entries.map(e=>{
+    const account=accounts.find(a=>a.id===e.account_id)!,code=currencyCode(account.fields.currency);
+    if(code==='CNY'||e.amount_cents===null)return e;
+    const original_minor=code==='JPY'?'10000':e.amount_cents,fx_rate_micro=code==='JPY'?'50000':'7000000';
+    return {...e,original_minor,fx_rate_micro,amount_cents:convertCurrency(code,original_minor,fx_rate_micro)};
+  })}));
+}
+// Fictional rate suggestion acceptance: a retired zero-balance account and a new account today.
+if (params.get('currency') === 'retired-rate' && accounts.length >= 2) {
+  const oldId=accounts[0].id, secondId=accounts[1].id;
+  accounts[0]={...accounts[0],fields:{...accounts[0].fields,name:'虚构已停用美元账户',closed_on:iso(now)}};
+  accounts[1]={...accounts[1],fields:{...accounts[1].fields,currency:'CNY'}};
+  snapshots=snapshots.filter(s=>s.date<iso(now)).map(s=>({...s,entries:s.entries.map(e=>{
+    if(e.account_id===oldId&&e.amount_cents!==null)return {...e,amount_cents:'0',original_minor:'0',fx_rate_micro:'7123456'};
+    if(e.account_id===secondId){const plain={...e};delete plain.original_minor;delete plain.fx_rate_micro;return plain;}
+    return e;
+  })}));
+  accounts.push({id:'fx-new-usd',position:accounts.length,revision:1,latest:null,has_entries:false,fields:{...accounts[0].fields,name:'虚构新美元账户（无记录）',opened_on:iso(now),closed_on:null,notes:'虚构：沿用已停用账户最近记录的汇率建议。'}});
+}
+// Fictional holding input fixtures; amounts and FX remain the same recorded facts.
+if (params.get('holding') === '1') {
+  const ids=new Set(accounts.filter(a=>holdingSupported(a.fields.kind)).map(a=>a.id));
+  accounts=accounts.map(a=>ids.has(a.id)?{...a,fields:{...a.fields,holding_mode:true,holding_unit:'份',name:`虚构持仓 · ${a.fields.name}`}}:a);
+  snapshots=snapshots.map(s=>({...s,entries:s.entries.map(e=>{
+    if(!ids.has(e.account_id)||e.amount_cents==null)return e;
+    const a=accounts.find(a=>a.id===e.account_id)!,code=currencyCode(a.fields.currency),minor=e.original_minor??e.amount_cents;
+    return {...e,quantity_e8:(BigInt(minor)*(code==='JPY'?100000000n:1000000n)).toString(),unit_price_e6:'1000000'};
+  })}));
+}
 const receipts = new Map<string, string>();
+const quickFingerprints = new Map<string, string>();
+let quickStaleShown = false;
 
 const due = (a: Account, d: string) => a.fields.opened_on <= d && (!a.fields.closed_on || d < a.fields.closed_on);
 const known = (e: Entry) => e.amount_cents !== null;
 function latestBefore(id: string, before?: string) {
-  const hit = snapshots.filter(s => !before || s.date < before).sort((a, b) => b.date.localeCompare(a.date)).flatMap(s => s.entries.filter(e => e.account_id === id && known(e)).map(e => ({ amount_cents: e.amount_cents!, date: s.date })))[0];
+  const hit = snapshots.filter(s => !before || s.date < before).sort((a, b) => b.date.localeCompare(a.date)).flatMap(s => s.entries.filter(e => e.account_id === id && known(e)).map(e => ({ amount_cents: e.amount_cents!, date: s.date, ...(e.original_minor!=null?{original_minor:e.original_minor,fx_rate_micro:e.fx_rate_micro}:{}),...(e.quantity_e8!=null?{quantity_e8:e.quantity_e8,unit_price_e6:e.unit_price_e6}:{}) })))[0];
   return hit ?? null;
 }
-const withLatest = (a: Account): Account => ({ ...a, latest: latestBefore(a.id) });
+const withLatest = (a: Account): Account => ({ ...a, latest: latestBefore(a.id), has_entries: snapshots.some(s=>s.entries.some(e=>e.account_id===a.id)), last_entered_on: snapshots.filter(s => s.entries.some(e => e.account_id === a.id && e.state === 'entered')).map(s => s.date).sort().at(-1) ?? null });
 function view(s: Stored): Snapshot {
   const have = new Set(s.entries.filter(known).map(e => e.account_id));
   return { ...s, missing: accounts.filter(a => due(a, s.date) && !have.has(a.id)).map(a => a.id) };
@@ -100,7 +154,8 @@ function summary(): Summary {
     const s = view(stored);
     const sum = (side: string) => s.entries.filter(e => e.counted && e.side === side && known(e)).reduce((t, e) => t + BigInt(e.amount_cents!), 0n);
     const assets = sum('asset'), liabilities = sum('liability'), net = assets - liabilities, complete = !s.missing.length;
-    const p: Point = { snapshot_id: s.id, date: s.date, notes: s.notes, assets_cents: String(assets), liabilities_cents: String(liabilities), net_cents: String(net), complete, missing: s.missing.length, compared_to: null, scope_changed: false, change_cents: null, hpf_change_cents: null, change_rate_hundredths: null };
+    const balance = (kinds: string[]) => complete ? String(s.entries.filter(e => e.counted && e.side === 'asset' && kinds.includes(e.kind) && known(e)).reduce((t, e) => t + BigInt(e.amount_cents!), 0n)) : null;
+    const p: Point = { snapshot_id: s.id, date: s.date, notes: s.notes, assets_cents: String(assets), liabilities_cents: String(liabilities), net_cents: String(net), liquid_cents: balance(['cash']), invested_cents: balance(['investment', 'mixed', 'fund', 'bond', 'precious_metal']), complete, has_unchanged: s.entries.some(e => e.state === 'unchanged'), missing: s.missing.length, compared_to: null, scope_changed: false, change_cents: null, hpf_change_cents: null, change_rate_hundredths: null };
     if (complete) {
       if (last) {
         p.compared_to = last.s.date;
@@ -125,7 +180,7 @@ function summary(): Summary {
     const total = [...by.values()].reduce((a, b) => a + b, 0n);
     return [...by].map(([kind, v]) => ({ kind, amount_cents: String(v), share_hundredths: total > 0n ? hundredths(v, total) : null }));
   };
-  return { generation, points, structure_date: last?.s.date ?? null, structure: shares('asset'), liabilities: shares('liability') };
+  return { generation, points, structure_date: last?.s.date ?? null, structure_entries: last?.s.entries.map(e => ({ ...e })) ?? [], latest_entries: [...snapshots].sort((a,b) => a.date.localeCompare(b.date)).at(-1)?.entries.map(e => ({ ...e })) ?? [], structure: shares('asset'), liabilities: shares('liability') };
 }
 
 // Standalone expenses for the preview; item purchases come from the demo assets.
@@ -516,6 +571,12 @@ const previewGroups = new Map<string, { assetId: string; planId: string; assetNa
 /** 预览最近删除中的关联订阅组（内存桩）。 */
 export function previewLinkGroups() { return [...previewGroups.values()]; }
 export function wealthPreview(command: string, args: Record<string, unknown>): { value: unknown } | null {
+  // Fictional capability only; browser preview never calls device authentication.
+  if (command === 'privacy_auth_available') return { value: ['success', 'cancel'].includes(params.get('privacy-auth') ?? '') };
+  if (command === 'privacy_authenticate') {
+    if (params.get('privacy-auth') === 'success') return { value: null };
+    throw { code: 'AUTH_FAILED', message: '虚构身份验证已取消，请点解锁重试。' };
+  }
   if(command==='savings_goals_read') {
     if(params.get('savings')==='error') throw {message:'虚构目标读取失败'};
     if(!previewModules.wealth) throw {code:'MODULE_DISABLED',message:'账户与盘点已关闭'};
@@ -837,17 +898,52 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     }
     return null;
   }
-  if (!command.startsWith('wealth_')) return null;
+  if (!command.startsWith('wealth_') && !command.startsWith('account_group')) return null;
   if (params.get('wealth') === 'error' && command !== 'wealth_request_result') throw { message: '虚构读取失败，用于验证错误状态。' };
   if (command === 'wealth_summary') { if (params.get('wealth') === 'error') throw { message: '虚构盘点读取失败。' }; return { value: summary() }; }
+  if (command === 'account_groups_list') {
+    if (params.get('groups') === 'error') throw { message: '虚构分组读取失败，请重试' };
+    return { value: { generation, groups: accountGroups.map(g => ({ ...g, accounts: accounts.filter(a => a.fields.group_id === g.id).length })) } };
+  }
+  if (['account_group_save', 'account_group_delete', 'account_groups_reorder'].includes(command)) {
+    const input = args.input as GroupSave | GroupDelete | GroupReorder;
+    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已切换' };
+    const fingerprint = JSON.stringify([command, input]), oldReceipt = groupReceipts.get(input.request_id);
+    if (oldReceipt) { if (oldReceipt.fingerprint !== fingerprint) throw { code: 'REQUEST_CONFLICT', message: '请求标识已用于不同内容' }; return { value: oldReceipt.value }; }
+    if (params.get('state') === 'save-error') throw { message: '虚构分组保存失败，输入已保留' };
+    let value: unknown = null;
+    if (command === 'account_group_save') {
+      const request = input as GroupSave, name = request.name.trim(), old = accountGroups.find(g => g.id === request.id);
+      if (!name || [...name].length > 40 || /[\u0000-\u001f\u007f-\u009f]/.test(name)) throw { code: 'GROUP_NAME', message: '分组名称须为 1–40 字，不能含控制字符' };
+      if (accountGroups.some(g => g.name === name && g.id !== request.id)) throw { code: 'GROUP_NAME', message: '已有同名分组' };
+      if ((request.id !== null && !old) || (old?.revision ?? null) !== request.expected_revision) throw { code: 'REVISION_CONFLICT', message: '分组已变化，请重新读取' };
+      const next = { id: old?.id ?? crypto.randomUUID(), name, position: old?.position ?? (Math.max(-1, ...accountGroups.map(g => g.position)) + 1), revision: (old?.revision ?? 0) + 1, accounts: old ? accounts.filter(a => a.fields.group_id === old.id).length : 0 };
+      accountGroups = old ? accountGroups.map(g => g.id === old.id ? next : g) : [...accountGroups, next]; value = next;
+    } else if (command === 'account_group_delete') {
+      const request = input as GroupDelete, old = accountGroups.find(g => g.id === request.id), count = accounts.filter(a => a.fields.group_id === request.id).length;
+      if (!old || old.revision !== request.expected_revision || count !== request.expected_accounts) throw { code: 'REVISION_CONFLICT', message: '分组或关联账户已变化，请重新读取' };
+      accounts = accounts.map(a => a.fields.group_id === request.id ? { ...a, revision: a.revision + 1, fields: { ...a.fields, group_id: null } } : a);
+      accountGroups = accountGroups.filter(g => g.id !== request.id);
+    } else {
+      const request = input as GroupReorder;
+      if (new Set(request.ids).size !== request.ids.length || request.ids.length !== accountGroups.length || accountGroups.some(g => !request.ids.includes(g.id))) throw { code: 'GROUP_ORDER', message: '分组列表已变化，请重新读取后排序' };
+      accountGroups = request.ids.map((id, position) => { const g = accountGroups.find(g => g.id === id)!; return { ...g, position, revision: g.revision + 1 }; });
+    }
+    groupReceipts.set(input.request_id, { fingerprint, value }); receipts.set(input.request_id, 'account-groups');
+    if (params.get('group-write') === 'unknown') { groupUnknownChecks.add(input.request_id); throw { message: '虚构分组响应丢失，请核对结果' }; }
+    if (params.get('state') === 'unresolved') throw { message: '虚构分组响应丢失，请核对结果' };
+    return { value };
+  }
   if (command === 'wealth_accounts') return { value: accounts.map(withLatest) };
-  if (command === 'wealth_request_result') { if (params.get('state') === 'unresolved') throw { message: '暂时无法核对。' }; return { value: receipts.get(String(args.request)) ?? null }; }
+  if (command === 'wealth_request_result') { const request = String(args.request); if (receipts.get(request) === 'account-groups' && groupUnknownChecks.has(request)) { groupUnknownChecks.delete(request); throw { message: '虚构首次分组回执查询暂不可用，原请求保留，请再次核对' }; } if (params.get('state') === 'unresolved' || params.get('quick') === 'unknown') throw { message: '暂时无法核对。' }; return { value: receipts.get(String(args.request)) ?? null }; }
   // 只读详情：按稳定 ID 读取一次盘点（§5.2），浏览不写资料。
   if (command === 'wealth_snapshot') { if (planFail('snapshot')) throw { message: '虚构盘点明细读取失败，用于验证首页摘要的局部降级。' }; const found = snapshots.find(s => s.id === String(args.id)); return { value: found ? view(found) : null }; }
   if (command === 'wealth_snapshot_draft') {
     const date = String(args.date), existing = snapshots.find(s => s.date === date);
     const draft: Draft = { generation, date, existing: existing ? view(existing) : null, rows: accounts.filter(a => due(a, date)).map(a => ({ account: withLatest(a), previous: latestBefore(a.id, date) })) };
-    return { value: draft };
+    const rate_suggestions: Record<string,{rate:string;date:string}> = {};
+    for(const a of accounts){const code=currencyCode(a.fields.currency);if(code==='CNY')continue;const saved=existing?.entries.find(e=>e.account_id===a.id&&e.fx_rate_micro!=null),previous=latestBefore(a.id,date);const source=saved?{...saved,date}:previous;if(source?.fx_rate_micro&&(!rate_suggestions[code]||source.date>rate_suggestions[code].date))rate_suggestions[code]={rate:source.fx_rate_micro,date:source.date};}
+    return { value: { ...draft, rate_suggestions } };
   }
   // U20 账户变化：预览模拟，规则与 Rust wealth_compare 一致（产品设计 17.14.4）。
   if (command === 'wealth_compare') {
@@ -916,7 +1012,7 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     if (!a) throw { code: 'NOT_FOUND', message: '找不到账户' };
     const rows: HistoryRow[] = [...snapshots].filter(s => s.entries.some(e => e.account_id === a.id)).sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id)).map(s => {
       const e = s.entries.find(x => x.account_id === a.id)!;
-      return { snapshot_id: s.id, date: s.date, state: e.state, amount_cents: e.amount_cents, counted: e.counted, change_cents: null };
+      return { snapshot_id: s.id, date: s.date, state: e.state, amount_cents: e.amount_cents, ...(e.original_minor!=null?{original_minor:e.original_minor,fx_rate_micro:e.fx_rate_micro}:{}),...(e.quantity_e8!=null?{quantity_e8:e.quantity_e8,unit_price_e6:e.unit_price_e6}:{}), counted: e.counted, change_cents: null };
     });
     // 与前次＝紧邻的前一行，两行都已知才有值，不跨过未知去找更早的值。
     for (let i = 1; i < rows.length; i++) { const p = rows[i - 1], c = rows[i]; if (p.amount_cents !== null && c.amount_cents !== null) c.change_cents = (BigInt(c.amount_cents) - BigInt(p.amount_cents)).toString(); }
@@ -927,11 +1023,78 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const input = args.input as AccountSave;
     if (receipts.has(input.request_id)) return { value: withLatest(accounts.find(a => a.id === receipts.get(input.request_id))!) };
     if (input.fields.kind === 'property' && input.fields.counted) throw { code: 'PROPERTY_COUNTED', message: '房产仅单独记录估值，不能计入金融净资产' };
+    if (input.fields.group_id && !accountGroups.some(g => g.id === input.fields.group_id)) throw { code: 'GROUP_NOT_FOUND', message: '分组已删除，请重新选择' };
     const id = input.id ?? crypto.randomUUID(), old = accounts.find(a => a.id === id);
+    const f = input.fields;
+    if((f.holding_mode&&!holdingSupported(f.kind))||(!f.holding_mode&&f.holding_unit!=null)||(f.holding_unit!=null&&(!f.holding_unit.trim()||[...f.holding_unit].length>8||/[\u0000-\u001f\u007f-\u009f]/.test(f.holding_unit))))throw {code:'ACCOUNT_HOLDING',message:'仅投资类账户可按持仓记录，单位须为1–8字'};
+    if(!validCurrency(currencyCode(f.currency)))throw {code:'ACCOUNT_CURRENCY',message:'币种须为三位大写字母'};
+    if(old&&currencyCode(old.fields.currency)!==currencyCode(f.currency)&&snapshots.some(s=>s.entries.some(e=>e.account_id===old.id)))throw {code:'ACCOUNT_CURRENCY',message:'已有记录的账户不能更改币种，请新建一个外币账户，再停用旧账户。'};
+    if (old && !['property','vehicle'].includes(f.kind) && (old.fields.purchase_cents != null || old.fields.purchased_on != null)) throw { code: 'ACCOUNT_PURCHASE', message: '请先清空并保存购入价和购入日期，再更改类型' };
+    if ((f.purchase_cents != null || f.purchased_on != null) && !['property','vehicle'].includes(f.kind)) throw { code: 'ACCOUNT_PURCHASE', message: '只有房产和车辆可以填写购入价和购入日期' };
+    if (f.purchase_cents != null && (!/^\d+$/.test(f.purchase_cents) || BigInt(f.purchase_cents) > 99999999999n)) throw { code: 'ACCOUNT_PURCHASE', message: '购入价超出可保存的金额范围' };
+    if (f.purchased_on != null && (!/^\d{4}-\d{2}-\d{2}$/.test(f.purchased_on) || Number.isNaN(Date.parse(f.purchased_on)) || new Date(f.purchased_on).toISOString().slice(0,10) !== f.purchased_on || f.purchased_on < '1900-01-01' || f.purchased_on > iso(now))) throw { code: 'ACCOUNT_PURCHASE', message: '购入日期须在 1900-01-01 至今天之间' };
     const next: Account = { id, fields: input.fields, position: old?.position ?? accounts.length, revision: (old?.revision ?? 0) + 1, latest: null };
     accounts = old ? accounts.map(a => a.id === id ? next : a) : [...accounts, next];
     receipts.set(input.request_id, id);
     return { value: withLatest(next) };
+  }
+  if (command === 'wealth_quick_update') {
+    const input = args.input as import('./wealth').QuickUpdate;
+    if (input.generation !== generation) throw { code: 'STALE_DATASET', message: '资料库已切换。' };
+    const fingerprint = JSON.stringify(input);
+    if (receipts.has(input.request_id)) {
+      if (quickFingerprints.get(input.request_id) !== fingerprint) throw { code: 'REQUEST_CONFLICT', message: '请求标识已用于不同内容。' };
+      return { value: view(snapshots.find(s => s.id === receipts.get(input.request_id))!) };
+    }
+    const fail = (code: string, message: string): never => { throw { code, message }; };
+    const today = iso(now), latest = snapshots.map(s => s.date).sort().at(-1);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || input.date < '1900-01-01' || !Number.isFinite(Date.parse(input.date)) || new Date(input.date).toISOString().slice(0, 10) !== input.date) fail('DATE', '日期格式应为 YYYY-MM-DD');
+    if (input.date > today) fail('SNAPSHOT_DATE', '盘点日期不能晚于今天');
+    if (latest && input.date < latest) fail('QUICK_DATE', '历史金额请到盘点记录里更正');
+    if ([...input.note].length > 500 || input.note.includes('\0')) fail('QUICK_NOTE', '备注最多 500 字，且不能含空字符');
+    if (input.changes.length < 1 || input.changes.length > 2) fail('QUICK_CHANGES', '一次只能更新一个账户或一笔转账');
+    const existing = snapshots.find(s => s.date === input.date), active = accounts.filter(a => due(a, input.date));
+    const changed = new Map<string, import('./wealth').QuickChange>(); let effect = 0n;
+    if(input.changes.length===2){const [a,b]=input.changes,ac=accounts.find(x=>x.id===a.account_id),bc=accounts.find(x=>x.id===b.account_id);if(ac?.fields.holding_mode||bc?.fields.holding_mode)fail('QUICK_HOLDING','持仓账户请用增减持仓');if(currencyCode(ac?.fields.currency)!==currencyCode(bc?.fields.currency)||(currencyCode(ac?.fields.currency)!=='CNY'&&a.fx_rate_micro!==b.fx_rate_micro))fail('QUICK_CURRENCY','转账须相同币种和汇率，请分别修改余额');}
+    const parse = (value: string) => {
+      if (typeof value !== 'string' || !/^\d{1,11}$/.test(value) || BigInt(value) > 99999999999n) fail('WEALTH_AMOUNT', '金额须为非负整数分');
+      return BigInt(value);
+    };
+    for (const change of input.changes) {
+      const account = active.find(a => a.id === change.account_id);
+      if (!account || changed.has(change.account_id)) fail('SNAPSHOT_ACCOUNT', '这个账户不在该日期的盘点范围内，或重复填写');
+      const next = parse(change.amount_cents), kept = existing?.entries.find(e => e.account_id === change.account_id);
+      const previous = kept ? kept.amount_cents : latestBefore(change.account_id, input.date)?.amount_cents ?? null;
+      try { validateCurrencyFact(currencyCode(account!.fields.currency),change); } catch { fail('FX_MISMATCH','原币金额与汇率折算不一致'); }
+      const original=kept?kept.original_minor:latestBefore(change.account_id,input.date)?.original_minor;
+      if(currencyCode(account!.fields.currency)==='CNY'&&change.expected_original_minor!=null)fail('FX_MISMATCH','人民币账户不能填写原币金额');
+      if(currencyCode(account!.fields.currency)!=='CNY'&&change.expected_previous!=null&&(change.expected_original_minor==null||change.expected_original_minor!==original))fail('QUICK_STALE','原币金额已经变化，请重新读取');
+      const previousFact=kept??latestBefore(change.account_id,input.date);
+      if(account!.fields.holding_mode||change.quantity_e8!=null||change.unit_price_e6!=null){
+        if(!sameHoldingFact(kept,change)&&!!account!.fields.holding_mode!==(change.quantity_e8!=null))fail('HOLDING_MISMATCH','请按当前录入方式填写');
+        try{validateHoldingFact(currencyCode(account!.fields.currency),change);}catch{fail('HOLDING_MISMATCH','份额与单价不一致');}
+      }
+      if(account!.fields.holding_mode&&change.expected_previous!=null&&(change.expected_quantity_e8==null||change.expected_quantity_e8!==previousFact?.quantity_e8))fail('QUICK_STALE','份额已经变化，请重新读取');
+      const expected = change.expected_previous == null ? null : parse(change.expected_previous);
+      if (input.changes.length === 2 && expected === null) fail('QUICK_TRANSFER', '转账须基于两个账户的已知金额');
+      if (expected !== null && (previous === null || BigInt(previous) !== expected)) fail('QUICK_STALE', '账户金额已经变化，请重新读取');
+      if (params.get('quick') === 'stale' && expected !== null && !quickStaleShown) { quickStaleShown = true; fail('QUICK_STALE', '虚构账户金额已经变化，请重新读取'); }
+      effect += (next - BigInt(previous ?? '0')) * (account!.fields.side === 'asset' ? 1n : -1n);
+      changed.set(change.account_id,change);
+    }
+    if (input.changes.length === 2 && effect !== 0n) fail('QUICK_TRANSFER', '折算或舍入使人民币变化无法抵消，请分别修改余额');
+    const entries: Entry[] = active.map(account => {
+      const kept = existing?.entries.find(e => e.account_id === account.id), previous = latestBefore(account.id, input.date);
+      if (changed.has(account.id)) return { ...(changed.get(account.id)!.quantity_e8!=null?{quantity_e8:changed.get(account.id)!.quantity_e8,unit_price_e6:changed.get(account.id)!.unit_price_e6}:{}), ...(changed.get(account.id)!.original_minor!=null?{original_minor:changed.get(account.id)!.original_minor,fx_rate_micro:changed.get(account.id)!.fx_rate_micro}:{}), account_id: account.id, state: 'entered', amount_cents: changed.get(account.id)!.amount_cents, side: kept?.side ?? account.fields.side, kind: kept?.kind ?? account.fields.kind, counted: kept?.counted ?? account.fields.counted };
+      if (kept) return { ...kept };
+      return { account_id: account.id, state: previous ? 'unchanged' : 'missing', amount_cents: previous?.amount_cents ?? null, ...(previous?.original_minor!=null?{original_minor:previous.original_minor,fx_rate_micro:previous.fx_rate_micro}:{}),...(previous?.quantity_e8!=null?{quantity_e8:previous.quantity_e8,unit_price_e6:previous.unit_price_e6}:{}), side: account.fields.side, kind: account.fields.kind, counted: account.fields.counted };
+    });
+    const extra = input.note.trim() ? input.changes.map(change => active.find(a => a.id === change.account_id)!.fields.name).join(' → ') + '：' + input.note.trim() : '';
+    const stored: Stored = { id: existing?.id ?? crypto.randomUUID(), date: input.date, notes: [existing?.notes ?? '', extra].filter(Boolean).join('\n'), revision: (existing?.revision ?? 0) + 1, entries };
+    snapshots = existing ? snapshots.map(s => s.id === stored.id ? stored : s) : [...snapshots, stored];
+    receipts.set(input.request_id, stored.id); quickFingerprints.set(input.request_id, fingerprint);
+    if (params.get('quick') === 'unknown') throw { message: '虚构保存响应丢失，原请求已保留。' };
+    return { value: view(stored) };
   }
   if (command === 'wealth_snapshot_save') {
     const input = args.input as SnapshotSave;
@@ -940,8 +1103,18 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const id = input.id ?? crypto.randomUUID(), old = snapshots.find(s => s.id === id);
     const entries = input.entries.map(e => {
       const a = accounts.find(x => x.id === e.account_id)!, kept = old?.entries.find(x => x.account_id === e.account_id);
-      const cents = e.state === 'missing' ? null : e.state === 'unchanged' ? latestBefore(a.id, input.date)?.amount_cents ?? null : e.amount_cents;
-      return { account_id: a.id, state: e.state, amount_cents: cents, side: kept?.side ?? a.fields.side, kind: kept?.kind ?? a.fields.kind, counted: kept?.counted ?? a.fields.counted };
+      const cents = e.state === 'missing' ? null : e.state === 'unchanged' ? kept?.state === 'unchanged' && e.amount_cents === null ? kept.amount_cents : e.amount_cents ?? latestBefore(a.id, input.date)?.amount_cents ?? null : e.amount_cents;
+      const source=e.state==='unchanged'?(kept?.state==='unchanged'&&e.amount_cents===null?kept:latestBefore(a.id,input.date)):e;
+      const fx=source?.original_minor!=null?{original_minor:source.original_minor,fx_rate_micro:source.fx_rate_micro}:{};
+      const holdingFields=source?.quantity_e8!=null?{quantity_e8:source.quantity_e8,unit_price_e6:source.unit_price_e6}:{};
+      if(a.fields.holding_mode||e.quantity_e8!=null||e.unit_price_e6!=null||source?.quantity_e8!=null){
+        if(e.state==='entered'&&!sameHoldingFact(kept,e)&&!!a.fields.holding_mode!==(e.quantity_e8!=null))throw {code:'HOLDING_MISMATCH',message:'请按当前录入方式填写'};
+        if(e.state==='unchanged'&&((e.quantity_e8!=null&&e.quantity_e8!==source?.quantity_e8)||(e.unit_price_e6!=null&&e.unit_price_e6!==source?.unit_price_e6)))throw {code:'HOLDING_MISMATCH',message:'沿用须保留份额和单价'};
+        try{validateHoldingFact(currencyCode(a.fields.currency),{amount_cents:cents,...fx,...holdingFields});}catch{throw {code:'HOLDING_MISMATCH',message:'份额与单价不一致'};}
+      }
+      if(e.state==='unchanged'&&((e.original_minor!=null&&e.original_minor!==source?.original_minor)||(e.fx_rate_micro!=null&&e.fx_rate_micro!==source?.fx_rate_micro)))throw {code:'FX_MISMATCH',message:'沿用须保留原币金额和汇率'};
+      try { validateCurrencyFact(currencyCode(a.fields.currency),{amount_cents:cents,...fx}); } catch { throw {code:'FX_MISMATCH',message:'原币金额与汇率折算不一致'}; }
+      return { ...fx, ...holdingFields, account_id: a.id, state: e.state, amount_cents: cents, side: kept?.side ?? a.fields.side, kind: kept?.kind ?? a.fields.kind, counted: kept?.counted ?? a.fields.counted };
     });
     const stored = { id, date: input.date, notes: input.notes, revision: (old?.revision ?? 0) + 1, entries };
     snapshots = old ? snapshots.map(s => s.id === id ? stored : s) : [...snapshots, stored];

@@ -72,7 +72,10 @@ fn schema42_goals_and_annual_facts_survive_standard_age_decryption_and_session_r
         .call_personal({
             let plain = plain.clone();
             move |s| {
-                assert_eq!(s.inspect_backup(&plain)?.schema, 42);
+                assert_eq!(
+                    s.inspect_backup(&plain)?.schema,
+                    thingary_lib::storage::SCHEMA_VERSION as u32
+                );
                 Ok(())
             }
         })
@@ -97,7 +100,10 @@ fn schema42_goals_and_annual_facts_survive_standard_age_decryption_and_session_r
     let unlocked = worker
         .backup_session_unlock(session.token.clone(), key.recovery_key)
         .unwrap();
-    assert_eq!(unlocked.summary.schema, 42);
+    assert_eq!(
+        unlocked.summary.schema,
+        thingary_lib::storage::SCHEMA_VERSION as u32
+    );
     assert_eq!(unlocked.summary.savings_goals, 2);
     let generation = worker
         .backup_session_restore(session.token.clone())
@@ -116,7 +122,7 @@ fn schema42_goals_and_annual_facts_survive_standard_age_decryption_and_session_r
             assert_eq!(
                 s.conn_for_test()?
                     .query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
-                42
+                thingary_lib::storage::SCHEMA_VERSION
             );
             assert_eq!(s.wealth_accounts()?.len(), 6);
             let current = s
