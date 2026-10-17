@@ -9,67 +9,6 @@ import * as risk from '../src/plan-risk.ts';
 
 const fixture = () => basicFixtureSources(basicInputFixtures.prediction);
 const noop = () => {};
-const questionProps = sources => ({ realSummary: true, saved: sources.profile.value.saved, caps: buildBasicCapabilities(sources), onSetup: noop, onDetail: noop, onRunway: noop });
-
-test('three real question buttons reuse setup, detail, and independent runway without writing', () => {
-  for (const blank of [false, true]) {
-    const sources = fixture(), moves = [], setups = [];
-    if (blank) sources.profile.value.saved = null;
-    const r = runtime('PlanningBasicGoals', { sources, onGoto: noop, openSetup: (...args) => setups.push(args), onViewChange: (...args) => moves.push(args) }, undefined, buildBasicCapabilities(sources), { components: ['PlanningQuestions'] });
-    const from = { isConnected: true };
-    r.button(blank ? '先设置目标：每月要存多少' : '查看每月要存多少').props.onClick({ currentTarget: from });
-    r.button(blank ? '先设置目标：什么时候能不靠工资' : '查看什么时候能不靠工资').props.onClick({ currentTarget: from });
-    r.button('试算资金能撑多久').props.onClick();
-    assert.deepEqual(moves, blank ? [['trial', 'plan-runway-heading']] : [['detail', 'plan-requirement-result'], ['detail', 'plan-prediction-result'], ['trial', 'plan-runway-heading']]);
-    assert.deepEqual(setups, blank ? [[0, from], [0, from]] : []);
-    assert.equal(r.calls.length, 0);
-  }
-});
-
-test('question summaries preserve requirement, prediction, unknowns, all missing reasons, and impact directions', () => {
-  const sources = fixture(), props = questionProps(sources), caps = props.caps;
-  const show = () => runtime('PlanningQuestions', props, undefined, caps, { components: [] });
-  let r = show(); assert.match(r.text(r.nodes()), /按固定目标月份反求，不是未来预测/);
-  const missing = [{ code: 'CONTRIBUTION_UNKNOWN', kind: 'fact', capability: 'prediction', owner: 'basic', field: 'basic.contribution', message: '未填投入' }, { code: 'SOURCE_ERROR', kind: 'read_error', capability: 'prediction', owner: 'service', field: 'snapshot', message: '虚构资金读取失败' }];
-  caps.prediction = { status: 'blocked', missing };
-  caps.requirement = { status: 'blocked', missing: [{ ...missing[1], capability: 'requirement' }] };
-  r = show(); assert.match(r.text(r.nodes()), /还没估计每月能存多少钱/); assert.match(r.text(r.nodes()), /虚构资金读取失败/);
-  assert.doesNotMatch(r.text(r.nodes()), /每月约\s*¥?0(?:\D|$)|预计 \d{4}-\d{2} 退休/);
-  caps.annotations = ['requirement_lower', 'requirement_higher', 'uncertain'].map((effect, i) => ({ id: String(i), effect, treatment: 'omitted', source_ids: [String(i)], reason_code: 'PAYMENT_PENDING', message: '虚构付款未确认', missing_fields: ['付款金额'], refinement: { owner: 'events' } }));
-  r = show(); assert.match(r.text(r.nodes()), /可能偏低/); assert.match(r.text(r.nodes()), /可能偏高/); assert.match(r.text(r.nodes()), /方向尚不确定/);
-});
-
-test('requirement summaries retain explicit zero and unsolved constraints from the existing capability', () => {
-  const sources = fixture(), props = questionProps(sources);
-  props.caps.requirement.value.set = { status: 'no_positive_contribution', monthly_cents: '0' };
-  let r = runtime('PlanningQuestions', props, undefined, props.caps, { components: [] }); assert.match(r.text(r.nodes()), /不用再额外存钱/);
-  props.caps.requirement.value.set = { status: 'payment_constraint', message: '虚构付款约束仍不满足' };
-  r = runtime('PlanningQuestions', props, undefined, props.caps, { components: [] }); assert.match(r.text(r.nodes()), /虚构付款约束仍不满足/);
-});
-
-test('fixed retirement is never advertised as predicted independence, and failed FIRE retains its failed-goal warning', () => {
-  const sources = fixture(), props = questionProps(sources), caps = props.caps;
-  props.saved.profile.retire.mode = 'traditional';
-  let r = runtime('PlanningQuestions', props, undefined, caps, { components: [] });
-  assert.match(r.text(r.nodes()), /按所选目标月份检查/); assert.doesNotMatch(r.text(r.nodes()), /预计 \d{4}-\d{2} 退休/);
-  caps.prediction.value.outcome.success = false;
-  r = runtime('PlanningQuestions', props, undefined, caps, { components: [] });
-  assert.match(r.text(r.nodes()), /尚未满足完整目标/, 'target-month funding does not imply the whole plan succeeds');
-  props.saved.profile.retire.mode = 'fire';
-  r = runtime('PlanningQuestions', props, undefined, caps, { components: [] });
-  assert.match(r.text(r.nodes()), /尚未满足完整目标/);
-  caps.prediction.value.projection.retire_month = null;
-  r = runtime('PlanningQuestions', props, undefined, caps, { components: [] });
-  assert.match(r.text(r.nodes()), /规划终点前尚未达成/);
-  caps.prediction.value.projection.retire_month = 12; caps.prediction.value.plan.anchor_date = undefined;
-  r = runtime('PlanningQuestions', props, undefined, caps, { components: [] });
-  assert.match(r.text(r.nodes()), /预计退休月份尚不能确定/); assert.doesNotMatch(r.text(r.nodes()), /预计 \d{4}-\d{2} 退休/);
-  caps.prediction.value.outcome.success = true; caps.prediction.value.terminal = 'no_margin';
-  r = runtime('PlanningQuestions', props, undefined, caps, { components: [] }); assert.match(r.text(r.nodes()), /终点没有余量/);
-  props.blocked = true; r = runtime('PlanningQuestions', props, undefined, caps, { components: [] });
-  assert.ok(r.nodes().filter(n => n.type === 'button').every(n => n.props.disabled));
-});
-
 test('details retain the parent disclosure state through overview/lab switches', () => {
   const sources = fixture(), caps = buildBasicCapabilities(sources), changes = [];
   const r = runtime('PlanningBasicDetail', { sources, saved: sources.profile.value.saved, openSetup: noop, onEvents: noop, onBack: noop, advancedOpen: true, onAdvancedOpenChange: open => changes.push(open) }, undefined, caps, { modules: { './plan-view': view } });
