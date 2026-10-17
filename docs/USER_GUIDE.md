@@ -16,9 +16,9 @@
 
 本页描述当前主分支的操作。财务工作区、政策测算退出与当前报告预览已接入源码并完成对应核心验证；公开安装包的内容以其版本说明为准。截图来自虚构资料，来源与更新范围见[截图维护清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/images/README.md)，不表示全部原生功能已验收。
 
-下载与安装步骤对应 **0.0.7 公开测试版**，用于收集使用与兼容性反馈。安装包与版本说明见 [0.0.7 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7)。若某个 Mac 版本没有 DMG 附件，说明该版本尚未提供 Mac 安装包；维护者的本机安装状态不代表已公开发布。
+下载与安装步骤对应 **0.0.8 公开测试版**，用于收集使用与兼容性反馈。安装包与版本说明见 [0.0.8 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)。若某个 Mac 版本没有 DMG 附件，说明该版本尚未提供 Mac 安装包；维护者的本机安装状态不代表已公开发布。
 
-安装与既有功能说明以 0.0.7 为准；新增图表、购入信息、快速更新、多币种、分组、持仓与屏幕隐私的说明对应当前开发候选，公开安装包所含功能以对应版本说明为准。Windows 的安装与平台差异见下文。总览、物品、账户、目标、试算、新增表单与规划详情采用 0.0.6 原生虚构图，其他历史功能截图的版本见截图清单。0.0.3 及更早的包不含这些新界面。更新兼容性与验证范围见[0.0.7 发布说明](https://github.com/CoderJackZhu/Thingary/blob/v0.0.7/docs/releases/v0.0.7.md)。
+安装与功能说明以 0.0.8 为准，公开安装包所含功能以对应版本说明为准。Windows 的安装与平台差异见下文。目标页、财务复盘与区间回顾采用 0.0.8 原生虚构图，其他功能截图的版本见截图清单。0.0.3 及更早的包不含这些新界面。更新兼容性与验证范围见[0.0.8 发布说明](https://github.com/CoderJackZhu/Thingary/blob/v0.0.8/docs/releases/v0.0.8.md)。
 
 <a id="download"></a>
 
@@ -28,7 +28,7 @@
 
 从 0.0.5 起提供 **通用安装包**，Apple Silicon（M 系列）与 Intel Mac 都下载同一个 `universal.dmg`。当前只在 Apple Silicon、macOS 27 验证，尚未实测 macOS 14 和 Intel Mac；Windows 10 1809+／11 x64 见[Windows 安装](#windows-install)；暂无 Linux 客户端。
 
-1. 在 [GitHub 上的 0.0.7 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7) 打开对应公开测试版（标有 Pre-release）。**GitHub 打不开时，改用国内镜像 [Gitee 发行版](https://gitee.com/CoderJackZhu/thingary/releases)**，两处的安装包内容相同，可用 `SHA256SUMS.txt` 核对。
+1. 在 [GitHub 上的 0.0.8 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8) 打开对应公开测试版（标有 Pre-release）。**GitHub 打不开时，改用国内镜像 [Gitee 发行版](https://gitee.com/CoderJackZhu/thingary/releases)**，两处的安装包内容相同，可用 `SHA256SUMS.txt` 核对。
 2. 在附件（Assets）中下载 `Thingary-<版本>-universal.dmg`（0.0.4 及更早版本为 `arm64.dmg`）。`Source code.zip` 与 `Source code.tar.gz` 是源码，不是安装包。
 3. 双击下载好的 DMG，将「物谱」拖到同一窗口里的「Applications／应用程序」文件夹。
 4. 等待复制完成，在 Finder 的「应用程序」中双击「物谱」。安装后可推出 DMG；无需一直保留挂载窗口。不要直接从 DMG 运行应用。
@@ -53,7 +53,7 @@
 
 目标为 **Windows 10 1809+／Windows 11 x64**，安装包未签名。安装、通知和界面验收未全部完成，详细范围见[Windows 验收清单](https://github.com/CoderJackZhu/Thingary/blob/main/docs/WINDOWS_ACCEPTANCE.md)。ARM 机器运行 x64 应用依赖系统模拟，不等同于原生 ARM 安装包。
 
-1. 在 [0.0.7 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7)（或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases)）的附件里下载 `x64-setup.exe` 与 `SHA256SUMS.txt`。
+1. 在 [0.0.8 Release](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)（或 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases)）的附件里下载 `x64-setup.exe` 与 `SHA256SUMS.txt`。
 2. 用 `SHA256SUMS.txt` 核对文件后运行 `.exe`。安装器使用简体中文，只安装给当前用户；通常不需要管理员权限。缺少 Microsoft Edge WebView2 时会在线下载并安装运行时，这一步需要联网。
 3. 包尚未签名，首次下载可能出现 SmartScreen“Windows 已保护你的电脑”。确认来自本项目、校验值一致后，可展开“更多信息”查看并选择“仍要运行”。若提示恶意软件、没有该选项或设备策略禁止运行（例如 Windows 11 开启了「智能应用控制」，它可能直接拦截未签名安装包且没有放行按钮），请保留完整提示并反馈，不要为此关闭整机的系统保护。
 4. 从开始菜单打开物谱，先查看虚构样例。录入自己的资料前确认应用名称为「物谱」：名为 `Thingary Windows Acceptance` 的是独立验收包，只可使用虚构数据，不能当作正式安装。

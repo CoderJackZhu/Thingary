@@ -6,9 +6,9 @@
 
 ## 1. 安装
 
-到 [0.0.7 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.7)（国内可用 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases)），在附件里选自己的平台；下载页里的 Source code 是源码，不是安装包。
+到 [0.0.8 下载页](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)（国内可用 [Gitee 镜像](https://gitee.com/CoderJackZhu/thingary/releases)），在附件里选自己的平台；下载页里的 Source code 是源码，不是安装包。
 
-- **Mac**：下载 `Thingary-0.0.7-universal.dmg`（Apple Silicon 与 Intel 通用），打开后把「物谱」拖进「应用程序」。
+- **Mac**：下载 `Thingary-0.0.8-universal.dmg`（Apple Silicon 与 Intel 通用），打开后把「物谱」拖进「应用程序」。
 - **Windows**：下载 `x64-setup.exe`，运行安装器（简体中文，只安装给当前用户）；缺少 WebView2 时会在线安装，需要联网。
 
 **Mac**：安装包只做了本地临时签名，没有经过 Apple 公证，首次打开可能被拦住：到「系统设置 › 隐私与安全性」，在底部选「仍要打开」。更多排查见[安装与故障排查](USER_GUIDE.md#download)。

@@ -40,8 +40,8 @@ test('website installers link directly to versioned packages, with a universal M
     const parsed = new URL(url);
     assert.equal(parsed.protocol, 'https:');
     assert.equal(parsed.host, 'github.com');
-    assert.match(parsed.pathname, /^\/CoderJackZhu\/Thingary\/releases\/download\/v0\.0\.7\//);
+    assert.match(parsed.pathname, /^\/CoderJackZhu\/Thingary\/releases\/download\/v0\.0\.8\//);
   }
-  assert.ok(installers.mac.endsWith('/Thingary-0.0.7-universal.dmg'));
-  assert.ok(installers.windows.endsWith('/Thingary_0.0.7_x64-setup.exe'));
+  assert.ok(installers.mac.endsWith('/Thingary-0.0.8-universal.dmg'));
+  assert.ok(installers.windows.endsWith('/Thingary_0.0.8_x64-setup.exe'));
 });
