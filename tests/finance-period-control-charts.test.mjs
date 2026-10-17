@@ -63,13 +63,13 @@ test('legend cannot disable the last line', () => {
 test('range/custom dates and separate legends survive page remount only in the same library session', () => {
   review.clearTrendRange();
   const custom = { from: '2026-01-01', to: today };
-  review.rememberTrendRange('虚构库', 'custom', custom); review.rememberTrendLegend('虚构库', 'net', [true, false]);
+  review.rememberTrendRange('虚构库', 'custom', custom); review.rememberTrendLegend('虚构库', 'net', [true, false, true]);
   custom.from = today;
   assert.deepEqual(review.recallTrendSelection('虚构库'), { range: 'custom', custom: { from: '2026-01-01', to: today } });
-  assert.deepEqual(review.recallTrendLegend('虚构库', 'net'), [true, false]);
+  assert.deepEqual(review.recallTrendLegend('虚构库', 'net'), [true, false, true]);
   assert.deepEqual(review.recallTrendLegend('虚构库', 'balances'), [true, true]);
   assert.equal(review.recallTrendRange('另一个虚构库'), 'all');
-  assert.deepEqual(review.recallTrendLegend('另一个虚构库', 'net'), [true, false]);
+  assert.deepEqual(review.recallTrendLegend('另一个虚构库', 'net'), [true, false, false]);
   assert.equal(review.recallTrendRange('虚构库'), 'all');
 });
 
@@ -103,7 +103,7 @@ test('invalid/reversed/sparse custom edits retain the previously applied curve a
 });
 test('keyboard tooltip/live text includes both lines and masking suppresses all financial values', () => {
   const points = [point('2026-01-01'), point(today, { net_cents: '987654321', liabilities_cents: '123456789', notes: '虚构备注987654321' })];
-  review.rememberTrendLegend('双线隐私', 'net', [true, true]);
+  review.rememberTrendLegend('双线隐私', 'net', [true, false, true]);
   const props = { points, hideAmounts: true, generation: '双线隐私' };
   const h = runtime('DualLineChart.tsx', 'DualLineChart', [props], { './wealth': fakeWealth, './chart-change': { changeLine: () => '变化987654321' }, './chart-labels': { spacedLabels: p => p }, './dual-line-chart': chart, './review': review });
   h.nodes().find(n => n.props?.tabIndex === 0).props.onFocus(); h.render();
@@ -219,4 +219,13 @@ test('unknown visible balances show an explicit empty state and preserve legend 
   h.nodes().filter(n => n.type === 'button')[1].props.onClick(); h.render();
   assert.ok(!h.nodes().some(n => n.type === 'text' && n.props.children === '所选范围暂无已知金额'));
   assert.equal(h.nodes().filter(n => n.type === 'circle').length, 2);
+});
+test('net chart offers net, assets and liabilities; only the net line gets an area', () => {
+  review.clearTrendRange();
+  review.rememberTrendLegend('三线', 'net', [true, true, true]);
+  const points = [point('2026-01-01'), point(today, { assets_cents: '2000', liabilities_cents: '500' })];
+  const h = runtime('DualLineChart.tsx', 'DualLineChart', [{ points, generation: '三线' }], { './wealth': fakeWealth, './chart-change': { changeLine: () => '' }, './chart-labels': { spacedLabels: p => p }, './dual-line-chart': chart, './review': review });
+  assert.equal(h.nodes().filter(n => n.type === 'button').length, 3);
+  assert.equal(h.nodes().filter(n => n.type === 'path' && n.props.className === 'dual-line').length, 3);
+  assert.equal(h.nodes().filter(n => n.type === 'path' && n.props.className === 'history-area').length, 1);
 });

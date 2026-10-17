@@ -50,7 +50,7 @@ export function rangePoints(points: Point[], range: TrendRange, today: string, c
 /** A range needs at least two complete check-ins; unknown points never become zero. */
 export const rangeUsable = (points: Point[], range: TrendRange, today: string, custom?: CustomTrendRange) => rangePoints(points, range, today, custom).filter(p => p.complete).length >= 2;
 export type TrendSelection = { range: TrendRange; custom?: CustomTrendRange };
-let trendRangeMemory: { generation: string; selection: TrendSelection; legends: Record<string, [boolean, boolean]> } | null = null;
+let trendRangeMemory: { generation: string; selection: TrendSelection; legends: Record<string, boolean[]> } | null = null;
 const memory = (generation: string) => {
   if (trendRangeMemory?.generation !== generation) trendRangeMemory = { generation, selection: { range: 'all' }, legends: {} };
   return trendRangeMemory!;
@@ -59,8 +59,9 @@ export const recallTrendSelection = (generation: string): TrendSelection => stru
 export const recallTrendRange = (generation: string): TrendRange => recallTrendSelection(generation).range;
 export const clearTrendRange = (): void => { trendRangeMemory = null; };
 export const rememberTrendRange = (generation: string, range: TrendRange, custom?: CustomTrendRange): void => { memory(generation).selection = { range, ...(custom ? { custom: { ...custom } } : {}) }; };
-export const recallTrendLegend = (generation: string, kind: string): [boolean, boolean] => [...(memory(generation).legends[kind] ?? (kind === 'net' ? [true, false] : [true, true]))];
-export const rememberTrendLegend = (generation: string, kind: string, visible: [boolean, boolean]): void => { memory(generation).legends[kind] = [...visible]; };
+export const defaultTrendLegend = (kind: string): boolean[] => kind === 'net' ? [true, false, false] : [true, true];
+export const recallTrendLegend = (generation: string, kind: string): boolean[] => { const saved = memory(generation).legends[kind], base = defaultTrendLegend(kind); return saved?.length === base.length ? [...saved] : base; };
+export const rememberTrendLegend = (generation: string, kind: string, visible: boolean[]): void => { memory(generation).legends[kind] = [...visible]; };
 export type PeriodChange = { status: 'insufficient' } | { status: 'scope_changed' } | { status: 'ready'; from: string; to: string; cents: string; rate_hundredths: number | null };
 /** The first point's scope_changed refers outside the selected range. */
 export function periodChange(points: Point[]): PeriodChange {

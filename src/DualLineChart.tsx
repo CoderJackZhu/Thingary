@@ -4,7 +4,7 @@ import { noteSummary, signedMoney } from './wealth';
 import { changeLine } from './chart-change';
 import { spacedLabels } from './chart-labels';
 import { dualLineAxis, toggleTrendLine, trendPaths } from './dual-line-chart';
-import { recallTrendLegend, rememberTrendLegend } from './review';
+import { defaultTrendLegend, recallTrendLegend, rememberTrendLegend } from './review';
 import './dual-line-chart.css';
 
 const H = 300, L = 70, B = 38, T = 28;
@@ -16,8 +16,9 @@ export function DualLineChart({ points, kind = 'net', generation, hideAmounts = 
   const gradientId = useId();
   const [current, setCurrent] = useState<number | null>(null);
   const context = `${generation ?? ''}:${kind}`;
-  const [legend, setLegend] = useState<{ context: string; visible: [boolean, boolean] }>(() => ({ context, visible: generation ? recallTrendLegend(generation, kind) : kind === 'net' ? [true, false] : [true, true] }));
-  const visible: [boolean, boolean] = legend.context === context ? legend.visible : generation ? recallTrendLegend(generation, kind) : kind === 'net' ? [true, false] : [true, true] as [boolean, boolean];
+  const initial = () => generation ? recallTrendLegend(generation, kind) : defaultTrendLegend(kind);
+  const [legend, setLegend] = useState<{ context: string; visible: boolean[] }>(() => ({ context, visible: initial() }));
+  const visible = legend.context === context ? legend.visible : initial();
   if (legend.context !== context) setLegend({ context, visible });
   const full = points.filter(p => p.complete);
   const drawable = full.length >= (single ? 1 : 2);
@@ -30,22 +31,22 @@ export function DualLineChart({ points, kind = 'net', generation, hideAmounts = 
     return () => observer.disconnect();
   }, [drawable]);
   const W = Math.max(plotWidth, 260);
-  const display = single ? [true, false] as [boolean, boolean] : visible;
+  const display = single ? [true, false, false] : visible;
   if (!drawable) return <p className="muted">完成两次完整盘点后显示走势。</p>;
-  const names = kind === 'net' ? single ? ['账户金额'] : ['金融净资产', '负债'] : ['流动资金', '投资'];
-  const value = (p: Point, i: number): string | null => (kind === 'net' ? i === 0 ? p.net_cents : p.liabilities_cents : i === 0 ? p.liquid_cents : p.invested_cents) ?? null;
+  const names = kind === 'net' ? single ? ['账户金额'] : ['金融净资产', '金融资产', '负债'] : ['流动资金', '投资'];
+  const value = (p: Point, i: number): string | null => (kind === 'net' ? [p.net_cents, p.assets_cents, p.liabilities_cents][i] : i === 0 ? p.liquid_cents : p.invested_cents) ?? null;
   const known = full.some(p => display.some((on, i) => on && value(p, i) !== null));
-  const { bottom, top, grid } = dualLineAxis([full.map(p => value(p, 0)), full.map(p => value(p, 1))], display);
+  const { bottom, top, grid } = dualLineAxis(names.map((_, i) => full.map(p => value(p, i))), display);
   const start = Date.parse(points[0].date), span = Date.parse(points.at(-1)!.date) - start || 1;
   const x = (date: string) => L + 12 + (W - L - 68) * (Date.parse(date) - start) / span;
   const y = (v: string | number) => T + (H - T - B) * (1 - (Number(v) - bottom) / (top - bottom));
   const labels = spacedLabels(points, p => x(p.date), () => 86);
   const shown = current === null ? null : full[Math.min(current, full.length - 1)];
   const amount = (p: Point, i: number) => hideAmounts ? '******' : value(p, i) === null ? '未知' : signedMoney(value(p, i)!);
-  const change = (p: Point) => kind === 'balances' ? '账户余额变化含存取与估值，不等于收益' : !display[0] ? '负债为各次盘点的尚欠金额' : hideAmounts ? '较上次 ******' : changeLine(p);
+  const change = (p: Point) => kind === 'balances' ? '账户余额变化含存取与估值，不等于收益' : !display[0] ? '资产与负债为各次盘点的账户金额，净资产 = 资产 − 负债' : hideAmounts ? '较上次 ******' : changeLine(p);
   const shownNames = names.flatMap((name, i) => display[i] ? [{ name, i }] : []);
-  const colors = ['var(--chart)', kind === 'balances' ? 'var(--series-2)' : 'var(--muted)'];
-  const paths = [0, 1].map(i => trendPaths(full.map(p => { const v = value(p, i); return v === null ? null : { x: x(p.date), y: y(v) }; }), y(bottom < 0 ? 0 : bottom)));
+  const colors = ['var(--chart)', 'var(--series-2)'];
+  const paths = names.map((_, i) => trendPaths(full.map(p => { const v = value(p, i); return v === null ? null : { x: x(p.date), y: y(v) }; }), y(bottom < 0 ? 0 : bottom)));
   const spoken = shown ? `${shown.date}，${shownNames.map(({name, i}) => `${name} ${amount(shown, i)}`).join('，')}，${change(shown)}` : '';
   return <div className={`dual-line-chart history-chart chart-${kind}`}>
     <div className="net-chart dual-plot" tabIndex={0} role="img" aria-label={`${label ? label + '。' : ''}${shownNames.map(s => s.name).join('与')}同轴趋势，共 ${full.length} 次完整盘点；左右方向键浏览，虚线表示不完整盘点${hideAmounts ? '，金额已隐藏' : ''}`}
@@ -64,8 +65,8 @@ export function DualLineChart({ points, kind = 'net', generation, hideAmounts = 
         {known && grid.map(v => <g key={v}><line x1={L} x2={W - 24} y1={y(v)} y2={y(v)} className={v === 0 ? 'history-axis' : 'history-grid'}/><text x={L - 6} y={y(v) + 3} textAnchor="end">{hideAmounts ? '******' : axis(v)}</text></g>)}
         {labels.map(p => <text key={p.date} x={x(p.date)} y={H - 8} textAnchor="middle">{p.date}</text>)}
         {points.filter(p => !p.complete).map(p => <line key={p.snapshot_id} x1={x(p.date)} x2={x(p.date)} y1={T} y2={H - B} className="partial-mark"><title>{p.date}：缺 {p.missing} 个账户，总额未知，不画在曲线上</title></line>)}
-        {[0, 1].map(i => display[i] && <g key={i} className={`series-${i}`}>
-          <path className="history-area" d={paths[i].area} fill={`url(#${gradientId}-${i})`}/>
+        {names.map((_, i) => display[i] && <g key={i} className={`series-${i}`}>
+          {colors[i] && (kind === 'balances' || i === 0) && <path className="history-area" d={paths[i].area} fill={`url(#${gradientId}-${i})`}/>}
           <path className="dual-line" d={paths[i].line}/>
           {full.map((p, n) => value(p, i) !== null && <circle key={p.snapshot_id} cx={x(p.date)} cy={y(value(p, i)!)} r={n === current ? 4.5 : 3.5} className={`dual-dot${(!full[n - 1] || value(full[n - 1], i) === null) && (!full[n + 1] || value(full[n + 1], i) === null) ? ' isolated' : ''}${n === full.length - 1 ? ' last' : ''}${n === current ? ' current' : ''}`}/>)}
         </g>)}

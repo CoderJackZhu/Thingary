@@ -1,5 +1,5 @@
 /** Fit only visible, known series; include a zero axis for negative values. */
-export function dualLineAxis(series: (string | null)[][], visible: [boolean, boolean]) {
+export function dualLineAxis(series: (string | null)[][], visible: boolean[]) {
   const values = series.flatMap((line, i) => visible[i] ? line.filter((v): v is string => v !== null).map(Number) : []);
   if (!values.length) return { bottom: 0, top: 1, grid: [0, 1] };
   const min = Math.min(...values), max = Math.max(...values);
@@ -10,9 +10,9 @@ export function dualLineAxis(series: (string | null)[][], visible: [boolean, boo
   const bottom = Math.floor(lower / unit) * unit, top = Math.ceil(upper / unit) * unit;
   return { bottom, top, grid: Array.from({ length: Math.round((top - bottom) / unit) + 1 }, (_, i) => bottom + i * unit) };
 }
-export function toggleTrendLine(visible: [boolean, boolean], index: number): [boolean, boolean] {
+export function toggleTrendLine(visible: boolean[], index: number): boolean[] {
   if (visible[index] && visible.filter(Boolean).length === 1) return visible;
-  return visible.map((v, i) => i === index ? !v : v) as [boolean, boolean];
+  return visible.map((v, i) => i === index ? !v : v);
 }
 
 /** Separate known runs so missing observations never acquire a filled value. */
