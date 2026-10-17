@@ -92,7 +92,7 @@ test('year and library changes invalidate old disclosure and old copy handlers; 
   const failed=mount({fail:true});failed.ui.button('复制当前预览').props.onClick();await failed.ui.settle();assert.match(failed.ui.text(failed.ui.nodes()),/复制失败/);assert.doesNotMatch(failed.ui.text(failed.ui.nodes()),/已复制/);
 });
 
-test('the page uses the overview presets with 近 1 年 by default and no inline curve',()=>{
+test('the page uses the overview presets with 近 1 年 by default and a compact sparkline only',()=>{
   const entry=[];const {ui,setSource}=mount({props:{onViewTrend:selection=>entry.push(selection)}});
   const control=ui.find('FinancePeriodControl');
   assert.equal(control.props.activePreset,'1y');
@@ -100,7 +100,7 @@ test('the page uses the overview presets with 近 1 年 by default and no inline
   assert.equal(JSON.stringify(control.props.options),JSON.stringify([{value:'range',label:'自定义'}]));
   assert.equal(control.props.yearQuickPick,true);
   assert.ok(control.props.presets.every(p=>p.period.kind==='range'&&p.period.includeFrom===true));
-  assert.ok(!ui.nodes().some(n=>n.type==='Sparkline'),'the default-expanded net-worth curve is gone');
+  assert.ok(ui.nodes().filter(n=>n.type==='Sparkline').every(n=>n.props.hero!==true),'only the compact sparkline, never the hero curve');
   ui.button('查看这段走势 →').props.onClick();
   assert.equal(JSON.stringify(entry),JSON.stringify([{range:'1y'}]));
   const custom={kind:'range',from:'2026-02-01',to:'2026-10-15',includeFrom:true};

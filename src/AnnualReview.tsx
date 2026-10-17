@@ -1,3 +1,4 @@
+import { Sparkline } from './Sparkline';
 import { FinancePeriodControl } from './FinancePeriodControl';
 import { DEFAULT_REVIEW_PRESET, resolveReviewPreset, reviewPeriodPresets, reviewPeriodRange } from './finance-period-control';
 import type { FinancePeriod } from './finance-contract';
@@ -74,6 +75,7 @@ export function AnnualReview({ generation, today, modules, onViewTrend }: { gene
             {compareTwo && <article><span>实际终点 {model.net.to.date}</span><strong>{renderAmount(model.net.to.net_cents)}</strong></article>}
             {compareTwo && <article><span>{model.net.label}</span><strong>{renderAmount(model.net.delta_cents)}</strong></article>}
           </div>
+          {compareTwo && !model.net.scopeChanged && <Sparkline points={model.net.points} hideAmounts={hidden}/>}
           {onViewTrend && <div className="ui-section-head"><span className="muted small">走势曲线在账户与盘点概览</span><button type="button" className="ui-link" onClick={viewTrend}>查看这段走势 →</button></div>}
           {model.net.scopeChanged && <p>期间范围发生变化，不直接比较；下方仍列实际盘点。</p>}
           <details><summary>实际盘点记录</summary><table className="ui-table"><thead><tr><th>日期</th><th>状态</th><th>金融净资产</th></tr></thead><tbody>{model.net.points.map(p => <tr key={p.snapshot_id}><td>{p.date}{p.date < model.range.from ? '（窗口前起点）' : ''}</td><td>{p.complete ? p.scope_changed ? '完整 · 范围变化' : '完整' : '不完整'}</td><td>{p.complete ? renderAmount(p.net_cents) : '未知'}</td></tr>)}</tbody></table></details>
