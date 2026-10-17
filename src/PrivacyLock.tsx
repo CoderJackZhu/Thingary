@@ -122,10 +122,10 @@ export function PrivacySettings() {
   return <section className="privacy-settings" aria-labelledby="privacy-settings-heading">
     <h3 id="privacy-settings-heading">屏幕隐私</h3>
     <label className="privacy-toggle"><input type="checkbox" checked={privacy.cover} onChange={event => { setError(privacy.setCover(event.target.checked) ? '' : '无法保存隐私设置，请重试。'); }}/>窗口不在前台时遮住内容</label>
-    <label className="privacy-toggle"><input type="checkbox" checked={privacy.lock.enabled} disabled={windows || privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, enabled: event.target.checked })}/>打开物谱时需要验证身份</label>
+    <label className="privacy-toggle privacy-toggle-stacked"><input type="checkbox" checked={privacy.lock.enabled} disabled={windows || privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, enabled: event.target.checked })}/><span>启用身份验证<small className="muted">每次打开物谱需要验证身份</small></span></label>
     {windows ? <p className="muted small">Windows 版暂不支持</p> : privacy.available === false ? <p className="muted small">这台 Mac 没有设置登录密码或 Touch ID</p> : privacy.available === null ? <p className="muted small">暂未确认这台设备是否支持验证身份</p> : null}
-    <label className="privacy-idle">闲置后重新验证<select value={privacy.lock.idleMinutes} disabled={!privacy.lock.enabled || privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, idleMinutes: Number(event.target.value) })}><option value="0">从不</option><option value="5">5 分钟</option><option value="15">15 分钟</option><option value="60">1 小时</option></select></label>
-    <p className="small muted">闲置时长只在离开窗口后返回时检查；未完成的编辑、保存或待核对请求会延后验证，处理完后再锁定。如需离开就遮住内容，请同时开启上方的遮挡选项。</p>
+    {privacy.lock.enabled && <><label className="privacy-idle">闲置后重新验证<select value={privacy.lock.idleMinutes} disabled={privacy.available !== true || privacy.checking} onChange={event => void changeLock({ ...privacy.lock, idleMinutes: Number(event.target.value) })}><option value="0">从不</option><option value="5">5 分钟</option><option value="15">15 分钟</option><option value="60">1 小时</option></select></label>
+      <p className="small muted">闲置时长只在离开窗口后返回时检查；未完成的编辑、保存或待核对请求会延后验证，处理完后再锁定。如需离开就遮住内容，请同时开启上方的遮挡选项。</p></>}
     <p className="small muted">这只是防止旁人看到屏幕，不会加密资料库文件。可另行创建加密备份；本机资料库文件仍未加密。</p>
     {error && <p role="alert">{error}</p>}
   </section>;

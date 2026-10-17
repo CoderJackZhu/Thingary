@@ -11,6 +11,9 @@ dialog.privacy-screen::backdrop{background:var(--bg)}
 .privacy-settings{padding:12px 0}
 .privacy-settings .privacy-toggle{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--text)}
 .privacy-toggle input{flex:none}
+.privacy-settings .privacy-toggle-stacked{align-items:flex-start}
+.privacy-toggle-stacked>span{display:block}
+.privacy-toggle-stacked small{display:block;margin-top:4px;font-size:12px}
 .privacy-idle{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:18px 0}
 .privacy-settings [role=alert]{color:var(--error)}
 
