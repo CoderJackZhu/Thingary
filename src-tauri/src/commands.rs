@@ -3,6 +3,7 @@ use crate::{
     worker::Worker,
 };
 use serde::Serialize;
+use std::sync::Arc;
 use tauri::Manager;
 #[derive(Serialize)]
 pub struct Snapshot {
@@ -1497,12 +1498,78 @@ pub async fn support_open(target: String) -> Result<()> {
         .map_err(|_| Error::new("SUPPORT", "无法打开浏览器。"))?
 }
 
-/// The app's only network request, made when the user presses 检查更新.
+/// The update surfaces read this state; it never touches the network.
 #[tauri::command]
-pub async fn update_check() -> Result<crate::update_check::Outcome> {
-    tauri::async_runtime::spawn_blocking(crate::update_check::check)
+pub async fn update_state_get(
+    state: tauri::State<'_, Arc<crate::update_state::UpdateState>>,
+) -> Result<crate::update_state::StateView> {
+    Ok(state.view())
+}
+
+#[tauri::command]
+pub async fn update_consent_set(
+    enabled: bool,
+    expected_revision: u32,
+    state: tauri::State<'_, Arc<crate::update_state::UpdateState>>,
+) -> Result<crate::update_state::StateView> {
+    let service = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.set_consent(enabled, expected_revision))
         .await
-        .map_err(|_| Error::new("UPDATE_CHECK", "更新检查未完成，请重试"))?
+        .map_err(|_| Error::new("UPDATE_STATE", "自动检查设置未保存，请重试"))?
+}
+
+#[tauri::command]
+pub async fn update_check_request(
+    mode: String,
+    state: tauri::State<'_, Arc<crate::update_state::UpdateState>>,
+) -> Result<crate::update_state::RequestView> {
+    let origin = crate::update_state::Origin::parse(&mode)
+        .ok_or_else(|| Error::new("UPDATE_STATE", "未知的检查方式"))?;
+    let begin = crate::update_state::spawn_round(state.inner(), origin);
+    let (decision, task) = match &begin {
+        crate::update_state::Begin::Skipped(reason) => ((*reason).to_owned(), None),
+        crate::update_state::Begin::Joined(shared) => {
+            let shared = Arc::clone(shared);
+            let joined = tauri::async_runtime::spawn_blocking(move || shared.wait())
+                .await
+                .map_err(|_| Error::new("UPDATE_STATE", "更新检查未完成，请重试"))?;
+            ("joined".into(), Some(joined))
+        }
+        crate::update_state::Begin::Started(shared) => {
+            let shared = Arc::clone(shared);
+            let started = tauri::async_runtime::spawn_blocking(move || shared.wait())
+                .await
+                .map_err(|_| Error::new("UPDATE_STATE", "更新检查未完成，请重试"))?;
+            ("started".into(), Some(started))
+        }
+    };
+    Ok(crate::update_state::RequestView {
+        decision,
+        task,
+        state: state.view(),
+    })
+}
+
+#[tauri::command]
+pub async fn update_mark_seen(
+    version: String,
+    state: tauri::State<'_, Arc<crate::update_state::UpdateState>>,
+) -> Result<crate::update_state::StateView> {
+    let service = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.mark_seen(&version))
+        .await
+        .map_err(|_| Error::new("UPDATE_STATE", "更新状态未保存，请重试"))?
+}
+
+#[tauri::command]
+pub async fn update_ignore_version(
+    version: String,
+    state: tauri::State<'_, Arc<crate::update_state::UpdateState>>,
+) -> Result<crate::update_state::StateView> {
+    let service = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || service.ignore_version(&version))
+        .await
+        .map_err(|_| Error::new("UPDATE_STATE", "更新状态未保存，请重试"))?
 }
 
 #[tauri::command]

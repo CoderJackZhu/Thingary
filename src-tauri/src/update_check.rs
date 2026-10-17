@@ -18,7 +18,7 @@ pub enum Source {
     Github,
 }
 impl Source {
-    const ALL: [Source; 2] = [Source::Gitee, Source::Github];
+    pub(crate) const ALL: [Source; 2] = [Source::Gitee, Source::Github];
     fn api(self) -> &'static str {
         match self {
             Source::Gitee => {
@@ -61,13 +61,13 @@ pub struct Platform {
     pub arch: &'static str,
 }
 impl Platform {
-    fn current() -> Self {
+    pub(crate) fn current() -> Self {
         Self {
             os: std::env::consts::OS,
             arch: std::env::consts::ARCH,
         }
     }
-    fn label(self) -> String {
+    pub(crate) fn label(self) -> String {
         match (self.os, self.arch) {
             ("macos", "aarch64") => "Mac · Apple Silicon".into(),
             ("macos", "x86_64") => "Mac · Intel".into(),
@@ -433,6 +433,20 @@ fn fetch(source: Source) -> Result<String> {
 /// Runs the lookups. Blocking: call from a blocking task.
 pub fn check() -> Result<Outcome> {
     check_with(env!("CARGO_PKG_VERSION"), &mut fetch)
+}
+
+/// The lookup with an injected platform, for the update-discovery service and
+/// its tests; behaviour is otherwise identical to `check_with`.
+pub fn check_for_platform(
+    current: &str,
+    platform: Platform,
+    fetch: &mut dyn FnMut(Source) -> Result<String>,
+) -> Result<Outcome> {
+    check_for(current, platform, fetch)
+}
+
+pub(crate) fn fetch_public(source: Source) -> Result<String> {
+    fetch(source)
 }
 
 /// Opens one mirror's release page for a version we validated ourselves.

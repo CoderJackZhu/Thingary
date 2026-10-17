@@ -67,6 +67,7 @@ pub mod timeline;
 mod toast_activation;
 pub mod trash;
 pub mod update_check;
+pub mod update_state;
 pub mod virtual_assets;
 pub mod warranty;
 pub mod wealth;
@@ -126,6 +127,11 @@ pub fn run() {
             app.manage(worker::Worker::start(
                 app.path().app_local_data_dir()?.join("library"),
             )?);
+            // Update discovery (D5) shares the app-identity preference folder
+            // with the other machine-local files; never the library database.
+            app.manage(std::sync::Arc::new(update_state::UpdateState::new(
+                app.path().app_local_data_dir()?.join("library"),
+            )));
             // Periodic automatic backups (D20): a plain thread that ends with
             // the process. Quitting never waits for or triggers a backup, and
             // an interrupted one is made up on a later launch.
@@ -371,7 +377,11 @@ pub fn run() {
             commands::checkin_reminder_status,
             commands::app_version,
             commands::support_open,
-            commands::update_check,
+            commands::update_state_get,
+            commands::update_consent_set,
+            commands::update_check_request,
+            commands::update_mark_seen,
+            commands::update_ignore_version,
             commands::update_open_release,
             commands::update_open_download,
             commands::goal_progress_list,

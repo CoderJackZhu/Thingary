@@ -29,7 +29,12 @@ export function CheckinReminderAsk({ savedComplete, completeCount, wealthOn, tod
     <p className="muted checkin-reminder-summary" role="status">{answer.line}</p>
     {answer.warning && <p className="notice" role="alert">{answer.warning}</p>}
   </>;
-  if (!status || !checkinReminderAskVisible(savedComplete, completeCount, status.months, asked)) return null;
+  const visible = !!status && checkinReminderAskVisible(savedComplete, completeCount, status.months, asked);
+  useEffect(() => {
+    if (!visible) return;
+    window.dispatchEvent(new CustomEvent('thingary-ask-card-shown', { detail: { kind: 'checkin' } }));
+  }, [visible]);
+  if (!visible) return null;
   async function choose(months: number) {
     setBusy(true); setError('');
     try {
