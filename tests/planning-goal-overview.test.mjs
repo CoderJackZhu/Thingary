@@ -14,6 +14,7 @@ const readOf = (generation, confirmation) => ({
   },
 });
 const goalArticle = r => r.nodes().find(n => n.props?.['aria-label'] === '退休目标');
+const sidePanel = r => r.text(r.nodes().find(n => n.props?.className === 'goal-side'));
 const assumptionsArticle = r => r.nodes().find(n => n.props?.['data-condition'] === 'assumptions');
 const render = (extra = {}) => {
   const sources = fixture(), saved = sources.profile.value.saved;
@@ -94,10 +95,9 @@ test('FIRE separates the hoped month from the predicted retirement month', () =>
   saved.profile.retire.mode = 'fire';
   const caps = buildBasicCapabilities(sources);
   const r = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, realSummary: true, assumptionRead: readOf(sources.generation, 'confirmed') });
-  const text = r.text(goalArticle(r));
-  assert.match(text, /你希望/);
-  assert.match(text, /预计退休月份/);
-  assert.match(text, /希望时间|你希望/);
+  assert.match(r.text(goalArticle(r)), /你希望/);
+  assert.match(sidePanel(r), /预计退休月份/, 'the prediction detail stays beside the conclusion');
+  assert.match(r.text(goalArticle(r)), /希望时间|你希望/);
 });
 
 test('unconfirmed and changed assumptions keep a light hint outside the closed disclosure, with read failures visible', () => {
@@ -164,7 +164,7 @@ test('an explicitly excluded debt stays a caution without a nag action', () => {
   const countBefore = before.nodes().filter(n => n.type === 'button' && before.text(n) === '去核对').length;
   caps.annotations = [...(caps.annotations ?? []), { id: 'debt:虚构:excluded', reason_code: 'DEBT_EXCLUDED', message: '你选择了虚构房贷先不考虑，还款未计入。', effect: 'requirement_lower', treatment: 'omitted', actionable: false, source_ids: ['虚构账户'], missing_fields: [], refinement: { owner: 'basic', field: 'core.debt_repayments' } }];
   const after = runtime('planning-goal/Overview', { saved, caps, today: sources.today, cards: [], onEdit() {}, onRefine() {}, onDetail() {}, onAnnotation: callbacks, realSummary: true, assumptionRead: readOf(sources.generation, 'confirmed') });
-  assert.match(after.text(goalArticle(after)), /先不考虑/);
+  assert.match(sidePanel(after), /先不考虑/);
   const excluded = after.nodes().find(n => n.type === 'li' && after.text(n).includes('先不考虑'));
   assert.ok(excluded);
   assert.ok(!after.text(excluded).includes('去核对'), 'an explicitly excluded item keeps its caution but offers no nag');
