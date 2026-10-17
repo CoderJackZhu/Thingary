@@ -69,7 +69,7 @@ test('range/custom dates and separate legends survive page remount only in the s
   assert.deepEqual(review.recallTrendLegend('虚构库', 'net'), [true, false]);
   assert.deepEqual(review.recallTrendLegend('虚构库', 'balances'), [true, true]);
   assert.equal(review.recallTrendRange('另一个虚构库'), 'all');
-  assert.deepEqual(review.recallTrendLegend('另一个虚构库', 'net'), [true, true]);
+  assert.deepEqual(review.recallTrendLegend('另一个虚构库', 'net'), [true, false]);
   assert.equal(review.recallTrendRange('虚构库'), 'all');
 });
 
@@ -103,7 +103,8 @@ test('invalid/reversed/sparse custom edits retain the previously applied curve a
 });
 test('keyboard tooltip/live text includes both lines and masking suppresses all financial values', () => {
   const points = [point('2026-01-01'), point(today, { net_cents: '987654321', liabilities_cents: '123456789', notes: '虚构备注987654321' })];
-  const props = { points, hideAmounts: true };
+  review.rememberTrendLegend('双线隐私', 'net', [true, true]);
+  const props = { points, hideAmounts: true, generation: '双线隐私' };
   const h = runtime('DualLineChart.tsx', 'DualLineChart', [props], { './wealth': fakeWealth, './chart-change': { changeLine: () => '变化987654321' }, './chart-labels': { spacedLabels: p => p }, './dual-line-chart': chart, './review': review });
   h.nodes().find(n => n.props?.tabIndex === 0).props.onFocus(); h.render();
   const text = JSON.stringify(h.nodes().map(n => n.props?.children));
@@ -127,6 +128,8 @@ test('legend context refreshes immediately on library or chart kind changes', ()
   review.clearTrendRange();
   const props = { points: [point('2026-01-01'), point(today)], generation: '虚构甲', kind: 'net' };
   const h = runtime('DualLineChart.tsx', 'DualLineChart', [props], { './wealth': fakeWealth, './chart-change': { changeLine: () => '' }, './chart-labels': { spacedLabels: p => p }, './dual-line-chart': chart, './review': review });
+  // Enable debt before hiding net: the final visible line remains protected.
+  h.nodes().filter(n => n.type === 'button')[1].props.onClick(); h.render();
   h.nodes().filter(n => n.type === 'button')[0].props.onClick(); h.render();
   assert.equal(h.nodes().filter(n => n.type === 'button')[0].props['aria-pressed'], false);
   props.generation = '虚构乙'; h.render();
@@ -143,4 +146,77 @@ test('single account history with one known point keeps its dot/date and has no 
   assert.ok(h.nodes().some(n => n.type === 'text' && n.props.children === today));
   const path = h.nodes().find(n => n.type === 'path');
   assert.ok(!/NaN|Infinity/.test(path.props.d));
+});
+
+test('net defaults to one line and hidden series never leak into tooltip or live text', () => {
+  review.clearTrendRange();
+  const props = { points: [point('2026-01-01'), point(today, { liabilities_cents: '123456789' })], generation: '默认单线' };
+  const h = runtime('DualLineChart.tsx', 'DualLineChart', [props], { './wealth': fakeWealth, './chart-change': { changeLine: () => '净资产较上次' }, './chart-labels': { spacedLabels: p => p }, './dual-line-chart': chart, './review': review });
+  assert.equal(h.nodes().filter(n => n.type === 'circle').length, 2);
+  h.nodes().find(n => n.props?.tabIndex === 0).props.onFocus(); h.render();
+  assert.doesNotMatch(h.nodes().find(n => n.props?.['aria-live']).props.children, /负债|123456789/);
+  h.nodes().filter(n => n.type === 'button')[1].props.onClick(); h.render();
+  h.nodes().filter(n => n.type === 'button')[0].props.onClick(); h.render();
+  const live = h.nodes().find(n => n.props?.['aria-live']).props.children;
+  assert.match(live, /负债/); assert.doesNotMatch(live, /金融净资产|净资产较上次/);
+});
+test('balance tooltip describes balances without reporting unrelated net change', () => {
+  const h = runtime('DualLineChart.tsx', 'DualLineChart', [{ points: [point('2026-01-01'), point(today)], kind: 'balances' }], { './wealth': fakeWealth, './chart-change': { changeLine: () => '错误的净资产变化' }, './chart-labels': { spacedLabels: p => p }, './dual-line-chart': chart, './review': review });
+  h.nodes().find(n => n.props?.tabIndex === 0).props.onFocus(); h.render();
+  assert.doesNotMatch(h.nodes().find(n => n.props?.['aria-live']).props.children, /错误的净资产变化/);
+});
+
+test('overview keeps its large single area chart, unknown markers and masked keyboard amounts', () => {
+  const props = { hero: true, hideAmounts: true, points: [point('2026-01-01'), point('2026-05-01', { complete: false }), point(today, { net_cents: '987654321' })] };
+  const h = runtime('Sparkline.tsx', 'Sparkline', [props], { './wealth': fakeWealth, './chart-change': { changeLine: () => '变化987654321' }, './chart-labels': { spacedLabels: p => p } });
+  assert.ok(h.nodes().some(n => n.props?.className === 'ui-spark hero'));
+  assert.equal(h.nodes().filter(n => n.type === 'button').length, 0);
+  assert.equal(h.nodes().filter(n => n.type === 'path' && n.props.className === 'area').length, 1);
+  assert.equal(h.nodes().filter(n => n.type === 'line' && n.props.className === 'partial').length, 1);
+  h.nodes().find(n => n.props?.tabIndex === 0).props.onFocus(); h.render();
+  assert.doesNotMatch(JSON.stringify(h.nodes().map(n => n.props?.children)), /987654321/);
+  props.hideAmounts = false; h.render();
+  assert.match(h.nodes().find(n => n.props?.['aria-live']).props.children, /987654321/);
+  props.points = [point('2026-01-01'), point(today)]; h.render();
+  assert.ok(h.nodes().filter(n => n.type === 'path').every(n => !/NaN|Infinity/.test(n.props.d)));
+});
+
+test('gradient areas preserve unknown gaps and do not fill isolated observations', () => {
+  const result = chart.trendPaths([{ x: 1, y: -2 }, null, { x: 4, y: 6 }, { x: 8, y: 2 }], 10);
+  assert.equal(result.line, 'M1,-2 M4,6 L8,2');
+  assert.equal(result.area, 'M4,6 L8,2 L8,10 L4,10 Z');
+  assert.deepEqual(chart.trendPaths([null, { x: 5, y: 1 }, null], 0), { line: 'M5,1', area: '' });
+  assert.deepEqual(chart.trendPaths([], 0), { line: '', area: '' });
+});
+
+test('isolated known balance observations remain visible without hovering or filling unknown gaps', () => {
+  const renderBalances = values => runtime('DualLineChart.tsx', 'DualLineChart', [{
+    points: values.map((liquid_cents, i) => point(`2026-01-0${i + 1}`, { liquid_cents, invested_cents: null })), kind: 'balances',
+  }], { './wealth': fakeWealth, './chart-change': { changeLine: () => '' }, './chart-labels': { spacedLabels: p => p }, './dual-line-chart': chart, './review': review });
+  for (const values of [['10000', null, null], [null, '0', null], [null, null, '-10000']]) {
+    const h = renderBalances(values), dots = h.nodes().filter(n => n.type === 'circle');
+    assert.equal(dots.length, 1);
+    assert.match(dots[0].props.className, /\bisolated\b/);
+    assert.ok(h.nodes().filter(n => n.props?.className === 'history-area').every(n => n.props.d === ''));
+  }
+  const h = renderBalances(['10000', null, '0', null, '-10000', '-20000', null]);
+  const dots = h.nodes().filter(n => n.type === 'circle');
+  assert.deepEqual(dots.map(n => /\bisolated\b/.test(n.props.className)), [true, true, false, false]);
+  assert.equal((h.nodes().find(n => n.props?.className === 'history-area').props.d.match(/Z/g) ?? []).length, 1);
+  assert.equal(renderBalances([null, null]).nodes().filter(n => n.type === 'circle').length, 0);
+  const css = readFileSync(new URL('../src/dual-line-chart.css', import.meta.url), 'utf8');
+  assert.match(css, /\.dual-dot\.isolated[^{}]*\{[^}]*opacity:\s*1\b/);
+});
+
+test('unknown visible balances show an explicit empty state and preserve legend recovery', () => {
+  review.clearTrendRange();
+  const props = { kind: 'balances', generation: '未知余额', points: [point('2026-01-01', { liquid_cents: null }), point(today, { liquid_cents: null })] };
+  const h = runtime('DualLineChart.tsx', 'DualLineChart', [props], { './wealth': fakeWealth, './chart-change': { changeLine: () => '' }, './chart-labels': { spacedLabels: p => p }, './dual-line-chart': chart, './review': review });
+  h.nodes().filter(n => n.type === 'button')[1].props.onClick(); h.render();
+  assert.ok(h.nodes().some(n => n.type === 'text' && n.props.children === '所选范围暂无已知金额'));
+  assert.equal(h.nodes().filter(n => n.type === 'line' && /history-(axis|grid)/.test(n.props.className)).length, 0);
+  assert.equal(h.nodes().filter(n => n.type === 'button')[1].props.disabled, false);
+  h.nodes().filter(n => n.type === 'button')[1].props.onClick(); h.render();
+  assert.ok(!h.nodes().some(n => n.type === 'text' && n.props.children === '所选范围暂无已知金额'));
+  assert.equal(h.nodes().filter(n => n.type === 'circle').length, 2);
 });

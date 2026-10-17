@@ -13,14 +13,14 @@ const fn = parsed.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.te
 const script = ts.transpileModule(fn.getText() + '\nmodule.exports=QuickUpdateDialog;', { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
 const account = { id: 'cash', fields: { name: '虚构现金', side: 'asset', counted: true } };
 const draft = { generation: 'fictional', date: '2026-10-17', existing: null, rows: [{ account, previous: { amount_cents: '10000', date: '2026-10-01' } }, { account: { id: 'fund', fields: { name: '虚构基金', side: 'asset', counted: true } }, previous: { amount_cents: '30000', date: '2026-10-01' } }] };
-function runtime({ failure = null, hidden = false, fixtureDraft = draft, fixtureAccount = account } = {}) {
+function runtime({ failure = null, hidden = false, fixtureDraft = draft, fixtureAccount = account, receiptReadFailures = 0 } = {}) {
   const states = [], refs = [], deps = [], effects = [], calls = [], closes = [];
-  let si = 0, ri = 0, ei = 0, nextDraft = structuredClone(fixtureDraft), pending = null, writes = 0;
+  let si = 0, ri = 0, ei = 0, nextDraft = structuredClone(fixtureDraft), pending = null, writes = 0, confirmed = null;
   const context = { ...wealth, ...currency, ...holdings, HoldingInput: 'holding-input', CurrencyInput: 'currency-input', module: { exports: {} }, exports: {}, require: () => jsx, CloseButton: 'close', DateInput: 'date', CentInput: 'cents', FormRow: 'row',
     errorMessage: e => e.message, money: value => `金额${value}`, localStorage: { getItem: () => hidden ? '1' : null }, crypto,
-    invoke: async (command, input) => { calls.push({ command, input }); return structuredClone(nextDraft); },
+    invoke: async (command, input) => { calls.push({ command, input }); if (confirmed && receiptReadFailures-- > 0) throw new Error('虚构只读暂时失败'); return structuredClone({ ...nextDraft, date: input.date, ...(confirmed ? { existing: confirmed } : {}) }); },
     submit: async request => { calls.push(request); writes++; if (failure) { if (failure instanceof wealth.Unresolved) pending = request; throw failure; } return { id: 'saved', ...nextDraft }; },
-    storedPending: () => pending, resolvePending: async () => { calls.push({ command: 'read-only-receipt' }); return 'saved'; },
+    storedPending: () => pending, resolvePending: async () => { calls.push({ command: 'read-only-receipt' }); confirmed = { id: 'confirmed', date: pending.input.date, notes: '虚构已保存盘点', revision: 1, entries: [], missing: [] }; pending = null; return 'saved'; },
     useState: init => { const i = si++; if (!(i in states)) states[i] = typeof init === 'function' ? init() : init; return [states[i], value => { states[i] = typeof value === 'function' ? value(states[i]) : value; }]; },
     useRef: init => { const i = ri++; return refs[i] ??= { current: init }; },
     useEffect: (callback, next) => { const i = ei++, old = deps[i]; if (!old || !next || next.some((v, j) => !Object.is(v, old[j]))) { deps[i] = next; effects.push(callback); } },
@@ -56,7 +56,7 @@ test('虚构实际快速更新：结果未知保留原请求、冻结编辑，�
   assert.equal(element(tree, node => node.type === 'cents').props.disabled, true);
   const verify = element(tree, node => node.type === 'button' && node.props.children === '核对结果');
   verify.props.onClick(); await new Promise(setImmediate);
-  assert.equal(r.writes, 1); assert.deepEqual(r.closes, [[true]]);
+  assert.equal(r.writes, 1); assert.equal(r.closes.length, 1); assert.equal(r.closes[0][0], true); assert.equal(r.closes[0][1].date, '2026-10-17'); assert.equal(r.closes[0][1].id, 'confirmed');
   assert.ok(r.calls.some(call => call.command === 'read-only-receipt'));
 });
 test('虚构隐藏金额：新增原余额和实时结果不暴露只读金额', async () => {
@@ -110,12 +110,60 @@ test('虚构外币CNY未变的陈旧输入：保留原币增减和汇率，重�
 
 test('虚构实际持仓Quick处理器：三操作提交完整数量价格且增减默认上次价格',async()=>{
  const a={...account,fields:{...account.fields,kind:'fund',holding_mode:true}},d={...draft,rows:[{account:a,previous:{amount_cents:'100',date:'2026-10-01',quantity_e8:'100000000',unit_price_e6:'1000000'}}]};
- for(const operation of ['增减持仓','更新价格','修改余额']){const r=runtime({fixtureDraft:d,fixtureAccount:a});let tree=await ready(r);element(tree,n=>n.type==='button'&&n.props.children===operation).props.onClick();tree=r.render();
+ for(const operation of ['增减持仓','更新价格','修改持仓']){const r=runtime({fixtureDraft:d,fixtureAccount:a});let tree=await ready(r);element(tree,n=>n.type==='button'&&n.props.children===operation).props.onClick();tree=r.render();
  if(operation!=='更新价格')element(tree,n=>n.type==='holding-input'&&n.props.label===(operation==='增减持仓'?'持仓份额变化':'持仓份额')).props.onChange(operation==='增减持仓'?'50000000':'200000000');
- tree=r.render();const price=element(tree,n=>n.type==='holding-input'&&n.props.label==='持仓单价');if(operation==='增减持仓')assert.equal(price.props.value,'1000000');else price.props.onChange('2000000');await submit(r);const row=r.calls.find(c=>c.command==='wealth_quick_update').input.changes[0];assert.equal(row.quantity_e8,operation==='增减持仓'?'150000000':operation==='更新价格'?'100000000':'200000000');assert.equal(row.unit_price_e6,operation==='增减持仓'?'1000000':'2000000');if(operation!=='修改余额')assert.equal(row.expected_quantity_e8,'100000000');}
+ tree=r.render();const price=element(tree,n=>n.type==='holding-input'&&n.props.label==='持仓单价');if(operation==='增减持仓')assert.equal(price.props.value,'1000000');else price.props.onChange('2000000');await submit(r);const row=r.calls.find(c=>c.command==='wealth_quick_update').input.changes[0];assert.equal(row.quantity_e8,operation==='增减持仓'?'150000000':operation==='更新价格'?'100000000':'200000000');assert.equal(row.unit_price_e6,operation==='增减持仓'?'1000000':'2000000');if(operation!=='修改持仓')assert.equal(row.expected_quantity_e8,'100000000');}
 });
 test('虚构持仓陈旧与未知：保留数量输入价格备注，冻结后只读核对不重复写',async()=>{
  const a={...account,fields:{...account.fields,kind:'fund',holding_mode:true}},d={...draft,rows:[{account:a,previous:{amount_cents:'1',date:'2026-10-01',quantity_e8:'100000000',unit_price_e6:'5000'}}]};
  const r=runtime({failure:{code:'QUICK_STALE',message:'份额已经变化'},fixtureDraft:d,fixtureAccount:a});let tree=await ready(r);element(tree,n=>n.type==='button'&&n.props.children==='增减持仓').props.onClick();tree=r.render();element(tree,n=>n.type==='holding-input'&&n.props.label==='持仓份额变化').props.onChange('100000000');element(tree,n=>n.type==='textarea').props.onChange({target:{value:'虚构保留持仓备注'}});r.setDraft({...d,rows:[{account:a,previous:{...d.rows[0].previous,quantity_e8:'200000000',unit_price_e6:'2500'}}]});await submit(r);tree=await ready(r);assert.equal(element(tree,n=>n.type==='holding-input'&&n.props.label==='持仓份额变化').props.value,'100000000');assert.equal(element(tree,n=>n.type==='holding-input'&&n.props.label==='持仓单价').props.value,'5000');assert.equal(element(tree,n=>n.type==='textarea').props.value,'虚构保留持仓备注');assert.equal(r.writes,1);assert.equal(r.calls.find(c=>c.command==='wealth_quick_update').input.changes[0].expected_quantity_e8,'100000000');
  const u=runtime({failure:new wealth.Unresolved('虚构持仓未知'),fixtureDraft:d,fixtureAccount:a});tree=await ready(u);element(tree,n=>n.type==='holding-input'&&n.props.label==='持仓份额').props.onChange('100000000');tree=u.render();element(tree,n=>n.type==='holding-input'&&n.props.label==='持仓单价').props.onChange('1000000');await submit(u);tree=u.render();assert.equal(element(tree,n=>n.type==='holding-input').props.disabled,true);element(tree,n=>n.type==='button'&&n.props.children==='核对结果').props.onClick();await new Promise(setImmediate);assert.equal(u.writes,1);assert.ok(u.calls.some(c=>c.command==='read-only-receipt'));
+});
+
+
+test('虚构已确认保存但快照读取失败：保持已保存状态，只读重试返回原请求日期快照', async () => {
+  const r = runtime({ failure: new wealth.Unresolved('虚构结果未知'), receiptReadFailures: 1 });
+  let tree = await ready(r);
+  element(tree, n => n.type === 'date').props.onChange('2026-10-16'); tree = await ready(r);
+  element(tree, n => n.type === 'cents').props.onChange('12345'); await submit(r);
+  element(r.render(), n => n.type === 'button' && n.props.children === '核对结果').props.onClick(); await new Promise(setImmediate);
+  tree = r.render(); assert.match(text(tree), /已确认保存/); assert.match(text(tree), /只读暂时失败/); assert.equal(r.closes.length, 0);
+  element(tree, n => n.type === 'button' && n.props.children === '重新读取已保存盘点').props.onClick(); await new Promise(setImmediate);
+  assert.equal(r.writes, 1); assert.equal(r.calls.filter(c => c.command === 'read-only-receipt').length, 1);
+  assert.equal(r.closes.length, 1); assert.equal(r.closes[0][0], true); assert.equal(r.closes[0][1].date, '2026-10-16');
+  assert.equal(r.calls.filter(c => c.command === 'wealth_snapshot_draft').at(-1).input.date, '2026-10-16');
+});
+
+test('虚构所选账户不在日期范围：即使其他账户能转账，按钮与实际提交均阻止写入', async () => {
+  for (const outside of [
+    { ...account, id: 'not-in-draft' },
+    { ...account, fields: { ...account.fields, opened_on: '2026-10-18', closed_on: null } },
+    { ...account, fields: { ...account.fields, opened_on: '2026-01-01', closed_on: '2026-10-17' } },
+  ]) {
+    const d = { ...draft, rows: [...draft.rows.filter(r => r.account.id !== outside.id), { account: { id: 'other', fields: { ...account.fields } }, previous: { amount_cents: '20000' } }, ...(outside.id === 'not-in-draft' ? [] : [{ account: outside, previous: { amount_cents: '10000' } }])] };
+    const r = runtime({ fixtureAccount: outside, fixtureDraft: d }); let tree = await ready(r);
+    element(tree, n => n.type === 'button' && n.props.children === '转账').props.onClick(); tree = r.render();
+    element(tree, n => n.type === 'cents' && n.props.label === '转账金额').props.onChange('100'); tree = r.render();
+    assert.equal(element(tree, n => n.type === 'button' && n.props.children === '保存快速更新').props.disabled, true);
+    assert.match(text(tree), /不在所选日期/); await submit(r); assert.equal(r.writes, 0);
+  }
+});
+
+test('虚构转账说明明确余额更新、同币种原币及人民币零变化限制', async () => {
+  const r = runtime(); let tree = await ready(r);
+  element(tree, n => n.type === 'button' && n.props.children === '转账').props.onClick(); tree = r.render();
+  assert.match(text(tree), /只更新两个账户的余额，不建立收入、支出或资金流动记录/);
+  assert.match(text(tree), /外币按原币金额转账/); assert.match(text(tree), /旧汇率不同或逐账户舍入/);
+  assert.match(text(tree), /人民币净变化为零才能保存/);
+});
+
+test('虚构已保存盘点读取属于另一资料库时不误关闭，回原库后只读重试', async () => {
+  const r = runtime({ failure: new wealth.Unresolved('虚构结果未知') });
+  let tree = await ready(r); element(tree, n => n.type === 'cents').props.onChange('12345'); await submit(r);
+  r.setDraft({ ...draft, generation: 'fictional-other' });
+  element(r.render(), n => n.type === 'button' && n.props.children === '核对结果').props.onClick(); await new Promise(setImmediate);
+  tree = r.render(); assert.equal(r.closes.length, 0); assert.match(text(tree), /已确认保存/); assert.match(text(tree), /原资料库/);
+  r.setDraft(draft); element(tree, n => n.type === 'button' && n.props.children === '重新读取已保存盘点').props.onClick(); await new Promise(setImmediate);
+  assert.equal(r.closes[0][1].date, '2026-10-17'); assert.equal(r.writes, 1);
+  assert.equal(r.calls.filter(c => c.command === 'read-only-receipt').length, 1);
 });

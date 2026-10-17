@@ -14,7 +14,7 @@
 
 `src/privacy-lock.ts` 提供偏好解析和纯状态机；`PrivacyBoundary` 在 `main.tsx` 最外层控制 `Bootstrap` 挂载。启动锁定时只调用 `privacy_auth_available`／`privacy_authenticate`，能力检查或验证失败不会进入资料读取入口；能力不可用时按关闭处理。主应用挂载后的重新锁定保持同一 React 树，通过不透明全屏顶层 `dialog` 遮盖页面、设置背景 inert，避免已有表单对话框越过遮罩。编辑状态、资料操作、打开的对话框及待核对回执延后重锁；原生菜单与键盘快捷键使用同步锁定标记丢弃操作，不留队列。
 
-两个本机偏好键为 `thingary.privacy-cover.v1`（布尔值）和 `thingary.privacy-lock.v1`（JSON：`enabled`、`idleMinutes`，仅 0／5／15／60），读写失败不抛出到应用，损坏偏好按关闭处理。`wealth-preview.ts` 只模拟虚构认证能力和取消／成功，不调用设备身份验证。
+设置分类「屏幕隐私」直接提供开关与闲置验证说明，不再放在帮助折叠中。两个本机偏好键为 `thingary.privacy-cover.v1`（布尔值）和 `thingary.privacy-lock.v1`（JSON：`enabled`、`idleMinutes`，仅 0／5／15／60），读写失败不抛出到应用，损坏偏好按关闭处理。`wealth-preview.ts` 只模拟虚构认证能力和取消／成功，不调用设备身份验证。
 
 `src-tauri/native/auth.m` 链接系统 `LocalAuthentication`，采用 `LAPolicyDeviceOwnerAuthentication` 支持系统密码兜底；信号量最多等待 120 秒，超时使认证上下文失效。返回字符串由 `thingary_free` 释放。Rust `privacy_lock.rs` 的两个异步命令通过 `spawn_blocking` 调用原生同步函数，不借用 Store；非 macOS 能力返回 false，认证返回 `UNSUPPORTED`。锁屏只防旁观，不加密或阻止文件访问，原生 Worker 的既有启动初始化、提醒及备份生命周期保持不变。自动测试不触发生物识别，真实认证与窗口焦点行为需要隔离身份实机验收。
 
@@ -187,7 +187,7 @@ schema 33（0.0.2，重要支出年度总览与关联订阅）为整组删除新
 
 复用已有 SVG、组件与 `src/theme.css` 令牌，覆盖三种界面风格的浅／深组合。颜色表达不能替代文本，金额与日期格式统一，未知值不画成零。周期付款与复盘来源按 50 条分页渲染，完整合计与排序仍基于全量来源；分页不替代后端完整校验。布局应覆盖正常、未知、空白、读取失败和保存失败；焦点、Tab 顺序、方向键、Esc 返回和中文输入组合需与操作语义一致。
 
-`wealth-display.ts` 管理账户显示范围，与汇总计算分离；变化列表保留有历史影响或未知的停用账户。`chart-labels.ts` 按实际位置与文字宽度筛选横轴标签，`chart-width.ts` 观察 SVG 显示比例，数据与详情不抽样。总览金融金额显隐仅保存本机显示偏好；头图保留线形，纵轴、提示、播报与较期初金额／比例均遮蔽，其余相关金融金额内容隐藏。`DualLineChart` 共用总览头图、账户概览净资产／负债与流动资金／投资图，复用标签间距与键盘浏览；单账户历史保留单线。`review.ts` 管理范围裁剪、较期初与同库会话范围／图例记忆，`TrendRangeControl` 的自定义草稿仅在日期合法且至少两次完整盘点时应用。`wealth_summary` 的 liquid_cents／invested_cents 按历史记录的 kind／counted 汇总，完整无类别为零、不完整为 null；后者包含贵金属，与 market_change_cents 区别明确。`PlanningCosts` 共用费用编辑器，独立保存只替换 basic 中两组费用关系；完整设置仍按原事务统一保存。停用计划的来源 ID 保留，当前作用域只计算生效来源，重新开启无需抹去后重建费用关系。
+`wealth-display.ts` 管理账户显示范围，与汇总计算分离；变化列表保留有历史影响或未知的停用账户。`chart-labels.ts` 按实际位置与文字宽度筛选横轴标签，`chart-width.ts` 观察 SVG 显示比例，数据与详情不抽样。总览金融金额显隐仅保存本机显示偏好；头图保留线形，提示、播报与较期初金额／比例均遮蔽，其余相关金融金额内容隐藏。总览头图由 `Sparkline` 保持单线面积图；`DualLineChart` 用于账户概览的可选净资产／负债与折叠的流动资金／投资图，按容器宽度绘制，`history-chart.css` 统一历史图的渐变面积、轻图例与行式浮层；`trendPaths` 分隔未知段，面积不堆叠，不修改规划图表。浮层与播报只展示可见系列；单账户历史保留单线。`review.ts` 管理范围裁剪、较期初与同库会话范围／图例记忆，`TrendRangeControl` 的自定义草稿仅在日期合法且至少两次完整盘点时应用。`wealth_summary` 的 liquid_cents／invested_cents 按历史记录的 kind／counted 汇总，完整无类别为零、不完整为 null；后者与现金估算使用的 market_change_cents 都包含贵金属；独立投资区间核对范围仍保持不含贵金属。`PlanningCosts` 共用费用编辑器，独立保存只替换 basic 中两组费用关系；完整设置仍按原事务统一保存。停用计划的来源 ID 保留，当前作用域只计算生效来源，重新开启无需抹去后重建费用关系。
 
 共用操作外观由 `controls.css` 统一负责；页面布局继续留在各页面样式。`FormControls` 的字段标签与提示通过上下文供复合控件使用，直接原生控件合并原有说明 ID。`DateInput`／`MonthInput` 共用本地日历计算与定位模块 `date-picker.ts`：仍传 YYYY-MM-DD／YYYY-MM 字符串，日历门户留在所属原生 dialog 的顶层容器内，独立管理焦点与边界。`YearSelect` 按记录、近期或长期用途组织常用年份和分页网格，展示范围与业务 min／max 分离；嵌套年份门户留在所属日历内。`finance_sources.record_years` 在同一读取快照汇总启用来源的完整记录年份，独立于所选期间，错误与空集合分开。选择器不能提交表单或改变回执保存规则。规格见 [共用界面设计](VISUAL_SYSTEM_DESIGN.md)。
 

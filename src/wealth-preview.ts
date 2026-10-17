@@ -95,6 +95,11 @@ if (params.get('wealth-fixture') === 'usability' && snapshots.length > 2) {
 if (params.get('wealth-fixture') === 'quick-new-day') {
   snapshots = snapshots.filter(snapshot => snapshot.date !== iso(now));
 }
+// First complete quick update must offer the same reminder as a full check-in.
+// A single incomplete snapshot, with only the cash balance unknown.
+if (params.get('wealth-fixture') === 'quick-first-complete' && snapshots.length) {
+  snapshots = snapshots.slice(-1).map(s => ({ ...s, entries: s.entries.map((e, i) => i === 0 ? { ...e, state: 'missing' as const, amount_cents: null } : e) }));
+}
 // Explicit fictional foreign-currency fixture; ordinary sample amounts remain unchanged.
 if (params.get('wealth-fixture') === 'currency' || params.get('currency') === '1' || params.get('currency') === 'retired-rate') {
   accounts = accounts.map((a,i) => i < 3 ? { ...a, fields: { ...a.fields, name: `虚构${i===2?'日元':'美元'}账户${i+1}`, currency: i===2?'JPY':'USD' } } : a);

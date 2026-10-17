@@ -1,12 +1,31 @@
 import { useEffect, useState } from 'react';
 import { decimalUnits, parseDecimal } from './currency';
-/** Integer-valued input with currency-specific precision, including whole-yen JPY. */
-export function CurrencyInput({label,value,onChange,places,disabled,signed=false}:{label:string;value:string;onChange:(v:string)=>void;places:number;disabled?:boolean;signed?:boolean}) {
- const [raw,setRaw]=useState(value===''?'':decimalUnits(value,places));
- useEffect(()=>{let normalized='';try{normalized=parseDecimal(raw,places,signed);}catch{/* empty text */}if(normalized!==value)setRaw(value===''?'':decimalUnits(value,places));},[value,places]);
- return <input aria-label={label} inputMode={places?'decimal':'numeric'} disabled={disabled} value={raw} placeholder={places?'0.'+'0'.repeat(places):'0'} onChange={e=>{
-  const next=e.target.value;if(!new RegExp(`^${signed?'-?':''}\\d{0,19}${places?`(\\.\\d{0,${places}})?`:''}$`).test(next))return;
-  let parsed='';try{parsed=parseDecimal(next.endsWith('.')?next.slice(0,-1):next,places,signed);}catch{if(next!==''&&next!=='-')return;}
-  setRaw(next);onChange(parsed);
- }}/>;
+
+/** Accept display separators only when they form complete groups of three. */
+function inputValue(text: string, places: number, signed: boolean): string {
+  const trimmed = text.trim();
+  if (trimmed === '' || (signed && trimmed === '-') || (places > 0 && (trimmed === '.' || (signed && trimmed === '-.')))) return '';
+  const pattern = new RegExp(`^${signed ? '-?' : ''}(?:\\d+|\\d{1,3}(?:,\\d{3})+|\\d{1,3}(?:[ \\u00a0\\u202f\\u2009]\\d{3})+)(?:\\.\\d*)?$`);
+  const decimal = trimmed.replace(/^(-?)\./, (_match, sign: string) => `${sign}0.`);
+  if (!pattern.test(decimal)) throw new Error('请填写数字；千分位可用逗号或空格，例如 1,234 或 1 234。');
+  if (places === 0 && decimal.includes('.')) throw new Error('这个币种不支持小数，请填写整数。');
+  const normalized = decimal.replace(/[, \u00a0\u202f\u2009]/g, '').replace(/\.$/, '');
+  if (normalized.replace(/^-/, '').split('.')[0].length > 19) throw new Error('数值超出范围。');
+  return parseDecimal(normalized, places, signed);
+}
+
+/** Invalid original text stays visible; an empty parent value prevents saving an old amount. */
+export function CurrencyInput({ label, value, onChange, places, disabled, signed = false }: { label: string; value: string; onChange: (v: string) => void; places: number; disabled?: boolean; signed?: boolean }) {
+  const [raw, setRaw] = useState(value === '' ? '' : decimalUnits(value, places)), [error, setError] = useState('');
+  useEffect(() => {
+    let normalized = '';
+    try { normalized = inputValue(raw, places, signed); } catch { /* Keep invalid original text while the parent is empty. */ }
+    if (normalized !== value) { setRaw(value === '' ? '' : decimalUnits(value, places)); setError(''); }
+  }, [value, places, signed]);
+  return <span className="holding-input currency-input"><input aria-label={label} aria-invalid={!!error} inputMode={places ? 'decimal' : 'numeric'} disabled={disabled} value={raw} placeholder={places ? '0.' + '0'.repeat(places) : '0'} onChange={event => {
+    const text = event.target.value;
+    setRaw(text);
+    try { const normalized = inputValue(text, places, signed); setError(''); onChange(normalized); }
+    catch (e) { setError(e instanceof Error ? e.message : '请检查数字。'); onChange(''); }
+  }}/>{error && <small role="alert">{error}</small>}</span>;
 }

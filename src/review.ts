@@ -59,7 +59,7 @@ export const recallTrendSelection = (generation: string): TrendSelection => stru
 export const recallTrendRange = (generation: string): TrendRange => recallTrendSelection(generation).range;
 export const clearTrendRange = (): void => { trendRangeMemory = null; };
 export const rememberTrendRange = (generation: string, range: TrendRange, custom?: CustomTrendRange): void => { memory(generation).selection = { range, ...(custom ? { custom: { ...custom } } : {}) }; };
-export const recallTrendLegend = (generation: string, kind: string): [boolean, boolean] => [...(memory(generation).legends[kind] ?? [true, true])];
+export const recallTrendLegend = (generation: string, kind: string): [boolean, boolean] => [...(memory(generation).legends[kind] ?? (kind === 'net' ? [true, false] : [true, true]))];
 export const rememberTrendLegend = (generation: string, kind: string, visible: [boolean, boolean]): void => { memory(generation).legends[kind] = [...visible]; };
 export type PeriodChange = { status: 'insufficient' } | { status: 'scope_changed' } | { status: 'ready'; from: string; to: string; cents: string; rate_hundredths: number | null };
 /** The first point's scope_changed refers outside the selected range. */

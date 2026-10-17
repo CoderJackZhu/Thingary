@@ -136,7 +136,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
         {w && <>
           <div className="review-nw-big">{amountsHidden ? '******' : latest ? signedMoney(latest.net_cents) : '—'}</div>
           {latest ? <>
-            <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天</p>
+            <p className="ui-sub">截至 {latest.date} 完整盘点 · 距今 {daysSince} 天{latest.has_unchanged ? " · 含沿用金额，并非全部当日核对" : ""}</p>
             <p className={'ui-sub' + (amountsHidden ? '' : tone(latest.change_cents))}>{amountsHidden ? '变化金额已隐藏' : latest.compared_to ? latest.change_cents !== null ? `较 ${latest.compared_to} ${changeText(latest.change_cents)}${latest.change_rate_hundredths === null ? ' · 基期非正，不显示变化率' : `（${rateText(latest.change_rate_hundredths)}）`}` : `较 ${latest.compared_to}：账户范围变化，暂不可比` : '第一份完整盘点，暂无可比变化'}</p>
             <p className="ui-sub">资产 {amountsHidden ? '******' : money(latest.assets_cents)} · 负债 {amountsHidden ? '******' : money(latest.liabilities_cents)}</p>
             <Sparkline hero points={trend.points} generation={generation} hideAmounts={amountsHidden}/>

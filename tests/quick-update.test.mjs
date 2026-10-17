@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { quickBalance, quickChanges, quickPrevious, quickCounted, quickTransfer, quickTransferPairs, quickDateMin, quickDeltaLabel, accountUpdateAge } from '../src/wealth.ts';
+import { quickAvailable, quickBalance, quickChanges, quickPrevious, quickCounted, quickTransfer, quickTransferPairs, quickDateMin, quickDeltaLabel, accountUpdateAge } from '../src/wealth.ts';
 const account = (id, side = 'asset', counted = true) => ({ id, fields: { name: `虚构${id}`, side, kind: side === 'asset' ? 'cash' : 'loan', counted } });
 const fixture = () => ({ generation: '虚构资料', date: '2026-10-17', existing: null, rows: [account('cash'), account('fund'), account('card', 'liability'), account('house', 'asset', false), account('unknown')].map((a, i) => ({ account: a, previous: i === 4 ? null : { amount_cents: ['10000', '5000', '3000', '20000'][i], date: '2026-10-01' } })) });
 
@@ -42,4 +42,17 @@ test('虚构日期下限包括最新不完整盘点；更新时间来自entered�
   assert.equal(quickDateMin([{ date: '2026-09-01', complete: true }, { date: '2026-10-17', complete: false }, { date: '2026-10-01', complete: true }]), '2026-10-17');
   assert.deepEqual(accountUpdateAge('2026-07-18', '2026-10-17'), { text: '91 天前更新', old: true });
   assert.deepEqual(accountUpdateAge(null, '2026-10-17'), { text: '尚未填写金额', old: false });
+});
+
+
+test('虚构Quick入口可用日期：最近盘点、开户、停用与今天的交集必须非空', () => {
+  const a = { fields: { opened_on: '2026-01-01', closed_on: null } };
+  const points = [{ date: '2026-10-10' }, { date: '2026-10-15' }];
+  assert.equal(quickAvailable(a, points, '2026-10-17'), true);
+  assert.equal(quickAvailable({ fields: { opened_on: '2026-10-18', closed_on: null } }, points, '2026-10-17'), false);
+  assert.equal(quickAvailable({ fields: { opened_on: '2026-01-01', closed_on: '2026-10-15' } }, points, '2026-10-17'), false);
+  assert.equal(quickAvailable({ fields: { opened_on: '2026-01-01', closed_on: '2026-10-16' } }, points, '2026-10-17'), true);
+  assert.equal(quickAvailable(a, [{ date: '2026-10-18' }], '2026-10-17'), false);
+  assert.equal(quickAvailable({ fields: { opened_on: '2026-10-17', closed_on: null } }, [], '2026-10-17'), true);
+  assert.equal(quickAvailable({ fields: { opened_on: '2026-10-17', closed_on: '2026-10-17' } }, [], '2026-10-17'), false);
 });

@@ -746,12 +746,15 @@ fn hpf_of(s: &Snapshot) -> Result<Option<i64>> {
 }
 
 /// Counted balance of the accounts whose value moves with markets (investment,
-/// mixed, fund, bond); `None` when none is counted.
+/// mixed, fund, bond and precious metals); `None` when none is counted.
 fn market_of(s: &Snapshot) -> Result<Option<i64>> {
     let kind = |e: &&Entry| {
         e.counted
             && e.side == "asset"
-            && matches!(e.kind.as_str(), "investment" | "mixed" | "fund" | "bond")
+            && matches!(
+                e.kind.as_str(),
+                "investment" | "mixed" | "fund" | "bond" | "precious_metal"
+            )
     };
     if !s.entries.iter().any(|e| kind(&e)) {
         return Ok(None);

@@ -204,6 +204,11 @@ export type QuickMode = 'balance' | 'delta' | 'transfer';
 export function quickDateMin(points: Pick<Point, 'date'>[]): string {
   return points.reduce((latest, point) => point.date > latest ? point.date : latest, '1900-01-01');
 }
+/** Whether the account's active dates intersect the permitted quick-update dates. */
+export function quickAvailable(account: Account, points: Pick<Point, 'date'>[], today: string): boolean {
+  const first = [quickDateMin(points), account.fields.opened_on].sort().at(-1)!;
+  return first <= today && (!account.fields.closed_on || first < account.fields.closed_on);
+}
 export function quickPrevious(draft: Draft, id: string): string | null {
   const recorded = draft.existing?.entries.find(e => e.account_id === id);
   return recorded ? recorded.amount_cents : draft.rows.find(r => r.account.id === id)?.previous?.amount_cents ?? null;

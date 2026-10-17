@@ -1,1 +1,29 @@
-.dual-line-chart{min-width:0;margin-top:12px}.dual-line-chart .net-chart.dual-plot .trend-chart{height:190px;width:100%;max-height:none}.dual-line-chart .partial-mark{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}.dual-line-chart .series-0,.trend-swatch.series-0{--line-color:var(--accent)}.dual-line-chart .series-1,.trend-swatch.series-1{--line-color:var(--error)}.dual-line{fill:none;stroke:var(--line-color);stroke-width:2;stroke-linejoin:round}.dual-dot{fill:var(--line-color);stroke:var(--card);stroke-width:2}.trend-legend{display:flex;flex-wrap:wrap;gap:8px}.trend-legend button{display:inline-flex;align-items:center;gap:6px;font-size:12px}.trend-legend button[aria-pressed=false]{opacity:.6}.trend-swatch{width:18px;height:0;border-top:2px solid var(--line-color)}.trend-legend button[aria-pressed=false] .trend-swatch{border-top-style:dashed}.trend-range-control{min-width:0;margin-top:12px}.trend-range-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}.trend-range-row .ui-seg{flex-wrap:wrap;max-width:100%}.trend-period-change{font-size:12px;color:var(--muted)}.trend-custom-dates{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}.trend-custom-dates>label{display:grid;gap:4px;font-size:12px;max-width:100%}.trend-custom-dates .date-input{width:170px;max-width:100%}.trend-range-control .error-text{font-size:12px;color:var(--error)}
+@import './history-chart.css';
+
+.dual-line-chart{min-width:0;margin-top:12px}
+.dual-line-chart .net-chart.dual-plot .trend-chart{height:300px;width:100%;max-height:none;display:block}
+.dual-line-chart .net-chart.dual-plot .trend-chart text{font-size:12px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.dual-line-chart .series-0,.trend-swatch.series-0{--line-color:var(--chart)}
+.dual-line-chart .series-1,.trend-swatch.series-1{--line-color:var(--muted)}
+.chart-balances .series-1{--line-color:var(--series-2)}
+.dual-line{fill:none;stroke:var(--line-color);stroke-width:2;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.chart-net .series-1 .dual-line{stroke-dasharray:6 4;opacity:.85}
+.dual-dot{fill:var(--line-color);stroke:var(--card);stroke-width:2;opacity:0}
+.dual-dot.isolated,.dual-dot.last,.dual-dot.current{opacity:1}
+.history-grid{stroke:var(--line);stroke-width:1}
+.history-axis{stroke:var(--muted);stroke-width:1;opacity:.5}
+.dual-line-chart .partial-mark{stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3;opacity:.5}
+.history-cursor{stroke:var(--text);stroke-width:1;opacity:.25}
+.trend-legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:6px}
+.trend-legend button{display:inline-flex;align-items:center;gap:7px;min-height:30px;padding:3px 2px;border:0;box-shadow:none;background:transparent;color:var(--muted);font-size:12px}
+.trend-legend button:disabled{opacity:1;color:var(--text)}
+.trend-legend button[aria-pressed=true]{color:var(--text)}
+.trend-legend button[aria-pressed=false]{opacity:.55}
+.trend-swatch{width:14px;height:4px;background:var(--line-color);border-radius:2px}
+.trend-legend button[aria-pressed=false] .trend-swatch{height:2px;background:repeating-linear-gradient(90deg,var(--line-color) 0 4px,transparent 4px 7px)}
+.chart-net .trend-swatch.series-1{height:2px;background:repeating-linear-gradient(90deg,var(--line-color) 0 4px,transparent 4px 7px)}
+.trend-secondary{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.trend-secondary>summary{cursor:pointer;color:var(--muted);font-size:13px}
+.trend-secondary[open]>summary{margin-bottom:14px;color:var(--text)}
+.trend-table{overflow-x:auto}
+.trend-range-control{min-width:0;margin-top:12px}.trend-range-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px}.trend-range-row .ui-seg{flex-wrap:wrap;max-width:100%}.trend-period-change{font-size:12px;color:var(--muted)}.trend-custom-dates{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}.trend-custom-dates>label{display:grid;gap:4px;font-size:12px;max-width:100%}.trend-custom-dates .date-input{width:170px;max-width:100%}.trend-range-control .error-text{font-size:12px;color:var(--error)}
