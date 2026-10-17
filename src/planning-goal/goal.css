@@ -1,8 +1,8 @@
 /* 宽屏：左侧逐项计算条件，右侧精简结论与一张主资产轨迹；右栏随页面滚动保持可见。 */
-.goal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,1.05fr);grid-template-areas:"conditions side" "plans plans";gap:24px;align-items:start}
+.goal-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,1.05fr);grid-template-areas:"conditions side";gap:24px;align-items:start}
 .goal-side{grid-area:side;display:grid;gap:16px;min-width:0;position:sticky;top:64px;max-height:calc(100vh - 88px);max-height:calc(100dvh - 88px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .goal-conditions{grid-area:conditions;min-width:0}
-.goal-purchase-plans{grid-area:plans}
+.goal-purchase-plans{margin-top:24px}
 .goal-side .goal-answer{padding:18px 22px}
 .goal-side .goal-answer .goal-amounts{padding:16px 0;margin:12px 0}
 .goal-side .goal-answer .goal-result-actions>button{min-height:44px}
@@ -43,7 +43,7 @@ dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.
 .planning-purchase-plans { grid-template-columns: minmax(0, 1fr); }
 /* 窄窗：改为上下排列，精简结果栏仍在最前，图表紧随条件之后。 */
 @media (max-width: 1050px) {
-  .goal-layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"summary" "conditions" "chart" "evidence" "next" "plans";gap:16px}
+  .goal-layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"summary" "conditions" "chart" "evidence" "next";gap:16px}
   .goal-side{display:contents}
   .goal-answer{grid-area:summary}
   .goal-layout .goal-answer{padding:16px 18px}
@@ -52,7 +52,7 @@ dialog.editor:is(.goal-editor,.planning-contribution-dialog)>form>header,dialog.
   .goal-evidence{grid-area:evidence}
   .goal-next{grid-area:next}
   .goal-conditions{grid-area:conditions}
-  .goal-purchase-plans{grid-area:plans}
+  .goal-purchase-plans{margin-top:16px}
 }
 .goal-event-summary { margin-block: 16px; padding-block: 12px; border-block: 1px solid var(--line-soft); }
 .goal-event-summary h4 { margin: 0 0 8px; }

@@ -86,7 +86,7 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
         <button className="ui-link" onClick={e => onEdit('funds', e.currentTarget)}>核对账户用途与投资计入</button>
       </>}</div>{row.id !== 'assumptions' && <button id={row.id === 'time' ? 'plan-budget-entry' : undefined} className="ui-btn" aria-label={`调整${row.title}`} onClick={e => onEdit(row.id, e.currentTarget)}>调整</button>}</article>;
   const trajectoryInput = pred && plan && projection && outcome ? { plan, projection, outcome, assets: plan.assets_cents } : null;
-  return <div className="goal-layout">
+  return <><div className="goal-layout">
     <div className="goal-side"><article className="ui-card ui-content goal-answer" aria-label="退休目标"><p className="eyebrow">{!req && !pred ? '还不能算出结果' : uncertain ? '当前暂算结果' : '按当前条件估算'}</p><h3>{headline}</h3><p className="muted small">{r.mode === 'fire' && time.target_month ? `你希望 ${retirementText}；规划到 ${horizonText}` : `规划到 ${horizonText}`}</p><p className="goal-verdict">{pred ? !pred.outcome.success ? '按当前投入，尚未满足完整目标' : uncertain ? '已计入条件可覆盖，仍有事项需确认' : pred.terminal === 'no_margin' ? '所选期间可覆盖，终点没有余量' : '按当前投入，所选期间可覆盖' : '先看目标需求，补充投入后判断能否达成'}</p><div className="goal-amounts"><div><span>固定目标需要每月存</span><strong>{req && 'monthly_cents' in req.set ? forecastMoney(req.set.monthly_cents) : '待计算'}</strong><small className="muted">按固定目标月份反求，不是未来预测</small></div><div><span>你估计每月能存</span><strong>{b.contribution.monthly_cents === null ? '还没填' : money(b.contribution.monthly_cents)}</strong><button type="button" className="ui-link" onClick={e => onEdit('saving', e.currentTarget)}>{b.contribution.monthly_cents === null ? '填写每月能存的钱' : '修改每月能存的钱'}</button></div></div>
       <div className="goal-result-actions">
         {onDetail && <button type="button" id="plan-detail-entry" className="primary goal-detail-entry" onClick={onDetail}>查看测算详情与图表</button>}
@@ -110,8 +110,8 @@ export function GoalOverview({ saved, caps, today: _today, cards, accountFunds, 
       })}</ul><button className="ui-link" onClick={e => onEdit('events', e.currentTarget)}>查看与调整大额计划</button></div>}
       <div className="ui-content goal-secondary"><button className="ui-link" onClick={e => onEdit('costs', e.currentTarget)}>核对费用是否包含</button><button className="ui-link" onClick={e => onEdit('debt', e.currentTarget)}>贷款还款安排</button><button className="ui-link" onClick={e => onEdit('events', e.currentTarget)}>买房买车等大额计划</button></div>
     </section>
-    {purchasePlans && <div className="goal-purchase-plans">{purchasePlans}</div>}
-  </div>;
+  </div>
+    {purchasePlans && <div className="goal-purchase-plans">{purchasePlans}</div>}</>;
 }
 
 function GoalCaution({ annotations, saved, onAnnotation }: { annotations: PlanningAnnotation[]; saved: Saved; onAnnotation?: (annotation: PlanningAnnotation, from: HTMLElement) => void }) {

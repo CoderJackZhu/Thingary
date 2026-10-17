@@ -50,7 +50,8 @@ test('wide layout keeps the right column sticky while the narrow layout stacks w
   assert.match(goalCss, /\.goal-layout\{[^}]*grid-template-areas:"conditions side"/, '宽屏左条件右结论');
   assert.match(goalCss, /\.goal-side\{[^}]*position:sticky/, '右栏随页面滚动保持可见');
   const narrow = goalCss.slice(goalCss.indexOf('@media (max-width: 1050px)'));
-  assert.match(narrow, /grid-template-areas:"summary" "conditions" "chart" "evidence" "next" "plans"/, '窄窗上下排列，结论栏在最前');
+  assert.match(narrow, /grid-template-areas:"summary" "conditions" "chart" "evidence" "next"/, '窄窗上下排列，结论栏在最前');
+  assert.doesNotMatch(goalCss, /grid-template-areas:[^;]*plans/, '大额计划在吸附网格之外，右栏不会盖住它');
   assert.match(narrow, /\.goal-side\{display:contents\}/);
   assert.match(narrow, /\.goal-answer\{grid-area:summary/, '窄窗保留精简结果栏');
   assert.match(narrow, /\.goal-chart\{grid-area:chart/, '图表排在条件之后');
