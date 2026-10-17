@@ -87,7 +87,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
   const closed = (saved: boolean, warning?: string | null) => { if (warning) setMutationError(warning); (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPaying(null); setBackfill(false); setEnding(null); setResuming(null); setRepairing(null); setReviewing(null); setUnifying(null); setGroupDelete(null); const receipt = storedPending(); setPending(receipt); if (returnDetailId && !receipt) setSelectedId(returnDetailId); setReturnDetailId(null); if (saved) reload(); refocusHeading(); };
   // 结束订阅建议日：已设置结束日或实际当前服务期末；无当前期时由用户填写。
-  const suggestedEndDay = (item: VirtualAsset): string | null => item.plan?.fields.end_date ?? item.plan?.current_coverage?.[1] ?? null;
+  const suggestedEndDay = (item: VirtualAsset): string | null => item.plan?.fields.end_date ?? item.plan?.current_coverage?.[1] ?? (item.paid_until && item.paid_until >= (item.plan?.resumptions?.at(-1)?.resumed_on ?? item.plan?.fields.service_start ?? '') ? item.paid_until : null) ?? item.plan?.next_coverage?.[1] ?? null;
   const openNew = { label: '新增虚拟资产', plus: true, disabled: !!pending || busy || stopping || maintenance || !data, run: () => setEditing('new') };
   usePageBar('virtual', { primary: openNew, newRecord: openNew, search: { key: 'virtual', placeholder: '搜索虚拟资产' } });
   const consumedAutoNew = useRef(false);
@@ -137,7 +137,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
         : !data.items.length ? <div className="empty"><span className="empty-mark">◇</span><h2>还没有虚拟资产</h2><p>把买断的软件、注册的域名、订阅的服务和储值卡记下来，就能看到它们的计费方式、什么时候到期、一共花了多少。</p><button className="primary" disabled={!!pending} onClick={() => setEditing('new')}>新增虚拟资产</button></div>
           : <>
             <div className="ui-metrics ui-card">
-              <article><span>使用中</span><strong>{data.in_use}<small> 件</small></strong><em>共 {data.items.length} 件，不含已结束使用、停用及到期</em></article>
+              <article><span>使用中</span><strong>{data.in_use}<small> 件</small></strong><em>共 {data.items.length} 件，不含待生效、已结束使用、停用及到期</em></article>
               <article><span>即将到期</span><strong>{data.expiring}<small> 件</small></strong><em>有限期权益按到期日提示</em></article>
               <article><span>已结束／到期</span><strong>{data.expired}<small> 件</small></strong><em>订阅已结束或权益已到期</em></article>
               <article><span>已记录支出</span><strong>{money(data.spent_cents)}</strong><em>{data.unknown_price ? `${data.unknown_price} 件金额未知，未计入` : '一次性价格＋已确认付款＋充值实付，不含估算'}</em></article>
@@ -167,11 +167,11 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
               </tbody></table>}</article>{selected && !linkedDetail && <Inspector data={data} item={selected} today={today} busy={busy} pending={!!pending} stopping={stopping} topupFocus={topupFocus} onSelect={() => { setSelectedId(null); setTopupFocus(null); }} onEdit={() => setEditing(selected)} onStop={() => void stop(selected)} onReview={() => setReviewing(selected)} onRepair={() => setRepairing(selected.id)} onMaintenanceChange={setMaintenance} onError={m => { setMutationError(m); setPending(storedPending()); }} onSaved={reload} />}</div>
           </>
     }
-    {linkedDetail && data && <SubscriptionDetail plan={linkedDetail.plan!} today={today} modules={modules} onClose={closeDetail}
-      onEdit={p => { setReturnDetailId(linkedDetail.id); closeDetail(); setEditing({ ...linkedDetail, plan: p }); }} onBackfill={p => { setReturnDetailId(linkedDetail.id); closeDetail(); setBackfill(true); setEditing({ ...linkedDetail, plan: p }); }} onPay={(p, amount) => { setReturnDetailId(linkedDetail.id); closeDetail(); if (p.next_due) setPaying({ plan_id: p.id, plan_name: p.fields.name, due_date: p.next_due, plan_amount: amount, record: null }); }}
+    {linkedDetail && data && <SubscriptionDetail plan={linkedDetail.plan!} today={today} modules={modules} onClose={closeDetail} onSaved={() => closed(true)}
+      onEdit={p => { setReturnDetailId(linkedDetail.id); closeDetail(); setEditing({ ...linkedDetail, plan: p }); }} onBackfill={p => { setReturnDetailId(linkedDetail.id); closeDetail(); setBackfill(true); setEditing({ ...linkedDetail, plan: p }); }} onPay={(p, amount) => { setReturnDetailId(linkedDetail.id); closeDetail(); if (p.next_due) setPaying({ plan_id: p.id, plan_name: p.fields.name, due_date: p.next_due, plan_amount: amount, record: null, coverage_start: p.next_coverage?.[0], coverage_end: p.next_coverage?.[1] }); }}
       onCorrectPayment={payment => { setReturnDetailId(linkedDetail.id); closeDetail(); setPaying({ plan_id: payment.plan_id, plan_name: payment.plan_name, due_date: payment.due_date, plan_amount: linkedDetail.plan!.fields.amount_cents, record: payment }); }}
       onResume={p => { setReturnDetailId(linkedDetail.id); closeDetail(); setResuming(p); }}
-      onGroupDelete={(_, name) => { closeDetail(); setGroupDelete({ id: linkedDetail.id, name }); }} onEnd={({plan,link}) => { setReturnDetailId(linkedDetail.id); closeDetail(); setEnding({ ...linkedDetail, revision: link.asset!.revision, plan }); }} onReview={() => { closeDetail(); setReviewing(linkedDetail); }}
+      onGroupDelete={(_, name) => { closeDetail(); setGroupDelete({ id: linkedDetail.id, name }); }} onEnd={({plan,link}) => { setReturnDetailId(linkedDetail.id); closeDetail(); setEnding({ ...linkedDetail, revision: link.asset!.revision, paid_until: link.paid_until, plan }); }} onReview={() => { closeDetail(); setReviewing(linkedDetail); }}
       onUnify={() => { closeDetail(); setUnifying(linkedDetail); }} onCandidates={() => { closeDetail(); setRepairing(linkedDetail.id); }} />}
     {paying && data && <PaymentDialog target={paying} generation={data.generation} today={today} onClose={closed} />}
     {editing && data && <VirtualDialog item={editing === 'new' ? null : editing} data={data} today={today} backfill={backfill} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={item => { setEditing(null); setUnifying(item); }} onClose={closed} />}
@@ -193,7 +193,7 @@ function AmountCell({ v }: { v: VirtualAsset }) {
   const mode = billingOf(v);
   if (mode === 'subscription') {
     const cents = v.plan?.fields.amount_cents ?? null;
-    return <td className="amount">{cents != null ? <>{money(cents)}<span className="muted">／{v.plan!.fields.interval_days ? `${v.plan!.fields.interval_days}天` : ({ 1: '月', 3: '季', 6: '半年', 12: '年' } as Record<number, string>)[v.plan!.fields.interval_months] ?? '期'}</span>{!v.plan!.fields.interval_days && v.plan!.fields.interval_months > 1 && v.plan!.monthly_cents != null && <small className="muted">月均 {money(v.plan!.monthly_cents)}</small>}</> : <span className="muted">待补充</span>}</td>;
+    return <td className="amount">{cents != null ? <>{money(cents)}<span className="muted">／{v.plan!.fields.interval_days ? `${v.plan!.fields.interval_days}天` : ({ 1: '月', 3: '季', 6: '半年', 12: '年' } as Record<number, string>)[v.plan!.fields.interval_months] ?? '期'}</span>{v.status !== 'future' && !v.plan!.fields.interval_days && v.plan!.fields.interval_months > 1 && v.plan!.monthly_cents != null && <small className="muted">月均 {money(v.plan!.monthly_cents)}</small>}</> : <span className="muted">待补充</span>}</td>;
   }
   if (mode === 'topup') return <td className="amount"><small className="muted">按充值实付</small></td>;
   return <td className="amount">{v.fields.price_cents != null ? <>{money(v.fields.price_cents)}<small className="muted"> 单次</small></> : <span className="muted">待补充</span>}</td>;

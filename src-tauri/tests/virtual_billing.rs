@@ -456,8 +456,9 @@ fn month_end_anchor_and_fixed_days_never_drift() {
         feb.plan.as_ref().unwrap().next_due.as_deref(),
         Some("2026-02-28")
     );
-    // Switching the same plan to fixed 30 days counts days instead: the next
-    // payment lands on 03-02 and history does not drift.
+    // Switching the same plan on Mar 31 changes future periods to fixed 30 days.
+    // Reading Feb 27 still sees the old monthly payment on Feb 28; the later
+    // rule must not backdate the old payment to Mar 02.
     save_linked(
         &mut s,
         &v.id,
@@ -474,7 +475,7 @@ fn month_end_anchor_and_fixed_days_never_drift() {
         .unwrap();
     assert_eq!(
         item.plan.as_ref().unwrap().next_due.as_deref(),
-        Some("2026-03-02")
+        Some("2026-02-28")
     );
     // Fixed 30 days from 10-05: first period 10-05 … 11-03, next 11-04.
     let mut fields = plan_fields("三十天", "500", "2026-10-05");

@@ -100,13 +100,29 @@ pub struct ResumeSave {
     pub asset_id: Option<String>,
     pub asset_expected_revision: Option<i64>,
     pub start_date: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub first_due: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub replace_pending: bool,
     pub amount_cents: String,
     pub interval_months: u32,
     pub interval_days: Option<u32>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CancelResumptionSave {
+    pub request_id: String,
+    pub generation: String,
+    pub plan_id: String,
+    pub expected_revision: i64,
+    pub asset_id: Option<String>,
+    pub asset_expected_revision: Option<i64>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct Detail {
+    pub pending_has_payments: bool,
     pub payment_candidate: Option<Due>,
     pub generation: String,
     pub plan: Plan,
@@ -563,7 +579,7 @@ pub struct ScheduleRule {
     pub trial_days: Option<u32>,
 }
 
-fn schedule_for(
+pub(crate) fn schedule_for(
     c: &Connection,
     f: &PlanFields,
     id: &str,
@@ -940,6 +956,98 @@ pub(crate) fn receipt(c: &Connection, id: &str, fingerprint: &str) -> Result<Opt
     }
 }
 
+pub(crate) fn has_pending_resumption(c: &Connection, id: &str, today: &str) -> Result<bool> {
+    Ok(resumptions(c, id)?
+        .last()
+        .is_some_and(|r| r.resumed_on.as_str() > today))
+}
+
+pub(crate) fn service_active_on(c: &Connection, p: &Plan, today: &str) -> Result<bool> {
+    if p.fields.service_start.as_deref().is_some_and(|s| s > today)
+        || p.fields.end_date.as_deref().is_some_and(|e| e < today)
+    {
+        return Ok(false);
+    }
+    Ok(!resumptions(c, &p.id)?
+        .iter()
+        .any(|r| r.previous_end.as_str() < today && today < r.resumed_on.as_str()))
+}
+
+fn current_step(c: &Connection, p: &Plan, today: &str) -> Result<Step> {
+    Ok(rule_segments(c, &p.id)?
+        .iter()
+        .rfind(|r| r.effective.to_string().as_str() <= today)
+        .map(|r| r.step)
+        .unwrap_or_else(|| Step::of(&p.fields)))
+}
+
+fn resumption_has_payments(c: &Connection, id: &str, start: &str, first_due: &str) -> Result<bool> {
+    Ok(c.query_row("SELECT EXISTS(SELECT 1 FROM plan_payments WHERE plan_id=?1 AND (due_date>=?2 OR coverage_start>=?3))",
+        params![id, first_due, start], |r| r.get(0))?)
+}
+
+fn pending_has_payments(c: &Connection, id: &str, today: &str) -> Result<bool> {
+    let Some(last) = resumptions(c, id)?
+        .pop()
+        .filter(|r| r.resumed_on.as_str() > today)
+    else {
+        return Ok(false);
+    };
+    let pending = rule_segments(c, id)?
+        .into_iter()
+        .find(|r| r.effective.to_string() == last.resumed_on)
+        .ok_or_else(|| Error::new("PLAN_HISTORY", "待生效安排缺少排期，请先核对资料"))?;
+    resumption_has_payments(c, id, &last.resumed_on, &pending.due.to_string())
+}
+
+/// Remove only the last, unpaid future arrangement and restore the ended segment.
+fn remove_pending_resumption(c: &Connection, old: &Plan, today: &str) -> Result<Plan> {
+    let last = resumptions(c, &old.id)?
+        .pop()
+        .filter(|r| r.resumed_on.as_str() > today)
+        .ok_or_else(|| Error::new("RESUME_STATE", "没有可以修改或撤回的待生效安排"))?;
+    let pending = rule_segments(c, &old.id)?
+        .into_iter()
+        .find(|r| r.effective.to_string() == last.resumed_on)
+        .ok_or_else(|| Error::new("PLAN_HISTORY", "待生效安排缺少排期，请先核对资料"))?;
+    let paid = resumption_has_payments(c, &old.id, &last.resumed_on, &pending.due.to_string())?;
+    if paid {
+        return Err(Error::new(
+            "RESUME_PAYMENTS",
+            "本段已有付款记录，不能直接修改或撤回，请先核对付款与服务安排",
+        ));
+    }
+    let previous = rule_segments(c, &old.id)?
+        .into_iter()
+        .rfind(|r| r.effective.to_string() < last.resumed_on)
+        .ok_or_else(|| Error::new("PLAN_HISTORY", "找不到上一段排期，请先核对资料"))?;
+    let amount: i64 = c.query_row("SELECT amount_cents FROM plan_rates WHERE plan_id=?1 AND effective_date<=?2 ORDER BY effective_date DESC LIMIT 1",
+        params![old.id, last.previous_end], |r| r.get(0))?;
+    let (months, days) = match previous.step {
+        Step::Months(n) => (n, None),
+        Step::Days(n) => (1, Some(n)),
+    };
+    c.execute(
+        "DELETE FROM plan_rules WHERE plan_id=?1 AND effective_date>=?2",
+        params![old.id, last.resumed_on],
+    )?;
+    c.execute(
+        "DELETE FROM plan_rates WHERE plan_id=?1 AND effective_date>=?2",
+        params![old.id, last.resumed_on],
+    )?;
+    c.execute(
+        "DELETE FROM plan_resumptions WHERE plan_id=?1 AND resumed_on=?2",
+        params![old.id, last.resumed_on],
+    )?;
+    c.execute(
+        "DELETE FROM plan_period_ends WHERE plan_id=?1 AND period_start>=?2",
+        params![old.id, last.resumed_on],
+    )?;
+    c.execute("UPDATE recurring_plans SET end_date=?2,auto_renew=0,paused=0,amount_cents=?3,interval_months=?4,interval_days=?5,first_due=?6,coverage_start=?7,trial_days=?8,active_from=?6 WHERE id=?1",
+        params![old.id, last.previous_end, amount, months, days, previous.due.to_string(), previous.anchor.to_string(), previous.trial])?;
+    plan(c, &old.id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这项计划"))
+}
+
 /// Shared transactional plan save: virtual + plan form one write and one receipt.
 pub(crate) fn save_plan(
     c: &Connection,
@@ -957,6 +1065,37 @@ pub(crate) fn save_plan(
     };
     if old.as_ref().map(|p| p.revision) != revision {
         return Err(Error::new("REVISION_CONFLICT", "计划已变化，请重新读取"));
+    }
+    if let Some(previous) = &old {
+        let resumptions = resumptions(c, id)?;
+        let pending = resumptions.last().filter(|r| r.resumed_on.as_str() > today);
+        // Closing future renewals preserves the pending service and any prepaid
+        // facts. It must not change the segment's billing or service anchors.
+        let ending_pending = pending.is_some_and(|r| {
+            !f.auto_renew
+                && f.end_date
+                    .as_deref()
+                    .is_some_and(|end| end >= r.resumed_on.as_str())
+        });
+        if pending.is_some()
+            && (f.amount_cents != previous.fields.amount_cents
+                || f.interval_months != previous.fields.interval_months
+                || f.interval_days != previous.fields.interval_days
+                || f.first_due != previous.fields.first_due
+                || f.coverage_start != previous.fields.coverage_start
+                || f.service_start != previous.fields.service_start
+                || f.trial_days != previous.fields.trial_days
+                || ((f.end_date != previous.fields.end_date
+                    || f.auto_renew != previous.fields.auto_renew)
+                    && !ending_pending)
+                || f.paused != previous.fields.paused
+                || f.category != previous.fields.category)
+        {
+            return Err(Error::new(
+                "RESUME_PENDING",
+                "已有待生效安排，请使用「修改待生效安排」或「撤回待生效安排」",
+            ));
+        }
     }
     let active = match &old {
         Some(o) if o.fields.paused && !f.paused => today.to_owned(),
@@ -1230,19 +1369,20 @@ pub(crate) fn enrich_plan(c: &Connection, p: &mut Plan, today: &str) -> Result<(
     }
     // 当前负担按今天生效的价格折算（review R7）；固定天数按 365 天一次舍入。
     let now = date(today)?;
-    let current =
-        if f.trial_days.is_some() && f.coverage_start.as_deref().is_some_and(|d| d > today) {
-            0
-        } else {
-            i128::from(rate_at(now)?)
-        };
-    p.monthly_cents = Some(match f.interval_days {
-        Some(n) => {
+    let current = if (f.category == "subscription" && !service_active_on(c, p, today)?)
+        || (f.trial_days.is_some() && f.coverage_start.as_deref().is_some_and(|d| d > today))
+    {
+        0
+    } else {
+        i128::from(rate_at(now)?)
+    };
+    let current_step = current_step(c, p, today)?;
+    p.monthly_cents = Some(match current_step {
+        Step::Days(n) => {
             let annual = (current * 365 + i128::from(n) / 2) / i128::from(n);
             ((annual + 6) / 12).to_string()
         }
-        None => ((current + i128::from(f.interval_months) / 2) / i128::from(f.interval_months))
-            .to_string(),
+        Step::Months(n) => ((current + i128::from(n) / 2) / i128::from(n)).to_string(),
     });
     if let Some(start) = &f.service_start {
         let start = rule_segments(c, &p.id)?
@@ -1365,6 +1505,7 @@ impl Store {
             p.next_coverage = due.coverage_start.clone().zip(due.coverage_end.clone());
         }
         Ok(Detail {
+            pending_has_payments: pending_has_payments(&tx, id, today)?,
             payment_candidate,
             generation: self.generation(),
             plan: p,
@@ -1382,10 +1523,13 @@ impl Store {
         if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
             return Ok(id);
         }
-        let old =
+        let mut old =
             plan(&tx, &input.plan_id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这项计划"))?;
         if old.revision != input.expected_revision {
             return Err(Error::new("REVISION_CONFLICT", "订阅已变化，请重新读取"));
+        }
+        if input.replace_pending {
+            old = remove_pending_resumption(&tx, &old, today)?;
         }
         let last = old
             .fields
@@ -1402,11 +1546,18 @@ impl Store {
         if old.fields.category != "subscription"
             || old.fields.service_start.is_none()
             || input.start_date.as_str() <= last
-            || input.start_date.as_str() > today
         {
             return Err(Error::new(
                 "RESUME_DATE",
-                "重新订阅日期须晚于上次结束日，且不能晚于今天",
+                "服务生效日期须晚于上次最后使用日",
+            ));
+        }
+        let first_due = input.first_due.as_deref().unwrap_or(&input.start_date);
+        date(first_due)?;
+        if first_due <= last {
+            return Err(Error::new(
+                "RESUME_DUE",
+                "本段计划付款日须晚于上次最后使用日",
             ));
         }
         match crate::link::live_asset_of_plan(&tx, &old.id)? {
@@ -1432,13 +1583,20 @@ impl Store {
             _ => return Err(Error::new("LINK_CHANGED", "关联订阅已变化，请重新读取")),
         }
         // A later existing rule/payment cannot be silently displaced by a backdated restart.
-        let conflicting: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM plan_rules WHERE plan_id=?1 AND effective_date>=?2) OR EXISTS(SELECT 1 FROM plan_payments WHERE plan_id=?1 AND due_date>=?2)", params![old.id,input.start_date], |r| r.get(0))?;
+        let conflicting: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM plan_rules WHERE plan_id=?1 AND effective_date>=?2) OR EXISTS(SELECT 1 FROM plan_payments WHERE plan_id=?1 AND (due_date>=?2 OR coverage_start>=?3))", params![old.id, first_due.min(input.start_date.as_str()), input.start_date], |r| r.get(0))?;
         if conflicting {
             return Err(Error::new(
                 "RESUME_CONFLICT",
                 "新订阅期间已有规则或付款，请先核对原记录",
             ));
         }
+        // Unused special periods from the previous schedule must not leak into
+        // this segment, including a future anchor that happens to be reused.
+        // Conflicting payment facts above are never deleted or rewritten.
+        tx.execute(
+            "DELETE FROM plan_period_ends WHERE plan_id=?1 AND period_start>=?2",
+            params![old.id, input.start_date],
+        )?;
         // Legacy plans can have no initial price row. Preserve the exact old
         // estimate's fallback before the new current price replaces it.
         let initial = old.fields.service_start.as_deref().unwrap();
@@ -1466,7 +1624,7 @@ impl Store {
         f.paused = false;
         f.end_date = None;
         f.coverage_start = Some(input.start_date.clone());
-        f.first_due = input.start_date.clone();
+        f.first_due = first_due.to_owned();
         f.trial_days = None;
         f.amount_cents = input.amount_cents.clone();
         f.interval_months = input.interval_months;
@@ -1481,14 +1639,14 @@ impl Store {
         )?;
         // A restart always needs its own rule, even if the old future anchor
         // already equals this date and save_plan therefore sees no field change.
-        tx.execute("INSERT INTO plan_rules(plan_id,effective_date,anchor,interval_months,interval_days,first_due,service_start,trial_days) VALUES(?1,?2,?2,?3,?4,?2,?2,NULL) ON CONFLICT(plan_id,effective_date) DO UPDATE SET anchor=excluded.anchor,interval_months=excluded.interval_months,interval_days=excluded.interval_days,first_due=excluded.first_due,service_start=excluded.service_start,trial_days=NULL", params![old.id,input.start_date,f.interval_months,f.interval_days])?;
+        tx.execute("INSERT INTO plan_rules(plan_id,effective_date,anchor,interval_months,interval_days,first_due,service_start,trial_days) VALUES(?1,?2,?2,?3,?4,?5,?2,NULL) ON CONFLICT(plan_id,effective_date) DO UPDATE SET anchor=excluded.anchor,interval_months=excluded.interval_months,interval_days=excluded.interval_days,first_due=excluded.first_due,service_start=excluded.service_start,trial_days=NULL", params![old.id,input.start_date,f.interval_months,f.interval_days, first_due])?;
         tx.execute(
             "INSERT INTO plan_resumptions VALUES(?1,?2,?3)",
             params![old.id, input.start_date, last],
         )?;
         tx.execute(
             "UPDATE recurring_plans SET active_from=?2 WHERE id=?1",
-            params![old.id, input.start_date],
+            params![old.id, first_due.min(input.start_date.as_str())],
         )?;
         tx.execute(
             "DELETE FROM plan_rates WHERE plan_id=?1 AND effective_date>=?2",
@@ -1509,6 +1667,69 @@ impl Store {
         self.hit("recurring_resume.before_commit")?;
         tx.commit()?;
         self.hit("recurring_resume.after_commit")?;
+        Ok(old.id)
+    }
+
+    pub fn recurring_cancel_resumption(
+        &mut self,
+        input: &CancelResumptionSave,
+        today: &str,
+    ) -> Result<String> {
+        self.check_generation(&input.generation)?;
+        uuid::Uuid::parse_str(&input.request_id)
+            .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
+        let fingerprint = digest(&serde_json::to_vec(&(
+            "recurring_cancel_resumption",
+            input,
+        ))?);
+        let tx = self.conn()?.unchecked_transaction()?;
+        if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
+            return Ok(id);
+        }
+        let old =
+            plan(&tx, &input.plan_id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这项计划"))?;
+        if old.revision != input.expected_revision {
+            return Err(Error::new("REVISION_CONFLICT", "订阅已变化，请重新读取"));
+        }
+        let asset = match crate::link::live_asset_of_plan(&tx, &old.id)? {
+            Some((id, _, revision))
+                if input.asset_id.as_deref() == Some(&id)
+                    && input.asset_expected_revision == Some(revision) =>
+            {
+                Some(id)
+            }
+            None if input.asset_id.is_none() && input.asset_expected_revision.is_none() => {
+                let historic: bool = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM virtual_assets WHERE plan_id=?1)",
+                    [&old.id],
+                    |r| r.get(0),
+                )?;
+                if historic {
+                    return Err(Error::new(
+                        "LINK_CHANGED",
+                        "请先处理已删除的关联服务档案，再撤回待生效安排",
+                    ));
+                }
+                None
+            }
+            _ => return Err(Error::new("LINK_CHANGED", "关联订阅已变化，请重新读取")),
+        };
+        let restored = remove_pending_resumption(&tx, &old, today)?;
+        let now = chrono::Utc::now().to_rfc3339();
+        tx.execute(
+            "UPDATE recurring_plans SET revision=revision+1,updated_at=?2 WHERE id=?1",
+            params![old.id, now],
+        )?;
+        if let Some(asset_id) = asset {
+            tx.execute("UPDATE virtual_assets SET stopped_on=?2,revision=revision+1,updated_at=?3 WHERE id=?1", params![asset_id, restored.fields.end_date, now])?;
+        }
+        tx.execute(
+            "INSERT INTO feature_requests VALUES(?1,?2,?3)",
+            params![input.request_id, fingerprint, old.id],
+        )?;
+        self.hit("recurring_cancel_resumption.before_commit")?;
+        tx.commit()?;
+        self.hit("recurring_cancel_resumption.after_commit")?;
         Ok(old.id)
     }
 
@@ -1822,7 +2043,7 @@ impl Store {
                     next12 += period_rate(d)?;
                 }
             }
-            if f.end_date.as_deref().is_none_or(|e| e >= today) {
+            if service_active_on(c, p, today)? {
                 // 年化按今天生效的当前负担；固定天数按 365 天一次舍入。
                 let current = if f.trial_days.is_some()
                     && f.coverage_start.as_deref().is_some_and(|d| d > today)
@@ -1831,9 +2052,9 @@ impl Store {
                 } else {
                     rate_at(now)?
                 };
-                annual += match f.interval_days {
-                    Some(n) => (current * 365 + i128::from(n) / 2) / i128::from(n),
-                    None => current * 12 / i128::from(f.interval_months),
+                annual += match current_step(c, p, today)? {
+                    Step::Days(n) => (current * 365 + i128::from(n) / 2) / i128::from(n),
+                    Step::Months(n) => current * 12 / i128::from(n),
                 };
             }
         }

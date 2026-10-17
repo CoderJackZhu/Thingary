@@ -5,8 +5,9 @@ import { CloseButton } from './CloseButton';
 import { linkView } from './link';
 import type { LinkView } from './link';
 import { relationNotice } from './LinkDialogs';
-import { intervalUnit, planStatus, recurringCategoryText } from './recurring';
+import { intervalUnit, pendingSubscriptionStart, planStatus, recurringCategoryText } from './recurring';
 import type { Payment, Plan, SubscriptionDetailData } from './recurring';
+import { submit, Unresolved } from './wealth';
 import { periodLabel } from './recurring-model';
 import type { Modules } from './modules';
 import './wealth.css';
@@ -22,14 +23,15 @@ export type SubscriptionDetailActions = {
  * 内容与口径（设计 §5.1）。主信息在上，次要字段折叠；关联只在异常时提示。
  * 只有一半的对象（房租没有服务档案）自然少显示对应字段。
  */
-export function SubscriptionDetail({ plan: initialPlan, today, modules, sourcePayment, onCorrectPayment, onClose, ...act }: {
-  plan: Plan; today: string; modules: Modules; sourcePayment?: Payment | null; onCorrectPayment?: (payment: Payment) => void; onClose: () => void;
+export function SubscriptionDetail({ plan: initialPlan, today, modules, sourcePayment, onCorrectPayment, onClose, onSaved, ...act }: {
+  plan: Plan; today: string; modules: Modules; sourcePayment?: Payment | null; onCorrectPayment?: (payment: Payment) => void; onClose: () => void; onSaved?: () => void;
 } & SubscriptionDetailActions) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [link, setLink] = useState<LinkView | null>(null), [linkError, setLinkError] = useState('');
   const [linkRetry, setLinkRetry] = useState(0);
   const [detail, setDetail] = useState<SubscriptionDetailData | null>(null), [historyError, setHistoryError] = useState('');
   const [page, setPage] = useState(0);
+  const [cancelPrompt, setCancelPrompt] = useState(false), [busy, setBusy] = useState(false), [stuck, setStuck] = useState(false), [mutationError, setMutationError] = useState('');
   const plan = detail?.plan ?? initialPlan;
   useEffect(() => {
     let live = true; setDetail(null); setHistoryError(''); setPage(0);
@@ -47,25 +49,38 @@ export function SubscriptionDetail({ plan: initialPlan, today, modules, sourcePa
   const linked = link?.relation === 'linked' && !!link.asset;
   const asset = linked ? link!.asset! : null;
   const ended = f.end_date != null && f.end_date < today;
+  const pending = pendingSubscriptionStart(plan, today);
   const notice = link ? relationNotice(link.relation, { occupied_by: link.occupied_by }) : null;
   const namesDiffer = !!asset && asset.name !== f.name;
-  const state = ended ? 'expired' : f.paused ? 'paused' : 'ongoing';
-  const monthly = plan.monthly_cents && !f.interval_days && f.interval_months > 1 ? plan.monthly_cents : null;
+  const state = ended ? 'expired' : pending ? 'future' : f.paused ? 'paused' : 'ongoing';
+  const monthly = !pending && plan.monthly_cents && !f.interval_days && f.interval_months > 1 ? plan.monthly_cents : null;
   const schedule = ended ? `已于 ${f.end_date} 结束` : f.paused ? '续费已暂停' : plan.next_due ? `下次付款 ${plan.next_due}` : '当前没有待记录期';
   const paidText = link ? (link.paid_count ? `${money(link.paid_cents ?? '0')} · ${link.paid_count} 笔` : '未记录付款') : plan.paid_cents ? money(plan.paid_cents) : '未记录付款';
   const meta = asset ? [asset.provider, asset.label_name].filter(Boolean).join(' · ') : '';
   const sub = f.category === 'subscription' || linked;
   const stale = !!link && !!detail && (link.generation !== detail.generation || (!!link.plan && link.plan.revision !== plan.revision));
-  const ready = !!link && !!detail && !stale;
+  const ready = !!link && !!detail && !stale && !busy && !stuck;
   const canResume = sub && ended && !!f.service_start && (linked || link?.relation === 'unlinked');
   const records = detail?.payments ?? [];
+  const pendingResumption = !!pending && !!plan.resumptions?.length;
+  const pendingPayments = pendingResumption && (detail?.pending_has_payments ?? records.some(p => p.coverage_start ? p.coverage_start >= pending! : p.due_date >= f.first_due));
+  const editablePending = pendingResumption && !pendingPayments && (linked || link?.relation === 'unlinked');
+  async function cancelPending() {
+    if (!ready || !editablePending || !link) return;
+    setBusy(true); setMutationError('');
+    try {
+      await submit({ command: 'recurring_cancel_resumption', input: { request_id: crypto.randomUUID(), generation: link.generation, plan_id: plan.id, expected_revision: plan.revision, asset_id: link.asset?.id ?? null, asset_expected_revision: link.asset?.revision ?? null }, label: '撤销待生效订阅 ' + f.name });
+      if (onSaved) onSaved(); else { setCancelPrompt(false); setLinkRetry(n => n + 1); }
+    } catch (e) { if (e instanceof Unresolved) setStuck(true); setMutationError(errorMessage(e)); }
+    finally { setBusy(false); }
+  }
   const pageCount = Math.max(1, Math.ceil(records.length / 50));
   const currentPage = Math.min(page, pageCount - 1);
-  return <dialog ref={dialog} className="editor wealth-account-editor sub-detail" aria-labelledby="plan-detail-heading" onCancel={e => { e.preventDefault(); onClose(); }}>
+  return <dialog ref={dialog} className="editor wealth-account-editor sub-detail" aria-labelledby="plan-detail-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(); }}>
     <header><div><p className="eyebrow">财富 · {sub ? '订阅' : '周期费用'}</p><h2 id="plan-detail-heading">{f.name}</h2>
       <p className="sub-detail-line"><span className="virtual-state" data-state={state}>{planStatus(plan, today)}</span> <strong>{money(f.amount_cents)}／{intervalUnit(f)}</strong>{!ended && <> · {schedule}</>}</p>
       {meta && <p className="muted small">{meta}</p>}</div>
-      <CloseButton type="button" aria-label="关闭计划详情" onClick={onClose} /><div className="editor-header-actions"><button disabled={!ready} onClick={() => act.onEdit(plan)}>修改价格与设置</button></div></header>
+      <CloseButton type="button" aria-label="关闭计划详情" disabled={busy} onClick={onClose} /><div className="editor-header-actions"><button disabled={!ready || pendingResumption && !editablePending} onClick={() => editablePending ? act.onResume({ plan, link: link! }) : act.onEdit(plan)}>{pendingResumption ? '调整订阅安排' : '修改价格与设置'}</button></div></header>
     <section className="subscription-body">
       {!link && (linkError ? <p className="notice" role="alert">关联信息读取失败：{linkError} <button onClick={() => setLinkRetry(n => n + 1)}>重新读取关联</button></p> : <p className="muted" role="status">正在读取关联信息…</p>)}
       {sourcePayment && onCorrectPayment && <section className="form-block" aria-label="来源付款记录"><h3>来源付款记录</h3><dl className="facts">
@@ -83,17 +98,22 @@ export function SubscriptionDetail({ plan: initialPlan, today, modules, sourcePa
       <div className="inspector-metrics sub-metrics">
         <div><span>每期价格</span><strong>{money(f.amount_cents)}<small>／{intervalUnit(f)}</small></strong>{monthly && <small className="muted">月均 {money(monthly)}</small>}</div>
         <div><span>实际已付</span><strong>{paidText}</strong><small className="muted">只合计已记录的真实付款</small></div>
-        <div><span>{ended ? '上次使用至' : '当前服务期至'}</span><strong>{plan.current_coverage ? plan.current_coverage[1] : ended ? f.end_date : '—'}</strong></div>
+        <div><span>{pending ? '本次服务生效日' : ended ? '上次使用至' : '当前服务期至'}</span><strong>{pending ?? (plan.current_coverage ? plan.current_coverage[1] : ended ? f.end_date : '—')}</strong></div>
       </div>
       <div className="actions">
-        <button className="primary" onClick={() => act.onPay(plan, detail?.payment_candidate?.amount_cents ?? f.amount_cents)} disabled={!ready || !plan.next_due || f.paused || ended}>记录实际扣款</button>
+        <button className="primary" onClick={() => act.onPay(detail?.payment_candidate ? { ...plan, next_due: detail.payment_candidate.due_date, next_coverage: detail.payment_candidate.coverage_start && detail.payment_candidate.coverage_end ? [detail.payment_candidate.coverage_start, detail.payment_candidate.coverage_end] : plan.next_coverage } : plan, detail?.payment_candidate?.amount_cents ?? f.amount_cents)} disabled={!ready || !(detail?.payment_candidate || plan.next_due) || f.paused || ended}>记录实际扣款</button>
         {canResume && <button className="primary" disabled={!ready} onClick={() => act.onResume({ plan, link: link! })}>重新订阅…</button>}
-        {sub && !ended && <button type="button" onClick={() => act.onEnd({ plan, link: link! })} disabled={!ready || !(linked || link?.relation === 'unlinked')}>取消后续续费…</button>}
+        {sub && !ended && (!pendingResumption || pendingPayments) && <button type="button" onClick={() => act.onEnd({ plan, link: link! })} disabled={!ready || !(linked || link?.relation === 'unlinked')}>取消后续续费…</button>}
+        {editablePending && <button type="button" disabled={!ready} onClick={() => setCancelPrompt(true)}>撤销待生效安排…</button>}
         <details className="more-actions"><summary>更多操作</summary>
           {act.onCreate && link?.relation === 'unlinked' && f.category === 'subscription' && <button onClick={() => act.onCreate!(plan)}>建立关联服务档案…</button>}
           <button type="button" className="ui-link danger-text" disabled={!link} onClick={() => linked ? act.onGroupDelete(plan.id, f.name) : act.onEdit(plan)}>{linked ? '整组删除…' : '删除（在编辑中）'}</button>
         </details>
       </div>
+      {pending && <p className="muted small">服务将于 {pending} 生效。若已提前扣款，现在就可以记录；付款不会把生效日提前，也不会改动以后的续费日期。</p>}
+      {pendingPayments && <p className="muted small">本段已有付款记录，不能直接改动日期或撤销安排。记错付款可在下方更正；不再续费可选择「取消后续续费」，保留已付服务期。</p>}
+      {cancelPrompt && <section className="form-block" aria-label="确认撤销待生效安排"><h3>撤销这段尚未生效的安排？</h3><p>将恢复为上段已结束的订阅。旧期间与旧付款保持原样；不会取消服务方的订阅或办理退款。</p><div className="actions"><button disabled={busy || stuck} onClick={() => setCancelPrompt(false)}>保留安排</button><button disabled={!ready} onClick={() => void cancelPending()}>{busy ? '正在撤销…' : '确认撤销安排'}</button></div></section>}
+      {mutationError && <p className="notice" role="alert">{mutationError}{stuck && ' 请关闭详情并核对上一次请求，不要重复提交。'}</p>}
       {stale && <p className="notice" role="alert">资料已变化，请重新读取。<button onClick={() => setLinkRetry(n => n + 1)}>重新读取</button></p>}
       <p className="muted small">仅向付款账户充值时，等服务实际扣款后再记录。取消续费保留以前的付款。</p>
       {sub && f.paused && !ended && <p className="muted small">如果实际已经停订，请在「取消后续续费」里填写上次最后使用日，之后可重新订阅。</p>}

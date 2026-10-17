@@ -547,6 +547,8 @@ fn resubscribe_linked_pair_checks_both_revisions_and_rolls_back_or_replays_once(
         asset_id: Some(asset.id.clone()),
         asset_expected_revision: Some(asset.revision + 1),
         start_date: "2026-10-17".into(),
+        first_due: None,
+        replace_pending: false,
         amount_cents: "15000".into(),
         interval_months: 1,
         interval_days: None,
@@ -600,5 +602,234 @@ fn resubscribe_linked_pair_checks_both_revisions_and_rolls_back_or_replays_once(
     assert_eq!(
         code(s.recurring_resume(&stale, "2026-10-17")),
         "REVISION_CONFLICT"
+    );
+}
+
+#[test]
+fn future_resubscription_is_pending_until_service_starts_even_when_prepaid() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let mut input = sub(&s);
+    input.plan.as_mut().unwrap().fields.end_date = Some("2026-07-03".into());
+    input.plan.as_mut().unwrap().fields.auto_renew = false;
+    let asset = s.virtual_save(&input, "2026-07-04").unwrap();
+    let p = asset.plan.as_ref().unwrap();
+    let resume = serde_json::from_value(serde_json::json!({
+        "request_id": id(), "generation": s.generation(), "plan_id": p.id,
+        "expected_revision": p.revision, "asset_id": asset.id,
+        "asset_expected_revision": asset.revision, "start_date": "2026-10-21",
+        "first_due": "2026-10-17", "amount_cents": "18000",
+        "interval_months": 1, "interval_days": null
+    }))
+    .unwrap();
+    s.recurring_resume(&resume, "2026-10-17").unwrap();
+    let pending = s
+        .virtual_overview("2026-10-17")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(pending.status, "future");
+    assert_eq!(s.virtual_overview("2026-10-17").unwrap().in_use, 0);
+    assert!(pending.plan.as_ref().unwrap().current_coverage.is_none());
+    assert_eq!(pending.payment_due.unwrap().due_date, "2026-10-17");
+    s.recurring_payment_save(&pay(&s, &p.id, "2026-10-17", "18000"), "2026-10-17")
+        .unwrap();
+    let paid = s
+        .virtual_overview("2026-10-17")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(paid.status, "future");
+    assert_eq!(s.virtual_overview("2026-10-17").unwrap().in_use, 0);
+    assert_eq!(paid.spent_cents.as_deref(), Some("18000"));
+    let started = s
+        .virtual_overview("2026-10-21")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(started.status, "ongoing");
+    assert_eq!(s.virtual_overview("2026-10-21").unwrap().in_use, 1);
+    assert_eq!(
+        started.plan.unwrap().current_coverage,
+        Some(("2026-10-21".into(), "2026-11-20".into()))
+    );
+}
+
+#[test]
+fn pending_pair_changes_check_revisions_and_replay_or_roll_back_atomically() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let mut input = sub(&s);
+    input.plan.as_mut().unwrap().fields.end_date = Some("2026-07-03".into());
+    input.plan.as_mut().unwrap().fields.auto_renew = false;
+    let asset = s.virtual_save(&input, "2026-07-04").unwrap();
+    let p = asset.plan.as_ref().unwrap();
+    let resume = serde_json::from_value(serde_json::json!({
+        "request_id": id(), "generation": s.generation(), "plan_id": p.id,
+        "expected_revision": p.revision, "asset_id": asset.id,
+        "asset_expected_revision": asset.revision, "start_date": "2026-10-21",
+        "amount_cents": "18000", "interval_months": 1, "interval_days": null
+    }))
+    .unwrap();
+    s.recurring_resume(&resume, "2026-10-17").unwrap();
+    let pending = s
+        .virtual_overview("2026-10-17")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    let plan = pending.plan.as_ref().unwrap();
+    let mut cancel = thingary_lib::recurring::CancelResumptionSave {
+        request_id: id(),
+        generation: s.generation(),
+        plan_id: plan.id.clone(),
+        expected_revision: plan.revision,
+        asset_id: Some(pending.id.clone()),
+        asset_expected_revision: Some(pending.revision + 1),
+    };
+    assert_eq!(
+        code(s.recurring_cancel_resumption(&cancel, "2026-10-17")),
+        "LINK_CHANGED"
+    );
+    cancel.asset_expected_revision = Some(pending.revision);
+    s.set_hook(|point| {
+        if point == "recurring_cancel_resumption.before_commit" {
+            Err(Error::new("INJECTED", "fictional"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(
+        code(s.recurring_cancel_resumption(&cancel, "2026-10-17")),
+        "INJECTED"
+    );
+    let unchanged = s
+        .virtual_overview("2026-10-17")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(unchanged.revision, pending.revision);
+    assert_eq!(unchanged.plan.unwrap().resumptions.len(), 1);
+    s.set_hook(|point| {
+        if point == "recurring_cancel_resumption.after_commit" {
+            Err(Error::new("INJECTED", "fictional"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(
+        code(s.recurring_cancel_resumption(&cancel, "2026-10-17")),
+        "INJECTED"
+    );
+    s.set_hook(|_| Ok(()));
+    s.recurring_cancel_resumption(&cancel, "2026-10-17")
+        .unwrap();
+    let restored = s
+        .virtual_overview("2026-10-17")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(restored.revision, pending.revision + 1);
+    assert_eq!(restored.fields.stopped_on.as_deref(), Some("2026-07-03"));
+    assert_eq!(restored.status, "stopped");
+    let restored_plan = restored.plan.unwrap();
+    assert_eq!(restored_plan.revision, plan.revision + 1);
+    assert!(restored_plan.resumptions.is_empty());
+    assert_eq!(restored_plan.fields.end_date.as_deref(), Some("2026-07-03"));
+    assert_eq!(restored_plan.fields.first_due, p.fields.first_due);
+    let mut stale = cancel.clone();
+    stale.request_id = id();
+    assert_eq!(
+        code(s.recurring_cancel_resumption(&stale, "2026-10-17")),
+        "REVISION_CONFLICT"
+    );
+    let mut fresh = cancel;
+    fresh.request_id = id();
+    fresh.expected_revision = restored_plan.revision;
+    fresh.asset_expected_revision = Some(restored.revision);
+    assert_eq!(
+        code(s.recurring_cancel_resumption(&fresh, "2026-10-17")),
+        "RESUME_STATE"
+    );
+}
+
+#[test]
+fn prepaid_future_service_can_close_renewals_without_losing_its_paid_period() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let mut input = sub(&s);
+    input.plan.as_mut().unwrap().fields.end_date = Some("2026-07-03".into());
+    input.plan.as_mut().unwrap().fields.auto_renew = false;
+    let asset = s.virtual_save(&input, "2026-07-04").unwrap();
+    let original = asset.plan.as_ref().unwrap();
+    let resume = serde_json::from_value(serde_json::json!({
+        "request_id": id(), "generation": s.generation(), "plan_id": original.id,
+        "expected_revision": original.revision, "asset_id": asset.id,
+        "asset_expected_revision": asset.revision, "start_date": "2026-10-21",
+        "first_due": "2026-10-17", "amount_cents": "18000",
+        "interval_months": 1, "interval_days": null
+    }))
+    .unwrap();
+    s.recurring_resume(&resume, "2026-10-17").unwrap();
+    let payment = s
+        .recurring_payment_save(&pay(&s, &original.id, "2026-10-17", "18000"), "2026-10-17")
+        .unwrap();
+    let pending = s
+        .virtual_overview("2026-10-17")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    let p = pending.plan.unwrap();
+    let mut ended = p.fields.clone();
+    ended.end_date = payment.coverage_end.clone();
+    ended.auto_renew = false;
+    s.link_save(
+        &LinkSave {
+            request_id: id(),
+            generation: s.generation(),
+            asset_id: pending.id.clone(),
+            asset_expected_revision: pending.revision,
+            plan_id: p.id.clone(),
+            plan_expected_revision: p.revision,
+            fields: ended,
+            unify_name_to: None,
+            billing: None,
+        },
+        "2026-10-17",
+    )
+    .unwrap();
+    let before = s
+        .virtual_overview("2026-10-17")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(before.status, "future");
+    assert!(before.plan.as_ref().unwrap().current_coverage.is_none());
+    assert!(before.payment_due.is_none());
+    assert_eq!(before.spent_cents.as_deref(), Some("18000"));
+    let current = s.recurring_detail(&original.id, "2026-10-21").unwrap();
+    assert_eq!(
+        current.plan.current_coverage,
+        Some(("2026-10-21".into(), "2026-11-20".into()))
+    );
+    assert_eq!(current.payments[0].id, payment.id);
+    assert_eq!(current.payments[0].coverage_start, payment.coverage_start);
+    assert_eq!(current.payments[0].coverage_end, payment.coverage_end);
+    assert!(!current.payments[0].off_schedule);
+    assert_eq!(
+        s.virtual_overview("2026-11-21")
+            .unwrap()
+            .items
+            .pop()
+            .unwrap()
+            .status,
+        "expired"
     );
 }

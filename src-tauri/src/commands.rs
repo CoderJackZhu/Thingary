@@ -1992,6 +1992,18 @@ pub async fn recurring_resume(
     .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
 }
 #[tauri::command]
+pub async fn recurring_cancel_resumption(
+    input: crate::recurring::CancelResumptionSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.recurring_cancel_resumption(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
 pub async fn recurring_plan_save(
     input: crate::recurring::PlanSave,
     worker: tauri::State<'_, Worker>,

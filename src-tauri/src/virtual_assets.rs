@@ -467,8 +467,10 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
             v.paid_until = v.valid_until.clone();
             let mut plan = plan.clone();
             let today_s = today.to_string();
-            let overview_next = crate::recurring::schedule(
+            let overview_next = crate::recurring::schedule_for(
+                c,
                 &plan.fields,
+                plan_id,
                 &ends,
                 date(&today_s)?.max(date(&plan.active_from)?),
                 date(&today_s)?
@@ -580,7 +582,12 @@ fn derive(c: &Connection, row: Row, today: NaiveDate) -> Result<VirtualAsset> {
         .plan
         .as_ref()
         .and_then(|p| p.fields.service_start.clone())
-        .is_some_and(|s| s > now);
+        .is_some_and(|s| s > now)
+        || v.plan.as_ref().is_some_and(|p| {
+            p.resumptions
+                .iter()
+                .any(|r| r.previous_end < now && now < r.resumed_on)
+        });
     v.status = if not_started && v.fields.stopped_on.is_none() {
         "future".into()
     } else {
@@ -1161,7 +1168,7 @@ impl Store {
             today: today.into(),
             in_use: items
                 .iter()
-                .filter(|v| v.status != "stopped" && v.status != "expired")
+                .filter(|v| !matches!(v.status.as_str(), "stopped" | "expired" | "future"))
                 .count() as i64,
             expiring: count("expiring"),
             expired: count("expired"),
@@ -1371,6 +1378,14 @@ pub(crate) fn apply_billing_extras(
     today: &str,
 ) -> Result<()> {
     let now_day = date(today)?;
+    if (renewal_price_cents.is_some() || special.is_some())
+        && crate::recurring::has_pending_resumption(c, plan_id, today)?
+    {
+        return Err(Error::new(
+            "RESUME_PENDING",
+            "已有待生效安排，请使用「修改待生效安排」或「撤回待生效安排」",
+        ));
+    }
     if let Some(renewal) = renewal_price_cents {
         if renewal.is_empty() {
             c.execute(

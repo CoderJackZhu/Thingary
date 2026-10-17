@@ -3,8 +3,9 @@ export const recurringCategories = [['rent', '房租'], ['subscription', '订阅
 export type PlanFields = { auto_renew?: boolean; service_start?: string | null; coverage_start?: string | null; interval_days?: number | null; trial_days?: number | null; name: string; category: string; amount_cents: string; interval_months: number; first_due: string; end_date: string | null; paused: boolean; notes: string };
 export type ScheduleRule = { effective_date: string; anchor: string; first_due: string; service_start: string | null; interval_months: number; interval_days: number | null; trial_days: number | null };
 export type Resumption = { resumed_on: string; previous_end: string };
-export type SubscriptionDetailData = { payment_candidate?: Due | null; generation: string; plan: Plan; payments: Payment[] };
-export type ResumeSave = { request_id: string; generation: string; plan_id: string; expected_revision: number; asset_id: string | null; asset_expected_revision: number | null; start_date: string; amount_cents: string; interval_months: number; interval_days: number | null };
+export type SubscriptionDetailData = { payment_candidate?: Due | null; pending_has_payments?: boolean; generation: string; plan: Plan; payments: Payment[] };
+export type CancelResumptionSave = { request_id: string; generation: string; plan_id: string; expected_revision: number; asset_id: string | null; asset_expected_revision: number | null };
+export type ResumeSave = CancelResumptionSave & { start_date: string; first_due?: string; replace_pending?: boolean; amount_cents: string; interval_months: number; interval_days: number | null };
 export type Plan = { resumptions?: Resumption[]; rules?: ScheduleRule[]; period_ends?: Record<string,string>; monthly_cents?: string | null; contract_cents?: string | null; estimated_cents?: string | null; paid_cents?: string | null; next_coverage?: [string,string] | null; current_coverage?: [string,string] | null; id: string; fields: PlanFields; revision: number; active_from: string; next_due: string | null; renewal_cents?: string | null; renewal_from?: string | null; special_start?: string | null; special_end?: string | null };
 export type PlanSave = { request_id: string; generation: string; id: string | null; expected_revision: number | null; fields: PlanFields };
 export type Payment = { coverage_start?: string | null; coverage_end?: string | null; id: string; plan_id: string; plan_name: string; due_date: string; state: 'paid' | 'skipped'; paid_date: string | null; amount_cents: string | null; notes: string; revision: number; off_schedule: boolean };
@@ -28,8 +29,20 @@ export function paymentReminders(o: Pick<Overview, 'due' | 'upcoming'> & { plans
   return { due: o.due.filter(d => !quiet.has(d.plan_id)), upcoming: o.upcoming.filter(d => !quiet.has(d.plan_id)) };
 }
 /** Plan status for the list: ended plans no longer have future periods. */
+export function pendingSubscriptionStart(p: Pick<Plan, 'fields' | 'resumptions'>, today: string): string | null {
+  if (p.fields.category !== 'subscription') return null;
+  let start = p.fields.service_start ?? null;
+  for (const period of p.resumptions ?? []) {
+    if (today < period.resumed_on) return today > period.previous_end ? period.resumed_on : start && start > today ? start : null;
+    start = period.resumed_on;
+  }
+  return start && start > today ? start : null;
+}
+
 export function planStatus(p: Plan, today: string) {
   if (p.fields.end_date && p.fields.end_date < today) return `已于 ${p.fields.end_date} 结束`;
+  const pending = pendingSubscriptionStart(p, today);
+  if (pending) return `待生效 · ${pending}`;
   if (p.fields.paused) return '已暂停';
   return p.fields.end_date ? `进行中，至 ${p.fields.end_date}` : isContinuousSubscription(p.fields) ? '持续续费' : '进行中';
 }

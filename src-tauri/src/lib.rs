@@ -366,6 +366,7 @@ pub fn run() {
             commands::recurring_overview,
             commands::recurring_detail,
             commands::recurring_resume,
+            commands::recurring_cancel_resumption,
             commands::recurring_plan_save,
             commands::recurring_payment_save,
             commands::recurring_payment_range_save,

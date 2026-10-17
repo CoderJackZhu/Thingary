@@ -117,9 +117,9 @@ test('储值投入区分：尚未记录、完全未知、仅已知部分', () =>
   assert.equal(cumulativeCost({ ...base, topup_count: 1, topup_known_cents: null }).cents, null);
 });
 
-test('未来开始的订阅显示未开始且仍属于有效筛选', () => {
+test('未来开始的订阅显示待生效且仍属于有效筛选', () => {
   const v = { id: 'x', fields: { kind: 'general', billing: 'subscription', plan_id: 'p' }, plan: { fields: { service_start: '2027-01-01', paused: false, end_date: null } }, status: 'future', spent_cents: null, plan_name: null, plan_deleted: false, valid_until: null };
-  assert.equal(virtualStatusText(v), '未开始');
+  assert.equal(virtualStatusText(v), '待生效');
   assert.ok(matchesFilter(v, 'valid'));
 });
 

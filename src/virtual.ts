@@ -21,7 +21,7 @@ export type PlanChoice = { id: string; name: string; interval_months: number; li
 export type VirtualOverview = { generation: string; today: string; items: VirtualAsset[]; in_use: number; expiring: number; expired: number; spent_cents: string; unknown_price: number; plans: PlanChoice[] };
 
 export const virtualKindText = (k: string) => virtualKinds.find(([c]) => c === k)?.[1] ?? '虚拟资产';
-export const statusText: Record<VirtualStatus, string> = { stopped: '已停用', perpetual: '永久有效', unknown: '有效期待补充', expired: '已到期', expiring: '即将到期', active: '有效', ongoing: '持续订阅', paused: '已暂停续费', future: '未开始' };
+export const statusText: Record<VirtualStatus, string> = { stopped: '已停用', perpetual: '永久有效', unknown: '有效期待补充', expired: '已到期', expiring: '即将到期', active: '有效', ongoing: '持续订阅', paused: '已暂停续费', future: '待生效' };
 export const virtualStatusText = (v: VirtualAsset) => {
   if (billingOf(v) === 'single' && v.status === 'stopped') return '已结束使用';
   if (billingOf(v) === 'single' && v.fields.kind === 'general' && v.status === 'unknown') return '未设置有效期';
@@ -69,7 +69,7 @@ export function matchesFilter(v: VirtualAsset, filter: VirtualFilter) {
 /** Where validity comes from, shown next to the date. */
 export function validityText(v: VirtualAsset) {
   if (v.fields.stopped_on) return `${billingOf(v) === 'single' ? '使用结束于' : '停用于'} ${v.fields.stopped_on}`;
-  if (v.status === 'future') return `未开始（${v.plan?.fields.service_start ?? ''}）`;
+  if (v.status === 'future') return `待生效（${v.plan?.resumptions?.at(-1)?.resumed_on ?? v.plan?.fields.service_start ?? ''}）`;
   if (v.status === 'perpetual') return '永久有效';
   if (billingOf(v) === 'single' && !v.fields.plan_id && v.fields.perpetual) return '永久有效';
   if (v.status === 'ongoing') return '持续进行，无结束日期';

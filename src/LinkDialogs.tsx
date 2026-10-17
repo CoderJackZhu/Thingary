@@ -183,7 +183,7 @@ export function EndSubscriptionDialog({ assetId, planId, assetName, assetRevisio
   return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="end-subscription-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}>
     <h2 id="end-subscription-title">取消「{assetName}」的后续续费</h2>
     <p className="muted">先在服务方取消自动扣费，再在这里确认最后使用日：到这一天为止仍在服务期，次日显示已结束。历史付款与估算依据保留，不再安排后续续费。这只维护记录，不代表已取消平台扣款。</p>
-    {stuck ? <p className="notice" role="status">保存结果未确认，请先核对上一次请求。</p> : <FormRow label="最后使用日" hint={suggestion ? `建议为当前服务期末 ${suggestion}；可修改` : '不能早于服务开始'}>
+    {stuck ? <p className="notice" role="status">保存结果未确认，请先核对上一次请求。</p> : <FormRow label="最后使用日" hint={suggestion ? `建议为服务期末 ${suggestion}；可修改` : '不能早于服务开始'}>
       <DateInput yearIntent="past" label="最后使用日" value={lastUsed} disabled={busy} onChange={v => v && setLastUsed(v)} />
     </FormRow>}
     {notice && <p className="notice" role="status">{notice}</p>}

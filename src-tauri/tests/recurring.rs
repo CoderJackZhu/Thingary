@@ -561,6 +561,8 @@ fn resume_input(
         asset_id: None,
         asset_expected_revision: None,
         start_date: start.into(),
+        first_due: None,
+        replace_pending: false,
         amount_cents: amount.into(),
         interval_months: 1,
         interval_days: None,
@@ -701,16 +703,22 @@ fn repeated_resubscriptions_clip_partial_service_and_survive_backup() {
 }
 
 #[test]
-fn resubscribe_rejects_overlap_future_stale_revision_and_conflicting_receipt() {
+fn resubscribe_rejects_overlap_stale_revision_and_conflicting_receipt() {
     let d = tempfile::tempdir().unwrap();
     let mut s = Store::open(d.path()).unwrap();
     let p = ended_subscription(&mut s);
-    for day in ["2026-07-30", "2026-12-01"] {
+    for day in ["2026-07-30", "2026-07-29"] {
         assert_eq!(
             code(s.recurring_resume(&resume_input(&s, &p, day, "15000"), "2026-10-17")),
             "RESUME_DATE"
         );
     }
+    let mut invalid_due = resume_input(&s, &p, "2026-10-21", "15000");
+    invalid_due.first_due = Some("2026-07-30".into());
+    assert_eq!(
+        code(s.recurring_resume(&invalid_due, "2026-10-17")),
+        "RESUME_DUE"
+    );
     let mut i = resume_input(&s, &p, "2026-10-17", "15000");
     i.expected_revision += 1;
     assert_eq!(
@@ -848,4 +856,357 @@ fn restart_preserves_legacy_estimate_fallback_when_no_initial_price_row_exists()
             .as_deref(),
         Some("99000")
     );
+}
+
+#[test]
+fn future_restart_keeps_service_payment_and_current_burden_separate() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let p = ended_subscription(&mut s);
+    let mut json = serde_json::to_value(resume_input(&s, &p, "2026-10-21", "30000")).unwrap();
+    json["first_due"] = serde_json::json!("2026-10-17");
+    json["interval_months"] = serde_json::json!(3);
+    let input = serde_json::from_value(json).unwrap();
+    s.recurring_resume(&input, "2026-10-17").unwrap();
+    let detail = s.recurring_detail(&p.id, "2026-10-17").unwrap();
+    assert_eq!(
+        code(s.recurring_payment_save(
+            &pay(&s, &p, "2026-10-17", Some("30000"), Some("2026-10-18")),
+            "2026-10-17",
+        )),
+        "PAYMENT_DATE"
+    );
+    assert!(detail.plan.current_coverage.is_none());
+    assert_eq!(detail.plan.monthly_cents.as_deref(), Some("0"));
+    assert_eq!(detail.plan.estimated_cents.as_deref(), Some("84000"));
+    let due = detail.payment_candidate.unwrap();
+    assert_eq!(due.due_date, "2026-10-17");
+    assert_eq!(due.amount_cents, "30000");
+    assert_eq!(due.coverage_start.as_deref(), Some("2026-10-21"));
+    assert_eq!(due.coverage_end.as_deref(), Some("2027-01-20"));
+    let overview = s.recurring_overview("2026-10-17").unwrap();
+    assert_eq!(overview.annual_cents, "0");
+    assert_eq!(overview.due.len(), 1);
+    assert_eq!(overview.due[0].due_date, "2026-10-17");
+    let payment = s
+        .recurring_payment_save(
+            &pay(&s, &p, "2026-10-17", Some("29000"), Some("2026-10-17")),
+            "2026-10-17",
+        )
+        .unwrap();
+    assert_eq!(payment.coverage_start.as_deref(), Some("2026-10-21"));
+    let before = s.recurring_detail(&p.id, "2026-10-20").unwrap();
+    assert_eq!(before.plan.paid_cents.as_deref(), Some("29000"));
+    assert!(before.plan.current_coverage.is_none());
+    assert_eq!(before.payment_candidate.unwrap().due_date, "2027-01-17");
+    let started = s.recurring_detail(&p.id, "2026-10-21").unwrap();
+    assert_eq!(started.plan.monthly_cents.as_deref(), Some("10000"));
+    assert_eq!(started.plan.estimated_cents.as_deref(), Some("114000"));
+    assert_eq!(
+        started.plan.current_coverage,
+        Some(("2026-10-21".into(), "2027-01-20".into()))
+    );
+    assert_eq!(
+        s.recurring_overview("2026-10-21").unwrap().annual_cents,
+        "120000"
+    );
+    let file = d.path().join("future-restart.thingary");
+    s.backup(Some(&file)).unwrap();
+    let target_dir = tempfile::tempdir().unwrap();
+    let mut target = Store::open(target_dir.path()).unwrap();
+    let summary = target.inspect_backup(&file).unwrap();
+    target
+        .restore(&file, &summary.hash, &target.generation())
+        .unwrap();
+    let restored = target.recurring_detail(&p.id, "2026-10-17").unwrap();
+    assert_eq!(restored.payments[0].id, payment.id);
+    assert_eq!(restored.plan.monthly_cents.as_deref(), Some("0"));
+    assert_eq!(restored.plan.fields.first_due, "2026-10-17");
+}
+
+#[test]
+fn one_early_payment_does_not_move_the_restarted_monthly_schedule() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let p = ended_subscription(&mut s);
+    s.recurring_resume(&resume_input(&s, &p, "2026-10-21", "15000"), "2026-10-17")
+        .unwrap();
+    s.recurring_payment_save(
+        &pay(&s, &p, "2026-10-21", Some("15000"), Some("2026-10-17")),
+        "2026-10-17",
+    )
+    .unwrap();
+    let detail = s.recurring_detail(&p.id, "2026-10-17").unwrap();
+    assert_eq!(detail.plan.fields.first_due, "2026-10-21");
+    assert_eq!(detail.payment_candidate.unwrap().due_date, "2026-11-21");
+    let mut duplicate = resume_input(&s, &detail.plan, "2026-11-01", "16000");
+    duplicate.request_id = rid();
+    assert_eq!(
+        code(s.recurring_resume(&duplicate, "2026-10-17")),
+        "RESUME_STATE"
+    );
+    assert_eq!(
+        s.recurring_detail(&p.id, "2026-10-17")
+            .unwrap()
+            .plan
+            .resumptions
+            .len(),
+        1
+    );
+}
+
+fn cancel_input(s: &Store, p: &Plan) -> thingary_lib::recurring::CancelResumptionSave {
+    thingary_lib::recurring::CancelResumptionSave {
+        request_id: rid(),
+        generation: s.generation(),
+        plan_id: p.id.clone(),
+        expected_revision: p.revision,
+        asset_id: None,
+        asset_expected_revision: None,
+    }
+}
+
+#[test]
+fn pending_restart_can_be_replaced_or_cancelled_without_changing_history() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let original = ended_subscription(&mut s);
+    let old_paid = s
+        .recurring_payment_save(
+            &pay(
+                &s,
+                &original,
+                "2026-01-31",
+                Some("13900"),
+                Some("2026-01-31"),
+            ),
+            "2026-10-17",
+        )
+        .unwrap();
+    s.recurring_resume(
+        &resume_input(&s, &original, "2026-10-21", "30000"),
+        "2026-10-17",
+    )
+    .unwrap();
+    let pending = s.recurring_detail(&original.id, "2026-10-17").unwrap().plan;
+    let mut replacement = resume_input(&s, &pending, "2026-11-09", "16000");
+    replacement.first_due = Some("2026-11-03".into());
+    replacement.interval_days = Some(14);
+    replacement.replace_pending = true;
+    s.recurring_resume(&replacement, "2026-10-17").unwrap();
+    s.recurring_resume(&replacement, "2026-10-17").unwrap();
+    let replaced = s.recurring_detail(&original.id, "2026-10-17").unwrap();
+    assert_eq!(replaced.plan.resumptions.len(), 1);
+    assert_eq!(replaced.plan.resumptions[0].resumed_on, "2026-11-09");
+    assert_eq!(replaced.plan.fields.interval_days, Some(14));
+    assert_eq!(replaced.plan.fields.first_due, "2026-11-03");
+    assert_eq!(replaced.plan.estimated_cents.as_deref(), Some("84000"));
+    assert_eq!(replaced.payments[0].id, old_paid.id);
+    assert_eq!(replaced.payments[0].coverage_end, old_paid.coverage_end);
+    let historical = s.recurring_detail(&original.id, "2026-06-17").unwrap();
+    assert_eq!(historical.plan.monthly_cents.as_deref(), Some("14000"));
+    assert_eq!(
+        s.recurring_overview("2026-06-17").unwrap().annual_cents,
+        "168000"
+    );
+    let cancel = cancel_input(&s, &replaced.plan);
+    assert_eq!(
+        s.recurring_cancel_resumption(&cancel, "2026-10-17")
+            .unwrap(),
+        original.id
+    );
+    assert_eq!(
+        s.recurring_cancel_resumption(&cancel, "2026-10-17")
+            .unwrap(),
+        original.id
+    );
+    let restored = s.recurring_detail(&original.id, "2026-10-17").unwrap();
+    assert!(restored.plan.resumptions.is_empty());
+    assert_eq!(restored.plan.fields.end_date.as_deref(), Some("2026-07-30"));
+    assert_eq!(restored.plan.fields.first_due, original.fields.first_due);
+    assert_eq!(
+        restored.plan.fields.coverage_start,
+        original.fields.coverage_start
+    );
+    assert_eq!(
+        restored.plan.fields.amount_cents,
+        original.fields.amount_cents
+    );
+    assert_eq!(
+        restored.plan.fields.interval_days,
+        original.fields.interval_days
+    );
+    assert!(!restored.plan.fields.auto_renew);
+    assert_eq!(restored.payments[0].id, old_paid.id);
+    assert!(!restored.payments[0].off_schedule);
+    let file = d.path().join("cancelled.thingary");
+    s.backup(Some(&file)).unwrap();
+    s.inspect_backup(&file).unwrap();
+}
+
+#[test]
+fn paid_skipped_and_soft_deleted_pending_records_block_destructive_changes() {
+    for state in ["paid", "skipped", "deleted"] {
+        let d = tempfile::tempdir().unwrap();
+        let mut s = Store::open(d.path()).unwrap();
+        let original = ended_subscription(&mut s);
+        s.recurring_resume(
+            &resume_input(&s, &original, "2026-10-21", "15000"),
+            "2026-10-17",
+        )
+        .unwrap();
+        let pending = s.recurring_detail(&original.id, "2026-10-17").unwrap().plan;
+        let input = if state == "skipped" {
+            pay(&s, &pending, "2026-10-21", None, None)
+        } else {
+            pay(
+                &s,
+                &pending,
+                "2026-10-21",
+                Some("15000"),
+                Some("2026-10-17"),
+            )
+        };
+        let payment = s.recurring_payment_save(&input, "2026-10-17").unwrap();
+        if state == "deleted" {
+            s.wealth_trash(&thingary_lib::wealth::TrashChange {
+                request_id: rid(),
+                generation: s.generation(),
+                kind: "payment".into(),
+                id: payment.id,
+                expected_revision: payment.revision,
+                deleted: true,
+            })
+            .unwrap();
+        }
+        assert!(
+            s.recurring_detail(&original.id, "2026-10-17")
+                .unwrap()
+                .pending_has_payments
+        );
+        assert!(
+            !s.recurring_detail(&original.id, "2026-10-21")
+                .unwrap()
+                .pending_has_payments
+        );
+        assert_eq!(
+            code(s.recurring_cancel_resumption(&cancel_input(&s, &pending), "2026-10-17")),
+            "RESUME_PAYMENTS"
+        );
+        let mut change = resume_input(&s, &pending, "2026-11-01", "17000");
+        change.replace_pending = true;
+        assert_eq!(
+            code(s.recurring_resume(&change, "2026-10-17")),
+            "RESUME_PAYMENTS"
+        );
+        let unchanged = s.recurring_detail(&original.id, "2026-10-17").unwrap();
+        assert_eq!(unchanged.plan.resumptions[0].resumed_on, "2026-10-21");
+        assert_eq!(unchanged.plan.revision, pending.revision);
+    }
+}
+
+#[test]
+fn pending_restart_cannot_be_changed_through_the_ordinary_plan_form() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let original = ended_subscription(&mut s);
+    s.recurring_resume(
+        &resume_input(&s, &original, "2026-10-21", "15000"),
+        "2026-10-17",
+    )
+    .unwrap();
+    let pending = s.recurring_detail(&original.id, "2026-10-17").unwrap().plan;
+    let mut fields = pending.fields.clone();
+    fields.first_due = "2026-10-25".into();
+    assert_eq!(
+        code(s.recurring_plan_save(
+            &PlanSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: Some(pending.id.clone()),
+                expected_revision: Some(pending.revision),
+                fields,
+            },
+            "2026-10-17"
+        )),
+        "RESUME_PENDING"
+    );
+    assert_eq!(
+        s.recurring_detail(&original.id, "2026-10-17")
+            .unwrap()
+            .plan
+            .revision,
+        pending.revision
+    );
+}
+
+#[test]
+fn restart_wire_defaults_keep_old_request_fingerprints_unchanged() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let original = ended_subscription(&mut s);
+    let input = resume_input(&s, &original, "2026-10-21", "15000");
+    let value = serde_json::to_value(&input).unwrap();
+    assert!(value.get("first_due").is_none());
+    assert!(value.get("replace_pending").is_none());
+    let restored: thingary_lib::recurring::ResumeSave = serde_json::from_value(value).unwrap();
+    assert!(restored.first_due.is_none());
+    assert!(!restored.replace_pending);
+}
+
+#[test]
+fn future_restart_does_not_inherit_old_unused_special_periods() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let mut f = fields("虚构旧特殊期", "14000", 1, "2026-10-21");
+    f.service_start = Some("2026-01-21".into());
+    f.coverage_start = Some("2026-10-21".into());
+    f.end_date = Some("2026-07-20".into());
+    let p = create(&mut s, f, "2026-10-17");
+    for (start, end) in [
+        ("2026-01-21", "2026-02-23"),
+        ("2026-10-21", "2027-02-21"),
+        ("2026-11-21", "2027-03-21"),
+    ] {
+        s.conn_for_test()
+            .unwrap()
+            .execute(
+                "INSERT INTO plan_period_ends VALUES(?1,?2,?3)",
+                rusqlite::params![p.id, start, end],
+            )
+            .unwrap();
+    }
+    s.recurring_resume(&resume_input(&s, &p, "2026-10-21", "15000"), "2026-10-17")
+        .unwrap();
+    let detail = s.recurring_detail(&p.id, "2026-10-17").unwrap();
+    assert_eq!(
+        detail.payment_candidate.unwrap().coverage_end.as_deref(),
+        Some("2026-11-20")
+    );
+    assert_eq!(detail.plan.period_ends.len(), 1);
+    assert_eq!(
+        detail
+            .plan
+            .period_ends
+            .get("2026-01-21")
+            .map(String::as_str),
+        Some("2026-02-23")
+    );
+    let mut replacement = resume_input(&s, &detail.plan, "2026-11-21", "16000");
+    replacement.replace_pending = true;
+    s.recurring_resume(&replacement, "2026-10-17").unwrap();
+    let replaced = s.recurring_detail(&p.id, "2026-10-17").unwrap();
+    assert_eq!(
+        replaced.payment_candidate.unwrap().coverage_end.as_deref(),
+        Some("2026-12-20")
+    );
+    s.recurring_cancel_resumption(&cancel_input(&s, &replaced.plan), "2026-10-17")
+        .unwrap();
+    let ended = s.recurring_detail(&p.id, "2026-10-17").unwrap();
+    assert_eq!(ended.plan.period_ends.len(), 1);
+    assert!(ended.plan.resumptions.is_empty());
+    assert_eq!(ended.plan.fields.end_date.as_deref(), Some("2026-07-20"));
+    let file = d.path().join("special-period-restart.thingary");
+    s.backup(Some(&file)).unwrap();
+    s.inspect_backup(&file).unwrap();
 }
