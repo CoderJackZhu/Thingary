@@ -150,3 +150,28 @@ test('虚构实际闲置边界：编辑与未知保存延后重锁，删除对�
   assert.equal(runtime.states[2].mounted, true);
   assert.match(source, /childList: true/);
 });
+
+// Render the real settings section with a stub hook runtime: the authentication
+// switch owns the idle option, while the cover switch stays independent.
+function settingsText(lock, available = true) {
+  const privacy = { cover: true, lock, available, checking: false, setCover: () => true, setLock: async () => true };
+  const fn = ts.createSourceFile('PrivacyLock.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX).statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'PrivacySettings');
+  const code = ts.transpileModule(fn.getText() + '\nmodule.exports=PrivacySettings;', { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
+  const context = { module: { exports: {} }, exports: {}, require: () => jsx, PrivacyContext: {}, useContext: () => privacy, useState: initial => [typeof initial === 'function' ? initial() : initial, () => {}], navigator: { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)' } };
+  vm.runInNewContext(code, context);
+  const walk = node => typeof node === 'string' ? node : Array.isArray(node) ? node.map(walk).join('') : node && typeof node === 'object' && node.props ? walk(node.props.children) : '';
+  return walk(context.module.exports());
+}
+test('虚构设置：总开关启用后才展开闲置验证，遮挡保持独立', () => {
+  const off = settingsText({ enabled: false, idleMinutes: 5 }), on = settingsText({ enabled: true, idleMinutes: 5 });
+  for (const text of [off, on]) {
+    assert.match(text, /窗口不在前台时遮住内容/);
+    assert.match(text, /启用身份验证每次打开物谱需要验证身份/);
+    assert.doesNotMatch(text, /打开物谱时需要验证身份/);
+  }
+  assert.doesNotMatch(off, /闲置后重新验证/);
+  assert.match(on, /闲置后重新验证/);
+  assert.match(on, /5 分钟/);
+  // The cover switch is rendered regardless of the authentication switch.
+  assert.equal(settingsText({ enabled: false, idleMinutes: 0 }, false).includes('窗口不在前台时遮住内容'), true);
+});
