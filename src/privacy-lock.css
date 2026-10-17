@@ -9,7 +9,7 @@ dialog.privacy-screen::backdrop{background:var(--bg)}
 .privacy-mark{display:inline-grid;place-items:center;width:88px;height:88px;border-radius:var(--ctl-radius);background:var(--soft);color:var(--accent)}
 .privacy-mark svg{width:64px;height:56px}
 .privacy-settings{padding:12px 0}
-.privacy-settings .privacy-toggle{display:flex;align-items:center;gap:10px;margin:18px 0;color:var(--text)}
+.privacy-settings .privacy-toggle{display:flex;justify-content:flex-start;align-items:center;gap:10px;margin:18px 0;color:var(--text)}
 .privacy-toggle input{flex:none}
 .privacy-settings .privacy-toggle-stacked{align-items:flex-start}
 .privacy-toggle-stacked>span{display:block}
