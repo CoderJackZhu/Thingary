@@ -24,22 +24,34 @@ pub fn minor(quantity: i64, price: i64, decimals: u32) -> Result<i64, &'static s
     i64::try_from(rounded).map_err(|_| "持仓金额超出范围")
 }
 
-/// Accept grouping commas and whitespace, but never truncate decimal precision.
+/// Accept validated comma/space thousands groups without merging arbitrary whitespace.
 pub fn parse(text: &str, places: u32) -> Result<i64, &'static str> {
-    let clean: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+    let clean = text.trim();
+    let grouping_space = |c: char| matches!(c, ' ' | '\u{a0}' | '\u{202f}');
     let whole = clean.split('.').next().unwrap_or("");
-    if clean.split('.').skip(1).any(|v| v.contains(',')) {
-        return Err("千分位逗号只能用于整数部分");
+    if clean
+        .split('.')
+        .skip(1)
+        .any(|v| v.contains(',') || v.chars().any(char::is_whitespace))
+    {
+        return Err("千分位分隔符只能用于整数部分");
     }
-    if whole.contains(',') {
-        let parts: Vec<_> = whole.split(',').collect();
+    if whole.contains(',') || whole.chars().any(grouping_space) {
+        let comma = whole.contains(',');
+        let parts: Vec<_> = whole
+            .split(|c| if comma { c == ',' } else { grouping_space(c) })
+            .collect();
         if parts[0].is_empty()
             || parts[0].len() > 3
             || parts.iter().any(|p| !p.bytes().all(|b| b.is_ascii_digit()))
             || parts[1..].iter().any(|p| p.len() != 3)
         {
-            return Err("千分位逗号格式不正确");
+            return Err("千分位须按三位分组，不能混用逗号和空格");
         }
     }
-    super::currency::parse_decimal(&clean.replace(',', ""), places)
+    let normalized: String = clean
+        .chars()
+        .filter(|&c| c != ',' && !grouping_space(c))
+        .collect();
+    super::currency::parse_decimal(&normalized, places)
 }

@@ -290,6 +290,135 @@ fn transfers_move_money_without_changing_net_worth() {
 }
 
 #[test]
+fn transfers_recheck_current_scope_and_reject_without_a_receipt() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let (cash, fund, _) = book(&mut s);
+    let input = quick(
+        &s,
+        TODAY,
+        "虚构转账",
+        &[(&cash, 90000, Some(100000)), (&fund, 510000, Some(500000))],
+    );
+    let mut fields = fund.fields.clone();
+    fields.counted = false;
+    s.wealth_account_save(
+        &AccountSave {
+            request_id: rid(),
+            generation: s.generation(),
+            id: Some(fund.id.clone()),
+            expected_revision: Some(fund.revision),
+            fields,
+        },
+        TODAY,
+    )
+    .unwrap();
+    let before = s.wealth_summary().unwrap();
+    assert_eq!(code(s.wealth_quick_update(&input, TODAY)), "QUICK_TRANSFER");
+    let after = s.wealth_summary().unwrap();
+    assert_eq!(after.points.len(), before.points.len());
+    assert_eq!(
+        after.points.last().unwrap().net_cents,
+        before.points.last().unwrap().net_cents
+    );
+    assert!(s
+        .wealth_request_result(&input.request_id, &s.generation())
+        .unwrap()
+        .is_none());
+
+    // Equal excluded scopes are still valid; a rejected request wrote no receipt.
+    let mut fields = cash.fields.clone();
+    fields.counted = false;
+    s.wealth_account_save(
+        &AccountSave {
+            request_id: rid(),
+            generation: s.generation(),
+            id: Some(cash.id.clone()),
+            expected_revision: Some(cash.revision),
+            fields,
+        },
+        TODAY,
+    )
+    .unwrap();
+    let saved = s.wealth_quick_update(&input, TODAY).unwrap();
+    assert!(saved
+        .entries
+        .iter()
+        .filter(|e| e.account_id == cash.id || e.account_id == fund.id)
+        .all(|e| !e.counted));
+    assert_eq!(
+        s.wealth_summary().unwrap().points.last().unwrap().net_cents,
+        "-30000"
+    );
+}
+
+#[test]
+fn same_day_transfers_validate_recorded_scope_before_current_settings() {
+    for recorded_counted in [true, false] {
+        let dir = tempfile::tempdir().unwrap();
+        let mut s = Store::open(dir.path()).unwrap();
+        let cash = open(&mut s, "虚构现金", "asset", "cash", "2026-01-01");
+        let mut fund = open(&mut s, "虚构基金", "asset", "fund", "2026-01-01");
+        let mut fields = fund.fields.clone();
+        fields.counted = recorded_counted;
+        fund = s
+            .wealth_account_save(
+                &AccountSave {
+                    request_id: rid(),
+                    generation: s.generation(),
+                    id: Some(fund.id.clone()),
+                    expected_revision: Some(fund.revision),
+                    fields,
+                },
+                TODAY,
+            )
+            .unwrap();
+        let old = check_in(
+            &mut s,
+            TODAY,
+            &[(&cash, Some(100000)), (&fund, Some(500000))],
+        );
+        let input = quick(
+            &s,
+            TODAY,
+            "",
+            &[(&cash, 90000, Some(100000)), (&fund, 510000, Some(500000))],
+        );
+        let mut fields = fund.fields.clone();
+        fields.counted = !recorded_counted;
+        s.wealth_account_save(
+            &AccountSave {
+                request_id: rid(),
+                generation: s.generation(),
+                id: Some(fund.id.clone()),
+                expected_revision: Some(fund.revision),
+                fields,
+            },
+            TODAY,
+        )
+        .unwrap();
+        if recorded_counted {
+            let saved = s.wealth_quick_update(&input, TODAY).unwrap();
+            assert_eq!(saved.id, old.id);
+            assert!(saved.entries.iter().all(|e| e.counted));
+            assert_eq!(
+                s.wealth_summary().unwrap().points.last().unwrap().net_cents,
+                "600000"
+            );
+        } else {
+            assert_eq!(code(s.wealth_quick_update(&input, TODAY)), "QUICK_TRANSFER");
+            let saved = s.wealth_snapshot(&old.id).unwrap().unwrap();
+            assert_eq!(saved.revision, old.revision);
+            assert_eq!(row(&saved, &cash), ("entered", Some("100000")));
+            assert!(s
+                .wealth_request_result(&input.request_id, &s.generation())
+                .unwrap()
+                .is_none());
+        }
+    }
+}
+
+#[test]
 fn stale_dates_amounts_and_bad_input_change_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let mut s = Store::open(dir.path()).unwrap();

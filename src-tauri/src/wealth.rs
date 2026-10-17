@@ -967,6 +967,18 @@ fn quick_update_plan(
             due_accounts.get(first.account_id.as_str()),
             due_accounts.get(second.account_id.as_str()),
         ) {
+            // Validate the scope that this write will actually preserve, not
+            // just the current account settings or an earlier UI preview.
+            let counted = |account: &Account| {
+                kept.get(account.id.as_str())
+                    .map_or(account.fields.counted, |entry| entry.counted)
+            };
+            if counted(a) != counted(b) {
+                return Err(Error::new(
+                    "QUICK_TRANSFER",
+                    "账户计入范围不同，请重新打开核对或分别修改余额",
+                ));
+            }
             if a.fields.holding_mode || b.fields.holding_mode {
                 return Err(Error::new("QUICK_HOLDING", "持仓账户请用增减持仓"));
             }

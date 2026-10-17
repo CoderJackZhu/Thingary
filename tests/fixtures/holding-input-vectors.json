@@ -1,0 +1,19 @@
+[
+  { "text": " 1,234.5678 ", "places": 8, "result": "123456780000" },
+  { "text": "1 234.5", "places": 8, "result": "123450000000" },
+  { "text": "1 234 567.5", "places": 6, "result": "1234567500000" },
+  { "text": "1 234.5", "places": 6, "result": "1234500000" },
+  { "text": "0", "places": 8, "result": "0" },
+  { "text": "1 23", "places": 8, "result": null },
+  { "text": "1.2 3", "places": 6, "result": null },
+  { "text": "1\n2", "places": 8, "result": null },
+  { "text": "1\t234", "places": 8, "result": null },
+  { "text": "1  234", "places": 8, "result": null },
+  { "text": "1234 567", "places": 8, "result": null },
+  { "text": "1,234 567", "places": 8, "result": null },
+  { "text": "1 23", "places": 8, "result": null },
+  { "text": "1.2 3", "places": 6, "result": null },
+  { "text": "1,23", "places": 8, "result": null },
+  { "text": "1.123456789", "places": 8, "result": null },
+  { "text": "1.1234567", "places": 6, "result": null }
+]

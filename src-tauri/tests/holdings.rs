@@ -62,6 +62,25 @@ fn quick(s: &Store, rows: Vec<Value>, date: &str) -> QuickUpdate {
     serde_json::from_value(json!({"request_id":id(),"generation":s.generation(),"date":date,"note":"虚构更新","changes":rows})).unwrap()
 }
 #[test]
+fn shared_input_vectors_reject_malformed_whitespace() {
+    let cases: Vec<Value> = serde_json::from_str(include_str!(
+        "../../tests/fixtures/holding-input-vectors.json"
+    ))
+    .unwrap();
+    for c in cases {
+        assert_eq!(
+            holdings::parse(
+                c["text"].as_str().unwrap(),
+                c["places"].as_u64().unwrap() as u32
+            )
+            .ok()
+            .map(|v| v.to_string()),
+            c["result"].as_str().map(str::to_owned),
+            "{c}"
+        );
+    }
+}
+#[test]
 fn shared_integer_vectors_precision_and_default_json() {
     let cases: Vec<Value> =
         serde_json::from_str(include_str!("../../tests/fixtures/holdings-vectors.json")).unwrap();

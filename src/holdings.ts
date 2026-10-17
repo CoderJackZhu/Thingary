@@ -3,12 +3,13 @@ import type { CurrencyFact } from './currency.ts';
 export const holdingKinds = ['investment','mixed','fund','bond','precious_metal'];
 export const holdingSupported = (kind: string) => holdingKinds.includes(kind);
 export function parseHolding(text: string, places: number, signed = false): string {
-  const clean = text.replace(/\s/g, '');
-  if (!(signed ? /^-?\d[\d,]*(\.\d+)?$/ : /^\d[\d,]*(\.\d+)?$/).test(clean)) throw new Error('请填写数字，可使用千分位逗号或空格。');
+  const clean = text.trim();
+  if (!(signed ? /^-?\d[\d, \u00a0\u202f]*(\.\d+)?$/ : /^\d[\d, \u00a0\u202f]*(\.\d+)?$/).test(clean)) throw new Error('请填写数字，可使用千分位逗号或空格。');
   const [whole, fraction = ''] = clean.replace(/^-/, '').split('.');
   if (whole.includes(',') && !/^\d{1,3}(,\d{3})+$/.test(whole)) throw new Error('千分位逗号格式不正确。');
+  if (/[ \u00a0\u202f]/.test(whole) && !/^\d{1,3}([ \u00a0\u202f]\d{3})+$/.test(whole)) throw new Error('千分位空格须按三位分组，不能混用逗号。');
   if (fraction.length > places) throw new Error(`最多填写 ${places} 位小数，请修改原文。`);
-  const n = (BigInt(whole.replaceAll(',', '')) * 10n ** BigInt(places) + BigInt(fraction.padEnd(places,'0') || '0')) * (clean.startsWith('-') ? -1n : 1n);
+  const n = (BigInt(whole.replace(/[, \u00a0\u202f]/g, '')) * 10n ** BigInt(places) + BigInt(fraction.padEnd(places,'0') || '0')) * (clean.startsWith('-') ? -1n : 1n);
   if (n < -9223372036854775807n || n > 9223372036854775807n) throw new Error('数值超出可记录范围。');
   return n.toString();
 }
