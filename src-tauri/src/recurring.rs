@@ -60,6 +60,7 @@ pub struct PlanSave {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Plan {
+    pub resumptions: Vec<Resumption>,
     pub rules: Vec<ScheduleRule>,
     pub period_ends: std::collections::BTreeMap<String, String>,
     pub monthly_cents: Option<String>,
@@ -81,6 +82,50 @@ pub struct Plan {
     /// The period that covers today, by original start, and its special end.
     pub special_start: Option<String>,
     pub special_end: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Resumption {
+    pub resumed_on: String,
+    pub previous_end: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResumeSave {
+    pub request_id: String,
+    pub generation: String,
+    pub plan_id: String,
+    pub expected_revision: i64,
+    pub asset_id: Option<String>,
+    pub asset_expected_revision: Option<i64>,
+    pub start_date: String,
+    pub amount_cents: String,
+    pub interval_months: u32,
+    pub interval_days: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Detail {
+    pub payment_candidate: Option<Due>,
+    pub generation: String,
+    pub plan: Plan,
+    pub payments: Vec<Payment>,
+}
+
+fn resumptions(c: &Connection, id: &str) -> Result<Vec<Resumption>> {
+    let mut q = c.prepare(
+        "SELECT resumed_on,previous_end FROM plan_resumptions WHERE plan_id=?1 ORDER BY resumed_on",
+    )?;
+    let rows = q
+        .query_map([id], |r| {
+            Ok(Resumption {
+                resumed_on: r.get(0)?,
+                previous_end: r.get(1)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -256,11 +301,16 @@ pub(crate) fn periods_for(
     ends: PeriodEnds,
 ) -> Result<Periods> {
     let segments = rule_segments(c, plan_id)?;
-    if segments.is_empty() {
-        Periods::new(f, ends)
+    let mut periods = if segments.is_empty() {
+        Periods::new(f, ends)?
     } else {
-        Periods::with_segments(segments, ends)
-    }
+        Periods::with_segments(segments, ends)?
+    };
+    periods.resumptions = resumptions(c, plan_id)?
+        .into_iter()
+        .map(|r| Ok((date(&r.previous_end)?, date(&r.resumed_on)?)))
+        .collect::<Result<_>>()?;
+    Ok(periods)
 }
 
 /// Effective service periods of one plan. Periods walk a chain: each rule
@@ -268,6 +318,7 @@ pub(crate) fn periods_for(
 /// grid (a month-end anchor never drifts, Jan 31 → Feb 28 → Mar 31), and a
 /// special end shifts the chain forward from that period on (design §4.5).
 pub(crate) struct Periods {
+    resumptions: Vec<(NaiveDate, NaiveDate)>,
     cache: std::cell::RefCell<Vec<ChainNode>>,
     segs: Vec<RuleSeg>,
     ends: PeriodEnds,
@@ -293,6 +344,7 @@ impl Periods {
             .transpose()?
             .ok_or_else(|| Error::new("PLAN_SERVICE", "请填写开始日期与本期服务开始日"))?;
         Ok(Self {
+            resumptions: Vec::new(),
             cache: Default::default(),
             segs: vec![RuleSeg {
                 due: date(&f.first_due)?,
@@ -311,10 +363,18 @@ impl Periods {
             return Err(Error::new("PLAN_SERVICE", "计划缺少生效规则"));
         }
         Ok(Self {
+            resumptions: Vec::new(),
             segs,
             ends,
             cache: Default::default(),
         })
+    }
+
+    fn active(&self, start: NaiveDate) -> bool {
+        !self
+            .resumptions
+            .iter()
+            .any(|(end, resume)| start > *end && start < *resume)
     }
 
     /// The first rule's anchor — the plan's original billing anchor.
@@ -333,12 +393,19 @@ impl Periods {
             let Some(start) = seg.step.shift(seg.anchor, k) else {
                 return Ok(None);
             };
-            let Some(end) = seg.step.shift(seg.anchor, k + 1).and_then(|d| d.pred_opt()) else {
+            let Some(mut end) = seg.step.shift(seg.anchor, k + 1).and_then(|d| d.pred_opt()) else {
                 return Ok(None);
             };
             let Some(due) = seg.step.shift(seg.due, k) else {
                 return Ok(None);
             };
+            if let Some((last, _)) = self
+                .resumptions
+                .iter()
+                .find(|(last, _)| start <= *last && end > *last)
+            {
+                end = *last;
+            }
             return Ok(Some(ChainNode {
                 original: start,
                 start,
@@ -351,9 +418,16 @@ impl Periods {
         let mut cache = self.cache.borrow_mut();
         while cache.len() <= k as usize {
             let previous = cache.last().copied();
-            let candidate = previous
-                .and_then(|p| p.end.succ_opt())
-                .unwrap_or(self.segs[0].anchor);
+            let mut candidate = previous.and_then(|p| p.end.succ_opt()).unwrap_or_else(|| {
+                self.resumptions
+                    .first()
+                    .map_or(self.segs[0].anchor, |(_, r)| self.segs[0].anchor.min(*r))
+            });
+            for (end, resume) in &self.resumptions {
+                if candidate > *end && candidate < *resume {
+                    candidate = *resume;
+                }
+            }
             let mut rule = previous.map_or(0, |p| p.rule);
             let mut local = previous.map_or(0, |p| p.local + 1);
             while rule + 1 < self.segs.len() && self.segs[rule + 1].effective <= candidate {
@@ -365,7 +439,7 @@ impl Periods {
                 return Ok(None);
             };
             let start = candidate.max(original);
-            let end = if let Some(special) = self.ends.get(&original) {
+            let mut end = if let Some(special) = self.ends.get(&original) {
                 *special
             } else if start > original {
                 seg.step
@@ -377,6 +451,13 @@ impl Periods {
                     .and_then(|d| d.pred_opt())
                     .ok_or_else(|| Error::new("DATE", "日期超出范围"))?
             };
+            if let Some((last, _)) = self
+                .resumptions
+                .iter()
+                .find(|(last, _)| start <= *last && end > *last)
+            {
+                end = *last;
+            }
             let Some(due) = seg.step.shift(seg.due, local) else {
                 return Ok(None);
             };
@@ -419,6 +500,7 @@ impl Periods {
             }
             let seg = &self.segs[n.rule];
             if n.due >= from
+                && self.active(n.start)
                 && seg.service.is_none_or(|s| n.start >= s)
                 && end.is_none_or(|e| n.start <= e)
                 && !(seg.trial.is_some() && n.start < seg.anchor)
@@ -456,7 +538,7 @@ impl Periods {
             if node.due > d {
                 break;
             }
-            if node.due == d {
+            if node.due == d && self.active(node.start) {
                 let end = f
                     .end_date
                     .as_deref()
@@ -523,6 +605,7 @@ pub(crate) fn subscription_payment_candidates(
         let seg = &periods.segs[node.rule];
         let end = final_end.map_or(node.end, |e| node.end.min(e));
         if due < from
+            || !periods.active(node.start)
             || seg.service.is_some_and(|s| node.start < s)
             || final_end.is_some_and(|e| node.start > e)
             || (seg.trial.is_some() && node.start < seg.anchor)
@@ -749,6 +832,7 @@ const PLAN_COLUMNS: &str =
     "id,name,category,amount_cents,interval_months,first_due,end_date,paused,notes,revision,active_from,service_start,coverage_start,interval_days,trial_days,auto_renew";
 fn plan_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Plan> {
     Ok(Plan {
+        resumptions: Vec::new(),
         rules: Vec::new(),
         period_ends: Default::default(),
         id: r.get(0)?,
@@ -880,6 +964,21 @@ pub(crate) fn save_plan(
         None if f.service_start.is_some() => today.max(f.first_due.as_str()).to_owned(),
         None => f.first_due.clone(),
     };
+    if let Some(previous) = &old {
+        if let Some(last) = resumptions(c, id)?.last() {
+            if f.service_start != previous.fields.service_start
+                || f.category != previous.fields.category
+                || f.end_date
+                    .as_deref()
+                    .is_some_and(|e| e < last.resumed_on.as_str())
+            {
+                return Err(Error::new(
+                    "PLAN_HISTORY",
+                    "已有多段订阅历史，请保留原始开始日，结束日不能早于本次重新订阅日期",
+                ));
+            }
+        }
+    }
     let now = chrono::Utc::now().to_rfc3339();
     if old.is_some() {
         c.execute("UPDATE recurring_plans SET name=?2,category=?3,amount_cents=?4,interval_months=?5,first_due=?6,end_date=?7,paused=?8,active_from=?9,notes=?10,updated_at=?11,service_start=?12,coverage_start=?13,interval_days=?14,trial_days=?15,auto_renew=?16,revision=revision+1 WHERE id=?1", params![id,f.name.trim(),f.category,amount,f.interval_months,f.first_due,f.end_date,f.paused,active,f.notes,now,f.service_start,f.coverage_start,f.interval_days,f.trial_days,f.auto_renew])?;
@@ -1033,6 +1132,7 @@ pub(crate) fn save_special_end(
     Ok(())
 }
 pub(crate) fn enrich_plan(c: &Connection, p: &mut Plan, today: &str) -> Result<()> {
+    p.resumptions = resumptions(c, &p.id)?;
     p.rules = rule_segments(c, &p.id)?
         .into_iter()
         .map(|r| ScheduleRule {
@@ -1086,8 +1186,23 @@ pub(crate) fn enrich_plan(c: &Connection, p: &mut Plan, today: &str) -> Result<(
     if f.coverage_start.is_some() {
         let final_end = f.end_date.as_deref().map(date).transpose()?;
         if let Some(service) = f.service_start.as_deref().map(date).transpose()? {
-            let billing = date(f.coverage_start.as_deref().unwrap())?;
-            if service <= now && now < billing {
+            let billing = if p.resumptions.is_empty() {
+                date(f.coverage_start.as_deref().unwrap())?
+            } else {
+                p.rules
+                    .iter()
+                    .rfind(|r| r.effective_date.as_str() <= today)
+                    .map(|r| date(&r.anchor))
+                    .transpose()?
+                    .unwrap_or(date(f.coverage_start.as_deref().unwrap())?)
+            };
+            if service <= now
+                && now < billing
+                && !p
+                    .resumptions
+                    .iter()
+                    .any(|r| r.previous_end.as_str() < today && today < r.resumed_on.as_str())
+            {
                 let end = final_end.map_or(billing.pred_opt().unwrap(), |e| {
                     billing.pred_opt().unwrap().min(e)
                 });
@@ -1104,7 +1219,7 @@ pub(crate) fn enrich_plan(c: &Connection, p: &mut Plan, today: &str) -> Result<(
             if start > now {
                 break;
             }
-            if end >= now {
+            if end >= now && periods.active(start) {
                 let end = final_end.map_or(end, |e| end.min(e));
                 if now <= end {
                     p.current_coverage = Some((start.to_string(), end.to_string()));
@@ -1136,12 +1251,7 @@ pub(crate) fn enrich_plan(c: &Connection, p: &mut Plan, today: &str) -> Result<(
             .unwrap_or(date(start)?);
         // 估算沿生效规则分段行走：历史期用所属时段的规则与价格，新规则
         // 只影响其生效日之后的期（review R4）。
-        let segments = rule_segments(c, &p.id)?;
-        let periods = if segments.is_empty() {
-            Periods::new(f, ends.clone())?
-        } else {
-            Periods::with_segments(segments, ends.clone())?
-        };
+        let periods = periods_for(c, f, &p.id, ends.clone())?;
         let legacy_backfill =
             periods.segs[0].trial.is_none() && matches!(periods.segs[0].step, Step::Months(_));
         let mut k: i64 = if legacy_backfill {
@@ -1163,7 +1273,7 @@ pub(crate) fn enrich_plan(c: &Connection, p: &mut Plan, today: &str) -> Result<(
             if d > limit {
                 break;
             }
-            if d >= start && stop.is_none_or(|e| d <= e) {
+            if d >= start && periods.active(d) && stop.is_none_or(|e| d <= e) {
                 let price = i128::from(rate_at(d)?);
                 if d <= now {
                     estimate += price;
@@ -1214,6 +1324,194 @@ pub struct PaymentRangeSave {
 }
 
 impl Store {
+    /// One subscription and its payment history from one read transaction.
+    pub fn recurring_detail(&self, id: &str, today: &str) -> Result<Detail> {
+        let tx = self.conn()?.unchecked_transaction()?;
+        let mut p = plan(&tx, id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这项计划"))?;
+        let records: Vec<_> = payments(&tx, None)?
+            .into_iter()
+            .filter(|r| r.plan_id == id)
+            .collect();
+        let now = date(today)?;
+        let far = now
+            .checked_add_months(Months::new(60))
+            .ok_or_else(|| Error::new("DATE", "日期超出范围"))?;
+        p.next_due = if p.fields.paused {
+            None
+        } else {
+            schedule_for(
+                &tx,
+                &p.fields,
+                id,
+                &period_ends(&tx, id)?,
+                now.max(date(&p.active_from)?),
+                far,
+            )?
+            .into_iter()
+            .find(|d| !records.iter().any(|r| r.due_date == d.to_string()))
+            .map(|d| d.to_string())
+        };
+        enrich_plan(&tx, &mut p, today)?;
+        // The candidate carries its effective price, which can differ from today's rate.
+        let payment_candidate = if p.fields.category == "subscription" {
+            subscription_payment_candidates(&tx, &p, today)?
+                .into_iter()
+                .next()
+        } else {
+            None
+        };
+        if let Some(due) = &payment_candidate {
+            p.next_due = Some(due.due_date.clone());
+            p.next_coverage = due.coverage_start.clone().zip(due.coverage_end.clone());
+        }
+        Ok(Detail {
+            payment_candidate,
+            generation: self.generation(),
+            plan: p,
+            payments: records,
+        })
+    }
+
+    /// Start another service period without replacing the old identity or facts.
+    pub fn recurring_resume(&mut self, input: &ResumeSave, today: &str) -> Result<String> {
+        self.check_generation(&input.generation)?;
+        uuid::Uuid::parse_str(&input.request_id)
+            .map_err(|_| Error::new("REQUEST", "请求标识无效"))?;
+        let fingerprint = digest(&serde_json::to_vec(&("recurring_resume", input))?);
+        let tx = self.conn()?.unchecked_transaction()?;
+        if let Some(id) = receipt(&tx, &input.request_id, &fingerprint)? {
+            return Ok(id);
+        }
+        let old =
+            plan(&tx, &input.plan_id)?.ok_or_else(|| Error::new("NOT_FOUND", "找不到这项计划"))?;
+        if old.revision != input.expected_revision {
+            return Err(Error::new("REVISION_CONFLICT", "订阅已变化，请重新读取"));
+        }
+        let last = old
+            .fields
+            .end_date
+            .as_deref()
+            .filter(|end| *end < today)
+            .ok_or_else(|| {
+                Error::new(
+                    "RESUME_STATE",
+                    "请先确认上一段订阅的最后使用日，结束后再重新订阅",
+                )
+            })?;
+        date(&input.start_date)?;
+        if old.fields.category != "subscription"
+            || old.fields.service_start.is_none()
+            || input.start_date.as_str() <= last
+            || input.start_date.as_str() > today
+        {
+            return Err(Error::new(
+                "RESUME_DATE",
+                "重新订阅日期须晚于上次结束日，且不能晚于今天",
+            ));
+        }
+        match crate::link::live_asset_of_plan(&tx, &old.id)? {
+            Some((id, _, rev))
+                if input.asset_id.as_deref() == Some(&id)
+                    && input.asset_expected_revision == Some(rev) =>
+            {
+                tx.execute("UPDATE virtual_assets SET stopped_on=NULL,revision=revision+1,updated_at=?2 WHERE id=?1", params![id, chrono::Utc::now().to_rfc3339()])?;
+            }
+            None if input.asset_id.is_none() && input.asset_expected_revision.is_none() => {
+                let historic: bool = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM virtual_assets WHERE plan_id=?1)",
+                    [&old.id],
+                    |r| r.get(0),
+                )?;
+                if historic {
+                    return Err(Error::new(
+                        "LINK_CHANGED",
+                        "请先处理已删除的关联服务档案，再重新订阅",
+                    ));
+                }
+            }
+            _ => return Err(Error::new("LINK_CHANGED", "关联订阅已变化，请重新读取")),
+        }
+        // A later existing rule/payment cannot be silently displaced by a backdated restart.
+        let conflicting: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM plan_rules WHERE plan_id=?1 AND effective_date>=?2) OR EXISTS(SELECT 1 FROM plan_payments WHERE plan_id=?1 AND due_date>=?2)", params![old.id,input.start_date], |r| r.get(0))?;
+        if conflicting {
+            return Err(Error::new(
+                "RESUME_CONFLICT",
+                "新订阅期间已有规则或付款，请先核对原记录",
+            ));
+        }
+        // Legacy plans can have no initial price row. Preserve the exact old
+        // estimate's fallback before the new current price replaces it.
+        let initial = old.fields.service_start.as_deref().unwrap();
+        let baseline: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM plan_rates WHERE plan_id=?1 AND effective_date<=?2)",
+            params![old.id, initial],
+            |r| r.get(0),
+        )?;
+        if !baseline {
+            tx.execute(
+                "INSERT INTO plan_rates VALUES(?1,?2,?3)",
+                params![
+                    old.id,
+                    initial,
+                    positive(
+                        &old.fields.amount_cents,
+                        "PAYMENT_AMOUNT",
+                        "原每期价格须为正数"
+                    )?
+                ],
+            )?;
+        }
+        let mut f = old.fields.clone();
+        f.auto_renew = true;
+        f.paused = false;
+        f.end_date = None;
+        f.coverage_start = Some(input.start_date.clone());
+        f.first_due = input.start_date.clone();
+        f.trial_days = None;
+        f.amount_cents = input.amount_cents.clone();
+        f.interval_months = input.interval_months;
+        f.interval_days = input.interval_days;
+        save_plan(
+            &tx,
+            &old.id,
+            Some(old.revision),
+            &f,
+            true,
+            &input.start_date,
+        )?;
+        // A restart always needs its own rule, even if the old future anchor
+        // already equals this date and save_plan therefore sees no field change.
+        tx.execute("INSERT INTO plan_rules(plan_id,effective_date,anchor,interval_months,interval_days,first_due,service_start,trial_days) VALUES(?1,?2,?2,?3,?4,?2,?2,NULL) ON CONFLICT(plan_id,effective_date) DO UPDATE SET anchor=excluded.anchor,interval_months=excluded.interval_months,interval_days=excluded.interval_days,first_due=excluded.first_due,service_start=excluded.service_start,trial_days=NULL", params![old.id,input.start_date,f.interval_months,f.interval_days])?;
+        tx.execute(
+            "INSERT INTO plan_resumptions VALUES(?1,?2,?3)",
+            params![old.id, input.start_date, last],
+        )?;
+        tx.execute(
+            "UPDATE recurring_plans SET active_from=?2 WHERE id=?1",
+            params![old.id, input.start_date],
+        )?;
+        tx.execute(
+            "DELETE FROM plan_rates WHERE plan_id=?1 AND effective_date>=?2",
+            params![old.id, input.start_date],
+        )?;
+        tx.execute(
+            "INSERT INTO plan_rates VALUES(?1,?2,?3)",
+            params![
+                old.id,
+                input.start_date,
+                positive(&input.amount_cents, "PAYMENT_AMOUNT", "每期价格须为正数")?
+            ],
+        )?;
+        tx.execute(
+            "INSERT INTO feature_requests VALUES(?1,?2,?3)",
+            params![input.request_id, fingerprint, old.id],
+        )?;
+        self.hit("recurring_resume.before_commit")?;
+        tx.commit()?;
+        self.hit("recurring_resume.after_commit")?;
+        Ok(old.id)
+    }
+
     pub fn recurring_plan_save(&mut self, input: &PlanSave, today: &str) -> Result<Plan> {
         self.check_generation(&input.generation)?;
         uuid::Uuid::parse_str(&input.request_id)
@@ -1679,6 +1977,40 @@ pub(crate) fn validate_dataset(c: &Connection) -> Result<()> {
             if date(&start).is_err() || date(&end).is_err() || end < start {
                 return Err(bad());
             }
+        }
+    }
+    if version >= 44 {
+        let mut q = c.prepare("SELECT plan_id,resumed_on,previous_end FROM plan_resumptions ORDER BY plan_id,resumed_on")?;
+        let mut rows = q.query([])?;
+        let mut previous: Option<(String, String)> = None;
+        while let Some(r) = rows.next()? {
+            let id: String = r.get(0)?;
+            let start: String = r.get(1)?;
+            let end: String = r.get(2)?;
+            if date(&start).is_err()
+                || date(&end).is_err()
+                || end >= start
+                || previous.as_ref().is_some_and(|(p, s)| p == &id && s > &end)
+            {
+                return Err(bad());
+            }
+            let exists: bool = c.query_row("SELECT EXISTS(SELECT 1 FROM plan_rules WHERE plan_id=?1 AND effective_date=?2 AND anchor=?2)", params![id,start], |r| r.get(0))?;
+            if !exists {
+                return Err(bad());
+            }
+            let (category, service, finish): (String, Option<String>, Option<String>) = c
+                .query_row(
+                    "SELECT category,service_start,end_date FROM recurring_plans WHERE id=?1",
+                    [&id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )?;
+            if category != "subscription"
+                || service.as_deref().is_none_or(|d| d > end.as_str())
+                || finish.as_deref().is_some_and(|d| d < start.as_str())
+            {
+                return Err(bad());
+            }
+            previous = Some((id, start));
         }
     }
     Ok(())

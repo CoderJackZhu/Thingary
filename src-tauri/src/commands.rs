@@ -1901,6 +1901,30 @@ pub async fn recurring_overview(
         .map_err(|_| Error::new("WORKER", "暂时无法读取周期费用"))?
 }
 #[tauri::command]
+pub async fn recurring_detail(
+    plan_id: String,
+    worker: tauri::State<'_, Worker>,
+) -> Result<crate::recurring::Detail> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.recurring_detail(&plan_id, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "暂时无法读取订阅与付款记录"))?
+}
+#[tauri::command]
+pub async fn recurring_resume(
+    input: crate::recurring::ResumeSave,
+    worker: tauri::State<'_, Worker>,
+) -> Result<String> {
+    let w = worker.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        w.call(move |s| s.recurring_resume(&input, &today()))
+    })
+    .await
+    .map_err(|_| Error::new("WORKER", "保存结果未返回，请核对本次请求"))?
+}
+#[tauri::command]
 pub async fn recurring_plan_save(
     input: crate::recurring::PlanSave,
     worker: tauri::State<'_, Worker>,

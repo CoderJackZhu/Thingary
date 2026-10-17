@@ -21,7 +21,7 @@ import type { Due, Overview, Payment, PaymentSave, Plan, PlanSave, PaymentRangeS
 import type { BalanceRecord, BalanceSave, TopupFields, TopupSave, VirtualAsset, VirtualFields, VirtualKind, VirtualOverview, VirtualSave, VirtualStatus, ReminderState, ReminderSave } from './virtual';
 import type { WishlistItem, WishlistPage, WishlistQuery } from './wishlist';
 import type { SourceTarget, TimelineSelection } from './source';
-import { coverageFor, scheduleDates, shiftDays } from './recurring-model';
+import { coverageFor, scheduleDates, planScheduleDates, shiftDays } from './recurring-model';
 import { computeReview, defaultRetire } from './plan';
 import { emptyCore, costSources, eventSource } from './plan-core';
 import { mergeDebtRepayments } from './plan-debt';
@@ -242,7 +242,7 @@ function nth(first: string, interval: number, k: number) {
   const [y, m, d] = first.split('-').map(Number), total = m - 1 + interval * k, yy = y + Math.floor(total / 12), mm = total % 12;
   return iso(new Date(yy, mm, Math.min(d, new Date(yy, mm + 1, 0).getDate())));
 }
-function schedule(p: Plan, from: string, to: string) { return scheduleDates(p.fields, from, to); }
+function schedule(p: Plan, from: string, to: string) { return planScheduleDates(p, from, to); }
 
 const plan = (id: string, name: string, category: string, amount: string, interval: number, first: string, extra: Partial<Plan['fields']> = {}): Plan =>
   ({ id, fields: { name, category, amount_cents: amount, interval_months: interval, first_due: first, end_date: null, paused: false, notes: '', ...extra }, revision: 1, active_from: first, next_due: null });
@@ -260,6 +260,12 @@ if (params.get('recurring-fixture') === 'layout') {
   plans = [historical, longName, unknown];
   payments = [{ id: 'p-layout-gpt', plan_id: historical.id, plan_name: historical.fields.name, due_date: '2024-01-20', state: 'paid', paid_date: '2024-01-20', amount_cents: '14000', notes: '虚构历史付款', revision: 1, off_schedule: false }];
 }
+if (params.has('subscription-lifecycle')) {
+  plans = [plan('r-lifecycle', 'GPT Plus · 虚构订阅', 'subscription', '14000', 1, '2026-01-31', { service_start: '2026-01-31', coverage_start: '2026-01-31', end_date: '2026-07-30', auto_renew: false })];
+  plans[0].active_from = todayIso;
+  payments = [{ id: 'p-lifecycle', plan_id: 'r-lifecycle', plan_name: plans[0].fields.name, due_date: '2026-01-31', state: 'paid', paid_date: '2026-01-31', amount_cents: '14000', coverage_start: '2026-01-31', coverage_end: '2026-02-27', notes: '虚构付款', revision: 1, off_schedule: false }];
+}
+const subscriptionPreviewRates = new Map<string, { from: string; amount: string }[]>();
 function recurringOverview(): Overview {
   const soon = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7)), year = iso(new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()));
   const tomorrow = iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
@@ -286,7 +292,7 @@ function recurringOverview(): Overview {
         if (span && span[0] <= todayIso && todayIso <= span[1]) { currentCoverage = span; break; }
       }
     }
-    return { ...p, next_due: p.fields.paused ? null : next, current_coverage: currentCoverage, next_coverage: next ? coverageFor(p.fields, next) : null, monthly_cents: String((amount+BigInt(p.fields.interval_months)/2n)/BigInt(p.fields.interval_months)), paid_cents: String(payments.filter(x=>x.plan_id===p.id&&x.state==='paid').reduce((t,x)=>t+BigInt(x.amount_cents ?? '0'),0n)), estimated_cents: start ? String(amount*BigInt(historyCount)) : null, contract_cents: contractCount ? String(amount*BigInt(contractCount)) : null };
+    return { ...p, next_due: p.fields.paused ? null : next, current_coverage: currentCoverage, next_coverage: next ? coverageFor(p.fields, next) : null, monthly_cents: String((amount+BigInt(p.fields.interval_months)/2n)/BigInt(p.fields.interval_months)), paid_cents: String(payments.filter(x=>x.plan_id===p.id&&x.state==='paid').reduce((t,x)=>t+BigInt(x.amount_cents ?? '0'),0n)), estimated_cents: start ? p.resumptions?.length ? String(schedule(p, start, todayIso).reduce((t,d) => t + BigInt(subscriptionPreviewRates.get(p.id)?.filter(r => r.from <= d).at(-1)?.amount ?? p.fields.amount_cents), 0n)) : String(amount*BigInt(historyCount)) : null, contract_cents: contractCount ? String(amount*BigInt(contractCount)) : null };
   });
   return { generation, today: todayIso, due: due.sort((a, b) => a.due_date.localeCompare(b.due_date)), upcoming: upcoming.sort((a, b) => a.due_date.localeCompare(b.due_date)),
     annual_cents: String(annual), monthly_cents: String((annual + 6n) / 12n), next12_cents: String(next12), plans: out,
@@ -308,6 +314,10 @@ if (params.get('recurring-fixture') === 'layout' && virtuals.length) {
     { id: 'v-layout-gpt', revision: 1, fields: { ...base, name: 'GPT Plus · 虚构历史订阅', kind: 'subscription', billing: 'subscription', price_cents: null, plan_id: 'r-layout-gpt', expires: '2025-02-19', stopped_on: null } },
     { id: 'v-layout-soon', revision: 1, fields: { ...base, name: '虚构即将到期授权', kind: 'license', billing: 'single', price_cents: '8800', plan_id: null, expires: dayOffset(3), stopped_on: null } },
   ];
+}
+if (params.has('subscription-lifecycle')) {
+  const base = virtuals[0]?.fields;
+  if (base) virtuals = [{ id: 'v-lifecycle', revision: 1, fields: { ...base, name: 'GPT Plus · 虚构订阅', plan_id: 'r-lifecycle', billing: 'subscription', kind: 'subscription', price_cents: null, stopped_on: null } }];
 }
 function virtualOverview(): VirtualOverview {
   const items: VirtualAsset[] = virtuals.map(v => {
@@ -610,8 +620,8 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     const asset = virtuals.find(v => (kind === 'virtual' ? v.id === id : v.fields.plan_id === id));
     const plan = plans.find(p => (kind === 'plan' ? p.id === id : p.id === asset?.fields.plan_id));
     const paid = payments.filter(p => p.plan_id === plan?.id && p.state === 'paid');
-    const relation = asset && plan ? 'linked' : plan ? 'asset_trashed' : 'unlinked';
-    return { value: { generation, relation, asset: asset ? { id: asset.id, name: asset.fields.name, revision: asset.revision, deleted: false, billing: 'subscription', stopped_on: asset.fields.stopped_on ?? null, provider: asset.fields.provider, label_name: null } : null, plan: plan ? { id: plan.id, name: plan.fields.name, revision: plan.revision, deleted: false, category: plan.fields.category, end_date: plan.fields.end_date ?? null, auto_renew: plan.fields.auto_renew ?? true, paused: plan.fields.paused, service_start: plan.fields.service_start ?? null } : null, paid_count: paid.length, skipped_count: 0, paid_cents: String(paid.reduce((t, p) => t + BigInt(p.amount_cents ?? '0'), 0n)), paid_until: paid.at(-1)?.due_date ?? null, needs_review: !!asset?.fields.stopped_on && (plan?.fields.end_date ?? null) === null, occupied_by: null, candidates: [], group: null, reminder: null } };
+    const relation = asset && plan ? 'linked' : 'unlinked';
+    return { value: { generation, relation, asset: asset ? { id: asset.id, name: asset.fields.name, revision: asset.revision, deleted: false, billing: 'subscription', stopped_on: asset.fields.stopped_on ?? null, provider: asset.fields.provider, label_name: null } : null, plan: plan ? { id: plan.id, name: plan.fields.name, revision: plan.revision, deleted: false, category: plan.fields.category, end_date: plan.fields.end_date ?? null, auto_renew: plan.fields.auto_renew ?? true, paused: plan.fields.paused, service_start: plan.fields.service_start ?? null } : null, paid_count: paid.length, skipped_count: 0, paid_cents: String(paid.reduce((t, p) => t + BigInt(p.amount_cents ?? '0'), 0n)), paid_until: paid.map(p => p.coverage_end ?? p.due_date).sort().at(-1) ?? null, needs_review: !!asset?.fields.stopped_on && (plan?.fields.end_date ?? null) === null, occupied_by: null, candidates: [], group: null, reminder: null } };
   }
   if (command === 'link_delete_preview' || command === 'link_restore_preview') {
     if (params.get('link') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' };
@@ -660,9 +670,9 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
   }
   if (command === 'link_save' || command === 'link_create' || command === 'link_reconcile') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
-    const input = args.input as { request_id: string; fields?: { name?: string; amount_cents?: string } };
+    const input = args.input as { request_id: string; fields?: import('./recurring').PlanFields };
     if (input.fields?.name && input.fields.amount_cents) {
-      plans = plans.map(p => p.fields.name === input.fields!.name || p.id === (args.input as { plan_id?: string }).plan_id ? { ...p, fields: { ...p.fields, name: input.fields!.name!, amount_cents: input.fields!.amount_cents! }, revision: p.revision + 1 } : p);
+      plans = plans.map(p => p.fields.name === input.fields!.name || p.id === (args.input as { plan_id?: string }).plan_id ? { ...p, fields: { ...p.fields, ...input.fields! }, revision: p.revision + 1 } : p);
     }
     receipts.set(input.request_id, 'link');
     return { value: 'link' };
@@ -676,10 +686,30 @@ export function wealthPreview(command: string, args: Record<string, unknown>): {
     receipts.set(input.request_id, input.asset_id);
     return { value: virtualOverview().items.find(v => v.id === input.asset_id) };
   }
+  if (command === 'recurring_detail') {
+    if (params.get('subscription-history') === 'error') throw { message: '虚构付款记录读取失败。' };
+    const o = recurringOverview(), p = o.plans.find(p => p.id === args.planId);
+    if (!p) throw { message: '找不到这项计划' };
+    return { value: { generation, plan: p, payments: o.payments.filter(r => r.plan_id === p.id) } };
+  }
+  if (command === 'recurring_resume') {
+    if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
+    const input = args.input as import('./recurring').ResumeSave, p = plans.find(p => p.id === input.plan_id)!;
+    if (!subscriptionPreviewRates.has(p.id)) subscriptionPreviewRates.set(p.id, [{ from: p.fields.service_start!, amount: p.fields.amount_cents }]);
+    subscriptionPreviewRates.get(p.id)!.push({ from: input.start_date, amount: input.amount_cents });
+    const oldRule = { effective_date: p.fields.service_start!, anchor: p.fields.coverage_start!, first_due: p.fields.first_due, service_start: p.fields.service_start!, interval_months: p.fields.interval_months, interval_days: p.fields.interval_days ?? null, trial_days: p.fields.trial_days ?? null };
+    const rule = { ...oldRule, effective_date: input.start_date, anchor: input.start_date, first_due: input.start_date, interval_months: input.interval_months, interval_days: input.interval_days, trial_days: null };
+    p.resumptions = [...(p.resumptions ?? []), { resumed_on: input.start_date, previous_end: p.fields.end_date! }];
+    p.rules = [...(p.rules?.length ? p.rules : [oldRule]), rule];
+    p.fields = { ...p.fields, amount_cents: input.amount_cents, first_due: input.start_date, coverage_start: input.start_date, interval_months: input.interval_months, interval_days: input.interval_days, trial_days: null, auto_renew: true, paused: false, end_date: null };
+    p.active_from = input.start_date; p.revision++;
+    virtuals = virtuals.map(v => v.id === input.asset_id ? { ...v, fields: { ...v.fields, stopped_on: null }, revision: v.revision + 1 } : v);
+    receipts.set(input.request_id,p.id); return { value: p.id };
+  }
   if (command === 'recurring_overview') { if (params.get('recurring') === 'error') throw { message: '虚构读取失败，用于验证错误状态。' }; return { value: recurringOverview() }; }  if (command === 'recurring_plan_save') {
     if (params.get('state') === 'save-error') throw { message: '模拟保存失败，输入应保留。' };
     const input = args.input as PlanSave, id = input.id ?? crypto.randomUUID(), old = plans.find(p => p.id === id);
-    const next: Plan = { id, fields: input.fields, revision: (old?.revision ?? 0) + 1, active_from: old ? (old.fields.paused && !input.fields.paused ? todayIso : old.active_from) : input.fields.service_start ? (todayIso > input.fields.first_due ? todayIso : input.fields.first_due) : input.fields.first_due, next_due: null };
+    const next: Plan = { ...old, id, fields: input.fields, revision: (old?.revision ?? 0) + 1, active_from: old ? (old.fields.paused && !input.fields.paused ? todayIso : old.active_from) : input.fields.service_start ? (todayIso > input.fields.first_due ? todayIso : input.fields.first_due) : input.fields.first_due, next_due: null };
     plans = old ? plans.map(p => p.id === id ? next : p) : [...plans, next];
     receipts.set(input.request_id, id);
     return { value: next };

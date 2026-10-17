@@ -1620,6 +1620,11 @@ fn purge_digest(c: &Connection, generation: &str, group_id: &str) -> Result<Stri
         "SELECT * FROM plan_rules WHERE plan_id=?1 ORDER BY rowid",
         &[&plan_id],
     )?;
+    let resumptions = crate::purge::sql_facts(
+        c,
+        "SELECT * FROM plan_resumptions WHERE plan_id=?1 ORDER BY resumed_on",
+        &[&plan_id],
+    )?;
     let ends = crate::purge::sql_facts(
         c,
         "SELECT * FROM plan_period_ends WHERE plan_id=?1 ORDER BY rowid",
@@ -1664,6 +1669,7 @@ fn purge_digest(c: &Connection, generation: &str, group_id: &str) -> Result<Stri
         payments,
         rates,
         rules,
+        resumptions,
         ends,
         reminders,
         ext,

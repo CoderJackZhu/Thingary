@@ -84,7 +84,7 @@ INSERT INTO cash_movements(id,revision,fact_revision,date,from_account_id,to_acc
 
 #[test]
 fn schema43_preserves_every_fact_and_matches_a_fresh_library() {
-    assert_eq!(SCHEMA_VERSION, 43);
+    assert_eq!(SCHEMA_VERSION, 44); // Current libraries also retain the additive subscription-history table.
     for fk in [false, true] {
         let c = fixture(fk);
         let before = facts(&c);

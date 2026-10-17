@@ -55,6 +55,11 @@ fn manifest(c: &Connection, files: &Path) -> Value {
         values.sort_by_key(Value::to_string);
         tables.insert(name, json!({"columns":columns,"rows":values}));
     }
+    // Legacy databases migrate to an empty new table; compare its exact columns
+    // and every actual row when present, rather than excluding its facts.
+    tables
+        .entry("plan_resumptions".into())
+        .or_insert_with(|| json!({"columns":["plan_id","resumed_on","previous_end"],"rows":[]}));
     let mut hashes = BTreeMap::new();
     if files.exists() {
         for e in fs::read_dir(files).unwrap() {

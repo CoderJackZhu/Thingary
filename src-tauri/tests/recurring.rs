@@ -546,3 +546,306 @@ fn simple_rent_form_plan_has_four_periods_and_backfills_in_one_range() {
     };
     assert!(s.recurring_payment_range_save(&beyond, today).is_err());
 }
+
+fn resume_input(
+    s: &Store,
+    p: &Plan,
+    start: &str,
+    amount: &str,
+) -> thingary_lib::recurring::ResumeSave {
+    thingary_lib::recurring::ResumeSave {
+        request_id: rid(),
+        generation: s.generation(),
+        plan_id: p.id.clone(),
+        expected_revision: p.revision,
+        asset_id: None,
+        asset_expected_revision: None,
+        start_date: start.into(),
+        amount_cents: amount.into(),
+        interval_months: 1,
+        interval_days: None,
+    }
+}
+fn ended_subscription(s: &mut Store) -> Plan {
+    let mut f = fields("虚构停订服务", "14000", 1, "2026-01-31");
+    f.service_start = Some("2026-01-31".into());
+    f.coverage_start = f.service_start.clone();
+    f.end_date = Some("2026-07-30".into());
+    f.auto_renew = false;
+    create(s, f, "2026-07-30")
+}
+
+#[test]
+fn resubscribe_keeps_identity_payments_and_skips_gap_in_estimate_and_backfill() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let p = ended_subscription(&mut s);
+    let payment = s
+        .recurring_payment_save(
+            &pay(&s, &p, "2026-01-31", Some("13900"), Some("2026-01-30")),
+            "2026-07-30",
+        )
+        .unwrap();
+    let input = resume_input(&s, &p, "2026-10-17", "15000");
+    assert_eq!(s.recurring_resume(&input, "2026-10-17").unwrap(), p.id);
+    assert_eq!(s.recurring_resume(&input, "2026-10-17").unwrap(), p.id);
+    let o = s.recurring_detail(&p.id, "2026-10-17").unwrap();
+    assert_eq!(o.payments.len(), 1);
+    assert_eq!(o.payments[0].id, payment.id);
+    assert_eq!(o.payments[0].amount_cents.as_deref(), Some("13900"));
+    assert_eq!(o.payments[0].coverage_end.as_deref(), Some("2026-02-27"));
+    assert!(!o.payments[0].off_schedule);
+    assert_eq!(o.plan.resumptions.len(), 1);
+    assert_eq!(o.plan.estimated_cents.as_deref(), Some("99000")); // six old periods + one new
+    assert_eq!(
+        o.plan.current_coverage,
+        Some(("2026-10-17".into(), "2026-11-16".into()))
+    );
+    assert_eq!(o.plan.next_due.as_deref(), Some("2026-10-17"));
+    for date in ["2026-07-31", "2026-08-31", "2026-09-30"] {
+        assert_eq!(
+            code(s.recurring_payment_save(
+                &pay(&s, &p, date, Some("14000"), Some(date)),
+                "2026-10-17"
+            )),
+            "PAYMENT_PERIOD"
+        );
+    }
+    assert!(s
+        .recurring_detail(&p.id, "2026-08-15")
+        .unwrap()
+        .plan
+        .current_coverage
+        .is_none());
+    s.recurring_payment_range_save(
+        &thingary_lib::recurring::PaymentRangeSave {
+            request_id: rid(),
+            generation: s.generation(),
+            plan_id: p.id.clone(),
+            expected_revision: o.plan.revision,
+            from_due: "2026-01-31".into(),
+            to_due: "2026-10-17".into(),
+            amount_cents: "14000".into(),
+            confirmed: true,
+        },
+        "2026-10-17",
+    )
+    .unwrap();
+    assert_eq!(
+        s.recurring_detail(&p.id, "2026-10-17")
+            .unwrap()
+            .payments
+            .len(),
+        7
+    );
+    drop(s);
+    let s = Store::open(d.path()).unwrap();
+    assert_eq!(
+        s.recurring_detail(&p.id, "2026-10-17")
+            .unwrap()
+            .plan
+            .estimated_cents
+            .as_deref(),
+        Some("99000")
+    );
+}
+
+#[test]
+fn repeated_resubscriptions_clip_partial_service_and_survive_backup() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let mut f = fields("虚构多段服务", "10000", 1, "2026-01-01");
+    f.service_start = Some("2026-01-01".into());
+    f.coverage_start = f.service_start.clone();
+    f.end_date = Some("2026-01-10".into());
+    let p = create(&mut s, f, "2026-01-10");
+    s.recurring_resume(&resume_input(&s, &p, "2026-03-15", "20000"), "2026-03-15")
+        .unwrap();
+    let p = s.recurring_detail(&p.id, "2026-03-15").unwrap().plan;
+    let p = edit(&mut s, &p, "2026-03-15", |f| {
+        f.end_date = Some("2026-03-20".into())
+    });
+    let mut input = resume_input(&s, &p, "2026-05-01", "3000");
+    input.interval_days = Some(7);
+    s.recurring_resume(&input, "2026-05-01").unwrap();
+    let r = s.recurring_detail(&p.id, "2026-05-01").unwrap();
+    assert_eq!(r.plan.resumptions.len(), 2);
+    assert_eq!(r.plan.estimated_cents.as_deref(), Some("33000"));
+    assert_eq!(
+        r.plan.current_coverage,
+        Some(("2026-05-01".into(), "2026-05-07".into()))
+    );
+    let old = s
+        .recurring_payment_save(
+            &pay(&s, &p, "2026-01-01", Some("10000"), Some("2026-01-01")),
+            "2026-05-01",
+        )
+        .unwrap();
+    assert_eq!(old.coverage_end.as_deref(), Some("2026-01-10"));
+    let file = d.path().join("fictional.thingary");
+    s.backup(Some(&file)).unwrap();
+    let other = tempfile::tempdir().unwrap();
+    let mut target = Store::open(other.path()).unwrap();
+    let summary = target.inspect_backup(&file).unwrap();
+    target
+        .restore(&file, &summary.hash, &target.generation())
+        .unwrap();
+    let restored = target.recurring_detail(&p.id, "2026-05-01").unwrap();
+    assert_eq!(restored.plan.resumptions.len(), 2);
+    assert_eq!(restored.plan.estimated_cents.as_deref(), Some("33000"));
+    assert_eq!(restored.payments[0].id, old.id);
+    assert_eq!(
+        code(target.recurring_resume(&input, "2026-05-01")),
+        "STALE_DATASET"
+    );
+}
+
+#[test]
+fn resubscribe_rejects_overlap_future_stale_revision_and_conflicting_receipt() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let p = ended_subscription(&mut s);
+    for day in ["2026-07-30", "2026-12-01"] {
+        assert_eq!(
+            code(s.recurring_resume(&resume_input(&s, &p, day, "15000"), "2026-10-17")),
+            "RESUME_DATE"
+        );
+    }
+    let mut i = resume_input(&s, &p, "2026-10-17", "15000");
+    i.expected_revision += 1;
+    assert_eq!(
+        code(s.recurring_resume(&i, "2026-10-17")),
+        "REVISION_CONFLICT"
+    );
+    i.expected_revision = p.revision;
+    s.recurring_resume(&i, "2026-10-17").unwrap();
+    let fresh = s.recurring_detail(&p.id, "2026-10-17").unwrap().plan;
+    assert_eq!(
+        code(s.recurring_resume(
+            &resume_input(&s, &fresh, "2026-10-17", "16000"),
+            "2026-10-17"
+        )),
+        "RESUME_STATE"
+    );
+    i.amount_cents = "16000".into();
+    assert_eq!(
+        code(s.recurring_resume(&i, "2026-10-17")),
+        "REQUEST_CONFLICT"
+    );
+    assert_eq!(
+        s.recurring_detail(&p.id, "2026-10-17")
+            .unwrap()
+            .plan
+            .resumptions
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn restart_handles_old_payment_anchor_after_the_previous_service_end() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let mut f = fields("虚构旧锚点服务", "14000", 1, "2026-10-31");
+    f.service_start = Some("2026-01-31".into());
+    f.coverage_start = Some("2026-10-31".into());
+    f.end_date = Some("2026-07-30".into());
+    let p = create(&mut s, f, "2026-10-17");
+    s.recurring_resume(&resume_input(&s, &p, "2026-10-17", "15000"), "2026-10-17")
+        .unwrap();
+    let p = s.recurring_detail(&p.id, "2026-10-17").unwrap().plan;
+    assert_eq!(
+        p.current_coverage,
+        Some(("2026-10-17".into(), "2026-11-16".into()))
+    );
+    assert_eq!(p.estimated_cents.as_deref(), Some("99000"));
+    assert_eq!(
+        code(s.recurring_payment_save(
+            &pay(&s, &p, "2026-08-31", Some("14000"), Some("2026-08-31")),
+            "2026-10-17"
+        )),
+        "PAYMENT_PERIOD"
+    );
+}
+
+#[test]
+fn schema44_is_additive_and_rolls_back_an_interrupted_migration() {
+    use thingary_lib::storage::{migrate_to, SCHEMA};
+    let c = rusqlite::Connection::open_in_memory().unwrap();
+    c.execute_batch(SCHEMA).unwrap();
+    migrate_to(&c, 43, &|_| Ok(())).unwrap();
+    assert!(migrate_to(&c, 44, &|_| Err(Error::new("INJECTED", "fictional"))).is_err());
+    assert_eq!(
+        c.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        43
+    );
+    assert_eq!(
+        c.query_row(
+            "SELECT count(*) FROM sqlite_schema WHERE name='plan_resumptions'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+    migrate_to(&c, 44, &|_| Ok(())).unwrap();
+    assert_eq!(
+        c.query_row("SELECT count(*) FROM plan_resumptions", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn restart_creates_explicit_rule_when_old_future_anchor_is_already_the_restart_date() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let mut f = fields("虚构相同锚点", "14000", 1, "2026-10-17");
+    f.service_start = Some("2026-01-17".into());
+    f.coverage_start = Some("2026-10-17".into());
+    f.end_date = Some("2026-07-16".into());
+    let p = create(&mut s, f, "2026-10-17");
+    s.recurring_resume(&resume_input(&s, &p, "2026-10-17", "14000"), "2026-10-17")
+        .unwrap();
+    let r = s.recurring_detail(&p.id, "2026-10-17").unwrap();
+    assert!(r
+        .plan
+        .rules
+        .iter()
+        .any(|r| r.effective_date == "2026-10-17" && r.anchor == "2026-10-17"));
+    assert_eq!(r.plan.estimated_cents.as_deref(), Some("98000"));
+    let file = d.path().join("fictional.thingary");
+    s.backup(Some(&file)).unwrap();
+    s.inspect_backup(&file).unwrap();
+}
+
+#[test]
+fn restart_preserves_legacy_estimate_fallback_when_no_initial_price_row_exists() {
+    let d = tempfile::tempdir().unwrap();
+    let mut s = Store::open(d.path()).unwrap();
+    let p = ended_subscription(&mut s);
+    s.conn_for_test()
+        .unwrap()
+        .execute("DELETE FROM plan_rates WHERE plan_id=?1", [&p.id])
+        .unwrap();
+    assert_eq!(
+        s.recurring_detail(&p.id, "2026-10-17")
+            .unwrap()
+            .plan
+            .estimated_cents
+            .as_deref(),
+        Some("84000")
+    );
+    s.recurring_resume(&resume_input(&s, &p, "2026-10-17", "15000"), "2026-10-17")
+        .unwrap();
+    assert_eq!(
+        s.recurring_detail(&p.id, "2026-10-17")
+            .unwrap()
+            .plan
+            .estimated_cents
+            .as_deref(),
+        Some("99000")
+    );
+}

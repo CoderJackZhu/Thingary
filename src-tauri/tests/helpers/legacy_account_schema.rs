@@ -6,6 +6,23 @@ pub fn restore_pre41_account_schema(c: &rusqlite::Connection) {
         .unwrap();
     c.execute_batch("PRAGMA foreign_keys=OFF").unwrap();
     let tx = c.unchecked_transaction().unwrap();
+    let resumptions: bool = tx
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='plan_resumptions')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    if resumptions {
+        let count: i64 = tx
+            .query_row("SELECT count(*) FROM plan_resumptions", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            count, 0,
+            "a legacy fixture must not discard new subscription history"
+        );
+        tx.execute_batch("DROP TABLE plan_resumptions").unwrap();
+    }
     let savings: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='savings_goals')", [], |r| r.get(0)).unwrap();
     if savings {
         let goals: i64 = tx

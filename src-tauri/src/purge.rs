@@ -67,6 +67,7 @@ fn all_digest(c: &Connection, generation: &str) -> Result<String> {
         "link_trash_members",
         "plan_rates",
         "plan_rules",
+        "plan_resumptions",
         "plan_period_ends",
         "reminders",
         "plan_profile",
@@ -198,6 +199,7 @@ pub(crate) fn purge_group(
             "DELETE FROM plan_payments WHERE plan_id=?1",
             "DELETE FROM plan_rates WHERE plan_id=?1",
             "DELETE FROM plan_rules WHERE plan_id=?1",
+            "DELETE FROM plan_resumptions WHERE plan_id=?1",
             "DELETE FROM plan_period_ends WHERE plan_id=?1",
         ],
     )?;
@@ -413,6 +415,7 @@ fn purge_one(
                     "DELETE FROM plan_payments WHERE plan_id=?1",
                     "DELETE FROM plan_rates WHERE plan_id=?1",
                     "DELETE FROM plan_rules WHERE plan_id=?1",
+                    "DELETE FROM plan_resumptions WHERE plan_id=?1",
                     "DELETE FROM plan_period_ends WHERE plan_id=?1",
                     "DELETE FROM recurring_plans WHERE id=?1",
                 ],

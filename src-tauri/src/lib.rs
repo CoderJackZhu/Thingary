@@ -358,6 +358,8 @@ pub fn run() {
             commands::plan_interval_reasons,
             commands::plan_baseline_mark,
             commands::recurring_overview,
+            commands::recurring_detail,
+            commands::recurring_resume,
             commands::recurring_plan_save,
             commands::recurring_payment_save,
             commands::recurring_payment_range_save,

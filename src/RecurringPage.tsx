@@ -27,6 +27,7 @@ import { linkView } from './link';
 import type { LinkView } from './link';
 import { EndSubscriptionDialog, LinkRepairDialog, LinkCreateDialog, LinkDeleteDialog, LinkReviewDialog, SharedReminderRow, UnifyNameDialog, undoLinkDelete } from './LinkDialogs';
 import { renewalPayload } from './virtual';
+import { ResumeSubscriptionDialog } from './ResumeSubscriptionDialog';
 import { SubscriptionDetail } from './SubscriptionDetail';
 import { MergeNotice } from './MergeOldSubscriptions';
 import type { Modules } from './modules';
@@ -46,9 +47,12 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
   const [paying, setPaying] = useState<PaymentTarget | null>(null);
   // 关联生命周期（设计 §5–§8）：只读详情、结束订阅、核对、统一名称、建立档案与整组删除。
   const [detail, setDetail] = useState<Plan | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [returnDetail, setReturnDetail] = useState<Plan | null>(null);
   const [detailPayment, setDetailPayment] = useState<Payment | null>(null);
   const [creating, setCreating] = useState<Plan | null>(null);
   const [ending, setEnding] = useState<{ plan: Plan; link: LinkView } | null>(null);
+  const [resuming, setResuming] = useState<{ plan: Plan; link: LinkView } | null>(null);
   const [reviewing, setReviewing] = useState<{ plan: Plan; link: LinkView } | null>(null);
   const [unifying, setUnifying] = useState<{ plan: Plan; link: LinkView } | null>(null);
   const [groupDelete, setGroupDelete] = useState<{ id: string; name: string } | null>(null);
@@ -60,7 +64,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, setNotice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!paying || !!detail || !!creating || !!ending || !!reviewing || !!unifying || !!groupDelete || !!candidates); return () => onEditingChange(false); }, [editing, pending, busy, paying, detail, creating, ending, reviewing, unifying, groupDelete, candidates, onEditingChange]);
+  useEffect(() => { onEditingChange(!!editing || !!pending || busy || !!paying || !!detail || !!creating || !!ending || !!resuming || !!reviewing || !!unifying || !!groupDelete || !!candidates); return () => onEditingChange(false); }, [editing, pending, busy, paying, detail, creating, ending, resuming, reviewing, unifying, groupDelete, candidates, onEditingChange]);
   useEffect(() => {
     let live = true; setError('');
     invoke<Overview>('recurring_overview').then(o => { if (live) setData(o); }).catch(e => { if (live) setError(errorMessage(e)); });
@@ -82,7 +86,7 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
     setDetailPayment(payment); setDetail(plan); return true;
   });
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
-  const closed = (saved: boolean, warning?: string | null) => { if (warning) setNotice(warning); (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPaying(null); setDetail(null); setDetailPayment(null); setCreating(null); setEnding(null); setReviewing(null); setUnifying(null); setGroupDelete(null); setCandidates(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); };
+  const closed = (saved: boolean, warning?: string | null) => { if (warning) setNotice(warning); (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setBackfilling(false); setPaying(null); setDetail(null); setDetailPayment(null); setCreating(null); setEnding(null); setResuming(null); setReviewing(null); setUnifying(null); setGroupDelete(null); setCandidates(null); const receipt = storedPending(); setPending(receipt); if (returnDetail && !receipt) setDetail(returnDetail); setReturnDetail(null); if (saved) reload(); refocusHeading(); };
   const openNew = { label: '新增计划', plus: true, disabled: !!pending || !data, run: () => setEditing('new') };
   usePageBar('recurring', { primary: openNew, newRecord: openNew, search: { key: 'recurring', placeholder: '搜索计划' } });
   const consumedAutoNew = useRef(false);
@@ -142,15 +146,17 @@ export function RecurringPage({ today, onEditingChange, source, onSourceDone, se
               <td>{p.plan_name}</td><td>{p.state === 'paid' ? '已付' : '本期不付'}</td><td>{p.paid_date ?? '—'}</td><td className="amount">{p.amount_cents === null ? '—' : money(p.amount_cents)}</td></tr>)}
           </tbody></table><PageControls page={currentPaymentPage} total={shownPayments.length} label="付款记录" onPage={setPaymentPage}/></article>)}
       </>}
-    {editing && data && <PlanDialog plan={editing === 'new' ? null : editing} generation={data.generation} today={today} onClose={closed} modules={modules} onOpenSource={onOpenSource} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={p => { setEditing(null); setUnifying(p); }} onReview={p => { setEditing(null); setReviewing(p); }} />}
+    {editing && data && <PlanDialog backfillOpen={backfilling} plan={editing === 'new' ? null : editing} generation={data.generation} today={today} onClose={closed} modules={modules} onOpenSource={onOpenSource} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={p => { setEditing(null); setUnifying(p); }} onReview={p => { setEditing(null); setReviewing(p); }} />}
     {paying && data && <PaymentDialog target={paying} generation={data.generation} today={today} onClose={closed}/>}
-    {detail && data && <SubscriptionDetail plan={detail} today={today} modules={modules} sourcePayment={detailPayment} onCorrectPayment={payment => { setDetail(null); setDetailPayment(null); setPaying({ plan_id: payment.plan_id, plan_name: payment.plan_name, due_date: payment.due_date, plan_amount: detail.fields.amount_cents, record: payment }); }} onClose={() => closed(false)}
-      onEdit={() => { const p = detail; setDetail(null); setEditing(p); }} onBackfill={() => { const p = detail; setDetail(null); setEditing(p); }}
-      onPay={() => { const p = detail; setDetail(null); setPaying({ plan_id: p.id, plan_name: p.fields.name, due_date: p.next_due ?? p.fields.first_due, plan_amount: p.fields.amount_cents, record: null }); }}
-      onCreate={p => { setDetail(null); setCreating(p); }} onGroupDelete={(id, name) => { setDetail(null); setGroupDelete({ id, name }); }} onEnd={p => { setDetail(null); setEnding(p); }} onReview={p => { setDetail(null); setReviewing(p); }}
+    {detail && data && <SubscriptionDetail plan={detail} today={today} modules={modules} sourcePayment={detailPayment} onCorrectPayment={payment => { setReturnDetail(detail); setDetail(null); setDetailPayment(null); setPaying({ plan_id: payment.plan_id, plan_name: payment.plan_name, due_date: payment.due_date, plan_amount: detail.fields.amount_cents, record: payment }); }} onClose={() => closed(false)}
+      onEdit={p => { setReturnDetail(p); setDetail(null); setEditing(p); }} onBackfill={p => { setReturnDetail(p); setDetail(null); setBackfilling(true); setEditing(p); }}
+      onResume={p => { setReturnDetail(p.plan); setDetail(null); setResuming(p); }}
+      onPay={(p, amount) => { setReturnDetail(p); setDetail(null); setPaying({ plan_id: p.id, plan_name: p.fields.name, due_date: p.next_due ?? p.fields.first_due, plan_amount: amount, record: null }); }}
+      onCreate={p => { setDetail(null); setCreating(p); }} onGroupDelete={(id, name) => { setDetail(null); setGroupDelete({ id, name }); }} onEnd={p => { setReturnDetail(p.plan); setDetail(null); setEnding(p); }} onReview={p => { setDetail(null); setReviewing(p); }}
       onUnify={p => { setDetail(null); setUnifying(p); }} onCandidates={(p, list) => { setDetail(null); setCandidates({ plan: p, list, partnerId: null }); }} />}
     {creating && data && <LinkCreateDialog planId={creating.id} planName={creating.fields.name} planRevision={creating.revision} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
-    {ending && data && <EndSubscriptionDialog assetId={ending.link.asset!.id} planId={ending.plan.id} assetName={ending.link.asset!.name} assetRevision={ending.link.asset!.revision} planRevision={ending.plan.revision} fields={ending.plan.fields} suggestion={ending.plan.fields.end_date ?? ending.plan.current_coverage?.[1] ?? null} today={today} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
+    {ending && data && <EndSubscriptionDialog assetId={ending.link.asset?.id ?? null} planId={ending.plan.id} assetName={ending.link.asset?.name ?? ending.plan.fields.name} assetRevision={ending.link.asset?.revision ?? null} planRevision={ending.plan.revision} fields={ending.plan.fields} suggestion={ending.plan.fields.end_date ?? ending.plan.current_coverage?.[1] ?? null} today={today} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
+    {resuming && <ResumeSubscriptionDialog plan={resuming.plan} link={resuming.link} today={today} onClose={closed} />}
     {reviewing && data && <LinkReviewDialog assetId={reviewing.link.asset!.id} planId={reviewing.plan.id} assetName={reviewing.link.asset!.name} assetRevision={reviewing.link.asset!.revision} planRevision={reviewing.plan.revision} stoppedOn={reviewing.link.asset!.stopped_on} today={today} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
     {unifying && data && <UnifyNameDialog assetId={unifying.link.asset!.id} planId={unifying.plan.id} assetName={unifying.link.asset!.name} planName={unifying.plan.fields.name} assetRevision={unifying.link.asset!.revision} planRevision={unifying.plan.revision} fields={unifying.plan.fields} generation={data.generation} onClose={closed} onDone={m => setNotice(m)} />}
     {groupDelete && data && <LinkDeleteDialog side="plan" id={groupDelete.id.split('|')[0]} name={groupDelete.name} partnerId={groupDelete.id.split('|')[1] ?? null} generation={data.generation} onClose={saved => { setGroupDelete(null); if (saved) reload(); refocusHeading(); }} onDone={(groupId, name) => { offerUndo(`已整组删除「${name}」。`, async () => { await undoLinkDelete(groupId); }); reload(); }} />}
@@ -165,7 +171,7 @@ function SkipButton({ disabled, onSkip }: { disabled: boolean; onSkip: () => voi
 
 
 
-function PlanDialog({ plan, generation, today, onClose, modules, onOpenSource, onGroupDelete, onUnify, onReview }: { plan: Plan | null; generation: string; today: string; onClose: (saved: boolean, warning?: string | null) => void; modules: Modules; onOpenSource: (target: import('./source').SourceTarget) => void; onGroupDelete: (id: string, name: string) => void; onUnify: (p: { plan: Plan; link: LinkView }) => void; onReview: (p: { plan: Plan; link: LinkView }) => void }) {
+function PlanDialog({ backfillOpen = false, plan, generation, today, onClose, modules, onOpenSource, onGroupDelete, onUnify, onReview }: { backfillOpen?: boolean; plan: Plan | null; generation: string; today: string; onClose: (saved: boolean, warning?: string | null) => void; modules: Modules; onOpenSource: (target: import('./source').SourceTarget) => void; onGroupDelete: (id: string, name: string) => void; onUnify: (p: { plan: Plan; link: LinkView }) => void; onReview: (p: { plan: Plan; link: LinkView }) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [f, setF] = useState<PlanFields>(plan?.fields ?? blankPlan(today));
   // 关联订阅：打开时读取双方快照；已关联的计费编辑走 link_save（双方修订）。
@@ -256,7 +262,7 @@ function PlanDialog({ plan, generation, today, onClose, modules, onOpenSource, o
 
     </section>
     {plan && linked && link!.asset && <SharedReminderRow assetId={link!.asset.id} assetRevision={link!.asset.revision} moduleEnabled={modules.virtual} reminder={link!.reminder} nextDue={plan.next_due} paymentDueDate={null} hasServiceStart={!!plan.fields.service_start} generation={generation} today={today} disabled={frozen || dirty} onNotice={setNotice} onStuck={() => setStuck(true)} onSaved={warning => onClose(true, warning)} onBusyChange={setBusy} />}
-    {plan && !stuck && <PaymentRangeForm plan={plan} generation={generation} today={today} disabled={frozen || dirty} onBusyChange={setBusy} onSaved={() => onClose(true)} onError={(m, unresolved) => {setNotice(m); setStuck(unresolved);}}/>}
+    {plan && !stuck && <PaymentRangeForm initialOpen={backfillOpen} plan={plan} generation={generation} today={today} disabled={frozen || dirty} onBusyChange={setBusy} onSaved={() => onClose(true)} onError={(m, unresolved) => {setNotice(m); setStuck(unresolved);}}/>}
     <section className="form-block form-notes"><label htmlFor="plan-notes">备注</label><textarea id="plan-notes" maxLength={10000} value={f.notes} disabled={frozen} onChange={e => set('notes', e.target.value)}/></section>
     {notice && <p className="notice" role="status">{notice}</p>}
   </form></dialog>;
@@ -281,7 +287,7 @@ export function PaymentDialog({ target, generation, today, onClose }: { target: 
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor wealth-account-editor" aria-labelledby="payment-heading" onCancel={e => { e.preventDefault(); if (!busy) onClose(false); }}><form noValidate onSubmit={e => { e.preventDefault(); void save(); }}>
-    <header><div><p className="eyebrow">财富 · 周期费用</p><h2 id="payment-heading">{r ? '更正付款记录' : '确认已付'}</h2><p className="muted">{target.plan_name} · {target.due_date} 这一期。计划金额 {money(target.plan_amount)}，按实际付款填写。</p></div><CloseButton type="button" aria-label="关闭付款表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{r && !stuck && <DeleteButton label="删除记录" disabled={busy} kind="payment" id={r.id} revision={r.revision} generation={generation} name={`${target.plan_name} ${target.due_date} 付款`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存'}</button>}</div></header>
+    <header><div><p className="eyebrow">财富 · 周期费用</p><h2 id="payment-heading">{r ? '更正付款记录' : '记录实际扣款'}</h2><p className="muted">{target.plan_name} · {target.due_date} 这一期。{r ? '按这笔记录的实际情况更正。' : `计划金额 ${money(target.plan_amount)}，按实际付款填写。`}</p><p className="muted small">仅充值、还没扣款时先关闭。误记已付可改为「本期不付」或删除这条记录；真实退款请保留原付款依据。</p></div><CloseButton type="button" aria-label="关闭付款表单" disabled={busy} onClick={() => onClose(false)}/><div className="editor-header-actions">{r && !stuck && <DeleteButton label="删除误记" disabled={busy} kind="payment" id={r.id} revision={r.revision} generation={generation} name={`${target.plan_name} ${target.due_date} 付款`} onDone={() => onClose(true)} onError={(m, s) => { setNotice(m); setStuck(s); }}/>}{stuck ? <button type="button" onClick={() => onClose(false)}>关闭，稍后核对</button> : <button className="primary" disabled={busy}>{busy ? '保存中…' : '保存'}</button>}</div></header>
     <section className="form-block">
       <FormRow label="这一期"><Segments label="这一期" value={state} disabled={frozen} options={[{ value: 'paid', label: '已付' }, { value: 'skipped', label: '本期不付' }]} onChange={setState}/></FormRow>
       {state === 'paid' && <><FormRow label="实付日期"><DateInput yearIntent="past" id="payment-date" value={paid} max={today} disabled={frozen} onChange={v => v && setPaid(v)}/></FormRow>

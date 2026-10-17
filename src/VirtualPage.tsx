@@ -1,4 +1,7 @@
 import { PaymentDialog, type PaymentTarget } from './RecurringPage';
+import { ResumeSubscriptionDialog } from './ResumeSubscriptionDialog';
+import type { LinkView } from './link';
+import type { Plan } from './recurring';
 import { SubscriptionDetail } from './SubscriptionDetail';
 import { MergeNotice } from './MergeOldSubscriptions';
 import { PaymentRangeForm } from './PaymentRangeForm';
@@ -42,10 +45,12 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   const [maintenance, setMaintenance] = useState(false);
   const [mutationError, setMutationError] = useState('');
   const [editing, setEditing] = useState<VirtualAsset | 'new' | null>(null);
+  const [returnDetailId, setReturnDetailId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null), [stopping, setStopping] = useState(false);
   // 关联生命周期（设计 §6/§8）：结束订阅、旧停用核对、统一名称与整组删除。
   const [repairing, setRepairing] = useState<string | null>(null);
   const [ending, setEnding] = useState<VirtualAsset | null>(null);
+  const [resuming, setResuming] = useState<{ plan: Plan; link: LinkView } | null>(null);
   const [reviewing, setReviewing] = useState<VirtualAsset | null>(null);
   const [unifying, setUnifying] = useState<VirtualAsset | null>(null);
   const [groupDelete, setGroupDelete] = useState<{ id: string; name: string } | null>(null);
@@ -57,7 +62,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
   const reload = () => setRetry(n => n + 1);
   useRestored(reload);
   const { pending, setPending, notice, busy, verify } = usePendingReceipt(reload);
-  useEffect(() => { onEditingChange(!!editing || !!paying || !!pending || busy || stopping || maintenance || !!ending || !!reviewing || !!unifying || !!groupDelete || !!repairing); return () => onEditingChange(false); }, [editing, paying, pending, busy, stopping, maintenance, ending, reviewing, unifying, groupDelete, repairing, onEditingChange]);
+  useEffect(() => { onEditingChange(!!editing || !!paying || !!pending || busy || stopping || maintenance || !!ending || !!resuming || !!reviewing || !!unifying || !!groupDelete || !!repairing); return () => onEditingChange(false); }, [editing, paying, pending, busy, stopping, maintenance, ending, resuming, reviewing, unifying, groupDelete, repairing, onEditingChange]);
   useEffect(() => {
     let live = true; setError('');
     invoke<VirtualOverview>('virtual_overview').then(o => { if (live) setData(o); }).catch(e => { if (live) setError(errorMessage(e)); });
@@ -80,7 +85,7 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
     setSelectedId(item.id); setTopupFocus(null); return true;
   });
   useEffect(() => { if (sourceError) reload(); }, [sourceError]);
-  const closed = (saved: boolean, warning?: string | null) => { if (warning) setMutationError(warning); (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPaying(null); setBackfill(false); setEnding(null); setRepairing(null); setReviewing(null); setUnifying(null); setGroupDelete(null); setPending(storedPending()); if (saved) reload(); refocusHeading(); };
+  const closed = (saved: boolean, warning?: string | null) => { if (warning) setMutationError(warning); (document.querySelector('dialog[open]') as HTMLDialogElement | null)?.close(); setEditing(null); setPaying(null); setBackfill(false); setEnding(null); setResuming(null); setRepairing(null); setReviewing(null); setUnifying(null); setGroupDelete(null); const receipt = storedPending(); setPending(receipt); if (returnDetailId && !receipt) setSelectedId(returnDetailId); setReturnDetailId(null); if (saved) reload(); refocusHeading(); };
   // 结束订阅建议日：已设置结束日或实际当前服务期末；无当前期时由用户填写。
   const suggestedEndDay = (item: VirtualAsset): string | null => item.plan?.fields.end_date ?? item.plan?.current_coverage?.[1] ?? null;
   const openNew = { label: '新增虚拟资产', plus: true, disabled: !!pending || busy || stopping || maintenance || !data, run: () => setEditing('new') };
@@ -163,13 +168,16 @@ export function VirtualPage({ today, onEditingChange, source, onSourceDone, sear
           </>
     }
     {linkedDetail && data && <SubscriptionDetail plan={linkedDetail.plan!} today={today} modules={modules} onClose={closeDetail}
-      onEdit={() => { closeDetail(); setEditing(linkedDetail); }} onBackfill={() => { closeDetail(); setBackfill(true); setEditing(linkedDetail); }} onPay={() => { closeDetail(); pay(linkedDetail); }}
-      onGroupDelete={(_, name) => { closeDetail(); setGroupDelete({ id: linkedDetail.id, name }); }} onEnd={() => { closeDetail(); setEnding(linkedDetail); }} onReview={() => { closeDetail(); setReviewing(linkedDetail); }}
+      onEdit={p => { setReturnDetailId(linkedDetail.id); closeDetail(); setEditing({ ...linkedDetail, plan: p }); }} onBackfill={p => { setReturnDetailId(linkedDetail.id); closeDetail(); setBackfill(true); setEditing({ ...linkedDetail, plan: p }); }} onPay={(p, amount) => { setReturnDetailId(linkedDetail.id); closeDetail(); if (p.next_due) setPaying({ plan_id: p.id, plan_name: p.fields.name, due_date: p.next_due, plan_amount: amount, record: null }); }}
+      onCorrectPayment={payment => { setReturnDetailId(linkedDetail.id); closeDetail(); setPaying({ plan_id: payment.plan_id, plan_name: payment.plan_name, due_date: payment.due_date, plan_amount: linkedDetail.plan!.fields.amount_cents, record: payment }); }}
+      onResume={p => { setReturnDetailId(linkedDetail.id); closeDetail(); setResuming(p); }}
+      onGroupDelete={(_, name) => { closeDetail(); setGroupDelete({ id: linkedDetail.id, name }); }} onEnd={({plan,link}) => { setReturnDetailId(linkedDetail.id); closeDetail(); setEnding({ ...linkedDetail, revision: link.asset!.revision, plan }); }} onReview={() => { closeDetail(); setReviewing(linkedDetail); }}
       onUnify={() => { closeDetail(); setUnifying(linkedDetail); }} onCandidates={() => { closeDetail(); setRepairing(linkedDetail.id); }} />}
     {paying && data && <PaymentDialog target={paying} generation={data.generation} today={today} onClose={closed} />}
     {editing && data && <VirtualDialog item={editing === 'new' ? null : editing} data={data} today={today} backfill={backfill} onGroupDelete={(id, name) => { setEditing(null); setGroupDelete({ id, name }); }} onUnify={item => { setEditing(null); setUnifying(item); }} onClose={closed} />}
     {repairing && <LinkRepairDialog side="virtual" id={repairing} onClose={closed} onDone={m => setMutationError(m)} />}
     {ending && data && <EndSubscriptionDialog assetId={ending.id} planId={ending.plan!.id} assetName={ending.fields.name} assetRevision={ending.revision} planRevision={ending.plan!.revision} fields={ending.plan!.fields} suggestion={suggestedEndDay(ending)} today={today} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
+    {resuming && <ResumeSubscriptionDialog plan={resuming.plan} link={resuming.link} today={today} onClose={closed} />}
     {reviewing && data && <LinkReviewDialog assetId={reviewing.id} planId={reviewing.fields.plan_id!} assetName={reviewing.fields.name} assetRevision={reviewing.revision} planRevision={reviewing.plan!.revision} stoppedOn={reviewing.fields.stopped_on} today={today} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
     {unifying && data && <UnifyNameDialog assetId={unifying.id} planId={unifying.fields.plan_id!} assetName={unifying.fields.name} planName={unifying.plan!.fields.name} assetRevision={unifying.revision} planRevision={unifying.plan!.revision} fields={unifying.plan!.fields} generation={data.generation} onClose={closed} onDone={m => setMutationError(m)} />}
     {groupDelete && data && <LinkDeleteDialog side="virtual" id={groupDelete.id} name={groupDelete.name} generation={data.generation} onClose={saved => { setGroupDelete(null); if (saved) { setEditing(null); reload(); } refocusHeading(); }} onDone={(groupId, name) => { setEditing(null); offerUndo(`已整组删除「${name}」。`, async () => { await undoLinkDelete(groupId); }); reload(); }} />}

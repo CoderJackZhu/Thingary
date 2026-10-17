@@ -163,7 +163,7 @@ export function LinkReviewDialog({ assetId, planId, assetName, assetRevision, pl
 
 /** 结束订阅（设计 §6）：明确最后使用日、关闭续费，双方一致。 */
 export function EndSubscriptionDialog({ assetId, planId, assetName, assetRevision, planRevision, fields, suggestion, today, generation, onClose, onDone }: {
-  assetId: string; planId: string; assetName: string; assetRevision: number; planRevision: number; fields: PlanFields; suggestion: string | null; today: string; generation: string; onClose: Close; onDone: (message: string) => void;
+  assetId: string | null; planId: string; assetName: string; assetRevision: number | null; planRevision: number; fields: PlanFields; suggestion: string | null; today: string; generation: string; onClose: Close; onDone: (message: string) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [lastUsed, setLastUsed] = useState(suggestion ?? today);
@@ -171,22 +171,23 @@ export function EndSubscriptionDialog({ assetId, planId, assetName, assetRevisio
   useEffect(() => { dialog.current?.showModal(); return () => dialog.current?.close(); }, []);
   async function run() {
     setBusy(true); setNotice('');
-    const input: LinkSaveInput = { request_id: crypto.randomUUID(), generation, asset_id: assetId, asset_expected_revision: assetRevision, plan_id: planId, plan_expected_revision: planRevision, fields: { ...fields, end_date: lastUsed, auto_renew: false } };
+    const input = { request_id: crypto.randomUUID(), generation, asset_id: assetId, asset_expected_revision: assetRevision, plan_id: planId, plan_expected_revision: planRevision, fields: { ...fields, end_date: lastUsed, auto_renew: false } };
     try {
-      await submit({ command: 'link_save', input, label: '结束订阅 ' + assetName });
+      if (assetId && assetRevision !== null) await submit({ command: 'link_save', input: { ...input, asset_id: assetId, asset_expected_revision: assetRevision }, label: '取消续费 ' + assetName });
+      else await submit({ command: 'recurring_plan_save', input: { request_id: input.request_id, generation, id: planId, expected_revision: planRevision, fields: input.fields }, label: '取消续费 ' + assetName });
       onDone(`「${assetName}」将使用至 ${lastUsed}，后续续费已关闭；历史付款与估算依据保留。`);
       onClose(true);
     } catch (e) { if (e instanceof Unresolved) setStuck(true); setNotice(e instanceof Error ? e.message : errorMessage(e)); }
     finally { setBusy(false); }
   }
   return <dialog ref={dialog} className="editor trash-dialog" aria-labelledby="end-subscription-title" onCancel={e => { e.preventDefault(); if (!busy && !stuck) onClose(false); }}>
-    <h2 id="end-subscription-title">结束「{assetName}」？</h2>
-    <p className="muted">确认最后使用日：到这一天为止仍在服务期，次日显示已结束。历史付款与估算依据保留，不再安排后续续费。这只维护记录，不代表已取消平台扣款。</p>
+    <h2 id="end-subscription-title">取消「{assetName}」的后续续费</h2>
+    <p className="muted">先在服务方取消自动扣费，再在这里确认最后使用日：到这一天为止仍在服务期，次日显示已结束。历史付款与估算依据保留，不再安排后续续费。这只维护记录，不代表已取消平台扣款。</p>
     {stuck ? <p className="notice" role="status">保存结果未确认，请先核对上一次请求。</p> : <FormRow label="最后使用日" hint={suggestion ? `建议为当前服务期末 ${suggestion}；可修改` : '不能早于服务开始'}>
       <DateInput yearIntent="past" label="最后使用日" value={lastUsed} disabled={busy} onChange={v => v && setLastUsed(v)} />
     </FormRow>}
     {notice && <p className="notice" role="status">{notice}</p>}
-    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>取消</button><button type="button" className="primary danger" disabled={busy || stuck} onClick={() => void run()}>{busy ? '保存中…' : '确认结束订阅'}</button></div>
+    <div className="actions"><button type="button" disabled={busy} onClick={() => onClose(false)}>取消</button><button type="button" className="primary danger" disabled={busy || stuck} onClick={() => void run()}>{busy ? '保存中…' : '保存取消续费'}</button></div>
   </dialog>;
 }
 

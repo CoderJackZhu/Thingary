@@ -73,7 +73,7 @@ export function coverageFor(f: PlanFields, due: string): [string, string] | null
 
 
 /** Billing candidates use the same effective rule chain as saved coverage. */
-export function planScheduleDates(plan: Pick<Plan, 'fields' | 'rules' | 'period_ends'>, from: string, to: string): string[] {
+export function planScheduleDates(plan: Pick<Plan, 'fields' | 'rules' | 'period_ends' | 'resumptions'>, from: string, to: string): string[] {
   const rules = plan.rules;
   if (!rules?.length || !plan.fields.coverage_start) return scheduleDates(plan.fields, from, to);
   const out: string[] = [];
@@ -83,19 +83,21 @@ export function planScheduleDates(plan: Pick<Plan, 'fields' | 'rules' | 'period_
     const diff = (Number(first.service_start.slice(0,4))-Number(first.anchor.slice(0,4)))*12 + Number(first.service_start.slice(5,7))-Number(first.anchor.slice(5,7));
     for (let k = Math.min(0, Math.floor(diff / first.interval_months)-1); k < 0; k++) {
       const start = shiftPeriod(first.anchor, first, k), due = shiftPeriod(first.first_due,first,k);
-      if (due >= from && due <= to && start >= first.service_start && (!plan.fields.end_date || start <= plan.fields.end_date)) out.push(due);
+      if (due >= from && due <= to && !(plan.resumptions ?? []).some(r => start > r.previous_end && start < r.resumed_on) && start >= first.service_start && (!plan.fields.end_date || start <= plan.fields.end_date)) out.push(due);
     }
   }
   for (let k = 0; k < 120000; k++) {
-    const candidate: string = previous ? shiftDays(previous,1) : first.anchor;
+    let candidate: string = previous ? shiftDays(previous,1) : plan.resumptions?.length && plan.resumptions[0].resumed_on < first.anchor ? plan.resumptions[0].resumed_on : first.anchor;
+    for (const r of plan.resumptions ?? []) if (candidate > r.previous_end && candidate < r.resumed_on) candidate = r.resumed_on;
     while (rule + 1 < rules.length && rules[rule+1].effective_date <= candidate) { rule++; local=0; }
     const seg: ScheduleRule = rules[rule];
     const original = shiftPeriod(seg.anchor,seg,local);
     const start = candidate > original ? candidate : original;
     const due = shiftPeriod(seg.first_due,seg,local);
     if (due > to) break;
-    const end = plan.period_ends?.[original] ?? previousDay(shiftPeriod(start > original ? start : seg.anchor,seg,start > original ? 1 : local+1));
+    let end = plan.period_ends?.[original] ?? previousDay(shiftPeriod(start > original ? start : seg.anchor,seg,start > original ? 1 : local+1));
     if (due >= from && (!seg.service_start || start >= seg.service_start) && (!plan.fields.end_date || start <= plan.fields.end_date) && !(seg.trial_days && start < seg.anchor)) out.push(due);
+    for (const r of plan.resumptions ?? []) if (start <= r.previous_end && end > r.previous_end) end = r.previous_end;
     previous = end; local++;
   }
   return out;

@@ -529,3 +529,76 @@ fn historical_subscription_ends_without_future_dues_and_backfills_only_confirmed
     assert_eq!(restored.items[0].paid_count, 25);
     assert_eq!(restored.items[0].spent_cents.as_deref(), Some("350000"));
 }
+
+#[test]
+fn resubscribe_linked_pair_checks_both_revisions_and_rolls_back_or_replays_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut s = Store::open(dir.path()).unwrap();
+    let mut input = sub(&s);
+    input.plan.as_mut().unwrap().fields.end_date = Some("2026-07-03".into());
+    input.plan.as_mut().unwrap().fields.auto_renew = false;
+    let asset = s.virtual_save(&input, "2026-07-04").unwrap();
+    let p = asset.plan.as_ref().unwrap();
+    let mut resume = thingary_lib::recurring::ResumeSave {
+        request_id: id(),
+        generation: s.generation(),
+        plan_id: p.id.clone(),
+        expected_revision: p.revision,
+        asset_id: Some(asset.id.clone()),
+        asset_expected_revision: Some(asset.revision + 1),
+        start_date: "2026-10-17".into(),
+        amount_cents: "15000".into(),
+        interval_months: 1,
+        interval_days: None,
+    };
+    assert_eq!(
+        code(s.recurring_resume(&resume, "2026-10-17")),
+        "LINK_CHANGED"
+    );
+    resume.asset_expected_revision = Some(asset.revision);
+    s.set_hook(|point| {
+        if point == "recurring_resume.before_commit" {
+            Err(thingary_lib::domain::Error::new("INJECTED", "fictional"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(code(s.recurring_resume(&resume, "2026-10-17")), "INJECTED");
+    let unchanged = s
+        .virtual_overview("2026-10-17")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(unchanged.revision, asset.revision);
+    assert_eq!(
+        unchanged.plan.unwrap().fields.end_date.as_deref(),
+        Some("2026-07-03")
+    );
+    s.set_hook(|point| {
+        if point == "recurring_resume.after_commit" {
+            Err(thingary_lib::domain::Error::new("INJECTED", "fictional"))
+        } else {
+            Ok(())
+        }
+    });
+    assert_eq!(code(s.recurring_resume(&resume, "2026-10-17")), "INJECTED");
+    s.set_hook(|_| Ok(()));
+    assert_eq!(s.recurring_resume(&resume, "2026-10-17").unwrap(), p.id);
+    let updated = s
+        .virtual_overview("2026-10-17")
+        .unwrap()
+        .items
+        .pop()
+        .unwrap();
+    assert_eq!(updated.id, asset.id);
+    assert_eq!(updated.revision, asset.revision + 1);
+    assert_eq!(updated.status, "ongoing");
+    assert_eq!(updated.plan.as_ref().unwrap().resumptions.len(), 1);
+    let mut stale = resume.clone();
+    stale.request_id = id();
+    assert_eq!(
+        code(s.recurring_resume(&stale, "2026-10-17")),
+        "REVISION_CONFLICT"
+    );
+}
