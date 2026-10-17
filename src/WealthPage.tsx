@@ -220,7 +220,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
         ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
         : <AccountListing mode={groupView} groups={groups} allAccounts={accounts} summary={summary} onQuick={openQuick} today={today} accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)
       : tab === 'changes' ? <WealthChanges accountView={accountView} summary={summary} accounts={accounts} today={today} initial={changesSeed} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn}/>
-      : <History points={points} onOpen={setSnapshotDetail} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
+      : <History points={points} onOpen={setSnapshotDetail} onCompare={onCompare} onNew={() => setCheckIn(today)} canStart={!!open.length && !pending}/>}
     {tab === 'history' && summary && !error && <CheckinReminder wealthOn today={today}/>}
     {manageGroups && summary && <AccountGroupManager generation={summary.generation} onClose={() => { setManageGroups(false); setPending(storedPending()); reload(); }} onChanged={() => { setPending(storedPending()); reload(); }}/>}
     {editing && summary && <AccountDialog quickPoints={summary.points} groups={groups} onGroupsChanged={reload} account={editing === 'new' ? null : editing} generation={summary.generation} today={today} onQuick={openQuick} onClose={closeAccount}/>}
@@ -293,7 +293,7 @@ function ShareBars({ rows, empty, labels }: { rows: Summary['structure']; empty:
   return <ul className="stats-category-bars">{rows.map((r, i) => <li key={r.kind}><span><i style={{ background: series(i) }}/>{labels?.[r.kind] ?? kindLabel(r.kind)}</span><div className="stats-bar"><span style={{ width: r.share_hundredths === null ? 0 : `${r.share_hundredths / 100}%`, background: series(i) }}/></div><strong>{r.share_hundredths === null ? '—' : `${(r.share_hundredths / 100).toFixed(1)}%`}</strong><small>{money(r.amount_cents)}</small></li>)}</ul>;
 }
 
-function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (id: string) => void }) {
+function PointTable({ points, onOpen, onCompare }: { points: Point[]; onOpen?: (id: string) => void; onCompare?: (pair?: { fromSnapshotId: string; toSnapshotId: string }) => void }) {
   const [sort, setSort] = useState<ListSort>({ key: 'date', descending: true });
   const sorted = sortRecords(points, sort, (p, key) => key === 'date' ? p.date : key === 'net' ? p.complete ? moneySortValue(p.net_cents) : null : key === 'assets' ? moneySortValue(p.assets_cents) : moneySortValue(p.liabilities_cents), p => p.snapshot_id);
   return <table className="ui-table"><thead><tr><SortHeader field="date" label="盘点日期" sort={sort} onSort={setSort}/><SortHeader field="net" label="金融净资产" sort={sort} onSort={setSort}/><SortHeader field="assets" label="资产" sort={sort} onSort={setSort}/><SortHeader field="liabilities" label="负债" sort={sort} onSort={setSort}/><th>状态</th><th>备注</th><th>与上次比较</th></tr></thead><tbody>{sorted.map(p => <tr key={p.snapshot_id}>
@@ -301,7 +301,7 @@ function PointTable({ points, onOpen }: { points: Point[]; onOpen?: (id: string)
     <td>{p.complete ? signedMoney(p.net_cents) : <span className="muted" title="有账户金额未知，净资产无法确定">—</span>}</td><td>{money(p.assets_cents)}{!p.complete && <small className="muted"> 已知</small>}</td><td>{money(p.liabilities_cents)}{!p.complete && <small className="muted"> 已知</small>}</td>
     <td>{p.complete ? '完整' : `缺 ${p.missing} 个账户`}{p.has_unchanged && <small className="muted"> · 快速更新</small>}</td>
     <td>{onOpen ? (noteSummary(p.notes) ? <button className="link-cell" title="查看完整备注" onClick={() => onOpen(p.snapshot_id)}>{noteSummary(p.notes)}</button> : <span className="muted">—</span>) : noteSummary(p.notes) ?? ''}</td>
-    <td>{p.change_cents ? `${changeText(p.change_cents)}${p.change_rate_hundredths !== null ? ' · ' + rateText(p.change_rate_hundredths) : ''}` : p.scope_changed ? '参与比较的账户有变化' : '—'}{p.compared_to && <small className="muted"> 对比 {p.compared_to}</small>}</td>
+    <td>{p.change_cents ? `${changeText(p.change_cents)}${p.change_rate_hundredths !== null ? ' · ' + rateText(p.change_rate_hundredths) : ''}` : p.scope_changed ? '参与比较的账户有变化' : '—'}{p.compared_to && <small className="muted"> 对比 {p.compared_to}</small>}{onCompare && p.complete && (() => { const from = points.find(q => q.complete && q.date === p.compared_to); return from ? <> <button type="button" className="ui-link" onClick={() => onCompare({ fromSnapshotId: from.snapshot_id, toSnapshotId: p.snapshot_id })}>查看比较</button></> : null; })()}</td>
   </tr>)}</tbody></table>;
 }
 
@@ -333,9 +333,9 @@ function Accounts({ quickPoints = [], accounts, onEdit, onNew, found, onQuick, t
   </tr>)}</tbody></table></div></>;
 }
 
-function History({ points, onOpen, onNew, canStart }: { points: Point[]; onOpen: (id: string) => void; onNew: () => void; canStart: boolean }) {
+function History({ points, onOpen, onCompare, onNew, canStart }: { points: Point[]; onOpen: (id: string) => void; onCompare?: (pair?: { fromSnapshotId: string; toSnapshotId: string }) => void; onNew: () => void; canStart: boolean }) {
   if (!points.length) return <div className="empty"><h2>还没有盘点</h2><p>每次盘点记录一个日期上各账户的余额与欠款。完整表示应盘账户都有金额；快速更新可能沿用旧值，不代表全部重新核对。</p><button className="primary" disabled={!canStart} onClick={onNew}>盘点全部账户</button></div>;
-  return <><p className="muted small">完整表示应盘账户都有金额；快速更新可能沿用旧值，不代表全部重新核对。</p><div className="table-scroll"><PointTable points={points} onOpen={onOpen}/></div></>;
+  return <><p className="muted small">完整表示应盘账户都有金额；快速更新可能沿用旧值，不代表全部重新核对。{onCompare && <> <button type="button" className="ui-link" onClick={() => onCompare()}>比较任意两次盘点 →</button></>}</p><div className="table-scroll"><PointTable points={points} onOpen={onOpen} onCompare={onCompare}/></div></>;
 }
 
 const blankAccount = (today: string): AccountFields => ({ name: '', institution: '', side: 'asset', kind: 'cash', counted: true, opened_on: today, closed_on: null, notes: '' });
