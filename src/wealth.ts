@@ -56,6 +56,46 @@ export const kindLabel = (kind: string) => [...assetKinds, ...liabilityKinds].fi
 /** Signed amount: `money` already renders a negative with a real minus sign and no line break after it. */
 export const signedMoney = money;
 export function changeText(cents: string) { return cents.startsWith('-') ? money(cents) : '+' + money(cents); }
+/** 与上次比较的显示值：明确的零是持平，区别于未知与没有上期数据。 */
+export function comparisonText(changeCents: string | null | undefined, comparedTo: string | null | undefined): string {
+  if (!comparedTo) return '—';
+  if (changeCents === '0') return '持平';
+  return changeCents ? changeText(changeCents) : '—';
+}
+/** Enter 跳到下一金额字段：输入法组合期间保持原始行为，Tab 等其他键不处理。 */
+export function enterJumpsAmount(key: string, composing: boolean, targetIsInput: boolean): boolean {
+  return key === 'Enter' && !composing && targetIsInput;
+}
+export type CheckInField = { id: string; name: string; currency: string; holding_mode: boolean };
+export type CheckInRowState = { state: string | null; cents: string; original_minor?: string | null; quantity_e8?: string | null; unit_price_e6?: string | null };
+/** 定位未填的候选顺序：共享汇率在前，随后按表格行的金额／份额／单价。
+ * 非法但非空的输入在行状态里 cents／数量为空，同样算待处理。 */
+export function checkInUnfilledLabels(fields: CheckInField[], rates: Record<string, string>, rows: Record<string, CheckInRowState | undefined>): string[] {
+  return checkInUnfilledTargets(fields, rates, rows).map(target => target.label);
+}
+export function checkInUnfilledTargets(fields: CheckInField[], rates: Record<string, string>, rows: Record<string, CheckInRowState | undefined>): { key: string; label: string }[] {
+  const targets: { key: string; label: string }[] = [];
+  const foreign = new Set(fields.map(f => f.currency).filter(c => c && c !== 'CNY'));
+  for (const code of foreign) if (!/^\d+$/.test(rates[code] ?? '') || BigInt(rates[code]) <= 0n) targets.push({ key: `rate:${code}`, label: `${code} 汇率` });
+  for (const field of fields) {
+    const row = rows[field.id];
+    if (field.holding_mode) {
+      if (!row?.quantity_e8) targets.push({ key: `quantity:${field.id}`, label: `${field.name} 份额` });
+      if (!row?.unit_price_e6) targets.push({ key: `price:${field.id}`, label: `${field.name} 单价` });
+    } else if (field.currency === 'CNY') {
+      if (!row?.state || row.state === 'missing' || row.cents === '') targets.push({ key: `amount:${field.id}`, label: `${field.name} 本次金额` });
+    } else if (!row?.state || row.state === 'missing' || !row.original_minor) {
+      targets.push({ key: `amount:${field.id}`, label: `${field.name} 原币金额` });
+    }
+  }
+  return targets;
+}
+/** 从当前焦点之后找下一处，末尾回到首处；没有任何缺项时不动焦点。 */
+export function nextUnfilledLabel(labels: string[], activeLabel: string | null): string | null {
+  if (!labels.length) return null;
+  const index = activeLabel ? labels.indexOf(activeLabel) : -1;
+  return labels[(index + 1) % labels.length];
+}
 /** 备注摘要：约 40 字，有内容才显示；空备注返回 null。 */
 export function noteSummary(notes: string): string | null {
   if (!notes.trim()) return null;

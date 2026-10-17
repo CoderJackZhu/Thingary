@@ -1,3 +1,4 @@
+import type { UpdateDiscoveryState } from './update-discovery';
 import { desktopShortcutAction, isMac } from './undo-shortcut';
 // Development-only entry. Renders the production App with an in-memory IPC
 // adapter; index.html and the production build never import this module.
@@ -382,6 +383,7 @@ function checkinStatus() {
   const next = new Date(); next.setMonth(next.getMonth() + checkinMonths);
   return { months: checkinMonths, last_check_in: last, next_date: checkinMonths ? next.toLocaleDateString('sv') : null };
 }
+let previewUpdateState: UpdateDiscoveryState | null = null;
 async function handle(command: string, payload: unknown): Promise<unknown> {
   if (command === 'planning_engine_evaluate') return engineRequest((payload as { request: Record<string, unknown> }).request);
   if (command === 'notification_status') return '';
@@ -396,14 +398,53 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
     return '0.0.6';
   }
   if (command === 'support_open') throw { message: '虚构预览不打开外部浏览器。' };
-  if (command === 'update_check') {
+  if (command === 'update_state_get' || command === 'update_check_request' || command === 'update_consent_set' || command === 'update_mark_seen' || command === 'update_ignore_version') {
     const mode = params.get('update') ?? 'available';
-    if (mode === 'error') throw { message: '无法连接到 Gitee 和 GitHub，请检查网络后重试。也可以直接访问 https://gitee.com/CoderJackZhu/thingary/releases 查看新版本。' };
-    const release = { version: mode === 'available' || mode === 'partial' ? '0.0.7' : mode === 'ahead' ? '0.0.5' : '0.0.6', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：盘点提醒与目标进度。\n- 更新前请先备份。' };
-    const sources = mode === 'partial' ? ['gitee'] : ['gitee', 'github'];
+    const consent = params.get('update-consent') ?? 'unset';
+    const damaged = consent === 'damaged' || consent === 'future';
     const windows = params.get('update-platform') === 'windows';
-    const available = { ...release, sources, downloads: sources.map(source => ({source, name: windows ? `物谱_${release.version}_x64-setup.exe` : `Thingary-${release.version}-universal.dmg`, label: windows ? 'Windows 安装包（x64）' : 'Mac 通用安装包（Apple Silicon 与 Intel）', size: source === 'gitee' ? null : 30000000})) };
-    return { current: '0.0.6', latest: mode === 'none' ? null : available, update_available: mode === 'available' || mode === 'partial', unreachable: mode === 'partial' ? ['github'] : [], platform: windows ? 'Windows x64' : 'Mac · Apple Silicon', newer_unavailable: mode === 'unavailable' ? { ...release, version:'0.0.7', sources, downloads:[] } : null };
+    const release = { version: mode === 'available' || mode === 'partial' ? '0.0.7' : mode === 'ahead' ? '0.0.5' : '0.0.6', published_at: '2026-10-20T08:00:00Z', notes: '## 本次更新\n- 虚构发布说明：启动检查更新与盘点体验。\n- 更新前请先备份。' };
+    const sources = mode === 'partial' ? ['gitee'] : ['gitee', 'github'];
+    const downloads = sources.map(source => ({ source, name: windows ? `物谱_${release.version}_x64-setup.exe` : `Thingary-${release.version}-universal.dmg`, label: windows ? 'Windows 安装包（x64）' : 'Mac 通用安装包（Apple Silicon 与 Intel）', size: source === 'gitee' ? null : 30000000 }));
+    const available = { ...release, sources, downloads, confirmed_at: '2026-10-21T08:00:00Z' };
+    const updateAvailable = mode === 'available' || mode === 'partial';
+    const state: UpdateDiscoveryState = previewUpdateState ?? {
+      current_version: '0.0.6',
+      platform_label: windows ? 'Windows x64' : 'Mac · Apple Silicon',
+      consent: damaged ? 'unset' : consent === 'enabled' ? 'enabled' : consent === 'disabled' ? 'disabled' : 'unset',
+      preferences_status: damaged ? 'damaged' : 'ok',
+      preferences_problem: damaged ? '读取失败：内容无法识别' : null,
+      preferences_repairable: consent !== 'future',
+      preference_revision: 1,
+      highest_seen_version: params.get('update-seen') === '1' ? release.version : null,
+      ignored_version: params.get('update-ignored') === '1' ? release.version : null,
+      last_attempt_at: '2026-10-21T08:00:00Z',
+      last_success_at: mode === 'error' ? null : '2026-10-21T08:00:00Z',
+      candidate: updateAvailable ? available : null,
+      newer_unavailable: mode === 'unavailable' ? { ...release, version: '0.0.7', sources, downloads: [], confirmed_at: '2026-10-21T08:00:00Z' } : null,
+      last_unreachable: mode === 'partial' ? ['github'] : mode === 'error' ? ['gitee', 'github'] : [],
+      cache_applicable: true,
+      cache_unsaved: params.get('update-unsaved') === '1',
+      update_available: updateAvailable,
+      candidate_fresh: true,
+      unread: updateAvailable && params.get('update-seen') !== '1' && params.get('update-ignored') !== '1',
+    };
+    previewUpdateState = state;
+    if (command === 'update_state_get') return state;
+    if (command === 'update_check_request') {
+      if (mode === 'error') return { decision: 'started', task: { origin: 'manual', applied: true, cancelled: false, error: '无法连接到 Gitee 和 GitHub，请检查网络后重试。也可以直接访问 https://gitee.com/CoderJackZhu/thingary/releases 查看新版本。' }, state: { ...state, candidate: null, update_available: false, unread: false, last_success_at: null } };
+      return { decision: 'started', task: { origin: 'manual', applied: true, cancelled: false, error: null }, state };
+    }
+    if (command === 'update_consent_set') {
+      if (params.get('update-write') === 'error') throw { message: '虚构更新设置保存失败' };
+      if (state.preferences_repairable === false) throw { message: '设置来自较新版本，请升级后再试' };
+      return previewUpdateState = { ...state, consent: (payload as { enabled: boolean }).enabled ? 'enabled' : 'disabled', preference_revision: state.preference_revision + 1, preferences_status: 'ok', preferences_problem: null };
+    }
+    if (command === 'update_mark_seen') {
+      if (state.preferences_status === 'damaged') throw { message: '虚构设置文件读取失败，已读状态未保存' };
+      return previewUpdateState = { ...state, preference_revision: state.preference_revision + 1, highest_seen_version: String((payload as { version: string }).version), unread: false };
+    }
+    return previewUpdateState = { ...state, preference_revision: state.preference_revision + 1, ignored_version: String((payload as { version: string }).version), unread: false };
   }
   if (command === 'update_open_release' || command === 'update_open_download') throw { message: '预览中不能打开浏览器' };
   if (command === 'checkin_reminder_status') return checkinStatus();
@@ -544,7 +585,7 @@ async function handle(command: string, payload: unknown): Promise<unknown> {
   if (command === 'modules_get' && params.has('module-read-error')) throw { message: '虚构模块读取失败，用于保留当前偏好验证。' };
   const wealth = wealthPreview(command,args); if (wealth) { if (command.endsWith('_save')) previewStarted = true; return wealth.value; }
   const search = searchPreview(command,args); if (search) return search.value;
-  if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:previewStarted};
+  if (command === 'demo_status') return {active:params.get('demo') === '1',available:true,started:previewStarted || params.get('started') === '1'};
   if (command === 'switch_demo' || command === 'reset_demo') throw {message:'浏览器预览仅用于界面检查；切库和重置请在隔离原生验收版中验证。'};
   if (command.startsWith('auto_backup_') || command === 'inspect_auto_backup') return autoBackupPreview(command, args);
   if (command === 'backup_task_begin') return crypto.randomUUID();

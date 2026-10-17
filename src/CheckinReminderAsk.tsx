@@ -24,12 +24,20 @@ export function CheckinReminderAsk({ savedComplete, completeCount, wealthOn, tod
     window.addEventListener('thingary-reminders-changed', refresh);
     return () => window.removeEventListener('thingary-reminders-changed', refresh);
   }, []);
+  // Reserve this visit before the asynchronous preference read finishes, so
+  // the update invitation cannot flash first or stack with this business ask.
+  const reserved = !answer && savedComplete && completeCount === 1 && !asked;
+  useEffect(() => {
+    if (!reserved) return;
+    window.dispatchEvent(new CustomEvent('thingary-ask-card-shown', { detail: { kind: 'checkin' } }));
+  }, [reserved]);
   if (answer === 'skip') return null;
   if (answer) return <>
     <p className="muted checkin-reminder-summary" role="status">{answer.line}</p>
     {answer.warning && <p className="notice" role="alert">{answer.warning}</p>}
   </>;
-  if (!status || !checkinReminderAskVisible(savedComplete, completeCount, status.months, asked)) return null;
+  const visible = !!status && checkinReminderAskVisible(savedComplete, completeCount, status.months, asked);
+  if (!visible) return null;
   async function choose(months: number) {
     setBusy(true); setError('');
     try {

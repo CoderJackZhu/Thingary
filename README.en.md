@@ -36,7 +36,7 @@ Built for occasional check-ins. No daily transaction ledger, market-data feed, t
 
 ## Privacy
 
-No account, cloud sync, or background network access. Your records stay on your computer. The app works offline; it only queries public release lists when you explicitly click **Check for updates**.
+No account or cloud sync. Your records stay on your computer and normal use works offline. Public release lists are queried when you click **Check for updates**, or at most once per 24 hours on startup if you choose to enable startup checks. Downloads and installation remain manual.
 
 The main database and photos are **not encrypted**. Backup encryption is optional. Automatic backups share the same disk as your main data, so keep a separate off-device copy. Read [privacy and data safety (Chinese)](docs/USER_GUIDE.md#privacy).
 

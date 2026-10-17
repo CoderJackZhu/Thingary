@@ -40,5 +40,9 @@ export const mayReadLibrary = (state: PrivacyState): boolean => state.mounted &&
 // Event callbacks consult this synchronously so menu actions received while
 // locked are discarded, including the interval before React commits the view.
 let screenBlocked = false;
-export function setPrivacyScreenBlocked(value: boolean) { screenBlocked = value; }
+export function setPrivacyScreenBlocked(value: boolean) {
+  if (screenBlocked === value) return;
+  screenBlocked = value;
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('thingary-privacy-screen-changed'));
+}
 export function privacyMenuAllowed(): boolean { return !screenBlocked; }

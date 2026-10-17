@@ -7,6 +7,9 @@ import { readFileSync } from 'node:fs';
 const modules = {
   './support': support,
   './asset': { errorMessage: e => e.message },
+  // The full update surface has its own component runtime in
+  // update-discovery.test.mjs; here it stands in as the 关于与帮助 update area.
+  './UpdateDiscovery': { UpdateCheck: props => ({ type: 'section', props: { 'data-stub': 'update-check', children: [props.versionLabel ?? '', { type: 'button', props: { children: '检查更新' } }] } }) },
   '../LICENSE?raw': { default: 'AGPL license fixture' },
   '../THIRD_PARTY_LICENSES.md?raw': { default: 'Third-party fixture' },
 };
@@ -14,7 +17,7 @@ const modules = {
 test('help opens without a network check and keeps the local information when version is unavailable', async () => {
   const calls = [], destinations = [];
   const r = runtime('SupportPanel', { blocked: false, onData: target => destinations.push(target) }, undefined, undefined, {
-    components: ['SupportLink', 'LogoMark', 'UpdateCheck'], modules: { ...modules, '@tauri-apps/api/core': { invoke: async name => { calls.push(name); throw Error('Unavailable'); } } },
+    components: ['SupportLink', 'LogoMark'], modules: { ...modules, '@tauri-apps/api/core': { invoke: async name => { calls.push(name); throw Error('Unavailable'); } } },
   });
   await r.settle();
   assert.deepEqual(calls, ['app_version']);
@@ -27,21 +30,19 @@ test('help opens without a network check and keeps the local information when ve
   assert.deepEqual(calls, ['app_version']);
 });
 
-test('about and help expose the real update action directly without navigation or an automatic network request', async () => {
+test('the privacy copy tells when the app goes online and keeps the manual action without navigation', async () => {
   const calls = [];
   const r = runtime('SupportPanel', { blocked: false, onData() { throw Error('Unexpected navigation'); } }, undefined, undefined, {
-    components: ['LogoMark', 'SupportLink', 'UpdateCheck'],
-    modules: { ...modules, './update-check': { updateSummary: () => '已是最新版本（0.0.6）。', sourceLabel: {} }, '@tauri-apps/api/core': { invoke: async name => { calls.push(name); return name === 'app_version' ? '0.0.6' : { update_available: false }; } } },
+    components: ['LogoMark', 'SupportLink'],
+    modules: { ...modules, '@tauri-apps/api/core': { invoke: async name => { calls.push(name); return name === 'app_version' ? '0.0.6' : null; } } },
   });
   await r.settle();
   assert.deepEqual(calls, ['app_version']);
   assert.equal(r.button('关于物谱'), undefined);
   assert.equal(r.button('版本与更新'), undefined);
-  assert.ok(r.button('检查更新'));
-  r.button('检查更新').props.onClick();
-  await r.settle();
-  assert.deepEqual(calls, ['app_version', 'update_check']);
-  assert.match(r.text(r.nodes()[0]), /已是最新版本/);
+  assert.ok(r.button('检查更新'), 'the update area keeps its manual entry');
+  assert.match(r.text(r.nodes()[0]), /资料使用完全离线.*启动时检查更新.*主动点“检查更新”/);
+  assert.match(r.text(r.nodes()[0]), /下载和安装始终由你决定/);
 });
 
 test('about and update menu commands share one destination while backup stays in data management', () => {

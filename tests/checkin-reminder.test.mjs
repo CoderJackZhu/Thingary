@@ -14,7 +14,7 @@ const windowWithListeners = () => {
     removeEventListener: (type, fn) => listeners.set(type, (listeners.get(type) ?? []).filter(f => f !== fn)),
   };
 };
-const globals = { Event: class { constructor(type) { this.type = type; } }, window: windowWithListeners() };
+const globals = { Event: class { constructor(type) { this.type = type; } }, CustomEvent: class { constructor(type, init) { Object.assign(this, init); this.type = type; } }, window: windowWithListeners() };
 const status = (months, last = '2026-09-30', next = '2026-10-30') => ({ months, last_check_in: last, next_date: months ? next : null });
 
 test('summary explains each state without promising delivery', () => {
@@ -104,7 +104,7 @@ test('a read failure is reported with a retry and no control is shown', async ()
 const makeStorage = () => { const saved = new Map(); return { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) }; };
 
 function mountAsk(invoke, props = {}, storage = makeStorage()) {
-  return runtime('CheckinReminderAsk', { savedComplete: true, completeCount: 1, wealthOn: true, today: TODAY, ...props }, undefined, undefined, { components: [], globals: { Event: globals.Event, window: windowWithListeners() }, modules: {
+  return runtime('CheckinReminderAsk', { savedComplete: true, completeCount: 1, wealthOn: true, today: TODAY, ...props }, undefined, undefined, { components: [], globals: { Event: globals.Event, CustomEvent: globals.CustomEvent, window: windowWithListeners() }, modules: {
     './checkin-reminder': model, './virtual': virtual, './asset': { errorMessage: e => e.message },
     '@tauri-apps/api/core': { invoke }, './start-choice': { choiceStorage: () => storage },
   } });

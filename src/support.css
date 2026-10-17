@@ -23,3 +23,13 @@
 .support-links .ui-btn{font:inherit;color:var(--accent);padding:0;border:0;background:transparent;text-decoration:underline;text-underline-offset:3px;min-height:0}
 .support-links .ui-btn:disabled{color:var(--muted)}
 .support-star{margin:20px 0 0}
+
+/* D5 update discovery: unread dot, auto-toggle block, one-time invite. */
+.update-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;margin-left:8px}
+.update-unread-text{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.settings-row .update-dot{align-self:center}
+.update-auto-row{margin:12px 0 0;display:flex;flex-direction:column;gap:4px}
+.update-auto-toggle{display:flex;align-items:center;gap:8px;font-size:14px}
+.update-auto-row .muted{margin:0}
+.update-invite{margin-top:16px}
+.support-download .support-actions{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
