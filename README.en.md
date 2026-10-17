@@ -28,7 +28,7 @@ On Mac, open the `.dmg` and drag the app into Applications. On Windows, run the 
 |---|---|
 | **Account check-ins** | Record assets and debts and follow your net-worth trend. Includes property, pension, insurance cash value, and precious-metal account types. Property is excluded from financial net worth. |
 | **Goals and planning** | Estimate required monthly savings and a possible financial independence date; compare purchases, a break from work, or a job change using your own assumptions. |
-| **Savings goals and period review** | Follow savings progress and review balances, income, and major expenses over the last 12 months, a calendar year, or custom dates. |
+| **Savings goals and period review** | Follow savings progress and review balances, income, and major expenses over the last year, year to date, all time, or custom dates. |
 | **Belongings, optional** | Keep prices, photos, repairs, warranties, and daily ownership costs. Enable recurring costs and digital assets when needed. |
 | **Data protection** | Full and automatic backups, recently deleted records, and optional backup encryption with a recovery key you keep. |
 
