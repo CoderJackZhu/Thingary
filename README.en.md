@@ -16,7 +16,7 @@ The app currently has a **Simplified Chinese interface only**. Its account types
 
 ## Download
 
-**[Download 0.0.8 from GitHub](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)** · [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases) · [Product website](https://coderjackzhu.github.io/Thingary/) · [Report an issue](https://github.com/CoderJackZhu/Thingary/issues)
+**[Download 0.0.8 from GitHub](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)** · [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases) · [Product website](https://thingary.jackzhu.top/) · [Report an issue](https://github.com/CoderJackZhu/Thingary/issues)
 
 Thingary is an **unsigned public beta** for macOS and Windows. System security prompts may appear on first launch; see the [installation guide (Chinese)](docs/QUICKSTART.md#install).
 

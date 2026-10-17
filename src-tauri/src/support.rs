@@ -7,6 +7,7 @@ pub fn destination(target: &str) -> Result<&'static str> {
         "author" => Ok("https://github.com/CoderJackZhu"),
         "project" => Ok("https://github.com/CoderJackZhu/Thingary"),
         "guide" => Ok("https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md"),
+        "site" => Ok("https://thingary.jackzhu.top/"),
         "feedback" => Ok("https://github.com/CoderJackZhu/Thingary/issues"),
         "backup" => {
             Ok("https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md#backup")

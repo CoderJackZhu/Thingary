@@ -2,6 +2,7 @@ export const supportUrls = {
   author: 'https://github.com/CoderJackZhu',
   project: 'https://github.com/CoderJackZhu/Thingary',
   guide: 'https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md',
+  site: 'https://thingary.jackzhu.top/',
   feedback: 'https://github.com/CoderJackZhu/Thingary/issues',
   backup: 'https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md#backup',
   update: 'https://github.com/CoderJackZhu/Thingary/blob/main/docs/USER_GUIDE.md#update',

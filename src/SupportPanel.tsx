@@ -22,7 +22,7 @@ export function SupportPanel(props: SupportPanelProps) {
     <header className="support-identity"><span className="support-mark"><LogoMark maskId={`${heading}-logo-holes`}/></span><div><h2 id={heading}>物谱 Thingary</h2><p className="muted">物品档案与净资产盘点</p></div></header>
     <p className="muted small support-maintainer">开发与维护：<SupportLink target="author">CoderJackZhu</SupportLink></p>
     <UpdateCheck showVersion={false} compact versionLabel={version === null ? '正在读取版本…' : version ? `版本 ${version}` : '版本暂不可用'}/>
-    <nav className="support-links" aria-label="帮助与项目"><SupportLink target="guide">使用指南</SupportLink><SupportLink target="feedback">问题反馈</SupportLink><SupportLink target="project">项目源码</SupportLink><button type="button" className="ui-btn" disabled={props.blocked} onClick={() => props.onData('backup')}>备份与恢复</button></nav>
+    <nav className="support-links" aria-label="帮助与项目"><SupportLink target="site">产品主页</SupportLink><SupportLink target="guide">使用指南</SupportLink><SupportLink target="feedback">问题反馈</SupportLink><SupportLink target="project">项目源码</SupportLink><button type="button" className="ui-btn" disabled={props.blocked} onClick={() => props.onData('backup')}>备份与恢复</button></nav>
     <p className="muted small">网页链接在浏览器中打开，需要联网。Mac 的安装磁盘映像里附有离线使用说明；Windows 安装包不含，请用网页版使用指南。</p>
     <div className="support-details">
       <details><summary>隐私与资料安全</summary><p>屏幕遮罩与系统认证可在设置的「屏幕隐私」中开启。</p><p>没有账号，资料保存在本机，应用不上传资料。资料使用完全离线；只有你开启“启动时检查更新”或主动点“检查更新”时，才会向 Gitee 和 GitHub 的公开版本列表各查询一次，附普通网络信息与应用版本标识，不发送资料、设备或使用信息。下载和安装始终由你决定。</p><p>可用恢复密钥加密备份，应用只保存公钥，恢复密钥由你保管；主资料库、图片与恢复保护副本未加密。首次使用须在数据管理选择启用加密或继续明文，选择前自动与额外备份暂停。自动备份和主资料位于同一台电脑，建议额外保存一份完整备份到外接盘或其他位置；若选择云盘，副本由云盘软件同步。</p></details>
