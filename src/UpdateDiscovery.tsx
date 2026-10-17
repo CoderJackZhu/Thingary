@@ -5,12 +5,10 @@ import { Switch } from './FormControls';
 import { Icon } from './AssetViews';
 import { SupportLink } from './SupportLink';
 import { privacyMenuAllowed } from './privacy-lock';
-import { choiceStorage } from './start-choice';
 import { sourceLabel, type UpdateSource } from './update-check';
 import {
-  askCardRecentlyShown, autoCheckDelayMs, autoCheckHint, autoCheckScheduled, inviteBody, inviteTitle,
-  manualOutcome, markAskCardShown, markUpdateInviteAsked, outcomeLine,
-  stampLabel, updateInviteVisible, updateInviteAsked,
+  autoCheckDelayMs, autoCheckHint, autoCheckScheduled, inviteBody, inviteTitle,
+  manualOutcome, outcomeLine, stampLabel, updateInviteVisible,
 } from './update-discovery';
 import type { UpdateDiscoveryState, UpdateRequestResult } from './update-discovery';
 
@@ -24,6 +22,10 @@ export type UpdateDiscovery = {
   demoActive: boolean;
   /** No edits, saves or receipt checks in progress. */
   idle: boolean;
+  screenAvailable: boolean;
+  visitKey: string;
+  readError: string;
+  reloadState: () => Promise<void>;
   manualBusy: boolean;
   manualError: string;
   manualNote: string;
@@ -35,122 +37,165 @@ export type UpdateDiscovery = {
 
 const UpdateDiscoveryContext = createContext<UpdateDiscovery | null>(null);
 
+function screenAvailable() {
+  return privacyMenuAllowed() && !document.hidden &&
+    (typeof document.hasFocus !== 'function' || document.hasFocus()) &&
+    !document.documentElement?.hasAttribute('data-privacy-screen');
+}
+
+function useScreenAvailable() {
+  const [available, setAvailable] = useState(screenAvailable);
+  useEffect(() => {
+    const refresh = () => setAvailable(screenAvailable());
+    window.addEventListener('focus', refresh);
+    window.addEventListener('blur', refresh);
+    window.addEventListener('thingary-privacy-screen-changed', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    const observer = typeof MutationObserver !== 'undefined' ? new MutationObserver(refresh) : null;
+    if (document.documentElement) observer?.observe(document.documentElement, { attributes: true, attributeFilter: ['data-privacy-screen'] });
+    refresh();
+    return () => {
+      window.removeEventListener('focus', refresh);
+      window.removeEventListener('blur', refresh);
+      window.removeEventListener('thingary-privacy-screen-changed', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+      observer?.disconnect();
+    };
+  }, []);
+  return available;
+}
+
 export function useUpdateDiscovery(): UpdateDiscovery {
   const context = useContext(UpdateDiscoveryContext);
   if (!context) throw new Error('UpdateDiscoveryProvider 未挂载');
   return context;
 }
 
-export function UpdateDiscoveryProvider({ children, invoke: call = invoke, idle, hasRecords, demoActive }: {
+export function UpdateDiscoveryProvider({ children, invoke: call = invoke, idle, hasRecords, demoActive, visitKey = '' }: {
   invoke?: typeof invoke;
   children: ReactNode;
   /** No edits, saves or receipt checks in progress. */
   idle: boolean;
   hasRecords: boolean;
   demoActive: boolean;
+  visitKey?: string;
 }) {
   const [state, setState] = useState<UpdateDiscoveryState | null>(null);
   const [manualBusy, setManualBusy] = useState(false);
   const [manualError, setManualError] = useState('');
   const [manualNote, setManualNote] = useState('');
+  const [readError, setReadError] = useState('');
+  const available = useScreenAvailable();
+  const latest = useRef<UpdateDiscoveryState | null>(null);
+  const acceptState = useCallback((value: UpdateDiscoveryState) => {
+    if (latest.current) {
+      if (value.snapshot_revision !== undefined && latest.current.snapshot_revision !== undefined) {
+        if (value.snapshot_revision < latest.current.snapshot_revision) return;
+      } else if (value.preference_revision < latest.current.preference_revision) return;
+    }
+    latest.current = value;
+    setState(value);
+  }, []);
   const requested = useRef(false);
+  const reloadState = useCallback(async () => {
+    try { acceptState(await call<UpdateDiscoveryState>('update_state_get')); setReadError(''); }
+    catch (e) { setReadError(errorMessage(e)); }
+  }, [call, acceptState]);
   useEffect(() => {
     let live = true;
-    void call<UpdateDiscoveryState>('update_state_get').then(value => { if (live) setState(value); }).catch(() => { if (live) setState(null); });
+    void call<UpdateDiscoveryState>('update_state_get').then(value => { if (live) { acceptState(value); setReadError(''); } }).catch(e => { if (live) setReadError(errorMessage(e)); });
     return () => { live = false; };
-  }, [call]);
+  }, [call, acceptState]);
   // Startup round: about five calm, unlocked seconds after the shell became
   // interactive. The backend re-checks consent, the per-process budget and
   // the 24-hour interval, so an early or repeated call here stays harmless.
   useEffect(() => {
-    if (!autoCheckScheduled(state, { idle, unlocked: privacyMenuAllowed(), checkedThisSession: requested.current })) return;
+    if (!autoCheckScheduled(state, { idle, unlocked: available, checkedThisSession: requested.current })) return;
     const timer = window.setTimeout(() => {
+      if (!screenAvailable() || latest.current?.consent !== 'enabled') return;
       requested.current = true;
       void call<UpdateRequestResult>('update_check_request', { mode: 'automatic' })
-        .then(result => setState(result.state))
+        .then(result => acceptState(result.state))
         .catch(() => { /* an automatic round never disturbs the user */ });
     }, autoCheckDelayMs);
     return () => window.clearTimeout(timer);
-  }, [state, idle, call]);
+  }, [state, idle, call, available, acceptState]);
   const manualCheck = useCallback(async () => {
     if (manualBusy) return;
     setManualBusy(true); setManualError(''); setManualNote('');
     try {
       const result = await call<UpdateRequestResult>('update_check_request', { mode: 'manual' });
-      setState(result.state);
-      if (result.task?.error) setManualError(result.task.error);
+      acceptState(result.state);
+      if (result.task?.cancelled) setManualNote('自动检查已取消，可点击手动检查。');
+      else if (result.task?.error) setManualError(result.task.error);
       else if (result.state.cache_unsaved) setManualNote('本次检查完成，但结果暂时无法保存在本机，下次启动可能不记得。');
-      else if (result.task?.cancelled) setManualNote('自动检查已取消，可点击手动检查。');
     } catch (e) {
       setManualError(errorMessage(e));
     } finally {
       setManualBusy(false);
     }
-  }, [call, manualBusy]);
+  }, [call, manualBusy, acceptState]);
   const setConsent = useCallback(async (enabled: boolean) => {
-    const current = state;
+    const current = latest.current;
     if (!current) return '更新设置暂不可用，请稍后再试。';
     try {
-      setState(await call<UpdateDiscoveryState>('update_consent_set', { enabled, expectedRevision: current.preference_revision }));
+      acceptState(await call<UpdateDiscoveryState>('update_consent_set', { enabled, expectedRevision: current.preference_revision }));
       return null;
     } catch (e) {
-      void call<UpdateDiscoveryState>('update_state_get').then(fresh => setState(fresh)).catch(() => {});
+      void reloadState();
       return errorMessage(e);
     }
-  }, [call, state]);
+  }, [call, acceptState, reloadState]);
   const markSeen = useCallback(async (version: string) => {
     try {
-      setState(await call<UpdateDiscoveryState>('update_mark_seen', { version }));
+      acceptState(await call<UpdateDiscoveryState>('update_mark_seen', { version }));
+      setManualNote(note => note === '已读状态暂时无法保存，下次启动可能再次提示。' ? '' : note);
     } catch {
       // The card is on screen right now; stop the duplicate hint for this
       // session but say plainly that it could not be saved.
-      setState(current => (current && current.candidate?.version === version ? { ...current, unread: false } : current));
+      if (latest.current?.candidate?.version === version) acceptState({ ...latest.current, unread: false });
       setManualNote('已读状态暂时无法保存，下次启动可能再次提示。');
     }
-  }, [call]);
+  }, [call, acceptState]);
   const ignoreVersion = useCallback(async (version: string) => {
     try {
-      setState(await call<UpdateDiscoveryState>('update_ignore_version', { version }));
+      acceptState(await call<UpdateDiscoveryState>('update_ignore_version', { version }));
       return null;
     } catch (e) {
       return errorMessage(e);
     }
-  }, [call]);
-  return <UpdateDiscoveryContext.Provider value={{ state, hasRecords, demoActive, idle, manualBusy, manualError, manualNote, manualCheck, setConsent, markSeen, ignoreVersion }}>
+  }, [call, acceptState]);
+  return <UpdateDiscoveryContext.Provider value={{ state, hasRecords, demoActive, idle, screenAvailable: available, visitKey, readError, reloadState, manualBusy, manualError, manualNote, manualCheck, setConsent, markSeen, ignoreVersion }}>
     {children}
   </UpdateDiscoveryContext.Provider>;
 }
 
 /** One-time ask, only for a started personal library on an ordinary page. It
  * never stacks on the check-in reminder ask of the same page visit. */
-export function UpdateInvite() {
-  const { state, hasRecords, demoActive, idle, setConsent } = useUpdateDiscovery();
-  const [asked, setAsked] = useState(() => updateInviteAsked(choiceStorage()));
-  const [yielded, setYielded] = useState(() => askCardRecentlyShown(choiceStorage(), 'checkin', Date.now()));
+export function UpdateInvite({ eligible = true }: { eligible?: boolean }) {
+  const { state, hasRecords, demoActive, idle, screenAvailable: available, visitKey, setConsent } = useUpdateDiscovery();
+  const [yieldedVisit, setYieldedVisit] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
     const onAskShown = (event: Event) => {
       const detail = (event as CustomEvent<{ kind?: string }>).detail;
       if (detail?.kind !== 'checkin') return;
-      markAskCardShown(choiceStorage(), 'checkin', Date.now());
-      setYielded(true);
+      setYieldedVisit(visitKey);
     };
     window.addEventListener('thingary-ask-card-shown', onAskShown);
     return () => window.removeEventListener('thingary-ask-card-shown', onAskShown);
-  }, []);
-  if (yielded || asked || !idle) return null;
-  if (!updateInviteVisible(state, { asked, hasRecords, demoActive, busy })) return null;
+  }, [visitKey]);
+  if (!eligible || yieldedVisit === visitKey || !idle || !available) return null;
+  if (!updateInviteVisible(state, { asked: false, hasRecords, demoActive, busy: false })) return null;
   async function choose(enabled: boolean) {
     setBusy(true); setError('');
     const failure = await setConsent(enabled);
     setBusy(false);
     if (failure) { setError(failure); return; }
-    markUpdateInviteAsked(choiceStorage());
-    setAsked(true);
   }
   return <section className="ui-card ui-content update-invite" aria-labelledby="update-invite-heading">
-    <div className="data-heading"><div><p className="eyebrow">更新</p><h2 id="update-invite-heading">{inviteTitle}</h2></div></div>
+    <div className="data-heading"><div><p className="eyebrow">更新</p><h2 id="update-invite-heading">{inviteTitle}</h2></div><button type="button" className="ui-link" aria-label="关闭自动检查询问" disabled={busy} onClick={() => void choose(false)}>关闭</button></div>
     <p className="data-intro">{inviteBody}</p>
     <div className="checkin-reminder-ask-actions">
       <button type="button" className="primary" disabled={busy} onClick={() => void choose(true)}>开启自动检查</button>
@@ -164,7 +209,7 @@ export function UpdateInvite() {
  * the accessible name carries 有新版本 while the dot itself is decorative. */
 export function UpdateUnreadDot() {
   const { state } = useUpdateDiscovery();
-  return state?.unread ? <span className="update-dot" aria-hidden="true"/> : null;
+  return state?.unread ? <><span className="update-dot" aria-hidden="true"/><span className="update-unread-text"> · 有新版本</span></> : null;
 }
 
 /** The sidebar 设置 button, owning its unread naming. */
@@ -179,7 +224,7 @@ const mirror = (source: string): string => sourceLabel[source as UpdateSource] ?
 
 /** Manual check button + auto toggle + dated discovery, one shared state. */
 export function UpdateCheck({ showVersion = true, compact = false, versionLabel }: { showVersion?: boolean; compact?: boolean; versionLabel?: string }) {
-  const { state, manualBusy, manualError, manualNote, manualCheck, setConsent, markSeen, ignoreVersion } = useUpdateDiscovery();
+  const { state, readError, reloadState, screenAvailable: available, manualBusy, manualError, manualNote, manualCheck, setConsent, markSeen, ignoreVersion } = useUpdateDiscovery();
   const [version, setVersion] = useState('');
   const [toggleError, setToggleError] = useState('');
   const [toggleBusy, setToggleBusy] = useState(false);
@@ -187,6 +232,7 @@ export function UpdateCheck({ showVersion = true, compact = false, versionLabel 
   const [seenOnce, setSeenOnce] = useState('');
   useEffect(() => { if (showVersion) void invoke<string>('app_version').then(setVersion).catch(() => {}); }, [showVersion]);
   const candidate = state?.candidate ?? null;
+  const seenKey = candidate ? `${candidate.version}:${state?.preferences_status}` : '';
   const card = useRef<HTMLDivElement | null>(null);
   const recorded = useRef(false);
   // "Seen" means the version card is actually on screen: mounted, unfolded,
@@ -195,21 +241,21 @@ export function UpdateCheck({ showVersion = true, compact = false, versionLabel 
   useEffect(() => {
     recorded.current = false;
     const element = card.current;
-    if (!candidate || !element || document.hidden || !privacyMenuAllowed()) return;
-    if (seenOnce === candidate.version) return;
+    if (!candidate || !element || !available) return;
+    if (seenOnce === seenKey) return;
     const record = () => {
-      if (recorded.current || document.hidden || !privacyMenuAllowed()) return;
+      if (recorded.current || !screenAvailable()) return;
       recorded.current = true;
-      setSeenOnce(candidate.version);
+      setSeenOnce(seenKey);
       void markSeen(candidate.version);
     };
-    if (typeof IntersectionObserver === 'undefined') { record(); return; }
+    if (typeof IntersectionObserver === 'undefined') { if (element.getClientRects().length && !element.closest('[hidden]')) record(); return; }
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) { record(); observer.disconnect(); }
     }, { threshold: 0.1 });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [candidate, markSeen, seenOnce]);
+  }, [candidate, markSeen, seenOnce, seenKey, available]);
   async function openPage(pageVersion: string, source: string) {
     setToggleError('');
     try { await invoke('update_open_release', { version: pageVersion, source }); }
@@ -231,12 +277,13 @@ export function UpdateCheck({ showVersion = true, compact = false, versionLabel 
       <p className="muted small">{autoCheckHint}</p>
       <p className="muted small">{lastSuccess ? `上次成功检查：${lastSuccess}` : lastAttempt ? `上次尝试检查：${lastAttempt}（未成功）` : '尚未检查过。'}</p>
     </div>
-    {state?.preferences_status === 'damaged' && <p className="error" role="alert">自动检查的设置文件读取失败：{state.preferences_problem ?? '文件无法识别'}。在这里切换开关会用你本次的选择重建设置；原文件以 update-preferences.invalid.json 保留供检查。</p>}
+    {readError && <p className="error" role="alert">更新设置读取失败：{readError} <button type="button" className="ui-link" onClick={() => void reloadState()}>重新读取更新设置</button></p>}
+    {state?.preferences_status === 'damaged' && <div className="error" role="alert"><p>自动检查的设置文件读取失败：{state.preferences_problem ?? '文件无法识别'}。</p>{state.preferences_repairable !== false ? <><p>请重新选择是否自动检查；重建前会保留损坏原文件，不影响资料。</p><button type="button" disabled={toggleBusy} onClick={() => { setToggleBusy(true); void setConsent(false).then(failure => { setToggleBusy(false); setToggleError(failure ?? ''); }); }}>保持手动并修复设置</button><button type="button" disabled={toggleBusy} onClick={() => { setToggleBusy(true); void setConsent(true).then(failure => { setToggleBusy(false); setToggleError(failure ?? ''); }); }}>开启自动检查并修复设置</button></> : <p>设置来自较新版本，已保留原文件。请升级后再修改，仍可手动检查更新。</p>}</div>}
     {manualError && <p className="error" role="alert">{manualError}</p>}
     {manualNote && <p className="notice" role="status">{manualNote}</p>}
     {state && !manualBusy && !manualError && !manualNote && (state.update_available || state.newer_unavailable || state.last_success_at) && <p className="update-check-result muted small" role="status">{outcomeLine(manualOutcome(state, null, null))}</p>}
     {candidate && <div className="support-download" ref={card}>
-      <p>有新版本 <strong>{candidate.version}</strong>{candidate.published_at ? ` · ${candidate.published_at.slice(0, 10)} 发布` : ''}<span className="muted small"> · 当前使用 {state?.current_version}</span></p>
+      <p>{!state?.candidate_fresh || state.last_unreachable.length === 2 ? '上次发现版本 ' : '有新版本 '}<strong>{candidate.version}</strong>{candidate.published_at ? ` · ${candidate.published_at.slice(0, 10)} 发布` : ''}<span className="muted small"> · 当前使用 {state?.current_version}</span></p>
       {!state?.candidate_fresh && <p className="muted small">上次发现该版本：{stampLabel(candidate.confirmed_at)}，已超过 7 天，请重新检查确认仍可下载。</p>}
       {state?.ignored_version === candidate.version && <p className="muted small">已忽略这个版本的提醒；仍可手动下载。</p>}
       {candidate.downloads.length > 0 && <>

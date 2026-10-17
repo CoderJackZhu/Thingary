@@ -32,6 +32,14 @@ const FRESH_FOR_SECS: i64 = 7 * 24 * 60 * 60;
 /// Minimum spacing between two network attempts, successful or not.
 const RETRY_AFTER_SECS: i64 = 24 * 60 * 60;
 
+fn future_format(path: &Path) -> bool {
+    fs::read(path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
+        .and_then(|value| value.get("format_version").and_then(|v| v.as_u64()))
+        .is_some_and(|version| version > u64::from(FORMAT_VERSION))
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Consent {
@@ -150,6 +158,12 @@ impl Cache {
             .unwrap_or_default()
     }
     fn save(&self, root: &Path) -> Result<()> {
+        if future_format(&root.join(CACHE_FILE)) {
+            return Err(Error::new(
+                "UPDATE_CACHE_FORMAT",
+                "更新缓存来自较新版本，保留原文件，请升级后再试",
+            ));
+        }
         crate::storage::atomic_write(&root.join(CACHE_FILE), &serde_json::to_vec(self)?)
     }
 }
@@ -230,6 +244,7 @@ struct InFlight {
 
 #[derive(Default)]
 struct Inner {
+    snapshot_revision: u64,
     auto_used: bool,
     cancel_epoch: u64,
     task: Option<Arc<InFlight>>,
@@ -332,8 +347,8 @@ impl UpdateState {
     fn cache(&self) -> Cache {
         Cache::load(&self.root)
     }
-    fn read_cache_for_view(&self) -> (Cache, bool) {
-        let unsaved = self.inner.lock().unwrap().unsaved.clone();
+    fn read_cache_for_view(&self, inner: &Inner) -> (Cache, bool) {
+        let unsaved = inner.unsaved.clone();
         match unsaved {
             Some(cache) => (cache, true),
             None => (self.cache(), false),
@@ -348,14 +363,14 @@ impl UpdateState {
     /// runner thread is spawned by `spawn_round`; `begin` itself never
     /// touches the network. `run_round` is the synchronous test path.
     pub fn begin(&self, mode: Origin) -> Begin {
+        let mut inner = self.inner.lock().unwrap();
         let (preferences, damage) = self.preferences();
-        if damage.is_some() {
+        if damage.is_some() && mode == Origin::Automatic {
             return Begin::Skipped("preferences_damaged");
         }
         if mode == Origin::Automatic && preferences.consent != Consent::Enabled {
             return Begin::Skipped("not_enabled");
         }
-        let mut inner = self.inner.lock().unwrap();
         if let Some(task) = inner.task.clone() {
             // Joining never spends the automatic budget and never changes the
             // running task's origin: one round, one set of requests.
@@ -381,13 +396,18 @@ impl UpdateState {
         }
         // The attempt time is durable before any request leaves; an automatic
         // round that cannot record it does not start at all.
-        let mut cache = self.cache();
+        let mut cache = inner.unsaved.clone().unwrap_or_else(|| self.cache());
         cache.format_version = FORMAT_VERSION;
         cache.last_attempt_at = Some(self.now().to_rfc3339());
         let persisted = cache.save(&self.root);
         if persisted.is_err() && mode == Origin::Automatic {
             return Begin::Skipped("attempt_not_recorded");
         }
+        inner.unsaved = if persisted.is_err() {
+            Some(cache)
+        } else {
+            None
+        };
         let shared = Arc::new(TaskShared::default());
         let id = crate::storage::uid();
         let epoch = inner.cancel_epoch;
@@ -417,13 +437,11 @@ impl UpdateState {
 
     /// The runner body: one dual-source lookup through the injected fetch,
     /// then the result is applied to the cache unless the round was
-    /// cancelled. An automatic round re-checks the cancel epoch before each
-    /// source after the first and again before anything is persisted.
+    /// cancelled. An automatic round re-checks the cancel epoch before every
+    /// source (including the first) and before anything is persisted.
     fn execute(&self, task_id: &str, origin: Origin, epoch: u64) -> TaskResult {
-        let mut round = 0u32;
         let mut fetch = |source: Source| -> Result<String> {
-            round += 1;
-            if origin == Origin::Automatic && round > 1 && !self.epoch_alive(epoch) {
+            if origin == Origin::Automatic && !self.epoch_alive(epoch) {
                 return Err(Error::new("UPDATE_CANCELLED", "自动检查已关闭"));
             }
             (self.fetch)(source)
@@ -443,23 +461,6 @@ impl UpdateState {
                 error: Some("已有新一轮检查，本次结果不再适用".into()),
             };
         }
-        let outcome = match outcome {
-            Ok(outcome) => outcome,
-            Err(error) => {
-                // Every source failed: keep the dated discovery and never
-                // claim "already up to date". The attempt time is saved and
-                // both mirrors are disclosed as unreachable.
-                let mut cache = self.cache();
-                cache.last_unreachable = Source::ALL.iter().map(|s| s.name().to_owned()).collect();
-                let _ = cache.save(&self.root);
-                return TaskResult {
-                    origin: origin.name(),
-                    applied: true,
-                    cancelled: false,
-                    error: Some(error.message.clone()),
-                };
-            }
-        };
         if cancelled {
             return TaskResult {
                 origin: origin.name(),
@@ -468,8 +469,35 @@ impl UpdateState {
                 error: Some("自动检查已关闭，本次结果未保存".into()),
             };
         }
+        let outcome = match outcome {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                // Every source failed: keep the dated discovery and never
+                // claim "already up to date". The attempt time is saved and
+                // both mirrors are disclosed as unreachable.
+                let mut cache = inner.unsaved.clone().unwrap_or_else(|| self.cache());
+                cache.last_unreachable = Source::ALL.iter().map(|s| s.name().to_owned()).collect();
+                if cache.save(&self.root).is_err() {
+                    inner.unsaved = Some(cache);
+                } else {
+                    inner.unsaved = None;
+                }
+                return TaskResult {
+                    origin: origin.name(),
+                    applied: true,
+                    cancelled: false,
+                    error: Some(error.message.clone()),
+                };
+            }
+        };
         let now = self.now();
-        let mut cache = self.cache();
+        let mut cache = inner.unsaved.clone().unwrap_or_else(|| self.cache());
+        if cache.context.as_ref().is_some_and(|context| {
+            context.os != self.platform.os || context.arch != self.platform.arch
+        }) {
+            cache.candidate = None;
+            cache.newer_unavailable = None;
+        }
         cache.format_version = FORMAT_VERSION;
         cache.last_success_at = Some(now.to_rfc3339());
         let full_success = outcome.unreachable.is_empty();
@@ -491,7 +519,17 @@ impl UpdateState {
         if full_success || incoming_raises || cache.candidate.is_none() {
             cache.candidate = incoming.map(|latest| cached_release(latest, &now.to_rfc3339()));
         }
-        if full_success {
+        if full_success
+            || outcome
+                .newer_unavailable
+                .as_ref()
+                .is_some_and(|newer_release| {
+                    cache
+                        .newer_unavailable
+                        .as_ref()
+                        .is_none_or(|old| !newer(&old.version, &newer_release.version))
+                })
+        {
             cache.newer_unavailable = outcome
                 .newer_unavailable
                 .as_ref()
@@ -506,11 +544,13 @@ impl UpdateState {
         {
             cache.candidate = None;
         }
-        if cache
-            .newer_unavailable
-            .as_ref()
-            .is_some_and(|c| !newer(&c.version, &self.version))
-        {
+        if cache.newer_unavailable.as_ref().is_some_and(|c| {
+            !newer(&c.version, &self.version)
+                || cache
+                    .candidate
+                    .as_ref()
+                    .is_some_and(|ready| !newer(&c.version, &ready.version))
+        }) {
             cache.newer_unavailable = None;
         }
         cache.last_unreachable = outcome
@@ -550,7 +590,14 @@ impl UpdateState {
     /// write; the explicit save also repairs a damaged preferences file (the
     /// unreadable original is kept beside it for inspection).
     pub fn set_consent(&self, enabled: bool, expected_revision: u32) -> Result<StateView> {
+        let mut inner = self.inner.lock().unwrap();
         let (mut preferences, damage) = self.preferences();
+        if future_format(&self.root.join(PREFERENCES_FILE)) {
+            return Err(Error::new(
+                "UPDATE_PREFERENCES_FORMAT",
+                "设置来自较新版本，已保留原文件，请升级后再试",
+            ));
+        }
         if preferences.preference_revision != expected_revision {
             return Err(Error::new(
                 "UPDATE_PREFERENCES_CONFLICT",
@@ -559,7 +606,21 @@ impl UpdateState {
         }
         if damage.is_some() {
             let broken = self.root.join(PREFERENCES_FILE);
-            let _ = fs::copy(&broken, self.root.join("update-preferences.invalid.json"));
+            let original_backup = self.root.join("update-preferences.invalid.json");
+            let backup = if original_backup.exists() {
+                self.root.join(format!(
+                    "update-preferences.invalid-{}.json",
+                    crate::storage::uid()
+                ))
+            } else {
+                original_backup
+            };
+            fs::copy(&broken, backup).map_err(|_| {
+                Error::new(
+                    "UPDATE_PREFERENCES_BACKUP",
+                    "无法保留损坏设置的原文件，本次没有重建，请检查目录权限后重试",
+                )
+            })?;
         }
         preferences.consent = if enabled {
             Consent::Enabled
@@ -572,8 +633,9 @@ impl UpdateState {
         if !enabled {
             // Automatic rounds already running stop at the next source and
             // never apply their late result.
-            self.inner.lock().unwrap().cancel_epoch += 1;
+            inner.cancel_epoch += 1;
         }
+        drop(inner);
         Ok(self.view())
     }
 
@@ -582,7 +644,9 @@ impl UpdateState {
         if update_check::parse_version(version).is_none() {
             return Err(Error::new("UPDATE_VERSION", "版本号无效"));
         }
-        let (mut preferences, _) = self.preferences();
+        let inner = self.inner.lock().unwrap();
+        let mut preferences = Preferences::load(&self.root)
+            .map_err(|reason| Error::new("UPDATE_PREFERENCES", &reason))?;
         let should_raise = preferences
             .highest_seen_version
             .as_deref()
@@ -590,8 +654,10 @@ impl UpdateState {
             .unwrap_or(true);
         if should_raise {
             preferences.highest_seen_version = Some(version.to_owned());
+            preferences.preference_revision += 1;
             preferences.save(&self.root)?;
         }
+        drop(inner);
         Ok(self.view())
     }
 
@@ -601,16 +667,22 @@ impl UpdateState {
         if update_check::parse_version(version).is_none() {
             return Err(Error::new("UPDATE_VERSION", "版本号无效"));
         }
-        let (mut preferences, _) = self.preferences();
+        let inner = self.inner.lock().unwrap();
+        let mut preferences = Preferences::load(&self.root)
+            .map_err(|reason| Error::new("UPDATE_PREFERENCES", &reason))?;
         preferences.ignored_version = Some(version.to_owned());
+        preferences.preference_revision += 1;
         preferences.save(&self.root)?;
+        drop(inner);
         Ok(self.view())
     }
 
     /// Everything the surfaces render; no network, no library data.
     pub fn view(&self) -> StateView {
+        let mut inner = self.inner.lock().unwrap();
+        inner.snapshot_revision += 1;
         let (preferences, preferences_problem) = self.preferences();
-        let (mut cache, cache_unsaved) = self.read_cache_for_view();
+        let (mut cache, cache_unsaved) = self.read_cache_for_view(&inner);
         let context_matches = cache.context.as_ref().is_some_and(|c| {
             c.os == self.platform.os
                 && c.arch == self.platform.arch
@@ -629,7 +701,7 @@ impl UpdateState {
         let candidate_fresh = candidate.as_ref().is_some_and(|c| {
             parse_stamp(Some(c.confirmed_at.as_str())).is_some_and(|at| {
                 let age = self.now().timestamp() - at.timestamp();
-                age <= FRESH_FOR_SECS
+                (0..=FRESH_FOR_SECS).contains(&age)
             })
         });
         let unread = update_available
@@ -643,6 +715,7 @@ impl UpdateState {
                     && preferences.ignored_version.as_deref() != Some(c.version.as_str())
             });
         StateView {
+            snapshot_revision: inner.snapshot_revision,
             current_version: self.version.clone(),
             platform_label: self.platform.label(),
             consent: match preferences.consent {
@@ -656,6 +729,7 @@ impl UpdateState {
                 "ok".into()
             },
             preferences_problem,
+            preferences_repairable: !future_format(&self.root.join(PREFERENCES_FILE)),
             preference_revision: preferences.preference_revision,
             highest_seen_version: preferences.highest_seen_version,
             ignored_version: preferences.ignored_version,
@@ -675,12 +749,16 @@ impl UpdateState {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct StateView {
+    /// Orders complete IPC snapshots, even when a damaged file resets its
+    /// preference revision. Older responses cannot undo a repair in the UI.
+    pub snapshot_revision: u64,
     pub current_version: String,
     /// Display text like "Mac · Apple Silicon", for the download button only.
     pub platform_label: String,
     pub consent: String,
     pub preferences_status: String,
     pub preferences_problem: Option<String>,
+    pub preferences_repairable: bool,
     pub preference_revision: u32,
     pub highest_seen_version: Option<String>,
     pub ignored_version: Option<String>,
@@ -763,6 +841,180 @@ fn run_round(service: &Arc<UpdateState>, mode: Origin) -> (Begin, Option<TaskRes
 mod tests {
     use super::*;
     use std::{collections::VecDeque, time::Duration};
+
+    #[test]
+    fn damaged_preferences_still_allow_an_explicit_manual_lookup() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join(PREFERENCES_FILE), b"{broken").unwrap();
+        let (_, clock) = fixed_clock("2026-10-17T08:00:00Z");
+        let service = with_answers(dir.path(), "0.0.7", clock, vec![gitee("0.0.9"), err()]);
+        let (begin, result) = run_round(&service, Origin::Manual);
+        assert!(matches!(begin, Begin::Started(_)));
+        assert!(result.unwrap().applied);
+        assert!(service.view().update_available);
+        assert_eq!(
+            fs::read(dir.path().join(PREFERENCES_FILE)).unwrap(),
+            b"{broken"
+        );
+    }
+
+    #[test]
+    fn future_preferences_are_not_repaired_by_any_action() {
+        let dir = tempfile::tempdir().unwrap();
+        let future = Preferences {
+            format_version: FORMAT_VERSION + 1,
+            ..Preferences::default()
+        };
+        fs::write(
+            dir.path().join(PREFERENCES_FILE),
+            serde_json::to_vec(&future).unwrap(),
+        )
+        .unwrap();
+        let service = offline_service(dir.path(), "0.0.7");
+        assert!(service.set_consent(true, 0).is_err());
+        assert!(service.mark_seen("0.0.9").is_err());
+        assert!(service.ignore_version("0.0.9").is_err());
+        assert_eq!(
+            fs::read(dir.path().join(PREFERENCES_FILE)).unwrap(),
+            serde_json::to_vec(&future).unwrap()
+        );
+    }
+
+    #[test]
+    fn consent_writes_with_one_revision_accept_only_one_concurrent_choice() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = offline_service(dir.path(), "0.0.7");
+        let barrier = Arc::new(std::sync::Barrier::new(8));
+        let workers: Vec<_> = (0..8)
+            .map(|i| {
+                let service = Arc::clone(&service);
+                let barrier = Arc::clone(&barrier);
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    service.set_consent(i % 2 == 0, 0).is_ok()
+                })
+            })
+            .collect();
+        let successes = workers
+            .into_iter()
+            .filter_map(|w| w.join().ok())
+            .filter(|ok| *ok)
+            .count();
+        assert_eq!(
+            successes, 1,
+            "a stale choice cannot overwrite another successful write"
+        );
+    }
+
+    #[test]
+    fn concurrent_seen_and_ignore_preserve_consent_and_the_highest_seen_version() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = offline_service(dir.path(), "0.0.7");
+        service.set_consent(false, 0).unwrap();
+        let workers: Vec<_> = (8..16)
+            .map(|patch| {
+                let service = Arc::clone(&service);
+                std::thread::spawn(move || {
+                    service.mark_seen(&format!("0.0.{patch}")).unwrap();
+                    service.ignore_version(&format!("0.0.{patch}")).unwrap();
+                })
+            })
+            .collect();
+        for worker in workers {
+            worker.join().unwrap();
+        }
+        let view = service.view();
+        assert_eq!(view.consent, "disabled");
+        assert_eq!(view.highest_seen_version.as_deref(), Some("0.0.15"));
+    }
+
+    #[test]
+    fn a_future_cache_blocks_automatic_writes_but_manual_results_remain_ephemeral() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, clock) = fixed_clock("2026-10-17T08:00:00Z");
+        let service = with_answers(dir.path(), "0.0.7", clock, vec![gitee("0.0.9"), err()]);
+        service.set_consent(true, 0).unwrap();
+        let future = br#"{"format_version":2,"new_data":"keep"}"#;
+        fs::write(dir.path().join(CACHE_FILE), future).unwrap();
+        assert!(matches!(
+            service.begin(Origin::Automatic),
+            Begin::Skipped("attempt_not_recorded")
+        ));
+        let (_, result) = run_round(&service, Origin::Manual);
+        assert!(!result.unwrap().applied);
+        assert!(service.view().update_available && service.view().cache_unsaved);
+        assert_eq!(fs::read(dir.path().join(CACHE_FILE)).unwrap(), future);
+    }
+
+    #[test]
+    fn a_partial_lookup_cannot_relabel_another_platforms_cached_installer() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, clock) = fixed_clock("2026-10-17T08:00:00Z");
+        let mac = with_answers(dir.path(), "0.0.7", clock, vec![gitee("0.0.9"), err()]);
+        run_round(&mac, Origin::Manual);
+        let answers = Mutex::new(VecDeque::from(vec![Ok("[]".into()), err()]));
+        let windows = Arc::new(UpdateState::with_hooks(
+            dir.path().to_owned(),
+            "0.0.7".into(),
+            update_check::Platform {
+                os: "windows",
+                arch: "x86_64",
+            },
+            Box::new(Utc::now),
+            Box::new(move |_| answers.lock().unwrap().pop_front().unwrap()),
+        ));
+        run_round(&windows, Origin::Manual);
+        assert!(!windows.view().update_available);
+        assert!(windows.view().candidate.is_none());
+    }
+
+    #[test]
+    fn a_partial_source_can_explain_a_release_without_a_compatible_package() {
+        let dir = tempfile::tempdir().unwrap();
+        let (_, clock) = fixed_clock("2026-10-17T08:00:00Z");
+        let service = with_answers(
+            dir.path(),
+            "0.0.7",
+            clock,
+            vec![Ok(r#"[{"tag_name":"v0.0.9","assets":[]}]"#.into()), err()],
+        );
+        run_round(&service, Origin::Manual);
+        let view = service.view();
+        assert!(!view.unread);
+        assert_eq!(view.newer_unavailable.unwrap().version, "0.0.9");
+    }
+
+    #[test]
+    fn disabling_before_the_first_fetch_prevents_all_network_and_cache_results() {
+        let dir = tempfile::tempdir().unwrap();
+        let calls = Arc::new(Mutex::new(0));
+        let count = Arc::clone(&calls);
+        let service = Arc::new(UpdateState::with_hooks(
+            dir.path().to_owned(),
+            "0.0.7".into(),
+            MAC,
+            Box::new(Utc::now),
+            Box::new(move |_| {
+                *count.lock().unwrap() += 1;
+                err()
+            }),
+        ));
+        service.set_consent(true, 0).unwrap();
+        assert!(matches!(
+            service.begin(Origin::Automatic),
+            Begin::Started(_)
+        ));
+        let (id, origin, epoch, _) = service.started_task();
+        service.set_consent(false, 1).unwrap();
+        let result = service.execute(&id, origin, epoch);
+        service.finish(&id);
+        assert_eq!(*calls.lock().unwrap(), 0);
+        assert!(result.cancelled && !result.applied);
+        assert!(
+            service.view().last_unreachable.is_empty(),
+            "a cancelled failure cannot update cache metadata"
+        );
+    }
 
     const MAC: update_check::Platform = update_check::Platform {
         os: "macos",

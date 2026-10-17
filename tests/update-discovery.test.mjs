@@ -13,6 +13,10 @@ const ts = createRequire(import.meta.url)('typescript');
 // follows that runtime: one key space per component instance, reset per pass.
 function mountWrapper(_props, { invoke = async () => null, child, document: doc } = {}) {
   const slots = new Map(), cleanups = new Map(), instances = new Map();
+  const timers = new Map(), listeners = new Map();
+  let timerId = 0;
+  const listen = (target, type, fn) => { const k = `${target}:${type}`; listeners.set(k, [...(listeners.get(k) ?? []), fn]); };
+  const unlisten = (target, type, fn) => { const k = `${target}:${type}`; listeners.set(k, (listeners.get(k) ?? []).filter(f => f !== fn)); };
   let mounted = new Set(), path = 'root', cursor = 0, effects = [], dirty = false;
   const key = () => `${path}:${cursor++}`;
   const hooks = {
@@ -23,7 +27,11 @@ function mountWrapper(_props, { invoke = async () => null, child, document: doc 
       return [slots.get(k), next => { slots.set(k, typeof next === 'function' ? next(slots.get(k)) : next); dirty = true; }];
     },
     useRef(initial) { const k = key(); if (!slots.has(k)) slots.set(k, { current: initial }); return slots.get(k); },
-    useCallback(fn) { return fn; },
+    useCallback(fn, deps) {
+      const k = key(), prev = slots.get(k);
+      if (!prev || deps.some((v, i) => !Object.is(v, prev.deps[i]))) slots.set(k, { fn, deps });
+      return slots.get(k).fn;
+    },
     useEffect(fn, deps) {
       const k = key(), prev = slots.get(k);
       if (!prev || !Array.isArray(deps) || deps.some((v, i) => !Object.is(v, prev[i]))) { slots.set(k, deps ?? []); effects.push(() => { cleanups.get(k)?.(); cleanups.set(k, fn() ?? null); }); }
@@ -57,15 +65,17 @@ function mountWrapper(_props, { invoke = async () => null, child, document: doc 
       module: m, exports: m.exports,
       require: id => modules[(id.startsWith('.') ? './' + posix.normalize(posix.join(posix.dirname(file), id)) : id).replace(/\.ts$/, '')] ?? leaf,
       structuredClone, crypto: globalThis.crypto, console,
-      document: { hidden: false, visibilityState: 'visible', ...doc },
+      document: { hidden: false, visibilityState: 'visible', hasFocus: () => doc?.focused !== false,
+        addEventListener: (type, fn) => listen('document', type, fn), removeEventListener: (type, fn) => unlisten('document', type, fn), ...doc },
       IntersectionObserver: doc?.observer === false ? undefined : class {
         constructor(callback) { this.callback = callback; }
         observe() { this.callback([{ isIntersecting: true }], this); }
         disconnect() {}
       },
       window: {
-        setTimeout: () => 0, clearTimeout() {},
-        addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
+        setTimeout: fn => { const id = ++timerId; timers.set(id, fn); return id; }, clearTimeout(id) { timers.delete(id); },
+        addEventListener: (type, fn) => listen('window', type, fn), removeEventListener: (type, fn) => unlisten('window', type, fn),
+        dispatchEvent(event) { for (const fn of listeners.get(`window:${event.type}`) ?? []) fn(event); return true; },
         CustomEvent: class { constructor(type, init) { Object.assign(this, init); this.type = type; } },
       },
     });
@@ -120,7 +130,10 @@ function mountWrapper(_props, { invoke = async () => null, child, document: doc 
   const button = label => nodes().find(n => n.type === 'button' && (n.props['aria-label'] === label || text(n) === label));
   const settle = async () => { await new Promise(resolve => setImmediate(resolve)); render(); };
   render();
-  return { nodes, text, button, settle, render, module: discovery };
+  return { nodes, text, button, settle, render, module: discovery,
+    fireTimers() { const pending = [...timers.values()]; timers.clear(); pending.forEach(fn => fn()); },
+    event(type, detail, target = 'window') { for (const fn of listeners.get(`${target}:${type}`) ?? []) fn({ type, detail }); render(); },
+  };
 }
 
 const release = (version, extra = {}) => ({
@@ -149,7 +162,9 @@ test('outcome lines say what a manual round found, naming unreachable mirrors', 
   const latest = state({ update_available: false });
   assert.equal(model.outcomeLine(model.manualOutcome(latest, null, null)), '本次未发现适合当前设备的新版本（当前 0.0.6）。');
   const offline = state({ update_available: false, last_unreachable: ['gitee', 'github'] });
-  assert.match(model.outcomeLine(model.manualOutcome(offline, null, null)), /未能连接 Gitee、GitHub/);
+  assert.equal(model.manualOutcome(offline, null, null).kind, 'failed');
+  assert.match(model.outcomeLine(model.manualOutcome(offline, null, null)), /未能连接 Gitee 和 GitHub/);
+  assert.doesNotMatch(model.outcomeLine(model.manualOutcome(offline, null, null)), /本次未发现/);
   const unavailable = state({ newer_unavailable: release('0.0.7', { downloads: [] }) });
   assert.match(model.outcomeLine(model.manualOutcome(unavailable, null, null)), /暂未提供适合当前设备的安装包/);
   assert.equal(model.outcomeLine(model.manualOutcome(state(), { origin: 'manual', applied: false, cancelled: false, error: null }, '网络错误')), '网络错误');
@@ -193,20 +208,6 @@ test('the invite only appears for an unset, readable choice on a started persona
   assert.ok(!model.updateInviteVisible(null, base));
 });
 
-test('answering either way records the ask on this machine; a yield window follows the check-in card', () => {
-  const storage = memoryStorage();
-  assert.ok(!model.updateInviteAsked(storage));
-  model.markUpdateInviteAsked(storage);
-  assert.ok(model.updateInviteAsked(storage));
-  const session = memoryStorage();
-  const now = Date.now();
-  assert.ok(!model.askCardRecentlyShown(session, 'checkin', now));
-  model.markAskCardShown(session, 'checkin', now);
-  assert.ok(model.askCardRecentlyShown(session, 'checkin', now + 60_000));
-  assert.ok(!model.askCardRecentlyShown(session, 'checkin', now + model.askCardYieldMs + 1), 'the yield expires so a later visit may ask');
-  assert.ok(!model.askCardRecentlyShown(session, 'checkin', now + 1000 + model.askCardYieldMs) || true);
-});
-
 test('the startup gate needs consent, calm and an unlocked screen', () => {
   assert.ok(model.autoCheckScheduled(state({ consent: 'enabled' }), { idle: true, unlocked: true, checkedThisSession: false }));
   assert.ok(!model.autoCheckScheduled(state({ consent: 'enabled' }), { idle: false, unlocked: true, checkedThisSession: false }));
@@ -229,7 +230,7 @@ function mountDiscovery(invoke, options = {}) {
       if (answer && typeof answer === 'object' && 'consent' in answer) current = answer;
       return answer;
     },
-    child: d => ({ type: d.UpdateDiscoveryProvider, props: { idle: options.idle ?? true, hasRecords: true, demoActive: false, children: options.child?.(d) ?? null } }),
+    child: d => ({ type: d.UpdateDiscoveryProvider, props: { visitKey: options.visitKey ?? '', idle: options.idle ?? true, hasRecords: true, demoActive: false, children: options.child?.(d) ?? null } }),
     document: options.document,
   });
 }
@@ -393,4 +394,123 @@ test('the invite stays away while an edit or save is in progress', async () => {
   const editing = mount(false);
   await editing.settle();
   assert.equal(editing.nodes().length, 0, 'an edit in progress keeps the ask for a calmer page');
+});
+
+test('the business invitation yields for this entire visit, then a later page may invite', async () => {
+  const options = { visitKey: 'wealth', child: d => ({ type: d.UpdateInvite, props: {} }) };
+  const r = mountDiscovery(async () => state(), options);
+  await r.settle();
+  r.event('thingary-ask-card-shown', { kind: 'checkin' });
+  assert.equal(r.nodes().length, 0);
+  r.render();
+  assert.equal(r.nodes().length, 0, 'no timeout reintroduces an invitation on this visit');
+  options.visitKey = 'overview';
+  r.render();
+  assert.ok(r.button('保持手动检查'), 'a real later page visit may invite');
+});
+
+test('closing the invitation saves a disabled choice without querying', async () => {
+  const calls = [];
+  const r = mountDiscovery(async (name, args) => state({ consent: args.enabled ? 'enabled' : 'disabled', preference_revision: 4 }), {
+    calls, child: d => ({ type: d.UpdateInvite, props: {} }),
+  });
+  await r.settle();
+  r.button('关闭自动检查询问').props.onClick();
+  await r.settle();
+  assert.equal(calls.filter(([name]) => name === 'update_check_request').length, 0);
+  assert.equal(calls.find(([name]) => name === 'update_consent_set')[1].enabled, false);
+  assert.equal(r.nodes().length, 0);
+});
+
+test('damaged preferences have explicit repair choices; future formats keep only manual lookup', async () => {
+  const options = { stateOverride: state({ preferences_status: 'damaged', preferences_repairable: true }), child: d => ({ type: d.UpdateCheck, props: { showVersion: false } }) };
+  const calls = [];
+  const r = mountDiscovery(async (name, args) => { calls.push([name, args]); return state({ consent: 'disabled', preference_revision: 4 }); }, options);
+  await r.settle();
+  assert.ok(r.button('保持手动并修复设置'));
+  r.button('保持手动并修复设置').props.onClick();
+  await r.settle();
+  assert.equal(calls.at(-1)[1].enabled, false);
+  assert.equal(r.button('保持手动并修复设置'), undefined);
+  const future = mountDiscovery(async () => null, { ...options, stateOverride: state({ preferences_status: 'damaged', preferences_repairable: false }) });
+  await future.settle();
+  assert.equal(future.button('保持手动并修复设置'), undefined);
+  assert.ok(future.button('检查更新'));
+  assert.match(future.text(future.nodes()[0]), /设置来自较新版本/);
+});
+
+test('the timer rechecks lock state, and unlock can schedule the unused automatic round', async () => {
+  const doc = { locked: false };
+  const calls = [];
+  const r = mountDiscovery(async () => ({ decision: 'started', task: null, state: state({ consent: 'enabled' }) }), {
+    calls, document: doc, stateOverride: state({ consent: 'enabled' }),
+  });
+  await r.settle();
+  doc.locked = true;
+  r.fireTimers();
+  await r.settle();
+  assert.equal(calls.filter(([name]) => name === 'update_check_request').length, 0);
+  r.event('thingary-privacy-screen-changed');
+  doc.locked = false;
+  r.event('thingary-privacy-screen-changed');
+  r.fireTimers();
+  await r.settle();
+  assert.equal(calls.filter(([name]) => name === 'update_check_request').length, 1);
+});
+
+test('a response captured before a newer consent revision cannot re-enable the UI', async () => {
+  let resolveLookup;
+  let context;
+  const r = mountDiscovery(async (name, args) => {
+    if (name === 'update_check_request') return new Promise(resolve => { resolveLookup = resolve; });
+    if (name === 'update_consent_set') return state({ consent: 'disabled', preference_revision: 4 });
+    return state();
+  }, { stateOverride: state({ consent: 'enabled' }), child: d => ({ type: () => { context = d.useUpdateDiscovery(); return null; }, props: {} }) });
+  await r.settle();
+  const query = context.manualCheck();
+  await context.setConsent(false);
+  await r.settle();
+  resolveLookup({ decision: 'started', task: null, state: state({ consent: 'enabled', preference_revision: 3 }) });
+  await query;
+  await r.settle();
+  assert.equal(context.state.consent, 'disabled');
+});
+
+test('a card mounted while locked is only marked seen after an actual unlock', async () => {
+  const doc = { locked: true };
+  const calls = [];
+  const found = state({ candidate: release('0.0.7'), update_available: true, unread: true });
+  const r = mountDiscovery(async () => ({ ...found, highest_seen_version: '0.0.7', unread: false, preference_revision: 4 }), {
+    calls, document: doc, stateOverride: found, child: d => ({ type: d.UpdateCheck, props: { showVersion: false } }),
+  });
+  await r.settle();
+  assert.equal(calls.filter(([name]) => name === 'update_mark_seen').length, 0);
+  doc.locked = false;
+  r.event('thingary-privacy-screen-changed');
+  await r.settle();
+  assert.equal(calls.filter(([name]) => name === 'update_mark_seen').length, 1);
+});
+
+test('repairing damaged preferences retries a visible card read and clears its old failure notice', async () => {
+  let damaged = true, seen = 0;
+  const current = () => state({ candidate: release('0.0.7'), update_available: true, unread: true,
+    preferences_status: damaged ? 'damaged' : 'ok', preferences_repairable: true });
+  const r = mountDiscovery(async (name) => {
+    if (name === 'update_mark_seen') {
+      seen++;
+      if (damaged) throw { message: '损坏' };
+      return { ...current(), highest_seen_version: '0.0.7', unread: false };
+    }
+    if (name === 'update_consent_set') damaged = false;
+    return current();
+  }, { stateOverride: current(), child: d => ({ type: d.UpdateCheck, props: { showVersion: false } }) });
+  await r.settle();
+  await r.settle();
+  assert.equal(seen, 1);
+  assert.match(r.text(r.nodes()[0]), /已读状态暂时无法保存/);
+  r.button('保持手动并修复设置').props.onClick();
+  await r.settle();
+  await r.settle();
+  assert.equal(seen, 2);
+  assert.doesNotMatch(r.text(r.nodes()[0]), /已读状态暂时无法保存/);
 });

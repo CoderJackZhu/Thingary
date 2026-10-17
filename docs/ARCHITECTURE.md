@@ -62,13 +62,13 @@ webview 的 CSP 只允许 IPC（`connect-src ipc: http://ipc.localhost`），界
 
 `src-tauri/src/update_state.rs` 持有更新的授权与发现状态；`update_check.rs` 仍负责解析、平台匹配与 URL 校验，本模块只决定「何时允许查询」和「记住什么」。状态是进程级托管对象（`Arc<UpdateState>`，应用身份目录），不进 SQLite、不改金融 schema、不进备份；短锁只保护决策与文件写入，网络请求不持任何锁。
 
-两个本机文件沿用 `atomic_write`：`update-preferences.json`（`format_version`、`consent` unset/enabled/disabled、单调 `preference_revision`、`highest_seen_version`、`ignored_version`）与 `update-cache.json`（`last_attempt_at`、`last_success_at`、带 `confirmed_at` 的 `candidate`/`newer_unavailable`、`last_unreachable`、平台／架构／应用版本 `context`）。偏好缺失读作 unset；损坏或未来格式读作 damaged（不自动联网、不静默覆盖，设置里的显式选择会用保留副本 `update-preferences.invalid.json` 后重写）。缓存损坏只忽略重建，绝不重置有效授权。版本比较一律数值（`parse_version`）。
+两个本机文件沿用 `atomic_write`：`update-preferences.json`（`format_version`、`consent` unset/enabled/disabled、单调 `preference_revision`、`highest_seen_version`、`ignored_version`）与 `update-cache.json`（`last_attempt_at`、`last_success_at`、带 `confirmed_at` 的 `candidate`/`newer_unavailable`、`last_unreachable`、平台／架构／应用版本 `context`）。偏好缺失读作 unset；损坏或未来格式读作 damaged，均不自动联网、不静默覆盖；损坏文件提供两个显式修复选择，先复制到 `update-preferences.invalid.json`（已有副本时使用唯一后缀，复制失败则停止修复）再重写；未来格式不可覆盖，也不提供修复按钮，仍允许手动查询。缓存损坏只忽略重建，绝不重置有效授权；未来格式缓存保留原件，不能登记尝试时不发起自动查询，手动查询结果可仅在本次会话展示。偏好选择、已读、忽略均在同一锁内读取、修改、保存并递增偏好修订；状态快照另带进程内单调 `snapshot_revision`，前端据此拒绝较旧的 IPC 响应，包括损坏偏好修复后偏好修订重新起算的情况。版本比较一律数值（`parse_version`）。
 
-调度契约：`begin` 在同一临界区内依次检查偏好损坏 → 授权 → 在途任务（加入并共用同一轮，不改其来源、不消耗自动额度）→ 本进程自动额度（每进程至多一轮）→ 24 小时间隔（失败也计数；检测到未来时间戳视为时钟回拨，允许重建一次基准，不在会话内循环）→ 先原子写入尝试时刻（自动任务写失败即不发出请求）。网络轮在独立线程执行；自动任务在访问第二个来源前及结果落盘前都重新核对取消代次——关闭开关会递增代次，被取消的迟到结果不写候选、不刷新成功时间、不亮圆点，重新开启也不复活旧任务。手动任务不受开关取消。部分来源可达时只能抬高候选（同版本刷新确认时间），不能抹掉更高的既有发现；双源成功才采纳本次结果；全部失败保留历史发现并记录尝试时间。缓存中的候选不高于当前应用版本或平台／架构／应用版本不符时按无发现处理；确认超过 7 天的候选不再构成未读。手动结果无法落盘时保留在内存中供当次展示并如实标注。
+调度契约：`begin` 在同一临界区内依次检查偏好损坏 → 授权 → 在途任务（加入并共用同一轮，不改其来源、不消耗自动额度）→ 本进程自动额度（每进程至多一轮）→ 24 小时间隔（失败也计数；检测到未来时间戳视为时钟回拨，允许重建一次基准，不在会话内循环）→ 先原子写入尝试时刻（自动任务写失败即不发出请求）。网络轮在独立线程执行；自动任务在访问每个来源前（含首个来源）及处理成功或失败结果前都重新核对取消代次——关闭开关会递增代次，被取消的迟到结果不写候选、不刷新成功时间、不亮圆点，重新开启也不复活旧任务。手动任务不受开关取消。部分来源可达时只能抬高候选（同版本刷新确认时间），不能抹掉更高的既有发现；双源成功才采纳本次结果；全部失败保留历史发现并记录尝试时间。缓存中的候选不高于当前应用版本或平台／架构／应用版本不符时按无发现处理；确认超过 7 天的候选不再构成未读。手动结果无法落盘时保留在内存中供当次展示并如实标注。
 
 命令：`update_state_get`（只读快照，不联网）、`update_consent_set`（携带期望修订，冲突报错；关闭时递增取消代次）、`update_check_request`（automatic/manual；返回 started/joined/skipped 与任务结果）、`update_mark_seen`、`update_ignore_version`。skipped 的原因仅用于诊断，不作为用户可见错误。
 
-前端 `src/UpdateDiscovery.tsx` 的 `UpdateDiscoveryProvider` 是唯一控制器：装载状态、在空闲且解锁约 5 秒后请求一次自动检查（后端仍会再核对全部门禁）、转发手动检查与设置动作；`UpdateCheck`（关于页）、侧栏「设置」入口圆点（`SettingsEntry`，可访问名称含「有新版本」）与一次性邀请 `UpdateInvite` 订阅同一状态。已读只在版本卡于前台可见（IntersectionObserver + 页面未隐藏 + 未锁定）时记录一次；偏好无法保存已读时本会话先消除提示并说明可能再次出现。`UpdateInvite` 仅在本机无选择、非样例、已有记录且空闲时出现，并通过 `thingary-ask-card-shown` 事件与盘点提醒邀请协调，同页不叠加。预览参数见开发说明。
+前端 `src/UpdateDiscovery.tsx` 的 `UpdateDiscoveryProvider` 是唯一控制器：装载状态、在空闲、前台且解锁约 5 秒后请求一次自动检查，计时结束时重新核对焦点、锁屏与授权（后端仍会再核对全部门禁）、转发手动检查与设置动作；`UpdateCheck`（关于页）、侧栏「设置」入口圆点（`SettingsEntry`，可访问名称含「有新版本」）与一次性邀请 `UpdateInvite` 订阅同一状态。已读只在版本卡于前台可见（IntersectionObserver + 页面前台且有焦点 + 未锁定；解锁或回到前台会重新判断）时记录一次；偏好无法保存已读时本会话先消除提示并说明可能再次出现。`UpdateInvite` 仅在本机无选择、非样例、已有记录且空闲时出现，并通过 `thingary-ask-card-shown` 事件与盘点提醒邀请协调，同次页面访问不叠加；之后符合条件的普通页面访问可以再显示更新邀请，不以固定秒数决定。设置页不再显示第二份邀请。预览参数见开发说明。
 
 ## 身份与资料隔离
 

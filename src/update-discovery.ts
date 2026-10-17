@@ -14,11 +14,13 @@ export type UpdateCandidate = {
   confirmed_at: string;
 };
 export type UpdateDiscoveryState = {
+  snapshot_revision?: number;
   current_version: string;
   platform_label: string;
   consent: UpdateConsent;
   preferences_status: 'ok' | 'damaged';
   preferences_problem: string | null;
+  preferences_repairable?: boolean;
   preference_revision: number;
   highest_seen_version: string | null;
   ignored_version: string | null;
@@ -94,6 +96,7 @@ export function manualOutcome(state: UpdateDiscoveryState, task: UpdateTaskResul
   if (error) return { kind: 'failed', message: error };
   if (task?.cancelled) return { kind: 'failed', message: '自动检查已取消，可点击手动检查。' };
   if (task && !task.applied && task.error) return { kind: 'failed', message: task.error };
+  if (state.last_unreachable.length === 2) return { kind: 'failed', message: '上次检查未能连接 Gitee 和 GitHub，请重新检查；已有发现仅供历史参考。' };
   if (state.update_available && state.candidate) {
     return {
       kind: 'update',
@@ -123,47 +126,6 @@ export const inviteTitle = '自动发现新版本？';
 export const inviteBody = '开启后，打开物谱时每天最多查询一次公开版本列表，不上传你的资料，下载和安装仍由你决定。';
 
 // --- One-time ask, machine-local like the reminder ask ----------------------
-
-export const updateInviteKey = 'thingary.update-invite.v1';
-export const askCardKey = 'thingary.ask-card.v1';
-/** Within one page visit an ask yields to a business ask; this window keeps it
- * from popping up again immediately after the check-in card is answered. */
-export const askCardYieldMs = 90_000;
-
-export type InviteStorage = Pick<Storage, 'getItem' | 'setItem'>;
-
-export function updateInviteAsked(storage: InviteStorage | null): boolean {
-  try {
-    return storage?.getItem(updateInviteKey) === '1';
-  } catch {
-    return false;
-  }
-}
-export function markUpdateInviteAsked(storage: InviteStorage | null): void {
-  try {
-    storage?.setItem(updateInviteKey, '1');
-  } catch {
-    /* The ask simply repeats next launch; nothing else breaks. */
-  }
-}
-
-export function markAskCardShown(session: InviteStorage | null, kind: string, at: number): void {
-  try {
-    session?.setItem(askCardKey, JSON.stringify({ kind, at }));
-  } catch {
-    /* Optional coordination only. */
-  }
-}
-export function askCardRecentlyShown(session: InviteStorage | null, kind: string, now: number): boolean {
-  try {
-    const raw = session?.getItem(askCardKey);
-    if (!raw) return false;
-    const parsed = JSON.parse(raw) as { kind?: string; at?: number };
-    return parsed.kind === kind && typeof parsed.at === 'number' && now - parsed.at < askCardYieldMs;
-  } catch {
-    return false;
-  }
-}
 
 export function updateInviteVisible(
   state: UpdateDiscoveryState | null,

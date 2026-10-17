@@ -124,7 +124,7 @@ env TMPDIR="$thingary_test_tmp" npm test
 
 更早的入口方案（历史验证，已替代）：关于窗口、设置中的帮助汇总、帮助菜单与备份／更新定位曾接入。构建、1,088 项 UI 测试、格式／Clippy 和 597 项 Rust 测试通过，3 项既有容量测试仍忽略。内存虚构预览覆盖宽窄、浅深、空资料、版本不可用、链接打开失败、离线许可展开及备份／更新标题焦点；左下角本地状态圆点已改为整行居中并核对。独立虚构身份原生确认关于窗口名称／版本／维护者、帮助菜单进入设置、更新与备份区域定位，未触发检查更新或备份恢复。外部浏览器真实访问、VoiceOver 和完整键盘路径未在该次验收，圆点最后的样式修正只做了浏览器核对。该次源码与文档变更没有替换当时的正式安装包。
 
-关于页更新发现预览：`update=available|none|unavailable|partial|error|ahead` 覆盖可下载、空列表、缺包、单源及失败，均为虚构发布信息；`update-platform=windows` 切换平台；`update-consent=unset|enabled|disabled|damaged` 模拟开关选择与偏好损坏，`update-seen=1`／`update-ignored=1` 模拟已读／已忽略，`update-unsaved=1` 模拟本次状态无法保存。预览不会发出真实更新请求。关于页版本失败预览可加 `support-version=error`；外部链接在预览中始终拒绝打开，展示可复制地址，不访问真实网站。
+关于页更新发现预览：`update=available|none|unavailable|partial|error|ahead` 覆盖可下载、空列表、缺包、单源及失败，均为虚构发布信息；`update-platform=windows` 切换平台；`update-consent=unset|enabled|disabled|damaged|future` 模拟开关选择、偏好损坏与未来格式，`update-seen=1`／`update-ignored=1` 模拟已读／已忽略，`update-unsaved=1` 模拟本次状态无法保存，`update-write=error` 模拟显式设置写入失败。预览不会发出真实更新请求。关于页版本失败预览可加 `support-version=error`；外部链接在预览中始终拒绝打开，展示可复制地址，不访问真实网站。
 
 ```sh
 npm run dev -- --port 1429

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkInUnfilledLabels, comparisonText, enterJumpsAmount, nextUnfilledLabel } from '../src/wealth.ts';
+import { checkInUnfilledLabels, checkInUnfilledTargets, comparisonText, enterJumpsAmount, nextUnfilledLabel } from '../src/wealth.ts';
 
 // I08／I09：定位未填的候选顺序、回绕，以及 Enter 与输入法组合的分工。
 
@@ -33,9 +33,19 @@ test('an invalid but non-empty input stays on the locate path because its parsed
 });
 
 test('a foreign row locates its original amount; a kept rate is not re-located', () => {
-  const labels = checkInUnfilledLabels([field('us', '美元户', { currency: 'USD' })], { USD: '7.2' }, { us: { state: 'entered', cents: '', original_minor: '' } });
+  const labels = checkInUnfilledLabels([field('us', '美元户', { currency: 'USD' })], { USD: '7200000' }, { us: { state: 'entered', cents: '', original_minor: '' } });
   assert.deepEqual(labels, ['美元户 原币金额']);
-  assert.deepEqual(checkInUnfilledLabels([field('us', '美元户', { currency: 'USD' })], { USD: '7.2' }, { us: { state: 'entered', cents: '720', original_minor: '100' } }), []);
+  assert.deepEqual(checkInUnfilledLabels([field('us', '美元户', { currency: 'USD' })], { USD: '7200000' }, { us: { state: 'entered', cents: '720', original_minor: '100' } }), []);
+});
+
+test('same-name accounts retain different locate identities and a zero FX rate is a gap', () => {
+  const targets = checkInUnfilledTargets([field('a', '银行卡'), field('b', '银行卡')], {}, {});
+  assert.deepEqual(targets.map(target => target.key), ['amount:a', 'amount:b']);
+  assert.equal(targets[0].label, targets[1].label);
+  assert.equal(nextUnfilledLabel(targets.map(target => target.key), 'amount:a'), 'amount:b');
+  assert.deepEqual(checkInUnfilledTargets([field('usd', '美元', { currency: 'USD' })], { USD: '0' }, {
+    usd: { state: 'entered', cents: '', original_minor: '100' },
+  }).map(target => target.key), ['rate:USD']);
 });
 
 test('the locate action moves after the focus and wraps; nothing happens when filled', () => {

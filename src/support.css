@@ -26,6 +26,7 @@
 
 /* D5 update discovery: unread dot, auto-toggle block, one-time invite. */
 .update-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;margin-left:8px}
+.update-unread-text{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .settings-row .update-dot{align-self:center}
 .update-auto-row{margin:12px 0 0;display:flex;flex-direction:column;gap:4px}
 .update-auto-toggle{display:flex;align-items:center;gap:8px;font-size:14px}

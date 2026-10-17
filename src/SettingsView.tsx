@@ -21,7 +21,7 @@ export function SettingsView({ panels, optionsPending, demoPending, busy, group,
   useEffect(() => { if (optionsPending) setSelected('options'); else if (demoPending) setSelected('demo'); }, [optionsPending, demoPending]);
   return <section className="settings-section settings-categories">
     <nav className="settings-categories-nav" aria-label="设置分类">{categories.map(([key, label, icon]) =>
-      <button key={key} type="button" aria-current={selected === key ? 'page' : undefined} aria-controls={`settings-${key}`} aria-label={key === 'support' && supportBadge ? '关于与帮助 · 有新版本' : undefined} disabled={busy && selected !== key} onClick={() => setSelected(key)}><Icon name={icon}/>{label}{key === 'support' && supportBadge}</button>
+      <button key={key} type="button" aria-current={selected === key ? 'page' : undefined} aria-controls={`settings-${key}`} disabled={busy && selected !== key} onClick={() => setSelected(key)}><Icon name={icon}/>{label}{key === 'support' && supportBadge}</button>
     )}</nav>
     <div className="settings-content">{categories.map(([key, label]) =>
       <div key={key} id={`settings-${key}`} role="region" aria-label={label} hidden={selected !== key}>{panels[key]}</div>

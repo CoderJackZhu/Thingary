@@ -71,21 +71,24 @@ export type CheckInRowState = { state: string | null; cents: string; original_mi
 /** 定位未填的候选顺序：共享汇率在前，随后按表格行的金额／份额／单价。
  * 非法但非空的输入在行状态里 cents／数量为空，同样算待处理。 */
 export function checkInUnfilledLabels(fields: CheckInField[], rates: Record<string, string>, rows: Record<string, CheckInRowState | undefined>): string[] {
-  const labels: string[] = [];
+  return checkInUnfilledTargets(fields, rates, rows).map(target => target.label);
+}
+export function checkInUnfilledTargets(fields: CheckInField[], rates: Record<string, string>, rows: Record<string, CheckInRowState | undefined>): { key: string; label: string }[] {
+  const targets: { key: string; label: string }[] = [];
   const foreign = new Set(fields.map(f => f.currency).filter(c => c && c !== 'CNY'));
-  for (const code of foreign) if (!(rates[code] ?? '').trim()) labels.push(`${code} 汇率`);
+  for (const code of foreign) if (!/^\d+$/.test(rates[code] ?? '') || BigInt(rates[code]) <= 0n) targets.push({ key: `rate:${code}`, label: `${code} 汇率` });
   for (const field of fields) {
     const row = rows[field.id];
     if (field.holding_mode) {
-      if (!row?.quantity_e8) labels.push(`${field.name} 份额`);
-      if (!row?.unit_price_e6) labels.push(`${field.name} 单价`);
+      if (!row?.quantity_e8) targets.push({ key: `quantity:${field.id}`, label: `${field.name} 份额` });
+      if (!row?.unit_price_e6) targets.push({ key: `price:${field.id}`, label: `${field.name} 单价` });
     } else if (field.currency === 'CNY') {
-      if (!row?.state || row.state === 'missing' || row.cents === '') labels.push(`${field.name} 本次金额`);
+      if (!row?.state || row.state === 'missing' || row.cents === '') targets.push({ key: `amount:${field.id}`, label: `${field.name} 本次金额` });
     } else if (!row?.state || row.state === 'missing' || !row.original_minor) {
-      labels.push(`${field.name} 原币金额`);
+      targets.push({ key: `amount:${field.id}`, label: `${field.name} 原币金额` });
     }
   }
-  return labels;
+  return targets;
 }
 /** 从当前焦点之后找下一处，末尾回到首处；没有任何缺项时不动焦点。 */
 export function nextUnfilledLabel(labels: string[], activeLabel: string | null): string | null {
