@@ -27,6 +27,9 @@ if (process.argv.includes('--check-source')) {
   if (createHash('sha256').update(packagedBytes).digest('hex') !== field('planningEngineWasmHash')) throw new Error('Packaged WASM binary hash differs.');
   verifyModule(packagedBytes);
   console.log(`Packaged planning engine matches Rust inputs ${sourceHash.slice(0, 12)}`);
+} else if (!process.argv.includes('--check') && !process.argv.includes('--force') && isCurrent()) {
+  // The committed artifact is the reviewed one: rebuilding it on another Rust toolchain changes bytes without changing the inputs.
+  console.log(`Planning engine up to date for Rust inputs ${sourceHash.slice(0, 12)}; pass --force to rebuild.`);
 } else {
   execFileSync('cargo', ['build', '--locked', '--release', '--target', 'wasm32-unknown-unknown',
     '--target-dir', target, '--manifest-path', join(crate, 'Cargo.toml')], { cwd: root, stdio: 'inherit' });
@@ -42,6 +45,19 @@ if (process.argv.includes('--check-source')) {
     writeFileSync(destination, output);
   }
   console.log(`Planning engine: ${bytes.length} bytes, source ${sourceHash.slice(0, 12)}`);
+}
+
+function isCurrent() {
+  try {
+    const packaged = readFileSync(destination, 'utf8');
+    const field = name => packaged.match(new RegExp(`^export const ${name} = '([^']+)';$`, 'm'))?.[1];
+    const encoded = field('planningEngineWasm');
+    if (field('planningEngineSourceHash') !== sourceHash || !encoded) return false;
+    const bytes = Buffer.from(encoded, 'base64');
+    if (createHash('sha256').update(bytes).digest('hex') !== field('planningEngineWasmHash')) return false;
+    verifyModule(bytes);
+    return true;
+  } catch { return false; }
 }
 
 function verifyModule(bytes) {

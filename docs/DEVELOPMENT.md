@@ -273,7 +273,7 @@ node scripts/offline-guide.mjs <临时输出目录>
 
 ## Rust 规划核心
 
-修改计算库后运行 `npm run build:engine`；首次需要 `rustup target add wasm32-unknown-unknown`。`npm run build` 与 `npm run dev` 都会先构建 WASM；`tauri dev` 的前置开发命令同样触发此构建。生成的 `src/planning-engine-wasm.ts` 随源码保存，不手工编辑；原生应用通过 path dependency 编译同一库。
+修改计算库后运行 `npm run build:engine`；首次需要 `rustup target add wasm32-unknown-unknown`。`npm run build` 与 `npm run dev` 都会先运行 `build:engine`：Rust 输入（源码、Cargo.toml、Cargo.lock）未变且已提交 WASM 的源码／二进制散列与接口校验通过时直接沿用，不重建，因此不同 Rust 工具链不会改动受跟踪文件；输入变化时才重建，`npm run build:engine -- --force` 可强制重建。`tauri dev` 的前置开发命令同样触发此构建。生成的 `src/planning-engine-wasm.ts` 随源码保存，不手工编辑；原生应用通过 path dependency 编译同一库。
 
 ```sh
 npm run test:engine
