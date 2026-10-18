@@ -92,17 +92,19 @@ async function main() {
     if (!r.ok) throw new Error(`Create Gitee release: HTTP ${r.status} ${await r.text()}`);
     giteeRelease = await r.json();
   }
-  for (const name of todo.upload) {
+  // Smallest first, so a slow link shows up before the big installer.
+  for (const name of [...todo.upload].sort((x, y) => assets.find(a => a.name === x).bytes.length - assets.find(a => a.name === y).bytes.length)) {
     const a = assets.find(x => x.name === name);
     // curl, not fetch: the runner-to-Gitee upload of a large installer can take longer than Node's fixed 5 minute body timeout.
     const dir = mkdtempSync(join(tmpdir(), 'gitee-'));
     try {
       writeFileSync(join(dir, a.name), a.bytes);
       let last = '';
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           // The token goes in a form field read from the environment, not onto the command line.
-          const out = execFileSync('curl', ['--silent', '--show-error', '--max-time', '3000', '--fail-with-body', '-F', 'access_token=<-', '-F', `file=@${join(dir, a.name)}`, `${api}/releases/${giteeRelease.id}/attach_files`], { input: token, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          const out = execFileSync('curl', ['--silent', '--show-error', '--http1.1', '--max-time', '1200', '--fail-with-body', '--write-out', '\n[curl] HTTP %{http_code}, %{size_upload} bytes in %{time_total}s (%{speed_upload} B/s)\n', '-F', 'access_token=<-', '-F', `file=@${join(dir, a.name)}`, `${api}/releases/${giteeRelease.id}/attach_files`], { input: token, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          console.log(out.split('\n').filter(l => l.startsWith('[curl]')).join(' '));
           if (!/"id"\s*:/.test(out)) throw new Error(out.slice(0, 200));
           last = ''; break;
         } catch (e) { last = String(e.stderr || e.message).slice(0, 300); console.log(`upload ${a.name} attempt ${attempt} failed: ${last}`); }
