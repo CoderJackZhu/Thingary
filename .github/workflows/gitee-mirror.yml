@@ -41,6 +41,14 @@ jobs:
         with:
           ref: refs/tags/${{ env.TAG }}
           fetch-depth: 0
+      # The mirror script comes from the commit this workflow runs on (main for a manual run), so it also works for
+      # releases tagged before the script existed.
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.present == 'true'
+        with:
+          path: tooling
+          sparse-checkout: scripts/sync-gitee-release.mjs
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
         if: steps.token.outputs.present == 'true'
         with:
@@ -55,4 +63,4 @@ jobs:
         if: steps.token.outputs.present == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/sync-gitee-release.mjs "$TAG"
+        run: node tooling/scripts/sync-gitee-release.mjs "$TAG"
