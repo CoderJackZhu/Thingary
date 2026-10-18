@@ -1,0 +1,58 @@
+name: Gitee mirror
+
+# After a GitHub Release is published, copy the tag, source commit, notes and attachments to the Gitee mirror
+# and verify the file hashes. Needs the repository secret GITEE_TOKEN (a Gitee personal access token with the
+# projects scope); without it the job only prints a warning. Run it by hand for an existing release with
+# "Run workflow" and the tag name.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to mirror (for example v0.0.8)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitee-mirror-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+    steps:
+      - name: Check the Gitee token
+        id: token
+        run: |
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "::warning::GITEE_TOKEN is not set; the Gitee mirror was skipped. Add the secret, then run this workflow by hand for $TAG."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.present == 'true'
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.present == 'true'
+        with:
+          node-version: 22
+      - name: Push the tag and source commit to Gitee
+        if: steps.token.outputs.present == 'true'
+        run: |
+          # Fast-forward only, never forced: a published tag or branch on Gitee is not moved.
+          git push "https://oauth2:${GITEE_TOKEN}@gitee.com/CoderJackZhu/thingary.git" \
+            "$(git rev-parse HEAD):refs/heads/main" "refs/tags/${TAG}:refs/tags/${TAG}"
+      - name: Create the Gitee release, upload the attachments and verify the hashes
+        if: steps.token.outputs.present == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/sync-gitee-release.mjs "$TAG"
