@@ -103,7 +103,7 @@ async function main() {
       for (let attempt = 1; attempt <= 2; attempt++) {
         try {
           // The token goes in a form field read from the environment, not onto the command line.
-          const out = execFileSync('curl', ['--silent', '--show-error', '--http1.1', '--max-time', '1200', '--fail-with-body', '--write-out', '\n[curl] HTTP %{http_code}, %{size_upload} bytes in %{time_total}s (%{speed_upload} B/s)\n', '-F', 'access_token=<-', '-F', `file=@${join(dir, a.name)}`, `${api}/releases/${giteeRelease.id}/attach_files`], { input: token, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          const out = execFileSync('curl', ['--silent', '--show-error', '--http1.1', '--max-time', '5400', '--fail-with-body', '--write-out', '\n[curl] HTTP %{http_code}, %{size_upload} bytes in %{time_total}s (%{speed_upload} B/s)\n', '-F', 'access_token=<-', '-F', `file=@${join(dir, a.name)}`, `${api}/releases/${giteeRelease.id}/attach_files`], { input: token, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
           console.log(out.split('\n').filter(l => l.startsWith('[curl]')).join(' '));
           if (!/"id"\s*:/.test(out)) throw new Error(out.slice(0, 200));
           last = ''; break;
