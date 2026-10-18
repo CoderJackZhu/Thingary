@@ -36,7 +36,7 @@ import { WealthChanges } from './WealthChanges';
 import { offerUndo, useRestored } from './undo';
 import './wealth.css';
 
-export type WealthReviewFocus = { generation: string; kind: 'accounts' | 'snapshot' | 'history' | 'check-in'; id?: string; date?: string };
+export type WealthReviewFocus = { generation: string; kind: 'accounts' | 'snapshot' | 'history' | 'check-in' | 'savings-goals'; id?: string; date?: string };
 type Tab = 'overview' | 'accounts' | 'changes' | 'history';
 
 /** Shared by wealth and expense pages: one stored receipt, checked by request id. */
@@ -93,6 +93,7 @@ const series = (i: number) => `var(--series-${i % 7 + 1})`;
 
 export function WealthPage({ today, onEditingChange, source, onSourceDone, search, onSearch, autoNew, onAutoNewDone, onGotoPlanning, onCompare, reviewFocus, onReviewFocusDone, onFinancialImport }: SourceProps & { onGotoPlanning?: (snapshotId: string) => void; onCompare?: (pair?: { fromSnapshotId: string; toSnapshotId: string }) => void; reviewFocus?: WealthReviewFocus | null; onReviewFocusDone?: () => void; onFinancialImport?: () => void; today: string; onEditingChange: (value: boolean) => void; search: string; onSearch: (value: string) => void; autoNew?: boolean; onAutoNewDone?: () => void }) {
   const [tab, setTab] = useState<Tab>('overview');
+  const [savingsFocus, setSavingsFocus] = useState(false);
   const [accountView, setAccountView] = useState<AccountView>('active');
   // 概览链接带来的比较区间：只在点「变化」分段时清空，进入时消费一次（U20 §2.1）。
   const [changesSeed, setChangesSeed] = useState<{ from: string; to: string } | null>(null);
@@ -128,7 +129,8 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     if (!reviewFocus || !summary) return;
     if (reviewFocus.generation !== summary.generation) { onReviewFocusDone?.(); return; }
     if (storedPending()) return;
-    if (reviewFocus.kind === 'history') setTab('history');
+    if (reviewFocus.kind === 'savings-goals') { setTab('overview'); setSavingsFocus(true); onSearch(''); }
+    else if (reviewFocus.kind === 'history') setTab('history');
     else if (reviewFocus.kind === 'check-in') setCheckIn(reviewFocus.date ?? today);
     else if (reviewFocus.kind === 'accounts') { setTab('accounts'); setAccountView('all'); onSearch(''); }
     else {
@@ -215,7 +217,7 @@ export function WealthPage({ today, onEditingChange, source, onSourceDone, searc
     {savedSnapshot && !error && summary && <CheckinReminderAsk savedComplete={summary.points.some(p => p.snapshot_id === savedSnapshot.id && p.complete)} completeCount={summary.points.filter(p => p.complete).length} wealthOn today={today}/>}
     {error ? <article className="ui-card ui-content" role="alert"><p>财富资料读取失败：{error}</p><button onClick={reload}>重新读取</button></article>
       : !summary || !accounts ? <p role="status" className="muted">正在读取财富资料…</p>
-      : tab === 'overview' ? <><Overview groups={groups} allAccounts={accounts} onQuick={openQuick} today={today} onFinancialImport={onFinancialImport} importDisabled={!!pending || busy} accountScope={accountScope} hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/><SavingsGoals key={summary.generation} generation={summary.generation} today={today} version={retry} blocked={!!pending || busy} onEditingChange={setGoalEditing} onPendingChange={() => setPending(storedPending())}/></>
+      : tab === 'overview' ? <><div className="review-plan-actions"><button type="button" className="ui-link" onClick={() => setSavingsFocus(true)}>存钱目标 ↓</button></div><Overview groups={groups} allAccounts={accounts} onQuick={openQuick} today={today} onFinancialImport={onFinancialImport} importDisabled={!!pending || busy} accountScope={accountScope} hasAccounts={accounts.length > 0} summary={summary} accounts={accounts.filter(a => accountVisible(a, accountView)).sort((a,b) => Number(!!a.fields.closed_on)-Number(!!b.fields.closed_on))} latest={latest} lastComplete={lastComplete} onNewAccount={() => setEditing('new')} onCheckIn={setCheckIn} onOpenChanges={seed => { if (onCompare) onCompare(seed ? { fromSnapshotId: seed.from, toSnapshotId: seed.to } : undefined); else { setChangesSeed(seed); setTab('changes'); } }}/><SavingsGoals key={summary.generation} generation={summary.generation} today={today} version={retry} focusRequested={savingsFocus} onFocusDone={() => setSavingsFocus(false)} blocked={!!pending || busy} onEditingChange={setGoalEditing} onPendingChange={() => setPending(storedPending())}/></>
       : tab === 'accounts' ? (keyword && !shownAccounts.length
         ? <div className="empty"><span className="empty-mark">¥</span><h2>当前条件下没有找到记录</h2><p>试试其他关键词。</p><button onClick={() => onSearch('')}>清除搜索</button></div>
         : <AccountListing mode={groupView} groups={groups} allAccounts={accounts} summary={summary} onQuick={openQuick} today={today} accounts={shownAccounts} onEdit={setEditing} onNew={() => setEditing('new')} found={keyword ? shownAccounts.length : null}/>)

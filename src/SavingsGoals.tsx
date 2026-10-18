@@ -14,9 +14,9 @@ import './savings-goals.css';
 
 export function financialAmountsHidden() { try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { return false; } }
 
-export function SavingsGoals({ generation, today, version, compact = false, hideAmounts, blocked = false, onEditingChange, onPendingChange }: {
+export function SavingsGoals({ generation, today, version, compact = false, hideAmounts, blocked = false, onEditingChange, onPendingChange, onManage, focusRequested = false, onFocusDone }: {
   generation: string; today: string; version?: unknown; compact?: boolean; hideAmounts?: boolean; blocked?: boolean;
-  onEditingChange?: (editing: boolean) => void; onPendingChange?: () => void;
+  onEditingChange?: (editing: boolean) => void; onPendingChange?: () => void; onManage?: () => void; focusRequested?: boolean; onFocusDone?: () => void;
 }) {
   const [year, setYear] = useState(Number(today.slice(0, 4)));
   const [attempt, setAttempt] = useState(0), [localHidden, setLocalHidden] = useState(financialAmountsHidden);
@@ -24,7 +24,7 @@ export function SavingsGoals({ generation, today, version, compact = false, hide
   const [state, setState] = useState<{ scope: string; data: SavingsRead | null; error: string } | null>(null);
   const [editing, setEditing] = useState<{ goal: SavingsGoal | null; data: SavingsRead } | null>(null);
   const [busy, setBusy] = useState(false), [notice, setNotice] = useState(''), [armed, setArmed] = useState<string | null>(null);
-  const lock = useRef(false);
+  const lock = useRef(false), heading = useRef<HTMLHeadingElement>(null);
   const reload = () => setAttempt(n => n + 1);
   useRestored(reload);
   useEffect(() => {
@@ -39,6 +39,12 @@ export function SavingsGoals({ generation, today, version, compact = false, hide
   const error = state?.scope === scope ? state.error : '';
   const hidden = hideAmounts ?? localHidden;
   const frozen = blocked || busy || !!storedPending();
+  useEffect(() => {
+    if (!focusRequested || (!data && !error)) return;
+    heading.current?.scrollIntoView({ block: 'start' });
+    heading.current?.focus({ preventScroll: true });
+    onFocusDone?.();
+  }, [focusRequested, data, error, onFocusDone]);
   async function remove(g: SavingsGoal) {
     if (lock.current || frozen) return;
     lock.current = true; setBusy(true); setNotice('');
@@ -46,13 +52,15 @@ export function SavingsGoals({ generation, today, version, compact = false, hide
     catch (e) { setNotice(errorMessage(e)); onPendingChange?.(); }
     finally { lock.current = false; setBusy(false); }
   }
+  if (compact && !error && (!data || !data.goals.length)) return null;
   return <section className="ui-card ui-content savings-goals" aria-label="存钱目标">
-    <div className="ui-section-head"><h3>存钱目标</h3>{!compact && <div className="savings-actions"><button type="button" onClick={() => { const value = !localHidden; setLocalHidden(value); try { localStorage.setItem('thingary.hide-financial-amounts.v1', value ? '1' : '0'); } catch { /* display preference only */ } }}>{hidden ? '显示目标金额' : '隐藏目标金额'}</button><button type="button" disabled={!data || frozen} onClick={() => data && setEditing({ goal: null, data })}>新增存钱目标</button></div>}</div>
-    <p className="muted small">关联账户余额仅作参考，不预留或扣减资金，也不调整退休规划。余额达标不代表可立即动用。</p>
+    <div className="ui-section-head"><h3 ref={heading} tabIndex={-1}>存钱目标</h3>{compact && onManage && <button type="button" className="ui-link" onClick={onManage}>管理目标 →</button>}{!compact && <div className="savings-actions"><button type="button" onClick={() => { const value = !localHidden; setLocalHidden(value); try { localStorage.setItem('thingary.hide-financial-amounts.v1', value ? '1' : '0'); } catch { /* display preference only */ } }}>{hidden ? '显示目标金额' : '隐藏目标金额'}</button><button type="button" disabled={!data || frozen} onClick={() => data && setEditing({ goal: null, data })}>新增存钱目标</button></div>}</div>
+    {(!compact || !!data?.goals.length) && <p className="muted small">{data?.goals.length ? '关联账户余额仅作参考，不预留或扣减资金，也不调整退休规划。余额达标不代表可立即动用。' : '为应急金、旅行等设定金额并关联账户，每次完整盘点后查看进度。'}</p>}
     {notice && <p role="alert">{notice}</p>}
     {error ? <p role="alert">存钱目标读取失败：{error}<button type="button" onClick={reload}>重新读取</button></p> : !data ? <p role="status">正在读取存钱目标…</p> : <>
       {data.basis ? <p className="muted small">依据 {data.basis.date} 完整盘点{data.newer_incomplete ? '；较新的记录不完整，仍采用这次完整盘点' : ''}</p> : <p className="muted">尚无完整盘点，余额与进度暂未知。</p>}
       {!data.goals.length ? <p className="ui-empty">设一个目标，每次盘点后看余额离目标多远。</p> : <div className="savings-grid">{(compact ? data.goals.slice(0, 2) : data.goals).map(view => <GoalCard key={view.goal.id} view={view} data={data} hidden={hidden} compact={compact} onEdit={() => setEditing({ goal: view.goal, data })} onDelete={() => armed === view.goal.id ? void remove(view.goal) : setArmed(view.goal.id)} armed={armed === view.goal.id} disabled={frozen}/>)}</div>}
+      {compact && data.goals.length > 2 && <p className="muted small">共 {data.goals.length} 个目标，这里显示前 2 个；其余可在管理目标中查看。</p>}
       {!compact && !!data.goals.length && <div className="savings-history"><YearSelect value={year} todayYear={Number(today.slice(0, 4))} recorded={data.years} intent="records" onChange={setYear} disabled={!!editing || frozen}/><span className="muted small">历史按当前目标设置回看；改金额或账户会改变曲线，不表示当时已预留资金。</span></div>}
     </>}
     {editing && <GoalEditor key={`${generation}:${editing.goal?.id ?? 'new'}`} generation={generation} today={today} initial={editing.goal} data={editing.data} onClose={saved => { setEditing(null); onPendingChange?.(); if (saved) reload(); }}/>}
@@ -67,8 +75,8 @@ function GoalCard({ view, data, hidden, compact, onEdit, onDelete, armed, disabl
     <p className="savings-amount">{!p.complete ? '已知部分 ' : ''}<strong>{amount(p.known_cents)}</strong><span> / {amount(g.fields.target_cents)}</span></p>
     {!hidden && p.percent_hundredths !== null && <progress max={10000} value={p.percent_hundredths} aria-label={`${g.fields.name}关联余额进度`}/>}
     <p>{p.reached === null ? `${p.missing} 个账户余额未知${p.unavailable ? `，${p.unavailable} 个关联账户需处理` : ''}` : p.reached ? '该次盘点余额达标' : `还差 ${amount(p.gap_cents)}`}</p>
-    {g.fields.target_date && <p className="muted small">目标日期 {g.fields.target_date}{p.deadline === 'past' ? ' · 目标日期已过' : p.deadline === 'today' ? ' · 目标日期为今天' : p.deadline === 'this_month' ? ' · 目标在本月，请直接核对差额' : ''}</p>}
-    {p.monthly_cents !== null && <p>按该次盘点计算，每月平均还需 {amount(p.monthly_cents)}<small className="muted">（从盘点下个月起，含目标月，共 {p.months} 个月；不计收益、费用或期间实际收支）</small></p>}
+    {!compact && g.fields.target_date && <p className="muted small">目标日期 {g.fields.target_date}{p.deadline === 'past' ? ' · 目标日期已过' : p.deadline === 'today' ? ' · 目标日期为今天' : p.deadline === 'this_month' ? ' · 目标在本月，请直接核对差额' : ''}</p>}
+    {!compact && p.monthly_cents !== null && <p>按该次盘点计算，每月平均还需 {amount(p.monthly_cents)}<small className="muted">（从盘点下个月起，含目标月，共 {p.months} 个月；不计收益、费用或期间实际收支）</small></p>}
     {!!view.shared_account_ids.length && <p className="muted small">部分账户也关联其他目标，资金未分别预留。</p>}
     {view.planning_overlap === true && <p className="muted small">关联资金也用于退休规划，本目标不会从中扣减。</p>}
     {view.planning_overlap === null && <p className="muted small">规划来源未读取，暂不能判断资金是否重复使用。</p>}

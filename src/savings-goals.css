@@ -13,3 +13,6 @@
 .savings-chart { margin: 1rem 0; }
 .savings-chart svg { display: block; width: 100%; height: auto; }
 .savings-chart-dates { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; }
+
+.savings-goals h3 { scroll-margin-top: 1rem; }
+.review-section .savings-goals { margin: 0; }

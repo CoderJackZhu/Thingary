@@ -21,7 +21,7 @@ import type { Read, Review, ReviewPage } from './review';
 import { Info } from './FormControls';
 import { DailyCostMetric } from './DailyCostMetric';
 import './review.css';
-const labels: Record<ReviewPage, string> = { wealth: '账户与盘点', assets: '全部物品', expenses: '重要支出', recurring: '周期费用', virtual: '虚拟资产', timeline: '时间轴' };
+const labels: Record<ReviewPage, string> = { wealth: '账户与盘点', assets: '全部物品', expenses: '重要支出', recurring: '周期费用', virtual: '虚拟资产', timeline: '时间轴', wishlist: '心愿清单' };
 
 const series = (i: number) => `var(--series-${i % 7 + 1})`;
 const tone = (cents: string | null) => cents?.startsWith('-') ? ' neg' : cents && cents !== '0' ? ' pos' : '';
@@ -30,7 +30,7 @@ const tone = (cents: string | null) => cents?.startsWith('-') ? ' neg' : cents &
  * 资产结构：类别、占比、金额，以及较上一次完整盘点的变化。变化来自只读命令 wealth_compare，
  * 只在最近两次完整盘点可比时读取；读取中、失败或不可比都显示“—”和原因，不当作零。
  */
-function StructureCard({ summary }: { summary: Summary }) {
+function StructureCard({ summary, onBrowse }: { summary: Summary; onBrowse: () => void }) {
   const span = structureCompareRange(summary.points), latest = latestComplete(summary.points);
   const key = span ? `${span.from}>${span.to}@${summary.generation}` : '';
   const [pairs, setPairs] = useState<{ key: string; value: Compare['structure'] | null } | null>(null), [retry, setRetry] = useState(0);
@@ -62,11 +62,12 @@ function StructureCard({ summary }: { summary: Summary }) {
           <td className={'review-delta' + tone(r.change_cents)}>{r.change_cents === null ? <span className="muted">—</span> : <>{changeText(r.change_cents)}{r.added && <small> 新增</small>}</>}</td>
         </tr>)}</tbody></table>
     </>}
+    <div className="ui-card-foot"><button type="button" className="ui-link" onClick={onBrowse}>查看账户与盘点 →</button></div>
     <p className="review-structure-note muted">{note}{settled?.value === null && <button className="ui-link" onClick={() => { setPairs(null); setRetry(n => n + 1); }}>重新读取</button>}</p>
   </article>;
 }
 
-export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onOpenSettings, onFinance, restoreScroll, modules = allModules }: { modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage) => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
+export function ReviewView({ generation, today, version, year, onYear, onNavigate, onOpenSource, onGotoPlanning, onOpenSettings, onFinance, restoreScroll, modules = allModules }: { modules?: Modules & Partial<RuntimeModules>; onFinance?: (route: FinanceRoute) => void; generation: string; today: string; version: unknown; year: number | null; onYear: (year: number | null) => void; onNavigate: (page: ReviewPage, focus?: 'savings-goals') => void; onOpenSource: (target: SourceTarget) => void; onGotoPlanning: (tab: PlanningTab, focus?: 'budget' | 'profile') => void; onOpenSettings: () => void; restoreScroll?: ScrollRestore }) {
   const [amountsHidden, setAmountsHidden] = useState(() => { try { return localStorage.getItem('thingary.hide-financial-amounts.v1') === '1'; } catch { return false; } });
   useEffect(() => { try { localStorage.setItem('thingary.hide-financial-amounts.v1', amountsHidden ? '1' : '0'); } catch { /* Session state still works when preferences cannot be stored. */ } }, [amountsHidden]);
   const [data, setData] = useState<Review | null>(null), [error, setError] = useState(''), [retry, setRetry] = useState(0);
@@ -118,7 +119,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
     modules.expenses && e && { label: `${year ?? '全部期间'}${year === null ? '' : ' 年'}重要支出`, value: signedMoney(e.net_cents), note: e.unknown_amount_count > 0 ? `${e.unknown_amount_count} 笔金额未知` : '', page: 'expenses' as ReviewPage, big: true },
     modules.recurring && r && { label: '固定负担', value: <>{money(r.monthly_cents)}<small>/月</small></>, note: '当前计划', page: 'recurring' as ReviewPage, big: true },
     p && { label: '平均持有', value: p.average_holding_days === null ? '—' : <>{p.average_holding_days.toLocaleString('zh-CN')}<small>天</small></>, note: '', page: 'assets' as ReviewPage },
-    modules.wishlist && p && { label: '考虑中心愿', value: <>{p.considering_wishes}<small>条</small></>, note: p.legacy_wishes > 0 ? `另有 ${p.legacy_wishes} 条历史待核实` : '', page: null },
+    modules.wishlist && p && { label: '考虑中心愿', value: <>{p.considering_wishes}<small>条</small></>, note: p.legacy_wishes > 0 ? `另有 ${p.legacy_wishes} 条历史待核实` : '', page: 'wishlist' as ReviewPage },
   ].filter(Boolean) as { label: string; value: ReactNode; note: string; page: ReviewPage | null; big?: boolean }[];
   return <section className="review-section u16" aria-label="综合回顾" aria-busy={updating}>
     {error && <div className="review-error" role="alert"><p>更新失败，当前显示上次读取的结果：{error}</p><button onClick={reload}>重新读取</button></div>}
@@ -148,7 +149,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
         </>}
       </section>}
       {modules.planning && (modules.wealth
-        ? amountsHidden ? <article className="ui-card ui-content"><h3>目标摘要</h3><p className="muted">金融金额已隐藏</p></article> : <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
+        ? amountsHidden ? <article className="ui-card ui-content"><h3>目标摘要</h3><p className="muted">金融金额已隐藏</p><button type="button" className="ui-link" onClick={() => onGotoPlanning('goals')}>查看目标 →</button></article> : <ReviewPlanSummary data={data.planning ?? null} today={data.today} onReload={reload} onNavigate={onNavigate} onGotoPlanning={onGotoPlanning}/>
         : <article className="ui-card ui-content review-plan-dep" aria-label="目标">
           <div className="ui-section-head"><h3>目标</h3></div>
           <p className="review-plan-goal">退休与财务自由</p>
@@ -157,9 +158,8 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
           <div className="review-plan-actions"><button className="review-action" onClick={onOpenSettings}>前往设置 →</button></div>
         </article>)}
     </div>}
-    {modules.wealth && <SavingsGoals key={generation} generation={generation} today={today} version={version} compact hideAmounts={amountsHidden}/>}
     <div className={'review-heroes' + (modules.wealth && w?.structure_date ? '' : ' single')}>
-      {modules.wealth && w?.structure_date && (amountsHidden ? <article className="ui-card ui-content"><h3>资产结构</h3><p className="muted">金融金额已隐藏</p></article> : <StructureCard summary={w}/>)}
+      {modules.wealth && w?.structure_date && (amountsHidden ? <article className="ui-card ui-content"><h3>资产结构</h3><p className="muted">金融金额已隐藏</p>{link('wealth')}</article> : <StructureCard summary={w} onBrowse={() => onNavigate('wealth')}/>)}
       <article className="ui-card ui-hero tint-2">
         <div className="ui-label">持有物品<Info text={`截至 ${data.today} 的持有物购入金额，包含使用中与已退役物品；不是当前估值，不与金融净资产相加。`}/></div>
         {failure(data.physical)}
@@ -178,7 +178,7 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
       </article>
     </div>
     {metrics.length > 0 && <div className="ui-metrics review-metrics" style={{ '--n': metrics.length } as CSSProperties} aria-label="辅助指标">
-      {metrics.map(m => <div key={m.label} className={m.big ? 'big' : undefined}><span className="ui-label">{m.label}</span><span className="ui-value">{m.value}</span>{m.note && <span className="ui-note">{m.note}</span>}</div>)}
+      {metrics.map(m => <div key={m.label} className={m.big ? 'big' : undefined}><span className="ui-label">{m.label}</span><span className="ui-value">{m.value}</span>{m.note && <span className="ui-note">{m.note}</span>}{m.page && link(m.page)}</div>)}
     </div>}
     <div className="review-lists">
       <article className="ui-card">
@@ -194,5 +194,6 @@ export function ReviewView({ generation, today, version, year, onYear, onNavigat
         {!recent.length ? <p className="ui-empty">{data.recent.status === 'ready' ? '所选期间暂无记录。' : '可用来源中暂无记录。'}</p> : <ul className="ui-rows">{recent.slice(0, 5).map(ev => <li key={ev.id} className={'ui-row' + (ev.target ? ' clickable' : '')} onClick={ev.target ? () => onOpenSource(ev.target!) : undefined}><span className="review-ev"><Icon name={ev.icon}/></span><div className="ui-main"><div>{ev.title}</div><small>{ev.date}{ev.detail ? ` · ${ev.detail}` : ''}</small></div>{ev.target && <button className="ui-link" aria-label={`查看来源：${ev.title}`} onClick={e2 => { e2.stopPropagation(); onOpenSource(ev.target!); }}>›</button>}</li>)}</ul>}
       </article>
     </div>
+    {modules.wealth && <SavingsGoals key={generation} generation={generation} today={today} version={version} compact hideAmounts={amountsHidden} onManage={() => onNavigate('wealth', 'savings-goals')}/>}
   </section>;
 }

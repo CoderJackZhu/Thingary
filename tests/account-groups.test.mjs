@@ -103,8 +103,18 @@ test('opening group management participates in the real wealth page editing aggr
   vm.runInNewContext(compiled, context);
   const props = { today: '2026-10-17', search: '', onSearch() {}, onEditingChange: value => { seen = value; } };
   context.page(props); const editEffect = () => effects.find(fn => fn.toString().includes('onEditingChange(')); editEffect()(); assert.equal(seen, false);
-  const booleanStates = slots.map((value, i) => value === false ? i : -1).filter(i => i >= 0); assert.equal(booleanStates.length, 2);
-  slots[booleanStates[1]] = true; cursor = 0; effects.length = 0; context.page(props); editEffect()(); assert.equal(seen, true);
+  // Locate the intended hook by name so display-only focus state cannot masquerade as an editor.
+  const stateNames = [];
+  const visit = node => {
+    if (ts.isVariableDeclaration(node) && ts.isArrayBindingPattern(node.name) && ts.isCallExpression(node.initializer) && node.initializer.expression.getText(file) === 'useState') stateNames.push(node.name.elements[0].getText(file));
+    ts.forEachChild(node, visit);
+  };
+  visit(file.statements.find(n => ts.isFunctionDeclaration(n) && n.name?.text === 'WealthPage'));
+  const groupSlot = stateNames.indexOf('manageGroups'); assert.ok(groupSlot >= 0); assert.equal(slots[groupSlot], false);
+  slots[groupSlot] = true; cursor = 0; effects.length = 0; context.page(props); editEffect()(); assert.equal(seen, true);
+  slots[groupSlot] = false;
+  const focusSlot = stateNames.indexOf('savingsFocus'); assert.ok(focusSlot >= 0); slots[focusSlot] = true;
+  cursor = 0; effects.length = 0; context.page(props); editEffect()(); assert.equal(seen, false);
 });
 
 function receiptRuntime(invoke) {

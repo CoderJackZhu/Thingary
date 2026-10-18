@@ -439,10 +439,14 @@ function App({ initialDemo, onPrivacyBusyChange }: { initialDemo: DemoStatus; on
     setSection(sourcePage(target));
   }
   /** Module links from the review keep its year and view; returning restores them. */
-  function navigateFromReview(target: ReviewPage) {
+  function navigateFromReview(target: ReviewPage, focus?: 'savings-goals') {
     if (modeBlocked) return;
     // Module links from the overview are one sidebar click from home; no return link.
     setReturnContext(null);
+    if (target === 'wealth' && focus === 'savings-goals' && libraryGeneration) {
+      setSearches(s => ({ ...s, wealth: '' }));
+      setWealthReviewFocus({ generation: libraryGeneration, kind: 'savings-goals' });
+    }
     if (target === 'assets') adjust({ filter: 'all', search: '' });
     if (target === 'timeline') setTimelineSelection(s => ({ ...s, year: reviewYear }));
     if (target === 'expenses') { gotoFinance(legacyFinanceRoute({ kind: 'expenses', year: reviewYear })); return; }
