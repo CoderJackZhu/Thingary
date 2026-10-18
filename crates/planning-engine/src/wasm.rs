@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 struct State {
-    inputs: HashMap<u32, Box<[u8]>>,
+    inputs: HashMap<usize, Box<[u8]>>,
     output: Vec<u8>,
 }
 static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
@@ -13,19 +13,20 @@ static STATE: LazyLock<Mutex<State>> = LazyLock::new(|| {
 const MAX_INPUT: u32 = crate::MAX_INPUT_BYTES as u32;
 /// Caller owns input until release; invalid length returns zero.
 #[cfg_attr(target_arch = "wasm32", no_mangle)]
-pub extern "C" fn alloc(len: u32) -> u32 {
+pub extern "C" fn alloc(len: u32) -> usize {
     if len == 0 || len > MAX_INPUT {
         return 0;
     }
     let Ok(mut s) = STATE.lock() else { return 0 };
     let mut b = vec![0; len as usize].into_boxed_slice();
-    let ptr = b.as_mut_ptr() as u32;
+    // usize is an i32 address on wasm32 and preserves native test-host pointers.
+    let ptr = b.as_mut_ptr() as usize;
     s.inputs.insert(ptr, b);
     ptr
 }
 /// Only exact registered allocations are released. Output is engine-owned.
 #[cfg_attr(target_arch = "wasm32", no_mangle)]
-pub extern "C" fn release(ptr: u32, len: u32) {
+pub extern "C" fn release(ptr: usize, len: u32) {
     if let Ok(mut s) = STATE.lock() {
         if s.inputs.get(&ptr).is_some_and(|b| b.len() == len as usize) {
             s.inputs.remove(&ptr);
@@ -34,7 +35,7 @@ pub extern "C" fn release(ptr: u32, len: u32) {
 }
 /// Output is UTF-8 JSON, owned by engine and valid until next evaluation.
 #[cfg_attr(target_arch = "wasm32", no_mangle)]
-pub extern "C" fn evaluate(ptr: u32, len: u32) -> u32 {
+pub extern "C" fn evaluate(ptr: usize, len: u32) -> usize {
     let Ok(mut s) = STATE.lock() else { return 0 };
     let bytes = if len > MAX_INPUT {
         b"{\"ok\":false,\"error\":\"input exceeds 64 MiB transport limit\"}".to_vec()
@@ -44,7 +45,7 @@ pub extern "C" fn evaluate(ptr: u32, len: u32) -> u32 {
         b"{\"ok\":false,\"error\":\"invalid input allocation\"}".to_vec()
     };
     s.output = bytes;
-    s.output.as_ptr() as u32
+    s.output.as_ptr() as usize
 }
 #[cfg_attr(target_arch = "wasm32", no_mangle)]
 pub extern "C" fn result_len() -> u32 {
@@ -65,6 +66,8 @@ mod tests {
         {
             let mut state = STATE.lock().unwrap();
             let input = state.inputs.get_mut(&boundary).unwrap();
+            // The ABI must preserve the whole address, including on native test hosts.
+            assert_eq!(boundary, input.as_ptr() as usize);
             input.fill(b' ');
             input[..data.len()].copy_from_slice(data);
         }
