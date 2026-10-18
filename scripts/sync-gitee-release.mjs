@@ -4,6 +4,10 @@
 // GITHUB_TOKEN is optional (higher API limits). The tag and source commit must already be pushed to Gitee (git push gitee main <tag>).
 // It never moves a published tag, never overwrites an attachment and never deletes anything; it only creates what is missing.
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const GITHUB = 'CoderJackZhu/Thingary';
@@ -90,19 +94,33 @@ async function main() {
   }
   for (const name of todo.upload) {
     const a = assets.find(x => x.name === name);
-    const form = new FormData();
-    form.set('file', new Blob([a.bytes]), a.name);
-    const r = await gitee(`/releases/${giteeRelease.id}/attach_files`, { method: 'POST', body: form });
-    if (!r.ok) throw new Error(`Upload ${a.name}: HTTP ${r.status} ${await r.text()}`);
+    // curl, not fetch: the runner-to-Gitee upload of a large installer can take longer than Node's fixed 5 minute body timeout.
+    const dir = mkdtempSync(join(tmpdir(), 'gitee-'));
+    try {
+      writeFileSync(join(dir, a.name), a.bytes);
+      let last = '';
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          // The token goes in a form field read from the environment, not onto the command line.
+          const out = execFileSync('curl', ['--silent', '--show-error', '--max-time', '3000', '--fail-with-body', '-F', 'access_token=<-', '-F', `file=@${join(dir, a.name)}`, `${api}/releases/${giteeRelease.id}/attach_files`], { input: token, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+          if (!/"id"\s*:/.test(out)) throw new Error(out.slice(0, 200));
+          last = ''; break;
+        } catch (e) { last = String(e.stderr || e.message).slice(0, 300); console.log(`upload ${a.name} attempt ${attempt} failed: ${last}`); }
+      }
+      if (last) throw new Error(`Upload ${a.name} failed: ${last}`);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
     console.log(`uploaded ${a.name}`);
   }
 
   files = await (await gitee(`/releases/${giteeRelease.id}/attach_files?per_page=100`)).json();
   const giteeHashes = new Map();
   for (const f of files) {
-    const r = await fetch(f.browser_download_url, { redirect: 'follow' });
-    if (!r.ok) throw new Error(`Download ${f.name} from Gitee: HTTP ${r.status}`);
-    giteeHashes.set(f.name, sha256(Buffer.from(await r.arrayBuffer())));
+    const dir = mkdtempSync(join(tmpdir(), 'gitee-'));
+    try {
+      const file = join(dir, 'f');
+      execFileSync('curl', ['--silent', '--show-error', '--fail', '--location', '--max-time', '3000', '--retry', '3', '-o', file, f.browser_download_url], { stdio: ['ignore', 'pipe', 'pipe'] });
+      giteeHashes.set(f.name, sha256(readFileSync(file)));
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   }
   const bad = mismatches(sums, githubHashes, giteeHashes);
   if (bad.length) throw new Error(`Gitee verification failed:\n${bad.join('\n')}`);
