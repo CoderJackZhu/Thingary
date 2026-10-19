@@ -14,6 +14,8 @@
 
 ![21 秒界面预览：总览、账户盘点、目标、存钱目标、区间回顾与物品](docs/images/walkthrough.gif)
 
+▶ [53 秒介绍视频](https://thingary.jackzhu.top/#film)：每月盘点、净资产变化、物品档案，以及每月多存一点、退休时间怎么跟着变。
+
 ## 三步开始
 
 1. Mac 下载 `.dmg` 拖入「应用程序」，Windows 下载 `x64-setup.exe` 运行安装；首次打开可能被系统拦一下，处理办法见[快速上手](docs/QUICKSTART.md#install)。

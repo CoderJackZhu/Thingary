@@ -14,6 +14,8 @@ The app currently has a **Simplified Chinese interface only**. Its account types
 
 ![21-second slideshow of the overview, accounts, planning, savings goals, period review, and belongings](docs/images/walkthrough.gif)
 
+▶ [53-second film](https://thingary.jackzhu.top/#film) (Chinese captions): monthly check-ins, net-worth changes, belongings, and how saving a little more moves your retirement date.
+
 ## Download
 
 **[Download 0.0.8 from GitHub](https://github.com/CoderJackZhu/Thingary/releases/tag/v0.0.8)** · [Gitee mirror](https://gitee.com/CoderJackZhu/thingary/releases) · [Product website](https://thingary.jackzhu.top/) · [Report an issue](https://github.com/CoderJackZhu/Thingary/issues)

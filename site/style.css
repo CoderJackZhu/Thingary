@@ -110,6 +110,8 @@ p, h1, h2, h3, a, figcaption { overflow-wrap: anywhere; }
 .showcase { margin: 56px auto 0; }
 .showcase-frame { padding: 8px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); }
 .showcase-frame img { border-radius: 12px; background: var(--wash); }
+.showcase-frame video { display: block; width: 100%; height: auto; border-radius: 12px; background: var(--wash); }
+.film .showcase { margin-top: 24px; }
 .showcase-caption { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 20px; padding: 17px 3px; color: var(--muted); font-size: 11px; }
 .utility { font-family: var(--utility); font-size: 10px; letter-spacing: .12em; }
 .principles { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px 45px; margin-top: 27px; padding-bottom: 62px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
@@ -193,7 +195,7 @@ p, h1, h2, h3, a, figcaption { overflow-wrap: anywhere; }
   .release-note { max-width: 300px; margin: 17px auto 0; font-size: 10px; }
   .showcase { margin-top: 36px; }
   .showcase-frame { padding: 4px; border-radius: 11px; }
-  .showcase-frame img { border-radius: 7px; }
+  .showcase-frame img, .showcase-frame video { border-radius: 7px; }
   .showcase-caption { padding-top: 12px; font-size: 10px; }
   .utility { font-size: 8px; }
   .principles { gap: 12px 21px; margin-top: 17px; padding-bottom: 42px; font-size: 10px; }
