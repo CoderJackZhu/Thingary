@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Mirror one published GitHub Release (notes, pre-release flag, attachments) to the Gitee repository and verify the files.
 // Usage: GITEE_TOKEN=... node scripts/sync-gitee-release.mjs v0.0.8 [--dry-run]
-// GITHUB_TOKEN is optional (higher API limits). The tag and source commit must already be pushed to Gitee (git push gitee main <tag>).
+// GITHUB_TOKEN is optional (higher API limits). The tag and source commit must already be pushed to Gitee (git push gitee <tag>；分支同步单独处理).
 // It never moves a published tag, never overwrites an attachment and never deletes anything; it only creates what is missing.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';

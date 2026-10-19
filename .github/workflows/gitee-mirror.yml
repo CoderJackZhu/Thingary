@@ -56,9 +56,10 @@ jobs:
       - name: Push the tag and source commit to Gitee
         if: steps.token.outputs.present == 'true'
         run: |
-          # Fast-forward only, never forced: a published tag or branch on Gitee is not moved.
+          # Pushing a tag includes its reachable source commits. Branch synchronization is separate:
+          # an older release must still be mirrorable after main has advanced. Never force a tag.
           git push "https://oauth2:${GITEE_TOKEN}@gitee.com/CoderJackZhu/thingary.git" \
-            "$(git rev-parse HEAD):refs/heads/main" "refs/tags/${TAG}:refs/tags/${TAG}"
+            "refs/tags/${TAG}:refs/tags/${TAG}"
       - name: Create the Gitee release, upload the attachments and verify the hashes
         if: steps.token.outputs.present == 'true'
         env:
