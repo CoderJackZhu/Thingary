@@ -6,7 +6,7 @@ import { allModules } from '../src/modules.ts';
 const base={...allModules,incomes:true,movements:true,finance_status:'ready',finance_revision:7};
 const selected={physical:true,money:true,planning:true};
 const runtime=payload=>({...payload.modules,incomes:payload.incomes,movements:payload.movements});
-const apply=(current,selection,first=false)=>{const payload=choice.usageModules(current,true,selection,first);assert.ok(payload);return runtime(payload);};
+const apply=(current,selection)=>{const payload=choice.usageModules(current,true,selection);assert.ok(payload);return runtime(payload);};
 test('a purpose that stays selected keeps its item switches',()=>{
  const current={...base,expenses:false,incomes:false,wishlist:false};
  const next=apply(current,{...selected,planning:false});
@@ -26,5 +26,5 @@ test('reopening a closed purpose starts fully on, whatever it looked like before
  }
 });
 test('the old per-item memory is gone: nothing is written to local storage',()=>{
- for(const file of ['start-choice.ts','ModuleSettings.tsx','Welcome.tsx'])assert.doesNotMatch(readFileSync(new URL('../src/'+file,import.meta.url),'utf8'),/usage-details|usageDetailsKey|prepareUsage|finishUsageChange/);
+ for(const file of ['start-choice.ts','ModuleSettings.tsx'])assert.doesNotMatch(readFileSync(new URL('../src/'+file,import.meta.url),'utf8'),/usage-details|usageDetailsKey|prepareUsage|finishUsageChange/);
 });

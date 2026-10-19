@@ -1,7 +1,4 @@
-.usage-screen{height:100vh;height:100dvh;min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:40px 24px;background:var(--bg)}
 .usage-choice{width:min(940px,100%);color:var(--text)}
-.usage-brand{display:flex;align-items:center;gap:12px;margin-bottom:40px;font-size:20px;font-weight:600}
-.usage-brand>svg{width:36px;height:36px}.usage-brand small{display:block;font-size:10px;letter-spacing:2px;color:var(--muted)}
 .usage-choice header{margin-bottom:28px}.usage-kicker{font-size:13px;color:var(--muted);margin:0 0 8px}.usage-choice h1{font-size:28px;line-height:1.4;margin:0 0 12px}.usage-choice header>p:last-child{color:var(--muted);line-height:1.7;margin:0}
 .usage-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;border:0;margin:0;padding:0;min-width:0}
 .usage-options>legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
@@ -19,6 +16,5 @@
 .usage-choice-settings .usage-choice-actions{position:sticky;bottom:-28px;z-index:1;background:var(--card);padding:16px 0 20px;margin-bottom:-28px}
 .usage-settings-dialog::backdrop{background:var(--backdrop)}
 .usage-settings-entry{padding:16px 0 24px;border-bottom:1px solid var(--line-soft);margin-bottom:12px}.usage-settings-entry>p{color:var(--muted);font-size:13px;line-height:1.7}
-.usage-next-steps{margin:16px 24px;padding:28px}.usage-next-steps h2{font-size:18px;margin:0 0 8px}.usage-next-steps>p{color:var(--muted);font-size:14px}.usage-next-steps>div{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
-@media(max-width:760px){.usage-screen{padding:28px 20px}.usage-brand{margin-bottom:24px}.usage-choice h1{font-size:24px}.usage-options{grid-template-columns:1fr;gap:12px}.usage-option{flex-direction:row;gap:16px;padding:18px 54px 18px 18px}.usage-option>input{top:22px;right:18px}.usage-option-body{gap:6px}.usage-option-body small{display:none}.usage-choice-note{margin:16px 0}.usage-choice-actions{padding-top:16px}.usage-choice-actions>div{gap:8px}.usage-choice-actions button{padding-inline:16px}.usage-choice-actions>div>span{display:none}}
+@media(max-width:760px){.usage-choice h1{font-size:24px}.usage-options{grid-template-columns:1fr;gap:12px}.usage-option{flex-direction:row;gap:16px;padding:18px 54px 18px 18px}.usage-option>input{top:22px;right:18px}.usage-option-body{gap:6px}.usage-option-body small{display:none}.usage-choice-note{margin:16px 0}.usage-choice-actions{padding-top:16px}.usage-choice-actions>div{gap:8px}.usage-choice-actions button{padding-inline:16px}.usage-choice-actions>div>span{display:none}}
 @media(prefers-reduced-motion:reduce){.usage-option{transition:none}}

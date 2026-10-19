@@ -56,7 +56,7 @@ function choices(settings) {
   const set = (index, checked) => { r.nodes().filter(n => n.type === 'input')[index].props.onChange({ target: { checked } }); r.render(); };
   return { r, set, applied, skipped };
 }
-for (const settings of [false, true]) {
+for (const settings of [true]) {
   test(`${settings ? 'settings' : 'first-use'} purpose choices explain only the affected reminders before applying`, async () => {
     const { r, set, applied, skipped } = choices(settings);
     assert.doesNotMatch(shown(r), /提醒/);

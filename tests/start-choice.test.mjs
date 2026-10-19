@@ -28,84 +28,52 @@ function hooks(file, name, extra = {}) {
   return{context,render(props){si=ri=ei=0;const tree=context.module.exports(props);for(const effect of effects)if(effect.dirty){effect.dirty=false;effect.fn();}return tree;}};
 }
 const tick=()=>new Promise(setImmediate);
-test('all seven purpose combinations start with all details enabled inside the retained purposes',()=>{
+test('all seven purpose combinations keep all details enabled inside the retained purposes',()=>{
   for(let bits=1;bits<8;bits++){
     const selection={money:!!(bits&1),physical:!!(bits&2),planning:!!(bits&4)},before=structuredClone(modules);
-    const payload=choice.usageModules(modules,true,selection,true);
+    const payload=choice.usageModules({...modules,incomes:true},true,selection);
     assert.equal(payload.modules.wealth,selection.money);assert.equal(payload.modules.physical,selection.physical);assert.equal(payload.modules.planning,selection.planning);
     for(const key of ['wishlist','stats'])assert.equal(payload.modules[key],selection.physical);
     for(const key of ['expenses','recurring','virtual'])assert.equal(payload.modules[key],selection.money);
     assert.equal(payload.modules.timeline,true);assert.equal(payload.incomes,selection.money);assert.equal(payload.movements,selection.money);assert.deepEqual(modules,before);
-    assert.equal(choice.usageOverview(selection),bits===2?'physical':'combined');
   }
-  assert.equal(choice.usageModules(modules,true,{money:false,physical:false,planning:false},true),null);
+  assert.equal(choice.usageModules(modules,true,{money:false,physical:false,planning:false}),null);
 });
 test('unreliable preferences never produce a settings write',()=>{
   const selected={money:true,physical:true,planning:true};
-  assert.equal(choice.usageModules(modules,false,selected,true),null);
-  for(const finance_status of ['legacy_corrupt','finance_corrupt','unsupported_version','read_error','write_error'])assert.equal(choice.usageModules({...modules,finance_status},true,selected,true),null);
-  for(const finance_revision of [0,null,NaN])assert.equal(choice.usageModules({...modules,finance_revision},true,selected,true),null);
+  assert.equal(choice.usageModules(modules,false,selected),null);
+  for(const finance_status of ['legacy_corrupt','finance_corrupt','unsupported_version','read_error','write_error'])assert.equal(choice.usageModules({...modules,finance_status},true,selected),null);
+  for(const finance_revision of [0,null,NaN])assert.equal(choice.usageModules({...modules,finance_revision},true,selected),null);
 });
 test('reconfiguration preserves detailed choices inside selected purposes and disables only unchecked groups',()=>{
   const all={money:true,physical:true,planning:true};
   assert.deepEqual(choice.selectedUsage(modules),all);
-  const payload=choice.usageModules(modules,true,all,false);assert.deepEqual(payload,{modules,incomes:modules.incomes,movements:modules.movements});
-  const off=choice.usageModules(modules,true,{...all,money:false},false);
+  const payload=choice.usageModules(modules,true,all);assert.deepEqual(payload,{modules,incomes:modules.incomes,movements:modules.movements});
+  const off=choice.usageModules(modules,true,{...all,money:false});
   for(const key of ['wealth','expenses','recurring','virtual'])assert.equal(off.modules[key],false);
   const incomeOnly={...modules,wealth:false,expenses:false,recurring:false,virtual:false,incomes:true,movements:false};
-  const kept=choice.usageModules(incomeOnly,true,{money:true,physical:true,planning:true},false);assert.equal(kept.modules.wealth,false);assert.equal(kept.incomes,true);
+  const kept=choice.usageModules(incomeOnly,true,{money:true,physical:true,planning:true});assert.equal(kept.modules.wealth,false);assert.equal(kept.incomes,true);
   assert.equal(off.incomes,false);assert.equal(off.movements,false);assert.equal(off.modules.wishlist,true);assert.equal(off.modules.timeline,true);
-});
-test('completed, skipped, legacy and unavailable device storage remain distinct',()=>{
-  const s=storage();assert.equal(choice.welcomeState(s),null);
-  choice.rememberWelcome(s,'completed');assert.equal(choice.welcomeState(s),'completed');
-  choice.rememberWelcome(s,'skipped');assert.equal(choice.welcomeState(s),'skipped');
-  const legacy=storage();legacy.setItem(choice.startChoiceKey,JSON.stringify({g1:true}));assert.equal(choice.welcomeState(legacy),'skipped');
-  for(const failure of [null,{getItem(){throw Error('blocked')},setItem(){throw Error('blocked')}}]){assert.equal(choice.welcomeState(failure),null);assert.equal(choice.rememberWelcome(failure,'completed'),false);assert.doesNotThrow(()=>choice.persistOverviewChoice(failure,'physical'));}
 });
 test('picker supports multiple checks, cancellation, validation and duplicate-submit protection',async()=>{
   let release;const applied=[],skipped=[];
   const h=hooks('StartChoice.tsx','StartChoice',{Icon:()=>null,LogoMark:()=>null});
   const props={initial:{money:false,physical:false,planning:false},ready:true,onApply:value=>{applied.push(value);return new Promise(resolve=>{release=resolve})},onSkip:()=>skipped.push(true),onReload(){}};
   const tree=()=>h.render(props),button=label=>all(tree()).find(n=>n.type==='button'&&text(n)===label);
-  assert.equal(button('开始使用').props.disabled,true);
+  assert.equal(button('保存选择').props.disabled,true);
   all(tree()).find(n=>n.type==='input').props.onChange({target:{checked:true}});
   all(tree()).filter(n=>n.type==='input')[2].props.onChange({target:{checked:true}});
-  button('开始使用').props.onClick();button('正在应用…').props.onClick();
-  assert.equal(applied.length,1);assert.deepEqual(JSON.parse(JSON.stringify(applied[0])),{money:true,physical:false,planning:true});assert.equal(button('跳过，直接使用').props.disabled,true);
-  release();await tick();button('跳过，直接使用').props.onClick();assert.equal(skipped.length,1);
-  props.ready=false;assert.equal(button('开始使用').props.disabled,true);
+  button('保存选择').props.onClick();button('正在应用…').props.onClick();
+  assert.equal(applied.length,1);assert.deepEqual(JSON.parse(JSON.stringify(applied[0])),{money:true,physical:false,planning:true});assert.equal(button('取消').props.disabled,true);
+  release();await tick();button('取消').props.onClick();assert.equal(skipped.length,1);
+  props.ready=false;assert.equal(button('保存选择').props.disabled,true);
 });
 test('picker keeps selections and exposes retryable errors; cancel does not submit',async()=>{
   let calls=0;const h=hooks('StartChoice.tsx','StartChoice',{Icon:()=>null,LogoMark:()=>null});
-  const props={settings:true,initial:{money:true,physical:true,planning:false},ready:true,onApply:async()=>{calls++;throw Error('fictional save failure')},onSkip(){},onReload(){}};
+  const props={initial:{money:true,physical:true,planning:false},ready:true,onApply:async()=>{calls++;throw Error('fictional save failure')},onSkip(){},onReload(){}};
   all(h.render(props)).find(n=>n.type==='button'&&text(n)==='取消').props.onClick();assert.equal(calls,0);
   all(h.render(props)).find(n=>n.type==='button'&&text(n)==='保存选择').props.onClick();await tick();
   const tree=h.render(props);assert.match(text(tree),/fictional save failure/);assert.equal(all(tree).filter(n=>n.type==='input'&&n.props.checked).length,2);
-});
-test('welcome applies before switching, starts on overview without editor, and rereads partial failures',async()=>{
-  for(const fail of [null,'modules_set','switch_demo']){
-    const calls=[],done=[],s=storage(),session=storage();session.removeItem=key=>calls.push(['remove',key]);
-    const h=hooks('Welcome.tsx','Welcome',{StartChoice:()=>null,errorMessage:e=>e.message,financeModulesReady:()=>true,choiceStorage:()=>s,sessionStorage:session,sectionKey:'section',newAssetKey:'new',invoke:async(command,args)=>{calls.push([command,args]);if(command===fail)throw Error('fictional failure');return command==='switch_demo'?{active:false,started:false,available:true}:modules;}});
-    const props={status:{active:true,started:false,available:true},onDone:value=>done.push(value),onBusyChange(){}};
-    h.render(props);await tick();const card=all(h.render(props)).find(n=>n.props.onApply);
-    const action=card.props.onApply({money:true,physical:false,planning:false});
-    if(fail){await assert.rejects(action,/fictional failure/);assert.equal(done.length,0);assert.equal(calls.at(-1)[0],'modules_get');}
-    else{await action;assert.deepEqual(calls.filter(([key])=>!['remove'].includes(key)).map(([key])=>key),['modules_get','modules_set','switch_demo']);assert.equal(done.length,1);assert.deepEqual(JSON.parse(JSON.stringify(calls.find(([key])=>key==='switch_demo')[1])),{demo:false});assert.equal(choice.welcomeState(s),'completed');assert.equal(s.getItem(choice.overviewViewKey),'combined');}
-  }
-});
-test('bootstrap protects existing users and recovery, and resumes completed empty personal libraries',async()=>{
-  for(const scenario of [{started:true},{pending:true},{reset:true},{marker:'skipped'},{legacy:true},{marker:'completed',active:true},{active:true},{}]){
-    const s=storage(),calls=[];s.removeItem=()=>{};
-    if(scenario.marker)choice.rememberWelcome(s,scenario.marker);if(scenario.legacy)s.setItem(choice.startChoiceKey,'{"old":true}');if(scenario.reset)s.setItem('reset','yes');
-    const App=()=>null,Welcome=()=>null;
-    const h=hooks('main.tsx','Bootstrap',{App,Welcome,localStorage:s,choiceStorage:()=>s,clearUnsubmittedEditors(){},pendingGenerations:()=>scenario.pending?['pending-generation']:[],resetKey:'reset',errorMessage:e=>e.message,invoke:async(command,args)=>{calls.push([command,args]);return{active:command==='switch_demo'?false:!!scenario.active,available:true,started:!!scenario.started}}});
-    const props={onPrivacyBusyChange(){}};h.render(props);await tick();const tree=h.render(props);
-    const wantsWelcome=!scenario.started&&!scenario.pending&&!scenario.reset&&!scenario.marker&&!scenario.legacy;
-    assert.equal(tree.type,wantsWelcome?Welcome:App,JSON.stringify(scenario));
-    assert.equal(calls.some(([command])=>command==='switch_demo'),scenario.marker==='completed'&&!!scenario.active);
-    const switched=calls.find(([command])=>command==='switch_demo');if(switched)assert.deepEqual(JSON.parse(JSON.stringify(switched[1])),{demo:false});
-  }
 });
 test('empty accounts put the existing data-management import before manual creation', () => {
   const calls = [];
@@ -192,7 +160,7 @@ test('preview startup and module failure fixtures stay within the existing in-me
   vm.runInNewContext(compileFunction('visual-preview.ts', 'handle'), context);
   const handle = context.module.exports;
   assert.equal((await handle('demo_status', {})).started, false);
-  const payload = choice.usageModules(modules, true, { money: true, physical: true, planning: true }, true); const changed = await handle('modules_set', payload);
+  const payload = choice.usageModules({ ...modules, incomes: true }, true, { money: true, physical: true, planning: true }); const changed = await handle('modules_set', payload);
   assert.equal(changed.recurring, true); assert.equal(changed.virtual, true); assert.equal(changed.incomes, true); assert.equal(changed.movements, true);
   assert.equal((await handle('modules_get', {})).finance_revision, modules.finance_revision + 1);
   context.params.set('module-write-error', '1');
@@ -223,11 +191,6 @@ test('physical-only overview hides optional wishes and timeline while retaining 
   assert.doesNotMatch(text(tree),/考虑中心愿|最近事件/);assert.match(text(tree),/金额未知|购入日期未知/);assert.match(text(tree),/—/);
 });
 
-test('onboarding uses the existing native library switch argument contract',()=>{
-  const native=readFileSync(new URL('../src-tauri/src/commands.rs',import.meta.url),'utf8');
-  assert.match(native,/pub async fn switch_demo\(\s*demo: bool/);
-});
-
 test('a disabled physical module does not leak its list error into the home workspace',()=>{
   const source=ts.createSourceFile('main.tsx',readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8'),ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
   let expression;const visit=node=>{if(ts.isJsxExpression(node)&&node.expression?.getText(source).startsWith('modules.physical && loadError &&'))expression=node.expression.getText(source);ts.forEachChild(node,visit);};visit(source);assert.ok(expression);
@@ -237,12 +200,3 @@ test('a disabled physical module does not leak its list error into the home work
   assert.match(text(context.module.exports({physical:true},'fictional asset read failure')),/fictional asset read failure/);
 });
 
-test('first use defaults to all purposes and lets a user exclude a purpose without a forced choice',async()=>{
- const applied=[];const h=hooks('StartChoice.tsx','StartChoice',{Icon:()=>null,LogoMark:()=>null});
- const props={ready:true,onApply:async selection=>applied.push(selection),onSkip(){},onReload(){}};
- let tree=h.render(props);assert.equal(all(tree).filter(n=>n.type==='input'&&n.props.checked).length,3);
- assert.equal(all(tree).find(n=>n.type==='button'&&text(n)==='开始使用').props.disabled,false);
- all(tree).filter(n=>n.type==='input')[1].props.onChange({target:{checked:false}});
- tree=h.render(props);all(tree).find(n=>n.type==='button'&&text(n)==='开始使用').props.onClick();await tick();
- assert.deepEqual(JSON.parse(JSON.stringify(applied)),[{money:true,physical:false,planning:true}]);
-});
