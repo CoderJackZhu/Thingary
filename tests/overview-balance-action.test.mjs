@@ -30,10 +30,12 @@ function host(){
  const action=()=>nodes(render()).find(n=>n.type==='div'&&n.props.className==='wealth-return-action')?.props.children[0];
  return{props,requests,calls,render,action,focus:()=>listeners.get('focus')?.(),unmount:()=>effects.forEach(e=>e.cleanup?.())};
 }
-test('home uses the account source, not the existence of a check-in, to choose a useful action',async()=>{
- for(const [counts,label,call] of [[{total:0,due_today:0},'添加第一个账户','new'],[{total:2,due_today:2},'更新今天的余额','update:2026-10-19'],[{total:2,due_today:0},'查看已有账户','accounts']]){
+test('home offers an action only when there is no account yet; existing accounts add no urgency at the top',async()=>{
+ {const h=host();h.render();h.requests[0].resolve(review({status:'ready',value:{total:0,due_today:0}}));await settle();
+  const button=h.action();assert.equal(text(button),'添加第一个账户');assert.equal(button.props.disabled,false);button.props.onClick();assert.deepEqual(h.calls,['new']);h.unmount();}
+ for(const counts of [{total:2,due_today:2},{total:2,due_today:0}]){
   const h=host();h.render();h.requests[0].resolve(review({status:'ready',value:counts}));await settle();
-  const button=h.action();assert.equal(text(button),label);assert.equal(button.props.disabled,false);button.props.onClick();assert.deepEqual(h.calls,[call]);h.unmount();
+  assert.equal(h.action(),undefined);assert.deepEqual(h.calls,[]);h.unmount();
  }
 });
 test('unknown, unavailable and invalid counts retry without opening an empty check-in or new account',async()=>{
@@ -41,15 +43,15 @@ test('unknown, unavailable and invalid counts retry without opening an empty che
   const h=host();h.render();h.requests[0].resolve(review(availability));await settle();const button=h.action();assert.equal(text(button),'重新读取账户');button.props.onClick();h.render();assert.equal(h.requests.length,2);assert.deepEqual(h.calls,[]);h.unmount();
  }
 });
-test('refresh disables the stale action; failure offers retry and a later success chooses from fresh facts',async()=>{
+test('refresh withdraws the stale action; failure offers retry and a later success chooses from fresh facts',async()=>{
  const h=host();h.render();h.requests[0].resolve(review({status:'ready',value:{total:0,due_today:0}}));await settle();assert.equal(text(h.action()),'添加第一个账户');
- h.focus();h.render();const waiting=h.action();assert.equal(waiting.props.disabled,true);assert.equal(text(waiting),'正在确认账户…');waiting.props.onClick();assert.deepEqual(h.calls,[]);
+ h.focus();h.render();assert.equal(h.action(),undefined);assert.deepEqual(h.calls,[]);
  h.requests[1].reject(Error('fictional read failure'));await settle();const retry=h.action();assert.equal(text(retry),'重新读取账户');retry.props.onClick();h.render();
- h.requests[2].resolve(review({status:'ready',value:{total:1,due_today:1}}));await settle();assert.equal(text(h.action()),'更新今天的余额');h.action().props.onClick();assert.deepEqual(h.calls,['update:2026-10-19']);h.unmount();
+ h.requests[2].resolve(review({status:'ready',value:{total:1,due_today:1}}));await settle();assert.equal(h.action(),undefined);assert.deepEqual(h.calls,[]);h.unmount();
 });
 test('late old-library availability cannot choose an action in the new library',async()=>{
  const h=host();h.render();h.props.generation='other-fictional';h.render();h.requests[0].resolve(review({status:'ready',value:{total:0,due_today:0}}));await settle();assert.equal(h.action(),undefined);
- h.requests[1].resolve(review({status:'ready',value:{total:1,due_today:0}},'other-fictional'));await settle();assert.equal(text(h.action()),'查看已有账户');h.unmount();
+ h.requests[1].resolve(review({status:'ready',value:{total:1,due_today:0}},'other-fictional'));await settle();assert.equal(h.action(),undefined);h.unmount();
 });
 test('a disabled account module exposes no balance action',async()=>{
  const h=host();h.props.modules.wealth=false;h.render();h.requests[0].resolve(review(unavailable));await settle();assert.equal(h.action(),undefined);h.unmount();
@@ -60,8 +62,8 @@ test('a different result day cannot enable a balance action and offers a reload'
  assert.equal(h.action(),undefined);const tree=h.render();assert.match(text(tree),/日期已变化/);nodes(tree).find(n=>n.type==='button'&&text(n)==='重新读取').props.onClick();h.render();assert.equal(h.requests.length,2);assert.deepEqual(h.calls,[]);h.unmount();
 });
 
-test('an account with no snapshots has one consistent balance action and an independent physical empty-state link',async()=>{
+test('an account with no snapshots shows no top balance prompt and keeps an independent physical empty-state link',async()=>{
  const h=host();h.props.modules.physical=true;h.render();const data=review({status:'ready',value:{total:1,due_today:1}});data.physical={status:'ready',value:{held_count:0,held_known_cents:'0',held_unknown_price_count:0,active_count:0,retired_count:0,categories:[],average_holding_days:null}};h.requests[0].resolve(data);await settle();
- const tree=h.render();assert.doesNotMatch(text(tree),/建立账户并盘点|从这里开始/);assert.equal(nodes(tree).filter(n=>n.type==='button'&&text(n)==='更新今天的余额').length,1);
+ const tree=h.render();assert.doesNotMatch(text(tree),/建立账户并盘点|从这里开始/);assert.equal(nodes(tree).filter(n=>n.type==='button'&&text(n)==='更新今天的余额').length,0);
  const physical=nodes(tree).find(n=>n.type==='button'&&text(n)==='去记录物品 →');assert.ok(physical);physical.props.onClick();assert.deepEqual(h.calls,['assets']);h.unmount();
 });
