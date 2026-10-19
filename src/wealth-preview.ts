@@ -373,7 +373,9 @@ const planFail = (source: string) => params.get('plan-fail') === source;
 // 其余开关：plan-start=live、plan-wealth=off、plan-req=zero|not-found|payment|bounds、state=save-error|unknown-result。
 // 能力结果只在预览里按已保存输入挑选严格夹具；它不是计算器，原生联调以 Codex 的真实服务为准。
 const firstRunFixture = params.get('plan-first-run');
-const basicScenario = firstRunFixture ? ({ '0': 'blank', '1': 'unknown', '2': 'unknown', overdue: 'unknown', costs: 'missing-costs', beijing: 'beijing', '2b': 'beijing' }[firstRunFixture] ?? 'unknown') : params.get('plan-basic');
+// ?demo=1 mirrors the native sample: a saved, confirmed retirement goal unless a plan-* fixture is requested.
+const sampleGoal = params.get('demo') === '1' && ![...params.keys()].some(key => key.startsWith('plan'));
+const basicScenario = sampleGoal ? 'saved' : firstRunFixture ? ({ '0': 'blank', '1': 'unknown', '2': 'unknown', overdue: 'unknown', costs: 'missing-costs', beijing: 'beijing', '2b': 'beijing' }[firstRunFixture] ?? 'unknown') : params.get('plan-basic');
 const basicDefaults = (): StoredProfile => {
   const f = basicInputFixtures.unknown;
   const retire = { ...structuredClone(defaultRetire), spend_cents: f.spend_cents, mode: f.mode, emergency_months: 0, setup_completed: true, basic: structuredClone(f.basic), core: emptyCore(todayIso), simplified: { ...simplifiedEmpty(), time: { reference: null, target_month: `${now.getFullYear()+20}-01`, horizon_month: `${now.getFullYear()+50}-01` }, income_mode: 'excluded' as const } };
@@ -391,14 +393,14 @@ function basicScenarioProfile(kind: string): ProfileState['saved'] {
 }
 if (basicScenario) planProfile = basicScenarioProfile(basicScenario);
 // Confirmed planning / continuation acceptance fixtures, all balances fictional.
-const coreScenario = firstRunFixture === 'overdue' || firstRunFixture === '2b' ? 'overdue' : params.get('plan-core');
+const coreScenario = firstRunFixture === 'overdue' || firstRunFixture === '2b' ? 'overdue' : sampleGoal ? 'live' : params.get('plan-core');
 if (coreScenario && planProfile && snapshots.length) {
   const s = snapshots[snapshots.length - 1], cash = accounts.find(a => a.fields.kind === 'cash')!, debt = accounts.find(a => a.fields.kind === 'loan')!;
-  s.entries = s.entries.map(e => e.account_id === cash.id ? { ...e, amount_cents: '70000000' } : e.side === 'liability' ? { ...e, counted: true, amount_cents: e.account_id === debt.id && ['occurred','partial'].includes(coreScenario) ? '10000000' : '0' } : e);
+  if (!sampleGoal) s.entries = s.entries.map(e => e.account_id === cash.id ? { ...e, amount_cents: '70000000' } : e.side === 'liability' ? { ...e, counted: true, amount_cents: e.account_id === debt.id && ['occurred','partial'].includes(coreScenario) ? '10000000' : '0' } : e);
   const p = planProfile.profile, r = p.retire;
   if (r.basic) {
     r.basic.start = { kind: 'live' };
-    r.basic.contribution.monthly_cents = '500000';
+    r.basic.contribution.monthly_cents = sampleGoal ? '800000' : '500000';
   }
   r.core = { ...emptyCore(s.date), fund_rules: s.entries.filter(e => e.counted && e.side === 'asset').map(e => ({ account_id: e.account_id, availability: e.kind === 'cash' ? 'available' : 'restricted', share_hundredths: 10000 })) };
   if (['occurred','partial','overdue'].includes(coreScenario)) {
