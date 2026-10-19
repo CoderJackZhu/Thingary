@@ -198,3 +198,5 @@ h1,h2,h3{font-family:var(--display)}
 .backup-security-notice strong{color:var(--warn)}
 body:has(.notification-notice) .backup-security-notice{bottom:112px}
 
+
+.leave-confirm{max-width:420px;padding:24px}.leave-confirm h2{font-size:18px;margin:0 0 8px}.leave-confirm-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:20px}

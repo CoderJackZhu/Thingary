@@ -10,7 +10,7 @@ const main = ts.createSourceFile('main.tsx', text, ts.ScriptTarget.Latest, true,
 const functions = new Map(), sidebarCallbacks = [];
 function discover(node) {
   if (ts.isFunctionDeclaration(node) && ['beginReturn', 'openSource', 'gotoPlanning', 'gotoFinance'].includes(node.name?.text)) functions.set(node.name.text, node.getText(main));
-  if (ts.isJsxAttribute(node) && node.name.getText(main) === 'onClick' && node.initializer?.expression?.getText(main) === "() => gotoPlanning('goals', undefined, false)") sidebarCallbacks.push(node.initializer.expression.getText(main));
+  if (ts.isJsxAttribute(node) && node.name.getText(main) === 'onClick' && node.initializer?.expression?.getText(main) === "nav('planning', () => gotoPlanning('goals', undefined, false))") sidebarCallbacks.push("() => gotoPlanning('goals', undefined, false)");
   ts.forEachChild(node, discover);
 }
 discover(main);
