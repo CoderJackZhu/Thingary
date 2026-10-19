@@ -6,7 +6,7 @@ import { calloutBaselines, compactYuan, refLabelLayout } from './plan-view';
 import type { CoverageSeries, SnapshotRow, TrajectoryPoint } from './plan-view';
 import './retire.css';
 
-const W = 720, H = 300, L = 58, R = 18, T = 38, B = 42;
+const W = 720, H = 300, L = 66, R = 18, T = 48, B = 42;
 
 /** 取整刻度：不超过 count 档、步长为 1/2/5×10^n（分）。 */
 export function niceTicks(max: number, count = 5): { top: number; ticks: number[] } {
@@ -29,7 +29,7 @@ function scales(a0: number, a1: number, top: number): Scale {
 
 function Axes({ s, a0, a1, ticks, mark, positions, label = a => String(a) }: { s: Scale; a0: number; a1: number; ticks: number[]; mark?: { age: number; label: string } | null; label?: (month: number) => string; positions?: number[] }) {
   const ref = useRef<SVGGElement>(null), scale = useChartScale(ref, W, H);
-  const labels = spacedLabels(positions ?? ageTicks(a0, a1), a => s.x(a) * scale, a => label(a).length * 7 * scale);
+  const labels = spacedLabels(positions ?? ageTicks(a0, a1), a => s.x(a) * scale, a => label(a).length * 10 * scale);
   return <g ref={ref} className="rc-axes">
     {ticks.map(v => <g key={v}><line x1={L} x2={W - R} y1={s.y(v)} y2={s.y(v)} className="rc-grid"/><text x={L - 8} y={s.y(v) + 3.5} textAnchor="end">{v === 0 ? '0' : compactYuan(v)}</text></g>)}
     {labels.map(a => <text key={a} x={s.x(a)} y={H - B + 18} textAnchor="middle">{label(a)}</text>)}
@@ -88,7 +88,7 @@ export function TrajectoryChart({ points, rows, goalMonth, fiMonth, retireMonth,
       <g className="rc-refs">
         <line x1={s.x(goalMonth)} x2={s.x(goalMonth)} y1={T} y2={H - B} className="rc-ref"/>
         {fiMonth !== null && showFi && <line x1={s.x(fiMonth)} x2={s.x(fiMonth)} y1={T} y2={H - B} className="rc-ref rc-fi"/>}
-        {refs.map((r, i) => <text key={r.text} x={r.x + (lay[i].end ? -5 : 5)} textAnchor={lay[i].end ? 'end' : 'start'} y={T - 8 - lay[i].row * 14} className={`rc-label${r.fi ? ' rc-fi-text' : ''}`}>{r.text}</text>)}
+        {refs.map((r, i) => <text key={r.text} x={r.x + (lay[i].end ? -5 : 5)} textAnchor={lay[i].end ? 'end' : 'start'} y={T - 8 - lay[i].row * 18} className={`rc-label${r.fi ? ' rc-fi-text' : ''}`}>{r.text}</text>)}
         {retireMonth !== null && retireMonth !== fiMonth && retireMonth !== goalMonth && <line x1={s.x(retireMonth)} x2={s.x(retireMonth)} y1={T} y2={H - B} className="rc-ref"/>}
         <circle cx={s.x(goal.month)} cy={s.y(goal.projected)} r="4" style={{ fill: statusVar }}/><text x={gx} textAnchor={gEnd ? 'end' : 'start'} y={gy.projected} className="rc-callout" style={{ fill: statusVar }}>{compactYuan(goal.projected)}</text>
         {goal.required > 0 && <><circle cx={s.x(goal.month)} cy={s.y(goal.required)} r="3.5" className="rc-dot-ref"/><text x={gx} textAnchor={gEnd ? 'end' : 'start'} y={gy.required} className="rc-callout rc-muted">{compactYuan(goal.required)}</text></>}
@@ -147,7 +147,7 @@ export function FanChart({ months, bands, goalMonth, retireMonth, fiMonth, fmt, 
       <path d={poly(bands.p90, bands.p10)} className="rc-band-wide"/><path d={poly(bands.p75, bands.p25)} className="rc-band-mid"/>
       <path d={med} className="rc-line" style={{ stroke: 'var(--text)' }}/>
       <line x1={s.x(goalMonth)} x2={s.x(goalMonth)} y1={T} y2={H - B} className="rc-ref"/><text x={s.x(goalMonth) + 5} y={T - 8} className="rc-label">目标 · {timeLabel(goalMonth)}</text>
-      {retireMonth !== null && retireMonth !== goalMonth && <><line x1={s.x(retireMonth)} x2={s.x(retireMonth)} y1={T} y2={H - B} className="rc-ref"/><text x={s.x(retireMonth) + 5} y={T - 22} className="rc-label">退休 · {timeLabel(retireMonth)}</text></>}
+      {retireMonth !== null && retireMonth !== goalMonth && <><line x1={s.x(retireMonth)} x2={s.x(retireMonth)} y1={T} y2={H - B} className="rc-ref"/><text x={s.x(retireMonth) + 5} y={T - 26} className="rc-label">退休 · {timeLabel(retireMonth)}</text></>}
       {fiMonth !== null && <><line x1={s.x(fiMonth)} x2={s.x(fiMonth)} y1={T} y2={H - B} className="rc-ref rc-fi"/><text x={s.x(fiMonth) + 5} y={T + 12} className="rc-label rc-fi-text">预计不靠工资（中位数） · {timeLabel(fiMonth)}</text></>}
       {i !== null && <line x1={s.x(months[i])} x2={s.x(months[i])} y1={T} y2={H - B} className="rc-cursor"/>}
     </svg>

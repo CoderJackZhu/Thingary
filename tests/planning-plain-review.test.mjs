@@ -68,7 +68,7 @@ test('trajectory explains the wage-independent date and annual cash flows with t
     goalMonth: 12, fiMonth: 6, retireMonth: 12, tone: 'good', fmt: String, valueLabel: '今天的钱', timeLabel: month => String(month),
   }, undefined, undefined, chartOptions('TrajectoryChart'));
   assert.match(content(view), /预计不靠工资/);
-  hover(view, 58);
+  hover(view, 66);
   assert.match(content(view), /每年投入12000/);
   hover(view, 702);
   assert.match(content(view), /每年从已有资金中取用20000/);
@@ -79,7 +79,7 @@ test('trajectory explains the wage-independent date and annual cash flows with t
 test('coverage legend and tooltip use the same plain withdrawal label, while insufficient data remains explicit', () => {
   const series = { keys: [{ key: 'portfolio', kind: 'portfolio', label: '投资组合提取' }], points: [{ month: 0, label: '2026', spend: 10000, values: { portfolio: 10000 } }, { month: 12, label: '2027', spend: 11000, values: { portfolio: 11000 } }] };
   const view = runtime('RetireCharts', { series, fmt: String, valueLabel: '今天的钱' }, undefined, undefined, chartOptions('CoverageChart'));
-  hover(view, 58);
+  hover(view, 66);
   assert.match(content(view), /从已有资金中取用\/年10000/);
   assert.doesNotMatch(content(view), /投资组合提取/);
   const empty = runtime('RetireCharts', { series: { ...series, points: [] }, fmt: String, valueLabel: '今天的钱' }, undefined, undefined, chartOptions('CoverageChart'));
